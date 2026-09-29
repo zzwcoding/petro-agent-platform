@@ -25,4 +25,4 @@ database:
   # midplatform:                # 中台源 8 表只读路由（99 §4.1）——连接拓扑随部署批复核
   #   driver: postgresql        #   （99 §6-1 开放问题 1），启用时解开并给连接信息
   #   host: ...
-  #   readonly: true            # 强制只读：意图级 flush 守卫 + 连接级 default_transaction_read_only
+  #   readonly: true            # 强制只读：意图级 flush 守卫 + postgresql_readonly（每事务 BEGIN READ ONLY）

@@ -21,13 +21,13 @@
 - 验收 ✅：PG 集成 36 passed 零跳过（临时 PG16@5433 实跑）+ 无 TEST_DATABASE_URL 时 33 passed 4 skipped；四门禁绿；断言钉的是 transaction_read_only（真闸）而非 GUC（已退役）。
 
 > **与 99 册的差异点登记（现实约束按现实落地，语义不私改）**：
-> 1. **异步化**：99 §4.2 雏形为同步 `create_engine`/`Session`；本仓依赖定型 sqlalchemy[asyncio]+asyncpg（ADR-0003 裁决 3），落 `create_async_engine`/`AsyncSession`/`async_sessionmaker`——`session()/transaction()/readonly()` 三公开面、嵌套 SAVEPOINT、意图级 flush 守卫＋连接级 `default_transaction_read_only` 双保险、慢查询钩子、`with_row_filter` 行级注入点、健康探活、`Repository`/`ReadOnlyRepository` 基类语义逐条保持（方法带 await）。
+> 1. **异步化**：99 §4.2 雏形为同步 `create_engine`/`Session`；本仓依赖定型 sqlalchemy[asyncio]+asyncpg（ADR-0003 裁决 3），落 `create_async_engine`/`AsyncSession`/`async_sessionmaker`——`session()/transaction()/readonly()` 三公开面、嵌套 SAVEPOINT、意图级 flush 守卫＋postgresql_readonly（每事务 BEGIN READ ONLY）双保险、慢查询钩子、`with_row_filter` 行级注入点、健康探活、`Repository`/`ReadOnlyRepository` 基类语义逐条保持（方法带 await）。
 > 2. **驱动注册表**：`postgresql → postgresql+asyncpg`（99 雏形写 psycopg；仅键值改动，结构不动）；另登记 `sqlite+aiosqlite` 作单测底座驱动（99 §4.1 测试替身策略的落点，非生产角色）。
 > 3. **DB 级只读兜底＝方言连接特性 postgresql_readonly**（只读会话工厂 execution_options，每事务 BEGIN READ ONLY）。连接级 `SET default_transaction_read_only` 方案**退役**——集成实测：①asyncpg 方言每事务显式 BEGIN READ WRITE 覆盖 GUC，单靠它拦不住 Core 直写；②裸 SET 与该特性并存反而使后者失效（probe 实证 2026-09-29）。PG/金仓生效，SQLite 底座靠意图级 flush 守卫。
-> 7. **端口避让**：compose 宿主端口 5432→5433（demo-backend 的 petro-demo-pg 占 5432）；config/database.yaml 与 .env.example 默认同步。
-> 4. **SM4 实现落位 `infra/crypto.py`**：`EncryptedField` 保持 99 的回调注入 seam（db.py 不 import 国密）；gmssl SM4-CBC＋随机 IV 前置 base64（同明文不同密文），SM3 摘要供 P0-04 审计 digest。
-> 5. **事件挂载点**：引擎事件挂 `engine.sync_engine`、flush 守卫挂 `session.sync_session`（SQLAlchemy 2.1 异步事件未实现的官方路径），语义同 99。
-> 6. **config 载体**：模型注册表 `config/models.yaml`（D1 真源）＋新增 `config/database.yaml`（`DatabaseSpec` 供给——99 §4.2「config.yaml 装载，infra.config 供给」）；凭证经 `${VAR:-默认}` 占位符由环境变量/.env 注入（.env 不进 git）。
+> 4. **端口避让**：compose 宿主端口 5432→5433（demo-backend 的 petro-demo-pg 占 5432）；config/database.yaml 与 .env.example 默认同步。
+> 5. **SM4 实现落位 `infra/crypto.py`**：`EncryptedField` 保持 99 的回调注入 seam（db.py 不 import 国密）；gmssl SM4-CBC＋随机 IV 前置 base64（同明文不同密文），SM3 摘要供 P0-04 审计 digest。
+> 6. **事件挂载点**：引擎事件挂 `engine.sync_engine`、flush 守卫挂 `session.sync_session`（SQLAlchemy 2.1 异步事件未实现的官方路径），语义同 99。
+> 7. **config 载体**：模型注册表 `config/models.yaml`（D1 真源）＋新增 `config/database.yaml`（`DatabaseSpec` 供给——99 §4.2「config.yaml 装载，infra.config 供给」）；凭证经 `${VAR:-默认}` 占位符由环境变量/.env 注入（.env 不进 git）。
 
 ## P0-04 security 模块：身份桩 + 审计写口
 

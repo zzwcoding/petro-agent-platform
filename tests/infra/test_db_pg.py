@@ -2,7 +2,7 @@
 
 约定（tickets/phase0/README.md P0-03）：环境变量 TEST_DATABASE_URL 未配置即 skip；
 本地跑法：
-    export TEST_DATABASE_URL=postgresql+asyncpg://petro:petro@localhost:5432/petro
+    export TEST_DATABASE_URL=postgresql+asyncpg://petro:petro@localhost:5433/petro
     uv run pytest tests/infra/test_db_pg.py -q
 """
 
@@ -63,7 +63,7 @@ def _spec_from_url(url: URL, role: DatabaseRole, *, readonly: bool = False) -> D
         role=role,
         driver=url.drivername.split("+", 1)[0],  # postgresql+asyncpg → postgresql
         host=url.host or "localhost",
-        port=url.port or 5432,
+        port=url.port or 5433,
         database=url.database or "",
         user=url.username or "",
         password=url.password or "",
