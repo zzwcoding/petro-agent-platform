@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "模型注册表（schema 的目录页，机读，PRD F1）。每模型字段：camp（business-core/integration/build-contract）、consumers（runtime/build）、profiles（可用组合）、dependsOn（类型层依赖白名单摘要）、requiredElementFields（逐元素必填字段机读表，票 13：前缀→必填字段键列表，口径=结构性必填——身份/类型判别/检查锚点/载荷容器，schema.md 只做目录页；闸=schema_check L1 required-field）。另含 modelType（模型文件 model_type 字段合法值）与 lockedFields（换义锁定字段，AC7 机读真源，见 ontology/schema/schema.md §12）。profile 组合由各模型 profiles 字段取并集反推（单一真源）。消费方：tools/schema_check.py（AC5/AC6/AC7 + required-field + missing-model-file + 与 model-deps.json 一致性核对）；semantic-service 检索面划界（只索引 business-core）；生成器在场校验。版本演进账见 ontology/schema/CHANGELOG.md。",
   "profileNote": "可用组合：v9-full=M1/M2/M3/M5/M6/M7/MU/GLS；v9-core=M1/M2/M3/M5（四模型最小核，术语属增强件不入）；headless=M1/M2/M3/M5/M7/GLS（无 UI）。",
   "models": {
