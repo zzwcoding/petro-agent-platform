@@ -28,4 +28,7 @@ models:
 routing:
   default: petro-main
   fallback_order: [petro-main, petro-lite]   # allowed_fails/cooldown/预算阈值由 D1 配置面热加载
-prices: {}  # 挂账：待 Owner 模型价格表（每模型百万 token 输入/输出价）——记账算金额依赖
+prices:
+  default:                   # Owner 2026-09-29 裁决：两模型统一价——记账金额=input_tokens/1e6*1 + output_tokens/1e6*3（元）
+    input_per_mtok: 1.0      # 元/百万输入 token
+    output_per_mtok: 3.0     # 元/百万输出 token

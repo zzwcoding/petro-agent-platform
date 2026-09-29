@@ -31,7 +31,7 @@ uv run uvicorn app.main:app --reload     # 开发服 :8000
 
 ## 模型注册表（调用别名制）
 
-`config/models.yaml` 进 git（只记别名不记密钥，密钥经 `.env` 注入）。当前：主模型 **MiniMax-M3**（petro-main）、备用/降级 **glm-5.3-flash**（petro-lite），双端点均为 Anthropic 兼容协议（2026-09-29 curl 实测通过，调用形状见文件头注释）。价格表挂账待 Owner 提供。
+`config/models.yaml` 进 git（只记别名不记密钥，密钥经 `.env` 注入）。当前：主模型 **MiniMax-M3**（petro-main）、备用/降级 **glm-5.3-flash**（petro-lite），双端点均为 Anthropic 兼容协议（2026-09-29 curl 实测通过，调用形状见文件头注释）。价格已裁决：两模型统一 百万输入 1 元/百万输出 3 元（prices.default）。
 
 ## 结构纪律（98 册四层 + B1–B16 边界规则）
 

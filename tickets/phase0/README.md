@@ -29,7 +29,7 @@
 - LiteLLM SDK 内嵌：模型别名路由、fallback（allowed_fails/cooldown）、预算熔断降级组、**调用粒度记账（PG 账本唯一）**。
 - D1 合同 8 端点：models/config 读写/spend-logs 分页/drills 三连（202+轮询+历史，409 重入）。
 - 调用方式已验证（2026-09-29 curl 实测）：主 MiniMax-M3 / 备 glm-5.3-flash 均走 Anthropic 兼容端点（POST {base}/v1/messages + x-api-key + anthropic-version），凭证落 `.env`、别名注册表 `config/models.yaml`（B6 只认别名）。
-- 挂账待 Owner：模型价格表（记账算金额；现 prices: {} 占位）。
+- ~~挂账待 Owner：模型价格表~~ 已给（2026-09-29 裁决：两模型统一 百万输入 1 元/百万输出 3 元，prices.default 已落 config/models.yaml）。
 - 验收：D1 合同行为规则逐条过 + 演练真切换一次模型留痕。
 
 ## P0-06 前端底座（web/ fork + 五件）
