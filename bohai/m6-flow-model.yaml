@@ -1,0 +1,208 @@
+# =====================================================================
+# 渤海域 · M6 流程模型（票 09 工序②进仓版）
+# ────────────────────────────────────────────────────────────────
+# 素材边界：FLOW-BOHAI-001/002 ← R5·§7 剧本 1《产量下滑归因》/剧本 2《注水井
+#   措施评估》（步骤化原文）；FLOW-BOHAI-003 ← §1「问题单工作流：分发→认领→
+#   整改→复核→关闭」+ §4 质量闭环流程。
+# 待 Owner：剧本未指名执行角色，roleRef 按口径 Owner 归位（§1 角色卡）；
+#   剧本 2「归档进 verified metric 证据」的落库行为二期补。
+# =====================================================================
+model_type: FLOW
+version: "1.0.0"
+domain: bohai
+flows:
+  # [R5·§7 剧本 1] 触发意图=「为什么下滑」；HITL 按 L1-L5 自主等级（李欣）；
+  #   缺参策略：时间窗默认最近 30 天、范围默认全区块并标注
+  - id: FLOW-BOHAI-001
+    name: 产量下滑归因
+    description: "R5·§7 剧本 1。输出合同（步骤 5）：结论+证据链+数据版本。缺参策略：时间窗默认最近 30 天、范围默认全区块并标注。执行角色待 Owner 确认（剧本未指名，暂归产量口径 Owner）。"
+    flowType: COLLABORATION
+    businessObjectRefs:
+      - AGG-BOHAI-002
+      - AGG-BOHAI-001
+      - AGG-BOHAI-004
+      - AGG-BOHAI-005
+      - AGG-BOHAI-009
+    roleRefs:
+      - ROLE-BOHAI-003
+    trigger:
+      triggerType: MANUAL     # 意图触发（「为什么下滑」）
+    startActivity: ACT-BOHAI-101
+    endActivities:
+      - ACT-BOHAI-106
+    activities:
+      - activityId: ACT-BOHAI-101
+        name: 开始
+        activityType: START
+        nextActivities:
+          - ACT-BOHAI-102
+      # 剧本步骤 1：拉完成率与构成（产油/开井数/时率）
+      - activityId: ACT-BOHAI-102
+        name: 拉完成率与构成
+        activityType: BEHAVIOR_CALL
+        behaviorRef: BH-BOHAI-QueryBlockMonthlyCompletion
+        nextActivities:
+          - ACT-BOHAI-103
+      # 剧本步骤 2/3：分解（新井贡献/老井递减/措施增油/停产影响——用指标 3/8/10）+ 归因分支
+      - activityId: ACT-BOHAI-103
+        name: 分解与归因分支
+        activityType: USER_TASK
+        roleRef: ROLE-BOHAI-003
+        ruleRef: RULE-BOHAI-013
+        conditionExpression: 含水上升→地质；检泵停产→工程；配产调整→管理（R5·§7 剧本 1 步骤 3）
+        nextActivities:
+          - ACT-BOHAI-104
+      # 剧本步骤 4：下钻受效关系与检修台账
+      - activityId: ACT-BOHAI-104
+        name: 下钻受效关系与检修台账
+        activityType: USER_TASK
+        roleRef: ROLE-BOHAI-003
+        nextActivities:
+          - ACT-BOHAI-105
+      # 剧本步骤 5：生成归因报告（结论+证据链+数据版本）；报告落库行为二期补
+      - activityId: ACT-BOHAI-105
+        name: 生成归因报告
+        activityType: SYSTEM_TASK
+        nextActivities:
+          - ACT-BOHAI-106
+      - activityId: ACT-BOHAI-106
+        name: 结束
+        activityType: END
+  # [R5·§7 剧本 2] 王飞 11 步教学压缩：定口径→有效性判定→技术指标计算（§3.8-10）→受效判断→劈分系数→增油核算→桶油成本→归档
+  - id: FLOW-BOHAI-002
+    name: 注水井措施评估
+    description: "R5·§7 剧本 2。桶油成本步骤因指标 15 分子（措施总投入）无承载字段停在建（待 Owner 补 ERP 源）；「归档进 verified metric 证据」的落库行为二期补。执行角色待 Owner 确认（暂归措施口径 Owner）。"
+    flowType: COLLABORATION
+    businessObjectRefs:
+      - AGG-BOHAI-005
+      - AGG-BOHAI-003
+      - AGG-BOHAI-009
+      - AGG-BOHAI-001
+    roleRefs:
+      - ROLE-BOHAI-004
+    trigger:
+      triggerType: MANUAL
+    startActivity: ACT-BOHAI-201
+    endActivities:
+      - ACT-BOHAI-208
+    activities:
+      - activityId: ACT-BOHAI-201
+        name: 开始
+        activityType: START
+        nextActivities:
+          - ACT-BOHAI-202
+      # 剧本步骤 1：定口径（递减增油）
+      - activityId: ACT-BOHAI-202
+        name: 定口径（递减增油）
+        activityType: USER_TASK
+        roleRef: ROLE-BOHAI-004
+        ruleRef: RULE-BOHAI-018
+        nextActivities:
+          - ACT-BOHAI-203
+      # 剧本步骤 2/3：有效性判定 + 技术指标计算（§3.8-10：措施有效率/有效期/递减增油）
+      - activityId: ACT-BOHAI-203
+        name: 有效性判定与技术指标计算
+        activityType: SYSTEM_TASK
+        ruleRef: RULE-BOHAI-015
+        nextActivities:
+          - ACT-BOHAI-204
+      # 剧本步骤 4/5：受效判断 + 劈分系数（承载 AGG-BOHAI-009.splitCoefficient，Σ=1）
+      - activityId: ACT-BOHAI-204
+        name: 受效判断与劈分
+        activityType: USER_TASK
+        roleRef: ROLE-BOHAI-004
+        nextActivities:
+          - ACT-BOHAI-205
+      # 剧本步骤 6：增油核算
+      - activityId: ACT-BOHAI-205
+        name: 增油核算
+        activityType: SYSTEM_TASK
+        ruleRef: RULE-BOHAI-018
+        nextActivities:
+          - ACT-BOHAI-206
+      # 剧本步骤 7：桶油成本（指标 15 分子缺源，人工侧录入暂估——待 Owner）
+      - activityId: ACT-BOHAI-206
+        name: 桶油成本核算
+        activityType: USER_TASK
+        roleRef: ROLE-BOHAI-004
+        nextActivities:
+          - ACT-BOHAI-207
+      # 剧本步骤 8：归档进 verified metric 证据（落库行为二期补）
+      - activityId: ACT-BOHAI-207
+        name: 归档评估证据
+        activityType: SYSTEM_TASK
+        nextActivities:
+          - ACT-BOHAI-208
+      - activityId: ACT-BOHAI-208
+        name: 结束
+        activityType: END
+  # [R5·§1「问题单工作流：分发→认领→整改→复核→关闭」+ §4 质量闭环流程]
+  - id: FLOW-BOHAI-003
+    name: 质量问题单闭环
+    description: "R5·§1/§4：规则命中→问题单生成→分发→认领→整改→复检→关闭；复检不通过回整改。质检任务由 ETL 调度触发（§2.1 15 分钟级闭环调度）。"
+    flowType: COLLABORATION
+    businessObjectRefs:
+      - AGG-BOHAI-002
+    roleRefs:
+      - ROLE-BOHAI-002
+      - ROLE-BOHAI-001
+    trigger:
+      triggerType: SCHEDULE   # §2.1 15 分钟级闭环调度
+    startActivity: ACT-BOHAI-301
+    endActivities:
+      - ACT-BOHAI-308
+    activities:
+      - activityId: ACT-BOHAI-301
+        name: 开始
+        activityType: START
+        nextActivities:
+          - ACT-BOHAI-302
+      # 规则命中→问题单生成（§4 质量闭环流程）
+      - activityId: ACT-BOHAI-302
+        name: 质检命中生成问题单
+        activityType: BEHAVIOR_CALL
+        behaviorRef: BH-BOHAI-RunDailyQualityCheck
+        nextActivities:
+          - ACT-BOHAI-303
+      # 问题单工作流：分发
+      - activityId: ACT-BOHAI-303
+        name: 分发
+        activityType: USER_TASK
+        roleRef: ROLE-BOHAI-002
+        nextActivities:
+          - ACT-BOHAI-304
+      # 认领
+      - activityId: ACT-BOHAI-304
+        name: 认领
+        activityType: USER_TASK
+        roleRef: ROLE-BOHAI-001
+        nextActivities:
+          - ACT-BOHAI-305
+      # 整改
+      - activityId: ACT-BOHAI-305
+        name: 整改
+        activityType: USER_TASK
+        roleRef: ROLE-BOHAI-001
+        nextActivities:
+          - ACT-BOHAI-306
+      # 复核（复检）
+      - activityId: ACT-BOHAI-306
+        name: 复核
+        activityType: APPROVAL_TASK
+        roleRef: ROLE-BOHAI-002
+        ruleRef: RULE-BOHAI-002
+        approvalOutcomes: [APPROVE, REJECT]
+        nextActivities:
+          - ACT-BOHAI-307
+      # 复检判定：通过→关闭；不通过→回整改（判据=RULE-BOHAI-002 等复检规则）
+      - activityId: ACT-BOHAI-307
+        name: 复检判定
+        activityType: GATEWAY
+        ruleRef: RULE-BOHAI-002
+        conditionExpression: 复检通过→ACT-BOHAI-308（关闭）；不通过→ACT-BOHAI-305（回整改）（R5·§4 质量闭环）
+        nextActivities:
+          - ACT-BOHAI-308
+          - ACT-BOHAI-305
+      - activityId: ACT-BOHAI-308
+        name: 关闭
+        activityType: END

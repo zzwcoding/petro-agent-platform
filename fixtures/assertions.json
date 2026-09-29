@@ -1,0 +1,48 @@
+{
+  "skill": "pattern-library（模式件库出厂集，票 33）",
+  "description": "出厂集：ontology/patterns/ 首批五件模式件（state-machine-lifecycle / master-detail-aggregate / coded-dictionary / validity-versioning / approval-flow，L0 授权自创）→ 断言模式件结构约定与「模式件→草案」组合通路（AC 真源=tickets/33-模式件库.md AC 表）。结构探针（AC1/AC3）：python -c 逐件断言 YAML 可解析 + 七头字段齐（pattern_id/name/description/applies_when/fragment/compose_notes/source）+ fragment 可被 yaml 解析（safe_dump 反解往返）+ 占位符形如 {{xxx}}（正则 {{[^{}\\s]+}} 全命中且剔除后无残留花括号——占位符必须双引号包裹，裸 {{ 落 YAML 流解析即炸，负变体 ac3-bad-fragment 实证）；探针直接打仓内 ontology/patterns/ 真身（单一真源不复制，cmd cwd=仓根，沿票 16/17/18 先例），首批五件 pattern_id 全命中钉死清单。组合示例机判（AC2）：compose-example/ 是从 state-machine-lifecycle + coded-dictionary 两件模式件组合出的迷你草案域（设备状态管理通用形态，域词只许在 fixtures 素材）——占位符全部替换（残留探针零命中）+ 元素 description 含「组合自 patterns/<id>」注记 + 过 schema_check L1（schema 经上级符号链接取自仓内 ontology/schema，单一真源不复制，同 fixtures/schema_check 手法），证明「模式件→草案」通路真实可走；组合产物仍是草案走人审（PRD 模式件组合纪律）。负变体（AC3）：ac3-missing-field（缺 pattern_id 头字段）与 ac3-bad-fragment（fragment 内占位符未引号致 YAML 不可解析）各自独立目录，探针 exit 1 并指认缺失字段/红因。",
+  "assertions": [
+    {
+      "ac": "AC1（首批五件结构探针）",
+      "type": "cmd-succeeds",
+      "cmd": "python3 -c \"import re,sys,yaml\nfrom pathlib import Path\nREQ=['pattern_id','name','description','applies_when','fragment','compose_notes','source']\nPH=re.compile(r'\\{\\{[^{}\\s]+\\}\\}')\nEXPECT=['state-machine-lifecycle','master-detail-aggregate','coded-dictionary','validity-versioning','approval-flow']\nd=Path(sys.argv[1])\nbad=[];ok=[]\nfor p in sorted(d.glob('*.yaml')):\n    try: data=yaml.safe_load(p.read_text(encoding='utf-8'))\n    except Exception as e:\n        bad.append(p.name+': YAML 不可解析（含 fragment 区域）: '+str(e).splitlines()[0]);continue\n    if not isinstance(data,dict): bad.append(p.name+': 顶层不是映射');continue\n    miss=[f for f in REQ if f not in data]\n    if miss: bad.append(p.name+': 缺头字段 '+repr(miss));continue\n    frag=data['fragment']\n    if not isinstance(frag,dict) or not frag: bad.append(p.name+': fragment 不是非空映射');continue\n    try:\n        text=yaml.safe_dump(frag,allow_unicode=True)\n        if not isinstance(yaml.safe_load(text),dict): raise ValueError('fragment 反解不是映射')\n    except Exception as e:\n        bad.append(p.name+': fragment 不可解析: '+str(e).splitlines()[0]);continue\n    if not PH.search(text): bad.append(p.name+': fragment 无占位符');continue\n    resid=PH.sub('',text)\n    if '{{' in resid or '}}' in resid: bad.append(p.name+': 占位符写法不合 {{xxx}} 约定（占位符须双引号包裹）');continue\n    ok.append(data['pattern_id'])\nlack=[e for e in EXPECT if e not in ok]\nif lack: bad.append('首批五件缺: '+repr(lack))\nprint('模式件',len(ok),'件结构全过:',','.join(sorted(ok)))\nfor b in bad: print('NG',b)\nif bad:\n    print('结构探针: 有红');sys.exit(1)\nprint('首批五件齐: '+', '.join(EXPECT))\nprint('结构探针: 全过（YAML 可解析/七头字段齐/fragment 可解析/占位符形如 {{xxx}}）')\nsys.exit(0)\" ontology/patterns",
+      "outputContains": [
+        "模式件 5 件结构全过: approval-flow,coded-dictionary,master-detail-aggregate,state-machine-lifecycle,validity-versioning",
+        "首批五件齐: state-machine-lifecycle, master-detail-aggregate, coded-dictionary, validity-versioning, approval-flow",
+        "结构探针: 全过"
+      ]
+    },
+    {
+      "ac": "AC2（组合示例过语义闸 L1）",
+      "type": "cmd-succeeds",
+      "cmd": "python3 tools/schema_check.py {fixture_dir}/compose-example",
+      "outputContains": ["语义闸: 全过"]
+    },
+    {
+      "ac": "AC2（组合示例占位符零残留）",
+      "type": "cmd-succeeds",
+      "cmd": "python3 -c \"import sys\nfrom pathlib import Path\nd=Path('{fixture_dir}/compose-example')\nhit=[p.name for p in sorted(d.glob('*.yaml')) if '{{' in p.read_text(encoding='utf-8')]\nprint('占位符残留',hit)\nsys.exit(1 if hit else 0)\"",
+      "outputContains": ["占位符残留 []"]
+    },
+    {
+      "ac": "AC2（组合注记：两件 pattern_id 并列）",
+      "type": "file-contains",
+      "path": "compose-example/m1-object-model.yaml",
+      "contains": ["组合自 patterns/state-machine-lifecycle", "组合自 patterns/coded-dictionary"]
+    },
+    { "ac": "AC2", "type": "file-exists", "path": "compose-example/manifest.json" },
+    { "ac": "AC2", "type": "file-exists", "path": "compose-example/glossary-model.yaml" },
+    {
+      "ac": "AC3（负变体：缺头字段，探针指认缺失字段）",
+      "type": "cmd-fails",
+      "cmd": "python3 -c \"import re,sys,yaml\nfrom pathlib import Path\nREQ=['pattern_id','name','description','applies_when','fragment','compose_notes','source']\nPH=re.compile(r'\\{\\{[^{}\\s]+\\}\\}')\nEXPECT=['state-machine-lifecycle','master-detail-aggregate','coded-dictionary','validity-versioning','approval-flow']\nd=Path(sys.argv[1])\nbad=[];ok=[]\nfor p in sorted(d.glob('*.yaml')):\n    try: data=yaml.safe_load(p.read_text(encoding='utf-8'))\n    except Exception as e:\n        bad.append(p.name+': YAML 不可解析（含 fragment 区域）: '+str(e).splitlines()[0]);continue\n    if not isinstance(data,dict): bad.append(p.name+': 顶层不是映射');continue\n    miss=[f for f in REQ if f not in data]\n    if miss: bad.append(p.name+': 缺头字段 '+repr(miss));continue\n    frag=data['fragment']\n    if not isinstance(frag,dict) or not frag: bad.append(p.name+': fragment 不是非空映射');continue\n    try:\n        text=yaml.safe_dump(frag,allow_unicode=True)\n        if not isinstance(yaml.safe_load(text),dict): raise ValueError('fragment 反解不是映射')\n    except Exception as e:\n        bad.append(p.name+': fragment 不可解析: '+str(e).splitlines()[0]);continue\n    if not PH.search(text): bad.append(p.name+': fragment 无占位符');continue\n    resid=PH.sub('',text)\n    if '{{' in resid or '}}' in resid: bad.append(p.name+': 占位符写法不合 {{xxx}} 约定（占位符须双引号包裹）');continue\n    ok.append(data['pattern_id'])\nlack=[e for e in EXPECT if e not in ok]\nif lack: bad.append('首批五件缺: '+repr(lack))\nprint('模式件',len(ok),'件结构全过:',','.join(sorted(ok)))\nfor b in bad: print('NG',b)\nif bad:\n    print('结构探针: 有红');sys.exit(1)\nprint('首批五件齐: '+', '.join(EXPECT))\nprint('结构探针: 全过（YAML 可解析/七头字段齐/fragment 可解析/占位符形如 {{xxx}}）')\nsys.exit(0)\" {fixture_dir}/negative-variants/ac3-missing-field",
+      "outputContains": ["NG broken-missing-id.yaml: 缺头字段", "'pattern_id'"]
+    },
+    {
+      "ac": "AC3（负变体：fragment 不是合法 YAML）",
+      "type": "cmd-fails",
+      "cmd": "python3 -c \"import re,sys,yaml\nfrom pathlib import Path\nREQ=['pattern_id','name','description','applies_when','fragment','compose_notes','source']\nPH=re.compile(r'\\{\\{[^{}\\s]+\\}\\}')\nEXPECT=['state-machine-lifecycle','master-detail-aggregate','coded-dictionary','validity-versioning','approval-flow']\nd=Path(sys.argv[1])\nbad=[];ok=[]\nfor p in sorted(d.glob('*.yaml')):\n    try: data=yaml.safe_load(p.read_text(encoding='utf-8'))\n    except Exception as e:\n        bad.append(p.name+': YAML 不可解析（含 fragment 区域）: '+str(e).splitlines()[0]);continue\n    if not isinstance(data,dict): bad.append(p.name+': 顶层不是映射');continue\n    miss=[f for f in REQ if f not in data]\n    if miss: bad.append(p.name+': 缺头字段 '+repr(miss));continue\n    frag=data['fragment']\n    if not isinstance(frag,dict) or not frag: bad.append(p.name+': fragment 不是非空映射');continue\n    try:\n        text=yaml.safe_dump(frag,allow_unicode=True)\n        if not isinstance(yaml.safe_load(text),dict): raise ValueError('fragment 反解不是映射')\n    except Exception as e:\n        bad.append(p.name+': fragment 不可解析: '+str(e).splitlines()[0]);continue\n    if not PH.search(text): bad.append(p.name+': fragment 无占位符');continue\n    resid=PH.sub('',text)\n    if '{{' in resid or '}}' in resid: bad.append(p.name+': 占位符写法不合 {{xxx}} 约定（占位符须双引号包裹）');continue\n    ok.append(data['pattern_id'])\nlack=[e for e in EXPECT if e not in ok]\nif lack: bad.append('首批五件缺: '+repr(lack))\nprint('模式件',len(ok),'件结构全过:',','.join(sorted(ok)))\nfor b in bad: print('NG',b)\nif bad:\n    print('结构探针: 有红');sys.exit(1)\nprint('首批五件齐: '+', '.join(EXPECT))\nprint('结构探针: 全过（YAML 可解析/七头字段齐/fragment 可解析/占位符形如 {{xxx}}）')\nsys.exit(0)\" {fixture_dir}/negative-variants/ac3-bad-fragment",
+      "outputContains": ["NG broken-fragment-demo.yaml: YAML 不可解析", "结构探针: 有红"]
+    }
+  ]
+}

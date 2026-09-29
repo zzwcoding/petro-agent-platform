@@ -1,0 +1,27 @@
+# =====================================================================
+# 组合示例域 · GLS 术语模型（票 33 fixtures 素材——组合产物仍是草案）
+# ────────────────────────────────────────────────────────────────
+# 组合示例域的术语面：术语与 M1 组合产物配套（relatedObjectRefs 只挂
+# 真实存在的 AGG-EQUIP-001，依赖边 GLS→M1 单向）。证据非权威，待 Owner
+# 确认。域词只存在于 fixtures 素材。
+# =====================================================================
+model_type: GLOSSARY
+version: "1.0.0"
+domain: equip-demo
+terms:
+  - id: GLS-EQUIP-001
+    term: 设备停用
+    aliases: []
+    termType: 术语
+    definition: "设备从在用/维修中转入停用状态的口径；停用不等于报废——对应 EQUIP_STATUS 字典停用项（enabled: false 保留行，历史记录仍引用该码）。"
+    relatedObjectRefs: [AGG-EQUIP-001]
+    status: 有效
+    source: "票 33 组合示例（fixtures 素材，非业务域）"
+  - id: GLS-EQUIP-002
+    term: 设备类别
+    aliases: [设备分类]
+    termType: 术语
+    definition: "设备按功能形态划分的分类口径，值域承载于编码字典 EQUIP_CATEGORY（码与展示名分离，组合自 patterns/coded-dictionary 的形态）。"
+    relatedObjectRefs: [AGG-EQUIP-001]
+    status: 有效
+    source: "票 33 组合示例（fixtures 素材，非业务域）"

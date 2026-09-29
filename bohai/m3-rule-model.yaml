@@ -1,0 +1,624 @@
+# =====================================================================
+# 渤海域 · M3 规则模型（票 09 工序②进仓版）
+# ────────────────────────────────────────────────────────────────
+# 素材边界：规则证据全部注源 R5。质量类 RULE-001~008 ← §4 规则库（逐条编号
+#   对应）；指标类 RULE-009~019 ← §3 指标口径库（逐条编号对应）。
+# 四层下沉去向：§4 规则 5（值域）→ M1 refRules；§4 规则 1（唯一性）→ M1 键
+#   结构——两者不重复建 M3（rule-placement 判定）。未建：§4 规则 6（well_completion
+#   不在 8 表）/11（实时域）/13–20（判据在提取件二，不在素材面）；§3 指标
+#   8/12/15（判据或公式不全）——缺口逐条记 docs/walkthrough/step5-fidelity.md。
+# =====================================================================
+model_type: RULE
+version: "1.0.0"
+domain: bohai
+rules:
+  # [R5·§4 规则 3] 准确性：oil_output 单位一致性，折算后 density∈[0.82,0.98] t/m³
+  - id: RULE-BOHAI-001
+    name: 化验折算密度值域校验
+    ruleType: VALIDATION
+    description: "单位一致性判据（R5·§4 规则 3）。区块密度基准：渤南 0.86 / 渤中 0.89 / 渤西 0.91 t/m³（R5·§2.2 单位换算表），折算实现层待 Owner 确认；D1 吨方混写的检出面。"
+    inputParams:
+      - name: density
+        type: Decimal
+        sourceField: fluidTest.density
+        required: true
+    outputType: Boolean
+    expression: density >= 0.82 and density <= 0.98
+    reusedBy:
+      - BH-BOHAI-RecordFluidTest
+  # [R5·§4 规则 4] 一致性：water_cut(计量) vs fluid_test(化验)，偏差≤5 个百分点（容差=取样时间窗）
+  - id: RULE-BOHAI-002
+    name: 计量化验含水偏差校验
+    ruleType: VALIDATION
+    description: "R5·§4 规则 4。按 §5 Join 白名单，oil_production_daily ⋈ fluid_test 禁止直连（须井号+取样日期双键+时间容差经中间视图）——配对实现层待 Owner 确认；D3 打架的仲裁检测面。"
+    inputParams:
+      - name: waterCut
+        type: Decimal
+        sourceField: dailyProduction.waterCut
+        required: true
+      - name: waterCutLab
+        type: Decimal
+        sourceField: fluidTest.waterCutLab
+        required: true
+    outputType: Boolean
+    expression: abs(waterCut - waterCutLab) <= 5
+    reusedBy:
+      - BH-BOHAI-RunDailyQualityCheck
+  # [R5·§4 规则 2] 完整性：oil_output 非空率 ≥99.5%（数据集级，非行级）
+  - id: RULE-BOHAI-003
+    name: 日产油非空率校验
+    ruleType: VALIDATION
+    description: "R5·§4 规则 2。数据集级质量规则（非空率是对批次的统计），执行点为质检批处理（BH-BOHAI-RunDailyQualityCheck）；行级 required 不设（99.5%<100% 意味着允许缺失行存在）。"
+    inputParams:
+      # 票 41 L3-1 首跑裁决（真缺陷修域）：原值 dailyProduction.batchRowCount /
+      # dailyProduction.batchNullRowCount——批级行数/空值行数是数据集级派生量，
+      # AGG-BOHAI-002 是「一井一日」行级聚合（无此承载字段），原写法虚挂不存在的
+      # 载体。沿本文件无承载字段注记惯例改写（同 RULE-BOHAI-008 retentionDelta、
+      # RULE-BOHAI-018 baselineOil 形态）；原值留档 lessons/41 裁决记录。
+      - name: totalCount
+        type: Integer
+        sourceField: 批次行数 batchRowCount（数据集级派生，无承载字段）
+        required: true
+      - name: nullCount
+        type: Integer
+        sourceField: 批次空值行数 batchNullRowCount（数据集级派生，无承载字段）
+        required: true
+    outputType: Boolean
+    expression: (totalCount - nullCount) / totalCount >= 0.995
+    reusedBy:
+      - BH-BOHAI-RunDailyQualityCheck
+  # [R5·§4 规则 10] 一致性：生产日报连续 30 日同值恒值检测
+  - id: RULE-BOHAI-004
+    name: 日产恒值检测
+    ruleType: VALIDATION
+    description: "R5·§4 规则 10（判据源：孙华 OCR 恒值告警）。同井 prod_date 连续 30 日 oilOutput 恒值即异常告警；窗口起点与跨批切分实现层待 Owner 确认。"
+    inputParams:
+      - name: oilOutputSeries
+        type: Decimal
+        sourceField: dailyProduction.oilOutput（同井连续 30 日序列）
+        required: true
+    outputType: Boolean
+    narrative: 同井生产日期连续 30 日内 oilOutput 全部相同时判为恒值异常，返回 false（告警）
+    reusedBy:
+      - BH-BOHAI-RunDailyQualityCheck
+  # [R5·§4 规则 7] 规范性：well_id 归一化（N2/N-2→N-02）
+  - id: RULE-BOHAI-005
+    name: 井号归一化
+    ruleType: TRANSFORMATION
+    description: "R5·§4 规则 7（D6 旧写法并存的归一面）。位置裁决（PROP-BOHAI-011(b)）：映射表=语义资产（本规则承载唯一真源），执行归源侧 ETL，语义层保留旧写法残留检出告警。归一表全集已到（Owner 素材 owner-materials-2026-09-21 §PROP-011）：四类变体形态（去连字符/乱连字符/空白污染/大小写混写）+幂等规范化算法；匹配失败不猜测、落问题单闭环（同 PROP-016 通道）。"
+    inputParams:
+      - name: rawWellId
+        type: String
+        sourceField: dailyProduction.wellId
+        required: true
+    outputType: String
+    expression: "normalizeWellId(rawWellId)：trim→upper→全角连字符/下划线归一→去内部空格→匹配 ^([A-Z]+)\\-?(\\d{1,3})$ → 前缀+'-'+数字左补零至2位；匹配失败返回 not-ok 落问题单（不猜测归一）。示例：N2/N-2/N02/n-02/N 02 → N-02（Owner 素材 2026-09-21 §PROP-011）"
+    reusedBy:
+      - BH-BOHAI-RecordDailyOutput
+  # [R5·§4 规则 8] 规范性：equip_status.stop_reason_code 新旧编码映射表全命中
+  - id: RULE-BOHAI-006
+    name: 停机原因码归一化
+    ruleType: TRANSFORMATION
+    description: "R5·§4 规则 8（D14 新旧编码并存）。映射表全集已到（Owner 素材 owner-materials-2026-09-21 §PROP-019，Owner 确认）：12 对映射（R3↔BELT 原样保留）。规则：新码唯一、旧码一码一义；同停机事件只允许一侧编码，双录以新码为准；**R11（仪表故障）不折减产量日历**、其余码按停机起止折减（差异保留，Owner 看点 1 确认）。设备域质检行为二期补挂 reusedBy。"
+    inputParams:
+      - name: rawStopCode
+        type: String
+        sourceField: equipStatus.stopReasonCode
+        required: true
+    outputType: String
+    narrative: "新旧映射全集（Owner 素材 2026-09-21）：R1↔PUMP_CHK 检泵作业 / R2↔CIRCUIT 电路故障 / R3↔BELT 皮带断 / R4↔PIPE_LEAK 管线刺漏 / R5↔MOTOR_BURN 电机烧毁 / R6↔SAND_CTRL 防砂失效 / R7↔OP_COORD 作业配合 / R8↔WELL_TEST 测井测试占用 / R9↔POWER_OUT 平台电力中断 / R10↔VALVE_JAM 阀门卡死 / R11↔INSTR_FAIL 计量仪表故障（不折减产量日历） / R12↔WEATHER 海况恶劣关井；映射表全命中为通过判据"
+  # [R5·§4 规则 9] 唯一性/一致性：well_id 主键 + 状态机合法迁移（生产中→停产 有记录）
+  - id: RULE-BOHAI-007
+    name: 井状态迁移校验
+    ruleType: VALIDATION
+    description: "R5·§4 规则 9 + §5 井「状态机」。合法迁移全表待 Owner（字典仅四态值集：生产中/停产/检修/待弃置）；「生产中→停产 须有检修/停产记录佐证」挂补录检修台账执行。"
+    inputParams:
+      - name: fromStatus
+        type: Enum
+        sourceField: well.currentStatus
+        required: true
+      - name: toStatus
+        type: Enum
+        sourceField: well.currentStatus
+        required: true
+    outputType: Boolean
+    narrative: fromStatus→toStatus 落在合法迁移表内才返回 true；生产中→停产 必须存在检修/停产台账记录佐证（R5·§4 规则 9）
+    reusedBy:
+      - BH-BOHAI-RecordOverhaul
+  # [R5·§4 规则 12] 一致性：物质平衡（区块月注入量≈产出量+存水率变动，偏差≤3%）
+  - id: RULE-BOHAI-008
+    name: 区块物质平衡校验
+    ruleType: VALIDATION
+    description: "R5·§4 规则 12（陈绍凯场景专项）。「存水率变动」无独立承载字段（§6 术语「存水率」），实现层待 Owner；§3「指标不是独立数字」物质平衡约束联动注记：改注采比/含水率/产量口径必须检查本规则（票 09 影响分析的人工复核面）。"
+    inputParams:
+      - name: blockInjVolume
+        type: Decimal
+        sourceField: waterInjection.injVolume（区块月合计）
+        required: true
+      - name: blockLiquidVolume
+        type: Decimal
+        sourceField: dailyProduction.liquidOutput（区块月合计）
+        required: true
+      - name: retentionDelta
+        type: Decimal
+        sourceField: 存水率变动（无承载字段，待 Owner）
+        required: true
+    outputType: Boolean
+    expression: abs(blockInjVolume - blockLiquidVolume - retentionDelta) / blockLiquidVolume <= 0.03
+    reusedBy:
+      - BH-BOHAI-RunDailyQualityCheck
+  # [R5·§3 指标 1] ★产量完成率 = Σ实际产油/Σ计划配产×100%（月/区块/%，Owner 开发室）
+  - id: RULE-BOHAI-009
+    name: 产量完成率
+    ruleType: CALCULATION
+    description: "R5·§3 指标 1（★，Owner=开发室，数据源 2.2+配产表）。分母口径已落定（Owner 2026-09-21，PROP-BOHAI-009=A 经 RULE-BOHAI-022）：配产版本切换日双值行按「当日最后班次非空值」取版。术语注记（R5·§6）：禁用旧称「老完成率」——v1 口径（不含自用油折算），2024 年废弃，替代即本指标。"
+    inputParams:
+      - name: actualOilSum
+        type: Decimal
+        sourceField: dailyProduction.oilOutput（区块月合计）
+        required: true
+      - name: planOutputSum
+        type: Decimal
+        sourceField: dailyProduction.planOutput（区块月合计）
+        required: true
+    outputType: Decimal
+    expression: actualOilSum / planOutputSum * 100
+    reusedBy:
+      - BH-BOHAI-QueryBlockMonthlyCompletion
+  # [D4 版本语义] 配产双值行校验与取版口径（Owner 2026-09-21，PROP-BOHAI-009 采纳=A 版本事实）
+  - id: RULE-BOHAI-022
+    name: 配产单值校验
+    ruleType: VALIDATION
+    description: "D4 配产版本切换日双值行（R5·A.2）。版本语义裁决（Owner 2026-09-21，PROP-BOHAI-009=A）：双值=版本事实（承接 PROP-BOHAI-007=A 班次粒度——切换日早班旧版/晚班新版），日配产口径=当日最后班次的非空 planOutput（取版规则）；全部双值行出清单供人复核（取版假设的兜底，不阻断）。"
+    inputParams:
+      - name: planOutput
+        type: Decimal
+        sourceField: dailyProduction.planOutput
+        required: true
+      - name: reportShift
+        type: Enum
+        sourceField: dailyProduction.reportShift（班次序=取版依据）
+        required: true
+    outputType: Boolean
+    expression: count(non-null planOutput rows by (wellId, prodDate)) <= 1   # 违反=版本切换日双值行；不阻断，取版与清单见 narrative
+    narrative: 检出双值行不阻断（版本事实非脏行）；日配产口径=当日最后班次非空 planOutput；双值行全量入清单供人复核取版正确性；产量完成率（RULE-BOHAI-009）分母按本口径净化
+    reusedBy:
+      - BH-BOHAI-QueryBlockMonthlyCompletion
+  # [R5·§3 指标 5] ☆综合含水率 f_w = Q_w/(Q_o+Q_w)×100%（月/%，Owner 开发室）
+  - id: RULE-BOHAI-010
+    name: 综合含水率
+    ruleType: CALCULATION
+    description: "R5·§3 指标 5（Owner=开发室，数据源 2.2+2.6）。Q_w 换算口径裁决已落定（Owner 2026-09-21，PROP-BOHAI-031=B′）：默认差值推算 Q_w=Q_液−Q_油；该井当月化验含水与计量折算偏差 >5pp（RULE-BOHAI-002 容差）时，该井当月以化验实测重算（化验校正分支，承接 PROP-BOHAI-008=C 的月度化验权威）；无当月化验的井走差值推算。取样频次与插补已由 RULE-BOHAI-029 承载（提取件二 R-16：高产周/低产半月、线性插值、超 30 日剔除+披露——Owner 看点 2 确认）。与注采比同受物质平衡强约束（§3 注记）。"
+    inputParams:
+      - name: liquidOutput
+        type: Decimal
+        sourceField: dailyProduction.liquidOutput（井·月粒度）
+        required: true
+      - name: oilOutput
+        type: Decimal
+        sourceField: dailyProduction.oilOutput（井·月粒度）
+        required: true
+      - name: waterCut
+        type: Decimal
+        sourceField: dailyProduction.waterCut（计量折算，校正判据）
+        required: true
+      - name: waterCutLab
+        type: Decimal
+        sourceField: fluidTest.waterCutLab（当月化验，可无——无则走差值推算）
+        required: false
+    outputType: Decimal
+    expression: "sum(case when waterCutLab is not null and abs(waterCutLab - waterCut) > 5 then liquidOutput * waterCutLab / 100 else liquidOutput - oilOutput end) / sum(liquidOutput) * 100  # B′ 化验校正（PROP-031，2026-09-21）：井·月粒度；化验配对经 RULE-BOHAI-002 中间视图（井号+取样日期双键+时间容差）"
+    reusedBy:
+      - BH-BOHAI-QueryBlockWaterCut
+  # [R5·§3 指标 6] ☆注采比 β = 月注水量/月产液量（体积折算，月/无量纲，Owner 采油工艺所）
+  - id: RULE-BOHAI-011
+    name: 注采比
+    ruleType: CALCULATION
+    description: "R5·§3 指标 6（Owner=采油工艺所，数据源 2.3+2.2）。两量纲均为方，体积口径直接相比；吨方混写行（D1）进入合计前须按区块密度折算（渤南 0.86/渤中 0.89/渤西 0.91，R5·§2.2）——折算开关待 Owner；受物质平衡强约束（§3 注记）。"
+    inputParams:
+      - name: injVolumeSum
+        type: Decimal
+        sourceField: waterInjection.injVolume（区块月合计）
+        required: true
+      - name: liquidVolumeSum
+        type: Decimal
+        sourceField: dailyProduction.liquidOutput（区块月合计）
+        required: true
+    outputType: Decimal
+    expression: injVolumeSum / liquidVolumeSum
+  # [R5·§3 指标 7] ☆累积亏空 = Σ注水−Σ产液（累计/方，Owner 开发室）
+  - id: RULE-BOHAI-012
+    name: 累积亏空
+    ruleType: CALCULATION
+    description: "R5·§3 指标 7（Owner=开发室，数据源 2.3+2.2）。累计口径起点（投产日/年初）待 Owner 确认。"
+    inputParams:
+      - name: cumInjVolume
+        type: Decimal
+        sourceField: waterInjection.injVolume（累计）
+        required: true
+      - name: cumLiquidVolume
+        type: Decimal
+        sourceField: dailyProduction.liquidOutput（累计）
+        required: true
+    outputType: Decimal
+    expression: cumInjVolume - cumLiquidVolume
+  # [R5·§3 指标 3] ☆自然递减率 D_n：月 1−q_t/q_{t−1}（扣新井与措施增油）；年化指数拟合（月·年/%，Owner 开发室）
+  - id: RULE-BOHAI-013
+    name: 自然递减率（月度）
+    ruleType: CALCULATION
+    description: "R5·§3 指标 3（Owner=开发室，数据源 2.2）。「扣新井」按 firstProdDate 判新井（AGG-BOHAI-001）、「扣措施增油」取 incrOilAnnual（AGG-BOHAI-005）。年化支实现层已裁（Owner 2026-09-21，PROP-BOHAI-030）：**对数线性回归**（ln q(t) 对 t 最小二乘拟合，斜率即 −D）+**滚动 12 月窗口**+扣新井/扣措施口径与月度式保持一致（同 sourceField 口径链）——标准工程实现层，非业务发明；若业务有既定拟合工具口径可推翻本注记（注记级可逆）。月度式 expression 不变。"
+    inputParams:
+      - name: qt
+        type: Decimal
+        sourceField: dailyProduction.oilOutput（当月合计，扣新井与措施增油）
+        required: true
+      - name: qtPrev
+        type: Decimal
+        sourceField: dailyProduction.oilOutput（上月合计，同口径）
+        required: true
+    outputType: Decimal
+    expression: (1 - qt / qtPrev) * 100   # 月度式；年化支=对数线性回归 ln(q)~t 滚动 12 月窗口（PROP-BOHAI-030，2026-09-21），expression 载体待年化支消费面出现时补（当前无 M7 出口引用年化支）
+  # [R5·§3 指标 4] ☆综合递减率 D_c：不扣措施的对比期递减（月·年/%，Owner 开发室）
+  - id: RULE-BOHAI-014
+    name: 综合递减率（月度）
+    ruleType: CALCULATION
+    description: "R5·§3 指标 4（Owner=开发室，数据源 2.2）。不扣措施的对比期递减；「与 D_n 混用事故」注记（§3 原文）——两口径名近义不可互替（术语面提醒）。"
+    inputParams:
+      - name: qt
+        type: Decimal
+        sourceField: dailyProduction.oilOutput（当月合计）
+        required: true
+      - name: qtCompare
+        type: Decimal
+        sourceField: dailyProduction.oilOutput（对比期合计）
+        required: true
+    outputType: Decimal
+    expression: (1 - qt / qtCompare) * 100
+  # [R5·§3 指标 9] ☆措施有效期 T = t₂−t₁（天）（单井·措施/天，Owner 采油工艺所）
+  - id: RULE-BOHAI-015
+    name: 措施有效期
+    ruleType: CALCULATION
+    description: "R5·§3 指标 9（Owner=采油工艺所，数据源 2.5）。D12 分母口径已裁（Owner 2026-09-21，PROP-BOHAI-017）：**缺失行不计入分母**（平均有效期只对可算行计算，塞入分母会拉偏且掩盖缺失问题）+**缺失率单列报告**（30% 缺失本身是数据质量指标，随行可见）+缺失行入清单核实性质（正常业务 or 质量问题，待业务核实——清单制先例 PROP-006/010）。"
+    inputParams:
+      - name: effectiveFrom
+        type: Date
+        sourceField: wellMeasures.effectiveFrom
+        required: true
+      - name: effectiveTo
+        type: Date
+        sourceField: wellMeasures.effectiveTo
+        required: true
+    outputType: Integer
+    expression: effectiveTo - effectiveFrom   # 天（R5·§3 指标 9）；仅对非缺失行可算，聚合时缺失行不入分母、缺失率单列（PROP-BOHAI-017，2026-09-21）
+  # [R5·§3 指标 13] ☆检泵周期 = 本次检泵日−上次检泵日（单井/天，Owner 采油工艺所）
+  - id: RULE-BOHAI-016
+    name: 检泵周期
+    ruleType: CALCULATION
+    description: "R5·§3 指标 13（Owner=采油工艺所，数据源 2.4）。判据 overhaulType=检泵 的相邻两次 overhaulStart 之差；D10 跨月切割已由 RULE-BOHAI-024 承载（PROP-BOHAI-015，2026-09-21：按日历天数劈分）。"
+    inputParams:
+      - name: currentOverhaulStart
+        type: Date
+        sourceField: wellOverhaul.overhaulStart（本次，overhaulType=检泵）
+        required: true
+      - name: previousOverhaulStart
+        type: Date
+        sourceField: wellOverhaul.overhaulStart（上次，overhaulType=检泵）
+        required: true
+    outputType: Integer
+    expression: currentOverhaulStart - previousOverhaulStart   # 天（R5·§3 指标 13）
+  # [R5·§3 指标 14] ☆抽油机时率 = Σopen_days/Σ日历天×100%（月/%，Owner 采油工艺所）
+  - id: RULE-BOHAI-017
+    name: 抽油机时率
+    ruleType: CALCULATION
+    description: "R5·§3 指标 14（Owner=采油工艺所，数据源 2.2）。术语注记（R5·§6）：简称「时率」。openDays 值域 [0,24]（M1 refRules）；D5 停井矛盾行已由 RULE-BOHAI-023 检出（PROP-BOHAI-010，2026-09-21）：矛盾行按原值计入、全量入清单交业务核实——状态侧滞后（D7）未裁前不归零。"
+    inputParams:
+      - name: openDaysSum
+        type: Decimal
+        sourceField: dailyProduction.openDays（区块月合计）
+        required: true
+      - name: calendarDaysSum
+        type: Decimal
+        sourceField: dailyProduction.openDays（同口径井数×日历天）
+        required: true
+    outputType: Decimal
+    expression: openDaysSum / calendarDaysSum * 100
+  # [R5·§3 指标 10] ☆递减增油 = 受效油井实际产油 − 拟合基线；多井受效按劈分系数（Σ=1）分摊（井组·年/吨，Owner 采油工艺所+开发室联席）
+  - id: RULE-BOHAI-018
+    name: 递减增油
+    ruleType: CALCULATION
+    description: "R5·§3 指标 10（一数多源争议之最，事故 7；Owner=采油工艺所，开发室联席）。基线拟合参数已到（Owner 素材 owner-materials-2026-09-21 §PROP-018，Owner 确认，与 PROP-024 阈值整体生效）：基期=措施前 6 个月日产油序列；q₀=基期最后 7 日均值；dₐ 按基期首末月产量比反解 dₐ=1−(q_末月均/q_首月均)^(1/5)，采信域 [0,0.05]（<0 取 0；>0.05 基期受干扰转人工复核不自动拟合）；增油=见效期逐日实测−逐日 q(t)，逐日为负计 0。多措施叠加以主要措施为主；劈分系数承载 AGG-BOHAI-009.splitCoefficient（§5「Σ=1」invariant）。使用边界（PROP-BOHAI-018(b)，D13）：两作业区算法不一致未消前，**本指标限井组·年尺度内部评估使用，不入对外报表口径**。术语注记（R5·§6）：含口径争议、待联席裁决。换算系数 6.29 桶/m³（R5·§2.2，指标 15 桶油成本用）随本口径注记。"
+    inputParams:
+      - name: actualOil
+        type: Decimal
+        sourceField: dailyProduction.oilOutput（受效油井实际产油）
+        required: true
+      - name: baselineOil
+        type: Decimal
+        sourceField: 拟合基线指数递减式（参数已定见 description——Owner 素材 2026-09-21 §PROP-018，数据集级派生无承载字段）
+        required: true
+      - name: splitCoefficient
+        type: Decimal
+        sourceField: effectuationRelation.splitCoefficient
+        required: true
+    outputType: Decimal
+    expression: (actualOil - baselineOil) * splitCoefficient
+  # [R5·§3 指标 2] ★有效产量（两支口径）：开井日历折算 / 检修剔除（月/吨，Owner 开发室）
+  - id: RULE-BOHAI-019
+    name: 有效产量（剔检口径）
+    ruleType: CALCULATION
+    description: "R5·§3 指标 2（★，Owner=开发室，数据源 2.2+2.4）。两支口径并列（R5 原文）：（a）开井日历折算——公式已到（Owner 素材 owner-materials-2026-09-21 §PROP-029，2026-09-21）：Σ(oilOutput × openDays/24)，openDays 按开井小时数（0.5h 粒度）；（b）检修剔除（别名「剔检产量」，R5·§6）——把 currentStatus=检修 的井从日产量统计合计中剔除（即票 09 影响分析变更「产量口径剔除检修井」的口径落点）。双口径披露：剔检支用于与历史可比，日历支用于当月真实贡献；两支差异 >3% 时口径页并列展示并注明差异来源（Owner 素材）。跨月检修切割已落定（PROP-BOHAI-015=按日历天数劈分，RULE-BOHAI-024）。"
+    inputParams:
+      - name: oilOutputSum
+        type: Decimal
+        sourceField: dailyProduction.oilOutput（区块月合计）
+        required: true
+      - name: wellStatus
+        type: Enum
+        sourceField: well.currentStatus
+        required: true
+    outputType: Decimal
+    expression: SUM(dailyProduction.oilOutput WHERE well.currentStatus <> '检修')
+    narrative: 剔检支：区块月合计中剔除当前状态为「检修」的井后求和；跨月检修按 RULE-BOHAI-024 日历天数劈分扣减（PROP-BOHAI-015，2026-09-21）；开井日历折算支已补（PROP-BOHAI-029，2026-09-21）：Σ(oilOutput × openDays/24)，两支并列双口径披露（差异>3% 注明来源，Owner 素材）
+    reusedBy:
+      - BH-BOHAI-QueryBlockMonthlyCompletion
+  # [D5 联动校验] 停井日 openDays 矛盾行检出（Owner 2026-09-21，PROP-BOHAI-010 采纳=标注出清单交业务核实）
+  - id: RULE-BOHAI-023
+    name: 停井日 openDays 联动校验
+    ruleType: VALIDATION
+    description: "D5 矛盾行（R5·A.2「停井日仍>0」）。跨属性联动面（值域 [0,24] 已下沉 M1 refRules，四层下沉第 2 层只承载单属性）。处置裁决（Owner 2026-09-21，PROP-BOHAI-010）：标注出清单交业务核实，不归零不直改——矛盾归属未定（openDays 错 or 状态滞后 D7/PROP-BOHAI-012 未裁），清洗为 0 会在状态滞后侧误杀。抽油机时率（RULE-BOHAI-017）口径：矛盾行按原值计入并在清单中标注。"
+    inputParams:
+      - name: openDays
+        type: Decimal
+        sourceField: dailyProduction.openDays
+        required: true
+      - name: wellStatus
+        type: Enum
+        sourceField: well.currentStatus
+        required: true
+    outputType: Boolean
+    expression: openDays > 0 implies well.currentStatus in [生产中]   # 违反=矛盾行；不阻断，入清单交业务核实
+    narrative: 命中行=矛盾行（停井日开井时长>0）；处置=标注出清单交业务核实归属（openDays 误录 or 状态滞后），不归零不直改（语义层不吞存量修复，PROP-BOHAI-006 先例）；时率指标暂按原值计入，清单标注待核
+    reusedBy:
+      - BH-BOHAI-RunDailyQualityCheck
+  # [D10 归属期] 跨月检修归属期切割（Owner 2026-09-21，PROP-BOHAI-015 采纳=按日历天数劈分）
+  - id: RULE-BOHAI-024
+    name: 跨月检修归属期切割
+    ruleType: CALCULATION
+    description: "D10 跨期切割（R5·A.4「跨月 8-28→9-06：当月口径切割争议源」）。归属期裁决（Owner 2026-09-21，PROP-BOHAI-015）：**按日历天数劈分**——跨月检修按自然月劈开，当月只承担落在当月的天数（检泵 8-28→9-06：8 月计 4 天、9 月计 6 天）；不按起算月/终止月整记（长检修会使单月失真）。检泵周期（RULE-BOHAI-016）与剔检口径（RULE-BOHAI-019）的跨月争议统一引用本规则。"
+    inputParams:
+      - name: overhaulStart
+        type: Date
+        sourceField: wellOverhaul.overhaulStart
+        required: true
+      - name: overhaulEnd
+        type: Date
+        sourceField: wellOverhaul.overhaulEnd
+        required: true
+    outputType: Integer
+    expression: overlapDays(overhaulStart, overhaulEnd, 当自然月)   # 当月检修天数=检修区间与自然月的交集天数
+    narrative: 归属期=按日历天数劈分：当月检修天数=overlap(overhaulStart→overhaulEnd, 自然月)；剔检口径（RULE-BOHAI-019）按月扣减当月检修天数；检泵周期（RULE-BOHAI-016）为相邻起算日差值不受影响，跨月注记统一引本规则
+    reusedBy: []
+  # [D11 补录窗口] 迟到/补录超窗处置（Owner 2026-09-21，PROP-BOHAI-016 部分裁决：方向已裁、阈值待素材）
+  - id: RULE-BOHAI-025
+    name: 补录窗口阈值校验
+    ruleType: VALIDATION
+    description: "D11 迟到/补录（R5·A.4「补录：N-11 batch=20260911-T3」——T-3 案例）。处置方向裁决（Owner 2026-09-21，PROP-BOHAI-016）：**超窗不拒收**（数据不丢是底线）**、收单转问题单闭环**（不静默收单——超窗必须留痕出清单走特批核实）。窗口阈值已到（Owner 素材 owner-materials-2026-09-21 §PROP-016）：**T-5 日**（管理依据：月度结算次月 5 个工作日内关账，关账前 5 日为数据冻结预备期）。"
+    inputParams:
+      - name: businessDate
+        type: Date
+        sourceField: wellOverhaul.overhaulStart（业务日期）
+        required: true
+      - name: batchId
+        type: String
+        sourceField: wellOverhaul.batchId（补录标记载体）
+        required: true
+    outputType: Boolean
+    expression: (today - businessDate) <= 5   # T-5 窗口（Owner 素材 2026-09-21）；超窗不拒收→转特批问题单闭环
+    narrative: 超窗不拒收、收单转问题单闭环（出清单+特批核实）；批次号格式校验由 RULE-BOHAI-033 承载（提取件二 R-20）
+    reusedBy:
+      - BH-BOHAI-RecordOverhaul
+  # [§4 规则 11 批面近似] 设备电流零值告警（Owner 2026-09-21，PROP-BOHAI-028 采纳=批面近似）
+  - id: RULE-BOHAI-038
+    name: 设备电流零值告警
+    ruleType: VALIDATION
+    description: "R5·§4 规则 11（设备 current 零值告警）。实时面归属裁决（Owner 2026-09-21，PROP-BOHAI-028）：**批面近似**——15 分钟级调度是 ETL 批闭环非流式，实时域建设属平台演进另案；批面判据=当日批内 current 全零即告警入清单（无需窗口参数，不发明 N）。load/current 单位字典未声明不影响零值判据（零无单位）；单位口径随 PROP-BOHAI-025 公式素材一并裁。"
+    inputParams:
+      - name: current
+        type: Decimal
+        sourceField: equipStatus.current
+        required: true
+    outputType: Boolean
+    expression: not (当日批内全部记录 current == 0)   # 违反=当日全零告警；入清单不阻断
+    narrative: 批面近似判据：当日批内 current 全零即疑似设备/采集异常，出清单交业务核实（清单制先例 PROP-006/010）；实时流式面（15 分钟级连续窗口）待实时域建设另案
+    reusedBy: []
+  # ===== 提取件二规则 13–20（Owner 素材 owner-materials-2026-09-21 §PROP-023，Owner 确认 2026-09-21；PROP-BOHAI-023 受理占位拆分落地） =====
+  # [R-13] 注水恒值预警（滑窗细化）
+  - id: RULE-BOHAI-026
+    name: 注水恒值滑窗预警
+    ruleType: VALIDATION
+    description: "提取件二 R-13（Owner 素材 2026-09-21）。既有恒值 30 日（RULE-BOHAI-004）之外，对注水单井新增 7 日滑窗恒值预警：配注量连续 7 日逐字节相同→疑似抄表复制，只预警不拦截。"
+    inputParams:
+      - name: injVolume
+        type: Decimal
+        sourceField: waterInjection.injVolume（单井 7 日滑窗序列）
+        required: true
+    outputType: Boolean
+    expression: not (injVolume 连续 7 日逐字节相同)   # 违反=疑似抄表复制，预警不拦截
+    reusedBy:
+      - BH-BOHAI-RunDailyQualityCheck
+  # [R-14] 日产突变告警
+  - id: RULE-BOHAI-027
+    name: 日产油突变告警
+    ruleType: VALIDATION
+    description: "提取件二 R-14（Owner 素材 2026-09-21）。单井日产油环比日降幅 >40% 且次日未恢复至降幅前 70%→触发核实单；月度结算前须闭环，否则结算页挂「待核实」标记。"
+    inputParams:
+      - name: oilOutput
+        type: Decimal
+        sourceField: dailyProduction.oilOutput（单井逐日序列）
+        required: true
+    outputType: Boolean
+    expression: not (日降幅 > 40% 且次日未恢复至降幅前 70%)   # 违反=触发核实单，结算前闭环
+    reusedBy:
+      - BH-BOHAI-RunDailyQualityCheck
+  # [R-15] 配注量量纲核验
+  - id: RULE-BOHAI-028
+    name: 配注量量纲核验
+    ruleType: VALIDATION
+    description: "提取件二 R-15（Owner 素材 2026-09-21）。配注量单位仅允许 m³/d（吨方混写由 RULE-BOHAI-001/020 管油侧，本条管配注侧）：单值越出 0–500 m³/d 值域拒收并落问题单。"
+    inputParams:
+      - name: injVolume
+        type: Decimal
+        sourceField: waterInjection.injVolume
+        required: true
+    outputType: Boolean
+    expression: injVolume >= 0 and injVolume <= 500   # m³/d 值域（提取件二 R-15）
+    narrative: 越域拒收+问题单闭环（拒收位=录入闸；注水录入行为未建，reusedBy 留空待行为落位后挂接——同 RULE-006 先例）
+    reusedBy: []
+  # [R-16] 化验取样频次与插补（综合含水率前置，Owner 看点 2 确认：剔除+披露）
+  - id: RULE-BOHAI-029
+    name: 化验取样频次与插补
+    ruleType: VALIDATION
+    description: "提取件二 R-16（Owner 素材 2026-09-21；综合含水率 RULE-BOHAI-010 的取样前置）。频次判据：高产井（近 30 日均产液 ≥50 t/d）化验 ≥1 次/7 日；低产井 ≥1 次/15 日。插补：缺口日含水率取前后最近两次化验线性插值；缺口任一侧超 30 日无化验→该井该段含水率记「无依据」，综合含水率当期**剔除该井并在口径页披露剔除井数与涉及产量占比**（Owner 看点 2 确认）——不得用井口含水估测值顶替。"
+    inputParams:
+      - name: waterCutLab
+        type: Decimal
+        sourceField: fluidTest.waterCutLab（取样日期序列）
+        required: true
+      - name: liquidOutput
+        type: Decimal
+        sourceField: dailyProduction.liquidOutput（近 30 日均产液判高低产）
+        required: true
+    outputType: Boolean
+    expression: 取样间隔 <= (高产 7 日 / 低产 15 日)   # 缺口插值=前后两次化验线性插值；跨度>30 日剔除+披露
+    narrative: 50 t/d 分界；线性插值最远跨度 30 日；剔除披露项=井数与涉及产量占比；与 RULE-BOHAI-002 容差/PROP-008 月度化验权威衔接不冲突
+    reusedBy:
+      - BH-BOHAI-RecordFluidTest
+  # [R-17] 键完整性（班次三元组唯一）
+  - id: RULE-BOHAI-030
+    name: 日产键完整性校验
+    ruleType: VALIDATION
+    description: "提取件二 R-17（Owner 素材 2026-09-21；承接 PROP-BOHAI-007=A 班次粒度主键）。oil_production_daily 每行（wellId, prodDate, reportShift）三元组唯一；班次仅允许 A/B/C；缺失或重复行进问题单，不静默去重。"
+    inputParams:
+      - name: wellId
+        type: String
+        sourceField: dailyProduction.wellId
+        required: true
+      - name: prodDate
+        type: Date
+        sourceField: dailyProduction.prodDate
+        required: true
+      - name: reportShift
+        type: Enum
+        sourceField: dailyProduction.reportShift
+        required: true
+    outputType: Boolean
+    expression: count(rows by (wellId, prodDate, reportShift)) == 1 and reportShift in [A, B, C]   # 缺失/重复行进问题单不静默去重
+    reusedBy:
+      - BH-BOHAI-RecordDailyOutput
+  # [R-18] 结算对账容差
+  - id: RULE-BOHAI-031
+    name: 结算对账容差校验
+    ruleType: VALIDATION
+    description: "提取件二 R-18（Owner 素材 2026-09-21；承接 PROP-BOHAI-020 折算关系框架的阈值落位）。monthly_settlement.netWeight 与当月各井日产合计偏差 ≤1.5% 直通；>1.5% 转人工核对（自用油与输差拆解），不自动修正。"
+    inputParams:
+      - name: netWeight
+        type: Decimal
+        sourceField: monthlySettlement.netWeight
+        required: true
+      - name: oilOutput
+        type: Decimal
+        sourceField: dailyProduction.oilOutput（当月井口合计）
+        required: true
+    outputType: Boolean
+    expression: abs(netWeight - 当月井口合计) / 当月井口合计 <= 0.015   # 越容差转人工核对，不自动修正
+    narrative: 1.5% 容差=PROP-020 输差率框架的阈值落位（Owner 素材 2026-09-21）；差异拆解=自用油+输差（折算关系见 AGG-BOHAI-008）
+    reusedBy: []
+  # [R-19] 停机码非空约束
+  - id: RULE-BOHAI-032
+    name: 停机码非空与映射命中校验
+    ruleType: VALIDATION
+    description: "提取件二 R-19（Owner 素材 2026-09-21）。equip_status 停机状态行 stopReasonCode 必填且须命中 RULE-BOHAI-006 新码表（12 对全集）；空码行拒收。"
+    inputParams:
+      - name: stopReasonCode
+        type: String
+        sourceField: equipStatus.stopReasonCode
+        required: true
+    outputType: Boolean
+    expression: stopReasonCode 非空且命中 RULE-BOHAI-006 新码表   # 空码行拒收
+    reusedBy: []
+  # [R-20] 检修补录批次号格式
+  - id: RULE-BOHAI-033
+    name: 检修补录批次号格式校验
+    ruleType: VALIDATION
+    description: "提取件二 R-20（Owner 素材 2026-09-21）。well_overhaul 批次号形如 YYYYMMDD-T<n>（n=整数，为追认天数；20260911-T3=T-3 已有案例）；格式不符进问题单，不阻断入库。"
+    inputParams:
+      - name: batchId
+        type: String
+        sourceField: wellOverhaul.batchId
+        required: true
+    outputType: Boolean
+    expression: match(batchId, '^\\d{8}-T\\d+$')   # 格式不符进问题单不阻断
+    reusedBy:
+      - BH-BOHAI-RecordOverhaul
+  # [D1 存量面] 吨方混写存量误录行批扫检出（Owner 2026-09-21，PROP-BOHAI-006 采纳=判据两级+处置A）
+  - id: RULE-BOHAI-020
+    name: 吨方混写存量行检出
+    ruleType: VALIDATION
+    description: "D1 存量面（R5·A.2「oil_output DECIMAL(10,2) 吨（个别行误录为方）」；增量防呆=RULE-BOHAI-001）。判据两级（Owner 2026-09-21，PROP-BOHAI-006）：确诊=油>液（物理不可能，硬证据）；疑似=按区块密度基准（渤南 0.86/渤中 0.89/渤西 0.91，R5·§2.2）折算后仍越出合理吨值域（软证据，须人复核）。处置=A 出清单交业务修复（语义层不吞存量修复，step2 §二 D1 先例）——定期批扫出确诊/疑似两级清单，修复动作回业务系统，不在查询层做换算遮羞。"
+    inputParams:
+      - name: oilOutput
+        type: Decimal
+        sourceField: dailyProduction.oilOutput
+        required: true
+      - name: liquidOutput
+        type: Decimal
+        sourceField: dailyProduction.liquidOutput
+        required: true
+      - name: blockName
+        type: String
+        sourceField: well.blockName（区块密度基准索引）
+        required: true
+    outputType: Boolean
+    expression: oilOutput <= liquidOutput   # 确诊级：违反=物理不可能（误录为方致油值虚放大约 13%）
+    narrative: 疑似级（表达式外批扫）：oilOutput ÷ 区块密度基准（渤南 0.86/渤中 0.89/渤西 0.91）折算后越出合理吨值域者入疑似清单，须人复核；确诊/疑似两级清单定期批扫产出交业务系统修复（处置 A）
+    reusedBy: []
+  # [§3 指标 8] 措施有效率（Owner 素材 owner-materials-2026-09-21 §PROP-024，Owner 确认 2026-09-21——与 PROP-018 基线参数阈值整体生效）
+  - id: RULE-BOHAI-034
+    name: 措施有效率
+    ruleType: CALCULATION
+    description: "R5·§3 指标 8（Owner=采油工艺所）。「有效」判据（Owner 素材 2026-09-21）：措施日后 30 日为见效观察期起点，见效期 90 日；判据=见效期内累增油 ≥80 t（相对 RULE-BOHAI-018 基线）**或**有效期 ≥180 日（effectiveTo−effectiveFrom），满足其一即有效；两条判据字段齐备才可判，缺 effective_from/to 的行记「待判」不默认有效（D12 缺失行处置承接 PROP-BOHAI-017 清单制）。承载面：AGG-BOHAI-005 措施台账。"
+    inputParams:
+      - name: incrementalOil90d
+        type: Decimal
+        sourceField: 见效期90日累增油（数据集级派生：相对 RULE-BOHAI-018 基线，无承载字段）
+        required: true
+      - name: effectiveFrom
+        type: Date
+        sourceField: wellMeasures.effectiveFrom
+        required: true
+      - name: effectiveTo
+        type: Date
+        sourceField: wellMeasures.effectiveTo
+        required: true
+    outputType: Decimal
+    expression: 100 * count(有效措施) / count(判据齐备措施)   # 有效=(累增油90d≥80t) or (有效期≥180日)；判据缺field记「待判」不入分母
+    narrative: 双判据任一满足即有效；「待判」行不进分母（与 PROP-017 缺失行不入分母口径一致）；阈值 80t/90日/180日与 PROP-018 基线参数（基期6个月/dₐ∈[0,0.05]）整体生效，单独调整须复核咬合
+    reusedBy: []
+  # [§3 指标 12] 机采系统能效（Owner 素材 owner-materials-2026-09-21 §PROP-025，Owner 确认 2026-09-21）
+  - id: RULE-BOHAI-035
+    name: 机采系统能效
+    ruleType: CALCULATION
+    description: "R5·§3 指标 12。三级公式（Owner 素材 2026-09-21）：系统级 η_sys=Σ各井有效功率/Σ各井输入功率×100%；单元级 η_unit=P_eff/P_in×100%（P_eff=Δp×Q，kW；P_in=实测输入电功率）；设备级 η_dev=设备输出/输入功率×100%（电机/皮带/泵分段连乘校核）。单位随裁：load=kN、current=A（用于设备级功率核算，不直接进 η_unit 分子）。优良/合格档名待 Owner 定档值（档值=规则参数不进本体）。"
+    inputParams:
+      - name: effectivePower
+        type: Decimal
+        sourceField: 有效功率 P_eff=Δp×Q（数据集级派生，kW）
+        required: true
+      - name: inputPower
+        type: Decimal
+        sourceField: 输入电功率（数据集级派生，kW；current×电压采集面）
+        required: true
+    outputType: Decimal
+    expression: effectivePower / inputPower * 100   # 单元级 η_unit；系统级=聚合口径同构加权；设备级分段连乘校核
+    narrative: 三级同构「有效功率/输入功率×100%」；load（kN）/current（A）单位已声明（m1 注记）；优良/合格档值属规则参数待 Owner
+    reusedBy: []
