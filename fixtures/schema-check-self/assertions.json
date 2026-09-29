@@ -1,0 +1,24 @@
+{
+  "skill": "schema-check-self（petro-ontology 语义闸自证出厂集）",
+  "description": "本仓语义闸的自证：①闸对 fork 域 bohai 放行（7 文件 L1-L4 零红）；②闸对缺必填字段的坏例拦下（cmd-fails + L1 指认）——约定不落闸等于没有，闸的自证落出厂集（All-agent fixture_run 手法，AC 真源=ADR-0004 轨道 0）。cwd=仓根，打仓内真身（单一真源不复制）。",
+  "assertions": [
+    {
+      "ac": "AC1（闸对 bohai fork 放行）",
+      "type": "cmd-succeeds",
+      "cmd": "python3 tools/schema_check.py bohai",
+      "outputContains": ["语义闸: 全过"]
+    },
+    {
+      "ac": "AC2（闸拦下缺必填字段坏例）",
+      "type": "cmd-fails",
+      "cmd": "python3 tools/schema_check.py {fixture_dir}/broken",
+      "outputContains": ["L1"]
+    },
+    {
+      "ac": "AC3（petro/ 空仓期 bohai 即全仓语义闸对象，机读输出零红）",
+      "type": "cmd-succeeds",
+      "cmd": "python3 tools/schema_check.py --json bohai",
+      "outputContains": ["\"L1\": 0"]
+    }
+  ]
+}
