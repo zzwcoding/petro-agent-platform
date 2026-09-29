@@ -14,7 +14,7 @@
 
 | 路径 | 是什么 |
 |---|---|
-| `schema/` | 八模型 schema + 模型注册表 + 依赖白名单（fork 自 All-agent，schemaVersion 1.0.0 契约——同步器钉住此版本） |
+| `schema/` | 八模型 schema + 模型注册表 + 依赖白名单（fork 自 All-agent，**schemaVersion 1.1.0 契约已被主平台同步器钉版**——低于拒同步/补丁位兼容读；升级走先仓后同步器联合变更） |
 | `tools/` | 语义闸 schema_check（L1–L4）+ 提案闸 proposal_check + 图派生物 graph_index + 语义服务 semantic_service_core + 新域接入 onboard_check + 出厂集 fixture_run |
 | `fixtures/` | 出厂集（pattern-library：AC1–7 断言与非法变体——"约定不落闸等于没有"） |
 | `bohai/` | 渤海域本体 fork（对齐底稿，注源 R5=主仓设定书 v3；原仓 All-agent/ontology/bohai 不动） |
@@ -31,7 +31,7 @@
 1. **模型文件进仓必过语义闸**：`python3 tools/schema_check.py petro` 全绿才可合入（L1–L4 任一红即拒）。
 2. **逐元素注源**：每个元素注「设定书 §x / 合同册锚 / 裁决记录 PROP-*」；设定书没有的一律不建（不发明业务事实）。
 3. **变更走提案**：内容变更先 `proposal_check` 过确定性预检，Owner 裁决后进仓；平台侧变更意向经主平台 C2 提案池→自动 MR 回流本仓（阶段 3 接线）。
-4. **schema 契约**：schemaVersion 1.0.0 被主平台同步器钉住；schema 升级须与主仓联合变更（先改这里登记 CHANGELOG，再改同步器）。
+4. **schema 契约**：schemaVersion **1.1.0** 已被主平台同步器钉版（specs/api/98 sync_from_ontology_repo，2026-09-29 联合变更批一）；schema 升级须与主仓联合变更（先改这里登记 CHANGELOG，再改同步器）。
 5. **每项工作一提交**，提交信息写清对齐/增补/裁决依据。
 
 ## 新窗口入口

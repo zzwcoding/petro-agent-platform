@@ -3,7 +3,7 @@
   "label": "Petro-Agent 平台七域",
   "profile": "v9-full",
   "schemaVersion": "1.1.0",
-  "description": "Petro-Agent 平台七域模型（轨道 0 fork 批：Owner 2026-09-29 十四项裁决「按建议倾向执行」后，按 alignment/bohai-to-platform.md 三清单执行）。复用 96 元素自 bohai/ 对齐底稿迁入（元素 id 前缀按域标识 BOHAI→PETRO，前缀即类型纪律；注源 R5/§ 逐元素保留——真源仍是主仓 teach-petro-agent 设定书 v3；裁决记录引用 PROP-BOHAI-* 保留原样，历史裁决不重写）+ 增补实建 6 元素（M1 对象四维显式空壳雏形位 AGG-PETRO-011 井筒/012 油田/013 平台/014 配注层 + 关系账两段 ASSOC-PETRO-008/009——裁决 b 案 1，只登设定书原文属性无杜撰，建行驱动=平台对象账行需要）。profile 沿 bohai 先例 v9-full（M6 §7 剧本+问题单闭环仅 v9-full 组合覆盖）；schemaVersion 1.1.0 = schema 契约受控小版本（M3 可选指标口径字段组，裁决 e/g；主仓同步器钉版 1.0.0→1.1.0 为联合变更待办——先仓后同步器，本仓 AGENTS.md 纪律 4）。",
+  "description": "Petro-Agent 平台七域模型（轨道 0 fork 批：Owner 2026-09-29 十四项裁决「按建议倾向执行」后，按 alignment/bohai-to-platform.md 三清单执行）。复用 96 元素自 bohai/ 对齐底稿迁入（元素 id 前缀按域标识 BOHAI→PETRO，前缀即类型纪律；注源 R5/§ 逐元素保留——真源仍是主仓 teach-petro-agent 设定书 v3；裁决记录引用 PROP-BOHAI-* 保留原样，历史裁决不重写）+ 增补实建 6 元素（M1 对象四维显式空壳雏形位 AGG-PETRO-011 井筒/012 油田/013 平台/014 配注层 + 关系账两段 ASSOC-PETRO-008/009——裁决 b 案 1，只登设定书原文属性无杜撰，建行驱动=平台对象账行需要）。profile 沿 bohai 先例 v9-full（M6 §7 剧本+问题单闭环仅 v9-full 组合覆盖）；schemaVersion 1.1.0 = schema 契约受控小版本（M3 可选指标口径字段组，裁决 e/g；主仓同步器已于 2026-09-29 联合变更批一钉版 1.1.0（先仓后同步器完成，specs/api/98））。",
   "omittedModels": [
     {
       "model": "MU",
