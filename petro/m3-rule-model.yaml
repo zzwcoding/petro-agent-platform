@@ -172,9 +172,9 @@ rules:
         sourceField: dailyProduction.planOutput（区块月合计）
         required: true
     outputType: Decimal
-    # [口径登记·schema 1.3.0·裁决 e（Owner 2026-09-29）] R5·§3 指标 1 卡原文：★／月/区块／%
+    # [口径登记·schema 1.3.0·裁决 e（Owner 2026-09-29）] R5·§3 指标 1 卡原文：★／月/区块·油田／%（终审修复批：补「·油田」——R5·§3 原文粒度=月/区块·油田）
     mark: ★
-    grain: 月/区块
+    grain: 月/区块·油田
     unit: "%"
     expression: actualOilSum / planOutputSum * 100
     reusedBy:
@@ -659,8 +659,10 @@ rules:
         sourceField: wellMeasures.effectiveTo
         required: true
     outputType: Decimal
-    # [口径登记·schema 1.3.0·裁决 e（Owner 2026-09-29）] R5·§3 指标 8 卡原文：☆（粒度/单位卡面未列——待素材，不发明）
+    # [口径登记·schema 1.3.0·裁决 e（Owner 2026-09-29）] R5·§3 指标 8 卡原文：☆／批次／%（终审修复批：R5·§3 原文粒度/单位=批次/%，卡面有列，补登记）
     mark: ☆
+    grain: 批次
+    unit: "%"
     expression: 100 * count(有效措施) / count(判据齐备措施)   # 有效=(累增油90d≥80t) or (有效期≥180日)；判据缺field记「待判」不入分母
     narrative: 双判据任一满足即有效；「待判」行不进分母（与 PROP-017 缺失行不入分母口径一致）；阈值 80t/90日/180日与 PROP-018 基线参数（基期6个月/dₐ∈[0,0.05]）整体生效，单独调整须复核咬合
     reusedBy: []
@@ -679,8 +681,10 @@ rules:
         sourceField: 输入电功率（数据集级派生，kW；current×电压采集面）
         required: true
     outputType: Decimal
-    # [口径登记·schema 1.3.0·裁决 e（Owner 2026-09-29）] R5·§3 指标 12 卡原文：☆（粒度/单位卡面未列——待素材，不发明）
+    # [口径登记·schema 1.3.0·裁决 e（Owner 2026-09-29）] R5·§3 指标 12 卡原文：☆／月／%（终审修复批：R5·§3 原文粒度/单位=月/%，卡面有列，补登记）
     mark: ☆
+    grain: 月
+    unit: "%"
     expression: effectivePower / inputPower * 100   # 单元级 η_unit；系统级=聚合口径同构加权；设备级分段连乘校核
     narrative: 三级同构「有效功率/输入功率×100%」；load（kN）/current（A）单位已声明（m1 注记）；优良/合格档值属规则参数待 Owner
     reusedBy: []
