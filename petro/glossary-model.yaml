@@ -1,0 +1,114 @@
+# Petro-Agent 平台七域 · GLS 术语模型（轨道 0 fork 批：bohai 对齐底稿 → petro 平台域）
+# fork 纪律：复用 10 条自 bohai/ 迁入，前缀 BOHAI→PETRO；注源保留（R5·设定书 §6——
+#   真源仍是主仓 teach-petro-agent/docs/business-setting.md），PROP 原样。
+# 差集登记（对齐矩阵裁决 c，Owner 2026-09-29）：平台术语账第 11 行「日产液」本批
+#   不建——无设定书 §6 锚（真实演示源 PRD F60/U09），先裁设定书内容侧再走 add 提案；
+#   manifest deferredAdditions 登记术语域 11-10 差集。
+# notes 内 step5-fidelity/票 16 commit 等为 All-agent 上游仓对账底稿引用（保留原文
+#   加「上游」标记，非本仓真源路径；对齐矩阵不迁清单 #4）。
+# relatedObjectRefs 只挂真实存在的 M1 聚合根（依赖边 GLS→M1 单向，schema/model-deps.json），
+#   可空留空不硬挂。
+model_type: GLOSSARY
+version: "1.0.0"
+domain: petro
+terms:
+  - id: GLS-PETRO-001
+    term: 老完成率
+    aliases: []
+    termType: 禁用词
+    definition: v1 口径（不含自用油折算），2024 年废弃；禁用旧称，替代口径=产量完成率。
+    relatedObjectRefs: [AGG-PETRO-002]   # 完成率量在日产计量：oilOutput 分子 / planOutput 配产分母
+    status: 禁用（替代：产量完成率）
+    owner: 开发室
+    source: R5·设定书 §6
+    notes: 对账落点（All-agent 上游仓 bohai 底稿工件，非本仓路径）step5-fidelity §三（RULE-PETRO-009 描述注记承载）；禁用词的强制拦截面（校验侧禁用）已建：schema_check banned-term 闸（上游 All-agent 仓票 16，commit bad916c）。
+  - id: GLS-PETRO-002
+    term: 剔检产量
+    aliases: [净产量]
+    termType: 别名
+    definition: 剔除检修井口径的产量（即净产量）。
+    relatedObjectRefs: [AGG-PETRO-001, AGG-PETRO-002]   # 量在日产计量（oilOutput）；剔检判据=井状态 currentStatus「检修」
+    status: 有效
+    owner: 开发室
+    source: R5·设定书 §6
+    notes: 对账落点（All-agent 上游仓 bohai 底稿工件，非本仓路径）step5-fidelity §三（RULE-PETRO-019 名称/描述承载）。
+  - id: GLS-PETRO-003
+    term: 有效产量
+    aliases: []
+    termType: 一词两译
+    definition: 需修饰词消歧的产量词：开井日历支 / 剔检支，两支口径并列，单说「有效产量」必须追问修饰词。
+    relatedObjectRefs: [AGG-PETRO-002]   # 基数量 oilOutput；修饰词承载 openDays（开井日历）/剔检口径
+    status: 有效
+    owner: 开发室
+    source: R5·设定书 §6
+    notes: 对账落点（All-agent 上游仓 bohai 底稿工件，非本仓路径）step5-fidelity §三（RULE-PETRO-019 描述承载）；开井日历支公式未译待 Owner。
+  - id: GLS-PETRO-004
+    term: 躺井
+    aliases: [停产待检泵]
+    termType: 黑话
+    definition: 作业区口语，指停产待检泵的井（及该检修事件）。
+    relatedObjectRefs: [AGG-PETRO-004]   # 井检修记录承载（描述注记）
+    status: 有效（限作业区语境）
+    owner: 采油工艺所
+    source: R5·设定书 §6
+    notes: 对账落点（All-agent 上游仓 bohai 底稿工件，非本仓路径）step5-fidelity §三（AGG-PETRO-004 描述注记）；「限语境」的机器可判定面未建（无语境标签字段）。
+  - id: GLS-PETRO-005
+    term: 时率
+    aliases: [抽油机时率]
+    termType: 缩写
+    definition: 「抽油机时率」的缩写；= Σ开井时长/Σ日历时长×100（见指标 14）。
+    relatedObjectRefs: [AGG-PETRO-002]   # openDays 开井时长承载
+    status: 有效
+    owner: 采油工艺所
+    source: R5·设定书 §6
+    notes: 对账落点（All-agent 上游仓 bohai 底稿工件，非本仓路径）step5-fidelity §三（RULE-PETRO-017 全译承载）。
+  - id: GLS-PETRO-006
+    term: 水淹层
+    aliases: []
+    termType: 术语
+    definition: 驱替前沿到达的高含水层段。
+    relatedObjectRefs: []                # 未建：地质层段概念，8 表无承载对象——待 Owner 扩域，不硬挂
+    status: 有效
+    owner: 地质研究所
+    source: R5·设定书 §6
+    notes: 上游 All-agent 仓 bohai 底稿 step5-fidelity §三列为未建（8 表无承载对象、产量域素材无属性面）。
+  - id: GLS-PETRO-007
+    term: 递减增油
+    aliases: []
+    termType: 术语
+    definition: 措施后增产油量=（实际产量−递减基线产量）×劈分系数；基线 q₀(1−dₐ)^t 拟合参数设定书未给。含口径争议注记：事故 7「一数多源」争议、待联席裁决。
+    relatedObjectRefs: [AGG-PETRO-009]   # 劈分系数 splitCoefficient（Σ=1）承载于受效关系
+    status: 有效（待联席裁决）
+    owner: 采油工艺所
+    source: R5·设定书 §6
+    notes: 对账落点（All-agent 上游仓 bohai 底稿工件，非本仓路径）step5-fidelity §三（RULE-PETRO-018 名称+描述承载）；基线拟合参数未译待 Owner。
+  - id: GLS-PETRO-008
+    term: 存水率
+    aliases: []
+    termType: 术语
+    definition: 注入水留存地层比例（物质平衡用）。
+    relatedObjectRefs: [AGG-PETRO-003]   # 注入侧注水日计量 injVolume；留存差值无独立承载字段
+    status: 有效
+    owner: 开发室
+    source: R5·设定书 §6
+    notes: 对账落点（All-agent 上游仓 bohai 底稿工件，非本仓路径）step5-fidelity §三（RULE-PETRO-008 描述注记承载）；独立指标化未建（依赖 retentionDelta 字段，待 Owner）。
+  - id: GLS-PETRO-009
+    term: 配注合格率
+    aliases: []
+    termType: 术语
+    definition: 分层实注/配注 达标井次占比。
+    relatedObjectRefs: [AGG-PETRO-003]   # 分子侧 layerSplit（分层配注/实注，口径不一 D9）；分母配注目标无承载字段
+    status: 有效
+    owner: 采油工艺所
+    source: R5·设定书 §6
+    notes: 上游 All-agent 仓 bohai 底稿 step5-fidelity §三列为未建（「配注目标」无承载字段，AGG-PETRO-003.layerSplit 是实注且口径不一 D9——分母/目标双侧缺）。
+  - id: GLS-PETRO-010
+    term: 三多四难
+    aliases: []
+    termType: 治理热词
+    definition: 数据库多、平台多、孤立应用多；共享难、复用难、开发难、协同难（引马涛）。
+    relatedObjectRefs: []                # 治理域热词，非产量域业务对象——语义 Owner 域，一期域外，不硬挂
+    status: 有效（引用马涛）
+    owner: 语义 Owner
+    source: R5·设定书 §6
+    notes: 上游 All-agent 仓 bohai 底稿 step5-fidelity §三列为未建（治理域热词，一期产量域外）。
