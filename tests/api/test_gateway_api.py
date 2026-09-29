@@ -376,6 +376,20 @@ def test_drill_reentry_returns_409_while_running(client: TestClient) -> None:
     _poll_done(client, first.json()["drill_id"])
 
 
+def test_drill_start_writes_audit_with_actor(client: TestClient) -> None:
+    """98 卡 start_drill(actor) 的 who 留痕：受理即写 gateway.drill.started 审计（B12）。
+
+    读面只有 time/who/action/digest（正文永不出门）——who/action 即本测断言面。
+    """
+    resp = client.post("/api/gateway/drills", headers={"X-Dev-User": "aqiang"})
+    assert resp.status_code == 202
+    _poll_done(client, resp.json()["drill_id"])
+    logs = client.get("/api/security/audit-logs").json()["items"]
+    started = [i for i in logs if i["action"] == "gateway.drill.started"]
+    assert len(started) == 1
+    assert started[0]["who"] == "阿强 · 平台运维"  # actor 槽透传（label 全名）
+
+
 def test_drill_unknown_id_404(client: TestClient) -> None:
     resp = client.get("/api/gateway/drills/drill-deadbeef")
     assert resp.status_code == 404

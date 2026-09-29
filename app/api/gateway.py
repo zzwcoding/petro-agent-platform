@@ -229,13 +229,24 @@ class DrillHistoryItem(BaseModel):
 @router.post("/drills", response_model=DrillStartResponse, status_code=202)
 async def start_drill(
     service: GatewayDep,
-    _actor: SettingsActor,
+    security: SecurityDep,
+    actor: SettingsActor,
 ) -> DrillStartResponse:
     """启动故障演练（202 受理；重入 409；演练即真实流量——真切换一次模型留痕）。
 
     演练窗口校验（D1 行为规则 2「预留，403 语义」）挂演练窗口配置批。
+    98 卡 `start_drill(actor: Actor)` 的 actor 槽（破坏性操作 who 留痕）在
+    接口层兑现：受理即写一条 B12 审计（唯一写口；gateway 域不反向依赖
+    security——同 save_config 先例，差异登记 README P0-05 第 10 条）。
     """
     handle = await service.start_drill()
+    await security.audit(
+        AuditRow(
+            who=actor.who,
+            action="gateway.drill.started",
+            content=f"故障演练受理：{handle.drill_id}（演练即真实流量，真切换一次模型留痕）",
+        )
+    )
     return DrillStartResponse(drill_id=handle.drill_id)
 
 

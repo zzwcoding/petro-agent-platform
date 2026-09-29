@@ -10,16 +10,21 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 
+import app.infra.config as infra_config
 from app.domains.gateway import (
     Completion,
+    ConfigWriteError,
     DrillConflictError,
     DrillNotFoundError,
     GatewayConfigError,
     GatewayParams,
     GatewayService,
+    build_drill_nodes,
 )
-from app.domains.gateway.store import BudgetConfigRow, SpendRecord
+from app.domains.gateway.store import BudgetConfigRow, DrillRun, SpendRecord
+from app.infra.clock import now
 from app.infra.config import load_models_config
 from app.infra.llm_client import LlmCompletion, UpstreamRejected, UpstreamUnavailable
 
@@ -250,6 +255,93 @@ def test_save_gateway_config_rejects_out_of_range(gateway_db: Any, primed_regist
     assert primed_registry.read_text(encoding="utf-8") == before  # 拒绝即无副作用
 
 
+def test_save_gateway_config_maps_reload_failure_to_config_write_error(
+    gateway_db: Any, primed_registry: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """热加载失败（yaml 坏/校验不过）与写失败同收口 ConfigWriteError（不只 OSError）。"""
+
+    def broken_load(path: object = None) -> object:
+        raise yaml.YAMLError("半截 yaml")
+
+    monkeypatch.setattr(infra_config, "load_models_config", broken_load)
+    service = GatewayService(gateway_db, StubBackend({}), config_path=primed_registry)
+    with pytest.raises(ConfigWriteError, match="半截 yaml"):
+        service.save_gateway_config(
+            GatewayParams(allowed_fails=3, cooldown_seconds=60, num_retries=3, request_timeout=30)
+        )
+
+
+# ---------- 记账计价真源：prices.default 缺失＝部署错误，fail-fast 拒绝记账 ----------
+
+
+def _read_yaml(path: Path) -> str:
+    """同步小助手（async 测试体不做阻塞 IO——ruff ASYNC240）。"""
+    return path.read_text(encoding="utf-8")
+
+
+def _write_yaml(path: Path, text: str) -> None:
+    path.write_text(text, encoding="utf-8")
+
+
+def _drop_prices_block(yaml_text: str) -> str:
+    lines = yaml_text.splitlines()
+    start = next(i for i, ln in enumerate(lines) if ln == "prices:")
+    end = start + 1
+    while end < len(lines) and (lines[end].startswith((" ", "\t")) or not lines[end].strip()):
+        end += 1
+    return "\n".join(lines[:start] + lines[end:]) + "\n"
+
+
+async def test_complete_fails_fast_when_prices_default_missing(
+    gateway_db: Any, models_yaml: Path
+) -> None:
+    """Owner 裁决单价真源缺失：拒绝记账而非静默落硬编码 1.0/3.0（真源禁第二份）。"""
+    _write_yaml(models_yaml, _drop_prices_block(_read_yaml(models_yaml)))
+    load_models_config(models_yaml)
+    service = GatewayService(
+        gateway_db, StubBackend({"petro-main": MAIN_COMPLETION}), drill_step_seconds=0
+    )
+    with pytest.raises(RuntimeError, match=r"prices\.default"):
+        await service.complete("petro-main", [{"role": "user", "content": "q"}], caller="test")
+    assert await _all_spend(gateway_db) == []  # 未落账（无硬编码兜底价流水）
+
+
+# ---------- 域级参数不转发上游（note＝记账备注槽，litellm 不识） ----------
+
+
+async def test_complete_strips_domain_note_before_forwarding(
+    gateway_db: Any, primed_registry: Path
+) -> None:
+    forwarded: dict[str, Any] = {}
+
+    class Capture(StubBackend):
+        async def complete(
+            self,
+            alias: str,
+            messages: Any,
+            *,
+            timeout_seconds: float,
+            max_tokens: int = 4096,
+            **params: Any,
+        ) -> LlmCompletion:
+            forwarded.update(params)
+            return await super().complete(
+                alias, messages, timeout_seconds=timeout_seconds, **params
+            )
+
+    service = GatewayService(
+        gateway_db, Capture({"petro-main": MAIN_COMPLETION, "petro-lite": LITE_COMPLETION})
+    )
+    out = await service.complete(
+        "petro-main", [{"role": "user", "content": "q"}],
+        caller="quality.report", note="质检周报草稿", temperature=0.1,
+    )
+    assert "note" not in forwarded  # 域级键剥除——上游只见业务参数
+    assert forwarded.get("temperature") == 0.1  # 透传参数照转
+    row = await service._spend.get(out.call_id)
+    assert row is not None and row.note == "质检周报草稿"  # 备注槽照常记账
+
+
 # ---------- 演练状态机：202 受理/重入 409/轮询/两笔账/历史 ----------
 
 
@@ -338,6 +430,63 @@ async def test_drill_backup_also_down_closes_as_done_with_reason(
     assert progress.result is None  # 失败无切换结果
     assert "演练失败" in (await service.drill_history())[0].summary
     assert await _all_spend(gateway_db) == []  # 无成功应答即无记账
+
+
+# ---------- 启动收口与受理快照（P0-05 审查收口） ----------
+
+
+async def test_close_stale_drills_reaps_zombie_running(
+    gateway_db: Any, primed_registry: Path
+) -> None:
+    """进程崩溃遗留 running 行：启动收口 done「进程中断收口」——has_running 不再恒真。"""
+    service = GatewayService(gateway_db, StubBackend({}), drill_step_seconds=0)
+    await service._drills.create(
+        DrillRun(id="drill-zombie01", status="running", nodes=[], started_at=now())
+    )
+    assert await service._drills.has_running() is True  # 僵尸行 → start_drill 会永久 409
+    closed = await service.close_stale_drills()
+    assert closed == 1
+    run = await service._drills.get("drill-zombie01")
+    assert run is not None and run.status == "done"
+    assert run.summary is not None and "进程中断收口" in run.summary
+    assert run.finished_at is not None
+    assert await service._drills.has_running() is False  # 重启后 start_drill 可受理
+    assert await service.close_stale_drills() == 0  # 幂等：无 running 行即 0
+    history = await service.drill_history()
+    assert len(history) == 1 and "进程中断收口" in history[0].summary  # 收口进历史（人话 summary）
+
+
+async def test_drill_body_uses_acceptance_snapshot_not_runtime_config(
+    gateway_db: Any, primed_registry: Path
+) -> None:
+    """受理后热加载改 allowed_fails：任务体按受理快照跑——节点列与索引同源，不 IndexError。"""
+    service = GatewayService(
+        gateway_db,
+        StubBackend({"petro-main": MAIN_COMPLETION, "petro-lite": LITE_COMPLETION}),
+        drill_step_seconds=0,
+    )
+    snapshot_params = load_models_config(primed_registry).gateway  # 受理时快照（allowed_fails=2）
+    run_id = "drill-race001"
+    await service._drills.create(
+        DrillRun(
+            id=run_id,
+            status="running",
+            nodes=[n.as_dict() for n in build_drill_nodes(snapshot_params.allowed_fails)],
+            started_at=now(),
+        )
+    )
+    # 受理后运行时配置被热加载改掉（2→4，模拟并发保存）——旧实现按运行时值
+    # 索引 nodes[4] 即 IndexError；快照传参后任务体照受理时刻继续
+    _write_yaml(
+        primed_registry, _read_yaml(primed_registry).replace("allowed_fails: 2", "allowed_fails: 4")
+    )
+    load_models_config(primed_registry)
+    await service._run_drill(run_id, snapshot_params, "petro-main")
+    progress = await service.drill(run_id)
+    assert progress.status == "done"
+    assert progress.result is not None  # 演练正常收口（未被竞态打断）
+    assert [n["key"] for n in progress.nodes] == ["fail1", "fail2", "fallback", "ledger"]
+    assert progress.result["fallback"]["consecutive_fails"] == 2  # 受理快照值而非运行时 4
 
 
 # ---------- 辅助 ----------

@@ -1,6 +1,7 @@
 """infra.config 单测——占位符解析 / models.yaml / database.yaml 装载（不依赖外部服务）。"""
 
 import os
+import stat
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,7 @@ from app.infra.config import (
     load_database_specs,
     load_models_config,
     resolve_placeholders,
+    upsert_gateway_params,
 )
 
 
@@ -165,3 +167,62 @@ def test_settings_sm4_key_shape() -> None:
     settings = get_settings()
     assert len(settings.sm4_key) == 32  # hex 32 位＝16 字节
     bytes.fromhex(settings.sm4_key)  # 可解码
+
+
+# ---------- gateway 段写回：原子替换（P0-05 审查收口——写一半崩真源无损） ----------
+
+_FULL_PARAMS = {
+    "allowed_fails": 4,
+    "cooldown_seconds": 90,
+    "num_retries": 1,
+    "request_timeout": 20,
+}
+
+
+def _models_yaml_with_gateway(path: Path) -> Path:
+    path.write_text(
+        "models:\n"
+        "  - alias: m1\n"
+        "    provider: anthropic\n"
+        "    model: M1\n"
+        "routing:\n"
+        "  default: m1\n"
+        "  fallback_order: [m1]\n"
+        "prices: {}\n"
+        "gateway:\n"
+        "  allowed_fails: 2\n"
+        "  cooldown_seconds: 60\n"
+        "  num_retries: 3\n"
+        "  request_timeout: 30\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_upsert_gateway_params_atomic_no_temp_leftover(tmp_path: Path) -> None:
+    """原子替换落盘：内容生效、原权限位保住、目录无临时文件残留。"""
+    path = _models_yaml_with_gateway(tmp_path / "models.yaml")
+    path.chmod(0o644)
+    loaded = upsert_gateway_params(_FULL_PARAMS, path)
+    assert loaded.gateway.allowed_fails == 4  # 热加载随写回生效
+    text = path.read_text(encoding="utf-8")
+    assert "allowed_fails: 4" in text and "cooldown_seconds: 90" in text
+    assert stat.S_IMODE(path.stat().st_mode) == 0o644  # 临时文件权限随原文件
+    assert [p.name for p in tmp_path.iterdir()] == ["models.yaml"]  # 无 .models-*.tmp 残留
+
+
+def test_upsert_gateway_params_write_failure_keeps_old_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """替换中途失败＝旧文件原封不动＋临时文件清理（写一半崩真源无损可回滚）。"""
+    path = _models_yaml_with_gateway(tmp_path / "models.yaml")
+    before = path.read_text(encoding="utf-8")
+
+    def broken_replace(src: object, dst: object) -> None:
+        raise OSError("disk on fire")
+
+    monkeypatch.setattr(os, "replace", broken_replace)
+    with pytest.raises(OSError, match="disk on fire"):
+        upsert_gateway_params(_FULL_PARAMS, path)
+    assert path.read_text(encoding="utf-8") == before  # 旧全文未被动过（无半截态）
+    assert [p.name for p in tmp_path.iterdir()] == ["models.yaml"]  # 临时文件已清理

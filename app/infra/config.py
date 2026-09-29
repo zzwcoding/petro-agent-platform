@@ -15,6 +15,8 @@ from __future__ import annotations
 import logging
 import os
 import re
+import stat
+import tempfile
 from collections.abc import Mapping
 from functools import lru_cache
 from pathlib import Path
@@ -200,6 +202,11 @@ def upsert_gateway_params(
     块替换策略：定位顶格 `gateway:` 段（行内注释不碍匹配），吞掉其后缩进行/
     空行至下一个顶格键或 EOF，原位重写注解块——文件里其余字节（头注释/
     占位符）逐字保留，密钥占位符 ${VAR} 永不落明文。无块则文件尾追加。
+
+    原子替换（P0-05 审查收口）：写前先对渲染文本做内存解析＋模型校验
+    （渲染坏不落盘——真源不被写坏）；落盘走「同目录临时文件＋os.replace」
+    ——并发读者只见旧全文或新全文、无半截 yaml，写一半崩则旧文件原封不动。
+    热加载（load_models_config）失败由调用方收口（service→ConfigWriteError）。
     """
     target = path or MODELS_YAML
     text = target.read_text(encoding="utf-8")
@@ -220,8 +227,29 @@ def upsert_gateway_params(
         while end < len(lines) and (lines[end].startswith((" ", "\t")) or not lines[end].strip()):
             end += 1
         rendered = "\n".join([*lines[:start], *block, *lines[end:]]) + "\n"
-    target.write_text(rendered, encoding="utf-8")
+    # 写前校验：渲染文本可解析可校验才允许落盘（fail-fast——真源禁被写坏）
+    ModelsConfig.model_validate(resolve_placeholders(yaml.safe_load(rendered)))
+    _atomic_write_text(target, rendered)
     return load_models_config(target)  # 热加载同一目标文件（缓存随之指向新配置）
+
+
+def _atomic_write_text(target: Path, text: str) -> None:
+    """同目录临时文件＋os.replace 原子替换（write_text 先截断后写的非原子替换）。
+
+    POSIX rename 原子：读侧要么见旧全文要么见新全文；任一步失败清理临时
+    文件并抛出，旧文件原封不动（写一半崩＝真源无损）。权限位随原文件。
+    """
+    fd, tmp_name = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as tmp:
+            tmp.write(text)
+            tmp.flush()
+            os.fsync(tmp.fileno())
+        os.chmod(tmp_name, stat.S_IMODE(target.stat().st_mode))
+        os.replace(tmp_name, target)
+    except BaseException:
+        Path(tmp_name).unlink(missing_ok=True)
+        raise
 
 
 # ---------- 数据库连接规格（→ infra.db.DatabaseSpec） ----------

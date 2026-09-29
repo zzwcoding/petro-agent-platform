@@ -17,6 +17,9 @@ import logging
 from pathlib import Path
 from typing import Any, Protocol
 
+import yaml
+from pydantic import ValidationError
+
 from app.domains.gateway import domain as d
 from app.domains.gateway.store import BudgetStore, DrillRun, DrillStore, SpendRecord, SpendStore
 from app.infra.clock import ISO_FMT, now
@@ -30,6 +33,14 @@ from app.infra.db import ConnectionManager
 from app.infra.llm_client import LlmCompletion, UpstreamUnavailable
 
 LOGGER = logging.getLogger("domains.gateway")
+
+# 域级参数键：complete(**params) 里归网关域消费（记账备注槽），不转发上游
+# （litellm 不识未知业务键——转发前剥除，P0-05 审查收口）。
+_DOMAIN_ONLY_PARAMS: frozenset[str] = frozenset({"note"})
+
+# 进程崩溃重启后遗留 running 演练行的收口 summary（lifespan 启动时调用一次，
+# 幂等；双态合同 running|done 不新增第三态——收口即 done 带人话原因）。
+_STALE_DRILL_SUMMARY = "进程中断收口：平台重启前演练任务未及终态，按双态合同收口 done"
 
 
 class CompletionBackend(Protocol):
@@ -96,6 +107,8 @@ class GatewayService:
 
         timeout = float(config.gateway.request_timeout)
         retries = config.gateway.num_retries
+        # 域级键剥除后再转发上游（note＝记账备注槽归网关域消费，litellm 不识）
+        forward = {k: v for k, v in params.items() if k not in _DOMAIN_ONLY_PARAMS}
         attempted: list[str] = []  # 本次调用内失败/被摘的别名（切换留痕）
         last_error: UpstreamUnavailable | None = None
         for candidate in candidates:
@@ -114,7 +127,7 @@ class GatewayService:
                         candidate,
                         messages,
                         timeout_seconds=timeout,
-                        **params,
+                        **forward,
                     )
                     break
                 except UpstreamUnavailable as exc:  # 网络错/超时/5xx——可重试可切备
@@ -154,12 +167,19 @@ class GatewayService:
         """成功应答收口：记账落账→熔断判据→业务应答。"""
         config = get_models_config()
         prices = config.prices.get("default")
+        if prices is None:
+            # Owner 裁决单价是唯一计价真源（models.yaml prices.default）——缺失即
+            # 部署配置错误，fail-fast 拒绝记账（静默兜底硬编码＝真源出现第二份）。
+            raise RuntimeError(
+                "models.yaml prices.default 缺失——Owner 裁决单价真源未装配，拒绝记账"
+                "（部署配置错误，修复 models.yaml 后重试）"
+            )
         cost = d.cost_yuan(
             answer.prompt_tokens,
             answer.completion_tokens,
             d.PriceSpec(
-                input_per_mtok=prices.input_per_mtok if prices else 1.0,
-                output_per_mtok=prices.output_per_mtok if prices else 3.0,
+                input_per_mtok=prices.input_per_mtok,
+                output_per_mtok=prices.output_per_mtok,
             ),
         )
         model_key = "main" if served_alias == config.routing.default else "backup"
@@ -262,7 +282,9 @@ class GatewayService:
             spec: GatewayParamsSpec = upsert_gateway_params(
                 validated.as_mapping(), self._config_path
             ).gateway
-        except OSError as exc:
+        except (OSError, yaml.YAMLError, ValidationError) as exc:
+            # 写失败与热加载失败（yaml 坏/模型校验不过）同收口——500 需回滚提示；
+            # 原子替换下文件仍是旧全文（P0-05 审查收口），可安全回退重试
             raise d.ConfigWriteError(f"配置写回失败：{exc}") from exc
         return d.GatewayParamsView(params=d.GatewayParams(
             allowed_fails=spec.allowed_fails,
@@ -294,7 +316,8 @@ class GatewayService:
         async with self._drill_gate:
             if await self._drills.has_running():
                 raise d.DrillConflictError("已有进行中的演练任务（重入 409）")
-            params = get_models_config().gateway
+            config = get_models_config()
+            params = config.gateway
             run = DrillRun(
                 id=d.new_drill_id(),
                 status="running",
@@ -302,10 +325,26 @@ class GatewayService:
                 started_at=now(),
             )
             await self._drills.create(run)
-            task = asyncio.create_task(self._run_drill(run.id))
+            # 受理时配置快照整体传任务体：节点列按受理时 allowed_fails 构建，
+            # 任务体索引必须与节点列同源（运行时热加载改配置不影响已受理演练
+            # ——防「节点列旧/索引新」的 IndexError 竞态，P0-05 审查收口）。
+            task = asyncio.create_task(self._run_drill(run.id, params, config.routing.default))
             self._drill_tasks.add(task)
             task.add_done_callback(self._drill_tasks.discard)
             return d.DrillHandle(drill_id=run.id)
+
+    async def close_stale_drills(self) -> int:
+        """启动收口：遗留 running 演练行（进程崩溃重启的僵尸）→ done＋人话 summary。
+
+        演练任务体是进程内 asyncio task（98 §4 说演练是 infra.queue 消费方
+        ——P0-08 才建，先手搓，差异登记 README P0-05）：进程死了任务必死，
+        DB 行却遗留 running → has_running() 恒真 → 所有 start_drill 永久
+        409。lifespan 启动时收口一次；幂等（无 running 行即 0），重复调用安全。
+        """
+        closed = await self._drills.close_stale_running(summary=_STALE_DRILL_SUMMARY)
+        if closed:
+            LOGGER.warning("gateway 启动收口：%d 条遗留 running 演练行置 done", closed)
+        return closed
 
     async def drill(self, drill_id: str) -> d.DrillProgress:
         """D1 端点 6：轮询进度与结果（不存在/已过期 → DrillNotFoundError→404）。"""
@@ -323,18 +362,17 @@ class GatewayService:
         """D1 端点 7：演练历史倒序（summary 含阈值与冷却参数）。"""
         return await self._drills.history()
 
-    async def _run_drill(self, drill_id: str) -> None:
+    async def _run_drill(self, drill_id: str, params: GatewayParamsSpec, main: str) -> None:
         """演练任务体：注入 N 次主用失败→冷却→备用真应答一次→落两笔账。
 
         节点节奏由本任务驱动（step 缺省 0.6s/步，测试可注入 0——演示节奏
         不入合同，00 §5.2）；注入步不产生上游流量，最后一步是真实调用。
+        params/main＝受理时快照（start_drill 传入）——节点列按受理时
+        allowed_fails 构建，索引同源；不回读运行时配置（热加载竞态隔离）。
         """
         run = await self._drills.get(drill_id)
         if run is None:  # 理论不可达（受理即落行）
             return
-        config = get_models_config()
-        params = config.gateway
-        main = config.routing.default
         nodes = [d.DrillNode(**node) for node in run.nodes]
         try:
             self._fault_alias = main  # 平台侧开关：临时摘主模型路由（ADR-0003 裁决 13）
@@ -379,7 +417,8 @@ class GatewayService:
             ledger_node.note = f"记账流水 +1（fallback=true，¥{completion.cost_yuan:.4g}）"
             await self._save_nodes(run, nodes)
 
-            # ④ 结果与历史（第二笔账）：consecutive_fails/cooldown_sec 取当前配置值——合同原文
+            # ④ 结果与历史（第二笔账）：consecutive_fails/cooldown_sec 取配置值
+            # （受理快照）——合同原文
             at = now()
             result = d.DrillResult(
                 conclusion=(

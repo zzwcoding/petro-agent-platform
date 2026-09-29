@@ -212,6 +212,28 @@ class DrillStore:
             )
         return bool(count)
 
+    async def close_stale_running(self, *, summary: str) -> int:
+        """遗留 running 行收口为 done（进程崩溃重启后的僵尸收口——幂等，无行即 0）。
+
+        任务体是进程内 asyncio task：进程死了任务必死，DB 行却遗留 running
+        → has_running() 恒真 → 重启后所有 start_drill 永久 409。启动时收口
+        一次（done＋人话 summary），双态合同 running|done 不新增第三态。
+        """
+        async with self._db.session() as session:
+            rows = (
+                (await session.execute(select(DrillRun).where(DrillRun.status == "running")))
+                .scalars()
+                .all()
+            )
+            at = now()
+            for row in rows:
+                row.status = "done"
+                row.summary = summary
+                row.finished_at = at
+                row.updated_at = at
+            await session.flush()
+            return len(rows)
+
     async def history(self) -> list[DrillSummary]:
         """done 行倒序（D1 端点 7：[{id, time, summary}]——time 取 finished_at）。"""
         async with self._db.readonly() as session:

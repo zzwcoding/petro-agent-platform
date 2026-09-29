@@ -34,6 +34,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.db = manager
     app.state.security = SecurityService(manager)
     app.state.gateway = GatewayService(manager, LlmClient())
+    # 崩溃重启的遗留 running 演练行收口为 done（幂等；否则 has_running 恒真
+    # → 所有 start_drill 永久 409——P0-05 审查收口）
+    await app.state.gateway.close_stale_drills()
     yield
     await manager.dispose()
 
