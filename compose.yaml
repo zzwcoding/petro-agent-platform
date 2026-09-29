@@ -11,7 +11,7 @@ services:
       POSTGRES_PASSWORD: petro
       POSTGRES_DB: petro
     ports:
-      - "5432:5432"
+      - "5433:5432"   # 宿主 5433：避开 demo-backend 的 petro-demo-pg（占 5432）
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:

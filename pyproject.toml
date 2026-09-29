@@ -28,6 +28,7 @@ dev = [
     "import-linter>=2.1",
     "httpx>=0.27",          # TestClient async 依赖
     "types-pyyaml",
+    "aiosqlite>=0.22.1",
 ]
 
 [tool.uv]

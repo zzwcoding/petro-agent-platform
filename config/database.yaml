@@ -1,0 +1,28 @@
+# 数据库连接规格——infra.config 装载为 infra.db.DatabaseSpec
+# （99 册 §4.2：「DatabaseSpec（config.yaml 装载，infra.config 供给）」）。
+# 凭证不进 git：${VAR} / ${VAR:-默认} 经环境变量或 .env 解析（infra.config）。
+# 本文件只进结构与开发默认；真实凭证走 .env / 部署环境。
+database:
+  # 平台主库：开发 PostgreSQL / 生产金仓——双库切换唯一缝＝driver 键（99 §4.1；
+  # DRIVER_REGISTRY 注册 postgresql/kingbase，金仓落位批改注册表与 driver 即切）。
+  primary:
+    driver: postgresql
+    name: primary
+    host: ${PG_HOST:-localhost}
+    port: ${PG_PORT:-5433}      # 宿主 5433：避开 demo-backend 的 petro-demo-pg（占 5432）
+    database: ${PG_DB:-petro}
+    user: ${PG_USER:-petro}
+    password: ${PG_PASSWORD:-petro}
+    pool_size: 10
+    max_overflow: 5
+    pool_recycle_seconds: 1800
+    slow_query_ms: 800          # 慢查询阈值 ms（工程日志，非业务审计——99 §4.1）
+    readonly: false
+  # replica:                    # 只读副本（预留——未配置时读回落 primary，99 §4.1）
+  #   driver: postgresql
+  #   host: ...
+  #   readonly: true
+  # midplatform:                # 中台源 8 表只读路由（99 §4.1）——连接拓扑随部署批复核
+  #   driver: postgresql        #   （99 §6-1 开放问题 1），启用时解开并给连接信息
+  #   host: ...
+  #   readonly: true            # 强制只读：意图级 flush 守卫 + 连接级 default_transaction_read_only
