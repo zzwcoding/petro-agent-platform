@@ -112,3 +112,12 @@ terms:
     owner: 语义 Owner
     source: R5·设定书 §6
     notes: 上游 All-agent 仓 bohai 底稿 step5-fidelity §三列为未建（治理域热词，一期产量域外）。
+
+  - id: GLS-PETRO-011
+    term: 日产液量
+    aliases: [日产液]   # [Owner 2026-09-29 裁决：「日产液」=「日产液量」同义词]
+    termType: 业务术语
+    definition: "日采出液总量（油+水），单位吨或方——「日产液」为其同义词；日粒度沿设定书 §3 月产液量口径之日形态（§3 无独立日粒度词条锚，内容推演自月产液量+含水率分母语用，add 提案 OWNER-ADD-011）。"
+    status: 服务中
+    version: "1.0.0"
+    source: "Owner 2026-09-29 裁决（日产液=日产液量同义词，add 提案 OWNER-ADD-011）；内容锚=设定书 §3 月产液量日粒度推演 + C1 合同术语 #11"
