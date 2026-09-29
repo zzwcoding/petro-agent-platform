@@ -1,0 +1,23 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# 环境
+.env
+*.local.yaml
+
+# 前端（web/ 独立 .gitignore 随 fork 带来）
+web/node_modules/
+web/dist/
+
+# 系统
+.DS_Store

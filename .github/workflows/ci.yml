@@ -1,0 +1,24 @@
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.12.5"
+      - name: sync deps
+        run: uv sync --all-groups
+      - name: lint（ruff）
+        run: uv run ruff check app tests
+      - name: type（mypy strict）
+        run: uv run mypy app
+      - name: test（pytest）
+        run: uv run pytest -q
+      - name: boundary（import-linter：B16 层间单向 + B1 禁框架）
+        run: uv run lint-imports

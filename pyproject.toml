@@ -1,0 +1,74 @@
+[project]
+name = "petro-agent-platform"
+version = "0.1.0"
+description = "Petro-Agent 主平台（后端 app/ + 前端 web/）——合同驱动实现，真源见 teach-petro-agent/specs/api/"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.4",
+    "sqlalchemy[asyncio]>=2.0.35",
+    "asyncpg>=0.29",
+    "alembic>=1.13",
+    "redis>=5.0",
+    "minio>=7.2",
+    "neo4j>=5.24",
+    "apscheduler>=3.10,<4",
+    "pyyaml>=6.0",
+    "gmssl>=3.2",          # SM3/SM4（infra.crypto）
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "import-linter>=2.1",
+    "httpx>=0.27",          # TestClient async 依赖
+    "types-pyyaml",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+lint.select = ["E", "F", "W", "I", "UP", "B", "ASYNC", "RUF"]
+lint.ignore = ["RUF001", "RUF002", "RUF003"]  # 中文文档字符串全角标点合法，不警示
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["app"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
+
+# —— CI 边界闸：B16 层间单向 + B1 领域/基础设施禁框架（import-linter）——
+[tool.importlinter]
+root_package = "app"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "B16 层间依赖单向向下（api→domains→infra）"
+type = "forbidden"
+source_modules = ["app.domains", "app.infra"]
+forbidden_modules = ["app.api"]
+
+[[tool.importlinter.contracts]]
+name = "B16 infra 禁咬上层（infra 不 import domains/api）"
+type = "forbidden"
+source_modules = ["app.infra"]
+forbidden_modules = ["app.domains", "app.api"]
+
+[[tool.importlinter.contracts]]
+name = "B1 领域与基础设施禁触框架（fastapi/starlette 唯一接触面=路由）"
+type = "forbidden"
+source_modules = ["app.domains", "app.infra"]
+forbidden_modules = ["fastapi", "starlette"]

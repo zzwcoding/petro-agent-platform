@@ -1,0 +1,104 @@
+# 中间件五件（ADR-0003 选型落盘；99 册连接层设计的运行底座）
+# 用法：docker compose up -d（核心四件）；观测件 Langfuse 属 profile "observe"（D5 阶段 1 消费，
+# 阶段 0 gateway 记账落 PG 账本——98 册裁决"花费账本唯一"，Langfuse 只做链路观测不做第二账本）。
+name: petro-agent-platform
+
+services:
+  pg:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: petro
+      POSTGRES_PASSWORD: petro
+      POSTGRES_DB: petro
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U petro"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: petro
+      MINIO_ROOT_PASSWORD: petro12345
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  neo4j:
+    image: neo4j:5
+    environment:
+      NEO4J_AUTH: neo4j/petro12345
+      NEO4J_PLUGINS: '["apoc"]'
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4jdata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # —— 观测件（profile=observe）：Langfuse 自部署 ——
+  langfuse-web:
+    image: langfuse/langfuse:2
+    profiles: ["observe"]
+    depends_on:
+      pg:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://petro:petro@pg:5432/langfuse
+      NEXTAUTH_SECRET: dev-only-secret-change-me
+      NEXTAUTH_URL: http://localhost:3000
+      SALT: dev-only-salt-change-me
+      TELEMETRY_ENABLED: "false"
+    ports:
+      - "3000:3000"
+
+  langfuse-worker:
+    image: langfuse/langfuse-worker:2
+    profiles: ["observe"]
+    depends_on:
+      pg:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://petro:petro@pg:5432/langfuse
+      SALT: dev-only-salt-change-me
+      TELEMETRY_ENABLED: "false"
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
+  neo4jdata:
