@@ -7,6 +7,7 @@ outbox 仓储单测落 SQLite 底座（JSONB→JSON variant，infra.db 测试替
 真库 jsonb 断言见 test_eventbus_outbox_pg.py（PG 集成，无 TEST_DATABASE_URL 即 skip）。
 """
 
+import logging
 from datetime import datetime
 
 import pytest
@@ -88,6 +89,31 @@ async def test_subscriber_exception_is_isolated() -> None:
     assert received == [event.event_id]  # 后位订阅者未受牵连
 
 
+async def test_sync_handler_returning_value_is_signature_violation_not_error(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """同步处理器返回非 awaitable 值＝签名违规：记警告忽略，不误归因订阅者异常、
+    不外抛、不牵连其余订阅者。"""
+    bus = InMemoryEventBus()
+    received: list[str] = []
+
+    def bad_return(_e: DomainEvent) -> str:
+        return "同步处理器不应有返回值"
+
+    async def healthy(e: DomainEvent) -> None:
+        received.append(e.event_id)
+
+    await bus.subscribe("RunFinished", bad_return)
+    await bus.subscribe("RunFinished", healthy)
+
+    event = make_event("RunFinished", {})
+    with caplog.at_level(logging.WARNING, logger="infra.eventbus"):
+        await bus.publish(event)  # 不抛
+
+    assert received == [event.event_id]  # 后位订阅者未受牵连
+    assert any("签名违规" in r.getMessage() for r in caplog.records)  # 警告而非订阅者异常
+
+
 async def test_unsubscribe_thunk_is_idempotent() -> None:
     """退订 thunk 幂等：退订后不再收；重复退订无害。"""
     bus = InMemoryEventBus()
@@ -106,9 +132,9 @@ async def test_unsubscribe_thunk_is_idempotent() -> None:
 # ---------- RedisStreamEventBus：骨架缝（构造不连网 + 首用探活） ----------
 
 
-def _failing_factory(url: str):
+def _failing_factory():
     def factory(_url: str) -> object:
-        raise ConnectionError(f"connection refused: {_url}")
+        raise ConnectionError("connection refused")
 
     return factory
 
@@ -127,11 +153,9 @@ async def test_redis_bus_lazy_construct_without_network() -> None:
 
 async def test_redis_bus_publish_down_raises_config_error() -> None:
     """Redis 未起 → EventBusConfigError 显式配置错误，不静默降级（票面验收点）。"""
-
-    def factory(_url: str) -> object:
-        raise ConnectionError("connection refused")
-
-    bus = RedisStreamEventBus("redis://localhost:6379/0", client_factory=factory)
+    bus = RedisStreamEventBus(
+        "redis://localhost:6379/0", client_factory=_failing_factory()
+    )
     with pytest.raises(EventBusConfigError) as exc_info:
         await bus.publish(make_event("RunFinished", {}))
     assert "Redis 未就绪" in str(exc_info.value)
@@ -139,11 +163,9 @@ async def test_redis_bus_publish_down_raises_config_error() -> None:
 
 async def test_redis_bus_subscribe_down_raises_config_error() -> None:
     """subscribe 同走探活缝（消费组接线前的活体检查同语义）。"""
-
-    def factory(_url: str) -> object:
-        raise ConnectionError("connection refused")
-
-    bus = RedisStreamEventBus("redis://localhost:6379/0", client_factory=factory)
+    bus = RedisStreamEventBus(
+        "redis://localhost:6379/0", client_factory=_failing_factory()
+    )
     with pytest.raises(EventBusConfigError):
         await bus.subscribe("RunFinished", lambda e: None)
 

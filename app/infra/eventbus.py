@@ -23,6 +23,7 @@ import domains/api）、B1（本模块不 import fastapi/starlette）。
 
 from __future__ import annotations
 
+import inspect
 import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -72,7 +73,8 @@ def make_event(
     )
 
 
-# 订阅处理器：同步或异步（返回 awaitable 即被 await）；异常一律被隔离（见下）。
+# 订阅处理器：同步或异步（返回 awaitable 即被 await；同步处理器返回非 awaitable
+# 值＝签名违规，记警告忽略）；异常一律被隔离（见下）。
 EventHandler = Callable[[DomainEvent], Any]
 # 订阅回执：退订 thunk（幂等，重复调用无害）。
 Subscription = Callable[[], None]
@@ -94,7 +96,8 @@ class InMemoryEventBus:
     """进程内发布-订阅（测试底座；P0-08 验收线＝本实现发布-订阅测试过）。
 
     派发语义：按订阅登记序逐个调用；**订阅异常隔离**——单订阅者异常记日志
-    （infra.eventbus），不中断其余订阅者、不向发布方抛出。跨进程/跨事务的
+    （infra.eventbus），不中断其余订阅者、不向发布方抛出；同步处理器返回
+    非 awaitable 值按签名违规记警告忽略（不算订阅者异常）。跨进程/跨事务的
     可靠投递不归内存实现承载（走 outbox——ADR-0003 裁决 11）；多进程部署
     亦不可用本实现（进程边界即失效）。
 
@@ -123,8 +126,19 @@ class InMemoryEventBus:
         for handler in tuple(self._handlers.get(event.name, ())):
             try:
                 result = handler(event)
-                if result is not None:
-                    await result
+                if result is None:
+                    continue
+                if not inspect.isawaitable(result):
+                    # 同步处理器返回了值：签名违规，记警告忽略——不算订阅者异常
+                    # （不误归因，也不 await 非 awaitable 抛 TypeError 搅进隔离逻辑）。
+                    LOGGER.warning(
+                        "eventbus 处理器签名违规（同步处理器不应返回值，已忽略）: "
+                        "event=%s event_id=%s",
+                        event.name,
+                        event.event_id,
+                    )
+                    continue
+                await result
             except Exception:
                 LOGGER.exception(
                     "eventbus 订阅者处理异常（已隔离，不中断其余订阅者）: "
@@ -270,8 +284,12 @@ class OutboxStore:
         return row
 
     async def pending(self, *, limit: int = 100) -> list[OutboxRow]:
-        """待投递行（published_at IS NULL），按 id 升序＝发生序（中继消费序）。"""
-        async with self._db.readonly() as session:
+        """待投递行（published_at IS NULL），按 id 升序＝发生序（中继消费序）。
+
+        中继扫描**指名 primary**（不走 readonly() 的角色路由）：未来接只读
+        副本时，副本滞后会把已回执行误判为待投递——中继重复投递。
+        """
+        async with self._db.session(role="primary") as session:
             rows = (
                 (
                     await session.execute(
