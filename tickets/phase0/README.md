@@ -80,12 +80,26 @@
 > 13. **椒图蓝本变体：「条件 UPDATE 记账防竞态」不适用**——本仓账本纯 INSERT 追加（append-only，记账不删改），无 UPDATE 语义可条件化；幂等由调用号 PK（call- 机器短 id）唯一承担。
 > 14. **演练任务驱动＝进程内 asyncio task，非 infra.queue**：98 §4 说 gateway 演练是 queue 消费方——infra.queue P0-08 才建，先手搓（受理 202＋轮询＋重入 409 双保险照 00 §5 形）；并发后果＝进程崩溃重启遗留 running 僵尸行，由 lifespan 启动收口为 done（summary「进程中断收口」，幂等；双态合同不新增第三态），P0-08 落 queue 后可换装（stuck 巡检钩子接 infra.queue 惯例）。
 
-## P0-06 前端底座（web/ fork + 五件）
+## P0-06 前端底座（web/ fork + 五件）✅（2026-09-29）
 
 - prototype/app → web/ fork（snapshot）；去 singlefile；vite proxy→:8000；eslint 进 CI。
 - 双树路由：落地 #/X · 原型 #/proto/*；菜单角标。
 - api/client（错误包解包/信封/X-Dev-User 注入/useTaskPolling）+ sse 客户端 + zustand 三槽 + 组件库首批（四态徽标/产物卡骨架）。
 - 验收：web/ dev 起服；原型树全页可点（对照基线截图无漂移）；client 单测过。
+- 落地 ✅：fork 快照 21 页面组件 + shell 五件零搬迁（`src/pages|flows|data` 原样）；工程形态去 singlefile（`vite.config.js` server.proxy `/api→:8000`，base `/`）；双树共存（`shell/Shell.jsx` parseHash 落地/原型、`shell/SideMenu.jsx` 落地项＋原型项并列带「原型」角标 21 枚、`landing/registry.js` 按阶段点亮）；底座五件：`api/client.js`（fetch 封装/X-Dev-User 默认 aqiang 读 localStorage 可改/错误包解包→antd message＋抛 ApiError/分页信封归一化/useTaskPolling＋pollTaskUntilDone，JSDoc）、`api/sse.js`（EventSource 帧分发/三帧语义/Last-Event-ID 接线说明，骨架＋单测桩不接 A1）、`store/app.js`（zustand 三槽：角色接 Shell/语义徽标占位/会话缓存占位）、`components/`（StateBadge 四态徽标 C3 合同色 + ArtifactCard 骨架 A1 端点 7/8 DTO）、eslint 平面配置 + CI frontend job（node 20：npm ci＋lint＋test＋build）；落地 D1 冒烟骨架页（仅接 GET /api/gateway/models，全页落地归 P0-07）。
+- 验收自证 ✅：npm install/dev/build 三通；vitest 19 passed（client 11 + sse 8）；eslint 0 error（2 warning 均为原型快照存量 exhaustive-deps，不动）；后端 uvicorn :8000 起（PG16@5433）＋ vite proxy 真往返——playwright 抽查 #/proto/{A1,D1,C3,F1,INDEX} 5 页全渲染 0 pageerror，落地 #/D1 真数据 2 行（petro-main/petro-lite）＋页头「运行中」徽标＋菜单一键切树。
+- 四门禁回归 ✅：ruff 全过 / mypy strict 34 文件零错 / pytest 带 PG 143 passed / lint-imports 4 契约 KEPT。
+
+> **与设计/票面的差异点登记（现实约束按现实落地，语义不私改）**：
+> 1. **shot.mjs 不随 fork**：单文件截图工具依赖 file://＋dist 单文件形态，随 singlefile 退役留在 prototype 仓（fork 是复制非引用，teach-petro-agent 原件零改动）；POLISH-SPEC.md 留档随 fork。
+> 2. **快照机械 lint 修 6 文件**（eslint 门禁所迫，全部未用 import/变量级、行为零变化）：flows/dataClean 去 MatchList、flows/scenarios/stateBack 去 NCode、pages/E1 去 dayjs/ThunderboltOutlined、pages/B1 `fixRow→_fixRow`、shell/HeaderBar 去 Space、shell/TraceBar 去 Layout。
+> 3. **eslint no-unused-vars args:'none'**：原型快照统一渲染签名占位参（chosen/onChoose/sc 等 30+ 处）不拦——改名反搅快照；未用声明/import 仍 error。
+> 4. **no-irregular-whitespace 关**：原型页全角空格为中文排版刻意用字（契约溯源条等）。
+> 5. **落地页注册表＝显式 map（LANDING_MODULES）**：`import(\`./${key}.jsx\`)` 自目录变量导入 Vite 无法分析（dev 实跑 warning 实证）；LANDING_LIT 改由 map keys 派生保持单源。
+> 6. **菜单落地项只列已点亮页**：设计 §4「落地页按阶段点亮」落地为菜单＝LANDING_LIT（当前仅 D1）＋全部原型页带角标；未点亮页 hash 直达 #/X 落 NotLit 占位（出路指引一键跳 #/proto/X）。
+> 7. **CI frontend job 增 test 步**：票面写 npm ci＋lint＋build，验收另要求 client 单测过——vitest 一并进 job。
+> 8. **client.js 不静态 import antd**：错误提示器走 dynamic import＋`setApiNotifier` 替换缝——node 测试环境（vitest 无 DOM）可加载，生产提示路径不变。
+> 9. **useTaskPolling 终态判定＝白名单进行中集**（queued/accepted/pending/processing/running/generating＝00 §5.1 全部 11 处先例并集），不在集内即终态 fail-safe——后端新增状态默认按终态收场，不挂死轮询。
 
 ## P0-07 D1 页面落地（首个真 API 页面）
 

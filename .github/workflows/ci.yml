@@ -22,3 +22,24 @@ jobs:
         run: uv run pytest -q
       - name: boundary（import-linter：B16 层间单向 + B1 禁框架）
         run: uv run lint-imports
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: install
+        run: npm ci
+      - name: lint（eslint：frontend-foundation §2.5，与后端四门禁并列）
+        run: npm run lint
+      - name: test（vitest：api/client + api/sse）
+        run: npm test
+      - name: build
+        run: npm run build

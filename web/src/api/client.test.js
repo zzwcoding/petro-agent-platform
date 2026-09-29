@@ -1,0 +1,141 @@
+/**
+ * api/client 单测（P0-06 验收：client 单测过）——
+ * 覆盖：分页信封解包 / X-Dev-User 注入 / 错误包解包＋提示＋抛出 /
+ * 409 兜底话术 / 网络异常 / pollTaskUntilDone 终态判定。
+ */
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  ApiError, DEFAULT_DEV_USER, getDevUser, get, isTerminalStatus, pollTaskUntilDone,
+  request, setApiNotifier, unwrapEnvelope
+} from './client.js'
+
+const fetchMock = vi.fn()
+vi.stubGlobal('fetch', fetchMock)
+const notifier = vi.fn()
+
+beforeEach(() => {
+  fetchMock.mockReset()
+  notifier.mockReset()
+  setApiNotifier((level, content) => notifier(level, content))
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
+function jsonResponse(status, body) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    text: async () => JSON.stringify(body)
+  }
+}
+
+describe('unwrapEnvelope 分页信封（00 册 §4）', () => {
+  it('items+total+page 归一化补齐缺省字段', () => {
+    const out = unwrapEnvelope({ items: [1, 2, 3], total: 42, page: 2, pageSize: 15, counts: { all: 42 } })
+    expect(out).toEqual({ items: [1, 2, 3], page: 2, pageSize: 15, total: 42, counts: { all: 42 } })
+  })
+
+  it('缺 total/pageSize 时按 items 长度补齐', () => {
+    const out = unwrapEnvelope({ items: ['a', 'b'] })
+    expect(out.total).toBe(2)
+    expect(out.pageSize).toBe(2)
+    expect(out.page).toBe(1)
+    expect(out.counts).toBeNull()
+  })
+
+  it('非分页形状原样返回（整表返回为常态）', () => {
+    const obj = { gateway: { status: 'running' }, models: [] }
+    expect(unwrapEnvelope(obj)).toBe(obj)
+    const arr = [1, 2]
+    expect(unwrapEnvelope(arr)).toBe(arr)
+    expect(unwrapEnvelope(null)).toBeNull()
+  })
+})
+
+describe('request —— X-Dev-User 注入与成功路径', () => {
+  it('默认身份 aqiang 注入请求头（身份桩 00 §2）', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { ok: true }))
+    await request('/gateway/models')
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/api/gateway/models')
+    expect(init.headers['X-Dev-User']).toBe(DEFAULT_DEV_USER)
+    expect(getDevUser()).toBe(DEFAULT_DEV_USER)
+  })
+
+  it('GET 便捷式拼 query', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { items: [] }))
+    await get('/security/audit-logs', { page: '2', pageSize: '15' })
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/security/audit-logs?page=2&pageSize=15')
+  })
+})
+
+describe('request —— 统一错误包（00 册 §3）', () => {
+  it('400 错误包解包：message/detail/trace_id 进 ApiError，antd 提示带 trace', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(400, {
+      code: 'gateway_param_invalid',
+      message: '条数越界——pageSize 上限 100',
+      detail: { field: 'pageSize', constraint: '<=100' },
+      trace_id: 'call-8c31'
+    }))
+    const err = await request('/gateway/spend-logs?pageSize=999').catch(e => e)
+    expect(err).toBeInstanceOf(ApiError)
+    expect(err.status).toBe(400)
+    expect(err.code).toBe('gateway_param_invalid')
+    expect(err.message).toBe('条数越界——pageSize 上限 100')
+    expect(err.detail).toEqual({ field: 'pageSize', constraint: '<=100' })
+    expect(err.traceId).toBe('call-8c31')
+    expect(notifier).toHaveBeenCalledWith('error', '条数越界——pageSize 上限 100（trace call-8c31）')
+  })
+
+  it('409 无 message 时用集中兜底话术（frontend-foundation §2.1）', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(409, { code: 'gateway_drill_conflict' }))
+    const err = await request('/gateway/drills', { method: 'POST', body: {} }).catch(e => e)
+    expect(err.status).toBe(409)
+    expect(err.code).toBe('gateway_drill_conflict')
+    expect(err.message).toContain('状态冲突')
+    expect(notifier).toHaveBeenCalledWith('error', expect.stringContaining('状态冲突'))
+  })
+
+  it('网络层失败 → ApiError(0) 提示服务不可达', async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    const err = await request('/gateway/models').catch(e => e)
+    expect(err).toBeInstanceOf(ApiError)
+    expect(err.status).toBe(0)
+    expect(err.message).toContain('服务不可达')
+  })
+})
+
+describe('pollTaskUntilDone / isTerminalStatus（00 册 §5）', () => {
+  it('进行中状态集覆盖 11 处先例；未知状态按终态 fail-safe', () => {
+    for (const s of ['queued', 'accepted', 'pending', 'processing', 'running', 'generating']) {
+      expect(isTerminalStatus(s)).toBe(false)
+    }
+    for (const s of ['done', 'failed', 'stuck', 'ready', 'stored']) {
+      expect(isTerminalStatus(s)).toBe(true)
+    }
+    expect(isTerminalStatus('')).toBe(false)
+    expect(isTerminalStatus('whatever_new')).toBe(true)
+  })
+
+  it('202 受理后轮询 running→done：终态返回任务行', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { status: 'running', nodes: [] }))
+      .mockResolvedValueOnce(jsonResponse(200, { status: 'running', nodes: [] }))
+      .mockResolvedValueOnce(jsonResponse(200, { status: 'done', result: { switched_to: 'petro-lite' } }))
+    const { status, data } = await pollTaskUntilDone({ taskId: 'drill-9019', path: '/gateway/drills', intervalMs: 1 })
+    expect(status).toBe('done')
+    expect(data.result.switched_to).toBe('petro-lite')
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/gateway/drills/drill-9019')
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('failed 终态立即返回不重试', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { status: 'failed', reason: '生成超时', stop_at: 'deck.render' }))
+    const { status, data } = await pollTaskUntilDone({ taskId: 'art-task-1', path: '/chat/artifacts', intervalMs: 1 })
+    expect(status).toBe('failed')
+    expect(data.stop_at).toBe('deck.render')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+})

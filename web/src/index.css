@@ -1,0 +1,26 @@
+body { background: #0d1117; margin: 0; }
+.trace-dev {
+  position: fixed; left: 216px; right: 0; bottom: 0; z-index: 90;
+  background: #221d0c; border-top: 1px solid #574c20;
+  padding: 6px 20px; font-size: 12px; color: #e8b339;
+}
+.code-block {
+  background: #161b22; border: 1px solid #30363d; border-radius: 6px;
+  padding: 10px; font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+  white-space: pre-wrap; margin: 6px 0 0; color: #c9d1d9;
+}
+
+/* A2 井档案：关系链 tab 区紧凑排布 */
+.a2-chain-tabs > .ant-tabs-nav { margin-bottom: 8px; }
+
+/* INDEX 首页：业务区入口块 */
+.home-entry {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.10); border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03); color: inherit;
+}
+.home-entry:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.22);
+}
