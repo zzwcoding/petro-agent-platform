@@ -22,10 +22,16 @@ git clone --recurse-submodules <本仓地址>     # 或事后：git submodule up
 ## 快速开始
 
 ```bash
+git clone --recurse-submodules <本仓地址>     # 或事后：git submodule update --init
+cp .env.example .env                          # 填入 LLM 凭证（Owner 提供测试 key）
 uv sync                                  # 后端依赖（Python 3.12 由 uv 管理）
 docker compose up -d                     # 中间件：PG(+pgvector)/Redis/MinIO/Neo4j（Langfuse 见 observe profile）
 uv run uvicorn app.main:app --reload     # 开发服 :8000
 ```
+
+## 模型注册表（调用别名制）
+
+`config/models.yaml` 进 git（只记别名不记密钥，密钥经 `.env` 注入）。当前：主模型 **MiniMax-M3**（petro-main）、备用/降级 **glm-5.3-flash**（petro-lite），双端点均为 Anthropic 兼容协议（2026-09-29 curl 实测通过，调用形状见文件头注释）。价格表挂账待 Owner 提供。
 
 ## 结构纪律（98 册四层 + B1–B16 边界规则）
 

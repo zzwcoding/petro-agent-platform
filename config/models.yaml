@@ -1,0 +1,27 @@
+# 模型注册表——调用别名是平台唯一入口（B6：业务代码只认别名，不碰供应商/模型名）
+# 密钥不落此文件：经 ${ENV_VAR} 引用 .env；本文件进 git。
+# 调用方式（2026-09-29 双端点 curl 实测通过）：
+#   POST {base_url}/v1/messages
+#   头：Content-Type: application/json · x-api-key: ${api_key} · anthropic-version: 2023-06-01
+#   体：{"model", "max_tokens", "messages":[{role,content}]}
+#   返回：Anthropic message 形状（content[]/usage.input_tokens/output_tokens/stop_reason）
+#   注意：glm-5.3-flash 为推理模型——thinking 块先耗 token，max_tokens 要给足，否则文本空+max_tokens 截断
+models:
+  - alias: petro-main          # 主模型：问答/问数/问智默认出口
+    provider: anthropic
+    model: MiniMax-M3
+    base_url: ${MINIMAX_BASE_URL}
+    api_key: ${MINIMAX_API_KEY}
+    context_window: 1000000
+    group: standard
+  - alias: petro-lite          # 备用/降级组：fallback 与预算熔断的便宜出口
+    provider: anthropic
+    model: glm-5.3-flash
+    base_url: ${GLM_BASE_URL}
+    api_key: ${GLM_API_KEY}
+    context_window: 1000000
+    group: lite
+routing:
+  default: petro-main
+  fallback_order: [petro-main, petro-lite]   # allowed_fails/cooldown/预算阈值由 D1 配置面热加载
+prices: {}  # 挂账：待 Owner 模型价格表（每模型百万 token 输入/输出价）——记账算金额依赖
