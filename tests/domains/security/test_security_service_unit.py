@@ -8,7 +8,7 @@ PG 真库集成见 test_security_audit_pg.py。
 
 import dataclasses
 from collections.abc import AsyncIterator
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from app.domains.security import AuditFilter, AuditRow, SecurityService, resolve_actor
 from app.domains.security.domain import AuditLogView, audit_digest
 from app.domains.security.store import AuditLog, AuditLogStore, ensure_audit_table
-from app.infra.clock import freeze
+from app.infra.clock import ISO_FMT, freeze, set_clock
 from app.infra.crypto import sm3_digest
 from app.infra.db import ConnectionManager, DatabaseSpec, Repository
 
@@ -79,6 +79,35 @@ async def test_audit_roundtrip_four_slots_and_digest(db: ConnectionManager) -> N
     assert entity.digest == expected_digest  # SM3 应用层写入（99 §1.7.3）
     assert entity.meta == {"trace_id": "call-8c31"}  # jsonb 预留位
     assert entity.created_at == entity.updated_at == entity.time  # 基线列＝写入时刻（无更新通路）
+
+
+async def test_time_digest_and_baseline_share_one_clock_read(db: ConnectionManager) -> None:
+    """回归（P0-04 审查 P2-1）：time/digest/基线列同源于一次取时。
+
+    时钟逐秒行走时，digest 的时间槽与落库 time 不许跨秒错位——digest 按
+    落库四槽复算恒合（旧实现 time 与 digest 两次独立读钟，审查实测复现
+    错位；created_at/updated_at 列缺省是第三处独立读钟，同样收口）。
+    """
+    base = datetime(2026, 9, 29, 10, 0, 0)
+    ticks = 0
+
+    def ticking() -> datetime:
+        nonlocal ticks
+        ticks += 1
+        return base + timedelta(seconds=ticks)  # 每次读钟走一秒——冻结时钟测不出此错位
+
+    previous = set_clock(ticking)
+    try:
+        service = SecurityService(db)
+        await service.audit(AuditRow(who="系统", action="probe.ticking", content="时钟行走"))
+    finally:
+        set_clock(previous)
+
+    async with db.session() as session:
+        entity = (await session.execute(select(AuditLog))).scalar_one()
+    canonical = f"{entity.time.strftime(ISO_FMT)}|{entity.who}|{entity.action}|{entity.content}"
+    assert entity.digest == sm3_digest(canonical)  # digest 时间槽＝落库 time（同一次取时）
+    assert entity.created_at == entity.updated_at == entity.time  # 三时间一源（无更新通路）
 
 
 def test_d3_view_projection_never_carries_content() -> None:

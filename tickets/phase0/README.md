@@ -42,11 +42,12 @@
 > 3. **digest 哈希输入口径（合同悬置处的本仓拍板）**：99/D3 只定「SM3 摘要指纹、应用层写入、永不落正文」，未定输入串——落 `SM3("ISO时间|who|action|content")`（canonical，`domain.audit_digest` 单点持有；变更口径即换指纹空间）。
 > 4. **`audit(row)` 增可选 `session` 参数**：98 卡签名为 `audit(row: AuditRow) -> None`——真实落位加 `session=None`（传入＝调用方事务内同事务追加，B12「随各聚合事务落库」形状；缺省自管会话独立提交）。返回值仍 None，照卡。
 > 5. **authorize 本票只落 PageGroup 组闸分支**：六组级 roles 照抄 roles.js MENU（00 §9.2「运行时以 roles.js 为准」）；Capability（五层能力闸）分支随 D3 权限矩阵批扩展。页级细分（A3/C2/C3/F1 等）随各页票。
-> 6. **业务错误码新立三值**（00 §3.3 只定 `<域>_<语义>` 蛇形规则、未冻结字符串）：`security_unauthenticated`（401 身份解析失败）/`security_forbidden`（403 直调越权）/`request_invalid`（400 入参形状非法——FastAPI 缺省 422 与 00 §3.2「请求还没进门＝400」冲突，统一收口映射 400）。
+> 6. **业务错误码新立三值**（00 §3.3 只定 `<域>_<语义>` 蛇形规则、未冻结字符串）：`security_unauthenticated`（401 身份解析失败）/`security_forbidden`（403 直调越权）/`request_invalid`（400 入参形状非法——FastAPI 缺省 422 与 00 §3.2「请求还没进门＝400」冲突，统一收口映射 400）。系统级 400 码归口待设计仓下一版冻结，暂用 `request_invalid` 挂账。
 > 7. **D3 audit-logs 直接落 snake_case**：R1 裁决「接线批 mock→真实切换时一次性改字段名（值、语义、路径均不变）」——本端点即真实接线，按 R1 指定时序落 `page_size`（query 参数 `page/pageSize` 保留现拼写）；D3 册正文的 camelCase→snake 迁移行仍欠登记（设计仓下一版义务，本仓不代改）。
 > 8. **审计 time 出 ISO 8601 机器时间戳**（00 §1.4 判据：参与排序、idx(time desc)）；D3 册未冻结该项示例值。
 > 9. **sys_user 未落**：本票身份解析走静态角色注册表（roles.js 冻结值；默认角色＝aqiang，docs/prd.md 拍板回执），`sys_user` 种子装载随 D3 整页票/OAuth 账号映射批落库——五角色键/label 与 roles.js 逐字一致，语义无出入。
 > 10. **AuditFilter 预留 who/action 两槽**：D3 册端点 14 未冻结筛选参数，读面留 `who/action` 可选槽（空＝全量倒序）。
+> 11. **`audit_logs` 与 98 卡签名偏差**：卡面 `audit_logs(filter: AuditFilter, page: int, page_size: int) -> AuditLogPage`——实现为 `audit_logs(filter: AuditFilter | None = None, *, page=1, page_size=20) -> Page[AuditLogView]`：filter 可选（None＝全量倒序，衔接差异 10），返回类型复用 infra R3 分页信封 `Page[T]` 而非另立 `AuditLogPage` 包装名（信封形状归接口层公共件，items 投影 `AuditLogView`）。
 
 ## P0-05 gateway 模块 + D1 页面后端（8 端点）
 

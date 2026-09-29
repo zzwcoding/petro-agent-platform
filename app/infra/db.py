@@ -329,6 +329,10 @@ class ConnectionManager:
             return "replica"
         return role
 
+    def engine(self, role: DatabaseRole = "primary") -> AsyncEngine:
+        """引擎定位（DDL 运维口：P0-08 前建表函数经此拿 primary 引擎，幂等 checkfirst）。"""
+        return self._engines[role]
+
     # ---------- 行级权限注入点（与 D3 row_filter 衔接） ----------
 
     @staticmethod

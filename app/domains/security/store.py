@@ -17,6 +17,7 @@ digest · meta jsonb；PK(id)＋idx(time desc)；基线列 created_at/updated_at
 
 from __future__ import annotations
 
+import dataclasses
 from datetime import datetime
 from typing import Any, cast
 
@@ -67,14 +68,22 @@ class AuditLog(Base):
 
 
 def _to_entity(row: AuditRow) -> AuditLog:
-    """四槽＋digest＋meta → 存储行（digest 在此统一计算，写口外无从旁路）。"""
+    """四槽＋digest＋meta → 存储行（digest 在此统一计算，写口外无从旁路）。
+
+    一次取时：at＝resolved_at() 单点落定——落库 time、digest 时间槽、基线列
+    created_at/updated_at 同源于这一刻（时钟行走也不跨秒错位；digest 经
+    replace(row, at=at) 复用同一 at，不二次读钟）。
+    """
+    at = row.resolved_at()
     return AuditLog(
-        time=row.resolved_at(),
+        time=at,
         who=row.who,
         action=row.action,
         content=row.content,
-        digest=audit_digest(row),
+        digest=audit_digest(dataclasses.replace(row, at=at)),
         meta=dict(row.meta) if row.meta is not None else None,
+        created_at=at,
+        updated_at=at,
     )
 
 

@@ -28,7 +28,11 @@ ACTOR_HEADER = "X-Dev-User"
 async def current_actor(
     x_dev_user: Annotated[str | None, Header(alias=ACTOR_HEADER)] = None,
 ) -> Actor:
-    """身份桩依赖：请求头取值 → resolve_actor（OAuth2.0 替换缝唯一入口，00 §2.4）。"""
+    """身份桩依赖：请求头取值 → resolve_actor（OAuth2.0 替换缝唯一入口，00 §2.4）。
+
+    OAuth2.0 切换时取头来源（X-Dev-User Header 名，ACTOR_HEADER）同属开发期
+    实现，需随 resolve_actor 同步替换；合同语义面（Actor/401 判例）零改动。
+    """
     return resolve_actor(x_dev_user)
 
 
