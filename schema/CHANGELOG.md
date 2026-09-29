@@ -62,3 +62,7 @@ schema 三件（`schema.md` 人读 + `model-registry.json` / `model-deps.json` �
 - 无 `glossary-model.yaml` 的域**不校验 GLS**（缺在场不校验是既定行为，AC6 同款语义）——现有域（`ontology/bohai/`、fixture `valid-domain` 等）零改动仍全绿。
 - v9-core 域出现 GLS 文件 = L4 红（GLS-AC2）；GLS 文件 model_type 写错或文件名错挂 = L1 红（GLS-AC4）；术语 relatedObjectRefs 悬空 = L2 红（GLS-AC3）。
 - 域 manifest 的 `schemaVersion` 不强制联动本版本号（现状闸不校验联动），各域按需自行演进。
+
+## 1.3.0（petro-ontology 联合变更批二 · 2026-09-29）
+
+- **L3-5 口径登记机检四闸码**进 schema_check.py（主仓 fork 终审发现「闸全绿而登记失真」3 处笔误后落闸——约定不落闸等于没有）：`l3-caliber-mark`（mark 值域 ★|☆）/`l3-caliber-default`（defaultCaliber 必须命中本条 calibers）/`l3-caliber-ambiguous`（ambiguous=true 须 calibers≥2 支）/`l3-slot-name-banned`（slot_name 落仓禁令——票 93 服务端单点剥法）。只扫 M3 文件、字段全可选、存量零改动兼容。出厂集 schema-check-self 增 AC4（口径坏例四码齐发）/AC5（petro 实域零红）；单测 +8（共 98）。

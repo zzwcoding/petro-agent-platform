@@ -34,6 +34,10 @@ tickets/41-L3确定性闸.md 可机判子集清单 L0 裁决，四项违规码 l
   l3-sql-readonly      M7 referenceSql（可选字段，缺省不扫）在场即扫：DML/DDL 黑名单
                        词（INSERT/UPDATE/DELETE/DROP/ALTER/TRUNCATE/CREATE/GRANT）
                        大小写不敏感、\b 词边界匹配（防列名 updated_at 误伤）；
+  l3-caliber-mark       M3 口径 mark 值域 ★|☆（L3-5 联合变更批二）
+  l3-caliber-default    defaultCaliber 必须命中本条 calibers（L3-5）
+  l3-caliber-ambiguous  ambiguous=true 须 calibers≥2 支（L3-5）
+  l3-slot-name-banned   slot_name 落仓禁令（票 93 单点剥法，L3-5）
   l3-rule-form         M3 规则落地形态二选一（schema.md §6）：ruleType=EXPRESSION
                        →expression 在场且非空；其余 ruleType（值集实读=VALIDATION/
                        CALCULATION/DERIVATION/TRANSFORMATION/RISK，无 EXPRESSION/
@@ -915,6 +919,74 @@ def run(target: Path) -> dict:
                                 f"expression/narrative 二选一（schema.md §6）均"
                                 f"不在场或为空——L3-4（票 41；ruleType 字段本身"
                                 f"缺失归 L1 required-field 管辖，不叠红因）")
+
+        # L3-5 口径登记确定性闸（petro-ontology 联合变更批二；schema.md §6 指标口径
+        # 字段组 1.3.0——主仓终审发现「闸全绿而登记失真」3 处笔误，约定不落闸等于
+        # 没有，本闸把口径登记的内容面收进机检）：
+        #   l3-caliber-mark       mark 值域 ★|☆（C1 徽标原样登记；其他值=杜撰展示标记）
+        #   l3-caliber-default    defaultCaliber 必须命中本条 calibers 之一（默认口径
+        #                         不在口径支=悬空指针，C1 前端渲染即断）
+        #   l3-caliber-ambiguous  ambiguous=true 时 calibers 至少 2 支（一词两译
+        #                         语义要求多支并列；单支无所谓歧义）
+        #   l3-slot-name-banned   slot_name 不得落仓（schema.md §6 明文：slots 剥法
+        #                         由服务端单点执行、票 93 禁止下游自留拷贝——落仓
+        #                         即在仓内制造第二份剥法真源）
+        # 只扫 M3 规则文件（口径字段组登记位）；字段全可选，缺省不触发。
+        if rule_mkey:
+            for rel_l, data_l, mkey_l in l3_scans:
+                if mkey_l != rule_mkey:
+                    continue
+                rules_l = data_l.get("rules")
+                if not isinstance(rules_l, list):
+                    continue
+                for rule in rules_l:
+                    if not isinstance(rule, dict):
+                        continue
+                    rid = rule.get("id", "?")
+
+                    def _l3_caliber_add(code, why):
+                        add("L3", code, rel_l,
+                            getattr(rule, "line", 0) or data_l.line,
+                            f"规则 {rid} 口径登记违规：{why}"
+                            f"（L3-5 口径机检，schema.md §6 指标口径字段组 1.3.0）")
+
+                    mark = rule.get("mark")
+                    if mark is not None and mark not in ("★", "☆"):
+                        _l3_caliber_add(
+                            "l3-caliber-mark",
+                            f"mark={mark!r} 不在值域 ★|☆"
+                            f"（C1 徽标原样登记，其他值属杜撰展示标记）")
+                    calibers = rule.get("calibers")
+                    calibers_names = []
+                    if calibers is not None:
+                        if isinstance(calibers, list):
+                            for cal in calibers:
+                                name = cal.get("name") if isinstance(cal, dict) else cal
+                                if isinstance(name, str) and name.strip():
+                                    calibers_names.append(name.strip())
+                        if not calibers_names:
+                            _l3_caliber_add(
+                                "l3-caliber-default",
+                                "calibers 在场但解析不出任何口径名"
+                                "（成员须为口径名或含 name 的映射）")
+                    default_cal = rule.get("defaultCaliber")
+                    if (default_cal is not None and calibers_names
+                            and default_cal not in calibers_names):
+                        _l3_caliber_add(
+                            "l3-caliber-default",
+                            f"defaultCaliber={default_cal!r} 不在本条 calibers"
+                            f" {calibers_names} 之中（默认口径悬空指针）")
+                    if rule.get("ambiguous") is True:
+                        if len(calibers_names) < 2:
+                            _l3_caliber_add(
+                                "l3-caliber-ambiguous",
+                                f"ambiguous=true 但 calibers 仅 "
+                                f"{len(calibers_names)} 支（一词两译要求多支并列）")
+                    if "slot_name" in rule or "slotName" in rule:
+                        _l3_caliber_add(
+                            "l3-slot-name-banned",
+                            "slot_name 落仓被禁止（slots 剥法由服务端单点执行——"
+                            "票 93 禁止下游自留拷贝，仓内存储即第二份真源）")
 
         # AC6 反向（票 13）：profile 启用的模型缺文件且无带理由豁免 = L4 红。
         # profile 未知时 enabled 为空、不触发（unknown-profile 已单独红）。

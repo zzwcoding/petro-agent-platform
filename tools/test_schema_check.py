@@ -1616,6 +1616,95 @@ class L3DeterministicGate(L3Base):
         rows = self.l3_rows(kind="l3-rule-form")
         self.assertEqual(len(rows), 2, rows)
 
+    # ---- L3-5 口径登记机检（联合变更批二：mark 值域/defaultCaliber 咬合/
+    # ambiguous 多支/slot_name 落仓禁令——schema.md §6 指标口径字段组 1.3.0）----
+
+    def test_caliber_mark_out_of_domain_is_l3(self):
+        # mark 只有 ★|☆ 合法；其他值=杜撰展示标记
+        self.add_l3_domain()
+        self.add("m3-rule-model.yaml",
+                 L3_M3.replace("    expression: outputVolume >= 0\n",
+                               "    expression: outputVolume >= 0\n"
+                               "    mark: '◎'\n"))
+        rows = self.l3_rows(kind="l3-caliber-mark")
+        self.assertEqual(len(rows), 1, rows)
+        self.assertIn("RULE-DEMO-001", rows[0]["message"])
+
+    def test_caliber_mark_star_ok(self):
+        # 正例：mark=★ 零红
+        self.add_l3_domain()
+        self.add("m3-rule-model.yaml",
+                 L3_M3.replace("    expression: outputVolume >= 0\n",
+                               "    expression: outputVolume >= 0\n    mark: '★'\n"))
+        self.assertEqual(self.l3_rows(kind="l3-caliber-mark"), [])
+
+    def test_caliber_default_not_in_calibers_is_l3(self):
+        # defaultCaliber 悬空：不在本条 calibers 名单
+        self.add_l3_domain()
+        self.add("m3-rule-model.yaml",
+                 L3_M3.replace("    expression: outputVolume >= 0\n",
+                               "    expression: outputVolume >= 0\n"
+                               "    calibers:\n"
+                               "      - name: 剔检口径\n"
+                               "      - name: 开井日历口径\n"
+                               "    defaultCaliber: 检修口径\n"))
+        rows = self.l3_rows(kind="l3-caliber-default")
+        self.assertEqual(len(rows), 1, rows)
+        self.assertIn("RULE-DEMO-001", rows[0]["message"])
+
+    def test_caliber_default_hit_ok(self):
+        # 正例：defaultCaliber 命中 calibers 之一
+        self.add_l3_domain()
+        self.add("m3-rule-model.yaml",
+                 L3_M3.replace("    expression: outputVolume >= 0\n",
+                               "    expression: outputVolume >= 0\n"
+                               "    calibers:\n"
+                               "      - name: 剔检口径\n"
+                               "      - name: 开井日历口径\n"
+                               "    defaultCaliber: 剔检口径\n"))
+        self.assertEqual(self.l3_rows(kind="l3-caliber-default"), [])
+
+    def test_ambiguous_single_caliber_is_l3(self):
+        # ambiguous=true 但仅 1 支口径：一词两译语义要求多支并列
+        self.add_l3_domain()
+        self.add("m3-rule-model.yaml",
+                 L3_M3.replace("    expression: outputVolume >= 0\n",
+                               "    expression: outputVolume >= 0\n"
+                               "    ambiguous: true\n"
+                               "    calibers:\n"
+                               "      - name: 剔检口径\n"))
+        rows = self.l3_rows(kind="l3-caliber-ambiguous")
+        self.assertEqual(len(rows), 1, rows)
+
+    def test_ambiguous_two_calibers_ok(self):
+        # 正例：两支并列 + defaultCaliber 咬合 → 零红
+        self.add_l3_domain()
+        self.add("m3-rule-model.yaml",
+                 L3_M3.replace("    expression: outputVolume >= 0\n",
+                               "    expression: outputVolume >= 0\n"
+                               "    ambiguous: true\n"
+                               "    calibers:\n"
+                               "      - name: 剔检口径\n"
+                               "      - name: 开井日历口径\n"
+                               "    defaultCaliber: 剔检口径\n"))
+        self.assertEqual(self.l3_rows(report=self.run_check()), [])
+
+    def test_slot_name_in_repo_is_banned(self):
+        # slot_name 落仓禁令（票 93 单点剥法）：snake/camel 两形态都拦
+        for key in ("slot_name", "slotName"):
+            self.add_l3_domain()
+            self.add("m3-rule-model.yaml",
+                     L3_M3.replace("    expression: outputVolume >= 0\n",
+                                   f"    expression: outputVolume >= 0\n"
+                                   f"    {key}: 指标1\n"))
+            rows = self.l3_rows(kind="l3-slot-name-banned")
+            self.assertEqual(len(rows), 1, (key, rows))
+
+    def test_caliber_fields_absent_no_red(self):
+        # 存量兼容：口径字段全缺省不触发任何 L3-5
+        self.add_l3_domain()
+        self.assertEqual(self.l3_rows(report=self.run_check()), [])
+
     def test_rule_type_missing_not_double_reported(self):
         # ruleType 缺失归 L1 required-field 管辖（真仓 requiredElementFields 面），
         # L3-4 跳过不叠红因——红因不混
