@@ -1,7 +1,8 @@
 /**
  * api/client 单测（P0-06 验收：client 单测过）——
- * 覆盖：分页信封解包 / X-Dev-User 注入 / 错误包解包＋提示＋抛出 /
- * 409 兜底话术 / 网络异常 / pollTaskUntilDone 终态判定。
+ * 覆盖：分页信封解包（含 total/page 守卫＋兄弟字段保留）/ X-Dev-User 注入 /
+ * 错误包解包＋提示＋抛出 / 409 兜底话术 / 网络异常 /
+ * pollTaskUntilDone 终态判定＋瞬时失败容忍（一次重试，二连败才 failed）。
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -38,12 +39,26 @@ describe('unwrapEnvelope 分页信封（00 册 §4）', () => {
     expect(out).toEqual({ items: [1, 2, 3], page: 2, pageSize: 15, total: 42, counts: { all: 42 } })
   })
 
-  it('缺 total/pageSize 时按 items 长度补齐', () => {
-    const out = unwrapEnvelope({ items: ['a', 'b'] })
+  it('带 page 缺 total/pageSize 时按 items 长度补齐（P0-06 收口：守卫要求 total/page 任一在场）', () => {
+    const out = unwrapEnvelope({ items: ['a', 'b'], page: 3 })
     expect(out.total).toBe(2)
     expect(out.pageSize).toBe(2)
-    expect(out.page).toBe(1)
+    expect(out.page).toBe(3)
     expect(out.counts).toBeNull()
+  })
+
+  it('守卫：items 数组但无 total/page＝普通整表对象，原样返回不误归一化', () => {
+    const d = { items: [{ id: 1 }, { id: 2 }] }
+    expect(unwrapEnvelope(d)).toBe(d)
+  })
+
+  it('兄弟字段保留：A1 端点 1 合同 DTO {items,total,groups} 的 groups 不被吞（P0-06 审查 P2）', () => {
+    const groups = { by_model: { 'petro-main': 3, 'petro-lite': 1 } }
+    const out = unwrapEnvelope({ items: [1, 2], total: 5, groups })
+    expect(out.groups).toBe(groups)
+    expect(out.total).toBe(5)
+    expect(out.page).toBe(1)
+    expect(out.pageSize).toBe(2)
   })
 
   it('非分页形状原样返回（整表返回为常态）', () => {
@@ -137,5 +152,34 @@ describe('pollTaskUntilDone / isTerminalStatus（00 册 §5）', () => {
     expect(status).toBe('failed')
     expect(data.stop_at).toBe('deck.render')
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('瞬时失败容忍一次：单次网络抖动下一节奏重试照常收场（P0-06 审查 P3）', async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(jsonResponse(200, { status: 'running' }))
+      .mockResolvedValueOnce(jsonResponse(200, { status: 'done', result: { ok: 1 } }))
+    const { status, data } = await pollTaskUntilDone({ taskId: 'drill-t1', path: '/gateway/drills', intervalMs: 1 })
+    expect(status).toBe('done')
+    expect(data.result.ok).toBe(1)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('二连败才整体 failed：连续两次失败向上抛（网络异常包成 ApiError(0)）', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
+    const err = await pollTaskUntilDone({ taskId: 'drill-t2', path: '/gateway/drills', intervalMs: 1 }).catch(e => e)
+    expect(err).toBeInstanceOf(ApiError)
+    expect(err.status).toBe(0)
+    expect(err.message).toContain('服务不可达')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('成功一次归零容忍：失败→成功→再失败仍被容忍，照常到 done', async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError('boom'))
+      .mockResolvedValueOnce(jsonResponse(200, { status: 'running' }))
+      .mockRejectedValueOnce(new TypeError('boom again'))
+      .mockResolvedValueOnce(jsonResponse(200, { status: 'done' }))
+    const { status } = await pollTaskUntilDone({ taskId: 'drill-t3', path: '/gateway/drills', intervalMs: 1 })
+    expect(status).toBe('done')
+    expect(fetchMock).toHaveBeenCalledTimes(4)
   })
 })

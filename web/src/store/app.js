@@ -11,7 +11,7 @@
  */
 
 import { create } from 'zustand'
-import { DEFAULT_DEV_USER } from '../api/client.js'
+import { DEFAULT_DEV_USER, setDevUser } from '../api/client.js'
 
 /**
  * @typedef {object} AppState
@@ -36,3 +36,16 @@ export const useAppStore = /** @type {any} */ (create)(/** @param {any} set */ s
   sessions: [],
   setSessions: sessions => { set({ sessions }) }
 }))
+
+/**
+ * 角色切换唯一入口（Shell 页头角色下拉 onChange）：双写——
+ * ①先落 X-Dev-User 身份桩（localStorage；后续请求头随新角色，client.js authHeaders 读此）；
+ * ②再写 zustand 角色槽（页头显示/侧菜单随新角色）。
+ * 次序不可换、两写不可缺：只写槽不写桩 → 页头已是新角色、数据权限仍带旧身份
+ * （页头与数据权限脱钩，P0-06 审查 P2 修复；setDevUser 全仓原先零调用点）。
+ * @param {string} roleKey roles.js 五角色 key（laowang/xiaoli/zhuren/aqiang/shixi）
+ */
+export function switchRole(roleKey) {
+  setDevUser(roleKey)
+  useAppStore.getState().setRole(roleKey)
+}

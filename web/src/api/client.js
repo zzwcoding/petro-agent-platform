@@ -128,17 +128,20 @@ const STATUS_FALLBACKS = /** @type {Record<number, string>} */ ({
 
 /**
  * 分页信封解包（00 册 §4）：items＋page/pageSize/total/counts 归一化。
- * 非分页形状（整对象/数组/标量）原样返回——「本版整表返回为常态」，
- * 检测条件刻意保守（items 为数组且带 total/page 任一）。
+ * 非分页形状（整对象/数组/标量）原样返回——「本版整表返回为常态」，检测条件
+ * 刻意保守：items 为数组**且**带 total/page 任一（两者皆无＝普通整表对象，不动）。
+ * 归一化保留信封内兄弟字段（A1 端点 1 合同 DTO {items,total,groups} 的 groups
+ * 不吞）——先 `...d` 展开，再覆盖分页四字段。
  * @template T
- * @param {T | {items: T[], page?: number, pageSize?: number, total?: number, counts?: Record<string, number>}} data
- * @returns {T | {items: T[], page: number, pageSize: number, total: number, counts: Record<string, number> | null}}
+ * @param {T | {items: T[], page?: number, pageSize?: number, total?: number, counts?: Record<string, number>, [k: string]: unknown}} data
+ * @returns {T | {items: T[], page: number, pageSize: number, total: number, counts: Record<string, number> | null, [k: string]: unknown}}
  */
 export function unwrapEnvelope(data) {
   if (!data || typeof data !== 'object' || !Array.isArray(/** @type {any} */ (data).items)) return data
   const d = /** @type {any} */ (data)
+  if (!('total' in d) && !('page' in d)) return data
   return {
-    items: d.items,
+    ...d,
     page: typeof d.page === 'number' ? d.page : 1,
     pageSize: typeof d.pageSize === 'number' ? d.pageSize : d.items.length,
     total: typeof d.total === 'number' ? d.total : d.items.length,
@@ -222,15 +225,29 @@ const TASK_FAILED = new Set(['failed', 'stuck'])
 
 /**
  * 轮询一次任务直到终态（纯函数版，供 useTaskPolling 与单测复用）。
+ * 瞬时失败容忍：轮询中单次请求失败（网络抖动/网关 5xx）不立判整体 failed——
+ * 同任务容忍一次、下一节奏重试；连续两次失败才向上抛（useTaskPolling 收到
+ * 置 failed）；期间任一次成功即归零计数。AbortError 直通不占容忍额度。
  * @param {{taskId: string, path: string, intervalMs?: number, signal?: AbortSignal}} args
  *   path 为任务资源 GET 前缀（如 '/gateway/drills' → GET /api/gateway/drills/{taskId}）
  * @returns {Promise<{status: string, data: any}>} 终态行（含 status/nodes/current_step/result…）
  */
 export async function pollTaskUntilDone({ taskId, path, intervalMs = 1500, signal }) {
+  let transientFailures = 0
   while (true) {
-    const data = await request(`${path}/${encodeURIComponent(taskId)}`, { signal })
-    const status = String((data && data.status) || '')
-    if (isTerminalStatus(status)) return { status, data }
+    /** @type {any} */ let data = null
+    try {
+      data = await request(`${path}/${encodeURIComponent(taskId)}`, { signal })
+      transientFailures = 0
+    } catch (err) {
+      if (err && err.name === 'AbortError') throw err
+      transientFailures += 1
+      if (transientFailures >= 2) throw err
+    }
+    if (data) {
+      const status = String(data.status || '')
+      if (isTerminalStatus(status)) return { status, data }
+    }
     await new Promise(resolve => setTimeout(resolve, intervalMs))
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
   }

@@ -100,6 +100,8 @@
 > 7. **CI frontend job 增 test 步**：票面写 npm ci＋lint＋build，验收另要求 client 单测过——vitest 一并进 job。
 > 8. **client.js 不静态 import antd**：错误提示器走 dynamic import＋`setApiNotifier` 替换缝——node 测试环境（vitest 无 DOM）可加载，生产提示路径不变。
 > 9. **useTaskPolling 终态判定＝白名单进行中集**（queued/accepted/pending/processing/running/generating＝00 §5.1 全部 11 处先例并集），不在集内即终态 fail-safe——后端新增状态默认按终态收场，不挂死轮询。
+> 10. **页面组件数口径：设计 §1 原文「22 个页面组件」vs 本票「21」**：prototype pages/ 实有 23 文件＝21 可路由菜单页（roles.js 菜单 21 键＝Shell 路由面）＋DecisionTree 弹窗件（页内开窗、不占菜单路由）＋Stub 占位件（未路由兜底）——菜单 21 角标与 fork 零搬迁口径均按 21，成立（P0-06 审查补注）。
+> 11. **组件库首批 2/6**：设计 §2.4 六组件已交 StateBadge 四态徽标＋Artifact 产物卡 2 件；Voucher 取货凭证卡/答案卡＋cN 引用/解释链五要素/审批抽屉 4 件未交——按设计 §5 阶段 1-4「按需抽组件进库」随各页落地批抽取；阶段 0 行「底座五件全建」指 client/sse/zustand/组件库缝/工程形态五件，非组件六件（P0-06 审查补登记）。
 
 ## P0-07 D1 页面落地（首个真 API 页面）
 

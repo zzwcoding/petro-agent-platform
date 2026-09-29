@@ -9,7 +9,7 @@ import A1Chat, { A1_GUIDE, A1_TRACE } from '../pages/A1Chat.jsx'
 import Stub from '../pages/Stub.jsx'
 import NotLit from '../landing/NotLit.jsx'
 import { DEFAULT_LANDING_KEY, LANDING_LIT, loadLandingPage } from '../landing/registry.js'
-import { useAppStore } from '../store/app.js'
+import { useAppStore, switchRole } from '../store/app.js'
 
 window.__roles = ROLES
 window.__menuForRole = menuForRole
@@ -42,7 +42,6 @@ function parseHash() {
 export default function Shell() {
   // 角色槽收进 zustand（store/app.js 槽①，接 roles.js 唯一真源）
   const role = useAppStore(s => s.role)
-  const setRole = useAppStore(s => s.setRole)
   const [nav, setNav] = useState(parseHash)
   const [guide, setGuide] = useState(false)
 
@@ -70,9 +69,11 @@ export default function Shell() {
     <Layout style={{ height: '100vh' }}>
       <SideMenu role={role} tree={tree} current={page} onNavigate={navigate} />
       <Layout style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+        {/* 角色切换走 store.switchRole 双写（先 X-Dev-User 桩后角色槽）——
+            只写槽会让请求头带旧身份、页头与数据权限脱钩（P0-06 审查 P2 修复） */}
         <HeaderBar title={<span>{title}{treeTag}</span>}
           crumb={crumb}
-          role={role} setRole={setRole} onGuide={() => setGuide(true)} />
+          role={role} setRole={switchRole} onGuide={() => setGuide(true)} />
         <Layout.Content style={{ padding: DEV ? '16px 20px 48px' : '16px 20px', flex: 1, overflow: 'auto' }}>
           {isProto ? (page === 'A1' ? <A1Chat role={role} /> : ProtoPage ? (
             <Suspense fallback={<Skeleton active />}>
