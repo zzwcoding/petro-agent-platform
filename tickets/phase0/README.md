@@ -8,7 +8,9 @@
 - 四层骨架（app/api · app/domains 14 模块包 · app/infra）+ uv + pyproject（ruff/mypy strict/pytest/import-linter B16+B1）+ GitHub workflow。
 - 验收：本地四闸全绿（ruff/mypy/pytest/lint-imports）。
 
-## P0-02 中间件 compose（本票已随建仓批落地，验收=拉起验证）
+## P0-02 中间件 compose（配置随建仓批落地 ✅；拉起验证挂账待网络）
+
+> **挂账（2026-09-29 收官审查）**：`docker compose config` 校验过、拓扑经替身容器实证（postgres:16-alpine@5433 同端口/凭据/库名全过）；pgvector/minio 镜像因 Docker Hub 网络阻断拉取失败，四件全 healthy 验收待网络恢复补做（`docker compose up -d`；此前先 `docker rm -f petro-review-pg-standin` 让出 5433）。可选解法：配国内镜像源（Owner 环境裁决）。redis:7-alpine/neo4j:5 本地已有。
 
 - PG(+pgvector)/Redis/MinIO/Neo4j 四件 + Langfuse（profile observe，阶段 0 不依赖）。
 - 验收：`docker compose up -d` 四件 healthy；`docker compose --profile observe up -d` Langfuse 可登录。
@@ -108,7 +110,7 @@
 - D1.jsx 数据源从 mock 切 api/client；页头徽标/配置读写/spend 流水/演练工具栏全接线。
 - 验收：D1 合同 7 条 HTTP 路由真实往返（原稿「8 端点」＝P0-05 口径——98 卡 D1 面 8 域方法含 complete 运行时出口，HTTP 路由冻结 7 条，见 P0-05 差异 1；P0-07 审查口径更正）；与 #/proto/D1 对比行为一致（除数据真假）。
 - 落地 ✅：`landing/D1.jsx` 冒烟骨架替换为全页（合同 7 条 HTTP 路由全接线：页头徽标 models / 配置读写 config GET+PUT / spend-logs 分页筛选 / 演练三连 drills 202→useTaskPolling 300ms 轮询→历史）；新接口层 `api/gateway.js`（与原型 mock `api/d1.js` 函数签名一一对应——getModels/getGatewayConfig/saveGatewayConfig/getSpendLogs/startDrill/getDrill/listDrills，mock 不动，页面零改动换数据源；后端 R1 snake_case 在此层折回 camel，页面列定义与原型同形）；视觉与交互形态对照 #/proto/D1（同页头三行结构＋四页签 Card＋行点抽屉，数据全真）。
-- 验收自证 ✅：web 三连（eslint 0 error、vitest 43 passed＝client 23＋sse 8＋store 2＋D1 页组件 10、vite build 过）；后端四门禁回归全绿（ruff app+tests / mypy strict 34 文件 / pytest 带 PG16@5433 143 passed 零跳过 / lint-imports 4 契约 KEPT）；headless Chrome 走通全流程——页头「网关运行中」徽标＋主备副题、配置 allowed_fails 3→2 真写回 `config/models.yaml`＋热加载＋服务端 yaml 全文回显（写完 git diff 零残留）、真演练一次（「允许演练」默认关→开→受理 202→四步节点进度→done：结论 Alert＋fallback_triggered 留痕 petro-main→anthropic/glm-5.3-flash＋真落账 call-13b7c9dc 23+213 token ¥0.0007＋演练历史 +1＋流水首行 fallback=true「故障切换」，页签计数 0→1 实时刷新）、#/proto/D1 并排对照行为一致。
+- 验收自证 ✅：web 三连（eslint 0 error、vitest 47 passed＝client 23＋sse 8＋store 2＋D1 页组件 10、vite build 过）；后端四门禁回归全绿（ruff app+tests / mypy strict 34 文件 / pytest 带 PG16@5433 143 passed 零跳过 / lint-imports 4 契约 KEPT）；headless Chrome 走通全流程——页头「网关运行中」徽标＋主备副题、配置 allowed_fails 3→2 真写回 `config/models.yaml`＋热加载＋服务端 yaml 全文回显（写完 git diff 零残留）、真演练一次（「允许演练」默认关→开→受理 202→四步节点进度→done：结论 Alert＋fallback_triggered 留痕 petro-main→anthropic/glm-5.3-flash＋真落账 call-13b7c9dc 23+213 token ¥0.0007＋演练历史 +1＋流水首行 fallback=true「故障切换」，页签计数 0→1 实时刷新）、#/proto/D1 并排对照行为一致。
 
 > **与合同/票面的差异点登记（现实约束按现实落地，语义不私改）**：
 > 1. **D1 册 camelCase vs 后端 R1 snake_case**：合同 DTO 原稿 camel（query 的 page/pageSize 拼写按 R1/R9 保留）；后端 P0-05 已按 00 §14-R1 落 snake——本票不动后端，接口层 gateway.js 统一折回 camel。`result.fallback` 留痕字段（request_alias/failed_deploy…）合同原稿即 snake，前端 JSON 原样展示。
@@ -129,7 +131,7 @@
   - **chat 路由族空壳**（`app/api/chat.py`，已挂 `app/main.py`）：`POST /api/chat/asks` → `text/event-stream`（StreamingResponse——00 §6.1 传输形态悬置收敛为「结合实际框架定，合同只冻结帧协议」）。`render_frame` 落 00 §6.1 信封（`id/event/data` 三行＋空行帧界，帧序号即 Last-Event-ID 依据）＋ `error_frame` 构造器（`{code,message,hint?}`，SSE 内异常不走 HTTP 错误包的帧面已备，阶段 1 挂业务链）；三保留帧 done/error/replay_truncated 常量与 web 底座 `api/sse.js RESERVED_FRAMES` 同源；**19 类业务帧零落**（A1 会话域合同值，00 §6.2 尾注「帧类型集不收编」）。Last-Event-ID 请求头解析缝（`parse_last_event_id`）已立；身份闸 CurrentActor（未认证 401——A1 权限行「SSE 与 D1 第三道同闸」；缺头落默认角色不 401，00 §2.4）。业务零实现（阶段 1 填肉）。
   - **eventbus 缝**（`app/infra/eventbus.py`）：`EventBus` 协议（publish/subscribe，98 §4 adapter 行语义）＋ `InMemoryEventBus`（测试底座：同名单派发按登记序、**订阅异常隔离**——单订阅者异常记日志不外抛不中断同批其余订阅者；退订 thunk 幂等）＋ `RedisStreamEventBus` 骨架（构造不连网、首用建连+ping 探活——Redis 未起显式 `EventBusConfigError` **不静默降级**；XADD/消费组/缓冲 MAXLEN 接线属后续批，探活通过即 NotImplementedError 不留半实现；client_factory 测试缝——测试不依赖活 Redis）＋ `DomainEvent`/`make_event`（98 §8 事件名为合法值域，25 名不收编校验，接线批挂）。**outbox 表落 infra 侧**（99 §6-4 原文「`infra_outbox` 为 infra 技术表（不归 14 模块域）」——不落 domains；`OutboxRow`+`OutboxStore`（add_in 同事务登记/pending 待投递扫描/mark_published 回执幂等）+`ensure_outbox_table` 同文件承载）。
   - **Alembic 迁移分组**：`alembic.ini`（根）＋ `migrations/`（env.py/script.py.mako/versions/ 单目录平放，slug 域前缀纪律：infra_/sem_/kb_/chat_…＝99 §1 表前缀可读化）；env.py 接 infra.db URL 推导（config/database.yaml → load_database_specs → primary spec.url()，asyncpg 异步引擎跑迁移，alembic.ini 的 sqlalchemy.url 恒空防误写死）；target_metadata＝infra.db `Base.metadata`（全平台单一 autogenerate 源——P0-04 票面前提兑现）。**基线迁移＝空迁移一枚**（`versions/0001_infra_baseline.py`，upgrade/downgrade 均 pass）。**ensure_*_table 交接关系（本票不切换）**：建表走 ensure_*（audit/gateway/outbox，幂等 checkfirst，main.py lifespan）与 Alembic 并行存活，Alembic 只立版本轴；各域把建表切到迁移属各域票——操作序登记在 0001 docstring 与 env.py「域模型登记区」（补挂域模型 import → autogenerate → 票面登记 ensure_* 退役拍）。
-- 验收自证 ✅：事件发布-订阅内存实现测试过（`tests/infra/test_eventbus_unit.py` 10 条：派发/异常隔离/退订/工厂时戳/Redis 缝探活四态/outbox 仓储——SQLite 底座；PG 逐列断言 `tests/infra/test_eventbus_outbox_pg.py` 2 条：bigserial/jsonb/published_at nullable/待投递索引/真库往返）；SSE 骨架 `tests/api/test_chat_sse.py` 7 条（done 帧信封/断点续序 replay_truncated＋合同话术/Last-Event-ID 非整数 400/401 闸/缺头默认角色）；`uv run alembic upgrade head`（→0001 head）`&& uv run alembic downgrade base`（版本轴落/清，alembic current 空→0001→空）在 config primary（petro@5433）双向实跑过；真装配冒烟（lifespan 三建表＋health 200＋asks 两形态真跑）。四门禁：ruff（app+tests+migrations）0 错 / mypy strict 36 文件零错 / pytest 带 PG16@5433 **162 passed 零跳过**（无 PG 底座 148 passed 14 skipped——PG 组按约 skip，P0-07 基线 143+12 上净增 19 条）/ lint-imports 4 契约 KEPT。
+- 验收自证 ✅：事件发布-订阅内存实现测试过（`tests/infra/test_eventbus_unit.py` 10 条：派发/异常隔离/退订/工厂时戳/Redis 缝探活四态/outbox 仓储——SQLite 底座；PG 逐列断言 `tests/infra/test_eventbus_outbox_pg.py` 2 条：bigserial/jsonb/published_at nullable/待投递索引/真库往返）；SSE 骨架 `tests/api/test_chat_sse.py` 7 条（done 帧信封/断点续序 replay_truncated＋合同话术/Last-Event-ID 非整数 400/401 闸/缺头默认角色）；`uv run alembic upgrade head`（→0001 head）`&& uv run alembic downgrade base`（版本轴落/清，alembic current 空→0001→空）在 config primary（petro@5433）双向实跑过；真装配冒烟（lifespan 三建表＋health 200＋asks 两形态真跑）。四门禁：ruff（app+tests+migrations）0 错 / mypy strict 36 文件零错 / pytest 带 PG16@5433 **163 passed 零跳过**（无 PG 底座 148 passed 14 skipped——PG 组按约 skip，P0-07 基线 143+12 上净增 19 条）/ lint-imports 4 契约 KEPT。
 
 > **与合同/票面的差异点登记（现实约束按现实落地，语义不私改）**：
 > 1. **outbox 表结构自立（99 §6-4 未落结构——「表结构随接线批落本册」尚未发生）**：按标准 outbox 模式落——`id bigserial`（注册序＝投递序；BigInteger＋sqlite Integer variant 双底座）· `aggregate`（`<聚合类型>:<聚合id>`，String(128) 非空，事件缺省聚合时落事件名）· `event_type`（98 §8 事件名，String(64)）· `payload jsonb`（sqlite JSON variant）· `occurred_at`（infra.clock 东八区 naive，B14）· `published_at` nullable（NULL=待投递）＋ 基线列 `created_at/updated_at`（P0-04 审计表惯例追加，99 册未声明）＋ `idx (published_at, id)`（待投递扫描序）。接线批落册时如与 99 册收口结构有出入，以册为准回改。
@@ -143,7 +145,7 @@
 
 ## 阶段 0 收官验收 ✅（2026-09-30，P0-08 收官批对账）
 
-- 四门禁全绿（P0-08 收官批复跑）：ruff（app+tests+migrations）0 错 / mypy strict 36 文件零错 / pytest 带 PG16@5433 162 passed 零跳过 / lint-imports 4 契约 KEPT。
+- 四门禁全绿（P0-08 收官批复跑）：ruff（app+tests+migrations）0 错 / mypy strict 36 文件零错 / pytest 带 PG16@5433 163 passed 零跳过 / lint-imports 4 契约 KEPT。
 - D1 七条 HTTP 路由真跑（口径注同 P0-07 验收行——P0-07 headless Chrome 全流程证据链：页头徽标/配置写回热加载/spend 流水/演练三连真计费）。
 - 前端双树对比可用（#/D1 落地树 vs #/proto/D1 原型树行为一致——P0-06 双树共存＋P0-07 全页接线证据链）。
 - B1–B16 边界闸在真实代码上绿：lint-imports 4 契约 KEPT（B16 层间单向向下 / B16 infra 禁咬上层 / B1 领域与基础设施禁框架 / B6 litellm 唯一接触点）。

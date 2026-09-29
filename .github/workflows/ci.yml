@@ -15,7 +15,7 @@ jobs:
       - name: sync deps
         run: uv sync --all-groups
       - name: lint（ruff）
-        run: uv run ruff check app tests
+        run: uv run ruff check app tests migrations
       - name: type（mypy strict）
         run: uv run mypy app
       - name: test（pytest）
