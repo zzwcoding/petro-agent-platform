@@ -1,7 +1,8 @@
 """audit_log PG 集成测试——bigserial/jsonb/timestamp 真库落位与 SM3 摘要复算。
 
 约定（tickets/phase0/README.md P0-03）：环境变量 TEST_DATABASE_URL 未配置即
-skip；本地跑法：
+skip；本地跑法（该变量只用于定位服务器与凭据——测试自动改用其 <库名>_test
+独立库，不碰同服务器演示库 petro，P0-07 审查 P3 测试/演示库分离）：
     TEST_DATABASE_URL="postgresql+asyncpg://petro:petro@localhost:5433/petro" \
         uv run pytest tests/domains/security/test_security_audit_pg.py -q
 """
@@ -23,6 +24,36 @@ from app.infra.db import ConnectionManager, DatabaseSpec
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "")
 
 
+def _isolated_url() -> URL:
+    """TEST_DATABASE_URL → 独立测试库 URL（<库名>_test；测试/演示库分离，P0-07 审查 P3）。
+
+    环境变量只用于定位服务器与凭据——建表跑测一律落 <db>_test（默认 compose 即
+    petro_test），与 config/database.yaml 演示库 petro 物理隔离：跑 PG 门禁的
+    建表清表不再碰演示账本。
+    """
+    url = make_url(TEST_DATABASE_URL)
+    return url.set(database=f"{url.database}_test")
+
+
+async def _ensure_test_database(url: URL) -> None:
+    """测试库不存在则建（CREATE DATABASE IF NOT EXISTS 语义——PG 无原生子句）：
+    连 postgres 维护库查 pg_database，缺则 CREATE DATABASE。建库不能进事务块，
+    连接级 AUTOCOMMIT。"""
+    admin = create_async_engine(url.set(database="postgres"), isolation_level="AUTOCOMMIT")
+    try:
+        async with admin.connect() as conn:
+            exists = (
+                await conn.execute(
+                    text("SELECT 1 FROM pg_database WHERE datname = :name"),
+                    {"name": url.database},
+                )
+            ).scalar()
+            if not exists:
+                await conn.execute(text(f'CREATE DATABASE "{url.database}"'))
+    finally:
+        await admin.dispose()
+
+
 def _spec(url: URL) -> DatabaseSpec:
     return DatabaseSpec(
         name="primary",
@@ -42,7 +73,8 @@ def _spec(url: URL) -> DatabaseSpec:
 async def db() -> AsyncIterator[ConnectionManager]:
     if not TEST_DATABASE_URL:
         pytest.skip("TEST_DATABASE_URL 未配置——PG 集成测试跳过（约定见票面）")
-    url = make_url(TEST_DATABASE_URL)
+    url = _isolated_url()  # 演示库隔离：环境变量只定位服务器，测试落 <库名>_test
+    await _ensure_test_database(url)
     manager = ConnectionManager([_spec(url)])
     engine = create_async_engine(url)
     async with engine.begin() as conn:

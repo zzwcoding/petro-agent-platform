@@ -12,8 +12,10 @@
  *   文件里的一行」由后端生成保证）；
  * - 演练四步进度 = useTaskPolling 300ms 轮询 + onProgress 快照（原型是页面
  *   setInterval；节奏由服务端任务驱动，00 §5.2）；
- * - 错误路径：模型清单失败内联 Alert（错误包 code/trace_id 展示）、保存失败
- *   内联 Alert（500 热加载失败需回滚提示语义）、演练重入 409 兜底禁用＋提示。
+ * - 错误路径：模型清单失败内联 Alert（错误包 code/trace_id 展示）、配置加载失败/
+ *   流水拉取失败内联 Alert（失败态与空态区分——toast 会消散、空态会伪装成
+ *   「没有记录」，P0-07 审查补）、保存失败内联 Alert（500 热加载失败需回滚提示
+ *   语义）、演练重入 409 兜底禁用＋提示。
  */
 
 import { useEffect, useState } from 'react'
@@ -83,6 +85,7 @@ export default function D1Landing() {
   const [saving, setSaving] = useState(false)
   const [savedTip, setSavedTip] = useState('')
   const [saveError, setSaveError] = useState(null)
+  const [cfgError, setCfgError] = useState(null) // 配置拉取失败（端点 2）——内联常驻，失败态≠空态
   const [copied, setCopied] = useState(false)
   const dirty = !!cfg && !!form && JSON.stringify(form) !== JSON.stringify(cfg)
 
@@ -90,6 +93,7 @@ export default function D1Landing() {
   const [query, setQuery] = useState({ model: 'all', range: 'all', keyword: '', page: 1, pageSize: 15 })
   const [ledger, setLedger] = useState({ items: [], total: 0 })
   const [ledgerLoading, setLedgerLoading] = useState(true)
+  const [ledgerError, setLedgerError] = useState(null) // 流水拉取失败（端点 4）——内联常驻，失败态≠空态
   const [detail, setDetail] = useState(null)
 
   // ── 演练面：故障演练三连（端点 5/6/7）。受理 202 → useTaskPolling 轮询进度 ──
@@ -110,8 +114,8 @@ export default function D1Landing() {
       .then(d => { if (on) { setGateway(d.gateway); setModels(d.models); setModelsError(null) } })
       .catch(err => { if (on) setModelsError(err) })
     getGatewayConfig()
-      .then(d => { if (on) { setCfg(d.params); setForm(d.params); setYaml(d.yaml) } })
-      .catch(() => { /* client 已 message；配置面保持空态 */ })
+      .then(d => { if (on) { setCfg(d.params); setForm(d.params); setYaml(d.yaml); setCfgError(null) } })
+      .catch(err => { if (on) setCfgError(err) }) // client 已 message；内联常驻（params 页签）
     listDrills().then(d => { if (on) setDrillLogs(d) }).catch(() => {})
     return () => { on = false }
   }, [])
@@ -120,8 +124,8 @@ export default function D1Landing() {
     let on = true
     setLedgerLoading(true)
     getSpendLogs(query)
-      .then(d => { if (on) { setLedger(d); setLedgerLoading(false) } })
-      .catch(() => { if (on) setLedgerLoading(false) })
+      .then(d => { if (on) { setLedger(d); setLedgerError(null); setLedgerLoading(false) } })
+      .catch(err => { if (on) { setLedgerError(err); setLedgerLoading(false) } }) // 内联常驻（ledger 页签）
     return () => { on = false }
   }, [query])
 
@@ -248,7 +252,13 @@ export default function D1Landing() {
         </div>
       </>
     ),
-    params: form && (
+    params: !form && cfgError ? (
+      // 配置拉取失败：内联 Alert 常驻（对齐 models/保存/演练错误路径形态）——
+      // 失败态与空态区分，不伪装成「配置加载中」。
+      <Alert type="error" showIcon
+        message="配置加载失败——调用参数暂不可编辑（服务端 models.yaml 全文亦未回显）"
+        description={errText(cfgError)} />
+    ) : form && (
       <>
         <Row gutter={12}>
           {PARAM_FIELDS.map(p => (
@@ -304,6 +314,11 @@ export default function D1Landing() {
             placeholder="搜调用号 / 备注…"
           />
         </Space>
+        {ledgerError && (
+          <Alert style={{ marginBottom: 12 }} type="error" showIcon
+            message="记账流水拉取失败——下表不是最新数据"
+            description={errText(ledgerError)} />
+        )}
         <Table
           size="small" loading={ledgerLoading} columns={ledgerColumns} dataSource={ledger.items} rowKey="id"
           scroll={{ x: 1080 }}
@@ -313,7 +328,7 @@ export default function D1Landing() {
             onChange: (p, ps) => setQuery(q => ({ ...q, page: p, pageSize: ps }))
           }}
           onRow={r => ({ onClick: () => setDetail(r), style: { cursor: 'pointer' } })}
-          locale={{ emptyText: <Empty description="没有匹配的调用记录" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+          locale={{ emptyText: <Empty description={ledgerError ? '流水拉取失败' : '没有匹配的调用记录'} image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
         />
       </>
     ),

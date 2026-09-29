@@ -268,6 +268,28 @@ describe('D1 落地页 · 配置读写（端点 2/3：表单对应「文件里�
   })
 })
 
+describe('D1 落地页 · 失败态内联（P0-07 审查 P3：失败态≠空态）', () => {
+  it('配置拉取失败（GET config 500）→ 调用参数页签内联 Alert 常驻（不伪装成空态）', async () => {
+    apiRouter({ getConfig: () => json(500, { code: 'gateway_internal', message: '配置读取失败', trace_id: 'call-cfg0' }) })
+    render(<D1Landing />)
+    fireEvent.click(await screen.findByText('调用参数（4）'))
+    expect(await screen.findByText(/配置加载失败——调用参数暂不可编辑/)).toBeTruthy()
+    // errText 拼装行：人话 message＋code＋trace 三段一体（对齐 models/保存错误路径）
+    expect(screen.getByText(/配置读取失败 · code gateway_internal · trace call-cfg0/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /保存设置/ })).toBeNull() // 失败态无表单可编辑
+  })
+
+  it('流水拉取失败（500）→ 内联 Alert＋表内空态改「流水拉取失败」，不再伪装「没有匹配的调用记录」', async () => {
+    apiRouter({ spend: () => json(500, { code: 'gateway_internal', message: '账本读取失败', trace_id: 'call-led0' }) })
+    render(<D1Landing />)
+    fireEvent.click(await screen.findByText('记账流水（0）'))
+    expect(await screen.findByText(/记账流水拉取失败——下表不是最新数据/)).toBeTruthy()
+    expect(screen.getByText(/账本读取失败 · code gateway_internal · trace call-led0/)).toBeTruthy()
+    expect(screen.queryByText('没有匹配的调用记录')).toBeNull()
+    expect(screen.getByText('流水拉取失败')).toBeTruthy()
+  })
+})
+
 describe('D1 落地页 · 故障演练（端点 5/6/7）', () => {
   it('允许演练开关默认关；409 重入兜底：受理被拒 → 内联提示＋开始按钮禁用', async () => {
     apiRouter({ start: () => json(409, { code: 'gateway_drill_conflict', message: '已有进行中的演练任务（重入 409）' }) })

@@ -106,19 +106,20 @@
 ## P0-07 D1 页面落地（首个真 API 页面）✅（2026-09-30）
 
 - D1.jsx 数据源从 mock 切 api/client；页头徽标/配置读写/spend 流水/演练工具栏全接线。
-- 验收：D1 合同 8 端点真实往返；与 #/proto/D1 对比行为一致（除数据真假）。
+- 验收：D1 合同 7 条 HTTP 路由真实往返（原稿「8 端点」＝P0-05 口径——98 卡 D1 面 8 域方法含 complete 运行时出口，HTTP 路由冻结 7 条，见 P0-05 差异 1；P0-07 审查口径更正）；与 #/proto/D1 对比行为一致（除数据真假）。
 - 落地 ✅：`landing/D1.jsx` 冒烟骨架替换为全页（合同 7 条 HTTP 路由全接线：页头徽标 models / 配置读写 config GET+PUT / spend-logs 分页筛选 / 演练三连 drills 202→useTaskPolling 300ms 轮询→历史）；新接口层 `api/gateway.js`（与原型 mock `api/d1.js` 函数签名一一对应——getModels/getGatewayConfig/saveGatewayConfig/getSpendLogs/startDrill/getDrill/listDrills，mock 不动，页面零改动换数据源；后端 R1 snake_case 在此层折回 camel，页面列定义与原型同形）；视觉与交互形态对照 #/proto/D1（同页头三行结构＋四页签 Card＋行点抽屉，数据全真）。
 - 验收自证 ✅：web 三连（eslint 0 error、vitest 43 passed＝client 23＋sse 8＋store 2＋D1 页组件 10、vite build 过）；后端四门禁回归全绿（ruff app+tests / mypy strict 34 文件 / pytest 带 PG16@5433 143 passed 零跳过 / lint-imports 4 契约 KEPT）；headless Chrome 走通全流程——页头「网关运行中」徽标＋主备副题、配置 allowed_fails 3→2 真写回 `config/models.yaml`＋热加载＋服务端 yaml 全文回显（写完 git diff 零残留）、真演练一次（「允许演练」默认关→开→受理 202→四步节点进度→done：结论 Alert＋fallback_triggered 留痕 petro-main→anthropic/glm-5.3-flash＋真落账 call-13b7c9dc 23+213 token ¥0.0007＋演练历史 +1＋流水首行 fallback=true「故障切换」，页签计数 0→1 实时刷新）、#/proto/D1 并排对照行为一致。
 
 > **与合同/票面的差异点登记（现实约束按现实落地，语义不私改）**：
 > 1. **D1 册 camelCase vs 后端 R1 snake_case**：合同 DTO 原稿 camel（query 的 page/pageSize 拼写按 R1/R9 保留）；后端 P0-05 已按 00 §14-R1 落 snake——本票不动后端，接口层 gateway.js 统一折回 camel。`result.fallback` 留痕字段（request_alias/failed_deploy…）合同原稿即 snake，前端 JSON 原样展示。
-> 2. **底座补件 3 件（client.js，全部向后兼容，client.test.js +6 测）**：① `put()` 便捷式——端点 3 是平台首个 PUT 消费方，client 原只有 get/post；② `unwrapEnvelope` 认 snake `page_size` 同义归一为 camel `pageSize`（后端信封回显 page_size，原逻辑会误落 items.length 兜底）；③ `pollTaskUntilDone`/`useTaskPolling` 增 `onProgress` 每拍快照回调——原 hook 只在终态回数据，D1 演练四步节点进度需进行中快照实时点亮 Steps（原型页是页面 setInterval 自轮询，落地按票面走 useTaskPolling；onProgress 抛错不影响轮询收场）。
+> 2. **底座补件 3 件（client.js，全部向后兼容，client.test.js +7 测：16→23）**：① `put()` 便捷式——端点 3 是平台首个 PUT 消费方，client 原只有 get/post；② `unwrapEnvelope` 认 snake `page_size` 同义归一为 camel `pageSize`（后端信封回显 page_size，原逻辑会误落 items.length 兜底）；③ `pollTaskUntilDone`/`useTaskPolling` 增 `onProgress` 每拍快照回调——原 hook 只在终态回数据，D1 演练四步节点进度需进行中快照实时点亮 Steps（原型页是页面 setInterval 自轮询，落地按票面走 useTaskPolling；onProgress 抛错不影响轮询收场）。
 > 3. **web devDependencies 增补**：jsdom + @testing-library/react + @testing-library/dom——D1 页组件测试需 DOM 环境（原 vitest 仅 node 环境接口层测试）；测试用 `// @vitest-environment jsdom` 文件级声明，fetch 级 mock 挡在 window.fetch 边界（client/gateway/轮询全真代码）。
 > 4. **UI 可达的保存失败面是 500**：antd InputNumber 对越界输入不触发 onChange（blur 即钳回区间），合同 400「错误体带字段与允许区间」是 API 直调路径；页面内联错误 Alert 按 500「需回滚提示」语义落（message/code/trace_id 常驻展示，保存失败即旧配置仍生效）。
 > 5. **409 兜底形态**：受理被拒 → 内联 warning Alert＋开始按钮禁用；解除＝关再开「允许演练」开关。合同原文「按钮禁用兜底，不依赖此码」——进行中本地态照常置灰。
 > 6. **演练节点 note 展示**：后端节点带服务端组装的 note（原型 mock 无此字段）——落地 Steps 以 description 小字展示，信息增强不改交互形态。
 > 7. **演练真实计费如实记录**：演练即真实流量（合同行为规则 3）——验收一次真调用 GLM 备用 ¥0.0007、总耗时 8.4s（first_ms=total_ms 非流式口径，P0-05 差异第 4 条同源）；models.yaml 验收中真写回两轮后回原值。
 > 8. **控制台唯一 404＝favicon.ico**：index.html 未配 icon（P0-06 工程形态遗留，非本票范围，留 POLISH 批）。
+> 9. **PG 集成测试库与演示库分离（P0-07 审查补登记）**：三处 PG fixture（infra.db / audit_log / gateway 三表）原与 config/database.yaml 同库（petro@5433/petro）——跑 PG 门禁 drop_all/create_all 即清空演示账本（审查中 ¥0.0007 演示证据实际被清）。现 TEST_DATABASE_URL 只用于定位服务器与凭据，真正建表跑测的库机械折算为独立库 `<库名>_test`（连 postgres 维护库查 pg_database、缺则 CREATE DATABASE——IF NOT EXISTS 语义），演示库从此不受测试影响；既有断言零改动，本地跑法命令不变（P0-07 审查 P3）。
 
 ## P0-08 预留件：chat SSE 骨架 + eventbus + 迁移分组
 
@@ -127,4 +128,4 @@
 
 ## 阶段 0 收官验收
 
-四门禁全绿 + D1 八端点真跑 + 前端双树对比可用 + B1–B16 边界闸在真实代码上绿。
+四门禁全绿 + D1 七条 HTTP 路由真跑（口径注同 P0-07 验收行）+ 前端双树对比可用 + B1–B16 边界闸在真实代码上绿。

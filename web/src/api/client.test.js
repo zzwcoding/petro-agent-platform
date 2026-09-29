@@ -1,7 +1,8 @@
 /**
  * api/client 单测（P0-06 验收：client 单测过）——
  * 覆盖：分页信封解包（含 total/page 守卫＋兄弟字段保留）/ X-Dev-User 注入 /
- * 错误包解包＋提示＋抛出 / 409 兜底话术 / 网络异常 /
+ * 错误包解包＋提示＋抛出 / 409 兜底话术 / 网络异常 / AbortError 直通（unmount
+ * 竞窗不弹错不包 ApiError，P0-07 审查 P3）/
  * pollTaskUntilDone 终态判定＋瞬时失败容忍（一次重试，二连败才 failed）。
  */
 
@@ -121,6 +122,15 @@ describe('request —— 统一错误包（00 册 §3）', () => {
     expect(err.status).toBe(0)
     expect(err.message).toContain('服务不可达')
   })
+
+  it('AbortError 直通（unmount 竞窗）：不弹错、不上抛 ApiError，原样透传（P0-07 审查 P3）', async () => {
+    const abortErr = new DOMException('The operation was aborted.', 'AbortError')
+    fetchMock.mockRejectedValueOnce(abortErr)
+    const err = await request('/gateway/models', { signal: new AbortController().signal }).catch(e => e)
+    expect(err).toBe(abortErr)
+    expect(err).not.toBeInstanceOf(ApiError)
+    expect(notifier).not.toHaveBeenCalled() // 取消≠网络故障，不弹「网络异常」toast
+  })
 })
 
 describe('pollTaskUntilDone / isTerminalStatus（00 册 §5）', () => {
@@ -171,6 +181,16 @@ describe('pollTaskUntilDone / isTerminalStatus（00 册 §5）', () => {
     expect(err.status).toBe(0)
     expect(err.message).toContain('服务不可达')
     expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('轮询中请求被 abort：AbortError 直通不占容忍额度（一拍即抛、不重试、不包 ApiError）', async () => {
+    // 前提＝request() 对 AbortError 原样透传——否则这里会被包成 ApiError(0) 计一次
+    // 瞬时失败并重试（旧缺陷行为：两次调用后抛 ApiError）。
+    fetchMock.mockRejectedValue(new DOMException('The operation was aborted.', 'AbortError'))
+    const err = await pollTaskUntilDone({ taskId: 'drill-ab', path: '/gateway/drills', intervalMs: 1 }).catch(e => e)
+    expect(err.name).toBe('AbortError')
+    expect(err).not.toBeInstanceOf(ApiError)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('成功一次归零容忍：失败→成功→再失败仍被容忍，照常到 done', async () => {

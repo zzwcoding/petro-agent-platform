@@ -1,7 +1,8 @@
 """infra.db PG 集成测试——SAVEPOINT 回滚 / EncryptedField SM4 往返 / readonly 双保险。
 
 约定（tickets/phase0/README.md P0-03）：环境变量 TEST_DATABASE_URL 未配置即 skip；
-本地跑法：
+本地跑法（该变量只用于定位服务器与凭据——测试自动改用其 <库名>_test 独立库，
+不碰同服务器演示库 petro，P0-07 审查 P3 测试/演示库分离）：
     export TEST_DATABASE_URL=postgresql+asyncpg://petro:petro@localhost:5433/petro
     uv run pytest tests/infra/test_db_pg.py -q
 """
@@ -27,6 +28,36 @@ from app.infra.db import (
 
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "")
 SM4_TEST_KEY = "0f1e2d3c4b5a69788796a5b4c3d2e1f0"  # 测试专用密钥（hex 32＝16 字节）
+
+
+def _isolated_url() -> URL:
+    """TEST_DATABASE_URL → 独立测试库 URL（<库名>_test；测试/演示库分离，P0-07 审查 P3）。
+
+    环境变量只用于定位服务器与凭据——建表跑测一律落 <db>_test（默认 compose 即
+    petro_test），与 config/database.yaml 演示库 petro 物理隔离：跑 PG 门禁的
+    drop_all/create_all 不再清空演示账本。
+    """
+    url = make_url(TEST_DATABASE_URL)
+    return url.set(database=f"{url.database}_test")
+
+
+async def _ensure_test_database(url: URL) -> None:
+    """测试库不存在则建（CREATE DATABASE IF NOT EXISTS 语义——PG 无原生子句）：
+    连 postgres 维护库查 pg_database，缺则 CREATE DATABASE。建库不能进事务块，
+    连接级 AUTOCOMMIT。"""
+    admin = create_async_engine(url.set(database="postgres"), isolation_level="AUTOCOMMIT")
+    try:
+        async with admin.connect() as conn:
+            exists = (
+                await conn.execute(
+                    text("SELECT 1 FROM pg_database WHERE datname = :name"),
+                    {"name": url.database},
+                )
+            ).scalar()
+            if not exists:
+                await conn.execute(text(f'CREATE DATABASE "{url.database}"'))
+    finally:
+        await admin.dispose()
 
 
 class _PgBase(DeclarativeBase):
@@ -77,7 +108,8 @@ def _spec_from_url(url: URL, role: DatabaseRole, *, readonly: bool = False) -> D
 async def db() -> AsyncIterator[ConnectionManager]:
     if not TEST_DATABASE_URL:
         pytest.skip("TEST_DATABASE_URL 未配置——PG 集成测试跳过（约定见票面）")
-    url = make_url(TEST_DATABASE_URL)
+    url = _isolated_url()  # 演示库隔离：环境变量只定位服务器，测试落 <库名>_test
+    await _ensure_test_database(url)
     manager = ConnectionManager(
         [
             _spec_from_url(url, "primary"),

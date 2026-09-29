@@ -171,6 +171,10 @@ export async function request(path, opts = {}) {
       signal
     })
   } catch (err) {
+    // AbortError 直通（unmount 竞窗 / 主动取消不属网络故障，P0-07 审查 P3）：
+    // 包成 ApiError(0) 会误弹「网络异常」toast、且被 pollTaskUntilDone 误计一次
+    // 瞬时失败——「AbortError 直通不占容忍额度」的承诺由本行兑现。
+    if (err && err.name === 'AbortError') throw err
     // 网络层失败（后端未起 / 断网）——没有错误包，提示＋抛 ApiError(0)
     const msg = '网络异常：服务不可达（检查后端 :8000 与 vite proxy）'
     notify('error', msg)
