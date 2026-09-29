@@ -51,9 +51,20 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.types import Text, TypeDecorator
 
 LOGGER = logging.getLogger("infra.db")
+
+
+class Base(DeclarativeBase):
+    """全平台 ORM 声明基座（P0-04 起）：各域模型共用一个 MetaData。
+
+    放 infra 的理由：B3「全平台唯一 DB 出口」的自然延伸——metadata 归一后
+    P0-08 Alembic 迁移分组才有单一 autogenerate 源，跨域外键共一张关系图。
+    模型文件仍归各域包（app/domains/<m>/store.py，99 §4.3 归属裁决），
+    本基座不反向 import 任何域（B16 不变）。
+    """
 
 DatabaseRole = Literal["primary", "replica", "midplatform"]
 

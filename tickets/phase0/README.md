@@ -29,10 +29,24 @@
 > 6. **事件挂载点**：引擎事件挂 `engine.sync_engine`、flush 守卫挂 `session.sync_session`（SQLAlchemy 2.1 异步事件未实现的官方路径），语义同 99。
 > 7. **config 载体**：模型注册表 `config/models.yaml`（D1 真源）＋新增 `config/database.yaml`（`DatabaseSpec` 供给——99 §4.2「config.yaml 装载，infra.config 供给」）；凭证经 `${VAR:-默认}` 占位符由环境变量/.env 注入（.env 不进 git）。
 
-## P0-04 security 模块：身份桩 + 审计写口
+## P0-04 security 模块：身份桩 + 审计写口 ✅（2026-09-29）
 
 - `X-Dev-User` 请求头解析 → `resolve_actor()`（OAuth2.0 替换缝）；横切审计唯一写口 `security.audit`（B12，append-only 表按 99 册）。
-- 验收：D3 合同身份/审计相关端点骨架过；B1/B2 不红。
+- 验收 ✅：D3 合同身份/审计相关端点骨架过（端点 14 `audit-logs`：身份桩依赖＋默认角色过组闸＋401/403 错误包＋分页读面真库往返）；B1/B2 不红（lint-imports 3 契约 KEPT）。
+- 落地：`app/domains/security/`（domain 厚：五角色注册表照抄 roles.js/resolve_actor/authorize 组闸/四槽 AuditRow＋SM3 digest；store：`audit_log` 99 §2.1 逐字段＋append-only 仓储＋`ensure_audit_table` 建表函数；service 薄：`SecurityService.audit/audit_logs`）＋ `app/api/`（deps：`current_actor` 依赖＋`get_db/get_security` 定位；errors：00 §3 统一错误包装配；security.py：端点 14 骨架）＋ `app/main.py` lifespan 装配（ConnectionManager＋security 服务）。
+- 测试：身份桩三态（有头/无头→默认角色/非法值→401）＋组闸 403＋digest 确定性；audit 往返 sqlite 单测＋PG 集成（bigserial/jsonb/timestamp 真库断言＋SM3 复算）；B12 唯一写口结构断言（service 公开面仅 audit/audit_logs，store 无 update/delete 出口、不继承 Repository）。四门禁绿；无 TEST_DATABASE_URL 66 passed 8 skipped，带 PG16@5433 74 passed 零跳过。
+
+> **与合同的差异点登记（现实约束按现实落地，语义不私改）**：
+> 1. **infra.db 增设共享 ORM 基座 `Base`**（DeclarativeBase）：99 §4.2 雏形未含 Base、P0-03 未落；各域模型共用一个 MetaData 是 P0-08 Alembic 迁移分组单一 autogenerate 源与跨域 FK 共图的前提——模型文件仍归各域包（99 §4.3 归属不变），B16/B1 不红。
+> 2. **建表走 `ensure_audit_table`**（store.py，checkfirst）：P0-08 前无 Alembic（票面约定）；表结构与 99 §2.1 逐字段一致（id bigserial/time/who/action/content/digest/meta jsonb＋基线列 created_at/updated_at＋idx(time desc)），PG 集成按 information_schema 逐列断言。
+> 3. **digest 哈希输入口径（合同悬置处的本仓拍板）**：99/D3 只定「SM3 摘要指纹、应用层写入、永不落正文」，未定输入串——落 `SM3("ISO时间|who|action|content")`（canonical，`domain.audit_digest` 单点持有；变更口径即换指纹空间）。
+> 4. **`audit(row)` 增可选 `session` 参数**：98 卡签名为 `audit(row: AuditRow) -> None`——真实落位加 `session=None`（传入＝调用方事务内同事务追加，B12「随各聚合事务落库」形状；缺省自管会话独立提交）。返回值仍 None，照卡。
+> 5. **authorize 本票只落 PageGroup 组闸分支**：六组级 roles 照抄 roles.js MENU（00 §9.2「运行时以 roles.js 为准」）；Capability（五层能力闸）分支随 D3 权限矩阵批扩展。页级细分（A3/C2/C3/F1 等）随各页票。
+> 6. **业务错误码新立三值**（00 §3.3 只定 `<域>_<语义>` 蛇形规则、未冻结字符串）：`security_unauthenticated`（401 身份解析失败）/`security_forbidden`（403 直调越权）/`request_invalid`（400 入参形状非法——FastAPI 缺省 422 与 00 §3.2「请求还没进门＝400」冲突，统一收口映射 400）。
+> 7. **D3 audit-logs 直接落 snake_case**：R1 裁决「接线批 mock→真实切换时一次性改字段名（值、语义、路径均不变）」——本端点即真实接线，按 R1 指定时序落 `page_size`（query 参数 `page/pageSize` 保留现拼写）；D3 册正文的 camelCase→snake 迁移行仍欠登记（设计仓下一版义务，本仓不代改）。
+> 8. **审计 time 出 ISO 8601 机器时间戳**（00 §1.4 判据：参与排序、idx(time desc)）；D3 册未冻结该项示例值。
+> 9. **sys_user 未落**：本票身份解析走静态角色注册表（roles.js 冻结值；默认角色＝aqiang，docs/prd.md 拍板回执），`sys_user` 种子装载随 D3 整页票/OAuth 账号映射批落库——五角色键/label 与 roles.js 逐字一致，语义无出入。
+> 10. **AuditFilter 预留 who/action 两槽**：D3 册端点 14 未冻结筛选参数，读面留 `who/action` 可选槽（空＝全量倒序）。
 
 ## P0-05 gateway 模块 + D1 页面后端（8 端点）
 
