@@ -7,7 +7,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  ApiError, DEFAULT_DEV_USER, getDevUser, get, isTerminalStatus, pollTaskUntilDone,
+  ApiError, DEFAULT_DEV_USER, getDevUser, get, isTerminalStatus, pollTaskUntilDone, put,
   request, setApiNotifier, unwrapEnvelope
 } from './client.js'
 
@@ -181,5 +181,71 @@ describe('pollTaskUntilDone / isTerminalStatus（00 册 §5）', () => {
     const { status } = await pollTaskUntilDone({ taskId: 'drill-t3', path: '/gateway/drills', intervalMs: 1 })
     expect(status).toBe('done')
     expect(fetchMock).toHaveBeenCalledTimes(4)
+  })
+})
+
+// ── P0-07 底座补件增测：snake 信封 page_size / put 便捷式 / 轮询 onProgress ──
+
+describe('unwrapEnvelope —— snake 信封 page_size 同义归一（P0-07 底座补件）', () => {
+  it('后端 R1 snake 回显 page_size 归一为 camel pageSize（D1 端点 4 实测形状）', () => {
+    const out = unwrapEnvelope({ items: [{ id: 'call-1' }], total: 31, page: 3, page_size: 15 })
+    expect(out.pageSize).toBe(15)
+    expect(out.total).toBe(31)
+    expect(out.page).toBe(3)
+    expect(out.page_size).toBe(15) // 兄弟字段照旧保留
+  })
+
+  it('camel pageSize 在场时优先 camel（向后兼容 mock 形状）', () => {
+    const out = unwrapEnvelope({ items: [], total: 0, page: 1, pageSize: 15 })
+    expect(out.pageSize).toBe(15)
+  })
+})
+
+describe('put 便捷式（P0-07 底座补件：D1 端点 3 首个 PUT 消费方）', () => {
+  it('PUT 方法 + JSON 体拼装，走统一错误包与信封路径', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { params: { allowed_fails: 2 }, yaml: '# y' }))
+    const out = await put('/gateway/config', { params: { allowedFails: 2 } })
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/api/gateway/config')
+    expect(init.method).toBe('PUT')
+    expect(JSON.parse(init.body)).toEqual({ params: { allowedFails: 2 } })
+    expect(out.yaml).toBe('# y')
+  })
+
+  it('PUT 非 2xx 照常抛 ApiError（400 参数越界）', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(400, {
+      code: 'gateway_param_invalid', message: '参数越界', detail: [{ field: 'allowed_fails', range: '1-10' }]
+    }))
+    const err = await put('/gateway/config', { params: {} }).catch(e => e)
+    expect(err).toBeInstanceOf(ApiError)
+    expect(err.status).toBe(400)
+  })
+})
+
+describe('pollTaskUntilDone onProgress（P0-07 底座补件：进行中快照实时回调）', () => {
+  it('每次成功轮询（含 running 中间态）都回调，终态那次也回调后返回', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { status: 'running', nodes: [{ key: 'fail1', state: 'process' }] }))
+      .mockResolvedValueOnce(jsonResponse(200, { status: 'done', nodes: [{ key: 'fail1', state: 'finish' }], result: { ok: 1 } }))
+    const seen = []
+    const { status } = await pollTaskUntilDone({
+      taskId: 'drill-p1', path: '/gateway/drills', intervalMs: 1, onProgress: d => seen.push(d.status)
+    })
+    expect(status).toBe('done')
+    expect(seen).toEqual(['running', 'done'])
+  })
+
+  it('onProgress 抛错不打断轮询（fail-safe），照常收场 done', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { status: 'running' }))
+      .mockResolvedValueOnce(jsonResponse(200, { status: 'done' }))
+    const { status } = await pollTaskUntilDone({
+      taskId: 'drill-p2', path: '/gateway/drills', intervalMs: 1, onProgress: () => { throw new Error('render boom') }
+    })
+    expect(status).toBe('done')
+  })
+
+  it('不传 onProgress 行为不变（向后兼容）', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { status: 'done', result: { x: 1 } }))
+    const { data } = await pollTaskUntilDone({ taskId: 'drill-p3', path: '/gateway/drills', intervalMs: 1 })
+    expect(data.result.x).toBe(1)
   })
 })

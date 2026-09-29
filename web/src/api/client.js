@@ -22,7 +22,7 @@
  *   dynamic import + setApiNotifier 可替换。
  */
 
-import { useState, useEffect } from 'react'
+import { useRef, useState, useEffect } from 'react'
 
 /** API 根路径：默认 '/api'（同源＋vite proxy），VITE_API_BASE 可覆盖。 */
 export const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE) || '/api'
@@ -143,7 +143,11 @@ export function unwrapEnvelope(data) {
   return {
     ...d,
     page: typeof d.page === 'number' ? d.page : 1,
-    pageSize: typeof d.pageSize === 'number' ? d.pageSize : d.items.length,
+    // 后端 R1 裁决响应字段统一 snake_case——分页信封回显为 page_size（D1 端点 4 实测），
+    // 归一化时作为 camel pageSize 的同义来源；两者皆缺才按 items 长度兜底。
+    pageSize: typeof d.pageSize === 'number'
+      ? d.pageSize
+      : (typeof d.page_size === 'number' ? d.page_size : d.items.length),
     total: typeof d.total === 'number' ? d.total : d.items.length,
     counts: (d.counts && typeof d.counts === 'object') ? d.counts : null
   }
@@ -201,6 +205,14 @@ export function post(path, body, opts = {}) {
   return request(path, { method: 'POST', body, signal: opts.signal })
 }
 
+/**
+ * PUT 便捷式（P0-07 底座补件：D1 端点 3「保存调用参数」是平台第一个 PUT 消费方）。
+ * @param {string} path @param {unknown} [body] @param {{signal?: AbortSignal}} [opts]
+ */
+export function put(path, body, opts = {}) {
+  return request(path, { method: 'PUT', body, signal: opts.signal })
+}
+
 // ── 异步任务轮询（00 册 §5：202 受理 → 轮询 → 终态；11 处先例同构） ──
 
 /**
@@ -228,11 +240,15 @@ const TASK_FAILED = new Set(['failed', 'stuck'])
  * 瞬时失败容忍：轮询中单次请求失败（网络抖动/网关 5xx）不立判整体 failed——
  * 同任务容忍一次、下一节奏重试；连续两次失败才向上抛（useTaskPolling 收到
  * 置 failed）；期间任一次成功即归零计数。AbortError 直通不占容忍额度。
- * @param {{taskId: string, path: string, intervalMs?: number, signal?: AbortSignal}} args
- *   path 为任务资源 GET 前缀（如 '/gateway/drills' → GET /api/gateway/drills/{taskId}）
+ * @param {{taskId: string, path: string, intervalMs?: number, signal?: AbortSignal,
+ *   onProgress?: (data: any) => void}} args
+ *   path 为任务资源 GET 前缀（如 '/gateway/drills' → GET /api/gateway/drills/{taskId}）；
+ *   onProgress（P0-07 底座补件）：每次成功轮询（含进行中快照）即回调一次——
+ *   D1 演练四步节点进度靠它实时渲染（原型页 300ms 一拍逐步点亮）；回调抛错
+ *   不打断轮询（fail-safe，进度渲染失败不该弄死任务收场）。
  * @returns {Promise<{status: string, data: any}>} 终态行（含 status/nodes/current_step/result…）
  */
-export async function pollTaskUntilDone({ taskId, path, intervalMs = 1500, signal }) {
+export async function pollTaskUntilDone({ taskId, path, intervalMs = 1500, signal, onProgress }) {
   let transientFailures = 0
   while (true) {
     /** @type {any} */ let data = null
@@ -245,6 +261,9 @@ export async function pollTaskUntilDone({ taskId, path, intervalMs = 1500, signa
       if (transientFailures >= 2) throw err
     }
     if (data) {
+      if (onProgress) {
+        try { onProgress(data) } catch { /* 进度回调失败不影响轮询收场 */ }
+      }
       const status = String(data.status || '')
       if (isTerminalStatus(status)) return { status, data }
     }
@@ -261,13 +280,19 @@ export async function pollTaskUntilDone({ taskId, path, intervalMs = 1500, signa
  *   // status: 'idle'（无任务号）| 'polling' | 'done' | 'failed'
  *   // data:   终态任务行（nodes 四态/current_step/result…，形状按各册合同）
  *
+ * onProgress（P0-07 底座补件）：轮询中每次成功快照即回调（进行中状态可见）——
+ * 回调身份允许每渲染变化（内部 ref 转发，不触发重新轮询）。
+ *
  * @param {string | null} taskId 受理响应里的任务号（drill-…/task-…/run-…）；null/空串不轮询
- * @param {{path: string, intervalMs?: number}} opts path＝任务资源 GET 前缀；intervalMs 轮询节奏
+ * @param {{path: string, intervalMs?: number, onProgress?: (data: any) => void}} opts
+ *   path＝任务资源 GET 前缀；intervalMs 轮询节奏
  *   （00 §5.2：轮询节奏由服务端真实进度决定，页面演示动画不入合同）
  * @returns {{status: 'idle'|'polling'|'done'|'failed', data: any, error: Error | null}}
  */
 export function useTaskPolling(taskId, opts) {
-  const { path, intervalMs = 1500 } = opts
+  const { path, intervalMs = 1500, onProgress } = opts
+  const progressRef = useRef(onProgress)
+  progressRef.current = onProgress
   const [state, setState] = useState(/** @type {{status: any, data: any, error: any}} */ ({ status: taskId ? 'polling' : 'idle', data: null, error: null }))
 
   useEffect(() => {
@@ -277,7 +302,7 @@ export function useTaskPolling(taskId, opts) {
     }
     const ctrl = new AbortController()
     setState({ status: 'polling', data: null, error: null })
-    pollTaskUntilDone({ taskId, path, intervalMs, signal: ctrl.signal })
+    pollTaskUntilDone({ taskId, path, intervalMs, signal: ctrl.signal, onProgress: d => progressRef.current?.(d) })
       .then(({ status, data }) => setState({
         status: TASK_FAILED.has(status) ? 'failed' : 'done',
         data,
