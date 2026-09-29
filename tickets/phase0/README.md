@@ -57,6 +57,26 @@
 - ~~挂账待 Owner：模型价格表~~ 已给（2026-09-29 裁决：两模型统一 百万输入 1 元/百万输出 3 元，prices.default 已落 config/models.yaml）。
 - 验收：D1 合同行为规则逐条过 + 演练真切换一次模型留痕。
 
+## P0-05 gateway 模块 + D1 页面后端 ✅（2026-09-30）
+
+- `app/infra/llm_client.py`：LiteLLM SDK 内嵌 adapter（B6 唯一 SDK 接触点；`litellm.acompletion` 同头注释已验证形状的异步形式；SDK 重试恒关 num_retries=0——W-F2-4 重试只走网关层）；上游异常单点归类椒图判据（网络错/超时/5xx＝UpstreamUnavailable 可切备，4xx/429＝UpstreamRejected 不切）。
+- `app/domains/gateway/`（domain 厚）：complete（运行时唯一 LLM 出口——别名路由/fallback 状态机 allowed_fails+cooldown/同别名 num_retries 重试/预算双阈值熔断单向置位→降级组 standard→lite 改路由不拒绝/调用粒度记账 Owner 公式/演练状态机）＋ store（gateway_spend_record/gateway_drill_run/gateway_budget_config 三表按 99 §2.13 逐字段，ensure_gateway_tables 沿 P0-04 惯例）＋ service 薄。B6 升机检：import-linter 第 4 契约（litellm 全仓只许 infra.llm_client import）。
+- `app/api/gateway.py`：D1 路由族 7 条（models/config 读写/spend-logs/drills 三连）全落，组闸复用 SettingsActor（设置中心＝平台运维，D1 权限行）；错误码四新值 gateway_param_invalid/gateway_drill_not_found/gateway_drill_conflict/gateway_config_write_failed。
+- 验收 ✅：四门禁绿（ruff/mypy strict 34 文件/lint-imports 4 契约 KEPT/无 PG 123 passed 12 skipped）；PG16@5433 135 passed 零跳过；真装配冒烟两件——①真 complete 走 petro-main 记账落库（call-64ef2c41，168/2 token，¥0.000174），②真演练一次：注入 2 次失败→主用冷却→**真切换 petro-lite 应答留痕**（drill-84054290，账本 +1 条 fallback=true 行 ¥0.001382），轮询页徽标 degraded、演练历史/keyword 检索全过。litellm 进主依赖（uv add，1.75 系传递闭包）。
+
+> **与合同的差异点登记（现实约束按现实落地，语义不私改）**：
+> 1. **「8 端点」口径**：票面 8＝98 卡 D1 面 8 方法（含 complete 运行时出口）；HTTP 路由 98 §7 登记表冻结 7 条——本票落 7 条路由＋complete()。
+> 2. **响应字段 snake_case（R1 接线批一次性改）**：D1 册 camelCase（drillId/inputTokens/modelKey/allowedFails…）→ 本端点即真实接线直接落 snake（drill_id/input_tokens/model_key/allowed_fails…）；query `page/pageSize` 保留现拼写（R1 原文）；演练 result 内 `ledgerRow`→`ledger_row`。D1 册正文的 camelCase→snake 迁移行挂设计仓下一版义务（本仓不代改，同 P0-04 差异 7 先例）。
+> 3. **models.yaml 增补**（D1 真源文件内，业务事实零新增）：①models 条目补 name/access/note 三展示字段（D1 端点 1 列形；取值＝文件既有注释原话）；②文件尾新立 `gateway:` 段承载四参数（"表单里每个数字对应文件里的一行"的真源落位；缺省 2/60/3/30＝D1 合同示例值）；③PUT 写回＝gateway 段原位重写（行内注释保留、重复保存幂等不重段），其余字节逐字不动、${VAR} 占位符永不落明文——冒烟实证（重复 PUT 两次文件仍恰一段）。
+> 4. **first_ms 口径**：非流式调用 TTFT 不可观测——账本 first_ms 落 total_ms 同值（数据形状红线已满足：整数毫秒）；真 TTFT 随 chat SSE 流式批再分列。
+> 5. **演练机制**：ADR"演练＝平台侧开关临时摘主模型路由"落 gateway 域内 fault 开关——注入步不产生上游流量（直驱 allowed_fails 状态机直至冷却），最后一步是真实备用调用（演练即真实流量，D1 行为规则 3）；节点步进缺省 0.6s/步、构造参数可注（演示节奏不入合同，00 §5.2）；备用也应答失败时按 R4 双态合同收口 done（人话 summary＋result 空），不发明第三态。
+> 6. **演练窗口 403 校验未落**：D1 行为规则 2 自标"预留"——挂演练窗口配置批（端点侧组闸 403 已有）。
+> 7. **budget 判据先于 D5 页落位**：D5 面 budget/save_budget 端点未动（阶段 1），但判据消费方在本域 complete——gateway_budget_config 表已建、首次读取自动种子合同默认值（单次 0.05 元/月度 800 元，D5 §8＝F2 改注）；熔断位进程内存单向置位不自动恢复（F2 改注原文"进程生命周期内"），无 DB 持久化。
+> 8. **4xx/429 重试语义拍板**：椒图蓝本只定"4xx/429 不切备"；是否同别名重试合同未冻结——本仓拍板不重试、直抛调用方；网络错/超时/5xx 同别名重试 num_retries 次全败才计一次别名失败再切备（Router 口径，W-F2-4/5）。429 退避重试挂实施批。
+> 9. **spend-logs keyword 内存过滤**：演示量级下取回后内存匹配调用号/备注，不走 SQL LIKE（索引不背 keyword）；量级增长换 pgTrgm 挂实施批。备注缺省＝caller 标识（keyword 可检索；显式 note 优先）。
+> 10. **98 卡 save_gateway_config 的 actor 槽差异**：卡面 `(params, actor: Actor)`——本票配置真源为文件、域内无 who 落点，且 gateway 卡依赖行明示"无业务模块依赖"（不 import security.Actor）；接口层以组闸控权、保存经 security.audit 写 B12 审计（api 层编排，gateway 域不反向依赖 security）。
+> 11. **新立业务错误码四值**（00 §3.3 只定 `<域>_<语义>` 规则、未冻结字符串；登记同 P0-04 差异 6 惯例）：`gateway_param_invalid`/`gateway_drill_not_found`/`gateway_drill_conflict`/`gateway_config_write_failed`。
+
 ## P0-06 前端底座（web/ fork + 五件）
 
 - prototype/app → web/ fork（snapshot）；去 singlefile；vite proxy→:8000；eslint 进 CI。

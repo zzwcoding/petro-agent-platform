@@ -1,0 +1,71 @@
+"""domains.gateway —— 模型网关与观测域公开出口（B2：router 只 import 本包公开名）。
+
+运行时唯一 LLM 出口＝GatewayService.complete（B6：全平台模型调用唯一经
+gateway.complete；infra.llm_client 唯一消费方＝gateway）。D5 观测面
+（/api/observe/* 的 10 方法）属阶段 1 D5 页票，本包暂不公开。
+"""
+
+from app.domains.gateway.domain import (
+    DEGRADE_GROUP,
+    PARAM_LIMITS,
+    Completion,
+    ConfigWriteError,
+    DrillConflictError,
+    DrillHandle,
+    DrillNode,
+    DrillNotFoundError,
+    DrillProgress,
+    DrillResult,
+    DrillSummary,
+    FallbackDetail,
+    GatewayConfigError,
+    GatewayParams,
+    GatewayParamsView,
+    ModelRegistryView,
+    ModelView,
+    NoAvailableRoute,
+    PriceSpec,
+    RouterState,
+    SpendFilter,
+    SpendLogPage,
+    SpendView,
+    build_drill_nodes,
+    cost_yuan,
+    estimate_tokens,
+    keyword_matches,
+    project_models,
+)
+from app.domains.gateway.service import CompletionBackend, GatewayService
+
+__all__ = [
+    "DEGRADE_GROUP",
+    "PARAM_LIMITS",
+    "Completion",
+    "CompletionBackend",
+    "ConfigWriteError",
+    "DrillConflictError",
+    "DrillHandle",
+    "DrillNode",
+    "DrillNotFoundError",
+    "DrillProgress",
+    "DrillResult",
+    "DrillSummary",
+    "FallbackDetail",
+    "GatewayConfigError",
+    "GatewayParams",
+    "GatewayParamsView",
+    "GatewayService",
+    "ModelRegistryView",
+    "ModelView",
+    "NoAvailableRoute",
+    "PriceSpec",
+    "RouterState",
+    "SpendFilter",
+    "SpendLogPage",
+    "SpendView",
+    "build_drill_nodes",
+    "cost_yuan",
+    "estimate_tokens",
+    "keyword_matches",
+    "project_models",
+]

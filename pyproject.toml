@@ -17,6 +17,7 @@ dependencies = [
     "apscheduler>=3.10,<4",
     "pyyaml>=6.0",
     "gmssl>=3.2",          # SM3/SM4（infra.crypto）
+    "litellm>=1.103.0",
 ]
 
 [dependency-groups]
@@ -73,3 +74,12 @@ name = "B1 领域与基础设施禁触框架（fastapi/starlette 唯一接触面
 type = "forbidden"
 source_modules = ["app.domains", "app.infra"]
 forbidden_modules = ["fastapi", "starlette"]
+
+[[tool.importlinter.contracts]]
+name = "B6 供应商 SDK 唯一接触点（litellm 只在 infra.llm_client——gateway 是唯一消费方）"
+type = "forbidden"
+source_modules = ["app"]
+forbidden_modules = ["litellm"]
+ignore_imports = [
+    "app.infra.llm_client -> litellm",
+]

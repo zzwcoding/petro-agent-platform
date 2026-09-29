@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+from collections.abc import Mapping
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -103,6 +104,10 @@ class ModelEntry(BaseModel):
     api_key: str = ""
     context_window: int = 0
     group: str = "standard"
+    # D1 model_list 展示三件（缺省回退＝model 名/空注记——gateway 投影消费）
+    name: str = ""
+    access: str = ""
+    note: str = ""
 
 
 class RoutingConfig(BaseModel):
@@ -115,10 +120,24 @@ class PricesConfig(BaseModel):
     output_per_mtok: float = 0.0
 
 
+class GatewayParamsSpec(BaseModel):
+    """models.yaml `gateway:` 段——D1 配置面四参数（数值边界校验归 gateway 域，本类只承形状）。
+
+    真源纪律（00 §13 档①直改即生效）：D1 端点 3 保存＝写回本段四行＋热加载；
+    "表单里每个数字对应文件里的一行"。缺省值＝D1 合同示例值。
+    """
+
+    allowed_fails: int = 2
+    cooldown_seconds: int = 60
+    num_retries: int = 3
+    request_timeout: int = 30
+
+
 class ModelsConfig(BaseModel):
     models: list[ModelEntry] = Field(default_factory=list)
     routing: RoutingConfig = RoutingConfig()
     prices: dict[str, PricesConfig] = Field(default_factory=dict)
+    gateway: GatewayParamsSpec = Field(default_factory=GatewayParamsSpec)
 
 
 _models_cache: ModelsConfig | None = None
@@ -144,6 +163,65 @@ def get_models_config() -> ModelsConfig:
 def reload_models_config() -> ModelsConfig:
     """热加载缝：D1 端点 3「写回 config.yaml 并热加载」的读侧落点。"""
     return load_models_config()
+
+
+# ---------- D1 配置面写回（gateway 段四参数；写边界归 gateway 域，文件 IO 归本模块） ----------
+
+# gateway 段块头（块体＝四行 key: value，至下一个顶层键或 EOF）；顶格无缩进。
+# 行内注释保留权在写回方：块头/块体都带注解，写回后文件仍自释（"表单里每个
+# 数字对应文件里的一行"）。
+_GATEWAY_BLOCK_HEAD = "gateway:"
+_GATEWAY_BLOCK_BODY = (
+    "  allowed_fails: {allowed_fails}           # 连续失败判故障阈值，1–10",
+    "  cooldown_seconds: {cooldown_seconds}       # 故障冷却秒数，10–600",
+    "  num_retries: {num_retries}             # 网关层重试次数，0–5（业务侧永不重试）",
+    "  request_timeout: {request_timeout}        # 单次调用超时秒，5–120",
+)
+
+
+def _top_level_key(line: str) -> str:
+    """顶格键名（剥行内注释与空白）——空串＝非顶层键行。"""
+    bare = line.split("#", 1)[0].rstrip()
+    if not bare or bare[0] in (" ", "\t", "-"):
+        return ""
+    return bare.split(":", 1)[0].strip()
+
+
+def read_models_yaml_text(path: Path | None = None) -> str:
+    """models.yaml 全文原样读出（D1 端点 2 `yaml` 字段＝「config.yaml 全文」）。"""
+    return (path or MODELS_YAML).read_text(encoding="utf-8")
+
+
+def upsert_gateway_params(
+    params: Mapping[str, int], path: Path | None = None
+) -> ModelsConfig:
+    """写回 gateway 段四行并热加载（D1 端点 3；其余段零改动）。
+
+    块替换策略：定位顶格 `gateway:` 段（行内注释不碍匹配），吞掉其后缩进行/
+    空行至下一个顶格键或 EOF，原位重写注解块——文件里其余字节（头注释/
+    占位符）逐字保留，密钥占位符 ${VAR} 永不落明文。无块则文件尾追加。
+    """
+    target = path or MODELS_YAML
+    text = target.read_text(encoding="utf-8")
+    order = ("allowed_fails", "cooldown_seconds", "num_retries", "request_timeout")
+    missing = [key for key in order if key not in params]
+    if missing:
+        raise ValueError(f"gateway 参数缺项: {missing}")
+    values = {key: int(params[key]) for key in order}
+    head_note = "                     # D1 配置面四参数（端点 3 保存＝写回本段并热加载）"
+    block = [_GATEWAY_BLOCK_HEAD + head_note]
+    block += [line.format(**values) for line in _GATEWAY_BLOCK_BODY]
+    lines = text.splitlines()
+    start = next((i for i, ln in enumerate(lines) if _top_level_key(ln) == "gateway"), None)
+    if start is None:
+        rendered = text.rstrip("\n") + "\n\n" + "\n".join(block) + "\n"
+    else:
+        end = start + 1
+        while end < len(lines) and (lines[end].startswith((" ", "\t")) or not lines[end].strip()):
+            end += 1
+        rendered = "\n".join([*lines[:start], *block, *lines[end:]]) + "\n"
+    target.write_text(rendered, encoding="utf-8")
+    return load_models_config(target)  # 热加载同一目标文件（缓存随之指向新配置）
 
 
 # ---------- 数据库连接规格（→ infra.db.DatabaseSpec） ----------

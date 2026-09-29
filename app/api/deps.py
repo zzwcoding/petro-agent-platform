@@ -14,6 +14,7 @@ from typing import Annotated, cast
 
 from fastapi import Depends, Header, Request
 
+from app.domains.gateway import GatewayService
 from app.domains.security import (
     Actor,
     SecurityService,
@@ -58,5 +59,11 @@ def get_security(request: Request) -> SecurityService:
     return cast(SecurityService, request.app.state.security)
 
 
+def get_gateway(request: Request) -> GatewayService:
+    """gateway 服务定位（lifespan 装配于 app.state——main.py）。"""
+    return cast(GatewayService, request.app.state.gateway)
+
+
 DbDep = Annotated[ConnectionManager, Depends(get_db)]
 SecurityDep = Annotated[SecurityService, Depends(get_security)]
+GatewayDep = Annotated[GatewayService, Depends(get_gateway)]

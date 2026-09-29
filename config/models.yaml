@@ -18,6 +18,9 @@ models:
     api_key: ${MINIMAX_API_KEY}
     context_window: 1000000
     group: standard
+    name: MiniMax-M3                     # D1 model_list 展示名
+    access: Anthropic 兼容接口 · MiniMax 线路
+    note: 问答/问数/问智默认出口
   - alias: petro-lite          # 备用/降级组：fallback 与预算熔断的便宜出口
     provider: anthropic
     model: glm-5.3-flash
@@ -25,10 +28,18 @@ models:
     api_key: ${GLM_API_KEY}
     context_window: 1000000
     group: lite
+    name: glm-5.3-flash
+    access: Anthropic 兼容接口 · 智谱线路
+    note: 备用/降级组——fallback 与预算熔断的便宜出口
 routing:
   default: petro-main
-  fallback_order: [petro-main, petro-lite]   # allowed_fails/cooldown/预算阈值由 D1 配置面热加载
+  fallback_order: [petro-main, petro-lite]   # allowed_fails/cooldown 见下方 gateway 段（D1 配置面写回并热加载）
 prices:
   default:                   # Owner 2026-09-29 裁决：两模型统一价——记账金额=input_tokens/1e6*1 + output_tokens/1e6*3（元）
     input_per_mtok: 1.0      # 元/百万输入 token
     output_per_mtok: 3.0     # 元/百万输出 token
+gateway:                     # D1 配置面四参数（端点 3 保存＝写回本段并热加载）
+  allowed_fails: 2           # 连续失败判故障阈值，1–10
+  cooldown_seconds: 60       # 故障冷却秒数，10–600
+  num_retries: 3             # 网关层重试次数，0–5（业务侧永不重试）
+  request_timeout: 30        # 单次调用超时秒，5–120
