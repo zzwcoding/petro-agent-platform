@@ -1,0 +1,6 @@
+[submodule "ontology"]
+	path = ontology
+	url = ../petro-ontology
+[submodule "data-plane"]
+	path = data-plane
+	url = ../tpa-data-plane

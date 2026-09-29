@@ -1,7 +1,13 @@
 # Petro-Agent 平台（真实实现仓）
 
-> 主平台单体实现仓：**后端 `app/`（Python 3.12 + uv · FastAPI）+ 前端 `web/`（React18+antd5，由 teach-petro-agent/prototype fork 改造）**。
-> 三仓鼎立：本仓（主平台）· [petro-ontology](../petro-ontology)（本体资产）· [tpa-data-plane](../tpa-data-plane)（数据面）。
+> 单仓聚合三分区：**后端 `app/`（Python 3.12 + uv · FastAPI）· 前端 `web/`（React18+antd5，由 teach-petro-agent/prototype fork 改造）· 子仓 `ontology/`（本体资产）· 子仓 `data-plane/`（数据面服务）**。
+> 子仓＝git submodule，各自独立 git/历史/纪律（Owner 2026-09-29 拍板，ADR-0008）：本体仓守 all-agent 纪律、数据面仓守其 ADR 链，父仓只做聚合与指针。
+
+## 克隆（注意子模块）
+
+```bash
+git clone --recurse-submodules <本仓地址>     # 或事后：git submodule update --init
+```
 
 ## 设计真源（不复制进本仓）
 
@@ -11,7 +17,7 @@
 | 架构图 v1（已过审 ADR-0006） | `teach-petro-agent/docs/architecture-v1.md` |
 | 前端底座设计 | `teach-petro-agent/specs/frontend-foundation.md` |
 | 阶段规划 | `teach-petro-agent/docs/roadmap.md` |
-| ADR 链 0003–0007 | `teach-petro-agent/docs/adr/` |
+| ADR 链 0003–0008 | `teach-petro-agent/docs/adr/` |
 
 ## 快速开始
 
@@ -28,7 +34,15 @@ app/api/       接口层：20 个路由族薄壳，只调 domains 公开接口�
 app/domains/   14 模块（3 组）：service.py 薄 + domain.py 厚；模块间只走公开接口+领域事件（B11）
 app/infra/     11 adapter：db/graph_store/object_storage/queue/sse_channel/eventbus/clock/
                scheduler/crypto/config/llm_client——唯一经允许的底层接触面（B3/B6）
+ontology/      子仓：本体资产（Git+YAML 真源，all-agent 纪律见其 AGENTS.md；语义闸 ci.sh）
+data-plane/    子仓：数据面服务（进料→清洗→出汇总→质检→报水位，纪律见其 AGENTS.md）
 ```
+
+## 子仓纪律（submodule 三铁律）
+
+1. 子仓内容**回各自仓提交推送**（cd ontology && git commit…），父仓只更新指针提交；
+2. 子仓在父仓默认 detached HEAD，开发前先 `git -C <子仓> checkout <分支>`；
+3. 改子仓内容必伴随父仓指针提交，否则克隆者拿到旧版本。
 
 层间依赖单向向下（B16），边界规则逐条进 `import-linter`（见 pyproject），CI 四门禁：lint/类型/测试/边界闸。
 
