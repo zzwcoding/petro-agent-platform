@@ -1,0 +1,49 @@
+{
+  "skill": "schema-check-self（petro-ontology 语义闸自证出厂集）",
+  "description": "本仓语义闸的自证：①闸对 fork 域 bohai 放行（7 文件 L1-L4 零红）；②闸对缺必填字段的坏例拦下（cmd-fails + L1 指认）——约定不落闸等于没有，闸的自证落出厂集（All-agent fixture_run 手法，AC 真源=ADR-0004 轨道 0）。cwd=仓根，打仓内真身（单一真源不复制）。 联合变更批二增补：L3-5 口径登记机检四闸码（mark 值域/defaultCaliber 咬合/ambiguous 多支/slot_name 落仓禁令）——主仓终审发现「闸全绿而登记失真」后落闸，负例=口径坏例目录四处各红一码，正例=petro/ 实域零红。",
+  "assertions": [
+    {
+      "ac": "AC1（闸对 bohai fork 放行）",
+      "type": "cmd-succeeds",
+      "cmd": "python3 tools/schema_check.py bohai",
+      "outputContains": [
+        "语义闸: 全过"
+      ]
+    },
+    {
+      "ac": "AC2（闸拦下缺必填字段坏例）",
+      "type": "cmd-fails",
+      "cmd": "python3 tools/schema_check.py {fixture_dir}/broken",
+      "outputContains": [
+        "L1"
+      ]
+    },
+    {
+      "ac": "AC3（petro/ 空仓期 bohai 即全仓语义闸对象，机读输出零红）",
+      "type": "cmd-succeeds",
+      "cmd": "python3 tools/schema_check.py --json bohai",
+      "outputContains": [
+        "\"L1\": 0"
+      ]
+    },
+    {
+      "ac": "AC4（L3-5 闸对口径坏例拦下：mark 越域+defaultCaliber 悬空+ambiguous 单支+slot_name 落仓四码齐发）",
+      "type": "cmd-fails",
+      "cmd": "python3 tools/schema_check.py {fixture_dir}/caliber-broken",
+      "outputContains": [
+        "l3-caliber-mark",
+        "l3-caliber-default",
+        "l3-caliber-ambiguous",
+        "l3-slot-name-banned"
+      ]
+    },
+    {
+      "ac": "AC5（L3-5 闸对 petro/ 实域零红——存量口径登记合规不误伤）",
+      "type": "cmd-succeeds",
+      "cmd": "python3 tools/schema_check.py petro",
+      "outputContains": [
+        "语义闸: 全过"
+      ]
+    }
+  ]
+}

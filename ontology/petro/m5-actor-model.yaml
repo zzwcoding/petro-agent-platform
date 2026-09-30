@@ -1,0 +1,133 @@
+# =====================================================================
+# Petro-Agent 平台七域 · M5 主体模型（轨道 0 fork 批：bohai 对齐底稿 → petro 平台域）
+# ────────────────────────────────────────────────────────────────
+# fork 纪律：复用 19 元素（3 actor+8 role+8 perm）自 bohai/ 迁入，前缀 BOHAI→PETRO；
+#   注源保留（R5/§），PROP-BOHAI-* 原样。C1 指标 Owner 三值=ROLE-PETRO-003/004/005
+#   （对齐矩阵 §2.2 尾注）；E2 责任岗=采集管理员/质量管理员。
+# 不迁注记（对齐矩阵不迁清单 #3）：ACTOR-PETRO-003 cadence「15 分钟级闭环调度」为
+#   源系统 ETL 调度事实（R5·§2.1 原文），留源侧语义注记不接平台运行面——平台质检
+#   触发=数据面 dp3 进料管道自动触发+手动补扫（E2 端点 3 真实实现注记）。
+# 素材边界（沿 bohai 底稿）：角色证据 = R5·§1 组织与责任链八张角色卡（逐行注源）；
+#   参与者按岗位/系统承载（§1 人名为角色卡示例，不建个人 actor）；SYSTEM 参与者
+#   源自 §2.1「ETL 入数据仓库（15 分钟级闭环调度）」。
+# 权限面纪律（沿 bohai）：Owner/治理类角色的裁决权走 MR/治理面（R5·§1），不在行为
+#   权限面——permissions 留空并注明。小李兼岗 = 一 actor 承两 role（§1 原文「小李兼」）。
+# =====================================================================
+model_type: ACTOR
+version: "1.0.0"
+domain: petro
+actors:
+  # [R5·§1 角色卡「采集管理员：作业区资料员」——源头数据采集与清单维护]
+  - actorId: ACTOR-PETRO-001
+    name: 作业区资料员（采集管理员）
+    actorType: HUMAN
+    roles:
+      - ROLE-PETRO-001
+    attributes:
+      dutyStation: 作业区
+  # [R5·§1 角色卡「质量管理员：地质研究所（小李兼）」+「技术支持：地质研究所」——兼岗一 actor 两 role]
+  - actorId: ACTOR-PETRO-002
+    name: 地质研究所（质量/技术支持岗）
+    actorType: HUMAN
+    roles:
+      - ROLE-PETRO-002
+      - ROLE-PETRO-008
+    attributes:
+      dutyStation: 地质研究所
+  # [R5·§2.1「ETL 入数据仓库（15 分钟级闭环调度）」——质检行为的 SYSTEM 触发方]
+  - actorId: ACTOR-PETRO-003
+    name: 生产库 ETL 调度
+    actorType: SYSTEM
+    roles: []
+    attributes:
+      cadence: 15 分钟级闭环调度   # [源侧语义注记·对齐矩阵不迁清单 #3] 15 分钟级=源系统 ETL 调度事实（R5·§2.1 原文），留注记不接平台运行面——平台质检触发=dp3 进料触发+手动补扫（E2 端点 3）
+roles:
+  # [R5·§1 角色卡「采集管理员：作业区资料员」——源头治理原则的岗位化]
+  - roleId: ROLE-PETRO-001
+    name: 采集管理员
+    inheritsFrom: []
+    permissions:
+      - PERM-PETRO-RecordDailyOutput
+      - PERM-PETRO-RecordFluidTest
+      - PERM-PETRO-RecordOverhaul
+  # [R5·§1 角色卡「质量管理员：地质研究所」——质检任务配置、复检、质量报告]
+  - roleId: ROLE-PETRO-002
+    name: 质量管理员
+    inheritsFrom: []
+    permissions:
+      - PERM-PETRO-RunDailyQualityCheck
+      - PERM-PETRO-QueryBlockWaterCut
+  # [R5·§1 角色卡「业务 Owner（产量口径）：开发室」——§3 产量/递减/含水类指标裁决]
+  - roleId: ROLE-PETRO-003
+    name: 业务 Owner 产量口径（开发室）
+    inheritsFrom: []
+    permissions:
+      - PERM-PETRO-QueryWellDailyOutput
+      - PERM-PETRO-QueryBlockMonthlyCompletion
+  # [R5·§1 角色卡「业务 Owner（措施口径）：采油工艺所」——措施/注水/能效类指标]
+  - roleId: ROLE-PETRO-004
+    name: 业务 Owner 措施口径（采油工艺所）
+    inheritsFrom: []
+    permissions: []   # 措施/注采比查询出口二期补后挂接（待 Owner 确认）
+  # [R5·§1 角色卡「业务 Owner（经营口径）：销售计量站」——商品量/结算（与井口口径冲突源）]
+  - roleId: ROLE-PETRO-005
+    name: 业务 Owner 经营口径（销售计量站）
+    inheritsFrom: []
+    permissions:
+      - PERM-PETRO-QueryMonthlySettlement
+  # [R5·§1 角色卡「语义 Owner（平台）：阿强 + 数据管理岗」——目录维护、MR 评审组织、CI 执行]
+  - roleId: ROLE-PETRO-006
+    name: 语义 Owner（数据管理岗）
+    inheritsFrom: []
+    permissions: []   # 裁决权走 MR/治理面，不在行为权限面（待 Owner 确认是否补审批行为）
+  # [R5·§1 角色卡「数据治理领导组」——高影响变更审批、Review Board]
+  - roleId: ROLE-PETRO-007
+    name: 数据治理领导组
+    inheritsFrom: []
+    permissions: []   # 高影响变更审批走治理面/MR（R5·§1），不建审批行为（一期）
+  # [R5·§1 角色卡「技术支持：地质研究所」——标准编制、体检规则、术语审定]
+  - roleId: ROLE-PETRO-008
+    name: 技术支持（地质研究所）
+    inheritsFrom: []
+    permissions: []
+permissions:
+  # [R5·§2.1 手工录入 + A.2 班次报表] 采集管理员录入日产计量
+  - permissionId: PERM-PETRO-RecordDailyOutput
+    targetType: BEHAVIOR
+    targetRef: BH-PETRO-RecordDailyOutput
+    dataScope: DEPT        # 作业区为本部门数据（R5·§1 采集管理员按作业区设岗）
+  # [R5·A.6 化验台账] 采集/化验录入
+  - permissionId: PERM-PETRO-RecordFluidTest
+    targetType: BEHAVIOR
+    targetRef: BH-PETRO-RecordFluidTest
+    dataScope: DEPT
+  # [R5·A.4 检修台账补录（T-3 案例）]
+  - permissionId: PERM-PETRO-RecordOverhaul
+    targetType: BEHAVIOR
+    targetRef: BH-PETRO-RecordOverhaul
+    dataScope: DEPT
+  # [R5·§4 质量闭环「质检任务配置、复检」] 质检行为（SYSTEM 触发，权限面登记岗位职责）
+  - permissionId: PERM-PETRO-RunDailyQualityCheck
+    targetType: BEHAVIOR
+    targetRef: BH-PETRO-RunDailyQualityCheck
+    dataScope: ALL
+  # [R5·§3 指标抽查面] 单井日产量查询
+  - permissionId: PERM-PETRO-QueryWellDailyOutput
+    targetType: BEHAVIOR
+    targetRef: BH-PETRO-QueryWellDailyOutput
+    dataScope: ALL
+  # [R5·§3 指标 1/2] 区块月度产量完成率查询（本票影响分析变更的消费出口）
+  - permissionId: PERM-PETRO-QueryBlockMonthlyCompletion
+    targetType: BEHAVIOR
+    targetRef: BH-PETRO-QueryBlockMonthlyCompletion
+    dataScope: ALL
+  # [R5·§3 指标 5] 区块综合含水率查询
+  - permissionId: PERM-PETRO-QueryBlockWaterCut
+    targetType: BEHAVIOR
+    targetRef: BH-PETRO-QueryBlockWaterCut
+    dataScope: ALL
+  # [R5·§3 指标 11] 商品量结算查询（经营口径）
+  - permissionId: PERM-PETRO-QueryMonthlySettlement
+    targetType: BEHAVIOR
+    targetRef: BH-PETRO-QueryMonthlySettlement
+    dataScope: ALL

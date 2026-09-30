@@ -1,0 +1,13 @@
+{
+  "domain": "bohai",
+  "label": "渤海油田产量域",
+  "profile": "v9-full",
+  "schemaVersion": "1.0.0",
+  "description": "首个接入域（PRD 决策 3）：素材=R5（teach-petro-agent 设定书 v3）。票 09 工序②进仓：模型文件 6 个（M1/M2/M3/M5/M6/M7）。profile 维持 v9-full 因 M6（§7 剧本+§1/§4 问题单闭环）仅 v9-full 组合覆盖；MU 无素材证据（R5 全文无界面/屏幕/菜单）不建文件——裁决记录见 docs/walkthrough/step2-mr-adjudication.md，理由记 lessons/09。",
+  "omittedModels": [
+    {
+      "model": "MU",
+      "reason": "R5 全文无界面/屏幕/菜单素材证据，MU 不建文件——裁决记录 docs/walkthrough/step2-mr-adjudication.md，理由记 lessons/09（票 13 AC6 反向豁免登记）。"
+    }
+  ]
+}

@@ -1,0 +1,127 @@
+{
+  "version": "1.3.0",
+  "description": "模型注册表（schema 的目录页，机读，PRD F1）。每模型字段：camp（business-core/integration/build-contract）、consumers（runtime/build）、profiles（可用组合）、dependsOn（类型层依赖白名单摘要）、requiredElementFields（逐元素必填字段机读表，票 13：前缀→必填字段键列表，口径=结构性必填——身份/类型判别/检查锚点/载荷容器，schema.md 只做目录页；闸=schema_check L1 required-field）。另含 modelType（模型文件 model_type 字段合法值）与 lockedFields（换义锁定字段，AC7 机读真源，见 ontology/schema/schema.md §12）。profile 组合由各模型 profiles 字段取并集反推（单一真源）。消费方：tools/schema_check.py（AC5/AC6/AC7 + required-field + missing-model-file + 与 model-deps.json 一致性核对）；semantic-service 检索面划界（只索引 business-core）；生成器在场校验。版本演进账见 ontology/schema/CHANGELOG.md。",
+  "profileNote": "可用组合：v9-full=M1/M2/M3/M5/M6/M7/MU/GLS；v9-core=M1/M2/M3/M5（四模型最小核，术语属增强件不入）；headless=M1/M2/M3/M5/M7/GLS（无 UI）。",
+  "models": {
+    "M1": {
+      "name": "对象模型",
+      "yamlFile": "m1-object-model.yaml",
+      "modelType": "OBJECT",
+      "camp": "business-core",
+      "consumers": ["runtime", "build"],
+      "profiles": ["v9-full", "v9-core", "headless"],
+      "dependsOn": [],
+      "requiredElementFields": {
+        "AGG-": ["id", "name", "alias", "aggregateType", "attributes"],
+        "DICT-": ["id", "name", "types"],
+        "ASSOC-": ["id", "sourceAggregate", "targetAggregate", "associationType"]
+      },
+      "lockedFields": {}
+    },
+    "M2": {
+      "name": "行为模型",
+      "yamlFile": "m2-behavior-model.yaml",
+      "modelType": "BEHAVIOR",
+      "camp": "business-core",
+      "consumers": ["runtime", "build"],
+      "profiles": ["v9-full", "v9-core", "headless"],
+      "dependsOn": ["M1", "M3", "M5"],
+      "requiredElementFields": {
+        "BH-": ["id", "name", "ownerEntity", "behaviorType", "appliedRules", "requiredPermissions"]
+      },
+      "lockedFields": {
+        "producedEvents": "v6 语义=事件异步引用（ME 事件载体）；v9 已移除并由 syncTriggers 承载——复用即换义"
+      }
+    },
+    "M3": {
+      "name": "规则模型",
+      "yamlFile": "m3-rule-model.yaml",
+      "modelType": "RULE",
+      "camp": "business-core",
+      "consumers": ["runtime", "build"],
+      "profiles": ["v9-full", "v9-core", "headless"],
+      "dependsOn": ["M1", "M2"],
+      "requiredElementFields": {
+        "RULE-": ["id", "name", "ruleType"]
+      },
+      "lockedFields": {
+        "subscribedEvents": "v6 事件驱动规则专属（订阅事件）；v9 移除 EVENT_DRIVEN——复用即换义",
+        "triggeredBehaviors": "v6 事件驱动规则专属（条件满足直接触发行为）；v9 移除 EVENT_DRIVEN——复用即换义"
+      }
+    },
+    "M5": {
+      "name": "主体模型",
+      "yamlFile": "m5-actor-model.yaml",
+      "modelType": "ACTOR",
+      "camp": "business-core",
+      "consumers": ["runtime", "build"],
+      "profiles": ["v9-full", "v9-core", "headless"],
+      "dependsOn": ["M1", "M2"],
+      "requiredElementFields": {
+        "ACTOR-": ["actorId", "name", "actorType", "roles"],
+        "ROLE-": ["roleId", "name", "inheritsFrom", "permissions"],
+        "PERM-": ["permissionId", "targetType", "targetRef"]
+      },
+      "lockedFields": {
+        "externalContract": "v6 外部实体契约（EXTERNAL actorType 配套）；v9 移除 EXTERNAL——复用即换义"
+      }
+    },
+    "M6": {
+      "name": "流程模型",
+      "yamlFile": "m6-flow-model.yaml",
+      "modelType": "FLOW",
+      "camp": "business-core",
+      "consumers": ["build"],
+      "profiles": ["v9-full"],
+      "dependsOn": ["M1", "M2", "M3", "M5"],
+      "requiredElementFields": {
+        "FLOW-": ["id", "name", "flowType", "businessObjectRefs", "roleRefs", "activities"]
+      },
+      "lockedFields": {
+        "eventRef": "v6 EVENT_WAIT/事件触发触发器残留；v9 流程为同步编排——复用即换义"
+      }
+    },
+    "M7": {
+      "name": "查询统计与报表模型",
+      "yamlFile": "m7-report-model.yaml",
+      "modelType": "REPORT",
+      "camp": "business-core",
+      "consumers": ["runtime", "build"],
+      "profiles": ["v9-full", "headless"],
+      "dependsOn": ["M1", "M2"],
+      "requiredElementFields": {
+        "QR-": ["id", "name", "alias", "objectType", "behaviorRef", "sourceObjects"],
+        "RPT-": ["id", "name", "alias", "objectType", "behaviorRef", "sourceObjects"]
+      },
+      "lockedFields": {}
+    },
+    "MU": {
+      "name": "UI 模型",
+      "yamlFile": "mu-ui-model.yaml",
+      "modelType": "UI",
+      "camp": "build-contract",
+      "consumers": ["build"],
+      "profiles": ["v9-full"],
+      "dependsOn": ["M1", "M2", "M3", "M5", "M7"],
+      "requiredElementFields": {
+        "SCR-": ["screenId", "name", "screenType", "elements", "actions"]
+      },
+      "lockedFields": {
+        "callChain": "v6 屏幕调用链（callChain 步骤机）；v9 以 actions 操作功能点替代——复用即换义"
+      }
+    },
+    "GLS": {
+      "name": "术语模型",
+      "yamlFile": "glossary-model.yaml",
+      "modelType": "GLOSSARY",
+      "camp": "business-core",
+      "consumers": ["runtime", "build"],
+      "profiles": ["v9-full", "headless"],
+      "dependsOn": ["M1"],
+      "requiredElementFields": {
+        "GLS-": ["id", "term", "definition", "source"]
+      },
+      "lockedFields": {}
+    }
+  }
+}

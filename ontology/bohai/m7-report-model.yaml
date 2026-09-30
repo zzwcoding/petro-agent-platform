@@ -1,0 +1,228 @@
+# =====================================================================
+# 渤海域 · M7 查询统计与报表模型（票 09 工序②进仓版）
+# ────────────────────────────────────────────────────────────────
+# 素材边界：查询出口证据 = R5·§3 指标口径库（指标 1/2/5/11）+ §3 抽查面
+#   （Golden Q）。与 M2 QUERY 行为严格一对一（依赖边单向 M7→M2，schema §2）。
+#   M7 不是 BI 指标模型：统计口径真源在 M3 规则，resultColumns.sourceExpression
+#   只是出口实现形态；月粒度函数（MONTH 等）语法随实现层，语义以规则为准。
+# =====================================================================
+model_type: REPORT
+version: "1.0.0"
+domain: bohai
+query_reports:
+  # [R5·§3 抽查面 + §5 Join 白名单 oil ⋈ well ✓] 单井日产量明细
+  - id: QR-BOHAI-001
+    name: 单井日产量明细查询
+    alias: wellDailyOutputQuery
+    description: "按井号查单井日产计量明细（R5·A.2 全字段出口）；D2 班次重复行注记：明细行含 reportShift，去重口径待 Owner。"
+    objectType: DETAIL_QUERY
+    behaviorRef: BH-BOHAI-QueryWellDailyOutput
+    sourceObjects:
+      - objectRef: AGG-BOHAI-002
+        alias: d
+        primary: true
+      - objectRef: AGG-BOHAI-001
+        alias: w
+        primary: false
+    parameters:
+      - name: wellId
+        label: 井号
+        dataType: String
+        required: true
+        allowedOperators: [EQ, LIKE]
+    conditions:
+      - conditionId: COND-BOHAI-001
+        leftExpression: w.wellId
+        operator: EQ
+        parameterRef: wellId
+    resultColumns:
+      - name: wellId
+        label: 井号
+        dataType: String
+        sourceExpression: w.wellId
+      - name: prodDate
+        label: 生产日期
+        dataType: Date
+        sourceExpression: d.prodDate
+      - name: oilOutput
+        label: 日产油量（吨）
+        dataType: Decimal
+        sourceExpression: d.oilOutput
+      - name: liquidOutput
+        label: 日产液量（方）
+        dataType: Decimal
+        sourceExpression: d.liquidOutput
+      - name: waterCut
+        label: 含水率（%）
+        dataType: Decimal
+        sourceExpression: d.waterCut
+      - name: reportShift
+        label: 报表班次
+        dataType: String
+        sourceExpression: d.reportShift
+  # [R5·§3 指标 1 产量完成率 + 指标 2 有效产量（剔检支）] 本票影响分析变更的消费出口
+  - id: QR-BOHAI-002
+    name: 区块月度产量完成率统计
+    alias: blockMonthlyCompletionStat
+    description: "口径真源 RULE-BOHAI-009（完成率）与 RULE-BOHAI-019（有效产量·剔检口径）；D4 配产双值行影响分母注记。剔检列依赖井状态（w.currentStatus）；statMonth 由 prodDate 按月归组（月粒度函数语法随实现层）。"
+    objectType: STATISTICAL_QUERY
+    behaviorRef: BH-BOHAI-QueryBlockMonthlyCompletion
+    sourceObjects:
+      - objectRef: AGG-BOHAI-002
+        alias: d
+        primary: true
+      - objectRef: AGG-BOHAI-001
+        alias: w
+        primary: false
+    parameters:
+      - name: blockName
+        label: 区块
+        dataType: String
+        required: false
+        allowedOperators: [EQ]
+      - name: statMonth
+        label: 统计月
+        dataType: String
+        required: true
+        allowedOperators: [EQ]
+    conditions:
+      - conditionId: COND-BOHAI-002
+        leftExpression: w.blockName
+        operator: EQ
+        parameterRef: blockName
+      - conditionId: COND-BOHAI-003
+        leftExpression: MONTH(d.prodDate)   # 月粒度归组，语法随实现层
+        operator: EQ
+        parameterRef: statMonth
+    resultColumns:
+      - name: blockName
+        label: 区块
+        dataType: String
+        sourceExpression: w.blockName
+        aggregateFunction: NONE
+      - name: statMonth
+        label: 统计月
+        dataType: String
+        sourceExpression: MONTH(d.prodDate)
+        aggregateFunction: NONE
+      - name: planOutputSum
+        label: 计划配产合计（吨）
+        dataType: Decimal
+        sourceExpression: d.planOutput
+        aggregateFunction: SUM
+      - name: actualOilSum
+        label: 实际产油合计（吨）
+        dataType: Decimal
+        sourceExpression: d.oilOutput
+        aggregateFunction: SUM
+      - name: completionPct
+        label: 产量完成率（%）
+        dataType: Decimal
+        sourceExpression: SUM(d.oilOutput) / SUM(d.planOutput) * 100   # 口径真源 RULE-BOHAI-009
+        aggregateFunction: NONE
+      - name: effectiveOutputSum
+        label: 有效产量·剔检（吨）
+        dataType: Decimal
+        sourceExpression: SUM(CASE WHEN w.currentStatus <> '检修' THEN d.oilOutput ELSE 0 END)   # 口径真源 RULE-BOHAI-019
+        aggregateFunction: NONE
+    groupBy:
+      - w.blockName
+      - statMonth
+  # [R5·§3 指标 11 商品量] 区块月度结算明细
+  - id: QR-BOHAI-003
+    name: 区块月度商品量结算查询
+    alias: monthlySettlementQuery
+    description: "商品量=净重（扣自用油与输差，R5·A.8/§3 指标 11）。口径仲裁（PROP-BOHAI-020=①+②+③，2026-09-21）：与井口口径并存披露不互替——本查询为经营/结算口径；生产口径请走井口合计（AGG-BOHAI-002.oilOutput）；两口径之差=自用+输差，折算关系见 AGG-BOHAI-008 description。"
+    objectType: DETAIL_QUERY
+    behaviorRef: BH-BOHAI-QueryMonthlySettlement
+    sourceObjects:
+      - objectRef: AGG-BOHAI-008
+        alias: m
+        primary: true
+    parameters:
+      - name: blockName
+        label: 区块
+        dataType: String
+        required: false
+        allowedOperators: [EQ]
+    conditions:
+      - conditionId: COND-BOHAI-004
+        leftExpression: m.blockName
+        operator: EQ
+        parameterRef: blockName
+    resultColumns:
+      - name: blockName
+        label: 区块
+        dataType: String
+        sourceExpression: m.blockName
+      - name: settleDate
+        label: 结算月
+        dataType: Date
+        sourceExpression: m.settleDate
+      - name: netWeight
+        label: 商品量净重（吨）
+        dataType: Decimal
+        sourceExpression: m.netWeight
+  # [R5·§3 指标 5 综合含水率] 区块月度统计
+  - id: QR-BOHAI-004
+    name: 区块综合含水率统计
+    alias: blockWaterCutStat
+    description: "口径真源 RULE-BOHAI-010（f_w=Q_w/(Q_o+Q_w)，Q_w=Q_液−Q_油 换算待 Owner）；化验 vs 计量打架由 RULE-BOHAI-002 容差承载；与注采比同受物质平衡约束（§3 注记）。"
+    objectType: STATISTICAL_QUERY
+    behaviorRef: BH-BOHAI-QueryBlockWaterCut
+    sourceObjects:
+      - objectRef: AGG-BOHAI-002
+        alias: d
+        primary: true
+      - objectRef: AGG-BOHAI-001
+        alias: w
+        primary: false
+    parameters:
+      - name: blockName
+        label: 区块
+        dataType: String
+        required: false
+        allowedOperators: [EQ]
+      - name: statMonth
+        label: 统计月
+        dataType: String
+        required: true
+        allowedOperators: [EQ]
+    conditions:
+      - conditionId: COND-BOHAI-005
+        leftExpression: w.blockName
+        operator: EQ
+        parameterRef: blockName
+      - conditionId: COND-BOHAI-006
+        leftExpression: MONTH(d.prodDate)
+        operator: EQ
+        parameterRef: statMonth
+    resultColumns:
+      - name: blockName
+        label: 区块
+        dataType: String
+        sourceExpression: w.blockName
+        aggregateFunction: NONE
+      - name: statMonth
+        label: 统计月
+        dataType: String
+        sourceExpression: MONTH(d.prodDate)
+        aggregateFunction: NONE
+      - name: liquidSum
+        label: 月产液合计（方）
+        dataType: Decimal
+        sourceExpression: d.liquidOutput
+        aggregateFunction: SUM
+      - name: oilSum
+        label: 月产油合计（吨）
+        dataType: Decimal
+        sourceExpression: d.oilOutput
+        aggregateFunction: SUM
+      - name: waterCutPct
+        label: 综合含水率（%）
+        dataType: Decimal
+        sourceExpression: (SUM(d.liquidOutput) - SUM(d.oilOutput)) / SUM(d.liquidOutput) * 100   # 口径真源 RULE-BOHAI-010
+        aggregateFunction: NONE
+    groupBy:
+      - w.blockName
+      - statMonth

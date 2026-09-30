@@ -1,0 +1,60 @@
+{
+  "domain": "petro",
+  "label": "Petro-Agent 平台七域",
+  "profile": "v9-full",
+  "schemaVersion": "1.1.0",
+  "description": "Petro-Agent 平台七域模型（轨道 0 fork 批：Owner 2026-09-29 十四项裁决「按建议倾向执行」后，按 alignment/bohai-to-platform.md 三清单执行）。复用 96 元素自 bohai/ 对齐底稿迁入（元素 id 前缀按域标识 BOHAI→PETRO，前缀即类型纪律；注源 R5/§ 逐元素保留——真源仍是主仓 teach-petro-agent 设定书 v3；裁决记录引用 PROP-BOHAI-* 保留原样，历史裁决不重写）+ 增补实建 7 元素（含 GLS-PETRO-011 日产液量——Owner 2026-09-29 口头裁决「日产液=日产液量同义词」，add 提案 OWNER-ADD-011）（M1 对象四维显式空壳雏形位 AGG-PETRO-011 井筒/012 油田/013 平台/014 配注层 + 关系账两段 ASSOC-PETRO-008/009——裁决 b 案 1，只登设定书原文属性无杜撰，建行驱动=平台对象账行需要）。profile 沿 bohai 先例 v9-full（M6 §7 剧本+问题单闭环仅 v9-full 组合覆盖）；schemaVersion 1.1.0 = schema 契约受控小版本（M3 可选指标口径字段组，裁决 e/g；主仓同步器已于 2026-09-29 联合变更批一钉版 1.1.0（先仓后同步器完成，specs/api/98））。",
+  "omittedModels": [
+    {
+      "model": "MU",
+      "reason": "R5 全文无界面/屏幕/菜单素材证据，MU 不建文件——沿 bohai 先例豁免（bohai/manifest.json 同款理由；上游裁决 docs/walkthrough/step2-mr-adjudication.md，对齐矩阵对齐底稿不改）。"
+    }
+  ],
+  "deferredAdditions": [
+    {
+      "item": "M3 指标 15「桶油增产成本」计算规则",
+      "reason": "分子（措施总投入）无承载字段，ERP 源素材缺（FLOW-002 步骤 7 同停建条件）——素材到再建；6.29 桶/m³ 换算系数注记已随 RULE-PETRO-018 迁入；同步器种子先以 dispute「经营×技术联席」如实投影。",
+      "anchor": "对齐矩阵 §3b #2"
+    },
+    {
+      "item": "白名单 #2「oil ⋈ date_dim（按日期连）」",
+      "reason": "date_dim 为中台维表非 8 表业务实体（裁决 f：不建 DICT/对象）——白名单结构化行（left_table/right_table/verdict 机器键）由同步器 sem_join_whitelist 投影登记；#3 双键容差/#4 中转条件已由迁移元素 description/RULE-PETRO-002 承载。",
+      "anchor": "对齐矩阵 §3b #9 / §4 裁决项 f"
+    },
+    {
+      "item": "工作流 wf3–wf10 八条（档案质量体检/复产确认检查/低产井措施筛查/机采井工况诊断/区块注采平衡评估/幻觉拦截周报/平台运行周报/月度统计对账）",
+      "reason": "C1 草案/占位行（wf3/wf4 开工条件+输出合同、wf8 仅开工条件、wf5/6/7/9/10 五要件全 null）——M6 结构必填（flowType/businessObjectRefs/roleRefs/activities）无素材不硬建，同步器照 C1 现值种子导入（裁决 d：账号绑定两态/登记态/card 七项投影层装配，M6 schema 不动）。",
+      "anchor": "对齐矩阵 §3b #10–17 / §4 裁决项 d"
+    },
+    {
+      "item": "平台 Action 三条（update_well_remark 更新井备注 / adjust_production_plan 调整配产 / adjust_injection_volume 配注上调）",
+      "reason": "平台 Action=受控写入合同，与 M2 源侧业务动作两族并立（裁决 f 尾注：不进 M2 行为模型；矩阵 §4 前注：两族不互迁）——八模型无 Action 登记位，schema 本批仅授权 M3 口径字段，合同登记以 petro/m2-behavior-model.yaml 头注承载 + 同步器 sem_action 照 C1 ACTIONS 投影（注册名+业务名，无 § 直锚不建行为元素）。",
+      "anchor": "对齐矩阵 §3b #18–20 / §4 裁决项 f 尾注"
+    },
+    {
+      "item": "ENTITY_GROUPS 实例名册（渤南/渤中/CEP-A/CEP-B/N-02…）",
+      "reason": "实例层数据不进本体仓（本体=模式层，CONTEXT「本体 vs 知识图谱」）——平台侧装配（B5 图谱/数据面种子），同步器不投影 entities domain。",
+      "anchor": "对齐矩阵 §3b 结构级末行"
+    },
+    {
+      "item": "M3 指标规则 name 对齐 C1 台账原名（★☆ 徽标+β/η/T 尾缀）",
+      "reason": "裁决 e 本批落字段组（mark/grain/unit/…）；name 保真迁移（R5 纯名），台账原名差由 mark 字段+同步器投影承接——name 改造涉 13 元素逐元素对账（含 RULE-PETRO-019 分支身份），留联合变更批裁（矩阵 §5 问题 5 后半）。",
+      "anchor": "对齐矩阵 §5 问题 5 / §4 裁决项 e"
+    },
+    {
+      "item": "指标 Owner 多值结构化（联席/复合负责人）",
+      "reason": "C1 开放问题 2 本矩阵不裁——M5 ROLE-PETRO-003/004 双挂与 C1 owner 串（「采油工艺所（开发室联席）」）映射口径待 Owner。",
+      "anchor": "对齐矩阵 §5 问题 12"
+    },
+    {
+      "item": "M7 referenceSql 补填（A1 verified metric 固定 SQL 模板种子）",
+      "reason": "QR-PETRO-001～004 无 referenceSql（v9 降可选）——同步器从 M7 resultColumns/joins 派生还是补模板，阶段 1 问数链接线前裁。",
+      "anchor": "对齐矩阵 §5 问题 10"
+    },
+    {
+      "item": "受效关系落表装配（well_effect_relation 待装配表）",
+      "reason": "AGG-PETRO-009 维持无源虚拟实体（PROP-BOHAI-021 原样）——装配时点与中台协同待 Owner。",
+      "anchor": "对齐矩阵 §5 问题 8"
+    }
+  ]
+}

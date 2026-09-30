@@ -1,0 +1,14 @@
+model_type: RULE
+version: "1.0.0"
+domain: caliber-broken
+rules:
+  - id: RULE-CB-001
+    name: 口径坏例（演示出厂集）
+    ruleType: CALCULATION
+    narrative: 出厂集负例——四处口径登记违规各命中一码
+    mark: "◎"
+    ambiguous: true
+    calibers:
+      - name: 只此一支
+    defaultCaliber: 不存在的口径
+    slot_name: 指标1
