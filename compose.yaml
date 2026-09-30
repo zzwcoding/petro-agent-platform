@@ -34,6 +34,9 @@ services:
       retries: 10
 
   minio:
+    # 镜像来源（2026-09-30）：MinIO 2025 收紧社区分发（Hub 门禁/quay 仓关闭/dl.min.io 410，
+    # 各镜像站全 403）——本镜像由 Owner 的阿里云 ECS 从官方源码 RELEASE.2025-10-15T17-29-55Z
+    # 构建（arm64 原生，底 curlimages/curl 供健康检查 curl）；生产部署改用自有 ACR 分发。
     image: minio/minio
     command: ["server", "/data", "--console-address", ":9001"]
     environment:

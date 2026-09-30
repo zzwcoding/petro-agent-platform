@@ -8,9 +8,14 @@
 - 四层骨架（app/api · app/domains 14 模块包 · app/infra）+ uv + pyproject（ruff/mypy strict/pytest/import-linter B16+B1）+ GitHub workflow。
 - 验收：本地四闸全绿（ruff/mypy/pytest/lint-imports）。
 
-## P0-02 中间件 compose（配置随建仓批落地 ✅；拉起验证挂账待网络）
+## P0-02 中间件 compose ✅（2026-09-30 补验通过，四件全 healthy）
 
-> **挂账（2026-09-29 收官审查）**：`docker compose config` 校验过、拓扑经替身容器实证（postgres:16-alpine@5433 同端口/凭据/库名全过）；pgvector/minio 镜像因 Docker Hub 网络阻断拉取失败，四件全 healthy 验收待网络恢复补做（`docker compose up -d`；此前先 `docker rm -f petro-review-pg-standin` 让出 5433）。可选解法：配国内镜像源（Owner 环境裁决）。redis:7-alpine/neo4j:5 本地已有。
+> **补验记录（2026-09-30，Owner 提供阿里云 ECS 中转 + 加速器 zmccowes.mirror.aliyuncs.com）**：
+> - **pgvector/pgvector:pg16、redis:7**：ECS 配加速器直拉（广州机房出口，加速器缓存命中）→ save/scp/load 回本地；
+> - **minio/minio:latest**：官方社区分发渠道已断供（Hub 门禁/quay 仓关闭/dl.min.io 410/各镜像站全 403——MinIO 2025 社区版风波延续），改由 **ECS 从官方源码 RELEASE.2025-10-15T17-29-55Z 构建**（goproxy.cn 走 Go 依赖；arm64 交叉编译适配本机 Apple Silicon，底 curlimages/curl 供健康检查 curl；ECS 上 amd64 版冒烟 health 200 后废弃）；
+> - **redis:7**：ECS 拉的是 amd64，QEMU 仿真下段错误——改标签本机原生 redis:7-alpine 变体（同一 Redis 7 服务器软件）；
+> - 验收：`docker compose ps` 四件（pg/redis/minio/neo4j）**全 healthy** 实证；compose.yaml minio 服务留来源注释。
+> - 备忘：本地 daemon.json 首位已配 Owner 加速器；langfuse 两镜像（observe profile）阶段 1 D5 前再补。
 
 - PG(+pgvector)/Redis/MinIO/Neo4j 四件 + Langfuse（profile observe，阶段 0 不依赖）。
 - 验收：`docker compose up -d` 四件 healthy；`docker compose --profile observe up -d` Langfuse 可登录。
