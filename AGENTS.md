@@ -6,7 +6,7 @@ Petro-Agent 主平台的**真实实现仓**（后端+前端），与 teach-petro
 
 ## 硬纪律
 
-0. **嵌套独立仓**：`ontology/` 与 `data-plane/` 是平台文件夹内的**独立 git 仓**（各归各文件夹，2026-09-30 改判，submodule 注册已退除）——①各自提交互不牵连，平台仓 .gitignore 排除之；②平台仓不记录其版本（gitlink 已退，单人开发各走最新）；③改子仓纪律仍守各自 AGENTS.md（本体=all-agent 纪律，数据面=其 ADR 链）。
+0. **本体已并入本仓，数据面独立**：`ontology/`＝平台仓普通目录（2026-09-30 子树合并，全部历史随合并提交 8643eb9 可溯，改动直接提交本仓、**提交前跑 `bash ontology/ci.sh` 语义闸**——all-agent 纪律不变）；`data-plane/`＝嵌套独立 git 仓（.gitignore 排除，独立服务独立提交节奏，守其 ADR 链）。
 1. **合同驱动**：每个端点实现前先引用合同册（`teach-petro-agent/specs/api/<页>.md` 端点号）；字段名/语义/错误码与合同不一致＝缺陷，改合同回设计仓改，不在本仓私改语义。
 2. **四层 + B1–B16**：层间依赖单向向下；边界规则进 import-linter，CI 红即不过。新增 import 前先看 pyproject 的 import-linter contracts。
 3. **统一出口**：DB 只经 `infra.db`（B3）、LLM 只经 `gateway.complete`（B6）、审计唯一写口 `security.audit`（B12）、时间一律 `infra.clock`（B14）。

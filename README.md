@@ -1,7 +1,8 @@
 # Petro-Agent 平台（真实实现仓）
 
-> 单仓聚合三分区：**后端 `app/`（Python 3.12 + uv · FastAPI）· 前端 `web/`（React18+antd5，由 teach-petro-agent/prototype fork 改造）· 嵌套独立仓 `ontology/`（本体资产）· `data-plane/`（数据面服务）**。
-> 两子仓＝文件夹内的独立 git（2026-09-30 改判，ADR-0008 子模块注册退除）：git 各归各文件夹，平台仓 .gitignore 排除、不记录其版本；**整个 petro-agent-platform 文件夹拷走＝全量备份**（三份 .git 都在内）。
+> 单仓聚合：**后端 `app/`（Python 3.12 + uv · FastAPI）· 前端 `web/`（React18+antd5）· 本体 `ontology/`（平台仓目录，全部历史已并入）· 数据面 `data-plane/`（嵌套独立 git）**。
+> 本体资产随本仓一起提交管理（改动前跑 `bash ontology/ci.sh` 语义闸——all-agent 纪律）；数据面为独立服务保留独立 git（.gitignore 排除）；**整个文件夹拷走＝全量备份**。')
+
 
 ## 克隆/备份
 
