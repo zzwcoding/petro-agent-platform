@@ -1,14 +1,14 @@
 # Petro-Agent 平台（真实实现仓）
 
-> 单仓聚合：**后端 `app/`（Python 3.12 + uv · FastAPI）· 前端 `web/`（React18+antd5）· 本体 `ontology/`（平台仓目录，全部历史已并入）· 数据面 `data-plane/`（嵌套独立 git）**。
-> 本体资产随本仓一起提交管理（改动前跑 `bash ontology/ci.sh` 语义闸——all-agent 纪律）；数据面为独立服务保留独立 git（.gitignore 排除）；**整个文件夹拷走＝全量备份**。')
+> 单仓聚合：**后端 `app/`（Python 3.12 + uv · FastAPI）· 前端 `web/`（React18+antd5）· 本体 `ontology/`（平台仓普通目录，全部历史已并入）· 数据面 `data-plane/`（嵌套独立 git）**。
+> 本体资产随本仓一起提交管理（改动前跑 `bash ontology/ci.sh` 语义闸——all-agent 纪律）；数据面为独立服务保留独立 git（.gitignore 排除）；**整个文件夹拷走＝全量备份**。
 
 
 ## 克隆/备份
 
 ```bash
-git clone <本仓地址>          # 平台仓本体（app/web/tickets…）；ontology/ 与 data-plane/ 需从各自仓另行获取（独立 git，不随平台仓克隆）
-备份：整个文件夹直接拷贝即可（三份 .git 全在内）
+git clone <本仓地址>          # 平台仓全量（app/web/tickets/ontology…）；data-plane/ 为独立 git 仓，需要时另行 clone
+备份：整个文件夹直接拷贝即可（两份 .git 全在内：平台仓 + data-plane）
 ```
 
 ## 设计真源（不复制进本仓）
@@ -24,7 +24,7 @@ git clone <本仓地址>          # 平台仓本体（app/web/tickets…）；on
 ## 快速开始
 
 ```bash
-git clone --recurse-submodules <本仓地址>     # 或事后：git submodule update --init
+git clone <本仓地址>                       # data-plane 为独立仓，需要时另行 clone
 cp .env.example .env                          # 填入 LLM 凭证（Owner 提供测试 key）
 uv sync                                  # 后端依赖（Python 3.12 由 uv 管理）
 docker compose up -d                     # 中间件：PG(+pgvector)/Redis/MinIO/Neo4j（Langfuse 见 observe profile）
@@ -42,15 +42,15 @@ app/api/       接口层：20 个路由族薄壳，只调 domains 公开接口�
 app/domains/   14 模块（3 组）：service.py 薄 + domain.py 厚；模块间只走公开接口+领域事件（B11）
 app/infra/     11 adapter：db/graph_store/object_storage/queue/sse_channel/eventbus/clock/
                scheduler/crypto/config/llm_client——唯一经允许的底层接触面（B3/B6）
-ontology/      子仓：本体资产（Git+YAML 真源，all-agent 纪律见其 AGENTS.md；语义闸 ci.sh）
-data-plane/    子仓：数据面服务（进料→清洗→出汇总→质检→报水位，纪律见其 AGENTS.md）
+ontology/      平台仓目录：本体资产（Git+YAML 真源，all-agent 纪律；改动前跑 bash ontology/ci.sh）
+data-plane/    独立仓：数据面服务（进料→清洗→出汇总→质检→报水位，纪律见其 AGENTS.md）
 ```
 
-## 子仓纪律（submodule 三铁律）
+## 嵌套仓纪律（data-plane）
 
-1. 子仓内容**回各自仓提交推送**（cd ontology && git commit…），父仓只更新指针提交；
-2. 子仓在父仓默认 detached HEAD，开发前先 `git -C <子仓> checkout <分支>`；
-3. 改子仓内容必伴随父仓指针提交，否则克隆者拿到旧版本。
+1. data-plane 内容**回 data-plane 仓提交推送**（cd data-plane && git commit…），平台仓 .gitignore 排除之，不记版本；
+2. 改动守 data-plane 仓自己的 AGENTS.md（ADR 链）；
+3. ontology/ 已并入平台仓普通目录（2026-09-30 子树合并，历史随合并提交可溯）——本体改动直接提交本仓，提交前跑 `bash ontology/ci.sh` 语义闸。
 
 层间依赖单向向下（B16），边界规则逐条进 `import-linter`（见 pyproject），CI 四门禁：lint/类型/测试/边界闸。
 
