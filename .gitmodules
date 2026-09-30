@@ -1,8 +1,0 @@
-[submodule "ontology"]
-	path = ontology
-	url = /Users/divh/Downloads/petro-git/petro-ontology.git
-	branch = master
-[submodule "data-plane"]
-	path = data-plane
-	url = /Users/divh/Downloads/petro-git/tpa-data-plane.git
-	branch = main

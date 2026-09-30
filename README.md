@@ -1,12 +1,13 @@
 # Petro-Agent 平台（真实实现仓）
 
-> 单仓聚合三分区：**后端 `app/`（Python 3.12 + uv · FastAPI）· 前端 `web/`（React18+antd5，由 teach-petro-agent/prototype fork 改造）· 子仓 `ontology/`（本体资产）· 子仓 `data-plane/`（数据面服务）**。
-> 子仓＝git submodule，各自独立 git/历史/纪律（Owner 2026-09-29 拍板，ADR-0008）：本体仓守 all-agent 纪律、数据面仓守其 ADR 链，父仓只做聚合与指针。
+> 单仓聚合三分区：**后端 `app/`（Python 3.12 + uv · FastAPI）· 前端 `web/`（React18+antd5，由 teach-petro-agent/prototype fork 改造）· 嵌套独立仓 `ontology/`（本体资产）· `data-plane/`（数据面服务）**。
+> 两子仓＝文件夹内的独立 git（2026-09-30 改判，ADR-0008 子模块注册退除）：git 各归各文件夹，平台仓 .gitignore 排除、不记录其版本；**整个 petro-agent-platform 文件夹拷走＝全量备份**（三份 .git 都在内）。
 
-## 克隆（注意子模块）
+## 克隆/备份
 
 ```bash
-git clone --recurse-submodules <本仓地址>     # 或事后：git submodule update --init
+git clone <本仓地址>          # 平台仓本体（app/web/tickets…）；ontology/ 与 data-plane/ 需从各自仓另行获取（独立 git，不随平台仓克隆）
+备份：整个文件夹直接拷贝即可（三份 .git 全在内）
 ```
 
 ## 设计真源（不复制进本仓）

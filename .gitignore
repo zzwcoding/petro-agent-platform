@@ -21,3 +21,7 @@ web/dist/
 
 # 系统
 .DS_Store
+
+# 嵌套独立仓（ADR-0008 改判 2026-09-30：submodule 注册退除，git 各归各文件夹）
+ontology/
+data-plane/
