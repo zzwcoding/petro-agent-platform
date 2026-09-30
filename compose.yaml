@@ -99,6 +99,11 @@ services:
       DATABASE_URL: postgresql://petro:petro@pg:5432/langfuse
       SALT: dev-only-salt-change-me
       TELEMETRY_ENABLED: "false"
+      # v2 worker 必配：BullMQ 队列与分布式锁走 Redis（缺失时刷屏报错、后台任务全瘫）
+      REDIS_CONNECTION_STRING: redis://redis:6379/1
+      # 队列模式显式归位（缺省 resilience 会撞 swarm-only 检查）
+      QUEUE_MODE: "single"
+
 
 volumes:
   pgdata:
