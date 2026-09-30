@@ -15,7 +15,9 @@
 > - **minio/minio:latest**：官方社区分发渠道已断供（Hub 门禁/quay 仓关闭/dl.min.io 410/各镜像站全 403——MinIO 2025 社区版风波延续），改由 **ECS 从官方源码 RELEASE.2025-10-15T17-29-55Z 构建**（goproxy.cn 走 Go 依赖；arm64 交叉编译适配本机 Apple Silicon，底 curlimages/curl 供健康检查 curl；ECS 上 amd64 版冒烟 health 200 后废弃）；
 > - **redis:7**：ECS 拉的是 amd64，QEMU 仿真下段错误——改标签本机原生 redis:7-alpine 变体（同一 Redis 7 服务器软件）；
 > - 验收：`docker compose ps` 四件（pg/redis/minio/neo4j）**全 healthy** 实证；compose.yaml minio 服务留来源注释。
-> - 备忘：本地 daemon.json 首位已配 Owner 加速器；langfuse 两镜像（observe profile）阶段 1 D5 前再补。
+> - 备忘：本地 daemon.json 首位已配 Owner 加速器。
+> - **langfuse 补齐（2026-09-30，d01f66b）**：web＝本地存量 arm64 原生镜像；worker 经 ECS 加速器拉取 arm64 变体 save/scp/load 回本；worker 必配 REDIS_CONNECTION_STRING+QUEUE_MODE=single 已入 compose；首次启动 worker/web 迁移竞态（prices upsert 报错一次）重启即零错误；langfuse 专用库 40 表自动建成；web :3000 探活 200。**六件全就绪，observe profile 一条命令拉起。**
+> - ECS 构建现场（Go/源码/tar）与 ACR 镜像存档：待 Owner 拍板（不阻塞任何工作）。
 
 - PG(+pgvector)/Redis/MinIO/Neo4j 四件 + Langfuse（profile observe，阶段 0 不依赖）。
 - 验收：`docker compose up -d` 四件 healthy；`docker compose --profile observe up -d` Langfuse 可登录。
