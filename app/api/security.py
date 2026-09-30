@@ -21,7 +21,7 @@ from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
 from app.api.deps import SecurityDep, SettingsActor
-from app.domains.security import AuditLogView
+from app.domains.security import AuditFilter, AuditLogView
 from app.infra.clock import ISO_FMT
 
 router = APIRouter(prefix="/api/security", tags=["security"])
@@ -63,9 +63,13 @@ async def list_audit_logs(
     actor: SettingsActor,
     page: Annotated[int, Query(ge=1)] = DEFAULT_PAGE,
     page_size: Annotated[int, Query(ge=1, alias="pageSize")] = DEFAULT_PAGE_SIZE,
+    who: Annotated[str | None, Query()] = None,
+    action: Annotated[str | None, Query()] = None,
 ) -> AuditLogsResponse:
-    """操作留痕（D3 端点 14：SM3 摘要，分页；设置中心组＝运维角色）。"""
-    result = await service.audit_logs(page=page, page_size=page_size)
+    """操作留痕（D3 端点 14：SM3 摘要，分页；who/action 可选筛选槽——缺省 None＝全量倒序）。"""
+    result = await service.audit_logs(
+        AuditFilter(who=who, action=action), page=page, page_size=page_size
+    )
     return AuditLogsResponse(
         items=[_to_item(view) for view in result.items],
         total=result.total,

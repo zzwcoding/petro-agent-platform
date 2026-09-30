@@ -126,3 +126,35 @@ def test_page_zero_is_400_error_package(client: TestClient) -> None:
     body = resp.json()
     assert body["code"] == "request_invalid"
     assert body["detail"]["errors"]  # detail 带字段与问题（00 §3.1）
+
+
+# ---------- who/action 筛选槽（P0-04 差异 10：HTTP 面已暴露；缺省 None＝全量倒序） ----------
+
+
+def test_filter_by_who(client: TestClient) -> None:
+    body = client.get(
+        "/api/security/audit-logs", params={"who": "阿强 · 平台运维"}
+    ).json()
+    assert body["total"] == 1  # R3：total＝筛选后
+    assert [item["who"] for item in body["items"]] == ["阿强 · 平台运维"]
+    assert all(item["action"] == "security.query_policy.saved" for item in body["items"])
+
+
+def test_filter_by_action(client: TestClient) -> None:
+    body = client.get(
+        "/api/security/audit-logs", params={"action": "kb.report.uploaded"}
+    ).json()
+    assert body["total"] == 1
+    assert [item["action"] for item in body["items"]] == ["kb.report.uploaded"]
+    assert [item["who"] for item in body["items"]] == ["小李 · 地质/质检"]
+
+
+def test_filter_no_match_is_empty_page_not_error(client: TestClient) -> None:
+    body = client.get("/api/security/audit-logs", params={"who": "不存在的人"}).json()
+    assert body == {"items": [], "total": 0, "page": 1, "page_size": 20}
+
+
+def test_without_filter_params_returns_all(client: TestClient) -> None:
+    body = client.get("/api/security/audit-logs").json()
+    assert body["total"] == 2  # 缺省 None＝全量倒序
+    assert len(body["items"]) == 2

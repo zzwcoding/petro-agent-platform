@@ -28,7 +28,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
@@ -135,11 +135,6 @@ class SpendStore:
         async with self._db.session() as session:
             session.add(row)
             await session.flush()
-        return row
-
-    async def add_in(self, session: AsyncSession, row: SpendRecord) -> SpendRecord:
-        session.add(row)
-        await session.flush()
         return row
 
     async def page(

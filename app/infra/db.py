@@ -80,10 +80,6 @@ DRIVER_REGISTRY: dict[str, str] = {
     "sqlite": "sqlite+aiosqlite",
 }
 
-# 支持连接级只读兜底语句（SET default_transaction_read_only）的方言——
-# SQLite（单测底座）不认识该语句，跳过装配；意图级守卫（readonly()）恒挂。
-_READONLY_CAPABLE_DRIVERS = frozenset({"postgresql", "kingbase"})
-
 
 @dataclass(frozen=True)
 class DatabaseSpec:
@@ -189,14 +185,14 @@ class ConnectionManager:
             # SQLAlchemy 2.1：异步事件未实现，同步监听挂 sync_engine
             # （引擎级事件在 greenlet 语境下对异步执行同样生效）。
             self._attach_observers(engine.sync_engine, spec)
-            self._attach_readonly_enforcement(engine.sync_engine, spec)
             self._engines[spec.role] = engine
             self._sessions[spec.role] = async_sessionmaker(
                 bind=engine, expire_on_commit=False
             )
             # 只读会话工厂：方言连接特性 postgresql_readonly（每次 BEGIN READ ONLY）。
-            # 连接级 GUC（_attach_readonly_enforcement）会被 asyncpg 方言的显式
-            # BEGIN READ WRITE 覆盖——事务只读必须走这条（见 readonly() 注）。
+            # 连接级 GUC（SET default_transaction_read_only）会被 asyncpg 方言的
+            # 显式 BEGIN READ WRITE 覆盖——事务只读必须走这条（见 readonly() 注；
+            # 曾试连接级方案，集成实测与该特性相克，GUC 方案整体退役勿重挂）。
             self._readonly_sessions[spec.role] = async_sessionmaker(
                 bind=engine,
                 expire_on_commit=False,
@@ -234,20 +230,6 @@ class ConnectionManager:
         event.listen(engine, "before_cursor_execute", before)
         event.listen(engine, "after_cursor_execute", after)
         event.listen(engine, "handle_error", on_error)
-
-    def _attach_readonly_enforcement(self, engine: Engine, spec: DatabaseSpec) -> None:
-        """DB 级只读兜底装配（readonly 角色）——已收编进只读会话工厂。
-
-        真正的 DB 级第二保险＝readonly() 用 `self._readonly_sessions[target]`
-        （execution_options: postgresql_readonly=True，每事务 BEGIN READ ONLY，
-        拦绕过 ORM 的 Core 直写）。本方法保留方法名作装配位：曾在 connect
-        事件挂 `SET default_transaction_read_only`，集成实测与该特性相克
-        （见模块 docstring 差异注），GUC 方案退役——留注释防回归。
-        方言门控语义不变：非 PG 系方言靠意图级 flush 守卫（readonly() 恒挂）。
-        """
-        if not spec.readonly or spec.driver not in _READONLY_CAPABLE_DRIVERS:
-            return
-        # （有意留空——GUC 方案退役，见 docstring；勿在此重挂连接级 SET。）
 
     # ---------- 会话与事务 ----------
 
@@ -305,9 +287,11 @@ class ConnectionManager:
         spec.readonly 判（primary 未配 replica 的回落情形同样要拦）。
 
         双保险的 DB 级兜底＝只读会话工厂的方言连接特性 `postgresql_readonly`
-        （每个事务 BEGIN READ ONLY，拦绕过 ORM 的 Core 直写）——连接级
-        `SET default_transaction_read_only` 方案已退役（与该特性相克且被
-        方言 BEGIN 覆盖，见模块 docstring 差异注与 _attach_readonly_enforcement）。
+        （每个事务 BEGIN READ ONLY，拦绕过 ORM 的 Core 直写）——曾试在 connect
+        事件挂连接级 `SET default_transaction_read_only`，集成实测与该特性相克
+        且被方言 BEGIN 覆盖（见模块 docstring 差异注），GUC 方案整体退役，
+        勿重挂连接级 SET。方言门控：非 PG 系方言（SQLite 单测底座等）由
+        SQLAlchemy 忽略该连接特性，只读靠上面的意图级 flush 守卫恒挂兜住。
         """
         target = self.resolve_read_role(role)
         session = self._readonly_sessions[target]()
@@ -402,17 +386,19 @@ class ReadOnlyRepository[ModelT](Repository[ModelT]):
         super().__init__(db, role)
         self._read_role: DatabaseRole = db.resolve_read_role(role)
 
-    async def paginate(
-        self,
+    @staticmethod
+    async def paginate[RowT](
         session: AsyncSession,
         stmt: Select[Any],
         *,
         page: int = 1,
         page_size: int = 20,
-    ) -> Page[ModelT]:
-        """分页查询助手：total＝当前筛选条件下总数（R3 裁决值）。
+    ) -> Page[RowT]:
+        """分页查询助手（R3 信封）：total＝当前筛选条件下总数。
 
-        counts（全局计数）由调用方对同表另行 count 装配——信封形状
+        staticmethod——不绑定实例：不继承本基类的仓储（如 B12 append-only
+        的 audit_log 仓储）同样复用本实现，count 子查询＋offset/limit 全仓
+        单源。counts（全局计数）由调用方对同表另行 count 装配——信封形状
         归接口层公共件（98 §7.2 R3 接线责任落点）。
         """
         page = max(page, 1)

@@ -119,6 +119,20 @@ def test_router_cooldown_expires_and_success_resets() -> None:
     assert router.record_failure("petro-main", 2, 60, after) is False
 
 
+def test_router_status_three_states() -> None:
+    """运行态三态判定单源（D1 页头徽标——service.models 只消费不重推导）。"""
+    router = RouterState()
+    order = ["petro-main", "petro-lite"]
+    assert router.status("petro-main", order, _AT) == "running"
+    router.record_failure("petro-main", allowed_fails=1, cooldown_seconds=60, at=_AT)
+    assert router.status("petro-main", order, _AT) == "degraded"  # 主用冷却·备用承载
+    router.record_failure("petro-lite", allowed_fails=1, cooldown_seconds=60, at=_AT)
+    assert router.status("petro-main", order, _AT) == "down"  # 全线路冷却
+    after = _AT + timedelta(seconds=61)
+    assert router.status("petro-main", order, after) == "running"  # 冷却过期恢复
+    assert router.status("petro-main", [], _AT) == "running"  # 空序不判 down
+
+
 def test_router_fuse_latch_routes_degrade_group_only() -> None:
     """熔断三语义：改路由不拒绝（降级组 petro-lite）、单向置位不自动恢复。"""
     router = RouterState()

@@ -266,8 +266,16 @@ class RouterState:
             ordered = [a for a in ordered if groups.get(a) == DEGRADE_GROUP]
         return [a for a in ordered if not self.in_cooldown(a, at)]
 
-    def status(self, default_alias: str, at: datetime) -> Literal["running", "degraded", "down"]:
-        """网关运行态（D1 页头徽标）：主用冷却期内＝degraded（备用承载中）；全冷却＝down。"""
+    def status(
+        self, default_alias: str, fallback_order: Sequence[str], at: datetime
+    ) -> Literal["running", "degraded", "down"]:
+        """网关运行态三态（D1 页头徽标）——全仓判定单源，消费方只调不重推导。
+
+        - down：fallback_order 内全部别名冷却中（含主用——全线路不可用；
+          空序不判 down）；degraded：主用冷却中（备用承载中）；running：主用可用。
+        """
+        if fallback_order and all(self.in_cooldown(a, at) for a in fallback_order):
+            return "down"
         if self.in_cooldown(default_alias, at):
             return "degraded"
         return "running"
@@ -297,7 +305,10 @@ class ModelRegistryView:
 
 
 def project_models(
-    entries: Sequence[ModelEntry], routing_default: str, fallback_order: list[str], status: str
+    entries: Sequence[ModelEntry],
+    routing_default: str,
+    fallback_order: list[str],
+    status: Literal["running", "degraded", "down"],
 ) -> ModelRegistryView:
     """注册表 → D1 投影：default＝main，fallback_order 其余＝backup（key 同 role）。"""
     models: list[ModelView] = []
@@ -318,7 +329,7 @@ def project_models(
     aliases = [routing_default] + [a for a in fallback_order if a != routing_default]
     ordered = [m for a in aliases for m in models if m.alias == a]
     ordered += [m for m in models if m not in ordered]
-    return ModelRegistryView(gateway_status=status, models=ordered)  # type: ignore[arg-type]
+    return ModelRegistryView(gateway_status=status, models=ordered)
 
 
 # ---------- 演练（故障演练状态机——D1 端点 5/6/7；ADR：演练＝平台侧开关临时摘主模型路由） ----------

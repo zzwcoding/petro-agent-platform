@@ -242,15 +242,11 @@ class GatewayService:
     # ---------- D1 网关面（端点 1–7） ----------
 
     def models(self) -> d.ModelRegistryView:
-        """D1 端点 1：模型清单＋网关运行态（页头徽标）。"""
+        """D1 端点 1：模型清单＋网关运行态（页头徽标——三态判定单源在 RouterState.status）。"""
         config = get_models_config()
-        at = now()
-        in_cooldown = [self._router.in_cooldown(a, at) for a in config.routing.fallback_order]
-        status = "running"
-        if all(in_cooldown) and in_cooldown:
-            status = "down"
-        elif self._router.in_cooldown(config.routing.default, at):
-            status = "degraded"
+        status = self._router.status(
+            config.routing.default, config.routing.fallback_order, now()
+        )
         return d.project_models(
             config.models,
             config.routing.default,

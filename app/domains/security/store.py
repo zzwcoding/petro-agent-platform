@@ -21,7 +21,7 @@ import dataclasses
 from datetime import datetime
 from typing import Any, cast
 
-from sqlalchemy import Index, String, Table, Text, func, select, text
+from sqlalchemy import Index, String, Table, Text, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
@@ -34,7 +34,7 @@ from app.domains.security.domain import (
     audit_digest,
 )
 from app.infra.clock import now
-from app.infra.db import Base, ConnectionManager, Page
+from app.infra.db import Base, ConnectionManager, Page, ReadOnlyRepository
 
 
 class AuditLog(Base):
@@ -132,19 +132,16 @@ class AuditLogStore:
             if audit_filter.action is not None:
                 stmt = stmt.where(AuditLog.action == audit_filter.action)
         async with self._db.readonly() as session:  # 只读会话（意图级守卫恒挂）
-            total = await session.scalar(
-                select(func.count()).select_from(stmt.order_by(None).subquery())
+            rows_page: Page[AuditLog] = await ReadOnlyRepository.paginate(
+                session, stmt, page=page, page_size=page_size
             )
-            rows = (
-                (await session.execute(stmt.offset((page - 1) * page_size).limit(page_size)))
-                .scalars()
-                .all()
-            )
+        # count/offset/limit 单源在基类 paginate（B12：本类刻意不继承
+        # Repository——只复用 staticmethod，不沾通用 CRUD 出口）。
         return Page(
-            items=[_to_view(row) for row in rows],
-            total=int(total or 0),
-            page=page,
-            page_size=page_size,
+            items=[_to_view(row) for row in rows_page.items],
+            total=rows_page.total,
+            page=rows_page.page,
+            page_size=rows_page.page_size,
         )
 
 
