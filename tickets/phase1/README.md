@@ -431,6 +431,9 @@
 > 8. **演练窗口不做**（Owner 拍板：任何时间可按）——D1 行为规则 2「演练窗口校验（预留，403 语义）」维持预留不落，前端「允许演练」开关照旧。
 > 9. **前端 getDrill 落账行/聚合视图的 caller 展示**：演练 result.ledger_row 增 caller 键（additive——合同「同 spend-logs item 形」随端点 4 扩段连带），页面明细抽屉增「调用方」行为 additive 展示面。
 
+## P1-10 收尾裁决（主窗口，2a1fbfc）
+> 全绿（带 PG 603 passed＋GATEWAY_SMOKE：真 complete 两笔三维度真数＋trgm 索引实查在案）。九疑全采纳：caller note 族（14 调用点机检必填化——mypy 当闸）/12m=365d/trgm 双列入 teach 对齐批/双阈值 DB 真源/回显形状/sums 全组/五信号计数挂阶段 2/演练窗口不做/additive。**teach 对齐批挂账累计**：trgm 索引清单＋六键计数＋（99 wiki 已随里程碑①落）。
+
 ## P1-11 联调收官
 
 - **范围**：17 链冒烟（未实现链话术核对）；五页双树对照（#/proto 终稿 vs 落地，行为一致）；PG 集成全量零跳过；文档计数同步（README/票面粉笔数）。
