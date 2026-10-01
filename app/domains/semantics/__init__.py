@@ -10,8 +10,10 @@ from app.domains.semantics.domain import (
     OntologyDriftError,
     OntologySchemaUnsupported,
     SyncReport,
+    metric_grain_display,
     metric_slot_name,
     registered_items,
+    term_expiry,
 )
 from app.domains.semantics.service import SemanticsService
 
@@ -21,6 +23,8 @@ __all__ = [
     "OntologySchemaUnsupported",
     "SemanticsService",
     "SyncReport",
+    "metric_grain_display",
     "metric_slot_name",
     "registered_items",
+    "term_expiry",
 ]

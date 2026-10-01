@@ -21,13 +21,15 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 from typing import Any, Protocol
 
 import yaml
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.domains.security.domain import Actor, AuditRow
 from app.domains.semantics import domain as sem_domain
@@ -72,6 +74,17 @@ _MODEL_FILES: dict[str, str] = {
 _BASELINE_COLUMNS = frozenset({"created_at", "updated_at"})
 
 
+@dataclass(frozen=True, slots=True)
+class LedgerPage:
+    """台账读面分页信封（C1 端点 2/3/5/6 列形＋00 §4.1 回显；total 筛选后/grand_total 全量）。"""
+
+    items: list[Any] = field(default_factory=list)
+    total: int = 0
+    grand_total: int = 0
+    page: int = 1
+    page_size: int = 20
+
+
 class AuditSink(Protocol):
     """B12 审计写口缝（装配根注入 SecurityService——semantics 不反向构造）。"""
 
@@ -106,7 +119,7 @@ def load_ontology_models(petro_dir: Path = ONTOLOGY_PETRO_DIR) -> OntologyModels
 
 
 class SemanticsService:
-    """semantics 域服务（薄）——当前公开面仅本体仓同步口（读端点随 C1 页票）。"""
+    """semantics 域服务（薄）——本体仓同步口＋C1 台账读面（P1-01b 三件套）。"""
 
     def __init__(self, db: ConnectionManager, audit: AuditSink) -> None:
         self._db = db
@@ -164,6 +177,101 @@ class SemanticsService:
             )
         )
         return report
+
+    # ---------- 台账读面（C1 三件套：术语/指标/对象与关系——B5 下游合法入口，票 93） ----------
+
+    async def list_terms(
+        self, *, keyword: str | None = None, status: list[str] | None = None,
+        owner: str | None = None, page: int = 1, page_size: int = 20,
+    ) -> LedgerPage:
+        """术语账读面（C1 端点 2＋P1-01b 补分页/keyword/status——00 §4.5 命名）。
+
+        keyword 命中面＝术语名＋类型展示串＋定义——类型串「别名 → X」「缩写 → X」
+        「黑话 → X」族即 GLS 别名的台账载体，故检索别名名亦命中别名行；status 对
+        status_key 精确等值（C1 筛选语义，多值 IN）；台账序＝id 升序（合同常量）。
+        """
+        return await self._paged(
+            SemTerm, _term_conditions(keyword, status, owner), page, page_size
+        )
+
+    async def list_metrics(
+        self, *, keyword: str | None = None, status: list[str] | None = None,
+        owner: str | None = None, page: int = 1, page_size: int = 20,
+    ) -> LedgerPage:
+        """指标账读面（C1 端点 3＋P1-01b 补面；grain_display 读侧拼装不落列——裁决 e）。
+
+        status 为 jsonb 数组列（#10 双徽标），包含谓词跨方言（PG jsonb/sqlite
+        JSON）无统一写法；台账量级 15 行（C1「量级 3–15 条」）——SQL 只筛
+        keyword/owner，status 数组命中与分页读侧完成（total＝筛选后计数）。
+        """
+        conditions: list[ColumnElement[bool]] = []
+        if keyword:
+            pattern = f"%{keyword}%"
+            conditions.append(
+                or_(
+                    SemMetric.name.ilike(pattern),
+                    SemMetric.slot_name.ilike(pattern),
+                    SemMetric.def_.ilike(pattern),
+                )
+            )
+        if owner:
+            conditions.append(SemMetric.owner == owner)
+        async with self._db.readonly() as session:
+            grand_total = int(
+                await session.scalar(select(func.count()).select_from(SemMetric)) or 0
+            )
+            stmt = select(SemMetric).order_by(SemMetric.id)
+            if conditions:
+                stmt = stmt.where(*conditions)
+            rows: list[SemMetric] = list((await session.execute(stmt)).scalars())
+        if status:
+            rows = [row for row in rows if any(value in row.status for value in status)]
+        start = (page - 1) * page_size
+        return LedgerPage(
+            items=rows[start : start + page_size], total=len(rows),
+            grand_total=grand_total, page=page, page_size=page_size,
+        )
+    async def list_objects(
+        self, *, keyword: str | None = None, page: int = 1, page_size: int = 20,
+    ) -> LedgerPage:
+        """对象账读面（C1 端点 5——草案态整体呈现；keyword 命中对象名/属性列）。"""
+        return await self._paged(
+            SemObject,
+            _keyword_conditions(keyword, SemObject.obj, SemObject.attr),
+            page, page_size,
+        )
+
+    async def list_relations(
+        self, *, keyword: str | None = None, page: int = 1, page_size: int = 20,
+    ) -> LedgerPage:
+        """关系账读面（C1 端点 6——对象读面的关系账引用行；keyword 命中关系串/读法）。"""
+        return await self._paged(
+            SemRelation,
+            _keyword_conditions(keyword, SemRelation.rel, SemRelation.read),
+            page, page_size,
+        )
+
+    async def _paged(
+        self, model: type[Any], conditions: list[ColumnElement[bool]],
+        page: int, page_size: int,
+    ) -> LedgerPage:
+        """SQL 筛选＋计数＋分页信封（00 §4.1 回显；§4.2 total 筛选后/grand_total 全量）。"""
+        async with self._db.readonly() as session:
+            count_stmt = select(func.count()).select_from(model)
+            if conditions:
+                count_stmt = count_stmt.where(*conditions)
+            total = int(await session.scalar(count_stmt) or 0)
+            grand_total = int(
+                await session.scalar(select(func.count()).select_from(model)) or 0
+            )
+            stmt = select(model).order_by(model.id)
+            if conditions:
+                stmt = stmt.where(*conditions)
+            stmt = stmt.offset((page - 1) * page_size).limit(page_size)
+            rows: list[Any] = list((await session.execute(stmt)).scalars())
+        return LedgerPage(
+            items=rows, total=total, grand_total=grand_total, page=page, page_size=page_size
+        )
 
     # ---------- 种子装配 ----------
 
@@ -246,6 +354,27 @@ class SemanticsService:
 
 
 # ---------- 载荷 ↔ ORM 落位（列名照 99 §2.8；键＝投影 payload 口径） ----------
+
+
+def _keyword_conditions(
+    keyword: str | None, *columns: Any
+) -> list[ColumnElement[bool]]:
+    """keyword 全文筛（00 §4.5）——子串匹配（台账中文量级，大小写无关由 ilike 承担）。"""
+    if not keyword:
+        return []
+    pattern = f"%{keyword}%"
+    return [or_(*(column.ilike(pattern) for column in columns))]
+
+
+def _term_conditions(
+    keyword: str | None, status: list[str] | None, owner: str | None
+) -> list[ColumnElement[bool]]:
+    conditions = _keyword_conditions(keyword, SemTerm.term, SemTerm.type, SemTerm.def_)
+    if status:
+        conditions.append(SemTerm.status_key.in_(status))
+    if owner:
+        conditions.append(SemTerm.owner == owner)
+    return conditions
 
 
 def _pk_of(seed: SeedRow) -> Any:

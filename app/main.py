@@ -24,10 +24,12 @@ from app.api.chat import router as chat_router
 from app.api.errors import install_error_handlers
 from app.api.gateway import router as gateway_router
 from app.api.security import router as security_router
+from app.api.semantics import router as semantics_router
 from app.domains.gateway import GatewayService
 from app.domains.gateway.store import ensure_gateway_tables
 from app.domains.security import SecurityService
 from app.domains.security.store import ensure_audit_table
+from app.domains.semantics import SemanticsService
 from app.domains.semantics.store import ensure_semantics_tables
 from app.infra.config import load_database_specs
 from app.infra.db import ConnectionManager
@@ -46,6 +48,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.db = manager
     app.state.security = SecurityService(manager)
     app.state.gateway = GatewayService(manager, LlmClient())
+    app.state.semantics = SemanticsService(manager, app.state.security)  # B12 审计写口注入
     # 崩溃重启的遗留 running 演练行收口为 done（幂等；否则 has_running 恒真
     # → 所有 start_drill 永久 409——P0-05 审查收口）
     await app.state.gateway.close_stale_drills()
@@ -58,6 +61,7 @@ install_error_handlers(app)
 app.include_router(security_router)
 app.include_router(gateway_router)
 app.include_router(chat_router)
+app.include_router(semantics_router)  # C1 台账读面（P1-01b——semantics 模块，98 §5）
 
 
 @app.get("/health")

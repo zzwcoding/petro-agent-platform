@@ -61,6 +61,17 @@
 - **疑点 3（真缺口）**：C1 台账读端点三件套（teach `C1-指标与业务术语库.md` v0.1 端点 2/3/11 即术语/指标/对象读面——B3 下拉与 A1 澄清帧的消费者）在 16 票中无归属，随本票补：semantics 域读面（分页/keyword/状态筛，00 §4.5 命名）；**grain 渲染口径本票裁决**：sem_metric 存 M3 真源值不变（裁决 e 不动），读端点响应带 `grain_display` 读侧拼装串（00 R2 先例：expires_display 同款不落列）；格式照 C1 合同页签列形。
 - **验收**：同步零告警；C1 读端点三件套行为规则过；四门禁绿；ontology/ci.sh 绿（若动 ontology/）。
 - **同时登记**（P1-01 六疑点全量裁决结论，Owner 2026-10-01 过目无异议）：疑点 1/4/5＝已有裁决本设如此（关闭）；疑点 6＝**ensure_* 与 Alembic 双轨维持至 P1-11 收官票切纯迁移**（lifespan 改 upgrade head＋ensure 退役，Owner 采纳）。
+- 落地 ✅（2026-10-01）：
+  - **疑点 2 口径名统一**：权威名定谳＝设定书 §3 指标 2 卡原文「开井日历折算 / 检修剔除」（§6 剔检产量条为别名术语非口径名）。三处现值对照：ontology M3 RULE-PETRO-019 calibers「剔检口径/开井日历口径」（不符→改本体）、C1 口径卡 B「剔除检修」（词序变体→改册）、平台种子常量照抄 C1（随册改）。改动：①`ontology/petro/m3-rule-model.yaml` calibers→`[开井日历折算, 检修剔除]`（`bash ontology/ci.sh` 改前改后全绿）；②teach C1 册两行（澄清说明卡三态选 B 文案＋端点 4 calibers DTO 例「剔除检修」→「检修剔除」）＋变更记录一行（**teach 仓改动未提交**——其仓有无关脏文件，留 Owner 按其节奏提交）；③平台种子常量 `_CALIBER_B` 随 C1 改；④同步器告警逻辑由「两处同在即告警」改为**名字集比对**（一致零告警/真漂移仍告警不静默）——SyncReport.warnings 消除且幂等重跑零告警，看守闸单测（模拟再漂移仍红）。
+  - **疑点 3 C1 读面三件套**（98 §5 模块归属＝semantics 模块 `/api/semantics/*`，新建路由族挂 main）：`GET /api/semantics/terms`（端点 2：page/pageSize＋keyword＋status 多值＋owner；keyword 命中面＝术语名＋类型展示串「别名 → X」族＋定义——GLS 别名的台账载体即别名命中；expired/expires_display 读侧现算——F60 到日即标，infra.clock）；`GET /api/semantics/metrics`（端点 3：同上＋`grain_display` 读侧拼装——**拼装公式＝C1 合同冻结 `grain + ' · ' + unit`**；M3 斜杠分维形「月/区块·油田」读侧转括注族「月（按区块 / 油田）」；sem_metric.grain/unit 存储值不动＝裁决 e；status 数组命中读侧过滤——jsonb 包含谓词跨方言无统一写法，量级 15 行）；`GET /api/semantics/objects`＋`GET /api/semantics/relations`（端点 5/6——对象读面含关系账引用行，照 C1 两表分立形状落两端点）。全 GET 零写端点（纯读面 405 框架兜底）；响应信封 items/total/grand_total/page/page_size（00 §4.1 回显＋§4.2）；筛选越界 400 code=`semantics_param_invalid`（新立登记）；C1 全员可见（身份桩依赖无组闸）。
+  - **测试**：`tests/api/test_semantics_read_api.py` 11 条（分页回显/keyword 别名命中/status 多值与越界 400/owner 精确等值联席行排除/过期派生族/grain_display 列形/对象固定值/写 405/五角色可读）＋种子单测 3 条新增（口径名漂移看守闸/grain_display/expires_display 派生族）＋2 条零告警断言。
+  - **四门禁**：ruff 0 错 / mypy strict 41 文件零错 / pytest 带 PG16@5433 **201 passed 零跳过** / lint-imports 4 契约 KEPT；`ontology/ci.sh` 全绿。
+- **差异登记（现实约束按现实落地，语义不私改）**：
+  1. **术语 status 筛参数名**：C1 册端点 2 冻结 `status_key=`（2026-09-29），00 §4.5 筛选命名批（2026-10-01）统一 `status`——本票照 00 §4.5 落 `status`（票面指定）；值域仍为 C1 六枚举 status_key 值。C1 册该参数名未随改（票面授权范围仅疑点 2 两行）——挂 C1 后续批收口。
+  2. **grain_display 间隔符**：票面例「月（按区块 / 油田）· %」括注后无空格；照 C1 合同冻结拼装公式 `grain + ' · ' + unit` 恒「 · 」间隔（合同常量例「月 · 年 · %」同式）。
+  3. **别名命中的载体**：sem_term 无别名列（99 §2.8 冻结列形不改）——keyword 命中类型展示串「别名/缩写/黑话 → X」族（GLS aliases 的台账展示投影），不另建别名存储。
+  4. **metrics status 筛读侧过滤**：status 为 jsonb 数组列，跨方言包含谓词无统一写法——SQL 筛 keyword/owner、status 命中与分页读侧完成（量级 15 行，C1「量级 3–15 条」）；terms/objects/relations 全 SQL 筛选分页。
+  5. **teach 仓 C1 册改动未提交**（如上）；**对象读面拆两端点**（objects＋relations）照 C1 端点 5/6 冻结形状，「三件套」＝术语/指标/对象与关系两面三族。
 
 ## P1-02a kb 底座后端（B1 合同 v0.3 主体）
 

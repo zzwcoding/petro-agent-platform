@@ -21,6 +21,7 @@ from app.domains.security import (
     authorize,
     resolve_actor,
 )
+from app.domains.semantics import SemanticsService
 from app.infra.db import ConnectionManager
 
 ACTOR_HEADER = "X-Dev-User"
@@ -64,6 +65,12 @@ def get_gateway(request: Request) -> GatewayService:
     return cast(GatewayService, request.app.state.gateway)
 
 
+def get_semantics(request: Request) -> SemanticsService:
+    """semantics 服务定位（lifespan 装配于 app.state——main.py；P1-01b 读面起）。"""
+    return cast(SemanticsService, request.app.state.semantics)
+
+
 DbDep = Annotated[ConnectionManager, Depends(get_db)]
 SecurityDep = Annotated[SecurityService, Depends(get_security)]
 GatewayDep = Annotated[GatewayService, Depends(get_gateway)]
+SemanticsDep = Annotated[SemanticsService, Depends(get_semantics)]

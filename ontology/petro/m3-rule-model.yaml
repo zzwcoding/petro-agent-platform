@@ -408,12 +408,15 @@ rules:
         sourceField: well.currentStatus
         required: true
     outputType: Decimal
-    # [口径登记·schema 1.3.0·裁决 e（Owner 2026-09-29）] R5·§3 指标 2 卡原文：★／月／吨；两支口径（剔检/开井日历）+一词两译
+    # [口径登记·schema 1.3.0·裁决 e（Owner 2026-09-29）] R5·§3 指标 2 卡原文：★／月／吨；两支口径+一词两译
+    # calibers 权威名 P1-01b 统一（Owner 票 P1-01b，2026-10-01）：R5·§3 指标 2 原文
+    # 「开井日历折算 / 检修剔除」——旧值「剔检口径/开井日历口径」为泛化后缀形，与
+    # C1 口径卡（已随 P1-01b 改齐「检修剔除」）及同步器种子常量三处不一致，本行即收口点。
     mark: ★
     grain: 月
     unit: 吨
     modifiers: [剔检, 开井日历]
-    calibers: [剔检口径, 开井日历口径]
+    calibers: [开井日历折算, 检修剔除]
     ambiguous: true
     expression: SUM(dailyProduction.oilOutput WHERE well.currentStatus <> '检修')
     narrative: 剔检支：区块月合计中剔除当前状态为「检修」的井后求和；跨月检修按 RULE-PETRO-024 日历天数劈分扣减（PROP-BOHAI-015，2026-09-21）；开井日历折算支已补（PROP-BOHAI-029，2026-09-21）：Σ(oilOutput × openDays/24)，两支并列双口径披露（差异>3% 注明来源，Owner 素材）

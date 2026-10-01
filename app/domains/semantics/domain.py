@@ -261,7 +261,7 @@ _CALIBER_A = {
              "在 8 月、9 月各按开井情况计入——两支口径的分歧点就是「跨月检修切割」。"),
 }
 _CALIBER_B = {
-    "key": "B", "name": "剔除检修", "default": False,
+    "key": "B", "name": "检修剔除", "default": False,
     "desc": ("把检修井剔除后再算净产量——别名「剔检产量」。"
              "同一口 N-11，在 9 月的数里不计入检修这段。"),
 }
@@ -583,14 +583,56 @@ def enrich_metric_seeds(m3_rules: dict[str, dict[str, Any]]) -> tuple[list[SeedR
                 payload[field_name] = rule[field_name]
             payload["modifiers"] = rule.get("modifiers")
             payload["ambiguous"] = bool(rule.get("ambiguous", False))
+            # 口径支名三处一致校验（P1-01b 统一后的看守闸）：M3 calibers（本体真源）
+            # vs C1 口径卡名（种子常量，台账 calibers 照抄 C1 结构）——名字集不一致
+            # 才告警（真漂移不静默）；一致即零告警（P1-01 挂账的口径名差已收口）。
             if rule.get("calibers") and payload.get("calibers"):
-                warnings.append(
-                    f"指标 {m3_ref} 的 M3 口径支名 {rule['calibers']} 与 C1 口径卡名不一致"
-                    f"——台账 calibers 照抄 C1 现值（对齐矩阵 §5 问题 5 同族差集）"
-                )
+                m3_names = {str(name) for name in rule["calibers"]}
+                c1_names = {str(c["name"]) for c in payload["calibers"]}
+                if m3_names != c1_names:
+                    warnings.append(
+                        f"指标 {m3_ref} 的 M3 口径支名 {sorted(m3_names)} 与 C1 口径卡名 "
+                        f"{sorted(c1_names)} 不一致——台账 calibers 照抄 C1 现值"
+                        f"（对齐矩阵 §5 问题 5 同族差集）"
+                    )
         # mark/slot_name 一并入 payload——投影口径字典与 DB 行同键（幂等比对）。
         name = str(payload["name"])
         payload["mark"] = name[0] if name[:1] in ("★", "☆") else None
         payload["slot_name"] = metric_slot_name(name)
         enriched.append(SeedRow(seed.domain, seed.row_id, payload, seed.ontology_refs))
     return enriched, warnings
+
+
+# ---------- 读侧展示串派生（00 R2 先例：expires_display/grain_display 不落列——P1-01b） ----------
+
+
+def metric_grain_display(grain: str, unit: str) -> str:
+    """粒度·单位读侧拼装串（C1 端点 3 页签列形；sem_metric.grain/unit 存储值不动——裁决 e）。
+
+    拼装口径＝C1 合同「合并串＝grain + ' · ' + unit」；唯一渲染差：M3 真源把
+    维度并进粒度的斜杠形（如 #1「月/区块·油田」）转 C1 列形括注族
+    「月（按区块 / 油田）」——P1-01b 裁决：本体存储值不动、展示串读侧拼装。
+    """
+    if "/" in grain:
+        base, dims = grain.split("/", 1)
+        grain_part = f"{base}（按{' / '.join(dims.split('·'))}）"
+    else:
+        grain_part = grain
+    return f"{grain_part} · {unit}"
+
+
+def term_expiry(status_key: str, expires_at: date | None, today: date) -> tuple[bool, str]:
+    """术语有效期读侧派生：(expired, expires_display)（F60 到日即标＋C1 展示串族）。
+
+    expired＝到日即标（expires_at <= today——含当日）；展示串派生规则（复现 C1
+    全部现值）：禁用词「—（已禁用）」→ 无期「长期」（引用类追加后缀）→ 已届满
+    「<ISO>（已届满）」→ 其余 ISO 原样。R2：派生串不入库、不参与计算。
+    """
+    if status_key == "禁用词":
+        return False, "—（已禁用）"
+    if expires_at is None:
+        suffix = "（引用类）" if status_key == "有效（引用马涛）" else ""
+        return False, f"长期{suffix}"
+    expired = expires_at <= today
+    display = f"{expires_at.isoformat()}（已届满）" if expired else expires_at.isoformat()
+    return expired, display

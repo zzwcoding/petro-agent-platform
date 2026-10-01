@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -19,10 +20,12 @@ from app.domains.semantics import (
     SCHEMA_VERSION_PIN,
     OntologyDriftError,
     OntologySchemaUnsupported,
+    metric_grain_display,
     registered_items,
+    term_expiry,
 )
 from app.domains.semantics import domain as sem_domain
-from app.domains.semantics.service import OntologyModels, SemanticsService
+from app.domains.semantics.service import OntologyModels, SemanticsService, load_ontology_models
 from app.domains.semantics.store import (
     SemAction,
     SemJoinWhitelist,
@@ -84,6 +87,7 @@ async def test_first_run_seeds_seven_accounts_and_version(
     db: ConnectionManager, service: SemanticsService
 ) -> None:
     report = await service.sync_from_ontology_repo("mr#1", resolve_actor(None))
+    assert report.warnings == []  # P1-01b：口径名三处统一（设定书 §3）后告警消除
     assert report.counts == {
         "term": 11, "metric": 15, "object": 10, "relation": 5,
         "whitelist": 4, "workflow": 10, "action": 3,
@@ -109,6 +113,7 @@ async def test_sync_is_idempotent_second_run_zero_writes(
     report = await service.sync_from_ontology_repo("mr#1", resolve_actor(None))
     assert report.revisions_appended == 0
     assert report.rows_unchanged == 58
+    assert report.warnings == []  # P1-01b 口径名统一后同步零告警（含幂等重跑）
     assert await _count(db, SemLedgerRevision) == 58  # 行版本轴不因重放膨胀
 
 
@@ -153,7 +158,8 @@ async def test_metric_projection_carries_m3_caliber_fields(
     assert ambiguous.slot_name == "有效产量"  # 剥法单点：★/括注/尾缀全剥
     assert ambiguous.ambiguous is True
     assert ambiguous.default_caliber == "A"
-    assert [c["name"] for c in ambiguous.calibers] == ["开井日历折算", "剔除检修"]
+    # P1-01b 统一后权威名（设定书 §3 指标 2「开井日历折算 / 检修剔除」）
+    assert [c["name"] for c in ambiguous.calibers] == ["开井日历折算", "检修剔除"]
     assert joint is not None
     assert joint.status == ["生效中", "待联席裁决"]  # 双徽标（#10）
     assert (joint.grain, joint.unit) == ("井组·年", "吨")  # M3 口径字段组真源投影
@@ -254,3 +260,42 @@ def test_registered_items_counts_five_items_only() -> None:
     card = {"trigger": "t", "steps": ["s"], "defaults": None, "confirm": None,
             "contract": "c", "source": "设定书 §7", "meta": "…"}  # 来源/版本行不计数
     assert registered_items(card) == 3
+
+
+def test_caliber_name_drift_warning_fires_only_on_real_mismatch() -> None:
+    """P1-01b 看守闸：M3 calibers 与 C1 口径卡名一致＝零告警；名字集漂移才告警。"""
+    ontology = load_ontology_models()
+    m3_rules = {str(rule["id"]): rule for rule in ontology.models["m3"]["rules"]}
+    _, warnings = sem_domain.enrich_metric_seeds(m3_rules)
+    assert warnings == []  # 设定书 §3 权威名统一后——同步零告警
+    m3_rules["RULE-PETRO-019"]["calibers"] = ["剔检口径", "开井日历口径"]  # 模拟本体侧旧值漂移
+    _, warnings = sem_domain.enrich_metric_seeds(m3_rules)
+    assert len(warnings) == 1
+    assert "RULE-PETRO-019" in warnings[0] and "剔检口径" in warnings[0]
+
+
+def test_metric_grain_display_c1_column_shape() -> None:
+    """grain_display＝C1 页签列形「粒度 · 单位」（合同冻结拼装公式 grain+' · '+unit——可逆）。
+
+    M3 斜杠分维形转 C1 括注族（裁决 e：sem_metric.grain/unit 存储值不动）；
+    · 两侧恒带空格（C1 合同常量「月 · 年 · %」族——票面例「月（按区块 / 油田）· %」
+    为行文脱空格，以合同拼装公式为准）。
+    """
+    assert metric_grain_display("月/区块·油田", "%") == "月（按区块 / 油田） · %"  # #1
+    assert metric_grain_display("月", "吨") == "月 · 吨"  # #2
+    assert metric_grain_display("月·年", "%") == "月·年 · %"  # #3/#4
+    assert metric_grain_display("批次", "元/桶") == "批次 · 元/桶"  # #15（unit 内斜杠不拆）
+
+
+def test_term_expiry_display_families() -> None:
+    """expires_display 读侧派生复现 C1 全部展示串族；expired 到日即标（F60）。"""
+    today = date(2026, 10, 1)
+    assert term_expiry("禁用词", None, today) == (False, "—（已禁用）")  # #1
+    assert term_expiry("有效", None, today) == (False, "长期")  # #8
+    assert term_expiry("有效（引用马涛）", None, today) == (False, "长期（引用类）")  # #10
+    assert term_expiry("有效（已届满）", date(2026, 6, 30), today) == (
+        True, "2026-06-30（已届满）"
+    )  # #11
+    assert term_expiry("有效", date(2027, 12, 31), today) == (False, "2027-12-31")  # #2
+    expired, _ = term_expiry("有效", today, today)  # 到日即标（含当日）
+    assert expired is True

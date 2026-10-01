@@ -15,6 +15,8 @@
   区间」——detail.violations 逐项 {field, constraint}）
 - gateway_drill_not_found / gateway_drill_conflict：演练 404/409（D1 错误码草案）
 - gateway_config_write_failed：配置写回/热加载失败（D1 500「需回滚提示」）
+- semantics_param_invalid：台账读面筛选枚举越界（C1 错误码草案「筛选枚举越界 400」；
+  P1-01b 新立值，登记于 tickets/phase1/README.md P1-01b 差异清单）
 """
 
 from __future__ import annotations
@@ -40,6 +42,7 @@ CODE_GATEWAY_PARAM_INVALID = "gateway_param_invalid"
 CODE_GATEWAY_DRILL_NOT_FOUND = "gateway_drill_not_found"
 CODE_GATEWAY_DRILL_CONFLICT = "gateway_drill_conflict"
 CODE_GATEWAY_CONFIG_WRITE_FAILED = "gateway_config_write_failed"
+CODE_SEMANTICS_PARAM_INVALID = "semantics_param_invalid"
 
 
 class ApiError(Exception):
