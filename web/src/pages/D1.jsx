@@ -3,10 +3,10 @@ import {
   Alert, Button, Card, Col, Descriptions, Drawer, Empty, Input, InputNumber,
   Row, Segmented, Select, Space, Steps, Switch, Table, Tabs, Tag, Tooltip
 } from 'antd'
-import { CopyOutlined, PlayCircleOutlined, QuestionCircleOutlined } from '@ant-design/icons'
+import { CopyOutlined, ExportOutlined, PlayCircleOutlined, QuestionCircleOutlined } from '@ant-design/icons'
 import {
   MODELS, getModels, getGatewayConfig, saveGatewayConfig,
-  getSpendLogs, startDrill, getDrill, listDrills
+  getSpendLogs, getSpendStats, startDrill, getDrill, listDrills
 } from '../api/d1.js'
 
 // E1 的答题/裁判模型选项与本页 MODELS 同源（LiteLLM 网关别名，禁止消费页另抄一份），故在此 re-export
@@ -22,7 +22,15 @@ const PARAM_FIELDS = [
   { key: 'allowedFails', label: '连续失败几次判为故障', min: 1, max: 10 },
   { key: 'cooldownSeconds', label: '故障后冷却多少秒不用主用', min: 10, max: 600 },
   { key: 'numRetries', label: '失败自动重试几次', min: 0, max: 5 },
-  { key: 'requestTimeout', label: '单次调用最多等多久（秒）', min: 5, max: 120 }
+  { key: 'requestTimeout', label: '单次调用最多等多久（秒）', min: 5, max: 120 },
+  {
+    key: 'perCallCostLimitYuan', label: '单次调用成本上限（元 · 默认 ¥0.05）', min: 0, max: null, step: 0.01,
+    help: '花费双阈值之一：单笔触顶——熔断位置位，后续调用自动改路由到降级组 petro-lite（改路由不拒绝，在途照跑完），链路记一笔「熔断降级」。'
+  },
+  {
+    key: 'gatewayBudgetYuanPerMonth', label: '累计预算 GATEWAY_BUDGET（元/月）', min: 0, max: null,
+    help: '花费双阈值之一：全月累计触顶——与单笔触顶同一熔断语义；保存即对后续调用生效，已完成的调用不回溯。'
+  }
 ]
 
 const MONO = { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 12 }
@@ -53,6 +61,12 @@ export default function D1Gateway() {
   const [ledger, setLedger] = useState({ items: [], total: 0 })
   const [ledgerLoading, setLedgerLoading] = useState(true)
   const [detail, setDetail] = useState(null)
+  const [ledgerView, setLedgerView] = useState('flow') // flow=流水 · agg=聚合（D5 归并）
+
+  // 花费聚合/趋势（D5 撤页归并：端点 8 spend-stats）
+  const [agg, setAgg] = useState({ groupBy: 'caller', range: '30d' })
+  const [aggData, setAggData] = useState(null)
+  const [aggLoading, setAggLoading] = useState(false)
 
   // 故障演练
   const [drillAllowed, setDrillAllowed] = useState(false)
@@ -74,6 +88,14 @@ export default function D1Gateway() {
     getSpendLogs(query).then(d => { if (on) { setLedger(d); setLedgerLoading(false) } })
     return () => { on = false }
   }, [query])
+
+  useEffect(() => {
+    if (ledgerView !== 'agg') return
+    let on = true
+    setAggLoading(true)
+    getSpendStats(agg).then(d => { if (on) { setAggData(d); setAggLoading(false) } })
+    return () => { on = false }
+  }, [ledgerView, agg, ledger]) // 随流水刷新（演练落账后聚合同步）
 
   async function doSave() {
     setSaving(true)
@@ -152,6 +174,46 @@ export default function D1Gateway() {
     { title: '备注', dataIndex: 'note', ellipsis: true, render: v => v || <span style={{ color: '#8a94a3' }}>—</span> }
   ]
 
+  // 花费聚合/趋势（D5 撤页归并：端点 8 spend-stats）——列形状随 groupBy 切换
+  const CALLER_LABEL = {
+    'chat-ask': '问一问问答',
+    'kb-ingest': '报告入库抽取',
+    'wiki-gen': '百科生成',
+    'graph-extract': '图谱抽取',
+    drill: '故障演练',
+    unattributed: '未归因'
+  }
+  const aggMaxCost = Math.max(...(aggData?.items ?? []).map(x => x.costYuan), 1e-9)
+  const metricCols = [
+    { title: '调用次数', dataIndex: 'calls', width: 90, align: 'right', render: fmtInt },
+    {
+      title: <span>故障切换{helpIcon('本次窗口内由备用模型应答的调用次数（主用冷却期内自动切换，用户无感知）。')}</span>,
+      dataIndex: 'fallbackCalls', width: 90, align: 'right'
+    },
+    { title: '输入 token', dataIndex: 'inputTokens', width: 100, align: 'right', render: fmtInt },
+    { title: '输出 token', dataIndex: 'outputTokens', width: 100, align: 'right', render: fmtInt },
+    { title: '花费', dataIndex: 'costYuan', width: 100, align: 'right', render: v => <b>{fmtCost(v)}</b> }
+  ]
+  const dimCol = {
+    caller: { title: '调用方', dataIndex: 'key', render: v => <Space size={6}><span>{CALLER_LABEL[v] ?? v}</span><span style={MONO}>{v}</span></Space> },
+    model: { title: '模型', dataIndex: 'key', render: v => MODEL_TAG[v] },
+    day: { title: '日期', dataIndex: 'key', render: v => <span style={MONO}>{v}</span> },
+    month: { title: '月份', dataIndex: 'key', render: v => <span style={MONO}>{v}</span> }
+  }[agg.groupBy]
+  const aggColumns = [
+    dimCol,
+    ...metricCols,
+    ...(agg.groupBy === 'day' || agg.groupBy === 'month' ? [{
+      title: <span>趋势{helpIcon('条长按窗口内各期花费占比绘制；排障时故障切换次数要与花费并排看。')}</span>,
+      key: 'trend', width: 180,
+      render: r => (
+        <div style={{ background: 'rgba(22,119,255,0.12)', borderRadius: 3, minWidth: 80 }}>
+          <div style={{ height: 8, borderRadius: 3, background: '#1677ff', width: `${Math.max((r.costYuan / aggMaxCost) * 100, 2)}%` }} />
+        </div>
+      )
+    }] : [])
+  ]
+
   const tabItems = [
     {
       key: 'models',
@@ -187,10 +249,14 @@ export default function D1Gateway() {
         <Row gutter={12}>
           {PARAM_FIELDS.map(p => (
             <Col span={6} key={p.key}>
-              <div style={{ fontSize: 12, marginBottom: 4 }}>{p.label}</div>
+              <div style={{ fontSize: 12, marginBottom: 4 }}>
+                {p.label}
+                {p.help && helpIcon(p.help)}
+              </div>
               <InputNumber
-                size="small" style={{ width: '100%' }} min={p.min} max={p.max}
-                value={form[p.key]} onChange={v => setForm(f => ({ ...f, [p.key]: v }))}
+                size="small" style={{ width: '100%' }} min={p.min} max={p.max ?? undefined}
+                step={p.step} value={form[p.key]}
+                onChange={v => setForm(f => ({ ...f, [p.key]: v }))}
               />
             </Col>
           ))}
@@ -213,37 +279,77 @@ export default function D1Gateway() {
     ledger: (
       <>
         <Space wrap size={8} style={{ marginBottom: 12 }}>
-          <Select
-            size="small" style={{ width: 150 }} value={query.model}
-            onChange={v => setQuery(q => ({ ...q, model: v, page: 1 }))}
-            options={[
-              { value: 'all', label: '模型：全部' },
-              { value: 'main', label: '主用 · 工业LLM' },
-              { value: 'backup', label: '备用 · DeepSeek' }
-            ]}
-          />
           <Segmented
-            size="small" value={query.range}
-            onChange={v => setQuery(q => ({ ...q, range: v, page: 1 }))}
-            options={[{ label: '全部', value: 'all' }, { label: '今天', value: 'today' }, { label: '近 7 天', value: '7d' }]}
+            size="small" value={ledgerView}
+            onChange={v => setLedgerView(v)}
+            options={[{ label: '流水', value: 'flow' }, { label: '聚合', value: 'agg' }]}
           />
-          <Input
-            size="small" allowClear style={{ width: 200 }} value={query.keyword}
-            onChange={e => setQuery(q => ({ ...q, keyword: e.target.value, page: 1 }))}
-            placeholder="搜调用号 / 备注…"
-          />
+          {ledgerView === 'flow' ? (
+            <>
+              <Select
+                size="small" style={{ width: 150 }} value={query.model}
+                onChange={v => setQuery(q => ({ ...q, model: v, page: 1 }))}
+                options={[
+                  { value: 'all', label: '模型：全部' },
+                  { value: 'main', label: '主用 · 工业LLM' },
+                  { value: 'backup', label: '备用 · DeepSeek' }
+                ]}
+              />
+              <Segmented
+                size="small" value={query.range}
+                onChange={v => setQuery(q => ({ ...q, range: v, page: 1 }))}
+                options={[{ label: '全部', value: 'all' }, { label: '今天', value: 'today' }, { label: '近 7 天', value: '7d' }]}
+              />
+              <Input
+                size="small" allowClear style={{ width: 200 }} value={query.keyword}
+                onChange={e => setQuery(q => ({ ...q, keyword: e.target.value, page: 1 }))}
+                placeholder="搜调用号 / 备注…"
+              />
+            </>
+          ) : (
+            <>
+              <Select
+                size="small" style={{ width: 140 }} value={agg.groupBy}
+                onChange={v => setAgg(a => ({ ...a, groupBy: v }))}
+                options={[
+                  { value: 'caller', label: '按调用方' },
+                  { value: 'model', label: '按模型' },
+                  { value: 'day', label: '按日趋势' },
+                  { value: 'month', label: '按月趋势' }
+                ]}
+              />
+              <Segmented
+                size="small" value={agg.range}
+                onChange={v => setAgg(a => ({ ...a, range: v }))}
+                options={[{ label: '全部', value: 'all' }, { label: '近 7 天', value: '7d' }, { label: '近 30 天', value: '30d' }, { label: '近 12 个月', value: '12m' }]}
+              />
+              {aggData && (
+                <span style={{ fontSize: 12, color: '#8a94a3' }}>
+                  期间合计：{aggData.sums.calls} 次调用 · 故障切换 {aggData.sums.fallbackCalls} 次 · 花费 {fmtCost(aggData.sums.costYuan)}
+                </span>
+              )}
+            </>
+          )}
         </Space>
-        <Table
-          size="small" loading={ledgerLoading} columns={ledgerColumns} dataSource={ledger.items} rowKey="id"
-          scroll={{ x: 980 }}
-          pagination={{
-            current: query.page, pageSize: query.pageSize, total: ledger.total, showSizeChanger: false,
-            showTotal: t => `共 ${t} 条`,
-            onChange: (p, ps) => setQuery(q => ({ ...q, page: p, pageSize: ps }))
-          }}
-          onRow={r => ({ onClick: () => setDetail(r), style: { cursor: 'pointer' } })}
-          locale={{ emptyText: <Empty description="没有匹配的调用记录" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
-        />
+        {ledgerView === 'flow' ? (
+          <Table
+            size="small" loading={ledgerLoading} columns={ledgerColumns} dataSource={ledger.items} rowKey="id"
+            scroll={{ x: 980 }}
+            pagination={{
+              current: query.page, pageSize: query.pageSize, total: ledger.total, showSizeChanger: false,
+              showTotal: t => `共 ${t} 条`,
+              onChange: (p, ps) => setQuery(q => ({ ...q, page: p, pageSize: ps }))
+            }}
+            onRow={r => ({ onClick: () => setDetail(r), style: { cursor: 'pointer' } })}
+            locale={{ emptyText: <Empty description="没有匹配的调用记录" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+          />
+        ) : (
+          <Table
+            size="small" loading={aggLoading} columns={aggColumns} dataSource={aggData?.items ?? []}
+            rowKey="key" pagination={false}
+            locale={{ emptyText: <Empty description="所选窗口内没有调用记录" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+          />
+        )}
       </>
     ),
     drill: (
@@ -299,6 +405,15 @@ export default function D1Gateway() {
           <span style={{ fontSize: 18, fontWeight: 600 }}>模型与线路</span>
           {gateway?.status === 'running' && <Tag color="success" style={{ marginInlineEnd: 0 }}>网关运行中</Tag>}
           <span style={{ color: '#8a94a3', fontSize: 12 }}>主用 工业LLM · 备用 DeepSeek 待命</span>
+          <span style={{ flex: 1 }} />
+          <Tooltip title={<div style={{ fontSize: 12, lineHeight: 1.8 }}>
+            链路（trace/span）在 Langfuse 视图回看：同一调用的账本流水在本页「记账流水」按调用号 call_id 对账。<br />
+            地址为中间件 Langfuse Web 默认端口（compose observe profile），接线时按部署配置调整。
+          </div>}>
+            <Button size="small" icon={<ExportOutlined />} href="http://localhost:3000" target="_blank">
+              观测（Langfuse）
+            </Button>
+          </Tooltip>
         </div>
         <span style={{ color: '#8a94a3', fontSize: 13 }}>
           平台所有模型调用的唯一出口：主用故障自动切备用、冷却期满自动切回；改配置即对全平台生效，问数的人不用管。

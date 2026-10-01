@@ -5,19 +5,8 @@ import {
 import { IdcardOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons'
 import { KEY_SCOPES, listKeys, createKey, rotateKey, revokeKey } from '../api/f1.js'
 
-export const F1_GUIDE = [
-  '「调用方式」页签点左边三行——直接调、参数不够时反问、长任务给任务号，右边切出对应的对话示例。',
-  '「对外工具」页签——就 3 个查询工具，一件不多、一件不少；悬浮列头 ? 看清单怎么来的、什么才对外放行。',
-  '「大结果凭证」页签点"看一张取货凭证"——大结果只给几行预览＋下载直链，句柄四字段齐全，下载直链最长 7 天有效。',
-  '「内外同权」页签——外部 AI 和内部用户同一套安检，一道不少；改定义只能提建议＋人工审批。查询安检规则在 D3 配。',
-  '「行业复用」页签——三层对照：对象层带走最多，映射层是护城河。',
-  '「API 凭证」页签——外部调用方的钥匙：签发时勾能力集（五层），没勾的一律默认拒绝；明文只展示一次，泄露就轮换或停用。',
-  '右上角"打开平台名片"——真跳转到 agent-card.html。',
-  '悬浮右上角 ?——本页管三件事：对方怎么调、大结果怎么给、权限怎么不松。'
-]
 export const F1_TRACE = 'F8 工具体系 · F27 大结果句柄 · F28 对外接口 · F49 内外双通道 · F54 行业复用 · 票30 协议化暴露 · m16/m4/m15/m7 卡'
 
-window.__guides = Object.assign(window.__guides || {}, { F1: F1_GUIDE })
 window.__traces = Object.assign(window.__traces || {}, { F1: F1_TRACE })
 
 const helpIcon = content => (

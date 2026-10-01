@@ -2,18 +2,6 @@ import { useEffect, useState } from 'react'
 import { Card, Col, Collapse, Empty, Input, Row, Skeleton, Table, Tabs, Tooltip } from 'antd'
 import { QuestionCircleOutlined } from '@ant-design/icons'
 
-window.__guides = Object.assign(window.__guides || {}, {
-  D6: [
-    '「接入源」页签 8 个数据源——所有数据先原样进来，一个字不改；报表上哪个数对不上，能一路指回原始文件的某一行。',
-    '切「清洗路径」页签——规整表格自动认列、嵌套数据炸开、扫描件走人工复核。',
-    '重点看路径三——人工复核是必选步，不许跳。',
-    '切「三层加工」页签——原始层 8 张表、清洗层 6 条规则、汇总层星型大表；悬浮层名 ? 看各层进什么、出什么、防什么错。',
-    '在汇总层看星型模型——事实表一行＝一口井×一天，两边挂井维度和日期维度。',
-    '「对象映射」页签点"井档案 well_info"表名——展开映射四件套，看一行数据怎么变成"井"对象；再点收起。',
-    '「增量与风险」页签两个坑——追加模式新旧并存、双源时间差，各有一条应对口径。',
-    '「效率账」页签——冻结头 3,800 token 为什么值大钱：KV Cache 命中账对照 + 长会话压缩三原则。'
-  ]
-})
 window.__traces = Object.assign(window.__traces || {}, {
   D6: 'F53 接入落地链路 · F17 维度建模 · m20 数据建模与转换分层 / m22 知识管线枢纽'
 })

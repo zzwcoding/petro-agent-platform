@@ -5,17 +5,6 @@ import {
 import { CheckOutlined, FileSearchOutlined, LockOutlined, StopOutlined, ThunderboltOutlined, UndoOutlined } from '@ant-design/icons'
 import { TICKETS } from '../data/changeTickets.jsx'
 
-window.__guides = Object.assign(window.__guides || {}, {
-  A3: [
-    '左上 Tab 按状态筛单：全部 / 待审批 / 已执行 / 已驳回 / 已撤回，计数实时联动。',
-    '表头下拉按 风险 / 面 / 工作流 过滤；搜索框按变动单号或对象模糊搜。',
-    '单号前缀即类别：WB 井务 / MS 措施作业 / CFG 平台配置 / ACC 权限——「面」列标出改的是数据面 / 配置面 / 语义面；语义面修订走 C2 语义修订提案池，不进本页。',
-    '列头「工作流&账号」标出哪条工作流、哪个账号发起；点行尾「详情」或双击行看合同 + 本单审计记录。',
-    '#WB-20260922-16 是提出方主动撤回的：与 -23-01 重复，合并重报——对比两张单。',
-    '#ACC-20260922-15 是语义面的权限申请被驳回：语义面修订不走本页，转角色权限流程。',
-    '#CFG-20260924-09 是平台自身配置变更（置信度阈值），注意它的合同栏是"当前值→建议值 / 影响范围 / 回滚方式"。'
-  ]
-})
 window.__traces = Object.assign(window.__traces || {}, {
   A3: 'F47 受控写入 · m17 校验链 / m8 权限 / m3 持久化'
 })

@@ -6,15 +6,6 @@ import { MessageOutlined } from '@ant-design/icons'
 import { DEV } from '../shell/TraceBar.jsx'
 import { TICKETS } from '../data/changeTickets.jsx'
 
-window.__guides = Object.assign(window.__guides || {}, {
-  A2: [
-    '档案明细卡片右上切当前井——纪录与关系链整体换数据。',
-    '看档案明细：N-11 有两条红色质量备注（状态滞后、单位误录），已提示数据岗。',
-    '「纪录」页签按时间合并措施 / 检修 / 状态变更；「措施 / 设备 / 检修」页签各看一类台账。',
-    '「变动」页签列出涉及本井的变动单（待审批 / 已执行 / 已驳回 / 已撤回），点链接去数据变动审批看全部。',
-    '表格行尾图标带本页背景去问一问。'
-  ]
-})
 window.__traces = Object.assign(window.__traces || {}, {
   A2: 'F44 背景注入 · F45 对象查询 · F46 专业函数（递减风险）· F43 AgentOS 总纲 · F48 治理约束（无权限井灰显）· m16 对象关系 / m1 底座'
 })

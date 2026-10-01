@@ -4,19 +4,11 @@ import {
   AlertOutlined, ApartmentOutlined, ApiOutlined, AuditOutlined, BarChartOutlined,
   BookOutlined, BulbOutlined, CheckSquareOutlined, CloudOutlined,
   DatabaseOutlined, FileDoneOutlined, FileSearchOutlined, FileTextOutlined,
-  LineChartOutlined, LockOutlined, MedicineBoxOutlined, MessageOutlined,
+  LockOutlined, MedicineBoxOutlined, MessageOutlined,
   ProfileOutlined, QuestionCircleOutlined, SafetyCertificateOutlined, SearchOutlined, ToolOutlined
 } from '@ant-design/icons'
 import { ROLES, menuForRole } from '../roles.js'
 
-window.__guides = Object.assign(window.__guides || {}, {
-  INDEX: [
-    '顶上一行是平台家底：采油井 / 注水井 / 在库报告 / 本月待办四个数。',
-    '待办列今天该处理的事——点一条直达对应页面处理。',
-    '下面按业务区分组：工作台 / 报告库 / 指标与术语 / 设置中心 / 考核与质量 / 平台；点任一入口直达该页，分区标题旁 ? 看这个区是干嘛的。',
-    '顶栏切换用户——首页的分区与待办跟着角色变：设置中心、对外接口只有运维角色（阿强）有，没给你开的区不显示。'
-  ]
-})
 window.__traces = Object.assign(window.__traces || {}, {
   INDEX: '总导航 · F48 治理约束 · DESIGN.md §1 G0 行'
 })
@@ -59,10 +51,9 @@ const PAGES = {
   C1: { icon: <BarChartOutlined />, color: '#0b7a5c', desc: '四本账：术语 / 指标 / 对象与关系 / 工作流' },
   C2: { icon: <FileDoneOutlined />, color: '#d97706', desc: '平台只提建议，合并由人批准' },
   C3: { icon: <SafetyCertificateOutlined />, color: '#d97706', desc: '五道检查，一道不过即停' },
-  D1: { icon: <ApiOutlined />, color: '#1677ff', desc: '主用故障自动切备用，每次调用有账' },
+  D1: { icon: <ApiOutlined />, color: '#1677ff', desc: '主用故障自动切备用，每次调用有账；花费聚合与预算阈值也在这' },
   D2: { icon: <SearchOutlined />, color: '#1677ff', desc: '检索与作答的规矩' },
   D3: { icon: <LockOutlined />, color: '#1677ff', desc: '四件全开才放行，没配权限＝没有入口' },
-  D5: { icon: <LineChartOutlined />, color: '#1677ff', desc: '哪步慢一目了然，花超了自动降级' },
   D6: { icon: <DatabaseOutlined />, color: '#1677ff', desc: '原样进来 · 洗净 · 拼成问数大表' },
   E1: { icon: <CheckSquareOutlined />, color: '#d97706', desc: '考核题库 / 跑批评分 / 判分导出' },
   E2: { icon: <AlertOutlined />, color: '#d97706', desc: '质检任务 / 问题单' },
@@ -75,7 +66,7 @@ const AREA_HELP = {
   工作台: '日常处理业务的地方：向平台提问、查井档案、审批数据变动。开工先来这。',
   报告库: '报告从入库到使用的全链路：入库建索引、管切片、看百科页与关系图谱。找报告、核对切片质量时来这。',
   指标与术语: '管口径的账本：指标与术语台账、修订提案池、发布前安检。对口径有疑问、要改定义时来这。',
-  设置中心: '平台自身的配置与运行：模型线路、检索规矩、安全权限、运行追踪、数据接入。只对运维角色开放。',
+  设置中心: '平台自身的配置与运行：模型线路（含花费聚合与预算阈值、观测入口）、检索规矩、安全权限、数据接入。只对运维角色开放。',
   考核与质量: '定期体检三件事：考核平台答得准不准，质检数据干不干净，体检知识底子全不全。',
   平台: '给外部系统用的接口：外部 AI 和内部用户同一套安检，大结果只给凭证不给正文。'
 }

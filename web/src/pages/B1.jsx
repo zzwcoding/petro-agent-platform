@@ -5,21 +5,10 @@ import {
 } from 'antd'
 import {
   BookOutlined, DownloadOutlined, FileTextOutlined, FormOutlined, HistoryOutlined,
-  QuestionCircleOutlined, RedoOutlined, SettingOutlined, UploadOutlined
+  PauseCircleOutlined, PlayCircleOutlined, PlusOutlined, QuestionCircleOutlined,
+  RedoOutlined, SettingOutlined, UploadOutlined
 } from '@ant-design/icons'
 
-window.__guides = Object.assign(window.__guides || {}, {
-  B1: [
-    '「报告台账」是在库报告的总账：所属库、出处片段数、中文百科页一眼看全。《N-02 井完井报告》与《2026-08 月报》资料最全；行尾图标看出处（B2）/看百科（B4）/下载原件（直链小时级有效）；双击行开报告详情。',
-    '详情抽屉底部「片段预览」——点"修正"可改解析错字：保存后重建索引；别人已改过时会提示刷新后再改（历史版本回看，第一期不回写）。',
-    '切「入库任务」点"上传报告（直传）"——先弹确认框：选目标库、预览该库将采用的索引配置，确认后才建任务开跑。',
-    '任务列表里有一条"失败"（停在切段，扫描件图像质量差）和一条"疑似卡住"（20 多分钟没进展）——展开看红色/黄色提示条，点"重试"重跑管线。',
-    '管线走完——状态变"已完成"，展开区产物卡给出全文档摘要和"可能被问的 10 个问题"；点管线任意处可重跑。',
-    '切「库管理」点行尾"配置"——四个索引开关逐个试：关掉即出现黄色后果提示，再开就消失；「入库任务」里"建索引"一步的 ✓/✗ 跟着所选库的开关同步变。',
-    '配置里切"切段方式"三个页签——同一段原文三种切法对照立刻换。',
-    '点行尾"活动"——这个库的操作留痕：谁传了报告、谁改了配置、哪次入库失败，只记录不改数据。'
-  ]
-})
 window.__traces = Object.assign(window.__traces || {}, {
   B1: 'F5 对象存储 · F6 RAG 管道 · F30 大小段配合/分块人工修正与版本 · F32 四开关/入库失败与重试 · F37 索引期加法 · F61 库活动流 · m5/m6/m14 卡'
 })
@@ -136,13 +125,47 @@ const SUMMARY_TEXT = '本报告为 N-02 井（渤中28-1-N2）完井报告：井
 const DEFAULT_CONFIG = { semantic: true, keyword: true, wiki: true, graph: false, mode: 'smart', addSummary: true, addQuestions: true }
 const initConfigs = () => Object.fromEntries(LIBS.map(l => [l.key, { ...DEFAULT_CONFIG }]))
 
+// 业务类型模板（建库）：每个模板带出一份默认配置档案（四开关预设＋切段方式＋索引期加法），建后可在"配置"里调
+const LIB_TEMPLATES = {
+  completion: {
+    label: '完井报告类',
+    hint: '四开关全开（含关系图谱——井与井的受效、措施关联就靠它），切段智能、索引期加法两项都做；带出默认配置，建后可调。',
+    sw: ['语义 ✓', '关键词 ✓', '百科 ✓', '图谱 ✓'],
+    cfg: { ...DEFAULT_CONFIG, graph: true }
+  },
+  monthly: {
+    label: '生产月报类',
+    hint: '语义/关键词/百科开、图谱关（月报按井月计量为主，省抽取费），切段智能、索引期加法两项都做；带出默认配置，建后可调。',
+    sw: ['语义 ✓', '关键词 ✓', '百科 ✓', '图谱 ✗'],
+    cfg: { ...DEFAULT_CONFIG }
+  },
+  dynamic: {
+    label: '动态分析类',
+    hint: '语义/关键词/百科开、图谱关（动态分析以指标与曲线为主，图谱需要时再开），切段智能、索引期加法两项都做；带出默认配置，建后可调。',
+    sw: ['语义 ✓', '关键词 ✓', '百科 ✓', '图谱 ✗'],
+    cfg: { ...DEFAULT_CONFIG }
+  },
+  blank: {
+    label: '空白默认',
+    hint: '不带业务预设，按平台默认档建库（语义/关键词/百科开、图谱关）；带出默认配置，建后可调。',
+    sw: ['语义 ✓', '关键词 ✓', '百科 ✓', '图谱 ✗'],
+    cfg: { ...DEFAULT_CONFIG }
+  }
+}
+
 // 入库任务种子两行（失败/疑似卡住样例，Owner 拍板文案）：失败原因不写数字
 const SEED_TASKS = [
-  { key: 'tf', doc: '《N-11 井完井报告（英文 · 200 页）》', libKey: 1, state: 'failed', cur: 0, stopAt: '切段', reason: '扫描件某页图像质量差，无法识别' },
-  { key: 'ts', doc: '《渤中28-1 区块月度生产月报（2026-07）》', libKey: 2, state: 'stuck', cur: 3, stopAt: null }
+  { key: 'tf', doc: '《N-11 井完井报告（英文 · 200 页）》', libKey: 1, source: '上传入库', state: 'failed', cur: 0, stopAt: '切段', reason: '扫描件某页图像质量差，无法识别' },
+  { key: 'ts', doc: '《渤中28-1 区块月度生产月报（2026-07）》', libKey: 2, source: '上传入库', state: 'stuck', cur: 3, stopAt: null }
 ]
+const SOURCE_OPTIONS = ['上传入库', '片段修正', '重跑定型']
 
 const sleep = ms => new Promise(r => setTimeout(r, ms))
+
+const nowStamp = () => {
+  const d = new Date(); const p = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
 
 // 切段对照面板：同一段报告原文，三种切法切出来不一样
 function chunkPanel(mode) {
@@ -183,8 +206,9 @@ export default function B1() {
   const [libF, setLibF] = useState('all')
   const [lkw, setLkw] = useState('')
 
-  // 入库任务列表（上传追加，种子含失败/卡住样例）
+  // 入库任务列表（上传追加，种子含失败/卡住样例）＋来源筛选
   const [tasks, setTasks] = useState(SEED_TASKS)
+  const [sourceF, setSourceF] = useState('all')
   const nextTask = useRef(1)
   const runningRef = useRef(new Set())
 
@@ -209,26 +233,77 @@ export default function B1() {
   const [saved, setSaved] = useState(false)
   const [actLib, setActLib] = useState(null)
 
+  // 库列表（新建库/停用启用动态增改——configs/activities 随库键联动）
+  const [libs, setLibs] = useState(LIBS.map(l => ({ ...l, status: 'active' })))
+  const [activities, setActivities] = useState(ACTIVITIES)
+  const nextLib = useRef(4)
+  const [nlOpen, setNlOpen] = useState(false)
+  const [nlName, setNlName] = useState('')
+  const [nlTpl, setNlTpl] = useState('completion')
+
   useEffect(() => {
     const id = setTimeout(() => setLibsLoading(false), 500)
     return () => clearTimeout(id)
   }, [])
 
-  async function runTask(key) {
+  async function runTask(key, source) {
     if (runningRef.current.has(key)) return
     runningRef.current.add(key)
     const patch = p => setTasks(ts => ts.map(t => (t.key === key ? { ...t, ...p } : t)))
-    patch({ state: 'running', cur: 0, done: false, stopAt: null, reason: null })
+    patch(source ? { source, state: 'running', cur: 0, done: false, stopAt: null, reason: null }
+                 : { state: 'running', cur: 0, done: false, stopAt: null, reason: null })
     for (let i = 1; i < FLOW.length; i++) { await sleep(650); patch({ cur: i }) }
     patch({ state: 'done', done: true })
     runningRef.current.delete(key)
   }
   function confirmUpload() {
     const key = nextTask.current++
-    const lib = LIBS.find(l => l.key === upLib)
-    setTasks(ts => [{ key, doc: TASK_DOC, libKey: upLib, libName: lib.name, state: 'running', cur: -1, done: false }, ...ts])
+    const lib = libs.find(l => l.key === upLib)
+    setTasks(ts => [{ key, doc: TASK_DOC, libKey: upLib, libName: lib.name, source: '上传入库', state: 'running', cur: -1, done: false }, ...ts])
     setUpOpen(false)
-    runTask(key)
+    runTask(key, '上传入库')
+  }
+
+  // 新建库：库名非空且不重；按业务模板带出默认配置（模板只定初始档，建后可在"配置"里调）
+  function createLib() {
+    const name = nlName.trim()
+    if (!name) { message.warning('请输入库名。'); return }
+    if (libs.some(l => l.name === name)) { message.error('库名与现有库重复，请换一个名称。'); return }
+    const tpl = LIB_TEMPLATES[nlTpl]
+    const key = nextLib.current++
+    setLibs(s => [...s, { key, name, doc: null, sw: [...tpl.sw], status: 'active' }])
+    setConfigs(s => ({ ...s, [key]: { ...tpl.cfg } }))
+    setActivities(a => ({ ...a, [key]: [{ time: nowStamp(), who: '阿强 · 平台运维', action: '新建库', target: `${name} · 业务模板：${tpl.label}（默认配置已生成）` }] }))
+    setNlOpen(false)
+    setNlName('')
+    setNlTpl('completion')
+    message.success('已建库——默认配置已生成，可在「库配置」中调整。')
+  }
+
+  // 停用/启用（可逆）：停用＝不接新入库，已有内容（报告/片段/产物/活动）保留可查
+  function toggleLib(key) {
+    const lib = libs.find(l => l.key === key)
+    const to = lib.status === 'active' ? 'disabled' : 'active'
+    setLibs(s => s.map(l => (l.key === key ? { ...l, status: to } : l)))
+    setActivities(a => ({
+      ...a,
+      [key]: [...(a[key] || []), {
+        time: nowStamp(), who: '阿强 · 平台运维', action: to === 'disabled' ? '停用库' : '启用库',
+        target: to === 'disabled' ? `${lib.name} · 停止接收新入库，已有内容保留可查` : `${lib.name} · 恢复接收新入库`
+      }]
+    }))
+    message.success(to === 'disabled'
+      ? `已停用「${lib.name}」——不再接收新入库，已有内容保留可查。`
+      : `已启用「${lib.name}」——恢复接收新入库。`)
+  }
+
+  // 上传入口：停用库不列进目标库下拉；原选中库已停用时回落到第一个可用库
+  function openUpload() {
+    if (libs.find(l => l.key === upLib)?.status === 'disabled') {
+      const first = libs.find(l => l.status === 'active')
+      if (first) setUpLib(first.key)
+    }
+    setUpOpen(true)
   }
 
   function openCfg(key) {
@@ -245,8 +320,8 @@ export default function B1() {
   // 任务展开区：逐步点亮的说明行（步 2 随切段方式联动；步 4 随该库四开关实时联动）
   function taskStepRows(t) {
     if (t.cur < 0) return []
-    const cfg = configs[t.libKey]
-    const libName = LIBS.find(l => l.key === t.libKey)?.name || ''
+    const cfg = configs[t.libKey] || DEFAULT_CONFIG
+    const libName = libs.find(l => l.key === t.libKey)?.name || t.libName || ''
     const rows = [{ key: 's1', step: '步 1 · 解析', text: '读出正文和插图；报告原文原样存进文件库（桶：报告原文），一个字不动——以后任何引用都能翻回原文。' }]
     if (t.cur >= 1 && t.state !== 'failed') rows.push({ key: 's2', step: '步 2 · 切段', text: `切段方式：${MODE_TEXT[cfg.mode]} 三种切法的对照在「库管理」页签点"配置"现场切换。` })
     if (t.cur >= 2 && t.state !== 'failed') rows.push({ key: 's3', step: '步 3 · 向量化', text: '把每段换成一串"语义坐标"：意思相近的段坐标就相近——问句换个说法也能搜到。' })
@@ -257,12 +332,19 @@ export default function B1() {
     return rows
   }
 
+  // 台账行内「入库中」状态标：该报告存在处理中（运行/疑似卡住）的入库任务
+  const ingestingDocs = new Set(tasks.filter(t => t.state === 'running' || t.state === 'stuck').map(t => t.doc))
+
   const ledgerFiltered = LEDGER.filter(l =>
     (libF === 'all' || l.lib === libF) &&
     (!lkw.trim() || (l.doc + l.lib).toLowerCase().includes(lkw.trim().toLowerCase())))
 
   const ledgerColumns = [
-    { title: '报告', dataIndex: 'doc', render: v => <b>{v}</b> },
+    {
+      title: (<span>报告{helpIcon(<>处理中的报告进台账：行内标「入库中」，入库完成后转为已入库、标自动消失。</>)}</span>),
+      dataIndex: 'doc',
+      render: (v, r) => <Space size={6}><b>{v}</b>{ingestingDocs.has(r.doc) && <Tag color="orange" style={{ marginInlineEnd: 0 }}>入库中</Tag>}</Space>
+    },
     { title: '所属库', dataIndex: 'lib', width: 116 },
     {
       title: (<span>出处片段{helpIcon(<>切片管理中该报告的片段数——小段负责被找到，大段负责被读懂。未建检索切片的报告如实标"—"。</>)}</span>),
@@ -308,28 +390,38 @@ export default function B1() {
 
   const taskColumns = [
     { title: '报告', dataIndex: 'doc', render: (v, t) => <b>{v}{t.state === 'stuck' && <span style={{ ...dim, fontWeight: 'normal', marginLeft: 8 }}>已 20 多分钟没有进展</span>}</b> },
-    { title: '目标库', width: 116, render: (_, t) => (t.libName || LIBS.find(l => l.key === t.libKey)?.name || '—') },
+    { title: '目标库', width: 116, render: (_, t) => (t.libName || libs.find(l => l.key === t.libKey)?.name || '—') },
+    {
+      title: (<span>来源{helpIcon(<>任务来源：上传入库＝直传上传；片段修正＝片段修正保存后触发的索引重建；重跑定型＝对既有任务重试/重跑。</>)}</span>),
+      dataIndex: 'source', width: 100
+    },
     { title: '状态', width: 96, render: (_, t) => TASK_STATE[t.state] },
     {
       title: '操作', width: 64, align: 'center',
       render: (_, t) => (
         <Tooltip title="重试/重跑入库管线">
           <Button size="small" icon={<RedoOutlined />} disabled={runningRef.current.has(t.key)}
-            onClick={e => { e.stopPropagation(); runTask(t.key) }} />
+            onClick={e => { e.stopPropagation(); runTask(t.key, '重跑定型') }} />
         </Tooltip>
       )
     }
   ]
 
-  const libFiltered = LIBS.filter(l => {
+  const libFiltered = libs.filter(l => {
     if (graphF !== 'all' && l.sw[3].includes('✓') !== (graphF === 'on')) return false
     const q = kw.trim().toLowerCase()
-    return !q || (l.name + l.doc).toLowerCase().includes(q)
+    return !q || (l.name + (l.doc || '')).toLowerCase().includes(q)
   })
 
   const libColumns = [
-    { title: '库', dataIndex: 'name', width: 120, render: v => <b>{v}</b> },
-    { title: '最近入库', dataIndex: 'doc' },
+    {
+      title: '库', dataIndex: 'name', width: 140,
+      render: (v, l) => <Space size={6}><b>{v}</b>{l.status === 'disabled' && <Tag color="default" style={{ marginInlineEnd: 0 }}>已停用</Tag>}</Space>
+    },
+    {
+      title: '最近入库', dataIndex: 'doc',
+      render: v => (v || <span style={dim}>—</span>)
+    },
     {
       title: (<span>索引开关{helpIcon(<>该库最近一次入库所用的四个索引开关：语义 / 关键词 / 百科页 / 关系图谱。下次入库用哪几个，在行尾"配置"里按库调整，保存后下次入库生效。</>)}</span>),
       dataIndex: 'sw', width: 320,
@@ -340,12 +432,18 @@ export default function B1() {
       )
     },
     {
-      title: '操作', width: 96, align: 'center',
+      title: '操作', width: 128, align: 'center',
       render: (_, l) => (
         <Space size={4}>
           <Tooltip title="库配置（索引开关 / 切段方式 / 索引期加法）">
             <Button size="small" icon={<SettingOutlined />}
               onClick={e => { e.stopPropagation(); openCfg(l.key) }} />
+          </Tooltip>
+          <Tooltip title={l.status === 'disabled'
+            ? '启用——恢复接收新入库'
+            : '停用——该库不再接收新入库，已有内容保留可查'}>
+            <Button size="small" icon={l.status === 'disabled' ? <PlayCircleOutlined /> : <PauseCircleOutlined />}
+              onClick={e => { e.stopPropagation(); toggleLib(l.key) }} />
           </Tooltip>
           <Tooltip title="活动——这个库的操作留痕">
             <Button size="small" icon={<HistoryOutlined />}
@@ -360,10 +458,10 @@ export default function B1() {
     <>在库报告的总账与入库管理：上传后平台自动切段、建索引，处理到哪步亮哪步；每个库可单独配四个索引开关和切段方式；处理完自动产出全文档摘要和"可能被问的 10 个问题"。</>
   )
 
-  const cfgLibRow = LIBS.find(l => l.key === cfgLib)
+  const cfgLibRow = libs.find(l => l.key === cfgLib)
   const detailRow = LEDGER.find(l => l.key === detailKey)
   const upCfg = configs[upLib]
-  const _fixRow = fixFrag ? LEDGER.find(l => l.key === fixFrag.ledgerKey) : null
+  const fixRow = fixFrag ? LEDGER.find(l => l.key === fixFrag.ledgerKey) : null
   const fixFragRow = fixFrag ? LEDGER_EXTRA[fixFrag.ledgerKey]?.frags.find(f => f.key === fixFrag.fragKey) : null
 
   if (libsLoading) {
@@ -381,7 +479,7 @@ export default function B1() {
             items={[
               { key: 'ledger', label: `报告台账（${LEDGER.length}）` },
               { key: 'tasks', label: `入库任务（${tasks.length}）` },
-              { key: 'libs', label: `库管理（${LIBS.length}）` }
+              { key: 'libs', label: `库管理（${libs.length}）` }
             ]}
           />
         }
@@ -425,13 +523,15 @@ export default function B1() {
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <Space wrap size={8}>
-                <Button type="primary" size="small" icon={<UploadOutlined />} onClick={() => setUpOpen(true)}>上传报告（直传）</Button>
+                <Button type="primary" size="small" icon={<UploadOutlined />} onClick={openUpload}>上传报告（直传）</Button>
                 {helpIcon(<>报告从客户端直接传进文件库，不绕平台服务；解析、切段、建索引由平台在入库时自动完成。上传后先确认目标库与该库将采用的配置，确认后开跑。</>)}
+                <Select size="small" style={{ width: 130 }} value={sourceF} onChange={setSourceF}
+                  options={[{ value: 'all', label: '来源：全部' }, ...SOURCE_OPTIONS.map(v => ({ value: v, label: v }))]} />
               </Space>
               <span style={{ color: '#8a94a3', fontSize: 12 }}>{tasks.length ? `任务 ${tasks.length} 条` : ''}</span>
             </div>
             <Table
-              size="small" columns={taskColumns} dataSource={tasks} pagination={false} rowKey="key"
+              size="small" columns={taskColumns} dataSource={tasks.filter(t => sourceF === 'all' || t.source === sourceF)} pagination={false} rowKey="key"
               expandable={{
                 expandRowByClick: true,
                 expandedRowRender: t => (
@@ -440,21 +540,23 @@ export default function B1() {
                       <Alert style={{ marginBottom: 12 }} type="error" showIcon message={
                         <span>停在「{t.stopAt}」阶段：{t.reason}——可重试；仍失败请报修。
                           <Button size="small" style={{ marginLeft: 8 }} icon={<RedoOutlined />}
-                            onClick={e => { e.stopPropagation(); runTask(t.key) }}>重试</Button>
+                            onClick={e => { e.stopPropagation(); runTask(t.key, '重跑定型') }}>重试</Button>
                         </span>} />
                     )}
                     {t.state === 'stuck' && (
                       <Alert style={{ marginBottom: 12 }} type="warning" showIcon message={
                         <span>已 20 多分钟没有进展：已没有任务在推进——可停止后重试。
                           <Button size="small" style={{ marginLeft: 8 }} icon={<RedoOutlined />}
-                            onClick={e => { e.stopPropagation(); runTask(t.key) }}>重试</Button>
+                            onClick={e => { e.stopPropagation(); runTask(t.key, '重跑定型') }}>重试</Button>
                         </span>} />
                     )}
-                    <div onClick={() => runTask(t.key)} style={{ cursor: 'pointer' }}>
+                    <div>
                       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
                         <span style={{ fontWeight: 600, fontSize: 13 }}>处理进度</span>
-                        {helpIcon(<>五步依次点亮：解析 → 切段 → 向量化 → 建索引 → 索引期加法。点管线任意处可重跑一遍；关掉的索引支路直接跳过、不跑不花钱。</>)}
-                        <span style={{ marginLeft: 'auto', fontSize: 12, color: '#8a94a3' }}>点管线任意处可重跑</span>
+                        {helpIcon(<>五步依次点亮：解析 → 切段 → 向量化 → 建索引 → 索引期加法。重跑按该库当前配置重新定型；关掉的索引支路直接跳过、不跑不花钱。</>)}
+                        <Button size="small" icon={<RedoOutlined />} style={{ marginLeft: 'auto' }}
+                          disabled={runningRef.current.has(t.key)}
+                          onClick={e => { e.stopPropagation(); runTask(t.key, '重跑定型') }}>重跑入库管线</Button>
                       </div>
                       <Steps size="small" current={t.cur} status={t.state === 'done' ? 'finish' : 'process'}
                         items={FLOW.map(x => ({ title: x }))} />
@@ -495,12 +597,14 @@ export default function B1() {
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <Space wrap size={8}>
+                <Button size="small" icon={<PlusOutlined />} onClick={() => { setNlName(''); setNlTpl('completion'); setNlOpen(true) }}>新建库</Button>
+                {helpIcon(<>按业务类型模板建库：模板带出一份默认配置（四个索引开关、切段方式、索引期加法），建后可在行尾"配置"里按库调整；建库与停用/启用都会记入库活动流。</>)}
                 <Select size="small" style={{ width: 136 }} value={graphF} onChange={setGraphF}
                   options={[{ value: 'all', label: '图谱开关：全部' }, { value: 'on', label: '图谱已开' }, { value: 'off', label: '图谱已关' }]} />
                 <Input size="small" allowClear style={{ width: 220 }} value={kw} onChange={e => setKw(e.target.value)}
                   placeholder="搜库名 / 最近入库…" />
               </Space>
-              <span style={{ color: '#8a94a3', fontSize: 12 }}>{`筛选结果 ${libFiltered.length} / ${LIBS.length} 条`}</span>
+              <span style={{ color: '#8a94a3', fontSize: 12 }}>{`筛选结果 ${libFiltered.length} / ${libs.length} 条`}</span>
             </div>
             <Table
               size="small" columns={libColumns} dataSource={libFiltered} pagination={false} rowKey="key"
@@ -519,9 +623,9 @@ export default function B1() {
       <Modal title="上传报告（直传）" open={upOpen} onCancel={() => setUpOpen(false)} footer={null} width={520}>
         <div style={fieldLabel}>目标库</div>
         <Select style={{ width: '100%' }} value={upLib} onChange={setUpLib}
-          options={LIBS.map(l => ({ value: l.key, label: l.name }))} />
+          options={libs.filter(l => l.status === 'active').map(l => ({ value: l.key, label: l.name }))} />
         <div style={{ ...fieldLabel, marginTop: 14 }}>
-          本次入库将采用「{LIBS.find(l => l.key === upLib)?.name}」的库配置
+          本次入库将采用「{libs.find(l => l.key === upLib)?.name}」的库配置
           {helpIcon(<>配置在「库管理」页签按库维护，保存后下次入库生效——上传时不做单次覆盖，正在处理的报告不受影响。</>)}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
@@ -538,6 +642,24 @@ export default function B1() {
         <Button type="primary" style={{ marginTop: 14 }} onClick={confirmUpload}>开始入库</Button>
       </Modal>
 
+      {/* 新建库：库名 + 业务类型模板（带出默认配置，建后可调） */}
+      <Modal title="新建库" open={nlOpen} onCancel={() => setNlOpen(false)} footer={null} width={520}>
+        <div style={fieldLabel}>库名</div>
+        <Input style={{ marginTop: 2 }} placeholder="如：措施效果库" value={nlName}
+          onChange={e => setNlName(e.target.value)} maxLength={40} />
+        <div style={{ ...fieldLabel, marginTop: 14 }}>
+          业务类型模板
+          {helpIcon(<>模板决定初始配置档：四个索引开关的预设、切段方式、索引期加法——只是起点，建后在行尾"配置"里按库调整。</>)}
+        </div>
+        <Select style={{ width: '100%' }} value={nlTpl} onChange={setNlTpl}
+          options={Object.entries(LIB_TEMPLATES).map(([k, t]) => ({ value: k, label: t.label }))} />
+        <Alert style={{ marginTop: 10 }} type="info" showIcon message={LIB_TEMPLATES[nlTpl].hint} />
+        <div style={{ ...dim, marginTop: 10 }}>
+          建成后该库即出现在列表中：不接新入库时用"停用"，已有内容保留可查、随时可再启用。
+        </div>
+        <Button type="primary" style={{ marginTop: 14 }} onClick={createLib}>确认建库</Button>
+      </Modal>
+
       {/* 报告详情（台账行双击） */}
       <Drawer title={detailRow ? '报告详情' : ''} placement="right" width={520}
         open={detailKey != null} onClose={() => setDetailKey(null)}>
@@ -549,7 +671,7 @@ export default function B1() {
               <Descriptions.Item label="井号 / 月份">{subjectOf(detailRow)}</Descriptions.Item>
               <Descriptions.Item label="出处片段">{detailRow.refs != null ? `${detailRow.refs} 段` : '—'}</Descriptions.Item>
               <Descriptions.Item label="中文百科">{detailRow.wiki || '—'}</Descriptions.Item>
-              <Descriptions.Item label="入库状态">已入库</Descriptions.Item>
+              <Descriptions.Item label="入库状态">{ingestingDocs.has(detailRow.doc) ? '入库中' : '已入库'}</Descriptions.Item>
             </Descriptions>
             <div style={{ marginTop: 16, fontWeight: 600, fontSize: 13 }}>
               片段预览
@@ -586,7 +708,10 @@ export default function B1() {
             <Button type="primary" style={{ marginTop: 10 }}
               onClick={() => {
                 setVersions(v => ({ ...v, [fixFrag.fragKey]: [...(v[fixFrag.fragKey] || []), { v: (v[fixFrag.fragKey]?.length || 1) + 1, text: fixText.trim() || fixFragRow.text, note: '人工修正' }] }))
-                message.success('已保存——将重建检索索引。')
+                const tkey = `fix-${fixFrag.fragKey}-${Date.now()}`
+                setTasks(ts => [{ key: tkey, doc: fixRow.doc, libName: fixRow.lib, source: '片段修正', state: 'running', cur: -1, done: false }, ...ts])
+                runTask(tkey, '片段修正')
+                message.success('已保存——索引重建已折算入库任务，进度见「入库任务」页签。')
                 setFixFrag(null)
               }}>保存修正</Button>
             <div style={{ marginTop: 16, fontWeight: 600, fontSize: 13 }}>版本记录（第一期只回看，不回写）</div>
@@ -602,7 +727,7 @@ export default function B1() {
       </Modal>
 
       {/* 库活动流（F61） */}
-      <Drawer title={actLib ? `活动 · ${LIBS.find(l => l.key === actLib)?.name}` : ''} placement="right" width={520}
+      <Drawer title={actLib ? `活动 · ${libs.find(l => l.key === actLib)?.name}` : ''} placement="right" width={520}
         open={actLib != null} onClose={() => setActLib(null)}>
         <Table size="small" pagination={false} rowKey="time"
           columns={[
@@ -611,7 +736,7 @@ export default function B1() {
             { title: '动作', dataIndex: 'action', width: 100 },
             { title: '对象', dataIndex: 'target' }
           ]}
-          dataSource={actLib ? ACTIVITIES[actLib] || [] : []} />
+          dataSource={actLib ? activities[actLib] || [] : []} />
         <div style={{ ...dim, marginTop: 10 }}>只记录，不改任何数据。</div>
       </Drawer>
 

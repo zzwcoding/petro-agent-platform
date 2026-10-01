@@ -1,21 +1,9 @@
 import { useEffect, useState } from 'react'
 import {
-  Button, Card, Collapse, Input, InputNumber, Modal, Radio, Select, Skeleton, Space, Switch, Table, Tag, Tooltip
+  Button, Card, Input, InputNumber, Modal, Radio, Select, Skeleton, Space, Switch, Table, Tag, Tooltip
 } from 'antd'
 import { HistoryOutlined, QuestionCircleOutlined } from '@ant-design/icons'
 
-window.__guides = Object.assign(window.__guides || {}, {
-  D2: [
-    '整页六张等大卡片平铺：检索顺序 / 找候选参数 / 精排档位 / 引用格式 / 兜底策略 / 问答行为；下方折叠块是完整处理链 S0–S7。',
-    '「检索顺序」卡：三级从准到粗，每级可单独开关；"命中即停"开着，上级查到就不往下查。',
-    '「完整处理链 S0–S7」折叠块与三级顺序是同一条链的细拆——从身份确认到权威回读，一次提问的每一步都在这。',
-    '「找候选参数」卡改每路条数、合并方式、送精排条数——全页改动都点页头唯一的「提交变更申请」送 A3 审批，批准前当前配置不变。',
-    '「精排档位」卡三选一：快 / 准但贵 / 防同质；「引用格式」卡二选一：人读友好的报告页码 vs 防伪造的编号引用，点卡即选。',
-    '「兜底策略」卡选策略、改固定文案——搜不到就明说，不编造。',
-    '「问答行为」卡四个作答参数：FAQ 命中直出开关、无据拒答阈值（低分线）、缺参反问策略、置信度档位。',
-    '页头「修改历史」弹窗看历史变更单与版本列表（数据走 A3 #CFG 配置面单据）；页头 ? 收着本页定位与生效规矩全文。'
-  ]
-})
 window.__traces = Object.assign(window.__traces || {}, {
   D2: 'F21 检索瀑布 · F34 复合精排 · F33 引用编号 · F56 澄清帧 · m6 问答管道 / m21 语义运行时'
 })
@@ -30,19 +18,7 @@ const helpIcon = content => (
 const ORDER_ROWS = [
   { key: 1, name: '精确点名', what: '@指标 / @井号 直接点名', desc: '问法里带了「@产量完成率」「@N-02」这类点名，直接命中，不走后面的模糊搜索' },
   { key: 2, name: '确定性查表', what: '台账完全一致才命中', desc: '同义词、别名在账上完全对上才命中——宁可查不到，不给"差不多"的结果' },
-  { key: 3, name: '语义搜索＋关键词搜索，两路一起查', what: '两路并发', desc: '一路按意思找（换了说法也能命中），一路按字面找（专有名词一个字都不差）' }
-]
-
-// 完整处理链 S0–S7：同一条链的逐级细拆（各步机制与数字沿用既有口径）
-const WATERFALL_ROWS = [
-  { key: 'S0', lv: 'S0 · 身份四要素', what: '身份 / 会话 / 口径版本 / 权限——一次确认，后面各步直接沿用', cost: '花一次解析；省每轮重复认证与口径对不上' },
-  { key: 'S1', lv: 'S1 · 显式锚定', what: '@指标 / @对象 / 编号前缀匹配——对上就停在检索这几级（S3~S5 跳过），轻装配、资格审、权威回读照走', cost: '花一次前缀比对；省整级检索调用' },
-  { key: 'S2', lv: 'S2 · 轻装配', what: '把点到的对象、术语解释、候选清单随问题一起交给模型——只提供材料，不当裁判', cost: '花少量整理开销；省"模型裸猜"的编造与返工' },
-  { key: 'S3', lv: 'S3 · 词表四级', what: <>禁用词 0 号位 → 术语精确 → 同义词对照 → 模糊层（<b>Jaccard≥0.75</b>）——差一两个字符的变体才过线（"月产液→月产液量"）</>, cost: '花本地计算（毫秒级、不走模型）；省小错问句整路白找的钱' },
-  { key: 'S4', lv: 'S4 · 两路找候选', what: '语义一路＋关键词一路，各取前 5 条，按名次融合成总排名——整批送资格审，不做"够像就停"的提前截断', cost: '花两路查询；宁多勿漏——提前截断是漏答案的头号原因' },
-  { key: 'S5', lv: 'S5 · 图扩展', what: <span><Tag>未启用</Tag>这一级当前没开：请求直接跳过、不花开销，过程记录里写明这一级是直通跳过；将来接入知识图谱扩展时在这里开闸</span>, cost: '当前零成本' },
-  { key: 'S6', lv: 'S6 · 资格裁决', what: '多候选 / 缺参数 → 反问澄清；候选上限 4 支，超出的截断并标"另有 N 支未列出"', cost: '花一轮澄清交互；省拿不准还硬答的返工' },
-  { key: 'S7', lv: 'S7 · 权威源回读', what: <>回答用的指标，现场回指标台账核对——已正式发布、且版本与第 0 步确认的一致才放行；编号敲错在这里拦下：<b>"不在现行指标目录，不代答"</b></>, cost: '花一次台账回读；省按旧口径出数' }
+  { key: 3, name: '语义+关键词', what: '两路并发', desc: '一路按意思找（换了说法也能命中），一路按字面找（专有名词一个字都不差）' }
 ]
 
 // 精排三档（三选一；算式与参数沿用既有口径）
@@ -126,30 +102,25 @@ export default function D2Retrieval() {
 
   return (
     <div>
-      <Card
-        title="检索与回答 · 总规矩"
-        extra={
-          <Space size={8}>
-            <Button size="small" icon={<HistoryOutlined />} onClick={() => setHistoryOpen(true)}>修改历史</Button>
-            <Button type="primary" size="small" onClick={submitChange}>提交变更申请</Button>
-            {helpIcon(<>
-              <b>本页是检索与回答的总规矩</b><br />
-              · 规矩管 <a href="#/A1">问一问</a> 的问报告与问数据两条路，都按这里的顺序找；引用格式管回答的展示。<br />
-              · 各报告库自己的语义 / 关键词 / 百科 / 图谱四个索引开关，在 <a href="#/B1">报告库</a> 按库配。<br />
-              · 改这里不走直接保存：点「提交变更申请」送数据变动审批（A3），批准前当前配置不变；批准后还要过 <a href="#/C3">发布前安检</a>，考核成绩不降级才发版生效——改坏答案规矩会被第五道检查拦下。
-            </>)}
-          </Space>
-        }
-      >
-        {!ready ? <Skeleton active paragraph={{ rows: 12 }} /> : (
-          <>
-            <div style={cardGridStyle}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <Space size={8}>
+          <Button size="small" icon={<HistoryOutlined />} onClick={() => setHistoryOpen(true)}>修改历史</Button>
+          <Button type="primary" size="small" onClick={submitChange}>提交变更申请</Button>
+          {helpIcon(<>
+            · 各报告库自己的语义 / 关键词 / 百科 / 图谱四个索引开关，在 <a href="#/B1">报告库</a> 按库配。<br />
+            · 改这里不走直接保存：点「提交变更申请」送数据变动审批（A3），批准前当前配置不变；批准后还要过 <a href="#/C3">发布前安检</a>，考核成绩不降级才发版生效——改坏答案规矩会被第五道检查拦下。
+          </>)}
+        </Space>
+      </div>
+      {!ready ? <Skeleton active paragraph={{ rows: 12 }} /> : (
+        <>
+          <div style={cardGridStyle}>
               <Card size="small" title={<>检索顺序{helpIcon(<>从准到粗逐级往下找；关掉某一级就跳过它，直接看下一级。</>)}</>} style={{ height: '100%' }}>
                 <Table
                   size="small" pagination={false} rowKey="key"
                   columns={[
                     { title: '次序', dataIndex: 'name', width: 150, render: v => <b>{v}</b> },
-                    { title: '这一步查什么', dataIndex: 'what', width: 160 },
+                    { title: '功能', dataIndex: 'what', render: (v, r) => <>{v}{helpIcon(r.desc)}</> },
                     {
                       title: '开关',
                       width: 60, render: (_, r) => (
@@ -158,8 +129,7 @@ export default function D2Retrieval() {
                           onChange={v => setOrderOn(s => s.map((x, j) => (j === r.key - 1 ? v : x)))}
                         />
                       )
-                    },
-                    { title: '说明', dataIndex: 'desc' }
+                    }
                   ]}
                   dataSource={ORDER_ROWS}
                 />
@@ -277,44 +247,11 @@ export default function D2Retrieval() {
                   </div>
                 </Space>
               </Card>
-
-              <Card
-                size="small" style={{ gridColumn: '1 / -1' }}
-                title={
-                  <span>
-                    完整处理链 S0–S7（8 级）
-                    <span onClick={e => e.stopPropagation()}>
-                      {helpIcon(<>
-                        与上面的三级顺序是同一条链的细拆：S0–S2 一次备料，S3–S5 逐级找，S6 定资格，S7 回读核验；上面的三级开关管的是 S3 之后的检索动作，条数等参数口径与本页一致。
-                      </>)}
-                    </span>
-                  </span>
-                }
-              >
-                <Collapse
-                  items={[{
-                    key: 'wf',
-                    label: '展开看一次提问的每一步（从身份确认到权威回读）',
-                    children: (
-                      <Table
-                        size="small" pagination={false} rowKey="key"
-                        columns={[
-                          { title: '级别', dataIndex: 'lv', width: 150, render: v => <b>{v}</b> },
-                          { title: '这一级干什么', dataIndex: 'what' },
-                          { title: '花什么 / 省什么', dataIndex: 'cost', width: 320 }
-                        ]}
-                        dataSource={WATERFALL_ROWS}
-                      />
-                    )
-                  }]}
-                />
-              </Card>
             </div>
 
             {saved && <div style={{ fontSize: 12, color: '#52c41a', marginTop: 12 }}>{saved}</div>}
           </>
         )}
-      </Card>
 
       <Modal
         title="修改历史" open={historyOpen} footer={null} width={760}

@@ -11,20 +11,6 @@ import {
 import { METRICS, TERMS, metricLabel } from './C1.jsx'
 import { REPORTS } from './B2.jsx'
 
-window.__guides = Object.assign(window.__guides || {}, {
-  B3: [
-    '顶部"状态"筛：全部 / 服务中 / 负例 / 已停用；红色"负例 · 不参与回答"的行永不参与回答。',
-    '看"老完成率"那行——灰色"已停用"：口径改版后旧条目先停用待审（"老完成率"已登记为禁用词），行尾可再启用。',
-    '点"完成率公式"行尾的合并图标——它并入「产量完成率怎么算」，列表少一条，两种问法命中同一条答案。',
-    '工具栏「从问句挖掘」开候选问题库：候选来自用户真实提问（簇频次过晋升闸）。「扫库」是异步长任务——关掉弹窗也在跑，重开看结果；候选点比对（向量去重）再点起草——草稿自动填入「新增问答」，人改后入库。',
-    '点"新增问答"——引用知识（台账口径/切片，可组合）→ 点"LLM 起草"形成草稿 → 改完入库；不选知识手填也行。',
-    '把问题改成已有问答的同义问法（如"完成率公式是什么"）再点入库：出现"疑似重复"警告，不阻断、建议合并。',
-    '勾上"登记为负例"再入库——新行标红、不参与回答。',
-    '行尾"详情"或双击行——相似问法可逐条增删；底部看维护人与版本。',
-    '工具栏"导入"——选合并重复/替换全部模式，可勾"仅校验不入库"先试校验，出结果统计；"导出"把全库带走线下编辑后再导回。',
-    '工具栏"检索配置"——扩检轮数（每轮翻倍最多 5 轮）等规则，弹窗里改、保存生效；页头 ? 悬浮看本库与考核题库怎么分账。'
-  ]
-})
 window.__traces = Object.assign(window.__traces || {}, {
   B3: 'F35 FAQ/管理面（停用启停·导入导出·重复校验·相似问增删，票 104）· m6 卡'
 })
@@ -38,15 +24,15 @@ const helpIcon = content => (
 const SERVE_TAG = <Tag color="green">服务中</Tag>
 const NEG_TAG = <Tag color="red">负例 · 不参与回答</Tag>
 const DISABLED_TAG = <Tag>已停用 · 不参与回答</Tag>
-const stateTag = r => (r.neg ? NEG_TAG : r.disabled ? DISABLED_TAG : SERVE_TAG)
+const PENDING_TAG = <Tag color="orange">待审核</Tag>
+const isPending = r => r.review === 'pending'
+const stateTag = r => (isPending(r) ? PENDING_TAG : r.neg ? NEG_TAG : r.disabled ? DISABLED_TAG : SERVE_TAG)
 
 const SIMILAR_HELP = '相似问法＝同一个问题的其他问法，已并入本条目——换这些问法来问，命中同一条答案；详情里可逐条增删，导入历史问答时也会自动按语义合并重复条目。'
-const STATUS_HELP = '服务中＝正常参与回答，命中即秒回；已停用＝暂不参与回答（口径改版等场景先停用待审），可随时启用；负例＝登记在案的"不该答的问题"，不参与回答，检索也找不到。'
+const STATUS_HELP = '服务中＝正常参与回答，命中即秒回；待审核＝新增条目待审核发布，暂不参与回答、不被问一问消费；已停用＝暂不参与回答（口径改版等场景先停用待审），可随时启用；负例＝登记在案的"不该答的问题"，不参与回答，检索也找不到。'
 const POSITION_HELP = (
   <>
-    本库收"用户常问、答案明确"的问答，是<b>服务资产</b>：命中直接秒回，不走报告检索；答案由小李维护、审核后生效。<br />
-    给平台打分用的标准问答是另一本账——考核题库（<b>评估资产</b>）：标准问法＋人工算好的标准答案，只用于给平台打分、不直接服务用户。两本账分开维护、可互转不混用。<br />
-    考核题库入口：<a href="#/E1">答题考核（评估集）</a>。
+    本库问答对供问一问秒回消费（命中即直出，不走报告检索）；考核题库是另一本账（评估资产，只用于打分）——见 <a href="#/E1">答题考核（评估集）</a>。
   </>
 )
 
@@ -207,7 +193,6 @@ export default function B3() {
   // 相似问合并 / 检索配置
   const [merged, setMerged] = useState(false)
   const [mergeMsg, setMergeMsg] = useState(null)
-  const [rounds, setRounds] = useState(5)
   const [saved, setSaved] = useState(false)
 
   // 批量导入 / 导出
@@ -220,7 +205,8 @@ export default function B3() {
   const [newSim, setNewSim] = useState('')
 
   const filtered = rows.filter(r => {
-    if (statusF === 'serve' && (r.neg || r.disabled)) return false
+    if (statusF === 'serve' && (r.neg || r.disabled || isPending(r))) return false
+    if (statusF === 'pending' && !isPending(r)) return false
     if (statusF === 'neg' && !r.neg) return false
     if (statusF === 'disabled' && (!r.disabled || r.neg)) return false
     const s = kw.trim().toLowerCase()
@@ -241,15 +227,10 @@ export default function B3() {
     setTimeout(() => {
       const question = q.trim() || '（未填问题）'
       const answer = a.trim() || '（未填答案）'
-      setRows(rs => [...rs, { key: Date.now(), q: question, a: answer, sims: [], neg, disabled: false }])
-      if (pendingCand) {
-        setCands(cs => cs.map(c => (c.key === pendingCand ? { ...c, status: 'published' } : c)))
-        setTip({ kind: 'ok', text: `已入库：「${question}」——候选问题「${cands.find(c => c.key === pendingCand)?.q}」同步标记已发布。` })
-      } else {
-        setTip(neg
-          ? { kind: 'neg', text: `已登记负例：「${question}」——永不参与回答，检索也不可达。` }
-          : { kind: 'ok', text: `已入库：「${question}」——命中即秒回，不走报告检索。` })
-      }
+      setRows(rs => [...rs, { key: Date.now(), q: question, a: answer, sims: [], neg, disabled: false, review: 'pending', cand: pendingCand }])
+      setTip({ kind: 'ok', text: neg
+        ? `已提交审核：「${question}」——审核发布后登记为负例，永不参与回答，检索也不可达。`
+        : `已提交审核：「${question}」——审核发布后命中即秒回，不走报告检索。` })
       setPendingCand(null)
       setSubmitting(false)
     }, 400)
@@ -262,6 +243,15 @@ export default function B3() {
     setMerged(true)
     setSel(s => (s === MERGE_FROM ? MERGE_TO : s))
     setMergeMsg('已合并：2 条 → 1 条——「完成率公式」并入「产量完成率怎么算」，两种问法现在命中同一条答案。')
+  }
+
+  function publish(key) {
+    const row = rows.find(r => r.key === key)
+    setRows(rs => rs.map(r => (r.key === key ? { ...r, review: 'published' } : r)))
+    if (row?.cand) {
+      setCands(cs => cs.map(c => (c.key === row.cand ? { ...c, status: 'published' } : c)))
+    }
+    message.success(`审核通过已发布：「${row?.q}」——命中即秒回，不走报告检索。`)
   }
 
   function toggleEnable(key) {
@@ -308,7 +298,12 @@ export default function B3() {
                 onClick={e => { e.stopPropagation(); merge() }} />
             </Tooltip>
           )}
-          {!r.neg && (
+          {isPending(r) && (
+            <Tooltip title="审核发布——发布后转入服务/负例，命中即秒回，供问一问消费">
+              <Button size="small" type="primary" onClick={e => { e.stopPropagation(); publish(r.key) }}>发布</Button>
+            </Tooltip>
+          )}
+          {!r.neg && !isPending(r) && (
             r.disabled ? (
               <Tooltip title="启用：恢复参与回答，命中即秒回">
                 <Button size="small" icon={<PlayCircleOutlined />}
@@ -351,13 +346,14 @@ export default function B3() {
               onClick={() => { setImpResult(null); setImpOpen(true) }}>导入</Button>
             <Button size="small" icon={<ExportOutlined />}
               onClick={() => message.success('已导出 FAQ 全库（含相似问/负例列）——可线下编辑后重新导入。')}>导出</Button>
-            <Tooltip title="检索配置（扩检轮数 / 相似问合并 / 负例登记入口）">
+            <Tooltip title="检索配置（相似问合并阈值 / 负例登记入口）">
               <Button size="small" icon={<SettingOutlined />} onClick={() => { setSaved(false); setCfgOpen(true) }} />
             </Tooltip>
             <Select size="small" style={{ width: 128 }} value={statusF} onChange={setStatusF}
               options={[
                 { value: 'all', label: '状态：全部' },
                 { value: 'serve', label: '服务中' },
+                { value: 'pending', label: '待审核' },
                 { value: 'neg', label: '负例' },
                 { value: 'disabled', label: '已停用' }
               ]} />
@@ -380,22 +376,16 @@ export default function B3() {
 
       {/* 检索配置（按钮弹窗） */}
       <Modal
-        title={<span>检索配置{helpIcon(<>问句没找到合适的候选时自动扩检：每轮候选数翻倍，最多 5 轮后停——不无限空转。</>)}</span>}
+        title={<span>检索配置{helpIcon(<>相似问合并阈值：入库与导入去重时，候选与既有问答相似度高于该值判"疑似重复"——建议改用合并相似问，不新增条目；阈值由实施批校准。</>)}</span>}
         open={cfgOpen} onCancel={() => setCfgOpen(false)} footer={null} width={520}
       >
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 13, marginBottom: 6 }}>候选不足时扩检轮数</div>
-          <Space size={6}>
-            <Input size="small" style={{ width: 64 }} value={rounds}
-              onChange={e => setRounds(e.target.value.replace(/\D/g, ''))} />
-            <span style={{ color: '#8a94a3', fontSize: 12 }}>每轮候选翻倍，最多 5 轮后停。</span>
-          </Space>
-        </div>
         <div style={{ marginBottom: 12 }}>
           <Space size={6}>
             <span style={{ fontSize: 13 }}>相似问合并</span>
             <Tag color="green">开</Tag>
-            {helpIcon(<>自动按语义聚类把重复问法归到一条，合并前人工确认。</>)}
+            <span style={{ fontSize: 12, color: '#8a94a3' }}>合并阈值</span>
+            <Input size="small" style={{ width: 72 }} defaultValue="0.87" />
+            {helpIcon(<>自动按语义聚类把重复问法归到一条，合并前人工确认；高于阈值的候选判"疑似重复"。</>)}
           </Space>
         </div>
         <div style={{ marginBottom: 4 }}>
@@ -603,6 +593,7 @@ export default function B3() {
                   v: (
                     <Space size={8}>
                       {stateTag(cur)}
+                      {isPending(cur) && <span style={{ color: '#8a94a3', fontSize: 12 }}>待审核发布：发布后才被问一问消费。</span>}
                       {cur.neg && <span style={{ color: '#8a94a3', fontSize: 12 }}>登记为"不该答的问题"：不参与回答，检索也不可达。</span>}
                       {cur.disabled && !cur.neg && <span style={{ color: '#8a94a3', fontSize: 12 }}>暂不参与回答，可随时启用。</span>}
                     </Space>

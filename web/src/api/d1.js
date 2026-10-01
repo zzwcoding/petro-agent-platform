@@ -213,3 +213,53 @@ export async function listDrills() {
   await sleep(150)
   return state.drills.map(d => ({ id: d.id, time: d.time, summary: d.summary }))
 }
+
+// GET /api/gateway/spend-stats —— 花费聚合/趋势读面（D5 撤页归并批，账本唯一真源＝记账流水，聚合投影不建第二份账本）
+// 入参 { groupBy: 'caller'|'model'|'day'|'month', range: 'all'|'7d'|'30d'|'12m', page, pageSize }
+// P1-00a 快照同步所必需的新增（teach 原型 2026-10-01 终稿 D1 改版消费此端点）；实现逐字取自 teach api/d1.js，
+// 平台账目行暂无 caller 归因字段，聚合时安全归入 unattributed——P1-10 D1 增强票接线时补齐
+export async function getSpendStats({ groupBy = 'caller', range = 'all', page = 1, pageSize = 15 }) {
+  await sleep(150)
+  const RANGE_MS = { '7d': 7, '30d': 30, '12m': 365 }
+  const rows = state.ledger.filter(r => {
+    if (range === 'all') return true
+    return new Date(r.time) >= new Date(Date.now() - RANGE_MS[range] * 86400000)
+  })
+  const keyOf = {
+    caller: r => (r.caller ?? 'unattributed'),
+    model: r => r.modelKey,
+    day: r => r.time.slice(0, 10),
+    month: r => r.time.slice(0, 7)
+  }[groupBy]
+  const grouped = new Map()
+  for (const r of rows) {
+    const k = keyOf(r)
+    if (!grouped.has(k)) grouped.set(k, { key: k, calls: 0, fallbackCalls: 0, inputTokens: 0, outputTokens: 0, costYuan: 0 })
+    const g = grouped.get(k)
+    g.calls += 1
+    if (r.fallback) g.fallbackCalls += 1
+    g.inputTokens += r.inputTokens
+    g.outputTokens += r.outputTokens
+    g.costYuan = Number((g.costYuan + r.costYuan).toFixed(4))
+  }
+  const items = [...grouped.values()]
+  // caller/model＝花费降序（谁花得多排前面）；day/month＝趋势时序，时间升序
+  if (groupBy === 'day' || groupBy === 'month') items.sort((a, b) => (a.key > b.key ? 1 : -1))
+  else items.sort((a, b) => b.costYuan - a.costYuan)
+  const sums = items.reduce(
+    (acc, g) => ({
+      calls: acc.calls + g.calls,
+      fallbackCalls: acc.fallbackCalls + g.fallbackCalls,
+      costYuan: Number((acc.costYuan + g.costYuan).toFixed(4))
+    }),
+    { calls: 0, fallbackCalls: 0, costYuan: 0 }
+  )
+  if (groupBy === 'day' || groupBy === 'month') {
+    return { groupBy, range, items, sums, total: items.length, page: 1, pageSize }
+  }
+  return {
+    groupBy, range,
+    items: items.slice((page - 1) * pageSize, page * pageSize),
+    sums, total: items.length, page, pageSize
+  }
+}
