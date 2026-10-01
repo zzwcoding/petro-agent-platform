@@ -325,6 +325,9 @@
 > 10. **chat_session.group 索引方向**：99 §2.2「idx (user_id, updated_at desc)」落两列普通索引（desc 方向为性能细节；ORM 与迁移双轨同形）——随 P1-11 收官批对齐；chat_artifact_task/chat_artifact/chat_tool/chat_scenario 四表不属本票（产物任务/工具注册表/场景注册表随其端点票落）。
 
 
+## P1-08a 收尾裁决（主窗口，dd9739d）
+> 全绿（带 PG 517 passed＋零 LLM 冒烟：全帧流/澄清两跳终态/B12/料源缝装配即通）。疑点 1（六路映射：向量+BM25 归报告路两腿/图谱缝双落点）＝采纳（match 帧 matcher 值照抄合同六路——映射忠实），Owner 里程碑复核；2（让位路帧形状）＝采纳 additive 登记；3（骨架裁决＝确定性路由，confidence 带 skeleton 后缀）＝采纳——诚实标注正确，模型裁决 08b 接线；4（建议池进程内）＝采纳挂账（F60 闸已落，持久化+sg- 发号随 C2 批）。
+
 ## P1-08b chat 三链后端（A1 主链第二拍）
 
 - **先读**：teach `D2` v0.2（检索瀑布/命中即停/双路合并/精排三档/兜底两策——本拍消费方）；`B3` v0.2（已发布消费面）；`B5` v0.2（图谱问答链）；`B2`（citation/locator）；A1 册（引用 fail-closed 节）。
