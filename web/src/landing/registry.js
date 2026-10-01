@@ -11,6 +11,7 @@
 
 /** 落地页模块表（显式注册——Vite 动态导入不支持自目录变量导入）。 */
 const LANDING_MODULES = {
+  A1: () => import('./A1.jsx'),
   D1: () => import('./D1.jsx'),
   B1: () => import('./B1.jsx'),
   B2: () => import('./B2.jsx'),
@@ -26,8 +27,13 @@ export function loadLandingPage(key) {
   return LANDING_MODULES[key]()
 }
 
-/** 落地树默认页（空 hash 时落第一个已点亮页）。 */
-export const DEFAULT_LANDING_KEY = LANDING_LIT[0]
+/**
+ * 落地树默认页（空 hash 落此页）。
+ * P1-09 裁定：切 A1——问一问是全员可见的统一入口（roles.js 工作台首位、
+ * 所有问句唯一主端点 POST /api/chat/asks 的消费面），落地树点亮它之后空
+ * hash 首屏应为工作台主入口，而非阶段序首个点亮页 D1。
+ */
+export const DEFAULT_LANDING_KEY = 'A1'
 
 /**
  * B2 locator 暂存键（P1-04——`#/B2?chunk=` 消费链：NotLit 桥写入、B2 页挂载
