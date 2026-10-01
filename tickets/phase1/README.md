@@ -360,6 +360,9 @@
   10. **检索范围＝全库**（kb 级检索不带库过滤）——A1 asks 无 lib_id 入参（合同形状），多库报告同池召回；冒烟锚真值对账按「citation 所指报告」逐条核（全库面语义）；按库过滤随 A1/检索范围批（如需）。
   11. **test_config.py 缓存隔离修复**（测试侧）：`test_load_models_config_hot_reload` 残留 m1/m2 全局缓存会让同进程后续真 LLM 消费判 NoAvailableRoute——补 autouse 复位 fixture（gateway/llm_client 测试同款纪律；P0 遗留，chat 冒烟为首个真 LLM 消费方故显形）。
 
+## P1-08b 收尾裁决（主窗口，26e3541）
+> 全绿（带 PG 566 passed＋CHAT_SMOKE 真冒烟：三链真跑＋citation 锚逐条对账一致＋记账落账）。裁决：1（fast 档＝融合序放行）＝采纳挂 embedding/重排选型批（P1-11 前 Owner 拍板）；2（SOURCE_SCORES 实施值）＝采纳；3（流式＝整段切片）＝采纳（B6 无上游流式，fail-closed 优先于早期呈现）；4/9（LLM 意图裁决挂批）＝采纳挂账 Owner 里程碑复核；5（citation kind FAQ 无专值）＝采纳挂账（faq 块双写同源批）；6（hit_text 落列修复）＝采纳；7（图存储不可用降级不阻断）＝采纳（管理面显式抛错语义不变，可用性取舍登记）；10（检索范围全库）＝采纳（asks 无 lib 入参合同口径）；11（test_config 缓存隔离）＝采纳（P0 遗留缺口修复）。
+
 ## P1-08c SSE 树叙事后端（A1 主链第三拍）
 
 - **先读**：teach A1 册（思考过程树节/19 帧语义）；00 册 §6.2（收场判据）；`web/src/api/sse.js`（前端底座帧清单——对齐消费）。
