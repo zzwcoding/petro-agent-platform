@@ -1,10 +1,13 @@
-"""api.chat SSE 测试——00 §6 信封＋三帧语义（P0-08 骨架判据保持）＋P1-08a 主链往返。
+"""api.chat SSE 测试——00 §6 信封＋三帧语义（P0-08 骨架判据保持）＋P1-08a 主链
+往返＋P1-08c 树叙事时序与断线重连真恢复。
 
-覆盖：帧信封渲染、提问形态全帧流（域四层流水线）、重连形态 replay_truncated 帧
-（00 §6.2 合同话术原文＋断点续序——infra.sse_channel 未建判据不动）、
-Last-Event-ID 非整数 400、未认证 401（A1 权限行同闸）、resume 端点（澄清续推
-往返/404/409/400 错误包）。装配：sqlite 底座＋真 ChatService（假缝——
-tests/domains/chat/conftest 同构）＋真 SecurityService（B12 审计读面）。
+覆盖：帧信封渲染、提问形态全帧流（域四层流水线＋node 步进）、树帧先于 token
+（不交错乱序——时序断言）、断线重连两形态（Last-Event-ID 中段续传→收场②骨架
+判据保持；resume_run_id run 恢复→已持久化帧序列重放：done 全量/挂起前缀/
+running ③收场/未知 run 404）、Last-Event-ID 非整数 400、未认证 401（A1 权限行
+同闸）、resume 端点（澄清续推往返/404/409/400 错误包）。
+装配：sqlite 底座＋真 ChatService（假缝——tests/domains/chat/conftest 同构）＋
+真 SecurityService（B12 审计读面）。
 """
 
 import json
@@ -20,7 +23,8 @@ from app.api.chat import router as chat_router
 from app.api.deps import get_chat, get_security
 from app.api.errors import install_error_handlers
 from app.api.security import router as security_router
-from app.domains.chat.store import ensure_chat_tables
+from app.domains.chat import domain as d
+from app.domains.chat.store import ChatStore, ensure_chat_tables
 from app.domains.security import SecurityService
 from app.domains.security.store import ensure_audit_table
 from app.infra.db import ConnectionManager, DatabaseSpec
@@ -28,9 +32,12 @@ from tests.domains.chat.conftest import Seams, make_service
 
 ACTOR = {"X-Dev-User": "aqiang"}  # 五角色键（身份桩；缺头亦落默认角色）
 
+TREE_FRAMES = {"stage", "sec_check", "match", "assembly", "verdict",
+               "node", "node_line", "notice"}
+
 
 @pytest.fixture
-async def env(tmp_path: Any) -> AsyncIterator[tuple[TestClient, str]]:
+async def env(tmp_path: Any) -> AsyncIterator[tuple[TestClient, ConnectionManager]]:
     spec = DatabaseSpec(
         name="primary", role="primary", driver="sqlite", host="", port=0,
         database=str(tmp_path / "chat-api.db"), user="", password="",
@@ -46,7 +53,7 @@ async def env(tmp_path: Any) -> AsyncIterator[tuple[TestClient, str]]:
     test_app.dependency_overrides[get_chat] = lambda: make_service(manager, Seams())
     test_app.dependency_overrides[get_security] = lambda: SecurityService(manager)
     with TestClient(test_app) as test_client:
-        yield test_client, str(tmp_path / "chat-api.db")
+        yield test_client, manager
     await manager.dispose()
 
 
@@ -58,7 +65,8 @@ def test_render_frame_envelope() -> None:
 
 
 def test_fresh_ask_streams_business_frames(env: Any) -> None:
-    """提问形态（P1-08a 填肉）：19 类帧流真跑——session 起手、done 收尾。"""
+    """提问形态（P1-08a 填肉＋P1-08c 树叙事）：19 类帧流真跑——session 起手、
+    done 收尾；node 帧族沿实时路径推进（N1 安检/N3 装配/N5 裁决族在流）。"""
     client = env[0]
     resp = client.post("/api/chat/asks", json={"question": "渤海油田产量"}, headers=ACTOR)
     assert resp.status_code == 200
@@ -68,10 +76,14 @@ def test_fresh_ask_streams_business_frames(env: Any) -> None:
     assert events[0] == ("session", {"run_id": events[0][1]["run_id"],
                                      "thread_id": events[0][1]["thread_id"]})
     assert events[0][1]["run_id"].startswith("run-")
-    assert [name for name, _ in events][-1] == "done"
-    assert [name for name, _ in events].count("sec_check") == 3
-    assert [name for name, _ in events].count("match") == 6
-    assert "verdict" in [name for name, _ in events]
+    names = [name for name, _ in events]
+    assert names[-1] == "done"
+    assert names.count("sec_check") == 3
+    assert names.count("match") == 6
+    assert "verdict" in names
+    node_keys = [data["key"] for name, data in events if name == "node"]
+    assert node_keys[:2] == ["N1", "N1"]  # N1 统一安检 process→finish 起步
+    assert {"N3", "N4", "N5", "N5b", "N6", "N17", "S0", "S6"} <= set(node_keys)
 
 
 def _parse_frames(text: str) -> list[tuple[str, dict[str, Any]]]:
@@ -90,28 +102,125 @@ def _parse_frames(text: str) -> list[tuple[str, dict[str, Any]]]:
     return frames
 
 
-def test_resume_with_last_event_id_emits_replay_truncated(env: Any) -> None:
-    """重连形态（Last-Event-ID 头）：断点续序（7→8）＋replay_truncated 帧＋
-    00 §6.2 收场②合同话术原文——不静默丢帧（P0-08 骨架判据保持）。"""
+def test_tree_frames_precede_tokens(env: Any) -> None:
+    """token 帧切片与树帧不交错乱序（P1-08c 时序断言）：首个 token 之前是全部
+    stage/sec_check/match/assembly/verdict/node/node_line/notice 帧。"""
+    client = env[0]
+    resp = client.post(
+        "/api/chat/asks", json={"question": "产量完成率如何"}, headers=ACTOR,
+    )
+    frames = _parse_frames(resp.text)
+    names = [name for name, _ in frames]
+    assert "token" in names  # 生成路径——token 切片在流
+    first_token = names.index("token")
+    assert first_token > 0
+    assert not TREE_FRAMES.intersection(names[first_token:])
+    assert names[-1] == "done" and names[-2] == "answer"
+
+
+def test_reconnect_last_event_id_only_keeps_skeleton_closing(env: Any) -> None:
+    """重连形态①（仅 Last-Event-ID 头——无法定位 run）：断点续序（7→8）＋
+    replay_truncated 帧（resume_point＝断点）＋00 §6.2 收场②合同话术原文——
+    不静默丢帧（P0-08 骨架判据保持）。"""
     client = env[0]
     resp = client.post(
         "/api/chat/asks",
-        json={"resume_run_id": "run-x"},
+        json={},
         headers={**ACTOR, "Last-Event-ID": "7"},
     )
     assert resp.status_code == 200
-    expected_data = json.dumps({"message": REPLAY_TRUNCATED_MESSAGE}, ensure_ascii=False)
+    expected_data = json.dumps(
+        {"resume_point": 7, "message": REPLAY_TRUNCATED_MESSAGE}, ensure_ascii=False,
+    )
     assert resp.text == f"id: 8\nevent: replay_truncated\ndata: {expected_data}\n\n"
 
 
-def test_resume_with_run_id_only_starts_frame_at_zero(env: Any) -> None:
-    """重连形态（仅 resume_run_id，无头）：无断点则帧序从 0 起。"""
+def test_run_recovery_replays_done_run(env: Any) -> None:
+    """断线重连形态②（resume_run_id run 恢复——P1-08c 真恢复）：done run 重放
+    已持久化帧序列 session(resume)→verdict→citation→answer→done——已出内容不丢
+    （与原流同形同值）。"""
+    client = env[0]
+    first = _parse_frames(client.post(
+        "/api/chat/asks", json={"question": "产量完成率如何"}, headers=ACTOR,
+    ).text)
+    run_id = first[0][1]["run_id"]
+    first_data = _frames_by_name(first)
+    replay = _parse_frames(client.post(
+        "/api/chat/asks", json={"resume_run_id": run_id}, headers=ACTOR,
+    ).text)
+    assert [name for name, _ in replay] == ["session", "verdict", "citation", "answer", "done"]
+    assert replay[0][1]["resume"] is True and replay[0][1]["run_id"] == run_id
+    assert replay[1][1] == first_data["verdict"][0]
+    assert replay[2][1] == first_data["citation"][0]
+    assert replay[3][1] == first_data["answer"][0]
+
+
+def test_run_recovery_replays_from_breakpoint_frame_id(env: Any) -> None:
+    """run 恢复＋Last-Event-ID 头：重放流帧序号自断点续枚举（重放帧与原流帧
+    id 不对齐——能补的是持久化内容而非原流断点后的原帧序列，如实登记）。"""
+    client = env[0]
+    first = _parse_frames(client.post(
+        "/api/chat/asks", json={"question": "产量完成率如何"}, headers=ACTOR,
+    ).text)
+    run_id = first[0][1]["run_id"]
+    replay = client.post(
+        "/api/chat/asks",
+        json={"resume_run_id": run_id},
+        headers={**ACTOR, "Last-Event-ID": "42"},
+    ).text
+    assert replay.startswith("id: 43\nevent: session\n")
+
+
+def test_run_recovery_pending_clarify_replays_up_to_clarify(env: Any) -> None:
+    """挂起 run 恢复：session→verdict→clarify（pending_interrupt 持久帧回放）——
+    流收束不发 done（镜像原 ask 挂起形态；决策回流仍走端点 5）。"""
+    client = env[0]
+    first = _parse_frames(client.post(
+        "/api/chat/asks", json={"question": "有效产量是多少"}, headers=ACTOR,
+    ).text)
+    run_id = first[0][1]["run_id"]
+    clarify = next(data for name, data in first if name == "clarify")
+    replay = _parse_frames(client.post(
+        "/api/chat/asks", json={"resume_run_id": run_id}, headers=ACTOR,
+    ).text)
+    assert [name for name, _ in replay] == ["session", "verdict", "clarify"]
+    assert replay[-1][1] == clarify
+
+
+def test_run_recovery_running_run_truncates_honestly(env: Any) -> None:
+    """running run 恢复：持久前缀（session/verdict）＋replay_truncated ③收场
+    （生成已随断连取消——「回答生成已被取消…」合同话术）。"""
+    client, manager = env
+    import asyncio
+
+    store = ChatStore(manager)
+
+    async def _seed() -> str:
+        session = await store.ensure_session(None, user_id="aqiang", title="t")
+        run = await store.create_run(session.id)
+        run.verdict = {"chain": "检索问答链", "slots": "∅",
+                       "confidence": "低（证据不足）", "need_clarify": False}
+        await store.save_run(run)
+        return run.id
+
+    # TestClient 事件循环外直接驱动——asyncio.run 独立循环安全（sqlite 文件库）
+    run_id = asyncio.run(_seed())
+    replay = _parse_frames(client.post(
+        "/api/chat/asks", json={"resume_run_id": run_id}, headers=ACTOR,
+    ).text)
+    assert [name for name, _ in replay] == ["session", "verdict", "replay_truncated"]
+    assert replay[-1][1]["message"] == d.REPLAY_CANCELLED_MESSAGE
+
+
+def test_run_recovery_unknown_run_is_404(env: Any) -> None:
+    """run 恢复：run 不存在＝无可恢复对象——开流前 404（A1 错误码草案；
+    P0-08「run 存在性不校验」判据随真恢复退役）。"""
     client = env[0]
     resp = client.post(
-        "/api/chat/asks", json={"resume_run_id": "run-x"}, headers=ACTOR
+        "/api/chat/asks", json={"resume_run_id": "run-missing"}, headers=ACTOR,
     )
-    assert resp.status_code == 200
-    assert resp.text.startswith("id: 0\nevent: replay_truncated\n")
+    assert resp.status_code == 404
+    assert resp.json()["code"] == "chat_run_not_found"
 
 
 def test_invalid_last_event_id_returns_400_error_package(env: Any) -> None:
@@ -154,6 +263,13 @@ def test_missing_actor_header_falls_back_to_default_role(env: Any) -> None:
     resp = client.post("/api/chat/asks", json={"question": "产量如何"})
     assert resp.status_code == 200
     assert _parse_frames(resp.text)[0][0] == "session"
+
+
+def _frames_by_name(frames: list[tuple[str, dict[str, Any]]]) -> dict[str, list[dict]]:
+    out: dict[str, list[dict]] = {}
+    for name, data in frames:
+        out.setdefault(name, []).append(data)
+    return out
 
 
 class TestResumeEndpoint:
@@ -235,7 +351,7 @@ class TestResumeEndpoint:
 
 def test_ask_received_audited(env: Any) -> None:
     """B12：asks 受理审计 chat.ask.received（票面——审计读面 action 筛可见）。"""
-    client, _db_path = env
+    client, _manager = env
     resp = client.post("/api/chat/asks", json={"question": "渤海油田产量"}, headers=ACTOR)
     assert resp.status_code == 200
     logs = client.get(

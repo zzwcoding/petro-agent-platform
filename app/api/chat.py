@@ -1,14 +1,19 @@
-"""api.chat —— /api/chat 路由族（A1 会话域——P1-08a SSE 主链填肉）。
+"""api.chat —— /api/chat 路由族（A1 会话域——P1-08a SSE 主链填肉＋P1-08c 真恢复）。
 
 合同真源（只读引用）：
 - specs/api/00-系统级API.md §6 SSE 事件帧规范——帧信封 `id/event/data` 三行＋
-  `done/error/replay_truncated` 三保留帧＋Last-Event-ID 断点解析（P0-08 骨架
-  登记的判据全部保持：重连形态无事件缓冲 → replay_truncated 收场）。
+  `done/error/replay_truncated` 三保留帧＋Last-Event-ID 断点解析。
 - specs/api/A1-问一问.md 端点 4（POST /api/chat/asks——统一入口无旁路；同路径
   携 `resume_run_id`＋Last-Event-ID 头＝断线重连续推、不重新执行）＋端点 5
-  （POST /api/chat/runs/{run_id}/resume——interrupt 决策回流续推）。
+  （POST /api/chat/runs/{run_id}/resume——interrupt 决策回流续推）＋断线恢复
+  三收场节（①窗内重连/②缓冲耗尽/③生成已取消）。
 - 19 类业务帧由 domains.chat 域面产出（帧类型集＝A1 会话域合同值，不收编）；
   本文件只做信封渲染（帧序号枚举）与错误包出口——四层流水线全在服务端域内。
+- 断线重连（P1-08c 真恢复）：resume_run_id 在场→chat_run/chat_message 持久帧
+  重放（能补多少补多少——done 全量/挂起前缀；补不出 replay_truncated ③诚实
+  收场）；仅 Last-Event-ID 头无法定位 run→P0-08 骨架判据 replay_truncated ②
+  收场保持。重放流帧序号自断点续枚举（重放帧与原流帧 id 不对齐——能补的是
+  持久化内容而非原流断点后的原帧序列，如实登记）。
 
 鉴权（A1 权限行）：SSE 通道鉴权与 D1 第三道「身份与数据域」同闸——未认证 401
 （CurrentActor 依赖）；A1 页全员可见，本端点不设页面组闸。
@@ -118,32 +123,36 @@ class ResumeBody(BaseModel):
     reason: str | None = None
 
 
-async def _render(events: AsyncIterator[SseEvent]) -> AsyncIterator[str]:
-    """域事件帧流 → 00 §6.1 信封（帧序号从 0 枚举——Last-Event-ID 依据）。
+async def _render(
+    events: AsyncIterator[SseEvent], *, start: int = 0
+) -> AsyncIterator[str]:
+    """域事件帧流 → 00 §6.1 信封（帧序号自 start 枚举——Last-Event-ID 依据）。
 
     流内异常＝error 帧收场后关闭流（00 §6.1——SSE 内异常不走 HTTP 错误包；
     已知状态机错误在 post_resume 开流前经 resume_preflight 走 HTTP 错误包）。
+    replay_truncated 帧注入 `resume_point`（A1 帧 19 合同载荷——已重放到的帧号，
+    即截断帧前一帧；首帧即截断时为 None）。
     """
-    idx = 0
+    idx = start
     try:
         async for event in events:
-            yield render_frame(idx, event.event, event.data)
+            data = event.data
+            if event.event == FRAME_REPLAY_TRUNCATED:
+                data = {"resume_point": idx - 1 if idx > 0 else None, **data}
+            yield render_frame(idx, event.event, data)
             idx += 1
     except Exception:
         LOGGER.exception("chat SSE 流内异常——error 帧收场")
         yield error_frame(idx, CODE_CHAT_STREAM_FAILED, "流内异常——请重新提问")
 
 
-async def _skeleton_replay_stream(breakpoint_id: int | None) -> AsyncIterator[str]:
-    """重连形态事件流（P0-08 判据保持——infra.sse_channel 未建，任何断点都补不出）。
+async def _skeleton_replay_events() -> AsyncIterator[SseEvent]:
+    """重连形态（无法定位 run——仅 Last-Event-ID 头在场）事件流（P0-08 判据保持）。
 
-    按 00 §6.2 收场②/③家族以 replay_truncated 收场，data 携合同话术原文——
-    不静默丢帧；断点续序＝断点 +1。
+    按 00 §6.2 收场②家族以 replay_truncated 收场，data 携合同话术原文——
+    不静默丢帧；resume_point 由 _render 注入（＝断点帧号）。
     """
-    next_id = breakpoint_id + 1 if breakpoint_id is not None else 0
-    yield render_frame(
-        next_id, FRAME_REPLAY_TRUNCATED, {"message": REPLAY_TRUNCATED_MESSAGE}
-    )
+    yield SseEvent(FRAME_REPLAY_TRUNCATED, {"message": REPLAY_TRUNCATED_MESSAGE})
 
 
 @router.post("/asks")
@@ -158,15 +167,27 @@ async def post_ask(
     - 身份闸：未认证 401（A1 权限行——SSE 与 D1 第三道同闸；缺头落默认角色
       不 401，00 §2.4）。
     - 断线重连形态（`resume_run_id` 或 Last-Event-ID 头任一在）：识别重连、
-      不重新执行——骨架无事件缓冲，replay_truncated 收场（P0-08 判据保持）。
+      不重新执行（P1-08c 真恢复——重放已持久化帧序列，能补多少补多少）：
+      resume_run_id 在场→run 存在性开流前校验（不存在 404）＋持久帧重放
+      （done 全量/interrupt 挂起前缀/其余 replay_truncated ③收场）；
+      仅 Last-Event-ID 头（无法定位 run）→ 补不出维持 replay_truncated 诚实
+      收场（P0-08 判据保持）。
     - 提问形态：question 为空且非重连/续跑模式 → 400（A1 错误码草案）；
       四层流水线在 domains.chat 域内，逐帧渲染为信封流。
     """
     breakpoint_id = parse_last_event_id(last_event_id)
     resume_run_id = body.resume_run_id if body is not None else None
     if resume_run_id is not None or breakpoint_id is not None:
+        start = breakpoint_id + 1 if breakpoint_id is not None else 0
+        if resume_run_id is not None:
+            await chat.replay_preflight(resume_run_id)
+            return StreamingResponse(
+                _render(chat.replay(resume_run_id), start=start),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache"},
+            )
         return StreamingResponse(
-            _skeleton_replay_stream(breakpoint_id),
+            _render(_skeleton_replay_events(), start=start),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache"},
         )

@@ -1,12 +1,16 @@
-"""chat 三链链体单测（P1-08b）——检索瀑布链（D2 配置驱动行为变化实证）＋FAQ
-秒回链＋图谱问答链＋citation fail-closed。
+"""chat 三链链体单测（P1-08b 链体＋P1-08c 树叙事步进）——检索瀑布链（D2 配置
+驱动行为变化实证）＋FAQ 秒回链＋图谱问答链＋citation fail-closed＋node 帧族
+时序（S 级过程行归位 node 帧/跳过级 wait＋skipped/GEN 序号/配置核对行/token
+不交错）。
 
-验收获收点对照（tickets/phase1/README.md P1-08b）：
-- 三链各真跑：链体帧序（S 级过程行）＋answer 收场；
+验收获收点对照（tickets/phase1/README.md P1-08b/P1-08c）：
+- 三链各真跑：链体帧序（node 步进）＋answer 收场；
 - D2 配置改动可见行为变化：三级开关/命中即停关（帧序变化）/topK/合并两策/
   精排三档/引用格式两格/兜底两策/refuse_threshold/confidence_thresholds/
   faq_expand_rounds——逐字段消费；
-- fail-closed 单测：编造引用（未知别名 c9）被拦＋失锚 fragment 被拦＋notice 留痕。
+- fail-closed 单测：编造引用（未知别名 c9）被拦＋失锚 fragment 被拦＋notice 留痕；
+- 树叙事时序断言：节点逐帧点亮序列（process→finish/wait＋skipped）＋token 帧
+  在全部树帧之后（不交错乱序）。
 """
 
 from dataclasses import replace
@@ -23,19 +27,10 @@ from tests.domains.chat.conftest import (
     DEFAULT_CONFIG,
     Seams,
     collect,
+    events_by_name,
     make_service,
+    node_walk,
 )
-
-
-def _events_by_name(events: list[Any]) -> dict[str, list[dict[str, Any]]]:
-    out: dict[str, list[dict[str, Any]]] = {}
-    for event in events:
-        out.setdefault(event.event, []).append(event.data)
-    return out
-
-
-def _names(events: list[Any]) -> list[str]:
-    return [event.event for event in events]
 
 
 def _hit(fid: str, score: float, leg: str = "vector") -> IndexHitFace:
@@ -47,6 +42,188 @@ def _hit(fid: str, score: float, leg: str = "vector") -> IndexHitFace:
 def _anchor_of(hit: IndexHitFace) -> FragmentAnchorFace:
     return FragmentAnchorFace(fragment_id=hit.fragment_id, report_id=hit.report_id,
                               report=hit.report, section=hit.section)
+
+
+def _node_notes(events: list[Any], key: str) -> list[str]:
+    """某节点全部 note（node 帧族断言面）。"""
+    return [
+        str(f["note"]) for f in events_by_name(events)["node"]
+        if f["key"] == key and f.get("note")
+    ]
+
+
+def _finish_notes(events: list[Any], key: str) -> list[str]:
+    return [
+        str(f["note"]) for f in events_by_name(events)["node"]
+        if f["key"] == key and f["state"] == "finish" and f.get("note")
+    ]
+
+
+def _skip_frames(events: list[Any], key: str) -> list[dict[str, Any]]:
+    return [
+        f for f in events_by_name(events)["node"]
+        if f["key"] == key and f["state"] == "wait" and f.get("skipped") is True
+    ]
+
+
+class TestTreeNarrative:
+    """P1-08c 树叙事（node 帧族）——步进时序/跳过表达/GEN 序号/配置核对行。"""
+
+    async def test_retrieval_node_walk_golden(self, chat_db: Any, seams: Seams) -> None:
+        """检索链 node 步进金样本（A1 实时路径全量）：前门 N1→N3→N4→N5→N5b→N6
+        →链内 N17→S0→S1→S3（命中即停）→S4/S5 跳过→S6→S7→GEN→N17 收束；
+        执行级 process→finish 成对、跳过级 wait＋skipped:true。"""
+        seams.index_vector = [_hit("f1", 0.9)]
+        svc = make_service(chat_db, seams)
+        events = await collect(svc.ask(
+            "产量完成率如何", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        assert node_walk(events) == [
+            ("N1", "process"), ("N1", "finish"),
+            ("N3", "process"), ("N3", "finish"),
+            ("N4", "process"), ("N4", "finish"),
+            ("N5", "process"), ("N5", "finish"),
+            ("N5b", "process"), ("N5b", "finish"),
+            ("N6", "process"), ("N6", "finish"),
+            ("N17", "process"),
+            ("S0", "process"), ("S0", "finish"),
+            ("S1", "process"), ("S1", "finish"),
+            ("S3", "process"), ("S3", "finish"),  # 台账命中＋早停——S4~S5 跳过
+            ("S4", "wait"), ("S5", "wait"),
+            ("S6", "process"), ("S6", "finish"),
+            ("S7", "process"), ("S7", "finish"),
+            ("GEN", "process"), ("GEN", "finish"),
+            ("N17", "finish"),
+        ]
+        skips = [f for f in events_by_name(events)["node"]
+                 if f["state"] == "wait" and f.get("skipped") is True]
+        assert {f["key"] for f in skips} == {"S4", "S5"}
+        assert all("命中即停" in str(f["note"]) for f in skips)
+
+    async def test_token_frames_never_interleave_tree_frames(
+        self, chat_db: Any, seams: Seams,
+    ) -> None:
+        """token 帧切片与树帧不交错乱序：首个 token 之前是全部
+        stage/sec_check/match/assembly/verdict/node/node_line/notice 帧。"""
+        seams.index_vector = [_hit("f1", 0.9)]
+        seams.anchors = {"f1": _anchor_of(_hit("f1", 0.9))}
+        seams.completion = "依据材料作答 [c1]。"
+        svc = make_service(chat_db, seams)
+        events = await collect(svc.ask(
+            "N-02 什么时候投产的", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        names = [e.event for e in events]
+        tree_frames = {"stage", "sec_check", "match", "assembly", "verdict",
+                       "node", "node_line", "notice"}
+        first_token = names.index("token")
+        assert first_token > 0
+        assert not tree_frames.intersection(names[first_token:])
+        assert names[-1] == "done" and names[-2] == "answer"
+
+    async def test_gen_ordinal_counts_rerank_calls(
+        self, chat_db: Any, seams: Seams,
+    ) -> None:
+        """「模型第 N 次调用」标注行：精排 llm 档逐条打分计入——GEN 序号＝打分
+        调用数＋1（node tag 与 node_line 标注行同源）。"""
+        seams.index_vector = [_hit("v1", 0.5), _hit("v2", 0.8)]
+        seams.config = replace(DEFAULT_CONFIG, rerank="llm", early_stop=False)
+        svc = make_service(chat_db, seams)
+        events = await collect(svc.ask(
+            "N-02 的情况", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        gen_process = [f for f in events_by_name(events)["node"]
+                       if f["key"] == "GEN" and f["state"] == "process"]
+        assert gen_process and gen_process[0]["tag"] == "模型第 3 次调用"
+        gen_lines = [str(f["text"]) for f in events_by_name(events)["node_line"]
+                     if f["key"] == "GEN"]
+        assert any("模型第 3 次调用" in text for text in gen_lines)
+
+    async def test_config_check_line_lists_consumed_config(
+        self, chat_db: Any, seams: Seams,
+    ) -> None:
+        """出口「配置核对」行（D2 行为规则 6 展示面）——只列真实消费的生效值。"""
+        seams.index_vector = [_hit("f1", 0.9)]
+        svc = make_service(chat_db, seams)
+        events = await collect(svc.ask(
+            "产量完成率如何", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        check_lines = [str(f["text"]) for f in events_by_name(events)["node_line"]
+                       if f["key"] == "N17"]
+        assert any(
+            "配置核对：三级顺序＝锚定、词表、双路 · 命中即停＝开" in text
+            and "精排＝fast" in text and "兜底＝fixed" in text
+            for text in check_lines
+        )
+
+    async def test_level_switch_off_emits_skip_frame(
+        self, chat_db: Any, seams: Seams,
+    ) -> None:
+        """三级开关关＝跳过级 node 帧（state=wait＋skipped:true——00 §5.3 ①）。"""
+        seams.config = replace(DEFAULT_CONFIG, order_levels=(False, True, True))
+        svc = make_service(chat_db, seams)
+        events = await collect(svc.ask(
+            "产量完成率如何", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        skips = _skip_frames(events, "S1")
+        assert skips and "第 1 级开关关——跳过锚定" in str(skips[0]["note"])
+        # 被跳过的级不发 process/finish 对（帧序里 S1 只有这一帧）
+        assert [f["state"] for f in events_by_name(events)["node"]
+                if f["key"] == "S1"] == ["wait"]
+
+    async def test_s5_always_records_direct_skip(
+        self, chat_db: Any, seams: Seams,
+    ) -> None:
+        """S5 图扩展未启用——直通跳过照常记录（D2「过程记录写明直通跳过」）。"""
+        seams.config = replace(DEFAULT_CONFIG, early_stop=False)
+        svc = make_service(chat_db, seams)
+        events = await collect(svc.ask(
+            "产量完成率如何", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        skips = _skip_frames(events, "S5")
+        assert skips and "图扩展未启用" in str(skips[0]["note"])
+
+    async def test_faq_chain_node_walk(self, chat_db: Any, seams: Seams) -> None:
+        """FAQ 秒回链：N18 process→finish（零内部步进——秒回同拍完成）。"""
+        seams.faq_hit = d.FaqHitFace(entry_id="faq-1", question="产量完成率怎么算",
+                                     answer="Σ实际产油 ÷ Σ计划配产")
+        svc = make_service(chat_db, seams)
+        events = await collect(svc.ask(
+            "产量完成率怎么算", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        # 前门 N1..N6 之后的链内步进＝N18 process→finish（零内部步进——秒回同拍完成）
+        assert node_walk(events)[-2:] == [("N18", "process"), ("N18", "finish")]
+        assert any("no_model" in text or "未调用模型" in text
+                   for text in _finish_notes(events, "N18"))
+
+    async def test_graph_chain_node_walk(self, chat_db: Any, seams: Seams) -> None:
+        """图谱问答链：N13 开跑→遍历内容行→GEN→N13 收束。"""
+        seams.graph_hits = [
+            GraphHitFace(entity="N-06", relation="受效 → N-02",
+                         evidence="N-06 井注水，受效井为 N-02 井。",
+                         source_chunk_id="f1", source_report_id="rpt-1"),
+        ]
+        seams.index_vector = []
+        seams.anchors = {"f1": _anchor_of(_hit("f1", 0.9))}
+        svc = make_service(chat_db, seams)
+        events = await collect(svc.ask(
+            "哪些井受过 N-06 注水影响", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        assert node_walk(events)[-4:] == [
+            ("N13", "process"),
+            ("GEN", "process"), ("GEN", "finish"),
+            ("N13", "finish"),
+        ]
+        n13_lines = [str(f["text"]) for f in events_by_name(events)["node_line"]
+                     if f["key"] == "N13"]
+        assert any("图谱邻域遍历：命中 1 条关系边" in text for text in n13_lines)
 
 
 class TestEarlyStopSemantics:
@@ -63,13 +240,13 @@ class TestEarlyStopSemantics:
             "N-02 的情况", session_id=None, page_context=None,
             anchors=["指标卡·产量完成率"], actor_who=AQIANG,
         ))
-        lines = [(f["key"], f["text"]) for f in _events_by_name(events)["node_line"]]
-        assert any("命中即停——S3~S5 跳过" in text for key, text in lines if key == "S1")
-        assert not any("双路召回" in text for _key, text in lines)  # S4 被早停跳过
-        assert not any("S5 图扩展" in text for _key, text in lines)  # S5 同被跳过
+        s1_finish = " ".join(_finish_notes(events, "S1"))
+        assert "命中即停——S3~S5 跳过" in s1_finish
+        assert not any("双路召回" in text for text in _finish_notes(events, "S4"))
+        assert _skip_frames(events, "S3") and _skip_frames(events, "S4") \
+            and _skip_frames(events, "S5")
         # S6/S7 不受早停影响（合同：资格审/权威回读照走）
-        assert any(key == "S6" for key, _text in lines)
-        assert any(key == "S7" for key, _text in lines)
+        assert _finish_notes(events, "S6") and _finish_notes(events, "S7")
 
     async def test_early_stop_off_runs_all_levels(
         self, chat_db: Any, seams: Seams,
@@ -84,9 +261,8 @@ class TestEarlyStopSemantics:
             "N-02 的情况", session_id=None, page_context=None,
             anchors=["指标卡·产量完成率"], actor_who=AQIANG,
         ))
-        lines = [(f["key"], f["text"]) for f in _events_by_name(events)["node_line"]]
-        assert any("双路召回" in text for _key, text in lines)  # 逐级全跑——S4 照走
-        assert any("S5 图扩展" in text for _key, text in lines)
+        assert any("双路召回" in text for text in _finish_notes(events, "S4"))
+        assert any("图扩展未启用" in text for text in _skip_notes(events, "S5"))
 
     async def test_level_switch_off_skips_level(
         self, chat_db: Any, seams: Seams,
@@ -99,8 +275,8 @@ class TestEarlyStopSemantics:
             "产量完成率如何", session_id=None, page_context=None,
             anchors=[], actor_who=AQIANG,
         ))
-        lines = [f["text"] for f in _events_by_name(events)["node_line"]]
-        assert any("第 1 级开关关——跳过锚定" in text for text in lines)
+        skips = _skip_frames(events, "S1")
+        assert skips and "第 1 级开关关——跳过锚定" in str(skips[0]["note"])
 
     async def test_ledger_hit_with_early_stop_skips_dual(
         self, chat_db: Any, seams: Seams,
@@ -111,9 +287,13 @@ class TestEarlyStopSemantics:
             "产量完成率如何", session_id=None, page_context=None,
             anchors=[], actor_who=AQIANG,
         ))
-        lines = [f["text"] for f in _events_by_name(events)["node_line"]]
-        assert any("命中即停——S4~S5 跳过" in text for text in lines)
+        assert any("命中即停——S4~S5 跳过" in text for text in _finish_notes(events, "S3"))
+        assert _skip_frames(events, "S4")
         assert seams.calls.get("index_dual", 0) == 0  # S4 真被跳过（并发召回未发起）
+
+
+def _skip_notes(events: list[Any], key: str) -> list[str]:
+    return [str(f["note"]) for f in _skip_frames(events, key)]
 
 
 class TestDualRecallAndRerank:
@@ -142,10 +322,13 @@ class TestDualRecallAndRerank:
         svc = make_service(chat_db, seams)
         events = await collect(svc.ask("N-02 的情况", session_id=None, page_context=None,
                                        anchors=[], actor_who=AQIANG))
-        lines = [f["text"] for f in _events_by_name(events)["node_line"]]
-        assert any("合并（concat——谁排前用谁）" in text for text in lines)
+        s4_notes = " ".join(
+            str(f.get("note") or "") for f in events_by_name(events)["node"]
+            if f["key"] == "S4"
+        )
+        assert "合并（concat——谁排前用谁）" in s4_notes
         # concat＝向量路在前——c1 即向量腿命中
-        citation = _events_by_name(events)["citation"][0]
+        citation = events_by_name(events)["citation"][0]
         assert citation["ref"] == "c1" and citation["locator"]["fragment_id"] == "v1"
 
     async def test_rerank_llm_scores_each_candidate(
@@ -160,7 +343,7 @@ class TestDualRecallAndRerank:
         # 每条候选一次打分调用（caller=chat.retrieval.rerank）＋一次生成调用
         assert seams.completions.count("chat.retrieval.rerank") == 2
         assert seams.completions.count("chat.retrieval.answer") == 1
-        assert _events_by_name(events)["answer"][0]["kind"] == "text"
+        assert events_by_name(events)["answer"][0]["kind"] == "text"
 
     async def test_rerank_llm_parse_failure_falls_back_to_order(
         self, chat_db: Any, seams: Seams,
@@ -172,9 +355,12 @@ class TestDualRecallAndRerank:
         svc = make_service(chat_db, seams)
         events = await collect(svc.ask("N-02 的情况", session_id=None, page_context=None,
                                        anchors=[], actor_who=AQIANG))
-        lines = [f["text"] for f in _events_by_name(events)["node_line"]]
-        assert any("精排（llm）" in text for text in lines)
-        assert _events_by_name(events)["answer"][0]["kind"] == "text"
+        s4_notes = " ".join(
+            str(f.get("note") or "") for f in events_by_name(events)["node"]
+            if f["key"] == "S4"
+        )
+        assert "精排（llm）" in s4_notes
+        assert events_by_name(events)["answer"][0]["kind"] == "text"
 
     async def test_rerank_compound_uses_model_scores(
         self, chat_db: Any, seams: Seams,
@@ -186,7 +372,7 @@ class TestDualRecallAndRerank:
         events = await collect(svc.ask("N-02 的情况", session_id=None, page_context=None,
                                        anchors=[], actor_who=AQIANG))
         assert seams.completions.count("chat.retrieval.rerank") == 2
-        assert _events_by_name(events)["answer"][0]["kind"] == "text"
+        assert events_by_name(events)["answer"][0]["kind"] == "text"
 
     async def test_evidence_cap_four_with_overflow_notice(
         self, chat_db: Any, seams: Seams,
@@ -197,7 +383,7 @@ class TestDualRecallAndRerank:
         svc = make_service(chat_db, seams)
         events = await collect(svc.ask("N-02 的情况", session_id=None, page_context=None,
                                        anchors=[], actor_who=AQIANG))
-        notices = [str(n["text"]) for n in _events_by_name(events)["notice"]]
+        notices = [str(n["text"]) for n in events_by_name(events)["notice"]]
         assert any("另有 2 支未列出" in text for text in notices)
         assert seams.completions.count("chat.retrieval.answer") == 1
 
@@ -214,9 +400,12 @@ class TestRefuseThresholdAndFallback:
         svc = make_service(chat_db, seams)
         events = await collect(svc.ask("N-02 什么时候投产的", session_id=None,
                                        page_context=None, anchors=[], actor_who=AQIANG))
-        assert _events_by_name(events)["answer"][0]["kind"] == "text"
-        lines = [f["text"] for f in _events_by_name(events)["node_line"]]
-        assert not any("拒答判定" in text for text in lines)
+        assert events_by_name(events)["answer"][0]["kind"] == "text"
+        s6_notes = " ".join(
+            str(f.get("note") or "") for f in events_by_name(events)["node"]
+            if f["key"] == "S6"
+        )
+        assert "拒答判定" not in s6_notes
 
     async def test_score_below_threshold_falls_back_fixed(
         self, chat_db: Any, seams: Seams,
@@ -226,11 +415,14 @@ class TestRefuseThresholdAndFallback:
         svc = make_service(chat_db, seams)
         events = await collect(svc.ask("随便问", session_id=None, page_context=None,
                                        anchors=[], actor_who=AQIANG))
-        data = _events_by_name(events)
+        data = events_by_name(events)
         answer = data["answer"][0]
         assert answer["kind"] == "alert" and answer["text"] == DEFAULT_CONFIG.fallback_text
-        lines = [f["text"] for f in data["node_line"]]
-        assert any("低于低分线 0.40" in text for text in lines)
+        s6_notes = " ".join(
+            str(f.get("note") or "") for f in data["node"] if f["key"] == "S6"
+        )
+        assert "低于低分线 0.40" in s6_notes
+        assert "拒答判定" in s6_notes
 
     async def test_fallback_free_tag_and_generation(
         self, chat_db: Any, seams: Seams,
@@ -242,7 +434,7 @@ class TestRefuseThresholdAndFallback:
         svc = make_service(chat_db, seams)
         events = await collect(svc.ask("随便问", session_id=None, page_context=None,
                                        anchors=[], actor_who=AQIANG))
-        answer = _events_by_name(events)["answer"][0]
+        answer = events_by_name(events)["answer"][0]
         assert answer["kind"] == "text"
         assert answer["text"].endswith(d.FREE_ANSWER_TAG)
 
@@ -259,7 +451,7 @@ class TestRefuseThresholdAndFallback:
             "产量现在如何", session_id=None, page_context=None,
             anchors=["指标卡·产量"], actor_who=AQIANG,
         ))
-        data = _events_by_name(events)
+        data = events_by_name(events)
         notices = [str(n["text"]) for n in data["notice"]]
         assert any("不在现行指标目录，不代答" in text for text in notices)
         assert data["answer"][0]["kind"] == "alert"  # 兜底收场——绝不代答
@@ -278,7 +470,7 @@ class TestCitationFailClosed:
         svc = make_service(chat_db, seams)
         events = await collect(svc.ask("N-02 什么时候投产的", session_id=None,
                                        page_context=None, anchors=[], actor_who=AQIANG))
-        data = _events_by_name(events)
+        data = events_by_name(events)
         answer = data["answer"][0]
         assert "[c9]" not in answer["text"]  # 伪造引用 fail-closed 删除
         assert "[c1]" not in answer["text"] or answer["text"]  # page 格式——c1 展开为标签
@@ -297,7 +489,7 @@ class TestCitationFailClosed:
         svc = make_service(chat_db, seams)
         events = await collect(svc.ask("N-02 什么时候投产的", session_id=None,
                                        page_context=None, anchors=[], actor_who=AQIANG))
-        data = _events_by_name(events)
+        data = events_by_name(events)
         answer = data["answer"][0]
         assert answer["citations"] == []  # 失锚引用被拦——不外发 citation 帧
         assert "[c1]" not in answer["text"]
@@ -314,7 +506,7 @@ class TestCitationFailClosed:
         svc = make_service(chat_db, seams)
         events = await collect(svc.ask("N-02 什么时候投产的", session_id=None,
                                        page_context=None, anchors=[], actor_who=AQIANG))
-        data = _events_by_name(events)
+        data = events_by_name(events)
         answer = data["answer"][0]
         assert "[c1]" in answer["text"]
         assert answer["citations"][0]["ref"] == "c1"
@@ -329,7 +521,7 @@ class TestCitationFailClosed:
         svc = make_service(chat_db, seams)
         events = await collect(svc.ask("N-02 什么时候投产的", session_id=None,
                                        page_context=None, anchors=[], actor_who=AQIANG))
-        data = _events_by_name(events)
+        data = events_by_name(events)
         assert data["answer"][0]["citations"] == []
         notices = [str(n["text"]) for n in data["notice"]]
         assert any("失锚/伪造引用" in text for text in notices)
@@ -346,7 +538,7 @@ class TestFaqExpandRounds:
         svc = make_service(chat_db, seams)
         events = await collect(svc.ask("随便问一句", session_id=None, page_context=None,
                                        anchors=[], actor_who=AQIANG))
-        lines = [f["text"] for f in _events_by_name(events)["node_line"]]
+        lines = [f["text"] for f in events_by_name(events)["node_line"]]
         assert any("扩检第 1 轮（候选数 ×1）" in text for text in lines)
         assert any("扩检第 2 轮（候选数 ×2）" in text for text in lines)
         assert any("扩检第 3 轮（候选数 ×4）" in text for text in lines)
@@ -365,9 +557,9 @@ class TestFaqExpandRounds:
         svc = make_service(chat_db, seams)
         events = await collect(svc.ask("N-02 投产日期", session_id=None, page_context=None,
                                        anchors=[], actor_who=AQIANG))
-        lines = [f["text"] for f in _events_by_name(events)["node_line"]]
+        lines = [f["text"] for f in events_by_name(events)["node_line"]]
         assert any("扩检第 1 轮（候选数 ×1）：命中 1 条相似问" in text for text in lines)
-        answer = _events_by_name(events)["answer"][0]
+        answer = events_by_name(events)["answer"][0]
         assert answer["kind"] == "text"
 
     async def test_expand_below_floor_not_evidence(
@@ -381,7 +573,7 @@ class TestFaqExpandRounds:
         svc = make_service(chat_db, seams)
         events = await collect(svc.ask("随便问", session_id=None, page_context=None,
                                        anchors=[], actor_who=AQIANG))
-        lines = [f["text"] for f in _events_by_name(events)["node_line"]]
+        lines = [f["text"] for f in events_by_name(events)["node_line"]]
         assert any("扩检 2 轮未命中" in text for text in lines)
 
 
@@ -395,7 +587,7 @@ class TestFaqDirectChain:
         svc = make_service(chat_db, seams)
         events = await collect(svc.ask("产量完成率怎么算", session_id=None,
                                        page_context=None, anchors=[], actor_who=AQIANG))
-        data = _events_by_name(events)
+        data = events_by_name(events)
         answer = data["answer"][0]
         assert answer["kind"] == "text" and answer["no_model"] is True
         assert "Σ实际产油 ÷ Σ计划配产 × 100%" in answer["text"]
@@ -435,7 +627,7 @@ class TestFaqDirectChain:
         events = await collect(chains_mod.faq_direct_chain(
             deps, ChainContext(run_id="run-x", question="产量完成率怎么算",
                                actor_who=AQIANG, assembly=assembly)))
-        answer = _events_by_name(events)["answer"][0]
+        answer = events_by_name(events)["answer"][0]
         assert answer["kind"] == "alert" and answer["text"] == DEFAULT_CONFIG.fallback_text
 
 
@@ -455,7 +647,7 @@ class TestGraphChain:
         svc = make_service(chat_db, seams)
         events = await collect(svc.ask("哪些井受过 N-06 注水影响", session_id=None,
                                        page_context=None, anchors=[], actor_who=AQIANG))
-        data = _events_by_name(events)
+        data = events_by_name(events)
         assert data["verdict"][0]["chain"] == "图谱问答链"
         citation = data["citation"][0]
         assert citation["kind"] == "图谱"
@@ -476,7 +668,7 @@ class TestGraphChain:
         svc = make_service(chat_db, seams)
         events = await collect(svc.ask("哪些井受过 N-06 注水影响", session_id=None,
                                        page_context=None, anchors=[], actor_who=AQIANG))
-        data = _events_by_name(events)
+        data = events_by_name(events)
         answer = data["answer"][0]
         assert answer.get("citations", []) == []  # 无 citation 帧（兜底 alert 亦无）
         assert answer["kind"] == "alert"  # 全部失锚→无可用证据→兜底
@@ -489,8 +681,8 @@ class TestGraphChain:
         svc = make_service(chat_db, seams)
         events = await collect(svc.ask("哪些井受过 N-06 注水影响", session_id=None,
                                        page_context=None, anchors=[], actor_who=AQIANG))
-        data = _events_by_name(events)
-        assert _names(events)[-1] == "done"
+        data = events_by_name(events)
+        assert [e.event for e in events][-1] == "done"
         assert data["answer"][0]["text"] == DEFAULT_CONFIG.fallback_text
 
 
@@ -503,7 +695,7 @@ class TestConsumptionMatrix:
         # faq_direct_hit：true→FAQ直出链（false→检索链已在 TestD2ConfigDrivenRouting 断言）
         seams.faq_hit = d.FaqHitFace(entry_id="f", question="q", answer="a")
         svc = make_service(chat_db, seams)
-        data = _events_by_name(await collect(svc.ask(
+        data = events_by_name(await collect(svc.ask(
             "q", session_id=None, page_context=None, anchors=[], actor_who=AQIANG)))
         assert data["verdict"][0]["chain"] == "FAQ直出链"
         # refuse_threshold：0.3 分证据 + 低分线 0.5 → 兜底（其余默认）
@@ -511,7 +703,7 @@ class TestConsumptionMatrix:
         seams2.index_vector = [_hit("f1", 0.3)]
         seams2.config = replace(DEFAULT_CONFIG, refuse_threshold=0.5)
         svc2 = make_service(chat_db, seams2)
-        data2 = _events_by_name(await collect(svc2.ask(
+        data2 = events_by_name(await collect(svc2.ask(
             "随便问", session_id=None, page_context=None, anchors=[], actor_who=AQIANG)))
         assert data2["answer"][0]["kind"] == "alert"
         # confidence_thresholds：高线 0.5→0.7 分证据即「高」（默认 0.8 时为「中」）
@@ -521,7 +713,7 @@ class TestConsumptionMatrix:
         seams3.anchors = {"f1": _anchor_of(_hit("f1", 0.7))}
         seams3.config = replace(DEFAULT_CONFIG, confidence_high=0.5)
         svc3 = make_service(chat_db, seams3)
-        data3 = _events_by_name(await collect(svc3.ask(
+        data3 = events_by_name(await collect(svc3.ask(
             "N-02 什么时候投产的", session_id=None, page_context=None,
             anchors=[], actor_who=AQIANG)))
         assert data3["verdict"][0]["confidence"].startswith("高")

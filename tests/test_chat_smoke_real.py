@@ -11,9 +11,13 @@
 流程（三链各真跑＋引用回跳锚真值）：
 ① 备料：建库（completion 四开关全开）→抽取设置（本体对号表对齐窄配置）→
    真传演示文本→五步 done（真 LLM 摘要/问题块）→graph 支路真抽取立边。
-② FAQ 秒回链：match_index 精确命中→直出答案 no_model=true＋citation（零模型调用）。
+② FAQ 秒回链：match_index 精确命中→直出答案 no_model=true＋citation（零模型调用）
+   →N18 树节点步进。
 ③ 检索问答链：双路召回命中演示报告→真 LLM 生成（petro-main）→token 流式→
-   citation 帧→**锚真值**：locator.fragment_id 与命中报告经 B2 片段台账对账一致。
+   citation 帧→**锚真值**：locator.fragment_id 与命中报告经 B2 片段台账对账一致
+   →树叙事帧序核对（N1..N6→N17→S0–S7/GEN 逐帧点亮、token 不与树帧交错——A1 册
+   实时路径真源）→**断线重连真恢复**（resume_run_id 重放持久帧：verdict/citation/
+   answer 与原流同形同值）。
 ④ 图谱问答链：关系问句路由→graph 缝邻域命中→真 LLM 生成→citation kind=图谱
    →锚真值同上（边出处 chunk 回跳）。
 ⑤ B12 受理审计留痕。
@@ -190,13 +194,36 @@ def test_real_assembly_smoke() -> None:
         verdict = ret_data["verdict"][0]
         assert verdict["chain"] == "检索问答链"
         assert verdict["confidence"]  # 置信度真实计算——档位值在
-        assert any(f["key"] == "S4" for f in ret_data["node_line"])  # 双路召回过程行
+        assert any(f["key"] == "S4" for f in ret_data["node"])  # S4 双路召回 node 步进
         assert ret_data["token"], "检索链答案应流式（token 帧族）"
         assert ret_answer["kind"] == "text", (
             f"三轮内真 LLM 生成应成功（当前兜底收场——上游瞬断不应三连）：{ret_answer}"
         )
         assert "筛管" in ret_answer["text"]  # 依据演示报告作答（防砂方式筛管完井）
         assert citations, "真 LLM 三轮内应至少一轮按编号引用材料（[cN] fail-closed 后展开）"
+        # 树叙事时序（P1-08c）：node 帧沿实时路径点亮（N1..N6→N17→S0–S7/GEN），
+        # token 切片在全部树帧之后（不交错乱序）。
+        node_keys = [f["key"] for f in ret_data["node"]]
+        assert node_keys[:2] == ["N1", "N1"]
+        assert {"N3", "N4", "N5", "N5b", "N6"} <= set(node_keys)
+        assert {"N17", "S0", "S1", "S3", "S4", "S5", "S6", "S7", "GEN"} <= set(node_keys)
+        tree_frames = {"stage", "sec_check", "match", "assembly", "verdict",
+                       "node", "node_line", "notice"}
+        first_token = ret_names.index("token")
+        assert not tree_frames.intersection(ret_names[first_token:])
+        # 断线重连真恢复（resume_run_id run 恢复）：done run 重放持久帧——
+        # session(resume)→verdict→citation×N→answer→done，answer 与原流同形同值。
+        recovery = _parse_frames(client.post(
+            "/api/chat/asks", json={"resume_run_id": ret_frames[0][1]["run_id"]},
+            headers={"X-Dev-User": "aqiang"},
+        ).text)
+        recovery_names = [name for name, _ in recovery]
+        assert recovery_names == [
+            "session", "verdict", *(["citation"] * len(ret_data.get("citation", []))),
+            "answer", "done",
+        ], recovery_names
+        assert recovery[-2][1] == ret_data["answer"][0]
+        assert any(f["resume"] is True for f in _frames_by_name(recovery)["session"])
         # 锚真值：citation.fragment_id 必须真实存在且属于 locator 所指报告
         # （检索是全库面——证据可来自任意报告；B2 片段台账逐条对账）。
         frag_all = client.get(

@@ -22,6 +22,7 @@ from tests.domains.chat.conftest import (
     collect,
     default_metrics,
     make_service,
+    walk_projection,
 )
 
 
@@ -50,29 +51,89 @@ async def _audit_rows(db: ConnectionManager) -> list[tuple[str, str]]:
 
 class TestHappyPathFrameSequence:
     async def test_ask_emits_full_frame_sequence(self, service: ChatService) -> None:
-        """提问 → 帧序断言：session→stage(0,1)→sec_check×3→match×6→assembly→
-        stage(2)→verdict→stage(3)→链内帧（node_line/token/citation）→answer→done。"""
+        """提问 → 帧序金样本（P1-08c 树叙事）：session→stage(0,1)→N1 节点→
+        sec_check×3→N3→match×6→N4→assembly→stage(2)→N5→verdict→N5b→N6→
+        stage(3)→链内 node 步进（S0–S7/GEN）→node_line 内容行→token→citation→
+        answer→done。"""
+        events = await collect(service.ask(
+            "渤中产量完成率如何", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        walk = walk_projection(events)
+        assert walk[:3] == [("session",), ("stage",), ("stage",)]
+        assert [e.data["stage"] for e in events[1:3]] == [0, 1]
+        assert walk[3] == ("node", "N1", "process")
+        assert walk[4:7] == [("sec_check",)] * 3
+        assert [event.data["seq"] for event in events[4:7]] == [1, 2, 3]
+        assert [event.data["name"] for event in events[4:7]] == list(d.SEC_CHECKS)
+        assert walk[7] == ("node", "N1", "finish")
+        assert walk[8] == ("node", "N3", "process")
+        assert walk[9:15] == [("match",)] * 6
+        assert [event.data["matcher"] for event in events[9:15]] == list(d.MATCHERS)
+        assert walk[15] == ("node", "N3", "finish")
+        assert walk[16] == ("node", "N4", "process")
+        assert walk[17] == ("assembly",)
+        assert walk[18] == ("node", "N4", "finish")
+        assert walk[19] == ("stage",)
+        assert walk[20] == ("node", "N5", "process")
+        assert walk[21] == ("verdict",)
+        assert walk[22] == ("node", "N5", "finish")
+        assert walk[23:27] == [
+            ("node", "N5b", "process"), ("node", "N5b", "finish"),
+            ("node", "N6", "process"), ("node", "N6", "finish"),
+        ]
+        assert walk[27] == ("stage",)
+        # 链内步进（默认配置：台账命中＋早停——S4~S5 跳过、GEN 生成收束）
+        assert walk[28:46] == [
+            ("node", "N17", "process"),
+            ("node", "S0", "process"), ("node", "S0", "finish"),
+            ("node", "S1", "process"), ("node", "S1", "finish"),
+            ("node", "S3", "process"), ("node", "S3", "finish"),
+            ("node", "S4", "wait"), ("node", "S5", "wait"),
+            ("node", "S6", "process"), ("node", "S6", "finish"),
+            ("node", "S7", "process"), ("node", "S7", "finish"),
+            ("node", "GEN", "process"),
+            ("node_line",),
+            ("node", "GEN", "finish"),
+            ("node", "N17", "finish"),
+            ("node_line",),
+        ]
+        tail = walk[28 + 18:]
+        assert tail[0] == ("token",)  # token 切片在全部树帧之后（不交错乱序）
+        assert tail[-3:] == [("citation",), ("answer",), ("done",)]
+        names = _names(events)
+        assert names[-1] == "done"
+        assert names[-2] == "answer"
+
+    async def test_nineteen_frame_assembly_golden(self, service: ChatService) -> None:
+        """19 类业务帧完整装配时序金样本（A1 册 19 帧表逐帧核对——票面验收）。
+
+        帧类型首现序＝A1 册发出位置：session→stage→node(安检节点)→sec_check×3→
+        match×6→assembly→verdict→node_line→token→citation→answer→done；零发三帧
+        （tool_call/lineage/approval——注册即可，票面明示）不在本路径流；19 值
+        注册面（FRAME_NAMES）全。
+        """
         events = await collect(service.ask(
             "渤中产量完成率如何", session_id=None, page_context=None,
             anchors=[], actor_who=AQIANG,
         ))
         names = _names(events)
-        assert names[0] == "session"
-        assert names[1:3] == ["stage", "stage"]
-        assert [event.data["stage"] for event in events[1:3]] == [0, 1]
-        assert names[3:6] == ["sec_check"] * 3
-        assert [event.data["seq"] for event in events[3:6]] == [1, 2, 3]
-        assert [event.data["name"] for event in events[3:6]] == list(d.SEC_CHECKS)
-        assert names[6:12] == ["match"] * 6
-        assert [event.data["matcher"] for event in events[6:12]] == list(d.MATCHERS)
-        assert names[12] == "assembly"
-        assert names[13] == "stage" and events[13].data["stage"] == 2
-        assert names[14] == "verdict"
-        assert names[15] == "stage" and events[15].data["stage"] == 3
-        assert "node_line" in names  # 链内过程行（S 级语义可观察）
-        assert "token" in names  # 答案文本流式
-        assert names[-1] == "done"
-        assert names[-2] == "answer"
+        assert len(d.FRAME_NAMES) == 19
+        assert set(d.FRAME_NAMES) == {
+            "session", "stage", "sec_check", "match", "assembly", "verdict",
+            "node", "node_line", "token", "tool_call", "citation", "lineage",
+            "answer", "clarify", "approval", "notice", "done", "error",
+            "replay_truncated",
+        }
+        # 零发三帧（注册即可——随其链票点亮）＋本路径不涉帧（clarify/error/
+        # replay_truncated 各属澄清/异常/重连形态）不在生成路径流
+        assert not {"tool_call", "lineage", "approval"} & set(names)
+        # 帧类型首现序＝A1 册发出位置（同名帧去重保序）
+        first_seen = list(dict.fromkeys(names))
+        assert first_seen == [
+            "session", "stage", "node", "sec_check", "match", "assembly",
+            "verdict", "node_line", "token", "citation", "answer", "done",
+        ]
 
     async def test_retrieval_chain_generates_with_citation(
         self, service: ChatService,
@@ -106,9 +167,9 @@ class TestHappyPathFrameSequence:
         answer = data["answer"][0]
         assert answer["kind"] == "alert" and answer["alert_type"] == "warning"
         assert answer["text"] == DEFAULT_CONFIG.fallback_text
-        # 拒答判定过程行（refuse_threshold 消费可观察）
-        s6 = [f for f in data["node_line"] if f["key"] == "S6" and f["mark"] == "✗"]
-        assert s6 and "不硬答" in s6[0]["text"]
+        # 拒答判定（refuse_threshold 消费可观察）——S6 finish 节点 note 明示不硬答
+        s6 = [f for f in data["node"] if f["key"] == "S6" and f["state"] == "finish"]
+        assert s6 and "不硬答" in str(s6[-1].get("note"))
 
     async def test_assembly_frame_carries_chains_and_candidates(
         self, service: ChatService,
@@ -307,7 +368,9 @@ class TestClarifyBoundedLoop:
         names = _names(second)
         assert names.count("clarify") == 0  # 有界循环——不再弹第二帧
         assert names[0] == "session" and names[-1] == "done"
-        assert [event.data["seq"] for event in second[3:6]] == [1, 2, 3]  # 安检三道复检
+        # 带参输入真复检（不免检）：session→stage0→stage1→N1 节点→安检三道
+        assert [event.data["seq"] for event in second[4:7]] == [1, 2, 3]
+        assert (second[3].event, second[3].data["key"]) == ("node", "N1")
         data = _events_by_name(second)
         verdict = data["verdict"][0]
         assert verdict["need_clarify"] is False and verdict["chain"] == "检索问答链"
@@ -384,6 +447,90 @@ class TestClarifyBoundedLoop:
                 "run-missing", kind="clarify", choice="A", decision=None, reason=None,
                 actor_who=AQIANG,
             ))
+
+
+class TestReplay:
+    """断线重连真恢复（P1-08c）——已持久化帧序列重放（能补多少补多少）＋只读语义。
+
+    - done：session(resume)→verdict→citation×N→answer→done（与原流同形同值）；
+    - interrupt_clarify：session→verdict→clarify（挂起前缀，流收束不发 done）；
+    - running/failed/cancelled：持久前缀＋replay_truncated ③收场（生成已取消）；
+    - 只读重放：零消息写入、零 run 状态变更（recent_qa_pairs 料源语义不受扰动）。
+    """
+
+    async def test_done_run_replays_persisted_frames(
+        self, service: ChatService, chat_db: ConnectionManager,
+    ) -> None:
+        first = await collect(service.ask(
+            "渤中产量完成率如何", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        run_id = _events_by_name(first)["session"][0]["run_id"]
+        first_data = _events_by_name(first)
+        store = ChatStore(chat_db)
+        before_messages = await store.messages_of_run(run_id)
+        pairs_before = await service.recent_qa_pairs()
+        replayed = await collect(service.replay(run_id))
+        names = _names(replayed)
+        assert names == ["session", "verdict", "citation", "answer", "done"]
+        session = replayed[0].data
+        assert session["resume"] is True and session["run_id"] == run_id
+        assert session["thread_id"] == first_data["session"][0]["thread_id"]
+        assert replayed[1].data == first_data["verdict"][0]  # 持久 verdict 原样回放
+        assert replayed[2].data == first_data["citation"][0]  # answer.citations 同形回放
+        assert replayed[3].data == first_data["answer"][0]  # answer 帧同形同值
+        # 只读重放：消息与料源零扰动
+        assert len(await store.messages_of_run(run_id)) == len(before_messages)
+        assert await service.recent_qa_pairs() == pairs_before
+        # 重放幂等——再放一遍完全同形
+        again = await collect(service.replay(run_id))
+        assert _names(again) == names
+
+    async def test_pending_clarify_run_replays_up_to_clarify(
+        self, service: ChatService,
+    ) -> None:
+        first = await collect(service.ask(
+            "有效产量是多少", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        run_id = _events_by_name(first)["session"][0]["run_id"]
+        clarify = _events_by_name(first)["clarify"][0]
+        replayed = await collect(service.replay(run_id))
+        assert _names(replayed) == ["session", "verdict", "clarify"]
+        assert _names(replayed)[-1] != "done"  # 挂起形态镜像——决策回流仍走端点 5
+        assert replayed[-1].data == clarify  # pending_interrupt 持久帧原样回放
+
+    async def test_running_run_replays_prefix_then_truncates(
+        self, chat_db: ConnectionManager, seams: Seams,
+    ) -> None:
+        svc = make_service(chat_db, seams)
+        store = ChatStore(chat_db)
+        session = await store.ensure_session(None, user_id="aqiang", title="t")
+        run = await store.create_run(session.id)
+        run.verdict = {"chain": "检索问答链", "slots": "∅",
+                       "confidence": "低（证据不足）", "need_clarify": False}
+        await store.save_run(run)
+        replayed = await collect(svc.replay(run.id))
+        assert _names(replayed) == ["session", "verdict", "replay_truncated"]
+        # ③收场话术（A1 断线恢复表——生成已被取消）
+        assert replayed[-1].data["message"] == d.REPLAY_CANCELLED_MESSAGE
+
+    async def test_cancelled_run_truncates_without_verdict(
+        self, chat_db: ConnectionManager, seams: Seams,
+    ) -> None:
+        svc = make_service(chat_db, seams)
+        store = ChatStore(chat_db)
+        session = await store.ensure_session(None, user_id="aqiang", title="t")
+        run = await store.create_run(session.id)
+        run.status = "cancelled"
+        await store.save_run(run)
+        replayed = await collect(svc.replay(run.id))
+        assert _names(replayed) == ["session", "replay_truncated"]
+        assert replayed[-1].data["message"] == d.REPLAY_CANCELLED_MESSAGE
+
+    async def test_replay_unknown_run_is_404(self, service: ChatService) -> None:
+        with pytest.raises(ChatRunNotFoundError):
+            await collect(service.replay("run-missing"))
 
 
 class TestCandidateClarifyLoop:

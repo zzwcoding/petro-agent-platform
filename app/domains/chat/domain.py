@@ -13,6 +13,10 @@ qa_behavior 消费口径（faq_direct_hit/clarify_strategy——本域消费）�
   ③意图裁决（置信度真实计算＝检索得分＋装配信号；D2 当前生效配置驱动路由）
   ④执行链分发（17 链闭世界枚举；检索/FAQ 秒回/图谱问答三链 P1-08b 链体填入）
 
+思考树叙事（P1-08c）：node 帧族沿本次运行实时路径逐帧流式推进（A1「节点渐进
+出现」——node 帧的节点键序列是本次运行的实时路径·服务端真源）；node_line 保留
+为节点内内容行（配置核对／模型第 N 次调用标注族——A1 帧 8）。
+
 B1：本文件不 import fastapi/starlette/DB——帧构造、安检模式、澄清有界循环、
 候选截断、建议池都是纯语义；IO 归 store（PG）/service（编排）。
 """
@@ -57,6 +61,87 @@ FRAME_NAMES: tuple[str, ...] = (
 
 # 00 §6.2 收场②合同话术原文（重连形态骨架判据——P0-08 登记不动）。
 REPLAY_TRUNCATED_MESSAGE = "会话中断较久，中间漏了一段（超出缓冲窗口），请重新提问。"
+# 00 §6.2/A1 断线恢复收场③合同话术原文（生成已被取消——replay_truncated 帧收场；
+# P1-08c：run 恢复重放补不出答案余量时的诚实收场话术）。
+REPLAY_CANCELLED_MESSAGE = "回答生成已被取消——以上为重连前的内容，请重新提问。"
+
+# ---------- 思考树节点（node 帧族——P1-08c 树叙事） ----------
+
+# 节点状态四态（00 §5.3 节点步进形状——wait|process|finish|error，与 antd Steps
+# 语义对齐；error 为协议登记态：本域设计内收场〔拦截/落空/兜底〕一律 finish＋
+# note 明示，error 留给真实异常步）。
+NODE_WAIT = "wait"
+NODE_PROCESS = "process"
+NODE_FINISH = "finish"
+NODE_ERROR = "error"
+
+# 全景树节点注册表（node 帧键与名——A1 帧 7「key 与全景树 41 节点键一致」）。
+# 键/名照抄 learning-records/2026-09-27-业务执行全景树.md 总树＋prototype
+# DecisionTree.jsx（41 节点版）；S 级键＝D2 瀑布级合同键（A1 行为规则 3——链内
+# 节点行内容照抄各源；08b node_line 同键归位 node 帧）；GEN＝链内生成步实施键
+# （41 树无生成节点——N8 答案组装由 answer 帧驱动，差异登记挂 Owner 复核）。
+TREE_NODES: dict[str, str] = {
+    "N1": "统一安检",
+    "N2a": "注入拦截",
+    "N2b": "禁用词替代",
+    "N3": "轻装配",
+    "N4": "装配块",
+    "N5": "意图裁决",
+    "N5a": "澄清帧",
+    "N5b": "裁决核验",
+    "N6": "链路分派",
+    "N13": "关系追溯",
+    "N17": "检索问答",
+    "N18": "预制问答",
+    "S0": "身份四要素",
+    "S1": "显式锚定",
+    "S3": "词表四级",
+    "S4": "双路召回",
+    "S5": "图扩展",
+    "S6": "资格裁决",
+    "S7": "权威源回读",
+    "GEN": "限定作答＋引用登记",
+}
+
+# 17 链 → 全景树执行节点（已接线三链；未接线链不出执行节点帧——N6 分派后
+# 直接收「该能力暂未开通」话术，不冒充树路径）。
+CHAIN_TREE_NODES: dict[str, str] = {
+    "检索问答链": "N17",
+    "FAQ直出链": "N18",
+    "图谱问答链": "N13",
+}
+
+
+def node_frame(
+    key: str,
+    *,
+    state: str,
+    note: str | None = None,
+    tag: str | None = None,
+    skipped: bool = False,
+) -> SseEvent:
+    """node 帧（思考树节点逐帧流式推进——P1-08c 树叙事）。
+
+    载荷＝A1 帧 7 合同字段 {key, name, tag?}∪00 §5.3 节点步进形状 {key, label,
+    state, note, skipped}（additive 并集——A1 冻结字段保留、§5.3 形状承载状态
+    推进；name/label 同值双承载）。skipped=true 恒配 state=wait（00 §5.3/§14-R6
+    ①：流程级跳过不扩 state 枚举——D2 裁决推广形，早停跳过/开关关跳过/S5 未启用
+    直通跳过同用此形，差异登记）。
+    """
+    name = TREE_NODES.get(key, key)
+    data: dict[str, Any] = {"key": key, "name": name, "label": name, "state": state}
+    if note is not None:
+        data["note"] = note
+    if tag is not None:
+        data["tag"] = tag
+    if skipped:
+        data["skipped"] = True
+    return SseEvent(FRAME_NODE, data)
+
+
+def node_skip(key: str, note: str) -> SseEvent:
+    """跳过级节点帧（state=wait＋skipped:true——00 §5.3 ①流程级跳过表达）。"""
+    return node_frame(key, state=NODE_WAIT, note=note, skipped=True)
 
 # ---------- F56 合同常量（照抄 flows/common.jsx——不可改） ----------
 

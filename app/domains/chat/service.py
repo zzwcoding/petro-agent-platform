@@ -153,6 +153,9 @@ class ChatService:
         yield d.SseEvent(d.FRAME_STAGE, {"stage": 1})
 
         # —— ① 统一安检（三道逐条翻；任一 ✗ 拦截出终局——禁用词先于一切解析）——
+        # 思考树（P1-08c）：N1 统一安检节点点亮——node 帧族沿实时路径推进。
+        yield d.node_frame("N1", state=d.NODE_PROCESS, tag="代码 · 字面规则",
+                           note="统一安检——三道逐条翻（注入扫描/禁用词索引/身份与数据域）")
         blocked_feature = d.scan_injection(text)
         blocked_lane = "注入扫描" if blocked_feature is not None else None
         banned = d.check_banned(text)
@@ -182,6 +185,19 @@ class ChatService:
             })
         if blocked_lane is not None:
             assert blocked_feature is not None
+            yield d.node_frame(
+                "N1", state=d.NODE_FINISH,
+                note=f"{blocked_lane}命中「{blocked_feature}」——拦截，链路终止",
+            )
+            tree_node = "N2a" if blocked_lane == "注入扫描" else "N2b"
+            yield d.node_frame(
+                tree_node, state=d.NODE_FINISH, tag="拦截终局 · 留痕入审计",
+                note=(
+                    f"命中注入特征「{blocked_feature}」——拦截终局（不进模型、不出数），拦截事件已留痕审计"
+                    if tree_node == "N2a"
+                    else f"命中禁用词「{blocked_feature}」——废弃口径纠正口，现行叫法随答案卡"
+                ),
+            )
             await self._audit_blocked(actor_who, run.id, blocked_lane, blocked_feature)
             answer = {
                 "kind": "alert", "alert_type": "warning",
@@ -201,12 +217,18 @@ class ChatService:
             await self._finish_run(run, verdict=None)
             return
 
+        yield d.node_frame("N1", state=d.NODE_FINISH, note="三道全过——放行")
+
         # —— ② 知识装配（@ 前门直取＋六路匹配器全扫全收集）——
+        yield d.node_frame("N3", state=d.NODE_PROCESS, tag="代码 · 毫秒级",
+                           note="轻装配——@ 前门直取＋六路匹配器全扫全收集")
         try:
             assembly = await self._assemble(text, anchors)
         except d.ChatParamError as exc:
             # @ 锚定取不到＝落空拒答（A1 端点 4 注记）——锚定落空非匹配器落空，
             # 不进建议池（建议池收六路匹配器落空信号，F56②）。
+            yield d.node_frame("N3", state=d.NODE_FINISH,
+                               note=f"@ 锚定落空——装配终止，拒答收场（{exc}）")
             answer = {"kind": "alert", "alert_type": "warning", "text": str(exc)}
             yield d.SseEvent(d.FRAME_ANSWER, answer)
             yield d.SseEvent(d.FRAME_DONE, {})
@@ -229,6 +251,14 @@ class ChatService:
                 "level": "info",
                 "text": d.ANCHOR_LOCK_NOTICE_TEMPLATE.format(token=assembly.anchor_line),
             })
+        lane_hits = sum(1 for lane in assembly.lanes if lane.status == "hit")
+        yield d.node_frame(
+            "N3", state=d.NODE_FINISH,
+            note=f"六路候选：命中 {lane_hits} 路——共池 {len(assembly.candidates)} 支"
+                 "（全扫全收集，落空进建议池）",
+        )
+        yield d.node_frame("N4", state=d.NODE_PROCESS, tag="给裁决的呈堂材料",
+                           note="装配块——锚点/槽位/候选/17 链清单组卷")
         yield d.SseEvent(d.FRAME_ASSEMBLY, {
             "anchor_line": assembly.anchor_line,
             "slots": assembly.slots,
@@ -236,9 +266,13 @@ class ChatService:
             "candidates": [_candidate_wire(c) for c in assembly.candidates],
             "chains": list(d.CHAIN17),
         })
+        yield d.node_frame("N4", state=d.NODE_FINISH,
+                           note=f"装配块组卷完成——slots＝{assembly.slots}")
 
         # —— ③ 意图裁决（D2 当前生效配置驱动；置信度真实计算）——
         yield d.SseEvent(d.FRAME_STAGE, {"stage": 2})
+        yield d.node_frame("N5", state=d.NODE_PROCESS, tag="代码 · 确定性路由",
+                           note="意图裁决——闭世界 17 链枚举（LLM 意图裁决随后续批接线）")
         cfg = await self._config_loader()
         verdict = self._verdict(text, assembly, cfg)
         await self._record_verdict(run, verdict)
@@ -248,9 +282,35 @@ class ChatService:
             # 有界循环＝clarify_count CHECK 0–1（第二次 409），两跳到终态在 resume。
             clarify = verdict.get("_clarify")
             assert isinstance(clarify, d.ClarifyFrame)
+            subtype = str(verdict.get("_clarify_subtype") or "caliber")
+            yield d.node_frame("N5", state=d.NODE_FINISH,
+                               note="低置信/口径两译——澄清挂起（interrupt，连接不占着）")
+            yield d.node_frame(
+                "N5a", state=d.NODE_FINISH, tag="最多弹一次 · 两跳到终态",
+                note=(
+                    "口径两译澄清——默认口径项 primary 恒带（按修饰词最少的基础口径出数并标注）"
+                    if subtype == "caliber"
+                    else "多候选聚焦澄清——无默认项（缺的是用户意图，不代选）"
+                ),
+            )
             yield d.SseEvent(d.FRAME_CLARIFY, _clarify_wire(clarify))
             await self._suspend_clarify(run, verdict, question=text)
             return
+        yield d.node_frame(
+            "N5", state=d.NODE_FINISH,
+            note=f"裁决输出——chain＝{verdict.get('chain')}"
+                 f" · confidence＝{verdict.get('confidence')}",
+        )
+        yield d.node_frame("N5b", state=d.NODE_PROCESS)
+        yield d.node_frame(
+            "N5b", state=d.NODE_FINISH,
+            note=f"chain「{verdict.get('chain')}」在 17 链清单内——核验通过（闭世界枚举）",
+        )
+        yield d.node_frame("N6", state=d.NODE_PROCESS, tag="查映射表派链")
+        yield d.node_frame(
+            "N6", state=d.NODE_FINISH,
+            note=f"已分派至「{verdict.get('chain')}」——后续步骤由链体执行",
+        )
 
         # —— ④ 执行链分发（17 链闭世界；未实现链回未开通话术）——
         async for event in self._run_chain(
@@ -289,7 +349,7 @@ class ChatService:
         """澄清续推（interrupt 形态：caliber 口径两译｜candidates 低置信多候选）。
 
         - caliber：带 choice → 并入原问句上下文（输入严格变多）→ 重过安检（不
-          免检）→ 带参重判 → 续推；不选＝默认口径项（primary）。
+          免检——带参输入真扫描）→ 带参重判 → 续推；不选＝默认口径项（primary）。
         - candidates：带 choice → 锁定候选并入问句（焦点）→ 重判续推；不选＝
           拒答终态（「宁可不答、不瞎猜」——缺的是用户意图，不代选）。
         - 有界循环：clarify_count 已 1（CHECK 0–1）时不再弹帧——两跳终态走
@@ -348,12 +408,75 @@ class ChatService:
         })
         yield d.SseEvent(d.FRAME_STAGE, {"stage": 0})
         yield d.SseEvent(d.FRAME_STAGE, {"stage": 1})
-        # 澄清续跑不免检（A1 端点 5：新输入重过 D1 统一安检）——三道照翻。
+        # 澄清续跑不免检（A1 端点 5：新输入重过 D1 统一安检）——带参输入真扫描
+        # （08a 帧面恒 pass 的缝隙本拍收口：拦截语义与 ask 同款终局）。
+        recheck_text = question if question is not None else base_question
+        yield d.node_frame("N1", state=d.NODE_PROCESS, tag="代码 · 字面规则",
+                           note="统一安检——澄清带参复检（不免检）")
+        blocked_feature = d.scan_injection(recheck_text)
+        blocked_lane = "注入扫描" if blocked_feature is not None else None
+        if blocked_feature is None:
+            banned = d.check_banned(recheck_text)
+            if banned is not None:
+                blocked_feature = banned
+                blocked_lane = "禁用词索引"
+        if blocked_lane is not None:
+            assert blocked_feature is not None
+            for seq, name in enumerate(d.SEC_CHECKS, start=1):
+                if name == blocked_lane:
+                    note = (
+                        f"命中注入特征「{blocked_feature}」"
+                        if blocked_lane == "注入扫描"
+                        else f"命中禁用词「{blocked_feature}」（废弃口径——先于一切解析）"
+                    )
+                    yield d.SseEvent(d.FRAME_SEC_CHECK, {
+                        "seq": seq, "name": name, "result": "blocked", "note": note,
+                    })
+                    break
+                yield d.SseEvent(d.FRAME_SEC_CHECK, {
+                    "seq": seq, "name": name, "result": "pass", "note": "澄清带参复检（不免检）",
+                })
+            yield d.node_frame(
+                "N1", state=d.NODE_FINISH,
+                note=f"{blocked_lane}命中「{blocked_feature}」——拦截，链路终止",
+            )
+            tree_node = "N2a" if blocked_lane == "注入扫描" else "N2b"
+            yield d.node_frame(
+                tree_node, state=d.NODE_FINISH, tag="拦截终局 · 留痕入审计",
+                note=(
+                    f"命中注入特征「{blocked_feature}」——拦截终局（不进模型、不出数），拦截事件已留痕审计"
+                    if tree_node == "N2a"
+                    else f"命中禁用词「{blocked_feature}」——废弃口径纠正口，现行叫法随答案卡"
+                ),
+            )
+            await self._audit_blocked(actor_who, run.id, blocked_lane, blocked_feature)
+            answer = {
+                "kind": "alert", "alert_type": "warning",
+                "text": (
+                    d.injection_answer_text(blocked_feature)
+                    if blocked_lane == "注入扫描"
+                    else d.ban_answer_text(blocked_feature)
+                ),
+            }
+            yield d.SseEvent(d.FRAME_ANSWER, answer)
+            yield d.SseEvent(d.FRAME_DONE, {})
+            await self._store.append_message(
+                run.session_id, role="assistant", text=str(answer["text"]),
+                run_id=run.id, answer=answer,
+            )
+            await self._store.touch_session(run.session_id)
+            await self._finish_run(run, verdict=None)
+            return
         for seq, name in enumerate(d.SEC_CHECKS, start=1):
             yield d.SseEvent(d.FRAME_SEC_CHECK, {
                 "seq": seq, "name": name, "result": "pass", "note": "澄清带参复检（不免检）",
             })
+        yield d.node_frame("N1", state=d.NODE_FINISH, note="三道全过——放行")
         if question is None:
+            yield d.node_frame(
+                "N5a", state=d.NODE_FINISH, tag="两跳到终态",
+                note="候选未选——拒答终态（宁可不答、不瞎猜——缺的是用户意图，不代选）",
+            )
             cfg = await self._config_loader()
             yield d.SseEvent(d.FRAME_NOTICE, {
                 "level": "info",
@@ -369,6 +492,8 @@ class ChatService:
             await self._store.touch_session(run.session_id)
             await self._finish_run(run, verdict=None)
             return
+        yield d.node_frame("N3", state=d.NODE_PROCESS, tag="代码 · 毫秒级",
+                           note="轻装配——带参问句重过六路匹配器（输入严格变多）")
         assembly = await self._assemble(question, [])
         for lane in assembly.lanes:
             data: dict[str, Any] = {"matcher": lane.matcher, "status": lane.status}
@@ -377,6 +502,14 @@ class ChatService:
             if lane.note is not None:
                 data["note"] = lane.note
             yield d.SseEvent(d.FRAME_MATCH, data)
+        lane_hits = sum(1 for lane in assembly.lanes if lane.status == "hit")
+        yield d.node_frame(
+            "N3", state=d.NODE_FINISH,
+            note=f"六路候选：命中 {lane_hits} 路——共池 {len(assembly.candidates)} 支"
+                 "（全扫全收集，落空进建议池）",
+        )
+        yield d.node_frame("N4", state=d.NODE_PROCESS, tag="给裁决的呈堂材料",
+                           note="装配块——锚点/槽位/候选/17 链清单组卷")
         yield d.SseEvent(d.FRAME_ASSEMBLY, {
             "anchor_line": assembly.anchor_line,
             "slots": assembly.slots,
@@ -384,7 +517,11 @@ class ChatService:
             "candidates": [_candidate_wire(c) for c in assembly.candidates],
             "chains": list(d.CHAIN17),
         })
+        yield d.node_frame("N4", state=d.NODE_FINISH,
+                           note=f"装配块组卷完成——slots＝{assembly.slots}")
         yield d.SseEvent(d.FRAME_STAGE, {"stage": 2})
+        yield d.node_frame("N5", state=d.NODE_PROCESS, tag="代码 · 确定性路由",
+                           note="意图裁决——带参重判（非重复裁决）")
         cfg = await self._config_loader()
         verdict = self._verdict(question, assembly, cfg)
         if verdict.get("need_clarify") is True:
@@ -411,6 +548,21 @@ class ChatService:
                 })
         await self._record_verdict(run, verdict)
         yield d.SseEvent(d.FRAME_VERDICT, _wire_verdict(verdict))
+        yield d.node_frame(
+            "N5", state=d.NODE_FINISH,
+            note=f"带参重判输出——chain＝{verdict.get('chain')}"
+                 f" · confidence＝{verdict.get('confidence')}",
+        )
+        yield d.node_frame("N5b", state=d.NODE_PROCESS)
+        yield d.node_frame(
+            "N5b", state=d.NODE_FINISH,
+            note=f"chain「{verdict.get('chain')}」在 17 链清单内——核验通过（闭世界枚举）",
+        )
+        yield d.node_frame("N6", state=d.NODE_PROCESS, tag="查映射表派链")
+        yield d.node_frame(
+            "N6", state=d.NODE_FINISH,
+            note=f"已分派至「{verdict.get('chain')}」——后续步骤由链体执行",
+        )
         async for event in self._run_chain(
             str(verdict["chain"]), run, question, actor_who, assembly,
             verdict=verdict, clarified_caliber=caliber_name,
@@ -423,6 +575,60 @@ class ChatService:
         """A1 历史会话问答对（[{question, answer}]——98 §3.3 faq 卡 session_loader
         料源缝；done 运行的问答配对，最近优先）。"""
         return await self._store.recent_qa_pairs(limit=d.RECENT_QA_LIMIT)
+
+    # ---------- 断线重连真恢复（P1-08c——重放已持久化帧序列） ----------
+
+    async def replay_preflight(self, run_id: str) -> ChatRunRow:
+        """重连形态前置校验（开流前同步段——404 走 HTTP 错误包，流未开）。
+
+        P0-08「run 存在性不校验」判据随真恢复退役：会话/消息已持久
+        （chat_run/chat_message），run 不存在＝无可恢复对象——A1 错误码草案
+        「run/session/task 不存在或已过期」404。
+        """
+        run = await self._store.get_run(run_id)
+        if run is None:
+            raise d.ChatRunNotFoundError(f"运行不存在或已过期：{run_id}")
+        return run
+
+    async def replay(self, run_id: str) -> AsyncIterator[d.SseEvent]:
+        """断线重连真恢复：重放已持久化帧序列——能补多少补多少（P1-08c）。
+
+        - done：session(resume)→verdict→citation×N（answer.citations 同形回放）
+          →answer→done——已出内容不丢（重放流帧序号自断点续枚举，归 api 层；
+          重放帧与原流帧 id 不对齐——能补的是持久化内容而非原流断点后的原帧序列）。
+        - interrupt_clarify：session→verdict→clarify（pending_interrupt 持久帧）
+          ——流收束不发 done（镜像原 ask 挂起形态；决策回流仍走端点 5）。
+        - running/failed/cancelled（及 done 而答案缺失）：持久前缀＋replay_truncated
+          ③收场——生成已随断连取消，诚实收场不假装续传。
+        - 中间过程帧（stage/sec_check/match/assembly/node/node_line/token/notice）
+          不落库（99 §1.5「SSE 事件缓冲不落库」）——重放不伪造。
+        只读重放：零消息写入、零 run 状态变更（recent_qa_pairs 料源语义不受扰动）。
+        """
+        run = await self.replay_preflight(run_id)
+        yield d.SseEvent(d.FRAME_SESSION, {
+            "run_id": run.id, "thread_id": run.session_id, "resume": True,
+        })
+        if run.verdict:
+            yield d.SseEvent(d.FRAME_VERDICT, dict(run.verdict))
+        if run.status == "interrupt_clarify":
+            frame = (run.pending_interrupt or {}).get("frame")
+            if frame:
+                yield d.SseEvent(d.FRAME_CLARIFY, dict(frame))
+                return
+        elif run.status == "done":
+            messages = await self._store.messages_of_run(run.id)
+            answer = next(
+                (m.answer for m in reversed(messages)
+                 if m.role == "assistant" and m.answer is not None),
+                None,
+            )
+            if answer is not None:
+                for citation in answer.get("citations") or []:
+                    yield d.SseEvent(d.FRAME_CITATION, dict(citation))
+                yield d.SseEvent(d.FRAME_ANSWER, dict(answer))
+                yield d.SseEvent(d.FRAME_DONE, {})
+                return
+        yield d.SseEvent(d.FRAME_REPLAY_TRUNCATED, {"message": d.REPLAY_CANCELLED_MESSAGE})
 
     # ---------- ② 知识装配（六路匹配器——并行查表共池，词级全扫全收集） ----------
 

@@ -200,3 +200,32 @@ def make_service(db: ConnectionManager, seams: Seams) -> ChatService:
 async def collect(events: Any) -> list[Any]:
     """SSE 事件帧流收帧（域面 SseEvent 序——api 层信封渲染归 API 测试）。"""
     return [event async for event in events]
+
+
+def events_by_name(events: list[Any]) -> dict[str, list[dict[str, Any]]]:
+    """事件帧按类型分组（树叙事断言面——node/node_line 逐帧可断言）。"""
+    out: dict[str, list[dict[str, Any]]] = {}
+    for event in events:
+        out.setdefault(event.event, []).append(event.data)
+    return out
+
+
+def node_walk(events: list[Any]) -> list[tuple[str, str]]:
+    """node 帧步进投影（key, state) 序——树叙事时序金样本断言用。"""
+    return [
+        (event.data["key"], event.data["state"])
+        for event in events
+        if event.event == "node"
+    ]
+
+
+def walk_projection(events: list[Any]) -> list[tuple[str, ...]]:
+    """全帧序列投影：node 帧展开为 (event, key, state)、其余帧为 (event,)——
+    帧序金样本断言的单源形状。"""
+    out: list[tuple[str, ...]] = []
+    for event in events:
+        if event.event == "node":
+            out.append(("node", event.data["key"], event.data["state"]))
+        else:
+            out.append((event.event,))
+    return out
