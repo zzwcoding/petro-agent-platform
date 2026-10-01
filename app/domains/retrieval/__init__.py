@@ -1,0 +1,68 @@
+"""domains.retrieval —— 检索配置域公开出口（B2：router 只 import 本包公开名）。
+
+98 §3 检索配置域卡：D2 管理面（配置读写）——A1 问一问检索瀑布/引用/兜底/作答
+行为按本域**当前生效配置**执行（运行时消费缝＝ConfigSnapshot，P1-08a/b 经组合
+根注入消费）。阶段 1 过渡＝提交即生效（记审计＋版本推进，无 A3/C3 落点——D2
+端点 2 生效链注记）；端点随 D2 页票（本票 P1-07 两端点）。
+"""
+
+from app.domains.retrieval.domain import (
+    CITATION_FORMATS,
+    CLARIFY_STRATEGIES,
+    DEFAULT_FALLBACK_TEXT,
+    FALLBACK_STRATEGIES,
+    FAQ_EXPAND_ROUNDS_LIMIT,
+    MERGE_MODES,
+    RERANK_TIERS,
+    SECTION_KEYS,
+    SEED_UPDATED_BY,
+    TOPK_LIMIT,
+    ConfidenceThresholds,
+    ConfigSnapshot,
+    ConfigVersion,
+    FallbackSection,
+    OrderLevel,
+    OrderSection,
+    ParamsSection,
+    QaBehavior,
+    RetrievalConflictError,
+    RetrievalParamError,
+    default_config_dict,
+    merge_config,
+    next_change_request_id,
+    next_version_no,
+    snapshot_from_dict,
+    validate_patch,
+)
+from app.domains.retrieval.service import ChangeRequestReceipt, RetrievalService
+
+__all__ = [
+    "CITATION_FORMATS",
+    "CLARIFY_STRATEGIES",
+    "DEFAULT_FALLBACK_TEXT",
+    "FALLBACK_STRATEGIES",
+    "FAQ_EXPAND_ROUNDS_LIMIT",
+    "MERGE_MODES",
+    "RERANK_TIERS",
+    "SECTION_KEYS",
+    "SEED_UPDATED_BY",
+    "TOPK_LIMIT",
+    "ChangeRequestReceipt",
+    "ConfidenceThresholds",
+    "ConfigSnapshot",
+    "ConfigVersion",
+    "FallbackSection",
+    "OrderLevel",
+    "OrderSection",
+    "ParamsSection",
+    "QaBehavior",
+    "RetrievalConflictError",
+    "RetrievalParamError",
+    "RetrievalService",
+    "default_config_dict",
+    "merge_config",
+    "next_change_request_id",
+    "next_version_no",
+    "snapshot_from_dict",
+    "validate_patch",
+]

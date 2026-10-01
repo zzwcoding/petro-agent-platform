@@ -33,6 +33,7 @@ if config.config_file_name is not None:
 from app.domains.derivatives import store as _wiki_models  # noqa: F401,E402  (P1-02b wiki 域首执行)
 from app.domains.faq import store as _faq_models  # noqa: F401,E402  (P1-06 faq 域首执行)
 from app.domains.kb import store as _kb_models  # noqa: F401,E402  (P1-02a kb 域首执行)
+from app.domains.retrieval import store as _retrieval_models  # noqa: F401,E402  (P1-07 域首执行)
 from app.domains.semantics import store as _sem_models  # noqa: F401,E402  (P1-01 sem 域首执行)
 
 target_metadata = Base.metadata

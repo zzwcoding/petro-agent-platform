@@ -25,7 +25,10 @@ api/kb.py）。P1-05 起 graph 子域点亮：kb_extract_config 入 derivatives 
 入装配（ensure_faq_tables＋演示种子——99 §2.6）＋/api/faq 路由族挂载（B3 十七
 端点）＋LedgerMerged 事件订阅接线（B3-2 口径修订联动：按 hook 检出→LLM 起草
 建议→进待审核，不自动直改）＋台账口径/切片原文/本体/知识库面读缝经组合根注入
-（B9 同款——faq 运行期只见 callable）＋遗留 running 扫库行启动收口。
+（B9 同款——faq 运行期只见 callable）＋遗留 running 扫库行启动收口。P1-07 起
+retrieval 域点亮：retrieval 两表入装配（ensure_retrieval_tables——99 §2.10，
+Alembic 0008 并行）＋/api/retrieval 路由族挂载（D2 两端点——配置读＋变更单，
+阶段 1 提交即生效：版本推进＋via 回链＋B12 审计；首次读取自动落种子）。
 
 建表与迁移的交接（P0-08 票面）：ensure_*_table 与 Alembic 并行存活，
 本票不切换——各域切换迁移属各域票（基线空迁移见 migrations/versions/0001）。
@@ -42,6 +45,7 @@ from app.api.faq import router as faq_router
 from app.api.gateway import router as gateway_router
 from app.api.graph import router as graph_router
 from app.api.kb import router as kb_router
+from app.api.retrieval import router as retrieval_router
 from app.api.security import router as security_router
 from app.api.semantics import router as semantics_router
 from app.api.wiki import router as wiki_router
@@ -55,6 +59,8 @@ from app.domains.gateway.store import ensure_gateway_tables
 from app.domains.kb import KbService
 from app.domains.kb.domain import LocalHashEmbedder
 from app.domains.kb.store import ensure_kb_tables
+from app.domains.retrieval import RetrievalService
+from app.domains.retrieval.store import ensure_retrieval_tables
 from app.domains.security import SecurityService
 from app.domains.security.store import ensure_audit_table
 from app.domains.semantics import SemanticsService
@@ -78,11 +84,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await ensure_kb_tables(manager.engine())  # 同上——kb 八表（99 §2.5；PG 先建 pgvector 扩展）
     await ensure_derivatives_tables(manager.engine())  # 同上——wiki 表族（99 §2.7；P1-02b）
     await ensure_faq_tables(manager.engine())  # 同上——faq 四表（99 §2.6；P1-06，Alembic 0007 并行）
+    await ensure_retrieval_tables(manager.engine())  # 同上——retrieval 两表（99 §2.10；P1-07 并行）
     await seed_demo_if_empty(manager.engine())  # 演示种子（合同 DTO 九条问答＋四簇候选——幂等）
     app.state.db = manager
     app.state.security = SecurityService(manager)
     app.state.gateway = GatewayService(manager, LlmClient())
     app.state.semantics = SemanticsService(manager, app.state.security)  # B12 审计写口注入
+    app.state.retrieval = RetrievalService(manager)  # D2 配置面（P1-07——B12 审计在 api 层编排）
     # 事件总线（98 §4——IngestCompleted 由 derivatives 订阅，B9 不直调；进程内
     # 实现＝单进程演示底座，Redis Streams 通道接线属后续接线批，P0-08 同口径）
     app.state.eventbus = InMemoryEventBus()
@@ -191,6 +199,7 @@ app.include_router(kb_router)  # B1 报告库（P1-02a——kb 模块，98 §5�
 app.include_router(wiki_router)  # B4 报告百科（P1-02b——derivatives 模块，98 §5）
 app.include_router(graph_router)  # B5 关系图谱（P1-05——derivatives graph 子域，98 §5）
 app.include_router(faq_router)  # B3 常见问题库（P1-06——faq 模块，98 §5）
+app.include_router(retrieval_router)  # D2 搜索与回答·配置面（P1-07——retrieval 模块，98 §5）
 
 
 @app.get("/health")

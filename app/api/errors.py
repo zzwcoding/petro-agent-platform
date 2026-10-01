@@ -38,6 +38,11 @@
   负例停用/faq_state_noop 状态未变化/faq_review_state 重复审核/
   faq_compare_state 未比对重复比对/faq_draft_state 未比对起草/
   faq_similar_duplicate 相似问重复/faq_candidate_published 候选重复回写）
+- retrieval_param_invalid / retrieval_conflict：retrieval 域 400/409（D2 错误
+  码草案；P1-07 新立值，登记于 tickets/phase1/README.md P1-07 差异清单）——
+  400 带字段名与允许区间（D1 400 先例同形，detail.violations 逐项
+  {field, constraint}）；409＝在途变更单重入（阶段 1 受理→生效一体，在途
+  窗口＝并发受理撞闸）
 """
 
 from __future__ import annotations
@@ -73,6 +78,7 @@ from app.domains.kb import (
     KbNotFoundError,
     KbParamError,
 )
+from app.domains.retrieval import RetrievalConflictError, RetrievalParamError
 from app.domains.security import ForbiddenError, UnauthenticatedError
 
 CODE_UNAUTHENTICATED = "security_unauthenticated"
@@ -297,6 +303,36 @@ def install_error_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=409,
             content=error_payload(exc.code, str(exc)),
+        )
+
+    @app.exception_handler(RetrievalParamError)
+    async def handle_retrieval_param_error(
+        request: Request, exc: RetrievalParamError
+    ) -> JSONResponse:
+        # D2 错误码草案 400「错误体带字段名与允许区间」——D1 400 带区间先例同形。
+        message = "；".join(f"{field} 允许 {constraint}" for field, constraint in exc.violations)
+        return JSONResponse(
+            status_code=400,
+            content=error_payload(
+                "retrieval_param_invalid",
+                "参数越界——" + message,
+                detail={
+                    "violations": [
+                        {"field": field, "constraint": constraint}
+                        for field, constraint in exc.violations
+                    ]
+                },
+            ),
+        )
+
+    @app.exception_handler(RetrievalConflictError)
+    async def handle_retrieval_conflict(
+        request: Request, exc: RetrievalConflictError
+    ) -> JSONResponse:
+        # D2 错误码草案 409：同页在途变更单串行（阶段 1＝并发受理撞闸）。
+        return JSONResponse(
+            status_code=409,
+            content=error_payload("retrieval_conflict", str(exc)),
         )
 
     @app.exception_handler(RequestValidationError)
