@@ -79,6 +79,16 @@ def test_terms_default_lists_full_ledger_with_envelope(client: TestClient) -> No
     assert first["status_key"] == "禁用词" and first["owner"] == "开发室"
 
 
+def test_terms_version_display_string_v_form(client: TestClient) -> None:
+    """version 出展示串「v{n}」（C1 合同 DTO 冻结「v1」形；00 R2 读侧拼装——
+    P1-05b 审查裁决：99 冻 int 是存储层不动，读端点出门即展示串）。"""
+    body = client.get("/api/semantics/terms").json()
+    assert body["items"][0]["version"] == "v1"
+    assert all(item["version"].startswith("v") and item["version"][1:].isdigit()
+               for item in body["items"])  # 全员 v{n} 形
+    assert all(isinstance(item["version"], str) for item in body["items"])
+
+
 def test_terms_keyword_hits_alias_via_type_display(client: TestClient) -> None:
     # 别名命中：类型展示串「别名 → X」「缩写 → X」族＝GLS 别名的台账载体
     body = client.get("/api/semantics/terms", params={"keyword": "净产量"}).json()

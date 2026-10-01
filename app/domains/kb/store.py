@@ -37,7 +37,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON, UserDefinedType
 
@@ -783,14 +783,26 @@ class ActivityStore:
         self._db = db
 
     async def append(
-        self, lib_id: str, *, who: str, action: str, target: str, at: datetime | None = None
+        self, lib_id: str, *, who: str, action: str, target: str,
+        at: datetime | None = None, session: AsyncSession | None = None,
     ) -> ActivityRow:
+        """追加活动行（F62）。
+
+        session 注入（调用方事务内同写——P1-05b 审查裁决「保存同事务」）：
+        传入调用方持有的 AsyncSession 时活动行随该会话 flush，与调用方写集
+        同 commit/同 rollback（B5 抽取设置保存与活动行同事务的落点）；
+        缺省自开轻会话（原行为不变）。
+        """
         row = ActivityRow(
             lib_id=lib_id, time=at or now(), who=who, action=action, target=target
         )
-        async with self._db.session() as session:
+        if session is not None:
             session.add(row)
             await session.flush()
+            return row
+        async with self._db.session() as own:
+            own.add(row)
+            await own.flush()
         return row
 
     async def list_by_lib(self, lib_id: str) -> list[ActivityRow]:

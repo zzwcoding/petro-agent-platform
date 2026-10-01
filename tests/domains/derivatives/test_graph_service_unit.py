@@ -183,6 +183,35 @@ class TestExtractConfig:
         assert row.who == "小李 · 地质/质检"
         assert "实体类型 5 类 · 关系标签 4 个" in row.target
 
+    async def test_save_and_activity_share_one_transaction(self, env: Env) -> None:
+        """P1-05b 审查裁决：保存与 B1 活动流「修改抽取设置」同事务（同成败）。
+
+        活动行落库后进程中断（record_activity 写入成功后抛出）＝保存整体
+        回滚——配置行不落库（保存不孤儿）、活动行不落库（活动行不孤儿）；
+        丢失窗口（保存已提交、活动行未及写入）消除。
+        """
+        kb, derivatives, _g, _c = env
+        lib_id, _r, _t = await make_report(kb, _kb_storage(kb))
+        real_record = kb.record_activity
+
+        async def _crash_after_activity(*args: Any, **kwargs: Any) -> None:
+            await real_record(*args, **kwargs)
+            raise RuntimeError("活动行落库后进程中断（模拟）")
+
+        kb.record_activity = _crash_after_activity  # type: ignore[method-assign]
+        with pytest.raises(RuntimeError):
+            await derivatives.save_extract_config(
+                lib_id,
+                {"entity_types": ["井", "区块"], "relation_tags": [],
+                 "custom_instructions": ""},
+                "小李 · 地质/质检",
+            )
+        # 同成败·配置侧：待生效配置未落库（随活动行失败一并回滚）
+        assert await derivatives._extract_configs.config_of(lib_id) is None
+        # 同成败·活动流侧：活动行不孤儿
+        activities = await kb.library_activities(lib_id)
+        assert not any(a.action == "修改抽取设置" for a in activities)
+
     async def test_strong_check_rejects_with_detail(self, env: Env) -> None:
         kb, derivatives, _g, _c = env
         lib_id, _r, _t = await make_report(kb, _kb_storage(kb))
@@ -197,6 +226,9 @@ class TestExtractConfig:
         assert set(kinds) == {"entity_type", "relation_tag"}
         assert kinds["entity_type"]["value"] == "机灵鬼"
         assert kinds["entity_type"]["nearest"]  # 最接近台账词条不空
+        # 同事务纪律的反向面：保存未发生 → 活动流零写入（无「修改抽取设置」行）
+        activities = await kb.library_activities(lib_id)
+        assert not any(a.action == "修改抽取设置" for a in activities)
 
     async def test_weak_state_before_wiring(self, env: Env) -> None:
         # 接线前过渡态（strong_check=False——仅形状校验照跑，B5 端点 3 两态注记）。

@@ -20,6 +20,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 from typing import Any, cast
 
@@ -35,7 +36,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
@@ -244,10 +245,19 @@ class ExtractConfigStore:
             return await session.get(ExtractConfigRow, lib_id)
 
     async def save(
-        self, lib_id: str, cfg: d.ExtractConfig, *, actor_who: str
+        self, lib_id: str, cfg: d.ExtractConfig, *, actor_who: str,
+        record_activity: Callable[[AsyncSession], Awaitable[None]] | None = None,
     ) -> ExtractConfigRow:
         """写待生效配置（下次入库定型；不动正在处理的入库任务——各 run 用
-        自己的快照）。"""
+        自己的快照）。
+
+        record_activity（B5 端点 3 合同「保存同事务记 B1 活动流 F62」——
+        P1-05b 审查裁决）：传入时在**同一会话/事务内**追加活动行——活动行
+        与配置行同 commit/同 rollback，保存回滚时活动行不孤儿、活动行写入
+        失败时配置保存同败（丢失窗口消除）。B9 边界不破：callable 由服务层
+        以组合根注入的 kb 写口装配（kb 侧经 session 注入追加，本仓不见
+        kb 表模型）。
+        """
         snapshot = cfg.as_snapshot()
         async with self._db.session() as session:
             row = await session.get(ExtractConfigRow, lib_id)
@@ -261,4 +271,6 @@ class ExtractConfigStore:
             row.saved_by = actor_who
             await session.merge(row)
             await session.flush()
+            if record_activity is not None:
+                await record_activity(session)
             return row

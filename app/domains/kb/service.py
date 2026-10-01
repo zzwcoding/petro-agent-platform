@@ -29,6 +29,7 @@ from datetime import timedelta
 from typing import Any, Protocol
 
 from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.gateway import Completion
 from app.domains.kb import domain as d
@@ -1019,10 +1020,20 @@ class KbService:
         ]
 
     async def record_activity(
-        self, lib_id: str, *, who: str, action: str, target: str
+        self, lib_id: str, *, who: str, action: str, target: str,
+        session: AsyncSession | None = None,
     ) -> None:
-        """B9 例外族写口：跨页留痕（B2 标记/B5 抽取设置）经此同域追加，不直写表。"""
-        await self._activities.append(lib_id, who=who, action=action, target=target)
+        """B9 例外族写口：跨页留痕（B2 标记/B5 抽取设置）经此同域追加，不直写表。
+
+        session 注入（P1-05b 审查裁决「保存同事务」）：调用方（derivatives
+        图支路保存）传入其事务持有的 AsyncSession 时，活动行随该会话 flush，
+        与调用方写集同 commit/同 rollback——保存与活动行无丢失窗口；缺省
+        自开轻会话（B2 标记等原调用面不变）。B9 边界不破：本方法仍只收
+        lib_id/四元组＋会话对象，调用方不见 kb 表模型。
+        """
+        await self._activities.append(
+            lib_id, who=who, action=action, target=target, session=session
+        )
 
     # ---------- B2 切片管理（B2-答案出处.md v0.3——六端点语义） ----------
 

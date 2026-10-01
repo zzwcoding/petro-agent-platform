@@ -20,7 +20,10 @@ B2-答案出处.md v0.3 合同 6 条路由，P1-04——/api/kb 同域片段子�
   kb.fragment.marked / kb.issue.reviewed / kb.issue.closed。
 - B12 平台审计（P1-02a 收尾裁决指令①，P0-05 gateway 同款）：api 层编排关键
   写操作——建库/停用启用/配置保存/修正确认——经 security.audit 写平台审计
-  （kb 域不反向依赖 security）；域内 F62 活动流留痕照旧双轨。
+  （kb 域不反向依赖 security）；域内 F62 活动流留痕照旧双轨。P1-05b 审查
+  补齐四写口：上传受理 kb.upload.accepted／确认入库 kb.upload.confirmed
+  （confirm 失败路径不审计——未定型不记）／签发原件预签名直链
+  kb.download_url.issued（安全敏感）／任务重试 kb.task.retried。
 """
 
 from __future__ import annotations
@@ -165,10 +168,18 @@ class DownloadUrlResponse(BaseModel):
 async def download_url(
     report_id: str,
     service: KbDep,
-    _actor: CurrentActor,
+    security: SecurityDep,
+    actor: CurrentActor,
 ) -> DownloadUrlResponse:
     """下载原件直链（预签名 GET——小时级有效、上限 7 天；00 §7.2）。"""
     url, expires_at = await service.download_url(report_id)
+    await security.audit(  # B12 横切留痕（P1-05b 审查补齐——签发直链安全敏感）
+        AuditRow(
+            who=actor.who,
+            action="kb.download_url.issued",
+            content=f"签发原件预签名直链：报告 {report_id}（小时级有效，至 {expires_at}）",
+        )
+    )
     return DownloadUrlResponse(id=report_id, download_url=url, expires_at=expires_at, ttl="小时级")
 
 
@@ -279,6 +290,7 @@ def _route_body(suggestion: object) -> RouteSuggestionBody | None:
 async def upload_init(
     body: UploadInitBody,
     service: KbDep,
+    security: SecurityDep,
     actor: CurrentActor,
 ) -> UploadReceiptResponse:
     """直传受理（两拍第一拍）：登记＋预签名 PUT 凭证；停用库 400 带码；
@@ -286,6 +298,16 @@ async def upload_init(
     receipt = await service.upload_init(
         body.filename, body.size, body.lib_id, actor.who,
         suggested_topic=body.suggested_topic,
+    )
+    await security.audit(  # B12 横切留痕（P1-05b 审查补齐）
+        AuditRow(
+            who=actor.who,
+            action="kb.upload.accepted",
+            content=(
+                f"上传受理：{body.filename}（{body.size} 字节）→ "
+                f"库 {receipt.lib_name or '待路由确认'}（上传单 {receipt.upload_id}）"
+            ),
+        )
     )
     return UploadReceiptResponse(
         upload_id=receipt.upload_id,
@@ -325,12 +347,24 @@ class ConfirmResponse(BaseModel):
 async def upload_confirm(
     upload_id: str,
     service: KbDep,
+    security: SecurityDep,
     actor: CurrentActor,
     body: ConfirmBody | None = None,
 ) -> ConfirmResponse:
     """确认入库（核实落桶→建任务，config_snapshot 定型——配置定型点在受理确认时刻）。"""
     receipt = await service.upload_confirm(
         upload_id, actor.who, lib_id=(body.lib_id if body else None)
+    )
+    await security.audit(  # B12 横切留痕（P1-05b 审查补齐）——失败路径在上方抛出，
+        # 不达此处：未定型不记审计
+        AuditRow(
+            who=actor.who,
+            action="kb.upload.confirmed",
+            content=(
+                f"上传确认入库：{receipt.doc}（库 {receipt.lib_id} · {receipt.lib_name}；"
+                f"任务 {receipt.task_id}）——config_snapshot 定型"
+            ),
+        )
     )
     return ConfirmResponse(
         task_id=receipt.task_id,
@@ -459,10 +493,22 @@ async def task_additions(
 async def retry_task(
     task_id: str,
     service: KbDep,
+    security: SecurityDep,
     actor: CurrentActor,
 ) -> TaskProgressResponse:
     """重试/重跑（stuck 内含停止；重跑＝按当前待生效配置重新定型；来源转「重跑定型」）。"""
-    return _progress_response(await service.retry_ingest(task_id, actor.who))
+    progress = await service.retry_ingest(task_id, actor.who)
+    await security.audit(  # B12 横切留痕（P1-05b 审查补齐）
+        AuditRow(
+            who=actor.who,
+            action="kb.task.retried",
+            content=(
+                f"任务重试/重跑：{task_id} → 新任务 {progress.id}"
+                f"（来源 {progress.source}，按当前待生效配置重新定型）"
+            ),
+        )
+    )
+    return _progress_response(progress)
 
 
 # ---------- 端点 11：GET /libs 库列表 ----------

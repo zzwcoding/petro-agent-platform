@@ -221,6 +221,17 @@
 ## P1-05 收尾裁决（主窗口，6163cb7）＝里程碑①
 > 疑点 1（出厂默认＝对号表投影而非 F40 通用 11 类）＝**采纳**——强校已开，F40 通用类保存必被拒，出厂默认用对号表是唯一自洽落地（「本体消费从第一天可用」的正解；F40 常量留档）；疑点 2（DTO 增列 few_shot/evidence）＝采纳（additive，随 teach 对齐批登记）；疑点 3（draft-example 起草端点）＝采纳＋挂登记（三源示例真实实现的必要缝，合同未冻结——随 teach 对齐批在 B5 册补登记）；疑点 4（拦边覆盖合并）＝采纳挂账（合同未冻结）；疑点 5（三闸顺序）＝采纳登记；疑点 6（neo4j 凭证 InfraSettings）＝采纳（minio 先例）。**里程碑①达成**（数据面后端簇 P1-01..05 全绿：367 PG 测试+Neo4j 集成+真冒烟三链），触发：teach 文档对齐批（99 wiki jsonb＋B5 增列/draft 登记）＋全量审查（双轴）。
 
+## P1-05b 审查修复票（里程碑①双轴审查三项发现）✅（2026-10-01）
+
+- **目标**：双轴审查（Standards/Spec）三项发现逐字落地——B12 补四写端点＋术语 version 展示串＋graph 活动流真同事务；附带 teach B5 索引行 4→5（一行）。
+- 落地 ✅：
+  - **B12 审计补齐四写端点**（Standards【中】——P0-05/P1-02a 同款，api 层编排经 `security.audit`，kb 域不依赖 security）：`POST /api/kb/uploads`→`kb.upload.accepted`、`POST /api/kb/uploads/{id}/confirm`→`kb.upload.confirmed`（**confirm 失败路径不审计**——审计在服务成功返回后落笔，未落桶 409 不达审计行，测试断言）、`POST /api/kb/reports/{id}/download-url`→`kb.download_url.issued`（安全敏感——签发留痕带有效期至）、`POST /api/kb/tasks/{id}/retry`→`kb.task.retried`；graph draft-example 不落库豁免（审查已判）。
+  - **术语 version 展示串**（Spec🟡）：`GET /api/semantics/terms` 响应 `version` 出展示串 `"v{n}"`（C1 合同 DTO 冻结「v1」形；00 R2 展示串不入库先例——`sem_term.version` 存储层冻 int 不动，读侧拼装）；新增单测断言 `"v1"` 形＋全员 `v{n}` 形。
+  - **graph 活动流真同事务**（Spec🟡——B5 端点 3 合同原文「保存同事务记 B1 活动流 F62」）：`ExtractConfigStore.save` 增可选 `record_activity(session)` callable，配置行与活动行**同一会话/事务** flush 同 commit/同 rollback；kb 侧 `ActivityStore.append`/`KbService.record_activity` 增可选 `session` 参（传入即随调用方事务、缺省自开轻会话原行为不变）。**选型＝session 由调用方经 callable 参数注入**，不取「kb 侧另立 in_tx 变体」：①事务边界归写集所有者（与 kb 自身 save_config_with_activity 同构）；②kb 公开面单写口不加面（in_tx 变体同样要收 session，纯增面）；③B9 不破——callable 仍组合根注入，derivatives 不见 kb 表模型。活动行丢失窗口消除（保存已提交/活动行未及写入的不一致态不复存在）。
+  - **测试**：`test_kb_api.py` 增 B12 四断言（含 confirm 失败不审计）；`test_semantics_read_api.py` 增 version 展示串断言；`test_graph_service_unit.py` 增同事务同成败断言（活动行落库后中断→配置行不孤儿＋活动行不孤儿）＋强校拒存反断言（保存未发生→活动流零写入）。
+- 验收自证 ✅：四门禁——ruff（app+tests+migrations）0 错 / mypy strict **52 文件零错** / pytest 带 PG16@5433 **370 passed 1 skipped**（skip＝KB_SMOKE 门控冒烟自身；+3＝B12 断言/version 串/同事务）/ lint-imports **5 契约 KEPT**；web 三连绿（eslint 0 error 2 存量 warning/vitest 83 passed/vite build 过——web 零改动）；KB_SMOKE 真装配冒烟未跑（真 LLM 计费，票面验收未列——挂疑点）。
+- 附带：teach `specs/api/README.md` B5 索引行端点数 4→5（**teach 提交 5f2a43c**——里程碑①文档对齐批遗留，draft-example 已随 e59ca4c 入 B5 册、索引行计数挂本票）。
+
 ## P1-06 faq 后端＋B3 前端（常见问题库）
 
 - **先读**：teach `B3-常见问题库.md` v0.2（17 端点＋审核流＋⚙改版＋挖掘管线）；D2 册 qa_behavior（扩检已收敛）；98 册 LedgerMerged 事件行。

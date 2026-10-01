@@ -287,6 +287,43 @@ class TestUploadTaskFlow:
         _wait_done(c, retried.json()["id"])
         assert c.post("/api/kb/tasks/task-none/retry").status_code == 404
 
+    def test_b12_audit_upload_confirm_download_retry(self, client: Any) -> None:
+        """P1-05b 审查补齐：受理/确认/直链签发/重试四写口经 security.audit；
+        confirm 失败路径不审计（未定型不记——409 后审计无 confirmed 动作）。"""
+        c, storage, _ = client
+        lib_id = _make_lib(c, name="审计补齐库")
+        # 受理 → kb.upload.accepted
+        up = c.post(
+            "/api/kb/uploads",
+            json={"filename": "N-02 井完井报告.pdf", "size": 1024, "lib_id": lib_id},
+        )
+        assert up.status_code == 200
+        # confirm 失败（未落桶 409）→ 不达审计（未定型不记）
+        upload_id = up.json()["upload_id"]
+        failed = c.post(f"/api/kb/uploads/{upload_id}/confirm")
+        assert failed.status_code == 409
+        audit = c.get("/api/security/audit-logs").json()
+        assert "kb.upload.confirmed" not in [i["action"] for i in audit["items"]]
+        # 落桶后 confirm 成功 → kb.upload.confirmed
+        storage.objects[up.json()["put_url"].split("/put/")[1]] = DEMO_TEXT.encode("utf-8")
+        confirm = c.post(f"/api/kb/uploads/{upload_id}/confirm")
+        assert confirm.status_code == 200
+        task_id = confirm.json()["task_id"]
+        # 下载直链签发（安全敏感）→ kb.download_url.issued
+        _wait_done(c, task_id)
+        reports = c.get("/api/kb/reports").json()
+        report_id = reports["items"][0]["id"]
+        assert c.post(f"/api/kb/reports/{report_id}/download-url").status_code == 200
+        # 重试/重跑 → kb.task.retried
+        retried = c.post(f"/api/kb/tasks/{task_id}/retry")
+        assert retried.status_code == 200
+        audit = c.get("/api/security/audit-logs").json()
+        actions = [item["action"] for item in audit["items"]]
+        assert "kb.upload.accepted" in actions
+        assert "kb.upload.confirmed" in actions
+        assert "kb.download_url.issued" in actions
+        assert "kb.task.retried" in actions
+
     def test_2_3_404_envelope(self, client: Any) -> None:
         c = client[0]
         missing = c.get("/api/kb/reports/rpt-none")

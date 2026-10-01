@@ -30,6 +30,8 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.domains.derivatives import domain as d
 from app.domains.derivatives.store import (
     ExtractConfigRow,
@@ -75,7 +77,8 @@ class KbFacade(Protocol):
     async def report_detail(self, report_id: str) -> Any: ...
 
     async def record_activity(
-        self, lib_id: str, *, who: str, action: str, target: str
+        self, lib_id: str, *, who: str, action: str, target: str,
+        session: AsyncSession | None = None,
     ) -> None: ...
 
     async def publish_wiki_version(self, report_id: str, version: int) -> None: ...
@@ -697,6 +700,17 @@ class DerivativesService:
           承载过渡两态，生产恒 True。
         - 同事务记 B1 库活动流一条（F62 跨页留痕：action「修改抽取设置」，
           target 按变更内容拼装——B9 例外族经 kb.record_activity 写口）。
+
+        同事务选型（P1-05b 审查裁决，两案取一）：**session 由调用方经
+        callable 参数注入**，不取「kb 侧另立 in_tx 变体」——理由：①事务边界
+        归属写集所有者（配置保存的事务在 ExtractConfigStore.save 内），活动行
+        以参与者身份进入该事务，与 kb 自身 save_config_with_activity 的
+        「保存＋活动行同会话」同构；②kb 公开面单写口不加面——record_activity
+        增可选 session 参（缺省自开轻会话，B2 标记等原调用零改动），另立
+        in_tx 变体等于同一写面两个 seam，且其签名同样要收 session，纯增面；
+        ③B9 边界不破——callable 仍由组合根注入（main.py 把 KbService 装进
+        DerivativesService），derivatives 不见 kb 表模型，kb 只多收一个会话
+        对象。
         """
         lib = await self._require_lib(lib_id)
         cfg = d.config_from_payload(payload)
@@ -709,13 +723,19 @@ class DerivativesService:
             )
             if mismatches:
                 raise d.GraphOntologyMismatchError(mismatches)
-        row = await self._extract_configs.save(lib_id, cfg, actor_who=actor_who)
         target = (
             f"{lib.name} · 实体类型 {len(cfg.entity_types)} 类 · "
             f"关系标签 {len(cfg.relation_tags)} 个"
         )
-        await self._kb.record_activity(
-            lib_id, who=actor_who, action="修改抽取设置", target=target
+
+        async def _record_activity_in_tx(session: AsyncSession) -> None:
+            await self._kb.record_activity(
+                lib_id, who=actor_who, action="修改抽取设置", target=target,
+                session=session,
+            )
+
+        row = await self._extract_configs.save(
+            lib_id, cfg, actor_who=actor_who, record_activity=_record_activity_in_tx
         )
         return d.ExtractConfigSaveReceipt(
             lib_id=lib_id,

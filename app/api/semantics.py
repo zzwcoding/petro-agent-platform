@@ -14,9 +14,11 @@
   「筛选枚举越界 400」；code=semantics_param_invalid——errors.py 新立登记）。
   「all」＝不过滤（C1「全部状态/全部负责人」＝all）。
 - 读侧派生不落列（00 R2 先例——P1-01 差异 5/差异 2 的本票裁决）：
-  terms `expired`/`expires_display`（F60 到日即标——infra.clock 现算）；
-  metrics `grain_display`（C1 页签列形「粒度 · 单位」——sem_metric 存 M3 真源
-  值不动，裁决 e；domain.metric_grain_display 拼装）。
+  terms `expired`/`expires_display`（F60 到日即标——infra.clock 现算）、
+  `version` 展示串「v{n}」（P1-05b 审查裁决——C1 合同 DTO 冻结「v1」形；
+  99 冻 int 是存储层不动，读侧拼装）；metrics `grain_display`（C1 页签列形
+  「粒度 · 单位」——sem_metric 存 M3 真源值不动，裁决 e；domain.
+  metric_grain_display 拼装）。
 - C1 端点 2 入参合同名 `status_key` 与 00 §4.5（P1-00b 补冻）`status` 冲突，
   票面指定照 00 §4.5——差异登记 tickets/phase1/README.md P1-01b 差异清单。
 - 台账序＝id 升序（C1 台账序合同常量，无排序参数）。
@@ -88,10 +90,12 @@ def _parse_single(name: str, raw: str | None, allowed: tuple[str, ...]) -> str |
 
 
 class TermItem(BaseModel):
-    """术语行（C1 端点 2 DTO＋读侧派生 expired/expires_display——F60 现算）。
+    """术语行（C1 端点 2 DTO＋读侧派生 expired/expires_display/version——现算拼装）。
 
     def 列名照抄合同 DTO（99 §1.1「DTO 字段同名的照抄」）——属性名 def_（Python
     关键字避让），serialization_alias 承载出门形状（R1 响应字段照抄合同）。
+    version 出展示串「v{n}」（C1 合同 DTO 冻结「v1」形；00 R2 展示串不入库——
+    sem_term.version 存储层冻 int 不动，读侧拼装——P1-05b 审查裁决）。
     """
 
     id: int
@@ -102,7 +106,7 @@ class TermItem(BaseModel):
     status_key: str
     owner: str
     source: str
-    version: int
+    version: str
     expires_at: str | None
     expires_display: str
     expired: bool
@@ -204,7 +208,7 @@ async def list_terms(
             TermItem(
                 id=row.id, term=row.term, type=row.type, def_=row.def_,
                 status=row.status, status_key=row.status_key, owner=row.owner,
-                source=row.source, version=row.version,
+                source=row.source, version=f"v{row.version}",
                 expires_at=row.expires_at.isoformat() if row.expires_at else None,
                 expires_display=expires_display, expired=expired,
             )
