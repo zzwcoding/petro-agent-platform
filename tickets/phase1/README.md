@@ -54,6 +54,14 @@
 > 9. **sem_relation.read 列名照抄合同 DTO**：`read` 在 PG 为非保留关键字、可直用作列名（99 §1.1「DTO 字段同名的照抄」）；SQLAlchemy ORM 属性同名，无避让必要。
 > 10. **ensure_* 与迁移并行存活的退役拍未落**（本票登记原话：仅登记并行存活事实）——sem_* 九表自本票起由 lifespan ensure_semantics_tables 建表＋迁移 0002 双轨承载；全平台 ensure_*（audit/gateway/outbox/sem）何时退役切纯迁移，挂后续域票统一拍板（P0-08 交接关系原话「各域切换属各域票」的收口点）。
 
+## P1-01b 挂账修复票（P1-01 疑点 2/3 收口）
+
+- **目标**：P1-01 回报六疑点中两条真问题的修复——口径名不一致消除＋C1 读端点缺口补齐。
+- **疑点 2（真不一致）**：M3 `RULE-PETRO-019` calibers「剔检口径/开井日历口径」vs C1 口径卡「开井日历折算/剔除检修」——**先读 teach `docs/business-setting.md` 定权威名**，统一另一边（改 semantics 种子常量或 ontology M3 YAML——改 ontology/ 必跑 `bash ontology/ci.sh` 绿）；同步告警消除；测试更新。
+- **疑点 3（真缺口）**：C1 台账读端点三件套（teach `C1-指标与业务术语库.md` v0.1 端点 2/3/11 即术语/指标/对象读面——B3 下拉与 A1 澄清帧的消费者）在 16 票中无归属，随本票补：semantics 域读面（分页/keyword/状态筛，00 §4.5 命名）；**grain 渲染口径本票裁决**：sem_metric 存 M3 真源值不变（裁决 e 不动），读端点响应带 `grain_display` 读侧拼装串（00 R2 先例：expires_display 同款不落列）；格式照 C1 合同页签列形。
+- **验收**：同步零告警；C1 读端点三件套行为规则过；四门禁绿；ontology/ci.sh 绿（若动 ontology/）。
+- **同时登记**（P1-01 六疑点全量裁决结论，Owner 2026-10-01 过目无异议）：疑点 1/4/5＝已有裁决本设如此（关闭）；疑点 6＝**ensure_* 与 Alembic 双轨维持至 P1-11 收官票切纯迁移**（lifespan 改 upgrade head＋ensure 退役，Owner 采纳）。
+
 ## P1-02a kb 底座后端（B1 合同 v0.3 主体）
 
 - **目标**：报告入库全链后端——建库/路由/直传两拍/五步/任务/台账/配置/活动流。
