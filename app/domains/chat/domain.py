@@ -10,8 +10,8 @@ qa_behavior 消费口径（faq_direct_hit/clarify_strategy——本域消费）�
 四层流水线（F56①→④，全服务端、前端零编排）：
   ①统一安检（注入扫描/禁用词索引/身份与数据域——字面规则，任一 ✗ 拦截出终局）
   ②知识装配（@ 前门直取＋六路匹配器并行查表共池——词级全扫全收集）
-  ③意图裁决（骨架期＝确定性路由；真实裁决唯一真源＝D2 模型，随 P1-08b 接线）
-  ④执行链分发（17 链闭世界枚举；三链分派缝 08b 填，未实现链回未开通话术）
+  ③意图裁决（置信度真实计算＝检索得分＋装配信号；D2 当前生效配置驱动路由）
+  ④执行链分发（17 链闭世界枚举；检索/FAQ 秒回/图谱问答三链 P1-08b 链体填入）
 
 B1：本文件不 import fastapi/starlette/DB——帧构造、安检模式、澄清有界循环、
 候选截断、建议池都是纯语义；IO 归 store（PG）/service（编排）。
@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -115,8 +115,9 @@ SUGGESTION_NOTICE_TEMPLATE = "这个词没有直接命中台账——已登记�
 
 # 骨架期裁决标注（confidence 档位值＋页面标注后缀——A1 合同允许形状）。
 FAQ_ROUTE_CONFIDENCE = "高（FAQ 精确命中——直出）"
-SKELETON_ROUTE_CONFIDENCE = "中（骨架期确定性路由——D2 模型裁决随 P1-08b 接线）"
+GRAPH_ROUTE_CONFIDENCE = "高（图谱命中——确定性关系事实）"
 CLARIFY_CONFIDENCE = "低（一词两译未消歧）"
+CLARIFY_LOCKED_CONFIDENCE = "中（澄清锁定——直连执行）"
 
 # 建议池晋升闸（F60：孤例不进池——独立问句频次 ≥2 才晋升；faQ 扫库 SCAN_MIN_FREQ 同源）。
 SUGGESTION_PROMOTION_THRESHOLD = 2
@@ -182,7 +183,10 @@ class TermFace:
 
 @dataclass(frozen=True, slots=True)
 class IndexHitFace:
-    """报告索引命中面（kb 检索读面投影——chat 只见 callable，B9 同款）。"""
+    """报告索引命中面（kb 检索读面投影——chat 只见 callable，B9 同款）。
+
+    text＝生成上下文用较长文本（P1-08b——snippet 80 字不够作答依据）。
+    """
 
     fragment_id: str
     report_id: str
@@ -191,25 +195,33 @@ class IndexHitFace:
     snippet: str
     score: float
     leg: str  # vector | keyword（trigram 缝——P1-04 裁决）
+    text: str = ""
 
 
 @dataclass(frozen=True, slots=True)
 class GraphHitFace:
-    """图谱命中面（图存储检索读缝投影——票面「图谱〔08b 前落空〕」的候选源；
-    08b 图谱问答链接线时由组合根注入真 Neo4j 检索——B9 同款只见 callable）。"""
+    """图谱命中面（图存储检索读缝投影——P1-08b 图谱问答链候选源＋边出处；
+    08a 票面「图谱〔08b 前落空〕」的缝——08b 组合根注入真 Neo4j 邻域检索）。"""
 
     entity: str
     relation: str
     evidence: str | None = None
+    source_chunk_id: str | None = None  # 依据闸留存的原文片段 id（B5 边出处列）
+    source_report_id: str | None = None  # 立边来源报告 id（B1 台账同域）
 
 
 @dataclass(frozen=True, slots=True)
 class FaqHitFace:
-    """FAQ 索引命中面（faq.match_index 读口投影——98 §3.3 运行时读）。"""
+    """FAQ 索引命中面（faq.match_index 读口投影——98 §3.3 运行时读）。
+
+    score＝相似问扩检命中分（match_index 精确命中＝确定性 1.0 由链体赋值；
+    search_similar 扩检路携余弦分）。
+    """
 
     entry_id: str
     question: str
     answer: str
+    score: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -235,14 +247,21 @@ class LaneResult:
 
 @dataclass(frozen=True, slots=True)
 class AssemblyResult:
-    """装配块（assembly 帧载荷源：anchor_line/slots/terms/candidates/chains）。"""
+    """装配块（assembly 帧载荷源：anchor_line/slots/terms/candidates/chains）。
+
+    faq_hit/index_hits/graph_hits 为裁决置信度与三链链体的随行材料（wire 帧不带
+    ——装配帧只发 candidates）。
+    """
 
     anchor_line: str | None
     slots: str
     terms: list[str]
     candidates: list[Candidate]
     lanes: list[LaneResult]
-    ambiguous_metric: MetricFace | None = None  # 口径两译澄清触发源（骨架期确定性触发）
+    ambiguous_metric: MetricFace | None = None  # 口径两译澄清触发源（确定性触发）
+    faq_hit: FaqHitFace | None = None  # FAQ 索引精确命中（秒回闸/检索链 FAQ 路消费）
+    index_hits: list[IndexHitFace] = field(default_factory=list)  # 报告索引命中（置信度/检索链）
+    graph_hits: list[GraphHitFace] = field(default_factory=list)  # 图谱缝命中（图谱问答链路由）
 
 
 # ---------- 安检（字面规则——命中即拦截终局，A1 行为规则 4） ----------
@@ -442,12 +461,12 @@ class SuggestionPool:
         return [s for s in self._signals.values() if not s.promoted]
 
 
-# ---------- 执行链分发（F56④——17 链闭世界枚举；三链分派缝 08b 填） ----------
+# ---------- 执行链分发（F56④——17 链闭世界枚举；三链 08b 填肉） ----------
 
 
 @dataclass(frozen=True, slots=True)
 class ChainContext:
-    """链执行上下文（链内闸门代码值守的入参快照——08b 链体消费）。"""
+    """链执行上下文（链内闸门代码值守的入参快照——链体消费）。"""
 
     run_id: str
     question: str
@@ -456,27 +475,17 @@ class ChainContext:
     clarified_caliber: str | None = None  # 澄清锁定的口径支名（默认口径/人选）
 
 
-@dataclass(frozen=True, slots=True)
-class ChainOutcome:
-    """链收场（answer 帧载荷——六种 kind DTO；notices＝answer 前置 notice 行）。"""
-
-    answer: dict[str, Any]
-    notices: list[str] = field(default_factory=list)
-
-
-class ChainHandler(Protocol):
-    """链体缝（分派缝注册面——08b 三链填肉入口；测试注桩同缝）。"""
-
-    async def __call__(self, ctx: ChainContext) -> ChainOutcome: ...
+# 链体缝（分派注册面——链内逐帧产出 node_line/token/citation/answer 等 SSE 事件，
+# answer 帧必须最后出现；测试注桩同缝）。
+ChainHandler = Callable[[ChainContext], AsyncIterator[SseEvent]]
 
 
 class ChainDispatcher:
     """17 链分派器（闭世界枚举——超出即无效，F56④）。
 
     - 17 链全注册（枚举登记＝「未实现链话术逐链核对」的核对面）；
-    - 三链分派缝（SEAM_CHAINS）占 ChainHandler 注册位——08a 缝内暂回未开通话术，
-      08b 以 register() 填入链体；
-    - 未注册 handler 的链（含其余 14 链）一律回未开通话术——骨架期不发明链行为。
+    - 三链（SEAM_CHAINS）已由 P1-08b 链体填入；未注册 handler 的链（其余 14 链）
+      一律回未开通话术——不发明链行为。
     """
 
     def __init__(self) -> None:
@@ -490,25 +499,276 @@ class ChainDispatcher:
     def registered(self) -> tuple[str, ...]:
         return tuple(self._handlers)
 
-    async def dispatch(self, chain: str, ctx: ChainContext) -> ChainOutcome:
+    async def dispatch(self, chain: str, ctx: ChainContext) -> AsyncIterator[SseEvent]:
         if chain not in CHAIN17:
             raise ChatParamError(f"链不在 17 链枚举内：{chain}（闭世界——超出即无效）")
         handler = self._handlers.get(chain)
         if handler is not None:
-            return await handler(ctx)
-        return ChainOutcome(
-            answer={"kind": "alert", "alert_type": "info", "text": unopened_chain_text(chain)}
+            async for event in handler(ctx):
+                yield event
+            return
+        yield SseEvent(
+            FRAME_ANSWER,
+            {"kind": "alert", "alert_type": "info", "text": unopened_chain_text(chain)},
         )
 
 
-# ---------- 域读缝（组合根注入——生产＝retrieval/semantics/faq/kb 公开读面） ----------
+# ---------- 检索链语义件（P1-08b——D2 当前生效配置驱动的纯语义） ----------
+
+# RRF 固定推荐值（D2 开放问题 8 裁决：加权参数 k/路权页面不暴露、不入合同——
+# 真实实施先固定推荐值；R24 加权 RRF 锚）。
+RRF_K = 60
+
+# 来源分（compound 档 0.1 权重成分——实施批实施值，常量集中 Owner 可调；台账/
+# 锚定/图谱＝确定性来源最高，检索文本次之）。
+SOURCE_SCORES: dict[str, float] = {
+    "anchor": 1.0, "ledger": 1.0, "faq": 0.9, "graph": 0.9,
+    "vector": 0.6, "keyword": 0.6,
+}
+
+# 复合分权重（F34③ 合同值不可改：0.6×模型分＋0.3×检索基础分＋0.1×来源分）。
+COMPOUND_WEIGHTS = (0.6, 0.3, 0.1)
+# 多样性参数（F34③ 合同值：λ=0.7——MMR 防前几名全是同一份报告的近重复段落）。
+MMR_LAMBDA = 0.7
+
+# FAQ 路扩检（W-F35-4）：检索执行硬顶 5 轮（合同冻结——不无限空转）；每轮候选数
+# 翻倍；过线相似度下限＝实施值（低于此分的相似问不进证据）。
+FAQ_EXPAND_HARD_CAP = 5
+FAQ_EXPAND_FLOOR = 0.5
+
+# S6 资格裁决送生成上下文的上限（票面「4 支上限」——超出的截断标「另有 N 支未列出」）。
+EVIDENCE_CAP = 4
+
+# 生成上下文 token 帧切片长度（SSE 流式呈现节奏——实施值，常量可调）。
+TOKEN_CHUNK_CHARS = 24
+
+# 引用别名解析（[cN]——模型上下文低熵代号；服务端流式展开＋fail-closed 删除）。
+# 引用别名解析（[cN]——模型上下文低熵代号；服务端流式展开＋fail-closed 删除；
+# 容忍全角括号变体［cN］——中文模型输出的常见形态，展开/删除同权）。
+REF_PATTERN = re.compile(r"[\[［](c\d+)[\]］]")
+
+# 关系问句信号（图谱问答链路由——确定性信号：问句涉及关系词）。
+RELATION_SIGNAL_RE = re.compile(r"受效|隶属|承载|作用于|关系|影响|连通|关联|哪些井")
+
+# fail-closed 拦截话术（伪造/失锚引用——绝不带病出帧）。
+UNANCHORED_CITATION_NOTE = "已拦截 {n} 条失锚/伪造引用（fail-closed）——绝不带病出帧。"
+# D2 兜底 free 态合同标注（「未依据报告库」）。
+FREE_ANSWER_TAG = "（未依据报告库）"
 
 
 @dataclass(frozen=True, slots=True)
-class QaBehaviorFace:
-    """问答行为面（D2 qa_behavior 五字段投影——本域消费 faq_direct_hit/clarify_strategy；
-    refuse_threshold/confidence_thresholds/faq_expand_rounds 随 08b 检索链消费）。"""
+class Evidence:
+    """检索证据（生成上下文与 citation 帧的单源行——ref 编号在送生成前分配）。"""
 
+    ref: str
+    kind: str  # 报告引用 | 台账条目 | 图谱（A1 citation kind 值域）
+    label: str
+    locator: dict[str, Any]
+    snippet: str
+    score: float
+    source: str  # anchor | ledger | faq | graph | vector | keyword（SOURCE_SCORES 键）
+    fragment_id: str | None = None
+    report_id: str | None = None
+    metric_slot: str | None = None  # 指标证据携槽位名——S7 权威源回读消费
+
+
+def is_relation_question(question: str) -> bool:
+    """关系问句信号（图谱问答链路由——受效/隶属/承载/作用于等关系词面）。"""
+    return RELATION_SIGNAL_RE.search(question) is not None
+
+
+def rrf_merge(
+    vector: list[IndexHitFace], keyword: list[IndexHitFace], *, k: int = RRF_K
+) -> list[tuple[IndexHitFace, float]]:
+    """RRF 按名次融合（m6 Retriever.search 锚——1/(k+rank) 逐路累加，按融合分倒序）。"""
+    fused: dict[str, float] = {}
+    hits: dict[str, IndexHitFace] = {}
+    for leg in (vector, keyword):
+        for rank, hit in enumerate(leg, start=1):
+            fused[hit.fragment_id] = fused.get(hit.fragment_id, 0.0) + 1.0 / (k + rank)
+            hits.setdefault(hit.fragment_id, hit)
+    return sorted(
+        ((hits[fid], score) for fid, score in fused.items()),
+        key=lambda pair: pair[1],
+        reverse=True,
+    )
+
+
+def concat_merge(
+    vector: list[IndexHitFace], keyword: list[IndexHitFace]
+) -> list[tuple[IndexHitFace, float]]:
+    """简单拼接（D2 merge=concat——「谁排前用谁」，向量路在前、关键词路在后）。"""
+    return [(hit, hit.score) for hit in [*vector, *keyword]]
+
+
+def compound_score(model_score: float, retrieval_score: float, source: str) -> float:
+    """复合分＝0.6×模型分＋0.3×检索基础分＋0.1×来源分（F34③ 合同值，逐候选
+    三成分拆账可解释——W-F34-1）。"""
+    w_model, w_retrieval, w_source = COMPOUND_WEIGHTS
+    return (
+        w_model * model_score
+        + w_retrieval * retrieval_score
+        + w_source * SOURCE_SCORES.get(source, 0.5)
+    )
+
+
+def _text_trigrams(text: str) -> set[str]:
+    folded = re.sub(r"\s+", "", text or "")
+    if len(folded) < 3:
+        return {folded} if folded else set()
+    return {folded[i : i + 3] for i in range(len(folded) - 2)}
+
+
+def snippet_similarity(a: str, b: str) -> float:
+    """片段相似度（MMR 多样性用——trigram Jaccard，确定性零成本）。"""
+    ta, tb = _text_trigrams(a), _text_trigrams(b)
+    if not ta or not tb:
+        return 0.0
+    return len(ta & tb) / len(ta | tb)
+
+
+def mmr_select(
+    ranked: list[tuple[Any, float]], *, text_of: Callable[[Any], str], lam: float = MMR_LAMBDA
+) -> list[tuple[Any, float]]:
+    """MMR 多样性挑选（F34③ λ=0.7——λ×相关 −(1−λ)×与已选最大相似，贪心；
+    text_of 取候选行的相似度文本）。"""
+    if len(ranked) <= 1:
+        return list(ranked)
+    remaining = list(ranked)
+    selected: list[tuple[Any, float]] = [remaining.pop(0)]
+    while remaining:
+        best_index, best_value = 0, float("-inf")
+        for index, (item, score) in enumerate(remaining):
+            diversity = max(
+                (
+                    snippet_similarity(text_of(item), text_of(done_item))
+                    for done_item, _ in selected
+                ),
+                default=0.0,
+            )
+            value = lam * score - (1 - lam) * diversity
+            if value > best_value:
+                best_index, best_value = index, value
+        selected.append(remaining.pop(best_index))
+    return selected
+
+
+def compute_confidence(
+    *, anchored: bool, ledger_hit: bool, faq_hit: bool, best_index_score: float
+) -> float:
+    """置信度真实计算（P1-08b——检索得分＋装配信号的确定性合成）。
+
+    基础＝报告索引最高证据分（0–1）；台账精确命中≥0.9（确定性先于相似度）；
+    @ 前门直取≥0.95（A1「@倾向」信号）；FAQ 精确命中＝1.0（秒回闸直出）。
+    """
+    value = max(0.0, min(1.0, best_index_score))
+    if ledger_hit:
+        value = max(value, 0.9)
+    if anchored:
+        value = max(value, 0.95)
+    if faq_hit:
+        value = 1.0
+    return value
+
+
+def confidence_label(
+    value: float, *, high: float, low: float, best_score: float,
+    anchored: bool, ledger_hit: bool,
+) -> str:
+    """confidence 档位值＋来源标注后缀（A1 合同允许形状——档位阈值在服务端）。
+
+    高 ≥high 直连执行；中 high–low 直连但页面标注；低 <low 必弹澄清帧（F56 拍板）。
+    """
+    if value >= high:
+        if anchored:
+            return "高（@ 倾向——锚定直取）"
+        if ledger_hit:
+            return "高（台账精确命中）"
+        return f"高（检索证据分 {best_score:.2f}）"
+    if value >= low:
+        return f"中（检索证据分 {best_score:.2f}——直连执行）"
+    return f"低（证据不足——低于低分线 {low:.2f}）"
+
+
+def parse_refs(text: str) -> list[str]:
+    """答案正文中的 [cN] 引用（按出现序去重——fail-closed 校验的输入面）。"""
+    seen: list[str] = []
+    for match in REF_PATTERN.finditer(text):
+        if match.group(1) not in seen:
+            seen.append(match.group(1))
+    return seen
+
+
+def strip_ref(text: str, ref: str) -> str:
+    """从正文剥除某引用别名（fail-closed 删除——未知/失锚别名绝不外发）。"""
+    return re.sub(rf"[\[［]{re.escape(ref)}[\]］]", "", text)
+
+
+def rewrite_citations(
+    text: str, evidence_by_ref: dict[str, Evidence], citation_format: str
+) -> str:
+    """引用呈现层切换（D2「引用格式切换语义」——生成链恒走 cN＋fail-closed，
+    开关只切呈现）：page → 正文角标展开为 [label]；code → 保持 [cN] 编号呈现
+    （真实出处收敛进引用清单）。"""
+    if citation_format != "page":
+        return text
+    for ref, evidence in evidence_by_ref.items():
+        text = re.sub(rf"[\[［]{re.escape(ref)}[\]］]", f"[{evidence.label}]", text)
+    return text
+
+
+def citation_wire(evidence: Evidence) -> dict[str, Any]:
+    """citation 帧载荷（A1 冻结形状 {ref, kind, label, locator}）。"""
+    return {
+        "ref": evidence.ref,
+        "kind": evidence.kind,
+        "label": evidence.label,
+        "locator": dict(evidence.locator),
+    }
+
+
+def token_chunks(text: str, *, size: int = TOKEN_CHUNK_CHARS) -> list[str]:
+    """答案文本 → token 帧切片（SSE 流式呈现——gateway.complete 为整段应答，
+    切片下发；真上游流式随 B6 流式接口批）。"""
+    return [text[i : i + size] for i in range(0, len(text), size)] or [""]
+
+
+def build_candidate_clarify(
+    candidates: list[Candidate], *, frame_id: str
+) -> ClarifyFrame | None:
+    """多候选澄清帧（S6 资格裁决——低置信且候选在场时弹；缺参反问类无默认项，
+    缺的是用户意图聚焦）。候选超 4 支截断并注记。"""
+    usable = [c for c in candidates if c.kind in ("metric", "term", "report", "faq", "graph")]
+    if not usable:
+        return None
+    choices = [ClarifyChoice(value=c.name, label=f"{c.matcher}：{c.name}") for c in usable]
+    kept, rest = cap_choices(choices)
+    question = "这个问题命中了多个候选——你想问哪一个？"
+    if rest:
+        question += "（" + OVERFLOW_NOTE_TEMPLATE.format(
+            total=len(choices), cap=CLARIFY_CANDIDATE_CAP, rest=rest
+        ).replace(f"候选 {len(choices)} 支，仅列前 {CLARIFY_CANDIDATE_CAP}——", "") + "）"
+    return ClarifyFrame(frame_id=frame_id, question=question, choices=kept)
+
+
+# ---------- 域读缝（组合根注入——生产＝retrieval/semantics/faq/kb/gateway 公开读面） ----------
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalConfigFace:
+    """D2 当前生效配置投影（六配置节全量——检索链全链消费；组合根从
+    retrieval.ConfigSnapshot 投影，B9 同款运行期只见 callable）。"""
+
+    order_levels: tuple[bool, bool, bool]  # 三级开关（L1 锚定/L2 词表/L3 双路）
+    early_stop: bool
+    semantic_top_k: int
+    keyword_top_k: int
+    merge: str  # rrf_rank | concat
+    top_n: int
+    rerank: str  # fast | llm | compound
+    citation_format: str  # page | code
+    fallback_strategy: str  # fixed | free
+    fallback_text: str
     faq_direct_hit: bool
     refuse_threshold: float
     clarify_strategy: str
@@ -517,9 +777,32 @@ class QaBehaviorFace:
     faq_expand_rounds: int
 
 
-QaConfigLoader = Callable[[], Awaitable[QaBehaviorFace]]
+@dataclass(frozen=True, slots=True)
+class FragmentAnchorFace:
+    """片段锚面（fail-closed 校验读缝——fragment_id 必须真实存在且属于命中报告）。"""
+
+    fragment_id: str
+    report_id: str
+    report: str
+    section: str | None
+
+
+ConfigLoader = Callable[[], Awaitable[RetrievalConfigFace]]
 MetricsLoader = Callable[[], Awaitable[list[MetricFace]]]
 TermsLoader = Callable[[], Awaitable[list[TermFace]]]
 FaqMatcher = Callable[[str], Awaitable[FaqHitFace | None]]
+FaqSearcher = Callable[[str, int], Awaitable[list[FaqHitFace]]]
 IndexSearcher = Callable[[str], Awaitable[list[IndexHitFace]]]
+IndexSearcherDual = Callable[
+    [str, int, int], Awaitable[tuple[list[IndexHitFace], list[IndexHitFace]]]
+]
 GraphSearcher = Callable[[str], Awaitable[list[GraphHitFace]]]
+FragmentAnchorLoader = Callable[[str], Awaitable[FragmentAnchorFace | None]]
+
+
+class Completer(Protocol):
+    """LLM 出口缝（生产装配＝GatewayService——B6 唯一出口；测试注桩）。"""
+
+    async def complete(
+        self, alias: str, messages: list[dict[str, str]], *, caller: str, **params: Any
+    ) -> Any: ...

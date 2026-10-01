@@ -1,8 +1,11 @@
-"""chat 域语义层单测——19 帧注册/F56 常量/澄清有界/候选截断/建议池/17 链分派/@ token。
+"""chat 域语义层单测——19 帧注册/F56 常量/澄清有界/候选截断/建议池/17 链分派/
+@ token/检索链语义件（P1-08b：RRF/复合分/MMR/引用 fail-closed/置信度）。
 
 纯语义（domain.py 零 IO）——帧类型集与 SEC_CHECKS/MATCHERS/CHAIN17 是合同值
 照抄断言（A1 行为规则 2「帧类型集不可改」；flows/common.jsx 同源）。
 """
+
+from collections.abc import AsyncIterator
 
 import pytest
 
@@ -14,7 +17,6 @@ from app.domains.chat.domain import (
     SEAM_CHAINS,
     SEC_CHECKS,
     ChainContext,
-    ChainOutcome,
     ClarifyChoice,
     SuggestionPool,
     build_caliber_clarify,
@@ -124,32 +126,41 @@ class TestSuggestionPool:
 
 class TestChainDispatcher:
     async def test_all_seventeen_chains_dispatch_to_unopened_notice(self) -> None:
-        """17 链枚举全注册且未实现链回「该能力暂未开通」话术（逐链核对）。"""
+        """17 链枚举全注册且未实现链回「该能力暂未开通」话术（逐链核对——
+        检索/FAQ 秒回/图谱问答三链已在 ChatService 构造时注册，裸分派器不含）。"""
         dispatcher = d.ChainDispatcher()
         ctx = ChainContext(run_id="run-x", question="q", actor_who="阿强 · 平台运维",
                            assembly=None)  # type: ignore[arg-type]
         for chain in CHAIN17:
-            outcome = await dispatcher.dispatch(chain, ctx)
-            assert outcome.answer["kind"] == "alert"
-            assert outcome.answer["alert_type"] == "info"
-            assert "该能力暂未开通" in outcome.answer["text"]
-            assert chain in outcome.answer["text"]
+            events = [event async for event in dispatcher.dispatch(chain, ctx)]
+            assert len(events) == 1 and events[0].event == d.FRAME_ANSWER
+            answer = events[0].data
+            assert answer["kind"] == "alert"
+            assert answer["alert_type"] == "info"
+            assert "该能力暂未开通" in answer["text"]
+            assert chain in answer["text"]
 
     async def test_seam_registration_routes_to_handler(self) -> None:
-        """三链分派缝注册位——register() 填入链体后分派直达（08b 填肉入口）。"""
+        """链体注册分派直达（register()——链体逐帧产出，answer 帧透传）。"""
         dispatcher = d.ChainDispatcher()
 
-        async def fake_faq_chain(ctx: ChainContext) -> ChainOutcome:
-            return ChainOutcome(answer={"kind": "text", "text": "FAQ 秒回（缝）"})
+        def fake_faq_chain(ctx: ChainContext) -> AsyncIterator[d.SseEvent]:
+            async def _gen() -> AsyncIterator[d.SseEvent]:
+                yield d.SseEvent(d.FRAME_NODE_LINE, {"key": "FAQ", "mark": "✓", "text": "命中"})
+                yield d.SseEvent(d.FRAME_ANSWER, {"kind": "text", "text": "FAQ 秒回（缝）"})
+            return _gen()
 
         dispatcher.register("FAQ直出链", fake_faq_chain)
         assert dispatcher.registered() == ("FAQ直出链",)
-        outcome = await dispatcher.dispatch(
-            "FAQ直出链",
-            ChainContext(run_id="run-x", question="q", actor_who="阿强 · 平台运维",
-                         assembly=None),  # type: ignore[arg-type]
-        )
-        assert outcome.answer["text"] == "FAQ 秒回（缝）"
+        events = [
+            event async for event in dispatcher.dispatch(
+                "FAQ直出链",
+                ChainContext(run_id="run-x", question="q", actor_who="阿强 · 平台运维",
+                             assembly=None),  # type: ignore[arg-type]
+            )
+        ]
+        assert [event.event for event in events] == [d.FRAME_NODE_LINE, d.FRAME_ANSWER]
+        assert events[-1].data["text"] == "FAQ 秒回（缝）"
 
     def test_outside_seventeen_chains_rejected(self) -> None:
         """闭世界枚举——超出 17 链即无效（F56④）。"""
@@ -169,3 +180,103 @@ class TestAnchorTokens:
     def test_injection_banned_lanes_frozen(self) -> None:
         assert len(d.INJECTION_PATTERNS) >= 1
         assert "老完成率" in d.BANNED_TERMS
+
+
+class TestRetrievalChainSemantics:
+    """检索链纯语义件（P1-08b——D2 配置驱动检索瀑布的确定性部件）。"""
+
+    @staticmethod
+    def _hit(fid: str, score: float, leg: str = "vector") -> d.IndexHitFace:
+        return d.IndexHitFace(fragment_id=fid, report_id="rpt-1", report="演示报告",
+                              section="01", snippet=f"片段 {fid}", score=score, leg=leg)
+
+    def test_rrf_merge_fuses_by_rank_with_fixed_k(self) -> None:
+        """RRF 按名次融合（k=60 固定推荐值——D2 开放问题 8 裁决）。"""
+        vector = [self._hit("a", 0.9), self._hit("b", 0.8), self._hit("c", 0.7)]
+        keyword = [self._hit("b", 0.6, "keyword"), self._hit("a", 0.5, "keyword")]
+        merged = d.rrf_merge(vector, keyword)
+        scores = {hit.fragment_id: fused for hit, fused in merged}
+        # 逐路累加：a=1/61+1/62，b=1/62+1/61——同秩融合分相等
+        assert set(scores) == {"a", "b", "c"}
+        assert scores["a"] == scores["b"] > scores["c"]  # 同秩融合分相等；单路低于双路
+        assert d.RRF_K == 60
+
+    def test_concat_merge_keeps_leg_order(self) -> None:
+        vector = [self._hit("a", 0.9)]
+        keyword = [self._hit("b", 0.6, "keyword")]
+        merged = d.concat_merge(vector, keyword)
+        assert [hit.fragment_id for hit, _ in merged] == ["a", "b"]  # 谁排前用谁
+
+    def test_compound_score_weights_frozen(self) -> None:
+        """复合分＝0.6×模型分＋0.3×检索基础分＋0.1×来源分（F34③ 合同值）。"""
+        assert d.COMPOUND_WEIGHTS == (0.6, 0.3, 0.1)
+        value = d.compound_score(model_score=1.0, retrieval_score=0.5, source="vector")
+        assert value == pytest.approx(0.6 * 1.0 + 0.3 * 0.5 + 0.1 * 0.6)
+
+    def test_mmr_select_penalizes_near_duplicates(self) -> None:
+        """MMR λ=0.7——近重复段落让位给次优但不同的候选（防同质）。"""
+        near_a = self._hit("a", 0.9)
+        near_a2 = self._hit("a2", 0.85)
+        different = self._hit("c", 0.8)
+        ranked = [(near_a, 0.9), (near_a2, 0.85), (different, 0.8)]
+        selected = d.mmr_select(ranked, text_of=lambda hit: hit.snippet)
+        order = [hit.fragment_id for hit, _ in selected]
+        assert order == ["a", "c", "a2"]  # 次优但不同的候选先于近重复段落
+
+    def test_parse_strip_rewrite_refs(self) -> None:
+        evidence = [
+            d.Evidence(ref="c1", kind="报告引用", label="《报告》01", locator={},
+                       snippet="s", score=1.0, source="vector"),
+            d.Evidence(ref="c2", kind="台账条目", label="台账「X」", locator={},
+                       snippet="s", score=1.0, source="ledger"),
+        ]
+        by_ref = {e.ref: e for e in evidence}
+        text = "答案 [c1] 与 [c2]。"
+        assert d.parse_refs(text) == ["c1", "c2"]
+        assert d.strip_ref("答案 [c1] 与 [c9]。", "c9") == "答案 [c1] 与 。"
+        page = d.rewrite_citations(text, by_ref, "page")
+        assert page == "答案 [《报告》01] 与 [台账「X」]。"
+        code = d.rewrite_citations(text, by_ref, "code")
+        assert code == text  # code 格式保持 [cN] 编号呈现
+
+    def test_compute_confidence_and_label(self) -> None:
+        """置信度真实计算（检索得分＋装配信号）＋档位标注（A1 允许来源后缀）。"""
+        assert d.compute_confidence(anchored=False, ledger_hit=False, faq_hit=False,
+                                    best_index_score=0.7) == 0.7
+        assert d.compute_confidence(anchored=True, ledger_hit=False, faq_hit=False,
+                                    best_index_score=0.2) == 0.95  # @ 倾向信号
+        assert d.compute_confidence(anchored=False, ledger_hit=True, faq_hit=False,
+                                    best_index_score=0.1) == 0.9  # 台账精确
+        label_high = d.confidence_label(
+            0.9, high=0.8, low=0.4, best_score=0.9, anchored=False, ledger_hit=False)
+        assert label_high.startswith("高")
+        label_mid = d.confidence_label(
+            0.55, high=0.8, low=0.4, best_score=0.55, anchored=False, ledger_hit=False)
+        assert label_mid.startswith("中（检索证据分 0.55")
+        label_low = d.confidence_label(
+            0.2, high=0.8, low=0.4, best_score=0.2, anchored=False, ledger_hit=False)
+        assert label_low.startswith("低（证据不足")
+
+    def test_candidate_clarify_caps_and_no_default(self) -> None:
+        """候选澄清帧（S6 多候选）——上限 4 支截断、无默认项（缺的是用户意图）。"""
+        candidates = [
+            d.Candidate("报告索引", f"报告{i}", "low", "report") for i in range(6)
+        ]
+        frame = d.build_candidate_clarify(candidates, frame_id="f")
+        assert frame is not None
+        assert len(frame.choices) == 4
+        assert "未列出" in frame.question
+        assert not any(c.primary for c in frame.choices)
+        assert d.build_candidate_clarify([], frame_id="f") is None
+
+    def test_token_chunks_and_relation_signal(self) -> None:
+        assert d.token_chunks("abcdef", size=2) == ["ab", "cd", "ef"]
+        assert d.token_chunks("", size=2) == [""]
+        assert d.is_relation_question("哪些井受过 N-06 注水影响")
+        assert d.is_relation_question("N-06 与 N-02 的关系")
+        assert not d.is_relation_question("N-02 什么时候投产的")
+
+    def test_evidence_cap_and_free_tag(self) -> None:
+        assert d.EVIDENCE_CAP == 4  # S6 资格裁决 4 支上限（票面）
+        assert d.FAQ_EXPAND_HARD_CAP == 5  # 扩检硬顶 5 轮（W-F35-4 合同值）
+        assert d.FREE_ANSWER_TAG == "（未依据报告库）"  # D2 兜底 free 态标注

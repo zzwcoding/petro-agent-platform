@@ -1,16 +1,20 @@
 """chat 测试共享夹具：sqlite 底座＋假缝装配（98 §3.1 chat 测试计划——seam 处
-假实现驱动四层流水线；LLM/检索/审批/SSE 通道全部可注桩）。
+假实现驱动四层流水线与三链链体；LLM/检索/图谱/锚校验全部可注桩）。
 
 假缝清单（组合根生产装配的镜像——main.py 同名 callable）：
-- qa_config_loader：合同默认值（D2 qa_behavior 五字段——faq_direct_hit=true /
-  ask_missing / 0.8-0.4 等）；`qa` 夹具参数可覆写驱动 D2 配置行为变化。
+- config_loader：D2 六配置节全量投影（合同默认值——三级全开/命中即停开/
+  20-20-20/rrf_rank/fast/page/fixed/qa_behavior 五字段默认）；`config` 夹具
+  参数可覆写驱动 D2 配置行为变化（P1-08b 验收——配置改动可见行为变化）。
 - metrics_loader / terms_loader：台账面（含 ambiguous 口径两译行——澄清帧消费源）。
-- faq_matcher / index_searcher：FAQ 索引与报告索引（向量＋trigram 两腿在 kb 侧，
-  本夹具直接给命中面——kb 读面自身归 kb 测试）。
+- faq_matcher / faq_searcher：FAQ 索引精确路＋扩检路（P1-08b FAQ 路消费）。
+- index_searcher / index_searcher_dual：报告索引合并路＋双路（S4 两路并发）。
+- anchor_loader：片段锚校验（fail-closed——默认对已知 fragment 真实，可注入 None）。
+- completer：LLM 出口桩（返回固定 completion.content——生成/打分/兜底 free 消费）。
 """
 
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -18,10 +22,11 @@ import pytest
 from app.domains.chat import ChatService
 from app.domains.chat.domain import (
     FaqHitFace,
+    FragmentAnchorFace,
     GraphHitFace,
     IndexHitFace,
     MetricFace,
-    QaBehaviorFace,
+    RetrievalConfigFace,
     TermFace,
 )
 from app.domains.chat.store import ensure_chat_tables
@@ -31,7 +36,17 @@ from app.infra.db import ConnectionManager, DatabaseSpec
 
 AQIANG = "阿强 · 平台运维"
 
-DEFAULT_QA = QaBehaviorFace(
+DEFAULT_CONFIG = RetrievalConfigFace(
+    order_levels=(True, True, True),
+    early_stop=True,
+    semantic_top_k=20,
+    keyword_top_k=20,
+    merge="rrf_rank",
+    top_n=20,
+    rerank="fast",
+    citation_format="page",
+    fallback_strategy="fixed",
+    fallback_text="报告库里没有找到能回答这个问题的内容。我不能凭空编——请换个问法，或联系资料员补充报告。",
     faq_direct_hit=True,
     refuse_threshold=0.4,
     clarify_strategy="ask_missing",
@@ -68,22 +83,28 @@ def default_terms() -> list[TermFace]:
 
 @dataclass
 class Seams:
-    """假缝登记（调用计数——「六路真扫」断言的观测面）。"""
+    """假缝登记（调用计数——「六路真扫」「精排逐条打分」等断言的观测面）。"""
 
     metrics: list[MetricFace] = field(default_factory=default_metrics)
     terms: list[TermFace] = field(default_factory=default_terms)
     faq_hit: FaqHitFace | None = None
-    index_hits: list[IndexHitFace] = field(default_factory=list)
-    graph_hits: list[GraphHitFace] = field(default_factory=list)  # 08b 前恒空（票面）
-    qa: QaBehaviorFace = DEFAULT_QA
+    faq_similar: list[FaqHitFace] = field(default_factory=list)
+    index_hits: list[IndexHitFace] = field(default_factory=list)  # 装配合并路
+    index_vector: list[IndexHitFace] = field(default_factory=list)  # 双路·向量腿
+    index_keyword: list[IndexHitFace] = field(default_factory=list)  # 双路·关键词腿
+    graph_hits: list[GraphHitFace] = field(default_factory=list)
+    anchors: dict[str, FragmentAnchorFace | None] = field(default_factory=dict)
+    config: RetrievalConfigFace = DEFAULT_CONFIG
+    completion: str = "依据材料作答 [c1]。"
     calls: dict[str, int] = field(default_factory=dict)
+    completions: list[str] = field(default_factory=list)  # caller 归因记录
 
     def _bump(self, key: str) -> None:
         self.calls[key] = self.calls.get(key, 0) + 1
 
-    async def load_qa(self) -> QaBehaviorFace:
-        self._bump("qa")
-        return self.qa
+    async def load_config(self) -> RetrievalConfigFace:
+        self._bump("config")
+        return self.config
 
     async def load_metrics(self) -> list[MetricFace]:
         self._bump("metrics")
@@ -97,16 +118,41 @@ class Seams:
         self._bump("faq")
         return self.faq_hit
 
+    async def search_faq_similar(self, question: str, top_k: int) -> list[FaqHitFace]:
+        self._bump("faq_search")
+        return list(self.faq_similar[:top_k])
+
     async def search_index(self, question: str) -> list[IndexHitFace]:
         self._bump("index")
         return list(self.index_hits)
+
+    async def search_index_dual(
+        self, question: str, vector_top_k: int, keyword_top_k: int
+    ) -> tuple[list[IndexHitFace], list[IndexHitFace]]:
+        self._bump("index_dual")
+        return list(self.index_vector[:vector_top_k]), list(self.index_keyword[:keyword_top_k])
 
     async def search_graph(self, question: str) -> list[GraphHitFace]:
         self._bump("graph")
         return list(self.graph_hits)
 
+    async def load_anchor(self, fragment_id: str) -> FragmentAnchorFace | None:
+        self._bump("anchor")
+        if fragment_id in self.anchors:
+            return self.anchors[fragment_id]
+        # 默认锚＝标准命中报告（_hit 工厂的 report_id 约定 rpt-1）——fail-closed
+        # 反例（片段不存在/归属他报告）由 anchors 显式覆写承载。
+        return FragmentAnchorFace(
+            fragment_id=fragment_id, report_id="rpt-1", report="N-02 完井报告",
+            section="01 井基本情况",
+        )
 
-Loader = Callable[[Seams], Awaitable[Any]]
+    async def complete(
+        self, alias: str, messages: list[dict[str, str]], *, caller: str, **params: Any
+    ) -> Any:
+        self._bump("complete")
+        self.completions.append(caller)
+        return SimpleNamespace(content=self.completion, call_id="call-test", served_alias=alias)
 
 
 @pytest.fixture
@@ -134,16 +180,20 @@ def service(chat_db: ConnectionManager, seams: Seams) -> ChatService:
 
 
 def make_service(db: ConnectionManager, seams: Seams) -> ChatService:
-    """假缝装配（生产＝main.py 组合根同构——qa/台账/FAQ 索引/报告索引 callable）。"""
+    """假缝装配（生产＝main.py 组合根同构——配置/台账/FAQ/报告索引/图谱/锚/LLM）。"""
     return ChatService(
         db,
         audit=SecurityService(db),  # B12 真写口（sqlite 底座——审计断言直读表）
-        qa_config_loader=seams.load_qa,
+        config_loader=seams.load_config,
         metrics_loader=seams.load_metrics,
         terms_loader=seams.load_terms,
         faq_matcher=seams.match_faq,
+        faq_searcher=seams.search_faq_similar,
         index_searcher=seams.search_index,
+        index_searcher_dual=seams.search_index_dual,
         graph_searcher=seams.search_graph,
+        anchor_loader=seams.load_anchor,
+        completer=seams,  # Seams.complete 满足 Completer 协议（生产＝GatewayService）
     )
 
 

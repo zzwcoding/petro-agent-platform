@@ -527,3 +527,40 @@ class TestIndexSearch:
         """全问句子串命中→覆盖率 1.0（pg_trgm 子串匹配的阶段 1 语义代理）。"""
         assert d.trigram_coverage("渤中28-1 投产", "渤中28-1 投产于 2019-06") == 1.0
         assert d.trigram_coverage("完全无关的问句", "渤中28-1 投产于 2019-06") < 0.5
+
+    async def test_index_search_dual_returns_ranked_legs(self, kb_service: Any) -> None:
+        """P1-08b 双路召回读面（检索瀑布 S4）：向量/关键词两腿各自按分倒序 topK。"""
+        service, storage, _, _ = kb_service
+        lib_id = await _make_lib(service)
+        await _ingest(service, storage, lib_id)
+        vector, keyword = await service.index_search_dual(
+            "渤中28-1 投产", vector_top_k=2, keyword_top_k=3
+        )
+        assert vector and all(h.leg == "vector" for h in vector)
+        assert keyword and all(h.leg == "keyword" for h in keyword)
+        assert len(vector) <= 2 and len(keyword) <= 3
+        v_scores = [h.score for h in vector]
+        k_scores = [h.score for h in keyword]
+        assert v_scores == sorted(v_scores, reverse=True)
+        assert k_scores == sorted(k_scores, reverse=True)
+
+    async def test_index_search_dual_empty_corpus(self, kb_service: Any) -> None:
+        service, _, _, _ = kb_service
+        dual = await service.index_search_dual("任何问题", vector_top_k=2, keyword_top_k=2)
+        assert dual == ([], [])
+
+    async def test_fragment_anchor(self, kb_service: Any) -> None:
+        """P1-08b 片段锚读面（citation fail-closed 消费）：存在→报告归属；不存在
+        或父块（不对外寻址——F30）→ None。"""
+        service, storage, _, _ = kb_service
+        lib_id = await _make_lib(service)
+        await _ingest(service, storage, lib_id)
+        reports = await service.list_reports()
+        report_id = reports[0].id
+        listing = await service.list_fragments(report_id)
+        anchorable = next(f for f in listing.items if f.hit)
+        anchor = await service.fragment_anchor(anchorable.id)
+        assert anchor is not None
+        assert anchor.fragment_id == anchorable.id
+        assert anchor.report  # 报告展示名随锚面携出（citation locator 消费）
+        assert await service.fragment_anchor("f-missing") is None

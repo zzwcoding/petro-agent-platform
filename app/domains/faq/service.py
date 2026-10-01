@@ -1106,6 +1106,47 @@ class FaqService:
                 return d.FaqHit(entry_id=entry.id, question=entry.question, answer=entry.answer)
         return None
 
+    async def search_similar(self, text: str, top_k: int) -> list[d.FaqHit]:
+        """FAQ 相似问检索（P1-08b 检索链 FAQ 路扩检——qa_behavior.faq_expand_rounds
+        消费点的候选供给面）：服务中条目的问题＋相似问法与查询做向量余弦
+        （LocalHashEmbedder 占位缝——与三面去重比对同源同实现），按分倒序取
+        top_k；只服务中条目可达（待审核/已停用/负例均不可达——v0.2 审核流）。"""
+        query = d.normalize_text(text)
+        if not query or top_k <= 0 or self._embedder is None:
+            return []
+        entries = await self._entries.all_entries()
+        sims = await self._entries.all_sims()
+        sims_by_entry: dict[str, list[str]] = {}
+        for sim in sims:
+            sims_by_entry.setdefault(sim.entry_id, []).append(sim.text)
+        serving = [e for e in entries if e.status == "serve"]
+        if not serving:
+            return []
+        faces: list[tuple[str, str]] = []
+        for entry in serving:
+            faces.append((entry.question, entry.question))
+            faces.extend((s, entry.question) for s in sims_by_entry.get(entry.id, []))
+        vectors = await self._embedder.embed([query] + [t for t, _ in faces])
+        query_vec = vectors[0]
+        best: dict[str, tuple[float, str]] = {}
+        for vec, (_face, label) in zip(vectors[1:], faces, strict=True):
+            score = _cosine(query_vec, vec)
+            current = best.get(label)
+            if current is None or score > current[0]:
+                best[label] = (score, label)
+        ranked = sorted(best.items(), key=lambda pair: pair[1][0], reverse=True)[:top_k]
+        by_question = {e.question: e for e in serving}
+        out: list[d.FaqHit] = []
+        for question, (score, _label) in ranked:
+            hit_entry = by_question.get(question)
+            if hit_entry is None:
+                continue
+            out.append(d.FaqHit(
+                entry_id=hit_entry.id, question=hit_entry.question, answer=hit_entry.answer,
+                score=round(score, 4),
+            ))
+        return out
+
     # ---------- LedgerMerged 消费（B3-2：口径修订联动） ----------
 
     async def on_ledger_merged(self, event: DomainEvent) -> None:

@@ -33,14 +33,23 @@ Alembic 0008 并行）＋/api/retrieval 路由族挂载（D2 两端点——配�
 99 §2.2，Alembic 0009 并行）＋/api/chat 路由族填肉（asks 四层流水线 SSE＋
 runs resume 澄清续推）＋域读缝经组合根注入（qa 配置/指标台账/术语台账/FAQ
 索引/报告索引——B9 同款运行期只见 callable）＋A1 会话料源缝收口（faq
-session_loader 注入 chat.recent_qa_pairs——P1-06 疑点 6，装配即通）。
+session_loader 注入 chat.recent_qa_pairs——P1-06 疑点 6，装配即通）。P1-08b
+起三链链体点亮（A1 主链第二拍）：检索瀑布链（D2 生效配置驱动 S0–S7 全链——
+三级开关/命中即停/双路并发/RRF/精排三档/资格裁决/权威回读/citation
+fail-closed/兜底两策）＋FAQ 秒回链（直出＋no_model）＋图谱问答链（真 Neo4j
+邻域检索——graph_searcher 缝填入）；kb 增 index_search_dual/fragment_anchor
+读面与 hit_text pg_trgm GIN 索引（Alembic 0010 并行），faq 增 search_similar
+扩检读面；chat 链内 LLM 只走注入 completer（B6——gateway.complete 别名
+petro-main）。
 
 建表与迁移的交接（P0-08 票面）：ensure_*_table 与 Alembic 并行存活，
 本票不切换——各域切换迁移属各域票（基线空迁移见 migrations/versions/0001）。
 """
 
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI
 
@@ -57,10 +66,11 @@ from app.api.wiki import router as wiki_router
 from app.domains.chat import (
     ChatService,
     FaqHitFace,
+    FragmentAnchorFace,
     GraphHitFace,
     IndexHitFace,
     MetricFace,
-    QaBehaviorFace,
+    RetrievalConfigFace,
     TermFace,
 )
 from app.domains.chat.store import ensure_chat_tables
@@ -86,6 +96,8 @@ from app.infra.eventbus import InMemoryEventBus, ensure_outbox_table
 from app.infra.graph_store import Neo4jGraphStore
 from app.infra.llm_client import LlmClient
 from app.infra.object_storage import MinioObjectStorage
+
+LOGGER = logging.getLogger("main")
 
 
 @asynccontextmanager
@@ -170,15 +182,30 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         corpus: list[str] = list(await app.state.kb.dedup_corpus())
         return corpus
 
-    # chat 域读缝（P1-08a——B9 同款：运行期只见 callable，不 import 各域）：
-    # qa 配置（retrieval.effective_config 投影 qa_behavior 五字段）/指标台账/术语
-    # 台账（semantics 读接口——B5 边界：六路匹配器必须走 semantics 读口）/
-    # FAQ 索引（faq.match_index——lazy 绑定，faq 在本域之后装配）/报告索引
-    # （kb.index_search——向量＋trigram 两腿，P1-08a 新读面）。
-    async def qa_config_loader() -> QaBehaviorFace:
+    # chat 域读缝（P1-08a 立缝、P1-08b 三链填肉——B9 同款：运行期只见 callable，
+    # 不 import 各域）：D2 生效配置（retrieval.effective_config 全量投影——检索链
+    # 六配置节消费）/指标台账/术语台账（semantics 读接口——B5 边界：六路匹配器
+    # 必须走 semantics 读口）/FAQ 索引（faq.match_index 精确路＋search_similar
+    # 扩检路——lazy 绑定，faq 在本域之后装配）/报告索引（kb.index_search 装配
+    # 合并路＋index_search_dual 双路——向量＋trigram 两腿，P1-08b 检索链 S4）/
+    # 图谱缝（08b 起真图检索：图开关开启的库逐座读整图、问句实体匹配一跳邻域）/
+    # 片段锚校验（kb.fragment_anchor——citation fail-closed）。
+    async def retrieval_config_loader() -> RetrievalConfigFace:
         snapshot = await app.state.retrieval.effective_config()
-        qa = snapshot.qa_behavior
-        return QaBehaviorFace(
+        order, params, qa = snapshot.order, snapshot.params, snapshot.qa_behavior
+        return RetrievalConfigFace(
+            order_levels=(
+                order.levels[0].enabled, order.levels[1].enabled, order.levels[2].enabled,
+            ),
+            early_stop=order.early_stop,
+            semantic_top_k=params.semantic_top_k,
+            keyword_top_k=params.keyword_top_k,
+            merge=params.merge,
+            top_n=params.top_n,
+            rerank=snapshot.rerank,
+            citation_format=snapshot.citation_format,
+            fallback_strategy=snapshot.fallback.strategy,
+            fallback_text=snapshot.fallback.text,
             faq_direct_hit=qa.faq_direct_hit,
             refuse_threshold=qa.refuse_threshold,
             clarify_strategy=qa.clarify_strategy,
@@ -219,30 +246,98 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             return None
         return FaqHitFace(entry_id=hit.entry_id, question=hit.question, answer=hit.answer)
 
+    async def faq_searcher(text: str, top_k: int) -> list[FaqHitFace]:
+        hits = await app.state.faq.search_similar(text, top_k)
+        return [
+            FaqHitFace(entry_id=h.entry_id, question=h.question, answer=h.answer, score=h.score)
+            for h in hits
+        ]
+
     async def index_searcher(question: str) -> list[IndexHitFace]:
         hits = await app.state.kb.index_search(question)
         return [
             IndexHitFace(
                 fragment_id=h.fragment_id, report_id=h.report_id, report=h.report,
                 section=h.section, snippet=h.snippet, score=h.score, leg=h.leg,
+                text=h.text,
             )
             for h in hits
         ]
 
-    async def graph_searcher_stub(question: str) -> list[GraphHitFace]:
-        # 图谱缝（票面：08b 前落空——08b 图谱问答链接线时注入真图检索面）
-        del question
-        return []
+    async def index_searcher_dual(
+        question: str, vector_top_k: int, keyword_top_k: int
+    ) -> tuple[list[IndexHitFace], list[IndexHitFace]]:
+        vector, keyword = await app.state.kb.index_search_dual(
+            question, vector_top_k=vector_top_k, keyword_top_k=keyword_top_k
+        )
+        def _face(h: Any) -> IndexHitFace:
+            return IndexHitFace(
+                fragment_id=h.fragment_id, report_id=h.report_id, report=h.report,
+                section=h.section, snippet=h.snippet, score=h.score, leg=h.leg,
+                text=h.text,
+            )
+        return [_face(h) for h in vector], [_face(h) for h in keyword]
+
+    async def fragment_anchor_loader(fragment_id: str) -> FragmentAnchorFace | None:
+        anchor = await app.state.kb.fragment_anchor(fragment_id)
+        if anchor is None:
+            return None
+        return FragmentAnchorFace(
+            fragment_id=anchor.fragment_id, report_id=anchor.report_id,
+            report=anchor.report, section=anchor.section,
+        )
+
+    async def graph_searcher(question: str) -> list[GraphHitFace]:
+        """图谱缝真检索（P1-08b——图谱问答链候选源＋边出处）：图开关开启的库逐
+        座读整图，问句中出现的实体取一跳邻域边（F45 遍历深度 1 跳——阶段 1 演示
+        量级）。图存储不可用记告警不阻断问答（B5 端点语义不变——管理面显式抛错）。"""
+        needle = question
+        faces: list[GraphHitFace] = []
+        try:
+            for lib in await app.state.kb.list_libraries(graph="on"):
+                net = await app.state.graph.read_net(lib.id)
+                matched = {
+                    str(node.get("id", ""))
+                    for node in net.get("nodes", [])
+                    if str(node.get("id", "")) in needle
+                    or str(node.get("short", "")) in needle
+                    or str(node.get("label", "")) in needle
+                }
+                matched.discard("")
+                for edge in net.get("edges", []):
+                    if edge.get("from") in matched:
+                        faces.append(GraphHitFace(
+                            entity=str(edge.get("from", "")),
+                            relation=f"{edge.get('rel', '')} → {edge.get('to', '')}",
+                            evidence=str(edge.get("evidence") or "") or None,
+                            source_chunk_id=str(edge.get("chunk_id") or "") or None,
+                            source_report_id=str(edge.get("report_id") or "") or None,
+                        ))
+                    elif edge.get("to") in matched:
+                        faces.append(GraphHitFace(
+                            entity=str(edge.get("to", "")),
+                            relation=f"{edge.get('rel', '')} ← {edge.get('from', '')}",
+                            evidence=str(edge.get("evidence") or "") or None,
+                            source_chunk_id=str(edge.get("chunk_id") or "") or None,
+                            source_report_id=str(edge.get("report_id") or "") or None,
+                        ))
+        except Exception:  # 图存储不可用不阻断问答（告警留痕）
+            LOGGER.warning("chat 图谱缝检索不可用——按落空处理（B9 缝）", exc_info=True)
+        return faces[:8]
 
     app.state.chat = ChatService(
         manager,
         audit=app.state.security,  # B12：chat.ask.received/blocked（受理/拦截留痕）
-        qa_config_loader=qa_config_loader,
+        config_loader=retrieval_config_loader,
         metrics_loader=metrics_loader,
         terms_loader=terms_loader,
         faq_matcher=faq_matcher,
+        faq_searcher=faq_searcher,
         index_searcher=index_searcher,
-        graph_searcher=graph_searcher_stub,  # 08b 前恒空（票面：图谱缝 08b 前落空）
+        index_searcher_dual=index_searcher_dual,
+        graph_searcher=graph_searcher,  # 08b 起真图检索（B9 同款只见 callable）
+        anchor_loader=fragment_anchor_loader,  # citation fail-closed 校验缝
+        completer=app.state.gateway,  # B6：链内生成/打分只走 gateway.complete
     )
 
     app.state.faq = FaqService(

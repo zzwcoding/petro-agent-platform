@@ -331,14 +331,23 @@ KB_TABLES: tuple[type[Base], ...] = (
 
 
 async def ensure_kb_tables(engine: AsyncEngine) -> None:
-    """建表函数（幂等 checkfirst；PG 先 CREATE EXTENSION vector——pgvector 列前提）。"""
+    """建表函数（幂等 checkfirst；PG 先 CREATE EXTENSION vector——pgvector 列前提；
+    P1-08b 起并建 pg_trgm 扩展＋hit_text GIN 索引——倒排关键词路物理落法，与
+    Alembic 0010 双轨同形）。"""
     async with engine.begin() as conn:
         if engine.dialect.name == "postgresql":
             await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
     for model in KB_TABLES:
         table = cast("Table", model.__table__)
         async with engine.begin() as conn:
             await conn.run_sync(table.create, checkfirst=True)
+    if engine.dialect.name == "postgresql":
+        async with engine.begin() as conn:
+            await conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_kb_fragment_hit_text_trgm "
+                "ON kb_fragment USING gin (hit_text gin_trgm_ops)"
+            ))
 
 
 # ---------- 仓储（会话编排；语义在 service/domain） ----------

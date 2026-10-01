@@ -1,8 +1,9 @@
 """domains.chat.service —— A1 问一问编排引擎：四层流水线全在服务端（F56）。
 
-公开面照 98 §3.1 卡骨架拍（P1-08a）：ask（统一入口无旁路——POST /api/chat/asks）
-＋resume（interrupt 决策回流——POST /api/chat/runs/{run_id}/resume）＋运行时读
-recent_qa_pairs（B3 扫库料源——session_loader 注入位，P1-06 疑点 6 收口）。
+公开面照 98 §3.1 卡（P1-08a 骨架拍＋P1-08b 三链拍）：ask（统一入口无旁路——
+POST /api/chat/asks）＋resume（interrupt 决策回流——POST /api/chat/runs/
+{run_id}/resume）＋运行时读 recent_qa_pairs（B3 扫库料源——session_loader
+注入位，P1-06 疑点 6 收口）。
 
 四层流水线（F56①→④）：
   ①统一安检：注入扫描/禁用词索引/身份与数据域——字面规则任一 ✗ 拦截出终局
@@ -10,28 +11,33 @@ recent_qa_pairs（B3 扫库料源——session_loader 注入位，P1-06 疑点 6
   ②知识装配：@ 前门直取（取不到＝落空拒答）＋六路匹配器并行查表共池——词级
     全扫全收集（不存在「命中就停」漏词）；被 @ 的一路不过匹配器、其他五路照跑；
     落空进建议池（F60 晋升闸：孤例不进池）。
-  ③意图裁决：骨架期＝确定性路由（FAQ 精确命中＋faq_direct_hit→FAQ直出链；
-    口径两译未消歧→澄清帧挂起；其余→检索问答链）——真实裁决唯一真源＝D2 模型
-    （闭世界 17 链枚举·结构化输出），随 P1-08b 接线（skeleton 标注随帧下发）。
-  ④执行链分发：17 链闭世界分派；三链分派缝（检索/FAQ 秒回/图谱问答）08b 填，
+  ③意图裁决：D2 当前生效配置驱动——FAQ 直出闸（faq_direct_hit）/口径两译澄清
+    （clarify_strategy=ask_missing）/图谱关系问句路由/置信度真实计算（检索得分
+    ＋装配信号，D2 confidence_thresholds 档位：低 <low 必弹澄清帧——多候选在
+    场弹候选澄清帧，无候选直派检索链走兜底）。
+  ④执行链分发：17 链闭世界分派；检索/FAQ 秒回/图谱问答三链链体见 chains.py，
     未实现链回「该能力暂未开通」话术。
 
-澄清帧有界循环（F56）：最多弹一次、两跳到终态（默认口径或拒答）——挂起帧写入
-chat_run.pending_interrupt（clarify_count CHECK 0–1 存储强制）；回流带参重过安检
-（不免检）→ 带参重判 → 续推；第二次 clarify 一律 409。
+澄清帧有界循环（F56）：最多弹一次、两跳到终态（默认口径/锁定候选/拒答）——
+挂起帧写入 chat_run.pending_interrupt（clarify_count CHECK 0–1 存储强制）；
+回流带参重过安检（不免检）→ 带参重判 → 续推；第二次 clarify 一律 409。
+挂起帧 subtype＝caliber（口径两译——默认口径项 primary）｜candidates（低置信
+多候选——无默认项，不选＝拒答终态，宁可不答不瞎猜）。
 
-LLM 出口（B6）：骨架期四层流水线零 LLM 依赖（冒烟零成本）——D2 模型裁决与检
-索链生成随 P1-08b 经 gateway.complete 接线，本文件不 import gateway。
+LLM 出口（B6）：链内生成/打分只走注入 completer（生产＝GatewayService.complete，
+别名 petro-main）——四层流水线的安检/装配/裁决零 LLM 依赖。
 """
 
 from __future__ import annotations
 
 import logging
 from collections.abc import AsyncIterator
+from functools import partial
 from typing import Any, Protocol
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domains.chat import chains as chains_mod
 from app.domains.chat import domain as d
 from app.domains.chat.store import ChatRunRow, ChatStore
 from app.domains.security.domain import ROLE_REGISTRY, AuditRow
@@ -39,7 +45,7 @@ from app.infra.clock import now
 
 LOGGER = logging.getLogger("domains.chat")
 
-# 报告索引命中档线与候选入池上限（骨架实施值——常量集中可调）。
+# 报告索引命中档线与候选入池上限（装配层实施值——常量集中可调）。
 INDEX_HIGH_FLOOR = 0.5
 INDEX_CANDIDATE_MAX = 4
 
@@ -63,10 +69,11 @@ class AuditSink(Protocol):
 
 
 class ChatService:
-    """chat 域服务（编排；合同语义在 domain.py，持久在 store.py）。
+    """chat 域服务（编排；合同语义在 domain.py，三链链体在 chains.py，持久在 store.py）。
 
     域读缝经组合根注入（B9 同款——运行期只见 callable，不 import
-    retrieval/semantics/faq/kb）：qa 配置/指标台账/术语台账/FAQ 索引/报告索引。
+    retrieval/semantics/faq/kb/gateway）：D2 生效配置/指标台账/术语台账/FAQ 索
+    引（精确＋扩检）/报告索引（装配合并路＋链内双路）/图谱缝/片段锚校验/LLM 出口。
     """
 
     def __init__(
@@ -74,26 +81,48 @@ class ChatService:
         db: Any,
         *,
         audit: AuditSink | None = None,
-        qa_config_loader: d.QaConfigLoader,
+        config_loader: d.ConfigLoader,
         metrics_loader: d.MetricsLoader,
         terms_loader: d.TermsLoader,
         faq_matcher: d.FaqMatcher,
+        faq_searcher: d.FaqSearcher,
         index_searcher: d.IndexSearcher,
+        index_searcher_dual: d.IndexSearcherDual,
         graph_searcher: d.GraphSearcher | None = None,
+        anchor_loader: d.FragmentAnchorLoader | None = None,
+        completer: d.Completer | None = None,
     ) -> None:
         self._db = db
         self._audit = audit
-        self._qa_config_loader = qa_config_loader
+        self._config_loader = config_loader
         self._metrics_loader = metrics_loader
         self._terms_loader = terms_loader
         self._faq_matcher = faq_matcher
+        self._faq_searcher = faq_searcher
         self._index_searcher = index_searcher
+        self._index_searcher_dual = index_searcher_dual
         self._graph_searcher = graph_searcher
+        self._anchor_loader = anchor_loader
         self._store = ChatStore(db)
         self._dispatcher = d.ChainDispatcher()
         self._suggestions = d.SuggestionPool()
+        self._deps = chains_mod.ChainDeps(
+            config_loader=config_loader,
+            metrics_loader=metrics_loader,
+            terms_loader=terms_loader,
+            faq_matcher=faq_matcher,
+            faq_searcher=faq_searcher,
+            index_searcher_dual=index_searcher_dual,
+            graph_searcher=self._search_graph,
+            anchor_loader=self._load_anchor,
+            completer=completer,
+        )
+        # 三链填肉（P1-08b——分派缝注册面；链体只见 ChainDeps 注入缝）。
+        self._dispatcher.register("检索问答链", partial(chains_mod.retrieval_chain, self._deps))
+        self._dispatcher.register("FAQ直出链", partial(chains_mod.faq_direct_chain, self._deps))
+        self._dispatcher.register("图谱问答链", partial(chains_mod.graph_chain, self._deps))
 
-    # ---------- 分派缝注册面（08b 三链填肉入口）／建议池观测 ----------
+    # ---------- 分派缝观测面／建议池观测 ----------
 
     @property
     def dispatcher(self) -> d.ChainDispatcher:
@@ -173,7 +202,6 @@ class ChatService:
             return
 
         # —— ② 知识装配（@ 前门直取＋六路匹配器全扫全收集）——
-        qa = await self._qa_config_loader()
         try:
             assembly = await self._assemble(text, anchors)
         except d.ChatParamError as exc:
@@ -209,9 +237,10 @@ class ChatService:
             "chains": list(d.CHAIN17),
         })
 
-        # —— ③ 意图裁决（骨架期确定性路由；D2 模型裁决随 08b 接线）——
+        # —— ③ 意图裁决（D2 当前生效配置驱动；置信度真实计算）——
         yield d.SseEvent(d.FRAME_STAGE, {"stage": 2})
-        verdict = self._skeleton_verdict(text, assembly, qa)
+        cfg = await self._config_loader()
+        verdict = self._verdict(text, assembly, cfg)
         await self._record_verdict(run, verdict)
         yield d.SseEvent(d.FRAME_VERDICT, _wire_verdict(verdict))
         if verdict.get("need_clarify") is True:
@@ -224,8 +253,9 @@ class ChatService:
             return
 
         # —— ④ 执行链分发（17 链闭世界；未实现链回未开通话术）——
-        outcome = await self._dispatch_chain(str(verdict["chain"]), run, text, actor_who, assembly)
-        async for event in self._emit_outcome(outcome, run, session.id, verdict):
+        async for event in self._run_chain(
+            str(verdict["chain"]), run, text, actor_who, assembly, verdict=verdict
+        ):
             yield event
 
     # ---------- POST /api/chat/runs/{run_id}/resume（interrupt 决策回流） ----------
@@ -243,7 +273,7 @@ class ChatService:
                 raise d.ChatParamError("Action 链驳回必须写理由（N12「须写理由的驳回」）")
             raise d.ChatRunStateError(
                 f"run 非 interrupt 挂起态：{run_id}（status={run.status}）"
-                "——审批挂起骨架期未产生（extable/action 链随 08b/后续批）"
+                "——审批挂起未产生（extable/action 链随后续批）"
             )
         if run.status != "interrupt_clarify":
             raise d.ChatRunStateError(
@@ -256,31 +286,61 @@ class ChatService:
         self, run_id: str, *, kind: str, choice: str | None, decision: str | None,
         reason: str | None, actor_who: str,
     ) -> AsyncIterator[d.SseEvent]:
-        """澄清续推（骨架期唯一 interrupt 形态；approval 挂起骨架期不产生）。
+        """澄清续推（interrupt 形态：caliber 口径两译｜candidates 低置信多候选）。
 
-        - 带 choice → 并入原问句上下文（输入严格变多）→ 重过安检（不免检）→
-          带参重判 → 续推；
-        - 有界循环：clarify_count 已 1（CHECK 0–1）时不再弹帧——两跳终态走默认
-          口径锁定（notice）后照常分派；
-        - approval 形态：骨架期无审批挂起 run——非 interrupt_approval 态一律 409。
+        - caliber：带 choice → 并入原问句上下文（输入严格变多）→ 重过安检（不
+          免检）→ 带参重判 → 续推；不选＝默认口径项（primary）。
+        - candidates：带 choice → 锁定候选并入问句（焦点）→ 重判续推；不选＝
+          拒答终态（「宁可不答、不瞎猜」——缺的是用户意图，不代选）。
+        - 有界循环：clarify_count 已 1（CHECK 0–1）时不再弹帧——两跳终态走
+          默认口径/锁定候选后照常分派；第二次 clarify 一律 409。
+        - approval 形态：无审批挂起 run——非 interrupt_approval 态一律 409。
         """
         run = await self.resume_preflight(run_id, kind=kind, decision=decision, reason=reason)
         pending = run.pending_interrupt or {}
         frame = _frame_from_interrupt(pending)
         if frame is None:
             raise d.ChatRunStateError(f"run 挂起帧不可解析：{run_id}")
-        chosen = d.caliber_choice_value(choice, frame)
-        if chosen is None:
-            raise d.ChatParamError(
-                f"澄清选项无效：{choice!r}（可选：{'、'.join(c.value for c in frame.choices)}）"
+        subtype = str(pending.get("subtype") or "caliber")
+        base_question = str(pending.get("question") or "")
+        caliber_name: str | None = None
+        locked_candidate: str | None = None
+        if subtype == "candidates":
+            if choice and choice.strip():
+                if choice not in {c.value for c in frame.choices}:
+                    raise d.ChatParamError(
+                        f"澄清选项无效：{choice!r}"
+                        f"（可选：{'、'.join(c.value for c in frame.choices)}）"
+                    )
+                locked_candidate = choice
+                merged = base_question + (
+                    "" if d.normalize_query(choice) in d.normalize_query(base_question)
+                    else f"（焦点＝{choice}）"
+                )
+                run.status = "running"
+                run.pending_interrupt = None
+                await self._store.save_run(run)
+                question = merged
+            else:
+                # 不选≠卡死：候选澄清无默认项——拒答终态（两跳到终态防卡死）。
+                question = None
+        else:
+            chosen = d.caliber_choice_value(choice, frame)
+            if chosen is None:
+                raise d.ChatParamError(
+                    f"澄清选项无效：{choice!r}（可选：{'、'.join(c.value for c in frame.choices)}）"
+                )
+            question, run, metric = await self._reload_clarify_context(run, pending, chosen)
+            caliber_name = (
+                d.caliber_name_from_value(chosen, metric) if metric is not None
+                else chosen.removeprefix("默认口径 ")
             )
-        question, run, metric = await self._reload_clarify_context(run, pending, chosen)
-        caliber_name = (
-            d.caliber_name_from_value(chosen, metric) if metric is not None
-            else chosen.removeprefix("默认口径 ")
-        )
         await self._audit_received(
-            actor_who, run.id, f"澄清回流：{question}（口径锁定＝{caliber_name}）"
+            actor_who, run.id,
+            f"澄清回流：{base_question}（"
+            + (f"候选锁定＝{locked_candidate}" if locked_candidate
+               else "未选择——拒答终态" if question is None
+               else f"口径锁定＝{caliber_name}") + "）",
         )
 
         yield d.SseEvent(d.FRAME_SESSION, {
@@ -293,7 +353,22 @@ class ChatService:
             yield d.SseEvent(d.FRAME_SEC_CHECK, {
                 "seq": seq, "name": name, "result": "pass", "note": "澄清带参复检（不免检）",
             })
-        qa = await self._qa_config_loader()
+        if question is None:
+            cfg = await self._config_loader()
+            yield d.SseEvent(d.FRAME_NOTICE, {
+                "level": "info",
+                "text": "未选择候选——按「宁可不答、不瞎猜」铁律拒答（澄清帧两跳到终态）。",
+            })
+            answer = {"kind": "alert", "alert_type": "warning", "text": cfg.fallback_text}
+            yield d.SseEvent(d.FRAME_ANSWER, answer)
+            yield d.SseEvent(d.FRAME_DONE, {})
+            await self._store.append_message(
+                run.session_id, role="assistant", text=str(answer["text"]),
+                run_id=run.id, answer=answer,
+            )
+            await self._store.touch_session(run.session_id)
+            await self._finish_run(run, verdict=None)
+            return
         assembly = await self._assemble(question, [])
         for lane in assembly.lanes:
             data: dict[str, Any] = {"matcher": lane.matcher, "status": lane.status}
@@ -310,25 +385,36 @@ class ChatService:
             "chains": list(d.CHAIN17),
         })
         yield d.SseEvent(d.FRAME_STAGE, {"stage": 2})
-        verdict = self._skeleton_verdict(question, assembly, qa)
+        cfg = await self._config_loader()
+        verdict = self._verdict(question, assembly, cfg)
         if verdict.get("need_clarify") is True:
-            # 两跳到终态（默认口径或拒答）——不再弹澄清帧（有界循环：最多弹一次）。
-            verdict = {
-                "chain": "检索问答链", "slots": assembly.slots,
-                "confidence": d.CLARIFY_CONFIDENCE, "need_clarify": False,
-            }
-            yield d.SseEvent(d.FRAME_NOTICE, {
-                "level": "info",
-                "text": f"已按默认口径「{caliber_name}」锁定并标注——澄清帧有界循环"
-                        "（最多弹一次），两跳到终态。",
-            })
+            # 两跳到终态（默认口径/锁定候选）——不再弹澄清帧（有界循环：最多弹一次）。
+            if subtype == "candidates":
+                verdict = {
+                    "chain": "检索问答链", "slots": assembly.slots,
+                    "confidence": d.CLARIFY_LOCKED_CONFIDENCE, "need_clarify": False,
+                }
+                yield d.SseEvent(d.FRAME_NOTICE, {
+                    "level": "info",
+                    "text": f"已按你选定的候选「{locked_candidate}」锁定并继续——澄清帧有界循环"
+                            "（最多弹一次），两跳到终态。",
+                })
+            else:
+                verdict = {
+                    "chain": "检索问答链", "slots": assembly.slots,
+                    "confidence": d.CLARIFY_CONFIDENCE, "need_clarify": False,
+                }
+                yield d.SseEvent(d.FRAME_NOTICE, {
+                    "level": "info",
+                    "text": f"已按默认口径「{caliber_name}」锁定并标注——澄清帧有界循环"
+                            "（最多弹一次），两跳到终态。",
+                })
         await self._record_verdict(run, verdict)
         yield d.SseEvent(d.FRAME_VERDICT, _wire_verdict(verdict))
-        outcome = await self._dispatch_chain(
+        async for event in self._run_chain(
             str(verdict["chain"]), run, question, actor_who, assembly,
-            clarified_caliber=caliber_name,
-        )
-        async for event in self._emit_outcome(outcome, run, run.session_id, verdict):
+            verdict=verdict, clarified_caliber=caliber_name,
+        ):
             yield event
 
     # ---------- 会话料源读口（B3 扫库消费——faq session_loader 注入位） ----------
@@ -481,14 +567,14 @@ class ChatService:
             mark("报告索引", hit=False, confidence=None, note="向量＋关键词两腿未命中")
             self._suggestions.record_miss("报告索引", question)
 
-        # 图谱缝（票面：08b 前落空——非 F56 六路匹配器，不发 match 帧；
-        # 候选共池、落空进建议池；08b 图谱问答链接线时组合根注入真图检索）
+        # 图谱缝（P1-08b 组合根注入真图检索——非 F56 六路匹配器，不发 match 帧；
+        # 候选共池、落空进建议池；图谱问答链消费）
         graph_hits = list(await self._search_graph(question))
         if graph_hits:
             for gh in graph_hits[:INDEX_CANDIDATE_MAX]:
                 candidates.append(d.Candidate(
                     "图谱", f"{gh.entity}（{gh.relation}）", "high", "graph",
-                    note=gh.evidence or "图谱缝命中——08b 图谱问答链消费",
+                    note=gh.evidence or "图谱缝命中——图谱问答链消费",
                 ))
             slots_parts.append(f"图谱＝{graph_hits[0].entity}")
         else:
@@ -523,13 +609,22 @@ class ChatService:
             candidates=candidates,
             lanes=lanes,
             ambiguous_metric=ambiguous_metric,
+            faq_hit=faq_hit,
+            index_hits=index_hits,
+            graph_hits=graph_hits,
         )
 
     async def _search_graph(self, question: str) -> list[d.GraphHitFace]:
-        """图谱缝检索（08b 前落空——组合根未注入时恒空；票面「图谱〔08b 前落空〕」）。"""
+        """图谱缝检索（组合根注入真图检索；未注入时恒空——候选共池落空）。"""
         if self._graph_searcher is None:
             return []
         return list(await self._graph_searcher(question))
+
+    async def _load_anchor(self, fragment_id: str) -> d.FragmentAnchorFace | None:
+        """片段锚校验缝（fail-closed——组合根注入 kb.fragment_anchor）。"""
+        if self._anchor_loader is None:
+            return None
+        return await self._anchor_loader(fragment_id)
 
     async def _resolve_anchor(self, asset_type: str, name: str) -> bool:
         """@ 资产直取（服务端按主键/名称直取——取不到＝落空拒答）。
@@ -552,23 +647,26 @@ class ChatService:
             return await self._faq_matcher(name) is not None
         return False
 
-    # ---------- ③ 意图裁决（骨架期确定性路由——D2 模型裁决随 08b 接线） ----------
+    # ---------- ③ 意图裁决（D2 当前生效配置驱动；置信度真实计算） ----------
 
-    def _skeleton_verdict(
-        self, question: str, assembly: d.AssemblyResult, qa: d.QaBehaviorFace
+    def _verdict(
+        self, question: str, assembly: d.AssemblyResult, cfg: d.RetrievalConfigFace
     ) -> dict[str, Any]:
-        """骨架裁决 JSON（F56③ 形状 {chain, slots, confidence, need_clarify[, clarify_frame]}）。
+        """裁决 JSON（F56③ 形状 {chain, slots, confidence, need_clarify[, clarify_frame]}）。
 
+        路由（闭世界 17 链——确定性信号序）：
         - FAQ 精确命中＋faq_direct_hit 开 → FAQ直出链（秒回闸——D2 运行时消费归 A1）；
         - 口径两译未消歧（ambiguous 台账命中且问句未点口径支名）→ need_clarify、
-          chain null（裁决未定）、confidence 低——clarify_strategy 消费（非
-          ask_missing 档骨架期不开闸；现值唯一档 ask_missing）；
-        - 其余 → 检索问答链（A1 主链——08b 检索瀑布链体）。
+          chain null（裁决未定）——clarify_strategy 消费（ask_missing 档开闸）；
+        - 图谱缝命中＋关系问句信号（或报告索引未命中）→ 图谱问答链；
+        - 其余按置信度真实计算（检索得分＋装配信号）：低 <low 必弹澄清帧（F56
+          拍板口径）——候选在场弹候选澄清帧（S6 资格裁决），无候选直派检索链
+          走兜底（refuse_threshold 消费）。
 
-        `_clarify`/`_clarify_metric` 为域内随行键——wire 前经 _wire_verdict 剥除。
+        `_clarify`/`_clarify_metric`/`_clarify_subtype` 为域内随行键——wire 前经
+        _wire_verdict 剥除。
         """
-        faq_candidate = next((c for c in assembly.candidates if c.kind == "faq"), None)
-        if faq_candidate is not None and qa.faq_direct_hit:
+        if assembly.faq_hit is not None and cfg.faq_direct_hit:
             return {
                 "chain": "FAQ直出链", "slots": assembly.slots,
                 "confidence": d.FAQ_ROUTE_CONFIDENCE, "need_clarify": False,
@@ -576,7 +674,7 @@ class ChatService:
         ambiguous = assembly.ambiguous_metric
         if (
             ambiguous is not None
-            and qa.clarify_strategy == "ask_missing"
+            and cfg.clarify_strategy == "ask_missing"
             and not _mentions_caliber(question, ambiguous)
         ):
             frame = d.build_caliber_clarify(ambiguous, frame_id=f"clarify-{now():%H%M%S%f}")
@@ -588,40 +686,75 @@ class ChatService:
                     "_clarify": frame,
                     "_clarify_metric": {"metric_id": ambiguous.metric_id,
                                         "slot_name": ambiguous.slot_name},
+                    "_clarify_subtype": "caliber",
+                }
+        if (
+            assembly.graph_hits
+            and (d.is_relation_question(question) or not assembly.index_hits)
+        ):
+            return {
+                "chain": "图谱问答链", "slots": assembly.slots,
+                "confidence": d.GRAPH_ROUTE_CONFIDENCE, "need_clarify": False,
+            }
+        best_score = max((h.score for h in assembly.index_hits), default=0.0)
+        ledger_hit = any(c.kind in ("metric", "term") for c in assembly.candidates)
+        value = d.compute_confidence(
+            anchored=bool(assembly.anchor_line), ledger_hit=ledger_hit,
+            faq_hit=False, best_index_score=best_score,
+        )
+        label = d.confidence_label(
+            value, high=cfg.confidence_high, low=cfg.confidence_low,
+            best_score=best_score, anchored=bool(assembly.anchor_line),
+            ledger_hit=ledger_hit,
+        )
+        if value < cfg.confidence_low:
+            frame = d.build_candidate_clarify(
+                assembly.candidates, frame_id=f"clarify-{now():%H%M%S%f}"
+            )
+            if frame is not None:
+                return {
+                    "chain": None, "slots": assembly.slots,
+                    "confidence": label, "need_clarify": True,
+                    "clarify_frame": frame.question,
+                    "_clarify": frame,
+                    "_clarify_subtype": "candidates",
                 }
         return {
             "chain": "检索问答链", "slots": assembly.slots,
-            "confidence": d.SKELETON_ROUTE_CONFIDENCE, "need_clarify": False,
+            "confidence": label, "need_clarify": False,
         }
 
     # ---------- ④ 执行链分发与收场 ----------
 
-    async def _dispatch_chain(
+    async def _run_chain(
         self, chain: str, run: ChatRunRow, question: str, actor_who: str,
-        assembly: d.AssemblyResult, *, clarified_caliber: str | None = None,
-    ) -> d.ChainOutcome:
-        return await self._dispatcher.dispatch(
-            chain,
-            d.ChainContext(
-                run_id=run.id, question=question, actor_who=actor_who, assembly=assembly,
-                clarified_caliber=clarified_caliber,
-            ),
-        )
-
-    async def _emit_outcome(
-        self, outcome: d.ChainOutcome, run: ChatRunRow, session_id: str,
-        verdict: dict[str, Any],
+        assembly: d.AssemblyResult, *, verdict: dict[str, Any],
+        clarified_caliber: str | None = None,
     ) -> AsyncIterator[d.SseEvent]:
+        """链体帧流透传＋收场（stage(3) → 链内帧 → answer → done；答案落会话历史）。"""
         yield d.SseEvent(d.FRAME_STAGE, {"stage": 3})
-        for line in outcome.notices:
-            yield d.SseEvent(d.FRAME_NOTICE, {"level": "info", "text": line})
-        yield d.SseEvent(d.FRAME_ANSWER, outcome.answer)
+        answer: dict[str, Any] | None = None
+        ctx = d.ChainContext(
+            run_id=run.id, question=question, actor_who=actor_who, assembly=assembly,
+            clarified_caliber=clarified_caliber,
+        )
+        async for event in self._dispatcher.dispatch(chain, ctx):
+            if event.event == d.FRAME_ANSWER:
+                answer = event.data
+            yield event
+        if answer is None:
+            # 链体未产 answer 帧（注桩缺陷/异常安全网）——不收场不带病。
+            answer = {
+                "kind": "alert", "alert_type": "error",
+                "text": "链内未产出答案——请重新提问。",
+            }
+            yield d.SseEvent(d.FRAME_ANSWER, answer)
         yield d.SseEvent(d.FRAME_DONE, {})
         await self._store.append_message(
-            session_id, role="assistant", text=_answer_text(outcome.answer),
-            run_id=run.id, answer=outcome.answer,
+            run.session_id, role="assistant", text=_answer_text(answer),
+            run_id=run.id, answer=answer,
         )
-        await self._store.touch_session(session_id)
+        await self._store.touch_session(run.session_id)
         await self._finish_run(run, verdict=verdict)
 
     # ---------- 运行状态与挂起帧（chat_run 状态机——澄清有界循环存储强制） ----------
@@ -631,8 +764,8 @@ class ChatService:
     ) -> None:
         """澄清挂起（interrupt_clarify——pending_interrupt 落帧；clarify_count +1）。
 
-        载荷携原问句与口径面（resume 带参重判的上下文——输入严格变多）；
-        clarify_count CHECK 0–1 是「最多弹一次」的存储强制。
+        载荷携原问句、挂起帧与 subtype（caliber｜candidates）——resume 带参重判的
+        上下文（输入严格变多）；clarify_count CHECK 0–1 是「最多弹一次」的存储强制。
         """
         clarify = verdict.get("_clarify")
         if not isinstance(clarify, d.ClarifyFrame) or run.clarify_count >= d.CLARIFY_MAX_POPUPS:
@@ -641,6 +774,7 @@ class ChatService:
         run.clarify_count = run.clarify_count + 1
         run.pending_interrupt = {
             "kind": "clarify",
+            "subtype": str(verdict.get("_clarify_subtype") or "caliber"),
             "frame": _clarify_wire(clarify),
             "question": question,
             "metric": dict(verdict.get("_clarify_metric") or {"metric_id": None}),

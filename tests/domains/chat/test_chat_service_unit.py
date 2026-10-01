@@ -1,20 +1,28 @@
-"""chat 域服务单测——四层流水线（安检→六路装配→裁决→分派）＋澄清有界循环＋
-会话料源写口＋B12 审计。
+"""chat 域服务单测——四层流水线（安检→六路装配→裁决→分派）＋三链分派＋澄清
+有界循环（caliber/candidates 双子类型）＋会话料源写口＋B12 审计。
 
 sqlite 底座（tests/domains/chat/conftest.py）＋假缝驱动（98 §3.1 测试计划）；
-骨架期零 LLM 依赖（B6 出口随 P1-08b 接线——本文件不触 gateway）。
+链内 LLM 走 completer 桩（B6——生产＝GatewayService.complete）。
 """
 
+from dataclasses import replace
 from typing import Any
 
 import pytest
 
 from app.domains.chat import ChatRunNotFoundError, ChatRunStateError, ChatService
 from app.domains.chat import domain as d
-from app.domains.chat.domain import MetricFace, QaBehaviorFace
+from app.domains.chat.domain import MetricFace
 from app.domains.chat.store import ChatStore
 from app.infra.db import ConnectionManager
-from tests.domains.chat.conftest import AQIANG, Seams, collect, default_metrics, make_service
+from tests.domains.chat.conftest import (
+    AQIANG,
+    DEFAULT_CONFIG,
+    Seams,
+    collect,
+    default_metrics,
+    make_service,
+)
 
 
 def _events_by_name(events: list[Any]) -> dict[str, list[dict[str, Any]]]:
@@ -43,7 +51,7 @@ async def _audit_rows(db: ConnectionManager) -> list[tuple[str, str]]:
 class TestHappyPathFrameSequence:
     async def test_ask_emits_full_frame_sequence(self, service: ChatService) -> None:
         """提问 → 帧序断言：session→stage(0,1)→sec_check×3→match×6→assembly→
-        stage(2)→verdict→stage(3)→answer→done（骨架期占位收场语义的填肉版）。"""
+        stage(2)→verdict→stage(3)→链内帧（node_line/token/citation）→answer→done。"""
         events = await collect(service.ask(
             "渤中产量完成率如何", session_id=None, page_context=None,
             anchors=[], actor_who=AQIANG,
@@ -61,11 +69,16 @@ class TestHappyPathFrameSequence:
         assert names[13] == "stage" and events[13].data["stage"] == 2
         assert names[14] == "verdict"
         assert names[15] == "stage" and events[15].data["stage"] == 3
-        assert names[16] == "answer"
+        assert "node_line" in names  # 链内过程行（S 级语义可观察）
+        assert "token" in names  # 答案文本流式
         assert names[-1] == "done"
+        assert names[-2] == "answer"
 
-    async def test_verdict_and_unopened_answer(self, service: ChatService) -> None:
-        """骨架裁决→检索问答链；未实现链回「该能力暂未开通」话术（含链名）。"""
+    async def test_retrieval_chain_generates_with_citation(
+        self, service: ChatService,
+    ) -> None:
+        """检索问答链：台账证据→生成（completer 桩）→citation 帧（fail-closed 校验过）
+        →答案正文按 page 格式展开引用标签。"""
         events = await collect(service.ask(
             "渤中产量完成率如何", session_id=None, page_context=None,
             anchors=[], actor_who=AQIANG,
@@ -73,11 +86,29 @@ class TestHappyPathFrameSequence:
         data = _events_by_name(events)
         verdict = data["verdict"][0]
         assert verdict["chain"] == "检索问答链"
-        assert verdict["need_clarify"] is False
         assert "指标＝产量完成率" in verdict["slots"]
+        assert "台账精确命中" in verdict["confidence"]  # 置信度真实计算（骨架标注退役）
         answer = data["answer"][0]
-        assert answer["kind"] == "alert" and answer["alert_type"] == "info"
-        assert "该能力暂未开通" in answer["text"] and "检索问答链" in answer["text"]
+        assert answer["kind"] == "text"
+        assert "[c1]" not in answer["text"]  # page 格式——正文展开为出处标签
+        assert "台账「产量完成率」" in answer["text"]
+        citation = data["citation"][0]
+        assert citation["ref"] == "c1" and citation["kind"] == "台账条目"
+        assert citation["locator"]["section"] == "指标台账"
+
+    async def test_empty_evidence_falls_back_fixed(self, service: ChatService) -> None:
+        """检索全空（低于低分线/证据为空）→ fixed 兜底文案原样回复（不报错不编造）。"""
+        events = await collect(service.ask(
+            "随便问一句", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        data = _events_by_name(events)
+        answer = data["answer"][0]
+        assert answer["kind"] == "alert" and answer["alert_type"] == "warning"
+        assert answer["text"] == DEFAULT_CONFIG.fallback_text
+        # 拒答判定过程行（refuse_threshold 消费可观察）
+        s6 = [f for f in data["node_line"] if f["key"] == "S6" and f["mark"] == "✗"]
+        assert s6 and "不硬答" in s6[0]["text"]
 
     async def test_assembly_frame_carries_chains_and_candidates(
         self, service: ChatService,
@@ -100,12 +131,12 @@ class TestHappyPathFrameSequence:
             "随便问一句", session_id=None, page_context=None,
             anchors=[], actor_who=AQIANG,
         ))
-        assert seams.calls.get("qa", 0) >= 1  # D2 生效配置装载
+        assert seams.calls.get("config", 0) >= 1  # D2 生效配置装载
         assert seams.calls.get("metrics", 0) == 1
         assert seams.calls.get("terms", 0) == 1
         assert seams.calls.get("faq", 0) == 1
         assert seams.calls.get("index", 0) == 1
-        assert seams.calls.get("graph", 0) == 1  # 图谱缝全扫（08b 前落空）
+        assert seams.calls.get("graph", 0) == 1  # 图谱缝全扫（P1-08b 真检索缝）
         matchers = {frame["matcher"]: frame for frame in _events_by_name(events)["match"]}
         assert set(matchers) == set(d.MATCHERS)
         assert all(frame["status"] == "miss" for frame in matchers.values())
@@ -116,6 +147,7 @@ class TestHappyPathFrameSequence:
 
 class TestD2ConfigDrivenRouting:
     async def test_faq_hit_routes_faq_chain(self, chat_db: ConnectionManager, seams: Seams) -> None:
+        """FAQ 精确命中→FAQ直出链：kind=text＋no_model=true＋citation（秒回直出）。"""
         seams.faq_hit = d.FaqHitFace(entry_id="faq-1", question="产量完成率怎么算",
                                      answer="Σ实际产油 ÷ Σ计划配产")
         svc = make_service(chat_db, seams)
@@ -126,24 +158,108 @@ class TestD2ConfigDrivenRouting:
         assert data["verdict"][0]["chain"] == "FAQ直出链"
         assert "FAQ＝产量完成率怎么算" in data["verdict"][0]["slots"]
         answer = data["answer"][0]
-        assert "该能力暂未开通" in answer["text"] and "FAQ直出链" in answer["text"]
+        assert answer["kind"] == "text" and answer["no_model"] is True
+        assert "Σ实际产油 ÷ Σ计划配产" in answer["text"]
+        assert answer["citations"][0]["label"] == "FAQ「产量完成率怎么算」"
 
-    async def test_faq_direct_hit_off_routes_retrieval(
+    async def test_faq_direct_hit_off_merges_into_retrieval(
         self, chat_db: ConnectionManager, seams: Seams,
     ) -> None:
-        """faq_direct_hit=false → FAQ 命中不再直出（D2 运行时消费语义归 A1）。"""
+        """faq_direct_hit=false → FAQ 命中不再直出，并入检索链继续（D2 运行时消费）。"""
         seams.faq_hit = d.FaqHitFace(entry_id="faq-1", question="产量完成率怎么算",
                                      answer="Σ实际产油 ÷ Σ计划配产")
-        seams.qa = QaBehaviorFace(
-            faq_direct_hit=False, refuse_threshold=0.4, clarify_strategy="ask_missing",
-            confidence_high=0.8, confidence_low=0.4, faq_expand_rounds=3,
-        )
+        seams.config = replace(DEFAULT_CONFIG, faq_direct_hit=False)
         svc = make_service(chat_db, seams)
         data = _events_by_name(await collect(svc.ask(
             "产量完成率怎么算", session_id=None, page_context=None,
             anchors=[], actor_who=AQIANG,
         )))
         assert data["verdict"][0]["chain"] == "检索问答链"  # 配置关闸可见行为变化
+        assert "FAQ 精确命中" in " ".join(
+            str(f["text"]) for f in data["node_line"]  # FAQ 路并入检索证据
+        )
+        assert data["answer"][0]["kind"] == "text"
+
+    async def test_confidence_tiers_by_thresholds(
+        self, chat_db: ConnectionManager, seams: Seams,
+    ) -> None:
+        """confidence_thresholds 档位消费：高 ≥high／中 high–low／低 <low（证据分驱动）。"""
+        high = d.IndexHitFace(fragment_id="f1", report_id="rpt-1", report="演示报告",
+                              section="01", snippet="N-02 于 2019-06-15 投产", score=0.85,
+                              leg="vector")
+        mid = replace(high, fragment_id="f2", score=0.55)
+        low = replace(high, fragment_id="f3", score=0.2)
+        for hit, expected in ((high, "高"), (mid, "中"), (low, "低")):
+            seams.index_hits = [hit]
+            svc = make_service(chat_db, seams)
+            data = _events_by_name(await collect(svc.ask(
+                "N-02 什么时候投产的", session_id=None, page_context=None,
+                anchors=[], actor_who=AQIANG,
+            )))
+            assert data["verdict"][0]["confidence"].startswith(expected)
+
+    async def test_low_confidence_with_candidates_pops_candidate_clarify(
+        self, chat_db: ConnectionManager, seams: Seams,
+    ) -> None:
+        """低置信＋候选在场 → 候选澄清帧（S6 资格裁决——F56 低必弹澄清帧）。"""
+        seams.index_hits = [
+            d.IndexHitFace(fragment_id="f1", report_id="rpt-1", report="完井报告",
+                           section="01", snippet="…", score=0.2, leg="vector"),
+            d.IndexHitFace(fragment_id="f2", report_id="rpt-2", report="月报",
+                           section="02", snippet="…", score=0.1, leg="keyword"),
+        ]
+        seams.config = replace(DEFAULT_CONFIG, early_stop=False)
+        svc = make_service(chat_db, seams)
+        events = await collect(svc.ask(
+            "N-02 的情况", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        data = _events_by_name(events)
+        verdict = data["verdict"][0]
+        assert verdict["need_clarify"] is True and verdict["chain"] is None
+        clarify = data["clarify"][0]
+        assert "你想问哪一个" in clarify["question"]
+        assert [c["value"] for c in clarify["choices"]] == ["《完井报告》01", "《月报》02"]
+        assert not any(c.get("primary") for c in clarify["choices"])  # 无默认项——缺用户意图
+
+    async def test_low_confidence_without_candidates_routes_retrieval(
+        self, service: ChatService,
+    ) -> None:
+        """低置信＋无候选 → 直派检索链（兜底拒答承载——不空弹澄清帧）。"""
+        data = _events_by_name(await collect(service.ask(
+            "随便问一句", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        )))
+        assert data["verdict"][0]["need_clarify"] is False
+        assert data["answer"][0]["kind"] == "alert"  # 兜底 fixed
+
+    async def test_graph_relation_question_routes_graph_chain(
+        self, chat_db: ConnectionManager, seams: Seams,
+    ) -> None:
+        """图谱缝命中＋关系问句信号 → 图谱问答链（17 链路由——确定性信号）。"""
+        seams.graph_hits = [d.GraphHitFace(entity="N-06", relation="受效 → N-02",
+                                           evidence="受效关系台账")]
+        svc = make_service(chat_db, seams)
+        data = _events_by_name(await collect(svc.ask(
+            "哪些井受过 N-06 注水影响", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        )))
+        assert data["verdict"][0]["chain"] == "图谱问答链"
+        assert data["answer"][0]["kind"] == "text"
+
+    async def test_fallback_free_adds_unanchored_tag(
+        self, chat_db: ConnectionManager, seams: Seams,
+    ) -> None:
+        """兜底 free 态：自由回答必须带「未依据报告库」标注（D2 兜底两策）。"""
+        seams.config = replace(DEFAULT_CONFIG, fallback_strategy="free")
+        svc = make_service(chat_db, seams)
+        data = _events_by_name(await collect(svc.ask(
+            "随便问一句", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        )))
+        answer = data["answer"][0]
+        assert answer["kind"] == "text"
+        assert answer["text"].endswith(d.FREE_ANSWER_TAG)
 
 
 class TestClarifyBoundedLoop:
@@ -173,6 +289,7 @@ class TestClarifyBoundedLoop:
         assert run is not None and run.status == "interrupt_clarify"
         assert run.clarify_count == 1
         assert run.pending_interrupt is not None
+        assert run.pending_interrupt["subtype"] == "caliber"
 
     async def test_resume_applies_choice_and_closes(
         self, service: ChatService, chat_db: ConnectionManager,
@@ -228,7 +345,7 @@ class TestClarifyBoundedLoop:
         notes = _events_by_name(second).get("notice", [])
         assert any("有界循环" in str(n["text"]) for n in notes)
         answer = _events_by_name(second)["answer"][0]
-        assert "该能力暂未开通" in answer["text"]  # 终态分派照常走（骨架期未开通）
+        assert answer["kind"] in ("text", "alert")  # 终态分派照常走（链体兜底承载）
 
     async def test_resume_on_terminal_run_is_409(
         self, service: ChatService, chat_db: ConnectionManager,
@@ -249,7 +366,7 @@ class TestClarifyBoundedLoop:
             anchors=[], actor_who=AQIANG,
         ))
         pending_run = _events_by_name(suspended)["session"][0]["run_id"]
-        # approval 形态回流：骨架期无审批挂起 run——409
+        # approval 形态回流：无审批挂起 run——409
         with pytest.raises(ChatRunStateError):
             await collect(service.resume(
                 pending_run, kind="approval", choice=None, decision="approve", reason=None,
@@ -265,6 +382,93 @@ class TestClarifyBoundedLoop:
         with pytest.raises(ChatRunNotFoundError):
             await collect(service.resume(
                 "run-missing", kind="clarify", choice="A", decision=None, reason=None,
+                actor_who=AQIANG,
+            ))
+
+
+class TestCandidateClarifyLoop:
+    """低置信多候选澄清（P1-08b——S6 资格裁决＋F56 低必弹澄清帧的有界循环）。"""
+
+    async def test_resume_with_choice_locks_candidate(
+        self, chat_db: ConnectionManager, seams: Seams,
+    ) -> None:
+        """候选澄清回流：带 choice → 焦点并入问句 → 重判 → 续推 done。"""
+        seams.index_hits = [
+            d.IndexHitFace(fragment_id="f1", report_id="rpt-1", report="完井报告",
+                           section="01", snippet="N-02 于 2019-06-15 投产", score=0.2,
+                           leg="vector"),
+        ]
+        seams.index_vector = [
+            d.IndexHitFace(fragment_id="f1", report_id="rpt-1", report="完井报告",
+                           section="01", snippet="N-02 于 2019-06-15 投产", score=0.7,
+                           leg="vector"),
+        ]
+        seams.anchors = {
+            "f1": d.FragmentAnchorFace(fragment_id="f1", report_id="rpt-1",
+                                       report="完井报告", section="01"),
+        }
+        seams.config = replace(DEFAULT_CONFIG, early_stop=False)
+        svc = make_service(chat_db, seams)
+        first = await collect(svc.ask(
+            "N-02 的情况", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        run_id = _events_by_name(first)["session"][0]["run_id"]
+        second = await collect(svc.resume(
+            run_id, kind="clarify", choice="《完井报告》01", decision=None, reason=None,
+            actor_who=AQIANG,
+        ))
+        names = _names(second)
+        assert "clarify" not in names  # 有界循环——不再弹第二帧
+        assert names[-1] == "done"
+        notes = _events_by_name(second).get("notice", [])
+        assert any("已按你选定的候选" in str(n["text"]) for n in notes)
+        assert _events_by_name(second)["answer"][0]["kind"] == "text"
+
+    async def test_resume_without_choice_refuses(
+        self, chat_db: ConnectionManager, seams: Seams,
+    ) -> None:
+        """候选澄清不选 → 拒答终态（宁可不答、不瞎猜——缺的是用户意图不代选）。"""
+        seams.index_hits = [
+            d.IndexHitFace(fragment_id="f1", report_id="rpt-1", report="完井报告",
+                           section="01", snippet="…", score=0.2, leg="vector"),
+        ]
+        seams.config = replace(DEFAULT_CONFIG, early_stop=False)
+        svc = make_service(chat_db, seams)
+        first = await collect(svc.ask(
+            "N-02 的情况", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        run_id = _events_by_name(first)["session"][0]["run_id"]
+        second = await collect(svc.resume(
+            run_id, kind="clarify", choice=None, decision=None, reason=None,
+            actor_who=AQIANG,
+        ))
+        data = _events_by_name(second)
+        assert _names(second)[-1] == "done"
+        assert any("不瞎猜" in str(n["text"]) for n in data["notice"])
+        answer = data["answer"][0]
+        assert answer["kind"] == "alert" and answer["text"] == DEFAULT_CONFIG.fallback_text
+        run = await ChatStore(chat_db).get_run(run_id)
+        assert run is not None and run.status == "done"
+
+    async def test_resume_with_invalid_choice_is_400(
+        self, chat_db: ConnectionManager, seams: Seams,
+    ) -> None:
+        seams.index_hits = [
+            d.IndexHitFace(fragment_id="f1", report_id="rpt-1", report="完井报告",
+                           section="01", snippet="…", score=0.2, leg="vector"),
+        ]
+        seams.config = replace(DEFAULT_CONFIG, early_stop=False)
+        svc = make_service(chat_db, seams)
+        first = await collect(svc.ask(
+            "N-02 的情况", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        run_id = _events_by_name(first)["session"][0]["run_id"]
+        with pytest.raises(d.ChatParamError):
+            await collect(svc.resume(
+                run_id, kind="clarify", choice="不存在的候选", decision=None, reason=None,
                 actor_who=AQIANG,
             ))
 
@@ -339,10 +543,10 @@ class TestAnchors:
 
 
 class TestGraphSeam:
-    async def test_graph_seam_falls_empty_before_08b(
+    async def test_graph_seam_miss_joins_suggestion_pool(
         self, chat_db: ConnectionManager, seams: Seams,
     ) -> None:
-        """图谱缝（票面：08b 前落空）——空检索、落空进建议池、不发 match 帧。"""
+        """图谱缝落空——候选无图谱、不发 match 帧、落空进建议池（F56②）。"""
         svc = make_service(chat_db, seams)
         events = await collect(svc.ask(
             "N-02 的注水受效关系", session_id=None, page_context=None,
@@ -356,8 +560,9 @@ class TestGraphSeam:
     async def test_graph_hits_join_pool_when_seam_filled(
         self, chat_db: ConnectionManager, seams: Seams,
     ) -> None:
-        """图谱缝填入检索（08b 预演）——候选共池、slots 携图谱实体、无 match 帧。"""
-        seams.graph_hits = [d.GraphHitFace(entity="N-02", relation="注水受效 → N-06",
+        """图谱缝填入检索（P1-08b 真检索缝）——候选共池、slots 携图谱实体、
+        关系问句路由图谱问答链。"""
+        seams.graph_hits = [d.GraphHitFace(entity="N-02", relation="受效 → N-06",
                                            evidence="受效关系台账")]
         svc = make_service(chat_db, seams)
         events = await collect(svc.ask(
@@ -366,10 +571,11 @@ class TestGraphSeam:
         ))
         candidates = _events_by_name(events)["assembly"][0]["candidates"]
         graph = [c for c in candidates if c["kind"] == "graph"]
-        assert graph and graph[0]["name"] == "N-02（注水受效 → N-06）"
+        assert graph and graph[0]["name"] == "N-02（受效 → N-06）"
         assert "图谱＝N-02" in _events_by_name(events)["assembly"][0]["slots"]
         assert not any(s.matcher == "图谱" for s in svc.suggestions.buffered())
         assert "图谱" not in {frame["matcher"] for frame in _events_by_name(events)["match"]}
+        assert _events_by_name(events)["verdict"][0]["chain"] == "图谱问答链"
 
 
 class TestSessionHistory:
@@ -381,7 +587,7 @@ class TestSessionHistory:
         ))
         pairs = await service.recent_qa_pairs()
         assert pairs and pairs[0]["question"] == "渤中产量完成率如何"
-        assert "该能力暂未开通" in pairs[0]["answer"]
+        assert "产量完成率" in pairs[0]["answer"]
 
     async def test_suspended_run_not_in_pairs_until_resumed(
         self, service: ChatService,
@@ -400,7 +606,6 @@ class TestSessionHistory:
         pairs = await service.recent_qa_pairs()
         # 料源＝用户原话＋答案（口径并入为链内上下文，不改写用户消息——R2 原话纪律）
         assert pairs and pairs[0]["question"] == "有效产量是多少"
-        assert "该能力暂未开通" in pairs[0]["answer"]
 
     async def test_session_id_reused_when_given(self, service: ChatService) -> None:
         """session_id 携带＝既有会话续写（A1：缺省即新建）。"""

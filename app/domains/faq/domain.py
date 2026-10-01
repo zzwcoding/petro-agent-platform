@@ -452,8 +452,13 @@ class DownloadHandle:
 @dataclass(frozen=True, slots=True)
 class FaqHit:
     """FAQ 索引命中（运行时读口 match_index——A1 六路匹配器 FAQ 路消费，
-    不经 HTTP；只服务中条目可达，v0.2 审核流）。"""
+    不经 HTTP；只服务中条目可达，v0.2 审核流）。
+
+    score＝相似问扩检命中分（P1-08b 检索链 FAQ 路消费；match_index 精确命中
+    为确定性命中，分数由消费方赋值 1.0）。
+    """
 
     entry_id: str
     question: str
     answer: str
+    score: float = 0.0

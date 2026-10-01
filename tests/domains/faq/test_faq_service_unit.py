@@ -591,6 +591,26 @@ async def test_match_index_only_serve_entries(faq_db: Any) -> None:
     assert await service.match_index("") is None
 
 
+async def test_search_similar_ranks_serve_entries(faq_db: Any) -> None:
+    """P1-08b FAQ 相似问检索（检索链 FAQ 路扩检候选供给面）：向量余弦排序、
+    top_k 截断、只服务中条目可达、空查询零命中。"""
+    service = make_service(faq_db, StubCompleter(), FakeObjectStorage(),
+                           embedder=StubEmbedder())
+    hits = await service.search_similar("产量完成率的公式", top_k=3)
+    assert hits, "相似问检索应命中演示问答"
+    assert all(h.score > 0 for h in hits)
+    scores = [h.score for h in hits]
+    assert scores == sorted(scores, reverse=True)  # 按分倒序
+    assert hits[0].entry_id == "faq-1"  # 同族问题排最前
+    assert len(await service.search_similar("产量完成率的公式", top_k=2)) <= 2
+    # 负例/已停用/待审核不可达（v0.2 审核流同闸）
+    for bad in ("帮我预测明年油价", '"老完成率"是什么口径'):
+        hits_bad = await service.search_similar(bad, top_k=5)
+        assert all(h.entry_id != "faq-9" and h.entry_id != "faq-8" for h in hits_bad)
+    assert await service.search_similar("", top_k=3) == []
+    assert await service.search_similar("产量", top_k=0) == []
+
+
 # ── LedgerMerged 消费（B3-2 口径修订联动） ──
 
 

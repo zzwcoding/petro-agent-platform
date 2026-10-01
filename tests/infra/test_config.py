@@ -17,6 +17,18 @@ from app.infra.config import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _reset_models_cache() -> None:
+    """用例结束复位进程级注册表缓存（infra.config 全局态——测试隔离）。
+
+    P1-08b：hot_reload 用例的 m1/m2 残留缓存会让同进程后续的真 LLM 消费
+    （chat 冒烟——config 默认装载）判 NoAvailableRoute——任意测试装载过
+    非默认 yaml 都必须复位（gateway/llm_client 测试同款纪律）。
+    """
+    yield
+    config._models_cache = None
+
+
 def test_placeholder_env_over_dotenv_over_default(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

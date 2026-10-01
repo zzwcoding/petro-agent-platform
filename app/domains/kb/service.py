@@ -627,6 +627,7 @@ class KbService:
             fragment_id=fragment_id, v=new_v, text=stripped,
             context_text=parent_anchor, note="人工修正",
         )
+        frag.hit_text = stripped  # 命中文本随当前版本推进（关键词路读面消费）
         frag, version = await self._fragments.revise(frag, version)
         target = f"{report.doc} · {frag.section or '正文'}（修正＋触发百科重铸）"
         activity_row = await self._activities.append(
@@ -802,7 +803,7 @@ class KbService:
         frag_id = d.new_fragment_id(seq)
         frag = FragmentRow(
             id=frag_id, report_id=report_id, type=frag_type,
-            section=section, current_version=1, is_parent_only=False,
+            section=section, hit_text=text, current_version=1, is_parent_only=False,
         )
         version = FragmentVersionRow(
             fragment_id=frag_id, v=1, text=text, context_text=None, note="原始解析"
@@ -1173,11 +1174,75 @@ class KbService:
                 snippet=text[:80],
                 score=score,
                 leg=leg,
+                text=text[:500],
             )
             current = best.get(frag.id)
             if current is None or hit.score > current.score:
                 best[frag.id] = hit
         return sorted(best.values(), key=lambda h: h.score, reverse=True)[:top_k]
+
+    async def index_search_dual(
+        self, question: str, *, vector_top_k: int, keyword_top_k: int
+    ) -> tuple[list[d.IndexHit], list[d.IndexHit]]:
+        """双路召回读面（检索瀑布 S4——P1-08b 检索链消费）：向量腿与关键词腿
+        并发（asyncio.gather），各自按分倒序取 topK（D2 params.semantic_top_k /
+        keyword_top_k 驱动），合并策略由消费方按配置执行（rrf_rank/concat）。
+        """
+        frags = await self._fragments.list_children()
+        if not frags or not question.strip():
+            return [], []
+        reports = {row.id: row for row in await self._reports.all()}
+
+        def _hit(frag: FragmentRow, score: float, leg: str) -> d.IndexHit:
+            text = frag.hit_text or ""
+            return d.IndexHit(
+                fragment_id=frag.id,
+                report_id=frag.report_id,
+                report=reports[frag.report_id].doc if frag.report_id in reports else "",
+                section=frag.section,
+                snippet=text[:80],
+                score=score,
+                leg=leg,
+                text=text[:500],
+            )
+
+        async def vector_leg() -> list[d.IndexHit]:
+            probe = (await self._embedder.embed([question.strip()]))[0]
+            scored = [
+                (frag, d.cosine_similarity(probe, frag.embedding))
+                for frag in frags
+                if frag.embedding is not None
+            ]
+            scored = [pair for pair in scored if pair[1] > 0.0]
+            scored.sort(key=lambda pair: pair[1], reverse=True)
+            return [_hit(frag, score, "vector") for frag, score in scored[:vector_top_k]]
+
+        async def keyword_leg() -> list[d.IndexHit]:
+            scored = [
+                (frag, d.trigram_coverage(question, frag.hit_text or ""))
+                for frag in frags
+                if frag.hit_text
+            ]
+            scored = [pair for pair in scored if pair[1] > 0.0]
+            scored.sort(key=lambda pair: pair[1], reverse=True)
+            return [_hit(frag, score, "keyword") for frag, score in scored[:keyword_top_k]]
+
+        vector_hits, keyword_hits = await asyncio.gather(vector_leg(), keyword_leg())
+        return vector_hits, keyword_hits
+
+    async def fragment_anchor(self, fragment_id: str) -> d.FragmentAnchor | None:
+        """片段锚校验（P1-08b citation fail-closed 读面——chat 消费）：片段必须
+        真实存在且对外可寻址（父块不对外寻址——F30），返回其报告归属。"""
+        frag = await self._fragments.get(fragment_id)
+        if frag is None or frag.is_parent_only:
+            return None
+        report = await self._reports.get(frag.report_id)
+        return d.FragmentAnchor(
+            fragment_id=frag.id,
+            report_id=frag.report_id,
+            report=report.doc if report is not None else "",
+            section=frag.section,
+        )
 
     async def fragment_context(self, fragment_id: str) -> d.FragmentContext:
         """父块回捞（B2 端点 2——按 type 分派语义）：原文块/图片说明块/图片文字块
@@ -1509,6 +1574,7 @@ class KbService:
                     report_id=report_id,
                     type="原文块",
                     section=section,
+                    hit_text=piece,
                     current_version=1,
                     is_parent_only=is_parent,
                 )

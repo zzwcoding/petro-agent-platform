@@ -477,6 +477,8 @@ class IndexHit:
 
     leg 两值＝检索瀑布 S4 两路（F58）：`vector` 语义一路 / `keyword` 字面一路
     （trigram 子串——P1-04 裁决；pg_trgm GIN 索引随 P1-10 上，查询语义不变）。
+    text＝生成上下文用较长文本（P1-08b——snippet 仅 80 字，答案依据会被截断；
+    500 字足供问答，免整段搬运）。
     """
 
     fragment_id: str
@@ -486,6 +488,7 @@ class IndexHit:
     snippet: str
     score: float
     leg: str  # vector | keyword
+    text: str = ""
 
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
@@ -522,6 +525,17 @@ def _trigrams(text: str) -> set[str]:
     if len(folded) < 3:
         return {folded}
     return {folded[i : i + 3] for i in range(len(folded) - 2)}
+
+
+@dataclass(frozen=True, slots=True)
+class FragmentAnchor:
+    """片段锚（fail-closed 校验读面——fragment_id 必须真实存在且属于命中报告；
+    P1-08b citation locator 校验消费，chat 只见本面不触 kb 表）。"""
+
+    fragment_id: str
+    report_id: str
+    report: str
+    section: str | None
 
 
 # ---------- 入库路由（B1 v0.3「入库路由（阶段 1 实施项）」专节） ----------

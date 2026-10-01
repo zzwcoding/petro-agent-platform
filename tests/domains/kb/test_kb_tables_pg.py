@@ -207,6 +207,14 @@ async def test_kb_checks_and_indexes(db: ConnectionManager) -> None:
     assert "ix_kb_ingest_task_source" in indexes
     assert "ix_kb_fragment_report" in frag_indexes
     assert "ix_kb_fragment_type" in frag_indexes
+    # P1-08b：关键词路倒排索引（pg_trgm GIN——P1-04 收尾裁决②，Alembic 0010 并行）
+    assert "ix_kb_fragment_hit_text_trgm" in frag_indexes
+    trgm_def = (
+        await session.execute(
+            text("SELECT indexdef FROM pg_indexes WHERE indexname = 'ix_kb_fragment_hit_text_trgm'")
+        )
+    ).scalar_one()
+    assert "gin" in trgm_def.lower() and "hit_text" in trgm_def
     assert "ix_kb_activity_lib_time" in act_indexes
     # kb_issue_report（B2/P1-04）：state 索引＋待质检复核态部分唯一索引（99 注记
     # 「uq fragment_id」语义锚＝待质检复核态重复标记 409——全列 uq 会卡死重新标记）
