@@ -17,6 +17,12 @@
 - gateway_config_write_failed：配置写回/热加载失败（D1 500「需回滚提示」）
 - semantics_param_invalid：台账读面筛选枚举越界（C1 错误码草案「筛选枚举越界 400」；
   P1-01b 新立值，登记于 tickets/phase1/README.md P1-01b 差异清单）
+- kb_param_invalid / kb_not_found / kb_conflict：kb 域 400/404/409（B1 错误码
+  草案；P1-02a 新立值，登记于 tickets/phase1/README.md P1-02a 差异清单）——
+  KbParamError/KbConflictError 携带合同 code（kb_lib_disabled 停用库受理拦截
+  400 带码/kb_lib_name_duplicate 重名 409/kb_route_unresolved 路由未定型等）
+- kb_fragment_revise_deferred：片段修正端点壳（P1-02a 立壳，修正动作归
+  P1-02b——501 非合同状态码，差异登记票面）
 """
 
 from __future__ import annotations
@@ -33,6 +39,12 @@ from app.domains.gateway import (
     DrillNotFoundError,
     GatewayConfigError,
 )
+from app.domains.kb import (
+    KbConflictError,
+    KbDeferredError,
+    KbNotFoundError,
+    KbParamError,
+)
 from app.domains.security import ForbiddenError, UnauthenticatedError
 
 CODE_UNAUTHENTICATED = "security_unauthenticated"
@@ -43,6 +55,7 @@ CODE_GATEWAY_DRILL_NOT_FOUND = "gateway_drill_not_found"
 CODE_GATEWAY_DRILL_CONFLICT = "gateway_drill_conflict"
 CODE_GATEWAY_CONFIG_WRITE_FAILED = "gateway_config_write_failed"
 CODE_SEMANTICS_PARAM_INVALID = "semantics_param_invalid"
+CODE_KB_DEFERRED = "kb_fragment_revise_deferred"
 
 
 class ApiError(Exception):
@@ -144,6 +157,38 @@ def install_error_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=500,
             content=error_payload(CODE_GATEWAY_CONFIG_WRITE_FAILED, str(exc)),
+        )
+
+    @app.exception_handler(KbParamError)
+    async def handle_kb_param_error(request: Request, exc: KbParamError) -> JSONResponse:
+        # B1 错误码草案 400（含停用库受理拦截「400 带码」——kb_lib_disabled）。
+        return JSONResponse(
+            status_code=400,
+            content=error_payload(exc.code, str(exc)),
+        )
+
+    @app.exception_handler(KbNotFoundError)
+    async def handle_kb_not_found(request: Request, exc: KbNotFoundError) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content=error_payload("kb_not_found", str(exc)),
+        )
+
+    @app.exception_handler(KbConflictError)
+    async def handle_kb_conflict(request: Request, exc: KbConflictError) -> JSONResponse:
+        # B1 错误码草案 409 族（confirm 未落桶/凭证已用/running 重试/未 done 读产物/
+        # 路由未定型/重名——code 由异常携带）。
+        return JSONResponse(
+            status_code=409,
+            content=error_payload(exc.code, str(exc)),
+        )
+
+    @app.exception_handler(KbDeferredError)
+    async def handle_kb_deferred(request: Request, exc: KbDeferredError) -> JSONResponse:
+        # 片段修正端点壳（P1-02a 立壳——修正动作归 P1-02b）。
+        return JSONResponse(
+            status_code=501,
+            content=error_payload(CODE_KB_DEFERRED, "片段修正随 P1-02b 批开放"),
         )
 
     @app.exception_handler(RequestValidationError)

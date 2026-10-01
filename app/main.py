@@ -9,7 +9,9 @@ primary 引擎建网关三表（spend 账本/演练/预算单例）；P0-08 起 
 技术表入装配（99 §6-4——eventbus 兜底缝）＋ /api/chat 骨架路由挂载；统一
 错误包（00 §3）与 D3/D1 路由挂载。端点随票落地（tickets/phase0/）。
 P1-01 起 sem_* 九表入装配（ensure_semantics_tables——sem 域迁移首执行点，
-与 Alembic 0002_sem_baseline 并行存活，操作序照 P0-08 登记）。
+与 Alembic 0002_sem_baseline 并行存活，操作序照 P0-08 登记）。P1-02a 起 kb
+八表入装配（ensure_kb_tables——PG 先 CREATE EXTENSION vector）＋ /api/kb
+路由族挂载＋入库任务 stuck 收口（启动巡检——00 §5.2-6 超时无进展后台巡检）。
 
 建表与迁移的交接（P0-08 票面）：ensure_*_table 与 Alembic 并行存活，
 本票不切换——各域切换迁移属各域票（基线空迁移见 migrations/versions/0001）。
@@ -23,18 +25,22 @@ from fastapi import FastAPI
 from app.api.chat import router as chat_router
 from app.api.errors import install_error_handlers
 from app.api.gateway import router as gateway_router
+from app.api.kb import router as kb_router
 from app.api.security import router as security_router
 from app.api.semantics import router as semantics_router
 from app.domains.gateway import GatewayService
 from app.domains.gateway.store import ensure_gateway_tables
+from app.domains.kb import KbService
+from app.domains.kb.store import ensure_kb_tables
 from app.domains.security import SecurityService
 from app.domains.security.store import ensure_audit_table
 from app.domains.semantics import SemanticsService
 from app.domains.semantics.store import ensure_semantics_tables
 from app.infra.config import load_database_specs
 from app.infra.db import ConnectionManager
-from app.infra.eventbus import ensure_outbox_table
+from app.infra.eventbus import InMemoryEventBus, ensure_outbox_table
 from app.infra.llm_client import LlmClient
+from app.infra.object_storage import MinioObjectStorage
 
 
 @asynccontextmanager
@@ -45,13 +51,25 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await ensure_outbox_table(manager.engine())  # 同上——infra 技术表（99 §6-4 outbox 兜底缝）
     await ensure_semantics_tables(manager.engine())  # 同上——sem_* 九表（99 §2.8；P1-01 起
     #   与 Alembic 0002_sem_baseline 并行存活——各域切迁移属各域票，操作序照 P0-08 登记）
+    await ensure_kb_tables(manager.engine())  # 同上——kb 八表（99 §2.5；PG 先建 pgvector 扩展）
     app.state.db = manager
     app.state.security = SecurityService(manager)
     app.state.gateway = GatewayService(manager, LlmClient())
     app.state.semantics = SemanticsService(manager, app.state.security)  # B12 审计写口注入
+    # 事件总线（98 §4——IngestCompleted 由 derivatives 订阅，B9 不直调；进程内
+    # 实现＝单进程演示底座，Redis Streams 通道接线属后续接线批，P0-08 同口径）
+    app.state.eventbus = InMemoryEventBus()
+    app.state.kb = KbService(
+        manager,
+        app.state.gateway,  # B6：LLM 只走 gateway.complete
+        MinioObjectStorage(),
+        eventbus=app.state.eventbus,
+    )
     # 崩溃重启的遗留 running 演练行收口为 done（幂等；否则 has_running 恒真
-    # → 所有 start_drill 永久 409——P0-05 审查收口）
+    # → 所有 start_drill 永久 409——P0-05 审查收口）；kb 任务体同为进程内
+    # asyncio task——遗留 running 入库任务收口 stuck（四态合同值，重试内含停止）
     await app.state.gateway.close_stale_drills()
+    await app.state.kb.sweep_stuck()
     yield
     await manager.dispose()
 
@@ -62,6 +80,7 @@ app.include_router(security_router)
 app.include_router(gateway_router)
 app.include_router(chat_router)
 app.include_router(semantics_router)  # C1 台账读面（P1-01b——semantics 模块，98 §5）
+app.include_router(kb_router)  # B1 报告库（P1-02a——kb 模块，98 §5）
 
 
 @app.get("/health")

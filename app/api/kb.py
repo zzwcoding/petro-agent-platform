@@ -1,0 +1,611 @@
+"""api.kb —— /api/kb 路由族（B1-报告库.md v0.3 合同，15 条路由；P1-02a）。
+
+形状注记：
+- 响应字段 snake_case（00 §14-R1——本端点即真实接线，同 D1/D3 先例）；
+  query 参数 pageSize 保留现拼写。
+- 权限：B1 页全员可见（roles.js MENU B1 无 roles 限制）——组闸不做，身份桩
+  依赖（CurrentActor）只解析身份（未认证 401）；审计 who 服务端解析不信任前端。
+- 任务受理（端点 6 confirm）＝200 同步特例（00 §5.2：B1 受理同步返回 200）；
+  建库（端点 15）＝201（B1 端点 15 冻结）。
+- 筛选（00 §4.5）：tasks.source 值域合同冻结（all|上传入库|片段修正|重跑定型）、
+  libs.graph（all|on|off）、reports.lib（all|现有库名——B1 端点 1 入参照抄）、
+  keyword 模糊匹配；越界 400（code=kb_param_invalid，errors.py 登记）。
+- 端点 4 片段修正＝本票端点壳（修正动作＋问题块重生归 P1-02b）——501 带码。
+"""
+
+from __future__ import annotations
+
+from typing import Annotated
+
+from fastapi import APIRouter, Query
+from pydantic import BaseModel
+
+from app.api.deps import CurrentActor, KbDep
+from app.api.errors import CODE_KB_DEFERRED, ApiError
+from app.domains.kb import (
+    AdditionsView,
+    CreateLibReceipt,
+    LibraryConfigView,
+    LibraryView,
+    ReportDetail,
+    ReportLedgerRow,
+    SaveReceipt,
+    TaskProgress,
+    TaskView,
+)
+
+router = APIRouter(prefix="/api/kb", tags=["kb"])
+
+
+# ---------- 端点 1：GET /reports 台账 ----------
+
+
+class ReportLedgerItem(BaseModel):
+    id: str
+    doc: str
+    lib_id: str
+    lib: str
+    refs: int | None
+    wiki: str | None
+    status: str
+
+
+class ReportsResponse(BaseModel):
+    items: list[ReportLedgerItem]
+    total: int
+
+
+def _ledger_item(row: ReportLedgerRow) -> ReportLedgerItem:
+    return ReportLedgerItem(
+        id=row.id, doc=row.doc, lib_id=row.lib_id, lib=row.lib,
+        refs=row.refs, wiki=row.wiki, status=row.status,
+    )
+
+
+@router.get("/reports", response_model=ReportsResponse)
+async def list_reports(
+    service: KbDep,
+    _actor: CurrentActor,
+    lib: Annotated[str, Query()] = "all",
+    keyword: Annotated[str, Query()] = "",
+) -> ReportsResponse:
+    """报告台账（服务端筛选：所属库＋关键词；「入库中」状态标直出——端点 1）。"""
+    rows = await service.list_reports(lib=lib, keyword=keyword or None)
+    return ReportsResponse(items=[_ledger_item(r) for r in rows], total=len(rows))
+
+
+# ---------- 端点 2：GET /reports/{id} 详情 ----------
+
+
+class FragmentVersionItem(BaseModel):
+    v: int
+    text: str
+    note: str
+
+
+class FragmentItem(BaseModel):
+    id: str
+    type: str
+    path: str
+    text: str
+    version: int
+    versions: list[FragmentVersionItem]
+
+
+class ReportDetailResponse(BaseModel):
+    id: str
+    doc: str
+    lib_id: str
+    lib: str
+    subject: str | None
+    refs: int | None
+    wiki: str | None
+    status: str
+    related_objects: list[dict[str, str]]
+    fragments: list[FragmentItem]
+
+
+@router.get("/reports/{report_id}", response_model=ReportDetailResponse)
+async def report_detail(
+    report_id: str,
+    service: KbDep,
+    _actor: CurrentActor,
+) -> ReportDetailResponse:
+    """报告详情（片段预览含版本——F30 增补：每个片段恒有 v1）。"""
+    view = await service.report_detail(report_id)
+    return _detail_response(view)
+
+
+def _detail_response(view: ReportDetail) -> ReportDetailResponse:
+    return ReportDetailResponse(
+        id=view.id, doc=view.doc, lib_id=view.lib_id, lib=view.lib,
+        subject=view.subject, refs=view.refs, wiki=view.wiki, status=view.status,
+        related_objects=view.related_objects,
+        fragments=[
+            FragmentItem(
+                id=f.id, type=f.type, path=f.path, text=f.text, version=f.version,
+                versions=[
+                    FragmentVersionItem(v=ver.v, text=ver.text, note=ver.note)
+                    for ver in f.versions
+                ],
+            )
+            for f in view.fragments
+        ],
+    )
+
+
+# ---------- 端点 3：POST /reports/{id}/download-url ----------
+
+
+class DownloadUrlResponse(BaseModel):
+    id: str
+    download_url: str
+    expires_at: str
+    ttl: str
+
+
+@router.post("/reports/{report_id}/download-url", response_model=DownloadUrlResponse)
+async def download_url(
+    report_id: str,
+    service: KbDep,
+    _actor: CurrentActor,
+) -> DownloadUrlResponse:
+    """下载原件直链（预签名 GET——小时级有效、上限 7 天；00 §7.2）。"""
+    url, expires_at = await service.download_url(report_id)
+    return DownloadUrlResponse(id=report_id, download_url=url, expires_at=expires_at, ttl="小时级")
+
+
+# ---------- 端点 4：POST /reports/{id}/fragments/{fragId}/revisions（壳） ----------
+
+
+@router.post("/reports/{report_id}/fragments/{fragment_id}/revisions")
+async def revise_fragment(
+    report_id: str,
+    fragment_id: str,
+    _actor: CurrentActor,
+) -> dict[str, str]:
+    """片段人工修正（F30 增补）——本票端点壳：乐观锁字段就位，修正动作＋
+    问题块重生＋wiki 重铸联动归 P1-02b（票面指定）。"""
+    raise ApiError(
+        status_code=501,
+        code=CODE_KB_DEFERRED,
+        message="片段修正随 P1-02b 批开放（本票仅立端点壳与乐观锁字段）",
+        detail={"report_id": report_id, "fragment_id": fragment_id},
+    )
+
+
+# ---------- 端点 5：POST /uploads 直传受理 ----------
+
+
+class UploadInitBody(BaseModel):
+    filename: str
+    size: int
+    lib_id: str | None = None
+    suggested_topic: str | None = None  # 入库路由话题（阶段 1 实施项——B1 v0.3）
+
+
+class RouteSuggestionBody(BaseModel):
+    mode: str | None
+    topic: str | None = None
+    lib_id: str | None = None
+    lib_name: str | None = None
+    template: str | None = None
+    reason: str | None = None
+    confidence: float | None = None
+
+
+class UploadReceiptResponse(BaseModel):
+    upload_id: str
+    lib_id: str | None
+    lib_name: str | None
+    dup_warning: str | None
+    put_url: str
+    expires_at: str
+    bucket: str
+    routing: RouteSuggestionBody | None
+
+
+def _route_body(suggestion: object) -> RouteSuggestionBody | None:
+    if suggestion is None:
+        return None
+    data = suggestion.as_dict()  # type: ignore[attr-defined]
+    return RouteSuggestionBody(**data)
+
+
+@router.post("/uploads", response_model=UploadReceiptResponse)
+async def upload_init(
+    body: UploadInitBody,
+    service: KbDep,
+    actor: CurrentActor,
+) -> UploadReceiptResponse:
+    """直传受理（两拍第一拍）：登记＋预签名 PUT 凭证；停用库 400 带码；
+    dup_warning 非阻断；lib_id 缺省走入库路由（LLM 只建议、人确认后执行）。"""
+    receipt = await service.upload_init(
+        body.filename, body.size, body.lib_id, actor.who,
+        suggested_topic=body.suggested_topic,
+    )
+    return UploadReceiptResponse(
+        upload_id=receipt.upload_id,
+        lib_id=receipt.lib_id,
+        lib_name=receipt.lib_name,
+        dup_warning=receipt.dup_warning,
+        put_url=receipt.put_url,
+        expires_at=receipt.expires_at,
+        bucket=receipt.bucket,
+        routing=_route_body(receipt.routing),
+    )
+
+
+# ---------- 端点 6：POST /uploads/{uploadId}/confirm 确认入库 ----------
+
+
+class ConfirmBody(BaseModel):
+    """路由确认通道（入库路由专节：路由确认并入 confirm 定型链路）——
+    缺省空体＝沿用受理已定目标库（v0.2 直传流形状不变）。"""
+
+    lib_id: str | None = None
+
+
+class ConfirmResponse(BaseModel):
+    task_id: str
+    upload_id: str
+    doc: str
+    lib_id: str
+    lib_name: str
+    source: str
+    state: str
+    current_step: int
+    config_snapshot: dict[str, object]
+
+
+@router.post("/uploads/{upload_id}/confirm", response_model=ConfirmResponse)
+async def upload_confirm(
+    upload_id: str,
+    service: KbDep,
+    actor: CurrentActor,
+    body: ConfirmBody | None = None,
+) -> ConfirmResponse:
+    """确认入库（核实落桶→建任务，config_snapshot 定型——配置定型点在受理确认时刻）。"""
+    receipt = await service.upload_confirm(
+        upload_id, actor.who, lib_id=(body.lib_id if body else None)
+    )
+    return ConfirmResponse(
+        task_id=receipt.task_id,
+        upload_id=receipt.upload_id,
+        doc=receipt.doc,
+        lib_id=receipt.lib_id,
+        lib_name=receipt.lib_name,
+        source=receipt.source,
+        state=receipt.state,
+        current_step=receipt.current_step,
+        config_snapshot=receipt.config_snapshot,
+    )
+
+
+# ---------- 端点 7：GET /tasks 任务列表 ----------
+
+
+class TaskItem(BaseModel):
+    id: str
+    doc: str
+    lib_id: str
+    lib_name: str
+    source: str
+    state: str
+    current_step: int
+    stop_at: str | None
+    reason: str | None
+
+
+class TasksResponse(BaseModel):
+    items: list[TaskItem]
+    total: int
+
+
+@router.get("/tasks", response_model=TasksResponse)
+async def list_tasks(
+    service: KbDep,
+    _actor: CurrentActor,
+    source: Annotated[str, Query()] = "all",
+) -> TasksResponse:
+    """入库任务列表（来源筛参 source——v0.2 拍板；创建时间倒序）。"""
+    rows: list[TaskView] = await service.list_ingest_tasks(source)
+    return TasksResponse(
+        items=[
+            TaskItem(
+                id=r.id, doc=r.doc, lib_id=r.lib_id, lib_name=r.lib_name,
+                source=r.source, state=r.state, current_step=r.current_step,
+                stop_at=r.stop_at, reason=r.reason,
+            )
+            for r in rows
+        ],
+        total=len(rows),
+    )
+
+
+# ---------- 端点 8：GET /tasks/{id} 轮询 ----------
+
+
+class TaskNodeItem(BaseModel):
+    key: str
+    label: str
+    state: str
+    note: str | None
+
+
+class TaskProgressResponse(BaseModel):
+    id: str
+    state: str
+    source: str
+    current_step: int
+    stop_at: str | None
+    reason: str | None
+    nodes: list[TaskNodeItem]
+    config_snapshot: dict[str, object]
+
+
+def _progress_response(view: TaskProgress) -> TaskProgressResponse:
+    return TaskProgressResponse(
+        id=view.id, state=view.state, source=view.source,
+        current_step=view.current_step, stop_at=view.stop_at, reason=view.reason,
+        nodes=[
+            TaskNodeItem(key=n.key, label=n.label, state=n.state, note=n.note)
+            for n in view.nodes
+        ],
+        config_snapshot=view.config_snapshot,
+    )
+
+
+@router.get("/tasks/{task_id}", response_model=TaskProgressResponse)
+async def get_task(
+    task_id: str,
+    service: KbDep,
+    _actor: CurrentActor,
+) -> TaskProgressResponse:
+    """轮询处理进度（五步节点＋服务端组装说明——前端零拼装业务文案）。"""
+    return _progress_response(await service.ingest_task(task_id))
+
+
+# ---------- 端点 9：GET /tasks/{id}/additions 产物 ----------
+
+
+class AdditionsResponse(BaseModel):
+    task_id: str
+    doc: str
+    summary: dict[str, object] | None
+    questions: dict[str, object] | None
+
+
+@router.get("/tasks/{task_id}/additions", response_model=AdditionsResponse)
+async def task_additions(
+    task_id: str,
+    service: KbDep,
+    _actor: CurrentActor,
+) -> AdditionsResponse:
+    """索引期加法产物（摘要块＋问题块——done 后可读，未 done 409）。"""
+    view: AdditionsView = await service.ingest_additions(task_id)
+    return AdditionsResponse(
+        task_id=view.task_id, doc=view.doc, summary=view.summary, questions=view.questions
+    )
+
+
+# ---------- 端点 10：POST /tasks/{id}/retry 重试/重跑 ----------
+
+
+@router.post("/tasks/{task_id}/retry", response_model=TaskProgressResponse)
+async def retry_task(
+    task_id: str,
+    service: KbDep,
+    actor: CurrentActor,
+) -> TaskProgressResponse:
+    """重试/重跑（stuck 内含停止；重跑＝按当前待生效配置重新定型；来源转「重跑定型」）。"""
+    return _progress_response(await service.retry_ingest(task_id, actor.who))
+
+
+# ---------- 端点 11：GET /libs 库列表 ----------
+
+
+class LastIngestionBody(BaseModel):
+    doc: str
+    switches: dict[str, bool]
+
+
+class LibraryItem(BaseModel):
+    id: str
+    name: str
+    biz_template: str
+    status: str
+    last_ingestion: LastIngestionBody | None
+    annotations: dict[str, str]
+
+
+class LibrariesResponse(BaseModel):
+    items: list[LibraryItem]
+    total: int
+
+
+@router.get("/libs", response_model=LibrariesResponse)
+async def list_libraries(
+    service: KbDep,
+    _actor: CurrentActor,
+    graph: Annotated[str, Query()] = "all",
+    keyword: Annotated[str, Query()] = "",
+) -> LibrariesResponse:
+    """库列表（最近入库＋开关快照；图谱筛——两态分离：快照≠待生效配置）。"""
+    rows: list[LibraryView] = await service.list_libraries(graph=graph, keyword=keyword or None)
+    return LibrariesResponse(
+        items=[
+            LibraryItem(
+                id=r.id, name=r.name, biz_template=r.biz_template, status=r.status,
+                last_ingestion=(
+                    LastIngestionBody(doc=r.last_ingestion["doc"],
+                                      switches=r.last_ingestion["switches"])
+                    if r.last_ingestion
+                    else None
+                ),
+                annotations=r.annotations,
+            )
+            for r in rows
+        ],
+        total=len(rows),
+    )
+
+
+# ---------- 端点 12：GET /libs/{id}/config 库配置读 ----------
+
+
+class SwitchesBody(BaseModel):
+    semantic: bool
+    keyword: bool
+    wiki: bool
+    graph: bool
+
+
+class LibraryConfigResponse(BaseModel):
+    id: str
+    name: str
+    switches: SwitchesBody
+    mode: str
+    add_summary: bool
+    add_questions: bool
+    saved_at: str | None
+    saved_by: str | None
+
+
+@router.get("/libs/{lib_id}/config", response_model=LibraryConfigResponse)
+async def get_library_config(
+    lib_id: str,
+    service: KbDep,
+    _actor: CurrentActor,
+) -> LibraryConfigResponse:
+    """库配置读取（上传确认弹窗只读预览/配置弹窗回填——双消费）。"""
+    view: LibraryConfigView = await service.library_config(lib_id)
+    return LibraryConfigResponse(
+        id=view.id, name=view.name,
+        switches=SwitchesBody(**view.switches),
+        mode=view.mode, add_summary=view.add_summary, add_questions=view.add_questions,
+        saved_at=view.saved_at, saved_by=view.saved_by,
+    )
+
+
+# ---------- 端点 13：PUT /libs/{id}/config 保存（＋v0.3 status 停用/启用） ----------
+
+
+class LibraryConfigSaveBody(BaseModel):
+    switches: SwitchesBody
+    mode: str
+    add_summary: bool
+    add_questions: bool
+    status: str | None = None  # v0.3 建库批：可选——缺省不动库状态
+
+
+class ActivityRowBody(BaseModel):
+    time: str
+    who: str
+    action: str
+    target: str
+
+
+class ConfigSaveResponse(BaseModel):
+    id: str
+    saved_at: str
+    saved_by: str
+    status: str
+    hint: str
+    activity_row: ActivityRowBody
+
+
+def _save_response(view: SaveReceipt) -> ConfigSaveResponse:
+    return ConfigSaveResponse(
+        id=view.id, saved_at=view.saved_at, saved_by=view.saved_by,
+        status=view.status, hint=view.hint,
+        activity_row=ActivityRowBody(
+            time=view.activity_row.time, who=view.activity_row.who,
+            action=view.activity_row.action, target=view.activity_row.target,
+        ),
+    )
+
+
+@router.put("/libs/{lib_id}/config", response_model=ConfigSaveResponse)
+async def save_library_config(
+    lib_id: str,
+    body: LibraryConfigSaveBody,
+    service: KbDep,
+    actor: CurrentActor,
+) -> ConfigSaveResponse:
+    """保存本库配置（写入待生效配置——下次入库定型、不做运行时热切换；同事务记 F62）。"""
+    view = await service.save_library_config(
+        lib_id,
+        switches=body.switches.model_dump(),
+        mode=body.mode,
+        add_summary=body.add_summary,
+        add_questions=body.add_questions,
+        status=body.status,
+        actor_who=actor.who,
+    )
+    return _save_response(view)
+
+
+# ---------- 端点 14：GET /libs/{id}/activities 活动流 ----------
+
+
+class ActivitiesResponse(BaseModel):
+    items: list[ActivityRowBody]
+    total: int
+
+
+@router.get("/libs/{lib_id}/activities", response_model=ActivitiesResponse)
+async def library_activities(
+    lib_id: str,
+    service: KbDep,
+    _actor: CurrentActor,
+) -> ActivitiesResponse:
+    """库活动流（F62 只读——只记录，不改任何数据；时间倒序）。"""
+    rows = await service.library_activities(lib_id)
+    return ActivitiesResponse(
+        items=[
+            ActivityRowBody(time=r.time, who=r.who, action=r.action, target=r.target)
+            for r in rows
+        ],
+        total=len(rows),
+    )
+
+
+# ---------- 端点 15：POST /libs 建库（201） ----------
+
+
+class CreateLibraryBody(BaseModel):
+    lib_name: str
+    biz_template: str
+
+
+class CreateLibraryResponse(BaseModel):
+    lib_id: str
+    lib_name: str
+    biz_template: str
+    status: str
+    config: dict[str, object]
+    activity_row: ActivityRowBody
+
+
+def _create_response(view: CreateLibReceipt) -> CreateLibraryResponse:
+    return CreateLibraryResponse(
+        lib_id=view.lib_id, lib_name=view.lib_name, biz_template=view.biz_template,
+        status=view.status, config=view.config,
+        activity_row=ActivityRowBody(
+            time=view.activity_row.time, who=view.activity_row.who,
+            action=view.activity_row.action, target=view.activity_row.target,
+        ),
+    )
+
+
+@router.post("/libs", response_model=CreateLibraryResponse, status_code=201)
+async def create_library(
+    body: CreateLibraryBody,
+    service: KbDep,
+    actor: CurrentActor,
+) -> CreateLibraryResponse:
+    """建库（业务模板带出默认配置档案——模板只定初始档、建后可调；空名 400/重名 409）。"""
+    return _create_response(
+        await service.create_library(body.lib_name, body.biz_template, actor.who)
+    )

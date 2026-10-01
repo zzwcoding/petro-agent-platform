@@ -74,12 +74,35 @@
   4. **metrics status 筛读侧过滤**：status 为 jsonb 数组列，跨方言包含谓词无统一写法——SQL 筛 keyword/owner、status 命中与分页读侧完成（量级 15 行，C1「量级 3–15 条」）；terms/objects/relations 全 SQL 筛选分页。
   5. **teach 仓 C1 册改动未提交**（如上）；**对象读面拆两端点**（objects＋relations）照 C1 端点 5/6 冻结形状，「三件套」＝术语/指标/对象与关系两面三族。
 
-## P1-02a kb 底座后端（B1 合同 v0.3 主体）
+## P1-02a kb 底座后端（B1 合同 v0.3 主体）✅（2026-10-01）
 
 - **目标**：报告入库全链后端——建库/路由/直传两拍/五步/任务/台账/配置/活动流。
 - **先读**：teach `B1-报告库.md` v0.3（15 端点逐条＋入库路由节）；99 册 kb_library/kb_upload/kb_ingest_task DDL（含本批新列）；00 册 §5（任务轮询）；平台 `app/domains/gateway/`（complete 出口记账先例）、`infra/db.py`。
 - **范围**：端点 15 建库（biz_template 四枚举默认配置生成）＋停用/启用（status 落端点 13）；入库路由（端点 5 `suggested_topic` 可选→LLM+本体建议/人确认；端点 6 confirm 落 `routed_lib_id`/`route_confirmed_by`）；直传两拍＋`dup_warning` 非阻断重复提示＋`config_snapshot` 定型；五步管线＋任务（source 字段/筛选，stuck 收口）；台账（入库中状态）；库配置读写（四开关/切段 mode/两复选，下次入库定型）；活动流（action 值域含新建库/停用库/启用库）；向量（pgvector）＋倒排两管线。
 - **验收**：15 端点行为规则逐条；真装配冒烟（真传演示 PDF→五步→台账/任务/两索引落库）；路由闭环（LLM 建议→确认→按库定型入库）；四门禁绿＋PG 集成零跳过。
+- 落地 ✅：
+  - **kb 域**（`app/domains/kb/`，domain 厚/service 编排/store 三件——gateway 先例同构）：`domain.py`（合同常量冻结照抄：五步机器键/label/步短名、四开关、三切段、任务四态、source 三值、模板四枚举＋默认配置档〔completion 图谱开/其余关＝页面 LIB_TEMPLATES 同值〕、五步 note 服务端组装〔步 1/3 固定文案、步 2 随 mode、步 4 随快照 ✓/✗、步 5 无说明行〕、三切段器〔smart 256–1024 字＋10–20% 回带／fixed 512 硬切／mixed 父子分块 F30〕、确定性分词、`LocalHashEmbedder` 向量占位＋`EmbeddingBackend` 换模型唯一缝、路由建议解析〔宽容 JSON、库名归一、模板越界/未知库→mode=None 不硬凑〕、错误族/id 族）；`store.py`（kb_* 八表 ORM——99 §2.5 逐字段＋CHECK 六处＋idx 五处＋基线列；`PgVectorType` pgvector `vector(384)` 列〔sqlite JSON 近似〕；**多写方法显式 flush 排序**——无 relationship 的 UOW 不保证 FK 插序，冒烟实证修正）；`service.py`（16 方法照 98 §3.4 卡＋管线任务体 asyncio——受理即落行开跑、失败按阶段定位 stop_at＋人话原因〔不发明错误码数字〕＋failed current_step＝stop_at 序号〔更正项⑪〕、跳过＝配置性支路不跑不花钱、富化子任务失败不阻塞整卷、重跑＝新任务行 source=重跑定型按当前配置重新定型、stuck 重试内含停止〔取消旧任务体〕、sweep_stuck 收口、IngestCompleted 经 eventbus 发布〔B9——derivatives 订阅缝〕）。
+  - **infra 增件**：`infra/object_storage.py`（对象存储 seam＋**真 MinIO adapter**——选型理由：占位无法兑现「服务端核实落桶」409 判据与「GET 直链小时级」两条合同行为，compose 五件已含 MinIO＋minio 依赖已在；物理桶 `reports`＝F5 桶规划、响应 `bucket` 落显示名「报告原文」照抄；PUT TTL 30min/GET 1h；sync SDK 全部 to_thread 卸载）；`infra/config.py` 增 minio_* 凭证槽（.env 注入）＋`load_entity_type_names`（entity_types.json 词表装载——路由话题分析辅助消费）。
+  - **路由族**（`app/api/kb.py`，15 条路由；`deps.py` 增 KbDep、`errors.py` 增 kb 400/404/409/501 映射、`main.py` lifespan 装配 ensure_kb_tables＋KbService＋InMemoryEventBus＋启动 stuck 收口）：全员可见不做组闸（roles.js MENU B1 无 roles——身份桩依赖只解析身份）；confirm＝200 同步特例（00 §5.2）；建库 201。
+  - **入库路由（B1 v0.3 专节逐字）**：端点 5 可选 `suggested_topic`/缺省文件名兜底→`gateway.complete(petro-main)`＋entity_types.json 词表话题分析（全局默认能力不依赖库配置）→建议归现有库（lib_id＋理由＋置信度）或建议新建库（必带模板推荐）；**LLM 只建议、人确认后执行**——建议归库随受理登记、confirm 即确认执行（路由定型落 `routed_lib_id`/`route_confirmed_by`）；分析不可用→受理照常（建议 mode=None「请手动指定」），空体 confirm 409（kb_route_unresolved）、confirm 可选体带 `lib_id` 人直指定即跳过分析。
+  - **Alembic 首执行**（照 P0-08/P1-01 操作序）：env.py 登记区补挂 kb store → autogenerate `20261001_0003_kb_baseline.py`（跨域误报 drop 已人工剔除——P1-01 同款）→ **upgrade head/downgrade base 双向实跑过**（PG16@5433：0002→0003→0002→0003→base→0001→0002→0003 终态 0003 head）；upgrade 先 `CREATE EXTENSION IF NOT EXISTS vector`（downgrade 不撤扩展——库级资产）；双向实跑清掉的 sem_* 种子已重跑同步器补种（counts 11/15/10/5/4/10/3，零告警）。
+  - **测试**：`tests/domains/kb/test_kb_domain_unit.py` 13 条（切段三模式带内断言/分词/向量占位确定性＋归一/模板档/路由解析五态/归一化）；`test_kb_service_unit.py` 34 条（建库 400/409/201／两拍 409 族〔未落桶/凭证已用〕/dup_warning 非阻断／五步 done＋向量落库＋产物两卡／**定型语义**〔改配置→快照不变→重跑重新定型〕/失败步序对齐〔stop_at＝解析、current_step=0〕/stuck 收口＋台账「入库中」/source 筛/库列表快照两态分离/graph 筛/活动流/停用启用 400 带码恢复受理/配置校验/路由两拍闭环〔建议归库→空体 confirm 定型；分析失败→空体 409→带 lib_id 确认〕）；`test_kb_tables_pg.py` 6 条（八表逐列＋CHECK/idx 断言＋**pgvector 真库往返**＋路由三列可空＋活动流）；`tests/api/test_kb_api.py` 12 条（15 路由往返/错误包形状/401 身份闸/端点 4 壳 501）。
+  - **真装配冒烟**（`tests/test_kb_smoke_real.py`，KB_SMOKE=1 门控——真 PG/MinIO/真 gateway.complete）：建库→受理→**HTTP PUT 直传真 MinIO**（平台不经手字节）→confirm 定型→五步全 finish done→真 LLM 摘要卡＋10 问卡→台账 refs=5/详情 v1/任务/活动流〔新建库/上传报告/入库完成〕→**pgvector 向量 5 片段落库**直查可查。证据：task-34817dc4（终态 done 五节点 finish）、rpt-1988b90a（refs 5）、lib-c88ac307（completion 模板快照 graph=true）。
+- 验收自证 ✅：四门禁——ruff（app+tests+migrations）0 错 / mypy strict **46 文件零错** / pytest 带 PG16@5433 **267 passed 零跳过**（含 KB_SMOKE=1 冒烟；不带冒烟 266 passed 1 skipped＝门控冒烟自身；无 PG 底座 243 passed 24 skipped）/ lint-imports 4 契约 KEPT；`ontology/ci.sh` 全绿（ontology/ 零改动）。
+
+> **与合同/票面的差异点登记（现实约束按现实落地，语义不私改）**：
+> 1. **confirm（端点 6）增可选体 `{lib_id?}`**（v0.2 合同「请求体为空」形状保留——空体合法）：入库路由专节定谳「路由确认并入 confirm 定型链路」，人确认需要一个选择通道——空体＝沿用受理已定目标库（建议归库随受理登记，confirm 即「人确认后执行」）；带 lib_id＝人改选/直指定；两者与 v0.2 直传流（受理已带 lib_id→空体 confirm）全兼容。**待 Owner 复核**（备选方案：确认改选须重新受理带 lib_id——实现可切换，不改表）。
+> 2. **kb_upload.lib_id 可空**（99 DDL 未标 NOT NULL）：路由流受理时目标库未定（「库未定时防鸡生蛋」原文）——confirm 定型 routed_lib_id；直指定流 lib_id/routed_lib_id 同值。
+> 3. **kb_fragment.embedding 维度占位 384**（99 注记「维度待 embedding 模型选定后回填＝待办」）：本票以 `LocalHashEmbedder`（确定性哈希向量，非语义向量）打通 pgvector 全链，`EmbeddingBackend` Protocol 为换真实 embedding 模型唯一缝——**embedding 模型选型挂后续批**（疑似疑点清单登记）。
+> 4. **关键词倒排不落第二份存储**（99 §6-5「BM25/关键词路落法悬置」）：index 步对非父块片段确定性分词（ASCII 词＋CJK 二元组）但不建倒排存储——落法随 99 收口批对齐；语义半边向量已落 pgvector（冒烟可查）。
+> 5. **台账 `status` 两态为读侧派生不落列**：99 `kb_report.status` CHECK 单值「已入库」；端点 1「入库中」＝存在 running/stuck 任务即标（B1 v0.2 裁决原文「存在运行/疑似卡住任务同报告即标，完成转已入库标自动消失」）——列存恒「已入库」，两态由最近任务状态派生。failed 任务对应报告按字面落「已入库」（合同只有两态），失败可见性由任务页签承载。
+> 6. **fixed 切段档位落 512 字**（B1 开放问题 6「维持实施批定档」）：本票以 `FIXED_CHUNK_CHARS=512` 占位实现，非合同冻结值；mixed 父块上限 2048/子块 512 同为实施参数（常量集中 domain.py，Owner 可调）。
+> 7. **直传 PUT 凭证 TTL＝30 分钟**（合同未冻结期限；B1 端点 5 示例 expires_at 约 25–30 分钟量级；GET 直链 1 小时＝00 §7.2 小时级冻结值）——挂疑点清单待 Owner 拍板。
+> 8. **演示注记不入真实实现**：端点 11 `annotations.graph`「省抽取费」为制度文件库演示注记（mock 本地数据，无派生规则）——真实实现恒返回 `{}`；`subject`/`related_objects` 派生归 F31 增补批（本票缺省 null/[]——B1 端点 2 注记「演示缺省为未回填」同象）；`refs`＝非父块片段数（含摘要/问题块——F37 入索引带类型标；与 B2 报告过滤的同源一致性归 B2 票接线时对账）。
+> 9. **端点 4 片段修正＝端点壳 501**（票面指定「只立端点壳+表」）：乐观锁列（`current_version`）就位、路由挂载，修正动作＋问题块重生＋wiki 重铸归 P1-02b；501 非 00 §3.2 状态码集（差异登记）——错误包 code=`kb_fragment_revise_deferred`。
+> 10. **stuck 收口＝启动巡检单次**（lifespan 惯例，gateway 先例同构）：`sweep_stuck()` 幂等收口 running 且 updated_at 早于 20 分钟（演示阈值量级）的任务；周期巡检循环未挂 lifespan（00 §5.2-6「阈值结合实际框架定」+调度器 infra.batch 挂后续批）——`sweep_stuck()` 公开面已就绪可挂。
+> 11. **kb 写端点未接 B12 平台审计**：B1 页留痕面＝F62 库活动流（合同专设），域内写入均「同事务记 F62」；平台级审计（security.audit）对 B1 写操作未挂——是否双轨留痕待 Owner 裁决（gateway 页是 D1 合同有审计要求，B1 合同无此要求）。
+> 12. **重跑的片段整卷置换**：重跑＝一次新入库，同名报告片段随重建被整卷置换（含旧向量）；片段修正历史（v1 永存/逐次记版）的跨重跑保留策略归 P1-02b/B2 批（本票修正功能未开，无历史可失）。
 
 ## P1-02b 百科生成支路＋修正重铸闭环
 

@@ -15,6 +15,7 @@ from typing import Annotated, cast
 from fastapi import Depends, Header, Request
 
 from app.domains.gateway import GatewayService
+from app.domains.kb import KbService
 from app.domains.security import (
     Actor,
     SecurityService,
@@ -70,7 +71,13 @@ def get_semantics(request: Request) -> SemanticsService:
     return cast(SemanticsService, request.app.state.semantics)
 
 
+def get_kb(request: Request) -> KbService:
+    """kb 服务定位（lifespan 装配于 app.state——main.py；P1-02a 起）。"""
+    return cast(KbService, request.app.state.kb)
+
+
 DbDep = Annotated[ConnectionManager, Depends(get_db)]
 SecurityDep = Annotated[SecurityService, Depends(get_security)]
 GatewayDep = Annotated[GatewayService, Depends(get_gateway)]
 SemanticsDep = Annotated[SemanticsService, Depends(get_semantics)]
+KbDep = Annotated[KbService, Depends(get_kb)]

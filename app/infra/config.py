@@ -33,6 +33,7 @@ LOGGER = logging.getLogger("infra.config")
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 MODELS_YAML = _REPO_ROOT / "config" / "models.yaml"
 DATABASE_YAML = _REPO_ROOT / "config" / "database.yaml"
+ENTITY_TYPES_JSON = _REPO_ROOT / "config" / "entity_types.json"
 DOTENV = _REPO_ROOT / ".env"
 
 # ${VAR} / ${VAR:-default}（默认值可为空串）
@@ -44,6 +45,9 @@ class InfraSettings(BaseSettings):
 
     sm4_key：SM4 字段加密密钥（hex 32 位＝16 字节，infra.crypto 消费）——
     缺省为开发默认值，仅开发态可用；生产必须经环境变量注入覆盖。
+    minio_*：对象存储（infra.object_storage 消费）——缺省对齐 compose 演示
+    拓扑（宿主 9000 / petro / petro12345，见 compose.yaml minio 服务段）；
+    生产凭证经环境变量注入覆盖。
     """
 
     model_config = SettingsConfigDict(
@@ -51,6 +55,10 @@ class InfraSettings(BaseSettings):
     )
 
     sm4_key: str = "00112233445566778899aabbccddeeff"
+    minio_endpoint: str = "localhost:9000"
+    minio_access_key: str = "petro"
+    minio_secret_key: str = "petro12345"
+    minio_secure: bool = False
 
 
 @lru_cache(maxsize=1)
@@ -289,3 +297,21 @@ def load_database_specs(path: Path | None = None) -> list[DatabaseSpec]:
         if entry:
             raise ValueError(f"database.yaml 角色 {role_key!r} 存在未消费字段: {sorted(entry)}")
     return specs
+
+
+# ---------- 本体派生词表（P1-01 导出物——kb 入库路由话题分析辅助消费） ----------
+
+
+def load_entity_type_names(path: Path | None = None) -> list[str]:
+    """读 config/entity_types.json 的实体类型名册（P1-01 派生物，进 git）。
+
+    消费面（B1 v0.3「入库路由（阶段 1 实施项）」专节）：入库路由话题分析用
+    全局默认能力（gateway.complete petro-main）＋本词表辅助——不依赖目标库
+    配置（库未定时防「鸡生蛋」）。文件缺失/损坏显式报错（导出物是仓库内
+    提交物，缺文件即部署错误，禁静默吞掉）。
+    """
+    import json
+
+    target = path or ENTITY_TYPES_JSON
+    raw = json.loads(target.read_text(encoding="utf-8"))
+    return [str(item["name"]) for item in raw.get("entity_types", [])]
