@@ -363,11 +363,33 @@
 ## P1-08b 收尾裁决（主窗口，26e3541）
 > 全绿（带 PG 566 passed＋CHAT_SMOKE 真冒烟：三链真跑＋citation 锚逐条对账一致＋记账落账）。裁决：1（fast 档＝融合序放行）＝采纳挂 embedding/重排选型批（P1-11 前 Owner 拍板）；2（SOURCE_SCORES 实施值）＝采纳；3（流式＝整段切片）＝采纳（B6 无上游流式，fail-closed 优先于早期呈现）；4/9（LLM 意图裁决挂批）＝采纳挂账 Owner 里程碑复核；5（citation kind FAQ 无专值）＝采纳挂账（faq 块双写同源批）；6（hit_text 落列修复）＝采纳；7（图存储不可用降级不阻断）＝采纳（管理面显式抛错语义不变，可用性取舍登记）；10（检索范围全库）＝采纳（asks 无 lib 入参合同口径）；11（test_config 缓存隔离）＝采纳（P0 遗留缺口修复）。
 
-## P1-08c SSE 树叙事后端（A1 主链第三拍）
+## P1-08c SSE 树叙事后端（A1 主链第三拍）（中期记录 2026-10-02 05:27：08c 施工过半在盘未提交——chat 域四件+测试六件已改〔树叙事帧序列/断线恢复/resume 续传〕；施工代理撞配额墙〔第二次，06:35 重置〕，恢复后续作〔resume agent-43〕。）
+
+
 
 - **先读**：teach A1 册（思考过程树节/19 帧语义）；00 册 §6.2（收场判据）；`web/src/api/sse.js`（前端底座帧清单——对齐消费）。
 - **范围**：思考过程树帧序列（节点状态流式推进/节点 note 服务端组装）；19 类业务帧完整装配时序；断线重连语义（骨架期 replay_truncated 话术→本拍接缓冲前保持骨架判据，接线留注）。
 - **验收**：树叙事时序断言（节点逐帧点亮序列）；断线重连两形态；四门禁绿。
+- 落地 ✅（2026-10-02）：
+  - **树叙事 node 帧族**（`domain.py` 语义件单源＋`service.py` 前门＋`chains.py` 链内）：`node_frame()` 构造器——载荷＝**A1 帧 7 合同字段 `{key,name,tag?}` ∪ 00 §5.3 节点步进形状 `{key,label,state,note,skipped}`（additive 并集**，name/label 同值双承载；note 全量服务端组装、前端零拼装）；状态推进＝**执行级 process→finish 成对**（每步开跑帧＋收束帧，note 携该步结果人话）、**跳过级 wait＋skipped:true 单帧**（00 §5.3 ①——早停跳过/三级开关关跳过/S5 未启用直通同形，不扩 state 枚举）；`error` 态协议登记不发文（设计内收场〔拦截/落空/兜底〕一律 finish＋note 明示——拦截不是错误，A1 行为规则 4）。`TREE_NODES` 注册表：前门 **N1/N2a/N2b/N3/N4/N5/N5a/N5b/N6**＋链执行节点 **N17/N18/N13**（41 树键照抄 learning-records 全景树 v2 总树＋DecisionTree.jsx 41 节点版）＋链内 **S0/S1/S3/S4/S5/S6/S7**（D2 瀑布级合同键——08b node_line 同键归位 node 帧，08b 差异 8 本拍兑现）＋**GEN**（链内生成步实施键）。N0/N8/N9/N10 不发 node 帧（session/answer/done 帧驱动——A1 五路映射表原样）。
+  - **前门树叙事**（ask/resume 同构）：N1 统一安检（三道逐条翻前后 process/finish；拦截→N1 finish「拦截，链路终止」＋N2a/N2b 节点 finish——注源全景树节点执行内容）→N3 轻装配（match×6 前后；note 携命中路数/共池支数）→N4 装配块（assembly 帧前后）→stage2→N5 意图裁决（verdict 前后；tag「代码 · 确定性路由」诚实标注——LLM 意图裁决随后续批）→澄清挂起 N5a 节点（口径两译/多候选分型 note）→N5b 裁决核验（闭世界 17 链清单核验）→N6 链路分派。
+  - **链内步进**（检索链）：N17 开跑→S0 身份四要素→S1 显式锚定→S3 词表四级→S4 双路召回（开关关/早停命中即停级发 skip 帧）→S5 直通跳过（D2「过程记录写明」）→S6 资格裁决→S7 权威源回读→GEN 限定作答（tag/node_line 携「模型第 N 次调用」——N＝精排打分调用数＋1，真实计数）→N17 收束（引用登记数入 note）→出口「配置核对」行。**node_line 归位保留**（A1 帧 8 节点内内容行）：FAQ 扩检轮次行/FAQ 并入行（S4 内容行）、配置核对行（D2 行为规则 6 出口展示面——只列真实消费的生效配置值，不发明「阈值未触发」类未核对结论）、模型第 N 次调用标注行（GEN 内容行）。FAQ 链＝N18 process→finish（秒回零内部步进）；图谱链＝N13 开跑→遍历/校验内容行→GEN→N13 收束。
+  - **19 帧完整装配时序**（检索链生成路径金样本，测试固化）：session→stage(0,1)→N1→sec_check×3→N1→N3→match×6→N3→N4→assembly→N4→stage(2)→N5→verdict→N5→N5b×2→N6×2→stage(3)→N17→S0..S7（跳过级 wait＋skipped）→GEN→node_line(模型第 N 次)→GEN→N17→node_line(配置核对)→**token×N→citation×N→answer→done**；**token 帧切片与树帧不交错乱序**（时序断言：首个 token 之后零树帧——单测＋API＋冒烟三层固化）。零发三帧位置登记（注册即可，随其链票点亮）：`tool_call`（F8 工具体系——链内工具调用后、citation 前）、`lineage`（F13 问数族答案随卡——answer 前、citation 后）、`approval`（extable/action 链 interrupt——票面明示骨架期可零发）。
+  - **断线重连真恢复**（票面「resume 端点真恢复」落端点 4 重连形态；端点 5＝08a pending_interrupt 持久挂起＋带参续推即真恢复，本拍核对语义）：①**Last-Event-ID 中段续传**（仅头在场——无法定位 run）→收场②骨架判据保持（replay_truncated＋「会话中断较久…」话术原文，断点续序）；②**resume_run_id run 恢复**：`replay_preflight` 开流前校验（**不存在 404**——P0-08「run 存在性不校验」判据随真恢复退役）→`replay()` 重放已持久化帧序列（能补多少补多少）：**done**＝session(resume:true)→verdict→citation×N（answer.citations 同形回放）→answer→done（与原流同形同值）；**interrupt_clarify**＝session→verdict→clarify（pending_interrupt 持久帧，流收束不发 done——镜像挂起形态）；**running/failed/cancelled**（及 done 缺答案）＝持久前缀＋replay_truncated **③收场**（「回答生成已被取消——以上为重连前的内容，请重新提问。」合同话术）。中间过程帧不落库（99 §1.5）——重放不伪造。重放流帧序号自断点续枚举＋**resume_point 注入**（A1 帧 19 合同载荷＝截断帧前一帧号）；**只读重放**：零消息写入、零 run 状态变更——recent_qa_pairs 料源语义核对不变（done 配对/挂起不进料源）。**顺手收口**：resume 澄清续跑安检复检由 08a 帧面恒 pass 落为**真扫描**（带参输入 scan_injection/check_banned，拦截终局与 ask 同款）。
+  - **测试**：`test_chat_chains_unit.py` 35 条（＋8 树叙事：检索链 node 步进金样本全量 walk/token 不交错/GEN 序号计数/配置核对行/开关关 skip 帧/S5 直通记录/FAQ N18/图谱 N13 walk）；`test_chat_service_unit.py` 35 条（帧序金样本升级 walk_projection 全量断言＋TestReplay 五条：done 全量回放同形同值＋只读零扰动＋重放幂等/挂起前缀/running ③收场/cancelled/404）；`tests/api/test_chat_sse.py` 19 条（重写：树帧先于 token 时序断言/reconnect 两形态——Last-Event-ID 骨架收场含 resume_point/run 恢复 done 全量/断点续枚举/挂起回放/running ③收场/未知 run 404；P0-08 骨架判据与 401/400/409 族全保留）。
+- 验收自证 ✅：四门禁——ruff（app+tests+migrations）0 错 / mypy strict **64 文件零错** / pytest 带 PG16@5433 **584 passed 3 skipped**（skip＝KB_SMOKE/FAQ_SMOKE/CHAT_SMOKE 三个门控冒烟自身）/ lint-imports **5 契约 KEPT**；`ontology/ci.sh` 不涉（ontology/ 零改动）。**真装配冒烟**（CHAT_SMOKE=1，真 PG16@5433＋MinIO＋Neo4j＋gateway.complete）：检索链真跑树叙事帧序核对（N1..N6→N17→S0–S7/GEN 逐帧点亮、token 不与树帧交错）＋**断线重连真恢复真跑**（resume_run_id 重放：session(resume)/verdict/citation×N/answer 与原流逐帧同值）＋FAQ/图谱链 N18/N13 步进＋B12 留痕。
+
+> **与合同/票面的差异点登记（现实约束按现实落地，语义不私改）**：
+> 1. **node 帧载荷＝A1 帧 7 `{key,name,tag?}` ∪ 00 §5.3 `{key,label,state,note,skipped}` 并集**（additive——A1 冻结字段全保留，§5.3 形状承载状态推进；name/label 同值双承载）：票面指定「00 §5.3 节点步进形状」、A1 冻结帧 7 字段不可丢，并集是唯一同时满足面。挂 Owner 复核。
+> 2. **node 键两族并存**：前门/链执行节点＝41 树键（A1「key 与全景树 41 节点键一致」）；链内步进＝S0–S7 瀑布级合同键（A1 行为规则 3「链内节点行内容照抄各源」＋票面时序原文「链内 S 级→资格→回读→生成」；08b node_line 同键平移）——41 树对 N17 链内无细分节点（N17.2–N17.5 属原型演示资产不入合同）。挂 Owner 复核。
+> 3. **GEN＝链内生成步实施键**：41 树无生成节点（N8 答案组装由 answer 帧驱动、N9/N10 由 token/done 驱动——五路映射表），票面时序以「生成」收尾——立 GEN 键（label 照抄原型 N17.5「限定作答＋引用登记」语义）。挂 Owner 复核。
+> 4. **跳过级统一用 00 §5.3 ①表达**（state=wait＋skipped:true）：早停跳过＝①无疑义；三级开关关/S5 未启用按 §5.3 ②「配置性不跑不设态」本应不发帧——本拍发 skip 帧以保树叙事完整（08b 同级过程行 existed，归位后丢失即叙事倒退；D2 合同「过程记录写明直通跳过」同理）。①②判据差异挂差异登记。
+> 5. **重放帧 id 与原流帧 id 不对齐**（诚实登记）：无 Redis 事件缓冲（infra.sse_channel 未建），能补的是**持久化内容**（session/verdict/clarify/citation/answer）而非原流断点后的原帧序列；重放流自断点续枚举、resume_point＝截断帧前一帧号（A1 帧 19 载荷兑现）。窗内逐帧对齐重连随 infra.sse_channel 接线批（接线留注）。
+> 6. **零发三帧**：approval 零发＝票面明示「注册即可」；tool_call/lineage 零发＝三已接线链无工具调用/非问数族（血缘卡随状态机六站链批）——位置已登记（19 帧装配时序节），注册面全（FRAME_NAMES 19 值＋单测看守）。
+> 7. **run 恢复 404 替代 P0-08「run 存在性不校验」判据**：真恢复的对象是持久 run——不存在＝无可恢复对象，A1 错误码草案 404 行（「run/session/task 不存在或已过期」）兑现；仅 Last-Event-ID 头（无 run 标识）形态维持收场②骨架判据不变。
+> 8. **N2a/N2b/N5a node 帧**：五路映射表未单列（N2a/N2b 归 sec_check 车道、N5a 归 clarify 帧）——补发以保「node 帧的节点键序列是本次运行的实时路径」（A1 决策树节：蓝线高亮＝静态路径×已收 node 键叠加）路径点亮完整。additive。
+> 9. **resume 安检复检真扫描**（08a 帧面恒 pass 缝隙顺手收口）：A1 端点 5「新输入重过 D1 统一安检（不免检）」字面兑现——带参输入真过注入/禁用词扫描，拦截终局与 ask 同款（审计 chat.ask.blocked 照落）。
+> 10. **配置核对行只列真实消费值**：D2 行为规则 6 出口「配置核对」行可展示「单次花费阈值未触发」等核对结果——本拍只列实际装载并消费的 D2 生效配置值（三级/早停/topK/前 N/精排/引用格式/兜底），花费阈值核对无消费面不冒充（业务事实零发明）。
 
 ## P1-09 A1 前端（问一问）
 
