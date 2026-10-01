@@ -232,6 +232,9 @@
 - 验收自证 ✅：四门禁——ruff（app+tests+migrations）0 错 / mypy strict **52 文件零错** / pytest 带 PG16@5433 **370 passed 1 skipped**（skip＝KB_SMOKE 门控冒烟自身；+3＝B12 断言/version 串/同事务）/ lint-imports **5 契约 KEPT**；web 三连绿（eslint 0 error 2 存量 warning/vitest 83 passed/vite build 过——web 零改动）；KB_SMOKE 真装配冒烟未跑（真 LLM 计费，票面验收未列——挂疑点）。
 - 附带：teach `specs/api/README.md` B5 索引行端点数 4→5（**teach 提交 5f2a43c**——里程碑①文档对齐批遗留，draft-example 已随 e59ca4c 入 B5 册、索引行计数挂本票）。
 
+## P1-05b 收尾裁决（主窗口，cf738c9＋teach 5f2a43c）
+> 三项审查发现全修复（B12 四写端点含 confirm 失败不审计中间断言/terms version 展示串/graph 活动流真同事务双向不孤儿）。疑点 1（冒烟未跑）＝采纳（API 级真 SecurityService 已覆盖，KB_SMOKE 计费门控留 P1-11 收官统一跑）；**疑点 2（metrics DTO 缺 version）＝真缺口，挂账并入"semantics 读面收口批"（与 P1-01b 挂账 slots 读面同批，P1-11 前收口）**；疑点 3（objects version 维持 int|null）＝采纳。
+
 ## P1-06 faq 后端＋B3 前端（常见问题库）
 
 - **先读**：teach `B3-常见问题库.md` v0.2（17 端点＋审核流＋⚙改版＋挖掘管线）；D2 册 qa_behavior（扩检已收敛）；98 册 LedgerMerged 事件行。
