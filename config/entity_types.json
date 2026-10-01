@@ -1,0 +1,71 @@
+{
+  "kind": "entity_types",
+  "source": "ontology/petro/m1-object-model.yaml",
+  "schema_version": "1.1.0",
+  "consumers": [
+    "B5 抽取设置对号强校（B5 v0.2 端点 3）",
+    "A2 映射卡/白名单"
+  ],
+  "entity_types": [
+    {
+      "id": 1,
+      "name": "井",
+      "ref": "AGG-PETRO-001",
+      "ontology_name": "井"
+    },
+    {
+      "id": 2,
+      "name": "井筒",
+      "ref": "AGG-PETRO-011",
+      "ontology_name": "井筒"
+    },
+    {
+      "id": 3,
+      "name": "区块",
+      "ref": "AGG-PETRO-010",
+      "ontology_name": "区块"
+    },
+    {
+      "id": 4,
+      "name": "油田",
+      "ref": "AGG-PETRO-012",
+      "ontology_name": "油田"
+    },
+    {
+      "id": 5,
+      "name": "平台",
+      "ref": "AGG-PETRO-013",
+      "ontology_name": "平台"
+    },
+    {
+      "id": 6,
+      "name": "设备",
+      "ref": "AGG-PETRO-007",
+      "ontology_name": "设备状态记录"
+    },
+    {
+      "id": 7,
+      "name": "措施",
+      "ref": "AGG-PETRO-005",
+      "ontology_name": "井措施记录"
+    },
+    {
+      "id": 8,
+      "name": "化验样",
+      "ref": "AGG-PETRO-006",
+      "ontology_name": "流体化验记录"
+    },
+    {
+      "id": 9,
+      "name": "受效关系",
+      "ref": "AGG-PETRO-009",
+      "ontology_name": "受效关系"
+    },
+    {
+      "id": 10,
+      "name": "配注层",
+      "ref": "AGG-PETRO-014",
+      "ontology_name": "配注层"
+    }
+  ]
+}
