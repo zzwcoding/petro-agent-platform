@@ -1,5 +1,8 @@
 """真装配冒烟（KB_SMOKE=1 门控）——演示文本真传走完五步→台账/任务/向量可查。
 
+P1-02b 增拍：wiki 支路真跑（真 LLM 百科页落库）→修正一片段→三联动真跑
+（索引重建＋问题块重生＋wiki v+1 重铸）→回滚＋B12 审计留痕。
+
 跑法（tickets/phase1/README.md P1-02a 验收）：
     KB_SMOKE=1 uv run pytest tests/test_kb_smoke_real.py -q
 
@@ -66,6 +69,16 @@ def test_real_assembly_smoke() -> None:
         )
         assert lib.status_code == 201, lib.text
         lib_id = lib.json()["lib_id"]
+
+        # ①' 库配置保存（B12 裁决指令①——api 层写口真跑一次；同值保存不改定型语义）
+        saved = client.put(
+            f"/api/kb/libs/{lib_id}/config",
+            json={"switches": {"semantic": True, "keyword": True, "wiki": True,
+                               "graph": True},
+                  "mode": "smart", "add_summary": True, "add_questions": True},
+        )
+        assert saved.status_code == 200, saved.text
+        assert saved.json()["hint"].startswith("已保存——")
 
         # ② 直传受理（两拍第一拍）——presigned PUT 真凭证
         up = client.post(
@@ -149,3 +162,70 @@ def test_real_assembly_smoke() -> None:
 
         embedded = asyncio.run(_count_vectors())
         assert embedded > 0, "向量半边未落库（pgvector）"
+
+        # ⑧ wiki 支路真跑（P1-02b）：IngestCompleted→真 LLM 重写→wiki 页落库 v1
+        page_id = None
+        for _ in range(240):
+            pages = client.get("/api/wiki/pages", params={"keyword": tag}).json()
+            if pages["total"] >= 1:
+                page_id = pages["items"][0]["id"]
+                break
+            time.sleep(1.0)
+        assert page_id, "百科页未在超时内生成"
+        page = client.get(f"/api/wiki/pages/{page_id}").json()
+        assert page["slug"] == page_id  # slug 稳定性＝id 承载
+        assert page["source_report"]["id"] == report["id"]
+        assert page["generation_source"] == "自动重建"
+        assert page["operator"] == "系统（入库管线）"
+        assert page["content"].strip()  # 真 LLM 自由 markdown 全文（所见皆完整版）
+        assert "<!--WIKI-END-->" not in page["content"]  # 哨兵不入库
+        versions = client.get(f"/api/wiki/pages/{page_id}/versions").json()
+        assert versions["total"] == 1
+        assert versions["items"][0]["task_no"] == confirm_body["task_id"]
+        assert versions["items"][0]["desc"] == "首次生成（报告入库自动建页）"
+
+        # ⑨ 修正一片段→三联动真跑：记版＋索引重建（重嵌）＋问题块重生＋wiki v+1
+        frag = detail["fragments"][0]
+        revise = client.post(
+            f"/api/kb/reports/{report['id']}/fragments/{frag['id']}/revisions",
+            json={"base_version": frag["version"],
+                  "text": frag["text"] + "（勘误：补状态注记，注源 §A.1）"},
+        )
+        assert revise.status_code == 200, revise.text
+        revise_body = revise.json()
+        assert revise_body["versions"][-1]["note"] == "人工修正"  # v1 原始不可变
+        rebuild = _wait_done(client, revise_body["task_id"], timeout=300)
+        assert rebuild["source"] == "片段修正" and rebuild["state"] == "done"
+        # FragmentRevised→重铸队列→复用生成管线→版本+1 来源「自动重建」
+        recast_v = None
+        for _ in range(300):
+            versions = client.get(f"/api/wiki/pages/{page_id}/versions").json()
+            if versions["total"] >= 2:
+                recast_v = versions["items"][-1]
+                break
+            time.sleep(1.0)
+        assert recast_v, "百科重铸未在超时内落版本"
+        assert recast_v["source"] == "自动重建"
+        assert recast_v["task_no"] == revise_body["task_id"]
+        assert recast_v["desc"] == "片段修正后自动重建"
+        # B1 台账 wiki 字段与 B4 current_version 同源同值
+        reports = client.get("/api/kb/reports", params={"keyword": tag}).json()
+        assert reports["items"][0]["wiki"] == f"v{recast_v['v']}"
+        # 活动流：修正＋触发百科重铸
+        acts = client.get(f"/api/kb/libs/{lib_id}/activities").json()
+        assert any("修正片段" in a["action"] and "触发百科重铸" in a["target"]
+                   for a in acts["items"])
+
+        # ⑩ 回滚真跑（追加「回滚」来源新版本——可再滚回）
+        rollback = client.post(
+            f"/api/wiki/pages/{page_id}/rollback", json={"target_version": 1}
+        )
+        assert rollback.status_code == 200, rollback.text
+        rb = rollback.json()
+        assert rb["new_version"]["source"] == "回滚"
+        assert rb["new_version"]["task_no"] is None  # 回滚无经由单号
+        assert "内容恢复自 v1" in rb["banner"]
+        audit = client.get("/api/security/audit-logs", params={"pageSize": 50}).json()
+        audit_actions = {a["action"] for a in audit["items"]}
+        assert {"kb.lib.created", "kb.config.saved", "kb.fragment.revised",
+                "wiki.page.rolled_back"} <= audit_actions  # B12 补齐（裁决指令①）

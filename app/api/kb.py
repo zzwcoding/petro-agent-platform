@@ -1,4 +1,4 @@
-"""api.kb —— /api/kb 路由族（B1-报告库.md v0.3 合同，15 条路由；P1-02a）。
+"""api.kb —— /api/kb 路由族（B1-报告库.md v0.3 合同，15 条路由；P1-02a/P1-02b）。
 
 形状注记：
 - 响应字段 snake_case（00 §14-R1——本端点即真实接线，同 D1/D3 先例）；
@@ -10,7 +10,10 @@
 - 筛选（00 §4.5）：tasks.source 值域合同冻结（all|上传入库|片段修正|重跑定型）、
   libs.graph（all|on|off）、reports.lib（all|现有库名——B1 端点 1 入参照抄）、
   keyword 模糊匹配；越界 400（code=kb_param_invalid，errors.py 登记）。
-- 端点 4 片段修正＝本票端点壳（修正动作＋问题块重生归 P1-02b）——501 带码。
+- 端点 4 片段修正＝P1-02b 激活（乐观锁＋记版＋重建折算任务＋wiki 重铸联动）。
+- B12 平台审计（P1-02a 收尾裁决指令①，P0-05 gateway 同款）：api 层编排关键
+  写操作——建库/停用启用/配置保存/修正确认——经 security.audit 写平台审计
+  （kb 域不反向依赖 security）；域内 F62 活动流留痕照旧双轨。
 """
 
 from __future__ import annotations
@@ -20,8 +23,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
-from app.api.deps import CurrentActor, KbDep
-from app.api.errors import CODE_KB_DEFERRED, ApiError
+from app.api.deps import CurrentActor, KbDep, SecurityDep
 from app.domains.kb import (
     AdditionsView,
     CreateLibReceipt,
@@ -33,6 +35,7 @@ from app.domains.kb import (
     TaskProgress,
     TaskView,
 )
+from app.domains.security.domain import AuditRow
 
 router = APIRouter(prefix="/api/kb", tags=["kb"])
 
@@ -81,6 +84,13 @@ class FragmentVersionItem(BaseModel):
     v: int
     text: str
     note: str
+
+
+class ActivityRowBody(BaseModel):
+    time: str
+    who: str
+    action: str
+    target: str
 
 
 class FragmentItem(BaseModel):
@@ -155,22 +165,68 @@ async def download_url(
     return DownloadUrlResponse(id=report_id, download_url=url, expires_at=expires_at, ttl="小时级")
 
 
-# ---------- 端点 4：POST /reports/{id}/fragments/{fragId}/revisions（壳） ----------
+# ---------- 端点 4：POST /reports/{id}/fragments/{fragId}/revisions（P1-02b 激活） ----------
 
 
-@router.post("/reports/{report_id}/fragments/{fragment_id}/revisions")
+class ReviseBody(BaseModel):
+    base_version: int
+    text: str
+
+
+class RebuildInfoBody(BaseModel):
+    triggered: bool
+    hint: str
+
+
+class ReviseResponse(BaseModel):
+    id: str
+    version: int
+    versions: list[FragmentVersionItem]
+    rebuild: RebuildInfoBody
+    activity_row: ActivityRowBody
+    task_id: str
+
+
+@router.post("/reports/{report_id}/fragments/{fragment_id}/revisions",
+             response_model=ReviseResponse)
 async def revise_fragment(
     report_id: str,
     fragment_id: str,
-    _actor: CurrentActor,
-) -> dict[str, str]:
-    """片段人工修正（F30 增补）——本票端点壳：乐观锁字段就位，修正动作＋
-    问题块重生＋wiki 重铸联动归 P1-02b（票面指定）。"""
-    raise ApiError(
-        status_code=501,
-        code=CODE_KB_DEFERRED,
-        message="片段修正随 P1-02b 批开放（本票仅立端点壳与乐观锁字段）",
-        detail={"report_id": report_id, "fragment_id": fragment_id},
+    body: ReviseBody,
+    service: KbDep,
+    security: SecurityDep,
+    actor: CurrentActor,
+) -> ReviseResponse:
+    """片段人工修正（F30 增补——P1-02b 激活）：乐观锁（base_version 落后 409）
+    ＋逐次记版（v1 原始不可变）＋重建折算「片段修正」任务（向量重嵌该片段＋
+    问题块重生）＋FragmentRevised 事件（wiki 重铸联动，B9）。"""
+    receipt = await service.revise_fragment(
+        report_id, fragment_id, body.base_version, body.text, actor.who
+    )
+    await security.audit(  # B12 横切留痕（裁决指令①）——经唯一写口，kb 不依赖 security
+        AuditRow(
+            who=actor.who,
+            action="kb.fragment.revised",
+            content=(
+                f"片段修正确认：{receipt.id} v{body.base_version}→v{receipt.version}"
+                f"（报告 {report_id}；重建任务 {receipt.task_id}）"
+            ),
+        )
+    )
+    return ReviseResponse(
+        id=receipt.id,
+        version=receipt.version,
+        versions=[
+            FragmentVersionItem(v=ver.v, text=ver.text, note=ver.note)
+            for ver in receipt.versions
+        ],
+        rebuild=RebuildInfoBody(triggered=receipt.rebuild.triggered,
+                                hint=receipt.rebuild.hint),
+        activity_row=ActivityRowBody(
+            time=receipt.activity_row.time, who=receipt.activity_row.who,
+            action=receipt.activity_row.action, target=receipt.activity_row.target,
+        ),
+        task_id=receipt.task_id,
     )
 
 
@@ -499,13 +555,6 @@ class LibraryConfigSaveBody(BaseModel):
     status: str | None = None  # v0.3 建库批：可选——缺省不动库状态
 
 
-class ActivityRowBody(BaseModel):
-    time: str
-    who: str
-    action: str
-    target: str
-
-
 class ConfigSaveResponse(BaseModel):
     id: str
     saved_at: str
@@ -531,9 +580,11 @@ async def save_library_config(
     lib_id: str,
     body: LibraryConfigSaveBody,
     service: KbDep,
+    security: SecurityDep,
     actor: CurrentActor,
 ) -> ConfigSaveResponse:
-    """保存本库配置（写入待生效配置——下次入库定型、不做运行时热切换；同事务记 F62）。"""
+    """保存本库配置（写入待生效配置——下次入库定型、不做运行时热切换；同事务记 F62；
+    v0.3 可选 status 承载停用/启用）。"""
     view = await service.save_library_config(
         lib_id,
         switches=body.switches.model_dump(),
@@ -542,6 +593,23 @@ async def save_library_config(
         add_questions=body.add_questions,
         status=body.status,
         actor_who=actor.who,
+    )
+    await security.audit(  # B12 横切留痕（裁决指令①）——经唯一写口，kb 不依赖 security
+        AuditRow(
+            who=actor.who,
+            action="kb.config.saved",
+            content=(
+                f"库配置保存：{lib_id}（下次入库生效；开关 "
+                f"{body.switches.model_dump()}，mode={body.mode}，"
+                f"摘要/问题加法 {body.add_summary}/{body.add_questions}"
+                + (
+                    f"；库状态：{body.status}"
+                    if body.status is not None
+                    else ""
+                )
+                + "）"
+            ),
+        )
     )
     return _save_response(view)
 
@@ -603,9 +671,19 @@ def _create_response(view: CreateLibReceipt) -> CreateLibraryResponse:
 async def create_library(
     body: CreateLibraryBody,
     service: KbDep,
+    security: SecurityDep,
     actor: CurrentActor,
 ) -> CreateLibraryResponse:
     """建库（业务模板带出默认配置档案——模板只定初始档、建后可调；空名 400/重名 409）。"""
-    return _create_response(
-        await service.create_library(body.lib_name, body.biz_template, actor.who)
+    view = await service.create_library(body.lib_name, body.biz_template, actor.who)
+    await security.audit(  # B12 横切留痕（裁决指令①）——经唯一写口，kb 不依赖 security
+        AuditRow(
+            who=actor.who,
+            action="kb.lib.created",
+            content=(
+                f"建库：{view.lib_name}（业务模板：{body.biz_template}，"
+                f"默认配置已生成；库号 {view.lib_id}）"
+            ),
+        )
     )
+    return _create_response(view)

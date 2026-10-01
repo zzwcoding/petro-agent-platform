@@ -12,6 +12,9 @@ P1-01 起 sem_* 九表入装配（ensure_semantics_tables——sem 域迁移首�
 与 Alembic 0002_sem_baseline 并行存活，操作序照 P0-08 登记）。P1-02a 起 kb
 八表入装配（ensure_kb_tables——PG 先 CREATE EXTENSION vector）＋ /api/kb
 路由族挂载＋入库任务 stuck 收口（启动巡检——00 §5.2-6 超时无进展后台巡检）。
+P1-02b 起 wiki 表族入装配（ensure_derivatives_tables）＋/api/wiki 路由族挂载
+＋derivatives 事件订阅接线（IngestCompleted→wiki 生成/重建、FragmentRevised
+→重铸队列——B9 缝：kb 不直调 derivatives，派生物只经事件）。
 
 建表与迁移的交接（P0-08 票面）：ensure_*_table 与 Alembic 并行存活，
 本票不切换——各域切换迁移属各域票（基线空迁移见 migrations/versions/0001）。
@@ -28,6 +31,9 @@ from app.api.gateway import router as gateway_router
 from app.api.kb import router as kb_router
 from app.api.security import router as security_router
 from app.api.semantics import router as semantics_router
+from app.api.wiki import router as wiki_router
+from app.domains.derivatives import DerivativesService
+from app.domains.derivatives.store import ensure_derivatives_tables
 from app.domains.gateway import GatewayService
 from app.domains.gateway.store import ensure_gateway_tables
 from app.domains.kb import KbService
@@ -52,6 +58,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await ensure_semantics_tables(manager.engine())  # 同上——sem_* 九表（99 §2.8；P1-01 起
     #   与 Alembic 0002_sem_baseline 并行存活——各域切迁移属各域票，操作序照 P0-08 登记）
     await ensure_kb_tables(manager.engine())  # 同上——kb 八表（99 §2.5；PG 先建 pgvector 扩展）
+    await ensure_derivatives_tables(manager.engine())  # 同上——wiki 表族（99 §2.7；P1-02b）
     app.state.db = manager
     app.state.security = SecurityService(manager)
     app.state.gateway = GatewayService(manager, LlmClient())
@@ -64,6 +71,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.gateway,  # B6：LLM 只走 gateway.complete
         MinioObjectStorage(),
         eventbus=app.state.eventbus,
+    )
+    # derivatives wiki 支路（B9：订阅 kb 事件，不与 kb 直接互调；semantics 只读
+    # 接口供台账挂接词表——B5 读接口纪律）
+    app.state.derivatives = DerivativesService(
+        manager,
+        app.state.gateway,
+        app.state.kb,
+        app.state.semantics,
+    )
+    await app.state.eventbus.subscribe(
+        "IngestCompleted", app.state.derivatives.on_ingest_completed
+    )
+    await app.state.eventbus.subscribe(
+        "FragmentRevised", app.state.derivatives.on_fragment_revised
     )
     # 崩溃重启的遗留 running 演练行收口为 done（幂等；否则 has_running 恒真
     # → 所有 start_drill 永久 409——P0-05 审查收口）；kb 任务体同为进程内
@@ -81,6 +102,7 @@ app.include_router(gateway_router)
 app.include_router(chat_router)
 app.include_router(semantics_router)  # C1 台账读面（P1-01b——semantics 模块，98 §5）
 app.include_router(kb_router)  # B1 报告库（P1-02a——kb 模块，98 §5）
+app.include_router(wiki_router)  # B4 报告百科（P1-02b——derivatives 模块，98 §5）
 
 
 @app.get("/health")

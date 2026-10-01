@@ -14,6 +14,7 @@ from typing import Annotated, cast
 
 from fastapi import Depends, Header, Request
 
+from app.domains.derivatives import DerivativesService
 from app.domains.gateway import GatewayService
 from app.domains.kb import KbService
 from app.domains.security import (
@@ -76,8 +77,14 @@ def get_kb(request: Request) -> KbService:
     return cast(KbService, request.app.state.kb)
 
 
+def get_derivatives(request: Request) -> DerivativesService:
+    """derivatives 服务定位（lifespan 装配于 app.state——main.py；P1-02b 起）。"""
+    return cast(DerivativesService, request.app.state.derivatives)
+
+
 DbDep = Annotated[ConnectionManager, Depends(get_db)]
 SecurityDep = Annotated[SecurityService, Depends(get_security)]
 GatewayDep = Annotated[GatewayService, Depends(get_gateway)]
 SemanticsDep = Annotated[SemanticsService, Depends(get_semantics)]
 KbDep = Annotated[KbService, Depends(get_kb)]
+WikiDep = Annotated[DerivativesService, Depends(get_derivatives)]

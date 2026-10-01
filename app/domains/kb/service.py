@@ -27,6 +27,8 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Protocol
 
+from sqlalchemy import delete, select
+
 from app.domains.gateway import Completion
 from app.domains.kb import domain as d
 from app.domains.kb.store import (
@@ -98,6 +100,7 @@ class KbService:
         self._fragments = FragmentStore(db)
         self._activities = ActivityStore(db)
         self._runtime = _TaskRuntime(tasks={})
+        self._rebuild_context: dict[str, str] = {}
 
     # ---------- 端点 15：建库（v0.3 建库批） ----------
 
@@ -568,12 +571,244 @@ class KbService:
         expires_at = (now() + timedelta(hours=1)).strftime(DISPLAY_FMT)
         return url, expires_at
 
-    # ---------- 端点 4：片段修正（本票端点壳——修正动作＋问题块重生归 P1-02b） ----------
+    # ---------- 端点 4：片段人工修正（F30 增补——乐观锁＋记版＋索引重建） ----------
 
     async def revise_fragment(
-        self, report_id: str, fragment_id: str, base_version: int, text: str
+        self, report_id: str, fragment_id: str, base_version: int, text: str,
+        actor_who: str,
+    ) -> d.ReviseReceipt:
+        """片段人工修正：乐观锁（base_version 落后 409）＋逐次记版（v1 原始
+        不可变）＋重建折算「片段修正」入库任务（向量重嵌该片段＋问题块重生）
+        ＋FragmentRevised 事件（wiki 重铸联动——derivatives 订阅，B9）。"""
+        report = await self._reports.get(report_id)
+        if report is None:
+            raise d.KbNotFoundError(f"报告不存在：{report_id}")
+        frag = await self._fragments.get(fragment_id)
+        if frag is None or frag.report_id != report_id:
+            raise d.KbNotFoundError(f"片段不存在：{fragment_id}")
+        stripped = (text or "").strip()
+        if not stripped:
+            raise d.KbParamError("修正内容不能为空（修正须有内容）")
+        if base_version != frag.current_version:
+            raise d.KbConflictError(
+                "别人已改过这段，请刷新后再改", code="kb_fragment_version_conflict"
+            )
+        new_v = frag.current_version + 1
+        version = FragmentVersionRow(
+            fragment_id=fragment_id, v=new_v, text=stripped,
+            context_text=None, note="人工修正",
+        )
+        frag, version = await self._fragments.revise(frag, version)
+        target = f"{report.doc} · {frag.section or '正文'}（修正＋触发百科重铸）"
+        activity_row = await self._activities.append(
+            report.lib_id, who=actor_who, action="修正片段", target=target
+        )
+        # 修正触发的重建算入库任务（v0.2 拍板）——按当前待生效配置重新定型。
+        snapshot = await self._snapshot_of(report.lib_id)
+        task = IngestTaskRow(
+            id=d.new_task_id(),
+            upload_id=None,
+            report_id=report_id,
+            lib_id=report.lib_id,
+            state="running",
+            source="片段修正",
+            current_step=0,
+            nodes=[n.as_dict() for n in self._build_nodes()],
+            config_snapshot=dict(snapshot),
+            started_at=now(),
+        )
+        task = await self._tasks.create(task)
+        self._spawn_rebuild(task.id, fragment_id)
+        await self._emit_fragment_revised(task, fragment_id)
+        versions = (await self._fragments.versions_of([fragment_id])).get(fragment_id, [])
+        return d.ReviseReceipt(
+            id=fragment_id,
+            version=frag.current_version,
+            versions=[
+                d.FragmentVersionRow(v=ver.v, text=ver.text, note=ver.note)
+                for ver in versions
+            ],
+            rebuild=d.RebuildInfo(triggered=True, hint=d.REBUILD_HINT),
+            activity_row=d.ActivityRow(
+                time=activity_row.time.strftime(DISPLAY_FMT),
+                who=activity_row.who,
+                action=activity_row.action,
+                target=activity_row.target,
+            ),
+            task_id=task.id,
+        )
+
+    async def _emit_fragment_revised(self, task: IngestTaskRow, fragment_id: str) -> None:
+        """FragmentRevised 领域事件（98 §8——derivatives wiki 重铸订阅；B9 不直调）。"""
+        event = make_event(
+            "FragmentRevised",
+            {
+                "task_id": task.id,
+                "report_id": task.report_id,
+                "lib_id": task.lib_id,
+                "fragment_id": fragment_id,
+            },
+            aggregate=f"kb_fragment:{fragment_id}",
+        )
+        if self._eventbus is not None:
+            await self._eventbus.publish(event)
+
+    async def publish_wiki_version(self, report_id: str, version: int) -> None:
+        """B9 例外族公开投影口：derivatives 重建/回滚后回写 wiki_current_version
+        （B1 端点 1 `wiki` 字段与 B4 current_version 同源同值——禁他模块直写本表）。"""
+        async with self._db.session() as session:
+            row = await session.get(ReportRow, report_id)
+            if row is not None:
+                row.wiki_current_version = version
+                row.updated_at = now()
+                await session.flush()
+
+    # ---------- 重建任务体（source=片段修正——不重切、重嵌、问题块重生） ----------
+
+    def _spawn_rebuild(self, task_id: str, fragment_id: str) -> None:
+        """片段修正重建任务体：进程内登记修正片段（重嵌定位——挂差异登记：
+        任务行无 fragment 列，进程内上下文承载，重启丢失不影响正确性）。"""
+        self._rebuild_context[task_id] = fragment_id
+        task = asyncio.create_task(self._run_rebuild(task_id))
+        self._runtime.tasks[task_id] = task
+        task.add_done_callback(lambda _t: self._runtime.tasks.pop(task_id, None))
+
+    async def _run_rebuild(self, task_id: str) -> None:
+        row = await self._tasks.get(task_id)
+        if row is None:
+            return
+        fragment_id = self._rebuild_context.get(task_id, "")
+        snapshot = dict(row.config_snapshot)
+        nodes = [
+            d.TaskNode(key=n["key"], label=n["label"], state=n["state"], note=n.get("note"))
+            for n in row.nodes
+        ]
+        try:
+            for step_index, key in enumerate(d.STEP_KEYS):
+                node = nodes[step_index]
+                node.state = d.NODE_PROCESS
+                node.note = (
+                    d.REBUILD_CHUNK_NOTE if key == "chunk"
+                    else self._node_note(key, snapshot, "")
+                )
+                row.current_step = step_index
+                row.nodes = [n.as_dict() for n in nodes]
+                await self._tasks.save(row)
+                await self._run_rebuild_step(key, row, snapshot, fragment_id)
+                node.state = d.NODE_FINISH
+                row.nodes = [n.as_dict() for n in nodes]
+                await self._tasks.save(row)
+                if self._step_seconds:
+                    await asyncio.sleep(self._step_seconds)
+            row.state = "done"
+            row.finished_at = now()
+            await self._tasks.save(row)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            await self._fail_task(row, nodes, exc)
+        finally:
+            self._rebuild_context.pop(task_id, None)
+            self._runtime.tasks.pop(task_id, None)
+
+    async def _run_rebuild_step(
+        self, key: str, row: IngestTaskRow, snapshot: dict[str, Any], fragment_id: str
     ) -> None:
-        raise d.KbDeferredError()
+        if key == "parse":
+            report = await self._reports.get(row.report_id)
+            if report is None or not await self._storage.exists(report.object_key):
+                raise RuntimeError("报告原件缺失（数据不一致）")
+            return
+        if key == "chunk":
+            return  # 修正不重切——人工修正后的片段保持（REBUILD_CHUNK_NOTE 同象）
+        if key == "embed":
+            if not snapshot.get("semantic") or not fragment_id:
+                return
+            frag = await self._fragments.get(fragment_id)
+            if frag is None:
+                return
+            text = await self._fragment_text(frag)
+            vectors = await self._embedder.embed([text])
+            await self._fragments.set_embeddings([(fragment_id, vectors[0])])
+            return
+        if key == "index":
+            if snapshot.get("keyword"):
+                for frag in await self._fragments.for_report(row.report_id):
+                    if not frag.is_parent_only:
+                        text = await self._fragment_text(frag)
+                        d.tokenize(text)
+            return
+        # enrich：问题块重生（修正定型后该片段所属问题块重新生成——v0.2 拍板；
+        # 重生失败随富化语义不阻塞修正）
+        if snapshot.get("add_questions") and fragment_id:
+            await self._regen_question_batch(row.report_id, fragment_id, snapshot)
+
+    async def _regen_question_batch(
+        self, report_id: str, fragment_id: str, snapshot: dict[str, Any]
+    ) -> None:
+        """问题块重生：该片段所属批次（每 20 段一批——F37）整批重生成置换。"""
+        frags = [
+            f for f in await self._fragments.for_report(report_id)
+            if f.type == "原文块" and not f.is_parent_only
+        ]
+        idx = next((i for i, f in enumerate(frags) if f.id == fragment_id), None)
+        if idx is None:
+            return
+        batch_no = idx // d.QUESTIONS_BATCH_SIZE + 1
+        section = f"问题块·第{batch_no}批"
+        batch = frags[batch_no - 1: batch_no + d.QUESTIONS_BATCH_SIZE - 1]
+        report = await self._reports.get(report_id)
+        assert report is not None
+        texts = [await self._fragment_text(f) for f in batch]
+        questions = await self._llm_questions(report.doc, texts)
+        await self._replace_derived_chunk(report_id, "问题块", section,
+                                          "\n".join(questions), snapshot)
+
+    async def _replace_derived_chunk(
+        self, report_id: str, frag_type: str, section: str, text: str,
+        snapshot: dict[str, Any],
+    ) -> None:
+        """派生块置换（问题块重生——记版语义随整卷重跑置换先例，不入片段版本轴）。"""
+        seq = await self._fragments.next_fragment_seq()
+        frag_id = d.new_fragment_id(seq)
+        frag = FragmentRow(
+            id=frag_id, report_id=report_id, type=frag_type,
+            section=section, current_version=1, is_parent_only=False,
+        )
+        version = FragmentVersionRow(
+            fragment_id=frag_id, v=1, text=text, context_text=None, note="原始解析"
+        )
+        async with self._db.session() as session:
+            old = (
+                (
+                    await session.execute(
+                        select(FragmentRow).where(
+                            FragmentRow.report_id == report_id,
+                            FragmentRow.type == frag_type,
+                            FragmentRow.section == section,
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            if old:
+                old_ids = [row.id for row in old]
+                await session.execute(
+                    delete(FragmentVersionRow).where(
+                        FragmentVersionRow.fragment_id.in_(old_ids)
+                    )
+                )
+                for row in old:
+                    await session.delete(row)
+                await session.flush()  # 版本行先删——FK 依赖片段
+            session.add(frag)
+            await session.flush()
+            session.add(version)
+            await session.flush()
+        if snapshot.get("semantic"):
+            vectors = await self._embedder.embed([text])
+            await self._fragments.set_embeddings([(frag_id, vectors[0])])
 
     # ---------- 端点 11：库列表（开关快照＝最近一次入库所用——两态分离） ----------
 
@@ -1070,6 +1305,7 @@ class KbService:
                 "report_id": row.report_id,
                 "lib_id": row.lib_id,
                 "doc": report.doc if report else "",
+                "source": row.source,
                 "config_snapshot": dict(row.config_snapshot),
             },
             aggregate=f"kb_report:{row.report_id}",

@@ -76,6 +76,12 @@ source_modules = ["app.domains", "app.infra"]
 forbidden_modules = ["fastapi", "starlette"]
 
 [[tool.importlinter.contracts]]
+name = "B9 kb 禁直调 derivatives（派生物生成只经 IngestCompleted/FragmentRevised 事件订阅）"
+type = "forbidden"
+source_modules = ["app.domains.kb"]
+forbidden_modules = ["app.domains.derivatives"]
+
+[[tool.importlinter.contracts]]
 name = "B6 供应商 SDK 唯一接触点（litellm 只在 infra.llm_client——gateway 是唯一消费方）"
 type = "forbidden"
 source_modules = ["app"]

@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Any, cast
 
@@ -30,6 +31,7 @@ from sqlalchemy import (
     String,
     Table,
     Text,
+    delete,
     func,
     select,
     text,
@@ -603,11 +605,36 @@ class FragmentStore:
     def __init__(self, db: ConnectionManager) -> None:
         self._db = db
 
-    async def next_fragment_seq(self) -> int:
-        """片段号全局自增（99：id（f1…）——量级演示级，count+1 取号）。"""
+    async def get(self, fragment_id: str) -> FragmentRow | None:
         async with self._db.readonly() as session:
-            count = await session.scalar(select(func.count()).select_from(FragmentRow))
-        return int(count or 0) + 1
+            return await session.get(FragmentRow, fragment_id)
+
+    async def revise(
+        self, frag: FragmentRow, version: FragmentVersionRow
+    ) -> tuple[FragmentRow, FragmentVersionRow]:
+        """修正定型事务：记版（v1 原始不可变——append-only）＋乐观锁指针前进。"""
+        async with self._db.session() as session:
+            row = await session.get(FragmentRow, frag.id)
+            if row is None:
+                raise d.KbNotFoundError(f"片段不存在：{frag.id}")
+            row.current_version = version.v
+            row.updated_at = now()
+            await session.flush()  # 片段行先落——版本行 FK 依赖片段
+            session.add(version)
+            await session.flush()
+            return row, version
+
+    async def next_fragment_seq(self) -> int:
+        """片段号全局自增（99：id（f1…））——按既有 id 最大序号取号（count 口径
+        在问题块重生等删除发生后会与高位 id 撞号，PG 真库冒烟实证——P1-02b 修正）。"""
+        async with self._db.readonly() as session:
+            rows = (await session.execute(select(FragmentRow.id))).scalars().all()
+        seq = 0
+        for fid in rows:
+            m = re.search(r"(\d+)$", fid)
+            if m:
+                seq = max(seq, int(m.group(1)))
+        return seq + 1
 
     async def replace_report_fragments(
         self, report_id: str, rows: list[FragmentRow], versions: list[FragmentVersionRow]
@@ -624,9 +651,16 @@ class FragmentStore:
                 .scalars()
                 .all()
             )
-            for row in old:
-                await session.delete(row)
-            await session.flush()
+            if old:
+                old_ids = [row.id for row in old]
+                await session.execute(
+                    delete(FragmentVersionRow).where(
+                        FragmentVersionRow.fragment_id.in_(old_ids)
+                    )
+                )
+                for row in old:
+                    await session.delete(row)
+                await session.flush()  # 版本行先删——FK 依赖片段（PG 强制）
             for row in rows:
                 session.add(row)
             await session.flush()  # 片段行先落——版本行 FK 依赖片段

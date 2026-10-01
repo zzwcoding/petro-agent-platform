@@ -106,6 +106,11 @@ STUCK_SWEEP_SECONDS = 20 * 60  # 卡住判定＝超时无进展（阈值结合�
 # 桶显示名（页面步 1 文案照抄）与物理名（F5 reports——出入对账 8）。
 BUCKET_DISPLAY = "报告原文"
 
+# 片段修正重建（P1-02b）：chunk 步说明（不重切——人工修正后的片段保持）与
+# rebuild hint（端点 4 rebuild.hint 合同文案）。
+REBUILD_CHUNK_NOTE = "片段修正重建：正文不重切——保留人工修正后的片段；仅重嵌修正片段并重生问题块。"
+REBUILD_HINT = "已保存——将重建检索索引。"
+
 # 平台默认配置档（页面 DEFAULT_CONFIG：语义/关键词/百科开、图谱关、智能、两加法勾）。
 DEFAULT_CONFIG: dict[str, Any] = {
     "semantic": True,
@@ -168,6 +173,26 @@ class KbConflictError(Exception):
 class KbDeferredError(Exception):
     """端点壳（片段修正动作＋问题块重生归 P1-02b）——api 层映射 501＋
     kb_fragment_revise_deferred（差异登记票面）。"""
+
+
+@dataclass(frozen=True, slots=True)
+class RebuildInfo:
+    """修正重建回执（端点 4 rebuild——triggered=true＋hint 合同文案）。"""
+
+    triggered: bool
+    hint: str
+
+
+@dataclass(frozen=True, slots=True)
+class ReviseReceipt:
+    """片段修正回执（端点 4：记版后版本轴＋重建折算提示＋活动行）。"""
+
+    id: str
+    version: int
+    versions: list[FragmentVersionRow]
+    rebuild: RebuildInfo
+    activity_row: ActivityRow
+    task_id: str
 
 
 # ---------- id 族（00 §1.5 机器短 id） ----------

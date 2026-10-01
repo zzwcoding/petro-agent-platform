@@ -11,9 +11,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api.deps import get_kb
+from app.api.deps import get_kb, get_security
 from app.api.errors import install_error_handlers
 from app.api.kb import router as kb_router
+from app.api.security import router as security_router
 from app.domains.kb import KbService
 
 DEMO_TEXT = (
@@ -84,6 +85,8 @@ async def client(
     tmp_path: Any,
 ) -> AsyncIterator[tuple[TestClient, FakeObjectStorage, StubCompleter]]:
     from app.domains.kb.store import ensure_kb_tables
+    from app.domains.security import SecurityService
+    from app.domains.security.store import ensure_audit_table
     from app.infra.db import ConnectionManager, DatabaseSpec
     from app.infra.eventbus import InMemoryEventBus
 
@@ -94,6 +97,7 @@ async def client(
     )
     manager = ConnectionManager([spec])
     await ensure_kb_tables(manager.engine())
+    await ensure_audit_table(manager.engine())  # B12 审计表（api 层写口）
     storage = FakeObjectStorage()
     completer = StubCompleter(
         answers={
@@ -106,7 +110,9 @@ async def client(
     test_app = FastAPI()
     install_error_handlers(test_app)
     test_app.include_router(kb_router)
+    test_app.include_router(security_router)  # B12 审计读面（补齐断言消费）
     test_app.dependency_overrides[get_kb] = lambda: service
+    test_app.dependency_overrides[get_security] = lambda: SecurityService(manager)
     with TestClient(test_app) as test_client:
         yield test_client, storage, completer
     await manager.dispose()
@@ -323,11 +329,98 @@ class TestAuthAndShell:
         resp = c.get("/api/kb/libs")  # 缺头→默认角色
         assert resp.status_code == 200
 
-    def test_4_shell_501(self, client: Any) -> None:
+
+class TestFragmentRevision:
+    """端点 4（P1-02b 激活）：乐观锁＋记版＋重建折算任务＋B12 审计。"""
+
+    def _make_report(self, client: Any) -> str:
+        c, storage, _ = client
+        lib_id = _make_lib(c, name="修正库")
+        task_id = _ingest(c, storage, lib_id)
+        _wait_done(c, task_id)
+        reports = c.get("/api/kb/reports", params={"keyword": "修正库"}).json()
+        assert reports["total"] == 1
+        return reports["items"][0]["id"]
+
+    def test_4_revise_optimistic_lock_and_validation(self, client: Any) -> None:
         c = client[0]
+        report_id = self._make_report(client)
+        detail = c.get(f"/api/kb/reports/{report_id}").json()
+        frag = detail["fragments"][0]
+        # 404：报告/片段不存在
+        assert c.post(
+            "/api/kb/reports/rpt-none/fragments/f1/revisions",
+            json={"base_version": 1, "text": "x"},
+        ).status_code == 404
+        assert c.post(
+            f"/api/kb/reports/{report_id}/fragments/f-none/revisions",
+            json={"base_version": 1, "text": "x"},
+        ).status_code == 404
+        # 409：乐观锁（base_version 落后）
         resp = c.post(
-            "/api/kb/reports/rpt-x/fragments/f1/revisions",
-            json={"base_version": 1, "text": "勘误"},
+            f"/api/kb/reports/{report_id}/fragments/{frag['id']}/revisions",
+            json={"base_version": 99, "text": "勘误"},
         )
-        assert resp.status_code == 501
-        assert resp.json()["code"] == "kb_fragment_revise_deferred"
+        assert resp.status_code == 409
+        assert resp.json()["code"] == "kb_fragment_version_conflict"
+        # 400：空文本
+        resp = c.post(
+            f"/api/kb/reports/{report_id}/fragments/{frag['id']}/revisions",
+            json={"base_version": frag["version"], "text": "  "},
+        )
+        assert resp.status_code == 400
+
+    def test_4_revise_success_records_version_and_rebuild(
+        self, client: Any
+    ) -> None:
+        c, _storage, _ = client
+        report_id = self._make_report(client)
+        detail = c.get(f"/api/kb/reports/{report_id}").json()
+        frag = detail["fragments"][0]
+        resp = c.post(
+            f"/api/kb/reports/{report_id}/fragments/{frag['id']}/revisions",
+            json={"base_version": frag["version"],
+                  "text": frag["text"] + "（勘误：补状态注记）"},
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["id"] == frag["id"] and body["version"] == frag["version"] + 1
+        assert [v["v"] for v in body["versions"]] == [1, body["version"]]
+        assert body["versions"][0]["note"] == "原始解析"  # v1 原始不可变
+        assert body["versions"][-1]["note"] == "人工修正"
+        assert body["rebuild"] == {"triggered": True, "hint": "已保存——将重建检索索引。"}
+        assert body["activity_row"]["action"] == "修正片段"
+        assert body["activity_row"]["who"]
+        # 重建折算「片段修正」任务并跑完
+        progress = _wait_done(c, body["task_id"])
+        assert progress["source"] == "片段修正"
+        assert progress["state"] == "done"
+        # 详情随新版本（同源投影）
+        revised = c.get(f"/api/kb/reports/{report_id}").json()
+        target = next(f for f in revised["fragments"] if f["id"] == frag["id"])
+        assert target["version"] == body["version"]
+        assert target["text"].endswith("（勘误：补状态注记）")
+
+    def test_b12_audit_writes_for_kb_write_ops(self, client: Any) -> None:
+        """裁决指令①：建库/配置保存/停用启用/修正确认四写口经 security.audit。"""
+        c, _storage, _ = client
+        lib_id = _make_lib(c, name="审计库")
+        report_id = self._make_report(client)
+        detail = c.get(f"/api/kb/reports/{report_id}").json()
+        frag = detail["fragments"][0]
+        c.put(
+            f"/api/kb/libs/{lib_id}/config",
+            json={"switches": {"semantic": True, "keyword": True, "wiki": True,
+                               "graph": False},
+                  "mode": "smart", "add_summary": True, "add_questions": True,
+                  "status": "disabled"},
+        )
+        c.post(
+            f"/api/kb/reports/{report_id}/fragments/{frag['id']}/revisions",
+            json={"base_version": frag["version"], "text": frag["text"] + "（勘误）"},
+        )
+        audit = c.get("/api/security/audit-logs").json()
+        actions = [item["action"] for item in audit["items"]]
+        assert "kb.lib.created" in actions
+        assert "kb.config.saved" in actions
+        assert "kb.fragment.revised" in actions
