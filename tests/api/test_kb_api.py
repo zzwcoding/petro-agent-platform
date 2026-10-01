@@ -424,3 +424,144 @@ class TestFragmentRevision:
         assert "kb.lib.created" in actions
         assert "kb.config.saved" in actions
         assert "kb.fragment.revised" in actions
+
+
+class TestB2FragmentsAndQueue:
+    """B2 六端点（P1-04）：扁平清单/父块回捞/标记/队列/复核/销记＋B12 审计。"""
+
+    def _make_report(self, client: Any, name: str = "B2 库") -> str:
+        c, storage, _ = client
+        lib_id = _make_lib(c, name=name)
+        task_id = _ingest(c, storage, lib_id)
+        _wait_done(c, task_id)
+        reports = c.get("/api/kb/reports", params={"keyword": name}).json()
+        assert reports["total"] == 1
+        return reports["items"][0]["id"]
+
+    def test_1_fragments_report_mode_and_inv(self, client: Any) -> None:
+        c = client[0]
+        report_id = self._make_report(client)
+        resp = c.get("/api/kb/fragments", params={"report_id": report_id})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["total"] >= 1 and body["items"]
+        first = body["items"][0]
+        assert set(first) == {"id", "report_id", "report", "well", "section", "type", "hit"}
+        assert "context" not in first  # INV：列表只给子块、无 context 字段
+        # 摘要/问题块带类型标入列（F37）
+        types = {i["type"] for i in body["items"]}
+        assert "原文块" in types
+        # 404：报告不存在
+        assert c.get("/api/kb/fragments", params={"report_id": "rpt-none"}).status_code == 404
+
+    def test_1_library_mode_pagination_required(self, client: Any) -> None:
+        c = client[0]
+        self._make_report(client)
+        # 缺任一分页参数 400（全库扁平清单读法强制分页）
+        assert c.get("/api/kb/fragments").status_code == 400
+        assert c.get("/api/kb/fragments", params={"page": 1}).status_code == 400
+        resp = c.get("/api/kb/fragments", params={"page": 1, "pageSize": 2})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["page"] == 1 and body["page_size"] == 2 and body["total"] >= 2
+        # type 越界 400 / keyword 筛
+        assert c.get(
+            "/api/kb/fragments", params={"page": 1, "pageSize": 5, "type": "图片块"}
+        ).status_code == 400
+        kw = c.get(
+            "/api/kb/fragments", params={"page": 1, "pageSize": 20, "keyword": "N-02"}
+        ).json()
+        assert kw["total"] >= 1
+
+    def test_2_context_lazy_load(self, client: Any) -> None:
+        c = client[0]
+        report_id = self._make_report(client)
+        frags = c.get("/api/kb/fragments", params={"report_id": report_id}).json()["items"]
+        target = next(f for f in frags if f["type"] == "原文块")
+        resp = c.get(f"/api/kb/fragments/{target['id']}/context")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert set(body) == {"id", "type", "hit", "context"}
+        assert body["hit"] == target["hit"]
+        assert c.get("/api/kb/fragments/f-none/context").status_code == 404
+
+    def test_3_4_5_6_queue_closed_loop_and_b12(self, client: Any) -> None:
+        c = client[0]
+        report_id = self._make_report(client)
+        frag = c.get(f"/api/kb/reports/{report_id}").json()["fragments"][0]
+        # 端点 3 标记入队（hint 服务端返回）
+        mark = c.post(f"/api/kb/fragments/{frag['id']}/issue-reports")
+        assert mark.status_code == 200, mark.text
+        issue = mark.json()
+        assert issue["state"] == "待质检复核"
+        assert issue["hint"].startswith("已标记 · 待质检复核")
+        assert issue["fragment_label"].startswith("《")  # 三件套同源拼装
+        # 重复标记 409（待质检复核态）
+        dup = c.post(f"/api/kb/fragments/{frag['id']}/issue-reports")
+        assert dup.status_code == 409
+        assert dup.json()["code"] == "kb_issue_duplicate"
+        # 端点 4 队列列表（state 筛）
+        queue = c.get("/api/kb/issue-reports", params={"state": "待质检复核"})
+        assert queue.status_code == 200 and queue.json()["total"] == 1
+        assert c.get(
+            "/api/kb/issue-reports", params={"state": "已销记"}
+        ).status_code == 400  # 终态查询归后续批（400 枚举越界）
+        # 端点 5 驳回：空理由 400 → 带理由已驳回
+        empty = c.post(
+            f"/api/kb/issue-reports/{issue['id']}/review",
+            json={"action": "reject", "reason": "  "},
+        )
+        assert empty.status_code == 400
+        assert empty.json()["code"] == "kb_issue_reject_reason_required"
+        reject = c.post(
+            f"/api/kb/issue-reports/{issue['id']}/review",
+            json={"action": "reject", "reason": "检泵日期与台账对不上，请核对后重新标记"},
+        )
+        assert reject.status_code == 200
+        assert reject.json()["state"] == "已驳回"
+        # 端点 6 销记（仅已驳回态；已修正态销记 409）
+        close = c.post(f"/api/kb/issue-reports/{issue['id']}/close")
+        assert close.status_code == 200
+        assert close.json()["state"] == "已销记 · 不修正"
+        assert c.get("/api/kb/issue-reports").json()["total"] == 0  # 队列零悬挂
+        # 重新标记闭环：新单入队 → confirm → B1 端点 4 修正流
+        remark = c.post(f"/api/kb/fragments/{frag['id']}/issue-reports")
+        assert remark.status_code == 200
+        issue2 = remark.json()
+        assert issue2["id"] != issue["id"]
+        confirm = c.post(
+            f"/api/kb/issue-reports/{issue2['id']}/review", json={"action": "confirm"}
+        )
+        assert confirm.status_code == 200
+        assert confirm.json()["state"] == "已修正"
+        revise = c.post(
+            f"/api/kb/reports/{report_id}/fragments/{frag['id']}/revisions",
+            json={"base_version": frag["version"], "text": frag["text"] + "（勘误）"},
+        )
+        assert revise.status_code == 200  # 确认后管理员修正（B1 端点 4）
+        # 404 族：片段/标记单不存在
+        assert c.post("/api/kb/fragments/f-none/issue-reports").status_code == 404
+        assert c.post(
+            "/api/kb/issue-reports/iss-none/review", json={"action": "confirm"}
+        ).status_code == 404
+        assert c.post("/api/kb/issue-reports/iss-none/close").status_code == 404
+        # B12 平台审计三写口（标记/复核/销记——api 层编排）
+        audit = c.get("/api/security/audit-logs").json()
+        actions = [item["action"] for item in audit["items"]]
+        assert "kb.fragment.marked" in actions
+        assert "kb.issue.reviewed" in actions
+        assert "kb.issue.closed" in actions
+        # F62 活动流同事务「标记问题片段」
+        lib_id = c.get(f"/api/kb/reports/{report_id}").json()["lib_id"]
+        acts = c.get(f"/api/kb/libs/{lib_id}/activities").json()
+        assert any(a["action"] == "标记问题片段" for a in acts["items"])
+
+    def test_b2_401_identity_gate(self, client: Any) -> None:
+        c = client[0]
+        assert c.get(
+            "/api/kb/fragments", params={"page": 1, "pageSize": 5},
+            headers={"X-Dev-User": "hacker"},
+        ).status_code == 401
+        assert c.post(
+            "/api/kb/fragments/f1/issue-reports", headers={"X-Dev-User": "hacker"}
+        ).status_code == 401

@@ -156,6 +156,19 @@ describe('pollTaskUntilDone / isTerminalStatus（00 册 §5）', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 
+  it('state 字段 wire 形同认（P1-03 收尾裁决：status ?? state——B1/B2 任务族终态字段为 state）', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { state: 'running', nodes: [] }))
+      .mockResolvedValueOnce(jsonResponse(200, { state: 'done', nodes: [], source: '上传入库' }))
+    const { status, data } = await pollTaskUntilDone({ taskId: 'task-b1', path: '/kb/tasks', intervalMs: 1 })
+    expect(status).toBe('done')
+    expect(data.source).toBe('上传入库')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    // status 字段在场时仍优先（向后兼容 D1 drills 形不变）
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { status: 'done', state: 'running' }))
+    const r2 = await pollTaskUntilDone({ taskId: 'drill-p', path: '/gateway/drills', intervalMs: 1 })
+    expect(r2.status).toBe('done')
+  })
+
   it('failed 终态立即返回不重试', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { status: 'failed', reason: '生成超时', stop_at: 'deck.render' }))
     const { status, data } = await pollTaskUntilDone({ taskId: 'art-task-1', path: '/chat/artifacts', intervalMs: 1 })

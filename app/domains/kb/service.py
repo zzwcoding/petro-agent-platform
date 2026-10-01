@@ -37,6 +37,8 @@ from app.domains.kb.store import (
     FragmentStore,
     FragmentVersionRow,
     IngestTaskRow,
+    IssueReportRow,
+    IssueStore,
     LibraryConfigRow,
     LibraryRow,
     LibraryStore,
@@ -98,6 +100,7 @@ class KbService:
         self._tasks = TaskStore(db)
         self._reports = ReportStore(db)
         self._fragments = FragmentStore(db)
+        self._issues = IssueStore(db)
         self._activities = ActivityStore(db)
         self._runtime = _TaskRuntime(tasks={})
         self._rebuild_context: dict[str, str] = {}
@@ -594,9 +597,12 @@ class KbService:
                 "别人已改过这段，请刷新后再改", code="kb_fragment_version_conflict"
             )
         new_v = frag.current_version + 1
+        # 父块锚随版本携行（mixed 子块的回捞锚——修正不丢父块指向，B2 端点 2 依赖）
+        prev_versions = (await self._fragments.versions_of([fragment_id])).get(fragment_id, [])
+        parent_anchor = prev_versions[-1].context_text if prev_versions else None
         version = FragmentVersionRow(
             fragment_id=fragment_id, v=new_v, text=stripped,
-            context_text=None, note="人工修正",
+            context_text=parent_anchor, note="人工修正",
         )
         frag, version = await self._fragments.revise(frag, version)
         target = f"{report.doc} · {frag.section or '正文'}（修正＋触发百科重铸）"
@@ -995,6 +1001,249 @@ class KbService:
     ) -> None:
         """B9 例外族写口：跨页留痕（B2 标记/B5 抽取设置）经此同域追加，不直写表。"""
         await self._activities.append(lib_id, who=who, action=action, target=target)
+
+    # ---------- B2 切片管理（B2-答案出处.md v0.3——六端点语义） ----------
+
+    def _fragment_hit(self, frag: FragmentRow, versions: list[FragmentVersionRow]) -> str:
+        """hit＝命中切片的展示文本（当前版本文本——hit 口径关单：检索/回跳按切块）。"""
+        return versions[-1].text if versions else ""
+
+    async def _fragment_item(
+        self, frag: FragmentRow, report: ReportRow | None,
+        versions: list[FragmentVersionRow],
+    ) -> d.FragmentListItem:
+        return d.FragmentListItem(
+            id=frag.id,
+            report_id=frag.report_id,
+            report=report.doc if report else "",
+            well=frag.well,
+            section=frag.section,
+            type=frag.type,
+            hit=self._fragment_hit(frag, versions),
+        )
+
+    async def list_fragments(
+        self,
+        report_id: str | None,
+        *,
+        type: str | None = None,
+        keyword: str | None = None,
+        page: int | None = None,
+        page_size: int | None = None,
+    ) -> d.FragmentList:
+        """片段台账列表（B2 端点 1 两读法分派）：report_id 携带＝按报告整组取数
+        （整表返回）；缺省＝全库扁平清单（page/pageSize 必带缺任一 400）。
+        列表只给子块（INV——DTO 无 context 字段）。"""
+        ftype = type or "all"
+        if ftype != "all" and ftype not in d.FRAGMENT_TYPES:
+            raise d.KbParamError(
+                f"type 越界：{ftype}（允许值 all|{'|'.join(d.FRAGMENT_TYPES)}）"
+            )
+        needle = (keyword or "").strip().casefold()
+
+        async def _matches(item: d.FragmentListItem) -> bool:
+            # 关键词匹配域＝命中句/井号/章节路径（忽略大小写包含——合同常量）
+            if not needle:
+                return True
+            hay = f"{item.hit}{item.well or ''}{item.section or ''}".casefold()
+            return needle in hay
+
+        if report_id is None:
+            # 全库扁平清单读法（B3 slice_ref 下拉数据源——跨报告一维清单）
+            if page is None or page_size is None or page < 1 or page_size < 1:
+                raise d.KbParamError(
+                    "全库片段清单必须携带 page/pageSize（缺任一 400）"
+                )
+            reports = {row.id: row for row in await self._reports.all()}
+            frags = await self._fragments.list_children()
+            version_map = await self._fragments.versions_of([f.id for f in frags])
+            items: list[d.FragmentListItem] = []
+            for frag in frags:
+                item = await self._fragment_item(
+                    frag, reports.get(frag.report_id), version_map.get(frag.id, [])
+                )
+                if ftype == "all" or frag.type == ftype:
+                    if await _matches(item):
+                        items.append(item)
+            total = len(items)
+            start = (page - 1) * page_size
+            return d.FragmentList(
+                items=items[start : start + page_size],
+                total=total,
+                page=page,
+                page_size=page_size,
+            )
+
+        report = await self._reports.get(report_id)
+        if report is None:
+            raise d.KbNotFoundError(f"报告不存在：{report_id}")
+        frags = [
+            f for f in await self._fragments.for_report(report_id) if not f.is_parent_only
+        ]
+        version_map = await self._fragments.versions_of([f.id for f in frags])
+        out: list[d.FragmentListItem] = []
+        for frag in frags:
+            if ftype != "all" and frag.type != ftype:
+                continue
+            item = await self._fragment_item(frag, report, version_map.get(frag.id, []))
+            if await _matches(item):
+                out.append(item)
+        return d.FragmentList(items=out, total=len(out))
+
+    async def fragment_context(self, fragment_id: str) -> d.FragmentContext:
+        """父块回捞（B2 端点 2——按 type 分派语义）：原文块/图片说明块/图片文字块
+        ＝父块正文（F30 与 F36 回捞会师；mixed 子块经版本行父块锚到达）；摘要块/
+        问题块＝产物说明行（无父块的唯一例外，如实照抄）；无父块锚的原文块＝
+        本块全文（context ⊇ hit 兜底，不虚构父段）。"""
+        frag = await self._fragments.get(fragment_id)
+        if frag is None or frag.is_parent_only:
+            # 父块不对外寻址（F30）——不存在与不可寻址同象 404
+            raise d.KbNotFoundError(f"片段不存在：{fragment_id}")
+        versions = (await self._fragments.versions_of([fragment_id])).get(fragment_id, [])
+        hit = self._fragment_hit(frag, versions)
+        if frag.type == "摘要块":
+            context = d.SUMMARY_CONTEXT_NOTE
+        elif frag.type == "问题块":
+            context = d.QUESTION_CONTEXT_NOTE
+        else:
+            parent_anchor = versions[-1].context_text if versions else None
+            parent_text: str | None = None
+            if parent_anchor:
+                parent = await self._fragments.get(parent_anchor)
+                if parent is not None:
+                    pvers = (await self._fragments.versions_of([parent_anchor])).get(
+                        parent_anchor, []
+                    )
+                    parent_text = self._fragment_hit(parent, pvers) or None
+            context = parent_text if parent_text else hit  # context ⊇ hit 兜底
+        return d.FragmentContext(id=frag.id, type=frag.type, hit=hit, context=context)
+
+    async def _issue_label(self, frag: FragmentRow, report: ReportRow | None) -> str:
+        """fragment_label（端点 3/4 同源同构）：{报告名} · {章节路径}。"""
+        return f"{report.doc if report else ''} · {frag.section or '正文'}"
+
+    async def _issue_view(
+        self, row: IssueReportRow, *, hint: str | None = None
+    ) -> d.IssueReportView:
+        frag = await self._fragments.get(row.fragment_id)
+        report = await self._reports.get(frag.report_id) if frag else None
+        return d.IssueReportView(
+            id=row.id,
+            fragment_id=row.fragment_id,
+            report_id=frag.report_id if frag else "",
+            fragment_label=await self._issue_label(frag, report) if frag else "",
+            state=row.state,
+            marked_by=row.marked_by,
+            marked_at=row.marked_at.strftime(DISPLAY_FMT) if row.marked_at else "",
+            reject_reason=row.reject_reason,
+            hint=hint,
+        )
+
+    async def report_fragment_issue(
+        self, fragment_id: str, actor_who: str
+    ) -> d.IssueReportView:
+        """标记问题片段（B2 端点 3——只标记不直改）：进质检复核队列＋同事务记
+        F62「标记问题片段」（B1 挂账收口批 action 值域）；待质检复核态重复 409；
+        已驳回态重新标记＝旧驳回单转已销记＋新单入队（队列零悬挂）。"""
+        frag = await self._fragments.get(fragment_id)
+        if frag is None or frag.is_parent_only:
+            raise d.KbNotFoundError(f"片段不存在：{fragment_id}")
+        report = await self._reports.get(frag.report_id)
+        if report is None:
+            raise d.KbNotFoundError(f"报告不存在：{frag.report_id}")
+        label = await self._issue_label(frag, report)
+        row = await self._issues.mark_fragment(
+            fragment_id,
+            marked_by=actor_who,
+            lib_id=report.lib_id,
+            activity=(actor_who, d.MARK_ACTIVITY_ACTION, label),
+        )
+        await self._emit_fragment_marked(row, frag)
+        return await self._issue_view(row, hint=d.MARK_HINT)
+
+    async def _emit_fragment_marked(
+        self, row: IssueReportRow, frag: FragmentRow
+    ) -> None:
+        """FragmentMarked 领域事件（98 §8——域内消费即 IssueReport 入队；B9 缝外零订阅）。"""
+        event = make_event(
+            "FragmentMarked",
+            {"issue_id": row.id, "fragment_id": frag.id, "report_id": frag.report_id},
+            aggregate=f"kb_fragment:{frag.id}",
+        )
+        if self._eventbus is not None:
+            await self._eventbus.publish(event)
+
+    async def list_issue_reports(self, state: str | None) -> list[d.IssueReportView]:
+        """质检复核队列列表（B2 端点 4）：state=all|待质检复核|已驳回——终态
+        默认不出列、state=all 亦只出两在途态（队列只管未决单）；标记时间倒序。"""
+        if state in (None, "all"):
+            states = list(d.ISSUE_OPEN_STATES)
+        elif state in d.ISSUE_OPEN_STATES:
+            states = [state]
+        else:
+            raise d.KbParamError(
+                f"state 越界：{state}（允许值 all|{'|'.join(d.ISSUE_OPEN_STATES)}；"
+                "终态查询归后续批按需增设）"
+            )
+        rows = await self._issues.list_by_states(states)
+        return [await self._issue_view(row) for row in rows]
+
+    async def review_issue_report(
+        self, issue_id: str, action: str, reason: str | None, actor_who: str
+    ) -> d.IssueReportView:
+        """复核确认/驳回（B2 端点 5）：仅待质检复核态可复核（重复 409）；驳回
+        必带理由（缺 400——「驳回须写理由」A3 分治同款）回标记人。"""
+        row = await self._issues.get(issue_id)
+        if row is None:
+            raise d.KbNotFoundError(f"标记单不存在：{issue_id}")
+        if action not in ("confirm", "reject"):
+            raise d.KbParamError(f"action 越界：{action}（允许值 confirm|reject）")
+        if row.state != "待质检复核":
+            raise d.KbConflictError(
+                f"仅「待质检复核」态可复核（当前 {row.state}）", code="kb_issue_state"
+            )
+        at = now()
+        if action == "confirm":
+            # 确认转修正流：修正动作＝B1 端点 4（页面引导跳修正——确认单即落终态）
+            row.state = "已修正"
+        else:
+            text = (reason or "").strip()
+            if not text:
+                raise d.KbParamError(
+                    "驳回必须写明理由（空理由 400）",
+                    code="kb_issue_reject_reason_required",
+                )
+            row.state = "已驳回"
+            row.reject_reason = text
+        row.reviewed_by = actor_who
+        row.reviewed_at = at
+        await self._issues.save(row)
+        return await self._issue_view(row)
+
+    async def close_issue_report(self, issue_id: str, actor_who: str) -> d.IssueReportView:
+        """驳回后销记（B2 端点 6）：仅已驳回态可销记（其他态 409）——队列零悬挂
+        兜底；终态「已销记」，响应展示串「已销记 · 不修正」（合同端点 6 示例）。"""
+        row = await self._issues.get(issue_id)
+        if row is None:
+            raise d.KbNotFoundError(f"标记单不存在：{issue_id}")
+        if row.state != "已驳回":
+            raise d.KbConflictError(
+                f"仅「已驳回」态可销记（当前 {row.state}）", code="kb_issue_state"
+            )
+        row.state = "已销记"
+        await self._issues.save(row)
+        view = await self._issue_view(row)
+        return d.IssueReportView(
+            id=view.id,
+            fragment_id=view.fragment_id,
+            report_id=view.report_id,
+            fragment_label=view.fragment_label,
+            state="已销记 · 不修正",
+            marked_by=view.marked_by,
+            marked_at=view.marked_at,
+            reject_reason=view.reject_reason,
+            hint=view.hint,
+        )
 
     # ---------- stuck 收口（00 §5.2-6：超时无进展后台巡检） ----------
 

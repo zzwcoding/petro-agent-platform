@@ -268,7 +268,9 @@ export async function pollTaskUntilDone({ taskId, path, intervalMs = 1500, signa
       if (onProgress) {
         try { onProgress(data) } catch { /* 进度回调失败不影响轮询收场 */ }
       }
-      const status = String(data.status || '')
+      // 终态字段兼容双 wire 形：status（D1 drills 等先例）∥ state（B1/B2 任务族）——
+      // P1-03 收尾裁决：底座一行通改，消灭每接口层重复适配 hook。
+      const status = String(data.status || data.state || '')
       if (isTerminalStatus(status)) return { status, data }
     }
     await new Promise(resolve => setTimeout(resolve, intervalMs))

@@ -1,4 +1,5 @@
-"""api.kb —— /api/kb 路由族（B1-报告库.md v0.3 合同，15 条路由；P1-02a/P1-02b）。
+"""api.kb —— /api/kb 路由族（B1-报告库.md v0.3 合同 15 条路由，P1-02a/P1-02b；
+B2-答案出处.md v0.3 合同 6 条路由，P1-04——/api/kb 同域片段子域，98 §7.1）。
 
 形状注记：
 - 响应字段 snake_case（00 §14-R1——本端点即真实接线，同 D1/D3 先例）；
@@ -11,6 +12,12 @@
   libs.graph（all|on|off）、reports.lib（all|现有库名——B1 端点 1 入参照抄）、
   keyword 模糊匹配；越界 400（code=kb_param_invalid，errors.py 登记）。
 - 端点 4 片段修正＝P1-02b 激活（乐观锁＋记版＋重建折算任务＋wiki 重铸联动）。
+- B2（P1-04）：GET /fragments（两读法分派——report_id 携带按报告整组取数，
+  缺省全库扁平清单分页必带缺 400）/ GET /fragments/{id}/context（父块回捞）/
+  POST /fragments/{id}/issue-reports（标记入队）/ GET /issue-reports（队列，
+  state 筛在途态）/ POST /issue-reports/{id}/review（confirm|reject，驳回必带
+  理由 400）/ POST /issue-reports/{id}/close（销记）；B12 审计三写口
+  kb.fragment.marked / kb.issue.reviewed / kb.issue.closed。
 - B12 平台审计（P1-02a 收尾裁决指令①，P0-05 gateway 同款）：api 层编排关键
   写操作——建库/停用启用/配置保存/修正确认——经 security.audit 写平台审计
   （kb 域不反向依赖 security）；域内 F62 活动流留痕照旧双轨。
@@ -687,3 +694,213 @@ async def create_library(
         )
     )
     return _create_response(view)
+
+
+# ---------- B2 端点 1：GET /fragments 片段台账（两读法分派） ----------
+
+
+class FragmentLedgerItem(BaseModel):
+    id: str
+    report_id: str
+    report: str
+    well: str | None
+    section: str | None
+    type: str
+    hit: str
+
+
+class FragmentsResponse(BaseModel):
+    items: list[FragmentLedgerItem]
+    total: int
+    page: int | None = None
+    page_size: int | None = None
+
+
+@router.get("/fragments", response_model=FragmentsResponse)
+async def list_fragments(
+    service: KbDep,
+    _actor: CurrentActor,
+    report_id: Annotated[str | None, Query()] = None,
+    type: Annotated[str, Query()] = "all",
+    keyword: Annotated[str, Query()] = "",
+    page: Annotated[int | None, Query(ge=1)] = None,
+    pageSize: Annotated[int | None, Query(ge=1, alias="pageSize")] = None,
+) -> FragmentsResponse:
+    """片段台账列表（B2 端点 1）：携带 report_id＝按报告整组取数（整表返回）；
+    缺省＝全库扁平清单（分页必带缺任一 400——B3 slice_ref 下拉数据源）；
+    type 五类型标筛＋keyword 搜命中句/井号/章节路径；列表只给子块（INV）。"""
+    result = await service.list_fragments(
+        report_id, type=type, keyword=keyword or None, page=page, page_size=pageSize
+    )
+    return FragmentsResponse(
+        items=[
+            FragmentLedgerItem(
+                id=i.id, report_id=i.report_id, report=i.report, well=i.well,
+                section=i.section, type=i.type, hit=i.hit,
+            )
+            for i in result.items
+        ],
+        total=result.total,
+        page=result.page,
+        page_size=result.page_size,
+    )
+
+
+# ---------- B2 端点 2：GET /fragments/{id}/context 父块回捞 ----------
+
+
+class FragmentContextResponse(BaseModel):
+    id: str
+    type: str
+    hit: str
+    context: str
+
+
+@router.get("/fragments/{fragment_id}/context", response_model=FragmentContextResponse)
+async def fragment_context(
+    fragment_id: str,
+    service: KbDep,
+    _actor: CurrentActor,
+) -> FragmentContextResponse:
+    """命中句 → 完整上下文段（F30 父块回捞与 F36 子块回读同端点会师；
+    摘要块/问题块＝产物说明行——无父块的唯一例外）。"""
+    view = await service.fragment_context(fragment_id)
+    return FragmentContextResponse(
+        id=view.id, type=view.type, hit=view.hit, context=view.context
+    )
+
+
+# ---------- B2 端点 3：POST /fragments/{id}/issue-reports 标记问题片段 ----------
+
+
+class IssueReportItem(BaseModel):
+    id: str
+    fragment_id: str
+    report_id: str
+    fragment_label: str
+    state: str
+    marked_by: str
+    marked_at: str
+    reject_reason: str | None = None
+    hint: str | None = None
+
+
+@router.post("/fragments/{fragment_id}/issue-reports", response_model=IssueReportItem)
+async def mark_fragment_issue(
+    fragment_id: str,
+    service: KbDep,
+    security: SecurityDep,
+    actor: CurrentActor,
+) -> IssueReportItem:
+    """标记问题片段（F30 票 104 增补——只标记不直改）：进质检复核队列＋同事务
+    记 F62「标记问题片段」；待质检复核态重复 409；已驳回态重标＝旧单转已销记。"""
+    view = await service.report_fragment_issue(fragment_id, actor.who)
+    await security.audit(  # B12 横切留痕（票面指令——标记写口经唯一审计出口）
+        AuditRow(
+            who=actor.who,
+            action="kb.fragment.marked",
+            content=f"标记问题片段：{view.fragment_label}（标记单 {view.id}）",
+        )
+    )
+    return IssueReportItem(
+        id=view.id, fragment_id=view.fragment_id, report_id=view.report_id,
+        fragment_label=view.fragment_label, state=view.state,
+        marked_by=view.marked_by, marked_at=view.marked_at,
+        reject_reason=view.reject_reason, hint=view.hint,
+    )
+
+
+# ---------- B2 端点 4：GET /issue-reports 质检复核队列列表 ----------
+
+
+class IssueReportsResponse(BaseModel):
+    items: list[IssueReportItem]
+    total: int
+
+
+@router.get("/issue-reports", response_model=IssueReportsResponse)
+async def list_issue_reports(
+    service: KbDep,
+    _actor: CurrentActor,
+    state: Annotated[str, Query()] = "all",
+) -> IssueReportsResponse:
+    """质检复核队列（v0.3 增设）：state=all|待质检复核|已驳回——终态默认不出列；
+    标记时间倒序；fragment_label 与端点 3 同源同构。"""
+    rows = await service.list_issue_reports(state)
+    return IssueReportsResponse(
+        items=[
+            IssueReportItem(
+                id=v.id, fragment_id=v.fragment_id, report_id=v.report_id,
+                fragment_label=v.fragment_label, state=v.state,
+                marked_by=v.marked_by, marked_at=v.marked_at,
+                reject_reason=v.reject_reason, hint=v.hint,
+            )
+            for v in rows
+        ],
+        total=len(rows),
+    )
+
+
+# ---------- B2 端点 5：POST /issue-reports/{id}/review 复核确认/驳回 ----------
+
+
+class ReviewBody(BaseModel):
+    action: str  # confirm | reject
+    reason: str | None = None
+
+
+@router.post("/issue-reports/{issue_id}/review", response_model=IssueReportItem)
+async def review_issue_report(
+    issue_id: str,
+    body: ReviewBody,
+    service: KbDep,
+    security: SecurityDep,
+    actor: CurrentActor,
+) -> IssueReportItem:
+    """复核确认/驳回（v0.3——驳回必带理由回标记人；确认转修正流＝B1 端点 4 修正）。"""
+    view = await service.review_issue_report(issue_id, body.action, body.reason, actor.who)
+    await security.audit(  # B12 横切留痕（复核写口）
+        AuditRow(
+            who=actor.who,
+            action="kb.issue.reviewed",
+            content=(
+                f"复核{'确认' if body.action == 'confirm' else '驳回'}：{view.fragment_label}"
+                f"（标记单 {view.id} → {view.state}"
+                + (f"；理由：{view.reject_reason}" if view.reject_reason else "")
+                + "）"
+            ),
+        )
+    )
+    return IssueReportItem(
+        id=view.id, fragment_id=view.fragment_id, report_id=view.report_id,
+        fragment_label=view.fragment_label, state=view.state,
+        marked_by=view.marked_by, marked_at=view.marked_at,
+        reject_reason=view.reject_reason, hint=view.hint,
+    )
+
+
+# ---------- B2 端点 6：POST /issue-reports/{id}/close 驳回后销记 ----------
+
+
+class IssueCloseResponse(BaseModel):
+    id: str
+    state: str
+
+
+@router.post("/issue-reports/{issue_id}/close", response_model=IssueCloseResponse)
+async def close_issue_report(
+    issue_id: str,
+    service: KbDep,
+    security: SecurityDep,
+    actor: CurrentActor,
+) -> IssueCloseResponse:
+    """驳回后销记（v0.3——标记人主动关闭，队列零悬挂；仅已驳回态可销记）。"""
+    view = await service.close_issue_report(issue_id, actor.who)
+    await security.audit(  # B12 横切留痕（销记写口）
+        AuditRow(
+            who=actor.who,
+            action="kb.issue.closed",
+            content=f"销记：{view.fragment_label}（标记单 {view.id} → 已销记）",
+        )
+    )
+    return IssueCloseResponse(id=view.id, state=view.state)

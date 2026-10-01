@@ -14,7 +14,9 @@ P1-01 起 sem_* 九表入装配（ensure_semantics_tables——sem 域迁移首�
 路由族挂载＋入库任务 stuck 收口（启动巡检——00 §5.2-6 超时无进展后台巡检）。
 P1-02b 起 wiki 表族入装配（ensure_derivatives_tables）＋/api/wiki 路由族挂载
 ＋derivatives 事件订阅接线（IngestCompleted→wiki 生成/重建、FragmentRevised
-→重铸队列——B9 缝：kb 不直调 derivatives，派生物只经事件）。
+→重铸队列——B9 缝：kb 不直调 derivatives，派生物只经事件）。P1-04 起
+kb_issue_report 入 kb 表族（ensure_kb_tables——B2 质检复核队列，六端点挂
+api/kb.py）。
 
 建表与迁移的交接（P0-08 票面）：ensure_*_table 与 Alembic 并行存活，
 本票不切换——各域切换迁移属各域票（基线空迁移见 migrations/versions/0001）。

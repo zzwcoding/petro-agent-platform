@@ -64,6 +64,21 @@ TEMPLATE_LABELS: dict[str, str] = {
 LIB_STATUSES: tuple[str, ...] = ("active", "disabled")
 FRAGMENT_TYPES: tuple[str, ...] = ("原文块", "图片说明块", "图片文字块", "摘要块", "问题块")
 
+# ---------- B2 切片管理（B2-答案出处.md v0.3 合同常量） ----------
+
+# 质检复核队列状态机（99 §2.5 kb_issue_report CHECK 四态冻结——v0.3 Owner 拍板批）。
+ISSUE_STATES: tuple[str, ...] = ("待质检复核", "已修正", "已驳回", "已销记")
+# 队列在途态（端点 4 出列域——终态已修正/已销记默认不出列，state=all 亦只出两在途态）。
+ISSUE_OPEN_STATES: tuple[str, ...] = ("待质检复核", "已驳回")
+# 标记两态文案（合同常量表——服务端 hint 保证一致，B1 端点 13 hint 先例）。
+MARK_HINT = "已标记 · 待质检复核——复核确认后由管理员修正片段并重建索引。"
+MARK_BUTTON_TEXT = "标记问题片段"
+# F62 活动流 action（B1 挂账收口批增列值域——开放问题 2 兑现）。
+MARK_ACTIVITY_ACTION = "标记问题片段"
+# 摘要块/问题块回捞说明行（端点 2 无父块的唯一例外——页面 ctx 原值照抄）。
+SUMMARY_CONTEXT_NOTE = "全文档摘要 ×1，入库时自动生成。"
+QUESTION_CONTEXT_NOTE = "每 20 段自动生成一批\"可能被问的问题\"块。"
+
 # 智能切段参数（合同常量：一段 256–1024 字，相邻段重叠 10–20%）。
 SMART_MIN_CHARS = 256
 SMART_MAX_CHARS = 1024
@@ -217,6 +232,11 @@ def new_report_id() -> str:
 def new_fragment_id(seq: int) -> str:
     """片段号（99 §2.5：id（f1…）——全局自增序号直拼）。"""
     return f"f{seq}"
+
+
+def new_issue_id() -> str:
+    """标记单号（99 §2.5 kb_issue_report：id（iss-））。"""
+    return f"iss-{uuid.uuid4().hex[:8]}"
 
 
 # ---------- 展示名与归一化 ----------
@@ -722,3 +742,56 @@ class CreateLibReceipt:
     status: str
     config: dict[str, Any]
     activity_row: ActivityRow
+
+
+# ---------- B2 切片管理 DTO（B2-答案出处.md v0.3 关键形状） ----------
+
+
+@dataclass(frozen=True, slots=True)
+class FragmentListItem:
+    """片段台账行（B2 端点 1——三件套 report/well/section＋五类型标＋hit；
+    DTO 无 context 字段（INV 落点：列表只给子块，上下文仅经端点 2 按需回捞）。"""
+
+    id: str
+    report_id: str
+    report: str
+    well: str | None
+    section: str | None
+    type: str
+    hit: str
+
+
+@dataclass(frozen=True, slots=True)
+class FragmentList:
+    """片段列表（B2 端点 1：两读法分派——按报告整组取数整表返回；全库扁平清单
+    分页读法回显 page/page_size——00 §4.1 信封）。"""
+
+    items: list[FragmentListItem]
+    total: int
+    page: int | None = None
+    page_size: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class FragmentContext:
+    """父块回捞（B2 端点 2——context 字段只在本端点存在）。"""
+
+    id: str
+    type: str
+    hit: str
+    context: str
+
+
+@dataclass(frozen=True, slots=True)
+class IssueReportView:
+    """标记单视图（B2 端点 3/4/5/6——fragment_label 三件套同源拼装）。"""
+
+    id: str
+    fragment_id: str
+    report_id: str
+    fragment_label: str
+    state: str
+    marked_by: str
+    marked_at: str
+    reject_reason: str | None = None
+    hint: str | None = None

@@ -38,6 +38,7 @@ _TABLES = (
     "kb_ingest_task",
     "kb_fragment",
     "kb_fragment_version",
+    "kb_issue_report",
     "kb_activity",
 )
 
@@ -139,6 +140,10 @@ async def test_kb_tables_columns_match_99(db: ConnectionManager) -> None:
         "kb_fragment_version": {
             "fragment_id", "v", "text", "context_text", "note", "created_at", "updated_at",
         },
+        "kb_issue_report": {
+            "id", "fragment_id", "state", "reject_reason", "marked_by", "marked_at",
+            "reviewed_by", "reviewed_at", "created_at", "updated_at",
+        },
         "kb_activity": {
             "id", "lib_id", "time", "who", "action", "target", "created_at", "updated_at",
         },
@@ -203,6 +208,24 @@ async def test_kb_checks_and_indexes(db: ConnectionManager) -> None:
     assert "ix_kb_fragment_report" in frag_indexes
     assert "ix_kb_fragment_type" in frag_indexes
     assert "ix_kb_activity_lib_time" in act_indexes
+    # kb_issue_report（B2/P1-04）：state 索引＋待质检复核态部分唯一索引（99 注记
+    # 「uq fragment_id」语义锚＝待质检复核态重复标记 409——全列 uq 会卡死重新标记）
+    issue_indexes = (
+        await session.execute(
+            text("SELECT indexname FROM pg_indexes WHERE tablename = 'kb_issue_report'")
+        )
+    ).scalars().all()
+    assert "ix_kb_issue_report_state" in issue_indexes
+    assert "uq_kb_issue_report_pending_fragment" in issue_indexes
+    partial = (
+        await session.execute(
+            text(
+                "SELECT indexdef FROM pg_indexes "
+                "WHERE indexname = 'uq_kb_issue_report_pending_fragment'"
+            )
+        )
+    ).scalar_one()
+    assert "待质检复核" in partial  # WHERE 子句在（部分唯一）
 
 
 async def test_kb_ingest_task_state_check_enforced(db: ConnectionManager) -> None:

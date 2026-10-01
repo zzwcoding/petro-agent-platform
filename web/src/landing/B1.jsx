@@ -18,8 +18,8 @@
  * - 台账「入库中」标 = 端点 1 status 直出（v0.2 裁决）；详情/片段/版本＝
  *   端点 2；修正 = 端点 4（乐观锁 409 兜底提示——「别人已改过这段」）；
  * - 库停用/启用 = 端点 13 可选 status（连同配置全量整存整取）；
- * - 看切片/看百科行内跳转落原型树 #/proto/B2、#/proto/B4（落地树 B2/B4
- *   未点亮——阶段 1 后续票，先以原型页承接跨页跳转）。
+ * - 看切片行内跳转落落地树 #/B2（P1-04 点亮——P1-03 疑点 2 收口）；看百科仍落
+ *   原型树 #/proto/B4（B4 落地票接线时改指）。
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -505,7 +505,7 @@ export default function B1Landing() {
           {r.refs != null && (
             <Tooltip title="看切片——去切片管理页按报告浏览切出的片段">
               <Button size="small" icon={<FileTextOutlined />}
-                onClick={e => { e.stopPropagation(); location.hash = '/proto/B2' }} />
+                onClick={e => { e.stopPropagation(); location.hash = '/B2' }} />
             </Tooltip>
           )}
           {r.wiki != null && (

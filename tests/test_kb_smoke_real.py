@@ -229,3 +229,36 @@ def test_real_assembly_smoke() -> None:
         audit_actions = {a["action"] for a in audit["items"]}
         assert {"kb.lib.created", "kb.config.saved", "kb.fragment.revised",
                 "wiki.page.rolled_back"} <= audit_actions  # B12 补齐（裁决指令①）
+
+        # ⑪ B2 质检复核队列闭环真跑（P1-04）：标记→409→驳回（理由必填）→重标
+        # （旧单转已销记）→确认转修正流；活动流「标记问题片段」＋B12 审计
+        frag_b2 = client.get(f"/api/kb/reports/{report['id']}").json()["fragments"][1]
+        mark = client.post(f"/api/kb/fragments/{frag_b2['id']}/issue-reports")
+        assert mark.status_code == 200, mark.text
+        issue = mark.json()
+        assert issue["state"] == "待质检复核"
+        assert issue["hint"].startswith("已标记 · 待质检复核")
+        dup = client.post(f"/api/kb/fragments/{frag_b2['id']}/issue-reports")
+        assert dup.status_code == 409 and dup.json()["code"] == "kb_issue_duplicate"
+        assert client.post(
+            f"/api/kb/issue-reports/{issue['id']}/review", json={"action": "reject"}
+        ).status_code == 400  # 驳回空理由 400
+        rejected = client.post(
+            f"/api/kb/issue-reports/{issue['id']}/review",
+            json={"action": "reject", "reason": "冒烟驳回：片段与台账出入，请核对后重标"},
+        )
+        assert rejected.status_code == 200 and rejected.json()["state"] == "已驳回"
+        remark = client.post(f"/api/kb/fragments/{frag_b2['id']}/issue-reports")
+        assert remark.status_code == 200  # 重新标记＝新单入队、旧驳回单转已销记
+        issue2 = remark.json()
+        confirm = client.post(
+            f"/api/kb/issue-reports/{issue2['id']}/review", json={"action": "confirm"}
+        )
+        assert confirm.status_code == 200 and confirm.json()["state"] == "已修正"
+        assert client.get("/api/kb/issue-reports").json()["total"] == 0  # 队列零悬挂
+        acts = client.get(f"/api/kb/libs/{lib_id}/activities").json()
+        assert any(a["action"] == "标记问题片段" for a in acts["items"])  # F62 同事务
+        audit = client.get("/api/security/audit-logs", params={"pageSize": 50}).json()
+        assert {"kb.fragment.marked", "kb.issue.reviewed"} <= {
+            a["action"] for a in audit["items"]
+        }

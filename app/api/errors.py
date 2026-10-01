@@ -20,7 +20,10 @@
 - kb_param_invalid / kb_not_found / kb_conflict：kb 域 400/404/409（B1 错误码
   草案；P1-02a 新立值，登记于 tickets/phase1/README.md P1-02a 差异清单）——
   KbParamError/KbConflictError 携带合同 code（kb_lib_disabled 停用库受理拦截
-  400 带码/kb_lib_name_duplicate 重名 409/kb_route_unresolved 路由未定型等）
+  400 带码/kb_lib_name_duplicate 重名 409/kb_route_unresolved 路由未定型等；
+  B2 队列族（P1-04）：kb_issue_duplicate 待质检复核态重复标记 409 /
+  kb_issue_state 状态机冲突 409 / kb_issue_reject_reason_required 驳回空理由
+  400——B2 错误码草案，登记于 tickets/phase1/README.md P1-04 差异清单）
 - kb_fragment_revise_deferred：片段修正端点壳（P1-02a 立壳，修正动作归
   P1-02b——501 非合同状态码，差异登记票面）
 - wiki_not_found / wiki_param_invalid / wiki_conflict：wiki 域 404/400/409

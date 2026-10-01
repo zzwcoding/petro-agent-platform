@@ -12,7 +12,8 @@
 /** 落地页模块表（显式注册——Vite 动态导入不支持自目录变量导入）。 */
 const LANDING_MODULES = {
   D1: () => import('./D1.jsx'),
-  B1: () => import('./B1.jsx')
+  B1: () => import('./B1.jsx'),
+  B2: () => import('./B2.jsx')
 }
 
 /** 已点亮（已有落地页）的页面 key，按 frontend-foundation §5 阶段顺序增长。 */
@@ -25,3 +26,9 @@ export function loadLandingPage(key) {
 
 /** 落地树默认页（空 hash 时落第一个已点亮页）。 */
 export const DEFAULT_LANDING_KEY = LANDING_LIT[0]
+
+/**
+ * B2 locator 暂存键（P1-04——`#/B2?chunk=` 消费链：NotLit 桥写入、B2 页挂载
+ * 消费后即清除；干净收口＝Shell.parseHash 剥 query，本暂存随桥退役）。
+ */
+export const B2_LOCATOR_KEY = 'petro.b2.locator.chunk'

@@ -18,8 +18,7 @@
  * 合同：teach-petro-agent/specs/api/B1-报告库.md v0.3（端点 1–15）。
  */
 
-import { useEffect, useRef, useState } from 'react'
-import { get, post, put, request, isTerminalStatus } from './client.js'
+import { get, post, put, useTaskPolling } from './client.js'
 
 /** 业务模板四枚举（B1 v0.3 建库批冻结——建库弹窗下拉与建议卡共用）。 */
 export const BIZ_TEMPLATES = [
@@ -34,77 +33,22 @@ export const TASK_SOURCES = ['上传入库', '片段修正', '重跑定型']
 
 // ── wire(snake) → 视图(camel) ──
 
-// ── B1 任务轮询适配（client.useTaskPolling 只认 wire 字段 status——D1 drills 形；
-// B1 任务 wire 字段＝state（B1 册端点 8），底座不动的约束下在本层落 state 适配版：
-// 轮询主体复用 client 的 request＋isTerminalStatus（终态白名单 fail-safe 语义同源）。──
-
-/** failed/stuck 终态视为失败收场（与 client TASK_FAILED 同集——B1 四态）。 */
-const KB_TASK_FAILED = new Set(['failed', 'stuck'])
+// ── B1 任务轮询：底座 client.pollTaskUntilDone 已改认 `status ?? state` 终态
+// 字段（P1-03 收尾裁决——P1-04 落地），本层重复适配版退役，useKbTaskPolling
+// 退化为带 /kb/tasks 路径缺省的薄壳（B1 页调用点零改动）。──
 
 /**
- * 轮询一次 B1 任务直到终态（state 字段适配 pollTaskUntilDone——瞬时失败容忍/
- * AbortError 直通/onProgress 回调保护全同 client 语义）。
- * @param {{taskId: string, intervalMs?: number, signal?: AbortSignal,
- *   onProgress?: (data: any) => void}} args
- * @returns {Promise<{status: string, data: any}>} 终态任务行（wire 形）
- */
-export async function pollKbTaskUntilDone({ taskId, intervalMs = 1500, signal, onProgress }) {
-  let transientFailures = 0
-  for (;;) {
-    /** @type {any} */ let data = null
-    try {
-      data = await request(`/kb/tasks/${encodeURIComponent(taskId)}`, { signal })
-      transientFailures = 0
-    } catch (err) {
-      if (err && err.name === 'AbortError') throw err
-      transientFailures += 1
-      if (transientFailures >= 2) throw err
-    }
-    if (data) {
-      if (onProgress) {
-        try { onProgress(data) } catch { /* 进度回调失败不影响轮询收场 */ }
-      }
-      const state = String(data.state || '')
-      if (isTerminalStatus(state)) return { status: state, data }
-    }
-    await new Promise(resolve => setTimeout(resolve, intervalMs))
-    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
-  }
-}
-
-/**
- * useKbTaskPolling —— B1 任务轮询 hook（client.useTaskPolling 的 state 适配版）。
+ * useKbTaskPolling —— B1/B2 任务轮询 hook（client.useTaskPolling 薄壳：
+ * path 缺省 /kb/tasks；瞬时失败容忍/AbortError 直通/onProgress 保护全同底座）。
  *
  * @param {string | null} taskId 任务号；null/空串不轮询
  * @param {{intervalMs?: number, onProgress?: (snap: any) => void}} opts
  *   onProgress 每次成功轮询（含进行中快照）回调一次（wire 形，回调方自行折 camel）
  * @returns {{status: 'idle'|'polling'|'done'|'failed', data: any, error: Error | null}}
  */
-export function useKbTaskPolling(taskId, opts) {
+export function useKbTaskPolling(taskId, opts = {}) {
   const { intervalMs = 1500, onProgress } = opts
-  const progressRef = useRef(onProgress)
-  progressRef.current = onProgress
-  const [state, setState] = useState(/** @type {{status: any, data: any, error: any}} */ ({ status: taskId ? 'polling' : 'idle', data: null, error: null }))
-  useEffect(() => {
-    if (!taskId) {
-      setState({ status: 'idle', data: null, error: null })
-      return undefined
-    }
-    const ctrl = new AbortController()
-    setState({ status: 'polling', data: null, error: null })
-    pollKbTaskUntilDone({ taskId, intervalMs, signal: ctrl.signal, onProgress: d => progressRef.current?.(d) })
-      .then(({ status, data }) => setState({
-        status: KB_TASK_FAILED.has(status) ? 'failed' : 'done',
-        data,
-        error: null
-      }))
-      .catch(err => {
-        if (err && err.name === 'AbortError') return
-        setState({ status: 'failed', data: null, error: err })
-      })
-    return () => ctrl.abort()
-  }, [taskId, intervalMs])
-  return state
+  return useTaskPolling(taskId, { path: '/kb/tasks', intervalMs, onProgress })
 }
 
 /** 任务行/轮询快照共用的 camel 折回（stop_at＝权威停止点；current_step 0–4）。 */
@@ -435,4 +379,106 @@ export async function createLibrary(p) {
       ? { time: d.activity_row.time, who: d.activity_row.who, action: d.activity_row.action, target: d.activity_row.target }
       : null
   }
+}
+
+// ── B2 切片管理（B2-答案出处.md v0.3——六端点消费面，P1-04） ──
+
+/** 片段类型五枚举（B2 合同常量——类型筛下拉与 Tag 色映射共用）。 */
+export const FRAGMENT_TYPES = ['原文块', '图片说明块', '图片文字块', '摘要块', '问题块']
+
+/** 队列在途态（B2 端点 4 出列域——终态默认不出列，state=all 亦只出两在途态）。 */
+export const ISSUE_OPEN_STATES = ['待质检复核', '已驳回']
+
+/**
+ * 端点 1：GET /api/kb/fragments —— 片段台账（两读法分派）：reportId 携带＝按
+ * 报告整组取数（整表返回）；缺省＝全库扁平清单（page/pageSize 必带——B3 消费）。
+ * @param {{reportId?: string, page?: number, pageSize?: number, type?: string, keyword?: string}} [q]
+ */
+export async function listFragments(q = {}) {
+  const query = { type: q.type || 'all', keyword: q.keyword || '' }
+  if (q.reportId) query.report_id = q.reportId
+  if (q.page != null) query.page = q.page
+  if (q.pageSize != null) query.pageSize = q.pageSize
+  const d = await get('/kb/fragments', query)
+  const items = Array.isArray(d.items) ? d.items : []
+  return {
+    items: items.map(f => ({
+      id: f.id, reportId: f.report_id, report: f.report,
+      well: f.well || null, section: f.section || null, type: f.type, hit: f.hit
+    })),
+    total: d.total ?? items.length,
+    page: d.page ?? null,
+    pageSize: d.page_size ?? null
+  }
+}
+
+/**
+ * 端点 2：GET /api/kb/fragments/{id}/context —— 父块回捞（展开/详情弹窗懒加载；
+ * 摘要块/问题块 context＝产物说明行——无父块的唯一例外）。
+ */
+export async function getFragmentContext(id) {
+  const d = await get(`/kb/fragments/${encodeURIComponent(id)}/context`)
+  return { id: d.id, type: d.type, hit: d.hit, context: d.context }
+}
+
+/**
+ * 端点 3：POST /api/kb/fragments/{id}/issue-reports —— 标记问题片段（只标记不
+ * 直改，进复核队列；待质检复核态重复 409 kb_issue_duplicate；hint 服务端返回）。
+ */
+export async function markFragmentIssue(id) {
+  const d = await post(`/kb/fragments/${encodeURIComponent(id)}/issue-reports`)
+  return {
+    id: d.id, fragmentId: d.fragment_id, reportId: d.report_id,
+    fragmentLabel: d.fragment_label, state: d.state,
+    markedBy: d.marked_by, markedAt: d.marked_at,
+    rejectReason: d.reject_reason || null, hint: d.hint || null
+  }
+}
+
+/**
+ * 端点 4：GET /api/kb/issue-reports —— 质检复核队列（state=all|待质检复核|
+ * 已驳回；终态默认不出列；标记时间倒序；state 越界 400）。
+ * @param {{state?: string}} [q]
+ */
+export async function listIssueReports(q = {}) {
+  const d = await get('/kb/issue-reports', { state: q.state || 'all' })
+  const items = Array.isArray(d.items) ? d.items : []
+  return {
+    items: items.map(i => ({
+      id: i.id, fragmentId: i.fragment_id, reportId: i.report_id,
+      fragmentLabel: i.fragment_label, state: i.state,
+      markedBy: i.marked_by, markedAt: i.marked_at,
+      rejectReason: i.reject_reason || null, hint: i.hint || null
+    })),
+    total: d.total ?? items.length
+  }
+}
+
+/**
+ * 端点 5：POST /api/kb/issue-reports/{id}/review —— 复核确认/驳回（confirm 转
+ * 修正流；reject 必带 reason——空理由 400 kb_issue_reject_reason_required；
+ * 仅待质检复核态可复核，重复 409 kb_issue_state）。
+ * @param {string} id
+ * @param {{action: 'confirm'|'reject', reason?: string}} p
+ */
+export async function reviewIssueReport(id, p) {
+  const d = await post(
+    `/kb/issue-reports/${encodeURIComponent(id)}/review`,
+    { action: p.action, reason: p.reason || null }
+  )
+  return {
+    id: d.id, fragmentId: d.fragment_id, reportId: d.report_id,
+    fragmentLabel: d.fragment_label, state: d.state,
+    markedBy: d.marked_by, markedAt: d.marked_at,
+    rejectReason: d.reject_reason || null, hint: d.hint || null
+  }
+}
+
+/**
+ * 端点 6：POST /api/kb/issue-reports/{id}/close —— 驳回后销记（仅已驳回态，
+ * 其他态 409；响应 state＝「已销记 · 不修正」合同展示串）。
+ */
+export async function closeIssueReport(id) {
+  const d = await post(`/kb/issue-reports/${encodeURIComponent(id)}/close`)
+  return { id: d.id, state: d.state }
 }

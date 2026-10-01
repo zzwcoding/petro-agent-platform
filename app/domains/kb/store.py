@@ -258,6 +258,47 @@ class FragmentVersionRow(Base):
     updated_at: Mapped[datetime] = mapped_column(default=now, nullable=False)
 
 
+class IssueReportRow(Base):
+    """kb_issue_report——问题片段标记（质检复核队列；99 §2.5 逐字段）。
+
+    - state CHECK 四态（v0.3 冻结：待质检复核/已修正/已驳回/已销记——驳回
+      必带理由回标记人、重新标记或销记，队列零悬挂）。
+    - 重复标记 409 的承载＝**部分唯一索引**（fragment_id WHERE state='待质检
+      复核'）：99 注记「uq fragment_id」的语义锚是待质检复核态重复标记 409，
+      全列 uq 会卡死驳回后重新标记（同片段须能再发新单）——按注记语义落部分
+      索引（差异登记票面）。
+    """
+
+    __tablename__ = "kb_issue_report"
+    __table_args__ = (
+        CheckConstraint(
+            "state IN ('待质检复核','已修正','已驳回','已销记')",
+            name="ck_kb_issue_report_state",
+        ),
+        Index("ix_kb_issue_report_state", "state"),
+        Index(
+            "uq_kb_issue_report_pending_fragment",
+            "fragment_id",
+            unique=True,
+            postgresql_where=text("state = '待质检复核'"),
+            sqlite_where=text("state = '待质检复核'"),
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)  # iss-
+    fragment_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("kb_fragment.id"), nullable=False
+    )
+    state: Mapped[str] = mapped_column(String(8), nullable=False, default="待质检复核")
+    reject_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    marked_by: Mapped[str] = mapped_column(Text, nullable=False)
+    marked_at: Mapped[datetime] = mapped_column(nullable=False)
+    reviewed_by: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(default=now, nullable=False)
+
+
 class ActivityRow(Base):
     """kb_activity——库活动流（F62 只读追加；写口＝kb.record_activity）。"""
 
@@ -284,6 +325,7 @@ KB_TABLES: tuple[type[Base], ...] = (
     IngestTaskRow,
     FragmentRow,
     FragmentVersionRow,
+    IssueReportRow,  # B2（P1-04）——FK 依赖 FragmentRow
     ActivityRow,
 )
 
@@ -706,6 +748,15 @@ class FragmentStore:
             )
         return list(rows)
 
+    async def list_children(self, report_id: str | None = None) -> list[FragmentRow]:
+        """子块清单（B2 端点 1——父块不对外寻址，F30 INV；id 序＝切段落卷序）。"""
+        async with self._db.readonly() as session:
+            stmt = select(FragmentRow).where(FragmentRow.is_parent_only.is_(False))
+            if report_id is not None:
+                stmt = stmt.where(FragmentRow.report_id == report_id)
+            rows = (await session.execute(stmt.order_by(FragmentRow.id))).scalars().all()
+        return list(rows)
+
     async def versions_of(self, fragment_ids: list[str]) -> dict[str, list[FragmentVersionRow]]:
         if not fragment_ids:
             return {}
@@ -756,3 +807,95 @@ class ActivityStore:
                 .all()
             )
         return list(rows)
+
+
+class IssueStore:
+    """kb_issue_report 仓储（B2 质检复核队列——P1-04；事务边界在方法内）。"""
+
+    def __init__(self, db: ConnectionManager) -> None:
+        self._db = db
+
+    async def get(self, issue_id: str) -> IssueReportRow | None:
+        async with self._db.readonly() as session:
+            return await session.get(IssueReportRow, issue_id)
+
+    async def save(self, row: IssueReportRow) -> None:
+        row.updated_at = now()
+        async with self._db.session() as session:
+            await session.merge(row)
+
+    async def list_by_states(self, states: list[str]) -> list[IssueReportRow]:
+        """队列出列（在途态；标记时间倒序——B2 端点 4）。"""
+        async with self._db.readonly() as session:
+            rows = (
+                (
+                    await session.execute(
+                        select(IssueReportRow)
+                        .where(IssueReportRow.state.in_(states))
+                        .order_by(IssueReportRow.marked_at.desc(), IssueReportRow.id.desc())
+                    )
+                )
+                .scalars()
+                .all()
+            )
+        return list(rows)
+
+    async def mark_fragment(
+        self,
+        fragment_id: str,
+        *,
+        marked_by: str,
+        lib_id: str,
+        activity: tuple[str, str, str],  # (who, action, target)——标记同事务记 F62
+    ) -> IssueReportRow:
+        """标记入队事务：待质检复核态重复 409（部分唯一索引同判据）＋旧驳回单
+        随新标记转已销记（重新标记语义——队列零悬挂）＋标记行＋F62 活动一行。"""
+        async with self._db.session() as session:
+            pending = (
+                (
+                    await session.execute(
+                        select(IssueReportRow).where(
+                            IssueReportRow.fragment_id == fragment_id,
+                            IssueReportRow.state == "待质检复核",
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            if pending:
+                raise d.KbConflictError(
+                    "该片段已有标记单在待质检复核——复核确认后由管理员修正，"
+                    "勿重复标记",
+                    code="kb_issue_duplicate",
+                )
+            rejected = (
+                (
+                    await session.execute(
+                        select(IssueReportRow).where(
+                            IssueReportRow.fragment_id == fragment_id,
+                            IssueReportRow.state == "已驳回",
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            for row in rejected:  # 重新标记：旧驳回单转已销记（B2 队列状态机）
+                row.state = "已销记"
+                row.updated_at = now()
+            row = IssueReportRow(
+                id=d.new_issue_id(),
+                fragment_id=fragment_id,
+                state="待质检复核",
+                marked_by=marked_by,
+                marked_at=now(),
+            )
+            session.add(row)
+            await session.flush()
+            who, action, target = activity
+            session.add(
+                ActivityRow(lib_id=lib_id, time=now(), who=who, action=action, target=target)
+            )
+            await session.flush()
+            return row
