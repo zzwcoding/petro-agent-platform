@@ -95,7 +95,35 @@ class WikiPageVersionRow(Base):
     updated_at: Mapped[datetime] = mapped_column(default=now, nullable=False)
 
 
-DERIVATIVES_TABLES: tuple[type[Base], ...] = (WikiPageRow, WikiPageVersionRow)
+class ExtractConfigRow(Base):
+    """kb_extract_config——按库抽取设置（99 §2.7 逐字段；仍留 PG——ADR-0003）。
+
+    与 B1 库配置（kb_library_config）并列、互不嵌套（B5 端点 2 注记）；
+    保存＝写待生效配置（下次入库定型不热切换——F32 同族语义）。
+    """
+
+    __tablename__ = "kb_extract_config"
+
+    lib_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("kb_library.id"), primary_key=True
+    )
+    entity_types: Mapped[list[Any]] = mapped_column(_J, nullable=False, default=list)
+    relation_tags: Mapped[list[dict[str, Any]]] = mapped_column(
+        _J, nullable=False, default=list
+    )
+    custom_instructions: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    few_shot_examples: Mapped[list[dict[str, Any]]] = mapped_column(
+        _J, nullable=False, default=list
+    )
+    saved_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    saved_by: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+DERIVATIVES_TABLES: tuple[type[Base], ...] = (
+    WikiPageRow,
+    WikiPageVersionRow,
+    ExtractConfigRow,
+)
 
 
 async def ensure_derivatives_tables(engine: AsyncEngine) -> None:
@@ -203,3 +231,34 @@ class WikiStore:
             session.add(version)
             await session.flush()
         return page, version
+
+
+class ExtractConfigStore:
+    """kb_extract_config 仓储（B5 端点 2/3——按库整存整取）。"""
+
+    def __init__(self, db: ConnectionManager) -> None:
+        self._db = db
+
+    async def config_of(self, lib_id: str) -> ExtractConfigRow | None:
+        async with self._db.readonly() as session:
+            return await session.get(ExtractConfigRow, lib_id)
+
+    async def save(
+        self, lib_id: str, cfg: d.ExtractConfig, *, actor_who: str
+    ) -> ExtractConfigRow:
+        """写待生效配置（下次入库定型；不动正在处理的入库任务——各 run 用
+        自己的快照）。"""
+        snapshot = cfg.as_snapshot()
+        async with self._db.session() as session:
+            row = await session.get(ExtractConfigRow, lib_id)
+            if row is None:
+                row = ExtractConfigRow(lib_id=lib_id)
+            row.entity_types = list(snapshot["entity_types"])
+            row.relation_tags = list(snapshot["relation_tags"])
+            row.few_shot_examples = list(snapshot["few_shot_examples"])
+            row.custom_instructions = snapshot["custom_instructions"]
+            row.saved_at = now()
+            row.saved_by = actor_who
+            await session.merge(row)
+            await session.flush()
+            return row

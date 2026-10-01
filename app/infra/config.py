@@ -59,6 +59,12 @@ class InfraSettings(BaseSettings):
     minio_access_key: str = "petro"
     minio_secret_key: str = "petro12345"
     minio_secure: bool = False
+    # neo4j_*：图存储（infra.graph_store 消费）——缺省对齐 compose 演示拓扑
+    # （bolt 7687 / neo4j·petro12345，见 compose.yaml neo4j 服务段）；生产凭证
+    # 经环境变量注入覆盖。
+    neo4j_uri: str = "bolt://localhost:7687"
+    neo4j_user: str = "neo4j"
+    neo4j_password: str = "petro12345"
 
 
 @lru_cache(maxsize=1)
@@ -310,8 +316,24 @@ def load_entity_type_names(path: Path | None = None) -> list[str]:
     配置（库未定时防「鸡生蛋」）。文件缺失/损坏显式报错（导出物是仓库内
     提交物，缺文件即部署错误，禁静默吞掉）。
     """
+    return [
+        str(item["name"])
+        for item in load_ontology_export("entity_types", path)
+    ]
+
+
+def load_ontology_export(
+    kind: str, path: Path | None = None
+) -> list[dict[str, Any]]:
+    """读 config/{kind}.json 的本体导出物行（P1-01 派生物，进 git）。
+
+    kind ∈ entity_types | relation_types——B5 抽取设置对号强校（端点 3）
+    与 A2 映射卡/白名单的合同消费面。文件缺失/损坏显式报错（导出物是仓库
+    内提交物，缺文件即部署错误，禁静默吞掉——对号强校的「接线就绪」判据
+    由此派生：可装载＝接线后强校；不可装载＝部署错误，同样不静默放行）。
+    """
     import json
 
-    target = path or ENTITY_TYPES_JSON
+    target = path or (_REPO_ROOT / "config" / f"{kind}.json")
     raw = json.loads(target.read_text(encoding="utf-8"))
-    return [str(item["name"]) for item in raw.get("entity_types", [])]
+    return list(raw.get(kind, []))

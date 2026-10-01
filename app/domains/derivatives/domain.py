@@ -27,8 +27,10 @@ claims 锚校验、台账 linkify、状态派生、横幅组装都是纯语义�
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
+from difflib import SequenceMatcher
 from typing import Any
 
 # ---------- 合同常量（B4/99 照抄，不可改） ----------
@@ -493,3 +495,604 @@ class RollbackReceipt:
     new_version: WikiVersionItem
     status: str
     banner: str
+
+
+# =====================================================================
+# graph 子域（B5-关系图谱.md v0.2——P1-05）
+# =====================================================================
+
+# ---------- 合同常量（B5 v0.2 照抄，不可改） ----------
+
+# 被拦边 reason_code 三值（铁律三闸对偶，端点 4 合同冻结）。
+REASON_TYPE_MISMATCH = "type_mismatch"
+REASON_NO_EVIDENCE = "no_evidence"
+REASON_UNCERTAIN = "uncertain"
+REASON_CODES: tuple[str, ...] = (
+    REASON_TYPE_MISMATCH, REASON_NO_EVIDENCE, REASON_UNCERTAIN,
+)
+
+# 拦下 reason 人话（服务端组装——端点 4 DTO reason 字段；铁律三闸语义对应）。
+REASON_TEXT: dict[str, str] = {
+    REASON_TYPE_MISMATCH: "类型/关系标签不在该库抽取配置清单内（类型闸拦下）",
+    REASON_NO_EVIDENCE: "原文里找不到依据句（依据闸拦下）",
+    REASON_UNCERTAIN: "抽取模型自报拿不准（弃权跳过——拿不准宁可跳过，不胡编）",
+}
+
+# F40 出厂默认实体类型（合同常量表冻结原文——留档；本仓出厂默认落本体对号
+# 表，见 DEFAULT_EXTRACT_CONFIG 注记，此常量仅承载合同值供对账）。
+F40_DEFAULT_ENTITY_TYPES: tuple[str, ...] = (
+    "Person", "Organization", "Location", "Product", "Event", "Date",
+    "Work", "Concept", "Resource", "Category", "Operation",
+)
+
+# 保存语义固定文案（B5 端点 3 hint＝服务端返回，页面照抄）。
+SAVE_HINT = "已保存——设置在下次入库时生效。"
+
+# 自定义指令出厂预填（B5 合同常量表「演示预填值」——去「自定义指令：」前缀）。
+DEFAULT_CUSTOM_INSTRUCTIONS = "关系必须原文有依据；拿不准宁可跳过，不许创造新类型"
+
+# 边唯一键（B5 合同冻结：key = from|rel|to）。
+EDGE_KEY_SEP = "|"
+
+
+def edge_key(from_: str, rel: str, to: str) -> str:
+    """边唯一键（B5 合同冻结 `from|rel|to`——页面 edgeKey 同构）。"""
+    return f"{from_}{EDGE_KEY_SEP}{rel}{EDGE_KEY_SEP}{to}"
+
+
+# ---------- 错误族（映射归 api/errors.py；00 §3 统一错误包） ----------
+
+
+class GraphNotFoundError(Exception):
+    """库不存在（B5 错误码草案 404——端点 1/2/3/4 同）。"""
+
+
+class GraphParamError(Exception):
+    """入参形状非法（B5 错误码草案 400：entity_types 空/relation_tags 缺 rel
+    或重复/缺段/形状非法）。"""
+
+    def __init__(self, message: str, *, code: str = "graph_param_invalid") -> None:
+        self.code = code
+        super().__init__(message)
+
+
+class GraphOntologyMismatchError(GraphParamError):
+    """对号强校不过（B5 错误码草案 400 带对号明细——逐项未收录词条＋最接近
+    台账词条；P1-01 导出物接线后拒存）。"""
+
+    def __init__(self, mismatches: list[dict[str, str]]) -> None:
+        self.mismatches = mismatches
+        names = "、".join(m["value"] for m in mismatches)
+        super().__init__(
+            f"对号强校不过——以下类型/标签未收录进本体对号表，对不上拒存：{names}",
+            code="graph_ontology_mismatch",
+        )
+
+
+# ---------- ExtractConfig（F40 四段——按库待生效配置，B1 库配置同族语义） ----------
+
+
+@dataclass(frozen=True, slots=True)
+class RelationTag:
+    """关系标签行（rel＋示例＋说明——desc＝抽取对号的人话解释，随配置整存整取）。"""
+
+    rel: str
+    example: str = ""
+    desc: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class FewShotPair:
+    """few-shot 示例对（左「报告原句」右「应抽出三元组」——B5 出入对账 9
+    拆出为独立段；DTO 增列挂差异登记，合同 relation_tags[].example 不动）。"""
+
+    sentence: str
+    triple: str
+
+    def as_dict(self) -> dict[str, str]:
+        return {"sentence": self.sentence, "triple": self.triple}
+
+
+@dataclass(frozen=True, slots=True)
+class ExtractConfig:
+    """抽取设置四段（实体类型清单＋关系 tags＋few-shot 示例＋自定义指令）。"""
+
+    entity_types: list[str]
+    relation_tags: list[RelationTag]
+    custom_instructions: str
+    few_shot_examples: list[FewShotPair] = field(default_factory=list)
+
+    def as_snapshot(self) -> dict[str, Any]:
+        """定型快照形状（B5 端点 3 注记：＝DTO 减 lib_id/saved_at/saved_by；
+        随 B1 confirm 时刻入 kb_ingest_task.extract_snapshot）。"""
+        return {
+            "entity_types": list(self.entity_types),
+            "relation_tags": [
+                {"rel": t.rel, "example": t.example, "desc": t.desc}
+                for t in self.relation_tags
+            ],
+            "few_shot_examples": [p.as_dict() for p in self.few_shot_examples],
+            "custom_instructions": self.custom_instructions,
+        }
+
+
+def config_from_payload(data: dict[str, Any]) -> ExtractConfig:
+    """PUT body → ExtractConfig（形状校验：缺段/空清单/缺 rel/重复 rel → 400）。"""
+    missing = [k for k in ("entity_types", "relation_tags", "custom_instructions") if k not in data]
+    if missing:
+        raise GraphParamError(f"抽取设置缺段：{missing}（四段合同——F40）")
+    entity_types = data["entity_types"]
+    relation_tags = data["relation_tags"]
+    few_shot = data.get("few_shot_examples", [])
+    if not isinstance(entity_types, list) or not entity_types:
+        raise GraphParamError("entity_types 空数组（合同校验清单：400）")
+    if not isinstance(relation_tags, list):
+        raise GraphParamError("relation_tags 形状非法（需要数组）")
+    if not isinstance(few_shot, list):
+        raise GraphParamError("few_shot_examples 形状非法（需要数组）")
+    tags: list[RelationTag] = []
+    seen: set[str] = set()
+    for row in relation_tags:
+        if not isinstance(row, dict) or not str(row.get("rel", "")).strip():
+            raise GraphParamError("relation_tags 缺 rel（合同校验清单：400）")
+        rel = str(row["rel"]).strip()
+        if rel in seen:
+            raise GraphParamError(f"relation_tags 重复：{rel}（合同校验清单：400）")
+        seen.add(rel)
+        tags.append(
+            RelationTag(
+                rel=rel,
+                example=str(row.get("example", "") or ""),
+                desc=str(row.get("desc", "") or ""),
+            )
+        )
+    pairs: list[FewShotPair] = []
+    for row in few_shot:
+        if not isinstance(row, dict):
+            raise GraphParamError("few_shot_examples 行形状非法（需要 {sentence, triple}）")
+        pairs.append(
+            FewShotPair(
+                sentence=str(row.get("sentence", "") or ""),
+                triple=str(row.get("triple", "") or ""),
+            )
+        )
+    return ExtractConfig(
+        entity_types=[str(t).strip() for t in entity_types if str(t).strip()],
+        relation_tags=tags,
+        custom_instructions=str(data["custom_instructions"] or ""),
+        few_shot_examples=pairs,
+    )
+
+
+# ---------- 对号强校（B5 端点 3 强校两态——P1-01 导出物接线） ----------
+
+
+def default_extract_config(
+    entity_rows: list[dict[str, Any]],
+    relation_rows: list[dict[str, Any]],
+) -> ExtractConfig:
+    """出厂默认抽取配置（P1-01 本体对号表投影——挂差异登记）。
+
+    合同 F40 出厂默认＝11 类通用实体（F40_DEFAULT_ENTITY_TYPES 留档）；本仓
+    落**本体对号表投影**（entity_types.json/relation_types.json 的 P1-01 导出
+    物）：①对号强校自洽——默认值原样保存即过强校（F40 通用类不在本体对号表，
+    保存必拒）；②「本体消费从第一天可用」（B5 开放问题 7 裁决原文）——F55 A
+    建图段生产形态。custom_instructions＝合同演示预填值常量。
+    """
+    return ExtractConfig(
+        entity_types=[str(r["name"]) for r in entity_rows],
+        relation_tags=[
+            RelationTag(
+                rel=str(r["name"]),
+                example="",
+                desc=str(r.get("note", "") or ""),
+            )
+            for r in relation_rows
+        ],
+        custom_instructions=DEFAULT_CUSTOM_INSTRUCTIONS,
+        few_shot_examples=[],
+    )
+
+
+def config_from_snapshot(data: dict[str, Any]) -> ExtractConfig:
+    """定型快照（extract_snapshot/kb_extract_config 行投影）→ ExtractConfig。
+
+    宽容投影：存量行缺 few_shot_examples 键容错（99 DDL 无该列前的历史行）。
+    """
+    return ExtractConfig(
+        entity_types=[str(t) for t in data.get("entity_types", [])],
+        relation_tags=[
+            RelationTag(
+                rel=str(r.get("rel", "") or ""),
+                example=str(r.get("example", "") or ""),
+                desc=str(r.get("desc", "") or ""),
+            )
+            for r in data.get("relation_tags", [])
+        ],
+        custom_instructions=str(data.get("custom_instructions", "") or ""),
+        few_shot_examples=[
+            FewShotPair(
+                sentence=str(p.get("sentence", "") or ""),
+                triple=str(p.get("triple", "") or ""),
+            )
+            for p in data.get("few_shot_examples", [])
+        ],
+    )
+
+
+def nearest_word(word: str, catalog: list[str]) -> str:
+    """最接近的台账词条（400 对号明细第三列——二字串相似度取最高；空目录
+    返回空串，非空目录恒有返回——零相似也取最高项）。"""
+    best, best_ratio = "", -1.0
+    for cand in catalog:
+        ratio = SequenceMatcher(None, word, cand).ratio()
+        if ratio > best_ratio:
+            best, best_ratio = cand, ratio
+    return best
+
+
+def ontology_check(
+    config: ExtractConfig,
+    *,
+    entity_catalog: list[str],
+    relation_catalog: list[str],
+) -> list[dict[str, str]]:
+    """对号强校：实体类型/关系标签对 P1-01 导出物逐一对号（F55 A 接入点）。
+
+    返回对号明细（空＝全对号）：[{kind, value, nearest}]——kind ∈
+    entity_type | relation_tag；未收录关系族不因台账缺族放行自创标签
+    （对不上就是拒存，补全走治理批——B5 端点 3 注记原文）。
+    """
+    mismatches: list[dict[str, str]] = []
+    entity_set = set(entity_catalog)
+    relation_set = set(relation_catalog)
+    for name in config.entity_types:
+        if name not in entity_set:
+            mismatches.append({
+                "kind": "entity_type", "value": name,
+                "nearest": nearest_word(name, entity_catalog),
+            })
+    for tag in config.relation_tags:
+        if tag.rel not in relation_set:
+            mismatches.append({
+                "kind": "relation_tag", "value": tag.rel,
+                "nearest": nearest_word(tag.rel, relation_catalog),
+            })
+    return mismatches
+
+
+# ---------- 三道闸（铁律合同化——类型闸/依据闸/弃权闸） ----------
+
+
+@dataclass(frozen=True, slots=True)
+class TripleCandidate:
+    """LLM 抽取候选三元组（解析自模型输出 JSON 行）。"""
+
+    from_: str
+    from_type: str
+    rel: str
+    to: str
+    to_type: str
+    evidence: str
+    note: str | None
+    uncertain: bool
+
+
+@dataclass(frozen=True, slots=True)
+class GatedEdge:
+    """过闸边（写 Neo4j：过闸标记＝能进本列表即过闸——端点 1 只含过闸边）。"""
+
+    from_: str
+    from_type: str
+    rel: str
+    to: str
+    to_type: str
+    evidence: str
+    note: str | None
+    chunk_id: str
+    report_id: str
+
+    @property
+    def key(self) -> str:
+        return edge_key(self.from_, self.rel, self.to)
+
+    @property
+    def label(self) -> str:
+        return f"{self.from_} —{self.rel}→ {self.to}"
+
+
+@dataclass(frozen=True, slots=True)
+class BlockedEdgeDraft:
+    """被拦边（写图存储 BlockedEdge 对账镜像——拦下的边不进图）。"""
+
+    from_: str
+    from_type: str
+    rel: str
+    to: str
+    to_type: str
+    reason_code: str
+    reason: str
+    chunk_id: str | None
+    report_id: str
+
+    @property
+    def key(self) -> str:
+        return edge_key(self.from_, self.rel, self.to)
+
+
+def _squash(text: str) -> str:
+    """依据闸比对归一：剥全部空白（切段回带/换行差异不影响依据判定）。"""
+    return re.sub(r"\s+", "", text)
+
+
+def gate_triples(
+    candidates: list[TripleCandidate],
+    config: ExtractConfig,
+    *,
+    chunk_text: str,
+    chunk_id: str,
+    report_id: str,
+) -> tuple[list[GatedEdge], list[BlockedEdgeDraft]]:
+    """三道闸（铁律合同常量——顺序照铁律分解：类型闸→依据闸→弃权闸）。
+
+    - 类型闸：from/to 类型不在 entity_types 或 rel 不在启用 relation_tags
+      → type_mismatch（不自创类型/标签）；
+    - 依据闸：evidence 空或归一后不在 chunk 原文 → no_evidence
+      （原文里没有依据的关系不立边——evidence 必须是 chunk 原句逐字摘录）；
+    - 弃权闸：LLM 自报 uncertain → uncertain（拿不准宁可跳过，不胡编）；
+    - 形状残缺候选（缺字段）不属抽取尝试——跳过不记（LLM 噪声行）。
+    """
+    entity_set = set(config.entity_types)
+    rel_set = {t.rel for t in config.relation_tags}
+    chunk_norm = _squash(chunk_text)
+    passed: list[GatedEdge] = []
+    blocked: list[BlockedEdgeDraft] = []
+
+    def _reject(c: TripleCandidate, code: str) -> None:
+        blocked.append(
+            BlockedEdgeDraft(
+                from_=c.from_, from_type=c.from_type, rel=c.rel,
+                to=c.to, to_type=c.to_type,
+                reason_code=code, reason=REASON_TEXT[code],
+                chunk_id=chunk_id, report_id=report_id,
+            )
+        )
+
+    for c in candidates:
+        if not (c.from_ and c.to and c.rel and c.from_type and c.to_type):
+            continue  # 形状残缺——不属抽取尝试，跳过不记
+        if c.from_type not in entity_set or c.to_type not in entity_set or c.rel not in rel_set:
+            _reject(c, REASON_TYPE_MISMATCH)
+        elif not c.evidence or _squash(c.evidence) not in chunk_norm:
+            _reject(c, REASON_NO_EVIDENCE)
+        elif c.uncertain:
+            _reject(c, REASON_UNCERTAIN)
+        else:
+            passed.append(
+                GatedEdge(
+                    from_=c.from_, from_type=c.from_type, rel=c.rel,
+                    to=c.to, to_type=c.to_type, evidence=c.evidence,
+                    note=c.note, chunk_id=chunk_id, report_id=report_id,
+                )
+            )
+    return passed, blocked
+
+
+# ---------- 抽取提示词（few-shot 配置进 prompt——B5 端点 3 快照消费） ----------
+
+EXTRACT_PROMPT_TEMPLATE = """你是油田知识平台的关系抽取器。从下面的报告切片里抽出实体关系三元组。
+
+铁律（三条都守）：
+1. 类型闸：实体 from_type/to_type 只能取「实体类型清单」内的类型，
+   关系 rel 只能取「关系标签清单」内的标签——清单之外的类型/标签一律不许自创；
+2. 依据闸：每条三元组必须带 evidence 字段＝切片原文里**逐字摘录**的支持原句
+   （不许改写、不许拼装）——原文里没有依据的关系不立边；
+3. 弃权闸：拿不准的三元组把 uncertain 设为 true（宁可跳过，不胡编）。
+
+实体类型清单：{entity_types}
+关系标签清单：{rel_lines}
+few-shot 示例（报告原句 → 应抽出三元组）：
+{few_shot}
+自定义指令：{instructions}
+
+输出要求：只输出一个 JSON 数组，不要输出任何其他文字。每个元素形如：
+{{"from": "实体名", "from_type": "类型", "rel": "关系标签",
+  "to": "实体名", "to_type": "类型", "evidence": "原文支持句",
+  "note": "可选溯源小注（无则省略）", "uncertain": false}}
+切片里没有可抽的关系就输出空数组 []。
+
+报告切片（{section}）：
+{chunk}
+"""
+
+
+def build_extract_prompt(
+    config: ExtractConfig, *, section: str, chunk_text: str
+) -> str:
+    """组装抽取提示词（ExtractConfig 四段全进 prompt——B6 出口由服务编排）。"""
+    rel_lines = "\n".join(
+        f"- {t.rel}：{t.desc}（示例：{t.example}）" if t.example or t.desc
+        else f"- {t.rel}"
+        for t in config.relation_tags
+    )
+    few_shot = "\n".join(
+        f"- {p.sentence} → {p.triple}"
+        for p in config.few_shot_examples
+    ) or "（无）"
+    return EXTRACT_PROMPT_TEMPLATE.format(
+        entity_types="、".join(config.entity_types),
+        rel_lines=rel_lines or "（无——未配置关系标签则抽不出任何过闸边）",
+        few_shot=few_shot,
+        instructions=config.custom_instructions or "（无）",
+        section=section,
+        chunk=chunk_text,
+    )
+
+
+_JSON_ARRAY_RE = re.compile(r"\[[^\[\]]*\]", re.DOTALL)
+
+
+def parse_triples(raw: str) -> list[TripleCandidate]:
+    """宽容解析 LLM 输出（首 patched：剥 markdown 围栏→取首个 JSON 数组→逐行投影）。
+
+    解析失败/空输出 → 空列表（本 chunk 无抽取尝试——弃权语义的实现替代面）；
+    字段缺失行投影为残缺候选，由 gate_triples 跳过。
+    """
+    text = (raw or "").strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```[a-zA-Z]*\n?|\n?```$", "", text).strip()
+    match = _JSON_ARRAY_RE.search(text)
+    if match is None:
+        return []
+    try:
+        rows = json.loads(match.group(0))
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(rows, list):
+        return []
+    out: list[TripleCandidate] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        out.append(
+            TripleCandidate(
+                from_=str(row.get("from", "") or "").strip(),
+                from_type=str(row.get("from_type", "") or "").strip(),
+                rel=str(row.get("rel", "") or "").strip(),
+                to=str(row.get("to", "") or "").strip(),
+                to_type=str(row.get("to_type", "") or "").strip(),
+                evidence=str(row.get("evidence", "") or "").strip(),
+                note=(str(row["note"]).strip() or None) if row.get("note") else None,
+                uncertain=bool(row.get("uncertain", False)),
+            )
+        )
+    return out
+
+
+# ---------- 起草示例（LLM 起草——三源辅助③；真实实现走 gateway.complete） ----------
+
+DRAFT_PROMPT_TEMPLATE = """你是油田知识平台的抽取配置助手。
+请为关系标签「{rel}」起草一条 few-shot 示例对（报告原句 → 应抽出的三元组），
+用于指导后续报告的关系抽取。
+
+要求：报告原句要像油田报告里的自然句子（井—隶属→区块、平台—承载→井、
+注水井—受效→油井、措施—作用于→井等业务语境）；
+三元组用「起点 —关系→ 终点」形态。
+只输出两行，第一行是报告原句，第二行是三元组，不要输出其他任何文字。
+"""
+
+
+def parse_draft(raw: str) -> tuple[str, str]:
+    """宽容解析起草输出（两行——原句/三元组；解析失败抛 GraphParamError）。"""
+    lines = [
+        ln.strip().lstrip("-• ").strip()
+        for ln in (raw or "").strip().splitlines() if ln.strip()
+    ]
+    if len(lines) < 2 or not lines[0] or not lines[1]:
+        raise GraphParamError("起草输出无法解析——请重试或手填示例")
+    return lines[0], lines[1]
+
+
+# ---------- DTO（读面投影——api 层直接消费） ----------
+
+
+@dataclass(frozen=True, slots=True)
+class GraphNodeView:
+    """图节点（端点 1：label＝完整展示名、short＝图内短名、sub＝节点下注记）。"""
+
+    id: str
+    label: str
+    type: str
+    short: str
+    sub: str
+
+
+@dataclass(frozen=True, slots=True)
+class GraphEdgeView:
+    """图边（端点 1：key 冻结 `from|rel|to`；note 无注记 null；evidence_chunk_id/
+    report_id 为溯源增列——挂差异登记，合同字段全保留）。"""
+
+    key: str
+    from_: str
+    rel: str
+    to: str
+    note: str | None
+    evidence_chunk_id: str
+    report_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class LegendItem:
+    """图例计数行（服务端按节点聚合——与 nodes 必然一致）。"""
+
+    type: str
+    count: int
+
+
+@dataclass(frozen=True, slots=True)
+class GraphNet:
+    """整图（端点 1：整图一次给——高亮/隐显/邻接过滤全为前端本地计算）。"""
+
+    lib_id: str
+    lib_name: str
+    nodes: list[GraphNodeView]
+    edges: list[GraphEdgeView]
+    legend: list[LegendItem]
+    stats: dict[str, int]
+
+
+@dataclass(frozen=True, slots=True)
+class ExtractConfigView:
+    """抽取设置读面（端点 2：返回当前库配置值＋轻量审计两字段）。"""
+
+    lib_id: str
+    lib_name: str
+    config: ExtractConfig
+    saved_at: str | None
+    saved_by: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class ExtractConfigSaveReceipt:
+    """保存回执（端点 3：hint＝固定文案服务端返回）。"""
+
+    lib_id: str
+    saved_at: str
+    saved_by: str
+    hint: str
+
+
+@dataclass(frozen=True, slots=True)
+class BlockedEdgeView:
+    """被拦边行（端点 4：被拦边＋拦下原因＋所属报告——治理复盘/E3 消费）。"""
+
+    key: str
+    from_: str
+    from_type: str
+    rel: str
+    to: str
+    to_type: str
+    reason_code: str
+    reason: str
+    report_id: str
+    report_title: str
+    chunk_id: str | None
+    blocked_at: str
+
+
+@dataclass(frozen=True, slots=True)
+class BlockedEdgesPage:
+    """被拦边清单（端点 4：纯只读——无任何写端点）。"""
+
+    lib_id: str
+    lib_name: str
+    blocked_edges: list[BlockedEdgeView]
+    stats: dict[str, int]
+
+
+@dataclass(frozen=True, slots=True)
+class DraftedExample:
+    """起草示例对（LLM 起草——人核对后保存）。"""
+
+    sentence: str
+    triple: str

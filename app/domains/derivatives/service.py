@@ -32,18 +32,28 @@ from typing import Any, Protocol
 
 from app.domains.derivatives import domain as d
 from app.domains.derivatives.store import (
+    ExtractConfigRow,
+    ExtractConfigStore,
     WikiPageRow,
     WikiPageVersionRow,
     WikiStore,
 )
 from app.infra.clock import DISPLAY_FMT, now
+from app.infra.config import load_ontology_export
 from app.infra.eventbus import DomainEvent
+from app.infra.graph_store import GraphStore
 
 LOGGER = logging.getLogger("domains.derivatives")
 
 # LLM 出口（B6）：百科生成＝起草/生成族——petro-main（P1-00 拍板基线）。
 WIKI_ALIAS = "petro-main"
 WIKI_CALLER = "wiki.gen"
+
+# 图支路（B5）：抽取与示例起草同为起草/生成族——petro-main（B5 抽取设置
+# few-shot 配置进 prompt；三源辅助③「LLM 起草」真实实现走统一出口）。
+GRAPH_EXTRACT_ALIAS = "petro-main"
+GRAPH_EXTRACT_CALLER = "graph.extract"
+GRAPH_DRAFT_CALLER = "graph.draft"
 
 # 证据块类型（拼回素材）：原文块＋图片块连图注回读；摘要块/问题块为索引期
 # 加法产物（重写≠检索的素材边界——不进拼回稿）。
@@ -74,6 +84,8 @@ class KbFacade(Protocol):
         self, graph: str | None = None, keyword: str | None = None
     ) -> list[Any]: ...
 
+    async def library_config(self, lib_id: str) -> Any: ...
+
 
 class SemanticsFacade(Protocol):
     """semantics 读接口（B5：下游运行时读走读接口不直查 sem_*）。"""
@@ -100,26 +112,41 @@ class DerivativesService:
         gateway: Completer,
         kb: KbFacade,
         semantics: SemanticsFacade | None = None,
+        graph: GraphStore | None = None,
     ) -> None:
         self._gateway = gateway
         self._kb = kb
         self._semantics = semantics
+        self._graph = graph  # 图存储 seam（生产装配 Neo4jGraphStore——main.py）
         self._store = WikiStore(db)
+        self._extract_configs = ExtractConfigStore(db)
         self._recasts = _RecastRuntime(tasks={}, pending=set())
 
     # ---------- 事件订阅（main.py lifespan 装配；B9 缝） ----------
 
     async def on_ingest_completed(self, event: DomainEvent) -> None:
-        """IngestCompleted→wiki 支路（开关关→不生成；开关开→异步生成/重建）。"""
+        """IngestCompleted→wiki 支路＋graph 支路（开关关→支路不跑不花钱）。
+
+        graph 支路（B5/B1 跨页锚点）：config_snapshot.graph=true 时按
+        extract_snapshot（confirm 时刻定型——B5 端点 3 注记）逐 chunk LLM 抽
+        三元组、过铁律三闸后入图；拦下记 blocked-edges 对账镜像。失败不阻塞
+        入库任务（任务体已 done——富化失败不阻塞整卷先例）。
+        """
         payload = event.payload
-        if not payload.get("config_snapshot", {}).get("wiki"):
-            return  # 开关关→不生成（B4 生产/消费边界：目录不出现、直调 404）
-        await self._spawn_generation(
-            str(payload["report_id"]),
-            str(payload["lib_id"]),
-            task_no=str(payload["task_id"]),
-            desc=d.DESC_REINGEST if payload.get("source") == "重跑定型" else d.DESC_FIRST,
-        )
+        if payload.get("config_snapshot", {}).get("wiki"):
+            await self._spawn_generation(
+                str(payload["report_id"]),
+                str(payload["lib_id"]),
+                task_no=str(payload["task_id"]),
+                desc=d.DESC_REINGEST if payload.get("source") == "重跑定型" else d.DESC_FIRST,
+            )
+        if payload.get("config_snapshot", {}).get("graph"):
+            self._spawn_graph_extract(
+                str(payload["report_id"]),
+                str(payload["lib_id"]),
+                task_no=str(payload.get("task_id") or ""),
+                extract_snapshot=payload.get("extract_snapshot") or None,
+            )
 
     async def on_fragment_revised(self, event: DomainEvent) -> None:
         """FragmentRevised→该报告 wiki 页进重铸队列（复用生成管线；失败不阻塞）。"""
@@ -486,3 +513,302 @@ class DerivativesService:
             status=d.page_status_of(version.content),
             banner=d.rollback_banner(new_v, target_version),
         )
+
+    # ---------- graph 子域（B5-关系图谱.md v0.2——P1-05） ----------
+
+    def _spawn_graph_extract(
+        self,
+        report_id: str,
+        lib_id: str,
+        *,
+        task_no: str,
+        extract_snapshot: dict[str, Any] | None,
+    ) -> None:
+        """graph 抽取任务族（进程内 asyncio——失败不阻塞入库任务）。"""
+        self._graph_tasks = [
+            t for t in getattr(self, "_graph_tasks", []) if not t.done()
+        ]
+
+        async def _run() -> None:
+            try:
+                await self._extract_for_report(
+                    report_id, lib_id, task_no=task_no,
+                    extract_snapshot=extract_snapshot,
+                )
+            except Exception:
+                LOGGER.exception(
+                    "graph 抽取失败 report=%s task=%s", report_id, task_no
+                )
+
+        self._graph_tasks.append(asyncio.create_task(_run()))
+
+    async def _extract_for_report(
+        self,
+        report_id: str,
+        lib_id: str,
+        *,
+        task_no: str,
+        extract_snapshot: dict[str, Any] | None,
+    ) -> None:
+        """图谱支路（F40）：chunk 挑选闸→LLM 按 ExtractConfig 抽三元组→三道闸
+        →过闸写图＋拦下记 blocked-edges（namespace=库）。
+
+        - ExtractConfig＝confirm 时刻定型快照（extract_snapshot——B5 端点 3
+          注记；缺省回退当前待生效配置/出厂默认——重跑定型前的历史任务行）；
+        - chunk 挑选闸：无正文的块不送抽取（防复读 few-shot、防重复计费）；
+        - 三道闸＝铁律合同常量（类型闸/依据闸/弃权闸——domain.gate_triples）。
+        """
+        if self._graph is None:
+            raise RuntimeError("图存储未装配——graph 支路不可用（装配缺失）")
+        cfg = (
+            d.config_from_snapshot(extract_snapshot)
+            if extract_snapshot
+            else await self._load_config_for_lib(lib_id)
+        )
+        detail = await self._kb.report_detail(report_id)
+        evidence_chunks = [f for f in detail.fragments if f.text]  # chunk 挑选闸
+        LOGGER.info(
+            "graph 抽取开始 report=%s lib=%s task=%s chunks=%d",
+            report_id, lib_id, task_no, len(evidence_chunks),
+        )
+        for frag in evidence_chunks:
+            prompt = d.build_extract_prompt(cfg, section=frag.path, chunk_text=frag.text)
+            completion = await self._gateway.complete(
+                GRAPH_EXTRACT_ALIAS,
+                [{"role": "user", "content": prompt}],
+                caller=GRAPH_EXTRACT_CALLER,
+            )
+            candidates = d.parse_triples(completion.content)
+            passed, blocked = d.gate_triples(
+                candidates, cfg,
+                chunk_text=frag.text, chunk_id=frag.id, report_id=report_id,
+            )
+            for edge in passed:
+                await self._graph.upsert_node(
+                    lib_id, node_id=edge.from_, label=edge.from_,
+                    node_type=edge.from_type, short=edge.from_, sub=edge.from_type,
+                )
+                await self._graph.upsert_node(
+                    lib_id, node_id=edge.to, label=edge.to,
+                    node_type=edge.to_type, short=edge.to, sub=edge.to_type,
+                )
+                await self._graph.upsert_edge(
+                    lib_id, key=edge.key, from_id=edge.from_, rel=edge.rel,
+                    to_id=edge.to, note=edge.note, evidence=edge.evidence,
+                    chunk_id=edge.chunk_id, report_id=edge.report_id,
+                )
+            for item in blocked:
+                await self._graph.record_blocked(
+                    lib_id, key=item.key, from_id=item.from_,
+                    from_type=item.from_type, rel=item.rel, to_id=item.to,
+                    to_type=item.to_type, reason_code=item.reason_code,
+                    reason=item.reason, report_id=item.report_id,
+                    report_title=detail.doc, chunk_id=item.chunk_id,
+                    blocked_at=now().strftime(DISPLAY_FMT),
+                )
+            LOGGER.info(
+                "graph 抽取 chunk=%s 过闸 %d 拦下 %d", frag.id, len(passed), len(blocked)
+            )
+
+    async def _load_config_for_lib(self, lib_id: str) -> d.ExtractConfig:
+        """当前待生效配置（未保存过→出厂默认＝本体对号表投影）。"""
+        row = await self._extract_configs.config_of(lib_id)
+        if row is not None:
+            return d.config_from_snapshot(_row_snapshot(row))
+        return d.default_extract_config(*_ontology_catalogs())
+
+    async def _require_lib(self, lib_id: str) -> Any:
+        """库定位（B5 错误码草案：库不存在 404——端点 1/2/3/4 同）。"""
+        try:
+            return await self._kb.library_config(lib_id)
+        except Exception as exc:
+            raise d.GraphNotFoundError(f"库不存在：{lib_id}") from exc
+
+    # ---- B5 端点 1：整图读（整图一次给——邻接过滤为前端本地计算） ----
+
+    async def graph_net(self, lib_id: str) -> d.GraphNet:
+        lib = await self._require_lib(lib_id)
+        switches = getattr(lib, "switches", {}) or {}
+        if not switches.get("graph", False):
+            # 开关关闭期间一律空态（既有图数据的保留/清理属图存储生命周期批）。
+            return d.GraphNet(
+                lib_id=lib_id, lib_name=lib.name, nodes=[], edges=[],
+                legend=[], stats={"nodes": 0, "edges": 0},
+            )
+        if self._graph is None:
+            raise RuntimeError("图存储未装配——graph 支路不可用（装配缺失）")
+        data = await self._graph.read_net(lib_id)
+        nodes = [
+            d.GraphNodeView(
+                id=str(n.get("id", "")), label=str(n.get("label", "")),
+                type=str(n.get("type", "")), short=str(n.get("short", "")),
+                sub=str(n.get("sub", "")),
+            )
+            for n in data["nodes"]
+        ]
+        edges = [
+            d.GraphEdgeView(
+                key=str(e["key"]), from_=str(e["from"]), rel=str(e["rel"]),
+                to=str(e["to"]), note=e.get("note"),
+                evidence_chunk_id=str(e.get("chunk_id", "")),
+                report_id=str(e.get("report_id", "")),
+            )
+            for e in data["edges"]
+        ]
+        counts: dict[str, int] = {}
+        for node in nodes:
+            counts[node.type] = counts.get(node.type, 0) + 1
+        legend = [d.LegendItem(type=t, count=c) for t, c in counts.items()]
+        return d.GraphNet(
+            lib_id=lib_id, lib_name=lib.name, nodes=nodes, edges=edges,
+            legend=legend,
+            stats={"nodes": len(nodes), "edges": len(edges)},
+        )
+
+    # ---- B5 端点 2：抽取设置读 ----
+
+    async def get_extract_config(self, lib_id: str) -> d.ExtractConfigView:
+        lib = await self._require_lib(lib_id)
+        row = await self._extract_configs.config_of(lib_id)
+        config = (
+            d.config_from_snapshot(_row_snapshot(row)) if row is not None
+            else d.default_extract_config(*_ontology_catalogs())
+        )
+        return d.ExtractConfigView(
+            lib_id=lib_id, lib_name=lib.name, config=config,
+            saved_at=row.saved_at.strftime(DISPLAY_FMT) if row and row.saved_at else None,
+            saved_by=row.saved_by if row else None,
+        )
+
+    # ---- B5 端点 3：抽取设置保存（对号强校两态＋同事务记 B1 活动流） ----
+
+    async def save_extract_config(
+        self, lib_id: str, payload: dict[str, Any], actor_who: str, *,
+        strong_check: bool = True,
+    ) -> d.ExtractConfigSaveReceipt:
+        """保存待生效配置（下次入库定型、不热切换、正在处理任务不受影响）。
+
+        - 形状校验（四段/空清单/缺 rel/重复 rel）→ 400；
+        - 对号强校两态（B5 端点 3 注记——防施工卡死的两句都写）：
+          strong_check=True＝**接线后**（P1-01 导出物就绪——阶段 1 内已接线，
+          生产常态）：实体类型/关系标签对本体对号表强校，对不上拒存 400 带
+          对号明细（逐项未收录词条＋最接近台账词条）；
+          strong_check=False＝**接线前**过渡态（仅形状校验照跑）——参数保留
+          承载过渡两态，生产恒 True。
+        - 同事务记 B1 库活动流一条（F62 跨页留痕：action「修改抽取设置」，
+          target 按变更内容拼装——B9 例外族经 kb.record_activity 写口）。
+        """
+        lib = await self._require_lib(lib_id)
+        cfg = d.config_from_payload(payload)
+        if strong_check:
+            entity_catalog, relation_catalog = _ontology_catalogs()
+            mismatches = d.ontology_check(
+                cfg,
+                entity_catalog=[str(r["name"]) for r in entity_catalog],
+                relation_catalog=[str(r["name"]) for r in relation_catalog],
+            )
+            if mismatches:
+                raise d.GraphOntologyMismatchError(mismatches)
+        row = await self._extract_configs.save(lib_id, cfg, actor_who=actor_who)
+        target = (
+            f"{lib.name} · 实体类型 {len(cfg.entity_types)} 类 · "
+            f"关系标签 {len(cfg.relation_tags)} 个"
+        )
+        await self._kb.record_activity(
+            lib_id, who=actor_who, action="修改抽取设置", target=target
+        )
+        return d.ExtractConfigSaveReceipt(
+            lib_id=lib_id,
+            saved_at=row.saved_at.strftime(DISPLAY_FMT) if row.saved_at else "",
+            saved_by=row.saved_by or actor_who,
+            hint=d.SAVE_HINT,
+        )
+
+    # ---- B5 端点 4：被拦边清单（纯只读——治理复盘/E3 天然消费） ----
+
+    async def blocked_edges(self, lib_id: str) -> d.BlockedEdgesPage:
+        lib = await self._require_lib(lib_id)
+        if self._graph is None:
+            raise RuntimeError("图存储未装配——graph 支路不可用（装配缺失）")
+        rows = await self._graph.list_blocked(lib_id)
+        views = [
+            d.BlockedEdgeView(
+                key=str(r.get("key", "")), from_=str(r.get("from", "")),
+                from_type=str(r.get("from_type", "")), rel=str(r.get("rel", "")),
+                to=str(r.get("to", "")), to_type=str(r.get("to_type", "")),
+                reason_code=str(r.get("reason_code", "")),
+                reason=str(r.get("reason", "")),
+                report_id=str(r.get("report_id", "")),
+                report_title=str(r.get("report_title", "")),
+                chunk_id=r.get("chunk_id") or None,
+                blocked_at=str(r.get("blocked_at", "")),
+            )
+            for r in rows
+        ]
+        return d.BlockedEdgesPage(
+            lib_id=lib_id, lib_name=lib.name, blocked_edges=views,
+            stats={"blocked": len(views)},
+        )
+
+    # ---- LLM 起草示例（三源辅助③——真实实现走 gateway.complete） ----
+
+    async def draft_example(
+        self, lib_id: str, *, rel: str, sentence: str | None = None
+    ) -> d.DraftedExample:
+        """起草 few-shot 示例对（人不从零造示例——示例靠系统辅助生成、人核对）。
+
+        - 带原句：为该句配三元组（从报告库选句源——三元组侧预填建议值）；
+        - 只带关系词：按库配置起草一对示例（LLM 起草源）。
+        """
+        await self._require_lib(lib_id)
+        rel = rel.strip()
+        if not rel:
+            raise d.GraphParamError("关系词必填（LLM 起草按关系词对号）")
+        if sentence:
+            ask = (
+                f"下面是报告里的一句原句。请判断它表达了什么实体关系（关系标签"
+                f"提示：{rel}），输出一行「起点 —关系→ 终点」形态的三元组，"
+                f"不要输出其他任何文字。\n\n原句：{sentence}"
+            )
+        else:
+            ask = d.DRAFT_PROMPT_TEMPLATE.format(rel=rel)
+        completion = await self._gateway.complete(
+            GRAPH_EXTRACT_ALIAS,
+            [{"role": "user", "content": ask}],
+            caller=GRAPH_DRAFT_CALLER,
+        )
+        text, triple = d.parse_draft(completion.content)
+        return d.DraftedExample(sentence=text, triple=triple)
+
+
+def _row_snapshot(row: ExtractConfigRow) -> dict[str, Any]:
+    """kb_extract_config 行 → ExtractConfig 快照形状（列名与快照键同构）。"""
+    return {
+        "entity_types": list(row.entity_types),
+        "relation_tags": list(row.relation_tags),
+        "few_shot_examples": list(row.few_shot_examples),
+        "custom_instructions": row.custom_instructions,
+    }
+
+
+def _ontology_catalogs() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """P1-01 导出物装载（config/entity_types.json＋relation_types.json——对号
+    强校数据源；文件缺失/损坏显式报错，禁静默放行）。"""
+    return (
+        load_ontology_export("entity_types"),
+        load_ontology_export("relation_types"),
+    )
+
+
+async def load_extract_config_snapshot(db: Any, lib_id: str) -> dict[str, Any]:
+    """抽取设置定型快照装载（B5 端点 3 注记：图谱支路的配置快照形状＝端点 2
+    DTO 减 lib_id/saved_at/saved_by，由服务端在 B1 confirm 时刻一并快照入
+    kb_ingest_task.extract_snapshot）。
+
+    kb 经 main.py 组合根注入本函数使用（B9：kb 禁 import derivatives——
+    装配期注入 Protocol callable，运行期 kb 只见异步函数）。
+    """
+    row = await ExtractConfigStore(db).config_of(lib_id)
+    if row is not None:
+        return _row_snapshot(row)
+    return d.default_extract_config(*_ontology_catalogs()).as_snapshot()

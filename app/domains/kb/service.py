@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Protocol
@@ -88,6 +89,8 @@ class KbService:
         embedder: d.EmbeddingBackend | None = None,
         eventbus: EventBus | None = None,
         step_seconds: float = 0.0,
+        extract_snapshot_loader: Callable[[str], Awaitable[dict[str, Any] | None]]
+        | None = None,
     ) -> None:
         self._db = db
         self._gateway = gateway
@@ -104,6 +107,10 @@ class KbService:
         self._activities = ActivityStore(db)
         self._runtime = _TaskRuntime(tasks={})
         self._rebuild_context: dict[str, str] = {}
+        # 抽取设置快照装载（B5 端点 3 注记——confirm 时刻一并定型入
+        # kb_ingest_task.extract_snapshot；main.py 组合根注入 derivatives 提供
+        # 的装载函数——B9：kb 禁 import derivatives，运行期只见 callable）。
+        self._extract_snapshot_loader = extract_snapshot_loader
 
     # ---------- 端点 15：建库（v0.3 建库批） ----------
 
@@ -291,6 +298,7 @@ class KbService:
                 "对象尚未落桶——请先完成直传再确认入库", code="kb_object_not_landed"
             )
         snapshot = await self._snapshot_of(lib.id)
+        extract_snapshot = await self._extract_snapshot_of(lib.id)
         report = ReportRow(
             id=d.new_report_id(),
             lib_id=lib.id,
@@ -307,6 +315,7 @@ class KbService:
             current_step=0,
             nodes=[n.as_dict() for n in self._build_nodes()],
             config_snapshot=dict(snapshot),
+            extract_snapshot=extract_snapshot,
             started_at=now(),
         )
         target = f"{report.doc}"
@@ -348,6 +357,18 @@ class KbService:
             "add_summary": row.add_summary,
             "add_questions": row.add_questions,
         }
+
+    async def _extract_snapshot_of(self, lib_id: str) -> dict[str, Any] | None:
+        """抽取设置定型快照（confirm 时刻一并快照——B5 端点 3 注记；99 §2.5
+        kb_ingest_task.extract_snapshot 列）。装载器未注入/装载失败 → None
+        （graph 支路回退当前待生效配置——历史任务行同象）。"""
+        if self._extract_snapshot_loader is None:
+            return None
+        try:
+            return await self._extract_snapshot_loader(lib_id)
+        except Exception:
+            LOGGER.exception("抽取设置快照装载失败 lib=%s（定型为空）", lib_id)
+            return None
 
     # ---------- 端点 7：任务列表（source 筛参——v0.2 拍板） ----------
 
@@ -470,6 +491,7 @@ class KbService:
             current_step=0,
             nodes=[n.as_dict() for n in self._build_nodes()],
             config_snapshot=snapshot,
+            extract_snapshot=await self._extract_snapshot_of(lib.id),
             started_at=now(),
         )
         task = await self._tasks.create(task)
@@ -1556,6 +1578,9 @@ class KbService:
                 "doc": report.doc if report else "",
                 "source": row.source,
                 "config_snapshot": dict(row.config_snapshot),
+                "extract_snapshot": dict(row.extract_snapshot)
+                if row.extract_snapshot
+                else None,
             },
             aggregate=f"kb_report:{row.report_id}",
         )

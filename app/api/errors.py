@@ -29,6 +29,9 @@
 - wiki_not_found / wiki_param_invalid / wiki_conflict：wiki 域 404/400/409
   （B4 错误码草案；P1-02b 新立值，登记于 tickets/phase1/README.md P1-02b
   差异清单）——回滚防呆 409 兜底横幅＝B4 合同常量
+- graph_not_found / graph_param_invalid / graph_ontology_mismatch：graph 域
+  404/400（B5 错误码草案；P1-05 新立值，登记于 tickets/phase1/README.md
+  P1-05 差异清单）——强校 400 带对号明细（detail.mismatches）
 """
 
 from __future__ import annotations
@@ -40,6 +43,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.domains.derivatives import (
+    GraphNotFoundError,
+    GraphOntologyMismatchError,
+    GraphParamError,
     WikiConflictError,
     WikiNotFoundError,
     WikiParamError,
@@ -70,6 +76,7 @@ CODE_KB_DEFERRED = "kb_fragment_revise_deferred"
 CODE_WIKI_NOT_FOUND = "wiki_not_found"
 CODE_WIKI_PARAM_INVALID = "wiki_param_invalid"
 CODE_WIKI_CONFLICT = "wiki_conflict"
+CODE_GRAPH_NOT_FOUND = "graph_not_found"
 
 
 class ApiError(Exception):
@@ -228,6 +235,27 @@ def install_error_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=409,
             content=error_payload(exc.code, str(exc)),
+        )
+
+    @app.exception_handler(GraphNotFoundError)
+    async def handle_graph_not_found(request: Request, exc: GraphNotFoundError) -> JSONResponse:
+        # B5 错误码草案 404：库不存在（端点 1/2/3/4 同）。
+        return JSONResponse(
+            status_code=404,
+            content=error_payload(CODE_GRAPH_NOT_FOUND, str(exc)),
+        )
+
+    @app.exception_handler(GraphParamError)
+    async def handle_graph_param_error(request: Request, exc: GraphParamError) -> JSONResponse:
+        # B5 错误码草案 400 族：入参形状非法（graph_param_invalid）＋
+        # 对号强校不过（graph_ontology_mismatch——400 带对号明细：
+        # 逐项未收录实体类型/关系标签＋最接近台账词条，前端原样展示）。
+        detail: dict[str, Any] | None = None
+        if isinstance(exc, GraphOntologyMismatchError):
+            detail = {"mismatches": list(exc.mismatches)}
+        return JSONResponse(
+            status_code=400,
+            content=error_payload(exc.code, str(exc), detail=detail),
         )
 
     @app.exception_handler(RequestValidationError)

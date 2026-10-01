@@ -16,7 +16,12 @@ P1-02b 起 wiki 表族入装配（ensure_derivatives_tables）＋/api/wiki 路�
 ＋derivatives 事件订阅接线（IngestCompleted→wiki 生成/重建、FragmentRevised
 →重铸队列——B9 缝：kb 不直调 derivatives，派生物只经事件）。P1-04 起
 kb_issue_report 入 kb 表族（ensure_kb_tables——B2 质检复核队列，六端点挂
-api/kb.py）。
+api/kb.py）。P1-05 起 graph 子域点亮：kb_extract_config 入 derivatives 表族
+（99 §2.7——仍留 PG）＋/api/graph 路由族挂载＋图存储装配（infra.graph_store
+→Neo4jGraphStore，ADR-0003 裁决 2——B3 出口之外的图专用接触面）＋抽取设置
+定型快照装载经组合根注入 kb（B9：kb 只见 callable，禁 import derivatives）
+＋IngestCompleted graph 支路接线（config_snapshot.graph=true→逐 chunk LLM 抽
+三元组、过铁律三闸入图、拦下记 blocked-edges）。
 
 建表与迁移的交接（P0-08 票面）：ensure_*_table 与 Alembic 并行存活，
 本票不切换——各域切换迁移属各域票（基线空迁移见 migrations/versions/0001）。
@@ -30,11 +35,13 @@ from fastapi import FastAPI
 from app.api.chat import router as chat_router
 from app.api.errors import install_error_handlers
 from app.api.gateway import router as gateway_router
+from app.api.graph import router as graph_router
 from app.api.kb import router as kb_router
 from app.api.security import router as security_router
 from app.api.semantics import router as semantics_router
 from app.api.wiki import router as wiki_router
 from app.domains.derivatives import DerivativesService
+from app.domains.derivatives.service import load_extract_config_snapshot
 from app.domains.derivatives.store import ensure_derivatives_tables
 from app.domains.gateway import GatewayService
 from app.domains.gateway.store import ensure_gateway_tables
@@ -47,6 +54,7 @@ from app.domains.semantics.store import ensure_semantics_tables
 from app.infra.config import load_database_specs
 from app.infra.db import ConnectionManager
 from app.infra.eventbus import InMemoryEventBus, ensure_outbox_table
+from app.infra.graph_store import Neo4jGraphStore
 from app.infra.llm_client import LlmClient
 from app.infra.object_storage import MinioObjectStorage
 
@@ -73,14 +81,22 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.gateway,  # B6：LLM 只走 gateway.complete
         MinioObjectStorage(),
         eventbus=app.state.eventbus,
+        # 抽取设置定型快照装载（B5 端点 3 注记——confirm 时刻一并定型；
+        # 组合根注入 derivatives 提供的函数——B9：kb 禁 import derivatives）
+        extract_snapshot_loader=lambda lib_id: load_extract_config_snapshot(
+            manager, lib_id
+        ),
     )
-    # derivatives wiki 支路（B9：订阅 kb 事件，不与 kb 直接互调；semantics 只读
-    # 接口供台账挂接词表——B5 读接口纪律）
+    # 图存储（98 §4 adapter 清单——infra.graph_store/Neo4j，ADR-0003 裁决 2）
+    app.state.graph = Neo4jGraphStore()
+    # derivatives wiki＋graph 支路（B9：订阅 kb 事件，不与 kb 直接互调；semantics
+    # 只读接口供台账挂接词表——B5 读接口纪律）
     app.state.derivatives = DerivativesService(
         manager,
         app.state.gateway,
         app.state.kb,
         app.state.semantics,
+        graph=app.state.graph,
     )
     await app.state.eventbus.subscribe(
         "IngestCompleted", app.state.derivatives.on_ingest_completed
@@ -94,6 +110,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await app.state.gateway.close_stale_drills()
     await app.state.kb.sweep_stuck()
     yield
+    await app.state.graph.close()
     await manager.dispose()
 
 
@@ -105,6 +122,7 @@ app.include_router(chat_router)
 app.include_router(semantics_router)  # C1 台账读面（P1-01b——semantics 模块，98 §5）
 app.include_router(kb_router)  # B1 报告库（P1-02a——kb 模块，98 §5）
 app.include_router(wiki_router)  # B4 报告百科（P1-02b——derivatives 模块，98 §5）
+app.include_router(graph_router)  # B5 关系图谱（P1-05——derivatives graph 子域，98 §5）
 
 
 @app.get("/health")

@@ -2,6 +2,9 @@
 
 P1-02b 增拍：wiki 支路真跑（真 LLM 百科页落库）→修正一片段→三联动真跑
 （索引重建＋问题块重生＋wiki v+1 重铸）→回滚＋B12 审计留痕。
+P1-05 增拍⑫：graph 支路真跑（抽取设置保存→confirm 定型 extract_snapshot→
+真 LLM 逐 chunk 抽三元组→铁律三闸→过闸入图＋拦边留痕→整图可查；对号强
+校拒存 400 带对号明细实证＋LLM 起草真跑＋B1 活动流/B12 审计）。
 
 跑法（tickets/phase1/README.md P1-02a 验收）：
     KB_SMOKE=1 uv run pytest tests/test_kb_smoke_real.py -q
@@ -79,6 +82,39 @@ def test_real_assembly_smoke() -> None:
         )
         assert saved.status_code == 200, saved.text
         assert saved.json()["hint"].startswith("已保存——")
+
+        # ①'' 抽取设置保存（B5 端点 3——P1-05）：对号强校通过值（本体对号表
+        # 对齐的窄配置——只放行 隶属/受效，为 ⑫ 拦边实证留口）；confirm 时刻
+        # 定型入 extract_snapshot（B9 组合根注入装载）；同事务记 B1 活动流。
+        ext_saved = client.put(
+            "/api/graph/extract-config",
+            json={
+                "lib_id": lib_id,
+                "entity_types": ["井", "区块", "平台"],
+                "relation_tags": [
+                    {"rel": "隶属", "example": "N-02 —隶属→ 渤南",
+                     "desc": "井属于哪个区块"},
+                    {"rel": "受效", "example": "", "desc": "注水井—受效→油井"},
+                ],
+                "few_shot_examples": [
+                    {"sentence": "N-02 井隶属渤南区块。",
+                     "triple": "N-02 —隶属→ 渤南"},
+                    # 少量示例噪声：few-shot 携带清单外关系「投产」（真实运维中
+                    # 配置漂移的常见形态）——诱导抽取尝试越出标签清单，由类型闸
+                    # 拦下（合同演示被拦边「取样自」同族——拦下的边正是图在执
+                    # 法的证据，F55 B）。
+                    {"sentence": "本井 2019-06-15 投产后维持自喷生产，日产油约 48.6 吨。",
+                     "triple": "N-02 —投产→ 2019-06-15"},
+                ],
+                "custom_instructions": "关系必须原文有依据；拿不准宁可跳过，不许创造新类型",
+            },
+        )
+        assert ext_saved.status_code == 200, ext_saved.text
+        assert ext_saved.json()["hint"] == "已保存——设置在下次入库时生效。"
+        ext_view = client.get("/api/graph/extract-config",
+                              params={"lib_id": lib_id}).json()
+        assert ext_view["entity_types"] == ["井", "区块", "平台"]
+        assert ext_view["saved_by"]  # who 服务端解析
 
         # ② 直传受理（两拍第一拍）——presigned PUT 真凭证
         up = client.post(
@@ -262,3 +298,62 @@ def test_real_assembly_smoke() -> None:
         assert {"kb.fragment.marked", "kb.issue.reviewed"} <= {
             a["action"] for a in audit["items"]
         }
+
+        # ⑫ graph 支路真跑（P1-05）：confirm 定型 extract_snapshot→逐 chunk 真
+        # LLM 抽三元组→铁律三闸→过闸入图＋拦边留痕；强校拒存实证＋起草真跑。
+        net = None
+        for _ in range(180):
+            resp = client.get("/api/graph/net", params={"lib_id": lib_id})
+            assert resp.status_code == 200, resp.text
+            net = resp.json()
+            if net["stats"]["edges"] >= 1:
+                break
+            time.sleep(1.0)
+        assert net["stats"]["edges"] >= 1, "图谱支路未在超时内产出过闸边（真 LLM 抽取）"
+        assert net["stats"]["nodes"] >= 2
+        assert any(e["evidence_chunk_id"] and e["report_id"] for e in net["edges"])
+        # 类型闸：节点类型＝该库 ExtractConfig 投影（窄配置——非配置类型不入图）
+        assert {lg["type"] for lg in net["legend"]} <= {"井", "区块", "平台"}
+        # 拦边留痕（配置只放行 隶属/受效——「位于 CEP-A 平台」承载类抽取必被
+        # 类型闸拦下；被拦边不进图、只进对账镜像）
+        blocked = None
+        for _ in range(60):
+            resp = client.get("/api/graph/blocked-edges", params={"lib_id": lib_id})
+            assert resp.status_code == 200, resp.text
+            blocked = resp.json()
+            if blocked["stats"]["blocked"] >= 1:
+                break
+            time.sleep(2.0)
+        assert blocked["stats"]["blocked"] >= 1, "被拦边清单无记录（三道闸未拦下任何抽取尝试）"
+        assert {b["reason_code"] for b in blocked["blocked_edges"]} <= {
+            "type_mismatch", "no_evidence", "uncertain",
+        }
+        assert all(b["report_id"] == report["id"] and b["reason"]
+                   for b in blocked["blocked_edges"])
+        # 强校拒存实证（接线后——对不上拒存 400 带对号明细）
+        reject = client.put(
+            "/api/graph/extract-config",
+            json={
+                "lib_id": lib_id,
+                "entity_types": ["井", "机灵鬼"],
+                "relation_tags": [{"rel": "管辖着", "example": "", "desc": ""}],
+                "custom_instructions": "",
+            },
+        )
+        assert reject.status_code == 400, reject.text
+        assert reject.json()["code"] == "graph_ontology_mismatch"
+        mismatches = reject.json()["detail"]["mismatches"]
+        assert {m["value"] for m in mismatches} == {"机灵鬼", "管辖着"}
+        assert all(m["nearest"] for m in mismatches)  # 最接近台账词条逐项带出
+        # LLM 起草真跑（示例三源③——真 gateway.complete 统一出口）
+        draft = client.post(
+            "/api/graph/extract-config/draft-example",
+            json={"lib_id": lib_id, "rel": "作用于"},
+        )
+        assert draft.status_code == 200, draft.text
+        assert draft.json()["sentence"] and "→" in draft.json()["triple"]
+        # F62 跨页留痕（保存同事务记 B1 活动流）＋B12 平台审计
+        acts = client.get(f"/api/kb/libs/{lib_id}/activities").json()
+        assert any(a["action"] == "修改抽取设置" for a in acts["items"])
+        audit = client.get("/api/security/audit-logs", params={"pageSize": 50}).json()
+        assert "graph.extract_config.saved" in {a["action"] for a in audit["items"]}
