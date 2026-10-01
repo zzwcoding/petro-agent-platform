@@ -9,10 +9,6 @@ import DecisionTree from './DecisionTree.jsx'
 import { SEC_CHECKS, MATCHERS } from '../flows/common.jsx'
 import { FLOW_COMPS } from '../flows/index.js'
 
-// 导览系统已随原型企业化清洗撤除（teach 侧 A1_GUIDE 常量删除）；
-// 平台 Shell.jsx 旧契约仍导入此名（shell/ 属平台自有件本票禁改），暂以空导出兼容，待平台外壳导览拆除票收口。
-export const A1_GUIDE = []
-
 // ===== 场景数据：一条对话 = 一个场景 = 一条内部链路 =====
 // 统一入口进来后，意图路由把问句分配到不同场景；右侧思考过程随场景切换。
 

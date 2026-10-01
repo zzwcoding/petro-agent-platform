@@ -1,7 +1,7 @@
-import { Button, Input, Layout, Select, Tooltip, Typography } from 'antd'
-import { QuestionCircleOutlined, SearchOutlined } from '@ant-design/icons'
+import { Input, Layout, Select, Typography } from 'antd'
+import { SearchOutlined } from '@ant-design/icons'
 
-export default function HeaderBar({ title, crumb, role, setRole, onGuide }) {
+export default function HeaderBar({ title, crumb, role, setRole }) {
   return (
     <Layout.Header style={{
       background: 'transparent', padding: '0 20px', height: 52, lineHeight: '52px',
@@ -20,9 +20,6 @@ export default function HeaderBar({ title, crumb, role, setRole, onGuide }) {
         value={role} onChange={setRole} style={{ width: 170 }}
         options={window.__roles.map(r => ({ value: r.key, label: r.label }))}
       />
-      <Tooltip title="演示导览：本页的点击顺序与看点">
-        <Button icon={<QuestionCircleOutlined />} onClick={onGuide}>导览</Button>
-      </Tooltip>
     </Layout.Header>
   )
 }

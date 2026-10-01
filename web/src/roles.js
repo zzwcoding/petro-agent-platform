@@ -30,7 +30,6 @@ export const MENU = [
     { key: 'D1', label: '模型与线路' },
     { key: 'D2', label: '搜索与回答' },
     { key: 'D3', label: '安全与权限' },
-    { key: 'D5', label: '运行追踪' },
     { key: 'D6', label: '数据接入与加工' }
   ], roles: ['aqiang']},
   { group: '考核与质量', items: [

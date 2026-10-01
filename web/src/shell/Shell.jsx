@@ -3,9 +3,8 @@ import { Layout, Skeleton, Tag } from 'antd'
 import { ROLES, PAGE_NAMES, menuForRole } from '../roles.js'
 import SideMenu from './SideMenu.jsx'
 import HeaderBar from './HeaderBar.jsx'
-import GuideModal from './GuideModal.jsx'
 import TraceBar, { DEV } from './TraceBar.jsx'
-import A1Chat, { A1_GUIDE, A1_TRACE } from '../pages/A1Chat.jsx'
+import A1Chat, { A1_TRACE } from '../pages/A1Chat.jsx'
 import Stub from '../pages/Stub.jsx'
 import NotLit from '../landing/NotLit.jsx'
 import { DEFAULT_LANDING_KEY, LANDING_LIT, loadLandingPage } from '../landing/registry.js'
@@ -14,11 +13,11 @@ import { useAppStore, switchRole } from '../store/app.js'
 window.__roles = ROLES
 window.__menuForRole = menuForRole
 
-// 懒加载页面（P1–P5 施工产出 src/pages/<KEY>.jsx；各页文件副作用注册导览/溯源）：
+// 懒加载页面（P1–P5 施工产出 src/pages/<KEY>.jsx；各页文件副作用注册溯源）：
 // —— 双树共存（frontend-foundation §4）后归原型树（#/proto/X），组件原样复用零搬迁。
 const LAZY = {}
 for (const key of ['A2','A3','B1','B2','B3','B4','B5','C1','C2','C3',
-  'D1','D2','D3','D5','D6','E1','E2','E3','F1','INDEX']) {
+  'D1','D2','D3','D6','E1','E2','E3','F1','INDEX']) {
   LAZY[key] = lazy(() => import(`../pages/${key}.jsx`))
 }
 
@@ -43,7 +42,6 @@ export default function Shell() {
   // 角色槽收进 zustand（store/app.js 槽①，接 roles.js 唯一真源）
   const role = useAppStore(s => s.role)
   const [nav, setNav] = useState(parseHash)
-  const [guide, setGuide] = useState(false)
 
   useEffect(() => {
     const onHash = () => setNav(parseHash())
@@ -59,8 +57,6 @@ export default function Shell() {
     : (PAGE_NAMES[page] || menuForRole(role).flatMap(g => g.items).find(i => i.key === page)?.label || page)
   const crumb = isProto ? '原型树 · mock 数据' : '落地树 · 真 API'
   const treeTag = <Tag color={isProto ? 'default' : 'green'} style={{ marginLeft: 8 }}>{isProto ? '原型' : '落地'}</Tag>
-  const guideSteps = !isProto ? ['落地页为真实开发轨页面，暂无演示导览。']
-    : (page === 'A1' ? A1_GUIDE : (window.__guides?.[page] || ['本页导览配置待补。']))
   const traceText = isProto ? (page === 'A1' ? A1_TRACE : (window.__traces?.[page] || '')) : ''
 
   const ProtoPage = page === 'A1' ? A1Chat : LAZY[page]
@@ -73,7 +69,7 @@ export default function Shell() {
             只写槽会让请求头带旧身份、页头与数据权限脱钩（P0-06 审查 P2 修复） */}
         <HeaderBar title={<span>{title}{treeTag}</span>}
           crumb={crumb}
-          role={role} setRole={switchRole} onGuide={() => setGuide(true)} />
+          role={role} setRole={switchRole} />
         <Layout.Content style={{ padding: DEV ? '16px 20px 48px' : '16px 20px', flex: 1, overflow: 'auto' }}>
           {isProto ? (page === 'A1' ? <A1Chat role={role} /> : ProtoPage ? (
             <Suspense fallback={<Skeleton active />}>
@@ -86,7 +82,6 @@ export default function Shell() {
           ) : <NotLit pageKey={page} />}
         </Layout.Content>
       </Layout>
-      <GuideModal open={guide} onClose={() => setGuide(false)} steps={guideSteps} />
       <TraceBar text={traceText} />
     </Layout>
   )
