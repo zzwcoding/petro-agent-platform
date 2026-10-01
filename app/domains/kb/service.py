@@ -1133,6 +1133,52 @@ class KbService:
             if frag.embedding is not None and frag.hit_text
         ]
 
+    # ---------- 运行时读（chat 消费，不经 HTTP——P1-08a 六路装配报告索引路） ----------
+
+    async def index_search(self, question: str, *, top_k: int = 5) -> list[d.IndexHit]:
+        """报告索引检索读面（98 §3.4 卡运行时读缝——chat 六路装配消费）。
+
+        两腿＝检索瀑布 S4 两路（F58）：
+        - 向量腿：问题向量化 × 已向量化子块余弦（EmbeddingBackend 缝——P1-04
+          收尾裁决①「P1-08b 用现有 EmbeddingBackend 缝」）；
+        - 关键词腿：trigram 子串覆盖率（P1-04 裁决②——pg_trgm GIN 索引随 P1-10
+          上，本读面查询语义不变）。
+        同片段两腿取高分腿（同池去重），按分倒序 top_k。
+        """
+        frags = await self._fragments.list_children()
+        if not frags or not question.strip():
+            return []
+        reports = {row.id: row for row in await self._reports.all()}
+        probe = (await self._embedder.embed([question.strip()]))[0]
+        best: dict[str, d.IndexHit] = {}
+        for frag in frags:
+            text = frag.hit_text or ""
+            score = 0.0
+            leg = ""
+            if frag.embedding is not None:
+                vector_score = d.cosine_similarity(probe, frag.embedding)
+                if vector_score > score:
+                    score, leg = vector_score, "vector"
+            if text:
+                keyword_score = d.trigram_coverage(question, text)
+                if keyword_score > score:
+                    score, leg = keyword_score, "keyword"
+            if score <= 0.0 or leg == "":
+                continue
+            hit = d.IndexHit(
+                fragment_id=frag.id,
+                report_id=frag.report_id,
+                report=reports[frag.report_id].doc if frag.report_id in reports else "",
+                section=frag.section,
+                snippet=text[:80],
+                score=score,
+                leg=leg,
+            )
+            current = best.get(frag.id)
+            if current is None or hit.score > current.score:
+                best[frag.id] = hit
+        return sorted(best.values(), key=lambda h: h.score, reverse=True)[:top_k]
+
     async def fragment_context(self, fragment_id: str) -> d.FragmentContext:
         """父块回捞（B2 端点 2——按 type 分派语义）：原文块/图片说明块/图片文字块
         ＝父块正文（F30 与 F36 回捞会师；mixed 子块经版本行父块锚到达）；摘要块/

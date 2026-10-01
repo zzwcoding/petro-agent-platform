@@ -17,6 +17,7 @@ from app.domains.kb import (
     KbParamError,
     KbService,
 )
+from app.domains.kb import domain as d
 from app.domains.kb.store import (
     FragmentStore,
     IngestTaskRow,
@@ -499,3 +500,30 @@ class TestRouting:
 
 def test_mode_texts_cover_three_modes() -> None:
     assert set(MODE_TEXT) == {"smart", "fixed", "mixed"}
+
+
+class TestIndexSearch:
+    async def test_index_search_two_legs_merge(self, kb_service: Any) -> None:
+        """P1-08a 报告索引检索读面：向量腿＋trigram 关键词腿同池去重、按分倒序。"""
+        service, storage, _, _ = kb_service
+        lib_id = await _make_lib(service)
+        await _ingest(service, storage, lib_id)
+        hits = await service.index_search("渤中28-1")
+        assert hits, "trigram 关键词腿应命中演示文本"
+        assert all(h.leg in ("vector", "keyword") for h in hits)
+        scores = [h.score for h in hits]
+        assert scores == sorted(scores, reverse=True)
+        # 同片段只留高分腿（同池去重）
+        assert len({h.fragment_id for h in hits}) == len(hits)
+        full = await service.index_search("N-02 完井报告")
+        assert full and full[0].report  # 报告名随命中面携出（装配候选标签消费）
+        assert len(await service.index_search("渤海", top_k=2)) <= 2
+
+    async def test_index_search_empty_corpus(self, kb_service: Any) -> None:
+        service, _, _, _ = kb_service
+        assert await service.index_search("任何问题") == []
+
+    async def test_trigram_coverage_full_substring_is_one(self) -> None:
+        """全问句子串命中→覆盖率 1.0（pg_trgm 子串匹配的阶段 1 语义代理）。"""
+        assert d.trigram_coverage("渤中28-1 投产", "渤中28-1 投产于 2019-06") == 1.0
+        assert d.trigram_coverage("完全无关的问句", "渤中28-1 投产于 2019-06") < 0.5

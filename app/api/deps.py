@@ -14,6 +14,7 @@ from typing import Annotated, cast
 
 from fastapi import Depends, Header, Request
 
+from app.domains.chat import ChatService
 from app.domains.derivatives import DerivativesService
 from app.domains.faq import FaqService
 from app.domains.gateway import GatewayService
@@ -94,6 +95,11 @@ def get_retrieval(request: Request) -> RetrievalService:
     return cast(RetrievalService, request.app.state.retrieval)
 
 
+def get_chat(request: Request) -> ChatService:
+    """chat 服务定位（lifespan 装配于 app.state——main.py；P1-08a 起）。"""
+    return cast(ChatService, request.app.state.chat)
+
+
 DbDep = Annotated[ConnectionManager, Depends(get_db)]
 SecurityDep = Annotated[SecurityService, Depends(get_security)]
 GatewayDep = Annotated[GatewayService, Depends(get_gateway)]
@@ -103,3 +109,4 @@ WikiDep = Annotated[DerivativesService, Depends(get_derivatives)]
 GraphDep = Annotated[DerivativesService, Depends(get_derivatives)]
 FaqDep = Annotated[FaqService, Depends(get_faq)]
 RetrievalDep = Annotated[RetrievalService, Depends(get_retrieval)]
+ChatDep = Annotated[ChatService, Depends(get_chat)]

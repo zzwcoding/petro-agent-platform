@@ -30,6 +30,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # 域模型登记区（各域切换票补挂——挂齐才有完整 autogenerate，见模块 docstring）：
+from app.domains.chat import store as _chat_models  # noqa: F401,E402  (P1-08a chat 域首执行)
 from app.domains.derivatives import store as _wiki_models  # noqa: F401,E402  (P1-02b wiki 域首执行)
 from app.domains.faq import store as _faq_models  # noqa: F401,E402  (P1-06 faq 域首执行)
 from app.domains.kb import store as _kb_models  # noqa: F401,E402  (P1-02a kb 域首执行)

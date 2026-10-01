@@ -43,6 +43,12 @@
   400 带字段名与允许区间（D1 400 先例同形，detail.violations 逐项
   {field, constraint}）；409＝在途变更单重入（阶段 1 受理→生效一体，在途
   窗口＝并发受理撞闸）
+- chat_param_invalid / chat_run_not_found / chat_run_state：chat 域 400/404/409
+  （A1 错误码草案；P1-08a 新立值，登记于 tickets/phase1/README.md P1-08a 差异
+  清单）——400＝question 为空且非重连/续跑模式、澄清选项无效、Action 链驳回
+  缺理由；404＝run 不存在或已过期；409＝run 非 interrupt 挂起态（对已终态
+  resume／二次澄清／重入 clarify——澄清帧有界循环最多弹一次，状态机约束）。
+  Last-Event-ID 非整数 400（chat_last_event_id_invalid）P0-08 已登记沿用。
 """
 
 from __future__ import annotations
@@ -53,6 +59,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.domains.chat import ChatParamError, ChatRunNotFoundError, ChatRunStateError
 from app.domains.derivatives import (
     GraphNotFoundError,
     GraphOntologyMismatchError,
@@ -333,6 +340,34 @@ def install_error_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=409,
             content=error_payload("retrieval_conflict", str(exc)),
+        )
+
+    @app.exception_handler(ChatParamError)
+    async def handle_chat_param_error(request: Request, exc: ChatParamError) -> JSONResponse:
+        # A1 错误码草案 400 族（question 为空且非重连/续跑模式、澄清选项无效、
+        # Action 链驳回缺理由——code 由异常携带 chat_param_invalid）。
+        return JSONResponse(
+            status_code=400,
+            content=error_payload(exc.code, str(exc)),
+        )
+
+    @app.exception_handler(ChatRunNotFoundError)
+    async def handle_chat_run_not_found(
+        request: Request, exc: ChatRunNotFoundError
+    ) -> JSONResponse:
+        # A1 错误码草案 404：run/session/task 不存在或已过期。
+        return JSONResponse(
+            status_code=404,
+            content=error_payload("chat_run_not_found", str(exc)),
+        )
+
+    @app.exception_handler(ChatRunStateError)
+    async def handle_chat_run_state(request: Request, exc: ChatRunStateError) -> JSONResponse:
+        # A1 错误码草案 409：run 非 interrupt 挂起态（对已终态 resume／二次澄清／
+        # 重入 clarify——澄清帧最多弹一次，状态机约束）。
+        return JSONResponse(
+            status_code=409,
+            content=error_payload("chat_run_state", str(exc)),
         )
 
     @app.exception_handler(RequestValidationError)

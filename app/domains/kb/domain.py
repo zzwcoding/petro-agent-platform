@@ -467,6 +467,63 @@ class LocalHashEmbedder:
         return [round(v / norm, 6) for v in vec]
 
 
+# ---------- 报告索引检索读面（P1-08a——chat 六路装配报告索引路消费） ----------
+
+
+@dataclass(frozen=True, slots=True)
+class IndexHit:
+    """报告索引命中（运行时读面 index_search 的行——chat 只见本面，不触 kb 表；
+    98 §3.4 卡运行时读缝同 faq.match_index 惯例）。
+
+    leg 两值＝检索瀑布 S4 两路（F58）：`vector` 语义一路 / `keyword` 字面一路
+    （trigram 子串——P1-04 裁决；pg_trgm GIN 索引随 P1-10 上，查询语义不变）。
+    """
+
+    fragment_id: str
+    report_id: str
+    report: str
+    section: str | None
+    snippet: str
+    score: float
+    leg: str  # vector | keyword
+
+
+def cosine_similarity(a: list[float], b: list[float]) -> float:
+    """占位向量余弦（384 维本地确定性向量——维度待 embedding 模型回填，99 待办）。"""
+    if not a or not b or len(a) != len(b):
+        return 0.0
+    dot = float(sum(x * y for x, y in zip(a, b, strict=True)))
+    na = math.sqrt(sum(x * x for x in a))
+    nb = math.sqrt(sum(x * x for x in b))
+    if na == 0.0 or nb == 0.0:
+        return 0.0
+    return dot / (na * nb)
+
+
+def trigram_coverage(question: str, text: str) -> float:
+    """字面一路得分＝问句 trigram 集在文本 trigram 集中的覆盖率（0–1）。
+
+    pg_trgm 子串匹配的阶段 1 语义代理（P1-04 裁决「关键词路＝trigram 子串匹配」；
+    全问句子串命中→覆盖率 1.0）——中文免分词器，索引落位后查询语义不变。
+    """
+    q = _trigrams(question)
+    if not q:
+        return 0.0
+    t = _trigrams(text)
+    if not t:
+        return 0.0
+    return len(q & t) / len(q)
+
+
+def _trigrams(text: str) -> set[str]:
+    folded = re.sub(r"\s+", "", text or "")
+    if not folded:
+        return set()
+    if len(folded) < 3:
+        return {folded}
+    return {folded[i : i + 3] for i in range(len(folded) - 2)}
+
+
 # ---------- 入库路由（B1 v0.3「入库路由（阶段 1 实施项）」专节） ----------
 
 

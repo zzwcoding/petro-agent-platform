@@ -28,7 +28,12 @@ api/kb.py）。P1-05 起 graph 子域点亮：kb_extract_config 入 derivatives 
 （B9 同款——faq 运行期只见 callable）＋遗留 running 扫库行启动收口。P1-07 起
 retrieval 域点亮：retrieval 两表入装配（ensure_retrieval_tables——99 §2.10，
 Alembic 0008 并行）＋/api/retrieval 路由族挂载（D2 两端点——配置读＋变更单，
-阶段 1 提交即生效：版本推进＋via 回链＋B12 审计；首次读取自动落种子）。
+阶段 1 提交即生效：版本推进＋via 回链＋B12 审计；首次读取自动落种子）。P1-08a
+起 chat 域点亮（A1 主链第一拍）：chat 三表入装配（ensure_chat_tables——
+99 §2.2，Alembic 0009 并行）＋/api/chat 路由族填肉（asks 四层流水线 SSE＋
+runs resume 澄清续推）＋域读缝经组合根注入（qa 配置/指标台账/术语台账/FAQ
+索引/报告索引——B9 同款运行期只见 callable）＋A1 会话料源缝收口（faq
+session_loader 注入 chat.recent_qa_pairs——P1-06 疑点 6，装配即通）。
 
 建表与迁移的交接（P0-08 票面）：ensure_*_table 与 Alembic 并行存活，
 本票不切换——各域切换迁移属各域票（基线空迁移见 migrations/versions/0001）。
@@ -49,6 +54,16 @@ from app.api.retrieval import router as retrieval_router
 from app.api.security import router as security_router
 from app.api.semantics import router as semantics_router
 from app.api.wiki import router as wiki_router
+from app.domains.chat import (
+    ChatService,
+    FaqHitFace,
+    GraphHitFace,
+    IndexHitFace,
+    MetricFace,
+    QaBehaviorFace,
+    TermFace,
+)
+from app.domains.chat.store import ensure_chat_tables
 from app.domains.derivatives import DerivativesService
 from app.domains.derivatives.service import load_extract_config_snapshot
 from app.domains.derivatives.store import ensure_derivatives_tables
@@ -85,6 +100,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await ensure_derivatives_tables(manager.engine())  # 同上——wiki 表族（99 §2.7；P1-02b）
     await ensure_faq_tables(manager.engine())  # 同上——faq 四表（99 §2.6；P1-06，Alembic 0007 并行）
     await ensure_retrieval_tables(manager.engine())  # 同上——retrieval 两表（99 §2.10；P1-07 并行）
+    await ensure_chat_tables(manager.engine())  # 同上——chat 三表（99 §2.2；P1-08a 并行）
     await seed_demo_if_empty(manager.engine())  # 演示种子（合同 DTO 九条问答＋四簇候选——幂等）
     app.state.db = manager
     app.state.security = SecurityService(manager)
@@ -122,7 +138,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # faq 域（P1-06——98 §3.3）：台账口径/切片原文/本体命中/知识库面语料经组合根
     # 注入公开读缝（B9 同款——faq 运行期不 import semantics/kb，只见 callable）；
-    # A1 历史会话料源缝（session_loader）暂缺——A1 未上线，扫库空态说明收场。
+    # A1 历史会话料源缝（session_loader）P1-08a 起注入 chat.recent_qa_pairs。
     async def ledger_loader(kind: str, ref_id: int) -> tuple[str, str, str] | None:
         if kind == "metric":
             row = await app.state.semantics.get_metric(ref_id)
@@ -154,6 +170,81 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         corpus: list[str] = list(await app.state.kb.dedup_corpus())
         return corpus
 
+    # chat 域读缝（P1-08a——B9 同款：运行期只见 callable，不 import 各域）：
+    # qa 配置（retrieval.effective_config 投影 qa_behavior 五字段）/指标台账/术语
+    # 台账（semantics 读接口——B5 边界：六路匹配器必须走 semantics 读口）/
+    # FAQ 索引（faq.match_index——lazy 绑定，faq 在本域之后装配）/报告索引
+    # （kb.index_search——向量＋trigram 两腿，P1-08a 新读面）。
+    async def qa_config_loader() -> QaBehaviorFace:
+        snapshot = await app.state.retrieval.effective_config()
+        qa = snapshot.qa_behavior
+        return QaBehaviorFace(
+            faq_direct_hit=qa.faq_direct_hit,
+            refuse_threshold=qa.refuse_threshold,
+            clarify_strategy=qa.clarify_strategy,
+            confidence_high=qa.confidence_thresholds.high,
+            confidence_low=qa.confidence_thresholds.low,
+            faq_expand_rounds=qa.faq_expand_rounds,
+        )
+
+    async def metrics_loader() -> list[MetricFace]:
+        page = await app.state.semantics.list_metrics(page_size=1000)
+        return [
+            MetricFace(
+                metric_id=int(row.id),
+                name=str(row.name),
+                slot_name=str(row.slot_name),
+                ambiguous=bool(row.ambiguous),
+                calibers=list(row.calibers or []),
+                default_caliber=row.default_caliber,
+            )
+            for row in page.items
+        ]
+
+    async def terms_loader() -> list[TermFace]:
+        page = await app.state.semantics.list_terms(page_size=1000)
+        return [
+            TermFace(
+                term_id=int(row.id),
+                term=str(row.term),
+                type=str(row.type),
+                def_text=str(row.def_),
+            )
+            for row in page.items
+        ]
+
+    async def faq_matcher(text: str) -> FaqHitFace | None:
+        hit = await app.state.faq.match_index(text)
+        if hit is None:
+            return None
+        return FaqHitFace(entry_id=hit.entry_id, question=hit.question, answer=hit.answer)
+
+    async def index_searcher(question: str) -> list[IndexHitFace]:
+        hits = await app.state.kb.index_search(question)
+        return [
+            IndexHitFace(
+                fragment_id=h.fragment_id, report_id=h.report_id, report=h.report,
+                section=h.section, snippet=h.snippet, score=h.score, leg=h.leg,
+            )
+            for h in hits
+        ]
+
+    async def graph_searcher_stub(question: str) -> list[GraphHitFace]:
+        # 图谱缝（票面：08b 前落空——08b 图谱问答链接线时注入真图检索面）
+        del question
+        return []
+
+    app.state.chat = ChatService(
+        manager,
+        audit=app.state.security,  # B12：chat.ask.received/blocked（受理/拦截留痕）
+        qa_config_loader=qa_config_loader,
+        metrics_loader=metrics_loader,
+        terms_loader=terms_loader,
+        faq_matcher=faq_matcher,
+        index_searcher=index_searcher,
+        graph_searcher=graph_searcher_stub,  # 08b 前恒空（票面：图谱缝 08b 前落空）
+    )
+
     app.state.faq = FaqService(
         manager,
         app.state.gateway,
@@ -165,8 +256,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         slice_loader=slice_loader,
         ontology_names_loader=ontology_names_loader,
         kb_corpus_loader=kb_corpus_loader,
-        # session_loader：A1 历史会话料源（B3-5 拍板）——A1 会话域未上线暂缺，
-        # 扫库落空态说明；A1 装配批注入本缝即通。
+        # session_loader：A1 历史会话料源（B3-5 拍板）——P1-08a 会话域点亮即注入
+        # （chat.recent_qa_pairs，P1-06 疑点 6 收口：装配即通，扫库不再空态）。
+        session_loader=app.state.chat.recent_qa_pairs,
     )
     await app.state.eventbus.subscribe(
         "IngestCompleted", app.state.derivatives.on_ingest_completed
