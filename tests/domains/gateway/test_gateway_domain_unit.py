@@ -11,15 +11,19 @@ import pytest
 
 from app.domains.gateway import (
     PARAM_LIMITS,
+    STATS_GROUP_BYS,
+    STATS_RANGES,
+    UNATTRIBUTED,
+    BudgetThresholds,
     GatewayConfigError,
     GatewayParams,
     PriceSpec,
     RouterState,
     SpendFilter,
+    SpendStatsFilter,
     build_drill_nodes,
     cost_yuan,
     estimate_tokens,
-    keyword_matches,
     project_models,
 )
 from app.infra.clock import freeze, now
@@ -196,11 +200,71 @@ def test_spend_filter_enum_out_of_range() -> None:
         SpendFilter(range="30d").validated()
 
 
-def test_keyword_matches_call_id_and_note() -> None:
-    assert keyword_matches("8c31", "call-8c31", "")
-    assert keyword_matches("演练", "call-0001", "故障演练流水")
-    assert not keyword_matches("zzz", "call-0001", "备注")
-    assert keyword_matches(None, "call-0001", "")  # 空关键词＝全量
+# ---------- 花费聚合筛选（D1 端点 8——D5 撤页归并；与端点 4 range 不同族） ----------
+
+
+def test_spend_stats_filter_since_ranges() -> None:
+    with freeze("2026-09-29T10:00:00"):
+        assert SpendStatsFilter(range="all").since(now()) is None
+        week = SpendStatsFilter(range="7d").since(now())
+        assert week is not None and week.day == 22
+        month = SpendStatsFilter(range="30d").since(now())
+        assert month is not None and month.day == 30  # 30×24h 前
+        year = SpendStatsFilter(range="12m").since(now())
+        assert year is not None and (year.year, year.day) == (2025, 29)  # 365d 前
+
+
+def test_spend_stats_filter_enum_out_of_range_carries_legal_enums() -> None:
+    with pytest.raises(GatewayConfigError) as exc_info:
+        SpendStatsFilter(group_by="well").validated()
+    assert exc_info.value.violations == [("group_by", "|".join(STATS_GROUP_BYS))]
+    with pytest.raises(GatewayConfigError) as exc_info:
+        SpendStatsFilter(range="today").validated()  # 端点 4 族值不通用——统计窗最小 7 天
+    assert exc_info.value.violations == [("range", "|".join(STATS_RANGES))]
+    # 合法枚举边界全过
+    for group_by in STATS_GROUP_BYS:
+        assert SpendStatsFilter(group_by=group_by).validated().group_by == group_by
+
+
+def test_unattributed_bucket_constant() -> None:
+    # 存量未归因流水（caller 为空）聚合桶名——D1 v0.2 合同值
+    assert UNATTRIBUTED == "unattributed"
+
+
+# ---------- 预算双阈值校验（D1 v0.2 端点 2/3 扩段：>=0；负数/非数值 400） ----------
+
+
+def test_budget_thresholds_validated_pass_and_normalize() -> None:
+    budget = BudgetThresholds.validated(
+        {"per_call_cost_limit_yuan": 0.05, "gateway_budget_yuan_per_month": 800}
+    )
+    assert (
+        budget.per_call_cost_limit_yuan, budget.gateway_budget_yuan_per_month
+    ) == (0.05, 800.0)
+    zero = BudgetThresholds.validated(
+        {"per_call_cost_limit_yuan": 0, "gateway_budget_yuan_per_month": 0}
+    )
+    assert zero.per_call_cost_limit_yuan == 0.0
+
+
+@pytest.mark.parametrize(
+    ("per_call", "monthly"),
+    [
+        (-0.01, 800),  # 负数
+        (0.05, -1),
+        ("0.05", 800),  # 非数值
+        (0.05, None),
+        (True, 800),  # 布尔冒充数值
+    ],
+)
+def test_budget_thresholds_rejects_with_field_and_range(per_call: object, monthly: object) -> None:
+    with pytest.raises(GatewayConfigError) as exc_info:
+        BudgetThresholds.validated(
+            {"per_call_cost_limit_yuan": per_call, "gateway_budget_yuan_per_month": monthly}
+        )
+    fields = [f for f, _ in exc_info.value.violations]
+    assert all(f.startswith("params.") for f in fields)
+    assert all(r == ">=0" for _, r in exc_info.value.violations)
 
 
 # ---------- 演练节点（00 §5.3 四态；N 次注入＋切换＋记账） ----------

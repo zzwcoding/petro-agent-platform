@@ -17,6 +17,7 @@ from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from app.domains.gateway.domain import SpendFilter, SpendStatsFilter
 from app.domains.gateway.store import (
     BudgetStore,
     DrillRun,
@@ -111,15 +112,17 @@ async def _column_meta(db: ConnectionManager, table: str, column: str) -> dict[s
 
 async def test_spend_record_columns_match_99(db: ConnectionManager) -> None:
     # 99 §2.13：id(call-) · time · model_key · alias · input/output_tokens ·
-    # first/total_ms · cost_yuan · fallback · note · run_id · served_model ·
-    # attempted_fallbacks（切换留痕注记列）
+    # first/total_ms · cost_yuan · fallback · note · caller（D1 v0.2 归因列，可空）·
+    # run_id · served_model · attempted_fallbacks（切换留痕注记列）
     for column in (
         "id", "time", "model_key", "alias", "input_tokens", "output_tokens",
-        "first_ms", "total_ms", "cost_yuan", "fallback", "note", "run_id",
+        "first_ms", "total_ms", "cost_yuan", "fallback", "note", "caller", "run_id",
         "served_model", "attempted_fallbacks", "created_at", "updated_at",
     ):
         assert (await _column_meta(db, "gateway_spend_record", column)) is not None
     assert (await _column_meta(db, "gateway_spend_record", "cost_yuan"))["data_type"] == "numeric"
+    caller_meta = await _column_meta(db, "gateway_spend_record", "caller")
+    assert caller_meta["data_type"] == "character varying" and caller_meta["default"] is None
     fallbacks_meta = await _column_meta(db, "gateway_spend_record", "attempted_fallbacks")
     assert fallbacks_meta["data_type"] == "jsonb"
     async with db.session() as session:
@@ -131,6 +134,18 @@ async def test_spend_record_columns_match_99(db: ConnectionManager) -> None:
     assert "ix_gateway_spend_time_desc" in index_rows
     assert "ix_gateway_spend_model_time" in index_rows
     assert "ix_gateway_spend_run" in index_rows
+    # P1-10：spend-logs keyword 检索的 pg_trgm GIN 索引（id/note 两列——\d 断言同款 pg_indexes）
+    assert "ix_gateway_spend_note_trgm" in index_rows
+    assert "ix_gateway_spend_id_trgm" in index_rows
+    for index_name in ("ix_gateway_spend_note_trgm", "ix_gateway_spend_id_trgm"):
+        async with db.session() as session:
+            indexdef = (
+                await session.execute(
+                    text("SELECT indexdef FROM pg_indexes WHERE indexname = :n"),
+                    {"n": index_name},
+                )
+            ).scalar_one()
+        assert "gin" in indexdef.lower() and "gin_trgm_ops" in indexdef
 
 
 async def test_drill_run_status_check_constraint(db: ConnectionManager) -> None:
@@ -170,6 +185,7 @@ async def test_spend_roundtrip_with_fallback_trace_on_real_pg(db: ConnectionMana
             cost_yuan=0.00628,
             fallback=True,
             note="故障演练流水",
+            caller="gateway.drill",  # 归因落列真库往返（D1 v0.2）
             served_model="anthropic/glm-5.3-flash",
             attempted_fallbacks=["anthropic/MiniMax-M3"],
         )
@@ -178,6 +194,7 @@ async def test_spend_roundtrip_with_fallback_trace_on_real_pg(db: ConnectionMana
     assert view is not None
     assert view.fallback is True and view.model_key == "backup"
     assert view.cost_yuan == pytest.approx(0.00628)
+    assert view.caller == "gateway.drill"
     # 切换留痕 jsonb 往返
     async with db.session() as session:
         trace = (
@@ -205,3 +222,42 @@ async def test_budget_singleton_defaults_seeded_once(db: ConnectionManager) -> N
             await session.execute(text("SELECT count(*) FROM gateway_budget_config"))
         ).scalar_one()
     assert count == 1
+
+
+async def test_spend_stats_caller_aggregation_on_real_pg(db: ConnectionManager) -> None:
+    """端点 8 真库聚合：caller 维度＋unattributed 存量桶＋to_char 时序升序＋sums 全量。"""
+    store = SpendStore(db)
+    rows = [
+        SpendRecord(
+            id="call-stata1", time=datetime(2026, 9, 28, 9, 0, 0), model_key="main",
+            alias="petro-main", input_tokens=2000, output_tokens=1000,
+            first_ms=1000, total_ms=4000, cost_yuan=0.005, fallback=False,
+            note="演练流水", caller="chat.retrieval.answer",
+        ),
+        SpendRecord(
+            id="call-stata2", time=datetime(2026, 9, 29, 8, 0, 0), model_key="backup",
+            alias="petro-lite", input_tokens=500, output_tokens=300,
+            first_ms=1000, total_ms=2000, cost_yuan=0.003, fallback=True,
+            note="", caller=None,  # 存量未归因
+        ),
+    ]
+    for row in rows:
+        await store.add(row)
+    stats = await store.stats(SpendStatsFilter(group_by="caller", range="all"))
+    assert [(r.bucket, r.calls) for r in stats.items] == [
+        ("chat.retrieval.answer", 1),  # cost 降序
+        ("unattributed", 1),
+    ]
+    assert stats.sums.cost_yuan == pytest.approx(0.008)
+    day_stats = await store.stats(SpendStatsFilter(group_by="day", range="all"))
+    assert [r.bucket for r in day_stats.items] == ["2026-09-28", "2026-09-29"]  # to_char 升序
+    model_stats = await store.stats(SpendStatsFilter(group_by="model", range="all"))
+    assert [(r.bucket, r.alias) for r in model_stats.items] == [
+        ("main", "petro-main"),
+        ("backup", "petro-lite"),
+    ]
+    # keyword LIKE 子串检索真库可查（trgm 索引加速面——语义正确性断言）
+    page = await store.page(SpendFilter(keyword="stata2"))
+    assert [v.id for v in page.items] == ["call-stata2"]
+    page_note = await store.page(SpendFilter(keyword="演练"))  # 备注命中
+    assert [v.id for v in page_note.items] == ["call-stata1"]

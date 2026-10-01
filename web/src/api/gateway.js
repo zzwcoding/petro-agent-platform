@@ -11,17 +11,21 @@
  *   差异登记第 2 条），本层统一折回 camel，页面列定义与原型同形；
  * - 全部走 api/client（X-Dev-User 注入/错误包解包/分页信封归一化在底座）。
  *
- * 合同：teach-petro-agent/specs/api/D1-模型与线路.md（端点 1–7）。
+ * 合同：teach-petro-agent/specs/api/D1-模型与线路.md（端点 1–8；端点 8＝D5 撤页
+ * 归并批 spend-stats，P1-10 接线）。
  */
 
 import { get, post, put } from './client.js'
 
-/** 调用参数四件的允许区间（合同 §2/§2-3；越界后端 400 错误体带字段与区间）。 */
+/** 调用参数四件＋预算双阈值的允许区间（合同 §2/§2-3；越界后端 400 错误体带字段与区间）。 */
 export const PARAM_LIMITS = {
   allowedFails: { min: 1, max: 10 },
   cooldownSeconds: { min: 10, max: 600 },
   numRetries: { min: 0, max: 5 },
-  requestTimeout: { min: 5, max: 120 }
+  requestTimeout: { min: 5, max: 120 },
+  // 预算双阈值（D1 v0.2 端点 2/3 扩段）：>=0（负数/非数值后端 400）
+  perCallCostLimitYuan: { min: 0, max: null, step: 0.01 },
+  gatewayBudgetYuanPerMonth: { min: 0, max: null }
 }
 
 // ── wire(snake) → 视图(camel) ──
@@ -32,7 +36,9 @@ function paramsToCamel(p) {
     allowedFails: p.allowed_fails,
     cooldownSeconds: p.cooldown_seconds,
     numRetries: p.num_retries,
-    requestTimeout: p.request_timeout
+    requestTimeout: p.request_timeout,
+    perCallCostLimitYuan: p.per_call_cost_limit_yuan,
+    gatewayBudgetYuanPerMonth: p.gateway_budget_yuan_per_month
   }
 }
 
@@ -42,7 +48,9 @@ function paramsToSnake(p) {
     allowed_fails: p.allowedFails,
     cooldown_seconds: p.cooldownSeconds,
     num_retries: p.numRetries,
-    request_timeout: p.requestTimeout
+    request_timeout: p.requestTimeout,
+    per_call_cost_limit_yuan: p.perCallCostLimitYuan,
+    gateway_budget_yuan_per_month: p.gatewayBudgetYuanPerMonth
   }
 }
 
@@ -59,7 +67,24 @@ function spendRowToCamel(r) {
     totalMs: r.total_ms,
     costYuan: r.cost_yuan,
     fallback: Boolean(r.fallback),
-    note: r.note || ''
+    note: r.note || '',
+    caller: r.caller ?? null
+  }
+}
+
+/**
+ * 聚合单行 wire → 视图（维度分组键统一折 key，列形状随 groupBy 切换——原型同形；
+ * model 维度另带 alias）。
+ */
+function statsRowToCamel(r) {
+  return {
+    key: r.caller ?? r.model_key ?? r.day ?? r.month,
+    alias: r.alias ?? null,
+    calls: r.calls,
+    fallbackCalls: r.fallback_calls,
+    inputTokens: r.input_tokens,
+    outputTokens: r.output_tokens,
+    costYuan: r.cost_yuan
   }
 }
 
@@ -125,6 +150,32 @@ export async function getSpendLogs(q = {}) {
 export async function startDrill() {
   const d = await post('/gateway/drills')
   return { drillId: d.drill_id }
+}
+
+/**
+ * 端点 8：GET /api/gateway/spend-stats —— 花费聚合/趋势读面（D5 撤页归并批）。
+ * caller/model＝花费降序分页；day/month＝趋势时序升序全量；sums＝窗口合计不截断。
+ * @param {{groupBy?: 'caller'|'model'|'day'|'month', range?: 'all'|'7d'|'30d'|'12m', page?: number, pageSize?: number}} [q]
+ */
+export async function getSpendStats(q = {}) {
+  const { groupBy = 'caller', range = 'all', page = 1, pageSize = 15 } = q
+  const d = await get('/gateway/spend-stats', {
+    group_by: groupBy, range, page: String(page), pageSize: String(pageSize)
+  })
+  const items = Array.isArray(d.items) ? d.items.map(statsRowToCamel) : []
+  return {
+    groupBy: d.group_by ?? groupBy,
+    range: d.range ?? range,
+    items,
+    sums: {
+      calls: d.sums?.calls ?? 0,
+      fallbackCalls: d.sums?.fallback_calls ?? 0,
+      costYuan: d.sums?.cost_yuan ?? 0
+    },
+    total: d.total ?? items.length,
+    page: d.page ?? page,
+    pageSize: d.pageSize ?? pageSize
+  }
 }
 
 /** 端点 6：GET /api/gateway/drills/{id} —— 轮询进度与结果（404=任务不存在）。 */

@@ -1,9 +1,12 @@
 /**
- * 落地 D1 页组件测试（P0-07）——fetch 级 mock（apiRouter 挡在 window.fetch 边界），
- * client/gateway 接口层与页面全部真代码：
- * - 渲染：页头徽标＋模型表＋四页签（端点 1 形状）；
+ * 落地 D1 页组件测试（P0-07；P1-10 增强批）——fetch 级 mock（apiRouter 挡在
+ * window.fetch 边界），client/gateway 接口层与页面全部真代码：
+ * - 渲染：页头徽标＋模型表＋四页签（端点 1 形状）＋观测（Langfuse）外链按钮；
  * - 错误包展示路径：models 拉取失败 → 内联 Alert（message/code/trace_id）；
- * - 配置读写：表单编辑 → PUT body snake_case → 服务端快照回显（端点 2/3）；
+ * - 配置读写：表单编辑（含预算双阈值六件）→ PUT body snake_case → 服务端快照
+ *   回显（端点 2/3 v0.2 扩段）；
+ * - 聚合页签：流水/聚合 Segmented → 端点 8 真接（group_by 切换/sums 期间合计/
+ *   day·month 趋势列/拉取失败内联 Alert）；
  * - 409 重入兜底：受理拒绝 → 内联提示＋按钮禁用（端点 5）；
  * - 演练轮询收场：202 → useTaskPolling running→done → 结论/切换留痕/历史与流水
  *   刷新（端点 5/6/7 全链路）。
@@ -38,22 +41,49 @@ const MODELS = {
   ]
 }
 const CONFIG = {
-  params: { allowed_fails: 2, cooldown_seconds: 60, num_retries: 3, request_timeout: 30 },
+  params: {
+    allowed_fails: 2, cooldown_seconds: 60, num_retries: 3, request_timeout: 30,
+    per_call_cost_limit_yuan: 0.05, gateway_budget_yuan_per_month: 800
+  },
   yaml: '# models.yaml（夹具全文）\ngateway:\n  allowed_fails: 2\n  num_retries: 3\n'
 }
 const CONFIG_SAVED = {
-  params: { allowed_fails: 5, cooldown_seconds: 60, num_retries: 3, request_timeout: 30 },
+  params: {
+    allowed_fails: 5, cooldown_seconds: 60, num_retries: 3, request_timeout: 30,
+    per_call_cost_limit_yuan: 0.05, gateway_budget_yuan_per_month: 800
+  },
   yaml: '# models.yaml（夹具全文·保存后）\ngateway:\n  allowed_fails: 5\n  num_retries: 3\n'
 }
 const SPEND = {
   items: [
     { id: 'call-8c31', time: '2026-09-28T09:52:30', model_key: 'main', alias: 'petro-main',
       input_tokens: 2140, output_tokens: 1380, first_ms: 1000, total_ms: 4000, cost_yuan: 0.007,
-      fallback: false, note: '' },
+      fallback: false, note: '', caller: 'chat.retrieval.answer' },
     { id: 'call-8c32', time: '2026-09-28T10:00:00', model_key: 'backup', alias: 'petro-lite',
       input_tokens: 1010, output_tokens: 590, first_ms: 1300, total_ms: 3800, cost_yuan: 0.0038,
-      fallback: true, note: '故障自动切换：请求别名 petro-main → 备用 petro-lite 应答' }
+      fallback: true, note: '故障自动切换：请求别名 petro-main → 备用 petro-lite 应答', caller: 'gateway.drill' }
   ],
+  total: 2, page: 1, page_size: 15
+}
+// 端点 8 聚合读面（wire snake 形——caller 维度两桶＋存量 unattributed）
+const SPEND_STATS = {
+  group_by: 'caller', range: '30d',
+  items: [
+    { caller: 'chat.retrieval.answer', calls: 12, fallback_calls: 1, input_tokens: 24000, output_tokens: 13000, cost_yuan: 0.031 },
+    { caller: 'gateway.drill', calls: 1, fallback_calls: 1, input_tokens: 1010, output_tokens: 590, cost_yuan: 0.0038 },
+    { caller: 'unattributed', calls: 2, fallback_calls: 0, input_tokens: 220, output_tokens: 110, cost_yuan: 0.0011 }
+  ],
+  sums: { calls: 15, fallback_calls: 2, cost_yuan: 0.0359 },
+  total: 3, page: 1, page_size: 15
+}
+// day 维度（趋势时序升序全量）
+const SPEND_STATS_DAY = {
+  group_by: 'day', range: '30d',
+  items: [
+    { day: '2026-09-27', calls: 8, fallback_calls: 0, input_tokens: 12000, output_tokens: 6000, cost_yuan: 0.015 },
+    { day: '2026-09-28', calls: 7, fallback_calls: 2, input_tokens: 13230, output_tokens: 7700, cost_yuan: 0.0209 }
+  ],
+  sums: { calls: 15, fallback_calls: 2, cost_yuan: 0.0359 },
   total: 2, page: 1, page_size: 15
 }
 const DRILLS_HISTORY = [
@@ -87,7 +117,7 @@ const DRILL_DONE = {
     ledger_row: {
       id: 'call-8c33', time: '2026-09-28T10:05:00', model_key: 'backup', alias: 'petro-lite',
       input_tokens: 1010, output_tokens: 590, first_ms: 1300, total_ms: 3800, cost_yuan: 0.0038,
-      fallback: true, note: '故障自动切换'
+      fallback: true, note: '故障自动切换', caller: 'gateway.drill'
     }
   }
 }
@@ -95,10 +125,10 @@ const DRILL_DONE = {
 const json = (status, body) => ({ ok: status >= 200 && status < 300, status, text: async () => JSON.stringify(body) })
 
 /**
- * fetch 级 mock 路由（/api/gateway/* 七端点；overrides 按 URL 注入行为/错误）。
+ * fetch 级 mock 路由（/api/gateway/* 八端点；overrides 按 URL 注入行为/错误）。
  */
 function apiRouter(overrides = {}) {
-  const calls = { spend: 0, drills: 0, drillGet: 0, post: 0 }
+  const calls = { spend: 0, stats: [], drills: 0, drillGet: 0, post: 0 }
   fetchMock.mockImplementation(async (url, init) => {
     const u = String(url)
     const method = init?.method || 'GET'
@@ -108,6 +138,10 @@ function apiRouter(overrides = {}) {
     if (u.includes('/api/gateway/config')) {
       if (method === 'PUT') return overrides.putConfig ? overrides.putConfig(init) : json(200, CONFIG_SAVED)
       return overrides.getConfig ? overrides.getConfig() : json(200, CONFIG)
+    }
+    if (u.includes('/api/gateway/spend-stats')) {
+      calls.stats.push(u)
+      return overrides.stats ? overrides.stats(u) : json(200, SPEND_STATS)
     }
     if (u.includes('/api/gateway/spend-logs')) {
       calls.spend += 1
@@ -153,11 +187,15 @@ describe('D1 落地页 · 渲染（端点 1：页头徽标＋模型线路）', (
     expect(await screen.findByText('petro-main')).toBeTruthy()
     expect(screen.getByText('备用')).toBeTruthy() // 角色列
     expect(await screen.findByText('模型线路（2）')).toBeTruthy()
-    expect(screen.getByText('调用参数（4）')).toBeTruthy()
+    expect(screen.getByText('调用参数（6）')).toBeTruthy()
 
     // client 底座：X-Dev-User 身份桩注入
     const modelsCall = fetchMock.mock.calls.find(c => String(c[0]).includes('/api/gateway/models'))
     expect(modelsCall[1].headers['X-Dev-User']).toBe('aqiang')
+
+    // 观测（Langfuse）外链按钮（D1 v0.2 专节——页头外链，默认 :3000）
+    const observe = await screen.findByTestId('observe-link')
+    expect(observe.href).toContain('localhost:3000')
   })
 
   it('degraded 状态徽标（页头徽标消费 degraded）', async () => {
@@ -216,16 +254,71 @@ describe('D1 落地页 · 记账流水（端点 4：分页信封＋snake→camel
   })
 })
 
-describe('D1 落地页 · 配置读写（端点 2/3：表单对应「文件里的一行」）', () => {
-  it('编辑参数 → dirty → 保存 PUT snake_case → 服务端快照回显＋热加载提示', async () => {
+describe('D1 落地页 · 花费聚合页签（端点 8——D5 撤页归并真接）', () => {
+  it('流水/聚合 Segmented 切换 → 端点 8 真接（默认 caller+30d）＋caller 人话标签＋unattributed 桶＋期间合计行', async () => {
+    const calls = apiRouter()
+    render(<D1Landing />)
+    fireEvent.click(await screen.findByText('记账流水（2）'))
+    await screen.findByText('call-8c31')
+
+    fireEvent.click(screen.getByText('聚合'))
+    await waitFor(() => expect(calls.stats.length).toBeGreaterThanOrEqual(1))
+    const statsUrl = calls.stats[0]
+    expect(statsUrl).toContain('group_by=caller')
+    expect(statsUrl).toContain('range=30d')
+    expect(statsUrl).toContain('pageSize=15')
+
+    // caller 维度行：人话标签＋mono 原值＋存量 unattributed 桶
+    expect(await screen.findByText('问一问 · 检索问答')).toBeTruthy()
+    expect(screen.getByText('chat.retrieval.answer')).toBeTruthy()
+    expect(screen.getByText('未归因（存量流水）')).toBeTruthy()
+    // 期间合计＝sums（窗口全量，不随分页截断——前端拼装展示串）
+    expect(await screen.findByText(/期间合计：15 次调用 · 故障切换 2 次 · 花费 ¥0\.0359/)).toBeTruthy()
+  })
+
+  it('维度切到按日趋势 → 重拉 group_by=day＋趋势列渲染（时序升序行）', async () => {
+    const calls = apiRouter({ stats: u => (String(u).includes('group_by=day') ? json(200, SPEND_STATS_DAY) : json(200, SPEND_STATS)) })
+    render(<D1Landing />)
+    fireEvent.click(await screen.findByText('记账流水（2）'))
+    await screen.findByText('call-8c31')
+    fireEvent.click(screen.getByText('聚合'))
+    await screen.findByText('问一问 · 检索问答')
+
+    fireEvent.mouseDown(screen.getByText('按调用方'))
+    fireEvent.click(await screen.findByText('按日趋势'))
+    await waitFor(() => {
+      const last = calls.stats[calls.stats.length - 1]
+      expect(last).toContain('group_by=day')
+    })
+    expect(await screen.findByText('2026-09-27')).toBeTruthy()  // 时序升序首行
+    expect(screen.getByText('2026-09-28')).toBeTruthy()
+    expect(screen.getByText('趋势')).toBeTruthy()               // day 维度趋势列在场
+  })
+
+  it('聚合拉取失败（500）→ 内联 Alert 常驻（失败态≠空态）', async () => {
+    apiRouter({ stats: () => json(500, { code: 'gateway_internal', message: '聚合读取失败', trace_id: 'call-agg0' }) })
+    render(<D1Landing />)
+    fireEvent.click(await screen.findByText('记账流水（2）'))
+    await screen.findByText('call-8c31')
+    fireEvent.click(screen.getByText('聚合'))
+    expect(await screen.findByText(/花费聚合拉取失败——下表不是最新数据/)).toBeTruthy()
+    expect(screen.getByText(/聚合读取失败 · code gateway_internal · trace call-agg0/)).toBeTruthy()
+    expect(screen.queryByText(/期间合计：/)).toBeNull()  // 失败态不显示 sums
+  })
+})
+
+describe('D1 落地页 · 配置读写（端点 2/3 v0.2：参数六件——含预算双阈值）', () => {
+  it('编辑参数 → dirty → 保存 PUT snake_case（六件）→ 服务端快照回显＋热加载提示', async () => {
     apiRouter()
     render(<D1Landing />)
-    fireEvent.click(await screen.findByText('调用参数（4）'))
+    fireEvent.click(await screen.findByText('调用参数（6）'))
 
-    // 初始：保存禁用（无更改）；yaml 为服务端全文
+    // 初始：保存禁用（无更改）；yaml 为服务端全文；预算双阈值字段在场
     const saveBtn = await screen.findByRole('button', { name: /保存设置/ })
     expect(saveBtn.disabled).toBe(true)
     expect(await screen.findByText(/allowed_fails: 2/)).toBeTruthy()
+    expect(screen.getByText('单次调用成本上限（元 · 默认 ¥0.05）')).toBeTruthy()
+    expect(screen.getByText('累计预算 GATEWAY_BUDGET（元/月）')).toBeTruthy()
 
     // 改第一格 allowedFails 2 → 5
     const firstInput = screen.getAllByRole('spinbutton')[0]
@@ -240,7 +333,10 @@ describe('D1 落地页 · 配置读写（端点 2/3：表单对应「文件里�
     const putCall = fetchMock.mock.calls.find(c => String(c[0]).includes('/api/gateway/config') && c[1]?.method === 'PUT')
     expect(putCall).toBeTruthy()
     expect(JSON.parse(putCall[1].body)).toEqual({
-      params: { allowed_fails: 5, cooldown_seconds: 60, num_retries: 3, request_timeout: 30 }
+      params: {
+        allowed_fails: 5, cooldown_seconds: 60, num_retries: 3, request_timeout: 30,
+        per_call_cost_limit_yuan: 0.05, gateway_budget_yuan_per_month: 800
+      }
     })
     // 保存后 dirty 清零 → 按钮复归禁用
     expect(screen.getByRole('button', { name: /保存设置/ }).disabled).toBe(true)
@@ -254,7 +350,7 @@ describe('D1 落地页 · 配置读写（端点 2/3：表单对应「文件里�
       trace_id: 'call-err1'
     }) })
     render(<D1Landing />)
-    fireEvent.click(await screen.findByText('调用参数（4）'))
+    fireEvent.click(await screen.findByText('调用参数（6）'))
     await screen.findByRole('button', { name: /保存设置/ })
 
     fireEvent.change(screen.getAllByRole('spinbutton')[0], { target: { value: '5' } })
@@ -272,7 +368,7 @@ describe('D1 落地页 · 失败态内联（P0-07 审查 P3：失败态≠空态
   it('配置拉取失败（GET config 500）→ 调用参数页签内联 Alert 常驻（不伪装成空态）', async () => {
     apiRouter({ getConfig: () => json(500, { code: 'gateway_internal', message: '配置读取失败', trace_id: 'call-cfg0' }) })
     render(<D1Landing />)
-    fireEvent.click(await screen.findByText('调用参数（4）'))
+    fireEvent.click(await screen.findByText('调用参数（6）'))
     expect(await screen.findByText(/配置加载失败——调用参数暂不可编辑/)).toBeTruthy()
     // errText 拼装行：人话 message＋code＋trace 三段一体（对齐 models/保存错误路径）
     expect(screen.getByText(/配置读取失败 · code gateway_internal · trace call-cfg0/)).toBeTruthy()

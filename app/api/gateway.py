@@ -1,4 +1,4 @@
-"""api.gateway —— /api/gateway 路由族（D1-模型与线路.md 合同，7 条路由）。
+"""api.gateway —— /api/gateway 路由族（D1-模型与线路.md 合同，8 条路由）。
 
 形状注记：
 - 响应字段按 00 §14-R1 裁决统一 snake_case（D1 册现 camelCase，本端点即
@@ -6,21 +6,29 @@
   演练 result 内的 ledgerRow 同批落 ledger_row（同 spend-logs item 形）。
 - 权限：D 组页面仅「平台运维」可见（D1 权限行）——组闸复用 SettingsActor
   （设置中心组）；未认证 401、无权 403（错误包 00 §3.1，装配在 errors.py）。
-- 数据形状红线（D1 端点 4）：token 两个整数、耗时毫秒整数、花费元数值——
+- 数据形状红线（D1 端点 4/8）：token 两个整数、耗时毫秒整数、花费元数值——
   禁返回拼接好的展示串，格式化一律前端做。
 - 演练节奏（~600ms/步）由服务端任务驱动，前端只轮询（00 §5.2：演示动画
   不入合同）。
+- 端点 8（D5 撤页归并批）：聚合/趋势读面＝账本聚合投影，sums 为窗口全量
+  合计不随分页截断；caller/model 降序分页，day/month 时序升序全量。
 """
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
 from app.api.deps import GatewayDep, SecurityDep, SettingsActor
-from app.domains.gateway import GatewayParams, SpendFilter, SpendView
+from app.domains.gateway import (
+    BudgetThresholds,
+    GatewayParams,
+    SpendFilter,
+    SpendStatsFilter,
+    SpendView,
+)
 from app.domains.security import AuditRow
 from app.infra.clock import ISO_FMT
 
@@ -71,16 +79,18 @@ async def list_models(
     )
 
 
-# ---------- 端点 2/3：GET · PUT /config ----------
+# ---------- 端点 2/3：GET · PUT /config（D1 v0.2：params 并入预算双阈值六件） ----------
 
 
 class GatewayParamsBody(BaseModel):
-    """调用参数四件（数值边界校验在域——400 错误体带字段与允许区间）。"""
+    """调用参数六件（四 yaml 参数＋预算双阈值；数值边界校验在域——400 错误体带字段与区间）。"""
 
     allowed_fails: int
     cooldown_seconds: int
     num_retries: int
     request_timeout: int
+    per_call_cost_limit_yuan: float  # 单次调用成本上限（元）——>=0，默认 0.05（F2 改注）
+    gateway_budget_yuan_per_month: float  # 累计预算 GATEWAY_BUDGET（元/月）——>=0
 
 
 class ConfigSaveBody(BaseModel):
@@ -92,14 +102,26 @@ class ConfigResponse(BaseModel):
     yaml: str
 
 
+def _params_body(view: Any) -> GatewayParamsBody:
+    """服务端快照 → DTO（yaml 四参数＋预算双阈值六件同框——D1 v0.2 形状）。"""
+    return GatewayParamsBody(
+        allowed_fails=view.params.allowed_fails,
+        cooldown_seconds=view.params.cooldown_seconds,
+        num_retries=view.params.num_retries,
+        request_timeout=view.params.request_timeout,
+        per_call_cost_limit_yuan=view.budget.per_call_cost_limit_yuan,
+        gateway_budget_yuan_per_month=view.budget.gateway_budget_yuan_per_month,
+    )
+
+
 @router.get("/config", response_model=ConfigResponse)
 async def get_config(
     service: GatewayDep,
     _actor: SettingsActor,
 ) -> ConfigResponse:
-    """读取调用参数＋配置文件全文（密钥保持 ${VAR} 占位符不落明文）。"""
-    view = service.gateway_config()
-    return ConfigResponse(params=GatewayParamsBody(**view.params.as_mapping()), yaml=view.yaml)
+    """读取调用参数＋预算双阈值＋配置文件全文（密钥保持 ${VAR} 占位符不落明文）。"""
+    view = await service.gateway_config()
+    return ConfigResponse(params=_params_body(view), yaml=view.yaml)
 
 
 @router.put("/config", response_model=ConfigResponse)
@@ -109,14 +131,22 @@ async def save_config(
     security: SecurityDep,
     actor: SettingsActor,
 ) -> ConfigResponse:
-    """保存调用参数（档①直改即生效——写回 models.yaml 并热加载；快照为唯一真值）。"""
-    view = service.save_gateway_config(
+    """保存调用参数＋预算双阈值（档①直改即生效——写回 models.yaml 并热加载；快照为唯一真值）。
+
+    预算双阈值＝熔断判据输入（F2 改注）：直接保存即生效、对后续调用生效不回溯；
+    熔断语义不变（触顶改路由降级组 petro-lite、改路由不拒绝、单向置位）。
+    """
+    view = await service.save_gateway_config(
         GatewayParams(
             allowed_fails=body.params.allowed_fails,
             cooldown_seconds=body.params.cooldown_seconds,
             num_retries=body.params.num_retries,
             request_timeout=body.params.request_timeout,
-        )
+        ),
+        BudgetThresholds(
+            per_call_cost_limit_yuan=body.params.per_call_cost_limit_yuan,
+            gateway_budget_yuan_per_month=body.params.gateway_budget_yuan_per_month,
+        ),
     )
     await security.audit(  # B12 横切留痕（写操作）——经唯一写口，gateway 不依赖 security
         AuditRow(
@@ -126,11 +156,13 @@ async def save_config(
                 f"网关调用参数保存：allowed_fails={view.params.allowed_fails}, "
                 f"cooldown_seconds={view.params.cooldown_seconds}, "
                 f"num_retries={view.params.num_retries}, "
-                f"request_timeout={view.params.request_timeout}"
+                f"request_timeout={view.params.request_timeout}, "
+                f"per_call_cost_limit_yuan={view.budget.per_call_cost_limit_yuan}, "
+                f"gateway_budget_yuan_per_month={view.budget.gateway_budget_yuan_per_month}"
             ),
         )
     )
-    return ConfigResponse(params=GatewayParamsBody(**view.params.as_mapping()), yaml=view.yaml)
+    return ConfigResponse(params=_params_body(view), yaml=view.yaml)
 
 
 # ---------- 端点 4：GET /spend-logs ----------
@@ -150,6 +182,7 @@ class SpendLogItem(BaseModel):
     cost_yuan: float
     fallback: bool
     note: str
+    caller: str | None = None  # 调用方归因（D1 v0.2；存量行可空）
 
 
 class SpendLogsResponse(BaseModel):
@@ -172,6 +205,7 @@ def _to_spend_item(view: SpendView) -> SpendLogItem:
         cost_yuan=view.cost_yuan,
         fallback=view.fallback,
         note=view.note,
+        caller=view.caller,
     )
 
 
@@ -193,6 +227,73 @@ async def list_spend_logs(
     )
     return SpendLogsResponse(
         items=[_to_spend_item(v) for v in result.items],
+        total=result.total,
+        page=result.page,
+        page_size=result.page_size,
+    )
+
+
+# ---------- 端点 8：GET /spend-stats（D5 撤页归并批——聚合/趋势读面） ----------
+
+
+class SpendStatsResponse(BaseModel):
+    """聚合读面（items 行形状随 group_by 切换：caller 值/model_key＋alias/day/month；
+
+    response_model_exclude_none 剥未用维度键——合同 DTO 只携带本维度分组键）。
+    """
+
+    group_by: str
+    range: str
+    items: list[dict[str, Any]]
+    sums: dict[str, Any]
+    total: int
+    page: int
+    page_size: int
+
+
+def _stats_row(view: Any, group_by: str) -> dict[str, Any]:
+    """聚合行 → DTO（维度分组键名照合同：caller/model_key＋alias/day/month）。"""
+    row: dict[str, Any] = {
+        "calls": view.calls,
+        "fallback_calls": view.fallback_calls,
+        "input_tokens": view.input_tokens,
+        "output_tokens": view.output_tokens,
+        "cost_yuan": view.cost_yuan,
+    }
+    if group_by == "caller":
+        row["caller"] = view.bucket
+    elif group_by == "model":
+        row["model_key"] = view.bucket
+        row["alias"] = view.alias
+    elif group_by == "day":
+        row["day"] = view.bucket
+    else:
+        row["month"] = view.bucket
+    return row
+
+
+@router.get("/spend-stats", response_model=SpendStatsResponse, response_model_exclude_none=True)
+async def get_spend_stats(
+    service: GatewayDep,
+    _actor: SettingsActor,
+    group_by: Annotated[str, Query()] = "caller",
+    range: Annotated[str, Query()] = "all",
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, alias="pageSize")] = DEFAULT_PAGE_SIZE,
+) -> SpendStatsResponse:
+    """花费聚合/趋势读面（caller/model 花费降序分页；day/month 升序全量；sums 不截断）。"""
+    result = await service.spend_stats(
+        SpendStatsFilter(group_by=group_by, range=range), page=page, page_size=page_size
+    )
+    return SpendStatsResponse(
+        group_by=result.group_by,
+        range=result.range,
+        items=[_stats_row(v, result.group_by) for v in result.items],
+        sums={
+            "calls": result.sums.calls,
+            "fallback_calls": result.sums.fallback_calls,
+            "cost_yuan": result.sums.cost_yuan,
+        },
         total=result.total,
         page=result.page,
         page_size=result.page_size,

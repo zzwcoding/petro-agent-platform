@@ -218,11 +218,14 @@ def test_get_config_returns_params_and_yaml_fulltext(client: TestClient) -> None
     resp = client.get("/api/gateway/config")
     assert resp.status_code == 200
     body = resp.json()
+    # D1 v0.2：params 六件（四 yaml 参数＋预算双阈值——单例行缺省自动种子合同默认值）
     assert body["params"] == {
         "allowed_fails": 2,
         "cooldown_seconds": 60,
         "num_retries": 3,
         "request_timeout": 30,
+        "per_call_cost_limit_yuan": 0.05,
+        "gateway_budget_yuan_per_month": 800.0,
     }
     assert "gateway:" in body["yaml"] and "allowed_fails: 2" in body["yaml"]
 
@@ -233,15 +236,39 @@ def test_put_config_saves_hot_reloads_and_audits(client: TestClient, models_yaml
         json={"params": {
             "allowed_fails": 4, "cooldown_seconds": 90,
             "num_retries": 2, "request_timeout": 20,
+            "per_call_cost_limit_yuan": 0.1, "gateway_budget_yuan_per_month": 500,
         }},
     )
     assert resp.status_code == 200
     assert resp.json()["params"]["allowed_fails"] == 4  # 返回快照为唯一真值
+    assert resp.json()["params"]["per_call_cost_limit_yuan"] == 0.1  # 预算双阈值随保存回显
+    assert resp.json()["params"]["gateway_budget_yuan_per_month"] == 500.0
     text = models_yaml.read_text(encoding="utf-8")
     assert "allowed_fails: 4" in text and "cooldown_seconds: 90" in text  # 写回文件
-    # B12 横切留痕：config 保存写一条审计（唯一写口；默认角色阿强）
+    # 预算双阈值落单例行（判据 complete 现读——保存即对后续调用生效）
+    import sqlite3
+
+    con = sqlite3.connect(models_yaml.parent / "gateway-api.db")
+    try:
+        row = con.execute(
+            "SELECT per_call_cost_limit_yuan, gateway_budget_yuan_per_month "
+            "FROM gateway_budget_config"
+        ).fetchone()
+        # B12 横切留痕：config 保存写一条审计（唯一写口；默认角色阿强）——
+        # 审计读面不出正文（D3），content 断言直查存储
+        audit_content = con.execute(
+            "SELECT content FROM audit_log WHERE action = 'gateway.config.saved' "
+            "ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+    finally:
+        con.close()
+    assert row is not None and float(row[0]) == 0.1 and float(row[1]) == 500.0
+    assert audit_content is not None and "per_call_cost_limit_yuan=0.1" in audit_content[0]
+    assert "gateway_budget_yuan_per_month=500.0" in audit_content[0]  # 预算双阈值进审计
     logs = client.get("/api/security/audit-logs").json()["items"]
-    assert any(item["action"] == "gateway.config.saved" for item in logs)
+    assert [item["action"] for item in logs if item["action"] == "gateway.config.saved"] == [
+        "gateway.config.saved"
+    ]
 
 
 def test_put_config_out_of_range_returns_400_with_field_and_range(client: TestClient) -> None:
@@ -250,12 +277,31 @@ def test_put_config_out_of_range_returns_400_with_field_and_range(client: TestCl
         json={"params": {
             "allowed_fails": 99, "cooldown_seconds": 60,
             "num_retries": 3, "request_timeout": 30,
+            "per_call_cost_limit_yuan": 0.05, "gateway_budget_yuan_per_month": 800,
         }},
     )
     assert resp.status_code == 400
     body = resp.json()
     assert body["code"] == "gateway_param_invalid"
     assert body["detail"]["violations"] == [{"field": "params.allowed_fails", "constraint": "1–10"}]
+
+
+def test_put_config_negative_budget_returns_400_with_nonnegative_range(client: TestClient) -> None:
+    """预算双阈值 >=0（D1 v0.2）：负数 400 带字段与区间。"""
+    resp = client.put(
+        "/api/gateway/config",
+        json={"params": {
+            "allowed_fails": 2, "cooldown_seconds": 60,
+            "num_retries": 3, "request_timeout": 30,
+            "per_call_cost_limit_yuan": -0.01, "gateway_budget_yuan_per_month": 800,
+        }},
+    )
+    assert resp.status_code == 400
+    body = resp.json()
+    assert body["code"] == "gateway_param_invalid"
+    assert body["detail"]["violations"] == [
+        {"field": "params.per_call_cost_limit_yuan", "constraint": ">=0"}
+    ]
 
 
 # ---------- 端点 4：GET /spend-logs（分页/筛选/数据形状红线） ----------
@@ -268,16 +314,19 @@ async def spend_seeded(gateway_db: ConnectionManager) -> None:
             id="call-8c31", time=datetime(2026, 9, 29, 9, 52, 30),
             model_key="main", alias="petro-main", input_tokens=2140, output_tokens=1380,
             first_ms=1000, total_ms=4000, cost_yuan=0.00628, fallback=False, note="",
+            caller="chat.retrieval.answer",  # 归因矩阵：问答检索路
         ),
         SpendRecord(
             id="call-9d02", time=datetime(2026, 9, 29, 9, 10, 0),
             model_key="backup", alias="petro-lite", input_tokens=500, output_tokens=300,
             first_ms=2400, total_ms=2600, cost_yuan=0.0014, fallback=True, note="故障演练流水",
+            caller="gateway.drill",  # 归因矩阵：演练
         ),
         SpendRecord(
             id="call-1a77", time=datetime(2026, 9, 20, 8, 0, 0),
             model_key="main", alias="petro-main", input_tokens=10, output_tokens=5,
             first_ms=800, total_ms=900, cost_yuan=0.000025, fallback=False, note="上周",
+            caller=None,  # 归因矩阵：存量未归因（聚合归 unattributed 桶）
         ),
     ]
     async with gateway_db.session() as session:
@@ -297,8 +346,9 @@ def test_spend_logs_shape_red_line_raw_numbers(client: TestClient, spend_seeded:
     assert isinstance(item["cost_yuan"], float)  # 元数值——禁拼好的展示串
     assert set(item) == {
         "id", "time", "model_key", "alias", "input_tokens", "output_tokens",
-        "first_ms", "total_ms", "cost_yuan", "fallback", "note",
+        "first_ms", "total_ms", "cost_yuan", "fallback", "note", "caller",
     }
+    assert item["caller"] == "chat.retrieval.answer"  # caller 归因字段（D1 v0.2）
 
 
 def test_spend_logs_filters(client: TestClient, spend_seeded: None) -> None:
@@ -314,6 +364,90 @@ def test_spend_logs_filters(client: TestClient, spend_seeded: None) -> None:
         assert [i["id"] for i in kw2["items"]] == ["call-9d02"]
         assert client.get("/api/gateway/spend-logs?model=bogus").status_code == 400
         assert client.get("/api/gateway/spend-logs?range=30d").status_code == 400
+
+
+# ---------- 端点 8：GET /spend-stats（D5 归并——三维度/sums 不截断/range/枚举 400） ----------
+
+
+def test_spend_stats_caller_dimension_cost_desc_with_unattributed(
+    client: TestClient, spend_seeded: None
+) -> None:
+    with freeze("2026-09-29T10:00:00"):
+        resp = client.get("/api/gateway/spend-stats?group_by=caller&range=all")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["group_by"] == "caller" and body["range"] == "all"
+    assert [(i["caller"], i["calls"], i["fallback_calls"]) for i in body["items"]] == [
+        ("chat.retrieval.answer", 1, 0),  # cost 0.00628 降序居首
+        ("gateway.drill", 1, 1),
+        ("unattributed", 1, 0),  # 存量 caller 为空 → 归 unattributed 桶
+    ]
+    assert body["total"] == 3
+    assert body["sums"] == {"calls": 3, "fallback_calls": 1, "cost_yuan": pytest.approx(0.007705)}
+    # caller 维度行无 model_key/day/month 冗余键（response_model_exclude_none 剥维）
+    assert set(body["items"][0]) == {
+        "caller", "calls", "fallback_calls", "input_tokens", "output_tokens", "cost_yuan",
+    }
+
+
+def test_spend_stats_sums_not_truncated_by_pagination(
+    client: TestClient, spend_seeded: None
+) -> None:
+    with freeze("2026-09-29T10:00:00"):
+        resp = client.get("/api/gateway/spend-stats?group_by=caller&range=all&pageSize=1")
+    body = resp.json()
+    assert len(body["items"]) == 1  # 分页截断 items
+    assert body["total"] == 3  # total＝分组数（不随分页）
+    assert body["sums"]["calls"] == 3  # sums＝窗口全量合计（不随分页截断——合同）
+    assert body["sums"]["cost_yuan"] == pytest.approx(0.007705)
+
+
+def test_spend_stats_model_day_month_dimensions(client: TestClient, spend_seeded: None) -> None:
+    with freeze("2026-09-29T10:00:00"):
+        model_body = client.get("/api/gateway/spend-stats?group_by=model").json()
+        assert [(i["model_key"], i["alias"], i["calls"]) for i in model_body["items"]] == [
+            ("main", "petro-main", 2),  # cost 0.0063 降序居首
+            ("backup", "petro-lite", 1),
+        ]
+        assert set(model_body["items"][0]) == {
+            "model_key", "alias", "calls", "fallback_calls",
+            "input_tokens", "output_tokens", "cost_yuan",
+        }
+        day_body = client.get("/api/gateway/spend-stats?group_by=day").json()
+        assert [i["day"] for i in day_body["items"]] == ["2026-09-20", "2026-09-29"]  # 时序升序全量
+        assert day_body["total"] == 2 and day_body["sums"]["calls"] == 3
+        month_body = client.get("/api/gateway/spend-stats?group_by=month").json()
+        assert [i["month"] for i in month_body["items"]] == ["2026-09"]  # 升序（≤12 行）
+        assert month_body["sums"]["fallback_calls"] == 1
+
+
+def test_spend_stats_range_window_differs_from_endpoint4(
+    client: TestClient, spend_seeded: None
+) -> None:
+    with freeze("2026-09-29T10:00:00"):
+        week = client.get("/api/gateway/spend-stats?group_by=caller&range=7d").json()
+        assert [i["caller"] for i in week["items"]] == ["chat.retrieval.answer", "gateway.drill"]
+        assert week["sums"]["calls"] == 2  # 9-20 行出窗（统计窗最小粒度 7 天，无 today）
+        month = client.get("/api/gateway/spend-stats?group_by=day&range=30d").json()
+        assert month["total"] == 2
+        twelve = client.get("/api/gateway/spend-stats?group_by=month&range=12m").json()
+        assert twelve["total"] == 1 and twelve["sums"]["calls"] == 3
+
+
+def test_spend_stats_enum_out_of_range_400_with_legal_enums(
+    client: TestClient, spend_seeded: None
+) -> None:
+    bad_group = client.get("/api/gateway/spend-stats?group_by=well")
+    assert bad_group.status_code == 400
+    assert bad_group.json()["code"] == "gateway_param_invalid"
+    assert bad_group.json()["detail"]["violations"] == [
+        {"field": "group_by", "constraint": "caller|model|day|month"}
+    ]
+    bad_range = client.get("/api/gateway/spend-stats?range=today")  # 端点 4 族值不通用
+    assert bad_range.status_code == 400
+    assert bad_range.json()["detail"]["violations"] == [
+        {"field": "range", "constraint": "all|7d|30d|12m"}
+    ]
 
 
 # ---------- 端点 5/6/7：演练三连（202 受理/轮询/历史；409 重入；404 未知） ----------

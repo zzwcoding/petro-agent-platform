@@ -1,8 +1,9 @@
 """domains.gateway.service —— 网关域服务：编排 llm_client seam 与 store（语义在 domain.py）。
 
 公开面照 98 §3.12 卡 D1 面：complete / models / gateway_config /
-save_gateway_config / spend_logs / start_drill / drill / drill_history。
-（D5 面 10 方法属阶段 1 D5 页票——本票不越界。）
+save_gateway_config / spend_logs / spend_stats（D1 v0.2 端点 8——D5 归并）/
+start_drill / drill / drill_history。（D5 面 10 方法随 D5 撤页归并收编——
+聚合读面归端点 8，预算双阈值读写归端点 2/3 config 族。）
 
 运行态与持久态分工：
 - RouterState（冷却/熔断位）＝进程内运行态（熔断位单向置位不自动恢复；
@@ -197,6 +198,7 @@ class GatewayService:
             cost_yuan=cost,
             fallback=served_alias != requested,
             note=d.default_note(caller, params.get("note")),
+            caller=caller,  # 调用方归因落列（D1 v0.2 端点 4/8——complete 受理即归因）
             served_model=answer.model,
             attempted_fallbacks=attempted or None,
         )
@@ -254,9 +256,10 @@ class GatewayService:
             status=status,
         )
 
-    def gateway_config(self) -> d.GatewayParamsView:
-        """D1 端点 2：读取调用参数＋配置文件全文（密钥保持 ${VAR} 占位符）。"""
+    async def gateway_config(self) -> d.GatewayParamsView:
+        """D1 端点 2：读取调用参数＋预算双阈值＋配置文件全文（密钥保持 ${VAR} 占位符）。"""
         spec = get_models_config().gateway
+        per_call, monthly = await self._budget.limits()
         return d.GatewayParamsView(
             params=d.GatewayParams(
                 allowed_fails=spec.allowed_fails,
@@ -264,15 +267,23 @@ class GatewayService:
                 num_retries=spec.num_retries,
                 request_timeout=spec.request_timeout,
             ),
+            budget=d.BudgetThresholds(
+                per_call_cost_limit_yuan=per_call,
+                gateway_budget_yuan_per_month=monthly,
+            ),
             yaml=read_models_yaml_text(self._config_path),
         )
 
-    def save_gateway_config(self, params: d.GatewayParams) -> d.GatewayParamsView:
-        """D1 端点 3：校验→写回 models.yaml gateway 段→热加载→返回保存后快照。
+    async def save_gateway_config(
+        self, params: d.GatewayParams, budget: d.BudgetThresholds
+    ) -> d.GatewayParamsView:
+        """D1 端点 3：校验→写回 models.yaml gateway 段→热加载；预算双阈值落单例行。
 
-        生效语义（00 §13 档①直改即生效）：对后续调用生效、不回溯在途；
-        热加载失败即抛 ConfigWriteError（api 层映射 500 需回滚提示）。
+        生效语义（00 §13 档①直改即生效）：对后续调用生效、不回溯在途；预算
+        双阈值直接保存即生效（D1 v0.2——complete 每次现读判据）；热加载失败
+        即抛 ConfigWriteError（api 层映射 500 需回滚提示）。
         """
+        validated_budget = d.BudgetThresholds.validated(budget.as_mapping())
         validated = d.GatewayParams.validated(params.as_mapping())
         try:
             spec: GatewayParamsSpec = upsert_gateway_params(
@@ -282,11 +293,19 @@ class GatewayService:
             # 写失败与热加载失败（yaml 坏/模型校验不过）同收口——500 需回滚提示；
             # 原子替换下文件仍是旧全文（P0-05 审查收口），可安全回退重试
             raise d.ConfigWriteError(f"配置写回失败：{exc}") from exc
+        await self._budget.save(
+            validated_budget.per_call_cost_limit_yuan,
+            validated_budget.gateway_budget_yuan_per_month,
+        )
+        per_call, monthly = await self._budget.limits()  # 保存后快照为唯一真值
         return d.GatewayParamsView(params=d.GatewayParams(
             allowed_fails=spec.allowed_fails,
             cooldown_seconds=spec.cooldown_seconds,
             num_retries=spec.num_retries,
             request_timeout=spec.request_timeout,
+        ), budget=d.BudgetThresholds(
+            per_call_cost_limit_yuan=per_call,
+            gateway_budget_yuan_per_month=monthly,
         ), yaml=read_models_yaml_text(self._config_path))
 
     async def spend_logs(
@@ -303,6 +322,18 @@ class GatewayService:
             total=result.total,
             page=result.page,
             page_size=result.page_size,
+        )
+
+    async def spend_stats(
+        self,
+        stats_filter: d.SpendStatsFilter,
+        *,
+        page: int = 1,
+        page_size: int = 15,
+    ) -> d.SpendStatsPage:
+        """D1 端点 8（D5 归并）：花费聚合/趋势读面——账本唯一真源的聚合投影。"""
+        return await self._spend.stats(
+            stats_filter.validated(), page=page, page_size=page_size
         )
 
     # ---------- 故障演练（D1 端点 5/6/7——演练即真实流量） ----------

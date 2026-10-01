@@ -13,7 +13,10 @@
   不切；per-attempt 超时；熔断触顶＝改路由不拒绝（降级组 petro-lite）、
   在途照跑完、进程生命周期内单向置位不自动恢复。
 - D5-追踪与花费.md §8/9（阈值合同值，判据消费方＝本域 complete）：双阈值
-  ＝单次 0.05 元＋累计 800 元/月（GATEWAY_BUDGET）。
+  ＝单次 0.05 元＋累计 800 元/月（GATEWAY_BUDGET）；D1 v0.2（D5 撤页归并批）
+  预算双阈值并入端点 2/3 config 族（>=0 校验、直接保存即生效、对后续调用生效
+  不回溯）＋端点 8 spend-stats 聚合读面（caller 归因列聚合基础，存量可空归
+  unattributed 桶）。
 - 00 §5（异步任务双态 running|done、节点四态 wait|process|finish|error）、
   §13 档①（config 直改即生效——对后续调用生效，不回溯在途）、§14-R1
   （字段 snake_case——本端点即真实接线）。
@@ -24,7 +27,6 @@ B1：本文件不 import fastapi/starlette/DB/LLM——路由状态机、成本�
 
 from __future__ import annotations
 
-import re
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -110,9 +112,14 @@ class GatewayParams:
 
 @dataclass(frozen=True, slots=True)
 class GatewayParamsView:
-    """配置读写快照（D1 端点 2/3：params＋yaml 全文；返回快照为唯一真值）。"""
+    """配置读写快照（D1 端点 2/3：params（四 yaml 参数）＋预算双阈值＋yaml 全文；快照为唯一真值）。
+
+    预算双阈值（D1 v0.2 扩段）不入 models.yaml——DB 单例行承载（99 §2.13），
+    熔断判据每次 complete 现读，保存即对后续调用生效。
+    """
 
     params: GatewayParams
+    budget: BudgetThresholds
     yaml: str  # models.yaml 全文（密钥保持 ${VAR} 占位符，不落明文）
 
 
@@ -155,6 +162,7 @@ class SpendView:
     cost_yuan: float
     fallback: bool  # True＝本次由备用模型应答（主用冷却期内）
     note: str
+    caller: str | None = None  # 调用方归因（D1 v0.2：枚举不封闭；存量行可空→聚合归 unattributed）
 
 
 @dataclass(frozen=True, slots=True)
@@ -191,6 +199,68 @@ class SpendLogPage:
     page_size: int
 
 
+# ---------- 花费聚合/趋势（D1 端点 8——D5 撤页归并批；账本唯一真源聚合投影） ----------
+
+STATS_GROUP_BYS: tuple[str, ...] = ("caller", "model", "day", "month")
+STATS_RANGES: tuple[str, ...] = ("all", "7d", "30d", "12m")
+UNATTRIBUTED = "unattributed"  # 存量未归因流水（caller 为空）聚合桶名——D1 v0.2 合同值
+
+
+@dataclass(frozen=True, slots=True)
+class SpendStatsFilter:
+    """端点 8 筛选（group_by/range 与端点 4 的 model/range **不同族**——统计窗最小 7 天）。"""
+
+    group_by: str = "caller"
+    range: str = "all"  # all | 7d | 30d | 12m
+
+    def validated(self) -> SpendStatsFilter:
+        if self.group_by not in STATS_GROUP_BYS:
+            raise GatewayConfigError([("group_by", "|".join(STATS_GROUP_BYS))])
+        if self.range not in STATS_RANGES:
+            raise GatewayConfigError([("range", "|".join(STATS_RANGES))])
+        return self
+
+    def since(self, at: datetime) -> datetime | None:
+        """range → 时间下界（7d/30d＝N×24h；12m＝365d——mock RANGE_MS 同源口径；all＝不限）。"""
+        days = {"7d": 7, "30d": 30, "12m": 365}.get(self.range)
+        return None if days is None else at - timedelta(days=days)
+
+
+@dataclass(frozen=True, slots=True)
+class SpendStatsRow:
+    """聚合单行（bucket＝caller 值/model_key/day/month；alias 仅 model 维度承载）。"""
+
+    bucket: str
+    alias: str | None  # model 维度：与 model_list 同源的别名（账本行 alias 代表值）
+    calls: int
+    fallback_calls: int
+    input_tokens: int
+    output_tokens: int
+    cost_yuan: float
+
+
+@dataclass(frozen=True, slots=True)
+class SpendStatsSums:
+    """窗口合计（全量不随分页截断——页面「期间合计」行拼装）。"""
+
+    calls: int
+    fallback_calls: int
+    cost_yuan: float
+
+
+@dataclass(frozen=True, slots=True)
+class SpendStatsPage:
+    """聚合读面信封（caller/model 按 cost_yuan 降序分页；day/month 升序全量、分页忽略）。"""
+
+    group_by: str
+    range: str
+    items: list[SpendStatsRow]
+    sums: SpendStatsSums
+    total: int
+    page: int
+    page_size: int
+
+
 def new_call_id() -> str:
     """调用号（机器短 id 族 call-；D1 示例 call-8c31 同族，8 hex 保唯一 PK）。"""
     return f"call-{uuid.uuid4().hex[:8]}"
@@ -215,7 +285,15 @@ class AliasHealth:
 
 @dataclass
 class RouterState:
-    """别名健康表＋熔断位（进程生命周期内单向置位、不自动恢复——F2 改注合同值）。"""
+    """别名健康表＋熔断位（进程生命周期内单向置位、不自动恢复——F2 改注合同值）。
+
+    五信号统计源口径（D1 v0.2 专节登记，P1-10）：miss（检索落空）/ambiguous
+    （多候选澄清）/rewrite（改写重问）/error（报错）/feedback（用户反馈）五
+    信号的运行态计数，归 gateway 域运行时采集（complete 出口心跳采样点＝本域
+    _settle/NoAvailableRoute 收口路径）；D1 运行态徽标消费 RouterState（本类
+    status 三态——端点 1 页头徽标已消费，不重复造）。计数达阈值自动归一成诊断
+    schema 进 C2 提案池＝服务端内部动作，不经页面端点（C2 阶段 2 落地批接线）。
+    """
 
     health: dict[str, AliasHealth] = field(default_factory=dict)
     fuse_latched: bool = False  # 熔断位：True 后所有调用改路由降级组（在途照跑完）
@@ -400,6 +478,7 @@ class DrillResult:
                 "cost_yuan": self.ledger_row.cost_yuan,
                 "fallback": self.ledger_row.fallback,
                 "note": self.ledger_row.note,
+                "caller": self.ledger_row.caller,
             },
         }
 
@@ -469,15 +548,45 @@ class NoAvailableRoute(Exception):
         super().__init__(f"请求别名 {alias!r} 无可用线路（候选冷却中或降级组不可用）")
 
 
-# ---------- 关键字匹配（spend-logs keyword：匹配调用号/备注——D1 端点 4） ----------
+# ---------- 预算双阈值（D1 v0.2 端点 2/3 config 族扩段；判据消费方＝complete 熔断） ----------
 
 
-def keyword_matches(keyword: str | None, call_id: str, note: str) -> bool:
-    if not keyword:
-        return True
-    return re.search(re.escape(keyword), call_id) is not None or re.search(
-        re.escape(keyword), note
-    ) is not None
+@dataclass(frozen=True, slots=True)
+class BudgetThresholds:
+    """花费双阈值（gateway_budget_config 单例行的域视图；F2 改注合同值 0.05/800）。
+
+    单笔管一次调用（per_call_cost_limit）、累计管全月总额（gateway_budget）——
+    触顶＝熔断位单向置位→改路由降级组 petro-lite（改路由不拒绝、在途照跑完）；
+    保存即对后续调用生效（不回溯已完调用），DB 承载（99 §2.13 单例行）。
+    """
+
+    per_call_cost_limit_yuan: float
+    gateway_budget_yuan_per_month: float
+
+    def as_mapping(self) -> dict[str, float]:
+        return {
+            "per_call_cost_limit_yuan": self.per_call_cost_limit_yuan,
+            "gateway_budget_yuan_per_month": self.gateway_budget_yuan_per_month,
+        }
+
+    @classmethod
+    def validated(cls, values: Mapping[str, Any]) -> BudgetThresholds:
+        """越界即拒（>=0；负数/非数值/布尔冒充 → GatewayConfigError 携字段与区间）。"""
+        violations: list[tuple[str, str]] = []
+        for key in ("per_call_cost_limit_yuan", "gateway_budget_yuan_per_month"):
+            value = values.get(key)
+            if (
+                not isinstance(value, (int, float))
+                or isinstance(value, bool)
+                or value < 0
+            ):
+                violations.append((f"params.{key}", ">=0"))
+        if violations:
+            raise GatewayConfigError(violations)
+        return cls(
+            per_call_cost_limit_yuan=float(values["per_call_cost_limit_yuan"]),
+            gateway_budget_yuan_per_month=float(values["gateway_budget_yuan_per_month"]),
+        )
 
 
 def default_note(caller: str, note: str | None) -> str:

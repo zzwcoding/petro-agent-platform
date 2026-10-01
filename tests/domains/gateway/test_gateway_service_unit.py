@@ -14,6 +14,7 @@ import yaml
 
 import app.infra.config as infra_config
 from app.domains.gateway import (
+    BudgetThresholds,
     Completion,
     ConfigWriteError,
     DrillConflictError,
@@ -21,10 +22,11 @@ from app.domains.gateway import (
     GatewayConfigError,
     GatewayParams,
     GatewayService,
+    SpendStatsFilter,
     build_drill_nodes,
 )
 from app.domains.gateway.store import BudgetConfigRow, DrillRun, SpendRecord
-from app.infra.clock import now
+from app.infra.clock import freeze, now
 from app.infra.config import load_models_config
 from app.infra.llm_client import LlmCompletion, UpstreamRejected, UpstreamUnavailable
 
@@ -100,6 +102,7 @@ async def test_complete_records_ledger_with_owner_formula(
     assert row.input_tokens == 2140 and row.output_tokens == 1380
     assert row.cost_yuan == pytest.approx(0.00628)
     assert row.note == "test"  # 备注缺省＝调用方标识（keyword 可检索）
+    assert row.caller == "test"  # caller 归因落列（D1 v0.2 端点 4/8 聚合基础）
     # 切换留痕注记列（served_model/attempted_fallbacks——99 §2.13）在存储行上
     records = await _all_spend(gateway_db)
     assert len(records) == 1
@@ -210,34 +213,126 @@ async def test_monthly_budget_fuse(gateway_db: Any, primed_registry: Path) -> No
     assert out.served_alias == "petro-lite"
 
 
-# ---------- config：校验/写回/热加载（表单每个数字对应文件一行） ----------
+# ---------- spend_stats：聚合投影（D1 端点 8——caller 归因/unattributed/sums 全量） ----------
 
 
-def test_save_gateway_config_write_back_and_hot_reload(
+async def _seed_stats_rows(gateway_db: Any) -> None:
+    """caller 归因矩阵种子：三条已归因（不同 caller/模型/日）＋一条存量未归因。"""
+    from datetime import datetime
+
+    rows = [
+        SpendRecord(
+            id="call-a1", time=datetime(2026, 9, 28, 9, 0, 0), model_key="main",
+            alias="petro-main", input_tokens=2000, output_tokens=1000,
+            first_ms=1000, total_ms=4000, cost_yuan=0.005, fallback=False,
+            note="", caller="chat.retrieval.answer",
+        ),
+        SpendRecord(
+            id="call-a2", time=datetime(2026, 9, 28, 10, 0, 0), model_key="backup",
+            alias="petro-lite", input_tokens=500, output_tokens=300,
+            first_ms=1000, total_ms=2000, cost_yuan=0.003, fallback=True,
+            note="", caller="wiki.gen",
+        ),
+        SpendRecord(
+            id="call-a3", time=datetime(2026, 9, 29, 8, 0, 0), model_key="main",
+            alias="petro-main", input_tokens=100, output_tokens=50,
+            first_ms=800, total_ms=900, cost_yuan=0.002, fallback=False,
+            note="", caller=None,  # 存量未归因流水
+        ),
+        SpendRecord(
+            id="call-a4", time=datetime(2026, 8, 15, 8, 0, 0), model_key="main",
+            alias="petro-main", input_tokens=800, output_tokens=400,
+            first_ms=900, total_ms=1500, cost_yuan=0.004, fallback=False,
+            note="", caller="kb.ingest.summary",  # 30d 窗外（12m 窗内）——range 判别行
+        ),
+    ]
+    async with gateway_db.session() as session:
+        for row in rows:
+            session.add(row)
+
+
+async def test_spend_stats_caller_dimension_with_unattributed(
+    gateway_db: Any, primed_registry: Path
+) -> None:
+    await _seed_stats_rows(gateway_db)
+    service = GatewayService(gateway_db, StubBackend({}))
+    with freeze("2026-09-29T10:00:00"):
+        stats = await service.spend_stats(SpendStatsFilter(group_by="caller", range="all"))
+    assert [(r.bucket, r.calls, r.fallback_calls) for r in stats.items] == [
+        ("chat.retrieval.answer", 1, 0),  # cost 0.005 降序居首
+        ("kb.ingest.summary", 1, 0),
+        ("wiki.gen", 1, 1),
+        ("unattributed", 1, 0),  # 存量 caller 为空 → 归 unattributed 桶
+    ]
+    assert stats.total == 4
+    assert (stats.sums.calls, stats.sums.fallback_calls) == (4, 1)  # sums＝窗口全量
+    assert stats.sums.cost_yuan == pytest.approx(0.014)
+
+
+async def test_spend_stats_model_day_and_range_window(
+    gateway_db: Any, primed_registry: Path
+) -> None:
+    await _seed_stats_rows(gateway_db)
+    service = GatewayService(gateway_db, StubBackend({}))
+    with freeze("2026-09-29T10:00:00"):  # range 窗口对齐种子行日期
+        model_stats = await service.spend_stats(SpendStatsFilter(group_by="model", range="all"))
+        assert [(r.bucket, r.alias, r.calls) for r in model_stats.items] == [
+            ("main", "petro-main", 3),  # cost 0.011 降序居首；alias 与 model_list 同源
+            ("backup", "petro-lite", 1),
+        ]
+        day_stats = await service.spend_stats(SpendStatsFilter(group_by="day", range="all"))
+        assert [r.bucket for r in day_stats.items] == [
+            "2026-08-15", "2026-09-28", "2026-09-29"
+        ]  # 时序升序全量
+        assert day_stats.total == 3
+        assert day_stats.sums.calls == 4  # sums 不随分页截断（day 全量恒 sums）
+        # range 统计窗（与端点 4 不同族——无 today）：7d/30d 不含 8-15，12m 全含
+        week = await service.spend_stats(SpendStatsFilter(group_by="day", range="7d"))
+        assert [r.bucket for r in week.items] == ["2026-09-28", "2026-09-29"]
+        assert week.sums.calls == 3
+        month = await service.spend_stats(SpendStatsFilter(group_by="caller", range="30d"))
+        assert [r.bucket for r in month.items] == [
+            "chat.retrieval.answer", "wiki.gen", "unattributed"
+        ]
+        twelve = await service.spend_stats(SpendStatsFilter(group_by="caller", range="12m"))
+        assert len(twelve.items) == 4 and twelve.sums.calls == 4
+
+
+# ---------- config：校验/写回/热加载（表单每个数字对应文件一行）＋预算双阈值 ----------
+
+
+async def test_save_gateway_config_write_back_and_hot_reload(
     gateway_db: Any, primed_registry: Path
 ) -> None:
     service = GatewayService(gateway_db, StubBackend({}), config_path=primed_registry)
-    view = service.save_gateway_config(
-        GatewayParams(allowed_fails=3, cooldown_seconds=120, num_retries=1, request_timeout=45)
+    view = await service.save_gateway_config(
+        GatewayParams(allowed_fails=3, cooldown_seconds=120, num_retries=1, request_timeout=45),
+        BudgetThresholds(per_call_cost_limit_yuan=0.1, gateway_budget_yuan_per_month=500),
     )
     assert (view.params.allowed_fails, view.params.cooldown_seconds) == (3, 120)
-    text = primed_registry.read_text(encoding="utf-8")
+    # 预算双阈值随 config 保存落单例行（直接生效——判据 complete 现读）
+    assert (
+        view.budget.per_call_cost_limit_yuan, view.budget.gateway_budget_yuan_per_month
+    ) == (0.1, 500.0)
+    text = _read_yaml(primed_registry)
     assert "allowed_fails: 3" in text and "cooldown_seconds: 120" in text
     assert "num_retries: 1" in text and "request_timeout: 45" in text
     assert "# 测试用模型注册表" in text  # 其余段零改动
     assert load_models_config(primed_registry).gateway.allowed_fails == 3  # 热加载生效
-    assert service.gateway_config().params.allowed_fails == 3  # 快照为唯一真值
+    assert (await service.gateway_config()).params.allowed_fails == 3  # 快照为唯一真值
+    assert (await service.gateway_config()).budget.gateway_budget_yuan_per_month == 500.0
 
 
-def test_save_gateway_config_is_idempotent_no_duplicate_block(
+async def test_save_gateway_config_is_idempotent_no_duplicate_block(
     gateway_db: Any, primed_registry: Path
 ) -> None:
     """重复保存不产生重复 gateway 段（真装配冒烟发现：块头带行内注释曾致追加重放）。"""
     service = GatewayService(gateway_db, StubBackend({}), config_path=primed_registry)
     params = GatewayParams(allowed_fails=5, cooldown_seconds=60, num_retries=3, request_timeout=30)
+    budget = BudgetThresholds(per_call_cost_limit_yuan=0.05, gateway_budget_yuan_per_month=800)
     for _ in range(3):
-        service.save_gateway_config(params)  # 重复保存三次——幂等
-    text = primed_registry.read_text(encoding="utf-8")
+        await service.save_gateway_config(params, budget)  # 重复保存三次——幂等
+    text = _read_yaml(primed_registry)
     assert text.count("gateway:") == 1  # 恰一段
     assert "allowed_fails: 5" in text
     assert text.count("allowed_fails:") == 1
@@ -245,17 +340,41 @@ def test_save_gateway_config_is_idempotent_no_duplicate_block(
     assert "D1 配置面四参数" in text
 
 
-def test_save_gateway_config_rejects_out_of_range(gateway_db: Any, primed_registry: Path) -> None:
+async def test_save_gateway_config_rejects_out_of_range(
+    gateway_db: Any, primed_registry: Path
+) -> None:
     service = GatewayService(gateway_db, StubBackend({}), config_path=primed_registry)
-    before = primed_registry.read_text(encoding="utf-8")
+    before = _read_yaml(primed_registry)
     with pytest.raises(GatewayConfigError):
-        service.save_gateway_config(
-            GatewayParams(allowed_fails=99, cooldown_seconds=60, num_retries=3, request_timeout=30)
+        await service.save_gateway_config(
+            GatewayParams(allowed_fails=99, cooldown_seconds=60, num_retries=3, request_timeout=30),
+            BudgetThresholds(per_call_cost_limit_yuan=0.05, gateway_budget_yuan_per_month=800),
         )
-    assert primed_registry.read_text(encoding="utf-8") == before  # 拒绝即无副作用
+    assert _read_yaml(primed_registry) == before  # 拒绝即无副作用
 
 
-def test_save_gateway_config_maps_reload_failure_to_config_write_error(
+async def test_save_gateway_config_rejects_negative_budget(
+    gateway_db: Any, primed_registry: Path
+) -> None:
+    """预算双阈值 >=0（D1 v0.2）：负数 400 带字段与区间；yaml 与单例行均无副作用。"""
+    service = GatewayService(gateway_db, StubBackend({}), config_path=primed_registry)
+    before = _read_yaml(primed_registry)
+    with pytest.raises(GatewayConfigError) as exc_info:
+        await service.save_gateway_config(
+            GatewayParams(allowed_fails=2, cooldown_seconds=60, num_retries=3, request_timeout=30),
+            BudgetThresholds(per_call_cost_limit_yuan=-0.01, gateway_budget_yuan_per_month=800),
+        )
+    assert exc_info.value.violations == [("params.per_call_cost_limit_yuan", ">=0")]
+    assert _read_yaml(primed_registry) == before
+    # 阈值行未被污染（首次读取才种子——此刻查表应为空）
+    from sqlalchemy import select
+
+    async with gateway_db.readonly() as session:
+        rows = list((await session.execute(select(BudgetConfigRow))).scalars().all())
+    assert rows == []
+
+
+async def test_save_gateway_config_maps_reload_failure_to_config_write_error(
     gateway_db: Any, primed_registry: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """热加载失败（yaml 坏/校验不过）与写失败同收口 ConfigWriteError（不只 OSError）。"""
@@ -266,8 +385,9 @@ def test_save_gateway_config_maps_reload_failure_to_config_write_error(
     monkeypatch.setattr(infra_config, "load_models_config", broken_load)
     service = GatewayService(gateway_db, StubBackend({}), config_path=primed_registry)
     with pytest.raises(ConfigWriteError, match="半截 yaml"):
-        service.save_gateway_config(
-            GatewayParams(allowed_fails=3, cooldown_seconds=60, num_retries=3, request_timeout=30)
+        await service.save_gateway_config(
+            GatewayParams(allowed_fails=3, cooldown_seconds=60, num_retries=3, request_timeout=30),
+            BudgetThresholds(per_call_cost_limit_yuan=0.05, gateway_budget_yuan_per_month=800),
         )
 
 
