@@ -1123,6 +1123,16 @@ class KbService:
                 out.append(item)
         return d.FragmentList(items=out, total=len(out))
 
+    async def dedup_corpus(self) -> list[str]:
+        """知识库面向量语料（P1-06 B3 端点 12 三面去重——kb 公开缝供出，
+        faq 不直查 kb 表）：已向量化子块的命中句清单（faq 侧另行向量化比对）。"""
+        frags = await self._fragments.list_children()
+        return [
+            frag.hit_text
+            for frag in frags
+            if frag.embedding is not None and frag.hit_text
+        ]
+
     async def fragment_context(self, fragment_id: str) -> d.FragmentContext:
         """父块回捞（B2 端点 2——按 type 分派语义）：原文块/图片说明块/图片文字块
         ＝父块正文（F30 与 F36 回捞会师；mixed 子块经版本行父块锚到达）；摘要块/

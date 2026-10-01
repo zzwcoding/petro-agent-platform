@@ -244,6 +244,24 @@
 ## P1-06 中期记录（主窗口核验，2026-10-02 00:5x）
 > 后端 17 端点已在盘全绿（ruff/mypy 56 文件/pytest 396 passed 未提交）——主窗口逐条核验 vs B3 v0.2 端点清单：**17/17 形状全对**（含审核发布端点 17 占号）；⚙ 无配置读写端点＝**合同正确**（撤端登记：阈值 0.87 展示态，承载随校准批）；LedgerMerged 消费在（service.py:1104）。施工子代理遇配额墙（429，01:31 重置），**余下＝B3 落地页+注册+前端测试+冒烟+提交**，配额恢复后派收尾代理。
 
+## P1-06 收尾段落地 ✅（2026-10-02，收尾代理——前端＋验收＋提交）
+
+- **B12 复核**（收尾首拍）：api 层编排六写口全经 `security.audit`（faq 域不依赖 security，P0-05/P1-02a/P1-05b 同款）——新增 `faq.entry.created`／合并 `faq.entry.merged`／停用启用 `faq.entry.state_changed`／审核发布闸 `faq.entry.reviewed`／导入 `faq.library.imported`／导出直链签发 `faq.library.exported`（安全敏感，P1-05b 同族）；LedgerMerged 联动建议稿经注入 audit 落 `faq.ledger_merged.suggestion`（domain 内写，who=系统）。
+- **收尾修复（真库实证）**：`create_entry` 候选回写锚 **FK 插序 bug**——回写锚 UPDATE 先于条目 INSERT 发出即撞 `faq_candidate_source_entry_id_fkey`（无 relationship 的 UOW 不保证 FK 插序，sqlite 单测 FK 默认关不显，P1-02a「多写方法显式 flush 排序」先例同款）；修复＝条目 `insert_entry`（内部 flush）落库后再 dirty `cand.source_entry_id`。真库红绿双向实证＋PG 回归看守 `test_candidate_writeback_fk_order_on_pg`（携 source_candidate_id 入库→锚落库→发布→候选 published 零悬挂）。
+- **前端**（`web/src/api/faq.js`＋`web/src/landing/B3.jsx`＋registry 点亮 B3）：接口层 17 端点消费函数全落（wire snake→camel 全在本层；端点 10 扫库轮询＝`useFaqScanPolling` 薄壳复用 client.useTaskPolling；端点 15 导入 raw fetch＋query 参数与后端传输形态对齐；**client.js 增 `del` 便捷式**——端点 6 是平台第一个 DELETE 消费方）。落地页照原型终稿交互形态：问答清单（状态筛/关键词服务端筛＋四态行标＋待审核行尾「发布」＝端点 17；种子直发态照常）／新增弹窗（三源：台账口径下拉＝C1 metrics|terms 读端点、切片原文下拉＝B2 端点 1 全库扁平清单、手填＋LLM 起草＝端点 14；输入即检重复＝端点 4 防抖非阻断；负例复选＋关联口径挂接）／详情弹窗（相似问逐条增删即时生效＝端点 5/6＋维护人/版本行）／合并弹窗（目标由人选——更正项⑫）／挖掘弹窗（扫库 202 受理＋轮询关弹窗不中断→候选库状态筛→向量比对展开行只认比对结论＝端点 12→LLM 起草自动填入新增弹窗＝端点 13→人审核发布）／⚙ 弹窗（相似问合并开关＋阈值 0.87 只读展示＋负例入口 Tag——**无端点展示态**，配置读写端点撤除登记）／导入导出按钮组（端点 15/16，导出预签名直链 window.open 浏览器直下）。
+- **前端测试**（`web/src/landing/B3.test.jsx` 14 条，B1/B2 范式 fetch 级 mock 挡 window.fetch 边界，接口层＋页面全真代码）：渲染（卡头 grand_total＋筛选计数＋四态行标）／状态筛走服务端 query／状态标四态互斥／输入即检重复警告→入库「已提交审核」提示／待审核行发布（端点 17 action=publish）／相似问逐条增删／行尾停用（端点 8）／合并目标选择→成功提示（端点 7）／候选库渲染（未比对不显示展开钮——合同）／比对→起草→草稿自动填入新增弹窗（端点 12/13）／扫库 202→轮询 done→空态说明收场／导出直链 window.open（端点 16）／导入 raw fetch＋query 参数＋四计数提示（端点 15）／⚙ 阈值 0.87 只读展示。
+- **真装配冒烟**（`tests/test_faq_smoke_real.py`，**FAQ_SMOKE=1** 门控——真 PG/MinIO/真 gateway.complete petro-main；比对向量＝LocalHashEmbedder 占位零 LLM 成本）：①新增→待审核（待审核筛可见）→review publish→serve（清单可见）审核流闭环；②挖掘五拍真跑：候选比对（三面去重真算——既有问答/知识库向量/本体命中）→LLM 起草（真调用，溯源后缀「请人工核实）」恒在）→携 source_candidate_id 入库（先进待审核）→发布→候选回写 published 零悬挂；③扫库异步长任务（A1 历史会话料源未上线——空态说明收场，202→轮询 done）；④B12 审计留痕查证（faq.* 动作族）＋导出直链真预签名（MinIO 真桶）。**重跑幂等改造**：演示库状态不回滚，候选按状态就地取材（pending→全五拍真跑／compared→起草拍／drafted→复用在库草稿携锚／全 published→复用草稿普通入库）——四条路径逐轮真跑全过（含真 LLM 起草三轮证据），冒烟从此可无限重跑。
+- **Alembic 0007 双向实跑（收尾段补验）**：0007→0006→0007 单档往返 PG16@5433 实跑（downgrade 只 drop faq_* 四表；upgrade 重建）；往返后 lifespan `seed_demo_if_empty` 自动补种（九条问答＋四簇候选幂等）＋冒烟复验绿。
+- 验收自证 ✅：四门禁——ruff（app+tests+migrations）0 错 / mypy strict **56 文件零错** / pytest 带 PG16@5433 **429 passed 2 skipped**（skip＝KB_SMOKE/FAQ_SMOKE 两个门控冒烟自身；无 PG 底座 396 passed 35 skipped）/ lint-imports **5 契约 KEPT**；web 三连——eslint **0 error**（2 warning 均原型快照存量）/vitest **97 passed**（83＋B3 页 14）/vite build 过；`ontology/ci.sh` 不涉（ontology/ 零改动）。
+- **差异登记（现实约束按现实落地，语义不私改）**：
+  1. **端点 15 传输形态＝raw body（application/octet-stream）＋query 参数**（mode/dry_run/filename）：python-multipart 不在平台依赖清单（本票不动 pyproject），multipart 形态归依赖落位批再切——合同「传输形态结合实际框架定」落点，前端 raw fetch 同构对齐。
+  2. **审核驳回落 disabled 而非独立第五态**：合同四态机（待审核/服务中/负例/已停用）无「已驳回」态——reject 语义＝落已停用留档（hint 明示「已驳回」），可改后重新提审（改后回待审核）。
+  3. **A1 历史会话料源缝（session_loader）暂缺**：A1 会话域未上线——扫库落空态说明收场（「A1 问一问历史会话尚未上线…」）；A1 装配批注入本缝即通（main.py 组合根留位）。
+  4. **is_negative 落列**（99 关键列未列、审核流需要）：待审核行承载负例登记意向，publish 落 negative——迁移 0007 注记，随本票登记。
+  5. **种子候选态 scan.last_hint 为 null**：种子态取「未扫库」初态（合同 DTO 示例为扫库后快照——不引入伪任务行），如实在库。
+  6. **演示库 FAQ 种子在 0007 往返后重装**：构造轮演示行（含早轮冒烟消费态）随往返清零重种子——冒烟证据以审计行（faq.* 动作族持久）＋本节记录为准。
+
+
 ## P1-07 retrieval 后端（D2 配置面）
 
 - **先读**：teach `D2-搜索与回答.md` v0.2（端点 1 config 读含 qa_behavior 五字段/端点 2 change-requests；提交即生效过渡；出入对账 13 项已清）。

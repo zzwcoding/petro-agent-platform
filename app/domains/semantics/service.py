@@ -125,6 +125,18 @@ class SemanticsService:
         self._db = db
         self._audit = audit  # B12 唯一写口（security.audit）注入
 
+    # ---------- 单行直取（P1-06 B3 端点 14——服务端直取台账定义，不信任前端文本） ----------
+
+    async def get_metric(self, metric_id: int) -> SemMetric | None:
+        """指标口径单行（C1 端点 3 同源投影——faq 台账口径起草/挂接用读口）。"""
+        async with self._db.readonly() as session:
+            return await session.get(SemMetric, metric_id)
+
+    async def get_term(self, term_id: int) -> SemTerm | None:
+        """业务术语单行（C1 端点 2 同源投影——faq 台账口径起草/挂接用读口）。"""
+        async with self._db.readonly() as session:
+            return await session.get(SemTerm, term_id)
+
     async def sync_from_ontology_repo(
         self, ref: str, actor: Actor, schema_version: str = sem_domain.SCHEMA_VERSION_PIN
     ) -> SyncReport:

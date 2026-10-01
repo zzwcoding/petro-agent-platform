@@ -217,6 +217,15 @@ export function put(path, body, opts = {}) {
   return request(path, { method: 'PUT', body, signal: opts.signal })
 }
 
+/**
+ * DELETE 便捷式（P1-06 底座补件：B3 端点 6「删除相似问法」是平台第一个 DELETE
+ * 消费方——删掉即不再命中本条；错误包/401 兜底同统一请求入口）。
+ * @param {string} path @param {{signal?: AbortSignal}} [opts]
+ */
+export function del(path, opts = {}) {
+  return request(path, { method: 'DELETE', signal: opts.signal })
+}
+
 // ── 异步任务轮询（00 册 §5：202 受理 → 轮询 → 终态；11 处先例同构） ──
 
 /**

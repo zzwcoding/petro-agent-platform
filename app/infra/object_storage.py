@@ -46,6 +46,9 @@ class ObjectStorage(Protocol):
 
     async def get_bytes(self, key: str) -> bytes: ...
 
+    async def put_bytes(self, key: str, data: bytes) -> None: ...
+
+
 
 class MinioObjectStorage:
     """MinIO adapter（compose 中间件；凭证经 InfraSettings）。
@@ -136,3 +139,20 @@ class MinioObjectStorage:
                 resp.release_conn()
 
         return await asyncio.to_thread(_get)
+
+    async def put_bytes(self, key: str, data: bytes) -> None:
+        """平台侧写对象（B3 导入暂存/导出全库件——B3-8：MinIO 不过期）。
+
+        与 B1 直传两拍不同：导入/导出件由服务端生成/接收，字节经本方法落桶；
+        对象本体不设生命周期规则（业务资产——URL 小时级 TTL 不外延对象本体）。
+        """
+        await self._ensure_ready()
+
+        def _put() -> None:
+            import io
+
+            self._ensure_client().put_object(
+                REPORTS_BUCKET, key, io.BytesIO(data), length=len(data)
+            )
+
+        await asyncio.to_thread(_put)

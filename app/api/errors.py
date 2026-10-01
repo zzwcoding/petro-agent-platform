@@ -32,6 +32,12 @@
 - graph_not_found / graph_param_invalid / graph_ontology_mismatch：graph 域
   404/400（B5 错误码草案；P1-05 新立值，登记于 tickets/phase1/README.md
   P1-05 差异清单）——强校 400 带对号明细（detail.mismatches）
+- faq_param_invalid / faq_not_found / faq_conflict：faq 域 400/404/409
+  （B3 错误码草案；P1-06 新立值，登记于 tickets/phase1/README.md P1-06 差异
+  清单）——409 code 由异常携带（faq_scan_running 重入/faq_negative_toggle
+  负例停用/faq_state_noop 状态未变化/faq_review_state 重复审核/
+  faq_compare_state 未比对重复比对/faq_draft_state 未比对起草/
+  faq_similar_duplicate 相似问重复/faq_candidate_published 候选重复回写）
 """
 
 from __future__ import annotations
@@ -49,6 +55,11 @@ from app.domains.derivatives import (
     WikiConflictError,
     WikiNotFoundError,
     WikiParamError,
+)
+from app.domains.faq import (
+    FaqConflictError,
+    FaqNotFoundError,
+    FaqParamError,
 )
 from app.domains.gateway import (
     ConfigWriteError,
@@ -77,6 +88,7 @@ CODE_WIKI_NOT_FOUND = "wiki_not_found"
 CODE_WIKI_PARAM_INVALID = "wiki_param_invalid"
 CODE_WIKI_CONFLICT = "wiki_conflict"
 CODE_GRAPH_NOT_FOUND = "graph_not_found"
+CODE_FAQ_NOT_FOUND = "faq_not_found"
 
 
 class ApiError(Exception):
@@ -256,6 +268,35 @@ def install_error_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=400,
             content=error_payload(exc.code, str(exc), detail=detail),
+        )
+
+    @app.exception_handler(FaqParamError)
+    async def handle_faq_param_error(request: Request, exc: FaqParamError) -> JSONResponse:
+        # B3 错误码草案 400 族（入参形状非法/枚举越界/空白；code 由异常携带——
+        # faq_param_invalid，P1-06 新立值，登记 tickets/phase1 README P1-06）。
+        return JSONResponse(
+            status_code=400,
+            content=error_payload(exc.code, str(exc)),
+        )
+
+    @app.exception_handler(FaqNotFoundError)
+    async def handle_faq_not_found(request: Request, exc: FaqNotFoundError) -> JSONResponse:
+        # B3 错误码草案 404：条目/候选/相似问/扫库任务不存在（含已合并删除、
+        # 已过期清理任务）。
+        return JSONResponse(
+            status_code=404,
+            content=error_payload(CODE_FAQ_NOT_FOUND, str(exc)),
+        )
+
+    @app.exception_handler(FaqConflictError)
+    async def handle_faq_conflict(request: Request, exc: FaqConflictError) -> JSONResponse:
+        # B3 错误码草案 409 族（状态机冲突/重入/重复——code 由异常携带：
+        # faq_scan_running/faq_negative_toggle/faq_state_noop/faq_review_state/
+        # faq_compare_state/faq_draft_state/faq_similar_duplicate/
+        # faq_candidate_published）。
+        return JSONResponse(
+            status_code=409,
+            content=error_payload(exc.code, str(exc)),
         )
 
     @app.exception_handler(RequestValidationError)
