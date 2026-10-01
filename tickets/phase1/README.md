@@ -400,6 +400,9 @@
 - **范围**：对话页＋SSE 帧渲染＋思考过程树＋出处回跳（切片/wiki 锚/图谱节点）；对接 P1-08b（三链数据）与 P1-08c（树叙事帧）。
 - **验收**：headless 全流程（提问→流式帧→树叙事→引用点开回跳 B2 定位）。
 
+## P1-09 收尾裁决（主窗口，6f1f11c）
+> 全绿（vitest 119＋headless 8 轮真 QA：树逐帧/流式/citation 跳 B2 定位真链/澄清回流/兜底，pageerror 0）。DEFAULT_LANDING_KEY 切 A1＝采纳（工作台主入口，理由已登记）。疑点 1/2（chat sessions/assets 端点后端未接线）＝**真缺口，挂 P1-11 收口批**（前端已按合同形状优雅降级，非发明 mock——补后端即通）；3（wiki citation 无跳转）＝采纳（B4 页阶段 2）；4（身份桩联动）＝采纳。**P1-11 收口批清单成形**：①chat sessions/assets 读端点 ②multipart 依赖落位 ③semantics metrics version 字段＋slots 读面 ④KB_SMOKE/FAQ_SMOKE/CHAT_SMOKE 统一计费跑 ⑤embedding/重排质量选型（Owner 拍板）⑥LLM 意图裁决（Owner 拍板）⑦Shell locator 桥干净收口。
+
 ## P1-10 D1 增强批（D5 归并落地）
 
 - **先读**：teach `D1-模型与线路.md` v0.2（端点 8 spend-stats＋caller 归因＋观测入口/五信号口径）；99 册 gateway_spend_record.caller 列；平台 `app/domains/gateway/`（阶段 0 全量）。
