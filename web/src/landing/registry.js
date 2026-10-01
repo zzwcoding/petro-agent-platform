@@ -11,7 +11,8 @@
 
 /** 落地页模块表（显式注册——Vite 动态导入不支持自目录变量导入）。 */
 const LANDING_MODULES = {
-  D1: () => import('./D1.jsx')
+  D1: () => import('./D1.jsx'),
+  B1: () => import('./B1.jsx')
 }
 
 /** 已点亮（已有落地页）的页面 key，按 frontend-foundation §5 阶段顺序增长。 */

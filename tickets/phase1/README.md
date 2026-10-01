@@ -144,6 +144,19 @@
 - **先读**：平台快照 `#/proto/B1`（P1-00a 后）；teach B1 册出入对账；`web/src/api/client.js`。
 - **范围**：库管理（新建库弹窗/停用启用/来源列+筛选/入库中标）＋报告台账＋入库任务（五步轮询）＋活动流；对接 P1-02a 后端。
 - **验收**：web 三连绿＋headless 全流程（建库→传报告→任务五步→台账→活动流）。
+- 落地 ✅（2026-10-01）：
+  - **接口层**（`web/src/api/kb.js`）：15 端点消费函数（getReports/getReportDetail/getDownloadUrl/reviseFragment〔端点 4 已激活〕/initUpload/confirmUpload/listTasks/getTask/getAdditions/retryTask/listLibraries/getLibraryConfig/saveLibraryConfig〔可选 status 承载停用启用〕/listLibraryActivities/createLibrary）＋`putObjectDirect`（F5 直传第二拍前置——raw fetch 字节直达 MinIO，凭证 URL 非 /api 不走 client JSON 封装）＋`mapTaskSnapshot`（轮询 wire 折 camel，gateway mapDrillSnapshot 先例同构）＋`useKbTaskPolling`/`pollKbTaskUntilDone`（**state 字段适配版轮询**——B1 任务 wire 终态字段为 `state`，client.useTaskPolling 只认 `status`〔D1 drills 形〕；底座不动的约束下在本层落适配，轮询主体复用 client 的 request＋isTerminalStatus——瞬时失败容忍/AbortError 直通/onProgress 保护/终态白名单 fail-safe 语义同源）。R1 snake→camel 折回全在本层，页面列定义与原型同形。
+  - **页面**（`web/src/landing/B1.jsx`）：三页签照原型终稿——报告台账（入库中 Tag＝端点 1 status 直出；refs/wiki 列＋下载直链端点 3；双击行开详情抽屉〔端点 2 片段预览含版本〕→修正弹窗〔端点 4 乐观锁——409 内联兜底「这段已被别人修改过」〕）；入库任务（上传按钮→hidden file input→受理〔端点 5，lib_id 缺省走路由〕→**建议库弹窗**〔LLM 建议卡：归现有库/建议新建+模板推荐＋理由＋置信度——可确认/改选/直指定/新建；dup_warning 非阻断 Alert〕→putObjectDirect 直传→confirm〔端点 6 带确认 lib_id——P1-02a 收尾裁决①通道〕→受控展开新任务行）；五步 Steps＝useKbTaskPolling 轮询端点 8（节点/note 服务端组装前端零拼装；done 收场自动读端点 9 产物两卡——add_summary/add_questions=false 按快照跳过如实展示）；failed/stuck 按 stop_at/reason 人话渲染＋重试/重跑〔端点 10，按钮 running 禁用兜底 409〕；来源列＋服务端 source 筛；库管理（新建库弹窗〔库名+模板四枚举+说明卡；409 重名内联〕/行内停用启用〔端点 13 可选 status——先读配置再全量整存整取〕/库配置弹窗〔四开关+切段三选一+索引期加法；切段三法对照演示＝前端静态资产照抄原型〕/活动流抽屉〔端点 14 只读〕/图谱筛+关键词）。看切片/看百科行内跳转落 `#/proto/B2`、`#/proto/B4`（落地树未点亮，先以原型页承接跨页跳转——差异登记）。
+  - **注册点亮**：registry.js LANDING_MODULES 加 B1（LANDING_LIT 自动派生单源不动）。
+  - **测试**（`web/src/landing/B1.test.jsx`，13 条，jsdom+fetch 级 mock 挡 window.fetch 边界，接口层+轮询全真代码）：三页签渲染＋入库中 Tag＋开关快照/错误包内联/上传两拍全链〔受理建议卡→PUT 直传对象存储边界→confirm 带确认库号〕/建议新建库路径〔端点 15→confirm 带新库号〕/建库 409 重名/来源筛 source 筛参/轮询 running→done 收场读产物两卡/failed stop_at 人话＋重试/停用库 PUT status=disabled/库配置保存 hint 回显/活动流/修正 409 兜底/修正成功 hint＋任务刷新。
+- 验收自证 ✅：web 三连——eslint **0 error**（2 warning 均原型快照存量）/vitest **60 passed**（client 25＋sse 8＋store 2＋D1 页 12＋B1 页 13）/vite build 过；headless 全流程（playwright-core+系统 Chrome headless，后端 :8000 真 PG16@5433＋真 MinIO＋真 LLM gateway）——建库→真传演示文本（LLM 路由建议卡→直传→confirm）→五步轮询 done（真 LLM 摘要卡＋问题卡）→台账 refs/wiki→详情抽屉→片段修正保存→「片段修正」任务可见→**wiki 联动 v1→v2**（修正触发重铸真实发生）→活动流抽屉；11 张证据截图留 `.scratch/`（不入库），全程 0 pageerror。
+- **差异登记（现实约束按现实落地，语义不私改）**：
+  1. **轮询 state 适配落接口层**（useKbTaskPolling——client.useTaskPolling 只认 `status` 字段，B1 wire 为 `state`；备选方案＝client.pollTaskUntilDone 改读 `status ?? state` 一行通改，挂底座变更待 Owner 拍板，本票按「不碰底座」纪律落本层适配）。
+  2. **看切片/看百科跳原型树**：落地树 B2/B4 未点亮（阶段 1 后续票），台账行内两按钮先跳 `#/proto/B2`、`#/proto/B4`；B2/B4 落地票接线时改指落地树。
+  3. **任务展开为受控展开行**（原型 defaultExpandedRowKeys 首渲染后不追新——上传受理成功后主动展开新任务行，其余行点击展开）。
+  4. **停用/启用经端点 13 两跳**（GET 配置→PUT 全量+status——端点 13 入参为配置全量整存整取，无单字段 status 动作形状；两跳对页面不可感知）。
+  5. **上传成功提示 doc 名从 confirm 回执取**（`done.doc`——更正项①「按登记文件名」由后端保证，页面不本地拼装）。
+
 
 ## P1-04 B2 前后端（切片管理＋复核队列）
 
