@@ -4,7 +4,8 @@
 99 §4.2「config 装载、infra.config 供给」）与 security 服务面，并对 primary
 引擎建审计表（ensure_audit_table，幂等 checkfirst——P0-08 前无 Alembic，
 真实入口对空库可写审计/读 audit-logs）；P0-05 起 gateway 服务面入装配
-（infra.llm_client 为 B6 唯一 SDK 接触点，gateway 是其唯一消费方）并对
+（infra.llm_client 为 B6 唯一 SDK 接触点——complete 面 gateway 唯一出口、
+embedding 面经 llm_client.embeddings）并对
 primary 引擎建网关三表（spend 账本/演练/预算单例）；P0-08 起 infra_outbox
 技术表入装配（99 §6-4——eventbus 兜底缝）＋ /api/chat 骨架路由挂载；统一
 错误包（00 §3）与 D3/D1 路由挂载。端点随票落地（tickets/phase0/）。
