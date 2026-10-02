@@ -434,6 +434,9 @@
 ## P1-10 收尾裁决（主窗口，2a1fbfc）
 > 全绿（带 PG 603 passed＋GATEWAY_SMOKE：真 complete 两笔三维度真数＋trgm 索引实查在案）。九疑全采纳：caller note 族（14 调用点机检必填化——mypy 当闸）/12m=365d/trgm 双列入 teach 对齐批/双阈值 DB 真源/回显形状/sums 全组/五信号计数挂阶段 2/演练窗口不做/additive。**teach 对齐批挂账累计**：trgm 索引清单＋六键计数＋（99 wiki 已随里程碑①落）。
 
+## P1-11a 收尾裁决（主窗口，6b9a5e4）
+> 收口批全绿（带 PG 630 passed＋四冒烟 25 calls ¥0.017）。**两项 Owner 拍板兑现**：①embedding 选型定案＝MiniMax embo-01（1536 维归一化，0.0005 元/千 token——anthropic 兼容 base 无此端点、官方端点 200 实测；智谱 line key 为火山方舟不匹配、第一序命中即止）——B6 缝接线＋0012 维度迁移＋真重嵌 12 片段实证；rerank 无可用服务（三域名 404 实证）→fast 档保持融合序放行登记；②LLM 意图裁决接线（petro-main 分类＋8s 有界超时＋确定性兜底＋闭世界校验——施工中抓真 bug：链名先校验再采信）。原七项全落（sessions/assets/multipart/slots/桥退役/四冒烟/计数）。八疑全采纳登记（embedding 记账挂 D5 批/verdict.source 挂 teach 对齐批/slots demo 装配随 wells 批/骨架期 null/实施值常量/文件名优先/冒烟方差惯例/重放清零登记）。
+
 ## P1-11 联调收官
 
 - **范围**：17 链冒烟（未实现链话术核对）；五页双树对照（#/proto 终稿 vs 落地，行为一致）；PG 集成全量零跳过；文档计数同步（README/票面粉笔数）。
