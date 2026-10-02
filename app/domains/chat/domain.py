@@ -244,6 +244,10 @@ class ChatRunStateError(Exception):
     A1 错误码草案「状态机约束（澄清帧最多弹一次）」）。"""
 
 
+class ChatSessionNotFoundError(Exception):
+    """404 族（A1 端点 3 回放对象——会话不存在或非当前身份，不泄漏存在性）。"""
+
+
 # ---------- SSE 事件（域内最小单位 {event, data}——信封渲染归 api 层） ----------
 
 
@@ -940,6 +944,17 @@ class SessionItem:
     group: str | None
     scenario_id: str | None
     updated_at: str
+
+
+@dataclass(frozen=True, slots=True)
+class SessionMessageItem:
+    """会话消息行（A1 端点 3 合同形状——answer 与 SSE answer 帧同形，一份两处消费）。"""
+
+    id: str
+    role: str
+    text: str
+    run_id: str | None
+    answer: dict[str, Any] | None
 
 
 class Completer(Protocol):

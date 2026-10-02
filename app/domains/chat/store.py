@@ -219,6 +219,23 @@ class ChatStore:
             ).scalars().all()
         return list(rows)
 
+    async def get_session(self, session_id: str) -> ChatSessionRow | None:
+        """会话行读口（A1 端点 3 归属校验面）。"""
+        async with self._db.readonly() as session:
+            return await session.get(ChatSessionRow, session_id)
+
+    async def list_messages(self, session_id: str) -> list[ChatMessageRow]:
+        """会话消息读口（A1 端点 3——seq 升序即回放序）。"""
+        async with self._db.readonly() as session:
+            rows = (
+                await session.execute(
+                    select(ChatMessageRow)
+                    .where(ChatMessageRow.session_id == session_id)
+                    .order_by(ChatMessageRow.seq)
+                )
+            ).scalars().all()
+        return list(rows)
+
     # ---------- 运行（A1 端点 4/5 状态机） ----------
 
     async def create_run(self, session_id: str, *, run_id: str | None = None) -> ChatRunRow:

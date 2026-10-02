@@ -24,3 +24,4 @@ web/dist/
 
 # 嵌套独立仓（数据面，独立服务独立 git）
 data-plane/
+.scratch/

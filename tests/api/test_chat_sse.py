@@ -383,6 +383,38 @@ def test_endpoint_2_sessions_list(env: Any) -> None:
     assert other == []  # 身份桩隔离（会话归属 user_id）
 
 
+def test_endpoint_3_session_messages_replay(env: Any) -> None:
+    """A1 端点 3（P1-12 真接线）：ask 后按 seq 升序回放 user/assistant 两行——
+    answer 与 SSE answer 帧同形（一份 DTO 两处消费，citations 随 answer 内嵌）；
+    不存在/跨身份 404 chat_session_not_found（不泄漏存在性）。"""
+    client, _manager = env
+    missing = client.get("/api/chat/sessions/sess-none/messages", headers=ACTOR)
+    assert missing.status_code == 404
+    assert missing.json()["code"] == "chat_session_not_found"
+
+    events = _parse_frames(client.post(
+        "/api/chat/asks", json={"question": "渤海油田产量"}, headers=ACTOR,
+    ).text)
+    thread_id = events[0][1]["thread_id"]
+    run_id = events[0][1]["run_id"]
+    answer_payload = next(data for name, data in events if name == "answer")
+
+    listed = client.get(f"/api/chat/sessions/{thread_id}/messages", headers=ACTOR)
+    assert listed.status_code == 200
+    items = listed.json()["items"]
+    assert [item["role"] for item in items] == ["user", "assistant"]  # seq 升序
+    assert items[0]["text"] == "渤海油田产量"
+    assert items[0]["id"].startswith("msg-")
+    assert items[0]["run_id"] == run_id and items[1]["run_id"] == run_id
+    assert items[1]["answer"] == answer_payload  # 同形直出——不折形
+
+    other = client.get(
+        f"/api/chat/sessions/{thread_id}/messages", headers={"X-Dev-User": "xiaoli"}
+    )
+    assert other.status_code == 404  # 身份隔离——404 不泄漏存在性
+    assert other.json()["code"] == "chat_session_not_found"
+
+
 def test_endpoint_6_assets_projection_and_filters(env: Any) -> None:
     """A1 端点 6（P1-11 真接线）：各注册表现取投影（token 结晶体）＋q/type 筛
     ＋type 越界 400。"""

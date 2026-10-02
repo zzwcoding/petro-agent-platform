@@ -52,7 +52,7 @@ data-plane/    独立仓：数据面服务（进料→清洗→出汇总→质�
 2. 改动守 data-plane 仓自己的 AGENTS.md（ADR 链）；
 3. ontology/ 已并入平台仓普通目录（2026-09-30 子树合并，历史随合并提交可溯）——本体改动直接提交本仓，提交前跑 `bash ontology/ci.sh` 语义闸。
 
-层间依赖单向向下（B16），边界规则逐条进 `import-linter`（见 pyproject），CI 四门禁：lint/类型/测试/边界闸。
+层间依赖单向向下（B16），边界规则逐条进 `import-linter`（见 pyproject），CI 五闸：lint/类型/测试/边界闸/合同覆盖率闸（`tools/contract_coverage.py`——合同册端点 × 实现路由双向对账，AGENTS.md 硬纪律 8）。
 
 ## 开发期身份
 

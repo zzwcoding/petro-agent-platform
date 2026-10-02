@@ -21,10 +21,9 @@
  *   内联渲染进对话流，不弹全局 toast）：流开前非 2xx 解统一错误包抛 ApiError；
  *   流内异常按 00 §6.1 只可能是 error 帧（onError 收口）。
  *
- * 端点接线现状（P1-11 收口批）：
- * - 端点 2/4/5/6 全接线（端点 2 sessions / 端点 6 assets 为 P1-11 补齐——
- *   此前两读口按降级标静默兜底，本批去标）；端点 3 sessions/{id}/messages
- *   仍未接线（历史消息回放读口，挂后续批）。
+ * 端点接线现状（P1-12 收口批）：
+ * - 端点 2/3/4/5/6 全接线（端点 2/6 为 P1-11 补齐；端点 3 sessions/{id}/messages
+ *   会话消息回放为 P1-12 补齐——此前历史会话不可点开）。
  */
 
 import { API_BASE, ApiError, authHeaders } from './client.js'
@@ -242,6 +241,34 @@ export async function listSessions() {
   } catch {
     return { items: [], available: false }
   }
+}
+
+/**
+ * 端点 3 会话消息回放（A1——问句/答案卡按 seq 升序；answer 与 SSE answer 帧
+ * 同形直出，citations 随 answer 内嵌）。历史查看是显式点击动作，失败上抛由
+ * 页面内联提示（与 listSessions 的静默韧性面分立）。
+ *
+ * @param {string} sessionId 会话 id（sess-*）
+ * @returns {Promise<Array<{id: string, role: string, text: string,
+ *   runId: string|null, answer: object|null}>>}
+ */
+export async function listMessages(sessionId) {
+  const res = await fetch(
+    `${API_BASE}/chat/sessions/${encodeURIComponent(sessionId)}/messages`,
+    { headers: sseHeaders() }
+  )
+  if (!res.ok) {
+    const pkg = await res.json().catch(() => ({}))
+    throw new ApiError(res.status, pkg, pkg.message || '历史会话读取失败')
+  }
+  const data = await res.json()
+  return (data.items || []).map(m => ({
+    id: m.id,
+    role: m.role,
+    text: m.text,
+    runId: m.run_id ?? null,
+    answer: m.answer ?? null
+  }))
 }
 
 /**

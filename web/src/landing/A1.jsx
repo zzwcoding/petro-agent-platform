@@ -17,7 +17,10 @@
  * - 历史会话：端点 2 真接线（P1-11——服务端列表 available 才渲染）；本机
  *   最近运行（页面级缓存）可点开＝端点 4 重连形态真恢复（resume_run_id 重放
  *   持久帧——P1-08c），非原型「点历史＝整条流程重跑」。
- * - 消息回放读口（端点 3 sessions/{id}/messages）仍未接线——挂后续批。
+ * - 消息回放读口（端点 3 sessions/{id}/messages）真接线（P1-12）：点服务端
+ *   会话＝中栏只读回放消息与答案卡（answer 与 SSE answer 帧同形直出——
+ *   citations 可点开出处抽屉）；过程帧逐帧回放不在本版合同（A1 开放问题 2，
+ *   随 D5 产品化批）；回放中发送新问题＝开启新会话（诚实提示）。
  * - 断线提示：replay_truncated 收场话术帧直出（不静默丢帧）；POST 流传输
  *   断＝「从断点恢复」按钮（resume_run_id＋Last-Event-ID 手动续推——
  *   EventSource 自动重连仅 GET 形态，api/chat.js 选型注记）。
@@ -33,7 +36,7 @@ import {
 import { ApartmentOutlined, SendOutlined } from '@ant-design/icons'
 import { ApiError } from '../api/client.js'
 import {
-  listAssets, listSessions, postAsk, postResume, reconnectRun
+  listAssets, listMessages, listSessions, postAsk, postResume, reconnectRun
 } from '../api/chat.js'
 import { useAppStore } from '../store/app.js'
 
@@ -285,6 +288,7 @@ export default function A1Landing() {
   const [atList, setAtList] = useState([])
   const [atLoaded, setAtLoaded] = useState(false)
   const [serverSessions, setServerSessions] = useState({ items: [], available: false })
+  const [viewing, setViewing] = useState(null) // 历史回放（端点 3）：{sessionId,title,loading,error,messages}
   const [drawer, setDrawer] = useState(null) // citation 抽屉
   const [rejectReason, setRejectReason] = useState('')
   const busyRef = useRef(false)
@@ -385,6 +389,7 @@ export default function A1Landing() {
     const question = (text || '').trim()
     if (!question || busyRef.current) return
     setAtOpen(false)
+    setViewing(null) // 新提问＝新会话（回放中提问即退出回放——诚实口径）
     const anchors = [...question.matchAll(/@([^\s@]+)/g)].map(m => m[1])
     turnRef.current = newTurn('ask', question)
     setItems(prev => [...prev,
@@ -433,6 +438,57 @@ export default function A1Landing() {
     runStream(() => reconnectRun(resumeTurn.runId, resumeTurn.lastEventId, handlers()), resumeTurn.question)
   }
 
+  /** 历史会话回放（端点 3）：拉服务端消息折进中栏（只读——answer 与 SSE
+   * answer 帧同形直出；失败内联提示，显式点击动作不走静默韧性）。 */
+  async function openHistory(sess) {
+    if (busyRef.current) return
+    setViewing({ sessionId: sess.id, title: sess.title, loading: true, error: '', messages: [] })
+    try {
+      const messages = await listMessages(sess.id)
+      setViewing(v => (v && v.sessionId === sess.id ? { ...v, loading: false, messages } : v))
+    } catch (err) {
+      setViewing(v => (v && v.sessionId === sess.id
+        ? { ...v, loading: false, error: err.message || '历史会话读取失败' } : v))
+    }
+  }
+
+  /** 回放消息 → 对话流条目（assistant 回合合成：answer 帧载荷收口＋done 收场）。 */
+  function historyItems(v) {
+    return v.messages.map(m => m.role === 'user'
+      ? { type: 'user', text: m.text, key: m.id }
+      : {
+          type: 'assistant',
+          key: m.id,
+          turn: {
+            ...newTurn('replay', m.text),
+            answer: m.answer,
+            answerText: typeof m.answer?.text === 'string' ? m.answer.text : m.text,
+            citations: m.answer?.citations || [],
+            closed: 'done',
+            runId: m.runId || '',
+            sessionId: v.sessionId,
+            replay: true
+          }
+        })
+  }
+
+  /** 对话流条目渲染（实时会话与历史回放共用一套渲染件）。 */
+  function renderItems(list) {
+    return list.map(it => it.type === 'user' ? (
+      <Card key={it.key} size="small" style={{ background: 'rgba(22,119,255,0.12)', marginBottom: 8 }}>
+        <b>我：</b>{it.text}
+      </Card>
+    ) : (
+      <AssistantBubble key={it.key} turn={it.turn} busy={busy}
+        onOpenCitation={setDrawer}
+        onClarify={chooseClarify}
+        onApproval={decideApproval}
+        rejectReason={rejectReason}
+        onRejectReason={setRejectReason}
+        onResume={() => resumeRun(it.turn)} />
+    ))
+  }
+
   function onInputChange(e) {
     const v = e.target.value
     setInput(v)
@@ -462,14 +518,17 @@ export default function A1Landing() {
             <div style={{ ...dim, marginBottom: 4 }}>服务端会话（端点 2）</div>
             <List size="small" dataSource={serverSessions.items} locale={{ emptyText: '暂无服务端会话' }}
               renderItem={s => (
-                <List.Item style={{ padding: '4px 0' }}>
+                <List.Item style={{ cursor: busy ? 'wait' : 'pointer', padding: '4px 0' }}
+                  onClick={() => !busy && openHistory(s)}>
                   <div>
                     <div style={{ fontSize: 13 }}>{s.title}</div>
                     <div style={dim}>{s.group}{s.updatedAt ? ` · ${s.updatedAt}` : ''}</div>
                   </div>
                 </List.Item>
               )} />
-            <div style={{ ...dim, margin: '8px 0 4px' }}>消息回放读口（端点 3）未接线——服务端会话暂不可点开。</div>
+            <div style={{ ...dim, margin: '8px 0 4px' }}>
+              点会话＝回放消息与答案卡（端点 3）；过程帧逐帧回放随 D5 产品化批。
+            </div>
           </>
         )}
         <div style={{ ...dim, marginBottom: 4 }}>本机最近运行（点开＝断点重连，已出内容不丢）</div>
@@ -491,25 +550,33 @@ export default function A1Landing() {
       <Card size="small" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}
         styles={{ body: { flex: 1, minHeight: 320, display: 'flex', flexDirection: 'column' } }}>
         <div ref={convRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
-          {items.length === 0 && (
-            <div style={{ ...dim, padding: '20px 4px' }}>
-              输入问题开始提问；支持 @指标卡·… / @术语·… 点名（服务端按当前身份装配）。
-              右侧思考过程由服务端事件帧逐节点点亮。
-            </div>
-          )}
-          {items.map(it => it.type === 'user' ? (
-            <Card key={it.key} size="small" style={{ background: 'rgba(22,119,255,0.12)', marginBottom: 8 }}>
-              <b>我：</b>{it.text}
-            </Card>
+          {viewing ? (
+            <>
+              <Alert style={{ marginBottom: 8 }} type="info" showIcon
+                message={`正在查看历史会话：${viewing.title}`}
+                description={viewing.loading
+                  ? '读取中…'
+                  : viewing.error
+                    ? `读取失败：${viewing.error}`
+                    : '只读回放——发送新问题将开启新会话。'}
+                action={<Button size="small" onClick={() => setViewing(null)}>返回当前</Button>} />
+              {viewing.loading && <Spin size="small" style={{ margin: 16 }} />}
+              {!viewing.loading && !viewing.error && historyItems(viewing).length === 0 && (
+                <div style={{ ...dim, padding: '20px 4px' }}>该会话还没有落库消息。</div>
+              )}
+              {!viewing.loading && !viewing.error && renderItems(historyItems(viewing))}
+            </>
           ) : (
-            <AssistantBubble key={it.key} turn={it.turn} busy={busy}
-              onOpenCitation={setDrawer}
-              onClarify={chooseClarify}
-              onApproval={decideApproval}
-              rejectReason={rejectReason}
-              onRejectReason={setRejectReason}
-              onResume={() => resumeRun(it.turn)} />
-          ))}
+            <>
+              {items.length === 0 && (
+                <div style={{ ...dim, padding: '20px 4px' }}>
+                  输入问题开始提问；支持 @指标卡·… / @术语·… 点名（服务端按当前身份装配）。
+                  右侧思考过程由服务端事件帧逐节点点亮。
+                </div>
+              )}
+              {renderItems(items)}
+            </>
+          )}
         </div>
         <div style={{ position: 'relative', marginTop: 10 }}>
           {atOpen && (
@@ -548,7 +615,10 @@ export default function A1Landing() {
       <Card title={<>思考过程 <ApartmentOutlined style={{ color: '#8a94a3' }} /></>} size="small"
         style={{ width: 330, flexShrink: 0, alignSelf: 'flex-start' }}>
         <div ref={treeRef} style={{ maxHeight: 'calc(100vh - 220px)', overflowY: 'auto', paddingRight: 4 }}>
-          {!tree && <div style={dim}>输入问题或点开历史运行，这里逐帧展示完整处理过程。</div>}
+          {!tree && viewing && (
+            <div style={dim}>历史回放只还原消息与答案卡——过程帧逐帧回放随 D5 产品化批（A1 开放问题 2）。</div>
+          )}
+          {!tree && !viewing && <div style={dim}>输入问题或点开历史运行，这里逐帧展示完整处理过程。</div>}
           {tree && <ThinkingTree turn={tree} />}
         </div>
       </Card>

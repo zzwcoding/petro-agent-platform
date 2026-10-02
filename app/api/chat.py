@@ -32,7 +32,7 @@ from pydantic import BaseModel
 
 from app.api.deps import ChatDep, CurrentActor
 from app.api.errors import ApiError
-from app.domains.chat import ChatParamError, SseEvent
+from app.domains.chat import ChatParamError, ChatSessionNotFoundError, SseEvent
 from app.domains.chat.domain import (
     FRAME_ERROR,
     FRAME_REPLAY_TRUNCATED,
@@ -46,11 +46,13 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 # 00 §6.2 三保留帧名单源自 domains.chat（A1 会话域合同值 19 帧集，单源不双写）；
 # 本模块 re-export 的 REPLAY_TRUNCATED_MESSAGE 保持 P0-08 测试导入名不变。
 
-# 本票新立错误码（00 §3.3 <域>_<语义>；登记 tickets/phase1/README.md P1-08a）。
+# 本票新立错误码（00 §3.3 <域>_<语义>；登记 tickets/phase1/README.md P1-08a
+# /P1-12）。
 CODE_CHAT_LAST_EVENT_ID_INVALID = "chat_last_event_id_invalid"
 CODE_CHAT_PARAM_INVALID = "chat_param_invalid"
 CODE_CHAT_RUN_NOT_FOUND = "chat_run_not_found"
 CODE_CHAT_RUN_STATE = "chat_run_state"
+CODE_CHAT_SESSION_NOT_FOUND = "chat_session_not_found"
 CODE_CHAT_STREAM_FAILED = "chat_stream_failed"
 
 
@@ -169,6 +171,20 @@ class SessionListResponse(BaseModel):
     items: list[SessionItemBody]
 
 
+class SessionMessageBody(BaseModel):
+    """会话消息行（A1 端点 3 合同形状——answer 与 SSE answer 帧同形直出）。"""
+
+    id: str
+    role: str
+    text: str
+    run_id: str | None
+    answer: dict[str, Any] | None
+
+
+class SessionMessagesResponse(BaseModel):
+    items: list[SessionMessageBody]
+
+
 class AssetItemBody(BaseModel):
     """@ 资产条目（A1 端点 6 合同形状）。"""
 
@@ -193,6 +209,31 @@ async def get_sessions(chat: ChatDep, actor: CurrentActor) -> SessionListRespons
         SessionItemBody(
             id=item.id, title=item.title, group=item.group,
             scenario_id=item.scenario_id, updated_at=item.updated_at,
+        )
+        for item in items
+    ])
+
+
+@router.get("/sessions/{session_id}/messages")
+async def get_session_messages(
+    session_id: str, chat: ChatDep, actor: CurrentActor
+) -> SessionMessagesResponse:
+    """GET /api/chat/sessions/{id}/messages → 200（A1 端点 3——会话消息回放）。
+
+    问句/答案卡按会话 seq 升序回放；answer 与 SSE answer 帧同形（一份 DTO
+    两处消费——citations 随 answer 内嵌）；会话不存在或非当前身份 404
+    chat_session_not_found（不泄漏存在性）。
+    """
+    try:
+        items = await chat.session_messages(session_id, actor.who)
+    except ChatSessionNotFoundError as exc:
+        raise ApiError(
+            status_code=404, code=CODE_CHAT_SESSION_NOT_FOUND, message=str(exc)
+        ) from exc
+    return SessionMessagesResponse(items=[
+        SessionMessageBody(
+            id=item.id, role=item.role, text=item.text,
+            run_id=item.run_id, answer=item.answer,
         )
         for item in items
     ])

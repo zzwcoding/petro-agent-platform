@@ -15,13 +15,15 @@ jobs:
       - name: sync deps
         run: uv sync --all-groups
       - name: lint（ruff）
-        run: uv run ruff check app tests migrations
+        run: uv run ruff check app tests migrations tools
       - name: type（mypy strict）
         run: uv run mypy app
       - name: test（pytest）
         run: uv run pytest -q
       - name: boundary（import-linter：B16 层间单向 + B1 禁框架）
         run: uv run lint-imports
+      - name: contract coverage（合同覆盖率闸：AGENTS.md 硬纪律 8——实现有/清单无＝0；清单有/实现无必须带 owner）
+        run: uv run python tools/contract_coverage.py check
 
   frontend:
     runs-on: ubuntu-latest

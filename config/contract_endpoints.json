@@ -1,0 +1,1204 @@
+{
+  "source": "/Users/divh/Downloads/teach-petro-agent/specs/api（设计真源，只读引用——本文件是导出物，合同册变更后重跑 export 并提交；owner=归属注记：票号/挂账行/阶段标注）",
+  "exported_at": "2026-10-02",
+  "gate": "tools/contract_coverage.py check（硬纪律 8——实现有/清单无必须为 0；清单有/实现无必须带 owner）",
+  "endpoints": [
+    {
+      "book": "A1",
+      "no": "1",
+      "method": "GET",
+      "path": "/api/chat/scenarios",
+      "owner": "A1 收尾登记（P1-08a 差异 10/P1-11a 差异 4）：场景注册表/产物任务族随其端点票——阶段未排期"
+    },
+    {
+      "book": "A1",
+      "no": "2",
+      "method": "GET",
+      "path": "/api/chat/sessions",
+      "owner": "A1 收尾登记（P1-08a 差异 10/P1-11a 差异 4）：场景注册表/产物任务族随其端点票——阶段未排期"
+    },
+    {
+      "book": "A1",
+      "no": "3",
+      "method": "GET",
+      "path": "/api/chat/sessions/{}/messages",
+      "owner": "A1 收尾登记（P1-08a 差异 10/P1-11a 差异 4）：场景注册表/产物任务族随其端点票——阶段未排期"
+    },
+    {
+      "book": "A1",
+      "no": "4",
+      "method": "POST",
+      "path": "/api/chat/asks",
+      "owner": "A1 收尾登记（P1-08a 差异 10/P1-11a 差异 4）：场景注册表/产物任务族随其端点票——阶段未排期"
+    },
+    {
+      "book": "A1",
+      "no": "5",
+      "method": "POST",
+      "path": "/api/chat/runs/{}/resume",
+      "owner": "A1 收尾登记（P1-08a 差异 10/P1-11a 差异 4）：场景注册表/产物任务族随其端点票——阶段未排期"
+    },
+    {
+      "book": "A1",
+      "no": "6",
+      "method": "GET",
+      "path": "/api/chat/assets",
+      "owner": "A1 收尾登记（P1-08a 差异 10/P1-11a 差异 4）：场景注册表/产物任务族随其端点票——阶段未排期"
+    },
+    {
+      "book": "A1",
+      "no": "7",
+      "method": "POST",
+      "path": "/api/chat/artifacts",
+      "owner": "A1 收尾登记（P1-08a 差异 10/P1-11a 差异 4）：场景注册表/产物任务族随其端点票——阶段未排期"
+    },
+    {
+      "book": "A1",
+      "no": "8",
+      "method": "GET",
+      "path": "/api/chat/artifacts/{}",
+      "owner": "A1 收尾登记（P1-08a 差异 10/P1-11a 差异 4）：场景注册表/产物任务族随其端点票——阶段未排期"
+    },
+    {
+      "book": "A2",
+      "no": "1",
+      "method": "GET",
+      "path": "/api/wells",
+      "owner": "阶段 2 · A2 井档案票（roadmap 问数与井档案）"
+    },
+    {
+      "book": "A2",
+      "no": "2",
+      "method": "GET",
+      "path": "/api/wells/{}",
+      "owner": "阶段 2 · A2 井档案票（roadmap 问数与井档案）"
+    },
+    {
+      "book": "A2",
+      "no": "3",
+      "method": "GET",
+      "path": "/api/wells/{}/chain",
+      "owner": "阶段 2 · A2 井档案票（roadmap 问数与井档案）"
+    },
+    {
+      "book": "A2",
+      "no": "4",
+      "method": "GET",
+      "path": "/api/wells/{}/change-tickets",
+      "owner": "阶段 2 · A2 井档案票（roadmap 问数与井档案）"
+    },
+    {
+      "book": "A3",
+      "no": "1",
+      "method": "GET",
+      "path": "/api/change-tickets",
+      "owner": "阶段 3 · A3 数据变动审批票（roadmap 治理链）"
+    },
+    {
+      "book": "A3",
+      "no": "2",
+      "method": "GET",
+      "path": "/api/change-tickets/{}",
+      "owner": "阶段 3 · A3 数据变动审批票（roadmap 治理链）"
+    },
+    {
+      "book": "A3",
+      "no": "3",
+      "method": "POST",
+      "path": "/api/change-tickets/{}/approve",
+      "owner": "阶段 3 · A3 数据变动审批票（roadmap 治理链）"
+    },
+    {
+      "book": "A3",
+      "no": "4",
+      "method": "POST",
+      "path": "/api/change-tickets/{}/reject",
+      "owner": "阶段 3 · A3 数据变动审批票（roadmap 治理链）"
+    },
+    {
+      "book": "B1",
+      "no": "1",
+      "method": "GET",
+      "path": "/api/kb/reports",
+      "owner": ""
+    },
+    {
+      "book": "B1",
+      "no": "2",
+      "method": "GET",
+      "path": "/api/kb/reports/{}",
+      "owner": ""
+    },
+    {
+      "book": "B1",
+      "no": "3",
+      "method": "POST",
+      "path": "/api/kb/reports/{}/download-url",
+      "owner": ""
+    },
+    {
+      "book": "B1",
+      "no": "4",
+      "method": "POST",
+      "path": "/api/kb/reports/{}/fragments/{}/revisions",
+      "owner": ""
+    },
+    {
+      "book": "B1",
+      "no": "5",
+      "method": "POST",
+      "path": "/api/kb/uploads",
+      "owner": ""
+    },
+    {
+      "book": "B1",
+      "no": "6",
+      "method": "POST",
+      "path": "/api/kb/uploads/{}/confirm",
+      "owner": ""
+    },
+    {
+      "book": "B1",
+      "no": "7",
+      "method": "GET",
+      "path": "/api/kb/tasks",
+      "owner": ""
+    },
+    {
+      "book": "B1",
+      "no": "8",
+      "method": "GET",
+      "path": "/api/kb/tasks/{}",
+      "owner": ""
+    },
+    {
+      "book": "B1",
+      "no": "9",
+      "method": "GET",
+      "path": "/api/kb/tasks/{}/additions",
+      "owner": ""
+    },
+    {
+      "book": "B1",
+      "no": "10",
+      "method": "POST",
+      "path": "/api/kb/tasks/{}/retry",
+      "owner": ""
+    },
+    {
+      "book": "B1",
+      "no": "11",
+      "method": "GET",
+      "path": "/api/kb/libs",
+      "owner": ""
+    },
+    {
+      "book": "B1",
+      "no": "12",
+      "method": "GET",
+      "path": "/api/kb/libs/{}/config",
+      "owner": ""
+    },
+    {
+      "book": "B1",
+      "no": "13",
+      "method": "PUT",
+      "path": "/api/kb/libs/{}/config",
+      "owner": ""
+    },
+    {
+      "book": "B1",
+      "no": "14",
+      "method": "GET",
+      "path": "/api/kb/libs/{}/activities",
+      "owner": ""
+    },
+    {
+      "book": "B1",
+      "no": "15",
+      "method": "POST",
+      "path": "/api/kb/libs",
+      "owner": ""
+    },
+    {
+      "book": "B2",
+      "no": "1",
+      "method": "GET",
+      "path": "/api/kb/fragments",
+      "owner": ""
+    },
+    {
+      "book": "B2",
+      "no": "2",
+      "method": "GET",
+      "path": "/api/kb/fragments/{}/context",
+      "owner": ""
+    },
+    {
+      "book": "B2",
+      "no": "3",
+      "method": "POST",
+      "path": "/api/kb/fragments/{}/issue-reports",
+      "owner": ""
+    },
+    {
+      "book": "B2",
+      "no": "4",
+      "method": "GET",
+      "path": "/api/kb/issue-reports",
+      "owner": ""
+    },
+    {
+      "book": "B2",
+      "no": "5",
+      "method": "POST",
+      "path": "/api/kb/issue-reports/{}/review",
+      "owner": ""
+    },
+    {
+      "book": "B2",
+      "no": "6",
+      "method": "POST",
+      "path": "/api/kb/issue-reports/{}/close",
+      "owner": ""
+    },
+    {
+      "book": "B3",
+      "no": "1",
+      "method": "GET",
+      "path": "/api/faq/items",
+      "owner": ""
+    },
+    {
+      "book": "B3",
+      "no": "2",
+      "method": "GET",
+      "path": "/api/faq/items/{}",
+      "owner": ""
+    },
+    {
+      "book": "B3",
+      "no": "3",
+      "method": "POST",
+      "path": "/api/faq/items",
+      "owner": ""
+    },
+    {
+      "book": "B3",
+      "no": "4",
+      "method": "POST",
+      "path": "/api/faq/dup-checks",
+      "owner": ""
+    },
+    {
+      "book": "B3",
+      "no": "5",
+      "method": "POST",
+      "path": "/api/faq/items/{}/similar-questions",
+      "owner": ""
+    },
+    {
+      "book": "B3",
+      "no": "6",
+      "method": "DELETE",
+      "path": "/api/faq/items/{}/similar-questions/{}",
+      "owner": ""
+    },
+    {
+      "book": "B3",
+      "no": "7",
+      "method": "POST",
+      "path": "/api/faq/items/{}/merge",
+      "owner": ""
+    },
+    {
+      "book": "B3",
+      "no": "8",
+      "method": "POST",
+      "path": "/api/faq/items/{}/state",
+      "owner": ""
+    },
+    {
+      "book": "B3",
+      "no": "9",
+      "method": "GET",
+      "path": "/api/faq/candidates",
+      "owner": ""
+    },
+    {
+      "book": "B3",
+      "no": "10",
+      "method": "POST",
+      "path": "/api/faq/scan-tasks",
+      "owner": ""
+    },
+    {
+      "book": "B3",
+      "no": "11",
+      "method": "GET",
+      "path": "/api/faq/scan-tasks/{}",
+      "owner": ""
+    },
+    {
+      "book": "B3",
+      "no": "12",
+      "method": "POST",
+      "path": "/api/faq/candidates/{}/compare",
+      "owner": ""
+    },
+    {
+      "book": "B3",
+      "no": "13",
+      "method": "POST",
+      "path": "/api/faq/candidates/{}/draft",
+      "owner": ""
+    },
+    {
+      "book": "B3",
+      "no": "14",
+      "method": "POST",
+      "path": "/api/faq/drafts",
+      "owner": ""
+    },
+    {
+      "book": "B3",
+      "no": "15",
+      "method": "POST",
+      "path": "/api/faq/import",
+      "owner": ""
+    },
+    {
+      "book": "B3",
+      "no": "16",
+      "method": "POST",
+      "path": "/api/faq/export",
+      "owner": ""
+    },
+    {
+      "book": "B3",
+      "no": "17",
+      "method": "POST",
+      "path": "/api/faq/items/{}/review",
+      "owner": ""
+    },
+    {
+      "book": "B4",
+      "no": "1",
+      "method": "GET",
+      "path": "/api/wiki/pages",
+      "owner": ""
+    },
+    {
+      "book": "B4",
+      "no": "2",
+      "method": "GET",
+      "path": "/api/wiki/pages/{}",
+      "owner": ""
+    },
+    {
+      "book": "B4",
+      "no": "3",
+      "method": "GET",
+      "path": "/api/wiki/pages/{}/versions",
+      "owner": ""
+    },
+    {
+      "book": "B4",
+      "no": "4",
+      "method": "POST",
+      "path": "/api/wiki/pages/{}/rollback",
+      "owner": ""
+    },
+    {
+      "book": "B5",
+      "no": "1",
+      "method": "GET",
+      "path": "/api/graph/net",
+      "owner": ""
+    },
+    {
+      "book": "B5",
+      "no": "2",
+      "method": "GET",
+      "path": "/api/graph/extract-config",
+      "owner": ""
+    },
+    {
+      "book": "B5",
+      "no": "3",
+      "method": "PUT",
+      "path": "/api/graph/extract-config",
+      "owner": ""
+    },
+    {
+      "book": "B5",
+      "no": "4",
+      "method": "GET",
+      "path": "/api/graph/blocked-edges",
+      "owner": ""
+    },
+    {
+      "book": "B5",
+      "no": "5",
+      "method": "POST",
+      "path": "/api/graph/extract-config/draft-example",
+      "owner": ""
+    },
+    {
+      "book": "C1",
+      "no": "1",
+      "method": "GET",
+      "path": "/api/semantics/overview",
+      "owner": "阶段 3 · C1 页面票（roadmap 治理链；数据面 P1-01b＋域读缝 P1-11a B7 已落）"
+    },
+    {
+      "book": "C1",
+      "no": "2",
+      "method": "GET",
+      "path": "/api/semantics/terms",
+      "owner": "阶段 3 · C1 页面票（roadmap 治理链；数据面 P1-01b＋域读缝 P1-11a B7 已落）"
+    },
+    {
+      "book": "C1",
+      "no": "3",
+      "method": "GET",
+      "path": "/api/semantics/metrics",
+      "owner": "阶段 3 · C1 页面票（roadmap 治理链；数据面 P1-01b＋域读缝 P1-11a B7 已落）"
+    },
+    {
+      "book": "C1",
+      "no": "4",
+      "method": "GET",
+      "path": "/api/semantics/metrics/{}",
+      "owner": "阶段 3 · C1 页面票（roadmap 治理链；数据面 P1-01b＋域读缝 P1-11a B7 已落）"
+    },
+    {
+      "book": "C1",
+      "no": "5",
+      "method": "GET",
+      "path": "/api/semantics/objects",
+      "owner": "阶段 3 · C1 页面票（roadmap 治理链；数据面 P1-01b＋域读缝 P1-11a B7 已落）"
+    },
+    {
+      "book": "C1",
+      "no": "6",
+      "method": "GET",
+      "path": "/api/semantics/relations",
+      "owner": "阶段 3 · C1 页面票（roadmap 治理链；数据面 P1-01b＋域读缝 P1-11a B7 已落）"
+    },
+    {
+      "book": "C1",
+      "no": "7",
+      "method": "GET",
+      "path": "/api/semantics/join-whitelist",
+      "owner": "阶段 3 · C1 页面票（roadmap 治理链；数据面 P1-01b＋域读缝 P1-11a B7 已落）"
+    },
+    {
+      "book": "C1",
+      "no": "8",
+      "method": "GET",
+      "path": "/api/semantics/workflows",
+      "owner": "阶段 3 · C1 页面票（roadmap 治理链；数据面 P1-01b＋域读缝 P1-11a B7 已落）"
+    },
+    {
+      "book": "C1",
+      "no": "9",
+      "method": "GET",
+      "path": "/api/semantics/workflows/{}",
+      "owner": "阶段 3 · C1 页面票（roadmap 治理链；数据面 P1-01b＋域读缝 P1-11a B7 已落）"
+    },
+    {
+      "book": "C1",
+      "no": "10",
+      "method": "GET",
+      "path": "/api/semantics/actions",
+      "owner": "阶段 3 · C1 页面票（roadmap 治理链；数据面 P1-01b＋域读缝 P1-11a B7 已落）"
+    },
+    {
+      "book": "C1",
+      "no": "11",
+      "method": "GET",
+      "path": "/api/semantics/slots",
+      "owner": "阶段 3 · C1 页面票（roadmap 治理链；数据面 P1-01b＋域读缝 P1-11a B7 已落）"
+    },
+    {
+      "book": "C2",
+      "no": "1",
+      "method": "GET",
+      "path": "/api/proposals",
+      "owner": "阶段 3 · C2 提案池票（roadmap 治理链）"
+    },
+    {
+      "book": "C2",
+      "no": "2",
+      "method": "GET",
+      "path": "/api/proposals/{}",
+      "owner": "阶段 3 · C2 提案池票（roadmap 治理链）"
+    },
+    {
+      "book": "C2",
+      "no": "3",
+      "method": "GET",
+      "path": "/api/proposals/overview",
+      "owner": "阶段 3 · C2 提案池票（roadmap 治理链）"
+    },
+    {
+      "book": "C2",
+      "no": "4",
+      "method": "POST",
+      "path": "/api/proposals",
+      "owner": "阶段 3 · C2 提案池票（roadmap 治理链）"
+    },
+    {
+      "book": "C2",
+      "no": "5",
+      "method": "POST",
+      "path": "/api/proposals/{}/triage",
+      "owner": "阶段 3 · C2 提案池票（roadmap 治理链）"
+    },
+    {
+      "book": "C2",
+      "no": "6",
+      "method": "PUT",
+      "path": "/api/proposals/{}/prescription",
+      "owner": "阶段 3 · C2 提案池票（roadmap 治理链）"
+    },
+    {
+      "book": "C2",
+      "no": "7",
+      "method": "POST",
+      "path": "/api/proposals/{}/approve",
+      "owner": "阶段 3 · C2 提案池票（roadmap 治理链）"
+    },
+    {
+      "book": "C2",
+      "no": "8",
+      "method": "POST",
+      "path": "/api/proposals/{}/reject",
+      "owner": "阶段 3 · C2 提案池票（roadmap 治理链）"
+    },
+    {
+      "book": "C2",
+      "no": "9",
+      "method": "POST",
+      "path": "/api/proposals/{}/rollback",
+      "owner": "阶段 3 · C2 提案池票（roadmap 治理链）"
+    },
+    {
+      "book": "C3",
+      "no": "1",
+      "method": "GET",
+      "path": "/api/ci/overview",
+      "owner": "阶段 3 · C3 发布流水线票（roadmap 治理链）"
+    },
+    {
+      "book": "C3",
+      "no": "2",
+      "method": "GET",
+      "path": "/api/ci/releases",
+      "owner": "阶段 3 · C3 发布流水线票（roadmap 治理链）"
+    },
+    {
+      "book": "C3",
+      "no": "3",
+      "method": "POST",
+      "path": "/api/ci/drills",
+      "owner": "阶段 3 · C3 发布流水线票（roadmap 治理链）"
+    },
+    {
+      "book": "C3",
+      "no": "4",
+      "method": "GET",
+      "path": "/api/ci/drills/{}",
+      "owner": "阶段 3 · C3 发布流水线票（roadmap 治理链）"
+    },
+    {
+      "book": "C3",
+      "no": "5",
+      "method": "GET",
+      "path": "/api/ci/drills",
+      "owner": "阶段 3 · C3 发布流水线票（roadmap 治理链）"
+    },
+    {
+      "book": "C3",
+      "no": "6",
+      "method": "GET",
+      "path": "/api/ci/redteam-cases",
+      "owner": "阶段 3 · C3 发布流水线票（roadmap 治理链）"
+    },
+    {
+      "book": "C3",
+      "no": "7",
+      "method": "POST",
+      "path": "/api/ci/redteam-runs",
+      "owner": "阶段 3 · C3 发布流水线票（roadmap 治理链）"
+    },
+    {
+      "book": "C3",
+      "no": "8",
+      "method": "GET",
+      "path": "/api/ci/dry-run-candidates",
+      "owner": "阶段 3 · C3 发布流水线票（roadmap 治理链）"
+    },
+    {
+      "book": "D1",
+      "no": "1",
+      "method": "GET",
+      "path": "/api/gateway/models",
+      "owner": ""
+    },
+    {
+      "book": "D1",
+      "no": "2",
+      "method": "GET",
+      "path": "/api/gateway/config",
+      "owner": ""
+    },
+    {
+      "book": "D1",
+      "no": "3",
+      "method": "PUT",
+      "path": "/api/gateway/config",
+      "owner": ""
+    },
+    {
+      "book": "D1",
+      "no": "4",
+      "method": "GET",
+      "path": "/api/gateway/spend-logs",
+      "owner": ""
+    },
+    {
+      "book": "D1",
+      "no": "5",
+      "method": "POST",
+      "path": "/api/gateway/drills",
+      "owner": ""
+    },
+    {
+      "book": "D1",
+      "no": "6",
+      "method": "GET",
+      "path": "/api/gateway/drills/{}",
+      "owner": ""
+    },
+    {
+      "book": "D1",
+      "no": "7",
+      "method": "GET",
+      "path": "/api/gateway/drills",
+      "owner": ""
+    },
+    {
+      "book": "D1",
+      "no": "8",
+      "method": "GET",
+      "path": "/api/gateway/spend-stats",
+      "owner": ""
+    },
+    {
+      "book": "D2",
+      "no": "1",
+      "method": "GET",
+      "path": "/api/retrieval/config",
+      "owner": ""
+    },
+    {
+      "book": "D2",
+      "no": "2",
+      "method": "POST",
+      "path": "/api/retrieval/change-requests",
+      "owner": ""
+    },
+    {
+      "book": "D3",
+      "no": "1",
+      "method": "GET",
+      "path": "/api/security/overview",
+      "owner": "D3 整页票（设计先行 P1-00b 已落；sys_user/OAuth 随阶段 2——phase1 杂项尾账）"
+    },
+    {
+      "book": "D3",
+      "no": "2",
+      "method": "GET",
+      "path": "/api/security/query-policy",
+      "owner": "D3 整页票（设计先行 P1-00b 已落；sys_user/OAuth 随阶段 2——phase1 杂项尾账）"
+    },
+    {
+      "book": "D3",
+      "no": "3",
+      "method": "PUT",
+      "path": "/api/security/query-policy",
+      "owner": "D3 整页票（设计先行 P1-00b 已落；sys_user/OAuth 随阶段 2——phase1 杂项尾账）"
+    },
+    {
+      "book": "D3",
+      "no": "4",
+      "method": "GET",
+      "path": "/api/security/table-whitelist",
+      "owner": "D3 整页票（设计先行 P1-00b 已落；sys_user/OAuth 随阶段 2——phase1 杂项尾账）"
+    },
+    {
+      "book": "D3",
+      "no": "5",
+      "method": "GET",
+      "path": "/api/security/outbound-policy",
+      "owner": "D3 整页票（设计先行 P1-00b 已落；sys_user/OAuth 随阶段 2——phase1 杂项尾账）"
+    },
+    {
+      "book": "D3",
+      "no": "6",
+      "method": "PUT",
+      "path": "/api/security/outbound-policy",
+      "owner": "D3 整页票（设计先行 P1-00b 已落；sys_user/OAuth 随阶段 2——phase1 杂项尾账）"
+    },
+    {
+      "book": "D3",
+      "no": "7",
+      "method": "GET",
+      "path": "/api/security/sandbox-limits",
+      "owner": "D3 整页票（设计先行 P1-00b 已落；sys_user/OAuth 随阶段 2——phase1 杂项尾账）"
+    },
+    {
+      "book": "D3",
+      "no": "8",
+      "method": "POST",
+      "path": "/api/security/sandbox-runs",
+      "owner": "D3 整页票（设计先行 P1-00b 已落；sys_user/OAuth 随阶段 2——phase1 杂项尾账）"
+    },
+    {
+      "book": "D3",
+      "no": "9",
+      "method": "GET",
+      "path": "/api/security/sandbox-runs/{}",
+      "owner": "D3 整页票（设计先行 P1-00b 已落；sys_user/OAuth 随阶段 2——phase1 杂项尾账）"
+    },
+    {
+      "book": "D3",
+      "no": "10",
+      "method": "GET",
+      "path": "/api/security/sandbox-runs",
+      "owner": "D3 整页票（设计先行 P1-00b 已落；sys_user/OAuth 随阶段 2——phase1 杂项尾账）"
+    },
+    {
+      "book": "D3",
+      "no": "11",
+      "method": "GET",
+      "path": "/api/security/permission-matrix",
+      "owner": "D3 整页票（设计先行 P1-00b 已落；sys_user/OAuth 随阶段 2——phase1 杂项尾账）"
+    },
+    {
+      "book": "D3",
+      "no": "12",
+      "method": "GET",
+      "path": "/api/security/crypto-fields",
+      "owner": "D3 整页票（设计先行 P1-00b 已落；sys_user/OAuth 随阶段 2——phase1 杂项尾账）"
+    },
+    {
+      "book": "D3",
+      "no": "13",
+      "method": "POST",
+      "path": "/api/security/key-selfcheck",
+      "owner": "D3 整页票（设计先行 P1-00b 已落；sys_user/OAuth 随阶段 2——phase1 杂项尾账）"
+    },
+    {
+      "book": "D3",
+      "no": "14",
+      "method": "GET",
+      "path": "/api/security/audit-logs",
+      "owner": "D3 整页票（设计先行 P1-00b 已落；sys_user/OAuth 随阶段 2——phase1 杂项尾账）"
+    },
+    {
+      "book": "D5",
+      "no": "1",
+      "method": "GET",
+      "path": "/api/observe/health",
+      "owner": "D5 撤页归并批（P1-10）未含观测读面族——归属随观测产品化批（Owner 复核）"
+    },
+    {
+      "book": "D5",
+      "no": "2",
+      "method": "GET",
+      "path": "/api/observe/runs",
+      "owner": "D5 撤页归并批（P1-10）未含观测读面族——归属随观测产品化批（Owner 复核）"
+    },
+    {
+      "book": "D5",
+      "no": "3",
+      "method": "GET",
+      "path": "/api/observe/runs/{}",
+      "owner": "D5 撤页归并批（P1-10）未含观测读面族——归属随观测产品化批（Owner 复核）"
+    },
+    {
+      "book": "D5",
+      "no": "4",
+      "method": "GET",
+      "path": "/api/observe/latency",
+      "owner": "D5 撤页归并批（P1-10）未含观测读面族——归属随观测产品化批（Owner 复核）"
+    },
+    {
+      "book": "D5",
+      "no": "5",
+      "method": "GET",
+      "path": "/api/observe/latency/{}/samples",
+      "owner": "D5 撤页归并批（P1-10）未含观测读面族——归属随观测产品化批（Owner 复核）"
+    },
+    {
+      "book": "D5",
+      "no": "6",
+      "method": "GET",
+      "path": "/api/observe/trace-config",
+      "owner": "D5 撤页归并批（P1-10）未含观测读面族——归属随观测产品化批（Owner 复核）"
+    },
+    {
+      "book": "D5",
+      "no": "7",
+      "method": "PUT",
+      "path": "/api/observe/trace-config",
+      "owner": "D5 撤页归并批（P1-10）未含观测读面族——归属随观测产品化批（Owner 复核）"
+    },
+    {
+      "book": "D5",
+      "no": "8",
+      "method": "GET",
+      "path": "/api/observe/budget",
+      "owner": "D5 撤页归并批（P1-10）未含观测读面族——归属随观测产品化批（Owner 复核）"
+    },
+    {
+      "book": "D5",
+      "no": "9",
+      "method": "PUT",
+      "path": "/api/observe/budget",
+      "owner": "D5 撤页归并批（P1-10）未含观测读面族——归属随观测产品化批（Owner 复核）"
+    },
+    {
+      "book": "D5",
+      "no": "10",
+      "method": "GET",
+      "path": "/api/observe/signals",
+      "owner": "D5 撤页归并批（P1-10）未含观测读面族——归属随观测产品化批（Owner 复核）"
+    },
+    {
+      "book": "D6",
+      "no": "1",
+      "method": "GET",
+      "path": "/api/ingest/sources",
+      "owner": "阶段 2 · D6 数据接入投影票（roadmap 问数与井档案）"
+    },
+    {
+      "book": "D6",
+      "no": "2",
+      "method": "GET",
+      "path": "/api/ingest/clean-paths",
+      "owner": "阶段 2 · D6 数据接入投影票（roadmap 问数与井档案）"
+    },
+    {
+      "book": "D6",
+      "no": "3",
+      "method": "GET",
+      "path": "/api/ingest/layers",
+      "owner": "阶段 2 · D6 数据接入投影票（roadmap 问数与井档案）"
+    },
+    {
+      "book": "D6",
+      "no": "4",
+      "method": "GET",
+      "path": "/api/ingest/mappings",
+      "owner": "阶段 2 · D6 数据接入投影票（roadmap 问数与井档案）"
+    },
+    {
+      "book": "E1",
+      "no": "1",
+      "method": "GET",
+      "path": "/api/eval/questions",
+      "owner": "阶段 3 · E1 答题考核票（roadmap 治理链）"
+    },
+    {
+      "book": "E1",
+      "no": "2",
+      "method": "POST",
+      "path": "/api/eval/questions",
+      "owner": "阶段 3 · E1 答题考核票（roadmap 治理链）"
+    },
+    {
+      "book": "E1",
+      "no": "3",
+      "method": "PUT",
+      "path": "/api/eval/questions/{}",
+      "owner": "阶段 3 · E1 答题考核票（roadmap 治理链）"
+    },
+    {
+      "book": "E1",
+      "no": "4",
+      "method": "DELETE",
+      "path": "/api/eval/questions/{}",
+      "owner": "阶段 3 · E1 答题考核票（roadmap 治理链）"
+    },
+    {
+      "book": "E1",
+      "no": "5",
+      "method": "POST",
+      "path": "/api/eval/drafts",
+      "owner": "阶段 3 · E1 答题考核票（roadmap 治理链）"
+    },
+    {
+      "book": "E1",
+      "no": "6",
+      "method": "POST",
+      "path": "/api/eval/questions/{}/expansions",
+      "owner": "阶段 3 · E1 答题考核票（roadmap 治理链）"
+    },
+    {
+      "book": "E1",
+      "no": "7",
+      "method": "POST",
+      "path": "/api/eval/questions/{}/variants",
+      "owner": "阶段 3 · E1 答题考核票（roadmap 治理链）"
+    },
+    {
+      "book": "E1",
+      "no": "8",
+      "method": "PUT",
+      "path": "/api/eval/questions/{}/variants/{}",
+      "owner": "阶段 3 · E1 答题考核票（roadmap 治理链）"
+    },
+    {
+      "book": "E1",
+      "no": "9",
+      "method": "DELETE",
+      "path": "/api/eval/questions/{}/variants/{}",
+      "owner": "阶段 3 · E1 答题考核票（roadmap 治理链）"
+    },
+    {
+      "book": "E1",
+      "no": "10",
+      "method": "POST",
+      "path": "/api/eval/runs",
+      "owner": "阶段 3 · E1 答题考核票（roadmap 治理链）"
+    },
+    {
+      "book": "E1",
+      "no": "11",
+      "method": "GET",
+      "path": "/api/eval/runs",
+      "owner": "阶段 3 · E1 答题考核票（roadmap 治理链）"
+    },
+    {
+      "book": "E1",
+      "no": "12",
+      "method": "GET",
+      "path": "/api/eval/runs/{}",
+      "owner": "阶段 3 · E1 答题考核票（roadmap 治理链）"
+    },
+    {
+      "book": "E1",
+      "no": "13",
+      "method": "GET",
+      "path": "/api/eval/baseline",
+      "owner": "阶段 3 · E1 答题考核票（roadmap 治理链）"
+    },
+    {
+      "book": "E1",
+      "no": "14",
+      "method": "POST",
+      "path": "/api/eval/baseline",
+      "owner": "阶段 3 · E1 答题考核票（roadmap 治理链）"
+    },
+    {
+      "book": "E1",
+      "no": "15",
+      "method": "DELETE",
+      "path": "/api/eval/baseline",
+      "owner": "阶段 3 · E1 答题考核票（roadmap 治理链）"
+    },
+    {
+      "book": "E1",
+      "no": "16",
+      "method": "POST",
+      "path": "/api/eval/runs/{}/items/{}/register",
+      "owner": "阶段 3 · E1 答题考核票（roadmap 治理链）"
+    },
+    {
+      "book": "E1",
+      "no": "17",
+      "method": "GET",
+      "path": "/api/eval/judge-config",
+      "owner": "阶段 3 · E1 答题考核票（roadmap 治理链）"
+    },
+    {
+      "book": "E1",
+      "no": "18",
+      "method": "PUT",
+      "path": "/api/eval/judge-config",
+      "owner": "阶段 3 · E1 答题考核票（roadmap 治理链）"
+    },
+    {
+      "book": "E2",
+      "no": "1",
+      "method": "GET",
+      "path": "/api/quality/rules",
+      "owner": "阶段 2 · E2 数据质量台票（roadmap 问数与井档案）"
+    },
+    {
+      "book": "E2",
+      "no": "2",
+      "method": "PATCH",
+      "path": "/api/quality/rules/{}",
+      "owner": "阶段 2 · E2 数据质量台票（roadmap 问数与井档案）"
+    },
+    {
+      "book": "E2",
+      "no": "3",
+      "method": "POST",
+      "path": "/api/quality/tasks",
+      "owner": "阶段 2 · E2 数据质量台票（roadmap 问数与井档案）"
+    },
+    {
+      "book": "E2",
+      "no": "4",
+      "method": "GET",
+      "path": "/api/quality/tasks/{}",
+      "owner": "阶段 2 · E2 数据质量台票（roadmap 问数与井档案）"
+    },
+    {
+      "book": "E2",
+      "no": "5",
+      "method": "GET",
+      "path": "/api/quality/tasks",
+      "owner": "阶段 2 · E2 数据质量台票（roadmap 问数与井档案）"
+    },
+    {
+      "book": "E2",
+      "no": "6",
+      "method": "GET",
+      "path": "/api/quality/issues",
+      "owner": "阶段 2 · E2 数据质量台票（roadmap 问数与井档案）"
+    },
+    {
+      "book": "E2",
+      "no": "7",
+      "method": "POST",
+      "path": "/api/quality/issues/{}/transitions",
+      "owner": "阶段 2 · E2 数据质量台票（roadmap 问数与井档案）"
+    },
+    {
+      "book": "E2",
+      "no": "8",
+      "method": "GET",
+      "path": "/api/quality/freshness",
+      "owner": "阶段 2 · E2 数据质量台票（roadmap 问数与井档案）"
+    },
+    {
+      "book": "E2",
+      "no": "9",
+      "method": "GET",
+      "path": "/api/quality/quarantine",
+      "owner": "阶段 2 · E2 数据质量台票（roadmap 问数与井档案）"
+    },
+    {
+      "book": "E3",
+      "no": "1",
+      "method": "GET",
+      "path": "/api/checkup/objects",
+      "owner": "阶段 3 · E3 知识体检票（roadmap 治理链）"
+    },
+    {
+      "book": "E3",
+      "no": "2",
+      "method": "POST",
+      "path": "/api/checkup/runs",
+      "owner": "阶段 3 · E3 知识体检票（roadmap 治理链）"
+    },
+    {
+      "book": "E3",
+      "no": "3",
+      "method": "GET",
+      "path": "/api/checkup/runs/{}",
+      "owner": "阶段 3 · E3 知识体检票（roadmap 治理链）"
+    },
+    {
+      "book": "E3",
+      "no": "4",
+      "method": "POST",
+      "path": "/api/checkup/suggestions/confirm",
+      "owner": "阶段 3 · E3 知识体检票（roadmap 治理链）"
+    },
+    {
+      "book": "E3",
+      "no": "5",
+      "method": "GET",
+      "path": "/api/checkup/status",
+      "owner": "阶段 3 · E3 知识体检票（roadmap 治理链）"
+    },
+    {
+      "book": "F1",
+      "no": "1",
+      "method": "GET",
+      "path": "/api/expose/config",
+      "owner": "阶段 4 · F1 对外接口票（roadmap 对外）"
+    },
+    {
+      "book": "F1",
+      "no": "2",
+      "method": "GET",
+      "path": "/api/expose/tools?q=",
+      "owner": "阶段 4 · F1 对外接口票（roadmap 对外）"
+    },
+    {
+      "book": "F1",
+      "no": "3",
+      "method": "POST",
+      "path": "/api/expose/tools/{}/calls",
+      "owner": "阶段 4 · F1 对外接口票（roadmap 对外）"
+    },
+    {
+      "book": "F1",
+      "no": "4",
+      "method": "POST",
+      "path": "/api/expose/elicitation/{}",
+      "owner": "阶段 4 · F1 对外接口票（roadmap 对外）"
+    },
+    {
+      "book": "F1",
+      "no": "5",
+      "method": "POST",
+      "path": "/api/expose/tasks",
+      "owner": "阶段 4 · F1 对外接口票（roadmap 对外）"
+    },
+    {
+      "book": "F1",
+      "no": "6",
+      "method": "GET",
+      "path": "/api/expose/tasks/{}",
+      "owner": "阶段 4 · F1 对外接口票（roadmap 对外）"
+    },
+    {
+      "book": "F1",
+      "no": "7",
+      "method": "GET",
+      "path": "/api/keys",
+      "owner": "阶段 4 · F1 对外接口票（roadmap 对外）"
+    },
+    {
+      "book": "F1",
+      "no": "8",
+      "method": "POST",
+      "path": "/api/keys",
+      "owner": "阶段 4 · F1 对外接口票（roadmap 对外）"
+    },
+    {
+      "book": "F1",
+      "no": "9",
+      "method": "POST",
+      "path": "/api/keys/{}/rotate",
+      "owner": "阶段 4 · F1 对外接口票（roadmap 对外）"
+    },
+    {
+      "book": "F1",
+      "no": "10",
+      "method": "DELETE",
+      "path": "/api/keys/{}",
+      "owner": "阶段 4 · F1 对外接口票（roadmap 对外）"
+    }
+  ]
+}

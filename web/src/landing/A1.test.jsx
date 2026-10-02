@@ -153,6 +153,9 @@ function apiRouter(overrides = {}) {
       calls.resumes.push({ url: u, body: JSON.parse(init.body || '{}') })
       return sseResponse(resumeFrames())
     }
+    if (u.includes('/api/chat/sessions') && u.includes('/messages')) {
+      return overrides.messages ? overrides.messages(u) : new Response(JSON.stringify({ items: [] }), { status: 200 })
+    }
     if (u.includes('/api/chat/sessions')) {
       return overrides.sessions ? overrides.sessions() : new Response('not found', { status: 404 })
     }
@@ -268,6 +271,55 @@ describe('A1 落地页 · citation 回跳链路', () => {
   })
 })
 
+describe('A1 落地页 · 历史会话回放（端点 3——P1-12 接线）', () => {
+  const historySession = {
+    id: 'sess-h1', title: 'N-02 井隶属哪个区块?', group: null, scenario_id: null,
+    updated_at: '2026-10-02T09:37:03'
+  }
+  const historyMessages = { items: [
+    { id: 'msg-1', role: 'user', text: 'N-02 井隶属哪个区块?', run_id: 'run-h1', answer: null },
+    { id: 'msg-2', role: 'assistant', text: '位于渤南区块。', run_id: 'run-h1',
+      answer: { kind: 'text', text: '位于渤南区块。', citations: [
+        { ref: 'c1', kind: '台账条目', label: '区块归属', locator: { section: '常见问题库' } }
+      ] } }
+  ] }
+
+  it('点服务端会话→消息折进中栏：横幅＋user 气泡＋答案卡＋citation 角标开出处抽屉＋返回当前', async () => {
+    apiRouter({
+      sessions: () => new Response(JSON.stringify({ items: [historySession] }), { status: 200 }),
+      messages: () => new Response(JSON.stringify(historyMessages), { status: 200 })
+    })
+    render(<A1Landing />)
+    fireEvent.click(await screen.findByText('N-02 井隶属哪个区块?'))
+
+    expect(await screen.findByText(/正在查看历史会话/)).toBeTruthy()
+    expect(await screen.findByText('位于渤南区块。')).toBeTruthy()
+    // answer 与 SSE answer 帧同形直出——citation 角标可开出处抽屉（一份 DTO 两处消费）
+    fireEvent.click(screen.getByText('证 c1'))
+    await screen.findByText('引用别名')
+    expect(screen.getByText('区块归属')).toBeTruthy()
+    // 返回当前＝退出回放（横幅消失，回实时会话空态）
+    fireEvent.click(screen.getByRole('button', { name: /返回当前/ }))
+    expect(screen.queryByText(/正在查看历史会话/)).toBeNull()
+    expect(screen.getByText(/输入问题开始提问/)).toBeTruthy()
+  })
+
+  it('回放读取失败内联提示；发送新问题＝退出回放（新会话诚实口径）', async () => {
+    apiRouter({
+      sessions: () => new Response(JSON.stringify({ items: [historySession] }), { status: 200 }),
+      messages: () => new Response(JSON.stringify({ code: 'chat_session_not_found', message: '会话不存在或已过期' }), { status: 404 })
+    })
+    render(<A1Landing />)
+    fireEvent.click(await screen.findByText('N-02 井隶属哪个区块?'))
+    expect(await screen.findByText(/读取失败：会话不存在或已过期/)).toBeTruthy()
+
+    // 新提问退出回放（实时对话流接管——asks 照常）
+    await ask(screen, '新问题')
+    expect(screen.queryByText(/正在查看历史会话/)).toBeNull()
+    expect(screen.getByText('新问题')).toBeTruthy()
+  })
+})
+
 describe('A1 落地页 · 澄清帧交互与 resume 回流', () => {
   it('澄清选项点选→POST /chat/runs/{run}/resume 带参→同一回合续推到 done', async () => {
     const calls = apiRouter({ asks: body => (body.question.includes('有效产量') ? sseResponse(askClarifyFrames()) : sseResponse(askFullFrames())) })
@@ -315,9 +367,9 @@ describe('A1 落地页 · 断线收场与重连（端点 4 重连形态）', () 
     })
     render(<A1Landing />)
 
-    // 服务端分组（端点 2 形状直出——消息回放端点未接线的注记在）
+    // 服务端分组（端点 2 形状直出——P1-12 起会话可点开回放，注记换新口径）
     expect(await screen.findByText('上个月产量最高的三口井')).toBeTruthy()
-    expect(screen.getByText(/消息回放读口（端点 3）未接线/)).toBeTruthy()
+    expect(screen.getByText(/点会话＝回放消息与答案卡（端点 3）/)).toBeTruthy()
 
     await ask(screen, '再问一次防砂')
     await screen.findByText('防砂方式为筛管完井。')

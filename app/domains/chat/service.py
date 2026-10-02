@@ -923,6 +923,24 @@ class ChatService:
             for row in rows
         ]
 
+    async def session_messages(self, session_id: str, actor_who: str) -> list[d.SessionMessageItem]:
+        """会话消息回放（A1 端点 3——合同形状 id/role/text/run_id/answer）。
+
+        answer 与 SSE answer 帧同形（一份 DTO 两处消费——citations 随 answer
+        内嵌），直出 jsonb 不折形；seq 升序即回放序。会话不存在或非当前身份
+        一律 404（端点 2 身份隔离同款——不泄漏存在性）。历史「思考过程」逐帧
+        回放不在本版合同（A1 开放问题 2——事件级存档回放待 D5 产品化批）。
+        """
+        row = await self._store.get_session(session_id)
+        if row is None or row.user_id != _actor_key(actor_who):
+            raise d.ChatSessionNotFoundError(f"会话不存在或已过期：{session_id}")
+        return [
+            d.SessionMessageItem(
+                id=m.id, role=m.role, text=m.text, run_id=m.run_id, answer=m.answer,
+            )
+            for m in await self._store.list_messages(session_id)
+        ]
+
     async def assets(self, q: str | None, type_filter: str | None) -> list[d.AssetItem]:
         """@ 资产面板（A1 端点 6——各注册表现取投影不建仓，永不与注册表漂移）。
 

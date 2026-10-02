@@ -536,3 +536,14 @@
   - P1-08a＝dd9739d→d1f4bb0；P1-08b＝26e3541→b33c4c1；P1-08c＝0a6b013（中期）→483cb6c→90b58c5；
   - P1-09＝6f1f11c→2154315；P1-10＝2a1fbfc→cdd2282；P1-11a＝6b9a5e4→64bee0a→a52286a（最终审查两轻味修复）；
   - P1-11b＝本批收官提交（本节落票面；SHA 见仓 log）。
+
+## P1-12 收口批（阶段 1 收官后补票——A1 端点 3 接线＋合同覆盖率闸固化）✅（2026-10-02）
+
+- **缘起（Owner 验收发现）**：A1 历史会话不可点开查看——合同 A1 册端点 3（`GET /api/chat/sessions/{id}/messages` 会话消息回放）从未进任何票的范围，静默无主。根因链复盘（四环各漏一次，全 registers 于本节防再犯）：①拆票范围节手写枚举、未对 A1 册 8 端点做闭世界全量分派；②P1-09 挂账「chat sessions/assets」自然语言丢词（未点端点 3 名）；③P1-11a 照单施工只落 2/6；④缺口标记只活在 A1.jsx 注释与 UI 降级文案里、收官移交清单未收录。**照不亮的结构性原因**：四门禁全是「实现内部质量」闸，无「实现 vs 合同」覆盖率闸——630 测试全绿＋五页真跑全过也发现不了合同覆盖有洞。
+- **落地**：
+  - **端点 3 接线**（合同 A1 册端点 3 逐字）：chat 域新立 `ChatSessionNotFoundError`（404 族）＋store 两读口（`get_session`/`list_messages`——seq 升序即回放序）＋service `session_messages`（归属校验：不存在或非当前身份一律 404 `chat_session_not_found` 不泄漏存在性——端点 2 身份隔离同款）＋路由 `GET /api/chat/sessions/{session_id}/messages`（新错误码登记）；**answer 直出 jsonb 不折形**（与 SSE answer 帧同形一份两处消费——citations 随 answer 内嵌，数据面 P1-08a 已落库）。测试：`test_chat_sse.py` 增端点 3 一条（往返 seq 序/answer 同形断言/未知 404/跨身份 404）。
+  - **前端**：chat.js `listMessages`（显式点击动作失败上抛——与 listSessions 静默韧性面分立）＋A1.jsx 历史回放（点服务端会话→中栏**只读回放**消息与答案卡：assistant 回合合成 answer 收口＋citations 角标可开出处抽屉〔复用 renderItems 一套渲染件〕；回放横幅「发送新问题将开启新会话」诚实口径＋返回当前；过程帧逐帧回放不在本版合同——A1 开放问题 2 随 D5 产品化批，右栏树如实提示）；「未接线」降级注记退役、A1.jsx 头注/接口层头注随改。测试 A1.test.jsx 14 条（＋2：回放渲染＋citation 抽屉＋返回当前／失败内联＋提问退出回放）＋apiRouter 增 messages 路由分支。
+  - **合同覆盖率闸**（本票主产物——事故固化，AGENTS.md 硬纪律 8）：`tools/contract_coverage.py`（`export` 解析 teach specs/api/*.md 端点表→导出清单，owner 注记按 (book,no) 合并保留；`check` 清单 × app/api 路由双向对账）＋`config/contract_endpoints.json`（**21 册 171 端点导出物进 git**——entity_types.json 先例；**owner 归属注记 114 条按 roadmap 阶段映射闭世界分派**：A2/E2/D6=阶段 2，C1/C2/C3/A3/E1/E3=阶段 3，F1=阶段 4，D3=整页票随 sys_user/OAuth 批，D5 观测读面族=撤页归并未含、待 Owner 复核，A1 场景注册表/产物任务族=P1-08a 差异 10 随其票）；规则两条：**实现有/清单无必须为 0**＋**清单有/实现无必须带 owner**。看守测试 `tests/tools/test_contract_coverage.py` 3 条（清单形状/闸绿实判/reconcile 注入红绿双向——pytest 门禁内生效，无 PG 可跑）＋CI 步骤（contract coverage）。路径参数归一比对（`{}`）；DTO 形状漂移不归此闸（测试面看守）。**首跑即抓真账**：104 条阶段未点亮端点全部显形并当场分派——「无主」从静默态变登记态。
+  - **AGENTS.md 硬纪律 8 新立**（闸绿是交付闸＋拆票闭世界分派＋挂账单点化）＋README 门禁行随改（四门禁→五闸）＋CI ruff 范围扩 tools/。
+- **验收自证 ✅（2026-10-02 本批复跑实值）**：ruff（app+tests+migrations+tools）0 错 / mypy strict 65 文件零错 / pytest 带 PG16@5433 **634 passed 4 skipped**（＋4＝端点 3 一条＋看守三条；4 skip＝四门控冒烟自身）/ lint-imports 5 契约 KEPT / **合同覆盖率闸绿（171 条双向对账通过）**；web 三连——eslint 0 error（2 存量 warning）/ vitest **130 passed**（＋2）/ vite build 过。不 push。
+- **差异登记**：①回放为只读投影——回放中发送新问题＝开启新会话（ask 带参续跑既有 session_id 通道在合同端点 4 形状内，本票未接续聊语义，前端诚实提示口径）；②过程帧不回放（99 §1.5 中间过程帧不落库——能回放的是持久化消息/答案，A1 开放问题 2 原话）；③清单 owner 注记为分派快照非施工承诺——阶段规划变更随 teach roadmap 改注记重跑 export；④ruff/mypy 门禁范围未含 tools/（mypy 仍 app/）——闸逻辑由看守测试承保，范围扩展挂后续批顺手。
