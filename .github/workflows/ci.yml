@@ -24,6 +24,8 @@ jobs:
         run: uv run lint-imports
       - name: contract coverage（合同覆盖率闸：AGENTS.md 硬纪律 8——实现有/清单无＝0；清单有/实现无必须带 owner）
         run: uv run python tools/contract_coverage.py check
+      - name: debt markers（债务标记闸：AGENTS.md 硬纪律 8——web 源码债务短语必须携可解析 DEBT 标签）
+        run: uv run python tools/debt_markers.py check
 
   frontend:
     runs-on: ubuntu-latest

@@ -20,7 +20,7 @@
  * - 消息回放读口（端点 3 sessions/{id}/messages）真接线（P1-12）：点服务端
  *   会话＝中栏只读回放消息与答案卡（answer 与 SSE answer 帧同形直出——
  *   citations 可点开出处抽屉）；过程帧逐帧回放不在本版合同（A1 开放问题 2，
- *   随 D5 产品化批）；回放中发送新问题＝开启新会话（诚实提示）。
+ *   随 D5 产品化批）；回放中发送新问题＝开启新会话（诚实提示）。 DEBT(P1-12)
  * - 断线提示：replay_truncated 收场话术帧直出（不静默丢帧）；POST 流传输
  *   断＝「从断点恢复」按钮（resume_run_id＋Last-Event-ID 手动续推——
  *   EventSource 自动重连仅 GET 形态，api/chat.js 选型注记）。
@@ -217,7 +217,7 @@ export function citationJump(citation) {
   const fid = citation.locator?.fragment_id
   if (kind === '报告引用') return fid ? { hash: `/B2?chunk=${encodeURIComponent(fid)}`, label: '去切片管理定位' } : { hash: '/B2', label: '去切片管理' }
   if (kind === '图谱') return { hash: '/B5', label: '去关系图谱' }
-  return null // 台账条目/数据证据——wiki/台账读面随对应页接线预留（抽屉内注记）
+  return null // 台账条目/数据证据——wiki/台账读面随对应页接线预留（抽屉内注记） DEBT(阶段2-B4页)
 }
 
 /** citation 角标行（点击开出处抽屉）。 */
@@ -264,7 +264,7 @@ function AnswerCard({ turn, onOpenCitation }) {
   )
 }
 
-// ---------- 本机最近运行（页面级缓存——服务端端点 2 未接线的兜底读面） ----------
+  // ---------- 本机最近运行（页面级缓存——与端点 2 并行的本机快照读面） ----------
 
 const RUN_HISTORY = []
 function pushRunHistory(entry) {
@@ -526,6 +526,7 @@ export default function A1Landing() {
                   </div>
                 </List.Item>
               )} />
+            {/* DEBT(P1-12)：过程帧回放随 D5 产品化批（票面差异登记②） */}
             <div style={{ ...dim, margin: '8px 0 4px' }}>
               点会话＝回放消息与答案卡（端点 3）；过程帧逐帧回放随 D5 产品化批。
             </div>
@@ -615,6 +616,7 @@ export default function A1Landing() {
       <Card title={<>思考过程 <ApartmentOutlined style={{ color: '#8a94a3' }} /></>} size="small"
         style={{ width: 330, flexShrink: 0, alignSelf: 'flex-start' }}>
         <div ref={treeRef} style={{ maxHeight: 'calc(100vh - 220px)', overflowY: 'auto', paddingRight: 4 }}>
+          {/* DEBT(P1-12)：过程帧回放随 D5 产品化批（票面差异登记②） */}
           {!tree && viewing && (
             <div style={dim}>历史回放只还原消息与答案卡——过程帧逐帧回放随 D5 产品化批（A1 开放问题 2）。</div>
           )}
@@ -642,11 +644,12 @@ export default function A1Landing() {
                   onClick={() => { setDrawer(null); location.hash = jump.hash }}>
                   {jump.label}（{jump.hash.startsWith('/B2?') ? '#/B2?chunk=…' : `#${jump.hash.slice(1)}`}）
                 </Button>
-              ) : (
-                <div style={{ ...dim, marginTop: 12 }}>
-                  该出处族（{drawer.kind}）的读面（百科/台账读面）随对应页接线预留——出处要素见上。
-                </div>
-              )
+                ) : (
+                  <div style={{ ...dim, marginTop: 12 }}>
+                    {/* DEBT(阶段2-B4页)：wiki/台账读面跳转随 B4 页票（P1-09 疑点 3 登记） */}
+                    该出处族（{drawer.kind}）的读面（百科/台账读面）随对应页接线预留——出处要素见上。
+                  </div>
+                )
             })()}
           </>
         )}

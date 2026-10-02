@@ -1,5 +1,5 @@
 // F1 对外接口 · API 凭证页签 —— 接口契约 + mock 实现（PRD F61）
-// 契约文档：specs/api/F1-对外接口.md（本批只覆盖「API 凭证」页签；F1 其余页签待产品化批）
+// 契约文档：specs/api/F1-对外接口.md（本批只覆盖「API 凭证」页签；F1 其余页签待产品化批） DEBT(阶段4-F1)
 // 约定：mock 只在这一层；后端就绪后函数体换 fetch，签名与返回形状不变。
 
 // ── 契约来源：PRD F61（对外凭证与 API Key 管理）· F48 五层 · F49 内外同权 · m1 verify_token/require_permission ──
