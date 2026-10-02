@@ -5,9 +5,11 @@
 网络错/超时/5xx 可切，4xx/429 不可切；W-F2-4 重试只走网关层）。
 """
 
+import json
 from pathlib import Path
 from typing import Any
 
+import httpx
 import litellm
 import litellm.exceptions as lex
 import pytest
@@ -17,6 +19,7 @@ from app.infra.config import load_models_config
 from app.infra.llm_client import (
     AliasNotRegistered,
     LlmClient,
+    UpstreamError,
     UpstreamRejected,
     UpstreamUnavailable,
     classify_upstream_failure,
@@ -39,6 +42,13 @@ models:
     api_key: sk-test-lite
     context_window: 1000000
     group: lite
+  - alias: petro-embed
+    provider: minimax
+    model: embo-01
+    base_url: https://embed.example.test
+    api_key: sk-test-embed
+    context_window: 4096
+    group: embedding
 routing:
   default: petro-main
   fallback_order: [petro-main, petro-lite]
@@ -62,6 +72,14 @@ def _reset_models_cache() -> None:
 
 @pytest.fixture
 def client(tmp_path: Path) -> LlmClient:
+    path = tmp_path / "models.yaml"
+    path.write_text(TEST_YAML, encoding="utf-8")
+    load_models_config(path)
+    return LlmClient()
+
+
+@pytest.fixture
+def embed_client(tmp_path: Path) -> LlmClient:
     path = tmp_path / "models.yaml"
     path.write_text(TEST_YAML, encoding="utf-8")
     load_models_config(path)
@@ -177,3 +195,128 @@ async def test_sdk_exception_never_escapes_unclassified(
     )
     with pytest.raises(UpstreamUnavailable):
         await client.complete("petro-main", [{"role": "user", "content": "x"}], timeout_seconds=1)
+
+
+# ---------- embeddings 适配（P1-11——MiniMax /v1/embeddings B6 单点） ----------
+
+
+def _embed_transport(handler: Any) -> httpx.MockTransport:
+    return httpx.MockTransport(handler)
+
+
+def _ok_payload() -> dict[str, Any]:
+    return {
+        "vectors": [[0.1] * 8, [0.2] * 8],
+        "total_tokens": 16,
+        "base_resp": {"status_code": 0, "status_msg": "success"},
+    }
+
+
+async def test_embeddings_request_shape_and_payload(embed_client: LlmClient) -> None:
+    """请求形状（2026-10-02 实测同形）：POST {base}/v1/embeddings、Bearer 头、
+    体 {model, texts, type}；响应折 LlmEmbedding。"""
+    seen: dict[str, Any] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(request.url)
+        seen["auth"] = request.headers.get("Authorization") or ""
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json=_ok_payload())
+
+    out = await embed_client.embeddings(
+        "petro-embed", ["产量完成率", "N-02 投产"], input_type="query",
+        transport=_embed_transport(handler),
+    )
+    assert seen["url"] == "https://embed.example.test/v1/embeddings"
+    assert seen["auth"] == "Bearer sk-test-embed"  # 密钥在头（受控假 key——不入异常/日志）
+    assert seen["body"] == {
+        "model": "embo-01", "texts": ["产量完成率", "N-02 投产"], "type": "query",
+    }
+    assert out.vectors == [[0.1] * 8, [0.2] * 8]
+    assert out.total_tokens == 16
+    assert out.model == "minimax/embo-01"
+
+
+async def test_embeddings_guards(embed_client: LlmClient) -> None:
+    with pytest.raises(ValueError, match="texts"):
+        await embed_client.embeddings("petro-embed", [], input_type="db")
+    with pytest.raises(ValueError, match="input_type"):
+        await embed_client.embeddings("petro-embed", ["x"], input_type="chat")
+    with pytest.raises(KeyError):
+        await embed_client.embeddings("no-such-alias", ["x"], input_type="db")
+
+
+async def test_embeddings_base_resp_business_error_classification(embed_client: LlmClient) -> None:
+    """MiniMax base_resp 业务错：1004 鉴权失败→不可切（401 形）；1002 限流同理。"""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={
+            "base_resp": {"status_code": 1004, "status_msg": "login fail"},
+        })
+
+    with pytest.raises(UpstreamRejected):
+        await embed_client.embeddings(
+            "petro-embed", ["x"], input_type="db", transport=_embed_transport(handler)
+        )
+
+
+async def test_embeddings_http_error_classification(embed_client: LlmClient) -> None:
+    """HTTP 层错分类：404/400 族不可切；5xx 与网络错/超时可切（椒图判据）。"""
+
+    def not_found(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, text="404 page not found")
+
+    with pytest.raises(UpstreamRejected):
+        await embed_client.embeddings(
+            "petro-embed", ["x"], input_type="db", transport=_embed_transport(not_found)
+        )
+
+    def server_error(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(502, text="bad gateway")
+
+    with pytest.raises(UpstreamUnavailable):
+        await embed_client.embeddings(
+            "petro-embed", ["x"], input_type="db", transport=_embed_transport(server_error)
+        )
+
+    def timeout(request: httpx.Request) -> httpx.Response:
+        raise httpx.TimeoutException("timed out")
+
+    with pytest.raises(UpstreamUnavailable):
+        await embed_client.embeddings(
+            "petro-embed", ["x"], input_type="db", transport=_embed_transport(timeout)
+        )
+
+
+async def test_embeddings_bad_body_shape_is_rejected(embed_client: LlmClient) -> None:
+    def bad_json(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="not-json")
+
+    with pytest.raises(UpstreamRejected):
+        await embed_client.embeddings(
+            "petro-embed", ["x"], input_type="db", transport=_embed_transport(bad_json)
+        )
+
+    def bad_vectors(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"total_tokens": 1, "base_resp": {"status_code": 0}})
+
+    with pytest.raises(UpstreamRejected):
+        await embed_client.embeddings(
+            "petro-embed", ["x"], input_type="db", transport=_embed_transport(bad_vectors)
+        )
+
+
+async def test_embeddings_key_never_in_error_text(embed_client: LlmClient) -> None:
+    """密钥绝不进异常文本（B6 纪律——401 响应体不回显请求头）。"""
+    key = "sk-test-embed"  # 受控注册表假 key（不入异常文本）
+
+    def unauthorized(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(401, json={"error": "令牌已过期或验证不正确"})
+
+    try:
+        await embed_client.embeddings(
+            "petro-embed", ["x"], input_type="db", transport=_embed_transport(unauthorized)
+        )
+        raise AssertionError("应抛 UpstreamRejected")
+    except UpstreamError as exc:
+        assert key not in str(exc)

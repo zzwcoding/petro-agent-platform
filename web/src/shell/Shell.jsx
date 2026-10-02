@@ -30,12 +30,25 @@ for (const key of LANDING_LIT) {
 /**
  * 解析 hash → 双树导航态（P0-06 双树共存：落地 #/X · 原型 #/proto/X）。
  * 空 hash ＝ 落地树默认页（第一个已点亮页）。
+ * hash 内 query 剥离（P1-11 收口——NotLit locator 桥退役）：`#/B2?chunk=x`
+ * 的 query 挪到真 location.search（replaceState 无刷新），页面直读
+ * location.search 消费（B2 ?chunk=）；路由 pageKey 恒裸键。
  * @returns {{tree: 'landing' | 'proto', page: string}}
  */
-function parseHash() {
-  const h = (location.hash || '').replace(/^#\/?/, '')
-  if (h.startsWith('proto/')) return { tree: 'proto', page: h.slice(6) || 'A1' }
-  return { tree: 'landing', page: h || DEFAULT_LANDING_KEY }
+export function parseHash() {
+  const raw = (location.hash || '').replace(/^#\/?/, '')
+  const qAt = raw.indexOf('?')
+  const path = qAt >= 0 ? raw.slice(0, qAt) : raw
+  if (qAt >= 0) peelQueryIntoSearch(raw.slice(qAt + 1), path)
+  if (raw.startsWith('proto/')) return { tree: 'proto', page: path.slice(6) || 'A1' }
+  return { tree: 'landing', page: path || DEFAULT_LANDING_KEY }
+}
+
+/** hash query → location.search（replaceState 无刷新；失败静默——query 留 hash 不碍路由）。 */
+function peelQueryIntoSearch(query, path) {
+  try {
+    history.replaceState(null, '', `?${query}#/${path}`)
+  } catch { /* jsdom/隐私模式静默 */ }
 }
 
 export default function Shell() {

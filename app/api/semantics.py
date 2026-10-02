@@ -33,7 +33,13 @@ from pydantic import BaseModel, Field
 
 from app.api.deps import CurrentActor, SemanticsDep
 from app.api.errors import CODE_SEMANTICS_PARAM_INVALID, ApiError
-from app.domains.semantics import metric_grain_display, term_expiry
+from app.domains.semantics import (
+    ENTITY_GROUPS,
+    SLOT_DOMAINS,
+    metric_grain_display,
+    metric_slot_token,
+    term_expiry,
+)
 from app.infra.clock import now
 
 router = APIRouter(prefix="/api/semantics", tags=["semantics"])
@@ -121,7 +127,11 @@ class TermListResponse(BaseModel):
 
 
 class MetricItem(BaseModel):
-    """指标行（C1 端点 3 DTO＋读侧 grain_display——存储值不动，裁决 e；def 同 TermItem）。"""
+    """指标行（C1 端点 3 DTO＋读侧 grain_display/version——存储值不动，裁决 e；def 同 TermItem）。
+
+    version 出展示串「v{n}」（C1 合同 DTO 冻结「v1」形——P1-05b 疑点 2 真缺口
+    本票收口；00 R2 展示串不入库，sem_metric.version 存储层冻 int 不动读侧拼装）。
+    """
 
     id: int
     name: str
@@ -135,6 +145,7 @@ class MetricItem(BaseModel):
     owner: str
     source: str
     dispute: str | None
+    version: str
 
 
 class MetricListResponse(BaseModel):
@@ -240,7 +251,7 @@ async def list_metrics(
             def_=row.def_, grain=row.grain, unit=row.unit,
             grain_display=metric_grain_display(row.grain, row.unit),
             status=list(row.status), owner=row.owner, source=row.source,
-            dispute=row.dispute,
+            dispute=row.dispute, version=f"v{row.version}",
         )
         for row in result.items
     ]
@@ -291,3 +302,104 @@ async def list_relations(
         total=result.total, grand_total=result.grand_total,
         page=result.page, page_size=result.page_size,
     )
+
+
+# ---------- 端点 11：GET /slots 下游槽位同源投影（票 93 枢纽——P1-11b 收口） ----------
+
+
+class SlotTermItem(BaseModel):
+    """术语槽行（C1 端点 11 domain=terms——{name, status_key, token}）。"""
+
+    name: str
+    status_key: str
+    token: str
+
+
+class SlotMetricItem(BaseModel):
+    """指标槽行（C1 端点 11 domain=metrics——{slot_name, name, mark, token}）。"""
+
+    slot_name: str
+    name: str
+    mark: str | None
+    token: str
+
+
+class SlotWorkflowItem(BaseModel):
+    """工作流槽行（C1 端点 11 domain=workflows——{name, status}）。"""
+
+    name: str
+    status: str
+
+
+class SlotActionItem(BaseModel):
+    """Action 槽行（C1 端点 11 domain=actions——{register_name, business_name}）。"""
+
+    register_name: str
+    business_name: str
+
+
+class SlotEntityGroup(BaseModel):
+    """实体分组（C1 端点 11 domain=entities——ENTITY_GROUPS 照抄）。"""
+
+    label: str
+    options: list[str]
+
+
+class SlotsResponse(BaseModel):
+    """slots 投影（五 domain 单选一——items/groups 互斥承载，未选域键省略）。"""
+
+    domain: str
+    items: list[SlotTermItem | SlotMetricItem | SlotWorkflowItem | SlotActionItem] = []
+    groups: list[SlotEntityGroup] = []
+
+
+@router.get("/slots")
+async def list_slots(
+    service: SemanticsDep,
+    _actor: CurrentActor,
+    domain: Annotated[str, Query()],
+) -> SlotsResponse:
+    """下游槽位同源投影（C1 端点 11——票 93：现取不建仓、永不与台账漂移）。
+
+    domain 必填闭世界五值（越界 400 semantics_param_invalid）；slot_name 剥法
+    单点在服务端执行一次（端点 3 同字段同源）；token＝「类型·名称」结晶体
+    （· 无空格——A1 端点 6 同形状）；entities＝ENTITY_GROUPS 照抄（demo 装配
+    实例名册）；A1 端点 6 panel_view 数据直取本册各域清单（A1 形状另立）。
+    """
+    if domain not in SLOT_DOMAINS:
+        raise ApiError(
+            status_code=400,
+            code=CODE_SEMANTICS_PARAM_INVALID,
+            message=f"domain 越界：{domain}",
+            detail={"field": "domain", "invalid": [domain], "allowed": list(SLOT_DOMAINS)},
+        )
+    if domain == "terms":
+        page = await service.list_terms(page_size=1000)
+        return SlotsResponse(domain=domain, items=[
+            SlotTermItem(name=row.term, status_key=row.status_key, token=f"术语·{row.term}")
+            for row in page.items
+        ])
+    if domain == "metrics":
+        page = await service.list_metrics(page_size=1000)
+        return SlotsResponse(domain=domain, items=[
+            SlotMetricItem(
+                slot_name=row.slot_name, name=row.name, mark=row.mark,
+                token=metric_slot_token(row.slot_name),
+            )
+            for row in page.items
+        ])
+    if domain == "entities":
+        return SlotsResponse(domain=domain, groups=[
+            SlotEntityGroup(label=label, options=list(options))
+            for label, options in ENTITY_GROUPS
+        ])
+    if domain == "workflows":
+        wf_rows = await service.list_workflows()
+        return SlotsResponse(domain=domain, items=[
+            SlotWorkflowItem(name=row.name, status=row.status) for row in wf_rows
+        ])
+    action_rows = await service.list_actions()
+    return SlotsResponse(domain=domain, items=[
+        SlotActionItem(register_name=row.register_name, business_name=row.business_name)
+        for row in action_rows
+    ])

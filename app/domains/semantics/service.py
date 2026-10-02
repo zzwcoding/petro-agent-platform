@@ -263,6 +263,24 @@ class SemanticsService:
             page, page_size,
         )
 
+    async def list_workflows(self) -> list[SemWorkflow]:
+        """工作流账投影（C1 端点 11 slots domain=workflows 同源——A1 @工作流/E1
+        关联工作流槽选项供给；id 升序＝注册序 wf1…wf10）。"""
+        async with self._db.readonly() as session:
+            rows = (
+                await session.execute(select(SemWorkflow).order_by(SemWorkflow.id))
+            ).scalars().all()
+        return list(rows)
+
+    async def list_actions(self) -> list[SemAction]:
+        """Action 账投影（C1 端点 11 slots domain=actions 同源——命名导出面，
+        票 93；行为族目标已下线备查，台账资产读面保留）。"""
+        async with self._db.readonly() as session:
+            rows = (
+                await session.execute(select(SemAction).order_by(SemAction.id))
+            ).scalars().all()
+        return list(rows)
+
     async def _paged(
         self, model: type[Any], conditions: list[ColumnElement[bool]],
         page: int, page_size: int,

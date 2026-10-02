@@ -88,6 +88,7 @@ class KbService:
         storage: ObjectStorage,
         *,
         embedder: d.EmbeddingBackend | None = None,
+        query_embedder: d.EmbeddingBackend | None = None,
         eventbus: EventBus | None = None,
         step_seconds: float = 0.0,
         extract_snapshot_loader: Callable[[str], Awaitable[dict[str, Any] | None]]
@@ -96,7 +97,11 @@ class KbService:
         self._db = db
         self._gateway = gateway
         self._storage = storage
+        # 向量两缝（P1-11 真模型接线）：语料/入库＝embedder（db 型）、检索探针
+        # ＝query_embedder（query 型）——MiniMax query/db 分离算法禁混型单实例；
+        # LocalHash 对称占位（测试底座）两缝同实例无差。
         self._embedder: d.EmbeddingBackend = embedder or d.LocalHashEmbedder()
+        self._query_embedder: d.EmbeddingBackend = query_embedder or self._embedder
         self._eventbus = eventbus
         self._step_seconds = step_seconds
         self._libs = LibraryStore(db)
@@ -1150,7 +1155,7 @@ class KbService:
         if not frags or not question.strip():
             return []
         reports = {row.id: row for row in await self._reports.all()}
-        probe = (await self._embedder.embed([question.strip()]))[0]
+        probe = (await self._query_embedder.embed([question.strip()]))[0]
         best: dict[str, d.IndexHit] = {}
         for frag in frags:
             text = frag.hit_text or ""
@@ -1207,7 +1212,7 @@ class KbService:
             )
 
         async def vector_leg() -> list[d.IndexHit]:
-            probe = (await self._embedder.embed([question.strip()]))[0]
+            probe = (await self._query_embedder.embed([question.strip()]))[0]
             scored = [
                 (frag, d.cosine_similarity(probe, frag.embedding))
                 for frag in frags

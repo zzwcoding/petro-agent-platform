@@ -3,9 +3,10 @@
 - `kb_library` / `kb_library_config` / `kb_upload` / `kb_ingest_task` /
   `kb_report` / `kb_fragment` / `kb_fragment_version` / `kb_activity`：
   99 §2.5 逐字段（kb_issue_report 归 B2 批、kb_extract_config 归 derivatives 批）。
-- `kb_fragment.embedding`＝pgvector 向量列（ADR-0003 裁决 1）——维度占位
-  384 待 embedding 模型回填（99 注记待办）；sqlite 单测底座以 JSON 近似
-  （非生产角色）。CREATE EXTENSION vector 由 ensure_kb_tables/迁移先行。
+- `kb_fragment.embedding`＝pgvector 向量列（ADR-0003 裁决 1）——维度 P1-11
+  回填＝embo-01 1536（此前 384 本地占位，Alembic 0012 改形＋清重重嵌）；
+  sqlite 单测底座以 JSON 近似（非生产角色）。CREATE EXTENSION vector 由
+  ensure_kb_tables/迁移先行。
 - `kb_upload.lib_id` 可空（差异登记：入库路由流受理时目标库未定——LLM 只
   建议、confirm 定型 routed_lib_id；直指定 lib_id 的旧流两值同落）。
 - ensure_kb_tables 幂等 checkfirst（P0-04 惯例），与 Alembic 0003 并行存活
@@ -49,7 +50,11 @@ _J = JSONB().with_variant(JSON(), "sqlite")
 
 
 class PgVectorType(UserDefinedType[list[float] | None]):
-    """pgvector `vector(384)` 列类型（PG 方言）；sqlite 由 with_variant(JSON) 替换。"""
+    """pgvector `vector(1536)` 列类型（PG 方言；sqlite 由 with_variant(JSON) 替换）。
+
+    维度＝d.EMBED_DIM 单源（P1-11 回填 embo-01 1536；此前 384 占位——存量库
+    列形由 Alembic 0012 迁移改形＋清重重嵌）。
+    """
 
     cache_ok = True
 

@@ -7,7 +7,7 @@
  * - citation 角标点击→出处抽屉→报告跳 #/B2?chunk= 定位、图谱跳 #/B5；
  * - 澄清帧交互→端点 5 resume 回流续推（同一回合续写）；
  * - replay_truncated 收场话术＋从断点恢复（端点 4 重连形态真发 resume_run_id）；
- * - @ 点名面板（semantics 读口）→ token 结晶体落输入框。
+ * - @ 点名面板（端点 6 assets 投影）→ token 结晶体落输入框。
  */
 
 /** @vitest-environment jsdom */
@@ -132,8 +132,7 @@ function askTruncatedFrames() {
   ]
 }
 
-const METRICS = { items: [{ id: 3, name: '★有效产量', slot_name: '有效产量', def: '跨库口径，未审定' }], total: 1 }
-const TERMS = { items: [{ id: 7, term: '躺井', type: '黑话', def: '停产待检泵' }], total: 1 }
+/** @ 资产面板夹具随 apiRouter 内联（端点 6 投影形状——token 结晶体）。 */
 
 const fetchMock = vi.fn()
 
@@ -157,8 +156,12 @@ function apiRouter(overrides = {}) {
     if (u.includes('/api/chat/sessions')) {
       return overrides.sessions ? overrides.sessions() : new Response('not found', { status: 404 })
     }
-    if (u.includes('/api/semantics/metrics')) return new Response(JSON.stringify(METRICS), { status: 200 })
-    if (u.includes('/api/semantics/terms')) return new Response(JSON.stringify(TERMS), { status: 200 })
+    if (u.includes('/api/chat/assets')) {
+      return new Response(JSON.stringify({ items: [
+        { type: '指标卡', name: '有效产量', token: '指标卡·有效产量' },
+        { type: '术语', name: '躺井', token: '术语·躺井' }
+      ] }), { status: 200 })
+    }
     return new Response(JSON.stringify({ code: 'test_unrouted', message: `unexpected ${method} ${u}` }), { status: 404 })
   })
   return calls
@@ -329,14 +332,14 @@ describe('A1 落地页 · 断线收场与重连（端点 4 重连形态）', () 
   })
 })
 
-describe('A1 落地页 · @ 点名辅助（semantics 读口）', () => {
+describe('A1 落地页 · @ 点名辅助（端点 6 assets 投影）', () => {
   it('输入 @ 弹资产面板→过滤→点选落 token 结晶体→anchors 随 asks 上送', async () => {
     const calls = apiRouter()
     render(<A1Landing />)
     const input = screen.getByPlaceholderText(/输入问题/)
 
     fireEvent.change(input, { target: { value: '帮我查 @' } })
-    await screen.findByText('停产待检泵') // 资产行 hint（semantics 读口回填）
+    await screen.findByText('躺井') // 资产行 name（端点 6 投影回填）
     expect(document.querySelector('[data-asset="指标卡·有效产量"]')).toBeTruthy()
     expect(document.querySelector('[data-asset="术语·躺井"]')).toBeTruthy()
 

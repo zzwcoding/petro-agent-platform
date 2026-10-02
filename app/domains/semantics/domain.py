@@ -636,3 +636,23 @@ def term_expiry(status_key: str, expires_at: date | None, today: date) -> tuple[
     expired = expires_at <= today
     display = f"{expires_at.isoformat()}（已届满）" if expired else expires_at.isoformat()
     return expired, display
+
+
+# ---------- C1 端点 11 slots 投影（P1-11b 读面收口——票 93 枢纽端点） ----------
+
+# slots domain 闭世界（C1 端点 11 入参——越界 400 semantics_param_invalid）。
+SLOT_DOMAINS: tuple[str, ...] = ("terms", "metrics", "entities", "workflows", "actions")
+
+# 实体分组实例名册（C1 端点 11 domain=entities 的 groups[] 照抄——demo 装配，
+# 设定书 §A.1；井实例 wells 域未建前的册面口径）。页面常量同源（web/src/pages/
+# C1.jsx ENTITY_GROUPS）——真源随 wells 域落位批切换，挂账登记。
+ENTITY_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("区块", ("渤南", "渤中")),
+    ("平台", ("CEP-A", "CEP-B")),
+    ("井（demo 装配，册子口径共 12 口 · 设定书 §A.1）", ("N-02", "N-06", "N-11")),
+)
+
+
+def metric_slot_token(slot_name: str) -> str:
+    """指标卡结晶体 token（「类型·名称」· 无空格——A1 端点 6 同形状照抄）。"""
+    return f"指标卡·{slot_name}"

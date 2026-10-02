@@ -11,10 +11,11 @@
  * ⑤卡头总数→B1 端点 1 refs 求和；⑥详情弹窗「报告＋库」两行按 report_id 从
  * 下拉数据联查；⑦复核队列→端点 4/5/6；⑧标记入队→端点 3（事务写入）。
  *
- * locator 消费（B2 册对账 10「URL locator 消费随实施批」即本票）：支持
- * `#/B2?chunk=<fragment_id>` 进页定位——Shell.parseHash 不拆 query（不动
- * shell/），`#/B2?chunk=` 先落 NotLit 桥（存 sessionStorage 后重定向裸路由），
- * 本页挂载即消费：跨报告扫描定位片段→选中高亮＋打开详情弹窗。
+ * locator 消费（B2 册对账 10「URL locator 消费随实施批」即本票；P1-11 桥退役
+ * 收口）：支持 `#/B2?chunk=<fragment_id>` 进页定位——Shell.parseHash 剥 hash
+ * query 挪到 location.search（replaceState），本页直读 location.search 消费：
+ * 跨报告扫描定位片段→选中高亮＋打开详情弹窗；消费后清 search（幂等——同
+ * URL 二次进入不重复定位）。
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -27,7 +28,22 @@ import {
   FRAGMENT_TYPES, ISSUE_OPEN_STATES, closeIssueReport, getFragmentContext,
   getReports, listFragments, listIssueReports, markFragmentIssue, reviewIssueReport
 } from '../api/kb.js'
-import { B2_LOCATOR_KEY } from './registry.js'
+
+/** URL locator 读取（真 search 优先；hash query 兜底——剥链失败的静默补偿）。 */
+function readLocatorChunk() {
+  const fromSearch = new URLSearchParams(window.location.search || '').get('chunk')
+  if (fromSearch) return fromSearch
+  const hash = window.location.hash || ''
+  const qAt = hash.indexOf('?')
+  return qAt >= 0 ? new URLSearchParams(hash.slice(qAt + 1)).get('chunk') : null
+}
+
+/** locator 消费后清 search（幂等——防同 URL 二次进入重复定位）。 */
+function clearLocatorSearch() {
+  try {
+    history.replaceState(null, '', window.location.pathname + (window.location.hash || ''))
+  } catch { /* jsdom/隐私模式静默 */ }
+}
 
 // 合同常量：类型 Tag 色展示映射（B2 常量表照抄——纯前端渲染映射）
 const TYPE_COLORS = {
@@ -127,16 +143,13 @@ export default function B2Landing() {
   }
   useEffect(() => { loadQueue() }, [issueF]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 报告下拉就绪 → 默认选第一卷；locator 消费优先
+  // 报告下拉就绪 → 默认选第一卷；locator 消费优先（直读 URL query——P1-11 桥退役）
   useEffect(() => {
     if (reportsLoading || !reports.length || report) return
-    let chunk = null
-    try {
-      chunk = sessionStorage.getItem(B2_LOCATOR_KEY)
-      sessionStorage.removeItem(B2_LOCATOR_KEY)
-    } catch { /* 隐私模式静默 */ }
+    const chunk = readLocatorChunk()
     if (chunk) {
-      setLocator({ chunk }) // 跨报告扫描定位（消费后清除——NotLit 桥交接）
+      clearLocatorSearch() // 消费即清（幂等——同 URL 二次进入不重复定位）
+      setLocator({ chunk }) // 跨报告扫描定位
     } else {
       setReport(reports[0].id)
     }

@@ -10,7 +10,9 @@ qa_behavior 消费口径（faq_direct_hit/clarify_strategy——本域消费）�
 四层流水线（F56①→④，全服务端、前端零编排）：
   ①统一安检（注入扫描/禁用词索引/身份与数据域——字面规则，任一 ✗ 拦截出终局）
   ②知识装配（@ 前门直取＋六路匹配器并行查表共池——词级全扫全收集）
-  ③意图裁决（置信度真实计算＝检索得分＋装配信号；D2 当前生效配置驱动路由）
+  ③意图裁决（P1-11 起＝petro-main 分类裁决（caller=chat.intent.verdict）＋
+    确定性信号路由兜底——合同硬闸（FAQ 直出闸/口径两译澄清/低置信澄清）恒先
+    行；confidence 来源双值 llm/deterministic 在 verdict.source 承载）
   ④执行链分发（17 链闭世界枚举；检索/FAQ 秒回/图谱问答三链 P1-08b 链体填入）
 
 思考树叙事（P1-08c）：node 帧族沿本次运行实时路径逐帧流式推进（A1「节点渐进
@@ -203,6 +205,18 @@ FAQ_ROUTE_CONFIDENCE = "高（FAQ 精确命中——直出）"
 GRAPH_ROUTE_CONFIDENCE = "高（图谱命中——确定性关系事实）"
 CLARIFY_CONFIDENCE = "低（一词两译未消歧）"
 CLARIFY_LOCKED_CONFIDENCE = "中（澄清锁定——直连执行）"
+
+# 裁决来源双值（P1-11 LLM 意图裁决接线——骨架期「skeleton」标注退役）：
+# llm＝petro-main 分类裁决生效；deterministic＝合同硬闸/确定性信号路由（含 LLM
+# 失败/超时/解析坏兜底——不许问挂）。verdict 帧 source 键＝additive（A1 冻结
+# 字段 chain/slots/confidence/need_clarify 全保留）。
+VERDICT_SOURCE_LLM = "llm"
+VERDICT_SOURCE_DETERMINISTIC = "deterministic"
+
+# LLM 意图裁决预算（常量集中可调）：单次分类调用超时秒——超时即兜底，不许问挂。
+INTENT_VERDICT_TIMEOUT_SECONDS = 8.0
+# LLM 意图裁决 caller（D1 记账归因——与 chat.retrieval.* 同族点分形）。
+CALLER_INTENT_VERDICT = "chat.intent.verdict"
 
 # 建议池晋升闸（F60：孤例不进池——独立问句频次 ≥2 才晋升；faQ 扫库 SCAN_MIN_FREQ 同源）。
 SUGGESTION_PROMOTION_THRESHOLD = 2
@@ -775,6 +789,20 @@ def confidence_label(
     return f"低（证据不足——低于低分线 {low:.2f}）"
 
 
+def confidence_label_llm(value: float, *, high: float, low: float) -> str:
+    """LLM 裁决置信度的档位值＋标注（P1-11——档位阈值同 D2 confidence_thresholds）。
+
+    值域夹逼 0–1 后按阈值判档；来源后缀恒「模型意图裁决」——与确定性信号路由
+    的「检索证据分」族标注区分（confidence 来源双值在 verdict.source 键承载）。
+    """
+    value = max(0.0, min(1.0, value))
+    if value >= high:
+        return f"高（模型意图裁决 {value:.2f}）"
+    if value >= low:
+        return f"中（模型意图裁决 {value:.2f}——直连执行）"
+    return f"低（模型意图裁决 {value:.2f}——低于低分线 {low:.2f}）"
+
+
 def parse_refs(text: str) -> list[str]:
     """答案正文中的 [cN] 引用（按出现序去重——fail-closed 校验的输入面）。"""
     seen: list[str] = []
@@ -883,6 +911,35 @@ IndexSearcherDual = Callable[
 ]
 GraphSearcher = Callable[[str], Awaitable[list[GraphHitFace]]]
 FragmentAnchorLoader = Callable[[str], Awaitable[FragmentAnchorFace | None]]
+
+# A1 端点 6 assets 读缝（P1-11 真接线——panel_view 投影的各域清单面；B9 同款
+# 运行期只见 callable）：FAQ 服务中条目问题/工作流（名,状态）/报告 doc 清单。
+FaqLister = Callable[[], Awaitable[list[str]]]
+WorkflowLister = Callable[[], Awaitable[list[tuple[str, str]]]]
+ReportLister = Callable[[], Awaitable[list[str]]]
+
+# A1 端点 6 type 枚举（合同六类照抄——工具注册表未建投影为空）。
+ASSET_TYPES: tuple[str, ...] = ("指标卡", "术语", "FAQ", "工具", "工作流", "报告")
+
+
+@dataclass(frozen=True, slots=True)
+class AssetItem:
+    """@ 资产条目（A1 端点 6 合同形状 {type, name, token}——token＝「类型·名称」结晶体）。"""
+
+    type: str
+    name: str
+    token: str
+
+
+@dataclass(frozen=True, slots=True)
+class SessionItem:
+    """历史会话行（A1 端点 2 合同形状——updated_at 为 isoformat 秒级展示串）。"""
+
+    id: str
+    title: str
+    group: str | None
+    scenario_id: str | None
+    updated_at: str
 
 
 class Completer(Protocol):

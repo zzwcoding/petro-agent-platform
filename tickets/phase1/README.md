@@ -439,6 +439,43 @@
 - **范围**：17 链冒烟（未实现链话术核对）；五页双树对照（#/proto 终稿 vs 落地，行为一致）；PG 集成全量零跳过；文档计数同步（README/票面粉笔数）。
 - **收官验收节**（照 phase0 格式）：五页真跑证据链／端到端问答演示（提问→三链分派→引用回跳）／D2 配置改动驱动行为变化实证／轨道 0 验证闭环①（同步器首跑+强校接线）记录。
 
+## P1-11a 收口批 ✅（2026-10-02，选型探测＋接线＋原七项收口——单提交）
+
+- **目标**：P1-09/P1-10 收尾清单（七项）＋Owner 2026-10-02 拍板追加（embedding/重排选型探测与接线、LLM 意图裁决现在就接）——A 节选型接线四项＋B 节收口原七项，单提交不 push。
+- **A1 选型探测（curl/httpx 实测，证据在盘）**：
+  - **MiniMax embedding＝可用**：`POST https://api.minimax.cn/v1/embeddings`（国内主站；api.minimax.chat 同形同效）——HTTP 200、`{"model":"embo-01","texts":[...],"type":"db"|"query"}`、返回 `vectors[N][1536]`（**已归一化**）＋total_tokens＋base_resp；**无需 GroupId**；query/db 分离算法实测语义区分（相关 0.305 vs 无关 −0.001）。票面第一序的 anthropic 兼容 base `/v1/embeddings`＝404 不提供。价格档 0.0005 元/千 token（历史定价页；现行按量页未单列——以账单为准）。**Owner 拍板序 MiniMax 优先命中——选型定谳 petro-embed＝embo-01**，未再走智谱。
+  - **智谱**：`open.bigmodel.cn/api/paas/v4/embeddings`（embedding-3）用现网 GLM_API_KEY 实测 401「令牌已过期或验证不正确」——现网 GLM 线路实为**火山方舟**（GLM_BASE_URL＝ark.cn-beijing.volces.com），非智谱平台 key；MiniMax 已可用，智谱侧不再探测（不新申请 key）。
+  - **rerank＝无可用服务**：MiniMax 两域名 `/v1/rerank` 均 404；智谱 rerank 端点 401（同上 key 缺位）；方舟 `/api/v3/rerank` 404——**D2 精排 fast 档保持融合序放行**，chains.py 注记改记「无可用服务」实证（服务出现时本档换真重排）。
+- **A2 embedding 接线**：
+  - **B6 单点扩展**：`infra/llm_client` 增 `LlmClient.embeddings(alias, texts, input_type)`（httpx 直连——该端点非 OpenAI 形状 litellm 无此 provider 形；供应商接触仍单点本模块，import-linter B6 契约不变）＋`LlmEmbedding` 视图；错误分类与 complete 同款（超时/网络错/5xx 可切、4xx/base_resp 业务错不可切）；密钥只进请求头绝不入异常文本（单测断言）；transport 形参＝测试注桩缝。
+  - **kb/faq 真实现换装**：`kb.domain.RemoteEmbedder`（llm_client.embeddings 域侧视图——组合根装配，kb 不 import infra）＋`EMBED_DIM 384→1536`；**query/db 分型两缝**（kb：入库/语料＝db、index_search/index_search_dual 探针＝query；faq：条目面/三面去重语料＝db、扩检与本体面查询探针＝query——`_ontology_hit/_best_match/search_similar` 改分型两拍）；`LocalHashEmbedder` 保留为测试底座 fallback（1536 维同形）；main.py 组合根装配真模型（petro-embed）。
+  - **pgvector 维度迁移**：**Alembic 0012**（`20261002_0012_kb_embed_dim_1536.py`——先清列再 ALTER TYPE，pgvector 不支持跨维度 cast）→ **upgrade/downgrade 双向实跑过**（0011→0012 upgrade＋0012↔0011 单档往返＋base→head 全链重放，终态 0012 head；列形 `vector(384)`↔`vector(1536)` 实查在案；重放清掉的 sem 种子已重跑同步器补种 counts 11/15/10/5/4/10/3 零告警＋faq 演示种子重装 9 条）。
+  - **存量重嵌脚本**：`app/domains/kb/reembed.py`（运维入口 `uv run python -m app.domains.kb.reembed [--report rpt-x]`——embed 步同源：非父块＋当前版本文本＋db 型批量重嵌；`KB_EMBED_BACKEND=local` 切本地占位底座）＋单测 2 条（缺向量重嵌/范围过滤/幂等不重嵌/父块跳过）。**重嵌范围实证**：迁移重放后演示库 kb_fragment 为空（重放清零，冒烟重灌）——KB_SMOKE 重入库后 12 片段全部 embo-01 真 1536 维向量落库直查在案、reembed 入口实跑 0 缺失（幂等面）。
+  - **config/models.yaml**：头注释记 embeddings 实测形状（P0 惯例——端点/头/体/返回/双域名证据/价格档/rerank 404 结论）＋`petro-embed` 注册行（alias 唯一入口；D1 model_list 随之可见）＋`.env.example` 增 `MINIMAX_EMBED_BASE_URL` 注记。
+- **A3 rerank**：无可用服务（见 A1 探测）——fast 档融合序放行保持，代码零行为变化、注释与票面登记证据。
+- **A4 LLM 意图裁决接线**：chat 裁决层（`service._decide`）＝**合同硬闸先行（FAQ 直出闸/口径两译澄清——deterministic）→ petro-main 分类（caller=`chat.intent.verdict`，17 链闭世界清单进 prompt，严格 JSON 解析＋链名闭世界校验＋置信度 0–1 夹逼）→ 采信（source=llm；低置信 <low 仍必弹澄清帧——F56 阈值闸不因来源豁免）→ 失败/超时/解析坏/链名越界→确定性信号路由兜底（不许问挂——source=deterministic）**；有界超时 `INTENT_VERDICT_TIMEOUT_SECONDS=8s`（常量集中可调）。**confidence 来源标注双值**：verdict 帧增 `source` 键（additive——chain/slots/confidence/need_clarify 冻结字段全保留），「skeleton」标注退役；`confidence_label_llm` 档位值「模型意图裁决 X.XX」。ask/resume 两路径同裁决层；N5 节点 tag/note 随来源如实标注。**成本断言测试在案**：单 ask（检索链·fast·fixed）模型调用 ≤2（1 意图裁决＋1 生成）；FAQ 直出闸命中＝零模型调用。
+- **B5 chat sessions/assets 读端点（A1 端点 2/6 真接线）**：`GET /api/chat/sessions`（当前身份会话 updated_at 倒序——title＝首问/group/scenario_id 骨架期 null/updated_at isoformat）＋`GET /api/chat/assets?q=&type=`（**各注册表现取投影不建仓**——指标卡/术语/工作流＝semantics、FAQ＝服务中条目、报告＝kb 台账、工具注册表未建投影空；token＝「类型·名称」结晶体；type 六类闭世界越界 400 chat_param_invalid；q＝name 子串筛）；@ 直取面同源扩展（报告包含匹配/工作流精确匹配——面板选得到的锚得上，工具恒落空）；组合根注入 faq_lister/workflow_lister/report_lister（B9 同款只见 callable；faq.served_questions/semantics.list_workflows 新读缝）；chat.js `listAssets()` 真接（listAnchorCandidates semantics 双调退役）＋listSessions 去降级标（保留网络韧性静默面）——**前端降级标注全清**。
+- **B6 multipart 依赖落位**：pyproject 增 `python-multipart`（httpx 同时转正运行时依赖——embeddings 适配消费）；faq 端点 15 切 **UploadFile multipart/form-data**（file 字段；filename 取上传件名、query 兜底；mode/dry_run 仍 query）；前端 faq.js FormData 同形（不手写 Content-Type）；API 测试改 multipart 形状。
+- **B7 semantics 读面收口**：metrics DTO 增 `version` 展示串「v{n}」（P1-05b 疑点 2 真缺口收口——存储层 int 不动读侧拼装）＋**C1 端点 11 slots 投影读端点** `GET /api/semantics/slots?domain=`（五 domain 闭世界：terms{name,status_key,token}/metrics{slot_name,name,mark,token}/entities=ENTITY_GROUPS 照抄/workflows{name,status}/actions{register_name,business_name}；越界 400 semantics_param_invalid；slot_name 剥法服务端单点）＋semantics `list_workflows/list_actions` 读缝＋ENTITY_GROUPS 常量落 domain（demo 装配照抄——真源随 wells 批切换挂账）。
+- **B8 Shell locator 桥收口**：`Shell.parseHash` 剥 hash query（挪真 `location.search`——replaceState 无刷新；路由 pageKey 恒裸键，proto 树同剥离）；**NotLit 桥退役**（回归纯出路指引单职责；B2_LOCATOR_KEY 暂存键删除）；B2 直读 `location.search` 消费（hash query 兜底读法防剥链失败；消费后清 search 幂等）；回归测试 `web/src/shell/Shell.test.jsx` 5 条（剥 query/裸 hash 零扰动/proto 带	query/挂载冒烟/NotLit 不触桥）＋B2 locator 测试改 search 直读两形态。
+- **B9 四冒烟统一计费跑（真 PG16@5433＋MinIO＋Neo4j＋真 gateway.complete，逐冒烟单跑全绿）**：
+  - KB_SMOKE ✅（18 calls ¥0.014292：graph.extract×10＝0.007521/wiki.gen×2＝0.003348/kb.ingest.questions×3＝0.001724/kb.ingest.summary×2＝0.001223/graph.draft×1＝0.000476）；FAQ_SMOKE ✅（1 call ¥0.000323：faq.candidate.draft）；CHAT_SMOKE ✅（4 calls ¥0.002330：**chat.intent.verdict×2＝0.001085**［LLM 裁决真计费首证］/chat.retrieval.answer×1＝0.000635/chat.graph.answer×1＝0.000610）；GATEWAY_SMOKE ✅（2 calls ¥0.000481：smoke.330fd4.a/b）。**合计 25 calls ¥0.017426**（gateway 账本 petro-main 1元/M入＋3元/M出；caller 归因逐笔在案）；embedding 用量不经 gateway 账本（估 <¥0.005——embo-01 0.0005元/千token 量级）。
+- **B10 文档计数同步**：本节即票面收官记录；README.md 零粉笔数（四门禁描述行不涉计数）。
+- **验收自证 ✅**：四门禁——ruff（app+tests+migrations）0 错 / mypy strict **65 文件零错** / pytest 带 PG16@5433 **630 passed 4 skipped**（skip＝四门控冒烟自身；无 PG 底座 592 passed 38 skipped）/ lint-imports **5 契约 KEPT**；**四冒烟逐单跑全绿**（齐跑受真 LLM 输出方差影响——三道闸拦边证据依赖模型本轮输出，非本批回归，跑法按 P1-06 惯例逐冒烟单跑）；web 三连——eslint **0 error**（2 warning 均原型快照存量）/vitest **128 passed**（＋Shell 5＋chat 1 改形＋B3 multipart 断言）/vite build 过；`ontology/ci.sh` 全绿（ontology/ 零改动）；**Alembic 0012 双向实跑过**（证据见 A2）。
+- **测试增改**：`tests/infra/test_llm_client_unit.py` ＋7（embeddings 形状/守卫/base_resp 业务错/HTTP 错分类/坏体拒绝/密钥不入异常——MockTransport 注桩受控注册表）；`tests/domains/chat/test_chat_service_unit.py` ＋10（LLM 裁决八态：成功采信/解析坏兜底/链名越界兜底/上游失败兜底/超时兜底/低置信澄清 source=llm/FAQ 硬闸先于 LLM/**单 ask 成本断言**＋assets 投影两态）；`tests/api/test_chat_sse.py` ＋3（端点 2 会话列表＋身份隔离/端点 6 投影＋筛＋越界 400/非五角色键 401）；`tests/api/test_semantics_read_api.py` ＋6（metrics version 串/slots 五 domain＋闭世界 400）；`tests/api/test_faq_api.py` 导入测试改 multipart 形状；`tests/domains/kb/test_kb_reembed_unit.py` 新建 2 条；`web/src/shell/Shell.test.jsx` 新建 5 条。
+- **差异登记（现实约束按现实落地，语义不私改）**：
+  1. **embedding 用量不入 D1 记账**：gateway_spend_record 是 complete 调用粒度账本——embedding 走 `infra.llm_client.embeddings` 直连不经 gateway（B6 缝的单点扩展）；用量费用估记本节（挂账：D1 账本是否纳 embedding 调用粒度随 D5 批对齐）。
+  2. **verdict.source 键 additive**：A1 裁决帧冻结四字段全保留，source＝llm/deterministic 双值——随 teach 对齐批在 A1 册登记。
+  3. **slots entities＝demo 装配照抄**：ENTITY_GROUPS 常量落 semantics domain（区块/平台/井三组——册面口径）；井实例真源随 wells 域落位批切换，挂账。
+  4. **sessions group/scenario_id null**：场景注册表（A1 端点 1）随其票落——null 前端渲染空串，形状合法。
+  5. **intent 裁决超时 8s/批量 16 片段/意图预算**＝实施值常量集中可调（INTENT_VERDICT_TIMEOUT_SECONDS/REembed BATCH_SIZE）。
+  6. **faq 导入 filename 优先上传件名**（query 兜底缺省 import.csv）——合同「传输形态结合实际框架定」的 multipart 落位附带。
+  7. **四冒烟齐跑方差**：真 LLM 输出方差影响拦边证据/去重判定（KB 三道闸拦边、FAQ 三面去重语料随 KB 入库联动）——跑法＝逐冒烟单跑（P1-06 惯例），非回归。
+  8. **演示库重放清零面**：迁移链覆盖的表（kb/chat/wiki/retrieval/faq/sem）随 base→head 重放清零（惯例重灌）；gateway_spend_record/audit_log 为 ensure 表不在迁移链——存量留存（unattributed 存量桶含 note 族历史行）。
+
+> **P1-11a 收尾裁决（主窗口，本次提交）**：选型探测三结论（MiniMax embedding 可用 1536 维/智谱 key 缺位不追/rerank 无可用服务登记）全按 Owner 拍板序落定；接线四项（B6 embeddings 缝/0012 迁移＋重嵌脚本/意图裁决双来源/chat 端点 2/6）＋原七项全落地；票面 P1-04 收尾裁决①②（embedding/重排选型）与 P1-08b 差异 1/4（fast 档/LLM 意图裁决挂批）就此收口。挂账随批登记：embedding 记账粒度（D5 批）/entities 真源（wells 批）/verdict.source 册面登记（teach 对齐批）。
+
+
 ## 杂项尾账（不阻塞，随票登记）
 
 - 验证报告第一篇（roadmap 轨道 0 第 4 承诺，建模工序+语义 CI 走通记录）——未动，挂账待 Owner 安排窗口。

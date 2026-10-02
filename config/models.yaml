@@ -10,6 +10,18 @@
 #   litellm.completion(model="anthropic/<model>", api_base=<base_url>, api_key=<key>,
 #                      messages=[...], max_tokens=N)
 #   → resp.choices[0].message.content / resp.usage.prompt_tokens/completion_tokens
+# embedding 适配（2026-10-02 MiniMax /v1/embeddings curl 实测通过——P1-11 选型接线，
+# Owner 2026-10-02 拍板 MiniMax 优先；调用面＝infra.llm_client.LlmClient.embeddings）：
+#   POST {base_url}/v1/embeddings
+#   头：Authorization: Bearer ${api_key} · Content-Type: application/json
+#   体：{"model":"embo-01","texts":[...],"type":"db"|"query"}
+#       （query/db 分离算法——入库/语料＝db、检索探针＝query，必须分型调用）
+#   返回：vectors[N][1536]（已归一化）＋total_tokens＋base_resp{status_code,status_msg}
+#   实测证据：api.minimax.cn 与 api.minimax.chat 双域名 HTTP 200（无需 GroupId）；
+#   anthropic 兼容 base 的 /v1/embeddings＝404（不提供）；embo-01 价格档
+#   0.0005 元/千 token（历史定价页；现行按量页未单列——以账单为准）。
+#   rerank：MiniMax 两域名 /v1/rerank 均 404 无此服务——D2 精排 fast 档保持
+#   融合序放行（票面登记「无可用服务」）。
 models:
   - alias: petro-main          # 主模型：问答/问数/问智默认出口
     provider: anthropic
@@ -31,6 +43,16 @@ models:
     name: glm-5.3-flash
     access: Anthropic 兼容接口 · 智谱线路
     note: 备用/降级组——fallback 与预算熔断的便宜出口
+  - alias: petro-embed         # 向量化：kb/faq 专用（非 gateway.complete 面）
+    provider: minimax
+    model: embo-01
+    base_url: ${MINIMAX_EMBED_BASE_URL:-https://api.minimax.cn}
+    api_key: ${MINIMAX_API_KEY}
+    context_window: 4096       # embo-01 单文本上限（4096 token）
+    group: embedding
+    name: embo-01
+    access: /v1/embeddings · 1536 维 · 已归一化
+    note: kb 片段/faq 语料向量化（db）与检索探针（query）——只经 infra.llm_client.embeddings
 routing:
   default: petro-main
   fallback_order: [petro-main, petro-lite]   # allowed_fails/cooldown 见下方 gateway 段（D1 配置面写回并热加载）

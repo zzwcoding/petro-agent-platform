@@ -11,12 +11,13 @@
  *   node 帧按 key 原位升更新（process→finish 两拍同键，00 §5.3 节点步进），
  *   链内 S 级/GEN 缩进挂链执行节点之下；token 自首帧后与树帧分区分渲染
  *   （服务端时序保证：首个 token 前是全部树帧——P1-08c 金样本断言）。
- * - @ 点名提示：端点 6 chat/assets 未接线——按票面落 semantics 读口
- *   （指标卡＋术语两族，api/chat.listAnchorCandidates），token 形状照抄端点 6
- *   「类型·名称」结晶体；anchors 随 asks 上送（服务端 S1 前门直取）。
- * - 历史会话：端点 2 未接线——服务端列表 listSessions() 静默读（available
- *   才渲染）；本机最近运行（页面级缓存）可点开＝端点 4 重连形态真恢复
- *   （resume_run_id 重放持久帧——P1-08c），非原型「点历史＝整条流程重跑」。
+ * - @ 点名提示：端点 6 chat/assets 真接线（P1-11——各注册表现取投影：
+ *   指标卡/术语/FAQ/工作流/报告；工具注册表未建投影为空），token 形状照抄
+ *   端点 6「类型·名称」结晶体；anchors 随 asks 上送（服务端 S1 前门直取）。
+ * - 历史会话：端点 2 真接线（P1-11——服务端列表 available 才渲染）；本机
+ *   最近运行（页面级缓存）可点开＝端点 4 重连形态真恢复（resume_run_id 重放
+ *   持久帧——P1-08c），非原型「点历史＝整条流程重跑」。
+ * - 消息回放读口（端点 3 sessions/{id}/messages）仍未接线——挂后续批。
  * - 断线提示：replay_truncated 收场话术帧直出（不静默丢帧）；POST 流传输
  *   断＝「从断点恢复」按钮（resume_run_id＋Last-Event-ID 手动续推——
  *   EventSource 自动重连仅 GET 形态，api/chat.js 选型注记）。
@@ -32,7 +33,7 @@ import {
 import { ApartmentOutlined, SendOutlined } from '@ant-design/icons'
 import { ApiError } from '../api/client.js'
 import {
-  listAnchorCandidates, listSessions, postAsk, postResume, reconnectRun
+  listAssets, listSessions, postAsk, postResume, reconnectRun
 } from '../api/chat.js'
 import { useAppStore } from '../store/app.js'
 
@@ -291,12 +292,12 @@ export default function A1Landing() {
   const convRef = useRef(null)
   const treeRef = useRef(null)
 
-  // 服务端会话读口（端点 2——available 才渲染；未接线静默空态）
+  // 服务端会话读口（端点 2——available 才渲染；读失败静默空态＝网络韧性）
   useEffect(() => { listSessions().then(setServerSessions) }, [])
-  // @ 候选（semantics 读口——输入 @ 时懒加载一次）
+  // @ 资产面板（端点 6——输入 @ 时懒加载一次）
   useEffect(() => {
     if (!atOpen || atLoaded) return
-    listAnchorCandidates().then(list => { setAtList(list); setAtLoaded(true) })
+    listAssets().then(list => { setAtList(list); setAtLoaded(true) })
   }, [atOpen, atLoaded])
 
   useEffect(() => { // 树推进自动滚底
@@ -517,7 +518,7 @@ export default function A1Landing() {
               background: '#161b22', border: '1px solid #30363d', borderRadius: 8,
               padding: '6px 8px', maxHeight: 240, overflowY: 'auto'
             }}>
-              <div style={{ ...dim, marginBottom: 4 }}>@ 呼唤现成资产（semantics 读口——指标卡/术语两族；被 @ 的资产服务端前门直取）：</div>
+              <div style={{ ...dim, marginBottom: 4 }}>@ 呼唤现成资产（端点 6 投影——指标卡/术语/FAQ/工作流/报告；被 @ 的资产服务端前门直取）：</div>
               {atFiltered.map(a => (
                 <div key={a.token} style={{ cursor: 'pointer', fontSize: 13, padding: '4px 6px', borderRadius: 4 }}
                   data-asset={a.token}

@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from './client.js'
 import { RESERVED_FRAMES as SSE_RESERVED } from './sse.js'
 import {
-  listAnchorCandidates, listSessions, parseSseFrames, postAsk, postResume,
+  listAssets, listSessions, parseSseFrames, postAsk, postResume,
   reconnectRun, RESERVED_FRAMES, streamChat
 } from './chat.js'
 
@@ -165,7 +165,7 @@ describe('postAsk / postResume / reconnectRun 形状（端点 4/5）', () => {
   })
 })
 
-describe('会话读口与 @ 候选（端点 2/6 未接线替代读缝）', () => {
+describe('会话读口与 @ 资产面板（端点 2/6——P1-11 真接线）', () => {
   it('listSessions：200 → camel 折回；失败静默 {items:[],available:false} 不抛', async () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
       items: [{ id: 'sess-0318', title: '上个月产量最高的三口井', group: '问数据 · 状态机', scenario_id: 'data-fix', updated_at: '2026-09-27T18:40:00' }],
@@ -182,24 +182,28 @@ describe('会话读口与 @ 候选（端点 2/6 未接线替代读缝）', () =>
     expect(await listSessions()).toEqual({ items: [], available: false })
   })
 
-  it('listAnchorCandidates：semantics 读口（指标卡＋术语）→ 端点 6 token 结晶体', async () => {
-    fetchMock.mockImplementation(async url => {
-      const u = String(url)
-      if (u.includes('/semantics/metrics')) {
-        return new Response(JSON.stringify({ items: [{ id: 3, name: '★自然递减率', slot_name: '自然递减率', def: '月：1 − q_t / q_(t−1)' }] }), { status: 200 })
-      }
-      if (u.includes('/semantics/terms')) {
-        return new Response(JSON.stringify({ items: [{ id: 7, term: '躺井', type: '黑话', def: '停产待检泵' }] }), { status: 200 })
-      }
-      return new Response('{}', { status: 404 })
-    })
-    const list = await listAnchorCandidates()
+  it('listAssets：端点 6 投影直读（token 结晶体；q/type 走 query 参数）', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+      items: [
+        { type: '指标卡', name: '自然递减率', token: '指标卡·自然递减率' },
+        { type: '术语', name: '躺井', token: '术语·躺井' },
+        { type: '报告', name: 'N-02 井完井报告', token: '报告·N-02 井完井报告' }
+      ]
+    }), { status: 200 }))
+    const list = await listAssets()
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/chat/assets')
     expect(list).toEqual([
-      { type: '指标卡', name: '自然递减率', token: '指标卡·自然递减率', hint: '月：1 − q_t / q_(t−1)' },
-      { type: '术语', name: '躺井', token: '术语·躺井', hint: '停产待检泵' }
+      { type: '指标卡', name: '自然递减率', token: '指标卡·自然递减率', hint: '' },
+      { type: '术语', name: '躺井', token: '术语·躺井', hint: '' },
+      { type: '报告', name: 'N-02 井完井报告', token: '报告·N-02 井完井报告', hint: '' }
     ])
-    const filtered = await listAnchorCandidates({ q: '躺' })
-    expect(filtered).toHaveLength(1)
-    expect(filtered[0].token).toBe('术语·躺井')
-  })
+
+    fetchMock.mockResolvedValueOnce(new Response('{"items":[]}', { status: 200 }))
+    await listAssets({ q: '躺', type: '术语' })
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/chat/assets?q=%E8%BA%BA&type=%E6%9C%AF%E8%AF%AD')
+
+    fetchMock.mockResolvedValueOnce(new Response('{"items":[]}', { status: 200 }))
+    expect(await listAssets({ q: '没有' })).toEqual([])
+    fetchMock.mockResolvedValueOnce(new Response('boom', { status: 500 }))
+    expect(await listAssets()).toEqual([])  })
 })

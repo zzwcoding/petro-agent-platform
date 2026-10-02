@@ -343,11 +343,12 @@ CSV_BODY = (
 
 
 def test_endpoint_15_import_counts_and_audit(client: Any) -> None:
+    """multipart 落位（P1-11）：file 字段 form-data 上传；filename 取上传件名。"""
     c, storage, _c2, _a = client
     resp = c.post(
         "/api/faq/import",
-        params={"mode": "append", "dry_run": "true", "filename": "faq.csv"},
-        content=CSV_BODY,
+        params={"mode": "append", "dry_run": "true"},
+        files={"file": ("faq.csv", CSV_BODY, "text/csv")},
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -357,8 +358,8 @@ def test_endpoint_15_import_counts_and_audit(client: Any) -> None:
     assert body["hint"].startswith("试校验通过（未入库）：可新增 1")
     real = c.post(
         "/api/faq/import",
-        params={"mode": "append", "dry_run": "false", "filename": "faq.csv"},
-        content=CSV_BODY,
+        params={"mode": "append", "dry_run": "false"},
+        files={"file": ("faq.csv", CSV_BODY, "text/csv")},
     ).json()
     assert real["added"] == 1 and real["skipped"] == 1 and real["failed"] == 1
     listing = c.get("/api/faq/items").json()
@@ -367,12 +368,17 @@ def test_endpoint_15_import_counts_and_audit(client: Any) -> None:
     assert imported["status"] == "pending_review"  # 批量新增同走待审核（审核流做齐）
     assert any(k.startswith("faq/import/") for k in storage.objects)  # 文件落 MinIO 不过期
     assert c.post(
-        "/api/faq/import", params={"mode": "bogus"}, content=CSV_BODY
+        "/api/faq/import", params={"mode": "bogus"},
+        files={"file": ("faq.csv", CSV_BODY, "text/csv")},
     ).status_code == 400
     assert c.post(
-        "/api/faq/import", params={"mode": "append", "filename": "a.xlsx"}, content=b"x"
+        "/api/faq/import", params={"mode": "append"},
+        files={"file": ("a.xlsx", b"x", "application/octet-stream")},
     ).status_code == 400
-    assert c.post("/api/faq/import", params={"mode": "append"}, content=b"").status_code == 400
+    assert c.post(
+        "/api/faq/import", params={"mode": "append"},
+        files={"file": ("empty.csv", b"", "text/csv")},
+    ).status_code == 400
 
 
 def test_endpoint_16_export_and_b12_audit_rows(client: Any) -> None:
@@ -399,8 +405,8 @@ def test_endpoint_16_export_and_b12_audit_rows(client: Any) -> None:
     c.post("/api/faq/items/faq-10/review", json={"action": "publish"})
     c.post(
         "/api/faq/import",
-        params={"mode": "append", "dry_run": "true", "filename": "faq.csv"},
-        content=CSV_BODY,
+        params={"mode": "append", "dry_run": "true"},
+        files={"file": ("faq.csv", CSV_BODY, "text/csv")},
     )
     logs2 = c.get("/api/security/audit-logs", params={"pageSize": 50}).json()["items"]
     actions2 = {row["action"] for row in logs2}

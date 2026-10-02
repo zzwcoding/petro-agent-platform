@@ -8,7 +8,7 @@
  *   409 重复标记兜底（服务端唯一真源）；
  * - 复核队列（端点 4/5/6）：确认转修正流跳 #/B1；驳回空理由禁用＋必填提交；
  *   已驳回单重新标记（新单入队）与销记（端点 6）；
- * - locator 消费（B2 册对账 10）：sessionStorage chunk → 跨报告扫描定位 →
+ * - locator 消费（B2 册对账 10；P1-11 桥退役）：location.search 直读 → 跨报告扫描定位 →
  *   打开详情弹窗＋行高亮 class。
  */
 
@@ -16,7 +16,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import B2Landing from './B2.jsx'
-import { B2_LOCATOR_KEY } from './registry.js'
 
 if (!window.matchMedia) {
   window.matchMedia = query => ({
@@ -281,10 +280,10 @@ describe('B2 落地页 · 复核队列（端点 4/5/6）', () => {
   })
 })
 
-describe('B2 落地页 · locator 消费（B2 册对账 10）', () => {
-  it('#/B2?chunk= 定位：sessionStorage chunk → 跨报告扫描 → 打开详情＋行高亮', async () => {
+describe('B2 落地页 · locator 消费（B2 册对账 10——P1-11 桥退役收口）', () => {
+  it('#/B2?chunk= 定位：location.search 直读 → 跨报告扫描 → 打开详情＋行高亮＋消费后清 search', async () => {
     const calls = apiRouter()
-    sessionStorage.setItem(B2_LOCATOR_KEY, 'f3') // 目标在第二卷报告（NotLit 桥交接）
+    window.history.replaceState(null, '', '/?chunk=f3#/B2') // Shell 剥 query 后的形态（目标在第二卷）
     render(<B2Landing />)
 
     // 跨报告扫描：先扫 rpt-1 未命中、再扫 rpt-2 命中
@@ -298,16 +297,23 @@ describe('B2 落地页 · locator 消费（B2 册对账 10）', () => {
     await waitFor(() => {
       expect(document.querySelector('.b2-locate-flash')).toBeTruthy()
     })
-    // 消费即清除（幂等——同会话二次进入不重复定位）
-    expect(sessionStorage.getItem(B2_LOCATOR_KEY)).toBeNull()
+    // 消费即清除（幂等——同 URL 二次进入不重复定位）
+    expect(window.location.search).toBe('')
+  })
+
+  it('#/B2?chunk= 原始形态（hash query 未剥——兜底读法）：同样定位消费', async () => {
+    apiRouter()
+    window.history.replaceState(null, '', '/#/B2?chunk=f3') // 剥链未发生的兜底形态
+    render(<B2Landing />)
+    expect((await screen.findAllByText(/N-11 井检泵：2026-08-28 → 2026-09-06/)).length).toBeGreaterThanOrEqual(1)
   })
 
   it('locator 指向不存在片段：静默回退默认报告，不阻塞台账', async () => {
     apiRouter()
-    sessionStorage.setItem(B2_LOCATOR_KEY, 'f-none')
+    window.history.replaceState(null, '', '/?chunk=f-none#/B2')
     render(<B2Landing />)
     expect(await screen.findByText(/N-02（渤中28-1-N2）于 2019-06-15 投产。/)).toBeTruthy()
     expect(screen.queryByText('片段详情')).toBeNull()
-    expect(sessionStorage.getItem(B2_LOCATOR_KEY)).toBeNull()
+    expect(window.location.search).toBe('')
   })
 })

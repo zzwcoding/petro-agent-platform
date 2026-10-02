@@ -7,6 +7,7 @@ recent_qa_pairs＝B3 扫库 session_loader 注入位（P1-06 疑点 6 收口）�
 """
 
 from app.domains.chat.domain import (
+    ASSET_TYPES,
     BANNED_TERMS,
     CHAIN17,
     CLARIFY_CANDIDATE_CAP,
@@ -21,6 +22,7 @@ from app.domains.chat.domain import (
     RRF_K,
     SEAM_CHAINS,
     SEC_CHECKS,
+    AssetItem,
     ChainContext,
     ChainDispatcher,
     ChatParamError,
@@ -36,6 +38,7 @@ from app.domains.chat.domain import (
     LaneResult,
     MetricFace,
     RetrievalConfigFace,
+    SessionItem,
     SseEvent,
     SuggestionPool,
     SuggestionSignal,
@@ -56,6 +59,7 @@ from app.domains.chat.domain import (
 from app.domains.chat.service import ChatService
 
 __all__ = [
+    "ASSET_TYPES",
     "BANNED_TERMS",
     "CHAIN17",
     "CLARIFY_CANDIDATE_CAP",
@@ -70,6 +74,7 @@ __all__ = [
     "RRF_K",
     "SEAM_CHAINS",
     "SEC_CHECKS",
+    "AssetItem",
     "ChainContext",
     "ChainDispatcher",
     "ChatParamError",
@@ -86,6 +91,7 @@ __all__ = [
     "LaneResult",
     "MetricFace",
     "RetrievalConfigFace",
+    "SessionItem",
     "SseEvent",
     "SuggestionPool",
     "SuggestionSignal",

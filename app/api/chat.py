@@ -26,13 +26,13 @@ import logging
 from collections.abc import AsyncIterator, Mapping
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.api.deps import ChatDep, CurrentActor
 from app.api.errors import ApiError
-from app.domains.chat import SseEvent
+from app.domains.chat import ChatParamError, SseEvent
 from app.domains.chat.domain import (
     FRAME_ERROR,
     FRAME_REPLAY_TRUNCATED,
@@ -153,6 +153,73 @@ async def _skeleton_replay_events() -> AsyncIterator[SseEvent]:
     不静默丢帧；resume_point 由 _render 注入（＝断点帧号）。
     """
     yield SseEvent(FRAME_REPLAY_TRUNCATED, {"message": REPLAY_TRUNCATED_MESSAGE})
+
+
+class SessionItemBody(BaseModel):
+    """会话行（A1 端点 2 合同形状——R1 snake）。"""
+
+    id: str
+    title: str
+    group: str | None
+    scenario_id: str | None
+    updated_at: str
+
+
+class SessionListResponse(BaseModel):
+    items: list[SessionItemBody]
+
+
+class AssetItemBody(BaseModel):
+    """@ 资产条目（A1 端点 6 合同形状）。"""
+
+    type: str
+    name: str
+    token: str
+
+
+class AssetListResponse(BaseModel):
+    items: list[AssetItemBody]
+
+
+@router.get("/sessions")
+async def get_sessions(chat: ChatDep, actor: CurrentActor) -> SessionListResponse:
+    """GET /api/chat/sessions → 200（A1 端点 2——会话历史服务端持久读口）。
+
+    当前身份（身份桩 X-Dev-User）的会话列表，updated_at 倒序；group/scenario_id
+    骨架期 null（场景注册表端点 1 随其票）；新会话不设独立端点——asks 缺省即建。
+    """
+    items = await chat.list_sessions(actor.who)
+    return SessionListResponse(items=[
+        SessionItemBody(
+            id=item.id, title=item.title, group=item.group,
+            scenario_id=item.scenario_id, updated_at=item.updated_at,
+        )
+        for item in items
+    ])
+
+
+@router.get("/assets")
+async def get_assets(
+    chat: ChatDep,
+    actor: CurrentActor,
+    q: Annotated[str | None, Query()] = None,
+    type: Annotated[str | None, Query()] = None,
+) -> AssetListResponse:
+    """GET /api/chat/assets?q=&type= → 200（A1 端点 6——@ 资产面板读口）。
+
+    各注册表现取投影不建仓（指标卡/术语/工作流＝C1 台账、FAQ＝B3 服务中、
+    报告＝B1 台账；工具注册表未建投影为空）；token＝「类型·名称」结晶体；
+    type 越界 400（六类闭世界）。
+    """
+    try:
+        items = await chat.assets(q, type)
+    except ChatParamError as exc:
+        raise ApiError(
+            status_code=400, code=CODE_CHAT_PARAM_INVALID, message=str(exc)
+        ) from exc
+    return AssetListResponse(items=[
+        AssetItemBody(type=item.type, name=item.name, token=item.token) for item in items
+    ])
 
 
 @router.post("/asks")

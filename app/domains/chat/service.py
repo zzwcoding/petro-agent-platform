@@ -24,12 +24,15 @@ POST /api/chat/asks）＋resume（interrupt 决策回流——POST /api/chat/run
 挂起帧 subtype＝caliber（口径两译——默认口径项 primary）｜candidates（低置信
 多候选——无默认项，不选＝拒答终态，宁可不答不瞎猜）。
 
-LLM 出口（B6）：链内生成/打分只走注入 completer（生产＝GatewayService.complete，
-别名 petro-main）——四层流水线的安检/装配/裁决零 LLM 依赖。
+LLM 出口（B6）：链内生成/打分与意图裁决只走注入 completer（生产＝
+GatewayService.complete，别名 petro-main；裁决 caller=chat.intent.verdict，
+失败/超时/解析坏兜底确定性信号路由——不许问挂）——安检/装配零 LLM 依赖。
 """
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 from collections.abc import AsyncIterator
 from functools import partial
@@ -48,6 +51,39 @@ LOGGER = logging.getLogger("domains.chat")
 # 报告索引命中档线与候选入池上限（装配层实施值——常量集中可调）。
 INDEX_HIGH_FLOOR = 0.5
 INDEX_CANDIDATE_MAX = 4
+
+# LLM 意图裁决提示词（F56③ 结构化输出——只回 JSON；闭世界清单由 user 消息携带）。
+INTENT_VERDICT_SYSTEM_PROMPT = (
+    "你是油田数据问答平台的意图裁决器。根据问句与装配信号，从给定的 17 链清单中"
+    "选出唯一应执行的链名，并给出 0 到 1 的置信度数值。"
+    '只输出一个 JSON 对象：{"chain": "<链名>", "confidence": <0-1 数值>}，'
+    "不要输出任何其他文字、解释或代码块标记。"
+)
+
+
+def _parse_intent_json(text: str) -> tuple[str | None, float | None]:
+    """LLM 裁决输出解析（宽容：剥代码围栏/前后杂文；链名闭世界校验在调用方）。"""
+    raw = text.strip()
+    if raw.startswith("```"):
+        raw = raw.strip("`")
+        if raw.startswith("json"):
+            raw = raw[4:]
+    start, end = raw.find("{"), raw.rfind("}")
+    if start < 0 or end <= start:
+        return None, None
+    try:
+        payload = json.loads(raw[start : end + 1])
+    except ValueError:
+        return None, None
+    if not isinstance(payload, dict):
+        return None, None
+    chain = payload.get("chain")
+    value = payload.get("confidence")
+    if not isinstance(chain, str) or not isinstance(value, (int, float)):
+        return None, None
+    if isinstance(value, bool):  # 布尔冒充数值守卫（retrieval 域同款纪律）
+        return None, None
+    return chain, float(value)
 
 _TYPE_TO_MATCHER = {
     "指标卡": "指标卡台账", "术语": "术语台账", "FAQ": "FAQ 索引",
@@ -91,6 +127,9 @@ class ChatService:
         graph_searcher: d.GraphSearcher | None = None,
         anchor_loader: d.FragmentAnchorLoader | None = None,
         completer: d.Completer | None = None,
+        faq_lister: d.FaqLister | None = None,
+        workflow_lister: d.WorkflowLister | None = None,
+        report_lister: d.ReportLister | None = None,
     ) -> None:
         self._db = db
         self._audit = audit
@@ -103,6 +142,10 @@ class ChatService:
         self._index_searcher_dual = index_searcher_dual
         self._graph_searcher = graph_searcher
         self._anchor_loader = anchor_loader
+        # A1 端点 6 assets 读缝（P1-11——缺省空投影：单测装配不必注入全缝隙）。
+        self._faq_lister = faq_lister
+        self._workflow_lister = workflow_lister or _empty_pairs
+        self._report_lister = report_lister or _empty_strs
         self._store = ChatStore(db)
         self._dispatcher = d.ChainDispatcher()
         self._suggestions = d.SuggestionPool()
@@ -269,12 +312,16 @@ class ChatService:
         yield d.node_frame("N4", state=d.NODE_FINISH,
                            note=f"装配块组卷完成——slots＝{assembly.slots}")
 
-        # —— ③ 意图裁决（D2 当前生效配置驱动；置信度真实计算）——
+        # —— ③ 意图裁决（P1-11：petro-main 分类——失败兜底确定性信号路由）——
         yield d.SseEvent(d.FRAME_STAGE, {"stage": 2})
-        yield d.node_frame("N5", state=d.NODE_PROCESS, tag="代码 · 确定性路由",
-                           note="意图裁决——闭世界 17 链枚举（LLM 意图裁决随后续批接线）")
+        yield d.node_frame(
+            "N5", state=d.NODE_PROCESS, tag="意图裁决 · LLM＋兜底",
+            note=f"意图裁决——petro-main 分类（caller={d.CALLER_INTENT_VERDICT}，"
+                 f"超时 {d.INTENT_VERDICT_TIMEOUT_SECONDS:.0f}s）；"
+                 "失败/超时/解析坏→确定性信号路由兜底（不许问挂）",
+        )
         cfg = await self._config_loader()
-        verdict = self._verdict(text, assembly, cfg)
+        verdict = await self._decide(text, assembly, cfg)
         await self._record_verdict(run, verdict)
         yield d.SseEvent(d.FRAME_VERDICT, _wire_verdict(verdict))
         if verdict.get("need_clarify") is True:
@@ -298,7 +345,7 @@ class ChatService:
             return
         yield d.node_frame(
             "N5", state=d.NODE_FINISH,
-            note=f"裁决输出——chain＝{verdict.get('chain')}"
+            note=f"裁决输出（来源＝{verdict.get('source')}）——chain＝{verdict.get('chain')}"
                  f" · confidence＝{verdict.get('confidence')}",
         )
         yield d.node_frame("N5b", state=d.NODE_PROCESS)
@@ -520,10 +567,12 @@ class ChatService:
         yield d.node_frame("N4", state=d.NODE_FINISH,
                            note=f"装配块组卷完成——slots＝{assembly.slots}")
         yield d.SseEvent(d.FRAME_STAGE, {"stage": 2})
-        yield d.node_frame("N5", state=d.NODE_PROCESS, tag="代码 · 确定性路由",
-                           note="意图裁决——带参重判（非重复裁决）")
+        yield d.node_frame(
+            "N5", state=d.NODE_PROCESS, tag="意图裁决 · LLM＋兜底",
+            note="意图裁决——带参重判（非重复裁决；LLM 分类＋确定性兜底同 ask）",
+        )
         cfg = await self._config_loader()
-        verdict = self._verdict(question, assembly, cfg)
+        verdict = await self._decide(question, assembly, cfg)
         if verdict.get("need_clarify") is True:
             # 两跳到终态（默认口径/锁定候选）——不再弹澄清帧（有界循环：最多弹一次）。
             if subtype == "candidates":
@@ -550,7 +599,7 @@ class ChatService:
         yield d.SseEvent(d.FRAME_VERDICT, _wire_verdict(verdict))
         yield d.node_frame(
             "N5", state=d.NODE_FINISH,
-            note=f"带参重判输出——chain＝{verdict.get('chain')}"
+            note=f"带参重判输出（来源＝{verdict.get('source')}）——chain＝{verdict.get('chain')}"
                  f" · confidence＝{verdict.get('confidence')}",
         )
         yield d.node_frame("N5b", state=d.NODE_PROCESS)
@@ -835,8 +884,9 @@ class ChatService:
     async def _resolve_anchor(self, asset_type: str, name: str) -> bool:
         """@ 资产直取（服务端按主键/名称直取——取不到＝落空拒答）。
 
-        骨架期注册表：指标卡/术语→semantics 台账；FAQ→match_index；工具/工作流/
-        报告注册表未建（A1 端点 6 assets 面随其票落）——直取必落空。
+        注册表面：指标卡/术语→semantics 台账；FAQ→match_index；工作流→
+        sem_workflow（P1-11 assets 同源）；报告→kb 报告台账（P1-11 assets 同源）；
+        工具注册表未建（m8 随其票）——直取必落空（assets 投影同为空，界面选不到）。
         """
         probe = d.normalize_query(name)
         if not probe:
@@ -851,14 +901,65 @@ class ChatService:
             return any(probe == d.normalize_query(t.term) for t in await self._terms_loader())
         if asset_type == "FAQ":
             return await self._faq_matcher(name) is not None
+        if asset_type == "工作流":
+            workflows = await self._workflow_lister()
+            return any(probe == d.normalize_query(wname) for wname, _s in workflows)
+        if asset_type == "报告":
+            return any(probe in d.normalize_query(doc) for doc in await self._report_lister())
         return False
 
-    # ---------- ③ 意图裁决（D2 当前生效配置驱动；置信度真实计算） ----------
+    # ---------- A1 端点 2/6 读端点（P1-11 真接线——前端去降级标） ----------
+
+    async def list_sessions(self, actor_who: str) -> list[d.SessionItem]:
+        """历史会话（A1 端点 2——当前身份，updated_at 倒序；合同形状 id/title/
+        group/scenario_id/updated_at）。group/scenario_id 骨架期 null（场景注册表
+        端点 1 随其票——null 前端渲染空串）。"""
+        rows = await self._store.list_sessions(user_id=_actor_key(actor_who))
+        return [
+            d.SessionItem(
+                id=row.id, title=row.title, group=row.group, scenario_id=row.scenario_id,
+                updated_at=row.updated_at.isoformat(timespec="seconds"),
+            )
+            for row in rows
+        ]
+
+    async def assets(self, q: str | None, type_filter: str | None) -> list[d.AssetItem]:
+        """@ 资产面板（A1 端点 6——各注册表现取投影不建仓，永不与注册表漂移）。
+
+        数据直取各域清单（C1 台账指标卡/术语＋工作流、B3 服务中 FAQ、B1 报告
+        索引；工具注册表未建投影为空）；type 越界 400（合同六类闭世界）；
+        q＝name 子串包含（大小写不敏感——资产面板客户端过滤语义服务端化）。
+        阶段 1 单一角色系统管理员全权（P1-00b 拍板基线）——无角色裁剪面。
+        """
+        if type_filter is not None and type_filter not in d.ASSET_TYPES:
+            raise d.ChatParamError(
+                f"type 筛选值越界：{type_filter}（允许：{'、'.join(d.ASSET_TYPES)}）"
+            )
+        items: list[d.AssetItem] = []
+        for metric in await self._metrics_loader():
+            items.append(d.AssetItem("指标卡", metric.slot_name, f"指标卡·{metric.slot_name}"))
+        for term in await self._terms_loader():
+            items.append(d.AssetItem("术语", term.term, f"术语·{term.term}"))
+        if self._faq_lister is not None:
+            for question in await self._faq_lister():
+                items.append(d.AssetItem("FAQ", question, f"FAQ·{question}"))
+        for name, _status in await self._workflow_lister():
+            items.append(d.AssetItem("工作流", name, f"工作流·{name}"))
+        for doc in await self._report_lister():
+            items.append(d.AssetItem("报告", doc, f"报告·{doc}"))
+        if type_filter is not None:
+            items = [item for item in items if item.type == type_filter]
+        needle = (q or "").strip().casefold()
+        if needle:
+            items = [item for item in items if needle in item.name.casefold()]
+        return items
+
+    # ---------- ③ 意图裁决（P1-11：LLM 分类裁决＋确定性信号路由兜底） ----------
 
     def _verdict(
         self, question: str, assembly: d.AssemblyResult, cfg: d.RetrievalConfigFace
     ) -> dict[str, Any]:
-        """裁决 JSON（F56③ 形状 {chain, slots, confidence, need_clarify[, clarify_frame]}）。
+        """确定性信号路由（LLM 不可用时的兜底面——source=deterministic）。
 
         路由（闭世界 17 链——确定性信号序）：
         - FAQ 精确命中＋faq_direct_hit 开 → FAQ直出链（秒回闸——D2 运行时消费归 A1）；
@@ -872,10 +973,24 @@ class ChatService:
         `_clarify`/`_clarify_metric`/`_clarify_subtype` 为域内随行键——wire 前经
         _wire_verdict 剥除。
         """
+        gate = self._verdict_gates(question, assembly, cfg)
+        if gate is not None:
+            return gate
+        return self._verdict_signals(question, assembly, cfg)
+
+    def _verdict_gates(
+        self, question: str, assembly: d.AssemblyResult, cfg: d.RetrievalConfigFace
+    ) -> dict[str, Any] | None:
+        """合同硬闸（确定性、先于 LLM——FAQ 直出闸＋口径两译澄清；无闸命中=None）。
+
+        两闸是 D2 配置驱动的合同行为（P1-08b 行为变化测试在案）——意图裁决换
+        LLM 不改变硬闸语义；LLM 只对剩余路由空间分类。
+        """
         if assembly.faq_hit is not None and cfg.faq_direct_hit:
             return {
                 "chain": "FAQ直出链", "slots": assembly.slots,
                 "confidence": d.FAQ_ROUTE_CONFIDENCE, "need_clarify": False,
+                "source": d.VERDICT_SOURCE_DETERMINISTIC,
             }
         ambiguous = assembly.ambiguous_metric
         if (
@@ -893,7 +1008,14 @@ class ChatService:
                     "_clarify_metric": {"metric_id": ambiguous.metric_id,
                                         "slot_name": ambiguous.slot_name},
                     "_clarify_subtype": "caliber",
+                    "source": d.VERDICT_SOURCE_DETERMINISTIC,
                 }
+        return None
+
+    def _verdict_signals(
+        self, question: str, assembly: d.AssemblyResult, cfg: d.RetrievalConfigFace
+    ) -> dict[str, Any]:
+        """确定性信号路由（图谱关系信号＋置信度真实计算——LLM 兜底面）。"""
         if (
             assembly.graph_hits
             and (d.is_relation_question(question) or not assembly.index_hits)
@@ -901,6 +1023,7 @@ class ChatService:
             return {
                 "chain": "图谱问答链", "slots": assembly.slots,
                 "confidence": d.GRAPH_ROUTE_CONFIDENCE, "need_clarify": False,
+                "source": d.VERDICT_SOURCE_DETERMINISTIC,
             }
         best_score = max((h.score for h in assembly.index_hits), default=0.0)
         ledger_hit = any(c.kind in ("metric", "term") for c in assembly.candidates)
@@ -924,10 +1047,101 @@ class ChatService:
                     "clarify_frame": frame.question,
                     "_clarify": frame,
                     "_clarify_subtype": "candidates",
+                    "source": d.VERDICT_SOURCE_DETERMINISTIC,
                 }
         return {
             "chain": "检索问答链", "slots": assembly.slots,
             "confidence": label, "need_clarify": False,
+            "source": d.VERDICT_SOURCE_DETERMINISTIC,
+        }
+
+    async def _decide(
+        self, question: str, assembly: d.AssemblyResult, cfg: d.RetrievalConfigFace
+    ) -> dict[str, Any]:
+        """裁决层主入口（P1-11 LLM 意图裁决接线）：硬闸 → LLM 分类 → 信号兜底。
+
+        - 合同硬闸恒先行（FAQ 直出闸/口径两译澄清——source=deterministic）；
+        - LLM 分类（petro-main，caller=chat.intent.verdict，有界超时）成功且
+          chain 过闭世界校验 → 采信（source=llm；低置信 <low 仍必弹澄清帧——
+          F56 拍板，阈值闸不因来源豁免）；
+        - LLM 失败/超时/解析坏/链名越界 → 确定性信号路由兜底（不许问挂——
+          source=deterministic）。
+        """
+        gate = self._verdict_gates(question, assembly, cfg)
+        if gate is not None:
+            return gate
+        llm = await self._verdict_llm(question, assembly, cfg)
+        if llm is not None:
+            value = llm["_value"]
+            if value >= cfg.confidence_low:
+                return llm
+            frame = d.build_candidate_clarify(
+                assembly.candidates, frame_id=f"clarify-{now():%H%M%S%f}"
+            )
+            if frame is not None:
+                return {
+                    "chain": None, "slots": assembly.slots,
+                    "confidence": llm["confidence"], "need_clarify": True,
+                    "clarify_frame": frame.question,
+                    "_clarify": frame,
+                    "_clarify_subtype": "candidates",
+                    "source": d.VERDICT_SOURCE_LLM,
+                }
+            return llm  # 低置信但无候选可澄清——直派检索链走兜底（LLM 裁决仍采信）
+        return self._verdict_signals(question, assembly, cfg)
+
+    async def _verdict_llm(
+        self, question: str, assembly: d.AssemblyResult, cfg: d.RetrievalConfigFace
+    ) -> dict[str, Any] | None:
+        """petro-main 意图分类（闭世界 17 链枚举·结构化输出——F56③ 真源接线）。
+
+        任一环不可用（completer 未装配/调用失败/超时/JSON 解析坏/链名越界/置信
+        度非数值）返回 None——调用方走确定性信号路由兜底（不许问挂）。
+        """
+        completer = self._deps.completer
+        if completer is None:
+            return None
+        lanes = "；".join(f"{lane.matcher}={lane.status}" for lane in assembly.lanes)
+        candidates = "、".join(c.name for c in assembly.candidates[:8]) or "无"
+        messages = [
+            {"role": "system", "content": INTENT_VERDICT_SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": (
+                    f"问句：{question}\n"
+                    f"六路装配信号：{lanes}\n"
+                    f"装配候选：{candidates}\n"
+                    f"17 链清单：{'、'.join(d.CHAIN17)}"
+                ),
+            },
+        ]
+        try:
+            completion = await asyncio.wait_for(
+                completer.complete(
+                    chains_mod.MAIN_ALIAS, messages, caller=d.CALLER_INTENT_VERDICT
+                ),
+                timeout=d.INTENT_VERDICT_TIMEOUT_SECONDS,
+            )
+        except (TimeoutError, Exception):
+            LOGGER.warning(
+                "chat LLM 意图裁决不可用（失败/超时 %.0fs）——确定性信号路由兜底",
+                d.INTENT_VERDICT_TIMEOUT_SECONDS,
+            )
+            return None
+        chain, value = _parse_intent_json(str(completion.content or ""))
+        if chain is None or value is None or chain not in d.CHAIN17:
+            LOGGER.warning(
+                "chat LLM 意图裁决解析坏/链名越界（%r）——确定性信号路由兜底", chain
+            )
+            return None
+        return {
+            "chain": chain, "slots": assembly.slots,
+            "confidence": d.confidence_label_llm(
+                value, high=cfg.confidence_high, low=cfg.confidence_low
+            ),
+            "need_clarify": False,
+            "source": d.VERDICT_SOURCE_LLM,
+            "_value": value,
         }
 
     # ---------- ④ 执行链分发与收场 ----------
@@ -1053,8 +1267,16 @@ def _actor_key(actor_who: str) -> str:
 
 
 def _wire_verdict(verdict: dict[str, Any]) -> dict[str, Any]:
-    """裁决 JSON 的 wire 形（剥域内随行键——A1 裁决帧字段照抄）。"""
+    """裁决 JSON 的 wire 形（剥域内随行键——A1 裁决帧字段照抄＋source 双来源）。"""
     return {k: v for k, v in verdict.items() if not k.startswith("_")}
+
+
+async def _empty_strs() -> list[str]:
+    return []
+
+
+async def _empty_pairs() -> list[tuple[str, str]]:
+    return []
 
 
 def _clarify_wire(frame: d.ClarifyFrame) -> dict[str, Any]:

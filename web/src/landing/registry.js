@@ -34,9 +34,3 @@ export function loadLandingPage(key) {
  * hash 首屏应为工作台主入口，而非阶段序首个点亮页 D1。
  */
 export const DEFAULT_LANDING_KEY = 'A1'
-
-/**
- * B2 locator 暂存键（P1-04——`#/B2?chunk=` 消费链：NotLit 桥写入、B2 页挂载
- * 消费后即清除；干净收口＝Shell.parseHash 剥 query，本暂存随桥退役）。
- */
-export const B2_LOCATOR_KEY = 'petro.b2.locator.chunk'

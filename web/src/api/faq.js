@@ -9,8 +9,9 @@
  * - 端点 3 新增入库恒先进「待审核」（v0.2 审核流）——发布走端点 17；
  * - 端点 4 重复校验非阻断（hit/hint 直出，命中与否都 200）；
  * - 端点 10 扫库受理 202（fetch 不抛），轮询走 useTaskPolling（/faq/scan-tasks）；
- * - 端点 15 导入＝raw body 上传件＋query 参数（mode/dry_run/filename——
- *   合同「传输形态结合实际框架定」落点，见 app/api/faq.py 同名注记）；
+ * - 端点 15 导入＝multipart/form-data（file 字段；mode/dry_run 走 query，
+ *   filename 取上传件名——P1-11 依赖落位批：python-multipart 已入平台依赖，
+ *   见 app/api/faq.py 同名注记）；
  * - 端点 16 导出返回预签名直链，页面直接交给浏览器下载（不经平台转发）。
  */
 
@@ -215,22 +216,24 @@ export function draftFromRefs(body) {
 
 /**
  * 端点 15：POST /api/faq/import —— 批量导入（append/replace＋试校验＋四计数）。
- * 上传件走 raw body、参数走 query（传输形态合同悬置落点——见模块注记）；
- * 走原生 fetch 绕开 client 的 JSON 封装（错误包解包保留）。
+ * 上传件走 multipart/form-data（file 字段——P1-11 依赖落位批；错误包解包保留，
+ * 走原生 fetch 绕开 client 的 JSON 封装）。
  * @param {{mode: 'append' | 'replace', dryRun: boolean, filename: string, file: File}}
  * @returns {Promise<any>} { dryRun, added, merged, skipped, failed, failures, hint }
  */
 export async function importLibrary({ mode, dryRun, filename, file }) {
-  const bytes = await file.arrayBuffer()
   const query = new URLSearchParams({
     mode,
     dry_run: String(Boolean(dryRun)),
     filename
   })
+  // multipart/form-data（P1-11 依赖落位批——后端 UploadFile 消费 file 字段；
+  // fetch 带 FormData 不手写 Content-Type，浏览器自动补 boundary）。
+  const form = new FormData()
+  form.append('file', file, filename || file.name || 'import.csv')
   const res = await fetch(`${API_BASE}/faq/import?${query.toString()}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/octet-stream' },
-    body: bytes
+    body: form
   })
   const text = await res.text()
   let data = null

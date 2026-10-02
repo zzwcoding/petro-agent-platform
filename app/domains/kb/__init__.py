@@ -7,6 +7,7 @@ confirm 时刻定型）、台账、片段版本、活动流。读/写端点随 B
 from app.domains.kb.domain import (
     BIZ_TEMPLATES,
     DEFAULT_CONFIG,
+    EMBED_DIM,
     FRAGMENT_TYPES,
     ISSUE_OPEN_STATES,
     ISSUE_STATES,
@@ -40,6 +41,7 @@ from app.domains.kb.domain import (
     LibraryView,
     LocalHashEmbedder,
     RebuildInfo,
+    RemoteEmbedder,
     ReportDetail,
     ReportLedgerRow,
     ReviseReceipt,
@@ -58,6 +60,7 @@ from app.domains.kb.service import KbService
 __all__ = [
     "BIZ_TEMPLATES",
     "DEFAULT_CONFIG",
+    "EMBED_DIM",
     "FRAGMENT_TYPES",
     "ISSUE_OPEN_STATES",
     "ISSUE_STATES",
@@ -92,6 +95,7 @@ __all__ = [
     "LibraryView",
     "LocalHashEmbedder",
     "RebuildInfo",
+    "RemoteEmbedder",
     "ReportDetail",
     "ReportLedgerRow",
     "ReviseReceipt",

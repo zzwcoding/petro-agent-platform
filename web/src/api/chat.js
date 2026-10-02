@@ -21,12 +21,10 @@
  *   内联渲染进对话流，不弹全局 toast）：流开前非 2xx 解统一错误包抛 ApiError；
  *   流内异常按 00 §6.1 只可能是 error 帧（onError 收口）。
  *
- * 端点接线现状（诚实登记，挂票面）：
- * - 端点 4/5 已接线（P1-08a/b/c）；端点 2 GET /api/chat/sessions 未接线——
- *   listSessions() 按合同形状发读、失败静默回 {items:[],available:false}
- *   （不弹错）；页面历史列表以本机运行记录（store 会话槽）兜底。
- * - 端点 6 GET /api/chat/assets 未接线——@ 点名提示按票面落 semantics 读口
- *   （指标卡＋术语两族），token 形状照抄端点 6 合同（「类型·名称」结晶体）。
+ * 端点接线现状（P1-11 收口批）：
+ * - 端点 2/4/5/6 全接线（端点 2 sessions / 端点 6 assets 为 P1-11 补齐——
+ *   此前两读口按降级标静默兜底，本批去标）；端点 3 sessions/{id}/messages
+ *   仍未接线（历史消息回放读口，挂后续批）。
  */
 
 import { API_BASE, ApiError, authHeaders } from './client.js'
@@ -213,7 +211,7 @@ export function reconnectRun(runId, lastEventId, handlers, opts = {}) {
   })
 }
 
-// ── 会话读口（端点 2）与 @ 资产提示（端点 6 替代读缝） ──
+// ── 会话读口（端点 2）与 @ 资产面板（端点 6——P1-11 真接线） ──
 
 /** 端点 2 会话行 wire 形（snake）→ 视图形（camel）。 */
 function sessionToCamel(s) {
@@ -227,11 +225,10 @@ function sessionToCamel(s) {
 }
 
 /**
- * 端点 2 历史会话列表（服务端持久读口）。
+ * 端点 2 历史会话列表（服务端持久读口——P1-11 真接线）。
  *
- * 后端该端点未接线（P1-08 范围只立 asks/resume）——失败/404 **静默**回
- * {items:[], available:false}（不走 client 的全局 toast；页面据 available
- * 决定是否渲染服务端分组）。接线后本函数零改动可用。
+ * 读失败/非 2xx 仍静默回 {items:[],available:false}（网络韧性——历史列表
+ * 是增强面不是阻断面，不走 client 全局 toast；available 才渲染服务端分组）。
  *
  * @returns {Promise<{items: Array<{id: string, title: string, group: string,
  *   scenarioId: string, updatedAt: string}>, available: boolean}>}
@@ -248,38 +245,20 @@ export async function listSessions() {
 }
 
 /**
- * @ 点名候选（端点 6 替代读缝——chat/assets 未接线，票面指定落 semantics 读口：
- * 指标卡＋术语两族）。token＝「类型·名称」结晶体（端点 6 合同形状照抄——
- * pickAsset 形），后端 parse_anchor_token 据此前门直取（S1 显式锚定）。
+ * 端点 6 @ 资产面板（各注册表现取投影——指标卡/术语/FAQ/工作流/报告；工具
+ * 注册表未建投影为空）。token＝「类型·名称」结晶体（后端出形照抄），随 asks
+ * anchors 上送（服务端 S1 前门直取）。
  *
- * @param {{q?: string}} [query] 客户端过滤词（空＝全量）
+ * @param {{q?: string, type?: string}} [query] q＝name 过滤词；type∈六类
  * @returns {Promise<Array<{type: string, name: string, token: string, hint: string}>>}
  */
-export async function listAnchorCandidates(query = {}) {
-  const qs = `pageSize=500${query.q ? `&keyword=${encodeURIComponent(query.q)}` : ''}`
-  const [metrics, terms] = await Promise.all([
-    fetch(`${API_BASE}/semantics/metrics?${qs}`, { headers: sseHeaders() })
-      .then(r => (r.ok ? r.json() : { items: [] }))
-      .catch(() => ({ items: [] })),
-    fetch(`${API_BASE}/semantics/terms?${qs}`, { headers: sseHeaders() })
-      .then(r => (r.ok ? r.json() : { items: [] }))
-      .catch(() => ({ items: [] }))
-  ])
-  const metricItems = (metrics.items || []).map(m => ({
-    type: '指标卡',
-    name: m.slot_name || m.name,
-    token: `指标卡·${m.slot_name || m.name}`,
-    hint: m.def || ''
-  }))
-  const termItems = (terms.items || []).map(t => ({
-    type: '术语',
-    name: t.term,
-    token: `术语·${t.term}`,
-    hint: t.def || ''
-  }))
-  if (!query.q) return [...metricItems, ...termItems]
-  const needle = query.q.toLowerCase()
-  return [...metricItems, ...termItems].filter(a =>
-    a.token.toLowerCase().includes(needle) || a.hint.toLowerCase().includes(needle)
-  )
+export async function listAssets(query = {}) {
+  const params = new URLSearchParams()
+  if (query.q) params.set('q', query.q)
+  if (query.type) params.set('type', query.type)
+  const qs = params.toString()
+  const res = await fetch(`${API_BASE}/chat/assets${qs ? `?${qs}` : ''}`, { headers: sseHeaders() })
+  if (!res.ok) return []
+  const data = await res.json()
+  return (data.items || []).map(a => ({ type: a.type, name: a.name, token: a.token, hint: '' }))
 }

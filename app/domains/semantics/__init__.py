@@ -6,25 +6,31 @@ rollback_to 随 governance 批）＋本体仓同步口 sync_from_ontology_repo�
 """
 
 from app.domains.semantics.domain import (
+    ENTITY_GROUPS,
     SCHEMA_VERSION_PIN,
+    SLOT_DOMAINS,
     OntologyDriftError,
     OntologySchemaUnsupported,
     SyncReport,
     metric_grain_display,
     metric_slot_name,
+    metric_slot_token,
     registered_items,
     term_expiry,
 )
 from app.domains.semantics.service import SemanticsService
 
 __all__ = [
+    "ENTITY_GROUPS",
     "SCHEMA_VERSION_PIN",
+    "SLOT_DOMAINS",
     "OntologyDriftError",
     "OntologySchemaUnsupported",
     "SemanticsService",
     "SyncReport",
     "metric_grain_display",
     "metric_slot_name",
+    "metric_slot_token",
     "registered_items",
     "term_expiry",
 ]

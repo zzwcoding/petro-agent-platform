@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, File, Query, UploadFile
 from pydantic import BaseModel
 
 from app.api.deps import CurrentActor, FaqDep, SecurityDep
@@ -597,33 +597,34 @@ class ImportResponse(BaseModel):
 
 @router.post("/import", response_model=ImportResponse)
 async def import_library(
-    request: Request,
+    file: Annotated[UploadFile, File(description="CSV 模板文件（multipart/form-data——file 字段)")],
     service: FaqDep,
     security: SecurityDep,
     actor: CurrentActor,
     mode: Annotated[str, Query()],
     dry_run: Annotated[bool, Query()] = False,
-    filename: Annotated[str, Query()] = "import.csv",
+    filename: Annotated[str, Query()] = "",
 ) -> ImportResponse:
     """批量导入（append/replace 两模式＋试校验＋四计数——端点 15；文件落 MinIO）。
 
-    传输形态（合同悬置「结合实际框架定」落点）：上传件走 raw body（application/
-    octet-stream），mode/dry_run/filename 走 query 参数——python-multipart 不在
-    平台依赖清单（本票不动 pyproject），multipart 形态归依赖落位批再切。
+    传输形态（P1-11 依赖落位批收口）：multipart/form-data（python-multipart 已
+    入平台依赖——B3 前端 FormData 同形对齐）；mode/dry_run 走 query 参数；
+    filename 取上传件名（file.filename），query 兜底（缺省「import.csv」）。
     """
-    file_bytes = await request.body()
+    file_bytes = await file.read()
     if not file_bytes:
         raise ApiError(status_code=400, code="faq_import_file_empty",
                        message="上传件为空——请携带 CSV 模板文件")
+    file_name = (file.filename or "").strip() or (filename or "").strip() or "import.csv"
     row: ImportStats = await service.import_library(
-        mode=mode, dry_run=dry_run, filename=filename, file_bytes=file_bytes,
+        mode=mode, dry_run=dry_run, filename=file_name, file_bytes=file_bytes,
         actor_who=actor.who,
     )
     await security.audit(  # B12 横切留痕（导入件落对象存储不过期）
         AuditRow(
             who=actor.who,
             action="faq.library.imported",
-            content=f"{'试校验' if row.dry_run else '导入'}：文件 {filename}——"
+            content=f"{'试校验' if row.dry_run else '导入'}：文件 {file_name}——"
                     f"新增 {row.added} · 合并 {row.merged} · 跳过 {row.skipped}"
                     f" · 失败 {row.failed}",
         )

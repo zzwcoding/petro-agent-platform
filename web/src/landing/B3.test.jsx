@@ -8,7 +8,7 @@
  * - 合并（端点 7——目标由人选）与停用/启用（端点 8）；
  * - 挖掘管线：候选库渲染＋展开钮只认比对结论（端点 9/12）＋起草填入新增弹窗
  *   （端点 13）＋扫库 202 轮询收场（端点 10/11）；
- * - 导入（端点 15 raw fetch）与导出（端点 16 预签名直链）；
+ * - 导入（端点 15 multipart form-data——P1-11 依赖落位）与导出（端点 16 预签名直链）；
  * - ⚙ 弹窗（合并阈值 0.87 展示——配置端点撤除登记）。
  */
 
@@ -323,7 +323,7 @@ describe('B3 落地页 · 导入导出与 ⚙（端点 15/16＋配置展示）',
     expect(window.open).toHaveBeenCalledWith('https://minio.test/get/faq/export/x.csv', '_blank')
   })
 
-  it('导入（端点 15 raw fetch＋query 参数）→ 四计数提示', async () => {
+  it('导入（端点 15 multipart form-data＋query 参数）→ 四计数提示', async () => {
     const calls = apiRouter()
     render(<B3Landing />)
     fireEvent.click(await screen.findByText('导入'))
@@ -338,6 +338,11 @@ describe('B3 落地页 · 导入导出与 ⚙（端点 15/16＋配置展示）',
     expect(calls.imports[0]).toContain('mode=append')
     expect(calls.imports[0]).toContain('dry_run=false')
     expect(calls.imports[0]).toContain('filename=faq.csv')
+    // multipart 落位（P1-11）：body＝FormData（file 字段携带上传件，不手写 Content-Type）
+    const importCall = fetchMock.mock.calls.find(c => String(c[0]).includes('/api/faq/import'))
+    expect(importCall[1].body).toBeInstanceOf(FormData)
+    expect(importCall[1].body.get('file')).toBeInstanceOf(File)
+    expect(importCall[1].headers?.['Content-Type']).toBeUndefined()
   })
 
   it('⚙ 弹窗：合并阈值 0.87 只读展示＋负例入口 Tag（配置端点撤除登记）', async () => {

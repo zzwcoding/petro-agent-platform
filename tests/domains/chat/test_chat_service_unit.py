@@ -786,3 +786,171 @@ class TestAudit:
         actions = [action for action, _who in rows]
         assert actions.count("chat.ask.received") == 2
         assert "chat.ask.blocked" in actions
+
+
+class TestLlmIntentVerdict:
+    """LLM 意图裁决接线（P1-11）：petro-main 分类（caller=chat.intent.verdict）
+    ＋失败/超时/解析坏→确定性信号路由兜底（不许问挂）＋source 双来源标注。"""
+
+    async def test_llm_verdict_success_adopts_chain_and_source(
+        self, chat_db: ConnectionManager, seams: Seams
+    ) -> None:
+        seams.index_hits = [_hit(0.7)]
+        seams.intent_reply = '{"chain": "检索问答链", "confidence": 0.9}'
+        service = make_service(chat_db, seams)
+        events = await collect(service.ask(
+            "筛管完井怎么选", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        verdict = _events_by_name(events)["verdict"][0]
+        assert verdict["chain"] == "检索问答链"
+        assert verdict["source"] == "llm"
+        assert "模型意图裁决" in verdict["confidence"]
+        assert "chat.intent.verdict" in seams.completions
+
+    async def test_garbage_reply_falls_back_deterministic(
+        self, chat_db: ConnectionManager, seams: Seams
+    ) -> None:
+        """解析坏（桩缺省生成文案混答）→ 确定性信号路由兜底 source=deterministic。"""
+        service = make_service(chat_db, seams)
+        events = await collect(service.ask(
+            "渤海油田产量", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        verdict = _events_by_name(events)["verdict"][0]
+        assert verdict["chain"] == "检索问答链"
+        assert verdict["source"] == "deterministic"
+        assert "chat.intent.verdict" in seams.completions  # 裁决调用确实发生
+
+    async def test_chain_out_of_closed_world_falls_back(
+        self, chat_db: ConnectionManager, seams: Seams
+    ) -> None:
+        seams.index_hits = [_hit(0.7)]
+        seams.intent_reply = '{"chain": "问数链", "confidence": 0.95}'  # 17 链外——越界
+        service = make_service(chat_db, seams)
+        events = await collect(service.ask(
+            "筛管完井怎么选", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        verdict = _events_by_name(events)["verdict"][0]
+        assert verdict["chain"] == "检索问答链"
+        assert verdict["source"] == "deterministic"
+
+    async def test_upstream_failure_falls_back(
+        self, chat_db: ConnectionManager, seams: Seams
+    ) -> None:
+        seams.fail_intent = True
+        seams.index_hits = [_hit(0.7)]
+        service = make_service(chat_db, seams)
+        events = await collect(service.ask(
+            "筛管完井怎么选", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        verdict = _events_by_name(events)["verdict"][0]
+        assert verdict["source"] == "deterministic"
+        assert _names(events)[-1] == "done"  # 不许问挂——照常收场
+
+    async def test_timeout_falls_back(
+        self, chat_db: ConnectionManager, seams: Seams, monkeypatch: Any
+    ) -> None:
+        monkeypatch.setattr(d, "INTENT_VERDICT_TIMEOUT_SECONDS", 0.05)
+        seams.intent_delay = 0.5
+        seams.index_hits = [_hit(0.7)]
+        service = make_service(chat_db, seams)
+        events = await collect(service.ask(
+            "筛管完井怎么选", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        verdict = _events_by_name(events)["verdict"][0]
+        assert verdict["source"] == "deterministic"
+
+    async def test_low_confidence_llm_with_candidates_pops_clarify(
+        self, chat_db: ConnectionManager, seams: Seams
+    ) -> None:
+        """低置信（<low）必弹澄清帧——阈值闸不因来源豁免（F56）；候选在场弹
+        候选澄清（source=llm）。"""
+        seams.index_hits = []
+        seams.intent_reply = '{"chain": "检索问答链", "confidence": 0.1}'
+        service = make_service(chat_db, seams)
+        events = await collect(service.ask(
+            "产量完成率的事", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        verdict = _events_by_name(events)["verdict"][0]
+        assert verdict["need_clarify"] is True
+        assert verdict["chain"] is None
+        assert verdict["source"] == "llm"
+        clarify = _events_by_name(events)["clarify"][0]
+        assert clarify["choices"]  # 候选澄清（S6 多候选语义）
+
+    async def test_faq_direct_hit_gate_precedes_llm(
+        self, chat_db: ConnectionManager, seams: Seams
+    ) -> None:
+        """FAQ 直出闸（合同硬闸）先于 LLM——零意图裁决调用＋零生成（no_model）。"""
+        from app.domains.chat.domain import FaqHitFace
+        seams.faq_hit = FaqHitFace(entry_id="faq-1", question="N-02 井是什么时候投产的？",
+                                   answer="2019-06-15")
+        service = make_service(chat_db, seams)
+        events = await collect(service.ask(
+            "N-02 井是什么时候投产的", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        verdict = _events_by_name(events)["verdict"][0]
+        assert verdict["chain"] == "FAQ直出链"
+        assert verdict["source"] == "deterministic"
+        assert "chat.intent.verdict" not in seams.completions
+
+    async def test_single_ask_cost_bound(
+        self, chat_db: ConnectionManager, seams: Seams
+    ) -> None:
+        """成本断言（票面）：单 ask（检索链·fast 精排·fixed 兜底）模型调用
+        ≤2——1 次意图裁决＋1 次生成，绝无第三类调用。"""
+        service = make_service(chat_db, seams)
+        events = await collect(service.ask(
+            "渤海油田产量", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        assert _names(events)[-1] == "done"
+        assert len(seams.completions) <= 2
+        assert set(seams.completions) <= {"chat.intent.verdict", "chat.retrieval.answer"}
+
+
+def _hit(score: float) -> Any:
+    """报告索引命中桩行（IndexHitFace——装配/裁决共用形状）。"""
+    from app.domains.chat.domain import IndexHitFace
+    return IndexHitFace(
+        fragment_id="f1", report_id="rpt-1", report="N-02 完井报告",
+        section="01 井基本情况", snippet="筛管完井", score=score, leg="keyword",
+        text="筛管完井",
+    )
+
+
+class TestAssetsFace:
+    """A1 端点 6 assets 域面（P1-11）：投影六源＋q/type 筛＋闭世界校验。"""
+
+    async def test_projection_type_filter_and_q(
+        self, chat_db: ConnectionManager, seams: Seams
+    ) -> None:
+        seams.reports = ["N-02 井完井报告"]
+        service = make_service(chat_db, seams)
+        items = await service.assets(None, None)
+        types = {item.type for item in items}
+        assert {"指标卡", "术语", "FAQ", "工作流", "报告"} <= types
+        assert all(item.token == f"{item.type}·{item.name}" for item in items)  # 结晶体
+        filtered = await service.assets("完井", "报告")
+        assert [item.token for item in filtered] == ["报告·N-02 井完井报告"]
+        with pytest.raises(d.ChatParamError):
+            await service.assets(None, "报表")  # 六类闭世界外
+
+    async def test_resolve_anchor_extends_to_report_and_workflow(
+        self, chat_db: ConnectionManager, seams: Seams
+    ) -> None:
+        """@ 直取面扩展（assets 同源——面板选得到的锚得上）：报告包含匹配、
+        工作流精确匹配；工具注册表未建恒落空。"""
+        seams.reports = ["N-02 井完井报告"]
+        service = make_service(chat_db, seams)
+        assert await service._resolve_anchor("报告", "N-02") is True
+        assert await service._resolve_anchor("报告", "没有这卷") is False
+        assert await service._resolve_anchor("工作流", "月度产量核查") is True
+        assert await service._resolve_anchor("工作流", "月度产量") is False  # 精确非包含
+        assert await service._resolve_anchor("工具", "测井岩性识别") is False

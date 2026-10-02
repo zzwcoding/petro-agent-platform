@@ -209,3 +209,66 @@ def test_read_endpoints_open_to_all_roles(client: TestClient) -> None:
     for who in ("laowang", "xiaoli", "zhuren", "aqiang", "shixi"):
         resp = client.get("/api/semantics/terms", headers={"X-Dev-User": who})
         assert resp.status_code == 200  # C1 全员可见（MENU 无 roles 限制）
+
+
+# ---------- P1-11 收口批：metrics version 展示串＋slots 投影读端点（C1 端点 11） ----------
+
+
+def test_metrics_version_display_string_v_form(client: TestClient) -> None:
+    """metrics version 出展示串「v{n}」（P1-05b 疑点 2 真缺口本票收口——
+    C1 合同 DTO 冻结「v1」形；sem_metric.version 存储层 int 不动）。"""
+    body = client.get("/api/semantics/metrics").json()
+    assert all(item["version"].startswith("v") and item["version"][1:].isdigit()
+               for item in body["items"])
+    assert all(isinstance(item["version"], str) for item in body["items"])
+
+
+def test_slots_metrics_projection(client: TestClient) -> None:
+    """slots domain=metrics：{slot_name, name, mark, token}——slot_name 剥法
+    服务端单点；token＝「指标卡·<slot_name>」结晶体（· 无空格）。"""
+    body = client.get("/api/semantics/slots", params={"domain": "metrics"}).json()
+    assert body["domain"] == "metrics"
+    assert body["groups"] == []
+    first = body["items"][0]
+    assert set(first) == {"slot_name", "name", "mark", "token"}
+    assert first["token"] == f"指标卡·{first['slot_name']}"
+    assert any(item["slot_name"] == "产量完成率" for item in body["items"])
+
+
+def test_slots_terms_projection(client: TestClient) -> None:
+    body = client.get("/api/semantics/slots", params={"domain": "terms"}).json()
+    assert body["domain"] == "terms"
+    first = body["items"][0]
+    assert set(first) == {"name", "status_key", "token"}
+    assert first["token"] == f"术语·{first['name']}"
+
+
+def test_slots_entities_groups_demo_registry(client: TestClient) -> None:
+    """domain=entities：ENTITY_GROUPS 照抄（demo 装配——区块/平台/井三组）。"""
+    body = client.get("/api/semantics/slots", params={"domain": "entities"}).json()
+    assert body["items"] == []
+    labels = [group["label"] for group in body["groups"]]
+    assert len(labels) == 3 and labels[0] == "区块" and labels[1] == "平台"
+    assert body["groups"][0]["options"] == ["渤南", "渤中"]
+    assert "N-02" in body["groups"][2]["options"]
+
+
+def test_slots_workflows_and_actions(client: TestClient) -> None:
+    wf = client.get("/api/semantics/slots", params={"domain": "workflows"}).json()
+    assert wf["domain"] == "workflows"
+    assert all(set(item) == {"name", "status"} for item in wf["items"])
+    assert len(wf["items"]) == 10  # 种子 wf1–wf10（十行——P1-01 同步器首跑口径）
+    actions = client.get("/api/semantics/slots", params={"domain": "actions"}).json()
+    assert all(set(item) == {"register_name", "business_name"} for item in actions["items"])
+    assert len(actions["items"]) == 3  # Action 三条（manifest deferredAdditions）
+
+
+def test_slots_domain_required_and_closed_world(client: TestClient) -> None:
+    missing = client.get("/api/semantics/slots")
+    assert missing.status_code == 400  # 必填缺参（00 §3 统一错误包——校验错 400）
+    bad = client.get("/api/semantics/slots", params={"domain": "objects"})
+    assert bad.status_code == 400
+    assert bad.json()["code"] == "semantics_param_invalid"
+    assert bad.json()["detail"]["allowed"] == [
+        "terms", "metrics", "entities", "workflows", "actions",
+    ]

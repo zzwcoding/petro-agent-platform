@@ -40,7 +40,11 @@ fail-closed/兜底两策）＋FAQ 秒回链（直出＋no_model）＋图谱问�
 邻域检索——graph_searcher 缝填入）；kb 增 index_search_dual/fragment_anchor
 读面与 hit_text pg_trgm GIN 索引（Alembic 0010 并行），faq 增 search_similar
 扩检读面；chat 链内 LLM 只走注入 completer（B6——gateway.complete 别名
-petro-main）。
+petro-main）。P1-11 收口批：embedding 真模型接线（petro-embed＝MiniMax
+embo-01 1536 维——infra.llm_client.embeddings B6 单点，kb/faq db/query 分型
+两缝；Alembic 0012 列形迁移＋reembed 重嵌脚本）；LLM 意图裁决接线
+（caller=chat.intent.verdict，失败/超时/解析坏兜底确定性信号路由）；A1 端点
+2/6 会话与 @ 资产读端点；C1 端点 11 slots 投影读端点；B3 导入 multipart 落位。
 
 建表与迁移的交接（P0-08 票面）：ensure_*_table 与 Alembic 并行存活，
 本票不切换——各域切换迁移属各域票（基线空迁移见 migrations/versions/0001）。
@@ -82,7 +86,7 @@ from app.domains.faq.store import ensure_faq_tables, seed_demo_if_empty
 from app.domains.gateway import GatewayService
 from app.domains.gateway.store import ensure_gateway_tables
 from app.domains.kb import KbService
-from app.domains.kb.domain import LocalHashEmbedder
+from app.domains.kb.domain import RemoteEmbedder
 from app.domains.kb.store import ensure_kb_tables
 from app.domains.retrieval import RetrievalService
 from app.domains.retrieval.store import ensure_retrieval_tables
@@ -123,12 +127,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # 实现＝单进程演示底座，Redis Streams 通道接线属后续接线批，P0-08 同口径）
     app.state.eventbus = InMemoryEventBus()
     storage = MinioObjectStorage()  # 对象存储 seam（B1 直传/B3 导入导出共用——98 §4 adapter）
-    faq_embedder = LocalHashEmbedder()  # 占位向量缝（kb/faq 同源同实现——99 维度待办）
+    # 向量真模型（P1-11 选型接线——petro-embed＝MiniMax embo-01 1536 维，B6
+    # 单点 infra.llm_client.embeddings；query/db 分型两实例禁混——kb 检索探针/
+    # faq 扩检走 query 型，语料/入库走 db 型。测试底座 LocalHash 只在测试装配）。
+    llm = LlmClient()
+    kb_embedder = RemoteEmbedder(llm, input_type="db")
+    kb_query_embedder = RemoteEmbedder(llm, input_type="query")
+    faq_embedder = kb_embedder  # kb/faq 同源同实现（99 同一款向量缝）
+    faq_query_embedder = kb_query_embedder
     app.state.kb = KbService(
         manager,
         app.state.gateway,  # B6：LLM 只走 gateway.complete
         storage,
-        embedder=faq_embedder,
+        embedder=kb_embedder,
+        query_embedder=kb_query_embedder,
         eventbus=app.state.eventbus,
         # 抽取设置定型快照装载（B5 端点 3 注记——confirm 时刻一并定型；
         # 组合根注入 derivatives 提供的函数——B9：kb 禁 import derivatives）
@@ -253,6 +265,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             for h in hits
         ]
 
+    async def faq_lister() -> list[str]:
+        questions: list[str] = list(await app.state.faq.served_questions())
+        return questions
+
+    async def workflow_lister() -> list[tuple[str, str]]:
+        rows = await app.state.semantics.list_workflows()
+        return [(str(row.name), str(row.status)) for row in rows]
+
+    async def report_lister() -> list[str]:
+        rows = await app.state.kb.list_reports()
+        return [str(row.doc) for row in rows]
+
     async def index_searcher(question: str) -> list[IndexHitFace]:
         hits = await app.state.kb.index_search(question)
         return [
@@ -337,7 +361,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         index_searcher_dual=index_searcher_dual,
         graph_searcher=graph_searcher,  # 08b 起真图检索（B9 同款只见 callable）
         anchor_loader=fragment_anchor_loader,  # citation fail-closed 校验缝
-        completer=app.state.gateway,  # B6：链内生成/打分只走 gateway.complete
+        completer=app.state.gateway,  # B6：链内生成/打分/意图裁决只走 gateway.complete
+        faq_lister=faq_lister,  # A1 端点 6 assets 投影（lazy 绑定——faq 在本域之后装配）
+        workflow_lister=workflow_lister,
+        report_lister=report_lister,
     )
 
     app.state.faq = FaqService(
@@ -345,6 +372,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.gateway,
         storage,
         embedder=faq_embedder,
+        query_embedder=faq_query_embedder,
         eventbus=app.state.eventbus,
         audit=app.state.security,  # B12（LedgerMerged 联动建议稿留痕）
         ledger_loader=ledger_loader,

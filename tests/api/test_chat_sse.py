@@ -359,3 +359,67 @@ def test_ask_received_audited(env: Any) -> None:
     )
     assert logs.status_code == 200
     assert logs.json()["total"] >= 1
+
+
+def test_endpoint_2_sessions_list(env: Any) -> None:
+    """A1 端点 2（P1-11 真接线）：空列表→ask 后有会话（title＝首问，updated_at
+    倒序）；身份隔离——他人会话不出列。"""
+    client, _manager = env
+    empty = client.get("/api/chat/sessions", headers=ACTOR)
+    assert empty.status_code == 200
+    assert empty.json() == {"items": []}
+
+    client.post("/api/chat/asks", json={"question": "渤海油田产量"}, headers=ACTOR)
+    client.post("/api/chat/asks", json={"question": "躺井是什么意思"}, headers=ACTOR)
+    listed = client.get("/api/chat/sessions", headers=ACTOR).json()["items"]
+    assert [item["title"] for item in listed] == ["躺井是什么意思", "渤海油田产量"]  # 倒序
+    assert listed[0]["id"].startswith("sess-")
+    assert listed[0]["group"] is None and listed[0]["scenario_id"] is None  # 场景注册表随其票
+    assert "T" in listed[0]["updated_at"]  # isoformat 展示串
+
+    other = client.get(
+        "/api/chat/sessions", headers={"X-Dev-User": "xiaoli"}
+    ).json()["items"]
+    assert other == []  # 身份桩隔离（会话归属 user_id）
+
+
+def test_endpoint_6_assets_projection_and_filters(env: Any) -> None:
+    """A1 端点 6（P1-11 真接线）：各注册表现取投影（token 结晶体）＋q/type 筛
+    ＋type 越界 400。"""
+    client, _manager = env
+    listed = client.get("/api/chat/assets", headers=ACTOR)
+    assert listed.status_code == 200
+    items = listed.json()["items"]
+    types = {item["type"] for item in items}
+    assert {"指标卡", "术语", "FAQ", "工作流"} <= types
+    metric = next(item for item in items if item["type"] == "指标卡")
+    assert metric == {"type": "指标卡", "name": "产量完成率", "token": "指标卡·产量完成率"}
+    faq = next(item for item in items if item["type"] == "FAQ")
+    assert faq["token"] == "FAQ·N-02 井是什么时候投产的？"
+
+    filtered = client.get(
+        "/api/chat/assets", params={"q": "产量完成率"}, headers=ACTOR
+    ).json()["items"]
+    assert filtered and all("产量完成率" in item["name"] for item in filtered)
+
+    typed = client.get(
+        "/api/chat/assets", params={"type": "术语"}, headers=ACTOR
+    ).json()["items"]
+    assert typed and {item["type"] for item in typed} == {"术语"}
+
+    bad = client.get("/api/chat/assets", params={"type": "报表"}, headers=ACTOR)
+    assert bad.status_code == 400
+    assert bad.json()["code"] == "chat_param_invalid"
+
+
+def test_endpoint_6_assets_unregistered_actor_401(env: Any) -> None:
+    """非五角色键 → 401（身份闸同 asks——CurrentActor 统一依赖）；缺头落默认
+    角色不 401（00 §2.4，asks 同判例）。"""
+    client, _manager = env
+    assert client.get(
+        "/api/chat/assets", headers={"X-Dev-User": "nobody"}
+    ).status_code == 401
+    assert client.get(
+        "/api/chat/sessions", headers={"X-Dev-User": "nobody"}
+    ).status_code == 401
+    assert client.get("/api/chat/assets").status_code == 200  # 缺头＝默认角色

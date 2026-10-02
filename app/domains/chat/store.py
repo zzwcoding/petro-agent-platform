@@ -161,6 +161,19 @@ class ChatStore:
                 row.updated_at = now()
                 await session.flush()
 
+    async def list_sessions(self, *, user_id: str, limit: int = 100) -> list[ChatSessionRow]:
+        """会话历史读口（A1 端点 2——当前身份的会话，updated_at 倒序）。"""
+        async with self._db.readonly() as session:
+            rows = (
+                await session.execute(
+                    select(ChatSessionRow)
+                    .where(ChatSessionRow.user_id == user_id)
+                    .order_by(ChatSessionRow.updated_at.desc())
+                    .limit(limit)
+                )
+            ).scalars().all()
+        return list(rows)
+
     # ---------- 消息（会话历史写口——B3 扫库料源缝的落库面） ----------
 
     async def next_seq(self, session_id: str) -> int:

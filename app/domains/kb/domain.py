@@ -12,9 +12,9 @@
   FragmentRevised——本票只发布前者）/测试计划。
 - 99-数据库与连接层设计.md §2.5 kb 九表（本票落 8 表；kb_issue_report 归
   B2/P1-04、kb_extract_config 归 derivatives/P1-05）＋向量列落位注记
-  （ADR-0003 裁决 1：pgvector，维度待 embedding 模型选定回填＝待办）。
+  （ADR-0003 裁决 1：pgvector；维度 P1-11 回填＝embo-01 1536）。
 
-B1：本文件不 import fastapi/starlette/DB/LLM——切段器、分词、向量占位、
+B1：本文件不 import fastapi/starlette/DB/LLM——切段器、分词、向量语义件、
 节点说明组装、模板配置档、路由建议解析都是纯语义；IO 归 store（PG/对象
 存储）/service（编排）。
 """
@@ -439,9 +439,11 @@ def tokenize(text: str) -> list[str]:
 
 # ---------- 向量半边（pgvector 承载——99 §2.5 向量列落位注记） ----------
 
-# 维度占位（99：维度待 embedding 模型选定后回填＝待办——本票以本地确定性
-# 向量占位打通 pgvector 全链，EmbeddingBackend 为换模型唯一缝，挂疑点清单）。
-EMBED_DIM = 384
+# 维度＝MiniMax embo-01 真维度 1536（P1-11 选型接线，Owner 2026-10-02 拍板
+# MiniMax 优先；2026-10-02 curl 实测 vectors[N][1536] 已归一化。此前 384 为
+# 本地占位维度——99 注记「维度待 embedding 模型选定后回填」本票回填，列形
+# 随 Alembic 0012 迁移 384→1536、存量向量清重由 reembed 脚本重嵌）。
+EMBED_DIM = 1536
 
 
 class EmbeddingBackend(Protocol):
@@ -451,7 +453,7 @@ class EmbeddingBackend(Protocol):
 
 
 class LocalHashEmbedder:
-    """本地确定性向量（占位实现——非语义向量，仅打通链路与冒烟可查）。"""
+    """本地确定性向量（测试底座 fallback——非语义向量；生产装配＝RemoteEmbedder）。"""
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         return [self._one(t) for t in texts]
@@ -465,6 +467,30 @@ class LocalHashEmbedder:
             vec[slot] += sign
         norm = math.sqrt(sum(v * v for v in vec)) or 1.0
         return [round(v / norm, 6) for v in vec]
+
+
+class RemoteEmbedder:
+    """真 embedding 后端（P1-11——infra.llm_client.embeddings 缝的消费视图）。
+
+    - B6 单点：供应商接触只在 infra.llm_client；本类是同一缝的域侧视图
+      （faq.service.EmbeddingBackend 同构——组合根装配，kb 不 import infra）。
+    - input_type＝MiniMax query/db 分离算法（实测形状见 models.yaml 头注释）：
+      语料/入库文本＝db、检索探针＝query——两实例分别装配，禁混型单实例。
+    - 上游失败（UpstreamUnavailable/UpstreamRejected）直抛调用方不静默——
+      入库管线按阶段定位失败、检索向量腿按空腿处理（trigram 腿兜底）。
+    """
+
+    def __init__(
+        self, client: Any, alias: str = "petro-embed", *, input_type: str = "db"
+    ) -> None:
+        self._client = client
+        self._alias = alias
+        self._input_type = input_type
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        out = await self._client.embeddings(self._alias, list(texts), input_type=self._input_type)
+        vectors: list[list[float]] = [list(map(float, vec)) for vec in out.vectors]
+        return vectors
 
 
 # ---------- 报告索引检索读面（P1-08a——chat 六路装配报告索引路消费） ----------
@@ -492,7 +518,7 @@ class IndexHit:
 
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
-    """占位向量余弦（384 维本地确定性向量——维度待 embedding 模型回填，99 待办）。"""
+    """向量余弦（embo-01 1536 维/LocalHash 同维——异维度护栏返回 0.0 不误配）。"""
     if not a or not b or len(a) != len(b):
         return 0.0
     dot = float(sum(x * y for x, y in zip(a, b, strict=True)))

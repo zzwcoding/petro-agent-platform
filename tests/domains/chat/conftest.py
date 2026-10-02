@@ -12,6 +12,7 @@
 - completer：LLM 出口桩（返回固定 completion.content——生成/打分/兜底 free 消费）。
 """
 
+import asyncio
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from types import SimpleNamespace
@@ -98,6 +99,12 @@ class Seams:
     completion: str = "依据材料作答 [c1]。"
     calls: dict[str, int] = field(default_factory=dict)
     completions: list[str] = field(default_factory=list)  # caller 归因记录
+    intent_reply: str | None = None  # LLM 意图裁决返回（None＝生成文案混答→解析坏兜底）
+    fail_intent: bool = False  # True＝意图裁决调用直接抛（超时/网络错兜底路径）
+    intent_delay: float = 0.0  # 意图裁决延迟秒（超时兜底路径）
+    faq_served: list[str] = field(default_factory=lambda: ["N-02 井是什么时候投产的？"])
+    workflows: list[tuple[str, str]] = field(default_factory=lambda: [("月度产量核查", "登记")])
+    reports: list[str] = field(default_factory=list)
 
     def _bump(self, key: str) -> None:
         self.calls[key] = self.calls.get(key, 0) + 1
@@ -147,11 +154,31 @@ class Seams:
             section="01 井基本情况",
         )
 
+    async def list_faq_served(self) -> list[str]:
+        self._bump("faq_list")
+        return list(self.faq_served)
+
+    async def list_workflows(self) -> list[tuple[str, str]]:
+        self._bump("wf_list")
+        return list(self.workflows)
+
+    async def list_reports(self) -> list[str]:
+        self._bump("rpt_list")
+        return list(self.reports)
+
     async def complete(
         self, alias: str, messages: list[dict[str, str]], *, caller: str, **params: Any
     ) -> Any:
         self._bump("complete")
         self.completions.append(caller)
+        if caller == "chat.intent.verdict":
+            if self.fail_intent:
+                raise RuntimeError("意图裁决上游失败（桩）")
+            if self.intent_delay:
+                await asyncio.sleep(self.intent_delay)
+            if self.intent_reply is not None:
+                return SimpleNamespace(content=self.intent_reply, call_id="call-intent",
+                                       served_alias=alias)
         return SimpleNamespace(content=self.completion, call_id="call-test", served_alias=alias)
 
 
@@ -194,6 +221,9 @@ def make_service(db: ConnectionManager, seams: Seams) -> ChatService:
         graph_searcher=seams.search_graph,
         anchor_loader=seams.load_anchor,
         completer=seams,  # Seams.complete 满足 Completer 协议（生产＝GatewayService）
+        faq_lister=seams.list_faq_served,
+        workflow_lister=seams.list_workflows,
+        report_lister=seams.list_reports,
     )
 
 

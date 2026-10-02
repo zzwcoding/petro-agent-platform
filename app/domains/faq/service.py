@@ -123,6 +123,7 @@ class FaqService:
         storage: ObjectStorage,
         *,
         embedder: EmbeddingBackend | None = None,
+        query_embedder: EmbeddingBackend | None = None,
         eventbus: Any | None = None,
         audit: AuditSink | None = None,
         ledger_loader: LedgerLoader | None = None,
@@ -135,7 +136,11 @@ class FaqService:
         self._db = db
         self._gateway = gateway
         self._storage = storage
+        # 向量两缝（P1-11 真模型接线）：语料/条目面＝embedder（db 型）、查询探针
+        # ＝query_embedder（query 型）——MiniMax query/db 分离算法禁混型单实例；
+        # LocalHash 对称占位（测试底座）两缝同实例无差。
         self._embedder = embedder
+        self._query_embedder = query_embedder or embedder
         self._eventbus = eventbus
         self._audit = audit
         self._ledger_loader = ledger_loader
@@ -757,15 +762,23 @@ class FaqService:
         if self._ontology_names_loader is None:
             return None
         names = await self._ontology_names_loader()
+        usable = [(label, name) for label, name in names if name]
         best: tuple[float, str] | None = None
-        for label, name in names:
-            if not name:
-                continue
+        # query/db 分型两拍（P1-11 真模型——查询走 query 型、台账名走 db 型；
+        # LocalHash 对称占位两型同值无差）。
+        query_vec = (
+            (await self._query_embedder.embed([query]))[0]
+            if self._query_embedder is not None else None
+        )
+        db_vecs = (
+            await self._embedder.embed([name for _label, name in usable])
+            if usable and self._embedder is not None else []
+        )
+        for (label, name), name_vec in zip(usable, db_vecs, strict=True):
             if name in query or query in name:
                 score = 1.0
-            elif self._embedder is not None:
-                vecs = await self._embedder.embed([query, name])
-                score = _cosine(vecs[0], vecs[1])
+            elif query_vec is not None:
+                score = _cosine(query_vec, name_vec)
             else:
                 score = 0.0
             if score >= _ONTO_HIT_FLOOR and (best is None or score > best[0]):
@@ -775,13 +788,16 @@ class FaqService:
     async def _best_match(
         self, query: str, texts: list[tuple[str, str]]
     ) -> tuple[float, str | None]:
-        """查询与文本集的最高相似度（无向量缝时 0——判 ok 不误杀）。"""
-        if not texts or self._embedder is None:
+        """查询与文本集的最高相似度（无向量缝时 0——判 ok 不误杀）。
+
+        query/db 分型两拍（P1-11 真模型——查询 query 型、文本集 db 型）。
+        """
+        if not texts or self._embedder is None or self._query_embedder is None:
             return 0.0, None
-        vectors = await self._embedder.embed([query] + [t for t, _ in texts])
-        query_vec = vectors[0]
+        query_vec = (await self._query_embedder.embed([query]))[0]
+        vectors = await self._embedder.embed([t for t, _ in texts])
         best: tuple[float, str | None] = (0.0, None)
-        for vec, (text, label) in zip(vectors[1:], texts, strict=True):
+        for vec, (text, label) in zip(vectors, texts, strict=True):
             score = _cosine(query_vec, vec)
             if score > best[0]:
                 best = (score, label or text)
@@ -1106,13 +1122,20 @@ class FaqService:
                 return d.FaqHit(entry_id=entry.id, question=entry.question, answer=entry.answer)
         return None
 
+    async def served_questions(self) -> list[str]:
+        """服务中条目问题清单（A1 端点 6 assets 投影消费——B9 只见 callable；
+        只服务中可达——待审核/已停用/负例不进面板，v0.2 审核流闸同语义）。"""
+        entries = await self._entries.all_entries()
+        return [e.question for e in entries if e.status == "serve"]
+
     async def search_similar(self, text: str, top_k: int) -> list[d.FaqHit]:
         """FAQ 相似问检索（P1-08b 检索链 FAQ 路扩检——qa_behavior.faq_expand_rounds
         消费点的候选供给面）：服务中条目的问题＋相似问法与查询做向量余弦
-        （LocalHashEmbedder 占位缝——与三面去重比对同源同实现），按分倒序取
-        top_k；只服务中条目可达（待审核/已停用/负例均不可达——v0.2 审核流）。"""
+        （真模型＝query/db 分型两拍——P1-11 接线；测试底座 LocalHash 占位缝），
+        按分倒序取 top_k；只服务中条目可达（待审核/已停用/负例均不可达——
+        v0.2 审核流）。"""
         query = d.normalize_text(text)
-        if not query or top_k <= 0 or self._embedder is None:
+        if not query or top_k <= 0 or self._embedder is None or self._query_embedder is None:
             return []
         entries = await self._entries.all_entries()
         sims = await self._entries.all_sims()
@@ -1126,10 +1149,10 @@ class FaqService:
         for entry in serving:
             faces.append((entry.question, entry.question))
             faces.extend((s, entry.question) for s in sims_by_entry.get(entry.id, []))
-        vectors = await self._embedder.embed([query] + [t for t, _ in faces])
-        query_vec = vectors[0]
+        query_vec = (await self._query_embedder.embed([query]))[0]
+        vectors = await self._embedder.embed([t for t, _ in faces])
         best: dict[str, tuple[float, str]] = {}
-        for vec, (_face, label) in zip(vectors[1:], faces, strict=True):
+        for vec, (_face, label) in zip(vectors, faces, strict=True):
             score = _cosine(query_vec, vec)
             current = best.get(label)
             if current is None or score > current[0]:

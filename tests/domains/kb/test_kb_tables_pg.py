@@ -265,7 +265,7 @@ async def test_kb_ingest_task_state_check_enforced(db: ConnectionManager) -> Non
 
 
 async def test_kb_fragment_pgvector_roundtrip(db: ConnectionManager) -> None:
-    """向量列真库往返（pgvector vector(384)——99 册向量半边的物理落点）。"""
+    """向量列真库往返（pgvector vector(1536)——embo-01 真维度，99 册向量半边物理落点）。"""
     async with db.session() as session:
         kind = (
             await session.execute(

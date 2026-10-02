@@ -12,10 +12,16 @@
   W-F2-4「重试只走网关层，无 SDK×网关套娃放大」——重试归 gateway 域循环）。
 - 切换判据分类（椒图蓝本，ADR-0003 裁决 13）：网络错/超时/5xx ＝可切备
   （UpstreamUnavailable）；4xx/429 ＝不可切（UpstreamRejected，直抛调用方）。
+- embedding 适配（P1-11 选型接线，Owner 2026-10-02 拍板 MiniMax 优先）：
+  `LlmClient.embeddings(alias, texts, input_type)`——MiniMax /v1/embeddings
+  （2026-10-02 curl 实测：HTTP 200，embo-01 · 1536 维 · 已归一化 · 无需
+  GroupId；向量库文本 type=db、检索文本 type=query——query/db 分离算法）。
+  供应商 SDK 接触仍单点在本模块（此处为 httpx 直连——该端点非 OpenAI 形状，
+  litellm 无此 provider 形），业务面只认别名 petro-embed（B6 纪律不变）。
 - 无状态：每次调用现读注册表（config 热加载后下一次调用即生效）；密钥经
   占位符解析供给，绝不写日志、绝不出现在异常文本里。
 
-B16：本模块只依赖 stdlib/litellm/infra.config——不 import domains/api。
+B16：本模块只依赖 stdlib/litellm/httpx/infra.config——不 import domains/api。
 """
 
 from __future__ import annotations
@@ -24,6 +30,7 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+import httpx
 import litellm
 
 from app.infra.config import ModelEntry, get_models_config
@@ -64,6 +71,16 @@ class LlmCompletion:
     usage_estimated: bool  # True＝上游无 usage，按 chars/4 估算（椒图蓝本）
     duration_ms: int
     model: str  # 实际应答的部署形（provider/model，切换留痕用）
+
+
+@dataclass(frozen=True, slots=True)
+class LlmEmbedding:
+    """单次向量化应答的 adapter 视图（P1-11——kb/faq EmbeddingBackend 消费）。"""
+
+    vectors: list[list[float]]
+    total_tokens: int
+    duration_ms: int
+    model: str
 
 
 def _entry(alias: str) -> ModelEntry:
@@ -139,3 +156,99 @@ class LlmClient:
             duration_ms=duration_ms,
             model=f"{entry.provider}/{entry.model}",
         )
+
+    async def embeddings(
+        self, alias: str, texts: list[str], *, input_type: str,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> LlmEmbedding:
+        """按注册表构造一次向量化调用（P1-11——B6 单点：embedding 只经此缝）。
+
+        - 形状（2026-10-02 curl 实测，models.yaml 头注释同源）：POST
+          {base_url}/v1/embeddings，Bearer 鉴权；体 `{"model", "texts",
+          "type"}`——type 二选一 db（被检索文本）/query（检索文本），query/db
+          分离算法必须分型调用；返回 `vectors[N][1536]`（已归一化）＋
+          total_tokens＋base_resp（base_resp.status_code≠0＝业务失败）。
+        - 切换判据与 complete 同款（椒图判据单点复用）；HTTP 层 4xx/5xx 与
+          base_resp 业务错都走 classify_upstream_failure 同一分类面。
+        - 密钥只进请求头，绝不入异常文本/日志；transport 形参＝测试注桩缝
+          （httpx.MockTransport——生产恒 None 不经此参数）。
+        """
+        if not texts:
+            raise ValueError("embeddings texts 不能为空")
+        if input_type not in ("db", "query"):
+            raise ValueError(f"input_type 越界：{input_type!r}（允许 db|query）")
+        entry = _entry(alias)
+        started = time.monotonic()
+        try:
+            async with httpx.AsyncClient(
+                timeout=_timeout_seconds(entry), transport=transport
+            ) as client:
+                resp = await client.post(
+                    f"{entry.base_url.rstrip('/')}/v1/embeddings",
+                    headers={
+                        "Authorization": f"Bearer {entry.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={"model": entry.model, "texts": list(texts), "type": input_type},
+                )
+        except httpx.TimeoutException as exc:
+            raise UpstreamUnavailable(alias, f"超时: {type(exc).__name__}") from exc
+        except httpx.HTTPError as exc:
+            raise UpstreamUnavailable(alias, f"网络错: {type(exc).__name__}") from exc
+        except Exception as exc:
+            raise classify_upstream_failure(alias, exc) from exc
+        duration_ms = int((time.monotonic() - started) * 1000)
+        if resp.status_code != 200:
+            raise classify_upstream_failure(
+                alias, _HttpStatusError(resp.status_code, _safe_body(resp))
+            )
+        payload = _parse_json(alias, resp)
+        base = payload.get("base_resp") or {}
+        status_code = int(base.get("status_code") or 0)
+        if status_code != 0:
+            # MiniMax 业务错（1004 鉴权失败/1002 限流族）——鉴权类 4xx 不可切
+            raise classify_upstream_failure(
+                alias,
+                _HttpStatusError(
+                    401 if status_code == 1004 else 502,
+                    f"base_resp={base.get('status_code')}:{base.get('status_msg')}",
+                ),
+            )
+        vectors = payload.get("vectors")
+        if not isinstance(vectors, list) or any(not isinstance(v, list) for v in vectors):
+            raise UpstreamRejected(alias, "vectors 形状不可解析")
+        return LlmEmbedding(
+            vectors=[[float(x) for x in v] for v in vectors],
+            total_tokens=int(payload.get("total_tokens") or 0),
+            duration_ms=duration_ms,
+            model=f"{entry.provider}/{entry.model}",
+        )
+
+
+class _HttpStatusError(Exception):
+    """HTTP 状态错的最小承载（喂 classify_upstream_failure 的形状适配）。"""
+
+    def __init__(self, status_code: int, body: str) -> None:
+        super().__init__(f"HTTP {status_code}: {body[:200]}")
+        self.status_code = status_code
+
+
+def _timeout_seconds(entry: ModelEntry) -> float:
+    """per-attempt 超时＝gateway 段 request_timeout（同一配置面，D1 热加载生效）。"""
+    return float(get_models_config().gateway.request_timeout)
+
+
+def _safe_body(resp: httpx.Response) -> str:
+    """错误体摘要（绝不回显请求头/密钥——响应体不含密钥，截断防刷屏）。"""
+    try:
+        return resp.text[:200]
+    except Exception:
+        return ""
+
+
+def _parse_json(alias: str, resp: httpx.Response) -> dict[str, Any]:
+    try:
+        payload = resp.json()
+    except Exception as exc:
+        raise UpstreamRejected(alias, "响应体非 JSON") from exc
+    return payload if isinstance(payload, dict) else {}
