@@ -17,8 +17,13 @@ from app.domains.derivatives.service import load_extract_config_snapshot
 from app.domains.gateway import Completion
 from app.domains.kb import KbService
 from app.infra.db import ConnectionManager
-from tests.domains.derivatives.conftest import DEMO_TEXT, make_report
+from tests.domains.derivatives.conftest import DEMO_TEXT, make_report, wait_until
 from tests.domains.kb.conftest import FakeObjectStorage, StubCompleter
+
+
+async def _sync(value: bool) -> bool:
+    return value
+
 
 # graph.extract 桩应答：三道闸各一票——过闸（evidence＝切片原句逐字摘录）、
 # 类型闸拦下（rel「管辖着」不在清单）、依据闸拦下（evidence 非原文）、
@@ -332,6 +337,13 @@ class TestExtractionPipeline:
             kb, _kb_storage(kb),
             lib_config={"semantic": True, "keyword": True, "wiki": False,
                         "graph": True},
+        )
+        # 抽取是 fire-and-forget asyncio 任务族——全量负载下有调度竞态，
+        # 等任务族清空再断言（照 wiki 同型测试 _recasts 等待面惯例）
+        await wait_until(
+            lambda: _sync(
+                all(t.done() for t in getattr(derivatives, "_graph_tasks", []))
+            )
         )
         assert len(g.edges) == 1, "只有过闸边入图（铁律消费面）"
         (edge,) = g.edges.values()
