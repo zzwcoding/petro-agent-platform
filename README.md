@@ -33,15 +33,15 @@ uv run uvicorn app.main:app --reload     # 开发服 :8000
 
 ## 模型注册表（调用别名制）
 
-`config/models.yaml` 进 git（只记别名不记密钥，密钥经 `.env` 注入）。当前：主模型 **MiniMax-M3**（petro-main）、备用/降级 **glm-5.3-flash**（petro-lite），双端点均为 Anthropic 兼容协议（2026-09-29 curl 实测通过，调用形状见文件头注释）。价格已裁决：两模型统一 百万输入 1 元/百万输出 3 元（prices.default）。
+`config/models.yaml` 进 git（只记别名不记密钥，密钥经 `.env` 注入）。当前：主模型 **MiniMax-M3**（petro-main）、备用/降级 **glm-5.3-flash**（petro-lite），双端点均为 Anthropic 兼容协议（2026-09-29 curl 实测通过，调用形状见文件头注释）。价格已裁决：两模型统一 百万输入 1 元/百万输出 3 元（prices.default）。向量化 **embo-01**（petro-embed，2026-10-02 选型接线）——`/v1/embeddings`· 1536 维已归一化，kb/faq 专用、只经 `infra.llm_client.embeddings`（非 gateway.complete 面）；价格档 0.0005 元/千 token（历史定价页，以账单为准）。
 
 ## 结构纪律（98 册四层 + B1–B16 边界规则）
 
 ```
-app/api/       接口层：20 个路由族薄壳，只调 domains 公开接口（B2），唯一框架接触面
+app/api/       接口层：9 个路由族薄壳（全量按阶段点亮），只调 domains 公开接口（B2），唯一框架接触面
 app/domains/   14 模块（3 组）：service.py 薄 + domain.py 厚；模块间只走公开接口+领域事件（B11）
-app/infra/     11 adapter：db/graph_store/object_storage/queue/sse_channel/eventbus/clock/
-               scheduler/crypto/config/llm_client——唯一经允许的底层接触面（B3/B6）
+app/infra/     8 在 3 预留 adapter：db/graph_store/object_storage/eventbus/clock/crypto/
+               config/llm_client 在，queue/sse_channel/scheduler 预留——唯一经允许的底层接触面（B3/B6）
 ontology/      平台仓目录：本体资产（Git+YAML 真源，all-agent 纪律；改动前跑 bash ontology/ci.sh）
 data-plane/    独立仓：数据面服务（进料→清洗→出汇总→质检→报水位，纪律见其 AGENTS.md）
 ```

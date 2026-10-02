@@ -1,8 +1,9 @@
 """domains.gateway —— 模型网关与观测域公开出口（B2：router 只 import 本包公开名）。
 
-运行时唯一 LLM 出口＝GatewayService.complete（B6：全平台模型调用唯一经
-gateway.complete；infra.llm_client 唯一消费方＝gateway）。D5 观测面
-（/api/observe/* 的 10 方法）属阶段 1 D5 页票，本包暂不公开。
+LLM/embedding 供应商接触单点＝infra.llm_client（B6）——complete 面唯一出口
+GatewayService.complete、embedding 面唯一出口 llm_client.embeddings（P1-11a
+embo-01 接线后的现实）。D5 观测面（/api/observe/* 的 10 方法）属阶段 1 D5 页票，
+本包暂不公开。
 """
 
 from app.domains.gateway.domain import (

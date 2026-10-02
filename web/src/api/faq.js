@@ -15,7 +15,7 @@
  * - 端点 16 导出返回预签名直链，页面直接交给浏览器下载（不经平台转发）。
  */
 
-import { API_BASE, del, get, post, useTaskPolling } from './client.js'
+import { API_BASE, ApiError, authHeaders, del, get, post, useTaskPolling } from './client.js'
 
 // ── wire(snake) → 视图(camel) ──
 
@@ -233,17 +233,19 @@ export async function importLibrary({ mode, dryRun, filename, file }) {
   form.append('file', file, filename || file.name || 'import.csv')
   const res = await fetch(`${API_BASE}/faq/import?${query.toString()}`, {
     method: 'POST',
+    headers: authHeaders(), // X-Dev-User 桩同源注入（P1-11c——平台 raw fetch 唯一漏注处补齐）
     body: form
   })
   const text = await res.text()
   let data = null
   if (text) { try { data = JSON.parse(text) } catch { data = null } }
   if (!res.ok) {
-    const pkg = data || {}
-    const err = new Error(pkg.message || `导入失败（HTTP ${res.status}）`)
-    err.code = pkg.code || ''
-    err.status = res.status
-    throw err
+    // 错误包对齐 ApiError 形（P1-11c——code/trace_id 随包，页面 errText 与 client 出口同渲染）
+    throw new ApiError(
+      res.status,
+      data || {},
+      (data && data.message) || `导入失败（HTTP ${res.status}）`
+    )
   }
   return {
     dryRun: data.dry_run,

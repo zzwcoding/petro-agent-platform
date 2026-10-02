@@ -286,8 +286,10 @@ export default function B5Landing() {
   const listEdges = sel ? shownEdges.filter(e => e.from === sel || e.to === sel) : shownEdges
 
   function askWithNode() {
-    message.success(`已带上节点：${nameOf[sel] || sel}——到问一问提问时将携带此节点上下文`)
-    location.hash = '/A1' // A1 anchors 机制的页面侧消费（A1 落地前 mock 提示——B5 合同）
+    // 诚实口径（P1-11c 收口）：A1 @ 资产投影六类无图谱节点类——本动作现仅导航不带节点上下文；
+    // 图谱节点进 A1 @ 装配挂阶段 2 图谱问答深化批（移交清单第 12 条）。
+    message.success(`已带上节点：${nameOf[sel] || sel}——到问一问继续深化接入`)
+    location.hash = '/A1'
   }
 
   // ── 抽取设置编辑动作 ──

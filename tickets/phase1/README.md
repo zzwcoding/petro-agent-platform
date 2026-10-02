@@ -463,7 +463,7 @@
 - **B8 Shell locator 桥收口**：`Shell.parseHash` 剥 hash query（挪真 `location.search`——replaceState 无刷新；路由 pageKey 恒裸键，proto 树同剥离）；**NotLit 桥退役**（回归纯出路指引单职责；B2_LOCATOR_KEY 暂存键删除）；B2 直读 `location.search` 消费（hash query 兜底读法防剥链失败；消费后清 search 幂等）；回归测试 `web/src/shell/Shell.test.jsx` 5 条（剥 query/裸 hash 零扰动/proto 带	query/挂载冒烟/NotLit 不触桥）＋B2 locator 测试改 search 直读两形态。
 - **B9 四冒烟统一计费跑（真 PG16@5433＋MinIO＋Neo4j＋真 gateway.complete，逐冒烟单跑全绿）**：
   - KB_SMOKE ✅（18 calls ¥0.014292：graph.extract×10＝0.007521/wiki.gen×2＝0.003348/kb.ingest.questions×3＝0.001724/kb.ingest.summary×2＝0.001223/graph.draft×1＝0.000476）；FAQ_SMOKE ✅（1 call ¥0.000323：faq.candidate.draft）；CHAT_SMOKE ✅（4 calls ¥0.002330：**chat.intent.verdict×2＝0.001085**［LLM 裁决真计费首证］/chat.retrieval.answer×1＝0.000635/chat.graph.answer×1＝0.000610）；GATEWAY_SMOKE ✅（2 calls ¥0.000481：smoke.330fd4.a/b）。**合计 25 calls ¥0.017426**（gateway 账本 petro-main 1元/M入＋3元/M出；caller 归因逐笔在案）；embedding 用量不经 gateway 账本（估 <¥0.005——embo-01 0.0005元/千token 量级）。
-- **B10 文档计数同步**：本节即票面收官记录；README.md 零粉笔数（四门禁描述行不涉计数）。
+- **B10 文档计数同步**：本节即票面收官记录；README.md「零粉笔数」原判不成立——计数漂移（20 路由族/11 adapter/模型注册表缺 petro-embed）随 P1-11c 收官修复批修正（四门禁描述行不涉计数，原判部分维持）。
 - **验收自证 ✅**：四门禁——ruff（app+tests+migrations）0 错 / mypy strict **65 文件零错** / pytest 带 PG16@5433 **630 passed 4 skipped**（skip＝四门控冒烟自身；无 PG 底座 592 passed 38 skipped）/ lint-imports **5 契约 KEPT**；**四冒烟逐单跑全绿**（齐跑受真 LLM 输出方差影响——三道闸拦边证据依赖模型本轮输出，非本批回归，跑法按 P1-06 惯例逐冒烟单跑）；web 三连——eslint **0 error**（2 warning 均原型快照存量）/vitest **128 passed**（＋Shell 5＋chat 1 改形＋B3 multipart 断言）/vite build 过；`ontology/ci.sh` 全绿（ontology/ 零改动）；**Alembic 0012 双向实跑过**（证据见 A2）。
 - **测试增改**：`tests/infra/test_llm_client_unit.py` ＋7（embeddings 形状/守卫/base_resp 业务错/HTTP 错分类/坏体拒绝/密钥不入异常——MockTransport 注桩受控注册表）；`tests/domains/chat/test_chat_service_unit.py` ＋10（LLM 裁决八态：成功采信/解析坏兜底/链名越界兜底/上游失败兜底/超时兜底/低置信澄清 source=llm/FAQ 硬闸先于 LLM/**单 ask 成本断言**＋assets 投影两态）；`tests/api/test_chat_sse.py` ＋3（端点 2 会话列表＋身份隔离/端点 6 投影＋筛＋越界 400/非五角色键 401）；`tests/api/test_semantics_read_api.py` ＋6（metrics version 串/slots 五 domain＋闭世界 400）；`tests/api/test_faq_api.py` 导入测试改 multipart 形状；`tests/domains/kb/test_kb_reembed_unit.py` 新建 2 条；`web/src/shell/Shell.test.jsx` 新建 5 条。
 - **差异登记（现实约束按现实落地，语义不私改）**：
@@ -489,6 +489,7 @@
 ## 阶段 1 收官验收 ✅（2026-10-02，P1-11b 收官批对账）
 
 - **四门禁终值（本批复跑实值）**：ruff（app+tests+migrations）0 错 / mypy strict **65 文件零错** / pytest 带 PG16@5433 **630 passed 4 skipped**（4 skip＝KB_SMOKE/FAQ_SMOKE/CHAT_SMOKE/GATEWAY_SMOKE 四个门控冒烟自身；无 PG 底座 **592 passed 42 skipped** 本批复核实值）/ lint-imports **5 契约 KEPT**（B16 层间单向×2 / B1 禁框架 / B9 kb 禁直调 derivatives / B6 litellm 唯一接触点）。web 三连（本批复跑）：eslint **0 error**（2 warning 均原型快照存量 exhaustive-deps）/ vitest **128 passed**（11 测试文件）/ vite build 过。
+- **P1-11 票首验收项对账（P1-11c 收官修复批补记）**：17 链冒烟＝域单测话术闭世界（ChainDispatcher 17 链逐链「未实现链话术」单测）＋零发帧位置登记（tool_call/lineage/approval 注册在案）；五页双树对照＝六页 proto/landing 字节一致已核；PG 集成全量＝630 passed 4 skipped（冒烟门控）。
 - **五页真跑证据链**（各票 headless/冒烟证据，票面为准）：
   - **B1（P1-03）**：headless 全流程（playwright-core＋系统 Chrome，后端 :8000 真 PG16@5433＋真 MinIO＋真 LLM gateway）——建库→真传（LLM 路由建议卡→直传→confirm）→五步轮询 done（真 LLM 摘要卡＋问题卡）→台账→详情抽屉→片段修正保存→**wiki 联动 v1→v2 真实发生**→活动流抽屉；11 张证据截图留 .scratch（不入库），全程 0 pageerror。
   - **A1（P1-09）**：headless **8 轮真 QA**——树逐帧/流式/citation 跳 B2 定位真链/澄清回流/兜底，pageerror 0；DEFAULT_LANDING_KEY 切 A1（落地树主入口）。
@@ -521,7 +522,9 @@
   8. 配置管理模板化（同类库>5 触发——teach d8f19c3 roadmap 阶段 2 挂账：模板表＋绑定表＋管理页）；
   9. sweep_stuck 周期调度（P1-02a 差异 10/收尾裁决疑点 8——公开面就绪、巡检循环未挂 lifespan，调度挂后续批）；
   10. sys_user 种子装载（P0-04 差异 9/杂项尾账——阶段 2 D3 整页票/OAuth 账号映射批落库）；
-  11. rerank 真重排（P1-11a A3——无可用服务实证，服务出现时 fast 档换真重排）；S5 图扩展邻域按需查端点＋遍历深度上限（B5 册开放问题 2——真实图谱实施批裁决）；chat 建议池持久化＋sg- 发号（P1-08a 差异 5——随 C2 落地批）；五信号计数采集器（P1-10 差异 7——随 C2 归一接线）。
+  11. rerank 真重排（P1-11a A3——无可用服务实证，服务出现时 fast 档换真重排）；S5 图扩展邻域按需查端点＋遍历深度上限（B5 册开放问题 2——真实图谱实施批裁决）；chat 建议池持久化＋sg- 发号（P1-08a 差异 5——随 C2 落地批）；五信号计数采集器（P1-10 差异 7——随 C2 归一接线）；
+  12. 图谱节点进 A1 @ 装配（P1-11c——B5「带此节点提问」toast 改诚实口径：现仅导航不带节点上下文，A1 assets 投影六类无图谱节点类；随阶段 2 图谱问答深化批）；
+  13. ensure_* 与 Alembic 双轨维持至阶段 2 首票切纯迁移（P1-01 差异 10/P1-01b 同时登记——主窗口裁决：收官不动 lifespan 行为，阶段 2 首票顺手切）。
 - **commit SHA 全清单（P1-00a..P1-11b，平台仓 SHA 为主、联动 teach SHA 随注）**：
   - 拆票：32dd87f（13 票拆解）＋f04b903（P1-08 拆三拍）；
   - P1-00a＝8940d84（快照同步）＋08db836（收尾·平台外壳跟进）；P1-00b＝teach f576786（设计先行批，零施工）；

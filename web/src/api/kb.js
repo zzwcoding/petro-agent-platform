@@ -89,6 +89,26 @@ function fragmentToCamel(f) {
   }
 }
 
+/** F62 库活动行折回（端点 4/13/15 共用——P1-11c 折回收口）。 */
+function activityRowToCamel(r) {
+  return r ? { time: r.time, who: r.who, action: r.action, target: r.target } : null
+}
+
+/** 质检复核单行折回（B2 端点 3/4/5 共用——P1-11c 折回收口）。 */
+function issueReportToCamel(d) {
+  return {
+    id: d.id,
+    fragmentId: d.fragment_id,
+    reportId: d.report_id,
+    fragmentLabel: d.fragment_label,
+    state: d.state,
+    markedBy: d.marked_by,
+    markedAt: d.marked_at,
+    rejectReason: d.reject_reason || null,
+    hint: d.hint || null
+  }
+}
+
 /**
  * 轮询快照映射（useTaskPolling 直连 client 拿 wire 形——页面用本函数统一折
  * camel，与 getTask/retryTask 出口同形）。
@@ -155,9 +175,7 @@ export async function reviseFragment(reportId, fragId, p) {
     version: d.version,
     versions: (d.versions || []).map(v => ({ v: v.v, text: v.text, note: v.note })),
     rebuild: { triggered: Boolean(d.rebuild?.triggered), hint: d.rebuild?.hint || '' },
-    activityRow: d.activity_row
-      ? { time: d.activity_row.time, who: d.activity_row.who, action: d.activity_row.action, target: d.activity_row.target }
-      : null,
+    activityRow: activityRowToCamel(d.activity_row),
     taskId: d.task_id || null
   }
 }
@@ -346,9 +364,7 @@ export async function saveLibraryConfig(libId, p) {
     savedBy: d.saved_by,
     status: d.status,
     hint: d.hint,
-    activityRow: d.activity_row
-      ? { time: d.activity_row.time, who: d.activity_row.who, action: d.activity_row.action, target: d.activity_row.target }
-      : null
+    activityRow: activityRowToCamel(d.activity_row)
   }
 }
 
@@ -375,9 +391,7 @@ export async function createLibrary(p) {
     bizTemplate: d.biz_template,
     status: d.status,
     config: d.config,
-    activityRow: d.activity_row
-      ? { time: d.activity_row.time, who: d.activity_row.who, action: d.activity_row.action, target: d.activity_row.target }
-      : null
+    activityRow: activityRowToCamel(d.activity_row)
   }
 }
 
@@ -427,12 +441,7 @@ export async function getFragmentContext(id) {
  */
 export async function markFragmentIssue(id) {
   const d = await post(`/kb/fragments/${encodeURIComponent(id)}/issue-reports`)
-  return {
-    id: d.id, fragmentId: d.fragment_id, reportId: d.report_id,
-    fragmentLabel: d.fragment_label, state: d.state,
-    markedBy: d.marked_by, markedAt: d.marked_at,
-    rejectReason: d.reject_reason || null, hint: d.hint || null
-  }
+  return issueReportToCamel(d)
 }
 
 /**
@@ -444,12 +453,7 @@ export async function listIssueReports(q = {}) {
   const d = await get('/kb/issue-reports', { state: q.state || 'all' })
   const items = Array.isArray(d.items) ? d.items : []
   return {
-    items: items.map(i => ({
-      id: i.id, fragmentId: i.fragment_id, reportId: i.report_id,
-      fragmentLabel: i.fragment_label, state: i.state,
-      markedBy: i.marked_by, markedAt: i.marked_at,
-      rejectReason: i.reject_reason || null, hint: i.hint || null
-    })),
+    items: items.map(issueReportToCamel),
     total: d.total ?? items.length
   }
 }
@@ -466,12 +470,7 @@ export async function reviewIssueReport(id, p) {
     `/kb/issue-reports/${encodeURIComponent(id)}/review`,
     { action: p.action, reason: p.reason || null }
   )
-  return {
-    id: d.id, fragmentId: d.fragment_id, reportId: d.report_id,
-    fragmentLabel: d.fragment_label, state: d.state,
-    markedBy: d.marked_by, markedAt: d.marked_at,
-    rejectReason: d.reject_reason || null, hint: d.hint || null
-  }
+  return issueReportToCamel(d)
 }
 
 /**
