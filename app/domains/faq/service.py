@@ -95,7 +95,7 @@ SessionLoader = Callable[[], Awaitable[list[dict[str, str]] | None]]
 
 
 def _cosine(a: list[float], b: list[float]) -> float:
-    """占位向量余弦（384 维本地确定性向量——维度待 embedding 模型回填，99 待办）。"""
+    """占位向量余弦——embo-01 接线（P1-11a）前的测试底座，现仅留作离线兜底。"""
     if not a or not b or len(a) != len(b):
         return 0.0
     dot = float(sum(x * y for x, y in zip(a, b, strict=True)))

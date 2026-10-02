@@ -1122,7 +1122,7 @@ class ChatService:
                 ),
                 timeout=d.INTENT_VERDICT_TIMEOUT_SECONDS,
             )
-        except (TimeoutError, Exception):
+        except Exception:
             LOGGER.warning(
                 "chat LLM 意图裁决不可用（失败/超时 %.0fs）——确定性信号路由兜底",
                 d.INTENT_VERDICT_TIMEOUT_SECONDS,
