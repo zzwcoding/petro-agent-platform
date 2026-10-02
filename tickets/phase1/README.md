@@ -437,7 +437,7 @@
 ## P1-11a 收尾裁决（主窗口，6b9a5e4）
 > 收口批全绿（带 PG 630 passed＋四冒烟 25 calls ¥0.017）。**两项 Owner 拍板兑现**：①embedding 选型定案＝MiniMax embo-01（1536 维归一化，0.0005 元/千 token——anthropic 兼容 base 无此端点、官方端点 200 实测；智谱 line key 为火山方舟不匹配、第一序命中即止）——B6 缝接线＋0012 维度迁移＋真重嵌 12 片段实证；rerank 无可用服务（三域名 404 实证）→fast 档保持融合序放行登记；②LLM 意图裁决接线（petro-main 分类＋8s 有界超时＋确定性兜底＋闭世界校验——施工中抓真 bug：链名先校验再采信）。原七项全落（sessions/assets/multipart/slots/桥退役/四冒烟/计数）。八疑全采纳登记（embedding 记账挂 D5 批/verdict.source 挂 teach 对齐批/slots demo 装配随 wells 批/骨架期 null/实施值常量/文件名优先/冒烟方差惯例/重放清零登记）。
 
-## P1-11 联调收官
+## P1-11 联调收官 ✅（2026-10-02——收官验收节落票面即本票兑现）
 
 - **范围**：17 链冒烟（未实现链话术核对）；五页双树对照（#/proto 终稿 vs 落地，行为一致）；PG 集成全量零跳过；文档计数同步（README/票面粉笔数）。
 - **收官验收节**（照 phase0 格式）：五页真跑证据链／端到端问答演示（提问→三链分派→引用回跳）／D2 配置改动驱动行为变化实证／轨道 0 验证闭环①（同步器首跑+强校接线）记录。
@@ -481,5 +481,55 @@
 
 ## 杂项尾账（不阻塞，随票登记）
 
-- 验证报告第一篇（roadmap 轨道 0 第 4 承诺，建模工序+语义 CI 走通记录）——未动，挂账待 Owner 安排窗口。
+- 验证报告第一篇（roadmap 轨道 0 第 4 承诺，建模工序+语义 CI 走通记录）——**已兑现（2026-10-02 收官批）**：teach 仓 `docs/verification-report-1.md`（只读 ontology/ 取材成文，不改正文）。
 - 429 退避重试：不做（维持直抛）；演练窗口：不做；OAuth：阶段 4 前；sys_user：阶段 2；配置模板化：同类库>5 触发（roadmap 已登记）。
+
+---
+
+## 阶段 1 收官验收 ✅（2026-10-02，P1-11b 收官批对账）
+
+- **四门禁终值（本批复跑实值）**：ruff（app+tests+migrations）0 错 / mypy strict **65 文件零错** / pytest 带 PG16@5433 **630 passed 4 skipped**（4 skip＝KB_SMOKE/FAQ_SMOKE/CHAT_SMOKE/GATEWAY_SMOKE 四个门控冒烟自身；无 PG 底座 **592 passed 42 skipped** 本批复核实值）/ lint-imports **5 契约 KEPT**（B16 层间单向×2 / B1 禁框架 / B9 kb 禁直调 derivatives / B6 litellm 唯一接触点）。web 三连（本批复跑）：eslint **0 error**（2 warning 均原型快照存量 exhaustive-deps）/ vitest **128 passed**（11 测试文件）/ vite build 过。
+- **五页真跑证据链**（各票 headless/冒烟证据，票面为准）：
+  - **B1（P1-03）**：headless 全流程（playwright-core＋系统 Chrome，后端 :8000 真 PG16@5433＋真 MinIO＋真 LLM gateway）——建库→真传（LLM 路由建议卡→直传→confirm）→五步轮询 done（真 LLM 摘要卡＋问题卡）→台账→详情抽屉→片段修正保存→**wiki 联动 v1→v2 真实发生**→活动流抽屉；11 张证据截图留 .scratch（不入库），全程 0 pageerror。
+  - **A1（P1-09）**：headless **8 轮真 QA**——树逐帧/流式/citation 跳 B2 定位真链/澄清回流/兜底，pageerror 0；DEFAULT_LANDING_KEY 切 A1（落地树主入口）。
+  - **B5（P1-05，KB_SMOKE 增拍⑫）**：抽取设置保存→confirm 定型→真 LLM 逐 chunk 抽边→图可查（过闸边带出处 chunk/report）→**被拦边清单真留痕**（reason_code 三值域内）→**强校拒存 400 带对号明细实证**（机灵鬼/管辖着＋nearest）→LLM 起草真跑→活动流「修改抽取设置」＋B12 审计 graph.extract_config.saved。
+  - **B3（P1-06，FAQ_SMOKE）**：**审核流闭环**（新增→待审核→review publish→serve 清单可见）＋挖掘五拍真跑（三面去重真算→LLM 起草→携 source_candidate_id 入库→发布→候选回写 published 零悬挂）＋扫库异步任务 202→done＋B12 审计留痕＋导出直链真预签名。
+  - **B2（P1-04，冒烟增拍⑪＋headless locator E2E）**：**队列闭环**真跑（标记→重复 409→驳回空理由 400→带理由已驳回→重标〔旧单转已销记〕→确认已修正→队列零悬挂→F62＋B12 审计）；locator（`#/B2?chunk=`→定位高亮 scrollIntoView＋详情弹窗自动开→暂存键清除，0 pageerror）。
+- **端到端问答演示（A1 主链真跑——P1-09 UI 真链＋P1-11a CHAT_SMOKE 后端对账）**：A1 提问→思考树逐帧点亮（N1..N6→N17→S0–S7/GEN，token 不与树帧交错）→流式答案（token 帧切片）→citation 帧出锚→**点击回跳 B2 定位真链**（locator 定位真片段）；后端同链锚真值对账（CHAT_SMOKE：locator.fragment_id 与命中报告经 B2 片段台账逐条一致；FAQ 秒回 no_model=true 零模型调用；图谱链 kind=图谱 citation 边出处锚真值；caller 记账 chat.retrieval.answer/chat.graph.answer/chat.intent.verdict 落账本）。
+- **D2 配置驱动行为变化实证（P1-08b `test_chat_chains_unit.py` 测试名清单）**：命中即停——`test_early_stop_on_skips_lower_levels_after_anchor`（开：S1 命中跳低级）/`test_early_stop_off_runs_all_levels`（关：逐级全跑）/`test_ledger_hit_with_early_stop_skips_dual`（台账命中跳双路）；refuse_threshold 阈值上下——`test_score_above_threshold_generates`（高于低分线走生成）/`test_score_below_threshold_falls_back_fixed`（低于低分线落 fixed 兜底，S6 note「低于低分线 0.40」）；兜底切换——`test_fallback_free_tag_and_generation`（free 无据生成＋「（未依据报告库）」标注）；五字段消费矩阵——`test_five_fields_all_consumed`。
+- **轨道 0 验证闭环①成立**：同步器首跑零手养（P1-01，PG16@5433 演示库实跑——counts＝term 11/metric 15/object 10/relation 5/whitelist 4/workflow 10/action 3，行版本轴 58 行，重放 0 写）＋**模式派生接线 B5 对号强校**（P1-01 导出物 config/entity_types.json＋relation_types.json → P1-05 强校消费：对不上拒存 400 graph_ontology_mismatch 带对号明细，冒烟实证——「本体消费从第一天可用」）。全程各票 `ontology/ci.sh` 全绿（ontology/ 零改动）。
+- **Owner 拍板兑现清单**（2026-10-01 全天拍板批＋2026-10-02 追加）：
+  - **D2 全票**：D2 v0.2 完稿（roadmap 阶段 1 开工闸已过）→ 平台 P1-07 配置面（版本化两表/种子自动落库/提交即生效）＋P1-08a/b 全链消费（qa_behavior 五字段/检索瀑布/兜底/精排/置信度阈值）。
+  - **B1/B2/B3 全票**：B1 v0.3（建库批 teach 311223a＋功能改版 d50bab6）→ P1-02a/02b/03；B2 v0.3（质检复核队列）→ P1-04；B3 v0.2（审核流/⚙ 撤配置端点）→ P1-06。
+  - **B5 八条**：B5 册 2026-10-01 拍板批行系（页面两页签定稿/抽取设置可交互化四段/示例三源辅助/企业化清洗/排版三批/写权限细分关单/邻域按需查实施批定等，逐行见 B5 册变更记录与出入对账 7–11）→ P1-05 全量落地。
+  - **B4 两件**：F52 论断回链＋F51 台账挂接（teach f2787b1）→ P1-02b claims fail-closed＋linkify_glossary 落地（伪造锚单测看守）。
+  - **D5 撤页归并**：teach c01ed67/a8c17dc → 平台 P1-10（端点 8 spend-stats 聚合/caller 归因/预算双阈值并入 config 族/观测入口外链——账本唯一真源不建第二份）。
+  - **建库**：B1 端点 15（P1-02a 落地，biz_template 四枚举默认档）＋P1-03 新建库弹窗。
+  - **企业化**：teach 37c26e7（导览拆除/A1 企业化）＋c79171c（B5 清洗）→ 平台随 P1-00a 快照同步（19 页＋零导览＋零 D5）。
+  - **末批**：阶段 1 末批①②③（37c26e7/d50bab6/af99593）→ P1-00a 一次性快照同步（硬纪律 0：阶段开始时定稿页面）。
+  - **杂项八条**：P1-11a 收尾裁决八疑全采纳登记（embedding 记账挂 D5 批/verdict.source 挂 teach 对齐批/slots demo 装配随 wells 批/骨架期 null/实施值常量/文件名优先/冒烟方差惯例/重放清零登记）。
+  - **embedding＝embo-01 定案**：P1-11a（MiniMax 优先命中——1536 维归一化/query-db 分型/Alembic 0012 维度迁移＋重嵌脚本/B6 embeddings 缝单点扩展；rerank 无可用服务——fast 档融合序放行登记）。
+  - **LLM 裁决接线**：P1-11a A4（petro-main 分类＋8s 有界超时＋确定性兜底＋闭世界校验；verdict.source=llm/deterministic 双值——「骨架期」标注退役）。
+- **挂账移交阶段 2 清单**（各票收尾节汇总，逐条注出处）：
+  1. embedding 记账粒度入 D5 批（P1-11a 差异 1——gateway_spend_record 是 complete 粒度账本，embeddings 直连不经 gateway）；
+  2. faq 块 chunk_type=faq 双写（P1-08b 差异 5，P1-02a 差异 4 同源——faq 无 kb 片段行，FAQ citation locator 无 fragment_id）；
+  3. B12 审计动作值域枚举登记扫尾（阶段 1 各域动作串随票自铸经 security.audit 落审计——P1-02b/P1-04/P1-05b/P1-06/P1-07/P1-08a/P1-11a 各批；封闭值域登记归 D3/audit 面批收口）；
+  4. wells 批 slots 实例真源切换（P1-11a 差异 3——slots entities 现为 ENTITY_GROUPS demo 装配，井实例真源随 wells 域落位批）；
+  5. infra.sse_channel 窗内逐帧对齐重连（P1-08c 差异 5——现重放持久化内容、重放帧 id 与原流不对齐）；
+  6. 页面规格同步批（V2-page-spec）——阶段 2 开工一次性快照同步（平台 AGENTS.md 第 0 条纪律；B5 册等「页面规格多处异文」对账行随批对清）；
+  7. C1 别名结构化检索（P1-01b 挂账①——现阶段走展示串投影，结构化别名列需 99/同步器联合变更，挂 C1 后续批）；
+  8. 配置管理模板化（同类库>5 触发——teach d8f19c3 roadmap 阶段 2 挂账：模板表＋绑定表＋管理页）；
+  9. sweep_stuck 周期调度（P1-02a 差异 10/收尾裁决疑点 8——公开面就绪、巡检循环未挂 lifespan，调度挂后续批）；
+  10. sys_user 种子装载（P0-04 差异 9/杂项尾账——阶段 2 D3 整页票/OAuth 账号映射批落库）；
+  11. rerank 真重排（P1-11a A3——无可用服务实证，服务出现时 fast 档换真重排）；S5 图扩展邻域按需查端点＋遍历深度上限（B5 册开放问题 2——真实图谱实施批裁决）；chat 建议池持久化＋sg- 发号（P1-08a 差异 5——随 C2 落地批）；五信号计数采集器（P1-10 差异 7——随 C2 归一接线）。
+- **commit SHA 全清单（P1-00a..P1-11b，平台仓 SHA 为主、联动 teach SHA 随注）**：
+  - 拆票：32dd87f（13 票拆解）＋f04b903（P1-08 拆三拍）；
+  - P1-00a＝8940d84（快照同步）＋08db836（收尾·平台外壳跟进）；P1-00b＝teach f576786（设计先行批，零施工）；
+  - P1-01＝a800ca7；P1-01b＝029b1b2（立项）→c6c7402（修复）→5fea603（收尾裁决登记；teach 对齐批 d3ac6e3）；
+  - P1-02a＝9a40e9f→2c6e137（收尾裁决）；P1-02b＝34614ed→9ce54c8（收尾裁决）；
+  - P1-03＝ed8153f→100a7fe；P1-04＝91e7144→98dff99（收尾裁决＋前置双闸现定）；
+  - P1-05＝6163cb7→5aa9c44（里程碑①；teach 对齐批 e59ca4c）；P1-05b＝cf738c9→2ec3b44（teach 索引行 5f2a43c）；
+  - P1-06＝0fdd247（中期）→bd8baf2（全票）→0e2aac1；P1-07＝6e8130d→f97efcd；
+  - P1-08a＝dd9739d→d1f4bb0；P1-08b＝26e3541→b33c4c1；P1-08c＝0a6b013（中期）→483cb6c→90b58c5；
+  - P1-09＝6f1f11c→2154315；P1-10＝2a1fbfc→cdd2282；P1-11a＝6b9a5e4→64bee0a→a52286a（最终审查两轻味修复）；
+  - P1-11b＝本批收官提交（本节落票面；SHA 见仓 log）。
