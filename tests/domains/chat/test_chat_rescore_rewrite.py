@@ -224,6 +224,9 @@ class TestRewriteClarifyFlow:
         answer = data2["answer"][0]
         assert answer["kind"] == "text"
         assert answer["citations"]  # 引用照常
+        # 选是腿≠额度尽自答路：答案不得含「已按优化问法检索」标注（自答路恒拼——
+        # 两分支唯一可区分残差；防额度判定错位错走自答路仍判绿——T3 审查发现 B）
+        assert d.RESCORED_ANSWER_TAG not in answer["text"]
         gen_prompts = [
             msgs for caller, msgs in seams.prompts if caller == "chat.retrieval.answer"
         ]
