@@ -15,8 +15,11 @@ POST /api/chat/asks）＋resume（interrupt 决策回流——POST /api/chat/run
     （clarify_strategy=ask_missing）/图谱关系问句路由/置信度真实计算（检索得分
     ＋装配信号，D2 confidence_thresholds 档位：低 <low 必弹澄清帧——多候选在
     场弹候选澄清帧，无候选直派检索链走兜底）。
-  ④执行链分发：17 链闭世界分派；检索/FAQ 秒回/图谱问答三链链体见 chains.py，
-    未实现链回「该能力暂未开通」话术。
+  ④执行链分发：17 链闭世界分派；N5b 接线核验（P1F-01）——裁决选中未注册链
+    （17 链清单仅检索问答/FAQ直出/图谱问答三链接线）即覆写回退「检索问答链」，
+    原裁决随 N5b 帧 note 留痕；检索/FAQ 秒回/图谱问答三链链体见 chains.py；
+    「该能力暂未开通」话术不再是主路径行为，仅作已接线链内部注桩缺陷安全网
+    （同 _run_chain 的 answer=None 兜底分支族）。
 
 澄清帧有界循环（F56）：最多弹一次、两跳到终态（默认口径/锁定候选/拒答）——
 挂起帧写入 chat_run.pending_interrupt（clarify_count CHECK 0–1 存储强制）；
@@ -53,11 +56,17 @@ INDEX_HIGH_FLOOR = 0.5
 INDEX_CANDIDATE_MAX = 4
 
 # LLM 意图裁决提示词（F56③ 结构化输出——只回 JSON；闭世界清单由 user 消息携带）。
+# 约束段（P1F-01 源头降噪）：评测显示 LLM 把「台账命中」误读成派链指令（N3 命中
+# 越准、N5 派链越偏），且 17 链清单是纯名字拼接、无受理范围描述——接线正确性由
+# N5b 接线核验（代码不变量）保证，本约束只压误选率。
 INTENT_VERDICT_SYSTEM_PROMPT = (
     "你是油田数据问答平台的意图裁决器。根据问句与装配信号，从给定的 17 链清单中"
     "选出唯一应执行的链名，并给出 0 到 1 的置信度数值。"
     '只输出一个 JSON 对象：{"chain": "<链名>", "confidence": <0-1 数值>}，'
     "不要输出任何其他文字、解释或代码块标记。"
+    "术语台账/指标卡台账的命中只是装配材料信号，说明问句涉及这些词条，"
+    "不构成选链依据。除用户用 @ 显式锚定外，自然语言问法一律选「检索问答链」；"
+    "「指标卡直出链」「口径消歧链」等链仅受理 @ 显式锚定提问。"
 )
 
 
@@ -351,7 +360,7 @@ class ChatService:
         yield d.node_frame("N5b", state=d.NODE_PROCESS)
         yield d.node_frame(
             "N5b", state=d.NODE_FINISH,
-            note=f"chain「{verdict.get('chain')}」在 17 链清单内——核验通过（闭世界枚举）",
+            note=self._verify_chain_wiring(verdict),
         )
         yield d.node_frame("N6", state=d.NODE_PROCESS, tag="查映射表派链")
         yield d.node_frame(
@@ -359,7 +368,7 @@ class ChatService:
             note=f"已分派至「{verdict.get('chain')}」——后续步骤由链体执行",
         )
 
-        # —— ④ 执行链分发（17 链闭世界；未实现链回未开通话术）——
+        # —— ④ 执行链分发（17 链闭世界；未接线链已在 N5b 回退检索问答链——P1F-01）——
         async for event in self._run_chain(
             str(verdict["chain"]), run, text, actor_who, assembly, verdict=verdict
         ):
@@ -605,7 +614,7 @@ class ChatService:
         yield d.node_frame("N5b", state=d.NODE_PROCESS)
         yield d.node_frame(
             "N5b", state=d.NODE_FINISH,
-            note=f"chain「{verdict.get('chain')}」在 17 链清单内——核验通过（闭世界枚举）",
+            note=self._verify_chain_wiring(verdict),
         )
         yield d.node_frame("N6", state=d.NODE_PROCESS, tag="查映射表派链")
         yield d.node_frame(
@@ -1161,6 +1170,21 @@ class ChatService:
             "source": d.VERDICT_SOURCE_LLM,
             "_value": value,
         }
+
+    def _verify_chain_wiring(self, verdict: dict[str, Any]) -> str:
+        """N5b 接线核验（P1F-01）：闭世界校验之上再验接线注册面——未注册链回退。
+
+        17 链清单仅三链真实接线（检索问答/FAQ直出/图谱问答——分派器注册面）；
+        裁决选中未注册壳链时就地覆写 verdict["chain"] 为「检索问答链」（只动
+        chain 键——confidence/source 留痕不动，分派前覆写使 run 终态 verdict 与
+        实派链一致），返回 note 记原裁决；已注册三链绝不覆写。ask 主路径与
+        resume 重判路径共用本核验——回退逻辑单源，两处行为一致由构造保证。
+        """
+        chain = str(verdict.get("chain") or "")
+        if self._dispatcher.is_registered(chain):
+            return f"chain「{chain}」在 17 链清单内且已接线——核验通过（闭世界枚举＋注册面）"
+        verdict["chain"] = "检索问答链"
+        return f"原裁决＝「{chain}」未接线——回退检索问答链"
 
     # ---------- ④ 执行链分发与收场 ----------
 

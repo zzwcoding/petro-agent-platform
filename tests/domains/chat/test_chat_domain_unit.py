@@ -127,7 +127,9 @@ class TestSuggestionPool:
 class TestChainDispatcher:
     async def test_all_seventeen_chains_dispatch_to_unopened_notice(self) -> None:
         """17 链枚举全注册且未实现链回「该能力暂未开通」话术（逐链核对——
-        检索/FAQ 秒回/图谱问答三链已在 ChatService 构造时注册，裸分派器不含）。"""
+        检索/FAQ 秒回/图谱问答三链已在 ChatService 构造时注册，裸分派器不含）。
+        注：未开通话术自 P1F-01 起为注桩安全网、非主路径行为（未注册裁决在
+        N5b 接线核验先回退检索问答链，不进分派）。"""
         dispatcher = d.ChainDispatcher()
         ctx = ChainContext(run_id="run-x", question="q", actor_who="阿强 · 平台运维",
                            assembly=None)  # type: ignore[arg-type]

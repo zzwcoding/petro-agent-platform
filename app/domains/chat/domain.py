@@ -105,8 +105,8 @@ TREE_NODES: dict[str, str] = {
     "GEN": "限定作答＋引用登记",
 }
 
-# 17 链 → 全景树执行节点（已接线三链；未接线链不出执行节点帧——N6 分派后
-# 直接收「该能力暂未开通」话术，不冒充树路径）。
+# 17 链 → 全景树执行节点（已接线三链；未接线链在 N5b 裁决核验即回退检索问答链
+# ——P1F-01，不会进分派、不出未开通话术；分派器话术仅作链内注桩缺陷安全网）。
 CHAIN_TREE_NODES: dict[str, str] = {
     "检索问答链": "N17",
     "FAQ直出链": "N18",
@@ -159,7 +159,9 @@ CHAIN17: tuple[str, ...] = (
 )
 
 # 三链分派缝（票面：检索链/FAQ 秒回/图谱问答三链接口留缝，08b 填）——
-# 三链在分派器占注册位（ChainHandler 缝），08a 缝内暂回未开通话术。
+# 三链在分派器占注册位（ChainHandler 缝，P1-08b 链体填入）；其余 14 链不注册＝
+# 未接线（is_registered 查询面），N5b 接线核验（service 层，P1F-01）对未注册
+# 裁决回退检索问答链——分派器「未开通」话术仅作已接线链内部注桩缺陷安全网。
 SEAM_CHAINS: tuple[str, ...] = ("检索问答链", "FAQ直出链", "图谱问答链")
 
 # 澄清帧候选上限（F56：候选上限 4 支，超截断标「另有 N 支未列出」）。
@@ -193,6 +195,9 @@ INJECTION_ANSWER_TEMPLATE = (
 
 # ---------- 话术常量（骨架期服务端组装——演示资产不进合同，运行时同语义产出） ----------
 
+# 「未开通」话术（P1F-01 起不再是主路径行为——未接线链在 N5b 裁决核验回退检索
+# 问答链，分派不到这里；保留为已接线链内部注桩缺陷安全网，同 _run_chain 的
+# answer=None 兜底分支族）。
 UNOPENED_CHAIN_TEMPLATE = "该能力暂未开通：「{chain}」尚未接线（骨架期——随后续票开放）。"
 ANCHOR_MISS_TEMPLATE = (
     "@ 锚定「{token}」未命中任何注册表——取不到即落空拒答（@ 资产服务端直取，不猜）。"
@@ -586,9 +591,15 @@ ChainHandler = Callable[[ChainContext], AsyncIterator[SseEvent]]
 class ChainDispatcher:
     """17 链分派器（闭世界枚举——超出即无效，F56④）。
 
-    - 17 链全注册（枚举登记＝「未实现链话术逐链核对」的核对面）；
-    - 三链（SEAM_CHAINS）已由 P1-08b 链体填入；未注册 handler 的链（其余 14 链）
-      一律回未开通话术——不发明链行为。
+    - 17 链清单＝闭世界枚举（dispatch 入口的域校验边界，也是「未实现链话术
+      逐链核对」的核对底册）——不是注册面：注册面（register() 写入的 dict）
+      ＝接线事实，仅接线链在册（见下条）；
+    - 三链（SEAM_CHAINS）已由 P1-08b 链体填入；注册面（register() 写入的
+      dict）＝接线事实，is_registered 是其查询面——N5b 接线核验（service 层，
+      P1F-01）对未注册裁决先回退检索问答链，未注册链不进分派；
+    - 未注册 handler 的链回「该能力暂未开通」话术——不再是面向用户的主路径
+      行为，保留为已接线链内部注桩缺陷安全网（同 service._run_chain 的
+      answer=None 兜底分支族——不发明链行为）。
     """
 
     def __init__(self) -> None:
@@ -601,6 +612,10 @@ class ChainDispatcher:
 
     def registered(self) -> tuple[str, ...]:
         return tuple(self._handlers)
+
+    def is_registered(self, chain: str) -> bool:
+        """链接线查询面（P1F-01）——注册表键即接线事实：register() 写入的 dict。"""
+        return chain in self._handlers
 
     async def dispatch(self, chain: str, ctx: ChainContext) -> AsyncIterator[SseEvent]:
         if chain not in CHAIN17:
