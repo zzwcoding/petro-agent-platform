@@ -16,6 +16,7 @@
 from dataclasses import replace
 from typing import Any
 
+from app.domains.chat import chains as chains_mod
 from app.domains.chat import domain as d
 from app.domains.chat.domain import (
     FragmentAnchorFace,
@@ -71,8 +72,9 @@ class TestTreeNarrative:
 
     async def test_retrieval_node_walk_golden(self, chat_db: Any, seams: Seams) -> None:
         """检索链 node 步进金样本（A1 实时路径全量）：前门 N1→N3→N4→N5→N5b→N6
-        →链内 N17→S0→S1→S3（命中即停）→S4/S5 跳过→S6→S7→GEN→N17 收束；
-        执行级 process→finish 成对、跳过级 wait＋skipped:true。"""
+        →链内 N17→S0→S1→S3（台账命中——不停级，P1F-03）→S4 双路召回→S5 直通
+        跳过→S6→S7→GEN→N17 收束；执行级 process→finish 成对、跳过级
+        wait＋skipped:true。"""
         seams.index_vector = [_hit("f1", 0.9)]
         svc = make_service(chat_db, seams)
         events = await collect(svc.ask(
@@ -89,8 +91,9 @@ class TestTreeNarrative:
             ("N17", "process"),
             ("S0", "process"), ("S0", "finish"),
             ("S1", "process"), ("S1", "finish"),
-            ("S3", "process"), ("S3", "finish"),  # 台账命中＋早停——S4~S5 跳过
-            ("S4", "wait"), ("S5", "wait"),
+            ("S3", "process"), ("S3", "finish"),  # 台账命中——词表级不停下级（P1F-03）
+            ("S4", "process"), ("S4", "finish"),  # 双路召回照跑
+            ("S5", "wait"),  # 图扩展未启用——直通跳过
             ("S6", "process"), ("S6", "finish"),
             ("S7", "process"), ("S7", "finish"),
             ("GEN", "process"), ("GEN", "finish"),
@@ -98,8 +101,8 @@ class TestTreeNarrative:
         ]
         skips = [f for f in events_by_name(events)["node"]
                  if f["state"] == "wait" and f.get("skipped") is True]
-        assert {f["key"] for f in skips} == {"S4", "S5"}
-        assert all("命中即停" in str(f["note"]) for f in skips)
+        assert {f["key"] for f in skips} == {"S5"}
+        assert all("图扩展未启用" in str(f["note"]) for f in skips)
 
     async def test_token_frames_never_interleave_tree_frames(
         self, chat_db: Any, seams: Seams,
@@ -154,7 +157,8 @@ class TestTreeNarrative:
         check_lines = [str(f["text"]) for f in events_by_name(events)["node_line"]
                        if f["key"] == "N17"]
         assert any(
-            "配置核对：三级顺序＝锚定、词表、双路 · 命中即停＝开" in text
+            "配置核对：三级顺序＝锚定、词表、双路 · 早停＝开（@锚定级命中即跳）"
+            "，S3 命中不停下级" in text
             and "精排＝fast" in text and "兜底＝fixed" in text
             for text in check_lines
         )
@@ -227,11 +231,15 @@ class TestTreeNarrative:
 
 
 class TestEarlyStopSemantics:
-    """命中即停早停语义（D2 检索顺序卡）——配置改动可见帧序变化（验收实证）。"""
+    """早停语义（D2 检索顺序卡——P1F-03/D2 v0.3 收窄：仅 @锚定级命中即跳，
+    S3 词表级命中永不停下级）——配置改动可见帧序变化（验收实证）。"""
 
     async def test_early_stop_on_skips_lower_levels_after_anchor(
         self, chat_db: Any, seams: Seams,
     ) -> None:
+        """(c) @ 锚定命中＋早停开 → S3~S5 跳过（身份确认——唯一保留的早停路径）；
+        S4/S5 skip 注记保留且归因 S1 锚定；S3 级不另出帧（P1F-03：S3 skip 调用
+        删除——S1 注记已声明 S3~S5 跳过）。"""
         seams.index_hits = [_hit("f1", 0.9)]
         seams.index_vector = [_hit("f1", 0.9)]
         seams.index_keyword = [_hit("f1", 0.6, "keyword")]
@@ -243,15 +251,21 @@ class TestEarlyStopSemantics:
         s1_finish = " ".join(_finish_notes(events, "S1"))
         assert "命中即停——S3~S5 跳过" in s1_finish
         assert not any("双路召回" in text for text in _finish_notes(events, "S4"))
-        assert _skip_frames(events, "S3") and _skip_frames(events, "S4") \
-            and _skip_frames(events, "S5")
+        assert _skip_frames(events, "S4") and _skip_frames(events, "S5")
+        assert all(
+            "S1 锚定命中即停" in str(f["note"])
+            for key in ("S4", "S5") for f in _skip_frames(events, key)
+        )
+        # S3 级在 S1 早停下不出任何帧（本级无 skip 调用——skip 决策只剩 S1）
+        assert not [f for f in events_by_name(events)["node"] if f["key"] == "S3"]
+        assert seams.calls.get("index_dual", 0) == 0  # S4 真被跳过（并发召回未发起）
         # S6/S7 不受早停影响（合同：资格审/权威回读照走）
         assert _finish_notes(events, "S6") and _finish_notes(events, "S7")
 
     async def test_early_stop_off_runs_all_levels(
         self, chat_db: Any, seams: Seams,
     ) -> None:
-        """关＝逐级全跑（F21 逐级升级的关闭态语义）——S3/S4/S5 全部执行。"""
+        """关＝逐级全跑（F21 逐级升级的关闭态语义）——S1 也不跳，S3/S4/S5 全部执行。"""
         seams.index_hits = [_hit("f1", 0.9)]
         seams.index_vector = [_hit("f1", 0.9)]
         seams.index_keyword = [_hit("f1", 0.6, "keyword")]
@@ -261,6 +275,7 @@ class TestEarlyStopSemantics:
             "N-02 的情况", session_id=None, page_context=None,
             anchors=["指标卡·产量完成率"], actor_who=AQIANG,
         ))
+        assert "命中即停" not in " ".join(_finish_notes(events, "S1"))  # 关＝S1 也不跳
         assert any("双路召回" in text for text in _finish_notes(events, "S4"))
         assert any("图扩展未启用" in text for text in _skip_notes(events, "S5"))
 
@@ -278,22 +293,62 @@ class TestEarlyStopSemantics:
         skips = _skip_frames(events, "S1")
         assert skips and "第 1 级开关关——跳过锚定" in str(skips[0]["note"])
 
-    async def test_ledger_hit_with_early_stop_skips_dual(
+    async def test_ledger_hit_does_not_stop_dual_recall(
         self, chat_db: Any, seams: Seams,
     ) -> None:
+        """(a) B-正5 形态（题面含台账词的正题，早停开）：S3 台账命中不停下级——
+        S4 照跑、报告片段进生成材料、引用非空（旧病灶：S4/S5 skipped＋引用 0 条，
+        第五章三项措施一个没答）。"""
         seams.index_vector = [_hit("f1", 0.9)]
+        seams.anchors = {"f1": _anchor_of(_hit("f1", 0.9))}
+        seams.completion = "依据材料作答 [c1]。"
         svc = make_service(chat_db, seams)
         events = await collect(svc.ask(
             "产量完成率如何", session_id=None, page_context=None,
             anchors=[], actor_who=AQIANG,
         ))
-        assert any("命中即停——S4~S5 跳过" in text for text in _finish_notes(events, "S3"))
-        assert _skip_frames(events, "S4")
-        assert seams.calls.get("index_dual", 0) == 0  # S4 真被跳过（并发召回未发起）
+        data = events_by_name(events)
+        s3_finish = " ".join(_finish_notes(events, "S3"))
+        assert "台账完全一致命中" in s3_finish
+        assert "命中即停" not in s3_finish  # 词表级命中不触发早停（观测面同步收窄）
+        assert not _skip_frames(events, "S4")  # S4 不被 skip
+        assert any("双路召回" in text for text in _finish_notes(events, "S4"))
+        assert seams.calls.get("index_dual", 0) == 1  # 双路召回真实发起
+        # S5 的 skip 只剩「未启用」一态——早停不再触及
+        assert any("图扩展未启用" in text for text in _skip_notes(events, "S5"))
+        # 报告片段证据进生成材料（生成 user 消息含报告 snippet——材料在场观测面）
+        assert "N-02 于 2019-06-15 投产" in _last_gen_user(seams)
+        assert data["citation"]  # 引用非空（B-正5 病灶＝引用 0 条）
+        assert data["answer"][0]["kind"] == "text"
+
+    async def test_definition_question_term_card_via_assembly(
+        self, chat_db: Any, seams: Seams,
+    ) -> None:
+        """(b) 释义问（什么是躺井，早停开）：词条卡经 P1F-02 装配层常驻进生成
+        材料——不依赖 S3 命中跳过（S4 照跑；本测不断言 S3 跳过）。"""
+        seams.index_vector = []  # 报告路空——生成材料只余台账侧（词条卡＋台账条目）
+        svc = make_service(chat_db, seams)
+        events = await collect(svc.ask(
+            "什么是躺井", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        assert events_by_name(events)["answer"][0]["kind"] == "text"
+        assert "术语台账收录：躺井" in _last_gen_user(seams)  # 词条卡（装配层随行）
+        # 词表级命中不停下级——与 (a) 同口径：S4 执行不 skip
+        assert not _skip_frames(events, "S4")
+        assert any("双路召回" in text for text in _finish_notes(events, "S4"))
 
 
 def _skip_notes(events: list[Any], key: str) -> list[str]:
     return [str(f["note"]) for f in _skip_frames(events, key)]
+
+
+def _last_gen_user(seams: Seams) -> str:
+    """检索链生成步（caller=chat.retrieval.answer）最近一次 user 消息正文
+    （生成材料在场观测面——P1F-03 (a)/(b) 断言用）。"""
+    gen = [msgs for caller, msgs in seams.prompts if caller == chains_mod.CALLER_RETRIEVAL]
+    assert gen, "检索链生成步未被调用"
+    return next(m["content"] for m in gen[-1] if m["role"] == "user")
 
 
 class TestDualRecallAndRerank:

@@ -83,13 +83,15 @@ class TestHappyPathFrameSequence:
             ("node", "N6", "process"), ("node", "N6", "finish"),
         ]
         assert walk[27] == ("stage",)
-        # 链内步进（默认配置：台账命中＋早停——S4~S5 跳过、GEN 生成收束）
-        assert walk[28:46] == [
+        # 链内步进（默认配置：台账命中——词表级不停级 P1F-03，S4 照跑、S5 直通
+        # 跳过、GEN 生成收束）
+        assert walk[28:47] == [
             ("node", "N17", "process"),
             ("node", "S0", "process"), ("node", "S0", "finish"),
             ("node", "S1", "process"), ("node", "S1", "finish"),
             ("node", "S3", "process"), ("node", "S3", "finish"),
-            ("node", "S4", "wait"), ("node", "S5", "wait"),
+            ("node", "S4", "process"), ("node", "S4", "finish"),
+            ("node", "S5", "wait"),
             ("node", "S6", "process"), ("node", "S6", "finish"),
             ("node", "S7", "process"), ("node", "S7", "finish"),
             ("node", "GEN", "process"),
@@ -98,7 +100,7 @@ class TestHappyPathFrameSequence:
             ("node", "N17", "finish"),
             ("node_line",),
         ]
-        tail = walk[28 + 18:]
+        tail = walk[28 + 19:]
         assert tail[0] == ("token",)  # token 切片在全部树帧之后（不交错乱序）
         assert tail[-3:] == [("citation",), ("answer",), ("done",)]
         names = _names(events)

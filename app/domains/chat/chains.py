@@ -8,8 +8,11 @@
   并入检索，扩检轮数消费）→ S5 图扩展（未启用——直通跳过）→ S6 资格裁决（4 支
   上限＋refuse_threshold 拒答判定）→ S7 权威源回读（指标台账核对）→ GEN 限定
   作答（petro-main）→ citation fail-closed（伪造/失锚引用拦截丢弃，绝不带病出帧）
-  → N17 收束。命中即停：上级命中即跳过下级检索级（关＝逐级全跑）；S0/S2/S6/S7
-  不受早停影响。词条卡一等材料（P1F-02）：装配层 term_cards 常驻随行，生成步
+  → N17 收束。早停（D2「命中即停」开关，v0.3 收窄语义）：仅 S1 显式锚定命中即
+  跳过下级检索级（S3~S5 跳过——身份确认非意图猜测；S3 本级不另出帧，S4/S5 出
+  skip 注记）；S3 词表级命中不停下级——台账命中只作增强材料随装配进生成，报告
+  检索照跑；关＝逐级全跑；S0/S2/S6/S7 不受早停影响。词条卡一等材料（P1F-02）：
+  装配层 term_cards 常驻随行，生成步
   以「术语台账收录：…」材料块并入 user 消息（在证据支材料之前），定义先行规则
   在 GEN 系统提示。兜底两策：检索全空/低于低分线 → fixed 文案或 free＋「未依据
   报告库」标注；fixed 前置诚实判定（P1F-02）——装配词条卡/指标卡/FAQ 命中任一
@@ -147,6 +150,9 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
         yield d.node_frame("S1", state=d.NODE_FINISH, note="无 @ 锚定——进入下一级")
 
     # —— S3 词表四级（确定性查表——台账完全一致才命中，确定性先于相似度）——
+    # 词表级命中不停下级（P1F-03／D2 v0.3 收窄）：台账命中只作增强材料（词条卡
+    # 走 P1F-02 装配层，不依赖本级跳过），S4/S5 照跑；本级的 skip 决策只剩第 2 级
+    # 开关关（S1 锚定早停时本级不另出帧——S1 注记声明 S3~S5 跳过）。
     if not skip_rest:
         if not cfg.order_levels[1]:
             yield d.node_skip("S3", "第 2 级开关关——跳过词表级，直接看下一级")
@@ -158,20 +164,16 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
             yield d.node_frame("S3", state=d.NODE_PROCESS)
             if ledger_hits:
                 evidence.extend(_ledger_evidence(ledger_hits))
-                note = (
-                    "台账完全一致命中：" + "、".join(f"「{c.name}」" for c in ledger_hits)
-                    + "——宁可查不到，不给「差不多」的结果"
+                yield d.node_frame(
+                    "S3", state=d.NODE_FINISH,
+                    note="台账完全一致命中：" + "、".join(f"「{c.name}」" for c in ledger_hits)
+                         + "——宁可查不到，不给「差不多」的结果"
+                         "（词表级命中不停下级——词条材料随装配进生成，S4/S5 照跑）",
                 )
-                if cfg.early_stop:
-                    skip_rest = True
-                    note += "（命中即停——S4~S5 跳过，装配层材料、资格审、权威回读照走）"
-                yield d.node_frame("S3", state=d.NODE_FINISH, note=note)
             else:
                 yield d.node_frame(
                     "S3", state=d.NODE_FINISH, note="台账精确未命中——进入双路召回",
                 )
-    else:
-        yield d.node_skip("S3", "命中即停——本级跳过（装配层材料、资格审、权威回读照走）")
 
     # —— S4 双路召回（两路并发）＋合并＋前 N＋精排三档＋FAQ 路扩检 ——
     if not skip_rest:
@@ -197,7 +199,7 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
                 note=f"双路召回：向量 {len(vector_hits)} 条＋关键词 {len(keyword_hits)} 条"
                      f" → {merge_note} → 前 {len(top)} 进精排（{cfg.rerank}）",
             )
-            # FAQ 路扩检（检索动作级——受命中即停管辖；qa_behavior.faq_expand_rounds
+            # FAQ 路扩检（检索动作级——受 S1 锚定早停管辖；qa_behavior.faq_expand_rounds
             # 消费）——轮次行为 S4 节点内容行（node_line，A1 帧 8）。
             if not cfg.faq_direct_hit and ctx.assembly.faq_hit is None:
                 faq_evidence, faq_events = await faq_leg_evidence(deps, ctx, cfg)
@@ -205,7 +207,9 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
                 for event in faq_events:
                     yield event
     else:
-        yield d.node_skip("S4", "命中即停——本级跳过（装配层材料、资格审、权威回读照走）")
+        yield d.node_skip(
+            "S4", "S1 锚定命中即停——本级跳过（装配层材料、资格审、权威回读照走）",
+        )
 
     # FAQ 精确命中并入（装配层材料——六路匹配器不受 D2 开关与早停管辖，
     # D2「两级管辖边界」：faq_direct_hit 关＝秒回闸关、走检索链出答案）
@@ -219,7 +223,9 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
 
     # —— S5 图扩展（未启用——直通跳过；过程记录写明，D2 合同值）——
     if skip_rest:
-        yield d.node_skip("S5", "命中即停——本级跳过（装配层材料、资格审、权威回读照走）")
+        yield d.node_skip(
+            "S5", "S1 锚定命中即停——本级跳过（装配层材料、资格审、权威回读照走）",
+        )
     else:
         yield d.node_skip(
             "S5",
@@ -354,13 +360,15 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
 
 def _config_check_line(cfg: d.RetrievalConfigFace) -> d.SseEvent:
     """出口「配置核对」行（D2 行为规则 6——展示面；只列真实消费的生效配置值，
-    不发明「阈值未触发」类未核对结论）。"""
+    不发明「阈值未触发」类未核对结论）。早停表述按 P1F-03 收窄语义明义：
+    仅 @ 锚定级命中即跳，S3 词表级命中永不停下级。"""
     levels = "、".join(
         name for name, on in zip(("锚定", "词表", "双路"), cfg.order_levels, strict=True) if on
     ) or "全关"
+    early_stop = "开（@锚定级命中即跳）" if cfg.early_stop else "关（逐级全跑）"
     return line(
         "N17", "·",
-        f"配置核对：三级顺序＝{levels} · 命中即停＝{'开' if cfg.early_stop else '关'} · "
+        f"配置核对：三级顺序＝{levels} · 早停＝{early_stop}，S3 命中不停下级 · "
         f"topK＝{cfg.semantic_top_k}/{cfg.keyword_top_k} · 前 N＝{cfg.top_n} · "
         f"精排＝{cfg.rerank} · 引用格式＝{cfg.citation_format} · 兜底＝{cfg.fallback_strategy}",
     )
