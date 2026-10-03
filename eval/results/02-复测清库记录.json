@@ -1,0 +1,116 @@
+{
+  "task": "清除上一轮评测数据（修复批复测前清库步，评测流水线 02）——保台账与 FAQ 种子完好，为复测腾干净底座",
+  "timestamp": "2026-10-03T13:21:19Z",
+  "database": {
+    "target": "docker 容器 petro-agent-platform-pg-1（PG16，宿主 5433），用户/库均 petro",
+    "tableDiscovery": "docker exec petro-agent-platform-pg-1 psql -U petro -d petro -t -A -c \"SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name;\"——public 共 35 张表，其中 kb_/wiki_/chat_ 开头内容表 15 张",
+    "tablesCleared": [
+      "chat_message",
+      "chat_run",
+      "chat_session",
+      "kb_activity",
+      "kb_extract_config",
+      "kb_fragment",
+      "kb_fragment_version",
+      "kb_ingest_task",
+      "kb_issue_report",
+      "kb_library",
+      "kb_library_config",
+      "kb_report",
+      "kb_upload",
+      "wiki_page",
+      "wiki_page_version"
+    ],
+    "rowsBeforeByTable": {
+      "chat_message": 96,
+      "chat_run": 48,
+      "chat_session": 48,
+      "kb_activity": 7,
+      "kb_extract_config": 0,
+      "kb_fragment": 58,
+      "kb_fragment_version": 58,
+      "kb_ingest_task": 3,
+      "kb_issue_report": 0,
+      "kb_library": 1,
+      "kb_library_config": 1,
+      "kb_report": 3,
+      "kb_upload": 3,
+      "wiki_page": 3,
+      "wiki_page_version": 3
+    },
+    "rowsBeforeCountMethod": "逐表 COUNT(*) 精确计数（pg_stat_user_tables 估算值仅作对照，未采信）",
+    "rowsBefore": 332,
+    "rowsAfter": 0,
+    "truncateStatement": "TRUNCATE TABLE chat_message, chat_run, chat_session, kb_activity, kb_extract_config, kb_fragment, kb_fragment_version, kb_ingest_task, kb_issue_report, kb_library, kb_library_config, kb_report, kb_upload, wiki_page, wiki_page_version RESTART IDENTITY CASCADE;",
+    "cascadeSafetyCheck": "清表前查 pg_constraint 全部外键（涉及内容表共 17 条，本会话实查）：referencing 与 referenced 两侧全部带 kb_/wiki_/chat_ 前缀（如 kb_fragment→kb_report、kb_ingest_task→kb_upload、chat_message→chat_session、chat_run→chat_session、wiki_page_version→wiki_page、kb_activity/kb_library_config/kb_report/kb_upload/kb_ingest_task/wiki_page/kb_extract_config→kb_library），CASCADE 传导封闭在内容表集合内，不可能波及 sem_%/gateway_%/faq_%/audit% 任何一张",
+    "protectedTablesUntouched": "sem_%（9 张）、gateway_budget_config、gateway_drill_run、gateway_spend_record、audit_log、faq_candidate、faq_entry、faq_scan_task、faq_similar_question、infra_outbox、retrieval_config(_version)、alembic_version 全部未触碰",
+    "postTruncateGuardCounts": {
+      "note": "清库后立即复数核实保护表未被 CASCADE 波及（本会话实查）",
+      "audit_log": 437,
+      "faq_candidate": 4,
+      "faq_entry": 17,
+      "faq_scan_task": 2,
+      "faq_similar_question": 3,
+      "gateway_budget_config": 1,
+      "gateway_spend_record": 364,
+      "gateway_drill_run": 0
+    },
+    "gatewayDrillRunNote": "gateway_drill_run=0：清库前未对其单独计数（无法对比前后）；但它未出现在内容表外键引用清单中，CASCADE 不可能波及，0 行为其既有状态，非本次清空"
+  },
+  "semLedgerVerification": {
+    "expected": {
+      "sem_term": 11,
+      "sem_metric": 15,
+      "sem_object": 10,
+      "sem_relation": 5,
+      "sem_join_whitelist": 4,
+      "sem_workflow": 10,
+      "sem_action": 3
+    },
+    "before": {
+      "sem_term": 11,
+      "sem_metric": 15,
+      "sem_object": 10,
+      "sem_relation": 5,
+      "sem_join_whitelist": 4,
+      "sem_workflow": 10,
+      "sem_action": 3
+    },
+    "after": {
+      "sem_term": 11,
+      "sem_metric": 15,
+      "sem_object": 10,
+      "sem_relation": 5,
+      "sem_join_whitelist": 4,
+      "sem_workflow": 10,
+      "sem_action": 3
+    },
+    "intact": true,
+    "note": "七项种子清库前后逐一相等且与预期 11/15/10/5/4/10/3 吻合（term=11/metric=15/object=10/relation=5/join_whitelist=4/workflow=10/action=3）；sem_version=1、sem_ledger_revision=58 不在种子集内（版本指针与工作台账），未触碰"
+  },
+  "minioCleanup": {
+    "attempted": true,
+    "cleaned": true,
+    "script": "/tmp/minio_clean_reports.py（uv run python 执行，退出码 0）",
+    "connectionParams": ".env 中无 MINIO_* 项（本会话 grep 核实 .env 与 .env.example）——按 app/infra/config.py:58-61 开发默认 localhost:9000 / petro / secure=false（容器 petro-agent-platform-minio-1 在跑，0.0.0.0:9000 映射在位）",
+    "bucket": "reports（app/infra/object_storage.py:30 REPORTS_BUCKET）",
+    "objectsBefore": 3,
+    "objectsAfter": 0,
+    "removedBreakdown": "3 个上传报告 txt：reports/up-0a463cd1/C-渤中34-5油田三季度注水调整与生产运行分析.txt、reports/up-917cb662/A-W11井完井工程报告.txt、reports/up-b300f414/B-渤中34-5油田躺井治理与检泵作业月报-202608.txt；删后 list_objects 复核 after=0"
+  },
+  "backendHealth": {
+    "checked": true,
+    "command": "curl -s -o /dev/null -w 'HTTP %{http_code} time=%{time_total}s\\n' http://localhost:8000/docs",
+    "httpStatus": 200,
+    "responseTime": "0.002330s",
+    "healthy": true
+  },
+  "constraintsHonored": {
+    "noExistingFileModified": true,
+    "newFilesOnly": ["/tmp/minio_clean_reports.py", "eval/results/02-复测清库记录.json"],
+    "noGitWriteOperations": true,
+    "noLlmCalls": true,
+    "d2ConfigUntouched": true
+  },
+  "warnings": []
+}

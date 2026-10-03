@@ -1,0 +1,125 @@
+{
+  "group": "C",
+  "libraryId": "lib-1da9920b",
+  "resultFile": "eval/results/R2-C组结果.json",
+  "ingest": {
+    "library": "评测·渤中34-5拟造报告库（复用本轮 A/B 组既有库——上传前库里已有 A-W11＋B 月报两篇）",
+    "uploadId": "up-0dd454c4",
+    "taskId": "task-00fe3209",
+    "taskState": "done",
+    "fiveSteps": "parse/chunk/embed/index/enrich 全 finish（任务帧存 frames/R2-C-入库task.json，约 2 分钟收敛）",
+    "configSnapshot": "smart 切段＋semantic/keyword/wiki/graph 四开＋摘要/问题卡开——D2 配置未动（设置读面默认值：faq_direct_hit 开、refuse_threshold 0.4、兜底 fixed、精排 fast、topK 20/20）",
+    "newPipelineChecks": {
+      "kbIngestStructureCaller": "出现——gateway_spend_record 实查 created_at≥21:46 caller='kb.ingest.structure' 1 次（in 3242 / out 425 tok），P1F-05 结构图 LLM 化对 C 篇在位；另有 kb.ingest.questions/summary 各 1＋graph.extract 8＋wiki.gen 1",
+      "fragmentSection": "C 篇 12 片段（f39–f48 原文块＋f49 摘要＋f50 问题块）；首轮「章节 01＋表前导语正文吞并」污染形态不复现——f44（2.3 欠注井）section 叶名＝『2.3 欠注井情况』可读且章号对（D-诱14 实测引用验证）；遗留结构性观察：section 树把前序章节标题逐级累积为祖先链（如 f44＝『正文 ＞ 1.1…＞ 2.3』），且 f46/f47 实含第四～八章内容而叶名停在『3.2 十月配注调整』（━━ 装饰线未识别为章标题）——引用 fragment_id 均真实、叶名对 2.x 族正确，四/五～八章族叶名不指所引内容实际章，与 R2-B 组已记的 B 篇 F5 族 locator 观察同构，如实记录不影响本轮判分"
+    },
+    "report": "《C-渤中34-5油田三季度注水调整与生产运行分析》入库后全库 50 片段（A 30＋B 8＋C 12）；三篇全录，反题测试时机与 D 组【库态：三篇全录】要求均成立"
+  },
+  "method": "每题按答案册题干原句经 POST /api/chat/asks（X-Dev-User: aqiang）只问一遍、零换问法零编造，SSE 帧全量存档 eval/results/frames/R2-C-<qid>.json；两次弹帧续推（C-澄清→resumeA、C-正2→rewrite_accept）均用帧原值、续推帧另存 *-resume.json；C-观察按复测清单新口径补一次 @锚定参数化提问（题干原文未改，anchors=['@指标卡·自然递减率']，仅作链路证据不改判分）。费用归因（gateway_spend_record 实查 created_at≥21:52）：chat.retrieval.answer 25 次＝28 次运行恰对 25 次生成（C-澄清口径澄清挂起、C-正2 改写澄清挂起两次不落生成，C-反1 裸兜底 fixed 文案不耗 LLM）；chat.intent.verdict 25 次（C-澄清弹帧与 C-正2 改写续推走 deterministic 裁决不耗 LLM，帧 source 字段可证）；chat.query.rewrite 1 次（C-正2 低分带改写——P1F-06 新 caller 首次实测计费，in 242/out 15 tok）。本题库内 LLM 总花费（21:46 起，含入库）0.1231 元。",
+  "questions": [
+    {
+      "qid": "C-正1",
+      "kind": "正题",
+      "verdict": "✅",
+      "chain": "verdict=检索问答链（llm 0.98）；N3（指标卡台账 hit 产量完成率——仅候选）→N5→S3（词表级命中不停下级）→S4 双路照跑→S6（证据 1.00）→GEN；原句未进指标卡直出链（基线 0.78/复测 0.95 壳链消除）",
+      "note": "101.9%＋主口径正确：开井日历折算 8.25 万吨/计划 8.10；检修剔除 103.5% 并提且标明『两口径差异反映检修损失、不代表虚增』不混淆；citation c2→f41（1.2 双口径表真出处）；slots 报告＝C 篇（首轮两帧 slots 锚 B 月报的 F6 抢锚未复现）。",
+      "baseline": "⚠️",
+      "expected": "✅（『完成率』不再派指标卡壳链；101.9/103.5 两口径有机会）",
+      "matchesExpected": true
+    },
+    {
+      "qid": "C-澄清",
+      "kind": "澄清",
+      "verdict": "✅",
+      "chain": "弹帧：verdict=deterministic（need_clarify=true『低（一词两译未消歧）』）——口径两译澄清帧照弹（subtype=caliber，三选项 A 开井日历折算/B 检修剔除/默认口径 A 与口径一一对应）；resume：带参重判 llm 0.95→检索问答链，N5b 接线核验过→S3 词表级不停级→S4 照跑→S6（证据 1.00）→GEN",
+      "note": "弹帧主判✅＋续推直达✅：resume 帧原值『A · 开井日历折算』回流后直达检索问答链完整作答（首轮 resume 重判 0.92 入指标卡直出链的壳链续推未复现——P1F-01/06 生效）；答案 8.25 万吨/101.9%（声明口径＝开井日历折算）＋检修剔除 8.38/103.5%＋1.6 个百分点差异来源（5 井次/22 井日/约 0.13 万吨）全在；citation f41＋台账条目两支；低分带 rewrite 帧未介入（证据分 1.00，如实记帧）。",
+      "baseline": "✅",
+      "expected": "✅（两轮弹帧照＋续推应直达答案不再进壳链；低分带 rewrite 可能介入属新行为如实记帧）",
+      "matchesExpected": true
+    },
+    {
+      "qid": "C-正2",
+      "kind": "正题",
+      "verdict": "✅",
+      "chain": "【重点观察通过】verdict=检索问答链（llm 0.95）→S3 台账精确未命中→S4 双路照跑→S6『改写过闸（优化句 0.78 ≥ 低分线 0.40）——澄清额度在，弹改写澄清帧』（subtype=rewrite，优化问法『三季度月注采比及季度合计注采比数值与状态』由 chat.query.rewrite 生成——计费 1 次在案）；resume rewrite_accept→deterministic 锁定续推→S6 重评 0.78 过闸→S7 权威回读过→GEN",
+      "note": "基线『最高证据分 0.37 低于低分线 0.40——走兜底』不复现：原句长问落入低分带后走放宽重评＋LLM 改写过闸弹帧（P1F-06 新行为如实记帧），不再静默兜底；resume 后四比率 0.90/0.91/0.98＋季度 0.93 全对，状态对（低于合理区间下限 0.95～1.05、整体欠注、9 月 0.98 接近下限未站稳）；未把 10 月预计 1.02 当三季度值（3.2 干扰守住）；citation c1→f42（2.1 注水月度数据真出处，章号正确）。",
+      "baseline": "⚠️",
+      "expected": "✅（原句不再 0.37 直接兜底——放宽重评/改写路径帧可见，四比率全对）",
+      "matchesExpected": true
+    },
+    {
+      "qid": "C-正3",
+      "kind": "正题",
+      "verdict": "✅",
+      "chain": "verdict=检索问答链（llm）→S4 双路召回→GEN；回归无恙",
+      "note": "两井原因＋对策全对不交叉：W-51 层间矛盾（62/28/10）→先调剖后提配（冻胶调剖封 I 层→分层测试验证 II/III→180→240）；W-52 近井堵塞（注压升高 1.8 MPa）→酸化解堵（土酸 8＋缓速酸 12）→150→210；citation c1→f44（2.3）＋c4→f45（3.1）＋c2→f47（3.2 表）真出处。",
+      "baseline": "✅",
+      "expected": "✅（回归无恙）",
+      "matchesExpected": true
+    },
+    {
+      "qid": "C-正4",
+      "kind": "正题",
+      "verdict": "✅",
+      "chain": "verdict=检索问答链（llm）→GEN；回归无恙",
+      "note": "四要素齐：8 月 12 日施工＋日产油 28→41（日增 13）＋有效期 90 天（至 11 月上旬）＋累计增油 551 吨（至 9 月 30 日）——未把 13 当累计；另给出桶油成本 63 元/桶＜480 门槛——报告原文（:82）即 63 元/桶，答案册『约 396 元/桶』系册侧笔误（grep 核对在案），不在四要素判分内如实记；citation c2→f46（第四章措施段实文）真出处。",
+      "baseline": "✅",
+      "expected": "✅（回归无恙）",
+      "matchesExpected": true
+    },
+    {
+      "qid": "C-正5",
+      "kind": "正题",
+      "verdict": "✅",
+      "chain": "verdict=检索问答链（llm）→GEN；近表干扰守住回归",
+      "note": "W-57 吸水剖面 41/38/21 全对——未拿同表 W-51 的 62/28/10 回答（近表强干扰守住）；并带出『分层均衡型、对照组不参与治理』与全井吸水指数 33.4；citation c2→f47（实含第七章分层测试表真出处；locator 叶名『3.2 十月配注调整』不指第七章——C 篇结构累积 locator 观察已在 ingest 节如实记录，fragment_id 真实不扣分）。",
+      "baseline": "✅",
+      "expected": "✅（近表干扰守住回归）",
+      "matchesExpected": true
+    },
+    {
+      "qid": "C-正6",
+      "kind": "正题",
+      "verdict": "✅",
+      "chain": "verdict=检索问答链（llm 0.95）；N3 指标卡台账 hit『累积亏空』仅候选→S3 词表级命中不停下级→S4 双路照跑→GEN；『亏空』未派壳链（基线指标卡直出链 0.85 消除）",
+      "note": "三要素齐：−128.6 万方（9 月 30 日）＋较二季度末 −125.4 扩大 3.2＋说明（注采比 0.93 长期低于 1.0＋四季度要求稳定 1.0 附近＋十月配注调整已应对＋产液上升驱动）——跨 2.2/第八章/第六章三处装配；slots 指标＝累积亏空·报告＝C 篇（首轮 slots 锚 B 月报的 F6 未复现）；citation c3→f43（2.2）＋c2→f48（第八章环比）＋c4→f46。",
+      "baseline": "⚠️",
+      "expected": "✅（『亏空』不再派壳链；跨章三处有机会）",
+      "matchesExpected": true
+    },
+    {
+      "qid": "C-反1",
+      "kind": "反题",
+      "verdict": "✅",
+      "chain": "verdict=检索问答链（llm 0.95）→S3 台账精确未命中→S4 双路照跑→S6『拒答判定：最高证据分 0.13 低于低分线 0.40——不硬答，走兜底（搜不到不报错、更不编造）』→fixed 兜底文案（不耗 LLM）",
+      "note": "裸兜底零编造：『报告库里没有找到能回答这个问题的内容。我不能凭空编』——未编造 11-12 月配注数、未照抄 240/210；理想形态（引用『另行编制、本方案不含』句）未达成：该句在 f46/f47 内但证据分 0.13 低于改写带下沿 0.30（domain.py:769 RESCORE_BAND_FLOOR），按设计直落兜底未入重评/改写路径；复测清单明示『仍拒答也合规』，如实记：修复可判的边际（0.30～0.40 带）未被本题触发。",
+      "baseline": "✅",
+      "expected": "✅~⚠️（低分带重评可能捞回『本方案不含』句——答出且引证在案则 ✅；仍拒答也合规，如实记）",
+      "matchesExpected": true
+    },
+    {
+      "qid": "C-反2",
+      "kind": "反题",
+      "verdict": "✅",
+      "chain": "verdict=检索问答链（llm）→S4 双路召回（A/C 两篇材料进窗）→GEN；错配识破回归",
+      "note": "明说未涉及：『材料中未涉及注水水质主要控制指标执行情况…现有材料不足以回答』；召回到的 A 篇完井液水质（含油量＜10 mg/L 等）仅作『可关联的零散信息』列出且显式声明『属于完井液体系，非注入水』——未拿完井液指标充数（判分 ❌ 形态未出现，声明来源故也不落 ⚠️）；citation 如实落 f8（A 篇）/f44/f47（C 篇）。",
+      "baseline": "✅",
+      "expected": "✅（错配识破回归）",
+      "matchesExpected": true
+    },
+    {
+      "qid": "C-观察",
+      "kind": "观察",
+      "verdict": "✅",
+      "chain": "原句『自然递减率是多少？』：verdict=检索问答链（llm）→S3『台账完全一致命中：自然递减率——词表级命中不停下级（词条材料随装配进生成，S4/S5 照跑）』→S4 双路照跑→GEN——旧观察目标『S3 命中即停 S4/S5 skipped』已不存在（P1F-03 生效）。新观察点①@锚定级早停帧序列：@指标卡·自然递减率 锚定问（题干原句不变＋anchors 参数，帧存 R2-C-C-观察-锚定.json）→S1『锚定命中：自然递减率——命中即停——S3~S5 跳过（装配层材料、资格审、权威回读照走）』→S3/S4/S5 三帧 skipped（note 均为『S1 锚定命中即停——本级跳过』）→S6 证据 1 支 1.00→S7 权威回读过→答案仅台账定义（锚定锁定设计行为）。新观察点②低分带 rewrite 帧：已由 C-正2 覆盖（改写过闸 0.78 弹帧＋chat.query.rewrite 计费在案）",
+      "note": "两面新观察点均测到：①早停只存在于 @ 显式锚定级——S1 锁定后 S3/S4/S5 帧序列 skipped 且注记指明锚定来源，词表级命中不再早停（与首轮 B-B-正5『命中即停——S4~S5 跳过』形态对照，P1F-03 语义迁移如实取证）；②低分带 rewrite 弹帧真实存在且计费。原句行为同时满足对照册 ✅ 路径『未早停、走双路召回并正确答出 4.6%＋citation』（答 4.6%/−0.9、c3→f46 真出处＋c1 台账定义并行）。锚定换问仅作链路证据不改判分。",
+      "baseline": "⚠️",
+      "expected": "按新口径重设计（D2 v0.3）：旧观察目标已不存在——新观察点 @锚定级早停帧序列＋低分带 rewrite 帧，改测两面或标 N/A 并说明",
+      "matchesExpected": true
+    }
+  ],
+  "passCount": 10,
+  "warnCount": 0,
+  "failCount": 0,
+  "notable": "C 组 10/10 全 ✅：基线两处壳链指纹（C-正1 指标卡直出 0.78、C-正6 0.85）与 C-正2 的 0.37 兜底指纹全部消失——P1F-01/03/06 三票在 C 篇原句上直接可证；C-正2 的低分带改写弹帧（chat.query.rewrite 首次实测计费）是本轮唯一新链路形态，续推后四比率全对；遗留观察＝C 篇 section 祖先链累积＋四~八章族叶名错位（F5 族 locator 观察，fragment_id 均真出处）。"
+}

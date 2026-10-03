@@ -1,0 +1,945 @@
+[
+ {
+  "id": 0,
+  "event": "session",
+  "data": {
+   "run_id": "run-dfaf59",
+   "thread_id": "sess-ebf1ab"
+  }
+ },
+ {
+  "id": 1,
+  "event": "stage",
+  "data": {
+   "stage": 0
+  }
+ },
+ {
+  "id": 2,
+  "event": "stage",
+  "data": {
+   "stage": 1
+  }
+ },
+ {
+  "id": 3,
+  "event": "node",
+  "data": {
+   "key": "N1",
+   "name": "统一安检",
+   "label": "统一安检",
+   "state": "process",
+   "note": "统一安检——三道逐条翻（注入扫描/禁用词索引/身份与数据域）",
+   "tag": "代码 · 字面规则"
+  }
+ },
+ {
+  "id": 4,
+  "event": "sec_check",
+  "data": {
+   "seq": 1,
+   "name": "注入扫描",
+   "result": "pass",
+   "note": "字面规则未命中"
+  }
+ },
+ {
+  "id": 5,
+  "event": "sec_check",
+  "data": {
+   "seq": 2,
+   "name": "禁用词索引",
+   "result": "pass",
+   "note": "字面规则未命中"
+  }
+ },
+ {
+  "id": 6,
+  "event": "sec_check",
+  "data": {
+   "seq": 3,
+   "name": "身份与数据域",
+   "result": "pass",
+   "note": "阿强 · 平台运维"
+  }
+ },
+ {
+  "id": 7,
+  "event": "node",
+  "data": {
+   "key": "N1",
+   "name": "统一安检",
+   "label": "统一安检",
+   "state": "finish",
+   "note": "三道全过——放行"
+  }
+ },
+ {
+  "id": 8,
+  "event": "node",
+  "data": {
+   "key": "N3",
+   "name": "轻装配",
+   "label": "轻装配",
+   "state": "process",
+   "note": "轻装配——@ 前门直取＋六路匹配器全扫全收集",
+   "tag": "代码 · 毫秒级"
+  }
+ },
+ {
+  "id": 9,
+  "event": "match",
+  "data": {
+   "matcher": "FAQ 索引",
+   "status": "miss",
+   "note": "归一化精确未命中"
+  }
+ },
+ {
+  "id": 10,
+  "event": "match",
+  "data": {
+   "matcher": "指标卡台账",
+   "status": "miss",
+   "note": "台账精确未命中"
+  }
+ },
+ {
+  "id": 11,
+  "event": "match",
+  "data": {
+   "matcher": "术语台账",
+   "status": "miss",
+   "note": "台账未命中"
+  }
+ },
+ {
+  "id": 12,
+  "event": "match",
+  "data": {
+   "matcher": "工具清单",
+   "status": "miss",
+   "note": "工具注册表未建——落空"
+  }
+ },
+ {
+  "id": 13,
+  "event": "match",
+  "data": {
+   "matcher": "分析工作流",
+   "status": "miss",
+   "note": "工作流运行时未建——落空"
+  }
+ },
+ {
+  "id": 14,
+  "event": "match",
+  "data": {
+   "matcher": "报告索引",
+   "status": "hit",
+   "confidence": "high",
+   "note": "命中《《A-W11井完井工程报告》》章节 06 第六章 施工过程记录与异常处理 ＞ 6.1 完井液漏失及堵漏（插曲一） ＞ 6.2 筛管下入遇阻（插曲二） ＞ 6.3 其他作业记录（vector 腿 · score=0.83）"
+  }
+ },
+ {
+  "id": 15,
+  "event": "node",
+  "data": {
+   "key": "N3",
+   "name": "轻装配",
+   "label": "轻装配",
+   "state": "finish",
+   "note": "六路候选：命中 1 路——共池 4 支（全扫全收集，落空进建议池）"
+  }
+ },
+ {
+  "id": 16,
+  "event": "node",
+  "data": {
+   "key": "N4",
+   "name": "装配块",
+   "label": "装配块",
+   "state": "process",
+   "note": "装配块——锚点/槽位/候选/17 链清单组卷",
+   "tag": "给裁决的呈堂材料"
+  }
+ },
+ {
+  "id": 17,
+  "event": "assembly",
+  "data": {
+   "anchor_line": null,
+   "slots": "报告＝《《A-W11井完井工程报告》》",
+   "terms": [],
+   "candidates": [
+    {
+     "matcher": "报告索引",
+     "name": "《《A-W11井完井工程报告》》章节 06 第六章 施工过程记录与异常处理 ＞ 6.1 完井液漏失及堵漏（插曲一） ＞ 6.2 筛管下入遇阻（插曲二） ＞ 6.3 其他作业记录",
+     "confidence": "high",
+     "kind": "report",
+     "note": "vector 腿 · score=0.83"
+    },
+    {
+     "matcher": "报告索引",
+     "name": "《《A-W11井完井工程报告》》章节 05 第五章 完井管柱",
+     "confidence": "high",
+     "kind": "report",
+     "note": "vector 腿 · score=0.81"
+    },
+    {
+     "matcher": "报告索引",
+     "name": "《《A-W11井完井工程报告》》章节 08 第八章 质量与 HSE ＞ 8.1 质量评价",
+     "confidence": "high",
+     "kind": "report",
+     "note": "vector 腿 · score=0.76"
+    },
+    {
+     "matcher": "报告索引",
+     "name": "《《B-渤中34-5油田躺井治理与检泵作业月报-202608》》正文 ＞ 4.1 W-22 井抽油杆断（典型案例） ＞ 4.2 W-24 井杆断（短周期案例） ＞ 4.3 其他案例摘要",
+     "confidence": "high",
+     "kind": "report",
+     "note": "vector 腿 · score=0.76"
+    }
+   ],
+   "chains": [
+    "统一安检链",
+    "状态机六站链",
+    "指标卡直出链",
+    "FAQ直出链",
+    "工具执行链",
+    "工作流执行链",
+    "检索问答链",
+    "图谱问答链",
+    "汇报生成链",
+    "大结果落盘链",
+    "Action合同链",
+    "外发拦截链",
+    "澄清反问链",
+    "口径消歧链",
+    "新鲜度闸链",
+    "行级权限链",
+    "上下文注入链"
+   ]
+  }
+ },
+ {
+  "id": 18,
+  "event": "node",
+  "data": {
+   "key": "N4",
+   "name": "装配块",
+   "label": "装配块",
+   "state": "finish",
+   "note": "装配块组卷完成——slots＝报告＝《《A-W11井完井工程报告》》"
+  }
+ },
+ {
+  "id": 19,
+  "event": "stage",
+  "data": {
+   "stage": 2
+  }
+ },
+ {
+  "id": 20,
+  "event": "node",
+  "data": {
+   "key": "N5",
+   "name": "意图裁决",
+   "label": "意图裁决",
+   "state": "process",
+   "note": "意图裁决——petro-main 分类（caller=chat.intent.verdict，超时 8s）；失败/超时/解析坏→确定性信号路由兜底（不许问挂）",
+   "tag": "意图裁决 · LLM＋兜底"
+  }
+ },
+ {
+  "id": 21,
+  "event": "verdict",
+  "data": {
+   "chain": "检索问答链",
+   "slots": "报告＝《《A-W11井完井工程报告》》",
+   "confidence": "高（模型意图裁决 0.96）",
+   "need_clarify": false,
+   "source": "llm"
+  }
+ },
+ {
+  "id": 22,
+  "event": "node",
+  "data": {
+   "key": "N5",
+   "name": "意图裁决",
+   "label": "意图裁决",
+   "state": "finish",
+   "note": "裁决输出（来源＝llm）——chain＝检索问答链 · confidence＝高（模型意图裁决 0.96）"
+  }
+ },
+ {
+  "id": 23,
+  "event": "node",
+  "data": {
+   "key": "N5b",
+   "name": "裁决核验",
+   "label": "裁决核验",
+   "state": "process"
+  }
+ },
+ {
+  "id": 24,
+  "event": "node",
+  "data": {
+   "key": "N5b",
+   "name": "裁决核验",
+   "label": "裁决核验",
+   "state": "finish",
+   "note": "chain「检索问答链」在 17 链清单内且已接线——核验通过（闭世界枚举＋注册面）"
+  }
+ },
+ {
+  "id": 25,
+  "event": "node",
+  "data": {
+   "key": "N6",
+   "name": "链路分派",
+   "label": "链路分派",
+   "state": "process",
+   "tag": "查映射表派链"
+  }
+ },
+ {
+  "id": 26,
+  "event": "node",
+  "data": {
+   "key": "N6",
+   "name": "链路分派",
+   "label": "链路分派",
+   "state": "finish",
+   "note": "已分派至「检索问答链」——后续步骤由链体执行"
+  }
+ },
+ {
+  "id": 27,
+  "event": "stage",
+  "data": {
+   "stage": 3
+  }
+ },
+ {
+  "id": 28,
+  "event": "node",
+  "data": {
+   "key": "N17",
+   "name": "检索问答",
+   "label": "检索问答",
+   "state": "process",
+   "note": "检索问答链开跑——S0–S7 瀑布逐级推进",
+   "tag": "代码 · 语义瀑布逐级推进"
+  }
+ },
+ {
+  "id": 29,
+  "event": "node",
+  "data": {
+   "key": "S0",
+   "name": "身份四要素",
+   "label": "身份四要素",
+   "state": "process"
+  }
+ },
+ {
+  "id": 30,
+  "event": "node",
+  "data": {
+   "key": "S0",
+   "name": "身份四要素",
+   "label": "身份四要素",
+   "state": "finish",
+   "note": "身份四要素确认：身份=阿强 · 平台运维 · 会话 run=run-dfaf59 · 口径版本＝当前生效配置 · 权限＝系统管理员（阶段 1 单一角色）"
+  }
+ },
+ {
+  "id": 31,
+  "event": "node",
+  "data": {
+   "key": "S1",
+   "name": "显式锚定",
+   "label": "显式锚定",
+   "state": "process"
+  }
+ },
+ {
+  "id": 32,
+  "event": "node",
+  "data": {
+   "key": "S1",
+   "name": "显式锚定",
+   "label": "显式锚定",
+   "state": "finish",
+   "note": "无 @ 锚定——进入下一级"
+  }
+ },
+ {
+  "id": 33,
+  "event": "node",
+  "data": {
+   "key": "S3",
+   "name": "词表四级",
+   "label": "词表四级",
+   "state": "process"
+  }
+ },
+ {
+  "id": 34,
+  "event": "node",
+  "data": {
+   "key": "S3",
+   "name": "词表四级",
+   "label": "词表四级",
+   "state": "finish",
+   "note": "台账精确未命中——进入双路召回"
+  }
+ },
+ {
+  "id": 35,
+  "event": "node",
+  "data": {
+   "key": "S4",
+   "name": "双路召回",
+   "label": "双路召回",
+   "state": "process"
+  }
+ },
+ {
+  "id": 36,
+  "event": "node",
+  "data": {
+   "key": "S4",
+   "name": "双路召回",
+   "label": "双路召回",
+   "state": "finish",
+   "note": "双路召回：向量 20 条＋关键词 10 条 → 合并（rrf_rank · k=60 固定推荐值） → 前 20 进精排（fast）"
+  }
+ },
+ {
+  "id": 37,
+  "event": "node",
+  "data": {
+   "key": "S5",
+   "name": "图扩展",
+   "label": "图扩展",
+   "state": "wait",
+   "note": "S5 图扩展未启用——请求直接跳过、不花开销（将来接入知识图谱扩展时在这里开闸）",
+   "skipped": true
+  }
+ },
+ {
+  "id": 38,
+  "event": "node",
+  "data": {
+   "key": "S6",
+   "name": "资格裁决",
+   "label": "资格裁决",
+   "state": "process"
+  }
+ },
+ {
+  "id": 39,
+  "event": "notice",
+  "data": {
+   "level": "info",
+   "text": "候选 20 支，仅送前 4 支进生成——另有 16 支未列出。"
+  }
+ },
+ {
+  "id": 40,
+  "event": "node",
+  "data": {
+   "key": "S6",
+   "name": "资格裁决",
+   "label": "资格裁决",
+   "state": "finish",
+   "note": "资格裁决：候选 4 支（上限 4）· 最高证据分 0.83——多候选/缺参澄清在裁决层完成（有界循环），链内直连执行"
+  }
+ },
+ {
+  "id": 41,
+  "event": "node",
+  "data": {
+   "key": "S7",
+   "name": "权威源回读",
+   "label": "权威源回读",
+   "state": "process"
+  }
+ },
+ {
+  "id": 42,
+  "event": "node",
+  "data": {
+   "key": "S7",
+   "name": "权威源回读",
+   "label": "权威源回读",
+   "state": "finish",
+   "note": "权威源回读：指标台账核对通过 · 无指标口径挂载——已正式发布且在现行目录才放行"
+  }
+ },
+ {
+  "id": 43,
+  "event": "node",
+  "data": {
+   "key": "GEN",
+   "name": "限定作答＋引用登记",
+   "label": "限定作答＋引用登记",
+   "state": "process",
+   "tag": "模型第 1 次调用"
+  }
+ },
+ {
+  "id": 44,
+  "event": "node_line",
+  "data": {
+   "key": "GEN",
+   "mark": "→",
+   "text": "模型第 1 次调用——限定作答（只按编号材料作答，不编造材料之外的事实）"
+  }
+ },
+ {
+  "id": 45,
+  "event": "node",
+  "data": {
+   "key": "GEN",
+   "name": "限定作答＋引用登记",
+   "label": "限定作答＋引用登记",
+   "state": "finish",
+   "note": "生成完成——引用登记 3 条"
+  }
+ },
+ {
+  "id": 46,
+  "event": "node",
+  "data": {
+   "key": "N17",
+   "name": "检索问答",
+   "label": "检索问答",
+   "state": "finish",
+   "note": "检索问答收束——证据 4 支 · 引用 3 条逐条核验通过"
+  }
+ },
+ {
+  "id": 47,
+  "event": "node_line",
+  "data": {
+   "key": "N17",
+   "mark": "·",
+   "text": "配置核对：三级顺序＝锚定、词表、双路 · 早停＝开（@锚定级命中即跳），S3 命中不停下级 · topK＝20/20 · 前 N＝20 · 精排＝fast · 引用格式＝page · 兜底＝fixed"
+  }
+ },
+ {
+  "id": 48,
+  "event": "token",
+  "data": {
+   "delta": "依据所给材料，回答如下：\n\n**1. SCSSV"
+  }
+ },
+ {
+  "id": 49,
+  "event": "token",
+  "data": {
+   "delta": " 下深：285.3 米** [《A-W11井完井"
+  }
+ },
+ {
+  "id": 50,
+  "event": "token",
+  "data": {
+   "delta": "工程报告》 · 章节 05 第五章 完井管柱]\n"
+  }
+ },
+ {
+  "id": 51,
+  "event": "token",
+  "data": {
+   "delta": "\n依据第五章完井管柱描述，井下安全阀 SCSSV"
+  }
+ },
+ {
+  "id": 52,
+  "event": "token",
+  "data": {
+   "delta": " 的下入深度为 285.3 米，类型为液控，地面"
+  }
+ },
+ {
+  "id": 53,
+  "event": "token",
+  "data": {
+   "delta": "功能试验合格。[《A-W11井完井工程报告》 ·"
+  }
+ },
+ {
+  "id": 54,
+  "event": "token",
+  "data": {
+   "delta": " 章节 05 第五章 完井管柱]\n\n**2. 液"
+  }
+ },
+ {
+  "id": 55,
+  "event": "token",
+  "data": {
+   "delta": "控管线长度：291.0 米** [《A-W11井"
+  }
+ },
+ {
+  "id": 56,
+  "event": "token",
+  "data": {
+   "delta": "完井工程报告》 · 章节 10 第十章 邻井完井"
+  }
+ },
+ {
+  "id": 57,
+  "event": "token",
+  "data": {
+   "delta": "情况对照]\n\n依据附录 A\"主要入井物资与用量\""
+  }
+ },
+ {
+  "id": 58,
+  "event": "token",
+  "data": {
+   "delta": "，井下安全阀 SCSSV（液控）1 套，配套液控"
+  }
+ },
+ {
+  "id": 59,
+  "event": "token",
+  "data": {
+   "delta": "管线 291.0 米。[《A-W11井完井工程报"
+  }
+ },
+ {
+  "id": 60,
+  "event": "token",
+  "data": {
+   "delta": "告》 · 章节 10 第十章 邻井完井情况对照]"
+  }
+ },
+ {
+  "id": 61,
+  "event": "token",
+  "data": {
+   "delta": "\n\n**3. 地面功能试验液控压力：34 MPa"
+  }
+ },
+ {
+  "id": 62,
+  "event": "token",
+  "data": {
+   "delta": "** [《A-W11井完井工程报告》 · 章节 "
+  }
+ },
+ {
+  "id": 63,
+  "event": "token",
+  "data": {
+   "delta": "06 第六章 施工过程记录与异常处理 ＞ 6.1"
+  }
+ },
+ {
+  "id": 64,
+  "event": "token",
+  "data": {
+   "delta": " 完井液漏失及堵漏（插曲一） ＞ 6.2 筛管下"
+  }
+ },
+ {
+  "id": 65,
+  "event": "token",
+  "data": {
+   "delta": "入遇阻（插曲二） ＞ 6.3 其他作业记录]\n\n"
+  }
+ },
+ {
+  "id": 66,
+  "event": "token",
+  "data": {
+   "delta": "依据 6.3 其他作业记录，SCSSV 功能试验"
+  }
+ },
+ {
+  "id": 67,
+  "event": "token",
+  "data": {
+   "delta": "为\"液控压力 34 MPa 开启、回零关闭，动作"
+  }
+ },
+ {
+  "id": 68,
+  "event": "token",
+  "data": {
+   "delta": "三次均正常\"。[《A-W11井完井工程报告》 ·"
+  }
+ },
+ {
+  "id": 69,
+  "event": "token",
+  "data": {
+   "delta": " 章节 06 第六章 施工过程记录与异常处理 ＞"
+  }
+ },
+ {
+  "id": 70,
+  "event": "token",
+  "data": {
+   "delta": " 6.1 完井液漏失及堵漏（插曲一） ＞ 6.2"
+  }
+ },
+ {
+  "id": 71,
+  "event": "token",
+  "data": {
+   "delta": " 筛管下入遇阻（插曲二） ＞ 6.3 其他作业记"
+  }
+ },
+ {
+  "id": 72,
+  "event": "token",
+  "data": {
+   "delta": "录]\n\n**4. 附录对二者关系的注明** [《"
+  }
+ },
+ {
+  "id": 73,
+  "event": "token",
+  "data": {
+   "delta": "A-W11井完井工程报告》 · 章节 10 第十"
+  }
+ },
+ {
+  "id": 74,
+  "event": "token",
+  "data": {
+   "delta": "章 邻井完井情况对照]\n\n附录 A 末尾加注：\""
+  }
+ },
+ {
+  "id": 75,
+  "event": "token",
+  "data": {
+   "delta": "液控管线到 SCSSV 悬挂点长度 291.0 "
+  }
+ },
+ {
+  "id": 76,
+  "event": "token",
+  "data": {
+   "delta": "米（285.3 米阀深＋地面余量），与第五章安全"
+  }
+ },
+ {
+  "id": 77,
+  "event": "token",
+  "data": {
+   "delta": "阀深 285.3 米为两个不同口径数值，引用时注"
+  }
+ },
+ {
+  "id": 78,
+  "event": "token",
+  "data": {
+   "delta": "意区分。\" [《A-W11井完井工程报告》 · "
+  }
+ },
+ {
+  "id": 79,
+  "event": "token",
+  "data": {
+   "delta": "章节 10 第十章 邻井完井情况对照]\n\n综上："
+  }
+ },
+ {
+  "id": 80,
+  "event": "token",
+  "data": {
+   "delta": "下深 285.3 米 [《A-W11井完井工程报"
+  }
+ },
+ {
+  "id": 81,
+  "event": "token",
+  "data": {
+   "delta": "告》 · 章节 05 第五章 完井管柱]、液控管"
+  }
+ },
+ {
+  "id": 82,
+  "event": "token",
+  "data": {
+   "delta": "线长度 291.0 米 [《A-W11井完井工程"
+  }
+ },
+ {
+  "id": 83,
+  "event": "token",
+  "data": {
+   "delta": "报告》 · 章节 10 第十章 邻井完井情况对照"
+  }
+ },
+ {
+  "id": 84,
+  "event": "token",
+  "data": {
+   "delta": "]、地面功能试验液控压力 34 MPa [《A-"
+  }
+ },
+ {
+  "id": 85,
+  "event": "token",
+  "data": {
+   "delta": "W11井完井工程报告》 · 章节 06 第六章 "
+  }
+ },
+ {
+  "id": 86,
+  "event": "token",
+  "data": {
+   "delta": "施工过程记录与异常处理 ＞ 6.1 完井液漏失及"
+  }
+ },
+ {
+  "id": 87,
+  "event": "token",
+  "data": {
+   "delta": "堵漏（插曲一） ＞ 6.2 筛管下入遇阻（插曲二"
+  }
+ },
+ {
+  "id": 88,
+  "event": "token",
+  "data": {
+   "delta": "） ＞ 6.3 其他作业记录]；附录明确注明 2"
+  }
+ },
+ {
+  "id": 89,
+  "event": "token",
+  "data": {
+   "delta": "91.0 米是\"阀深 285.3 米＋地面余量\""
+  }
+ },
+ {
+  "id": 90,
+  "event": "token",
+  "data": {
+   "delta": "，与第五章所述阀深 285.3 米属于两个不同口"
+  }
+ },
+ {
+  "id": 91,
+  "event": "token",
+  "data": {
+   "delta": "径数值，引用时须注意区分 [《A-W11井完井工"
+  }
+ },
+ {
+  "id": 92,
+  "event": "token",
+  "data": {
+   "delta": "程报告》 · 章节 10 第十章 邻井完井情况对"
+  }
+ },
+ {
+  "id": 93,
+  "event": "token",
+  "data": {
+   "delta": "照]。"
+  }
+ },
+ {
+  "id": 94,
+  "event": "citation",
+  "data": {
+   "ref": "c1",
+   "kind": "报告引用",
+   "label": "《A-W11井完井工程报告》 · 章节 05 第五章 完井管柱",
+   "locator": {
+    "report": "《A-W11井完井工程报告》",
+    "section": "章节 05 第五章 完井管柱",
+    "fragment_id": "f17"
+   }
+  }
+ },
+ {
+  "id": 95,
+  "event": "citation",
+  "data": {
+   "ref": "c4",
+   "kind": "报告引用",
+   "label": "《A-W11井完井工程报告》 · 章节 10 第十章 邻井完井情况对照",
+   "locator": {
+    "report": "《A-W11井完井工程报告》",
+    "section": "章节 10 第十章 邻井完井情况对照",
+    "fragment_id": "f27"
+   }
+  }
+ },
+ {
+  "id": 96,
+  "event": "citation",
+  "data": {
+   "ref": "c2",
+   "kind": "报告引用",
+   "label": "《A-W11井完井工程报告》 · 章节 06 第六章 施工过程记录与异常处理 ＞ 6.1 完井液漏失及堵漏（插曲一） ＞ 6.2 筛管下入遇阻（插曲二） ＞ 6.3 其他作业记录",
+   "locator": {
+    "report": "《A-W11井完井工程报告》",
+    "section": "章节 06 第六章 施工过程记录与异常处理 ＞ 6.1 完井液漏失及堵漏（插曲一） ＞ 6.2 筛管下入遇阻（插曲二） ＞ 6.3 其他作业记录",
+    "fragment_id": "f21"
+   }
+  }
+ },
+ {
+  "id": 97,
+  "event": "answer",
+  "data": {
+   "kind": "text",
+   "text": "依据所给材料，回答如下：\n\n**1. SCSSV 下深：285.3 米** [《A-W11井完井工程报告》 · 章节 05 第五章 完井管柱]\n\n依据第五章完井管柱描述，井下安全阀 SCSSV 的下入深度为 285.3 米，类型为液控，地面功能试验合格。[《A-W11井完井工程报告》 · 章节 05 第五章 完井管柱]\n\n**2. 液控管线长度：291.0 米** [《A-W11井完井工程报告》 · 章节 10 第十章 邻井完井情况对照]\n\n依据附录 A\"主要入井物资与用量\"，井下安全阀 SCSSV（液控）1 套，配套液控管线 291.0 米。[《A-W11井完井工程报告》 · 章节 10 第十章 邻井完井情况对照]\n\n**3. 地面功能试验液控压力：34 MPa** [《A-W11井完井工程报告》 · 章节 06 第六章 施工过程记录与异常处理 ＞ 6.1 完井液漏失及堵漏（插曲一） ＞ 6.2 筛管下入遇阻（插曲二） ＞ 6.3 其他作业记录]\n\n依据 6.3 其他作业记录，SCSSV 功能试验为\"液控压力 34 MPa 开启、回零关闭，动作三次均正常\"。[《A-W11井完井工程报告》 · 章节 06 第六章 施工过程记录与异常处理 ＞ 6.1 完井液漏失及堵漏（插曲一） ＞ 6.2 筛管下入遇阻（插曲二） ＞ 6.3 其他作业记录]\n\n**4. 附录对二者关系的注明** [《A-W11井完井工程报告》 · 章节 10 第十章 邻井完井情况对照]\n\n附录 A 末尾加注：\"液控管线到 SCSSV 悬挂点长度 291.0 米（285.3 米阀深＋地面余量），与第五章安全阀深 285.3 米为两个不同口径数值，引用时注意区分。\" [《A-W11井完井工程报告》 · 章节 10 第十章 邻井完井情况对照]\n\n综上：下深 285.3 米 [《A-W11井完井工程报告》 · 章节 05 第五章 完井管柱]、液控管线长度 291.0 米 [《A-W11井完井工程报告》 · 章节 10 第十章 邻井完井情况对照]、地面功能试验液控压力 34 MPa [《A-W11井完井工程报告》 · 章节 06 第六章 施工过程记录与异常处理 ＞ 6.1 完井液漏失及堵漏（插曲一） ＞ 6.2 筛管下入遇阻（插曲二） ＞ 6.3 其他作业记录]；附录明确注明 291.0 米是\"阀深 285.3 米＋地面余量\"，与第五章所述阀深 285.3 米属于两个不同口径数值，引用时须注意区分 [《A-W11井完井工程报告》 · 章节 10 第十章 邻井完井情况对照]。",
+   "citations": [
+    {
+     "ref": "c1",
+     "kind": "报告引用",
+     "label": "《A-W11井完井工程报告》 · 章节 05 第五章 完井管柱",
+     "locator": {
+      "report": "《A-W11井完井工程报告》",
+      "section": "章节 05 第五章 完井管柱",
+      "fragment_id": "f17"
+     }
+    },
+    {
+     "ref": "c4",
+     "kind": "报告引用",
+     "label": "《A-W11井完井工程报告》 · 章节 10 第十章 邻井完井情况对照",
+     "locator": {
+      "report": "《A-W11井完井工程报告》",
+      "section": "章节 10 第十章 邻井完井情况对照",
+      "fragment_id": "f27"
+     }
+    },
+    {
+     "ref": "c2",
+     "kind": "报告引用",
+     "label": "《A-W11井完井工程报告》 · 章节 06 第六章 施工过程记录与异常处理 ＞ 6.1 完井液漏失及堵漏（插曲一） ＞ 6.2 筛管下入遇阻（插曲二） ＞ 6.3 其他作业记录",
+     "locator": {
+      "report": "《A-W11井完井工程报告》",
+      "section": "章节 06 第六章 施工过程记录与异常处理 ＞ 6.1 完井液漏失及堵漏（插曲一） ＞ 6.2 筛管下入遇阻（插曲二） ＞ 6.3 其他作业记录",
+      "fragment_id": "f21"
+     }
+    }
+   ]
+  }
+ },
+ {
+  "id": 98,
+  "event": "done",
+  "data": {}
+ }
+]

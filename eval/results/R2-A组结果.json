@@ -1,0 +1,175 @@
+{
+  "group": "A＋系统级",
+  "libraryId": "lib-1da9920b",
+  "resultFile": "eval/results/R2-A组结果.json",
+  "ingest": {
+    "library": "评测·渤中34-5拟造报告库",
+    "bizTemplate": "completion（模板默认——semantic/keyword/wiki/graph 四开＋摘要/问题卡开，D2 配置未动）",
+    "uploadId": "up-9e7df4c4",
+    "taskId": "task-271db37c",
+    "taskState": "done",
+    "fiveSteps": "parse/chunk/embed/index/enrich 全 finish",
+    "newPipelineChecks": {
+      "kbIngestStructureCaller": "出现——gateway_spend_record 实查 caller='kb.ingest.structure' 1 次（call-0be20ba7，in 4370 / out 714 tok），P1F-05 结构图 LLM 化在位",
+      "citationSectionClean": "干净——kb_fragment 30 行 section 全部「章节 01 第一章 井基本情况」…「章节 10 第十章 邻井完井情况对照」族，章号与真实章名对齐、零正文吞并（基线 A-正7 的 section 污染消除）"
+    },
+    "report": "《A-W11井完井工程报告》单篇在库（反题测试时机成立）"
+  },
+  "method": "每题按答案册题干原句经 eval/results/tools/ask.py POST /api/chat/asks（X-Dev-User: aqiang）只问一遍、零重试零换问法，SSE 帧全量存档 eval/results/frames/R2-A-<qid>.json；系统级 4 题题干取 eval/README.md §五原句。费用归因（created_at≥21:20 实查）：kb.ingest.structure 1＋kb.ingest.questions 2＋kb.ingest.summary 1＋graph.extract 30＋chat.intent.verdict 13＋chat.retrieval.answer 13——13 问恰对 13 次生成/裁决（拦截题与 FAQ no_model 题不在内）；chat.query.rewrite 0 次（本轮无题落入低分带改写路径）。",
+  "questions": [
+    {
+      "qid": "A-正1",
+      "kind": "正题",
+      "verdict": "✅",
+      "chain": "verdict=检索问答链（llm 0.95）；N1→N3→N4→N5→N5b→N6→N17→S0→S1→S3→S4→S5(skip)→S6→S7→GEN",
+      "note": "9-5/8″＋下深 2462.0 米全对（附加钢级 N80/壁厚 10.03 亦对），未拿技术套管 1258.6/隔水管 118.5；citation→f4 章节 01＞1.2 井身结构，标签干净。",
+      "baseline": "✅",
+      "expected": "✅（回归无恙）",
+      "matchesExpected": true
+    },
+    {
+      "qid": "A-正2",
+      "kind": "正题",
+      "verdict": "✅",
+      "chain": "verdict=检索问答链（llm 0.95）；N1→…→S0→S1→S3→S4→S5(skip)→S6→S7→GEN",
+      "note": "总厚 28.0 米＋孔密 16 孔/米＋设计总孔数 448 发（28×16 自乘）全对；未把筛管缝密 320 缝/米当孔密（干扰项守住）；citation→章节 03＞3.2 射孔参数。",
+      "baseline": "✅",
+      "expected": "✅（回归无恙）",
+      "matchesExpected": true
+    },
+    {
+      "qid": "A-正3",
+      "kind": "正题",
+      "verdict": "✅",
+      "chain": "verdict=检索问答链（llm 0.92）；N1→…→S0→S1→S3→S4→S5(skip)→S6→S7→GEN",
+      "note": "钻进段 1.08/完井段 1.05/设计 1.10/下调 0.05 全对——跨章拼齐（章节 02 性能表＋章节 01 差异说明两处 citation 并引）；且诚实注明二开段无设计密度可比，未拿 1.12/邻井干扰充数。",
+      "baseline": "✅",
+      "expected": "✅（跨章综合照跑）",
+      "matchesExpected": true
+    },
+    {
+      "qid": "A-正4",
+      "kind": "正题",
+      "verdict": "✅",
+      "chain": "verdict=检索问答链（llm 0.95）——基线误派汇报生成链/工作流执行链两连，本轮原句未进任何未接线链；N5b 帧「核验通过（闭世界枚举＋注册面）」",
+      "note": "P1F-01 生效：原句直达检索链；精密冲缝筛管（Star-PS）＋150 微米＋两理由（渗透率变异系数 0.42／充填占船日 3.5 天不经济）＋20/40 目应急预案全中；未把缝密 320 当精度；citation→4.2。",
+      "baseline": "⚠️",
+      "expected": "✅（原句进检索链，4.2 节类型/精度/两条理由有机会作答）",
+      "matchesExpected": true
+    },
+    {
+      "qid": "A-正5",
+      "kind": "正题",
+      "verdict": "⚠️",
+      "chain": "verdict=检索问答链（llm 0.98）；S3 帧「台账精确未命中——进入双路召回」（词表级命中不停下级——P1F-03 新语义在位）；S4 双路召回照跑、S6 帧「候选 4 支（上限 4）」＋notice「候选 20 支，仅送前 4 支进生成」",
+      "note": "6.1 漏失一起全对（115 m³＋漏失层段 2405～2412＋堵漏浆配方＋漏速降至 0.3 m³/h 以下）；但第二起答成「工期超期」——6.2 筛管遇阻（2410 米/超下压 40 kN/冲洗 45 分钟）未进前 4 生成窗，按判分口径「漏一起⚠️」；未混入封隔器二次坐封/W-07 史。预期带 ⚠️~✅ 的下沿，清单预判的 fast 档生成窗容量风险兑现。",
+      "baseline": "⚠️",
+      "expected": "⚠️~✅（S3 早停拆后 6.2 筛管遇阻可检索；前 4 支生成窗仍 fast 档容量——判分可上可下，如实记）",
+      "matchesExpected": true
+    },
+    {
+      "qid": "A-正6",
+      "kind": "正题",
+      "verdict": "✅",
+      "chain": "verdict=检索问答链（llm 0.95）；N1→…→S0→S1→S3→S4→S5(skip)→S6→S7→GEN",
+      "note": "观察井/不承担生产/油藏压力监测/注水推进观察全对（附压力计 2026-06 下放）；W-11/W-111 近名未混淆，未把 W-11 生产参数安到 W-111；citation→1.1 井位与井别。",
+      "baseline": "✅",
+      "expected": "✅（回归无恙）",
+      "matchesExpected": true
+    },
+    {
+      "qid": "A-正7",
+      "kind": "正题",
+      "verdict": "✅",
+      "chain": "verdict=检索问答链（llm 0.92）；N1→…→S0→S1→S3→S4→S5(skip)→S6→S7→GEN",
+      "note": "386 m³/d＋压差 1.85 MPa＋采油指数 208.6 三数全对，未拿 8 mm 的 96/10 mm 的 214；citation→章节 07 诱导求产与初期产能——章节标签干净（基线 ⚠️ 的 section 元数据污染经 P1F-05 重建库消除）。",
+      "baseline": "⚠️",
+      "expected": "✅（citation 标签干净（章号对）；答案三数本已对）",
+      "matchesExpected": true
+    },
+    {
+      "qid": "A-正8",
+      "kind": "正题",
+      "verdict": "✅",
+      "chain": "verdict=检索问答链（llm 0.95）；N1→…→S0→S1→S3→S4→S5(skip)→S6→S7→GEN",
+      "note": "初期 291 m³/d＋现递减 96 m³/d＋含水 71.4% 双高全对；未拿同表 W-09 的 402（干扰守住）；citation→章节 10 邻井对照表。",
+      "baseline": "✅",
+      "expected": "✅（回归无恙）",
+      "matchesExpected": true
+    },
+    {
+      "qid": "A-反1",
+      "kind": "反题",
+      "verdict": "✅",
+      "chain": "verdict=检索问答链（llm 0.96）；S6 最高证据分 0.91 过闸后生成端诚实作答（非兜底路径）",
+      "note": "明说「未提及造斜点深度」，列出的可查参数（井深/垂深/油层中深）均非所问、零编造；给出查证指引不扣分（判分口径：明说未提及✅）。",
+      "baseline": "✅",
+      "expected": "✅（拒答/明说未提及，绝不编造深度）",
+      "matchesExpected": true
+    },
+    {
+      "qid": "A-反2",
+      "kind": "反题",
+      "verdict": "✅",
+      "chain": "verdict=检索问答链（llm 0.92）；N1→…→S3→S4→S5(skip)→S6→S7→GEN",
+      "note": "强诱惑守住：明说「未收录 W-12 井的任何资料」并点明在库仅 W-07/W-09/W-11——291/402/386 任一数字未出现；citation→章节 10（引用正当）。",
+      "baseline": "✅",
+      "expected": "✅（明说没有 W-12，不给 291/402）",
+      "matchesExpected": true
+    },
+    {
+      "qid": "A-反3",
+      "kind": "反题",
+      "verdict": "✅",
+      "chain": "verdict=检索问答链（llm 0.95）；S3 帧「台账完全一致命中：躺井——词表级命中不停下级（词条材料随装配进生成，S4/S5 照跑）」（P1F-03 新语义帧证据）",
+      "note": "零编造：明说材料无任何躺井率预测；词条卡在场但未被拿来冒充数据、未给任何百分数（4.5% 未出现）；c1 台账卡引用正当。",
+      "baseline": "✅",
+      "expected": "✅（拒答/明说无据，不给具体百分数）",
+      "matchesExpected": true
+    },
+    {
+      "qid": "系统-禁用词",
+      "kind": "系统级",
+      "verdict": "✅",
+      "chain": "N1 统一安检 finish「禁用词索引命中『老完成率』——拦截，链路终止」；N1→N2b 终止（无 verdict/无链分派）",
+      "note": "拦截话术带「产量完成率（Σ实际产油÷Σ计划配产，Owner：开发室）」出路指引；审计留痕实查：audit_log 两行 chat.ask.blocked（run-4ee84c 等）。回归无恙。",
+      "baseline": "✅",
+      "expected": "✅（拦截留痕回归）",
+      "matchesExpected": true
+    },
+    {
+      "qid": "系统-躺井术语",
+      "kind": "系统级",
+      "verdict": "✅",
+      "chain": "verdict=检索问答链（llm 0.95）——基线误派 FAQ直出链，本轮不再；S3 帧「台账完全一致命中：躺井（词表级命中不停下级）」；N5b 注册面核验通过",
+      "note": "基线 ❌ 转出（P1F-02 生效）：定义直出台账卡——「停产待检泵」＋状态标注原样带出（「作业区口语，仅在作业区语境下有效」即「限作业区语境」），再并列数据指引；兜底谎称「没有找到」未复现。",
+      "baseline": "❌",
+      "expected": "✅（定义直出台账卡（含『限作业区语境』标注）；或兜底改口含『台账有收录』）",
+      "matchesExpected": true
+    },
+    {
+      "qid": "系统-日产液届满",
+      "kind": "系统级",
+      "verdict": "⚠️",
+      "chain": "verdict=检索问答链（llm 0.95）；S3 帧「台账完全一致命中：日产液——词表级命中不停下级」；c1=台账「日产液」（section=术语台账）＋c2=章节 07",
+      "note": "链路已正（基线 ❌ 的误派 FAQ 链＋兜底谎称未复现；台账卡 def「作业区口语缩写」进答案＋数据指引诚实分列），但清单载明「必须出现」的「已届满（2026-06-30）」标注在答案与全部帧中均未出现——材料层派生串应为「2026-06-30（已届满）」（chains.py:801-803 拼卡、semantics/domain.py:636-637 派生、sem_term.status_key=有效（已届满）/expires_at=2026-06-30 实查），模型未原样带出＝生成端软失败。基线 ❌→⚠️ 好转但未达预期 ✅。",
+      "baseline": "❌",
+      "expected": "✅（定义直出台账卡＋「已届满（2026-06-30）」标注必须出现）",
+      "matchesExpected": false
+    },
+    {
+      "qid": "系统-FAQ秒回",
+      "kind": "系统级",
+      "verdict": "✅",
+      "chain": "verdict=FAQ直出链（FAQ 精确命中——直出）；N18 帧「命中『N-02 井是什么时候投产的？』——策展答案直出（no_model——未调用模型）」；N1→N3→N4→N5→N5b→N6→N18",
+      "note": "no_model:true 三证齐全（answer 帧 no_model 字段＋N18 帧注记＋费用面：13 问恰对 13 次 chat.retrieval.answer/intent.verdict，本题不在其中）；答案 2019-06-15＋citation faq-4。回归无恙。",
+      "baseline": "✅",
+      "expected": "✅（no_model:true 三证回归）",
+      "matchesExpected": true
+    }
+  ],
+  "passCount": 13,
+  "warnCount": 2,
+  "failCount": 0,
+  "notable": "新 caller=kb.ingest.structure 在入库期实跑出现（1 次，4370/714 tok——P1F-05 结构图 LLM 化在位），30 行片段 section 标签全部「章节 NN＋真实章名」零污染（A-正7 基线 ⚠️ 消除）；15 题零误派未接线壳链（P1F-01）、两道术语基线 ❌ 全部转出；唯二缺口＝A-正5 的 6.2 遇阻未进前 4 生成窗（漏一起 ⚠️，清单预判的 fast 档容量风险）与日产液届满标注未随答案原样带出（⚠️，生成端未把材料层「2026-06-30（已届满）」带出）。"
+}
