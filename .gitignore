@@ -25,3 +25,15 @@ web/dist/
 # 嵌套独立仓（数据面，独立服务独立 git）
 data-plane/
 .scratch/
+
+# 双窗口调度运行态（协议本体 PROTOCOL.md/watch.sh 进 git——见 dispatch/）
+dispatch/enabled
+dispatch/journal.jsonl
+dispatch/pending/
+dispatch/results/
+dispatch/done/
+dispatch/rejected/
+dispatch/decisions/
+
+# 评测草稿（未定稿产物，不入库）
+eval/results/drafts/
