@@ -36,7 +36,9 @@ WRITE_BACKS = {
     "modules": re.compile(r"(modules\.md|模块卡)[:：].*(已回写|无变更|不涉及)", re.I),
     "CONTEXT": re.compile(r"CONTEXT\.md[:：].*(已回写|无变更|不涉及)", re.I),
     "lessons": re.compile(r"lessons?/[:：].*(已回写|无变更|不涉及|施工日志)", re.I),
-    "架构投影": re.compile(r"(架构投影|arch-notes|architecture-)[:：].*(已回写|无变更|不涉及)", re.I),
+    "架构投影": re.compile(
+        r"(架构投影|arch-notes|architecture-)[:：].*(已回写|无变更|不涉及)", re.I
+    ),
 }
 DEBT_WORD = re.compile(r"挂账|归后续|待.*批|缓做|留待")
 OWNERSHIP = re.compile(r"归属[:：]\s*\S")
@@ -55,7 +57,11 @@ def check_report(text: str, name: str) -> None:
         if not rx.search(text):
             FAILS.append(f"{name}: 回写五样缺「{label}」行的已回写/无变更标注")
     for m in DEBT_WORD.finditer(text):
-        line = text[m.start():text.find("\n", m.start()) if text.find("\n", m.start()) != -1 else len(text)]
+        line = text[
+            m.start():text.find("\n", m.start())
+            if text.find("\n", m.start()) != -1
+            else len(text)
+        ]
         if not OWNERSHIP.search(line):
             FAILS.append(f"{name}: 挂账行无「归属：X」收尾 —— {line.strip()[:60]}")
     if not VERDICT_SECTION.search(text):

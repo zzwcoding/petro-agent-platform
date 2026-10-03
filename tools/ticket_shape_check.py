@@ -54,7 +54,10 @@ def check(text: str, name: str) -> None:
     for m in SCHEME_HANDOFF.finditer(text):
         FAILS.append(f"{name}: 含方案决策授权词「{m.group(0)}」——方案决策属拆票（L0），不许下放")
     if CROSS_DOMAIN.search(text) and not MID_REVIEW_DECLARED.search(text):
-        FAILS.append(f"{name}: 声明跨域/大改却未预挂「中途审查拍」（T3 触发线，ticket-gates.md 闸三）")
+        FAILS.append(
+            f"{name}: 声明跨域/大改却未预挂「中途审查拍」"
+            "（T3 触发线，ticket-gates.md 闸三）"
+        )
 
 
 def main() -> int:
