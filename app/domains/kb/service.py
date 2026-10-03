@@ -9,6 +9,10 @@ library_activities / record_activity（B9 例外族写口，供 P1-04/P1-05 事�
 管线编排（00 §5 异步任务惯例——gateway drill 先例同构）：
 - 任务体＝进程内 asyncio task；受理（confirm）即落行开跑、200 同步返回（B1 特例）；
 - 五步推进写 nodes jsonb＋current_step（note 服务端按 config_snapshot 组装）；
+- 结构图（P1F-05 方案 A）：chunk 步前 LLM 结构提取（caller=kb.ingest.structure，
+  每篇一次）＋逐字校验防幻觉（miss 整图作废）＋复合规则复检（越条件单行剔除）
+  ＋纯规则独立回退（warning 留痕、入库不阻塞）＋版本级缓存（正文 sha256 键绑定，
+  落 structure_snapshot 任务快照列——同版本重入零 LLM、片段集字节级一致）；
 - 失败＝按阶段定位（stop_at＝五步短名）＋人话原因（不发明错误码数字——F32 红线）；
   failed 的 current_step＝stop_at 对应步序号（B1 更正项⑪）；
 - 跳过＝配置性支路不跑不花钱（semantic 关→不写向量；keyword 关→不建倒排；
@@ -22,6 +26,7 @@ library_activities / record_activity（B9 例外族写口，供 P1-04/P1-05 事�
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -61,6 +66,8 @@ LOGGER = logging.getLogger("domains.kb")
 # LLM 出口（B6）：别名照 P1-00 拍板基线（起草/生成一律 petro-main）。
 ROUTE_ALIAS = "petro-main"
 INGEST_ALIAS = "petro-main"
+# 结构图提取 caller（P1F-05 方案 A——gateway 记账按此归因、SpendRecord 落列）。
+STRUCTURE_CALLER = "kb.ingest.structure"
 
 
 class Completer(Protocol):
@@ -1540,7 +1547,13 @@ class KbService:
             assert report is not None
             data = await self._storage.get_bytes(report.object_key)
             text = data.decode("utf-8", errors="replace")
-            pieces = d.chunk_text(text, str(snapshot["mode"]))
+            mode = str(snapshot["mode"])
+            # 结构图（P1F-05 方案 A）：smart/mixed 支路边界由图供给；fixed 不需
+            # 图、不提取不花钱。LLM 侧任何失败回退纯规则，入库不阻塞（F32 同款）。
+            structure = (
+                await self._structure_map_for(row, text) if mode != "fixed" else None
+            )
+            pieces = d.chunk_text(text, mode, structure=structure)
             if not pieces:
                 raise RuntimeError("切段结果为空——报告无可索引正文")
             await self._persist_chunks(row.report_id, pieces)
@@ -1607,6 +1620,97 @@ class KbService:
                     )
                 )
         await self._fragments.replace_report_fragments(report_id, rows, versions)
+
+    # ---------- 结构图（P1F-05 方案 A：LLM 出图＋代码守门＋版本级缓存） ----------
+
+    async def _structure_map_for(self, row: IngestTaskRow, text: str) -> d.StructureMap:
+        """结构图定稿：版本缓存 → LLM 图（逐字校验→规则复检）→ 纯规则回退。
+
+        - 缓存键绑定＝正文 sha256（内容同＝版本同）：同版本重入直接复用、
+          零 LLM 调用、片段集字节级一致（票面验收 d）；
+        - LLM 不可用/超时/JSON 坏/逐字校验不过 → 回退复合规则（独立可用），
+          warning 留痕，入库不阻塞（F32 子任务失败不阻塞整卷同款语义）；
+        - 定稿图随版本落任务快照列（structure_snapshot——运行失败可重入续用）。
+        """
+        text_sha = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        cached = await self._cached_structure(row, text_sha)
+        if cached is not None:
+            # 命中即复用（零 LLM）；图同步落到本任务快照列——重入任务行自持同版图。
+            await self._save_structure_snapshot(row, text_sha, cached)
+            return cached
+        lines = text.splitlines()
+        headings = await self._llm_structure_headings(row, lines)
+        if headings:
+            mapping = d.validate_structure_map(headings, lines)
+            if mapping is not None:
+                mapping = d.refine_structure_map(mapping, lines)
+                await self._save_structure_snapshot(row, text_sha, mapping)
+                return mapping
+            LOGGER.warning(
+                "kb 结构图逐字校验不过（疑似幻觉）task=%s——整图作废，回退规则图", row.id
+            )
+        mapping = d.rule_structure_map(text)
+        await self._save_structure_snapshot(row, text_sha, mapping)
+        return mapping
+
+    async def _cached_structure(
+        self, row: IngestTaskRow, text_sha: str
+    ) -> d.StructureMap | None:
+        """同报告既有任务的版本级缓存（新→旧扫首个 sha 命中；排除当前任务行）。
+
+        键绑定严密性：比对正文 sha256 而非 report_id——同报告换内容（重传/换版）
+        不命中，宁可重提取不误用旧图。
+        """
+        prev_tasks = await self._tasks.list_for_report(
+            row.report_id, exclude_task_id=row.id
+        )
+        for prev in prev_tasks:
+            mapping = d.StructureMap.from_snapshot(prev.structure_snapshot)
+            if mapping is not None and prev.structure_snapshot is not None:
+                if prev.structure_snapshot.get("text_sha256") == text_sha:
+                    return mapping
+        return None
+
+    async def _llm_structure_headings(
+        self, row: IngestTaskRow, lines: list[str]
+    ) -> list[d.HeadingLine]:
+        """LLM 结构图单呼（每篇入库恰好一次；caller=kb.ingest.structure 计费归因）。
+
+        提示词要求只输出文档真实存在的标题行（逐字照抄）；不可用/超时/JSON 坏/
+        逐行文本超提示词上限 → []（回退规则图，warning 留痕）。
+        """
+        numbered = "\n".join(f"{i + 1} {line}" for i, line in enumerate(lines))
+        if len(numbered) > d.STRUCTURE_PROMPT_MAX_CHARS:
+            LOGGER.warning(
+                "kb 结构图逐行文本超提示词上限 task=%s——直接走规则图", row.id
+            )
+            return []
+        prompt = d.STRUCTURE_PROMPT_TEMPLATE.format(numbered=numbered)
+        try:
+            completion = await asyncio.wait_for(
+                self._gateway.complete(
+                    INGEST_ALIAS,
+                    [{"role": "user", "content": prompt}],
+                    caller=STRUCTURE_CALLER,
+                ),
+                timeout=d.STRUCTURE_TIMEOUT_SECONDS,
+            )
+        except Exception as exc:
+            LOGGER.warning(
+                "kb 结构图 LLM 不可用 task=%s：%s——回退规则图", row.id, exc
+            )
+            return []
+        headings = d.parse_structure_json(completion.content)
+        if not headings:
+            LOGGER.warning("kb 结构图应答不可解析 task=%s——回退规则图", row.id)
+        return headings
+
+    async def _save_structure_snapshot(
+        self, row: IngestTaskRow, text_sha: str, mapping: d.StructureMap
+    ) -> None:
+        """定稿图落任务快照列（立刻持久——后续步失败重入也零 LLM 续用）。"""
+        row.structure_snapshot = mapping.to_snapshot(text_sha)
+        await self._tasks.save(row)
 
     async def _embed_report(self, report_id: str) -> None:
         frags = [f for f in await self._fragments.for_report(report_id) if not f.is_parent_only]

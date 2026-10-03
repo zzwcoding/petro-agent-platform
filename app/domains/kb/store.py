@@ -185,6 +185,10 @@ class IngestTaskRow(Base):
     nodes: Mapped[list[dict[str, Any]]] = mapped_column(_J, nullable=False)
     config_snapshot: Mapped[dict[str, Any]] = mapped_column(_J, nullable=False)
     extract_snapshot: Mapped[dict[str, Any] | None] = mapped_column(_J, nullable=True)
+    # 结构图版本级缓存（P1F-05 方案 A——键绑定正文 sha256，同版本重入零 LLM）。
+    # 快照字段新增系票面边界明示例外；PG 存量库列形随 Alembic 增列（迁移需求
+    # 已回报 P-007 票面，不许自加——99 §2.5 列清单增列随设计仓对齐批）。
+    structure_snapshot: Mapped[dict[str, Any] | None] = mapped_column(_J, nullable=True)
     started_at: Mapped[datetime] = mapped_column(nullable=False)
     finished_at: Mapped[datetime | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=now, nullable=False)
@@ -588,6 +592,28 @@ class TaskStore:
                 .all()
             )
         return rows[0] if rows else None
+
+    async def list_for_report(
+        self, report_id: str, *, exclude_task_id: str
+    ) -> list[IngestTaskRow]:
+        """同报告既有任务（新→旧；排除当前任务行）——结构图版本级缓存查找面
+        （P1F-05：首个 text_sha256 命中即复用，零 LLM 重入）。"""
+        async with self._db.readonly() as session:
+            rows = (
+                (
+                    await session.execute(
+                        select(IngestTaskRow)
+                        .where(
+                            IngestTaskRow.report_id == report_id,
+                            IngestTaskRow.id != exclude_task_id,
+                        )
+                        .order_by(IngestTaskRow.started_at.desc(), IngestTaskRow.id.desc())
+                    )
+                )
+                .scalars()
+                .all()
+            )
+        return list(rows)
 
     async def mark_stale_stuck(self, *, before: datetime, summary: str) -> int:
         """stuck 收口：running 且 updated_at 早于 before 的任务置 stuck（幂等）。"""

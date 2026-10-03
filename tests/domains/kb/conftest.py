@@ -3,6 +3,9 @@
 - FakeObjectStorage：内存字典；presign_put 仅登记待传 key（不落内容——
   「对象已落桶」由测试显式 put 模拟客户端直传，未 put 即 confirm 409 判据）。
 - StubCompleter：按 caller 脚本应答（kb.route/kb.ingest.summary/kb.ingest.questions）。
+  未脚本化的 kb.ingest.structure（P1F-05 结构图）缺省应答不可解析——走纯规则
+  回退路径（该回退本身是入库不阻塞的合同语义）；需要 LLM 图路径的用例见
+  test_kb_structure_map.py 自带 ScriptedCompleter。
 """
 
 from collections.abc import AsyncIterator, Callable

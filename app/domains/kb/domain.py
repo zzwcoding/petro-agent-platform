@@ -14,7 +14,8 @@
   B2/P1-04、kb_extract_config 归 derivatives/P1-05）＋向量列落位注记
   （ADR-0003 裁决 1：pgvector；维度 P1-11 回填＝embo-01 1536）。
 
-B1：本文件不 import fastapi/starlette/DB/LLM——切段器、分词、向量语义件、
+B1：本文件不 import fastapi/starlette/DB/LLM——切段器、结构图（LLM 应答解析/
+逐字校验/规则复检为纯语义，LLM 触达在 service 编排）、分词、向量语义件、
 节点说明组装、模板配置档、路由建议解析都是纯语义；IO 归 store（PG/对象
 存储）/service（编排）。
 """
@@ -286,6 +287,198 @@ def _section_of(line: str) -> tuple[int, str] | None:
     return (1 if depth == 1 else 2, title)
 
 
+# ---------- 结构图（P1F-05 方案 A：LLM 出图＋逐字校验＋复合规则守门） ----------
+#
+# Owner 2026-10-03 拍板混合架构：入库结构图＝LLM 理解产出（只认文档真实标题行）
+# ＋逐字校验防幻觉（任一 miss 整图作废）＋复合规则复检（越四条件单行剔除）＋
+# 纯规则独立回退（LLM 不可用不阻塞入库）；机械切块语义不动（尺寸带/重叠/打包
+# 常量同源）。合同锚：B1 智能切段「按章节和语义边界切」——本节只改「章节边界
+# 由谁供给」，切段参数 256–1024/10–20% 为合同冻结值原样。
+
+
+@dataclass(frozen=True, slots=True)
+class HeadingLine:
+    """结构图标题行（line_no＝0 基 splitlines 索引；title＝该行 strip 后原文；
+    level 1＝章级、2＝节级——_section_of 点分级同口径）。"""
+
+    line_no: int
+    title: str
+    level: int
+
+
+@dataclass(frozen=True, slots=True)
+class StructureMap:
+    """文档结构图（标题行号/标题文本/层级——chunk_text smart/mixed 支路的边界源）。
+
+    source 两值：`llm`（LLM 图——逐字校验＋规则复检后定稿）｜`rules`（纯规则图
+    ——复合规则独立产出，LLM 不可用回退面）。行号必须对准切段用的同一 text
+    （splitlines 索引）——快照 roundtrip 经 to_snapshot/from_snapshot。
+    """
+
+    headings: tuple[HeadingLine, ...]
+    source: str
+
+    def to_snapshot(self, text_sha256: str) -> dict[str, Any]:
+        """任务快照列形（kb_ingest_task.structure_snapshot——版本级缓存）。"""
+        return {
+            "text_sha256": text_sha256,
+            "source": self.source,
+            "headings": [
+                {"line_no": h.line_no, "title": h.title, "level": h.level}
+                for h in self.headings
+            ],
+        }
+
+    @classmethod
+    def from_snapshot(cls, payload: Any) -> StructureMap | None:
+        """快照还原（形状坏/键型不合法 → None——调用方重走提取，不硬凑）。"""
+        if not isinstance(payload, dict):
+            return None
+        sha = payload.get("text_sha256")
+        source = payload.get("source")
+        rows = payload.get("headings")
+        if not isinstance(sha, str) or source not in ("llm", "rules"):
+            return None
+        if not isinstance(rows, list):
+            return None
+        headings: list[HeadingLine] = []
+        for row in rows:
+            if not isinstance(row, dict):
+                return None
+            no, title, level = row.get("line_no"), row.get("title"), row.get("level")
+            if not isinstance(no, int) or isinstance(no, bool) or no < 0:
+                return None
+            if not isinstance(title, str) or level not in (1, 2):
+                return None
+            headings.append(HeadingLine(line_no=no, title=title, level=level))
+        return cls(headings=tuple(headings), source=source)
+
+
+# 复合规则参数（票面四条件）：标题行长上限 40 字——超长标题归正文的不对称取舍。
+HEADING_MAX_CHARS = 40
+# 表格特征（f42 形态守门）：全角空格连续格（列对齐）／多空格数字格（ASCII 连续
+# 空格接数字列、全角空格格间数字——月报表格行「2026　7　4.5%」形）。
+_TABLE_FEATURE_RE = re.compile(r"\u3000\u3000| {2,}\d|\d[　]\d")
+# 行尾句读（正文句证据——标题不以句号类收尾）。
+_TAIL_SENTENCE_RE = re.compile(r"[。；！？!?;]\s*$")
+
+# 结构图 LLM 单呼口径：有界超时（chat INTENT_VERDICT_TIMEOUT_SECONDS 同款纪律）
+# 与逐行文本进提示词上限（超限不提取、直接走规则图——行号完整性优先于覆盖面）。
+STRUCTURE_TIMEOUT_SECONDS = 30.0
+STRUCTURE_PROMPT_MAX_CHARS = 20000
+
+STRUCTURE_PROMPT_TEMPLATE = """你是油田报告结构分析助手。
+下面给你一份报告的逐行文本，每行以行号开头。
+请识别文档中真实的章节标题行：章级标题（如「1 概述」「第一章 完井工程」）
+与节级标题（如「1.1 井身结构」）。
+规则：
+- 只输出文档中真实存在的标题行：title 必须逐字照抄该行原文，
+  不得改写、概括或新增文档没有的标题；
+- 正文长句、表格行（数字格）不是标题，不要输出；
+- level：章级＝1，节级＝2；line_no＝该行的行号（从 1 起）。
+只输出 JSON（不要多余文字）：
+{{"headings": [{{"line_no": 1, "title": "标题行原文", "level": 1}}]}}
+逐行文本：
+{numbered}
+"""
+
+
+def is_heading_line(line: str) -> bool:
+    """复合规则四条件（纯函数、独立可用——规则回退图与 LLM 图复检共用）：
+
+    ①标题形（_HEADING_RE 分支命中）；②行长 ≤HEADING_MAX_CHARS；
+    ③行尾无句读（。；！？——正文句证据）；④无表格特征（全角空格连续格/
+    多空格数字格——f42 表格行形）。
+    """
+    stripped = line.strip()
+    if not stripped or len(stripped) > HEADING_MAX_CHARS:
+        return False
+    if _section_of(stripped) is None:
+        return False
+    if _TAIL_SENTENCE_RE.search(stripped):
+        return False
+    return _TABLE_FEATURE_RE.search(stripped) is None
+
+
+def _heading_from_line(line: str, line_no: int) -> HeadingLine | None:
+    info = _section_of(line.strip())
+    if info is None or not is_heading_line(line):
+        return None
+    return HeadingLine(line_no=line_no, title=line.strip(), level=info[0])
+
+
+def rule_structure_map(text: str) -> StructureMap:
+    """复合规则独立出图（LLM 不可用/整图作废的回退面——规则面单独有测）。"""
+    headings = tuple(
+        h
+        for i, line in enumerate(text.splitlines())
+        if (h := _heading_from_line(line, i)) is not None
+    )
+    return StructureMap(headings=headings, source="rules")
+
+
+def parse_structure_json(raw: str) -> list[HeadingLine]:
+    """解析 LLM 结构应答（宽容：剥代码围栏/前后杂文——chat _parse_intent_json
+    同款纪律）。行号 1 基转 0 基；形状坏/无 JSON/任一行键型不合法 → []（整图
+    作废口径，调用方回退规则图）。逐字校验在 validate_structure_map。"""
+    text = raw.strip()
+    if text.startswith("```"):
+        text = text.strip("`")
+        if text.startswith("json"):
+            text = text[4:]
+    start, end = text.find("{"), text.rfind("}")
+    if start < 0 or end <= start:
+        return []
+    try:
+        payload = json.loads(text[start : end + 1])
+    except ValueError:
+        return []
+    if not isinstance(payload, dict):
+        return []
+    rows = payload.get("headings")
+    if not isinstance(rows, list):
+        return []
+    headings: list[HeadingLine] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            return []
+        no, title, level = row.get("line_no"), row.get("title"), row.get("level")
+        if not isinstance(no, int) or isinstance(no, bool):
+            return []
+        if not isinstance(title, str) or level not in (1, 2):
+            return []
+        headings.append(HeadingLine(line_no=no - 1, title=title.strip(), level=level))
+    return headings
+
+
+def validate_structure_map(
+    headings: list[HeadingLine], lines: list[str]
+) -> StructureMap | None:
+    """逐字校验（防幻觉硬闸）：每张标题必须逐字命中文档真实行——任一 miss →
+    None（整张作废，调用方回退规则图）。
+
+    匹配口径：strip 后整行精确等值——不剥标点、不做子串/模糊匹配；行号本身
+    也是校验对象（越界/指错行/重复行号同作废——幻觉与错位都按整图作废处置）。
+    """
+    seen: set[int] = set()
+    ordered = sorted(headings, key=lambda h: h.line_no)
+    for h in ordered:
+        if h.line_no < 0 or h.line_no >= len(lines) or h.line_no in seen:
+            return None
+        seen.add(h.line_no)
+        if lines[h.line_no].strip() != h.title:
+            return None
+    return StructureMap(headings=tuple(ordered), source="llm")
+
+
+def refine_structure_map(m: StructureMap, lines: list[str]) -> StructureMap:
+    """复合规则复检（双重保障）：逐字校验过的图再过四条件——通不过的行单行
+    剔除（降级为正文）而非整图作废；与逐字校验两种处置分立（幻觉＝作废、
+    越规则＝保守剔除）。"""
+    kept = tuple(h for h in m.headings if is_heading_line(lines[h.line_no]))
+    return StructureMap(headings=kept, source=m.source)
+
+
 def _pack(
     paragraphs: list[str],
     *,
@@ -335,16 +528,21 @@ def _pack(
     return chunks
 
 
-def chunk_text(text: str, mode: str) -> list[tuple[str, str]]:
+def chunk_text(
+    text: str, mode: str, structure: StructureMap | None = None
+) -> list[tuple[str, str]]:
     """切段：返回 [(section_path, chunk_text)]。
 
     - smart：按章节/语义边界切，一段 256–1024 字，相邻段重叠 10–20%；
     - fixed：每段等长（512 字硬切——句子可能被拦腰斩断，MODE_TEXT 同象）；
     - mixed：父子分块（F30）——父块＝章级大段（只入库不索引），子块由
       smart 打包；section 路径对子块标注父块锚。
+    - structure（P1F-05 方案 A）：章节边界由结构图供给（LLM 理解＋逐字校验＋
+      复合规则复检的定稿图，或复合规则独立图）；缺省按复合规则独立识别。
+      图的 line_no 必须对准本函数收到的同一 text（splitlines 索引）。
+      机械切块语义不动：尺寸带/重叠/片段 ID/父子打包全走既有同源常量。
     """
-    text = text.strip()
-    if not text:
+    if not text.strip():
         return []
     lines = text.splitlines()
     if mode == "fixed":
@@ -353,17 +551,19 @@ def chunk_text(text: str, mode: str) -> list[tuple[str, str]]:
         for i in range(0, len(flat), FIXED_CHUNK_CHARS):
             out.append(("正文", flat[i : i + FIXED_CHUNK_CHARS]))
         return out
+    map_ = structure if structure is not None else rule_structure_map(text)
+    heading_at = {h.line_no: h for h in map_.headings}
     if mode == "mixed":
         # 父块＝章级段（标题及其后内容至下一章级标题）；无章级标题则整篇一父块。
         parents: list[tuple[str, str]] = []
         current_title = "正文"
         current: list[str] = []
-        for line in lines:
-            info = _section_of(line)
-            if info is not None and info[0] == 1:
+        for i, line in enumerate(lines):
+            heading = heading_at.get(i)
+            if heading is not None and heading.level == 1:
                 if current:
                     parents.append((current_title, "\n".join(current)))
-                current_title = info[1]
+                current_title = heading.title
                 current = [line]
             else:
                 current.append(line)
@@ -391,16 +591,16 @@ def chunk_text(text: str, mode: str) -> list[tuple[str, str]]:
     current_title = "正文"
     current_lines: list[str] = []
     chapter_no = 0
-    for line in lines:
-        info = _section_of(line)
-        if info is not None:
+    for i, line in enumerate(lines):
+        heading = heading_at.get(i)
+        if heading is not None:
             if current_lines:
                 sections.append((current_title, current_lines))
-            if info[0] == 1:
+            if heading.level == 1:
                 chapter_no += 1
-                current_title = f"章节 {chapter_no:02d} {info[1]}"
+                current_title = f"章节 {chapter_no:02d} {heading.title}"
             else:
-                current_title = f"{current_title} ＞ {info[1]}"
+                current_title = f"{current_title} ＞ {heading.title}"
             current_lines = [line]
         else:
             current_lines.append(line)
