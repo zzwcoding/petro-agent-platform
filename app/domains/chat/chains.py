@@ -9,8 +9,11 @@
   上限＋refuse_threshold 拒答判定）→ S7 权威源回读（指标台账核对）→ GEN 限定
   作答（petro-main）→ citation fail-closed（伪造/失锚引用拦截丢弃，绝不带病出帧）
   → N17 收束。命中即停：上级命中即跳过下级检索级（关＝逐级全跑）；S0/S2/S6/S7
-  不受早停影响。兜底两策：检索全空/低于低分线 → fixed 文案或 free＋「未依据报告
-  库」标注。
+  不受早停影响。词条卡一等材料（P1F-02）：装配层 term_cards 常驻随行，生成步
+  以「术语台账收录：…」材料块并入 user 消息（在证据支材料之前），定义先行规则
+  在 GEN 系统提示。兜底两策：检索全空/低于低分线 → fixed 文案或 free＋「未依据
+  报告库」标注；fixed 前置诚实判定（P1F-02）——装配词条卡/指标卡/FAQ 命中任一
+  在场 → 「台账有收录：…；报告库未检索到相关内容」，六路全空才落配置文案。
   思考树叙事（P1-08c）：链内步进＝node 帧序——执行级 state 推进 process→finish、
   跳过级 wait＋skipped:true（00 §5.3 ①）；node_line 保留为节点内内容行（扩检轮
   次/FAQ 并入/配置核对/模型第 N 次调用标注——A1 帧 8）；token 切片在全部树帧后。
@@ -47,6 +50,8 @@ GEN_SYSTEM_PROMPT = (
     "你是油田数据问答平台的回答助手。只依据给出的编号材料回答，"
     "不编造材料之外的事实。引用材料是硬性要求：每条依据都必须在句末标注其编号，"
     "格式形如 [c1]（半角方括号＋编号）；材料不足以回答时如实说明。"
+    "问句围绕某术语且意在释义时——先给定义（状态标注必须原样带出），再给数据指引；"
+    "判断不了则定义与数据指引并列给出；不得忽略已收录的词条材料。"
 )
 GEN_FALLBACK_SYSTEM_PROMPT = (
     "你是油田数据问答助手。当前报告库中没有能回答该问题的材料——"
@@ -244,7 +249,7 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
             "N17", state=d.NODE_FINISH, note="资格审未过——兜底收场（搜不到不报错、更不编造）",
         )
         yield _config_check_line(cfg)
-        async for event in _fallback_answer(deps, cfg, question):
+        async for event in _fallback_answer(deps, cfg, question, ctx.assembly):
             yield event
         return
     yield d.node_frame(
@@ -270,7 +275,7 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
             "N17", state=d.NODE_FINISH, note="权威源回读拦下全部证据——兜底收场（F33）",
         )
         yield _config_check_line(cfg)
-        async for event in _fallback_answer(deps, cfg, question):
+        async for event in _fallback_answer(deps, cfg, question, ctx.assembly):
             yield event
         return
     yield d.node_frame(
@@ -289,12 +294,18 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
         f"模型第 {ordinal} 次调用——限定作答（只按编号材料作答，不编造材料之外的事实）",
     )
     table = "\n".join(f"{e.ref}：[{e.kind}] {e.label}——{e.snippet}" for e in evidence)
+    # 词条卡材料块（P1F-02：定义先行的一等材料——在证据支材料之前并入生成窗）
+    term_block = _term_card_material(ctx.assembly.term_cards)
+    gen_user = (
+        f"{term_block}\n\n{RETRIEVAL_GEN_USER_TEMPLATE.format(question=question, table=table)}"
+        if term_block
+        else RETRIEVAL_GEN_USER_TEMPLATE.format(question=question, table=table)
+    )
     text, error = await _complete(
         deps,
         [
             {"role": "system", "content": GEN_SYSTEM_PROMPT},
-            {"role": "user",
-             "content": RETRIEVAL_GEN_USER_TEMPLATE.format(question=question, table=table)},
+            {"role": "user", "content": gen_user},
         ],
         CALLER_RETRIEVAL,
     )
@@ -304,7 +315,7 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
         )
         yield d.node_frame("N17", state=d.NODE_FINISH, note="生成不可用——兜底收场")
         yield _config_check_line(cfg)
-        async for event in _fallback_answer(deps, cfg, question):
+        async for event in _fallback_answer(deps, cfg, question, ctx.assembly):
             yield event
         return
     by_ref = {e.ref: e for e in evidence}
@@ -578,11 +589,56 @@ async def _complete(
     return (text or None), not text
 
 
+def _term_card_material(term_cards: list[d.TermCard]) -> str:
+    """词条卡材料块（P1F-02——「术语台账收录：〈term〉〈type〉〈def〉（状态标注）」
+    逐卡一行；空卡清单返回空串＝本块不进生成窗）。状态标注缺省时不挂空括号。"""
+    lines = [
+        f"术语台账收录：{card.term} {card.type} {card.def_text}"
+        + (f"（{card.status_note}）" if card.status_note else "")
+        for card in term_cards
+    ]
+    return "\n".join(lines)
+
+
+def _ledger_entries(assembly: d.AssemblyResult) -> list[str]:
+    """兜底诚实文案的台账收录清单（P1F-02——词条名＋定义/口径摘要＋状态标注，
+    多卡逐条列出；六路全空返回空清单＝仍走 D2 fallback_text 原样）。"""
+    entries: list[str] = []
+    for term_card in assembly.term_cards:
+        note = f"，状态：{term_card.status_note}" if term_card.status_note else ""
+        entries.append(f"「{term_card.term}」{term_card.def_text}{note}")
+    for metric_card in assembly.metric_cards:
+        calibers = "／".join(
+            str(c.get("name", "")) for c in metric_card.calibers if c.get("name")
+        )
+        caliber_part = f"，口径：{calibers}" if calibers else ""
+        note = f"，状态：{metric_card.status_note}" if metric_card.status_note else ""
+        entries.append(f"「{metric_card.slot_name}」{caliber_part}{note}")
+    if assembly.faq_hit is not None:
+        entries.append(
+            f"FAQ「{assembly.faq_hit.question}」{assembly.faq_hit.answer[:80]}"
+        )
+    return entries
+
+
 async def _fallback_answer(
-    deps: ChainDeps, cfg: d.RetrievalConfigFace, question: str
+    deps: ChainDeps, cfg: d.RetrievalConfigFace, question: str, assembly: d.AssemblyResult,
 ) -> AsyncIterator[d.SseEvent]:
-    """兜底两策（D2 兜底策略卡——fixed 原样回复固定文案；free 自由回答＋标注）。"""
+    """兜底两策（D2 兜底策略卡——fixed 原样回复固定文案；free 自由回答＋标注）。
+
+    fixed 分支前置判定（P1F-02 兜底诚实性）：装配词条卡/指标卡/FAQ 命中任一在
+    场 → 不说「没有找到」，改报「台账有收录：…；报告库未检索到相关内容」——
+    台账有据不谎称全无；六路全空才落 cfg.fallback_text 原样（D2 配置值不动）。
+    free 分支不加判定（维持原语义）。
+    """
     if cfg.fallback_strategy == "fixed":
+        entries = _ledger_entries(assembly)
+        if entries:
+            yield d.SseEvent(d.FRAME_ANSWER, {
+                "kind": "alert", "alert_type": "warning",
+                "text": f"台账有收录：{'；'.join(entries)}；报告库未检索到相关内容。",
+            })
+            return
         yield d.SseEvent(d.FRAME_ANSWER, {
             "kind": "alert", "alert_type": "warning", "text": cfg.fallback_text,
         })
@@ -613,22 +669,29 @@ async def _stream_answer(
 async def faq_direct_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.SseEvent]:
     """FAQ 秒回（B3——只消费已发布条目；命中即秒回、不走报告检索）。
 
-    思考树叙事（P1-08c）：N18 预制问答节点 process→finish（秒回零内部步进——
-    命中判定与直出同拍完成）；answer kind=text＋no_model=true（「本条命中 FAQ
-    直出——未调用模型」标注，A1 合同冻结）；citation＝FAQ 条目出处（faq 块族——
-    citation kind 四值枚举无 FAQ 专值，落台账条目族如实标注）。
+    思考树叙事（P1-08c）：N18 预制问答节点 process→finish——命中判定与直出
+    同拍完成：执行前复测 match_index（装配命中不豁免——索引竞变在此现形，
+    P1F-02），命中 → 直出答案＋citation（no_model=true——「本条命中 FAQ 直出
+    ——未调用模型」标注，A1 合同冻结）；未命中按装配阶段有无命中分叉注记
+    （复测未命中≠竞变失效——两情形不再同标「索引竞变」），answer 兜底文案走
+    D2 fallback_text。citation＝FAQ 条目出处（faq 块族——citation kind 四值
+    枚举无 FAQ 专值，落台账条目族如实标注）。
     """
     yield d.node_frame("N18", state=d.NODE_PROCESS, tag="代码 · 秒回闸",
                        note="预制问答——标准问匹配（只消费已发布条目）")
-    hit = ctx.assembly.faq_hit or await deps.faq_matcher(ctx.question)
+    hit = await deps.faq_matcher(ctx.question)  # 执行前复测（装配命中不豁免——竞变现形）
     if hit is None:
+        annotation = (
+            "装配命中已失效（索引竞变）" if ctx.assembly.faq_hit is not None
+            else "执行前复测未命中（装配阶段即无命中）"
+        )
         cfg = await deps.config_loader()
         yield d.node_frame(
             "N18", state=d.NODE_FINISH,
-            note="FAQ 精确命中在执行前失效（索引竞变）——按兜底策略处理，不硬答",
+            note=f"FAQ 精确命中：{annotation}——按兜底策略处理，不硬答",
         )
         yield notice(
-            "FAQ 精确命中在执行前失效（索引竞变）——按兜底策略处理，不硬答。",
+            f"FAQ 精确命中：{annotation}——按兜底策略处理，不硬答。",
             level="warning",
         )
         yield d.SseEvent(d.FRAME_ANSWER, {
@@ -671,7 +734,7 @@ async def graph_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.S
             "N13", state=d.NODE_FINISH,
             note="图谱缝未命中任何关系边——不硬答，走兜底（F33）",
         )
-        async for event in _fallback_answer(deps, cfg, ctx.question):
+        async for event in _fallback_answer(deps, cfg, ctx.question, ctx.assembly):
             yield event
         return
     yield line(
@@ -706,7 +769,7 @@ async def graph_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.S
             "N13", state=d.NODE_FINISH,
             note="图谱边引用全部失锚被拦——无可用证据，走兜底",
         )
-        async for event in _fallback_answer(deps, cfg, ctx.question):
+        async for event in _fallback_answer(deps, cfg, ctx.question, ctx.assembly):
             yield event
         return
     ordinal = 1  # 图谱链无精排打分——生成即首次模型调用
@@ -729,7 +792,7 @@ async def graph_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.S
             "GEN", state=d.NODE_FINISH, note="生成不可用——走兜底（搜不到不报错、更不编造）",
         )
         yield d.node_frame("N13", state=d.NODE_FINISH, note="生成不可用——兜底收场")
-        async for event in _fallback_answer(deps, cfg, ctx.question):
+        async for event in _fallback_answer(deps, cfg, ctx.question, ctx.assembly):
             yield event
         return
     by_ref = {e.ref: e for e in evidence}

@@ -15,6 +15,7 @@
 import asyncio
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
+from datetime import date
 from types import SimpleNamespace
 from typing import Any
 
@@ -78,7 +79,10 @@ def default_metrics() -> list[MetricFace]:
 
 def default_terms() -> list[TermFace]:
     return [
-        TermFace(term_id=1, term="躺井", type="黑话 → 躺井", def_text="限作业区语境"),
+        # 躺井行照 sem_term #4 现值携状态字段（P1F-02 词条卡状态标注串的投影源）。
+        TermFace(term_id=1, term="躺井", type="黑话 → 躺井", def_text="限作业区语境",
+                 status="有效（限作业区语境）", status_key="有效（限作业区语境）",
+                 expires_at=date(2026, 12, 31)),
     ]
 
 
@@ -99,6 +103,8 @@ class Seams:
     completion: str = "依据材料作答 [c1]。"
     calls: dict[str, int] = field(default_factory=dict)
     completions: list[str] = field(default_factory=list)  # caller 归因记录
+    prompts: list[tuple[str, list[dict[str, str]]]] = field(default_factory=list)
+    # （caller, messages）捕获——P1F-02 生成层材料块/规则断言的观测面。
     intent_reply: str | None = None  # LLM 意图裁决返回（None＝生成文案混答→解析坏兜底）
     fail_intent: bool = False  # True＝意图裁决调用直接抛（超时/网络错兜底路径）
     intent_delay: float = 0.0  # 意图裁决延迟秒（超时兜底路径）
@@ -171,6 +177,7 @@ class Seams:
     ) -> Any:
         self._bump("complete")
         self.completions.append(caller)
+        self.prompts.append((caller, messages))
         if caller == "chat.intent.verdict":
             if self.fail_intent:
                 raise RuntimeError("意图裁决上游失败（桩）")

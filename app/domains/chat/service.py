@@ -696,7 +696,9 @@ class ChatService:
         - 被 @ 的一路不过匹配器、其他五路照跑（F56 @ 倾向协议——候选在场是
           「倾向≠直通」的物质基础）；被让位路不记落空（候选已经前门在场）；
         - 落空（含注册表未建的两路）逐路进建议池；
-        - 装配候选不设上限（全扫全收集）；澄清帧候选上限 4 支在 clarify 构造截断。
+        - 装配候选不设上限（全扫全收集）；澄清帧候选上限 4 支在 clarify 构造截断；
+        - 词条卡装卡（P1F-02）：术语/指标命中完整行与 @ 前门直取术语投影成
+          term_cards/metric_cards 随行材料——零新增查询（只复用已查得行）。
         """
         needle = d.normalize_query(question)
         anchor_line: str | None = None
@@ -704,6 +706,7 @@ class ChatService:
         terms: list[str] = []
         slots_parts: list[str] = []
         anchored_matchers: set[str] = set()
+        anchored_term_names: list[str] = []
 
         for token in anchors:
             parsed = d.parse_anchor_token(token)
@@ -720,6 +723,7 @@ class ChatService:
             ))
             if asset_type == "术语":
                 terms.append(name)
+                anchored_term_names.append(name)
 
         metrics = list(await self._metrics_loader())
         term_rows = list(await self._terms_loader())
@@ -779,6 +783,7 @@ class ChatService:
                 self._suggestions.record_miss("指标卡台账", question)
 
         # 路 3：术语台账（术语精确——同构两档；类型展示串「别名 → X」族即别名载体）
+        term_hits: list[d.TermFace] = []  # 命中完整行（词条卡装卡源——P1F-02）
         if "术语台账" in anchored_matchers:
             mark_anchored("术语台账")
         else:
@@ -866,6 +871,24 @@ class ChatService:
             ),
             None,
         )
+
+        # —— 词条卡装卡（P1F-02：一等材料常驻装配——完整行投影成卡，零新增查询）——
+        # @ 前门直取术语按锚定序补卡（_resolve_anchor 已按归一化等值核验在账），
+        # 匹配器命中行随后逐条装卡；去重防同一行双卡。
+        term_cards: list[d.TermCard] = []
+        carded: set[str] = set()
+        for name in anchored_term_names:
+            probe = d.normalize_query(name)
+            for row in term_rows:
+                if probe and d.normalize_query(row.term) == probe and row.term not in carded:
+                    term_cards.append(_term_card(row))
+                    carded.add(row.term)
+        for row in term_hits:
+            if row.term not in carded:
+                term_cards.append(_term_card(row))
+                carded.add(row.term)
+        metric_cards = [_metric_card(m) for m in metric_hits]
+
         return d.AssemblyResult(
             anchor_line=anchor_line,
             slots=" · ".join(slots_parts) if slots_parts else "∅",
@@ -876,6 +899,8 @@ class ChatService:
             faq_hit=faq_hit,
             index_hits=index_hits,
             graph_hits=graph_hits,
+            term_cards=term_cards,
+            metric_cards=metric_cards,
         )
 
     async def _search_graph(self, question: str) -> list[d.GraphHitFace]:
@@ -1340,6 +1365,28 @@ def _candidate_wire(candidate: d.Candidate) -> dict[str, Any]:
     if candidate.note is not None:
         data["note"] = candidate.note
     return data
+
+
+def _term_card(row: d.TermFace) -> d.TermCard:
+    """术语完整行 → 词条卡（P1F-02——状态标注串走 C1 同款派生口径，domain 单源）。
+
+    today 取 infra.clock（B14）——派生不入库不参与计算，只随卡展示。
+    """
+    return d.TermCard(
+        term=row.term, type=row.type, def_text=row.def_text,
+        status_note=d.term_card_status_note(
+            status=row.status, status_key=row.status_key,
+            expires_at=row.expires_at, today=now().date(),
+        ),
+    )
+
+
+def _metric_card(metric: d.MetricFace) -> d.MetricCard:
+    """指标完整行 → 指标卡（P1F-02——状态展示串透传，口径支行原样投影）。"""
+    return d.MetricCard(
+        slot_name=metric.slot_name, name=metric.name,
+        calibers=list(metric.calibers), status_note=metric.status,
+    )
 
 
 def _mentions_caliber(question: str, metric: d.MetricFace) -> bool:

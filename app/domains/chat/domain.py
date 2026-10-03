@@ -29,7 +29,11 @@ import re
 import unicodedata
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any, Protocol
+
+# 纯派生函数复用（P1F-02——状态标注串复用 C1 展示串规则单源，不重写；非运行期读缝）
+from app.domains.semantics.domain import term_expiry
 
 # ---------- 19 类事件帧（A1 合同值照抄——帧类型集不可改，A1 行为规则 2） ----------
 
@@ -269,7 +273,11 @@ class SseEvent:
 
 @dataclass(frozen=True, slots=True)
 class MetricFace:
-    """指标台账面（semantics 读接口投影——chat 不触 sem_* 表，B5 边界规则）。"""
+    """指标台账面（semantics 读接口投影——chat 不触 sem_* 表，B5 边界规则）。
+
+    status＝状态展示串投影（C1 徽标列透传——词条卡装卡消费，P1F-02；组合根
+    未携入时为空串＝不标注，不发明状态）。
+    """
 
     metric_id: int
     name: str
@@ -277,16 +285,24 @@ class MetricFace:
     ambiguous: bool
     calibers: list[dict[str, Any]]
     default_caliber: str | None
+    status: str = ""
 
 
 @dataclass(frozen=True, slots=True)
 class TermFace:
-    """术语台账面（semantics 读接口投影——同上）。"""
+    """术语台账面（semantics 读接口投影——同上）。
+
+    status/status_key/expires_at＝状态三字段投影（C1 端点 2 同款——词条卡状态
+    标注串的派生源，P1F-02；组合根未携入时全空＝不标注，不发明状态）。
+    """
 
     term_id: int
     term: str
     type: str
     def_text: str
+    status: str = ""
+    status_key: str = ""
+    expires_at: date | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -354,11 +370,64 @@ class LaneResult:
 
 
 @dataclass(frozen=True, slots=True)
+class TermCard:
+    """词条卡（术语台账一等材料投影——P1F-02 方案 B：常驻装配材料，「要解释还
+    是要数」由生成端判，意图判断不进路由层）。
+
+    status_note＝状态标注串（C1 读端点同款派生口径——term_card_status_note 单源
+    派生，如「有效（限作业区语境）」「2026-06-30（已届满）」「—（已禁用）」；
+    台账未携状态字段时为空串＝不标注）。
+    """
+
+    term: str
+    type: str
+    def_text: str
+    status_note: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class MetricCard:
+    """指标卡（指标台账一等材料投影——同上；兜底诚实性文案消费）。
+
+    calibers＝口径支行（原样投影）；status_note＝状态标注串（C1 徽标列透传）。
+    """
+
+    slot_name: str
+    name: str
+    calibers: list[dict[str, Any]] = field(default_factory=list)
+    status_note: str = ""
+
+
+def term_card_status_note(
+    *, status: str, status_key: str, expires_at: date | None, today: date
+) -> str:
+    """词条卡状态标注串（P1F-02——C1 读端点同款派生口径，term_expiry 单源复用）。
+
+    分支序（票面两例全覆盖，不重写 C1 展示串规则）：
+    - 三值全空 → 空串（台账未携状态字段——不发明标注）；
+    - 已届满（expires_at <= today，F60 到日即标）→ 「2026-06-30（已届满）」
+      （日产液例——届满标注压倒）；
+    - 禁用词 → 「—（已禁用）」；
+    - 其余状态展示串优先（躺井「有效（限作业区语境）」例——语境限定随卡带出），
+      缺省回 term_expiry 展示串（「长期」族）。
+    """
+    if not (status or status_key or expires_at):
+        return ""
+    expired, expires_display = term_expiry(status_key, expires_at, today)
+    if expired:
+        return expires_display
+    if status_key == "禁用词":
+        return expires_display
+    return status or expires_display
+
+
+@dataclass(frozen=True, slots=True)
 class AssemblyResult:
     """装配块（assembly 帧载荷源：anchor_line/slots/terms/candidates/chains）。
 
-    faq_hit/index_hits/graph_hits 为裁决置信度与三链链体的随行材料（wire 帧不带
-    ——装配帧只发 candidates）。
+    faq_hit/index_hits/graph_hits 为裁决置信度与三链链体的随行材料（wire 帧
+    不带——装配帧只发 candidates）；term_cards/metric_cards 为词条卡一等材料
+    （P1F-02——生成层定义先行与兜底诚实性的随行材料，同样不进 wire 帧）。
     """
 
     anchor_line: str | None
@@ -370,6 +439,8 @@ class AssemblyResult:
     faq_hit: FaqHitFace | None = None  # FAQ 索引精确命中（秒回闸/检索链 FAQ 路消费）
     index_hits: list[IndexHitFace] = field(default_factory=list)  # 报告索引命中（置信度/检索链）
     graph_hits: list[GraphHitFace] = field(default_factory=list)  # 图谱缝命中（图谱问答链路由）
+    term_cards: list[TermCard] = field(default_factory=list)  # 词条卡（P1F-02——不进 wire）
+    metric_cards: list[MetricCard] = field(default_factory=list)  # 指标卡（P1F-02——不进 wire）
 
 
 # ---------- 安检（字面规则——命中即拦截终局，A1 行为规则 4） ----------
