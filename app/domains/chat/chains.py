@@ -6,7 +6,15 @@
   并发）→ 合并（rrf_rank k=60 固定推荐值 / concat）→ 前 N → 精排三档（fast 融合
   序放行 / llm 逐条打分 / compound 0.6/0.3/0.1＋MMR λ=0.7）→ FAQ 路（直出关——
   并入检索，扩检轮数消费）→ S5 图扩展（未启用——直通跳过）→ S6 资格裁决（4 支
-  上限＋refuse_threshold 拒答判定）→ S7 权威源回读（指标台账核对）→ GEN 限定
+  上限＋refuse_threshold 拒答判定；低分带双重重评 P1F-06：0.30≤best<refuse_threshold
+  不直接兜底——第一道放宽窗口重评（纯代码：topK 放宽×2＋父块家族随池回捞重算
+  best，过闸照常生成不弹帧、帧注记记原分/重评分）；仍低则第二道 LLM 改写双句
+  评分（仅此刻一次 gateway.complete，caller=chat.query.rewrite；同尺余弦给原句/
+  优化句各算一次）——优化句过闸且澄清额度在→rewrite 澄清帧（subtype 透传，
+  选是＝优化句上下文生成、选否/不选＝诚实兜底）；额度已用完→自动按优化句作答
+  ＋「已按优化问法检索」标注（写死路径，不弹第二帧）；优化句也低/改写失败→诚实
+  兜底＋S6 注记记三值。证据空/<0.30/用户坚持原问法（skip_rescore）→直接兜底，
+  拒答克制回归）→ S7 权威源回读（指标台账核对）→ GEN 限定
   作答（petro-main）→ citation fail-closed（伪造/失锚引用拦截丢弃，绝不带病出帧）
   → N17 收束。早停（D2「命中即停」开关，v0.3 收窄语义）：仅 S1 显式锚定命中即
   跳过下级检索级（S3~S5 跳过——身份确认非意图猜测；S3/S4/S5 各出归因 skip
@@ -48,6 +56,9 @@ CALLER_RETRIEVAL = "chat.retrieval.answer"
 CALLER_RERANK = "chat.retrieval.rerank"
 CALLER_GRAPH = "chat.graph.answer"
 CALLER_FALLBACK = "chat.retrieval.fallback"
+# 低分带第二道问句改写（P1F-06——caller 自由字符串惯例不封闭，gateway 记账按
+# caller 归因聚合，费用统计可溯源）。
+CALLER_REWRITE = "chat.query.rewrite"
 
 GEN_SYSTEM_PROMPT = (
     "你是油田数据问答平台的回答助手。只依据给出的编号材料回答，"
@@ -69,6 +80,13 @@ RETRIEVAL_GEN_USER_TEMPLATE = (
     "请依据材料回答；引用材料时在句末使用编号 [cN]；材料不足时如实说明。"
 )
 RERANK_SYSTEM_PROMPT = "你是检索相关性打分器。只输出一个 0 到 1 之间的分数，不要输出其他内容。"
+# 低分带第二道问句改写提示词（P1F-06——措辞可微调、语义须覆盖：去修饰保语义/
+# 输出检索优化问法/只回问法本身）。
+REWRITE_SYSTEM_PROMPT = (
+    "你是检索问句改写器。把用户问句改写成适合报告库检索的问法："
+    "去掉修饰性、口语化的词语，保留原问句的语义与问题核心，"
+    "输出检索优化问法。只回问法本身，不要输出任何解释、引号或其他内容。"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,6 +130,8 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
     question = ctx.question
     evidence: list[d.Evidence] = []
     rerank_calls = 0  # 精排逐条打分的模型调用数（GEN「模型第 N 次调用」序号源）
+    extra_model_calls = 0  # 链内额外模型调用（低分带改写——P1F-06，同入 GEN 序号）
+    rescored_answer = False  # 额度已用完自动按优化句作答——答案标注开关（P1F-06）
 
     # —— N17 检索问答（41 树执行节点——链体包装帧）——
     yield d.node_frame("N17", state=d.NODE_PROCESS, tag="代码 · 语义瀑布逐级推进",
@@ -237,7 +257,7 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
             "S5 图扩展未启用——请求直接跳过、不花开销（将来接入知识图谱扩展时在这里开闸）",
         )
 
-    # —— S6 资格裁决（不受开关与早停影响）——
+    # —— S6 资格裁决（不受开关与早停影响；低分带双重重评——P1F-06）——
     evidence = _with_refs(evidence)
     yield d.node_frame("S6", state=d.NODE_PROCESS)
     if len(evidence) > d.EVIDENCE_CAP:
@@ -247,27 +267,136 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
         )
         evidence = evidence[: d.EVIDENCE_CAP]
     best = max((e.score for e in evidence), default=0.0)
+    rescored_note: str | None = None  # 低分带重评过闸的 S6 收束注记（None＝未触发）
     if not evidence or best < cfg.refuse_threshold:
-        reason = (
-            "证据为空" if not evidence
-            else f"最高证据分 {best:.2f} 低于低分线 {cfg.refuse_threshold:.2f}"
+        # 拒答克制回归（P1F-06）：证据空／<0.30（低分带下沿之外）／用户坚持原问法
+        # （rewrite 选否回流的 skip_rescore）——不重评，直接兜底。
+        if (
+            not evidence
+            or not d.in_rescore_band(best, cfg.refuse_threshold)
+            or ctx.skip_rescore
+        ):
+            reason = (
+                "证据为空" if not evidence
+                else f"最高证据分 {best:.2f} 低于低分线 {cfg.refuse_threshold:.2f}"
+                     + ("（用户坚持原问法——低分带重评跳过）" if ctx.skip_rescore else "")
+            )
+            yield d.node_frame(
+                "S6", state=d.NODE_FINISH,
+                note=f"拒答判定：{reason}——不硬答，走兜底（搜不到不报错、更不编造）",
+            )
+            yield d.node_frame(
+                "N17", state=d.NODE_FINISH, note="资格审未过——兜底收场（搜不到不报错、更不编造）",
+            )
+            yield _config_check_line(cfg)
+            async for event in _fallback_answer(deps, cfg, question, ctx.assembly):
+                yield event
+            return
+        # —— 第一道：放宽窗口重评（纯代码——topK 放宽＋父块家族随池回捞重算 best；
+        # 过闸照常生成、不弹帧）——
+        relaxed_rows, relaxed_best = await _relaxed_rescore(deps, cfg, question)
+        yield line(
+            "S6", "○",
+            f"低分带重评（第一道·放宽窗口）：原分 {best:.2f} → 放宽重评分 {relaxed_best:.2f}"
+            f"（topK ×{d.RESCORE_RELAX_FACTOR}——同父块兄弟子块随池回捞）",
         )
+        if relaxed_best >= cfg.refuse_threshold:
+            evidence, overflow = _cap_evidence(_with_refs(relaxed_rows))
+            if overflow:
+                yield notice(
+                    f"候选 {len(relaxed_rows)} 支，仅送前 {d.EVIDENCE_CAP} 支进生成"
+                    f"——另有 {overflow} 支未列出。"
+                )
+            original_best = best
+            best = relaxed_best
+            rescored_note = (
+                f"资格裁决（放宽重评过闸）：原分 {original_best:.2f} → 重评分 {best:.2f}"
+                f" ≥ 低分线 {cfg.refuse_threshold:.2f}——过闸照常生成（不弹帧）"
+            )
+        else:
+            # —— 第二道：LLM 改写＋双句评分（仅此刻一次 LLM 调用；同一把尺——
+            # 与 S4 相同的余弦检索腿分给原句/优化句各算一次）——
+            optimized = await _rewrite_question(deps, question)
+            extra_model_calls += 1
+            if optimized is None:
+                yield d.node_frame(
+                    "S6", state=d.NODE_FINISH,
+                    note=f"拒答判定：低分带重评未过闸——原句 {best:.2f} · 放宽重评 "
+                         f"{relaxed_best:.2f} · 优化句缺（改写不可用），低于低分线 "
+                         f"{cfg.refuse_threshold:.2f}——不硬答，走兜底（搜不到不报错、更不编造）",
+                )
+                yield d.node_frame(
+                    "N17", state=d.NODE_FINISH,
+                    note="资格审未过——兜底收场（搜不到不报错、更不编造）",
+                )
+                yield _config_check_line(cfg)
+                async for event in _fallback_answer(deps, cfg, question, ctx.assembly):
+                    yield event
+                return
+            opt_rows, opt_best = await _relaxed_rescore(deps, cfg, optimized)
+            yield line(
+                "S6", "○",
+                f"低分带重评（第二道·LLM 改写）：优化问法「{optimized}」——"
+                f"原句 {best:.2f} · 放宽重评 {relaxed_best:.2f} · 优化句 {opt_best:.2f}",
+            )
+            if opt_best >= cfg.refuse_threshold:
+                if ctx.clarify_available:
+                    # 澄清额度在——弹 rewrite 澄清帧（interrupt 挂起，交出控制权等人）：
+                    # 选是＝优化句上下文走生成；选否/不选＝诚实兜底。
+                    yield d.node_frame(
+                        "S6", state=d.NODE_FINISH,
+                        note=f"改写过闸（优化句 {opt_best:.2f} ≥ 低分线 "
+                             f"{cfg.refuse_threshold:.2f}）——澄清额度在，弹改写澄清帧"
+                             "（按优化问法作答／坚持原问法——两跳到终态）",
+                    )
+                    yield d.chain_clarify_signal(
+                        d.build_rewrite_clarify(optimized, frame_id=f"clarify-{ctx.run_id}"),
+                        subtype="rewrite",
+                        optimized_question=optimized,
+                    )
+                    return
+                # 额度已用完（N5 已弹过一次）——不弹第二帧：自动按优化句作答＋
+                # 答案标注（写死路径）。
+                evidence, overflow = _cap_evidence(_with_refs(opt_rows))
+                if overflow:
+                    yield notice(
+                        f"候选 {len(opt_rows)} 支，仅送前 {d.EVIDENCE_CAP} 支进生成"
+                        f"——另有 {overflow} 支未列出。"
+                    )
+                original_best = best
+                best = opt_best
+                question = optimized
+                rescored_answer = True
+                rescored_note = (
+                    f"资格裁决（改写过闸·澄清额度已用完——自动按优化问法作答）："
+                    f"原句 {original_best:.2f} · 放宽重评 {relaxed_best:.2f} · "
+                    f"优化句 {best:.2f} ≥ 低分线 {cfg.refuse_threshold:.2f}"
+                    "——不弹第二帧（澄清帧有界循环）"
+                )
+            else:
+                yield d.node_frame(
+                    "S6", state=d.NODE_FINISH,
+                    note=f"拒答判定：低分带重评未过闸——原句 {best:.2f} · 放宽重评 "
+                         f"{relaxed_best:.2f} · 优化句 {opt_best:.2f}，均低于低分线 "
+                         f"{cfg.refuse_threshold:.2f}——不硬答，走兜底（搜不到不报错、更不编造）",
+                )
+                yield d.node_frame(
+                    "N17", state=d.NODE_FINISH,
+                    note="资格审未过——兜底收场（搜不到不报错、更不编造）",
+                )
+                yield _config_check_line(cfg)
+                async for event in _fallback_answer(deps, cfg, question, ctx.assembly):
+                    yield event
+                return
+    if rescored_note is not None:
+        yield d.node_frame("S6", state=d.NODE_FINISH, note=rescored_note)
+    else:
         yield d.node_frame(
             "S6", state=d.NODE_FINISH,
-            note=f"拒答判定：{reason}——不硬答，走兜底（搜不到不报错、更不编造）",
+            note=f"资格裁决：候选 {len(evidence)} 支（上限 {d.EVIDENCE_CAP}）· "
+                 f"最高证据分 {best:.2f}"
+                 "——多候选/缺参澄清在裁决层完成（有界循环），链内直连执行",
         )
-        yield d.node_frame(
-            "N17", state=d.NODE_FINISH, note="资格审未过——兜底收场（搜不到不报错、更不编造）",
-        )
-        yield _config_check_line(cfg)
-        async for event in _fallback_answer(deps, cfg, question, ctx.assembly):
-            yield event
-        return
-    yield d.node_frame(
-        "S6", state=d.NODE_FINISH,
-        note=f"资格裁决：候选 {len(evidence)} 支（上限 {d.EVIDENCE_CAP}）· 最高证据分 {best:.2f}"
-             "——多候选/缺参澄清在裁决层完成（有界循环），链内直连执行",
-    )
 
     # —— S7 权威源回读（semantics 校验——不受开关与早停影响）——
     yield d.node_frame("S7", state=d.NODE_PROCESS)
@@ -298,7 +427,7 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
     )
 
     # —— GEN 限定作答＋引用登记（petro-main）＋ citation fail-closed ——
-    ordinal = rerank_calls + 1
+    ordinal = rerank_calls + extra_model_calls + 1
     yield d.node_frame("GEN", state=d.NODE_PROCESS, tag=f"模型第 {ordinal} 次调用")
     yield line(
         "GEN", "→",
@@ -348,6 +477,13 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
     if dropped:
         yield notice(d.UNANCHORED_CITATION_NOTE.format(n=dropped), level="warning")
     text = d.rewrite_citations(text, by_ref, cfg.citation_format)
+    if rescored_answer:
+        # 额度已用完的自动路径（P1F-06）——答案标注「已按优化问法检索」（写死）。
+        text = text + d.RESCORED_ANSWER_TAG
+        yield line(
+            "GEN", "✓",
+            "已按优化问法检索作答（澄清额度已用完——自动路径，不弹第二帧）",
+        )
     citations = [d.citation_wire(by_ref[ref]) for ref in kept_refs]
     yield d.node_frame(
         "GEN", state=d.NODE_FINISH,
@@ -400,6 +536,14 @@ async def _rerank_evidence(
         ordered = await _compound_order(deps, merged)
     else:
         ordered = list(merged)
+    return _index_evidence_rows(ordered)
+
+
+def _index_evidence_rows(
+    ordered: list[tuple[d.IndexHitFace, float]],
+) -> list[d.Evidence]:
+    """报告索引命中 → 证据行（kind=报告引用；Evidence.score 恒原始腿分——精排
+    只重排不改分，S4 与低分带重评同尺）。"""
     return [
         d.Evidence(
             ref="", kind="报告引用",
@@ -412,6 +556,54 @@ async def _rerank_evidence(
         )
         for hit, _fused in ordered
     ]
+
+
+def _cap_evidence(evidence: list[d.Evidence]) -> tuple[list[d.Evidence], int]:
+    """S6 送生成上限截断（票面 4 支上限）——返回截断后行与溢出数（notice 由
+    调用方按序发）。"""
+    if len(evidence) <= d.EVIDENCE_CAP:
+        return evidence, 0
+    return evidence[: d.EVIDENCE_CAP], len(evidence) - d.EVIDENCE_CAP
+
+
+async def _relaxed_rescore(
+    deps: ChainDeps, cfg: d.RetrievalConfigFace, question: str,
+) -> tuple[list[d.Evidence], float]:
+    """低分带第一道——放宽窗口重评（P1F-06，纯代码零模型调用）。
+
+    topK 放宽（max(semantic_top_k, keyword_top_k)×RESCORE_RELAX_FACTOR，封顶
+    RESCORE_RELAX_MAX_TOPK）重走双路召回，按 cfg.merge 同策合并——放宽后同父块
+    家族（同报告兄弟子块）随池回捞，best 分在放宽池上重算。照链内既有读面
+    （index_searcher_dual，与 S4 同尺：证据分恒原始腿分），不私加缝；重评路不
+    触发精排打分（llm/compound 档的逐条模型分不在此刻——链内唯一额外模型调用
+    留给第二道问句改写）。"""
+    relaxed_k = min(
+        max(cfg.semantic_top_k, cfg.keyword_top_k) * d.RESCORE_RELAX_FACTOR,
+        d.RESCORE_RELAX_MAX_TOPK,
+    )
+    vector, keyword = await deps.index_searcher_dual(question, relaxed_k, relaxed_k)
+    merged = (
+        d.rrf_merge(vector, keyword) if cfg.merge == "rrf_rank"
+        else d.concat_merge(vector, keyword)
+    )
+    rows = _index_evidence_rows(merged)
+    return rows, max((row.score for row in rows), default=0.0)
+
+
+async def _rewrite_question(deps: ChainDeps, question: str) -> str | None:
+    """低分带第二道——LLM 问句改写（P1F-06）：仅此刻一次 LLM 调用，caller 归因
+    chat.query.rewrite（gateway 记账溯源）。提示词＝去修饰保语义/输出检索优化
+    问法/只回问法本身；调用失败/空输出/解析坏（首行剥引号后为空）返回 None——
+    调用方诚实兜底，不炸链。"""
+    text, error = await _complete(deps, [
+        {"role": "system", "content": REWRITE_SYSTEM_PROMPT},
+        {"role": "user", "content": f"原问句：{question}\n\n只输出检索优化问法："},
+    ], CALLER_REWRITE)
+    if error or text is None:
+        return None
+    first_line = text.strip().splitlines()[0].strip() if text.strip() else ""
+    cleaned = first_line.strip("\"“”「」『』'").strip()
+    return cleaned or None
 
 
 async def _llm_score_order(

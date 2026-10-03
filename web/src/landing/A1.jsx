@@ -26,6 +26,9 @@
  *   EventSource 自动重连仅 GET 形态，api/chat.js 选型注记）。
  * - 拦截/兜底/置信度标注全按帧直出：verdict.confidence 档位徽标（高/中/低）、
  *   answer.no_model FAQ 直出标注、（未依据报告库）兜底标注徽标——文本零改写。
+ * - 澄清帧分支渲染（P1F-06）：clarify 帧 additive `subtype` 键驱动——rewrite
+ *   （低分带 LLM 改写澄清）出专属标题与提示文案；caliber/candidates 及未知
+ *   subtype 兜底＝既有形状渲染（不崩不空白）——clarifyCardView 单源。
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -174,6 +177,28 @@ export function confidenceTag(label) {
   if (!label) return null
   const tone = CONF_COLOR[String(label).trim()[0]] || 'default'
   return <Tag color={tone} style={{ marginInlineEnd: 0 }}>置信度 {label}</Tag>
+}
+
+/**
+ * 澄清帧视图分支（P1F-06——clarify 帧 additive `subtype` 键驱动）。
+ *
+ * - rewrite：低分带 LLM 改写澄清——标题＋提示文案（选项按钮仍由 choices 驱动）；
+ * - caliber / candidates：既有形状（服务端默认口径项/候选聚焦语义在 choices 内）；
+ * - 未知/缺省 subtype：兜底＝既有形状渲染（不崩不空白——同 caliber/candidates）。
+ *
+ * @param {{subtype?: string, question: string, choices: Array<{value: string, label: string, primary?: boolean}>}} clarify clarify 帧载荷
+ * @returns {{title: string, hint: string}}
+ */
+export function clarifyCardView(clarify) {
+  const subtype = String(clarify?.subtype || '')
+  if (subtype === 'rewrite') {
+    return {
+      title: '改写澄清 · 低分带重评（最多弹一次，两跳到终态）',
+      hint: '原问法检索把握不足——可按优化问法重新检索作答；坚持原问法则如实兜底，不硬答。'
+    }
+  }
+  // caliber / candidates / 未知 subtype——既有形状兜底（choices 自带语义）
+  return { title: '澄清帧 · interrupt 挂起（最多弹一次，两跳到终态）', hint: '' }
 }
 
 /** D2 兜底 free 态合同标注（服务端把「（未依据报告库）」拼进答案尾——识别出徽标，文本不改写）。 */
@@ -688,22 +713,26 @@ function AssistantBubble({
         <div style={dim}>正在处理——过程在右侧逐帧展开。</div>
       )}
 
-      {turn.clarify && (
-        <Card size="small" style={{ marginTop: 8, borderColor: '#3b8dff' }}
-          title={<span>澄清帧 · interrupt 挂起（最多弹一次，两跳到终态）</span>}>
-          <div style={{ fontSize: 13, marginBottom: 8 }}>{turn.clarify.question}</div>
-          <Space direction="vertical" size={6} style={{ width: '100%' }}>
-            {turn.clarify.choices.map(c => (
-              <Button key={c.value} type={c.primary ? 'primary' : 'default'} size="small"
-                block disabled={busy || turn.closed === 'done' || !!turn.chosenLabel} data-clarify={c.value}
-                onClick={() => onClarify(c.value)}>
-                {c.label}
-              </Button>
-            ))}
-          </Space>
-          {turn.chosenLabel && <div style={{ ...dim, marginTop: 8 }}>已选：{turn.chosenLabel}——回流续推中…</div>}
-        </Card>
-      )}
+      {turn.clarify && (() => {
+        const view = clarifyCardView(turn.clarify)
+        return (
+          <Card size="small" style={{ marginTop: 8, borderColor: '#3b8dff' }}
+            title={<span>{view.title}</span>}>
+            <div style={{ fontSize: 13, marginBottom: 8 }}>{turn.clarify.question}</div>
+            {view.hint && <div style={{ ...dim, marginBottom: 8 }}>{view.hint}</div>}
+            <Space direction="vertical" size={6} style={{ width: '100%' }}>
+              {turn.clarify.choices.map(c => (
+                <Button key={c.value} type={c.primary ? 'primary' : 'default'} size="small"
+                  block disabled={busy || turn.closed === 'done' || !!turn.chosenLabel} data-clarify={c.value}
+                  onClick={() => onClarify(c.value)}>
+                  {c.label}
+                </Button>
+              ))}
+            </Space>
+            {turn.chosenLabel && <div style={{ ...dim, marginTop: 8 }}>已选：{turn.chosenLabel}——回流续推中…</div>}
+          </Card>
+        )
+      })()}
 
       {turn.approval && (
         <Card size="small" style={{ marginTop: 8, borderColor: '#faad14' }}

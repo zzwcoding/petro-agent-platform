@@ -25,7 +25,10 @@ POST /api/chat/asks）＋resume（interrupt 决策回流——POST /api/chat/run
 挂起帧写入 chat_run.pending_interrupt（clarify_count CHECK 0–1 存储强制）；
 回流带参重过安检（不免检）→ 带参重判 → 续推；第二次 clarify 一律 409。
 挂起帧 subtype＝caliber（口径两译——默认口径项 primary）｜candidates（低置信
-多候选——无默认项，不选＝拒答终态，宁可不答不瞎猜）。
+多候选——无默认项，不选＝拒答终态，宁可不答不瞎猜）｜rewrite（P1F-06 链内
+低分带改写澄清——无默认项，选是＝优化句上下文续推、选否/不选＝诚实兜底）。
+clarify 帧 wire＝A1 帧 14 冻结形状＋additive `subtype` 键（透传给前端分支渲染；
+挂起/重放/链内哨兵三路同形，剥除面＝_wire_verdict 的 _ 前缀域内随行键）。
 
 LLM 出口（B6）：链内生成/打分与意图裁决只走注入 completer（生产＝
 GatewayService.complete，别名 petro-main；裁决 caller=chat.intent.verdict，
@@ -349,7 +352,7 @@ class ChatService:
                     else "多候选聚焦澄清——无默认项（缺的是用户意图，不代选）"
                 ),
             )
-            yield d.SseEvent(d.FRAME_CLARIFY, _clarify_wire(clarify))
+            yield d.SseEvent(d.FRAME_CLARIFY, _clarify_wire(clarify, subtype))
             await self._suspend_clarify(run, verdict, question=text)
             return
         yield d.node_frame(
@@ -408,6 +411,10 @@ class ChatService:
           免检——带参输入真扫描）→ 带参重判 → 续推；不选＝默认口径项（primary）。
         - candidates：带 choice → 锁定候选并入问句（焦点）→ 重判续推；不选＝
           拒答终态（「宁可不答、不瞎猜」——缺的是用户意图，不代选）。
+        - rewrite（P1F-06 链内改写澄清）：选是 → 用优化问法上下文续推（输入严格
+          变多——链内低分带改写过闸的问法；澄清额度已尽，重判不再弹帧）；选否/
+          不选 → 坚持原问法诚实兜底（skip_rescore——链内低分带双重重评整段跳过）。
+          链已定（检索问答链）——不重复意图裁决（澄清只裁决问法取舍）。
         - 有界循环：clarify_count 已 1（CHECK 0–1）时不再弹帧——两跳终态走
           默认口径/锁定候选后照常分派；第二次 clarify 一律 409。
         - approval 形态：无审批挂起 run——非 interrupt_approval 态一律 409。
@@ -421,7 +428,25 @@ class ChatService:
         base_question = str(pending.get("question") or "")
         caliber_name: str | None = None
         locked_candidate: str | None = None
-        if subtype == "candidates":
+        rewrite_declined = False
+        if subtype == "rewrite":
+            # P1F-06 改写澄清回流：选是＝按优化问法续答；选否/不选＝诚实兜底
+            # （两跳到终态防卡死——无默认项，不代选）。选项校验同 candidates 纪律。
+            optimized = str(pending.get("optimized_question") or "")
+            if choice and choice not in (d.REWRITE_CHOICE_ACCEPT, d.REWRITE_CHOICE_KEEP):
+                raise d.ChatParamError(
+                    f"澄清选项无效：{choice!r}"
+                    f"（可选：{d.REWRITE_CHOICE_ACCEPT}／{d.REWRITE_CHOICE_KEEP}）"
+                )
+            if choice == d.REWRITE_CHOICE_ACCEPT and optimized:
+                question: str | None = optimized
+            else:
+                question = base_question
+                rewrite_declined = True
+            run.status = "running"
+            run.pending_interrupt = None
+            await self._store.save_run(run)
+        elif subtype == "candidates":
             if choice and choice.strip():
                 if choice not in {c.value for c in frame.choices}:
                     raise d.ChatParamError(
@@ -451,12 +476,19 @@ class ChatService:
                 d.caliber_name_from_value(chosen, metric) if metric is not None
                 else chosen.removeprefix("默认口径 ")
             )
+        if locked_candidate:
+            audit_detail = f"候选锁定＝{locked_candidate}"
+        elif question is None:
+            audit_detail = "未选择——拒答终态"
+        elif subtype == "rewrite":
+            audit_detail = (
+                "改写选择＝按优化问法续答" if not rewrite_declined
+                else "改写选择＝坚持原问法——诚实兜底"
+            )
+        else:
+            audit_detail = f"口径锁定＝{caliber_name}"
         await self._audit_received(
-            actor_who, run.id,
-            f"澄清回流：{base_question}（"
-            + (f"候选锁定＝{locked_candidate}" if locked_candidate
-               else "未选择——拒答终态" if question is None
-               else f"口径锁定＝{caliber_name}") + "）",
+            actor_who, run.id, f"澄清回流：{base_question}（{audit_detail}）",
         )
 
         yield d.SseEvent(d.FRAME_SESSION, {
@@ -579,39 +611,58 @@ class ChatService:
         yield d.node_frame("N4", state=d.NODE_FINISH,
                            note=f"装配块组卷完成——slots＝{assembly.slots}")
         yield d.SseEvent(d.FRAME_STAGE, {"stage": 2})
-        yield d.node_frame(
-            "N5", state=d.NODE_PROCESS, tag="意图裁决 · LLM＋兜底",
-            note="意图裁决——带参重判（非重复裁决；LLM 分类＋确定性兜底同 ask）",
-        )
         cfg = await self._config_loader()
-        verdict = await self._decide(question, assembly, cfg)
-        if verdict.get("need_clarify") is True:
-            # 两跳到终态（默认口径/锁定候选）——不再弹澄清帧（有界循环：最多弹一次）。
-            if subtype == "candidates":
-                verdict = {
-                    "chain": "检索问答链", "slots": assembly.slots,
-                    "confidence": d.CLARIFY_LOCKED_CONFIDENCE, "need_clarify": False,
-                }
-                yield d.SseEvent(d.FRAME_NOTICE, {
-                    "level": "info",
-                    "text": f"已按你选定的候选「{locked_candidate}」锁定并继续——澄清帧有界循环"
-                            "（最多弹一次），两跳到终态。",
-                })
-            else:
-                verdict = {
-                    "chain": "检索问答链", "slots": assembly.slots,
-                    "confidence": d.CLARIFY_CONFIDENCE, "need_clarify": False,
-                }
-                yield d.SseEvent(d.FRAME_NOTICE, {
-                    "level": "info",
-                    "text": f"已按默认口径「{caliber_name}」锁定并标注——澄清帧有界循环"
-                            "（最多弹一次），两跳到终态。",
-                })
+        if subtype == "rewrite":
+            # 改写澄清续推不重复意图裁决（P1F-06）：帧由链内 S6 弹出——链已定
+            # （检索问答链），澄清只裁决问法取舍；覆写为确定性续推裁决（零意图
+            # 调用；澄清额度已尽——need_clarify 恒 false，不再弹帧）。
+            verdict = {
+                "chain": "检索问答链", "slots": assembly.slots,
+                "confidence": (
+                    "中（按优化问法续答——改写澄清锁定）" if not rewrite_declined
+                    else "低（坚持原问法——诚实兜底）"
+                ),
+                "need_clarify": False,
+                "source": d.VERDICT_SOURCE_DETERMINISTIC,
+            }
+            yield d.node_frame(
+                "N5", state=d.NODE_PROCESS, tag="意图裁决 · 链内澄清续推",
+                note="改写澄清续推——链不变（检索问答链），不重复意图裁决（澄清只裁决问法取舍）",
+            )
+        else:
+            yield d.node_frame(
+                "N5", state=d.NODE_PROCESS, tag="意图裁决 · LLM＋兜底",
+                note="意图裁决——带参重判（非重复裁决；LLM 分类＋确定性兜底同 ask）",
+            )
+            verdict = await self._decide(question, assembly, cfg)
+            if verdict.get("need_clarify") is True:
+                # 两跳到终态（默认口径/锁定候选）——不再弹澄清帧（有界循环：最多弹一次）。
+                if subtype == "candidates":
+                    verdict = {
+                        "chain": "检索问答链", "slots": assembly.slots,
+                        "confidence": d.CLARIFY_LOCKED_CONFIDENCE, "need_clarify": False,
+                    }
+                    yield d.SseEvent(d.FRAME_NOTICE, {
+                        "level": "info",
+                        "text": f"已按你选定的候选「{locked_candidate}」锁定并继续——澄清帧有界循环"
+                                "（最多弹一次），两跳到终态。",
+                    })
+                else:
+                    verdict = {
+                        "chain": "检索问答链", "slots": assembly.slots,
+                        "confidence": d.CLARIFY_CONFIDENCE, "need_clarify": False,
+                    }
+                    yield d.SseEvent(d.FRAME_NOTICE, {
+                        "level": "info",
+                        "text": f"已按默认口径「{caliber_name}」锁定并标注——澄清帧有界循环"
+                                "（最多弹一次），两跳到终态。",
+                    })
         await self._record_verdict(run, verdict)
         yield d.SseEvent(d.FRAME_VERDICT, _wire_verdict(verdict))
         yield d.node_frame(
             "N5", state=d.NODE_FINISH,
-            note=f"带参重判输出（来源＝{verdict.get('source')}）——chain＝{verdict.get('chain')}"
+            note=f"{'改写续推裁决输出' if subtype == 'rewrite' else '带参重判输出'}"
+                 f"（来源＝{verdict.get('source')}）——chain＝{verdict.get('chain')}"
                  f" · confidence＝{verdict.get('confidence')}",
         )
         yield d.node_frame("N5b", state=d.NODE_PROCESS)
@@ -627,6 +678,7 @@ class ChatService:
         async for event in self._run_chain(
             str(verdict["chain"]), run, question, actor_who, assembly,
             verdict=verdict, clarified_caliber=caliber_name,
+            skip_rescore=rewrite_declined,
         ):
             yield event
 
@@ -1242,16 +1294,33 @@ class ChatService:
     async def _run_chain(
         self, chain: str, run: ChatRunRow, question: str, actor_who: str,
         assembly: d.AssemblyResult, *, verdict: dict[str, Any],
-        clarified_caliber: str | None = None,
+        clarified_caliber: str | None = None, skip_rescore: bool = False,
     ) -> AsyncIterator[d.SseEvent]:
-        """链体帧流透传＋收场（stage(3) → 链内帧 → answer → done；答案落会话历史）。"""
+        """链体帧流透传＋收场（stage(3) → 链内帧 → answer → done；答案落会话历史）。
+
+        链内澄清哨兵（P1F-06 rewrite）在流内拦截：clarify 帧 wire（subtype 透传）
+        下发＋_suspend_clarify 挂起、流收束不发 done（镜像 ask 澄清路径）——哨兵
+        本体（域内对象）不出域。skip_rescore 供 rewrite 选否/不选回流续推（用户
+        坚持原问法——链内低分带双重重评整段跳过）。"""
         yield d.SseEvent(d.FRAME_STAGE, {"stage": 3})
         answer: dict[str, Any] | None = None
         ctx = d.ChainContext(
             run_id=run.id, question=question, actor_who=actor_who, assembly=assembly,
             clarified_caliber=clarified_caliber,
+            clarify_available=run.clarify_count < d.CLARIFY_MAX_POPUPS,
+            skip_rescore=skip_rescore,
         )
         async for event in self._dispatcher.dispatch(chain, ctx):
+            if event.event == d.FRAME_CLARIFY and event.data.get("_chain_signal"):
+                frame = event.data["frame"]
+                subtype = str(event.data.get("subtype") or "rewrite")
+                yield d.SseEvent(d.FRAME_CLARIFY, _clarify_wire(frame, subtype))
+                await self._suspend_clarify(run, {
+                    "_clarify": frame,
+                    "_clarify_subtype": subtype,
+                    "_optimized_question": str(event.data.get("optimized_question") or ""),
+                }, question=question)
+                return
             if event.event == d.FRAME_ANSWER:
                 answer = event.data
             yield event
@@ -1277,21 +1346,27 @@ class ChatService:
     ) -> None:
         """澄清挂起（interrupt_clarify——pending_interrupt 落帧；clarify_count +1）。
 
-        载荷携原问句、挂起帧与 subtype（caliber｜candidates）——resume 带参重判的
-        上下文（输入严格变多）；clarify_count CHECK 0–1 是「最多弹一次」的存储强制。
+        载荷携原问句、挂起帧（subtype 透传进持久 wire——重放同形）与 subtype
+        （caliber｜candidates｜rewrite）——resume 带参重判的上下文（输入严格变多）；
+        rewrite 挂起另携 optimized_question（P1F-06——选是续推的优化问句）；
+        clarify_count CHECK 0–1 是「最多弹一次」的存储强制。
         """
         clarify = verdict.get("_clarify")
         if not isinstance(clarify, d.ClarifyFrame) or run.clarify_count >= d.CLARIFY_MAX_POPUPS:
             raise d.ChatRunStateError("澄清帧有界循环已尽——第二次 clarify 拒绝（409）")
+        subtype = str(verdict.get("_clarify_subtype") or "caliber")
         run.status = "interrupt_clarify"
         run.clarify_count = run.clarify_count + 1
-        run.pending_interrupt = {
+        pending: dict[str, Any] = {
             "kind": "clarify",
-            "subtype": str(verdict.get("_clarify_subtype") or "caliber"),
-            "frame": _clarify_wire(clarify),
+            "subtype": subtype,
+            "frame": _clarify_wire(clarify, subtype),
             "question": question,
             "metric": dict(verdict.get("_clarify_metric") or {"metric_id": None}),
         }
+        if verdict.get("_optimized_question"):
+            pending["optimized_question"] = str(verdict["_optimized_question"])
+        run.pending_interrupt = pending
         await self._store.save_run(run)
 
     async def _reload_clarify_context(
@@ -1372,8 +1447,12 @@ async def _empty_pairs() -> list[tuple[str, str]]:
     return []
 
 
-def _clarify_wire(frame: d.ClarifyFrame) -> dict[str, Any]:
-    return {
+def _clarify_wire(frame: d.ClarifyFrame, subtype: str | None = None) -> dict[str, Any]:
+    """clarify 帧 wire 形（A1 帧 14 冻结形状 {frame_id, question, choices}）＋
+    additive `subtype` 键（P1F-06——前端分支渲染消费；缺省不带＝既有形状不变，
+    additive 登记照 verdict.source 先例随 L0 合同对齐批）。挂起持久帧与下发帧
+    同形——重放一致。"""
+    wire: dict[str, Any] = {
         "frame_id": frame.frame_id,
         "question": frame.question,
         "choices": [
@@ -1381,6 +1460,9 @@ def _clarify_wire(frame: d.ClarifyFrame) -> dict[str, Any]:
             for c in frame.choices
         ],
     }
+    if subtype is not None:
+        wire["subtype"] = subtype
+    return wire
 
 
 def _candidate_wire(candidate: d.Candidate) -> dict[str, Any]:

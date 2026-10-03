@@ -13,7 +13,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { applyFrame, confidenceTag, citationJump, newTurn } from './A1.jsx'
+import { applyFrame, clarifyCardView, confidenceTag, citationJump, newTurn } from './A1.jsx'
 import A1Landing from './A1.jsx'
 import { useAppStore } from '../store/app.js'
 
@@ -92,6 +92,29 @@ function askClarifyFrames() {
       choices: [
         { value: 'A · 开井日历折算', label: '选 A：开井日历折算（含关井日折产，约高 3%）' },
         { value: '默认口径 B', label: '不选了，按默认口径出数并标注', primary: true }
+      ]
+    }]
+  ]
+}
+
+/** 低分带改写澄清挂起（P1F-06——clarify 帧 additive subtype 键；链内 S6 弹出，流不发 done）。 */
+function askRewriteClarifyFrames(subtype = 'rewrite') {
+  return [
+    ['session', { run_id: 'run-rw1', thread_id: 'sess-rw1' }],
+    ['stage', { stage: 0 }],
+    ['stage', { stage: 1 }],
+    ['node', { key: 'N1', name: '统一安检', label: '统一安检', state: 'finish', note: '三道全过——放行' }],
+    ['stage', { stage: 2 }],
+    ['verdict', { chain: '检索问答链', slots: '意图＝注水动态', confidence: '高（检索证据分 0.92）', need_clarify: false }],
+    ['stage', { stage: 3 }],
+    ['node', { key: 'N17', name: '检索问答', label: '检索问答', state: 'process' }],
+    ['node', { key: 'S6', name: '资格裁决', label: '资格裁决', state: 'finish', note: '改写过闸——弹改写澄清帧（两跳到终态）' }],
+    ['clarify', {
+      frame_id: 'clarify-run-rw1', subtype,
+      question: '原问法在报告库里检索把握不足——要不要按优化问法再查一次？\n优化问法：二季度注水月度动态',
+      choices: [
+        { value: 'rewrite_accept', label: '按优化问法「二季度注水月度动态」作答' },
+        { value: 'rewrite_keep', label: '坚持原问法' }
       ]
     }]
   ]
@@ -341,6 +364,50 @@ describe('A1 落地页 · 澄清帧交互与 resume 回流', () => {
     expect(screen.getByText('续推/重放')).toBeTruthy()
     // 澄清按钮随 done 收口禁用（有界循环——两跳到终态）
     expect(screen.getByText('不选了，按默认口径出数并标注').closest('button').disabled).toBe(true)
+  })
+})
+
+describe('A1 落地页 · 澄清帧 subtype 分支渲染（P1F-06）', () => {
+  it('clarifyCardView 分支：rewrite 出专属标题与提示；未知/缺省 subtype 兜底＝既有形状', () => {
+    const rewrite = clarifyCardView({ subtype: 'rewrite', question: 'q', choices: [] })
+    expect(rewrite.title).toContain('改写澄清')
+    expect(rewrite.hint).toContain('优化问法')
+    const generic = clarifyCardView({ subtype: 'caliber', question: 'q', choices: [] })
+    expect(generic.title).toContain('澄清帧')
+    expect(generic.hint).toBe('')
+    expect(clarifyCardView({ subtype: 'candidates', question: 'q', choices: [] })).toEqual(generic)
+    // 未知 subtype 兜底——同 caliber/candidates 形状（不崩不空白）
+    expect(clarifyCardView({ subtype: 'mystery', question: 'q', choices: [] })).toEqual(generic)
+    expect(clarifyCardView({ question: 'q', choices: [] })).toEqual(generic) // 缺省＝旧帧兼容
+  })
+
+  it('rewrite 分支渲染：专属标题＋提示文案＋两选项按钮；点选回流带 choice 值', async () => {
+    const calls = apiRouter({ asks: () => sseResponse(askRewriteClarifyFrames()) })
+    render(<A1Landing />)
+    await ask(screen, '请帮忙梳理二季度注水开发月度动态并逐月合计对比')
+
+    expect(await screen.findByText(/要不要按优化问法再查一次？/)).toBeTruthy()
+    expect(screen.getByText('改写澄清 · 低分带重评（最多弹一次，两跳到终态）')).toBeTruthy()
+    expect(screen.getByText(/原问法检索把握不足——可按优化问法重新检索作答；坚持原问法则如实兜底，不硬答。/)).toBeTruthy()
+    expect(screen.getByText('按优化问法「二季度注水月度动态」作答')).toBeTruthy()
+    expect(screen.getByText('坚持原问法')).toBeTruthy()
+
+    fireEvent.click(screen.getByText('按优化问法「二季度注水月度动态」作答').closest('button'))
+    await waitFor(() => expect(calls.resumes).toHaveLength(1))
+    expect(calls.resumes[0].body).toEqual({ kind: 'clarify', choice: 'rewrite_accept' })
+    expect(await screen.findByText('按默认口径出数并标注。')).toBeTruthy() // 续推流折进同一回合
+  })
+
+  it('未知 subtype 兜底渲染：既有形状（澄清帧标题＋问句＋按钮齐），不崩不空白', async () => {
+    apiRouter({ asks: () => sseResponse(askRewriteClarifyFrames('mystery')) })
+    render(<A1Landing />)
+    await ask(screen, '随便问点什么')
+
+    expect(await screen.findByText('澄清帧 · interrupt 挂起（最多弹一次，两跳到终态）')).toBeTruthy()
+    expect(screen.queryByText('改写澄清 · 低分带重评（最多弹一次，两跳到终态）')).toBeNull()
+    expect(screen.getByText(/原问法在报告库里检索把握不足/)).toBeTruthy()
+    expect(screen.getByText('坚持原问法').closest('button')).toBeTruthy()
+    expect(screen.getByText('按优化问法「二季度注水月度动态」作答').closest('button')).toBeTruthy()
   })
 })
 

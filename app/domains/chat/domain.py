@@ -177,6 +177,11 @@ CLARIFY_MAX_POPUPS = 1
 # 基础口径出数并标注）。缺参反问类无默认项（缺的是用户事实，不是口径）。
 DEFAULT_CALIBER_CHOICE_LABEL = "不选了，按默认口径出数并标注"
 
+# rewrite 澄清选项值（P1F-06——低分带 LLM 改写过闸、澄清额度在时弹帧的两支；
+# value 用稳定判别值，优化问法本体走 pending_interrupt 携行不入 value）。
+REWRITE_CHOICE_ACCEPT = "rewrite_accept"  # 按优化问法作答
+REWRITE_CHOICE_KEEP = "rewrite_keep"      # 坚持原问法（选否/不选＝诚实兜底）
+
 # ---------- 安检层（F56① 字面规则——注入特征/禁用词，零理解成本） ----------
 
 # 注入特征字面模式库（A1 行为规则 4：与 promptfoo 红队用例同源——骨架期收录
@@ -665,13 +670,20 @@ class SuggestionPool:
 
 @dataclass(frozen=True, slots=True)
 class ChainContext:
-    """链执行上下文（链内闸门代码值守的入参快照——链体消费）。"""
+    """链执行上下文（链内闸门代码值守的入参快照——链体消费）。
+
+    clarify_available/skip_rescore（P1F-06）：澄清额度与重评跳过旗标——额度由
+    service 依 run.clarify_count 注入（rewrite 弹帧资格），skip_rescore 供 rewrite
+    选否/不选回流续推（用户坚持原问法——低分带双重重评整段跳过，诚实兜底）。
+    """
 
     run_id: str
     question: str
     actor_who: str
     assembly: AssemblyResult
     clarified_caliber: str | None = None  # 澄清锁定的口径支名（默认口径/人选）
+    clarify_available: bool = True  # 澄清额度在（clarify_count < 上限）——rewrite 弹帧资格
+    skip_rescore: bool = False  # 用户坚持原问法——低分带双重重评跳过（rewrite 选否回流）
 
 
 # 链体缝（分派注册面——链内逐帧产出 node_line/token/citation/answer 等 SSE 事件，
@@ -747,6 +759,25 @@ FAQ_EXPAND_FLOOR = 0.5
 
 # S6 资格裁决送生成上下文的上限（票面「4 支上限」——超出的截断标「另有 N 支未列出」）。
 EVIDENCE_CAP = 4
+
+# 低分带重评（P1F-06，评测报告 §4.10/§6 建议 5——refuse_threshold 对问法长度边际
+# 敏感：同链同库原句 0.37 拒答 vs 换问法 0.71 全对）。RESCORE_BAND 语义＝
+# RESCORE_BAND_FLOOR ≤ score < refuse_threshold：**下沿用 0.30 固定**（常量在此），
+# **上沿随 D2 现值**（RetrievalConfigFace.refuse_threshold，本仓不复制配置值——
+# 判定经 in_rescore_band 单源）。落带不直接兜底：先确定性放宽重评（纯代码），仍低
+# 则 LLM 改写双句评分、给用户选择（rewrite 澄清帧）。
+RESCORE_BAND_FLOOR = 0.30
+# 放宽窗口倍率与封顶（重评路 topK＝max(semantic_top_k, keyword_top_k)×倍率，
+# 封顶防失控——实施值，常量集中 Owner 可调）。
+RESCORE_RELAX_FACTOR = 2
+RESCORE_RELAX_MAX_TOPK = 64
+# 额度已用完（N5 已弹过一次）时的自动作答标注（写死路径——不弹第二帧）。
+RESCORED_ANSWER_TAG = "（已按优化问法检索）"
+
+
+def in_rescore_band(score: float, refuse_threshold: float) -> bool:
+    """低分带判定（P1F-06 单源）——RESCORE_BAND_FLOOR ≤ score < refuse_threshold。"""
+    return RESCORE_BAND_FLOOR <= score < refuse_threshold
 
 # 生成上下文 token 帧切片长度（SSE 流式呈现节奏——实施值，常量可调）。
 TOKEN_CHUNK_CHARS = 24
@@ -972,6 +1003,41 @@ def build_candidate_clarify(
             total=len(choices), cap=CLARIFY_CANDIDATE_CAP, rest=rest
         ).replace(f"候选 {len(choices)} 支，仅列前 {CLARIFY_CANDIDATE_CAP}——", "") + "）"
     return ClarifyFrame(frame_id=frame_id, question=question, choices=kept)
+
+
+def build_rewrite_clarify(optimized: str, *, frame_id: str) -> ClarifyFrame:
+    """改写澄清帧（P1F-06——低分带 LLM 改写过闸且澄清额度在时弹，链内 S6 产出）。
+
+    选项两支＝「按优化问法『…』作答」／「坚持原问法」；无 primary 默认项（缺的
+    是用户取舍，不代选——同 candidates 惯例）：选是→优化句上下文走生成；选否/
+    不选→诚实兜底（两跳到终态防卡死）。"""
+    question = (
+        "原问法在报告库里检索把握不足——要不要按优化问法再查一次？\n"
+        f"优化问法：{optimized}"
+    )
+    choices = [
+        ClarifyChoice(
+            value=REWRITE_CHOICE_ACCEPT, label=f"按优化问法「{optimized}」作答",
+        ),
+        ClarifyChoice(value=REWRITE_CHOICE_KEEP, label="坚持原问法"),
+    ]
+    return ClarifyFrame(frame_id=frame_id, question=question, choices=choices)
+
+
+def chain_clarify_signal(
+    frame: ClarifyFrame, *, subtype: str, optimized_question: str
+) -> SseEvent:
+    """链内澄清挂起哨兵（P1F-06——链体弹澄清帧的域内事件）。
+
+    service._run_chain 拦截本哨兵：转 _suspend_clarify 挂起＋clarify 帧 wire
+    （subtype 透传）下发、流收束不发 done；哨兵本体（携 ClarifyFrame 对象与
+    优化问句）不出域——wire 帧由拦截方按 A1 帧 14 冻结形状重建。"""
+    return SseEvent(FRAME_CLARIFY, {
+        "_chain_signal": True,
+        "subtype": subtype,
+        "frame": frame,
+        "optimized_question": optimized_question,
+    })
 
 
 # ---------- 域读缝（组合根注入——生产＝retrieval/semantics/faq/kb/gateway 公开读面） ----------
