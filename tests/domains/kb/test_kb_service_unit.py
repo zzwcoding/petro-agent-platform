@@ -19,8 +19,10 @@ from app.domains.kb import (
 )
 from app.domains.kb import domain as d
 from app.domains.kb.store import (
+    FragmentRow,
     FragmentStore,
     IngestTaskRow,
+    LibraryRow,
     ReportRow,
     ReportStore,
     TaskStore,
@@ -564,3 +566,91 @@ class TestIndexSearch:
         assert anchor.fragment_id == anchorable.id
         assert anchor.report  # 报告展示名随锚面携出（citation locator 消费）
         assert await service.fragment_anchor("f-missing") is None
+
+    # ---------- P1F-04 生成窗 500→SMART_MAX_CHARS（B-反1「cited 却不可见」修复） ----------
+
+    async def _seed_synth_fragment(
+        self, service: KbService, frag_id: str, hit_text: str
+    ) -> None:
+        """合成片段直插 sqlite 底座（照 test_kb_reembed_unit 直插惯例——不经入库
+        管线，专测读面消费语义；素材自拟不涉业务事实）。"""
+        async with service._db.session() as session:
+            session.add(
+                LibraryRow(id="lib-s", name="合成库", biz_template="blank", status="active")
+            )
+            session.add(
+                ReportRow(id="rpt-s", lib_id="lib-s", doc="《合成报告》", object_key="k")
+            )
+        async with service._db.session() as session:
+            session.add(
+                FragmentRow(
+                    id=frag_id,
+                    report_id="rpt-s",
+                    type="原文块",
+                    section="章节 02 检泵",
+                    hit_text=hit_text,
+                    current_version=1,
+                    is_parent_only=False,
+                )
+            )
+            await session.flush()
+
+    async def _attach_probe_embedding(
+        self, service: KbService, frag_id: str, question: str
+    ) -> None:
+        """片段向量＝问句向量（LocalHash 对称桩——cosine 1.0，向量腿确定性命中）。"""
+        probe = (await d.LocalHashEmbedder().embed([question]))[0]
+        await FragmentStore(service._db).set_embeddings([(frag_id, probe)])
+
+    async def test_index_search_full_text_not_truncated(self, kb_service: Any) -> None:
+        """P1F-04 验收(a)：smart 上限（1024 字）片段走单路读面，IndexHit.text
+        全文不截——旧实现 text[:500] 使每个 smart 片段后半截系统性丢失。"""
+        service, _, _, _ = kb_service
+        unit = "W-45 井 2019 年 7 月检泵周期 215 天。"
+        full_text = (unit * 40)[: d.SMART_MAX_CHARS]
+        assert len(full_text) == d.SMART_MAX_CHARS == 1024
+        await self._seed_synth_fragment(service, "f-s1", full_text)
+        hits = await service.index_search("W-45 井")  # 问句为片段子串——关键词腿满覆盖
+        assert hits
+        hit = next(h for h in hits if h.fragment_id == "f-s1")
+        assert hit.text == full_text
+        assert len(hit.text) == 1024
+
+    async def test_index_search_dual_full_text_not_truncated(self, kb_service: Any) -> None:
+        """P1F-04 验收(a) 双路同象：`_hit` 闭包向量/关键词两腿均全文不截。"""
+        service, _, _, _ = kb_service
+        unit = "W-45 井 2019 年 7 月检泵周期 215 天。"
+        full_text = (unit * 40)[: d.SMART_MAX_CHARS]
+        await self._seed_synth_fragment(service, "f-s1", full_text)
+        question = "W-45 井"
+        await self._attach_probe_embedding(service, "f-s1", question)
+        vector, keyword = await service.index_search_dual(
+            question, vector_top_k=3, keyword_top_k=3
+        )
+        assert vector and vector[0].fragment_id == "f-s1"
+        assert vector[0].text == full_text
+        assert keyword and keyword[0].fragment_id == "f-s1"
+        assert keyword[0].text == full_text
+
+    async def test_b_fan1_key_line_beyond_old_window_visible(self, kb_service: Any) -> None:
+        """P1F-04 验收(b) B-反1 形态回归：关键行落在片段第 691~854 字区间（旧
+        500 字生成窗看不见——评测报告 §4 B-反1/§6 建议 4），读面后 IndexHit.text
+        必须含该行。"""
+        service, _, _, _ = kb_service
+        prefix = ("W-44 井 2019-06 检泵周期 198 天，泵效 41.2%。" * 30)[:690]
+        key_line = "W-45 井 2019-07 检泵周期 215 天，检泵原因：泵漏失。"
+        suffix = "W-46 井 2019-08 检泵周期 187 天，泵效 39.8%。" * 30
+        full_text = (prefix + key_line + suffix)[: d.SMART_MAX_CHARS]
+        assert len(full_text) == d.SMART_MAX_CHARS
+        assert full_text[690 : 690 + len(key_line)] == key_line  # 关键行起点＝第 691 字
+        assert key_line not in full_text[:500]  # 旧生成窗形态复现（看不见的行）
+        await self._seed_synth_fragment(service, "f-s1", full_text)
+        question = "W-45 井 2019-07 检泵周期 215 天"  # 关键行子串——检索可达
+        await self._attach_probe_embedding(service, "f-s1", question)
+        hits = await service.index_search(question)
+        assert hits and hits[0].fragment_id == "f-s1"
+        assert key_line in hits[0].text
+        vector, keyword = await service.index_search_dual(
+            question, vector_top_k=3, keyword_top_k=3
+        )
+        assert any(key_line in h.text for h in vector + keyword)

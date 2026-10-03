@@ -1150,6 +1150,8 @@ class KbService:
         - 关键词腿：trigram 子串覆盖率（P1-04 裁决②——pg_trgm GIN 索引随 P1-10
           上，本读面查询语义不变）。
         同片段两腿取高分腿（同池去重），按分倒序 top_k。
+        生成窗（P1F-04）：text 携 SMART_MAX_CHARS 全文（与入库切段上限同源——
+        B-反1「cited 却不可见」修复，不再截 500）。
         """
         frags = await self._fragments.list_children()
         if not frags or not question.strip():
@@ -1179,7 +1181,7 @@ class KbService:
                 snippet=text[:80],
                 score=score,
                 leg=leg,
-                text=text[:500],
+                text=text[: d.SMART_MAX_CHARS],
             )
             current = best.get(frag.id)
             if current is None or hit.score > current.score:
@@ -1192,6 +1194,8 @@ class KbService:
         """双路召回读面（检索瀑布 S4——P1-08b 检索链消费）：向量腿与关键词腿
         并发（asyncio.gather），各自按分倒序取 topK（D2 params.semantic_top_k /
         keyword_top_k 驱动），合并策略由消费方按配置执行（rrf_rank/concat）。
+        生成窗（P1F-04）：text 携 SMART_MAX_CHARS 全文（与入库切段上限同源——
+        B-反1「cited 却不可见」修复，不再截 500）。
         """
         frags = await self._fragments.list_children()
         if not frags or not question.strip():
@@ -1208,7 +1212,7 @@ class KbService:
                 snippet=text[:80],
                 score=score,
                 leg=leg,
-                text=text[:500],
+                text=text[: d.SMART_MAX_CHARS],
             )
 
         async def vector_leg() -> list[d.IndexHit]:

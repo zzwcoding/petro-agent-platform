@@ -504,7 +504,7 @@ class IndexHit:
     leg 两值＝检索瀑布 S4 两路（F58）：`vector` 语义一路 / `keyword` 字面一路
     （trigram 子串——P1-04 裁决；pg_trgm GIN 索引随 P1-10 上，查询语义不变）。
     text＝生成上下文用较长文本（P1-08b——snippet 仅 80 字，答案依据会被截断；
-    500 字足供问答，免整段搬运）。
+    生成窗＝SMART_MAX_CHARS（1024）全文进窗——与入库切段上限同源，不再截 500）。
     """
 
     fragment_id: str
