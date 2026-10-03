@@ -249,6 +249,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 term=str(row.term),
                 type=str(row.type),
                 def_text=str(row.def_),
+                # P-004 修复拍①（授权触界一次）：状态三字段透传——词条卡状态标注
+                # 生产非空；「已届满」标注依赖 expires_at（三字段一组投影）。
+                status=str(row.status),
+                status_key=str(row.status_key),
+                expires_at=row.expires_at,
             )
             for row in page.items
         ]

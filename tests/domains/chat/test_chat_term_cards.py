@@ -13,24 +13,36 @@
 - cards 不外泄：ask 流 SSE 帧与 run 落库 JSON（verdict/pending_interrupt/消息
   answer）均无 term_cards/metric_cards 序列化（帧构造不引用 cards——assembly 帧
   只发 anchor_line/slots/terms/candidates/chains）。
+
+P-004 修复拍增量（dev 偏差①④＋P-004.rev.md 审查发现②③中）：
+- ①生产组合根 status 透传 smoke（main.py 真 lifespan 起于 sqlite——装载行状态
+  三字段非空，已届满标注依赖 expires_at）；
+- ②指标卡 status sem list 形态以「／」join、str 原样（禁 str() 直透垃圾形态）；
+- ③N18 拒答内联 answer 诚实判定只计 term_cards/metric_cards（不复述 FAQ 内容）；
+- ⑤term_card_status_note 四分支参数化（实际优先序＝禁用词＞已届满）。
 """
 
 import json
 from dataclasses import replace
+from datetime import date
 from typing import Any
 
 import pytest
+from sqlalchemy import insert
 
 from app.domains.chat import chains as chains_mod
 from app.domains.chat import domain as d
+from app.domains.chat import service as service_mod
 from app.domains.chat.domain import (
     MATCHERS,
     ChainContext,
     FaqHitFace,
     LaneResult,
     MetricCard,
+    MetricFace,
     TermCard,
 )
+from app.infra.db import DatabaseSpec
 from tests.domains.chat.conftest import (
     AQIANG,
     DEFAULT_CONFIG,
@@ -283,3 +295,145 @@ class TestCardsStayOffTheWire:
             if message.answer:
                 blob = json.dumps(message.answer, ensure_ascii=False)
                 assert "term_cards" not in blob and "metric_cards" not in blob
+
+
+class TestProductionStatusPassthrough:
+    """修复拍①：生产组合根 terms_loader 状态透传（dev 偏差①——P-004 修复）。
+
+    真 lifespan 起于 sqlite（main.py 装配面整体真实——monkeypatch 只换数据库
+    规格）；术语卡片状态标注由此在生产环境非空，「已届满」标注依赖 expires_at
+    一并透传。
+    """
+
+    async def test_main_terms_loader_projects_status_nonempty(
+        self, tmp_path: Any, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        import app.main as main_mod
+        from app.domains.semantics.store import SemTerm
+
+        spec = DatabaseSpec(
+            name="primary", role="primary", driver="sqlite", host="", port=0,
+            database=str(tmp_path / "prod-smoke.db"), user="", password="",
+            pool_size=2, max_overflow=1,
+        )
+        monkeypatch.setattr(main_mod, "load_database_specs", lambda: [spec])
+        async with main_mod.app.router.lifespan_context(main_mod.app):
+            svc = main_mod.app.state.chat
+            engine = main_mod.app.state.db.engine()
+            async with engine.begin() as conn:
+                await conn.execute(insert(SemTerm).values(
+                    id=9001, term="躺井", type="黑话 → 躺井", def_="限作业区语境",
+                    status="有效（限作业区语境）", status_key="有效（限作业区语境）",
+                    owner="小李", source="演示种子", version=1,
+                    expires_at=date(2026, 12, 31),
+                ))
+            rows = await svc._terms_loader()
+            assert [r.term for r in rows] == ["躺井"]
+            assert rows[0].status == "有效（限作业区语境）"
+            assert rows[0].status_key == "有效（限作业区语境）"
+            assert rows[0].expires_at == date(2026, 12, 31)
+            # 装卡面咬合：生产装载行直接出卡——状态标注非空
+            card = service_mod._term_card(rows[0])
+            assert card.status_note == "有效（限作业区语境）"
+
+
+class TestMetricStatusJoin:
+    """修复拍②：指标卡 status 标注 sem list 形态以「／」join、str 原样（审查③中）。
+
+    sem_metric.status 为 jsonb 数组（['生效中','待联席裁决'] 双徽标形态）——
+    禁 str() 直透产出「['生效中']」垃圾串直入兜底文案。
+    """
+
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            pytest.param(["生效中"], "生效中", id="list-single"),
+            pytest.param(["生效中", "待联席裁决"], "生效中／待联席裁决", id="list-double"),
+            pytest.param("生效中", "生效中", id="str-asis"),
+            pytest.param("", "", id="empty"),
+        ],
+    )
+    def test_metric_card_status_note_forms(self, raw: Any, expected: str) -> None:
+        face = MetricFace(
+            metric_id=2, name="★有效产量（两支口径）", slot_name="有效产量",
+            ambiguous=True, calibers=[], default_caliber=None, status=raw,
+        )
+        card = service_mod._metric_card(face)
+        assert card.status_note == expected
+        assert "['" not in card.status_note  # 垃圾形态负断言
+
+    def test_ledger_entry_carries_joined_note(self) -> None:
+        """_ledger_entries 消费面：join 后标注进兜底诚实文案（非 list 直透）。"""
+        assembly = _assembly(metric_cards=[service_mod._metric_card(MetricFace(
+            metric_id=2, name="★有效产量（两支口径）", slot_name="有效产量",
+            ambiguous=True, calibers=[], default_caliber=None,
+            status=["生效中", "待联席裁决"],
+        ))])
+        entries = chains_mod._ledger_entries(assembly)
+        assert entries == ["「有效产量」，状态：生效中／待联席裁决"]
+
+
+class TestN18InlineFallbackHonesty:
+    """修复拍③：N18 拒答内联 answer 接同款诚实判定——只计 term_cards/metric_cards
+    （不复述 FAQ 内容：FAQ 链走到兜底即 faq_hit 从未命中或已失效，答案不可靠）。"""
+
+    async def test_miss_with_term_cards_reports_ledger_without_faq_content(
+        self, seams: Seams,
+    ) -> None:
+        """有 term 卡 → 「台账有收录：…；报告库未检索到相关内容」，且装配 faq_hit
+        （竞变失效形态）的答案内容不出现、不说「没有找到」。"""
+        assembly = _assembly(
+            term_cards=[TermCard(
+                term="躺井", type="黑话 → 躺井", def_text="限作业区语境",
+                status_note="有效（限作业区语境）",
+            )],
+            faq_hit=FaqHitFace(entry_id="faq-9", question="躺井啥意思",
+                               answer="FAQ 条目答案独家内容XYZ"),
+        )
+        events = await collect(chains_mod.faq_direct_chain(
+            _deps(seams), ChainContext(run_id="run-x", question="躺井啥意思",
+                                       actor_who=AQIANG, assembly=assembly)))
+        answer = events_by_name(events)["answer"][0]
+        text = str(answer["text"])
+        assert "台账有收录" in text
+        assert "躺井" in text and "限作业区语境" in text
+        assert "报告库未检索到相关内容" in text
+        assert "FAQ 条目答案独家内容XYZ" not in text  # FAQ 内容不复述（含竞变情形）
+        assert "没有找到" not in text
+
+    async def test_miss_without_cards_keeps_fallback_text(self, seams: Seams) -> None:
+        """无卡 → 原 fallback_text 原样（D2 配置值不动）。"""
+        events = await collect(chains_mod.faq_direct_chain(
+            _deps(seams), ChainContext(run_id="run-x", question="随便问一句",
+                                       actor_who=AQIANG, assembly=_assembly())))
+        answer = events_by_name(events)["answer"][0]
+        assert answer["kind"] == "alert"
+        assert answer["text"] == DEFAULT_CONFIG.fallback_text
+
+
+class TestTermCardStatusNoteBranches:
+    """修复拍⑤：term_card_status_note 四分支参数化（审查③中/低——派生规则直测）。
+
+    实际优先序＝禁用词＞已届满（term_expiry 禁用词先行、禁用词行恒返回
+    expired=False）——禁用词分支携过去 expires_at 钉死优先序。
+    """
+
+    @pytest.mark.parametrize(
+        ("status", "status_key", "expires_at", "expected"),
+        [
+            pytest.param("有效（已届满）", "有效（已届满）", date(2026, 6, 30),
+                         "2026-06-30（已届满）", id="expired"),
+            pytest.param("老完成率（废弃）", "禁用词", date(2026, 6, 30),
+                         "—（已禁用）", id="banned-beats-expired"),
+            pytest.param("", "有效", None, "长期", id="long-term"),
+            pytest.param("", "", None, "", id="all-empty"),
+        ],
+    )
+    def test_status_note_branches(
+        self, status: str, status_key: str, expires_at: date | None, expected: str,
+    ) -> None:
+        note = d.term_card_status_note(
+            status=status, status_key=status_key, expires_at=expires_at,
+            today=date(2026, 10, 3),
+        )
+        assert note == expected

@@ -533,12 +533,15 @@ class ChatService:
                 "N5a", state=d.NODE_FINISH, tag="两跳到终态",
                 note="候选未选——拒答终态（宁可不答、不瞎猜——缺的是用户意图，不代选）",
             )
-            cfg = await self._config_loader()
             yield d.SseEvent(d.FRAME_NOTICE, {
                 "level": "info",
                 "text": "未选择候选——按「宁可不答、不瞎猜」铁律拒答（澄清帧两跳到终态）。",
             })
-            answer = {"kind": "alert", "alert_type": "warning", "text": cfg.fallback_text}
+            # P-004 修复拍④：拒答终态文案独立（不借 D2 fallback_text——该路径
+            # 拿不到装配物，「报告库里没有找到」对澄清收场不诚实）。
+            answer = {
+                "kind": "alert", "alert_type": "warning", "text": d.REFUSE_TERMINAL_TEXT,
+            }
             yield d.SseEvent(d.FRAME_ANSWER, answer)
             yield d.SseEvent(d.FRAME_DONE, {})
             await self._store.append_message(
@@ -1382,10 +1385,12 @@ def _term_card(row: d.TermFace) -> d.TermCard:
 
 
 def _metric_card(metric: d.MetricFace) -> d.MetricCard:
-    """指标完整行 → 指标卡（P1F-02——状态展示串透传，口径支行原样投影）。"""
+    """指标完整行 → 指标卡（P1F-02——状态标注经 metric_card_status_note 归一
+    （sem list 形态「／」join、str 原样——P-004 修复拍②），口径支行原样投影）。"""
     return d.MetricCard(
         slot_name=metric.slot_name, name=metric.name,
-        calibers=list(metric.calibers), status_note=metric.status,
+        calibers=list(metric.calibers),
+        status_note=d.metric_card_status_note(metric.status),
     )
 
 

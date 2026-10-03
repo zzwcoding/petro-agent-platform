@@ -600,9 +600,13 @@ def _term_card_material(term_cards: list[d.TermCard]) -> str:
     return "\n".join(lines)
 
 
-def _ledger_entries(assembly: d.AssemblyResult) -> list[str]:
+def _ledger_entries(assembly: d.AssemblyResult, *, include_faq: bool = True) -> list[str]:
     """兜底诚实文案的台账收录清单（P1F-02——词条名＋定义/口径摘要＋状态标注，
-    多卡逐条列出；六路全空返回空清单＝仍走 D2 fallback_text 原样）。"""
+    多卡逐条列出；六路全空返回空清单＝仍走 D2 fallback_text 原样）。
+
+    include_faq=False 供 N18 内联兜底（P-004 修复拍③）——FAQ 链走到拒答时
+    faq_hit 从未命中或已失效（索引竞变），复述其内容不可靠，只计台账卡。
+    """
     entries: list[str] = []
     for term_card in assembly.term_cards:
         note = f"，状态：{term_card.status_note}" if term_card.status_note else ""
@@ -614,11 +618,16 @@ def _ledger_entries(assembly: d.AssemblyResult) -> list[str]:
         caliber_part = f"，口径：{calibers}" if calibers else ""
         note = f"，状态：{metric_card.status_note}" if metric_card.status_note else ""
         entries.append(f"「{metric_card.slot_name}」{caliber_part}{note}")
-    if assembly.faq_hit is not None:
+    if include_faq and assembly.faq_hit is not None:
         entries.append(
             f"FAQ「{assembly.faq_hit.question}」{assembly.faq_hit.answer[:80]}"
         )
     return entries
+
+
+def _ledger_alert_text(entries: list[str]) -> str:
+    """「台账有收录」收场话术（fixed 兜底与 N18 内联兜底共用一句——单源）。"""
+    return f"台账有收录：{'；'.join(entries)}；报告库未检索到相关内容。"
 
 
 async def _fallback_answer(
@@ -636,7 +645,7 @@ async def _fallback_answer(
         if entries:
             yield d.SseEvent(d.FRAME_ANSWER, {
                 "kind": "alert", "alert_type": "warning",
-                "text": f"台账有收录：{'；'.join(entries)}；报告库未检索到相关内容。",
+                "text": _ledger_alert_text(entries),
             })
             return
         yield d.SseEvent(d.FRAME_ANSWER, {
@@ -673,7 +682,9 @@ async def faq_direct_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterato
     同拍完成：执行前复测 match_index（装配命中不豁免——索引竞变在此现形，
     P1F-02），命中 → 直出答案＋citation（no_model=true——「本条命中 FAQ 直出
     ——未调用模型」标注，A1 合同冻结）；未命中按装配阶段有无命中分叉注记
-    （复测未命中≠竞变失效——两情形不再同标「索引竞变」），answer 兜底文案走
+    （复测未命中≠竞变失效——两情形不再同标「索引竞变」），answer 接兜底诚实
+    判定——只计 term_cards/metric_cards（P-004 修复拍③：FAQ 链走到拒答即
+    faq_hit 未命中或已失效，不复述其内容），有卡报「台账有收录」、无卡走
     D2 fallback_text。citation＝FAQ 条目出处（faq 块族——citation kind 四值
     枚举无 FAQ 专值，落台账条目族如实标注）。
     """
@@ -694,8 +705,10 @@ async def faq_direct_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterato
             f"FAQ 精确命中：{annotation}——按兜底策略处理，不硬答。",
             level="warning",
         )
+        entries = _ledger_entries(ctx.assembly, include_faq=False)  # 只计台账卡——不复述 FAQ
         yield d.SseEvent(d.FRAME_ANSWER, {
-            "kind": "alert", "alert_type": "warning", "text": cfg.fallback_text,
+            "kind": "alert", "alert_type": "warning",
+            "text": _ledger_alert_text(entries) if entries else cfg.fallback_text,
         })
         return
     cfg = await deps.config_loader()

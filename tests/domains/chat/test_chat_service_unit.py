@@ -595,9 +595,35 @@ class TestCandidateClarifyLoop:
         assert _names(second)[-1] == "done"
         assert any("不瞎猜" in str(n["text"]) for n in data["notice"])
         answer = data["answer"][0]
-        assert answer["kind"] == "alert" and answer["text"] == DEFAULT_CONFIG.fallback_text
+        assert answer["kind"] == "alert" and answer["text"] == d.REFUSE_TERMINAL_TEXT
         run = await ChatStore(chat_db).get_run(run_id)
         assert run is not None and run.status == "done"
+
+    async def test_resume_without_choice_refuse_terminal_text_is_independent(
+        self, chat_db: ConnectionManager, seams: Seams,
+    ) -> None:
+        """修复拍④：拒答终态文案独立（不再借 D2 fallback_text——该路径拿不到
+        装配物，「报告库里没有找到」对澄清收场不诚实——审查②中）。"""
+        seams.index_hits = [
+            d.IndexHitFace(fragment_id="f1", report_id="rpt-1", report="完井报告",
+                           section="01", snippet="…", score=0.2, leg="vector"),
+        ]
+        seams.config = replace(DEFAULT_CONFIG, early_stop=False)
+        svc = make_service(chat_db, seams)
+        first = await collect(svc.ask(
+            "N-02 的情况", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        run_id = _events_by_name(first)["session"][0]["run_id"]
+        second = await collect(svc.resume(
+            run_id, kind="clarify", choice=None, decision=None, reason=None,
+            actor_who=AQIANG,
+        ))
+        answer = _events_by_name(second)["answer"][0]
+        assert answer["kind"] == "alert"
+        assert answer["text"] == d.REFUSE_TERMINAL_TEXT
+        assert answer["text"] != DEFAULT_CONFIG.fallback_text
+        assert "已按您的选择拒答" in str(answer["text"])
 
     async def test_resume_with_invalid_choice_is_400(
         self, chat_db: ConnectionManager, seams: Seams,

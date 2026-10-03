@@ -209,6 +209,11 @@ ANCHOR_MISS_TEMPLATE = (
 ANCHOR_LOCK_NOTICE_TEMPLATE = "★ 已按你的选择锁定：{token}"
 SUGGESTION_NOTICE_TEMPLATE = "这个词没有直接命中台账——已登记进建议池， Owner 复核后会补上。"
 
+# 拒答终态文案（P-004 修复拍④——resume 候选未选的收场话术独立成文案，不再借
+# D2 fallback_text：该路径拿不到装配物（_suspend_clarify 不持久化装配），
+# 「报告库里没有找到」对澄清收场不诚实——宁可不答、不瞎猜的如实表述）。
+REFUSE_TERMINAL_TEXT = "已按您的选择拒答：未选定候选，不作答"
+
 # 骨架期裁决标注（confidence 档位值＋页面标注后缀——A1 合同允许形状）。
 FAQ_ROUTE_CONFIDENCE = "高（FAQ 精确命中——直出）"
 GRAPH_ROUTE_CONFIDENCE = "高（图谱命中——确定性关系事实）"
@@ -275,8 +280,9 @@ class SseEvent:
 class MetricFace:
     """指标台账面（semantics 读接口投影——chat 不触 sem_* 表，B5 边界规则）。
 
-    status＝状态展示串投影（C1 徽标列透传——词条卡装卡消费，P1F-02；组合根
-    未携入时为空串＝不标注，不发明状态）。
+    status＝状态投影（C1 徽标列透传——装卡消费，P1F-02；sem_metric.status 为
+    jsonb 数组故接受 list[str] 或 str 两形态——装卡经 metric_card_status_note
+    归一，禁 str() 直透；组合根未携入时为空串＝不标注，不发明状态）。
     """
 
     metric_id: int
@@ -285,7 +291,7 @@ class MetricFace:
     ambiguous: bool
     calibers: list[dict[str, Any]]
     default_caliber: str | None
-    status: str = ""
+    status: str | list[str] = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -403,11 +409,13 @@ def term_card_status_note(
 ) -> str:
     """词条卡状态标注串（P1F-02——C1 读端点同款派生口径，term_expiry 单源复用）。
 
-    分支序（票面两例全覆盖，不重写 C1 展示串规则）：
+    分支序（票面两例全覆盖，不重写 C1 展示串规则；实际优先序＝禁用词＞已届满
+    ——term_expiry 禁用词先行、禁用词行恒返回 expired=False，P-004 修复拍⑤
+    按实际序正 docstring）：
     - 三值全空 → 空串（台账未携状态字段——不发明标注）；
+    - 禁用词 → 「—（已禁用）」（压过已届满——即便 expires_at 已过）；
     - 已届满（expires_at <= today，F60 到日即标）→ 「2026-06-30（已届满）」
-      （日产液例——届满标注压倒）；
-    - 禁用词 → 「—（已禁用）」；
+      （日产液例）；
     - 其余状态展示串优先（躺井「有效（限作业区语境）」例——语境限定随卡带出），
       缺省回 term_expiry 展示串（「长期」族）。
     """
@@ -419,6 +427,18 @@ def term_card_status_note(
     if status_key == "禁用词":
         return expires_display
     return status or expires_display
+
+
+def metric_card_status_note(status: str | list[str]) -> str:
+    """指标卡状态标注串（P-004 修复拍②——sem list 形态归一，审查③中）。
+
+    sem_metric.status 为 jsonb 数组（['生效中']／['生效中','待联席裁决'] 双徽标
+    形态）：list 以「／」join、str 原样——禁 str() 直透（产出「['生效中']」
+    垃圾串直入兜底文案）；空值空串。
+    """
+    if isinstance(status, list):
+        return "／".join(str(item) for item in status if str(item))
+    return status
 
 
 @dataclass(frozen=True, slots=True)
