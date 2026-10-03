@@ -238,8 +238,8 @@ class TestEarlyStopSemantics:
         self, chat_db: Any, seams: Seams,
     ) -> None:
         """(c) @ 锚定命中＋早停开 → S3~S5 跳过（身份确认——唯一保留的早停路径）；
-        S4/S5 skip 注记保留且归因 S1 锚定；S3 级不另出帧（P1F-03：S3 skip 调用
-        删除——S1 注记已声明 S3~S5 跳过）。"""
+        S3/S4/S5 归因 skip 注记齐（每级一帧——P-005 修复拍帧对称：S3 补出归因
+        skip 帧，与 S4/S5 同款归因 S1 锚定）。"""
         seams.index_hits = [_hit("f1", 0.9)]
         seams.index_vector = [_hit("f1", 0.9)]
         seams.index_keyword = [_hit("f1", 0.6, "keyword")]
@@ -251,13 +251,14 @@ class TestEarlyStopSemantics:
         s1_finish = " ".join(_finish_notes(events, "S1"))
         assert "命中即停——S3~S5 跳过" in s1_finish
         assert not any("双路召回" in text for text in _finish_notes(events, "S4"))
-        assert _skip_frames(events, "S4") and _skip_frames(events, "S5")
+        assert all(_skip_frames(events, key) for key in ("S3", "S4", "S5"))
         assert all(
             "S1 锚定命中即停" in str(f["note"])
-            for key in ("S4", "S5") for f in _skip_frames(events, key)
+            for key in ("S3", "S4", "S5") for f in _skip_frames(events, key)
         )
-        # S3 级在 S1 早停下不出任何帧（本级无 skip 调用——skip 决策只剩 S1）
-        assert not [f for f in events_by_name(events)["node"] if f["key"] == "S3"]
+        # S3 级在 S1 早停下只出归因 skip 帧（每级一帧——本级逻辑不执行）
+        assert [f["state"] for f in events_by_name(events)["node"]
+                if f["key"] == "S3"] == ["wait"]
         assert seams.calls.get("index_dual", 0) == 0  # S4 真被跳过（并发召回未发起）
         # S6/S7 不受早停影响（合同：资格审/权威回读照走）
         assert _finish_notes(events, "S6") and _finish_notes(events, "S7")
@@ -278,6 +279,10 @@ class TestEarlyStopSemantics:
         assert "命中即停" not in " ".join(_finish_notes(events, "S1"))  # 关＝S1 也不跳
         assert any("双路召回" in text for text in _finish_notes(events, "S4"))
         assert any("图扩展未启用" in text for text in _skip_notes(events, "S5"))
+        # 关态配置核对行明义句钉（P-005 修复拍 P3-c——封死三元否分支文案）
+        check_lines = [str(f["text"]) for f in events_by_name(events)["node_line"]
+                       if f["key"] == "N17"]
+        assert any("早停＝关（逐级全跑）" in text for text in check_lines)
 
     async def test_level_switch_off_skips_level(
         self, chat_db: Any, seams: Seams,
@@ -334,6 +339,9 @@ class TestEarlyStopSemantics:
         ))
         assert events_by_name(events)["answer"][0]["kind"] == "text"
         assert "术语台账收录：躺井" in _last_gen_user(seams)  # 词条卡（装配层随行）
+        # S3 命中真实发生（防空转假绿——「台账完全一致命中」帧确实出现；
+        # P-005 修复拍 P3-b：装配候选形状若变，本断言先翻红）
+        assert "台账完全一致命中" in " ".join(_finish_notes(events, "S3"))
         # 词表级命中不停下级——与 (a) 同口径：S4 执行不 skip
         assert not _skip_frames(events, "S4")
         assert any("双路召回" in text for text in _finish_notes(events, "S4"))

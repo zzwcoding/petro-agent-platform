@@ -9,8 +9,8 @@
   上限＋refuse_threshold 拒答判定）→ S7 权威源回读（指标台账核对）→ GEN 限定
   作答（petro-main）→ citation fail-closed（伪造/失锚引用拦截丢弃，绝不带病出帧）
   → N17 收束。早停（D2「命中即停」开关，v0.3 收窄语义）：仅 S1 显式锚定命中即
-  跳过下级检索级（S3~S5 跳过——身份确认非意图猜测；S3 本级不另出帧，S4/S5 出
-  skip 注记）；S3 词表级命中不停下级——台账命中只作增强材料随装配进生成，报告
+  跳过下级检索级（S3~S5 跳过——身份确认非意图猜测；S3/S4/S5 各出归因 skip
+  注记——每级一帧）；S3 词表级命中不停下级——台账命中只作增强材料随装配进生成，报告
   检索照跑；关＝逐级全跑；S0/S2/S6/S7 不受早停影响。词条卡一等材料（P1F-02）：
   装配层 term_cards 常驻随行，生成步
   以「术语台账收录：…」材料块并入 user 消息（在证据支材料之前），定义先行规则
@@ -151,8 +151,9 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
 
     # —— S3 词表四级（确定性查表——台账完全一致才命中，确定性先于相似度）——
     # 词表级命中不停下级（P1F-03／D2 v0.3 收窄）：台账命中只作增强材料（词条卡
-    # 走 P1F-02 装配层，不依赖本级跳过），S4/S5 照跑；本级的 skip 决策只剩第 2 级
-    # 开关关（S1 锚定早停时本级不另出帧——S1 注记声明 S3~S5 跳过）。
+    # 走 P1F-02 装配层，不依赖本级跳过），S4/S5 照跑；本级 skip 决策＝第 2 级
+    # 开关关或 S1 锚定早停（帧对称——P-005 修复拍审查疑点①：被跳也出归因帧，
+    # 保「每级一帧」惯例，与 S4/S5 同款归因 S1）。
     if not skip_rest:
         if not cfg.order_levels[1]:
             yield d.node_skip("S3", "第 2 级开关关——跳过词表级，直接看下一级")
@@ -174,6 +175,10 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
                 yield d.node_frame(
                     "S3", state=d.NODE_FINISH, note="台账精确未命中——进入双路召回",
                 )
+    else:
+        yield d.node_skip(
+            "S3", "S1 锚定命中即停——本级跳过（装配层材料、资格审、权威回读照走）",
+        )
 
     # —— S4 双路召回（两路并发）＋合并＋前 N＋精排三档＋FAQ 路扩检 ——
     if not skip_rest:
