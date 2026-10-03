@@ -11,6 +11,8 @@
   声明材料覆盖范围），且实际下发 system 消息即该常量（生成端真收到）；
 - (d) 兜底分支不接（fixed/free 兜底携届满卡也零 notice——非检索链生成路径）；
   整链服务路集成（svc.ask）：notice 经分派透传在 token 前落地、done 收场不变。
+- 修复拍（P-009.fix——审查 R4b/R1/R6）：带出判定改逐卡隔离（同显式串双卡甲
+  带出不豁免乙）、补多卡回归用例、帧位次断言去环境敏感匹配。
 """
 
 from dataclasses import replace
@@ -98,6 +100,15 @@ def _guard_notices(events: list[Any]) -> list[dict[str, Any]]:
     ]
 
 
+def _guard_positions(events: list[Any]) -> list[int]:
+    """守卫 notice 的帧位次（只认「状态标注——」守卫帧——R6：位次判定不依赖
+    「守卫恰为全流第一条 notice」的环境巧合，上游前置 notice 有无都不误红）。"""
+    return [
+        i for i, frame in enumerate(events)
+        if frame.event == "notice" and "状态标注——" in str(frame.data.get("text"))
+    ]
+
+
 def _card(note: str, term: str = "日产液") -> TermCard:
     return TermCard(term=term, type="口语缩写", def_text="作业区口语缩写", status_note=note)
 
@@ -121,13 +132,10 @@ class TestStatusAnnotationFallbackNotice:
         body = "日产液指作业区口语里的日产液量，数据指引见产量月报。"
         events = await _run(seams, [_card(EXPIRED_NOTE)], body)
         names = [frame.event for frame in events]
-        guard_positions = [
-            i for i, frame in enumerate(events)
-            if frame.event == "notice" and "状态标注——" in str(frame.data.get("text"))
-        ]
+        guard_positions = _guard_positions(events)
         answer = events_by_name(events)["answer"]
         assert answer[-1]["text"] == body  # 正文零改写——通知帧补位不改写
-        assert guard_positions == [names.index("notice")]  # 恰一帧且在首个 notice 位
+        assert len(guard_positions) == 1  # 恰一帧（R6：只数守卫帧，不钉全流 notice 位次）
         assert guard_positions[0] < names.index("token")  # token 流前并列呈现
         assert names[-1] == "answer"  # 链缝合同：answer 帧必须最后出现
 
@@ -184,8 +192,66 @@ class TestNoOverNotification:
         assert _guard_notices(events) == []
 
 
+class TestMultiCardPerCardIsolation:
+    """多卡逐卡隔离（P-009 修复拍——审查 R4b/R1）：同显式串双卡时答案级一次
+    判定会拿甲卡带出豁免乙卡、漏掉乙的通知；修后按卡序消费标注出现位——
+    甲卡带出不构成乙卡豁免，乙须自携出现位才算带出。"""
+
+    async def test_two_cards_neither_carried_one_notice_each(
+        self, seams: Seams,
+    ) -> None:
+        """两卡（届满＋禁用各一）均提及均未带出 → 恰两条、序随卡序、不丢不重
+        （审查通过项 11 手工实验场景同构——多卡回归钉）。"""
+        body = "日产液是作业区口语里的日产液量；老完成率指标已停止维护。"
+        events = await _run(
+            seams,
+            [_card(EXPIRED_NOTE), _card("—（已禁用）", term="老完成率")],
+            body,
+        )
+        guards = _guard_notices(events)
+        assert [g["text"] for g in guards] == [
+            f"注：日产液状态标注——{EXPIRED_NOTE}",
+            "注：老完成率状态标注———（已禁用）",
+        ]
+        assert all(g["level"] == "warning" for g in guards)
+
+    async def test_same_note_dual_card_only_first_carried(
+        self, seams: Seams,
+    ) -> None:
+        """R4b 变异场景（审查沙箱实测同构）：双卡同显式串、答案只带甲标注 →
+        乙补通知、甲不重复（修前乙零通知——答案级判定被甲的带出豁免）。"""
+        body = (
+            f"日产液（{EXPIRED_NOTE}）指作业区口语里的日产液量；"
+            "日注液指注入井口径的日注液量。"
+        )
+        events = await _run(
+            seams,
+            [_card(EXPIRED_NOTE), _card(EXPIRED_NOTE, term="日注液")],
+            body,
+        )
+        guards = _guard_notices(events)
+        assert [g["text"] for g in guards] == [f"注：日注液状态标注——{EXPIRED_NOTE}"]
+
+    async def test_answer_carries_only_first_card_annotation(
+        self, seams: Seams,
+    ) -> None:
+        """答案只带其一（届满卡带出、禁用卡未带出）→ 恰一条（乙的）——带出的
+        甲不重复、缺失的乙不丢，跨类标注互不豁免。"""
+        body = (
+            f"日产液（{EXPIRED_NOTE}）指作业区口语里的日产液量；"
+            "老完成率指标已停止维护，请查现行指标目录。"
+        )
+        events = await _run(
+            seams,
+            [_card(EXPIRED_NOTE), _card("—（已禁用）", term="老完成率")],
+            body,
+        )
+        guards = _guard_notices(events)
+        assert [g["text"] for g in guards] == ["注：老完成率状态标注———（已禁用）"]
+
+
 class TestAnnotationCarriedClassifier:
-    """判别器直测（边界语义钉死——原文／倒装／占位段／单段不足）。"""
+    """判别器直测（边界语义钉死——原文／倒装／占位段／单段不足／占用区间隔离）。"""
 
     @pytest.mark.parametrize(
         ("note", "answer", "carried"),
@@ -200,7 +266,18 @@ class TestAnnotationCarriedClassifier:
         ],
     )
     def test_carried_semantics(self, note: str, answer: str, carried: bool) -> None:
-        assert chains_mod._annotation_carried(note, answer) is carried
+        hit, spans = chains_mod._annotation_carried(note, answer, [])
+        assert hit is carried
+        assert bool(spans) is carried  # 带出必携消费区间——供后卡隔离（R4b）
+
+    def test_occupied_span_blocks_second_same_note_card(self) -> None:
+        """R4b 判定基元直测：同显式串双卡——甲卡消费的原文出现位对乙卡不可
+        复用，乙卡无自携出现位 → 不算带出。"""
+        answer = f"日产液（{EXPIRED_NOTE}）指作业区口语里的日产液量。"
+        hit, spans = chains_mod._annotation_carried(EXPIRED_NOTE, answer, [])
+        assert hit is True and spans
+        hit2, spans2 = chains_mod._annotation_carried(EXPIRED_NOTE, answer, spans)
+        assert hit2 is False and spans2 == []
 
 
 class TestGenPromptNoInferenceRule:

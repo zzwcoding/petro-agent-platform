@@ -828,13 +828,44 @@ def _annotation_segments(status_note: str) -> list[str]:
     return [part.strip() for part in parts if len(part.strip()) >= 2]
 
 
-def _annotation_carried(status_note: str, answer_text: str) -> bool:
-    """答案是否已带出标注：标注串原文整体在场，或全部语义承载段各自在场（括注
-    次序无关——「已届满（2026-06-30）」倒装同样算带出，不重复出通知）。"""
-    if status_note in answer_text:
-        return True
+def _free_occurrence(
+    answer_text: str, needle: str, occupied: list[tuple[int, int]],
+) -> int:
+    """needle 在答案中的首个未占用出现位（字符偏移；无空闲出现 → -1）。
+
+    R4b 按卡隔离判定的基元：occupied 是先到卡已消费的标注出现位区间，同显式
+    串双卡时甲卡消费过的位置不得再豁免乙卡。"""
+    start = 0
+    while True:
+        pos = answer_text.find(needle, start)
+        if pos < 0:
+            return -1
+        end = pos + len(needle)
+        if not any(pos < e and s < end for s, e in occupied):
+            return pos
+        start = pos + 1
+
+
+def _annotation_carried(
+    status_note: str, answer_text: str, occupied: list[tuple[int, int]],
+) -> tuple[bool, list[tuple[int, int]]]:
+    """逐卡判定该卡标注是否被带出（R4b——每卡独立判定，先到卡消费的出现位不
+    豁免后卡）：标注串原文整体在场，或全部语义承载段各自在场（括注次序无关
+    ——「已届满（2026-06-30）」倒装同样算带出），且各出现位均不落在先前卡的
+    occupied 区间内。判定成立时一并返回本卡消费区间，由调用方沿卡序传递。"""
+    pos = _free_occurrence(answer_text, status_note, occupied)
+    if pos >= 0:
+        return True, [(pos, pos + len(status_note))]
     segments = _annotation_segments(status_note)
-    return bool(segments) and all(seg in answer_text for seg in segments)
+    if not segments:
+        return False, []
+    spans: list[tuple[int, int]] = []
+    for seg in segments:
+        pos = _free_occurrence(answer_text, seg, occupied)
+        if pos < 0:
+            return False, []
+        spans.append((pos, pos + len(seg)))
+    return True, spans
 
 
 def _status_annotation_notices(
@@ -845,15 +876,23 @@ def _status_annotation_notices(
     判定（只认届满/禁用类——ANNOTATION_GUARD_MARKERS）：词条卡 status_note 携
     判别串、答案正文提及该词条、但未带出标注串（原文与全部语义承载段均不在）
     → 每卡一条 warning 级 notice：「注：〈词条名〉状态标注——〈标注串原文〉」。
+    带出判定逐卡隔离（R4b——审查发现：同显式串双卡时答案级一次判定会让甲卡
+    带出豁免乙卡、漏掉乙的通知）：答案中一处标注出现只豁免先到的卡，occupied
+    沿卡序消费——甲卡带出不构成乙卡豁免，乙仍须自携出现位才算带出。
     不改写已流式答案正文——notice 帧在 token 流前并列呈现（链缝合同：answer 帧
     必须最后出现）。free/fixed 兜底分支不接（非检索链生成路径）。
     """
     out: list[d.SseEvent] = []
+    occupied: list[tuple[int, int]] = []
     for card in term_cards:
         note = card.status_note
         if not note or not any(marker in note for marker in ANNOTATION_GUARD_MARKERS):
             continue
-        if card.term not in answer_text or _annotation_carried(note, answer_text):
+        if card.term not in answer_text:
+            continue
+        carried, spans = _annotation_carried(note, answer_text, occupied)
+        if carried:
+            occupied.extend(spans)
             continue
         out.append(notice(f"注：{card.term}状态标注——{note}", level="warning"))
     return out
