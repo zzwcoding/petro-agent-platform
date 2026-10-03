@@ -27,8 +27,8 @@ data-plane/
 .scratch/
 
 # 双窗口调度运行态（协议本体 PROTOCOL.md/watch.sh 进 git——见 dispatch/）
-# dispatch/enabled
-# dispatch/journal.jsonl
+dispatch/enabled
+dispatch/journal.jsonl
 # dispatch/pending/
 # dispatch/results/
 # dispatch/done/
