@@ -1,0 +1,409 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-95bce1",
+    "thread_id": "sess-2fcd4d"
+   }
+  },
+  {
+   "id": 1,
+   "event": "stage",
+   "data": {
+    "stage": 0
+   }
+  },
+  {
+   "id": 2,
+   "event": "stage",
+   "data": {
+    "stage": 1
+   }
+  },
+  {
+   "id": 3,
+   "event": "node",
+   "data": {
+    "key": "N1",
+    "name": "统一安检",
+    "label": "统一安检",
+    "state": "process",
+    "note": "统一安检——三道逐条翻（注入扫描/禁用词索引/身份与数据域）",
+    "tag": "代码 · 字面规则"
+   }
+  },
+  {
+   "id": 4,
+   "event": "sec_check",
+   "data": {
+    "seq": 1,
+    "name": "注入扫描",
+    "result": "pass",
+    "note": "字面规则未命中"
+   }
+  },
+  {
+   "id": 5,
+   "event": "sec_check",
+   "data": {
+    "seq": 2,
+    "name": "禁用词索引",
+    "result": "pass",
+    "note": "字面规则未命中"
+   }
+  },
+  {
+   "id": 6,
+   "event": "sec_check",
+   "data": {
+    "seq": 3,
+    "name": "身份与数据域",
+    "result": "pass",
+    "note": "阿强 · 平台运维"
+   }
+  },
+  {
+   "id": 7,
+   "event": "node",
+   "data": {
+    "key": "N1",
+    "name": "统一安检",
+    "label": "统一安检",
+    "state": "finish",
+    "note": "三道全过——放行"
+   }
+  },
+  {
+   "id": 8,
+   "event": "node",
+   "data": {
+    "key": "N3",
+    "name": "轻装配",
+    "label": "轻装配",
+    "state": "process",
+    "note": "轻装配——@ 前门直取＋六路匹配器全扫全收集",
+    "tag": "代码 · 毫秒级"
+   }
+  },
+  {
+   "id": 9,
+   "event": "match",
+   "data": {
+    "matcher": "FAQ 索引",
+    "status": "miss",
+    "note": "归一化精确未命中"
+   }
+  },
+  {
+   "id": 10,
+   "event": "match",
+   "data": {
+    "matcher": "指标卡台账",
+    "status": "hit",
+    "confidence": "high",
+    "note": "命中 「检泵周期」"
+   }
+  },
+  {
+   "id": 11,
+   "event": "match",
+   "data": {
+    "matcher": "术语台账",
+    "status": "miss",
+    "note": "台账未命中"
+   }
+  },
+  {
+   "id": 12,
+   "event": "match",
+   "data": {
+    "matcher": "工具清单",
+    "status": "miss",
+    "note": "工具注册表未建——落空"
+   }
+  },
+  {
+   "id": 13,
+   "event": "match",
+   "data": {
+    "matcher": "分析工作流",
+    "status": "miss",
+    "note": "工作流运行时未建——落空"
+   }
+  },
+  {
+   "id": 14,
+   "event": "match",
+   "data": {
+    "matcher": "报告索引",
+    "status": "hit",
+    "confidence": "high",
+    "note": "命中《《B-渤中34-5油田躺井治理与检泵作业月报-202608》》正文（vector 腿 · score=0.96）"
+   }
+  },
+  {
+   "id": 15,
+   "event": "node",
+   "data": {
+    "key": "N3",
+    "name": "轻装配",
+    "label": "轻装配",
+    "state": "finish",
+    "note": "六路候选：命中 2 路——共池 6 支（全扫全收集，落空进建议池）"
+   }
+  },
+  {
+   "id": 16,
+   "event": "node",
+   "data": {
+    "key": "N4",
+    "name": "装配块",
+    "label": "装配块",
+    "state": "process",
+    "note": "装配块——锚点/槽位/候选/17 链清单组卷",
+    "tag": "给裁决的呈堂材料"
+   }
+  },
+  {
+   "id": 17,
+   "event": "assembly",
+   "data": {
+    "anchor_line": null,
+    "slots": "指标＝检泵周期 · 报告＝《《B-渤中34-5油田躺井治理与检泵作业月报-202608》》 · 图谱＝W-32",
+    "terms": [],
+    "candidates": [
+     {
+      "matcher": "指标卡台账",
+      "name": "检泵周期",
+      "confidence": "high",
+      "kind": "metric"
+     },
+     {
+      "matcher": "报告索引",
+      "name": "《《B-渤中34-5油田躺井治理与检泵作业月报-202608》》正文",
+      "confidence": "high",
+      "kind": "report",
+      "note": "vector 腿 · score=0.96"
+     },
+     {
+      "matcher": "报告索引",
+      "name": "《《B-渤中34-5油田躺井治理与检泵作业月报-202608》》正文 ＞ 4.1 W-22 井抽油杆断（典型案例） ＞ 4.2 W-24 井杆断（短周期案例）",
+      "confidence": "high",
+      "kind": "report",
+      "note": "vector 腿 · score=0.88"
+     },
+     {
+      "matcher": "报告索引",
+      "name": "《《B-渤中34-5油田躺井治理与检泵作业月报-202608》》正文 ＞ 4.1 W-22 井抽油杆断（典型案例）",
+      "confidence": "high",
+      "kind": "report",
+      "note": "vector 腿 · score=0.85"
+     },
+     {
+      "matcher": "报告索引",
+      "name": "《《B-渤中34-5油田躺井治理与检泵作业月报-202608》》正文 ＞ 4.1 W-22 井抽油杆断（典型案例） ＞ 4.2 W-24 井杆断（短周期案例） ＞ 4.3 其他案例摘要",
+      "confidence": "high",
+      "kind": "report",
+      "note": "vector 腿 · score=0.79"
+     },
+     {
+      "matcher": "图谱",
+      "name": "W-32（作用于 → 维护（换皮带））",
+      "confidence": "high",
+      "kind": "graph",
+      "note": "W-32　　维护（换皮带）215　　　　　 0.5　　　　　2.1"
+     }
+    ],
+    "chains": [
+     "统一安检链",
+     "状态机六站链",
+     "指标卡直出链",
+     "FAQ直出链",
+     "工具执行链",
+     "工作流执行链",
+     "检索问答链",
+     "图谱问答链",
+     "汇报生成链",
+     "大结果落盘链",
+     "Action合同链",
+     "外发拦截链",
+     "澄清反问链",
+     "口径消歧链",
+     "新鲜度闸链",
+     "行级权限链",
+     "上下文注入链"
+    ]
+   }
+  },
+  {
+   "id": 18,
+   "event": "node",
+   "data": {
+    "key": "N4",
+    "name": "装配块",
+    "label": "装配块",
+    "state": "finish",
+    "note": "装配块组卷完成——slots＝指标＝检泵周期 · 报告＝《《B-渤中34-5油田躺井治理与检泵作业月报-202608》》 · 图谱＝W-32"
+   }
+  },
+  {
+   "id": 19,
+   "event": "stage",
+   "data": {
+    "stage": 2
+   }
+  },
+  {
+   "id": 20,
+   "event": "node",
+   "data": {
+    "key": "N5",
+    "name": "意图裁决",
+    "label": "意图裁决",
+    "state": "process",
+    "note": "意图裁决——petro-main 分类（caller=chat.intent.verdict，超时 8s）；失败/超时/解析坏→确定性信号路由兜底（不许问挂）",
+    "tag": "意图裁决 · LLM＋兜底"
+   }
+  },
+  {
+   "id": 21,
+   "event": "verdict",
+   "data": {
+    "chain": "口径消歧链",
+    "slots": "指标＝检泵周期 · 报告＝《《B-渤中34-5油田躺井治理与检泵作业月报-202608》》 · 图谱＝W-32",
+    "confidence": "高（模型意图裁决 0.92）",
+    "need_clarify": false,
+    "source": "llm"
+   }
+  },
+  {
+   "id": 22,
+   "event": "node",
+   "data": {
+    "key": "N5",
+    "name": "意图裁决",
+    "label": "意图裁决",
+    "state": "finish",
+    "note": "裁决输出（来源＝llm）——chain＝口径消歧链 · confidence＝高（模型意图裁决 0.92）"
+   }
+  },
+  {
+   "id": 23,
+   "event": "node",
+   "data": {
+    "key": "N5b",
+    "name": "裁决核验",
+    "label": "裁决核验",
+    "state": "process"
+   }
+  },
+  {
+   "id": 24,
+   "event": "node",
+   "data": {
+    "key": "N5b",
+    "name": "裁决核验",
+    "label": "裁决核验",
+    "state": "finish",
+    "note": "chain「口径消歧链」在 17 链清单内——核验通过（闭世界枚举）"
+   }
+  },
+  {
+   "id": 25,
+   "event": "node",
+   "data": {
+    "key": "N6",
+    "name": "链路分派",
+    "label": "链路分派",
+    "state": "process",
+    "tag": "查映射表派链"
+   }
+  },
+  {
+   "id": 26,
+   "event": "node",
+   "data": {
+    "key": "N6",
+    "name": "链路分派",
+    "label": "链路分派",
+    "state": "finish",
+    "note": "已分派至「口径消歧链」——后续步骤由链体执行"
+   }
+  },
+  {
+   "id": 27,
+   "event": "stage",
+   "data": {
+    "stage": 3
+   }
+  },
+  {
+   "id": 28,
+   "event": "answer",
+   "data": {
+    "kind": "alert",
+    "alert_type": "info",
+    "text": "该能力暂未开通：「口径消歧链」尚未接线（骨架期——随后续票开放）。"
+   }
+  },
+  {
+   "id": 29,
+   "event": "done",
+   "data": {}
+  }
+ ],
+ "parsed": {
+  "answer_text": "该能力暂未开通：「口径消歧链」尚未接线（骨架期——随后续票开放）。",
+  "citations": [],
+  "chain": "口径消歧链",
+  "clarify": null,
+  "notices": [],
+  "nodes": [
+   {
+    "key": "N1",
+    "state": "finish",
+    "skipped": false,
+    "label": "统一安检",
+    "note": "三道全过——放行"
+   },
+   {
+    "key": "N3",
+    "state": "finish",
+    "skipped": false,
+    "label": "轻装配",
+    "note": "六路候选：命中 2 路——共池 6 支（全扫全收集，落空进建议池）"
+   },
+   {
+    "key": "N4",
+    "state": "finish",
+    "skipped": false,
+    "label": "装配块",
+    "note": "装配块组卷完成——slots＝指标＝检泵周期 · 报告＝《《B-渤中34-5油田躺井治理与检泵作业月报-202608》》 · 图谱＝W-32"
+   },
+   {
+    "key": "N5",
+    "state": "finish",
+    "skipped": false,
+    "label": "意图裁决",
+    "note": "裁决输出（来源＝llm）——chain＝口径消歧链 · confidence＝高（模型意图裁决 0.92）"
+   },
+   {
+    "key": "N5b",
+    "state": "finish",
+    "skipped": false,
+    "label": "裁决核验",
+    "note": "chain「口径消歧链」在 17 链清单内——核验通过（闭世界枚举）"
+   },
+   {
+    "key": "N6",
+    "state": "finish",
+    "skipped": false,
+    "label": "链路分派",
+    "note": "已分派至「口径消歧链」——后续步骤由链体执行"
+   }
+  ]
+ },
+ "question": "第三章检泵作业明细表里 W-32 井那一行的 215 天该怎么理解？它算不算检泵周期？"
+}

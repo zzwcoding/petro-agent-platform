@@ -1,0 +1,31 @@
+{
+ "receipt": {
+  "upload_id": "up-c41cdf88",
+  "lib_id": "lib-6635495f",
+  "lib_name": "评测·渤中34-5拟造报告库",
+  "dup_warning": null,
+  "put_url": "http://localhost:9000/reports/reports/up-0a463cd1/C-%E6%B8%A4%E4%B8%AD34-5%E6%B2%B9%E7%94%B0%E4%B8%89%E5%AD%A3%E5%BA%A6%E6%B3%A8%E6%B0%B4%E8%B0%83%E6%95%B4%E4%B8%8E%E7%94%9F%E4%BA%A7%E8%BF%90%E8%A1%8C%E5%88%86%E6%9E%90.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=petro%2F20261002%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20261002T231231Z&X-Amz-Expires=1800&X-Amz-SignedHeaders=host&X-Amz-Signature=6d50b021753e04aaa748a006a946706455dc5c3cca838ab4dde57ff3c2d51739",
+  "expires_at": "2026-10-03 07:42",
+  "bucket": "报告原文",
+  "routing": null
+ },
+ "confirm": {
+  "task_id": "task-bc469609",
+  "upload_id": "up-c41cdf88",
+  "doc": "《C-渤中34-5油田三季度注水调整与生产运行分析》",
+  "lib_id": "lib-6635495f",
+  "lib_name": "评测·渤中34-5拟造报告库",
+  "source": "上传入库",
+  "state": "running",
+  "current_step": 0,
+  "config_snapshot": {
+   "semantic": true,
+   "keyword": true,
+   "wiki": true,
+   "graph": true,
+   "mode": "smart",
+   "add_summary": true,
+   "add_questions": true
+  }
+ }
+}

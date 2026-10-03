@@ -1,0 +1,91 @@
+{
+  "task": "清除数据库历史测试内容，为知识问答评测准备（评测流水线 01 清库步）",
+  "timestamp": "2026-10-03",
+  "database": {
+    "target": "docker 容器 petro-agent-platform-pg-1（pgvector/pgvector:pg16，宿主 5433），用户/库均 petro",
+    "tableDiscovery": "docker exec petro-agent-platform-pg-1 psql -U petro -d petro -c \"SELECT table_name FROM information_schema.tables ...\"——public 共 36 张基础表，其中 kb_/wiki_/chat_ 开头内容表 15 张",
+    "tablesCleared": [
+      "kb_activity",
+      "kb_extract_config",
+      "kb_fragment",
+      "kb_fragment_version",
+      "kb_ingest_task",
+      "kb_issue_report",
+      "kb_library",
+      "kb_library_config",
+      "kb_report",
+      "kb_upload",
+      "wiki_page",
+      "wiki_page_version",
+      "chat_message",
+      "chat_run",
+      "chat_session"
+    ],
+    "rowsBeforeByTable": {
+      "kb_activity": 42,
+      "kb_extract_config": 7,
+      "kb_fragment": 34,
+      "kb_fragment_version": 36,
+      "kb_ingest_task": 10,
+      "kb_issue_report": 4,
+      "kb_library": 7,
+      "kb_library_config": 7,
+      "kb_report": 7,
+      "kb_upload": 7,
+      "wiki_page": 2,
+      "wiki_page_version": 6,
+      "chat_message": 13,
+      "chat_run": 10,
+      "chat_session": 10
+    },
+    "rowsBefore": 202,
+    "rowsAfter": 0,
+    "truncateStatement": "TRUNCATE TABLE chat_message, chat_run, chat_session, kb_activity, kb_extract_config, kb_fragment, kb_fragment_version, kb_ingest_task, kb_issue_report, kb_library, kb_library_config, kb_report, kb_upload, wiki_page, wiki_page_version RESTART IDENTITY CASCADE;",
+    "cascadeSafetyCheck": "清表前查 pg_constraint 全部外键（20 条）：无任何保护表（sem_%/gateway_%/security%/audit%/faq_%）引用内容表；内容表外键全部在集合内互引（如 kb_fragment→kb_report、chat_message→chat_session、wiki_page→kb_library），CASCADE 传导不出内容表集合。faq_similar_question→faq_entry、faq_candidate→faq_entry 均在 faq 集合内未触碰。",
+    "protectedTablesUntouched": "sem_%（8 张）、gateway_%（3 张）、audit_log、faq_%（4 张）、infra_outbox、retrieval_config(_version)、alembic_version 全部未触碰"
+  },
+  "semLedgerVerification": {
+    "expected": {
+      "sem_term": 11,
+      "sem_metric": 15,
+      "sem_object": 10,
+      "sem_relation": 5,
+      "sem_join_whitelist": 4,
+      "sem_workflow": 10,
+      "sem_action": 3
+    },
+    "actual": {
+      "sem_term": 11,
+      "sem_metric": 15,
+      "sem_object": 10,
+      "sem_relation": 5,
+      "sem_join_whitelist": 4,
+      "sem_workflow": 10,
+      "sem_action": 3
+    },
+    "intact": true
+  },
+  "minioCleanup": {
+    "attempted": true,
+    "cleaned": true,
+    "script": "/tmp/clear_minio_reports.py（uv run python 执行）",
+    "connectionParams": ".env 中无 MINIO_* 项（本会话读取 .env 核实，仅有 LLM 凭证）——按任务指明的 fallback，取 app/infra/config.py:58-61 开发默认 localhost:9000 / petro / petro12345 / secure=false（.env.example 注明「不填用开发默认＝compose 本地拓扑」）",
+    "bucket": "reports（app/infra/object_storage.py:30 REPORTS_BUCKET）",
+    "objectsBefore": 58,
+    "objectsAfter": 0,
+    "removedBreakdown": "47 个上传报告 txt（reports/up-*/N-02 井完井报告…、p103-demo…）＋11 个 faq/export/*.csv（faq_% 保护范围是数据库表；reports 桶内对象按任务要求全清）"
+  },
+  "backendHealth": {
+    "checked": true,
+    "command": "curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/docs",
+    "httpStatus": 200,
+    "healthy": true
+  },
+  "constraintsHonored": {
+    "noExistingFileModified": true,
+    "newFilesOnly": ["/tmp/clear_minio_reports.py", "eval/results/01-清库记录.json"],
+    "noGitWriteOperations": true,
+    "noLlmCalls": true
+  },
+  "warnings": []
+}
