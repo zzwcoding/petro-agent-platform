@@ -20,6 +20,11 @@ P-004 修复拍增量（dev 偏差①④＋P-004.rev.md 审查发现②③中）
 - ②指标卡 status sem list 形态以「／」join、str 原样（禁 str() 直透垃圾形态）；
 - ③N18 拒答内联 answer 诚实判定只计 term_cards/metric_cards（不复述 FAQ 内容）；
 - ⑤term_card_status_note 四分支参数化（实际优先序＝禁用词＞已届满）。
+
+P-004 修复拍二增量（L0 裁决——修复拍一疑点 b/偏差①收尾）：
+- ①生产组合根 metrics_loader status 透传——生产装配 metric_cards 状态标注非空
+  且 join 形态正确（['生效中']→「生效中」在生产路径验证）；
+- ②@ 前门直取指标对称补卡——@ 指标卡·X → metric_cards 非空且与 @ 点名一致。
 """
 
 import json
@@ -236,6 +241,25 @@ class TestAssemblyCardBuilding:
         ]
         assert seams.calls["metrics"] == 1  # 主装载 1 次——装卡零新增
 
+    async def test_anchored_metric_cards_symmetric_with_term_side(
+        self, chat_db: Any, seams: Seams,
+    ) -> None:
+        """修复拍二②（L0 裁决收尾——P-004.fix 疑点 b「@ 前门直取指标卡不装卡」）：
+        @ 指标卡·有效产量 → assembly.metric_cards 非空且与 @ 点名一致（指标卡
+        台账路被 @ 让位、卡纯由 @ 补卡分支装入——与 @ 术语补卡对称）；补卡零新增
+        查询（resolve＋主装载同 @ 术语形态，装卡只复用已查得行）。"""
+        svc = make_service(chat_db, seams)
+        base = await svc._assemble("有效产量怎么算", [])
+        assert [c.slot_name for c in base.metric_cards] == ["有效产量"]  # 匹配器行装卡
+        base_calls = dict(seams.calls)
+        anchored = await svc._assemble("有效产量怎么算", ["指标卡·有效产量"])
+        assert [c.slot_name for c in anchored.metric_cards] == ["有效产量"]
+        assert [str(c["name"]) for c in anchored.metric_cards[0].calibers] == [
+            "开井日历折算", "检修剔除",
+        ]
+        assert seams.calls["metrics"] == base_calls["metrics"] + 2
+        assert seams.calls["terms"] == base_calls["terms"] + 1
+
 
 class TestN18MissAnnotations:
     """改动 5：N18 拒答注记两情形（执行前复测单点化——装配命中不豁免复测）。"""
@@ -335,6 +359,42 @@ class TestProductionStatusPassthrough:
             # 装卡面咬合：生产装载行直接出卡——状态标注非空
             card = service_mod._term_card(rows[0])
             assert card.status_note == "有效（限作业区语境）"
+
+    async def test_main_metrics_loader_projects_status_nonempty(
+        self, tmp_path: Any, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """修复拍二①（L0 裁决收尾——P-004.fix 偏差①节「生产指标卡仍不标注」）：
+        metrics_loader status 透传（sem jsonb 数组形态原样携入）——生产装配
+        metric_cards 状态标注非空且 join 形态正确（['生效中']→「生效中」在生产
+        路径验证，禁「['」垃圾串）。"""
+        import app.main as main_mod
+        from app.domains.semantics.store import SemMetric
+
+        spec = DatabaseSpec(
+            name="primary", role="primary", driver="sqlite", host="", port=0,
+            database=str(tmp_path / "prod-smoke-metric.db"), user="", password="",
+            pool_size=2, max_overflow=1,
+        )
+        monkeypatch.setattr(main_mod, "load_database_specs", lambda: [spec])
+        async with main_mod.app.router.lifespan_context(main_mod.app):
+            svc = main_mod.app.state.chat
+            engine = main_mod.app.state.db.engine()
+            async with engine.begin() as conn:
+                await conn.execute(insert(SemMetric).values(
+                    id=9002, name="★有效产量（两支口径）", slot_name="有效产量",
+                    def_="两支口径", grain="日", unit="吨", status=["生效中"],
+                    owner="小李", source="演示种子", version=1,
+                    ambiguous=False, calibers=[{"key": "A", "name": "开井日历折算"}],
+                    default_caliber=None,
+                ))
+            rows = await svc._metrics_loader()
+            assert [r.slot_name for r in rows] == ["有效产量"]
+            assert rows[0].status == ["生效中"]  # list 形态原样透传
+            # 生产装配级咬合：真组合根缝装配跑 _assemble——指标卡状态标注非空
+            assembly = await svc._assemble("有效产量怎么算", [])
+            assert [c.slot_name for c in assembly.metric_cards] == ["有效产量"]
+            assert assembly.metric_cards[0].status_note == "生效中"
+            assert "['" not in assembly.metric_cards[0].status_note  # 禁垃圾串
 
 
 class TestMetricStatusJoin:

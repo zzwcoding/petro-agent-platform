@@ -700,8 +700,9 @@ class ChatService:
           「倾向≠直通」的物质基础）；被让位路不记落空（候选已经前门在场）；
         - 落空（含注册表未建的两路）逐路进建议池；
         - 装配候选不设上限（全扫全收集）；澄清帧候选上限 4 支在 clarify 构造截断；
-        - 词条卡装卡（P1F-02）：术语/指标命中完整行与 @ 前门直取术语投影成
-          term_cards/metric_cards 随行材料——零新增查询（只复用已查得行）。
+        - 词条卡装卡（P1F-02）：术语/指标命中完整行与 @ 前门直取术语/指标投影成
+          term_cards/metric_cards 随行材料（修复拍二②补齐 @ 指标对称补卡）——
+          零新增查询（只复用已查得行）。
         """
         needle = d.normalize_query(question)
         anchor_line: str | None = None
@@ -710,6 +711,7 @@ class ChatService:
         slots_parts: list[str] = []
         anchored_matchers: set[str] = set()
         anchored_term_names: list[str] = []
+        anchored_metric_names: list[str] = []
 
         for token in anchors:
             parsed = d.parse_anchor_token(token)
@@ -727,6 +729,8 @@ class ChatService:
             if asset_type == "术语":
                 terms.append(name)
                 anchored_term_names.append(name)
+            if asset_type == "指标卡":
+                anchored_metric_names.append(name)
 
         metrics = list(await self._metrics_loader())
         term_rows = list(await self._terms_loader())
@@ -876,8 +880,9 @@ class ChatService:
         )
 
         # —— 词条卡装卡（P1F-02：一等材料常驻装配——完整行投影成卡，零新增查询）——
-        # @ 前门直取术语按锚定序补卡（_resolve_anchor 已按归一化等值核验在账），
-        # 匹配器命中行随后逐条装卡；去重防同一行双卡。
+        # @ 前门直取术语/指标按锚定序补卡（_resolve_anchor 已核验在账——术语归一化
+        # 等值、指标槽位名/台账名包含，补卡匹配随各自治缝；修复拍二②补齐指标对称
+        # ——匹配器让位路同样出卡），匹配器命中行随后逐条装卡；去重防同一行双卡。
         term_cards: list[d.TermCard] = []
         carded: set[str] = set()
         for name in anchored_term_names:
@@ -890,7 +895,25 @@ class ChatService:
             if row.term not in carded:
                 term_cards.append(_term_card(row))
                 carded.add(row.term)
-        metric_cards = [_metric_card(m) for m in metric_hits]
+        metric_cards: list[d.MetricCard] = []
+        carded_metrics: set[int] = set()
+        for name in anchored_metric_names:
+            probe = d.normalize_query(name)
+            for metric in metrics:
+                if (
+                    probe
+                    and metric.metric_id not in carded_metrics
+                    and (
+                        probe in d.normalize_query(metric.slot_name)
+                        or probe in d.normalize_query(metric.name)
+                    )
+                ):
+                    metric_cards.append(_metric_card(metric))
+                    carded_metrics.add(metric.metric_id)
+        for metric in metric_hits:
+            if metric.metric_id not in carded_metrics:
+                metric_cards.append(_metric_card(metric))
+                carded_metrics.add(metric.metric_id)
 
         return d.AssemblyResult(
             anchor_line=anchor_line,

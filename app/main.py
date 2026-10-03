@@ -237,6 +237,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 ambiguous=bool(row.ambiguous),
                 calibers=list(row.calibers or []),
                 default_caliber=row.default_caliber,
+                # P-004 修复拍二①（授权触界）：status 透传——指标卡状态标注生产
+                # 非空；sem jsonb 数组形态原样携入（装卡侧 metric_card_status_note
+                # 已备归一——list「／」join、禁 str() 直透垃圾串）。
+                status=list(row.status),
             )
             for row in page.items
         ]
