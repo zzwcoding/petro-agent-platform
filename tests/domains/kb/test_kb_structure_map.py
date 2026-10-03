@@ -146,6 +146,22 @@ async def _wait_done(service: KbService, task_id: str) -> None:
     raise TimeoutError("入库等待超时")
 
 
+async def _wait_state(
+    service: KbService, task_id: str, states: tuple[str, ...]
+) -> Any:
+    """轮询至任务进入给定状态集（F3 failed→retry 用例：failed 也是合法终等态）。"""
+    import asyncio
+    import time
+
+    deadline = time.monotonic() + 5.0
+    while time.monotonic() < deadline:
+        task = await service.ingest_task(task_id)
+        if task.state in states:
+            return task
+        await asyncio.sleep(0.02)
+    raise TimeoutError(f"入库等待超时（等待状态集 {states}）")
+
+
 async def _ingest(
     service: KbService, storage: FakeStorage, lib_id: str, filename: str, content: str
 ) -> str:
@@ -342,6 +358,71 @@ class TestParseAndValidate:
         assert d.StructureMap.from_snapshot(bad) is None
 
 
+class TestLevelConsistencyGuard:
+    """P-007.fix F1：层级守门——LLM 标注 level 与 `_section_of` 推导分级比对
+    （审查 F1 原探针：章级行逐字正确但错标 level=2，两道旧守门均放行）。"""
+
+    def test_chapter_row_mislabeled_level2_detected_and_dropped(self) -> None:
+        lines = CORPUS_A.splitlines()
+        raw = _structure_json([(2, lines[1], 2), (4, lines[3], 1), (9, lines[8], 1)])
+        m = d.validate_structure_map(d.parse_structure_json(raw), lines)
+        assert m is not None  # 逐字校验只比文本——错标不在此闸（审查 F1 判定）
+        mismatches = d.level_mismatch_rows(m, lines)
+        assert [h.line_no for h in mismatches] == [1]  # 第六章行错标 level=2
+        refined = d.refine_structure_map(m, lines)
+        assert [h.line_no for h in refined.headings] == [3, 8]  # 错标行剔除、合法行保留
+        assert refined.source == "llm"  # 未过半——单行剔除不废图
+
+    def test_section_row_mislabeled_level1_detected(self) -> None:
+        # 对称面：节级行（1.1 形）错标 level=1 同闸
+        text = "第1章 甲\n1.1 乙\n正文句。\n"
+        lines = text.splitlines()
+        raw = _structure_json([(2, "1.1 乙", 1)])
+        m = d.validate_structure_map(d.parse_structure_json(raw), lines)
+        assert m is not None
+        assert [h.line_no for h in d.level_mismatch_rows(m, lines)] == [1]
+
+    def test_correct_levels_pass_through(self) -> None:
+        lines = CORPUS_A.splitlines()
+        m = d.validate_structure_map(
+            d.parse_structure_json(_structure_json(_corpus_a_llm_picks(lines))), lines
+        )
+        assert m is not None
+        assert d.level_mismatch_rows(m, lines) == []
+        refined = d.refine_structure_map(m, lines)
+        assert [h.line_no for h in refined.headings] == [1, 3, 8]
+
+    def test_non_heading_shape_not_counted_as_level_mismatch(self) -> None:
+        # 逐字真实但推导不出分级（非标题形行）不算层级错标——归四条件复检处置
+        # （两闸触发面不相交的既有口径不受扰）。
+        lines = CORPUS_A.splitlines()
+        raw = _structure_json([(6, lines[5], 1)])  # 8 mm 长句带句尾。
+        m = d.validate_structure_map(d.parse_structure_json(raw), lines)
+        assert m is not None
+        assert d.level_mismatch_rows(m, lines) == []
+        assert d.refine_structure_map(m, lines).headings == ()  # 四条件复检剔除
+
+    def test_over_half_mislabels_are_void_signal(self) -> None:
+        # 错标过半（>50%）＝LLM 质量信号——整图作废判定输入（处置在 service 编排）
+        lines = CORPUS_A.splitlines()
+        raw = _structure_json([(2, lines[1], 2), (4, lines[3], 2), (9, lines[8], 2)])
+        m = d.validate_structure_map(d.parse_structure_json(raw), lines)
+        assert m is not None
+        mismatches = d.level_mismatch_rows(m, lines)
+        assert len(mismatches) == len(m.headings) == 3
+        assert len(mismatches) * 2 > len(m.headings)
+
+    def test_exactly_half_is_not_over_half(self) -> None:
+        # 过半取严格大于：2 行错标 1 行（恰 50%）不触发整图作废信号
+        lines = CORPUS_A.splitlines()
+        raw = _structure_json([(2, lines[1], 2), (4, lines[3], 1)])
+        m = d.validate_structure_map(d.parse_structure_json(raw), lines)
+        assert m is not None
+        mismatches = d.level_mismatch_rows(m, lines)
+        assert len(mismatches) == 1 and len(m.headings) == 2
+        assert not (len(mismatches) * 2 > len(m.headings))
+
+
 # ---------- 域纯语义：chunk 消费结构图（smart/mixed） ----------
 
 
@@ -510,6 +591,64 @@ class TestIngestStructure:
         assert not any("8 mm 油嘴制度下折算" in s for s in sections)
         assert any(s == "章节 03 第八章 措施效果评价" for s in sections)
 
+    async def test_level_mislabeled_chapter_row_dropped_with_trace(
+        self, kb_db: Any, caplog: Any
+    ) -> None:
+        """F1 探针重演（审查原探针）：章级行逐字真实但错标 level=2——新守门
+        单行剔除：section 路径不再错挂子节、章号不停摆、剔除行 warning 留痕。"""
+        lines = CORPUS_A.splitlines()
+        completer = ScriptedCompleter(
+            {
+                "kb.ingest.structure": _structure_json(
+                    [(2, lines[1], 2), (4, lines[3], 1), (9, lines[8], 1)]
+                ),
+            }
+        )
+        service, storage = _make_service(kb_db, completer)
+        lib_id = await _make_lib(service)
+        with caplog.at_level(logging.WARNING, logger="domains.kb"):
+            task_id = await _ingest(service, storage, lib_id, "W11 井完井报告.txt", CORPUS_A)
+        task = await service._tasks.get(task_id)
+        assert task is not None
+        assert task.structure_snapshot is not None
+        assert task.structure_snapshot["source"] == "llm"  # 1/3 未过半——图不作废
+        assert [h["line_no"] for h in task.structure_snapshot["headings"]] == [3, 8]
+        dropped = [r for r in caplog.records if "层级错标剔除" in r.message]
+        assert dropped  # 剔除行有留痕
+        assert "第六章 管柱结构与完井液" in dropped[0].getMessage()
+        frags = await service._fragments.for_report(task.report_id)
+        sections = [
+            f.section or "" for f in frags if f.type == "原文块" and not f.is_parent_only
+        ]
+        assert not any("＞" in s for s in sections)  # section 路径不再错乱（无子节错挂）
+        assert any(s == "章节 01 第七章 诱导求产与初期产能" for s in sections)  # 章号不停摆
+        assert any(s == "章节 02 第八章 措施效果评价" for s in sections)
+
+    async def test_level_mislabels_over_half_void_whole_map(
+        self, kb_db: Any, caplog: Any
+    ) -> None:
+        """F1 探针：层级错标过半（>50%）＝LLM 质量信号——整图作废回退纯规则
+        （与逐字校验失败同处置路径，warning 留痕）。"""
+        lines = CORPUS_A.splitlines()
+        completer = ScriptedCompleter(
+            {
+                "kb.ingest.structure": _structure_json(
+                    [(2, lines[1], 2), (4, lines[3], 2), (9, lines[8], 2)]
+                ),
+            }
+        )
+        service, storage = _make_service(kb_db, completer)
+        lib_id = await _make_lib(service)
+        with caplog.at_level(logging.WARNING, logger="domains.kb"):
+            task_id = await _ingest(service, storage, lib_id, "W11 井完井报告.txt", CORPUS_A)
+        task = await service._tasks.get(task_id)
+        assert task is not None
+        assert task.structure_snapshot is not None
+        assert task.structure_snapshot["source"] == "rules"  # 整图作废
+        assert any("层级错标过半" in r.message for r in caplog.records)  # 质量信号留痕
+        # 与逐字校验失败同处置：片段集与纯规则基线字节级一致
+        assert await _chunk_rows(service, task.report_id) == d.chunk_text(CORPUS_A, "smart")
+
     async def test_llm_down_falls_back_to_pure_rules_baseline(
         self, kb_db: Any, caplog: Any
     ) -> None:
@@ -556,6 +695,62 @@ class TestIngestStructure:
         assert await _chunk_rows(service, second.report_id) == rows_first
         assert second.structure_snapshot is not None
         assert second.structure_snapshot["source"] == "llm"  # 缓存继承
+
+    async def test_chunk_step_failed_retry_reuses_snapshot_zero_llm(
+        self, kb_db: Any, monkeypatch: Any
+    ) -> None:
+        """F3（P-007.fix）：chunk 步 failed→retry 测证——快照先于故障落列，
+        修复后重入同版本零 LLM 调用（mock 计数）且复用同版快照。"""
+        lines = CORPUS_A.splitlines()
+        completer = ScriptedCompleter(
+            {
+                "kb.ingest.structure": _structure_json(_corpus_a_llm_picks(lines)),
+                "kb.ingest.summary": "摘要",
+                "kb.ingest.questions": "问题？",
+            }
+        )
+        service, storage = _make_service(kb_db, completer)
+        lib_id = await _make_lib(service)
+        # 首跑注入 chunk 步瞬时故障（落库前抛——结构提取与快照落列在其之前）
+        original = service._fragments.replace_report_fragments
+        boom = {"armed": True}
+
+        async def _flaky(report_id: str, rows: Any, versions: Any) -> None:
+            if boom["armed"]:
+                boom["armed"] = False
+                raise RuntimeError("模拟 chunk 步落库瞬时故障（修复前）")
+            await original(report_id, rows, versions)
+
+        monkeypatch.setattr(service._fragments, "replace_report_fragments", _flaky)
+        receipt = await service.upload_init("W11 井完井报告.txt", 2048, lib_id, ACTOR)
+        upload = await UploadStore(service._db).get(receipt.upload_id)
+        assert upload is not None
+        await storage.put(upload.object_key, CORPUS_A.encode("utf-8"))
+        confirm = await service.upload_confirm(receipt.upload_id, ACTOR)
+
+        first = await _wait_state(service, confirm.task_id, ("done", "failed"))
+        assert first.state == "failed"
+        assert first.stop_at == "切段"  # 按阶段定位停在 chunk 步
+        failed_row = await service._tasks.get(confirm.task_id)
+        assert failed_row is not None
+        assert failed_row.structure_snapshot is not None  # 快照先于故障已落列
+        assert failed_row.structure_snapshot["source"] == "llm"
+        assert sum(1 for c, _ in completer.calls if c == "kb.ingest.structure") == 1
+
+        # 修复（解除故障）后重入同版本：零 LLM 新增调用＋复用同版快照
+        monkeypatch.setattr(service._fragments, "replace_report_fragments", original)
+        retry = await service.retry_ingest(confirm.task_id, ACTOR)
+        second = await _wait_state(service, retry.id, ("done", "failed"))
+        assert second.state == "done"
+        assert sum(1 for c, _ in completer.calls if c == "kb.ingest.structure") == 1
+        retried_row = await service._tasks.get(retry.id)
+        assert retried_row is not None
+        assert retried_row.structure_snapshot == failed_row.structure_snapshot
+        frags = await service._fragments.for_report(retried_row.report_id)
+        sections = [
+            f.section or "" for f in frags if f.type == "原文块" and not f.is_parent_only
+        ]
+        assert any(s == "章节 03 第八章 措施效果评价" for s in sections)  # 缓存 LLM 图照常驱动
 
     async def test_cache_key_binds_to_text_version(self, kb_db: Any) -> None:
         lines = CORPUS_A.splitlines()

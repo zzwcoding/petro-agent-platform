@@ -471,11 +471,35 @@ def validate_structure_map(
     return StructureMap(headings=tuple(ordered), source="llm")
 
 
+def _level_consistent(h: HeadingLine, line: str) -> bool:
+    """层级一致性（P-007.fix F1）：行 level 与 `_section_of` 推导分级比对——
+    推导不出分级（非标题形行）不算错标，归四条件复检处置。"""
+    derived = _section_of(line.strip())
+    return derived is None or derived[0] == h.level
+
+
+def level_mismatch_rows(m: StructureMap, lines: list[str]) -> list[HeadingLine]:
+    """层级错标行清单（P-007.fix F1 层级守门的判定输入）：LLM 标注 level 与
+    文本推导分级（`_section_of` 点分级）不一致的行——章级行标 2／节级行标 1。
+    调用方（service 编排）以错标行数过半（>50%）为 LLM 质量信号整图作废，
+    未过半则随复检单行剔除。"""
+    return [h for h in m.headings if not _level_consistent(h, lines[h.line_no])]
+
+
 def refine_structure_map(m: StructureMap, lines: list[str]) -> StructureMap:
     """复合规则复检（双重保障）：逐字校验过的图再过四条件——通不过的行单行
     剔除（降级为正文）而非整图作废；与逐字校验两种处置分立（幻觉＝作废、
-    越规则＝保守剔除）。"""
-    kept = tuple(h for h in m.headings if is_heading_line(lines[h.line_no]))
+    越规则＝保守剔除）。
+
+    P-007.fix F1：层级一致性同闸——level 与推导分级不一致的行（章级行错标
+    level=2 会把 section 路径错挂成子节、章号停摆）同单行剔除；错标过半的
+    整图作废判定在调用方（level_mismatch_rows 计数），不在本函数。
+    """
+    kept = tuple(
+        h
+        for h in m.headings
+        if is_heading_line(lines[h.line_no]) and _level_consistent(h, lines[h.line_no])
+    )
     return StructureMap(headings=kept, source=m.source)
 
 

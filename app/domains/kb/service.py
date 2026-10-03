@@ -1624,12 +1624,13 @@ class KbService:
     # ---------- 结构图（P1F-05 方案 A：LLM 出图＋代码守门＋版本级缓存） ----------
 
     async def _structure_map_for(self, row: IngestTaskRow, text: str) -> d.StructureMap:
-        """结构图定稿：版本缓存 → LLM 图（逐字校验→规则复检）→ 纯规则回退。
+        """结构图定稿：版本缓存 → LLM 图（逐字校验→层级守门→规则复检）→ 纯规则回退。
 
         - 缓存键绑定＝正文 sha256（内容同＝版本同）：同版本重入直接复用、
           零 LLM 调用、片段集字节级一致（票面验收 d）；
-        - LLM 不可用/超时/JSON 坏/逐字校验不过 → 回退复合规则（独立可用），
-          warning 留痕，入库不阻塞（F32 子任务失败不阻塞整卷同款语义）；
+        - LLM 不可用/超时/JSON 坏/逐字校验不过/层级错标过半 → 回退复合规则
+          （独立可用），warning 留痕，入库不阻塞（F32 子任务失败不阻塞整卷
+          同款语义）；
         - 定稿图随版本落任务快照列（structure_snapshot——运行失败可重入续用）。
         """
         text_sha = hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -1643,12 +1644,35 @@ class KbService:
         if headings:
             mapping = d.validate_structure_map(headings, lines)
             if mapping is not None:
-                mapping = d.refine_structure_map(mapping, lines)
-                await self._save_structure_snapshot(row, text_sha, mapping)
-                return mapping
-            LOGGER.warning(
-                "kb 结构图逐字校验不过（疑似幻觉）task=%s——整图作废，回退规则图", row.id
-            )
+                # 层级守门（P-007.fix F1）：每行 level 与文本推导分级比对——
+                # 错标行剔除（同规则复检处置、warning 留痕）；错标过半（>50%）
+                # ＝LLM 质量信号，整图作废回退纯规则（与逐字校验失败同处置路径）。
+                mismatches = d.level_mismatch_rows(mapping, lines)
+                if len(mismatches) * 2 > len(mapping.headings):
+                    LOGGER.warning(
+                        "kb 结构图层级错标过半（%d/%d）task=%s——LLM 质量信号，"
+                        "整图作废，回退规则图",
+                        len(mismatches),
+                        len(mapping.headings),
+                        row.id,
+                    )
+                else:
+                    if mismatches:
+                        LOGGER.warning(
+                            "kb 结构图层级错标剔除 task=%s：%s——降级为正文"
+                            "（同规则复检处置）",
+                            row.id,
+                            "、".join(
+                                f"行{h.line_no + 1}「{h.title}」" for h in mismatches
+                            ),
+                        )
+                    mapping = d.refine_structure_map(mapping, lines)
+                    await self._save_structure_snapshot(row, text_sha, mapping)
+                    return mapping
+            else:
+                LOGGER.warning(
+                    "kb 结构图逐字校验不过（疑似幻觉）task=%s——整图作废，回退规则图", row.id
+                )
         mapping = d.rule_structure_map(text)
         await self._save_structure_snapshot(row, text_sha, mapping)
         return mapping
@@ -1665,10 +1689,14 @@ class KbService:
             row.report_id, exclude_task_id=row.id
         )
         for prev in prev_tasks:
-            mapping = d.StructureMap.from_snapshot(prev.structure_snapshot)
-            if mapping is not None and prev.structure_snapshot is not None:
-                if prev.structure_snapshot.get("text_sha256") == text_sha:
-                    return mapping
+            # F4 收简（行为不变）：先 isinstance 收窄快照列，再还原图——
+            # from_snapshot 非 None 已隐含快照为合法 dict，原第二判冗余。
+            snapshot = prev.structure_snapshot
+            if not isinstance(snapshot, dict):
+                continue
+            mapping = d.StructureMap.from_snapshot(snapshot)
+            if mapping is not None and snapshot.get("text_sha256") == text_sha:
+                return mapping
         return None
 
     async def _llm_structure_headings(
