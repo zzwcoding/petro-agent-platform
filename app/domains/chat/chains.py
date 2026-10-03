@@ -22,7 +22,12 @@
   检索照跑；关＝逐级全跑；S0/S2/S6/S7 不受早停影响。词条卡一等材料（P1F-02）：
   装配层 term_cards 常驻随行，生成步
   以「术语台账收录：…」材料块并入 user 消息（在证据支材料之前），定义先行规则
-  在 GEN 系统提示。兜底两策：检索全空/低于低分线 → fixed 文案或 free＋「未依据
+  在 GEN 系统提示。状态标注兜底通知（P1F-08——生成端软失败的确定性兜底）：生成
+  收口判定——材料词条卡携届满/禁用类状态标注、答案正文提及该词条却未带出标注串
+  → token 流前补一条 warning 级 notice「注：〈词条名〉状态标注——〈标注串原文〉」
+  （不改写已流式正文——通知帧并列呈现，answer 帧合同位次不动；限语境类标注不在
+  兜底范围——防过度通知）；GEN 系统提示另携禁推算约束（缺数据不得加减推算补位、
+  不得虚声明材料覆盖范围）。兜底两策：检索全空/低于低分线 → fixed 文案或 free＋「未依据
   报告库」标注；fixed 前置诚实判定（P1F-02）——装配词条卡/指标卡/FAQ 命中任一
   在场 → 「台账有收录：…；报告库未检索到相关内容」，六路全空才落配置文案。
   思考树叙事（P1-08c）：链内步进＝node 帧序——执行级 state 推进 process→finish、
@@ -66,6 +71,8 @@ GEN_SYSTEM_PROMPT = (
     "格式形如 [c1]（半角方括号＋编号）；材料不足以回答时如实说明。"
     "问句围绕某术语且意在释义时——先给定义（状态标注必须原样带出），再给数据指引；"
     "判断不了则定义与数据指引并列给出；不得忽略已收录的词条材料。"
+    "材料未直接给出某数值时，不得用其他数值加减推算补位——应如实说明该数据缺失；"
+    "对材料覆盖范围不得作未核实的声明——说「材料未披露」前须确认材料中确无该内容。"
 )
 GEN_FALLBACK_SYSTEM_PROMPT = (
     "你是油田数据问答助手。当前报告库中没有能回答该问题的材料——"
@@ -87,6 +94,10 @@ REWRITE_SYSTEM_PROMPT = (
     "去掉修饰性、口语化的词语，保留原问句的语义与问题核心，"
     "输出检索优化问法。只回问法本身，不要输出任何解释、引号或其他内容。"
 )
+# 状态标注兜底通知判别串（P1F-08——只认届满/禁用类：term_expiry 单源展示串族
+# 「<ISO>（已届满）」「—（已禁用）」；限语境类标注不在兜底范围——躺井题已由
+# 生成端原样带出工作，兜底只在缺失时抬手，防过度通知）。
+ANNOTATION_GUARD_MARKERS = ("已届满", "已禁用")
 
 
 @dataclass(frozen=True, slots=True)
@@ -495,6 +506,10 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
         note=f"检索问答收束——证据 {len(evidence)} 支 · 引用 {len(citations)} 条逐条核验通过",
     )
     yield _config_check_line(cfg)
+    # 状态标注兜底通知（P1F-08）：届满/禁用类标注生成端未带出的确定性兜底——
+    # 在 token 流前并列补一条 warning notice（不改写正文，answer 帧位次不动）。
+    for event in _status_annotation_notices(ctx.assembly.term_cards, text):
+        yield event
     async for event in _stream_answer(text, citations):
         yield event
 
@@ -803,6 +818,45 @@ def _term_card_material(term_cards: list[d.TermCard]) -> str:
         for card in term_cards
     ]
     return "\n".join(lines)
+
+
+def _annotation_segments(status_note: str) -> list[str]:
+    """标注串拆语义承载段（滤单字符占位段——「—」是禁用词的空期占位，单查无义）：
+    「2026-06-30（已届满）」→ [「2026-06-30」,「已届满」]；「—（已禁用）」→
+    [「已禁用」]。"""
+    parts = status_note.replace("）", "（").split("（")
+    return [part.strip() for part in parts if len(part.strip()) >= 2]
+
+
+def _annotation_carried(status_note: str, answer_text: str) -> bool:
+    """答案是否已带出标注：标注串原文整体在场，或全部语义承载段各自在场（括注
+    次序无关——「已届满（2026-06-30）」倒装同样算带出，不重复出通知）。"""
+    if status_note in answer_text:
+        return True
+    segments = _annotation_segments(status_note)
+    return bool(segments) and all(seg in answer_text for seg in segments)
+
+
+def _status_annotation_notices(
+    term_cards: list[d.TermCard], answer_text: str,
+) -> list[d.SseEvent]:
+    """状态标注兜底通知（P1F-08——生成端软失败的确定性兜底，主修）。
+
+    判定（只认届满/禁用类——ANNOTATION_GUARD_MARKERS）：词条卡 status_note 携
+    判别串、答案正文提及该词条、但未带出标注串（原文与全部语义承载段均不在）
+    → 每卡一条 warning 级 notice：「注：〈词条名〉状态标注——〈标注串原文〉」。
+    不改写已流式答案正文——notice 帧在 token 流前并列呈现（链缝合同：answer 帧
+    必须最后出现）。free/fixed 兜底分支不接（非检索链生成路径）。
+    """
+    out: list[d.SseEvent] = []
+    for card in term_cards:
+        note = card.status_note
+        if not note or not any(marker in note for marker in ANNOTATION_GUARD_MARKERS):
+            continue
+        if card.term not in answer_text or _annotation_carried(note, answer_text):
+            continue
+        out.append(notice(f"注：{card.term}状态标注——{note}", level="warning"))
+    return out
 
 
 def _ledger_entries(assembly: d.AssemblyResult, *, include_faq: bool = True) -> list[str]:
