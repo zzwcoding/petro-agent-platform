@@ -549,7 +549,7 @@ describe('A1 落地页 · UI-01 交互优化（T1/T2 发送清空＋IME 守卫�
 })
 
 describe('A1 落地页 · UI-01 左栏（T3 封顶＋T5 计数＋T10 收 ?＋T11 新话术＋T15 失败留痕）', () => {
-  it('T3/T5：40 条服务端会话——左栏 Card 高度封顶＋body 内滚＋计数「服务端会话（40）」', async () => {
+  it('T3/T5：40 条服务端会话——左栏 Card 随行容器拉伸＋body 内滚＋计数「服务端会话（40）」', async () => {
     const many = Array.from({ length: 40 }, (_, i) => ({
       id: `sess-${i}`, title: `会话 ${i}`, group: '问数据', scenario_id: null, updated_at: ''
     }))
@@ -557,7 +557,8 @@ describe('A1 落地页 · UI-01 左栏（T3 封顶＋T5 计数＋T10 收 ?＋T11
     render(<A1Landing />)
     expect(await screen.findByText('会话 39')).toBeTruthy()
     const card = screen.getByText('历史会话').closest('.ant-card')
-    expect(card.style.maxHeight).toBe('calc(100vh - 220px)')
+    expect(card.parentElement.style.height).toBe('100%') // 行容器定高（UI-08：Shell Content flex 定高项，子级百分比可解析）
+    expect(card.style.alignSelf).not.toBe('flex-start') // 左卡随行容器拉伸，不再缩为内容高
     expect(card.style.display).toBe('flex')
     expect(card.querySelector('.ant-card-body').style.overflowY).toBe('auto')
     // T5：N=items.length 计数（端点 2 信封无 total——P3 定死合法读法）；「端点 2」撤出可见文案

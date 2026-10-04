@@ -478,7 +478,7 @@ export default function B2Landing() {
   )
 
   return (
-    <div style={{ maxWidth: 1180 }}>
+    <div style={{ maxWidth: 1180, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 18, fontWeight: 600 }}>切片管理</span>
         <span style={{ color: '#8a94a3', fontSize: 13 }}>
@@ -489,6 +489,7 @@ export default function B2Landing() {
       {/* UI-03 T8：卡头 extra「命中的是小段，完整段落不直接进搜索结果」删除——
           与「命中句」列头 ? HIT_HELP 同义重复，说明收束保留列头 ? 一处 */}
       <Card
+        style={{ flex: '1 0 auto' }} // UI-08：短内容撑满 Content 剩余高，长表照常页级滚动（方案 §4.1 白名单语义不变）
         title={<span>片段清单（{totalRefs}）</span>}
       >
         <Tabs

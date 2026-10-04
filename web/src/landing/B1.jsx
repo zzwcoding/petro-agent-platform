@@ -682,7 +682,7 @@ export default function B1Landing() {
   ) : null
 
   return (
-    <div style={{ maxWidth: 1180 }}>
+    <div style={{ maxWidth: 1180, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 18, fontWeight: 600 }}>报告库</span>
         <span style={{ color: '#8a94a3', fontSize: 13 }}>
@@ -691,6 +691,7 @@ export default function B1Landing() {
         </span>
       </div>
       <Card
+        style={{ flex: '1 0 auto' }} // UI-08：短内容撑满 Content 剩余高，长表照常页级滚动（方案 §4.1 白名单语义不变）
         title={
           <Tabs
             activeKey={tab} size="small" onChange={setTab}
