@@ -236,7 +236,8 @@ describe('A1 落地页 · UI-14 本机最近运行块整显隐（意见 1＋2）
     // 记录。」、空 List（其默认 Empty「暂无数据」大图）三者一起不渲染
     expect(screen.queryByText('本机最近运行')).toBeNull()
     expect(screen.queryByText('本次进入还没有问答记录。')).toBeNull()
-    expect(screen.queryByText('暂无数据')).toBeNull()
+    // UI-16 改：会话列表失败/空库自身合法显示「暂无数据」（仅 1 处——本机块不再贡献第二个）
+    expect(screen.getAllByText('暂无数据').length).toBe(1)
 
     await ask(screen, '首问本机记录')
     await screen.findByText('防砂方式为筛管完井。')
@@ -623,11 +624,12 @@ describe('A1 落地页 · UI-01 左栏（T3 封顶＋T5 计数＋T10 收 ?＋T11
     expect(screen.queryByText(/D5 产品化批/)).toBeNull()
   })
 
-  it('T15：服务端会话读失败留痕——「历史会话暂不可用」一行，列表本体仍隐藏', async () => {
+  it('T15（UI-16 改）：服务端会话读失败＝无数据——显示标准「暂无数据」空态，失败长文案不再出现', async () => {
     apiRouter() // 默认 sessions 404 → available=false
     render(<A1Landing />)
-    expect(await screen.findByText('历史会话暂不可用——本次进入读取失败。')).toBeTruthy()
-    expect(screen.queryByText('暂无服务端会话')).toBeNull() // 失败≠空：空态话术不出现
+    expect(await screen.findByText('暂无数据')).toBeTruthy()
+    expect(screen.queryByText(/历史会话暂不可用/)).toBeNull() // 失败长文案废除（Owner 裁决：没有数据则显示暂无数据）
+    expect(screen.queryByText(/共 \d+ 条/)).toBeNull() // 失败时无计数行
   })
 })
 

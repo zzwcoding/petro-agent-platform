@@ -565,26 +565,23 @@ export default function A1Landing() {
         size="small"
         style={{ width: 250, flexShrink: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
         styles={{ body: { flex: 1, minHeight: 0, overflowY: 'auto' } }}>
-        {!serverSessions.available && (
-          <div style={{ ...dim, marginBottom: 4 }}>历史会话暂不可用——本次进入读取失败。</div>
-        )}
+        {/* UI-16：读取失败与空库统一显示标准「暂无数据」空态（Owner 裁决——没有数据
+            则显示暂无数据，不再显示失败长文案）；有数据时才出计数行 */}
         {serverSessions.available && (
-          <>
-            {/* T5：N＝items.length（端点 2 信封无 total——方案 §1-P3 定死合法读法；列表分页随 UI-07）；UI-09 去「服务端」dev 语汇 */}
-            <div style={{ ...dim, marginBottom: 4 }}>共 {serverSessions.items.length} 条</div>
-            {/* UI-14 意见 1 后半：末条消息也保留下分割线（className→index.css .a1-session-list） */}
-            <List size="small" className="a1-session-list" dataSource={serverSessions.items} locale={{ emptyText: '暂无服务端会话' }}
-              renderItem={s => (
-                <List.Item style={{ cursor: busy ? 'wait' : 'pointer', padding: '4px 0' }}
-                  onClick={() => !busy && openHistory(s)}>
-                  <div>
-                    <div style={{ fontSize: 13 }}>{s.title}</div>
-                    <div style={dim}>{s.group}{s.updatedAt ? ` · ${s.updatedAt}` : ''}</div>
-                  </div>
-                </List.Item>
-              )} />
-          </>
+          <div style={{ ...dim, marginBottom: 4 }}>共 {serverSessions.items.length} 条</div>
         )}
+        {/* T5：N＝items.length（端点 2 信封无 total——方案 §1-P3 定死合法读法；列表分页随 UI-07）；UI-09 去「服务端」dev 语汇 */}
+        {/* UI-14 意见 1 后半：末条消息也保留下分割线（className→index.css .a1-session-list） */}
+        <List size="small" className="a1-session-list" dataSource={serverSessions.available ? serverSessions.items : []} locale={{ emptyText: '暂无数据' }}
+          renderItem={s => (
+            <List.Item style={{ cursor: busy ? 'wait' : 'pointer', padding: '4px 0' }}
+              onClick={() => !busy && openHistory(s)}>
+              <div>
+                <div style={{ fontSize: 13 }}>{s.title}</div>
+                <div style={dim}>{s.group}{s.updatedAt ? ` · ${s.updatedAt}` : ''}</div>
+              </div>
+            </List.Item>
+          )} />
         {/* UI-14 意见 1＋2（同根）：本机最近运行块条件整显隐——无本机记录时标题
             「本机最近运行?」/空文案「本次进入还没有问答记录。」/空 List（其默认
             Empty「暂无数据」大图）三件套一起不渲染（空态提示只在真无数据时出现，
