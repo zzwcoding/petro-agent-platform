@@ -682,15 +682,19 @@ export default function B1Landing() {
   ) : null
 
   return (
-    <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* UI-09：口号副标题删除——helpTop 移挂页标题行（票面改造项 8）；marginBottom 保留承接近卡间距 */}
       <div style={{ marginBottom: 16 }}>
         <span style={{ fontSize: 18, fontWeight: 600 }}>报告库{helpTop}</span>
       </div>
       <Card
-        style={{ flex: '1 0 auto' }} // UI-08：短内容撑满 Content 剩余高，长表照常页级滚动（方案 §4.1 白名单语义不变）
+        // UI-12：root→Card→body→Tabs→pane flex 链——Card 高度有界（flex 1 1 auto＋minHeight:0），
+        // body flex 列 overflow:hidden，三页签 PagedTable fill 内滚、表头/分页条恒在、页面级滚动消灭
+        style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}
+        styles={{ body: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } }}
         title={
           <Tabs
+            className="fill-tabs" // UI-12：页签 nav 收紧＋链式高度（本 Tabs 仅作卡头页签，content 规则不参与）
             activeKey={tab} size="small" onChange={setTab}
             items={[
               { key: 'ledger', label: (
@@ -721,8 +725,10 @@ export default function B1Landing() {
                 message="报告台账拉取失败——下表不是最新数据" description={errText(reportsError)} />
             )}
             {/* UI-02 T1：接 PagedTable client 模式（pageSize 20、统计恒显）；resetKey 绑筛状态
-                （方案 §2.2 总表）——筛选缩短数据后自动回页 1，不停在超界页出空表 */}
+                （方案 §2.2 总表）——筛选缩短数据后自动回页 1，不停在超界页出空表；
+                UI-12：fill 表内滚（台账长表页签内滚、页面不滚） */}
             <PagedTable
+              fill
               size="small" loading={reportsLoading} columns={ledgerColumns}
               dataSource={reports.items} rowKey="id"
               onRow={r => ({ onDoubleClick: () => openDetail(r), style: { cursor: 'pointer' } })}
@@ -756,8 +762,9 @@ export default function B1Landing() {
                 message="上传受理失败——请重新选择文件再试" description={errText(upInitError)} />
             )}
             {/* UI-02 T1：接 PagedTable——expandable 整包透传（新任务受理后主动展开逻辑不动），
-                resetKey 绑来源筛 */}
+                resetKey 绑来源筛；UI-12：fill 表内滚 */}
             <PagedTable
+              fill
               size="small" loading={tasksLoading} columns={taskColumns}
               dataSource={tasks.items} rowKey="id"
               emptyText="还没有入库任务：点上方「上传报告（直传）」发起一次入库。"
@@ -805,8 +812,9 @@ export default function B1Landing() {
               <Alert style={{ marginBottom: 12 }} type="error" showIcon
                 message="库列表拉取失败——下表不是最新数据" description={errText(libsError)} />
             )}
-            {/* UI-02 T1：接 PagedTable，resetKey 绑图谱筛＋库名关键字（方案 §2.2 总表） */}
+            {/* UI-02 T1：接 PagedTable，resetKey 绑图谱筛＋库名关键字（方案 §2.2 总表）；UI-12：fill 表内滚 */}
             <PagedTable
+              fill
               size="small" loading={libsLoading} columns={libColumns}
               dataSource={libs.items} rowKey="id"
               emptyText="还没有库：点「新建库」创建。"

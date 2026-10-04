@@ -520,9 +520,12 @@ export default function B5Landing() {
                     {helpIcon(LIST_GATE_TIP)}
                   </div>
                   {/* UI-05 T4：接 PagedTable client 分页（pageSize 20 与面板内滚共存——方案 §2.2 表 #9）；
-                      resetKey=libId|sel（图例隐显为隐式筛变，由 §2.1 内置超界钳制兜底）；空态话术原话透传 */}
-                  <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+                      resetKey=libId|sel（图例隐显为隐式筛变，由 §2.1 内置超界钳制兜底）；空态话术原话透传。
+                      UI-12：清单容器转 flex 链＋PagedTable fill 内滚（表头/分页条恒在面板内）——
+                      overflow:auto 保留为无 ResizeObserver 环境的兜底内滚，fill 生效时不再产生第二道滚动 */}
+                  <div style={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
                     <PagedTable
+                      fill
                       size="small" columns={edgeCols}
                       dataSource={listEdges.map(e => ({ ...e, key: edgeKey(e) }))}
                       rowKey="key" loading={netLoading} pageSize={20}

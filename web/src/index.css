@@ -24,3 +24,13 @@ body { background: #0d1117; margin: 0; }
   background: rgba(255, 255, 255, 0.07);
   border-color: rgba(255, 255, 255, 0.22);
 }
+
+/* UI-12 中间表格表内滚动：Tabs 纵向 flex 链共享工具类——pane 高度贯通到表格容器，
+   配合 PagedTable fill 模式（ResizeObserver 测高→scroll.y 内滚）让表头/工具栏/
+   分页条恒在视口内、页面级滚动消灭。各落地页 Card body 内 Tabs 加本类消费。 */
+.fill-tabs { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.fill-tabs > .ant-tabs-nav { margin: 0 0 12px; }
+.fill-tabs .ant-tabs-content-holder { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.fill-tabs .ant-tabs-content { flex: 1; min-height: 0; height: 100%; }
+.fill-tabs .ant-tabs-tabpane { height: 100%; }
+.fill-tabs .ant-tabs-tabpane-active { display: flex; flex-direction: column; min-height: 0; }

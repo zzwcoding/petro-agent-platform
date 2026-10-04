@@ -371,8 +371,8 @@ export default function D1Landing() {
     models: (
       // UI-06 T3：接 PagedTable client（分页条恒显＋共 N 条；端点 1 信封无 total——
       // models.length 合法读法，方案 §1-P3）。UI-06 T6：「适用范围」行删除——
-      // 内容原话并入页头 helpTop（正文不直出）。
-      <PagedTable size="small" columns={modelColumns} dataSource={models} rowKey="key"
+      // 内容原话并入页头 helpTop（正文不直出）。UI-12：fill 表内滚。
+      <PagedTable fill size="small" columns={modelColumns} dataSource={models} rowKey="key"
         loading={!modelsError && models.length === 0}
         emptyText="暂无模型" error={modelsError} errorEmptyText="模型清单拉取失败" />
     ),
@@ -383,7 +383,9 @@ export default function D1Landing() {
         message="配置加载失败——调用参数暂不可编辑（服务端 models.yaml 全文亦未回显）"
         description={errText(cfgError)} />
     ) : form && (
-      <>
+      // UI-12：本页签无表格——表单＋yaml 全文装进内滚容器（flex:1 minHeight:0），
+      // 内容超长自身滚、页面级滚动消灭（无此容器会被 body overflow:hidden 截断）
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         <Row gutter={12}>
           {PARAM_FIELDS.map(p => (
             <Col span={6} key={p.key}>
@@ -415,7 +417,7 @@ export default function D1Landing() {
           <Button size="small" type="text" icon={<CopyOutlined />} onClick={copyYaml}>{copied ? '已复制' : '复制'}</Button>
         </div>
         <pre className="code-block" style={{ margin: 0 }}>{yaml || '（配置全文加载中…）'}</pre>
-      </>
+      </div>
     ),
     ledger: (
       <>
@@ -486,8 +488,10 @@ export default function D1Landing() {
             {/* UI-06 T1：迁移 PagedTable server 模式——「分页参数→query state→服务端重拉」
                 形状不变（page/pageSize(15 合同冻结)/total/onPageChange→setQuery；showTotal
                 同文案；scroll 透传）。归页不绑 resetKey——server 模式归页由三个筛控件
-                onChange 携 page:1 自带＋T5 防抖并入携 page:1。 */}
+                onChange 携 page:1 自带＋T5 防抖并入携 page:1。
+                UI-12：fill 表内滚——scroll.x 与 fill.y 合并（记账流水 522 行主要受益页签） */}
             <PagedTable
+              fill
               mode="server"
               size="small" loading={ledgerLoading} columns={ledgerColumns} dataSource={ledger.items} rowKey="id"
               scroll={{ x: 960 }}
@@ -507,8 +511,9 @@ export default function D1Landing() {
             {/* UI-06 T2：接 PagedTable client——统一分页统计/空态；resetKey=groupBy|range
                 （§2.2 总表）。caller/model 后端真分页信封未消费缺口登记 UI-07（本批不上
                 server 翻页）；day/month 趋势时序 ≤31/12 行合同全量豁免分页——pageSize 31
-                免切页（方案 §2.2 豁免），分页条与统计仍恒显。 */}
+                免切页（方案 §2.2 豁免），分页条与统计仍恒显。UI-12：fill 表内滚。 */}
             <PagedTable
+              fill
               size="small" loading={aggLoading} columns={aggColumns} dataSource={aggData?.items ?? []}
               rowKey="key" resetKey={`${agg.groupBy}|${agg.range}`}
               pageSize={(agg.groupBy === 'day' || agg.groupBy === 'month') ? 31 : undefined}
@@ -571,18 +576,21 @@ export default function D1Landing() {
             </div>
           </>
         )}
-        <div style={{ marginTop: 16 }}>
+        {/* UI-12：演练日志区转 flex 链（flex:1 minHeight:0）——上方演练控件/结果块恒在，
+            日志表 fill 内滚吸收剩余高度，长日志不再把页面撑出滚动或被 body 截断 */}
+        <div style={{ marginTop: 16, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <b style={{ fontSize: 13 }}>演练日志</b>
           {/* UI-06 T4：失败态分立（对齐流水表形态）——内联 Alert 常驻＋表 error 空态，
               不再以「暂无演练记录」伪装空态；loading 接表。
               UI-06 T3：接 PagedTable client（分页条恒显；端点 7 裸数组无 total——
-              drillLogs.length 合法读法，方案 §1-P3）。 */}
+              drillLogs.length 合法读法，方案 §1-P3）。UI-12：fill 表内滚。 */}
           {drillLogsError && (
             <Alert style={{ marginTop: 8, marginBottom: 8 }} type="error" showIcon
               message="演练记录拉取失败——下表不是最新数据"
               description={errText(drillLogsError)} />
           )}
           <PagedTable
+            fill
             style={{ marginTop: 8 }} size="small" rowKey="id" dataSource={drillLogs} loading={drillLoading}
             columns={[
               { title: '时间', dataIndex: 'time', width: 150, render: v => fmtTime(v) },
@@ -596,7 +604,7 @@ export default function D1Landing() {
   }
 
   return (
-    <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 18, fontWeight: 600 }}>模型与线路{helpIcon('主用故障自动切备用、冷却期满自动切回；改配置即对全平台生效。适用范围：问一问、报告库回答、问数——平台所有用到模型的动作都从这里出去。')}</span>
@@ -621,7 +629,13 @@ export default function D1Landing() {
             description={errText(modelsError)} />
         )}
       </div>
-      <Card style={{ flex: '1 0 auto' }} title={<Tabs activeKey={tab} size="small" onChange={setTab} items={tabItems} />}>
+      {/* UI-12：root→Card→body flex 链——Card 高度有界（body flex 列 overflow:hidden），
+          四页签表格 fill 内滚（记账流水 522 行为主要受益页签）、页面级滚动消灭 */}
+      <Card
+        style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}
+        styles={{ body: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } }}
+        title={<Tabs className="fill-tabs" activeKey={tab} size="small" onChange={setTab} items={tabItems} />}
+      >
         {tabContent[tab]}
       </Card>
 

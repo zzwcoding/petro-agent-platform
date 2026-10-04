@@ -12,9 +12,14 @@
  * - pagination 不接受外部覆盖：分页条参数（showSizeChanger/showQuickJumper/
  *   hideOnSinglePage/showTotal/position/size）定死一处，保证全站统计恒显、形态齐一。
  * 失败态≠空态：error 只切空态描述，内联 Alert 由页面自挂（两件并存，不进封装）。
+ *
+ * UI-12（中间表格表内滚动，Owner 2026-10-05 巡检裁决）增 fill 模式：fill=true 时
+ * 外层包 flex 列容器（flex:1 minHeight:0），ResizeObserver 实测容器高换 scroll.y
+ * 表内滚——表头/分页条恒在视口内、页面级滚动消灭；消费方须搭「root→Card→body→
+ * Tabs→pane」高度有界 flex 链（共享工具类 .fill-tabs 落 web/src/index.css）。
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Empty, Table } from 'antd'
 
 /** pageSize 缺省 20——对齐后端 ReadOnlyRepository.paginate 的 page_size 默认（app/infra/db.py:395 实读）。 */
@@ -47,8 +52,16 @@ const PAGINATION_FIXED = {
  * @param {number} [props.pageSize] 页大小：client 缺省 20；server 模式必传（各册 pageSize 合同冻结，如 D1 流水=15）
  * @param {(page: number, pageSize: number) => void} [props.onPageChange] server 模式翻页上抛
  * @param {number} [props.total] server 模式总条数（分页条统计）
+ * @param {boolean} [props.fill] 默认 false 零回归。fill=true＝表内滚动模式（UI-12）：
+ *   外层包 flex 列容器（ref=wrapRef），useEffect 挂 ResizeObserver（环境无
+ *   ResizeObserver——jsdom/兜底——自动跳过）实测容器高，scroll.y＝容器高−表头高
+ *   −分页条高（渲染后 DOM .ant-table-thead/.ant-pagination offsetHeight 实测），
+ *   观测回调随窗口/内容变化重算；首帧 thead/pagination 未实测前先不传 y，observer
+ *   回调补挂。要求父链高度有界（root→Card→body→Tabs→pane flex 链），否则测得
+ *   自然高、内滚不生效。scroll.x 照旧透传并与 y 合并（如 D1 流水 x:960＋fill.y）。
  * @param {object} [rest] expandable/onRow/rowClassName/scroll/size 等 antd Table props 全透传
- *   （locale.emptyText 与 pagination 两键收归本件——取舍见文件头）
+ *   （locale.emptyText 与 pagination 两键收归本件——取舍见文件头；fill=true 时
+ *   scroll 键由本件合并 y，其余键原样透传）
  * @returns {JSX.Element}
  */
 export default function PagedTable(props) {
@@ -57,9 +70,10 @@ export default function PagedTable(props) {
     emptyText, error = null, errorEmptyText = '数据拉取失败',
     resetKey, mode = 'client',
     page, pageSize, onPageChange, total,
+    fill = false,
     ...rest
   } = props
-  const { locale: restLocale, ...passthrough } = rest
+  const { locale: restLocale, scroll: scrollX, ...passthrough } = rest
 
   // client 模式内部页码（server 模式页码全受控，不用内部态）
   const [clientPage, setClientPage] = useState(1)
@@ -106,7 +120,31 @@ export default function PagedTable(props) {
         onChange: p => setClientPage(p)
       }
 
-  return (
+  // ── fill 模式测高（UI-12 定死）：ResizeObserver 实测 wrapper 高 → scroll.y 内滚 ──
+  // jsdom/兜底环境无 ResizeObserver 直接跳过（零测量零 y，渲染物与 fill=false 同形）；
+  // 首帧不传 y（thead/pagination 尚未实测），observer 挂载即首次回调补挂；观测回调里
+  // 随窗口/内容变化重算（Tabs 页签隐藏测高为 0 → 不传 y，切回再触发重算——无需
+  // destroyInactiveTabPane）。测得 ≤0（页签隐藏/视口过矮）同样不传 y，不做负值内滚。
+  const wrapRef = useRef(null)
+  const [y, setY] = useState()
+  useEffect(() => {
+    if (!fill || typeof ResizeObserver === 'undefined') return undefined
+    const measure = () => {
+      const el = wrapRef.current
+      if (!el) return
+      const thead = el.querySelector('.ant-table-thead')
+      const pager = el.querySelector('.ant-pagination')
+      const next = el.clientHeight
+        - (thead ? thead.offsetHeight : 0)
+        - (pager ? pager.offsetHeight : 0)
+      setY(next > 0 ? next : undefined)
+    }
+    const ro = new ResizeObserver(measure)
+    if (wrapRef.current) ro.observe(wrapRef.current)
+    return () => ro.disconnect()
+  }, [fill])
+
+  const table = (
     <Table
       {...passthrough}
       dataSource={slice}
@@ -115,6 +153,14 @@ export default function PagedTable(props) {
       loading={loading}
       locale={{ ...restLocale, emptyText: emptyNode }}
       pagination={pagination}
+      scroll={fill && y != null ? { ...scrollX, y } : scrollX}
     />
+  )
+
+  if (!fill) return table
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }} ref={wrapRef}>
+      {table}
+    </div>
   )
 }
