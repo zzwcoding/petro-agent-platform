@@ -5,8 +5,11 @@
   开关管辖）→ S3 词表四级（台账精确）→ S4 双路召回（向量 topK1＋trigram topK2
   并发）→ 合并（rrf_rank k=60 固定推荐值 / concat）→ 前 N → 精排三档（fast 融合
   序放行 / llm 逐条打分 / compound 0.6/0.3/0.1＋MMR λ=0.7）→ FAQ 路（直出关——
-  并入检索，扩检轮数消费）→ S5 图扩展（未启用——直通跳过）→ S6 资格裁决（4 支
-  上限＋refuse_threshold 拒答判定；低分带双重重评 P1F-06：0.30≤best<refuse_threshold
+  并入检索，扩检轮数消费）→ S5 图扩展（未启用——直通跳过）→ S6 资格裁决（生成
+  窗分池——D2 v0.4：报告类证据上限 4 支＋台账类材料上限 2 支、两池互不占位，
+  台账类＝装配层一等材料满分档〔source∈faq/anchor/ledger〕，各池内超出的截断
+  并标「另有 N 支未列出」；refuse_threshold 拒答判定；低分带双重重评 P1F-06：
+  0.30≤best<refuse_threshold
   不直接兜底——第一道放宽窗口重评（纯代码：topK 放宽×2＋父块家族随池回捞重算
   best，过闸照常生成不弹帧、帧注记记原分/重评分）；仍低则第二道 LLM 改写双句
   评分（仅此刻一次 gateway.complete，caller=chat.query.rewrite；同尺余弦给原句/
@@ -268,15 +271,13 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
             "S5 图扩展未启用——请求直接跳过、不花开销（将来接入知识图谱扩展时在这里开闸）",
         )
 
-    # —— S6 资格裁决（不受开关与早停影响；低分带双重重评——P1F-06）——
+    # —— S6 资格裁决（不受开关与早停影响；生成窗分池 D2 v0.4；低分带双重
+    # 重评——P1F-06）——
     evidence = _with_refs(evidence)
     yield d.node_frame("S6", state=d.NODE_PROCESS)
-    if len(evidence) > d.EVIDENCE_CAP:
-        overflow = len(evidence) - d.EVIDENCE_CAP
-        yield notice(
-            f"候选 {len(evidence)} 支，仅送前 {d.EVIDENCE_CAP} 支进生成——另有 {overflow} 支未列出。"
-        )
-        evidence = evidence[: d.EVIDENCE_CAP]
+    evidence, cap_notices = _cap_evidence(evidence)
+    for cap_text in cap_notices:
+        yield notice(cap_text)
     best = max((e.score for e in evidence), default=0.0)
     rescored_note: str | None = None  # 低分带重评过闸的 S6 收束注记（None＝未触发）
     if not evidence or best < cfg.refuse_threshold:
@@ -312,12 +313,10 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
             f"（topK ×{d.RESCORE_RELAX_FACTOR}——同父块兄弟子块随池回捞）",
         )
         if relaxed_best >= cfg.refuse_threshold:
-            evidence, overflow = _cap_evidence(_with_refs(relaxed_rows))
-            if overflow:
-                yield notice(
-                    f"候选 {len(relaxed_rows)} 支，仅送前 {d.EVIDENCE_CAP} 支进生成"
-                    f"——另有 {overflow} 支未列出。"
-                )
+            # 过闸截断同分池口径（D2 v0.4 生成窗分池——两池互不占位）。
+            evidence, cap_notices = _cap_evidence(_with_refs(relaxed_rows))
+            for cap_text in cap_notices:
+                yield notice(cap_text)
             original_best = best
             best = relaxed_best
             rescored_note = (
@@ -368,12 +367,10 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
                     return
                 # 额度已用完（N5 已弹过一次）——不弹第二帧：自动按优化句作答＋
                 # 答案标注（写死路径）。
-                evidence, overflow = _cap_evidence(_with_refs(opt_rows))
-                if overflow:
-                    yield notice(
-                        f"候选 {len(opt_rows)} 支，仅送前 {d.EVIDENCE_CAP} 支进生成"
-                        f"——另有 {overflow} 支未列出。"
-                    )
+                # 过闸截断同分池口径（D2 v0.4 生成窗分池——两池互不占位）。
+                evidence, cap_notices = _cap_evidence(_with_refs(opt_rows))
+                for cap_text in cap_notices:
+                    yield notice(cap_text)
                 original_best = best
                 best = opt_best
                 question = optimized
@@ -404,8 +401,9 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
     else:
         yield d.node_frame(
             "S6", state=d.NODE_FINISH,
-            note=f"资格裁决：候选 {len(evidence)} 支（上限 {d.EVIDENCE_CAP}）· "
-                 f"最高证据分 {best:.2f}"
+            note=f"资格裁决：候选 {len(evidence)} 支（生成窗分池——报告类上限 "
+                 f"{d.EVIDENCE_CAP}＋台账类上限 {d.LEDGER_EVIDENCE_CAP}，两池互不"
+                 f"占位）· 最高证据分 {best:.2f}"
                  "——多候选/缺参澄清在裁决层完成（有界循环），链内直连执行",
         )
 
@@ -517,7 +515,8 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
 def _config_check_line(cfg: d.RetrievalConfigFace) -> d.SseEvent:
     """出口「配置核对」行（D2 行为规则 6——展示面；只列真实消费的生效配置值，
     不发明「阈值未触发」类未核对结论）。早停表述按 P1F-03 收窄语义明义：
-    仅 @ 锚定级命中即跳，S3 词表级命中永不停下级。"""
+    仅 @ 锚定级命中即跳，S3 词表级命中永不停下级。生成窗分池上限（D2 v0.4
+    合同值——报告类 4＋台账类 2）与 S6 注记同口径在列。"""
     levels = "、".join(
         name for name, on in zip(("锚定", "词表", "双路"), cfg.order_levels, strict=True) if on
     ) or "全关"
@@ -526,6 +525,7 @@ def _config_check_line(cfg: d.RetrievalConfigFace) -> d.SseEvent:
         "N17", "·",
         f"配置核对：三级顺序＝{levels} · 早停＝{early_stop}，S3 命中不停下级 · "
         f"topK＝{cfg.semantic_top_k}/{cfg.keyword_top_k} · 前 N＝{cfg.top_n} · "
+        f"生成窗＝报告类 {d.EVIDENCE_CAP}＋台账类 {d.LEDGER_EVIDENCE_CAP} · "
         f"精排＝{cfg.rerank} · 引用格式＝{cfg.citation_format} · 兜底＝{cfg.fallback_strategy}",
     )
 
@@ -573,12 +573,33 @@ def _index_evidence_rows(
     ]
 
 
-def _cap_evidence(evidence: list[d.Evidence]) -> tuple[list[d.Evidence], int]:
-    """S6 送生成上限截断（票面 4 支上限）——返回截断后行与溢出数（notice 由
-    调用方按序发）。"""
-    if len(evidence) <= d.EVIDENCE_CAP:
-        return evidence, 0
-    return evidence[: d.EVIDENCE_CAP], len(evidence) - d.EVIDENCE_CAP
+def _cap_evidence(evidence: list[d.Evidence]) -> tuple[list[d.Evidence], list[str]]:
+    """S6 送生成上限截断（D2 v0.4 生成窗分池——两池互不占位）。
+
+    按材料 source 分类：台账类（source∈LEDGER_EVIDENCE_SOURCES＝faq/anchor/
+    ledger——装配层一等材料满分档：词条卡/指标卡/@ 锚定直取/FAQ 精确命中并入）
+    上限 LEDGER_EVIDENCE_CAP；其余＝报告类（S4/S5 检索片段证据）上限
+    EVIDENCE_CAP。各池内原排序不动、各自截各自上限，送生成序列保持分池前全局
+    序（只丢不重排）。返回截断后行与溢出提示行——每池超出各自标「另有 N 支
+    未列出」（两池都有超出时两行，固定报告类在前），notice 由调用方按序发。
+    """
+    ledger = [e for e in evidence if e.source in d.LEDGER_EVIDENCE_SOURCES]
+    report = [e for e in evidence if e.source not in d.LEDGER_EVIDENCE_SOURCES]
+    kept_report = report[: d.EVIDENCE_CAP]
+    kept_ledger = ledger[: d.LEDGER_EVIDENCE_CAP]
+    kept_ids = {id(e) for e in [*kept_report, *kept_ledger]}
+    notices: list[str] = []
+    if len(report) > len(kept_report):
+        notices.append(
+            f"报告类证据 {len(report)} 支，仅送前 {d.EVIDENCE_CAP} 支进生成"
+            f"——另有 {len(report) - len(kept_report)} 支未列出。"
+        )
+    if len(ledger) > len(kept_ledger):
+        notices.append(
+            f"台账类材料 {len(ledger)} 支，仅送前 {d.LEDGER_EVIDENCE_CAP} 支进生成"
+            f"——另有 {len(ledger) - len(kept_ledger)} 支未列出。"
+        )
+    return [e for e in evidence if id(e) in kept_ids], notices
 
 
 async def _relaxed_rescore(

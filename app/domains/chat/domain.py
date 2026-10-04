@@ -757,8 +757,20 @@ MMR_LAMBDA = 0.7
 FAQ_EXPAND_HARD_CAP = 5
 FAQ_EXPAND_FLOOR = 0.5
 
-# S6 资格裁决送生成上下文的上限（票面「4 支上限」——超出的截断标「另有 N 支未列出」）。
+# S6 资格裁决生成窗分池上限（D2 v0.4——2026-10-04 Owner 拍板分池案：原单池
+# 「候选上限 4 支」废止——同池竞争时满分台账材料挤出真数据片段，评测复测窗
+# 挤占组 D-诱5/15/8/12、A-正5 §6.2）：**报告类池**＝S4/S5 检索片段证据，上限
+# 4 支（原单池值，语义收窄为报告类）；**台账类池**＝装配层一等材料满分档
+# （词条卡/指标卡/@ 锚定直取/FAQ 精确命中并入），上限 2 支——两池互不占位，
+# 各池内超出的截断并标「另有 N 支未列出」（chains._cap_evidence 单点实施）。
+# 注：图谱问答链 N13 边证据上限同值沿用 EVIDENCE_CAP（图谱链非分池对象——
+# v0.4 分池条文只改 S6 生成窗）。
 EVIDENCE_CAP = 4
+LEDGER_EVIDENCE_CAP = 2
+# 台账类材料来源集（Evidence.source 键域——chains.py 满分档三来源：faq＝FAQ
+# 精确命中并入、anchor＝@ 前门直取、ledger＝S3 台账精确命中；其余 source
+# （vector/keyword/graph…）＝报告类池）。
+LEDGER_EVIDENCE_SOURCES = frozenset({"faq", "anchor", "ledger"})
 
 # 低分带重评（P1F-06，评测报告 §4.10/§6 建议 5——refuse_threshold 对问法长度边际
 # 敏感：同链同库原句 0.37 拒答 vs 换问法 0.71 全对）。RESCORE_BAND 语义＝

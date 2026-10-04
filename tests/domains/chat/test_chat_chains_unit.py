@@ -440,14 +440,19 @@ class TestDualRecallAndRerank:
     async def test_evidence_cap_four_with_overflow_notice(
         self, chat_db: Any, seams: Seams,
     ) -> None:
-        """S6 资格裁决 4 支上限——超出的截断并标「另有 N 支未列出」。"""
+        """S6 生成窗分池（D2 v0.4）——纯报告类超报告池上限：截断并标「另有 N
+        支未列出」（分池口径——台账类不虚占；两池全量分池测在
+        test_chat_window_pooling.py）。"""
         seams.index_vector = [_hit(f"v{i}", 0.9 - i * 0.05) for i in range(6)]
         seams.config = replace(DEFAULT_CONFIG, early_stop=False)
         svc = make_service(chat_db, seams)
         events = await collect(svc.ask("N-02 的情况", session_id=None, page_context=None,
                                        anchors=[], actor_who=AQIANG))
         notices = [str(n["text"]) for n in events_by_name(events)["notice"]]
-        assert any("另有 2 支未列出" in text for text in notices)
+        assert any(
+            "报告类证据 6 支，仅送前 4 支进生成——另有 2 支未列出" in text
+            for text in notices
+        )
         assert seams.completions.count("chat.retrieval.answer") == 1
 
 
