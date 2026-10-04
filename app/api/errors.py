@@ -49,6 +49,10 @@
   缺理由；404＝run 不存在或已过期；409＝run 非 interrupt 挂起态（对已终态
   resume／二次澄清／重入 clarify——澄清帧有界循环最多弹一次，状态机约束）。
   Last-Event-ID 非整数 400（chat_last_event_id_invalid）P0-08 已登记沿用。
+- well_not_found：wells 域 404（A2 错误码草案；M-02 新立值，登记于
+  tickets/phase2/README.md M-02 差异清单）——井不存在（归一化后无此主键，
+  设定书 §4 规则 7）；直调越权 403 走 security_forbidden 既有映射
+  （A2 行为规则 1——预埋期 403 分支不可达，形状照写，开放问题 6 裁决）。
 """
 
 from __future__ import annotations
@@ -85,6 +89,7 @@ from app.domains.kb import (
 )
 from app.domains.retrieval import RetrievalConflictError, RetrievalParamError
 from app.domains.security import ForbiddenError, UnauthenticatedError
+from app.domains.wells import WellNotFoundError
 
 CODE_UNAUTHENTICATED = "security_unauthenticated"
 CODE_FORBIDDEN = "security_forbidden"
@@ -98,6 +103,7 @@ CODE_KB_DEFERRED = "kb_fragment_revise_deferred"
 CODE_WIKI_NOT_FOUND = "wiki_not_found"
 CODE_GRAPH_NOT_FOUND = "graph_not_found"
 CODE_FAQ_NOT_FOUND = "faq_not_found"
+CODE_WELL_NOT_FOUND = "well_not_found"
 
 
 class ApiError(Exception):
@@ -338,6 +344,15 @@ def install_error_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=404,
             content=error_payload("chat_run_not_found", str(exc)),
+        )
+
+    @app.exception_handler(WellNotFoundError)
+    async def handle_well_not_found(request: Request, exc: WellNotFoundError) -> JSONResponse:
+        # A2 错误码草案 404：井不存在（归一化后无此主键——「世界里根本没有」）；
+        # 存在但无权 403 走 ForbiddenError 既有映射（行为规则 1②③——A2 同口径）。
+        return JSONResponse(
+            status_code=404,
+            content=error_payload(CODE_WELL_NOT_FOUND, str(exc)),
         )
 
     @app.exception_handler(ChatRunStateError)

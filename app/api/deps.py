@@ -27,6 +27,7 @@ from app.domains.security import (
     resolve_actor,
 )
 from app.domains.semantics import SemanticsService
+from app.domains.wells import WellsService
 from app.infra.db import ConnectionManager
 
 ACTOR_HEADER = "X-Dev-User"
@@ -100,6 +101,11 @@ def get_chat(request: Request) -> ChatService:
     return cast(ChatService, request.app.state.chat)
 
 
+def get_wells(request: Request) -> WellsService:
+    """wells 服务定位（lifespan 装配于 app.state——main.py；M-02 起）。"""
+    return cast(WellsService, request.app.state.wells)
+
+
 DbDep = Annotated[ConnectionManager, Depends(get_db)]
 SecurityDep = Annotated[SecurityService, Depends(get_security)]
 GatewayDep = Annotated[GatewayService, Depends(get_gateway)]
@@ -110,3 +116,4 @@ GraphDep = Annotated[DerivativesService, Depends(get_derivatives)]
 FaqDep = Annotated[FaqService, Depends(get_faq)]
 RetrievalDep = Annotated[RetrievalService, Depends(get_retrieval)]
 ChatDep = Annotated[ChatService, Depends(get_chat)]
+WellsDep = Annotated[WellsService, Depends(get_wells)]

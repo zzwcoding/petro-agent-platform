@@ -46,6 +46,10 @@ embo-01 1536 维——infra.llm_client.embeddings B6 单点，kb/faq db/query �
 两缝；Alembic 0012 列形迁移＋reembed 重嵌脚本）；LLM 意图裁决接线
 （caller=chat.intent.verdict，失败/超时/解析坏兜底确定性信号路由）；A1 端点
 2/6 会话与 @ 资产读端点；C1 端点 11 slots 投影读端点；B3 导入 multipart 落位。
+P2-M-02 起 wells 域点亮（A2 井档案四端点）：midplatform 只读路由启动校验接线
+（M-01 交付的 verify_midplatform_route——缺依赖拒绝启动）＋well_status_log
+补位表入装配（99 §2.3，Alembic 0017 并行；写入通道挂 99 开放问题 2，本批只落
+读面）＋/api/wells 路由族挂载（行级过滤预埋缝消费——M-01 with_row_filter 两步缝）。
 
 建表与迁移的交接（P0-08 票面）：ensure_*_table 与 Alembic 并行存活，
 本票不切换——各域切换迁移属各域票（基线空迁移见 migrations/versions/0001）。
@@ -67,6 +71,7 @@ from app.api.kb import router as kb_router
 from app.api.retrieval import router as retrieval_router
 from app.api.security import router as security_router
 from app.api.semantics import router as semantics_router
+from app.api.wells import router as wells_router
 from app.api.wiki import router as wiki_router
 from app.domains.chat import (
     ChatService,
@@ -95,6 +100,7 @@ from app.domains.security import SecurityService
 from app.domains.security.store import ensure_audit_table
 from app.domains.semantics import SemanticsService
 from app.domains.semantics.store import ensure_semantics_tables
+from app.domains.wells import WellsService, ensure_wells_tables
 from app.infra.config import load_database_specs
 from app.infra.db import ConnectionManager
 from app.infra.eventbus import InMemoryEventBus, ensure_outbox_table
@@ -108,6 +114,10 @@ LOGGER = logging.getLogger("main")
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     manager = ConnectionManager(load_database_specs())
+    # midplatform 只读路由启动校验（M-01 交付——接线随消费票 M-02 带上）：
+    # 缺配置/规格未只读/写探针未被拒即 MidplatformRouteError 拒启动（生产缺
+    # 依赖拒绝启动，禁静默降级——M-01 反数据面静默降级病灶）。
+    await manager.verify_midplatform_route()
     await ensure_audit_table(manager.engine())  # 幂等（checkfirst）——空库首次写审计不 500
     await ensure_gateway_tables(manager.engine())  # 同上——网关三表（99 §2.13）
     await ensure_outbox_table(manager.engine())  # 同上——infra 技术表（99 §6-4 outbox 兜底缝）
@@ -118,9 +128,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await ensure_faq_tables(manager.engine())  # 同上——faq 四表（99 §2.6；P1-06，Alembic 0007 并行）
     await ensure_retrieval_tables(manager.engine())  # 同上——retrieval 两表（99 §2.10；P1-07 并行）
     await ensure_chat_tables(manager.engine())  # 同上——chat 三表（99 §2.2；P1-08a 并行）
+    await ensure_wells_tables(manager.engine())  # 同上——well_status_log 补位表（99 §2.3；M-02，
+    #   Alembic 0017 并行——写入通道挂 99 开放问题 2，本批只落读面承载）
     await seed_demo_if_empty(manager.engine())  # 演示种子（合同 DTO 九条问答＋四簇候选——幂等）
     app.state.db = manager
     app.state.security = SecurityService(manager)
+    app.state.wells = WellsService(manager)  # A2 井档案读模型（M-02——纯读域）
     app.state.gateway = GatewayService(manager, LlmClient())
     app.state.semantics = SemanticsService(manager, app.state.security)  # B12 审计写口注入
     app.state.retrieval = RetrievalService(manager)  # D2 配置面（P1-07——B12 审计在 api 层编排）
@@ -425,6 +438,7 @@ app.include_router(wiki_router)  # B4 报告百科（P1-02b——derivatives 模
 app.include_router(graph_router)  # B5 关系图谱（P1-05——derivatives graph 子域，98 §5）
 app.include_router(faq_router)  # B3 常见问题库（P1-06——faq 模块，98 §5）
 app.include_router(retrieval_router)  # D2 搜索与回答·配置面（P1-07——retrieval 模块，98 §5）
+app.include_router(wells_router)  # A2 井档案（M-02——wells 模块，98 §5；纯读域）
 
 
 @app.get("/health")

@@ -47,7 +47,7 @@ from app.domains.chat.domain import (
     MetricFace,
     TermCard,
 )
-from app.infra.db import DatabaseSpec
+from app.infra.db import ConnectionManager, DatabaseSpec
 from tests.domains.chat.conftest import (
     AQIANG,
     DEFAULT_CONFIG,
@@ -56,6 +56,17 @@ from tests.domains.chat.conftest import (
     events_by_name,
     make_service,
 )
+
+
+def _stub_midplatform_gate(monkeypatch: pytest.MonkeyPatch) -> None:
+    """桩掉 midplatform 启动闸（M-02 起 main.py lifespan 接线 verify_midplatform_route
+    ——M-01「缺依赖拒绝启动」语义）。本组用例主体＝P-004 装载透传，底座是
+    sqlite 单库（无中台库可达、写探针在 sqlite 亦不可拒）——真闸验证归
+    tests/infra/test_db_midplatform_pg.py（真 PG）。"""
+    async def _noop(self: ConnectionManager) -> None:
+        return None
+
+    monkeypatch.setattr(ConnectionManager, "verify_midplatform_route", _noop)
 
 
 def _deps(seams: Seams) -> chains_mod.ChainDeps:
@@ -341,6 +352,7 @@ class TestProductionStatusPassthrough:
             pool_size=2, max_overflow=1,
         )
         monkeypatch.setattr(main_mod, "load_database_specs", lambda: [spec])
+        _stub_midplatform_gate(monkeypatch)  # M-02：启动闸依赖真实中台库——sqlite 底座桩掉
         async with main_mod.app.router.lifespan_context(main_mod.app):
             svc = main_mod.app.state.chat
             engine = main_mod.app.state.db.engine()
@@ -376,6 +388,7 @@ class TestProductionStatusPassthrough:
             pool_size=2, max_overflow=1,
         )
         monkeypatch.setattr(main_mod, "load_database_specs", lambda: [spec])
+        _stub_midplatform_gate(monkeypatch)  # M-02：启动闸依赖真实中台库——sqlite 底座桩掉
         async with main_mod.app.router.lifespan_context(main_mod.app):
             svc = main_mod.app.state.chat
             engine = main_mod.app.state.db.engine()
