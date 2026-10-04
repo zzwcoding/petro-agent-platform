@@ -10,7 +10,7 @@
 - `wiki_page_version`：**v0.4 起写路径撤除、表保留不删留档**（Owner
   2026-10-04 拍板"版本历史直接去掉"——append-only 版本快照不再追加，读面
   也不再经版本行；列形与 source CHECK 四态随表留档，历史行只读不迁移；
-  99 册 §2.7 对齐随文档对齐批）。
+  99 册 §2.7 v0.4 已对齐（teach 000d11a）：wiki_page 页级三列＝当前版载体）。
 - `status`/`generation_source`/`operator`/`related_objects` 不落列（B4 v0.3
   派生口径不变——status 按当前版正文有无 [[flag:]] 派生；generation_source
   v0.4 单态「自动重建」、operator 恒「系统（入库管线）」均读面派生；
@@ -18,7 +18,8 @@
   不落第二份）。
 - ensure_derivatives_tables 幂等 checkfirst（P0-04 惯例），与 Alembic 0004
   并行存活（双轨退役拍挂后续票——P1-01 差异 10 同口径）；v0.4 新增页级三列
-  的存量 PG 库列形迁移随各域迁移票（本票不切 Alembic——票面边界）。
+  的存量 PG 库列形迁移已落 Alembic 0016（P2-04 修复拍 F1——upgrade 补
+  content/claims/glossary_terms 三列、down 删列，存量行落 server_default）。
 
 边界：B3（只经 infra.db）、B14（时间只经 infra.clock）、B1（不咬框架）。
 """

@@ -61,7 +61,8 @@ async def list_pages(
 ) -> WikiPagesResponse:
     """百科页目录（所属库＋关键词筛选——keyword 匹配题名/来源报告/所属库三字段；
     按 updated 倒序；开关关未生成的报告不出现；current_version＝重建计数，
-    v0.4 无版本历史语义）。"""
+    v0.4 无版本历史语义；total＝全量计数——B4 v0.4 DTO 注记，筛选前先数）。"""
+    total = await service.count_pages()
     rows: list[WikiPageListItem] = await service.list_pages(lib=lib, keyword=keyword or None)
     return WikiPagesResponse(
         items=[
@@ -74,7 +75,7 @@ async def list_pages(
             )
             for r in rows
         ],
-        total=len(rows),
+        total=total,
     )
 
 

@@ -114,13 +114,18 @@ def _make_lib(
 
 
 def _make_page(
-    c: TestClient, storage: FakeObjectStorage, *, wiki: bool = True
+    c: TestClient, storage: FakeObjectStorage, *, wiki: bool = True,
+    tag: str = "wiki", well: str = "N-02",
 ) -> dict[str, Any]:
-    """建库→直传→confirm→五步 done→（wiki 开→百科 v1 落库）；返回标识组。"""
-    lib_id = _make_lib(c, wiki=wiki)
+    """建库→直传→confirm→五步 done→（wiki 开→百科 v1 落库）；返回标识组。
+
+    tag/well 供多页用例分库分题名（lib＝完井报告库·{tag}、文件名＝{well} 井
+    完井报告·{tag}.txt）——台账反查按 tag 收敛到本页报告。
+    """
+    lib_id = _make_lib(c, wiki=wiki, name=f"完井报告库·{tag}")
     up = c.post(
         "/api/kb/uploads",
-        json={"filename": "N-02 井完井报告·wiki.txt",
+        json={"filename": f"{well} 井完井报告·{tag}.txt",
               "size": len(DEMO_TEXT.encode("utf-8")), "lib_id": lib_id},
     )
     assert up.status_code == 200, up.text
@@ -129,7 +134,7 @@ def _make_page(
     confirm = c.post(f"/api/kb/uploads/{receipt['upload_id']}/confirm")
     assert confirm.status_code == 200, confirm.text
     _wait_done(c, confirm.json()["task_id"])
-    reports = c.get("/api/kb/reports", params={"keyword": "wiki"}).json()
+    reports = c.get("/api/kb/reports", params={"keyword": tag}).json()
     assert reports["total"] == 1
     report_id = reports["items"][0]["id"]
     page_id = f"wiki-{report_id.removeprefix('rpt-')}"
@@ -203,14 +208,42 @@ class TestWikiReadFaces:
         assert row["updated"]
         assert row["status"] == "正常"  # 无 [[flag:]] → 正常（服务端判定）
         # 筛选：所属库命中/关键词命中（题名/来源报告/所属库三字段模糊）/不命中
-        assert c.get("/api/wiki/pages", params={"lib": "完井报告库·wiki"}).json()["total"] == 1
-        assert c.get("/api/wiki/pages", params={"lib": "不存在的库"}).json()["total"] == 0
-        assert c.get("/api/wiki/pages", params={"keyword": "N-02"}).json()["total"] == 1
-        assert c.get("/api/wiki/pages", params={"keyword": "完井报告"}).json()["total"] == 1
-        assert c.get("/api/wiki/pages", params={"keyword": "不命中"}).json()["total"] == 0
+        #   ——筛选效果看 items；total 恒＝全量计数（B4 v0.4 注记，F2 修复拍）
+        hit_lib = c.get("/api/wiki/pages", params={"lib": "完井报告库·wiki"}).json()
+        assert len(hit_lib["items"]) == 1 and hit_lib["total"] == 1
+        miss_lib = c.get("/api/wiki/pages", params={"lib": "不存在的库"}).json()
+        assert miss_lib["items"] == [] and miss_lib["total"] == 1  # total 不随筛选缩
+        assert len(c.get("/api/wiki/pages", params={"keyword": "N-02"}).json()["items"]) == 1
+        assert len(c.get("/api/wiki/pages",
+                         params={"keyword": "完井报告"}).json()["items"]) == 1
+        miss_kw = c.get("/api/wiki/pages", params={"keyword": "不命中"}).json()
+        assert miss_kw["items"] == [] and miss_kw["total"] == 1
         # B1 台账 wiki 字段同源同值（v0.4＝重建计数）
         reports = c.get("/api/kb/reports", params={"keyword": "wiki"}).json()
         assert reports["items"][0]["wiki"] == "v1"
+
+    def test_1b_total_is_full_count_under_filter(self, client: Any) -> None:
+        """F2（修复拍）：total＝全量计数——B4 v0.4 端点 1 DTO 注记「total＝
+        全量计数；『筛选结果 X / Y 条』＝前端按 items 长度＋total 拼」。
+        筛选态 total≠len(items) 且＝未筛选全量。"""
+        c, storage, _completer = client
+        made_a = _make_page(c, storage, tag="wikiA")
+        made_b = _make_page(c, storage, tag="wikiB", well="N-03")
+        full = c.get("/api/wiki/pages").json()
+        assert len(full["items"]) == full["total"] == 2
+        # lib 筛选：items 只余 A 库页，total 仍＝未筛选全量（≠len(items)）
+        lib_view = c.get(
+            "/api/wiki/pages", params={"lib": "完井报告库·wikiA"}
+        ).json()
+        assert [r["id"] for r in lib_view["items"]] == [made_a["page_id"]]
+        assert len(lib_view["items"]) == 1
+        assert lib_view["total"] == 2
+        assert lib_view["total"] != len(lib_view["items"])
+        # keyword 筛选：只命中 B 页题名，total 仍＝未筛选全量
+        kw_view = c.get("/api/wiki/pages", params={"keyword": "N-03"}).json()
+        assert [r["id"] for r in kw_view["items"]] == [made_b["page_id"]]
+        assert kw_view["total"] == 2
+        assert kw_view["total"] != len(kw_view["items"])
 
     def test_2_page_detail_full_dto_and_flag_status(self, client: Any) -> None:
         """(c) 全文：DTO 逐字段（元数据表＋content＋claims＋glossary）＋

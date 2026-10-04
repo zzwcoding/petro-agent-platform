@@ -21,7 +21,8 @@
   FragmentRevised 订阅）；B9 边界（kb 禁直调 derivatives；derivatives→kb
   仅 record_activity＋报告读面＋wiki 重建计数投影回写）。
 - 99-数据库与连接层设计.md §2.7：wiki_page/wiki_page_version 逐字段
-  （v0.4 起版本表写路径撤除——表保留不删留档，99 册对齐随文档对齐批）。
+  （v0.4 起版本表写路径撤除——表保留不删留档；99 册 §2.7 v0.4 已对齐
+  （teach 000d11a）：wiki_page 页级三列＝当前版载体）。
 
 B1：本文件不 import fastapi/starlette/DB/LLM——拼回去重、截断纪律、
 claims 锚校验、台账 linkify、状态派生都是纯语义。

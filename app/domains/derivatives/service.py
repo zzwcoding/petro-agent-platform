@@ -365,6 +365,11 @@ class DerivativesService:
 
     # ---------- B4 端点 1：目录 ----------
 
+    async def count_pages(self) -> int:
+        """全量页数（筛选前先数——B4 v0.4 端点 1 DTO 注记「total＝全量计数；
+        『筛选结果 X / Y 条』＝前端按 items 长度＋total 拼」，P2-04 修复拍 F2）。"""
+        return len(await self._store.all_pages())
+
     async def list_pages(
         self, lib: str | None = None, keyword: str | None = None
     ) -> list[d.WikiPageListItem]:
