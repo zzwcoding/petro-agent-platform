@@ -156,6 +156,14 @@ class ReadOnlyViolation(RuntimeError):
     """只读角色上发生写意图（flush/execute 非查询）时抛出。"""
 
 
+class MidplatformRouteError(RuntimeError):
+    """midplatform 只读路由启动校验不过（缺配置/规格未只读/写探针未被拒）时抛出。
+
+    M-01：对齐 Owner 方针「生产缺依赖拒绝启动」，反数据面静默降级病灶——
+    缺依赖宁可拒启动，不做静默回落。
+    """
+
+
 class ConnectionManager:
     """连接池与会话/事务的唯一出口（每数据库角色一个异步引擎）。
 
@@ -326,6 +334,10 @@ class ConnectionManager:
         谓词由 security.row_filter() 产出、调用方注入——本层不 import
         security（B16），只提供装配执行点；「无权的数据查不出来，不是
         打码」的物理落点（00 §9.3）。
+
+        M-01 起谓词生产侧的预埋缝＝模块级 with_row_filter(actor, table)
+        （RowDomainScope 装配物）——消费方两步照 99 §4.2 流程组合，本冻结
+        形状不改。
         """
         for predicate in predicates:
             stmt = stmt.where(predicate)
@@ -345,9 +357,88 @@ class ConnectionManager:
                 lights[role] = "down"
         return lights
 
+    # ---------- midplatform 只读路由启动校验（M-01——缺依赖拒绝启动） ----------
+
+    async def verify_midplatform_route(self) -> None:
+        """midplatform 只读路由启动期校验（M-01）——任一步不过即抛 MidplatformRouteError。
+
+        对齐 Owner 方针「生产缺依赖拒绝启动」、反数据面静默降级病灶：
+        ①缺 midplatform 配置→显式报错（不静默回落 primary、不留哑连接）；
+        ②规格未声明 readonly→报错（99 §4.1 强制只读不靠自觉）；③连接可达性
+        ＋只读验证——写探针（CREATE TEMP TABLE）必须被拒才放行：探针触 DP-03
+        账号级 default_transaction_read_only=on 兜底（data-plane 仓
+        migrations/midplatform_readonly.sql）；探针意外成功＝账号未证实只读，
+        拒绝启动。接线约定：组合根（lifespan）装配 ConnectionManager 后调用
+        本方法——main.py 接线随消费票（M-02）带上，本票只交校验语义与测试。
+        """
+        spec = self._specs.get("midplatform")
+        if spec is None:
+            raise MidplatformRouteError(
+                "midplatform 只读路由未配置（config/database.yaml 缺 midplatform 段）"
+                "——拒绝启动（生产缺依赖拒绝启动，禁静默降级）"
+            )
+        if not spec.readonly:
+            raise MidplatformRouteError(
+                "midplatform 规格未声明 readonly=true——拒绝启动（99 §4.1 强制只读）"
+            )
+        engine = self._engines["midplatform"]
+        try:
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))  # 可达性探活
+                try:
+                    await conn.execute(
+                        text("CREATE TEMP TABLE _midplatform_write_probe (id integer)")
+                    )
+                except Exception:
+                    LOGGER.info("midplatform 只读验证通过：写探针被拒（%s）", spec.name)
+                    return
+                raise MidplatformRouteError(
+                    "midplatform 写探针未被拒——账号未证实只读"
+                    "（核对 DP-03 data-plane/migrations/midplatform_readonly.sql："
+                    "SELECT-only 授权＋default_transaction_read_only=on）——拒绝启动"
+                )
+        except MidplatformRouteError:
+            raise
+        except Exception as exc:
+            raise MidplatformRouteError(f"midplatform 连接不可达：{exc}") from exc
+
     async def dispose(self) -> None:
         for engine in self._engines.values():
             await engine.dispose()
+
+
+# ---------- 行级权限预埋装配器（M-01——99 §2.0②/§4.2 消费缝，形状冻结） ----------
+
+
+@dataclass(frozen=True)
+class RowDomainScope:
+    """with_row_filter(actor, table) 的返回装配物（形状冻结——真分权只换实现不换签名）。
+
+    predicates＝AND 进查询的 mandatory filter 谓词（00 §9.3「WHERE 由权限层
+    拼接，不靠模型自觉」）；元组形状不假设谓词落于本表列——join 感知（问数链
+    fct_daily_metering 挂 dim_well 侧谓词，DP-04 审查输入）由谓词自带 join/
+    子查询表达。预埋期恒空元组（＝WHERE 恒真/不加）。
+    """
+
+    actor: str
+    table: str
+    predicates: tuple[Any, ...] = ()
+
+
+def with_row_filter(actor: str, table: str) -> RowDomainScope:
+    """行级权限预埋装配器（M-01）——「无权的数据查不出来，不是打码」的谓词生产缝。
+
+    形状冻结（docstring 引 99 §4.2）：本函数＝行级注入点的谓词生产侧预埋，
+    物理装配执行点仍是 ConnectionManager.with_row_filter(stmt, predicates)
+    ——99 §4.2 冻结形状原样不改。预埋期语义：全员管理员→数据域＝全量，
+    谓词恒空（WHERE 恒真/不加）；真分权批只换本函数实现（判值源
+    security_row_domain_grant——谓词产出归 security 域，B16 禁本层 import），
+    本签名与 RowDomainScope 形状不动。A2 井档案/问数链在此缝消费：
+
+        scope = with_row_filter(actor, "raw.well_info")
+        stmt = ConnectionManager.with_row_filter(stmt, scope.predicates)
+    """
+    return RowDomainScope(actor=actor, table=table, predicates=())
 
 
 class Repository[ModelT]:

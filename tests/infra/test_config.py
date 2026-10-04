@@ -117,6 +117,22 @@ def test_load_database_specs_from_repo() -> None:
     assert url.host is not None  # 占位符已解析（默认或环境值）
 
 
+def test_load_database_specs_repo_midplatform_readonly() -> None:
+    """M-01：repo database.yaml 自带 midplatform 只读段——独立 URL/只读账号。
+
+    跨库指向中台库（DP-03 湖真身：dev 期与平台库同实例不同 schema，生产独立
+    实例走环境量）；强制只读（99 §4.1），凭证占位符经 ${VAR:-默认} 解析。
+    """
+    specs = {s.role: s for s in load_database_specs()}
+    mid = specs["midplatform"]
+    primary = specs["primary"]
+    assert mid.readonly is True  # 强制只读（99 §4.1——连接层与账号级双保险）
+    assert mid.driver == "postgresql"
+    assert mid.user  # 只读账号在位
+    assert mid.user != primary.user  # 独立于 primary 账号
+    assert mid.url() != primary.url()  # 独立 URL（跨库指向中台库）
+
+
 def test_load_database_specs_placeholder_and_roles(tmp_path: Path) -> None:
     conf = tmp_path / "database.yaml"
     conf.write_text(

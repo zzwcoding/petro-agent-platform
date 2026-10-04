@@ -7,8 +7,10 @@ PG 方言——PG 集成测试覆盖（test_db_pg.py）。
 """
 
 import dataclasses
+import inspect
 from collections.abc import AsyncIterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 from sqlalchemy import select, text
@@ -20,10 +22,12 @@ from app.infra.db import (
     ConnectionManager,
     DatabaseSpec,
     EncryptedField,
+    MidplatformRouteError,
     Page,
     ReadOnlyRepository,
     ReadOnlyViolation,
     Repository,
+    with_row_filter,
 )
 
 
@@ -279,3 +283,102 @@ async def test_readonly_repository_paginate(db: ConnectionManager) -> None:
             session, select(NoteUnit), page=0, page_size=1  # 越界页码归一
         )
         assert first.page == 1
+
+
+# ---------- M-01：命名连接工厂（midplatform 只读路由——mock 驱动） ----------
+
+
+async def test_named_connection_factory_builds_per_role_engines(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """(a) 命名连接工厂：每角色独立引擎/独立 URL——B3 同出口不开第二门（99 §4.1）。"""
+    import app.infra.db as db_module
+
+    real_create = db_module.create_async_engine
+    created: list[Any] = []
+
+    def spy(url: Any, **kwargs: Any) -> Any:
+        created.append(url)
+        return real_create(url, **kwargs)
+
+    monkeypatch.setattr(db_module, "create_async_engine", spy)
+    manager = ConnectionManager(
+        [_spec(tmp_path, "primary"), _spec(tmp_path, "midplatform", readonly=True)]
+    )
+    assert len(created) == 2  # 每命名角色一个引擎
+    assert manager.engine("primary") is not manager.engine("midplatform")
+    # 独立 URL：midplatform 跨库指向独立库/账号（不与 primary 共底座）
+    assert (
+        manager.engine("primary").url.database
+        != manager.engine("midplatform").url.database
+    )
+    await manager.dispose()
+
+
+async def test_midplatform_named_route_readonly_sessions(tmp_path: Path) -> None:
+    """(a) 命名路由：readonly(role="midplatform") 走 midplatform 会话；写会话前置拒。"""
+    manager = ConnectionManager(
+        [_spec(tmp_path, "primary"), _spec(tmp_path, "midplatform", readonly=True)]
+    )
+    async with manager.readonly(role="midplatform") as session:
+        assert (await session.execute(select(1))).scalar_one() == 1  # 读放行
+    with pytest.raises(ReadOnlyViolation, match="只读"):
+        async with manager.session(role="midplatform"):
+            pass
+    await manager.dispose()
+
+
+# ---------- M-01：行级权限预埋装配器（99 §2.0②/§4.2——恒真形状冻结） ----------
+
+
+def test_with_row_filter_preembed_returns_alwaystrue_scope() -> None:
+    """(b) 预埋期语义：全员管理员→数据域＝全量——谓词恒空（WHERE 恒真/不加）。"""
+    scope = with_row_filter("laowang", "raw.well_info")
+    assert scope.actor == "laowang"
+    assert scope.table == "raw.well_info"
+    assert scope.predicates == ()
+
+
+def test_with_row_filter_signature_and_scope_frozen() -> None:
+    """(b) 形状冻结：签名 (actor, table)＋装配物不可变——真分权只换实现不换签名。"""
+    parameters = list(inspect.signature(with_row_filter).parameters)
+    assert parameters == ["actor", "table"]
+    scope = with_row_filter("x", "t")
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        scope.actor = "y"  # type: ignore[misc]
+
+
+def test_with_row_filter_scope_composes_with_frozen_injector() -> None:
+    """(b) 装配物经 99 §4.2 冻结物理注入点消费——空谓词＝语句原样不可达改写。"""
+    stmt = select(NoteUnit)
+    scope = with_row_filter("laowang", "unit_note")
+    filtered = ConnectionManager.with_row_filter(stmt, scope.predicates)
+    assert str(filtered) == str(stmt)  # 恒真/不加——语句零改写
+
+
+# ---------- M-01：midplatform 只读路由启动校验（缺配置显式报错） ----------
+
+
+async def test_verify_midplatform_route_missing_config_raises(tmp_path: Path) -> None:
+    """(c) 缺 midplatform 配置→显式报错（生产缺依赖拒绝启动，禁静默降级）。"""
+    manager = ConnectionManager([_spec(tmp_path, "primary")])
+    with pytest.raises(MidplatformRouteError, match="midplatform"):
+        await manager.verify_midplatform_route()
+    await manager.dispose()
+
+
+async def test_verify_midplatform_route_rejects_non_readonly_spec(tmp_path: Path) -> None:
+    """(c) 规格未声明 readonly→拒绝（99 §4.1 强制只读不靠自觉）。"""
+    manager = ConnectionManager([_spec(tmp_path, "midplatform", readonly=False)])
+    with pytest.raises(MidplatformRouteError, match="readonly"):
+        await manager.verify_midplatform_route()
+
+
+async def test_verify_midplatform_route_rejects_writable_probe(tmp_path: Path) -> None:
+    """(c) 只读验证＝写探针必须被拒：可写连接（SQLite 底座）探针判负拒绝。"""
+    manager = ConnectionManager(
+        [_spec(tmp_path, "primary"), _spec(tmp_path, "midplatform", readonly=True)]
+    )
+    with pytest.raises(MidplatformRouteError, match="写探针"):
+        await manager.verify_midplatform_route()
+    await manager.dispose()

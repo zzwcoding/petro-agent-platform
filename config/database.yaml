@@ -22,7 +22,16 @@ database:
   #   driver: postgresql
   #   host: ...
   #   readonly: true
-  # midplatform:                # 中台源 8 表只读路由（99 §4.1）——连接拓扑随部署批复核
-  #   driver: postgresql        #   （99 §6-1 开放问题 1），启用时解开并给连接信息
-  #   host: ...
-  #   readonly: true            # 强制只读：意图级 flush 守卫 + postgresql_readonly（每事务 BEGIN READ ONLY）
+  midplatform:                # 中台源 8 表只读路由（99 §4.1/§2.0②——DP-03 湖真身交付，M-01 启用）
+    driver: postgresql
+    name: midplatform
+    host: ${MIDPLATFORM_PG_HOST:-localhost}
+    port: ${MIDPLATFORM_PG_PORT:-5433}   # dev 期与平台库同实例不同 schema（raw/clean/data_plane，DP-03 拍板）；生产独立实例改环境量
+    database: ${MIDPLATFORM_PG_DB:-petro}
+    user: ${MIDPLATFORM_PG_USER:-midplatform}
+    password: ${MIDPLATFORM_PG_PASSWORD:-midplatform}   # dev 默认仅演示态；建账号 SQL＝data-plane 仓 migrations/midplatform_readonly.sql
+    pool_size: 5
+    max_overflow: 0
+    pool_recycle_seconds: 1800
+    slow_query_ms: 800          # 慢查询阈值 ms（工程日志，非业务审计——99 §4.1）
+    readonly: true              # 强制只读：意图级 flush 守卫＋postgresql_readonly＋账号级 SELECT-only（DP-03 默认拒绝，新源表需显式补授）
