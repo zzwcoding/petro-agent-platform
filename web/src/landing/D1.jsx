@@ -596,7 +596,7 @@ export default function D1Landing() {
   }
 
   return (
-    <div style={{ maxWidth: 1080, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 18, fontWeight: 600 }}>模型与线路</span>

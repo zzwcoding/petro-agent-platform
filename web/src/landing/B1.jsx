@@ -682,7 +682,7 @@ export default function B1Landing() {
   ) : null
 
   return (
-    <div style={{ maxWidth: 1180, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 18, fontWeight: 600 }}>报告库</span>
         <span style={{ color: '#8a94a3', fontSize: 13 }}>
