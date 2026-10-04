@@ -26,6 +26,11 @@
  *   EventSource 自动重连仅 GET 形态，api/chat.js 选型注记）。
  * - 拦截/兜底/置信度标注全按帧直出：verdict.confidence 档位徽标（高/中/低）、
  *   answer.no_model FAQ 直出标注、（未依据报告库）兜底标注徽标——文本零改写。
+ * - UI-14 空态巡检三处（Owner 2026-10-05 裁决：空态提示只在真无数据时出现，
+ *   有数据只渲染数据，失败态与空态严格分离）：本机最近运行块条件整显隐
+ *   （无记录时标题/空文案/空 List 三件套一起不渲染）；服务端会话 List 挂
+ *   .a1-session-list——末条消息也保留下分割线（样式落 index.css）；回放大
+ *   Alert 换贴顶轻量一行（「返回当前」保留＝回放态唯一退出把手）。
  * - 澄清帧分支渲染（P1F-06）：clarify 帧 additive `subtype` 键驱动——rewrite
  *   （低分带 LLM 改写澄清）出专属标题与提示文案；caliber/candidates 及未知
  *   subtype 兜底＝既有形状渲染（不崩不空白）——clarifyCardView 单源。
@@ -567,7 +572,8 @@ export default function A1Landing() {
           <>
             {/* T5：N＝items.length（端点 2 信封无 total——方案 §1-P3 定死合法读法；列表分页随 UI-07）；UI-09 去「服务端」dev 语汇 */}
             <div style={{ ...dim, marginBottom: 4 }}>共 {serverSessions.items.length} 条</div>
-            <List size="small" dataSource={serverSessions.items} locale={{ emptyText: '暂无服务端会话' }}
+            {/* UI-14 意见 1 后半：末条消息也保留下分割线（className→index.css .a1-session-list） */}
+            <List size="small" className="a1-session-list" dataSource={serverSessions.items} locale={{ emptyText: '暂无服务端会话' }}
               renderItem={s => (
                 <List.Item style={{ cursor: busy ? 'wait' : 'pointer', padding: '4px 0' }}
                   onClick={() => !busy && openHistory(s)}>
@@ -579,17 +585,25 @@ export default function A1Landing() {
               )} />
           </>
         )}
-        {/* UI-09：断点续传说明收进 ?（去括号旁白——票面改造项 4） */}
-        <div style={{ ...dim, marginBottom: 4 }}>本机最近运行{helpIcon('点开＝断点续传，已出内容不丢。')}</div>
-        {RUN_HISTORY.length === 0 && <div style={dim}>本次进入还没有问答记录。</div>}
-        <List size="small" dataSource={[...RUN_HISTORY]}
-          renderItem={e => (
-            <List.Item style={{ cursor: busy ? 'wait' : 'pointer', padding: '4px 0' }}
-              onClick={() => !busy && resumeRun({ runId: e.runId, lastEventId: '', question: e.title })}>              <div style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {e.title}
-              </div>
-            </List.Item>
-          )} />
+        {/* UI-14 意见 1＋2（同根）：本机最近运行块条件整显隐——无本机记录时标题
+            「本机最近运行?」/空文案「本次进入还没有问答记录。」/空 List（其默认
+            Empty「暂无数据」大图）三件套一起不渲染（空态提示只在真无数据时出现，
+            且「标题＋空提示」整段无意义者整段隐藏）；有记录时形态不变
+            （helpIcon 断点续传语义保留）。UI-09：断点续传说明收进 ? */}
+        {RUN_HISTORY.length > 0 && (
+          <>
+            <div style={{ ...dim, marginBottom: 4 }}>本机最近运行{helpIcon('点开＝断点续传，已出内容不丢。')}</div>
+            <List size="small" dataSource={[...RUN_HISTORY]}
+              renderItem={e => (
+                <List.Item style={{ cursor: busy ? 'wait' : 'pointer', padding: '4px 0' }}
+                  onClick={() => !busy && resumeRun({ runId: e.runId, lastEventId: '', question: e.title })}>
+                  <div style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {e.title}
+                  </div>
+                </List.Item>
+              )} />
+          </>
+        )}
       </Card>
 
       {/* ── 中栏 · 对话流（消息/答案流式/citation/澄清帧） ── */}
@@ -598,14 +612,14 @@ export default function A1Landing() {
         <div ref={convRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
           {viewing ? (
             <>
-              <Alert style={{ marginBottom: 8 }} type="info" showIcon
-                message={`正在查看历史会话：${viewing.title}`}
-                description={viewing.loading
-                  ? '读取中…'
-                  : viewing.error
-                    ? `读取失败：${viewing.error}`
-                    : '只读回放——发送新问题将开启新会话。'}
-                action={<Button size="small" onClick={() => setViewing(null)}>返回当前</Button>} />
+              {/* UI-14 意见 3：回放大 Alert（蓝色信息框整块）换贴顶轻量一行——
+                  「返回当前」保留（无它回放态无法退出）；消息/会话体渲染逻辑不动 */}
+              {viewing && (
+                <div style={{ ...dim, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span>{viewing.loading ? '正在读取历史会话…' : viewing.error ? `读取失败：${viewing.error}` : '正在查看历史会话——只读回放。'}</span>
+                  <Button type="link" size="small" style={{ padding: 0 }} onClick={() => setViewing(null)}>返回当前</Button>
+                </div>
+              )}
               {viewing.loading && <Spin size="small" style={{ margin: 16 }} />}
               {!viewing.loading && !viewing.error && historyItems(viewing).length === 0 && (
                 <div style={{ ...dim, padding: '20px 4px' }}>该会话还没有落库消息。</div>

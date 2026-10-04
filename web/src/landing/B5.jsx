@@ -504,9 +504,12 @@ export default function B5Landing() {
                   : (net.nodes.length
                       ? <GraphG6 key={libId} nodes={net.nodes} edges={net.edges} sel={sel}
                           visible={visible} nameOf={nameOf} onPick={setSel} />
-                      : <div style={{ ...dim, border: '1px dashed #30363d', borderRadius: 8, padding: 60, textAlign: 'center' }}>
+                      : !netError && <div style={{ ...dim, border: '1px dashed #30363d', borderRadius: 8, padding: 60, textAlign: 'center' }}>
                           当前库暂无图谱数据——图谱开关开启后入库一次即成图（不抽取即无图）。
                         </div>)}
+                {/* UI-14 巡检违例 (b) 修复（先登记后改）：netError 失败态不再出
+                    「暂无图谱数据」空态框——失败态由 Card 级 Alert 单独承载（空态提示
+                    只在真无数据时出现，失败态与空态严格分离） */}
               </div>
               <div style={{ width: 400, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
                 <div style={{
@@ -528,6 +531,7 @@ export default function B5Landing() {
                       dataSource={listEdges.map(e => ({ ...e, key: edgeKey(e) }))}
                       rowKey="key" loading={netLoading} pageSize={20}
                       emptyText={sel ? '该节点暂无可见关系：若相关类型被图例开关隐去，打开开关即可恢复。' : '当前图例下没有可见关系。'}
+                      error={netError} errorEmptyText="关系网拉取失败" // UI-14 巡检违例 (b) 修复：失败空态与业务空态分离
                       resetKey={`${libId ?? ''}|${sel ?? ''}`}
                     />
                   </div>

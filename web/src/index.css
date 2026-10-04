@@ -34,3 +34,7 @@ body { background: #0d1117; margin: 0; }
 .fill-tabs .ant-tabs-content { flex: 1; min-height: 0; height: 100%; }
 .fill-tabs .ant-tabs-tabpane { height: 100%; }
 .fill-tabs .ant-tabs-tabpane-active { display: flex; flex-direction: column; min-height: 0; }
+
+/* UI-14 A1 问一问：服务端会话列表末条也保留下分割线（与其上各条一致——
+   antd List 默认抹掉末条分割线，此处恢复；颜色对齐暗色分割线族） */
+.a1-session-list .ant-list-item:last-child { border-bottom: 1px solid rgba(255,255,255,.12); }

@@ -416,11 +416,12 @@ describe('B2 落地页 · UI-03 交互优化（PagedTable/竞态/防抖/空态/�
     expect(calls.marks.length).toBe(0) // 点击 ? 不触发标记请求（服务端事务写入）
   })
 
-  it('T5 未选报告（报告清单失败）：片段表空态分叉，不出现业务空态断言', async () => {
+  it('T5 未选报告（报告清单失败）：片段表空态三态分叉①失败文案，不出现业务空态断言（UI-14 镜像：「恢复后自动加载」废除）', async () => {
     apiRouter({ reports: () => json(500, { code: 'kb_internal', message: '台账读取失败', trace_id: 'call-r5' }) })
     render(<B2Landing />)
     expect(await screen.findByText('报告下拉拉取失败——不能按报告浏览')).toBeTruthy()
-    expect(await screen.findByText('未选择报告或报告清单不可用——恢复后自动加载')).toBeTruthy()
+    // UI-14：①报告清单读取失败→失败文案（旧「未选择报告或报告清单不可用——恢复后自动加载」废除）
+    expect(await screen.findByText('报告清单读取失败——稍后重试或先去报告库查看。')).toBeTruthy()
     expect(screen.queryByText('该报告暂无片段：入库完成后这里按报告建台账。')).toBeNull()
     expect(document.querySelector('.ant-empty')).toBeTruthy() // Empty 形态（内联 Alert 另挂——失败态≠空态）
   })
