@@ -9,7 +9,10 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import globals from 'globals'
 
 export default [
-  { ignores: ['dist/', 'node_modules/'] },
+  // vite.config.js.timestamp-*.mjs：vite/vitest 装载配置的临时文件（用后即删）——
+  // 若被 lint 扫描收列而读取前已被 vite 删掉即 ENOENT 闸红（web-eslint exit 2 实录，
+  // UI-01 补闸修复；gitignore 语义无斜杠模式全深度匹配，排除后瞬存瞬删均免疫）。
+  { ignores: ['dist/', 'node_modules/', 'vite.config.js.timestamp-*.mjs'] },
   js.configs.recommended,
   {
     files: ['**/*.{js,jsx,mjs}'],

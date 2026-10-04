@@ -37,13 +37,12 @@ import {
   Space, Spin, Tag, Tooltip
 } from 'antd'
 import { ApartmentOutlined, SendOutlined } from '@ant-design/icons'
-import { ApiError } from '../api/client.js'
+import { ApiError, errText } from '../api/client.js'
 import {
   listAssets, listMessages, listSessions, postAsk, postResume, reconnectRun
 } from '../api/chat.js'
-import { useAppStore } from '../store/app.js'
-
-const dim = { fontSize: 12, color: '#8a94a3' }
+// UI-00 共享件（方案-阶段1交互优化 §3.3）——helpIcon/dim 唯一定义点（T16 页内同构副本删除）
+import { helpIcon, dim } from '../components/helpIcon.jsx'
 
 // ---------- 帧归约（纯函数——单测直喂帧序列，不经渲染） ----------
 
@@ -316,12 +315,14 @@ export default function A1Landing() {
   const [viewing, setViewing] = useState(null) // 历史回放（端点 3）：{sessionId,title,loading,error,messages}
   const [drawer, setDrawer] = useState(null) // citation 抽屉
   const [rejectReason, setRejectReason] = useState('')
+  const [rejectReasonError, setRejectReasonError] = useState(false) // T14：空理由驳回反馈（页面级，随 rejectReason 共享）
   const busyRef = useRef(false)
   const turnRef = useRef(null) // 当前回合镜像（帧归约单源——收场后 registerRun 消费）
   const convRef = useRef(null)
   const treeRef = useRef(null)
 
-  // 服务端会话读口（端点 2——available 才渲染；读失败静默空态＝网络韧性）
+  // 服务端会话读口（端点 2——available 才渲染；读失败静默回退＋顶部留痕一行
+  // 「历史会话暂不可用」（T15 例外已落：失败≠空可辨，列表本体仍隐藏＝增强面不阻断面））
   useEffect(() => { listSessions().then(setServerSessions) }, [])
   // @ 资产面板（端点 6——输入 @ 时懒加载一次）
   useEffect(() => {
@@ -329,13 +330,16 @@ export default function A1Landing() {
     listAssets().then(list => { setAtList(list); setAtLoaded(true) })
   }, [atOpen, atLoaded])
 
-  useEffect(() => { // 树推进自动滚底
+  // 滚底跟随（T4——距底 ≤80px 才跟随，两处同阈值；上滑回看 token 帧不再被拽回底部）
+  useEffect(() => {
     const el = treeRef.current
-    if (el?.scrollTo) el.scrollTo({ top: el.scrollHeight })
+    if (!el?.scrollTo) return
+    if (el.scrollHeight - el.scrollTop - el.clientHeight <= 80) el.scrollTo({ top: el.scrollHeight })
   }, [items])
   useEffect(() => {
     const el = convRef.current
-    if (el?.scrollTo) el.scrollTo({ top: el.scrollHeight })
+    if (!el?.scrollTo) return
+    if (el.scrollHeight - el.scrollTop - el.clientHeight <= 80) el.scrollTo({ top: el.scrollHeight })
   }, [items])
 
   /** 当前回合写回对话流（帧归约单源 turnRef → 最后一个 assistant 槽位）。 */
@@ -349,17 +353,12 @@ export default function A1Landing() {
     })
   }
 
-  /** 回合收场注册：会话槽（store A1 预留槽）＋本机运行史（重连真恢复入口）。 */
+  /** 回合收场注册：本机运行史（重连真恢复入口）＋服务端会话复拉（T7——新提问
+   * 落库后左栏立即可见；读失败保留现列表，网络韧性语义不回退）。 */
   function registerRun(turn, question) {
     if (!turn?.runId) return
     pushRunHistory({ runId: turn.runId, sessionId: turn.sessionId, title: question, at: Date.now() })
-    const sid = turn.sessionId
-    if (sid) {
-      const store = useAppStore.getState()
-      const deduped = [{ session_id: sid, title: question },
-        ...store.sessions.filter(s => s.session_id !== sid)]
-      store.setSessions(deduped.slice(0, 20))
-    }
+    listSessions().then(r => { if (r.available) setServerSessions(r) })
   }
 
   /** streamChat 五回调组装（ask/resume/reconnect 共用——帧都折进当前回合）。 */
@@ -376,7 +375,15 @@ export default function A1Landing() {
         syncTurn()
       },
       onError: pkg => {
-        turnRef.current = { ...turnRef.current, closed: 'error', errMsg: pkg.message || '服务端异常' }
+        // T8：错误包三段化（message＋code＋trace——errText 单点，UI-00 共享件；
+        // hint 有则「｜提示：」尾拼，字符串直拼、对象 JSON.stringify）。
+        // onError 在 onFrame 之后触发（api/chat.js 流读时序），errMsg 收口覆盖——展示层单点修复
+        const err = new ApiError(0, pkg, pkg?.message || '服务端异常')
+        const hint = pkg?.hint
+        const hintSuffix = (hint === undefined || hint === null || hint === '')
+          ? ''
+          : `｜提示：${typeof hint === 'string' ? hint : JSON.stringify(hint)}`
+        turnRef.current = { ...turnRef.current, closed: 'error', errMsg: errText(err) + hintSuffix }
         syncTurn()
       },
       onReplayTruncated: data => {
@@ -399,7 +406,10 @@ export default function A1Landing() {
       await streamFn()
     } catch (err) {
       // 流开前非 2xx（400/401/404——00 §3.1）：ApiError 内联进回合，不弹全局 toast
-      const msg = err instanceof ApiError ? `${err.message}（${err.code || `HTTP ${err.status}`}）` : String(err)
+      // T8：有 code 走 errText 三段（message＋code＋trace）；无 code 拼（HTTP 状态）兜底
+      const msg = err instanceof ApiError
+        ? (err.code ? errText(err) : `${errText(err)}（HTTP ${err.status}）`)
+        : String(err)
       if (turnRef.current) {
         turnRef.current = { ...turnRef.current, closed: turnRef.current.closed || 'error', errMsg: turnRef.current.errMsg || msg }
         syncTurn()
@@ -421,6 +431,7 @@ export default function A1Landing() {
       { type: 'user', text: question, key: `u-${prev.length}` },
       { type: 'assistant', turn: turnRef.current, key: `a-${prev.length}` }
     ])
+    setInput('') // T1：守卫通过且两条 items 入列后清空——busy 解除后回车不再原样重发
     runStream(() => postAsk(
       { question, anchors },
       handlers()
@@ -446,7 +457,11 @@ export default function A1Landing() {
     const body = { kind: 'approval', decision }
     if (decision === 'reject') {
       const reason = rejectReason.trim()
-      if (!reason) return // N12「须写理由的驳回」——后端 400，前端先挡
+      if (!reason) {
+        // N12「须写理由的驳回」——后端 400，前端先挡；T14：空理由置 error 态反馈（不发请求）
+        setRejectReasonError(true)
+        return
+      }
       body.reason = reason
     }
     runStream(() => postResume(turn.runId, body, handlers()), turn.question)
@@ -472,8 +487,9 @@ export default function A1Landing() {
       const messages = await listMessages(sess.id)
       setViewing(v => (v && v.sessionId === sess.id ? { ...v, loading: false, messages } : v))
     } catch (err) {
+      // T8：error 字段改存 errText(err)——ApiError 带 code/trace 段，非 ApiError 回退 String(err)
       setViewing(v => (v && v.sessionId === sess.id
-        ? { ...v, loading: false, error: err.message || '历史会话读取失败' } : v))
+        ? { ...v, loading: false, error: errText(err) } : v))
     }
   }
 
@@ -509,7 +525,8 @@ export default function A1Landing() {
         onClarify={chooseClarify}
         onApproval={decideApproval}
         rejectReason={rejectReason}
-        onRejectReason={setRejectReason}
+        rejectReasonError={rejectReasonError}
+        onRejectReason={v => { setRejectReason(v); setRejectReasonError(false) }} // T14：输入即清除 error 态
         onResume={() => resumeRun(it.turn)} />
     ))
   }
@@ -536,11 +553,20 @@ export default function A1Landing() {
 
   return (
     <div style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>
-      {/* ── 左栏 · 历史会话（端点 2 available 才显＋本机运行真恢复） ── */}
-      <Card title="历史会话" size="small" style={{ width: 250, flexShrink: 0, alignSelf: 'flex-start' }}>
+      {/* ── 左栏 · 历史会话（端点 2 available 才显＋本机运行真恢复；T3 高度封顶
+          ＝局部滚动白名单第五处，方案 §4.1 本批例外） ── */}
+      <Card
+        title={<span>历史会话{helpIcon('会话在服务端留存：连接中断后重新进入，可从历史会话继续，已生成的内容不丢。')}</span>}
+        size="small"
+        style={{ width: 250, flexShrink: 0, alignSelf: 'flex-start', maxHeight: 'calc(100vh - 220px)', display: 'flex', flexDirection: 'column' }}
+        styles={{ body: { flex: 1, minHeight: 0, overflowY: 'auto' } }}>
+        {!serverSessions.available && (
+          <div style={{ ...dim, marginBottom: 4 }}>历史会话暂不可用——本次进入读取失败。</div>
+        )}
         {serverSessions.available && (
           <>
-            <div style={{ ...dim, marginBottom: 4 }}>服务端会话（端点 2）</div>
+            {/* T5：N＝items.length（端点 2 信封无 total——方案 §1-P3 定死合法读法；列表分页随 UI-07） */}
+            <div style={{ ...dim, marginBottom: 4 }}>服务端会话（{serverSessions.items.length}）</div>
             <List size="small" dataSource={serverSessions.items} locale={{ emptyText: '暂无服务端会话' }}
               renderItem={s => (
                 <List.Item style={{ cursor: busy ? 'wait' : 'pointer', padding: '4px 0' }}
@@ -553,7 +579,7 @@ export default function A1Landing() {
               )} />
             {/* DEBT(P1-12)：过程帧回放随 D5 产品化批（票面差异登记②） */}
             <div style={{ ...dim, margin: '8px 0 4px' }}>
-              点会话＝回放消息与答案卡（端点 3）；过程帧逐帧回放随 D5 产品化批。
+              点会话＝回放消息与答案卡；完整处理过程的逐帧回放暂未开放。
             </div>
           </>
         )}
@@ -567,9 +593,6 @@ export default function A1Landing() {
               </div>
             </List.Item>
           )} />
-        <div style={{ ...dim, marginTop: 8 }}>
-          会话在服务端留存：连接中断后重新进入，可从历史会话继续，已生成的内容不丢。
-        </div>
       </Card>
 
       {/* ── 中栏 · 对话流（消息/答案流式/citation/澄清帧） ── */}
@@ -611,7 +634,7 @@ export default function A1Landing() {
               background: '#161b22', border: '1px solid #30363d', borderRadius: 8,
               padding: '6px 8px', maxHeight: 240, overflowY: 'auto'
             }}>
-              <div style={{ ...dim, marginBottom: 4 }}>@ 呼唤现成资产（端点 6 投影——指标卡/术语/FAQ/工作流/报告；被 @ 的资产服务端前门直取）：</div>
+              <div style={{ ...dim, marginBottom: 4 }}>@ 呼唤现成资产（指标卡/术语/FAQ/工作流/报告——被 @ 的资产服务端直接取用）：</div>
               {atFiltered.map(a => (
                 <div key={a.token} style={{ cursor: 'pointer', fontSize: 13, padding: '4px 6px', borderRadius: 4 }}
                   data-asset={a.token}
@@ -619,7 +642,6 @@ export default function A1Landing() {
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                   onClick={() => pickAsset(a)}>
                   <Tag style={{ marginRight: 6 }}>{a.type}</Tag>{a.name}
-                  {a.hint && <span style={{ ...dim, marginLeft: 8 }}>{a.hint.slice(0, 40)}</span>}
                 </div>
               ))}
               {atLoaded && atFiltered.length === 0 && <div style={dim}>没有命中的资产。</div>}
@@ -628,12 +650,13 @@ export default function A1Landing() {
           <Space.Compact style={{ width: '100%' }}>
             <Input placeholder="输入问题，或 @指标卡 / @术语 点名…" value={input}
               disabled={busy} onChange={onInputChange}
-              onPressEnter={() => ask(input)} />
+              onPressEnter={e => { if (e.nativeEvent.isComposing) return; ask(input) }} />
             <Button type="primary" icon={<SendOutlined />} loading={busy} onClick={() => ask(input)}>发送</Button>
           </Space.Compact>
         </div>
-        <div style={{ ...dim, marginTop: 8 }}>
-          单一入口：全部问答走 POST /api/chat/asks——安检→装配→裁决→链内四层全在服务端，前端零编排。
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+          {/* T9：统一入口教学旁白收束为右下 ?（方案 §3.1-3 步骤类） */}
+          {helpIcon('全部问答走统一入口：安检→装配→裁决→链内四层全在服务端')}
         </div>
       </Card>
 
@@ -643,7 +666,7 @@ export default function A1Landing() {
         <div ref={treeRef} style={{ maxHeight: 'calc(100vh - 220px)', overflowY: 'auto', paddingRight: 4 }}>
           {/* DEBT(P1-12)：过程帧回放随 D5 产品化批（票面差异登记②） */}
           {!tree && viewing && (
-            <div style={dim}>历史回放只还原消息与答案卡——过程帧逐帧回放随 D5 产品化批（A1 开放问题 2）。</div>
+            <div style={dim}>历史回放只还原消息与答案卡——完整处理过程的逐帧回放暂未开放。</div>
           )}
           {!tree && !viewing && <div style={dim}>输入问题或点开历史运行，这里逐帧展示完整处理过程。</div>}
           {tree && <ThinkingTree turn={tree} />}
@@ -692,7 +715,7 @@ function lastAssistantTurn(items) {
 
 /** 单个 assistant 气泡（答案/澄清/审批/收场四态）。 */
 function AssistantBubble({
-  turn, busy, onOpenCitation, onClarify, onApproval, rejectReason, onRejectReason, onResume
+  turn, busy, onOpenCitation, onClarify, onApproval, rejectReason, rejectReasonError, onRejectReason, onResume
 }) {
   return (
     <Card size="small" style={{ marginBottom: 8 }}>
@@ -740,7 +763,11 @@ function AssistantBubble({
           <div style={{ fontSize: 13 }}>{turn.approval.reason}</div>
           {turn.approval.impact && <div style={{ ...dim, marginTop: 4 }}>影响：{turn.approval.impact}</div>}
           <Input size="small" style={{ marginTop: 8 }} placeholder="驳回必写理由（N12）" value={rejectReason}
+            status={rejectReasonError ? 'error' : undefined}
             onChange={e => onRejectReason(e.target.value)} />
+          {rejectReasonError && (
+            <div style={{ color: '#ff4d4f', fontSize: 12, marginTop: 4 }}>驳回必写理由（N12）</div>
+          )}
           <Space style={{ marginTop: 8 }}>
             <Button type="primary" size="small" disabled={busy} onClick={() => onApproval('approve')}>批准 · 续跑</Button>
             <Button danger size="small" disabled={busy} onClick={() => onApproval('reject')}>驳回</Button>

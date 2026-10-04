@@ -8,11 +8,13 @@
  * - 澄清帧交互→端点 5 resume 回流续推（同一回合续写）；
  * - replay_truncated 收场话术＋从断点恢复（端点 4 重连形态真发 resume_run_id）；
  * - @ 点名面板（端点 6 assets 投影）→ token 结晶体落输入框。
+ * - UI-01（阶段 1 交互优化）：发送清空/IME 守卫/左栏封顶计数/滚底跟随阈值/
+ *   会话收场复拉/错误三段化/审批驳回反馈/说明收束与文案收束（尾部 describe 群）。
  */
 
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { applyFrame, clarifyCardView, confidenceTag, citationJump, newTurn } from './A1.jsx'
 import A1Landing from './A1.jsx'
 import { useAppStore } from '../store/app.js'
@@ -155,6 +157,16 @@ function askTruncatedFrames() {
   ]
 }
 
+/** 审批 interrupt 挂起（帧族合同注册——approval 帧渲染＋端点 5 决策回流）。 */
+function askApprovalFrames() {
+  return [
+    ['session', { run_id: 'run-ap1', thread_id: 'sess-ap1' }],
+    ['stage', { stage: 0 }],
+    ['approval', { scene: 'write_op', title: '写操作审批', reason: '待执行台账写入', impact: '影响台账数据' }],
+    ['done', {}]
+  ]
+}
+
 /** @ 资产面板夹具随 apiRouter 内联（端点 6 投影形状——token 结晶体）。 */
 
 const fetchMock = vi.fn()
@@ -236,9 +248,10 @@ describe('A1 落地页 · 思考树与答案流（帧渲染）', () => {
     // citation 角标（citation 帧族——ref 去重两枚）
     expect(screen.getByText('证 c1')).toBeTruthy()
     expect(screen.getByText('证 c2')).toBeTruthy()
-    // run id + 会话槽（store A1 预留槽接线）
+    // run id + store 会话死槽零写入（UI-01 T7：页面直连端点 2 复拉，store.sessions 写入块已删——
+    // 槽位物理清理随共享件清理批，方案 §5-壳层-4 同批性质）
     expect(screen.getByText(/run run-g1/)).toBeTruthy()
-    expect(useAppStore.getState().sessions[0]).toEqual({ session_id: 'sess-g1', title: '射孔与防砂参数表里防砂方式是什么？' })
+    expect(useAppStore.getState().sessions).toEqual([])
   })
 
   it('FAQ 直出标注（answer.no_model）与兜底标注（未依据报告库）徽标', async () => {
@@ -434,9 +447,9 @@ describe('A1 落地页 · 断线收场与重连（端点 4 重连形态）', () 
     })
     render(<A1Landing />)
 
-    // 服务端分组（端点 2 形状直出——P1-12 起会话可点开回放，注记换新口径）
+    // 服务端分组（端点 2 形状直出——P1-12 起会话可点开回放；UI-01 T11 文案撤出裸端点号）
     expect(await screen.findByText('上个月产量最高的三口井')).toBeTruthy()
-    expect(screen.getByText(/点会话＝回放消息与答案卡（端点 3）/)).toBeTruthy()
+    expect(screen.getByText('点会话＝回放消息与答案卡；完整处理过程的逐帧回放暂未开放。')).toBeTruthy()
 
     await ask(screen, '再问一次防砂')
     await screen.findByText('防砂方式为筛管完井。')
@@ -497,5 +510,222 @@ describe('A1 帧归约纯函数（不经渲染）', () => {
     t = applyFrame(t, { id: '7', event: 'replay_truncated', data: { resume_point: 4 } })
     expect(t.closed).toBe('replay_truncated')
     expect(t.truncMsg).toBe('会话中断，已出内容保留——请重新提问。')
+  })
+})
+
+// ════ 阶段 1 交互优化（UI-01——方案-阶段1交互优化-20261004 §5-A1＋票面 T1…T16） ════
+
+describe('A1 落地页 · UI-01 交互优化（T1/T2 发送清空＋IME 守卫）', () => {
+  it('T1：发送后输入框清空；busy 中回车不发送不清空', async () => {
+    const calls = apiRouter()
+    render(<A1Landing />)
+    const input = screen.getByPlaceholderText(/输入问题/)
+    fireEvent.change(input, { target: { value: '测试问题' } })
+    fireEvent.click(screen.getByRole('button', { name: /发\s*送/ }))
+    // 守卫通过且两条 items 入列后即清空——此刻流仍在读（busy）
+    expect(input.value).toBe('')
+    expect(input.disabled).toBe(true)
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 13 })
+    await screen.findByText('防砂方式为筛管完井。')
+    expect(calls.asks).toHaveLength(1) // busy 中回车未新增请求
+    expect(input.value).toBe('') // 收场后仍为空串——原样重发路径已断
+  })
+
+  it('T2：中文输入法组词回车（isComposing=true）不发送；确认后（false）正常发送', async () => {
+    const calls = apiRouter()
+    render(<A1Landing />)
+    const input = screen.getByPlaceholderText(/输入问题/)
+    fireEvent.change(input, { target: { value: '防砂方式是什么' } })
+    // 组词确认回车——半截问题不误发
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 13, isComposing: true })
+    expect(calls.asks).toHaveLength(0)
+    // 物理松键（rc-input keyLock 随 Enter keyUp 释放）＋组合确认后的回车——正常发送
+    fireEvent.keyUp(input, { key: 'Enter', keyCode: 13 })
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 13, isComposing: false })
+    await screen.findByText('防砂方式为筛管完井。')
+    expect(calls.asks).toHaveLength(1)
+    expect(calls.asks[0].body.question).toBe('防砂方式是什么')
+  })
+})
+
+describe('A1 落地页 · UI-01 左栏（T3 封顶＋T5 计数＋T10 收 ?＋T11 新话术＋T15 失败留痕）', () => {
+  it('T3/T5：40 条服务端会话——左栏 Card 高度封顶＋body 内滚＋计数「服务端会话（40）」', async () => {
+    const many = Array.from({ length: 40 }, (_, i) => ({
+      id: `sess-${i}`, title: `会话 ${i}`, group: '问数据', scenario_id: null, updated_at: ''
+    }))
+    apiRouter({ sessions: () => new Response(JSON.stringify({ items: many }), { status: 200 }) })
+    render(<A1Landing />)
+    expect(await screen.findByText('会话 39')).toBeTruthy()
+    const card = screen.getByText('历史会话').closest('.ant-card')
+    expect(card.style.maxHeight).toBe('calc(100vh - 220px)')
+    expect(card.style.display).toBe('flex')
+    expect(card.querySelector('.ant-card-body').style.overflowY).toBe('auto')
+    // T5：N=items.length 计数（端点 2 信封无 total——P3 定死合法读法）；「端点 2」撤出可见文案
+    expect(screen.getByText('服务端会话（40）')).toBeTruthy()
+    expect(screen.queryByText(/服务端会话（端点 2）/)).toBeNull()
+  })
+
+  it('T5：计数形态「服务端会话（3）」——N＝items.length（端点 2 信封无 total）', async () => {
+    const three = Array.from({ length: 3 }, (_, i) => ({
+      id: `s${i}`, title: `会话 ${i}`, group: '', scenario_id: null, updated_at: ''
+    }))
+    apiRouter({ sessions: () => new Response(JSON.stringify({ items: three }), { status: 200 }) })
+    render(<A1Landing />)
+    expect(await screen.findByText('服务端会话（3）')).toBeTruthy()
+  })
+
+  it('T10：左栏机制说明收进标题 ?（悬停出「服务端留存」；正文该行消失）', async () => {
+    apiRouter()
+    render(<A1Landing />)
+    const titleSpan = screen.getByText('历史会话')
+    const titleIcon = within(titleSpan).getByRole('img', { name: 'question-circle' })
+    fireEvent.mouseEnter(titleIcon)
+    expect(await screen.findByText('会话在服务端留存：连接中断后重新进入，可从历史会话继续，已生成的内容不丢。')).toBeTruthy()
+    // 正文该行消失（左栏 body 文本不含该句——Tooltip 内容只在悬停时进 portal）
+    const leftCard = screen.getByText('历史会话').closest('.ant-card')
+    expect(leftCard.querySelector('.ant-card-body').textContent).not.toContain('会话在服务端留存')
+  })
+
+  it('T11：回放提示新话术；「端点 3」「D5 产品化批」撤出全页可见文案', async () => {
+    apiRouter({ sessions: () => new Response(JSON.stringify({ items: [{ id: 'sess-9', title: '上个月产量最高的三口井', group: '', scenario_id: null, updated_at: '' }] }), { status: 200 }) })
+    render(<A1Landing />)
+    expect(await screen.findByText('上个月产量最高的三口井')).toBeTruthy()
+    expect(screen.getByText('点会话＝回放消息与答案卡；完整处理过程的逐帧回放暂未开放。')).toBeTruthy()
+    expect(screen.queryByText(/端点 \d/)).toBeNull()
+    expect(screen.queryByText(/D5 产品化批/)).toBeNull()
+  })
+
+  it('T15：服务端会话读失败留痕——「历史会话暂不可用」一行，列表本体仍隐藏', async () => {
+    apiRouter() // 默认 sessions 404 → available=false
+    render(<A1Landing />)
+    expect(await screen.findByText('历史会话暂不可用——本次进入读取失败。')).toBeTruthy()
+    expect(screen.queryByText('暂无服务端会话')).toBeNull() // 失败≠空：空态话术不出现
+  })
+})
+
+describe('A1 落地页 · UI-01 滚底跟随（T4）', () => {
+  it('T4：距底 >80px 新 items 不拽回底部；≤80px 跟随滚底（对话流＋思考树同阈值）', async () => {
+    apiRouter()
+    render(<A1Landing />)
+    // 初始三卡：左（历史会话）/中（无标题）/右（思考过程）——先取两处滚动容器再挂桩
+    const cards = [...document.querySelectorAll('.ant-card')]
+    const midCard = cards.find(c => !c.querySelector('.ant-card-head'))
+    const treeCard = cards.find(c => c.querySelector('.ant-card-head')?.textContent.includes('思考过程'))
+    const convEl = midCard.querySelector('.ant-card-body > div')
+    const treeEl = [...treeCard.querySelectorAll('.ant-card-body div')].find(d => d.style.overflowY === 'auto')
+    expect(convEl).toBeTruthy()
+    expect(treeEl).toBeTruthy()
+    // 对话流：距底 700px（>80）→ 不跟随
+    Object.defineProperty(convEl, 'scrollHeight', { configurable: true, get: () => 1000 })
+    Object.defineProperty(convEl, 'clientHeight', { configurable: true, get: () => 300 })
+    Object.defineProperty(convEl, 'scrollTop', { configurable: true, get: () => 0 })
+    const convScroll = vi.fn()
+    convEl.scrollTo = convScroll
+    // 思考树：距底 50px（≤80）→ 跟随滚底
+    Object.defineProperty(treeEl, 'scrollHeight', { configurable: true, get: () => 500 })
+    Object.defineProperty(treeEl, 'clientHeight', { configurable: true, get: () => 300 })
+    Object.defineProperty(treeEl, 'scrollTop', { configurable: true, get: () => 150 })
+    const treeScroll = vi.fn()
+    treeEl.scrollTo = treeScroll
+
+    await ask(screen, '防砂方式是什么？')
+    await screen.findByText('防砂方式为筛管完井。')
+    expect(convScroll).not.toHaveBeenCalled()
+    expect(treeScroll).toHaveBeenCalledWith({ top: 500 })
+  })
+})
+
+describe('A1 落地页 · UI-01 会话刷新与错误三段化（T7/T8）', () => {
+  it('T7：回合收场复拉端点 2 且 available 结果并入左栏；store 死槽零写入', async () => {
+    let sessionReads = 0
+    apiRouter({
+      sessions: () => {
+        sessionReads += 1
+        const items = sessionReads >= 2
+          ? [{ id: 'sess-new', title: '新回合落库会话', group: '', scenario_id: null, updated_at: '' }]
+          : []
+        return new Response(JSON.stringify({ items }), { status: 200 })
+      }
+    })
+    render(<A1Landing />)
+    await waitFor(() => expect(sessionReads).toBe(1)) // 挂载首拉
+    expect(screen.queryByText('新回合落库会话')).toBeNull()
+    await ask(screen, '再问一次')
+    expect(await screen.findByText('新回合落库会话')).toBeTruthy() // 收场复拉并入
+    expect(sessionReads).toBeGreaterThanOrEqual(2)
+    expect(useAppStore.getState().sessions).toEqual([]) // 死槽写入已删
+  })
+
+  it('T8：error 帧三段化（message＋code＋trace）＋hint 有则「｜提示：」尾拼', async () => {
+    apiRouter({ asks: () => sseResponse([
+      ['session', { run_id: 'run-e1', thread_id: 'sess-e1' }],
+      ['error', { code: 'chat_upstream_failed', message: '上游模型调用失败', trace_id: 'tr-abc', hint: '稍后重试或换线路' }]
+    ]) })
+    render(<A1Landing />)
+    await ask(screen, '触发错误帧')
+    expect(await screen.findByText(/上游模型调用失败 · code chat_upstream_failed · trace tr-abc｜提示：稍后重试或换线路/)).toBeTruthy()
+  })
+
+  it('T8：流开前非 2xx——有 code 走 errText 三段；无 code 拼（HTTP 状态）', async () => {
+    let n = 0
+    apiRouter({ asks: () => {
+      n += 1
+      return n === 1
+        ? new Response(JSON.stringify({ code: 'chat_rejected', message: '安检拦截', trace_id: 'tr-9' }), { status: 400 })
+        : new Response(JSON.stringify({ message: '内部错误' }), { status: 500 })
+    } })
+    render(<A1Landing />)
+    await ask(screen, '第一问')
+    expect(await screen.findByText(/安检拦截 · code chat_rejected · trace tr-9/)).toBeTruthy()
+    await ask(screen, '第二问')
+    expect(await screen.findByText('内部错误（HTTP 500）')).toBeTruthy()
+  })
+})
+
+describe('A1 落地页 · UI-01 审批驳回反馈（T14）', () => {
+  it('T14：空理由点驳回——Input error 态＋红字提示且无网络请求；输入后 error 清除、再点正常回流', async () => {
+    const calls = apiRouter({ asks: body => (body.resume_run_id ? sseResponse(replayFrames()) : sseResponse(askApprovalFrames())) })
+    render(<A1Landing />)
+    await ask(screen, '需要审批的问题')
+    expect(await screen.findByText('审批 interrupt · 写操作审批')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: /驳\s*回/ })) // antd 两字按钮自动插空格
+    expect(calls.resumes).toHaveLength(0) // 空理由不发请求
+    const rejectInput = screen.getByPlaceholderText('驳回必写理由（N12）')
+    expect(rejectInput.className).toContain('ant-input-status-error')
+    expect(screen.getByText('驳回必写理由（N12）')).toBeTruthy() // 红字一行
+
+    fireEvent.change(rejectInput, { target: { value: '不同意该操作' } })
+    expect(rejectInput.className).not.toContain('ant-input-status-error') // 输入后清除
+
+    fireEvent.click(screen.getByRole('button', { name: /驳\s*回/ })) // antd 两字按钮自动插空格
+    await waitFor(() => expect(calls.resumes).toHaveLength(1))
+    expect(calls.resumes[0].body).toEqual({ kind: 'approval', decision: 'reject', reason: '不同意该操作' })
+  })
+})
+
+describe('A1 落地页 · UI-01 说明收束与 @ 面板（T9/T12）', () => {
+  it('T9：底部教学旁白行消失；输入区右下 ? 含「安检→装配→裁决」', async () => {
+    apiRouter()
+    render(<A1Landing />)
+    expect(screen.queryByText(/POST \/api\/chat\/asks/)).toBeNull()
+    expect(screen.queryByText(/单一入口/)).toBeNull()
+    const bottomIcon = screen.getAllByRole('img', { name: 'question-circle' })
+      .find(i => i.closest('div')?.style.justifyContent === 'flex-end') // 右对齐兜底行
+    expect(bottomIcon).toBeTruthy()
+    fireEvent.mouseEnter(bottomIcon)
+    expect(await screen.findByText('全部问答走统一入口：安检→装配→裁决→链内四层全在服务端')).toBeTruthy()
+  })
+
+  it('T12/T13：@ 面板头去合同行话；hint 死分支删除（行内无 hint 小字）', async () => {
+    apiRouter()
+    render(<A1Landing />)
+    fireEvent.change(screen.getByPlaceholderText(/输入问题/), { target: { value: '帮我查 @' } })
+    expect(await screen.findByText('@ 呼唤现成资产（指标卡/术语/FAQ/工作流/报告——被 @ 的资产服务端直接取用）：')).toBeTruthy()
+    expect(screen.queryByText(/端点 6/)).toBeNull()
+    expect(screen.queryByText(/前门直取/)).toBeNull()
+    // T13：api 层 hint 恒空串（死分支已删）——资产行不含 hint 小字节点
+    const row = document.querySelector('[data-asset="术语·躺井"]')
+    expect(row.textContent).not.toContain('undefined')
   })
 })
