@@ -504,14 +504,17 @@ export default function B3() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
-      {/* UI-13：页标题上移壳层，页面帮助只在卡头 extra */}
+      {/* UI-13：页标题上移壳层
+          UI-15：卡头无头化（Owner 2026-10-05 裁决——页头已有标题，非页签栏卡头标题整块
+          去掉）：title/extra 删除，工具栏行为卡顶；「问答清单（grandTotal）」计数删除
+          （与「筛选结果 N/N」重复——grandTotal 仍为筛选计数分母，定义保留）；
+          POSITION_HELP ? 迁工具栏行右端「筛选结果 N/N」旁（悬停不丢；
+          UI-04 T5 卡头 extra 三句口号删除史随无头化一并归档） */}
       <Card
         // UI-12：root→Card→body flex 链（无 Tabs）——Card 高度有界，body flex 列
         // overflow:hidden，工具栏行恒在，问答清单 PagedTable fill 内滚、页面级滚动消灭
         style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}
         styles={{ body: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } }}
-        title={<span>问答清单（{grandTotal}）</span>}
-        extra={helpIcon(POSITION_HELP) /* UI-04 T5：卡头 extra 三句口号删除只留 helpIcon（副标题已承载） */}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <Space wrap size={8}>
@@ -536,7 +539,11 @@ export default function B3() {
             <Input size="small" allowClear style={{ width: 220 }} value={kw}
               onChange={e => setKw(e.target.value)} placeholder="搜问题 / 答案 / 相似问法…" />
           </Space>
-          <span style={dim}>{`筛选结果 ${total} / ${grandTotal} 条`}</span>
+          {/* UI-15：POSITION_HELP ? 迁此（原卡头 extra）——工具栏右端「筛选结果 N/N」旁并排 */}
+          <span style={dim}>
+            {`筛选结果 ${total} / ${grandTotal} 条`}
+            {helpIcon(POSITION_HELP)}
+          </span>
         </div>
         {/* UI-04 T3：失败态≠空态——内联 Alert 常驻（失败呈现不再伪装成「暂无数据」） */}
         {itemsError && (
