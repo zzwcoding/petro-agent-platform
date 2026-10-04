@@ -435,11 +435,8 @@ export default function B5Landing() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* UI-05 T6 统一页头＋UI-09 收束：口号副标题删除——PAGE_HELP 移挂页标题旁（内容不改） */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span style={{ fontSize: 18, fontWeight: 600 }}>关系图谱{helpIcon(PAGE_HELP)}</span>
-      </div>
       <Card
+        // UI-13：页标题上移壳层页头——PAGE_HELP 迁卡头 extra（helpIcon 悬停承载，内容不改）
         title={
           <Space size={12}>
             <span style={{ fontSize: 12, color: '#8a94a3' }}>知识库</span>
@@ -448,6 +445,7 @@ export default function B5Landing() {
               options={libs.map(l => ({ value: l.id, label: l.name }))} />
           </Space>
         }
+        extra={helpIcon(PAGE_HELP)}
       >
         <Tabs
           activeKey={tab} size="small" onChange={setTab}

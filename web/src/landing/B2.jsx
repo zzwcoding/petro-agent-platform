@@ -482,18 +482,16 @@ export default function B2Landing() {
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* UI-09：口号副标题删除——长说明 helpIcon 移挂页标题行（票面改造项 9）；说明文字原样保留 */}
-      <div style={{ marginBottom: 16 }}>
-        <span style={{ fontSize: 18, fontWeight: 600 }}>切片管理{helpIcon(<>入库时把报告切成片段，这里按报告建台账：浏览、筛选、核对内容；AI 回答引用的就是这些片段（引用号对不上的一律删掉、不渲染）。发现切坏了的片段就"标记问题片段"，复核确认后由管理员修正并重建索引。</>)}</span>
-      </div>
       {/* UI-03 T8：卡头 extra「命中的是小段，完整段落不直接进搜索结果」删除——
           与「命中句」列头 ? HIT_HELP 同义重复，说明收束保留列头 ? 一处 */}
       <Card
         // UI-12：root→Card→body→Tabs→pane flex 链——Card 高度有界，body flex 列
         // overflow:hidden，fill-tabs 贯通 pane 高，两页签 PagedTable fill 内滚、页面级滚动消灭
+        // UI-13：页标题上移壳层页头——页面帮助 ? 原文原样迁卡头 extra（悬停不丢）
         style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}
         styles={{ body: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } }}
         title={<span>片段清单（{totalRefs}）</span>}
+        extra={helpIcon(<>入库时把报告切成片段，这里按报告建台账：浏览、筛选、核对内容；AI 回答引用的就是这些片段（引用号对不上的一律删掉、不渲染）。发现切坏了的片段就"标记问题片段"，复核确认后由管理员修正并重建索引。</>)}
       >
         <Tabs
           className="fill-tabs"

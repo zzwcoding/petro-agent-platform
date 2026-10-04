@@ -1,6 +1,6 @@
 import { Suspense, lazy, createElement, useEffect, useState } from 'react'
 import { Layout, Skeleton, Tag } from 'antd'
-import { ROLES, menuForRole } from '../roles.js'
+import { ROLES, PAGE_NAMES, menuForRole } from '../roles.js'
 import SideMenu from './SideMenu.jsx'
 import HeaderBar from './HeaderBar.jsx'
 import TraceBar, { DEV } from './TraceBar.jsx'
@@ -66,6 +66,10 @@ export default function Shell() {
   const navigate = key => { location.hash = '/' + key }
   const { tree, page } = nav
   const isProto = tree === 'proto'
+  // UI-13：页面标题上移壳层页头（页内大标题删除）——title 推导对两树统一生效
+  // （落地裸键读 PAGE_NAMES；A1 特判「问一问」；兜底菜单 label／裸键）
+  const title = page === 'A1' ? '问一问'
+    : (PAGE_NAMES[page] || menuForRole(role).flatMap(g => g.items).find(i => i.key === page)?.label || page)
   const crumb = isProto ? '原型树 · mock 数据' : '落地树 · 真 API'
   const treeTag = <Tag color={isProto ? 'default' : 'green'} style={{ marginLeft: 8 }}>{isProto ? '原型' : '落地'}</Tag>
   const traceText = isProto ? (page === 'A1' ? A1_TRACE : (window.__traces?.[page] || '')) : ''
@@ -82,7 +86,7 @@ export default function Shell() {
       <Layout style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
         {/* 角色切换走 store.switchRole 双写（先 X-Dev-User 桩后角色槽）——
             只写槽会让请求头带旧身份、页头与数据权限脱钩（P0-06 审查 P2 修复） */}
-        <HeaderBar tag={treeTag} crumb={crumb} role={role} setRole={switchRole} />
+        <HeaderBar title={title} tag={treeTag} crumb={crumb} role={role} setRole={switchRole} />
         <Layout.Content style={{ padding: hasTracePad ? '16px 20px 48px' : '16px 20px', flex: 1, overflow: 'auto' }}>
           {isProto ? (page === 'A1' ? <A1Chat role={role} /> : ProtoPage ? (
             <Suspense fallback={<Skeleton active />}>

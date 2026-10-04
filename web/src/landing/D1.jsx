@@ -605,36 +605,36 @@ export default function D1Landing() {
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 18, fontWeight: 600 }}>模型与线路{helpIcon('主用故障自动切备用、冷却期满自动切回；改配置即对全平台生效。适用范围：问一问、报告库回答、问数——平台所有用到模型的动作都从这里出去。')}</span>
-          {badge && <Tag color={badge.color} style={{ marginInlineEnd: 0 }}>{badge.label}</Tag>}
-          {(mainName && backupName) && (
-            <span style={{ color: '#8a94a3', fontSize: 12 }}>主用 {mainName} · 备用 {backupName} 待命</span>
-          )}
-          <span style={{ flex: 1 }} />
-          <Tooltip title={<div style={{ fontSize: 12, lineHeight: 1.8 }}>
-            链路（trace/span）在 Langfuse 视图回看：同一调用的账本流水在本页「记账流水」按调用号 call_id 对账。<br />
-            地址为中间件 Langfuse Web 默认端口（compose observe profile），接线时按部署配置调整。
-          </div>}>
-            <Button size="small" icon={<ExportOutlined />} href={OBSERVE_URL} target="_blank" data-testid="observe-link">
-              观测（Langfuse）
-            </Button>
-          </Tooltip>
-        </div>
-        {/* UI-09：副标题口号整行删除——原「适用范围」? 扩为「切换＋生效＋适用范围」句并移挂页标题旁（票面改造项 12） */}
-        {modelsError && (
-          <Alert type="error" showIcon style={{ marginTop: 4 }}
-            message="模型清单拉取失败（页头徽标与线路表暂不可用）"
-            description={errText(modelsError)} />
-        )}
-      </div>
-      {/* UI-12：root→Card→body flex 链——Card 高度有界（body flex 列 overflow:hidden），
-          四页签表格 fill 内滚（记账流水 522 行为主要受益页签）、页面级滚动消灭 */}
+      {modelsError && (
+        <Alert type="error" showIcon style={{ marginBottom: 12 }}
+          message="模型清单拉取失败（页头徽标与线路表暂不可用）"
+          description={errText(modelsError)} />
+      )}
       <Card
+        // UI-12：root→Card→body flex 链——Card 高度有界（body flex 列 overflow:hidden），
+        // 四页签表格 fill 内滚（记账流水 522 行为主要受益页签）、页面级滚动消灭
+        // UI-13：页标题上移壳层页头——徽标/主备待命/页面帮助 ?/观测外链迁卡头 extra
+        // （条件渲染原样保留；data-testid="observe-link" 保真——D1.test 锚点）
         style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}
         styles={{ body: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } }}
         title={<Tabs className="fill-tabs" activeKey={tab} size="small" onChange={setTab} items={tabItems} />}
+        extra={
+          <Space size={12}>
+            {badge && <Tag color={badge.color} style={{ marginInlineEnd: 0 }}>{badge.label}</Tag>}
+            {(mainName && backupName) && (
+              <span style={{ color: '#8a94a3', fontSize: 12 }}>主用 {mainName} · 备用 {backupName} 待命</span>
+            )}
+            {helpIcon('主用故障自动切备用、冷却期满自动切回；改配置即对全平台生效。适用范围：问一问、报告库回答、问数——平台所有用到模型的动作都从这里出去。')}
+            <Tooltip title={<div style={{ fontSize: 12, lineHeight: 1.8 }}>
+              链路（trace/span）在 Langfuse 视图回看：同一调用的账本流水在本页「记账流水」按调用号 call_id 对账。<br />
+              地址为中间件 Langfuse Web 默认端口（compose observe profile），接线时按部署配置调整。
+            </div>}>
+              <Button size="small" icon={<ExportOutlined />} href={OBSERVE_URL} target="_blank" data-testid="observe-link">
+                观测（Langfuse）
+              </Button>
+            </Tooltip>
+          </Space>
+        }
       >
         {tabContent[tab]}
       </Card>

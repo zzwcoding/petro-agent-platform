@@ -683,15 +683,13 @@ export default function B1Landing() {
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* UI-09：口号副标题删除——helpTop 移挂页标题行（票面改造项 8）；marginBottom 保留承接近卡间距 */}
-      <div style={{ marginBottom: 16 }}>
-        <span style={{ fontSize: 18, fontWeight: 600 }}>报告库{helpTop}</span>
-      </div>
       <Card
         // UI-12：root→Card→body→Tabs→pane flex 链——Card 高度有界（flex 1 1 auto＋minHeight:0），
         // body flex 列 overflow:hidden，三页签 PagedTable fill 内滚、表头/分页条恒在、页面级滚动消灭
+        // UI-13：页标题上移壳层页头——helpTop 迁卡头 extra（页面帮助悬停不丢）
         style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}
         styles={{ body: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } }}
+        extra={helpTop}
         title={
           <Tabs
             className="fill-tabs" // UI-12：页签 nav 收紧＋链式高度（本 Tabs 仅作卡头页签，content 规则不参与）

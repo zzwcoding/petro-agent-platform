@@ -504,11 +504,7 @@ export default function B3() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
-      {/* UI-04 T5 统一页头＋UI-09 收束：口号副标题删除——POSITION_HELP 移挂页标题旁
-          （卡头 extra ? 保留，与标题 ? 同一文案；页根 gap:16 承担与卡片的间距） */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span style={{ fontSize: 18, fontWeight: 600 }}>常见问题库{helpIcon(POSITION_HELP)}</span>
-      </div>
+      {/* UI-13：页标题上移壳层，页面帮助只在卡头 extra */}
       <Card
         // UI-12：root→Card→body flex 链（无 Tabs）——Card 高度有界，body flex 列
         // overflow:hidden，工具栏行恒在，问答清单 PagedTable fill 内滚、页面级滚动消灭
