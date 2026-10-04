@@ -1,15 +1,12 @@
-import { Layout, Select, Typography } from 'antd'
+import { Layout, Select } from 'antd'
 
-export default function HeaderBar({ title, crumb, role, setRole }) {
+export default function HeaderBar({ tag, crumb, role, setRole }) {
   return (
     <Layout.Header style={{
       background: 'transparent', padding: '0 20px', height: 52, lineHeight: '52px',
       borderBottom: '1px solid #303030', display: 'flex', alignItems: 'center', gap: 14
     }}>
-      <Typography.Title level={4} style={{ margin: 0, fontSize: 16 }}>
-        {title}
-        <span style={{ fontSize: 12, color: '#8a94a3', fontWeight: 400, marginLeft: 10 }}>{crumb}</span>
-      </Typography.Title>
+      <span style={{ fontSize: 13, color: '#8a94a3', display: 'inline-flex', alignItems: 'center', gap: 10 }}>{tag}{crumb}</span>
       <div style={{ flex: 1 }} />
       <Select
         value={role} onChange={setRole} style={{ width: 170 }}
