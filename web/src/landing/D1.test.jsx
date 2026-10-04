@@ -9,12 +9,15 @@
  *   day·month 趋势列/拉取失败内联 Alert）；
  * - 409 重入兜底：受理拒绝 → 内联提示＋按钮禁用（端点 5）；
  * - 演练轮询收场：202 → useTaskPolling running→done → 结论/切换留痕/历史与流水
- *   刷新（端点 5/6/7 全链路）。
+ *   刷新（端点 5/6/7 全链路）；
+ * - UI-06 交互优化（阶段 1）：四表接 PagedTable（流水 server 模式形状不变／聚合·
+ *   线路·演练 client 统计恒显）、演练日志失败态分立、流水关键词 300ms 防抖、
+ *   「适用范围」收束页头 helpTop、时间列补年（fmtTime 单点）、复制降级、scroll.x 联调。
  */
 
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import D1Landing from './D1.jsx'
 
 // antd v5 在 jsdom 下的两个环境桩（matchMedia＝响应式断点；ResizeObserver＝Table 测宽）
@@ -85,6 +88,15 @@ const SPEND_STATS_DAY = {
   ],
   sums: { calls: 15, fallback_calls: 2, cost_yuan: 0.0359 },
   total: 2, page: 1, page_size: 15
+}
+// caller 维度 21 桶（UI-06 T2：client 分页两页夹具——翻页后 resetKey 归页断言用）
+const SPEND_STATS_MANY = {
+  group_by: 'caller', range: '30d',
+  items: Array.from({ length: 21 }, (_, i) => ({
+    caller: `chat.bulk.${i}`, calls: 1, fallback_calls: 0, input_tokens: 100, output_tokens: 50, cost_yuan: 0.001
+  })),
+  sums: { calls: 21, fallback_calls: 0, cost_yuan: 0.021 },
+  total: 21, page: 1, page_size: 15
 }
 const DRILLS_HISTORY = [
   { id: 'drill-9018', time: '2026-09-28T09:12:30', summary: '演练：主用连续失败 2 次（阈值 2，冷却 60s）→ 备用应答正常' }
@@ -225,6 +237,9 @@ describe('D1 落地页 · 记账流水（端点 4：分页信封＋snake→camel
     expect(screen.getByText('¥0.0070')).toBeTruthy()        // 花费元数值→前端格式化
     expect(screen.getByText('故障切换')).toBeTruthy()        // fallback=true 行
     expect(screen.getByText('共 2 条')).toBeTruthy()
+    // UI-06 T8：时间列含年份（fmtTime 单点 YYYY-MM-DD HH:mm——跨年账目可辨）
+    expect(screen.getByText('2026-09-28 09:52')).toBeTruthy()
+    expect(screen.getByText('2026-09-28 10:00')).toBeTruthy()
 
     // query 组装：model/range/keyword/page/pageSize（pageSize 别名合同保留 camel）
     const spendUrl = fetchMock.mock.calls.find(c => String(c[0]).includes('/api/gateway/spend-logs'))[0]
@@ -235,6 +250,8 @@ describe('D1 落地页 · 记账流水（端点 4：分页信封＋snake→camel
     fireEvent.click(screen.getByText('call-8c31'))
     expect(await screen.findByText('调用别名')).toBeTruthy()
     expect(await screen.findByText('petro-main')).toBeTruthy()
+    // UI-06 T8：抽屉「调用时间」与表格同源 fmtTime（表格单元格＋抽屉两处含年）
+    expect(screen.getAllByText('2026-09-28 09:52').length).toBeGreaterThanOrEqual(2)
     expect(calls.spend).toBeGreaterThanOrEqual(1)
   })
 
@@ -304,6 +321,7 @@ describe('D1 落地页 · 花费聚合页签（端点 8——D5 撤页归并真�
     expect(await screen.findByText(/花费聚合拉取失败——下表不是最新数据/)).toBeTruthy()
     expect(screen.getByText(/聚合读取失败 · code gateway_internal · trace call-agg0/)).toBeTruthy()
     expect(screen.queryByText(/期间合计：/)).toBeNull()  // 失败态不显示 sums
+    expect(screen.getByText('聚合拉取失败')).toBeTruthy() // UI-06 T2：表内错误空态（errorEmptyText）
   })
 })
 
@@ -455,4 +473,149 @@ describe('D1 落地页 · 故障演练（端点 5/6/7）', () => {
     // 进行中禁止再次发起（重入兜底的前端面）
     expect(screen.getByRole('button', { name: /开始故障演练/ }).disabled).toBe(true)
   }, 15000)
+})
+
+describe('D1 落地页 · UI-06 交互优化（阶段 1：PagedTable 接线／防抖／收束／联调）', () => {
+  it('T3 模型线路表接 PagedTable：单页也显示分页条＋「共 N 条」（items.length 合法读法）', async () => {
+    apiRouter()
+    render(<D1Landing />)
+    expect(await screen.findByText('petro-main')).toBeTruthy()
+    expect(screen.getByText('共 2 条')).toBeTruthy() // models.length=2（端点 1 信封无 total）
+  })
+
+  it('T2 聚合表接 PagedTable client：分页条＋「共 3 条」恒显；「期间合计」行保留正文', async () => {
+    apiRouter()
+    render(<D1Landing />)
+    fireEvent.click(await screen.findByText('记账流水（2）'))
+    await screen.findByText('call-8c31')
+    fireEvent.click(screen.getByText('聚合'))
+    expect(await screen.findByText('问一问 · 检索问答')).toBeTruthy()
+    expect(screen.getByText('共 3 条')).toBeTruthy() // client 模式 dataSource.length（分页条统计恒显）
+    expect(screen.getByTestId('agg-sums')).toBeTruthy() // 期间合计行（关键合计不收束）
+  })
+
+  it('T2 resetKey=groupBy|range：翻到第 2 页后切窗口自动回页 1', async () => {
+    const calls = apiRouter({ stats: u => (String(u).includes('group_by=caller') ? json(200, SPEND_STATS_MANY) : json(200, SPEND_STATS)) })
+    render(<D1Landing />)
+    fireEvent.click(await screen.findByText('记账流水（2）'))
+    await screen.findByText('call-8c31')
+    fireEvent.click(screen.getByText('聚合'))
+    expect(await screen.findByText('共 21 条')).toBeTruthy()
+    const page2 = document.querySelector('.ant-pagination-item-2')
+    expect(page2).toBeTruthy() // 21 行 / pageSize 20 → 两页
+    fireEvent.click(page2)
+    expect(await screen.findByText('chat.bulk.20')).toBeTruthy() // 第 21 行（首页 20 行之外）
+    fireEvent.click(screen.getByText('全部')) // range 变化 → resetKey 变化
+    expect(await screen.findByText('chat.bulk.0')).toBeTruthy() // 回页 1：首页首行复现
+    expect(document.querySelector('.ant-pagination-item-1').className).toContain('ant-pagination-item-active')
+    await waitFor(() => expect(calls.stats[calls.stats.length - 1]).toContain('range=all'))
+  })
+
+  it('T4 演练日志拉取失败：内联 Alert＋错误空态「演练记录拉取失败」，不出现「暂无演练记录」假空态', async () => {
+    apiRouter({ drills: () => json(500, { code: 'gateway_internal', message: '演练历史读取失败', trace_id: 'call-drl0' }) })
+    render(<D1Landing />)
+    fireEvent.click(await screen.findByText('故障演练（0）'))
+    expect(await screen.findByText('演练记录拉取失败——下表不是最新数据')).toBeTruthy()
+    expect(screen.getByText(/演练历史读取失败 · code gateway_internal · trace call-drl0/)).toBeTruthy()
+    expect(screen.getByText('演练记录拉取失败')).toBeTruthy() // 表内错误空态（errorEmptyText）
+    expect(screen.queryByText('暂无演练记录')).toBeNull()
+  })
+
+  it('T4 演练日志加载中出 loading；装载完成渲染行＋分页条＋时间含年', async () => {
+    let release
+    apiRouter({ drills: () => new Promise(resolve => { release = resolve }) })
+    const { container } = render(<D1Landing />)
+    fireEvent.click(await screen.findByText('故障演练（0）'))
+    expect(container.querySelector('.ant-table-wrapper .ant-spin-spinning')).toBeTruthy() // 表 loading
+    release(json(200, DRILLS_HISTORY))
+    expect(await screen.findByText(/演练：主用连续失败 2 次/)).toBeTruthy()
+    expect(screen.getByText('共 1 条')).toBeTruthy() // drillLogs.length（端点 7 裸数组合法读法）
+    expect(screen.getByText('2026-09-28 09:12')).toBeTruthy() // T8：时间列含年（fmtTime 单点）
+  })
+
+  it('T5 流水关键词 300ms 防抖：击键只动本地态，静止后并入 query（携 page=1）', async () => {
+    const calls = apiRouter()
+    render(<D1Landing />)
+    fireEvent.click(await screen.findByText('记账流水（2）'))
+    const input = await screen.findByPlaceholderText('搜调用号 / 备注…')
+    const before = calls.spend
+    vi.useFakeTimers()
+    try {
+      fireEvent.change(input, { target: { value: 'call' } })
+      fireEvent.change(input, { target: { value: 'call-8' } })
+      fireEvent.change(input, { target: { value: 'call-8c' } })
+      vi.advanceTimersByTime(299) // 防抖窗内：零请求
+      expect(calls.spend).toBe(before)
+      await act(async () => { await vi.advanceTimersByTimeAsync(1) }) // 300ms 静止 → 并入 query
+    } finally {
+      vi.useRealTimers()
+    }
+    expect(calls.spend).toBe(before + 1) // 三连击键只发一次请求
+    const last = fetchMock.mock.calls.filter(c => String(c[0]).includes('/api/gateway/spend-logs')).pop()
+    expect(last[0]).toContain('keyword=call-8c')
+    expect(last[0]).toContain('page=1') // 防抖并入携 page:1（对齐三筛控件归页语义）
+  })
+
+  it('T6 「适用范围」行收束进页头 helpTop：正文行消失、? 悬停可见内容', async () => {
+    apiRouter()
+    render(<D1Landing />)
+    expect(await screen.findByText('petro-main')).toBeTruthy()
+    expect(screen.queryByText('适用范围')).toBeNull() // 正文行不再直出
+    const subtitle = screen.getByText(/平台所有模型调用的唯一出口/)
+    const q = subtitle.closest('div').querySelector('.anticon-question-circle')
+    expect(q).toBeTruthy() // 页头 helpTop 在场（副标题旁 ?）
+    fireEvent.mouseEnter(q)
+    expect(await screen.findByText(/问一问、报告库回答、问数/)).toBeTruthy() // 内容原话迁入
+  })
+
+  it('T7 流水表 scroll.x 联调降至 ≤1000：1280 视口可用宽（≈976）内无恒显横滚', async () => {
+    apiRouter()
+    const { container } = render(<D1Landing />)
+    fireEvent.click(await screen.findByText('记账流水（2）'))
+    await screen.findByText('call-8c31')
+    const table = container.querySelector('.ant-table-content table')
+    expect(table).toBeTruthy()
+    expect(table.style.width).toBeTruthy()
+    expect(Number.parseFloat(table.style.width)).toBeLessThanOrEqual(1000)
+  })
+})
+
+describe('D1 落地页 · UI-06 T9 复制降级', () => {
+  const realExec = document.execCommand // jsdom 未实现 execCommand（undefined）——直接赋桩、 afterEach 还原
+
+  afterEach(() => {
+    document.execCommand = realExec
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })
+  })
+
+  it('无 clipboard 环境降级 textarea＋execCommand——成功仍有「已复制」反馈', async () => {
+    apiRouter()
+    const execSpy = vi.fn(() => true)
+    document.execCommand = execSpy
+    render(<D1Landing />)
+    fireEvent.click(await screen.findByText('调用参数（6）'))
+    fireEvent.click(await screen.findByRole('button', { name: /复制/ }))
+    expect(await screen.findByText('已复制')).toBeTruthy()
+    expect(execSpy).toHaveBeenCalledWith('copy')
+  })
+
+  it('降级复制失败（execCommand false）——message.error「复制失败，请手动选择文本复制」', async () => {
+    apiRouter()
+    document.execCommand = vi.fn(() => false)
+    render(<D1Landing />)
+    fireEvent.click(await screen.findByText('调用参数（6）'))
+    fireEvent.click(await screen.findByRole('button', { name: /复制/ }))
+    expect(await screen.findByText('复制失败，请手动选择文本复制')).toBeTruthy()
+  })
+
+  it('clipboard 可用路径维持现状——writeText 成功出「已复制」', async () => {
+    apiRouter()
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    render(<D1Landing />)
+    fireEvent.click(await screen.findByText('调用参数（6）'))
+    fireEvent.click(await screen.findByRole('button', { name: /复制/ }))
+    expect(await screen.findByText('已复制')).toBeTruthy()
+    expect(writeText).toHaveBeenCalledTimes(1)
+  })
 })

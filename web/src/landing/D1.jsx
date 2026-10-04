@@ -19,17 +19,25 @@
  *   流水拉取失败/聚合拉取失败内联 Alert（失败态与空态区分——toast 会消散、空态
  *   会伪装成「没有记录」，P0-07 审查补）、保存失败内联 Alert（500 热加载失败需
  *   回滚提示语义）、演练重入 409 兜底禁用＋提示。
+ *
+ * UI-06 交互优化（阶段 1，方案-阶段1交互优化-20261004 §5-D1）：流水表迁 PagedTable
+ * server 模式（分页形状不变）、聚合/线路/演练三表接 PagedTable client（统计恒显）、
+ * 演练日志失败态分立、流水关键词 300ms 防抖、「适用范围」收束页头 helpTop、
+ * 时间列补年（fmtTime 单点）、复制降级（clipboard 不可用 textarea＋execCommand）、
+ * 流水表 scroll.x 与列宽联调降至 960、helpIcon/errText 改 UI-00 共享件 import。
  */
 
 import { useEffect, useState } from 'react'
 import {
-  Alert, Button, Card, Col, Descriptions, Drawer, Empty, Input, InputNumber,
-  Row, Segmented, Select, Space, Steps, Switch, Table, Tabs, Tag, Tooltip
+  Alert, Button, Card, Col, Descriptions, Drawer, Input, InputNumber,
+  Row, Segmented, Select, Space, Steps, Switch, Tabs, Tag, Tooltip, message
 } from 'antd'
 import {
   CopyOutlined, ExportOutlined, PlayCircleOutlined, QuestionCircleOutlined
 } from '@ant-design/icons'
-import { ApiError, useTaskPolling } from '../api/client.js'
+import { ApiError, errText, useTaskPolling } from '../api/client.js'
+import { helpIcon } from '../components/helpIcon.jsx'  // UI-00 共享件（UI-06 T10——页内副本删除）
+import PagedTable from '../components/PagedTable.jsx'  // UI-00 共享件（UI-06 T1/T2/T3——集合表统一分页）
 import {
   PARAM_LIMITS, getModels, getGatewayConfig, saveGatewayConfig,
   getSpendLogs, getSpendStats, startDrill, listDrills, mapDrillSnapshot
@@ -38,12 +46,6 @@ import {
 /** 观测（Langfuse）外链（D1 v0.2 专节：compose observe profile 默认 :3000；部署可用
  * VITE_LANGFUSE_URL 覆盖——链路 trace/span 在 Langfuse 视图回看，账本流水在本页对账）。 */
 const OBSERVE_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_LANGFUSE_URL) || 'http://localhost:3000'
-
-const helpIcon = content => (
-  <Tooltip title={<div style={{ fontSize: 12, lineHeight: 1.8 }}>{content}</div>} placement="topLeft">
-    <QuestionCircleOutlined style={{ marginLeft: 4, color: '#8a94a3', cursor: 'help' }} />
-  </Tooltip>
-)
 
 // 参数六件＝四 yaml 参数＋预算双阈值（区间唯一来源 = api/gateway.js PARAM_LIMITS＝合同 §2/§2-3；
 // 预算双阈值＝熔断判据输入——保存即对后续调用生效，触顶改路由降级组 petro-lite 不拒绝）
@@ -66,23 +68,15 @@ const MONO = { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 12 }
 const fmtInt = n => n.toLocaleString('en-US')
 const fmtSec = ms => `${(ms / 1000).toFixed(1)} 秒`
 const fmtCost = yuan => `¥${Number(yuan).toFixed(4)}`
-const fmtTime = iso => String(iso || '').replace('T', ' ').slice(5, 16)
+// UI-06 T8：时间输出含年（YYYY-MM-DD HH:mm）——流水表/演练日志表/明细抽屉三处同源单点，
+// 跨年账目可辨、消灭 slice(5,16) 丢年与抽屉全串两套口径
+const fmtTime = iso => String(iso || '').replace('T', ' ').slice(0, 16)
 
 /** 网关运行态徽标（端点 1：running | degraded | down）。 */
 const GATEWAY_BADGE = {
   running: { color: 'success', label: '网关运行中' },
   degraded: { color: 'warning', label: '网关降级中（备用承载）' },
   down: { color: 'error', label: '网关不可用' }
-}
-
-/** 错误包 → 内联展示行（错误包展示路径：人话 message＋code＋trace_id）。 */
-function errText(err) {
-  if (!(err instanceof ApiError)) return String(err)
-  return [
-    err.message,
-    err.code ? `code ${err.code}` : '',
-    err.traceId ? `trace ${err.traceId}` : ''
-  ].filter(Boolean).join(' · ')
 }
 
 /**
@@ -109,6 +103,7 @@ export default function D1Landing() {
 
   // ── 记账面：spend 流水分页（端点 4）＋聚合/趋势页签（端点 8——D5 归并） ──
   const [query, setQuery] = useState({ model: 'all', range: 'all', keyword: '', page: 1, pageSize: 15 })
+  const [kw, setKw] = useState('') // UI-06 T5：关键词本地态——300ms 防抖静止后才并入 query
   const [ledger, setLedger] = useState({ items: [], total: 0 })
   const [ledgerLoading, setLedgerLoading] = useState(true)
   const [ledgerError, setLedgerError] = useState(null) // 流水拉取失败（端点 4）——内联常驻，失败态≠空态
@@ -123,6 +118,8 @@ export default function D1Landing() {
   const [drillAllowed, setDrillAllowed] = useState(false)
   const [drill, setDrill] = useState(null) // {status:'running'|'done'|'failed', nodes, result}
   const [drillLogs, setDrillLogs] = useState([])
+  const [drillLoading, setDrillLoading] = useState(true)
+  const [drillLogsError, setDrillLogsError] = useState(null) // 演练日志拉取失败（端点 7）——内联常驻，失败态≠空态（UI-06 T4）
   const [drillId, setDrillId] = useState(null)
   const [drillConflict, setDrillConflict] = useState(null) // 409 兜底
   const { status: pollStatus, data: drillDone, error: pollError } = useTaskPolling(drillId, {
@@ -139,7 +136,9 @@ export default function D1Landing() {
     getGatewayConfig()
       .then(d => { if (on) { setCfg(d.params); setForm(d.params); setYaml(d.yaml); setCfgError(null) } })
       .catch(err => { if (on) setCfgError(err) }) // client 已 message；内联常驻（params 页签）
-    listDrills().then(d => { if (on) setDrillLogs(d) }).catch(() => {})
+    listDrills()
+      .then(d => { if (on) { setDrillLogs(d); setDrillLogsError(null); setDrillLoading(false) } })
+      .catch(err => { if (on) { setDrillLogsError(err); setDrillLoading(false) } }) // 内联常驻（drill 页签，UI-06 T4——不再静默吞）
     return () => { on = false }
   }, [])
 
@@ -151,6 +150,15 @@ export default function D1Landing() {
       .catch(err => { if (on) { setLedgerError(err); setLedgerLoading(false) } }) // 内联常驻（ledger 页签）
     return () => { on = false }
   }, [query])
+
+  // UI-06 T5：关键词 300ms 防抖——击键只动本地态，静止 300ms 才并入 query
+  // （并入携 page:1，对齐三个筛控件 onChange 归页语义；防抖窗内重击键由 cleanup 清除兜底）
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setQuery(q => (q.keyword === kw ? q : { ...q, keyword: kw, page: 1 }))
+    }, 300)
+    return () => clearTimeout(t)
+  }, [kw])
 
   // 聚合/趋势（端点 8）：进入聚合页签或切换维度/窗口时拉取；随流水刷新（演练落账后聚合同步）
   useEffect(() => {
@@ -167,7 +175,9 @@ export default function D1Landing() {
   useEffect(() => {
     if (pollStatus === 'done' && drillDone) {
       setDrill(mapDrillSnapshot(drillDone))
-      listDrills().then(setDrillLogs).catch(() => {})
+      listDrills()
+        .then(d => { setDrillLogs(d); setDrillLogsError(null); setDrillLoading(false) })
+        .catch(err => { setDrillLogsError(err); setDrillLoading(false) }) // UI-06 T4：刷新失败同样置错误态
       setQuery(q => ({ ...q, page: 1 }))
     }
   }, [pollStatus, drillDone])
@@ -194,12 +204,34 @@ export default function D1Landing() {
     }
   }
 
+  // UI-06 T9：复制降级——clipboard 不可用时 textarea＋execCommand 兜底，两路皆败显式
+  // message.error（原实现静默 return＝假控件）；成功路径维持「已复制」反馈现状。
   function copyYaml() {
-    if (!navigator.clipboard) return
-    navigator.clipboard.writeText(yaml).then(() => {
+    const done = () => {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
-    })
+    }
+    const fallbackCopy = () => {
+      try {
+        const ta = document.createElement('textarea')
+        ta.value = yaml
+        ta.style.position = 'fixed' // 避免滚动跳动；视觉上不可见
+        ta.style.opacity = '0'
+        document.body.appendChild(ta)
+        ta.select()
+        const ok = document.execCommand('copy')
+        document.body.removeChild(ta)
+        if (ok) done()
+        else message.error('复制失败，请手动选择文本复制')
+      } catch {
+        message.error('复制失败，请手动选择文本复制')
+      }
+    }
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(yaml).then(done).catch(fallbackCopy)
+    } else {
+      fallbackCopy()
+    }
   }
 
   async function runDrill() {
@@ -243,23 +275,26 @@ export default function D1Landing() {
     { title: '说明', dataIndex: 'note' }
   ]
 
+  // UI-06 T7：列宽合计与 scroll.x 联调降至 960（限宽 1080 不动）——1280 视口可用宽
+  // ≈976（1280−SideMenu 216−Content 左右 padding 40−卡体 48），960 在其内，常视口
+  // 无恒显横向滚动条；时间列 115→128 容纳补年（T8）后的 YYYY-MM-DD HH:mm。
   const ledgerColumns = [
-    { title: '时间', dataIndex: 'time', width: 115, render: fmtTime },
-    { title: '调用号', dataIndex: 'id', width: 120, render: v => <span style={MONO}>{v}</span> },
-    { title: '模型', dataIndex: 'modelKey', width: 150, render: k => modelTag(k) },
+    { title: '时间', dataIndex: 'time', width: 128, render: fmtTime },
+    { title: '调用号', dataIndex: 'id', width: 108, render: v => <span style={MONO}>{v}</span> },
+    { title: '模型', dataIndex: 'modelKey', width: 132, render: k => modelTag(k) },
     {
       title: <span>输入 token{helpIcon('token＝模型计费的计算量单位')}</span>,
-      dataIndex: 'inputTokens', width: 95, align: 'right', render: fmtInt
+      dataIndex: 'inputTokens', width: 88, align: 'right', render: fmtInt
     },
-    { title: '输出 token', dataIndex: 'outputTokens', width: 95, align: 'right', render: fmtInt },
+    { title: '输出 token', dataIndex: 'outputTokens', width: 88, align: 'right', render: fmtInt },
     {
       title: <span>首字延迟{helpIcon('从发起请求到返回第一个字的时间')}</span>,
-      dataIndex: 'firstMs', width: 85, render: fmtSec
+      dataIndex: 'firstMs', width: 76, render: fmtSec
     },
-    { title: '总耗时', dataIndex: 'totalMs', width: 80, render: fmtSec },
-    { title: '花费', dataIndex: 'costYuan', width: 90, align: 'right', render: fmtCost },
+    { title: '总耗时', dataIndex: 'totalMs', width: 70, render: fmtSec },
+    { title: '花费', dataIndex: 'costYuan', width: 84, align: 'right', render: fmtCost },
     {
-      title: '切换', dataIndex: 'fallback', width: 80,
+      title: '切换', dataIndex: 'fallback', width: 84,
       render: v => (v ? <Tag color="orange">故障切换</Tag> : <span style={{ color: '#8a94a3' }}>—</span>)
     },
     { title: '备注', dataIndex: 'note', ellipsis: true, render: v => v || <span style={{ color: '#8a94a3' }}>—</span> }
@@ -334,17 +369,12 @@ export default function D1Landing() {
 
   const tabContent = {
     models: (
-      <>
-        <Table size="small" columns={modelColumns} dataSource={models} pagination={false} rowKey="key"
-          loading={!modelsError && models.length === 0}
-          locale={{ emptyText: <Empty description={modelsError ? '模型清单拉取失败' : '暂无模型'} image={Empty.PRESENTED_IMAGE_SIMPLE} /> }} />
-        <div style={{ marginTop: 12, fontSize: 13 }}>
-          <b>适用范围</b>
-          <span style={{ marginLeft: 8, color: '#8a94a3' }}>
-            问一问、报告库回答、问数 —— 平台所有用到模型的动作，都从这一个口出去。
-          </span>
-        </div>
-      </>
+      // UI-06 T3：接 PagedTable client（分页条恒显＋共 N 条；端点 1 信封无 total——
+      // models.length 合法读法，方案 §1-P3）。UI-06 T6：「适用范围」行删除——
+      // 内容原话并入页头 helpTop（正文不直出）。
+      <PagedTable size="small" columns={modelColumns} dataSource={models} rowKey="key"
+        loading={!modelsError && models.length === 0}
+        emptyText="暂无模型" error={modelsError} errorEmptyText="模型清单拉取失败" />
     ),
     params: !form && cfgError ? (
       // 配置拉取失败：内联 Alert 常驻（对齐 models/保存/演练错误路径形态）——
@@ -411,9 +441,10 @@ export default function D1Landing() {
                 onChange={v => setQuery(q => ({ ...q, range: v, page: 1 }))}
                 options={[{ label: '全部', value: 'all' }, { label: '今天', value: 'today' }, { label: '近 7 天', value: '7d' }]}
               />
+              {/* UI-06 T5：value/onChange 走本地 kw 态，300ms 防抖后才并入 query——逐击键不再各发一次 GET */}
               <Input
-                size="small" allowClear style={{ width: 200 }} value={query.keyword}
-                onChange={e => setQuery(q => ({ ...q, keyword: e.target.value, page: 1 }))}
+                size="small" allowClear style={{ width: 200 }} value={kw}
+                onChange={e => setKw(e.target.value)}
                 placeholder="搜调用号 / 备注…"
               />
             </>
@@ -452,16 +483,18 @@ export default function D1Landing() {
                 message="记账流水拉取失败——下表不是最新数据"
                 description={errText(ledgerError)} />
             )}
-            <Table
+            {/* UI-06 T1：迁移 PagedTable server 模式——「分页参数→query state→服务端重拉」
+                形状不变（page/pageSize(15 合同冻结)/total/onPageChange→setQuery；showTotal
+                同文案；scroll 透传）。归页不绑 resetKey——server 模式归页由三个筛控件
+                onChange 携 page:1 自带＋T5 防抖并入携 page:1。 */}
+            <PagedTable
+              mode="server"
               size="small" loading={ledgerLoading} columns={ledgerColumns} dataSource={ledger.items} rowKey="id"
-              scroll={{ x: 1080 }}
-              pagination={{
-                current: query.page, pageSize: query.pageSize, total: ledger.total, showSizeChanger: false,
-                showTotal: t => `共 ${t} 条`,
-                onChange: (p, ps) => setQuery(q => ({ ...q, page: p, pageSize: ps }))
-              }}
+              scroll={{ x: 960 }}
+              page={query.page} pageSize={query.pageSize} total={ledger.total}
+              onPageChange={(p, ps) => setQuery(q => ({ ...q, page: p, pageSize: ps }))}
+              emptyText="没有匹配的调用记录" error={ledgerError} errorEmptyText="流水拉取失败"
               onRow={r => ({ onClick: () => setDetail(r), style: { cursor: 'pointer' } })}
-              locale={{ emptyText: <Empty description={ledgerError ? '流水拉取失败' : '没有匹配的调用记录'} image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
             />
           </>
         ) : (
@@ -471,10 +504,15 @@ export default function D1Landing() {
                 message="花费聚合拉取失败——下表不是最新数据"
                 description={errText(aggError)} />
             )}
-            <Table
+            {/* UI-06 T2：接 PagedTable client——统一分页统计/空态；resetKey=groupBy|range
+                （§2.2 总表）。caller/model 后端真分页信封未消费缺口登记 UI-07（本批不上
+                server 翻页）；day/month 趋势时序 ≤31/12 行合同全量豁免分页——pageSize 31
+                免切页（方案 §2.2 豁免），分页条与统计仍恒显。 */}
+            <PagedTable
               size="small" loading={aggLoading} columns={aggColumns} dataSource={aggData?.items ?? []}
-              rowKey="key" pagination={false}
-              locale={{ emptyText: <Empty description={aggError ? '聚合拉取失败' : '所选窗口内没有调用记录'} image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+              rowKey="key" resetKey={`${agg.groupBy}|${agg.range}`}
+              pageSize={(agg.groupBy === 'day' || agg.groupBy === 'month') ? 31 : undefined}
+              emptyText="所选窗口内没有调用记录" error={aggError} errorEmptyText="聚合拉取失败"
             />
           </>
         )}
@@ -535,13 +573,22 @@ export default function D1Landing() {
         )}
         <div style={{ marginTop: 16 }}>
           <b style={{ fontSize: 13 }}>演练日志</b>
-          <Table
-            style={{ marginTop: 8 }} size="small" pagination={false} rowKey="id" dataSource={drillLogs}
+          {/* UI-06 T4：失败态分立（对齐流水表形态）——内联 Alert 常驻＋表 error 空态，
+              不再以「暂无演练记录」伪装空态；loading 接表。
+              UI-06 T3：接 PagedTable client（分页条恒显；端点 7 裸数组无 total——
+              drillLogs.length 合法读法，方案 §1-P3）。 */}
+          {drillLogsError && (
+            <Alert style={{ marginTop: 8, marginBottom: 8 }} type="error" showIcon
+              message="演练记录拉取失败——下表不是最新数据"
+              description={errText(drillLogsError)} />
+          )}
+          <PagedTable
+            style={{ marginTop: 8 }} size="small" rowKey="id" dataSource={drillLogs} loading={drillLoading}
             columns={[
               { title: '时间', dataIndex: 'time', width: 150, render: v => fmtTime(v) },
               { title: '摘要', dataIndex: 'summary' }
             ]}
-            locale={{ emptyText: <Empty description="暂无演练记录" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+            emptyText="暂无演练记录" error={drillLogsError} errorEmptyText="演练记录拉取失败"
           />
         </div>
       </>
@@ -567,9 +614,14 @@ export default function D1Landing() {
             </Button>
           </Tooltip>
         </div>
-        <span style={{ color: '#8a94a3', fontSize: 13 }}>
-          平台所有模型调用的唯一出口：主用故障自动切备用、冷却期满自动切回；改配置即对全平台生效，问数的人不用管。
-        </span>
+        {/* UI-06 T6：副标题保留；helpTop ? 收束「适用范围」内容（原模型线路页签正文行
+            原话迁入——字段解释类说明只走 ? 通道，方案 §3.1/§5-D1-4） */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ color: '#8a94a3', fontSize: 13 }}>
+            平台所有模型调用的唯一出口：主用故障自动切备用、冷却期满自动切回；改配置即对全平台生效，问数的人不用管。
+          </span>
+          {helpIcon('适用范围：问一问、报告库回答、问数 —— 平台所有用到模型的动作，都从这一个口出去。')}
+        </div>
         {modelsError && (
           <Alert type="error" showIcon style={{ marginTop: 4 }}
             message="模型清单拉取失败（页头徽标与线路表暂不可用）"
@@ -593,7 +645,7 @@ export default function D1Landing() {
           <Descriptions
             column={1} size="small" bordered
             items={[
-              { key: 'time', label: '调用时间', children: String(detail.time).replace('T', ' ') },
+              { key: 'time', label: '调用时间', children: fmtTime(detail.time) }, // UI-06 T8：与两表同源 fmtTime（含年）
               { key: 'alias', label: '调用别名', children: <span style={MONO}>{detail.alias}</span> },
               ...(detail.caller ? [{
                 key: 'caller', label: '调用方',
