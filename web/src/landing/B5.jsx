@@ -435,13 +435,9 @@ export default function B5Landing() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* UI-05 T6：统一页头三件套（方案 §4.2）——卡头 extra 大段说明整体迁入 helpTop（内容不改） */}
+      {/* UI-05 T6 统一页头＋UI-09 收束：口号副标题删除——PAGE_HELP 移挂页标题旁（内容不改） */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span style={{ fontSize: 18, fontWeight: 600 }}>关系图谱</span>
-        <span style={{ color: '#8a94a3', fontSize: 13 }}>
-          报告与台账里谁—什么关系→谁连成网——对不上的不建边、原文没依据的不建边
-          {helpIcon(PAGE_HELP)}
-        </span>
+        <span style={{ fontSize: 18, fontWeight: 600 }}>关系图谱{helpIcon(PAGE_HELP)}</span>
       </div>
       <Card
         title={
@@ -691,7 +687,8 @@ export default function B5Landing() {
       <Modal title="从报告库选句" open={sentModal} footer={null} width={680}
         onCancel={() => setSentModal(false)}>
         <p style={{ ...dim, marginTop: 0 }}>
-          选择报告里的原句，三元组按建议值预填（LLM 起草走统一出口），可修改后保存。
+          {/* UI-09：去「（LLM 起草走统一出口）」dev 语汇括注——票面改造项 11 */}
+          选择报告里的原句，三元组按建议值预填，可修改后保存。
         </p>
         {/* UI-05 T9：Select 开 showSearch（先例：查看节点 Select）——量级下可键入过滤 */}
         <Select size="small" style={{ width: '100%', marginBottom: 8 }} placeholder="选择报告"

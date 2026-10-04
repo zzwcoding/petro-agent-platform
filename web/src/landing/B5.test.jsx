@@ -349,14 +349,14 @@ describe('B5 落地页 · 示例三源辅助（对账 11——起草走真统一
 })
 
 describe('B5 落地页 · UI-05 交互优化（票面 T1…T12——方案 §5-B5 六条要点＋审查发现）', () => {
-  it('T6 页头三件套在；卡头 extra 大段说明迁入 helpTop（内容一致、卡头不再重复承载）', async () => {
+  it('T6 页头＝标题＋helpTop（UI-09 口号副标题删除，PAGE_HELP 挂标题旁）；卡头不再重复承载', async () => {
     apiRouter()
     render(<B5Landing />)
     expect(await screen.findByText('关系图谱')).toBeTruthy()
-    expect(screen.getByText('报告与台账里谁—什么关系→谁连成网——对不上的不建边、原文没依据的不建边')).toBeTruthy()
-    // helpTop 悬停展开＝原卡头 extra 大段说明（内容不改——逐句核对）
-    const subtitle = screen.getByText('报告与台账里谁—什么关系→谁连成网——对不上的不建边、原文没依据的不建边')
-    fireEvent.mouseEnter(subtitle.querySelector('.anticon-question-circle'))
+    expect(screen.queryByText(/谁连成网——对不上的不建边/)).toBeNull() // UI-09：口号副标题不再直出
+    // helpTop 悬停展开＝原卡头 extra 大段说明（内容不改——逐句核对；UI-09 起挂标题旁）
+    const titleSpan = screen.getByText('关系图谱')
+    fireEvent.mouseEnter(titleSpan.querySelector('.anticon-question-circle'))
     expect(await screen.findByText(/把报告与台账里"谁—什么关系→谁"连成关系网/)).toBeTruthy()
     expect(await screen.findByText(/节点与关系全部来自报告与台账/)).toBeTruthy()
     // 卡头 extra 已整体迁走（不再挂 helpIcon 重复承载同一大段）

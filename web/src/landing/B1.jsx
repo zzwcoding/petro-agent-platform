@@ -683,12 +683,9 @@ export default function B1Landing() {
 
   return (
     <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span style={{ fontSize: 18, fontWeight: 600 }}>报告库</span>
-        <span style={{ color: '#8a94a3', fontSize: 13 }}>
-          原文一个字不动存档 · 索引按库配置、下次入库生效 · 关掉的支路不跑不花钱
-          {helpTop}
-        </span>
+      {/* UI-09：口号副标题删除——helpTop 移挂页标题行（票面改造项 8）；marginBottom 保留承接近卡间距 */}
+      <div style={{ marginBottom: 16 }}>
+        <span style={{ fontSize: 18, fontWeight: 600 }}>报告库{helpTop}</span>
       </div>
       <Card
         style={{ flex: '1 0 auto' }} // UI-08：短内容撑满 Content 剩余高，长表照常页级滚动（方案 §4.1 白名单语义不变）

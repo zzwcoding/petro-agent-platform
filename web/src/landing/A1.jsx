@@ -565,8 +565,8 @@ export default function A1Landing() {
         )}
         {serverSessions.available && (
           <>
-            {/* T5：N＝items.length（端点 2 信封无 total——方案 §1-P3 定死合法读法；列表分页随 UI-07） */}
-            <div style={{ ...dim, marginBottom: 4 }}>服务端会话（{serverSessions.items.length}）</div>
+            {/* T5：N＝items.length（端点 2 信封无 total——方案 §1-P3 定死合法读法；列表分页随 UI-07）；UI-09 去「服务端」dev 语汇 */}
+            <div style={{ ...dim, marginBottom: 4 }}>共 {serverSessions.items.length} 条</div>
             <List size="small" dataSource={serverSessions.items} locale={{ emptyText: '暂无服务端会话' }}
               renderItem={s => (
                 <List.Item style={{ cursor: busy ? 'wait' : 'pointer', padding: '4px 0' }}
@@ -577,13 +577,10 @@ export default function A1Landing() {
                   </div>
                 </List.Item>
               )} />
-            {/* DEBT(P1-12)：过程帧回放随 D5 产品化批（票面差异登记②） */}
-            <div style={{ ...dim, margin: '8px 0 4px' }}>
-              点会话＝回放消息与答案卡；完整处理过程的逐帧回放暂未开放。
-            </div>
           </>
         )}
-        <div style={{ ...dim, marginBottom: 4 }}>本机最近运行（点开＝断点重连，已出内容不丢）</div>
+        {/* UI-09：断点续传说明收进 ?（去括号旁白——票面改造项 4） */}
+        <div style={{ ...dim, marginBottom: 4 }}>本机最近运行{helpIcon('点开＝断点续传，已出内容不丢。')}</div>
         {RUN_HISTORY.length === 0 && <div style={dim}>本次进入还没有问答记录。</div>}
         <List size="small" dataSource={[...RUN_HISTORY]}
           renderItem={e => (
@@ -617,12 +614,7 @@ export default function A1Landing() {
             </>
           ) : (
             <>
-              {items.length === 0 && (
-                <div style={{ ...dim, padding: '20px 4px' }}>
-                  输入问题开始提问；支持 @指标卡·… / @术语·… 点名（服务端按当前身份装配）。
-                  右侧思考过程由服务端事件帧逐节点点亮。
-                </div>
-              )}
+              {/* UI-09：中栏空态教学段删除（引导由输入框 placeholder 承载——票面改造项 1） */}
               {renderItems(items)}
             </>
           )}
@@ -654,10 +646,7 @@ export default function A1Landing() {
             <Button type="primary" icon={<SendOutlined />} loading={busy} onClick={() => ask(input)}>发送</Button>
           </Space.Compact>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-          {/* T9：统一入口教学旁白收束为右下 ?（方案 §3.1-3 步骤类） */}
-          {helpIcon('全部问答走统一入口：安检→装配→裁决→链内四层全在服务端')}
-        </div>
+        {/* UI-09：底部右对齐统一入口教学 ? 行连同兜底容器整块删除（架构教学，运营无动作依赖——票面改造项 5） */}
       </Card>
 
       {/* ── 右栏 · 思考过程树（node 帧流式推进——「长出来的」） ── */}
@@ -667,9 +656,9 @@ export default function A1Landing() {
         <div ref={treeRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
           {/* DEBT(P1-12)：过程帧回放随 D5 产品化批（票面差异登记②） */}
           {!tree && viewing && (
-            <div style={dim}>历史回放只还原消息与答案卡——完整处理过程的逐帧回放暂未开放。</div>
+            <div style={dim}>逐帧回放暂未开放——此处仅回放消息与答案。</div>
           )}
-          {!tree && !viewing && <div style={dim}>输入问题或点开历史运行，这里逐帧展示完整处理过程。</div>}
+          {!tree && !viewing && <div style={dim}>暂无思考过程。</div>}
           {tree && <ThinkingTree turn={tree} />}
         </div>
       </Card>

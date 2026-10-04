@@ -443,13 +443,13 @@ describe('B3 落地页 · UI-04 交互优化（方案 §5-B3）', () => {
     expect(document.querySelector('.ant-empty')).toBeTruthy()
   })
 
-  it('T5 页头三件套在（标题/副标题/helpTop）；卡头 extra 三句口号消失', async () => {
+  it('T5 页头＝标题＋helpTop（UI-09 口号副标题删除，POSITION_HELP 挂标题旁）；卡头 extra 三句口号消失', async () => {
     apiRouter()
     render(<B3Landing />)
     expect(await screen.findByText('常见问题库')).toBeTruthy()
-    const subtitle = screen.getByText('常问问题直接秒回 · 不该答的登记负例永不参与 · 服务问答与考核题库分开两本账')
-    expect(subtitle.textContent).toBeTruthy()
-    expect(subtitle.querySelector('.anticon-question-circle')).toBeTruthy() // helpTop（POSITION_HELP）在页头
+    const titleSpan = screen.getByText('常见问题库')
+    expect(titleSpan.querySelector('.anticon-question-circle')).toBeTruthy() // POSITION_HELP ? 在标题旁
+    expect(screen.queryByText('常问问题直接秒回')).toBeNull() // UI-09：口号副标题不再直出
     const cardHead = screen.getByText('问答清单（9）').closest('.ant-card-head')
     expect(cardHead.textContent).not.toContain('常问问题直接秒回') // 卡头 extra 三句口号消失
     expect(cardHead.querySelector('.anticon-question-circle')).toBeTruthy() // 卡头只留 helpIcon

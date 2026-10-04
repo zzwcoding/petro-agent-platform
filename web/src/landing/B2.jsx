@@ -479,12 +479,9 @@ export default function B2Landing() {
 
   return (
     <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span style={{ fontSize: 18, fontWeight: 600 }}>切片管理</span>
-        <span style={{ color: '#8a94a3', fontSize: 13 }}>
-          片段清单按报告浏览 · AI 回答引用的就是这些片段 · 发现切坏了就标记给质检复核
-          {helpIcon(<>入库时把报告切成片段，这里按报告建台账：浏览、筛选、核对内容；AI 回答引用的就是这些片段（引用号对不上的一律删掉、不渲染）。发现切坏了的片段就"标记问题片段"，复核确认后由管理员修正并重建索引。</>)}
-        </span>
+      {/* UI-09：口号副标题删除——长说明 helpIcon 移挂页标题行（票面改造项 9）；说明文字原样保留 */}
+      <div style={{ marginBottom: 16 }}>
+        <span style={{ fontSize: 18, fontWeight: 600 }}>切片管理{helpIcon(<>入库时把报告切成片段，这里按报告建台账：浏览、筛选、核对内容；AI 回答引用的就是这些片段（引用号对不上的一律删掉、不渲染）。发现切坏了的片段就"标记问题片段"，复核确认后由管理员修正并重建索引。</>)}</span>
       </div>
       {/* UI-03 T8：卡头 extra「命中的是小段，完整段落不直接进搜索结果」删除——
           与「命中句」列头 ? HIT_HELP 同义重复，说明收束保留列头 ? 一处 */}
