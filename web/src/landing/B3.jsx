@@ -18,21 +18,30 @@
  *   （端点 13，草稿自动填入新增弹窗）→ 人审核发布（端点 17，候选随发布
  *   事务落已发布）；
  * - 导入（端点 15，两模式＋试校验＋四计数）/导出（端点 16，预签名直链下载）；
- * - ⚙ 检索配置弹窗＝纯展示（相似问合并开关＋合并阈值 0.87＋负例入口——
- *   配置端点已撤除登记，B3-6/B3-4；保存按钮仅本地确认态）。
+ * - ⚙ 检索配置弹窗＝纯只读展示（相似问合并开关＋合并阈值 0.87＋负例入口——
+ *   配置端点已撤除登记，B3-6/B3-4；假保存按钮已随 UI-04 T2 清除）。
+ *
+ * UI-04（阶段 1 交互优化——方案 §5-B3，施工票 tickets/phase1-ui/UI-04.md）：
+ * 主表/候选表接 PagedTable client 分页（resetKey 绑筛状态）；补统一页头三件套；
+ * 主表失败态内联 Alert 常驻＋错误空态分立；扫库失败（轮询通道/终态行）message
+ * 提示；关键词 350ms 防抖＋请求序号守卫；合并目标全库化（不带筛 getItems）；
+ * helpIcon/dim/errText 改 UI-00 共享件 import——errText 统一三段（message＋code
+ * ＋trace），B3 错误提示多出 trace 段＝方案 §3.2-2 定死接受的行为变化。
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  Alert, Button, Card, Checkbox, Input, message, Modal, Radio, Select, Space, Table,
+  Alert, Button, Card, Checkbox, Input, message, Modal, Radio, Select, Space,
   Tag, Tooltip, Upload
 } from 'antd'
 import {
   ClusterOutlined, ExportOutlined, FileSearchOutlined, ImportOutlined, MergeOutlined,
-  PauseCircleOutlined, PlayCircleOutlined, PlusOutlined, QuestionCircleOutlined,
-  RobotOutlined, SettingOutlined, SyncOutlined
+  PauseCircleOutlined, PlayCircleOutlined, PlusOutlined, RobotOutlined, SettingOutlined,
+  SyncOutlined
 } from '@ant-design/icons'
-import { ApiError } from '../api/client.js'
+import { errText } from '../api/client.js'
+import { helpIcon, dim } from '../components/helpIcon.jsx'  // UI-00 共享件（UI-04 T11——页内副本删除）
+import PagedTable from '../components/PagedTable.jsx'  // UI-00 共享件（UI-04 T1/T7——集合表统一分页）
 import {
   addSimilar, compareCandidate, createEntry, dupCheck, exportLibrary, getCandidates,
   getItems, getItemDetail, draftCandidate, draftFromRefs, importLibrary, listLedgerOptions,
@@ -40,14 +49,10 @@ import {
   useFaqScanPolling
 } from '../api/faq.js'
 
-const helpIcon = content => (
-  <Tooltip title={<div style={{ fontSize: 12, lineHeight: 1.8 }}>{content}</div>} placement="topLeft">
-    <QuestionCircleOutlined style={{ marginLeft: 4, color: '#8a94a3', cursor: 'help' }} />
-  </Tooltip>
-)
-
+// UI-04 T11：helpIcon/dim 页内副本删除——import UI-00 共享件（components/helpIcon.jsx），
+// 母本即本页现形、渲染物不变；errText 同批改 client.js 导出（三段统一）。
+// fieldLabel 本页自持（方案 §3.3——不抽，仅 B1 消费共享化的取舍与本页无关）。
 const fieldLabel = { fontSize: 12, color: '#8a94a3', marginBottom: 4 }
-const dim = { fontSize: 12, color: '#8a94a3' }
 
 const SERVE_TAG = <Tag color="green">服务中</Tag>
 const NEG_TAG = <Tag color="red">负例 · 不参与回答</Tag>
@@ -69,12 +74,6 @@ const POSITION_HELP = (
   </>
 )
 
-/** 错误包 → 内联展示行（人话 message＋code——B1 先例同构）。 */
-function errText(err) {
-  if (!(err instanceof ApiError)) return String(err)
-  return [err.message, err.code ? `code ${err.code}` : ''].filter(Boolean).join(' · ')
-}
-
 /** 候选状态标（四态机器键＋dup/ok 展示派生态——展开按钮只认比对结论）。 */
 function candTag(c) {
   if (c.status === 'published') return <Tag color="green">已发布</Tag>
@@ -91,24 +90,40 @@ export default function B3() {
   const [grandTotal, setGrandTotal] = useState(0)
   const [statusF, setStatusF] = useState('all')
   const [kw, setKw] = useState('')
+  const [kwQ, setKwQ] = useState('')  // UI-04 T10：350ms 防抖后的查询值（kw 只即时回显输入框）
   const [loading, setLoading] = useState(false)
+  const [itemsError, setItemsError] = useState(null)  // UI-04 T3：失败态≠空态（内联 Alert 常驻＋错误空态分立）
   const [mergeHint, setMergeHint] = useState(null)
+  const refreshSeq = useRef(0)
 
   const refresh = useCallback(async () => {
+    const seq = ++refreshSeq.current  // UI-04 T10：请求序号守卫——慢的旧响应到点丢弃，不覆盖新筛选结果
     setLoading(true)
     try {
-      const d = await getItems({ status: statusF, keyword: kw })
+      const d = await getItems({ status: statusF, keyword: kwQ })
+      if (seq !== refreshSeq.current) return
       setRows(d.items)
-      setTotal(d.total)
+      setTotal(d.total)  // 信封 total/grandTotal（整表返回也带 total——方案 §1-P3；faq.js:74-75 已归一）
       setGrandTotal(d.grandTotal)
+      setItemsError(null)
     } catch (err) {
+      if (seq !== refreshSeq.current) return
+      setItemsError(err)
       message.error(errText(err))
     } finally {
-      setLoading(false)
+      if (seq === refreshSeq.current) setLoading(false)
     }
-  }, [statusF, kw])
+  }, [statusF, kwQ])
 
   useEffect(() => { refresh() }, [refresh])
+
+  // UI-04 T10：关键词 350ms 防抖（同页 dupCheck :151-162 先例节奏）——击键只回显，停 350ms 才驱动查询
+  const kwTimer = useRef(null)
+  useEffect(() => {
+    if (kwTimer.current) clearTimeout(kwTimer.current)
+    kwTimer.current = setTimeout(() => setKwQ(kw), 350)
+    return () => clearTimeout(kwTimer.current)
+  }, [kw])
 
   // ── 新增问答弹窗（端点 3/4/14——三源起草＋重复校验＋关联口径） ──
   const [addOpen, setAddOpen] = useState(false)
@@ -242,6 +257,24 @@ export default function B3() {
 
   // ── 合并相似问（端点 7——目标由人选，更正项 ⑫） ──
   const [mergeFrom, setMergeFrom] = useState(null)
+  const [mergeTarget, setMergeTarget] = useState(null)
+  const [mergeOpen, setMergeOpen] = useState(false)
+  const [mergeTargets, setMergeTargets] = useState([])  // UI-04 T12：目标选项数据源（全库，不带筛）
+
+  // UI-04 T12：打开弹窗即独立调用 getItems()（不携状态筛/关键词）——状态筛/关键词
+  // 激活时跨状态目标可选（对齐「从库内其余问答中选」承诺）；排除条件在渲染处照抄原行为。
+  async function openMerge(r) {
+    setMergeFrom(r)
+    setMergeTarget(null)
+    setMergeOpen(true)
+    try {
+      const d = await getItems()
+      setMergeTargets(d.items)
+    } catch (err) {
+      setMergeTargets([])  // 拉取失败目标下拉置空——合并按钮因无目标禁用，失败不误合并
+      message.error(errText(err))
+    }
+  }
 
   async function doMerge() {
     if (!mergeFrom) return
@@ -255,8 +288,6 @@ export default function B3() {
       message.error(errText(err))
     }
   }
-  const [mergeTarget, setMergeTarget] = useState(null)
-  const [mergeOpen, setMergeOpen] = useState(false)
 
   // ── 发布/停用启用（端点 17/8） ──
   async function publish(row) {
@@ -283,6 +314,7 @@ export default function B3() {
   const [mineOpen, setMineOpen] = useState(false)
   const [cands, setCands] = useState([])
   const [candTotal, setCandTotal] = useState(0)
+  const [candLoading, setCandLoading] = useState(false)  // UI-04 T13：候选表加载态
   const [mineF, setMineF] = useState('all')
   const [scanTaskId, setScanTaskId] = useState(null)
   const [scanMsg, setScanMsg] = useState(null)
@@ -291,16 +323,19 @@ export default function B3() {
   const [lastHint, setLastHint] = useState(null)
 
   const refreshCandidates = useCallback(async (status = mineF) => {
+    setCandLoading(true)  // UI-04 T13：拉取期间候选表渲染 loading（对照主表先例）
     try {
       const d = await getCandidates({ status })
       setCands(d.items)
-      setCandTotal(d.total)
+      setCandTotal(d.total)  // 信封 total（CandidatesResponse 带 total——app/api/faq.py:405-407）
       setLastHint(d.scan.lastHint)
       if (d.scan.runningTaskId) setScanTaskId(d.scan.runningTaskId)  // 重开弹窗恢复轮询
       return d
     } catch (err) {
       message.error(errText(err))
       return null
+    } finally {
+      setCandLoading(false)
     }
   }, [mineF])
 
@@ -309,7 +344,7 @@ export default function B3() {
   }, [mineOpen, mineF, refreshCandidates])
 
   // 扫库轮询（端点 11——关弹窗不中断，重开经 scan.running_task_id 恢复）
-  const { status: pollStatus, data: pollData } = useFaqScanPolling(scanTaskId)
+  const { status: pollStatus, data: pollData, error: pollError } = useFaqScanPolling(scanTaskId)
   useEffect(() => {
     if (pollStatus === 'polling') setScanning(true)
     if (pollStatus === 'done' && pollData) {
@@ -322,8 +357,15 @@ export default function B3() {
     if (pollStatus === 'failed') {
       setScanning(false)
       setScanTaskId(null)
+      // UI-04 T6：扫库失败可感知——轮询通道失败（error 非空）与终态行 failed/stuck
+      //（HTTP 200 不触发 client toast）分立提示，两条路都不再静默
+      if (pollError) message.error('扫库进度查询失败：' + errText(pollError))
+      else {
+        message.error('扫库任务未成功（状态：' + (pollData?.status || pollData?.state || 'failed')
+          + '）——可在本页重新发起扫库')
+      }
     }
-  }, [pollStatus, pollData, refreshCandidates])
+  }, [pollStatus, pollData, pollError, refreshCandidates])
 
   async function runScan() {
     setScanMsg(null)
@@ -406,9 +448,8 @@ export default function B3() {
     }
   }
 
-  // ── ⚙ 检索配置（纯展示——配置端点撤除登记 B3-6；保存仅本地确认态） ──
+  // ── ⚙ 检索配置（只读展示——配置端点撤除登记 B3-6；UI-04 T2：假保存控件清除） ──
   const [cfgOpen, setCfgOpen] = useState(false)
-  const [saved, setSaved] = useState(false)
 
   const cols = [
     { title: '问题', dataIndex: 'question', width: 240, render: v => <b style={{ fontSize: 13 }}>{v}</b> },
@@ -448,7 +489,7 @@ export default function B3() {
           {r.status !== 'pending_review' && r.status !== 'negative' && (
             <Tooltip title="合并相似问：并入另一条问答（目标由人选）">
               <Button size="small" icon={<MergeOutlined />} aria-label={`合并：${r.question}`}
-                onClick={e => { e.stopPropagation(); setMergeFrom(r); setMergeTarget(null); setMergeOpen(true) }} />
+                onClick={e => { e.stopPropagation(); openMerge(r) }} />
             </Tooltip>
           )}
           <Tooltip title="问答详情">
@@ -462,14 +503,18 @@ export default function B3() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* UI-04 T5：统一页头三件套（方案 §4.2——18px 标题＋一句 13px 灰字副标题＋helpTop；
+          副标题＝原卡头三句口号、helpTop＝POSITION_HELP；页根 gap:16 承担与卡片的间距） */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontSize: 18, fontWeight: 600 }}>常见问题库</span>
+        <span style={{ color: '#8a94a3', fontSize: 13 }}>
+          常问问题直接秒回 · 不该答的登记负例永不参与 · 服务问答与考核题库分开两本账
+          {helpIcon(POSITION_HELP)}
+        </span>
+      </div>
       <Card
         title={<span>问答清单（{grandTotal}）</span>}
-        extra={
-          <Space size={4}>
-            <span style={dim}>常问问题直接秒回 · 不该答的登记负例永不参与 · 服务问答与考核题库分开两本账</span>
-            {helpIcon(POSITION_HELP)}
-          </Space>
-        }
+        extra={helpIcon(POSITION_HELP) /* UI-04 T5：卡头 extra 三句口号删除只留 helpIcon（副标题已承载） */}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <Space wrap size={8}>
@@ -481,7 +526,7 @@ export default function B3() {
               onClick={() => { setImpResult(null); setImpFile(null); setImpOpen(true) }}>导入</Button>
             <Button size="small" icon={<ExportOutlined />} onClick={runExport}>导出</Button>
             <Tooltip title="检索配置（相似问合并阈值 / 负例登记入口）">
-              <Button size="small" icon={<SettingOutlined />} onClick={() => { setSaved(false); setCfgOpen(true) }} />
+              <Button size="small" icon={<SettingOutlined />} onClick={() => setCfgOpen(true)} />
             </Tooltip>
             <Select size="small" style={{ width: 128 }} value={statusF} onChange={setStatusF}
               options={[
@@ -496,21 +541,33 @@ export default function B3() {
           </Space>
           <span style={dim}>{`筛选结果 ${total} / ${grandTotal} 条`}</span>
         </div>
-        <Table
-          size="small" columns={cols} dataSource={rows} pagination={false} rowKey="id"
-          loading={loading}
+        {/* UI-04 T3：失败态≠空态——内联 Alert 常驻（失败呈现不再伪装成「暂无数据」） */}
+        {itemsError && (
+          <Alert style={{ marginBottom: 12 }} type="error" showIcon
+            message="问答清单拉取失败——下表不是最新数据" description={errText(itemsError)} />
+        )}
+        {/* UI-04 T1：接 PagedTable client 模式（pageSize 20、hideOnSinglePage=false＋showTotal
+            组件内定死——统计恒显）；resetKey 绑 statusF|kwQ（kw 为 T10 防抖后查询值）；
+            T4 空态定死话术；T3 失败态经 error prop 切错误空态（内联 Alert 另挂——两件并存） */}
+        <PagedTable
+          size="small" columns={cols} dataSource={rows} rowKey="id" loading={loading}
           onRow={r => ({
             onDoubleClick: () => openDetail(r.id),
             style: { cursor: 'pointer' }
           })}
+          emptyText="还没有问答：点「新增问答」录入，或「导入」批量建。"
+          error={itemsError}
+          errorEmptyText="问答清单拉取失败"
+          resetKey={`${statusF}|${kwQ}`}
         />
         {mergeHint && <Alert style={{ marginTop: 12 }} type="success" showIcon
           message={mergeHint} closable onClose={() => setMergeHint(null)} />}
       </Card>
 
-      {/* ⚙ 检索配置（纯展示——配置端点撤除登记，B3-6/B3-4） */}
+      {/* ⚙ 检索配置（只读展示——配置端点撤除登记，B3-6/B3-4；UI-04 T2：假保存按钮与
+          「已保存」本地回执删除，弹窗零写动作；T8：? 工程口吻改业务口吻） */}
       <Modal
-        title={<span>检索配置{helpIcon(<>相似问合并阈值：入库与导入去重时，候选与既有问答相似度高于该值判"疑似重复"——建议改用合并相似问，不新增条目；阈值由实施批校准（配置读写端点已撤除——扩检轮数收敛 D2）。</>)}</span>}
+        title={<span>检索配置（只读展示）{helpIcon(<>相似问合并阈值：入库与导入去重时，候选与既有问答相似度高于该值判"疑似重复"——建议改用合并相似问，不新增条目；阈值由系统管理员统一校准。</>)}</span>}
         open={cfgOpen} onCancel={() => setCfgOpen(false)} footer={null} width={520}
       >
         <div style={{ marginBottom: 12 }}>
@@ -529,10 +586,6 @@ export default function B3() {
             {helpIcon(<>在"新增问答"里勾选"登记为负例"即可登记。</>)}
           </Space>
         </div>
-        <Space style={{ marginTop: 12 }}>
-          <Button type="primary" size="small" onClick={() => setSaved(true)}>保存配置</Button>
-          {saved && <span style={dim}>已保存（本页配置为只读展示——扩检轮数等运行参数见 D2 检索与回答）。</span>}
-        </Space>
       </Modal>
 
       {/* 新增问答（端点 3 消费面——三源起草＋重复校验＋待审核提示） */}
@@ -596,7 +649,8 @@ export default function B3() {
         <div style={fieldLabel}>并入目标（从库内其余问答中选）</div>
         <Select size="small" style={{ width: '100%' }} placeholder="选择目标问答…"
           value={mergeTarget} onChange={setMergeTarget}
-          options={rows
+          options={mergeTargets
+            /* UI-04 T12：数据源换全库清单（openMerge 不带筛 getItems），排除条件照抄原行为 */
             .filter(r => r.id !== mergeFrom?.id && r.status !== 'pending_review')
             .map(r => ({ value: r.id, label: r.question }))} />
       </Modal>
@@ -658,9 +712,12 @@ export default function B3() {
         {!scanning && (scanMsg || lastHint) && (
           <Alert style={{ marginBottom: 12 }} type="success" showIcon message={scanMsg || lastHint} />
         )}
-        <Table
-          size="small" pagination={false} rowKey="id"
-          dataSource={cands}
+        {/* UI-04 T7：候选表接 PagedTable client 模式（pageSize 20、统计恒显）；自绘
+            expandIcon 原样透传（B3.test 钉 .ant-table-row-expand-icon）；resetKey=mineF
+            （方案 §2.2 总表）；T13 loading 接线（对照主表先例） */}
+        <PagedTable
+          size="small" rowKey="id" dataSource={cands} loading={candLoading}
+          resetKey={mineF}
           expandable={{
             rowExpandable: c => !!c.compare, // 没有比对结果就不显示展开按钮（合同）
             expandIcon: ({ expandable: can, onExpand, record }) =>
