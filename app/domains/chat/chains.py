@@ -321,7 +321,9 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
             best = relaxed_best
             rescored_note = (
                 f"资格裁决（放宽重评过闸）：原分 {original_best:.2f} → 重评分 {best:.2f}"
-                f" ≥ 低分线 {cfg.refuse_threshold:.2f}——过闸照常生成（不弹帧）"
+                f" ≥ 低分线 {cfg.refuse_threshold:.2f}"
+                f"（生成窗分池——报告类上限 {d.EVIDENCE_CAP}＋台账类上限 "
+                f"{d.LEDGER_EVIDENCE_CAP}，两池互不占位）——过闸照常生成（不弹帧）"
             )
         else:
             # —— 第二道：LLM 改写＋双句评分（仅此刻一次 LLM 调用；同一把尺——
@@ -379,6 +381,8 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
                     f"资格裁决（改写过闸·澄清额度已用完——自动按优化问法作答）："
                     f"原句 {original_best:.2f} · 放宽重评 {relaxed_best:.2f} · "
                     f"优化句 {best:.2f} ≥ 低分线 {cfg.refuse_threshold:.2f}"
+                    f"（生成窗分池——报告类上限 {d.EVIDENCE_CAP}＋台账类上限 "
+                    f"{d.LEDGER_EVIDENCE_CAP}，两池互不占位）"
                     "——不弹第二帧（澄清帧有界循环）"
                 )
             else:

@@ -177,6 +177,12 @@ class TestS6WindowPooling:
         assert cap_notices == [
             "报告类证据 6 支，仅送前 4 支进生成——另有 2 支未列出。",
         ]  # 重评过闸同分池口径（报告类池 6→4）
+        # 过闸 rescored_note 携带分池口径（与主路径 S6 注记同口径——R1 修复钉死防回退）
+        s6_notes = " ".join(
+            str(f.get("note") or "") for f in events_by_name(events)["node"]
+            if f["key"] == "S6"
+        )
+        assert "生成窗分池——报告类上限 4＋台账类上限 2，两池互不占位" in s6_notes
         assert "chat.query.rewrite" not in seams.completions  # 第二道未触发
         answer = events_by_name(events)["answer"][0]
         assert answer["kind"] == "text"
