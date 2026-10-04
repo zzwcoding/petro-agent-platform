@@ -142,8 +142,9 @@ export default function PagedTable(props) {
     }
     // 主通道：ResizeObserver（标准环境随窗口/内容变化重算）。
     // 兜底通道（UI-12 真机复验发现）：部分嵌入式内核 RO 回调不送达（实测最小复现
-    // 零回调）——挂载即测＋双 rAF 补测＋resize 事件重测，保证任何环境出初始 y；
-    // measure 幂等（同值 setY 不引发额外渲染），channels 并存无副作用。
+    // 零回调）——挂载即测＋双 rAF＋150/400/900ms 三拍重测＋resize 事件。多拍原因：
+    // 首帧测高可能是布局未稳的瞬态值（卡头/页签/字体就位前），标准浏览器由 RO 二次
+    // 纠正，无 RO 环境靠节拍收敛到稳态。measure 幂等（同值 setY 不引发额外渲染）。
     let ro
     if (typeof ResizeObserver !== 'undefined') {
       ro = new ResizeObserver(measure)
@@ -155,11 +156,13 @@ export default function PagedTable(props) {
     if (typeof requestAnimationFrame !== 'undefined') {
       raf1 = requestAnimationFrame(() => { raf2 = requestAnimationFrame(measure) })
     }
+    const beats = [150, 400, 900].map(ms => setTimeout(measure, ms))
     window.addEventListener('resize', measure)
     return () => {
       if (ro) ro.disconnect()
       if (raf1) cancelAnimationFrame(raf1)
       if (raf2) cancelAnimationFrame(raf2)
+      beats.forEach(clearTimeout)
       window.removeEventListener('resize', measure)
     }
   }, [fill])
