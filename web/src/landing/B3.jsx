@@ -503,14 +503,17 @@ export default function B3() {
   ]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minHeight: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
       {/* UI-04 T5 统一页头＋UI-09 收束：口号副标题删除——POSITION_HELP 移挂页标题旁
           （卡头 extra ? 保留，与标题 ? 同一文案；页根 gap:16 承担与卡片的间距） */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 18, fontWeight: 600 }}>常见问题库{helpIcon(POSITION_HELP)}</span>
       </div>
       <Card
-        style={{ flex: '1 0 auto' }} // UI-08：短内容撑满 Content 剩余高，长表照常页级滚动（方案 §4.1 白名单语义不变）
+        // UI-12：root→Card→body flex 链（无 Tabs）——Card 高度有界，body flex 列
+        // overflow:hidden，工具栏行恒在，问答清单 PagedTable fill 内滚、页面级滚动消灭
+        style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}
+        styles={{ body: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } }}
         title={<span>问答清单（{grandTotal}）</span>}
         extra={helpIcon(POSITION_HELP) /* UI-04 T5：卡头 extra 三句口号删除只留 helpIcon（副标题已承载） */}
       >
@@ -546,8 +549,10 @@ export default function B3() {
         )}
         {/* UI-04 T1：接 PagedTable client 模式（pageSize 20、hideOnSinglePage=false＋showTotal
             组件内定死——统计恒显）；resetKey 绑 statusF|kwQ（kw 为 T10 防抖后查询值）；
-            T4 空态定死话术；T3 失败态经 error prop 切错误空态（内联 Alert 另挂——两件并存） */}
+            T4 空态定死话术；T3 失败态经 error prop 切错误空态（内联 Alert 另挂——两件并存）；
+            UI-12：fill 表内滚（问答清单长表卡内滚、页面不滚） */}
         <PagedTable
+          fill
           size="small" columns={cols} dataSource={rows} rowKey="id" loading={loading}
           onRow={r => ({
             onDoubleClick: () => openDetail(r.id),

@@ -4,12 +4,13 @@
  * ② resetKey 变化归页 1（筛条件联动）；
  * ③ 超界钳制（第 2 页停驻时数据缩短至 5 行 → 自动归页 1 非空表）；
  * ④ error 非空时空态描述切 errorEmptyText（缺省「数据拉取失败」）；
- * ⑤ server 模式受控（page/pageSize/total 驱动渲染，onPageChange(page, pageSize) 上抛）。
+ * ⑤ server 模式受控（page/pageSize/total 驱动渲染，onPageChange(page, pageSize) 上抛）；
+ * ⑥ fill 表内滚（UI-12——observer 观测 wrapper、回调补挂 scroll.y、未传 fill 零回归）。
  */
 
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import PagedTable from './PagedTable.jsx'
 import { ApiError } from '../api/client.js'
 
@@ -108,5 +109,53 @@ describe('PagedTable（UI-00 共享分页封装）', () => {
     fireEvent.click(container.querySelector('.ant-pagination-item-3'))
     expect(onPageChange).toHaveBeenCalledTimes(1)
     expect(onPageChange).toHaveBeenCalledWith(3, 15)
+  })
+
+  it('⑥ fill 模式（UI-12）：observer 已挂且观测 wrapper，回调补挂 scroll.y；未传 fill 与现基线同形（零回归锚）', () => {
+    // stub window.ResizeObserver：捕获观测目标、手动触发回调（jsdom 无真实观测）
+    const observed = []
+    let fire = () => {}
+    const RealRO = window.ResizeObserver
+    class ROStub {
+      constructor(cb) { fire = () => cb([], this) }
+      observe(el) { observed.push(el) }
+      unobserve() {}
+      disconnect() {}
+    }
+    window.ResizeObserver = ROStub
+    try {
+      const { container } = render(
+        <PagedTable fill dataSource={rows(23)} columns={COLS} rowKey="id" emptyText="x" />
+      )
+      // ① observer 已挂且观测 wrapper（fill 外层 flex 容器＝container 首子）
+      expect(observed).toHaveLength(1)
+      const wrapper = observed[0]
+      expect(container.firstElementChild).toBe(wrapper)
+      // 首帧不传 y（thead/pagination 尚未实测）——Table 未获得 scroll.y（无 .ant-table-body 内滚容器）
+      expect(container.querySelector('.ant-table-body')).toBeNull()
+
+      // 手动触发观测回调：测高 stub wrapper 600 − thead 40 − pagination 32 → y=528
+      const def = (el, prop, v) => Object.defineProperty(el, prop, { configurable: true, value: v })
+      def(wrapper, 'clientHeight', 600)
+      def(wrapper.querySelector('.ant-table-thead'), 'offsetHeight', 40)
+      def(wrapper.querySelector('.ant-pagination'), 'offsetHeight', 32)
+      act(() => { fire() })
+      // ② 回调触发后 Table 获得 scroll.y＝528（rc-table 以 div.ant-table-body 承接内滚）
+      const body = container.querySelector('.ant-table-body')
+      expect(body).toBeTruthy()
+      expect(body.style.maxHeight).toBe('528px')
+      expect(body.style.overflowY).toBe('scroll')
+
+      // ③ 零回归锚：未传 fill——无 wrapper 包裹、observer 不挂、回调路径不产生 scroll.y
+      observed.length = 0
+      fire = () => {}
+      const bare = render(<PagedTable dataSource={rows(23)} columns={COLS} rowKey="id" emptyText="x" />)
+      expect(observed).toHaveLength(0) // 不挂 observer
+      expect(bare.container.firstElementChild.className).toContain('ant-table-wrapper') // 无 fill 包裹层
+      expect(bare.container.querySelector('.ant-table-body')).toBeNull()
+      expect(bare.container.querySelectorAll('.ant-table-tbody tr.ant-table-row')).toHaveLength(20)
+    } finally {
+      window.ResizeObserver = RealRO
+    }
   })
 })
