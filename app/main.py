@@ -50,10 +50,15 @@ P2-M-02 起 wells 域点亮（A2 井档案四端点）：midplatform 只读路�
 （M-01 交付的 verify_midplatform_route——缺依赖拒绝启动）＋well_status_log
 补位表入装配（99 §2.3，Alembic 0017 并行；写入通道挂 99 开放问题 2，本批只落
 读面）＋/api/wells 路由族挂载（行级过滤预埋缝消费——M-01 with_row_filter 两步缝）。
-M-05a 起 dataops/quality 域点亮（E2 质检台管理面半边）：quality 表族五表入
+M-05a 起 dataops/quality 域点亮（E2 质检台管理面半边）：quality 表族入
 装配（ensure_quality_tables——99 §2.12，Alembic 0015 并行；种子随迁移承载）
 ＋/api/quality 路由族挂载（规则读面/启停、问题单五态状态机、水位 T-1 判定、
-隔离区读面；端点 3/4/5 执行通道 501 壳——复扫执行缝缺省未接，注入归 M-05b）。
+隔离区读面）。M-05b 起 E2 执行通道点亮（任务表轮询形态——DP-04 交付适配，
+接口合同＝quality_task 行形零共享库）：quality_task 第六表入装配（M-05a
+留注兑现——任务受理/轮询/接续/历史消费面）＋端点 3/4/5 接通（受理落行即
+触发面；done 接续建单/挂单/隔离行回挂 step→4；历史倒序）＋复扫执行缝生产
+装配（DataPlaneChannelRescanExecutor 经组合根两段绑定——数据面质检通道
+适配器，B9 运行期只见 callable）。
 
 建表与迁移的交接（P0-08 票面）：ensure_*_table 与 Alembic 并行存活，
 本票不切换——各域切换迁移属各域票（基线空迁移见 migrations/versions/0001）。
@@ -89,7 +94,11 @@ from app.domains.chat import (
     TermFace,
 )
 from app.domains.chat.store import ensure_chat_tables
-from app.domains.dataops.quality import QualityService, ensure_quality_tables
+from app.domains.dataops.quality import (
+    QualityService,
+    bind_channel_rescan,
+    ensure_quality_tables,
+)
 from app.domains.derivatives import DerivativesService
 from app.domains.derivatives.service import load_extract_config_snapshot
 from app.domains.derivatives.store import ensure_derivatives_tables
@@ -136,16 +145,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await ensure_chat_tables(manager.engine())  # 同上——chat 三表（99 §2.2；P1-08a 并行）
     await ensure_wells_tables(manager.engine())  # 同上——well_status_log 补位表（99 §2.3；M-02，
     #   Alembic 0017 并行——写入通道挂 99 开放问题 2，本批只落读面承载）
-    await ensure_quality_tables(manager.engine())  # 同上——quality 表族五表（99 §2.12；M-05a，
+    await ensure_quality_tables(manager.engine())  # 同上——quality 表族六表（99 §2.12；
     #   Alembic 0015 并行——种子（20 条规则）随迁移 0015 承载，ORM 侧不重播；
-    #   quality_task 第六表归 M-05b 随其消费语义登记）
+    #   quality_task 第六表 M-05b 起随任务通道消费面登记）
     await seed_demo_if_empty(manager.engine())  # 演示种子（合同 DTO 九条问答＋四簇候选——幂等）
     app.state.db = manager
     app.state.security = SecurityService(manager)
     app.state.wells = WellsService(manager)  # A2 井档案读模型（M-02——纯读域）
-    # E2 质检台管理面（M-05a）：rescan 执行缝缺省未接＝501 诚实壳（增量复扫走
-    # 数据面质检通道——执行器注入归 M-05b，B9 同款只见 callable）。
-    app.state.quality = QualityService(manager)
+    # E2 质检台（M-05a 管理面＋M-05b 执行通道）：复扫执行缝生产装配＝数据面
+    # 质检通道适配器（任务表轮询——channel.py；组合根两段绑定消解服务环，
+    # B9 同款运行期只见 callable；缺省未接＝501 诚实壳——测试底座形态）。
+    quality = QualityService(manager)
+    bind_channel_rescan(quality, manager)
+    app.state.quality = quality
     app.state.gateway = GatewayService(manager, LlmClient())
     app.state.semantics = SemanticsService(manager, app.state.security)  # B12 审计写口注入
     app.state.retrieval = RetrievalService(manager)  # D2 配置面（P1-07——B12 审计在 api 层编排）
@@ -451,7 +463,7 @@ app.include_router(graph_router)  # B5 关系图谱（P1-05——derivatives gra
 app.include_router(faq_router)  # B3 常见问题库（P1-06——faq 模块，98 §5）
 app.include_router(retrieval_router)  # D2 搜索与回答·配置面（P1-07——retrieval 模块，98 §5）
 app.include_router(wells_router)  # A2 井档案（M-02——wells 模块，98 §5；纯读域）
-# E2 数据质量台·管理面（M-05a——dataops/quality 模块；任务执行通道壳 501 归 M-05b 接通）
+# E2 数据质量台（M-05a 管理面＋M-05b 任务执行通道——dataops/quality 模块）
 app.include_router(quality_router)
 
 

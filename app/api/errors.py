@@ -61,9 +61,15 @@
 - quality_close_not_verified：quality 域 422（E2 端点 7 合同冻结状态码——
   00 §3.2 常规族外特例，随合同走；M-05a 新立值）——关闭守卫：verify 复扫
   全绿与 close_note 免修原因二者皆无。
-- quality_task_channel_deferred：quality 域端点壳 501（kb_fragment_revise_
-  deferred 先例；501 非合同状态码，差异登记票面）——任务执行通道（端点 3/4/5）
-  与复扫执行缝随数据面质检重建接通（M-05b），不 mock 假任务/假复扫结论。
+- quality_task_channel_deferred：quality 域 501（kb_fragment_revise_deferred
+  先例；501 非合同状态码，差异登记票面）——M-05a 立壳时覆盖端点 3/4/5 任务
+  通道与复扫执行缝；M-05b 接通后语义收窄为两处：复扫执行缝缺省未接（缺省
+  服务形态——测试底座）＋复扫任务限时未被数据面拾取完成（任务表轮询超时）。
+- quality_task_not_found：quality 域 404（E2 错误码草案；M-05b 新立值，登记于
+  回报偏差节——tickets/phase2/ 属不动区不直记）——端点 4 轮询未知任务号。
+- quality_task_running：quality 域 409（合同端点 3 冻结状态码「同一时刻最多
+  一个任务进行中，重入返回 409」；错误码 M-05b 新立值随票面登记）——任务
+  受理重入/并发受理撞当日序号（同族 409，无脏数据可重试）。
 """
 
 from __future__ import annotations
@@ -82,6 +88,8 @@ from app.domains.dataops.quality import (
     QualityParamError,
     QualityRuleNotFoundError,
     QualityTaskChannelDeferredError,
+    QualityTaskNotFoundError,
+    QualityTaskRunningError,
 )
 from app.domains.derivatives import (
     GraphNotFoundError,
@@ -441,11 +449,34 @@ def install_error_handlers(app: FastAPI) -> None:
     async def handle_quality_task_deferred(
         request: Request, exc: QualityTaskChannelDeferredError
     ) -> JSONResponse:
-        # 端点壳 501（kb_fragment_revise_deferred 先例）：任务执行通道/复扫
-        # 执行缝随数据面质检重建接通（M-05b）——诚实注记，不 mock。
+        # 端点壳 501（kb_fragment_revise_deferred 先例）：M-05b 起语义收窄——
+        # 复扫执行缝缺省未接（缺省服务形态）；复扫任务限时未被数据面拾取完成
+        # （任务表轮询通道超时，拾取半边未运行）——诚实注记，不 mock。
         return JSONResponse(
             status_code=501,
             content=error_payload(CODE_QUALITY_TASK_DEFERRED, str(exc)),
+        )
+
+    @app.exception_handler(QualityTaskNotFoundError)
+    async def handle_quality_task_not_found(
+        request: Request, exc: QualityTaskNotFoundError
+    ) -> JSONResponse:
+        # E2 错误码草案 404：质检任务不存在（端点 4 轮询未知任务号——M-05b
+        # 新立值，登记于回报偏差节；tickets/phase2/ 不动红线不直记）。
+        return JSONResponse(
+            status_code=404,
+            content=error_payload("quality_task_not_found", str(exc)),
+        )
+
+    @app.exception_handler(QualityTaskRunningError)
+    async def handle_quality_task_running(
+        request: Request, exc: QualityTaskRunningError
+    ) -> JSONResponse:
+        # 合同端点 3 冻结 409：同一时刻最多一个任务进行中，重入拒收——
+        # code=quality_task_running（M-05b 新立值随票面登记，同上）。
+        return JSONResponse(
+            status_code=409,
+            content=error_payload("quality_task_running", str(exc)),
         )
 
     @app.exception_handler(RequestValidationError)

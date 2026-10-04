@@ -12,6 +12,7 @@ PG 实跑（挂单语义→流转全路径→rescan 替身回填→关闭守卫/
 T-1 判定；隔离区 append-only 读＋CHECK 约束实证（PG 侧）。
 """
 
+import asyncio
 import importlib.util
 import os
 from collections.abc import AsyncIterator
@@ -22,7 +23,7 @@ from typing import Any
 import pytest
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -32,12 +33,19 @@ from app.domains.dataops.quality import (
     QualityCloseBlockedError,
     QualityIssueStateError,
     QualityService,
+    QualityTaskNotFoundError,
+    QualityTaskRunningError,
+    bind_channel_rescan,
 )
 from app.domains.dataops.quality.domain import QrowView
-from app.domains.dataops.quality.store import QuarantineRow, WaterLine
+from app.domains.dataops.quality.store import QualityStore, QualityTask, QuarantineRow, WaterLine
 from app.infra.clock import freeze
 from app.infra.db import ConnectionManager, DatabaseSpec
-from tests.domains.dataops.quality.conftest import add_water_line, green_executor
+from tests.domains.dataops.quality.conftest import (
+    add_water_line,
+    finish_like_data_plane,
+    green_executor,
+)
 
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "")
 
@@ -308,3 +316,109 @@ class TestQuarantineOnPg:
                     )
                 )
                 await session.flush()
+
+
+# ---------- (e) 任务执行通道 PG 实跑（M-05b——真 0015 quality_task 行形＋条件认领原子闸） ----------
+
+_DP_REPORT = {
+    "range": "生产库 8 表",
+    "tables": {"oil_production_daily": 3},
+    "scanned_rows": 12604,
+    "rules_run": 2,
+    "quarantined_rows": 1,
+    "rejected_batches": 0,
+    "hits": [{
+        "rule_no": 8, "kind": "写法不统一", "action": "隔离",
+        "hit_count": 1, "sample": [{"equip_id": "EQUIP-01", "code": "R3"}],
+    }],
+    "verdict": "质检完成：2 条启用规则——问题单建单与责任岗分发归主平台 E2 接续",
+}
+
+
+async def _running_step0(manager: ConnectionManager) -> str | None:
+    async with manager.readonly() as session:
+        stmt = select(QualityTask.id).where(
+            QualityTask.status == "running", QualityTask.step == 0
+        )
+        return (await session.execute(stmt)).scalars().first()
+
+
+class TestTaskChannelOnPg:
+    async def test_accept_followup_and_history(self, manager: ConnectionManager) -> None:
+        service = QualityService(manager)
+        receipt = await service.accept_task()
+        assert receipt.rules_count == 12  # 0015 种子启用集（1-12 实施）
+        row = await QualityStore(manager).get_task(receipt.task_id)
+        assert row is not None
+        assert (row.status, row.step, row.rules_count) == ("running", 0, 12)
+        # 单任务闸（合同端点 3 重入 409）＋quality_task status CHECK 实证
+        with pytest.raises(QualityTaskRunningError):
+            await service.accept_task()
+        with pytest.raises(IntegrityError):
+            async with manager.session() as session:
+                session.add(QualityTask(id="QT-X-99", status="failed", time=row.time))
+                await session.flush()
+        # 数据面管道替身执行（隔离行落表＋报告 1:1 完任务——同批次 id）
+        async with manager.session() as session:
+            session.add(QuarantineRow(
+                batch_id=receipt.task_id, rule_no=8, action="隔离",
+                loc="设备状态 · EQUIP-01",
+                payload={"equip_id": "EQUIP-01", "code": "R3", "note": "旧码 R3"},
+            ))
+        await finish_like_data_plane(
+            manager, receipt.task_id, report=_DP_REPORT, hits=1
+        )
+        view = await service.get_task(receipt.task_id)
+        assert view.status == "done" and view.step == 4  # E2 接续（条件认领原子闸）
+        assert view.followup is not None
+        assert (view.followup.created, view.followup.rows_linked) == (1, 1)
+        assert view.task is not None and view.task.report is not None
+        assert view.task.report["scanned"] == "12,604 行"
+        page = await service.list_issues(rule_no=8)
+        fresh = [i for i in page.items if i.id.startswith("d")]
+        assert len(fresh) == 1 and fresh[0].lane == 0
+        # 条件认领闸：step=4 后再认领＝False（幂等不重复建单）
+        async with manager.session() as session:
+            assert not await QualityStore.claim_task_followup(session, receipt.task_id)
+        # 历史（端点 5 倒序）＋未知任务 404
+        history = await service.list_tasks()
+        assert [t.id for t in history] == [receipt.task_id]
+        with pytest.raises(QualityTaskNotFoundError):
+            await service.get_task("QT-19700101-01")
+
+    async def test_rescan_channel_green_with_worker_pickup(
+        self, manager: ConnectionManager
+    ) -> None:
+        service = QualityService(manager)
+        hit = await service.register_hit(
+            rule_no=8, object_key="equip_id=EQUIP-01;code=R3", data_date="",
+            title="规则 8 · 写法不统一 · EQUIP-01 · R3",
+        )
+        await service.transition_issue(hit.issue_id, "小李")
+        await service.transition_issue(hit.issue_id, "小李")
+        await service.transition_issue(hit.issue_id, "小李")  # 复核态
+        bind_channel_rescan(service, manager)
+
+        async def worker() -> None:
+            for _ in range(400):
+                task_id = await _running_step0(manager)
+                if task_id is not None:
+                    await finish_like_data_plane(
+                        manager, task_id,
+                        report={**_DP_REPORT, "hits": [{
+                            "rule_no": 8, "kind": "写法不统一", "action": "隔离",
+                            "hit_count": 1,
+                            "sample": [{"equip_id": "EQUIP-99", "code": "R3"}],
+                        }]},
+                        hits=1,
+                    )
+                    return
+                await asyncio.sleep(0.01)
+            raise AssertionError("拾取替身超时")
+
+        pick = asyncio.ensure_future(worker())
+        receipt = await service.transition_issue(hit.issue_id, "小李", action="rescan")
+        await pick
+        assert receipt.lane == 3
+        assert receipt.verify is not None
+        assert receipt.verify.note == RESCAN_GREEN_NOTE  # F2 哨兵同词表（PG 侧）

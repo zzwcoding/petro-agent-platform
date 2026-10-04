@@ -6,6 +6,10 @@
 合同锚：E2-数据质量台.md v0.5（端点形状/错误码/行为约定 5）、00 §3（错误包）。
 """
 
+from __future__ import annotations
+
+import asyncio
+import re
 from collections.abc import AsyncIterator
 from typing import Any, NamedTuple
 
@@ -30,6 +34,7 @@ from tests.domains.dataops.quality.conftest import (
     add_issue,
     add_quarantine,
     add_water_line,
+    finish_like_data_plane,
     green_executor,
     seed_rule,
 )
@@ -382,21 +387,149 @@ class TestIssuesEndpoint:
         assert resp.json()["code"] == "request_invalid"
 
 
-# ---------- (e) 任务端点壳（3/4/5——501 诚实注记，不 mock 假任务） ----------
+# ---------- (f) 任务执行通道（M-05b 接通——端点 3/4/5；数据面管道集成替身） ----------
 
 
-class TestTaskShells:
-    @pytest.mark.parametrize(
-        ("method", "path"),
-        [("post", "/api/quality/tasks"), ("get", "/api/quality/tasks/QT-20260928-01"),
-         ("get", "/api/quality/tasks")],
-    )
-    def test_shells_501_deferred(self, env: Env, method: str, path: str) -> None:
-        resp = getattr(env.client, method)(path, headers=AQIANG_HEADERS)
-        assert resp.status_code == 501
-        body = resp.json()
-        assert body["code"] == "quality_task_channel_deferred"
-        assert "执行通道随数据面质检重建接通" in body["message"]
+def _dp_report(hits: list[dict[str, Any]]) -> dict[str, Any]:
+    """DP-05 报告 jsonb 机器形替身（quarantined_rows/rejected_batches 合同键必带）。"""
+    return {
+        "range": "生产库 8 表",
+        "tables": {"oil_production_daily": 3, "equip_status": 2},
+        "scanned_rows": 12604,
+        "rules_run": 2,
+        "quarantined_rows": 1,
+        "rejected_batches": 0,
+        "hits": hits,
+        "verdict": "质检完成：2 条启用规则——问题单建单与责任岗分发归主平台 E2 接续",
+    }
+
+
+_EQUIP_HIT = {
+    "rule_no": 8, "kind": "写法不统一", "action": "隔离",
+    "hit_count": 1, "sample": [{"equip_id": "EQUIP-01", "code": "R3"}],
+}
+
+
+def _simulate_data_plane(
+    env: Env,
+    task_id: str,
+    report: dict[str, Any],
+    *,
+    hits: int,
+    quarantine: dict[str, Any] | None = None,
+) -> None:
+    """数据面质检管道集成替身（替身纪律：只许测试替身）——任务表轮询拾取半边
+    的同进程模拟：隔离行落表＋running 行按 DP-05 落库语义完任务（done/step=2/
+    报告 1:1）。独立事件循环＋池弃重建（夹具同款——TestClient portal loop 隔离）。"""
+
+    async def _run() -> None:
+        if quarantine is not None:
+            await add_quarantine(env.manager, batch_id=task_id, **quarantine)
+        await finish_like_data_plane(env.manager, task_id, report=report, hits=hits)
+        await env.manager.dispose()
+
+    asyncio.run(_run())
+
+
+class TestTaskChannel:
+    def test_start_202_mints_task_and_audit(self, env: Env) -> None:
+        resp = env.client.post("/api/quality/tasks", headers=AQIANG_HEADERS)
+        assert resp.status_code == 202
+        task_id = resp.json()["taskId"]
+        assert re.fullmatch(r"QT-\d{8}-01", task_id)  # 合同任务号规则（当日序号）
+        who, action, content = _audit_rows(env.db_path)[0]
+        assert (who, action) == ("阿强 · 平台运维", "quality.task_started")
+        assert content.startswith(f"质检任务 {task_id} 受理")
+        assert "启用规则 2 条；重跑撤分发未认领动态单 0 张" in content
+        assert "任务表轮询" in content
+
+    def test_reentry_409_then_history_seq_increments(self, env: Env) -> None:
+        first = env.client.post("/api/quality/tasks", headers=AQIANG_HEADERS).json()["taskId"]
+        resp = env.client.post("/api/quality/tasks", headers=AQIANG_HEADERS)
+        assert resp.status_code == 409  # 单任务进行中重入（合同端点 3）
+        assert resp.json()["code"] == "quality_task_running"
+        _simulate_data_plane(env, first, _dp_report([]), hits=0)
+        second = env.client.post("/api/quality/tasks", headers=AQIANG_HEADERS)
+        assert second.status_code == 202
+        assert second.json()["taskId"].endswith("-02")  # 当日序号递增（历史不清）
+
+    def test_poll_running_shape_then_done_three_landings(
+        self, env: Env
+    ) -> None:
+        task_id = env.client.post(
+            "/api/quality/tasks", headers=AQIANG_HEADERS
+        ).json()["taskId"]
+        running = env.client.get(
+            f"/api/quality/tasks/{task_id}", headers=AQIANG_HEADERS
+        )
+        assert running.status_code == 200
+        assert running.json() == {  # running 形＝合同示例 {taskId,status,step}
+            "taskId": task_id, "status": "running", "step": 0,
+        }
+        # 数据面管道替身执行（隔离行落表＋报告 1:1 完任务——同批次 id＝任务号）
+        _simulate_data_plane(
+            env, task_id, _dp_report([_EQUIP_HIT]), hits=1,
+            quarantine={
+                "rule_no": 8, "action": "隔离", "loc": "设备状态 · EQUIP-01",
+                "payload": {
+                    "equip_id": "EQUIP-01", "code": "R3",
+                    "note": "停机原因旧码 R3 未按映射表换成 BELT",
+                },
+            },
+        )
+        done = env.client.get(f"/api/quality/tasks/{task_id}", headers=AQIANG_HEADERS)
+        assert done.status_code == 200
+        body: dict[str, Any] = done.json()
+        assert set(body) == {"taskId", "status", "task"}  # done 形＝合同示例形
+        assert body["status"] == "done"
+        task = body["task"]
+        assert task["id"] == task_id and task["rules"] == 2 and task["hits"] == 1
+        report = task["report"]
+        assert report["range"] == "生产库 8 表"
+        assert report["scanned"] == "12,604 行"  # 展示串读侧拼装（合同示例形）
+        assert report["quarantined_rows"] == 1 and report["rejected_batches"] == 0
+        assert report["hits"] == ["① 规则 8：写法不统一命中 1 处 · 动作 隔离"]
+        # 三落地同源：报告身份＝隔离区批次 id＝问题单回挂链（验收 3）
+        issues = env.client.get("/api/quality/issues", headers=AQIANG_HEADERS).json()
+        assert issues["total"] == 4  # 预置三单（p8/p5/p10——重跑清不触碰）＋新建 d1
+        fresh = next(i for i in issues["items"] if i["id"] == "d1")
+        assert fresh["lane"] == 0 and fresh["rule_no"] == 8 and fresh["hit_count"] == 1
+        assert fresh["owner"] == "责任：作业区资料员（本次任务分发）"
+        assert fresh["title"] == "规则 8 · 写法不统一 · EQUIP-01 · R3"
+        assert fresh["qrows"] == [{
+            "loc": "设备状态 · EQUIP-01",
+            "note": "停机原因旧码 R3 未按映射表换成 BELT",
+        }]
+        quarantine = env.client.get(
+            "/api/quality/quarantine", params={"batch_id": task_id},
+            headers=AQIANG_HEADERS,
+        ).json()["items"]
+        assert quarantine[0]["issue_id"] == "d1"  # 回挂链贯通（batch＝task id）
+        # 接续审计行（B12——api 层成功路径落笔）
+        actions = [row[1] for row in _audit_rows(env.db_path)]
+        assert actions == ["quality.task_started", "quality.task_followup"]
+        # 幂等：二次轮询不重复建单不重复接续审计
+        again = env.client.get(
+            f"/api/quality/tasks/{task_id}", headers=AQIANG_HEADERS
+        ).json()
+        assert again["task"]["hits"] == 1
+        assert [row[1] for row in _audit_rows(env.db_path)] == [
+            "quality.task_started", "quality.task_followup",
+        ]
+        issues_again = env.client.get(
+            "/api/quality/issues", headers=AQIANG_HEADERS
+        ).json()
+        assert issues_again["total"] == 4
+        # 历史（端点 5）：完成记录倒序
+        history = env.client.get("/api/quality/tasks", headers=AQIANG_HEADERS)
+        assert [t["id"] for t in history.json()["items"]] == [task_id]
+
+    def test_poll_unknown_task_404(self, env: Env) -> None:
+        resp = env.client.get(
+            "/api/quality/tasks/QT-19700101-01", headers=AQIANG_HEADERS
+        )
+        assert resp.status_code == 404
+        assert resp.json()["code"] == "quality_task_not_found"
 
 
 # ---------- (c) 端点 8：水位 T-1 判定 ----------

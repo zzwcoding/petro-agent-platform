@@ -1,4 +1,4 @@
-"""domains.dataops.quality.store —— quality 表族取数与留痕（99 §2.12 六表五用）。
+"""domains.dataops.quality.store —— quality 表族取数与留痕（99 §2.12 六表六用）。
 
 边界（票面红线：表结构不改——DP-05 迁移 0015 已落列形）：
 - B3：只走 infra.db——读走 ``db.readonly()``（意图级 flush 守卫恒挂），写走
@@ -13,6 +13,10 @@
   回链——0015 列注记明示归本票写，payload 零触碰）。
 - 诊断说明 ai_note 存储恒可空（0015 列注记——v0.5 服务端投影规则判据，
   读侧拼装在 service，不落列）。
+- quality_task 第六表（M-05b 随消费面登记——M-05a 留注兑现）：任务通道读写
+  面＝受理行（running/step=0——落行即触发面，任务表轮询形态；执行细节
+  report/hits/step1-2 归数据面写）＋接续步推进（step 2→4＝建单/分发 E2 侧
+  接续，DP-05 偏差 2 注记）＋完成记录读（端点 5 倒序）。
 """
 
 from __future__ import annotations
@@ -30,13 +34,21 @@ from sqlalchemy import (
     Integer,
     SmallInteger,
     String,
+    delete,
+    func,
     select,
+    text,
+    update,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
+from app.domains.dataops.quality.domain import (
+    DYNAMIC_ISSUE_PREFIX,
+    LANE_DISTRIBUTION,
+)
 from app.infra.clock import now
 from app.infra.db import Base, ConnectionManager, Page, ReadOnlyRepository
 
@@ -146,21 +158,48 @@ class WaterLine(Base):
     refreshed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=now)
 
 
+class QualityTask(Base):
+    """quality_task——质检任务（＋合规报告 1:1；99 §2.12/E2 端点 3-5）。
+
+    写权切分（DP-05 同源裁决——本域只写受理/接续两半边）：主平台写受理行
+    （running/step=0）与接续步推进（step 2→4）；执行细节（report jsonb/hits/
+    step 1→2/status done）归数据面限写账号——主平台不直写数据面执行细节。
+    CHECK 约束（status IN running/done）不重复声明——PG 侧随迁移 0015 承载
+    （M-05a 同款纪律）。
+    """
+
+    __tablename__ = "quality_task"
+    # 索引随迁移 0015（time DESC——历史倒序）；ORM 侧同名列形声明保持 create_all
+    # 底座（sqlite 单测）与迁移同构。CHECK 约束不重复声明——PG 侧随迁移承载。
+    __table_args__ = (Index("idx_quality_task_time_desc", text("time DESC")),)
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    status: Mapped[str] = mapped_column(String(8), nullable=False)
+    step: Mapped[int | None] = mapped_column(SmallInteger)
+    rules_count: Mapped[int | None] = mapped_column(Integer)
+    hits: Mapped[int | None] = mapped_column(Integer)
+    report: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB().with_variant(JSON(), "sqlite")
+    )
+    time: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=now)
+
+
 _QUALITY_TABLES = (
     QualityRule.__table__,
     QualityIssue.__table__,
     QualityIssueTransition.__table__,
     QuarantineRow.__table__,
     WaterLine.__table__,
+    QualityTask.__table__,
 )
 
 
 async def ensure_quality_tables(engine: AsyncEngine) -> None:
-    """quality 五表幂等建表（P0-08 惯例——与 Alembic 0015 并行存活；本票不切换）。
+    """quality 六表幂等建表（P0-08 惯例——与 Alembic 0015 并行存活；本票不切换）。
 
     PG 上 0015 已建即 checkfirst 跳过（种子/约束随迁移）；sqlite 单测底座经
-    本函数落 ORM 同形表。quality_task（第六表）归 M-05b 执行通道票随其消费
-    语义登记——本域无读写面不预挂（零死代码）。
+    本函数落 ORM 同形表。quality_task 第六表 M-05b 起随任务通道消费面登记
+    （M-05a 留注兑现——受理/轮询/接续/历史读写面见 QualityTask docstring）。
     """
     await _create_tables(engine, _QUALITY_TABLES)
 
@@ -304,8 +343,13 @@ class QualityStore:
         )
 
     @staticmethod
-    async def find_by_dedupe_key(session: AsyncSession, dedupe_key: str) -> QualityIssue | None:
+    async def find_by_dedupe_key(
+        session: AsyncSession, dedupe_key: str, *, for_update: bool = False
+    ) -> QualityIssue | None:
+        """按挂单键寻单；``for_update``＝行锁（F4 义务——并发挂单窗串行化）。"""
         stmt = select(QualityIssue).where(QualityIssue.dedupe_key == dedupe_key)
+        if for_update:
+            stmt = stmt.with_for_update()  # sqlite 无此语义（单写串行）；PG 实锁
         return (await session.execute(stmt)).scalars().first()
 
     @staticmethod
@@ -338,3 +382,132 @@ class QualityStore:
         for row in rows:
             row.issue_id = issue_id
         return len(rows)
+
+    # ---------- 任务通道（端点 3/4/5——M-05b；受理/轮询/接续/历史） ----------
+
+    @staticmethod
+    async def running_task_ids(session: AsyncSession) -> list[str]:
+        """在途任务号（受理守卫复检面——写会话内调用，F4 义务）。"""
+        stmt = select(QualityTask.id).where(QualityTask.status == "running")
+        return list((await session.execute(stmt)).scalars().all())
+
+    @staticmethod
+    async def count_tasks_of_day(session: AsyncSession, day: str) -> int:
+        """当日已受理任务数（QT-YYYYMMDD-NN 取号——同事务内计数防越号）。"""
+        stmt = (
+            select(func.count())
+            .select_from(QualityTask)
+            .where(QualityTask.id.like(f"QT-{day}-%"))
+        )
+        return int((await session.execute(stmt)).scalar_one())
+
+    @staticmethod
+    def new_task(
+        task_id: str, *, rules_count: int, at: datetime | None = None
+    ) -> QualityTask:
+        """受理行（running/step=0——落行即触发面；执行步 1-2 归数据面写）。"""
+        return QualityTask(
+            id=task_id, status="running", step=0, rules_count=rules_count,
+            hits=None, report=None, time=at or now(),
+        )
+
+    @staticmethod
+    async def count_enabled_rules(session: AsyncSession) -> int:
+        """当前启用规则数（受理时刻启用集快照口径——rules_count 落行）。"""
+        stmt = (
+            select(func.count())
+            .select_from(QualityRule)
+            .where(QualityRule.enabled.is_(True))
+        )
+        return int((await session.execute(stmt)).scalar_one())
+
+    @staticmethod
+    async def clear_unclaimed_dynamic_issues(session: AsyncSession) -> int:
+        """重跑清理：撤「分发未认领」动态单（d 前缀＋lane 0——原型同形判别式）。
+
+        在途单（认领/整改/复核）与预置单不触碰（v0.5 在途单保护）。撤单序＝
+        隔离行回挂先摘钩（issue_id 置空——回挂列是唯一可写列，payload 零触碰）
+        →留痕行清（lane 0 无流转行，防御性删除保 FK）→单行删。返回撤单张数。
+        """
+        stmt = (
+            select(QualityIssue)
+            .where(
+                QualityIssue.id.like(f"{DYNAMIC_ISSUE_PREFIX}%"),
+                QualityIssue.lane == LANE_DISTRIBUTION,
+            )
+        )
+        stale = list((await session.execute(stmt)).scalars().all())
+        if not stale:
+            return 0
+        stale_ids = [row.id for row in stale]
+        await session.execute(
+            update(QuarantineRow)
+            .where(QuarantineRow.issue_id.in_(stale_ids))
+            .values(issue_id=None)
+        )
+        await session.execute(
+            delete(QualityIssueTransition).where(
+                QualityIssueTransition.issue_id.in_(stale_ids)
+            )
+        )
+        await session.execute(
+            delete(QualityIssue).where(QualityIssue.id.in_(stale_ids))
+        )
+        return len(stale_ids)
+
+    async def get_task(self, task_id: str) -> QualityTask | None:
+        """任务行读（readonly 面——轮询/历史/复扫通道共用）。"""
+        async with self._db.readonly() as session:
+            return await session.get(QualityTask, task_id)
+
+    async def list_done_tasks(self) -> list[QualityTask]:
+        """完成记录倒序（端点 5——任务历史＝完成记录；running 在途不进历史，
+        原型 mock 同形；idx_quality_task_time_desc 承载）。"""
+        async with self._db.readonly() as session:
+            stmt = (
+                select(QualityTask)
+                .where(QualityTask.status == "done")
+                .order_by(QualityTask.time.desc(), QualityTask.id.desc())
+            )
+            return list((await session.execute(stmt)).scalars().all())
+
+    @staticmethod
+    async def claim_task_followup(session: AsyncSession, task_id: str) -> bool:
+        """接续认领（条件 UPDATE 原子闸——done 且 step=2 才认领，rowcount 说话）。
+
+        F4 义务落点：并发轮询同任务时认领原子互斥（PG 行锁排队后 WHERE 复评、
+        sqlite 写锁串行）；认领＋建单＋步推进同事务提交（无中途态暴露）。
+        """
+        stmt = (
+            update(QualityTask)
+            .where(
+                QualityTask.id == task_id,
+                QualityTask.status == "done",
+                QualityTask.step == 2,
+            )
+            .values(step=3)
+        )
+        result = await session.execute(stmt)
+        return bool(getattr(result, "rowcount", 0))  # CursorResult 行数——匹配行说话
+
+    @staticmethod
+    async def finish_task_followup(session: AsyncSession, task_id: str) -> None:
+        """接续完成步推进（step→4 分发完成——DP-05 偏差 2 注记的 E2 侧接续）。"""
+        stmt = (
+            update(QualityTask)
+            .where(QualityTask.id == task_id)
+            .values(step=4)
+        )
+        await session.execute(stmt)
+
+    @staticmethod
+    async def quarantine_rows_of_task_rule(
+        session: AsyncSession, task_id: str, rule_no: int
+    ) -> list[QuarantineRow]:
+        """任务×规则的隔离行（接续回挂对位面——append-only 读，会话内锁定）。"""
+        stmt = (
+            select(QuarantineRow)
+            .where(QuarantineRow.batch_id == task_id, QuarantineRow.rule_no == rule_no)
+            .order_by(QuarantineRow.id.asc())
+        )
+        return list((await session.execute(stmt)).scalars().all())
