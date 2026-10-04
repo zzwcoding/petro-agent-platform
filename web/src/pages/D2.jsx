@@ -136,7 +136,7 @@ export default function D2Retrieval() {
                 <Space style={{ marginTop: 12 }}>
                   <Switch size="small" checked={earlyStop} onChange={setEarlyStop} />
                   <b>命中即停：{earlyStop ? '开' : '关'}</b>
-                  {helpIcon(<>上级查到就不往下查，省时省钱。</>)}
+                  {helpIcon(<>@ 点名命中即跳过后几级；台账词命中不停，只多带一份词条材料。</>)}
                 </Space>
                 <div style={{ fontSize: 12, color: '#8a94a3', marginTop: 6 }}>
                   两个答案拿不准时：宁可不答、反问澄清，不瞎猜——固定铁律，不设开关。

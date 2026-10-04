@@ -101,9 +101,9 @@ export default function E2Quality() {
     }
   }
 
-  async function flowCard(id) {
+  async function flowCard(id, action) {
     try {
-      const res = await transitionQualityIssue(id)
+      const res = await transitionQualityIssue(id, action)
       setIssues(prev => prev.map(c => (c.id === id ? { ...c, lane: res.lane, verify: res.verify || c.verify } : c)))
     } catch (e) {
       message.warning(e.message)
@@ -161,7 +161,7 @@ export default function E2Quality() {
           问题单（{issues.length}）
           <span onClick={e => e.stopPropagation()}>
             {helpIcon(<>
-              问题单从「分发」一路走到「关闭」：分发 → 认领 → 整改 → 复核 → 关闭；两次质检结果由工具自动比对、问题状态动态更新。<br />
+              问题单从「分发」一路走到「关闭」：分发 → 认领 → 整改 → 复核 → 关闭；推进到「复核」仅登记待复扫，复扫由人触发、结论回填复验列，复扫全绿才允许关闭。<br />
               表格管理：上方状态页签按五格计数联动，责任岗 / 规则筛选 + 关键字搜索；行内「流转 →」推到下一格，点行开详情抽屉。
             </>)}
           </span>
@@ -202,7 +202,7 @@ export default function E2Quality() {
         extra={
           <Space size={4}>
             <span style={{ color: '#8a94a3', fontSize: 12 }}>
-              停用规则＝任务跳过、不删 · 命中开成问题单：分发 → 认领 → 整改 → 复核 → 关闭 · 问数看汇总层数据到哪天
+              停用规则＝任务跳过、不删 · 命中开成问题单：分发 → 认领 → 整改 → 复核（人工触发复扫）→ 关闭 · 问数看汇总层数据到哪天
             </span>
             {helpIcon(<>
               <b>数据质量岗的日常台面</b><br />
@@ -260,7 +260,7 @@ export default function E2Quality() {
                   {running && <Spin size="small" />}
                   {helpIcon(<>
                     <b>岗位三角</b>：数字化室配置入湖强制规则、出合规性报告；质量管理员（小李）配置质检任务、复检、出报告；采集管理员（作业区资料员）管源头数据。<br />
-                    跑完命中的问题自动开成问题单、按责任岗分发；重跑先清上一轮动态问题单再开新单，历史任务记录保留可回看。
+                    跑完命中的问题自动开成问题单、按责任岗分发；重跑只清「分发未认领」的动态单（处理中的单保留、新命中挂同单）再开新单，历史任务记录保留可回看。
                   </>)}
                 </Space>
                 <Steps
@@ -335,14 +335,21 @@ export default function E2Quality() {
                       },
                       { title: '隔离行', width: 76, render: (_, c) => (c.qrows?.length ? `${c.qrows.length} 行` : '—') },
                       {
-                        title: (<span>复验{helpIcon(<>推进到「复核」时系统自动对修正批次复扫，全绿才允许关闭。</>)}</span>),
+                        title: (<span>复验{helpIcon(<>推进到「复核」后点行内「复扫」对修正批次重跑质检，全绿才允许关闭（v0.5 人工触发）</>)}</span>),
                         width: 92, render: (_, c) => (c.verify ? '✓ 已复扫' : c.closeNote ? '免修关闭' : '—')
                       },
                       {
-                        title: '操作', width: 92, align: 'center',
+                        title: '操作', width: 150, align: 'center',
                         render: (_, c) => (c.lane === LANES.length - 1
                           ? <Button size="small" disabled>已关闭</Button>
-                          : <Button size="small" onClick={e => { e.stopPropagation(); flowCard(c.id) }}>流转 →</Button>)
+                          : (
+                            <Space size={4}>
+                              {c.lane === 3 && !c.verify && (
+                                <Button size="small" onClick={e => { e.stopPropagation(); flowCard(c.id, 'rescan') }}>复扫</Button>
+                              )}
+                              <Button size="small" onClick={e => { e.stopPropagation(); flowCard(c.id) }}>流转 →</Button>
+                            </Space>
+                          ))
                       }
                     ]}
                     locale={{ emptyText: <Empty description="该状态下暂无问题单" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }} />

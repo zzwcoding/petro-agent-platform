@@ -4,20 +4,21 @@
 // 契约来源：specs/modules.md「质量 m20」· 设定书 §1 岗位三角 / §4 质检规则与任务 / §A 样本数据 · PRD F18
 
 // ── 契约来源：设定书 §4 质检规则 20 条（前 12 条挂具体判据，13–20 通用规则族）──
-// action=命中动作三档（业界 expectations 语义）：隔离=坏行不进湖 / 整批拒收=批次级拒绝 / 告警=通知人工核实
-// autoFix=安全类可自动修复（写法归一/枚举映射/去重保首条），只作用派生层，原始坏行永留隔离区
+// action=命中动作三档（业界 expectations 语义）：隔离=坏行不进湖 / 整批拒收=批次级拒绝（schema 级故障专用）/ 告警=通知人工核实
+// autoFix=安全类可自动修复（写法归一/枚举映射——v0.4 去重保首条撤出白名单），只作用派生层，原始坏行永留隔离区
+// v0.4 本体对齐批（RULE-BOHAI-030/023/025/038 权威源）：规则 1 重复行不静默去重出问题单 / 规则 5 矛盾行清单制 / 规则 6 T-5 不拒收转问题单 / 规则 11 当日批面
 export const RULES = [
-  { no: 1, kind: '重复', rule: '同一口井同一天只能有一条日产记录——A/B 班手抄重复行即命中', crit: '行数＝去重后行数', action: '隔离', autoFix: true },
+  { no: 1, kind: '重复', rule: '同一口井同一天每个班次只能有一条日产记录——A/B 班手抄重复行即命中', crit: '班次三元组（井,日,班次）唯一；重复/缺失行进问题单人工复核，不静默去重', action: '告警', autoFix: false },
   { no: 2, kind: '缺失', rule: '日产油量不许空着', crit: '非空率 ≥ 99.5%', action: '隔离', autoFix: false },
   { no: 3, kind: '准不准', rule: '产油单位要对：按区块密度折算后，密度须落在 0.82–0.98 t/m³——抓住"吨方混写"', crit: '折算密度 ∈ [0.82, 0.98]', action: '隔离', autoFix: false },
   { no: 4, kind: '两本账打架', rule: '含水率：生产日报（计量）vs 化验样，偏差不能太大', crit: '偏差 ≤ 5 个百分点', action: '告警', autoFix: false },
-  { no: 5, kind: '超范围', rule: '含水率 0–100、开井小时数 0–24，越界即不合格（停井日开井小时数仍大于 0 的矛盾行也拦）', crit: '越界即 fail', action: '隔离', autoFix: false },
-  { no: 6, kind: '迟到', rule: '检修台账要跟上：批次水位最晚是前一天的数，超窗的批次拒绝——T-3 补录会被拦下', crit: '≤ T-1，超窗 reject', action: '整批拒收', autoFix: false },
+  { no: 5, kind: '超范围', rule: '含水率 0–100、开井小时数 0–24，越界即不合格（停井日开井小时数仍大于 0 的矛盾行：标注出清单交业务核实，不归零不直改）', crit: '越界即 fail；矛盾行清单制', action: '告警', autoFix: false },
+  { no: 6, kind: '迟到', rule: '检修台账补录窗口：超 T-5 不拒收（数据不丢是底线），收单转问题单闭环走特批核实——T-3 补录照收但留痕', crit: '≤ T-5；超窗不拒收转问题单', action: '告警', autoFix: false },
   { no: 7, kind: '写法不统一', rule: '井号写法归一：N2 / N-2 都归成 N-02，归一表要全命中', crit: '归一表全命中', action: '隔离', autoFix: true },
   { no: 8, kind: '写法不统一', rule: '设备停机原因码要用新编码表：旧码 R3（皮带断）映射到新码 BELT，全表命中', crit: '映射表全命中', action: '隔离', autoFix: true },
   { no: 9, kind: '重复 / 记账', rule: '井档案一井一行，状态变更要有据可查：生产中→停产 必须有记录——N-11"已停仍记生产中"就是反例', crit: '主键唯一＋迁移合法', action: '隔离', autoFix: false },
   { no: 10, kind: '假数嫌疑', rule: '恒值检测：生产日报连续 30 天是同一个数——要么真停产、要么抄数，告警让人看', crit: '连续 30 日同值 → 告警', action: '告警', autoFix: false },
-  { no: 11, kind: '迟到', rule: '传感器零值：连续 2 小时零值告警', crit: '2 小时零值 → 告警', action: '告警', autoFix: false },
+  { no: 11, kind: '假数嫌疑', rule: '传感器零值：当日批内电流全零即疑似设备/采集异常，出清单交业务核实（批面近似，无实时窗口）', crit: '当日批内全零 → 告警', action: '告警', autoFix: false },
   { no: 12, kind: '账对不上', rule: '物质平衡账：区块月注入量 ≈ 产出量＋存水率变动，偏差大了说明有数不对', crit: '偏差 ≤ 3%', action: '告警', autoFix: false },
   { no: 13, kind: '引用完整', rule: '引用的编号要能在关联的表里找到对应记录', crit: '详见规则库总册', action: '—（总册）', autoFix: false },
   { no: 14, kind: '跨表一致', rule: '两张表记同一件事时，数字要对得上', crit: '详见规则库总册', action: '—（总册）', autoFix: false },
@@ -33,7 +34,7 @@ export const RULES = [
 export const LANES = ['分发', '认领', '整改', '复核', '关闭']
 
 // 合规报告（演示基线 = 任务 QT-20260915-01 的产出；同库同数重跑命中不变）
-// quarantinedRows=行级隔离坏行数；rejectedBatches=整批拒收批次数（规则 6 批次超窗）
+// quarantinedRows=行级隔离坏行数；rejectedBatches=整批拒收批次数（schema 级故障档——v0.4 起规则 6 超窗不再拒收，转问题单）
 const REPORT_0915 = {
   range: '生产库 8 表',
   scanned: '12,604 行',
@@ -42,7 +43,7 @@ const REPORT_0915 = {
   hits: [
     '① 规则 1：N-02 在 2026-09-14 出现 A/B 两行重复日报',
     '② 规则 3：N-11 产油单位误录（12.40 方，应为吨——吨方混写）',
-    '③ 规则 6：N-11 检修批次 20260911-T3 为 T-3 补录，超出承诺水位 T-1'
+    '③ 规则 6：N-11 检修批次 20260911-T3 补录超 T-5 窗口——不拒收，收单转问题单走特批核实'
   ],
   verdict: '——已全部开成问题单并按责任岗分发（见「问题单」页签新卡）。'
 }
@@ -60,7 +61,7 @@ const DYNAMIC_ISSUES = [
     aiNote: 'AI 归因（草稿，待责任人确认）：单位"吨/方"混写，疑为录入模板未区分单位——建议折算复核后修正源表。'
   },
   {
-    id: 'd6', rule_no: 6, hit_count: 1, title: '规则 6 · N-11 检修批次 T-3 补录超窗', desc: 'batch 20260911-T3，承诺水位 T-1',
+    id: 'd6', rule_no: 6, hit_count: 1, title: '规则 6 · N-11 检修批次 T-3 补录超窗', desc: 'batch 20260911-T3 超 T-5 窗口，收单转问题单',
     qrows: [{ loc: '检修台账 · 批次 20260911-T3', note: 'T-3 补录超窗——整批拒绝入湖，待源头更正批次水位后重新进料' }],
     aiNote: 'AI 归因（草稿，待责任人确认）：批次水位晚于承诺 T-1，疑为台账补录滞后——建议更正水位后重报。'
   }
@@ -133,11 +134,11 @@ export async function setQualityRuleEnabled(no, enabled) {
 }
 
 // POST /api/quality/tasks —— 发起质检任务（异步执行，按当前启用规则跑生产库 8 表）
-// 重跑语义：先清上一轮动态生成的问题单再开新单（预置单不受影响）；同一时刻最多一个进行中（409）
+// 重跑语义（v0.5）：只清「分发未认领」的动态单（lane===0 且 d 前缀）；认领/整改/复核中的在途单保留、新命中挂同单；预置单不受影响；同一时刻最多一个进行中（409）
 export async function startQualityTask() {
   await sleep(200)
   if (state.runningTask) throw new Error('已有质检任务进行中')
-  state.issues = state.issues.filter(c => !c.id.startsWith('d'))
+  state.issues = state.issues.filter(c => !(c.id.startsWith('d') && c.lane === 0))
   const seq = state.tasks.filter(t => t.id.includes(todayKey())).length + 1
   const id = `QT-${todayKey()}-${String(seq).padStart(2, '0')}`
   state.runningTask = { id, startAt: Date.now(), rulesEnabled: Object.values(state.ruleOn).filter(Boolean).length }
@@ -185,19 +186,22 @@ export async function listQualityIssues() {
 }
 
 // POST /api/quality/issues/{id}/transitions —— 流转到下一态；终态「关闭」拒收（409 的 mock 对应物）；流转留痕
-// 复验语义（调研定标）：推进到「复核」时服务端自动对修正批次重跑质检（复扫），全绿才允许随后关闭
-export async function transitionQualityIssue(id) {
+// 复扫语义（v0.5 人工触发）：推进到「复核」仅登记待复扫状态（verify 仍空）；请求体可选 action:"rescan"
+// 对该单关联的修正批次重跑命中规则、回填 verify——复扫不是流转，lane 不变；v0.2「推进复核即自动复扫」降级挂观察
+export async function transitionQualityIssue(id, action) {
   await sleep(150)
   const issue = state.issues.find(c => c.id === id)
   if (!issue) throw new Error('问题单不存在')
+  if (action === 'rescan') {
+    if (issue.lane !== 3) throw new Error('仅复核态可复扫')
+    issue.verify = { batch: `批次 ${todayKey()}-T1`, note: '复扫全绿（mock）' }
+    return { id, lane: issue.lane, state: LANES[issue.lane], verify: issue.verify }
+  }
   if (issue.lane >= LANES.length - 1) throw new Error('已关闭——终态不可流转')
   if (issue.lane + 1 === 4 && !issue.verify && !issue.closeNote) {
     throw new Error('复验未全绿——修正批次复扫通过（或记录关闭原因）后才可关闭')
   }
   issue.lane += 1
-  if (issue.lane === 3 && !issue.verify) {
-    issue.verify = { batch: `批次 ${todayKey()}-T1`, note: '修正批次复扫：启用规则全绿' }
-  }
   return { id, lane: issue.lane, state: LANES[issue.lane], verify: issue.verify || null }
 }
 

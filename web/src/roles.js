@@ -29,8 +29,7 @@ export const MENU = [
   { group: '设置中心', items: [
     { key: 'D1', label: '模型与线路' },
     { key: 'D2', label: '搜索与回答' },
-    { key: 'D3', label: '安全与权限' },
-    { key: 'D6', label: '数据接入与加工' }
+    { key: 'D3', label: '安全与权限' }
   ], roles: ['aqiang']},
   { group: '考核与质量', items: [
     { key: 'E1', label: '答题考核' },
