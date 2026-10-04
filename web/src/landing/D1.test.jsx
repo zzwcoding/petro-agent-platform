@@ -190,7 +190,7 @@ afterEach(() => {
 })
 
 describe('D1 落地页 · 渲染（端点 1：页头徽标＋模型线路）', () => {
-  it('页头「网关运行中」徽标＋主备副标题＋模型表两行＋四页签计数', async () => {
+  it('卡头「网关运行中」徽标＋主备待命行＋模型表两行＋四页签计数（UI-13 迁卡头 extra）', async () => {
     apiRouter()
     render(<D1Landing />)
 
@@ -556,17 +556,20 @@ describe('D1 落地页 · UI-06 交互优化（阶段 1：PagedTable 接线／�
     expect(last[0]).toContain('page=1') // 防抖并入携 page:1（对齐三筛控件归页语义）
   })
 
-  it('T6 「适用范围」收进页头 ?（UI-09 副标题整行删除，? 移挂标题旁）：正文行消失、悬停可见内容', async () => {
+  it('T6 页内标题删除上移壳层页头（UI-13）：适用范围 ? 锚点改卡头 extra、observe-link 迁卡头保真', async () => {
     apiRouter()
     render(<D1Landing />)
     expect(await screen.findByText('petro-main')).toBeTruthy()
+    expect(screen.queryByText('模型与线路')).toBeNull() // UI-13：页内标题删除（标题在壳层页头显示）
     expect(screen.queryByText(/平台所有模型调用的唯一出口/)).toBeNull() // UI-09：副标题口号整行删除
     expect(screen.queryByText('适用范围')).toBeNull() // 正文不再直出
-    const titleSpan = screen.getByText('模型与线路')
-    const q = titleSpan.querySelector('.anticon-question-circle')
-    expect(q).toBeTruthy() // 页头 ? 在场（标题旁）
+    // hover 锚点＝卡头 extra ?（徽标/主备/观测外链同在卡头右侧）
+    const cardHead = screen.getByText('模型线路（2）').closest('.ant-card-head')
+    const q = cardHead.querySelector('.anticon-question-circle')
+    expect(q).toBeTruthy() // 卡头 extra ? 在场
     fireEvent.mouseEnter(q)
     expect(await screen.findByText(/问一问、报告库回答、问数/)).toBeTruthy() // 适用范围内容在 ? 内
+    expect(cardHead.querySelector('[data-testid="observe-link"]')).toBeTruthy() // 观测外链迁卡头，锚点保真
   })
 
   it('T7 流水表 scroll.x 联调降至 ≤1000：1280 视口可用宽（≈976）内无恒显横滚', async () => {

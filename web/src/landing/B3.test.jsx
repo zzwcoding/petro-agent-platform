@@ -443,16 +443,15 @@ describe('B3 落地页 · UI-04 交互优化（方案 §5-B3）', () => {
     expect(document.querySelector('.ant-empty')).toBeTruthy()
   })
 
-  it('T5 页头＝标题＋helpTop（UI-09 口号副标题删除，POSITION_HELP 挂标题旁）；卡头 extra 三句口号消失', async () => {
+  it('T5 页内标题删除上移壳层页头（UI-13）：POSITION_HELP 只在卡头 extra ?', async () => {
     apiRouter()
     render(<B3Landing />)
-    expect(await screen.findByText('常见问题库')).toBeTruthy()
-    const titleSpan = screen.getByText('常见问题库')
-    expect(titleSpan.querySelector('.anticon-question-circle')).toBeTruthy() // POSITION_HELP ? 在标题旁
+    expect(await screen.findByText('问答清单（9）')).toBeTruthy()
+    expect(screen.queryByText('常见问题库')).toBeNull() // UI-13：页内标题删除（标题在壳层页头显示）
     expect(screen.queryByText('常问问题直接秒回')).toBeNull() // UI-09：口号副标题不再直出
     const cardHead = screen.getByText('问答清单（9）').closest('.ant-card-head')
     expect(cardHead.textContent).not.toContain('常问问题直接秒回') // 卡头 extra 三句口号消失
-    expect(cardHead.querySelector('.anticon-question-circle')).toBeTruthy() // 卡头只留 helpIcon
+    expect(cardHead.querySelector('.anticon-question-circle')).toBeTruthy() // 卡头 extra ?（页面帮助唯一承载）
   })
 
   it('T6 轮询终态 failed（HTTP 200 终态行）→「扫库任务未成功」message', async () => {

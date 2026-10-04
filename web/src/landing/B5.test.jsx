@@ -349,19 +349,19 @@ describe('B5 落地页 · 示例三源辅助（对账 11——起草走真统一
 })
 
 describe('B5 落地页 · UI-05 交互优化（票面 T1…T12——方案 §5-B5 六条要点＋审查发现）', () => {
-  it('T6 页头＝标题＋helpTop（UI-09 口号副标题删除，PAGE_HELP 挂标题旁）；卡头不再重复承载', async () => {
+  it('T6 页内标题删除上移壳层页头（UI-13）：hover 锚点改卡头 extra ?（PAGE_HELP 两句内容不变）', async () => {
     apiRouter()
     render(<B5Landing />)
-    expect(await screen.findByText('关系图谱')).toBeTruthy()
+    expect(await screen.findByText('完井报告库')).toBeTruthy()
+    expect(screen.queryByText('关系图谱')).toBeNull() // UI-13：页内标题删除（标题在壳层页头显示）
     expect(screen.queryByText(/谁连成网——对不上的不建边/)).toBeNull() // UI-09：口号副标题不再直出
-    // helpTop 悬停展开＝原卡头 extra 大段说明（内容不改——逐句核对；UI-09 起挂标题旁）
-    const titleSpan = screen.getByText('关系图谱')
-    fireEvent.mouseEnter(titleSpan.querySelector('.anticon-question-circle'))
+    // hover 锚点＝卡头 extra ?（PAGE_HELP 内容不改——逐句核对）
+    const cardHead = screen.getByText('知识库').closest('.ant-card-head')
+    const q = cardHead.querySelector('.anticon-question-circle')
+    expect(q).toBeTruthy() // 卡头 extra ? 在场
+    fireEvent.mouseEnter(q)
     expect(await screen.findByText(/把报告与台账里"谁—什么关系→谁"连成关系网/)).toBeTruthy()
     expect(await screen.findByText(/节点与关系全部来自报告与台账/)).toBeTruthy()
-    // 卡头 extra 已整体迁走（不再挂 helpIcon 重复承载同一大段）
-    const cardHead = screen.getByText('知识库').closest('.ant-card-head')
-    expect(cardHead.querySelector('.anticon-question-circle')).toBeNull()
   })
 
   it('T2 库切换窗口：抽取设置页签 Skeleton 占位非白屏，旧库配置/保存按钮不可及（错存窗口不可写）', async () => {
