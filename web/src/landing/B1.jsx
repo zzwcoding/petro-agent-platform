@@ -25,29 +25,26 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Alert, Button, Card, Checkbox, Descriptions, Drawer, Empty, Input, message, Modal, Select,
-  Space, Steps, Switch, Table, Tabs, Tag, Tooltip
+  Space, Spin, Steps, Switch, Table, Tabs, Tag, Tooltip
 } from 'antd'
 import {
   BookOutlined, DownloadOutlined, FileTextOutlined, FormOutlined, HistoryOutlined,
-  PauseCircleOutlined, PlayCircleOutlined, PlusOutlined, QuestionCircleOutlined,
+  PauseCircleOutlined, PlayCircleOutlined, PlusOutlined,
   RedoOutlined, SettingOutlined, UploadOutlined
 } from '@ant-design/icons'
-import { ApiError } from '../api/client.js'
+import { ApiError, errText } from '../api/client.js'
 import {
   BIZ_TEMPLATES, TASK_SOURCES, mapTaskSnapshot, confirmUpload, createLibrary, useKbTaskPolling,
   getAdditions, getDownloadUrl, getLibraryConfig, getReportDetail, getReports, getTask,
   initUpload, listLibraries, listLibraryActivities, listTasks, putObjectDirect,
   reviseFragment, retryTask, saveLibraryConfig
 } from '../api/kb.js'
-
-const helpIcon = content => (
-  <Tooltip title={<div style={{ fontSize: 12, lineHeight: 1.8 }}>{content}</div>} placement="topLeft">
-    <QuestionCircleOutlined style={{ marginLeft: 4, color: '#8a94a3', cursor: 'help' }} />
-  </Tooltip>
-)
+// UI-00 共享件（方案-阶段1交互优化 §3.3）——helpIcon/dim/errText 唯一定义点
+// （UI-02 T11 页内同构副本删除；fieldLabel 仅 B1 一处消费，留 B1 不抽）。
+import { helpIcon, dim } from '../components/helpIcon.jsx'
+import PagedTable from '../components/PagedTable.jsx'
 
 const fieldLabel = { fontSize: 12, color: '#8a94a3', marginBottom: 4 }
-const dim = { fontSize: 12, color: '#8a94a3' }
 
 const POLL_MS = 800 // 轮询节奏由服务端真实进度决定（00 §5.2——页面节奏不入合同）
 
@@ -111,15 +108,7 @@ function chunkPanel(mode) {
   )
 }
 
-/** 错误包 → 内联展示行（人话 message＋code＋trace_id——D1 先例同构）。 */
-function errText(err) {
-  if (!(err instanceof ApiError)) return String(err)
-  return [
-    err.message,
-    err.code ? `code ${err.code}` : '',
-    err.traceId ? `trace ${err.traceId}` : ''
-  ].filter(Boolean).join(' · ')
-}
+/** 错误包 → 内联展示行走共享 errText（client.js 导出，UI-02 T11——渲染物不变）。 */
 
 const mark = on => (on ? '✓' : '✗')
 
@@ -174,8 +163,10 @@ function TaskMonitor({ taskId, attempt, onProgress, onSettled }) {
 export default function B1Landing() {
   const [tab, setTab] = useState('ledger')
 
-  // ── 三个读面（端点 1/7/11——失败态内联常驻，失败态≠空态） ──
-  const [libs, setLibs] = useState([])
+  // ── 三个读面（端点 1/7/11——失败态内联常驻，失败态≠空态）──
+  // libs/actRows 存归一化信封对象（kb.js listLibraries/listLibraryActivities 已带
+  // total——UI-02 T2：页签/行内计数一律读信封 total，不读 items.length）
+  const [libs, setLibs] = useState({ items: [], total: 0 })
   const [libsLoading, setLibsLoading] = useState(true)
   const [libsError, setLibsError] = useState(null)
   const [reports, setReports] = useState({ items: [], total: 0 })
@@ -230,10 +221,11 @@ export default function B1Landing() {
   const [cfgBusy, setCfgBusy] = useState(false)
   const [cfgError, setCfgError] = useState(null)
   const [actLib, setActLib] = useState(null)
-  const [actRows, setActRows] = useState([])
+  const [actRows, setActRows] = useState({ items: [], total: 0 })
   const [actLoading, setActLoading] = useState(false)
+  const [actError, setActError] = useState(null) // UI-02 T3：活动流失败态与空态分立
 
-  const activeLibs = libs.filter(l => l.status === 'active')
+  const activeLibs = libs.items.filter(l => l.status === 'active')
 
   function refreshLists() {
     loadReports(); loadTasks(); loadLibs()
@@ -242,7 +234,7 @@ export default function B1Landing() {
   const loadLibs = () => {
     setLibsLoading(true)
     listLibraries({ graph: graphF, keyword: libKw })
-      .then(d => { setLibs(d.items); setLibsError(null); setLibsLoading(false) })
+      .then(d => { setLibs(d); setLibsError(null); setLibsLoading(false) }) // 信封整存（items＋total——T2）
       .catch(err => { setLibsError(err); setLibsLoading(false) })
   }
   const loadReports = () => {
@@ -358,8 +350,8 @@ export default function B1Landing() {
     try {
       const d = await getReportDetail(report.id)
       setDetail(d)
-    } catch (err) {
-      message.error(errText(err))
+    } catch {
+      // 其余错误 client 已统一 message（UI-02 T8：页面层不再叠弹第二次）
     } finally {
       setDetailLoading(false)
     }
@@ -369,8 +361,8 @@ export default function B1Landing() {
       const d = await getDownloadUrl(report.id)
       message.success(`已生成下载直链——链接${d.ttl}有效（至 ${d.expiresAt}）。`)
       window.open(d.downloadUrl, '_blank', 'noopener')
-    } catch (err) {
-      message.error(errText(err))
+    } catch {
+      // 其余错误 client 已统一 message（UI-02 T8）
     }
   }
   function openFix(frag) {
@@ -428,8 +420,8 @@ export default function B1Landing() {
         : `已启用「${lib.name}」——恢复接收新入库。`))
       loadLibs()
       loadActivities(lib.id)
-    } catch (err) {
-      message.error(errText(err))
+    } catch {
+      // 其余错误 client 已统一 message（UI-02 T8：停用/启用失败单弹足够）
     }
   }
   async function openCfg(lib) {
@@ -459,15 +451,18 @@ export default function B1Landing() {
       setCfgBusy(false)
     }
   }
+  // 活动流（端点 14）——UI-02 T3：失败态分立（actError 置错＋抽屉内联 Alert 常驻，
+  // 对齐同页三读面惯例；不再静默吞错伪装空态）；T2：信封整存计数读 total。
   function loadActivities(libId) {
     setActLoading(true)
+    setActError(null)
     listLibraryActivities(libId)
-      .then(d => { setActRows(d.items); setActLoading(false) })
-      .catch(() => setActLoading(false))
+      .then(d => { setActRows(d); setActError(null); setActLoading(false) })
+      .catch(err => { setActError(err); setActLoading(false) })
   }
   function openActivities(lib) {
     setActLib(lib)
-    setActRows([])
+    setActRows({ items: [], total: 0 })
     loadActivities(lib.id)
   }
 
@@ -533,9 +528,13 @@ export default function B1Landing() {
     {
       title: '操作', width: 64, align: 'center',
       render: (_, t) => (
+        // 禁用控件外包一层 <span> 再挂 Tooltip（UI-02 T4——方案 §3.3 定死，先例 B5.jsx:461-465）：
+        // 任务运行中 Button disabled 悬停事件不达 button，span 保 Tooltip 可见
         <Tooltip title="重试/重跑入库管线">
-          <Button size="small" icon={<RedoOutlined />} disabled={t.state === 'running'}
-            onClick={e => { e.stopPropagation(); doRetry(t.id) }} />
+          <span>
+            <Button size="small" icon={<RedoOutlined />} disabled={t.state === 'running'}
+              onClick={e => { e.stopPropagation(); doRetry(t.id) }} />
+          </span>
         </Tooltip>
       )
     }
@@ -696,9 +695,12 @@ export default function B1Landing() {
           <Tabs
             activeKey={tab} size="small" onChange={setTab}
             items={[
-              { key: 'ledger', label: `报告台账（${reports.total}）` },
+              { key: 'ledger', label: (
+                // UI-02 T6：台账卡底步骤类指引收进页签 ?（同内容；§3.1-3 操作步骤类）
+                <span>报告台账（{reports.total}）{helpIcon(<>新报告入库 → 切「入库任务」上传；索引与百科等产物的生成规则按库配置，见「库管理」。</>)}</span>
+              ) },
               { key: 'tasks', label: `入库任务（${tasks.total}）` },
-              { key: 'libs', label: `库管理（${libs.length}）` }
+              { key: 'libs', label: `库管理（${libs.total}）` } // UI-02 T2：读信封 total
             ]}
           />
         }
@@ -710,7 +712,7 @@ export default function B1Landing() {
                 <Select size="small" style={{ width: 150 }} value={ledgerLib}
                   onChange={v => setLedgerLib(v)}
                   options={[{ value: 'all', label: '所属库：全部' },
-                    ...libs.map(l => ({ value: l.name, label: l.name }))]} />
+                    ...libs.items.map(l => ({ value: l.name, label: l.name }))]} />
                 <Input size="small" allowClear style={{ width: 240 }} value={ledgerKw}
                   onChange={e => setLedgerKw(e.target.value)} placeholder="搜报告名 / 所属库…" />
               </Space>
@@ -720,15 +722,16 @@ export default function B1Landing() {
               <Alert style={{ marginBottom: 12 }} type="error" showIcon
                 message="报告台账拉取失败——下表不是最新数据" description={errText(reportsError)} />
             )}
-            <Table
+            {/* UI-02 T1：接 PagedTable client 模式（pageSize 20、统计恒显）；resetKey 绑筛状态
+                （方案 §2.2 总表）——筛选缩短数据后自动回页 1，不停在超界页出空表 */}
+            <PagedTable
               size="small" loading={reportsLoading} columns={ledgerColumns}
-              dataSource={reports.items} pagination={false} rowKey="id"
+              dataSource={reports.items} rowKey="id"
               onRow={r => ({ onDoubleClick: () => openDetail(r), style: { cursor: 'pointer' } })}
-              locale={{ emptyText: <Empty description={reportsError ? '台账拉取失败' : '还没有报告入库：切「入库任务」页签上传。'} image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+              emptyText="还没有报告入库：切「入库任务」页签上传。"
+              error={reportsError} errorEmptyText="台账拉取失败"
+              resetKey={`${ledgerLib}|${ledgerKw}`}
             />
-            <div style={{ marginTop: 10, ...dim }}>
-              新报告入库 → 切「入库任务」上传；索引与百科等产物的生成规则按库配置，见「库管理」。
-            </div>
           </>
         )}
 
@@ -744,7 +747,7 @@ export default function B1Landing() {
                   onChange={v => setSourceF(v)}
                   options={[{ value: 'all', label: '来源：全部' }, ...TASK_SOURCES.map(v => ({ value: v, label: v }))]} />
               </Space>
-              <span style={{ color: '#8a94a3', fontSize: 12 }}>{tasks.total ? `任务 ${tasks.total} 条` : ''}</span>
+              {/* UI-02 T10：卡头「任务 N 条」计数行已删——页签「入库任务（N）」＋分页条统计防第三处冗余 */}
             </div>
             {tasksError && (
               <Alert style={{ marginBottom: 12 }} type="error" showIcon
@@ -754,9 +757,13 @@ export default function B1Landing() {
               <Alert style={{ marginBottom: 12 }} type="error" showIcon
                 message="上传受理失败——请重新选择文件再试" description={errText(upInitError)} />
             )}
-            <Table
+            {/* UI-02 T1：接 PagedTable——expandable 整包透传（新任务受理后主动展开逻辑不动），
+                resetKey 绑来源筛 */}
+            <PagedTable
               size="small" loading={tasksLoading} columns={taskColumns}
-              dataSource={tasks.items} pagination={false} rowKey="id"
+              dataSource={tasks.items} rowKey="id"
+              emptyText="还没有入库任务：点上方「上传报告（直传）」发起一次入库。"
+              resetKey={sourceF}
               expandable={{
                 expandRowByClick: true,
                 expandedRowKeys: expandedKeys,
@@ -771,7 +778,6 @@ export default function B1Landing() {
                   }
                 }
               }}
-              locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有入库任务：点上方「上传报告（直传）」发起一次入库。" /> }}
             />
             {/* 运行中任务轮询监听（挂载即轮询端点 8；终态收场刷新三面） */}
             {tasks.items.filter(t => t.state === 'running' || t.state === 'stuck').map(t => (
@@ -795,16 +801,19 @@ export default function B1Landing() {
                 <Input size="small" allowClear style={{ width: 220 }} value={libKw}
                   onChange={e => setLibKw(e.target.value)} placeholder="搜库名 / 最近入库…" />
               </Space>
-              <span style={{ color: '#8a94a3', fontSize: 12 }}>{`筛选结果 ${libs.length} 条`}</span>
+              <span style={{ color: '#8a94a3', fontSize: 12 }}>{`筛选结果 ${libs.total} 条`}</span> {/* UI-02 T2：读信封 total */}
             </div>
             {libsError && (
               <Alert style={{ marginBottom: 12 }} type="error" showIcon
                 message="库列表拉取失败——下表不是最新数据" description={errText(libsError)} />
             )}
-            <Table
+            {/* UI-02 T1：接 PagedTable，resetKey 绑图谱筛＋库名关键字（方案 §2.2 总表） */}
+            <PagedTable
               size="small" loading={libsLoading} columns={libColumns}
-              dataSource={libs} pagination={false} rowKey="id"
-              locale={{ emptyText: <Empty description={libsError ? '库列表拉取失败' : '还没有库：点「新建库」创建。'} image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+              dataSource={libs.items} rowKey="id"
+              emptyText="还没有库：点「新建库」创建。"
+              error={libsError} errorEmptyText="库列表拉取失败"
+              resetKey={`${graphF}|${libKw}`}
             />
           </>
         )}
@@ -867,16 +876,15 @@ export default function B1Landing() {
           <Alert style={{ marginTop: 10 }} type="error" showIcon
             message="入库确认失败——对象未落桶或凭证已用时请重新上传" description={errText(upError)} />
         )}
-        <div style={{ ...dim, marginTop: 10 }}>
-          确认后文件字节直传文件库（不绕平台服务），随后按该库当前配置定型开跑五步管线。
-        </div>
+        {/* UI-02 T7：弹窗底部机制说明已删——与「上传报告（直传）」按钮旁 helpIcon 同义重复 */}
         <Button type="primary" style={{ marginTop: 12 }} loading={upBusy} onClick={doConfirmUpload}>确认入库</Button>
       </Modal>
 
-      {/* 报告详情抽屉（台账行双击——端点 2：片段预览含版本） */}
+      {/* 报告详情抽屉（台账行双击——端点 2：片段预览含版本）；UI-02 T5：开窗加载期渲染 Spin，不再空白 */}
       <Drawer title={detail ? '报告详情' : '报告详情'} placement="right" width={560}
         open={!!detail || detailLoading} onClose={() => setDetail(null)}>
-        {detail && (
+        {detailLoading ? <Spin /> : (
+          detail && (
           <>
             <Descriptions size="small" column={1} colon labelStyle={{ width: 110, color: '#8a94a3' }}>
               <Descriptions.Item label="报告名">{detail.doc}</Descriptions.Item>
@@ -908,6 +916,7 @@ export default function B1Landing() {
               <div style={{ ...dim, marginTop: 8 }}>该报告的片段暂未收录，入库处理后可预览。</div>
             )}
           </>
+          )
         )}
       </Drawer>
 
@@ -953,24 +962,34 @@ export default function B1Landing() {
               : '建库失败'}
             description={errText(nlError)} />
         )}
-        <div style={{ ...dim, marginTop: 10 }}>
-          建成后该库即出现在列表中：不接新入库时用"停用"，已有内容保留可查、随时可再启用。
-        </div>
+        {/* UI-02 T7：弹窗底部停用/启用指引已删——与库列表行「停用/启用」Tooltip 重复 */}
         <Button type="primary" style={{ marginTop: 14 }} loading={nlBusy} onClick={doCreateLib}>确认建库</Button>
       </Modal>
 
-      {/* 库活动流抽屉（端点 14——F62 只读） */}
+      {/* 库活动流抽屉（端点 14——F62 只读）；UI-02 T3：失败态内联 Alert 常驻（对齐同页
+          三读面惯例），表格 error 切错误空态——失败态与空态分叉渲染 */}
       <Drawer title={actLib ? `活动 · ${actLib.name}` : ''} placement="right" width={560}
         open={!!actLib} onClose={() => setActLib(null)}>
-        <Table size="small" loading={actLoading} pagination={false} rowKey="time"
+        {actError && (
+          <Alert style={{ marginBottom: 12 }} type="error" showIcon
+            message="活动记录拉取失败——下表不是最新数据" description={errText(actError)} />
+        )}
+        {/* UI-02 T1/T9：接 PagedTable；rowKey 复合（活动行仅分钟精度四字段无 id，
+            同分钟两行 time 单键碰撞——合同 B1:342-348 行形状）；resetKey 绑库切换 */}
+        <PagedTable
+          size="small" loading={actLoading}
+          rowKey={r => `${r.time}|${r.action}|${r.target}`}
           columns={[
             { title: '时间', dataIndex: 'time', width: 140 },
             { title: '操作人', dataIndex: 'who', width: 130 },
             { title: '动作', dataIndex: 'action', width: 100 },
             { title: '对象', dataIndex: 'target' }
           ]}
-          dataSource={actRows}
-          locale={{ emptyText: <Empty description="这个库还没有活动记录" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }} />
+          dataSource={actRows.items}
+          emptyText="这个库还没有活动记录"
+          error={actError} errorEmptyText="活动记录拉取失败"
+          resetKey={actLib?.id ?? ''}
+        />
         <div style={{ ...dim, marginTop: 10 }}>只记录，不改任何数据。</div>
       </Drawer>
 
@@ -982,6 +1001,8 @@ export default function B1Landing() {
         {cfgError && (
           <Alert type="error" showIcon message="库配置加载失败——暂不可编辑" description={errText(cfgError)} />
         )}
+        {/* UI-02 T5：开窗加载期（cfgForm 未到且无 cfgError）渲染 Spin，不再空白 */}
+        {cfgLib && !cfgForm && !cfgError && <Spin />}
         {cfgLib && cfgForm && (() => {
           const setForm = patch => { setCfgForm(f => ({ ...f, ...patch })); setCfgSaved(null) }
           return (

@@ -9,6 +9,9 @@
  * - 库停用/启用（端点 13 可选 status）；
  * - 任务五步轮询终态（端点 8 真轮询→done→产物端点 9 两卡）＋failed stop_at 人话＋重试（端点 10）；
  * - 来源筛（端点 7 source 筛参）；片段修正乐观锁 409 兜底（端点 4）。
+ * - UI-02（阶段 1 交互优化）：四表 PagedTable 分页/resetKey、统计读信封 total、
+ *   活动流失败态分立、禁用按钮 span 包裹 Tooltip、抽屉/弹窗加载态、卡底指引收 ?、
+ *   弹窗重复说明删除、「任务 N 条」双显收敛、活动流 rowKey 复合。
  */
 
 /** @vitest-environment jsdom */
@@ -236,10 +239,13 @@ describe('B1 落地页 · 渲染（端点 1/7/11）', () => {
     expect(screen.getByText('入库中')).toBeTruthy()          // 端点 1 status 直出
     expect(screen.getByText('5 段')).toBeTruthy()
     expect(screen.getByText('v1')).toBeTruthy()
+    expect(await screen.findByText('共 2 条')).toBeTruthy() // UI-02 T1 PagedTable 分页条统计（单页恒显）
     // 库管理页签：开关快照 Tag（端点 11 last_ingestion.switches）
     fireEvent.click(await screen.findByText(/库管理（\d+）/))
     expect((await screen.findAllByText('语义 ✓')).length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('关系图谱 ✗').length).toBeGreaterThanOrEqual(1)
+    expect(await screen.findByText('筛选结果 2 条')).toBeTruthy() // UI-02 T2 计数读信封 total
+    expect(await screen.findByText('共 2 条')).toBeTruthy()      // UI-02 T1 库管理表分页条统计
     // 身份桩注入
     const call = fetchMock.mock.calls.find(c => String(c[0]).includes('/api/kb/reports'))
     expect(call[1].headers['X-Dev-User']).toBe('aqiang')
@@ -268,6 +274,8 @@ describe('B1 落地页 · 上传两拍＋入库路由（端点 5/6/15）', () =>
     expect(screen.getByText(/与生产月报库话题一致/)).toBeTruthy()
     expect(screen.getByText(/置信度：86%/)).toBeTruthy()
     expect(screen.getByText(/检测到疑似重复，仍要上传？/)).toBeTruthy()
+    // UI-02 T7 上传弹窗底部机制说明已删——同义内容只在「上传报告（直传）」按钮旁 helpIcon
+    expect(screen.queryByText(/确认后文件字节直传文件库/)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: '确认入库' }))
 
@@ -277,8 +285,8 @@ describe('B1 落地页 · 上传两拍＋入库路由（端点 5/6/15）', () =>
     expect(JSON.parse(calls.confirmBody)).toEqual({ lib_id: 'lib-2' })
     const putUrl = fetchMock.mock.calls.find(c => String(c[0]).includes('minio.test:9000'))[0]
     expect(putUrl).toContain('X-Amz-Signature=abc')
-    // confirm 后切任务页签并刷新列表
-    await screen.findByText('任务 2 条', {}, { timeout: 3000 }).catch(() => {})
+    // confirm 后切任务页签并刷新列表（UI-02 T10：「任务 N 条」卡头计数行已删——以任务列表刷新为等待锚）
+    await screen.findByText('《N-11 井完井报告（英文 · 200 页）》', {}, { timeout: 3000 })
   }, 15000)
 
   it('建议新建库（mode=new）：确认 → 建库端点 15 → confirm 带新库号', async () => {
@@ -306,6 +314,8 @@ describe('B1 落地页 · 上传两拍＋入库路由（端点 5/6/15）', () =>
     fireEvent.click(screen.getByRole('button', { name: '确认建库' }))
     expect(await screen.findByText('库名与现有库重复，请换一个名称。')).toBeTruthy()
     expect(screen.getByText(/code kb_lib_name_duplicate/)).toBeTruthy()
+    // UI-02 T7 新建库弹窗底部停用/启用指引已删——同义内容只在列表行 Tooltip
+    expect(screen.queryByText(/建成后该库即出现在列表中/)).toBeNull()
   })
 
   it('来源筛变更带 source 筛参重拉（端点 7）', async () => {
@@ -433,5 +443,117 @@ describe('B1 落地页 · 报告详情与片段修正（端点 2/4）', () => {
       const last = fetchMock.mock.calls.filter(c => String(c[0]).includes('/api/kb/tasks?')).pop()
       expect(last).toBeTruthy() // 修正后任务列表刷新（片段修正任务可见）
     })
+  })
+})
+
+describe('B1 落地页 · UI-02 交互优化（PagedTable/失败态/加载态/说明收束）', () => {
+  it('T1 resetKey：台账翻到第 2 页后筛选缩短数据自动回页 1（不出现超界空表）', async () => {
+    let filtered = false
+    const rows = n => ({
+      items: Array.from({ length: n }, (_, i) => ({
+        id: `rpt-${i + 1}`, doc: `《压舱报告 ${i + 1}》`, lib: '完井报告库', refs: null, wiki: null, status: '已入库'
+      })),
+      total: n
+    })
+    apiRouter({ reports: () => json(200, filtered ? rows(3) : rows(25)) })
+    render(<B1Landing />)
+    expect(await screen.findByText('共 25 条')).toBeTruthy()
+    fireEvent.click(document.querySelector('.ant-pagination-item-2')) // 翻到第 2 页（第 21–25 行）
+    expect(await screen.findByText('《压舱报告 25》')).toBeTruthy()
+    expect(screen.queryByText('《压舱报告 1》')).toBeNull()
+    filtered = true // 关键词筛变 → resetKey 变化 → 页码归 1
+    fireEvent.change(screen.getByPlaceholderText('搜报告名 / 所属库…'), { target: { value: 'x' } })
+    expect(await screen.findByText('《压舱报告 1》')).toBeTruthy()
+    expect(screen.queryByText('《压舱报告 25》')).toBeNull()
+    expect(await screen.findByText('共 3 条')).toBeTruthy()
+  })
+
+  it('T2 库管理计数读信封 total（与 items.length 解耦——UI-07 server 分页后仍成立）', async () => {
+    apiRouter({
+      libs: () => json(200, { items: LIBS_LIST.items, total: 5 }) // total=5 ≠ items.length=2——行为锁
+    })
+    render(<B1Landing />)
+    expect(await screen.findByText('库管理（5）')).toBeTruthy()
+    fireEvent.click(screen.getByText('库管理（5）'))
+    expect(await screen.findByText('筛选结果 5 条')).toBeTruthy()
+    expect(await screen.findByText('共 2 条')).toBeTruthy() // 表内分页条统计＝当前数据行数（client 模式）
+  })
+
+  it('T3 活动流拉取失败：内联 Alert＋表格错误空态（失败态≠空态）', async () => {
+    apiRouter({ activities: () => json(500, { code: 'kb_internal', message: '活动读取失败', trace_id: 'call-a0' }) })
+    render(<B1Landing />)
+    fireEvent.click(await screen.findByText(/库管理（\d+）/))
+    const actBtns = screen.getAllByRole('button').filter(b => b.querySelector('.anticon-history'))
+    fireEvent.click(actBtns[0])
+    expect(await screen.findByText('活动记录拉取失败——下表不是最新数据')).toBeTruthy()
+    expect(screen.getByText(/活动读取失败 · code kb_internal · trace call-a0/)).toBeTruthy()
+    expect(screen.getByText('活动记录拉取失败')).toBeTruthy() // 表格错误空态（errorEmptyText）
+    expect(screen.queryByText('这个库还没有活动记录')).toBeNull()
+  })
+
+  it('T4 运行中任务的禁用重试按钮悬停出 Tooltip（span 包裹——方案 §3.3）', async () => {
+    apiRouter()
+    render(<B1Landing />)
+    fireEvent.click(await screen.findByText(/入库任务（\d+）/))
+    await screen.findByText('《演示报告》')
+    const retryBtn = screen.getAllByRole('button').find(b => b.querySelector('.anticon-redo') && b.disabled)
+    expect(retryBtn).toBeTruthy() // 运行中任务行——操作按钮禁用
+    fireEvent.mouseEnter(retryBtn.closest('span')) // 禁用控件经 span 挂 Tooltip
+    expect(await screen.findByText('重试/重跑入库管线', {}, { timeout: 3000 })).toBeTruthy()
+  })
+
+  it('T5 详情抽屉开窗期间渲染 Spin（加载态≠空白）', async () => {
+    let resolveDetail
+    apiRouter({ detail: () => new Promise(resolve => { resolveDetail = () => resolve(json(200, REPORT_DETAIL)) }) })
+    render(<B1Landing />)
+    fireEvent.doubleClick(await screen.findByText('《N-02 井完井报告（英文 · 200 页）》'))
+    expect(document.querySelector('.ant-spin-spinning')).toBeTruthy()
+    resolveDetail()
+    expect(await screen.findByText('井号 N-02')).toBeTruthy()
+  })
+
+  it('T5 库配置弹窗开窗期间渲染 Spin（cfgForm 空且无 cfgError）', async () => {
+    let resolveCfg
+    apiRouter({ getConfig: () => new Promise(resolve => { resolveCfg = () => resolve(json(200, LIB_CONFIG)) }) })
+    render(<B1Landing />)
+    fireEvent.click(await screen.findByText(/库管理（\d+）/))
+    const cfgBtns = screen.getAllByRole('button').filter(b => b.querySelector('.anticon-setting'))
+    fireEvent.click(cfgBtns[0])
+    expect(document.querySelector('.ant-spin-spinning')).toBeTruthy()
+    resolveCfg()
+    expect(await screen.findByText('保存本库配置')).toBeTruthy()
+  })
+
+  it('T6 台账卡底指引收进「报告台账」页签 ?（正文不再直出）', async () => {
+    apiRouter()
+    render(<B1Landing />)
+    await screen.findByText('报告台账（2）')
+    expect(screen.queryByText(/新报告入库 → 切「入库任务」上传/)).toBeNull() // 卡底指引行已删
+    const tabHelpIcon = document.querySelector('.ant-tabs-tab .anticon-question-circle')
+    expect(tabHelpIcon).toBeTruthy() // 页签 label 的 ? 图标
+    fireEvent.mouseEnter(tabHelpIcon)
+    expect(await screen.findByText(
+      /新报告入库 → 切「入库任务」上传；索引与百科等产物的生成规则按库配置，见「库管理」。/, {}, { timeout: 3000 }
+    )).toBeTruthy() // 同内容进 ?
+  })
+
+  it('T9 活动流同分钟两行渲染无 key 告警（rowKey 复合）', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    apiRouter({
+      activities: () => json(200, {
+        items: [
+          { time: '2026-09-26 16:48', who: '小李 · 地质/质检', action: '上传报告', target: '《N-02 井完井报告（英文 · 200 页）》' },
+          { time: '2026-09-26 16:48', who: '阿强 · 平台运维', action: '修改库配置', target: '完井报告库 · 切段方式：智能切段（256–1024 字）' }
+        ],
+        total: 2
+      })
+    })
+    render(<B1Landing />)
+    fireEvent.click(await screen.findByText(/库管理（\d+）/))
+    const actBtns = screen.getAllByRole('button').filter(b => b.querySelector('.anticon-history'))
+    fireEvent.click(actBtns[0])
+    expect(await screen.findByText('阿强 · 平台运维')).toBeTruthy()
+    expect(screen.getAllByText('2026-09-26 16:48').length).toBe(2) // 同分钟两行都渲染
+    expect(errSpy.mock.calls.filter(args => String(args[0]).includes('same key'))).toHaveLength(0)
   })
 })
