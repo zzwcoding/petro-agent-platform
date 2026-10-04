@@ -85,7 +85,7 @@ export default function B2Landing() {
   const [reportsLoading, setReportsLoading] = useState(true)
   const [reportsError, setReportsError] = useState(null)
   const [report, setReport] = useState(null)
-  const totalRefs = reports.reduce((n, r) => n + (r.refs || 0), 0) // 卡头总数＝refs 求和（同源）
+  const totalRefs = reports.reduce((n, r) => n + (r.refs || 0), 0) // 首页签计数＝refs 求和（同源——UI-15 自卡头迁首页签标签）
 
   // ── 片段台账（端点 1 按报告读法）＋类型/关键词筛 ──
   // frags 存归一化信封对象（kb.js listFragments 已带 total——UI-03 T3：计数一律
@@ -405,8 +405,12 @@ export default function B2Landing() {
           <Input size="small" allowClear style={{ width: 220 }} value={kw} onChange={e => setKw(e.target.value)}
             placeholder="搜命中句 / 井号 / 章节…" />
         </Space>
-        {/* UI-03 T3：计数读信封 total（不读 items.length） */}
-        <span style={dim}>{`筛选结果 ${frags.total} 条`}</span>
+        {/* UI-03 T3：计数读信封 total（不读 items.length）
+            UI-15：卡头长说明 ? 原文原样迁本行右端（「筛选结果 N 条」旁——悬停不丢） */}
+        <span style={dim}>
+          {`筛选结果 ${frags.total} 条`}
+          {helpIcon(<>入库时把报告切成片段，这里按报告建台账：浏览、筛选、核对内容；AI 回答引用的就是这些片段（引用号对不上的一律删掉、不渲染）。发现切坏了的片段就"标记问题片段"，复核确认后由管理员修正并重建索引。</>)}
+        </span>
       </div>
       {reportsError && (
         <Alert style={{ marginBottom: 12 }} type="error" showIcon
@@ -496,21 +500,21 @@ export default function B2Landing() {
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* UI-03 T8：卡头 extra「命中的是小段，完整段落不直接进搜索结果」删除——
-          与「命中句」列头 ? HIT_HELP 同义重复，说明收束保留列头 ? 一处 */}
+          与「命中句」列头 ? HIT_HELP 同义重复，说明收束保留列头 ? 一处（T8 断言其 null）
+          UI-15：卡头无头化（Owner 2026-10-05 裁决——页头已有标题，非页签栏卡头标题整块
+          去掉）：title/extra 删除，Tabs 为卡顶；refs 求和计数迁首页签标签（文本与原卡头
+          一致）、长说明 ? 原文原样迁片段清单 pane 工具栏右端「筛选结果 N 条」旁（悬停不丢） */}
       <Card
         // UI-12：root→Card→body→Tabs→pane flex 链——Card 高度有界，body flex 列
         // overflow:hidden，fill-tabs 贯通 pane 高，两页签 PagedTable fill 内滚、页面级滚动消灭
-        // UI-13：页标题上移壳层页头——页面帮助 ? 原文原样迁卡头 extra（悬停不丢）
         style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}
         styles={{ body: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } }}
-        title={<span>片段清单（{totalRefs}）</span>}
-        extra={helpIcon(<>入库时把报告切成片段，这里按报告建台账：浏览、筛选、核对内容；AI 回答引用的就是这些片段（引用号对不上的一律删掉、不渲染）。发现切坏了的片段就"标记问题片段"，复核确认后由管理员修正并重建索引。</>)}
       >
         <Tabs
           className="fill-tabs"
           activeKey={tab} size="small" onChange={setTab}
           items={[
-            { key: 'list', label: '片段清单', children: listPane },
+            { key: 'list', label: <span>片段清单（{totalRefs}）</span>, children: listPane },
             { key: 'review', label: `复核队列（${pendingCount}）`, children: reviewPane }
           ]}
         />

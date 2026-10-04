@@ -1,7 +1,7 @@
 /**
  * 落地 B3 页组件测试（P1-06）——fetch 级 mock（挡 window.fetch 边界），client/faq
  * 接口层与页面全部真代码：
- * - 渲染：问答清单（卡头 grand_total＋筛选计数）＋行标四态＋候选库入口；
+ * - 渲染：问答清单（UI-15 无头卡——工具栏筛选计数 N/M 承载 grand_total）＋行标四态＋候选库入口；
  * - 审核流闭环：新增（端点 3，待审核提示）→ 发布（端点 17，转服务中）；
  * - 重复校验（端点 4）：输入即检防抖警告；
  * - 相似问增删（端点 5/6）经详情弹窗；
@@ -184,12 +184,12 @@ afterEach(() => {
 })
 
 describe('B3 落地页 · 问答清单（端点 1/2）', () => {
-  it('渲染清单：卡头 grand_total（9）＋筛选计数（4/9）＋四态行标', async () => {
+  it('渲染清单：无头卡（UI-15 卡头标题删除）＋筛选计数（4/9）＋四态行标', async () => {
     apiRouter()
     render(<B3Landing />)
 
-    expect(await screen.findByText('问答清单（9）')).toBeTruthy()
-    expect(await screen.findByText('筛选结果 4 / 9 条')).toBeTruthy()
+    expect(await screen.findByText('筛选结果 4 / 9 条')).toBeTruthy() // 工具栏计数行（无头卡卡顶直下）
+    expect(screen.queryByText(/问答清单（/)).toBeNull() // UI-15：卡头标题删除（计数与筛选计数重复——grandTotal 仍为筛选分母）
     expect(screen.getByText('产量完成率怎么算？')).toBeTruthy()
     expect(screen.getByText('待审核')).toBeTruthy() // 待审核行标（企业化清理批落位）
   })
@@ -373,7 +373,7 @@ describe('B3 落地页 · 导入导出与 ⚙（端点 15/16＋配置展示）',
   it('⚙ 弹窗：合并阈值 0.87 只读展示＋负例入口 Tag（配置端点撤除登记）', async () => {
     apiRouter()
     render(<B3Landing />)
-    await screen.findByText('问答清单（9）')
+    await screen.findByText('筛选结果 4 / 9 条') // UI-15 镜像：就绪锚改工具栏计数行（卡头标题已删）
 
     fireEvent.click(screen.getByRole('button', { name: 'setting' })
       || document.querySelector('.anticon-setting').closest('button'))
@@ -443,15 +443,18 @@ describe('B3 落地页 · UI-04 交互优化（方案 §5-B3）', () => {
     expect(document.querySelector('.ant-empty')).toBeTruthy()
   })
 
-  it('T5 页内标题删除上移壳层页头（UI-13）：POSITION_HELP 只在卡头 extra ?', async () => {
+  it('T5 卡头无头化（UI-13 页标题上移壳层＋UI-15 标题删除）：POSITION_HELP ? 迁工具栏右端 ?', async () => {
     apiRouter()
     render(<B3Landing />)
-    expect(await screen.findByText('问答清单（9）')).toBeTruthy()
+    const stats = await screen.findByText('筛选结果 4 / 9 条') // 工具栏计数行（无头卡卡顶直下）
+    expect(screen.queryByText(/问答清单（/)).toBeNull() // UI-15：卡头标题删除（计数与筛选计数重复）
     expect(screen.queryByText('常见问题库')).toBeNull() // UI-13：页内标题删除（标题在壳层页头显示）
     expect(screen.queryByText('常问问题直接秒回')).toBeNull() // UI-09：口号副标题不再直出
-    const cardHead = screen.getByText('问答清单（9）').closest('.ant-card-head')
-    expect(cardHead.textContent).not.toContain('常问问题直接秒回') // 卡头 extra 三句口号消失
-    expect(cardHead.querySelector('.anticon-question-circle')).toBeTruthy() // 卡头 extra ?（页面帮助唯一承载）
+    expect(document.querySelector('.ant-card-head')).toBeNull() // UI-15：无头卡——卡头整块消失
+    const q = stats.querySelector('.anticon-question-circle')
+    expect(q).toBeTruthy() // POSITION_HELP ? 在工具栏右端「筛选结果 N/N」旁（页面帮助唯一承载）
+    fireEvent.mouseEnter(q)
+    expect(await screen.findByText(/问一问直接命中消费/)).toBeTruthy() // 迁址后悬停仍在
   })
 
   it('T6 轮询终态 failed（HTTP 200 终态行）→「扫库任务未成功」message', async () => {
@@ -508,7 +511,7 @@ describe('B3 落地页 · UI-04 交互优化（方案 §5-B3）', () => {
   it('T8 ⚙ 弹窗 ? 工程口吻改业务口吻（无实施批/D2/端点字样）', async () => {
     apiRouter()
     render(<B3Landing />)
-    await screen.findByText('问答清单（9）')
+    await screen.findByText('筛选结果 4 / 9 条') // UI-15 镜像：就绪锚改工具栏计数行（卡头标题已删）
     fireEvent.click(screen.getByRole('button', { name: 'setting' })
       || document.querySelector('.anticon-setting').closest('button'))
     await screen.findByText('检索配置（只读展示）')
