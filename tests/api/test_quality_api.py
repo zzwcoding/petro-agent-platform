@@ -53,6 +53,12 @@ async def _seed_fixture(manager: ConnectionManager) -> None:
     await seed_rule(
         manager, 8, kind="写法不统一", crit="映射表全命中", action="隔离", autofix=True
     )
+    # 13-20 仅登记档代表行（值照抄迁移 0015 种子——零发明；守卫用例消费）
+    await seed_rule(
+        manager, 13, kind="引用完整",
+        rule="引用的编号要能在关联的表里找到对应记录",
+        crit="详见规则库总册", enabled=False, action="—（总册）",
+    )
     await add_issue(
         manager, id="p8", lane=0, rule_no=8, hit_count=1,
         dedupe_key=build_dedupe_key(8, "EQUIP-01", DAY),
@@ -146,7 +152,7 @@ class TestRulesEndpoints:
         body: dict[str, Any] = env.client.get(
             "/api/quality/rules", headers=AQIANG_HEADERS
         ).json()
-        assert [r["no"] for r in body["items"]] == [5, 8]
+        assert [r["no"] for r in body["items"]] == [5, 8, 13]
         r8 = body["items"][1]
         # 合同端点 1 DTO 逐字段（autoFix 冻结 camelCase——00 §14-R1 唯一例外键）
         assert r8 == {
@@ -163,7 +169,7 @@ class TestRulesEndpoints:
         rules = env.client.get(
             "/api/quality/rules", headers=AQIANG_HEADERS
         ).json()["items"]
-        assert [r["enabled"] for r in rules] == [True, False]  # 读面反映
+        assert [r["enabled"] for r in rules] == [True, False, False]  # 读面反映
         assert _audit_rows(env.db_path) == [(
             "阿强 · 平台运维", "quality.rule_toggled",
             "质检规则 8 停用（停用＝质检任务跳过，规则保留不删）",
@@ -182,6 +188,42 @@ class TestRulesEndpoints:
         )
         assert resp.status_code == 400
         assert resp.json()["code"] == "request_invalid"
+
+    def test_toggle_registered_only_enable_rejected_422(self, env: Env) -> None:
+        # 档位守卫（rev F1 修复）：13-20 仅登记档置 enabled=true → 422 拒启用
+        # （防「已启用但 V1 任务只跑 1-12 恒跳过」静默矛盾——执行通道接通后放开）
+        resp = env.client.patch(
+            "/api/quality/rules/13", json={"enabled": True}, headers=AQIANG_HEADERS
+        )
+        assert resp.status_code == 422
+        body = resp.json()
+        assert body["code"] == "quality_rule_registered_only"
+        assert "仅登记规则未实施" in body["message"]
+        assert "不可启用" in body["message"]
+        # 拒绝＝无写发生（读面仍停用）＋失败路径不达审计行（B12 先例同口径）
+        rules = env.client.get(
+            "/api/quality/rules", headers=AQIANG_HEADERS
+        ).json()["items"]
+        assert [r["enabled"] for r in rules] == [True, True, False]
+        assert _audit_rows(env.db_path) == []
+
+    def test_registered_only_read_face_intact_and_disable_allowed(self, env: Env) -> None:
+        # 读面不遮蔽：仅登记档照常在列（0015 种子值原样投影）
+        rules = env.client.get(
+            "/api/quality/rules", headers=AQIANG_HEADERS
+        ).json()["items"]
+        assert rules[2] == {
+            "no": 13, "kind": "引用完整",
+            "rule": "引用的编号要能在关联的表里找到对应记录",
+            "crit": "详见规则库总册", "enabled": False,
+            "action": "—（总册）", "autoFix": False,
+        }
+        # enabled=false（停用回登记态）恒放行——幂等停用照收
+        resp = env.client.patch(
+            "/api/quality/rules/13", json={"enabled": False}, headers=AQIANG_HEADERS
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {"no": 13, "enabled": False}
 
 
 # ---------- (b) 五态流转全路径（仅复核登记/关闭守卫 422/终态 409/rescan） ----------

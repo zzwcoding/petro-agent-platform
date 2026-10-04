@@ -15,6 +15,11 @@ M-05a 管理面先行票：端点 1/2/6/7/8/9 全量实现＋端点 3/4/5 执行
   管理员，接口权限声明预埋（require 式一行 CurrentActor）；真分权（规则启停/
   任务发起＝质量管理员，认领/整改＝采集管理员，复核/关闭＝质量管理员）随 D3
   落闸批恢复，本路由族形状零改动。
+- 规则启停（端点 2）档位守卫（M-05a 修复拍——rev F1）：规则 13-20 仅登记
+  不实施（E2 v0.5 实施范围注记）——PATCH 置 enabled=true 拒 422（防「已启用
+  但 V1 任务只跑 1-12 恒跳过」的静默矛盾，执行侧保证归 M-05b）；enabled=false
+  （停用回登记态）恒放行。守卫落 api 层前置（422 错误包走 ApiError——接口层
+  自行抛错惯例，chat/faq 先例；域内 422 族错误码归合同批补冻结）。
 - B12 审计：启停/流转/复扫写操作在服务成功返回后落笔（P0-05 gateway 先例——
   失败路径不达审计行）；流转另落 quality_issue_transition 留痕行（域内事务）。
 - 任务壳（端点 3/4/5）：统一 QualityTaskChannelDeferredError → 501
@@ -30,6 +35,7 @@ from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
 from app.api.deps import CurrentActor, QualityDep, SecurityDep
+from app.api.errors import ApiError
 from app.domains.dataops.quality import (
     LANES,
     RESCAN_ACTION,
@@ -42,6 +48,11 @@ router = APIRouter(prefix="/api/quality", tags=["quality"])
 
 DEFAULT_PAGE = 1  # 00 §4.1
 DEFAULT_PAGE_SIZE = 20  # D5 先例（00 §4.1）
+
+# 端点 2 档位守卫（M-05a 修复拍——rev F1）：规则 13-20 仅登记不实施（E2 v0.5
+# 实施范围注记；种子真源＝迁移 0015）——写侧拒启用；停用回登记态恒放行。
+REGISTERED_ONLY_RULES = range(13, 21)
+CODE_QUALITY_RULE_REGISTERED_ONLY = "quality_rule_registered_only"
 
 
 # ---------- 端点 1：GET /rules 规则列表 ----------
@@ -100,7 +111,21 @@ async def toggle_rule(
     actor: CurrentActor,
 ) -> RuleToggleResponse:
     """规则启停（停用＝质检任务跳过不删；写 quality_rule.enabled——本端点为
-    该表唯一写口，数据面限写账号只读；B12 审计留痕操作人）。"""
+    该表唯一写口，数据面限写账号只读；B12 审计留痕操作人）。
+
+    档位守卫（rev F1）：13-20 仅登记档拒启用（422——执行通道接通后放开）；
+    enabled=false 恒放行。守卫在服务调用前置——拒绝即无写发生，审计不落笔
+    （失败路径不达审计行）。
+    """
+    if body.enabled and no in REGISTERED_ONLY_RULES:
+        raise ApiError(
+            status_code=422,
+            code=CODE_QUALITY_RULE_REGISTERED_ONLY,
+            message=(
+                f"仅登记规则未实施，不可启用（规则 {no} 属 13-20 仅登记档）"
+                "——归属 M-05b 执行通道接通后放开"
+            ),
+        )
     receipt = await service.set_rule_enabled(no, body.enabled)
     await security.audit(
         AuditRow(
