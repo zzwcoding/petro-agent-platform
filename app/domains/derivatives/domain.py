@@ -1,28 +1,30 @@
 """domains.derivatives.domain —— 派生物域（wiki 支路）语义（厚：B4 合同语义在此闭环）。
 
 合同锚（真源在 teach-petro-agent/specs/api/，只引路径不复制正文）：
-- B4-报告百科.md v0.3：四端点（目录/全文 ?version=N/版本列表/回滚）、
-  「与 B1 的生产/消费边界」（生成方＝B1 管线 wiki 支路；重建触发＝入库、
-  重跑、片段修正；重写≠检索；1:1 报告；开关关→不生成；截断防护＝半页
-  不落库；slug 稳定性＝id 承载）、「论断回链」节（claims[] fail-closed）、
-  「台账挂接」节（glossary_terms[] 台账无账不挂、生成时固化不回溯）、
-  wiki 模板语义（模板＝提示词约束、产出自由 markdown、零固定节 schema）、
-  版本三件套、回滚语义（追加新版本、指针前进、防呆 409）、来源四态、
-  错误码草案、行为规则汇总 12 条。
+- B4-报告百科.md v0.4（Owner 2026-10-04 拍板：版本治理整体撤除）：两读端点
+  （目录/全文）、「与 B1 的生产/消费边界」（生成方＝B1 管线 wiki 支路；重建
+  触发＝入库、重跑、片段修正；重写≠检索；1:1 报告；开关关→不生成；截断
+  防护＝半页不落库；slug 稳定性＝id 承载）、「论断回链」节（claims[]
+  fail-closed）、「台账挂接」节（glossary_terms[] 台账无账不挂、生成时固化
+  不回溯）、wiki 模板语义（模板＝提示词约束、产出自由 markdown、零固定节
+  schema）、覆盖语义（行为规则 1：重建覆盖当前版、current_version＝重建计数
+  单调 +1、无版本历史不可回滚）、生成来源单态（v0.4 只余「自动重建」）、
+  错误码草案（404/401/403）、行为规则汇总 12 条。
 - B1-报告库.md v0.3 端点 4 注记：修正定型→FragmentRevised 事件→重铸队列→
-  版本+1 来源「自动重建」；重铸失败不阻塞修正（记活动流，可手动重跑）。
+  覆盖当前版（来源「自动重建」）；重铸失败不阻塞修正（记活动流，可手动重
+  跑——当前版保持旧内容）。
 - PRD F50：chunk 拼回全文（重叠去重＋图片回读）→LLM 重写 Markdown 页；
   32K 截断（WeKnora maxContentForWiki=32768）＋票 104 截断防护（最多续写
   3 轮、未完放弃本次写入不落半页）；F51 slug 稳定性/单字不挂链；
-  F52 版本治理（来源四态/回滚任意版）。
+  F52 知识层/证据层分离＋论断回链（版本治理四件随 B4 v0.4 撤除或关单）。
 - 98-模块划分与分层.md §3.5 derivatives 卡＋§8 事件表（IngestCompleted/
   FragmentRevised 订阅）；B9 边界（kb 禁直调 derivatives；derivatives→kb
-  仅 record_activity＋报告读面＋wiki 版号投影回写）。
+  仅 record_activity＋报告读面＋wiki 重建计数投影回写）。
 - 99-数据库与连接层设计.md §2.7：wiki_page/wiki_page_version 逐字段
-  （source CHECK 四态冻结值照抄；版本 append-only＋当前指针）。
+  （v0.4 起版本表写路径撤除——表保留不删留档，99 册对齐随文档对齐批）。
 
 B1：本文件不 import fastapi/starlette/DB/LLM——拼回去重、截断纪律、
-claims 锚校验、台账 linkify、状态派生、横幅组装都是纯语义。
+claims 锚校验、台账 linkify、状态派生都是纯语义。
 """
 
 from __future__ import annotations
@@ -35,11 +37,11 @@ from typing import Any
 
 # ---------- 合同常量（B4/99 照抄，不可改） ----------
 
-# 来源四态（F52 ① 值域冻结照抄——99 §2.7 CHECK 同值；「首次生成」是 v1 的
-# desc 文案不是来源态）。
+# 来源态（99 §2.7 CHECK 四态冻结值照抄——B4 v0.4 起产生路径只余「自动重建」
+# 一态（回滚/人工/智能体随版本治理撤除无产生路径），值域留档不删：版本表
+# 保留不撤、CHECK 随表留档）。
 WIKI_SOURCES: tuple[str, ...] = ("自动重建", "智能体", "人工", "回滚")
 SOURCE_AUTO = "自动重建"
-SOURCE_ROLLBACK = "回滚"
 
 # 状态两态（B4 合同常量表：按当前版正文有无 [[flag:]] 修订提示判定）。
 STATUS_PENDING = "字段待核对"
@@ -54,22 +56,9 @@ WIKI_CONTINUE_ROUNDS = 3
 # 不入 content——实现选型，挂差异登记）。
 WIKI_END_MARKER = "<!--WIKI-END-->"
 
-# 操作人口径（B4 操作人列：自动重建版＝「系统（入库管线）」——合同值照抄）。
+# 操作人口径（B4 端点 2 元数据条 operator：自动重建恒「系统（入库管线）」
+# ——合同值照抄；v0.4 起生成来源单态，operator 恒该值、读面派生不落列）。
 OPERATOR_SYSTEM = "系统（入库管线）"
-# 回滚版 task_no＝null（B4 经由单号列口径：回滚无经由单号，页面记 —）。
-
-# 版本 desc 文案（B4 版本序列/回滚响应模板同族）。
-DESC_FIRST = "首次生成（报告入库自动建页）"
-DESC_REINGEST = "报告重新解析后自动重建"
-DESC_RECAST = "片段修正后自动重建"
-ROLLBACK_DESC_TEMPLATE = "回滚：恢复到 v{target}"
-
-# 回滚横幅模板（B4 合同常量表——被恢复摘要由服务端填）。
-ROLLBACK_BANNER_TEMPLATE = (
-    "已回滚：当前版 = v{new_version}（内容恢复自 v{target_version}），"
-    "{summary}。注意：回滚本身也记成一次新提交（可再滚回）。"
-)
-ROLLBACK_BANNER_SUMMARY = "正文恢复为目标版快照"
 
 # related_objects 链接（B4 元数据条展开区：#A2 井档案深查＋#B5 关系图谱）。
 RELATED_OBJECT_LINKS: tuple[str, ...] = ("#/A2", "#/B5")
@@ -89,23 +78,8 @@ CLAIM_MARKER_RE = re.compile(r"\[\[claim:([^\]]+)\]\]")
 
 
 class WikiNotFoundError(Exception):
-    """百科页/版本不存在（B4 错误码草案 404——含 wiki 开关关未生成、直调未知 id）。"""
-
-
-class WikiParamError(Exception):
-    """入参形状非法（B4 错误码草案 400：target_version 缺失/等于当前版）。"""
-
-    def __init__(self, message: str, *, code: str = "wiki_param_invalid") -> None:
-        self.code = code
-        super().__init__(message)
-
-
-class WikiConflictError(Exception):
-    """回滚防呆 409（目标版内容与当前版逐字相同——兜底横幅＝合同常量）。"""
-
-    def __init__(self, message: str, *, code: str = "wiki_conflict") -> None:
-        self.code = code
-        super().__init__(message)
+    """百科页不存在（B4 错误码草案 404——含 wiki 开关关未生成、直调未知 id；
+    v0.4 纯读两态：400/409 版本/回滚族错误码随端点撤除一并废止）。"""
 
 
 # ---------- id/slug（F51 slug 稳定性＝id 承载；99：id（wiki- slug，稳定不随重建变化）） ----------
@@ -410,20 +384,12 @@ def derive_digest(content: str) -> str:
     return ""
 
 
-def rollback_banner(new_version: int, target_version: int) -> str:
-    return ROLLBACK_BANNER_TEMPLATE.format(
-        new_version=new_version,
-        target_version=target_version,
-        summary=ROLLBACK_BANNER_SUMMARY,
-    )
-
-
 # ---------- DTO（读面投影——api 层直接消费） ----------
 
 
 @dataclass(frozen=True, slots=True)
 class WikiPageListItem:
-    """目录行（端点 1）。"""
+    """目录行（端点 1——B4 v0.4：撤 version_count，current_version＝重建计数）。"""
 
     id: str
     title: str
@@ -431,7 +397,6 @@ class WikiPageListItem:
     source_report_id: str
     source_report_doc: str
     current_version: int
-    version_count: int
     updated: str
     status: str
 
@@ -452,7 +417,8 @@ class RelatedObjectView:
 
 @dataclass(frozen=True, slots=True)
 class WikiPageDetail:
-    """百科页全文（端点 2：元数据＋自由 markdown 正文＋claims＋glossary_terms）。"""
+    """百科页全文（端点 2——B4 v0.4：元数据＋自由 markdown 正文＋claims＋
+    glossary_terms；恒当前版，无 ?version=N；撤 version_count）。"""
 
     id: str
     title: str
@@ -462,7 +428,6 @@ class WikiPageDetail:
     source_report_id: str
     source_report_doc: str
     current_version: int
-    version_count: int
     updated: str
     status: str
     generation_source: str
@@ -471,30 +436,6 @@ class WikiPageDetail:
     content: str
     claims: list[dict[str, Any]]
     glossary_terms: list[dict[str, Any]]
-
-
-@dataclass(frozen=True, slots=True)
-class WikiVersionItem:
-    """版本行（端点 3：来源四态/时间/操作人/经由单号/说明/当前版标）。"""
-
-    v: int
-    date: str
-    source: str
-    desc: str
-    operator: str | None
-    task_no: str | None
-    current: bool
-
-
-@dataclass(frozen=True, slots=True)
-class RollbackReceipt:
-    """回滚回执（端点 4：追加语义——new_version 为回滚来源新版本行）。"""
-
-    page_id: str
-    current_version: int
-    new_version: WikiVersionItem
-    status: str
-    banner: str
 
 
 # =====================================================================

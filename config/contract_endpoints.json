@@ -396,20 +396,6 @@
       "owner": ""
     },
     {
-      "book": "B4",
-      "no": "3",
-      "method": "GET",
-      "path": "/api/wiki/pages/{}/versions",
-      "owner": ""
-    },
-    {
-      "book": "B4",
-      "no": "4",
-      "method": "POST",
-      "path": "/api/wiki/pages/{}/rollback",
-      "owner": ""
-    },
-    {
       "book": "B5",
       "no": "1",
       "method": "GET",

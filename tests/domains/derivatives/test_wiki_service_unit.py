@@ -1,25 +1,25 @@
-"""wiki 支路服务单测——生成/重建触发、版本治理、修正三联动、重铸闭环。
+"""wiki 支路服务单测——生成/重建触发、覆盖语义（v0.4）、修正三联动、重铸闭环。
 
 装配：sqlite 底座＋真实 KbService＋桩 LLM；IngestCompleted/FragmentRevised
 订阅照 main.py lifespan 接线（B9 缝真跑）。私有属性直查（_store/_gateway/
 _recasts）仅限测试观测。
+
+B4 v0.4（Owner 2026-10-04 拍板撤版本历史）：重建＝覆盖当前版——
+current_version＝重建计数单调 +1、wiki_page_version 版本表写路径撤除
+（表保留不删，本组测试以「版本表恒无行」反 append-only 断言钉死）。
 """
 
 from typing import Any
 
 import pytest
+from sqlalchemy import select
 
 from app.domains.derivatives import (
-    DESC_FIRST,
-    DESC_RECAST,
-    DESC_REINGEST,
     OPERATOR_SYSTEM,
     SOURCE_AUTO,
-    SOURCE_ROLLBACK,
-    WikiConflictError,
     WikiNotFoundError,
-    WikiParamError,
 )
+from app.domains.derivatives.store import WikiPageVersionRow
 from app.domains.kb import (
     KbConflictError,
     KbParamError,
@@ -41,6 +41,24 @@ def _stub(kb: KbService) -> StubCompleter:
 
 async def _page(derivatives: Any, report_id: str) -> Any:
     return await derivatives._store.page_by_report(report_id)
+
+
+async def _version_rows(derivatives: Any, page_id: str) -> list[Any]:
+    """版本表直查（反 append-only 断言用——v0.4 写路径撤除后恒空）。"""
+    db = derivatives._store._db
+    async with db.readonly() as session:
+        rows = (
+            (
+                await session.execute(
+                    select(WikiPageVersionRow).where(
+                        WikiPageVersionRow.page_id == page_id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+    return list(rows)
 
 
 async def _wait_page(derivatives: Any, report_id: str, *, v: int) -> Any:
@@ -72,10 +90,10 @@ async def _task_done(kb: KbService, task_id: str) -> bool:
 async def test_ingest_with_wiki_on_generates_page_v1(
     kb: KbService, derivatives: Any, storage: FakeObjectStorage,
 ) -> None:
-    _lib, report_id, task_id = await make_report(kb, storage)
+    _lib, report_id, _task = await make_report(kb, storage)
     page = await _wait_page(derivatives, report_id, v=1)
     detail = await derivatives.page_detail(page.id)
-    # slug 稳定性＝id 承载；来源/操作人/经由单号（B4 端点 2/3）
+    # slug 稳定性＝id 承载；生成来源/操作人＝v0.4 单态派生
     assert page.id == f"wiki-{report_id.removeprefix('rpt-')}"
     assert page.source_report_id == report_id
     assert detail.generation_source == SOURCE_AUTO
@@ -83,11 +101,9 @@ async def test_ingest_with_wiki_on_generates_page_v1(
     assert detail.slug == page.id
     assert detail.content and "<!--WIKI-END-->" not in detail.content  # 哨兵不入库
     assert any(caller == "wiki.gen" for caller, _content in _stub(kb).calls)  # B6
-    versions = await derivatives.versions(page.id)
-    assert versions[0].task_no == task_id
-    assert versions[0].desc == DESC_FIRST
-    assert versions[0].current is True
-    # B1 端点 1 wiki 字段与 B4 current_version 同源同值（投影回写口）
+    # 反 append-only：版本表写路径撤除（v0.4）——建页也不落版本行
+    assert await _version_rows(derivatives, page.id) == []
+    # B1 端点 1 wiki 字段与 B4 current_version 同源同值（重建计数投影回写口）
     ledger = await kb.list_reports()
     row = next(r for r in ledger if r.id == report_id)
     assert row.wiki == "v1"
@@ -125,27 +141,36 @@ async def test_ingest_with_wiki_off_generates_nothing(
         await derivatives.page_detail(f"wiki-{report_id.removeprefix('rpt-')}")
 
 
-async def test_reingest_reuses_same_page_and_appends_version(
+async def test_reingest_overwrites_current_version(
     kb: KbService, derivatives: Any, storage: FakeObjectStorage,
 ) -> None:
+    """覆盖语义（B4 v0.4 票面 (a)）：同一报告两次生成→重建计数 +1、内容＝
+    新版、版本表无新行（append-only 撤除钉死）。"""
     _lib, report_id, task_id = await make_report(kb, storage)
     page = await _wait_page(derivatives, report_id, v=1)
-    # 重跑＝一次新入库（source=重跑定型）→ 事件真跑 → 同页原地更新、版本+1
+    old_content = page.content
+    # 重跑＝一次新入库（source=重跑定型）→ 事件真跑 → 同页原地覆盖、计数 +1
+    _stub(kb).answers["wiki.gen"] = "改写后的第二版正文[[claim:f1]]。\n<!--WIKI-END-->"
     await kb.retry_ingest(task_id, "xiaoli · 地质/质检")
     tasks = await kb.list_ingest_tasks("重跑定型")
     await wait_until(lambda: _task_done(kb, tasks[0].id))
     page2 = await _wait_page(derivatives, report_id, v=2)
     assert page2.id == page.id  # slug 不随重建变化
-    versions = await derivatives.versions(page.id)
-    assert [v.v for v in versions] == [1, 2]  # 版本只追加
-    assert versions[1].desc == DESC_REINGEST
-    assert versions[0].current is False and versions[1].current is True
+    assert page2.current_version == 2  # 重建计数单调 +1
+    assert "改写后的第二版正文" in page2.content  # 当前版＝新版
+    assert old_content != page2.content  # 覆盖（非另落一行）
+    # 反 append-only：版本表无新行（v0.4 版本历史撤除）
+    assert await _version_rows(derivatives, page.id) == []
+    # B1 台账 wiki 字段随覆盖同步（同源同值＝重建计数）
+    ledger = await kb.list_reports()
+    row = next(r for r in ledger if r.id == report_id)
+    assert row.wiki == "v2"
 
 
 async def test_fragment_revision_three_linkage(
     kb: KbService, derivatives: Any, storage: FakeObjectStorage,
 ) -> None:
-    """修正一片段→三联动真跑：记版＋索引重建（重嵌）＋问题块重生＋wiki v+1。"""
+    """修正一片段→三联动真跑：记版＋索引重建（重嵌）＋问题块重生＋wiki 覆盖重建。"""
     _lib, report_id, _task = await make_report(kb, storage)
     page = await _wait_page(derivatives, report_id, v=1)
     detail = await kb.report_detail(report_id)
@@ -162,7 +187,7 @@ async def test_fragment_revision_three_linkage(
         text=frag.text + "（勘误：补状态注记）", actor_who="xiaoli · 地质/质检",
     )
     assert receipt.version == 2
-    assert [v.v for v in receipt.versions] == [1, 2]  # v1 原始不可变＋逐次记版
+    assert [v.v for v in receipt.versions] == [1, 2]  # 片段 v1 原始不可变＋逐次记版
     assert receipt.versions[0].note == "原始解析"
     assert receipt.versions[1].note == "人工修正"
     assert receipt.rebuild.triggered is True
@@ -178,24 +203,23 @@ async def test_fragment_revision_three_linkage(
     revised = next(f for f in (await kb.report_detail(report_id)).fragments
                    if f.id == frag.id)
     assert revised.text.endswith("（勘误：补状态注记）")
-    # wiki 重铸联动：FragmentRevised→重铸→版本+1 来源「自动重建」（既有来源态）
+    # wiki 重铸联动：FragmentRevised→重铸→覆盖当前版（重建计数 +1，非版本追加）
     page2 = await _wait_page(derivatives, report_id, v=2)
     assert page2.id == page.id
-    versions = await derivatives.versions(page.id)
-    assert versions[1].desc == DESC_RECAST
-    assert versions[1].source == SOURCE_AUTO
-    assert versions[1].task_no == receipt.task_id
+    assert page2.current_version == 2
+    assert await _version_rows(derivatives, page.id) == []  # 版本表仍无行
     # 活动流同事务记「修正＋触发百科重铸」（B1 端点 4）
     acts = await kb.library_activities(_lib)
     assert any("修正片段" in a.action and "触发百科重铸" in a.target for a in acts)
 
 
-async def test_recast_failure_does_not_block_revision(
+async def test_recast_failure_keeps_current_version(
     kb: KbService, derivatives: Any, storage: FakeObjectStorage,
 ) -> None:
-    """重铸失败不阻塞修正：记活动流＋版本不前进（半页不落库）、修正照常定型。"""
+    """重铸失败不阻塞修正：记活动流＋当前版保持旧内容（半页不落库）、修正照常定型。"""
     _lib, report_id, _task = await make_report(kb, storage)
     page = await _wait_page(derivatives, report_id, v=1)
+    old_content = page.content
     stub = _stub(kb)
     stub.answers["wiki.gen"] = RuntimeError("模型超时")  # 重铸必失败
     detail = await kb.report_detail(report_id)
@@ -206,62 +230,19 @@ async def test_recast_failure_does_not_block_revision(
     )
     await wait_until(lambda: _task_done(kb, receipt.task_id))
     page_after = await _page(derivatives, report_id)
-    assert page_after.current_version == 1  # 版本不前进——半页不落库
+    assert page_after.current_version == 1  # 重建计数不前进——半页不落库
+    assert page_after.content == old_content  # 当前版保持旧内容
     assert page_after.id == page.id
     acts = await kb.library_activities(_lib)
     assert any(a.action == "百科重铸失败" for a in acts)
 
 
-async def test_rollback_append_semantics_and_guards(
+async def test_read_faces_current_version_and_directory(
     kb: KbService, derivatives: Any, storage: FakeObjectStorage,
 ) -> None:
-    _lib, report_id, task_id = await make_report(kb, storage)
-    page = await _wait_page(derivatives, report_id, v=1)
-    # 制造 v2（重跑重建——事件真跑）
-    await kb.retry_ingest(task_id, "xiaoli · 地质/质检")
-    tasks = await kb.list_ingest_tasks("重跑定型")
-    await wait_until(lambda: _task_done(kb, tasks[0].id))
-    await _wait_page(derivatives, report_id, v=2)
-    # 404：页面不存在/目标版本不存在
-    with pytest.raises(WikiNotFoundError):
-        await derivatives.rollback("wiki-none", 1, "xiaoli · 地质/质检")
-    with pytest.raises(WikiNotFoundError):
-        await derivatives.rollback(page.id, 99, "xiaoli · 地质/质检")
-    # 400：等于当前版
-    with pytest.raises(WikiParamError):
-        await derivatives.rollback(page.id, 2, "xiaoli · 地质/质检")
-    # 回滚到 v1＝追加 v3（来源「回滚」、指针前进、历史不变）
-    receipt = await derivatives.rollback(page.id, 1, "xiaoli · 地质/质检")
-    assert receipt.current_version == 3
-    assert receipt.new_version.source == SOURCE_ROLLBACK
-    assert receipt.new_version.operator == "xiaoli · 地质/质检"
-    assert receipt.new_version.task_no is None  # 回滚无经由单号
-    assert receipt.new_version.current is True
-    assert "内容恢复自 v1" in receipt.banner
-    versions = await derivatives.versions(page.id)
-    assert [v.v for v in versions] == [1, 2, 3]
-    assert versions[1].current is False and versions[2].current is True
-    assert versions[0].desc == DESC_FIRST  # 历史版本永不变改
-    # 投影回写同步（B1 wiki 字段）
-    ledger = await kb.list_reports()
-    row = next(r for r in ledger if r.id == report_id)
-    assert row.wiki == "v3"
-    # 防呆 409：目标版内容与当前版逐字相同（v3 即 v1 快照，再滚 v1）
-    with pytest.raises(WikiConflictError):
-        await derivatives.rollback(page.id, 1, "xiaoli · 地质/质检")
-    # 回滚本身也可再回滚（滚到 v2——内容不同于 v3）
-    receipt2 = await derivatives.rollback(page.id, 2, "xiaoli · 地质/质检")
-    assert receipt2.current_version == 4
-    assert receipt2.new_version.source == SOURCE_ROLLBACK
-
-
-async def test_read_faces_version_snapshot(
-    kb: KbService, derivatives: Any, storage: FakeObjectStorage,
-) -> None:
-    """?version=N 任意版快照：content/claims/glossary/updated/来源/操作人/状态固化。"""
+    """读面（B4 v0.4 端点 1/2）：恒当前版（无 ?version=N）；目录筛选服务端算。"""
     _lib, report_id, _task = await make_report(kb, storage)
     page = await _wait_page(derivatives, report_id, v=1)
-    v1 = await derivatives.page_detail(page.id)
     _stub(kb).answers["wiki.gen"] = "改写后的第二版正文[[claim:f1]]。\n<!--WIKI-END-->"
     await derivatives.on_ingest_completed(
         make_event(
@@ -271,21 +252,48 @@ async def test_read_faces_version_snapshot(
         )
     )
     await _wait_page(derivatives, report_id, v=2)
-    v2 = await derivatives.page_detail(page.id)
-    assert "改写后的第二版正文" in v2.content
-    assert v2.current_version == 2
-    # 历史版快照原样（不回溯改旧版）
-    v1_again = await derivatives.page_detail(page.id, version=1)
-    assert v1_again.content == v1.content
-    assert v1_again.generation_source == v1.generation_source
-    assert v1_again.claims == v1.claims
-    assert v1_again.glossary_terms == v1.glossary_terms
-    # 目录行与筛选
+    detail = await derivatives.page_detail(page.id)
+    assert "改写后的第二版正文" in detail.content
+    assert detail.current_version == 2
+    assert detail.status == "正常"  # 当前版无 [[flag:]] → 正常（服务端判定）
+    # ?version=N 读法随 v0.4 撤除——残留参数即残面（签名无 version 形参）
+    with pytest.raises(TypeError):
+        await derivatives.page_detail(page.id, version=1)  # type: ignore[call-arg]
+    # 目录行与筛选（keyword 匹配题名/来源报告/所属库；lib 筛选）
     pages = await derivatives.list_pages()
     item = next(p for p in pages if p.id == page.id)
-    assert item.current_version == 2 and item.version_count == 2
+    assert item.current_version == 2
+    assert item.status == "正常"
     assert item.title
+    assert not hasattr(item, "version_count")  # v0.4 撤 version_count（DTO 两级）
     assert await derivatives.list_pages(lib="不存在的库") == []
+
+
+async def test_directory_status_two_states_by_flag(
+    kb: KbService, derivatives: Any, storage: FakeObjectStorage,
+) -> None:
+    """状态两态（服务端算）：当前版正文有 [[flag:]] → 字段待核对，无 → 正常。"""
+    _lib, report_id, _task = await make_report(kb, storage)
+    page = await _wait_page(derivatives, report_id, v=1)
+    detail = await derivatives.page_detail(page.id)
+    assert detail.status == "正常"
+    _stub(kb).answers["wiki.gen"] = (
+        "平台 CEP-B[[flag:与井档案不符，待核对]]与井档案对不上。\n<!--WIKI-END-->"
+    )
+    await derivatives.on_ingest_completed(
+        make_event(
+            "IngestCompleted",
+            {"task_id": "task-manual-2", "report_id": report_id, "lib_id": _lib,
+             "doc": "", "source": "重跑定型", "config_snapshot": {"wiki": True}},
+        )
+    )
+    await _wait_page(derivatives, report_id, v=2)
+    detail2 = await derivatives.page_detail(page.id)
+    assert detail2.status == "字段待核对"  # 有未消除修订提示
+    assert "[[flag:与井档案不符，待核对]]" in detail2.content
+    pages = await derivatives.list_pages()
+    item = next(p for p in pages if p.id == page.id)
+    assert item.status == "字段待核对"  # 目录状态同源（服务端按当前版判定）
 
 
 async def test_wiki_generation_abandons_half_page(

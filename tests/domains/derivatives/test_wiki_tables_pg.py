@@ -107,11 +107,12 @@ async def _columns(db: ConnectionManager, table: str) -> set[str]:
 
 
 async def test_wiki_tables_columns_match_99(db: ConnectionManager) -> None:
-    """wiki 族逐列断言（99 §2.7＋B4 v0.3 版本快照字段＋基线列）。"""
+    """wiki 族逐列断言（99 §2.7 基线＋B4 v0.4 页级覆盖三列；版本表随表留档）。"""
     expected = {
         "wiki_page": {
             "id", "title", "digest", "lib_id", "source_report_id",
-            "current_version", "created_at", "updated_at",
+            "current_version", "content", "claims", "glossary_terms",
+            "created_at", "updated_at",
         },
         "wiki_page_version": {
             "page_id", "v", "content", "claims", "glossary_terms",
@@ -126,7 +127,12 @@ async def test_wiki_tables_columns_match_99(db: ConnectionManager) -> None:
 
 
 async def test_wiki_constraints_and_roundtrip(db: ConnectionManager) -> None:
-    """source CHECK 四态（F52 ①冻结值）/uq 1:1/PK(page_id,v)/append-only 往返。"""
+    """source CHECK 四态（F52 ①冻结值）/uq 1:1/PK(page_id,v)/往返。
+
+    v0.4 注记：wiki_page_version 写路径已撤（B4 v0.4 覆盖语义——重建不再
+    追加版本行），本组断言＝保留表的列形/CHECK 结构留档验证（表不删、
+    历史行只读）；wiki_page 页级 content/claims/glossary_terms 覆盖往返同验。
+    """
     async with db.session() as session:
         checks = (
             await session.execute(
@@ -190,6 +196,10 @@ async def test_wiki_constraints_and_roundtrip(db: ConnectionManager) -> None:
         page = WikiPageRow(
             id="wiki-t", title="《报告》", digest="摘要", lib_id="lib-t",
             source_report_id="rpt-t", current_version=2,
+            content="正文 v2（页级当前版——B4 v0.4 覆盖语义）",
+            claims=[{"claim_id": "c9", "text": "页级论断",
+                     "evidence_chunk_ids": ["f1"]}],
+            glossary_terms=[],
             created_at=datetime.now(), updated_at=clock_now(),
         )
         session.add(page)
@@ -211,6 +221,10 @@ async def test_wiki_constraints_and_roundtrip(db: ConnectionManager) -> None:
         ))
         await session.flush()
     async with db.readonly() as session:
+        row = await session.get(WikiPageRow, "wiki-t")
+        assert row is not None and row.current_version == 2
+        assert row.content.startswith("正文 v2")  # 页级当前版往返
+        assert row.claims[0]["text"] == "页级论断"  # jsonb 真库读写
         rows = (
             (await session.execute(
                 select(WikiPageVersionRow)
@@ -218,12 +232,12 @@ async def test_wiki_constraints_and_roundtrip(db: ConnectionManager) -> None:
                 .order_by(WikiPageVersionRow.v)
             )).scalars().all()
         )
-    assert len(rows) == 2  # 版本 append-only 双行
+    assert len(rows) == 2  # 保留表留档行往返（v0.4 起写路径不再追加）
     assert rows[0].source == "自动重建"
     assert rows[0].claims[0]["evidence_chunk_ids"] == ["f1"]
     assert rows[0].glossary_terms[0]["word"] == "综合含水率"
-    assert rows[1].source == "回滚" and rows[1].task_no is None  # 回滚无经由单号
-    # source CHECK：合同四态之外的值被拒（F52 ①值域冻结）
+    assert rows[1].source == "回滚" and rows[1].task_no is None  # 留档列形
+    # source CHECK：合同四态之外的值被拒（F52 ①值域冻结——随表留档仍生效）
     from sqlalchemy.exc import IntegrityError
 
     async with db.session() as session:

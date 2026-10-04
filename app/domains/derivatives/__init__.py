@@ -1,20 +1,15 @@
 """domains.derivatives —— 派生物域公开出口（B2：只许 import 本包公开名）。
 
-98 §3.5 卡：索引期派生物域（wiki 百科页版本治理——P1-02b；关系图谱
-graph 子域——P1-05，图数据经 infra.graph_store/Neo4j）。
+98 §3.5 卡：索引期派生物域（wiki 百科页——P1-02b 建支路，B4 v0.4 起覆盖
+语义两读端点；关系图谱 graph 子域——P1-05，图数据经 infra.graph_store/Neo4j）。
 消费 IngestCompleted/FragmentRevised 事件（B9——kb 不直调 derivatives）。
 """
 
 from app.domains.derivatives.domain import (
-    DESC_FIRST,
-    DESC_RECAST,
-    DESC_REINGEST,
     OPERATOR_SYSTEM,
     REASON_CODES,
-    ROLLBACK_BANNER_TEMPLATE,
     SAVE_HINT,
     SOURCE_AUTO,
-    SOURCE_ROLLBACK,
     STATUS_OK,
     STATUS_PENDING,
     WIKI_CONTINUE_ROUNDS,
@@ -41,14 +36,10 @@ from app.domains.derivatives.domain import (
     LegendItem,
     RelatedObjectView,
     RelationTag,
-    RollbackReceipt,
     TripleCandidate,
-    WikiConflictError,
     WikiNotFoundError,
     WikiPageDetail,
     WikiPageListItem,
-    WikiParamError,
-    WikiVersionItem,
     config_from_payload,
     config_from_snapshot,
     default_extract_config,
@@ -71,15 +62,10 @@ from app.domains.derivatives.service import (
 from app.domains.derivatives.store import ensure_derivatives_tables
 
 __all__ = [
-    "DESC_FIRST",
-    "DESC_RECAST",
-    "DESC_REINGEST",
     "OPERATOR_SYSTEM",
     "REASON_CODES",
-    "ROLLBACK_BANNER_TEMPLATE",
     "SAVE_HINT",
     "SOURCE_AUTO",
-    "SOURCE_ROLLBACK",
     "STATUS_OK",
     "STATUS_PENDING",
     "WIKI_CONTINUE_ROUNDS",
@@ -107,14 +93,10 @@ __all__ = [
     "LegendItem",
     "RelatedObjectView",
     "RelationTag",
-    "RollbackReceipt",
     "TripleCandidate",
-    "WikiConflictError",
     "WikiNotFoundError",
     "WikiPageDetail",
     "WikiPageListItem",
-    "WikiParamError",
-    "WikiVersionItem",
     "config_from_payload",
     "config_from_snapshot",
     "default_extract_config",

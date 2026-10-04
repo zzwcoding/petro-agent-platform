@@ -26,9 +26,9 @@
   400——B2 错误码草案，登记于 tickets/phase1/README.md P1-04 差异清单）
 - kb_fragment_revise_deferred：片段修正端点壳（P1-02a 立壳，修正动作归
   P1-02b——501 非合同状态码，差异登记票面）
-- wiki_not_found / wiki_param_invalid / wiki_conflict：wiki 域 404/400/409
-  （B4 错误码草案；P1-02b 新立值，登记于 tickets/phase1/README.md P1-02b
-  差异清单）——回滚防呆 409 兜底横幅＝B4 合同常量
+- wiki_not_found：wiki 域 404（B4 错误码草案；P1-02b 新立值，登记于
+  tickets/phase1/README.md P1-02b 差异清单）——B4 v0.4 起纯读两态，
+  wiki_param_invalid/wiki_conflict（400/409 版本/回滚族）随端点撤除废止
 - graph_not_found / graph_param_invalid / graph_ontology_mismatch：graph 域
   404/400（B5 错误码草案；P1-05 新立值，登记于 tickets/phase1/README.md
   P1-05 差异清单）——强校 400 带对号明细（detail.mismatches）
@@ -64,9 +64,7 @@ from app.domains.derivatives import (
     GraphNotFoundError,
     GraphOntologyMismatchError,
     GraphParamError,
-    WikiConflictError,
     WikiNotFoundError,
-    WikiParamError,
 )
 from app.domains.faq import (
     FaqConflictError,
@@ -98,8 +96,6 @@ CODE_GATEWAY_CONFIG_WRITE_FAILED = "gateway_config_write_failed"
 CODE_SEMANTICS_PARAM_INVALID = "semantics_param_invalid"
 CODE_KB_DEFERRED = "kb_fragment_revise_deferred"
 CODE_WIKI_NOT_FOUND = "wiki_not_found"
-CODE_WIKI_PARAM_INVALID = "wiki_param_invalid"
-CODE_WIKI_CONFLICT = "wiki_conflict"
 CODE_GRAPH_NOT_FOUND = "graph_not_found"
 CODE_FAQ_NOT_FOUND = "faq_not_found"
 
@@ -239,27 +235,10 @@ def install_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(WikiNotFoundError)
     async def handle_wiki_not_found(request: Request, exc: WikiNotFoundError) -> JSONResponse:
-        # B4 错误码草案 404：百科页不存在（含 wiki 开关关未生成）/?version 版本不存在。
+        # B4 错误码草案 404：百科页不存在（含 wiki 开关关未生成、直调未知 id）。
         return JSONResponse(
             status_code=404,
             content=error_payload(CODE_WIKI_NOT_FOUND, str(exc)),
-        )
-
-    @app.exception_handler(WikiParamError)
-    async def handle_wiki_param_error(request: Request, exc: WikiParamError) -> JSONResponse:
-        # B4 错误码草案 400：target_version 缺失/等于当前版。
-        return JSONResponse(
-            status_code=400,
-            content=error_payload(exc.code, str(exc)),
-        )
-
-    @app.exception_handler(WikiConflictError)
-    async def handle_wiki_conflict(request: Request, exc: WikiConflictError) -> JSONResponse:
-        # B4 错误码草案 409：回滚防呆（目标版内容与当前版逐字相同）——
-        # 兜底横幅＝合同常量「当前已是回滚后的版本…」。
-        return JSONResponse(
-            status_code=409,
-            content=error_payload(exc.code, str(exc)),
         )
 
     @app.exception_handler(GraphNotFoundError)

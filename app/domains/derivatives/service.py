@@ -1,16 +1,20 @@
-"""domains.derivatives.service —— 派生物域服务：wiki 支路编排（生成/重铸/读面/回滚）。
+"""domains.derivatives.service —— 派生物域服务：wiki 支路编排（生成/重铸/读面）。
 
-公开面照 98 §3.5 derivatives 卡＋B4 合同四端点：
+公开面照 98 §3.5 derivatives 卡＋B4 合同 v0.4 两读端点：
 - 事件订阅（B9——kb 不直调 derivatives，派生物只经事件触发）：
   `on_ingest_completed`（入库/重跑定型→wiki 生成/重建）；
-  `on_fragment_revised`（片段修正→重铸队列→版本+1 来源「自动重建」；
-  失败不阻塞修正——记 B1 活动流，可手动重跑）。
+  `on_fragment_revised`（片段修正→重铸队列→覆盖当前版；失败不阻塞修正
+  ——记 B1 活动流，可手动重跑）。
 - 生成支路（PRD F50 工序）：块拼回全文（相邻重叠去重）→图片块连图注回读
   →32K 截断→LLM 模板重写（模板＝提示词约束按库业务模板投影，产出自由
   markdown 零固定节；截断纪律＝最多续写 3 轮、未完放弃本次写入不落半页）
-  →claims 锚校验（fail-closed）→台账挂接（台账无账不挂）→落版本快照。
-- 读面（B4 端点 1/2/3）：目录/全文 ?version=N/版本列表；写面（端点 4）：
-  回滚＝追加「回滚」来源新版本、指针前进、防呆 409。
+  →claims 锚校验（fail-closed）→台账挂接（台账无账不挂）→覆盖当前版。
+- 覆盖语义（B4 v0.4——Owner 2026-10-04 拍板"版本历史直接去掉"）：重建
+  **覆盖当前版**（页级行原地更新、current_version＝重建计数单调 +1），
+  不留历史、不可回滚；重铸失败当前版保持旧内容（半页不落库语义不变）。
+- 读面（B4 端点 1/2）：目录（lib/keyword 筛选＋status 服务端按当前版
+  [[flag:]] 判定）/全文（元数据字段表＋content＋claims[]＋glossary_terms[]，
+  恒当前版、无 ?version=N）。
 
 选型说明（票面「asyncio 任务族或管线第六步」）：**事件订阅＋asyncio 任务族**，
 不进五步管线——①五步节点名为 B1 合同冻结值，wiki 不占步位；②B9 边界：
@@ -37,7 +41,6 @@ from app.domains.derivatives.store import (
     ExtractConfigRow,
     ExtractConfigStore,
     WikiPageRow,
-    WikiPageVersionRow,
     WikiStore,
 )
 from app.infra.clock import DISPLAY_FMT, now
@@ -72,7 +75,7 @@ class Completer(Protocol):
 
 
 class KbFacade(Protocol):
-    """kb 公开面（B9 例外族：报告读面＋活动流写口＋wiki 版号投影回写）。"""
+    """kb 公开面（B9 例外族：报告读面＋活动流写口＋wiki 重建计数投影回写）。"""
 
     async def report_detail(self, report_id: str) -> Any: ...
 
@@ -140,8 +143,6 @@ class DerivativesService:
             await self._spawn_generation(
                 str(payload["report_id"]),
                 str(payload["lib_id"]),
-                task_no=str(payload["task_id"]),
-                desc=d.DESC_REINGEST if payload.get("source") == "重跑定型" else d.DESC_FIRST,
             )
         if payload.get("config_snapshot", {}).get("graph"):
             self._spawn_graph_extract(
@@ -155,39 +156,33 @@ class DerivativesService:
         """FragmentRevised→该报告 wiki 页进重铸队列（复用生成管线；失败不阻塞）。"""
         payload = event.payload
         report_id = str(payload["report_id"])
-        self._enqueue_recast(report_id, str(payload["lib_id"]),
-                             str(payload.get("task_id") or ""))
+        self._enqueue_recast(report_id, str(payload["lib_id"]))
 
-    def _enqueue_recast(self, report_id: str, lib_id: str, task_no: str) -> None:
+    def _enqueue_recast(self, report_id: str, lib_id: str) -> None:
         """重铸队列：在途合并（完成后补跑一次），量级演示级。"""
         running = self._recasts.tasks.get(report_id)
         if running is not None and not running.done():
             self._recasts.pending.add(report_id)
             return
-        self._spawn_recast(report_id, lib_id, task_no)
+        self._spawn_recast(report_id, lib_id)
 
-    def _spawn_recast(self, report_id: str, lib_id: str, task_no: str) -> None:
+    def _spawn_recast(self, report_id: str, lib_id: str) -> None:
         async def _run() -> None:
             try:
-                await self._generate(
-                    report_id, lib_id, task_no=task_no or None, desc=d.DESC_RECAST,
-                    failure_activity=True,
-                )
+                await self._generate(report_id, lib_id, failure_activity=True)
             finally:
                 self._recasts.tasks.pop(report_id, None)
                 if report_id in self._recasts.pending:
                     self._recasts.pending.discard(report_id)
-                    self._spawn_recast(report_id, lib_id, task_no)
+                    self._spawn_recast(report_id, lib_id)
 
         self._recasts.tasks[report_id] = asyncio.create_task(_run())
 
-    async def _spawn_generation(
-        self, report_id: str, lib_id: str, *, task_no: str, desc: str
-    ) -> None:
+    async def _spawn_generation(self, report_id: str, lib_id: str) -> None:
         try:
-            await self._generate(report_id, lib_id, task_no=task_no, desc=desc)
+            await self._generate(report_id, lib_id)
         except Exception:  # 生成失败不阻塞入库任务（任务体已 done——只记日志）
-            LOGGER.exception("wiki 生成失败 report=%s task=%s", report_id, task_no)
+            LOGGER.exception("wiki 生成失败 report=%s", report_id)
 
     # ---------- 生成支路（F50 工序） ----------
 
@@ -196,11 +191,9 @@ class DerivativesService:
         report_id: str,
         lib_id: str,
         *,
-        task_no: str | None,
-        desc: str,
         failure_activity: bool = False,
     ) -> None:
-        """拼回→截断→LLM 重写→锚校验→挂接→落版本；失败可记活动流。"""
+        """拼回→截断→LLM 重写→锚校验→挂接→覆盖当前版；失败可记活动流。"""
         try:
             detail = await self._kb.report_detail(report_id)
             evidence = [
@@ -222,14 +215,13 @@ class DerivativesService:
             await self._persist_version(
                 report_id=report_id, lib_id=lib_id, title=detail.doc,
                 content=content, claims=claims, glossary=glossary,
-                source=d.SOURCE_AUTO, desc=desc, operator=d.OPERATOR_SYSTEM,
-                task_no=task_no,
             )
         except Exception as exc:
             LOGGER.exception("wiki 生成失败 report=%s", report_id)
             if failure_activity:
                 # 重铸失败不阻塞修正（富化失败不阻塞整卷先例）——记 B1 活动流；
-                # 半页不落库：版本不追加、当前版不动，可经 B1 端点 10 重跑触发。
+                # 半页不落库：本次覆盖不发生、当前版保持旧内容，可经 B1 端点 10
+                # 重跑触发。
                 try:
                     await self._kb.record_activity(
                         lib_id, who=d.OPERATOR_SYSTEM, action="百科重铸失败",
@@ -327,12 +319,17 @@ class DerivativesService:
         content: str,
         claims: list[d.ClaimRow],
         glossary: list[dict[str, Any]],
-        source: str,
-        desc: str,
-        operator: str | None,
-        task_no: str | None,
-    ) -> WikiPageVersionRow:
-        """落版本快照（版本只追加）＋wiki 版号投影回写（B9 例外族公开口）。"""
+    ) -> int:
+        """覆盖当前版（B4 v0.4 行为规则 1）＋wiki 重建计数投影回写（B9 例外族）。
+
+        - 首次生成：建页（slug 稳定性＝id 承载）落 v1；
+        - 重建：页级行原地更新（content/digest/claims/glossary_terms/updated_at），
+          `current_version` 单调 +1（＝重建计数，与 B1 台账 `wiki` 字段同源）；
+        - **版本表不再追加**（wiki_page_version 写路径 v0.4 撤除——Owner 拍板
+          撤版本历史，表保留不删留档）；
+        - 半页不落库语义不变：本方法只在生成全程成功后被调用，失败在调用前
+          短路、当前版保持旧内容。
+        """
         claims_payload = [
             {"claim_id": c.claim_id, "text": c.text,
              "evidence_chunk_ids": list(c.evidence_chunk_ids)}
@@ -347,31 +344,32 @@ class DerivativesService:
                 lib_id=lib_id,
                 source_report_id=report_id,
                 current_version=1,
+                content=content,
+                claims=claims_payload,
+                glossary_terms=glossary,
                 updated_at=now(),
             )
-            version = WikiPageVersionRow(
-                page_id=page.id, v=1, content=content,
-                claims=claims_payload, glossary_terms=glossary,
-                source=source, desc=desc, operator=operator, task_no=task_no,
-            )
-            page, version = await self._store.create_page_with_version(page, version)
+            page = await self._store.insert_page(page)
         else:
-            version = WikiPageVersionRow(
-                page_id=page.id, v=(page.current_version or 0) + 1, content=content,
-                claims=claims_payload, glossary_terms=glossary,
-                source=source, desc=desc, operator=operator, task_no=task_no,
+            page = await self._store.overwrite_current(
+                page.id,
+                title=title,
+                digest=d.derive_digest(content),
+                content=content,
+                claims=claims_payload,
+                glossary_terms=glossary,
             )
-            page, version = await self._store.append_version(
-                page.id, version, title=title, digest=d.derive_digest(content)
-            )
-        await self._kb.publish_wiki_version(report_id, version.v)
-        return version
+        current = page.current_version or 1
+        await self._kb.publish_wiki_version(report_id, current)
+        return current
 
     # ---------- B4 端点 1：目录 ----------
 
     async def list_pages(
         self, lib: str | None = None, keyword: str | None = None
     ) -> list[d.WikiPageListItem]:
+        """百科页目录（lib/keyword 服务端筛选；keyword 匹配题名/来源报告/所属库
+        三字段；按 updated 倒序；status 服务端按当前版正文 [[flag:]] 判定）。"""
         needle = (keyword or "").strip().casefold()
         out: list[d.WikiPageListItem] = []
         for page in await self._store.all_pages():
@@ -383,8 +381,6 @@ class DerivativesService:
                 needle not in report.doc.casefold() and needle not in lib_name.casefold()
             ):
                 continue
-            current = await self._store.version(page.id, page.current_version or 1)
-            count = len(await self._store.versions_of(page.id))
             out.append(
                 d.WikiPageListItem(
                     id=page.id,
@@ -393,29 +389,23 @@ class DerivativesService:
                     source_report_id=page.source_report_id,
                     source_report_doc=report.doc,
                     current_version=page.current_version or 1,
-                    version_count=count,
                     updated=(page.updated_at or page.created_at).strftime(DISPLAY_FMT),
-                    status=d.page_status_of(current.content if current else ""),
+                    status=d.page_status_of(page.content or ""),
                 )
             )
         return out
 
-    # ---------- B4 端点 2：全文（?version=N 任意版快照） ----------
+    # ---------- B4 端点 2：全文（恒当前版——v0.4 撤 ?version=N） ----------
 
-    async def page_detail(
-        self, page_id: str, *, version: int | None = None
-    ) -> d.WikiPageDetail:
+    async def page_detail(self, page_id: str) -> d.WikiPageDetail:
+        """百科页全文（元数据字段表＋自由 markdown 正文＋claims＋glossary_terms；
+        恒返回当前版快照；generation_source/operator 按 v0.4 单态派生不落列）。"""
         page = await self._store.page(page_id)
         if page is None:
             raise d.WikiNotFoundError(f"百科页不存在（含 wiki 开关关未生成）：{page_id}")
-        target_v = version if version is not None else page.current_version
-        if target_v is None:
+        if page.current_version is None:  # 建页即 v1——防御性不可达分支
             raise d.WikiNotFoundError(f"百科页尚无已生成版本：{page_id}")
-        row = await self._store.version(page_id, target_v)
-        if row is None:
-            raise d.WikiNotFoundError(f"版本不存在：v{target_v}")
         report = await self._kb.report_detail(page.source_report_id)
-        count = len(await self._store.versions_of(page_id))
         return d.WikiPageDetail(
             id=page.id,
             title=page.title,
@@ -424,20 +414,24 @@ class DerivativesService:
             digest=page.digest,
             source_report_id=page.source_report_id,
             source_report_doc=report.doc,
-            current_version=page.current_version or 1,
-            version_count=count,
-            updated=row.created_at.strftime(DISPLAY_FMT),
-            status=d.page_status_of(row.content),
-            generation_source=row.source,
-            operator=row.operator,
+            current_version=page.current_version,
+            updated=(page.updated_at or page.created_at).strftime(DISPLAY_FMT),
+            status=d.page_status_of(page.content or ""),
+            generation_source=d.SOURCE_AUTO,
+            operator=d.OPERATOR_SYSTEM,
             related_objects=self._related_objects(report),
-            content=row.content,
-            claims=list(row.claims),
-            glossary_terms=list(row.glossary_terms),
+            content=page.content or "",
+            claims=list(page.claims or []),
+            glossary_terms=list(page.glossary_terms or []),
         )
 
     def _related_objects(self, report: Any) -> list[d.RelatedObjectView]:
-        """关联对象投影（井档案只读投影——不建仓；summary 未回填报空串）。"""
+        """关联对象投影（B4 v0.3 同形状；井档案只读投影——不建仓）。
+
+        V1 阶段取页内存关联（derivatives 生成时已有的对象识别——kb 报告读面
+        related_objects 直出）；A2 井档案接线后切同源 well_info 投影（挂账
+        P2-04 票面点名），不许为此私建井表读缝；summary 未回填报空串。
+        """
         return [
             d.RelatedObjectView(
                 type=obj.get("type", ""), id=obj.get("id", ""),
@@ -445,77 +439,6 @@ class DerivativesService:
             )
             for obj in report.related_objects
         ]
-
-    # ---------- B4 端点 3：版本列表 ----------
-
-    async def versions(self, page_id: str) -> list[d.WikiVersionItem]:
-        page = await self._store.page(page_id)
-        if page is None:
-            raise d.WikiNotFoundError(f"百科页不存在（含 wiki 开关关未生成）：{page_id}")
-        rows = await self._store.versions_of(page_id)
-        return [
-            d.WikiVersionItem(
-                v=row.v,
-                date=row.created_at.strftime(DISPLAY_FMT),
-                source=row.source,
-                desc=row.desc,
-                operator=row.operator,
-                task_no=row.task_no,
-                current=row.v == page.current_version,
-            )
-            for row in rows
-        ]
-
-    # ---------- B4 端点 4：一键回滚（追加语义＋防呆） ----------
-
-    async def rollback(
-        self, page_id: str, target_version: int, actor_who: str
-    ) -> d.RollbackReceipt:
-        page = await self._store.page(page_id)
-        if page is None:
-            raise d.WikiNotFoundError(f"百科页不存在（含 wiki 开关关未生成）：{page_id}")
-        if not target_version:
-            raise d.WikiParamError("target_version 必填")
-        current_v = page.current_version
-        if current_v is None:
-            raise d.WikiNotFoundError(f"百科页尚无已生成版本：{page_id}")
-        if target_version == current_v:
-            raise d.WikiParamError(f"目标版 v{target_version} 即当前版——无可回滚")
-        target = await self._store.version(page_id, target_version)
-        if target is None:
-            raise d.WikiNotFoundError(f"目标版本不存在：v{target_version}")
-        current = await self._store.version(page_id, current_v)
-        if current is not None and current.content == target.content:
-            raise d.WikiConflictError(
-                "当前已是回滚后的版本（目标版内容与当前版逐字相同）"
-                "——回滚本身也记成一次新提交，可继续回滚到更早版本"
-            )
-        new_v = current_v + 1
-        version = WikiPageVersionRow(
-            page_id=page_id, v=new_v, content=target.content,
-            claims=list(target.claims), glossary_terms=list(target.glossary_terms),
-            source=d.SOURCE_ROLLBACK, desc=d.ROLLBACK_DESC_TEMPLATE.format(
-                target=target_version
-            ),
-            operator=actor_who, task_no=None,  # 回滚无经由单号（B4 经由单号列口径）
-        )
-        page, version = await self._store.append_version(page_id, version)
-        await self._kb.publish_wiki_version(page.source_report_id, new_v)
-        return d.RollbackReceipt(
-            page_id=page_id,
-            current_version=new_v,
-            new_version=d.WikiVersionItem(
-                v=new_v,
-                date=version.created_at.strftime(DISPLAY_FMT),
-                source=version.source,
-                desc=version.desc,
-                operator=version.operator,
-                task_no=None,
-                current=True,
-            ),
-            status=d.page_status_of(version.content),
-            banner=d.rollback_banner(new_v, target_version),
-        )
 
     # ---------- graph 子域（B5-关系图谱.md v0.2——P1-05） ----------
 

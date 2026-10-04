@@ -696,8 +696,10 @@ class KbService:
             await self._eventbus.publish(event)
 
     async def publish_wiki_version(self, report_id: str, version: int) -> None:
-        """B9 例外族公开投影口：derivatives 重建/回滚后回写 wiki_current_version
-        （B1 端点 1 `wiki` 字段与 B4 current_version 同源同值——禁他模块直写本表）。"""
+        """B9 例外族公开投影口：derivatives 重建后回写 wiki_current_version
+        （B4 v0.4 起＝**重建计数**——覆盖当前版单调 +1，无版本历史语义；
+        B1 端点 1 `wiki` 字段「vN」与 B4 current_version 同源同值——禁他模块
+        直写本表；回滚随 B4 v0.4 版本治理撤除，不再有回写来源）。"""
         async with self._db.session() as session:
             row = await session.get(ReportRow, report_id)
             if row is not None:

@@ -1,6 +1,6 @@
 """wiki 域语义单测——拼回去重/截断纪律/claims fail-closed/台账挂接/状态派生。
 
-纯 domain.py 语义（B1：零 IO）；合同锚见模块 docstring（B4 v0.3/PRD F50/F51/F52）。
+纯 domain.py 语义（B1：零 IO）；合同锚见模块 docstring（B4 v0.4/PRD F50/F51）。
 """
 
 from app.domains.derivatives import domain as d
@@ -125,7 +125,7 @@ def test_linkify_does_not_nest_markers() -> None:
     assert "[[term:综合含水率]]" in out
 
 
-# ---------- 状态派生/slug/digest/横幅 ----------
+# ---------- 状态派生/slug/digest ----------
 
 
 def test_page_status_derives_from_flag_marker() -> None:
@@ -145,9 +145,3 @@ def test_derive_digest_takes_first_plain_sentence() -> None:
     assert (
         d.derive_digest(content) == "N-02 井完井报告：渤南区块 CEP-A 平台，2019-06-15 投产。"
     )
-
-
-def test_rollback_banner_follows_contract_template() -> None:
-    banner = d.rollback_banner(4, 2)
-    assert "已回滚：当前版 = v4（内容恢复自 v2）" in banner
-    assert "回滚本身也记成一次新提交（可再滚回）" in banner

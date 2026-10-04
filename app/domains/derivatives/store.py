@@ -1,19 +1,24 @@
 """domains.derivatives.store —— wiki 表族（99 §2.7 逐字段）与仓储。
 
-- `wiki_page`：百科页（1:1 报告；当前版指针）——id（wiki- slug，稳定不随
-  重建变化）·title·lib_id FK·source_report_id FK·current_version int
-  ·updated_at；digest（一句话摘要——页级元数据，随自动生成刷新；B4 端点 2
-  `?version=N` 取该版固化值的字段清单不含 digest，故落页级不落版本级）。
-- `wiki_page_version`：版本 append-only（回滚＝追加新版本、指针前进）——
-  content（自由 markdown 全文——B4 v0.3 改版：99 册 `body` 五段 jsonb 已被
-  v0.3 拍板撤除，登记于 tickets/phase1 README）＋claims/glossary_terms jsonb
-  （生成时固化随版本走）＋source CHECK(`自动重建,智能体,人工,回滚`)（F52 ①
-  四态冻结值照抄）＋desc/operator/task_no（v0.3 落位列）。
-- `status` 不落列（B4：按当前版正文有无 [[flag:]] 派生——99 §2.7 同注）；
-  `generation_source/operator` 从当前版本行派生；`related_objects` 为报告读
-  面投影（票 93 不建仓——derivatives 读面直取，不落第二份）。
+- `wiki_page`：百科页（1:1 报告；当前版承载）——id（wiki- slug，稳定不随
+  重建变化）·title·digest（随重建刷新）·lib_id FK·source_report_id FK
+  ·current_version int（**重建计数**——B4 v0.4：单调 +1、无版本历史语义，
+  与 B1 台账 `wiki` 字段同源）·content（当前版自由 markdown 全文）
+  ·claims/glossary_terms jsonb（当前版投影段——生成时固化）·updated_at
+  （最近一次重建时间）；**覆盖语义落库**（B4 v0.4 行为规则 1：重建＝页级行
+  原地更新，不留历史）。
+- `wiki_page_version`：**v0.4 起写路径撤除、表保留不删留档**（Owner
+  2026-10-04 拍板"版本历史直接去掉"——append-only 版本快照不再追加，读面
+  也不再经版本行；列形与 source CHECK 四态随表留档，历史行只读不迁移；
+  99 册 §2.7 对齐随文档对齐批）。
+- `status`/`generation_source`/`operator`/`related_objects` 不落列（B4 v0.3
+  派生口径不变——status 按当前版正文有无 [[flag:]] 派生；generation_source
+  v0.4 单态「自动重建」、operator 恒「系统（入库管线）」均读面派生；
+  related_objects 为报告读面投影，票 93 不建仓——derivatives 读面直取，
+  不落第二份）。
 - ensure_derivatives_tables 幂等 checkfirst（P0-04 惯例），与 Alembic 0004
-  并行存活（双轨退役拍挂后续票——P1-01 差异 10 同口径）。
+  并行存活（双轨退役拍挂后续票——P1-01 差异 10 同口径）；v0.4 新增页级三列
+  的存量 PG 库列形迁移随各域迁移票（本票不切 Alembic——票面边界）。
 
 边界：B3（只经 infra.db）、B14（时间只经 infra.clock）、B1（不咬框架）。
 """
@@ -48,7 +53,11 @@ _J = JSONB().with_variant(JSON(), "sqlite")
 
 
 class WikiPageRow(Base):
-    """wiki_page——百科页（1:1 报告；当前版指针；slug 稳定性＝id 承载）。"""
+    """wiki_page——百科页（1:1 报告；当前版承载；slug 稳定性＝id 承载）。
+
+    B4 v0.4 覆盖语义：content/claims/glossary_terms＝当前版快照（重建原地
+    更新），current_version＝重建计数（单调 +1，非版本指针）。
+    """
 
     __tablename__ = "wiki_page"
     __table_args__ = (
@@ -64,12 +73,19 @@ class WikiPageRow(Base):
         String(32), ForeignKey("kb_report.id"), nullable=False, unique=True
     )
     current_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    claims: Mapped[list[dict[str, Any]]] = mapped_column(_J, nullable=False, default=list)
+    glossary_terms: Mapped[list[dict[str, Any]]] = mapped_column(
+        _J, nullable=False, default=list
+    )
     created_at: Mapped[datetime] = mapped_column(default=now, nullable=False)
     updated_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
 
 class WikiPageVersionRow(Base):
-    """wiki_page_version——百科版本（append-only；回滚＝追加新版本）。"""
+    """wiki_page_version——版本快照表（**v0.4 起写路径撤除、表保留不删留档**
+    ——B4 v0.4 版本历史撤除（Owner 2026-10-04 拍板），append-only 版本不再
+    追加、读面不再经版本行；列形与 source CHECK 四态随表留档）。"""
 
     __tablename__ = "wiki_page_version"
     __table_args__ = (
@@ -174,64 +190,44 @@ class WikiStore:
             )
         return list(rows)
 
-    async def versions_of(self, page_id: str) -> list[WikiPageVersionRow]:
-        async with self._db.readonly() as session:
-            rows = (
-                (
-                    await session.execute(
-                        select(WikiPageVersionRow)
-                        .where(WikiPageVersionRow.page_id == page_id)
-                        .order_by(WikiPageVersionRow.v)
-                    )
-                )
-                .scalars()
-                .all()
-            )
-        return list(rows)
-
-    async def version(self, page_id: str, v: int) -> WikiPageVersionRow | None:
-        async with self._db.readonly() as session:
-            return await session.get(WikiPageVersionRow, (page_id, v))
-
-    async def create_page_with_version(
-        self, page: WikiPageRow, version: WikiPageVersionRow
-    ) -> tuple[WikiPageRow, WikiPageVersionRow]:
-        """建页＋v1（slug 稳定性：1:1 建页后 id 恒定，重建原地追加版本）。"""
+    async def insert_page(self, page: WikiPageRow) -> WikiPageRow:
+        """新建百科页（v1——首次生成；slug 稳定性＝id 承载，重建原地复用）。"""
         async with self._db.session() as session:
             session.add(page)
-            await session.flush()  # 页行先落——版本行 FK 依赖页
-            session.add(version)
             await session.flush()
-        return page, version
+        return page
 
-    async def append_version(
+    async def overwrite_current(
         self,
         page_id: str,
-        version: WikiPageVersionRow,
         *,
-        title: str | None = None,
-        digest: str | None = None,
-    ) -> tuple[WikiPageRow, WikiPageVersionRow]:
-        """追加版本＋当前指针前进（版本只追加、不可篡改——B4 行为规则 1）。
+        title: str,
+        digest: str,
+        content: str,
+        claims: list[dict[str, Any]],
+        glossary_terms: list[dict[str, Any]],
+    ) -> WikiPageRow:
+        """覆盖当前版（B4 v0.4 行为规则 1——重建＝覆盖不留历史）。
 
-        自动重建刷新页级 title/digest；回滚不动 digest（B4 `?version=N` 固化
-        字段清单不含 digest——回滚横幅承载恢复语义）。
+        页级行原地更新：content/claims/glossary_terms/digest/title 换新稿，
+        current_version 单调 +1（重建计数），updated_at＝本次重建时间；
+        **版本表不追加**（wiki_page_version 写路径 v0.4 撤除——表保留留档）。
+        半页不落库语义由服务层承载：生成失败在本方法调用之前短路，当前版
+        保持旧内容不动。
         """
         async with self._db.session() as session:
             page = await session.get(WikiPageRow, page_id)
             if page is None:
                 raise d.WikiNotFoundError(f"百科页不存在：{page_id}")
-            if title is not None:
-                page.title = title
-            if digest is not None:
-                page.digest = digest
-            page.current_version = version.v
+            page.title = title
+            page.digest = digest
+            page.content = content
+            page.claims = claims
+            page.glossary_terms = glossary_terms
+            page.current_version = (page.current_version or 0) + 1
             page.updated_at = now()
-            session.add(page)
             await session.flush()
-            session.add(version)
-            await session.flush()
-        return page, version
+        return page
 
 
 class ExtractConfigStore:
