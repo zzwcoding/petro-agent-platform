@@ -552,13 +552,13 @@ export default function A1Landing() {
   const tree = lastTurn // 右栏＝最近回合的思考树（原型「随场景切换」同位）
 
   return (
-    <div style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>
-      {/* ── 左栏 · 历史会话（端点 2 available 才显＋本机运行真恢复；T3 高度封顶
-          ＝局部滚动白名单第五处，方案 §4.1 本批例外） ── */}
+    <div style={{ display: 'flex', gap: 16, alignItems: 'stretch', height: '100%' }}>
+      {/* ── 左栏 · 历史会话（端点 2 available 才显＋本机运行真恢复；T3 左卡随行容器拉伸、
+          body 内滚，白名单语义不变——方案 §4.1） ── */}
       <Card
         title={<span>历史会话{helpIcon('会话在服务端留存：连接中断后重新进入，可从历史会话继续，已生成的内容不丢。')}</span>}
         size="small"
-        style={{ width: 250, flexShrink: 0, alignSelf: 'flex-start', maxHeight: 'calc(100vh - 220px)', display: 'flex', flexDirection: 'column' }}
+        style={{ width: 250, flexShrink: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
         styles={{ body: { flex: 1, minHeight: 0, overflowY: 'auto' } }}>
         {!serverSessions.available && (
           <div style={{ ...dim, marginBottom: 4 }}>历史会话暂不可用——本次进入读取失败。</div>
@@ -596,7 +596,7 @@ export default function A1Landing() {
       </Card>
 
       {/* ── 中栏 · 对话流（消息/答案流式/citation/澄清帧） ── */}
-      <Card size="small" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}
+      <Card size="small" style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
         styles={{ body: { flex: 1, minHeight: 320, display: 'flex', flexDirection: 'column' } }}>
         <div ref={convRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
           {viewing ? (
@@ -662,8 +662,9 @@ export default function A1Landing() {
 
       {/* ── 右栏 · 思考过程树（node 帧流式推进——「长出来的」） ── */}
       <Card title={<>思考过程 <ApartmentOutlined style={{ color: '#8a94a3' }} /></>} size="small"
-        style={{ width: 330, flexShrink: 0, alignSelf: 'flex-start' }}>
-        <div ref={treeRef} style={{ maxHeight: 'calc(100vh - 220px)', overflowY: 'auto', paddingRight: 4 }}>
+        style={{ width: 330, flexShrink: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+        styles={{ body: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } }}>
+        <div ref={treeRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
           {/* DEBT(P1-12)：过程帧回放随 D5 产品化批（票面差异登记②） */}
           {!tree && viewing && (
             <div style={dim}>历史回放只还原消息与答案卡——完整处理过程的逐帧回放暂未开放。</div>

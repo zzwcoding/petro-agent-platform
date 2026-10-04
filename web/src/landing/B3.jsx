@@ -502,7 +502,7 @@ export default function B3() {
   ]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minHeight: '100%' }}>
       {/* UI-04 T5：统一页头三件套（方案 §4.2——18px 标题＋一句 13px 灰字副标题＋helpTop；
           副标题＝原卡头三句口号、helpTop＝POSITION_HELP；页根 gap:16 承担与卡片的间距） */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -513,6 +513,7 @@ export default function B3() {
         </span>
       </div>
       <Card
+        style={{ flex: '1 0 auto' }} // UI-08：短内容撑满 Content 剩余高，长表照常页级滚动（方案 §4.1 白名单语义不变）
         title={<span>问答清单（{grandTotal}）</span>}
         extra={helpIcon(POSITION_HELP) /* UI-04 T5：卡头 extra 三句口号删除只留 helpIcon（副标题已承载） */}
       >
