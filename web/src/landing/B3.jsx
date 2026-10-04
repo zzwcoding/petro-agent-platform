@@ -68,9 +68,10 @@ export function stateTag(status) {
 }
 
 const STATUS_HELP = '服务中＝正常参与回答，命中即秒回；待审核＝新增条目待审核发布，暂不参与回答、不被问一问消费；已停用＝暂不参与回答（口径改版等场景先停用待审），可随时启用；负例＝登记在案的"不该答的问题"，不参与回答，检索也找不到。'
+// UI-09：措辞去口语化（票面改造项 10——「秒回消费/另一本账/只用于打分」→「直接命中消费/独立/仅用于打分」）
 const POSITION_HELP = (
   <>
-    本库问答对供问一问秒回消费（命中即直出，不走报告检索）；考核题库是另一本账（评估资产，只用于打分）——见 <a href="#/E1">答题考核（评估集）</a>。
+    本库问答对供问一问直接命中消费（不走报告检索）；考核题库独立（评估资产，仅用于打分）——见 <a href="#/E1">答题考核（评估集）</a>。
   </>
 )
 
@@ -503,14 +504,10 @@ export default function B3() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minHeight: '100%' }}>
-      {/* UI-04 T5：统一页头三件套（方案 §4.2——18px 标题＋一句 13px 灰字副标题＋helpTop；
-          副标题＝原卡头三句口号、helpTop＝POSITION_HELP；页根 gap:16 承担与卡片的间距） */}
+      {/* UI-04 T5 统一页头＋UI-09 收束：口号副标题删除——POSITION_HELP 移挂页标题旁
+          （卡头 extra ? 保留，与标题 ? 同一文案；页根 gap:16 承担与卡片的间距） */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span style={{ fontSize: 18, fontWeight: 600 }}>常见问题库</span>
-        <span style={{ color: '#8a94a3', fontSize: 13 }}>
-          常问问题直接秒回 · 不该答的登记负例永不参与 · 服务问答与考核题库分开两本账
-          {helpIcon(POSITION_HELP)}
-        </span>
+        <span style={{ fontSize: 18, fontWeight: 600 }}>常见问题库{helpIcon(POSITION_HELP)}</span>
       </div>
       <Card
         style={{ flex: '1 0 auto' }} // UI-08：短内容撑满 Content 剩余高，长表照常页级滚动（方案 §4.1 白名单语义不变）

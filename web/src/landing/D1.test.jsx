@@ -556,16 +556,17 @@ describe('D1 落地页 · UI-06 交互优化（阶段 1：PagedTable 接线／�
     expect(last[0]).toContain('page=1') // 防抖并入携 page:1（对齐三筛控件归页语义）
   })
 
-  it('T6 「适用范围」行收束进页头 helpTop：正文行消失、? 悬停可见内容', async () => {
+  it('T6 「适用范围」收进页头 ?（UI-09 副标题整行删除，? 移挂标题旁）：正文行消失、悬停可见内容', async () => {
     apiRouter()
     render(<D1Landing />)
     expect(await screen.findByText('petro-main')).toBeTruthy()
-    expect(screen.queryByText('适用范围')).toBeNull() // 正文行不再直出
-    const subtitle = screen.getByText(/平台所有模型调用的唯一出口/)
-    const q = subtitle.closest('div').querySelector('.anticon-question-circle')
-    expect(q).toBeTruthy() // 页头 helpTop 在场（副标题旁 ?）
+    expect(screen.queryByText(/平台所有模型调用的唯一出口/)).toBeNull() // UI-09：副标题口号整行删除
+    expect(screen.queryByText('适用范围')).toBeNull() // 正文不再直出
+    const titleSpan = screen.getByText('模型与线路')
+    const q = titleSpan.querySelector('.anticon-question-circle')
+    expect(q).toBeTruthy() // 页头 ? 在场（标题旁）
     fireEvent.mouseEnter(q)
-    expect(await screen.findByText(/问一问、报告库回答、问数/)).toBeTruthy() // 内容原话迁入
+    expect(await screen.findByText(/问一问、报告库回答、问数/)).toBeTruthy() // 适用范围内容在 ? 内
   })
 
   it('T7 流水表 scroll.x 联调降至 ≤1000：1280 视口可用宽（≈976）内无恒显横滚', async () => {

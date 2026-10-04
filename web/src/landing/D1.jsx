@@ -410,8 +410,8 @@ export default function D1Landing() {
         )}
 
         <div style={{ marginTop: 20, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <b style={{ fontSize: 13 }}>配置文件（models.yaml）</b>
-          <span style={{ fontSize: 12, color: '#8a94a3' }}>服务端全文 · 表单里每个数字对应文件里的一行 · 保存后热加载回显</span>
+          {/* UI-09：配置文件小字收进 ?（复制按钮不动——票面改造项 13） */}
+          <b style={{ fontSize: 13 }}>配置文件（models.yaml）{helpIcon('表单字段与 models.yaml 逐行对应；保存后热加载生效。')}</b>
           <Button size="small" type="text" icon={<CopyOutlined />} onClick={copyYaml}>{copied ? '已复制' : '复制'}</Button>
         </div>
         <pre className="code-block" style={{ margin: 0 }}>{yaml || '（配置全文加载中…）'}</pre>
@@ -599,7 +599,7 @@ export default function D1Landing() {
     <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 18, fontWeight: 600 }}>模型与线路</span>
+          <span style={{ fontSize: 18, fontWeight: 600 }}>模型与线路{helpIcon('主用故障自动切备用、冷却期满自动切回；改配置即对全平台生效。适用范围：问一问、报告库回答、问数——平台所有用到模型的动作都从这里出去。')}</span>
           {badge && <Tag color={badge.color} style={{ marginInlineEnd: 0 }}>{badge.label}</Tag>}
           {(mainName && backupName) && (
             <span style={{ color: '#8a94a3', fontSize: 12 }}>主用 {mainName} · 备用 {backupName} 待命</span>
@@ -614,14 +614,7 @@ export default function D1Landing() {
             </Button>
           </Tooltip>
         </div>
-        {/* UI-06 T6：副标题保留；helpTop ? 收束「适用范围」内容（原模型线路页签正文行
-            原话迁入——字段解释类说明只走 ? 通道，方案 §3.1/§5-D1-4） */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ color: '#8a94a3', fontSize: 13 }}>
-            平台所有模型调用的唯一出口：主用故障自动切备用、冷却期满自动切回；改配置即对全平台生效，问数的人不用管。
-          </span>
-          {helpIcon('适用范围：问一问、报告库回答、问数 —— 平台所有用到模型的动作，都从这一个口出去。')}
-        </div>
+        {/* UI-09：副标题口号整行删除——原「适用范围」? 扩为「切换＋生效＋适用范围」句并移挂页标题旁（票面改造项 12） */}
         {modelsError && (
           <Alert type="error" showIcon style={{ marginTop: 4 }}
             message="模型清单拉取失败（页头徽标与线路表暂不可用）"

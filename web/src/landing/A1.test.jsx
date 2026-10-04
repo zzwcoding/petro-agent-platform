@@ -337,7 +337,8 @@ describe('A1 落地页 · 历史会话回放（端点 3——P1-12 接线）', (
     // 返回当前＝退出回放（横幅消失，回实时会话空态）
     fireEvent.click(screen.getByRole('button', { name: /返回当前/ }))
     expect(screen.queryByText(/正在查看历史会话/)).toBeNull()
-    expect(screen.getByText(/输入问题开始提问/)).toBeTruthy()
+    // UI-09：空态教学段删除——回到实时空态以右栏「暂无思考过程。」为标志
+    expect(screen.getByText('暂无思考过程。')).toBeTruthy()
   })
 
   it('回放读取失败内联提示；发送新问题＝退出回放（新会话诚实口径）', async () => {
@@ -447,9 +448,8 @@ describe('A1 落地页 · 断线收场与重连（端点 4 重连形态）', () 
     })
     render(<A1Landing />)
 
-    // 服务端分组（端点 2 形状直出——P1-12 起会话可点开回放；UI-01 T11 文案撤出裸端点号）
+    // 服务端分组（端点 2 形状直出——P1-12 起会话可点开回放；UI-01 T11 文案撤出裸端点号；UI-09「点会话＝回放」教学行删除）
     expect(await screen.findByText('上个月产量最高的三口井')).toBeTruthy()
-    expect(screen.getByText('点会话＝回放消息与答案卡；完整处理过程的逐帧回放暂未开放。')).toBeTruthy()
 
     await ask(screen, '再问一次防砂')
     await screen.findByText('防砂方式为筛管完井。')
@@ -549,7 +549,7 @@ describe('A1 落地页 · UI-01 交互优化（T1/T2 发送清空＋IME 守卫�
 })
 
 describe('A1 落地页 · UI-01 左栏（T3 封顶＋T5 计数＋T10 收 ?＋T11 新话术＋T15 失败留痕）', () => {
-  it('T3/T5：40 条服务端会话——左栏 Card 随行容器拉伸＋body 内滚＋计数「服务端会话（40）」', async () => {
+  it('T3/T5：40 条服务端会话——左栏 Card 随行容器拉伸＋body 内滚＋计数「共 40 条」', async () => {
     const many = Array.from({ length: 40 }, (_, i) => ({
       id: `sess-${i}`, title: `会话 ${i}`, group: '问数据', scenario_id: null, updated_at: ''
     }))
@@ -561,18 +561,18 @@ describe('A1 落地页 · UI-01 左栏（T3 封顶＋T5 计数＋T10 收 ?＋T11
     expect(card.style.alignSelf).not.toBe('flex-start') // 左卡随行容器拉伸，不再缩为内容高
     expect(card.style.display).toBe('flex')
     expect(card.querySelector('.ant-card-body').style.overflowY).toBe('auto')
-    // T5：N=items.length 计数（端点 2 信封无 total——P3 定死合法读法）；「端点 2」撤出可见文案
-    expect(screen.getByText('服务端会话（40）')).toBeTruthy()
+    // T5：N=items.length 计数（端点 2 信封无 total——P3 定死合法读法）；「端点 2」撤出可见文案；UI-09 计数改「共 N 条」
+    expect(screen.getByText('共 40 条')).toBeTruthy()
     expect(screen.queryByText(/服务端会话（端点 2）/)).toBeNull()
   })
 
-  it('T5：计数形态「服务端会话（3）」——N＝items.length（端点 2 信封无 total）', async () => {
+  it('T5：计数形态「共 3 条」——N＝items.length（端点 2 信封无 total；UI-09 去 dev 语汇）', async () => {
     const three = Array.from({ length: 3 }, (_, i) => ({
       id: `s${i}`, title: `会话 ${i}`, group: '', scenario_id: null, updated_at: ''
     }))
     apiRouter({ sessions: () => new Response(JSON.stringify({ items: three }), { status: 200 }) })
     render(<A1Landing />)
-    expect(await screen.findByText('服务端会话（3）')).toBeTruthy()
+    expect(await screen.findByText('共 3 条')).toBeTruthy()
   })
 
   it('T10：左栏机制说明收进标题 ?（悬停出「服务端留存」；正文该行消失）', async () => {
@@ -591,7 +591,6 @@ describe('A1 落地页 · UI-01 左栏（T3 封顶＋T5 计数＋T10 收 ?＋T11
     apiRouter({ sessions: () => new Response(JSON.stringify({ items: [{ id: 'sess-9', title: '上个月产量最高的三口井', group: '', scenario_id: null, updated_at: '' }] }), { status: 200 }) })
     render(<A1Landing />)
     expect(await screen.findByText('上个月产量最高的三口井')).toBeTruthy()
-    expect(screen.getByText('点会话＝回放消息与答案卡；完整处理过程的逐帧回放暂未开放。')).toBeTruthy()
     expect(screen.queryByText(/端点 \d/)).toBeNull()
     expect(screen.queryByText(/D5 产品化批/)).toBeNull()
   })
@@ -706,16 +705,16 @@ describe('A1 落地页 · UI-01 审批驳回反馈（T14）', () => {
 })
 
 describe('A1 落地页 · UI-01 说明收束与 @ 面板（T9/T12）', () => {
-  it('T9：底部教学旁白行消失；输入区右下 ? 含「安检→装配→裁决」', async () => {
+  it('T9：底部教学 ? 行删除', async () => {
     apiRouter()
     render(<A1Landing />)
     expect(screen.queryByText(/POST \/api\/chat\/asks/)).toBeNull()
     expect(screen.queryByText(/单一入口/)).toBeNull()
+    // UI-09 翻转：右对齐兜底容器连同行内「统一入口」? 整块删除——全部 question-circle 图标中无 flex-end 兜底行者
     const bottomIcon = screen.getAllByRole('img', { name: 'question-circle' })
-      .find(i => i.closest('div')?.style.justifyContent === 'flex-end') // 右对齐兜底行
-    expect(bottomIcon).toBeTruthy()
-    fireEvent.mouseEnter(bottomIcon)
-    expect(await screen.findByText('全部问答走统一入口：安检→装配→裁决→链内四层全在服务端')).toBeTruthy()
+      .find(i => i.closest('div')?.style.justifyContent === 'flex-end')
+    expect(bottomIcon).toBeUndefined()
+    expect(screen.queryByText(/安检→装配/)).toBeNull()
   })
 
   it('T12/T13：@ 面板头去合同行话；hint 死分支删除（行内无 hint 小字）', async () => {
