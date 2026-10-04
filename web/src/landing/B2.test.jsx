@@ -9,12 +9,16 @@
  * - 复核队列（端点 4/5/6）：确认转修正流跳 #/B1；驳回空理由禁用＋必填提交；
  *   已驳回单重新标记（新单入队）与销记（端点 6）；
  * - locator 消费（B2 册对账 10；P1-11 桥退役）：location.search 直读 → 跨报告扫描定位 →
- *   打开详情弹窗＋行高亮 class。
+ *   打开详情弹窗＋行高亮 class；
+ * - UI-03（阶段 1 交互优化）：两表 PagedTable 分页/resetKey、计数读信封 total、
+ *   ? 移出标记按钮、未选报告空态分叉、队列竞态守卫（序号丢弃＋同参一次赋值）、
+ *   关键词 300ms 防抖（fake timers）、locator 未命中轻提示、报告重试、弹窗内滚、
+ *   列头「井号」。
  */
 
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import B2Landing from './B2.jsx'
 
 if (!window.matchMedia) {
@@ -125,6 +129,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  vi.useRealTimers()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
@@ -308,12 +313,234 @@ describe('B2 落地页 · locator 消费（B2 册对账 10——P1-11 桥退役�
     expect((await screen.findAllByText(/N-11 井检泵：2026-08-28 → 2026-09-06/)).length).toBeGreaterThanOrEqual(1)
   })
 
-  it('locator 指向不存在片段：静默回退默认报告，不阻塞台账', async () => {
+  it('locator 指向不存在片段：回退默认报告＋message.info 轻提示，不阻塞台账（UI-03 T12 同步）', async () => {
     apiRouter()
     window.history.replaceState(null, '', '/?chunk=f-none#/B2')
     render(<B2Landing />)
     expect(await screen.findByText(/N-02（渤中28-1-N2）于 2019-06-15 投产。/)).toBeTruthy()
     expect(screen.queryByText('片段详情')).toBeNull()
     expect(window.location.search).toBe('')
+    expect(await screen.findByText('未找到对应片段，可能已修正重建')).toBeTruthy() // 未命中轻提示（单卷失败仍静默续扫）
+  })
+})
+
+describe('B2 落地页 · UI-03 交互优化（PagedTable/竞态/防抖/空态/轻提示）', () => {
+  it('T1 分页＋resetKey：片段表翻到第 2 页后类型筛变自动回页 1（不出现超界空表）', async () => {
+    let filtered = false
+    const rows = n => ({
+      items: Array.from({ length: n }, (_, i) => ({
+        id: `f-${i + 1}`, report_id: 'rpt-1', report: REPORTS.items[0].doc,
+        well: 'N-02', section: `章节 ${String(i + 1).padStart(2, '0')}`,
+        type: filtered ? '摘要块' : '原文块', hit: `命中句 ${i + 1}`
+      })),
+      total: n
+    })
+    apiRouter({ fragments: () => json(200, filtered ? rows(3) : rows(25)) })
+    render(<B2Landing />)
+    expect(await screen.findByText('共 25 条')).toBeTruthy() // PagedTable 分页条统计（client 当前行数，单页也显示）
+    fireEvent.click(document.querySelector('.ant-pagination-item-2')) // 翻到第 2 页（21–25 行）
+    expect(await screen.findByText('命中句 21')).toBeTruthy()
+    expect(screen.queryByText('命中句 1')).toBeNull()
+    filtered = true // 类型筛变 → resetKey（report|typeF|kw）变化 → 页码归 1
+    fireEvent.mouseDown(await screen.findByText('类型：全部'))
+    await waitFor(() => {
+      const typeOpt = [...document.querySelectorAll('.ant-select-item-option')]
+        .find(o => o.getAttribute('title') === '摘要块')
+      expect(typeOpt).toBeTruthy()
+      fireEvent.click(typeOpt)
+    })
+    expect(await screen.findByText('命中句 1')).toBeTruthy()
+    expect(screen.queryByText('命中句 21')).toBeNull()
+    expect(await screen.findByText('共 3 条')).toBeTruthy()
+  })
+
+  it('T2 分页＋resetKey：复核队列翻到第 2 页后状态筛变自动回页 1', async () => {
+    let filtered = false
+    const rows = n => ({
+      items: Array.from({ length: n }, (_, i) => ({
+        id: `iss-${i + 1}`, fragment_id: `f-${i + 1}`, report_id: 'rpt-1',
+        fragment_label: `压舱标记单 ${i + 1}`, state: filtered ? '已驳回' : '待质检复核',
+        marked_by: '小李 · 地质/质检', marked_at: '2026-09-29 15:10', reject_reason: null
+      })),
+      total: n
+    })
+    apiRouter({
+      issues: state => (state === '待质检复核'
+        ? json(200, { items: [], total: 0 })
+        : json(200, filtered ? rows(3) : rows(25)))
+    })
+    render(<B2Landing />)
+    fireEvent.click(await screen.findByText(/复核队列（\d）/))
+    expect(await screen.findByText('共 25 条')).toBeTruthy()
+    fireEvent.click(document.querySelector('.ant-pagination-item-2'))
+    expect(await screen.findByText('压舱标记单 21')).toBeTruthy()
+    expect(screen.queryByText('压舱标记单 1')).toBeNull()
+    filtered = true // 状态筛变 → resetKey（issueF）变化 → 页码归 1
+    fireEvent.mouseDown(await screen.findByText('状态：全部'))
+    await waitFor(() => {
+      const opt = [...document.querySelectorAll('.ant-select-item-option')]
+        .find(o => o.getAttribute('title') === '已驳回')
+      expect(opt).toBeTruthy()
+      fireEvent.click(opt)
+    })
+    expect(await screen.findByText('压舱标记单 1')).toBeTruthy()
+    expect(screen.queryByText('压舱标记单 21')).toBeNull()
+  })
+
+  it('T3 计数读信封 total（与 items.length 解耦——UI-07 server 分页后仍成立）', async () => {
+    apiRouter({
+      fragments: () => json(200, { items: FRAGS_RPT1.items, total: 9 }), // total=9 ≠ items.length=3
+      issues: () => json(200, { items: [ISSUE_PENDING], total: 7 }) // total=7 ≠ items.length=1
+    })
+    render(<B2Landing />)
+    expect(await screen.findByText('筛选结果 9 条')).toBeTruthy() // 行内计数读信封 total
+    expect(await screen.findByText('共 3 条')).toBeTruthy() // 表内分页统计＝client 当前行数
+    expect(await screen.findByText(/复核队列（7）/)).toBeTruthy() // 页签计数读 pending 信封 total
+    fireEvent.click(screen.getByText(/复核队列（7）/))
+    expect(await screen.findByText(/标记单 7 条 · 待质检复核 7 段/)).toBeTruthy() // 队列计数读 total
+    expect(await screen.findByText('共 1 条')).toBeTruthy()
+  })
+
+  it('T4 弹窗 ? 移出标记按钮：点击不触发端点 3，Tooltip 仍在（doMark 行为不变）', async () => {
+    const calls = apiRouter()
+    render(<B2Landing />)
+    fireEvent.doubleClick(await screen.findByText(/N-02（渤中28-1-N2）于 2019-06-15 投产。/))
+    await screen.findByText('片段详情')
+    const icon = document.querySelector('.ant-modal-footer .anticon-question-circle')
+    expect(icon).toBeTruthy() // ? 仍在 footer（hint span 尾部）
+    expect(icon.closest('button')).toBeNull() // 不再嵌在标记按钮内（说明热区与提交动作分离）
+    fireEvent.mouseEnter(icon)
+    expect(await screen.findByText(/标记后进入/)).toBeTruthy() // Tooltip 悬停仍在
+    fireEvent.click(icon)
+    await act(async () => {}) // 放一个微任务拍——若 ? 有点击副作用会在此暴露
+    expect(calls.marks.length).toBe(0) // 点击 ? 不触发标记请求（服务端事务写入）
+  })
+
+  it('T5 未选报告（报告清单失败）：片段表空态分叉，不出现业务空态断言', async () => {
+    apiRouter({ reports: () => json(500, { code: 'kb_internal', message: '台账读取失败', trace_id: 'call-r5' }) })
+    render(<B2Landing />)
+    expect(await screen.findByText('报告下拉拉取失败——不能按报告浏览')).toBeTruthy()
+    expect(await screen.findByText('未选择报告或报告清单不可用——恢复后自动加载')).toBeTruthy()
+    expect(screen.queryByText('该报告暂无片段：入库完成后这里按报告建台账。')).toBeNull()
+    expect(document.querySelector('.ant-empty')).toBeTruthy() // Empty 形态（内联 Alert 另挂——失败态≠空态）
+  })
+
+  it('T6 竞态守卫：快速连切 issueF，过期响应不覆盖最后一次筛选结果', async () => {
+    let releaseAll // 首拍 state=all 响应挂起（制造过期响应）
+    apiRouter({
+      issues: state => {
+        if (state === 'all') return new Promise(resolve => { releaseAll = () => resolve(json(200, { items: [ISSUE_PENDING], total: 1 })) })
+        if (state === '待质检复核') return Promise.resolve(json(200, { items: [ISSUE_PENDING], total: 1 }))
+        return Promise.resolve(json(200, { items: [REVIEW_REJECT_RESP], total: 1 }))
+      }
+    })
+    render(<B2Landing />)
+    fireEvent.click(await screen.findByText(/复核队列（\d）/))
+    // 连切：all（在途挂起）→ 已驳回（立即返回）
+    fireEvent.mouseDown(await screen.findByText('状态：全部'))
+    await waitFor(() => {
+      const opt = [...document.querySelectorAll('.ant-select-item-option')]
+        .find(o => o.getAttribute('title') === '已驳回')
+      expect(opt).toBeTruthy()
+      fireEvent.click(opt)
+    })
+    expect(await screen.findByText(/驳回理由：检泵日期与台账对不上/)).toBeTruthy()
+    // 旧 all 响应此刻才到——请求序号守卫必须丢弃（不回写旧结果）
+    await act(async () => { releaseAll() })
+    expect(screen.queryByRole('button', { name: /确认 · 转修正流/ })).toBeNull() // 待质检复核行未回写
+    expect(screen.getByText(/驳回理由：检泵日期与台账对不上/)).toBeTruthy() // 最终渲染最后一次筛选结果
+  })
+
+  it('T6 待质检复核态：主请求与派生请求同参——只发一次（Promise.all 一次赋值）', async () => {
+    const calls = apiRouter()
+    render(<B2Landing />)
+    await waitFor(() => expect(calls.issueStates.length).toBe(2)) // 首拍：all＋待质检复核派生
+    fireEvent.click(await screen.findByText(/复核队列（\d）/))
+    fireEvent.mouseDown(await screen.findByText('状态：全部'))
+    await waitFor(() => {
+      const opt = [...document.querySelectorAll('.ant-select-item-option')]
+        .find(o => o.getAttribute('title') === '待质检复核')
+      expect(opt).toBeTruthy()
+      fireEvent.click(opt)
+    })
+    await waitFor(() => {
+      const pendingCalls = calls.issueStates.filter(u => u.includes(encodeURIComponent('待质检复核')))
+      expect(pendingCalls.length).toBe(2) // 首拍派生 1 次＋切后主请求 1 次（同参不重发）
+    })
+  })
+
+  it('T7 关键词 300ms 防抖：击键窗口内多次输入只发一次请求（fake timers）', async () => {
+    const calls = apiRouter()
+    render(<B2Landing />)
+    await screen.findByText(/N-02（渤中28-1-N2）于 2019-06-15 投产。/) // 首拍数据到位（真计时器）
+    const before = calls.fragQueries.length
+    vi.useFakeTimers()
+    try {
+      const input = screen.getByPlaceholderText('搜命中句 / 井号 / 章节…')
+      await act(async () => {
+        fireEvent.change(input, { target: { value: '检' } })
+        vi.advanceTimersByTime(100)
+        fireEvent.change(input, { target: { value: '检泵' } })
+        vi.advanceTimersByTime(100)
+        fireEvent.change(input, { target: { value: '检泵日期' } })
+        vi.advanceTimersByTime(299) // 仍在 300ms 防抖窗口内
+      })
+      expect(calls.fragQueries.length).toBe(before) // 窗口内零请求
+      await act(async () => { vi.advanceTimersByTime(1) }) // 防抖到点
+      expect(calls.fragQueries.length).toBe(before + 1) // 只发一次
+      expect(decodeURIComponent(calls.fragQueries[calls.fragQueries.length - 1])).toContain('keyword=检泵日期')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('T8 卡头 extra 删除：「命中句」列头 ? 保留；T15 列头统一「井号」', async () => {
+    apiRouter()
+    render(<B2Landing />)
+    await screen.findByText(/N-02（渤中28-1-N2）于 2019-06-15 投产。/)
+    expect(screen.queryByText('命中的是小段，完整段落不直接进搜索结果')).toBeNull() // extra 已删（同义重复收束）
+    expect(screen.getByText('井号')).toBeTruthy() // 列头统一「井号」（合同三件套口径——B2 册 §0）
+    const hitHeader = screen.getByText('命中句').closest('span')
+    expect(hitHeader.querySelector('.anticon-question-circle')).toBeTruthy() // HIT_HELP ? 收束保留一处
+  })
+
+  it('T9 队列空态分支＋Empty 形态：全部空「还没有标记单」；筛选空「没有符合条件的标记单。」', async () => {
+    apiRouter({ issues: () => json(200, { items: [], total: 0 }) })
+    render(<B2Landing />)
+    fireEvent.click(await screen.findByText(/复核队列（0）/))
+    expect(await screen.findByText('还没有标记单')).toBeTruthy()
+    expect(document.querySelector('.ant-empty')).toBeTruthy() // Empty 形态（PRESENTED_IMAGE_SIMPLE）
+    fireEvent.mouseDown(await screen.findByText('状态：全部'))
+    await waitFor(() => {
+      const opt = [...document.querySelectorAll('.ant-select-item-option')]
+        .find(o => o.getAttribute('title') === '已驳回')
+      expect(opt).toBeTruthy()
+      fireEvent.click(opt)
+    })
+    expect(await screen.findByText('没有符合条件的标记单。')).toBeTruthy()
+    expect(screen.queryByText('还没有标记单')).toBeNull()
+  })
+
+  it('T10 详情弹窗 body 内滚：maxHeight calc(100vh - 300px)＋overflowY auto', async () => {
+    apiRouter()
+    render(<B2Landing />)
+    fireEvent.doubleClick(await screen.findByText(/N-02（渤中28-1-N2）于 2019-06-15 投产。/))
+    const title = await screen.findByText('片段详情')
+    const body = title.closest('.ant-modal').querySelector('.ant-modal-body')
+    expect(body).toBeTruthy()
+    expect(body.style.maxHeight).toBe('calc(100vh - 300px)') // 滚动收进弹窗体（长 context 标题页脚不随滚出视野）
+    expect(body.style.overflowY).toBe('auto')
+  })
+
+  it('T13 报告拉取失败：Alert 带重试按钮——点击后恢复下拉与台账', async () => {
+    let fail = true
+    apiRouter({ reports: () => (fail ? json(500, { code: 'kb_internal', message: '台账读取失败', trace_id: 'call-r13' }) : json(200, REPORTS)) })
+    render(<B2Landing />)
+    expect(await screen.findByText('报告下拉拉取失败——不能按报告浏览')).toBeTruthy()
+    fail = false
+    fireEvent.click(screen.getByRole('button', { name: /重\s*试/ })) // antd 两字按钮自动插空格（驳\s*回同例）
+    expect(await screen.findByText(/N-02（渤中28-1-N2）于 2019-06-15 投产。/)).toBeTruthy()
+    expect(await screen.findByText('片段清单（8）')).toBeTruthy()
+    expect(screen.queryByText('报告下拉拉取失败——不能按报告浏览')).toBeNull()
   })
 })
