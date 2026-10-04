@@ -14,28 +14,33 @@
  *
  * 图数据读取口径（合同裁决）：整图一次给——节点高亮/图例隐显/关系清单邻接
  * 过滤与计数全部为前端本地计算；端点 1 只含过闸入图的边（铁律消费面）。
+ *
+ * UI-05（阶段 1 落地页交互优化——方案 §5-B5，施工票 tickets/phase1-ui/UI-05.md）：
+ * 补统一页头三件套（卡头 extra 大段说明迁入 helpTop，内容不改）；libError/netError
+ * 统一 antd Alert（type=error showIcon）并提升 Card 级两页签共享；关系清单/从已抽
+ * 结果生成两表接 PagedTable client 分页（resetKey=libId|sel／libId）；两栏行定高
+ * 578 使右栏内滚成真；抽取设置三态修复（切库先清 cfg＋cfgLoading Skeleton 占位＋
+ * 装载窗口保存/输入不可写——跨库错存杜绝）；实体类型/关系标签删除守卫（装载成功
+ * 快照为初始基线，基线项不可删、快照外新增项可删）；实体类型文案如实化（勾选切换
+ * 需 DTO 增 enabled＝合同变更，登记 UI-07 提案票，本批零合同变更）；报告下拉携当前
+ * 库过滤＋showSearch；选句清单容器内滚；helpIcon/dim/errText 改 UI-00 共享件 import。
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Graph } from '@antv/g6'
 import {
-  Button, Card, Checkbox, Empty, Input, message, Modal, Select, Space, Switch,
-  Table, Tabs, Tag, Tooltip
+  Alert, Button, Card, Checkbox, Input, message, Modal, Select, Skeleton, Space,
+  Switch, Table, Tabs, Tag, Tooltip
 } from 'antd'
-import { DeleteOutlined, QuestionCircleOutlined } from '@ant-design/icons'
-import { ApiError } from '../api/client.js'
+import { DeleteOutlined } from '@ant-design/icons'
+import { ApiError, errText } from '../api/client.js'
+import { helpIcon, dim } from '../components/helpIcon.jsx'  // UI-00 共享件（UI-05 T12——页内副本删除）
+import PagedTable from '../components/PagedTable.jsx'  // UI-00 共享件（UI-05 T4/T7——集合表统一分页）
 import {
   getExtractConfig, getGraphNet, draftExample, saveExtractConfig
 } from '../api/graph.js'
 import { getFragmentContext, getReports, getReportDetail, listLibraries }
   from '../api/kb.js'
-
-const helpIcon = content => (
-  <Tooltip title={<div style={{ fontSize: 12, lineHeight: 1.8 }}>{content}</div>} placement="topLeft">
-    <QuestionCircleOutlined style={{ marginLeft: 4, color: '#8a94a3', cursor: 'help' }} />
-  </Tooltip>
-)
-const dim = { fontSize: 12, color: '#8a94a3' }
 
 // 节点类型配色（前端渲染细节不入合同——类型值域随库配置非封闭枚举，未知
 // 类型走调色板轮转）
@@ -59,19 +64,25 @@ const QUERY_GATE_TIP = (
   </>
 )
 const LEGEND_TIP = '点类型开关隐去/显示该类节点；两端任一被隐去的关系同步隐去，右侧关系清单同步刷新。'
-const ENTITY_TIP = '抽取哪些实体类型按库配置：勾选即启用、取消即停用；可新增类型，添加后默认勾选；保存时清单与领域术语表逐一对号，对不上的类型不自创。'
+// UI-05 T3：文案如实化——控件为「全量启用」如实展示（Checkbox checked disabled），
+// 不落不可持久化的假勾选；勾选切换承载需端点 3 DTO 增 enabled＝合同变更，
+// 已登记 UI-07 提案票（本批零合同变更）。
+const ENTITY_TIP = '实体类型在抽取时全部启用；本清单可新增自定义类型。'
+// UI-05 T8③：REL_TIP 现句无「停用/Switch」承诺字样（grep 核对），保持如实不动；
+// 「关系词＋启用 Switch」行形态同样待 DTO 增 enabled（与 T3 同一条目登记 UI-07）。
 const REL_TIP = '关系标签按库配置，抽取时照标签对号，清单之外的标签不立边；可新增标签，自定义标签可删除。'
 const FEWSHOT_TIP = '每条示例＝报告原句＋应抽出的三元组，抽取时照示例对号；示例质量直接决定抽取准确度。示例可从已抽结果、报告原句或系统起草生成，核对后保存；也可手动添加。'
 const INSTRUCTION_TIP = '随抽取任务生效的硬规则：原文里找不到依据的关系不建边，宁可少建、不建错；类型清单之外的类型不许自创。可按库改写。'
 
-const edgeKey = e => e.key || `${e.from}|${e.rel}|${e.to}`
+// UI-05 T6：页头 helpTop——原卡头 extra 大段说明整体迁入（内容不改）。
+const PAGE_HELP = (
+  <>
+    把报告与台账里"谁—什么关系→谁"连成关系网：井—隶属→区块、平台—承载→井、注水井—受效→油井。<br />
+    节点与关系全部来自报告与台账（铁律：对不上的不建边、原文没依据的不建边、拿不准的宁可不建）。
+  </>
+)
 
-/** 错误包 → 内联展示行（人话 message＋code＋trace_id——D1/B1 先例同构）。 */
-function errText(err) {
-  if (!(err instanceof ApiError)) return String(err)
-  return [err.message, err.code ? `code ${err.code}` : '', err.traceId ? `trace ${err.traceId}` : '']
-    .filter(Boolean).join(' · ')
-}
+const edgeKey = e => e.key || `${e.from}|${e.rel}|${e.to}`
 
 // ── AntV G6 5.x 关系图（原型 GraphG6 同构——数据由 props 注入）──
 
@@ -232,6 +243,10 @@ export default function B5Landing() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(null) // 服务端 hint
   const [mismatches, setMismatches] = useState(null) // 对号明细（400 强校）
+  // UI-05 T3③/T8①：删除守卫基线——当前库配置装载成功那一刻的快照（ref 持有，
+  // libId 重装载时重取）；仅快照外新增项显示删除钮（对齐原型 e.custom 判定语义，
+  // 不发明业务名单）。
+  const cfgBaseRef = useRef({ entityTypes: [], relationTags: [] })
 
   // ── 示例三源辅助弹窗（从已抽结果生成 / 从报告库选句 / LLM 起草） ──
   const [edgeModal, setEdgeModal] = useState(false)
@@ -250,8 +265,14 @@ export default function B5Landing() {
     listLibraries().then(d => {
       setLibs(d.items)
       if (d.items.length) setLibId(d.items[0].id)
-      else setLibError('暂无知识库——先到报告库建库并入库（图谱开关开启）。')
-    }).catch(err => setLibError(errText(err)))
+      else {
+        setLibError('暂无知识库——先到报告库建库并入库（图谱开关开启）。')
+        setCfgLoading(false) // UI-05 T2：无库可装载——配置装载态落终局（Skeleton 不悬挂）
+      }
+    }).catch(err => {
+      setLibError(errText(err))
+      setCfgLoading(false) // UI-05 T2：同上（失败终态由 Card 级 Alert 承接）
+    })
   }, [])
 
   // 库切换：整图＋抽取设置（配置与图现状两态分离——端点 1 join 端点 2）
@@ -259,6 +280,7 @@ export default function B5Landing() {
     if (!libId) return undefined
     let alive = true
     setNetLoading(true); setNetError(null); setSel(null); setSaved(null); setMismatches(null)
+    setCfg(null) // UI-05 T2①：切库先清 cfg——旧库配置不再可编辑/可被新 libId PUT（跨库错存杜绝）
     setCfgLoading(true)
     Promise.all([getGraphNet(libId), getExtractConfig(libId)])
       .then(([n, c]) => {
@@ -271,6 +293,7 @@ export default function B5Landing() {
           fewShotExamples: c.fewShotExamples,
           customInstructions: c.customInstructions
         })
+        cfgBaseRef.current = { entityTypes: [...c.entityTypes], relationTags: c.relationTags.map(r => r.rel) }
       })
       .catch(err => { if (alive) setNetError(errText(err)) })
       .finally(() => {
@@ -329,6 +352,7 @@ export default function B5Landing() {
 
   // ── 三源①：从已抽结果生成——选当前图已入库的边＋回捞出处句 ──
   async function pickEdge(e) {
+    if (!cfg) return // UI-05 T2：装载窗口期（cfg 已清）不写示例——错存窗口不可写
     let src = e.note || ''
     if (e.evidenceChunkId) {
       try {
@@ -345,7 +369,7 @@ export default function B5Landing() {
   async function openSentModal() {
     setSentModal(true)
     try {
-      const d = await getReports({})
+      const d = await getReports({ lib: libId }) // UI-05 T9：携当前库过滤——不再全库盲选
       setSentReports(d.items)
     } catch (err) { message.error(errText(err)) }
   }
@@ -364,6 +388,7 @@ export default function B5Landing() {
     } catch (err) { message.error(errText(err)) }
   }
   async function pickSentence(sentence) {
+    if (!cfg) return // UI-05 T2：装载窗口期不写示例（同 pickEdge）
     setDrafting(true)
     try {
       const rel = draftRel || cfg.relationTags[0]?.rel || '隶属'
@@ -382,6 +407,7 @@ export default function B5Landing() {
   async function draftByRel() {
     const w = draftRel.trim()
     if (!w) { message.warning('请先输入关系词'); return }
+    if (!cfg) return // UI-05 T2：装载窗口期不写示例（同 pickEdge）
     setDrafting(true)
     try {
       const d = await draftExample(libId, { rel: w })
@@ -408,7 +434,15 @@ export default function B5Landing() {
   ]
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* UI-05 T6：统一页头三件套（方案 §4.2）——卡头 extra 大段说明整体迁入 helpTop（内容不改） */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontSize: 18, fontWeight: 600 }}>关系图谱</span>
+        <span style={{ color: '#8a94a3', fontSize: 13 }}>
+          报告与台账里谁—什么关系→谁连成网——对不上的不建边、原文没依据的不建边
+          {helpIcon(PAGE_HELP)}
+        </span>
+      </div>
       <Card
         title={
           <Space size={12}>
@@ -417,12 +451,6 @@ export default function B5Landing() {
               value={libId} onChange={setLibId}
               options={libs.map(l => ({ value: l.id, label: l.name }))} />
           </Space>
-        }
-        extra={
-          helpIcon(<>
-            把报告与台账里"谁—什么关系→谁"连成关系网：井—隶属→区块、平台—承载→井、注水井—受效→油井。<br />
-            节点与关系全部来自报告与台账（铁律：对不上的不建边、原文没依据的不建边、拿不准的宁可不建）。
-          </>)
         }
       >
         <Tabs
@@ -433,10 +461,17 @@ export default function B5Landing() {
           ]}
         />
 
+        {/* UI-05 T2④/T5：错误行提升 Card 级两页签共享＋统一 Alert type=error showIcon
+            （文案不变仅换包裹件——原 libError 灰字 dim div／netError 彩色字 div 撤除） */}
+        {(libError || netError) && (
+          <div style={{ marginBottom: 12 }}>
+            {libError && <Alert type="error" showIcon message={libError} style={{ marginBottom: 8 }} />}
+            {netError && <Alert type="error" showIcon message={netError} />}
+          </div>
+        )}
+
         {tab === 'net' && (
           <div>
-            {libError && <div style={{ ...dim, marginBottom: 8 }}>{libError}</div>}
-            {netError && <div style={{ color: '#e57373', marginBottom: 8 }}>{netError}</div>}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 12 }}>
               <Space wrap size={16}>
                 <Space size={2}>
@@ -466,7 +501,9 @@ export default function B5Landing() {
               </Space>
             </div>
             {/* 主区左右两栏（B5 排版二批定稿）：左＝关系图（约 2/3 宽），右＝关系清单面板（固定宽、独立滚动） */}
-            <div style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>
+            {/* UI-05 T1：两栏行定高 578（＝图容器 560＋GraphG6 上下 padding 16＋边框 2，与左图底边对齐）
+                ——minHeight:0+overflow:auto 链受约束成真内滚，清单变长不再撑高整页 */}
+            <div style={{ display: 'flex', gap: 16, alignItems: 'stretch', height: 578 }}>
               <div style={{ flex: 2, minWidth: 0 }}>
                 {netLoading
                   ? <div style={{ ...dim, padding: 40, textAlign: 'center' }}>关系网装载中…</div>
@@ -486,14 +523,15 @@ export default function B5Landing() {
                     <span style={{ fontWeight: 600, fontSize: 13 }}>关系清单</span>
                     {helpIcon(LIST_GATE_TIP)}
                   </div>
+                  {/* UI-05 T4：接 PagedTable client 分页（pageSize 20 与面板内滚共存——方案 §2.2 表 #9）；
+                      resetKey=libId|sel（图例隐显为隐式筛变，由 §2.1 内置超界钳制兜底）；空态话术原话透传 */}
                   <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-                    <Table
+                    <PagedTable
                       size="small" columns={edgeCols}
                       dataSource={listEdges.map(e => ({ ...e, key: edgeKey(e) }))}
-                      pagination={false} rowKey="key"
-                      loading={netLoading}
-                      locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        description={sel ? '该节点暂无可见关系：若相关类型被图例开关隐去，打开开关即可恢复。' : '当前图例下没有可见关系。'} /> }}
+                      rowKey="key" loading={netLoading} pageSize={20}
+                      emptyText={sel ? '该节点暂无可见关系：若相关类型被图例开关隐去，打开开关即可恢复。' : '当前图例下没有可见关系。'}
+                      resetKey={`${libId ?? ''}|${sel ?? ''}`}
                     />
                   </div>
                 </div>
@@ -502,26 +540,40 @@ export default function B5Landing() {
           </div>
         )}
 
-        {tab === 'extract' && cfg && (
+        {tab === 'extract' && (cfgLoading || !cfg ? (
+          /* UI-05 T2②：首载/切库 cfg=null 窗口不再白屏——Skeleton 占位；
+             「配置装载中…」提示移出 cfg 守卫（原 :587 随 cfg 门被吞，装载期永不可见）；
+             装载失败终态由上方 Card 级 Alert 承接（失败态≠空态）。 */
+          <div>
+            {cfgLoading && <Skeleton active title={false} paragraph={{ rows: 8 }} />}
+            {cfgLoading && <div style={{ ...dim, marginTop: 8 }}>配置装载中…</div>}
+          </div>
+        ) : (
           <div>
             <div style={{ display: 'flex', gap: 24, alignItems: 'top', flexWrap: 'wrap' }}>
               <div style={{ flex: '1 1 380px', minWidth: 0 }}>
                 <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>
-                  实体类型清单（勾选启用）{helpIcon(ENTITY_TIP)}
+                  {/* UI-05 T3①：段标题如实化——「（勾选启用）」承诺撤除（勾选切换承载
+                      需 DTO 增 enabled＝合同变更，登记 UI-07） */}
+                  实体类型清单{helpIcon(ENTITY_TIP)}
                 </div>
                 <div style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, padding: '10px 12px' }}>
                   {cfg.entityTypes.map((t, i) => (
                     <div key={t} style={{ display: 'flex', alignItems: 'center', padding: '3px 0' }}>
+                      {/* UI-05 T3②：Checkbox checked disabled 保持——现状全量启用语义如实 */}
                       <Checkbox checked style={{ fontSize: 13 }} disabled>
                         <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: typeColor(t), marginRight: 6 }} />
                         {t}
                       </Checkbox>
-                      <Button type="text" size="small" danger icon={<DeleteOutlined />}
-                        onClick={() => setCfg(p => ({ ...p, entityTypes: p.entityTypes.filter((_, xi) => xi !== i) }))} />
+                      {/* UI-05 T3③：删除守卫——仅装载快照基线外的新增项可删（基线项不可删） */}
+                      {!cfgBaseRef.current.entityTypes.includes(t) && (
+                        <Button type="text" size="small" danger icon={<DeleteOutlined />}
+                          onClick={() => setCfg(p => ({ ...p, entityTypes: p.entityTypes.filter((_, xi) => xi !== i) }))} />
+                      )}
                     </div>
                   ))}
                   <Space.Compact style={{ marginTop: 8 }}>
-                    <Input size="small" placeholder="新增类型" value={newEntity}
+                    <Input size="small" placeholder="新增类型" value={newEntity} disabled={cfgLoading}
                       onChange={ev => setNewEntity(ev.target.value)} onPressEnter={addEntity} style={{ width: 170 }} />
                     <Button size="small" onClick={addEntity}>添加</Button>
                   </Space.Compact>
@@ -538,12 +590,15 @@ export default function B5Landing() {
                       <span style={{ fontSize: 12, color: '#8a94a3', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {r.desc || '—'}
                       </span>
-                      <Button type="text" size="small" danger icon={<DeleteOutlined />}
-                        onClick={() => setCfg(p => ({ ...p, relationTags: p.relationTags.filter((_, xi) => xi !== i) }))} />
+                      {/* UI-05 T8①：删除守卫同 T3③——初始标签不可删，仅新增自定义项可删 */}
+                      {!cfgBaseRef.current.relationTags.includes(r.rel) && (
+                        <Button type="text" size="small" danger icon={<DeleteOutlined />}
+                          onClick={() => setCfg(p => ({ ...p, relationTags: p.relationTags.filter((_, xi) => xi !== i) }))} />
+                      )}
                     </div>
                   ))}
                   <Space.Compact style={{ marginTop: 8 }}>
-                    <Input size="small" placeholder="新增关系" value={newRel}
+                    <Input size="small" placeholder="新增关系" value={newRel} disabled={cfgLoading}
                       onChange={ev => setNewRel(ev.target.value)} onPressEnter={addRel} style={{ width: 170 }} />
                     <Button size="small" onClick={addRel}>添加</Button>
                   </Space.Compact>
@@ -582,12 +637,13 @@ export default function B5Landing() {
             <Input.TextArea rows={2} value={cfg.customInstructions}
               onChange={ev => setCfg(p => ({ ...p, customInstructions: ev.target.value }))} />
             <Space style={{ marginTop: 12 }}>
-              <Button type="primary" size="small" loading={saving} onClick={saveExtract}>保存抽取设置</Button>
+              {/* UI-05 T2③：装载窗口期保存不可用（配合表单撤下，错存窗口期不可写） */}
+              <Button type="primary" size="small" loading={saving} disabled={cfgLoading}
+                onClick={saveExtract}>保存抽取设置</Button>
               {saved && <span style={{ fontSize: 12, color: '#8a94a3' }}>{saved}</span>}
-              {cfgLoading && <span style={dim}>配置装载中…</span>}
             </Space>
           </div>
-        )}
+        ))}
       </Card>
 
       {/* 对号强校拒存明细（B5 端点 3：逐项未收录＋最接近台账词条——前端原样展示） */}
@@ -613,9 +669,13 @@ export default function B5Landing() {
         <p style={{ ...dim, marginTop: 0 }}>
           选择当前图里已入库的一条关系，自动配好示例（原句＋三元组），核对后保存。
         </p>
-        <Table
-          size="small" rowKey="key" pagination={false}
+        {/* UI-05 T7：弹窗集合表接 PagedTable client 分页（方案 §2.2 表 #10）；
+            resetKey=libId（边数据随库切换重载） */}
+        <PagedTable
+          size="small" rowKey="key"
           dataSource={net.edges.map(e => ({ ...e, key: edgeKey(e) }))}
+          emptyText="当前图还没有已入库关系——图谱开关开启后入库一次即成图。"
+          resetKey={`${libId ?? ''}`}
           columns={[
             { title: '起点', dataIndex: 'from', width: 130, render: v => nameOf[v] || v },
             { title: '关系', dataIndex: 'rel', width: 80, render: v => <Tag color={REL_TAG[v] || 'default'} style={{ marginInlineEnd: 0 }}>{v}</Tag> },
@@ -633,16 +693,21 @@ export default function B5Landing() {
         <p style={{ ...dim, marginTop: 0 }}>
           选择报告里的原句，三元组按建议值预填（LLM 起草走统一出口），可修改后保存。
         </p>
+        {/* UI-05 T9：Select 开 showSearch（先例：查看节点 Select）——量级下可键入过滤 */}
         <Select size="small" style={{ width: '100%', marginBottom: 8 }} placeholder="选择报告"
+          showSearch optionFilterProp="label"
           value={sentReportId ?? undefined} onChange={pickReport}
           options={sentReports.map(r => ({ value: r.id, label: `${r.doc} · ${r.lib}` }))} />
-        {sentences.map((s, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '7px 0', borderBottom: '1px solid #30363d' }}>
-            <span style={{ flex: 1, fontSize: 13 }}>{s}</span>
-            <Button type="link" size="small" style={{ padding: 0, flexShrink: 0 }}
-              disabled={drafting} onClick={() => pickSentence(s)}>选用</Button>
-          </div>
-        ))}
+        {/* UI-05 T11：选句清单容器内滚（上限 30 句挑选器——方案 §2.2 豁免分页） */}
+        <div style={{ maxHeight: 'calc(100vh - 320px)', overflowY: 'auto' }}>
+          {sentences.map((s, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '7px 0', borderBottom: '1px solid #30363d' }}>
+              <span style={{ flex: 1, fontSize: 13 }}>{s}</span>
+              <Button type="link" size="small" style={{ padding: 0, flexShrink: 0 }}
+                disabled={drafting} onClick={() => pickSentence(s)}>选用</Button>
+            </div>
+          ))}
+        </div>
       </Modal>
 
       {/* 三源③：LLM 起草——输入关系词，按库内实体起草一对示例（真 complete） */}
