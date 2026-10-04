@@ -13,8 +13,8 @@
 | P2-05 | 原型定稿批（teach B4 撤版本页签＋D6 撤菜单＋web 快照同步） | — | ✅ 已合并（teach b6f0e1f＋实现仓 3c2d63a，Wave 0 收官） |
 | DP-01 | 数据面清场（learning 删除＋测试基线＋fail-closed 收口） | — | ✅ 已合并（data-plane ff178b3，101p+1s hermetic） |
 | DP-02 | 职责归位（dp4/dp5/dp8 删除＋410 退役＋dp6/dp7 标注）〔预挂中途审查〕 | DP-01 后 | ✅ 已合并（data-plane 9bc954b，独立审查六节全过零阻断） |
-| DP-03 | 湖真身＋进料真链路（中台库 schema＋MinIO）〔预挂中途审查〕 | DP-02 后 | 🔧 开发拍在途 |
-| DP-04 | APScheduler＋agg 三表直写主平台库（0014）〔预挂中途审查〕 | DP-03 后 | 票面就绪 |
+| DP-03 | 湖真身＋进料真链路（中台库 schema＋MinIO）〔预挂中途审查〕 | DP-02 后 | ✅ 已合并（68197df＋fe3a3e3——as-of 时点视图裁决落地/替身零残留） |
+| DP-04 | APScheduler＋agg 三表直写主平台库（0014）〔预挂中途审查〕 | DP-03 后 | 🔧 开发拍在途 |
 | DP-05 | 质检表族落库（0015）＋water_line | DP-04 后 | 票面就绪 |
 | M-01 | midplatform 只读路由＋with_row_filter | DP-03 | 票面就绪 |
 | M-02 | A2 四端点＋补位两表 | M-01 | 票面就绪 |

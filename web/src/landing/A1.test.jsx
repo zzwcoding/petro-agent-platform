@@ -10,6 +10,8 @@
  * - @ 点名面板（端点 6 assets 投影）→ token 结晶体落输入框。
  * - UI-01（阶段 1 交互优化）：发送清空/IME 守卫/左栏封顶计数/滚底跟随阈值/
  *   会话收场复拉/错误三段化/审批驳回反馈/说明收束与文案收束（尾部 describe 群）。
+ * - UI-14（空态巡检）：本机最近运行块整显隐置顶用例（RUN_HISTORY 模块级状态——
+ *   空态判定须先于全文件其他用例）＋回放大 Alert→轻量条断言镜像（意见 1＋2＋3）。
  */
 
 /** @vitest-environment jsdom */
@@ -221,6 +223,31 @@ async function ask(page, text) {
   fireEvent.click(screen.getByRole('button', { name: /发\s*送/ }))
 }
 
+// ════ UI-14 空态巡检（Owner 2026-10-05 意见 1＋2——本机最近运行块条件整显隐） ════
+
+describe('A1 落地页 · UI-14 本机最近运行块整显隐（意见 1＋2）', () => {
+  // RUN_HISTORY 为模块级状态且全文件共享——本用例必须置顶先跑（首个 ask 前
+  // 模块刚加载、记录为空），「无本机记录」初态才可测。
+  it('空时三件套整段零残留（标题/空文案/暂无数据大图均不渲染）；ask 后整段出现', async () => {
+    apiRouter()
+    render(<A1Landing />)
+
+    // UI-14 翻转：无本机记录时标题「本机最近运行」、空文案「本次进入还没有问答
+    // 记录。」、空 List（其默认 Empty「暂无数据」大图）三者一起不渲染
+    expect(screen.queryByText('本机最近运行')).toBeNull()
+    expect(screen.queryByText('本次进入还没有问答记录。')).toBeNull()
+    expect(screen.queryByText('暂无数据')).toBeNull()
+
+    await ask(screen, '首问本机记录')
+    await screen.findByText('防砂方式为筛管完井。')
+    // ask 后本机记录出现：标题＋列表条目（历史卡内，非对话流用户气泡）
+    expect(screen.getByText('本机最近运行')).toBeTruthy()
+    const histItem = screen.getAllByText('首问本机记录')
+      .map(el => el.closest('.ant-list-item')).find(Boolean)
+    expect(histItem).toBeTruthy()
+  })
+})
+
 describe('A1 落地页 · 思考树与答案流（帧渲染）', () => {
   it('金样本全链：node 四态原位升更新＋skipped 灰显＋note/token 拼贴/置信度徽标/citation 角标', async () => {
     apiRouter()
@@ -320,7 +347,7 @@ describe('A1 落地页 · 历史会话回放（端点 3——P1-12 接线）', (
       ] } }
   ] }
 
-  it('点服务端会话→消息折进中栏：横幅＋user 气泡＋答案卡＋citation 角标开出处抽屉＋返回当前', async () => {
+  it('点服务端会话→消息折进中栏：轻量条＋user 气泡＋答案卡＋citation 角标开出处抽屉＋返回当前（UI-14 意见 3 镜像）', async () => {
     apiRouter({
       sessions: () => new Response(JSON.stringify({ items: [historySession] }), { status: 200 }),
       messages: () => new Response(JSON.stringify(historyMessages), { status: 200 })
@@ -328,13 +355,14 @@ describe('A1 落地页 · 历史会话回放（端点 3——P1-12 接线）', (
     render(<A1Landing />)
     fireEvent.click(await screen.findByText('N-02 井隶属哪个区块?'))
 
-    expect(await screen.findByText(/正在查看历史会话/)).toBeTruthy()
+    // UI-14 翻转：回放大 Alert 换贴顶轻量一行（文案「正在查看历史会话——只读回放。」）
+    expect(await screen.findByText('正在查看历史会话——只读回放。')).toBeTruthy()
     expect(await screen.findByText('位于渤南区块。')).toBeTruthy()
     // answer 与 SSE answer 帧同形直出——citation 角标可开出处抽屉（一份 DTO 两处消费）
     fireEvent.click(screen.getByText('证 c1'))
     await screen.findByText('引用别名')
     expect(screen.getByText('区块归属')).toBeTruthy()
-    // 返回当前＝退出回放（横幅消失，回实时会话空态）
+    // 返回当前＝退出回放（轻量条消失，回实时会话空态）
     fireEvent.click(screen.getByRole('button', { name: /返回当前/ }))
     expect(screen.queryByText(/正在查看历史会话/)).toBeNull()
     // UI-09：空态教学段删除——回到实时空态以右栏「暂无思考过程。」为标志

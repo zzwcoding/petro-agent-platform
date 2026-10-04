@@ -760,12 +760,16 @@ export default function B1Landing() {
                 message="上传受理失败——请重新选择文件再试" description={errText(upInitError)} />
             )}
             {/* UI-02 T1：接 PagedTable——expandable 整包透传（新任务受理后主动展开逻辑不动），
-                resetKey 绑来源筛；UI-12：fill 表内滚 */}
+                resetKey 绑来源筛；UI-12：fill 表内滚；
+                UI-14 巡检违例 (b) 修复（先登记后改）：tasksError 失败态经 error prop 切
+                失败空态——不再混入「还没有入库任务」业务引导文案（对齐同页 ledger/libs/
+                activity 三表 error/errorEmptyText 惯例；上方内联 Alert 另挂，两件并存） */}
             <PagedTable
               fill
               size="small" loading={tasksLoading} columns={taskColumns}
               dataSource={tasks.items} rowKey="id"
               emptyText="还没有入库任务：点上方「上传报告（直传）」发起一次入库。"
+              error={tasksError} errorEmptyText="任务列表拉取失败"
               resetKey={sourceF}
               expandable={{
                 expandRowByClick: true,

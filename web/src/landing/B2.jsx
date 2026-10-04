@@ -421,7 +421,12 @@ export default function B2Landing() {
       {/* UI-03 T1：接 PagedTable client 模式（pageSize 20、统计恒显）；resetKey 绑
           report|typeF|kwQ（方案 §2.2 总表）；rowClassName 定位高亮与 expandable 懒
           加载整包透传；T5 未选报告空态分叉（失败态≠空态），report 就绪后恢复原空态；
-          UI-12：fill 表内滚（片段清单长表页签内滚、页面不滚） */}
+          UI-12：fill 表内滚（片段清单长表页签内滚、页面不滚）
+          UI-14 空态三态分离（Owner 2026-10-05 裁决）：报告下拉按 reportsError/reports/report
+          实际状态分叉——①清单读取失败→失败文案（「恢复后自动加载」话术废除，误导——
+          不存在可等来的恢复；UI-03 审查所提旧话术问题就此关闭）；②清单已载入但空库→
+          空库引导；③有清单未选中→选择指引；报告已选中维持原「该报告暂无片段」真空态。
+          巡检违例 (b) 同票修复：fragsError 失败态经 error prop 切失败空态，不再混入业务空态文案 */}
       <PagedTable
         fill
         size="small" columns={fragColumns} dataSource={frags.items} rowKey="id" loading={fragsLoading}
@@ -440,9 +445,14 @@ export default function B2Landing() {
           ),
           onExpand: (expanded, c) => { if (expanded) loadContext(c.id) } // 展开即回捞（端点 2 懒加载——mock 更正①）
         }}
-        emptyText={report
-          ? '该报告暂无片段：入库完成后这里按报告建台账。'
-          : '未选择报告或报告清单不可用——恢复后自动加载'}
+        emptyText={reportsError
+          ? '报告清单读取失败——稍后重试或先去报告库查看。'
+          : !report
+            ? (reports.length === 0
+                ? '报告库还没有报告——先入库再来浏览片段。'
+                : '先在上方选择一份报告。')
+            : '该报告暂无片段：入库完成后这里按报告建台账。'}
+        error={fragsError} errorEmptyText="片段清单拉取失败"
         resetKey={`${report ?? ''}|${typeF}|${kwQ}`}
       />
     </>
@@ -470,11 +480,14 @@ export default function B2Landing() {
       )}
       {/* UI-03 T2：接 PagedTable client 模式（统计条恒显——队列为筛选集合）；
           resetKey 绑 issueF（方案 §2.2 总表）；T9 空态按 state 分支：全部空
-          「还没有标记单」、筛选空维持原话「没有符合条件的标记单。」；UI-12：fill 表内滚 */}
+          「还没有标记单」、筛选空维持原话「没有符合条件的标记单。」；UI-12：fill 表内滚；
+          UI-14 巡检违例 (b) 修复：issuesError 失败态经 error prop 切失败空态
+          （上方内联 Alert 另挂——两件并存，失败不再混入空态文案） */}
       <PagedTable
         fill
         size="small" columns={issueColumns} dataSource={issues.items} rowKey="id" loading={issuesLoading}
         emptyText={issueF === 'all' ? '还没有标记单' : '没有符合条件的标记单。'}
+        error={issuesError} errorEmptyText="复核队列拉取失败"
         resetKey={issueF}
       />
     </>
