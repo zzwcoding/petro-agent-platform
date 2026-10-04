@@ -1,5 +1,4 @@
-import { Input, Layout, Select, Typography } from 'antd'
-import { SearchOutlined } from '@ant-design/icons'
+import { Layout, Select, Typography } from 'antd'
 
 export default function HeaderBar({ title, crumb, role, setRole }) {
   return (
@@ -12,10 +11,6 @@ export default function HeaderBar({ title, crumb, role, setRole }) {
         <span style={{ fontSize: 12, color: '#8a94a3', fontWeight: 400, marginLeft: 10 }}>{crumb}</span>
       </Typography.Title>
       <div style={{ flex: 1 }} />
-      <Input
-        prefix={<SearchOutlined />} placeholder="搜井号 / 报告 / 指标…"
-        style={{ width: 200, background: 'rgba(255,255,255,0.08)' }}
-      />
       <Select
         value={role} onChange={setRole} style={{ width: 170 }}
         options={window.__roles.map(r => ({ value: r.key, label: r.label }))}

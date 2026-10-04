@@ -103,6 +103,23 @@ export class ApiError extends Error {
 }
 
 /**
+ * 错误包 → 内联展示行（人话 message＋code＋trace_id 三段；UI-00 自 B1.jsx:115-122
+ * 母本原样上收，与 ApiError 同文件内聚）。非 ApiError（网络层意外等非统一出口
+ * 错误）返回 String(err)。共享后 B3 两段现形统一为三段＝定死接受的行为变化
+ * （方案-阶段1交互优化 §3.2-2——对齐 P1「反馈可追溯」）。
+ * @param {unknown} err 任意抛出值
+ * @returns {string}
+ */
+export function errText(err) {
+  if (!(err instanceof ApiError)) return String(err)
+  return [
+    err.message,
+    err.code ? `code ${err.code}` : '',
+    err.traceId ? `trace ${err.traceId}` : ''
+  ].filter(Boolean).join(' · ')
+}
+
+/**
  * 从响应体提取错误包（非 JSON / 空体安全）。
  * @param {unknown} data
  * @returns {{code: string, message: string, detail: unknown, trace_id: string}}
