@@ -71,6 +71,10 @@ export default function Shell() {
   const crumb = isProto ? '原型树 · mock 数据' : '落地树 · 真 API'
   const treeTag = <Tag color={isProto ? 'default' : 'green'} style={{ marginLeft: 8 }}>{isProto ? '原型' : '落地'}</Tag>
   const traceText = isProto ? (page === 'A1' ? A1_TRACE : (window.__traces?.[page] || '')) : ''
+  // Content 48px 底垫与 TraceBar 渲染同源（UI-00）——判据同 TraceBar.jsx:5
+  // `if (!DEV || !text) return null`：只在「DEV 且 traceText 非空」时给垫。
+  // dev 模式落地树 traceText 恒空，不再白垫 48px。
+  const hasTracePad = Boolean(DEV && traceText)
 
   const ProtoPage = page === 'A1' ? A1Chat : LAZY[page]
 
@@ -83,7 +87,7 @@ export default function Shell() {
         <HeaderBar title={<span>{title}{treeTag}</span>}
           crumb={crumb}
           role={role} setRole={switchRole} />
-        <Layout.Content style={{ padding: DEV ? '16px 20px 48px' : '16px 20px', flex: 1, overflow: 'auto' }}>
+        <Layout.Content style={{ padding: hasTracePad ? '16px 20px 48px' : '16px 20px', flex: 1, overflow: 'auto' }}>
           {isProto ? (page === 'A1' ? <A1Chat role={role} /> : ProtoPage ? (
             <Suspense fallback={<Skeleton active />}>
               <ProtoPage />
