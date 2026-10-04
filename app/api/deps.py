@@ -15,6 +15,7 @@ from typing import Annotated, cast
 from fastapi import Depends, Header, Request
 
 from app.domains.chat import ChatService
+from app.domains.dataops.quality import QualityService
 from app.domains.derivatives import DerivativesService
 from app.domains.faq import FaqService
 from app.domains.gateway import GatewayService
@@ -106,6 +107,11 @@ def get_wells(request: Request) -> WellsService:
     return cast(WellsService, request.app.state.wells)
 
 
+def get_quality(request: Request) -> QualityService:
+    """quality 服务定位（lifespan 装配于 app.state——main.py；M-05a 起）。"""
+    return cast(QualityService, request.app.state.quality)
+
+
 DbDep = Annotated[ConnectionManager, Depends(get_db)]
 SecurityDep = Annotated[SecurityService, Depends(get_security)]
 GatewayDep = Annotated[GatewayService, Depends(get_gateway)]
@@ -117,3 +123,4 @@ FaqDep = Annotated[FaqService, Depends(get_faq)]
 RetrievalDep = Annotated[RetrievalService, Depends(get_retrieval)]
 ChatDep = Annotated[ChatService, Depends(get_chat)]
 WellsDep = Annotated[WellsService, Depends(get_wells)]
+QualityDep = Annotated[QualityService, Depends(get_quality)]

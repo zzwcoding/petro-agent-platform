@@ -1037,21 +1037,21 @@
       "no": "3",
       "method": "POST",
       "path": "/api/quality/tasks",
-      "owner": "阶段 2 · E2 数据质量台票（roadmap 问数与井档案）"
+      "owner": "阶段 2 · E2 数据质量台票——M-05a 落 501 端点壳（执行通道随数据面质检重建接通，归属注记：M-05b 接通）"
     },
     {
       "book": "E2",
       "no": "4",
       "method": "GET",
       "path": "/api/quality/tasks/{}",
-      "owner": "阶段 2 · E2 数据质量台票（roadmap 问数与井档案）"
+      "owner": "阶段 2 · E2 数据质量台票——M-05a 落 501 端点壳（执行通道随数据面质检重建接通，归属注记：M-05b 接通）"
     },
     {
       "book": "E2",
       "no": "5",
       "method": "GET",
       "path": "/api/quality/tasks",
-      "owner": "阶段 2 · E2 数据质量台票（roadmap 问数与井档案）"
+      "owner": "阶段 2 · E2 数据质量台票——M-05a 落 501 端点壳（执行通道随数据面质检重建接通，归属注记：M-05b 接通）"
     },
     {
       "book": "E2",

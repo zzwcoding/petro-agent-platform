@@ -53,6 +53,17 @@
   tickets/phase2/README.md M-02 差异清单）——井不存在（归一化后无此主键，
   设定书 §4 规则 7）；直调越权 403 走 security_forbidden 既有映射
   （A2 行为规则 1——预埋期 403 分支不可达，形状照写，开放问题 6 裁决）。
+- quality_rule_not_found / quality_issue_not_found：quality 域 404（E2 错误码
+  草案；M-05a 新立值，登记于 tickets/phase2/README.md M-05a 差异清单）——
+  PATCH 未知规则号/未知问题单号。
+- quality_issue_state：quality 域 409（E2 错误码草案；M-05a 新立值）——终态
+  再流转/非复核态复扫（状态机冲突，kb_issue_state/chat_run_state 同族）。
+- quality_close_not_verified：quality 域 422（E2 端点 7 合同冻结状态码——
+  00 §3.2 常规族外特例，随合同走；M-05a 新立值）——关闭守卫：verify 复扫
+  全绿与 close_note 免修原因二者皆无。
+- quality_task_channel_deferred：quality 域端点壳 501（kb_fragment_revise_
+  deferred 先例；501 非合同状态码，差异登记票面）——任务执行通道（端点 3/4/5）
+  与复扫执行缝随数据面质检重建接通（M-05b），不 mock 假任务/假复扫结论。
 """
 
 from __future__ import annotations
@@ -64,6 +75,14 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.domains.chat import ChatParamError, ChatRunNotFoundError, ChatRunStateError
+from app.domains.dataops.quality import (
+    QualityCloseBlockedError,
+    QualityIssueNotFoundError,
+    QualityIssueStateError,
+    QualityParamError,
+    QualityRuleNotFoundError,
+    QualityTaskChannelDeferredError,
+)
 from app.domains.derivatives import (
     GraphNotFoundError,
     GraphOntologyMismatchError,
@@ -104,6 +123,7 @@ CODE_WIKI_NOT_FOUND = "wiki_not_found"
 CODE_GRAPH_NOT_FOUND = "graph_not_found"
 CODE_FAQ_NOT_FOUND = "faq_not_found"
 CODE_WELL_NOT_FOUND = "well_not_found"
+CODE_QUALITY_TASK_DEFERRED = "quality_task_channel_deferred"
 
 
 class ApiError(Exception):
@@ -362,6 +382,70 @@ def install_error_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=409,
             content=error_payload("chat_run_state", str(exc)),
+        )
+
+    @app.exception_handler(QualityParamError)
+    async def handle_quality_param_error(
+        request: Request, exc: QualityParamError
+    ) -> JSONResponse:
+        # E2 错误码草案 400 族：入参形状非法（未知流转动作等——code
+        # quality_param_invalid，M-05a 新立值）。
+        return JSONResponse(
+            status_code=400,
+            content=error_payload("quality_param_invalid", str(exc)),
+        )
+
+    @app.exception_handler(QualityRuleNotFoundError)
+    async def handle_quality_rule_not_found(
+        request: Request, exc: QualityRuleNotFoundError
+    ) -> JSONResponse:
+        # E2 错误码草案 404：规则不存在（PATCH 未知规则号——规则不删只停用，
+        # 世界里没有的规则号直调即 404）。
+        return JSONResponse(
+            status_code=404,
+            content=error_payload("quality_rule_not_found", str(exc)),
+        )
+
+    @app.exception_handler(QualityIssueNotFoundError)
+    async def handle_quality_issue_not_found(
+        request: Request, exc: QualityIssueNotFoundError
+    ) -> JSONResponse:
+        # E2 错误码草案 404：问题单不存在（端点 7 直调未知单号）。
+        return JSONResponse(
+            status_code=404,
+            content=error_payload("quality_issue_not_found", str(exc)),
+        )
+
+    @app.exception_handler(QualityIssueStateError)
+    async def handle_quality_issue_state(
+        request: Request, exc: QualityIssueStateError
+    ) -> JSONResponse:
+        # E2 错误码草案 409：状态机冲突（终态再流转/非复核态复扫）。
+        return JSONResponse(
+            status_code=409,
+            content=error_payload("quality_issue_state", str(exc)),
+        )
+
+    @app.exception_handler(QualityCloseBlockedError)
+    async def handle_quality_close_blocked(
+        request: Request, exc: QualityCloseBlockedError
+    ) -> JSONResponse:
+        # E2 端点 7 合同冻结 422：关闭守卫（verify 复扫全绿/close_note 免修
+        # 原因二者皆无——拒绝关闭）。
+        return JSONResponse(
+            status_code=422,
+            content=error_payload("quality_close_not_verified", str(exc)),
+        )
+
+    @app.exception_handler(QualityTaskChannelDeferredError)
+    async def handle_quality_task_deferred(
+        request: Request, exc: QualityTaskChannelDeferredError
+    ) -> JSONResponse:
+        # 端点壳 501（kb_fragment_revise_deferred 先例）：任务执行通道/复扫
+        # 执行缝随数据面质检重建接通（M-05b）——诚实注记，不 mock。
+        return JSONResponse(
+            status_code=501,
+            content=error_payload(CODE_QUALITY_TASK_DEFERRED, str(exc)),
         )
 
     @app.exception_handler(RequestValidationError)
