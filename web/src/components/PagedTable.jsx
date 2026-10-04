@@ -120,15 +120,16 @@ export default function PagedTable(props) {
         onChange: p => setClientPage(p)
       }
 
-  // ── fill 模式测高（UI-12 定死）：ResizeObserver 实测 wrapper 高 → scroll.y 内滚 ──
-  // jsdom/兜底环境无 ResizeObserver 直接跳过（零测量零 y，渲染物与 fill=false 同形）；
-  // 首帧不传 y（thead/pagination 尚未实测），observer 挂载即首次回调补挂；观测回调里
-  // 随窗口/内容变化重算（Tabs 页签隐藏测高为 0 → 不传 y，切回再触发重算——无需
-  // destroyInactiveTabPane）。测得 ≤0（页签隐藏/视口过矮）同样不传 y，不做负值内滚。
+  // ── fill 模式测高（UI-12 定死）：实测 wrapper 高 → scroll.y 内滚 ──
+  // 主通道 ResizeObserver 随窗口/内容变化重算（Tabs 页签隐藏测高为 0 → 不传 y，
+  // 切回再触发重算——无需 destroyInactiveTabPane）；兜底通道挂载即测＋双 rAF＋
+  // resize 重测（部分嵌入式内核 RO 回调不送达——真机复验实测，见 effect 内注）。
+  // 测得 ≤0（jsdom 零高/页签隐藏/视口过矮）不传 y，渲染物与 fill=false 同形，
+  // 不做负值内滚。
   const wrapRef = useRef(null)
   const [y, setY] = useState()
   useEffect(() => {
-    if (!fill || typeof ResizeObserver === 'undefined') return undefined
+    if (!fill) return undefined
     const measure = () => {
       const el = wrapRef.current
       if (!el) return
@@ -139,9 +140,28 @@ export default function PagedTable(props) {
         - (pager ? pager.offsetHeight : 0)
       setY(next > 0 ? next : undefined)
     }
-    const ro = new ResizeObserver(measure)
-    if (wrapRef.current) ro.observe(wrapRef.current)
-    return () => ro.disconnect()
+    // 主通道：ResizeObserver（标准环境随窗口/内容变化重算）。
+    // 兜底通道（UI-12 真机复验发现）：部分嵌入式内核 RO 回调不送达（实测最小复现
+    // 零回调）——挂载即测＋双 rAF 补测＋resize 事件重测，保证任何环境出初始 y；
+    // measure 幂等（同值 setY 不引发额外渲染），channels 并存无副作用。
+    let ro
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(measure)
+      if (wrapRef.current) ro.observe(wrapRef.current)
+    }
+    measure()
+    let raf1
+    let raf2
+    if (typeof requestAnimationFrame !== 'undefined') {
+      raf1 = requestAnimationFrame(() => { raf2 = requestAnimationFrame(measure) })
+    }
+    window.addEventListener('resize', measure)
+    return () => {
+      if (ro) ro.disconnect()
+      if (raf1) cancelAnimationFrame(raf1)
+      if (raf2) cancelAnimationFrame(raf2)
+      window.removeEventListener('resize', measure)
+    }
   }, [fill])
 
   const table = (
