@@ -413,7 +413,7 @@ async def list_tasks(
             TaskItem(
                 id=r.id, doc=r.doc, lib_id=r.lib_id, lib_name=r.lib_name,
                 source=r.source, state=r.state, current_step=r.current_step,
-                stop_at=r.stop_at, reason=r.reason,
+                stop_at=r.stop_at, reason=r.reason, branches=r.branches,
             )
             for r in rows
         ],

@@ -188,16 +188,22 @@ class DerivativesService:
         self, report_id: str, lib_id: str, task_id: str = ""
     ) -> None:
         reporter = self._branch_reporter
-        if reporter is not None and task_id:
-            await reporter(task_id, "wiki", "running")
+
+        async def _report_wiki(state: str, detail: str | None = None) -> None:
+            if reporter is None or not task_id:
+                return
+            try:  # 回写失败不影响支路（与 graph 侧 _report 同款设防）
+                await reporter(task_id, "wiki", state, detail)
+            except Exception:  # 清理面静默（回写失败不掩盖支路状态）
+                LOGGER.exception("wiki 支路进度回写失败 task=%s", task_id)
+
+        await _report_wiki("running")
         try:
             await self._generate(report_id, lib_id)
-            if reporter is not None and task_id:
-                await reporter(task_id, "wiki", "done")
+            await _report_wiki("done")
         except Exception:  # 生成失败不阻塞入库任务（任务体已 done——只记日志）
             LOGGER.exception("wiki 生成失败 report=%s", report_id)
-            if reporter is not None and task_id:
-                await reporter(task_id, "wiki", "failed", detail="百科生成异常——见后端日志")
+            await _report_wiki("failed", detail="百科生成异常——见后端日志")
 
     # ---------- 生成支路（F50 工序） ----------
 
@@ -537,7 +543,7 @@ class DerivativesService:
         task_no: str,
         extract_snapshot: dict[str, Any] | None,
         task_id: str = "",
-    ) -> None:
+    ) -> dict[str, Any]:
         """图谱支路（F40）：chunk 挑选闸→LLM 按 ExtractConfig 抽三元组→三道闸
         →过闸写图＋拦下记 blocked-edges（namespace=库）。
 

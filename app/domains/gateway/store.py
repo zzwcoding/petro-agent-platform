@@ -406,8 +406,14 @@ class BudgetStore:
                     per_call_cost_limit_yuan=0.05,  # F2 改注合同默认（D5 §8）
                     gateway_budget_yuan_per_month=800.0,  # GATEWAY_BUDGET 演示值（D5 §8）
                 )
-                session.add(row)
+            session.add(row)
+            try:
                 await session.flush()
+            except Exception:  # 并发同插 singleton（G-06 并发闸下首次落账竞速）——回读既有行
+                await session.rollback()
+                row = await session.get(BudgetConfigRow, "singleton")
+                if row is None:
+                    raise
             return float(row.per_call_cost_limit_yuan), float(row.gateway_budget_yuan_per_month)
 
     async def save(self, per_call_cost_limit_yuan: float, monthly_yuan: float) -> None:

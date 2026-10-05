@@ -195,7 +195,7 @@ class IngestTaskRow(Base):
     updated_at: Mapped[datetime] = mapped_column(default=now, nullable=False)
     # G-02 支路进度：{"wiki": {"state": ..., "detail": ...}, "graph": {...}}——
     # derivatives 支路经组合根注入 callable 合并写；不参与任务 state。
-    branch_status: Mapped[dict] = mapped_column(_J, nullable=False, default=dict)
+    branch_status: Mapped[dict[str, Any]] = mapped_column(_J, nullable=False, default=dict)
 
 
 class ReportRow(Base):

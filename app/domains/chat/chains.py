@@ -658,7 +658,7 @@ def _report_diversify(report: list[d.Evidence], cap: int) -> list[d.Evidence]:
     by_report: dict[str, list[d.Evidence]] = {}
     order: list[str] = []
     for e in report:
-        key = e.report_id or e.report or "?"
+        key = e.report_id or "?"
         if key not in by_report:
             by_report[key] = []
             order.append(key)
