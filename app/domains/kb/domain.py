@@ -979,7 +979,9 @@ class TaskNode:
 
 @dataclass(frozen=True, slots=True)
 class TaskView:
-    """任务行（端点 7：source 来源随行——Owner v0.2 拍板）。"""
+    """任务行（端点 7：source 来源随行——Owner v0.2 拍板）。
+
+    branches＝G-02 支路进度（additive；空对象＝未触发/历史任务）。"""
 
     id: str
     doc: str
@@ -990,6 +992,7 @@ class TaskView:
     current_step: int
     stop_at: str | None
     reason: str | None
+    branches: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)

@@ -329,6 +329,13 @@ export default function B1() {
       key: 's4', step: '步 4 · 建索引',
       text: `按${libName}的四开关写入索引：语义 ${mark(cfg.semantic)} · 关键词 ${mark(cfg.keyword)} · 百科页 ${mark(cfg.wiki)} · 关系图谱 ${mark(cfg.graph)}。关掉的支路不跑、不产生抽取费用。`
     })
+    // G-02 支路进度（五步后异步跑的百科/图谱支路——任务卡直接可见，不用翻日志）
+    const br = t.branches || {}
+    const brText = [
+      br.wiki ? `百科 ${br.wiki.state}${br.wiki.detail ? '：' + br.wiki.detail : ''}` : null,
+      br.graph ? `图谱 ${br.graph.state}${br.graph.chunks_total ? `（${br.graph.chunks_done || 0}/${br.graph.chunks_total} 块 · 边 ${br.graph.edges || 0}）` : ''}${br.graph.detail ? '：' + br.graph.detail : ''}` : null,
+    ].filter(Boolean).join(' · ')
+    if (brText) rows.push({ key: 's6', step: '索引支路', text: brText })
     return rows
   }
 

@@ -643,6 +643,50 @@ def _index_evidence_rows(
     ]
 
 
+def _report_diversify(report: list[d.Evidence], cap: int) -> list[d.Evidence]:
+    """报告池多样性（G-06 检索质量第一刀——通用多文档机制，非题面适配）。
+
+    多报告语料下向量腿会饱和：A 报告片段对任意油田问句普遍高分（Q3 探针实证
+    0.85~0.95），按分直取会整窗挤满单报告、其余报告相关片段全出局（五题检索
+    miss 共因）。此处窗口内**同报告至多 2 支**：按报告分组轮询各取首支，余量再
+    按原序补齐——只改入选构成、不改相对序，不做任何语义判断（分池 v0.4 同族
+    思路：台账/报告互不占位 → 报告内多报告互不挤占）。
+    """
+    if len(report) <= cap:
+        return report
+    per_report_cap = max(1, cap // 2)
+    by_report: dict[str, list[d.Evidence]] = {}
+    order: list[str] = []
+    for e in report:
+        key = e.report_id or e.report or "?"
+        if key not in by_report:
+            by_report[key] = []
+            order.append(key)
+        if len(by_report[key]) < per_report_cap:
+            by_report[key].append(e)
+    picked: list[d.Evidence] = []
+    seen: set[int] = set()
+    while len(picked) < cap:
+        progressed = False
+        for key in order:
+            if by_report[key]:
+                e = by_report[key].pop(0)
+                picked.append(e)
+                seen.add(id(e))
+                progressed = True
+                if len(picked) >= cap:
+                    break
+        if not progressed:
+            break
+    for e in report:
+        if len(picked) >= cap:
+            break
+        if id(e) not in seen:
+            picked.append(e)
+            seen.add(id(e))
+    return picked
+
+
 def _cap_evidence(evidence: list[d.Evidence]) -> tuple[list[d.Evidence], list[str]]:
     """S6 送生成上限截断（D2 v0.4 生成窗分池——两池互不占位）。
 
@@ -654,15 +698,16 @@ def _cap_evidence(evidence: list[d.Evidence]) -> tuple[list[d.Evidence], list[st
     未列出」（两池都有超出时两行，固定报告类在前），notice 由调用方按序发。
     """
     ledger = [e for e in evidence if e.source in d.LEDGER_EVIDENCE_SOURCES]
-    report = [e for e in evidence if e.source not in d.LEDGER_EVIDENCE_SOURCES]
+    report_all = [e for e in evidence if e.source not in d.LEDGER_EVIDENCE_SOURCES]
+    report = _report_diversify(report_all, d.EVIDENCE_CAP)
     kept_report = report[: d.EVIDENCE_CAP]
     kept_ledger = ledger[: d.LEDGER_EVIDENCE_CAP]
     kept_ids = {id(e) for e in [*kept_report, *kept_ledger]}
     notices: list[str] = []
-    if len(report) > len(kept_report):
+    if len(report_all) > len(kept_report):
         notices.append(
-            f"报告类证据 {len(report)} 支，仅送前 {d.EVIDENCE_CAP} 支进生成"
-            f"——另有 {len(report) - len(kept_report)} 支未列出。"
+            f"报告类证据 {len(report_all)} 支，仅送前 {d.EVIDENCE_CAP} 支进生成"
+            f"——另有 {len(report_all) - len(kept_report)} 支未列出。"
         )
     if len(ledger) > len(kept_ledger):
         notices.append(

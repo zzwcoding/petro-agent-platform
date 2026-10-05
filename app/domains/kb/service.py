@@ -408,6 +408,7 @@ class KbService:
                     current_step=int(row.current_step),
                     stop_at=row.stop_at,
                     reason=row.reason,
+                    branches=dict(getattr(row, "branch_status", None) or {}),
                 )
             )
         return out

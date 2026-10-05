@@ -392,6 +392,7 @@ class TaskItem(BaseModel):
     current_step: int
     stop_at: str | None
     reason: str | None
+    branches: dict[str, object] = {}
 
 
 class TasksResponse(BaseModel):
