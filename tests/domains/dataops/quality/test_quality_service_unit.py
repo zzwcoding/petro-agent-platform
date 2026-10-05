@@ -168,6 +168,29 @@ class TestTransitionStateMachine:
         with pytest.raises(QualityParamError):
             await service.transition_issue("p8", "小李 · 地质/质检", action="rollback")
 
+    async def test_concurrent_window_locked_recheck_rejects_stale_snapshot(
+        self, quality_db: Any
+    ) -> None:
+        """并发窗复检（M-07 F-02）：后到路携旧快照进写点——锁内复检拒绝。
+
+        sqlite 底座无 FOR UPDATE 实锁（单写串行）——锁内复检逻辑由本测确定性
+        驱动：后到路的受理快照（读于对手方提交前）直接喂写点＝复现「读后写前
+        被对手方推进」竞窗；断言不双写不留痕（无两张同距留痕行）。FOR UPDATE
+        实锁串行化归 PG 集成（test_quality_tables_pg 并发用例同证）。
+        """
+        await _p8_at(quality_db, 1)
+        service = QualityService(quality_db)
+        stale = await service._store.get_issue("p8")  # 后到路受理快照（对手方写前读）
+        assert stale is not None and int(stale.lane) == 1
+        receipt = await service.transition_issue("p8", "小李 · 地质/质检")  # 对手方先到：1→2
+        assert receipt.lane == 2
+        with pytest.raises(QualityIssueStateError):  # 后到路：锁内 lane=2≠快照 1——拒绝
+            await service._advance_issue(stale, "小李 · 地质/质检")
+        rows = await issue_rows(quality_db)
+        assert rows[0].lane == 2  # 未被旧快照覆写（不丢不重）
+        trace = await transition_rows(quality_db, "p8")
+        assert [(r.from_lane, r.to_lane) for r in trace] == [(1, 2)]  # 留痕不失真
+
 
 class TestRescanAction:
     async def test_rescan_only_at_review_lane(self, quality_db: Any) -> None:

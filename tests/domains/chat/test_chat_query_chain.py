@@ -644,6 +644,82 @@ class TestExtableApproval:
         assert "done" not in by_name
 
 
+# ---------- (h) 锚定回流持久（M-07 F-01——挂起载荷携 anchors 回流） ----------
+
+
+class TestAnchoredResume:
+    """@ 锚定发起且问句正文不含指标名的问句——澄清/审批回流重装配仍锚定命中。
+
+    缺陷（R-MAIN F-01）：挂起载荷无 anchors——@ 锚定发起且问句正文不含指标名
+    的问句，澄清补参/审批批准回流后重装配拿不到指标卡，N7.1 降级「未命中注册
+    指标声明」，已批准的审批出不了数。修法：挂起载荷携 anchors 回流（additive
+    键）——resume 重判时锚定语义不丢。
+    """
+
+    ANCHOR = "指标卡·日产油量"  # 指标仅由 @ 锚定携带——问句正文不含指标名
+    VAGUE_NO_METRIC = "最近怎么样"  # 时间窗缺参反问挂起（路由经锚定指标入链）
+
+    async def test_anchored_askback_resume_keeps_anchor_hit(
+        self, chat_db: ConnectionManager, seams: Seams
+    ) -> None:
+        """@ 锚定＋缺参反问→补参 resume→N7.1 仍锚定命中（不出降级、照常出数）。"""
+        service = make_service(chat_db, seams)
+        first = await collect(service.ask(
+            self.VAGUE_NO_METRIC, session_id=None, page_context=None,
+            anchors=[self.ANCHOR], actor_who=AQIANG,
+        ))
+        by_name = _events_by_name(first)
+        assert by_name["clarify"][0]["subtype"] == d.MISSING_SUBTYPE  # 缺参反问挂起
+        run_id = _run_id_of(first)
+        run = await _run_row(chat_db, run_id)
+        pending = run.pending_interrupt or {}
+        assert pending["chain"] == "状态机六站链"
+        assert pending["anchors"] == [self.ANCHOR]  # 挂起载荷携 anchors（F-01 修法面）
+        events = await collect(service.resume(
+            run_id, kind="clarify", choice="近 30 天", decision=None, reason=None,
+            actor_who=AQIANG,
+        ))
+        by_name = _events_by_name(events)
+        assert by_name["assembly"][-1]["anchor_line"] == self.ANCHOR  # 锚定语义不丢
+        answer = by_name["answer"][0]
+        assert answer["kind"] == "table"  # 出数——非 N7.1 降级解释链
+        assert "未命中注册指标声明" not in str(answer.get("text", ""))
+        assert seams.calls.get("query_exec") == 1  # 批注补参后续跑执行
+        assert "done" in by_name
+        assert (await _run_row(chat_db, run_id)).status == "done"
+
+    async def test_anchored_extable_approve_resume_keeps_anchor_hit(
+        self, chat_db: ConnectionManager, seams: Seams
+    ) -> None:
+        """@ 锚定＋extable 审批→approve resume→同证：批准出数不降级。"""
+        service = make_service(chat_db, seams)
+        first = await collect(service.ask(
+            "上个月排名前三的井，和 ERP 井位台账对一下", session_id=None,
+            page_context=None, anchors=[self.ANCHOR], actor_who=AQIANG,
+        ))
+        by_name = _events_by_name(first)
+        assert by_name["approval"][0]["scene"] == "extable"  # 首跑可达 N7.4c 挂审批
+        run_id = _run_id_of(first)
+        run = await _run_row(chat_db, run_id)
+        pending = run.pending_interrupt or {}
+        assert pending["kind"] == "approval"
+        assert pending["anchors"] == [self.ANCHOR]  # 审批挂起载荷同携 anchors
+        approval_id = run.pending_approval_id
+        events = await collect(service.resume(
+            run_id, kind="approval", choice=None, decision="approve", reason=None,
+            actor_who=AQIANG,
+        ))
+        by_name = _events_by_name(events)
+        answer = by_name["answer"][0]
+        assert answer["kind"] == "extable"  # 已批准出数——非降级解释链
+        assert answer["decision"] == "approved"
+        assert approval_id in answer["footnote"]
+        assert "未命中注册指标声明" not in str(answer.get("text", ""))
+        assert seams.calls.get("query_exec") == 1  # 批准后续跑执行
+        assert "done" in by_name
+        assert (await _run_row(chat_db, run_id)).status == "done"
+
+
 # ---------- (e) 血缘卡五要素（F13——合同值逐行） ----------
 
 

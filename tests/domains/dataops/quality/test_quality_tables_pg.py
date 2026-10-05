@@ -35,6 +35,7 @@ from app.domains.dataops.quality import (
     QualityService,
     QualityTaskNotFoundError,
     QualityTaskRunningError,
+    TransitionReceipt,
     bind_channel_rescan,
 )
 from app.domains.dataops.quality.domain import QrowView
@@ -45,6 +46,8 @@ from tests.domains.dataops.quality.conftest import (
     add_water_line,
     finish_like_data_plane,
     green_executor,
+    issue_rows,
+    transition_rows,
 )
 
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "")
@@ -259,6 +262,42 @@ class TestStateMachineOnPg:
         assert row.qrows == [
             QrowView(loc="设备状态 equip_status", note="停机原因旧码 R3 未按映射表换成 BELT")
         ]
+
+    async def test_concurrent_transition_single_winner_on_pg(
+        self, manager: ConnectionManager
+    ) -> None:
+        """并发两流转不同时成功（M-07 F-02——FOR UPDATE 行锁＋锁内复检）。
+
+        两路各持同一受理快照（get_issue 桩固化同窗＝真实并发的「读后写前被
+        对手方推进」）并发进场：PG 行锁串行化后，后到路锁内复检发现 lane 已动
+        → 409 拒绝——不双写、不留痕（丢更新/两张同距留痕行零发生）。
+        """
+        service = QualityService(manager)
+        hit = await service.register_hit(
+            rule_no=8, object_key="EQUIP-01", data_date="2026-09-14",
+            title="规则 8 · 停机原因码旧码未映射",
+        )
+        assert hit.attached is False
+        snapshot = await service._store.get_issue(hit.issue_id)
+        assert snapshot is not None and int(snapshot.lane) == 0
+
+        async def _stale_get(issue_id: str) -> Any:
+            return snapshot  # 两路同窗：各持同一份对手方提交前的快照
+
+        service._store.get_issue = _stale_get  # type: ignore[method-assign]
+        results = await asyncio.gather(
+            service.transition_issue(hit.issue_id, "小李 · 地质/质检"),
+            service.transition_issue(hit.issue_id, "小李 · 地质/质检"),
+            return_exceptions=True,
+        )
+        receipts = [r for r in results if isinstance(r, TransitionReceipt)]
+        conflicts = [r for r in results if isinstance(r, QualityIssueStateError)]
+        assert len(receipts) == 1 and len(conflicts) == 1  # 并发两流转不同时成功
+        assert receipts[0].lane == 1
+        rows = await issue_rows(manager)
+        assert len(rows) == 1 and rows[0].lane == 1  # 只推进一次
+        trace = await transition_rows(manager, hit.issue_id)
+        assert [(r.from_lane, r.to_lane) for r in trace] == [(0, 1)]  # 恰一张留痕行
 
 
 # ---------- (c) 水位 T-1 判定（PG 真列形 Date） ----------

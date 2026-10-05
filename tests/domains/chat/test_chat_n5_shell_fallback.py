@@ -240,3 +240,60 @@ class TestDispatcherWiringFace:
         assert dispatcher.is_registered("检索问答链") is True
         assert dispatcher.is_registered("指标卡直出链") is False
         assert dispatcher.registered() == ("检索问答链",)
+
+
+class TestRerouteAudit:
+    """M-07 F-03：接线回退补 B12 审计行（chat.ask.rerouted）。
+
+    R-MAIN F-03：回退事实此前只在 N5b 帧 note 与 run 终态 verdict 可见——
+    00 §8.2「拦截也是审计事件」同族的路由改写不留审计痕迹。修法：回退发生时
+    落笔一行（动作语义照 chat.ask 审计族惯例），正常路径零开销。
+    """
+
+    async def _audit_rows(self, db: Any) -> list[tuple[str, str]]:
+        import sqlite3
+
+        url = str(db.engine().url)
+        conn = sqlite3.connect(url.removeprefix("sqlite+aiosqlite:///"))
+        try:
+            rows = conn.execute(
+                "SELECT action, content FROM audit_log ORDER BY id"
+            ).fetchall()
+        finally:
+            conn.close()
+        return [(str(a), str(c)) for a, c in rows]
+
+    async def test_reroute_writes_b12_audit_row(
+        self, chat_db: Any, seams: Seams,
+    ) -> None:
+        """回退发生→审计行：action=chat.ask.rerouted，content 携原裁决链与 run。"""
+        seams.index_vector = [_hit(0.7)]  # 检索链真出答案——回退落到能作答的链
+        seams.intent_reply = '{"chain": "指标卡直出链", "confidence": 0.92}'
+        service = make_service(chat_db, seams)
+        events = await collect(service.ask(
+            B_ZHENG6_QUESTION, session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        run_id = _events_by_name(events)["session"][0]["run_id"]
+        assert _dispatched_chain(events) == "检索问答链"  # 回退确已发生（前置）
+        rows = await self._audit_rows(chat_db)
+        reroutes = [c for a, c in rows if a == "chat.ask.rerouted"]
+        assert len(reroutes) == 1  # 回退一行——恰一次落笔
+        assert "指标卡直出链" in reroutes[0]  # 原裁决链名留痕
+        assert run_id in reroutes[0] and "检索问答链" in reroutes[0]
+
+    async def test_registered_chain_writes_no_reroute_row(
+        self, chat_db: Any, seams: Seams,
+    ) -> None:
+        """正常路径零开销：已接线链——零回退审计行（受理行照常在）。"""
+        seams.index_vector = [_hit(0.7)]
+        seams.intent_reply = '{"chain": "检索问答链", "confidence": 0.9}'
+        service = make_service(chat_db, seams)
+        events = await collect(service.ask(
+            B_ZHENG6_QUESTION, session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        assert _dispatched_chain(events) == "检索问答链"
+        rows = await self._audit_rows(chat_db)
+        assert [a for a, _c in rows if a == "chat.ask.rerouted"] == []
+        assert any(a == "chat.ask.received" for a, _c in rows)  # 受理审计不受影响

@@ -366,7 +366,7 @@ class ChatService:
                 ),
             )
             yield d.SseEvent(d.FRAME_CLARIFY, _clarify_wire(clarify, subtype))
-            await self._suspend_clarify(run, verdict, question=text)
+            await self._suspend_clarify(run, verdict, question=text, anchors=anchors)
             return
         yield d.node_frame(
             "N5", state=d.NODE_FINISH,
@@ -374,10 +374,10 @@ class ChatService:
                  f" · confidence＝{verdict.get('confidence')}",
         )
         yield d.node_frame("N5b", state=d.NODE_PROCESS)
-        yield d.node_frame(
-            "N5b", state=d.NODE_FINISH,
-            note=self._verify_chain_wiring(verdict),
-        )
+        n5b_note, rerouted_from = self._verify_chain_wiring(verdict)
+        if rerouted_from is not None:
+            await self._audit_rerouted(actor_who, run.id, rerouted_from)
+        yield d.node_frame("N5b", state=d.NODE_FINISH, note=n5b_note)
         yield d.node_frame("N6", state=d.NODE_PROCESS, tag="查映射表派链")
         yield d.node_frame(
             "N6", state=d.NODE_FINISH,
@@ -386,7 +386,8 @@ class ChatService:
 
         # —— ④ 执行链分发（17 链闭世界；未接线链已在 N5b 回退检索问答链——P1F-01）——
         async for event in self._run_chain(
-            str(verdict["chain"]), run, text, actor_who, assembly, verdict=verdict
+            str(verdict["chain"]), run, text, actor_who, assembly, verdict=verdict,
+            anchors=anchors,
         ):
             yield event
 
@@ -635,7 +636,9 @@ class ChatService:
             return
         yield d.node_frame("N3", state=d.NODE_PROCESS, tag="代码 · 毫秒级",
                            note="轻装配——带参问句重过六路匹配器（输入严格变多）")
-        assembly = await self._assemble(question, [])
+        # @ 锚定回流持久（M-07 F-01）：挂起载荷携 anchors 回流——重装配锚定语义
+        # 不丢（存量挂起帧无此键＝空表兜底，行为同旧）。
+        assembly = await self._assemble(question, _pending_anchors(pending))
         for lane in assembly.lanes:
             data: dict[str, Any] = {"matcher": lane.matcher, "status": lane.status}
             if lane.confidence is not None:
@@ -724,10 +727,10 @@ class ChatService:
                  f" · confidence＝{verdict.get('confidence')}",
         )
         yield d.node_frame("N5b", state=d.NODE_PROCESS)
-        yield d.node_frame(
-            "N5b", state=d.NODE_FINISH,
-            note=self._verify_chain_wiring(verdict),
-        )
+        n5b_note, rerouted_from = self._verify_chain_wiring(verdict)
+        if rerouted_from is not None:
+            await self._audit_rerouted(actor_who, run.id, rerouted_from)
+        yield d.node_frame("N5b", state=d.NODE_FINISH, note=n5b_note)
         yield d.node_frame("N6", state=d.NODE_PROCESS, tag="查映射表派链")
         yield d.node_frame(
             "N6", state=d.NODE_FINISH,
@@ -736,7 +739,7 @@ class ChatService:
         async for event in self._run_chain(
             str(verdict["chain"]), run, question, actor_who, assembly,
             verdict=verdict, clarified_caliber=caliber_name,
-            skip_rescore=rewrite_declined,
+            skip_rescore=rewrite_declined, anchors=_pending_anchors(pending),
         ):
             yield event
 
@@ -857,20 +860,21 @@ class ChatService:
                  f"——无新输入不重裁决，链恢复整节点重跑（F7 节点幂等）",
         )
         yield d.node_frame("N5b", state=d.NODE_PROCESS)
-        yield d.node_frame(
-            "N5b", state=d.NODE_FINISH,
-            note=self._verify_chain_wiring(verdict),
-        )
+        n5b_note, rerouted_from = self._verify_chain_wiring(verdict)
+        if rerouted_from is not None:
+            await self._audit_rerouted(actor_who, run.id, rerouted_from)
+        yield d.node_frame("N5b", state=d.NODE_FINISH, note=n5b_note)
         yield d.node_frame("N6", state=d.NODE_PROCESS, tag="查映射表派链")
         yield d.node_frame(
             "N6", state=d.NODE_FINISH,
             note=f"已分派至「{chain}」——interrupt 恢复续跑",
         )
-        assembly = await self._assemble(question, [])
+        assembly = await self._assemble(question, _pending_anchors(pending))
         async for event in self._run_chain(
             chain, run, question, actor_who, assembly,
             verdict=verdict, extable_decision=decision,
             extable_approval_id=approval_id or None,
+            anchors=_pending_anchors(pending),
         ):
             yield event
 
@@ -1418,20 +1422,25 @@ class ChatService:
             "_value": value,
         }
 
-    def _verify_chain_wiring(self, verdict: dict[str, Any]) -> str:
+    def _verify_chain_wiring(self, verdict: dict[str, Any]) -> tuple[str, str | None]:
         """N5b 接线核验（P1F-01）：闭世界校验之上再验接线注册面——未注册链回退。
 
         17 链清单已接线四链（状态机六站/检索问答/FAQ直出/图谱问答——分派器
         注册面）；裁决选中未注册壳链时就地覆写 verdict["chain"] 为「检索问答链」
         （只动 chain 键——confidence/source 留痕不动，分派前覆写使 run 终态
-        verdict 与实派链一致），返回 note 记原裁决；已注册四链绝不覆写。ask 主
-        路径与 resume 重判路径共用本核验——回退逻辑单源，两处行为一致由构造保证。
+        verdict 与实派链一致），返回 (note, 回退原链)——回退发生时原链非 None，
+        供调用方落 B12 审计行（M-07 F-03：chat.ask.rerouted，正常路径零开销）；
+        已注册四链绝不覆写。ask 主路径与 resume 重判路径共用本核验——回退逻辑
+        单源，两处行为一致由构造保证。
         """
         chain = str(verdict.get("chain") or "")
         if self._dispatcher.is_registered(chain):
-            return f"chain「{chain}」在 17 链清单内且已接线——核验通过（闭世界枚举＋注册面）"
+            return (
+                f"chain「{chain}」在 17 链清单内且已接线——核验通过（闭世界枚举＋注册面）",
+                None,
+            )
         verdict["chain"] = "检索问答链"
-        return f"原裁决＝「{chain}」未接线——回退检索问答链"
+        return (f"原裁决＝「{chain}」未接线——回退检索问答链", chain)
 
     # ---------- ④ 执行链分发与收场 ----------
 
@@ -1440,6 +1449,7 @@ class ChatService:
         assembly: d.AssemblyResult, *, verdict: dict[str, Any],
         clarified_caliber: str | None = None, skip_rescore: bool = False,
         extable_decision: str | None = None, extable_approval_id: str | None = None,
+        anchors: list[str] | None = None,
     ) -> AsyncIterator[d.SseEvent]:
         """链体帧流透传＋收场（stage(3) → 链内帧 → answer → done；答案落会话历史）。
 
@@ -1449,7 +1459,8 @@ class ChatService:
         同形拦截：approval 帧 wire（A1 帧 15 冻结形状）下发＋_suspend_approval
         挂起（interrupt_approval——pending_approval_id 落列）。skip_rescore 供
         rewrite 选否/不选回流续推；extable_decision/approval_id 供审批回流整节点
-        重跑（F7 节点幂等——N7.4c 判据）。"""
+        重跑（F7 节点幂等——N7.4c 判据）；anchors 供挂起载荷携锚（M-07 F-01——
+        resume 重装配时锚定语义不丢）。"""
         yield d.SseEvent(d.FRAME_STAGE, {"stage": 3})
         answer: dict[str, Any] | None = None
         ctx = d.ChainContext(
@@ -1470,12 +1481,13 @@ class ChatService:
                     "_clarify_subtype": subtype,
                     "_optimized_question": str(event.data.get("optimized_question") or ""),
                     "_chain": chain,
-                }, question=question)
+                }, question=question, anchors=anchors)
                 return
             if event.event == d.FRAME_APPROVAL and event.data.get("_chain_signal"):
                 payload = dict(event.data["payload"])
                 yield d.SseEvent(d.FRAME_APPROVAL, d.approval_wire(payload))
-                await self._suspend_approval(run, payload, question=question)
+                await self._suspend_approval(run, payload, question=question,
+                                             anchors=anchors)
                 return
             if event.event == d.FRAME_ANSWER:
                 answer = event.data
@@ -1499,12 +1511,15 @@ class ChatService:
 
     async def _suspend_clarify(
         self, run: ChatRunRow, verdict: dict[str, Any], *, question: str,
+        anchors: list[str] | None = None,
     ) -> None:
         """澄清挂起（interrupt_clarify——pending_interrupt 落帧；clarify_count +1）。
 
         载荷携原问句、挂起帧（subtype 透传进持久 wire——重放同形）与 subtype
         （caliber｜candidates｜rewrite）——resume 带参重判的上下文（输入严格变多）；
         rewrite 挂起另携 optimized_question（P1F-06——选是续推的优化问句）；
+        anchors 携发起时 @ 锚定 tokens（M-07 F-01——回流重装配锚定语义不丢，
+        additive 键、存量帧无此键＝空表兜底）；
         clarify_count CHECK 0–1 是「最多弹一次」的存储强制。
         """
         clarify = verdict.get("_clarify")
@@ -1519,6 +1534,7 @@ class ChatService:
             "frame": _clarify_wire(clarify, subtype),
             "question": question,
             "metric": dict(verdict.get("_clarify_metric") or {"metric_id": None}),
+            "anchors": list(anchors or []),
         }
         if verdict.get("_optimized_question"):
             pending["optimized_question"] = str(verdict["_optimized_question"])
@@ -1531,12 +1547,14 @@ class ChatService:
 
     async def _suspend_approval(
         self, run: ChatRunRow, payload: dict[str, Any], *, question: str,
+        anchors: list[str] | None = None,
     ) -> None:
         """审批挂起（M-06 extable——interrupt_approval；pending_approval_id 落列）。
 
         A1：extable＝纯链内闸，不产生变动单、不进 A3 台账——留痕＝审批留痕单号
         随答案展示＋审计可查（B12 审计在 resume 决策拍落笔）。载荷携原问句、
-        发起链与计划 wire（审批回流整节点重跑的上下文——F7 节点幂等）。
+        发起链与计划 wire（审批回流整节点重跑的上下文——F7 节点幂等）；
+        anchors 携发起时 @ 锚定 tokens（M-07 F-01——回流重装配锚定语义不丢）。
         """
         run.status = "interrupt_approval"
         run.pending_approval_id = str(payload.get("approval_id") or "")
@@ -1548,6 +1566,7 @@ class ChatService:
             "question": question,
             "tables": list(payload.get("_tables") or []),
             "plan": dict(payload.get("_plan") or {}),
+            "anchors": list(anchors or []),
         }
         await self._store.save_run(run)
 
@@ -1621,6 +1640,21 @@ class ChatService:
             who=who,
             action="chat.ask.approval",
             content=f"外表审批回流（run {run_id} · 单号 {approval_id}）——外表 {tables}：{outcome}",
+        ))
+
+    async def _audit_rerouted(self, who: str, run_id: str, original_chain: str) -> None:
+        """接线回退留痕（B12——M-07 F-03：00 §8.2「拦截也是审计事件」同族的路由
+        改写不留盲区；动作语义照 chat.ask 审计族惯例——回退发生时落笔，正常
+        路径零开销）。"""
+        if self._audit is None:
+            return
+        await self._audit.audit(AuditRow(
+            who=who,
+            action="chat.ask.rerouted",
+            content=(
+                f"意图裁决接线回退（run {run_id}）——原裁决「{original_chain}」未接线，"
+                "覆写回退检索问答链（N5b 帧 note 留痕）"
+            ),
         ))
 
 
@@ -1712,6 +1746,15 @@ def _answer_text(answer: dict[str, Any]) -> str:
     if kind in ("text", "alert"):
         return str(answer.get("text", ""))
     return str(answer.get("note") or answer.get("title") or "")
+
+
+def _pending_anchors(pending: dict[str, Any]) -> list[str]:
+    """挂起载荷回读 anchors（M-07 F-01——回流重装配携锚；存量帧无此键＝空表
+    兜底，行为同旧；形状加防——非列表值一律按无锚处理）。"""
+    value = pending.get("anchors")
+    if not isinstance(value, list):
+        return []
+    return [str(token) for token in value]
 
 
 def _frame_from_interrupt(pending: dict[str, Any]) -> d.ClarifyFrame | None:

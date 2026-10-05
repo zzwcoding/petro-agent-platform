@@ -215,30 +215,45 @@ class QualityService:
         return await self._advance_issue(issue, operator)
 
     async def _advance_issue(self, issue: QualityIssue, operator: str) -> TransitionReceipt:
-        """线性推进一态＋留痕行（同事务原子）。"""
-        current = int(issue.lane)
-        if current == LANE_CLOSED:
-            raise QualityIssueStateError(
-                f"问题单 {issue.id} 已关闭——终态不可流转（留痕在案）"
-            )
-        target = next_lane(current)
-        if target == LANE_CLOSED and not (
-            is_verify_green(_verify_view(issue.verify)) or issue.close_note
-        ):
-            raise QualityCloseBlockedError(
-                f"问题单 {issue.id} 复验未全绿——修正批次复扫通过"
-                "（或记录免修关闭原因）后才可关闭"
-            )
+        """线性推进一态＋留痕行（同事务原子）。
+
+        并发窗（M-07 F-02——M-05a rev F4 义务在流转写点的落地）：守卫与复检
+        全部挪入写会话，行锁寻单（``session.get(..., with_for_update=True)``
+        ——同域 register_hit ``find_by_dedupe_key`` 先例；sqlite 无此语义单写
+        串行，PG 实锁）；锁内 lane 与受理快照不一致＝对手方已并发流转——本路
+        409 拒绝，不双写 lane、不留同距留痕行（丢更新/留痕失真零发生）。
+        """
         async with self._db.session() as session:
-            managed = await session.get(QualityIssue, issue.id)
+            managed = await session.get(QualityIssue, issue.id, with_for_update=True)
             assert managed is not None  # 闸后必在（同库同键）
+            current = int(managed.lane)  # 锁内复检——现行值说话，非受理快照
+            if current != int(issue.lane):
+                raise QualityIssueStateError(
+                    f"问题单 {issue.id} 状态已并发流转"
+                    f"（受理快照 lane={int(issue.lane)}，锁内现行 lane={current}）"
+                    "——请刷新后重试"
+                )
+            if current == LANE_CLOSED:
+                raise QualityIssueStateError(
+                    f"问题单 {issue.id} 已关闭——终态不可流转（留痕在案）"
+                )
+            target = next_lane(current)
+            if target == LANE_CLOSED and not (
+                is_verify_green(_verify_view(managed.verify)) or managed.close_note
+            ):
+                raise QualityCloseBlockedError(
+                    f"问题单 {issue.id} 复验未全绿——修正批次复扫通过"
+                    "（或记录免修关闭原因）后才可关闭"
+                )
             managed.lane = target
             seq = await self._store.max_transition_seq(session, issue.id) + 1
             await self._store.append_transition(
                 session, issue_id=issue.id, seq=seq,
                 from_lane=current, to_lane=target, operator=operator,
             )
-        return TransitionReceipt(issue_id=issue.id, lane=target, verify=_verify_view(issue.verify))
+        return TransitionReceipt(
+            issue_id=issue.id, lane=target, verify=_verify_view(managed.verify)
+        )
 
     async def _rescan_issue(self, issue: QualityIssue, operator: str) -> TransitionReceipt:
         """人工触发复扫（lane 不变；verify 回填——全绿结论/仍有命中＋明细）。"""
