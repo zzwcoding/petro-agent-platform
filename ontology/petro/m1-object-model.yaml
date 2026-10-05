@@ -329,3 +329,46 @@ aggregate_associations:
     targetRole: 井
     cardinality: ONE_TO_MANY
     referenceField: platform
+  # [增补·G-05 词表扩充（Owner 2026-10-05 会话裁决）] 语料源＝eval/reports 三篇拟造
+  #   评测报告动词挖掘（下入×3/射孔×27/坐封×7/配注×10/加装×4，grep 计数在案）——
+  #   完井/作业动词此前在关系账无合法出口，抽取只能弃权。注源如实标注拟造语料。
+  #   下入：设备（套管/尾管/筛管/油管/封隔器）下入井筒——原句「筛管下入过程见第六章」
+  - id: ASSOC-PETRO-010
+    sourceAggregate: AGG-PETRO-007
+    targetAggregate: AGG-PETRO-011
+    associationType: REFERENCE
+    sourceRole: 设备
+    targetRole: 井筒
+    cardinality: MANY_TO_ONE
+  #   射孔：井对井筒段射孔——原句「TCP 射孔三段合计 28 米，孔密 16 孔/米」
+  - id: ASSOC-PETRO-011
+    sourceAggregate: AGG-PETRO-001
+    targetAggregate: AGG-PETRO-011
+    associationType: DEPENDENCY
+    sourceRole: 井
+    targetRole: 井筒（射孔段）
+    cardinality: ONE_TO_MANY
+  #   坐封：封隔器类坐封锚定井筒——原句「永久式封隔器（坐封深度 1482.6 米，液压坐封）」
+  - id: ASSOC-PETRO-012
+    sourceAggregate: AGG-PETRO-007
+    targetAggregate: AGG-PETRO-011
+    associationType: REFERENCE
+    sourceRole: 设备
+    targetRole: 井筒
+    cardinality: MANY_TO_ONE
+  #   配注：注水井对配注层配水——原句「10 月配注由 180 m³/d 提至 240 m³/d」
+  - id: ASSOC-PETRO-013
+    sourceAggregate: AGG-PETRO-001
+    targetAggregate: AGG-PETRO-014
+    associationType: DEPENDENCY
+    sourceRole: 井
+    targetRole: 配注层
+    cardinality: ONE_TO_MANY
+  #   加装：井加装/更换设备——原句「对 6 口套压高、功图"气锁"特征明显的井加装螺旋气锚」
+  - id: ASSOC-PETRO-014
+    sourceAggregate: AGG-PETRO-001
+    targetAggregate: AGG-PETRO-007
+    associationType: DEPENDENCY
+    sourceRole: 井
+    targetRole: 设备
+    cardinality: ONE_TO_MANY

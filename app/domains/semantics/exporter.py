@@ -63,6 +63,38 @@ _RELATION_LINKS: dict[str, dict[str, Any]] = {
         "assoc_check": ("ASSOC-PETRO-005", "reversed"),
         "note": "化验样—取样自→井；B5 演示配置未收录该族（B5 出入对账 3——治理批补全）",
     },
+    # —— G-05 词表扩充（Owner 2026-10-05 会话裁决；note 即抽取提示词的标签说明，
+    #     刻意写抽取友好白话＋报告动词同义词，治理锚引用压后）——
+    "6": {
+        "refs": ["ASSOC-PETRO-010"], "from_type": "AGG-PETRO-007", "to_type": "AGG-PETRO-011",
+        "assoc_check": ("ASSOC-PETRO-010", "direct"),
+        "note": ("套管/尾管/筛管/油管/封隔器等管柱与井下设备，下到了哪口井的哪个井筒段"
+                 "（报告动词：下入/下放。例：『7″ 筛管下入 2405～2412 米』）"),
+    },
+    "7": {
+        "refs": ["ASSOC-PETRO-011"], "from_type": "AGG-PETRO-001", "to_type": "AGG-PETRO-011",
+        "assoc_check": ("ASSOC-PETRO-011", "direct"),
+        "note": ("井对哪个井筒段（射孔段）做了射孔、射开厚度/孔密多少"
+                 "（报告动词：射孔/射开。例：『TCP 射孔三段合计 28 米，孔密 16 孔/米』）"),
+    },
+    "8": {
+        "refs": ["ASSOC-PETRO-012"], "from_type": "AGG-PETRO-007", "to_type": "AGG-PETRO-011",
+        "assoc_check": ("ASSOC-PETRO-012", "direct"),
+        "note": ("封隔器等井下设备在哪个深度坐封锚定（报告动词：坐封/验封。"
+                 "例：『永久式封隔器坐封深度 1482.6 米，液压坐封，验封合格』）"),
+    },
+    "9": {
+        "refs": ["ASSOC-PETRO-013"], "from_type": "AGG-PETRO-001", "to_type": "AGG-PETRO-014",
+        "assoc_check": ("ASSOC-PETRO-013", "direct"),
+        "note": ("注水井对哪个配注层配水、配注量多少及调整（报告动词：配注/提配。"
+                 "例：『10 月配注由 180 m³/d 提至 240 m³/d』）"),
+    },
+    "10": {
+        "refs": ["ASSOC-PETRO-014"], "from_type": "AGG-PETRO-001", "to_type": "AGG-PETRO-007",
+        "assoc_check": ("ASSOC-PETRO-014", "direct"),
+        "note": ("哪口井加装或更换了什么井口/井下设备（报告动词：加装/安装/更换。"
+                 "例：『对 6 口套压高、功图气锁特征明显的井加装螺旋气锚』）"),
+    },
 }
 
 

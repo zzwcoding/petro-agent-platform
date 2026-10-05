@@ -185,11 +185,13 @@ def test_objects_list_draft_fixed_values_and_keyword(client: TestClient) -> None
 
 def test_relations_list_reference_rows_and_keyword(client: TestClient) -> None:
     body = client.get("/api/semantics/relations").json()
-    assert body["grand_total"] == 5 and body["total"] == 5
+    assert body["grand_total"] == 10 and body["total"] == 10  # G-05 词表扩充 5→10
     assert body["items"][2]["rel"] == "注水井 —受效→ 油井"
     assert body["items"][2]["read"] == "哪口注水井的注水，效果落在哪口油井上"
     body = client.get("/api/semantics/relations", params={"keyword": "受效"}).json()
     assert [item["id"] for item in body["items"]] == [3]
+    body = client.get("/api/semantics/relations", params={"keyword": "射孔"}).json()
+    assert [item["id"] for item in body["items"]] == [7]  # G-05 新行
     body = client.get(
         "/api/semantics/relations", params={"page": 1, "pageSize": 2}
     ).json()

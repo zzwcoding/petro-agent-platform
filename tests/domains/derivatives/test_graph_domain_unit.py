@@ -248,7 +248,10 @@ class TestDefaultExtractConfig:
         )
         assert cfg.entity_types == ["井", "井筒", "区块", "油田", "平台", "设备",
                                     "措施", "化验样", "受效关系", "配注层"]
-        assert [t.rel for t in cfg.relation_tags] == ["隶属", "承载", "受效", "作用于", "取样自"]
+        assert [t.rel for t in cfg.relation_tags] == [
+            "隶属", "承载", "受效", "作用于", "取样自",
+            "下入", "射孔", "坐封", "配注", "加装",  # G-05 词表扩充
+        ]
         assert cfg.custom_instructions == d.DEFAULT_CUSTOM_INSTRUCTIONS
         # 对号自洽：默认值原样保存即过强校（出厂默认不卡对号闸）。
         assert d.ontology_check(

@@ -236,11 +236,12 @@ async def test_sync_roundtrip_and_revision_on_pg(db: ConnectionManager) -> None:
     service = SemanticsService(db, SecurityService(db))
     report = await service.sync_from_ontology_repo("mr#pg", resolve_actor(None))
     assert report.counts == {
-        "term": 11, "metric": 15, "object": 10, "relation": 5,
+        "term": 11, "metric": 15, "object": 10, "relation": 10,
         "whitelist": 4, "workflow": 10, "action": 3,
     }
     again = await service.sync_from_ontology_repo("mr#pg", resolve_actor(None))
-    assert again.revisions_appended == 0 and again.rows_unchanged == 58  # 幂等重放
+    # 幂等重放（G-05 关系 5→10 后全量 63）
+    assert again.revisions_appended == 0 and again.rows_unchanged == 63
     async with db.readonly() as session:
         assert (await session.get(SemTerm, 1)).term == "老完成率"
         metric = await session.get(SemMetric, 10)
@@ -257,7 +258,7 @@ async def test_sync_roundtrip_and_revision_on_pg(db: ConnectionManager) -> None:
         revisions = (
             (await session.execute(text("SELECT count(*) FROM sem_ledger_revision"))).scalar_one()
         )
-        assert revisions == 58
+        assert revisions == 63
         payload = (
             await session.execute(
                 text(

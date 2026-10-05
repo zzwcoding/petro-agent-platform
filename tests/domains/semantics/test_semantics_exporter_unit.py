@@ -43,7 +43,7 @@ def test_entity_and_relation_refs_resolve_in_m1_yaml() -> None:
             a["name"] for a in m1["aggregates"] if str(a["id"]) == entry["ref"]
         )
         assert entry["ontology_name"] == m1_name  # 名称差如实标注（对齐矩阵形状注记）
-    assert len(relation_payload["relation_types"]) == 5  # C1 关系账 5 行
+    assert len(relation_payload["relation_types"]) == 10  # C1 关系账 10 行（G-05 词表扩充）
     for entry in relation_payload["relation_types"]:
         for ref in entry["refs"]:
             assert ref in agg_ids | assoc_ids, f"关系 ref 不在 M1：{ref}"

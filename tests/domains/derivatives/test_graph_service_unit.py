@@ -151,6 +151,7 @@ class TestExtractConfig:
         assert "井" in view.config.entity_types
         assert [t.rel for t in view.config.relation_tags] == [
             "隶属", "承载", "受效", "作用于", "取样自",
+            "下入", "射孔", "坐封", "配注", "加装",  # G-05 词表扩充
         ]
 
     async def test_save_and_read_back(self, env: Env) -> None:

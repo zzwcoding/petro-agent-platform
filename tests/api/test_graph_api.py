@@ -136,6 +136,7 @@ class TestGraphApi:
         assert "井" in default["entity_types"]
         assert [t["rel"] for t in default["relation_tags"]] == [
             "隶属", "承载", "受效", "作用于", "取样自",
+            "下入", "射孔", "坐封", "配注", "加装",  # G-05 词表扩充
         ]
         assert default["saved_at"] is None and default["saved_by"] is None
         # 保存（对号强校通过）→ hint 服务端返回 → 读回含轻量审计两字段

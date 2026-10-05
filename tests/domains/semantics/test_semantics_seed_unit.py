@@ -89,18 +89,18 @@ async def test_first_run_seeds_seven_accounts_and_version(
     report = await service.sync_from_ontology_repo("mr#1", resolve_actor(None))
     assert report.warnings == []  # P1-01b：口径名三处统一（设定书 §3）后告警消除
     assert report.counts == {
-        "term": 11, "metric": 15, "object": 10, "relation": 5,
+        "term": 11, "metric": 15, "object": 10, "relation": 10,  # G-05 词表扩充 5→10
         "whitelist": 4, "workflow": 10, "action": 3,
     }  # C1 合同页签计数（11/15/10＋5/10/3）
-    assert report.revisions_appended == 58  # 11+15+10+5+4+10+3
+    assert report.revisions_appended == 63  # 11+15+10+10+4+10+3（G-05 关系 5→10）
     assert await _count(db, SemTerm) == 11
     assert await _count(db, SemMetric) == 15
     assert await _count(db, SemObject) == 10
-    assert await _count(db, SemRelation) == 5
+    assert await _count(db, SemRelation) == 10
     assert await _count(db, SemJoinWhitelist) == 4
     assert await _count(db, SemWorkflow) == 10
     assert await _count(db, SemAction) == 3
-    assert await _count(db, SemLedgerRevision) == 58
+    assert await _count(db, SemLedgerRevision) == 63
     async with db.readonly() as session:
         version = await session.get(SemVersion, "current")
         assert version is not None and version.current == "v37"  # C1/C3 演示值同源
@@ -112,9 +112,9 @@ async def test_sync_is_idempotent_second_run_zero_writes(
     await service.sync_from_ontology_repo("mr#1", resolve_actor(None))
     report = await service.sync_from_ontology_repo("mr#1", resolve_actor(None))
     assert report.revisions_appended == 0
-    assert report.rows_unchanged == 58
+    assert report.rows_unchanged == 63
     assert report.warnings == []  # P1-01b 口径名统一后同步零告警（含幂等重跑）
-    assert await _count(db, SemLedgerRevision) == 58  # 行版本轴不因重放膨胀
+    assert await _count(db, SemLedgerRevision) == 63  # 行版本轴不因重放膨胀
 
 
 async def test_revision_rows_carry_snapshot_and_actor(
