@@ -16,6 +16,11 @@
   审批挂起＝链内哨兵（chain_approval_signal），service._run_chain 拦截转
   interrupt_approval 挂起——恢复时整节点重跑（F7 节点幂等），N7.4c 以
   extable_decision 判别批准续跑/驳回终局。
+  降级接续（W-AUX③）：出不了数三路（N7.1 无注册声明/N7.4a 全窗未出数/N7.6
+  零行）自动接续检索问答链（_continue_with_retrieval——同模块函数级复用，
+  检索帧紧随六站帧混排，answer 帧恒最后），答案正文前置如实标注
+  DATA_CHAIN_FALLBACK_NOTE（检索结果非权威数值）；接续链仍无果才双重如实
+  拒答（原拒答话术收场）。
 
 检索问答链（D2 当前生效配置驱动全链——S 级语义照 F58/W-F21）：
   N17 检索问答（树执行节点）→ S0 身份四要素（一次确认）→ S1 显式锚定（受第 1 级
@@ -538,6 +543,10 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
     # 在 token 流前并列补一条 warning notice（不改写正文，answer 帧位次不动）。
     for event in _status_annotation_notices(ctx.assembly.term_cards, text):
         yield event
+    if ctx.data_fallback_note:
+        # 问数链降级接续（W-AUX③）：答案正文前置如实标注——在流式切片前改文，
+        # token 流与答案帧同文（RESCORED_ANSWER_TAG 同款改法，不破帧形状）。
+        text = f"{ctx.data_fallback_note}\n{text}"
     async for event in _stream_answer(text, citations):
         yield event
 
@@ -1041,6 +1050,10 @@ async def query_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.S
     F7 三要素校验/F14 LIMIT 收口与外表审批/F13 血缘五要素/E2 新鲜度 T-1 语义/
     M-01 行级注入两步缝。审批挂起走链内哨兵（connection 不占着——恢复整节点
     重跑，F7 节点幂等）。
+    降级接续（W-AUX③）：出不了数的三路（N7.1 无注册声明／N7.4a 全窗未出数/
+    N7.6 零行）不再以拒答收场——自动接续检索问答链（_continue_with_retrieval，
+    同模块函数级复用），答案正文前置如实标注（非权威数值）；接续链仍无果才
+    双重如实拒答（原拒答话术收场）。
     """
     question = ctx.question
     today = _today()
@@ -1051,11 +1064,12 @@ async def query_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.S
     declared = _metric_card_for_plan(ctx)
     if declared is None:
         # 降级解释链（不冒充审定口径）：装配层无可绑定计量列的注册指标——
-        # 不自由生成 SQL、不出数，如实说明与出路。
+        # 不自由生成 SQL、不出数；接续检索问答链（报告库辅助）消二选一漏答。
         yield d.node_frame(
             "N7.1", state=d.NODE_FINISH,
             note="指标槽位未命中可出数的注册声明（模板只认绑定 agg 计量列的指标）"
-                 "——降级解释链：不自由生成 SQL（不冒充审定口径）",
+                 "——降级解释链：不自由生成 SQL（不冒充审定口径）"
+                 "——接续检索问答链（报告库检索结果作辅助）",
         )
         yield d.node_frame("N7.2", state=d.NODE_WAIT, skipped=True,
                            note="降级——不选表、不生成、不执行")
@@ -1064,13 +1078,14 @@ async def query_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.S
             "出路：在指标台账（C1）登记可绑定计量列的指标，或走语义修订提案池（C2）补登记后再问。",
             level="warning",
         )
-        yield d.SseEvent(d.FRAME_ANSWER, {
+        async for event in _continue_with_retrieval(deps, ctx, refusal_answer={
             "kind": "alert", "alert_type": "warning",
             "text": (
                 "未命中注册指标声明——不冒充审定口径出数。"
                 "请先在指标台账登记（或走 C2 提案），再来查。"
             ),
-        })
+        }):
+            yield event
         return
     metric_slot, metric_name, def_text = declared
     status, window = d.parse_time_window(question, today=today)
@@ -1139,28 +1154,28 @@ async def query_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.S
     if waterline is None:
         yield d.node_frame("N7.4a", state=d.NODE_FINISH, note=d.FRESHNESS_UNKNOWN_NOTE)
     elif plan.window.start > waterline.data_date:
-        # 查询窗整体在水位之后——无已出数数据：拒答（不返回空数冒充）。
+        # 查询窗整体在水位之后——无已出数数据：闸拦停（不返回空数冒充）；
+        # 接续检索问答链（W-AUX③——不再以拒答收场，消二选一漏答）。
         tag = waterline.tag
         yield d.node_frame(
             "N7.4a", state=d.NODE_FINISH,
             note=f"比对：查询窗「{plan.window.label}」整体晚于数据水位 "
-                 f"{waterline.data_date.isoformat()}（{tag}）——拦停，不出空数",
+                 f"{waterline.data_date.isoformat()}（{tag}）——拦停，不出空数"
+                 "——接续检索问答链（报告库检索结果作辅助）",
         )
         yield d.node_frame(
-            "N7.4", state=d.NODE_FINISH, note="新鲜度闸拦停——链路终局（照 E2 语义拒答）",
+            "N7.4", state=d.NODE_FINISH,
+            note="新鲜度闸拦停——问数不出数，接续检索问答链（报告库辅助，非权威数值）",
         )
-        yield notice(
-            d.FRESHNESS_REJECT_TEMPLATE.format(
-                data_date=waterline.data_date.isoformat(), tag=tag, label=plan.window.label,
-            ),
-            level="warning",
+        reject_text = d.FRESHNESS_REJECT_TEMPLATE.format(
+            data_date=waterline.data_date.isoformat(), tag=tag, label=plan.window.label,
         )
-        yield d.SseEvent(d.FRAME_ANSWER, {
-            "kind": "alert", "alert_type": "warning",
-            "text": d.FRESHNESS_REJECT_TEMPLATE.format(
-                data_date=waterline.data_date.isoformat(), tag=tag, label=plan.window.label,
-            ),
-        })
+        async for event in _continue_with_retrieval(
+            deps, ctx,
+            refusal_notice=reject_text,
+            refusal_answer={"kind": "alert", "alert_type": "warning", "text": reject_text},
+        ):
+            yield event
         return
     elif plan.window.end - timedelta(days=1) > waterline.data_date:
         # 窗口后半段未出数——改绑最近可用日＋标注（照 E2「落后 N 天 · 超期」语义）。
@@ -1270,15 +1285,21 @@ async def query_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.S
     if not result.rows:
         yield d.node_frame(
             "N7.6", state=d.NODE_FINISH,
-            note=f"结果核验：0 行（时间窗「{plan.window.label}」内查无数据）——如实回报，不编数",
+            note=f"结果核验：0 行（时间窗「{plan.window.label}」内查无数据）——如实回报，"
+                 "不编数——接续检索问答链（报告库检索结果作辅助）",
         )
-        yield d.SseEvent(d.FRAME_ANSWER, {
+        yield line(
+            "N7.6", "→",
+            "接续检索问答链——报告库检索结果仅作辅助参考（非权威数值，零报错降级）",
+        )
+        async for event in _continue_with_retrieval(deps, ctx, refusal_answer={
             "kind": "alert", "alert_type": "info",
             "text": (
                 f"查询执行成功但无数据行（时间窗「{plan.window.label}」内查无数据）"
                 "——如实回报，不编数。"
             ),
-        })
+        }):
+            yield event
         return
     yield d.node_frame(
         "N7.6", state=d.NODE_FINISH,
@@ -1353,6 +1374,48 @@ async def query_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.S
         "citations": citations,
         "lineage": lineage,
     })
+
+
+async def _continue_with_retrieval(
+    deps: ChainDeps, ctx: d.ChainContext, *,
+    refusal_answer: dict[str, Any], refusal_notice: str | None = None,
+) -> AsyncIterator[d.SseEvent]:
+    """问数链出不了数 → 自动接续检索问答链（W-AUX③——消二选一漏答）。
+
+    同模块函数级复用 retrieval_chain（零新缝）：原问句走报告检索瀑布，答案正文
+    前置如实标注（ctx.data_fallback_note——检索结果非权威数值，token 流与答案
+    帧同文）。token/citation 缓冲随终局分派：接续链真出检索答案（kind=text 且
+    引用非空）→ 按原序放行；接续链兜底收场（fixed 告警卡／free 无引用——检索
+    无果或生成不可用）→ 双重如实拒答：丢弃缓冲流，回落问数链原拒答话术
+    （refusal_notice＋refusal_answer）收场。
+    """
+    yield notice(d.DATA_CHAIN_FALLBACK_NOTICE, level="info")
+    continued = replace(ctx, data_fallback_note=d.DATA_CHAIN_FALLBACK_NOTE)
+    buffered: list[d.SseEvent] = []
+    final: d.SseEvent | None = None
+    async for event in retrieval_chain(deps, continued):
+        if event.event in (d.FRAME_TOKEN, d.FRAME_CITATION):
+            buffered.append(event)  # 终局未定前不外放——双重无果时不留半截流
+            continue
+        if event.event == d.FRAME_ANSWER:
+            final = event
+            continue
+        yield event
+    answer = dict(final.data) if final is not None else None
+    succeeded = bool(
+        answer is not None
+        and answer.get("kind") == "text"
+        and answer.get("citations")
+    )
+    if succeeded:
+        assert final is not None
+        for event in buffered:
+            yield event
+        yield final
+        return
+    if refusal_notice is not None:
+        yield notice(refusal_notice, level="warning")
+    yield d.SseEvent(d.FRAME_ANSWER, refusal_answer)
 
 
 def _today() -> date:

@@ -23,6 +23,7 @@ import pytest
 
 from app.domains.chat import ChatParamError, ChatRunStateError
 from app.domains.chat import domain as d
+from app.domains.chat.domain import IndexHitFace
 from app.domains.chat.query_store import QueryStore
 from app.domains.chat.store import ChatRunRow
 from app.infra.clock import now
@@ -182,11 +183,17 @@ class TestQueryChainFrameWalk:
         verdict = _events_by_name(events)["verdict"][0]
         assert verdict["chain"] == "检索问答链"
 
-    async def test_unregistered_metric_degrades_honestly(
+    async def test_unregistered_metric_degrades_then_continues(
         self, chat_db: ConnectionManager, seams: Seams
     ) -> None:
-        """(a) 降级解释链：台账行未绑定计量列——不自由生成 SQL、不冒充审定口径。"""
+        """(a/W-AUX③) 降级解释链：台账行未绑定计量列——不生成 SQL、不冒充审定
+        口径、零执行；随后自动接续检索问答链＋答案帧如实标注（非权威数值）。"""
         seams.fail_intent = True
+        seams.index_vector = [IndexHitFace(
+            fragment_id="f1", report_id="rpt-1", report="N-02 完井报告",
+            section="01 井基本情况", snippet="检泵周期记录", score=0.7, leg="vector",
+            text="N-02 井检泵周期记录——报告库检索片段",
+        )]
         service = make_service(chat_db, seams)
         events = await collect(service.ask(
             "上个月产量完成率排名前三", session_id=None, page_context=None,
@@ -194,11 +201,13 @@ class TestQueryChainFrameWalk:
         ))
         by_name = _events_by_name(events)
         assert by_name["verdict"][0]["chain"] == "状态机六站链"  # 数据问句信号入链——链内降级
-        answer = by_name["answer"][0]
-        assert answer["kind"] == "alert"
-        assert "不冒充审定口径" in answer["text"]
+        assert any("不冒充审定口径" in note for note in _node_notes(events))  # 立场不变
         assert seams.calls.get("query_exec") is None  # 未执行取数
         assert "N7.3" not in [key for key, _state in node_walk(events)]  # 不生成 SQL
+        # 接续检索问答链收场（不再以拒答收束——W-AUX③）：答案帧前置如实标注。
+        answer = by_name["answer"][0]
+        assert answer["kind"] == "text"
+        assert "数据库口径未能出数" in str(answer["text"])
 
 
 # ---------- (b) 槽位校验（齐／缺参反问——复用 D2 澄清帧设施） ----------
@@ -780,23 +789,31 @@ class TestLineageCard:
 
 
 class TestFreshnessGate:
-    async def test_freshness_full_miss_refuses(
+    async def test_freshness_full_miss_continues_to_retrieval(
         self, chat_db: ConnectionManager, seams: Seams
     ) -> None:
-        """(f) 查询窗整体晚于水位——拒答（不返回空数冒充），执行缝零调用。"""
+        """(f/W-AUX③) 查询窗整体晚于水位——闸仍拦停执行缝（零调用不出空数），
+        但不再以拒答收场：自动接续检索问答链＋答案帧如实标注（非权威数值）。"""
         seams.waterline = _waterline(late_days=9)  # 水位＝today-10
+        seams.index_vector = [IndexHitFace(
+            fragment_id="f1", report_id="rpt-1", report="N-02 完井报告",
+            section="01 井基本情况", snippet="检泵周期记录", score=0.7, leg="vector",
+            text="N-02 井检泵周期记录——报告库检索片段",
+        )]
         service = make_service(chat_db, seams)
         events = await collect(service.ask(
             "今天日产油量最高的三口井", session_id=None, page_context=None,
             anchors=[], actor_who=AQIANG,
         ))
         by_name = _events_by_name(events)
-        answer = by_name["answer"][0]
-        assert answer["kind"] == "alert"
-        assert "新鲜度闸拦停" in answer["text"]
-        assert (_today() - timedelta(days=10)).isoformat() in answer["text"]
-        assert "不返回空数冒充" in answer["text"]
+        # 闸本体仍拦停：执行缝零调用（不出空数语义不变），拦停注记在场。
         assert seams.calls.get("query_exec") is None
+        assert any("拦停，不出空数" in note for note in _node_notes(events))
+        # 接续检索问答链：答案帧前置如实标注；新鲜度拒答话术不再收场。
+        answer = by_name["answer"][0]
+        assert answer["kind"] == "text"
+        assert "数据库口径未能出数" in str(answer["text"])
+        assert "不返回空数冒充" not in str(answer["text"])
         assert "done" in by_name
 
     async def test_freshness_partial_overlap_clamps_and_annotates(

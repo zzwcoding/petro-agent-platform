@@ -128,12 +128,15 @@ class TestN5ShellChainFallback:
         assert _dispatched_chain(events) == chain
 
     def test_intent_prompt_carries_constraint(self) -> None:
-        """(d) 裁决提示词含约束语义（关键串「不构成选链依据」与「一律选」）。"""
-        assert "不构成选链依据" in INTENT_VERDICT_SYSTEM_PROMPT
-        assert "一律选" in INTENT_VERDICT_SYSTEM_PROMPT
+        """(d) 裁决提示词约束段（W-AUX 判型恢复后）：分型路由取代「一律检索」
+        过渡约束——数据型入六站链、报告叙述型留检索链；@ 锚定与仅受理条款保留。"""
+        assert "分型路由" in INTENT_VERDICT_SYSTEM_PROMPT
+        assert "状态机六站链" in INTENT_VERDICT_SYSTEM_PROMPT
+        assert "取值诉求" in INTENT_VERDICT_SYSTEM_PROMPT
         assert "装配材料信号" in INTENT_VERDICT_SYSTEM_PROMPT
         assert "@ 显式锚定" in INTENT_VERDICT_SYSTEM_PROMPT
         assert "「指标卡直出链」「口径消歧链」" in INTENT_VERDICT_SYSTEM_PROMPT
+        assert "一律选" not in INTENT_VERDICT_SYSTEM_PROMPT  # P1F-01 过渡约束已撤
 
 
 class TestResumePathFallback:

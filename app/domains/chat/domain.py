@@ -691,6 +691,9 @@ class ChainContext:
     extable_decision/extable_approval_id（M-06 外表审批 interrupt 回流）：审批
     挂起的决策与留痕单号——链体恢复时整节点重跑（F7 节点幂等），N7.4c 以
     decision 判别批准续跑/驳回终局；首跑（无回流）双值 None。
+    data_fallback_note（W-AUX③ 问数链降级接续）：非空＝本 ctx 是问数链出不了
+    数后的接续路——检索链生成答案时把标注原文前置进正文（token 流与答案帧
+    同文）；直接进检索链恒 None＝既有行为不变。
     """
 
     run_id: str
@@ -702,6 +705,7 @@ class ChainContext:
     skip_rescore: bool = False  # 用户坚持原问法——低分带双重重评跳过（rewrite 选否回流）
     extable_decision: str | None = None  # 审批回流决策 approve|reject（M-06——N7.4c 判据）
     extable_approval_id: str | None = None  # 审批留痕单号（挂起时生成、回流带回）
+    data_fallback_note: str | None = None  # 问数链降级接续标注（W-AUX③——接续路消费）
 
 
 # 链体缝（分派注册面——链内逐帧产出 node_line/token/citation/answer 等 SSE 事件，
@@ -1218,6 +1222,14 @@ FRESHNESS_REJECT_TEMPLATE = (
 FRESHNESS_CLAMP_NOTE_TEMPLATE = (
     "比对：数据水位 {data_date} 早于查询窗上沿——已按最近可用日改绑出数"
     "（数据截至 {data_date}，{tag}；其后日期未出数，不冒充新数据）"
+)
+
+# 问数链降级接续（W-AUX③——主路出不了数自动接续检索问答链，消二选一漏答）：
+# 答案帧正文前置标注（票面规定原文——如实声明非权威数值）与接续提示行单源。
+DATA_CHAIN_FALLBACK_NOTE = "【数据库口径未能出数，以下为报告库检索结果（非权威数值）】"
+DATA_CHAIN_FALLBACK_NOTICE = (
+    "数据库口径未能出数——已自动接续检索问答链：以下为报告库检索结果（非权威数值），"
+    "数值请以权威数据口径为准。"
 )
 
 
