@@ -43,6 +43,7 @@ from app.domains.derivatives.store import (
     WikiPageRow,
     WikiStore,
 )
+from app.domains.semantics import term_expiry
 from app.infra.clock import DISPLAY_FMT, now
 from app.infra.config import load_ontology_export
 from app.infra.eventbus import DomainEvent
@@ -281,13 +282,19 @@ class DerivativesService:
             return content, []
         registry = d.GlossaryRegistry()
         try:
+            today = now().date()  # B14 时间单点——读侧派生不入库
             terms = await self._semantics.list_terms(page=1, page_size=1000)
             for row in terms.items:
+                # expires_display＝C1 端点 2 行同形补键（W-B4.rev F6——M-09③）：
+                # term_expiry 单源派生（禁用词「—（已禁用）」/无期「长期」族/
+                # 已届满「<ISO>（已届满）」/其余 ISO 原样），不在本域重写规则。
+                _, expires_display = term_expiry(row.status_key, row.expires_at, today)
                 card = {
                     "type": row.type,
                     "def": row.def_,
                     "status": row.status,
                     "owner": row.owner,
+                    "expires_display": expires_display,
                 }
                 registry.words[row.term] = d.GlossaryCard(kind="term", ref_id=row.id,
                                                           card=card)

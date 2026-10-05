@@ -16,7 +16,7 @@
 
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import B4 from './B4.jsx'
 import { setApiNotifier } from '../api/client.js'
 
@@ -217,6 +217,33 @@ describe('B4 读页 · 异步化与服务端字段映射（R-WIRE B4-5/6/7/8）'
     expect(screen.getByText(/统计粒度：月 · 单位 %/)).toBeTruthy()
     expect(screen.getByText(/A\.2 日产计量＋A\.6 化验/)).toBeTruthy()
   })
+
+  it('词条 chip 渲染 expires_display（M-09③ 后端补键端到端——有效期随卡带出）', async () => {
+    const withExpiry = {
+      ...DETAIL,
+      content: `${DETAIL.content}\n\n涉及术语 [[term:剔检产量]]。`,
+      glossary_terms: [
+        ...DETAIL.glossary_terms,
+        {
+          word: '剔检产量', kind: 'term', ref_id: 2,
+          card: { type: '别名 → 净产量', def: '剔除检修井口径', status: '有效', owner: '开发室', expires_display: '2027-12-31' }
+        }
+      ]
+    }
+    apiRouter({ detail: () => json(200, withExpiry) })
+    render(<B4 />)
+    fireEvent.doubleClick(await screen.findByText('《N-02 井完井报告》'))
+    fireEvent.click(await screen.findByText('剔检产量'))
+    expect(await screen.findByText('词条口径卡 · 剔检产量')).toBeTruthy()
+    expect(screen.getByText(/有效期至 2027-12-31/)).toBeTruthy()
+  })
+
+  it('无过期概念词条 chip 如实留空（既有空态语义不变——无 expires_display 不拼有效期）', async () => {
+    await openReadPage() // DETAIL 词卡＝metric——本就无 expires_display 键
+    fireEvent.click(screen.getByText('综合含水率'))
+    expect(await screen.findByText('词条口径卡 · 综合含水率')).toBeTruthy()
+    expect(screen.queryByText(/有效期至/)).toBeNull()
+  })
 })
 
 describe('B4 证据弹层 · 懒加载 B2 端点 1/2（R-WIRE B4-9——mock 更正清单⑨）', () => {
@@ -243,6 +270,22 @@ describe('B4 证据弹层 · 懒加载 B2 端点 1/2（R-WIRE B4-9——mock 更
     fireEvent.click(screen.getByText('证'))
     expect(await screen.findByText(/锚失效/)).toBeTruthy()
     expect(screen.queryByText('f1')).toBeNull() // 不伪造证据条目
+  })
+
+  it('同 tick 重复点「证」合并为一次请求（call count 断言——W-B4.rev F3）', async () => {
+    await openReadPage()
+    const mark = screen.getByText('证')
+    act(() => {
+      // 同一事件循环内两击——闭包 lazy.loading 未及更新（React 未重渲染），
+      // 第二击必须被在途守卫拦下，不重复发起懒加载
+      mark.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+      mark.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    })
+    expect(await screen.findByText('证据来源（切片回链）')).toBeTruthy()
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.filter(c => String(c[0]).startsWith('/api/kb/fragments?')).length).toBe(1)
+      expect(fetchMock.mock.calls.filter(c => String(c[0]) === '/api/kb/fragments/f1/context').length).toBe(1)
+    })
   })
 })
 

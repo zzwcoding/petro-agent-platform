@@ -64,6 +64,12 @@ const CLOSED_ISSUE = {
   owner: '复核通过：小李',
   qrows: [], ai_note: null, verify: null, close_note: '告警类规则核实为真实关井——记录原因后关闭'
 }
+const REVIEW_ISSUE = {
+  id: 'r1', lane: 3, rule_no: 1, hit_count: 1,
+  title: '规则 1 · N-02 修正批次待复扫', desc: '整改后待复扫',
+  owner: '责任：作业区资料员',
+  qrows: [], ai_note: null, verify: null, close_note: null
+}
 const ISSUES = {
   lanes: ['分发', '认领', '整改', '复核', '关闭'],
   items: [DRAFT_ISSUE, CLOSED_ISSUE],
@@ -107,7 +113,7 @@ function apiRouter(overrides = {}) {
     }
     if (u.includes('/api/quality/issues/') && method === 'POST') {
       calls.transitions.push(init?.body)
-      return json(200, { id: 'd1', lane: 1, state: '认领', verify: null })
+      return overrides.transition ? overrides.transition() : json(200, { id: 'd1', lane: 1, state: '认领', verify: null })
     }
     if (u.startsWith('/api/quality/issues')) {
       return overrides.issues ? overrides.issues() : json(200, started ? ISSUES_AFTER_RUN : ISSUES_EMPTY)
@@ -275,4 +281,41 @@ describe('E2 质检台 · 五态页签（LANES 同源渲染）', () => {
     expect(screen.getByText('关闭（1）')).toBeTruthy()
     expect(screen.getByText(/整改（0）/)).toBeTruthy() // 五态页签骨架（LANES 同值）
   })
+})
+
+describe('E2 质检台 · 复扫 busy 态（M-09①——W-E2 自裁登记项 2 收口）', () => {
+  it('复扫请求期间按钮 disabled＋「复扫中…」；同 tick 重复点击只发一次请求；完成恢复', async () => {
+    let release
+    const calls = apiRouter({
+      issues: () => json(200, { ...ISSUES, items: [REVIEW_ISSUE], total: 1 }),
+      transition: () => new Promise(resolve => { release = resolve }) // 挂起模拟通道限时 10s
+    })
+    render(<E2Quality />)
+    fireEvent.click(await screen.findByText(/问题单（1）/))
+    const idle = await screen.findByRole('button', { name: '复 扫' }) // antd 两字按钮自动插空格
+    fireEvent.click(idle)
+    // pending 期：按钮 disabled＋加载文案——通道阻塞窗内重复点击的口子关死
+    const busy = screen.getByRole('button', { name: '复扫中…' })
+    expect(busy.disabled).toBe(true)
+    fireEvent.click(busy) // 同 tick 第二击——不重发（call count 断言）
+    expect(calls.transitions).toEqual([JSON.stringify({ action: 'rescan' })]) // 线格式 {action:'rescan'} 恰一次
+    release(json(200, { id: 'r1', lane: 3, state: '复核', verify: { batch: '20260911-T3', note: '复扫全绿——修正批次未再命中' } }))
+    expect(await screen.findByText('✓ 已复扫')).toBeTruthy() // 复验列点亮——busy 解除
+    expect(screen.queryByRole('button', { name: '复扫中…' })).toBeNull()
+  }, 15000)
+
+  it('复扫失败（501 复扫通道超时同收口）：按钮恢复可点；诚实提示由 client 层弹一次', async () => {
+    let reject
+    apiRouter({
+      issues: () => json(200, { ...ISSUES, items: [REVIEW_ISSUE], total: 1 }),
+      transition: () => new Promise((_resolve, rej) => { reject = rej })
+    })
+    render(<E2Quality />)
+    fireEvent.click(await screen.findByText(/问题单（1）/))
+    fireEvent.click(await screen.findByRole('button', { name: '复 扫' }))
+    reject(new TypeError('fetch failed')) // 网络层失败——client 弹一次＋抛 ApiError(0)
+    await waitFor(() => expect(notify).toHaveBeenCalledTimes(1))
+    const restored = await screen.findByRole('button', { name: '复 扫' })
+    expect(restored.disabled).toBe(false) // 失败恢复
+  }, 15000)
 })

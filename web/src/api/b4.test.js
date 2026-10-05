@@ -228,6 +228,34 @@ describe('loadClaimEvidence 证据弹层懒加载（复用 B2 端点 1/2——mo
     expect(chunks).toEqual([])
     expect(fetchMock).not.toHaveBeenCalled()
   })
+
+  it('chunkIds 去重：重复锚 id 只回捞一次（call count 断言——W-B4.rev F4）', async () => {
+    const ctxCalls = []
+    fetchMock.mockImplementation(async url => {
+      const u = String(url)
+      if (u.startsWith('/api/kb/fragments?')) {
+        return jsonResponse(200, {
+          items: [
+            { id: 'f1', report_id: 'r', report: 'R1', well: null, section: 'S1', type: '原文块', hit: 0 },
+            { id: 'f2', report_id: 'r', report: 'R1', well: null, section: 'S2', type: '原文块', hit: 0 }
+          ],
+          total: 2
+        })
+      }
+      if (u === '/api/kb/fragments/f1/context') {
+        ctxCalls.push('f1')
+        return jsonResponse(200, { id: 'f1', type: '原文块', hit: 0, context: 'ctx-f1' })
+      }
+      if (u === '/api/kb/fragments/f2/context') {
+        ctxCalls.push('f2')
+        return jsonResponse(200, { id: 'f2', type: '原文块', hit: 0, context: 'ctx-f2' })
+      }
+      return jsonResponse(404, { code: 'fragment_not_found', message: `unexpected ${u}` })
+    })
+    const chunks = await loadClaimEvidence('rpt-x', ['f1', 'f1', 'f2', 'f1'])
+    expect([...ctxCalls].sort()).toEqual(['f1', 'f2']) // 重复锚不重复回捞
+    expect(chunks.map(c => c.id)).toEqual(['f1', 'f2']) // 去重后弹层条目不重复
+  })
 })
 
 describe('错误包透传（wiki_not_found——B4 错误码草案 404）', () => {

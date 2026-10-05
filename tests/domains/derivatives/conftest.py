@@ -8,6 +8,7 @@
 """
 
 from collections.abc import AsyncIterator
+from datetime import date
 from typing import Any
 
 import pytest
@@ -68,6 +69,10 @@ GLOSSARY_TERMS = [
         "def_": "见指标 10",
         "status": "有效（待联席裁决）",
         "owner": "采油工艺所",
+        # term 卡 expires_display 派生入参（M-09③——sem_term 行双轨字段；
+        # 2027-03-31＝B4 合同 w2 演示卡同值）
+        "status_key": "有效（待联席裁决）",
+        "expires_at": date(2027, 3, 31),
     }
 ]
 GLOSSARY_METRICS = [

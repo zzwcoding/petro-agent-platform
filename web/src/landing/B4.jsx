@@ -41,17 +41,25 @@ function WellLink({ id }) {
 function EvidenceMark({ claim, sourceReportId }) {
   const [open, setOpen] = useState(false)
   const [lazy, setLazy] = useState({ loading: false, chunks: null, error: '' })
+  const loadingRef = useRef(false) // 同 tick 在途守卫——闭包 lazy.loading 未及更新前重复点「证」不重发（W-B4.rev F3）
 
   if (!claim || !claim.evidenceChunkIds.length) return null // 无锚论断不渲染——fail-closed，不伪造回链
 
   function toggle(next) {
     setOpen(next)
     // 首次展开才拉证据（chunks===null＝未加载；失败后重开弹层即重试）；未展开零请求
-    if (next && lazy.chunks === null && !lazy.loading) {
+    if (next && lazy.chunks === null && !loadingRef.current) {
+      loadingRef.current = true
       setLazy({ loading: true, chunks: null, error: '' })
       loadClaimEvidence(sourceReportId, claim.evidenceChunkIds)
-        .then(chunks => setLazy({ loading: false, chunks, error: '' }))
-        .catch(err => setLazy({ loading: false, chunks: null, error: errText(err) }))
+        .then(chunks => {
+          loadingRef.current = false
+          setLazy({ loading: false, chunks, error: '' })
+        })
+        .catch(err => {
+          loadingRef.current = false // 失败即解除在途——重开弹层仍可重试（语义不变）
+          setLazy({ loading: false, chunks: null, error: errText(err) })
+        })
     }
   }
 

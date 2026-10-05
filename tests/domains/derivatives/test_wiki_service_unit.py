@@ -9,6 +9,7 @@ current_version＝重建计数单调 +1、wiki_page_version 版本表写路径�
 （表保留不删，本组测试以「版本表恒无行」反 append-only 断言钉死）。
 """
 
+from datetime import date
 from typing import Any
 
 import pytest
@@ -27,8 +28,10 @@ from app.domains.kb import (
 )
 from app.infra.eventbus import make_event
 from tests.domains.derivatives.conftest import (
+    GLOSSARY_METRICS,
     WIKI_STUB_ANSWER,
     FakeObjectStorage,
+    FakeSemantics,
     StubCompleter,
     make_report,
     wait_until,
@@ -126,6 +129,45 @@ async def test_claims_fail_closed_and_glossary_fixed_at_generation(
     assert words["综合含水率"]["ref_id"] == 5
     assert words["综合含水率"]["card"]["unit"] == "%"
     assert "[[term:综合含水率]]" in detail.content
+
+
+async def test_term_card_expires_display_states(derivatives: Any) -> None:
+    """term 卡 expires_display 补键（M-09③——W-B4.rev F6；B4 v0.4 w2 演示卡同键）。
+
+    派生复用 semantics.term_expiry 单源（C1 端点 2 同款口径，不在本域重写规则）：
+    已届满「<ISO>（已届满）」/无期「长期」/禁用词「—（已禁用）」三族展示串，
+    卡键集 term/type/def/status/owner/expires_display 与 C1 端点 2 行同形。
+    """
+    terms = [
+        {  # 已届满（expires_at 早于 today——F60 到日即标）
+            "id": 1, "term": "递减增油", "type": "术语", "def_": "见指标 10",
+            "status": "有效", "status_key": "有效", "owner": "采油工艺所",
+            "expires_at": date(2026, 6, 30),
+        },
+        {  # 长期（无过期概念——expires_at 空）
+            "id": 2, "term": "剔检产量", "type": "别名 → 净产量", "def_": "剔除检修井口径",
+            "status": "有效", "status_key": "有效", "owner": "开发室", "expires_at": None,
+        },
+        {  # 禁用词（压过已届满序——term_expiry 禁用词先行恒 expired=False）
+            "id": 3, "term": "老口径产量", "type": "术语", "def_": "废弃口径",
+            "status": "禁用（替代：净产量）", "status_key": "禁用词",
+            "owner": "开发室", "expires_at": None,
+        },
+    ]
+    derivatives._semantics = FakeSemantics(terms, GLOSSARY_METRICS)
+    _content, glossary = await derivatives._attach_glossary(
+        "涉及 [[term:递减增油]]、[[term:剔检产量]] 与 [[term:老口径产量]]。"
+    )
+    cards = {g["word"]: g["card"] for g in glossary}
+    assert set(cards) == {"递减增油", "剔检产量", "老口径产量"}
+    assert cards["递减增油"]["expires_display"] == "2026-06-30（已届满）"
+    assert cards["剔检产量"]["expires_display"] == "长期"
+    assert cards["老口径产量"]["expires_display"] == "—（已禁用）"
+    # 其余四键原样（补键不加不减——type/def/status/owner 直取投影）
+    assert cards["递减增油"]["type"] == "术语"
+    assert cards["递减增油"]["def"] == "见指标 10"
+    assert cards["递减增油"]["status"] == "有效"
+    assert cards["递减增油"]["owner"] == "采油工艺所"
 
 
 async def test_ingest_with_wiki_off_generates_nothing(

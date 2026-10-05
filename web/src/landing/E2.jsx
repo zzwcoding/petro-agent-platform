@@ -51,7 +51,9 @@ export default function E2Quality() {
   const [ruleF, setRuleF] = useState('all')
   const [kwIssue, setKwIssue] = useState('')
   const [water, setWater] = useState([])
+  const [rescanId, setRescanId] = useState(null) // 复扫在途单 id——busy 态（M-09①）：按钮 disabled＋加载文案
   const runningRef = useRef(false)
+  const rescanRef = useRef(null) // 复扫同 tick 守卫——闭包态未及更新前重复触发不重发
 
   const loadAll = useCallback(() => {
     let on = true
@@ -136,11 +138,21 @@ export default function E2Quality() {
   }
 
   async function flowCard(id, action) {
+    if (action === 'rescan' && rescanRef.current) return // 复扫在途（通道限时 10s）——不重发
+    if (action === 'rescan') {
+      rescanRef.current = id
+      setRescanId(id)
+    }
     try {
       const res = await transitionQualityIssue(id, action)
       setIssues(prev => prev.map(c => (c.id === id ? { ...c, lane: res.lane, verify: res.verify || c.verify } : c)))
     } catch {
       // client 已弹错误包（409 终态/重入 / 422 关闭守卫 / 501 复扫通道超时）——页面无状态需回退
+    } finally {
+      if (action === 'rescan') {
+        rescanRef.current = null // 完成/失败都解除 busy
+        setRescanId(null)
+      }
     }
   }
 
@@ -391,7 +403,12 @@ export default function E2Quality() {
                           : (
                             <Space size={4}>
                               {c.lane === 3 && !c.verify && (
-                                <Button size="small" onClick={e => { e.stopPropagation(); flowCard(c.id, 'rescan') }}>复扫</Button>
+                                <Button
+                                  size="small" disabled={rescanId === c.id}
+                                  onClick={e => { e.stopPropagation(); flowCard(c.id, 'rescan') }}
+                                >
+                                  {rescanId === c.id ? '复扫中…' : '复扫'}
+                                </Button>
                               )}
                               <Button size="small" onClick={e => { e.stopPropagation(); flowCard(c.id) }}>流转 →</Button>
                             </Space>

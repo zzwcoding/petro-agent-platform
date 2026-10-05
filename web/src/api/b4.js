@@ -112,9 +112,10 @@ export function getWikiPage(pageId, opts = {}) {
  */
 export async function loadClaimEvidence(sourceReportId, chunkIds) {
   if (!chunkIds || !chunkIds.length) return []
+  const ids = [...new Set(chunkIds)] // 锚 id 去重（W-B4.rev F4）——同 claim 重复锚不重复回捞/不重复渲染
   const lib = await listFragments({ reportId: sourceReportId })
   const index = new Map(lib.items.map(f => [f.id, f]))
-  const metas = chunkIds.map(id => index.get(id)).filter(Boolean)
+  const metas = ids.map(id => index.get(id)).filter(Boolean)
   return Promise.all(metas.map(async m => {
     const ctx = await getFragmentContext(m.id)
     return { id: m.id, report: m.report, section: m.section, type: m.type, text: ctx.context }
