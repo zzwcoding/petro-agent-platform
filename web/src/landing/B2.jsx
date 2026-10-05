@@ -321,7 +321,8 @@ export default function B2Landing() {
     },
     {
       title: <span>命中句{helpIcon(HIT_HELP)}</span>, dataIndex: 'hit',
-      render: h => <b style={{ fontSize: 13 }}>{h}</b>
+      // UI-17：单行省略（全文进展开手风琴首行——Owner 2026-10-05 裁决）
+      render: h => <b style={{ fontSize: 13, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{h}</b>
     },
     { title: '井号', dataIndex: 'well', width: 66, render: v => v || <span style={dim}>—</span> }, // UI-03 T15：统一「井号」（合同三件套口径——B2 册 §0）
     {
@@ -443,6 +444,11 @@ export default function B2Landing() {
         expandable={{
           expandedRowRender: c => (
             <div style={{ fontSize: 13, lineHeight: 1.8 }}>
+              {/* UI-17：命中句全文进手风琴首行（列内单行省略——全文可在此核读） */}
+              <div style={{ marginBottom: 6 }}>
+                <span style={{ color: '#8a94a3', fontSize: 12, marginRight: 8 }}>命中句全文</span>
+                {c.hit}
+              </div>
               <span style={{ color: '#8a94a3', fontSize: 12, marginRight: 8 }}>完整上下文段</span>
               {ctxCache[c.id] ?? '读取中……'}
             </div>
