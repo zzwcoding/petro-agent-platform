@@ -37,3 +37,6 @@ dispatch/journal.jsonl
 
 # 评测草稿（未定稿产物，不入库）
 eval/results/drafts/
+
+# 根级误装产物（某次根目录 npm install 遗留——仓根无 package.json）
+/node_modules/
