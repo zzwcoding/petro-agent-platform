@@ -654,3 +654,74 @@ class TestIndexSearch:
             question, vector_top_k=3, keyword_top_k=3
         )
         assert any(key_line in h.text for h in vector + keyword)
+
+
+class TestMixedParentAnchor:
+    """KB-01 mixed 父子锚定回归（tickets/phase1-fix/KB-01.md）：
+
+    ① mixed 入库后子块版本行 context_text 非空且指向同章节父块片段 id；
+    ② fragment_context 对 mixed 子块返回父块全文且 context != hit；
+    ③ smart 无父块概念——版本行无锚、回捞兜底 context = hit（防回归锚）。
+    人工修正路径的父块锚随版本携行断言在
+    tests/domains/derivatives/test_wiki_service_unit.py，本票零改动零红。
+    """
+
+    async def _ingest_with_mode(
+        self, service: KbService, storage: Any, mode: str
+    ) -> str:
+        """按指定切段方式入库一份演示报告，返回 report_id（产物两卡关——只看切块锚）。"""
+        lib_id = await _make_lib(service)
+        await service.save_library_config(
+            lib_id,
+            switches={"semantic": True, "keyword": True, "wiki": True, "graph": False},
+            mode=mode, add_summary=False, add_questions=False,
+            status=None, actor_who=ACTOR,
+        )
+        await _ingest(service, storage, lib_id)
+        reports = await service.list_reports()
+        assert len(reports) == 1
+        return reports[0].id
+
+    async def test_mixed_child_version_anchored_to_parent(self, kb_service: Any) -> None:
+        service, storage, _, _ = kb_service
+        report_id = await self._ingest_with_mode(service, storage, "mixed")
+        rows = await FragmentStore(service._db).for_report(report_id)
+        parent_ids = {r.section: r.id for r in rows if r.is_parent_only}
+        children = [r for r in rows if r.type == "原文块" and not r.is_parent_only]
+        assert parent_ids and all(s.startswith("父块·") for s in parent_ids)
+        assert children
+        versions = await FragmentStore(service._db).versions_of([r.id for r in children])
+        for child in children:
+            anchor = versions[child.id][-1].context_text
+            assert anchor is not None  # KB-01 修复前恒 None（父子键错位）
+            assert anchor == parent_ids[f"父块·{child.section}"]  # 指向同章节父块
+
+    async def test_mixed_child_context_is_parent_fulltext(self, kb_service: Any) -> None:
+        service, storage, _, _ = kb_service
+        report_id = await self._ingest_with_mode(service, storage, "mixed")
+        rows = await FragmentStore(service._db).for_report(report_id)
+        child = next(
+            r for r in rows
+            if r.type == "原文块" and not r.is_parent_only and r.section == "1 基本情况"
+        )
+        versions = await FragmentStore(service._db).versions_of([child.id])
+        parent_anchor = versions[child.id][-1].context_text
+        assert parent_anchor is not None
+        parent_versions = await FragmentStore(service._db).versions_of([parent_anchor])
+        parent_text = parent_versions[parent_anchor][-1].text
+        ctx = await service.fragment_context(child.id)
+        assert ctx.context != ctx.hit  # 修复前 context 退化为命中句自身
+        assert ctx.context == parent_text  # context＝父块全文（B2 端点 2 语义）
+        assert ctx.hit in ctx.context.replace("\n", "")  # 命中切片 ⊂ 父块全文
+
+    async def test_smart_child_fallback_context_is_hit(self, kb_service: Any) -> None:
+        service, storage, _, _ = kb_service
+        report_id = await self._ingest_with_mode(service, storage, "smart")
+        rows = await FragmentStore(service._db).for_report(report_id)
+        assert not any(r.is_parent_only for r in rows)  # smart 无父块概念
+        children = [r for r in rows if r.type == "原文块"]
+        assert children
+        versions = await FragmentStore(service._db).versions_of([r.id for r in children])
+        assert all(v[-1].context_text is None for v in versions.values())
+        ctx = await service.fragment_context(children[0].id)
+        assert ctx.context == ctx.hit  # 兜底：context = hit（设计内行为，不虚构父段）
