@@ -5,12 +5,16 @@
 
 本文件只读消费 data-plane 仓（DP-03）两份交付物（不改数据面仓一字）：
 - migrations/001_lake_schemas.up.sql：中台库 raw 8 表 DDL（IF NOT EXISTS 幂等）；
-- migrations/midplatform_readonly.sql：midplatform 建账号 SQL 模板——<SET_ME>
-  由本测试替换为测试口令实建角色（角色已存在则 ALTER PASSWORD 保幂等）。
-断言（票面 (d)）：midplatform 连接 SELECT 8 表放行、INSERT 两道闸拒绝——
+- migrations/midplatform_readonly.sql：midplatform 建账号 SQL 模板——角色名渲染为
+  测试专属角色 midplatform_test、<SET_ME> 替换为测试口令实建（已存在则 ALTER
+  PASSWORD 保幂等）；dev 共享角色 midplatform 全程不被触碰（M-08 根治：夹具曾
+  ALTER 共享角色口令，每次跑测试都把后端 config 默认口令打回测试值）。
+断言（票面 (d)＋M-08）：midplatform 逻辑角色（真库＝midplatform_test）连接
+SELECT 8 表放行、INSERT 两道闸拒绝——
 ①授权面默认拒绝（无 INSERT 授权，DP-03 闭世界；会话级关掉 GUC 兜底后仍拒）
 ②连接级 default_transaction_read_only=on 兜底；clean/data_plane 零授权；
-verify_midplatform_route() 真库通过；健康灯含 midplatform。
+verify_midplatform_route() 真库通过；健康灯含 midplatform；setup 前后 dev 角色
+midplatform 的 pg_authid 记录（含口令散列）不变——测试不修改 dev 角色。
 
 本地跑法（PG16＝主仓 compose pg 容器，宿主 5433；dev 期中台库与平台库同实例
 不同 schema——DP-03 回报拍板，生产独立实例走环境量）：
@@ -19,6 +23,7 @@ verify_midplatform_route() 真库通过；健康灯含 midplatform。
 """
 
 import os
+import re
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
@@ -32,6 +37,8 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from app.infra.db import ConnectionManager, DatabaseRole, DatabaseSpec
 
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "")
+MIDPLATFORM_DEV_ROLE = "midplatform"  # dev 共享角色——测试禁碰（M-08 根治点）
+MIDPLATFORM_TEST_ROLE = "midplatform_test"  # 测试专属角色——DP-03 模板渲染目标
 MIDPLATFORM_TEST_PASSWORD = "midplatform-m01-pw"  # 测试口令（模板 <SET_ME> 替换值）
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -117,21 +124,41 @@ async def _apply_lake_schema(conn: Any) -> None:
         await conn.execute(text(statement))
 
 
-async def _ensure_midplatform_role(conn: Any) -> None:
-    """DP-03 建账号 SQL 模板原句实建角色（幂等）：仅 <SET_ME> 换测试口令。"""
-    template = ROLE_SQL.read_text(encoding="utf-8").replace(
-        "<SET_ME>", MIDPLATFORM_TEST_PASSWORD
+def _render_role_sql() -> str:
+    """DP-03 建账号模板 → 专属测试角色版：角色名渲染为 midplatform_test。
+
+    词边界替换（模板内注释里的角色名一并换，不影响执行）；先换名后换 <SET_ME>
+    ——测试口令串含角色名前缀（midplatform-m01-pw），次序反了会误伤口令。
+    """
+    rendered = re.sub(
+        rf"\b{MIDPLATFORM_DEV_ROLE}\b",
+        MIDPLATFORM_TEST_ROLE,
+        ROLE_SQL.read_text(encoding="utf-8"),
     )
+    return rendered.replace("<SET_ME>", MIDPLATFORM_TEST_PASSWORD)
+
+
+async def _ensure_midplatform_role(conn: Any) -> None:
+    """DP-03 建账号 SQL 模板渲染后实建**专属测试角色**（幂等）——不碰 dev 角色。
+
+    M-08 根治：模板原按 dev 共享角色 midplatform 执行，每次跑测试都 ALTER 其
+    口令顶掉 config 默认；现渲染为 midplatform_test（角色名＋口令均测试值），
+    dev 角色 midplatform 全程零引用。
+    """
+    template = _render_role_sql()
     role_exists = (
-        await conn.execute(text("SELECT 1 FROM pg_roles WHERE rolname = 'midplatform'"))
+        await conn.execute(
+            text("SELECT 1 FROM pg_roles WHERE rolname = :role"),
+            {"role": MIDPLATFORM_TEST_ROLE},
+        )
     ).scalar()
     for statement in _split_statements(template):
         if _first_effective_code(statement).upper().startswith("CREATE ROLE"):
             if role_exists:
-                await conn.execute(  # 幂等：角色已在（历史实跑残留）→ 只对口令归一
+                await conn.execute(  # 幂等：测试角色已在（历史实跑残留）→ 只对口令归一
                     # 实用命令（ALTER ROLE）不吃绑定参数——口令＝本文件测试常量内插
                     text(
-                        "ALTER ROLE midplatform WITH LOGIN PASSWORD "
+                        f"ALTER ROLE {MIDPLATFORM_TEST_ROLE} WITH LOGIN PASSWORD "
                         f"'{MIDPLATFORM_TEST_PASSWORD}'"
                     )
                 )
@@ -186,10 +213,10 @@ async def db() -> AsyncIterator[ConnectionManager]:
             _spec_from_url(
                 url, "primary", user=url.username or "", password=url.password or ""
             ),
-            _spec_from_url(  # midplatform 角色：DP-03 SQL 实建的只读账号
+            _spec_from_url(  # midplatform 逻辑角色：DP-03 SQL 实建的专属测试只读账号
                 url,
                 "midplatform",
-                user="midplatform",
+                user=MIDPLATFORM_TEST_ROLE,
                 password=MIDPLATFORM_TEST_PASSWORD,
                 readonly=True,
             ),
@@ -260,3 +287,44 @@ async def test_verify_midplatform_route_passes_on_real_role(
 async def test_midplatform_health_light_up(db: ConnectionManager) -> None:
     lights = await db.check_health()
     assert lights == {"primary": "up", "midplatform": "up"}
+
+
+async def _pg_authid_record(conn: Any, role: str) -> tuple[Any, ...] | None:
+    """角色记录快照——含口令散列（M-08 根治点就是口令被顶，必须比上）。
+
+    pg_roles 的 rolpassword 恒掩 '********' 比不出变化，散列须走 pg_authid；
+    rolconfig 又只在 pg_roles 视图（pg_authid 无此列）——两表 JOIN 一次取全。
+    TEST_DATABASE_URL 约定用主仓 compose 超级用户（petro）——pg_authid 可读。
+    """
+    row = (
+        await conn.execute(
+            text(
+                "SELECT a.rolname, a.rolsuper, a.rolinherit, a.rolcreaterole, "
+                "a.rolcreatedb, a.rolcanlogin, a.rolreplication, a.rolconnlimit, "
+                "a.rolvaliduntil, a.rolbypassrls, r.rolconfig, a.rolpassword "
+                "FROM pg_authid a JOIN pg_roles r USING (rolname) "
+                "WHERE a.rolname = :role"
+            ),
+            {"role": role},
+        )
+    ).fetchone()
+    return tuple(row) if row is not None else None
+
+
+async def test_setup_leaves_dev_role_untouched() -> None:
+    """M-08 根治断言：夹具全套 setup 前后 dev 共享角色 midplatform 记录不变。"""
+    if not TEST_DATABASE_URL:
+        pytest.skip("TEST_DATABASE_URL 未配置——PG 集成测试跳过（约定见票面）")
+    url = _isolated_url()
+    await _ensure_test_database(url)
+    admin = create_async_engine(url, isolation_level="AUTOCOMMIT")
+    try:
+        async with admin.connect() as conn:
+            before = await _pg_authid_record(conn, MIDPLATFORM_DEV_ROLE)
+            await _apply_lake_schema(conn)
+            await _ensure_midplatform_role(conn)
+            after = await _pg_authid_record(conn, MIDPLATFORM_DEV_ROLE)
+            assert after == before  # dev 角色口令/属性零改动——测试只碰专属角色
+            assert await _pg_authid_record(conn, MIDPLATFORM_TEST_ROLE) is not None
+    finally:
+        await admin.dispose()
