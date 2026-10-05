@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  Button, Card, Drawer, Empty, Input, message, Modal, Select, Skeleton, Space, Spin, Steps, Switch, Table, Tabs, Tag, Tooltip
+  Button, Card, Drawer, Empty, Input, Modal, Select, Skeleton, Space, Spin, Steps, Switch, Table, Tabs, Tag, Tooltip
 } from 'antd'
 import { FileSearchOutlined, QuestionCircleOutlined, ThunderboltOutlined } from '@ant-design/icons'
-// 数据与操作全部走 api 层（mock）：契约见 specs/api/E2-数据质量台.md，页面组件不持有业务数据
+// 数据与操作全部走 api 层（真后端接线 W-E2）：契约见 teach-petro-agent specs/api/E2-数据质量台.md v0.5，
+// 页面组件不持有业务数据；错误包由 client.request 统一弹 toast——页面 catch 不重复弹
+import { useTaskPolling, errText } from '../api/client.js'
 import {
-  LANES, getQualityRules, setQualityRuleEnabled, startQualityTask, getQualityTask,
+  LANES, getQualityRules, setQualityRuleEnabled, startQualityTask,
   listQualityTasks, listQualityIssues, transitionQualityIssue, getFreshness
 } from '../api/e2.js'
 
@@ -23,8 +25,6 @@ const helpIcon = content => (
   </Tooltip>
 )
 
-const sleep = ms => new Promise(r => setTimeout(r, ms))
-
 const ITEM_COLS = [
   { title: '项', dataIndex: 'label', width: 96 },
   { title: '内容', dataIndex: 'body' }
@@ -32,6 +32,7 @@ const ITEM_COLS = [
 
 export default function E2Quality() {
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null) // 首屏四拉取失败——内联失败态≠空态（client 已弹 toast）
   const [tab, setTab] = useState('rules')
   const [rules, setRules] = useState([])
   const [statusF, setStatusF] = useState('all')
@@ -39,6 +40,8 @@ export default function E2Quality() {
   const [kw, setKw] = useState('')
   const [step, setStep] = useState(-1)
   const [running, setRunning] = useState(false)
+  const [pollFailed, setPollFailed] = useState(null) // 轮询收场 failed（连续两次拉取失败）——步进条 error 态
+  const [taskId, setTaskId] = useState(null) // 受理 202 → useTaskPolling 接管轮询（202→tasks/{id} 至 done/failed）
   const [tasks, setTasks] = useState([])
   const [reportKey, setReportKey] = useState(null)
   const [issues, setIssues] = useState([])
@@ -50,16 +53,56 @@ export default function E2Quality() {
   const [water, setWater] = useState([])
   const runningRef = useRef(false)
 
-  useEffect(() => {
+  const loadAll = useCallback(() => {
+    let on = true
+    setLoading(true)
     Promise.all([getQualityRules(), listQualityTasks(), listQualityIssues(), getFreshness()])
       .then(([rs, ts, is, ws]) => {
+        if (!on) return
         setRules(rs.items)
         setTasks(ts.items)
         setIssues(is.items)
         setWater(ws.items)
+        setLoadError(null)
         setLoading(false)
       })
+      .catch(err => {
+        if (!on) return
+        setLoadError(err) // client 已弹错误包——页面内联失败态＋重试（不再重复 toast）
+        setLoading(false)
+      })
+    return () => { on = false }
   }, [])
+
+  useEffect(() => loadAll(), [loadAll])
+
+  // 受理 202 → 底座轮询 tasks/{id}（1.5s 节奏＋容忍一次瞬时失败；onProgress 实时点亮步进）
+  const { status: pollStatus, data: taskDone, error: pollError } = useTaskPolling(taskId, {
+    path: '/quality/tasks',
+    onProgress: d => {
+      if (d.status === 'running') setStep(Math.min(typeof d.step === 'number' ? d.step : 0, 4))
+    }
+  })
+
+  // 轮询收场：done → 任务记录入列＋开报告弹窗＋问题单刷新；failed → 步进条 error 态
+  // （真后端 done 形 {taskId,status,task}——report 键为 snake_case，渲染层映射）
+  useEffect(() => {
+    if (pollStatus === 'done' && taskDone) {
+      setStep(4)
+      if (taskDone.task) {
+        setTasks(prev => [taskDone.task, ...prev.filter(t => t.id !== taskDone.task.id)])
+        setReportKey(taskDone.task.id)
+      }
+      listQualityIssues()
+        .then(d => setIssues(d.items))
+        .catch(() => { /* client 已弹错误包——单列表刷新失败不阻断收场，下次进入/重跑再取 */ })
+    }
+    if (pollStatus === 'failed') setPollFailed(pollError)
+    if (pollStatus === 'done' || pollStatus === 'failed') {
+      setRunning(false)
+      runningRef.current = false
+    }
+  }, [pollStatus, taskDone, pollError])
 
   const enabledCount = rules.filter(r => r.enabled).length
   const kinds = [...new Set(rules.map(r => r.kind))]
@@ -70,8 +113,8 @@ export default function E2Quality() {
     const target = !rules.find(r => r.no === no).enabled
     setRules(prev => prev.map(r => (r.no === no ? { ...r, enabled: target } : r)))
     setQualityRuleEnabled(no, target).catch(() => {
+      // client 已弹错误包（422 仅登记档拒启用 / 网络失败）——页面只做乐观回退，不重复 toast
       setRules(prev => prev.map(r => (r.no === no ? { ...r, enabled: !target } : r)))
-      message.warning('规则启停失败，已回退')
     })
   }
 
@@ -79,24 +122,15 @@ export default function E2Quality() {
     if (runningRef.current) return
     runningRef.current = true
     setRunning(true)
+    setPollFailed(null)
     setStep(0)
+    setTaskId(null)
     try {
-      const { taskId } = await startQualityTask()
-      for (;;) {
-        const r = await getQualityTask(taskId)
-        if (r.status === 'done') {
-          setTasks(prev => [r.task, ...prev])
-          setReportKey(r.task.id)
-          setIssues((await listQualityIssues()).items)
-          break
-        }
-        setStep(r.step)
-        await sleep(250)
-      }
-    } catch (e) {
-      message.warning(e.message)
-    } finally {
+      const res = await startQualityTask() // 202 受理；409 重入错误包 client 已弹
+      setTaskId(res.taskId) // 轮询至 done/failed——步值 0/2/4（受理/数据面报告回/建单分发完成）
+    } catch {
       setRunning(false)
+      setStep(-1)
       runningRef.current = false
     }
   }
@@ -105,8 +139,8 @@ export default function E2Quality() {
     try {
       const res = await transitionQualityIssue(id, action)
       setIssues(prev => prev.map(c => (c.id === id ? { ...c, lane: res.lane, verify: res.verify || c.verify } : c)))
-    } catch (e) {
-      message.warning(e.message)
+    } catch {
+      // client 已弹错误包（409 终态/重入 / 422 关闭守卫 / 501 复扫通道超时）——页面无状态需回退
     }
   }
 
@@ -134,18 +168,18 @@ export default function E2Quality() {
     { title: '查什么', dataIndex: 'kind', width: 120 },
     { title: '规则', dataIndex: 'rule' },
     {
-      title: (<span>命中动作{helpIcon(<>命中后怎么处理，三档：<br />· <b>隔离</b>——坏行不进湖，落隔离区待整改（可追溯）<br />· <b>整批拒收</b>——批次级故障整批拒绝（如超窗批次）<br />· <b>告警</b>——不拦行，通知人工核实（恒值/对账类）<br />规则 13–20 为通用规则族，动作见规则库总册。</>)}</span>),
+      title: (<span>命中动作{helpIcon(<>命中后怎么处理，三档：<br />· <b>隔离</b>——坏行不进湖，落隔离区待整改（可追溯）<br />· <b>整批拒收</b>——批次级故障整批拒绝（schema 级故障专用档）<br />· <b>告警</b>——不拦行，通知人工核实（重复/矛盾/恒值/对账类）<br />规则 13–20 为通用规则族，仅登记不实施（开关不可启用），动作见规则库总册。</>)}</span>),
       dataIndex: 'action', width: 92
     },
     {
-      title: (<span>自动修{helpIcon(<>仅"安全类"可自动修复：写法归一 / 枚举映射 / 去重保首条——只作用于派生层，原始坏行永留隔离区。<br />金额 / 口径 / 歧义类绝不自动修。</>)}</span>),
+      title: (<span>自动修{helpIcon(<>仅"安全类"可自动修复：写法归一 / 枚举映射——只作用于派生层，原始坏行永留隔离区。<br />金额 / 口径 / 歧义类绝不自动修。</>)}</span>),
       dataIndex: 'autoFix', width: 76,
       render: v => (v ? '✓ 安全类' : '—')
     },
     {
       title: (<span>判据 · 阈值{helpIcon(<>
         <b>规则分三层</b>：通用规则 → 挂到具体字段的规则 → 场景专项规则。<br />
-        前 12 条挂着具体判据、在生产库 8 张表上跑；第 13–20 条是通用规则族，判据详见规则库总册。
+        前 12 条挂着具体判据、在生产库 8 张表上跑；第 13–20 条是通用规则族（仅登记不实施——V1 任务只跑 1–12），判据补齐走治理批。
       </>)}</span>),
       dataIndex: 'crit', width: 170
     }
@@ -184,10 +218,12 @@ export default function E2Quality() {
     }
   ]
 
+  // 步进条文案：真接口 hits 任务完成才可知（撤 mock 硬编码「命中 3 条」）；
+  // current 映射服务端步值 0/2/4＝受理扫描 / 数据面报告回（开单前）/ 建单分发完成
   const flowSteps = [
     '扫描生产库 8 张表',
     `逐条跑规则（${enabledCount} 条启用）`,
-    '命中 3 条 → 开问题单',
+    '命中开成问题单',
     '按责任岗自动分发'
   ]
 
@@ -216,6 +252,10 @@ export default function E2Quality() {
       >
         {loading ? (
           <Skeleton active paragraph={{ rows: 9 }} />
+        ) : loadError ? (
+          <Empty description={<span>数据加载失败——{errText(loadError)}</span>}>
+            <Button size="small" onClick={loadAll}>重试</Button>
+          </Empty>
         ) : (
           <>
             {tab === 'rules' && (
@@ -265,20 +305,26 @@ export default function E2Quality() {
                 </Space>
                 <Steps
                   size="small" current={step < 0 ? 0 : step}
-                  status={step < 0 ? 'wait' : running ? 'process' : 'finish'}
+                  status={step < 0 ? 'wait' : pollFailed ? 'error' : running ? 'process' : 'finish'}
                   items={flowSteps.map(t => ({ title: t }))}
                 />
+                {pollFailed && (
+                  <div style={{ marginTop: 8, fontSize: 12, color: '#cf1322' }}>
+                    质检任务收场失败——{errText(pollFailed)}（可重新发起）
+                  </div>
+                )}
                 <Table
                   size="small" style={{ marginTop: 16 }} rowKey="id" pagination={false}
                   dataSource={tasks}
+                  locale={{ emptyText: <Empty description="暂无质检任务——点上方按钮发起第一遍体检（空库即验收态）" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
                   columns={[
                     { title: '任务号', dataIndex: 'id', width: 170 },
                     { title: '发起时间', dataIndex: 'time', width: 150 },
-                    { title: '检查范围', width: 110, render: (_, t) => t.report.range },
-                    { title: '扫描行数', width: 100, render: (_, t) => t.report.scanned },
-                    { title: '启用规则', width: 90, render: (_, t) => `${t.rules} 条` },
-                    { title: '命中', width: 70, render: (_, t) => <b>{t.hits}</b> },
-                    { title: '隔离/拒收', width: 96, render: (_, t) => `${t.report.quarantinedRows} 行 / ${t.report.rejectedBatches} 批` },
+                    { title: '检查范围', width: 110, render: (_, t) => t.report?.range ?? '—' },
+                    { title: '扫描行数', width: 100, render: (_, t) => t.report?.scanned ?? '—' },
+                    { title: '启用规则', width: 90, render: (_, t) => `${t.rules ?? '—'} 条` },
+                    { title: '命中', width: 70, render: (_, t) => <b>{t.hits ?? '—'}</b> },
+                    { title: '隔离/拒收', width: 96, render: (_, t) => (t.report ? `${t.report.quarantined_rows ?? 0} 行 / ${t.report.rejected_batches ?? 0} 批` : '—') },
                     {
                       title: '操作', width: 90, align: 'center',
                       render: (_, t) => (
@@ -291,7 +337,7 @@ export default function E2Quality() {
             )}
 
             {tab === 'issues' && (() => {
-              const roleOf = o => o.split('：').pop()
+              const roleOf = o => (o ?? '—').split('：').pop() // owner 可空（DTO str|null）——筛选项兜底
               const owners = [...new Set(issues.map(c => roleOf(c.owner)))]
               const ruleNos = [...new Set(issues.map(c => c.rule_no))].sort((a, b) => a - b)
               const laneCount = li => issues.filter(c => c.lane === li).length
@@ -336,7 +382,7 @@ export default function E2Quality() {
                       { title: '隔离行', width: 76, render: (_, c) => (c.qrows?.length ? `${c.qrows.length} 行` : '—') },
                       {
                         title: (<span>复验{helpIcon(<>推进到「复核」后点行内「复扫」对修正批次重跑质检，全绿才允许关闭（v0.5 人工触发）</>)}</span>),
-                        width: 92, render: (_, c) => (c.verify ? '✓ 已复扫' : c.closeNote ? '免修关闭' : '—')
+                        width: 92, render: (_, c) => (c.verify ? '✓ 已复扫' : c.close_note ? '免修关闭' : '—')
                       },
                       {
                         title: '操作', width: 150, align: 'center',
@@ -360,6 +406,7 @@ export default function E2Quality() {
             {tab === 'water' && (
               <Table
                 size="small" pagination={false} rowKey="layer"
+                locale={{ emptyText: <Empty description="暂无水位数据——水位由入湖/加工管道回写后呈现（空库即如实空行）" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
                 columns={[
                   { title: '层', dataIndex: 'layer', width: 200, render: v => <b>{v}</b> },
                   { title: '数据到', dataIndex: 'to', width: 160 },
@@ -381,20 +428,20 @@ export default function E2Quality() {
           <>
             <Table size="small" pagination={false} columns={ITEM_COLS} rowKey="label"
               dataSource={[
-                { label: '检查范围', body: reportTask.report.range },
-                { label: '扫描行数', body: reportTask.report.scanned },
-                { label: '启用规则', body: `${reportTask.report.rules} 条` },
+                { label: '检查范围', body: reportTask.report?.range ?? '—' },
+                { label: '扫描行数', body: reportTask.report?.scanned ?? '—' },
+                { label: '启用规则', body: `${reportTask.rules ?? '—'} 条` },
                 {
                   label: '隔离 / 拒收',
-                  body: `隔离 ${reportTask.report.quarantinedRows} 行 · 整批拒收 ${reportTask.report.rejectedBatches} 个批次——坏数据不进湖，落隔离区可追溯`
+                  body: `隔离 ${reportTask.report?.quarantined_rows ?? 0} 行 · 整批拒收 ${reportTask.report?.rejected_batches ?? 0} 个批次——坏数据不进湖，落隔离区可追溯`
                 },
                 {
                   label: '命中明细',
-                  body: <div>{reportTask.report.hits.map(h => <div key={h} style={{ marginTop: 4 }}>{h}</div>)}</div>
+                  body: <div>{(reportTask.report?.hits ?? []).map(h => <div key={h} style={{ marginTop: 4 }}>{h}</div>)}</div>
                 },
                 {
                   label: '结论',
-                  body: <span><b>不合规 {reportTask.report.hits.length} 项</b>{reportTask.report.verdict}</span>
+                  body: <span><b>不合规 {reportTask.report?.hits?.length ?? 0} 项</b>{reportTask.report?.verdict ?? ''}</span>
                 }
               ]} />
             <div style={{ fontSize: 12, color: '#8a94a3', marginTop: 10 }}>
@@ -412,22 +459,25 @@ export default function E2Quality() {
           <>
             <Table size="small" pagination={false} columns={ITEM_COLS} rowKey="label"
               dataSource={[
-                { label: '问题描述', body: issueCard.desc },
-                { label: '责任岗', body: issueCard.owner },
+                { label: '问题描述', body: issueCard.desc ?? '—' },
+                { label: '责任岗', body: issueCard.owner ?? '—' },
                 ...(issueCard.hit_count > 1 ? [{ label: '命中', body: `${issueCard.hit_count} 次——同类失败挂同单，不重复开单` }] : []),
                 {
                   label: '当前环节',
                   body: <Tag color={issueCard.lane === LANES.length - 1 ? 'green' : 'default'}>{LANES[issueCard.lane]}</Tag>
                 },
-                ...(issueCard.aiNote ? [{ label: '诊断说明', body: <span style={{ color: 'rgba(255,255,255,0.75)' }}>{issueCard.aiNote}</span> }] : []),
+                ...(issueCard.ai_note ? [{ label: '诊断说明', body: <span style={{ color: 'rgba(255,255,255,0.75)' }}>{issueCard.ai_note}</span> }] : []),
                 ...(issueCard.verify ? [{ label: '整改与复验', body: `${issueCard.verify.batch} · ${issueCard.verify.note}` }] : []),
-                ...(issueCard.closeNote ? [{ label: '关闭原因', body: issueCard.closeNote }] : [])
+                ...(issueCard.close_note ? [{ label: '关闭原因', body: issueCard.close_note }] : [])
               ]} />
             {issueCard.qrows?.length > 0 && (
               <>
                 <div style={{ margin: '16px 0 8px', fontWeight: 600 }}>隔离 / 拦截明细（{issueCard.qrows.length}）</div>
                 <Table size="small" pagination={false}
-                  columns={[{ title: '位置', dataIndex: 'loc', width: 210 }, { title: '说明', dataIndex: 'note' }]}
+                  columns={[
+                    { title: '位置', dataIndex: 'loc', width: 210, render: v => v ?? '—' },
+                    { title: '说明', dataIndex: 'note', render: v => v ?? '—' }
+                  ]}
                   dataSource={issueCard.qrows.map((x, i) => ({ ...x, key: i }))} />
               </>
             )}
