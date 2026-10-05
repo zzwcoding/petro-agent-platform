@@ -1080,6 +1080,11 @@ def chain_clarify_signal(
 # N7.4c 外表审批——F14）；血缘卡五要素＝F13 票 80/85（keys 合同值不可改）。
 # 本节全是纯语义（B1——不咬框架不触 IO；IO 归 query_store/service 编排）。
 
+# 排名方向（R1 修复——问句「最低/最小/最少」→升序、「最高/最大/最多」与未识别
+# →降序保持现行为；白名单二值，执行侧按二值分派 ORDER BY，非字符串拼接）。
+DIRECTION_ASC = "asc"
+DIRECTION_DESC = "desc"
+
 
 @dataclass(frozen=True, slots=True)
 class TimeWindow:
@@ -1106,7 +1111,8 @@ class QueryPlan:
     window: TimeWindow
     limit_requested: int | None  # 问句显式条数（None＝没写）
     limit_effective: int  # LIMIT 收口后值（F14——只封顶不抬底）
-    ranking: bool  # 排名型（GROUP BY 井＋ORDER BY 合计 DESC）｜明细型
+    ranking: bool  # 排名型（GROUP BY 井＋ORDER BY 合计——方向随 direction）｜明细型
+    direction: str = DIRECTION_DESC  # 排名方向（asc/desc 白名单二值——R1：最低类问句升序）
     external_tables: tuple[str, ...] = ()  # 选表命中集之外的外表（越集比对触发源）
     actor: str = ""  # 行级注入 actor（两步缝第一步——executor 消费）
 
@@ -1184,6 +1190,7 @@ _VAGUE_TIME_RE = re.compile(r"最近|近期|近日")
 _LIMIT_TOP_RE = re.compile(r"(?:前|TOP|top)\s*([0-9]+|[一二两三四五六七八九十]+)")
 _LIMIT_MOUTH_RE = re.compile(r"([0-9]+|[一二两三四五六七八九十]+)\s*口")
 _RANKING_RE = re.compile(r"最高|最低|最大|最小|排名|TOP|top|前\s*[0-9一二两三四五六七八九十]")
+_ASC_RANKING_RE = re.compile(r"最低|最小|最少")
 
 # 血缘解释链五要素键（A1 lineage DTO——F13 票 80/85「五要素与『（权限注入）』
 # 独立成行是合同值不可改」）。
@@ -1253,8 +1260,19 @@ def effective_limit(requested: int | None) -> int:
 
 
 def is_ranking_question(question: str) -> bool:
-    """排名型问句信号（「最高/TOP/前N」——模板走 GROUP BY 井合计倒序）。"""
+    """排名型问句信号（「最高/TOP/前N」——模板走 GROUP BY 井合计排序）。"""
     return _RANKING_RE.search(question) is not None
+
+
+def parse_ranking_direction(question: str) -> str:
+    """排名方向解析（R1——「最低/最小/最少」词面→升序；其余含未识别→降序默认）。
+
+    底向问句曾被倒序模板接客（「最低三井」实拿最高 TOP-N）——方向自此随问句
+    单点产出进计划，展示 SQL 与执行 Core 同源消费。
+    """
+    if _ASC_RANKING_RE.search(question) is not None:
+        return DIRECTION_ASC
+    return DIRECTION_DESC
 
 
 def parse_time_window(
@@ -1352,6 +1370,7 @@ def build_query_plan(
         limit_requested=requested,
         limit_effective=effective_limit(requested),
         ranking=is_ranking_question(question),
+        direction=parse_ranking_direction(question),
         external_tables=detect_external_tables(question),
         actor=actor,
     )
@@ -1378,6 +1397,7 @@ def plan_to_wire(plan: QueryPlan) -> dict[str, Any]:
         "limit_requested": plan.limit_requested,
         "limit_effective": plan.limit_effective,
         "ranking": plan.ranking,
+        "direction": plan.direction,
         "external_tables": list(plan.external_tables),
         "actor": plan.actor,
     }
@@ -1400,6 +1420,12 @@ def plan_from_wire(payload: dict[str, Any]) -> QueryPlan:
         limit_requested=payload.get("limit_requested"),
         limit_effective=int(payload["limit_effective"]),
         ranking=bool(payload["ranking"]),
+        direction=(
+            direction
+            if (direction := str(payload.get("direction") or DIRECTION_DESC))
+            in (DIRECTION_ASC, DIRECTION_DESC)
+            else DIRECTION_DESC  # 白名单外/存量载荷——clamp 回默认降序
+        ),
         external_tables=tuple(payload.get("external_tables") or ()),
         actor=str(payload.get("actor") or ""),
     )
@@ -1419,13 +1445,14 @@ def render_plan_sql(plan: QueryPlan) -> str:
         "  JOIN agg.dim_date d ON d.date = m.prod_date"
     )
     if plan.ranking:
+        order = "ASC" if plan.direction == DIRECTION_ASC else "DESC"  # 白名单二值分派
         total = f"SUM({measure}) AS {plan.metric_slot}合计（{plan.unit}）"
         return (
             f"SELECT w.well_id AS 井号, w.block_name AS 区块, {total}\n"
             f"{joins}\n"
             f"WHERE {window_cond}\n"
             "GROUP BY w.well_id, w.block_name\n"
-            f"ORDER BY SUM({measure}) DESC\n"
+            f"ORDER BY SUM({measure}) {order}\n"
             f"LIMIT {plan.limit_effective}"
         )
     return (
@@ -1441,8 +1468,12 @@ def render_plan_sql(plan: QueryPlan) -> str:
 def lineage_caliber_line(
     plan: QueryPlan, *, def_text: str, clarified_caliber: str | None = None
 ) -> str:
-    """血缘卡①口径（注册指标声明先行——C1 台账 def/unit 照抄，口径随答案标注）。"""
-    line = f"{plan.metric_name}（单位：{plan.unit}）——指标台账注册声明：{def_text}，口径随答案标注"
+    """血缘卡①口径（注册指标声明先行——C1 台账 def/unit 照抄，口径随答案标注；
+    R4：台账行无口径声明→占位句如实标注，不出「声明：，」空腔）。"""
+    body = def_text.strip() if def_text else ""
+    if not body:
+        body = "台账未登记口径声明"
+    line = f"{plan.metric_name}（单位：{plan.unit}）——指标台账注册声明：{body}，口径随答案标注"
     if clarified_caliber:
         line += f"（澄清锁定：{clarified_caliber}）"
     return line

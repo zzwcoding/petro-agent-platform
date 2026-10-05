@@ -1311,7 +1311,8 @@ async def query_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.S
     }
     if plan.external_tables and ctx.extable_decision == "approve":
         # 批准支出数（A1 answer kind=extable——核对表格＋审批留痕；外表联查列产出
-        # 随 D3 白名单数据面批——本轮按批准引用＋白名单内主查询出数，不伪造外表列）。
+        # 随 D3 白名单数据面批——本轮按批准引用＋白名单内主查询出数，不伪造外表列；
+        # R2：answer 撤合同外 lineage 键——血缘卡由上方专帧承载，不重复内嵌）。
         yield notice(
             "外表联查列产出待数据 Owner 白名单数据面接线——本轮按批准引用＋白名单内"
             "主查询出数（不伪造外表列）。",
@@ -1324,7 +1325,6 @@ async def query_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.S
             "footnote": d.EXTABLE_APPROVED_FOOTNOTE_TEMPLATE.format(
                 approval_id=ctx.extable_approval_id or "—",
             ),
-            "lineage": lineage,
             **({"audit_no": ctx.extable_approval_id} if ctx.extable_approval_id else {}),
         })
         return

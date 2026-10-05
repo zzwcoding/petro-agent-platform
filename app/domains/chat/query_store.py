@@ -56,8 +56,8 @@ _FCT_DAILY_METERING = Table(
     "fct_daily_metering", _AGG_META,
     Column("well_id", String(8)),
     Column("prod_date", Date),
-    Column("oil_output", Numeric(12, 2)),
-    Column("liquid_output", Numeric(12, 2)),
+    Column("oil_output", Numeric(10, 2)),  # 精度照 DDL 真源 0014（R3——12,2 登记出入挂对账批）
+    Column("liquid_output", Numeric(10, 2)),  # 同上（R3）
     Column("oil_pressure", Numeric(6, 2)),
     Column("batch_id", String(64)),
     Column("quality_flag", String(16)),
@@ -79,7 +79,8 @@ class QueryStore:
     async def execute_plan(self, plan: d.QueryPlan) -> d.QueryResult:
         """执行查询计划（M-01 两步缝注入行级谓词；readonly 只读会话）。
 
-        - 排名型：GROUP BY 井＋区块，合计倒序取前 N（LIMIT 收口值已收）；
+        - 排名型：GROUP BY 井＋区块，合计按计划方向排序取前 N（R1——asc/desc
+          白名单二值分派，非字符串拼接；LIMIT 收口值已收）；
         - 明细型：井×日粒度行，按日期＋井号稳定序，LIMIT 收口值收口；
         - 行级注入：谓词 AND 进语句（预埋期恒空——回执如实计数）；
         - batch_id＝结果行携带的批次水位（排名型取 MAX 聚合随行）。
@@ -116,6 +117,8 @@ class QueryStore:
         if plan.ranking:
             total = func.sum(measure).label(f"{plan.metric_slot}合计（{plan.unit}）")
             batch_max = func.max(_FCT_DAILY_METERING.c.batch_id).label("batch_id")
+            # R1：方向白名单二值分派（asc/desc）——「最低/最小/最少」升序，默认降序。
+            order = total.asc() if plan.direction == d.DIRECTION_ASC else total.desc()
             stmt = (
                 select(
                     _DIM_WELL.c.well_id.label("well_id"),
@@ -127,7 +130,7 @@ class QueryStore:
                 .join(*joins[1])
                 .where(*bounds)
                 .group_by(_DIM_WELL.c.well_id, _DIM_WELL.c.block_name)
-                .order_by(total.desc())
+                .order_by(order)
                 .limit(plan.limit_effective)
             )
         else:

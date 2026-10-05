@@ -137,13 +137,13 @@ async def pg_db() -> AsyncIterator[ConnectionManager]:
     await manager.dispose()
 
 
-def _plan(*, ranking: bool) -> d.QueryPlan:
+def _plan(*, ranking: bool, direction: str = d.DIRECTION_DESC) -> d.QueryPlan:
     return d.QueryPlan(
         metric_slot="日产油量", metric_name="★日产油量", measure_column="oil_output",
         unit="吨",
         window=d.TimeWindow(start=date(2026, 9, 1), end=date(2026, 10, 1), label="上个月"),
         limit_requested=2 if ranking else None, limit_effective=2 if ranking else 50,
-        ranking=ranking, actor="aqiang",
+        ranking=ranking, direction=direction, actor="aqiang",
     )
 
 
@@ -156,6 +156,14 @@ class TestQueryStorePg:
         assert result.batch_id == "B20260911-T3"  # 行序首个非空 batch（首名行组内 MAX）
         assert result.row_filter_predicates == 0  # 预埋恒真——回执如实计 0
         assert set(result.rows[0]) == {"well_id", "block_name", "日产油量合计（吨）"}
+
+    async def test_ranking_plan_asc_lowest_first(self, pg_db: ConnectionManager) -> None:
+        """R1 修复（真库）：asc 计划——最低合计首行（执行序与展示 SQL 同向）。"""
+        store = QueryStore(pg_db)
+        result = await store.execute_plan(_plan(ranking=True, direction=d.DIRECTION_ASC))
+        assert [row["well_id"] for row in result.rows] == ["N-06", "N-11"]  # 40.50 < 140.70
+        totals = [row["日产油量合计（吨）"] for row in result.rows]
+        assert totals == sorted(totals)  # 升序不倒挂
 
     async def test_detail_plan_stable_order(self, pg_db: ConnectionManager) -> None:
         """明细型：井×日粒度（fixture 5 行全量——LIMIT 50 不截）＋日期稳定序。"""

@@ -7,7 +7,9 @@
   注入两步缝消费（执行缝回执＋谓词 AND 进语句）；
 - (d) extable：越集挂起→approve 续跑／reject 零重试两路＋409/重放；
 - (e) 血缘卡五要素：键序合同值＋逐行值断言；
-- (f) 新鲜度：全窗未出数拒答／超窗改绑标注（照 E2 T-1 语义）。
+- (f) 新鲜度：全窗未出数拒答／超窗改绑标注（照 E2 T-1 语义）；
+- (g) 排名方向（M-06.fix R1）：「最低/最小/最少」→asc、默认 desc——展示 SQL 与
+  执行同源同向。
 
 装配：sqlite 底座＋Seams 假缝（conftest——假数据源/假水位；零真 LLM——链体
 零模型调用是断言项）。纯语义件（时间窗/LIMIT 收口/血缘行）直测 domain 单源。
@@ -34,6 +36,7 @@ from tests.domains.chat.conftest import (
 )
 
 TOP3_QUESTION = "上个月日产油量最高的三口井"
+LOW3_QUESTION = "上个月日产油量最低的三口井"
 DETAIL_QUESTION = "本月日产油量明细"
 VAGUE_QUESTION = "日产油量最近怎么样"
 EXTABLE_QUESTION = "上个月日产油量排名前三的井，和 ERP 井位台账对一下"
@@ -422,6 +425,77 @@ class TestSqlAssembly:
         assert stmt is not None
 
 
+# ---------- (g) 排名方向（M-06.fix R1——底向问句不得返回倒序 TOP-N） ----------
+
+
+class TestRankingDirection:
+    """R1 修复：排名方向参数化——问句「最低/最小/最少」→升序、其余默认降序。"""
+
+    def _plan(self, question: str) -> d.QueryPlan:
+        return d.build_query_plan(
+            metric_slot="日产油量", metric_name="★日产油量", question=question,
+            window=d.TimeWindow(date(2026, 9, 1), date(2026, 10, 1), "上个月"),
+            today=date(2026, 10, 4), actor=AQIANG,
+        )
+
+    def test_low_word_faces_take_asc(self) -> None:
+        """最低词面 → asc：计划方向与展示 SQL 同向（问句形合法、路由接客）。"""
+        plan = self._plan(LOW3_QUESTION)
+        assert plan.ranking is True
+        assert plan.direction == d.DIRECTION_ASC
+        sql = d.render_plan_sql(plan)
+        assert "ORDER BY SUM(m.oil_output) ASC" in sql
+        assert "DESC" not in sql
+        # 「最少」词面同走升序（解析面——与列绑定无关）。
+        assert d.parse_ranking_direction("日产液量最少的五口井") == d.DIRECTION_ASC
+
+    def test_high_faces_and_unrecognized_keep_desc(self) -> None:
+        """desc 回归：最高/最大/排名与未识别词面——默认降序保持现行为。"""
+        for question in (TOP3_QUESTION, "本月日产油量最大的井", "日产油量排名前三的井"):
+            plan = self._plan(question)
+            assert plan.direction == d.DIRECTION_DESC
+        assert "ORDER BY SUM(m.oil_output) DESC" in d.render_plan_sql(self._plan(TOP3_QUESTION))
+
+    def test_direction_wire_roundtrip_and_clamp(self) -> None:
+        """wire 往返保方向；存量挂起载荷无 direction 键——clamp 回 desc 兼容。"""
+        restored = d.plan_from_wire(d.plan_to_wire(self._plan(LOW3_QUESTION)))
+        assert restored.direction == d.DIRECTION_ASC
+        legacy = d.plan_to_wire(self._plan(TOP3_QUESTION))
+        legacy.pop("direction")
+        assert d.plan_from_wire(legacy).direction == d.DIRECTION_DESC
+
+    def test_executor_order_by_follows_direction(self) -> None:
+        """执行面同源：ORDER BY 方向随 plan（白名单二值分派——非字符串拼接）。"""
+        store = QueryStore(None)  # type: ignore[arg-type]
+        asc_sql = str(
+            store.build_statement(self._plan(LOW3_QUESTION))
+            .compile(compile_kwargs={"literal_binds": True})
+        ).lower()
+        desc_sql = str(
+            store.build_statement(self._plan(TOP3_QUESTION))
+            .compile(compile_kwargs={"literal_binds": True})
+        ).lower()
+        assert " asc" in asc_sql and "desc" not in asc_sql
+        assert " desc" in desc_sql
+
+    async def test_chain_feeds_asc_plan_for_low_question(
+        self, chat_db: ConnectionManager, seams: Seams
+    ) -> None:
+        """端到端：最低问句被路由入链且产出 asc 计划——展示 SQL 与执行缝同向。"""
+        service = make_service(chat_db, seams)
+        events = await collect(service.ask(
+            LOW3_QUESTION, session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
+        ))
+        by_name = _events_by_name(events)
+        assert by_name["answer"][0]["kind"] == "table"
+        plan = seams.executed_plans[0]
+        assert plan.ranking is True
+        assert plan.direction == d.DIRECTION_ASC
+        node_lines = [str(e.data.get("text") or "") for e in events if e.event == "node_line"]
+        assert any("ORDER BY SUM(m.oil_output) ASC" in note for note in node_lines)
+
+
 # ---------- (d) extable：越集挂起 → approve/reject 两路 ----------
 
 
@@ -482,6 +556,8 @@ class TestExtableApproval:
         assert approval_id in answer["footnote"]
         assert answer["audit_no"] == approval_id
         assert answer["table"]["rows"]
+        assert "lineage" not in answer  # R2 修复：血缘卡专帧承载——answer 撤合同外键
+        assert "lineage" in by_name  # 血缘帧照发（审批支专帧不断）
         assert "done" in by_name
         run = await _run_row(chat_db, run_id)
         assert run.status == "done"
@@ -585,6 +661,8 @@ class TestLineageCard:
         assert [item["key"] for item in items] == LINEAGE_KEYS  # 键序＝合同值不可改
         by_key = {item["key"]: item["value"] for item in items}
         assert "日产油量" in by_key["① 口径"] and "吨" in by_key["① 口径"]
+        assert "台账未登记口径声明" in by_key["① 口径"]  # R4：conftest 行 calibers=[]——占位句
+        assert "声明：，" not in by_key["① 口径"]  # R4：不出空声明空腔
         assert "fct_daily_metering" in by_key["② 来源表"]
         start, _end = _prev_month_window(_today())
         assert "上个月" in by_key["③ 过滤条件"] and start.isoformat() in by_key["③ 过滤条件"]
@@ -606,6 +684,20 @@ class TestLineageCard:
         items = _events_by_name(events)["lineage"][0]["items"]
         closing = next(i["value"] for i in items if i["key"] == "⑤ 收口注记")
         assert "LIMIT 50——" in closing  # 没写补默认 50
+
+    def test_caliber_line_empty_def_takes_placeholder(self) -> None:
+        """R4（domain 单源直测）：def_text 空——占位句如实标注，不出「声明：，」空腔。"""
+        plan = d.build_query_plan(
+            metric_slot="日产油量", metric_name="★日产油量", question=TOP3_QUESTION,
+            window=d.TimeWindow(date(2026, 9, 1), date(2026, 10, 1), "上个月"),
+            today=date(2026, 10, 4), actor=AQIANG,
+        )
+        empty = d.lineage_caliber_line(plan, def_text="")
+        assert "台账未登记口径声明" in empty
+        assert "声明：，" not in empty
+        declared = d.lineage_caliber_line(plan, def_text="井口日产原油量合计")
+        assert "井口日产原油量合计" in declared
+        assert "台账未登记口径声明" not in declared
 
 
 # ---------- (f) 新鲜度闸（照 E2 T-1 语义） ----------
