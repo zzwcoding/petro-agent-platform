@@ -442,17 +442,30 @@ export default function B2Landing() {
           style: { cursor: 'pointer' }
         })}
         expandable={{
-          expandedRowRender: c => (
-            <div style={{ fontSize: 13, lineHeight: 1.8 }}>
-              {/* UI-17：命中句全文进手风琴首行（列内单行省略——全文可在此核读） */}
-              <div style={{ marginBottom: 6 }}>
-                <span style={{ color: '#8a94a3', fontSize: 12, marginRight: 8 }}>命中句全文</span>
-                {c.hit}
+          expandedRowRender: c => {
+            // UI-17：命中句全文进手风琴首行（列内单行省略——全文可在此核读）
+            // UI-18：上下文与命中句相同（fixed/smart 无父块兜底——Owner 裁决）时只显示
+            // 命中句一行；不同（mixed 有父块）才两块都显。加载中先按不同处理出占位。
+            const ctx = ctxCache[c.id]
+            const same = ctx != null && ctx === c.hit
+            return (
+              <div style={{ fontSize: 13, lineHeight: 1.8 }}>
+                <div style={{ marginBottom: same ? 0 : 6 }}>
+                  <span style={{ color: '#8a94a3', fontSize: 12, marginRight: 8 }}>命中句全文</span>
+                  {c.hit}
+                  {same && (
+                    <span style={{ color: '#8a94a3', fontSize: 12, marginLeft: 8 }}>（完整上下文段与命中句相同）</span>
+                  )}
+                </div>
+                {!same && (
+                  <>
+                    <span style={{ color: '#8a94a3', fontSize: 12, marginRight: 8 }}>完整上下文段</span>
+                    {ctx ?? '读取中……'}
+                  </>
+                )}
               </div>
-              <span style={{ color: '#8a94a3', fontSize: 12, marginRight: 8 }}>完整上下文段</span>
-              {ctxCache[c.id] ?? '读取中……'}
-            </div>
-          ),
+            )
+          },
           onExpand: (expanded, c) => { if (expanded) loadContext(c.id) } // 展开即回捞（端点 2 懒加载——mock 更正①）
         }}
         emptyText={reportsError
@@ -572,8 +585,23 @@ export default function B2Landing() {
                 },
                 { k: '井号', v: cur.well || '—' },
                 { k: '章节路径', v: <span style={{ color: '#8a94a3', fontSize: 12 }}>{cur.section || '—'}</span> },
-                { k: '命中句', v: <b style={{ fontSize: 13 }}>{cur.hit}</b> },
-                { k: '完整上下文段', v: <span style={{ fontSize: 13 }}>{curCtx ?? '读取中……'}</span> }
+                // UI-18：上下文与命中句相同（fixed/smart 无父块兜底——Owner 裁决）时
+                // 合并为一行只显命中句；不同（mixed 有父块）才两行都显
+                ...(curCtx != null && curCtx === cur.hit
+                  ? [{
+                      k: '命中句',
+                      v: (
+                        <>
+                          <b style={{ fontSize: 13 }}>{cur.hit}</b>
+                          <br />
+                          <span style={{ color: '#8a94a3', fontSize: 12 }}>完整上下文段与命中句相同。</span>
+                        </>
+                      )
+                    }]
+                  : [
+                      { k: '命中句', v: <b style={{ fontSize: 13 }}>{cur.hit}</b> },
+                      { k: '完整上下文段', v: <span style={{ fontSize: 13 }}>{curCtx ?? '读取中……'}</span> }
+                    ])
               ]}
             />
           </>
