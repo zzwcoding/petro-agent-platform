@@ -21,6 +21,15 @@
   检索帧紧随六站帧混排，answer 帧恒最后），答案正文前置如实标注
   DATA_CHAIN_FALLBACK_NOTE（检索结果非权威数值）；接续链仍无果才双重如实
   拒答（原拒答话术收场）。
+  辅助检索＋旁注解读（W-AUX②·停线裁决 C）：N7.5 只读执行行数>0 后——原问句
+  复用检索链双路召回缝（index_searcher_dual 同缝零新缝）取小窗口辅助片段
+  （AUX_TOP_K=4），片段＋表格数据进 gateway.complete（caller=chat.query.narrate
+  ——chat.query.rewrite 计费留痕惯例；提示词三约束：数值一律以表格为准（片段
+  数值不采）/引用标注 cN/不得虚构）生成解读段，以 notice 帧并列呈现（血缘帧后、
+  answer 帧前——answer 恒最后；零新帧型、answer 载荷零新增键，P2-03 状态标注
+  先例）；片段引用别名自 c3 起（表卡数据证据 c1/c2 已占不撞号），fail-closed
+  照 GEN 收口同款（伪造/失锚引用拦截剥除）；检索无片段/生成不可用 → 纯表格
+  自然降级零报错。
 
 检索问答链（D2 当前生效配置驱动全链——S 级语义照 F58/W-F21）：
   N17 检索问答（树执行节点）→ S0 身份四要素（一次确认）→ S1 显式锚定（受第 1 级
@@ -91,6 +100,12 @@ CALLER_FALLBACK = "chat.retrieval.fallback"
 # 低分带第二道问句改写（P1F-06——caller 自由字符串惯例不封闭，gateway 记账按
 # caller 归因聚合，费用统计可溯源）。
 CALLER_REWRITE = "chat.query.rewrite"
+# 问数链旁注解读段生成（W-AUX②·停线裁决 C——主路权威数出数后以检索辅助＋叙述
+# 生成补解读段，呈现照既有 notice 机制并列呈现（P2-03 状态标注先例）——零合同
+# 变更：无新帧型、answer 帧载荷零新增键）。
+CALLER_NARRATE = "chat.query.narrate"
+AUX_TOP_K = 4  # 辅助检索小窗口（票面定值——旁注材料不抢主路权威数）
+AUX_REF_START = 3  # 辅助片段引用别名起始号（表卡数据证据 c1/c2 已占——不撞号）
 
 GEN_SYSTEM_PROMPT = (
     "你是油田数据问答平台的回答助手。只依据给出的编号材料回答，"
@@ -120,6 +135,22 @@ REWRITE_SYSTEM_PROMPT = (
     "你是检索问句改写器。把用户问句改写成适合报告库检索的问法："
     "去掉修饰性、口语化的词语，保留原问句的语义与问题核心，"
     "输出检索优化问法。只回问法本身，不要输出任何解释、引号或其他内容。"
+)
+# 问数链旁注解读段提示词（W-AUX②——票面规定三约束：数值一律以表格为准（片段
+# 数值不采）／引用标注 cN／不得虚构）。
+NARRATE_SYSTEM_PROMPT = (
+    "你是油田数据问答平台的表格解读撰写器。权威数据表格已由平台模板化查询出数，"
+    "你只写一段简短解读，帮用户读懂这张表。三条硬约束："
+    "一、数值一律以表格为准——检索片段中的数值一律不采信、不得写入解读；"
+    "二、提及某个检索片段的内容时，在句末标注其编号，格式形如 [c1]（半角方括号＋编号）；"
+    "三、不得虚构表格与片段之外的任何事实——表格与片段都不足以支撑的判断直接不写。"
+)
+NARRATE_USER_TEMPLATE = (
+    "用户问句：{question}\n\n"
+    "权威数据表格（平台模板化查询出数——数值唯一依据）：\n{table_text}\n\n"
+    "报告库辅助片段（编号表——仅作背景参考，片段中的数值一律不采）：\n{fragment_table}\n\n"
+    "请写一段两三句话的解读：先用表格数值直接回答用户问句，再补一句片段提供的背景；"
+    "提及片段时在句末标注其编号 [cN]；表格与片段都不支撑的判断不写。"
 )
 # 状态标注兜底通知判别串（P1F-08——只认届满/禁用类：term_expiry 单源展示串族
 # 「<ISO>（已届满）」「—（已禁用）」；限语境类标注不在兜底范围——躺井题已由
@@ -1044,16 +1075,18 @@ def _metric_card_for_plan(ctx: d.ChainContext) -> tuple[str, str, str] | None:
 
 
 async def query_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.SseEvent]:
-    """状态机六站链（M-06——用户数据型问题：模板装配出数，全程零模型调用）。
+    """状态机六站链（M-06——用户数据型问题：模板装配出数，主路零模型调用）。
 
     站序与节点行照全景树 N7 节＋A1 行为规则 3（链内节点行内容照抄各源合同值）：
     F7 三要素校验/F14 LIMIT 收口与外表审批/F13 血缘五要素/E2 新鲜度 T-1 语义/
     M-01 行级注入两步缝。审批挂起走链内哨兵（connection 不占着——恢复整节点
     重跑，F7 节点幂等）。
-    降级接续（W-AUX③）：出不了数的三路（N7.1 无注册声明／N7.4a 全窗未出数/
-    N7.6 零行）不再以拒答收场——自动接续检索问答链（_continue_with_retrieval，
-    同模块函数级复用），答案正文前置如实标注（非权威数值）；接续链仍无果才
-    双重如实拒答（原拒答话术收场）。
+    辅助检索＋旁注解读（W-AUX②·停线裁决 C）：出数（行数>0）后原问句复用双路
+    召回缝取辅助片段，gateway.complete（caller=chat.query.narrate）生成解读段
+    以 notice 帧并列呈现（主路唯一模型调用）；降级接续（W-AUX③）：出不了数的
+    三路（N7.1 无注册声明／N7.4a 全窗未出数/N7.6 零行）自动接续检索问答链
+    （_continue_with_retrieval，同模块函数级复用），答案正文前置如实标注（非
+    权威数值）；接续链仍无果才双重如实拒答（原拒答话术收场）。
     """
     question = ctx.question
     today = _today()
@@ -1349,6 +1382,24 @@ async def query_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.S
             **({"audit_no": ctx.extable_approval_id} if ctx.extable_approval_id else {}),
         })
         return
+    # —— 辅助检索＋旁注解读段（W-AUX②·停线裁决 C——notice 帧并列呈现）——
+    cfg = await deps.config_loader()
+    aux = await _aux_retrieval_fragments(deps, cfg, question)
+    if aux:
+        yield line(
+            "N7.6", "→",
+            f"辅助检索：报告库双路召回 {len(aux)} 支片段——旁注解读材料"
+            "（片段数值不采，数值一律以表格为准）",
+        )
+        narration, cited, dropped = await _narrate_table(deps, question, table, aux)
+        if narration is not None:
+            for fragment in cited:
+                yield d.SseEvent(d.FRAME_CITATION, d.citation_wire(fragment))
+            if dropped:
+                yield notice(
+                    d.UNANCHORED_CITATION_NOTE.format(n=dropped), level="warning",
+                )
+            yield notice(narration, level="info")
     sample = _sample_row_line(result.rows[0])
     citations = [
         d.citation_wire(d.Evidence(
@@ -1374,6 +1425,76 @@ async def query_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.S
         "citations": citations,
         "lineage": lineage,
     })
+
+
+async def _aux_retrieval_fragments(
+    deps: ChainDeps, cfg: d.RetrievalConfigFace, question: str,
+) -> list[d.Evidence]:
+    """辅助检索（W-AUX②——主路权威数出数后的报告库旁注材料）。
+
+    同域函数级复用检索链双路召回缝（deps.index_searcher_dual——S4 同一注入缝，
+    零新缝）与合并策略（cfg.merge——_relaxed_rescore 同款），小窗口取前
+    AUX_TOP_K 支；引用别名自 AUX_REF_START 起编（表卡数据证据 c1/c2 已占——
+    同一 run 内全局不撞号）。报告库空 → 空清单＝纯表格自然降级（零帧零报错）。
+    """
+    vector, keyword = await deps.index_searcher_dual(question, AUX_TOP_K, AUX_TOP_K)
+    merged = (
+        d.rrf_merge(vector, keyword) if cfg.merge == "rrf_rank"
+        else d.concat_merge(vector, keyword)
+    )
+    rows = _index_evidence_rows(merged[:AUX_TOP_K])
+    return [
+        replace(row, ref=f"c{AUX_REF_START + ordinal}")
+        for ordinal, row in enumerate(rows)
+    ]
+
+
+async def _narrate_table(
+    deps: ChainDeps, question: str, table: dict[str, Any], fragments: list[d.Evidence],
+) -> tuple[str | None, list[d.Evidence], int]:
+    """旁注解读段生成（W-AUX②——gateway.complete 单点，caller=chat.query.narrate
+    计费留痕照 chat.query.rewrite 惯例；提示词三约束见 NARRATE_SYSTEM_PROMPT：
+    数值一律以表格为准（片段数值不采）／引用标注 cN／不得虚构）。
+
+    返回 (解读文本, 存续引用片段, 拦截数)：文本 None＝生成不可用（completer 未
+    装配/调用失败/空输出）——调用方纯表格自然降级零报错；引用 fail-closed 照
+    检索链 GEN 收口同款（parse_refs→锚校验→strip_ref——伪造/失锚引用拦截剥除，
+    绝不带病出帧）。
+    """
+    table_text = "\n".join(
+        "；".join(f"{col['title']}={row.get(col['dataIndex'])}" for col in table["columns"])
+        for row in table["rows"]
+    )
+    fragment_table = "\n".join(
+        f"{f.ref}：[{f.kind}] {f.label}——{f.snippet}" for f in fragments
+    )
+    text, error = await _complete(deps, [
+        {"role": "system", "content": NARRATE_SYSTEM_PROMPT},
+        {"role": "user", "content": NARRATE_USER_TEMPLATE.format(
+            question=question, table_text=table_text, fragment_table=fragment_table,
+        )},
+    ], CALLER_NARRATE)
+    if error or text is None or not text.strip():
+        return None, [], 0
+    by_ref = {f.ref: f for f in fragments}
+    cited: list[d.Evidence] = []
+    dropped = 0
+    for ref in d.parse_refs(text):
+        candidate = by_ref.get(ref)
+        if candidate is None:
+            dropped += 1
+            text = d.strip_ref(text, ref)
+            continue
+        if candidate.fragment_id is not None:
+            anchor = await deps.anchor_loader(candidate.fragment_id)
+            if anchor is None or (
+                candidate.report_id and anchor.report_id != candidate.report_id
+            ):
+                dropped += 1
+                text = d.strip_ref(text, ref)
+                continue
+        cited.append(candidate)
+    return text, cited, dropped
 
 
 async def _continue_with_retrieval(
