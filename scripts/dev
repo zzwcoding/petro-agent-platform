@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+# dev —— 本地开发环境一键脚本（阶段 2 演示运行固化，2026-10-05）
+#
+# 教训来源：tickets/phase2/OPS-本地运行手册与教训-20261005.md
+#   L3 后台启动必须带绝对 cd 前缀（本脚本内部已固化）
+#   L4 启动前先查端口（lsof LISTEN——僵尸实例抢答）
+#   L1 验口令必须用真驱动（asyncpg 探针在 status/doctor 里）
+#
+# 用法：
+#   scripts/dev up      # 基础设施(docker)＋后端:8000＋前端:5173＋数据面 worker 全部拉起
+#   scripts/dev down    # 停后端/前端/worker（docker 不动）
+#   scripts/dev status  # 各组件状态一览
+#   scripts/dev seed    # 演示数据灌入（fieldforge 真产物全链路一遍）
+#   scripts/dev logs    # tail 三个服务日志
+set -uo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+DP="$ROOT/data-plane"
+LOGDIR=/tmp/petro-dev
+PG_DSN="postgresql://petro:petro@localhost:5433/petro"
+
+log() { printf '[dev] %s\n' "$*"; }
+port_busy() { lsof -nP -i ":$1" 2>/dev/null | grep -q LISTEN; }
+
+ensure_infra() {
+  if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^petro-agent-platform-pg-1$'; then
+    log "启动 docker 基础设施（PG/MinIO/Redis…）"
+    docker compose -f "$ROOT/compose.yaml" up -d
+    log "等待 PG healthy"
+    for _ in $(seq 1 30); do
+      [ "$(docker inspect -f '{{.State.Health.Status}}' petro-agent-platform-pg-1 2>/dev/null)" = "healthy" ] && break
+      sleep 2
+    done
+  else
+    log "docker 基础设施已在跑"
+  fi
+}
+
+start_backend() {
+  if port_busy 8000; then log "后端 :8000 已在跑（跳过）"; return 0; fi
+  log "启动后端 :8000（日志 $LOGDIR/backend.log）"
+  (cd "$ROOT" && nohup uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 \
+     > "$LOGDIR/backend.log" 2>&1 &)
+  for _ in $(seq 1 20); do
+    curl -s -m 3 http://localhost:8000/health 2>/dev/null | grep -q ok && { log "后端 healthy"; return 0; }
+    sleep 2
+  done
+  log "⚠️ 后端 10 轮未 healthy——查 $LOGDIR/backend.log（常见：midplatform 口令/授权，见排障手册症状 1/2）"
+  return 1
+}
+
+start_frontend() {
+  if port_busy 5173; then log "前端 :5173 已在跑（跳过）"; return 0; fi
+  log "启动前端 :5173（日志 $LOGDIR/frontend.log）"
+  (cd "$ROOT/web" && nohup npm run dev > "$LOGDIR/frontend.log" 2>&1 &)
+  sleep 4
+  port_busy 5173 && { log "前端已起"; return 0; }
+  log "⚠️ 前端未起——查 $LOGDIR/frontend.log"; return 1
+}
+
+start_worker() {
+  if pgrep -f "worker.scheduler" >/dev/null 2>&1; then log "数据面 worker 已在跑（跳过）"; return 0; fi
+  log "启动数据面 worker（日志 $LOGDIR/worker.log；拾取作业每 60 秒捡 E2 质检任务）"
+  (cd "$DP" && \
+     DATABASE_URL="$PG_DSN" \
+     AGG_DATABASE_URL="$PG_DSN" \
+     QUALITY_DATABASE_URL="$PG_DSN" \
+     MINIO_ENDPOINT="http://localhost:9000" MINIO_ACCESS_KEY="petro" MINIO_SECRET_KEY="petro12345" \
+     DP_PIPELINE_RUN_DIR="${DP_PIPELINE_RUN_DIR:-/tmp/tpa-demo-run}" \
+     nohup .venv/bin/python -m worker.scheduler > "$LOGDIR/worker.log" 2>&1 &)
+  sleep 3
+  pgrep -f "worker.scheduler" >/dev/null && { log "worker 已起"; return 0; }
+  log "⚠️ worker 未起——查 $LOGDIR/worker.log"; return 1
+}
+
+cmd_up() {
+  mkdir -p "$LOGDIR"
+  ensure_infra
+  start_backend
+  start_frontend
+  start_worker
+  log "全部就绪——前端 http://localhost:5173/"
+}
+
+cmd_down() {
+  log "停后端/前端/worker（docker 基础设施不动）"
+  pkill -f "uvicorn app.main:app" 2>/dev/null || true
+  pkill -f "worker.scheduler" 2>/dev/null || true
+  pkill -f "vite" 2>/dev/null || true
+  log "已停（docker 容器保留——compose down 请手动）"
+}
+
+cmd_status() {
+  log "状态一览"
+  printf '  docker pg-1: %s\n' "$(docker ps --format '{{.Status}}' 2>/dev/null | grep -c . >/dev/null && docker inspect -f '{{.State.Health.Status}}' petro-agent-platform-pg-1 2>/dev/null || echo '未运行')"
+  printf '  后端 :8000 health: %s\n' "$(curl -s -m 3 http://localhost:8000/health 2>/dev/null || echo '未响应')"
+  printf '  前端 :5173: %s\n' "$(curl -s -m 3 -o /dev/null -w '%{http_code}' http://localhost:5173/ 2>/dev/null || echo '未响应')"
+  printf '  worker: %s\n' "$(pgrep -f 'worker.scheduler' >/dev/null && echo 在跑 || echo 未跑)"
+  printf '  alembic: %s\n' "$(cd "$ROOT" && uv run alembic current 2>/dev/null | tail -1 || echo '未知')"
+}
+
+cmd_seed() {
+  log "演示数据灌入（fieldforge 真产物全链路一遍——幂等可重跑）"
+  mkdir -p /tmp/tpa-fieldforge-run
+  cp /Users/divh/Downloads/fieldforge/out-tpa/*.csv /tmp/tpa-fieldforge-run/
+  log "注意：当前为覆盖语义（同井重灌刷新当前版）；water_line 单调不回退"
+  (cd "$DP" && \
+     DATABASE_URL="$PG_DSN" \
+     AGG_DATABASE_URL="$PG_DSN" \
+     QUALITY_DATABASE_URL="$PG_DSN" \
+     MINIO_ENDPOINT="http://localhost:9000" MINIO_ACCESS_KEY="petro" MINIO_SECRET_KEY="petro12345" \
+     DP_PIPELINE_RUN_DIR="/tmp/tpa-fieldforge-run" \
+     .venv/bin/python -m worker.scheduler --once)
+  log "灌入完成——E2 页面点一次任务轮询即自动建单；问一问可查真数据"
+}
+
+cmd_logs() { tail -n 20 -f "$LOGDIR"/backend.log "$LOGDIR"/frontend.log "$LOGDIR"/worker.log; }
+
+case "${1:-}" in
+  up)     cmd_up ;;
+  down)   cmd_down ;;
+  status) cmd_status ;;
+  seed)   cmd_seed ;;
+  logs)   cmd_logs ;;
+  *) echo "用法: scripts/dev {up|down|status|seed|logs}"; exit 2 ;;
+esac
