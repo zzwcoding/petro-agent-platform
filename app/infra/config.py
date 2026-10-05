@@ -149,11 +149,20 @@ class GatewayParamsSpec(BaseModel):
     request_timeout: int = 30
 
 
+class StreamConfig(BaseModel):
+    """出站流式消费参数（G-01——独立顶层段：D1 配置面按固定四键整块重写 gateway
+    段，新键放那里会被下次保存抹掉；本段带默认值，旧 yaml 无此段照常校验）。"""
+
+    idle_timeout: float = 30.0  # 流空闲超时秒——连续无新帧判上游假死（网关可切备）
+    max_seconds: float = 600.0  # 单次流总时长护栏秒——防持续出帧但失控的 runaway
+
+
 class ModelsConfig(BaseModel):
     models: list[ModelEntry] = Field(default_factory=list)
     routing: RoutingConfig = RoutingConfig()
     prices: dict[str, PricesConfig] = Field(default_factory=dict)
     gateway: GatewayParamsSpec = Field(default_factory=GatewayParamsSpec)
+    stream: StreamConfig = Field(default_factory=StreamConfig)
 
 
 _models_cache: ModelsConfig | None = None

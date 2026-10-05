@@ -65,3 +65,6 @@ gateway:                     # D1 配置面四参数（端点 3 保存＝写回�
   cooldown_seconds: 60       # 故障冷却秒数，10–600
   num_retries: 3             # 网关层重试次数，0–5（业务侧永不重试）
   request_timeout: 30        # 单次调用超时秒，5–120
+stream:                      # 出站流式消费参数（G-01——独立顶层段：D1 按固定四键整块重写 gateway 段，新键不入该段）
+  idle_timeout: 30           # 流空闲超时秒——连续无新帧判上游假死（网关可切备），建议 ≥5
+  max_seconds: 600           # 单次流总时长护栏秒——防持续出帧但失控的 runaway

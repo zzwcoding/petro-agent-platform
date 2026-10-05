@@ -5,6 +5,7 @@
 网络错/超时/5xx 可切，4xx/429 不可切；W-F2-4 重试只走网关层）。
 """
 
+import asyncio
 import json
 from pathlib import Path
 from typing import Any
@@ -86,23 +87,36 @@ def embed_client(tmp_path: Path) -> LlmClient:
     return LlmClient()
 
 
-def _fake_response(
-    content: str = "线路正常", usage: dict[str, int] | None = None,
+def _fake_chunk(
+    piece: str = "", usage: dict[str, int] | None = None,
 ) -> dict[str, Any]:
-    body: dict[str, Any] = {
-        "choices": [{"message": {"role": "assistant", "content": content}}],
-        "id": "chatcmpl-test-1",
-    }
+    """单帧（dict 形——实现侧 _chunk_fields 兼容 attr/mapping 双形）。"""
+    frame: dict[str, Any] = {"choices": [{"delta": {"content": piece}}]}
     if usage is not None:
-        body["usage"] = usage
-    return body
+        frame["usage"] = usage
+    return frame
+
+
+def _stream_script(
+    content: str = "线路正常", usage: dict[str, int] | None = None,
+) -> list[dict[str, Any]]:
+    """整段应答折成两帧流：内容帧＋usage 末帧（usage 缺省＝上游未回，走估算）。"""
+    frames = [_fake_chunk(content)]
+    if usage is not None:
+        frames.append(_fake_chunk("", usage=usage))
+    return frames
+
+
+async def _fake_stream(frames: list[dict[str, Any]]):
+    for frame in frames:
+        yield frame
 
 
 class _Capture:
-    """acompletion 桩：记录入参并按脚本应答（永不触网）。"""
+    """acompletion 桩：记录入参并按脚本应答（list＝流式帧序列，永不触网）。"""
 
     def __init__(self, script: Any) -> None:
-        self.script = script  # 返回值或异常实例
+        self.script = script  # list（流帧）→ async 生成器；异常实例→抛出
         self.calls: list[dict[str, Any]] = []
 
     async def __call__(self, **kwargs: Any) -> Any:
@@ -110,6 +124,8 @@ class _Capture:
         out = self.script
         if isinstance(out, Exception):
             raise out
+        if isinstance(out, list):
+            return _fake_stream(out)
         return out
 
 
@@ -119,7 +135,7 @@ class _Capture:
 async def test_complete_builds_call_from_registry(
     client: LlmClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    capture = _Capture(_fake_response(usage={"prompt_tokens": 2140, "completion_tokens": 1380}))
+    capture = _Capture(_stream_script(usage={"prompt_tokens": 2140, "completion_tokens": 1380}))
     monkeypatch.setattr(litellm, "acompletion", capture)
     result = await client.complete(
         "petro-main", [{"role": "user", "content": "你好"}], timeout_seconds=30
@@ -130,8 +146,10 @@ async def test_complete_builds_call_from_registry(
     assert call["api_base"] == "https://main.example.test"
     assert call["api_key"] == "sk-test-main"  # 测试字面假值——真实凭证经 ${VAR} 注入
     assert call["messages"] == [{"role": "user", "content": "你好"}]
-    assert call["timeout"] == 30  # per-attempt 超时透传
+    assert call["timeout"] == 30  # 连接＋首帧（TTFT）超时透传
     assert call["num_retries"] == 0  # W-F2-4：SDK 层重试恒关（防套娃放大）
+    assert call["stream"] is True  # G-01：真流式消费
+    assert call["stream_options"] == {"include_usage": True}  # 末帧 usage 记账
     assert result.content == "线路正常"
     assert (result.prompt_tokens, result.completion_tokens) == (2140, 1380)
     assert result.usage_estimated is False
@@ -141,7 +159,7 @@ async def test_complete_builds_call_from_registry(
 async def test_complete_unknown_alias_rejected(
     client: LlmClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "acompletion", _Capture(_fake_response()))  # 不应被触达
+    monkeypatch.setattr(litellm, "acompletion", _Capture(_stream_script()))  # 不应被触达
     with pytest.raises(AliasNotRegistered):
         await client.complete("petro-ghost", [{"role": "user", "content": "x"}], timeout_seconds=5)
 
@@ -152,7 +170,7 @@ async def test_complete_unknown_alias_rejected(
 async def test_complete_estimates_tokens_without_usage(
     client: LlmClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "acompletion", _Capture(_fake_response(content="abcd" * 10)))
+    monkeypatch.setattr(litellm, "acompletion", _Capture(_stream_script(content="abcd" * 10)))
     result = await client.complete(
         "petro-lite",
         [{"role": "user", "content": "x" * 40}],
@@ -161,6 +179,146 @@ async def test_complete_estimates_tokens_without_usage(
     assert result.usage_estimated is True
     assert result.prompt_tokens == 10  # 40//4
     assert result.completion_tokens == 10  # 40//4
+
+
+# ---------- G-01：流式死活判据（空闲超时/总时长护栏/流关闭/流中异常） ----------
+
+
+async def test_complete_idle_timeout_is_switchable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """帧停了才断：连续 idle_timeout 秒无新帧 → UpstreamUnavailable（可切备）。
+
+    与总时长无关——哪怕首帧后只停 0.1s 也立刻断（流式下帧即活信号）。
+    """
+    path = tmp_path / "models.yaml"
+    extra = "stream:\n  idle_timeout: 0.1\n  max_seconds: 600\n"
+    path.write_text(TEST_YAML + extra, encoding="utf-8")
+    load_models_config(path)
+
+    async def _stall_after_first():
+        yield _fake_chunk("半个答案")
+        await asyncio.sleep(5)  # 远超 idle_timeout——上游假死形状
+        yield _fake_chunk("永远到不了")
+
+    monkeypatch.setattr(litellm, "acompletion", _Capture(_stall_after_first()))
+    with pytest.raises(UpstreamUnavailable) as ei:
+        await LlmClient().complete(
+            "petro-main", [{"role": "user", "content": "写一篇长文"}], timeout_seconds=5
+        )
+    assert "空闲超时" in ei.value.reason
+    assert ei.value.switchable is True  # 可切备——网关 fallback/重试面照常接管
+
+
+async def test_complete_total_guard_against_runaway(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """持续出帧但失控的 runaway → 总时长护栏拦停（可切备）。"""
+    path = tmp_path / "models.yaml"
+    extra = "stream:\n  idle_timeout: 5\n  max_seconds: 0.2\n"
+    path.write_text(TEST_YAML + extra, encoding="utf-8")
+    load_models_config(path)
+
+    async def _endless_drip():
+        while True:  # 持续出帧——永不空闲，但永不结束
+            yield _fake_chunk("滴")
+            await asyncio.sleep(0.05)
+
+    monkeypatch.setattr(litellm, "acompletion", _Capture(_endless_drip()))
+    with pytest.raises(UpstreamUnavailable) as ei:
+        await LlmClient().complete(
+            "petro-main", [{"role": "user", "content": "x"}], timeout_seconds=5
+        )
+    assert "护栏" in ei.value.reason
+
+
+async def test_complete_closes_stream_on_success(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """成功收流也要关闭流释放连接（异常弃流同径——连接泄漏面）。
+
+    桩用 aclose 形（litellm CustomStreamWrapper 真形状——只有 aclose 没有
+    close，审查 B 项回改：close 兜底另测会测不到生产路径）。
+    """
+    path = tmp_path / "models.yaml"
+    path.write_text(TEST_YAML, encoding="utf-8")
+    load_models_config(path)
+
+    closed: list[bool] = []
+
+    class _Stream:
+        def __init__(self, frames: list[dict[str, Any]]) -> None:
+            self._it = _fake_stream(frames).__aiter__()
+
+        def __anext__(self):
+            return self._it.__anext__()
+
+        async def aclose(self) -> None:
+            closed.append(True)
+
+    monkeypatch.setattr(litellm, "acompletion", _Capture(_Stream(_stream_script())))
+    await LlmClient().complete(
+        "petro-main", [{"role": "user", "content": "x"}], timeout_seconds=5
+    )
+    assert closed == [True]
+
+
+async def test_complete_usage_from_attr_shaped_frames(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """真环境帧形状（litellm pydantic 对象，attr 访问非 dict）→ usage 照取。
+
+    审查 C 项回归：litellm 流末帧 usage＝Usage 实例非 dict——isinstance 闸
+    会把它整个丢掉、计费静默降级为估算；本例锁死 attr 分支。
+    """
+
+    class _Delta:
+        content = "真帧形状"
+
+    class _Choice:
+        delta = _Delta()
+
+    class _Usage:
+        prompt_tokens = 321
+        completion_tokens = 123
+
+    class _AttrFrame:
+        def __init__(self) -> None:
+            self.choices = [_Choice()]
+            self.usage = _Usage()
+
+    async def _attr_stream():
+        yield _AttrFrame()
+
+    path = tmp_path / "models.yaml"
+    path.write_text(TEST_YAML, encoding="utf-8")
+    load_models_config(path)
+    monkeypatch.setattr(litellm, "acompletion", _Capture(_attr_stream()))
+    result = await LlmClient().complete(
+        "petro-main", [{"role": "user", "content": "x"}], timeout_seconds=5
+    )
+    assert result.content == "真帧形状"
+    assert (result.prompt_tokens, result.completion_tokens) == (321, 123)
+    assert result.usage_estimated is False
+
+
+async def test_complete_midstream_litellm_error_classified(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """流中帧异常（非空闲）→ 同一分类面归类，litellm 原生异常不出本模块。"""
+    path = tmp_path / "models.yaml"
+    path.write_text(TEST_YAML, encoding="utf-8")
+    load_models_config(path)
+
+    async def _explode_after_first():
+        yield _fake_chunk("开头")
+        raise lex.InternalServerError(message="i", llm_provider="p", model="m")  # 5xx 可切
+
+    monkeypatch.setattr(litellm, "acompletion", _Capture(_explode_after_first()))
+    with pytest.raises(UpstreamUnavailable):  # 5xx → 可切备族
+        await LlmClient().complete(
+            "petro-main", [{"role": "user", "content": "x"}], timeout_seconds=5
+        )
 
 
 # ---------- 切换判据二值分类（椒图：网络错/超时/5xx 可切；4xx/429 不切） ----------

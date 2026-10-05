@@ -26,6 +26,7 @@ B16：本模块只依赖 stdlib/litellm/httpx/infra.config——不 import domai
 
 from __future__ import annotations
 
+import asyncio
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -122,25 +123,72 @@ class LlmClient:
         max_tokens: int = 4096,
         **params: Any,
     ) -> LlmCompletion:
-        """按注册表构造一次上游调用（per-attempt 超时；SDK 重试恒关）。"""
-        entry = _entry(alias)
-        started = time.monotonic()
-        try:
-            resp = await litellm.acompletion(
-                model=f"{entry.provider}/{entry.model}",
-                api_base=entry.base_url or None,
-                api_key=entry.api_key or None,
-                messages=messages,
-                timeout=timeout_seconds,
-                num_retries=0,  # W-F2-4：重试只走网关层，SDK 层恒关防套娃放大
-                **params,
-            )
-        except Exception as exc:
-            raise classify_upstream_failure(alias, exc) from exc
-        duration_ms = int((time.monotonic() - started) * 1000)
+        """按注册表构造一次上游调用（G-01：真流式消费——调用方形状不变）。
 
-        content = resp["choices"][0]["message"]["content"] or ""
-        usage = resp.get("usage") or {}
+        - 超时语义两刀：litellm timeout＝连接＋首帧（TTFT）；帧间空闲超时＝
+          stream.idle_timeout（连续无新帧判上游假死）。非流式时代线上静默、
+          「总时长」是唯一死活判据，误杀长生成（百科整页写不完必超 30s）——
+          流式下每一帧都是活信号，写多久都不掐，只有帧停了才断。
+        - 总时长护栏 stream.max_seconds 独立存在：防"持续出帧但失控"的 runaway。
+        - 记账口径不变：usage 优先取末帧（include_usage），缺失 chars/4 估算；
+        - 空闲超时/护栏抛 UpstreamUnavailable（可切备——复用网关 fallback/重试/
+          熔断面）；litellm 异常仍走 classify_upstream_failure 同一分类面。
+        """
+        entry = _entry(alias)
+        stream_cfg = get_models_config().stream
+        started = time.monotonic()
+        stream = None
+        parts: list[str] = []
+        usage: dict[str, Any] = {}
+        try:
+            try:
+                stream = await litellm.acompletion(
+                    model=f"{entry.provider}/{entry.model}",
+                    api_base=entry.base_url or None,
+                    api_key=entry.api_key or None,
+                    messages=messages,
+                    timeout=timeout_seconds,  # 连接＋首帧（TTFT）
+                    num_retries=0,  # W-F2-4：重试只走网关层，SDK 层恒关防套娃放大
+                    stream=True,
+                    stream_options={"include_usage": True},
+                    **params,
+                )
+            except UpstreamError:
+                raise
+            except Exception as exc:
+                raise classify_upstream_failure(alias, exc) from exc
+
+            while True:
+                if time.monotonic() - started > stream_cfg.max_seconds:
+                    raise UpstreamUnavailable(
+                        alias,
+                        f"流总时长超 {stream_cfg.max_seconds:.0f}s 护栏——判失控可切备",
+                    )
+                try:
+                    chunk = await asyncio.wait_for(
+                        _frame_next(stream), timeout=stream_cfg.idle_timeout
+                    )
+                except StopAsyncIteration:
+                    break  # 正常收流终点
+                except TimeoutError:  # asyncio.TimeoutError 别名（py3.12）——帧间空闲超时
+                    raise UpstreamUnavailable(
+                        alias,
+                        f"流空闲超时：{stream_cfg.idle_timeout:.0f}s 无新帧——判上游假死可切备",
+                    ) from None
+                except UpstreamError:
+                    raise
+                except Exception as exc:
+                    raise classify_upstream_failure(alias, exc) from exc
+                piece, frame_usage = _chunk_fields(chunk)
+                if piece:
+                    parts.append(piece)
+                if frame_usage:
+                    usage = frame_usage
+        finally:
+            await _aclose_stream(stream)
+
+        duration_ms = int((time.monotonic() - started) * 1000)
+        content = "".join(parts)
         prompt = int(usage.get("prompt_tokens") or 0)
         completion = int(usage.get("completion_tokens") or 0)
         estimated = prompt == 0 and completion == 0
@@ -231,6 +279,69 @@ class _HttpStatusError(Exception):
     def __init__(self, status_code: int, body: str) -> None:
         super().__init__(f"HTTP {status_code}: {body[:200]}")
         self.status_code = status_code
+
+
+async def _frame_next(stream: Any) -> Any:
+    """流迭代器单步（StopAsyncIteration 透传——消费循环的正常终点）。"""
+    return await stream.__anext__()
+
+
+def _get(obj: Any, key: str) -> Any:
+    """帧字段取值——attr/mapping 双形兼容（litellm 帧对象与测试假帧）。"""
+    if obj is None:
+        return None
+    if isinstance(obj, dict):
+        return obj.get(key)
+    return getattr(obj, key, None)
+
+
+def _chunk_fields(chunk: Any) -> tuple[str, dict[str, Any]]:
+    """流帧 → (增量文本, usage 映射)。
+
+    usage 兼容 dict 与 pydantic Usage 对象（litellm 流末帧＝Usage 实例非 dict，
+    isinstance 闸会把它整个丢掉——计费静默降级为估算，审查 B/C 项回改）。
+    """
+    piece: Any = ""
+    choices = _get(chunk, "choices")
+    if choices:
+        delta = _get(choices[0], "delta")
+        piece = _get(delta, "content")
+    usage: dict[str, Any] = {}
+    frame_usage = _get(chunk, "usage")
+    if frame_usage is not None:
+        prompt = _get(frame_usage, "prompt_tokens")
+        completion = _get(frame_usage, "completion_tokens")
+        usage = {
+            "prompt_tokens": int(prompt) if isinstance(prompt, (int, float)) else 0,
+            "completion_tokens": int(completion) if isinstance(completion, (int, float)) else 0,
+        }
+    return (piece if isinstance(piece, str) else "", usage)
+
+
+async def _aclose_stream(stream: Any) -> None:
+    """关闭流释放连接（成功收流与异常弃流同径）。
+
+    litellm 流对象＝CustomStreamWrapper——只有 aclose 没有 close（aclose 内部
+    才真正释放底层 HTTP 连接）；close 兜底兼容测试假流。关闭失败不掩盖主路径异常。
+    """
+    aclose = getattr(stream, "aclose", None)
+    if aclose is not None:
+        try:
+            out = aclose()
+            if asyncio.iscoroutine(out):
+                await out
+        except Exception:  # 弃流清理面失败不掩盖主路径异常
+            return
+        return
+    close = getattr(stream, "close", None)
+    if close is None:
+        return
+    try:
+        out = close()
+        if asyncio.iscoroutine(out):
+            await out
+    except Exception:  # 同上——清理面静默
+        pass
 
 
 def _timeout_seconds(entry: ModelEntry) -> float:
