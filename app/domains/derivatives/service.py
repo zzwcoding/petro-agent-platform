@@ -120,11 +120,13 @@ class DerivativesService:
         kb: KbFacade,
         semantics: SemanticsFacade | None = None,
         graph: GraphStore | None = None,
+        branch_reporter: Any = None,
     ) -> None:
         self._gateway = gateway
         self._kb = kb
         self._semantics = semantics
         self._graph = graph  # 图存储 seam（生产装配 Neo4jGraphStore——main.py）
+        self._branch_reporter = branch_reporter  # G-02 支路进度回写缝（callable，可 None）
         self._store = WikiStore(db)
         self._extract_configs = ExtractConfigStore(db)
         self._recasts = _RecastRuntime(tasks={}, pending=set())
@@ -140,10 +142,12 @@ class DerivativesService:
         入库任务（任务体已 done——富化失败不阻塞整卷先例）。
         """
         payload = event.payload
+        task_id = str(payload.get("task_id") or "")
         if payload.get("config_snapshot", {}).get("wiki"):
             await self._spawn_generation(
                 str(payload["report_id"]),
                 str(payload["lib_id"]),
+                task_id=task_id,
             )
         if payload.get("config_snapshot", {}).get("graph"):
             self._spawn_graph_extract(
@@ -151,6 +155,7 @@ class DerivativesService:
                 str(payload["lib_id"]),
                 task_no=str(payload.get("task_id") or ""),
                 extract_snapshot=payload.get("extract_snapshot") or None,
+                task_id=task_id,
             )
 
     async def on_fragment_revised(self, event: DomainEvent) -> None:
@@ -179,11 +184,20 @@ class DerivativesService:
 
         self._recasts.tasks[report_id] = asyncio.create_task(_run())
 
-    async def _spawn_generation(self, report_id: str, lib_id: str) -> None:
+    async def _spawn_generation(
+        self, report_id: str, lib_id: str, task_id: str = ""
+    ) -> None:
+        reporter = self._branch_reporter
+        if reporter is not None and task_id:
+            await reporter(task_id, "wiki", "running")
         try:
             await self._generate(report_id, lib_id)
+            if reporter is not None and task_id:
+                await reporter(task_id, "wiki", "done")
         except Exception:  # 生成失败不阻塞入库任务（任务体已 done——只记日志）
             LOGGER.exception("wiki 生成失败 report=%s", report_id)
+            if reporter is not None and task_id:
+                await reporter(task_id, "wiki", "failed", detail="百科生成异常——见后端日志")
 
     # ---------- 生成支路（F50 工序） ----------
 
@@ -461,24 +475,59 @@ class DerivativesService:
         *,
         task_no: str,
         extract_snapshot: dict[str, Any] | None,
+        task_id: str = "",
     ) -> None:
         """graph 抽取任务族（进程内 asyncio——失败不阻塞入库任务）。"""
         self._graph_tasks = [
             t for t in getattr(self, "_graph_tasks", []) if not t.done()
         ]
+        reporter = self._branch_reporter
+
+        async def _report(state: str, detail: str | None = None,
+                          extra: dict[str, Any] | None = None) -> None:
+            if reporter is not None and task_id:
+                try:
+                    await reporter(task_id, "graph", state, detail, extra)
+                except Exception:  # 回写失败不影响支路（G-02 非关键面）
+                    LOGGER.exception("graph 支路进度回写失败 task=%s", task_id)
 
         async def _run() -> None:
+            await _report("running")
             try:
-                await self._extract_for_report(
+                stats = await self._extract_for_report(
                     report_id, lib_id, task_no=task_no,
-                    extract_snapshot=extract_snapshot,
+                    extract_snapshot=extract_snapshot, task_id=task_id,
                 )
+                await _report("done", extra=stats or None)
             except Exception:
                 LOGGER.exception(
                     "graph 抽取失败 report=%s task=%s", report_id, task_no
                 )
+                await _report("failed", detail="图谱抽取异常——见后端日志")
 
         self._graph_tasks.append(asyncio.create_task(_run()))
+
+    async def reextract_graph(self, report_id: str, lib_id: str) -> dict[str, Any]:
+        """图谱支路重跑（G-06——补 M-06 无重跑端点缺口；同报告运行中防重入）。
+
+        抽取设置沿用该库现行待生效配置（未保存过→出厂默认投影）；失败不阻塞
+        调用方——支路自身异常自捕获（与入库触发路径同款）。
+        """
+        await self._kb.report_detail(report_id)  # 404 早抛（报告不存在）
+        if not hasattr(self, "_graph_running"):
+            self._graph_running: set[str] = set()
+        if report_id in self._graph_running:
+            from app.domains.derivatives.domain import GraphParamError
+
+            raise GraphParamError("该报告的图谱抽取已在运行中——防重入")
+        self._graph_running.add(report_id)
+        self._spawn_graph_extract(
+            report_id, lib_id, task_no="reextract", extract_snapshot=None
+        )
+        # 支路收尾（含失败）解除防重入
+        task = self._graph_tasks[-1]
+        task.add_done_callback(lambda _t: self._graph_running.discard(report_id))
+        return {"report_id": report_id, "lib_id": lib_id, "spawned": True}
 
     async def _extract_for_report(
         self,
@@ -487,6 +536,7 @@ class DerivativesService:
         *,
         task_no: str,
         extract_snapshot: dict[str, Any] | None,
+        task_id: str = "",
     ) -> None:
         """图谱支路（F40）：chunk 挑选闸→LLM 按 ExtractConfig 抽三元组→三道闸
         →过闸写图＋拦下记 blocked-edges（namespace=库）。
@@ -509,7 +559,18 @@ class DerivativesService:
             "graph 抽取开始 report=%s lib=%s task=%s chunks=%d",
             report_id, lib_id, task_no, len(evidence_chunks),
         )
-        for frag in evidence_chunks:
+        reporter = self._branch_reporter
+        total = len(evidence_chunks)
+        edges_passed = 0
+        blocked_total = 0
+        for idx, frag in enumerate(evidence_chunks, start=1):
+            if reporter is not None and task_id:
+                try:
+                    await reporter(task_id, "graph", "running",
+                                   extra={"chunks_done": idx - 1, "chunks_total": total,
+                                          "edges": edges_passed, "blocked": blocked_total})
+                except Exception:  # 回写失败不影响抽取
+                    LOGGER.exception("graph 支路进度回写失败 task=%s", task_id)
             prompt = d.build_extract_prompt(cfg, section=frag.path, chunk_text=frag.text)
             completion = await self._gateway.complete(
                 GRAPH_EXTRACT_ALIAS,
@@ -544,9 +605,16 @@ class DerivativesService:
                     report_title=detail.doc, chunk_id=item.chunk_id,
                     blocked_at=now().strftime(DISPLAY_FMT),
                 )
+            edges_passed += len(passed)
+            blocked_total += len(blocked)
             LOGGER.info(
                 "graph 抽取 chunk=%s 过闸 %d 拦下 %d", frag.id, len(passed), len(blocked)
             )
+
+        return {
+            "chunks_total": total, "chunks_done": total,
+            "edges": edges_passed, "blocked": blocked_total,
+        }
 
     async def _load_config_for_lib(self, lib_id: str) -> d.ExtractConfig:
         """当前待生效配置（未保存过→出厂默认＝本体对号表投影）。"""

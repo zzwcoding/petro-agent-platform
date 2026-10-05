@@ -42,6 +42,17 @@ router = APIRouter(prefix="/api/graph", tags=["graph"])
 # ---------- 端点 1：GET /net 整图读 ----------
 
 
+class ReextractBody(BaseModel):
+    report_id: str
+    lib_id: str
+
+
+class ReextractResponse(BaseModel):
+    report_id: str
+    lib_id: str
+    spawned: bool
+
+
 class GraphNodeBody(BaseModel):
     id: str
     label: str
@@ -252,6 +263,21 @@ class BlockedEdgesResponse(BaseModel):
     lib_name: str
     blocked_edges: list[BlockedEdgeBody]
     stats: dict[str, int]
+
+
+@router.post("/reextract", response_model=ReextractResponse)
+async def reextract(
+    body: ReextractBody,
+    service: GraphDep,
+    security: SecurityDep,
+    actor: CurrentActor,
+) -> ReextractResponse:
+    """图谱支路重跑（G-06——补无重跑端点缺口；同报告防重入）。"""
+    receipt = await service.reextract_graph(body.report_id, body.lib_id)
+    await security.audit(AuditRow(
+        who=actor.who, action="图谱重抽", content=f"报告 {body.report_id} 图谱支路重跑",
+    ))
+    return ReextractResponse(**receipt)
 
 
 @router.get("/blocked-edges", response_model=BlockedEdgesResponse)

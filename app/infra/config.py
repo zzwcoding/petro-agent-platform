@@ -155,6 +155,7 @@ class StreamConfig(BaseModel):
 
     idle_timeout: float = 30.0  # 流空闲超时秒——连续无新帧判上游假死（网关可切备）
     max_seconds: float = 600.0  # 单次流总时长护栏秒——防持续出帧但失控的 runaway
+    llm_max_concurrency: int = 2  # 全局 LLM 并发上限（G-06 信号量——超限排队等而非挂死）
 
 
 class ModelsConfig(BaseModel):

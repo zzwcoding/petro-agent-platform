@@ -68,3 +68,4 @@ gateway:                     # D1 配置面四参数（端点 3 保存＝写回�
 stream:                      # 出站流式消费参数（G-01——独立顶层段：D1 按固定四键整块重写 gateway 段，新键不入该段）
   idle_timeout: 30           # 流空闲超时秒——连续无新帧判上游假死（网关可切备），建议 ≥5
   max_seconds: 600           # 单次流总时长护栏秒——防持续出帧但失控的 runaway
+  llm_max_concurrency: 2     # 全局 LLM 并发上限（G-06——上游套餐并发 2，超限排队）

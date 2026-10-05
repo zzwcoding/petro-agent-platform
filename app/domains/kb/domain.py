@@ -1009,7 +1009,11 @@ class ConfirmReceipt:
 
 @dataclass(frozen=True, slots=True)
 class TaskProgress:
-    """轮询视图（端点 8/10：五步节点＋服务端组装说明＋定型快照）。"""
+    """轮询视图（端点 8/10：五步节点＋服务端组装说明＋定型快照）。
+
+    branches＝G-02 支路进度（additive——百科/图谱后台支路状态，任务 done 后
+    仍在推进/失败）；形状 {"wiki": {...}, "graph": {...}}，空对象＝未触发。
+    """
 
     id: str
     state: str
@@ -1019,6 +1023,7 @@ class TaskProgress:
     reason: str | None
     nodes: list[TaskNode]
     config_snapshot: dict[str, Any]
+    branches: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)

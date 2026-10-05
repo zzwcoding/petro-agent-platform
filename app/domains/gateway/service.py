@@ -78,6 +78,7 @@ class GatewayService:
         self._budget = BudgetStore(db)
         self._router = d.RouterState()
         self._fault_alias: str | None = None  # 演练注入：临时摘主模型路由（ADR-0003 裁决 13）
+        self._llm_gate: asyncio.Semaphore | None = None  # G-06 全局 LLM 并发闸（懒建）
         self._drill_tasks: set[asyncio.Task[None]] = set()
         self._drill_gate = asyncio.Lock()  # 重入 409 的进程内双保险（DB 判据为准）
 
@@ -108,6 +109,13 @@ class GatewayService:
 
         timeout = float(config.gateway.request_timeout)
         retries = config.gateway.num_retries
+        if self._llm_gate is None:
+            import asyncio as _asyncio
+
+            self._llm_gate = _asyncio.Semaphore(
+                max(1, int(get_models_config().stream.llm_max_concurrency))
+            )
+        gate = self._llm_gate
         # 域级键剥除后再转发上游（note＝记账备注槽归网关域消费，litellm 不识）
         forward = {k: v for k, v in params.items() if k not in _DOMAIN_ONLY_PARAMS}
         attempted: list[str] = []  # 本次调用内失败/被摘的别名（切换留痕）
@@ -124,12 +132,14 @@ class GatewayService:
             answer: LlmCompletion | None = None
             for _attempt in range(1 + retries):
                 try:
-                    answer = await self._backend.complete(
-                        candidate,
-                        messages,
-                        timeout_seconds=timeout,
-                        **forward,
-                    )
+                    # G-06：全局并发闸在此收口——排队等而非挂死（含支路并发）。
+                    async with gate:
+                        answer = await self._backend.complete(
+                            candidate,
+                            messages,
+                            timeout_seconds=timeout,
+                            **forward,
+                        )
                     break
                 except UpstreamUnavailable as exc:  # 网络错/超时/5xx——可重试可切备
                     last_error = exc

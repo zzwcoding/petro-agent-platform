@@ -439,6 +439,7 @@ class TaskProgressResponse(BaseModel):
     reason: str | None
     nodes: list[TaskNodeItem]
     config_snapshot: dict[str, object]
+    branches: dict[str, object] = {}
 
 
 def _progress_response(view: TaskProgress) -> TaskProgressResponse:
@@ -450,6 +451,7 @@ def _progress_response(view: TaskProgress) -> TaskProgressResponse:
             for n in view.nodes
         ],
         config_snapshot=view.config_snapshot,
+        branches=view.branches,
     )
 
 

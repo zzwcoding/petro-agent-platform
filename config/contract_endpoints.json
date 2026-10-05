@@ -431,6 +431,13 @@
       "owner": ""
     },
     {
+      "book": "B5",
+      "no": "6",
+      "method": "POST",
+      "path": "/api/graph/reextract",
+      "owner": ""
+    },
+    {
       "book": "C1",
       "no": "1",
       "method": "GET",

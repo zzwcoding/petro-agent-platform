@@ -435,7 +435,25 @@ class KbService:
             reason=row.reason,
             nodes=nodes,
             config_snapshot=dict(row.config_snapshot),
+            branches=dict(getattr(row, "branch_status", None) or {}),
         )
+
+    async def set_branch_status(
+        self, task_id: str, branch: str, state: str, detail: str | None = None,
+        extra: dict[str, Any] | None = None,
+    ) -> None:
+        """G-02 支路进度回写（组合根注入 derivatives——B9 反向缝：kb 不 import 对方）。"""
+        row = await self._tasks.get(task_id)
+        if row is None:
+            return
+        payload = dict(getattr(row, "branch_status", None) or {})
+        entry: dict[str, Any] = {"state": state}
+        if detail:
+            entry["detail"] = detail[:200]
+        if extra:
+            entry.update(extra)
+        payload[branch] = entry
+        row.branch_status = payload
 
     def _build_nodes(self) -> list[d.TaskNode]:
         return [d.TaskNode(key=key, label=d.STEP_LABELS[key]) for key in d.STEP_KEYS]

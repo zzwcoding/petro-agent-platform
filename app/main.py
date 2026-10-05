@@ -195,12 +195,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.graph = Neo4jGraphStore()
     # derivatives wiki＋graph 支路（B9：订阅 kb 事件，不与 kb 直接互调；semantics
     # 只读接口供台账挂接词表——B5 读接口纪律）
+    async def branch_reporter(
+        task_id: str, branch: str, state: str,
+        detail: str | None = None, extra: dict[str, Any] | None = None,
+    ) -> None:
+        # G-02 支路进度回写缝（B9：derivatives 只见 callable，不见 kb 表模型）
+        await app.state.kb.set_branch_status(task_id, branch, state, detail, extra)
+
     app.state.derivatives = DerivativesService(
         manager,
         app.state.gateway,
         app.state.kb,
         app.state.semantics,
         graph=app.state.graph,
+        branch_reporter=branch_reporter,
     )
 
     # faq 域（P1-06——98 §3.3）：台账口径/切片原文/本体命中/知识库面语料经组合根
