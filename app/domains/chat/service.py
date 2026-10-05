@@ -1510,7 +1510,10 @@ class ChatService:
         yield d.SseEvent(d.FRAME_DONE, {})
         await self._store.append_message(
             run.session_id, role="assistant", text=_answer_text(answer),
-            run_id=run.id, answer=answer,
+            run_id=run.id,
+            # 持久化边界 JSON 安全化：问数链表格行含 asyncpg Decimal/date 对象，
+            # JSONB 列序列化即炸（G-01 复测期修复——answer 帧已出但历史回放丢答案）
+            answer=json.loads(json.dumps(answer, ensure_ascii=False, default=str)),
         )
         await self._store.touch_session(run.session_id)
         await self._finish_run(run, verdict=verdict)
@@ -1753,6 +1756,13 @@ def _answer_text(answer: dict[str, Any]) -> str:
     kind = str(answer.get("kind", ""))
     if kind in ("text", "alert"):
         return str(answer.get("text", ""))
+    if kind == "table":
+        # 表格答案的历史回放可读兜底（G-01 复测期——ask.py 问数批后 replan 空文本）：
+        # 行数＋列名概览；正文表在 answer 载荷里，A1 回放按 kind=table 渲染。
+        rows = answer.get("rows") or []
+        cols = list(rows[0].keys()) if rows and isinstance(rows[0], dict) else []
+        suffix = f" · 列：{'/'.join(map(str, cols))}）" if cols else "）"
+        return f"（数据表：{len(rows)} 行" + suffix
     return str(answer.get("note") or answer.get("title") or "")
 
 

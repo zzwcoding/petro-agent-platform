@@ -60,8 +60,11 @@ def render_frame(frame_id: int, event: str, data: Mapping[str, Any]) -> str:
     """00 §6.1 帧信封：`id/event/data` 三行＋空行收束（SSE 帧界）。
 
     帧序号即 Last-Event-ID 依据（00 §6.1）——续推断点按此回放。
+    default=str 兜底：问数链表格答案含 asyncpg Decimal/date 对象，无兜底即
+    流内异常（真数据首问现形——G-01 复测期修复）；字符串化对表格展示无损。
     """
-    return f"id: {frame_id}\nevent: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+    payload = json.dumps(data, ensure_ascii=False, default=str)
+    return f"id: {frame_id}\nevent: {event}\ndata: {payload}\n\n"
 
 
 def error_frame(frame_id: int, code: str, message: str, hint: str | None = None) -> str:

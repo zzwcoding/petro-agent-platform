@@ -1,0 +1,1177 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-45c759",
+    "thread_id": "sess-6a3410"
+   }
+  },
+  {
+   "id": 1,
+   "event": "stage",
+   "data": {
+    "stage": 0
+   }
+  },
+  {
+   "id": 2,
+   "event": "stage",
+   "data": {
+    "stage": 1
+   }
+  },
+  {
+   "id": 3,
+   "event": "node",
+   "data": {
+    "key": "N1",
+    "name": "统一安检",
+    "label": "统一安检",
+    "state": "process",
+    "note": "统一安检——三道逐条翻（注入扫描/禁用词索引/身份与数据域）",
+    "tag": "代码 · 字面规则"
+   }
+  },
+  {
+   "id": 4,
+   "event": "sec_check",
+   "data": {
+    "seq": 1,
+    "name": "注入扫描",
+    "result": "pass",
+    "note": "字面规则未命中"
+   }
+  },
+  {
+   "id": 5,
+   "event": "sec_check",
+   "data": {
+    "seq": 2,
+    "name": "禁用词索引",
+    "result": "pass",
+    "note": "字面规则未命中"
+   }
+  },
+  {
+   "id": 6,
+   "event": "sec_check",
+   "data": {
+    "seq": 3,
+    "name": "身份与数据域",
+    "result": "pass",
+    "note": "阿强 · 平台运维"
+   }
+  },
+  {
+   "id": 7,
+   "event": "node",
+   "data": {
+    "key": "N1",
+    "name": "统一安检",
+    "label": "统一安检",
+    "state": "finish",
+    "note": "三道全过——放行"
+   }
+  },
+  {
+   "id": 8,
+   "event": "node",
+   "data": {
+    "key": "N3",
+    "name": "轻装配",
+    "label": "轻装配",
+    "state": "process",
+    "note": "轻装配——@ 前门直取＋六路匹配器全扫全收集",
+    "tag": "代码 · 毫秒级"
+   }
+  },
+  {
+   "id": 9,
+   "event": "match",
+   "data": {
+    "matcher": "FAQ 索引",
+    "status": "miss",
+    "note": "归一化精确未命中"
+   }
+  },
+  {
+   "id": 10,
+   "event": "match",
+   "data": {
+    "matcher": "指标卡台账",
+    "status": "hit",
+    "confidence": "high",
+    "note": "命中 「日产油量」"
+   }
+  },
+  {
+   "id": 11,
+   "event": "match",
+   "data": {
+    "matcher": "术语台账",
+    "status": "miss",
+    "note": "台账未命中"
+   }
+  },
+  {
+   "id": 12,
+   "event": "match",
+   "data": {
+    "matcher": "工具清单",
+    "status": "miss",
+    "note": "工具注册表未建——落空"
+   }
+  },
+  {
+   "id": 13,
+   "event": "match",
+   "data": {
+    "matcher": "分析工作流",
+    "status": "miss",
+    "note": "工作流运行时未建——落空"
+   }
+  },
+  {
+   "id": 14,
+   "event": "match",
+   "data": {
+    "matcher": "报告索引",
+    "status": "hit",
+    "confidence": "high",
+    "note": "命中《《C-渤中34-5油田三季度注水调整与生产运行分析》》正文（vector 腿 · score=0.86）"
+   }
+  },
+  {
+   "id": 15,
+   "event": "node",
+   "data": {
+    "key": "N3",
+    "name": "轻装配",
+    "label": "轻装配",
+    "state": "finish",
+    "note": "六路候选：命中 2 路——共池 5 支（全扫全收集，落空进建议池）"
+   }
+  },
+  {
+   "id": 16,
+   "event": "node",
+   "data": {
+    "key": "N4",
+    "name": "装配块",
+    "label": "装配块",
+    "state": "process",
+    "note": "装配块——锚点/槽位/候选/17 链清单组卷",
+    "tag": "给裁决的呈堂材料"
+   }
+  },
+  {
+   "id": 17,
+   "event": "assembly",
+   "data": {
+    "anchor_line": null,
+    "slots": "指标＝日产油量 · 报告＝《《C-渤中34-5油田三季度注水调整与生产运行分析》》",
+    "terms": [],
+    "candidates": [
+     {
+      "matcher": "指标卡台账",
+      "name": "日产油量",
+      "confidence": "high",
+      "kind": "metric"
+     },
+     {
+      "matcher": "报告索引",
+      "name": "《《C-渤中34-5油田三季度注水调整与生产运行分析》》正文",
+      "confidence": "high",
+      "kind": "report",
+      "note": "vector 腿 · score=0.86"
+     },
+     {
+      "matcher": "报告索引",
+      "name": "《《A-W11井完井工程报告》》正文",
+      "confidence": "high",
+      "kind": "report",
+      "note": "vector 腿 · score=0.85"
+     },
+     {
+      "matcher": "报告索引",
+      "name": "《《A-W11井完井工程报告》》章节 02 第二章 钻井液与完井液",
+      "confidence": "high",
+      "kind": "report",
+      "note": "vector 腿 · score=0.83"
+     },
+     {
+      "matcher": "报告索引",
+      "name": "《《C-渤中34-5油田三季度注水调整与生产运行分析》》正文",
+      "confidence": "high",
+      "kind": "report",
+      "note": "vector 腿 · score=0.80"
+     }
+    ],
+    "chains": [
+     "统一安检链",
+     "状态机六站链",
+     "指标卡直出链",
+     "FAQ直出链",
+     "工具执行链",
+     "工作流执行链",
+     "检索问答链",
+     "图谱问答链",
+     "汇报生成链",
+     "大结果落盘链",
+     "Action合同链",
+     "外发拦截链",
+     "澄清反问链",
+     "口径消歧链",
+     "新鲜度闸链",
+     "行级权限链",
+     "上下文注入链"
+    ]
+   }
+  },
+  {
+   "id": 18,
+   "event": "node",
+   "data": {
+    "key": "N4",
+    "name": "装配块",
+    "label": "装配块",
+    "state": "finish",
+    "note": "装配块组卷完成——slots＝指标＝日产油量 · 报告＝《《C-渤中34-5油田三季度注水调整与生产运行分析》》"
+   }
+  },
+  {
+   "id": 19,
+   "event": "stage",
+   "data": {
+    "stage": 2
+   }
+  },
+  {
+   "id": 20,
+   "event": "node",
+   "data": {
+    "key": "N5",
+    "name": "意图裁决",
+    "label": "意图裁决",
+    "state": "process",
+    "note": "意图裁决——petro-main 分类（caller=chat.intent.verdict，超时 8s）；失败/超时/解析坏→确定性信号路由兜底（不许问挂）",
+    "tag": "意图裁决 · LLM＋兜底"
+   }
+  },
+  {
+   "id": 21,
+   "event": "verdict",
+   "data": {
+    "chain": "状态机六站链",
+    "slots": "指标＝日产油量 · 报告＝《《C-渤中34-5油田三季度注水调整与生产运行分析》》",
+    "confidence": "高（模型意图裁决 0.95）",
+    "need_clarify": false,
+    "source": "llm"
+   }
+  },
+  {
+   "id": 22,
+   "event": "node",
+   "data": {
+    "key": "N5",
+    "name": "意图裁决",
+    "label": "意图裁决",
+    "state": "finish",
+    "note": "裁决输出（来源＝llm）——chain＝状态机六站链 · confidence＝高（模型意图裁决 0.95）"
+   }
+  },
+  {
+   "id": 23,
+   "event": "node",
+   "data": {
+    "key": "N5b",
+    "name": "裁决核验",
+    "label": "裁决核验",
+    "state": "process"
+   }
+  },
+  {
+   "id": 24,
+   "event": "node",
+   "data": {
+    "key": "N5b",
+    "name": "裁决核验",
+    "label": "裁决核验",
+    "state": "finish",
+    "note": "chain「状态机六站链」在 17 链清单内且已接线——核验通过（闭世界枚举＋注册面）"
+   }
+  },
+  {
+   "id": 25,
+   "event": "node",
+   "data": {
+    "key": "N6",
+    "name": "链路分派",
+    "label": "链路分派",
+    "state": "process",
+    "tag": "查映射表派链"
+   }
+  },
+  {
+   "id": 26,
+   "event": "node",
+   "data": {
+    "key": "N6",
+    "name": "链路分派",
+    "label": "链路分派",
+    "state": "finish",
+    "note": "已分派至「状态机六站链」——后续步骤由链体执行"
+   }
+  },
+  {
+   "id": 27,
+   "event": "stage",
+   "data": {
+    "stage": 3
+   }
+  },
+  {
+   "id": 28,
+   "event": "node",
+   "data": {
+    "key": "N7.1",
+    "name": "意图识别",
+    "label": "意图识别",
+    "state": "process",
+    "note": "意图识别——复用意图裁决阶段解析结果，仅做缺参校验（F7 票 94 注记）",
+    "tag": "校验三要素 · 零模型调用"
+   }
+  },
+  {
+   "id": 29,
+   "event": "node",
+   "data": {
+    "key": "N7.1",
+    "name": "意图识别",
+    "label": "意图识别",
+    "state": "finish",
+    "note": "三要素齐：指标＝日产油量（台账「日产油量（吨）」）· 时间＝最近 30 天（默认） · 条数＝50（默认窗——问句无显式时间）——确定性校验通过，未额外调用模型"
+   }
+  },
+  {
+   "id": 30,
+   "event": "node",
+   "data": {
+    "key": "N7.2",
+    "name": "语义检索",
+    "label": "语义检索",
+    "state": "process",
+    "note": "语义检索——注册读模型选表（白名单判据）",
+    "tag": "选表"
+   }
+  },
+  {
+   "id": 31,
+   "event": "node_line",
+   "data": {
+    "key": "N7.2",
+    "mark": "✓",
+    "text": "选表：agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）"
+   }
+  },
+  {
+   "id": 32,
+   "event": "node_line",
+   "data": {
+    "key": "N7.2",
+    "mark": "○",
+    "text": "外表 erp_well_register 不在本轮选表命中集——交下一站执行前表引用比对（F14）"
+   }
+  },
+  {
+   "id": 33,
+   "event": "node",
+   "data": {
+    "key": "N7.2",
+    "name": "语义检索",
+    "label": "语义检索",
+    "state": "finish",
+    "note": "选表落定：agg 星型三表（99 册 §2.12 注册——事实表组合 PK 挂两维 PK 连）"
+   }
+  },
+  {
+   "id": 34,
+   "event": "node",
+   "data": {
+    "key": "N7.3",
+    "name": "SQL 生成",
+    "label": "SQL 生成",
+    "state": "process",
+    "note": "SQL 生成——模板化（注册指标声明口径先行）",
+    "tag": "模板装配 · 零模型调用"
+   }
+  },
+  {
+   "id": 35,
+   "event": "node_line",
+   "data": {
+    "key": "N7.3",
+    "mark": "→",
+    "text": "模板装配 SQL：\nSELECT w.well_id AS 井号, w.block_name AS 区块, SUM(m.oil_output) AS 日产油量合计（吨）\nFROM agg.fct_daily_metering m\n  JOIN agg.dim_well w ON w.well_id = m.well_id\n  JOIN agg.dim_date d ON d.date = m.prod_date\nWHERE m.prod_date >= '2026-09-06' AND m.prod_date < '2026-10-06'\nGROUP BY w.well_id, w.block_name\nORDER BY SUM(m.oil_output) DESC\nLIMIT 50"
+   }
+  },
+  {
+   "id": 36,
+   "event": "node",
+   "data": {
+    "key": "N7.3",
+    "name": "SQL 生成",
+    "label": "SQL 生成",
+    "state": "finish",
+    "note": "模板装配完成（日产油量 → agg.oil_output，LIMIT 50——没写补默认 50）——零自由生成"
+   }
+  },
+  {
+   "id": 37,
+   "event": "node",
+   "data": {
+    "key": "N7.4",
+    "name": "执行前安检",
+    "label": "执行前安检",
+    "state": "process",
+    "note": "执行前安检——新鲜度（N7.4a）→ 行级权限（N7.4b）→ 外表审批（N7.4c）",
+    "tag": "执行前安检 · 三闸"
+   }
+  },
+  {
+   "id": 38,
+   "event": "node",
+   "data": {
+    "key": "N7.4a",
+    "name": "新鲜度闸",
+    "label": "新鲜度闸",
+    "state": "process",
+    "tag": "出数前比对批次水位"
+   }
+  },
+  {
+   "id": 39,
+   "event": "node",
+   "data": {
+    "key": "N7.4a",
+    "name": "新鲜度闸",
+    "label": "新鲜度闸",
+    "state": "finish",
+    "note": "比对：查询窗「最近 30 天（默认）」整体晚于数据水位 2026-08-31（落后 35 天 · 超期）——拦停，不出空数——接续检索问答链（报告库检索结果作辅助）"
+   }
+  },
+  {
+   "id": 40,
+   "event": "node",
+   "data": {
+    "key": "N7.4",
+    "name": "执行前安检",
+    "label": "执行前安检",
+    "state": "finish",
+    "note": "新鲜度闸拦停——问数不出数，接续检索问答链（报告库辅助，非权威数值）"
+   }
+  },
+  {
+   "id": 41,
+   "event": "notice",
+   "data": {
+    "level": "info",
+    "text": "数据库口径未能出数——已自动接续检索问答链：以下为报告库检索结果（非权威数值），数值请以权威数据口径为准。"
+   }
+  },
+  {
+   "id": 42,
+   "event": "node",
+   "data": {
+    "key": "N17",
+    "name": "检索问答",
+    "label": "检索问答",
+    "state": "process",
+    "note": "检索问答链开跑——S0–S7 瀑布逐级推进",
+    "tag": "代码 · 语义瀑布逐级推进"
+   }
+  },
+  {
+   "id": 43,
+   "event": "node",
+   "data": {
+    "key": "S0",
+    "name": "身份四要素",
+    "label": "身份四要素",
+    "state": "process"
+   }
+  },
+  {
+   "id": 44,
+   "event": "node",
+   "data": {
+    "key": "S0",
+    "name": "身份四要素",
+    "label": "身份四要素",
+    "state": "finish",
+    "note": "身份四要素确认：身份=阿强 · 平台运维 · 会话 run=run-45c759 · 口径版本＝当前生效配置 · 权限＝系统管理员（阶段 1 单一角色）"
+   }
+  },
+  {
+   "id": 45,
+   "event": "node",
+   "data": {
+    "key": "S1",
+    "name": "显式锚定",
+    "label": "显式锚定",
+    "state": "process"
+   }
+  },
+  {
+   "id": 46,
+   "event": "node",
+   "data": {
+    "key": "S1",
+    "name": "显式锚定",
+    "label": "显式锚定",
+    "state": "finish",
+    "note": "无 @ 锚定——进入下一级"
+   }
+  },
+  {
+   "id": 47,
+   "event": "node",
+   "data": {
+    "key": "S3",
+    "name": "词表四级",
+    "label": "词表四级",
+    "state": "process"
+   }
+  },
+  {
+   "id": 48,
+   "event": "node",
+   "data": {
+    "key": "S3",
+    "name": "词表四级",
+    "label": "词表四级",
+    "state": "finish",
+    "note": "台账完全一致命中：「日产油量」——宁可查不到，不给「差不多」的结果（词表级命中不停下级——词条材料随装配进生成，S4/S5 照跑）"
+   }
+  },
+  {
+   "id": 49,
+   "event": "node",
+   "data": {
+    "key": "S4",
+    "name": "双路召回",
+    "label": "双路召回",
+    "state": "process"
+   }
+  },
+  {
+   "id": 50,
+   "event": "node",
+   "data": {
+    "key": "S4",
+    "name": "双路召回",
+    "label": "双路召回",
+    "state": "finish",
+    "note": "双路召回：向量 20 条＋关键词 3 条 → 合并（rrf_rank · k=60 固定推荐值） → 前 20 进精排（fast）"
+   }
+  },
+  {
+   "id": 51,
+   "event": "node",
+   "data": {
+    "key": "S5",
+    "name": "图扩展",
+    "label": "图扩展",
+    "state": "wait",
+    "note": "S5 图扩展未启用——请求直接跳过、不花开销（将来接入知识图谱扩展时在这里开闸）",
+    "skipped": true
+   }
+  },
+  {
+   "id": 52,
+   "event": "node",
+   "data": {
+    "key": "S6",
+    "name": "资格裁决",
+    "label": "资格裁决",
+    "state": "process"
+   }
+  },
+  {
+   "id": 53,
+   "event": "notice",
+   "data": {
+    "level": "info",
+    "text": "报告类证据 20 支，仅送前 4 支进生成——另有 16 支未列出。"
+   }
+  },
+  {
+   "id": 54,
+   "event": "node",
+   "data": {
+    "key": "S6",
+    "name": "资格裁决",
+    "label": "资格裁决",
+    "state": "finish",
+    "note": "资格裁决：候选 5 支（生成窗分池——报告类上限 4＋台账类上限 2，两池互不占位）· 最高证据分 1.00——多候选/缺参澄清在裁决层完成（有界循环），链内直连执行"
+   }
+  },
+  {
+   "id": 55,
+   "event": "node",
+   "data": {
+    "key": "S7",
+    "name": "权威源回读",
+    "label": "权威源回读",
+    "state": "process"
+   }
+  },
+  {
+   "id": 56,
+   "event": "node",
+   "data": {
+    "key": "S7",
+    "name": "权威源回读",
+    "label": "权威源回读",
+    "state": "finish",
+    "note": "权威源回读：指标台账核对通过 · 无指标口径挂载——已正式发布且在现行目录才放行"
+   }
+  },
+  {
+   "id": 57,
+   "event": "node",
+   "data": {
+    "key": "GEN",
+    "name": "限定作答＋引用登记",
+    "label": "限定作答＋引用登记",
+    "state": "process",
+    "tag": "模型第 1 次调用"
+   }
+  },
+  {
+   "id": 58,
+   "event": "node_line",
+   "data": {
+    "key": "GEN",
+    "mark": "→",
+    "text": "模型第 1 次调用——限定作答（只按编号材料作答，不编造材料之外的事实）"
+   }
+  },
+  {
+   "id": 59,
+   "event": "node",
+   "data": {
+    "key": "GEN",
+    "name": "限定作答＋引用登记",
+    "label": "限定作答＋引用登记",
+    "state": "finish",
+    "note": "生成完成——引用登记 4 条"
+   }
+  },
+  {
+   "id": 60,
+   "event": "node",
+   "data": {
+    "key": "N17",
+    "name": "检索问答",
+    "label": "检索问答",
+    "state": "finish",
+    "note": "检索问答收束——证据 5 支 · 引用 4 条逐条核验通过"
+   }
+  },
+  {
+   "id": 61,
+   "event": "node_line",
+   "data": {
+    "key": "N17",
+    "mark": "·",
+    "text": "配置核对：三级顺序＝锚定、词表、双路 · 早停＝开（@锚定级命中即跳），S3 命中不停下级 · topK＝20/20 · 前 N＝20 · 生成窗＝报告类 4＋台账类 2 · 精排＝fast · 引用格式＝page · 兜底＝fixed"
+   }
+  },
+  {
+   "id": 62,
+   "event": "token",
+   "data": {
+    "delta": "【数据库口径未能出数，以下为报告库检索结果（非权"
+   }
+  },
+  {
+   "id": 63,
+   "event": "token",
+   "data": {
+    "delta": "威数值）】\n材料中并未提供井位台账中各井逐井的「"
+   }
+  },
+  {
+   "id": 64,
+   "event": "token",
+   "data": {
+    "delta": "日产油量」明细数据，因此无法判定单井日产油量的最"
+   }
+  },
+  {
+   "id": 65,
+   "event": "token",
+   "data": {
+    "delta": "高井是哪一口 [台账「日产油量」]。可供参考的日"
+   }
+  },
+  {
+   "id": 66,
+   "event": "token",
+   "data": {
+    "delta": "产油量信息均为非台账来源或非\"单井日产油量\"口径"
+   }
+  },
+  {
+   "id": 67,
+   "event": "token",
+   "data": {
+    "delta": "：\n\n- 油田整体的\"平均日产油\"：7 月 10"
+   }
+  },
+  {
+   "id": 68,
+   "event": "token",
+   "data": {
+    "delta": "40 m³/d、8 月 1026 m³/d、9 "
+   }
+  },
+  {
+   "id": 69,
+   "event": "token",
+   "data": {
+    "delta": "月 1043 m³/d，三季度均值 1036 m"
+   }
+  },
+  {
+   "id": 70,
+   "event": "token",
+   "data": {
+    "delta": "³/d，属油田平均指标，并非单井最高值 [《C-"
+   }
+  },
+  {
+   "id": 71,
+   "event": "token",
+   "data": {
+    "delta": "渤中34-5油田三季度注水调整与生产运行分析》 "
+   }
+  },
+  {
+   "id": 72,
+   "event": "token",
+   "data": {
+    "delta": "· 正文]。\n- W-11 井完井求产期间 12"
+   }
+  },
+  {
+   "id": 73,
+   "event": "token",
+   "data": {
+    "delta": " mm 油嘴制度下折算日产油 386 m³/d，"
+   }
+  },
+  {
+   "id": 74,
+   "event": "token",
+   "data": {
+    "delta": "但这是诱导求产阶段的产能测试结果，并非台账日产油"
+   }
+  },
+  {
+   "id": 75,
+   "event": "token",
+   "data": {
+    "delta": "量 [《A-W11井完井工程报告》 · 章节 0"
+   }
+  },
+  {
+   "id": 76,
+   "event": "token",
+   "data": {
+    "delta": "7 第七章 诱导求产与初期产能]。\n- 邻井对照"
+   }
+  },
+  {
+   "id": 77,
+   "event": "token",
+   "data": {
+    "delta": "中给出的\"初期日产油\"：W-09 井 402 m"
+   }
+  },
+  {
+   "id": 78,
+   "event": "token",
+   "data": {
+    "delta": "³/d、W-11 井 386 m³/d、W-07"
+   }
+  },
+  {
+   "id": 79,
+   "event": "token",
+   "data": {
+    "delta": " 井 291 m³/d；此外 W-07 井目前（"
+   }
+  },
+  {
+   "id": 80,
+   "event": "token",
+   "data": {
+    "delta": "递减排至）96 m³/d、含水 71.4%。这些"
+   }
+  },
+  {
+   "id": 81,
+   "event": "token",
+   "data": {
+    "delta": "数据均来源于完井报告对照表，而非井位台账 [《A"
+   }
+  },
+  {
+   "id": 82,
+   "event": "token",
+   "data": {
+    "delta": "-W11井完井工程报告》 · 章节 10 第十章"
+   }
+  },
+  {
+   "id": 83,
+   "event": "token",
+   "data": {
+    "delta": " 邻井完井情况对照]。\n\n综上，单凭现有材料无法"
+   }
+  },
+  {
+   "id": 84,
+   "event": "token",
+   "data": {
+    "delta": "回答\"井位台账里日产油量最高的井是哪口\"，需要井"
+   }
+  },
+  {
+   "id": 85,
+   "event": "token",
+   "data": {
+    "delta": "位台账中的单井日产油量逐井明细方可作答 [台账「"
+   }
+  },
+  {
+   "id": 86,
+   "event": "token",
+   "data": {
+    "delta": "日产油量」]。"
+   }
+  },
+  {
+   "id": 87,
+   "event": "citation",
+   "data": {
+    "ref": "c1",
+    "kind": "台账条目",
+    "label": "台账「日产油量」",
+    "locator": {
+     "section": "指标台账",
+     "caliber": "A"
+    }
+   }
+  },
+  {
+   "id": 88,
+   "event": "citation",
+   "data": {
+    "ref": "c2",
+    "kind": "报告引用",
+    "label": "《C-渤中34-5油田三季度注水调整与生产运行分析》 · 正文",
+    "locator": {
+     "report": "《C-渤中34-5油田三季度注水调整与生产运行分析》",
+     "section": "正文",
+     "fragment_id": "f47"
+    }
+   }
+  },
+  {
+   "id": 89,
+   "event": "citation",
+   "data": {
+    "ref": "c3",
+    "kind": "报告引用",
+    "label": "《A-W11井完井工程报告》 · 章节 07 第七章 诱导求产与初期产能",
+    "locator": {
+     "report": "《A-W11井完井工程报告》",
+     "section": "章节 07 第七章 诱导求产与初期产能",
+     "fragment_id": "f74"
+    }
+   }
+  },
+  {
+   "id": 90,
+   "event": "citation",
+   "data": {
+    "ref": "c4",
+    "kind": "报告引用",
+    "label": "《A-W11井完井工程报告》 · 章节 10 第十章 邻井完井情况对照",
+    "locator": {
+     "report": "《A-W11井完井工程报告》",
+     "section": "章节 10 第十章 邻井完井情况对照",
+     "fragment_id": "f79"
+    }
+   }
+  },
+  {
+   "id": 91,
+   "event": "answer",
+   "data": {
+    "kind": "text",
+    "text": "【数据库口径未能出数，以下为报告库检索结果（非权威数值）】\n材料中并未提供井位台账中各井逐井的「日产油量」明细数据，因此无法判定单井日产油量的最高井是哪一口 [台账「日产油量」]。可供参考的日产油量信息均为非台账来源或非\"单井日产油量\"口径：\n\n- 油田整体的\"平均日产油\"：7 月 1040 m³/d、8 月 1026 m³/d、9 月 1043 m³/d，三季度均值 1036 m³/d，属油田平均指标，并非单井最高值 [《C-渤中34-5油田三季度注水调整与生产运行分析》 · 正文]。\n- W-11 井完井求产期间 12 mm 油嘴制度下折算日产油 386 m³/d，但这是诱导求产阶段的产能测试结果，并非台账日产油量 [《A-W11井完井工程报告》 · 章节 07 第七章 诱导求产与初期产能]。\n- 邻井对照中给出的\"初期日产油\"：W-09 井 402 m³/d、W-11 井 386 m³/d、W-07 井 291 m³/d；此外 W-07 井目前（递减排至）96 m³/d、含水 71.4%。这些数据均来源于完井报告对照表，而非井位台账 [《A-W11井完井工程报告》 · 章节 10 第十章 邻井完井情况对照]。\n\n综上，单凭现有材料无法回答\"井位台账里日产油量最高的井是哪口\"，需要井位台账中的单井日产油量逐井明细方可作答 [台账「日产油量」]。",
+    "citations": [
+     {
+      "ref": "c1",
+      "kind": "台账条目",
+      "label": "台账「日产油量」",
+      "locator": {
+       "section": "指标台账",
+       "caliber": "A"
+      }
+     },
+     {
+      "ref": "c2",
+      "kind": "报告引用",
+      "label": "《C-渤中34-5油田三季度注水调整与生产运行分析》 · 正文",
+      "locator": {
+       "report": "《C-渤中34-5油田三季度注水调整与生产运行分析》",
+       "section": "正文",
+       "fragment_id": "f47"
+      }
+     },
+     {
+      "ref": "c3",
+      "kind": "报告引用",
+      "label": "《A-W11井完井工程报告》 · 章节 07 第七章 诱导求产与初期产能",
+      "locator": {
+       "report": "《A-W11井完井工程报告》",
+       "section": "章节 07 第七章 诱导求产与初期产能",
+       "fragment_id": "f74"
+      }
+     },
+     {
+      "ref": "c4",
+      "kind": "报告引用",
+      "label": "《A-W11井完井工程报告》 · 章节 10 第十章 邻井完井情况对照",
+      "locator": {
+       "report": "《A-W11井完井工程报告》",
+       "section": "章节 10 第十章 邻井完井情况对照",
+       "fragment_id": "f79"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": 92,
+   "event": "done",
+   "data": {}
+  }
+ ],
+ "parsed": {
+  "answer_text": "【数据库口径未能出数，以下为报告库检索结果（非权威数值）】\n材料中并未提供井位台账中各井逐井的「日产油量」明细数据，因此无法判定单井日产油量的最高井是哪一口 [台账「日产油量」]。可供参考的日产油量信息均为非台账来源或非\"单井日产油量\"口径：\n\n- 油田整体的\"平均日产油\"：7 月 1040 m³/d、8 月 1026 m³/d、9 月 1043 m³/d，三季度均值 1036 m³/d，属油田平均指标，并非单井最高值 [《C-渤中34-5油田三季度注水调整与生产运行分析》 · 正文]。\n- W-11 井完井求产期间 12 mm 油嘴制度下折算日产油 386 m³/d，但这是诱导求产阶段的产能测试结果，并非台账日产油量 [《A-W11井完井工程报告》 · 章节 07 第七章 诱导求产与初期产能]。\n- 邻井对照中给出的\"初期日产油\"：W-09 井 402 m³/d、W-11 井 386 m³/d、W-07 井 291 m³/d；此外 W-07 井目前（递减排至）96 m³/d、含水 71.4%。这些数据均来源于完井报告对照表，而非井位台账 [《A-W11井完井工程报告》 · 章节 10 第十章 邻井完井情况对照]。\n\n综上，单凭现有材料无法回答\"井位台账里日产油量最高的井是哪口\"，需要井位台账中的单井日产油量逐井明细方可作答 [台账「日产油量」]。",
+  "citations": [
+   {
+    "ref": "c1",
+    "kind": "台账条目",
+    "label": "台账「日产油量」",
+    "locator": {
+     "section": "指标台账",
+     "caliber": "A"
+    }
+   },
+   {
+    "ref": "c2",
+    "kind": "报告引用",
+    "label": "《C-渤中34-5油田三季度注水调整与生产运行分析》 · 正文",
+    "locator": {
+     "report": "《C-渤中34-5油田三季度注水调整与生产运行分析》",
+     "section": "正文",
+     "fragment_id": "f47"
+    }
+   },
+   {
+    "ref": "c3",
+    "kind": "报告引用",
+    "label": "《A-W11井完井工程报告》 · 章节 07 第七章 诱导求产与初期产能",
+    "locator": {
+     "report": "《A-W11井完井工程报告》",
+     "section": "章节 07 第七章 诱导求产与初期产能",
+     "fragment_id": "f74"
+    }
+   },
+   {
+    "ref": "c4",
+    "kind": "报告引用",
+    "label": "《A-W11井完井工程报告》 · 章节 10 第十章 邻井完井情况对照",
+    "locator": {
+     "report": "《A-W11井完井工程报告》",
+     "section": "章节 10 第十章 邻井完井情况对照",
+     "fragment_id": "f79"
+    }
+   }
+  ],
+  "chain": "状态机六站链",
+  "clarify": null,
+  "notices": [
+   {
+    "level": "info",
+    "text": "数据库口径未能出数——已自动接续检索问答链：以下为报告库检索结果（非权威数值），数值请以权威数据口径为准。"
+   },
+   {
+    "level": "info",
+    "text": "报告类证据 20 支，仅送前 4 支进生成——另有 16 支未列出。"
+   }
+  ],
+  "nodes": [
+   {
+    "key": "N1",
+    "state": "finish",
+    "skipped": false,
+    "label": "统一安检",
+    "note": "三道全过——放行"
+   },
+   {
+    "key": "N3",
+    "state": "finish",
+    "skipped": false,
+    "label": "轻装配",
+    "note": "六路候选：命中 2 路——共池 5 支（全扫全收集，落空进建议池）"
+   },
+   {
+    "key": "N4",
+    "state": "finish",
+    "skipped": false,
+    "label": "装配块",
+    "note": "装配块组卷完成——slots＝指标＝日产油量 · 报告＝《《C-渤中34-5油田三季度注水调整与生产运行分析》》"
+   },
+   {
+    "key": "N5",
+    "state": "finish",
+    "skipped": false,
+    "label": "意图裁决",
+    "note": "裁决输出（来源＝llm）——chain＝状态机六站链 · confidence＝高（模型意图裁决 0.95）"
+   },
+   {
+    "key": "N5b",
+    "state": "finish",
+    "skipped": false,
+    "label": "裁决核验",
+    "note": "chain「状态机六站链」在 17 链清单内且已接线——核验通过（闭世界枚举＋注册面）"
+   },
+   {
+    "key": "N6",
+    "state": "finish",
+    "skipped": false,
+    "label": "链路分派",
+    "note": "已分派至「状态机六站链」——后续步骤由链体执行"
+   },
+   {
+    "key": "N7.1",
+    "state": "finish",
+    "skipped": false,
+    "label": "意图识别",
+    "note": "三要素齐：指标＝日产油量（台账「日产油量（吨）」）· 时间＝最近 30 天（默认） · 条数＝50（默认窗——问句无显式时间）——确定性校验通过，未额外调用模型"
+   },
+   {
+    "key": "N7.2",
+    "state": "finish",
+    "skipped": false,
+    "label": "语义检索",
+    "note": "选表落定：agg 星型三表（99 册 §2.12 注册——事实表组合 PK 挂两维 PK 连）"
+   },
+   {
+    "key": "N7.3",
+    "state": "finish",
+    "skipped": false,
+    "label": "SQL 生成",
+    "note": "模板装配完成（日产油量 → agg.oil_output，LIMIT 50——没写补默认 50）——零自由生成"
+   },
+   {
+    "key": "N7.4",
+    "state": "finish",
+    "skipped": false,
+    "label": "执行前安检",
+    "note": "新鲜度闸拦停——问数不出数，接续检索问答链（报告库辅助，非权威数值）"
+   },
+   {
+    "key": "N7.4a",
+    "state": "finish",
+    "skipped": false,
+    "label": "新鲜度闸",
+    "note": "比对：查询窗「最近 30 天（默认）」整体晚于数据水位 2026-08-31（落后 35 天 · 超期）——拦停，不出空数——接续检索问答链（报告库检索结果作辅助）"
+   },
+   {
+    "key": "N17",
+    "state": "finish",
+    "skipped": false,
+    "label": "检索问答",
+    "note": "检索问答收束——证据 5 支 · 引用 4 条逐条核验通过"
+   },
+   {
+    "key": "S0",
+    "state": "finish",
+    "skipped": false,
+    "label": "身份四要素",
+    "note": "身份四要素确认：身份=阿强 · 平台运维 · 会话 run=run-45c759 · 口径版本＝当前生效配置 · 权限＝系统管理员（阶段 1 单一角色）"
+   },
+   {
+    "key": "S1",
+    "state": "finish",
+    "skipped": false,
+    "label": "显式锚定",
+    "note": "无 @ 锚定——进入下一级"
+   },
+   {
+    "key": "S3",
+    "state": "finish",
+    "skipped": false,
+    "label": "词表四级",
+    "note": "台账完全一致命中：「日产油量」——宁可查不到，不给「差不多」的结果（词表级命中不停下级——词条材料随装配进生成，S4/S5 照跑）"
+   },
+   {
+    "key": "S4",
+    "state": "finish",
+    "skipped": false,
+    "label": "双路召回",
+    "note": "双路召回：向量 20 条＋关键词 3 条 → 合并（rrf_rank · k=60 固定推荐值） → 前 20 进精排（fast）"
+   },
+   {
+    "key": "S5",
+    "state": "wait",
+    "skipped": true,
+    "label": "图扩展",
+    "note": "S5 图扩展未启用——请求直接跳过、不花开销（将来接入知识图谱扩展时在这里开闸）"
+   },
+   {
+    "key": "S6",
+    "state": "finish",
+    "skipped": false,
+    "label": "资格裁决",
+    "note": "资格裁决：候选 5 支（生成窗分池——报告类上限 4＋台账类上限 2，两池互不占位）· 最高证据分 1.00——多候选/缺参澄清在裁决层完成（有界循环），链内直连执行"
+   },
+   {
+    "key": "S7",
+    "state": "finish",
+    "skipped": false,
+    "label": "权威源回读",
+    "note": "权威源回读：指标台账核对通过 · 无指标口径挂载——已正式发布且在现行目录才放行"
+   },
+   {
+    "key": "GEN",
+    "state": "finish",
+    "skipped": false,
+    "label": "限定作答＋引用登记",
+    "note": "生成完成——引用登记 4 条"
+   }
+  ],
+  "duration_s": 8.3
+ }
+}
