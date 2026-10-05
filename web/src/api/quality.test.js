@@ -1,5 +1,5 @@
 /**
- * api/e2 单测（W-E2 接线票）——mock → 真接口切换的形状闸：
+ * api/quality 单测（W-E2 接线票——模块更名 api/e2 → api/quality 随迁，W-LAND）——mock → 真接口切换的形状闸：
  * - 九函数一一对应 E2-数据质量台.md v0.5 九端点（路径/方法/请求体/查询串）；
  * - PATCH 启停走统一 request（client 无 patch 便捷式）；tasks POST 空体；
  * - issues 拉满 pageSize（V1 整表消费——防预留分页 20 静默截断）＋信封归一化
@@ -14,7 +14,7 @@ import { ApiError, setApiNotifier } from './client.js'
 import {
   LANES, getFreshness, getQualityRules, getQualityTask, listQualityIssues,
   listQualityTasks, setQualityRuleEnabled, startQualityTask, transitionQualityIssue
-} from './e2.js'
+} from './quality.js'
 
 const fetchMock = vi.fn()
 

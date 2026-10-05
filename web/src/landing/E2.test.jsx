@@ -13,13 +13,12 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import E2Quality from '../E2.jsx'
-import { setApiNotifier } from '../../api/client.js'
+import E2Quality from './E2.jsx'
+import { setApiNotifier } from '../api/client.js'
 
-// 注：本测试落 pages/__tests__/ 子目录而非与页同目录——Shell.jsx:21 的
-// `import(\`../pages/${key}.jsx\`)` 动态导入 glob 会把 pages/ 下每个 .jsx
-// 逐文件切 chunk，同目录测试文件会给 dist 多出死 chunk（实测 453KB）；
-// 子目录不被单层 glob 命中，build 产物零变化。
+// 注：本测试随页迁落地树（W-LAND 双树归位）——landing/ 由 registry.js 显式
+// 导入（非 Shell.jsx 动态 glob 面），测试与页同目录不给 dist 添 chunk
+// （pages/__tests__ 子目录惯例的由来见 W-E2 偏差 2，此约束落地树不适用）。
 
 // antd v5 在 jsdom 下的两个环境桩（matchMedia＝响应式断点；ResizeObserver＝Table 测宽）
 if (!window.matchMedia) {

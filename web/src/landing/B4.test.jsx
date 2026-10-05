@@ -17,11 +17,11 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import B4 from '../B4.jsx'
-import { setApiNotifier } from '../../api/client.js'
+import B4 from './B4.jsx'
+import { setApiNotifier } from '../api/client.js'
 
-// 注：测试落 pages/__tests__/ 子目录（pages/ 直下会被 Shell.jsx 的单层动态导入
-// glob 切进 dist——E2.test.jsx 同款惯例位）。
+// 注：本测试随页迁落地树（W-LAND 双树归位）——landing/ 由 registry.js 显式
+// 导入（非 Shell.jsx 动态 glob 面），测试与页同目录不给 dist 添 chunk。
 
 // antd v5 在 jsdom 下的两个环境桩（matchMedia＝响应式断点；ResizeObserver＝Table 测宽）
 if (!window.matchMedia) {

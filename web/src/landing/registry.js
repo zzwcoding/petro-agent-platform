@@ -16,7 +16,10 @@ const LANDING_MODULES = {
   B1: () => import('./B1.jsx'),
   B2: () => import('./B2.jsx'),
   B5: () => import('./B5.jsx'),
-  B3: () => import('./B3.jsx')
+  B3: () => import('./B3.jsx'),
+  A2: () => import('./A2.jsx'),
+  B4: () => import('./B4.jsx'),
+  E2: () => import('./E2.jsx')
 }
 
 /** 已点亮（已有落地页）的页面 key，按 frontend-foundation §5 阶段顺序增长。 */
