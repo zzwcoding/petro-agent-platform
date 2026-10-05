@@ -1,0 +1,16 @@
+{
+  "schema": "petro.prototype-manifest/1",
+  "note": "原型树关键文件 SHA-256 清单（DEP-01 件④原型树保护闸）。比对器＝tools/prototype_guard.py check（CI 前端 job 看守）。清单内文件＝teach 原型真源的同步快照，平时禁改；合法原型同步批（阶段开工一次性定稿）随批 `python3 tools/prototype_guard.py update` 重生成本清单并同票提交。",
+  "sync_points": {
+    "web/src/pages/E2.jsx": "3c2d63a",
+    "web/src/pages/A2.jsx": "04f9606",
+    "web/src/pages/B4.jsx": "3c2d63a",
+    "web/src/api/e2.js": "3c2d63a"
+  },
+  "files": {
+    "web/src/api/e2.js": "22d55acde0babd327c241ada70ba132b4b7470226d0bbd1ab03902f879958ae6",
+    "web/src/pages/A2.jsx": "4d74f7eb891163776556306eb6f0c65b6976b662095525a87bad613def81af33",
+    "web/src/pages/B4.jsx": "848e770f1987f804bddf80802dc67e23786dcf6930025ea8b08b88383708cdcd",
+    "web/src/pages/E2.jsx": "2702c039f6e45da9a16541082f084b7b4e98c01f5ec010d111c08b1b787f9c61"
+  }
+}

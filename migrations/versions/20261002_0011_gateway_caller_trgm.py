@@ -10,10 +10,15 @@
 IF NOT EXISTS 幂等（ensure 先建的库再跑迁移不冲突）。downgrade：drop 两
 索引＋撤 caller 列（不撤 pg_trgm 扩展——库级资产，vector/0010 同惯例）。
 
+链位（DEP-01 改，仅 down_revision 一行）：0010 → **0018**——gateway 表族
+迁移补建（20261005_0018_gateway_tables.py）插在本迁移之前，纯 Alembic 全
+新库不再断链于本迁移的 ALTER/索引（P2-04.fix 偏差 2 挂账收口——0011 docstring
+「ensure 先建的库再跑迁移不冲突」双轨前提由 0018 收敛）。
+
 数据影响评估：仅新增一可空列＋两索引，不触任何既有行；演示量级建索引即时。
 
 Revision ID: 0011
-Revises: 0010
+Revises: 0018
 Create Date: 2026-10-02
 
 """
@@ -24,7 +29,7 @@ from collections.abc import Sequence
 from alembic import op
 
 revision: str = "0011"
-down_revision: str | None = "0010"
+down_revision: str | None = "0018"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

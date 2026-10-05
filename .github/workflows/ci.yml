@@ -39,6 +39,9 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: web/package-lock.json
+      - name: prototype guard（原型树保护闸：DEP-01——原型树同步页 hash × web/prototype-manifest.json，漂移即红）
+        working-directory: .
+        run: python3 tools/prototype_guard.py check
       - name: install
         run: npm ci
       - name: lint（eslint：frontend-foundation §2.5，与后端四门禁并列）

@@ -191,6 +191,35 @@ def test_load_database_specs_rejects_unknown_role(tmp_path: Path) -> None:
         load_database_specs(conf)
 
 
+def test_load_database_specs_env_injection_overrides_repo_defaults(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """DEP-01 件③：config/database.yaml 的 ${VAR:-默认} 生产口令注入机制——两半边机判。
+
+    环境量在位时覆盖 yaml 开发默认（生产口令经密管/环境注入的唯一通道——
+    平台 primary 的 PG_* 与中台只读路由的 MIDPLATFORM_PG_* 同机制）；缺省
+    回落 yaml 默认（「生产禁默认口令上生产」的机制基础——runbook
+    docs/deploy/db-accounts-runbook.md 口令纪律节）。.env 兜底源在本测隔离
+    （DOTENV 指向不存在路径），只验 os.environ 与 yaml 默认两端。
+    """
+    monkeypatch.setattr(config, "DOTENV", tmp_path / "no-dotenv-here")
+    monkeypatch.setenv("PG_HOST", "prod-db.internal")
+    monkeypatch.setenv("PG_PASSWORD", "from-secret-manager")
+    monkeypatch.setenv("MIDPLATFORM_PG_HOST", "mid.internal")
+    specs = {s.role: s for s in load_database_specs()}
+    assert specs["primary"].host == "prod-db.internal"
+    assert specs["primary"].password == "from-secret-manager"
+    assert specs["midplatform"].host == "mid.internal"
+
+    monkeypatch.delenv("PG_HOST")
+    monkeypatch.delenv("PG_PASSWORD")
+    monkeypatch.delenv("MIDPLATFORM_PG_HOST")
+    fallback = {s.role: s for s in load_database_specs()}
+    assert fallback["primary"].host == "localhost"  # config/database.yaml 开发默认
+    assert fallback["primary"].password == "petro"  # 开发默认口令——生产禁用（runbook 口令纪律）
+    assert fallback["midplatform"].host == "localhost"
+
+
 def test_settings_sm4_key_shape() -> None:
     settings = get_settings()
     assert len(settings.sm4_key) == 32  # hex 32 位＝16 字节
