@@ -44,7 +44,7 @@
   触碰、零列变更；downgrade 删该 22 行复原空表态——ledger 行消费方（问数链
   N7.1/检索链 S3/词条卡/C1 读面）随 downgrade 回到「未命中」态。
 
-Revision ID: 0018
+Revision ID: 0019
 Revises: 0017
 Create Date: 2026-10-05
 
@@ -58,13 +58,13 @@ from typing import Any
 from alembic import op
 from sqlalchemy import text
 
-revision: str = "0018"
+revision: str = "0019"
 down_revision: str | None = "0017"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 # 种子行投影身份（sem_ledger_revision.changed_by——who 槽；同步器身份同槽惯例）。
-_CHANGED_BY = "migrations-0018（S-01 本体种子投影——fix/s-01-sem-ledger-seed）"
+_CHANGED_BY = "migrations-0019（S-01 本体种子投影——fix/s-01-sem-ledger-seed）"
 
 # ---------- sem_metric 种子（5 条——M1 AGG-BOHAI-002 日产计量五计量属性） ----------
 # 列序 (id, name, slot_name, def, grain, unit, status, owner, source, dispute,

@@ -1,16 +1,16 @@
-"""S-01 语义台账种子——真迁移 0018 PG16 集成（双向/幂等＋本体锚对账＋问数链真消费）。
+"""S-01 语义台账种子——真迁移 0019 PG16 集成（双向/幂等＋本体锚对账＋问数链真消费）。
 
 约定（同 tests/domains/dataops/quality/test_quality_tables_pg.py）：TEST_DATABASE_URL
 未配置即 skip；测试自动落 <库名>_test 独立库。表结构＝**真迁移**程序化执行
 （importlib 装载版本文件＋Operations.context——非 ORM 仿造）：0002 sem 九表→
-0014 agg 星型→0018 种子；种子行消费＝真读口真链体（非夹具）：
-- 覆盖 ① 0018 upgrade/downgrade 双向＋幂等（重放不翻倍、down 只删种子行）；
+0014 agg 星型→0019 种子；种子行消费＝真读口真链体（非夹具）：
+- 覆盖 ① 0019 upgrade/downgrade 双向＋幂等（重放不翻倍、down 只删种子行）；
 - ② 种子投影保真：与 ontology/bohai/ 权威定义**逐字对照**（防投影失真——T1
   审查项机检化：术语 term/def/status/owner 照抄 GLS、指标 name＝M1 label、
   slot_name＝剥法纯名与 MEASURE_COLUMNS 键合、计量列绑定注记逐行在场）＋
   sem_ledger_revision v1 配套行 payload 全行快照；
 - ③ 问数链真消费（票面验收 3 红先证据）：未种子库「上个月日产油量最高的三口井」
-  N7.1 降级解释链；0018 落库后同问句命中注册声明、真 QueryStore 只读执行出
+  N7.1 降级解释链；0019 落库后同问句命中注册声明、真 QueryStore 只读执行出
   真表卡（agg fixture 行——量级样本，业务事实零发明）；术语种子经真装配层
   出词条卡（躺井·限作业区语境标注随卡）。
 """
@@ -51,13 +51,13 @@ pytestmark = pytest.mark.skipif(
 _VERSIONS = Path(__file__).resolve().parents[3] / "migrations" / "versions"
 _MIGRATION_0002 = _VERSIONS / "20261001_0002_sem_baseline.py"
 _MIGRATION_0014 = _VERSIONS / "20261004_0014_agg_star_model.py"
-_MIGRATION_0018 = _VERSIONS / "20261005_0018_sem_ledger_seed.py"
+_MIGRATION_0019 = _VERSIONS / "20261005_0019_sem_ledger_seed.py"
 _ONTOLOGY_BOHAI = Path(__file__).resolve().parents[3] / "ontology" / "bohai"
 
 _QUESTION = "上个月日产油量最高的三口井"
 _ACTOR = "阿强 · 平台运维"
 
-# 种子键位（0018——bohai 段 200+，与同步器 petro 投影键空间 1~15/1~11 隔离）。
+# 种子键位（0019——bohai 段 200+，与同步器 petro 投影键空间 1~15/1~11 隔离）。
 _METRIC_IDS = [201, 202, 203, 204, 205]
 _TERM_IDS = [211, 212, 213, 214, 215, 216]
 
@@ -125,12 +125,12 @@ async def _run_migration_op(url: URL, path: Path, name: str, op_name: str) -> No
 
 
 async def _seed_up(url: URL) -> None:
-    await _run_migration_op(url, _MIGRATION_0018, "m0018_sem_ledger_seed", "upgrade")
+    await _run_migration_op(url, _MIGRATION_0019, "m0019_sem_ledger_seed", "upgrade")
 
 
 async def _seed_down(url: URL) -> None:
-    """0018 downgrade（种子未在场时＝空删——归零态归一，用例间互不依赖顺序）。"""
-    await _run_migration_op(url, _MIGRATION_0018, "m0018_sem_ledger_seed", "downgrade")
+    """0019 downgrade（种子未在场时＝空删——归零态归一，用例间互不依赖顺序）。"""
+    await _run_migration_op(url, _MIGRATION_0019, "m0019_sem_ledger_seed", "downgrade")
 
 
 async def _seed_counts(manager: ConnectionManager) -> tuple[int, int, int]:
@@ -145,9 +145,9 @@ async def _seed_counts(manager: ConnectionManager) -> tuple[int, int, int]:
 
 @pytest.fixture
 async def pg_db() -> AsyncIterator[ConnectionManager]:
-    """独立测试库：真迁移 0002（sem 九表）＋0014（agg 星型）落结构，0018 归零态。"""
-    if not _MIGRATION_0018.is_file():
-        raise RuntimeError(f"S-01 迁移件缺失：{_MIGRATION_0018}")
+    """独立测试库：真迁移 0002（sem 九表）＋0014（agg 星型）落结构，0019 归零态。"""
+    if not _MIGRATION_0019.is_file():
+        raise RuntimeError(f"S-01 迁移件缺失：{_MIGRATION_0019}")
     url = _isolated_url()
     await _ensure_test_database(url)
     await _reset_tables(url)
@@ -461,7 +461,7 @@ class TestQueryChainRealConsumption:
     async def test_daily_oil_question_degraded_then_hit(
         self, pg_db: ConnectionManager,
     ) -> None:
-        """未种子库同问句 N7.1 降级（红）→ 0018 落库后命中注册声明全链出真表卡（绿）。"""
+        """未种子库同问句 N7.1 降级（红）→ 0019 落库后命中注册声明全链出真表卡（绿）。"""
         url = _isolated_url()
         await _seed_down(url)
         await _load_agg_fixture(pg_db)
@@ -476,7 +476,7 @@ class TestQueryChainRealConsumption:
         assert "未命中注册指标声明" in str(red_answer["text"])
         assert not any(e.event == "tool_call" for e in red)  # 未执行不出数
 
-        # —— 绿：0018 种子落库（真迁移非夹具）——同问句确定性命中 ——
+        # —— 绿：0019 种子落库（真迁移非夹具）——同问句确定性命中 ——
         await _seed_up(url)
         green = await _run_query_chain(service, _QUESTION)
         green_notes = _node_notes(green)
