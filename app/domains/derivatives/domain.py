@@ -33,6 +33,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
+from dataclasses import replace as _replace
 from difflib import SequenceMatcher
 from typing import Any
 
@@ -471,7 +472,22 @@ F40_DEFAULT_ENTITY_TYPES: tuple[str, ...] = (
 SAVE_HINT = "已保存——设置在下次入库时生效。"
 
 # 自定义指令出厂预填（B5 合同常量表「演示预填值」——去「自定义指令：」前缀）。
-DEFAULT_CUSTOM_INSTRUCTIONS = "关系必须原文有依据；拿不准宁可跳过，不许创造新类型"
+# G-03 增补实体名规范句（实体碎片治理第一刀——确定性归一在 gate 落点兜底）。
+DEFAULT_CUSTOM_INSTRUCTIONS = (
+    "关系必须原文有依据；拿不准宁可跳过，不许创造新类型。"
+    "实体名用原文最规范的完整写法：井号不含空格（W-11井），平台/油田用全称，"
+    "同一实体跨片段保持同名；纯数字与深度不是实体。"
+)
+
+# few-shot 出厂 5 例（G-03——例句逐字取自三篇拟造评测报告，三元组经人工核对）。
+DEFAULT_FEWSHOT_EXAMPLES = [
+    ("W-11 井完井于渤中 34-5 油田 CEP-C 平台", "W-11井|承载|CEP-C平台"),
+    ("W-11 井隶属于渤中 34-5 油田", "W-11井|隶属|渤中34-5油田"),
+    ("三开射孔前对 2405～2418 米井段实施 TCP 射孔，三段合计 28.0 米",
+     "W-11井|射孔|2405～2418米井筒段"),
+    ("7″ 精密冲缝筛管下入 2405～2412 米", "精密冲缝筛管|下入|W-11井井筒"),
+    ("永久式封隔器坐封深度 1482.6 米，液压坐封，验封合格", "永久式封隔器|坐封|W-11井井筒"),
+]
 
 # 边唯一键（B5 合同冻结：key = from|rel|to）。
 EDGE_KEY_SEP = "|"
@@ -632,7 +648,9 @@ def default_extract_config(
             for r in relation_rows
         ],
         custom_instructions=DEFAULT_CUSTOM_INSTRUCTIONS,
-        few_shot_examples=[],
+        few_shot_examples=[
+            FewShotPair(sentence=s, triple=t) for s, t in DEFAULT_FEWSHOT_EXAMPLES
+        ],
     )
 
 
@@ -767,6 +785,21 @@ def _squash(text: str) -> str:
     return re.sub(r"\s+", "", text)
 
 
+def _normalize_entity(name: str) -> str:
+    """实体名确定性归一（G-03 第一刀——同实体空格/全半角变体落点合并）。
+
+    - NFKC 全半角折叠＋去首尾空白＋连续空白压一；
+    - 「X 井」→「X井」（井号前空格去除——B5 截图双链直接成因）。
+    语义级消歧（CEP-C 生产平台 vs CEP-C平台）归治理批，本函数不碰。
+    """
+    import unicodedata
+
+    text = unicodedata.normalize("NFKC", str(name or "")).strip()
+    text = re.sub(r"\s+", " ", text)
+    text = re.sub(r"\s+井$", "井", text)
+    return text
+
+
 def gate_triples(
     candidates: list[TripleCandidate],
     config: ExtractConfig,
@@ -803,6 +836,9 @@ def gate_triples(
     for c in candidates:
         if not (c.from_ and c.to and c.rel and c.from_type and c.to_type):
             continue  # 形状残缺——不属抽取尝试，跳过不记
+        # G-03 实体名归一（确定性第一刀）：空格/全半角/「X 井」变体落点合并——
+        # 语义级消歧（全称 vs 简称）归治理批，此处只做无损规整。
+        c = _replace(c, from_=_normalize_entity(c.from_), to=_normalize_entity(c.to))
         if c.from_type not in entity_set or c.to_type not in entity_set or c.rel not in rel_set:
             _reject(c, REASON_TYPE_MISMATCH)
         elif not c.evidence or _squash(c.evidence) not in chunk_norm:

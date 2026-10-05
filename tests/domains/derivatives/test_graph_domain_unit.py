@@ -3,6 +3,7 @@
 import pytest
 
 from app.domains.derivatives import domain as d
+from app.domains.derivatives.domain import _normalize_entity
 
 
 def _config(**overrides: object) -> d.ExtractConfig:
@@ -279,3 +280,44 @@ class TestSnapshotRoundtrip:
         }
         cfg = d.config_from_snapshot(snapshot)
         assert cfg == _config()
+
+
+# ---------- G-03：实体名归一＋few-shot 出厂（词表质量第一刀） ----------
+
+
+def test_normalize_entity_merges_variants() -> None:
+    """空格/全半角/「X 井」变体归一——同实体落点合并（B5 截图双链直接成因）。"""
+
+    assert _normalize_entity("W-11 井") == "W-11井"
+    assert _normalize_entity("W-11井") == "W-11井"
+    assert _normalize_entity(" 1482.6米 ") == "1482.6米"
+    assert _normalize_entity("ＣＥＰ-Ｃ 平台") == "CEP-C 平台"  # 全半角折叠；内部空格保留
+
+
+def test_gate_normalizes_entity_names_before_land(monkeypatch: pytest.MonkeyPatch) -> None:
+    """候选实体名在闸内先归一再判——空格变体与规范名同点落图。"""
+    cfg = d.ExtractConfig(
+        entity_types=["井", "设备"],
+        relation_tags=[d.RelationTag(rel="下入")],
+        custom_instructions="x",
+    )
+    passed, _blocked = d.gate_triples(
+        [d.TripleCandidate(from_="精密冲缝筛管", from_type="设备", rel="下入",
+                         to="W-11 井", to_type="井",
+                         evidence="筛管下入 W-11 井", note="", uncertain=False)],
+        cfg, chunk_text="筛管下入 W-11 井", chunk_id="f1", report_id="rpt-1",
+    )
+    assert len(passed) == 1
+    assert passed[0].to == "W-11井"
+
+
+def test_default_extract_config_has_fewshot_and_entity_guidance() -> None:
+    """G-03：出厂 few-shot 5 例＋指令含实体名规范指引（词表质量第一刀）。"""
+    from app.domains.derivatives import domain as d
+    from app.domains.derivatives.service import _ontology_catalogs
+
+    cfg = d.default_extract_config(*_ontology_catalogs())
+    assert len(cfg.few_shot_examples) == 5
+    assert all(p.sentence and p.triple for p in cfg.few_shot_examples)
+    assert "井号不含空格" in cfg.custom_instructions
+    assert "纯数字与深度不是实体" in cfg.custom_instructions
