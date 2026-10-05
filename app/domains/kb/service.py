@@ -442,18 +442,25 @@ class KbService:
         self, task_id: str, branch: str, state: str, detail: str | None = None,
         extra: dict[str, Any] | None = None,
     ) -> None:
-        """G-02 支路进度回写（组合根注入 derivatives——B9 反向缝：kb 不 import 对方）。"""
-        row = await self._tasks.get(task_id)
-        if row is None:
-            return
-        payload = dict(getattr(row, "branch_status", None) or {})
-        entry: dict[str, Any] = {"state": state}
-        if detail:
-            entry["detail"] = detail[:200]
-        if extra:
-            entry.update(extra)
-        payload[branch] = entry
-        row.branch_status = payload
+        """G-02 支路进度回写（组合根注入 derivatives——B9 反向缝：kb 不 import 对方）。
+
+        会话内读改写（退出即提交）——首版实现曾用 store 取行原地改、无会话提交，
+        改动静默丢失（Q3 复测轮实证 branches 空——已修）。
+        """
+        from app.domains.kb.store import IngestTaskRow
+
+        async with self._db.session() as session:
+            row = await session.get(IngestTaskRow, task_id)
+            if row is None:
+                return
+            payload = dict(row.branch_status or {})
+            entry: dict[str, Any] = {"state": state}
+            if detail:
+                entry["detail"] = detail[:200]
+            if extra:
+                entry.update(extra)
+            payload[branch] = entry
+            row.branch_status = payload
 
     def _build_nodes(self) -> list[d.TaskNode]:
         return [d.TaskNode(key=key, label=d.STEP_LABELS[key]) for key in d.STEP_KEYS]
