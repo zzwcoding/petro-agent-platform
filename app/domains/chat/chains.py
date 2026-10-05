@@ -1,4 +1,21 @@
-"""domains.chat.chains —— 三链链体（P1-08b 链体＋P1-08c 树叙事步进）。
+"""domains.chat.chains —— 四链链体（P1-08b 链体＋P1-08c 树叙事步进＋M-06 问数链）。
+
+问数链（M-06 状态机六站链——全景树 N7.1–N7.6＋安检三闸，F7 票 94 注记）：
+  N7.1 意图识别（复用 D2 slots 确定性校验——三要素齐不齐查表即判，零模型调用；
+  时间窗「最近/近期」无量化＝缺参反问 askback 时间窗三选一）→ N7.2 语义检索
+  （选表＝agg 星型读模型注册面——99 §2.12/D6 star_model，join 结构即合同值）→
+  N7.3 SQL 生成（模板化——注册指标声明口径先行，零自由生成；台账行未绑定计量
+  列＝降级解释链如实标注，不冒充审定口径）→ N7.4 执行前安检三闸：N7.4a 新鲜度
+  （消费 M-05a 水位读面——超窗改绑最近可用日＋标注、全窗未出数＝拒答，照 E2
+  T-1 语义）/ N7.4b 行级权限（M-01 两步缝——with_row_filter 预埋恒真形状，
+  物理注入在执行缝）/ N7.4c 外表审批（问句点名外表＝越集——interrupt 挂起出
+  审批卡，approve 续跑/reject 零重试，A1 端点 5 合同形状）→ N7.5 查询执行
+  （只读＋行级注入已并——tool_call 帧留痕）→ N7.6 结果核验（行数/值域——0 行
+  如实回报不编数）→ 血缘卡五要素（F13：口径/来源表/过滤条件含权限注入行/数据
+  截至批次/收口注记——合同值逐行）＋数据证据 citation＋answer kind=table。
+  审批挂起＝链内哨兵（chain_approval_signal），service._run_chain 拦截转
+  interrupt_approval 挂起——恢复时整节点重跑（F7 节点幂等），N7.4c 以
+  extable_decision 判别批准续跑/驳回终局。
 
 检索问答链（D2 当前生效配置驱动全链——S 级语义照 F58/W-F21）：
   N17 检索问答（树执行节点）→ S0 身份四要素（一次确认）→ S1 显式锚定（受第 1 级
@@ -51,9 +68,11 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, replace
+from datetime import date, timedelta
 from typing import Any
 
 from app.domains.chat import domain as d
+from app.infra.clock import now
 
 LOGGER = logging.getLogger("domains.chat")
 
@@ -105,7 +124,8 @@ ANNOTATION_GUARD_MARKERS = ("已届满", "已禁用")
 
 @dataclass(frozen=True, slots=True)
 class ChainDeps:
-    """三链链体的注入缝集合（组合根装配——生产＝各域公开读面＋gateway）。"""
+    """四链链体的注入缝集合（组合根装配——生产＝各域公开读面＋gateway＋
+    问数执行缝/水位读缝）。"""
 
     config_loader: d.ConfigLoader
     metrics_loader: d.MetricsLoader
@@ -116,6 +136,12 @@ class ChainDeps:
     graph_searcher: d.GraphSearcher
     anchor_loader: d.FragmentAnchorLoader
     completer: d.Completer | None = None
+    # 问数链缝（M-06——缺省未装配＝链内诚实降级，不冒充出数）：
+    # query_executor＝agg 星型读模型只读执行（生产＝chat.QueryStore——99 §3 chat
+    # 读声明唯一消费方）；waterline_loader＝汇总层水位（生产＝M-05a 水位读面，
+    # E2 T-1 判定随面携入）。
+    query_executor: d.QueryExecutor | None = None
+    waterline_loader: d.WaterlineLoader | None = None
 
 
 def line(key: str, mark: str, text: str) -> d.SseEvent:
@@ -995,7 +1021,352 @@ async def _stream_answer(
     yield d.SseEvent(d.FRAME_ANSWER, {"kind": "text", "text": text, "citations": citations})
 
 
+# ---------- 问数链（状态机六站链——M-06：N7.1–N7.6＋安检三闸） ----------
+
+def _metric_card_for_plan(ctx: d.ChainContext) -> tuple[str, str, str] | None:
+    """装配层指标卡 → 模板可用声明（slot/name/def）——未绑定计量列＝None（降级）。"""
+    for card in ctx.assembly.metric_cards:
+        if d.resolve_measure(card.slot_name) is not None:
+            def_text = "；".join(
+                str(c.get("name", "")) for c in card.calibers if c.get("name")
+            ) or ""
+            return card.slot_name, card.name, def_text
+    return None
+
+
+async def query_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.SseEvent]:
+    """状态机六站链（M-06——用户数据型问题：模板装配出数，全程零模型调用）。
+
+    站序与节点行照全景树 N7 节＋A1 行为规则 3（链内节点行内容照抄各源合同值）：
+    F7 三要素校验/F14 LIMIT 收口与外表审批/F13 血缘五要素/E2 新鲜度 T-1 语义/
+    M-01 行级注入两步缝。审批挂起走链内哨兵（connection 不占着——恢复整节点
+    重跑，F7 节点幂等）。
+    """
+    question = ctx.question
+    today = _today()
+
+    # —— N7.1 意图识别（复用 D2 slots 确定性校验——零模型调用，缺参才反问）——
+    yield d.node_frame("N7.1", state=d.NODE_PROCESS, tag="校验三要素 · 零模型调用",
+                       note="意图识别——复用意图裁决阶段解析结果，仅做缺参校验（F7 票 94 注记）")
+    declared = _metric_card_for_plan(ctx)
+    if declared is None:
+        # 降级解释链（不冒充审定口径）：装配层无可绑定计量列的注册指标——
+        # 不自由生成 SQL、不出数，如实说明与出路。
+        yield d.node_frame(
+            "N7.1", state=d.NODE_FINISH,
+            note="指标槽位未命中可出数的注册声明（模板只认绑定 agg 计量列的指标）"
+                 "——降级解释链：不自由生成 SQL（不冒充审定口径）",
+        )
+        yield d.node_frame("N7.2", state=d.NODE_WAIT, skipped=True,
+                           note="降级——不选表、不生成、不执行")
+        yield notice(
+            "该问法没有命中可出数的注册指标声明——平台不做自由生成冒充审定口径。"
+            "出路：在指标台账（C1）登记可绑定计量列的指标，或走语义修订提案池（C2）补登记后再问。",
+            level="warning",
+        )
+        yield d.SseEvent(d.FRAME_ANSWER, {
+            "kind": "alert", "alert_type": "warning",
+            "text": (
+                "未命中注册指标声明——不冒充审定口径出数。"
+                "请先在指标台账登记（或走 C2 提案），再来查。"
+            ),
+        })
+        return
+    metric_slot, metric_name, def_text = declared
+    status, window = d.parse_time_window(question, today=today)
+    if status == "vague":
+        # 缺参反问（askback 时间窗三选一照抄——缺的是用户事实，无默认项）。
+        yield d.node_frame(
+            "N7.1", state=d.NODE_FINISH,
+            note="时间窗缺参：「最近/近期」为模糊时间词，无法确定时间窗（近 3 天/近 30 天/"
+                 "本月的数完全不同——不猜数）——澄清反问挂起",
+        )
+        yield d.chain_clarify_signal(
+            d.build_askback_time_clarify(frame_id=f"clarify-{ctx.run_id}"),
+            subtype=d.MISSING_SUBTYPE,
+            optimized_question="",
+        )
+        return
+    if status == "missing" or window is None:
+        window = d.default_time_window(today=today)  # 无显式时间——默认窗＋标注
+    plan = d.build_query_plan(
+        metric_slot=metric_slot, metric_name=metric_name, question=question,
+        window=window, today=today, actor=ctx.actor_who,
+    )
+    yield d.node_frame(
+        "N7.1", state=d.NODE_FINISH,
+        note=f"三要素齐：指标＝{metric_slot}（台账「{metric_name}」）· "
+             f"时间＝{plan.window.label} · 条数＝{plan.limit_effective}"
+             + ("（默认窗——问句无显式时间）" if plan.window.is_default else "")
+             + "——确定性校验通过，未额外调用模型",
+    )
+
+    # —— N7.2 语义检索（选表＝agg 星型读模型注册面——join 结构即合同值）——
+    yield d.node_frame("N7.2", state=d.NODE_PROCESS, tag="选表",
+                       note="语义检索——注册读模型选表（白名单判据）")
+    yield line("N7.2", "✓", f"选表：{d.STAR_SOURCE_NOTE}")
+    if plan.external_tables:
+        yield line(
+            "N7.2", "○",
+            "外表 " + "、".join(plan.external_tables) + " 不在本轮选表命中集"
+            "——交下一站执行前表引用比对（F14）",
+        )
+    yield d.node_frame(
+        "N7.2", state=d.NODE_FINISH,
+        note="选表落定：agg 星型三表（99 册 §2.12 注册——事实表组合 PK 挂两维 PK 连）",
+    )
+
+    # —— N7.3 SQL 生成（模板化——注册指标声明口径先行，零自由生成）——
+    yield d.node_frame("N7.3", state=d.NODE_PROCESS, tag="模板装配 · 零模型调用",
+                       note="SQL 生成——模板化（注册指标声明口径先行）")
+    yield line("N7.3", "→", "模板装配 SQL：\n" + d.render_plan_sql(plan))
+    yield d.node_frame(
+        "N7.3", state=d.NODE_FINISH,
+        note=f"模板装配完成（{plan.metric_slot} → agg.{plan.measure_column}，"
+             f"LIMIT {plan.limit_effective}"
+             + (f"——问句显式 {plan.limit_requested}" if plan.limit_requested is not None
+                else "——没写补默认 50")
+             + "）——零自由生成",
+    )
+
+    # —— N7.4 执行前安检（三闸：新鲜度/行级/外表——F14）——
+    yield d.node_frame("N7.4", state=d.NODE_PROCESS, tag="执行前安检 · 三闸",
+                       note="执行前安检——新鲜度（N7.4a）→ 行级权限（N7.4b）→ 外表审批（N7.4c）")
+
+    # N7.4a 新鲜度闸（消费 M-05a 水位读面——超窗改绑/全窗未出数拒答，照 E2 T-1 语义）
+    yield d.node_frame("N7.4a", state=d.NODE_PROCESS, tag="出数前比对批次水位")
+    waterline = await deps.waterline_loader() if deps.waterline_loader is not None else None
+    if waterline is None:
+        yield d.node_frame("N7.4a", state=d.NODE_FINISH, note=d.FRESHNESS_UNKNOWN_NOTE)
+    elif plan.window.start > waterline.data_date:
+        # 查询窗整体在水位之后——无已出数数据：拒答（不返回空数冒充）。
+        tag = waterline.tag
+        yield d.node_frame(
+            "N7.4a", state=d.NODE_FINISH,
+            note=f"比对：查询窗「{plan.window.label}」整体晚于数据水位 "
+                 f"{waterline.data_date.isoformat()}（{tag}）——拦停，不出空数",
+        )
+        yield d.node_frame(
+            "N7.4", state=d.NODE_FINISH, note="新鲜度闸拦停——链路终局（照 E2 语义拒答）",
+        )
+        yield notice(
+            d.FRESHNESS_REJECT_TEMPLATE.format(
+                data_date=waterline.data_date.isoformat(), tag=tag, label=plan.window.label,
+            ),
+            level="warning",
+        )
+        yield d.SseEvent(d.FRAME_ANSWER, {
+            "kind": "alert", "alert_type": "warning",
+            "text": d.FRESHNESS_REJECT_TEMPLATE.format(
+                data_date=waterline.data_date.isoformat(), tag=tag, label=plan.window.label,
+            ),
+        })
+        return
+    elif plan.window.end - timedelta(days=1) > waterline.data_date:
+        # 窗口后半段未出数——改绑最近可用日＋标注（照 E2「落后 N 天 · 超期」语义）。
+        plan = d.clamp_plan_window(plan, d.TimeWindow(
+            start=plan.window.start, end=waterline.data_date + timedelta(days=1),
+            label=plan.window.label, is_default=plan.window.is_default,
+        ))
+        yield d.node_frame(
+            "N7.4a", state=d.NODE_FINISH,
+            note=d.FRESHNESS_CLAMP_NOTE_TEMPLATE.format(
+                data_date=waterline.data_date.isoformat(), tag=waterline.tag,
+            ),
+        )
+    else:
+        yield d.node_frame(
+            "N7.4a", state=d.NODE_FINISH,
+            note=f"比对通过：数据水位 {waterline.data_date.isoformat()} 覆盖查询窗"
+                 f"（承诺 {waterline.promise} · {waterline.tag}）",
+        )
+
+    # N7.4b 行级权限闸（预埋恒真形状——物理注入在执行缝两步走，M-01/M-02 同款）
+    yield d.node_frame("N7.4b", state=d.NODE_PROCESS, tag="权限层自动改写")
+    yield d.node_frame(
+        "N7.4b", state=d.NODE_FINISH,
+        note=f"行级权限：{d.ROW_FILTER_PREEMBEDDED_NOTE}"
+             f"（actor＝{ctx.actor_who} · 落点 agg.fct_daily_metering——谓词随执行并语句）",
+    )
+
+    # N7.4c 外表审批闸（越集比对——interrupt 挂起；恢复整节点重跑，F7 节点幂等）
+    yield d.node_frame("N7.4c", state=d.NODE_PROCESS, tag="表引用比对")
+    if plan.external_tables:
+        ext_names = "、".join(plan.external_tables)
+        if ctx.extable_decision == "approve":
+            yield d.node_frame(
+                "N7.4c", state=d.NODE_FINISH,
+                note=f"表引用比对：外表 {ext_names} 已批准（审批留痕单号 "
+                     f"{ctx.extable_approval_id or '—'}，可回溯）——只读续跑，生产库未动",
+            )
+        elif ctx.extable_decision == "reject":
+            yield d.node_frame(
+                "N7.4c", state=d.NODE_FINISH, tag="权限拒绝 · 零重试",
+                note=f"✗ 不予执行，且不自动改写 SQL 重试（外表 {ext_names}——权限拒答终局）",
+            )
+            yield d.node_frame("N7.4", state=d.NODE_FINISH, note="外表审批驳回——链路终局（零重试）")
+            yield notice(
+                d.EXTABLE_REJECT_NOTICE_TEMPLATE.format(table=ext_names), level="warning",
+            )
+            yield d.SseEvent(d.FRAME_ANSWER, {
+                "kind": "extable",
+                "decision": "rejected",
+                "reject_notice": d.EXTABLE_REJECT_NOTICE_TEMPLATE.format(table=ext_names),
+                **({"audit_no": ctx.extable_approval_id} if ctx.extable_approval_id else {}),
+            })
+            return
+        else:
+            # 首跑越集——审批 interrupt 挂起（模型与流程都无权自批，A1 行为规则 7）。
+            approval_id = f"APP-{_today():%m%d}-{ctx.run_id.removeprefix('run-')[:6]}"
+            payload = d.build_extable_approval(plan, run_id=ctx.run_id, approval_id=approval_id)
+            yield d.node_frame(
+                "N7.4c", state=d.NODE_FINISH, tag="暂停 · 等待人工处理",
+                note=f"✓ 执行前表引用比对：SQL 引用选表命中集之外的外表 {ext_names}"
+                     " → 已触发人工审批（模型与流程都无权自批）",
+            )
+            yield d.node_frame(
+                "N7.4", state=d.NODE_FINISH, note="外表审批挂起（interrupt——连接不占着）",
+            )
+            yield d.chain_approval_signal(payload)
+            return
+    else:
+        yield d.node_frame(
+            "N7.4c", state=d.NODE_FINISH,
+            note="表引用比对：查询仅引用选表命中集内三表——越集未触发，不设审批放行",
+        )
+    yield d.node_frame("N7.4", state=d.NODE_FINISH, note="执行前安检三闸走完——放行执行")
+
+    # —— N7.5 查询执行（只读＋行级注入已并——tool_call 帧留痕）——
+    yield d.node_frame("N7.5", state=d.NODE_PROCESS, tag="只读执行")
+    if deps.query_executor is None:
+        # 执行缝未装配＝不冒充出数（诚实降级——生产组合根装配 QueryStore）。
+        yield d.node_frame(
+            "N7.5", state=d.NODE_FINISH, note="查询执行缝未装配——不出数（不假跑）",
+        )
+        yield d.SseEvent(d.FRAME_ANSWER, {
+            "kind": "alert", "alert_type": "warning",
+            "text": "查询执行通道未装配——本次不出数。请稍后再试或联系平台运维。",
+        })
+        return
+    result = await deps.query_executor(plan)
+    yield d.SseEvent(d.FRAME_TOOL_CALL, {
+        "name": "sql_query.readonly",
+        "args_summary": (
+            f"时间＝{plan.window.label} · 指标＝{plan.metric_slot} · "
+            f"条数＝{plan.limit_effective}"
+        ),
+        "tables_hit": list(d.STAR_TABLES),
+        "rows_returned": len(result.rows),
+        "readonly": True,
+    })
+    yield d.node_frame(
+        "N7.5", state=d.NODE_FINISH,
+        note=f"只读账号执行完成（行级注入谓词 {result.row_filter_predicates} 条已并语句；"
+             f"生产库未动）——返回 {len(result.rows)} 行",
+    )
+
+    # —— N7.6 结果核验（行数/值域——0 行如实回报不编数）——
+    yield d.node_frame("N7.6", state=d.NODE_PROCESS, tag="行数 / 值域 / 口径")
+    if not result.rows:
+        yield d.node_frame(
+            "N7.6", state=d.NODE_FINISH,
+            note=f"结果核验：0 行（时间窗「{plan.window.label}」内查无数据）——如实回报，不编数",
+        )
+        yield d.SseEvent(d.FRAME_ANSWER, {
+            "kind": "alert", "alert_type": "info",
+            "text": (
+                f"查询执行成功但无数据行（时间窗「{plan.window.label}」内查无数据）"
+                "——如实回报，不编数。"
+            ),
+        })
+        return
+    yield d.node_frame(
+        "N7.6", state=d.NODE_FINISH,
+        note=f"结果核验通过：{len(result.rows)} 行 · 列 {len(result.columns)} 列"
+             f"（LIMIT {plan.limit_effective} 收口内）",
+    )
+
+    # —— 血缘卡五要素（F13——合同值逐行）＋数据证据出处＋答案表卡 ——
+    caliber_line = d.lineage_caliber_line(
+        plan, def_text=def_text, clarified_caliber=ctx.clarified_caliber,
+    )
+    watermark_line = d.lineage_watermark_line(
+        data_date=waterline.data_date if waterline else None,
+        promise=waterline.promise if waterline else None,
+        tag=waterline.tag if waterline else None,
+        batch_id=result.batch_id,
+    )
+    lineage = [
+        {"key": d.LINEAGE_KEY_CALIBER, "value": caliber_line},
+        {"key": d.LINEAGE_KEY_SOURCE, "value": d.lineage_source_line()},
+        {"key": d.LINEAGE_KEY_FILTER, "value": d.lineage_filter_line(plan)},
+        {"key": d.LINEAGE_KEY_PERMISSION, "value": d.ROW_FILTER_PREEMBEDDED_NOTE},
+        {"key": d.LINEAGE_KEY_WATERMARK, "value": watermark_line},
+        {"key": d.LINEAGE_KEY_CLOSING, "value": d.lineage_closing_line(plan)},
+    ]
+    yield d.SseEvent(d.FRAME_LINEAGE, {"items": lineage})
+    table = {
+        "columns": [{"dataIndex": key, "title": title} for key, title in result.columns],
+        "rows": result.rows,
+    }
+    if plan.external_tables and ctx.extable_decision == "approve":
+        # 批准支出数（A1 answer kind=extable——核对表格＋审批留痕；外表联查列产出
+        # 随 D3 白名单数据面批——本轮按批准引用＋白名单内主查询出数，不伪造外表列）。
+        yield notice(
+            "外表联查列产出待数据 Owner 白名单数据面接线——本轮按批准引用＋白名单内"
+            "主查询出数（不伪造外表列）。",
+            level="info",
+        )
+        yield d.SseEvent(d.FRAME_ANSWER, {
+            "kind": "extable",
+            "decision": "approved",
+            "table": table,
+            "footnote": d.EXTABLE_APPROVED_FOOTNOTE_TEMPLATE.format(
+                approval_id=ctx.extable_approval_id or "—",
+            ),
+            "lineage": lineage,
+            **({"audit_no": ctx.extable_approval_id} if ctx.extable_approval_id else {}),
+        })
+        return
+    sample = _sample_row_line(result.rows[0])
+    citations = [
+        d.citation_wire(d.Evidence(
+            ref="c1", kind="数据证据", label="出处 1 · 日产计量表样本行",
+            locator={"section": "agg.fct_daily_metering", "sample": sample},
+            snippet=sample, score=1.0, source="ledger",
+        )),
+        d.citation_wire(d.Evidence(
+            ref="c2", kind="数据证据", label="出处 2 · 连表合法性（agg 星型模型注册）",
+            locator={
+                "section": "Join 白名单",
+                "tables": "fct_daily_metering ⋈ dim_well/dim_date（PK 连）",
+                "source": "99 册 §2.12/D6 star_model",
+            },
+            snippet="事实表组合 PK 挂两维 PK 连——join 结构即注册合同值",
+            score=1.0, source="ledger",
+        )),
+    ]
+    yield d.SseEvent(d.FRAME_ANSWER, {
+        "kind": "table",
+        **table,
+        "source_note": "数据来源：agg 汇总层「日产计量表」（数据面管道直写 · 批次水位随血缘卡④）",
+        "citations": citations,
+        "lineage": lineage,
+    })
+
+
+def _today() -> date:
+    """链内今日（B14——infra.clock 单点；问数链确定性解析的时间基准）。"""
+    return now().date()
+
+
+def _sample_row_line(row: dict[str, Any]) -> str:
+    """首行结果 → 样本行展示串（数据证据出处 1——「证明去重/折算」的样本行族）。"""
+    return " | ".join(f"{key}={row[key]}" for key in row if row.get(key) is not None)
+
+
 # ---------- FAQ 秒回链 ----------
+
 
 
 async def faq_direct_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.SseEvent]:

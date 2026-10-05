@@ -28,8 +28,11 @@ from app.domains.chat.domain import (
     GraphHitFace,
     IndexHitFace,
     MetricFace,
+    QueryPlan,
+    QueryResult,
     RetrievalConfigFace,
     TermFace,
+    WaterlineFace,
 )
 from app.domains.chat.store import ensure_chat_tables
 from app.domains.security import SecurityService
@@ -59,7 +62,8 @@ DEFAULT_CONFIG = RetrievalConfigFace(
 
 
 def default_metrics() -> list[MetricFace]:
-    """台账面（产量完成率精确行＋有效产量口径两译行——A1 澄清场景同源）。"""
+    """台账面（产量完成率精确行＋有效产量口径两译行——A1 澄清场景同源；
+    日产油量行＝M-06 问数链模板绑定源——MEASURE_COLUMNS 绑定 agg.oil_output）。"""
     return [
         MetricFace(metric_id=1, name="★产量完成率", slot_name="产量完成率",
                    ambiguous=False, calibers=[], default_caliber=None),
@@ -74,6 +78,8 @@ def default_metrics() -> list[MetricFace]:
             ],
             default_caliber="A",
         ),
+        MetricFace(metric_id=3, name="★日产油量", slot_name="日产油量",
+                   ambiguous=False, calibers=[], default_caliber=None),
     ]
 
 
@@ -111,6 +117,18 @@ class Seams:
     faq_served: list[str] = field(default_factory=lambda: ["N-02 井是什么时候投产的？"])
     workflows: list[tuple[str, str]] = field(default_factory=lambda: [("月度产量核查", "登记")])
     reports: list[str] = field(default_factory=list)
+    # —— 问数链缝（M-06 假数据源）——
+    waterline: WaterlineFace | None = None  # None＝水位未回写（链内如实标注放行）
+    query_columns: tuple[tuple[str, str], ...] = (
+        ("well_id", "井号"), ("block_name", "区块"), ("日产油量合计（吨）", "日产油量合计（吨）"),
+    )
+    query_rows: list[dict[str, Any]] = field(default_factory=lambda: [
+        {"well_id": "N-02", "block_name": "渤南", "日产油量合计（吨）": 4860.0},
+        {"well_id": "N-11", "block_name": "渤中", "日产油量合计（吨）": 3104.0},
+        {"well_id": "N-06", "block_name": "渤西", "日产油量合计（吨）": 2417.5},
+    ])
+    query_batch: str | None = "B20260911-T3"
+    executed_plans: list[QueryPlan] = field(default_factory=list)
 
     def _bump(self, key: str) -> None:
         self.calls[key] = self.calls.get(key, 0) + 1
@@ -172,6 +190,22 @@ class Seams:
         self._bump("rpt_list")
         return list(self.reports)
 
+    async def execute_query(self, plan: QueryPlan) -> QueryResult:
+        """问数执行假数据源（生产＝chat.QueryStore——agg 星型读模型只读）。"""
+        self._bump("query_exec")
+        self.executed_plans.append(plan)
+        return QueryResult(
+            columns=self.query_columns,
+            rows=[dict(row) for row in self.query_rows],
+            batch_id=self.query_batch,
+            row_filter_predicates=0,
+        )
+
+    async def load_waterline(self) -> WaterlineFace | None:
+        """汇总层水位假缝（生产＝M-05a 水位读面——E2 T-1 判定随面携入）。"""
+        self._bump("waterline")
+        return self.waterline
+
     async def complete(
         self, alias: str, messages: list[dict[str, str]], *, caller: str, **params: Any
     ) -> Any:
@@ -214,7 +248,8 @@ def service(chat_db: ConnectionManager, seams: Seams) -> ChatService:
 
 
 def make_service(db: ConnectionManager, seams: Seams) -> ChatService:
-    """假缝装配（生产＝main.py 组合根同构——配置/台账/FAQ/报告索引/图谱/锚/LLM）。"""
+    """假缝装配（生产＝main.py 组合根同构——配置/台账/FAQ/报告索引/图谱/锚/LLM＋
+    问数执行/水位读缝）。"""
     return ChatService(
         db,
         audit=SecurityService(db),  # B12 真写口（sqlite 底座——审计断言直读表）
@@ -231,6 +266,8 @@ def make_service(db: ConnectionManager, seams: Seams) -> ChatService:
         faq_lister=seams.list_faq_served,
         workflow_lister=seams.list_workflows,
         report_lister=seams.list_reports,
+        query_executor=seams.execute_query,  # M-06 问数链取数缝（假数据源）
+        waterline_loader=seams.load_waterline,  # M-06 新鲜度闸水位缝
     )
 
 

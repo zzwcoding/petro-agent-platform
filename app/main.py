@@ -92,13 +92,17 @@ from app.domains.chat import (
     MetricFace,
     RetrievalConfigFace,
     TermFace,
+    WaterlineFace,
 )
+from app.domains.chat.query_store import QueryStore
 from app.domains.chat.store import ensure_chat_tables
 from app.domains.dataops.quality import (
     QualityService,
     bind_channel_rescan,
     ensure_quality_tables,
 )
+from app.domains.dataops.quality.domain import freshness_judgment
+from app.domains.dataops.quality.store import QualityStore
 from app.domains.derivatives import DerivativesService
 from app.domains.derivatives.service import load_extract_config_snapshot
 from app.domains.derivatives.store import ensure_derivatives_tables
@@ -116,6 +120,7 @@ from app.domains.security.store import ensure_audit_table
 from app.domains.semantics import SemanticsService
 from app.domains.semantics.store import ensure_semantics_tables
 from app.domains.wells import WellsService, ensure_wells_tables
+from app.infra.clock import now
 from app.infra.config import load_database_specs
 from app.infra.db import ConnectionManager
 from app.infra.eventbus import InMemoryEventBus, ensure_outbox_table
@@ -396,6 +401,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             LOGGER.warning("chat 图谱缝检索不可用——按落空处理（B9 缝）", exc_info=True)
         return faces[:8]
 
+    # 问数链接线（M-06——B9 同款：运行期只见 callable）：query_executor＝agg 星型
+    # 读模型只读执行（99 §3 chat 读声明唯一消费方——chat.QueryStore，M-01 两步
+    # 缝行级注入在执行缝内走）；waterline_loader＝M-05a 水位读面（water_line 表
+    # 经 QualityStore 只读）——汇总层水位携 E2 T-1 判定（freshness_judgment 单源
+    # 计算，本缝不重算）；水位未回写层如实缺行（不造达标假象）。
+    query_store = QueryStore(manager)
+    quality_store = QualityStore(manager)
+
+    async def waterline_loader() -> WaterlineFace | None:
+        for row in await quality_store.list_water_lines():
+            if row.layer == "汇总层":
+                tag, _color, late_days = freshness_judgment(row.data_date, now().date())
+                return WaterlineFace(
+                    layer=row.layer, data_date=row.data_date,
+                    promise=row.promise, tag=tag, late_days=late_days,
+                )
+        return None
+
     app.state.chat = ChatService(
         manager,
         audit=app.state.security,  # B12：chat.ask.received/blocked（受理/拦截留痕）
@@ -412,6 +435,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         faq_lister=faq_lister,  # A1 端点 6 assets 投影（lazy 绑定——faq 在本域之后装配）
         workflow_lister=workflow_lister,
         report_lister=report_lister,
+        query_executor=query_store.execute_plan,  # M-06 问数链取数缝（agg 星型只读）
+        waterline_loader=waterline_loader,  # M-06 新鲜度闸水位缝（M-05a 读面）
     )
 
     app.state.faq = FaqService(

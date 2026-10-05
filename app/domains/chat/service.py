@@ -16,17 +16,25 @@ POST /api/chat/asks）＋resume（interrupt 决策回流——POST /api/chat/run
     ＋装配信号，D2 confidence_thresholds 档位：低 <low 必弹澄清帧——多候选在
     场弹候选澄清帧，无候选直派检索链走兜底）。
   ④执行链分发：17 链闭世界分派；N5b 接线核验（P1F-01）——裁决选中未注册链
-    （17 链清单仅检索问答/FAQ直出/图谱问答三链接线）即覆写回退「检索问答链」，
-    原裁决随 N5b 帧 note 留痕；检索/FAQ 秒回/图谱问答三链链体见 chains.py；
+    （17 链清单已接线四链：状态机六站/检索问答/FAQ直出/图谱问答——分派器注册面）
+    即覆写回退「检索问答链」，原裁决随 N5b 帧 note 留痕；链体见 chains.py；
     「该能力暂未开通」话术不再是主路径行为，仅作已接线链内部注桩缺陷安全网
     （同 _run_chain 的 answer=None 兜底分支族）。
+
+审批 interrupt（M-06 extable——A1 端点 5 合同形状）：问数链 N7.4c 越集比对命中
+  → approval 哨兵拦截 → interrupt_approval 挂起（pending_approval_id 落列）；
+  resume decision=approve/reject → 链恢复整节点重跑（F7 节点幂等）——N7.4c 以
+  ctx.extable_decision 判别批准续跑/驳回终局（extable 驳回不强制理由——A1：
+  Action 链才须写理由）。
 
 澄清帧有界循环（F56）：最多弹一次、两跳到终态（默认口径/锁定候选/拒答）——
 挂起帧写入 chat_run.pending_interrupt（clarify_count CHECK 0–1 存储强制）；
 回流带参重过安检（不免检）→ 带参重判 → 续推；第二次 clarify 一律 409。
 挂起帧 subtype＝caliber（口径两译——默认口径项 primary）｜candidates（低置信
 多候选——无默认项，不选＝拒答终态，宁可不答不瞎猜）｜rewrite（P1F-06 链内
-低分带改写澄清——无默认项，选是＝优化句上下文续推、选否/不选＝诚实兜底）。
+低分带改写澄清——无默认项，选是＝优化句上下文续推、选否/不选＝诚实兜底）｜
+missing（M-06 问数链缺参反问——askback 时间窗三选一无默认项，补参并入问句
+续推、不选＝拒答终态：缺的是用户事实）。
 clarify 帧 wire＝A1 帧 14 冻结形状＋additive `subtype` 键（透传给前端分支渲染；
 挂起/重放/链内哨兵三路同形，剥除面＝_wire_verdict 的 _ 前缀域内随行键）。
 
@@ -142,6 +150,8 @@ class ChatService:
         faq_lister: d.FaqLister | None = None,
         workflow_lister: d.WorkflowLister | None = None,
         report_lister: d.ReportLister | None = None,
+        query_executor: d.QueryExecutor | None = None,
+        waterline_loader: d.WaterlineLoader | None = None,
     ) -> None:
         self._db = db
         self._audit = audit
@@ -171,8 +181,11 @@ class ChatService:
             graph_searcher=self._search_graph,
             anchor_loader=self._load_anchor,
             completer=completer,
+            query_executor=query_executor,
+            waterline_loader=waterline_loader,
         )
-        # 三链填肉（P1-08b——分派缝注册面；链体只见 ChainDeps 注入缝）。
+        # 四链填肉（P1-08b 三链＋M-06 问数链——分派缝注册面；链体只见 ChainDeps 注入缝）。
+        self._dispatcher.register("状态机六站链", partial(chains_mod.query_chain, self._deps))
         self._dispatcher.register("检索问答链", partial(chains_mod.retrieval_chain, self._deps))
         self._dispatcher.register("FAQ直出链", partial(chains_mod.faq_direct_chain, self._deps))
         self._dispatcher.register("图谱问答链", partial(chains_mod.graph_chain, self._deps))
@@ -388,12 +401,22 @@ class ChatService:
         if run is None:
             raise d.ChatRunNotFoundError(f"运行不存在或已过期：{run_id}")
         if kind == "approval":
+            if decision not in ("approve", "reject"):
+                raise d.ChatParamError(
+                    f"审批决策无效：{decision!r}（可选：approve／reject）"
+                )
             if decision == "reject" and not (reason and reason.strip()):
-                raise d.ChatParamError("Action 链驳回必须写理由（N12「须写理由的驳回」）")
-            raise d.ChatRunStateError(
-                f"run 非 interrupt 挂起态：{run_id}（status={run.status}）"
-                "——审批挂起未产生（extable/action 链随后续批）"
-            )
+                # Action 链驳回必须写理由（N12）；extable 驳回不强制（A1 端点 5）——
+                # 按挂起场景判别：无审批挂起/非 extable 场景一律按 Action 链口径要理由。
+                scene = str((run.pending_interrupt or {}).get("scene") or "")
+                if scene != d.EXTABLE_SCENE:
+                    raise d.ChatParamError("Action 链驳回必须写理由（N12「须写理由的驳回」）")
+            if run.status != "interrupt_approval":
+                raise d.ChatRunStateError(
+                    f"run 非 interrupt 审批挂起态：{run_id}（status={run.status}）"
+                    "——审批挂起仅由问数链 N7.4c 外表审批产生（A1 端点 5）"
+                )
+            return run
         if run.status != "interrupt_clarify":
             raise d.ChatRunStateError(
                 f"run 非 interrupt 挂起态：{run_id}（status={run.status}）"
@@ -417,9 +440,15 @@ class ChatService:
           链已定（检索问答链）——不重复意图裁决（澄清只裁决问法取舍）。
         - 有界循环：clarify_count 已 1（CHECK 0–1）时不再弹帧——两跳终态走
           默认口径/锁定候选后照常分派；第二次 clarify 一律 409。
-        - approval 形态：无审批挂起 run——非 interrupt_approval 态一律 409。
+        - approval 形态（M-06 extable）：decision=approve → 链恢复续跑出结果；
+          reject → 权限拒答零重试（不自动改 SQL 重试，extable 驳回不强制理由）。
+          无审批挂起 run——非 interrupt_approval 态一律 409（preflight）。
         """
         run = await self.resume_preflight(run_id, kind=kind, decision=decision, reason=reason)
+        if kind == "approval":
+            async for event in self._resume_approval(run, str(decision), actor_who):
+                yield event
+            return
         pending = run.pending_interrupt or {}
         frame = _frame_from_interrupt(pending)
         if frame is None:
@@ -465,6 +494,25 @@ class ChatService:
             else:
                 # 不选≠卡死：候选澄清无默认项——拒答终态（两跳到终态防卡死）。
                 question = None
+        elif subtype == d.MISSING_SUBTYPE:
+            # M-06 缺参反问回流（askback 时间窗三选一——无默认项：缺的是用户
+            # 事实，不代选）：choice＝补参候选并入问句（输入严格变多——链体重
+            # 解析即得窗）；不选＝拒答终态（同 candidates 纪律，两跳到终态）。
+            if choice and choice.strip():
+                if choice not in {c.value for c in frame.choices}:
+                    raise d.ChatParamError(
+                        f"澄清选项无效：{choice!r}"
+                        f"（可选：{'、'.join(c.value for c in frame.choices)}）"
+                    )
+                merged = base_question + (
+                    "" if choice in base_question else f"（时间窗＝{choice}）"
+                )
+                run.status = "running"
+                run.pending_interrupt = None
+                await self._store.save_run(run)
+                question = merged
+            else:
+                question = None
         else:
             chosen = d.caliber_choice_value(choice, frame)
             if chosen is None:
@@ -485,6 +533,8 @@ class ChatService:
                 "改写选择＝按优化问法续答" if not rewrite_declined
                 else "改写选择＝坚持原问法——诚实兜底"
             )
+        elif subtype == d.MISSING_SUBTYPE:
+            audit_detail = f"缺参补齐＝{choice}"
         else:
             audit_detail = f"口径锁定＝{caliber_name}"
         await self._audit_received(
@@ -612,22 +662,29 @@ class ChatService:
                            note=f"装配块组卷完成——slots＝{assembly.slots}")
         yield d.SseEvent(d.FRAME_STAGE, {"stage": 2})
         cfg = await self._config_loader()
-        if subtype == "rewrite":
-            # 改写澄清续推不重复意图裁决（P1F-06）：帧由链内 S6 弹出——链已定
-            # （检索问答链），澄清只裁决问法取舍；覆写为确定性续推裁决（零意图
-            # 调用；澄清额度已尽——need_clarify 恒 false，不再弹帧）。
-            verdict = {
-                "chain": "检索问答链", "slots": assembly.slots,
-                "confidence": (
+        pending_chain = str(pending.get("chain") or "检索问答链")
+        if subtype in ("rewrite", d.MISSING_SUBTYPE):
+            # 链内澄清续推不重复意图裁决（P1F-06／M-06 missing 同纪律）：帧由链内
+            # 弹出——链已定（挂起帧携发起链），澄清只裁决参数取舍；覆写为确定性
+            # 续推裁决（零意图调用；澄清额度已尽——need_clarify 恒 false，不再弹帧）。
+            if subtype == "rewrite":
+                confidence = (
                     "中（按优化问法续答——改写澄清锁定）" if not rewrite_declined
                     else "低（坚持原问法——诚实兜底）"
-                ),
+                )
+                verdict_note = "改写澄清续推——链不变，不重复意图裁决（澄清只裁决问法取舍）"
+            else:
+                confidence = "中（缺参补齐——时间窗锁定续推）"
+                verdict_note = "缺参反问续推——链不变，不重复意图裁决（补参并入问句续推）"
+            verdict = {
+                "chain": pending_chain, "slots": assembly.slots,
+                "confidence": confidence,
                 "need_clarify": False,
                 "source": d.VERDICT_SOURCE_DETERMINISTIC,
             }
             yield d.node_frame(
                 "N5", state=d.NODE_PROCESS, tag="意图裁决 · 链内澄清续推",
-                note="改写澄清续推——链不变（检索问答链），不重复意图裁决（澄清只裁决问法取舍）",
+                note=verdict_note,
             )
         else:
             yield d.node_frame(
@@ -659,9 +716,10 @@ class ChatService:
                     })
         await self._record_verdict(run, verdict)
         yield d.SseEvent(d.FRAME_VERDICT, _wire_verdict(verdict))
+        chain_clarify = subtype in ("rewrite", d.MISSING_SUBTYPE)
         yield d.node_frame(
             "N5", state=d.NODE_FINISH,
-            note=f"{'改写续推裁决输出' if subtype == 'rewrite' else '带参重判输出'}"
+            note=f"{'链内澄清续推裁决输出' if chain_clarify else '带参重判输出'}"
                  f"（来源＝{verdict.get('source')}）——chain＝{verdict.get('chain')}"
                  f" · confidence＝{verdict.get('confidence')}",
         )
@@ -711,6 +769,8 @@ class ChatService:
           重放帧与原流帧 id 不对齐——能补的是持久化内容而非原流断点后的原帧序列）。
         - interrupt_clarify：session→verdict→clarify（pending_interrupt 持久帧）
           ——流收束不发 done（镜像原 ask 挂起形态；决策回流仍走端点 5）。
+        - interrupt_approval（M-06 extable）：session→verdict→approval（持久帧）
+          ——同形挂起重放；批准/驳回仍走端点 5。
         - running/failed/cancelled（及 done 而答案缺失）：持久前缀＋replay_truncated
           ③收场——生成已随断连取消，诚实收场不假装续传。
         - 中间过程帧（stage/sec_check/match/assembly/node/node_line/token/notice）
@@ -728,6 +788,18 @@ class ChatService:
             if frame:
                 yield d.SseEvent(d.FRAME_CLARIFY, dict(frame))
                 return
+        elif run.status == "interrupt_approval":
+            payload = run.pending_interrupt or {}
+            if payload.get("kind") == "approval":
+                yield d.SseEvent(d.FRAME_APPROVAL, {
+                    "approval_id": str(payload.get("approval_id") or ""),
+                    "scene": str(payload.get("scene") or d.EXTABLE_SCENE),
+                    "title": d.EXTABLE_TITLE,
+                    "reason": d.EXTABLE_REASON_TEMPLATE.format(
+                        tables="、".join(payload.get("tables") or []) or "—"),
+                    "impact": d.EXTABLE_IMPACT,
+                })
+                return
         elif run.status == "done":
             messages = await self._store.messages_of_run(run.id)
             answer = next(
@@ -742,6 +814,65 @@ class ChatService:
                 yield d.SseEvent(d.FRAME_DONE, {})
                 return
         yield d.SseEvent(d.FRAME_REPLAY_TRUNCATED, {"message": d.REPLAY_CANCELLED_MESSAGE})
+
+    # ---------- 审批回流续跑（M-06 extable——interrupt 恢复整节点重跑） ----------
+
+    async def _resume_approval(
+        self, run: ChatRunRow, decision: str, actor_who: str,
+    ) -> AsyncIterator[d.SseEvent]:
+        """审批回流（A1 端点 5：approve → 链恢复续跑出结果；reject → extable
+        权限拒答零重试）。无新输入——不重过安检不重裁决；恢复时整节点重跑
+        （F7 节点幂等——链体从 N7.1 确定性重推导，N7.4c 以 extable_decision
+        判别两路）。审批留痕走 B12 审计（extable 纯链内闸——不进 A3 台账）。
+        """
+        pending = run.pending_interrupt or {}
+        question = str(pending.get("question") or "")
+        approval_id = str(pending.get("approval_id") or "")
+        tables = "、".join(str(t) for t in (pending.get("tables") or []))
+        chain = str(pending.get("chain") or "状态机六站链")
+        run.status = "running"
+        run.pending_interrupt = None
+        run.pending_approval_id = None
+        await self._store.save_run(run)
+        await self._audit_approval(actor_who, run.id, approval_id, decision, tables)
+
+        yield d.SseEvent(d.FRAME_SESSION, {
+            "run_id": run.id, "thread_id": run.session_id, "resume": True,
+        })
+        yield d.SseEvent(d.FRAME_STAGE, {"stage": 2})
+        verdict = {
+            "chain": chain, "slots": "—（审批回流——不重装配裁决）",
+            "confidence": (
+                "中（审批批准——interrupt 恢复续跑）" if decision == "approve"
+                else "低（审批驳回——权限拒答零重试）"
+            ),
+            "need_clarify": False,
+            "source": d.VERDICT_SOURCE_DETERMINISTIC,
+        }
+        await self._record_verdict(run, verdict)
+        yield d.SseEvent(d.FRAME_VERDICT, _wire_verdict(verdict))
+        yield d.node_frame(
+            "N5", state=d.NODE_FINISH,
+            note=f"审批回流（决策＝{'批准续跑' if decision == 'approve' else '驳回'}）"
+                 f"——无新输入不重裁决，链恢复整节点重跑（F7 节点幂等）",
+        )
+        yield d.node_frame("N5b", state=d.NODE_PROCESS)
+        yield d.node_frame(
+            "N5b", state=d.NODE_FINISH,
+            note=self._verify_chain_wiring(verdict),
+        )
+        yield d.node_frame("N6", state=d.NODE_PROCESS, tag="查映射表派链")
+        yield d.node_frame(
+            "N6", state=d.NODE_FINISH,
+            note=f"已分派至「{chain}」——interrupt 恢复续跑",
+        )
+        assembly = await self._assemble(question, [])
+        async for event in self._run_chain(
+            chain, run, question, actor_who, assembly,
+            verdict=verdict, extable_decision=decision,
+            extable_approval_id=approval_id or None,
+        ):
+            yield event
 
     # ---------- ② 知识装配（六路匹配器——并行查表共池，词级全扫全收集） ----------
 
@@ -1145,7 +1276,13 @@ class ChatService:
     def _verdict_signals(
         self, question: str, assembly: d.AssemblyResult, cfg: d.RetrievalConfigFace
     ) -> dict[str, Any]:
-        """确定性信号路由（图谱关系信号＋置信度真实计算——LLM 兜底面）。"""
+        """确定性信号路由（图谱关系信号＋数据问句信号＋置信度真实计算——LLM 兜底面）。
+
+        数据问句信号（M-06）：指标台账命中＋时间/数量/排名词面 → 状态机六站链
+        （零模型调用——N7.1 复用同源装配做三要素校验；纯检索/释义问法不劫走，
+        维持检索问答链主路径）。查询策略配置面挂阶段 3——本信号是链内确定性规则，
+        不读配置。
+        """
         if (
             assembly.graph_hits
             and (d.is_relation_question(question) or not assembly.index_hits)
@@ -1153,6 +1290,13 @@ class ChatService:
             return {
                 "chain": "图谱问答链", "slots": assembly.slots,
                 "confidence": d.GRAPH_ROUTE_CONFIDENCE, "need_clarify": False,
+                "source": d.VERDICT_SOURCE_DETERMINISTIC,
+            }
+        metric_hit = any(c.kind == "metric" for c in assembly.candidates)
+        if metric_hit and d.is_data_question(question):
+            return {
+                "chain": "状态机六站链", "slots": assembly.slots,
+                "confidence": d.DATA_ROUTE_CONFIDENCE, "need_clarify": False,
                 "source": d.VERDICT_SOURCE_DETERMINISTIC,
             }
         best_score = max((h.score for h in assembly.index_hits), default=0.0)
@@ -1277,11 +1421,11 @@ class ChatService:
     def _verify_chain_wiring(self, verdict: dict[str, Any]) -> str:
         """N5b 接线核验（P1F-01）：闭世界校验之上再验接线注册面——未注册链回退。
 
-        17 链清单仅三链真实接线（检索问答/FAQ直出/图谱问答——分派器注册面）；
-        裁决选中未注册壳链时就地覆写 verdict["chain"] 为「检索问答链」（只动
-        chain 键——confidence/source 留痕不动，分派前覆写使 run 终态 verdict 与
-        实派链一致），返回 note 记原裁决；已注册三链绝不覆写。ask 主路径与
-        resume 重判路径共用本核验——回退逻辑单源，两处行为一致由构造保证。
+        17 链清单已接线四链（状态机六站/检索问答/FAQ直出/图谱问答——分派器
+        注册面）；裁决选中未注册壳链时就地覆写 verdict["chain"] 为「检索问答链」
+        （只动 chain 键——confidence/source 留痕不动，分派前覆写使 run 终态
+        verdict 与实派链一致），返回 note 记原裁决；已注册四链绝不覆写。ask 主
+        路径与 resume 重判路径共用本核验——回退逻辑单源，两处行为一致由构造保证。
         """
         chain = str(verdict.get("chain") or "")
         if self._dispatcher.is_registered(chain):
@@ -1295,13 +1439,17 @@ class ChatService:
         self, chain: str, run: ChatRunRow, question: str, actor_who: str,
         assembly: d.AssemblyResult, *, verdict: dict[str, Any],
         clarified_caliber: str | None = None, skip_rescore: bool = False,
+        extable_decision: str | None = None, extable_approval_id: str | None = None,
     ) -> AsyncIterator[d.SseEvent]:
         """链体帧流透传＋收场（stage(3) → 链内帧 → answer → done；答案落会话历史）。
 
-        链内澄清哨兵（P1F-06 rewrite）在流内拦截：clarify 帧 wire（subtype 透传）
-        下发＋_suspend_clarify 挂起、流收束不发 done（镜像 ask 澄清路径）——哨兵
-        本体（域内对象）不出域。skip_rescore 供 rewrite 选否/不选回流续推（用户
-        坚持原问法——链内低分带双重重评整段跳过）。"""
+        链内澄清哨兵（P1F-06 rewrite／M-06 缺参反问）在流内拦截：clarify 帧
+        wire（subtype 透传）下发＋_suspend_clarify 挂起、流收束不发 done（镜像
+        ask 澄清路径）——哨兵本体（域内对象）不出域。链内审批哨兵（M-06 extable）
+        同形拦截：approval 帧 wire（A1 帧 15 冻结形状）下发＋_suspend_approval
+        挂起（interrupt_approval——pending_approval_id 落列）。skip_rescore 供
+        rewrite 选否/不选回流续推；extable_decision/approval_id 供审批回流整节点
+        重跑（F7 节点幂等——N7.4c 判据）。"""
         yield d.SseEvent(d.FRAME_STAGE, {"stage": 3})
         answer: dict[str, Any] | None = None
         ctx = d.ChainContext(
@@ -1309,6 +1457,8 @@ class ChatService:
             clarified_caliber=clarified_caliber,
             clarify_available=run.clarify_count < d.CLARIFY_MAX_POPUPS,
             skip_rescore=skip_rescore,
+            extable_decision=extable_decision,
+            extable_approval_id=extable_approval_id,
         )
         async for event in self._dispatcher.dispatch(chain, ctx):
             if event.event == d.FRAME_CLARIFY and event.data.get("_chain_signal"):
@@ -1319,7 +1469,13 @@ class ChatService:
                     "_clarify": frame,
                     "_clarify_subtype": subtype,
                     "_optimized_question": str(event.data.get("optimized_question") or ""),
+                    "_chain": chain,
                 }, question=question)
+                return
+            if event.event == d.FRAME_APPROVAL and event.data.get("_chain_signal"):
+                payload = dict(event.data["payload"])
+                yield d.SseEvent(d.FRAME_APPROVAL, d.approval_wire(payload))
+                await self._suspend_approval(run, payload, question=question)
                 return
             if event.event == d.FRAME_ANSWER:
                 answer = event.data
@@ -1366,7 +1522,33 @@ class ChatService:
         }
         if verdict.get("_optimized_question"):
             pending["optimized_question"] = str(verdict["_optimized_question"])
+        if verdict.get("_chain"):
+            # 发起链（M-06 缺参反问——resume 续推按原链分派，不重裁决）；
+            # rewrite 先例缺省＝检索问答链（pending 无此键时同值兜底）。
+            pending["chain"] = str(verdict["_chain"])
         run.pending_interrupt = pending
+        await self._store.save_run(run)
+
+    async def _suspend_approval(
+        self, run: ChatRunRow, payload: dict[str, Any], *, question: str,
+    ) -> None:
+        """审批挂起（M-06 extable——interrupt_approval；pending_approval_id 落列）。
+
+        A1：extable＝纯链内闸，不产生变动单、不进 A3 台账——留痕＝审批留痕单号
+        随答案展示＋审计可查（B12 审计在 resume 决策拍落笔）。载荷携原问句、
+        发起链与计划 wire（审批回流整节点重跑的上下文——F7 节点幂等）。
+        """
+        run.status = "interrupt_approval"
+        run.pending_approval_id = str(payload.get("approval_id") or "")
+        run.pending_interrupt = {
+            "kind": "approval",
+            "scene": str(payload.get("scene") or d.EXTABLE_SCENE),
+            "approval_id": str(payload.get("approval_id") or ""),
+            "chain": "状态机六站链",
+            "question": question,
+            "tables": list(payload.get("_tables") or []),
+            "plan": dict(payload.get("_plan") or {}),
+        }
         await self._store.save_run(run)
 
     async def _reload_clarify_context(
@@ -1423,6 +1605,22 @@ class ChatService:
             who=who,
             action="chat.ask.blocked",
             content=f"统一安检拦截（run {run_id}）——{lane} 命中「{feature}」，链路终止",
+        ))
+
+    async def _audit_approval(
+        self, who: str, run_id: str, approval_id: str, decision: str, tables: str,
+    ) -> None:
+        """审批决策留痕（B12——extable 纯链内闸的「审计可查」半边；A1 端点 5）。"""
+        if self._audit is None:
+            return
+        outcome = (
+            "批准续跑（只读执行，生产库未动）" if decision == "approve"
+            else "驳回——权限拒答零重试"
+        )
+        await self._audit.audit(AuditRow(
+            who=who,
+            action="chat.ask.approval",
+            content=f"外表审批回流（run {run_id} · 单号 {approval_id}）——外表 {tables}：{outcome}",
         ))
 
 

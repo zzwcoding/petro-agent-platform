@@ -28,8 +28,8 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections.abc import AsyncIterator, Awaitable, Callable
-from dataclasses import dataclass, field
-from datetime import date
+from dataclasses import dataclass, field, replace
+from datetime import date, timedelta
 from typing import Any, Protocol
 
 # 纯派生函数复用（P1F-02——状态标注串复用 C1 展示串规则单源，不重写；非运行期读缝）
@@ -85,7 +85,9 @@ NODE_ERROR = "error"
 # 键/名照抄 learning-records/2026-09-27-业务执行全景树.md 总树＋prototype
 # DecisionTree.jsx（41 节点版）；S 级键＝D2 瀑布级合同键（A1 行为规则 3——链内
 # 节点行内容照抄各源；08b node_line 同键归位 node 帧）；GEN＝链内生成步实施键
-# （41 树无生成节点——N8 答案组装由 answer 帧驱动，差异登记挂 Owner 复核）。
+# （41 树无生成节点——N8 答案组装由 answer 帧驱动，差异登记挂 Owner 复核）；
+# N7 系六站＋三闸键＝M-06 问数链接入（全景树 N7.1–N7.6 主干＋N7.4a/b/c 分支闸，
+# 键/名照抄全景树「状态机六站链」节）。
 TREE_NODES: dict[str, str] = {
     "N1": "统一安检",
     "N2a": "注入拦截",
@@ -96,6 +98,15 @@ TREE_NODES: dict[str, str] = {
     "N5a": "澄清帧",
     "N5b": "裁决核验",
     "N6": "链路分派",
+    "N7.1": "意图识别",
+    "N7.2": "语义检索",
+    "N7.3": "SQL 生成",
+    "N7.4": "执行前安检",
+    "N7.4a": "新鲜度闸",
+    "N7.4b": "行级权限",
+    "N7.4c": "外表审批",
+    "N7.5": "查询执行",
+    "N7.6": "结果核验",
     "N13": "关系追溯",
     "N17": "检索问答",
     "N18": "预制问答",
@@ -109,9 +120,10 @@ TREE_NODES: dict[str, str] = {
     "GEN": "限定作答＋引用登记",
 }
 
-# 17 链 → 全景树执行节点（已接线三链；未接线链在 N5b 裁决核验即回退检索问答链
+# 17 链 → 全景树执行节点（已接线四链；未接线链在 N5b 裁决核验即回退检索问答链
 # ——P1F-01，不会进分派、不出未开通话术；分派器话术仅作链内注桩缺陷安全网）。
 CHAIN_TREE_NODES: dict[str, str] = {
+    "状态机六站链": "N7.1",
     "检索问答链": "N17",
     "FAQ直出链": "N18",
     "图谱问答链": "N13",
@@ -163,10 +175,11 @@ CHAIN17: tuple[str, ...] = (
 )
 
 # 三链分派缝（票面：检索链/FAQ 秒回/图谱问答三链接口留缝，08b 填）——
-# 三链在分派器占注册位（ChainHandler 缝，P1-08b 链体填入）；其余 14 链不注册＝
+# M-06 起状态机六站链接入（问数链——N7.1–N7.6＋安检三闸），注册面扩为四链：
+# 四链在分派器占注册位（ChainHandler 缝）；其余 13 链不注册＝
 # 未接线（is_registered 查询面），N5b 接线核验（service 层，P1F-01）对未注册
 # 裁决回退检索问答链——分派器「未开通」话术仅作已接线链内部注桩缺陷安全网。
-SEAM_CHAINS: tuple[str, ...] = ("检索问答链", "FAQ直出链", "图谱问答链")
+SEAM_CHAINS: tuple[str, ...] = ("状态机六站链", "检索问答链", "FAQ直出链", "图谱问答链")
 
 # 澄清帧候选上限（F56：候选上限 4 支，超截断标「另有 N 支未列出」）。
 CLARIFY_CANDIDATE_CAP = 4
@@ -675,6 +688,9 @@ class ChainContext:
     clarify_available/skip_rescore（P1F-06）：澄清额度与重评跳过旗标——额度由
     service 依 run.clarify_count 注入（rewrite 弹帧资格），skip_rescore 供 rewrite
     选否/不选回流续推（用户坚持原问法——低分带双重重评整段跳过，诚实兜底）。
+    extable_decision/extable_approval_id（M-06 外表审批 interrupt 回流）：审批
+    挂起的决策与留痕单号——链体恢复时整节点重跑（F7 节点幂等），N7.4c 以
+    decision 判别批准续跑/驳回终局；首跑（无回流）双值 None。
     """
 
     run_id: str
@@ -684,6 +700,8 @@ class ChainContext:
     clarified_caliber: str | None = None  # 澄清锁定的口径支名（默认口径/人选）
     clarify_available: bool = True  # 澄清额度在（clarify_count < 上限）——rewrite 弹帧资格
     skip_rescore: bool = False  # 用户坚持原问法——低分带双重重评跳过（rewrite 选否回流）
+    extable_decision: str | None = None  # 审批回流决策 approve|reject（M-06——N7.4c 判据）
+    extable_approval_id: str | None = None  # 审批留痕单号（挂起时生成、回流带回）
 
 
 # 链体缝（分派注册面——链内逐帧产出 node_line/token/citation/answer 等 SSE 事件，
@@ -1052,6 +1070,469 @@ def chain_clarify_signal(
     })
 
 
+# ---------- 问数链语义件（M-06 状态机六站链——F7 三要素/F14 LIMIT 收口/F13 血缘五要素） ----------
+#
+# 站定义真源＝业务执行全景树 N7.1–N7.6（learning-records/2026-09-27-业务执行全景
+# 树.md「状态机六站链」节）＋PRD F7 票 94 注记：站 1 意图识别＝复用 D2 slots 做
+# 确定性校验（三要素齐不齐查表即判，零模型调用，缺参才反问——一次理解、多处复用）；
+# 站 3 SQL 生成＝模板化（注册指标声明口径先行——自由生成只允许降级解释链并如实
+# 标注，不冒充审定口径）；站 4 执行前安检＝三闸（N7.4a 新鲜度/N7.4b 行级权限/
+# N7.4c 外表审批——F14）；血缘卡五要素＝F13 票 80/85（keys 合同值不可改）。
+# 本节全是纯语义（B1——不咬框架不触 IO；IO 归 query_store/service 编排）。
+
+
+@dataclass(frozen=True, slots=True)
+class TimeWindow:
+    """问数时间窗（半开区间 [start, end)——SQL 装配与血缘卡③共用的单源形状）。"""
+
+    start: date
+    end: date
+    label: str  # 人话标签（「上个月」「近 30 天」——血缘卡③/答案注记消费）
+    is_default: bool = False  # 无显式时间词的默认窗（答案与血缘卡必须标注「默认」）
+
+
+@dataclass(frozen=True, slots=True)
+class QueryPlan:
+    """问数查询计划（N7.3 模板装配产物——执行器/血缘卡/审批比对共用的单源）。
+
+    全字段由确定性解析产出（零模型调用）；window 为半开区间；external_tables
+    ＝问句点名、选表命中集之外的外表（F14 外表引用比对触发源——N7.4c 消费）。
+    """
+
+    metric_slot: str  # 剥法纯名（C1 台账槽位——注册指标声明）
+    metric_name: str  # 台账原名（含 ★☆ 与括注尾缀——血缘卡①照抄）
+    measure_column: str  # agg 计量列（99 §2.12 沿源口径 §A.2）
+    unit: str
+    window: TimeWindow
+    limit_requested: int | None  # 问句显式条数（None＝没写）
+    limit_effective: int  # LIMIT 收口后值（F14——只封顶不抬底）
+    ranking: bool  # 排名型（GROUP BY 井＋ORDER BY 合计 DESC）｜明细型
+    external_tables: tuple[str, ...] = ()  # 选表命中集之外的外表（越集比对触发源）
+    actor: str = ""  # 行级注入 actor（两步缝第一步——executor 消费）
+
+
+# F14 LIMIT 收口合同值（票 79/85：没写补默认 50、超 200 截到 200、只封顶不抬底）。
+QUERY_DEFAULT_LIMIT = 50
+QUERY_LIMIT_CAP = 200
+
+# 注册指标声明 → agg 计量列绑定（99 §2.12：物理列名沿源口径——设定书 §A.2
+# oil_output 吨/liquid_output 方/oil_pressure MPa；0014 迁移同注记）。
+# 台账行未绑定计量列的指标（完成率/递减率等派生比值）不走模板——降级解释链。
+MEASURE_COLUMNS: dict[str, tuple[str, str]] = {
+    "日产油量": ("oil_output", "吨"),
+    "日产液量": ("liquid_output", "方"),
+    "油压": ("oil_pressure", "MPa"),
+}
+
+# agg 星型读模型三表（99 §2.12/D6 star_model 合同值——问数链 SELECT 唯一落点；
+# join 结构即注册合同值：事实表组合 PK well_id+prod_date 挂两维 PK 连）。
+STAR_TABLES: tuple[str, ...] = (
+    "agg.fct_daily_metering", "agg.dim_well", "agg.dim_date",
+)
+STAR_SOURCE_NOTE = (
+    "agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」"
+    "——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）"
+    "⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）"
+)
+
+# 外表别名 → 表名（F14 唯一 interrupt 触发场景＝erp_well_register 越集审批——
+# A1 行为规则 9「D3 白名单演示」照抄；外表登记册随 D3 白名单批落，本表只收
+# 合同演示样本，不新增业务事实）。
+EXTERNAL_TABLE_ALIASES: dict[str, str] = {
+    "erp_well_register": "erp_well_register",
+    "井位台账": "erp_well_register",
+}
+
+# extable 审批卡与收场话术（A1 帧 15/answer kind=extable 合同形状——话术照抄
+# prototype stateGates.jsx ExtableFlow 原文）。
+EXTABLE_SCENE = "extable"
+EXTABLE_TITLE = "外表引用审批"
+EXTABLE_REASON_TEMPLATE = "查询引用选表命中集之外的外表：{tables}（执行前表引用比对命中——F14）"
+EXTABLE_IMPACT = "批准＝链恢复续跑（只读执行，生产库未动）；驳回＝权限拒答零重试（不自动改写 SQL）"
+EXTABLE_REJECT_NOTICE_TEMPLATE = (
+    "不予执行，且不自动改写 SQL 重试。处理方式：请数据 Owner 先将 {table} "
+    "登记进可用表白名单（安全与权限设置），再重新提问。"
+)
+EXTABLE_APPROVED_FOOTNOTE_TEMPLATE = (
+    "审批留痕（单号 {approval_id}，可回溯）；只读执行，生产库未动。"
+)
+
+# 缺参反问（askback 时间窗三选一——A1 澄清场景「缺参反问类 choices＝补参候选，
+# 照抄 askback 时间窗三选一，无默认项——缺的是用户事实，不是口径」；候选与问句
+# 照抄 prototype blocked.jsx AskbackFlow 原文）。
+MISSING_SUBTYPE = "missing"
+ASKBACK_TIME_QUESTION = (
+    "「最近」指哪个时间窗？① 近 3 天 ② 近 30 天 ③ 本月至今——选好后我按审定口径取数。"
+)
+ASKBACK_TIME_CHOICES: tuple[str, ...] = ("近 3 天", "近 30 天", "本月至今")
+
+# 确定性数据问句信号（意图路由——指标台账命中＋时间/数量/排名词面才入六站链；
+# 零模型调用。纯检索/释义问法不劫走——维持检索问答链主路径）。
+DATA_QUESTION_RE = re.compile(
+    r"昨天|前天|今天|本月|这个月|上月|上个月|今年|去年|最近|近[0-9一二两三四五六七八九十]"
+    r"|最高|最低|最大|最小|排名|TOP|top|前\s*[0-9一二两三四五六七八九十]"
+    r"|[0-9一二两三四五六七八九十]+\s*口"
+)
+DATA_ROUTE_CONFIDENCE = "高（指标台账命中——数据问句走状态机六站链）"
+
+_CN_NUMERALS: dict[str, int] = {
+    "一": 1, "两": 2, "二": 2, "三": 3, "四": 4, "五": 5,
+    "六": 6, "七": 7, "八": 8, "九": 9, "十": 10,
+}
+_RECENT_N_RE = re.compile(r"(?:最近|近)\s*([0-9]+|[一二两三四五六七八九十]+)\s*天")
+_VAGUE_TIME_RE = re.compile(r"最近|近期|近日")
+_LIMIT_TOP_RE = re.compile(r"(?:前|TOP|top)\s*([0-9]+|[一二两三四五六七八九十]+)")
+_LIMIT_MOUTH_RE = re.compile(r"([0-9]+|[一二两三四五六七八九十]+)\s*口")
+_RANKING_RE = re.compile(r"最高|最低|最大|最小|排名|TOP|top|前\s*[0-9一二两三四五六七八九十]")
+
+# 血缘解释链五要素键（A1 lineage DTO——F13 票 80/85「五要素与『（权限注入）』
+# 独立成行是合同值不可改」）。
+LINEAGE_KEY_CALIBER = "① 口径"
+LINEAGE_KEY_SOURCE = "② 来源表"
+LINEAGE_KEY_FILTER = "③ 过滤条件"
+LINEAGE_KEY_PERMISSION = "　└（权限注入）"
+LINEAGE_KEY_WATERMARK = "④ 数据截至批次"
+LINEAGE_KEY_CLOSING = "⑤ 收口注记"
+
+# 行级权限预埋期注记（M-01 两步缝消费面——「无权的数据查不出来，不是打码」；
+# 真分权只换谓词生产实现，注入点形状冻结）。
+ROW_FILTER_PREEMBEDDED_NOTE = (
+    "数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉"
+    "（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）"
+)
+
+# 新鲜度闸 E2 语义（消费 M-05a 水位读面——承诺 T-1 判定在组合根经 E2
+# freshness_judgment 单源计算随面携入；本域只渲染不重算）。
+FRESHNESS_UNKNOWN_NOTE = "汇总层水位未回写——批次截至未知（如实标注，不造达标假象）"
+FRESHNESS_REJECT_TEMPLATE = (
+    "新鲜度闸拦停：汇总层数据水位＝{data_date}（{tag}）——查询窗「{label}」"
+    "尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。"
+)
+FRESHNESS_CLAMP_NOTE_TEMPLATE = (
+    "比对：数据水位 {data_date} 早于查询窗上沿——已按最近可用日改绑出数"
+    "（数据截至 {data_date}，{tag}；其后日期未出数，不冒充新数据）"
+)
+
+
+def is_data_question(question: str) -> bool:
+    """确定性数据问句信号（意图路由兜底面——时间/数量/排名词面＋指标命中才入链）。"""
+    return DATA_QUESTION_RE.search(question) is not None
+
+
+def resolve_measure(metric_slot: str) -> tuple[str, str] | None:
+    """注册指标声明 → agg 计量列绑定（未绑定＝None——调用方走降级解释链）。"""
+    return MEASURE_COLUMNS.get(metric_slot)
+
+
+def _cn_int(raw: str) -> int | None:
+    raw = raw.strip()
+    if raw.isdigit():
+        return int(raw)
+    return _CN_NUMERALS.get(raw)
+
+
+def parse_row_limit(question: str) -> int | None:
+    """问句显式条数解析（确定性——「前3/TOP3/三口」；没写返回 None＝默认 50）。
+
+    只解析不收口：>200 的截断在 effective_limit（F14 收口注记要区分「没写」与
+    「写了超限」两态）。
+    """
+    for pattern in (_LIMIT_TOP_RE, _LIMIT_MOUTH_RE):
+        match = pattern.search(question)
+        if match is not None:
+            value = _cn_int(match.group(1))
+            if value is not None and value > 0:
+                return value
+    return None
+
+
+def effective_limit(requested: int | None) -> int:
+    """LIMIT 收口（F14 合同值：没写补默认 50、超 200 截到 200、只封顶不抬底）。"""
+    value = QUERY_DEFAULT_LIMIT if requested is None else requested
+    return min(value, QUERY_LIMIT_CAP)
+
+
+def is_ranking_question(question: str) -> bool:
+    """排名型问句信号（「最高/TOP/前N」——模板走 GROUP BY 井合计倒序）。"""
+    return _RANKING_RE.search(question) is not None
+
+
+def parse_time_window(
+    question: str, *, today: date
+) -> tuple[str, TimeWindow | None]:
+    """时间窗解析（确定性时间词函数——N7.1 三要素之时间槽位）。
+
+    - ("ok", window)：显式时间词命中；
+    - ("vague", None)：「最近/近期/近日」无量化——缺参反问（askback 时间窗
+      三选一，不猜数）；
+    - ("missing", None)：无时间词——调用方走默认窗（最近 30 天）并标注「默认」
+      （照 prototype rowlevel「无显式时间走默认窗」语义；D2 查询策略配置面挂阶段 3）。
+    """
+    recent = _RECENT_N_RE.search(question)
+    if recent is not None:
+        value = _cn_int(recent.group(1))
+        if value is not None and value > 0:
+            return "ok", TimeWindow(
+                start=today - timedelta(days=value), end=today,
+                label=f"近 {value} 天",
+            )
+    if _VAGUE_TIME_RE.search(question) is not None:
+        return "vague", None
+    if "上个月" in question or "上月" in question:
+        start = (today.replace(day=1) - timedelta(days=1)).replace(day=1)
+        end = today.replace(day=1)
+        return "ok", TimeWindow(start, end, "上个月")
+    if "本月" in question or "这个月" in question:
+        start = today.replace(day=1)
+        return "ok", TimeWindow(start, today, "本月至今")
+    if "昨天" in question:
+        day = today - timedelta(days=1)
+        return "ok", TimeWindow(day, today, "昨天")
+    if "前天" in question:
+        day = today - timedelta(days=2)
+        return "ok", TimeWindow(day, day + timedelta(days=1), "前天")
+    if "今天" in question:
+        return "ok", TimeWindow(today, today + timedelta(days=1), "今天")
+    if "今年" in question:
+        start = today.replace(month=1, day=1)
+        return "ok", TimeWindow(start, today, "今年")
+    if "去年" in question:
+        start = today.replace(month=1, day=1).replace(year=today.year - 1)
+        end = today.replace(month=1, day=1)
+        return "ok", TimeWindow(start, end, "去年")
+    return "missing", None
+
+
+def default_time_window(*, today: date) -> TimeWindow:
+    """默认时间窗（最近 30 天——无显式时间词时；is_default 驱动答案标注「默认」）。"""
+    return TimeWindow(
+        start=today - timedelta(days=30), end=today,
+        label="最近 30 天（默认）", is_default=True,
+    )
+
+
+def resolve_askback_window(choice: str, *, today: date) -> TimeWindow | None:
+    """askback 选项 → 时间窗（回流补参的确定性落点；未知选项 None）。"""
+    if choice == "近 3 天":
+        return TimeWindow(today - timedelta(days=3), today, "近 3 天")
+    if choice == "近 30 天":
+        return TimeWindow(today - timedelta(days=30), today, "近 30 天")
+    if choice == "本月至今":
+        return TimeWindow(today.replace(day=1), today, "本月至今")
+    return None
+
+
+def detect_external_tables(question: str) -> tuple[str, ...]:
+    """问句点名的选表命中集之外外表（F14 外表引用比对触发源——确定性别名比对）。"""
+    seen: list[str] = []
+    for alias, table in EXTERNAL_TABLE_ALIASES.items():
+        if alias.casefold() in question.casefold() and table not in seen:
+            seen.append(table)
+    return tuple(seen)
+
+
+def build_query_plan(
+    *,
+    metric_slot: str,
+    metric_name: str,
+    question: str,
+    window: TimeWindow,
+    today: date,
+    actor: str = "",
+) -> QueryPlan:
+    """N7.3 模板装配（前提＝resolve_measure 已命中＋时间窗已定——链体先核后调）。"""
+    column, unit = MEASURE_COLUMNS[metric_slot]
+    requested = parse_row_limit(question)
+    return QueryPlan(
+        metric_slot=metric_slot,
+        metric_name=metric_name,
+        measure_column=column,
+        unit=unit,
+        window=window,
+        limit_requested=requested,
+        limit_effective=effective_limit(requested),
+        ranking=is_ranking_question(question),
+        external_tables=detect_external_tables(question),
+        actor=actor,
+    )
+
+
+def clamp_plan_window(plan: QueryPlan, window: TimeWindow) -> QueryPlan:
+    """新鲜度闸改绑后的计划（dataclasses.replace 同形——窗口单点替换）。"""
+    return replace(plan, window=window)
+
+
+def plan_to_wire(plan: QueryPlan) -> dict[str, Any]:
+    """计划 → 挂起持久载荷（jsonb 安全形——日期 isoformat、元组转列表）。"""
+    return {
+        "metric_slot": plan.metric_slot,
+        "metric_name": plan.metric_name,
+        "measure_column": plan.measure_column,
+        "unit": plan.unit,
+        "window": {
+            "start": plan.window.start.isoformat(),
+            "end": plan.window.end.isoformat(),
+            "label": plan.window.label,
+            "is_default": plan.window.is_default,
+        },
+        "limit_requested": plan.limit_requested,
+        "limit_effective": plan.limit_effective,
+        "ranking": plan.ranking,
+        "external_tables": list(plan.external_tables),
+        "actor": plan.actor,
+    }
+
+
+def plan_from_wire(payload: dict[str, Any]) -> QueryPlan:
+    """挂起持久载荷 → 计划（审批回流整节点重跑的上下文恢复）。"""
+    window = payload["window"]
+    return QueryPlan(
+        metric_slot=str(payload["metric_slot"]),
+        metric_name=str(payload["metric_name"]),
+        measure_column=str(payload["measure_column"]),
+        unit=str(payload["unit"]),
+        window=TimeWindow(
+            start=date.fromisoformat(str(window["start"])),
+            end=date.fromisoformat(str(window["end"])),
+            label=str(window["label"]),
+            is_default=bool(window.get("is_default", False)),
+        ),
+        limit_requested=payload.get("limit_requested"),
+        limit_effective=int(payload["limit_effective"]),
+        ranking=bool(payload["ranking"]),
+        external_tables=tuple(payload.get("external_tables") or ()),
+        actor=str(payload.get("actor") or ""),
+    )
+
+
+def render_plan_sql(plan: QueryPlan) -> str:
+    """计划 → 展示 SQL（N7.3 node_line/审批卡核对用——执行走参数化 Core，
+    展示串才用字面日期；两处同源自 plan 单点渲染）。"""
+    measure = f"m.{plan.measure_column}"
+    window_cond = (
+        f"m.prod_date >= '{plan.window.start.isoformat()}' "
+        f"AND m.prod_date < '{plan.window.end.isoformat()}'"
+    )
+    joins = (
+        "FROM agg.fct_daily_metering m\n"
+        "  JOIN agg.dim_well w ON w.well_id = m.well_id\n"
+        "  JOIN agg.dim_date d ON d.date = m.prod_date"
+    )
+    if plan.ranking:
+        total = f"SUM({measure}) AS {plan.metric_slot}合计（{plan.unit}）"
+        return (
+            f"SELECT w.well_id AS 井号, w.block_name AS 区块, {total}\n"
+            f"{joins}\n"
+            f"WHERE {window_cond}\n"
+            "GROUP BY w.well_id, w.block_name\n"
+            f"ORDER BY SUM({measure}) DESC\n"
+            f"LIMIT {plan.limit_effective}"
+        )
+    return (
+        f"SELECT m.well_id AS 井号, w.block_name AS 区块, m.prod_date AS 日期, "
+        f"{measure} AS {plan.metric_slot}（{plan.unit}）\n"
+        f"{joins}\n"
+        f"WHERE {window_cond}\n"
+        f"ORDER BY m.prod_date, m.well_id\n"
+        f"LIMIT {plan.limit_effective}"
+    )
+
+
+def lineage_caliber_line(
+    plan: QueryPlan, *, def_text: str, clarified_caliber: str | None = None
+) -> str:
+    """血缘卡①口径（注册指标声明先行——C1 台账 def/unit 照抄，口径随答案标注）。"""
+    line = f"{plan.metric_name}（单位：{plan.unit}）——指标台账注册声明：{def_text}，口径随答案标注"
+    if clarified_caliber:
+        line += f"（澄清锁定：{clarified_caliber}）"
+    return line
+
+
+def lineage_source_line() -> str:
+    """血缘卡②来源表（照抄 A1 lineage DTO 示例句式——机器名冻结）。"""
+    return STAR_SOURCE_NOTE
+
+
+def lineage_filter_line(plan: QueryPlan) -> str:
+    """血缘卡③过滤条件主体（只声明真实下推的过滤——时间窗；区块过滤随
+    行级权限批，本票不虚列）。"""
+    line = (
+        f"时间＝{plan.window.label} "
+        f"[{plan.window.start.isoformat()}, {plan.window.end.isoformat()})"
+    )
+    if plan.window.is_default:
+        line += "（默认窗——问句无显式时间，已标注）"
+    return line
+
+
+def lineage_watermark_line(
+    *, data_date: date | None, promise: str | None, tag: str | None, batch_id: str | None
+) -> str:
+    """血缘卡④数据截至批次（M-05a 水位读面消费——水位未回写如实缺行）。"""
+    if data_date is None:
+        return "—（水位未回写——如实缺行，不造达标假象）"
+    body = f"汇总层水位 {data_date.isoformat()}（承诺 {promise or 'T-1'} · {tag or '—'}）"
+    if batch_id:
+        body = f"批次 {batch_id} · {body}"
+    return body
+
+
+def lineage_closing_line(plan: QueryPlan) -> str:
+    """血缘卡⑤收口注记（F14 LIMIT 收口——区分「没写默认」与「显式/超限截断」）。"""
+    line = (
+        f"LIMIT {plan.limit_effective}"
+        "——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底"
+    )
+    if plan.limit_requested is not None and plan.limit_requested > QUERY_LIMIT_CAP:
+        line += f"（问句条数 {plan.limit_requested}——已按上限截到 {QUERY_LIMIT_CAP}）"
+    elif plan.limit_requested is not None:
+        line += f"（问句显式条数 {plan.limit_requested}——只封顶不抬底）"
+    return line
+
+
+def build_askback_time_clarify(*, frame_id: str) -> ClarifyFrame:
+    """缺参反问帧（askback 时间窗三选一照抄——无默认项：缺的是用户事实）。"""
+    return ClarifyFrame(
+        frame_id=frame_id,
+        question=ASKBACK_TIME_QUESTION,
+        choices=[ClarifyChoice(value=choice, label=choice) for choice in ASKBACK_TIME_CHOICES],
+    )
+
+
+def chain_approval_signal(payload: dict[str, Any]) -> SseEvent:
+    """链内审批挂起哨兵（M-06——extable 触发；链体弹审批帧的域内事件）。
+
+    service._run_chain 拦截本哨兵：approval 帧 wire（A1 帧 15 冻结形状）下发＋
+    interrupt_approval 挂起（pending_approval_id 落列）、流收束不发 done；哨兵
+    本体（携计划/选项全量）不出域——wire 只携 {approval_id, scene, title,
+    reason, impact?, audit_hint?} 合同形状。
+    """
+    return SseEvent(FRAME_APPROVAL, {"_chain_signal": True, "payload": payload})
+
+
+def build_extable_approval(
+    plan: QueryPlan, *, run_id: str, approval_id: str
+) -> dict[str, Any]:
+    """extable 审批卡载荷（A1 帧 15 合同形状＋域内随行键——wire 前剥除面）。"""
+    tables = "、".join(plan.external_tables)
+    return {
+        "approval_id": approval_id,
+        "scene": EXTABLE_SCENE,
+        "title": EXTABLE_TITLE,
+        "reason": EXTABLE_REASON_TEMPLATE.format(tables=tables),
+        "impact": EXTABLE_IMPACT,
+        "audit_hint": f"run {run_id} · 外表 {tables}",
+        # —— 域内随行键（挂起持久化消费；wire 剥除）——
+        "_plan": plan_to_wire(plan),
+        "_tables": list(plan.external_tables),
+    }
+
+
+def approval_wire(payload: dict[str, Any]) -> dict[str, Any]:
+    """审批帧 wire 形（A1 帧 15 冻结形状——剥 `_` 前缀域内随行键）。"""
+    return {k: v for k, v in payload.items() if not k.startswith("_")}
+
+
 # ---------- 域读缝（组合根注入——生产＝retrieval/semantics/faq/kb/gateway 公开读面） ----------
 
 
@@ -1099,6 +1580,40 @@ IndexSearcherDual = Callable[
 ]
 GraphSearcher = Callable[[str], Awaitable[list[GraphHitFace]]]
 FragmentAnchorLoader = Callable[[str], Awaitable[FragmentAnchorFace | None]]
+
+
+@dataclass(frozen=True, slots=True)
+class WaterlineFace:
+    """汇总层水位面（M-05a 水位读面投影——chat 不触 water_line 表，B3/B9）。
+
+    tag/late_days 由组合根经 E2 freshness_judgment 单源计算随面携入（T-1 判定
+    不在本域重算——新鲜度闸照 E2 语义渲染）；缺行时 loader 返回 None。
+    """
+
+    layer: str
+    data_date: date
+    promise: str
+    tag: str
+    late_days: int
+
+
+@dataclass(frozen=True, slots=True)
+class QueryResult:
+    """问数执行结果（执行缝投影——行集＋行级注入回执；answer 表卡直接消费形）。
+
+    columns＝(dataIndex, title) 序；rows＝dict 行（dataIndex 键）；batch_id＝
+    结果行携带的批次水位（血缘卡④）；row_filter_predicates＝实际 AND 进语句的
+    行级谓词数（0＝预埋恒真形状——N7.4b 注记依据）。
+    """
+
+    columns: tuple[tuple[str, str], ...]
+    rows: list[dict[str, Any]]
+    batch_id: str | None = None
+    row_filter_predicates: int = 0
+
+
+QueryExecutor = Callable[[QueryPlan], Awaitable[QueryResult]]
+WaterlineLoader = Callable[[], Awaitable[WaterlineFace | None]]
 
 # A1 端点 6 assets 读缝（P1-11 真接线——panel_view 投影的各域清单面；B9 同款
 # 运行期只见 callable）：FAQ 服务中条目问题/工作流（名,状态）/报告 doc 清单。
