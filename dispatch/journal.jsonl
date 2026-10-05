@@ -328,3 +328,9 @@
 {"ts":"2026-10-05T20:30:00+08:00","from":"desk","to":"journal","event":"other","text":"分支事故二修复：S-01 收口三提交误落分支（主树未切回 master）——核实分支严格领先 master（merge-base=d8dbc37）后 checkout master＋FF 归位（master=45cb0b9 含 0019 种子/票册/收口），分支已删；全闸门 CHAIN-EXIT=0（876 passed）；alembic=0019；前端 5173/后端 8000 在跑。教训升级登记：每次 commit 前必须 git branch --show-current 核对（两次同类事故：L0 落册＋本台收口）"}
 {"ts":"2026-10-05T21:30:00+08:00","from":"Owner","to":"desk","event":"verdict","text":"Owner 问本轮故障有无优化/修复/记录——执行台盘点：修复类已当场修（口令重置×2/授权补授×2/僵尸进程清理）；记录类落盘 OPS-本地运行手册与教训（启动手册/排障手册四症状/教训 L1~L5）；可选优化四项登记待裁决（pg_hba 收紧/启动脚本固化/PG 角色变更日志/W-B4 审查两小件已归 M-06 打磨批）"}
 {"ts":"2026-10-05T22:00:00+08:00","from":"Owner","to":"desk","event":"verdict","text":"Owner 批准启动脚本固化——scripts/dev 单入口（up/down/status/seed/logs）落盘；down/up 循环实测通过（全组件重启后 120 井真数据恢复）；worker 常驻拾取已起（E2 发起质检 60 秒内自动执行）"}
+{"ts":"2026-10-05T23:00:00+08:00","from":"desk","to":"journal","event":"other","text":"恢复 DEP-01 推进：并行窗口已收官（S-01 改号 0019 合入 45cb0b9/OPS 手册 7bca29f/启动脚本 5123d74——两个小点均已安排：④证据去重 M-09 已做、②启动脚本并行窗已做）；DEP-01.rev.md 审查票仍在 pending（shape 复验后派发）——审查通过后 rebase 合并（master 已含 0019，DEP-01 的 0018 链位手术与其无冲突面）"}
+{"ts":"2026-10-05T20:30:00+08:00","from":"Owner","to":"desk","event":"verdict","text":"Owner 拍板问数链架构：不管哪个路，问答链都应查询作为辅助资料供给 LLM 参考回答（主路权威数＋检索辅助，消二选一漏答）"}
+{"ts":"2026-10-05T20:31:00+08:00","from":"desk","to":"journal","event":"other","text":"W-AUX 执法检查：shape GREEN（判型恢复＋辅助检索＋叙述生成三约束＋降级接续＋帧形状停线条款，全路径测试）——放行派发"}
+{"ts":"2026-10-05T20:50:00+08:00","from":"Owner","to":"desk","event":"verdict","text":"停线裁决：选 C——解读文字以旁注帧（notice）呈现，零合同变更；四条预裁决随票（接续范围限三路/N7.5 未装配维持/free 兜底判据确认/P1F-06 交互登记）"}
+{"ts":"2026-10-05T20:51:00+08:00","from":"desk","to":"journal","event":"other","text":"W-AUX.fix.md 执法检查：shape GREEN，辅助检索＋叙述生成（notice 帧呈现）＋四条预裁决，rev-list=2——放行派发修复子代理"}
+{"ts":"2026-10-05T23:59:00+08:00","from":"Owner","to":"desk","event":"verdict","text":"短句形启发式 Owner 裁决：后面再做（案例已在回归语料库 corpus/report_A_f26，LLM 兜底在位，归属阶段 3 问数链深化批）。LLM 重排分进 S6 门限仍待 Owner 结论"}
