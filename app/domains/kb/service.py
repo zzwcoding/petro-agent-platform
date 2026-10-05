@@ -1612,9 +1612,10 @@ class KbService:
                     )
                 )
             else:
-                parent_anchor = None
-                if section in parent_ids:
-                    parent_anchor = parent_ids[section]
+                # KB-01：父块行 section＝「父块·{标题}」（domain.chunk_text mixed），
+                # 子块按前缀键回查父块锚——旧实现查裸「{标题}」永不命中，子块
+                # context_text 恒 None，回捞退化兜底。
+                parent_anchor = parent_ids.get(f"父块·{section}")
                 versions.append(
                     FragmentVersionRow(
                         fragment_id=frag_id, v=1, text=piece,
