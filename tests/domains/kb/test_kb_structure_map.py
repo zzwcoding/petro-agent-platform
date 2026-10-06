@@ -1,28 +1,32 @@
-"""kb 结构图单测（P1F-05 方案 A）——LLM 出图＋逐字校验＋复合规则复检＋规则回退＋版本缓存。
+"""kb 结构图单测（DE-05 同文同切定稿）——纯规则出图＋chunk 消费＋入库确定化。
 
 语料注源（拟造数据，形态注源评测报告存照）：
 - corpus/report_A_f26诱导求产.txt——eval/results/评测报告.md §4.5 A-正7 存照
   （f26 长正文句吞章名＋章号错）；第 7 行「12 mm 油嘴工作制度」为规则面漏判形
-  （RE 命中/短/无句读/无表格特征）——LLM 边际回归锚。
+  （RE 命中/短/无句读/无表格特征）——纯规则确定化下按规则成章（已知取舍，
+  见 chunk_text 铁律注记与 DE-05 回报疑点）。
 - corpus/report_B_f42检泵月报.txt——§5 观察 1 存照（f42「章节 03 2026　7　4.5%…」
   表格行误判）＋B-正4 W-21 明细行形态。
 - corpus/teach_prototype_n02样例.txt——页面 RAW_TEXT 同源口径（设定书 §A.1），
   markdown 章词/数字点级/第 N 章三支标题形。
+- fixtures/report_C_heading双样式裁剪.txt——DE-04 双样式考题复用（A5 现象锚）。
+
+演进注记：P1F-05 方案 A 的 LLM 结构图路径（parse/validate/refine/level 守门＋
+kb.ingest.structure 提取＋版本缓存）已随 DE-05 退役——LLM 应答合法子集波动＝
+「同文不同切」抽签根因（定位记录：tickets/phase3/reports/DE-05.收尾.md）；
+相关旧用例由本文件 TestIngestDeterministic 与 test_kb_same_text_same_chunks.py
+的确定化断言替代。
 红线：桩 LLM 永不触网（B6）；kb_db 夹具复用同目录 conftest。
 """
 
-import json
-import logging
 from pathlib import Path
 from typing import Any
 
-from app.domains.gateway import Completion, GatewayService
-from app.domains.gateway.store import SpendRecord, ensure_gateway_tables
+from app.domains.gateway import Completion
 from app.domains.kb import KbService
 from app.domains.kb import domain as d
 from app.domains.kb.store import UploadStore
 from app.infra.eventbus import InMemoryEventBus
-from app.infra.llm_client import LlmCompletion
 
 CORPUS_DIR = Path(__file__).parent / "corpus"
 CORPUS_A = (CORPUS_DIR / "report_A_f26诱导求产.txt").read_text(encoding="utf-8")
@@ -35,43 +39,6 @@ FIXTURE_C_HEADING_STYLES = (
 
 ACTOR = "阿强 · 平台运维"
 LIB_NAME = "完井报告库"
-
-# 受控模型注册表（字面假值——tests/domains/gateway/conftest.py 同源形状）。
-_GATEWAY_TEST_YAML = """\
-models:
-  - alias: petro-main
-    provider: anthropic
-    model: MiniMax-M3
-    base_url: https://main.example.test
-    api_key: sk-test-main
-    context_window: 1000000
-    group: standard
-    name: MiniMax-M3
-    access: Anthropic 兼容接口 · 测试线路
-    note: 问答/问数/问智默认出口
-  - alias: petro-lite
-    provider: anthropic
-    model: glm-5.3-flash
-    base_url: https://lite.example.test
-    api_key: sk-test-lite
-    context_window: 1000000
-    group: lite
-    name: glm-5.3-flash
-    access: Anthropic 兼容接口 · 测试线路
-    note: 备用/降级组——fallback 与预算熔断的便宜出口
-routing:
-  default: petro-main
-  fallback_order: [petro-main, petro-lite]
-prices:
-  default:
-    input_per_mtok: 1.0
-    output_per_mtok: 3.0
-gateway:
-  allowed_fails: 2
-  cooldown_seconds: 60
-  num_retries: 3
-  request_timeout: 30
-"""
 
 
 class FakeStorage:
@@ -194,19 +161,6 @@ async def _chunk_rows(service: KbService, report_id: str) -> list[tuple[str, str
         return int(m.group(1)) if m else 0
 
     return sorted(rows, key=_seq)
-
-
-def _structure_json(picks: list[tuple[int, str, int]]) -> str:
-    """LLM 结构图应答脚手架（line_no 1 基——提示词口径）。"""
-    return json.dumps(
-        {"headings": [{"line_no": n, "title": t, "level": v} for n, t, v in picks]},
-        ensure_ascii=False,
-    )
-
-
-def _corpus_a_llm_picks(lines: list[str]) -> list[tuple[int, str, int]]:
-    """corpus A 真实标题行（1 基行号）：六/七/八三章。"""
-    return [(2, lines[1], 1), (4, lines[3], 1), (9, lines[8], 1)]
 
 
 # ---------- 域纯语义：复合规则四条件（规则面单独有测、不依赖 LLM） ----------
@@ -335,177 +289,6 @@ class TestHeadingPrefixConsumer:
             assert d._table_like(line) is False, line
 
 
-# ---------- 域纯语义：LLM 应答解析＋逐字校验＋规则复检 ----------
-
-
-class TestParseAndValidate:
-    def test_parse_lenient_fences_and_prose(self) -> None:
-        payload = _structure_json([(2, "第六章 管柱结构与完井液", 1)])
-        for raw in (
-            f"```json\n{payload}\n```",
-            f"```\n{payload}\n```",
-            f"前言杂文 {payload} 后记杂文",
-        ):
-            headings = d.parse_structure_json(raw)
-            assert len(headings) == 1
-            assert headings[0].line_no == 1  # 1 基转 0 基
-            assert headings[0].title == "第六章 管柱结构与完井液"
-
-    def test_parse_garbage_forms_yield_empty(self) -> None:
-        for raw in (
-            "完全没有 JSON",
-            "{broken",
-            '{"result": 1}',
-            '{"headings": "不是列表"}',
-            '{"headings": ["不是对象"]}',
-            '{"headings": [{"line_no": true, "title": "x", "level": 1}]}',
-            '{"headings": [{"line_no": "2", "title": "x", "level": 1}]}',
-            '{"headings": [{"line_no": 2, "title": 3, "level": 1}]}',
-            '{"headings": [{"line_no": 2, "title": "x", "level": 3}]}',
-        ):
-            assert d.parse_structure_json(raw) == [], raw
-
-    def test_validate_verbatim_miss_voids_whole_map(self) -> None:
-        lines = CORPUS_A.splitlines()
-        # 幻觉标题（文档不存在）
-        assert (
-            d.validate_structure_map(
-                d.parse_structure_json(_structure_json([(1, "凭空捏造的第九章 幻觉标题", 1)])),
-                lines,
-            )
-            is None
-        )
-        # 行号越界
-        assert (
-            d.validate_structure_map(
-                d.parse_structure_json(_structure_json([(99, "第八章 措施效果评价", 1)])), lines
-            )
-            is None
-        )
-        # 标题真实存在但行号指错行——行号也是校验对象
-        assert (
-            d.validate_structure_map(
-                d.parse_structure_json(_structure_json([(6, "第八章 措施效果评价", 1)])), lines
-            )
-            is None
-        )
-
-    def test_validate_strip_equal_passes(self) -> None:
-        text = "  第六章 管柱结构与完井液  \n正文。\n"
-        headings = d.parse_structure_json(
-            _structure_json([(1, "第六章 管柱结构与完井液", 1)])
-        )
-        m = d.validate_structure_map(headings, text.splitlines())
-        assert m is not None and m.source == "llm"
-
-    def test_validate_duplicate_line_no_voids(self) -> None:
-        lines = CORPUS_A.splitlines()
-        raw = json.dumps(
-            {
-                "headings": [
-                    {"line_no": 2, "title": lines[1], "level": 1},
-                    {"line_no": 2, "title": lines[1], "level": 1},
-                ]
-            },
-            ensure_ascii=False,
-        )
-        assert d.validate_structure_map(d.parse_structure_json(raw), lines) is None
-
-    def test_refine_drops_single_rule_violating_row(self) -> None:
-        # 逐字命中但越四条件的行（8 mm 长句带句尾句读）——单行剔除而非整图作废。
-        lines = CORPUS_A.splitlines()
-        raw = _structure_json(
-            [
-                (2, lines[1], 1),
-                (6, lines[5], 1),  # 逐字真实但行长>40＋句尾。
-                (9, lines[8], 1),
-            ]
-        )
-        m = d.validate_structure_map(d.parse_structure_json(raw), lines)
-        assert m is not None
-        refined = d.refine_structure_map(m, lines)
-        assert refined.source == "llm"
-        assert [h.line_no for h in refined.headings] == [1, 8]
-
-    def test_snapshot_roundtrip_and_malformed(self) -> None:
-        m = d.StructureMap(
-            headings=(d.HeadingLine(line_no=1, title="1 概述", level=1),), source="llm"
-        )
-        snap = m.to_snapshot("sha-abc")
-        assert snap["text_sha256"] == "sha-abc"
-        assert d.StructureMap.from_snapshot(snap) == m
-        assert d.StructureMap.from_snapshot(None) is None
-        assert d.StructureMap.from_snapshot({"headings": []}) is None
-        bad = m.to_snapshot("sha")
-        bad["headings"][0]["level"] = 9
-        assert d.StructureMap.from_snapshot(bad) is None
-
-
-class TestLevelConsistencyGuard:
-    """P-007.fix F1：层级守门——LLM 标注 level 与 `_section_of` 推导分级比对
-    （审查 F1 原探针：章级行逐字正确但错标 level=2，两道旧守门均放行）。"""
-
-    def test_chapter_row_mislabeled_level2_detected_and_dropped(self) -> None:
-        lines = CORPUS_A.splitlines()
-        raw = _structure_json([(2, lines[1], 2), (4, lines[3], 1), (9, lines[8], 1)])
-        m = d.validate_structure_map(d.parse_structure_json(raw), lines)
-        assert m is not None  # 逐字校验只比文本——错标不在此闸（审查 F1 判定）
-        mismatches = d.level_mismatch_rows(m, lines)
-        assert [h.line_no for h in mismatches] == [1]  # 第六章行错标 level=2
-        refined = d.refine_structure_map(m, lines)
-        assert [h.line_no for h in refined.headings] == [3, 8]  # 错标行剔除、合法行保留
-        assert refined.source == "llm"  # 未过半——单行剔除不废图
-
-    def test_section_row_mislabeled_level1_detected(self) -> None:
-        # 对称面：节级行（1.1 形）错标 level=1 同闸
-        text = "第1章 甲\n1.1 乙\n正文句。\n"
-        lines = text.splitlines()
-        raw = _structure_json([(2, "1.1 乙", 1)])
-        m = d.validate_structure_map(d.parse_structure_json(raw), lines)
-        assert m is not None
-        assert [h.line_no for h in d.level_mismatch_rows(m, lines)] == [1]
-
-    def test_correct_levels_pass_through(self) -> None:
-        lines = CORPUS_A.splitlines()
-        m = d.validate_structure_map(
-            d.parse_structure_json(_structure_json(_corpus_a_llm_picks(lines))), lines
-        )
-        assert m is not None
-        assert d.level_mismatch_rows(m, lines) == []
-        refined = d.refine_structure_map(m, lines)
-        assert [h.line_no for h in refined.headings] == [1, 3, 8]
-
-    def test_non_heading_shape_not_counted_as_level_mismatch(self) -> None:
-        # 逐字真实但推导不出分级（非标题形行）不算层级错标——归四条件复检处置
-        # （两闸触发面不相交的既有口径不受扰）。
-        lines = CORPUS_A.splitlines()
-        raw = _structure_json([(6, lines[5], 1)])  # 8 mm 长句带句尾。
-        m = d.validate_structure_map(d.parse_structure_json(raw), lines)
-        assert m is not None
-        assert d.level_mismatch_rows(m, lines) == []
-        assert d.refine_structure_map(m, lines).headings == ()  # 四条件复检剔除
-
-    def test_over_half_mislabels_are_void_signal(self) -> None:
-        # 错标过半（>50%）＝LLM 质量信号——整图作废判定输入（处置在 service 编排）
-        lines = CORPUS_A.splitlines()
-        raw = _structure_json([(2, lines[1], 2), (4, lines[3], 2), (9, lines[8], 2)])
-        m = d.validate_structure_map(d.parse_structure_json(raw), lines)
-        assert m is not None
-        mismatches = d.level_mismatch_rows(m, lines)
-        assert len(mismatches) == len(m.headings) == 3
-        assert len(mismatches) * 2 > len(m.headings)
-
-    def test_exactly_half_is_not_over_half(self) -> None:
-        # 过半取严格大于：2 行错标 1 行（恰 50%）不触发整图作废信号
-        lines = CORPUS_A.splitlines()
-        raw = _structure_json([(2, lines[1], 2), (4, lines[3], 1)])
-        m = d.validate_structure_map(d.parse_structure_json(raw), lines)
-        assert m is not None
-        mismatches = d.level_mismatch_rows(m, lines)
-        assert len(mismatches) == 1 and len(m.headings) == 2
-        assert not (len(mismatches) * 2 > len(m.headings))
-
-
 # ---------- 域纯语义：chunk 消费结构图（smart/mixed） ----------
 
 
@@ -519,37 +302,30 @@ class TestChunkConsumesStructure:
                 text, "mixed", structure=d.rule_structure_map(text)
             )
 
-    def test_llm_map_overrides_rule_boundaries_and_chapter_no(self) -> None:
-        lines = CORPUS_A.splitlines()
+    def test_rules_map_is_deterministic_supply(self) -> None:
+        # DE-05：生产链唯一图源＝纯规则图（source 恒 rules；两次出图全等）。
+        m1 = d.rule_structure_map(CORPUS_A)
+        m2 = d.rule_structure_map(CORPUS_A)
+        assert m1 == m2 and m1.source == "rules"
+        assert all(isinstance(h, d.HeadingLine) for h in m1.headings)
+        # 规则面已知取舍（f26 边际行）：12 mm 短句按规则成章——确定化超集的
+        # 组成部分（原 LLM 图可随机剔除它＝抽签面，已随 DE-05 退役）。
         rules_chunks = d.chunk_text(CORPUS_A, "smart")
-        # 规则面极限回归锚：12 mm 短句被认章（且第八章章号被顶成 04）。
         assert any("12 mm 油嘴工作制度" in s for s, _ in rules_chunks)
         assert any("章节 04 第八章" in s for s, _ in rules_chunks)
-        m = d.validate_structure_map(
-            d.parse_structure_json(_structure_json(_corpus_a_llm_picks(lines))), lines
-        )
-        assert m is not None
-        llm_chunks = d.chunk_text(CORPUS_A, "smart", structure=d.refine_structure_map(m, lines))
-        assert not any("油嘴工作制度" in s for s, _ in llm_chunks)
-        assert any(s == "章节 03 第八章 措施效果评价" for s, _ in llm_chunks)
-        assert any("第七章" in s and "386" in piece for s, piece in llm_chunks)
 
-    def test_mixed_parents_follow_map(self) -> None:
-        lines = CORPUS_A.splitlines()
-        m = d.validate_structure_map(
-            d.parse_structure_json(_structure_json(_corpus_a_llm_picks(lines))), lines
-        )
-        assert m is not None
-        pieces = d.chunk_text(CORPUS_A, "mixed", structure=d.refine_structure_map(m, lines))
-        parents = [s for s, _ in pieces if s.startswith("父块·")]
-        # 首章前导行＝「父块·正文」（既有 mixed 行为），加六/七/八三章；
-        # 12 mm 短句不分裂父块（规则面会把它顶成第四章）。
-        assert parents == [
-            "父块·正文",
-            "父块·第六章 管柱结构与完井液",
-            "父块·第七章 诱导求产与初期产能",
-            "父块·第八章 措施效果评价",
+    def test_mixed_parents_follow_rule_map(self) -> None:
+        parents_expected = ["父块·正文"] + [
+            f"父块·{h.title}"
+            for h in d.rule_structure_map(CORPUS_A).headings
+            if h.level == 1
         ]
+        pieces = d.chunk_text(CORPUS_A, "mixed")
+        parents = [s for s, _ in pieces if s.startswith("父块·")]
+        # 首章前导行＝「父块·正文」（既有 mixed 行为），其后随章级标题逐一立锚
+        # （含 12 mm 规则边际章——确定化行为锁定）。
+        assert parents == parents_expected
+        assert "父块·12 mm 油嘴工作制度" in parents
 
     def test_fixed_mode_ignores_structure(self) -> None:
         m = d.rule_structure_map(CORPUS_A)
@@ -623,278 +399,102 @@ class TestCorpusCHeadingStyleFixture:
         assert not any(s.startswith("正文") and "＞" in s for s in paths)
 
 
-# ---------- 服务管线：LLM 结构提取＋守门＋回退＋缓存 ----------
 
 
-class TestIngestStructure:
-    async def test_llm_map_drives_sections_and_caller_attribution(self, kb_db: Any) -> None:
-        lines = CORPUS_A.splitlines()
-        completer = ScriptedCompleter(
-            {
-                "kb.ingest.structure": _structure_json(_corpus_a_llm_picks(lines)),
-                "kb.ingest.summary": "摘要",
-                "kb.ingest.questions": "问题？",
-            }
-        )
+# ---------- 服务管线：切块确定化（DE-05 同文同切——chunk 步恒纯规则图） ----------
+
+
+class TestIngestDeterministic:
+    """DE-05：入库 chunk 步边界供给＝纯规则图、零 LLM 参与——同文同切在
+    服务管线的落位（跨进程双跑见 test_kb_same_text_same_chunks.py）。"""
+
+    async def test_chunk_step_never_calls_llm_and_uses_rule_map(self, kb_db: Any) -> None:
+        completer = ScriptedCompleter({})  # 缺省应答「应答」——若被查即不可解析
         service, storage = _make_service(kb_db, completer)
         lib_id = await _make_lib(service)
         task_id = await _ingest(service, storage, lib_id, "W11 井完井报告.txt", CORPUS_A)
         task = await service._tasks.get(task_id)
         assert task is not None
+        # 铁律面：切块不查 LLM——调用序中不存在任何结构提取 caller
+        assert not any("structure" in caller for caller, _ in completer.calls)
+        # 规则图 signature：f26 边际行「12 mm 油嘴工作制度」按规则成章（确定化超集，
+        # 第八章顺延为章节 04）；第七章 386 数据行落对章。
         frags = await service._fragments.for_report(task.report_id)
         sections = [
             f.section or "" for f in frags if f.type == "原文块" and not f.is_parent_only
         ]
-        assert any(s == "章节 03 第八章 措施效果评价" for s in sections)  # 章号正确
-        assert not any("油嘴工作制度" in s for s in sections)  # LLM 边际行不入章名
-        assert any("第七章" in (f.section or "") and "386" in (f.hit_text or "") for f in frags)
-        # caller 归因到达 LLM 出口入参面（gateway 按 caller 落 SpendRecord——B6/D1）
-        assert any(caller == "kb.ingest.structure" for caller, _ in completer.calls)
-        # 结构图随版本落库（任务快照字段）
-        assert task.structure_snapshot is not None
-        assert task.structure_snapshot["source"] == "llm"
-        assert len(task.structure_snapshot["text_sha256"]) == 64
+        assert any("12 mm 油嘴工作制度" in s for s in sections)
+        assert any(s == "章节 04 第八章 措施效果评价" for s in sections)
+        assert any(
+            "第七章" in (f.section or "") and "386" in (f.hit_text or "") for f in frags
+        )
+        # LLM 结构快照列退役：不再写（存量列保留、本任务恒 NULL）
+        assert task.structure_snapshot is None
 
-    async def test_hallucinated_map_voids_and_falls_back_to_rules(
-        self, kb_db: Any, caplog: Any
-    ) -> None:
-        lines = CORPUS_A.splitlines()
+    async def test_same_text_double_ingest_identical_chunks(self, kb_db: Any) -> None:
+        """同文同切（票面验收②）：同 fixture 两次独立入库→原文块切片序列全等
+        （含章节路径与顺序）。富化应答两次不同（摘要/问题不在铁律域）。"""
         completer = ScriptedCompleter(
             {
-                "kb.ingest.structure": _structure_json(
-                    [(2, lines[1], 1), (4, lines[3], 1), (5, "凭空捏造的第九章 幻觉标题", 1)]
-                ),
+                "kb.ingest.summary": "第一次摘要",
+                "kb.ingest.questions": "第一批问题？",
             }
         )
         service, storage = _make_service(kb_db, completer)
         lib_id = await _make_lib(service)
-        with caplog.at_level(logging.WARNING, logger="domains.kb"):
-            task_id = await _ingest(service, storage, lib_id, "W11 井完井报告.txt", CORPUS_A)
-        task = await service._tasks.get(task_id)
-        assert task is not None
-        assert task.structure_snapshot is not None
-        assert task.structure_snapshot["source"] == "rules"  # 整图作废→规则图
-        assert any("整图作废" in r.message for r in caplog.records)  # warning 留痕
-        frags = await service._fragments.for_report(task.report_id)
-        sections = [
-            f.section or "" for f in frags if f.type == "原文块" and not f.is_parent_only
-        ]
-        assert any("12 mm 油嘴工作制度" in s for s in sections)  # 规则面 signature
-
-    async def test_rule_recheck_drops_verbatim_but_illegal_row(self, kb_db: Any) -> None:
-        lines = CORPUS_A.splitlines()
-        completer = ScriptedCompleter(
-            {
-                "kb.ingest.structure": _structure_json(
-                    [
-                        (2, lines[1], 1),
-                        (4, lines[3], 1),
-                        (6, lines[5], 1),  # 逐字真实但越四条件（长句＋句尾。）
-                        (9, lines[8], 1),
-                    ]
-                ),
-            }
+        task_id_1 = await _ingest(
+            service, storage, lib_id, "C报告.txt", FIXTURE_C_HEADING_STYLES
         )
-        service, storage = _make_service(kb_db, completer)
+        first = await service._tasks.get(task_id_1)
+        assert first is not None
+        rows_first = await _chunk_rows(service, first.report_id)
+
+        completer.answers["kb.ingest.summary"] = "第二次摘要"
+        completer.answers["kb.ingest.questions"] = "第二批问题？"
+        task_id_2 = await _ingest(
+            service, storage, lib_id, "C报告.txt", FIXTURE_C_HEADING_STYLES
+        )
+        second = await service._tasks.get(task_id_2)
+        assert second is not None
+        rows_second = await _chunk_rows(service, second.report_id)
+
+        assert rows_first
+        assert rows_first == rows_second  # 切片序列逐元素全等（section＋text＋顺序）
+        # C 样例章节路径带章号（DE-04 行为保持）——两次跑同形
+        for rows in (rows_first, rows_second):
+            assert any(s == "章节 01 一、三季度生产运行" for s, _ in rows)
+            assert any(
+                s == "章节 01 一、三季度生产运行 ＞ 1.1 主要生产指标（月度）"
+                for s, _ in rows
+            )
+            assert any(s == "章节 02 二、注水运行 ＞ 2.1 注水月度数据" for s, _ in rows)
+
+    async def test_service_chunks_equal_pure_domain_chain(self, kb_db: Any) -> None:
+        # 生产链片段集与域纯函数链（rule map＋chunk_text）字节级一致
+        service, storage = _make_service(kb_db, ScriptedCompleter({}))
         lib_id = await _make_lib(service)
         task_id = await _ingest(service, storage, lib_id, "W11 井完井报告.txt", CORPUS_A)
         task = await service._tasks.get(task_id)
         assert task is not None
-        assert task.structure_snapshot is not None
-        assert task.structure_snapshot["source"] == "llm"  # 单行剔除，图不作废
-        assert [h["line_no"] for h in task.structure_snapshot["headings"]] == [1, 3, 8]
-        frags = await service._fragments.for_report(task.report_id)
-        sections = [
-            f.section or "" for f in frags if f.type == "原文块" and not f.is_parent_only
-        ]
-        assert not any("8 mm 油嘴制度下折算" in s for s in sections)
-        assert any(s == "章节 03 第八章 措施效果评价" for s in sections)
-
-    async def test_level_mislabeled_chapter_row_dropped_with_trace(
-        self, kb_db: Any, caplog: Any
-    ) -> None:
-        """F1 探针重演（审查原探针）：章级行逐字真实但错标 level=2——新守门
-        单行剔除：section 路径不再错挂子节、章号不停摆、剔除行 warning 留痕。"""
-        lines = CORPUS_A.splitlines()
-        completer = ScriptedCompleter(
-            {
-                "kb.ingest.structure": _structure_json(
-                    [(2, lines[1], 2), (4, lines[3], 1), (9, lines[8], 1)]
-                ),
-            }
-        )
-        service, storage = _make_service(kb_db, completer)
-        lib_id = await _make_lib(service)
-        with caplog.at_level(logging.WARNING, logger="domains.kb"):
-            task_id = await _ingest(service, storage, lib_id, "W11 井完井报告.txt", CORPUS_A)
-        task = await service._tasks.get(task_id)
-        assert task is not None
-        assert task.structure_snapshot is not None
-        assert task.structure_snapshot["source"] == "llm"  # 1/3 未过半——图不作废
-        assert [h["line_no"] for h in task.structure_snapshot["headings"]] == [3, 8]
-        dropped = [r for r in caplog.records if "层级错标剔除" in r.message]
-        assert dropped  # 剔除行有留痕
-        assert "第六章 管柱结构与完井液" in dropped[0].getMessage()
-        frags = await service._fragments.for_report(task.report_id)
-        sections = [
-            f.section or "" for f in frags if f.type == "原文块" and not f.is_parent_only
-        ]
-        assert not any("＞" in s for s in sections)  # section 路径不再错乱（无子节错挂）
-        assert any(s == "章节 01 第七章 诱导求产与初期产能" for s in sections)  # 章号不停摆
-        assert any(s == "章节 02 第八章 措施效果评价" for s in sections)
-
-    async def test_level_mislabels_over_half_void_whole_map(
-        self, kb_db: Any, caplog: Any
-    ) -> None:
-        """F1 探针：层级错标过半（>50%）＝LLM 质量信号——整图作废回退纯规则
-        （与逐字校验失败同处置路径，warning 留痕）。"""
-        lines = CORPUS_A.splitlines()
-        completer = ScriptedCompleter(
-            {
-                "kb.ingest.structure": _structure_json(
-                    [(2, lines[1], 2), (4, lines[3], 2), (9, lines[8], 2)]
-                ),
-            }
-        )
-        service, storage = _make_service(kb_db, completer)
-        lib_id = await _make_lib(service)
-        with caplog.at_level(logging.WARNING, logger="domains.kb"):
-            task_id = await _ingest(service, storage, lib_id, "W11 井完井报告.txt", CORPUS_A)
-        task = await service._tasks.get(task_id)
-        assert task is not None
-        assert task.structure_snapshot is not None
-        assert task.structure_snapshot["source"] == "rules"  # 整图作废
-        assert any("层级错标过半" in r.message for r in caplog.records)  # 质量信号留痕
-        # 与逐字校验失败同处置：片段集与纯规则基线字节级一致
         assert await _chunk_rows(service, task.report_id) == d.chunk_text(CORPUS_A, "smart")
 
-    async def test_llm_down_falls_back_to_pure_rules_baseline(
-        self, kb_db: Any, caplog: Any
-    ) -> None:
-        completer = ScriptedCompleter(
-            {"kb.ingest.structure": RuntimeError("LLM 不可用（模拟断网）")}
-        )
-        service, storage = _make_service(kb_db, completer)
-        lib_id = await _make_lib(service)
-        with caplog.at_level(logging.WARNING, logger="domains.kb"):
-            task_id = await _ingest(service, storage, lib_id, "W11 井完井报告.txt", CORPUS_A)
-        task = await service._tasks.get(task_id)
-        assert task is not None
-        assert task.structure_snapshot is not None
-        assert task.structure_snapshot["source"] == "rules"
-        assert any("回退规则图" in r.message for r in caplog.records)
-        # 片段集与纯规则基线字节级一致
-        assert await _chunk_rows(service, task.report_id) == d.chunk_text(CORPUS_A, "smart")
-
-    async def test_reentry_same_version_zero_llm_and_identical_fragments(
-        self, kb_db: Any
-    ) -> None:
-        lines = CORPUS_A.splitlines()
-        completer = ScriptedCompleter(
-            {
-                "kb.ingest.structure": _structure_json(_corpus_a_llm_picks(lines)),
-                "kb.ingest.summary": "摘要",
-                "kb.ingest.questions": "问题？",
-            }
-        )
+    async def test_reingest_via_retry_identical_chunks(self, kb_db: Any) -> None:
+        # 同任务重入（retry）也全等——重入零 LLM、重算纯规则即同（不依赖缓存）
+        completer = ScriptedCompleter({})
         service, storage = _make_service(kb_db, completer)
         lib_id = await _make_lib(service)
         task_id = await _ingest(service, storage, lib_id, "W11 井完井报告.txt", CORPUS_A)
         first = await service._tasks.get(task_id)
         assert first is not None
         rows_first = await _chunk_rows(service, first.report_id)
-        assert sum(1 for c, _ in completer.calls if c == "kb.ingest.structure") == 1
-
         retry = await service.retry_ingest(task_id, ACTOR)
         await _wait_done(service, retry.id)
         second = await service._tasks.get(retry.id)
         assert second is not None
-        # 同版本重入：零 LLM 调用＋片段集字节级一致
-        assert sum(1 for c, _ in completer.calls if c == "kb.ingest.structure") == 1
         assert await _chunk_rows(service, second.report_id) == rows_first
-        assert second.structure_snapshot is not None
-        assert second.structure_snapshot["source"] == "llm"  # 缓存继承
+        assert not any("structure" in caller for caller, _ in completer.calls)
 
-    async def test_chunk_step_failed_retry_reuses_snapshot_zero_llm(
-        self, kb_db: Any, monkeypatch: Any
-    ) -> None:
-        """F3（P-007.fix）：chunk 步 failed→retry 测证——快照先于故障落列，
-        修复后重入同版本零 LLM 调用（mock 计数）且复用同版快照。"""
-        lines = CORPUS_A.splitlines()
-        completer = ScriptedCompleter(
-            {
-                "kb.ingest.structure": _structure_json(_corpus_a_llm_picks(lines)),
-                "kb.ingest.summary": "摘要",
-                "kb.ingest.questions": "问题？",
-            }
-        )
-        service, storage = _make_service(kb_db, completer)
-        lib_id = await _make_lib(service)
-        # 首跑注入 chunk 步瞬时故障（落库前抛——结构提取与快照落列在其之前）
-        original = service._fragments.replace_report_fragments
-        boom = {"armed": True}
-
-        async def _flaky(report_id: str, rows: Any, versions: Any) -> None:
-            if boom["armed"]:
-                boom["armed"] = False
-                raise RuntimeError("模拟 chunk 步落库瞬时故障（修复前）")
-            await original(report_id, rows, versions)
-
-        monkeypatch.setattr(service._fragments, "replace_report_fragments", _flaky)
-        receipt = await service.upload_init("W11 井完井报告.txt", 2048, lib_id, ACTOR)
-        upload = await UploadStore(service._db).get(receipt.upload_id)
-        assert upload is not None
-        await storage.put(upload.object_key, CORPUS_A.encode("utf-8"))
-        confirm = await service.upload_confirm(receipt.upload_id, ACTOR)
-
-        first = await _wait_state(service, confirm.task_id, ("done", "failed"))
-        assert first.state == "failed"
-        assert first.stop_at == "切段"  # 按阶段定位停在 chunk 步
-        failed_row = await service._tasks.get(confirm.task_id)
-        assert failed_row is not None
-        assert failed_row.structure_snapshot is not None  # 快照先于故障已落列
-        assert failed_row.structure_snapshot["source"] == "llm"
-        assert sum(1 for c, _ in completer.calls if c == "kb.ingest.structure") == 1
-
-        # 修复（解除故障）后重入同版本：零 LLM 新增调用＋复用同版快照
-        monkeypatch.setattr(service._fragments, "replace_report_fragments", original)
-        retry = await service.retry_ingest(confirm.task_id, ACTOR)
-        second = await _wait_state(service, retry.id, ("done", "failed"))
-        assert second.state == "done"
-        assert sum(1 for c, _ in completer.calls if c == "kb.ingest.structure") == 1
-        retried_row = await service._tasks.get(retry.id)
-        assert retried_row is not None
-        assert retried_row.structure_snapshot == failed_row.structure_snapshot
-        frags = await service._fragments.for_report(retried_row.report_id)
-        sections = [
-            f.section or "" for f in frags if f.type == "原文块" and not f.is_parent_only
-        ]
-        assert any(s == "章节 03 第八章 措施效果评价" for s in sections)  # 缓存 LLM 图照常驱动
-
-    async def test_cache_key_binds_to_text_version(self, kb_db: Any) -> None:
-        lines = CORPUS_A.splitlines()
-        completer = ScriptedCompleter(
-            {
-                "kb.ingest.structure": _structure_json(_corpus_a_llm_picks(lines)),
-                "kb.ingest.summary": "摘要",
-                "kb.ingest.questions": "问题？",
-            }
-        )
-        service, storage = _make_service(kb_db, completer)
-        lib_id = await _make_lib(service)
-        task_id = await _ingest(service, storage, lib_id, "W11 井完井报告.txt", CORPUS_A)
-        # 篡改快照版本键（模拟内容已换版）——重入必须重新提取，不许误用旧图
-        row = await service._tasks.get(task_id)
-        assert row is not None and row.structure_snapshot is not None
-        snap = dict(row.structure_snapshot)
-        snap["text_sha256"] = "0" * 64
-        row.structure_snapshot = snap
-        await service._tasks.save(row)
-        retry = await service.retry_ingest(task_id, ACTOR)
-        await _wait_done(service, retry.id)
-        assert sum(1 for c, _ in completer.calls if c == "kb.ingest.structure") == 2
-
-    async def test_fixed_mode_skips_structure_extraction(self, kb_db: Any) -> None:
+    async def test_fixed_mode_never_calls_structure(self, kb_db: Any) -> None:
         completer = ScriptedCompleter()
         service, storage = _make_service(kb_db, completer)
         lib_id = await _make_lib(service)
@@ -913,53 +513,4 @@ class TestIngestStructure:
             actor_who=ACTOR,
         )
         await _ingest(service, storage, lib_id, "W11 井完井报告.txt", CORPUS_A)
-        assert not any(caller == "kb.ingest.structure" for caller, _ in completer.calls)
-
-
-class TestStructureCallerLandsSpendRecord:
-    async def test_spend_record_carries_kb_ingest_structure_caller(
-        self, kb_db: Any, tmp_path: Any
-    ) -> None:
-        """新 caller 计费留痕断言（票面验收 3）：真实 GatewayService 记账→
-        SpendRecord.caller 落列 kb.ingest.structure（D1 v0.2 聚合基础）。"""
-        from sqlalchemy import select
-
-        import app.infra.config as infra_config
-
-        yaml_path = tmp_path / "models.yaml"
-        yaml_path.write_text(_GATEWAY_TEST_YAML, encoding="utf-8")
-        infra_config.load_models_config(yaml_path)
-        try:
-            await ensure_gateway_tables(kb_db.engine())
-
-            class _Backend:
-                async def complete(
-                    self,
-                    alias: str,
-                    messages: list[dict[str, str]],
-                    *,
-                    timeout_seconds: float,
-                    max_tokens: int = 4096,
-                    **params: Any,
-                ) -> LlmCompletion:
-                    return LlmCompletion(
-                        content="结构应答",
-                        prompt_tokens=1200,
-                        completion_tokens=120,
-                        usage_estimated=False,
-                        duration_ms=1500,
-                        model="anthropic/MiniMax-M3",
-                    )
-
-            storage = FakeStorage()
-            service = KbService(
-                kb_db, GatewayService(kb_db, _Backend()), storage,
-                eventbus=InMemoryEventBus(),
-            )
-            lib_id = await _make_lib(service)
-            await _ingest(service, storage, lib_id, "W11 井完井报告.txt", CORPUS_A)
-            async with kb_db.readonly() as session:
-                rows = (await session.execute(select(SpendRecord))).scalars().all()
-            assert "kb.ingest.structure" in {r.caller for r in rows}
-        finally:
-            infra_config._models_cache = None  # 注册表缓存复位（测试隔离）
+        assert not any("structure" in caller for caller, _ in completer.calls)

@@ -57,11 +57,8 @@ from app.domains.kb.domain import (
     chunk_text,
     is_heading_line,
     parse_route_suggestion,
-    parse_structure_json,
-    refine_structure_map,
     rule_structure_map,
     tokenize,
-    validate_structure_map,
 )
 from app.domains.kb.service import KbService
 
@@ -119,9 +116,6 @@ __all__ = [
     "chunk_text",
     "is_heading_line",
     "parse_route_suggestion",
-    "parse_structure_json",
-    "refine_structure_map",
     "rule_structure_map",
     "tokenize",
-    "validate_structure_map",
 ]

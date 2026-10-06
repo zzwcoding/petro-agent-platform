@@ -296,13 +296,17 @@ def _section_of(line: str) -> tuple[int, str] | None:
     return (1 if depth == 1 else 2, title)
 
 
-# ---------- 结构图（P1F-05 方案 A：LLM 出图＋逐字校验＋复合规则守门） ----------
+# ---------- 结构图（DE-05 同文同切定稿：纯规则独立出图） ----------
 #
-# Owner 2026-10-03 拍板混合架构：入库结构图＝LLM 理解产出（只认文档真实标题行）
-# ＋逐字校验防幻觉（任一 miss 整图作废）＋复合规则复检（越四条件单行剔除）＋
-# 纯规则独立回退（LLM 不可用不阻塞入库）；机械切块语义不动（尺寸带/重叠/打包
-# 常量同源）。合同锚：B1 智能切段「按章节和语义边界切」——本节只改「章节边界
-# 由谁供给」，切段参数 256–1024/10–20% 为合同冻结值原样。
+# 演进注记：P1F-05 方案 A 的「LLM 出图＋逐字校验＋复合规则复检＋版本缓存」路径
+# 已随 DE-05 切块确定化退役（票面授权「缓存键控或改纯规则」，取纯规则）——定位
+# 记录（tickets/phase3/reports/DE-05.收尾.md）实证：LLM 应答天然采样波动，合法
+# 子集图与完整图双双过旧三道闸（闸只验合法不验完备）→ 同文不同切；且定稿图经
+# is_heading_line（内含 _HEADING_RE 命中）＋层级推导一致两道纯规则闸过滤后，有效
+# 标题集恒为 rule_structure_map 输出集的子集——LLM 路径对切分边界的全部影响只是
+# 从规则集中随机删边。纯规则＝确定化超集，边界零丢失、零 LLM 成本。
+# chunk_text 只消费 StructureMap（source="rules"）；「同文同切」铁律见 chunk_text
+# docstring，服务侧入测：tests/domains/kb/test_kb_same_text_same_chunks.py。
 
 
 @dataclass(frozen=True, slots=True)
@@ -319,48 +323,12 @@ class HeadingLine:
 class StructureMap:
     """文档结构图（标题行号/标题文本/层级——chunk_text smart/mixed 支路的边界源）。
 
-    source 两值：`llm`（LLM 图——逐字校验＋规则复检后定稿）｜`rules`（纯规则图
-    ——复合规则独立产出，LLM 不可用回退面）。行号必须对准切段用的同一 text
-    （splitlines 索引）——快照 roundtrip 经 to_snapshot/from_snapshot。
+    source 恒为 `rules`（纯规则图——DE-05 起 LLM 辅助图已退役，见节首演进注记）。
+    行号必须对准切段用的同一 text（splitlines 索引）。
     """
 
     headings: tuple[HeadingLine, ...]
     source: str
-
-    def to_snapshot(self, text_sha256: str) -> dict[str, Any]:
-        """任务快照列形（kb_ingest_task.structure_snapshot——版本级缓存）。"""
-        return {
-            "text_sha256": text_sha256,
-            "source": self.source,
-            "headings": [
-                {"line_no": h.line_no, "title": h.title, "level": h.level}
-                for h in self.headings
-            ],
-        }
-
-    @classmethod
-    def from_snapshot(cls, payload: Any) -> StructureMap | None:
-        """快照还原（形状坏/键型不合法 → None——调用方重走提取，不硬凑）。"""
-        if not isinstance(payload, dict):
-            return None
-        sha = payload.get("text_sha256")
-        source = payload.get("source")
-        rows = payload.get("headings")
-        if not isinstance(sha, str) or source not in ("llm", "rules"):
-            return None
-        if not isinstance(rows, list):
-            return None
-        headings: list[HeadingLine] = []
-        for row in rows:
-            if not isinstance(row, dict):
-                return None
-            no, title, level = row.get("line_no"), row.get("title"), row.get("level")
-            if not isinstance(no, int) or isinstance(no, bool) or no < 0:
-                return None
-            if not isinstance(title, str) or level not in (1, 2):
-                return None
-            headings.append(HeadingLine(line_no=no, title=title, level=level))
-        return cls(headings=tuple(headings), source=source)
 
 
 # 复合规则参数（票面四条件）：标题行长上限 40 字——超长标题归正文的不对称取舍。
@@ -370,26 +338,6 @@ HEADING_MAX_CHARS = 40
 _TABLE_FEATURE_RE = re.compile(r"\u3000\u3000| {2,}\d|\d[　]\d")
 # 行尾句读（正文句证据——标题不以句号类收尾）。
 _TAIL_SENTENCE_RE = re.compile(r"[。；！？!?;]\s*$")
-
-# 结构图 LLM 单呼口径：有界超时（chat INTENT_VERDICT_TIMEOUT_SECONDS 同款纪律）
-# 与逐行文本进提示词上限（超限不提取、直接走规则图——行号完整性优先于覆盖面）。
-STRUCTURE_TIMEOUT_SECONDS = 30.0
-STRUCTURE_PROMPT_MAX_CHARS = 20000
-
-STRUCTURE_PROMPT_TEMPLATE = """你是油田报告结构分析助手。
-下面给你一份报告的逐行文本，每行以行号开头。
-请识别文档中真实的章节标题行：章级标题（如「1 概述」「第一章 完井工程」）
-与节级标题（如「1.1 井身结构」）。
-规则：
-- 只输出文档中真实存在的标题行：title 必须逐字照抄该行原文，
-  不得改写、概括或新增文档没有的标题；
-- 正文长句、表格行（数字格）不是标题，不要输出；
-- level：章级＝1，节级＝2；line_no＝该行的行号（从 1 起）。
-只输出 JSON（不要多余文字）：
-{{"headings": [{{"line_no": 1, "title": "标题行原文", "level": 1}}]}}
-逐行文本：
-{numbered}
-"""
 
 
 def is_heading_line(line: str) -> bool:
@@ -425,92 +373,6 @@ def rule_structure_map(text: str) -> StructureMap:
         and not _table_like(line)  # G-07：数据/表格形行不当标题（「7 月　注采比 0.90…」族）
     )
     return StructureMap(headings=headings, source="rules")
-
-
-def parse_structure_json(raw: str) -> list[HeadingLine]:
-    """解析 LLM 结构应答（宽容：剥代码围栏/前后杂文——chat _parse_intent_json
-    同款纪律）。行号 1 基转 0 基；形状坏/无 JSON/任一行键型不合法 → []（整图
-    作废口径，调用方回退规则图）。逐字校验在 validate_structure_map。"""
-    text = raw.strip()
-    if text.startswith("```"):
-        text = text.strip("`")
-        if text.startswith("json"):
-            text = text[4:]
-    start, end = text.find("{"), text.rfind("}")
-    if start < 0 or end <= start:
-        return []
-    try:
-        payload = json.loads(text[start : end + 1])
-    except ValueError:
-        return []
-    if not isinstance(payload, dict):
-        return []
-    rows = payload.get("headings")
-    if not isinstance(rows, list):
-        return []
-    headings: list[HeadingLine] = []
-    for row in rows:
-        if not isinstance(row, dict):
-            return []
-        no, title, level = row.get("line_no"), row.get("title"), row.get("level")
-        if not isinstance(no, int) or isinstance(no, bool):
-            return []
-        if not isinstance(title, str) or level not in (1, 2):
-            return []
-        headings.append(HeadingLine(line_no=no - 1, title=title.strip(), level=level))
-    return headings
-
-
-def validate_structure_map(
-    headings: list[HeadingLine], lines: list[str]
-) -> StructureMap | None:
-    """逐字校验（防幻觉硬闸）：每张标题必须逐字命中文档真实行——任一 miss →
-    None（整张作废，调用方回退规则图）。
-
-    匹配口径：strip 后整行精确等值——不剥标点、不做子串/模糊匹配；行号本身
-    也是校验对象（越界/指错行/重复行号同作废——幻觉与错位都按整图作废处置）。
-    """
-    seen: set[int] = set()
-    ordered = sorted(headings, key=lambda h: h.line_no)
-    for h in ordered:
-        if h.line_no < 0 or h.line_no >= len(lines) or h.line_no in seen:
-            return None
-        seen.add(h.line_no)
-        if lines[h.line_no].strip() != h.title:
-            return None
-    return StructureMap(headings=tuple(ordered), source="llm")
-
-
-def _level_consistent(h: HeadingLine, line: str) -> bool:
-    """层级一致性（P-007.fix F1）：行 level 与 `_section_of` 推导分级比对——
-    推导不出分级（非标题形行）不算错标，归四条件复检处置。"""
-    derived = _section_of(line.strip())
-    return derived is None or derived[0] == h.level
-
-
-def level_mismatch_rows(m: StructureMap, lines: list[str]) -> list[HeadingLine]:
-    """层级错标行清单（P-007.fix F1 层级守门的判定输入）：LLM 标注 level 与
-    文本推导分级（`_section_of` 点分级）不一致的行——章级行标 2／节级行标 1。
-    调用方（service 编排）以错标行数过半（>50%）为 LLM 质量信号整图作废，
-    未过半则随复检单行剔除。"""
-    return [h for h in m.headings if not _level_consistent(h, lines[h.line_no])]
-
-
-def refine_structure_map(m: StructureMap, lines: list[str]) -> StructureMap:
-    """复合规则复检（双重保障）：逐字校验过的图再过四条件——通不过的行单行
-    剔除（降级为正文）而非整图作废；与逐字校验两种处置分立（幻觉＝作废、
-    越规则＝保守剔除）。
-
-    P-007.fix F1：层级一致性同闸——level 与推导分级不一致的行（章级行错标
-    level=2 会把 section 路径错挂成子节、章号停摆）同单行剔除；错标过半的
-    整图作废判定在调用方（level_mismatch_rows 计数），不在本函数。
-    """
-    kept = tuple(
-        h
-        for h in m.headings
-        if is_heading_line(lines[h.line_no]) and _level_consistent(h, lines[h.line_no])
-    )
-    return StructureMap(headings=kept, source=m.source)
 
 
 # ---------- 表格保护（G-07 WeKnora 机制移植——受保护内容整块不拆） ----------
@@ -661,12 +523,18 @@ def chunk_text(
 ) -> list[tuple[str, str]]:
     """切段：返回 [(section_path, chunk_text)]。
 
+    **同文同切铁律（DE-05）**：同一 text 在任何进程/环境/次序下调本函数，
+    输出切片序列（文本＋章节路径＋顺序）逐字节相同——切分是 text 与 mode 的
+    纯函数，不读时钟、不查缓存、不调 LLM；`structure` 只许来自确定性来源
+    （rule_structure_map 或同为纯函数的派生图）。服务侧铁律入测：
+    tests/domains/kb/test_kb_same_text_same_chunks.py。
+
     - smart：按章节/语义边界切，一段 256–1024 字，相邻段重叠 10–20%；
     - fixed：每段等长（512 字硬切——句子可能被拦腰斩断，MODE_TEXT 同象）；
     - mixed：父子分块（F30）——父块＝章级大段（只入库不索引），子块由
       smart 打包；section 路径对子块标注父块锚。
-    - structure（P1F-05 方案 A）：章节边界由结构图供给（LLM 理解＋逐字校验＋
-      复合规则复检的定稿图，或复合规则独立图）；缺省按复合规则独立识别。
+    - structure：章节边界由结构图供给；缺省按复合规则独立识别（生产链唯一
+      形态——DE-05 起 LLM 辅助图已退役，见本模块结构图节首演进注记）。
       图的 line_no 必须对准本函数收到的同一 text（splitlines 索引）。
       机械切块语义不动：尺寸带/重叠/片段 ID/父子打包全走既有同源常量。
     """
