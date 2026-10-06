@@ -132,6 +132,28 @@ RETRIEVAL_GEN_USER_TEMPLATE = (
     "请依据材料回答；引用材料时在句末使用编号 [cN]；材料不足时如实说明。"
 )
 RERANK_SYSTEM_PROMPT = "你是检索相关性打分器。只输出一个 0 到 1 之间的分数，不要输出其他内容。"
+
+# 精排/置信度的片段摘录窗口：问句强 token（井号、编号、小数指标值）在片段中的
+# 首次命中处对准——固定开头会把"锚词在片段中后部"的含锚片段判成无关（Q8 云端
+# 实证：W-33 在 923 字片段的第 330 字处，头部 160 字不可见→两轮稳定缺 4 题）。
+_QRY_TOKEN_RE = re.compile(r"[A-Za-z]+-\d+|\d+(?:\.\d+)?|[A-Za-z]{2,}")
+
+
+def _snippet_window(snippet: str, question: str, width: int = 200) -> str:
+    """锚点窗口摘录：问句 token 首次命中处前后取窗（前 40 后 160）；无命中回
+    落片段开头。纯词面零模型调用——精排/置信度两处摘录共用。"""
+    text = snippet.replace("\n", " ")
+    best: int | None = None
+    for tok in _QRY_TOKEN_RE.findall(question):
+        if len(tok) < 2:
+            continue
+        pos = text.find(tok)
+        if pos >= 0 and (best is None or pos < best):
+            best = pos
+    if best is None:
+        return text[:width]
+    start = max(0, best - 40)
+    return ("…" if start > 0 else "") + text[start:start + width]
 BATCH_RERANK_SYSTEM_PROMPT = (
     "你是检索精排器。根据问句判断每个候选片段与问句的相关程度，"
     "输出按相关度从高到低的候选编号列表。只输出编号和逗号，不要输出其他内容。"
@@ -805,7 +827,7 @@ async def _batch_rerank_order(
         return list(merged)
     lines = []
     for i, (hit, _fused) in enumerate(merged, 1):
-        head = (hit.snippet or "").replace("\n", " ")[:160]
+        head = _snippet_window(hit.snippet or "", question)
         place = f"{hit.report} · {hit.section}" if hit.section else hit.report
         lines.append(f"[{i}] {place}｜{head}")
     try:
@@ -854,7 +876,7 @@ async def _doc_confidence(
     for i, group in enumerate(groups.values(), 1):
         sample = group[0]
         heads = " ｜ ".join(
-            (e.snippet or "").replace("\n", " ")[:80] for e in group[:3]
+            _snippet_window(e.snippet or "", question, width=90) for e in group[:3]
         )
         lines.append(f"[{i}] {sample.label[:36]}｜{heads}")
     try:

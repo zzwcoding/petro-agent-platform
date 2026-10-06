@@ -85,3 +85,24 @@ def test_conf_quota_missing_score_treated_as_floor_below() -> None:
     kept, _note = chains._confidence_quota(report, {"rpt-A": 8.0}, 4)
     assert [e.report_id for e in kept] == ["rpt-A", "rpt-A"]
 
+
+
+# —— 精排锚点窗口（Q8 云端实证：锚词在片段中后部→头部不可见→误判） ——
+
+
+def test_snippet_window_anchors_on_query_token() -> None:
+    """问句井号在片段第 330 字处：窗口对准命中处（前 40 后 160），不再从开头截。"""
+    snippet = "开头元数据" + "填充" * 160 + "W-33 井酸化增油 551 吨" + "结尾"
+    out = chains._snippet_window(snippet, "W-33 井酸化措施的效果如何？")
+    assert "W-33" in out and "551" in out
+
+
+def test_snippet_window_no_token_falls_back_to_head() -> None:
+    out = chains._snippet_window("开头就是正文内容" * 30, "完全无关的问题？")
+    assert out.startswith("开头就是正文内容")
+
+
+def test_snippet_window_decimal_metric_anchors() -> None:
+    snippet = "前导" + "略" * 200 + "抽油机时率 94.1%，分母 3,631 井日"
+    out = chains._snippet_window(snippet, "抽油机时率 94.1% 的算式？")
+    assert "94.1" in out
