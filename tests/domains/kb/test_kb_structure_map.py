@@ -28,6 +28,10 @@ CORPUS_DIR = Path(__file__).parent / "corpus"
 CORPUS_A = (CORPUS_DIR / "report_A_f26诱导求产.txt").read_text(encoding="utf-8")
 CORPUS_B = (CORPUS_DIR / "report_B_f42检泵月报.txt").read_text(encoding="utf-8")
 CORPUS_C = (CORPUS_DIR / "teach_prototype_n02样例.txt").read_text(encoding="utf-8")
+# DE-04：C 报告标题双样式裁剪样例（票面指定 tests/fixtures——语料注源见文件头）。
+FIXTURE_C_HEADING_STYLES = (
+    Path(__file__).parents[2] / "fixtures" / "report_C_heading双样式裁剪.txt"
+).read_text(encoding="utf-8")
 
 ACTOR = "阿强 · 平台运维"
 LIB_NAME = "完井报告库"
@@ -250,6 +254,85 @@ class TestHeadingRule:
     def test_blank_line_not_heading(self) -> None:
         assert d.is_heading_line("") is False
         assert d.is_heading_line("   ") is False
+
+
+# ---------- DE-04：「一、」中文序号章级＋数字层级末段断言（A5 前半双样式） ----------
+
+
+class TestHeadingCnOrdinalStyle:
+    """中文序号行首（一、～九十九、）——A5 前半新分支（章级 level 1）。"""
+
+    def test_cn_ordinal_headings_pass_at_chapter_level(self) -> None:
+        # 正例 ≥2 票面验收：C 报告真实样式行逐字（一/三/十）＋九十九上界。
+        for line in [
+            "一、三季度生产运行",
+            "三、三季度注水调整方案",
+            "十、注水井分层测试汇总（三季度）",
+            "九十九、边界样例",
+        ]:
+            assert d.is_heading_line(line) is True, line
+            info = d._section_of(line)
+            assert info is not None and info[0] == 1, line  # 中文序号＝章级
+
+    def test_cn_ordinal_requires_following_body(self) -> None:
+        # 「、」后必须接正文（非空白/非分隔标点）——孤立「一、」不成标题。
+        for line in ["一、", "十、", "一、。", "九十九、"]:
+            assert d.is_heading_line(line) is False, line
+
+    def test_cn_ordinal_range_boundary(self) -> None:
+        # 序号域边界外不认：一百（百位不属 1–99 域）、连写非法序号。
+        for line in ["一百、边界外", "二三、非法序号"]:
+            assert d.is_heading_line(line) is False, line
+
+    def test_cn_ordinal_overlong_still_demoted(self) -> None:
+        # 三约束不动（票面交付物②）：行长 ≤HEADING_MAX_CHARS 沿用——超长
+        # 中文序号标题同归正文（超长标题归正文的不对称取舍对新样式同样生效）。
+        line = "一、" + "超长章节标题" * 8
+        assert len(line) > d.HEADING_MAX_CHARS
+        assert d.is_heading_line(line) is False
+
+
+class TestHeadingNumericGuard:
+    """数字层级末段断言（末段后非数字/非.数字）——金额/日期回溯误报守门。
+
+    修复前基线（票面负例三型）：「1.1万元」「2026.10」「1.1」均被旧正则回溯
+    误报（1.1万元→章号 1、2026.10→章号 2026.、孤立 1.1→章号 1）。
+    """
+
+    def test_amount_and_date_and_bare_number_not_heading(self) -> None:
+        # 误报负例 ≥3 票面验收：金额连写/日期/孤立层级号（普通括号编号行）。
+        assert d.is_heading_line("1.1万元") is False
+        assert d.is_heading_line("2026.10") is False
+        assert d.is_heading_line("1.1") is False
+        assert d.is_heading_line("（3）注水井酸化") is False  # 括号编号行（既有不认）
+
+    def test_numeric_level_positive_regression_unchanged(self) -> None:
+        # 旧正例零变化（票面硬验收）：真层级号（含新补 1.1.1 三级形）照常识别。
+        for line, level in [
+            ("1.1 主要生产指标（月度）", 2),
+            ("1.1.1 完井工艺细分", 2),
+            ("2.10 注水月度数据", 2),
+            ("1.概述", 1),
+            ("1 概述", 1),
+        ]:
+            assert d.is_heading_line(line) is True, line
+            info = d._section_of(line)
+            assert info is not None and info[0] == level, line
+
+
+class TestHeadingPrefixConsumer:
+    """DE-04 交付物③：_HEADING_PREFIX_RE 消费面同步核对——新样式前缀已被
+    `[0-9一二三四五六七八九十百]+\\s*[、.]` 覆盖，零改动不双写第二份正则
+    （消费面＝_table_like 甄别：标题/条目形态不当数据行）。"""
+
+    def test_new_style_prefixes_not_table_like(self) -> None:
+        for line in [
+            "一、三季度生产运行",
+            "十、注水井分层测试汇总（三季度）",
+            "1.1 主要生产指标（月度）",
+            "1.1.1 完井工艺细分",
+        ]:
+            assert d._table_like(line) is False, line
 
 
 # ---------- 域纯语义：LLM 应答解析＋逐字校验＋规则复检 ----------
@@ -502,6 +585,42 @@ class TestCorpusRegression:
         chunks = d.chunk_text(CORPUS_C, "smart")
         assert any("＞ 1.1 投产信息" in s for s, _ in chunks)
         assert any(s == "章节 03 第2章 完井液" for s, _ in chunks)
+
+
+class TestCorpusCHeadingStyleFixture:
+    """DE-04：C 报告裁剪 fixture——「一、」章级＋「1.1」节级识别齐＋误报负例
+    行不识别（票面验收：两种新样式各 ≥2 处＋负例行 ≥3；A5 现象回归锚）。"""
+
+    def test_both_new_styles_recognized(self) -> None:
+        m = d.rule_structure_map(FIXTURE_C_HEADING_STYLES)
+        titles = [h.title for h in m.headings]
+        # 中文序号章级 ≥2
+        assert "一、三季度生产运行" in titles
+        assert "二、注水运行" in titles
+        assert [h.level for h in m.headings if h.title == "一、三季度生产运行"] == [1]
+        # 数字层级节级 ≥2
+        assert "1.1 主要生产指标（月度）" in titles
+        assert "2.1 注水月度数据" in titles
+        assert [h.level for h in m.headings if h.title == "2.1 注水月度数据"] == [2]
+
+    def test_false_positive_lines_stay_body(self) -> None:
+        m = d.rule_structure_map(FIXTURE_C_HEADING_STYLES)
+        titles = [h.title for h in m.headings]
+        for bad in ["1.1万元", "2026.10", "1.1", "（3）注水井酸化"]:
+            assert bad not in titles, bad
+            # 负例行逐字留在正文块内（守门不丢内容）
+            chunks = d.chunk_text(FIXTURE_C_HEADING_STYLES, "smart")
+            assert any(bad in piece for _, piece in chunks), bad
+
+    def test_chunk_paths_carry_chapter_no(self) -> None:
+        # A5 主症状回归锚：章节路径不再恒「正文」——章号推进＋节级挂章。
+        paths = [s for s, _ in d.chunk_text(FIXTURE_C_HEADING_STYLES, "smart")]
+        assert any(s == "章节 01 一、三季度生产运行" for s in paths)
+        assert any(
+            s == "章节 01 一、三季度生产运行 ＞ 1.1 主要生产指标（月度）" for s in paths
+        )
+        assert any(s == "章节 02 二、注水运行 ＞ 2.1 注水月度数据" for s in paths)
+        assert not any(s.startswith("正文") and "＞" in s for s in paths)
 
 
 # ---------- 服务管线：LLM 结构提取＋守门＋回退＋缓存 ----------
