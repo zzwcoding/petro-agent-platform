@@ -65,3 +65,26 @@ def test_bm25_empty_inputs_safe() -> None:
     assert bm25_scores("", ["任意文本"]) == [0.0]
     assert bm25_scores("任意问句", []) == []
     assert bm25_scores("W-33 井", ["", ""]) == [0.0, 0.0]  # 问句有单元但文本无单元
+
+
+# ---------- G-08：mixed 父块截断丢内容修复 ----------
+
+
+def test_mixed_mode_children_cover_full_text_no_headings() -> None:
+    """无章节标题 4500 字文本走 mixed：子块并集覆盖全文（原实现截断丢 44%）。"""
+    from app.domains.kb.domain import chunk_text, validate_chunks
+
+    body = "\n\n".join(
+        f"第 {i} 段：渤中 34-8 油田生产运行情况说明，W-{i} 井日产油量稳定在 "
+        f"{20 + i} 吨，含水率 {60 + i}%，措施增油持续见效，检泵周期延长。"
+        for i in range(60)
+    )
+    chunks = chunk_text(body, "mixed")
+    assert chunks, "应产出片段"
+    parent_rows = [(p, c) for p, c in chunks if p.startswith("父块·")]
+    assert all(len(c) <= 2048 for _, c in parent_rows)  # 父块行仍截断
+    issues = validate_chunks(body, chunks)
+    assert issues == [], f"切块应无损，违规：{issues[:3]}"
+    # 尾部内容（原实现必丢）必须出现在某个子块里
+    tail_marker = body[-200:]
+    assert any(tail_marker[:40] in c for _, c in chunks), "末段内容不得丢失"

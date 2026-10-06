@@ -709,12 +709,17 @@ def chunk_text(
             parent_body = parent_body.strip()
             if not parent_body:
                 continue
+            # G-08 内容丢失修复：子块源＝未截断全文。原实现父块截到 2048 后
+            # **用截断文本生成子块**——章节识别失败成单父块时，2048 字之后的
+            # 正文整段静默丢失（C 报告实证：4542 字只入库前 44%，自检 dump
+            # 在案）。父块行截断只影响父块自身（概览位，不索引不对外）。
+            full_body = parent_body
             if len(parent_body) > MIXED_PARENT_MAX_CHARS:
                 parent_body = parent_body[:MIXED_PARENT_MAX_CHARS]
             parent_key = f"父块·{parent_title}"
             result.append((parent_key, parent_body))  # 父块行（is_parent_only 标记在落库侧）
             for child in _pack(
-                _table_units([p for p in parent_body.splitlines() if p.strip()]),
+                _table_units([p for p in full_body.splitlines() if p.strip()]),
                 min_chars=SMART_MIN_CHARS,
                 max_chars=MIXED_CHILD_MAX_CHARS,
                 overlap=True,
