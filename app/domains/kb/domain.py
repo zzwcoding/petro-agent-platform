@@ -413,6 +413,7 @@ def rule_structure_map(text: str) -> StructureMap:
         h
         for i, line in enumerate(text.splitlines())
         if (h := _heading_from_line(line, i)) is not None
+        and not _table_like(line)  # G-07：数据/表格形行不当标题（「7 月　注采比 0.90…」族）
     )
     return StructureMap(headings=headings, source="rules")
 
@@ -503,6 +504,88 @@ def refine_structure_map(m: StructureMap, lines: list[str]) -> StructureMap:
     return StructureMap(headings=kept, source=m.source)
 
 
+# ---------- 表格保护（G-07 WeKnora 机制移植——受保护内容整块不拆） ----------
+
+# 数据行判据：≥2 个独立数字词（百分号/小数计入；m³/d 的 ³ 非数字不误计）
+_NUM_TOKEN_RE = re.compile(r"(?<![\w.])\d+(?:\.\d+)?%?(?![\w.])")
+
+
+_HEADING_PREFIX_RE = re.compile(
+    r"^\s*[（(]?\s*(?:第?\s*[0-9一二三四五六七八九十百]+\s*[章节条款项]"
+    r"|[0-9一二三四五六七八九十百]+\s*[、.])"
+)
+
+
+def _table_like(line: str) -> bool:
+    """行是否形似表格/数据行（G-07——数据行不当标题、表格块不拆）。
+
+    判据（顺序即甄别）：
+    - 竖线 ≥2 → markdown 表行；
+    - 章节编号前缀（第三章/一、/（3）…）→ 标题或条目形态，不当数据行；
+    - 句末标点（。！？；）收尾 → 叙述句，不当数据行；
+    - ≥2 个独立数字词 → 数据行。
+    """
+    if line.count("|") >= 2:
+        return True
+    if _HEADING_PREFIX_RE.match(line):
+        return False
+    if line.rstrip().endswith(("。", "！", "？", "；")):
+        return False
+    return len(_NUM_TOKEN_RE.findall(line)) >= 2
+
+
+def _table_units(lines: list[str]) -> list[str]:
+    """行清单 → 打包单元：连续 ≥2 行形似表格的合并为一个多行单元（整体不拆）。
+
+    单行单元照旧；表格单元内部保留换行——_pack 对含换行单元走「行边界切」，
+    永不从行中间断开。孤立的数字行不成块（避免误保护散文）。
+    """
+    units: list[str] = []
+    run: list[str] = []
+    for line in lines:
+        if _table_like(line):
+            run.append(line)
+            continue
+        if len(run) >= 2:
+            units.append("\n".join(run))
+        elif run:
+            units.append(run[0])
+        run = []
+        if line.strip():
+            units.append(line)
+    if len(run) >= 2:
+        units.append("\n".join(run))
+    elif run:
+        units.append(run[0])
+    return units
+
+
+def validate_chunks(text: str, chunks: list[tuple[str, str]]) -> list[str]:
+    """切块无损自检（WeKnora restore_text 同旨——拼得回原文才算切得对）。
+
+    - 包含性：每个片段（去空白）必须是原文（去空白）的子串——片段里不允许
+      出现原文没有的字（切块 bug／幻觉即此检出）；
+    - 覆盖性：原文每个非空行（去空白）必须被至少一个片段包含——整行丢失即此
+      检出（fixed 硬切跨片段断行时按「拼接覆盖」判定，恒真不误报）。
+    返回违规清单（人话）；空清单＝切块无损。
+    """
+    def norm(s: str) -> str:
+        return re.sub(r"\s+", "", s)
+
+    base = norm(text)
+    joined = norm("".join(c for _, c in chunks))
+    issues: list[str] = []
+    for path, chunk in chunks:
+        nc = norm(chunk)
+        if nc and nc not in base:
+            issues.append(f"片段含非原文内容（{path}）：{chunk[:24]!r}")
+    for i, line in enumerate(text.splitlines()):
+        nl = norm(line)
+        if nl and nl not in joined:
+            issues.append(f"原文第 {i + 1} 行未被任何片段覆盖：{line[:30]!r}")
+    return issues
+
+
 def _pack(
     paragraphs: list[str],
     *,
@@ -514,7 +597,9 @@ def _pack(
     chunks: list[str] = []
     buf = ""
     for para in paragraphs:
-        candidate = f"{buf}{para}" if buf else para
+        is_table_unit = "\n" in para
+        sep = "\n" if is_table_unit else ""
+        candidate = f"{buf}{sep}{para}" if buf else para
         if len(candidate) <= max_chars:
             buf = candidate
             continue
@@ -523,6 +608,16 @@ def _pack(
             buf = ""
         if len(para) <= max_chars:
             buf = para
+            continue
+        # 超长表格单元：按自身行边界切（行绝不从中间断）——G-07
+        if is_table_unit:
+            for row in para.splitlines():
+                candidate = f"{buf}\n{row}" if buf else row
+                if len(candidate) > max_chars and buf:
+                    chunks.append(buf)
+                    buf = row
+                    continue
+                buf = candidate
             continue
         # 超长段落：按句切兜底打包（smart 语义边界；fixed 硬切另行处理）
         for sentence in _split_sentences(para):
@@ -571,12 +666,28 @@ def chunk_text(
     lines = text.splitlines()
     if mode == "fixed":
         flat = "".join(line.strip() for line in lines if line.strip())
+        # G-07：竖线表格 span 整体保留——切点落入 span 内则回退至 span 起点
+        spans = [
+            (m.start(), m.end())
+            for m in re.finditer(r"\|[^\n|]*(?:\|[^\n|]*)+\|", flat)
+        ]
         out: list[tuple[str, str]] = []
-        for i in range(0, len(flat), FIXED_CHUNK_CHARS):
-            out.append(("正文", flat[i : i + FIXED_CHUNK_CHARS]))
+        pos = 0
+        while pos < len(flat):
+            end = min(pos + FIXED_CHUNK_CHARS, len(flat))
+            for s, e in spans:
+                if s < end < e and s > pos:
+                    end = s  # 切点回退至 span 起点（保整块）
+                    break
+            out.append(("正文", flat[pos:end]))
+            pos = end
         return out
     map_ = structure if structure is not None else rule_structure_map(text)
-    heading_at = {h.line_no: h for h in map_.headings}
+    heading_at = {
+        h.line_no: h
+        for h in map_.headings
+        if not _table_like(text.splitlines()[h.line_no])  # G-07：双来源统一防表格行当标题
+    }
     if mode == "mixed":
         # 父块＝章级段（标题及其后内容至下一章级标题）；无章级标题则整篇一父块。
         parents: list[tuple[str, str]] = []
@@ -603,7 +714,7 @@ def chunk_text(
             parent_key = f"父块·{parent_title}"
             result.append((parent_key, parent_body))  # 父块行（is_parent_only 标记在落库侧）
             for child in _pack(
-                [p for p in parent_body.splitlines() if p.strip()],
+                _table_units([p for p in parent_body.splitlines() if p.strip()]),
                 min_chars=SMART_MIN_CHARS,
                 max_chars=MIXED_CHILD_MAX_CHARS,
                 overlap=True,
@@ -633,7 +744,7 @@ def chunk_text(
     out = []
     for title, para_lines in sections:
         packed = _pack(
-            [p for p in para_lines if p.strip()],
+            _table_units([p for p in para_lines if p.strip()]),
             min_chars=SMART_MIN_CHARS,
             max_chars=SMART_MAX_CHARS,
             overlap=True,

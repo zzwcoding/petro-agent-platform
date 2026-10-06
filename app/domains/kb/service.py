@@ -85,6 +85,16 @@ class _TaskRuntime:
     tasks: dict[str, asyncio.Task[None]]
 
 
+
+
+def _dump_text_sync(path: str, text: str) -> None:
+    """同步落盘（ASYNC230——async 面不裸 open；失败不阻塞入库）。"""
+    try:
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+    except Exception:  # 自检 dump 失败不阻塞入库
+        pass
+
 class KbService:
     """kb 域服务（编排；合同语义在 domain.py，持久在 store.py）。"""
 
@@ -1604,6 +1614,15 @@ class KbService:
             pieces = d.chunk_text(text, mode, structure=structure)
             if not pieces:
                 raise RuntimeError("切段结果为空——报告无可索引正文")
+            # G-07 切块无损自检（WeKnora restore_text 同旨）——违规落盘告警不阻塞
+            issues = d.validate_chunks(text, pieces)
+            if issues:
+                dump = f"/tmp/chunk_validate_{row.id}.md"
+                dump_text = "\n".join(issues)
+                await asyncio.to_thread(
+                    _dump_text_sync, dump, dump_text
+                )
+                LOGGER.warning("切块自检 %d 条违规（dump=%s）：%s", len(issues), dump, issues[:3])
             await self._persist_chunks(row.report_id, pieces)
             return text
         if key == "embed":
