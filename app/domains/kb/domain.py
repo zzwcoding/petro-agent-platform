@@ -753,11 +753,133 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
     return dot / (na * nb)
 
 
+def extract_units(text: str) -> list[str]:
+    """检索单元切分（G-07——免分词器的 BM25 单元，99 册开放问题 5 收口落法）。
+
+    - CJK 连续串按二字滑窗：二字组是中文 IR 免分词器的标准单元——v1 三字组
+      要求三字符连续相同，措辞差一字全断（关键词腿只回 3~5 条的低召回病根）；
+    - 字母数字连串（含内部连字符）整取：W-33／SCSSV／2462——编号与数字是
+      区分度最高的单元，不许被三字组切碎；
+    - 单字不成单元（字面噪声，IDF 也救不住）。
+    """
+    units: list[str] = []
+    for run in re.findall(r"[\u4e00-\u9fff]+", text or ""):
+        if len(run) >= 2:
+            units.extend(run[i : i + 2] for i in range(len(run) - 1))
+    for tok in re.findall(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*", text or ""):
+        if len(tok) >= 2:
+            units.append(tok)
+    return units
+
+
+def alnum_tokens(text: str) -> list[str]:
+    """问句中的字母数字 token（G-07 编号保送通道的判定单元——W-33/SCSSV/2462）。"""
+    return [
+        tok
+        for tok in re.findall(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*", text or "")
+        if len(tok) >= 2
+    ]
+
+
+BM25_K1 = 1.2  # BM25 词频饱和常数（教科书值——代码常量，不入配置面）
+BM25_B = 0.75  # BM25 长度归一常数
+BM25_NORM_K = 3.0  # 归一化尺度：强命中（原始分≈8）→0.73、弱命中（≈0.3）→0.09
+
+
+def bm25_scores(question: str, texts: list[str]) -> list[float]:
+    """关键词腿 BM25 打分（G-07——trigram_coverage 代理的正主，99 册开放问题 5 落法）。
+
+    - 单元＝extract_units（CJK 二字组＋字母数字 token）；IDF 查询时现算
+      （df＝含该单元的文本数，语料＝texts 全集；平滑式自带小语料保护）；
+    - 返回与 texts 等长的**原始分**列表（无界量级）——对外消费前必须经
+      normalize_bm25 映射 0~1（confidence/refuse_threshold 均假设该契约）。
+    """
+    q_units = sorted(set(extract_units(question)))
+    if not q_units or not texts:
+        return [0.0] * len(texts)
+    n_docs = len(texts)
+    doc_tfs: list[dict[str, int]] = []
+    doc_lens: list[int] = []
+    df: dict[str, int] = dict.fromkeys(q_units, 0)
+    for text in texts:
+        tf: dict[str, int] = {}
+        for u in extract_units(text):
+            tf[u] = tf.get(u, 0) + 1
+        doc_tfs.append(tf)
+        doc_lens.append(sum(tf.values()))
+        for u in q_units:
+            if u in tf:
+                df[u] += 1
+    avgdl = (sum(doc_lens) / n_docs) if n_docs else 0.0
+    out: list[float] = []
+    for tf, dl in zip(doc_tfs, doc_lens, strict=True):
+        if avgdl == 0.0:
+            out.append(0.0)
+            continue
+        s = 0.0
+        for u in q_units:
+            f = tf.get(u, 0)
+            if f == 0:
+                continue
+            idf = math.log((n_docs - df[u] + 0.5) / (df[u] + 0.5) + 1.0)
+            s += idf * (f * (BM25_K1 + 1)) / (
+                f + BM25_K1 * (1.0 - BM25_B + BM25_B * dl / avgdl)
+            )
+        out.append(s)
+    return out
+
+
+def promote_entity_hits(
+    ranked: list[tuple[Any, float]],
+    scored: list[tuple[Any, float]],
+    tokens: list[str],
+    *,
+    top_k: int,
+    hit_text_of: Any,
+) -> list[tuple[Any, float]]:
+    """编号保送（G-07）：tokens 逐字命中而未进榜的片段保送进 topK 尾席。
+
+    - 上限 4（多编号问句不把窗占满，余下靠 BM25 兜底）；
+    - 榜上已有的不重复（按对象身份判定）；
+    - 返回总长恒 ≤ top_k——保送占的是尾席，不是扩窗。
+    纯函数（G-07 单测直接锁逻辑，不靠语料构造）。
+    """
+    if not tokens:
+        return ranked
+    cap = min(4, top_k)
+    ranked_ids = {id(frag) for frag, _ in ranked}
+    promoted: list[tuple[Any, float]] = []
+    for frag, score in scored:
+        if len(promoted) >= cap:
+            break
+        if id(frag) in ranked_ids:
+            continue
+        text = hit_text_of(frag)
+        if any(tok in text for tok in tokens):
+            promoted.append((frag, score))
+            ranked_ids.add(id(frag))
+    return ranked[: top_k - len(promoted)] + promoted
+
+
+def normalize_bm25(raw: float) -> float:
+    """BM25 原始分 → 0~1（score/(score+K)）。
+
+    下游分数契约＝0~1（N5 compute_confidence／S6 refuse_threshold 0.4／SSE score
+    字段）——BM25 原始分无界，未经归一直接出街会全线失真（G-07 最隐蔽的翻车点，
+    单测专锁）。
+    """
+    if raw <= 0:
+        return 0.0
+    return raw / (raw + BM25_NORM_K)
+
+
 def trigram_coverage(question: str, text: str) -> float:
     """字面一路得分＝问句 trigram 集在文本 trigram 集中的覆盖率（0–1）。
 
     pg_trgm 子串匹配的阶段 1 语义代理（P1-04 裁决「关键词路＝trigram 子串匹配」；
     全问句子串命中→覆盖率 1.0）——中文免分词器，索引落位后查询语义不变。
+    **G-07 起代理退役**：关键词路正主＝bm25_scores（开放问题 5 收口）；本函数
+    保留给精确子串场景（@编号/整句命中）备用，检索主路不再消费。
     """
     q = _trigrams(question)
     if not q:
