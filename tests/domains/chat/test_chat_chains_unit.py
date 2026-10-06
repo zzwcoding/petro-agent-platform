@@ -128,8 +128,8 @@ class TestTreeNarrative:
     async def test_gen_ordinal_counts_rerank_calls(
         self, chat_db: Any, seams: Seams,
     ) -> None:
-        """「模型第 N 次调用」标注行：精排 llm 档逐条打分计入——GEN 序号＝打分
-        调用数＋1（node tag 与 node_line 标注行同源）。"""
+        """「模型第 N 次调用」标注行：精排 llm 档两次调用（批量精排＋文档置信度）
+        计入——GEN 序号＝2＋1（node tag 与 node_line 标注行同源）。"""
         seams.index_vector = [_hit("v1", 0.5), _hit("v2", 0.8)]
         seams.config = replace(DEFAULT_CONFIG, rerank="llm", early_stop=False)
         svc = make_service(chat_db, seams)
@@ -394,24 +394,32 @@ class TestDualRecallAndRerank:
         citation = events_by_name(events)["citation"][0]
         assert citation["ref"] == "c1" and citation["locator"]["fragment_id"] == "v1"
 
-    async def test_rerank_llm_scores_each_candidate(
+    async def test_rerank_llm_confidence_and_batch_two_calls(
         self, chat_db: Any, seams: Seams,
     ) -> None:
-        """精排 llm 档：逐条打分（打 N 条就是 N 次模型调用）——W-F34。"""
+        """精排 llm 档三段式（A9+A2）：文档置信度＋批量精排各一次调用（与候选数
+        无关）；高置信来源按置信度配额多占席——过程注随 S4 节点如实带出。"""
         seams.index_vector = [_hit("v1", 0.5), _hit("v2", 0.8)]
         seams.config = replace(DEFAULT_CONFIG, rerank="llm", early_stop=False)
+        seams.rerank_replies = ["2,1", '{"scores": {"1": 9}}']
         svc = make_service(chat_db, seams)
         events = await collect(svc.ask("N-02 的情况", session_id=None, page_context=None,
                                        anchors=[], actor_who=AQIANG))
-        # 每条候选一次打分调用（caller=chat.retrieval.rerank）＋一次生成调用
+        # 三段式＝两次精排调用（批量精排→文档置信度），不再逐条打分
         assert seams.completions.count("chat.retrieval.rerank") == 2
         assert seams.completions.count("chat.retrieval.answer") == 1
+        s4_notes = " ".join(
+            str(f.get("note") or "") for f in events_by_name(events)["node"]
+            if f["key"] == "S4"
+        )
+        assert "文档置信度配额" in s4_notes
         assert events_by_name(events)["answer"][0]["kind"] == "text"
 
     async def test_rerank_llm_parse_failure_falls_back_to_order(
         self, chat_db: Any, seams: Seams,
     ) -> None:
-        """打分解析失败→按原顺序放行，不影响整条链路（W-F34-2 回退原序不炸链）。"""
+        """精排 llm 档解析失败双回退：批量精排坏输出→按融合序放行；置信度坏输出
+        →窗口构成回退 S6 固定配额——整条链路不受影响（W-F34-2 回退不炸链）。"""
         seams.index_vector = [_hit("v1", 0.5), _hit("v2", 0.8)]
         seams.config = replace(DEFAULT_CONFIG, rerank="llm", early_stop=False)
         seams.completion = "不是分数"

@@ -789,6 +789,9 @@ FAQ_EXPAND_FLOOR = 0.5
 # v0.4 分池条文只改 S6 生成窗）。
 EVIDENCE_CAP = 4
 LEDGER_EVIDENCE_CAP = 2
+# llm 档文档置信度配额（A9——窗口席位按来源置信度分配，替代固定均分压制）
+DOC_CONF_FLOOR = 3.0    # 置信度无关线（0–10 制）——低于此线的来源不占生成窗席位
+DOC_CONF_MAX_SEATS = 3  # 单来源席位居量——目标来源至多 3 席（其余来源竞争余席）
 # 台账类材料来源集（Evidence.source 键域——chains.py 满分档三来源：faq＝FAQ
 # 精确命中并入、anchor＝@ 前门直取、ledger＝S3 台账精确命中；其余 source
 # （vector/keyword/graph…）＝报告类池）。
@@ -1590,7 +1593,7 @@ class RetrievalConfigFace:
     keyword_top_k: int
     merge: str  # rrf_rank | concat
     top_n: int
-    rerank: str  # fast | llm | compound
+    rerank: str  # fast | llm（文档置信度＋置信度配额＋批量精排三段式） | compound
     citation_format: str  # page | code
     fallback_strategy: str  # fixed | free
     fallback_text: str

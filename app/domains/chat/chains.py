@@ -35,7 +35,8 @@
   N17 检索问答（树执行节点）→ S0 身份四要素（一次确认）→ S1 显式锚定（受第 1 级
   开关管辖）→ S3 词表四级（台账精确）→ S4 双路召回（向量 topK1＋trigram topK2
   并发）→ 合并（rrf_rank k=60 固定推荐值 / concat）→ 前 N → 精排三档（fast 融合
-  序放行 / llm 逐条打分 / compound 0.6/0.3/0.1＋MMR λ=0.7）→ FAQ 路（直出关——
+  序放行 / llm 三段式：文档来源置信度＋置信度配额＋批量精排（各一次调用）
+  / compound 0.6/0.3/0.1＋MMR λ=0.7）→ FAQ 路（直出关——
   并入检索，扩检轮数消费）→ S5 图扩展（未启用——直通跳过）→ S6 资格裁决（生成
   窗分池——D2 v0.4：报告类证据上限 4 支＋台账类材料上限 2 支、两池互不占位，
   台账类＝装配层一等材料满分档〔source∈faq/anchor/ledger〕，各池内超出的截断
@@ -79,7 +80,9 @@ B1：本文件不 import fastapi/starlette/DB——链体只见注入缝。
 
 from __future__ import annotations
 
+import json
 import logging
+import re
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
@@ -129,6 +132,19 @@ RETRIEVAL_GEN_USER_TEMPLATE = (
     "请依据材料回答；引用材料时在句末使用编号 [cN]；材料不足时如实说明。"
 )
 RERANK_SYSTEM_PROMPT = "你是检索相关性打分器。只输出一个 0 到 1 之间的分数，不要输出其他内容。"
+BATCH_RERANK_SYSTEM_PROMPT = (
+    "你是检索精排器。根据问句判断每个候选片段与问句的相关程度，"
+    "输出按相关度从高到低的候选编号列表。只输出编号和逗号，不要输出其他内容。"
+)
+DOC_CONF_SYSTEM_PROMPT = (
+    "你是检索来源裁判。判断每个候选文档来源与用户问题的相关程度"
+    "（0＝完全无关，10＝直接回答该问题所需的来源）。"
+    "问句中点名的井号（如 W-57、Y-21）、报告名、章节号若在某来源的片段摘录中出现，"
+    "该来源至少应给 8 分——片段摘录只是该来源的一小部分，未在摘录中出现"
+    "不等于该来源没有相关内容，请结合出处名称与摘录综合判断。"
+    '只输出一个 JSON 对象：{"scores": {"来源编号": 分数, ...}}，每个来源都必须给分，'
+    "不要输出其他内容。"
+)
 # 低分带第二道问句改写提示词（P1F-06——措辞可微调、语义须覆盖：去修饰保语义/
 # 输出检索优化问法/只回问法本身）。
 REWRITE_SYSTEM_PROMPT = (
@@ -205,7 +221,7 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
     cfg = await deps.config_loader()
     question = ctx.question
     evidence: list[d.Evidence] = []
-    rerank_calls = 0  # 精排逐条打分的模型调用数（GEN「模型第 N 次调用」序号源）
+    rerank_calls = 0  # 精排模型调用数（llm 档＝置信度＋批量精排 2 次；compound＝逐条）
     extra_model_calls = 0  # 链内额外模型调用（低分带改写——P1F-06，同入 GEN 序号）
     rescored_answer = False  # 额度已用完自动按优化句作答——答案标注开关（P1F-06）
 
@@ -292,14 +308,17 @@ async def retrieval_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator
                 merged = d.concat_merge(vector_hits, keyword_hits)
                 merge_note = "合并（concat——谁排前用谁）"
             top = merged[: max(1, cfg.top_n)]
-            evidence.extend(await _rerank_evidence(deps, cfg, top))
-            if cfg.rerank in ("llm", "compound"):
+            reranked, rerank_note = await _rerank_evidence(deps, cfg, top, question)
+            evidence.extend(reranked)
+            if cfg.rerank == "llm":
+                rerank_calls = 2  # 文档置信度＋批量精排——各一次（多次重排设计，与候选数无关）
+            elif cfg.rerank == "compound":
                 rerank_calls = len(top)
-            yield d.node_frame(
-                "S4", state=d.NODE_FINISH,
-                note=f"双路召回：向量 {len(vector_hits)} 条＋关键词 {len(keyword_hits)} 条"
-                     f" → {merge_note} → 前 {len(top)} 进精排（{cfg.rerank}）",
-            )
+            s4_note = (f"双路召回：向量 {len(vector_hits)} 条＋关键词 {len(keyword_hits)} 条"
+                       f" → {merge_note} → 前 {len(top)} 进精排（{cfg.rerank}）")
+            if rerank_note:
+                s4_note += f"——{rerank_note}"
+            yield d.node_frame("S4", state=d.NODE_FINISH, note=s4_note)
             # FAQ 路扩检（检索动作级——受 S1 锚定早停管辖；qa_behavior.faq_expand_rounds
             # 消费）——轮次行为 S4 节点内容行（node_line，A1 帧 8）。
             if not cfg.faq_direct_hit and ctx.assembly.faq_hit is None:
@@ -602,26 +621,42 @@ def _config_check_line(cfg: d.RetrievalConfigFace) -> d.SseEvent:
 
 async def _rerank_evidence(
     deps: ChainDeps, cfg: d.RetrievalConfigFace,
-    merged: list[tuple[d.IndexHitFace, float]],
-) -> list[d.Evidence]:
+    merged: list[tuple[d.IndexHitFace, float]], question: str,
+) -> tuple[list[d.Evidence], str | None]:
     """精排三档（F34：只重排融合池前 N）→ 证据行。
 
     - fast：排序模型无可用服务（P1-11 选型探测 2026-10-02：MiniMax 两域名
       /v1/rerank 均 404、智谱/方舟线路亦无 rerank 端点——证据记票面）——
-      按融合序放行（差异登记「无可用服务」；服务出现时本档换真重排）；
-    - llm：主力大模型逐条打分（打 N 条就是 N 次模型调用）——解析失败按原顺序
-      放行，不影响整条链路（W-F34-2）；
+      按融合序放行（差异登记「无可用服务」）；
+    - llm：三段式多次重排（Q6N 后 A9+A2——Owner 2026-10-06 拍板「多次重排，
+      用 LLM 语义判断解决检索窗问题，成本不设限」）：
+      ①文档来源置信度打分（一次调用——候选按报告分组，逐来源给 0–10 相关度）；
+      ②置信度配额（窗口席位按来源置信度轮转发放——高置信来源至多
+      DOC_CONF_MAX_SEATS 席、低于无关线 DOC_CONF_FLOOR 的不占席；打分解析
+      失败回退 S6 既有固定配额）；
+      ③片段批量精排（一次调用——问句＋编号候选清单→相关度排序编号表；
+      解析失败按融合序放行，W-F34-2 回退不炸链）。
+      llm 档窗口在 S4 就地成型（置信度配额已应用），S6 分池截断对其空转——
+      过程注随 S4 节点如实带出；
     - compound：0.6×模型分＋0.3×检索基础分＋0.1×来源分＋MMR λ=0.7。
+
+    返回（证据行, 附加过程注｜None）。
     """
     if not merged:
-        return []
+        return [], None
     if cfg.rerank == "llm":
-        ordered = await _llm_score_order(deps, merged)
-    elif cfg.rerank == "compound":
+        ordered = await _batch_rerank_order(deps, question, merged)
+        rows = _index_evidence_rows(ordered)
+        conf = await _doc_confidence(deps, question, rows)
+        if conf is None:
+            return rows, None  # 置信度打分不可用——窗口构成回退 S6 固定配额
+        kept, quota_note = _confidence_quota(rows, conf, d.EVIDENCE_CAP)
+        return kept, quota_note
+    if cfg.rerank == "compound":
         ordered = await _compound_order(deps, merged)
     else:
         ordered = list(merged)
-    return _index_evidence_rows(ordered)
+    return _index_evidence_rows(ordered), None
 
 
 def _index_evidence_rows(
@@ -757,25 +792,160 @@ async def _rewrite_question(deps: ChainDeps, question: str) -> str | None:
     return cleaned or None
 
 
-async def _llm_score_order(
-    deps: ChainDeps, merged: list[tuple[d.IndexHitFace, float]]
+async def _batch_rerank_order(
+    deps: ChainDeps, question: str,
+    merged: list[tuple[d.IndexHitFace, float]],
 ) -> list[tuple[d.IndexHitFace, float]]:
-    """LLM 逐条打分排序——打 N 条就是 N 次模型调用，一条都不能少（F34②）；
-    任一条解析失败＝整批按原顺序放行，不影响整条链路（W-F34-2 回退原序不炸链）。"""
-    scored: list[tuple[d.IndexHitFace, float | None]] = []
-    failed = False
-    for hit, _fused in merged:
-        score = await _llm_score(deps, hit.snippet)
-        if score is None:
-            failed = True
-        scored.append((hit, score))
-    if failed:
+    """片段批量精排（一次调用）：问句＋编号候选清单→相关度排序编号表。
+
+    只重排不丢弃——编号表未覆盖的候选按原序追加在尾；调用失败/解析失败/
+    无出口 → 原融合序放行（W-F34-2 回退原序不炸链）。
+    """
+    if deps.completer is None or not merged:
         return list(merged)
-    ordered: list[tuple[d.IndexHitFace, float]] = [
-        (hit, float(score or 0.0)) for hit, score in scored
-    ]
-    ordered.sort(key=lambda pair: pair[1], reverse=True)
-    return ordered
+    lines = []
+    for i, (hit, _fused) in enumerate(merged, 1):
+        head = (hit.snippet or "").replace("\n", " ")[:160]
+        place = f"{hit.report} · {hit.section}" if hit.section else hit.report
+        lines.append(f"[{i}] {place}｜{head}")
+    try:
+        completion = await deps.completer.complete(
+            MAIN_ALIAS,
+            [
+                {"role": "system", "content": BATCH_RERANK_SYSTEM_PROMPT},
+                {"role": "user", "content": (
+                    f"检索问句：{question}\n候选片段：\n" + "\n".join(lines)
+                    + "\n\n只输出按与问句相关度从高到低排序的编号，逗号分隔"
+                      "（如 3,1,7）。")},
+            ],
+            caller=CALLER_RERANK,
+        )
+        nums = [int(n) for n in re.findall(r"\d+", str(completion.content))]
+    except Exception:  # 调用/解析失败按合同回退，不炸链
+        return list(merged)
+    seen: set[int] = set()
+    ordered_idx: list[int] = []
+    for n in nums:
+        if 1 <= n <= len(merged) and n not in seen:
+            seen.add(n)
+            ordered_idx.append(n - 1)
+    for i in range(len(merged)):
+        if i not in seen:
+            seen.add(i)
+            ordered_idx.append(i)
+    return [merged[i] for i in ordered_idx]
+
+
+async def _doc_confidence(
+    deps: ChainDeps, question: str, rows: list[d.Evidence],
+) -> dict[str, float] | None:
+    """文档来源置信度（一次调用）：候选按报告分组，逐来源给 0–10 相关度。
+
+    每来源出示组内前 3 支片段摘录（Q6R 轮实证：单样例打分有采样偏——M1 的
+    目标月报因首支片段不对题被打 3 分丢全部席位）；解析失败/缺任一来源分/
+    无出口 → None（窗口构成回退 S6 固定配额，不炸链）。
+    """
+    if deps.completer is None or not rows:
+        return None
+    groups: dict[str, list[d.Evidence]] = {}
+    for e in rows:
+        groups.setdefault(e.report_id or "?", []).append(e)
+    lines = []
+    for i, group in enumerate(groups.values(), 1):
+        sample = group[0]
+        heads = " ｜ ".join(
+            (e.snippet or "").replace("\n", " ")[:80] for e in group[:3]
+        )
+        lines.append(f"[{i}] {sample.label[:36]}｜{heads}")
+    try:
+        completion = await deps.completer.complete(
+            MAIN_ALIAS,
+            [
+                {"role": "system", "content": DOC_CONF_SYSTEM_PROMPT},
+                {"role": "user", "content": (
+                    f"用户问题：{question}\n候选文档来源（编号｜出处｜至多 3 条片段摘录）：\n"
+                    + "\n".join(lines)
+                    + '\n\n只输出 JSON：{"scores": {"来源编号": 分数, ...}}。')},
+            ],
+            caller=CALLER_RERANK,
+        )
+        payload = json.loads(_json_blob(str(completion.content)))
+        raw = payload["scores"]
+        scored: dict[str, float] = {}
+        for i, rid in enumerate(groups, 1):
+            if str(i) in raw:
+                scored[rid] = max(0.0, min(10.0, float(raw[str(i)])))
+        if len(scored) < len(groups):
+            return None  # 缺任一来源的分＝整份打分不可信——回退固定配额，不静默丢来源
+        return scored or None
+    except Exception:
+        return None
+
+
+def _json_blob(text: str) -> str:
+    """从模型回复截取首个平衡的 {...} 块（置信度等结构化解析共用）。
+
+    MiniMax-M3 偶发以 ```json 围栏或前后说明包裹——按括号配平截取最稳。"""
+    start = text.find("{")
+    if start < 0:
+        raise ValueError("回复中无 JSON 块")
+    depth = 0
+    for i in range(start, len(text)):
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start:i + 1]
+    raise ValueError("JSON 块未闭合")
+
+
+def _confidence_quota(
+    report: list[d.Evidence], conf: dict[str, float], cap: int,
+) -> tuple[list[d.Evidence], str]:
+    """文档置信度配额（A9——llm 档专用，窗口 S4 就地成型）。
+
+    席位按来源置信度轮转发放：置信度降序逐轮 +1，低于无关线（DOC_CONF_FLOOR）
+    的来源不占席，单来源封顶 DOC_CONF_MAX_SEATS——目标来源多占席不再靠均分
+    压制其余（旧库挤占的根因），而是按语义置信度让席。全部来源低于无关线＝
+    打分不可信，回退 S6 既有固定配额（_report_diversify）。片段选取按来源内
+    原序（即批量精排序）取满各自席位；送生成序列保持全局精排序（只丢不重排，
+    与 S6 分池纪律同尺）。
+    """
+    by: dict[str, list[d.Evidence]] = {}
+    order: list[str] = []
+    for e in report:
+        key = e.report_id or "?"
+        if key not in by:
+            by[key] = []
+            order.append(key)
+        by[key].append(e)
+    ranked = sorted(order, key=lambda rid: conf.get(rid, 0.0), reverse=True)
+    if all(conf.get(rid, 0.0) < d.DOC_CONF_FLOOR for rid in order):
+        return _report_diversify(report, cap), "置信度全低——窗口构成回退固定配额"
+    seats = {rid: 0 for rid in order}
+    remaining = cap
+    for rid in ranked:  # 置信度降序贪婪发放——高置信来源优先占满（至多 MAX_SEATS 席）
+        if remaining <= 0:
+            break
+        if conf.get(rid, 0.0) < d.DOC_CONF_FLOOR:
+            continue
+        take = min(d.DOC_CONF_MAX_SEATS, remaining, len(by[rid]))
+        seats[rid] = take
+        remaining -= take
+    kept: list[d.Evidence] = []
+    used = {rid: 0 for rid in order}
+    for e in report:
+        rid = e.report_id or "?"
+        if used[rid] < seats[rid]:
+            kept.append(e)
+            used[rid] += 1
+    note = "；".join(
+        f"{(by[rid][0].label or rid)[:16]}＝{conf.get(rid, 0.0):.0f}分→{seats[rid]}席"
+        for rid in ranked
+        if seats[rid] or conf.get(rid, 0.0) >= d.DOC_CONF_FLOOR
+    )
+    return kept, f"文档置信度配额〔{note}〕"
 
 
 async def _compound_order(

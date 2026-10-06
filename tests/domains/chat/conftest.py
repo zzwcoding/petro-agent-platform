@@ -107,6 +107,7 @@ class Seams:
     anchors: dict[str, FragmentAnchorFace | None] = field(default_factory=dict)
     config: RetrievalConfigFace = DEFAULT_CONFIG
     completion: str = "依据材料作答 [c1]。"
+    rerank_replies: list[str] | None = None  # 精排 llm 档按序回复队列（批量精排→文档置信度）
     calls: dict[str, int] = field(default_factory=dict)
     completions: list[str] = field(default_factory=list)  # caller 归因记录
     prompts: list[tuple[str, list[dict[str, str]]]] = field(default_factory=list)
@@ -220,6 +221,11 @@ class Seams:
             if self.intent_reply is not None:
                 return SimpleNamespace(content=self.intent_reply, call_id="call-intent",
                                        served_alias=alias)
+        if caller == "chat.retrieval.rerank" and self.rerank_replies:
+            reply = self.rerank_replies[0]
+            if len(self.rerank_replies) > 1:
+                self.rerank_replies = self.rerank_replies[1:]
+            return SimpleNamespace(content=reply, call_id="call-rerank", served_alias=alias)
         return SimpleNamespace(content=self.completion, call_id="call-test", served_alias=alias)
 
 
