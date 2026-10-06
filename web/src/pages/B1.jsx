@@ -154,9 +154,11 @@ const LIB_TEMPLATES = {
 }
 
 // 入库任务种子两行（失败/疑似卡住样例，Owner 拍板文案）：失败原因不写数字
+// 卡住样例带一条切块自检违规（DE-06）：演示任务卡「切块自检 N 条违规」行
 const SEED_TASKS = [
   { key: 'tf', doc: '《N-11 井完井报告（英文 · 200 页）》', libKey: 1, source: '上传入库', state: 'failed', cur: 0, stopAt: '切段', reason: '扫描件某页图像质量差，无法识别' },
-  { key: 'ts', doc: '《渤中28-1 区块月度生产月报（2026-07）》', libKey: 2, source: '上传入库', state: 'stuck', cur: 3, stopAt: null }
+  { key: 'ts', doc: '《渤中28-1 区块月度生产月报（2026-07）》', libKey: 2, source: '上传入库', state: 'stuck', cur: 3, stopAt: null,
+    branches: { chunk_check: { state: 'warn', violations: 2, evidence: '/tmp/chunk_validate_task-ts01.md' } } }
 ]
 const SOURCE_OPTIONS = ['上传入库', '片段修正', '重跑定型']
 
@@ -331,6 +333,12 @@ export default function B1() {
     })
     // G-02 支路进度（五步后异步跑的百科/图谱支路——任务卡直接可见，不用翻日志）
     const br = t.branches || {}
+    // DE-06 切块自检告警进卡（E8）：切块步的自检违规直接可见——违规 >0 才显示
+    // 一行「切块自检 N 条违规」＋证据文件路径；零违规不占任务卡一行。
+    const chk = br.chunk_check
+    if (chk && (chk.violations || 0) > 0) {
+      rows.push({ key: 'chunk-check', step: '切块自检', text: `切块自检 ${chk.violations} 条违规 · 证据：${chk.evidence || '—'}` })
+    }
     const brText = [
       br.wiki ? `百科 ${br.wiki.state}${br.wiki.detail ? '：' + br.wiki.detail : ''}` : null,
       br.graph ? `图谱 ${br.graph.state}${br.graph.chunks_total ? `（${br.graph.chunks_done || 0}/${br.graph.chunks_total} 块 · 边 ${br.graph.edges || 0}）` : ''}${br.graph.detail ? '：' + br.graph.detail : ''}` : null,

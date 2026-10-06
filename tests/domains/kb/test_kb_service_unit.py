@@ -4,6 +4,8 @@
 落桶（未 put 即 confirm 409 判据源——00 §7.1）。夹具见同目录 conftest.py。
 """
 
+import asyncio
+import os
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from typing import Any
@@ -498,6 +500,54 @@ class TestRouting:
             "生产月报" in content for caller, content in completer.calls
             if caller == "kb.route"
         )
+
+
+class TestChunkCheckAlert:
+    """DE-06 切块自检告警进任务卡（挂账清单 §E8——G-02 增量）：
+
+    validate_chunks 违规非空时 branch 载荷增键 chunk_check（additive——违规数
+    violations＋证据文件路径 evidence，既有 wiki/graph 键序零触碰）；零违规不
+    写键。违规面原先只落 /tmp/chunk_validate_*.md＋日志 warning，任务卡不可见
+    （G-08 铁证来源）。validator 桩定违规数（接线测——真判据已在
+    test_chunk_protect_unit 覆盖）。
+    """
+
+    async def test_violations_landed_in_branch_payload(
+        self, kb_service: Any, monkeypatch: Any
+    ) -> None:
+        service, storage, _, _ = kb_service
+        issues = [
+            "片段含非原文内容（章节 1）：'幻觉出来的内容'",
+            "原文第 2 行未被任何片段覆盖：第二段内容。",
+        ]
+        monkeypatch.setattr(d, "validate_chunks", lambda text, pieces: list(issues))
+        lib_id = await _make_lib(service)
+        task_id = await _ingest(service, storage, lib_id)
+        progress = await service.ingest_task(task_id)
+        assert progress.state == "done"
+        chk = progress.branches["chunk_check"]
+        assert chk["violations"] == 2
+        assert chk["evidence"] == f"/tmp/chunk_validate_{task_id}.md"
+        assert chk["state"] == "warn"
+        assert "2 条违规" in chk["detail"]
+        # 证据文件在案（dump 真写盘，非只记账）
+        assert await asyncio.to_thread(os.path.isfile, chk["evidence"])
+        await asyncio.to_thread(os.remove, chk["evidence"])
+        # 列表端点（端点 7）同载荷——任务卡两消费方一致
+        listed = next(t for t in await service.list_ingest_tasks() if t.id == task_id)
+        assert listed.branches["chunk_check"]["violations"] == 2
+        assert listed.branches["chunk_check"]["evidence"] == chk["evidence"]
+
+    async def test_clean_chunking_writes_no_chunk_check_key(
+        self, kb_service: Any
+    ) -> None:
+        """零违规无键：真切块器＋演示文本（自检干净）→ branches 无 chunk_check。"""
+        service, storage, _, _ = kb_service
+        lib_id = await _make_lib(service)
+        task_id = await _ingest(service, storage, lib_id)
+        progress = await service.ingest_task(task_id)
+        assert progress.state == "done"
+        assert "chunk_check" not in progress.branches
 
 
 def test_mode_texts_cover_three_modes() -> None:
