@@ -1,0 +1,467 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-aece59",
+    "thread_id": "sess-f6dbb7"
+   }
+  },
+  {
+   "id": 1,
+   "event": "stage",
+   "data": {
+    "stage": 0
+   }
+  },
+  {
+   "id": 2,
+   "event": "stage",
+   "data": {
+    "stage": 1
+   }
+  },
+  {
+   "id": 3,
+   "event": "node",
+   "data": {
+    "key": "N1",
+    "name": "统一安检",
+    "label": "统一安检",
+    "state": "process",
+    "note": "统一安检——三道逐条翻（注入扫描/禁用词索引/身份与数据域）",
+    "tag": "代码 · 字面规则"
+   }
+  },
+  {
+   "id": 4,
+   "event": "sec_check",
+   "data": {
+    "seq": 1,
+    "name": "注入扫描",
+    "result": "pass",
+    "note": "字面规则未命中"
+   }
+  },
+  {
+   "id": 5,
+   "event": "sec_check",
+   "data": {
+    "seq": 2,
+    "name": "禁用词索引",
+    "result": "pass",
+    "note": "字面规则未命中"
+   }
+  },
+  {
+   "id": 6,
+   "event": "sec_check",
+   "data": {
+    "seq": 3,
+    "name": "身份与数据域",
+    "result": "pass",
+    "note": "阿强 · 平台运维"
+   }
+  },
+  {
+   "id": 7,
+   "event": "node",
+   "data": {
+    "key": "N1",
+    "name": "统一安检",
+    "label": "统一安检",
+    "state": "finish",
+    "note": "三道全过——放行"
+   }
+  },
+  {
+   "id": 8,
+   "event": "node",
+   "data": {
+    "key": "N3",
+    "name": "轻装配",
+    "label": "轻装配",
+    "state": "process",
+    "note": "轻装配——@ 前门直取＋六路匹配器全扫全收集",
+    "tag": "代码 · 毫秒级"
+   }
+  },
+  {
+   "id": 9,
+   "event": "match",
+   "data": {
+    "matcher": "FAQ 索引",
+    "status": "miss",
+    "confidence": "high",
+    "note": "归一化精确命中"
+   }
+  },
+  {
+   "id": 10,
+   "event": "match",
+   "data": {
+    "matcher": "指标卡台账",
+    "status": "miss",
+    "note": "台账精确未命中"
+   }
+  },
+  {
+   "id": 11,
+   "event": "match",
+   "data": {
+    "matcher": "术语台账",
+    "status": "miss",
+    "note": "台账未命中"
+   }
+  },
+  {
+   "id": 12,
+   "event": "match",
+   "data": {
+    "matcher": "工具清单",
+    "status": "miss",
+    "note": "工具注册表未建——落空"
+   }
+  },
+  {
+   "id": 13,
+   "event": "match",
+   "data": {
+    "matcher": "分析工作流",
+    "status": "miss",
+    "note": "工作流运行时未建——落空"
+   }
+  },
+  {
+   "id": 14,
+   "event": "match",
+   "data": {
+    "matcher": "报告索引",
+    "status": "hit",
+    "confidence": "high",
+    "note": "命中《《C-渤中34-5油田三季度注水调整与生产运行分析》》全文档摘要（vector 腿 · score=0.93）"
+   }
+  },
+  {
+   "id": 15,
+   "event": "node",
+   "data": {
+    "key": "N3",
+    "name": "轻装配",
+    "label": "轻装配",
+    "state": "finish",
+    "note": "六路候选：命中 1 路——共池 5 支（全扫全收集，落空进建议池）"
+   }
+  },
+  {
+   "id": 16,
+   "event": "node",
+   "data": {
+    "key": "N4",
+    "name": "装配块",
+    "label": "装配块",
+    "state": "process",
+    "note": "装配块——锚点/槽位/候选/17 链清单组卷",
+    "tag": "给裁决的呈堂材料"
+   }
+  },
+  {
+   "id": 17,
+   "event": "assembly",
+   "data": {
+    "anchor_line": null,
+    "slots": "FAQ＝N-02 井是什么时候投产的？ · 报告＝《《C-渤中34-5油田三季度注水调整与生产运行分析》》",
+    "terms": [],
+    "candidates": [
+     {
+      "matcher": "FAQ 索引",
+      "name": "N-02 井是什么时候投产的？",
+      "confidence": "high",
+      "kind": "faq",
+      "note": "命中即秒回候选（FAQ直出链）"
+     },
+     {
+      "matcher": "报告索引",
+      "name": "《《C-渤中34-5油田三季度注水调整与生产运行分析》》全文档摘要",
+      "confidence": "high",
+      "kind": "report",
+      "note": "vector 腿 · score=0.93"
+     },
+     {
+      "matcher": "报告索引",
+      "name": "《《A-W11井完井工程报告》》正文",
+      "confidence": "high",
+      "kind": "report",
+      "note": "vector 腿 · score=0.89"
+     },
+     {
+      "matcher": "报告索引",
+      "name": "《《C-渤中34-5油田三季度注水调整与生产运行分析》》正文",
+      "confidence": "high",
+      "kind": "report",
+      "note": "vector 腿 · score=0.86"
+     },
+     {
+      "matcher": "报告索引",
+      "name": "《《C-渤中34-5油田三季度注水调整与生产运行分析》》正文",
+      "confidence": "high",
+      "kind": "report",
+      "note": "vector 腿 · score=0.85"
+     }
+    ],
+    "chains": [
+     "统一安检链",
+     "状态机六站链",
+     "指标卡直出链",
+     "FAQ直出链",
+     "工具执行链",
+     "工作流执行链",
+     "检索问答链",
+     "图谱问答链",
+     "汇报生成链",
+     "大结果落盘链",
+     "Action合同链",
+     "外发拦截链",
+     "澄清反问链",
+     "口径消歧链",
+     "新鲜度闸链",
+     "行级权限链",
+     "上下文注入链"
+    ]
+   }
+  },
+  {
+   "id": 18,
+   "event": "node",
+   "data": {
+    "key": "N4",
+    "name": "装配块",
+    "label": "装配块",
+    "state": "finish",
+    "note": "装配块组卷完成——slots＝FAQ＝N-02 井是什么时候投产的？ · 报告＝《《C-渤中34-5油田三季度注水调整与生产运行分析》》"
+   }
+  },
+  {
+   "id": 19,
+   "event": "stage",
+   "data": {
+    "stage": 2
+   }
+  },
+  {
+   "id": 20,
+   "event": "node",
+   "data": {
+    "key": "N5",
+    "name": "意图裁决",
+    "label": "意图裁决",
+    "state": "process",
+    "note": "意图裁决——petro-main 分类（caller=chat.intent.verdict，超时 8s）；失败/超时/解析坏→确定性信号路由兜底（不许问挂）",
+    "tag": "意图裁决 · LLM＋兜底"
+   }
+  },
+  {
+   "id": 21,
+   "event": "verdict",
+   "data": {
+    "chain": "FAQ直出链",
+    "slots": "FAQ＝N-02 井是什么时候投产的？ · 报告＝《《C-渤中34-5油田三季度注水调整与生产运行分析》》",
+    "confidence": "高（FAQ 精确命中——直出）",
+    "need_clarify": false,
+    "source": "deterministic"
+   }
+  },
+  {
+   "id": 22,
+   "event": "node",
+   "data": {
+    "key": "N5",
+    "name": "意图裁决",
+    "label": "意图裁决",
+    "state": "finish",
+    "note": "裁决输出（来源＝deterministic）——chain＝FAQ直出链 · confidence＝高（FAQ 精确命中——直出）"
+   }
+  },
+  {
+   "id": 23,
+   "event": "node",
+   "data": {
+    "key": "N5b",
+    "name": "裁决核验",
+    "label": "裁决核验",
+    "state": "process"
+   }
+  },
+  {
+   "id": 24,
+   "event": "node",
+   "data": {
+    "key": "N5b",
+    "name": "裁决核验",
+    "label": "裁决核验",
+    "state": "finish",
+    "note": "chain「FAQ直出链」在 17 链清单内且已接线——核验通过（闭世界枚举＋注册面）"
+   }
+  },
+  {
+   "id": 25,
+   "event": "node",
+   "data": {
+    "key": "N6",
+    "name": "链路分派",
+    "label": "链路分派",
+    "state": "process",
+    "tag": "查映射表派链"
+   }
+  },
+  {
+   "id": 26,
+   "event": "node",
+   "data": {
+    "key": "N6",
+    "name": "链路分派",
+    "label": "链路分派",
+    "state": "finish",
+    "note": "已分派至「FAQ直出链」——后续步骤由链体执行"
+   }
+  },
+  {
+   "id": 27,
+   "event": "stage",
+   "data": {
+    "stage": 3
+   }
+  },
+  {
+   "id": 28,
+   "event": "node",
+   "data": {
+    "key": "N18",
+    "name": "预制问答",
+    "label": "预制问答",
+    "state": "process",
+    "note": "预制问答——标准问匹配（只消费已发布条目）",
+    "tag": "代码 · 秒回闸"
+   }
+  },
+  {
+   "id": 29,
+   "event": "node",
+   "data": {
+    "key": "N18",
+    "name": "预制问答",
+    "label": "预制问答",
+    "state": "finish",
+    "note": "命中「N-02 井是什么时候投产的？」——策展答案直出（no_model——未调用模型）"
+   }
+  },
+  {
+   "id": 30,
+   "event": "citation",
+   "data": {
+    "ref": "c1",
+    "kind": "台账条目",
+    "label": "FAQ「N-02 井是什么时候投产的？」",
+    "locator": {
+     "section": "常见问题库",
+     "faq_id": "faq-4"
+    }
+   }
+  },
+  {
+   "id": 31,
+   "event": "answer",
+   "data": {
+    "kind": "text",
+    "text": "2019-06-15 投产。\n\n[FAQ「N-02 井是什么时候投产的？」]",
+    "no_model": true,
+    "citations": [
+     {
+      "ref": "c1",
+      "kind": "台账条目",
+      "label": "FAQ「N-02 井是什么时候投产的？」",
+      "locator": {
+       "section": "常见问题库",
+       "faq_id": "faq-4"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": 32,
+   "event": "done",
+   "data": {}
+  }
+ ],
+ "parsed": {
+  "answer_text": "2019-06-15 投产。\n\n[FAQ「N-02 井是什么时候投产的？」]",
+  "citations": [
+   {
+    "ref": "c1",
+    "kind": "台账条目",
+    "label": "FAQ「N-02 井是什么时候投产的？」",
+    "locator": {
+     "section": "常见问题库",
+     "faq_id": "faq-4"
+    }
+   }
+  ],
+  "chain": "FAQ直出链",
+  "clarify": null,
+  "notices": [],
+  "nodes": [
+   {
+    "key": "N1",
+    "state": "finish",
+    "skipped": false,
+    "label": "统一安检",
+    "note": "三道全过——放行"
+   },
+   {
+    "key": "N3",
+    "state": "finish",
+    "skipped": false,
+    "label": "轻装配",
+    "note": "六路候选：命中 1 路——共池 5 支（全扫全收集，落空进建议池）"
+   },
+   {
+    "key": "N4",
+    "state": "finish",
+    "skipped": false,
+    "label": "装配块",
+    "note": "装配块组卷完成——slots＝FAQ＝N-02 井是什么时候投产的？ · 报告＝《《C-渤中34-5油田三季度注水调整与生产运行分析》》"
+   },
+   {
+    "key": "N5",
+    "state": "finish",
+    "skipped": false,
+    "label": "意图裁决",
+    "note": "裁决输出（来源＝deterministic）——chain＝FAQ直出链 · confidence＝高（FAQ 精确命中——直出）"
+   },
+   {
+    "key": "N5b",
+    "state": "finish",
+    "skipped": false,
+    "label": "裁决核验",
+    "note": "chain「FAQ直出链」在 17 链清单内且已接线——核验通过（闭世界枚举＋注册面）"
+   },
+   {
+    "key": "N6",
+    "state": "finish",
+    "skipped": false,
+    "label": "链路分派",
+    "note": "已分派至「FAQ直出链」——后续步骤由链体执行"
+   },
+   {
+    "key": "N18",
+    "state": "finish",
+    "skipped": false,
+    "label": "预制问答",
+    "note": "命中「N-02 井是什么时候投产的？」——策展答案直出（no_model——未调用模型）"
+   }
+  ],
+  "duration_s": 0.7
+ }
+}

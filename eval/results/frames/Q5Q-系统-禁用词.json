@@ -1,0 +1,119 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-66321a",
+    "thread_id": "sess-403bae"
+   }
+  },
+  {
+   "id": 1,
+   "event": "stage",
+   "data": {
+    "stage": 0
+   }
+  },
+  {
+   "id": 2,
+   "event": "stage",
+   "data": {
+    "stage": 1
+   }
+  },
+  {
+   "id": 3,
+   "event": "node",
+   "data": {
+    "key": "N1",
+    "name": "统一安检",
+    "label": "统一安检",
+    "state": "process",
+    "note": "统一安检——三道逐条翻（注入扫描/禁用词索引/身份与数据域）",
+    "tag": "代码 · 字面规则"
+   }
+  },
+  {
+   "id": 4,
+   "event": "sec_check",
+   "data": {
+    "seq": 1,
+    "name": "注入扫描",
+    "result": "pass",
+    "note": "字面规则未命中"
+   }
+  },
+  {
+   "id": 5,
+   "event": "sec_check",
+   "data": {
+    "seq": 2,
+    "name": "禁用词索引",
+    "result": "blocked",
+    "note": "命中禁用词「老完成率」（废弃口径——先于一切解析）"
+   }
+  },
+  {
+   "id": 6,
+   "event": "node",
+   "data": {
+    "key": "N1",
+    "name": "统一安检",
+    "label": "统一安检",
+    "state": "finish",
+    "note": "禁用词索引命中「老完成率」——拦截，链路终止"
+   }
+  },
+  {
+   "id": 7,
+   "event": "node",
+   "data": {
+    "key": "N2b",
+    "name": "禁用词替代",
+    "label": "禁用词替代",
+    "state": "finish",
+    "note": "命中禁用词「老完成率」——废弃口径纠正口，现行叫法随答案卡",
+    "tag": "拦截终局 · 留痕入审计"
+   }
+  },
+  {
+   "id": 8,
+   "event": "answer",
+   "data": {
+    "kind": "alert",
+    "alert_type": "warning",
+    "text": "「老完成率」是 2024 年已废弃的旧口径，平台不再按它出数。请改用「产量完成率」（Σ实际产油 ÷ Σ计划配产，Owner：开发室）。"
+   }
+  },
+  {
+   "id": 9,
+   "event": "done",
+   "data": {}
+  }
+ ],
+ "parsed": {
+  "answer_text": "「老完成率」是 2024 年已废弃的旧口径，平台不再按它出数。请改用「产量完成率」（Σ实际产油 ÷ Σ计划配产，Owner：开发室）。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [
+   {
+    "key": "N1",
+    "state": "finish",
+    "skipped": false,
+    "label": "统一安检",
+    "note": "禁用词索引命中「老完成率」——拦截，链路终止"
+   },
+   {
+    "key": "N2b",
+    "state": "finish",
+    "skipped": false,
+    "label": "禁用词替代",
+    "note": "命中禁用词「老完成率」——废弃口径纠正口，现行叫法随答案卡"
+   }
+  ],
+  "duration_s": 0.1
+ }
+}

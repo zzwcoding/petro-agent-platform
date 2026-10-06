@@ -1,0 +1,1154 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-d996d8",
+    "thread_id": "sess-08aeb5"
+   }
+  },
+  {
+   "id": 1,
+   "event": "stage",
+   "data": {
+    "stage": 0
+   }
+  },
+  {
+   "id": 2,
+   "event": "stage",
+   "data": {
+    "stage": 1
+   }
+  },
+  {
+   "id": 3,
+   "event": "node",
+   "data": {
+    "key": "N1",
+    "name": "统一安检",
+    "label": "统一安检",
+    "state": "process",
+    "note": "统一安检——三道逐条翻（注入扫描/禁用词索引/身份与数据域）",
+    "tag": "代码 · 字面规则"
+   }
+  },
+  {
+   "id": 4,
+   "event": "sec_check",
+   "data": {
+    "seq": 1,
+    "name": "注入扫描",
+    "result": "pass",
+    "note": "字面规则未命中"
+   }
+  },
+  {
+   "id": 5,
+   "event": "sec_check",
+   "data": {
+    "seq": 2,
+    "name": "禁用词索引",
+    "result": "pass",
+    "note": "字面规则未命中"
+   }
+  },
+  {
+   "id": 6,
+   "event": "sec_check",
+   "data": {
+    "seq": 3,
+    "name": "身份与数据域",
+    "result": "pass",
+    "note": "阿强 · 平台运维"
+   }
+  },
+  {
+   "id": 7,
+   "event": "node",
+   "data": {
+    "key": "N1",
+    "name": "统一安检",
+    "label": "统一安检",
+    "state": "finish",
+    "note": "三道全过——放行"
+   }
+  },
+  {
+   "id": 8,
+   "event": "node",
+   "data": {
+    "key": "N3",
+    "name": "轻装配",
+    "label": "轻装配",
+    "state": "process",
+    "note": "轻装配——@ 前门直取＋六路匹配器全扫全收集",
+    "tag": "代码 · 毫秒级"
+   }
+  },
+  {
+   "id": 9,
+   "event": "match",
+   "data": {
+    "matcher": "FAQ 索引",
+    "status": "miss",
+    "note": "归一化精确未命中"
+   }
+  },
+  {
+   "id": 10,
+   "event": "match",
+   "data": {
+    "matcher": "指标卡台账",
+    "status": "hit",
+    "confidence": "high",
+    "note": "命中 「油压」"
+   }
+  },
+  {
+   "id": 11,
+   "event": "match",
+   "data": {
+    "matcher": "术语台账",
+    "status": "miss",
+    "note": "台账未命中"
+   }
+  },
+  {
+   "id": 12,
+   "event": "match",
+   "data": {
+    "matcher": "工具清单",
+    "status": "miss",
+    "note": "工具注册表未建——落空"
+   }
+  },
+  {
+   "id": 13,
+   "event": "match",
+   "data": {
+    "matcher": "分析工作流",
+    "status": "miss",
+    "note": "工作流运行时未建——落空"
+   }
+  },
+  {
+   "id": 14,
+   "event": "match",
+   "data": {
+    "matcher": "报告索引",
+    "status": "hit",
+    "confidence": "high",
+    "note": "命中《《A-W11井完井工程报告》》章节 07 第七章 诱导求产与初期产能（vector 腿 · score=0.93）"
+   }
+  },
+  {
+   "id": 15,
+   "event": "node",
+   "data": {
+    "key": "N3",
+    "name": "轻装配",
+    "label": "轻装配",
+    "state": "finish",
+    "note": "六路候选：命中 2 路——共池 5 支（全扫全收集，落空进建议池）"
+   }
+  },
+  {
+   "id": 16,
+   "event": "node",
+   "data": {
+    "key": "N4",
+    "name": "装配块",
+    "label": "装配块",
+    "state": "process",
+    "note": "装配块——锚点/槽位/候选/17 链清单组卷",
+    "tag": "给裁决的呈堂材料"
+   }
+  },
+  {
+   "id": 17,
+   "event": "assembly",
+   "data": {
+    "anchor_line": null,
+    "slots": "指标＝油压 · 报告＝《《A-W11井完井工程报告》》",
+    "terms": [],
+    "candidates": [
+     {
+      "matcher": "指标卡台账",
+      "name": "油压",
+      "confidence": "high",
+      "kind": "metric"
+     },
+     {
+      "matcher": "报告索引",
+      "name": "《《A-W11井完井工程报告》》章节 07 第七章 诱导求产与初期产能",
+      "confidence": "high",
+      "kind": "report",
+      "note": "vector 腿 · score=0.93"
+     },
+     {
+      "matcher": "报告索引",
+      "name": "《《A-W11井完井工程报告》》章节 10 第十章 邻井完井情况对照",
+      "confidence": "high",
+      "kind": "report",
+      "note": "vector 腿 · score=0.92"
+     },
+     {
+      "matcher": "报告索引",
+      "name": "《《A-W11井完井工程报告》》章节 02 第二章 钻井液与完井液 ＞ 2.1 各阶段钻井液性能（实际）",
+      "confidence": "high",
+      "kind": "report",
+      "note": "vector 腿 · score=0.91"
+     },
+     {
+      "matcher": "报告索引",
+      "name": "《《A-W11井完井工程报告》》章节 03 第三章 射孔设计 ＞ 3.1 射孔井段（实际执行）",
+      "confidence": "high",
+      "kind": "report",
+      "note": "vector 腿 · score=0.91"
+     }
+    ],
+    "chains": [
+     "统一安检链",
+     "状态机六站链",
+     "指标卡直出链",
+     "FAQ直出链",
+     "工具执行链",
+     "工作流执行链",
+     "检索问答链",
+     "图谱问答链",
+     "汇报生成链",
+     "大结果落盘链",
+     "Action合同链",
+     "外发拦截链",
+     "澄清反问链",
+     "口径消歧链",
+     "新鲜度闸链",
+     "行级权限链",
+     "上下文注入链"
+    ]
+   }
+  },
+  {
+   "id": 18,
+   "event": "node",
+   "data": {
+    "key": "N4",
+    "name": "装配块",
+    "label": "装配块",
+    "state": "finish",
+    "note": "装配块组卷完成——slots＝指标＝油压 · 报告＝《《A-W11井完井工程报告》》"
+   }
+  },
+  {
+   "id": 19,
+   "event": "stage",
+   "data": {
+    "stage": 2
+   }
+  },
+  {
+   "id": 20,
+   "event": "node",
+   "data": {
+    "key": "N5",
+    "name": "意图裁决",
+    "label": "意图裁决",
+    "state": "process",
+    "note": "意图裁决——petro-main 分类（caller=chat.intent.verdict，超时 8s）；失败/超时/解析坏→确定性信号路由兜底（不许问挂）",
+    "tag": "意图裁决 · LLM＋兜底"
+   }
+  },
+  {
+   "id": 21,
+   "event": "verdict",
+   "data": {
+    "chain": "状态机六站链",
+    "slots": "指标＝油压 · 报告＝《《A-W11井完井工程报告》》",
+    "confidence": "高（模型意图裁决 0.82）",
+    "need_clarify": false,
+    "source": "llm"
+   }
+  },
+  {
+   "id": 22,
+   "event": "node",
+   "data": {
+    "key": "N5",
+    "name": "意图裁决",
+    "label": "意图裁决",
+    "state": "finish",
+    "note": "裁决输出（来源＝llm）——chain＝状态机六站链 · confidence＝高（模型意图裁决 0.82）"
+   }
+  },
+  {
+   "id": 23,
+   "event": "node",
+   "data": {
+    "key": "N5b",
+    "name": "裁决核验",
+    "label": "裁决核验",
+    "state": "process"
+   }
+  },
+  {
+   "id": 24,
+   "event": "node",
+   "data": {
+    "key": "N5b",
+    "name": "裁决核验",
+    "label": "裁决核验",
+    "state": "finish",
+    "note": "chain「状态机六站链」在 17 链清单内且已接线——核验通过（闭世界枚举＋注册面）"
+   }
+  },
+  {
+   "id": 25,
+   "event": "node",
+   "data": {
+    "key": "N6",
+    "name": "链路分派",
+    "label": "链路分派",
+    "state": "process",
+    "tag": "查映射表派链"
+   }
+  },
+  {
+   "id": 26,
+   "event": "node",
+   "data": {
+    "key": "N6",
+    "name": "链路分派",
+    "label": "链路分派",
+    "state": "finish",
+    "note": "已分派至「状态机六站链」——后续步骤由链体执行"
+   }
+  },
+  {
+   "id": 27,
+   "event": "stage",
+   "data": {
+    "stage": 3
+   }
+  },
+  {
+   "id": 28,
+   "event": "node",
+   "data": {
+    "key": "N7.1",
+    "name": "意图识别",
+    "label": "意图识别",
+    "state": "process",
+    "note": "意图识别——复用意图裁决阶段解析结果，仅做缺参校验（F7 票 94 注记）",
+    "tag": "校验三要素 · 零模型调用"
+   }
+  },
+  {
+   "id": 29,
+   "event": "node",
+   "data": {
+    "key": "N7.1",
+    "name": "意图识别",
+    "label": "意图识别",
+    "state": "finish",
+    "note": "三要素齐：指标＝油压（台账「油压（MPa）」）· 时间＝去年 · 条数＝50——确定性校验通过，未额外调用模型"
+   }
+  },
+  {
+   "id": 30,
+   "event": "node",
+   "data": {
+    "key": "N7.2",
+    "name": "语义检索",
+    "label": "语义检索",
+    "state": "process",
+    "note": "语义检索——注册读模型选表（白名单判据）",
+    "tag": "选表"
+   }
+  },
+  {
+   "id": 31,
+   "event": "node_line",
+   "data": {
+    "key": "N7.2",
+    "mark": "✓",
+    "text": "选表：agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）"
+   }
+  },
+  {
+   "id": 32,
+   "event": "node",
+   "data": {
+    "key": "N7.2",
+    "name": "语义检索",
+    "label": "语义检索",
+    "state": "finish",
+    "note": "选表落定：agg 星型三表（99 册 §2.12 注册——事实表组合 PK 挂两维 PK 连）"
+   }
+  },
+  {
+   "id": 33,
+   "event": "node",
+   "data": {
+    "key": "N7.3",
+    "name": "SQL 生成",
+    "label": "SQL 生成",
+    "state": "process",
+    "note": "SQL 生成——模板化（注册指标声明口径先行）",
+    "tag": "模板装配 · 零模型调用"
+   }
+  },
+  {
+   "id": 34,
+   "event": "node_line",
+   "data": {
+    "key": "N7.3",
+    "mark": "→",
+    "text": "模板装配 SQL：\nSELECT m.well_id AS 井号, w.block_name AS 区块, m.prod_date AS 日期, m.oil_pressure AS 油压（MPa）\nFROM agg.fct_daily_metering m\n  JOIN agg.dim_well w ON w.well_id = m.well_id\n  JOIN agg.dim_date d ON d.date = m.prod_date\nWHERE m.prod_date >= '2025-01-01' AND m.prod_date < '2026-01-01'\nORDER BY m.prod_date, m.well_id\nLIMIT 50"
+   }
+  },
+  {
+   "id": 35,
+   "event": "node",
+   "data": {
+    "key": "N7.3",
+    "name": "SQL 生成",
+    "label": "SQL 生成",
+    "state": "finish",
+    "note": "模板装配完成（油压 → agg.oil_pressure，LIMIT 50——没写补默认 50）——零自由生成"
+   }
+  },
+  {
+   "id": 36,
+   "event": "node",
+   "data": {
+    "key": "N7.4",
+    "name": "执行前安检",
+    "label": "执行前安检",
+    "state": "process",
+    "note": "执行前安检——新鲜度（N7.4a）→ 行级权限（N7.4b）→ 外表审批（N7.4c）",
+    "tag": "执行前安检 · 三闸"
+   }
+  },
+  {
+   "id": 37,
+   "event": "node",
+   "data": {
+    "key": "N7.4a",
+    "name": "新鲜度闸",
+    "label": "新鲜度闸",
+    "state": "process",
+    "tag": "出数前比对批次水位"
+   }
+  },
+  {
+   "id": 38,
+   "event": "node",
+   "data": {
+    "key": "N7.4a",
+    "name": "新鲜度闸",
+    "label": "新鲜度闸",
+    "state": "finish",
+    "note": "比对通过：数据水位 2026-08-31 覆盖查询窗（承诺 T-1 · 落后 35 天 · 超期）"
+   }
+  },
+  {
+   "id": 39,
+   "event": "node",
+   "data": {
+    "key": "N7.4b",
+    "name": "行级权限",
+    "label": "行级权限",
+    "state": "process",
+    "tag": "权限层自动改写"
+   }
+  },
+  {
+   "id": 40,
+   "event": "node",
+   "data": {
+    "key": "N7.4b",
+    "name": "行级权限",
+    "label": "行级权限",
+    "state": "finish",
+    "note": "行级权限：数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝阿强 · 平台运维 · 落点 agg.fct_daily_metering——谓词随执行并语句）"
+   }
+  },
+  {
+   "id": 41,
+   "event": "node",
+   "data": {
+    "key": "N7.4c",
+    "name": "外表审批",
+    "label": "外表审批",
+    "state": "process",
+    "tag": "表引用比对"
+   }
+  },
+  {
+   "id": 42,
+   "event": "node",
+   "data": {
+    "key": "N7.4c",
+    "name": "外表审批",
+    "label": "外表审批",
+    "state": "finish",
+    "note": "表引用比对：查询仅引用选表命中集内三表——越集未触发，不设审批放行"
+   }
+  },
+  {
+   "id": 43,
+   "event": "node",
+   "data": {
+    "key": "N7.4",
+    "name": "执行前安检",
+    "label": "执行前安检",
+    "state": "finish",
+    "note": "执行前安检三闸走完——放行执行"
+   }
+  },
+  {
+   "id": 44,
+   "event": "node",
+   "data": {
+    "key": "N7.5",
+    "name": "查询执行",
+    "label": "查询执行",
+    "state": "process",
+    "tag": "只读执行"
+   }
+  },
+  {
+   "id": 45,
+   "event": "tool_call",
+   "data": {
+    "name": "sql_query.readonly",
+    "args_summary": "时间＝去年 · 指标＝油压 · 条数＝50",
+    "tables_hit": [
+     "agg.fct_daily_metering",
+     "agg.dim_well",
+     "agg.dim_date"
+    ],
+    "rows_returned": 50,
+    "readonly": true
+   }
+  },
+  {
+   "id": 46,
+   "event": "node",
+   "data": {
+    "key": "N7.5",
+    "name": "查询执行",
+    "label": "查询执行",
+    "state": "finish",
+    "note": "只读账号执行完成（行级注入谓词 0 条已并语句；生产库未动）——返回 50 行"
+   }
+  },
+  {
+   "id": 47,
+   "event": "node",
+   "data": {
+    "key": "N7.6",
+    "name": "结果核验",
+    "label": "结果核验",
+    "state": "process",
+    "tag": "行数 / 值域 / 口径"
+   }
+  },
+  {
+   "id": 48,
+   "event": "node",
+   "data": {
+    "key": "N7.6",
+    "name": "结果核验",
+    "label": "结果核验",
+    "state": "finish",
+    "note": "结果核验通过：50 行 · 列 4 列（LIMIT 50 收口内）"
+   }
+  },
+  {
+   "id": 49,
+   "event": "lineage",
+   "data": {
+    "items": [
+     {
+      "key": "① 口径",
+      "value": "油压（MPa）（单位：MPa）——指标台账注册声明：计量直取日值，口径随答案标注"
+     },
+     {
+      "key": "② 来源表",
+      "value": "agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）"
+     },
+     {
+      "key": "③ 过滤条件",
+      "value": "时间＝去年 [2025-01-01, 2026-01-01)"
+     },
+     {
+      "key": "　└（权限注入）",
+      "value": "数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）"
+     },
+     {
+      "key": "④ 数据截至批次",
+      "value": "批次 b-4e6425a023fc · 汇总层水位 2026-08-31（承诺 T-1 · 落后 35 天 · 超期）"
+     },
+     {
+      "key": "⑤ 收口注记",
+      "value": "LIMIT 50——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底"
+     }
+    ]
+   }
+  },
+  {
+   "id": 50,
+   "event": "node_line",
+   "data": {
+    "key": "N7.6",
+    "mark": "→",
+    "text": "辅助检索：报告库双路召回 4 支片段——旁注解读材料（片段数值不采，数值一律以表格为准）"
+   }
+  },
+  {
+   "id": 51,
+   "event": "citation",
+   "data": {
+    "ref": "c3",
+    "kind": "报告引用",
+    "label": "《A-W11井完井工程报告》 · 章节 07 第七章 诱导求产与初期产能",
+    "locator": {
+     "report": "《A-W11井完井工程报告》",
+     "section": "章节 07 第七章 诱导求产与初期产能",
+     "fragment_id": "f22"
+    }
+   }
+  },
+  {
+   "id": 52,
+   "event": "notice",
+   "data": {
+    "level": "info",
+    "text": "该表格实际只涵盖 2025-09-01 一天的油压数据，无法回答\"去年各井每天的油压\"这一问句。从这一天记录来看，渤南区块 27 口井（N-01～N-27）的油压在 3.70～8.87 MPa 之间，其中 N-21 最高（8.87 MPa）、N-12 最低（3.70 MPa）；渤西区块 23 口井（X-01～X-23）的油压在 0～8.43 MPa 之间，X-02 为 0.00 MPa（疑似异常或停产），X-17 最高（8.43 MPa）[表格]。需要补充说明的是，按渤南区块完井报告的历史惯例，初期油压通常在 5～7 MPa 区间，与表中多数井的当前读数基本吻合 [c3]。"
+   }
+  },
+  {
+   "id": 53,
+   "event": "answer",
+   "data": {
+    "kind": "table",
+    "columns": [
+     {
+      "dataIndex": "well_id",
+      "title": "井号"
+     },
+     {
+      "dataIndex": "block_name",
+      "title": "区块"
+     },
+     {
+      "dataIndex": "prod_date",
+      "title": "日期"
+     },
+     {
+      "dataIndex": "油压（MPa）",
+      "title": "油压（MPa）"
+     }
+    ],
+    "rows": [
+     {
+      "well_id": "N-01",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "7.50"
+     },
+     {
+      "well_id": "N-02",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "7.50"
+     },
+     {
+      "well_id": "N-03",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "3.95"
+     },
+     {
+      "well_id": "N-04",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "4.72"
+     },
+     {
+      "well_id": "N-05",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "5.18"
+     },
+     {
+      "well_id": "N-06",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "8.50"
+     },
+     {
+      "well_id": "N-07",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "6.02"
+     },
+     {
+      "well_id": "N-08",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "4.12"
+     },
+     {
+      "well_id": "N-09",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "3.86"
+     },
+     {
+      "well_id": "N-10",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "8.06"
+     },
+     {
+      "well_id": "N-11",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "4.20"
+     },
+     {
+      "well_id": "N-12",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "3.70"
+     },
+     {
+      "well_id": "N-13",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "8.55"
+     },
+     {
+      "well_id": "N-14",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "7.09"
+     },
+     {
+      "well_id": "N-15",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "8.47"
+     },
+     {
+      "well_id": "N-16",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "6.54"
+     },
+     {
+      "well_id": "N-17",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "6.33"
+     },
+     {
+      "well_id": "N-18",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "6.29"
+     },
+     {
+      "well_id": "N-19",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "7.46"
+     },
+     {
+      "well_id": "N-20",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "6.59"
+     },
+     {
+      "well_id": "N-21",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "8.87"
+     },
+     {
+      "well_id": "N-22",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "6.84"
+     },
+     {
+      "well_id": "N-23",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "4.72"
+     },
+     {
+      "well_id": "N-24",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "6.17"
+     },
+     {
+      "well_id": "N-25",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "6.05"
+     },
+     {
+      "well_id": "N-26",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "6.46"
+     },
+     {
+      "well_id": "N-27",
+      "block_name": "渤南",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "3.88"
+     },
+     {
+      "well_id": "X-01",
+      "block_name": "渤西",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "4.29"
+     },
+     {
+      "well_id": "X-02",
+      "block_name": "渤西",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "0.00"
+     },
+     {
+      "well_id": "X-03",
+      "block_name": "渤西",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "5.54"
+     },
+     {
+      "well_id": "X-04",
+      "block_name": "渤西",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "3.32"
+     },
+     {
+      "well_id": "X-05",
+      "block_name": "渤西",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "7.78"
+     },
+     {
+      "well_id": "X-06",
+      "block_name": "渤西",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "3.11"
+     },
+     {
+      "well_id": "X-07",
+      "block_name": "渤西",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "8.04"
+     },
+     {
+      "well_id": "X-08",
+      "block_name": "渤西",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "5.42"
+     },
+     {
+      "well_id": "X-09",
+      "block_name": "渤西",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "5.28"
+     },
+     {
+      "well_id": "X-10",
+      "block_name": "渤西",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "4.09"
+     },
+     {
+      "well_id": "X-11",
+      "block_name": "渤西",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "5.76"
+     },
+     {
+      "well_id": "X-12",
+      "block_name": "渤西",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "5.68"
+     },
+     {
+      "well_id": "X-13",
+      "block_name": "渤西",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "6.64"
+     },
+     {
+      "well_id": "X-14",
+      "block_name": "渤西",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "5.59"
+     },
+     {
+      "well_id": "X-15",
+      "block_name": "渤西",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "6.17"
+     },
+     {
+      "well_id": "X-16",
+      "block_name": "渤西",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "8.32"
+     },
+     {
+      "well_id": "X-17",
+      "block_name": "渤西",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "8.43"
+     },
+     {
+      "well_id": "X-18",
+      "block_name": "渤西",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "4.07"
+     },
+     {
+      "well_id": "X-19",
+      "block_name": "渤西",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "5.15"
+     },
+     {
+      "well_id": "X-20",
+      "block_name": "渤西",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "8.02"
+     },
+     {
+      "well_id": "X-21",
+      "block_name": "渤西",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "5.02"
+     },
+     {
+      "well_id": "X-22",
+      "block_name": "渤西",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "4.44"
+     },
+     {
+      "well_id": "X-23",
+      "block_name": "渤西",
+      "prod_date": "2025-09-01",
+      "油压（MPa）": "6.53"
+     }
+    ],
+    "source_note": "数据来源：agg 汇总层「日产计量表」（数据面管道直写 · 批次水位随血缘卡④）",
+    "citations": [
+     {
+      "ref": "c1",
+      "kind": "数据证据",
+      "label": "出处 1 · 日产计量表样本行",
+      "locator": {
+       "section": "agg.fct_daily_metering",
+       "sample": "well_id=N-01 | block_name=渤南 | prod_date=2025-09-01 | 油压（MPa）=7.50"
+      }
+     },
+     {
+      "ref": "c2",
+      "kind": "数据证据",
+      "label": "出处 2 · 连表合法性（agg 星型模型注册）",
+      "locator": {
+       "section": "Join 白名单",
+       "tables": "fct_daily_metering ⋈ dim_well/dim_date（PK 连）",
+       "source": "99 册 §2.12/D6 star_model"
+      }
+     }
+    ],
+    "lineage": [
+     {
+      "key": "① 口径",
+      "value": "油压（MPa）（单位：MPa）——指标台账注册声明：计量直取日值，口径随答案标注"
+     },
+     {
+      "key": "② 来源表",
+      "value": "agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）"
+     },
+     {
+      "key": "③ 过滤条件",
+      "value": "时间＝去年 [2025-01-01, 2026-01-01)"
+     },
+     {
+      "key": "　└（权限注入）",
+      "value": "数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）"
+     },
+     {
+      "key": "④ 数据截至批次",
+      "value": "批次 b-4e6425a023fc · 汇总层水位 2026-08-31（承诺 T-1 · 落后 35 天 · 超期）"
+     },
+     {
+      "key": "⑤ 收口注记",
+      "value": "LIMIT 50——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底"
+     }
+    ]
+   }
+  },
+  {
+   "id": 54,
+   "event": "done",
+   "data": {}
+  }
+ ],
+ "parsed": {
+  "answer_text": "",
+  "citations": [
+   {
+    "ref": "c1",
+    "kind": "数据证据",
+    "label": "出处 1 · 日产计量表样本行",
+    "locator": {
+     "section": "agg.fct_daily_metering",
+     "sample": "well_id=N-01 | block_name=渤南 | prod_date=2025-09-01 | 油压（MPa）=7.50"
+    }
+   },
+   {
+    "ref": "c2",
+    "kind": "数据证据",
+    "label": "出处 2 · 连表合法性（agg 星型模型注册）",
+    "locator": {
+     "section": "Join 白名单",
+     "tables": "fct_daily_metering ⋈ dim_well/dim_date（PK 连）",
+     "source": "99 册 §2.12/D6 star_model"
+    }
+   }
+  ],
+  "chain": "状态机六站链",
+  "clarify": null,
+  "notices": [
+   {
+    "level": "info",
+    "text": "该表格实际只涵盖 2025-09-01 一天的油压数据，无法回答\"去年各井每天的油压\"这一问句。从这一天记录来看，渤南区块 27 口井（N-01～N-27）的油压在 3.70～8.87 MPa 之间，其中 N-21 最高（8.87 MPa）、N-12 最低（3.70 MPa）；渤西区块 23 口井（X-01～X-23）的油压在 0～8.43 MPa 之间，X-02 为 0.00 MPa（疑似异常或停产），X-17 最高（8.43 MPa）[表格]。需要补充说明的是，按渤南区块完井报告的历史惯例，初期油压通常在 5～7 MPa 区间，与表中多数井的当前读数基本吻合 [c3]。"
+   }
+  ],
+  "nodes": [
+   {
+    "key": "N1",
+    "state": "finish",
+    "skipped": false,
+    "label": "统一安检",
+    "note": "三道全过——放行"
+   },
+   {
+    "key": "N3",
+    "state": "finish",
+    "skipped": false,
+    "label": "轻装配",
+    "note": "六路候选：命中 2 路——共池 5 支（全扫全收集，落空进建议池）"
+   },
+   {
+    "key": "N4",
+    "state": "finish",
+    "skipped": false,
+    "label": "装配块",
+    "note": "装配块组卷完成——slots＝指标＝油压 · 报告＝《《A-W11井完井工程报告》》"
+   },
+   {
+    "key": "N5",
+    "state": "finish",
+    "skipped": false,
+    "label": "意图裁决",
+    "note": "裁决输出（来源＝llm）——chain＝状态机六站链 · confidence＝高（模型意图裁决 0.82）"
+   },
+   {
+    "key": "N5b",
+    "state": "finish",
+    "skipped": false,
+    "label": "裁决核验",
+    "note": "chain「状态机六站链」在 17 链清单内且已接线——核验通过（闭世界枚举＋注册面）"
+   },
+   {
+    "key": "N6",
+    "state": "finish",
+    "skipped": false,
+    "label": "链路分派",
+    "note": "已分派至「状态机六站链」——后续步骤由链体执行"
+   },
+   {
+    "key": "N7.1",
+    "state": "finish",
+    "skipped": false,
+    "label": "意图识别",
+    "note": "三要素齐：指标＝油压（台账「油压（MPa）」）· 时间＝去年 · 条数＝50——确定性校验通过，未额外调用模型"
+   },
+   {
+    "key": "N7.2",
+    "state": "finish",
+    "skipped": false,
+    "label": "语义检索",
+    "note": "选表落定：agg 星型三表（99 册 §2.12 注册——事实表组合 PK 挂两维 PK 连）"
+   },
+   {
+    "key": "N7.3",
+    "state": "finish",
+    "skipped": false,
+    "label": "SQL 生成",
+    "note": "模板装配完成（油压 → agg.oil_pressure，LIMIT 50——没写补默认 50）——零自由生成"
+   },
+   {
+    "key": "N7.4",
+    "state": "finish",
+    "skipped": false,
+    "label": "执行前安检",
+    "note": "执行前安检三闸走完——放行执行"
+   },
+   {
+    "key": "N7.4a",
+    "state": "finish",
+    "skipped": false,
+    "label": "新鲜度闸",
+    "note": "比对通过：数据水位 2026-08-31 覆盖查询窗（承诺 T-1 · 落后 35 天 · 超期）"
+   },
+   {
+    "key": "N7.4b",
+    "state": "finish",
+    "skipped": false,
+    "label": "行级权限",
+    "note": "行级权限：数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝阿强 · 平台运维 · 落点 agg.fct_daily_metering——谓词随执行并语句）"
+   },
+   {
+    "key": "N7.4c",
+    "state": "finish",
+    "skipped": false,
+    "label": "外表审批",
+    "note": "表引用比对：查询仅引用选表命中集内三表——越集未触发，不设审批放行"
+   },
+   {
+    "key": "N7.5",
+    "state": "finish",
+    "skipped": false,
+    "label": "查询执行",
+    "note": "只读账号执行完成（行级注入谓词 0 条已并语句；生产库未动）——返回 50 行"
+   },
+   {
+    "key": "N7.6",
+    "state": "finish",
+    "skipped": false,
+    "label": "结果核验",
+    "note": "结果核验通过：50 行 · 列 4 列（LIMIT 50 收口内）"
+   }
+  ],
+  "duration_s": 12.0
+ }
+}
