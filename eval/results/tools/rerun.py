@@ -16,6 +16,7 @@ import argparse
 import asyncio
 import importlib
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -26,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from ask import parse_frames, parse_sse_text  # noqa: E402
 
-BASE = "http://localhost:8000"
+BASE = os.environ.get("RERUN_BASE", "http://localhost:8000")  # 云测评：RERUN_BASE=http://8.163.33.135
 HEADERS = {"X-Dev-User": "aqiang"}
 FRAMES_DIR = Path(__file__).parent.parent / "frames"
 
