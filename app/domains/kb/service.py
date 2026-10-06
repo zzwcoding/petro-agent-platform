@@ -1182,8 +1182,9 @@ class KbService:
         两腿＝检索瀑布 S4 两路（F58）：
         - 向量腿：问题向量化 × 已向量化子块余弦（EmbeddingBackend 缝——P1-04
           收尾裁决①「P1-08b 用现有 EmbeddingBackend 缝」）；
-        - 关键词腿：trigram 子串覆盖率（P1-04 裁决②——pg_trgm GIN 索引随 P1-10
-          上，本读面查询语义不变）。
+        - 关键词腿：应用层 BM25（G-07——99 册开放问题 5 收口，P1-04 裁决②的
+          trigram 覆盖率代理退役；单元＝CJK 二字组＋字母数字 token，IDF 查询时
+          现算，分数经 normalize_bm25 归一 0~1 保持对外分数契约）。
         同片段两腿取高分腿（同池去重），按分倒序 top_k。
         生成窗（P1F-04）：text 携 SMART_MAX_CHARS 全文（与入库切段上限同源——
         B-反1「cited 却不可见」修复，不再截 500）。
@@ -1203,7 +1204,9 @@ class KbService:
                 if vector_score > score:
                     score, leg = vector_score, "vector"
             if text:
-                keyword_score = d.trigram_coverage(question, text)
+                keyword_score = d.normalize_bm25(
+                    d.bm25_scores(question, [text])[0]
+                )
                 if keyword_score > score:
                     score, leg = keyword_score, "keyword"
             if score <= 0.0 or leg == "":
@@ -1229,6 +1232,8 @@ class KbService:
         """双路召回读面（检索瀑布 S4——P1-08b 检索链消费）：向量腿与关键词腿
         并发（asyncio.gather），各自按分倒序取 topK（D2 params.semantic_top_k /
         keyword_top_k 驱动），合并策略由消费方按配置执行（rrf_rank/concat）。
+        关键词腿 G-07 起＝应用层 BM25（归一 0~1）＋编号保送（问句字母数字 token
+        逐字命中的片段保送队尾，上限 4）。
         生成窗（P1F-04）：text 携 SMART_MAX_CHARS 全文（与入库切段上限同源——
         B-反1「cited 却不可见」修复，不再截 500）。
         """
@@ -1262,14 +1267,29 @@ class KbService:
             return [_hit(frag, score, "vector") for frag, score in scored[:vector_top_k]]
 
         async def keyword_leg() -> list[d.IndexHit]:
-            scored = [
-                (frag, d.trigram_coverage(question, frag.hit_text or ""))
-                for frag in frags
-                if frag.hit_text
-            ]
-            scored = [pair for pair in scored if pair[1] > 0.0]
-            scored.sort(key=lambda pair: pair[1], reverse=True)
-            return [_hit(frag, score, "keyword") for frag, score in scored[:keyword_top_k]]
+            eligible = [frag for frag in frags if frag.hit_text]
+            raw = d.bm25_scores(question, [frag.hit_text or "" for frag in eligible])
+            scored = sorted(
+                (
+                    (frag, d.normalize_bm25(score))
+                    for frag, score in zip(eligible, raw, strict=True)
+                ),
+                key=lambda pair: pair[1],
+                reverse=True,
+            )
+            ranked = [
+                (frag, score)
+                for frag, score in scored
+                if score > 0.0
+            ][:keyword_top_k]
+            # G-07 编号保送：问句字母数字 token（W-33/SCSSV/2462 类）在某片段
+            # hit_text 逐字命中、而该片段 BM25 排名未进 topK 时保送尾席（上限
+            # 4）——点名实体绝不能缺席（C-正4/5 检索 miss 的直传保险）。
+            ranked = d.promote_entity_hits(
+                ranked, scored, d.alnum_tokens(question),
+                top_k=keyword_top_k, hit_text_of=lambda f: f.hit_text or "",
+            )
+            return [_hit(frag, score, "keyword") for frag, score in ranked]
 
         vector_hits, keyword_hits = await asyncio.gather(vector_leg(), keyword_leg())
         return vector_hits, keyword_hits
