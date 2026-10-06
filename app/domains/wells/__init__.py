@@ -42,6 +42,12 @@ from app.domains.wells.domain import (
     tail_for,
 )
 from app.domains.wells.service import WellsService
+from app.domains.wells.snapshot import (
+    LakeSnapshotFace,
+    LakeSnapshotLoader,
+    LakeSnapshotReader,
+    SnapshotLedgerRow,
+)
 from app.domains.wells.store import ensure_wells_tables
 
 __all__ = [
@@ -64,8 +70,12 @@ __all__ = [
     "ChangeTicketProjection",
     "DeviceView",
     "EventView",
+    "LakeSnapshotFace",
+    "LakeSnapshotLoader",
+    "LakeSnapshotReader",
     "MeasureView",
     "OverhaulView",
+    "SnapshotLedgerRow",
     "WellNotFoundError",
     "WellProfile",
     "WellSummary",
