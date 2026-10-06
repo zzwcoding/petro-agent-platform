@@ -16,6 +16,12 @@
 - 设备台账（raw.equip_status）现供给无井关联列（DP-03 DDL 注记「列缺疑点
   已登记」）——按井取行装配批随中台扩列启用，本读面暂不查询该表（设备行
   由合同冻结演示快照承载，见 domain.device_snapshot_for）。
+- 湖当前版过滤（DE-02 接线——E10 多批重复行收口）：raw 湖表 append-only
+  多批叠加即重复行，读面查询按湖技术列 ``_snapshot_id = 湖当前版`` 过滤
+  （当前版寻址键由服务层经 LakeSnapshotLoader 解析传入——DE-01 解析器缝；
+  键为 None＝不过滤：账本无该表记录/缝未装配回落全量，DE-01 三态语义）。
+  三张在查源表（well_info/well_measures/well_overhaul）逐表各解析各过滤；
+  平台补位表 well_status_log 不经湖管道，不过滤。
 """
 
 from __future__ import annotations
@@ -100,6 +106,7 @@ _WELL_INFO = Table(
     Column("block_name", String(16)),
     Column("current_status", String(16)),
     Column("remarks", String(255)),
+    Column("_snapshot_id", BigInteger),  # 湖技术列（DDL 真源 DP-03——当前版过滤寻址）
     schema="raw",
 )
 _WELL_MEASURES = Table(
@@ -107,6 +114,7 @@ _WELL_MEASURES = Table(
     Column("well_id", String(8)),
     Column("measure_type", String(32)),
     Column("job_date", Date),
+    Column("_snapshot_id", BigInteger),  # 同上——湖技术列
     schema="raw",
 )
 _WELL_OVERHAUL = Table(
@@ -117,6 +125,9 @@ _WELL_OVERHAUL = Table(
     Column("overhaul_type", String(32)),
     Column("affected_output", String(32)),
     Column("batch_id", String(64)),
+    # 湖技术列（DDL 真源 DP-03——当前版过滤寻址；批次血缘列名是 _src_batch_id，
+    # 避让业务 batch_id）
+    Column("_snapshot_id", BigInteger),
     schema="raw",
 )
 
@@ -200,70 +211,99 @@ class WellsStore:
     def __init__(self, db: ConnectionManager) -> None:
         self._db = db
 
-    async def list_wells(self, actor: Actor) -> list[WellInfoRow]:
-        """选井全行（端点 1）——行级过滤在服务端（无权限的井不出现，F48）。"""
+    async def list_wells(
+        self, actor: Actor, snapshot_id: int | None = None
+    ) -> list[WellInfoRow]:
+        """选井全行（端点 1）——行级过滤在服务端（无权限的井不出现，F48）。
+
+        snapshot_id＝湖当前版批次寻址键（DE-02 接线——非 None 时加
+        ``_snapshot_id = 键`` 过滤，E10 修法原文；None＝不过滤回落全量）。
+        """
         scope = with_row_filter(actor.user_id, "raw.well_info")
-        stmt = select(*_WELL_COLUMNS).order_by(_WELL_INFO.c.well_id.asc())
+        stmt = select(*_WELL_COLUMNS)
+        if snapshot_id is not None:
+            stmt = stmt.where(_WELL_INFO.c._snapshot_id == snapshot_id)
+        stmt = stmt.order_by(_WELL_INFO.c.well_id.asc())
         stmt = ConnectionManager.with_row_filter(stmt, scope.predicates)
         async with self._db.readonly(role="midplatform") as session:
             rows = (await session.execute(stmt)).all()
         return [WellInfoRow(r) for r in rows]
 
-    async def get_well(self, well_id: str, actor: Actor) -> WellInfoRow | None:
-        """单井档案行（行级过滤内）——403/404 判别的「过滤内」半边。"""
+    async def get_well(
+        self, well_id: str, actor: Actor, snapshot_id: int | None = None
+    ) -> WellInfoRow | None:
+        """单井档案行（行级过滤内）——403/404 判别的「过滤内」半边。
+
+        snapshot_id＝湖当前版过滤键（DE-02——与判别另一半同键，井只在旧批
+        存在＝当前世界没有＝404，不洗白成可见）。
+        """
         scope = with_row_filter(actor.user_id, "raw.well_info")
         stmt = select(*_WELL_COLUMNS).where(
             _WELL_INFO.c.well_id == normalize_well_id(well_id)
         )
+        if snapshot_id is not None:
+            stmt = stmt.where(_WELL_INFO.c._snapshot_id == snapshot_id)
         stmt = ConnectionManager.with_row_filter(stmt, scope.predicates)
         async with self._db.readonly(role="midplatform") as session:
             row = (await session.execute(stmt)).first()
         return WellInfoRow(row) if row is not None else None
 
-    async def get_well_unfiltered(self, well_id: str) -> WellInfoRow | None:
-        """单井档案行（不过滤）——「存在但无权 vs 世界里没有」的判别半边。"""
+    async def get_well_unfiltered(
+        self, well_id: str, snapshot_id: int | None = None
+    ) -> WellInfoRow | None:
+        """单井档案行（不过滤）——「存在但无权 vs 世界里没有」的判别半边。
+
+        「不过滤」指行级数据域谓词不装（403/404 二分语义）；湖当前版过滤
+        与 get_well 同键同装（DE-02——两半边同一「当前版」世界）。
+        """
         normalized = normalize_well_id(well_id)
+        stmt = select(_WELL_INFO.c.well_id).where(
+            _WELL_INFO.c.well_id == normalized
+        )
+        if snapshot_id is not None:
+            stmt = stmt.where(_WELL_INFO.c._snapshot_id == snapshot_id)
         async with self._db.readonly(role="midplatform") as session:
-            row = (
-                await session.execute(
-                    select(_WELL_INFO.c.well_id).where(
-                        _WELL_INFO.c.well_id == normalized
-                    )
-                )
-            ).first()
+            row = (await session.execute(stmt)).first()
         return WellInfoRow(row) if row is not None else None
 
-    async def list_measures(self, well_id: str) -> list[MeasureLedgerRow]:
-        """措施台账行（映射卡固定落点 well_measures；作业日倒序——events 排序键）。"""
+    async def list_measures(
+        self, well_id: str, snapshot_id: int | None = None
+    ) -> list[MeasureLedgerRow]:
+        """措施台账行（映射卡固定落点 well_measures；作业日倒序——events 排序键）。
+
+        snapshot_id＝湖当前版过滤键（DE-02——关系链台账同款过滤，多批叠加
+        不重复出行；None＝不过滤）。
+        """
         normalized = normalize_well_id(well_id)
+        stmt = select(
+            _WELL_MEASURES.c.well_id, _WELL_MEASURES.c.measure_type,
+            _WELL_MEASURES.c.job_date,
+        ).where(_WELL_MEASURES.c.well_id == normalized)
+        if snapshot_id is not None:
+            stmt = stmt.where(_WELL_MEASURES.c._snapshot_id == snapshot_id)
+        stmt = stmt.order_by(_WELL_MEASURES.c.job_date.desc().nulls_last())
         async with self._db.readonly(role="midplatform") as session:
-            rows = (
-                await session.execute(
-                    select(
-                        _WELL_MEASURES.c.well_id, _WELL_MEASURES.c.measure_type,
-                        _WELL_MEASURES.c.job_date,
-                    )
-                    .where(_WELL_MEASURES.c.well_id == normalized)
-                    .order_by(_WELL_MEASURES.c.job_date.desc().nulls_last())
-                )
-            ).all()
+            rows = (await session.execute(stmt)).all()
         return [MeasureLedgerRow(r) for r in rows]
 
-    async def list_overhauls(self, well_id: str) -> list[OverhaulLedgerRow]:
-        """检修台账行（well_overhaul；完工日倒序——events 排序键）。"""
+    async def list_overhauls(
+        self, well_id: str, snapshot_id: int | None = None
+    ) -> list[OverhaulLedgerRow]:
+        """检修台账行（well_overhaul；完工日倒序——events 排序键）。
+
+        snapshot_id＝湖当前版过滤键（DE-02——同 list_measures）。
+        """
         normalized = normalize_well_id(well_id)
+        stmt = select(
+            _WELL_OVERHAUL.c.well_id, _WELL_OVERHAUL.c.overhaul_start,
+            _WELL_OVERHAUL.c.overhaul_end, _WELL_OVERHAUL.c.overhaul_type,
+            _WELL_OVERHAUL.c.affected_output, _WELL_OVERHAUL.c.batch_id,
+        ).where(_WELL_OVERHAUL.c.well_id == normalized)
+        if snapshot_id is not None:
+            stmt = stmt.where(_WELL_OVERHAUL.c._snapshot_id == snapshot_id)
+        stmt = stmt.order_by(_WELL_OVERHAUL.c.overhaul_end.desc().nulls_last())
         async with self._db.readonly(role="midplatform") as session:
-            rows = (
-                await session.execute(
-                    select(
-                        _WELL_OVERHAUL.c.well_id, _WELL_OVERHAUL.c.overhaul_start,
-                        _WELL_OVERHAUL.c.overhaul_end, _WELL_OVERHAUL.c.overhaul_type,
-                        _WELL_OVERHAUL.c.affected_output, _WELL_OVERHAUL.c.batch_id,
-                    )
-                    .where(_WELL_OVERHAUL.c.well_id == normalized)
-                    .order_by(_WELL_OVERHAUL.c.overhaul_end.desc().nulls_last())
-                )
-            ).all()
+            rows = (await session.execute(stmt)).all()
         return [OverhaulLedgerRow(r) for r in rows]
 
     async def list_status_changes(self, well_id: str) -> list[StatusLogLedgerRow]:

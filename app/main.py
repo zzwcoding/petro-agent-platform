@@ -50,6 +50,8 @@ P2-M-02 起 wells 域点亮（A2 井档案四端点）：midplatform 只读路�
 （M-01 交付的 verify_midplatform_route——缺依赖拒绝启动）＋well_status_log
 补位表入装配（99 §2.3，Alembic 0017 并行；写入通道挂 99 开放问题 2，本批只落
 读面）＋/api/wells 路由族挂载（行级过滤预埋缝消费——M-01 with_row_filter 两步缝）。
+DE-02 起 wells 读面接湖当前版过滤（LakeSnapshotReader.current_snapshot 注入
+WellsService——E10 多批重复行收口，账本无记录回落全量）。
 M-05a 起 dataops/quality 域点亮（E2 质检台管理面半边）：quality 表族入
 装配（ensure_quality_tables——99 §2.12，Alembic 0015 并行；种子随迁移承载）
 ＋/api/quality 路由族挂载（规则读面/启停、问题单五态状态机、水位 T-1 判定、
@@ -119,7 +121,11 @@ from app.domains.security import SecurityService
 from app.domains.security.store import ensure_audit_table
 from app.domains.semantics import SemanticsService
 from app.domains.semantics.store import ensure_semantics_tables
-from app.domains.wells import WellsService, ensure_wells_tables
+from app.domains.wells import (
+    LakeSnapshotReader,
+    WellsService,
+    ensure_wells_tables,
+)
 from app.infra.clock import now
 from app.infra.config import load_database_specs
 from app.infra.db import ConnectionManager
@@ -156,7 +162,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await seed_demo_if_empty(manager.engine())  # 演示种子（合同 DTO 九条问答＋四簇候选——幂等）
     app.state.db = manager
     app.state.security = SecurityService(manager)
-    app.state.wells = WellsService(manager)  # A2 井档案读模型（M-02——纯读域）
+    app.state.wells = WellsService(
+        manager,
+        # 湖当前版解析缝生产装配（DE-02——E10 多批重复行收口）：读面按
+        # _snapshot_id = 湖当前版 过滤（B9 同款运行期只见 callable；解析器
+        # 取数走 primary 只读路由——DE-01 拓扑核对定案）。账本无记录时键
+        # None＝不过滤回落全量（三态语义——单批 demo 环境零行为变化）。
+        snapshot_loader=LakeSnapshotReader(manager).current_snapshot,
+    )  # A2 井档案读模型（M-02——纯读域；DE-02 起接当前版过滤）
     # E2 质检台（M-05a 管理面＋M-05b 执行通道）：复扫执行缝生产装配＝数据面
     # 质检通道适配器（任务表轮询——channel.py；组合根两段绑定消解服务环，
     # B9 同款运行期只见 callable；缺省未接＝501 诚实壳——测试底座形态）。

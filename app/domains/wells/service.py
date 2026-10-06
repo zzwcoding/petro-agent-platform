@@ -40,6 +40,7 @@ from app.domains.wells.domain import (
     resolve_visible_well,
     tail_for,
 )
+from app.domains.wells.snapshot import LakeSnapshotLoader
 from app.domains.wells.store import (
     MeasureLedgerRow,
     OverhaulLedgerRow,
@@ -138,54 +139,96 @@ def _status_event_views(rows: list[StatusLogLedgerRow]) -> list[EventView]:
 
 
 class WellsService:
-    """井档案读模型服务（纯读域——无写口、无 LLM、时钟无关）。"""
+    """井档案读模型服务（纯读域——无写口、无 LLM、时钟无关）。
 
-    def __init__(self, db: ConnectionManager) -> None:
+    snapshot_loader＝湖当前版解析缝（DE-02 接线——DE-01 交付的可空依赖
+    ``LakeSnapshotLoader``，生产装配 LakeSnapshotReader.current_snapshot）。
+    装配时三端点读面按 ``_snapshot_id = 湖当前版`` 过滤（E10 多批重复行
+    收口——合同「一口井一份档案」读语义在 SQL 落地）；未装配（None）或
+    账本无该表记录时键为 None＝不过滤回落全量（DE-01 三态语义缺省态）。
+    """
+
+    def __init__(
+        self,
+        db: ConnectionManager,
+        snapshot_loader: LakeSnapshotLoader | None = None,
+    ) -> None:
         self._store = WellsStore(db)
+        self._snapshot_loader = snapshot_loader
+
+    async def _current_snapshot_id(self, table_name: str) -> int | None:
+        """表名 → 湖当前版批次寻址键（None＝不过滤——缝未装配/账本无记录）。
+
+        只携 snapshot_id（过滤寻址值）下传 store；batch_id 是血缘随面字段，
+        读面谓词用不上（DE-01 回报 §5.3 双字段投影的消费侧裁剪）。
+        """
+        if self._snapshot_loader is None:
+            return None
+        face = await self._snapshot_loader(table_name)
+        return None if face is None else face.snapshot_id
 
     # ---------- 端点 1：选井列表 ----------
 
     async def wells_visible(self, actor: Actor) -> list[WellSummary]:
         """选井下拉列表——服务端按当前角色数据域过滤（无权限的井根本不出现；
-        列表路径走过滤不报 403——F48「看不到＝世界里没有」）。"""
-        return [_summary(row) for row in await self._store.list_wells(actor)]
+        列表路径走过滤不报 403——F48「看不到＝世界里没有」）；湖当前版过滤
+        只留最新批（每井恰 1 行——一口井一份档案，DE-02）。"""
+        snapshot_id = await self._current_snapshot_id("well_info")
+        return [
+            _summary(row)
+            for row in await self._store.list_wells(actor, snapshot_id=snapshot_id)
+        ]
 
     # ---------- 直调越权闸（端点 2/3/4 共用） ----------
 
-    async def _require_visible_well(self, well_id: str, actor: Actor) -> str:
-        """归一化＋403/404 判别（resolve_visible_well 纯语义）→ 归一化主键。
+    async def _require_visible_well(self, well_id: str, actor: Actor) -> tuple[str, int | None]:
+        """归一化＋403/404 判别（resolve_visible_well 纯语义）→ (归一化主键,
+        well_info 当前版键)。
 
-        预埋期谓词恒空（M-01）→ 403 分支不可达，形状照写（开放问题 6 裁决）。
+        判别与取数两侧同键过滤（同一「当前版」世界——井只在旧批存在＝当前
+        世界没有＝404，不洗白成可见）；键随行返回供取数侧复用（一请求一次
+        解析）。预埋期谓词恒空（M-01）→ 403 分支不可达，形状照写（开放
+        问题 6 裁决）。
         """
+        snapshot_id = await self._current_snapshot_id("well_info")
         normalized = normalize_well_id(well_id)
-        filtered = await self._store.get_well(normalized, actor)
+        filtered = await self._store.get_well(normalized, actor, snapshot_id=snapshot_id)
         if filtered is None:
-            unfiltered = await self._store.get_well_unfiltered(normalized)
+            unfiltered = await self._store.get_well_unfiltered(
+                normalized, snapshot_id=snapshot_id
+            )
             resolve_visible_well(None, unfiltered, normalized)  # 403/404 二分
-        return normalized
+        return normalized, snapshot_id
 
     # ---------- 端点 2：档案明细 ----------
 
     async def well_profile(self, well_id: str, actor: Actor) -> WellProfile:
         """档案明细（8 字段＋质量备注红字数组＋卡底注记——页面规格 §A2 F1）。"""
-        normalized = await self._require_visible_well(well_id, actor)
-        row = await self._store.get_well(normalized, actor)
+        normalized, snapshot_id = await self._require_visible_well(well_id, actor)
+        row = await self._store.get_well(normalized, actor, snapshot_id=snapshot_id)
         assert row is not None  # 闸后必在（与闸同数据同一查询——窄化断言）
         return _profile(row)
 
     # ---------- 端点 3：关系链 ----------
 
     async def well_chain(self, well_id: str, actor: Actor) -> ChainView:
-        """关系链（纪录合并视图＋三台账＋五页签计数＋类型枚举＋随井尾注）。
+        """关系链（纪录合并视图＋三台账＋五页签计数＋尾注）。
 
         合并与排序服务端完成；changes 计数与端点 4 total 同源同值（V1＝0——
-        A3 主单未建，不 mock 假单）。
+        A3 主单未建，不 mock 假单）。措施/检修两台账逐表各解析湖当前版
+        （DE-02——台账表同是 append-only 湖表，多批叠加同病同修）；状态变更
+        行是平台补位表不经湖管道，不过滤。
         """
-        normalized = await self._require_visible_well(well_id, actor)
+        normalized, _info_snapshot = await self._require_visible_well(well_id, actor)
+        measure_snapshot = await self._current_snapshot_id("well_measures")
+        overhaul_snapshot = await self._current_snapshot_id("well_overhaul")
         measures = _measure_views(
-            normalized, await self._store.list_measures(normalized)
+            normalized,
+            await self._store.list_measures(normalized, snapshot_id=measure_snapshot),
         )
-        overhauls = _overhaul_views(await self._store.list_overhauls(normalized))
+        overhauls = _overhaul_views(
+            await self._store.list_overhauls(normalized, snapshot_id=overhaul_snapshot)
+        )
         status_events = _status_event_views(
             await self._store.list_status_changes(normalized)
         )
@@ -235,8 +278,10 @@ class WellsService:
         V1 端点壳照合同形状返空列表＋如实注记（票面施工方案 1——不 mock 假单）；
         按 time 倒序、对象实体引用过滤、status/plane 直返展示值等投影约定随
         A3 落表批填肉，响应形状零改动（行为规则 4/开放问题 7 已回对）。
+        闸判别随 DE-02 同键（well_info 当前版——只在旧批存在的井 404）；
+        本端点无台账取数，当前版键随行弃用。
         """
-        normalized = await self._require_visible_well(well_id, actor)
+        normalized, _info_snapshot = await self._require_visible_well(well_id, actor)
         total = await self._change_tickets_total(normalized)
         return ChangeTicketProjection(
             well_id=normalized,
