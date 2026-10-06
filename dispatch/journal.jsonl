@@ -334,3 +334,5 @@
 {"ts":"2026-10-05T20:50:00+08:00","from":"Owner","to":"desk","event":"verdict","text":"停线裁决：选 C——解读文字以旁注帧（notice）呈现，零合同变更；四条预裁决随票（接续范围限三路/N7.5 未装配维持/free 兜底判据确认/P1F-06 交互登记）"}
 {"ts":"2026-10-05T20:51:00+08:00","from":"desk","to":"journal","event":"other","text":"W-AUX.fix.md 执法检查：shape GREEN，辅助检索＋叙述生成（notice 帧呈现）＋四条预裁决，rev-list=2——放行派发修复子代理"}
 {"ts":"2026-10-05T23:59:00+08:00","from":"Owner","to":"desk","event":"verdict","text":"短句形启发式 Owner 裁决：后面再做（案例已在回归语料库 corpus/report_A_f26，LLM 兜底在位，归属阶段 3 问数链深化批）。LLM 重排分进 S6 门限仍待 Owner 结论"}
+{"ts":"2026-10-05T21:20:00+08:00","from":"desk","to":"journal","event":"other","text":"W-AUX 修复拍验收（单窗口 L0 职责）：git 事实核对通过（rev-list=2 恰两提交；主树在分支携 Owner 件零触碰）；W-AUX.rev.md T1 审查票定稿（四专查＋修复增量＋疑点复核）shape GREEN——放行派发独立审查"}
+{"ts":"2026-10-05T22:00:00+08:00","from":"desk","to":"journal","event":"other","text":"W-AUX 收口完成（ce38179+20d16ce 已在 master 1ce892a 合入，close 闸 GREEN，回报入库 6412e47）：判型恢复＋问数链检索增强＋降级接续——Owner「检索链永远作辅助参考」架构落地。票册 W-AUX 行留并行窗口记账（其正活跃编辑主树）。观察登记：并行窗口正在主树未提交开发 G-01（网关流式超时：llm_client/config/models/tests）——两执行体同仓并发，建议 Owner 明确互斥范围。执行台单窗口值守"}
