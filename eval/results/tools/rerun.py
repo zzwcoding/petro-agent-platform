@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import importlib
 import json
 import sys
 import time
@@ -22,7 +23,6 @@ from pathlib import Path
 import httpx
 
 sys.path.insert(0, str(Path(__file__).parent))
-from suites_q3 import SUITES  # noqa: E402
 
 from ask import parse_frames, parse_sse_text  # noqa: E402
 
@@ -51,11 +51,19 @@ async def ask_once(c: httpx.AsyncClient, question: str) -> dict:
 
 async def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--suite", choices=sorted(SUITES), required=True)
+    ap.add_argument("--module", default="suites_q3", help="题单模块名（suites_q3 / suites_q6）")
+    ap.add_argument("--suite", required=True)
     ap.add_argument("--tag", required=True)
     ap.add_argument("--sleep", type=float, default=2.0, help="题间间隔秒")
+    args, _ = ap.parse_known_args()
+    suites = importlib.import_module(args.module).SUITES
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--module", default=args.module)
+    ap.add_argument("--suite", choices=sorted(suites), required=True)
+    ap.add_argument("--tag", required=True)
+    ap.add_argument("--sleep", type=float, default=2.0)
     args = ap.parse_args()
-    suite = SUITES[args.suite]
+    suite = suites[args.suite]
     FRAMES_DIR.mkdir(exist_ok=True)
     out_path = FRAMES_DIR.parent / f"{args.tag}-跑批结果.jsonl"
 
