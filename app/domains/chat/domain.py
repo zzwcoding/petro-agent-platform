@@ -215,6 +215,21 @@ INJECTION_ANSWER_TEMPLATE = (
     "平台规则不可能被对话内容覆盖。"
 )
 
+# —— 禁用词命中窄豁免（DE-03——E9：N1 误拦「问词本身」收口；只改命中后的处置，
+# 禁用词表本体零改动；W-F19 位次不变——豁免判定发生在 check_banned 命中点之后，
+# 不新增解析面）——
+# 引号对（闭世界枚举：「」/“”/‘’/'四形——命中词全部处于引号内＝引用形）。
+BAN_EXEMPT_QUOTE_PAIRS: tuple[tuple[str, str], ...] = (
+    ("「", "」"), ("“", "”"), ("‘", "’"), ("'", "'"),
+)
+# 元问句词面（闭世界常量枚举——问句含任一词面＝在问旧称现状的合法元问题）。
+META_QUESTION_MARKERS: tuple[str, ...] = ("旧称", "以前叫", "现在叫", "还叫", "原名")
+# 豁免随答提示文案（降级形态：放行＋答案尾部附一句——「问句涉及旧称谓 X，现行口径
+# 为 Y」形；Y＝替代口径照设定书 §6，与拦截话术同源）。
+BAN_EXEMPT_NOTICE_TEMPLATE = (
+    "——提示：问句涉及旧称谓「{term}」，该口径 2024 年已废弃，现行口径为「产量完成率」。"
+)
+
 # ---------- 话术常量（骨架期服务端组装——演示资产不进合同，运行时同语义产出） ----------
 
 # 「未开通」话术（P1F-01 起不再是主路径行为——未接线链在 N5b 裁决核验回退检索
@@ -499,6 +514,55 @@ def check_banned(question: str) -> str | None:
         if term in question:
             return term
     return None
+
+
+def _inside_quotes(question: str, pos: int) -> bool:
+    """pos 位置是否处于任一引号对内（平面判内外：开引号计数＞闭引号计数；
+    对称引号按出现次数奇偶——BAN_EXEMPT_QUOTE_PAIRS 闭世界四形）。"""
+    for open_q, close_q in BAN_EXEMPT_QUOTE_PAIRS:
+        if open_q == close_q:
+            if question.count(open_q, 0, pos) % 2 == 1:
+                return True
+        elif question.count(open_q, 0, pos) > question.count(close_q, 0, pos):
+            return True
+    return False
+
+
+def is_ban_exempt(question: str, term: str) -> bool:
+    """禁用词命中豁免判定（DE-03 窄豁免——元问句/引用形，任一形即降级放行）。
+
+    - 引用形：该禁用词在问句中的**每次出现**都处于引号内（一次裸写即不豁免——
+      窄豁免不放松）；
+    - 元问形：问句含元问词面（META_QUESTION_MARKERS 闭世界枚举）。
+
+    其余命中照旧拦停；W-F19「先于一切解析」位次不变——本判定只对 check_banned
+    已命中的词做处置，不是新的前置解析面。
+    """
+    if any(marker in question for marker in META_QUESTION_MARKERS):
+        return True
+    start = question.find(term)
+    if start < 0:
+        return False  # 未命中不豁免（豁免判定只对已命中词）
+    while start >= 0:
+        if not _inside_quotes(question, start):
+            return False
+        start = question.find(term, start + len(term))
+    return True
+
+
+def ban_exempt_notice_text(term: str) -> str:
+    """豁免随答提示文案（答案尾部附一句——现行口径随提示带出）。"""
+    return BAN_EXEMPT_NOTICE_TEMPLATE.format(term=term)
+
+
+def with_ban_exempt_note(answer: dict[str, Any], note: str) -> dict[str, Any]:
+    """答案尾部附豁免提示（纯函数——返回新 dict，不改 kind/citations；已附不重复）。"""
+    merged = dict(answer)
+    text = str(merged.get("text", ""))
+    if note in text:
+        return merged
+    merged["text"] = f"{text}\n{note}" if text else note
+    return merged
 
 
 def ban_answer_text(term: str) -> str:

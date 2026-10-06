@@ -235,9 +235,27 @@ class ChatService:
         blocked_feature = d.scan_injection(text)
         blocked_lane = "注入扫描" if blocked_feature is not None else None
         banned = d.check_banned(text)
+        # E9/DE-03 窄豁免（W-F19 位次不变——判定发生在既有命中点之后，不新增解析面）：
+        # 元问句/引用形命中降级＝放行＋随答提示；非豁免形照旧拦停。
+        ban_exempt_term: str | None = None
+        if blocked_feature is None and banned is not None and d.is_ban_exempt(text, banned):
+            ban_exempt_term = banned
+            banned = None
         if blocked_feature is None and banned is not None:
             blocked_feature = banned
             blocked_lane = "禁用词索引"
+        ban_exempt_note: str | None = None
+        if ban_exempt_term is not None:
+            # 命中与豁免各计数一条日志（豁免可审计——B12 审计行随落）。
+            LOGGER.info(
+                "禁用词命中计数（run %s）：lane=禁用词索引 term=%s", run.id, ban_exempt_term,
+            )
+            LOGGER.info(
+                "禁用词豁免计数（run %s）：term=%s——元问句/引用形，放行＋随答提示（不拦停）",
+                run.id, ban_exempt_term,
+            )
+            await self._audit_ban_exempt(actor_who, run.id, ban_exempt_term)
+            ban_exempt_note = d.ban_exempt_notice_text(ban_exempt_term)
         for seq, name in enumerate(d.SEC_CHECKS, start=1):
             if blocked_lane is not None and name == blocked_lane:
                 note = (
@@ -255,9 +273,13 @@ class ChatService:
                     "seq": seq, "name": name, "result": "pass", "note": actor_who,
                 })
                 continue
+            lane_note = "字面规则未命中"
+            if name == "禁用词索引" and ban_exempt_term is not None:
+                lane_note = (
+                    f"命中禁用词「{ban_exempt_term}」——元问句/引用形豁免（放行＋随答提示）"
+                )
             yield d.SseEvent(d.FRAME_SEC_CHECK, {
-                "seq": seq, "name": name, "result": "pass",
-                "note": "字面规则未命中",
+                "seq": seq, "name": name, "result": "pass", "note": lane_note,
             })
         if blocked_lane is not None:
             assert blocked_feature is not None
@@ -293,7 +315,21 @@ class ChatService:
             await self._finish_run(run, verdict=None)
             return
 
-        yield d.node_frame("N1", state=d.NODE_FINISH, note="三道全过——放行")
+        if ban_exempt_term is not None:
+            # 豁免形态的树叙事：N2b 以降级放行点亮（非拦截终局）。
+            yield d.node_frame(
+                "N2b", state=d.NODE_FINISH, tag="元问句豁免 · 放行＋随答提示",
+                note=(
+                    f"命中禁用词「{ban_exempt_term}」——引用/元问形窄豁免（降级不拦停），"
+                    "现行口径随答案尾部提示；命中与豁免已计数留痕"
+                ),
+            )
+            yield d.node_frame(
+                "N1", state=d.NODE_FINISH,
+                note=f"三道全过——放行（禁用词「{ban_exempt_term}」元问句/引用形豁免）",
+            )
+        else:
+            yield d.node_frame("N1", state=d.NODE_FINISH, note="三道全过——放行")
 
         # —— ② 知识装配（@ 前门直取＋六路匹配器全扫全收集）——
         yield d.node_frame("N3", state=d.NODE_PROCESS, tag="代码 · 毫秒级",
@@ -395,7 +431,7 @@ class ChatService:
         # —— ④ 执行链分发（17 链闭世界；未接线链已在 N5b 回退检索问答链——P1F-01）——
         async for event in self._run_chain(
             str(verdict["chain"]), run, text, actor_who, assembly, verdict=verdict,
-            anchors=anchors,
+            anchors=anchors, ban_exempt_note=ban_exempt_note,
         ):
             yield event
 
@@ -562,11 +598,29 @@ class ChatService:
                            note="统一安检——澄清带参复检（不免检）")
         blocked_feature = d.scan_injection(recheck_text)
         blocked_lane = "注入扫描" if blocked_feature is not None else None
-        if blocked_feature is None:
-            banned = d.check_banned(recheck_text)
-            if banned is not None:
-                blocked_feature = banned
-                blocked_lane = "禁用词索引"
+        banned = d.check_banned(recheck_text)
+        # E9/DE-03 窄豁免（同 ask——带参复检不免检也不免豁免判定；位次不变）。
+        ban_exempt_term: str | None = None
+        if blocked_feature is None and banned is not None and d.is_ban_exempt(
+            recheck_text, banned,
+        ):
+            ban_exempt_term = banned
+            banned = None
+        if blocked_feature is None and banned is not None:
+            blocked_feature = banned
+            blocked_lane = "禁用词索引"
+        ban_exempt_note: str | None = None
+        if ban_exempt_term is not None:
+            # 命中与豁免各计数一条日志（豁免可审计——B12 审计行随落）。
+            LOGGER.info(
+                "禁用词命中计数（run %s）：lane=禁用词索引 term=%s", run.id, ban_exempt_term,
+            )
+            LOGGER.info(
+                "禁用词豁免计数（run %s）：term=%s——元问句/引用形，放行＋随答提示（不拦停）",
+                run.id, ban_exempt_term,
+            )
+            await self._audit_ban_exempt(actor_who, run.id, ban_exempt_term)
+            ban_exempt_note = d.ban_exempt_notice_text(ban_exempt_term)
         if blocked_lane is not None:
             assert blocked_feature is not None
             for seq, name in enumerate(d.SEC_CHECKS, start=1):
@@ -615,10 +669,28 @@ class ChatService:
             await self._finish_run(run, verdict=None)
             return
         for seq, name in enumerate(d.SEC_CHECKS, start=1):
+            lane_note = "澄清带参复检（不免检）"
+            if name == "禁用词索引" and ban_exempt_term is not None:
+                lane_note = (
+                    f"命中禁用词「{ban_exempt_term}」——元问句/引用形豁免（放行＋随答提示）"
+                )
             yield d.SseEvent(d.FRAME_SEC_CHECK, {
-                "seq": seq, "name": name, "result": "pass", "note": "澄清带参复检（不免检）",
+                "seq": seq, "name": name, "result": "pass", "note": lane_note,
             })
-        yield d.node_frame("N1", state=d.NODE_FINISH, note="三道全过——放行")
+        if ban_exempt_term is not None:
+            yield d.node_frame(
+                "N2b", state=d.NODE_FINISH, tag="元问句豁免 · 放行＋随答提示",
+                note=(
+                    f"命中禁用词「{ban_exempt_term}」——引用/元问形窄豁免（降级不拦停），"
+                    "现行口径随答案尾部提示；命中与豁免已计数留痕"
+                ),
+            )
+            yield d.node_frame(
+                "N1", state=d.NODE_FINISH,
+                note=f"三道全过——放行（禁用词「{ban_exempt_term}」元问句/引用形豁免）",
+            )
+        else:
+            yield d.node_frame("N1", state=d.NODE_FINISH, note="三道全过——放行")
         if question is None:
             yield d.node_frame(
                 "N5a", state=d.NODE_FINISH, tag="两跳到终态",
@@ -748,6 +820,7 @@ class ChatService:
             str(verdict["chain"]), run, question, actor_who, assembly,
             verdict=verdict, clarified_caliber=caliber_name,
             skip_rescore=rewrite_declined, anchors=_pending_anchors(pending),
+            ban_exempt_note=ban_exempt_note,
         ):
             yield event
 
@@ -878,11 +951,19 @@ class ChatService:
             note=f"已分派至「{chain}」——interrupt 恢复续跑",
         )
         assembly = await self._assemble(question, _pending_anchors(pending))
+        # E9/DE-03：审批回流无新输入不重安检，但豁免随答提示须随恢复续答补齐
+        # （同问句重判豁免——纯处置判定，不新增解析面）。
+        approval_banned = d.check_banned(question)
+        approval_note = (
+            d.ban_exempt_notice_text(approval_banned)
+            if approval_banned is not None and d.is_ban_exempt(question, approval_banned)
+            else None
+        )
         async for event in self._run_chain(
             chain, run, question, actor_who, assembly,
             verdict=verdict, extable_decision=decision,
             extable_approval_id=approval_id or None,
-            anchors=_pending_anchors(pending),
+            anchors=_pending_anchors(pending), ban_exempt_note=approval_note,
         ):
             yield event
 
@@ -1457,7 +1538,7 @@ class ChatService:
         assembly: d.AssemblyResult, *, verdict: dict[str, Any],
         clarified_caliber: str | None = None, skip_rescore: bool = False,
         extable_decision: str | None = None, extable_approval_id: str | None = None,
-        anchors: list[str] | None = None,
+        anchors: list[str] | None = None, ban_exempt_note: str | None = None,
     ) -> AsyncIterator[d.SseEvent]:
         """链体帧流透传＋收场（stage(3) → 链内帧 → answer → done；答案落会话历史）。
 
@@ -1468,7 +1549,8 @@ class ChatService:
         挂起（interrupt_approval——pending_approval_id 落列）。skip_rescore 供
         rewrite 选否/不选回流续推；extable_decision/approval_id 供审批回流整节点
         重跑（F7 节点幂等——N7.4c 判据）；anchors 供挂起载荷携锚（M-07 F-01——
-        resume 重装配时锚定语义不丢）。"""
+        resume 重装配时锚定语义不丢）；ban_exempt_note 供禁用词豁免随答提示附尾
+        （E9/DE-03——N1 降级放行后答案尾部附一句，wire 帧与会话历史同文）。"""
         yield d.SseEvent(d.FRAME_STAGE, {"stage": 3})
         answer: dict[str, Any] | None = None
         ctx = d.ChainContext(
@@ -1498,6 +1580,11 @@ class ChatService:
                                              anchors=anchors)
                 return
             if event.event == d.FRAME_ANSWER:
+                if ban_exempt_note is not None:
+                    # 豁免随答提示附尾（DE-03——放行不拦停的可见面；wire 与落历史同文）。
+                    event = d.SseEvent(
+                        d.FRAME_ANSWER, d.with_ban_exempt_note(event.data, ban_exempt_note),
+                    )
                 answer = event.data
             yield event
         if answer is None:
@@ -1635,6 +1722,20 @@ class ChatService:
             who=who,
             action="chat.ask.blocked",
             content=f"统一安检拦截（run {run_id}）——{lane} 命中「{feature}」，链路终止",
+        ))
+
+    async def _audit_ban_exempt(self, who: str, run_id: str, term: str) -> None:
+        """禁用词豁免留痕（B12——E9/DE-03：降级放行≠无痕放行，豁免也是审计事件；
+        命中与豁免的计数日志在 N1 段各落一条，本行是可查账的半边）。"""
+        if self._audit is None:
+            return
+        await self._audit.audit(AuditRow(
+            who=who,
+            action="chat.ask.ban_exempt",
+            content=(
+                f"禁用词豁免（run {run_id}）——「{term}」元问句/引用形命中降级放行"
+                "（随答提示，不拦停）"
+            ),
         ))
 
     async def _audit_approval(
