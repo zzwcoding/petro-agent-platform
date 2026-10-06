@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  Button, Card, Empty, Input, Modal, Popover, Select, Space, Spin, Table, Tabs, Tag, Tooltip
+  Button, Card, Empty, Input, Modal, Popover, Select, Space, Spin, Table, Tabs, Tag, Tooltip, theme
 } from 'antd'
 import {
   ArrowLeftOutlined, FileTextOutlined, QuestionCircleOutlined
@@ -171,7 +171,7 @@ function renderInline(text, keyBase, ctx) {
         <span key={`${keyBase}-${i}`} className="wiki-flag"
           style={{
             fontSize: 12, marginLeft: 4, padding: '1px 6px', borderRadius: 3,
-            background: '#fff7e6', border: '1px solid #ffd591', color: '#d46b08',
+            background: ctx.token.colorWarningBg, border: `1px solid ${ctx.token.colorWarningBorder}`, color: ctx.token.colorWarning,
             display: 'inline-block', verticalAlign: '1px'
           }}>⚠ {arg}</span>
       )
@@ -184,10 +184,13 @@ function renderInline(text, keyBase, ctx) {
   return nodes
 }
 
-const TD_STYLE = { border: '1px solid #e0e4e8', padding: '6px 12px', fontSize: 13 }
-const TH_STYLE = { ...TD_STYLE, background: '#f7f8fa', fontWeight: 600, textAlign: 'left', whiteSpace: 'nowrap' }
-
+// 正文表格/小节分隔线配色一律取 antd 主题 token（colorBorderSecondary/colorFillAlter/colorSplit
+// ——暗色算法下自动映射深色值）；不许硬编码浅色 hex（暗底上白底白字不可读的根源）。
 function Md({ text, ctx }) {
+  const { token } = theme.useToken()
+  const tctx = { ...ctx, token } // renderInline 的 flag 徽标同源取主题色
+  const TD_STYLE = { border: `1px solid ${token.colorBorderSecondary}`, padding: '6px 12px', fontSize: 13 }
+  const TH_STYLE = { ...TD_STYLE, background: token.colorFillAlter, fontWeight: 600, textAlign: 'left', whiteSpace: 'nowrap' }
   const lines = (text || '').trim().split('\n')
   const out = []
   let i = 0, key = 0
@@ -195,11 +198,11 @@ function Md({ text, ctx }) {
     const line = lines[i]
     if (!line.trim()) { i++; continue }
     if (line.startsWith('### ')) {
-      out.push(<h4 key={key++} style={{ fontSize: 13, fontWeight: 600, margin: '12px 0 6px' }}>{renderInline(line.slice(4), `h${key}`, ctx)}</h4>)
+      out.push(<h4 key={key++} style={{ fontSize: 13, fontWeight: 600, margin: '12px 0 6px' }}>{renderInline(line.slice(4), `h${key}`, tctx)}</h4>)
       i++; continue
     }
     if (line.startsWith('## ')) {
-      out.push(<h3 key={key++} style={{ fontSize: 14, fontWeight: 600, margin: '18px 0 10px', paddingBottom: 6, borderBottom: '1px solid #f0f0f0' }}>{renderInline(line.slice(3), `h${key}`, ctx)}</h3>)
+      out.push(<h3 key={key++} style={{ fontSize: 14, fontWeight: 600, margin: '18px 0 10px', paddingBottom: 6, borderBottom: `1px solid ${token.colorSplit}` }}>{renderInline(line.slice(3), `h${key}`, tctx)}</h3>)
       i++; continue
     }
     if (line.startsWith('|')) {
@@ -210,9 +213,9 @@ function Md({ text, ctx }) {
         const [head, ...body] = rows
         out.push(
           <table key={key++} style={{ borderCollapse: 'collapse', margin: '4px 0 16px' }}>
-            <thead><tr>{head.map((c, j) => <th key={j} style={TH_STYLE}>{renderInline(c, `th${key}-${j}`, ctx)}</th>)}</tr></thead>
+            <thead><tr>{head.map((c, j) => <th key={j} style={TH_STYLE}>{renderInline(c, `th${key}-${j}`, tctx)}</th>)}</tr></thead>
             <tbody>{body.map((r, ri) => (
-              <tr key={ri}>{r.map((c, ci) => <td key={ci} style={TD_STYLE}>{renderInline(c, `td${key}-${ri}-${ci}`, ctx)}</td>)}</tr>
+              <tr key={ri}>{r.map((c, ci) => <td key={ci} style={TD_STYLE}>{renderInline(c, `td${key}-${ri}-${ci}`, tctx)}</td>)}</tr>
             ))}</tbody>
           </table>
         )
@@ -222,13 +225,13 @@ function Md({ text, ctx }) {
     if (line.startsWith('- ')) {
       const items = []
       while (i < lines.length && lines[i].startsWith('- ')) { items.push(lines[i].slice(2)); i++ }
-      out.push(<ul key={key++} style={{ margin: '4px 0 14px', paddingLeft: 20, fontSize: 13, lineHeight: 1.9 }}>{items.map((t, j) => <li key={j}>{renderInline(t, `li${key}-${j}`, ctx)}</li>)}</ul>)
+      out.push(<ul key={key++} style={{ margin: '4px 0 14px', paddingLeft: 20, fontSize: 13, lineHeight: 1.9 }}>{items.map((t, j) => <li key={j}>{renderInline(t, `li${key}-${j}`, tctx)}</li>)}</ul>)
       continue
     }
     const para = [line]
     i++
     while (i < lines.length && lines[i].trim() && !/^(#{2,3} |\||- )/.test(lines[i])) { para.push(lines[i].trim()); i++ }
-    out.push(<p key={key++} style={{ margin: '0 0 12px', fontSize: 13, lineHeight: 1.9 }}>{renderInline(para.join(''), `p${key}`, ctx)}</p>)
+    out.push(<p key={key++} style={{ margin: '0 0 12px', fontSize: 13, lineHeight: 1.9 }}>{renderInline(para.join(''), `p${key}`, tctx)}</p>)
   }
   if (!out.length) return <Empty description="当前版无正文内容。" />
   return <div className="wiki-md">{out}</div>
@@ -243,6 +246,7 @@ const LIST_LIB_OPTIONS = [
 ]
 
 export default function B4() {
+  const { token } = theme.useToken()
   const [tab, setTab] = useState('catalog') // catalog | read（v0.4 两页签——版本历史页签随撤除退役）
   // 目录：服务端数据（wiki_page 表无种子——空库空态即验收态，R-WIRE §3.2）
   const [pages, setPages] = useState(null)      // null＝目录未加载；[]＝空态
@@ -424,7 +428,7 @@ export default function B4() {
               {helpIcon(META_HELP)}
             </div>
 
-            <div id="meta-bar" style={{ border: '1px solid #f0f0f0', borderRadius: 6, padding: '8px 12px', marginBottom: 16, background: '#fafafa' }}>
+            <div id="meta-bar" style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 6, padding: '8px 12px', marginBottom: 16, background: token.colorFillQuaternary }}>
               <Space size={16} wrap style={{ fontSize: 12.5 }}>
                 <span>来源报告：<a href="#/B1">{detail.sourceReport.doc}</a></span>
                 <span>生成来源：<Tag style={{ marginInlineEnd: 0 }} color="default">{detail.generationSource}</Tag></span>
@@ -434,7 +438,7 @@ export default function B4() {
                 <a onClick={() => setMetaOpen(o => !o)}>{metaOpen ? '收起' : '展开'}</a>
               </Space>
               {metaOpen && (
-                <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px dashed #e8e8e8', fontSize: 12.5 }}>
+                <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px dashed ${token.colorSplit}`, fontSize: 12.5 }}>
                   <Space size={16} wrap>
                     <span>所属库：<Tag color={LIB_COLORS[detail.lib] || 'default'} style={{ marginInlineEnd: 0 }}>{detail.lib}</Tag></span>
                     <span>
