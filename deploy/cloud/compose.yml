@@ -1,0 +1,105 @@
+# 主平台云上编排（tpa 项目）——后端＋数据面 worker＋MinIO＋Neo4j＋pgvector PG
+# 平台自带全栈（独立 tpa 网络，零依赖 fieldforge 编排）；进料面挂 fieldforge
+# 产出的 run 目录卷（deploy_ff-data，只读）。
+# 用法：cd /opt/petro-agent-platform/deploy && docker compose -p tpa up -d
+name: tpa
+
+networks:
+  deploy-net:
+    external: true
+    name: deploy_default
+
+volumes:
+  tpa_miniodata:
+  tpa_neo4jdata:
+  tpa_pgdata:
+  deploy_ff-data:
+    external: true
+    name: deploy_ff-data
+
+services:
+  tpa-postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: tpa_app
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+      POSTGRES_DB: petro
+    volumes:
+      - tpa_pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tpa_app"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  tpa-neo4j:
+    image: neo4j:5
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD}
+    volumes:
+      - tpa_neo4jdata:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  tpa-minio:
+    image: minio/minio          # 云机 /opt/minio-img 源码构建版（x86_64）
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - tpa_miniodata:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  tpa-backend:
+    image: tpa-backend:latest
+    build:
+      context: /opt/petro-agent-platform
+      dockerfile: deploy/cloud/backend.Dockerfile
+    env_file: .env
+    restart: unless-stopped
+    # 双网络：平台内网（postgres/neo4j/minio）＋ fieldforge 网（nginx 反代可达）
+    networks:
+      - default
+      - deploy-net
+    depends_on:
+      tpa-postgres:
+        condition: service_healthy
+      tpa-neo4j:
+        condition: service_healthy
+      tpa-minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  tpa-worker:
+    image: tpa-worker:latest
+    build:
+      context: /opt/petro-agent-platform/data-plane
+      dockerfile: deploy/cloud-worker.Dockerfile
+    env_file: .env
+    environment:
+      DP_PIPELINE_RUN_DIR: ${DP_PIPELINE_RUN_DIR:-/data/runs}
+    volumes:
+      - deploy_ff-data:/data:ro
+    restart: unless-stopped
+    depends_on:
+      tpa-postgres:
+        condition: service_healthy
+      tpa-minio:
+        condition: service_healthy
