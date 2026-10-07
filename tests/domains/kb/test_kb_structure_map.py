@@ -289,6 +289,55 @@ class TestHeadingPrefixConsumer:
             assert d._table_like(line) is False, line
 
 
+# ---------- FX-04（R1-11）：标题号后首词计量/历法守门 ----------
+
+
+class TestMeasureCalendarGuard:
+    """数字层级/序号标题命中后，紧随分隔空格的首词为计量/历法闭世界常量
+    → 不识别为标题。
+
+    R1-11：DE-04 §六.1/§六.3 移交「LLM 图职责面」的两类同构误报（「1.1 万元」
+    带空格金额、「2026.10 月报」日期带文字），随 DE-05 退役 LLM 结构路确定
+    成章且无主——本守门收口。清单为整词等值制（首词恰等于清单词才排除，
+    不做前缀匹配）——真标题「1.1 月度生产分析」「1.1 元数据管理」与清单词
+    组词形零误伤；「井」「口」不进清单（取舍记录见 FX-04 回报）。
+    """
+
+    def test_spaced_amount_and_dated_report_not_heading(self) -> None:
+        # 误报两形（R1-11 点名）＋扩展形（数值带单位/金额续句/序号标题形）。
+        assert d.is_heading_line("1.1 万元") is False
+        assert d.is_heading_line("2026.10 月报") is False
+        assert d.is_heading_line("3.2 吨") is False
+        assert d.is_heading_line("1.1 万元，较上月减少 0.7 个百分点") is False
+        assert d.is_heading_line("一、万元") is False
+
+    def test_measure_words_whole_word_matching_only(self) -> None:
+        # 整词等值制：首词恰为清单词才排除——历法单字不做前缀匹配，
+        # 「月报」以语料实证进清单（DE-04 §六.3 点名形）。
+        assert d.is_heading_line("2.10 月报") is False
+        assert d.is_heading_line("1.1 元") is False
+        assert d.is_heading_line("1.1 %") is False
+        assert d.is_heading_line("1.1 ％") is False
+
+    def test_real_headings_with_similar_shapes_unchanged(self) -> None:
+        # 真标题零伤（票面硬验收）：同构形真标题照常识别——含票面点名
+        # 「1.1 井身结构」与「月度/年度/万元产值」组词形、语料既有
+        # 「12 mm 油嘴工作制度」边际形。
+        for line in [
+            "1.1 主要生产指标（月度）",
+            "1.1 井身结构",
+            "1.1 月度生产分析",
+            "1.1 年度工作总结",
+            "1.1 元数据管理",
+            "一、万元产值完成情况",
+            "一、年度工作总结",
+            "一、三季度生产运行",
+            "2.10 注水月度数据",
+            "12 mm 油嘴工作制度",
+        ]:
+            assert d.is_heading_line(line) is True, line
+
+
 # ---------- 域纯语义：chunk 消费结构图（smart/mixed） ----------
 
 
@@ -382,7 +431,16 @@ class TestCorpusCHeadingStyleFixture:
     def test_false_positive_lines_stay_body(self) -> None:
         m = d.rule_structure_map(FIXTURE_C_HEADING_STYLES)
         titles = [h.title for h in m.headings]
-        for bad in ["1.1万元", "2026.10", "1.1", "（3）注水井酸化"]:
+        # 后两形＝FX-04（R1-11）追加：DE-05 退役 LLM 结构路后确定成章的两类
+        # 同构误报（带空格金额/日期带文字），负例行清单随票面扩条。
+        for bad in [
+            "1.1万元",
+            "2026.10",
+            "1.1",
+            "（3）注水井酸化",
+            "1.1 万元",
+            "2026.10 月报",
+        ]:
             assert bad not in titles, bad
             # 负例行逐字留在正文块内（守门不丢内容）
             chunks = d.chunk_text(FIXTURE_C_HEADING_STYLES, "smart")

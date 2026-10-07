@@ -269,6 +269,10 @@ def normalize_filename(filename: str) -> str:
 #   接正文（非空白/非分隔标点）——孤立「一、」与列举句首不成标题；
 # - 数字层级末段断言 (?!\.?\d)：末段后非数字/非「.数字」——堵回溯误报
 #   （「1.1万元」金额借章号 1.、「2026.10」日期借章号 2026.、孤立「1.1」无正文）。
+# FX-04（R1-11）补记：DE-04 §六.1/§六.3 移交「LLM 图职责面」的两类带空格同构
+# 误报（「1.1 万元」「2026.10 月报」）随 DE-05 退役 LLM 结构路后确定成章——
+# 收口闸不在本正则（避免正则复杂化），在 is_heading_line 判定链的
+# _measure_calendar_false_positive 纯函数层（守门见其注记）。
 _HEADING_RE = re.compile(
     r"^\s*(?:#+\s*|)("
     r"\d+(?:\.\d+)*(?!\.?\d)"
@@ -338,19 +342,46 @@ HEADING_MAX_CHARS = 40
 _TABLE_FEATURE_RE = re.compile(r"\u3000\u3000| {2,}\d|\d[　]\d")
 # 行尾句读（正文句证据——标题不以句号类收尾）。
 _TAIL_SENTENCE_RE = re.compile(r"[。；！？!?;]\s*$")
+# FX-04（R1-11）标题号后首词计量/历法守门：DE-04 移交「LLM 图职责面」的两类
+# 同构误报（「1.1 万元」带空格金额、「2026.10 月报」日期带文字）随 DE-05 退役
+# LLM 结构路后确定成章且无主——数字层级/序号标题命中后紧随分隔空格的首词恰为
+# 下列闭世界常量则不成标题。取词与匹配均为**整词等值**（连续字母/数字/汉字段
+# 恰等于清单词，非前缀匹配）——真标题「1.1 月度生产分析」「1.1 元数据管理」
+# 「一、万元产值完成情况」等组词形零误伤。清单以语料实证为准、宁短勿滥：
+# 「月报」为 DE-04 §六.3 点名形；「井」「口」不进清单——单字首词形（「1.1 井」）
+# 无语料实证，且「1.1 井身结构」类真标题以「井」起头（票面明示误伤风险面）。
+_MEASURE_CALENDAR_FIRST_WORDS = frozenset(
+    {"万元", "元", "％", "%", "米", "吨", "方", "日", "月", "年", "月报"}
+)
+# 首词＝标题号＋首个分隔符之后的连续「字母/数字/汉字/百分号」段（\\w 为
+# Unicode 字母数字，％/% 非字母数字需显式列入）。
+_MEASURE_FIRST_WORD_RE = re.compile(r"[\w％%]+")
+
+
+def _measure_calendar_false_positive(stripped: str) -> bool:
+    """标题形行是否为「标题号＋计量/历法常量首词」误报形（FX-04 守门）。"""
+    m = _HEADING_RE.match(stripped)
+    if m is None:
+        return False
+    w = _MEASURE_FIRST_WORD_RE.match(stripped, m.end())
+    return w is not None and w.group() in _MEASURE_CALENDAR_FIRST_WORDS
 
 
 def is_heading_line(line: str) -> bool:
-    """复合规则四条件（纯函数、独立可用——规则回退图与 LLM 图复检共用）：
+    """复合规则守门（纯函数、独立可用——规则图供给的唯一标题闸）：
 
     ①标题形（_HEADING_RE 分支命中）；②行长 ≤HEADING_MAX_CHARS；
-    ③行尾无句读（。；！？——正文句证据）；④无表格特征（全角空格连续格/
-    多空格数字格——f42 表格行形）。
+    ③标题号后首词非计量/历法闭世界常量（FX-04——「1.1 万元」带空格金额、
+    「2026.10 月报」日期带文字两类已知误报形收口，清单与取舍见
+    _MEASURE_CALENDAR_FIRST_WORDS 注记）；④行尾无句读（。；！？——正文句
+    证据）；⑤无表格特征（全角空格连续格/多空格数字格——f42 表格行形）。
     """
     stripped = line.strip()
     if not stripped or len(stripped) > HEADING_MAX_CHARS:
         return False
     if _section_of(stripped) is None:
+        return False
+    if _measure_calendar_false_positive(stripped):
         return False
     if _TAIL_SENTENCE_RE.search(stripped):
         return False
