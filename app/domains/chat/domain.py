@@ -224,11 +224,19 @@ BAN_EXEMPT_QUOTE_PAIRS: tuple[tuple[str, str], ...] = (
 )
 # 元问句词面（闭世界常量枚举——问句含任一词面＝在问旧称现状的合法元问题）。
 META_QUESTION_MARKERS: tuple[str, ...] = ("旧称", "以前叫", "现在叫", "还叫", "原名")
+# 豁免提示替代口径映射（闭世界——FX-02/R1-06：禁用词→现行口径。首条与拦截话术
+# BAN_ANSWER_TEMPLATE 内嵌的「老完成率→产量完成率」同源取数（设定书 §6 废弃口径
+# 登记），该话术为本票边界外未动、扩条时两处须同步。对账责任：设定书 §6 是登记制
+# 真源——禁用词表扩条前必须先在 §6 登记并补本映射；缺映射的词回落 FALLBACK 形提示
+# （不带现行口径句），不许向用户编造口径映射（硬纪律 7 业务事实零发明）。
+BAN_EXEMPT_REPLACEMENTS: dict[str, str] = {"老完成率": "产量完成率"}
 # 豁免随答提示文案（降级形态：放行＋答案尾部附一句——「问句涉及旧称谓 X，现行口径
-# 为 Y」形；Y＝替代口径照设定书 §6，与拦截话术同源）。
+# 为 Y」形）。有映射词渲染 TEMPLATE（{replacement} 取自 BAN_EXEMPT_REPLACEMENTS）；
+# 无映射词回落 FALLBACK 形——只陈述「已登记为禁用词」这个闭世界事实，不带现行口径句。
 BAN_EXEMPT_NOTICE_TEMPLATE = (
-    "——提示：问句涉及旧称谓「{term}」，该口径 2024 年已废弃，现行口径为「产量完成率」。"
+    "——提示：问句涉及旧称谓「{term}」，该口径 2024 年已废弃，现行口径为「{replacement}」。"
 )
+BAN_EXEMPT_NOTICE_FALLBACK_TEMPLATE = "——提示：问句涉及旧称谓「{term}」，该词已登记为禁用词。"
 
 # ---------- 话术常量（骨架期服务端组装——演示资产不进合同，运行时同语义产出） ----------
 
@@ -551,8 +559,13 @@ def is_ban_exempt(question: str, term: str) -> bool:
 
 
 def ban_exempt_notice_text(term: str) -> str:
-    """豁免随答提示文案（答案尾部附一句——现行口径随提示带出）。"""
-    return BAN_EXEMPT_NOTICE_TEMPLATE.format(term=term)
+    """豁免随答提示文案（答案尾部附一句）——FX-02/R1-06 闭世界映射：有映射词带
+    现行口径句（BAN_EXEMPT_REPLACEMENTS 取值）；无映射词回落 FALLBACK 形
+    （不带现行口径句——词表扩条映射未补时不编造口径映射）。"""
+    replacement = BAN_EXEMPT_REPLACEMENTS.get(term)
+    if replacement is None:
+        return BAN_EXEMPT_NOTICE_FALLBACK_TEMPLATE.format(term=term)
+    return BAN_EXEMPT_NOTICE_TEMPLATE.format(term=term, replacement=replacement)
 
 
 def with_ban_exempt_note(answer: dict[str, Any], note: str) -> dict[str, Any]:

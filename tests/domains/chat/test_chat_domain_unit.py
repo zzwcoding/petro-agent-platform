@@ -116,6 +116,28 @@ class TestBanExempt:
         assert "旧称谓" in notice and "老完成率" in notice
         assert "产量完成率" in notice  # 出路指引＝替代口径（设定书 §6）
 
+    def test_notice_without_mapping_falls_back_without_caliber_claim(self) -> None:
+        """FX-02/R1-06：替代口径闭世界映射——无映射词回落渲染**不带现行口径句**
+        的提示（禁用词表扩条而映射未补时，不向用户编造口径映射——业务事实零发明）。"""
+        assert "现行口径为「产量完成率」" in d.ban_exempt_notice_text("老完成率")
+        fallback = d.ban_exempt_notice_text("某未补映射的新词")
+        assert "某未补映射的新词" in fallback
+        assert "产量完成率" not in fallback  # 回落形不指认任何现行口径
+        assert "现行口径" not in fallback
+
+    def test_banned_terms_expansion_simulated_no_fabricated_replacement(
+        self, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """FX-02/R1-06 扩条模拟：禁用词表新增测试词（映射未补）——命中与豁免判定
+        照旧工作，豁免提示回落形不断言出「产量完成率」。"""
+        monkeypatch.setattr(d, "BANNED_TERMS", ("老完成率", "旧指标名"))
+        assert d.check_banned("旧指标名怎么算") == "旧指标名"
+        assert d.is_ban_exempt("旧指标名的原名是什么", "旧指标名")
+        notice = d.ban_exempt_notice_text("旧指标名")
+        assert "旧指标名" in notice
+        assert "产量完成率" not in notice
+        assert "现行口径" not in notice
+
     def test_answer_note_appended_at_tail(self) -> None:
         """豁免随答提示附尾（纯函数）——追加不改 kind/citations、原 answer 不变、已附不重复。"""
         answer = {"kind": "text", "text": "答案正文 [c1]。", "citations": [{"ref": "c1"}]}
