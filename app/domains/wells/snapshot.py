@@ -50,10 +50,14 @@ from sqlalchemy import (
     Table,
     select,
 )
+from sqlalchemy.exc import DBAPIError
 
 from app.infra.db import ConnectionManager
 
 LOGGER = logging.getLogger(__name__)
+
+# PG undefined_table（SQLSTATE 42P01）＝账本表不存在（数据面未 boot）的驱动判据
+_UNDEFINED_TABLE_SQLSTATE = "42P01"
 
 # ---------- 湖账本轻声明（schema="data_plane"——独立 MetaData，不入平台建表面） ----------
 
@@ -122,13 +126,31 @@ def resolve_current_snapshot(
 # ---------- 薄查询（primary 只读路由读账本；warning 每表一次） ----------
 
 
+def _is_undefined_table(exc: BaseException) -> bool:
+    """DBAPIError → PG undefined_table（SQLSTATE 42P01）判别。
+
+    驱动异常携 ``sqlstate``；SQLAlchemy 包装后 ``orig`` 指回驱动层错误——
+    两处任一命中即判（FX-01：非 42P01 的错误不吞、原样上抛）。
+    """
+    for source in (getattr(exc, "orig", None), exc):
+        code = getattr(source, "sqlstate", None) or getattr(
+            source, "pgcode", None
+        )
+        if code == _UNDEFINED_TABLE_SQLSTATE:
+            return True
+    return False
+
+
 class LakeSnapshotReader:
     """湖账本薄查询——给定表名返回湖当前版批次面（纯函数承载选择逻辑）。
 
     取数路径＝primary 只读路由（拓扑核对定案，见模块 docstring）；midplatform
     路由不承担此读面（闭世界对 data_plane 零授权——不扩权，DE-01 红线）。
     账本无该表记录→None＋warning 一次（每表去重——None 是合理缺省不是错误，
-    但「表未经湖管道」值得在案可见，读面排障有锚）。
+    但「表未经湖管道」值得在案可见，读面排障有锚）。账本**表本身**不存在
+    （数据面未 boot——建表方是数据面 LakeCatalog._ensure_meta，平台侧不建账本）
+    → undefined_table 捕获后与「无记录」同归 None＋warning 一次（FX-01——
+    读面回落全量，不再 500；R1-02 裁决）。
     """
 
     def __init__(self, db: ConnectionManager) -> None:
@@ -136,23 +158,40 @@ class LakeSnapshotReader:
         self._warned: set[str] = set()
 
     async def current_snapshot(self, table_name: str) -> LakeSnapshotFace | None:
-        """解析表名 → 湖当前版批次面；账本无记录 → None（＋warning 一次）。"""
+        """解析表名 → 湖当前版批次面；账本无记录/账本表未建 → None（＋warning 一次）。"""
+        ledger_missing = False
         stmt = select(
             _LAKE_SNAPSHOT.c.snapshot_id, _LAKE_SNAPSHOT.c.batch_id
         ).where(_LAKE_SNAPSHOT.c.table_name == table_name)
-        async with self._db.readonly(role="primary") as session:
-            ledger_rows = [
-                SnapshotLedgerRow(snapshot_id=int(row[0]), batch_id=str(row[1]))
-                for row in (await session.execute(stmt)).all()
-            ]
+        try:
+            async with self._db.readonly(role="primary") as session:
+                ledger_rows = [
+                    SnapshotLedgerRow(snapshot_id=int(row[0]), batch_id=str(row[1]))
+                    for row in (await session.execute(stmt)).all()
+                ]
+        except DBAPIError as exc:
+            # 账本表本身不存在（数据面未 boot，平台侧不建账本）＝与「无记录」
+            # 同态：归 None 过滤缺省放行＋warning 一次（FX-01 兜底，R1-02）。
+            if not _is_undefined_table(exc):
+                raise
+            ledger_missing = True
+            ledger_rows = []
         face = resolve_current_snapshot(ledger_rows, table_name)
         if face is None and table_name not in self._warned:
             self._warned.add(table_name)
-            LOGGER.warning(
-                "湖账本无表 %r 的快照记录——当前版过滤缺省放行"
-                "（该表未经湖管道，读全量＝合理缺省；DE-01 三态语义）",
-                table_name,
-            )
+            if ledger_missing:
+                LOGGER.warning(
+                    "湖账本表 data_plane.lake_snapshot 不存在（表 %r 查询报"
+                    " undefined_table——数据面未 boot，平台侧不建账本）——"
+                    "当前版过滤缺省放行，读面回落全量（FX-01 兜底）",
+                    table_name,
+                )
+            else:
+                LOGGER.warning(
+                    "湖账本无表 %r 的快照记录——当前版过滤缺省放行"
+                    "（该表未经湖管道，读全量＝合理缺省；DE-01 三态语义）",
+                    table_name,
+                )
         return face
 
 

@@ -454,3 +454,43 @@ async def test_ledger_empty_falls_back_to_full_everywhere(
     n02 = [i for i in body["items"] if i["well_id"] == "N-02"]
     assert any(i["remark"] == "旧批备注（应被当前版过滤）" for i in n02)
     assert any(i["remark"] == "正常" for i in n02)
+
+
+# ---------- FX-01：账本表本身不存在（数据面未 boot）→ 三端点回落全量不 500 ----------
+
+
+async def test_ledger_table_dropped_falls_back_not_500(
+    client: TestClient, url: URL
+) -> None:
+    """drop data_plane.lake_snapshot（数据面从未 boot 态——平台侧不建账本）→
+    reader 对 undefined_table（SQLSTATE 42P01）捕获归 None：三端点 200 回落
+    全量，不再 500（R1-02 行为回归收口）。finally 用幂等湖 DDL 复原账本表
+    （_apply_dp03 与 fixture 同款）——teardown 的 _clean_own_ledger 要对它
+    DELETE，跨测试零残留。"""
+    admin = create_async_engine(url, isolation_level="AUTOCOMMIT")
+    try:
+        async with admin.connect() as conn:
+            await conn.execute(text("DROP TABLE data_plane.lake_snapshot"))
+    finally:
+        await admin.dispose()
+    try:
+        # 端点 1 列表：200＋全量（每井两批 2 行——不过滤回落）
+        body: dict[str, Any] = client.get("/api/wells", headers=HEADERS).json()
+        well_ids = [i["well_id"] for i in body["items"]]
+        assert well_ids.count("N-02") == 2 and well_ids.count("N-06") == 2
+        # 端点 2 档案：200（回落全量下两批行皆在，不 500、不 404）
+        profile = client.get("/api/wells/N-02", headers=HEADERS)
+        assert profile.status_code == 200
+        assert profile.json()["well_id"] == "N-02"
+        # 端点 3 关系链：200（两台账两批全出——回落全量）
+        chain = client.get("/api/wells/N-02/chain", headers=HEADERS)
+        assert chain.status_code == 200
+        assert chain.json()["counts"]["measures"] == 2
+        assert chain.json()["counts"]["overhauls"] == 2
+    finally:
+        restore = create_async_engine(url, isolation_level="AUTOCOMMIT")
+        try:
+            async with restore.connect() as conn:
+                await _apply_dp03(conn)
+        finally:
+            await restore.dispose()

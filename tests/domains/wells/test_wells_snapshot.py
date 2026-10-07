@@ -11,6 +11,10 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Any
 
+import pytest
+from asyncpg.exceptions import UndefinedTableError
+from sqlalchemy.exc import ProgrammingError
+
 from app.domains.wells.snapshot import (
     LakeSnapshotReader,
     SnapshotLedgerRow,
@@ -132,3 +136,79 @@ async def test_reader_warning_dedupes_per_table(caplog: Any) -> None:
     assert len(messages) == 2
     assert any("equip_status" in m for m in messages)
     assert any("fluid_test" in m for m in messages)
+
+
+# ---------- FX-01：账本表本身不存在（数据面未 boot）→ None＋warning，不再 500 ----------
+
+
+class _FailingSession:
+    def __init__(self, error: Exception) -> None:
+        self._error = error
+
+    async def execute(self, stmt: Any) -> Any:
+        raise self._error
+
+
+class _FailingDb:
+    """ConnectionManager 测试替身——readonly 缝里 execute 必抛给定错误。"""
+
+    def __init__(self, error: Exception) -> None:
+        self._session = _FailingSession(error)
+
+    @asynccontextmanager
+    async def readonly(self, role: str = "primary") -> Any:
+        yield self._session
+
+
+def _undefined_table_error() -> ProgrammingError:
+    """模拟账本表缺失态的异常形态（FX-01）：asyncpg UndefinedTableError
+    （SQLSTATE 42P01）被 SQLAlchemy 包装后 ``orig`` 指回驱动异常。"""
+    orig = UndefinedTableError(
+        'relation "data_plane.lake_snapshot" does not exist'
+    )
+    return ProgrammingError(
+        "SELECT data_plane.lake_snapshot.snapshot_id ...", {}, orig
+    )
+
+
+def _failing_reader(error: Exception) -> LakeSnapshotReader:
+    return LakeSnapshotReader(_FailingDb(error))  # type: ignore[arg-type]
+
+
+async def test_reader_undefined_table_returns_none_and_warns_once(
+    caplog: Any,
+) -> None:
+    """账本表不存在（undefined_table/42P01）→ 与「无记录」同归 None＋
+    warning 一次（读面回落全量，不再 500——R1-02 裁决修复）。"""
+    reader = _failing_reader(_undefined_table_error())
+    with caplog.at_level(logging.WARNING, logger=_LOGGER_NAME):
+        first = await reader.current_snapshot("well_info")
+        second = await reader.current_snapshot("well_info")
+    assert first is None and second is None
+    warnings = [r for r in caplog.records if r.name == _LOGGER_NAME]
+    assert len(warnings) == 1
+    assert warnings[0].levelno == logging.WARNING
+    assert "well_info" in warnings[0].getMessage()
+    assert "lake_snapshot" in warnings[0].getMessage()  # 报文点出账本表缺失
+
+
+async def test_reader_undefined_table_warning_dedupes_per_table(
+    caplog: Any,
+) -> None:
+    """账本表缺失态对两表各警告一次（去重键＝表名，与无记录态同机制）。"""
+    reader = _failing_reader(_undefined_table_error())
+    with caplog.at_level(logging.WARNING, logger=_LOGGER_NAME):
+        await reader.current_snapshot("well_info")
+        await reader.current_snapshot("well_measures")
+    messages = [r.getMessage() for r in caplog.records if r.name == _LOGGER_NAME]
+    assert len(messages) == 2
+    assert any("well_info" in m for m in messages)
+    assert any("well_measures" in m for m in messages)
+
+
+async def test_reader_other_dbapi_errors_propagate() -> None:
+    """非 undefined_table 的 DBAPIError（sqlstate 非 42P01）不吞——原样上抛。"""
+    foreign = ProgrammingError("SELECT ...", {}, RuntimeError("backend gone"))
+    reader = _failing_reader(foreign)
+    with pytest.raises(ProgrammingError, match="backend gone"):
+        await reader.current_snapshot("well_info")
