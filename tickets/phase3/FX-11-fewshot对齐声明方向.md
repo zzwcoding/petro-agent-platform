@@ -1,6 +1,6 @@
 # FX-11 few-shot 例对齐本体声明方向（R4-B3-1 高项）
 
-> 状态：⬜ 可开工 ｜ 依赖：B2/B3 合入 master
+> 状态：✅ 完成（2026-10-07 落地，案①全闸绿——收尾报告 tickets/phase3/reports/FX-11.收尾.md；Owner 备选案②未触发） ｜ 依赖：B2/B3 合入 master
 > 来源：审查 R4（reports/审查R4-B系-20261007.md）L0 裁决案①。**Owner 备选**：若业务需要 井—承载→平台/
 > 井—隶属→油田 形状，拍板后改走案②（本体增 ASSOC），本票废止。
 
@@ -18,8 +18,8 @@
 （endpoint_groups）；app/domains/derivatives/domain.py few-shot 段与 gate 段；B2-01 收尾报告（别名段现状）
 
 验收:
-- [ ] 出厂例全过闸断言红先绿后；既有抽取测试零跌（桩适配除外——适配处逐条记回报）
-- [ ] 全量闸：`uv run ruff check app tests migrations tools && uv run mypy app && uv run pytest -q && uv run lint-imports && uv run python tools/contract_coverage.py check && uv run python tools/debt_markers.py check` 全绿（回报附输出原文含通过数数字）＋`bash ontology/ci.sh`
+- [x] 出厂例全过闸断言红先绿后；既有抽取测试零跌（桩适配除外——适配处逐条记回报）
+- [x] 全量闸：`uv run ruff check app tests migrations tools && uv run mypy app && uv run pytest -q && uv run lint-imports && uv run python tools/contract_coverage.py check && uv run python tools/debt_markers.py check` 全绿（回报附输出原文含通过数数字）＋`bash ontology/ci.sh`
 
 回报: 写 tickets/phase3/reports/FX-11.收尾.md。git 纪律：master 拉 `gov/fx11-fewshot-align`，只 add
 本票文件，严禁 git add -A。
