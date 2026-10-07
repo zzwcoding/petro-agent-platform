@@ -83,6 +83,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
@@ -216,6 +217,11 @@ class ChainDeps:
     # E2 T-1 判定随面携入）。
     query_executor: d.QueryExecutor | None = None
     waterline_loader: d.WaterlineLoader | None = None
+    # LLM#plan 调用缝（L-01 影子观测件预留——照 WaterlineLoader 注入缝同款形状）：
+    # 生产实现归 L-02（提示词构建＋gateway.complete caller=chat.intent.plan＋单问
+    # 三重兜底，ChainDeps 构造点域内接线——组合根零改动）；本票只接影子日志
+    # （影子期 llm_plan 产物只落日志不进生效路——方案 v2.1 阶段 A 硬纪律）。
+    plan_drafter: d.PlanDrafter | None = None
 
 
 def line(key: str, mark: str, text: str) -> d.SseEvent:
@@ -1311,6 +1317,74 @@ def _metric_card_for_plan(ctx: d.ChainContext) -> tuple[str, str, str] | None:
     return None
 
 
+def _shadow_deterministic_plan(
+    ctx: d.ChainContext, declared: tuple[str, str, str] | None
+) -> d.QueryPlan | None:
+    """影子比对用的确定性解析（build_query_plan 单源重建——缺件/vague 窗＝None 不可比）。"""
+    if declared is None:
+        return None
+    today = _today()
+    status, window = d.parse_time_window(ctx.question, today=today)
+    if status == "vague":
+        return None
+    if status == "missing" or window is None:
+        window = d.default_time_window(today=today)  # 无显式时间——链体同款默认窗
+    metric_slot, metric_name, _def_text = declared
+    return d.build_query_plan(
+        metric_slot=metric_slot, metric_name=metric_name, question=ctx.question,
+        window=window, today=today, actor=ctx.actor_who,
+    )
+
+
+async def _shadow_plan_observation(
+    deps: ChainDeps, ctx: d.ChainContext, *, declared: tuple[str, str, str] | None
+) -> None:
+    """L-01 影子观测件（llm_plan 产物只落日志不进生效路——方案 v2.1 阶段 A/闸 A 数据源）。
+
+    触发谓词（plan_parse_trigger_reasons 单源——本链即裁决所判六站链，verdict 项
+    恒真；入口裁决层谓词 should_trigger_plan_parse 归 L-02 消费）不命中即静默返回；
+    draft 三态＝比对算子产出；耗时_ms 含 drafter 调用＋validator＋比对。影子路任何
+    异常吞并降级为日志注记——主链行为零变化（本票硬验收）。真实 LLM 出口接线归
+    L-02（本票测试以替身喂 Draft）。
+    """
+    drafter = deps.plan_drafter
+    if drafter is None:
+        return
+    metric_slot = declared[0] if declared is not None else None
+    reasons = d.plan_parse_trigger_reasons(question=ctx.question, metric_slot=metric_slot)
+    if not reasons:
+        return
+    started = time.monotonic()
+    draft: d.QueryPlanDraft | None = None
+    reject_note = ""
+    try:
+        draft = await drafter(ctx.question)
+    except Exception as exc:  # 影子路吞并——LLM 故障不许炸主链（照 _verdict_llm 兜底纪律）
+        reject_note = f"drafter 异常 {type(exc).__name__}: {exc}"
+    draft_plan: d.QueryPlan | None = None
+    if draft is not None:
+        try:
+            draft_plan = d.validate_query_plan_draft(
+                draft, question=ctx.question, actor=ctx.actor_who
+            )
+        except ValueError as exc:
+            reject_note = f"validator 拒：{exc}"
+    comparison = d.compare_query_plans(draft_plan, _shadow_deterministic_plan(ctx, declared))
+    elapsed_ms = int((time.monotonic() - started) * 1000)
+    notes = [*comparison.notes]
+    if reject_note:
+        notes.append(reject_note)
+    LOGGER.info(
+        "[shadow-plan] run_id=%s trigger=%s draft_state=%s elapsed_ms=%d divergent=%s note=%s",
+        ctx.run_id,
+        "+".join(reasons),
+        comparison.status,
+        elapsed_ms,
+        ",".join(comparison.divergent_fields) or "-",
+        "；".join(notes) or "-",
+    )
+
+
 async def query_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.SseEvent]:
     """状态机六站链（M-06——用户数据型问题：模板装配出数，主路零模型调用）。
 
@@ -1332,6 +1406,10 @@ async def query_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.S
     yield d.node_frame("N7.1", state=d.NODE_PROCESS, tag="校验三要素 · 零模型调用",
                        note="意图识别——复用意图裁决阶段解析结果，仅做缺参校验（F7 票 94 注记）")
     declared = _metric_card_for_plan(ctx)
+    # —— L-01 影子观测（方案 v2.1 阶段 A：llm_plan 产物只落日志不进生效路）——
+    # 注入缝未装配（生产组合根现状）＝恒静默零行为变化；真实 gateway 接线归 L-02。
+    if deps.plan_drafter is not None:
+        await _shadow_plan_observation(deps, ctx, declared=declared)
     if declared is None:
         # 降级解释链（不冒充审定口径）：装配层无可绑定计量列的注册指标——
         # 不自由生成 SQL、不出数；接续检索问答链（报告库辅助）消二选一漏答。

@@ -1385,8 +1385,9 @@ class ChatService:
                 "confidence": d.GRAPH_ROUTE_CONFIDENCE, "need_clarify": False,
                 "source": d.VERDICT_SOURCE_DETERMINISTIC,
             }
-        metric_hit = any(c.kind == "metric" for c in assembly.candidates)
-        if metric_hit and d.is_data_question(question):
+        # 数据问句信号＝data_route_signal 单源（L-01 从本处抽出——兜底路由与影子
+        # 触发谓词同源消费，不复制第二份「指标命中＋词面」组合）。
+        if d.data_route_signal(question, assembly.candidates):
             return {
                 "chain": "状态机六站链", "slots": assembly.slots,
                 "confidence": d.DATA_ROUTE_CONFIDENCE, "need_clarify": False,
