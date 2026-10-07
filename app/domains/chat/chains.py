@@ -216,6 +216,10 @@ class ChainDeps:
     # E2 T-1 判定随面携入）。
     query_executor: d.QueryExecutor | None = None
     waterline_loader: d.WaterlineLoader | None = None
+    # DE-16 新鲜度闸配置开关（缺省 true＝现状；false＝跳过 N7.4a 新鲜度闸——
+    # 不读水位、不拦停不改绑，N7.4b 行级权限/N7.4c 外表审批零触碰；
+    # 装配缝＝ChatService 组合根自 infra.config chat 段读入——链体只认注入缝）。
+    freshness_gate_enabled: bool = True
 
 
 def line(key: str, mark: str, text: str) -> d.SseEvent:
@@ -1418,53 +1422,68 @@ async def query_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.S
     yield d.node_frame("N7.4", state=d.NODE_PROCESS, tag="执行前安检 · 三闸",
                        note="执行前安检——新鲜度（N7.4a）→ 行级权限（N7.4b）→ 外表审批（N7.4c）")
 
-    # N7.4a 新鲜度闸（消费 M-05a 水位读面——超窗改绑/全窗未出数拒答，照 E2 T-1 语义）
-    yield d.node_frame("N7.4a", state=d.NODE_PROCESS, tag="出数前比对批次水位")
-    waterline = await deps.waterline_loader() if deps.waterline_loader is not None else None
-    if waterline is None:
-        yield d.node_frame("N7.4a", state=d.NODE_FINISH, note=d.FRESHNESS_UNKNOWN_NOTE)
-    elif plan.window.start > waterline.data_date:
-        # 查询窗整体在水位之后——无已出数数据：闸拦停（不返回空数冒充）；
-        # 接续检索问答链（W-AUX③——不再以拒答收场，消二选一漏答）。
-        tag = waterline.tag
-        yield d.node_frame(
-            "N7.4a", state=d.NODE_FINISH,
-            note=f"比对：查询窗「{plan.window.label}」整体晚于数据水位 "
-                 f"{waterline.data_date.isoformat()}（{tag}）——拦停，不出空数"
-                 "——接续检索问答链（报告库检索结果作辅助）",
+    # N7.4a 新鲜度闸（消费 M-05a 水位读面——超窗改绑/全窗未出数拒答，照 E2 T-1 语义）；
+    # DE-16：开关 false＝跳过新鲜度闸——不读水位、不拦停不改绑（N7.4b 行级权限、
+    # N7.4c 外表审批零触碰）；跳过日志一行＋node_skip 帧内 additive 注记
+    # （FRESHNESS_GATE_OFF_NOTE——键名在场，照 chunk_check additive 先例）；
+    # true＝现状逐字节不变。
+    if not deps.freshness_gate_enabled:
+        LOGGER.info(
+            "新鲜度闸已按配置关闭（freshness_gate_enabled=false）——跳过新鲜度比对"
+            "（run %s；N7.4b 行级权限、N7.4c 外表审批不受影响）",
+            ctx.run_id,
         )
-        yield d.node_frame(
-            "N7.4", state=d.NODE_FINISH,
-            note="新鲜度闸拦停——问数不出数，接续检索问答链（报告库辅助，非权威数值）",
-        )
-        reject_text = d.FRESHNESS_REJECT_TEMPLATE.format(
-            data_date=waterline.data_date.isoformat(), tag=tag, label=plan.window.label,
-        )
-        async for event in _continue_with_retrieval(
-            deps, ctx,
-            refusal_notice=reject_text,
-            refusal_answer={"kind": "alert", "alert_type": "warning", "text": reject_text},
-        ):
-            yield event
-        return
-    elif plan.window.end - timedelta(days=1) > waterline.data_date:
-        # 窗口后半段未出数——改绑最近可用日＋标注（照 E2「落后 N 天 · 超期」语义）。
-        plan = d.clamp_plan_window(plan, d.TimeWindow(
-            start=plan.window.start, end=waterline.data_date + timedelta(days=1),
-            label=plan.window.label, is_default=plan.window.is_default,
-        ))
-        yield d.node_frame(
-            "N7.4a", state=d.NODE_FINISH,
-            note=d.FRESHNESS_CLAMP_NOTE_TEMPLATE.format(
-                data_date=waterline.data_date.isoformat(), tag=waterline.tag,
-            ),
-        )
+        yield d.node_skip("N7.4a", d.FRESHNESS_GATE_OFF_NOTE)
+        # 闸关＝闸判定零消费水位读缝；血缘④「数据截至批次」真值注记在出数前
+        # 补读（血缘段——挂起/拦停路径到此为止，保持零读取）。
+        waterline = None
     else:
-        yield d.node_frame(
-            "N7.4a", state=d.NODE_FINISH,
-            note=f"比对通过：数据水位 {waterline.data_date.isoformat()} 覆盖查询窗"
-                 f"（承诺 {waterline.promise} · {waterline.tag}）",
-        )
+        yield d.node_frame("N7.4a", state=d.NODE_PROCESS, tag="出数前比对批次水位")
+        waterline = await deps.waterline_loader() if deps.waterline_loader is not None else None
+        if waterline is None:
+            yield d.node_frame("N7.4a", state=d.NODE_FINISH, note=d.FRESHNESS_UNKNOWN_NOTE)
+        elif plan.window.start > waterline.data_date:
+            # 查询窗整体在水位之后——无已出数数据：闸拦停（不返回空数冒充）；
+            # 接续检索问答链（W-AUX③——不再以拒答收场，消二选一漏答）。
+            tag = waterline.tag
+            yield d.node_frame(
+                "N7.4a", state=d.NODE_FINISH,
+                note=f"比对：查询窗「{plan.window.label}」整体晚于数据水位 "
+                     f"{waterline.data_date.isoformat()}（{tag}）——拦停，不出空数"
+                     "——接续检索问答链（报告库检索结果作辅助）",
+            )
+            yield d.node_frame(
+                "N7.4", state=d.NODE_FINISH,
+                note="新鲜度闸拦停——问数不出数，接续检索问答链（报告库辅助，非权威数值）",
+            )
+            reject_text = d.FRESHNESS_REJECT_TEMPLATE.format(
+                data_date=waterline.data_date.isoformat(), tag=tag, label=plan.window.label,
+            )
+            async for event in _continue_with_retrieval(
+                deps, ctx,
+                refusal_notice=reject_text,
+                refusal_answer={"kind": "alert", "alert_type": "warning", "text": reject_text},
+            ):
+                yield event
+            return
+        elif plan.window.end - timedelta(days=1) > waterline.data_date:
+            # 窗口后半段未出数——改绑最近可用日＋标注（照 E2「落后 N 天 · 超期」语义）。
+            plan = d.clamp_plan_window(plan, d.TimeWindow(
+                start=plan.window.start, end=waterline.data_date + timedelta(days=1),
+                label=plan.window.label, is_default=plan.window.is_default,
+            ))
+            yield d.node_frame(
+                "N7.4a", state=d.NODE_FINISH,
+                note=d.FRESHNESS_CLAMP_NOTE_TEMPLATE.format(
+                    data_date=waterline.data_date.isoformat(), tag=waterline.tag,
+                ),
+            )
+        else:
+            yield d.node_frame(
+                "N7.4a", state=d.NODE_FINISH,
+                note=f"比对通过：数据水位 {waterline.data_date.isoformat()} 覆盖查询窗"
+                     f"（承诺 {waterline.promise} · {waterline.tag}）",
+            )
 
     # N7.4b 行级权限闸（预埋恒真形状——物理注入在执行缝两步走，M-01/M-02 同款）
     yield d.node_frame("N7.4b", state=d.NODE_PROCESS, tag="权限层自动改写")
@@ -1578,6 +1597,10 @@ async def query_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.S
     )
 
     # —— 血缘卡五要素（F13——合同值逐行）＋数据证据出处＋答案表卡 ——
+    # DE-16：闸关态走到出数（本段只在执行缝放行后可达）才补读水位——血缘④
+    # 「数据截至批次」照真值注记；拦停/挂起路径不达此处＝水位读缝零消费。
+    if not deps.freshness_gate_enabled and deps.waterline_loader is not None:
+        waterline = await deps.waterline_loader()
     caliber_line = d.lineage_caliber_line(
         plan, def_text=def_text, clarified_caliber=ctx.clarified_caliber,
     )

@@ -75,6 +75,10 @@ services:
     # 页改档后重启不丢；值非法后端拒绝启动（不静默回落）。合法值 fast/llm/compound。
     environment:
       RERANK_TIER: llm
+      # DE-16 新鲜度闸开关（样例只入仓——云上暂不部署，Owner 2026-10-07「云上的先不管」；
+      # 下次部署如需关闭 N7.4a 新鲜度闸再取消注释）。取值 true/false，非法值拒绝启动；
+      # false＝跳过新鲜度比对（不拦停不改绑——N7.4b 行级权限、N7.4c 外表审批零触碰）。
+      # FRESHNESS_GATE_ENABLED: "false"
     restart: unless-stopped
     # 双网络：平台内网（postgres/neo4j/minio）＋ fieldforge 网（nginx 反代可达）
     networks:
@@ -105,6 +109,9 @@ services:
       # DE-10：与 backend 同值注入（播种语义同上——env 仅播种，DB 行恒胜）；
       # worker 侧消费随数据面票，本行只保证两进程环境一致。
       RERANK_TIER: llm
+      # DE-16：与 backend 同款注释样例（云上暂不部署——语义见 backend 段注释；
+      # worker 是否消费该变量属数据面仓裁决，本行只保证两进程环境一致）。
+      # FRESHNESS_GATE_ENABLED: "false"
     volumes:
       - deploy_ff-data:/data:ro
     restart: unless-stopped

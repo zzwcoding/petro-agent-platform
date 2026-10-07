@@ -1328,6 +1328,13 @@ FRESHNESS_CLAMP_NOTE_TEMPLATE = (
     "比对：数据水位 {data_date} 早于查询窗上沿——已按最近可用日改绑出数"
     "（数据截至 {data_date}，{tag}；其后日期未出数，不冒充新数据）"
 )
+# DE-16 新鲜度闸配置开关（false 态跳过帧的 additive 注记——照 chunk_check additive
+# 先例：帧内文字，不改帧枚举；键名＝database.yaml chat 段 freshness_gate_enabled，
+# env 覆盖 FRESHNESS_GATE_ENABLED——infra.config ChatSettings 单源装载）。
+FRESHNESS_GATE_OFF_NOTE = (
+    "新鲜度闸已按配置关闭（freshness_gate_enabled=false）——跳过新鲜度比对，"
+    "不拦停不改绑（N7.4b 行级权限、N7.4c 外表审批照走，零触碰）"
+)
 
 # 问数链降级接续（W-AUX③——主路出不了数自动接续检索问答链，消二选一漏答）：
 # 答案帧正文前置标注（票面规定原文——如实声明非权威数值）与接续提示行单源。
