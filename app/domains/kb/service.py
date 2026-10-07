@@ -454,23 +454,18 @@ class KbService:
     ) -> None:
         """G-02 支路进度回写（组合根注入 derivatives——B9 反向缝：kb 不 import 对方）。
 
-        会话内读改写（退出即提交）——首版实现曾用 store 取行原地改、无会话提交，
-        改动静默丢失（Q3 复测轮实证 branches 空——已修）。
+        DE-15 键级合并：写面经 TaskStore.merge_branch_status 单条 UPDATE 服务端
+        读改写，只覆盖本支路键、他支路键（含 DE-06 chunk_check）原样保留——
+        wiki done ∥ graph 逐 chunk 进度写交错不再互盖丢键（挂账清单 §E2）。
+        entry 形状单点维护（detail 截断 200 只在此一处——审查 R1-15①随本票
+        消化）。任务行不存在＝静默跳过（回写失败不阻塞支路，原行为保持）。
         """
-        from app.domains.kb.store import IngestTaskRow
-
-        async with self._db.session() as session:
-            row = await session.get(IngestTaskRow, task_id)
-            if row is None:
-                return
-            payload = dict(row.branch_status or {})
-            entry: dict[str, Any] = {"state": state}
-            if detail:
-                entry["detail"] = detail[:200]
-            if extra:
-                entry.update(extra)
-            payload[branch] = entry
-            row.branch_status = payload
+        entry: dict[str, Any] = {"state": state}
+        if detail:
+            entry["detail"] = detail[:200]
+        if extra:
+            entry.update(extra)
+        await self._tasks.merge_branch_status(task_id, {branch: entry})
 
     def _build_nodes(self) -> list[d.TaskNode]:
         return [d.TaskNode(key=key, label=d.STEP_LABELS[key]) for key in d.STEP_KEYS]
@@ -1624,27 +1619,17 @@ class KbService:
                 LOGGER.warning("切块自检 %d 条违规（dump=%s）：%s", len(issues), dump, issues[:3])
                 # DE-06（挂账清单 §E8）：告警面进任务卡——违规计数＋证据路径写入
                 # branches（G-02 通道 additive，键 chunk_check）；零违规不写键，
-                # 既有 wiki/graph 键序零触碰。两段写：set_branch_status 即时落库
-                # ＋本地行镜像——管线后续 save/finish 是分离行整行 merge，不镜像
-                # 会被装载时的旧 branch_status 覆盖抹键（G-02 wiki/graph 支路在
-                # IngestCompleted 之后才写、无此象，故 G-02 未遇）。
-                entry: dict[str, Any] = {
-                    "state": "warn",
-                    "detail": f"切块自检 {len(issues)} 条违规",
-                    "violations": len(issues),
-                    "evidence": dump,
-                }
+                # 既有 wiki/graph 键序零触碰。DE-15 键级合并：set_branch_status
+                # 单条 UPDATE 只覆盖 chunk_check 键；管线后续 save/finish 不携
+                # branch_status 列（列归属键级写口），DE-06 两段写＋本地镜像退役
+                # （审查 R1-15①消化——entry 形状单点在 set_branch_status）。
                 await self.set_branch_status(
                     row.id,
                     "chunk_check",
                     "warn",
-                    detail=entry["detail"],
+                    detail=f"切块自检 {len(issues)} 条违规",
                     extra={"violations": len(issues), "evidence": dump},
                 )
-                row.branch_status = {
-                    **dict(getattr(row, "branch_status", None) or {}),
-                    "chunk_check": entry,
-                }
             await self._persist_chunks(row.report_id, pieces)
             return text
         if key == "embed":
