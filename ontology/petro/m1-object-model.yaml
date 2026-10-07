@@ -372,3 +372,26 @@ aggregate_associations:
     sourceRole: 井
     targetRole: 设备
     cardinality: ONE_TO_MANY
+  # [增补·B3 下入/坐封终点放宽（Owner 2026-10-07 裁决，B3-01 同票同批）] 语料
+  #   「压力计—下入→井」类边语义通顺（压力计算设备——传感器类；电潜泵算执行器，
+  #   均属设备 AGG-PETRO-007），而 010/012 合法终点仅井筒——写入类型闸加严为
+  #   三元组严格匹配后该类边会被误杀，故终点集放宽与闸加严必须同批落地。
+  #   承载形态：schema.md:109 AggregateAssociation 单一 targetAggregate 无多
+  #   终点表达位，合法形状＝增补双 ASSOC（照 010/012 同款字段；双 ASSOC 为
+  #   B 系裁决素材已定合法形状）。传感器/执行器子类划分仅作治理注记，不建模。
+  #   下入终点放宽：设备下入井——「压力计下入 W-11 井」（终点集＝井筒＋井）
+  - id: ASSOC-PETRO-015
+    sourceAggregate: AGG-PETRO-007
+    targetAggregate: AGG-PETRO-001
+    associationType: REFERENCE
+    sourceRole: 设备
+    targetRole: 井
+    cardinality: MANY_TO_ONE
+  #   坐封终点放宽：封隔器类坐封锚定井（同上双 ASSOC 形状，终点集＝井筒＋井）
+  - id: ASSOC-PETRO-016
+    sourceAggregate: AGG-PETRO-007
+    targetAggregate: AGG-PETRO-001
+    associationType: REFERENCE
+    sourceRole: 设备
+    targetRole: 井
+    cardinality: MANY_TO_ONE

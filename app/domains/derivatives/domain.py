@@ -32,6 +32,8 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Mapping
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, field
 from dataclasses import replace as _replace
 from difflib import SequenceMatcher
@@ -815,18 +817,80 @@ def _normalize_entity(name: str) -> str:
     return text
 
 
+# ---------- 三元组合法集（B3-01——真源唯一＝本体导出物，闸内零发明） ----------
+
+
+def build_legal_triples(
+    entity_rows: list[dict[str, Any]],
+    relation_rows: list[dict[str, Any]],
+) -> dict[str, frozenset[tuple[str, str]]]:
+    """本体导出物两册 → 关系标签 × 合法 (from_type, to_type) 名对集合。
+
+    AGG id ↔ 实体类型名映射口径（B3-01 票内定案）：entity_types.json 行的
+    ref 字段（＝M1 聚合 id，如 AGG-PETRO-007）↔ name 字段（＝抽取类型词表
+    名——§5 短名，如 设备；非 ontology_name 聚合全名）；relation_types.json
+    行的 endpoint_groups／from_type/to_type 承载 AGG id，经此映射换算为类型
+    名对。映射缺失＝两册导出物漂移（部署错误）——显式报错禁静默
+    （load_ontology_export 同款纪律）。
+    """
+    name_of: dict[str, str] = {}
+    for row in entity_rows:
+        ref, name = str(row.get("ref", "")), str(row.get("name", ""))
+        if not ref or not name:
+            raise ValueError(f"entity_types 导出物行缺 ref/name：{row}")
+        name_of[ref] = name
+    legal: dict[str, set[tuple[str, str]]] = {}
+    for row in relation_rows:
+        rel = str(row.get("name", ""))
+        groups = row.get("endpoint_groups")
+        if not groups:
+            f, t = row.get("from_type"), row.get("to_type")
+            groups = [{"from_type": f, "to_type": t}] if f and t else []
+        if not rel or not groups:
+            raise ValueError(f"relation_types 导出物行缺 name/终点组：{row}")
+        pairs = legal.setdefault(rel, set())
+        for group in groups:
+            f, t = str(group.get("from_type", "")), str(group.get("to_type", ""))
+            if f not in name_of or t not in name_of:
+                raise ValueError(
+                    f"关系「{rel}」终点 AGG id 无法映射到实体类型名：{f}/{t}"
+                    "——entity_types.json 与 relation_types.json 漂移"
+                )
+            pairs.add((name_of[f], name_of[t]))
+    return {rel: frozenset(pairs) for rel, pairs in legal.items()}
+
+
+def ontology_legal_triples() -> dict[str, frozenset[tuple[str, str]]]:
+    """从本体导出物装载三元组合法集（gate_triples 缺省真源——闸内零发明）。
+
+    读 config/entity_types.json＋relation_types.json（P1-01 派生物，进 git；
+    文件缺失/损坏显式报错）。现读不缓存——导出物重导出后即生效，零进程内
+    陈旧态（每 chunk 两次小 JSON 读，相对 LLM 调用成本可忽略）。
+    """
+    from app.infra.config import load_ontology_export
+
+    return build_legal_triples(
+        load_ontology_export("entity_types"),
+        load_ontology_export("relation_types"),
+    )
+
+
 def gate_triples(
     candidates: list[TripleCandidate],
     config: ExtractConfig,
     *,
+    legal_triples: Mapping[str, AbstractSet[tuple[str, str]]] | None = None,
     chunk_text: str,
     chunk_id: str,
     report_id: str,
 ) -> tuple[list[GatedEdge], list[BlockedEdgeDraft]]:
     """三道闸（铁律合同常量——顺序照铁律分解：类型闸→依据闸→弃权闸）。
 
-    - 类型闸：from/to 类型不在 entity_types 或 rel 不在启用 relation_tags
-      → type_mismatch（不自创类型/标签）；
+    - 类型闸（B3-01 起三元组严格匹配）：from/to 类型不在 entity_types、rel
+      不在启用 relation_tags、或 (from_type, rel, to_type) 未命中该 rel 在
+      本体导出物声明的终点组 → type_mismatch（不自创类型/标签，不自配对配；
+      合法集真源唯一＝relation_types.json 声明终点组经 entity_types.json
+      映射换算——legal_triples 缺省时闸内现读本导出物装载，零发明）；
     - 依据闸：evidence 空或归一后不在 chunk 原文 → no_evidence
       （原文里没有依据的关系不立边——evidence 必须是 chunk 原句逐字摘录）；
     - 弃权闸：LLM 自报 uncertain → uncertain（拿不准宁可跳过，不胡编）；
@@ -834,6 +898,11 @@ def gate_triples(
     """
     entity_set = set(config.entity_types)
     rel_set = {t.rel for t in config.relation_tags}
+    legal = (
+        ontology_legal_triples()
+        if legal_triples is None
+        else {rel: frozenset(pairs) for rel, pairs in legal_triples.items()}
+    )
     chunk_norm = _squash(chunk_text)
     passed: list[GatedEdge] = []
     blocked: list[BlockedEdgeDraft] = []
@@ -854,7 +923,12 @@ def gate_triples(
         # G-03 实体名归一（确定性第一刀）：空格/全半角/「X 井」变体落点合并——
         # 语义级消歧（全称 vs 简称）归治理批，此处只做无损规整。
         c = _replace(c, from_=_normalize_entity(c.from_), to=_normalize_entity(c.to))
-        if c.from_type not in entity_set or c.to_type not in entity_set or c.rel not in rel_set:
+        if (
+            c.from_type not in entity_set
+            or c.to_type not in entity_set
+            or c.rel not in rel_set
+            or (c.from_type, c.to_type) not in legal.get(c.rel, frozenset())
+        ):
             _reject(c, REASON_TYPE_MISMATCH)
         elif not c.evidence or _squash(c.evidence) not in chunk_norm:
             _reject(c, REASON_NO_EVIDENCE)

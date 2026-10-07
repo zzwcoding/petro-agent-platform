@@ -62,17 +62,46 @@ def test_b5_demo_config_types_all_matched() -> None:
     assert "取样自" in relation_names
 
 
-def test_from_to_constraints_match_m1_assoc_endpoints() -> None:
-    """from/to 类型约束与 M1 ASSOC 两端核对（direct/reversed 双口径）。"""
+def test_endpoint_groups_match_m1_assoc_endpoints() -> None:
+    """终点组与 M1 ASSOC 两端核对（direct/reversed 双口径；B3-01 双 ASSOC 组）。
+
+    每个导出行的全量终点组（endpoint_groups）与其 ASSOC 锚两端集合一致；
+    from_type/to_type＝首组（既有消费面兼容）。
+    """
     ontology = load_ontology_models()
     payload = exporter.build_relation_types(ontology)
     for entry in payload["relation_types"]:
         if entry["id"] == 3:
             continue  # 受效边经受效关系实体展开——无单一 ASSOC 直配
-        assoc = next(
-            a
+        assoc_ends = {
+            frozenset((str(a["sourceAggregate"]), str(a["targetAggregate"])))
             for a in ontology.models["m1"]["aggregate_associations"]
             if str(a["id"]) in entry["refs"]
+        }
+        group_ends = {
+            frozenset((g["from_type"], g["to_type"]))
+            for g in entry["endpoint_groups"]
+        }
+        assert assoc_ends == group_ends, f"关系 {entry['id']} 终点组与 ASSOC 两端不一致"
+        first = entry["endpoint_groups"][0]
+        assert (entry["from_type"], entry["to_type"]) == (
+            first["from_type"], first["to_type"]
         )
-        head, tail = str(assoc["sourceAggregate"]), str(assoc["targetAggregate"])
-        assert {head, tail} == {entry["from_type"], entry["to_type"]}
+
+
+def test_run_in_and_packer_declared_dual_endpoints() -> None:
+    """B3-01：下入/坐封双终点组在案（井筒＋井——Owner 2026-10-07 裁决）。
+
+    双 ASSOC 形状（schema 单一 targetAggregate 无多终点承载位——B3-01 票面）；
+    本测读 committed 产物，与 test_exported_json_matches_committed_products
+    共同锁「重导出幂等＋双终点在案」。
+    """
+    payload = json.loads(
+        (REPO_ROOT / "config" / "relation_types.json").read_text("utf-8")
+    )
+    rows = {r["name"]: r for r in payload["relation_types"]}
+    for rel in ("下入", "坐封"):
+        groups = [(g["from_type"], g["to_type"]) for g in rows[rel]["endpoint_groups"]]
+        assert ("AGG-PETRO-007", "AGG-PETRO-011") in groups  # 设备→井筒（既有）
+        assert ("AGG-PETRO-007", "AGG-PETRO-001") in groups  # 设备→井（B3 增补）
+        assert len(rows[rel]["refs"]) == 2  # 双 ASSOC（ASSOC-PETRO-010/015、012/016）

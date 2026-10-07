@@ -26,18 +26,19 @@ async def _sync(value: bool) -> bool:
     return value
 
 
-# graph.extract 桩应答：三道闸各一票——过闸（evidence＝切片原句逐字摘录）、
-# 类型闸拦下（rel「管辖着」不在清单）、依据闸拦下（evidence 非原文）、
-# 弃权闸自报（uncertain）。
+# graph.extract 桩应答：三道闸各一票（三元组全取本体声明内形状——B3-01 类型
+# 闸已严格匹配，对配真源＝本体导出物）——过闸（平台—承载→井＝ASSOC-PETRO-009
+# 声明组，evidence＝切片原句逐字摘录）、类型闸拦下（rel「管辖着」不在清单）、
+# 依据闸拦下（区块—隶属→油田声明组但 evidence 非原文）、弃权闸自报（uncertain）。
 DEMO_SENTENCE = "位于渤南区块 CEP-A 平台"
 GRAPH_EXTRACT_ANSWER = (
-    '[{"from":"N-02","from_type":"井","rel":"隶属","to":"渤南","to_type":"区块",'
+    '[{"from":"CEP-A","from_type":"平台","rel":"承载","to":"N-02","to_type":"井",'
     f'"evidence":"{DEMO_SENTENCE}","note":null,"uncertain":false}},'
     '{"from":"N-02","from_type":"井","rel":"管辖着","to":"N-02","to_type":"井",'
     '"evidence":"x","uncertain":false},'
-    '{"from":"N-02","from_type":"井","rel":"隶属","to":"渤中","to_type":"区块",'
+    '{"from":"渤南","from_type":"区块","rel":"隶属","to":"渤中34-5油田","to_type":"油田",'
     '"evidence":"这句话不在切片原文里","uncertain":false},'
-    '{"from":"N-06","from_type":"井","rel":"承载","to":"CEP-A","to_type":"平台",'
+    '{"from":"CEP-A","from_type":"平台","rel":"承载","to":"N-06","to_type":"井",'
     f'"evidence":"{DEMO_SENTENCE}","uncertain":true}}]'
 ).replace("}}", "}")
 
@@ -307,7 +308,10 @@ class TestGraphNet:
         assert net.stats == {"nodes": 0, "edges": 0}
 
     async def test_net_shape_with_data(self, env: Env) -> None:
-        kb, derivatives, g, _c = env
+        kb, derivatives, g, completer = env
+        # 本测只测整图读形状（手植数据）——图谱支路空转（桩应答空数组），
+        # 防抽取写入混入 stats 断言（B3-01 桩数据改为声明内形状后不再同键巧合）。
+        completer.answers["graph.extract"] = "[]"
         lib_id, _r, _t = await make_report(kb, _kb_storage(kb))
         await g.upsert_node(lib_id, node_id="N-02", label="N-02", node_type="井",
                             short="N-02", sub="井")
@@ -349,10 +353,10 @@ class TestExtractionPipeline:
         )
         assert len(g.edges) == 1, "只有过闸边入图（铁律消费面）"
         (edge,) = g.edges.values()
-        assert edge["key"] == "N-02|隶属|渤南"
+        assert edge["key"] == "CEP-A|承载|N-02"
         assert edge["evidence"] == DEMO_SENTENCE
         assert edge["chunk_id"] and edge["report_id"]
-        assert {n["id"] for n in g.nodes.values()} == {"N-02", "渤南"}
+        assert {n["id"] for n in g.nodes.values()} == {"CEP-A", "N-02"}
         # 三道闸拦下三票：类型闸（取样自）/依据闸（非原文）/弃权闸（uncertain）
         reasons = {b["reason_code"] for b in g.blocked.values()}
         assert reasons == {"type_mismatch", "no_evidence", "uncertain"}
