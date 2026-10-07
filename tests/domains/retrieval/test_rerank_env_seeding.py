@@ -9,23 +9,31 @@
 - env 值非法 → RerankTierEnvError 拒绝启动（main lifespan 不捕获＝应用起不来，
   禁静默回落——M-01 反静默降级病灶同口径）。
 
-sqlite 底座（tests/domains/retrieval/conftest.py——内存形态存储，不打真库）；
-播种点＝main.py lifespan 装配缝（app.state.retrieval 装配后调
-seed_rerank_tier_from_env，本文件测域层三态判定单点，装配接线由该单点保证）。
+测试两层（FX-08 起）：域层三态判定单点（sqlite 底座，
+tests/domains/retrieval/conftest.py——文件形态存储，不打真库）＋lifespan
+接线级（TestLifespanWiring——monkeypatch.setenv＋with TestClient(app) 真穿
+app/main.py 播种段；域层单点只保证语义，保证不了接线存在性——审查
+R2-02 裁决）。
 """
 
+import logging
 from typing import Any
 
 import pytest
+from fastapi.testclient import TestClient
 
+import app.main as app_main
 from app.domains.retrieval import (
+    RERANK_TIERS,
     RerankTierEnvError,
+    RetrievalService,
     default_config_dict,
     parse_rerank_tier,
     rerank_seed_config_dict,
 )
 from app.domains.retrieval.domain import RERANK_TIER_ENV
-from app.infra.db import ConnectionManager
+from app.infra.db import ConnectionManager, DatabaseSpec
+from app.main import app
 from tests.domains.retrieval.conftest import version_rows
 
 
@@ -111,12 +119,102 @@ class TestInvalidEnvRejected:
             parse_rerank_tier("ultra")
 
     async def test_all_contract_tiers_pass(self, service: Any) -> None:
-        """合法域＝合同枚举 RERANK_TIERS 同源（compound 属 DB 域内合法档）。"""
-        for tier in ("fast", "llm", "compound"):
+        """合法域＝合同枚举 RERANK_TIERS 同源（遍历常量——扩档即自动覆盖，
+        R2-06：不硬编码三档；compound 属 DB 域内合法档）。"""
+        for tier in RERANK_TIERS:
             assert parse_rerank_tier(tier) == tier
-        assert rerank_seed_config_dict("compound")["rerank"] == "compound"
+            assert rerank_seed_config_dict(tier)["rerank"] == tier
 
 
 def test_env_var_name_constant() -> None:
     """变量名单源（main 装配缝与 compose 注入同名——防止两处漂移）。"""
     assert RERANK_TIER_ENV == "RERANK_TIER"
+
+
+class TestLifespanWiring:
+    """lifespan 接线级测试（FX-08——R2-02 修复）：真穿 app/main.py 播种段。
+
+    票内替身定案（边界红线：生产代码零改动）：播种点在 main.lifespan 偏后段
+    （verify_midplatform_route＋十二个 ensure_*_tables＋seed_demo_if_empty 之后
+    ——顺序不许为测试改）。依赖链处理＝其余全照生产代码跑（sqlite 底座：各
+    ensure_* 建表方言守卫齐备、列类型带 sqlite 变体、服务/存储/图/LLM 构造均
+    懒建连），只替两处真外部依赖：
+    ①app.main.load_database_specs → tmp_path sqlite 规格（config/database.yaml
+      真文件指向 localhost PG，测试环境无 PG）；
+    ②ConnectionManager.verify_midplatform_route → no-op——sqlite 上写探针
+      （CREATE TEMP TABLE）必然成功＝「未被拒」恒拒启动，该中台只读校验对
+      sqlite 底座无真实语义，替身是该例可替身性的定案（播种段在其后）。
+    断言读库走独立 ConnectionManager 重开同一 sqlite 文件（TestClient 的
+    lifespan 在自持事件循环里装配并 dispose，跨循环不复用其引擎）。
+    """
+
+    @staticmethod
+    def _sqlite_specs(tmp_path: Any) -> list[DatabaseSpec]:
+        return [
+            DatabaseSpec(
+                name="primary",
+                role="primary",
+                driver="sqlite",
+                host="",
+                port=0,
+                database=str(tmp_path / "lifespan.db"),
+                user="",
+                password="",
+                pool_size=2,
+                max_overflow=1,
+            )
+        ]
+
+    @pytest.fixture
+    def lifespan_sqlite(self, monkeypatch: Any, tmp_path: Any) -> None:
+        async def _skip_probe(_self: ConnectionManager) -> None:
+            return None
+
+        monkeypatch.setattr(
+            app_main, "load_database_specs", lambda: self._sqlite_specs(tmp_path)
+        )
+        monkeypatch.setattr(ConnectionManager, "verify_midplatform_route", _skip_probe)
+
+    async def _version_rows_after_startup(self, tmp_path: Any) -> list[Any]:
+        fresh = ConnectionManager(self._sqlite_specs(tmp_path))
+        try:
+            return await version_rows(fresh)
+        finally:
+            await fresh.dispose()
+
+    async def test_invalid_env_rejects_startup(
+        self, lifespan_sqlite: None, monkeypatch: Any
+    ) -> None:
+        """非法值 → 进入 with（触发 lifespan）即抛 RerankTierEnvError——拒绝启动。"""
+        monkeypatch.setenv(RERANK_TIER_ENV, "turbo")
+        with pytest.raises(RerankTierEnvError, match="turbo"):
+            with TestClient(app):
+                pass  # 启动即抛错，永不到达
+        # 拒启动路径 lifespan 中断在 manager.dispose() 之前（播种段后无清理）——
+        # app.state.db 在播种点之前已装配，这里显式收口池中 sqlite 连接
+        # （aiosqlite 工作线程），防未处理线程异常泄漏到后续用例。
+        await app.state.db.dispose()
+
+    async def test_legal_env_seeds_row_at_startup(
+        self, lifespan_sqlite: None, monkeypatch: Any, tmp_path: Any
+    ) -> None:
+        """合法值 → 启动完成（进入 yield）且种子行落位（v1/via=None——与首读
+        种子同构，行格式零变化）。"""
+        monkeypatch.setenv(RERANK_TIER_ENV, "llm")
+        with TestClient(app):
+            assert isinstance(app.state.retrieval, RetrievalService)  # 装配完成
+        rows = await self._version_rows_after_startup(tmp_path)
+        assert [r.version_no for r in rows] == ["v1"]  # 播种非变更版本推进
+        assert rows[0].config["rerank"] == "llm"
+        assert rows[0].via is None  # 种子非变更产生
+
+    async def test_no_env_startup_zero_change(
+        self, lifespan_sqlite: None, monkeypatch: Any, caplog: Any, tmp_path: Any
+    ) -> None:
+        """无 env → 现状零变化：启动无播种日志、版本轴零写入（首读才种子）。"""
+        monkeypatch.delenv(RERANK_TIER_ENV, raising=False)
+        with caplog.at_level(logging.INFO, logger="main"):
+            with TestClient(app):
+                pass
+        assert [r for r in caplog.records if "RERANK_TIER" in r.getMessage()] == []
+        assert await self._version_rows_after_startup(tmp_path) == []
