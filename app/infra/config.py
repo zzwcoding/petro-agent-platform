@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.infra.db import DatabaseSpec
@@ -313,6 +313,60 @@ def load_database_specs(path: Path | None = None) -> list[DatabaseSpec]:
         if entry:
             raise ValueError(f"database.yaml 角色 {role_key!r} 存在未消费字段: {sorted(entry)}")
     return specs
+
+
+# ---------- chat 域运行开关（database.yaml `chat:` 段——DE-16 新鲜度闸开关） ----------
+
+
+class ChatSettings(BaseModel):
+    """config/database.yaml `chat:` 段——chat 域运行开关面（DE-16）。
+
+    freshness_gate_enabled：N7.4a 新鲜度闸开关——缺省 true＝现状（超窗拦停接续/
+    落后改绑照 E2 T-1 语义）；false＝跳过新鲜度闸（不读水位、不拦停不改绑；
+    N7.4b 行级权限、N7.4c 外表审批零触碰）。env 覆盖走既有 ${VAR:-默认} 占位符
+    机制（键名 FRESHNESS_GATE_ENABLED——deploy/cloud/compose.yml 注释样例，
+    云上暂不部署）。段缺省（旧部署形态）＝全默认，现状零变化。
+    """
+
+    freshness_gate_enabled: bool = True
+
+    @field_validator("freshness_gate_enabled", mode="before")
+    @classmethod
+    def _strict_bool(cls, value: Any) -> Any:
+        """仅认 true/false 两字面量（bool 或大小写不敏感串）——其余拒收。
+
+        pydantic 宽容形（yes/on/1/0/off）一并拒绝：开关语义只许显式二值，
+        非法值装载即抛（调用方不捕获＝拒绝启动，禁静默回落——M-01 同口径）。
+        """
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str) and value.strip().lower() in ("true", "false"):
+            return value.strip().lower() == "true"
+        raise ValueError(
+            f"freshness_gate_enabled 仅认 true/false，收到 {value!r}（禁静默回落）"
+        )
+
+
+_chat_settings_cache: ChatSettings | None = None
+
+
+def load_chat_settings(path: Path | None = None) -> ChatSettings:
+    """装载 config/database.yaml `chat:` 段（占位符解析后 pydantic 校验）。
+
+    与 load_database_specs 同源同文件——${VAR:-默认} 经环境变量或 .env 解析；
+    段缺省＝ChatSettings()（缺省 true＝现状）。每次调用即重读文件。
+    """
+    target = path or DATABASE_YAML
+    raw = resolve_placeholders(yaml.safe_load(target.read_text(encoding="utf-8")))
+    return ChatSettings.model_validate((raw or {}).get("chat") or {})
+
+
+def get_chat_settings() -> ChatSettings:
+    """带缓存的读取面（首次懒装载）——chat 域组合缝例行取数走这里。"""
+    global _chat_settings_cache
+    if _chat_settings_cache is None:
+        _chat_settings_cache = load_chat_settings()
+    return _chat_settings_cache
 
 
 # ---------- 本体派生词表（P1-01 导出物——kb 入库路由话题分析辅助消费） ----------

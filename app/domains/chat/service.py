@@ -59,6 +59,7 @@ from app.domains.chat import domain as d
 from app.domains.chat.store import ChatRunRow, ChatStore
 from app.domains.security.domain import ROLE_REGISTRY, AuditRow
 from app.infra.clock import now
+from app.infra.config import get_chat_settings
 
 LOGGER = logging.getLogger("domains.chat")
 
@@ -160,6 +161,7 @@ class ChatService:
         report_lister: d.ReportLister | None = None,
         query_executor: d.QueryExecutor | None = None,
         waterline_loader: d.WaterlineLoader | None = None,
+        freshness_gate_enabled: bool | None = None,
     ) -> None:
         self._db = db
         self._audit = audit
@@ -179,6 +181,11 @@ class ChatService:
         self._store = ChatStore(db)
         self._dispatcher = d.ChainDispatcher()
         self._suggestions = d.SuggestionPool()
+        # DE-16 新鲜度闸开关装配缝：显式注入优先（测试/覆盖口）；缺省读
+        # config/database.yaml chat 段（infra.config——${VAR:-默认} 机制，
+        # env FRESHNESS_GATE_ENABLED 覆盖；缺省 true＝现状）。
+        if freshness_gate_enabled is None:
+            freshness_gate_enabled = get_chat_settings().freshness_gate_enabled
         self._deps = chains_mod.ChainDeps(
             config_loader=config_loader,
             metrics_loader=metrics_loader,
@@ -191,6 +198,7 @@ class ChatService:
             completer=completer,
             query_executor=query_executor,
             waterline_loader=waterline_loader,
+            freshness_gate_enabled=freshness_gate_enabled,
         )
         # 四链填肉（P1-08b 三链＋M-06 问数链——分派缝注册面；链体只见 ChainDeps 注入缝）。
         self._dispatcher.register("状态机六站链", partial(chains_mod.query_chain, self._deps))

@@ -35,3 +35,12 @@ database:
     pool_recycle_seconds: 1800
     slow_query_ms: 800          # 慢查询阈值 ms（工程日志，非业务审计——99 §4.1）
     readonly: true              # 强制只读：意图级 flush 守卫＋postgresql_readonly＋账号级 SELECT-only（DP-03 默认拒绝，新源表需显式补授）
+
+# chat 域运行开关（DE-16——与 database 段同文件同装载机制：infra.config
+# load_chat_settings 装载，${VAR:-默认} 经环境变量或 .env 解析；段缺省＝全默认）。
+chat:
+  # N7.4a 新鲜度闸开关：true＝现状（超窗拦停接续/落后改绑照 E2 T-1 语义）；
+  # false＝跳过新鲜度闸（不读水位、不拦停不改绑——N7.4b 行级权限、N7.4c 外表
+  # 审批零触碰）。非法值拒绝启动（不静默回落）。
+  # 云上暂不部署 false（Owner 2026-10-07「云上的先不管」——compose 样例只入仓）。
+  freshness_gate_enabled: ${FRESHNESS_GATE_ENABLED:-true}

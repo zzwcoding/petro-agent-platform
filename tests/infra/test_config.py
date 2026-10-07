@@ -9,7 +9,10 @@ import yaml
 
 from app.infra import config
 from app.infra.config import (
+    ChatSettings,
+    get_chat_settings,
     get_settings,
+    load_chat_settings,
     load_database_specs,
     load_models_config,
     resolve_placeholders,
@@ -283,3 +286,54 @@ def test_upsert_gateway_params_write_failure_keeps_old_file(
         upsert_gateway_params(_FULL_PARAMS, path)
     assert path.read_text(encoding="utf-8") == before  # 旧全文未被动过（无半截态）
     assert [p.name for p in tmp_path.iterdir()] == ["models.yaml"]  # 临时文件已清理
+
+
+# ---------- chat 域运行开关（database.yaml `chat:` 段——DE-16 新鲜度闸开关） ----------
+
+
+def test_load_chat_settings_repo_default_true() -> None:
+    """仓内真源：database.yaml chat 段在位——缺省 true＝现状（开关默认开着）。"""
+    assert get_chat_settings() == ChatSettings(freshness_gate_enabled=True)
+
+
+def test_load_chat_settings_missing_section_defaults_true(tmp_path: Path) -> None:
+    """段缺省（旧部署形态 yaml 无 chat 段）＝全默认——true＝现状零变化。"""
+    path = tmp_path / "database.yaml"
+    path.write_text("database:\n  primary: {}\n", encoding="utf-8")
+    assert load_chat_settings(path) == ChatSettings(freshness_gate_enabled=True)
+
+
+def test_load_chat_settings_env_override_false(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """env 覆盖通道照既有 ${VAR:-默认} 机制：FRESHNESS_GATE_ENABLED 在位覆盖、
+    缺位回落默认 true；.env 兜底源在本测隔离（DOTENV 指向不存在路径）。"""
+    path = tmp_path / "database.yaml"
+    path.write_text(
+        "chat:\n"
+        "  freshness_gate_enabled: ${FRESHNESS_GATE_ENABLED:-true}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config, "DOTENV", tmp_path / "no-dotenv-here")
+    monkeypatch.setenv("FRESHNESS_GATE_ENABLED", "false")
+    assert load_chat_settings(path).freshness_gate_enabled is False
+    monkeypatch.delenv("FRESHNESS_GATE_ENABLED")
+    assert load_chat_settings(path).freshness_gate_enabled is True
+
+
+def test_load_chat_settings_rejects_invalid_value(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """非法值拒绝装载（不静默回落——DE-10 RerankTierEnvError 同口径）：
+    仅认 true/false 两字面量，pydantic 宽容形（yes/on/1）一并拒收。"""
+    path = tmp_path / "database.yaml"
+    path.write_text(
+        "chat:\n"
+        "  freshness_gate_enabled: ${FRESHNESS_GATE_ENABLED:-true}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config, "DOTENV", tmp_path / "no-dotenv-here")
+    for bad in ("yeah", "yes", "on", "1", "0", "off"):
+        monkeypatch.setenv("FRESHNESS_GATE_ENABLED", bad)
+        with pytest.raises(ValueError, match="freshness_gate_enabled"):
+            load_chat_settings(path)
