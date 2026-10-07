@@ -485,9 +485,13 @@ class DerivativesService:
     ) -> None:
         """graph 抽取任务族（进程内 asyncio——失败不阻塞入库任务）。
 
-        报告级防重入登记在此统一（E3——入库触发与手动重抽两路共用）：
-        启动即登记（report_id→task_no，task_no 兼作来源标记——"reextract"＝
-        手动重抽、其余＝入库任务号）；支路收尾即解除（asyncio done 语义——
+        报告级防重入登记在此统一（E3——入库触发与手动重抽两路共用）；守卫
+        下沉到本启动器（FX-07——审查R2 R2-01 裁决）：登记在跑→跳过图谱支路
+        不抛错（入库完成事件无 409 通道——reextract 入口的 409 拒绝保持零
+        变化），warning 一条＋branch 载荷 additive 注记留痕（照 chunk_check
+        先例）。启动即登记（report_id→task_no，task_no 兼作来源标记——
+        "reextract"＝手动重抽、其余＝入库任务号）；支路收尾即解除（按
+        task_no 比对再 pop——登记值≠本支路不解除，杜绝提前解除他人登记；
         正常/失败/取消均触发回调，含异常路径清理，防泄漏假阳性）。
         """
         self._graph_tasks = [
@@ -495,6 +499,17 @@ class DerivativesService:
         ]
         if not hasattr(self, "_graph_running"):
             self._graph_running: dict[str, str] = {}
+        running = self._graph_running.get(report_id)
+        if running is not None:
+            # FX-07（R2-01）：同报告图谱支路在跑——跳过本支路（不覆盖登记、
+            # 不双跑）；票据承诺「该报告任何图谱支路在跑，新图谱写入一律拒」
+            # 在 ingest 面的安全形态＝skip＋留痕。
+            LOGGER.warning(
+                "graph 支路跳过——同报告图谱在跑 report=%s 在跑=%s 本次=%s",
+                report_id, running, task_no,
+            )
+            self._note_graph_skipped(task_id, running)
+            return
         self._graph_running[report_id] = task_no
         reporter = self._branch_reporter
 
@@ -523,8 +538,36 @@ class DerivativesService:
         task = asyncio.create_task(_run())
         self._graph_tasks.append(task)
         task.add_done_callback(
-            lambda _t: getattr(self, "_graph_running", {}).pop(report_id, None)
+            lambda _t: self._release_graph_guard(report_id, task_no)
         )
+
+    def _note_graph_skipped(self, task_id: str, running: str) -> None:
+        """跳过注记（FX-07 R2-01——additive 留痕，照 chunk_check 先例）：
+        本任务行 branches.graph 写 state=skipped（G-02 通道 set_branch_status
+        键级写、不触碰既有键）；事件到达时管线已 finish、后续无整行覆盖写
+        （与 G-02 wiki/graph 支路同象——DE-06 两段写问题在此不存在）。"""
+        reporter = self._branch_reporter
+        if reporter is None or not task_id:
+            return
+
+        async def _note() -> None:
+            try:
+                await reporter(
+                    task_id, "graph", "skipped",
+                    detail="图谱支路跳过——同报告图谱在跑",
+                    extra={"running_task_no": running},
+                )
+            except Exception:  # 注记失败不影响事件消费（G-02 非关键面同款）
+                LOGGER.exception("graph 支路跳过注记回写失败 task=%s", task_id)
+
+        self._graph_tasks.append(asyncio.create_task(_note()))
+
+    def _release_graph_guard(self, report_id: str, task_no: str) -> None:
+        """收尾解除（FX-07 R2-01）：登记值＝本支路 task_no 才 pop——登记值
+        已被后续支路改写时不动（杜绝提前解除他人登记）。"""
+        running = getattr(self, "_graph_running", {})
+        if running.get(report_id) == task_no:
+            running.pop(report_id, None)
 
     async def reextract_graph(self, report_id: str, lib_id: str) -> dict[str, Any]:
         """图谱支路重跑（G-06——补 M-06 无重跑端点缺口；报告级防重入）。
