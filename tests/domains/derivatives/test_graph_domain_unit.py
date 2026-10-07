@@ -435,6 +435,104 @@ class TestBuildExtractPrompt:
         assert '"uncertain"' in prompt  # 弃权闸输出协议
 
 
+# ---------- 按族携带（B1-02——report_family 过滤关系标签清单；兜底全量） ----------
+
+
+def _factory_config() -> d.ExtractConfig:
+    """出厂默认配置（真实本体导出物投影——按族携带测试的真数据面）。"""
+    from app.infra.config import load_ontology_export
+
+    return d.default_extract_config(
+        load_ontology_export("entity_types"),
+        load_ontology_export("relation_types"),
+    )
+
+
+class TestReportFamilyPromptCarry:
+    def test_detect_report_family_rules(self) -> None:
+        """标题关键词 → 文档族（规则序优先；无族词返回 None）。"""
+        assert d.detect_report_family("A-W11井完井工程报告") == "completion"
+        assert d.detect_report_family("渤中34-5油田躺井治理与检泵作业月报-202608") == "monthly"
+        assert d.detect_report_family("渤中34-5油田三季度注水调整与生产运行分析") == "dynamic"
+        assert d.detect_report_family("渤中34-8油田一季度注采调整与生产运行分析") == "dynamic"
+        assert d.detect_report_family("年度综合汇报材料") is None
+        assert d.detect_report_family("") is None
+
+    def test_completion_report_carries_completion_and_cross_family(self) -> None:
+        """completion 族报告：completion 组＋跨族三值组在清单，月报/动态专属组不在。
+
+        断言锚＝关系标签清单行前缀「- 标签：」（few-shot/别名表段不含该形态，
+        防 few-shot 例句词面误命中）。
+        """
+        prompt = d.build_extract_prompt(
+            _factory_config(), section="1 基本情况", chunk_text=CHUNK,
+            report_family="completion",
+        )
+        for rel in ("下入", "射孔", "坐封", "取样自"):  # completion 组
+            assert f"- {rel}：" in prompt
+        for rel in ("隶属", "承载", "作用于"):  # 跨族三值组随行（＋跨族组）
+            assert f"- {rel}：" in prompt
+        for rel in ("加装", "配注", "受效"):  # monthly/dynamic 专属组不携带
+            assert f"- {rel}：" not in prompt
+
+    def test_monthly_report_carries_monthly_and_cross_family(self) -> None:
+        """monthly 族报告：加装（monthly）＋配注/受效（monthly, dynamic）＋跨族组。"""
+        prompt = d.build_extract_prompt(
+            _factory_config(), section="1 基本情况", chunk_text=CHUNK,
+            report_family="monthly",
+        )
+        for rel in ("加装", "配注", "受效", "隶属", "承载", "作用于"):
+            assert f"- {rel}：" in prompt
+        for rel in ("下入", "射孔", "坐封", "取样自"):  # completion 专属组不携带
+            assert f"- {rel}：" not in prompt
+
+    def test_no_family_signal_carries_full_set(self) -> None:
+        """无族信号（缺省与显式 None 双形态）＝全量携带——现行为不变（兜底不收窄）。"""
+        all_rels = [t.rel for t in _factory_config().relation_tags]
+        assert len(all_rels) == 10  # G-05 词表扩充后 10 行
+        for kwargs in ({}, {"report_family": None}):
+            prompt = d.build_extract_prompt(
+                _factory_config(), section="1 基本情况", chunk_text=CHUNK, **kwargs
+            )
+            for rel in all_rels:
+                assert f"- {rel}：" in prompt
+
+    def test_stale_export_without_group_falls_back_full(self, monkeypatch) -> None:
+        """旧产物部署态（导出物全部行无 group）→ 兜底全量携带不收窄成零标签。"""
+        import app.infra.config as infra_config
+
+        rows = infra_config.load_ontology_export("relation_types")
+        stripped = [{k: v for k, v in r.items() if k != "group"} for r in rows]
+        monkeypatch.setattr(
+            infra_config, "load_ontology_export",
+            lambda kind, path=None: stripped,
+        )
+        prompt = d.build_extract_prompt(
+            _factory_config(), section="1 基本情况", chunk_text=CHUNK,
+            report_family="completion",
+        )
+        for t in _factory_config().relation_tags:
+            assert f"- {t.rel}：" in prompt
+
+    def test_family_filter_intersects_user_config(self) -> None:
+        """按族过滤∩用户配置——用户已删的标签不因族过滤回场（收敛单向）。"""
+        from app.infra.config import load_ontology_export
+
+        cfg = d.default_extract_config(
+            load_ontology_export("entity_types"),
+            [
+                r for r in load_ontology_export("relation_types")
+                if r["name"] not in ("加装", "配注", "受效")
+            ],
+        )
+        prompt = d.build_extract_prompt(
+            cfg, section="1 基本情况", chunk_text=CHUNK,
+            report_family="monthly",
+        )
+        assert "- 加装：" not in prompt  # 族内但用户未配——不回场
+        assert "- 配注：" not in prompt and "- 受效：" not in prompt
+
+
 # ---------- 起草解析（LLM 起草三源辅助③） ----------
 
 

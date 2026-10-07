@@ -13,7 +13,9 @@
 消费形（B5 v0.2 端点 3 对号强校；A1/A2 同源）：id/name/来源 ref；
 ASSOC 关系含 from/to 类型约束（聚合 id 承载，M1 头注「DDL 无外键」——引用结构
 注源 R5·§5）；B3-01 起另含 endpoint_groups 全量终点组（多组时 from/to＝首组，
-写入类型闸三元组合法集真源）。运行：`uv run python -m app.domains.semantics.exporter`。
+写入类型闸三元组合法集真源）；B1-02 起另含 group 文档族标注（B1-01 本体
+scenario 透传——completion/monthly/dynamic 可空多值，本体无标注的行缺省不带；
+不进对号强校闭世界）。运行：`uv run python -m app.domains.semantics.exporter`。
 """
 
 from __future__ import annotations
@@ -42,14 +44,16 @@ _RELATION_LINKS: dict[str, dict[str, Any]] = {
         "assoc_check": [("ASSOC-PETRO-008", "direct")],
         "note": ("C1 关系账行＝「井 —隶属→ 区块 —隶属→ 油田」链：井—隶属→区块段为 "
                  "AGG-PETRO-001.blockName 属性承载（引用化改造悬置，M1 头注）；"
-                 "油田段＝ASSOC-PETRO-008（区块 AGG-PETRO-010 → 油田 AGG-PETRO-012）"),
+                 "油田段＝ASSOC-PETRO-008（区块 AGG-PETRO-010 → 油田 AGG-PETRO-012）。"
+                 "报告动词「位于」宾语为油田时读隶属（B1-01 归一簇8——结构关系三族报告均有）"),
     },
     "2": {
         "refs": ["ASSOC-PETRO-009"],
         "endpoints": [("AGG-PETRO-013", "AGG-PETRO-001")],
         "assoc_check": [("ASSOC-PETRO-009", "direct")],
         "note": ("平台—承载→井＝ASSOC-PETRO-009（裁决 b 联动增补）；引用现由 "
-                 "AGG-PETRO-001.platform String 行内承载，引用化改造悬置"),
+                 "AGG-PETRO-001.platform String 行内承载，引用化改造悬置。"
+                 "报告动词「位于」宾语为平台/井槽时读承载（B1-01 归一簇8）"),
     },
     "3": {
         "refs": ["AGG-PETRO-009", "ASSOC-PETRO-006", "ASSOC-PETRO-007"],
@@ -63,13 +67,16 @@ _RELATION_LINKS: dict[str, dict[str, Any]] = {
         "endpoints": [("AGG-PETRO-005", "AGG-PETRO-001")],
         "assoc_check": [("ASSOC-PETRO-004", "reversed")],
         "note": ("措施—作用于→井；M1 ASSOC 方向＝井 1..* 井措施记录（wellRef），"
-                 "台账行方向按 §5 语义反转承载"),
+                 "台账行方向按 §5 语义反转承载。报告动词：酸化/酸洗/解堵/复酸/"
+                 "调剖/封堵/提液/加注/加药（B1-01 归一簇5——规范标签＝作用于，"
+                 "措施类型归一进本体 AGG-PETRO-005.measureType 值集）"),
     },
     "5": {
         "refs": ["ASSOC-PETRO-005"],
         "endpoints": [("AGG-PETRO-006", "AGG-PETRO-001")],
         "assoc_check": [("ASSOC-PETRO-005", "reversed")],
-        "note": "化验样—取样自→井；B5 演示配置未收录该族（B5 出入对账 3——治理批补全）",
+        "note": ("化验样—取样自→井；B5 演示配置未收录该族（B5 出入对账 3——治理批补全）。"
+                 "报告动词：取样/化验/取心（B1-01 归一簇7——取心归一为取样自）"),
     },
     # —— G-05 词表扩充（Owner 2026-10-05 会话裁决；note 即抽取提示词的标签说明，
     #     刻意写抽取友好白话＋报告动词同义词，治理锚引用压后）——
@@ -81,7 +88,8 @@ _RELATION_LINKS: dict[str, dict[str, Any]] = {
         "endpoints": [("AGG-PETRO-007", "AGG-PETRO-011"), ("AGG-PETRO-007", "AGG-PETRO-001")],
         "assoc_check": [("ASSOC-PETRO-010", "direct"), ("ASSOC-PETRO-015", "direct")],
         "note": ("套管/尾管/筛管/油管/封隔器/压力计等管柱与井下设备，下到了哪口井"
-                 "或哪口井的哪个井筒段（报告动词：下入/下放。"
+                 "或哪口井的哪个井筒段（报告动词：下入/下放/下井/补下/复下/通井"
+                 "——B1-01 归一簇1，规范标签＝下入。"
                  "例：『7″ 筛管下入 2405～2412 米』）"),
     },
     "7": {
@@ -89,14 +97,16 @@ _RELATION_LINKS: dict[str, dict[str, Any]] = {
         "endpoints": [("AGG-PETRO-001", "AGG-PETRO-011")],
         "assoc_check": [("ASSOC-PETRO-011", "direct")],
         "note": ("井对哪个井筒段（射孔段）做了射孔、射开厚度/孔密多少"
-                 "（报告动词：射孔/射开。例：『TCP 射孔三段合计 28 米，孔密 16 孔/米』）"),
+                 "（报告动词：射孔/射开/补孔——B1-01 归一簇3，补孔归一为射孔。"
+                 "例：『TCP 射孔三段合计 28 米，孔密 16 孔/米』）"),
     },
     "8": {
         "refs": ["ASSOC-PETRO-012", "ASSOC-PETRO-016"],
         "endpoints": [("AGG-PETRO-007", "AGG-PETRO-011"), ("AGG-PETRO-007", "AGG-PETRO-001")],
         "assoc_check": [("ASSOC-PETRO-012", "direct"), ("ASSOC-PETRO-016", "direct")],
         "note": ("封隔器等井下设备坐封锚定在哪口井或哪个井筒段——to 必须填井（段）名，"
-                 "纯深度数字不是实体、写进 note。报告动词：坐封/验封。"
+                 "纯深度数字不是实体、写进 note。报告动词：坐封/验封/坐挂"
+                 "（B1-01 归一簇2，坐挂归一为坐封）。"
                  "例：『永久式封隔器坐封深度 1482.6 米』→ 永久式封隔器 —坐封→ 井筒"
                  "（note：坐封深度 1482.6 米）"),
     },
@@ -104,14 +114,17 @@ _RELATION_LINKS: dict[str, dict[str, Any]] = {
         "refs": ["ASSOC-PETRO-013"],
         "endpoints": [("AGG-PETRO-001", "AGG-PETRO-014")],
         "assoc_check": [("ASSOC-PETRO-013", "direct")],
-        "note": ("注水井对哪个配注层配水、配注量多少及调整（报告动词：配注/提配。"
+        "note": ("注水井对哪个配注层配水、配注量多少及调整（报告动词：配注/提配/"
+                 "实注/停注——B1-01 归一簇4：配注＝计划量、实注＝实执行量、"
+                 "停注＝零量态，同一关系的计划/实际双读法，量值口径如实进 note。"
                  "例：『10 月配注由 180 m³/d 提至 240 m³/d』）"),
     },
     "10": {
         "refs": ["ASSOC-PETRO-014"],
         "endpoints": [("AGG-PETRO-001", "AGG-PETRO-007")],
         "assoc_check": [("ASSOC-PETRO-014", "direct")],
-        "note": ("哪口井加装或更换了什么井口/井下设备（报告动词：加装/安装/更换。"
+        "note": ("哪口井加装或更换了什么井口/井下设备（报告动词：加装/安装/更换/"
+                 "换用/加密——B1-01 归一簇6，更换/换用/加密归一为加装。"
                  "例：『对 6 口套压高、功图气锁特征明显的井加装螺旋气锚』）"),
     },
 }
@@ -151,6 +164,12 @@ def build_relation_types(ontology: OntologyModels) -> dict[str, Any]:
     from_type/to_type＝首组（既有消费面兼容），endpoint_groups＝全量终点组
     （写入类型闸三元组合法集真源——derivatives.domain.build_legal_triples
     消费位）。assoc_check 逐组与 ASSOC 两端核对（位置一一对应）。
+    B1-02 起 scenario（B1-01 文档族标注，schema.md §4 additive 可选字段）
+    透传为导出行 `group` 键（id/name/refs/from_type/to_type/endpoint_groups
+    强校闭世界零变——group 不进对号强校与类型闸合法集）：本体无标注的行
+    缺省不带键（additive 先例）；同标签多 ASSOC 锚的 scenario 须一致
+    （schema.md §4「ASSOC 级登记、标签级消费」口径），漂移即 OntologyDriftError
+    禁静默。
     """
     m1 = ontology.models["m1"]
     assocs = {str(a["id"]): a for a in m1.get("aggregate_associations") or []}
@@ -179,19 +198,38 @@ def build_relation_types(ontology: OntologyModels) -> dict[str, Any]:
                         f"关系 {seed.row_id} 的终点组（{f}→{t}）与 {assoc_ref} 两端"
                         f"（{head}→{tail}，{direction}）不一致"
                     )
-        entries.append(
-            {
-                "id": int(seed.row_id),
-                "name": str(seed.payload["rel"]).split("→")[0].split("—")[-1].strip(),
-                "refs": list(link["refs"]),
-                "from_type": endpoints[0][0],
-                "to_type": endpoints[0][1],
-                "endpoint_groups": [
-                    {"from_type": f, "to_type": t} for f, t in endpoints
-                ],
-                "note": link["note"],
-            }
-        )
+        # B1-02 族标注透传：只从 ASSOC 锚读 scenario（聚合锚如受效关系实体
+        # AGG-PETRO-009 不承载该字段）；全锚标注一致才出口，键序在
+        # endpoint_groups 之后、note 之前。
+        marked: list[list[str]] = []
+        for ref in link["refs"]:
+            assoc = assocs.get(ref)
+            scenario = assoc.get("scenario") if assoc else None
+            if scenario:
+                marked.append([str(v) for v in scenario])
+        group: list[str] | None = None
+        if marked:
+            first = marked[0]
+            if any(s != first for s in marked[1:]):
+                raise OntologyDriftError(
+                    f"关系 {seed.row_id} 各 ASSOC 锚 scenario 不一致：{marked}"
+                    f"——同标签族标注须一致（schema.md §4，B1-01 标签级消费口径）"
+                )
+            group = list(first)
+        entry: dict[str, Any] = {
+            "id": int(seed.row_id),
+            "name": str(seed.payload["rel"]).split("→")[0].split("—")[-1].strip(),
+            "refs": list(link["refs"]),
+            "from_type": endpoints[0][0],
+            "to_type": endpoints[0][1],
+            "endpoint_groups": [
+                {"from_type": f, "to_type": t} for f, t in endpoints
+            ],
+        }
+        if group is not None:
+            entry["group"] = group
+        entry["note"] = link["note"]
+        entries.append(entry)
     return {
         "kind": "relation_types",
         "source": "ontology/petro/m1-object-model.yaml",
