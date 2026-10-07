@@ -3,6 +3,7 @@
 > 状态：⬜ 可开工 ｜ 依赖：—
 
 任务: 两个一行级卫生件同域同票清扫。交付物：
+0. （审查 R1 裁决追加，R1-12）kb 域 list_for_report 孤儿死代码删除（全仓 grep 无消费方核实后删）。
 1. E5 审计 action 风格：reextract 审计 action「图谱重抽」改为点分风格（对齐既有
   「graph.extract_config.saved」族——新名建议 `graph.reextract.requested`，票内按既有 action
   清单定名，不发明第二套风格）。
