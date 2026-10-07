@@ -458,6 +458,24 @@ class TestReportFamilyPromptCarry:
         assert d.detect_report_family("年度综合汇报材料") is None
         assert d.detect_report_family("") is None
 
+    def test_detect_six_corpus_report_stems(self) -> None:
+        """阶段A六篇语料文件名 stem 逐一断言（FX-12③/R5-3 补钉）。
+
+        stem＝上传文件名去扩展名＝kb ReportDetail.doc 入库形态（真数据面）。
+        A/B/C 三篇在 eval/reports/；Y-21/34-8 月报/34-8 注采三篇在
+        eval/drafts-q4/reports/（Y-21 与 34-8 月报两篇此前未直接断言——R5-3）。
+        """
+        cases: list[tuple[str, str]] = [
+            ("A-W11井完井工程报告", "completion"),
+            ("Y-21井完井工程报告", "completion"),
+            ("B-渤中34-5油田躺井治理与检泵作业月报-202608", "monthly"),
+            ("渤中34-8油田躺井治理与检泵作业月报-202701", "monthly"),
+            ("C-渤中34-5油田三季度注水调整与生产运行分析", "dynamic"),
+            ("渤中34-8油田一季度注采调整与生产运行分析", "dynamic"),
+        ]
+        for stem, family in cases:
+            assert d.detect_report_family(stem) == family, stem
+
     def test_completion_report_carries_completion_and_cross_family(self) -> None:
         """completion 族报告：completion 组＋跨族三值组在清单，月报/动态专属组不在。
 
@@ -486,6 +504,20 @@ class TestReportFamilyPromptCarry:
         for rel in ("下入", "射孔", "坐封", "取样自"):  # completion 专属组不携带
             assert f"- {rel}：" not in prompt
 
+    def test_dynamic_report_carries_dynamic_and_cross_family(self) -> None:
+        """dynamic 族报告（FX-12①/R5-3 补钉）：配注/受效（monthly, dynamic）＋跨族组。
+
+        completion 专属组（下入/射孔/坐封/取样自）与 monthly 专属组（加装）不携带。
+        """
+        prompt = d.build_extract_prompt(
+            _factory_config(), section="1 基本情况", chunk_text=CHUNK,
+            report_family="dynamic",
+        )
+        for rel in ("配注", "受效", "隶属", "承载", "作用于"):
+            assert f"- {rel}：" in prompt
+        for rel in ("下入", "射孔", "坐封", "取样自", "加装"):  # completion/monthly 专属组不携带
+            assert f"- {rel}：" not in prompt
+
     def test_no_family_signal_carries_full_set(self) -> None:
         """无族信号（缺省与显式 None 双形态）＝全量携带——现行为不变（兜底不收窄）。"""
         all_rels = [t.rel for t in _factory_config().relation_tags]
@@ -496,6 +528,21 @@ class TestReportFamilyPromptCarry:
             )
             for rel in all_rels:
                 assert f"- {rel}：" in prompt
+
+    def test_unknown_family_value_falls_back_full(self) -> None:
+        """未知族值（FX-12②/R5-3 补钉）→ 族名集空 → 兜底全量携带不炸不收窄。
+
+        值集外字符串（如拼写错 "weeky"）在 relation_types.json 无 group 命中，
+        relation_names_for_family 返回空集，build_extract_prompt 按空集＝
+        族标注不可判兜底全量（与旧产物部署态同一兜底路径）。
+        """
+        all_rels = [t.rel for t in _factory_config().relation_tags]
+        prompt = d.build_extract_prompt(
+            _factory_config(), section="1 基本情况", chunk_text=CHUNK,
+            report_family="weeky",
+        )
+        for rel in all_rels:
+            assert f"- {rel}：" in prompt
 
     def test_stale_export_without_group_falls_back_full(self, monkeypatch) -> None:
         """旧产物部署态（导出物全部行无 group）→ 兜底全量携带不收窄成零标签。"""
