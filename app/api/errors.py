@@ -32,6 +32,9 @@
 - graph_not_found / graph_param_invalid / graph_ontology_mismatch：graph 域
   404/400（B5 错误码草案；P1-05 新立值，登记于 tickets/phase1/README.md
   P1-05 差异清单）——强校 400 带对号明细（detail.mismatches）
+- graph_extract_running：graph 域 409（B5 端点 6「同报告防重入 409」归一
+  落地——E3 报告级防重入＋E4 状态码归一，code 本仓新立值随票面登记；
+  gateway_drill_conflict/quality_task_running 重入 409 同族）
 - faq_param_invalid / faq_not_found / faq_conflict：faq 域 400/404/409
   （B3 错误码草案；P1-06 新立值，登记于 tickets/phase1/README.md P1-06 差异
   清单）——409 code 由异常携带（faq_scan_running 重入/faq_negative_toggle
@@ -92,6 +95,7 @@ from app.domains.dataops.quality import (
     QualityTaskRunningError,
 )
 from app.domains.derivatives import (
+    GraphConflictError,
     GraphNotFoundError,
     GraphOntologyMismatchError,
     GraphParamError,
@@ -294,6 +298,19 @@ def install_error_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=400,
             content=error_payload(exc.code, str(exc), detail=detail),
+        )
+
+    @app.exception_handler(GraphConflictError)
+    async def handle_graph_conflict(request: Request, exc: GraphConflictError) -> JSONResponse:
+        # B5 端点 6「同报告防重入 409」（E3/E4——报告级防重入归一：该报告
+        # 任何图谱支路在跑〔入库触发或手动重抽〕一律拒；409 先例同形＝
+        # gateway_drill_conflict / quality_task_running / kb·faq·retrieval
+        # Conflict 族——{code, message} 两键，code 由异常携带恒
+        # graph_extract_running）。防重入形态按异常类型判别（独立异常类），
+        # 不按消息字符串猜——GraphParamError 参数错误面保持 400 零误伤。
+        return JSONResponse(
+            status_code=409,
+            content=error_payload(exc.code, str(exc)),
         )
 
     @app.exception_handler(FaqParamError)

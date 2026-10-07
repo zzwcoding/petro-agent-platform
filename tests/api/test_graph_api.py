@@ -231,3 +231,35 @@ class TestGraphApi:
         # namespace 隔离＋库不存在 404
         assert c.get("/api/graph/blocked-edges",
                      params={"lib_id": "lib-none"}).status_code == 404
+
+
+# ---------- 防重入 409 归一（E4——冲突形态与参数错误两态分立） ----------
+
+
+class TestReextractConflict:
+    def test_reentry_conflict_409(self, client: Any) -> None:
+        """同报告图谱支路在跑→409（错误体形状对齐 gateway 演练重入先例：
+        {code, message}；code=graph_extract_running）。"""
+        from app.api.deps import get_derivatives
+
+        c, storage, _completer, _g = client
+        lib_id = _make_lib(c, storage)
+        report_id = c.get("/api/kb/reports").json()["items"][0]["id"]
+        derivatives = c.app.dependency_overrides[get_derivatives]()
+        derivatives._graph_running = {report_id: "task-ingest-001"}  # 替身占登记
+        resp = c.post("/api/graph/reextract",
+                      json={"report_id": report_id, "lib_id": lib_id})
+        assert resp.status_code == 409, resp.text
+        body = resp.json()
+        assert body["code"] == "graph_extract_running"
+        assert "入库支路在跑" in body["message"]
+        assert set(body) == {"code", "message"}, "409 错误包两键形状（无 detail 占位）"
+
+    def test_param_error_stays_400(self, client: Any) -> None:
+        """参数错误形态保持 400 不被 409 误伤（GraphParamError 面零影响）。"""
+        c, storage, _completer, _g = client
+        lib_id = _make_lib(c, storage)
+        resp = c.post("/api/graph/extract-config/draft-example",
+                      json={"lib_id": lib_id, "rel": "  "})
+        assert resp.status_code == 400, resp.text
+        assert resp.json()["code"] == "graph_param_invalid"

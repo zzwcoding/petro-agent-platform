@@ -532,15 +532,14 @@ class DerivativesService:
         抽取设置沿用该库现行待生效配置（未保存过→出厂默认投影）；失败不阻塞
         调用方——支路自身异常自捕获（与入库触发路径同款）。
         防重入＝报告级（E3）：该报告任何图谱支路在跑（入库触发或手动重抽）
-        一律拒——两态文案可辨；400 语义暂保持（409 归一归 DE-12）。
+        一律拒——两态文案可辨；冲突走 GraphConflictError（E4——409 归一，
+        api 层映射；GraphParamError 参数错误面零影响）。
         """
         await self._kb.report_detail(report_id)  # 404 早抛（报告不存在）
         running = getattr(self, "_graph_running", {}).get(report_id)
         if running is not None:
-            from app.domains.derivatives.domain import GraphParamError
-
             where = "重抽在跑" if running == "reextract" else "入库支路在跑"
-            raise GraphParamError(f"该报告图谱支路已在运行中——{where}，防重入拒")
+            raise d.GraphConflictError(f"该报告图谱支路已在运行中——{where}，防重入拒")
         self._spawn_graph_extract(
             report_id, lib_id, task_no="reextract", extract_snapshot=None
         )

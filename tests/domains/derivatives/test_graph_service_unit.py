@@ -524,7 +524,7 @@ class TestReentryGuard:
                                                   lib_config=self._CFG)
         # 替身占登记：入库触发路径放行形态（登记值＝任务号，非 "reextract"）
         derivatives._graph_running = {report_id: "task-ingest-001"}
-        with pytest.raises(d.GraphParamError, match="入库支路在跑"):
+        with pytest.raises(d.GraphConflictError, match="入库支路在跑"):
             await derivatives.reextract_graph(report_id, lib_id)
 
     async def test_reextract_running_second_call_rejected(self, env: Env) -> None:
@@ -535,10 +535,29 @@ class TestReentryGuard:
         derivatives._gateway = GatedCompleter(completer, release)
         first = await derivatives.reextract_graph(report_id, lib_id)
         assert first["spawned"] is True
-        with pytest.raises(d.GraphParamError, match="重抽在跑"):
+        with pytest.raises(d.GraphConflictError, match="重抽在跑"):
             await derivatives.reextract_graph(report_id, lib_id)
         release.set()  # 放行支路收尾——登记随支路解除
         await wait_until(lambda: _graph_tasks_done(derivatives))
+
+    async def test_conflict_and_param_error_two_shapes(self, env: Env) -> None:
+        """两态分立（E4）：防重入＝GraphConflictError（409 形态，非参数错误
+        子类）；入参形状非法＝GraphParamError（400 形态）——按异常类型判别，
+        不按消息字符串猜。"""
+        kb, derivatives, _g, _c = env
+        lib_id, report_id, _t = await make_report(kb, _kb_storage(kb),
+                                                  lib_config=self._CFG)
+        derivatives._graph_running = {report_id: "reextract"}
+        with pytest.raises(d.GraphConflictError) as conflict:
+            await derivatives.reextract_graph(report_id, lib_id)
+        assert not isinstance(conflict.value, d.GraphParamError), (
+            "防重入冲突不是参数错误子类（409 与 400 两态不误伤）"
+        )
+        assert conflict.value.code == "graph_extract_running"
+        with pytest.raises(d.GraphParamError) as param:
+            await derivatives.draft_example(lib_id, rel="  ")
+        assert not isinstance(param.value, d.GraphConflictError)
+        assert param.value.code == "graph_param_invalid"
 
     async def test_failed_branch_releases_guard(self, env: Env) -> None:
         kb, derivatives, _g, _c = env
