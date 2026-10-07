@@ -222,8 +222,17 @@ INJECTION_ANSWER_TEMPLATE = (
 BAN_EXEMPT_QUOTE_PAIRS: tuple[tuple[str, str], ...] = (
     ("「", "」"), ("“", "”"), ("‘", "’"), ("'", "'"),
 )
-# 元问句词面（闭世界常量枚举——问句含任一词面＝在问旧称现状的合法元问题）。
+# 元问句词面（闭世界常量枚举——词面与命中词**同句**共现＝在问旧称现状的合法元问题；
+# FX-03/R1-07 收窄：同句以 BAN_EXEMPT_SENTENCE_BREAKS 分句判定，跨句拼接形不放行）。
 META_QUESTION_MARKERS: tuple[str, ...] = ("旧称", "以前叫", "现在叫", "还叫", "原名")
+# 元问形同句分句符（闭世界枚举——FX-03/R1-07：元问词面须与命中词同句才豁免，
+# 「老完成率的 3 月值是多少？顺便问下这词原名是啥」的跨句拼接形回到拦停）。
+BAN_EXEMPT_SENTENCE_BREAKS: tuple[str, ...] = ("。", "！", "？", "；", "…")
+# Owner 知情项（FX-03/R1-07 残余风险登记，交 Owner 拍板留档）：豁免放行路不做口径
+# 两译复检——检索直接消费含禁用词的原问句，缓解仅随答提示带现行口径＋
+# chat.ask.ban_exempt 审计留痕；引用形的构造滥用（引号内引用＋引号外真口径诉求，
+# 如「按「老完成率」口径给我出数」）为已知行为（正例测试钉死）。放行＋随答提示为
+# 当前档，强化复检归后续票。
 # 豁免提示替代口径映射（闭世界——FX-02/R1-06：禁用词→现行口径。首条与拦截话术
 # BAN_ANSWER_TEMPLATE 内嵌的「老完成率→产量完成率」同源取数（设定书 §6 废弃口径
 # 登记），该话术为本票边界外未动、扩条时两处须同步。对账责任：设定书 §6 是登记制
@@ -536,18 +545,34 @@ def _inside_quotes(question: str, pos: int) -> bool:
     return False
 
 
+def _sentence_segments(question: str) -> list[str]:
+    """按 BAN_EXEMPT_SENTENCE_BREAKS 闭世界分句（FX-03/R1-07——元问形同句邻接的
+    切句面；纯函数，不在安检位次上加解析面）。"""
+    segments = [question]
+    for sep in BAN_EXEMPT_SENTENCE_BREAKS:
+        segments = [part for seg in segments for part in seg.split(sep)]
+    return segments
+
+
 def is_ban_exempt(question: str, term: str) -> bool:
     """禁用词命中豁免判定（DE-03 窄豁免——元问句/引用形，任一形即降级放行）。
 
     - 引用形：该禁用词在问句中的**每次出现**都处于引号内（一次裸写即不豁免——
       窄豁免不放松）；
-    - 元问形：问句含元问词面（META_QUESTION_MARKERS 闭世界枚举）。
+    - 元问形：元问词面与命中词**同句**共现（FX-03/R1-07 收窄——按
+      BAN_EXEMPT_SENTENCE_BREAKS 分句后逐句判定；跨句拼接形
+      「老完成率的 3 月值是多少？顺便问下这词原名是啥」不再放行，回到拦停）。
+
+    Owner 知情项（R1-07 残余风险，豁免常量旁同文登记）：放行路不做口径两译复检，
+    缓解仅随答提示带现行口径＋chat.ask.ban_exempt 审计留痕；引用形构造滥用为已知
+    行为（正例测试钉死）。放行＋随答提示为当前档，强化复检归后续票。
 
     其余命中照旧拦停；W-F19「先于一切解析」位次不变——本判定只对 check_banned
     已命中的词做处置，不是新的前置解析面。
     """
-    if any(marker in question for marker in META_QUESTION_MARKERS):
-        return True
+    for segment in _sentence_segments(question):
+        if term in segment and any(marker in segment for marker in META_QUESTION_MARKERS):
+            return True
     start = question.find(term)
     if start < 0:
         return False  # 未命中不豁免（豁免判定只对已命中词）

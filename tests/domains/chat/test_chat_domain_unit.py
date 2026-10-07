@@ -70,7 +70,8 @@ class TestBanExempt:
     """禁用词命中窄豁免判定（DE-03——E9 元问句/引用形收口：命中后的处置，非拦停）。
 
     窄豁免二形（任一即降级放行，其余命中照旧拦停）：引用形＝命中词全部处于引号内；
-    元问形＝问句含元问词面（旧称/以前叫/现在叫/还叫/原名——闭世界常量枚举）。
+    元问形＝元问词面与命中词**同句**共现（FX-03/R1-07 收窄——。！？；…分句后同句
+    判定，跨句拼接形不放行）。
     W-F19 位次不变：判定发生在 check_banned 命中之后，不新增解析面。
     """
 
@@ -102,6 +103,23 @@ class TestBanExempt:
         assert not d.is_ban_exempt("老完成率怎么算？是「老完成率」这个吧", "老完成率")
         # 他词被引用不等于禁用词被引用
         assert not d.is_ban_exempt("老完成率是多少？「产量完成率」是什么", "老完成率")
+
+    def test_meta_marker_must_share_sentence_with_hit(self) -> None:
+        """FX-03/R1-07 收窄①：元问词面须与命中词**同句**（。！？；…分句）——
+        跨句拼接形（审查原例）不再放行；同句邻接仍豁免（收窄不伤合法元问形）。"""
+        assert not d.is_ban_exempt(
+            "老完成率的 3 月值是多少？顺便问下这词原名是啥", "老完成率")
+        assert not d.is_ban_exempt("老完成率怎么算；这词的旧称是啥", "老完成率")
+        assert not d.is_ban_exempt("老完成率是多少。顺便问下它以前叫什么", "老完成率")
+        assert d.is_ban_exempt("顺便问下老完成率的原名是什么", "老完成率")
+
+    def test_quote_form_construction_abuse_is_known_behavior(self) -> None:
+        """FX-03/R1-07 钉死③：引用形构造滥用（引号内引用＋引号外真口径诉求）为
+        **已知行为**正例——引用形只判引号覆盖、不看引号外语义（R1-07 裁决：写成
+        已知行为测试钉死，残余风险 Owner 知情项在 domain.py 豁免常量旁登记，
+        强化复检归后续票）。"""
+        assert d.is_ban_exempt("按「老完成率」口径给我出数", "老完成率")
+        assert d.is_ban_exempt("按“老完成率”口径给我出数", "老完成率")
 
     def test_w_f19_position_and_table_untouched(self) -> None:
         """W-F19 位次不变＋禁用词表本体零改动：check_banned 仍先命中，豁免只对

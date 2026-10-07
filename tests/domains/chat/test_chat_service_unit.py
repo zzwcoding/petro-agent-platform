@@ -764,6 +764,21 @@ class TestBanExemptFlow:
         assert "老完成率" in data["answer"][0]["text"]
         assert "产量完成率" in data["answer"][0]["text"]
 
+    async def test_spliced_meta_question_returns_to_blocked(
+        self, service: ChatService,
+    ) -> None:
+        """FX-03/R1-07 负例——拼接形（元问词面在邻句、命中词在问句）回到拦停：
+        同句收窄后不再豁免，sec_check blocked＋拦截话术照旧。"""
+        events = await collect(service.ask(
+            "老完成率的 3 月值是多少？顺便问下这词原名是啥",
+            session_id=None, page_context=None, anchors=[], actor_who=AQIANG,
+        ))
+        data = _events_by_name(events)
+        blocked = [f for f in data["sec_check"] if f["result"] == "blocked"]
+        assert blocked and blocked[0]["name"] == "禁用词索引" and blocked[0]["seq"] == 2
+        assert "老完成率" in data["answer"][0]["text"]
+        assert "产量完成率" in data["answer"][0]["text"]
+
     async def test_injection_lane_untouched_by_exempt(
         self, service: ChatService,
     ) -> None:
