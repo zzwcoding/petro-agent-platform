@@ -107,6 +107,7 @@
 **数据字典**：`id(DICT-)/name/types[]`；DictionaryType `typeCode/typeName/items[]`；DictionaryItem `code(稳定存储值)/label(可改)/enabled(停用置 false，不删除)/sortOrder`。平级结构不定义 parentCode（v6 §2.3.5）。
 
 **聚合关联 AggregateAssociation**：`id(ASSOC-)/sourceAggregate/targetAggregate(M1)/associationType(REFERENCE/DEPENDENCY)/sourceRole/targetRole/cardinality(ONE_TO_ONE/ONE_TO_MANY/MANY_TO_ONE/MANY_TO_MANY)/referenceField`。
+- `scenario`（可选，additive——B1-01 Owner 2026-10-07 拍板）：**文档族标注**，值集枚举 `completion`（完井工程报告）/`monthly`（月报）/`dynamic`（注水调整与生产运行分析）组成的可空多值列表；判定依据＝全语料关系动词盘点（tickets/phase3/reports/B1-01-阶段A-语料动词盘点-20261007.md，族归属逐条 Owner 拍板在案）。ASSOC 级登记、关系标签级消费（同一标签锚定的多条 ASSOC 的 scenario 须一致，导出器核对不一致即红）。**缺省（键不在场）＝未标注**，消费方导出物不带 group 键（additive 先例：本体无标注时缺省不带）——存量 ASSOC 零改动兼容，schema_check 对该键「存在即放行」不做语义消费。schemaVersion 不随本字段联动 bump（同步器钉版 1.1.0 联合变更须先仓后同步器另票走，本批只加可选字段）。
 
 ## 5. M2 行为模型（BEHAVIOR）
 
