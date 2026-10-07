@@ -18,9 +18,9 @@
 - tickets/phase3/DE-06-切块自检告警进任务卡.md（同载荷面增量票——先此后彼避免冲突，本票后开）
 
 验收:
-- [ ] 交错红转绿测试在案（现行缺陷先钉红）
-- [ ] G-02 既有测试零跌；与 DE-06 载荷键共存断言
-- [ ] 全量闸全绿：`uv run ruff check app tests migrations tools && uv run mypy app && uv run pytest -q && uv run lint-imports && uv run python tools/contract_coverage.py check && uv run python tools/debt_markers.py check`（回报附输出原文含通过数）；若涉渲染位另跑 web 侧 `npx vitest run`
+- [x] 交错红转绿测试在案（现行缺陷先钉红）
+- [x] G-02 既有测试零跌；与 DE-06 载荷键共存断言
+- [x] 全量闸全绿：`uv run ruff check app tests migrations tools && uv run mypy app && uv run pytest -q && uv run lint-imports && uv run python tools/contract_coverage.py check && uv run python tools/debt_markers.py check`（回报附输出原文含通过数）；若涉渲染位另跑 web 侧 `npx vitest run`
 
 回报: 写 tickets/phase3/reports/DE-15.收尾.md（含选型标准）。git 纪律：master 拉
 `debt/e2-branch-key-merge`；只 add 本票文件；严禁 `git add -A`。

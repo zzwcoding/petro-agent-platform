@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from datetime import datetime
 from typing import Any, cast
@@ -34,9 +35,12 @@ from sqlalchemy import (
     Text,
     delete,
     func,
+    literal,
     select,
     text,
+    update,
 )
+from sqlalchemy import cast as sql_cast
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
@@ -47,6 +51,10 @@ from app.infra.clock import now
 from app.infra.db import Base, ConnectionManager
 
 _J = JSONB().with_variant(JSON(), "sqlite")
+
+# 键级合并的 branch 键白名单形（G-02 wiki/graph＋DE-06 chunk_check 同族）——
+# sqlite json_set 路径需拼 '$."<key>"'，禁引号/反斜杠类字符入路径。
+_BRANCH_KEY_RE = re.compile(r"[A-Za-z0-9_-]+")
 
 
 class PgVectorType(UserDefinedType[list[float] | None]):
@@ -195,6 +203,10 @@ class IngestTaskRow(Base):
     updated_at: Mapped[datetime] = mapped_column(default=now, nullable=False)
     # G-02 支路进度：{"wiki": {"state": ..., "detail": ...}, "graph": {...}}——
     # derivatives 支路经组合根注入 callable 合并写；不参与任务 state。
+    # DE-15 列归属规则：本列只经 TaskStore.merge_branch_status 键级 UPDATE 落库
+    # （save/finish_with_activity 不携此列——防分离行旧载荷整行覆盖抹键）；
+    # state 三态（running/done/failed）外另有 additive 值 warn（DE-06
+    # chunk_check——消费方按 violations>0 判，勿依赖 state 枚举全列）。
     branch_status: Mapped[dict[str, Any]] = mapped_column(_J, nullable=False, default=dict)
 
 
@@ -563,7 +575,61 @@ class TaskStore:
     async def save(self, row: IngestTaskRow) -> None:
         row.updated_at = now()
         async with self._db.session() as session:
-            await session.merge(row)
+            merged = await session.merge(row)
+            await self._reload_branch_status(session, merged)
+
+    @staticmethod
+    async def _reload_branch_status(session: AsyncSession, merged: IngestTaskRow) -> None:
+        """branch_status 列退出整行写集（DE-15 列归属规则）。
+
+        分离行 merge 会把装载时的旧 branch_status 一并拷入待写集，随管线每步
+        save/finish 回写 DB、抹掉并发支路键（DE-06 两段写＋本地镜像绕行的根源，
+        审查 R1-15①）——归一后整行写面把该列读回 DB 现值并清除其脏标记，该列
+        只经 merge_branch_status 键级 UPDATE 落库。
+        """
+        await session.refresh(merged, attribute_names=["branch_status"])
+
+    async def merge_branch_status(self, task_id: str, patch: dict[str, Any]) -> bool:
+        """branch_status 键级合并写（DE-15——挂账清单 §E2 交付物 1，形态 a）。
+
+        单条 UPDATE 服务端读改写（读改写原子性归数据库，进程内不加锁）：
+        - PG/金仓：`COALESCE(branch_status,'{}')::jsonb || :patch::jsonb`
+          （顶层键浅合并、右值整替换）；
+        - sqlite 单测底座：`json_set(branch_status, '$."<key>"', :value, …)`
+          （逐键路径整替换）。
+        两侧同为「只覆盖 patch 顶层键、他键原样保留」——wiki done ∥ graph 逐
+        chunk 进度写交错时各带各的键不再互盖（丢更新归 §E2）。列归属规则见
+        IngestTaskRow.branch_status 注记。返回 False＝任务行不存在（调用方
+        静默跳过——回写失败不阻塞支路，原行为保持）。
+        """
+        if not patch:
+            return True
+        merged: Any  # 两方言表达式同形不同类（BinaryExpression/Function）
+        async with self._db.session() as session:
+            dialect = session.get_bind().dialect.name
+            if dialect == "postgresql":
+                # 补丁按纯文本绑定再 CAST 成 jsonb——绑定参数若携 JSONB 类型，
+                # SQLAlchemy 的 JSON 绑定处理会对已序列化字符串再 dumps 一次
+                # （落成 jsonb 标量字符串，`||` 按其非数组/非对象语义装进数组）。
+                merged = func.coalesce(
+                    IngestTaskRow.branch_status, text("'{}'::jsonb")
+                ).op("||")(sql_cast(literal(json.dumps(patch), Text()), JSONB()))
+            else:
+                pairs: list[Any] = []
+                for key, value in patch.items():
+                    if not _BRANCH_KEY_RE.fullmatch(key):
+                        raise ValueError(f"branch 键含 JSON 路径非法字符：{key!r}")
+                    # json() 包一层：sqlite 对 json_set 的文本参数按 SQL 字符串
+                    # 插入（双重编码成 '{"state":...}' 字面量），json() 先解析
+                    # 才以 JSON 本体落列。
+                    pairs.extend([f'$."{key}"', func.json(json.dumps(value))])
+                merged = func.json_set(IngestTaskRow.branch_status, *pairs)
+            result = await session.execute(
+                update(IngestTaskRow)
+                .where(IngestTaskRow.id == task_id)
+                .values(branch_status=merged)
+            )
+            return bool(getattr(result, "rowcount", 0))  # CursorResult 行数——匹配行说话
 
     async def all(self) -> list[IngestTaskRow]:
         async with self._db.readonly() as session:
@@ -653,7 +719,8 @@ class TaskStore:
     ) -> None:
         """终态落痕：任务行收口（done/failed/stuck）＋F62 活动一行（同事务）。"""
         async with self._db.session() as session:
-            await session.merge(task)
+            merged = await session.merge(task)
+            await self._reload_branch_status(session, merged)  # DE-15：不携 branch_status 列
             if activity is not None:
                 who, action, target = activity
                 session.add(
