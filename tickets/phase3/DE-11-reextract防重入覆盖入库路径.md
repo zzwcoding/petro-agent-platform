@@ -1,6 +1,6 @@
 # DE-11 reextract 防重入覆盖入库路径（E3）
 
-> 状态：⬜ 可开工 ｜ 依赖：—
+> 状态：✅ 完工（2026-10-07，回报 tickets/phase3/reports/DE-11.收尾.md）｜ 依赖：—
 
 任务: reextract 防重入（app/domains/derivatives/service.py:516-528）只防 reextract-vs-reextract；
 入库触发的图谱支路运行中调 reextract 不拦——双跑同报告图 upsert 幂等未证，blocked-edges 可能
@@ -20,9 +20,9 @@
 - 入库图谱支路启动处（app/domains/kb/service.py 图谱支路/branch 装配——grep 图谱/extract 定位）
 
 验收:
-- [ ] 三态测试绿（互斥两向＋异常清理）；既有 reextract 测试零跌
-- [ ] 登记无泄漏：异常路径清理有测试断言
-- [ ] 全量闸全绿：`uv run ruff check app tests migrations tools && uv run mypy app && uv run pytest -q && uv run lint-imports && uv run python tools/contract_coverage.py check && uv run python tools/debt_markers.py check`（回报附输出原文含通过数）
+- [x] 三态测试绿（互斥两向＋异常清理）；既有 reextract 测试零跌
+- [x] 登记无泄漏：异常路径清理有测试断言
+- [x] 全量闸全绿：`uv run ruff check app tests migrations tools && uv run mypy app && uv run pytest -q && uv run lint-imports && uv run python tools/contract_coverage.py check && uv run python tools/debt_markers.py check`（回报附输出原文含通过数）
 
 回报: 写 tickets/phase3/reports/DE-11.收尾.md。git 纪律：master 拉 `debt/e3-ingest-reentry-guard`；
 只 add 本票文件；严禁 `git add -A`。

@@ -483,10 +483,19 @@ class DerivativesService:
         extract_snapshot: dict[str, Any] | None,
         task_id: str = "",
     ) -> None:
-        """graph 抽取任务族（进程内 asyncio——失败不阻塞入库任务）。"""
+        """graph 抽取任务族（进程内 asyncio——失败不阻塞入库任务）。
+
+        报告级防重入登记在此统一（E3——入库触发与手动重抽两路共用）：
+        启动即登记（report_id→task_no，task_no 兼作来源标记——"reextract"＝
+        手动重抽、其余＝入库任务号）；支路收尾即解除（asyncio done 语义——
+        正常/失败/取消均触发回调，含异常路径清理，防泄漏假阳性）。
+        """
         self._graph_tasks = [
             t for t in getattr(self, "_graph_tasks", []) if not t.done()
         ]
+        if not hasattr(self, "_graph_running"):
+            self._graph_running: dict[str, str] = {}
+        self._graph_running[report_id] = task_no
         reporter = self._branch_reporter
 
         async def _report(state: str, detail: str | None = None,
@@ -511,28 +520,30 @@ class DerivativesService:
                 )
                 await _report("failed", detail="图谱抽取异常——见后端日志")
 
-        self._graph_tasks.append(asyncio.create_task(_run()))
+        task = asyncio.create_task(_run())
+        self._graph_tasks.append(task)
+        task.add_done_callback(
+            lambda _t: getattr(self, "_graph_running", {}).pop(report_id, None)
+        )
 
     async def reextract_graph(self, report_id: str, lib_id: str) -> dict[str, Any]:
-        """图谱支路重跑（G-06——补 M-06 无重跑端点缺口；同报告运行中防重入）。
+        """图谱支路重跑（G-06——补 M-06 无重跑端点缺口；报告级防重入）。
 
         抽取设置沿用该库现行待生效配置（未保存过→出厂默认投影）；失败不阻塞
         调用方——支路自身异常自捕获（与入库触发路径同款）。
+        防重入＝报告级（E3）：该报告任何图谱支路在跑（入库触发或手动重抽）
+        一律拒——两态文案可辨；400 语义暂保持（409 归一归 DE-12）。
         """
         await self._kb.report_detail(report_id)  # 404 早抛（报告不存在）
-        if not hasattr(self, "_graph_running"):
-            self._graph_running: set[str] = set()
-        if report_id in self._graph_running:
+        running = getattr(self, "_graph_running", {}).get(report_id)
+        if running is not None:
             from app.domains.derivatives.domain import GraphParamError
 
-            raise GraphParamError("该报告的图谱抽取已在运行中——防重入")
-        self._graph_running.add(report_id)
+            where = "重抽在跑" if running == "reextract" else "入库支路在跑"
+            raise GraphParamError(f"该报告图谱支路已在运行中——{where}，防重入拒")
         self._spawn_graph_extract(
             report_id, lib_id, task_no="reextract", extract_snapshot=None
         )
-        # 支路收尾（含失败）解除防重入
-        task = self._graph_tasks[-1]
-        task.add_done_callback(lambda _t: self._graph_running.discard(report_id))
         return {"report_id": report_id, "lib_id": lib_id, "spawned": True}
 
     async def _extract_for_report(
