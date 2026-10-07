@@ -279,7 +279,10 @@ async def reextract(
     映射归 api/errors.py）。"""
     receipt = await service.reextract_graph(body.report_id, body.lib_id)
     await security.audit(AuditRow(
-        who=actor.who, action="图谱重抽", content=f"报告 {body.report_id} 图谱支路重跑",
+        # action 点分族（E5——graph.extract_config.saved 同风格；旧串「图谱重抽」
+        # 全仓零消费方，历史行不迁移——append-only 只管新写入）
+        who=actor.who, action="graph.reextract.requested",
+        content=f"报告 {body.report_id} 图谱支路重跑",
     ))
     return ReextractResponse(**receipt)
 

@@ -1,6 +1,6 @@
 # DE-13 reextract 面微清扫（E5＋E6——两小件一票）
 
-> 状态：⬜ 可开工 ｜ 依赖：—
+> 状态：✅ 完工（2026-10-07，回报 tickets/phase3/reports/DE-13.收尾.md）｜ 依赖：DE-11/DE-12（E6 消除衔接——同分支先行提交）
 
 任务: 两个一行级卫生件同域同票清扫。交付物：
 0. （审查 R1 裁决追加，R1-12）kb 域 list_for_report 孤儿死代码删除（全仓 grep 无消费方核实后删）。
@@ -19,8 +19,8 @@
   既有点分 action 清单（grep "audit" app/domains/ 点分命名先例）
 
 验收:
-- [ ] 全仓 grep 无函数内 GraphParamError import；新 action 点分且旧串无消费方（核对记录落回报）
-- [ ] 全量闸全绿：`uv run ruff check app tests migrations tools && uv run mypy app && uv run pytest -q && uv run lint-imports && uv run python tools/contract_coverage.py check && uv run python tools/debt_markers.py check`（回报附输出原文含通过数）
+- [x] 全仓 grep 无函数内 GraphParamError import；新 action 点分且旧串无消费方（核对记录落回报）
+- [x] 全量闸全绿：`uv run ruff check app tests migrations tools && uv run mypy app && uv run pytest -q && uv run lint-imports && uv run python tools/contract_coverage.py check && uv run python tools/debt_markers.py check`（回报附输出原文含通过数）
 
 回报: 写 tickets/phase3/reports/DE-13.收尾.md。git 纪律：master 拉 `debt/e56-reextract-cleanup`；
 只 add 本票文件；严禁 `git add -A`。

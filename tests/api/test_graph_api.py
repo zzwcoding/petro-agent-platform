@@ -263,3 +263,23 @@ class TestReextractConflict:
                       json={"lib_id": lib_id, "rel": "  "})
         assert resp.status_code == 400, resp.text
         assert resp.json()["code"] == "graph_param_invalid"
+
+
+class TestReextractAuditAction:
+    """E5：reextract 审计 action 点分风格（对齐 graph.extract_config.saved
+    点分族——新名 graph.reextract.requested，票内定名授权）。"""
+
+    def test_requested_action_dot_style(self, client: Any) -> None:
+        c, storage, completer, _g = client
+        lib_id = _make_lib(c, storage)
+        completer.answers["graph.extract"] = "[]"  # 支路空抽取干净收尾
+        report_id = c.get("/api/kb/reports").json()["items"][0]["id"]
+        resp = c.post("/api/graph/reextract",
+                      json={"report_id": report_id, "lib_id": lib_id})
+        assert resp.status_code == 200, resp.text
+        actions = [i["action"] for i in
+                   c.get("/api/security/audit-logs").json()["items"]]
+        assert "graph.reextract.requested" in actions
+        assert "图谱重抽" not in actions, (
+            "旧非点分串不再写入（审计历史不迁移——append-only 只管新写入）"
+        )
