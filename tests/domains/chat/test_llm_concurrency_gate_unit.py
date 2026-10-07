@@ -1,4 +1,8 @@
-"""G-06 信号量单测——全局 LLM 并发上限（并发探针计数 ≤ 上限；排队而非拒绝）。"""
+"""G-06 信号量单测——全局 LLM 并发上限（并发探针计数 ≤ 上限；排队而非拒绝）。
+
+DE-14 起：门为动态尺寸（acquire 时刻读当前配置判额，尺寸随热加载变动）——
+本用例保持 G-06 原语义回归钉（超限排队、峰值 ≤ 上限、收流全释放）。
+"""
 
 import asyncio
 from pathlib import Path
@@ -115,6 +119,6 @@ async def test_gate_caps_concurrent_calls(yaml_path: Path, _gw_tables) -> None:
     ])
     assert len(results) == 6  # 全部成功——排队等而非拒绝
     assert gw._llm_gate is not None
-    assert gw._llm_gate._value == 2  # 上限 2
+    assert gw._llm_gate.current_limit() == 2  # 上限 2（DE-14：动态门现值可读）
     assert gw._llm_gate.locked() is False  # 收流后闸释放
     await manager.dispose()

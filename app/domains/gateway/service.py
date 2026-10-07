@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections import deque
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -58,6 +60,80 @@ class CompletionBackend(Protocol):
     ) -> LlmCompletion: ...
 
 
+class _DynamicGate:
+    """全局 LLM 并发门——动态尺寸版（DE-14）：acquire 时刻读当前配置判额。
+
+    替换 asyncio.Semaphore 直用（G-06 原门尺寸在首次 complete 构造时定格，
+    改 stream.llm_max_concurrency 需重启——挂账清单 §E1）：
+    - 放大：即时生效——每次 acquire 先按现配置对账等待队列（_wake），有额即放。
+    - 缩小：已在途调用不中断（照常释放）；新调用按新额排队——release 时按
+      新额从队首依次占额唤醒（FIFO 公平，不插队）。
+    - 排队语义与 G-06 一致：超限排队等而非挂死（不拒绝、不报错）。
+
+    并发正确性建立在事件循环单线程模型上：acquire 快路径／_wake／release 均
+    无 await（同步段原子），唯一挂起点是排队等 future。唤醒即占额（releaser
+    代排队者 +1 再 set_result）——醒来即已持额，无唤醒后重判竞态。取消安全：
+    排队中被取消摘队即可（额度未占）；已被占额唤醒后取消则回吐额度再让位。
+
+    配置读取走 get_models_config() 内存缓存（廉路径，DE-14 票面裁决：不节流）。
+    """
+
+    def __init__(self, limit_fn: Callable[[], int]) -> None:
+        self._limit_fn = limit_fn
+        self._in_flight = 0
+        self._waiters: deque[asyncio.Future[None]] = deque()
+
+    def _limit(self) -> int:
+        return max(1, int(self._limit_fn()))
+
+    def current_limit(self) -> int:
+        """当前生效上限（随配置热加载变动——测试与诊断面）。"""
+        return self._limit()
+
+    def locked(self) -> bool:
+        """无即时可用额度（asyncio.Semaphore 同名语义——满额即锁）。"""
+        return self._in_flight >= self._limit()
+
+    async def acquire(self) -> None:
+        self._wake()  # 先对账队列：放大生效点（新额先把队首等待者放进——FIFO 不插队）
+        if self._in_flight < self._limit() and not self._waiters:
+            self._in_flight += 1
+            return
+        fut: asyncio.Future[None] = asyncio.get_running_loop().create_future()
+        self._waiters.append(fut)
+        try:
+            await fut
+        except asyncio.CancelledError:
+            if fut.cancelled():
+                # 仍在排队即被取消：额度未占，摘队即可（_wake 也会跳过已 done 的 future）
+                if fut in self._waiters:
+                    self._waiters.remove(fut)
+            else:
+                # 已被占额唤醒但任务随即取消：回吐额度并让下一位（防额度泄漏）
+                self._in_flight -= 1
+                self._wake()
+            raise
+
+    def release(self) -> None:
+        self._in_flight -= 1
+        self._wake()
+
+    def _wake(self) -> None:
+        """按当前限额从队首依次占额唤醒（FIFO；排队期间已取消者跳过不占额）。"""
+        while self._waiters and self._in_flight < self._limit():
+            fut = self._waiters.popleft()
+            if fut.done():  # 排队期间被取消——额度留给在队者
+                continue
+            self._in_flight += 1
+            fut.set_result(None)
+
+    async def __aenter__(self) -> None:
+        await self.acquire()
+
+    async def __aexit__(self, *exc_info: object) -> None:
+        self.release()
+
+
 class GatewayService:
     """网关域服务（运行时唯一 LLM 出口 complete 在此——B6 的域侧守门人）。"""
 
@@ -78,7 +154,7 @@ class GatewayService:
         self._budget = BudgetStore(db)
         self._router = d.RouterState()
         self._fault_alias: str | None = None  # 演练注入：临时摘主模型路由（ADR-0003 裁决 13）
-        self._llm_gate: asyncio.Semaphore | None = None  # G-06 全局 LLM 并发闸（懒建）
+        self._llm_gate: _DynamicGate | None = None  # G-06 全局 LLM 并发闸（DE-14 动态尺寸——懒建）
         self._drill_tasks: set[asyncio.Task[None]] = set()
         self._drill_gate = asyncio.Lock()  # 重入 409 的进程内双保险（DB 判据为准）
 
@@ -110,10 +186,10 @@ class GatewayService:
         timeout = float(config.gateway.request_timeout)
         retries = config.gateway.num_retries
         if self._llm_gate is None:
-            import asyncio as _asyncio
-
-            self._llm_gate = _asyncio.Semaphore(
-                max(1, int(get_models_config().stream.llm_max_concurrency))
+            # DE-14：动态并发门懒建——尺寸不定格，acquire 时刻读现配置判额
+            # （改 stream.llm_max_concurrency 热加载后即生效，无需重启）。
+            self._llm_gate = _DynamicGate(
+                lambda: get_models_config().stream.llm_max_concurrency
             )
         gate = self._llm_gate
         # 域级键剥除后再转发上游（note＝记账备注槽归网关域消费，litellm 不识）
@@ -132,7 +208,8 @@ class GatewayService:
             answer: LlmCompletion | None = None
             for _attempt in range(1 + retries):
                 try:
-                    # G-06：全局并发闸在此收口——排队等而非挂死（含支路并发）。
+                    # G-06：全局并发闸在此收口——排队等而非挂死（含支路并发）；
+                    # DE-14：尺寸随配置热加载（acquire 判现额，缩不中断在途）。
                     async with gate:
                         answer = await self._backend.complete(
                             candidate,
