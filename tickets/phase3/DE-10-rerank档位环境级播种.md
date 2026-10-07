@@ -19,9 +19,9 @@
 - deploy/cloud/compose.yml（env 注入位置）；#CFG-20261006-01/#CFG-20261007-01 变更单先例
 
 验收:
-- [ ] 三态测试绿；非法 env 值拒绝启动（不静默回落）
-- [ ] 既有 rerank 行为测试零跌（llm 档三段式/回退链不变）
-- [ ] 全量闸全绿：`uv run ruff check app tests migrations tools && uv run mypy app && uv run pytest -q && uv run lint-imports && uv run python tools/contract_coverage.py check && uv run python tools/debt_markers.py check`（回报附输出原文含通过数）
+- [x] 三态测试绿；非法 env 值拒绝启动（不静默回落）
+- [x] 既有 rerank 行为测试零跌（llm 档三段式/回退链不变）
+- [x] 全量闸全绿：`uv run ruff check app tests migrations tools && uv run mypy app && uv run pytest -q && uv run lint-imports && uv run python tools/contract_coverage.py check && uv run python tools/debt_markers.py check`（回报附输出原文含通过数）
 
 回报: 写 tickets/phase3/reports/DE-10.收尾.md。git 纪律：master 拉 `debt/rerank-env-seeding`；
 只 add 本票文件；严禁 `git add -A`。

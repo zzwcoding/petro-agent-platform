@@ -23,6 +23,8 @@ from app.domains.retrieval.domain import (
     merge_config,
     next_change_request_id,
     next_version_no,
+    parse_rerank_tier,
+    rerank_seed_config_dict,
     snapshot_from_dict,
     validate_patch,
 )
@@ -59,6 +61,21 @@ class RetrievalService:
         async with self._db.session() as session:  # 可写会话——首读种子（gateway 先例）
             _pointer, current = await self._store.ensure_seeded(session)
             return self._snapshot_of(current)
+
+    async def seed_rerank_tier_from_env(self, raw: str | None) -> str | None:
+        """rerank 档位环境级播种（DE-10——main lifespan 启动一次；env 仅播种，DB 行恒胜）。
+
+        三态：raw=None → 无操作返回 None（现状行为零变化）；raw 非法 →
+        RerankTierEnvError（调用方不捕获＝拒绝启动，禁静默回落）；raw 合法且
+        DB 无配置行 → 以 env 值建种子行（其余节＝合同默认，行格式零变化）返回
+        档位；行在位 → 跳过返回 None（运行中经 D2 变更单改档后重启不丢）。
+        """
+        if raw is None:
+            return None
+        tier = parse_rerank_tier(raw)  # RerankTierEnvError——拒绝启动不静默
+        async with self._db.session() as session:
+            seeded = await self._store.seed_if_absent(session, rerank_seed_config_dict(tier))
+        return tier if seeded else None
 
     async def submit_change_request(
         self, patch: object, *, updated_by: str

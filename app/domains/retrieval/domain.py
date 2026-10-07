@@ -89,9 +89,19 @@ class RetrievalParamError(Exception):
 class RetrievalConflictError(Exception):
     """在途变更单重入（D2 409：同页在途单串行）。
 
-    阶段 1 受理→生效一体、无审批等待期——在途窗口＝受理处理期，409 判据＝
+    阶段 1 受理→生效一体、无审批等待期，在途窗口＝受理处理期，409 判据＝
     并发受理撞闸；A3/C3 接入批切回审批链后，在途单权威状态以 A3 单据投影
     （99 §2.4 注——pendingChange 不落本域表）。
+    """
+
+
+class RerankTierEnvError(ValueError):
+    """RERANK_TIER 环境变量值非法（DE-10 语义定案——拒绝启动，禁静默回落）。
+
+    换库静默回默认 fast 已实证两次（Q8 云上全量误跑 fast；Q9 前重播种
+    #CFG-20261007-01），环境级播种是补丁；env 值写错静默吞掉＝同病灶换形，
+    故非法值一律抛错（main lifespan 不捕获＝应用拒绝启动，M-01「生产缺依赖
+    拒绝启动」同口径）。
     """
 
 
@@ -355,6 +365,37 @@ def default_config_dict() -> dict[str, Any]:
             "faq_expand_rounds": 3,  # 演示默认值（1–5——Owner 2026-10-01 B3 收敛）
         },
     }
+
+
+# ---------- rerank 档位环境级播种（DE-10——env 仅播种，DB 行恒胜） ----------
+
+RERANK_TIER_ENV = "RERANK_TIER"  # 环境级播种变量名（deploy/cloud/compose.yml 注入点）
+
+
+def parse_rerank_tier(raw: str) -> str:
+    """RERANK_TIER env 值校验（合法域＝RERANK_TIERS——与 DB patch 校验同源）。
+
+    非法值抛 RerankTierEnvError 拒绝启动（禁静默回落——错误族 docstring 注
+    病灶）；compound 属 DB 域内合法档，一并放行（票面举 llm/fast 为常用两档，
+    合法域以合同枚举为准，不另造第二真源）。
+    """
+    if raw not in RERANK_TIERS:
+        raise RerankTierEnvError(
+            f"RERANK_TIER 环境变量值非法：{raw!r}——允许 {'/'.join(RERANK_TIERS)}"
+            "（拒启动不静默回落——DE-10）"
+        )
+    return raw
+
+
+def rerank_seed_config_dict(tier: str) -> dict[str, Any]:
+    """携指定 rerank 档的种子配置（env 播种只定 rerank，其余节＝合同默认值）。
+
+    行格式零变化（票面红线）：仍是 v1/via=None/updated_by=系统的种子行形状，
+    仅 rerank 标量节取 env 值（tier 必先过 parse_rerank_tier）。
+    """
+    config = default_config_dict()
+    config["rerank"] = parse_rerank_tier(tier)
+    return config
 
 
 # ---------- 版本号与变更单号 ----------

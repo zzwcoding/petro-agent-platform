@@ -29,7 +29,9 @@ api/kb.py）。P1-05 起 graph 子域点亮：kb_extract_config 入 derivatives 
 （B9 同款——faq 运行期只见 callable）＋遗留 running 扫库行启动收口。P1-07 起
 retrieval 域点亮：retrieval 两表入装配（ensure_retrieval_tables——99 §2.10，
 Alembic 0008 并行）＋/api/retrieval 路由族挂载（D2 两端点——配置读＋变更单，
-阶段 1 提交即生效：版本推进＋via 回链＋B12 审计；首次读取自动落种子）。P1-08a
+阶段 1 提交即生效：版本推进＋via 回链＋B12 审计；首次读取自动落种子）。DE-10
+起 rerank 档位环境级播种随装配（RERANK_TIER 在位且 DB 无配置行→以 env 值建
+种子行，行在位 DB 恒胜跳过，env 缺省零变化，非法值拒绝启动）。P1-08a
 起 chat 域点亮（A1 主链第一拍）：chat 三表入装配（ensure_chat_tables——
 99 §2.2，Alembic 0009 并行）＋/api/chat 路由族填肉（asks 四层流水线 SSE＋
 runs resume 澄清续推）＋域读缝经组合根注入（qa 配置/指标台账/术语台账/FAQ
@@ -67,6 +69,7 @@ M-05a 起 dataops/quality 域点亮（E2 质检台管理面半边）：quality �
 """
 
 import logging
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -115,7 +118,7 @@ from app.domains.gateway.store import ensure_gateway_tables
 from app.domains.kb import KbService
 from app.domains.kb.domain import RemoteEmbedder
 from app.domains.kb.store import ensure_kb_tables
-from app.domains.retrieval import RetrievalService
+from app.domains.retrieval import RERANK_TIER_ENV, RetrievalService
 from app.domains.retrieval.store import ensure_retrieval_tables
 from app.domains.security import SecurityService
 from app.domains.security.store import ensure_audit_table
@@ -179,6 +182,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.gateway = GatewayService(manager, LlmClient())
     app.state.semantics = SemanticsService(manager, app.state.security)  # B12 审计写口注入
     app.state.retrieval = RetrievalService(manager)  # D2 配置面（P1-07——B12 审计在 api 层编排）
+    # rerank 档位环境级播种（DE-10——启动一次；env 仅播种，DB 行恒胜）：换新库
+    # 无配置行时静默回落默认 fast 已实证两次（Q8 全量误跑 fast；Q9 前重播种
+    # #CFG-20261007-01）。RERANK_TIER 在位且 DB 无配置行 → 以 env 值建种子行；
+    # 行在位 → DB 恒胜跳过（运行中单改行后重启不丢）；env 缺省 → 现状零变化；
+    # 非法值 RerankTierEnvError 拒绝启动（禁静默回落——M-01 同口径）。
+    if (rerank_env := os.environ.get(RERANK_TIER_ENV)) is not None:
+        seeded_tier = await app.state.retrieval.seed_rerank_tier_from_env(rerank_env)
+        if seeded_tier is not None:
+            LOGGER.info("RERANK_TIER 播种＝%s", seeded_tier)
+        else:
+            LOGGER.info("RERANK_TIER=%s——DB 行在位跳过播种（DB 恒胜）", rerank_env)
     # 事件总线（98 §4——IngestCompleted 由 derivatives 订阅，B9 不直调；进程内
     # 实现＝单进程演示底座，Redis Streams 通道接线属后续接线批，P0-08 同口径）
     app.state.eventbus = InMemoryEventBus()
