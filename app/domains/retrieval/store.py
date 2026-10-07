@@ -79,31 +79,48 @@ class ConfigStore:
         self, session: AsyncSession
     ) -> tuple[RetrievalConfigRow, RetrievalConfigVersionRow]:
         """首次读取自动落种子（合同默认值 v1、via=None、updated_by=系统）——幂等。"""
-        at = now()
         pointer = await session.get(RetrievalConfigRow, "singleton")
         if pointer is None:
-            seed = RetrievalConfigVersionRow(
-                version_no="v1",
-                config=default_config_dict(),
-                updated_at=at,
-                updated_by=SEED_UPDATED_BY,
-                via=None,
-                created_at=at,
-            )
-            session.add(seed)
-            await session.flush()  # 先 INSERT 版本行（FK 被引用方——P1-06 flush 排序纪律）
-            pointer = RetrievalConfigRow(
-                id="singleton", current_version_no="v1", created_at=at, updated_at=at
-            )
-            session.add(pointer)
-            await session.flush()
-            return pointer, seed
+            return await self._insert_seed(session, default_config_dict(), now())
         current = await session.get(RetrievalConfigVersionRow, pointer.current_version_no)
         if current is None:  # 指针悬空＝脏状态（种子与指针同事务写入，正常不可达）
             raise LookupError(
                 f"retrieval_config 指针指向不存在的版本 {pointer.current_version_no!r}"
             )
         return pointer, current
+
+    async def seed_if_absent(self, session: AsyncSession, config: dict[str, Any]) -> bool:
+        """空库才写种子行（DE-10 env 播种缝），行在位不触返回 False——DB 行恒胜。
+
+        config＝完整六配置节（rerank_seed_config_dict/default_config_dict 形状）；
+        写入形状与首读种子完全同构（v1/via=None/updated_by=系统，行格式零变化）。
+        """
+        if await session.get(RetrievalConfigRow, "singleton") is not None:
+            return False
+        await self._insert_seed(session, config, now())
+        return True
+
+    @staticmethod
+    async def _insert_seed(
+        session: AsyncSession, config: dict[str, Any], at: datetime
+    ) -> tuple[RetrievalConfigRow, RetrievalConfigVersionRow]:
+        """种子两行同事务写入（版本行先行——FK 被引用方，P1-06 flush 排序纪律）。"""
+        seed = RetrievalConfigVersionRow(
+            version_no="v1",
+            config=config,
+            updated_at=at,
+            updated_by=SEED_UPDATED_BY,
+            via=None,
+            created_at=at,
+        )
+        session.add(seed)
+        await session.flush()  # 先 INSERT 版本行（FK 被引用方——P1-06 flush 排序纪律）
+        pointer = RetrievalConfigRow(
+            id="singleton", current_version_no="v1", created_at=at, updated_at=at
+        )
+        session.add(pointer)
+        await session.flush()
+        return pointer, seed
 
     async def version_nos(self, session: AsyncSession) -> list[str]:
         rows = (await session.execute(select(RetrievalConfigVersionRow.version_no))).scalars()

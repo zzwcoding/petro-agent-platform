@@ -70,6 +70,11 @@ services:
       context: /opt/petro-agent-platform
       dockerfile: deploy/cloud/backend.Dockerfile
     env_file: .env
+    # DE-10 rerank 档位环境级播种：RERANK_TIER 仅在启动时且 DB 无配置行的场合
+    # 以该值建种子行（换新库不再静默回默认 fast）；DB 行恒胜——运行中在 D2 配置
+    # 页改档后重启不丢；值非法后端拒绝启动（不静默回落）。合法值 fast/llm/compound。
+    environment:
+      RERANK_TIER: llm
     restart: unless-stopped
     # 双网络：平台内网（postgres/neo4j/minio）＋ fieldforge 网（nginx 反代可达）
     networks:
@@ -97,6 +102,9 @@ services:
     env_file: .env
     environment:
       DP_PIPELINE_RUN_DIR: ${DP_PIPELINE_RUN_DIR:-/data/runs}
+      # DE-10：与 backend 同值注入（播种语义同上——env 仅播种，DB 行恒胜）；
+      # worker 侧消费随数据面票，本行只保证两进程环境一致。
+      RERANK_TIER: llm
     volumes:
       - deploy_ff-data:/data:ro
     restart: unless-stopped
