@@ -15,6 +15,9 @@
  *   带确认 lib_id）→ 任务开跑；
  * - 五步进度 = useTaskPolling 轮询端点 8（节点/note 服务端组装，前端零拼装
  *   业务文案）；失败/卡住按 stop_at/reason 人话渲染（不发明错误码）；
+ * - 切块自检告警 = 端点 8 branches.chunk_check 进步骤说明表（FX-05/R1-14：
+ *   violations>0 显示「切块自检 N 条违规 · 证据：路径」——文案票面定死，
+ *   零违规无键不显示；渲染形照原型树 pages/B1.jsx 既有行）；
  * - 台账「入库中」标 = 端点 1 status 直出（v0.2 裁决）；详情/片段/版本＝
  *   端点 2；修正 = 端点 4（乐观锁 409 兜底提示——「别人已改过这段」）；
  * - 库停用/启用 = 端点 13 可选 status（连同配置全量整存整取）；
@@ -584,6 +587,19 @@ export default function B1Landing() {
     const snap = snaps[t.id]
     const nodes = snap?.nodes
     const add = additions[t.id]
+    // DE-06/FX-05（审查 R1-14 裁决）：切块自检告警进真实任务卡——渲染位＝步骤
+    // 说明表（照原型树 pages/B1.jsx 既有行形）；文案票面定死「切块自检 N 条违规
+    // · 证据：路径」，violations>0 才显示（载荷 additive：零违规无键不占行）。
+    const chk = snap?.branches?.chunk_check
+    // 快照未到（nodes undefined）时步骤表不渲染——行集只在有节点时组装
+    const stepRows = nodes
+      ? [
+          ...nodes.filter(n => n.note),
+          ...(chk && (chk.violations || 0) > 0
+            ? [{ key: 'chunk-check', label: '切块自检', note: `切块自检 ${chk.violations} 条违规 · 证据：${chk.evidence || '—'}` }]
+            : [])
+        ]
+      : []
     const retryBtn = (
       <Button size="small" icon={<RedoOutlined />} style={{ marginLeft: 8 }}
         disabled={t.state === 'running'} onClick={e => { e.stopPropagation(); doRetry(t.id) }}>重试</Button>
@@ -625,7 +641,7 @@ export default function B1Landing() {
                   { title: '步骤', dataIndex: 'label', width: 180 },
                   { title: '说明', dataIndex: 'note', render: v => v || <span style={dim}>—</span> }
                 ]}
-                dataSource={nodes.filter(n => n.note)}
+                dataSource={stepRows}
                 locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="管线启动后，每亮一步这里多一行说明。" /> }}
               />
             </>

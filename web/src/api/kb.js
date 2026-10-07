@@ -64,6 +64,9 @@ function taskToCamel(t) {
     stopAt: t.stop_at || null,
     reason: t.reason || null,
     nodes: (t.nodes || []).map(n => ({ key: n.key, label: n.label, state: n.state, note: n.note || null })),
+    // G-02 支路进度原样透传（DE-06 additive 键 chunk_check：violations 计数＋evidence
+    // 路径——键内字段无 snake_case 无需折回；零违规不写键）。FX-05：落地任务卡消费。
+    branches: t.branches || {},
     configSnapshot: t.config_snapshot
       ? {
           semantic: Boolean(t.config_snapshot.semantic),
