@@ -24,7 +24,8 @@ import pytest
 from app.domains.chat import chains as chains_mod
 from app.domains.chat import domain as d
 from app.infra.clock import now
-from tests.domains.chat.conftest import AQIANG, Seams, collect
+from app.infra.db import ConnectionManager
+from tests.domains.chat.conftest import AQIANG, Seams, collect, make_service
 
 SHADOW_LOGGER = "domains.chat"
 
@@ -571,6 +572,17 @@ class TestShadowWiring:
         ctx = _chain_ctx("哪几口井采得最狠", metric_cards=[_OIL_CARD])
         await collect(chains_mod.query_chain(deps, ctx))
         assert _shadow_records(caplog) == []
+
+    def test_production_composition_root_never_wires_plan_drafter(
+        self, chat_db: ConnectionManager, seams: Seams
+    ) -> None:
+        """组合根守护（FX-09/R3-01）：真实生产装配点（ChatService.__init__ →
+        ChainDeps 构造，service.py 生产组合根）不装配 plan_drafter——影子期
+        「现网行为零变化」硬验收的前提＝缝恒未装配（缝一装配即活：链内
+        `if deps.plan_drafter is not None` 守卫对生产装配点零设防，装配即影子
+        LLM 调用上现网）。L-02 接线时本守护必须同步改写为断言装配。"""
+        service = make_service(chat_db, seams)
+        assert service._deps.plan_drafter is None
 
     async def test_no_trigger_fast_path_no_call_no_log(
         self, seams: Seams, caplog: Any
