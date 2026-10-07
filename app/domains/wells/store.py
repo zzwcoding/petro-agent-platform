@@ -16,13 +16,15 @@
 - 设备台账（raw.equip_status）现供给无井关联列（DP-03 DDL 注记「列缺疑点
   已登记」）——按井取行装配批随中台扩列启用，本读面暂不查询该表（设备行
   由合同冻结演示快照承载，见 domain.device_snapshot_for）。
-- 湖当前版过滤（DE-02 接线——E10 多批重复行收口；FX-06 对齐湖 scan as-of）：
-  raw 湖表 append-only 多批叠加即重复行，读面查询按 per-key 最新版半连接过滤
-  （每业务键 well_id 取 ``_snapshot_id <= N`` 的自身最新版，N＝服务层经
-  LakeSnapshotLoader 解析的湖当前版批——DE-01 解析器缝；与 data-plane
-  lake_store.scan 的 as-of 原文同语义：同批并列行全保留、跨批旧版被新版覆盖
-  不混用；键为 None＝不过滤：账本无该表记录/缝未装配回落全量，DE-01 三态语义）。
-  三张在查源表（well_info/well_measures/well_overhaul）逐表各解析各过滤；
+- 湖当前版过滤（DE-02 接线——E10 多批重复行收口；FX-06 对齐湖 scan as-of；
+  FX-06b 分区键对齐湖业务键复合键）：raw 湖表 append-only 多批叠加即重复行，
+  读面查询按 per-key 最新版半连接过滤（每业务键取 ``_snapshot_id <= N`` 的
+  自身最新版，N＝服务层经 LakeSnapshotLoader 解析的湖当前版批——DE-01 解析器
+  缝；与 data-plane lake_store.scan 的 as-of 原文同语义：同批并列行全保留、
+  跨批旧版被新版覆盖不混用；键为 None＝不过滤：账本无该表记录/缝未装配回落
+  全量，DE-01 三态语义）。业务键逐表闭世界常量 ``_BUSINESS_KEYS``（SSOT＝
+  data-plane lake_store._BUSINESS_KEYS——well_info/well_measures＝well_id，
+  well_overhaul＝well_id+起止复合键），三张在查源表逐表各解析各过滤；
   平台补位表 well_status_log 不经湖管道，不过滤。
 """
 
@@ -208,25 +210,40 @@ _WELL_COLUMNS = (
     _WELL_INFO.c.block_name, _WELL_INFO.c.current_status, _WELL_INFO.c.remarks,
 )
 
+# 各湖表业务键（as-of 时点视图的「每键」口径）——闭世界常量，SSOT＝data-plane
+# lake_store._BUSINESS_KEYS（app/data_plane/lake_store.py:76——照抄三行，扩表随
+# 其票同步，不发明第二套键定义）：well_info＝§A.1 逻辑 PK well_id；
+# well_overhaul＝§A.4 井号+起止；well_measures＝§A.5 井号+措施次（措施次列
+# 未供给→退化井号）。
+_BUSINESS_KEYS: dict[str, tuple[str, ...]] = {
+    "well_info": ("well_id",),                                       # §A.1 逻辑 PK well_id
+    "well_overhaul": ("well_id", "overhaul_start", "overhaul_end"),  # §A.4 井号+起止
+    "well_measures": ("well_id",),                                   # §A.5 措施次未供给→退化井号
+}
+
 
 def _current_version_asof(table: Table, snapshot_id: int) -> ColumnElement[bool]:
-    """per-key 最新版半连接谓词（FX-06——对齐湖底座 scan 的 as-of 原文语义）。
+    """per-key 最新版半连接谓词（FX-06/FX-06b——对齐湖底座 scan 的 as-of 原文语义）。
 
-    快照 N＝截至 N 的全表生效视图：每业务键（well_id——三张在查源表的湖业务
-    键，data-plane lake_store._BUSINESS_KEYS）取 ``_snapshot_id <= N`` 的自身
-    最新版——行版本＝该键窗口内最大 ``_snapshot_id``（相关子查询半连接，与
-    lake_store.scan 的 RANK()=1 等价：同批并列行全保留、跨批旧版被新版覆盖
-    不混用）。替代 DE-02 的「全局最新批等值」——增量批（只导变化井）下不在
-    最新批的井不再静默消失（R1-01 裁决：修正确语义优于锁「每批全量导出」前提）。
+    快照 N＝截至 N 的全表生效视图：每业务键（逐表闭世界常量 ``_BUSINESS_KEYS``
+    ——SSOT＝data-plane lake_store._BUSINESS_KEYS；well_overhaul＝well_id+起止
+    复合键，FX-06b 对齐）取 ``_snapshot_id <= N`` 的自身最新版——行版本＝该键
+    窗口内最大 ``_snapshot_id``（相关子查询半连接，与 lake_store.scan 的
+    RANK()=1 等价：同键同快照并列行全保留、跨批旧版被新版覆盖不混用）。键列
+    相关用 IS NOT DISTINCT FROM（＝窗口 PARTITION 的 NULL 同组语义——
+    well_overhaul 起止列 001 DDL 无 NOT NULL，等值比较会让空值行因 NULL 失配
+    整行丢失）。FX-06b 复合键化替代 FX-06 的统一 per-well_id——增量批（只导
+    变化行）下该井旧批的其他键行不再随井最新版整批消失（R1-01 同款裁决：
+    修正确语义优于锁「每批全量导出」前提）。
     """
+    key_names = _BUSINESS_KEYS[table.name]
     inner = table.alias()  # 自连接别名——相关子查询内表
+    conditions: list[ColumnElement[bool]] = [
+        inner.c[key].is_not_distinct_from(table.c[key]) for key in key_names
+    ]
+    conditions.append(inner.c._snapshot_id <= snapshot_id)
     return table.c._snapshot_id == (
-        select(func.max(inner.c._snapshot_id))
-        .where(
-            inner.c.well_id == table.c.well_id,
-            inner.c._snapshot_id <= snapshot_id,
-        )
-        .scalar_subquery()
+        select(func.max(inner.c._snapshot_id)).where(*conditions).scalar_subquery()
     )
 
 

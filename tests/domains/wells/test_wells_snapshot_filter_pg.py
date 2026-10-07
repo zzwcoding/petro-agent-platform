@@ -11,12 +11,17 @@ fixture＝well_info/well_measures/well_overhaul 各两批（``_snapshot_id`` 指
 生产缝形状，取数走 primary 只读路由读账本）。
 
 断言（票面验收——E10 多批重复行收口，合同「一口井一份档案」读语义）：
-- 端点 1 列表：每井恰 1 行、内容＝最新批（旧批行不出现）；
-- 端点 2 档案：只出最新批内容；
-- 端点 3 关系链：措施/检修台账只出最新批（台账表同是 append-only 湖表，
-  多批叠加同病同修；状态变更行为平台补位表不过滤）；
-- 账本无记录态回落全量（DE-01 三态语义）：单表无记录→该表两批都出行；
-  三表账本全空→列表回落全量（每井两行）。
+- 端点 1 列表：每井恰 1 行、内容＝最新版（旧版行不出现）；
+- 端点 2 档案：只出最新版内容；
+- 端点 3 关系链：台账逐业务键取自身最新版（FX-06b 复合键对齐——
+  well_info/well_measures 湖键＝well_id：只出同键最新版；well_overhaul 湖键＝
+  well_id+起止复合键：旧批不同起止的记录仍可见、被更新的键出最新版；
+  状态变更行为平台补位表不过滤）；
+- 账本无记录态回落全量（DE-01 三态语义）：单表无记录→该表全量出行
+  （含被复合键最新版覆盖的旧版行）；三表账本全空→列表回落全量（每井两行）。
+- FX-06b 两钉：well_overhaul 增量批（批 2 只更新一条检修记录）其余旧批
+  记录仍可见；RANK 非 ROW_NUMBER（lake_store scan 注记）——同键同
+  _snapshot_id 并列行全保留。
 
 本地跑法（PG16＝主仓 compose pg 容器，宿主 5433；data-plane 交付物需在位）：
     export TEST_DATABASE_URL=postgresql+asyncpg://petro:petro@localhost:5433/petro
@@ -81,12 +86,17 @@ _FIXTURE_MEASURES: dict[str, tuple[tuple[str, str, str], ...]] = {
     "M2": (("N-02", "酸化", "2026-03-01"),),
 }
 
-# (well_id, start, end, type, impact, batch_id)——检修台账两批各一行
+# (well_id, start, end, type, impact, batch_id)——检修台账两批：O1 洗井一条；
+# O2 两条＝检泵（新复合键）＋洗井修订（同 O1 复合键 well_id+起止——被更新键
+# 出批 2 最新版，FX-06b；per-well_id 旧语义下两条也恰好在最新批，区分度由
+# 增量批场景专例钉死）
 _FIXTURE_OVERHAULS: dict[str, tuple[tuple[str, str, str, str, str, str], ...]] = {
     "O1": (("N-02", "2022-01-05", "2022-01-07", "洗井（旧批造数）",
             "影响产量约 1 吨", "20220108-T0"),),
     "O2": (("N-02", "2026-02-10", "2026-02-12", "检泵",
-            "影响产量约 9 吨", "20260213-T9"),),
+            "影响产量约 9 吨", "20260213-T9"),
+           ("N-02", "2022-01-05", "2022-01-07", "洗井（批 2 修订）",
+            "影响产量约 1.5 吨", "20220108-T0")),
 }
 
 # FX-06 增量批场景（well_info）：批 1 两井全量导出，批 2 增量只含 N-02 的更新
@@ -99,6 +109,38 @@ _FIXTURE_INCREMENTAL: dict[str, tuple[tuple[str, str], ...]] = {
     ),
     "I2": (  # 批 2（增量导出）：只含 N-02 的更新——N-06 不在批 2
         ("N-02", "增量批 B2 备注（N-02 独更）"),
+    ),
+}
+
+# FX-06b 增量批场景（well_overhaul 复合键）：批 1 全量导出该井两条检修记录；
+# 批 2 增量只更新洗井一条（同复合键 well_id+起止——业务修订重导），检泵未再
+# 导出——复合键 as-of 下检泵仍以批 1 行可见；per-well_id 旧语义下该井旧批
+# 随井最新版整批消失（检泵丢失）即本场景红（票面验收「红先绿后」机判）。
+_FIXTURE_OVERHAUL_INCREMENTAL: dict[
+    str, tuple[tuple[str, str, str, str, str, str], ...]
+] = {
+    "OI1": (  # 批 1（全量导出）：两条检修记录
+        ("N-02", "2022-01-05", "2022-01-07", "洗井",
+         "影响产量约 1 吨", "20220108-T0"),
+        ("N-02", "2026-02-10", "2026-02-12", "检泵",
+         "影响产量约 9 吨", "20260213-T9"),
+    ),
+    "OI2": (  # 批 2（增量导出）：只含洗井一条的修订——检泵不在批 2
+        ("N-02", "2022-01-05", "2022-01-07", "洗井（批 2 修订）",
+         "影响产量约 2 吨", "20220108-T0"),
+    ),
+}
+
+# FX-06b RANK 并列口径（lake_store.scan 注记「RANK 非 ROW_NUMBER」）：同键同
+# _snapshot_id 并列行全保留——同批 A/B 班重复行是合法内容，不互斥不裁剪。
+_FIXTURE_OVERHAUL_TIED: dict[
+    str, tuple[tuple[str, str, str, str, str, str], ...]
+] = {
+    "T1": (  # 单批两行：同复合键（well_id+起止）同 _snapshot_id，两班各报一条
+        ("N-02", "2023-04-01", "2023-04-03", "换层系（A 班）",
+         "影响产量约 3 吨", "20230404-T1"),
+        ("N-02", "2023-04-01", "2023-04-03", "换层系（B 班）",
+         "影响产量约 3.5 吨", "20230404-T1"),
     ),
 }
 
@@ -332,6 +374,61 @@ async def _load_incremental_scenario(url: URL) -> None:
         await admin.dispose()
 
 
+async def _load_overhaul_scenario(
+    url: URL,
+    fixture: dict[str, tuple[tuple[str, str, str, str, str, str], ...]],
+    ledger_prefix: str,
+) -> None:
+    """FX-06b well_overhaul 场景装载器（增量批例／RANK 并列例共用）。
+
+    先清后插（只动 fixture 井的 well_overhaul 行与指定前缀 DE02- 账本行——
+    自留地纪律同上）；账本插入序按 dict 序（增量例 OI1→OI2 保证 snapshot_id
+    递增＝「最新批」判据——DE-01 判据：追加序即版本序）。
+    """
+    admin = create_async_engine(url, isolation_level="AUTOCOMMIT")
+    try:
+        async with admin.connect() as conn:
+            ids = ", ".join(f"'{w}'" for w in _WELL_IDS)
+            await conn.execute(
+                text(f"DELETE FROM raw.well_overhaul WHERE well_id IN ({ids})")
+            )
+            await conn.execute(
+                text(
+                    "DELETE FROM data_plane.lake_snapshot "
+                    f"WHERE batch_id LIKE '{ledger_prefix}%'"
+                )
+            )
+            for batch, rows in fixture.items():
+                snapshot_id = (
+                    await conn.execute(
+                        text(
+                            "INSERT INTO data_plane.lake_snapshot "
+                            "(table_name, batch_id, data_object_key, manifest) "
+                            "VALUES ('well_overhaul', :b, :k, '{}'::jsonb) "
+                            "RETURNING snapshot_id"
+                        ),
+                        {
+                            "b": f"DE02-{batch}",
+                            "k": f"tpa-raw/well_overhaul/DE02-{batch}/data.csv",
+                        },
+                    )
+                ).scalar_one()
+                for row in rows:
+                    await conn.execute(
+                        text(
+                            "INSERT INTO raw.well_overhaul (well_id, overhaul_start, "
+                            "overhaul_end, overhaul_type, affected_output, batch_id, "
+                            "_snapshot_id, _src_batch_id) "
+                            "VALUES (:w, :s, :e, :t, :i, :b, :sid, :lb)"
+                        ),
+                        {"w": row[0], "s": _d(row[1]), "e": _d(row[2]), "t": row[3],
+                         "i": row[4], "b": row[5], "sid": snapshot_id,
+                         "lb": f"DE02-{batch}"},
+                    )
+    finally:
+        await admin.dispose()
+
+
 async def _delete_ledger(url: URL, table_name: str | None) -> None:
     """账本行删除（回落全量态制造）——table_name None＝三表全清。
 
@@ -468,26 +565,40 @@ async def test_profile_returns_latest_batch_content(client: TestClient) -> None:
     assert body["current_status"] == "生产中"
 
 
-# ---------- 端点 3：关系链台账只出最新批 ----------
+# ---------- 端点 3：关系链台账逐业务键取最新版（FX-06b 复合键对齐） ----------
 
 
-async def test_chain_ledgers_only_latest_batch(client: TestClient) -> None:
+async def test_chain_ledgers_latest_version_per_business_key(
+    client: TestClient,
+) -> None:
+    """台账按各自湖业务键取 ≤N 最新版（FX-06b：well_overhaul 键＝well_id+起止
+    复合键——DE-02 旧断言「台账只出最新批」按新语义改写）。
+
+    - 措施（湖键退化井号）：只出 M2 酸化行（M1 调剖被同键新版覆盖）——
+      行为零变化；
+    - 检修（复合键）：检泵（批 2 新键）与洗井修订（批 2 同键重导）两行全出；
+      洗井旧版（批 1 造数）被同键新版覆盖不出现——「被更新那条出最新版」；
+      「旧批其他记录仍可见」由增量批专例钉死（红先绿后在案）。
+    """
     body: dict[str, Any] = client.get("/api/wells/N-02/chain", headers=HEADERS).json()
-    # 措施台账：只 B2 的酸化行（B1 调剖行被过滤）——key 序号重排 m1
+    # 措施台账：只 M2 的酸化行（M1 调剖行被同键新版过滤）——key 序号重排 m1
     assert body["measures"] == [
         {"key": "m1", "date": "2026-03-01", "type": "酸化",
          "content": None, "result": None},
     ]
-    # 检修台账：只 B2 的检泵行（B1 洗井行被过滤）
+    # 检修台账：复合键逐键最新版（完工日倒序）——洗井旧版被同键批 2 版覆盖
     assert body["overhauls"] == [
         {"key": "o1", "date_start": "2026-02-10", "date_end": "2026-02-12",
          "job": "检泵", "impact": "影响产量约 9 吨", "batch": "批次 20260213-T9"},
+        {"key": "o2", "date_start": "2022-01-05", "date_end": "2022-01-07",
+         "job": "洗井（批 2 修订）", "impact": "影响产量约 1.5 吨",
+         "batch": "批次 20220108-T0"},
     ]
     # 五页签计数联动（devices＝合同冻结演示快照 2 行；status log 无行）
     assert body["counts"] == {
-        "events": 2, "measures": 1, "devices": 2, "overhauls": 1, "changes": 0,
+        "events": 3, "measures": 1, "devices": 2, "overhauls": 2, "changes": 0,
     }
-    assert [e["key"] for e in body["events"]] == ["m1", "o1"]
+    assert [e["key"] for e in body["events"]] == ["m1", "o1", "o2"]
     assert not any("旧批造数" in (e.get("title") or "") for e in body["events"])
 
 
@@ -497,12 +608,17 @@ async def test_chain_ledgers_only_latest_batch(client: TestClient) -> None:
 async def test_ledger_missing_table_falls_back_to_full(
     client: TestClient, url: URL
 ) -> None:
-    """well_overhaul 账本行清空 → 该表回落不过滤（两批都出行）；其余表仍过滤。"""
+    """well_overhaul 账本行清空 → 该表回落不过滤（三行全出，含被复合键最新版
+    覆盖的洗井旧版——FX-06b 下回落态与过滤态首次可区分）；其余表仍过滤。"""
     await _delete_ledger(url, "well_overhaul")
     body: dict[str, Any] = client.get("/api/wells/N-02/chain", headers=HEADERS).json()
-    assert [o["job"] for o in body["overhauls"]] == ["检泵", "洗井（旧批造数）"]
-    assert body["counts"]["overhauls"] == 2
-    assert body["counts"]["measures"] == 1  # 措施账本仍在——仍只出最新批
+    # 全量＝检泵＋洗井修订＋洗井旧版；两条 2022-01-07 完工行同日并列排序不稳
+    # 定——sorted 对账（过滤态只有前两行，旧版行只在回落态出现＝回落实证）
+    assert sorted(o["job"] for o in body["overhauls"]) == [
+        "检泵", "洗井（批 2 修订）", "洗井（旧批造数）",
+    ]
+    assert body["counts"]["overhauls"] == 3
+    assert body["counts"]["measures"] == 1  # 措施账本仍在——仍只出同键最新版
     assert [m["type"] for m in body["measures"]] == ["酸化"]
 
 
@@ -546,11 +662,11 @@ async def test_ledger_table_dropped_falls_back_not_500(
         profile = client.get("/api/wells/N-02", headers=HEADERS)
         assert profile.status_code == 200
         assert profile.json()["well_id"] == "N-02"
-        # 端点 3 关系链：200（两台账两批全出——回落全量）
+        # 端点 3 关系链：200（两台账全量——措施 2 行＋检修 3 行，回落不过滤）
         chain = client.get("/api/wells/N-02/chain", headers=HEADERS)
         assert chain.status_code == 200
         assert chain.json()["counts"]["measures"] == 2
-        assert chain.json()["counts"]["overhauls"] == 2
+        assert chain.json()["counts"]["overhauls"] == 3
     finally:
         restore = create_async_engine(url, isolation_level="AUTOCOMMIT")
         try:
@@ -584,3 +700,42 @@ async def test_incremental_batch_keeps_old_batch_wells(
     profile = client.get("/api/wells/N-06", headers=HEADERS)
     assert profile.status_code == 200
     assert profile.json()["remark"] == "增量批 B1 备注（N-06 未再导出）"
+
+
+# ---------- FX-06b：well_overhaul 复合键对齐——增量批／RANK 并列两钉 ----------
+
+
+async def test_incremental_overhaul_batch_keeps_other_records(
+    client: TestClient, url: URL
+) -> None:
+    """批 2 增量只更新某井一条检修记录（洗井——同复合键修订重导）→ 该井其余
+    旧批记录（检泵，批 2 未含）仍可见、被更新那条出批 2 内容（FX-06b 票面
+    任务 4；per-well_id 旧语义下检泵随井最新版整批消失＝本例红，红先绿后在案）。"""
+    await _load_overhaul_scenario(url, _FIXTURE_OVERHAUL_INCREMENTAL, "DE02-OI")
+    body: dict[str, Any] = client.get("/api/wells/N-02/chain", headers=HEADERS).json()
+    # 完工日倒序：检泵（2026-02-12，批 1 独有键——旧批其他记录仍在）
+    # → 洗井修订（2022-01-07，批 2 更新版——同键批 1 旧版被覆盖）
+    assert body["overhauls"] == [
+        {"key": "o1", "date_start": "2026-02-10", "date_end": "2026-02-12",
+         "job": "检泵", "impact": "影响产量约 9 吨", "batch": "批次 20260213-T9"},
+        {"key": "o2", "date_start": "2022-01-05", "date_end": "2022-01-07",
+         "job": "洗井（批 2 修订）", "impact": "影响产量约 2 吨",
+         "batch": "批次 20220108-T0"},
+    ]
+    assert body["counts"]["overhauls"] == 2
+
+
+async def test_same_snapshot_tied_rows_all_kept(client: TestClient, url: URL) -> None:
+    """RANK 非 ROW_NUMBER 口径（lake_store scan 注记）：同键同 _snapshot_id
+    并列行全保留——同批 A/B 班重复行是合法内容，不互斥不裁剪（FX-06b 票面
+    任务 2：实现与测试都钉这个口径）。"""
+    await _load_overhaul_scenario(url, _FIXTURE_OVERHAUL_TIED, "DE02-T")
+    body: dict[str, Any] = client.get("/api/wells/N-02/chain", headers=HEADERS).json()
+    # 两并列行同完工日——行间排序不稳定，sorted 对账；两行全保留即口径机判
+    assert sorted(o["job"] for o in body["overhauls"]) == [
+        "换层系（A 班）", "换层系（B 班）",
+    ]
+    assert sorted(o["impact"] for o in body["overhauls"]) == [
+        "影响产量约 3 吨", "影响产量约 3.5 吨",
+    ]
+    assert body["counts"]["overhauls"] == 2
