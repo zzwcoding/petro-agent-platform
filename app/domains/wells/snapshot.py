@@ -207,4 +207,6 @@ class LakeSnapshotReader:
 #     reader = LakeSnapshotReader(manager)
 #     WellsService(manager, snapshot_loader=reader.current_snapshot)
 #
-# 谓词形状由 DE-02 落地：raw 行过滤＝``_WELL_INFO.c._snapshot_id == face.snapshot_id``。
+# 谓词形状由 DE-02 落地、FX-06 对齐湖 scan as-of：raw 行过滤＝per-key 最新版
+# 半连接（每业务键取 ``_snapshot_id <= face.snapshot_id`` 的自身最新版——
+# store._current_version_asof；face.snapshot_id 作 as-of 上界 N）。

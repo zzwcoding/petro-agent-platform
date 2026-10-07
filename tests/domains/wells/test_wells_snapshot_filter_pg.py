@@ -89,6 +89,19 @@ _FIXTURE_OVERHAULS: dict[str, tuple[tuple[str, str, str, str, str, str], ...]] =
             "影响产量约 9 吨", "20260213-T9"),),
 }
 
+# FX-06 增量批场景（well_info）：批 1 两井全量导出，批 2 增量只含 N-02 的更新
+# （N-06 未再导出）——per-key as-of 对齐湖 scan 后 N-06 仍以批 1 数据可见；
+# 旧过滤（全局最新批等值）下 N-06 静默消失即本场景红。
+_FIXTURE_INCREMENTAL: dict[str, tuple[tuple[str, str], ...]] = {
+    "I1": (  # 批 1（全量导出）：两井各一行
+        ("N-02", "增量批 B1 备注（N-02 旧版）"),
+        ("N-06", "增量批 B1 备注（N-06 未再导出）"),
+    ),
+    "I2": (  # 批 2（增量导出）：只含 N-02 的更新——N-06 不在批 2
+        ("N-02", "增量批 B2 备注（N-02 独更）"),
+    ),
+}
+
 
 # ---------- 底座（照 test_wells_snapshot_pg.py 惯例——DP-03 SQL 实建） ----------
 
@@ -263,6 +276,57 @@ async def _load_multi_batch_fixture(url: URL) -> None:
                         ),
                         {"w": row[0], "s": _d(row[1]), "e": _d(row[2]), "t": row[3],
                          "i": row[4], "b": row[5], "sid": snapshot_id, "lb": ledger_batch},
+                    )
+    finally:
+        await admin.dispose()
+
+
+async def _load_incremental_scenario(url: URL) -> None:
+    """FX-06 增量批场景（well_info）：批 1 两井全量导出、批 2 增量只含 N-02。
+
+    先清后插（只动两 fixture 井的 well_info 行与 DE02-I 前缀账本行）；账本
+    插入序 I1→I2 保证 snapshot_id 递增＝「最新批」判据（追加序即版本序）。
+    """
+    admin = create_async_engine(url, isolation_level="AUTOCOMMIT")
+    try:
+        async with admin.connect() as conn:
+            ids = ", ".join(f"'{w}'" for w in _WELL_IDS)
+            await conn.execute(
+                text(f"DELETE FROM raw.well_info WHERE well_id IN ({ids})")
+            )
+            await conn.execute(
+                text(
+                    "DELETE FROM data_plane.lake_snapshot "
+                    "WHERE batch_id LIKE 'DE02-I%'"
+                )
+            )
+            for batch in ("I1", "I2"):
+                snapshot_id = (
+                    await conn.execute(
+                        text(
+                            "INSERT INTO data_plane.lake_snapshot "
+                            "(table_name, batch_id, data_object_key, manifest) "
+                            "VALUES ('well_info', :b, :k, '{}'::jsonb) "
+                            "RETURNING snapshot_id"
+                        ),
+                        {
+                            "b": f"DE02-{batch}",
+                            "k": f"tpa-raw/well_info/DE02-{batch}/data.csv",
+                        },
+                    )
+                ).scalar_one()
+                for well_id, remark in _FIXTURE_INCREMENTAL[batch]:
+                    await conn.execute(
+                        text(
+                            "INSERT INTO raw.well_info (well_id, well_name, "
+                            "well_type, first_prod_date, platform, block_name, "
+                            "current_status, remarks, _snapshot_id, _batch_id) "
+                            "VALUES (:w, :n, 'EW', :d, 'CEP-A', '渤南', '生产中', "
+                            ":r, :sid, :lb)"
+                        ),
+                        {"w": well_id, "n": "渤中28-1-N2",
+                         "d": date.fromisoformat("2019-06-15"), "r": remark,
+                         "sid": snapshot_id, "lb": f"DE02-{batch}"},
                     )
     finally:
         await admin.dispose()
@@ -494,3 +558,29 @@ async def test_ledger_table_dropped_falls_back_not_500(
                 await _apply_dp03(conn)
         finally:
             await restore.dispose()
+
+
+# ---------- FX-06：增量批场景——per-key as-of 对齐湖 scan（旧批井不静默消失） ----------
+
+
+async def test_incremental_batch_keeps_old_batch_wells(
+    client: TestClient, url: URL
+) -> None:
+    """批 2 增量只含一口井的更新（N-02）→ 旧批井 N-06 仍以批 1 数据可见、
+    N-02 出批 2 数据、每井恰 1 行（湖 scan as-of 语义：每业务键取 ≤N 最新版）。
+
+    旧过滤（``_snapshot_id = 全局最新批`` 等值）下 N-06 静默消失（列表无行、
+    档案 404）即本例红——R1-01 裁决修复的机判在案。"""
+    await _load_incremental_scenario(url)
+    # 端点 1 列表：每井恰 1 行——N-06（不在批 2）以批 1 行可见
+    body: dict[str, Any] = client.get("/api/wells", headers=HEADERS).json()
+    well_ids = [i["well_id"] for i in body["items"]]
+    assert well_ids.count("N-02") == 1 and well_ids.count("N-06") == 1
+    by_id = {i["well_id"]: i for i in body["items"]}
+    # 被更新井出批 2 数据；旧批井保批 1 数据（不被新批清场）
+    assert by_id["N-02"]["remark"] == "增量批 B2 备注（N-02 独更）"
+    assert by_id["N-06"]["remark"] == "增量批 B1 备注（N-06 未再导出）"
+    # 端点 2 档案：旧批井不 404（当前版世界仍在——一口井一份档案读语义）
+    profile = client.get("/api/wells/N-06", headers=HEADERS)
+    assert profile.status_code == 200
+    assert profile.json()["remark"] == "增量批 B1 备注（N-06 未再导出）"

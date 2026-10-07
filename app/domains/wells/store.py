@@ -16,10 +16,12 @@
 - 设备台账（raw.equip_status）现供给无井关联列（DP-03 DDL 注记「列缺疑点
   已登记」）——按井取行装配批随中台扩列启用，本读面暂不查询该表（设备行
   由合同冻结演示快照承载，见 domain.device_snapshot_for）。
-- 湖当前版过滤（DE-02 接线——E10 多批重复行收口）：raw 湖表 append-only
-  多批叠加即重复行，读面查询按湖技术列 ``_snapshot_id = 湖当前版`` 过滤
-  （当前版寻址键由服务层经 LakeSnapshotLoader 解析传入——DE-01 解析器缝；
-  键为 None＝不过滤：账本无该表记录/缝未装配回落全量，DE-01 三态语义）。
+- 湖当前版过滤（DE-02 接线——E10 多批重复行收口；FX-06 对齐湖 scan as-of）：
+  raw 湖表 append-only 多批叠加即重复行，读面查询按 per-key 最新版半连接过滤
+  （每业务键 well_id 取 ``_snapshot_id <= N`` 的自身最新版，N＝服务层经
+  LakeSnapshotLoader 解析的湖当前版批——DE-01 解析器缝；与 data-plane
+  lake_store.scan 的 as-of 原文同语义：同批并列行全保留、跨批旧版被新版覆盖
+  不混用；键为 None＝不过滤：账本无该表记录/缝未装配回落全量，DE-01 三态语义）。
   三张在查源表（well_info/well_measures/well_overhaul）逐表各解析各过滤；
   平台补位表 well_status_log 不经湖管道，不过滤。
 """
@@ -39,10 +41,12 @@ from sqlalchemy import (
     String,
     Table,
     Text,
+    func,
     select,
 )
 from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.domains.security import Actor
 from app.domains.wells.domain import normalize_well_id
@@ -205,6 +209,27 @@ _WELL_COLUMNS = (
 )
 
 
+def _current_version_asof(table: Table, snapshot_id: int) -> ColumnElement[bool]:
+    """per-key 最新版半连接谓词（FX-06——对齐湖底座 scan 的 as-of 原文语义）。
+
+    快照 N＝截至 N 的全表生效视图：每业务键（well_id——三张在查源表的湖业务
+    键，data-plane lake_store._BUSINESS_KEYS）取 ``_snapshot_id <= N`` 的自身
+    最新版——行版本＝该键窗口内最大 ``_snapshot_id``（相关子查询半连接，与
+    lake_store.scan 的 RANK()=1 等价：同批并列行全保留、跨批旧版被新版覆盖
+    不混用）。替代 DE-02 的「全局最新批等值」——增量批（只导变化井）下不在
+    最新批的井不再静默消失（R1-01 裁决：修正确语义优于锁「每批全量导出」前提）。
+    """
+    inner = table.alias()  # 自连接别名——相关子查询内表
+    return table.c._snapshot_id == (
+        select(func.max(inner.c._snapshot_id))
+        .where(
+            inner.c.well_id == table.c.well_id,
+            inner.c._snapshot_id <= snapshot_id,
+        )
+        .scalar_subquery()
+    )
+
+
 class WellsStore:
     """井档案读模型取数（纯读——无写出口）。"""
 
@@ -216,13 +241,14 @@ class WellsStore:
     ) -> list[WellInfoRow]:
         """选井全行（端点 1）——行级过滤在服务端（无权限的井不出现，F48）。
 
-        snapshot_id＝湖当前版批次寻址键（DE-02 接线——非 None 时加
-        ``_snapshot_id = 键`` 过滤，E10 修法原文；None＝不过滤回落全量）。
+        snapshot_id＝湖当前版批（as-of 上界 N——非 None 时 per-key 最新版
+        半连接过滤，见 ``_current_version_asof``／FX-06；None＝不过滤回落
+        全量）。
         """
         scope = with_row_filter(actor.user_id, "raw.well_info")
         stmt = select(*_WELL_COLUMNS)
         if snapshot_id is not None:
-            stmt = stmt.where(_WELL_INFO.c._snapshot_id == snapshot_id)
+            stmt = stmt.where(_current_version_asof(_WELL_INFO, snapshot_id))
         stmt = stmt.order_by(_WELL_INFO.c.well_id.asc())
         stmt = ConnectionManager.with_row_filter(stmt, scope.predicates)
         async with self._db.readonly(role="midplatform") as session:
@@ -242,7 +268,7 @@ class WellsStore:
             _WELL_INFO.c.well_id == normalize_well_id(well_id)
         )
         if snapshot_id is not None:
-            stmt = stmt.where(_WELL_INFO.c._snapshot_id == snapshot_id)
+            stmt = stmt.where(_current_version_asof(_WELL_INFO, snapshot_id))
         stmt = ConnectionManager.with_row_filter(stmt, scope.predicates)
         async with self._db.readonly(role="midplatform") as session:
             row = (await session.execute(stmt)).first()
@@ -261,7 +287,7 @@ class WellsStore:
             _WELL_INFO.c.well_id == normalized
         )
         if snapshot_id is not None:
-            stmt = stmt.where(_WELL_INFO.c._snapshot_id == snapshot_id)
+            stmt = stmt.where(_current_version_asof(_WELL_INFO, snapshot_id))
         async with self._db.readonly(role="midplatform") as session:
             row = (await session.execute(stmt)).first()
         return WellInfoRow(row) if row is not None else None
@@ -280,7 +306,9 @@ class WellsStore:
             _WELL_MEASURES.c.job_date,
         ).where(_WELL_MEASURES.c.well_id == normalized)
         if snapshot_id is not None:
-            stmt = stmt.where(_WELL_MEASURES.c._snapshot_id == snapshot_id)
+            stmt = stmt.where(
+                _current_version_asof(_WELL_MEASURES, snapshot_id)
+            )
         stmt = stmt.order_by(_WELL_MEASURES.c.job_date.desc().nulls_last())
         async with self._db.readonly(role="midplatform") as session:
             rows = (await session.execute(stmt)).all()
@@ -300,7 +328,9 @@ class WellsStore:
             _WELL_OVERHAUL.c.affected_output, _WELL_OVERHAUL.c.batch_id,
         ).where(_WELL_OVERHAUL.c.well_id == normalized)
         if snapshot_id is not None:
-            stmt = stmt.where(_WELL_OVERHAUL.c._snapshot_id == snapshot_id)
+            stmt = stmt.where(
+                _current_version_asof(_WELL_OVERHAUL, snapshot_id)
+            )
         stmt = stmt.order_by(_WELL_OVERHAUL.c.overhaul_end.desc().nulls_last())
         async with self._db.readonly(role="midplatform") as session:
             rows = (await session.execute(stmt)).all()
