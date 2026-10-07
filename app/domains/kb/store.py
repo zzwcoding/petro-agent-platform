@@ -596,28 +596,6 @@ class TaskStore:
             )
         return rows[0] if rows else None
 
-    async def list_for_report(
-        self, report_id: str, *, exclude_task_id: str
-    ) -> list[IngestTaskRow]:
-        """同报告既有任务（新→旧；排除当前任务行）——结构图版本级缓存查找面
-        （P1F-05：首个 text_sha256 命中即复用，零 LLM 重入）。"""
-        async with self._db.readonly() as session:
-            rows = (
-                (
-                    await session.execute(
-                        select(IngestTaskRow)
-                        .where(
-                            IngestTaskRow.report_id == report_id,
-                            IngestTaskRow.id != exclude_task_id,
-                        )
-                        .order_by(IngestTaskRow.started_at.desc(), IngestTaskRow.id.desc())
-                    )
-                )
-                .scalars()
-                .all()
-            )
-        return list(rows)
-
     async def mark_stale_stuck(self, *, before: datetime, summary: str) -> int:
         """stuck 收口：running 且 updated_at 早于 before 的任务置 stuck（幂等）。"""
         async with self._db.session() as session:

@@ -527,6 +527,21 @@ class GraphOntologyMismatchError(GraphParamError):
         )
 
 
+class GraphConflictError(Exception):
+    """报告级防重入冲突（B5 端点 6「同报告防重入 409」——E3/E4：该报告任何
+    图谱支路在跑〔入库触发或手动重抽〕，新图谱支路受理一律拒；**独立异常类
+    不继承 GraphParamError**——409 冲突不是 400 参数错误的子形态，Kb/Faq/
+    Retrieval Conflict 先例同形；api 层映射归 errors.py）。
+
+    message 携带两态文案（「入库支路在跑」/「重抽在跑」——登记来源可辨）；
+    code 恒 graph_extract_running。
+    """
+
+    def __init__(self, message: str, *, code: str = "graph_extract_running") -> None:
+        self.code = code
+        super().__init__(message)
+
+
 # ---------- ExtractConfig（F40 四段——按库待生效配置，B1 库配置同族语义） ----------
 
 

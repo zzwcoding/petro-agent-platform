@@ -6,8 +6,9 @@
 LLM 起草、被拦边清单。
 """
 
+import asyncio
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 
@@ -461,3 +462,181 @@ class TestDraftExample:
         lib_id, _r, _t = await make_report(kb, _kb_storage(kb))
         with pytest.raises(d.GraphParamError):
             await derivatives.draft_example(lib_id, rel="  ")
+
+
+# ---------- 报告级防重入（E3——入库支路与重抽共用同一登记） ----------
+
+
+class GatedCompleter:
+    """graph.extract 应答挂闸（await release 才放行）——支路挂起模拟在跑。"""
+
+    def __init__(self, inner: StubCompleter, release: asyncio.Event) -> None:
+        self._inner = inner
+        self._release = release
+
+    async def complete(
+        self, alias: str, messages: list[dict[str, str]], *, caller: str,
+        **params: Any,
+    ) -> Completion:
+        if caller == "graph.extract":
+            await self._release.wait()
+        return await self._inner.complete(alias, messages, caller=caller, **params)
+
+
+class BoomCompleter:
+    """graph.extract 直接抛异常——支路异常中断路径。"""
+
+    async def complete(
+        self, alias: str, messages: list[dict[str, str]], *, caller: str,
+        **params: Any,
+    ) -> Completion:
+        raise RuntimeError("图谱抽取支路异常（测试注入）")
+
+
+async def _graph_tasks_done(derivatives: DerivativesService) -> bool:
+    return all(
+        t.done() for t in getattr(derivatives, "_graph_tasks", [])
+    )
+
+
+async def _graph_quiesced(derivatives: DerivativesService) -> bool:
+    """支路全收尾且登记已清（done 回调经 call_soon 调度——单等 task.done()
+    为真的瞬间回调可能尚未执行，登记判空一并入等待条件）。"""
+    done = await _graph_tasks_done(derivatives)
+    return done and not getattr(derivatives, "_graph_running", {})
+
+
+class TestReentryGuard:
+    """三态：入库支路在跑→拒（文案点名）/重抽在跑→拒（文案点名）/
+    异常中断→登记解除可再入（防泄漏假阳性）；FX-07（R2-01 审查裁决）补
+    入库→入库交错：在跑再 spawn→跳过图谱支路＋注记＋登记不覆盖。
+
+    除交错用例外库配置统一 graph=False：防重入登记只由测试主动驱动
+    （completion 模板默认图谱开——make_report 的入库图谱支路与测试并发
+    登记同一 report_id，支路收尾回调清替身登记造成时序偶发）；交错用例
+    显式开启 graph——入库图谱支路正是被测对象。
+    """
+
+    _CFG: ClassVar[dict[str, bool]] = {"semantic": True, "keyword": True,
+                                        "wiki": False, "graph": False}
+
+    async def test_ingest_branch_running_reextract_rejected(self, env: Env) -> None:
+        kb, derivatives, _g, _c = env
+        lib_id, report_id, _t = await make_report(kb, _kb_storage(kb),
+                                                  lib_config=self._CFG)
+        # 替身占登记：入库触发路径放行形态（登记值＝任务号，非 "reextract"）
+        derivatives._graph_running = {report_id: "task-ingest-001"}
+        with pytest.raises(d.GraphConflictError, match="入库支路在跑"):
+            await derivatives.reextract_graph(report_id, lib_id)
+
+    async def test_reextract_running_second_call_rejected(self, env: Env) -> None:
+        kb, derivatives, _g, completer = env
+        lib_id, report_id, _t = await make_report(kb, _kb_storage(kb),
+                                                  lib_config=self._CFG)
+        release = asyncio.Event()
+        derivatives._gateway = GatedCompleter(completer, release)
+        first = await derivatives.reextract_graph(report_id, lib_id)
+        assert first["spawned"] is True
+        with pytest.raises(d.GraphConflictError, match="重抽在跑"):
+            await derivatives.reextract_graph(report_id, lib_id)
+        release.set()  # 放行支路收尾——登记随支路解除
+        await wait_until(lambda: _graph_tasks_done(derivatives))
+
+    async def test_conflict_and_param_error_two_shapes(self, env: Env) -> None:
+        """两态分立（E4）：防重入＝GraphConflictError（409 形态，非参数错误
+        子类）；入参形状非法＝GraphParamError（400 形态）——按异常类型判别，
+        不按消息字符串猜。"""
+        kb, derivatives, _g, _c = env
+        lib_id, report_id, _t = await make_report(kb, _kb_storage(kb),
+                                                  lib_config=self._CFG)
+        derivatives._graph_running = {report_id: "reextract"}
+        with pytest.raises(d.GraphConflictError) as conflict:
+            await derivatives.reextract_graph(report_id, lib_id)
+        assert not isinstance(conflict.value, d.GraphParamError), (
+            "防重入冲突不是参数错误子类（409 与 400 两态不误伤）"
+        )
+        assert conflict.value.code == "graph_extract_running"
+        with pytest.raises(d.GraphParamError) as param:
+            await derivatives.draft_example(lib_id, rel="  ")
+        assert not isinstance(param.value, d.GraphConflictError)
+        assert param.value.code == "graph_param_invalid"
+
+    async def test_failed_branch_releases_guard(self, env: Env) -> None:
+        kb, derivatives, _g, _c = env
+        lib_id, report_id, _t = await make_report(kb, _kb_storage(kb),
+                                                  lib_config=self._CFG)
+        derivatives._gateway = BoomCompleter()
+        first = await derivatives.reextract_graph(report_id, lib_id)
+        assert first["spawned"] is True
+        await wait_until(lambda: _graph_quiesced(derivatives))
+        assert derivatives._graph_running == {}, "异常路径登记必须清理（防泄漏假阳性）"
+        second = await derivatives.reextract_graph(report_id, lib_id)
+        assert second["spawned"] is True, "异常中断后可再入"
+        await wait_until(lambda: _graph_tasks_done(derivatives))
+
+    async def test_ingest_ingest_interleave_second_branch_skipped(
+        self, env: Env, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """FX-07（R2-01 审查裁决）入库→入库交错：G1 在跑（替身挂闸）期间
+        retry_ingest 完成再 spawn——G2 被跳过（warning＋branch 载荷注记）、
+        G1 登记不被覆盖、G1 收尾后登记解除。
+
+        显式开启 graph（见类 docstring——入库图谱支路正是被测对象）；branch
+        回写缝照 main.py 组合根注真 kb.set_branch_status（跳过注记走真写面）。
+        retry_ingest 复用同一 report_id（kb/service.py 端点 10）——R2-01 病灶
+        场景的单进程复现路径。
+        """
+        kb, derivatives, _g, completer = env
+        graph_cfg = {"semantic": True, "keyword": True, "wiki": False,
+                     "graph": True}
+        _lib_id, report_id, task_a = await make_report(
+            kb, _kb_storage(kb), lib_config=graph_cfg,
+        )
+        # 首轮入库的图谱支路（未挂闸）先行收尾——登记清零再布闸
+        await wait_until(lambda: _graph_quiesced(derivatives))
+
+        async def reporter(
+            task_id: str, branch: str, state: str,
+            detail: str | None = None, extra: dict[str, Any] | None = None,
+        ) -> None:
+            await kb.set_branch_status(task_id, branch, state, detail, extra)
+
+        derivatives._branch_reporter = reporter
+        release = asyncio.Event()
+        derivatives._gateway = GatedCompleter(completer, release)
+
+        # G1：重跑定型（任务 B）——完成后图谱支路挂闸在跑、登记 R→B
+        progress_b = await kb.retry_ingest(task_a, "aqiang · 平台运维")
+        await wait_until(
+            lambda: _sync(derivatives._graph_running.get(report_id)
+                          == progress_b.id)
+        )
+
+        # G2：任务 B 已 done 可再重跑（任务 C）——C 完成再 spawn 撞 G1 在跑
+        # （两码都等 spawn 尝试处理完：现行为登记被覆盖为 C／修后注记落地）
+        progress_c = await kb.retry_ingest(progress_b.id, "aqiang · 平台运维")
+
+        async def _c_settled() -> bool:
+            row = await kb.ingest_task(progress_c.id)
+            branches = dict(row.branches or {})
+            return row.state == "done" and (
+                "graph" in branches
+                or derivatives._graph_running.get(report_id) == progress_c.id
+            )
+
+        await wait_until(_c_settled)
+        # G2 被跳过：warning 一条＋branch 载荷 additive 注记（键 graph、
+        # state=skipped，照 chunk_check 先例——不触碰既有键）
+        assert any("graph 支路跳过" in r.getMessage() for r in caplog.records), (
+            "守卫跳过必须留 warning 一条"
+        )
+        row_c = await kb.ingest_task(progress_c.id)
+        note = row_c.branches["graph"]
+        assert note["state"] == "skipped"
+        assert "在跑" in note["detail"]
+        # G1 登记不被覆盖（R2-01 病灶②——登记仍指向任务 B）
+        assert derivatives._graph_running.get(report_id) == progress_b.id
+        # G1 收尾后登记解除（R2-01 病灶③——按 task_no 比对再 pop）
+        release.set()
+        await wait_until(lambda: _graph_quiesced(derivatives))
+        assert derivatives._graph_running == {}

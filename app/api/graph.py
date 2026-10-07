@@ -272,10 +272,17 @@ async def reextract(
     security: SecurityDep,
     actor: CurrentActor,
 ) -> ReextractResponse:
-    """图谱支路重跑（G-06——补无重跑端点缺口；同报告防重入）。"""
+    """图谱支路重跑（G-06——补无重跑端点缺口；报告级防重入）。
+
+    同报告任何图谱支路在跑（入库触发或手动重抽）→409 冲突
+    （graph_extract_running——B5 端点 6「同报告防重入 409」，E4 归一；
+    映射归 api/errors.py）。"""
     receipt = await service.reextract_graph(body.report_id, body.lib_id)
     await security.audit(AuditRow(
-        who=actor.who, action="图谱重抽", content=f"报告 {body.report_id} 图谱支路重跑",
+        # action 点分族（E5——graph.extract_config.saved 同风格；旧串「图谱重抽」
+        # 全仓零消费方，历史行不迁移——append-only 只管新写入）
+        who=actor.who, action="graph.reextract.requested",
+        content=f"报告 {body.report_id} 图谱支路重跑",
     ))
     return ReextractResponse(**receipt)
 
