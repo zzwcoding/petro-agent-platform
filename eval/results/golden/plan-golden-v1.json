@@ -1,0 +1,587 @@
+{
+  "golden_id": "plan-golden-v1",
+  "created": "2026-10-07",
+  "anchor_date": "2026-10-08",
+  "ticket": "tickets/phase3/L-04-golden首批与跑批脚本.md",
+  "purpose": "问数入口 QueryPlan 意图 golden 首批——回归闸（闸 B 硬闸载体）＋L-02 提示词构建器少样本源（拍板 5：轻量评测不可省）",
+  "semantics_source": "app/domains/chat/domain.py build_query_plan/MEASURE_COLUMNS/DATA_QUESTION_RE 现行确定性语义（本批钉快路可解与触发边界；LLM 路意图标准随 L-03 影子数据滚动补）",
+  "value_source": "标准答案要点数值全部实查 agg（2026-10-07，库＝fieldforge 86 井×365 天 2025-09-01~2026-08-31，水位 2026-08-31；b-8c8cd81fea34 增量批覆 N-01/N-02/Z-01/Z-02 2025-09-01~07 七日）；数值随库变化属预期，人审按「口径＋量级」判",
+  "window_anchor_rule": "相对窗按执行日重锚：anchor_scope=year 的题（去年窗）年内有效；anchor_scope=day 的题（今年/本月/默认窗——上沿或起点随执行日漂移）仅锚定日当日机器判，过期落人审并提示重锚",
+  "machine_judge_fields": [
+    "metric_slot",
+    "window.start",
+    "window.end",
+    "limit_effective",
+    "ranking",
+    "direction"
+  ],
+  "machine_judge_note": "与 L-01 compare_query_plans PLAN_COMPARE_FIELDS 同源口径；window.label/is_default 记注记不判分歧；解析失败落人审列不进机器判绿红；退出码只看机器判（全绿 0/有红 1），答案数值人审不进退出码",
+  "coverage_matrix": {
+    "三指标×快路": 6,
+    "慢路触发": 6,
+    "默认窗": 2,
+    "触发边界": 4,
+    "红例族": 6
+  },
+  "owner_signoff": {
+    "approved": false,
+    "signed_by": "",
+    "signed_at": null,
+    "note": "拍板 5：golden 清单须 Owner 审核签认才算数——签认记 tickets/phase3/reports/L-04.收尾.md"
+  },
+  "questions": [
+    {
+      "qid": "L04-01",
+      "family": "三指标×快路",
+      "question": "去年日产油量最高的井是哪口？",
+      "source": "eval/answers/问数组-题目与答案.md 数-排1 原句",
+      "expected_path": "快路",
+      "anchor_scope": "year",
+      "expected_intent": {
+        "metric_slot": "日产油量",
+        "window": {
+          "rule": "去年",
+          "start": "2025-01-01",
+          "end": "2026-01-01",
+          "label": "去年",
+          "is_default": false
+        },
+        "limit_requested": null,
+        "limit_effective": 50,
+        "ranking": true,
+        "direction": "desc"
+      },
+      "answer_essentials": "Z-16，去年窗逐日合计 5839.6 吨（口径：班次合计日口径·单位吨·窗内 SUM）；序：Z-16＞X-25 5708.2＞N-15 5571.5＞Z-23 5557.8＞Z-34 5551.4（2026-10-07 实查 agg，86 井全参与）；拿全年合计或指认 X-25/N-15 即错",
+      "tags": [
+        "快路可解",
+        "排名型",
+        "降序",
+        "去年窗",
+        "日产油量"
+      ]
+    },
+    {
+      "qid": "L04-02",
+      "family": "三指标×快路",
+      "question": "去年各井每天的日产油量是多少？",
+      "source": "eval/answers/问数组-题目与答案.md 数-明1 原句",
+      "expected_path": "快路",
+      "anchor_scope": "year",
+      "expected_intent": {
+        "metric_slot": "日产油量",
+        "window": {
+          "rule": "去年",
+          "start": "2025-01-01",
+          "end": "2026-01-01",
+          "label": "去年",
+          "is_default": false
+        },
+        "limit_requested": null,
+        "limit_effective": 50,
+        "ranking": false,
+        "direction": null
+      },
+      "answer_essentials": "窗内实际 10492 行，LIMIT 默认 50 截断——返回 2025-09-01 当日按井号序前 50 井：首行 N-01 21.00 吨、第 50 行 X-23 34.21 吨（2026-10-07 实查 agg；问数组册 v2 记首行 21.16 系 2026-10-05 旧灌数据——b-8c8cd81fea34 增量批已覆 4 井×7 日，数值随库变化属预期）；须带截断收口注记（默认 50）＋血缘卡④水位 2026-08-31；direction 为明细模板缺省不钉",
+      "tags": [
+        "快路可解",
+        "明细型",
+        "去年窗",
+        "日产油量",
+        "截断注记"
+      ]
+    },
+    {
+      "qid": "L04-03",
+      "family": "三指标×快路",
+      "question": "去年日产液量最高的井是哪口？",
+      "source": "eval/answers/问数组-题目与答案.md 数-排3 原句",
+      "expected_path": "快路",
+      "anchor_scope": "year",
+      "expected_intent": {
+        "metric_slot": "日产液量",
+        "window": {
+          "rule": "去年",
+          "start": "2025-01-01",
+          "end": "2026-01-01",
+          "label": "去年",
+          "is_default": false
+        },
+        "limit_requested": null,
+        "limit_effective": 50,
+        "ranking": true,
+        "direction": "desc"
+      },
+      "answer_essentials": "N-15，去年窗逐日合计 8824.4 方；序：N-15＞Z-16 8418.0＞Z-23 8135.4（2026-10-07 实查 agg）——与油量冠军 Z-16 不同井（跨指标干扰主力考点，答 Z-16 即错）",
+      "tags": [
+        "快路可解",
+        "排名型",
+        "降序",
+        "去年窗",
+        "日产液量"
+      ]
+    },
+    {
+      "qid": "L04-04",
+      "family": "三指标×快路",
+      "question": "今年各井的日产液量按天列出来",
+      "source": "eval/answers/问数组-题目与答案.md 数-明2 原句",
+      "expected_path": "快路",
+      "anchor_scope": "day",
+      "expected_intent": {
+        "metric_slot": "日产液量",
+        "window": {
+          "rule": "今年",
+          "start": "2026-01-01",
+          "end": "2026-10-08",
+          "label": "今年",
+          "is_default": false
+        },
+        "limit_requested": null,
+        "limit_effective": 50,
+        "ranking": false,
+        "direction": null
+      },
+      "answer_essentials": "今年窗至执行日 20898 行，LIMIT 50 截断——2026-01-01 当日前 50 井，首行 N-01 36.97 方（2026-10-07 实查 agg）；改绑注记必须在位（水位 2026-08-31 早于窗上沿——已按最近可用日改绑出数）；血缘④＝2026-08-31；direction 为明细模板缺省不钉",
+      "tags": [
+        "快路可解",
+        "明细型",
+        "今年窗",
+        "日产液量",
+        "改绑注记"
+      ]
+    },
+    {
+      "qid": "L04-05",
+      "family": "三指标×快路",
+      "question": "去年油压最高的井是哪口？",
+      "source": "摘编改造——数-明3（油压指标）×数-排1（最高句式），题册未动",
+      "expected_path": "快路",
+      "anchor_scope": "year",
+      "expected_intent": {
+        "metric_slot": "油压",
+        "window": {
+          "rule": "去年",
+          "start": "2025-01-01",
+          "end": "2026-01-01",
+          "label": "去年",
+          "is_default": false
+        },
+        "limit_requested": null,
+        "limit_effective": 50,
+        "ranking": true,
+        "direction": "desc"
+      },
+      "answer_essentials": "N-21，去年窗油压逐日合计 1049.66 MPa；序：N-21＞Z-14 1036.57＞N-06 1022.63（2026-10-07 实查 agg）；口径注意＝排名模板按窗内逐日合计排序（非单日最高读数）——按单日读数口径判者以模板注册口径为准（人审按口径＋量级）",
+      "tags": [
+        "快路可解",
+        "排名型",
+        "降序",
+        "去年窗",
+        "油压"
+      ]
+    },
+    {
+      "qid": "L04-06",
+      "family": "三指标×快路",
+      "question": "去年各井每天的油压是多少？",
+      "source": "eval/answers/问数组-题目与答案.md 数-明3 原句",
+      "expected_path": "快路",
+      "anchor_scope": "year",
+      "expected_intent": {
+        "metric_slot": "油压",
+        "window": {
+          "rule": "去年",
+          "start": "2025-01-01",
+          "end": "2026-01-01",
+          "label": "去年",
+          "is_default": false
+        },
+        "limit_requested": null,
+        "limit_effective": 50,
+        "ranking": false,
+        "direction": null
+      },
+      "answer_essentials": "形态同 L04-02（油压属三绑定指标）：50 行＝2025-09-01 当日前 50 井，首行 N-01 7.50 MPa（2026-10-07 实查 agg；问数组册记 7.56 系旧灌数据）＋截断注记＋血缘照旧",
+      "tags": [
+        "快路可解",
+        "明细型",
+        "去年窗",
+        "油压"
+      ]
+    },
+    {
+      "qid": "L04-07",
+      "family": "慢路触发",
+      "question": "哪几口井采得最狠？",
+      "source": "方案-LLM问数演进-20261005 §2.2 代表例（不命中 DATA_QUESTION_RE 词面亦无指标词）",
+      "expected_path": "慢路触发",
+      "anchor_scope": "day",
+      "expected_intent": null,
+      "answer_essentials": "现网形态（2026-10-07 探针 P1 实证）：检索问答链如实说明「采得最狠」含义不明且材料未披露——不编数；慢路生效后（L-02/L-05）预期 LLM#plan 填槽出计划，五槽位意图标准随 L-03 影子数据滚动补，本批不钉",
+      "tags": [
+        "词面缺件",
+        "慢路触发",
+        "慢路代表例",
+        "不编数"
+      ]
+    },
+    {
+      "qid": "L04-08",
+      "family": "慢路触发",
+      "question": "去年各井含水率是多少？",
+      "source": "eval/answers/问数组-题目与答案.md 数-降1 原句",
+      "expected_path": "慢路触发",
+      "anchor_scope": "year",
+      "expected_intent": null,
+      "answer_essentials": "现网形态：入六站链但指标槽位未命中可出数注册声明（含水率 0019 在册未绑定 agg 计量列——事实表仅三计量列）→降级解释链不冒充审定口径，接续检索须带「非权威数值」标注；零权威数值（给任何含水率百分数即错）",
+      "tags": [
+        "解析缺件",
+        "慢路触发",
+        "降级链",
+        "在册未绑定"
+      ]
+    },
+    {
+      "qid": "L04-09",
+      "family": "慢路触发",
+      "question": "去年各井配产量是多少？",
+      "source": "eval/answers/问数组-题目与答案.md 数-降2 原句",
+      "expected_path": "慢路触发",
+      "anchor_scope": "year",
+      "expected_intent": null,
+      "answer_essentials": "同 L04-08 路径（配产量同在册未绑定 agg 计量列）——双题验证降级路径指标无关性；降级解释＋接续标注＋零权威数值",
+      "tags": [
+        "解析缺件",
+        "慢路触发",
+        "降级链",
+        "在册未绑定"
+      ]
+    },
+    {
+      "qid": "L04-10",
+      "family": "慢路触发",
+      "question": "上月检泵周期最长的井是哪口？",
+      "source": "摘编改造——D-诱9（检泵周期指标）×上月＋最长句式，题册未动",
+      "expected_path": "慢路触发",
+      "anchor_scope": "day",
+      "expected_intent": null,
+      "answer_essentials": "现网形态（2026-10-07 探针 P6 实证）：词面齐（上月）仍解析缺件（检泵周期＝同步器种子在册未绑定）→降级解释链＋接续检索；检索接续内容（「上月平均检泵周期 405 天」等）系报告库口径非权威数值——人审注意标注在位即可；另「最长」不在 DATA_QUESTION_RE——词面靠上月单字面撑",
+      "tags": [
+        "解析缺件",
+        "慢路触发",
+        "降级链",
+        "种子指标未绑定"
+      ]
+    },
+    {
+      "qid": "L04-11",
+      "family": "慢路触发",
+      "question": "本月综合含水率是多少？",
+      "source": "摘编改造——C-反2（水质指标族）×台账☆综合含水率，题册未动",
+      "expected_path": "慢路触发",
+      "anchor_scope": "day",
+      "expected_intent": null,
+      "answer_essentials": "现网形态（2026-10-07 探针 P15 实证）：入链→综合含水率（☆在册未绑定）→降级解释链＋接续检索（材料无本月直接数值——如实说明）；零权威数值",
+      "tags": [
+        "解析缺件",
+        "慢路触发",
+        "降级链",
+        "种子指标未绑定"
+      ]
+    },
+    {
+      "qid": "L04-12",
+      "family": "慢路触发",
+      "question": "三季度累积亏空是多少？",
+      "source": "摘编改造——C-正6（累积亏空指标），题册未动",
+      "expected_path": "慢路触发",
+      "anchor_scope": "day",
+      "expected_intent": null,
+      "answer_essentials": "现网形态（2026-10-07 探针 P16 实证）：入链→累积亏空（☆在册未绑定）→降级＋接续检索；「三季度」不在 DATA_QUESTION_RE 词面（双缺件判例）；检索接续内容（−128.6 万方系报告库口径）非权威数值——标注在位即可，不得作为数据库口径出数判对",
+      "tags": [
+        "解析缺件",
+        "词面缺件",
+        "慢路触发",
+        "降级链",
+        "双缺件判例"
+      ]
+    },
+    {
+      "qid": "L04-13",
+      "family": "默认窗",
+      "question": "各井日产油量排名",
+      "source": "eval/answers/问数组-题目与答案.md 数-闸3 原句",
+      "expected_path": "快路",
+      "anchor_scope": "day",
+      "expected_intent": {
+        "metric_slot": "日产油量",
+        "window": {
+          "rule": "默认窗",
+          "start": "2026-09-08",
+          "end": "2026-10-08",
+          "label": "最近 30 天（默认）",
+          "is_default": true
+        },
+        "limit_requested": null,
+        "limit_effective": 50,
+        "ranking": true,
+        "direction": "desc"
+      },
+      "answer_essentials": "无显式时间词→默认窗（is_default 标注必须在答案/血缘可见）；现库水位 2026-08-31 下默认窗整体晚于水位→新鲜度闸拦停不出空数＋接续检索（非权威数值标注）；零权威数值（静默拿 8 月底数据冒充即错）",
+      "tags": [
+        "快路可解",
+        "默认窗",
+        "排名型",
+        "新鲜度拦停",
+        "默认标注"
+      ]
+    },
+    {
+      "qid": "L04-14",
+      "family": "默认窗",
+      "question": "各井日产油量是多少？",
+      "source": "eval/answers/问数组-题目与答案.md 数-察1 原句",
+      "expected_path": "快路",
+      "anchor_scope": "day",
+      "expected_intent": {
+        "metric_slot": "日产油量",
+        "window": {
+          "rule": "默认窗",
+          "start": "2026-09-08",
+          "end": "2026-10-08",
+          "label": "最近 30 天（默认）",
+          "is_default": true
+        },
+        "limit_requested": null,
+        "limit_effective": 50,
+        "ranking": false,
+        "direction": null
+      },
+      "answer_essentials": "零数据词面问法——现网经 LLM 裁决入链走默认窗（2026-10-07 探针 P2 与 Q3W 数-察1 双轮一致；词面缺件但快路已解＝影子「触发但快路可解」过宽桶实证，注记归 L-03 分桶）；默认窗标注＋新鲜度拦停＋接续检索形态同 L04-13",
+      "tags": [
+        "快路可解",
+        "默认窗",
+        "明细型",
+        "词面缺件",
+        "过宽桶实证"
+      ]
+    },
+    {
+      "qid": "L04-15",
+      "family": "触发边界",
+      "question": "什么是日产液？",
+      "source": "eval/results/tools/suites_q3.py 系统-届满 原句",
+      "expected_path": "不触发",
+      "anchor_scope": "day",
+      "expected_intent": null,
+      "answer_essentials": "释义问法非数据问句——不触发问数（现网 2026-10-07 探针 P13 实证落检索问答链，术语卡别名展开作答）；若产出了问数计划即边界破（机器判红）",
+      "tags": [
+        "触发边界",
+        "不触发",
+        "释义问法"
+      ]
+    },
+    {
+      "qid": "L04-16",
+      "family": "触发边界",
+      "question": "产量相关的问题",
+      "source": "eval/results/tools/suites_q3.py 系统-澄清观察 原句",
+      "expected_path": "不触发",
+      "anchor_scope": "day",
+      "expected_intent": null,
+      "answer_essentials": "纯泛问不触发问数（现网 2026-10-07 探针 P14 实证落检索问答链按油田分梳并请用户明确）；零数值编造",
+      "tags": [
+        "触发边界",
+        "不触发",
+        "纯泛问"
+      ]
+    },
+    {
+      "qid": "L04-17",
+      "family": "触发边界",
+      "question": "最近各井日产油量怎么样？",
+      "source": "eval/answers/问数组-题目与答案.md 数-反1 原句",
+      "expected_path": "不触发",
+      "anchor_scope": "day",
+      "expected_intent": null,
+      "answer_essentials": "词面边缘判例（2026-10-07 探针 P10 实证）：词面齐（最近）但模糊窗走缺参反问三选一（「最近」指哪个时间窗？①近 3 天 ②近 30 天 ③本月至今）——不产计划、不触发慢路（L-01 疑点 1 判例钉子：缺的是用户事实，LLM#plan 不代猜）；零数值；本expected_path=不触发指 LLM#plan 谓词不触发，非不入数据链",
+      "tags": [
+        "触发边界",
+        "不触发",
+        "缺参反问",
+        "模糊窗判例"
+      ]
+    },
+    {
+      "qid": "L04-18",
+      "family": "触发边界",
+      "question": "去年日产油量明细前 200 行",
+      "source": "eval/answers/问数组-题目与答案.md 数-限1 原设计题面（C 族修正说明留档原句）",
+      "expected_path": "快路",
+      "anchor_scope": "year",
+      "expected_intent": {
+        "metric_slot": "日产油量",
+        "window": {
+          "rule": "去年",
+          "start": "2025-01-01",
+          "end": "2026-01-01",
+          "label": "去年",
+          "is_default": false
+        },
+        "limit_requested": 200,
+        "limit_effective": 200,
+        "ranking": true,
+        "direction": "desc"
+      },
+      "answer_essentials": "词面边缘判例：「前 200」∈ _RANKING_RE（前\\s*N）→走排名模板（GROUP BY 井合计降序）而非明细＋LIMIT——明细措辞落排名模板是确定性解析的注册行为（问数组册 C 族 Q3W2 实测登记，行为合规）；86 井＜200→返回 86 行全排名；期望意图照确定性解析语义钉（ranking=true·limit_effective=200）——若模板分派行为变化此处即红",
+      "tags": [
+        "触发边界",
+        "词面边缘",
+        "前N入排名",
+        "排名型",
+        "显式条数"
+      ]
+    },
+    {
+      "qid": "L04-19",
+      "family": "红例族",
+      "question": "今年产量完成率是多少？",
+      "source": "摘编改造——C-正1（产量完成率）×今年词面入链，题册未动",
+      "expected_path": "慢路触发",
+      "anchor_scope": "day",
+      "expected_intent": null,
+      "answer_essentials": "红例·降级解释链（2026-10-07 探针 P7 实证）：★产量完成率在册未绑定 agg 计量列（派生比值不走模板）→降级解释不冒充审定口径＋接续检索（C 册双口径完成率为报告库口径）——须带「非权威数值」标注；零权威数值",
+      "tags": [
+        "降级链",
+        "慢路触发",
+        "完成率",
+        "在册未绑定",
+        "红例"
+      ]
+    },
+    {
+      "qid": "L04-20",
+      "family": "红例族",
+      "question": "今年自然递减率是多少？",
+      "source": "摘编改造——C-观察（自然递减率）×今年词面入链，题册未动",
+      "expected_path": "慢路触发",
+      "anchor_scope": "day",
+      "expected_intent": null,
+      "answer_essentials": "红例·降级解释链（2026-10-07 探针 P8 实证）：☆自然递减率在册未绑定→降级＋接续检索（三季度 4.x% 系报告库口径）——标注在位即可；零权威数值",
+      "tags": [
+        "降级链",
+        "慢路触发",
+        "递减率",
+        "在册未绑定",
+        "红例"
+      ]
+    },
+    {
+      "qid": "L04-21",
+      "family": "红例族",
+      "question": "井位台账里日产油量最高的井是哪口？",
+      "source": "eval/answers/问数组-题目与答案.md 数-察2 原句",
+      "expected_path": "快路",
+      "anchor_scope": "day",
+      "expected_intent": {
+        "metric_slot": "日产油量",
+        "window": {
+          "rule": "默认窗",
+          "start": "2026-09-08",
+          "end": "2026-10-08",
+          "label": "最近 30 天（默认）",
+          "is_default": true
+        },
+        "limit_requested": null,
+        "limit_effective": 50,
+        "ranking": true,
+        "direction": "desc"
+      },
+      "answer_essentials": "红例·外表审批问法：「井位台账」＝外表别名 erp_well_register（选表命中集之外）——N7.2 必有「外表 erp_well_register 不在本轮选表命中集」点名行（跑批辅助表 extable_named 列），执行前表引用比对须走审批挂起不出数；现库水位下默认窗先被新鲜度闸拦停（Q3W 轮实证）——审批中断全链路须窗内数据覆盖才可观察，人审按「不出数＋不编数＋外表点名行在案」判；意图机器判照常（三要素齐行在案）",
+      "tags": [
+        "红例",
+        "外表审批",
+        "erp_well_register",
+        "默认窗",
+        "排名型"
+      ]
+    },
+    {
+      "qid": "L04-22",
+      "family": "红例族",
+      "question": "去年日产油量排名前 500 的井是哪些？",
+      "source": "摘编改造——数-限2（前 500 收口）×排名句式，题册未动",
+      "expected_path": "快路",
+      "anchor_scope": "year",
+      "expected_intent": {
+        "metric_slot": "日产油量",
+        "window": {
+          "rule": "去年",
+          "start": "2025-01-01",
+          "end": "2026-01-01",
+          "label": "去年",
+          "is_default": false
+        },
+        "limit_requested": 500,
+        "limit_effective": 200,
+        "ranking": true,
+        "direction": "desc"
+      },
+      "answer_essentials": "红例·LIMIT 收口：limit_requested=500→limit_effective=200（只封顶不抬底——N7.1「条数＝200」＋SQL LIMIT 200 机器判）；86 井＜200→行集 86 行全排名（收口值与行数解耦——人审注意行数非 200 属合规）；答「前 500 口」或行集 500 行即错",
+      "tags": [
+        "红例",
+        "LIMIT收口",
+        "前N入排名",
+        "排名型",
+        "去年窗"
+      ]
+    },
+    {
+      "qid": "L04-23",
+      "family": "红例族",
+      "question": "去年各井日产水量是多少？",
+      "source": "摘编改造——数-降1 同族句式×无注册指标（日产水量不在台账 20 行），题册未动",
+      "expected_path": "不触发",
+      "anchor_scope": "year",
+      "expected_intent": null,
+      "answer_essentials": "红例·无注册指标不编数（2026-10-07 探针 P9 实证）：日产水量无台账注册→不入六站链→检索问答链如实说明材料未披露——不给任何日产水量数值（反例红线：编数即错）；expected_path=不触发指确定性路由不成立（无指标锚——data_route_signal 假），机器判守「不产问数计划」边界",
+      "tags": [
+        "红例",
+        "不编数",
+        "无注册指标",
+        "触发边界",
+        "不触发"
+      ]
+    },
+    {
+      "qid": "L04-24",
+      "family": "红例族",
+      "question": "本月各井日产油量是多少？",
+      "source": "eval/answers/问数组-题目与答案.md 数-闸1 原句",
+      "expected_path": "快路",
+      "anchor_scope": "day",
+      "expected_intent": {
+        "metric_slot": "日产油量",
+        "window": {
+          "rule": "本月",
+          "start": "2026-10-01",
+          "end": "2026-10-08",
+          "label": "本月至今",
+          "is_default": false
+        },
+        "limit_requested": null,
+        "limit_effective": 50,
+        "ranking": false,
+        "direction": null
+      },
+      "answer_essentials": "红例·0 数出不编数：本月窗全部晚于水位 2026-08-31→新鲜度闸拦停（拦停话术＋水位日期＋不返回空数冒充）＋自动接续检索带「非权威数值」标注；零权威数值（给数即错）；意图机器判照常（三要素齐＋本月窗——端点随执行日，anchor_scope=day）",
+      "tags": [
+        "红例",
+        "不编数",
+        "新鲜度拦停",
+        "本月窗",
+        "快路可解"
+      ]
+    }
+  ]
+}
