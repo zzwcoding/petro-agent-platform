@@ -4,17 +4,37 @@
 ——①重跑导出器与仓内 committed config/*.json 字节级一致（真源漂移即测试红）；
 ②每个导出 id/ref 在 m1-object-model.yaml 真实存在；③B5 演示配置五类实体/四族
 关系标签全部可对号（B5 v0.2 端点 3 对号强校的消费前提）。
+B1-02 起④：导出行 group＝本体 scenario 族标注透传（值与 B1-01 Owner 拍板
+一一对应；无标注缺省不带键；同标签多 ASSOC 锚漂移即红）。
 """
 
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 
+import pytest
+
 from app.domains.semantics import exporter
-from app.domains.semantics.service import load_ontology_models
+from app.domains.semantics.service import OntologyModels, load_ontology_models
 
 REPO_ROOT = Path(exporter.CONFIG_DIR).parent
+
+# B1-01 Owner 拍板族标注表（13 标签中已落导出账的 10 行——检泵边 ASSOC-PETRO-017
+# 未进 RELATION_SEEDS，导出账行增补登记 B6 挂账；充填/偏磨悬置不落边）。
+EXPECTED_GROUPS: dict[str, list[str]] = {
+    "隶属": ["completion", "monthly", "dynamic"],
+    "承载": ["completion", "monthly", "dynamic"],
+    "受效": ["monthly", "dynamic"],
+    "作用于": ["completion", "monthly", "dynamic"],
+    "取样自": ["completion"],
+    "下入": ["completion"],
+    "射孔": ["completion"],
+    "坐封": ["completion"],
+    "配注": ["monthly", "dynamic"],
+    "加装": ["monthly"],
+}
 
 
 def test_exported_json_matches_committed_products(tmp_path: Path) -> None:
@@ -105,3 +125,74 @@ def test_run_in_and_packer_declared_dual_endpoints() -> None:
         assert ("AGG-PETRO-007", "AGG-PETRO-011") in groups  # 设备→井筒（既有）
         assert ("AGG-PETRO-007", "AGG-PETRO-001") in groups  # 设备→井（B3 增补）
         assert len(rows[rel]["refs"]) == 2  # 双 ASSOC（ASSOC-PETRO-010/015、012/016）
+
+
+def test_relation_rows_carry_group_from_ontology_scenario() -> None:
+    """B1-02：导出行 group＝本体 scenario 透传（与 B1-01 拍板值一一对应）。
+
+    committed 产物逐行核对拍板表；再对 build_relation_types 现算结果核对
+    ①group 与该行全部 ASSOC 锚的 scenario 标注逐值一致（透传零发明）；
+    ②键序 additive（endpoint_groups 之后、note 之前）；③group 不进强校
+    闭世界（id/name/refs/from_type/to_type 之外的新键——B5 对号强校消费面
+    只读闭世界键，build_legal_triples 不读 group，回归由 derivatives 侧
+    TestDefaultExtractConfig/TestBuildLegalTriples 承担）。
+    """
+    committed = json.loads(
+        (REPO_ROOT / "config" / "relation_types.json").read_text("utf-8")
+    )
+    assert {
+        r["name"]: r["group"] for r in committed["relation_types"]
+    } == EXPECTED_GROUPS
+
+    ontology = load_ontology_models()
+    payload = exporter.build_relation_types(ontology)
+    assocs = {
+        str(a["id"]): a for a in ontology.models["m1"]["aggregate_associations"]
+    }
+    for entry in payload["relation_types"]:
+        assert entry["group"] == EXPECTED_GROUPS[entry["name"]]
+        anchor_scenarios = {
+            tuple(str(v) for v in assocs[ref]["scenario"])
+            for ref in entry["refs"]
+            if ref in assocs and assocs[ref].get("scenario")
+        }
+        assert anchor_scenarios == {tuple(entry["group"])}, (
+            f"关系 {entry['name']} group 与 ASSOC 锚 scenario 漂移"
+        )
+        keys = list(entry.keys())
+        assert keys.index("group") == keys.index("endpoint_groups") + 1
+        assert keys.index("note") == keys.index("group") + 1
+
+
+def _m1_without_group_markers(*, drop_scenario: bool) -> dict:
+    """现本体 m1 深拷贝变体（group 缺省/漂移负变体构造用）。"""
+    ontology = load_ontology_models()
+    m1 = copy.deepcopy(ontology.models["m1"])
+    if drop_scenario:
+        for a in m1["aggregate_associations"]:
+            a.pop("scenario", None)
+    return m1
+
+
+def test_group_key_omitted_when_ontology_unmarked() -> None:
+    """additive 缺省形态：本体无 scenario 标注 → 行不带 group 键（键不在场）。"""
+    stub = OntologyModels(
+        models={"m1": _m1_without_group_markers(drop_scenario=True)},
+        raw_text={},
+        manifest_version="1.1.0",
+    )
+    payload = exporter.build_relation_types(stub)
+    assert payload["relation_types"]
+    assert all("group" not in entry for entry in payload["relation_types"])
+
+
+def test_group_anchor_scenario_drift_raises() -> None:
+    """同标签多 ASSOC 锚 scenario 漂移 → OntologyDriftError（schema.md §4
+    「ASSOC 级登记、标签级消费」一致性口径——禁静默并集）。"""
+    m1 = _m1_without_group_markers(drop_scenario=False)
+    for a in m1["aggregate_associations"]:
+        if a["id"] == "ASSOC-PETRO-015":
+            a["scenario"] = ["monthly"]  # 与 010（[completion]）同属下入标签——漂移
+    stub = OntologyModels(models={"m1": m1}, raw_text={}, manifest_version="1.1.0")
+    with pytest.raises(exporter.OntologyDriftError, match="scenario 不一致"):
+        exporter.build_relation_types(stub)

@@ -1014,18 +1014,83 @@ few-shot 示例（报告原句 → 应抽出三元组）：
 """
 
 
+# ---------- 报告族信号与按族携带（B1-01 scenario 族标注的消费面——B1-02） ----------
+
+# 报告标题关键词 → 文档族（B1-01 值集 completion/monthly/dynamic）。
+# 规则序即优先序（首条命中即返回）——阶段A六篇语料标题无重叠命中，重叠标题
+# 未见语料（登记 B1-02 收尾报告疑点）；分族依据＝阶段A全语料动词盘点报告的
+# 六篇语料分族（完井工程报告/躺井治理与检泵作业月报/注水调整（注采调整）与
+# 生产运行分析）。
+REPORT_FAMILY_RULES: tuple[tuple[str, str], ...] = (
+    ("完井", "completion"),
+    ("月报", "monthly"),
+    ("注水调整", "dynamic"),
+    ("注采调整", "dynamic"),
+    ("生产运行分析", "dynamic"),
+)
+
+
+def detect_report_family(title: str) -> str | None:
+    """报告标题 → 文档族（无族信号返回 None——调用方按全量携带兜底）。
+
+    报告族信号来源定案（B1-02 票内核对）：kb 报告行 `doc` 字段
+    （kb ReportDetail.doc——入库时取自上传文件名 stem，语料六篇标题即含
+    族词）。生产接线位＝derivatives/service.py 图谱支路 chunk 循环处
+    （detail 已在作用域，一行接线：report_family=d.detect_report_family(
+    detail.doc)）——service.py 不在 B1-02 边界红线许可清单内，接线登记
+    待办（B1-02 收尾报告偏差节，L0 不动手）。
+    """
+    for needle, family in REPORT_FAMILY_RULES:
+        if needle in (title or ""):
+            return family
+    return None
+
+
+def relation_names_for_family(family: str) -> set[str]:
+    """本体导出物 group → 指定文档族的关系标签名集（真源唯一＝relation_types.json）。
+
+    group 为 B1-01 scenario 族标注的导出透传（completion/monthly/dynamic
+    可空多值——跨族标签如 作用于/隶属/承载 三值全含，按族过滤时自然随行
+    ＝票面「对应组（＋跨族组）」口径）。导出物全部行均无 group（旧产物
+    部署态）→ 返回空集，调用方兜底全量携带（防旧产物把提示词收窄成零标签
+    ——兜底不收窄）；个别行无 group（本体未标注）→ 该标签不属任何族，
+    按族过滤时自然排除。
+    """
+    from app.infra.config import load_ontology_export
+
+    names: set[str] = set()
+    for row in load_ontology_export("relation_types"):
+        group = row.get("group")
+        if group and family in group:
+            names.add(str(row.get("name", "")))
+    return names
+
+
 def build_extract_prompt(
-    config: ExtractConfig, *, section: str, chunk_text: str
+    config: ExtractConfig,
+    *,
+    section: str,
+    chunk_text: str,
+    report_family: str | None = None,
 ) -> str:
     """组装抽取提示词（ExtractConfig 四段全进 prompt——B6 出口由服务编排）。
 
     B2-01 增实体别名表段（ENTITY_NAME_ALIASES 全量进 prompt——抽取时别名
     两形态均可识别，模型直接落规范名；闸内别名归一步兜底收敛）。
+    B1-02 增按族携带（report_family 给定时，关系标签清单只带该族标签——
+    组=本体导出物 group 含该族的行 ∩ 当前配置 relation_tags；无族信号
+    （report_family=None）或导出物无族标注（旧产物）→ 全量携带＝现行为
+    不变，兜底不收窄）。
     """
+    rel_tags = config.relation_tags
+    if report_family is not None:
+        family_names = relation_names_for_family(report_family)
+        if family_names:  # 空集＝族标注不可判（旧产物）——兜底全量不收窄
+            rel_tags = [t for t in rel_tags if t.rel in family_names]
     rel_lines = "\n".join(
         f"- {t.rel}：{t.desc}（示例：{t.example}）" if t.example or t.desc
         else f"- {t.rel}"
-        for t in config.relation_tags
+        for t in rel_tags
     )
     alias_lines = "\n".join(
         f"- {alias} → {canonical}" for alias, canonical in ENTITY_NAME_ALIASES.items()

@@ -120,7 +120,7 @@ aggregates:
         targetAggregate: AGG-PETRO-001
       - { name: wellId, label: 井号, type: String }                  # [R5·A.5 复合主键成分]
       - { name: measureSeq, label: 措施次序, type: Integer }         # [R5·A.5 复合主键成分；列名补记]
-      - { name: measureType, label: 措施类型, type: Enum, enumValues: [压裂, 酸化, 补孔, 调剖] }   # [R5·A.5 字典值集]
+      - { name: measureType, label: 措施类型, type: Enum, enumValues: [压裂, 酸化, 补孔, 调剖, 酸洗, 解堵, 复酸, 封堵, 提液, 加注, 加药] }   # [R5·A.5 字典值集] B1-01 扩充（Owner 2026-10-07 裁决「归一簇5 措施类型进 measure_type 值集」）：原四值外增归一簇5 七词形（酸洗/解堵/复酸/封堵/提液/加注/加药——语料出处见阶段A盘点报告 1.1~1.6 节）；app 侧 wells.MEASURE_TYPES 页面尾注为 C1 合同显示面四值，不随本批动（页面尾注更新属 C1 合同变更，登记待办）
       - { name: jobDate, label: 施工日期, type: Date }               # [R5·A.5]
       - { name: effectiveFrom, label: 有效期起, type: Date }         # [R5·A.5] D12 约 30% 缺失，不设 required
       - { name: effectiveTo, label: 有效期止, type: Date }           # [R5·A.5] D12
@@ -243,6 +243,12 @@ aggregates:
 #   完整值集以 enumValues 承载（current_status / well_type / measure_type /
 #   report_shift / equip_type）；stop_reason_code / overhaul_type 值集不全保持 String。
 aggregate_associations:
+  # [B1-01 关系族标注（Owner 2026-10-07「都按你推荐的继续」裁决落账）] 以下
+  #   ASSOC-PETRO-004~017 的 scenario 键＝文档族标注（schema.md §4 additive
+  #   可选字段，值集 completion/monthly/dynamic）——判定依据＝阶段A全语料
+  #   动词盘点（tickets/phase3/reports/B1-01-阶段A-语料动词盘点-20261007.md，
+  #   6 篇 65 词形、族归属草案表 Owner 逐条拍板）。ASSOC-001~003 为台账结构
+  #   包含边、不在 C1 关系账标签集——不标注（缺省＝未标注，additive 兼容）。
   # [R5·§5 关系草案 + A.2 Join 白名单 ✓] 井 1..* 日产计量
   - id: ASSOC-PETRO-001
     sourceAggregate: AGG-PETRO-001
@@ -279,6 +285,7 @@ aggregate_associations:
     targetRole: 井措施记录
     cardinality: ONE_TO_MANY
     referenceField: wellRef
+    scenario: [completion, monthly, dynamic]   # [B1-01·Owner 2026-10-07] 作用于＝三值（措施类动词全族：A×3/B×5/C×12/Y×1/M×10/D×5）
   # [R5·§5「化验样—取样自→井」+ A.6] 井 1..* 流体化验记录
   - id: ASSOC-PETRO-005
     sourceAggregate: AGG-PETRO-001
@@ -288,6 +295,7 @@ aggregate_associations:
     targetRole: 流体化验记录
     cardinality: ONE_TO_MANY
     referenceField: wellRef
+    scenario: [completion]   # [B1-01·Owner 2026-10-07] 取样自＝完井族（取样/化验/取心动词仅 A/Y 两篇；按动词证据单值案）
   # [R5·§5「注水井—受效→油井」注水方] 井（注水方）1..* 受效关系
   - id: ASSOC-PETRO-006
     sourceAggregate: AGG-PETRO-001
@@ -297,6 +305,7 @@ aggregate_associations:
     targetRole: 受效关系（注水方）
     cardinality: ONE_TO_MANY
     referenceField: injectorWellRef
+    scenario: [monthly, dynamic]   # [B1-01·Owner 2026-10-07] 受效＝月报＋动态（C×1/D×4/M×1；Y L182 一处完井单例不足以扩族）
   # [R5·§5「注水井—受效→油井」受效方] 井（受效油井）1..* 受效关系
   #   （多对多经关系实体展开为两条一对多；§5 原文「多对多」）
   - id: ASSOC-PETRO-007
@@ -307,6 +316,7 @@ aggregate_associations:
     targetRole: 受效关系（受效方）
     cardinality: ONE_TO_MANY
     referenceField: producerWellRef
+    scenario: [monthly, dynamic]   # [B1-01·Owner 2026-10-07] 同受效标签（与 006 一致——同标签多 ASSOC scenario 须一致，导出器核对）
   # [增补·对齐矩阵 §3b #7 + 裁决 b 联动（Owner 2026-09-29）] C1 关系账 #1 后段：
   #   区块 —隶属→ 油田。对象 AGG-PETRO-012 建后边随立；referenceField 悬置——区块的
   #   油田引用现由 AGG-PETRO-001.fieldName 行内冗余承载（D8），引用化改造走影响分析
@@ -318,6 +328,7 @@ aggregate_associations:
     sourceRole: 区块
     targetRole: 油田
     cardinality: MANY_TO_ONE
+    scenario: [completion, monthly, dynamic]   # [B1-01·Owner 2026-10-07] 隶属＝三值（结构性关系，各报告头/开篇结构叙述均有——「位于」承载）
   # [增补·对齐矩阵 §3b #8 + 裁决 b 联动（Owner 2026-09-29）] C1 关系账 #2：
   #   平台 —承载→ 井。对象 AGG-PETRO-013 建后边随立；引用现由 AGG-PETRO-001.platform
   #   String 行内承载（R5·§5「平台—承载→井」），引用化改造同 blockName 悬置
@@ -329,6 +340,7 @@ aggregate_associations:
     targetRole: 井
     cardinality: ONE_TO_MANY
     referenceField: platform
+    scenario: [completion, monthly, dynamic]   # [B1-01·Owner 2026-10-07] 承载＝三值（结构性关系，A L4/Y L5/M L13 平台头行均有）
   # [增补·G-05 词表扩充（Owner 2026-10-05 会话裁决）] 语料源＝eval/reports 三篇拟造
   #   评测报告动词挖掘（下入×3/射孔×27/坐封×7/配注×10/加装×4，grep 计数在案）——
   #   完井/作业动词此前在关系账无合法出口，抽取只能弃权。注源如实标注拟造语料。
@@ -340,6 +352,7 @@ aggregate_associations:
     sourceRole: 设备
     targetRole: 井筒
     cardinality: MANY_TO_ONE
+    scenario: [completion]   # [B1-01·Owner 2026-10-07] 下入＝完井族（A×3/Y×3，B/C/M/D 零命中；归一簇1：下放/下井/补下/复下/通井/下加重杆/下防砂筛管）
   #   射孔：井对井筒段射孔——原句「TCP 射孔三段合计 28 米，孔密 16 孔/米」
   - id: ASSOC-PETRO-011
     sourceAggregate: AGG-PETRO-001
@@ -348,6 +361,7 @@ aggregate_associations:
     sourceRole: 井
     targetRole: 井筒（射孔段）
     cardinality: ONE_TO_MANY
+    scenario: [completion]   # [B1-01·Owner 2026-10-07] 射孔＝完井族（A×27/Y×23，B/C/M/D 零命中；归一簇3：补孔）
   #   坐封：封隔器类坐封锚定井筒——原句「永久式封隔器（坐封深度 1482.6 米，液压坐封）」
   - id: ASSOC-PETRO-012
     sourceAggregate: AGG-PETRO-007
@@ -356,6 +370,7 @@ aggregate_associations:
     sourceRole: 设备
     targetRole: 井筒
     cardinality: MANY_TO_ONE
+    scenario: [completion]   # [B1-01·Owner 2026-10-07] 坐封＝完井族（A×7/Y×6，B/C/M/D 零命中；归一簇2：坐挂；note 词形验封）
   #   配注：注水井对配注层配水——原句「10 月配注由 180 m³/d 提至 240 m³/d」
   - id: ASSOC-PETRO-013
     sourceAggregate: AGG-PETRO-001
@@ -364,6 +379,7 @@ aggregate_associations:
     sourceRole: 井
     targetRole: 配注层
     cardinality: ONE_TO_MANY
+    scenario: [monthly, dynamic]   # [B1-01·Owner 2026-10-07] 配注＝月报＋动态（C×10/D×18/M×3；Y L182 完井单例同受效口径；归一簇4：实注/停注——note 计划/实际双读法）
   #   加装：井加装/更换设备——原句「对 6 口套压高、功图"气锁"特征明显的井加装螺旋气锚」
   - id: ASSOC-PETRO-014
     sourceAggregate: AGG-PETRO-001
@@ -372,6 +388,7 @@ aggregate_associations:
     sourceRole: 井
     targetRole: 设备
     cardinality: ONE_TO_MANY
+    scenario: [monthly]   # [B1-01·Owner 2026-10-07] 加装＝月报（B×4/M×5——语料唯一出处族，完井/动态零命中；归一簇6：更换/换用/加密；「安装」弱出处存疑1在案）
   # [增补·B3 下入/坐封终点放宽（Owner 2026-10-07 裁决，B3-01 同票同批）] 语料
   #   「压力计—下入→井」类边语义通顺（压力计算设备——传感器类；电潜泵算执行器，
   #   均属设备 AGG-PETRO-007），而 010/012 合法终点仅井筒——写入类型闸加严为
@@ -387,6 +404,7 @@ aggregate_associations:
     sourceRole: 设备
     targetRole: 井
     cardinality: MANY_TO_ONE
+    scenario: [completion]   # [B1-01·Owner 2026-10-07] 同下入标签（与 010 一致——同标签多 ASSOC scenario 须一致，导出器核对）
   #   坐封终点放宽：封隔器类坐封锚定井（同上双 ASSOC 形状，终点集＝井筒＋井）
   - id: ASSOC-PETRO-016
     sourceAggregate: AGG-PETRO-007
@@ -395,3 +413,22 @@ aggregate_associations:
     sourceRole: 设备
     targetRole: 井
     cardinality: MANY_TO_ONE
+    scenario: [completion]   # [B1-01·Owner 2026-10-07] 同坐封标签（与 012 一致——同标签多 ASSOC scenario 须一致，导出器核对）
+  # [增补·B1-01 检泵关系边（Owner 2026-10-07「收录检泵」裁决落账）] 语料源＝
+  #   阶段A全语料六篇（B 表 L35-44/M 表 L26-31 主对象，C L29/D L36/Y L183 均有
+  #   叙述；归一簇外新增候选建议收录案）。承载形式＝Owner 默认案原文「新语义边
+  #   井—检泵→井检修记录 AGG-PETRO-004，既有聚合作终点」——零发明不建新对象。
+  #   形状沿受效双边先例（ASSOC-PETRO-006/007：DEPENDENCY+referenceField），
+  #   与 ASSOC-PETRO-003 台账结构包含边（REFERENCE）分立不混。族标注
+  #   [monthly, dynamic]（B/M 主对象＋C/D 检修叙述——阶段A草案表拍板值）。
+  #   充填/偏磨两候选悬置不落边：砾石/抽油杆/油管无本体对象类型（零发明——
+  #   不 Owner 拍板不建新对象类型），登记进 B1-01 收尾报告与 B6 挂账。
+  - id: ASSOC-PETRO-017
+    sourceAggregate: AGG-PETRO-001
+    targetAggregate: AGG-PETRO-004
+    associationType: DEPENDENCY
+    sourceRole: 井
+    targetRole: 井检修记录
+    cardinality: ONE_TO_MANY
+    referenceField: wellRef
+    scenario: [monthly, dynamic]   # [B1-01·Owner 2026-10-07] 检泵＝月报＋动态
