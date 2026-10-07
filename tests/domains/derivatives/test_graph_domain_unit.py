@@ -343,6 +343,58 @@ class TestGateOntologySeeds:
         assert all("类型闸" in b.reason for b in blocked)
 
 
+# ---------- FX-11：出厂 few-shot 例逐一过闸自检（防再漂——对齐声明方向） ----------
+
+# 出厂例逐例的 (from_type, to_type) 注记——few-shot 三元组字符串「from|rel|to」
+# 不带类型，喂闸须按例标注；例句与标注的类型失配同样会被类型闸拦下（本表即
+# 机器可读的「例 × 类型」对账，例增删/换关系时此处必须随动）。
+_FEWSHOT_TYPE_BINDINGS: list[tuple[str, str]] = [
+    ("平台", "井"),     # 例 1：CEP-C平台|承载|W-11井（声明＝平台—承载→井，FX-11）
+    ("井", "井"),       # 例 2：Y-24井|受效|Y-21井（声明＝注水井—受效→油井，FX-11）
+    ("井", "井筒"),     # 例 3：W-11井|射孔|2405～2418米井筒段
+    ("设备", "井筒"),   # 例 4：精密冲缝筛管|下入|W-11井井筒
+    ("设备", "井筒"),   # 例 5：永久式封隔器|坐封|W-11井井筒
+]
+
+
+def test_factory_fewshot_triples_all_pass_gate() -> None:
+    """出厂 5 例三元组逐一喂闸（legal_triples 自装载真导出物）必须全过（FX-11）。
+
+    红先绿后取证：改前例 1/例 2 教的形状（井—承载→平台／井—隶属→油田）在此
+    断言必红（type_mismatch）——本测试钉死出厂例与本体声明终点组不再漂移。
+    """
+    legal = d.ontology_legal_triples()
+    examples = d.DEFAULT_FEWSHOT_EXAMPLES
+    assert len(examples) == len(_FEWSHOT_TYPE_BINDINGS) == 5
+    cands = []
+    for (sentence, triple), (from_type, to_type) in zip(
+        examples, _FEWSHOT_TYPE_BINDINGS, strict=True
+    ):
+        from_, rel, to = triple.split(d.EDGE_KEY_SEP)
+        cands.append(
+            d.TripleCandidate(
+                from_=from_, from_type=from_type, rel=rel, to=to, to_type=to_type,
+                evidence=sentence, note=None, uncertain=False,
+            )
+        )
+    passed, blocked = d.gate_triples(
+        cands, _default_full_config(),
+        chunk_text="\n".join(s for s, _ in examples),
+        chunk_id="f1", report_id="r1",
+        legal_triples=legal,
+    )
+    assert blocked == []
+    # 过闸现形＝两刀归一后的键（第一刀 NFKC 折叠「～」→「~」属预期无损规整）。
+    assert [e.key for e in passed] == [
+        d.edge_key(*(d._normalize_entity_alias(_normalize_entity(p))
+                     for p in t.split(d.EDGE_KEY_SEP)))
+        for _, t in examples
+    ]
+    # 例 1 兼任 B2-01 别名演示的收口钉：例句别名形、三元组规范名（FX-11）。
+    assert "CEP-C 生产平台" in examples[0][0]
+    assert examples[0][1].startswith("CEP-C平台|")
+
+
 # ---------- 抽取输出宽容解析与提示词 ----------
 
 
@@ -554,8 +606,9 @@ def test_prompt_carries_alias_table() -> None:
 
 
 def test_fewshot_platform_shape_is_canonical() -> None:
-    """few-shot 出厂例现形＝规范名（Owner 裁决后零改动核对——B2-01 交付物③）。"""
-    assert d.DEFAULT_FEWSHOT_EXAMPLES[0][1] == "W-11井|承载|CEP-C平台"
+    """few-shot 出厂例现形＝规范名（B2-01 交付物③；FX-11 起平台位为声明方向
+    主语——CEP-C平台|承载|W-11井，规范名现形不变、方向随本体声明收口）。"""
+    assert d.DEFAULT_FEWSHOT_EXAMPLES[0][1] == "CEP-C平台|承载|W-11井"
 
 
 def test_alias_map_matches_glossary_carrier() -> None:
