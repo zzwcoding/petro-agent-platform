@@ -1,6 +1,6 @@
 # FX-06 wells 当前版过滤改 per-key as-of 对齐（R1-01）
 
-> 状态：⬜ 可开工 ｜ 依赖：R1 裁决
+> 状态：✅ 完工 ｜ 依赖：R1 裁决
 > 来源：审查 R1（reports/审查R1-批12-20261007.md）L0 裁决——审查-修复链修复拍（审查子代理只产清单，本票为裁决后的修复执行）。
 
 任务: 现过滤谓词＝`_snapshot_id = 全局最新批`，与湖底座 scan 的「每业务键取 ≤N 最新版」语义在
@@ -15,9 +15,9 @@
 - 所在分支上对应 DE 票的收尾报告（tickets/phase3/reports/DE-0X.收尾.md）
 
 验收:
-- [ ] 对应发现条目的修复断言测试红先绿后
-- [ ] 既有测试零跌（所在分支基线）
-- [ ] 全量闸：`uv run ruff check app tests migrations tools && uv run mypy app && uv run pytest -q && uv run lint-imports && uv run python tools/contract_coverage.py check && uv run python tools/debt_markers.py check` 全绿（回报附输出原文含通过数数字）
+- [x] 对应发现条目的修复断言测试红先绿后
+- [x] 既有测试零跌（所在分支基线）
+- [x] 全量闸：`uv run ruff check app tests migrations tools && uv run mypy app && uv run pytest -q && uv run lint-imports && uv run python tools/contract_coverage.py check && uv run python tools/debt_markers.py check` 全绿（回报附输出原文含通过数数字）
 
 回报: 写 tickets/phase3/reports/FX-06-wells过滤per-key对齐.收尾.md——产物清单（文件＋SHA）/闸输出原文摘要/偏差逐条。git 纪律：在既有票分支上续提交（**不拉新分支**），只 add 本修复票文件，严禁 git add -A。
 
