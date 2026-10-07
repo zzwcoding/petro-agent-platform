@@ -1,7 +1,12 @@
 # L-04 golden 首批与跑批脚本（Owner 审过才算数；回归闸以脚本形态先在位）
 
-> 状态：⬜ 可开工 ｜ 依赖：L-01（Draft/validator 在位——意图机器判要对着 validator 同源
-> 口径判）；可与 L-02/L-03 并行。
+> 状态：🔨 **交付齐——待 Owner 签认 golden**（四件交付与全量闸六件套绿在案，
+> 收尾报告＝tickets/phase3/reports/L-04.收尾.md；**未签认本票不得关票**——拍板 5。
+> 依赖：L-01（Draft/validator 在位——意图机器判要对着 validator 同源
+> 口径判）；可与 L-02/L-03 并行。开工定案：分支＝`l-plan/L-04-golden`（独立工作树
+> /Users/divh/Downloads/petro-wt/l04），自 `l-plan/L-01-shadow` 端点 de30a27 续开——
+> L-01 未合入 master，按票面「开工时定案」取工作树检出分支名（与票面 runner 后缀
+> 差异在此登记）。
 
 任务: 实现阶段 3 方案 v2.1 应用线 L-04——golden 首批＋轻量跑批脚本。拍板 5 在案：**轻量
 评测不可省**，golden 清单＋跑批脚本随票滚动建、不以 assessment 机器为前置，闸 B 起为生效
@@ -56,12 +61,19 @@
 - [ ] golden 首批 24 题落 eval/results/golden/plan-golden-v1.json：覆盖矩阵五族各在案
   （每族题数与票面分配一致）；数值答案要点全部实查在案（附查询口径注记）；Owner 审核
   签认记录进回报（「Owner 审过才算数」——未签认本票不得关票）
-- [ ] 意图比对纯函数 TDD 先红后绿：逐字段等值/字段缺失/期望缺件三路测试在案
-- [ ] 跑批脚本可跑通：对本地起服实跑 golden 全量一次（帧存档＋判分辅助表＋退出码在案）；
+  —— 子件齐：golden 落盘 ✓／五族 6·6·2·4·6 ✓／数值 2026-10-07 实查 agg 注记 ✓／
+  签认记录进回报（**签认位留空待 Owner**）；**本框待 Owner 签认后勾选关票**
+- [x] 意图比对纯函数 TDD 先红后绿：逐字段等值/字段缺失/期望缺件三路测试在案
+  （tests/tools/test_plan_golden_judge.py 28 例；红态＝模块缺席 FileNotFoundError 实录）
+- [x] 跑批脚本可跑通：对本地起服实跑 golden 全量一次（帧存档＋判分辅助表＋退出码在案）；
   机器判红题清单在回报列明（红题本身不挡本票——本票交付的是闸，红题诊断归 L-05 前整改
   或 Owner 裁决，如实记录）
-- [ ] 少样本对接验证在案：golden 前 3 条→构建器 messages 合法（替身或实测，方式如实记）
-- [ ] `uv run ruff check app tests migrations tools && uv run mypy app && uv run pytest -q && uv run lint-imports && uv run python tools/contract_coverage.py check && uv run python tools/debt_markers.py check` 全绿（回报附输出原文含通过数数字）
+  —— 实跑两轮在案：L04G（跨零点→锚机制把 day 级窗题落人审，退出码 0）＋L04G2（重锚
+  同日：绿 16／红 0／人审 8＝慢路题预期态，退出码 0）；**机器判红题清单＝空**
+- [x] 少样本对接验证在案：golden 前 3 条→构建器 messages 合法（替身或实测，方式如实记）
+  —— 替身路径（l-plan/L-02-shadow-wiring 停在 L-01 端点、构建器未落码）：build_fewshot_messages
+  按方案 §2.1 契约产 messages＋TestFewshotStub 3 例进测试闸；L-02 合入后替换即对接
+- [x] `uv run ruff check app tests migrations tools && uv run mypy app && uv run pytest -q && uv run lint-imports && uv run python tools/contract_coverage.py check && uv run python tools/debt_markers.py check` 全绿（回报附输出原文含通过数数字）
 
 回报: 写 tickets/phase3/reports/L-04.收尾.md——产物清单（golden/脚本/测试文件＋commit
 SHA）/闸门实跑输出原文/实跑结果（绿红分布/红题清单）/Owner 签认记录/偏差逐条（现象→
