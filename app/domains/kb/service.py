@@ -1622,6 +1622,29 @@ class KbService:
                     _dump_text_sync, dump, dump_text
                 )
                 LOGGER.warning("切块自检 %d 条违规（dump=%s）：%s", len(issues), dump, issues[:3])
+                # DE-06（挂账清单 §E8）：告警面进任务卡——违规计数＋证据路径写入
+                # branches（G-02 通道 additive，键 chunk_check）；零违规不写键，
+                # 既有 wiki/graph 键序零触碰。两段写：set_branch_status 即时落库
+                # ＋本地行镜像——管线后续 save/finish 是分离行整行 merge，不镜像
+                # 会被装载时的旧 branch_status 覆盖抹键（G-02 wiki/graph 支路在
+                # IngestCompleted 之后才写、无此象，故 G-02 未遇）。
+                entry: dict[str, Any] = {
+                    "state": "warn",
+                    "detail": f"切块自检 {len(issues)} 条违规",
+                    "violations": len(issues),
+                    "evidence": dump,
+                }
+                await self.set_branch_status(
+                    row.id,
+                    "chunk_check",
+                    "warn",
+                    detail=entry["detail"],
+                    extra={"violations": len(issues), "evidence": dump},
+                )
+                row.branch_status = {
+                    **dict(getattr(row, "branch_status", None) or {}),
+                    "chunk_check": entry,
+                }
             await self._persist_chunks(row.report_id, pieces)
             return text
         if key == "embed":

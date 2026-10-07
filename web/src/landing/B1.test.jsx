@@ -8,6 +8,8 @@
  * - 建议新建库路径（mode=new → 建库端点 15 → confirm 带新库号）＋409 重名兜底；
  * - 库停用/启用（端点 13 可选 status）；
  * - 任务五步轮询终态（端点 8 真轮询→done→产物端点 9 两卡）＋failed stop_at 人话＋重试（端点 10）；
+ * - 切块自检告警进真实任务卡（FX-05/R1-14：端点 8 branches.chunk_check——violations>0
+ *   显示「切块自检 N 条违规 · 证据：路径」，零违规无键不显示）；
  * - 来源筛（端点 7 source 筛参）；片段修正乐观锁 409 兜底（端点 4）。
  * - UI-02（阶段 1 交互优化）：四表 PagedTable 分页/resetKey、统计读信封 total、
  *   活动流失败态分立、禁用按钮 span 包裹 Tooltip、抽屉/弹窗加载态、卡底指引收 ?、
@@ -178,7 +180,8 @@ function apiRouter(overrides = {}) {
       return overrides.retry ? overrides.retry() : json(200, RETRY_SNAP)
     }
     if (/\/api\/kb\/tasks\/[^/]+$/.test(u)) {
-      return overrides.task ? overrides.task() : json(200, TASK_RUNNING)
+      // 覆盖函数可按 URL 分派返回体（FX-05 切块告警例按任务号区分 branches 有无）
+      return overrides.task ? overrides.task(u) : json(200, TASK_RUNNING)
     }
     if (u.includes('/api/kb/tasks')) {
       return overrides.tasks ? overrides.tasks() : json(200, TASKS)
@@ -364,6 +367,38 @@ describe('B1 落地页 · 任务五步轮询（端点 8/9/10）', () => {
     expect(await screen.findByText(/停在「切段」阶段：扫描件某页图像质量差，无法识别——可重试；仍失败请报修。/)).toBeTruthy()
     fireEvent.click(screen.getAllByRole('button', { name: /重试/ })[0])
     await waitFor(() => expect(calls.retry).toBe(1))
+  }, 15000)
+
+  // FX-05（审查 R1-14 裁决）：切块自检告警进落地页真实任务卡——渲染形状照原型树
+  // pages/B1.jsx 既有行（violations>0 显示「切块自检 N 条违规 · 证据：路径」，零违规
+  // 无键不显示）。载荷取自端点 8 branches（DE-06 additive 键 chunk_check）。
+  it('切块自检告警进真实任务卡：violations>0 显示违规数＋证据路径；零违规任务不显示（端点 8 branches）', async () => {
+    const TASK_WARN = {
+      ...TASK_RUNNING, state: 'stuck', current_step: 2,
+      branches: { chunk_check: { state: 'warn', violations: 2, detail: '切块自检 2 条违规', evidence: '/tmp/chunk_validate_task-1.md' } }
+    }
+    apiRouter({
+      tasks: () => json(200, {
+        items: [
+          { ...TASKS.items[0], state: 'stuck', current_step: 2,
+            branches: TASK_WARN.branches }, // 端点 7 列表行同载 branches（additive 透传）
+          TASKS.items[1]
+        ],
+        total: 2
+      }),
+      // 端点 8 按任务号分派：task-1 带切块违规、task-2 零违规（无 chunk_check 键）
+      task: u => (u.includes('task-1') ? json(200, TASK_WARN) : json(200, TASK_RUNNING))
+    })
+    render(<B1Landing />)
+    fireEvent.click(await screen.findByText(/入库任务（\d+）/))
+    // 零违规断言在先：展开无 chunk_check 的失败任务——不出现切块自检行
+    fireEvent.click(await screen.findByText('《N-11 井完井报告（英文 · 200 页）》'))
+    expect(await screen.findByText(/停在「切段」阶段/)).toBeTruthy() // 展开区已渲染（端点 8 已回）
+    expect(screen.queryByText(/切块自检 \d+ 条违规/)).toBeNull()
+    // 违规态：展开带 chunk_check 的卡住任务——行出现且携证据文件路径
+    fireEvent.click(await screen.findByText('《演示报告》'))
+    expect(await screen.findByText(/切块自检 2 条违规/)).toBeTruthy()
+    expect(screen.getByText(/证据：\/tmp\/chunk_validate_task-1\.md/)).toBeTruthy()
   }, 15000)
 })
 
