@@ -828,22 +828,33 @@ def _normalize_entity(name: str) -> str:
 
 # 实体别名映射（B2-01——Owner 2026-10-07 裁决：规范名＝「CEP-C平台」（短形），
 # 「CEP-C 生产平台」等长形登记为别名；别名→规范名单向归一，映射外名字零变化
-# 不猜测。承载位＝ontology/petro/glossary-model.yaml GLS-PETRO-012 terms[].aliases
+# 不猜测。承载位＝ontology/petro/glossary-model.yaml terms[].aliases
 # （本常量为其运行期投影，漂移由测试对账钉死：
 # tests/domains/derivatives/test_graph_domain_unit.py 别名漂移对账）。
 # 键须为第一刀归一后的形态（内部连续空白压一后的写法）。
+# 批量二（B2-02，Owner 2026-10-07 委托「按建议落」——确认单 §2.2 建议列五对：
+# GLS-PETRO-013~017——CEP-D 两修饰形/CEP-E 中心平台/油田名空格形×2/封隔器省式形）。
 ENTITY_NAME_ALIASES: dict[str, str] = {
+    # 批量一（GLS-PETRO-012）
     "CEP-C 生产平台": "CEP-C平台",
     "CEP-C 平台": "CEP-C平台",  # 句内空格形（B2-01 确认单变体——同裁决口径收敛）
+    # 批量二（GLS-PETRO-013~017）
+    "CEP-D 生产平台": "CEP-D平台",
+    "CEP-D 井口平台": "CEP-D平台",
+    "中心平台 CEP-E": "CEP-E平台",
+    "渤中 34-5 油田": "渤中34-5油田",
+    "渤中 34-8 油田": "渤中34-8油田",
+    "永久封隔器": "永久式封隔器",
 }
 
 
 def _normalize_entity_alias(name: str) -> str:
     """实体别名归一（G-03 第二刀，B2-01——别名→规范名单向收敛）。
 
-    只按 Owner 确认的映射表（ENTITY_NAME_ALIASES，承载位 glossary GLS-PETRO-012）
-    精确匹配收敛；映射外的名字原样返回（匹配失败不猜测——新变体落规范名确认单
-    呈 Owner，不自动改名）。跟在第一刀 _normalize_entity 之后、建节点/立边之前。
+    只按 Owner 确认的映射表（ENTITY_NAME_ALIASES，承载位 glossary
+    GLS-PETRO-012~017）精确匹配收敛；映射外的名字原样返回（匹配失败不猜测——
+    新变体落规范名确认单呈 Owner，不自动改名）。跟在第一刀 _normalize_entity
+    之后、建节点/立边之前。
     """
     return ENTITY_NAME_ALIASES.get(name, name)
 

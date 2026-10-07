@@ -548,12 +548,40 @@ def test_normalize_entity_alias_maps_alias_to_canonical() -> None:
 
 
 def test_normalize_entity_alias_canonical_and_unmatched_unchanged() -> None:
-    """规范名自身恒等；映射外名字零变化（匹配失败不猜测——B2-01 红线）。"""
+    """规范名自身恒等；映射外名字零变化（匹配失败不猜测——B2-01 红线）。
+
+    映射外例子全取自 B2-01 确认单疑点清单（Owner 2026-10-07 裁决：维持不建
+    映射不猜测）——防过度收敛。
+    """
     assert d._normalize_entity_alias("CEP-C平台") == "CEP-C平台"
     assert d._normalize_entity_alias("渤中34-5油田") == "渤中34-5油田"
     assert d._normalize_entity_alias("精密冲缝筛管") == "精密冲缝筛管"
-    assert d._normalize_entity_alias("CEP-D 井口平台") == "CEP-D 井口平台"  # 未裁决不猜
+    assert d._normalize_entity_alias("电泵") == "电泵"  # 疑点：跨报告矛盾，不建映射
+    assert d._normalize_entity_alias("筛管") == "筛管"  # 疑点：粒度关系非写法变体
+    assert d._normalize_entity_alias("CEP-C") == "CEP-C"  # 疑点：裸码形未收编
     assert d._normalize_entity_alias("") == ""
+
+
+def test_normalize_entity_alias_batch2_pairs() -> None:
+    """批量二五对（Owner 2026-10-07 委托「按建议落」——B2-01 确认单 §2.2 建议列）。
+
+    每对：别名→规范名单向收敛；规范名自身恒等。
+    """
+    # 对 1：CEP-D 两修饰形（生产平台/井口平台）→ 规范名钉「码＋通名」
+    assert d._normalize_entity_alias("CEP-D 生产平台") == "CEP-D平台"
+    assert d._normalize_entity_alias("CEP-D 井口平台") == "CEP-D平台"
+    assert d._normalize_entity_alias("CEP-D平台") == "CEP-D平台"
+    # 对 2：CEP-E 中心平台（语料「中心平台 CEP-E」）
+    assert d._normalize_entity_alias("中心平台 CEP-E") == "CEP-E平台"
+    assert d._normalize_entity_alias("CEP-E平台") == "CEP-E平台"
+    # 对 3/4：油田名带空格形 → 紧凑形（few-shot/文件名形为规范）
+    assert d._normalize_entity_alias("渤中 34-5 油田") == "渤中34-5油田"
+    assert d._normalize_entity_alias("渤中34-5油田") == "渤中34-5油田"
+    assert d._normalize_entity_alias("渤中 34-8 油田") == "渤中34-8油田"
+    assert d._normalize_entity_alias("渤中34-8油田") == "渤中34-8油田"
+    # 对 5：竣工表格省「式」写法 → 正文全称形（few-shot 现形）
+    assert d._normalize_entity_alias("永久封隔器") == "永久式封隔器"
+    assert d._normalize_entity_alias("永久式封隔器") == "永久式封隔器"
 
 
 def test_normalize_entity_alias_keys_are_first_knife_stable() -> None:
@@ -589,6 +617,27 @@ def test_gate_converges_alias_to_canonical_before_land() -> None:
     assert blocked[0].to == "CEP-C平台"  # 带空格形在拦下记录中同样收敛（两刀在闸判前）
 
 
+def test_gate_converges_batch2_alias_before_land() -> None:
+    """批量二闸内两刀串联抽样：CEP-D 长形候选落图即规范名（收敛语义与
+    CEP-C 同一函数——test_gate_converges_alias_to_canonical_before_land 已
+    钉全路径，本测只钉批量二映射在闸内真实生效）。"""
+    cfg = d.ExtractConfig(
+        entity_types=["井", "平台"],
+        relation_tags=[d.RelationTag(rel="承载")],
+        custom_instructions="x",
+    )
+    passed, blocked = d.gate_triples(
+        [d.TripleCandidate(from_="Y-21井", from_type="井", rel="承载",
+                           to="CEP-D 生产平台", to_type="平台",
+                           evidence="平台：CEP-D 生产平台", note="", uncertain=False)],
+        cfg, chunk_text="平台：CEP-D 生产平台", chunk_id="f1", report_id="rpt-2",
+        legal_triples={"承载": {("井", "平台")}},
+    )
+    assert len(passed) == 1
+    assert passed[0].to == "CEP-D平台"  # 批量二别名→规范名落图
+    assert len(blocked) == 0
+
+
 def test_first_knife_semantics_untouched_by_alias_step() -> None:
     """第一刀无损语义零变：别名步之前的纯空格规整结果不受映射影响（B2-01 红线）。"""
     assert _normalize_entity("ＣＥＰ-Ｃ 平台") == "CEP-C 平台"  # 第一刀只折全半角压空白
@@ -596,13 +645,17 @@ def test_first_knife_semantics_untouched_by_alias_step() -> None:
 
 
 def test_prompt_carries_alias_table() -> None:
-    """抽取提示词引用别名表（B2-01：抽取时别名两形态均可识别）。"""
+    """抽取提示词引用别名表（B2-01：抽取时别名两形态均可识别；批量二行同面）。"""
     prompt = d.build_extract_prompt(
         _config(), section="1 基本情况", chunk_text="平台：CEP-C 生产平台"
     )
     assert "实体别名表" in prompt
     assert "- CEP-C 生产平台 → CEP-C平台" in prompt
     assert "- CEP-C 平台 → CEP-C平台" in prompt
+    assert "- CEP-D 生产平台 → CEP-D平台" in prompt
+    assert "- 中心平台 CEP-E → CEP-E平台" in prompt
+    assert "- 渤中 34-8 油田 → 渤中34-8油田" in prompt
+    assert "- 永久封隔器 → 永久式封隔器" in prompt
 
 
 def test_fewshot_platform_shape_is_canonical() -> None:
@@ -612,13 +665,27 @@ def test_fewshot_platform_shape_is_canonical() -> None:
 
 
 def test_alias_map_matches_glossary_carrier() -> None:
-    """承载位漂移对账：代码常量＝glossary GLS-PETRO-012 aliases 投影（B2-01）。"""
+    """承载位漂移对账：代码常量＝glossary 实体别名行（GLS-PETRO-012~017，
+    B2-01 批量一＋批量二）aliases 投影合计——YAML 改动不同步代码即红。"""
     from pathlib import Path
 
     import yaml
 
     model_path = Path(__file__).resolve().parents[3] / "ontology" / "petro" / "glossary-model.yaml"
     data = yaml.safe_load(model_path.read_text(encoding="utf-8"))
-    row = next(t for t in data["terms"] if t["id"] == "GLS-PETRO-012")
-    assert row["term"] == "CEP-C平台"
-    assert {a: row["term"] for a in row["aliases"]} == d.ENTITY_NAME_ALIASES
+    row012 = next(t for t in data["terms"] if t["id"] == "GLS-PETRO-012")
+    assert row012["term"] == "CEP-C平台"
+    entity_ids = [f"GLS-PETRO-{n:03d}" for n in range(12, 18)]
+    expected: dict[str, str] = {}
+    for gid in entity_ids:
+        row = next(t for t in data["terms"] if t["id"] == gid)
+        expected.update({a: row["term"] for a in row["aliases"]})
+    assert expected == d.ENTITY_NAME_ALIASES
+    # 反向漏网检测：凡带非空 aliases 的 GLS 行必须已被正向清单覆盖或显式豁免
+    # （002/004/005/011＝术语层同义对——净产量/停产待检泵/抽油机时率/日产液，
+    # 术语账消费非图实体名，不进实体别名投影）——glossary 新增实体别名行而
+    # 忘扩正向清单同样红。
+    waived = {"GLS-PETRO-002", "GLS-PETRO-004", "GLS-PETRO-005", "GLS-PETRO-011"}
+    aliased = {t["id"] for t in data["terms"] if t.get("aliases")}
+    unaccounted = aliased - set(entity_ids) - waived
+    assert not unaccounted, f"glossary 新增别名行未纳入对账: {sorted(unaccounted)}"
