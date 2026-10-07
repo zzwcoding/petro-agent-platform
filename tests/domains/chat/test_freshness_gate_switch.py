@@ -134,6 +134,16 @@ class TestFreshnessGateOff:
         assert by_name["answer"][0]["decision"] == "approved"
         assert "lineage" in by_name  # 血缘帧照发（审批支专帧不断）
         assert "done" in by_name
+        # 血缘④补读恰一次（FX-10/R3-10）：闸关态只在批准续跑出数后消费水位读缝
+        # （挂起段零消费——见 test_false_never_touches_waterline_seam）。
+        assert seams.calls.get("waterline") == 1
+        # 血缘④行含替身水位日期真值——防补读三行被删后渲染成
+        # 「—（水位未回写——如实缺行，不造达标假象）」的造假象形态而测试全绿。
+        watermark_value = next(
+            item["value"] for item in by_name["lineage"][0]["items"]
+            if item["key"] == d.LINEAGE_KEY_WATERMARK
+        )
+        assert _chash2_waterline().data_date.isoformat() in watermark_value
 
 
 class TestFreshnessGateOn:
