@@ -15,6 +15,12 @@
       ],
       "from_type": "AGG-PETRO-010",
       "to_type": "AGG-PETRO-012",
+      "endpoint_groups": [
+        {
+          "from_type": "AGG-PETRO-010",
+          "to_type": "AGG-PETRO-012"
+        }
+      ],
       "note": "C1 关系账行＝「井 —隶属→ 区块 —隶属→ 油田」链：井—隶属→区块段为 AGG-PETRO-001.blockName 属性承载（引用化改造悬置，M1 头注）；油田段＝ASSOC-PETRO-008（区块 AGG-PETRO-010 → 油田 AGG-PETRO-012）"
     },
     {
@@ -25,6 +31,12 @@
       ],
       "from_type": "AGG-PETRO-013",
       "to_type": "AGG-PETRO-001",
+      "endpoint_groups": [
+        {
+          "from_type": "AGG-PETRO-013",
+          "to_type": "AGG-PETRO-001"
+        }
+      ],
       "note": "平台—承载→井＝ASSOC-PETRO-009（裁决 b 联动增补）；引用现由 AGG-PETRO-001.platform String 行内承载，引用化改造悬置"
     },
     {
@@ -37,6 +49,12 @@
       ],
       "from_type": "AGG-PETRO-001",
       "to_type": "AGG-PETRO-001",
+      "endpoint_groups": [
+        {
+          "from_type": "AGG-PETRO-001",
+          "to_type": "AGG-PETRO-001"
+        }
+      ],
       "note": "注水井—受效→油井（多对多）经受效关系实体 AGG-PETRO-009 展开；劈分系数 Σ=1 invariant 与响应起始日随行"
     },
     {
@@ -47,6 +65,12 @@
       ],
       "from_type": "AGG-PETRO-005",
       "to_type": "AGG-PETRO-001",
+      "endpoint_groups": [
+        {
+          "from_type": "AGG-PETRO-005",
+          "to_type": "AGG-PETRO-001"
+        }
+      ],
       "note": "措施—作用于→井；M1 ASSOC 方向＝井 1..* 井措施记录（wellRef），台账行方向按 §5 语义反转承载"
     },
     {
@@ -57,17 +81,34 @@
       ],
       "from_type": "AGG-PETRO-006",
       "to_type": "AGG-PETRO-001",
+      "endpoint_groups": [
+        {
+          "from_type": "AGG-PETRO-006",
+          "to_type": "AGG-PETRO-001"
+        }
+      ],
       "note": "化验样—取样自→井；B5 演示配置未收录该族（B5 出入对账 3——治理批补全）"
     },
     {
       "id": 6,
       "name": "下入",
       "refs": [
-        "ASSOC-PETRO-010"
+        "ASSOC-PETRO-010",
+        "ASSOC-PETRO-015"
       ],
       "from_type": "AGG-PETRO-007",
       "to_type": "AGG-PETRO-011",
-      "note": "套管/尾管/筛管/油管/封隔器等管柱与井下设备，下到了哪口井的哪个井筒段（报告动词：下入/下放。例：『7″ 筛管下入 2405～2412 米』）"
+      "endpoint_groups": [
+        {
+          "from_type": "AGG-PETRO-007",
+          "to_type": "AGG-PETRO-011"
+        },
+        {
+          "from_type": "AGG-PETRO-007",
+          "to_type": "AGG-PETRO-001"
+        }
+      ],
+      "note": "套管/尾管/筛管/油管/封隔器/压力计等管柱与井下设备，下到了哪口井或哪口井的哪个井筒段（报告动词：下入/下放。例：『7″ 筛管下入 2405～2412 米』）"
     },
     {
       "id": 7,
@@ -77,17 +118,34 @@
       ],
       "from_type": "AGG-PETRO-001",
       "to_type": "AGG-PETRO-011",
+      "endpoint_groups": [
+        {
+          "from_type": "AGG-PETRO-001",
+          "to_type": "AGG-PETRO-011"
+        }
+      ],
       "note": "井对哪个井筒段（射孔段）做了射孔、射开厚度/孔密多少（报告动词：射孔/射开。例：『TCP 射孔三段合计 28 米，孔密 16 孔/米』）"
     },
     {
       "id": 8,
       "name": "坐封",
       "refs": [
-        "ASSOC-PETRO-012"
+        "ASSOC-PETRO-012",
+        "ASSOC-PETRO-016"
       ],
       "from_type": "AGG-PETRO-007",
       "to_type": "AGG-PETRO-011",
-      "note": "封隔器等井下设备坐封锚定在哪口井/哪个井筒段——to 必须填井（段）名，纯深度数字不是实体、写进 note。报告动词：坐封/验封。例：『永久式封隔器坐封深度 1482.6 米』→ 永久式封隔器 —坐封→ 井筒（note：坐封深度 1482.6 米）"
+      "endpoint_groups": [
+        {
+          "from_type": "AGG-PETRO-007",
+          "to_type": "AGG-PETRO-011"
+        },
+        {
+          "from_type": "AGG-PETRO-007",
+          "to_type": "AGG-PETRO-001"
+        }
+      ],
+      "note": "封隔器等井下设备坐封锚定在哪口井或哪个井筒段——to 必须填井（段）名，纯深度数字不是实体、写进 note。报告动词：坐封/验封。例：『永久式封隔器坐封深度 1482.6 米』→ 永久式封隔器 —坐封→ 井筒（note：坐封深度 1482.6 米）"
     },
     {
       "id": 9,
@@ -97,6 +155,12 @@
       ],
       "from_type": "AGG-PETRO-001",
       "to_type": "AGG-PETRO-014",
+      "endpoint_groups": [
+        {
+          "from_type": "AGG-PETRO-001",
+          "to_type": "AGG-PETRO-014"
+        }
+      ],
       "note": "注水井对哪个配注层配水、配注量多少及调整（报告动词：配注/提配。例：『10 月配注由 180 m³/d 提至 240 m³/d』）"
     },
     {
@@ -107,6 +171,12 @@
       ],
       "from_type": "AGG-PETRO-001",
       "to_type": "AGG-PETRO-007",
+      "endpoint_groups": [
+        {
+          "from_type": "AGG-PETRO-001",
+          "to_type": "AGG-PETRO-007"
+        }
+      ],
       "note": "哪口井加装或更换了什么井口/井下设备（报告动词：加装/安装/更换。例：『对 6 口套压高、功图气锁特征明显的井加装螺旋气锚』）"
     }
   ]
