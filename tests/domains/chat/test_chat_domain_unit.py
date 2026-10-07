@@ -66,6 +66,107 @@ class TestSecurityGate:
         assert "产量完成率" in d.ban_answer_text("老完成率")  # 出路指引＝替代口径
 
 
+class TestBanExempt:
+    """禁用词命中窄豁免判定（DE-03——E9 元问句/引用形收口：命中后的处置，非拦停）。
+
+    窄豁免二形（任一即降级放行，其余命中照旧拦停）：引用形＝命中词全部处于引号内；
+    元问形＝元问词面与命中词**同句**共现（FX-03/R1-07 收窄——。！？；…分句后同句
+    判定，跨句拼接形不放行）。
+    W-F19 位次不变：判定发生在 check_banned 命中之后，不新增解析面。
+    """
+
+    def test_quote_form_positive_examples(self) -> None:
+        """引用形正例（≥3 例）——命中词全部处于引号内（「」/“”/‘’/'）。"""
+        assert d.is_ban_exempt("旧称「老完成率」现在处于什么状态？", "老完成率")
+        assert d.is_ban_exempt("“老完成率”这个叫法还在用吗", "老完成率")
+        assert d.is_ban_exempt("‘老完成率’停用了吗", "老完成率")
+        assert d.is_ban_exempt("问一下'老完成率'的现状", "老完成率")
+
+    def test_meta_question_form_positive_examples(self) -> None:
+        """元问形正例（≥3 例）——含不引号裸写；词面闭世界枚举逐一在案。"""
+        assert d.is_ban_exempt("以前叫老完成率的指标现在叫什么", "老完成率")
+        assert d.is_ban_exempt("老完成率现在叫什么", "老完成率")
+        assert d.is_ban_exempt("老完成率还叫这个名吗", "老完成率")
+        assert d.is_ban_exempt("老完成率的原名是什么", "老完成率")
+        # 动 2 (d) 形态原题面——元问词面＋引号引用并存
+        assert d.is_ban_exempt(
+            "台账提示里「有效产量」这个指标对数前必须先做什么？"
+            "旧称「老完成率」现在处于什么状态？",
+            "老完成率",
+        )
+
+    def test_negative_examples_still_blocked(self) -> None:
+        """负例（≥3 例）——非引用/非元问形照旧拦停（豁免不放松）。"""
+        assert not d.is_ban_exempt("老完成率是多少", "老完成率")
+        assert not d.is_ban_exempt("按老完成率口径给我出数", "老完成率")
+        # 一次裸写一次引用——裸写那词未被引用，窄豁免不成立（引用形要求全覆盖）
+        assert not d.is_ban_exempt("老完成率怎么算？是「老完成率」这个吧", "老完成率")
+        # 他词被引用不等于禁用词被引用
+        assert not d.is_ban_exempt("老完成率是多少？「产量完成率」是什么", "老完成率")
+
+    def test_meta_marker_must_share_sentence_with_hit(self) -> None:
+        """FX-03/R1-07 收窄①：元问词面须与命中词**同句**（。！？；…分句）——
+        跨句拼接形（审查原例）不再放行；同句邻接仍豁免（收窄不伤合法元问形）。"""
+        assert not d.is_ban_exempt(
+            "老完成率的 3 月值是多少？顺便问下这词原名是啥", "老完成率")
+        assert not d.is_ban_exempt("老完成率怎么算；这词的旧称是啥", "老完成率")
+        assert not d.is_ban_exempt("老完成率是多少。顺便问下它以前叫什么", "老完成率")
+        assert d.is_ban_exempt("顺便问下老完成率的原名是什么", "老完成率")
+
+    def test_quote_form_construction_abuse_is_known_behavior(self) -> None:
+        """FX-03/R1-07 钉死③：引用形构造滥用（引号内引用＋引号外真口径诉求）为
+        **已知行为**正例——引用形只判引号覆盖、不看引号外语义（R1-07 裁决：写成
+        已知行为测试钉死，残余风险 Owner 知情项在 domain.py 豁免常量旁登记，
+        强化复检归后续票）。"""
+        assert d.is_ban_exempt("按「老完成率」口径给我出数", "老完成率")
+        assert d.is_ban_exempt("按“老完成率”口径给我出数", "老完成率")
+
+    def test_w_f19_position_and_table_untouched(self) -> None:
+        """W-F19 位次不变＋禁用词表本体零改动：check_banned 仍先命中，豁免只对
+        命中词做处置（常量枚举在案）。"""
+        assert d.check_banned("旧称「老完成率」现在处于什么状态") == "老完成率"
+        assert "老完成率" in d.BANNED_TERMS
+        assert d.META_QUESTION_MARKERS == ("旧称", "以前叫", "现在叫", "还叫", "原名")
+
+    def test_notice_text_carries_term_and_replacement(self) -> None:
+        """豁免随答提示文案（domain 常量）——旧称谓 X＋现行口径 Y 在案。"""
+        notice = d.ban_exempt_notice_text("老完成率")
+        assert "旧称谓" in notice and "老完成率" in notice
+        assert "产量完成率" in notice  # 出路指引＝替代口径（设定书 §6）
+
+    def test_notice_without_mapping_falls_back_without_caliber_claim(self) -> None:
+        """FX-02/R1-06：替代口径闭世界映射——无映射词回落渲染**不带现行口径句**
+        的提示（禁用词表扩条而映射未补时，不向用户编造口径映射——业务事实零发明）。"""
+        assert "现行口径为「产量完成率」" in d.ban_exempt_notice_text("老完成率")
+        fallback = d.ban_exempt_notice_text("某未补映射的新词")
+        assert "某未补映射的新词" in fallback
+        assert "产量完成率" not in fallback  # 回落形不指认任何现行口径
+        assert "现行口径" not in fallback
+
+    def test_banned_terms_expansion_simulated_no_fabricated_replacement(
+        self, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """FX-02/R1-06 扩条模拟：禁用词表新增测试词（映射未补）——命中与豁免判定
+        照旧工作，豁免提示回落形不断言出「产量完成率」。"""
+        monkeypatch.setattr(d, "BANNED_TERMS", ("老完成率", "旧指标名"))
+        assert d.check_banned("旧指标名怎么算") == "旧指标名"
+        assert d.is_ban_exempt("旧指标名的原名是什么", "旧指标名")
+        notice = d.ban_exempt_notice_text("旧指标名")
+        assert "旧指标名" in notice
+        assert "产量完成率" not in notice
+        assert "现行口径" not in notice
+
+    def test_answer_note_appended_at_tail(self) -> None:
+        """豁免随答提示附尾（纯函数）——追加不改 kind/citations、原 answer 不变、已附不重复。"""
+        answer = {"kind": "text", "text": "答案正文 [c1]。", "citations": [{"ref": "c1"}]}
+        merged = d.with_ban_exempt_note(answer, "——提示：旧称谓")
+        assert merged["text"] == "答案正文 [c1]。\n——提示：旧称谓"
+        assert merged["kind"] == "text" and merged["citations"] == [{"ref": "c1"}]
+        assert answer["text"] == "答案正文 [c1]。"  # 原 answer 不被改写
+        again = d.with_ban_exempt_note(merged, "——提示：旧称谓")
+        assert again["text"] == merged["text"]  # 已附不重复
+
+
 class TestClarifyBounded:
     def test_build_clarify_from_ambiguous_metric(self) -> None:
         metric = default_metrics()[1]
