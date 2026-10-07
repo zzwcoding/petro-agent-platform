@@ -805,7 +805,8 @@ def _normalize_entity(name: str) -> str:
 
     - NFKC 全半角折叠＋去首尾空白＋连续空白压一；
     - 「X 井」→「X井」（井号前空格去除——B5 截图双链直接成因）。
-    语义级消歧（CEP-C 生产平台 vs CEP-C平台）归治理批，本函数不碰。
+    语义级消歧（全简称别名收敛）由其后的独立步 _normalize_entity_alias
+    承载（B2-01——Owner 确认映射表驱动的第二刀），本函数不碰、无损语义零变。
     """
     import unicodedata
 
@@ -813,6 +814,28 @@ def _normalize_entity(name: str) -> str:
     text = re.sub(r"\s+", " ", text)
     text = re.sub(r"\s+井$", "井", text)
     return text
+
+
+# 实体别名映射（B2-01——Owner 2026-10-07 裁决：规范名＝「CEP-C平台」（短形），
+# 「CEP-C 生产平台」等长形登记为别名；别名→规范名单向归一，映射外名字零变化
+# 不猜测。承载位＝ontology/petro/glossary-model.yaml GLS-PETRO-012 terms[].aliases
+# （本常量为其运行期投影，漂移由测试对账钉死：
+# tests/domains/derivatives/test_graph_domain_unit.py 别名漂移对账）。
+# 键须为第一刀归一后的形态（内部连续空白压一后的写法）。
+ENTITY_NAME_ALIASES: dict[str, str] = {
+    "CEP-C 生产平台": "CEP-C平台",
+    "CEP-C 平台": "CEP-C平台",  # few-shot 例句句内空格形（484 行）——同裁决口径收敛
+}
+
+
+def _normalize_entity_alias(name: str) -> str:
+    """实体别名归一（G-03 第二刀，B2-01——别名→规范名单向收敛）。
+
+    只按 Owner 确认的映射表（ENTITY_NAME_ALIASES，承载位 glossary GLS-PETRO-012）
+    精确匹配收敛；映射外的名字原样返回（匹配失败不猜测——新变体落规范名确认单
+    呈 Owner，不自动改名）。跟在第一刀 _normalize_entity 之后、建节点/立边之前。
+    """
+    return ENTITY_NAME_ALIASES.get(name, name)
 
 
 def gate_triples(
@@ -852,8 +875,14 @@ def gate_triples(
         if not (c.from_ and c.to and c.rel and c.from_type and c.to_type):
             continue  # 形状残缺——不属抽取尝试，跳过不记
         # G-03 实体名归一（确定性第一刀）：空格/全半角/「X 井」变体落点合并——
-        # 语义级消歧（全称 vs 简称）归治理批，此处只做无损规整。
+        # 此处只做无损规整。紧随其后的别名归一（第二刀，B2-01）：Owner 确认
+        # 映射表的别名→规范名单向收敛，映射外名字零变化——两刀独立不混。
         c = _replace(c, from_=_normalize_entity(c.from_), to=_normalize_entity(c.to))
+        c = _replace(
+            c,
+            from_=_normalize_entity_alias(c.from_),
+            to=_normalize_entity_alias(c.to),
+        )
         if c.from_type not in entity_set or c.to_type not in entity_set or c.rel not in rel_set:
             _reject(c, REASON_TYPE_MISMATCH)
         elif not c.evidence or _squash(c.evidence) not in chunk_norm:
@@ -884,6 +913,9 @@ EXTRACT_PROMPT_TEMPLATE = """你是油田知识平台的关系抽取器。从下
 
 实体类型清单：{entity_types}
 关系标签清单：{rel_lines}
+实体别名表（同一实体的其他写法 → 规范名；实体名抽到别名写法时一律写规范名，
+别名两形态均须识别——evidence 仍按原文逐字摘录，不改写）：
+{alias_lines}
 few-shot 示例（报告原句 → 应抽出三元组）：
 {few_shot}
 自定义指令：{instructions}
@@ -902,12 +934,19 @@ few-shot 示例（报告原句 → 应抽出三元组）：
 def build_extract_prompt(
     config: ExtractConfig, *, section: str, chunk_text: str
 ) -> str:
-    """组装抽取提示词（ExtractConfig 四段全进 prompt——B6 出口由服务编排）。"""
+    """组装抽取提示词（ExtractConfig 四段全进 prompt——B6 出口由服务编排）。
+
+    B2-01 增实体别名表段（ENTITY_NAME_ALIASES 全量进 prompt——抽取时别名
+    两形态均可识别，模型直接落规范名；闸内别名归一步兜底收敛）。
+    """
     rel_lines = "\n".join(
         f"- {t.rel}：{t.desc}（示例：{t.example}）" if t.example or t.desc
         else f"- {t.rel}"
         for t in config.relation_tags
     )
+    alias_lines = "\n".join(
+        f"- {alias} → {canonical}" for alias, canonical in ENTITY_NAME_ALIASES.items()
+    ) or "（无——未登记实体别名）"
     few_shot = "\n".join(
         f"- {p.sentence} → {p.triple}"
         for p in config.few_shot_examples
@@ -915,6 +954,7 @@ def build_extract_prompt(
     return EXTRACT_PROMPT_TEMPLATE.format(
         entity_types="、".join(config.entity_types),
         rel_lines=rel_lines or "（无——未配置关系标签则抽不出任何过闸边）",
+        alias_lines=alias_lines,
         few_shot=few_shot,
         instructions=config.custom_instructions or "（无）",
         section=section,

@@ -121,3 +121,12 @@ terms:
     status: 服务中
     version: "1.0.0"
     source: "Owner 2026-09-29 裁决（日产液=日产液量同义词，add 提案 OWNER-ADD-011）；内容锚=设定书 §3 月产液量日粒度推演 + C1 合同术语 #11"
+
+  - id: GLS-PETRO-012
+    term: CEP-C平台
+    aliases: [CEP-C 生产平台, CEP-C 平台]   # [Owner 2026-10-07 裁决（B2-01）：规范名=「CEP-C平台」短形，「CEP-C 生产平台」等长形登记为别名；「CEP-C 平台」（带空格）＝few-shot 出厂例句内空格写法（domain.py 484 行），随同一裁决口径收敛——归一方向=别名→规范名单向（运行期投影 ENTITY_NAME_ALIASES，tests 漂移对账钉死）]
+    termType: 业务术语
+    definition: "渤中 34-5 油田生产平台的规范名（B2-01 全简称收敛）：语料原形「CEP-C 生产平台」（eval/reports/A-W11井完井工程报告.txt L4/L15）为其长形别名，few-shot 出厂例三元组「W-11井|承载|CEP-C平台」即规范名现形。裁决理由=修饰词跨文档不稳（q4 语料同码 CEP-D 已有「生产平台/井口平台」两形漂移），规范名钉码+通名不钉修饰词。"
+    status: 服务中
+    version: "1.0.0"
+    source: "Owner 2026-10-07 裁决（B2-01 规范名确认：规范名=CEP-C平台，等长形为别名；裁决依据=第 07 课「无唯一名称假设」——名字个数不等于对象个数，同一必须显式登记）；语料锚=eval/reports/A-W11井完井工程报告.txt L4「平台：CEP-C 生产平台」"

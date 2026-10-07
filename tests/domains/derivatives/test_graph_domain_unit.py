@@ -321,3 +321,83 @@ def test_default_extract_config_has_fewshot_and_entity_guidance() -> None:
     assert all(p.sentence and p.triple for p in cfg.few_shot_examples)
     assert "井号不含空格" in cfg.custom_instructions
     assert "纯数字与深度不是实体" in cfg.custom_instructions
+
+
+# ---------- B2-01：实体别名归一（第二刀——别名→规范名单向收敛） ----------
+
+
+def test_normalize_entity_alias_maps_alias_to_canonical() -> None:
+    """正例：长形与带空格形均收敛到规范名「CEP-C平台」（Owner 2026-10-07 裁决）。"""
+    assert d._normalize_entity_alias("CEP-C 生产平台") == "CEP-C平台"
+    assert d._normalize_entity_alias("CEP-C 平台") == "CEP-C平台"
+
+
+def test_normalize_entity_alias_canonical_and_unmatched_unchanged() -> None:
+    """规范名自身恒等；映射外名字零变化（匹配失败不猜测——B2-01 红线）。"""
+    assert d._normalize_entity_alias("CEP-C平台") == "CEP-C平台"
+    assert d._normalize_entity_alias("渤中34-5油田") == "渤中34-5油田"
+    assert d._normalize_entity_alias("精密冲缝筛管") == "精密冲缝筛管"
+    assert d._normalize_entity_alias("CEP-D 井口平台") == "CEP-D 井口平台"  # 未裁决不猜
+    assert d._normalize_entity_alias("") == ""
+
+
+def test_normalize_entity_alias_keys_are_first_knife_stable() -> None:
+    """别名键必须是第一刀归一后的形态（闸内先第一刀后第二刀，键漂移即失配）。"""
+    for alias in d.ENTITY_NAME_ALIASES:
+        assert _normalize_entity(alias) == alias, f"别名键未按第一刀形态登记: {alias}"
+
+
+def test_gate_converges_alias_to_canonical_before_land() -> None:
+    """闸内两刀串联：别名候选过闸落图即规范名（建节点/立边前收敛——B2-01）。"""
+    cfg = d.ExtractConfig(
+        entity_types=["井", "平台"],
+        relation_tags=[d.RelationTag(rel="承载")],
+        custom_instructions="x",
+    )
+    passed, blocked = d.gate_triples(
+        [d.TripleCandidate(from_="W-11井", from_type="井", rel="承载",
+                          to="CEP-C 生产平台", to_type="平台",
+                          evidence="平台：CEP-C 生产平台", note="", uncertain=False),
+         d.TripleCandidate(from_="W-12井", from_type="井", rel="承载",
+                          to="CEP-C 平台", to_type="平台",
+                          evidence="依据不在原文", note="", uncertain=False)],
+        cfg, chunk_text="平台：CEP-C 生产平台", chunk_id="f1", report_id="rpt-1",
+    )
+    assert len(passed) == 1
+    assert passed[0].to == "CEP-C平台"  # 长形别名→规范名落图
+    assert len(blocked) == 1
+    assert blocked[0].to == "CEP-C平台"  # 带空格形在拦下记录中同样收敛（两刀在闸判前）
+
+
+def test_first_knife_semantics_untouched_by_alias_step() -> None:
+    """第一刀无损语义零变：别名步之前的纯空格规整结果不受映射影响（B2-01 红线）。"""
+    assert _normalize_entity("ＣＥＰ-Ｃ 平台") == "CEP-C 平台"  # 第一刀只折全半角压空白
+    assert d._normalize_entity_alias(_normalize_entity("ＣＥＰ-Ｃ 平台")) == "CEP-C平台"
+
+
+def test_prompt_carries_alias_table() -> None:
+    """抽取提示词引用别名表（B2-01：抽取时别名两形态均可识别）。"""
+    prompt = d.build_extract_prompt(
+        _config(), section="1 基本情况", chunk_text="平台：CEP-C 生产平台"
+    )
+    assert "实体别名表" in prompt
+    assert "- CEP-C 生产平台 → CEP-C平台" in prompt
+    assert "- CEP-C 平台 → CEP-C平台" in prompt
+
+
+def test_fewshot_platform_shape_is_canonical() -> None:
+    """few-shot 出厂例现形＝规范名（Owner 裁决后零改动核对——B2-01 交付物③）。"""
+    assert d.DEFAULT_FEWSHOT_EXAMPLES[0][1] == "W-11井|承载|CEP-C平台"
+
+
+def test_alias_map_matches_glossary_carrier() -> None:
+    """承载位漂移对账：代码常量＝glossary GLS-PETRO-012 aliases 投影（B2-01）。"""
+    from pathlib import Path
+
+    import yaml
+
+    model_path = Path(__file__).resolve().parents[3] / "ontology" / "petro" / "glossary-model.yaml"
+    data = yaml.safe_load(model_path.read_text(encoding="utf-8"))
+    row = next(t for t in data["terms"] if t["id"] == "GLS-PETRO-012")
+    assert row["term"] == "CEP-C平台"
+    assert {a: row["term"] for a in row["aliases"]} == d.ENTITY_NAME_ALIASES
