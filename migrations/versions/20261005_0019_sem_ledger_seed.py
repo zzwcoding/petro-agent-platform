@@ -1,5 +1,14 @@
 """S-01 语义台账投影种子——本体 bohai glossary/M1 → sem_term/sem_metric（＋版本轴配套）。
 
+- 【历史基线注记——B5-01 Owner 2026-10-07 拍板案 A「同步器为唯一写入真源」】：
+  本迁移自拍板起转为**历史基线，非现行写入路径**——落库时点的一次性直插快照。
+  台账种子唯一写入真源＝同步器（app/domains/semantics/service.py
+  sync_from_ontology_repo：本体锚校验＋钉版契约＋版本轴全套机器闸）；
+  迁移侧不再新增台账直插行（后续种子变更一律走 本体→同步器投影 正路）。
+  本文件 upgrade/downgrade 语义与种子行照旧不动（Alembic 迁移历史不可改写
+  ——B5-01 框架红线）；六条术语权威定义已并回同步器种子
+  （app/domains/semantics/domain.py TERM_SEEDS，与 GLS 权威定义逐字对齐），
+  同名双行防回归闸见 tests/domains/semantics/test_sem_ledger_single_source.py。
 - 修的缺口：sem_* 九表全空——N7.1 问数链「指标槽位未命中可出数的注册声明」
   恒降级、检索链 S3 词表级与词条卡（P1F-02）无台账行可命中（Owner 拍板
   2026-10-05「台账种子从本体导入」＋依赖地图第 0 层；先例＝DP-05 quality_rule

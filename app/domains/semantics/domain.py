@@ -6,7 +6,10 @@
   字段组、元素锚）从 YAML 读出投影；台账展示串（术语/指标的 def·name·owner·
   source·status、对象/关系/白名单/占位行全文）**照抄 C1 合同现值**（C1 合同
   「11 术语/15 指标/10 对象/5 关系/4 白名单/10 工作流/3 Action 逐条注源照抄页面」
-  ——B 侧真源；对齐矩阵 §2 逐行对账）。
+  ——B 侧真源；对齐矩阵 §2 逐行对账）。例外（B5-01 Owner 2026-10-07 案 A
+  「同步器为唯一写入真源」拍板）：术语 #2/#3/#4/#5/#7/#8 的 def 已并回各自
+  GLS-PETRO 锚的权威定义全文（逐字对齐——0019 迁移历史基线版即 GLS 全文，
+  同步器原 C1 简写并回详情；expires_at 等 C1 现值字段不动）。
 - 占位行种子（本票「本体不建、照 C1 现值种子导入」清单，源 ontology/petro/
   manifest.json deferredAdditions）：工作流 wf3–wf10 八条、白名单 #2（date_dim
   非业务实体）、Action 三条（平台受控写入合同，八模型无登记位——m2 头注承载）；
@@ -215,23 +218,35 @@ TERM_SEEDS: tuple[SeedRow, ...] = (
     _term(1, term="老完成率", type_="禁用词", def_="v1 口径（不含自用油折算），2024 年废弃",
           status="禁用（替代：产量完成率）", status_key="禁用词", owner="开发室",
           expires_at=None),
-    _term(2, term="剔检产量", type_="别名 → 净产量", def_="剔除检修井口径",
+    # B5-01（Owner 2026-10-07 案 A）：以下六条（#2/#3/#4/#5/#7/#8）def 已并回
+    # GLS 权威定义全文（与各自 GLS-PETRO 锚逐字对齐——0019 历史基线版即照抄
+    # GLS 全文，本票只做文字搬运并回，expires_at 等 C1 现值字段不动）。
+    _term(2, term="剔检产量", type_="别名 → 净产量",
+          def_="剔除检修井口径的产量（即净产量）。",
           status="有效", status_key="有效", owner="开发室", expires_at=date(2027, 12, 31)),
-    _term(3, term="有效产量", type_="一词两译", def_="需修饰词消歧（开井日历 / 剔检）",
+    _term(3, term="有效产量", type_="一词两译",
+          def_="需修饰词消歧的产量词：开井日历支 / 剔检支，两支口径并列，"
+               "单说「有效产量」必须追问修饰词。",
           status="有效", status_key="有效", owner="开发室", expires_at=date(2027, 6, 30)),
-    _term(4, term="躺井", type_="黑话 → 停产待检泵", def_="作业区口语",
+    _term(4, term="躺井", type_="黑话 → 停产待检泵",
+          def_="作业区口语，指停产待检泵的井（及该检修事件）。",
           status="有效（限作业区语境）", status_key="有效（限作业区语境）",
           owner="采油工艺所", expires_at=date(2026, 12, 31)),
-    _term(5, term="时率", type_="缩写 → 抽油机时率", def_="见指标 14",
+    _term(5, term="时率", type_="缩写 → 抽油机时率",
+          def_="「抽油机时率」的缩写；= Σ开井时长/Σ日历时长×100（见指标 14）。",
           status="有效", status_key="有效", owner="采油工艺所",
           expires_at=date(2027, 6, 30)),
     _term(6, term="水淹层", type_="术语", def_="驱替前沿到达的高含水层段",
           status="有效", status_key="有效", owner="地质研究所",
           expires_at=date(2028, 12, 31)),
-    _term(7, term="递减增油", type_="术语", def_="见指标 10（含口径争议注记）",
+    _term(7, term="递减增油", type_="术语",
+          def_=("措施后增产油量=（实际产量−递减基线产量）×劈分系数；基线 "
+                "q₀(1−dₐ)^t 拟合参数设定书未给。含口径争议注记：事故 7「一数多源」"
+                "争议、待联席裁决。"),
           status="有效（待联席裁决）", status_key="有效（待联席裁决）",
           owner="采油工艺所", expires_at=date(2027, 3, 31)),
-    _term(8, term="存水率", type_="术语", def_="注入水留存地层比例（物质平衡用）",
+    _term(8, term="存水率", type_="术语",
+          def_="注入水留存地层比例（物质平衡用）。",
           status="有效", status_key="有效", owner="开发室", expires_at=None),  # 长期
     _term(9, term="配注合格率", type_="术语", def_="分层实注 / 配注 达标井次占比",
           status="有效", status_key="有效", owner="采油工艺所",
