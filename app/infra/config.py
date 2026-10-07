@@ -65,6 +65,12 @@ class InfraSettings(BaseSettings):
     neo4j_uri: str = "bolt://localhost:7687"
     neo4j_user: str = "neo4j"
     neo4j_password: str = "petro12345"
+    # L-02 跨问熔断两键（机制 7——LLM#plan 影子调用：连续失败次数 N／滑动窗口
+    # 失败率阈值 0–1 小数）。阈值不预设：缺省 None＝熔断不启用，L-03 影子出数后
+    # Owner 拍板回填（方案开放问题 4）；消费面＝chat 域 PlanBreaker（进程内旗标，
+    # 恢复＝重启进程）。
+    plan_breaker_consecutive_failures: int | None = None
+    plan_breaker_failure_rate_threshold: float | None = None
 
 
 @lru_cache(maxsize=1)

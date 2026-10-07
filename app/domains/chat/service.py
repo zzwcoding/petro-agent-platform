@@ -48,8 +48,12 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
+from collections import deque
 from collections.abc import AsyncIterator
+from datetime import date
 from functools import partial
+from pathlib import Path
 from typing import Any, Protocol
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -59,6 +63,7 @@ from app.domains.chat import domain as d
 from app.domains.chat.store import ChatRunRow, ChatStore
 from app.domains.security.domain import ROLE_REGISTRY, AuditRow
 from app.infra.clock import now
+from app.infra.config import get_settings
 
 LOGGER = logging.getLogger("domains.chat")
 
@@ -89,8 +94,11 @@ INTENT_VERDICT_SYSTEM_PROMPT = (
 )
 
 
-def _parse_intent_json(text: str) -> tuple[str | None, float | None]:
-    """LLM 裁决输出解析（宽容：剥代码围栏/前后杂文；链名闭世界校验在调用方）。"""
+def _strip_json_object(text: str) -> dict[str, Any] | None:
+    """LLM 结构化输出宽容剥离（剥代码围栏/前后杂文取 JSON 对象——verdict 与 plan 共用）。
+
+    解析不出 JSON 对象（含非 dict 顶层面）返回 None——调用方各自兜底，不许问挂。
+    """
     raw = text.strip()
     if raw.startswith("```"):
         raw = raw.strip("`")
@@ -98,12 +106,18 @@ def _parse_intent_json(text: str) -> tuple[str | None, float | None]:
             raw = raw[4:]
     start, end = raw.find("{"), raw.rfind("}")
     if start < 0 or end <= start:
-        return None, None
+        return None
     try:
         payload = json.loads(raw[start : end + 1])
     except ValueError:
-        return None, None
-    if not isinstance(payload, dict):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _parse_intent_json(text: str) -> tuple[str | None, float | None]:
+    """LLM 裁决输出解析（宽容：剥代码围栏/前后杂文；链名闭世界校验在调用方）。"""
+    payload = _strip_json_object(text)
+    if payload is None:
         return None, None
     chain = payload.get("chain")
     value = payload.get("confidence")
@@ -121,6 +135,282 @@ _TYPE_TO_KIND = {
     "指标卡": "metric", "术语": "term", "FAQ": "faq",
     "工具": "tool", "工作流": "workflow", "报告": "report",
 }
+
+
+# ---------- L-02 提示词构建与影子接线（方案 v2.1 应用线——影子期产物零生效） ----------
+#
+# 四件交付物的 service 侧落点（构建器纯函数与 INTENT_VERDICT_SYSTEM_PROMPT 同址）：
+# ①提示词构建器（问句＋C1 台账投影＋golden 少样本 → messages）；②生产影子 drafter
+# （gateway.complete B6 统一出口 caller=chat.intent.plan＋单问三重兜底照 _verdict_llm
+# 模式——超时/JSON 解析坏/越界→None→确定性快路，不许问挂）；③跨问熔断器（机制 7，
+# 进程内旗标：连续 N 次失败或滑动窗口失败率超阈→降快路-only＋告警，恢复＝重启进程
+# ——阈值两键挂 InfraSettings 缺省 None＝不启用，L-03 出数后 Owner 拍板回填）；
+# ④影子日志落盘载体（LOGGER 行＋JSONL 追加写双写）。
+
+# LLM#plan 系统提示（受约束源槽位翻译——五源槽位闭世界＋禁区键明示＋ISO 半开窗；
+# 台账投影三源与字段白名单的合同真源在 domain.py Draft schema，提示词只作转发面）。
+PLAN_SYSTEM_PROMPT = (
+    "你是油田数据问答平台的数据意图解析器。把用户问句翻译成一个 JSON 对象"
+    "（源槽位意图草案），只输出 JSON，不要输出任何其他文字、解释或代码块标记。"
+    "字段合同（只许这五个键）："
+    "metric_slot＝指标名，只能取「可出数指标」清单里的原名，清单外不要编造；"
+    "window＝{\"start\": 起始日, \"end\": 结束日}（ISO 日期 YYYY-MM-DD，按给出的"
+    "「今天」日期推算，start 必须早于 end）；"
+    "limit_requested＝问句里显式写了条数才填整数，没写填 null（不要补默认值）；"
+    "ranking＝问句是排名型（最高/最低/前 N/TOP/N 口）填 true，否则 false；"
+    "direction＝问句是「最低/最小/最少」填 \"asc\"，其余（含未识别）填 \"desc\"。"
+    "禁止输出其他任何键：actor、metric_name、measure_column、unit、limit_effective、"
+    "external_tables 一律不许出现——这些由平台服务端推导。"
+)
+
+# golden 少样本内置常量（票内定案：golden 首批未就绪（L-04 交付）时少样本从内置
+# 常量取；L-04 产出后装配点换喂 golden 列表即可——构建器与 drafter 零改动）。样例
+# 只示范「问句→源槽位 JSON」的格式契约（五源槽位＋ISO 日期＋显式条数才填），
+# 不发明业务事实（日期为格式示意，真实窗口按提示词里的「今天」推算）。
+PLAN_FEWSHOT_FALLBACK: tuple[dict[str, str], ...] = (
+    {
+        "question": "上个月日产油量最高的前 5 口井",
+        "draft": (
+            '{"metric_slot": "日产油量", "window": {"start": "2026-09-01", '
+            '"end": "2026-10-01"}, "limit_requested": 5, "ranking": true, '
+            '"direction": "desc"}'
+        ),
+    },
+    {
+        "question": "最近日产液量怎么样",
+        "draft": (
+            '{"metric_slot": "日产液量", "window": {"start": "2026-09-07", '
+            '"end": "2026-10-07"}, "limit_requested": null, "ranking": false, '
+            '"direction": "desc"}'
+        ),
+    },
+)
+
+# 影子日志默认路径（相对进程工作目录；构造参数可注入路径——测试用 tmp_path）。
+SHADOW_LOG_DEFAULT_PATH = "logs/shadow-plan.jsonl"
+
+# 滑动窗口大小（机制参数非阈值——失败率只在窗口计满后判定；阈值两键挂
+# InfraSettings，缺省 None＝熔断不启用，L-03 出数后 Owner 拍板回填）。
+PLAN_BREAKER_WINDOW_SIZE = 20
+
+
+def build_plan_messages(
+    question: str,
+    projection: d.PlanPromptProjection,
+    golden_samples: tuple[dict[str, str], ...] = (),
+    *,
+    today: date | None = None,
+) -> list[dict[str, str]]:
+    """L-02 交付物①提示词构建器（纯函数）：问句＋C1 台账投影＋golden 少样本→messages。
+
+    出参＝[system, user] 两条消息；台账投影三源（可出数指标/时间词表/条数词表）由
+    domain 常量单源导出（default_plan_projection）；golden 缺省空——首批未就绪时
+    调用方喂 PLAN_FEWSHOT_FALLBACK（L-04 产出后换接，构建器零改动）。today 缺省取
+    infra.clock 真值（B14——测试显式注入定日）。
+    """
+    day = today if today is not None else now().date()
+    fewshot_block = "\n\n".join(
+        f"例：{sample['question']}\n输出：{sample['draft']}" for sample in golden_samples
+    ) or "（暂无示例）"
+    user_content = (
+        f"今天日期：{day.isoformat()}\n"
+        f"可出数指标（metric_slot 只能取其中原名）："
+        f"{'、'.join(projection.metrics) or '无'}\n"
+        f"时间词表：{'、'.join(projection.time_words) or '无'}\n"
+        f"条数词表：{'、'.join(projection.count_words) or '无'}\n"
+        f"少样本示例：\n{fewshot_block}\n\n"
+        f"问句：{question}"
+    )
+    return [
+        {"role": "system", "content": PLAN_SYSTEM_PROMPT},
+        {"role": "user", "content": user_content},
+    ]
+
+
+def _elapsed_ms(started: float) -> int:
+    """耗时毫秒（time.monotonic 基准——影子观测同款）。"""
+    return int((time.monotonic() - started) * 1000)
+
+
+class PlanBreaker:
+    """跨问熔断器（机制 7——L-02 新建；进程内旗标，恢复＝重启进程，管理面接口不在本票）。
+
+    规则：连续 N 次失败，或滑动窗口（固定大小）计满后失败率严格超阈→熔断位单向
+    置位（此后 LLM#plan 调用直接短路跳过＝快路-only）＋LOGGER.warning 告警。阈值
+    不预设：两键（consecutive_failures／failure_rate_threshold）缺省 None＝不启用。
+    影子期熔断即使触发也只影响影子日志产量、不影响任何用户面行为。
+    """
+
+    def __init__(
+        self,
+        *,
+        consecutive_failures: int | None = None,
+        failure_rate_threshold: float | None = None,
+        window_size: int = PLAN_BREAKER_WINDOW_SIZE,
+    ) -> None:
+        self._consecutive_limit = consecutive_failures
+        self._rate_threshold = failure_rate_threshold
+        self._window_size = window_size
+        self._window: deque[bool] = deque(maxlen=window_size)  # True＝成功
+        self._consecutive_failures = 0
+        self._tripped = False
+
+    @property
+    def tripped(self) -> bool:
+        return self._tripped
+
+    def record_success(self) -> None:
+        self._consecutive_failures = 0
+        self._record(True)
+
+    def record_failure(self) -> None:
+        self._consecutive_failures += 1
+        self._record(False)
+
+    def _record(self, ok: bool) -> None:
+        if self._tripped:
+            return  # 单向置位不自动恢复——恢复＝重启进程（人工）
+        self._window.append(ok)
+        self._trip_if_due()
+
+    def _trip_if_due(self) -> None:
+        if self._tripped:
+            return
+        why = ""
+        if (
+            self._consecutive_limit is not None
+            and self._consecutive_failures >= self._consecutive_limit
+        ):
+            why = f"连续失败 {self._consecutive_failures} 次（阈值 N={self._consecutive_limit}）"
+        elif self._rate_threshold is not None and len(self._window) >= self._window_size:
+            failures = self._window.count(False)
+            rate = failures / len(self._window)
+            if rate > self._rate_threshold:
+                why = (
+                    f"滑动窗口失败率 {rate:.2f}（失败 {failures}/{len(self._window)}，"
+                    f"阈值 {self._rate_threshold:.2f}）"
+                )
+        if why:
+            self._tripped = True
+            self._window.clear()
+            LOGGER.warning(
+                "plan 跨问熔断跳闸（%s）——LLM#plan 降快路-only（影子期只影响影子日志"
+                "产量，不影响任何用户面行为）；恢复需重启进程（人工）",
+                why,
+            )
+
+
+def plan_breaker_from_settings() -> PlanBreaker:
+    """熔断两键从 Settings 面装配（缺省 None/None＝不启用——L-03 出数后 Owner 回填）。
+
+    环境变量：PLAN_BREAKER_CONSECUTIVE_FAILURES／PLAN_BREAKER_FAILURE_RATE_THRESHOLD。
+    """
+    settings = get_settings()
+    return PlanBreaker(
+        consecutive_failures=settings.plan_breaker_consecutive_failures,
+        failure_rate_threshold=settings.plan_breaker_failure_rate_threshold,
+    )
+
+
+class ShadowPlanDrafter:
+    """生产影子 drafter（L-02 交付物②——L-01 plan_drafter 注入缝的生产实现）。
+
+    gateway.complete B6 统一出口（alias=petro-main——模型可插拔由 gateway 别名路由
+    承担，决策 D6；caller=chat.intent.plan 归因记账同时是熔断数据源）。单问三重兜底
+    照 _verdict_llm 模式：超时（INTENT_PLAN_TIMEOUT_SECONDS＝8.0s 与 verdict 同值）/
+    JSON 解析坏（_strip_json_object 宽容剥离）/越界（Draft schema 白名单外或 validator
+    拒）→返回 None→确定性快路，不许问挂。影子期产物只进链内影子观测（比对落日志），
+    零生效路。last_telemetry＝最近一次调用遥测（链内影子日志增强字段源；裸替身无此
+    属性时观测点按 null 兜底）。
+    """
+
+    def __init__(
+        self,
+        completer: d.Completer,
+        *,
+        breaker: PlanBreaker | None = None,
+        projection: d.PlanPromptProjection | None = None,
+        golden_samples: tuple[dict[str, str], ...] | None = None,
+    ) -> None:
+        self._completer = completer
+        self._breaker = breaker if breaker is not None else PlanBreaker()
+        self._projection = (
+            projection if projection is not None else d.default_plan_projection()
+        )
+        # golden 首批未就绪（L-04）——少样本从内置常量取（票内定案；产出后装配点换喂）。
+        self._golden = (
+            PLAN_FEWSHOT_FALLBACK if golden_samples is None else golden_samples
+        )
+        self.last_telemetry: d.PlanCallTelemetry | None = None
+
+    async def __call__(self, question: str) -> d.QueryPlanDraft | None:
+        if self._breaker.tripped:
+            self.last_telemetry = d.PlanCallTelemetry(breaker_tripped=True)
+            return None  # 熔断短路＝快路-only（影子行由链内观测标 breaker=tripped）
+        started = time.monotonic()
+        messages = build_plan_messages(question, self._projection, self._golden)
+        try:
+            completion = await asyncio.wait_for(
+                self._completer.complete(
+                    chains_mod.MAIN_ALIAS, messages, caller=d.CALLER_INTENT_PLAN
+                ),
+                timeout=d.INTENT_PLAN_TIMEOUT_SECONDS,
+            )
+        except Exception:
+            LOGGER.warning(
+                "chat LLM#plan 不可用（失败/超时 %.0fs）——确定性快路兜底",
+                d.INTENT_PLAN_TIMEOUT_SECONDS,
+            )
+            self._breaker.record_failure()
+            self.last_telemetry = d.PlanCallTelemetry(latency_ms=_elapsed_ms(started))
+            return None
+        payload = _strip_json_object(str(completion.content or ""))
+        draft: d.QueryPlanDraft | None = None
+        if payload is not None:
+            try:
+                candidate = d.QueryPlanDraft.from_payload(payload)
+                d.validate_query_plan_draft(candidate, question=question)
+                draft = candidate
+            except ValueError:
+                draft = None  # 越界（白名单外/validator 拒）——同路兜底
+        if draft is None:
+            LOGGER.warning("chat LLM#plan 解析坏/越界——确定性快路兜底")
+            self._breaker.record_failure()
+        else:
+            self._breaker.record_success()
+        self.last_telemetry = d.PlanCallTelemetry(
+            latency_ms=_elapsed_ms(started),
+            prompt_tokens=getattr(completion, "prompt_tokens", None),
+            completion_tokens=getattr(completion, "completion_tokens", None),
+        )
+        return draft
+
+
+class ShadowLogSink:
+    """影子日志落盘载体（L-02 交付物④）：LOGGER 结构化行＋JSONL 追加写双写。
+
+    默认路径 logs/shadow-plan.jsonl；构造参数可注入路径（测试用 tmp_path）。JSONL
+    落盘失败只告警不断流（观测面不许炸主链——影子路异常吞并纪律同款）。
+    """
+
+    def __init__(self, path: str | Path | None = None) -> None:
+        self._path = Path(path) if path is not None else Path(SHADOW_LOG_DEFAULT_PATH)
+
+    @property
+    def path(self) -> Path:
+        return self._path
+
+    def write(self, record: d.ShadowPlanRecord) -> None:
+        LOGGER.info("%s", d.shadow_plan_log_line(record))
+        payload = d.shadow_plan_json(record, ts=now().isoformat(timespec="milliseconds"))
+        try:
+            self._path.parent.mkdir(parents=True, exist_ok=True)
+            with self._path.open("a", encoding="utf-8") as stream:
+                stream.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        except OSError as exc:
+            LOGGER.warning(
+                "影子日志 JSONL 落盘失败（%s）：%s——观测不断流", self._path, exc,
+            )
 
 
 class AuditSink(Protocol):
@@ -160,6 +450,7 @@ class ChatService:
         report_lister: d.ReportLister | None = None,
         query_executor: d.QueryExecutor | None = None,
         waterline_loader: d.WaterlineLoader | None = None,
+        shadow_log_path: str | Path | None = None,
     ) -> None:
         self._db = db
         self._audit = audit
@@ -179,6 +470,15 @@ class ChatService:
         self._store = ChatStore(db)
         self._dispatcher = d.ChainDispatcher()
         self._suggestions = d.SuggestionPool()
+        # —— L-02 影子接线（域内装配——组合根零改动）：生产 drafter（gateway B6 出口
+        # caller=chat.intent.plan＋单问三重兜底＋跨问熔断——阈值两键经 Settings 面，
+        # 缺省 None＝不启用）与影子日志双写载体。completer 未装配（替身缺席的极简单
+        # 测形状）＝drafter 缝保持 None（恒静默，L-01 语义不变）。
+        plan_drafter: d.PlanDrafter | None = None
+        if completer is not None:
+            plan_drafter = ShadowPlanDrafter(
+                completer, breaker=plan_breaker_from_settings(),
+            )
         self._deps = chains_mod.ChainDeps(
             config_loader=config_loader,
             metrics_loader=metrics_loader,
@@ -191,6 +491,8 @@ class ChatService:
             completer=completer,
             query_executor=query_executor,
             waterline_loader=waterline_loader,
+            plan_drafter=plan_drafter,
+            shadow_log_sink=ShadowLogSink(shadow_log_path),
         )
         # 四链填肉（P1-08b 三链＋M-06 问数链——分派缝注册面；链体只见 ChainDeps 注入缝）。
         self._dispatcher.register("状态机六站链", partial(chains_mod.query_chain, self._deps))

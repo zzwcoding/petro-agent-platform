@@ -279,8 +279,13 @@ VERDICT_SOURCE_DETERMINISTIC = "deterministic"
 
 # LLM 意图裁决预算（常量集中可调）：单次分类调用超时秒——超时即兜底，不许问挂。
 INTENT_VERDICT_TIMEOUT_SECONDS = 8.0
+# LLM#plan 数据意图精解析单问超时秒（L-02 票内定案：与 verdict 同值——超时即兜底
+# 确定性快路，不许问挂）。
+INTENT_PLAN_TIMEOUT_SECONDS = 8.0
 # LLM 意图裁决 caller（D1 记账归因——与 chat.retrieval.* 同族点分形）。
 CALLER_INTENT_VERDICT = "chat.intent.verdict"
+# LLM#plan caller（L-02——D6：归因记账经 gateway 落列，同时是跨问熔断的数据源）。
+CALLER_INTENT_PLAN = "chat.intent.plan"
 
 # 建议池晋升闸（F60：孤例不进池——独立问句频次 ≥2 才晋升；faQ 扫库 SCAN_MIN_FREQ 同源）。
 SUGGESTION_PROMOTION_THRESHOLD = 2
@@ -1281,12 +1286,29 @@ ASKBACK_TIME_QUESTION = (
 )
 ASKBACK_TIME_CHOICES: tuple[str, ...] = ("近 3 天", "近 30 天", "本月至今")
 
+# —— 确定性数据问句词族（时间/条数两词表——L-02 提示词台账投影的导出面）——
+# 词表常量是 DATA_QUESTION_RE 的拼装源（同源不造第二份时间/条数词源——L-02 票内
+# 定案）；展示词表把模式形以样例展开（「近 N 天」→「近 3 天」等）。改一词两处同步
+# 由回归测试钉死（tests/domains/chat/test_chat_plan_prompt_wiring.py 词表同源例）。
+PLAN_TIME_WORDS: tuple[str, ...] = (
+    "昨天", "前天", "今天", "本月", "这个月", "上月", "上个月", "今年", "去年", "最近",
+)
+PLAN_COUNT_WORDS: tuple[str, ...] = (
+    "最高", "最低", "最大", "最小", "排名", "TOP", "top",
+)
+_PLAN_NEAR_N_PATTERN = r"近[0-9一二两三四五六七八九十]"
+_PLAN_FRONT_N_PATTERN = r"前\s*[0-9一二两三四五六七八九十]"
+_PLAN_MOUTH_N_PATTERN = r"[0-9一二两三四五六七八九十]+\s*口"
+PLAN_TIME_WORDS_DISPLAY: tuple[str, ...] = (*PLAN_TIME_WORDS, "近3天", "近30天")
+PLAN_COUNT_WORDS_DISPLAY: tuple[str, ...] = (*PLAN_COUNT_WORDS, "前 10", "三口", "TOP 3")
+
 # 确定性数据问句信号（意图路由——指标台账命中＋时间/数量/排名词面才入六站链；
 # 零模型调用。纯检索/释义问法不劫走——维持检索问答链主路径）。
 DATA_QUESTION_RE = re.compile(
-    r"昨天|前天|今天|本月|这个月|上月|上个月|今年|去年|最近|近[0-9一二两三四五六七八九十]"
-    r"|最高|最低|最大|最小|排名|TOP|top|前\s*[0-9一二两三四五六七八九十]"
-    r"|[0-9一二两三四五六七八九十]+\s*口"
+    "|".join((
+        *PLAN_TIME_WORDS, _PLAN_NEAR_N_PATTERN,
+        *PLAN_COUNT_WORDS, _PLAN_FRONT_N_PATTERN, _PLAN_MOUTH_N_PATTERN,
+    ))
 )
 DATA_ROUTE_CONFIDENCE = "高（指标台账命中——数据问句走状态机六站链）"
 
@@ -1828,6 +1850,119 @@ def should_trigger_plan_parse(
 # 入参＝问句，出参＝schema 校验后的草案或 None（超时/坏 JSON/白名单外/validator 拒
 # 的兜底归 drafter 实现——L-02 照 _verdict_llm 三重兜底模式填生产实现）。
 PlanDrafter = Callable[[str], Awaitable[QueryPlanDraft | None]]
+
+
+# ---------- L-02 提示词构建与影子接线——域内共享语义件（B1 纯语义，IO 归 service） ----------
+#
+# 方案 v2.1 应用线 L-02（tickets/phase3/L-02-提示词构建与影子接线.md）：构建器入参
+# 投影、影子日志增强记录、触发双分桶口径、调用遥测与落盘缝类型在此单源；构建器纯
+# 函数、生产 drafter、熔断器与 JSONL 落盘载体在 service.py（同址 INTENT_VERDICT
+# 提示词先例），链内观测点消费在 chains.py。
+
+
+@dataclass(frozen=True, slots=True)
+class PlanPromptProjection:
+    """LLM#plan 提示词·C1 台账投影（构建器入参②——三源票内定案零第二份）。
+
+    可出数指标＝MEASURE_COLUMNS 键集（注册目录即投影，不造第二份可出数清单）；
+    时间/条数词表＝DATA_QUESTION_RE 词族常量导出（PLAN_TIME_WORDS_DISPLAY/
+    PLAN_COUNT_WORDS_DISPLAY——词表即正则拼装源，改一词两处同步由回归测试钉死）。
+    """
+
+    metrics: tuple[str, ...] = field(default_factory=lambda: tuple(MEASURE_COLUMNS))
+    time_words: tuple[str, ...] = field(default_factory=lambda: PLAN_TIME_WORDS_DISPLAY)
+    count_words: tuple[str, ...] = field(default_factory=lambda: PLAN_COUNT_WORDS_DISPLAY)
+
+
+def default_plan_projection() -> PlanPromptProjection:
+    """现行台账投影（常量每次现取——随注册目录与词族演进同步，无快照漂移）。"""
+    return PlanPromptProjection()
+
+
+# 触发双分桶观测口径（L-02 票内定案——L-03 影子报告直接消费；口径可由实跑后调、
+# 偏差记回报）：过宽＝触发谓词 True 且比对三态「一致」（确定性解析本可解——LLM
+# 调用本可省）；过窄＝触发谓词 False 且本问最终落降级解释链或缺参澄清（快路信号
+# 判齐但快路没真正出数——谓词放过了该触发的问句）。
+PLAN_BUCKET_OVERWIDE = "过宽：触发但快路可解"
+PLAN_BUCKET_OVERNARROW = "过窄：该触发未触发"
+
+
+@dataclass(frozen=True, slots=True)
+class PlanCallTelemetry:
+    """单次 LLM#plan 调用遥测（drafter 产出→链内影子观测消费——影子日志增强字段源）。
+
+    token 值从 completer 返回对象属性读取，缺属性记 null——不因取数失败断流。
+    """
+
+    latency_ms: int | None = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    breaker_tripped: bool = False  # 本次调用被熔断短路（影子行标 breaker=tripped）
+
+
+@dataclass(frozen=True, slots=True)
+class ShadowPlanRecord:
+    """影子日志一行记录（L-01 四要素超集——只增不删向后兼容；LOGGER 行与 JSONL 双写共用）。"""
+
+    run_id: str
+    trigger: str  # 触发原因（"+" 连接——空＝谓词未触发的过窄桶观测行）
+    draft_state: str  # 比对三态（一致/分歧/不可比）
+    elapsed_ms: int  # 影子观测总耗时（drafter 调用＋validator＋比对）
+    divergent: str = ""  # 分歧字段（"," 连接）
+    note: str = ""  # 注记（label/is_default 差异＋validator 拒因＋桶说明等）
+    question: str = ""  # 原问句（JSONL 消费——LOGGER 行不携）
+    latency_ms: int | None = None  # LLM 调用本身延迟（裸替身/无调用＝null）
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    bucket: str | None = None  # 触发双分桶标记（PLAN_BUCKET_*——未入桶＝null）
+    breaker_tripped: bool = False  # 熔断短路标记（影子行标 breaker=tripped）
+
+
+def shadow_plan_log_line(record: ShadowPlanRecord) -> str:
+    """影子行文本渲染（单行结构化——[shadow-plan] 前缀＋L-01 原六字段保留＋L-02 附尾）。"""
+    latency = "-" if record.latency_ms is None else str(record.latency_ms)
+    prompt_tokens = "-" if record.prompt_tokens is None else str(record.prompt_tokens)
+    completion_tokens = (
+        "-" if record.completion_tokens is None else str(record.completion_tokens)
+    )
+    return (
+        f"[shadow-plan] run_id={record.run_id}"
+        f" trigger={record.trigger or '-'}"
+        f" draft_state={record.draft_state}"
+        f" elapsed_ms={record.elapsed_ms}"
+        f" divergent={record.divergent or '-'}"
+        f" note={record.note or '-'}"
+        f" latency_ms={latency}"
+        f" prompt_tokens={prompt_tokens}"
+        f" completion_tokens={completion_tokens}"
+        f" bucket={record.bucket or '-'}"
+        f" breaker={'tripped' if record.breaker_tripped else '-'}"
+    )
+
+
+def shadow_plan_json(record: ShadowPlanRecord, *, ts: str) -> dict[str, Any]:
+    """JSONL 载荷（字段超集——L-03 影子报告直接消费；ts 由落盘侧经 infra.clock 注入）。"""
+    return {
+        "ts": ts,
+        "run_id": record.run_id,
+        "question": record.question,
+        "trigger": record.trigger or None,
+        "draft_state": record.draft_state,
+        "elapsed_ms": record.elapsed_ms,
+        "divergent": record.divergent or None,
+        "note": record.note or None,
+        "latency_ms": record.latency_ms,
+        "prompt_tokens": record.prompt_tokens,
+        "completion_tokens": record.completion_tokens,
+        "bucket": record.bucket,
+        "breaker": "tripped" if record.breaker_tripped else None,
+    }
+
+
+class ShadowLogSinkFace(Protocol):
+    """影子日志落盘缝（生产＝service.ShadowLogSink JSONL＋logger 行双写；测试注桩）。"""
+
+    def write(self, record: ShadowPlanRecord) -> None: ...
 
 
 def render_plan_sql(plan: QueryPlan) -> str:

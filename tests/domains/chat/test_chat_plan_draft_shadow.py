@@ -23,6 +23,7 @@ import pytest
 
 from app.domains.chat import chains as chains_mod
 from app.domains.chat import domain as d
+from app.domains.chat import service as service_mod
 from app.infra.clock import now
 from app.infra.db import ConnectionManager
 from tests.domains.chat.conftest import AQIANG, Seams, collect, make_service
@@ -576,13 +577,14 @@ class TestShadowWiring:
     def test_production_composition_root_never_wires_plan_drafter(
         self, chat_db: ConnectionManager, seams: Seams
     ) -> None:
-        """组合根守护（FX-09/R3-01）：真实生产装配点（ChatService.__init__ →
-        ChainDeps 构造，service.py 生产组合根）不装配 plan_drafter——影子期
-        「现网行为零变化」硬验收的前提＝缝恒未装配（缝一装配即活：链内
-        `if deps.plan_drafter is not None` 守卫对生产装配点零设防，装配即影子
-        LLM 调用上现网）。L-02 接线时本守护必须同步改写为断言装配。"""
+        """组合根守护（FX-09/R3-01，L-02 接线时依守护注释义务改写为「断言装配」）：
+        真实生产装配点（ChatService.__init__ → ChainDeps 构造，service.py 生产组合根）
+        已装配 plan_drafter 且指向影子实现（ShadowPlanDrafter——gateway B6 出口＋三重
+        兜底＋跨问熔断）；影子期语义由实现侧保证（产物只落日志不进生效路）。"""
         service = make_service(chat_db, seams)
-        assert service._deps.plan_drafter is None
+        drafter = service._deps.plan_drafter
+        assert drafter is not None  # L-02 起：生产装配点接线影子 drafter（不再是 None）
+        assert isinstance(drafter, service_mod.ShadowPlanDrafter)
 
     async def test_no_trigger_fast_path_no_call_no_log(
         self, seams: Seams, caplog: Any

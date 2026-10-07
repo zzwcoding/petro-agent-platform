@@ -222,6 +222,10 @@ class ChainDeps:
     # 三重兜底，ChainDeps 构造点域内接线——组合根零改动）；本票只接影子日志
     # （影子期 llm_plan 产物只落日志不进生效路——方案 v2.1 阶段 A 硬纪律）。
     plan_drafter: d.PlanDrafter | None = None
+    # 影子日志落盘缝（L-02——生产＝service.ShadowLogSink：LOGGER 行＋JSONL 双写，
+    # 默认路径 logs/shadow-plan.jsonl）：缺省 None＝只走 LOGGER 行（L-01 形状不变）。
+    # 影子观测活跃判据＝plan_drafter/shadow_log_sink 两缝任一在位。
+    shadow_log_sink: d.ShadowLogSinkFace | None = None
 
 
 def line(key: str, mark: str, text: str) -> d.SseEvent:
@@ -1336,19 +1340,53 @@ def _shadow_deterministic_plan(
     )
 
 
+def _emit_shadow_record(deps: ChainDeps, record: d.ShadowPlanRecord) -> None:
+    """影子行出口（落盘缝在位＝LOGGER 行＋JSONL 双写；否则只走 LOGGER 行——L-01 形状）。"""
+    sink = deps.shadow_log_sink
+    if sink is not None:
+        sink.write(record)
+        return
+    LOGGER.info("%s", d.shadow_plan_log_line(record))
+
+
+def _shadow_miss_observation(
+    deps: ChainDeps, ctx: d.ChainContext, *, metric_slot: str | None, miss_note: str
+) -> None:
+    """L-02 过窄桶观测（触发谓词 False 且本问最终落降级解释链或缺参澄清——快路信号
+    判齐但快路没真正出数，谓词放过了该触发的问句）。
+
+    谓词已触发的问句已在 N7.1 影子观测点落行——此处先自查触发原因集（非空即静默
+    防双记；降级解释链路指标未绑定＝解析缺件恒已触发，故过窄桶现达场景＝模糊时间窗
+    缺参澄清）。只落日志零生效——影子期铁律同款。
+    """
+    if deps.plan_drafter is None and deps.shadow_log_sink is None:
+        return
+    if d.plan_parse_trigger_reasons(question=ctx.question, metric_slot=metric_slot):
+        return
+    _emit_shadow_record(deps, d.ShadowPlanRecord(
+        run_id=ctx.run_id,
+        trigger="",
+        draft_state=d.PLAN_COMPARE_INCOMPARABLE,
+        elapsed_ms=0,
+        note=miss_note,
+        question=ctx.question,
+        bucket=d.PLAN_BUCKET_OVERNARROW,
+    ))
+
+
 async def _shadow_plan_observation(
     deps: ChainDeps, ctx: d.ChainContext, *, declared: tuple[str, str, str] | None
 ) -> None:
-    """L-01 影子观测件（llm_plan 产物只落日志不进生效路——方案 v2.1 阶段 A/闸 A 数据源）。
+    """L-01/L-02 影子观测件（llm_plan 产物只落日志不进生效路——方案 v2.1 阶段 A/闸 A 数据源）。
 
     触发谓词（plan_parse_trigger_reasons 单源——本链即裁决所判六站链，verdict 项
-    恒真；入口裁决层谓词 should_trigger_plan_parse 归 L-02 消费）不命中即静默返回；
-    draft 三态＝比对算子产出；耗时_ms 含 drafter 调用＋validator＋比对。影子路任何
-    异常吞并降级为日志注记——主链行为零变化（本票硬验收）。真实 LLM 出口接线归
-    L-02（本票测试以替身喂 Draft）。
+    恒真）不命中即静默返回；draft 三态＝比对算子产出；耗时_ms 含 drafter 调用＋
+    validator＋比对。L-02 增强：latency_ms/tokens 从 drafter 遥测读取（裸替身缺属性
+    记 null——不因取数失败断流）、bucket 过宽桶（触发且比对一致——确定性解析本可解，
+    LLM 调用本可省）、breaker=tripped 标记（熔断短路调用）。影子路任何异常吞并降级
+    为日志注记——主链行为零变化（L-01 硬验收）。
     """
-    drafter = deps.plan_drafter
-    if drafter is None:
+    if deps.plan_drafter is None and deps.shadow_log_sink is None:
         return
     metric_slot = declared[0] if declared is not None else None
     reasons = d.plan_parse_trigger_reasons(question=ctx.question, metric_slot=metric_slot)
@@ -1357,10 +1395,12 @@ async def _shadow_plan_observation(
     started = time.monotonic()
     draft: d.QueryPlanDraft | None = None
     reject_note = ""
-    try:
-        draft = await drafter(ctx.question)
-    except Exception as exc:  # 影子路吞并——LLM 故障不许炸主链（照 _verdict_llm 兜底纪律）
-        reject_note = f"drafter 异常 {type(exc).__name__}: {exc}"
+    drafter = deps.plan_drafter
+    if drafter is not None:
+        try:
+            draft = await drafter(ctx.question)
+        except Exception as exc:  # 影子路吞并——LLM 故障不许炸主链（照 _verdict_llm 兜底纪律）
+            reject_note = f"drafter 异常 {type(exc).__name__}: {exc}"
     draft_plan: d.QueryPlan | None = None
     if draft is not None:
         try:
@@ -1374,15 +1414,27 @@ async def _shadow_plan_observation(
     notes = [*comparison.notes]
     if reject_note:
         notes.append(reject_note)
-    LOGGER.info(
-        "[shadow-plan] run_id=%s trigger=%s draft_state=%s elapsed_ms=%d divergent=%s note=%s",
-        ctx.run_id,
-        "+".join(reasons),
-        comparison.status,
-        elapsed_ms,
-        ",".join(comparison.divergent_fields) or "-",
-        "；".join(notes) or "-",
-    )
+    # L-02 遥测读取（drafter 是可空 callable——生产实现携 last_telemetry，裸替身缺
+    # 属性时按 null 兜底，不因取数失败断流）。
+    telemetry = getattr(drafter, "last_telemetry", None) if drafter is not None else None
+    _emit_shadow_record(deps, d.ShadowPlanRecord(
+        run_id=ctx.run_id,
+        trigger="+".join(reasons),
+        draft_state=comparison.status,
+        elapsed_ms=elapsed_ms,
+        divergent=",".join(comparison.divergent_fields),
+        note="；".join(notes),
+        question=ctx.question,
+        latency_ms=getattr(telemetry, "latency_ms", None),
+        prompt_tokens=getattr(telemetry, "prompt_tokens", None),
+        completion_tokens=getattr(telemetry, "completion_tokens", None),
+        bucket=(
+            d.PLAN_BUCKET_OVERWIDE
+            if comparison.status == d.PLAN_COMPARE_MATCH
+            else None
+        ),
+        breaker_tripped=bool(getattr(telemetry, "breaker_tripped", False)),
+    ))
 
 
 async def query_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.SseEvent]:
@@ -1406,11 +1458,17 @@ async def query_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.S
     yield d.node_frame("N7.1", state=d.NODE_PROCESS, tag="校验三要素 · 零模型调用",
                        note="意图识别——复用意图裁决阶段解析结果，仅做缺参校验（F7 票 94 注记）")
     declared = _metric_card_for_plan(ctx)
-    # —— L-01 影子观测（方案 v2.1 阶段 A：llm_plan 产物只落日志不进生效路）——
-    # 注入缝未装配（生产组合根现状）＝恒静默零行为变化；真实 gateway 接线归 L-02。
-    if deps.plan_drafter is not None:
+    # —— L-01/L-02 影子观测（方案 v2.1 阶段 A：llm_plan 产物只落日志不进生效路）——
+    # 缝全未装配＝恒静默零行为变化；生产装配点已在 service 域内接线（L-02）。
+    if deps.plan_drafter is not None or deps.shadow_log_sink is not None:
         await _shadow_plan_observation(deps, ctx, declared=declared)
     if declared is None:
+        # 过窄桶自查（L-02）：降级解释链路指标未绑定＝解析缺件——谓词恒已触发，
+        # N7.1 观测点已落行，钩子自查静默防双记（票面口径「落降级解释链」 faithfully 挂钩）。
+        _shadow_miss_observation(
+            deps, ctx, metric_slot=None,
+            miss_note="过窄桶：本问落降级解释链（快路没真正出数）",
+        )
         # 降级解释链（不冒充审定口径）：装配层无可绑定计量列的注册指标——
         # 不自由生成 SQL、不出数；接续检索问答链（报告库辅助）消二选一漏答。
         yield d.node_frame(
@@ -1438,6 +1496,12 @@ async def query_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.S
     metric_slot, metric_name, def_text = declared
     status, window = d.parse_time_window(question, today=today)
     if status == "vague":
+        # 过窄桶观测（L-02）：谓词未触发（词面齐＋锚在册）但快路落缺参澄清——
+        # 快路信号判齐但快路没真正出数，谓词放过了该触发的问句。
+        _shadow_miss_observation(
+            deps, ctx, metric_slot=metric_slot,
+            miss_note="过窄桶：快路信号判齐但快路未出数——落缺参澄清（模糊时间窗不代猜）",
+        )
         # 缺参反问（askback 时间窗三选一照抄——缺的是用户事实，无默认项）。
         yield d.node_frame(
             "N7.1", state=d.NODE_FINISH,
