@@ -511,7 +511,11 @@ def test_normalize_entity_alias_keys_are_first_knife_stable() -> None:
 
 
 def test_gate_converges_alias_to_canonical_before_land() -> None:
-    """闸内两刀串联：别名候选过闸落图即规范名（建节点/立边前收敛——B2-01）。"""
+    """闸内两刀串联：别名候选过闸落图即规范名（建节点/立边前收敛——B2-01）。
+
+    legal_triples 显式传密闭集（含本测试方向）——本测试只测别名收敛语义，与
+    B3-01 声明方向（承载＝平台→井）正交（R4 合并裁决）。
+    """
     cfg = d.ExtractConfig(
         entity_types=["井", "平台"],
         relation_tags=[d.RelationTag(rel="承载")],
@@ -525,6 +529,7 @@ def test_gate_converges_alias_to_canonical_before_land() -> None:
                           to="CEP-C 平台", to_type="平台",
                           evidence="依据不在原文", note="", uncertain=False)],
         cfg, chunk_text="平台：CEP-C 生产平台", chunk_id="f1", report_id="rpt-1",
+        legal_triples={"承载": {("井", "平台")}},
     )
     assert len(passed) == 1
     assert passed[0].to == "CEP-C平台"  # 长形别名→规范名落图

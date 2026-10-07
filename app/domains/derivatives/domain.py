@@ -896,7 +896,6 @@ def ontology_legal_triples() -> dict[str, frozenset[tuple[str, str]]]:
         load_ontology_export("entity_types"),
         load_ontology_export("relation_types"),
     )
->>>>>>> gov/b3-endpoint-gate
 
 
 def gate_triples(
