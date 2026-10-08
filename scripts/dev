@@ -18,6 +18,11 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DP="$ROOT/data-plane"
 LOGDIR=/tmp/petro-dev
 PG_DSN="postgresql://petro:petro@localhost:5433/petro"
+# run 目录单源（V2-11，Q11 P0 数据基座根因）：常驻 worker 与 seed 必须共用同一目录——
+# 旧形态 seed 灌 fieldforge 真产物、常驻 worker 仍吃 v1 demo 目录（28 行拟造值残留），
+# 每日 cron 把 v1 行当「新批次」覆写 agg（N-01/N-02/Z-01/Z-02 × 09-01~07 脏格＋血缘④
+# 双批次号同根）。
+RUN_DIR="${DP_PIPELINE_RUN_DIR:-/tmp/tpa-demo-run}"
 
 log() { printf '[dev] %s\n' "$*"; }
 port_busy() { lsof -nP -i ":$1" 2>/dev/null | grep -q LISTEN; }
@@ -66,7 +71,7 @@ start_worker() {
      AGG_DATABASE_URL="$PG_DSN" \
      QUALITY_DATABASE_URL="$PG_DSN" \
      MINIO_ENDPOINT="http://localhost:9000" MINIO_ACCESS_KEY="petro" MINIO_SECRET_KEY="petro12345" \
-     DP_PIPELINE_RUN_DIR="${DP_PIPELINE_RUN_DIR:-/tmp/tpa-demo-run}" \
+     DP_PIPELINE_RUN_DIR="$RUN_DIR" \
      nohup .venv/bin/python -m worker.scheduler > "$LOGDIR/worker.log" 2>&1 &)
   sleep 3
   pgrep -f "worker.scheduler" >/dev/null && { log "worker 已起"; return 0; }
@@ -101,15 +106,18 @@ cmd_status() {
 
 cmd_seed() {
   log "演示数据灌入（fieldforge 真产物全链路一遍——幂等可重跑）"
-  mkdir -p /tmp/tpa-fieldforge-run
-  cp /Users/divh/Downloads/fieldforge/out-tpa/*.csv /tmp/tpa-fieldforge-run/
-  log "注意：当前为覆盖语义（同井重灌刷新当前版）；water_line 单调不回退"
+  # V2-11：灌入前整目录重建——v1 残留 CSV 零存活（run 目录单源，常驻 worker 同吃此目录）
+  rm -rf "$RUN_DIR"
+  mkdir -p "$RUN_DIR"
+  cp /Users/divh/Downloads/fieldforge/out-tpa/*.csv "$RUN_DIR/"
+  log "幂等语义：内容与湖当前视图一致则跳过进料与 agg 重刷（同脚本连跑第二遍零变更）"
+  log "覆盖语义不变：内容有变时同井重灌刷新当前版；water_line 单调不回退"
   (cd "$DP" && \
      DATABASE_URL="$PG_DSN" \
      AGG_DATABASE_URL="$PG_DSN" \
      QUALITY_DATABASE_URL="$PG_DSN" \
      MINIO_ENDPOINT="http://localhost:9000" MINIO_ACCESS_KEY="petro" MINIO_SECRET_KEY="petro12345" \
-     DP_PIPELINE_RUN_DIR="/tmp/tpa-fieldforge-run" \
+     DP_PIPELINE_RUN_DIR="$RUN_DIR" \
      .venv/bin/python -m worker.scheduler --once)
   log "灌入完成——E2 页面点一次任务轮询即自动建单；问一问可查真数据"
 }
