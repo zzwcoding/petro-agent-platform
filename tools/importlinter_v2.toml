@@ -1,0 +1,45 @@
+[tool.importlinter]
+root_package = "appv2"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "V2 层间单向向下（appv2.api 为最上层）"
+type = "forbidden"
+source_modules = ["appv2.runtime", "appv2.tools", "appv2.knowledge", "appv2.query", "appv2.retrieval", "appv2.infra"]
+forbidden_modules = ["appv2.api"]
+
+[[tool.importlinter.contracts]]
+name = "V2 runtime 只经 tools 接触世界"
+type = "forbidden"
+source_modules = ["appv2.runtime"]
+forbidden_modules = ["appv2.knowledge", "appv2.query", "appv2.retrieval"]
+
+[[tool.importlinter.contracts]]
+name = "V2 tools/runtime 不互咬（单向向下防环）"
+type = "forbidden"
+source_modules = ["appv2.tools"]
+forbidden_modules = ["appv2.runtime"]
+
+[[tool.importlinter.contracts]]
+name = "V2 引擎互禁（query→knowledge 为登记例外，走公开接口）"
+type = "forbidden"
+source_modules = ["appv2.knowledge", "appv2.retrieval"]
+forbidden_modules = ["appv2.query"]
+
+[[tool.importlinter.contracts]]
+name = "V2 不咬 V1（双向禁引之 V2 侧）"
+type = "forbidden"
+source_modules = ["appv2"]
+forbidden_modules = ["app"]
+
+[[tool.importlinter.contracts]]
+name = "ADR-0002 红线①langgraph 只许在 appv2.runtime"
+type = "forbidden"
+source_modules = ["appv2.api", "appv2.tools", "appv2.knowledge", "appv2.query", "appv2.retrieval", "appv2.infra"]
+forbidden_modules = ["langgraph", "langchain", "langchain_core", "langchain_community"]
+
+[[tool.importlinter.contracts]]
+name = "V2 B6：litellm 唯一接触点=appv2.infra.llm_client"
+type = "forbidden"
+source_modules = ["appv2"]
+forbidden_modules = ["litellm"]

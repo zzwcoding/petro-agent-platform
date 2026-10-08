@@ -34,7 +34,7 @@ dispatch/
 5. 审查拍（触发三线见 sdd-flow ticket-gates.md 闸三）：同流程派发，**只产发现清单不修码**。
 6. L0 裁决清单：修复项写成 `pending/P-x.fix.md`（只带被裁决条目）；挂账行必须「归属：X」。
 7. 修复拍/对齐拍：同流程；对齐拍只产差异清单（改文档归 L0，改码转修复拍）。
-8. L0 收尾裁决（close 闸自校）→ 合并指令；执行台执行合并 → **复跑 `uv run ruff check app tests migrations tools && uv run mypy app && uv run pytest -q && uv run lint-imports && uv run python tools/contract_coverage.py check && uv run python tools/debt_markers.py check`（退出码说话）** → 回访 L0："裁决已执行完毕（SHA/测试/队列状态），请拆下一张或明示停止值守"——回访是必经步，不许省略。
+8. L0 收尾裁决（close 闸自校）→ 合并指令；执行台执行合并 → **复跑 `uv run ruff check app appv2 tests migrations tools && uv run mypy app appv2 && uv run pytest -q && uv run lint-imports && uv run lint-imports --config tools/importlinter_v2.toml && uv run python tools/contract_coverage.py check && uv run python tools/debt_markers.py check`（退出码说话）** → 回访 L0："裁决已执行完毕（SHA/测试/队列状态），请拆下一张或明示停止值守"——回访是必经步，不许省略。
 9. L0 拆下一张，或明示"停止值守"；执行台确认 enabled 在位 → 向 Owner 交总结报告。
 
 ## 四、执法点（不靠模型自觉）
@@ -45,7 +45,7 @@ dispatch/
 | 派工单形状 | `python3 /Users/divh/Downloads/petro-agent-platform/tools/ticket_shape_check.py <票>` 派发前必跑 |
 | commit 带红 | 子代理 commit 前必跑快扫 `uv run ruff check app tests migrations tools && uv run python tools/debt_markers.py check && uv run python tools/contract_coverage.py check` 并附输出到回报「闸门实跑」节；执行台验收时核对快扫输出存在——Owner 拍板（2026-10-03）：不装 pre-commit 钩子，合并前全量复跑已覆盖主干污染风险，快扫靠本执法点 |
 | 关票形状 | `python3 /Users/divh/Downloads/petro-agent-platform/tools/ticket_close_check.py <票> <收尾报告>` 关票前必跑 |
-| TDD 真绿 | 回报附 `uv run pytest -q` 原文；执行台复跑 `uv run ruff check app tests migrations tools && uv run mypy app && uv run pytest -q && uv run lint-imports && uv run python tools/contract_coverage.py check && uv run python tools/debt_markers.py check` 核验 |
+| TDD 真绿 | 回报附 `uv run pytest -q` 原文；执行台复跑 `uv run ruff check app appv2 tests migrations tools && uv run mypy app appv2 && uv run pytest -q && uv run lint-imports && uv run lint-imports --config tools/importlinter_v2.toml && uv run python tools/contract_coverage.py check && uv run python tools/debt_markers.py check` 核验 |
 | 决策权归 L0 | 执行台只驳回不代改；续停由回访条款保证由 L0 决定 |
 | 留痕 | 每动作追加 journal.jsonl 单行：`{"ts":"<ISO8601>","from":"desk|L0|subagent","to":"...","event":"report|reply|dispatch|verdict|other","text":"<≤600字>"}` |
 
@@ -56,7 +56,7 @@ dispatch/
 ## 产物
 <提交 SHA 清单 / 文件清单>
 ## 闸门实跑
-<`uv run pytest -q` 与 `uv run ruff check app tests migrations tools && uv run mypy app && uv run pytest -q && uv run lint-imports && uv run python tools/contract_coverage.py check && uv run python tools/debt_markers.py check` 输出原文摘要——含通过数数字，"全绿"两字不合格>
+<`uv run pytest -q` 与 `uv run ruff check app appv2 tests migrations tools && uv run mypy app appv2 && uv run pytest -q && uv run lint-imports && uv run lint-imports --config tools/importlinter_v2.toml && uv run python tools/contract_coverage.py check && uv run python tools/debt_markers.py check` 输出原文摘要——含通过数数字，"全绿"两字不合格>
 ## 偏差
 <有/无；有则逐条：现象→原因→处置（修复/挂账归属/不采纳理由）>
 ## 疑点（待 L0 裁决，不动手）

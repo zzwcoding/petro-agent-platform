@@ -91,3 +91,11 @@ forbidden_modules = ["litellm"]
 ignore_imports = [
     "app.infra.llm_client -> litellm",
 ]
+
+# —— V2 边界闸（ADR-0001/0002；specs/modules.md「边界规则」的机器化）——
+# V2 契约主体在 tools/importlinter_v2.toml（单 root 限制，lint-imports 跑两遍）
+[[tool.importlinter.contracts]]
+name = "V1 不咬 V2（双向禁引之 V1 侧）"
+type = "forbidden"
+source_modules = ["app"]
+forbidden_modules = ["appv2"]
