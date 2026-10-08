@@ -45,14 +45,17 @@ GET  /api/v2/chat/runs/{run_id}        200 → {status, steps, manifest_digest}
 2. 模型每次调用前经 Context Builder 确定性编译（过滤→排序→预算→引用化），调用产出 Manifest
    （source_type/source_id/version/trust_level/selected_reason/token_count/transform）随 step 存档（INV-5）。
 3. 规划步产出 plan_draft（指标槽/时间窗/条数/排名），先经 tools.data_query 的确定性校验：
-   校验不过→repair 一次→仍不过→need_clarify 转 ASK 帧。
+   校验不过→repair 一次→仍不过→如实拒答（拒因转答＋notice type=refused）。
+   **不发 ASK 帧的判据**：bad_args 类拒因（未来窗界/计划不可解析等）用户无法补救，
+   发澄清只会造无解循环；need_clarify 仅覆盖"缺参数且用户选择可解"的模糊时间类（约定 4）。
 4. 工具只经 ToolRegistry.call；返回 status=ask 时 run 转 waiting_ask 挂起，事件流发 ask 帧后正常收束；
    resume 带选择续跑（INV-2：全程只读）。
 5. 核验步（verify）：逐条检查阐述草稿的断言有 Observation 支撑；无支撑断言改写为"未找到/材料未披露"
    并出 notice——禁止无据断言进答案（INV-1、INV-4）。
 6. 多来源矛盾时答案必须分源列明（各标出处）或显式声明歧义；禁止无出处调和（INV-4）。
-7. 预算三闸：max_steps 8／总时长 300s／单工具超时 30s；触界即收敛——交付已核实部分＋
-   notice 明示未完成项，不得静默截断（有界终止）。
+7. 预算三闸：max_steps 8／**单段时限 300s**（挂起等人工不计时、不累计跨段——计步计时均按段，
+   R5 口径）／单工具超时 30s；触界即收敛——交付已取得观察材料（未核实的直排标注"未及核验"，
+   非断言不违反 INV-1）＋notice 明示未完成项，不得静默截断（有界终止）。
 8. run 状态机：running→waiting_ask→（resume）→running→completed/failed；
    引擎事件外置持久化，断线凭游标续传，进程重启后可恢复 waiting_ask 态（resume 可达）。
 
@@ -70,7 +73,7 @@ GET  /api/v2/chat/runs/{run_id}        200 → {status, steps, manifest_digest}
 | 断线游标重连→事件不重复不遗漏 | `tests/api/test_v2_asks.py::sse_cursor_resume` |
 | run 挂起态跨进程恢复（checkpoint 落 PG） | `tests/domains/test_agent_loop.py::run_recover_after_restart` |
 | resume 到不存在/非挂起 run→404/409 | `tests/api/test_v2_asks.py::resume_error_paths` |
-| 全程无任何写操作落库（只读断言，INV-2） | `tests/domains/test_agent_loop.py::readonly_inv2` |
+| 全程业务事实零写（run 簿记表 agent_v2_* 除外，INV-2） | `tests/domains/test_agent_loop.py::readonly_inv2` |
 
 ## 依赖与风险
 

@@ -24,7 +24,7 @@ LLM 必经自写 ChatModel adapter 走 appv2 gateway.complete（caller 归因保
 - 本票定稿符号（票面点名）：AgentRuntime.ask/resume、RunHandle、AskRequest、AskChoice、
   ContextBuilder.compile、CompiledContext、RunState
 - 剧本化 completer（caller 分流、多轮 replay）就位
-- agent_v2_run/agent_v2_step 新表迁移文件（前缀隔离 V1 表）
+- agent_v2_run/agent_v2_step 新表迁移文件（alembic 独立版本文件 0022，前缀隔离 V1 表——实落五表：run/step/checkpoint 三表＋channel/task 两表，票面任务行"PG checkpointer"点名，R7 补记消除歧义）
 - 三红线自查：runtime 外零 langgraph import（扫描）／ChatModel adapter 单点／state schema 自定义
 
 回报: 完成后回总窗口："V2-06 完成（含中途审查一轮），产物 appv2/runtime/，偏差: 有/无，测试: pytest 输出摘要"
