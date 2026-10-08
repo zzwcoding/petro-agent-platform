@@ -59,7 +59,7 @@ INTENT_END = "end"
 
 @dataclass(frozen=True, slots=True)
 class Manifest:
-    """模型调用 Manifest（行为约定 2——随 step 存档，INV-5）。"""
+    """模型调用 Manifest（行为约定 2——随 step 存档，过程态簿记）。"""
 
     source_type: list[str] = field(default_factory=list)
     source_id: list[str] = field(default_factory=list)

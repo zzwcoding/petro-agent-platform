@@ -12,7 +12,7 @@ spec 表内 tests/domains/test_agent_loop.py 的 v2 前缀同位映射，测名 
 - readonly_inv2：全程无任何写操作落库（INV-2）——真问数引擎（CsvSnapshotExecutor）
   快照逐字节零变＋台账读面零变；
 - six_steps_in_order（骨架钉测）：六类 step 事件按 understand→…→answer 次序齐发，
-  每个模型调用 step 落 Manifest（INV-5 runtime 侧证据）；
+  每个模型调用 step 落 Manifest（过程态簿记留痕）；
 - resume_error_paths（骨架钉测）：resume 到不存在 run／非挂起 run 的错误路径
   （V2-07 api 404/409 映射的 runtime 侧异常源）。
 
@@ -113,11 +113,14 @@ async def make_runtime(
     script: dict[str, Sequence[str]],
     budget: Budget | None = None,
     knowledge: Any = None,
+    completer: ScriptedCompleter | None = None,
 ) -> tuple[AgentRuntime, ScriptedCompleter, ConnectionManager]:
     """标准装配：registry＋剧本 completer＋sqlite 库＋PgCheckpointer＋六步图。
 
     knowledge＝registry 的台账缝（真引擎测试传 InMemoryKnowledgeStore，
-    假引擎测试缺省 FakeKnowledgeStore）；engine＝QueryFace 缝（真/假问数引擎）。
+    假引擎测试缺省 FakeKnowledgeStore）；engine＝QueryFace 缝（真/假问数引擎）；
+    completer＝显式注入缝（V2-20 闸门/爆炸 completer 等剧本变体——缺省按
+    script 现建 ScriptedCompleter）。
     """
     registry = ToolRegistry(
         knowledge=knowledge if knowledge is not None else FakeKnowledgeStore(),
@@ -138,7 +141,7 @@ async def make_runtime(
     )
     db = ConnectionManager([spec])
     await ensure_agent_v2_tables(db.engine())
-    completer = ScriptedCompleter(script)
+    completer = completer if completer is not None else ScriptedCompleter(script)
     models = {
         name: GatewayChatModel(
             completer=completer, caller=f"v2.runtime.{name}", alias=""
@@ -167,7 +170,7 @@ def _notices(events: list[RunEvent]) -> list[dict[str, Any]]:
     return [e.data for e in events if e.event == "notice"]
 
 
-# ---------- 骨架钉测①：六步贯通＋次序＋每模型调用落 Manifest（INV-5） ----------
+# ---------- 骨架钉测①：六步贯通＋次序＋每模型调用落 Manifest（过程态簿记） ----------
 
 
 async def test_six_steps_in_order(tmp_path: Path) -> None:
@@ -184,8 +187,8 @@ async def test_six_steps_in_order(tmp_path: Path) -> None:
         run = await store.get_run(handle.run_id)
         assert run is not None and run.status == "completed"
         assert "21.16" in (run.answer or "")
-        assert run.manifest_digest  # Manifest 随 step 存档的摘要面（INV-5）
-        # 每个模型调用 step 落 Manifest（七字段合同形——INV-5）。
+        assert run.manifest_digest  # Manifest 随 step 存档的摘要面（过程态簿记）
+        # 每个模型调用 step 落 Manifest（七字段合同形——过程态簿记）。
         steps = await store.list_steps(handle.run_id)
         manifest_by_step = {s.step_type: s.manifest for s in steps}
         for kind in ("understand", "plan", "verify"):

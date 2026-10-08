@@ -7,7 +7,7 @@
 - 引用化：[n] 引标＝全局观察序号（RunState.observations 稳定序），模型面与
   答案引用同一套序号（fail-closed 引用的机读底座）。
 
-CompiledContext{messages, manifest}——manifest 七字段随 step 存档（INV-5）；
+CompiledContext{messages, manifest}——manifest 七字段随 step 存档（过程态簿记）；
 token_count 按 chars/4 估算（与网关记账兜底同口径）。
 """
 
@@ -48,7 +48,7 @@ SYSTEM_PROMPT = (
 
 @dataclass(frozen=True, slots=True)
 class CompiledContext:
-    """确定性编译产物（messages 进模型；manifest 随 step 存档——INV-5）。"""
+    """确定性编译产物（messages 进模型；manifest 随 step 存档——过程态簿记）。"""
 
     messages: list[dict[str, str]]
     manifest: Manifest

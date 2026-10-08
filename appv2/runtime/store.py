@@ -4,9 +4,14 @@
 迁移文件（alembic 独立版本文件，前缀隔离）」）：
 - agent_v2_run：run 状态机行（running→waiting_ask→（resume）→running→
   completed/failed；answer/manifest_digest 随终态落）；
-- agent_v2_step：步记录（INV-5：每步一行，Manifest 随模型调用步存档）；
+- agent_v2_step：步记录（过程态簿记：每步一行，Manifest 随模型调用步存档）；
 - agent_v2_checkpoint／_blob／_write：PgCheckpointer 存储载体（langgraph
   checkpoint 机制表——state schema 自有，checkpointer 仅存储，ADR-0002 红线③）。
+
+职责边界（V2-20 票面注记）：本文件两表＝簿记（过程态——状态机现值＋逐步留痕，
+服务状态读面/回放，resume 段整体重投影）；责任账＝audit_log（谁在何时以何输入
+收的口，只追加不可改写）——经 security.audit 唯一写口落（appv2/runtime/audit.py），
+两账分工不互替。
 
 B3：DB 只经 appv2.infra.db（ConnectionManager）；P0-08 前 ensure_agent_v2_tables
 幂等建表（gateway/security store 同款双轨——Alembic 0022 与 ensure 同形）。
@@ -46,7 +51,7 @@ class AgentV2Run(Base):
 
 
 class AgentV2Step(Base):
-    """步记录（INV-5：六类 step 各一行；manifest 随模型调用步存档）。"""
+    """步记录（过程态簿记：六类 step 各一行；manifest 随模型调用步存档）。"""
 
     __tablename__ = "agent_v2_step"
 
@@ -143,6 +148,25 @@ class RunStore:
             row.answer = answer
             row.error = error
             row.manifest_digest = manifest_digest
+            row.updated_at = now()
+            await session.flush()
+
+    async def mark_running(self, run_id: str) -> None:
+        """resume 段 running 回写（行为约定 8：waiting_ask→（resume）→running——C1）。
+
+        挂起恢复受理段即回写（executor.execute 在 spawn 前调用）：恢复段执行期
+        GET run 报 running 现值（修复前停留 waiting_ask 直至终态＝断档）。转移
+        合法性把守：仅 waiting_ask→running（挂起恢复唯一入口），越界转移拒写。
+        """
+        async with self._db.session() as session:
+            row = await session.get(AgentV2Run, run_id)
+            if row is None:
+                raise ValueError(f"run 不存在：{run_id}")
+            if row.status != "waiting_ask":
+                raise ValueError(
+                    f"run 状态机越界转移（仅 waiting_ask→running）：{row.status!r}"
+                )
+            row.status = "running"
             row.updated_at = now()
             await session.flush()
 

@@ -41,9 +41,9 @@ GET  /api/v2/chat/runs/{run_id}        200 → {status, steps, manifest_digest}
 
 ## 行为约定
 
-1. 每问新建 run；step 类型只许 understand/plan/tool/observe/verify/answer 六种，每步落 step 记录（INV-5）。
+1. 每问新建 run；step 类型只许 understand/plan/tool/observe/verify/answer 六种，每步落 step 记录（过程态簿记留痕——agent_v2_step；INV-5 的落点是审计责任账唯一写口 security.audit，见 specs/infra.md 行为约定 3，V2-20 口径归一）。
 2. 模型每次调用前经 Context Builder 确定性编译（过滤→排序→预算→引用化），调用产出 Manifest
-   （source_type/source_id/version/trust_level/selected_reason/token_count/transform）随 step 存档（INV-5）。
+   （source_type/source_id/version/trust_level/selected_reason/token_count/transform）随 step 存档（过程态簿记留痕）。
 3. 规划步产出 plan_draft（指标槽/时间窗/条数/排名），先经 tools.data_query 的确定性校验：
    校验不过→repair 一次→仍不过→如实拒答（拒因转答＋notice type=refused）。
    **不发 ASK 帧的判据**：bad_args 类拒因（未来窗界/计划不可解析等）用户无法补救，

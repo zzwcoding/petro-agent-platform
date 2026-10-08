@@ -1,7 +1,9 @@
 """appv2.runtime —— 有界 agent loop 编排层（V2-06；specs/agent-loop.md、ADR-0002/0003）。
 
 六步 StateGraph loop（understand/plan/tool/observe/verify/answer——每步落 step
-记录，INV-5）＋PG checkpointer（挂起态跨进程恢复）＋Context Builder/Manifest
+记录，过程态簿记）＋审计闭环（run 创建/终态/拒答收口/外表审批决定四事件经
+security.audit 唯一写口落 audit_log 责任账——runtime/audit.py，INV-5）＋PG
+checkpointer（挂起态跨进程恢复）＋Context Builder/Manifest
 （每次模型调用确定性编译，行为约定 2）＋Verifier 核验步（INV-1/INV-4）＋预算
 三闸（max_steps 8／总时长 300s／单工具 30s——触界收敛不静默截断）＋RunCommand
 seam（ADR-0003：命令入口与执行器显式分离，将来换队列消费者契约零改动）。

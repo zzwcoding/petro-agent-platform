@@ -1,6 +1,7 @@
 """runtime.graph —— LangGraph StateGraph 六步 loop（specs/agent-loop.md 行为约定 1–7）。
 
-六步：understand→plan→tool→observe→verify→answer（每步落 step 记录，INV-5）；
+六步：understand→plan→tool→observe→verify→answer（每步落 step 记录——过程态
+簿记留痕；INV-5 审计责任账经 security.audit 唯一写口落，见 runtime/audit.py）；
 StateGraph＋条件边承载全部回环（ADR-0002：StateGraph 真承载 loop）：
 - plan↔tool：计划校验不过→repair 一次→仍不过→need_clarify 转 ASK 帧（约定 3）；
 - tool→tool：retryable 同参重试一次；工具 status=ask 自环进 interrupt 挂起
