@@ -1,0 +1,901 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-845a23",
+    "thread_id": "sess-aa589f"
+   }
+  },
+  {
+   "id": 1,
+   "event": "stage",
+   "data": {
+    "stage": 0
+   }
+  },
+  {
+   "id": 2,
+   "event": "stage",
+   "data": {
+    "stage": 1
+   }
+  },
+  {
+   "id": 3,
+   "event": "node",
+   "data": {
+    "key": "N1",
+    "name": "统一安检",
+    "label": "统一安检",
+    "state": "process",
+    "note": "统一安检——三道逐条翻（注入扫描/禁用词索引/身份与数据域）",
+    "tag": "代码 · 字面规则"
+   }
+  },
+  {
+   "id": 4,
+   "event": "sec_check",
+   "data": {
+    "seq": 1,
+    "name": "注入扫描",
+    "result": "pass",
+    "note": "字面规则未命中"
+   }
+  },
+  {
+   "id": 5,
+   "event": "sec_check",
+   "data": {
+    "seq": 2,
+    "name": "禁用词索引",
+    "result": "pass",
+    "note": "字面规则未命中"
+   }
+  },
+  {
+   "id": 6,
+   "event": "sec_check",
+   "data": {
+    "seq": 3,
+    "name": "身份与数据域",
+    "result": "pass",
+    "note": "阿强 · 平台运维"
+   }
+  },
+  {
+   "id": 7,
+   "event": "node",
+   "data": {
+    "key": "N1",
+    "name": "统一安检",
+    "label": "统一安检",
+    "state": "finish",
+    "note": "三道全过——放行"
+   }
+  },
+  {
+   "id": 8,
+   "event": "node",
+   "data": {
+    "key": "N3",
+    "name": "轻装配",
+    "label": "轻装配",
+    "state": "process",
+    "note": "轻装配——@ 前门直取＋六路匹配器全扫全收集",
+    "tag": "代码 · 毫秒级"
+   }
+  },
+  {
+   "id": 9,
+   "event": "match",
+   "data": {
+    "matcher": "FAQ 索引",
+    "status": "miss",
+    "note": "归一化精确未命中"
+   }
+  },
+  {
+   "id": 10,
+   "event": "match",
+   "data": {
+    "matcher": "指标卡台账",
+    "status": "hit",
+    "confidence": "high",
+    "note": "命中 「自然递减率」"
+   }
+  },
+  {
+   "id": 11,
+   "event": "match",
+   "data": {
+    "matcher": "术语台账",
+    "status": "miss",
+    "note": "台账未命中"
+   }
+  },
+  {
+   "id": 12,
+   "event": "match",
+   "data": {
+    "matcher": "工具清单",
+    "status": "miss",
+    "note": "工具注册表未建——落空"
+   }
+  },
+  {
+   "id": 13,
+   "event": "match",
+   "data": {
+    "matcher": "分析工作流",
+    "status": "miss",
+    "note": "工作流运行时未建——落空"
+   }
+  },
+  {
+   "id": 14,
+   "event": "match",
+   "data": {
+    "matcher": "报告索引",
+    "status": "hit",
+    "confidence": "low",
+    "note": "命中《《C-渤中34-5油田三季度注水调整与生产运行分析》》问题块·第1批（vector 腿 · score=0.46）"
+   }
+  },
+  {
+   "id": 15,
+   "event": "node",
+   "data": {
+    "key": "N3",
+    "name": "轻装配",
+    "label": "轻装配",
+    "state": "finish",
+    "note": "六路候选：命中 2 路——共池 5 支（全扫全收集，落空进建议池）"
+   }
+  },
+  {
+   "id": 16,
+   "event": "node",
+   "data": {
+    "key": "N4",
+    "name": "装配块",
+    "label": "装配块",
+    "state": "process",
+    "note": "装配块——锚点/槽位/候选/17 链清单组卷",
+    "tag": "给裁决的呈堂材料"
+   }
+  },
+  {
+   "id": 17,
+   "event": "assembly",
+   "data": {
+    "anchor_line": null,
+    "slots": "指标＝自然递减率 · 报告＝《《C-渤中34-5油田三季度注水调整与生产运行分析》》",
+    "terms": [],
+    "candidates": [
+     {
+      "matcher": "指标卡台账",
+      "name": "自然递减率",
+      "confidence": "high",
+      "kind": "metric"
+     },
+     {
+      "matcher": "报告索引",
+      "name": "《《C-渤中34-5油田三季度注水调整与生产运行分析》》问题块·第1批",
+      "confidence": "low",
+      "kind": "report",
+      "note": "vector 腿 · score=0.46"
+     },
+     {
+      "matcher": "报告索引",
+      "name": "《《C-渤中34-5油田三季度注水调整与生产运行分析》》章节 02 二、注水运行 ＞ 2.1 注水月度数据 ＞ 2.2 累积亏空与存水率",
+      "confidence": "low",
+      "kind": "report",
+      "note": "vector 腿 · score=0.44"
+     },
+     {
+      "matcher": "报告索引",
+      "name": "《《C-渤中34-5油田三季度注水调整与生产运行分析》》章节 02 二、注水运行 ＞ 2.1 注水月度数据 ＞ 2.2 累积亏空与存水率",
+      "confidence": "low",
+      "kind": "report",
+      "note": "vector 腿 · score=0.44"
+     },
+     {
+      "matcher": "报告索引",
+      "name": "《《C-渤中34-5油田三季度注水调整与生产运行分析》》问题块·第1批",
+      "confidence": "low",
+      "kind": "report",
+      "note": "vector 腿 · score=0.43"
+     }
+    ],
+    "chains": [
+     "统一安检链",
+     "状态机六站链",
+     "指标卡直出链",
+     "FAQ直出链",
+     "工具执行链",
+     "工作流执行链",
+     "检索问答链",
+     "图谱问答链",
+     "汇报生成链",
+     "大结果落盘链",
+     "Action合同链",
+     "外发拦截链",
+     "澄清反问链",
+     "口径消歧链",
+     "新鲜度闸链",
+     "行级权限链",
+     "上下文注入链"
+    ]
+   }
+  },
+  {
+   "id": 18,
+   "event": "node",
+   "data": {
+    "key": "N4",
+    "name": "装配块",
+    "label": "装配块",
+    "state": "finish",
+    "note": "装配块组卷完成——slots＝指标＝自然递减率 · 报告＝《《C-渤中34-5油田三季度注水调整与生产运行分析》》"
+   }
+  },
+  {
+   "id": 19,
+   "event": "stage",
+   "data": {
+    "stage": 2
+   }
+  },
+  {
+   "id": 20,
+   "event": "node",
+   "data": {
+    "key": "N5",
+    "name": "意图裁决",
+    "label": "意图裁决",
+    "state": "process",
+    "note": "意图裁决——petro-main 分类（caller=chat.intent.verdict，超时 8s）；失败/超时/解析坏→确定性信号路由兜底（不许问挂）",
+    "tag": "意图裁决 · LLM＋兜底"
+   }
+  },
+  {
+   "id": 21,
+   "event": "verdict",
+   "data": {
+    "chain": "状态机六站链",
+    "slots": "指标＝自然递减率 · 报告＝《《C-渤中34-5油田三季度注水调整与生产运行分析》》",
+    "confidence": "高（模型意图裁决 0.92）",
+    "need_clarify": false,
+    "source": "llm"
+   }
+  },
+  {
+   "id": 22,
+   "event": "node",
+   "data": {
+    "key": "N5",
+    "name": "意图裁决",
+    "label": "意图裁决",
+    "state": "finish",
+    "note": "裁决输出（来源＝llm）——chain＝状态机六站链 · confidence＝高（模型意图裁决 0.92）"
+   }
+  },
+  {
+   "id": 23,
+   "event": "node",
+   "data": {
+    "key": "N5b",
+    "name": "裁决核验",
+    "label": "裁决核验",
+    "state": "process"
+   }
+  },
+  {
+   "id": 24,
+   "event": "node",
+   "data": {
+    "key": "N5b",
+    "name": "裁决核验",
+    "label": "裁决核验",
+    "state": "finish",
+    "note": "chain「状态机六站链」在 17 链清单内且已接线——核验通过（闭世界枚举＋注册面）"
+   }
+  },
+  {
+   "id": 25,
+   "event": "node",
+   "data": {
+    "key": "N6",
+    "name": "链路分派",
+    "label": "链路分派",
+    "state": "process",
+    "tag": "查映射表派链"
+   }
+  },
+  {
+   "id": 26,
+   "event": "node",
+   "data": {
+    "key": "N6",
+    "name": "链路分派",
+    "label": "链路分派",
+    "state": "finish",
+    "note": "已分派至「状态机六站链」——后续步骤由链体执行"
+   }
+  },
+  {
+   "id": 27,
+   "event": "stage",
+   "data": {
+    "stage": 3
+   }
+  },
+  {
+   "id": 28,
+   "event": "node",
+   "data": {
+    "key": "N7.1",
+    "name": "意图识别",
+    "label": "意图识别",
+    "state": "process",
+    "note": "意图识别——复用意图裁决阶段解析结果，仅做缺参校验（F7 票 94 注记）",
+    "tag": "校验三要素 · 零模型调用"
+   }
+  },
+  {
+   "id": 29,
+   "event": "node",
+   "data": {
+    "key": "N7.1",
+    "name": "意图识别",
+    "label": "意图识别",
+    "state": "finish",
+    "note": "指标槽位未命中可出数的注册声明（模板只认绑定 agg 计量列的指标）——降级解释链：不自由生成 SQL（不冒充审定口径）——接续检索问答链（报告库检索结果作辅助）"
+   }
+  },
+  {
+   "id": 30,
+   "event": "node",
+   "data": {
+    "key": "N7.2",
+    "name": "语义检索",
+    "label": "语义检索",
+    "state": "wait",
+    "note": "降级——不选表、不生成、不执行",
+    "skipped": true
+   }
+  },
+  {
+   "id": 31,
+   "event": "notice",
+   "data": {
+    "level": "warning",
+    "text": "该问法没有命中可出数的注册指标声明——平台不做自由生成冒充审定口径。出路：在指标台账（C1）登记可绑定计量列的指标，或走语义修订提案池（C2）补登记后再问。"
+   }
+  },
+  {
+   "id": 32,
+   "event": "notice",
+   "data": {
+    "level": "info",
+    "text": "数据库口径未能出数——已自动接续检索问答链：以下为报告库检索结果（非权威数值），数值请以权威数据口径为准。"
+   }
+  },
+  {
+   "id": 33,
+   "event": "node",
+   "data": {
+    "key": "N17",
+    "name": "检索问答",
+    "label": "检索问答",
+    "state": "process",
+    "note": "检索问答链开跑——S0–S7 瀑布逐级推进",
+    "tag": "代码 · 语义瀑布逐级推进"
+   }
+  },
+  {
+   "id": 34,
+   "event": "node",
+   "data": {
+    "key": "S0",
+    "name": "身份四要素",
+    "label": "身份四要素",
+    "state": "process"
+   }
+  },
+  {
+   "id": 35,
+   "event": "node",
+   "data": {
+    "key": "S0",
+    "name": "身份四要素",
+    "label": "身份四要素",
+    "state": "finish",
+    "note": "身份四要素确认：身份=阿强 · 平台运维 · 会话 run=run-845a23 · 口径版本＝当前生效配置 · 权限＝系统管理员（阶段 1 单一角色）"
+   }
+  },
+  {
+   "id": 36,
+   "event": "node",
+   "data": {
+    "key": "S1",
+    "name": "显式锚定",
+    "label": "显式锚定",
+    "state": "process"
+   }
+  },
+  {
+   "id": 37,
+   "event": "node",
+   "data": {
+    "key": "S1",
+    "name": "显式锚定",
+    "label": "显式锚定",
+    "state": "finish",
+    "note": "无 @ 锚定——进入下一级"
+   }
+  },
+  {
+   "id": 38,
+   "event": "node",
+   "data": {
+    "key": "S3",
+    "name": "词表四级",
+    "label": "词表四级",
+    "state": "process"
+   }
+  },
+  {
+   "id": 39,
+   "event": "node",
+   "data": {
+    "key": "S3",
+    "name": "词表四级",
+    "label": "词表四级",
+    "state": "finish",
+    "note": "台账完全一致命中：「自然递减率」——宁可查不到，不给「差不多」的结果（词表级命中不停下级——词条材料随装配进生成，S4/S5 照跑）"
+   }
+  },
+  {
+   "id": 40,
+   "event": "node",
+   "data": {
+    "key": "S4",
+    "name": "双路召回",
+    "label": "双路召回",
+    "state": "process"
+   }
+  },
+  {
+   "id": 41,
+   "event": "node",
+   "data": {
+    "key": "S4",
+    "name": "双路召回",
+    "label": "双路召回",
+    "state": "finish",
+    "note": "双路召回：向量 20 条＋关键词 11 条 → 合并（rrf_rank · k=60 固定推荐值） → 前 20 进精排（llm）——文档置信度配额〔《C-渤中34-5油田三季度注水＝6分→3席；《C-渤中34-5油田三季度注水＝6分→1席；《C-渤中34-5油田三季度注水＝4分→0席〕"
+   }
+  },
+  {
+   "id": 42,
+   "event": "node",
+   "data": {
+    "key": "S5",
+    "name": "图扩展",
+    "label": "图扩展",
+    "state": "wait",
+    "note": "S5 图扩展未启用——请求直接跳过、不花开销（将来接入知识图谱扩展时在这里开闸）",
+    "skipped": true
+   }
+  },
+  {
+   "id": 43,
+   "event": "node",
+   "data": {
+    "key": "S6",
+    "name": "资格裁决",
+    "label": "资格裁决",
+    "state": "process"
+   }
+  },
+  {
+   "id": 44,
+   "event": "node",
+   "data": {
+    "key": "S6",
+    "name": "资格裁决",
+    "label": "资格裁决",
+    "state": "finish",
+    "note": "资格裁决：候选 5 支（生成窗分池——报告类上限 4＋台账类上限 2，两池互不占位）· 最高证据分 1.00——多候选/缺参澄清在裁决层完成（有界循环），链内直连执行"
+   }
+  },
+  {
+   "id": 45,
+   "event": "node",
+   "data": {
+    "key": "S7",
+    "name": "权威源回读",
+    "label": "权威源回读",
+    "state": "process"
+   }
+  },
+  {
+   "id": 46,
+   "event": "node",
+   "data": {
+    "key": "S7",
+    "name": "权威源回读",
+    "label": "权威源回读",
+    "state": "finish",
+    "note": "权威源回读：指标台账核对通过 · 无指标口径挂载——已正式发布且在现行目录才放行"
+   }
+  },
+  {
+   "id": 47,
+   "event": "node",
+   "data": {
+    "key": "GEN",
+    "name": "限定作答＋引用登记",
+    "label": "限定作答＋引用登记",
+    "state": "process",
+    "tag": "模型第 3 次调用"
+   }
+  },
+  {
+   "id": 48,
+   "event": "node_line",
+   "data": {
+    "key": "GEN",
+    "mark": "→",
+    "text": "模型第 3 次调用——限定作答（只按编号材料作答，不编造材料之外的事实）"
+   }
+  },
+  {
+   "id": 49,
+   "event": "node",
+   "data": {
+    "key": "GEN",
+    "name": "限定作答＋引用登记",
+    "label": "限定作答＋引用登记",
+    "state": "finish",
+    "note": "生成完成——引用登记 2 条"
+   }
+  },
+  {
+   "id": 50,
+   "event": "node",
+   "data": {
+    "key": "N17",
+    "name": "检索问答",
+    "label": "检索问答",
+    "state": "finish",
+    "note": "检索问答收束——证据 5 支 · 引用 2 条逐条核验通过"
+   }
+  },
+  {
+   "id": 51,
+   "event": "node_line",
+   "data": {
+    "key": "N17",
+    "mark": "·",
+    "text": "配置核对：三级顺序＝锚定、词表、双路 · 早停＝开（@锚定级命中即跳），S3 命中不停下级 · topK＝20/20 · 前 N＝20 · 生成窗＝报告类 4＋台账类 2 · 精排＝llm · 引用格式＝page · 兜底＝fixed"
+   }
+  },
+  {
+   "id": 52,
+   "event": "token",
+   "data": {
+    "delta": "【数据库口径未能出数，以下为报告库检索结果（非权"
+   }
+  },
+  {
+   "id": 53,
+   "event": "token",
+   "data": {
+    "delta": "威数值）】\nC-渤中34-5油田三季度**自然递"
+   }
+  },
+  {
+   "id": 54,
+   "event": "token",
+   "data": {
+    "delta": "减率为 4.6%**，同比下降 0.9 个百分点"
+   }
+  },
+  {
+   "id": 55,
+   "event": "token",
+   "data": {
+    "delta": " [《C-渤中34-5油田三季度注水调整与生产运"
+   }
+  },
+  {
+   "id": 56,
+   "event": "token",
+   "data": {
+    "delta": "行分析》 · 章节 05 五、递减与能量分析]["
+   }
+  },
+  {
+   "id": 57,
+   "event": "token",
+   "data": {
+    "delta": "《C-渤中34-5油田三季度注水调整与生产运行分"
+   }
+  },
+  {
+   "id": 58,
+   "event": "token",
+   "data": {
+    "delta": "析》 · 章节 05 五、递减与能量分析]。\n\n"
+   }
+  },
+  {
+   "id": 59,
+   "event": "token",
+   "data": {
+    "delta": "主要驱动因素：自然递减改善主要来自 W-33 酸"
+   }
+  },
+  {
+   "id": 60,
+   "event": "token",
+   "data": {
+    "delta": "化增油与含水回落 [《C-渤中34-5油田三季度"
+   }
+  },
+  {
+   "id": 61,
+   "event": "token",
+   "data": {
+    "delta": "注水调整与生产运行分析》 · 章节 05 五、递"
+   }
+  },
+  {
+   "id": 62,
+   "event": "token",
+   "data": {
+    "delta": "减与能量分析][《C-渤中34-5油田三季度注水"
+   }
+  },
+  {
+   "id": 63,
+   "event": "token",
+   "data": {
+    "delta": "调整与生产运行分析》 · 章节 05 五、递减与"
+   }
+  },
+  {
+   "id": 64,
+   "event": "token",
+   "data": {
+    "delta": "能量分析]。"
+   }
+  },
+  {
+   "id": 65,
+   "event": "citation",
+   "data": {
+    "ref": "c2",
+    "kind": "报告引用",
+    "label": "《C-渤中34-5油田三季度注水调整与生产运行分析》 · 章节 05 五、递减与能量分析",
+    "locator": {
+     "report": "《C-渤中34-5油田三季度注水调整与生产运行分析》",
+     "section": "章节 05 五、递减与能量分析",
+     "fragment_id": "f114"
+    }
+   }
+  },
+  {
+   "id": 66,
+   "event": "citation",
+   "data": {
+    "ref": "c3",
+    "kind": "报告引用",
+    "label": "《C-渤中34-5油田三季度注水调整与生产运行分析》 · 章节 05 五、递减与能量分析",
+    "locator": {
+     "report": "《C-渤中34-5油田三季度注水调整与生产运行分析》",
+     "section": "章节 05 五、递减与能量分析",
+     "fragment_id": "f133"
+    }
+   }
+  },
+  {
+   "id": 67,
+   "event": "answer",
+   "data": {
+    "kind": "text",
+    "text": "【数据库口径未能出数，以下为报告库检索结果（非权威数值）】\nC-渤中34-5油田三季度**自然递减率为 4.6%**，同比下降 0.9 个百分点 [《C-渤中34-5油田三季度注水调整与生产运行分析》 · 章节 05 五、递减与能量分析][《C-渤中34-5油田三季度注水调整与生产运行分析》 · 章节 05 五、递减与能量分析]。\n\n主要驱动因素：自然递减改善主要来自 W-33 酸化增油与含水回落 [《C-渤中34-5油田三季度注水调整与生产运行分析》 · 章节 05 五、递减与能量分析][《C-渤中34-5油田三季度注水调整与生产运行分析》 · 章节 05 五、递减与能量分析]。",
+    "citations": [
+     {
+      "ref": "c2",
+      "kind": "报告引用",
+      "label": "《C-渤中34-5油田三季度注水调整与生产运行分析》 · 章节 05 五、递减与能量分析",
+      "locator": {
+       "report": "《C-渤中34-5油田三季度注水调整与生产运行分析》",
+       "section": "章节 05 五、递减与能量分析",
+       "fragment_id": "f114"
+      }
+     },
+     {
+      "ref": "c3",
+      "kind": "报告引用",
+      "label": "《C-渤中34-5油田三季度注水调整与生产运行分析》 · 章节 05 五、递减与能量分析",
+      "locator": {
+       "report": "《C-渤中34-5油田三季度注水调整与生产运行分析》",
+       "section": "章节 05 五、递减与能量分析",
+       "fragment_id": "f133"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": 68,
+   "event": "done",
+   "data": {}
+  }
+ ],
+ "parsed": {
+  "answer_text": "【数据库口径未能出数，以下为报告库检索结果（非权威数值）】\nC-渤中34-5油田三季度**自然递减率为 4.6%**，同比下降 0.9 个百分点 [《C-渤中34-5油田三季度注水调整与生产运行分析》 · 章节 05 五、递减与能量分析][《C-渤中34-5油田三季度注水调整与生产运行分析》 · 章节 05 五、递减与能量分析]。\n\n主要驱动因素：自然递减改善主要来自 W-33 酸化增油与含水回落 [《C-渤中34-5油田三季度注水调整与生产运行分析》 · 章节 05 五、递减与能量分析][《C-渤中34-5油田三季度注水调整与生产运行分析》 · 章节 05 五、递减与能量分析]。",
+  "citations": [
+   {
+    "ref": "c2",
+    "kind": "报告引用",
+    "label": "《C-渤中34-5油田三季度注水调整与生产运行分析》 · 章节 05 五、递减与能量分析",
+    "locator": {
+     "report": "《C-渤中34-5油田三季度注水调整与生产运行分析》",
+     "section": "章节 05 五、递减与能量分析",
+     "fragment_id": "f114"
+    }
+   },
+   {
+    "ref": "c3",
+    "kind": "报告引用",
+    "label": "《C-渤中34-5油田三季度注水调整与生产运行分析》 · 章节 05 五、递减与能量分析",
+    "locator": {
+     "report": "《C-渤中34-5油田三季度注水调整与生产运行分析》",
+     "section": "章节 05 五、递减与能量分析",
+     "fragment_id": "f133"
+    }
+   }
+  ],
+  "chain": "状态机六站链",
+  "clarify": null,
+  "notices": [
+   {
+    "level": "warning",
+    "text": "该问法没有命中可出数的注册指标声明——平台不做自由生成冒充审定口径。出路：在指标台账（C1）登记可绑定计量列的指标，或走语义修订提案池（C2）补登记后再问。"
+   },
+   {
+    "level": "info",
+    "text": "数据库口径未能出数——已自动接续检索问答链：以下为报告库检索结果（非权威数值），数值请以权威数据口径为准。"
+   }
+  ],
+  "nodes": [
+   {
+    "key": "N1",
+    "state": "finish",
+    "skipped": false,
+    "label": "统一安检",
+    "note": "三道全过——放行"
+   },
+   {
+    "key": "N3",
+    "state": "finish",
+    "skipped": false,
+    "label": "轻装配",
+    "note": "六路候选：命中 2 路——共池 5 支（全扫全收集，落空进建议池）"
+   },
+   {
+    "key": "N4",
+    "state": "finish",
+    "skipped": false,
+    "label": "装配块",
+    "note": "装配块组卷完成——slots＝指标＝自然递减率 · 报告＝《《C-渤中34-5油田三季度注水调整与生产运行分析》》"
+   },
+   {
+    "key": "N5",
+    "state": "finish",
+    "skipped": false,
+    "label": "意图裁决",
+    "note": "裁决输出（来源＝llm）——chain＝状态机六站链 · confidence＝高（模型意图裁决 0.92）"
+   },
+   {
+    "key": "N5b",
+    "state": "finish",
+    "skipped": false,
+    "label": "裁决核验",
+    "note": "chain「状态机六站链」在 17 链清单内且已接线——核验通过（闭世界枚举＋注册面）"
+   },
+   {
+    "key": "N6",
+    "state": "finish",
+    "skipped": false,
+    "label": "链路分派",
+    "note": "已分派至「状态机六站链」——后续步骤由链体执行"
+   },
+   {
+    "key": "N7.1",
+    "state": "finish",
+    "skipped": false,
+    "label": "意图识别",
+    "note": "指标槽位未命中可出数的注册声明（模板只认绑定 agg 计量列的指标）——降级解释链：不自由生成 SQL（不冒充审定口径）——接续检索问答链（报告库检索结果作辅助）"
+   },
+   {
+    "key": "N7.2",
+    "state": "wait",
+    "skipped": true,
+    "label": "语义检索",
+    "note": "降级——不选表、不生成、不执行"
+   },
+   {
+    "key": "N17",
+    "state": "finish",
+    "skipped": false,
+    "label": "检索问答",
+    "note": "检索问答收束——证据 5 支 · 引用 2 条逐条核验通过"
+   },
+   {
+    "key": "S0",
+    "state": "finish",
+    "skipped": false,
+    "label": "身份四要素",
+    "note": "身份四要素确认：身份=阿强 · 平台运维 · 会话 run=run-845a23 · 口径版本＝当前生效配置 · 权限＝系统管理员（阶段 1 单一角色）"
+   },
+   {
+    "key": "S1",
+    "state": "finish",
+    "skipped": false,
+    "label": "显式锚定",
+    "note": "无 @ 锚定——进入下一级"
+   },
+   {
+    "key": "S3",
+    "state": "finish",
+    "skipped": false,
+    "label": "词表四级",
+    "note": "台账完全一致命中：「自然递减率」——宁可查不到，不给「差不多」的结果（词表级命中不停下级——词条材料随装配进生成，S4/S5 照跑）"
+   },
+   {
+    "key": "S4",
+    "state": "finish",
+    "skipped": false,
+    "label": "双路召回",
+    "note": "双路召回：向量 20 条＋关键词 11 条 → 合并（rrf_rank · k=60 固定推荐值） → 前 20 进精排（llm）——文档置信度配额〔《C-渤中34-5油田三季度注水＝6分→3席；《C-渤中34-5油田三季度注水＝6分→1席；《C-渤中34-5油田三季度注水＝4分→0席〕"
+   },
+   {
+    "key": "S5",
+    "state": "wait",
+    "skipped": true,
+    "label": "图扩展",
+    "note": "S5 图扩展未启用——请求直接跳过、不花开销（将来接入知识图谱扩展时在这里开闸）"
+   },
+   {
+    "key": "S6",
+    "state": "finish",
+    "skipped": false,
+    "label": "资格裁决",
+    "note": "资格裁决：候选 5 支（生成窗分池——报告类上限 4＋台账类上限 2，两池互不占位）· 最高证据分 1.00——多候选/缺参澄清在裁决层完成（有界循环），链内直连执行"
+   },
+   {
+    "key": "S7",
+    "state": "finish",
+    "skipped": false,
+    "label": "权威源回读",
+    "note": "权威源回读：指标台账核对通过 · 无指标口径挂载——已正式发布且在现行目录才放行"
+   },
+   {
+    "key": "GEN",
+    "state": "finish",
+    "skipped": false,
+    "label": "限定作答＋引用登记",
+    "note": "生成完成——引用登记 2 条"
+   }
+  ],
+  "duration_s": 29.8
+ }
+}
