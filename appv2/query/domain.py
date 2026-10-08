@@ -258,6 +258,28 @@ def resolve_askback_window(choice: str, *, today: date) -> TimeWindow | None:
     return None
 
 
+def fill_window_label(window: TimeWindow) -> TimeWindow:
+    """空标签窗填实（V2-22——P-013 疑点 4 裁决落地）。
+
+    真模型计划草案不带 window_label（schema 可选键）时，血缘③/拦停话术渲染
+    空标签（「时间＝ [s, e)」标签位空串带多余空格）。无标签草案按半开区间
+    [start, end) 的含端日期机械补标（start～end−1 天）——不猜词面（「去年/
+    近 N 天」归规划步词面解析），显式窗/默认窗/改绑窗三形态统一在此单点填实；
+    有标签原样返回（fixture 链恒带标签——零影响）。
+    """
+    if window.label:
+        return window
+    return TimeWindow(
+        start=window.start,
+        end=window.end,
+        label=(
+            f"{window.start.isoformat()}～"
+            f"{(window.end - timedelta(days=1)).isoformat()}"
+        ),
+        is_default=window.is_default,
+    )
+
+
 def detect_external_tables(question: str) -> tuple[str, ...]:
     """问句点名的选表命中集之外外表（F14 越集比对触发源——确定性别名比对）。
 

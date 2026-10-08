@@ -4,8 +4,10 @@
 1. 寻工具——未知工具名→failed(bad_args)；
 2. schema 校验——argscheck 子集校验器：不合→failed(bad_args)，引擎零调用；
 3. 执行——handler（引擎包装），ArgsError（装配层参数拒）转 bad_args，其余
-   异常统一三分类封套（classify_exception：超时→retryable；上游 4xx 类→
-   bad_args；网关 UpstreamRejected→bad_args／UpstreamUnavailable→retryable；
+   异常统一三分类封套（classify_exception：超时→retryable；429 限流单列→
+   retryable（V2-22——限流系临时性，loop 同参重试有意义，与网关层重试/切备
+   分层不冲突）；上游其余 4xx 类→bad_args；网关 UpstreamRejected→bad_args
+   （429 限流单列→retryable）／UpstreamUnavailable→retryable；
    越权→refused；ValueError→bad_args；其余上游抖动→retryable）。
 
 INV-2 工具层落点：register 拒绝 readonly!=True 的工具与重名；registry 公开面
@@ -36,16 +38,27 @@ from appv2.tools.schema import (
     ToolResult,
 )
 
+# 429 限流 hint（V2-22 两面共用——分层注记：工具层同参重试与网关层重试/切备
+# 是两层语义，互不冲突；网关层 429 不切备的判据不动）。
+_HINT_429 = (
+    "429 限流系临时性——同参重调一次（工具层重试与网关层重试/切备分层不冲突）；"
+    "再败即转人工/收口"
+)
+
 
 def classify_exception(exc: Exception) -> tuple[str, str, str | None]:
     """引擎异常→（category, message, hint）三分类（specs/tools.md 行为约定 3）。
 
-    4xx 判定双面：duck 型认异常的 status_code 属性（400–499——与 HTTP 异常形状
-    对齐，不绑具体异常类型，真实 HTTP 异常与测试桩 FakeUpstreamRejection 同判）；
-    类型面认网关异常族（UpstreamRejected/UpstreamUnavailable——B6 出口不带
-    status_code 属性，按网关切换判据投影：4xx/429 业务性拒绝→bad_args，
-    网络错/超时/5xx→retryable，防接线变化后三分类失真）。asyncio.TimeoutError
-    在 3.12 即内建 TimeoutError，异步超时同判。
+    429 判定双面（V2-22——429 限流系临时性，loop 同参重试有意义；与网关层
+    重试/切备分层不冲突，网关「429 不切备」判据不动）：duck 型面认异常的
+    status_code 属性（真实 HTTP 形与测试桩 FakeUpstreamRejection 同判）；
+    类型面认网关 UpstreamRejected 的 reason 前缀「上游拒绝 429:」（B6 出口
+    不带 status_code 属性，reason 由 llm_client.classify_upstream_failure
+    单源格式化 f"上游拒绝 {status}:"——同仓内单源判据，非 429 的 4xx 与
+    无状态形不误判）。其余 4xx 判定：duck 型面认 400–499；类型面按网关切换
+    判据投影（4xx 业务性拒绝→bad_args，网络错/超时/5xx→retryable，防接线
+    变化后三分类失真）。asyncio.TimeoutError 在 3.12 即内建 TimeoutError，
+    异步超时同判。
     """
     if isinstance(exc, TimeoutError):
         return (
@@ -62,12 +75,24 @@ def classify_exception(exc: Exception) -> tuple[str, str, str | None]:
             "可重试——同参重调一次，再败即转人工/收口",
         )
     if isinstance(exc, UpstreamRejected):
+        if getattr(exc, "reason", "").startswith("上游拒绝 429:"):
+            return (
+                CATEGORY_RETRYABLE,
+                f"上游限流（429）：{exc}",
+                _HINT_429,
+            )
         return (
             CATEGORY_BAD_ARGS,
-            f"上游拒绝（4xx/限流族）：{exc}",
+            f"上游拒绝（4xx）：{exc}",
             "上游业务性拒绝——修参后重试；再败即转人工/收口",
         )
     status = getattr(exc, "status_code", None)
+    if isinstance(status, int) and status == 429:
+        return (
+            CATEGORY_RETRYABLE,
+            f"上游限流（HTTP 429）：{exc}",
+            _HINT_429,
+        )
     if isinstance(status, int) and 400 <= status < 500:
         return (
             CATEGORY_BAD_ARGS,

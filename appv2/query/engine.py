@@ -59,6 +59,7 @@ from appv2.query.domain import (
     build_extable_ask,
     check_plan_window_bounds,
     effective_limit,
+    fill_window_label,
     lineage_caliber_line,
     lineage_closing_line,
     lineage_filter_line,
@@ -203,14 +204,16 @@ class QueryEngine:
         if waterline is not None:
             if window.start > waterline.data_date:
                 # 窗整体在水位之后——无已出数数据：闸拦停（不返回空数冒充）。
+                # 空标签填实（V2-22——拦停话术零空串；按拦停窗区间机械补标）。
+                blocked = fill_window_label(window)
                 return QueryOutcome.freshness_block(
                     watermark_date=waterline.data_date,
-                    window_label=window.label,
-                    is_default=window.is_default,
+                    window_label=blocked.label,
+                    is_default=blocked.is_default,
                     message=FRESHNESS_REJECT_TEMPLATE.format(
                         data_date=waterline.data_date.isoformat(),
                         tag=waterline.tag,
-                        label=window.label,
+                        label=blocked.label,
                     ),
                 )
             if window.end - _ONE_DAY > waterline.data_date:
@@ -224,6 +227,10 @@ class QueryEngine:
                 rebind_notice = FRESHNESS_CLAMP_NOTE_TEMPLATE.format(
                     data_date=waterline.data_date.isoformat(), tag=waterline.tag,
                 )
+        # 空标签窗填实（V2-22——P-013 疑点 4：真模型草案不带 window_label 时
+        # 血缘③/零行拒答话术零空串；放闸后＝改绑窗按改绑后区间补标，标签与
+        # 区间不矛盾；有标签原样返回——fixture 链与模型词面标签零影响）。
+        window = fill_window_label(window)
         # 只读执行（N7.5——SqlPlan 派生字段单源重推导，草案值零直信）。
         column, unit = MEASURE_COLUMNS[plan.metric_slot]
         sql = SqlPlan(

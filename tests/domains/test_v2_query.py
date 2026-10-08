@@ -40,6 +40,7 @@ from appv2.knowledge import InMemoryKnowledgeStore, question_array_snapshot
 from appv2.query import (
     ASKBACK_TIME_CHOICES,
     LINEAGE_KEY_CLOSING,
+    LINEAGE_KEY_FILTER,
     LINEAGE_KEY_WATERMARK,
     OUTCOME_EXTERNAL_TABLE_APPROVAL,
     OUTCOME_FRESHNESS_BLOCK,
@@ -262,6 +263,85 @@ def test_external_table_ask() -> None:
     assert "批准" in str(ask["impact"])
     assert str(ask["approval_id"]).startswith("APP-")
     assert outcome.rows is None  # 挂起等审批——不直接出数
+
+
+# ---------- V2-22：血缘③窗标签空串填实（真模型草案不带 window_label 三形态） ----------
+
+
+def test_lineage_filter_label_filled_for_bare_drafts() -> None:
+    """V2-22 钉测（P-013 疑点 4 裁决）：真模型计划草案不带 window_label（schema
+    可选键）时血缘③/拦停话术不得渲染空标签——显式窗/默认窗/改绑窗三形态按
+    半开区间含端日期填实（不猜词面——词面归规划步），「时间＝ 」空标签形状绝迹。"""
+    engine = _engine()
+
+    def lineage_filter(outcome):
+        assert outcome.lineage is not None
+        return next(
+            line for line in outcome.lineage if line.key == LINEAGE_KEY_FILTER
+        ).value
+
+    # 显式窗：草案只带日期无标签——「时间＝2025-09-01～2025-09-02」填实。
+    explicit = engine.run(
+        QueryPlan(
+            metric_slot="日产油量",
+            window_start=date(2025, 9, 1),
+            window_end=date(2025, 9, 3),
+            limit=None,
+            ranking=False,
+        )
+    )
+    assert explicit.kind == OUTCOME_ROWS
+    line = lineage_filter(explicit)
+    assert "时间＝2025-09-01～2025-09-02" in line
+    assert "[2025-09-01, 2025-09-03)" in line
+    assert "时间＝ " not in line  # 空标签形状（标签位空串带多余空格）绝迹
+    # 默认窗：is_default=True 无标签——填实＋「默认窗」标注随 is_default 在场。
+    default = engine.run(
+        QueryPlan(
+            metric_slot="日产油量",
+            window_start=date(2026, 1, 1),
+            window_end=date(2026, 1, 31),
+            limit=None,
+            ranking=False,
+            is_default=True,
+        )
+    )
+    assert default.kind == OUTCOME_ROWS
+    line = lineage_filter(default)
+    assert "时间＝2026-01-01～2026-01-30" in line
+    assert "默认窗" in line
+    assert "时间＝ " not in line
+    # 改绑窗：窗跨水位改绑后标签仍非空（改绑 rebuild 不丢填实标签）。
+    rebind = engine.run(
+        QueryPlan(
+            metric_slot="日产油量",
+            window_start=date(2026, 1, 1),
+            window_end=TODAY,
+            limit=None,
+            ranking=False,
+        )
+    )
+    assert rebind.kind == OUTCOME_ROWS
+    assert rebind.rebind_notice is not None and "改绑" in rebind.rebind_notice
+    line = lineage_filter(rebind)
+    assert "时间＝2026-01-01～2026-08-31" in line  # 改绑后含端日期（end＝水位＋1 天）
+    assert "[2026-01-01, 2026-09-01)" in line
+    assert "时间＝ " not in line
+    # 拦停话术同根（P-013 疑点 2）：整窗晚于水位的无标签草案——窗标签非空在场。
+    blocked = engine.run(
+        QueryPlan(
+            metric_slot="日产油量",
+            window_start=date(2026, 9, 8),
+            window_end=TODAY,
+            limit=None,
+            ranking=False,
+            is_default=True,
+        )
+    )
+    assert blocked.kind == OUTCOME_FRESHNESS_BLOCK
+    assert blocked.window_label == "2026-09-08～2026-10-07"
+    assert blocked.message is not None
+    assert "2026-09-08～2026-10-07" in blocked.message
 
 
 # ---------- 验收⑨：换指标出数被 FX-13 一致性闸拦（validate 拒） ----------

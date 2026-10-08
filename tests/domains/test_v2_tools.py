@@ -335,6 +335,47 @@ async def test_error_taxonomy() -> None:
     q.outcome = None
 
 
+# ---------- V2-22 钉测：429 限流→retryable（与网关层重试分层不冲突） ----------
+
+
+async def test_429_rate_limit_retryable() -> None:
+    """V2-22 钉测（P-012 疑点 1 裁决）：429 限流系临时性——loop 同参重试有意义。
+
+    双面同判：duck 型面认 status_code 属性（真实 HTTP 形与 FakeUpstreamRejection
+    桩同判）、类型面认网关 UpstreamRejected（B6 出口不带 status_code——reason
+    由 llm_client 单源格式化「上游拒绝 {status}:」前缀识别）；429 单列→
+    retryable，非 429 的 4xx 语义不变（bad_args——请求侧错误修参重试）。分层
+    注记：工具层同参重试与网关层重试/切备是两层语义，互不冲突（hint 钉死）。
+    """
+    registry, _kb, q, _r = _registry()
+    # duck 型面：status_code=429→retryable，hint 携分层注记（网关层重试不冲突）。
+    q.run_error = FakeUpstreamRejection(429, "上游限流")
+    result = await registry.call(DATA_QUERY, {"plan_draft": _VALID_DRAFT}, CTX)
+    assert result.status == STATUS_FAILED
+    assert result.error is not None and result.error.category == CATEGORY_RETRYABLE
+    assert "429" in (result.error.message or "")
+    assert "网关" in (result.error.hint or "")
+    assert "重试" in (result.error.hint or "")
+    # 类型面：UpstreamRejected 内的 429 限流（reason 前缀「上游拒绝 429:」）→retryable。
+    q.run_error = UpstreamRejected("petro-main", "上游拒绝 429: RateLimitError")
+    result = await registry.call(DATA_QUERY, {"plan_draft": _VALID_DRAFT}, CTX)
+    assert result.error is not None and result.error.category == CATEGORY_RETRYABLE
+    assert "429" in (result.error.message or "")
+    assert "网关" in (result.error.hint or "")
+    # 非 429 的 4xx 语义不变（两型同验——请求侧错误仍 bad_args 修参重试）。
+    q.run_error = UpstreamRejected("petro-main", "上游拒绝 422: BadRequestError")
+    result = await registry.call(DATA_QUERY, {"plan_draft": _VALID_DRAFT}, CTX)
+    assert result.error is not None and result.error.category == CATEGORY_BAD_ARGS
+    q.run_error = FakeUpstreamRejection(422, "上游参数拒绝")
+    result = await registry.call(DATA_QUERY, {"plan_draft": _VALID_DRAFT}, CTX)
+    assert result.error is not None and result.error.category == CATEGORY_BAD_ARGS
+    # 无状态形 UpstreamRejected（形状错族——reason 不带状态前缀）不误判 429。
+    q.run_error = UpstreamRejected("petro-main", "vectors 形状不可解析")
+    result = await registry.call(DATA_QUERY, {"plan_draft": _VALID_DRAFT}, CTX)
+    assert result.error is not None and result.error.category == CATEGORY_BAD_ARGS
+    q.run_error = None
+
+
 # ---------- 验收④：query 六联合态→ToolResult 逐态映射（含 AskFrame 形态） ----------
 
 
