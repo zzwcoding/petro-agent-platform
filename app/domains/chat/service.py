@@ -1896,18 +1896,20 @@ class ChatService:
 
         开关 on∧裁决「状态机六站链」∧触发谓词命中（d.should_trigger_plan_parse
         L-01 单源，锚判据 d.plan_metric_anchor 同源）→ deps.plan_drafter（L-02 生产
-        影子 drafter 复用——B6 出口 caller=chat.intent.plan，零新调用面）→ validator
-        收口（validate_query_plan_draft）→ 返回钉入计划：调用方钉进 ctx.pinned_plan
+        影子 drafter 复用——B6 出口 caller=chat.intent.plan，零新调用面）→ FX-13/R6-01
+        一致性闸（check_metric_slot_in_candidates——metric_slot ∈ 问句指标候选集）→
+        validator 收口（validate_query_plan_draft）→ 时间落定＋窗界（ground_pinned_
+        window）→ 返回钉入计划：调用方钉进 ctx.pinned_plan
         进链＋run.plan_pinned 落列（审批恢复确定性重放的持久化载体）；链内 N7.1
         重跑 validator 只做确定性复验（零模型）后消费。
 
         副作用面（票内定案分派）：
         - verdict["intent_source"] additive 键：on 态六站链 run 恒带（llm_plan＝
           钉入生效｜deterministic＝快路或兜底）；off 态零键（现状逐字节不变）；
-        - validator 拒（drafter None/异常/收口拒）∧澄清额度在∧候选可用 → verdict
-          原地翻转为 candidates 澄清帧（既有 need_clarify 流承接——有界一次，澄清
-          额度机制现状不动，第二次 409 合同值照旧）；无额度或无候选 → 不翻转
-          （现状链路：链内降级解释链接续）。
+        - validator 拒（drafter None/异常/一致性闸/收口/窗界拒）∧澄清额度在∧候选
+          可用 → verdict 原地翻转为 candidates 澄清帧（既有 need_clarify 流承接——
+          有界一次，澄清额度机制现状不动，第二次 409 合同值照旧）；无额度或无候选
+          → 不翻转（现状链路：链内降级解释链接续）。
         """
         chain = str(verdict.get("chain") or "")
         if chain != "状态机六站链":
@@ -1931,11 +1933,18 @@ class ChatService:
         plan: d.QueryPlan | None = None
         if draft is not None:
             try:
+                # FX-13/R6-01 指标替换封堵：draft.metric_slot 必须 ∈ 问句指标候选集
+                #（assembly.candidates 可绑指标集合）——不在视同 validator 拒走兜底
+                #（澄清/降级照既有形态），LLM 换近似指标出数的通道关闭。
+                d.check_metric_slot_in_candidates(
+                    draft.metric_slot, candidates=assembly.candidates,
+                )
                 plan = d.ground_pinned_window(
                     d.validate_query_plan_draft(
                         draft, question=question, actor=actor_who,
                     ),
-                    question=question,  # 时间落定守卫——零时间词问句的编造窗不生效
+                    question=question,  # 时间落定守卫＋窗界校验（FX-13/R6-03）——
+                    # 零时间词编造窗落默认窗、未来窗/超限野窗拒（超界同 validator 拒）
                 )
             except ValueError as exc:
                 LOGGER.warning("生效路 validator 拒：%s——兜底路", exc)

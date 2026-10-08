@@ -164,12 +164,19 @@ class TestEffectivePathPin:
         self, chat_db: ConnectionManager, seams: Seams, caplog: Any
     ) -> None:
         """on∧触发∧validator 过：钉入进链出数——来源披露三面（verdict 键/N7.1 行/血缘①尾缀）
-        ＋plan_pinned 持久化＋一份流量一次调用（影子行消费钉入计划不重调）。"""
+        ＋plan_pinned 持久化＋一份流量一次调用（影子行消费钉入计划不重调）。
+
+        问句形（FX-13 改形）：原 TRIGGER_QUESTION（产量完成率题）钉日产油量＝替换
+        通道，已被 R6-01 一致性闸封堵——钉入成功形改为候选集内槽位：「近期」模糊词
+        （不在数据问句词面→词面不齐触发，不在 parse_time_window 词表→照钉入窗不动）
+        ＋日产油量在册绑定在候选集→闸放行钉入照常。"""
         caplog.set_level(logging.INFO, logger=SHADOW_LOGGER)
+        seams.intent_reply = _SIX_STATION_INTENT  # 词面不齐——确定性信号路由不达，LLM 采信强制
         seams.plan_reply = _VALID_PLAN_REPLY
         service = make_service(chat_db, seams, plan_effective_enabled=True)
         events = await collect(service.ask(
-            TRIGGER_QUESTION, session_id=None, page_context=None, anchors=[], actor_who=AQIANG,
+            "近期各井日产油量是多少？", session_id=None, page_context=None,
+            anchors=[], actor_who=AQIANG,
         ))
         by_name = events_by_name(events)
         # 来源披露①：verdict 帧 additive 键。
