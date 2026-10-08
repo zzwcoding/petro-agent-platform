@@ -10,8 +10,9 @@
 目录: `appv2/infra/`
 
 ### 公开接口
-与 V1 `app/infra` 同形：`config.load_specs`、`db.session(spec)`、`llm_client.complete / embeddings`、
-`clock.now`、`security.resolve_actor`、`security.audit`。**只许 appv2 内部消费，不构成跨版本契约。**
+与 V1 `app/infra` 同形：`config.load_models_config`、`config.load_database_specs`、`config.load_chat_settings`、
+`db.session(role)`、`llm_client.complete / embeddings`、`clock.now`、`security.resolve_actor`、
+`security.audit`。**只许 appv2 内部消费，不构成跨版本契约。**
 
 ### 依赖
 - 模块: （无——最底层）
@@ -79,6 +80,7 @@ class QueryEngine:
 ```python
 class RetrievalEngine:
     def retrieve(self, need: RetrievalNeed) -> RetrievalBundle: ...
+    def graph(self, need: RetrievalNeed) -> RetrievalBundle: ...   # 图谱面（graph_query 工具消费；失败回退空集不炸链）
 ```
 `RetrievalNeed = {question, anchors, family_hints, budget}`；
 `RetrievalBundle = {observations: list[Observation], window_note: str}`——
@@ -162,7 +164,7 @@ GET  /api/v2/chat/runs/{run_id}          → run 状态＋steps＋Manifest 摘�
 事件类型：step/text/tool/observation/ask/verdict/citation/notice（V1 形态兼容，新增 step 与 observation）。
 
 ### 依赖
-- 模块: `runtime`（只许走 AgentRuntime 公开接口）、`infra`
+- 模块: `runtime`（业务面只许走 AgentRuntime 公开接口；组合根 create_app 例外——装配 GraphRunExecutor/PgCheckpointer/GatewayChatModel，V2-07 按组合缝采纳）、`infra`
 - 外部: （无）
 
 ### Seam 与测试

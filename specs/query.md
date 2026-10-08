@@ -26,7 +26,9 @@ class QueryEngine:
     def validate(self, plan: QueryPlan) -> PlanCheck: ...   # 白名单/指标一致性(FX-13)/窗界(ground_pinned_window)
     def run(self, plan: QueryPlan) -> QueryOutcome: ...
 
-# QueryPlan = {metric_slot, window_start, window_end, limit, ranking, direction}
+# QueryPlan 十字段（五源槽位＋方向二值＋V2-03 采纳项回写：展示注记/默认窗标注/越集外表集/行级身份）：
+# QueryPlan = {metric_slot, window_start, window_end, limit, ranking, direction,
+#              window_label, is_default, external_tables, actor}
 # QueryOutcome 六联合态：
 #   rows+lineage(血缘五要素:口径/来源表/过滤/数据截至批次/收口注记)
 # | freshness_block(水位日期,窗标签,is_default)

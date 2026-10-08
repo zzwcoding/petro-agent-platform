@@ -22,6 +22,7 @@
 import ast
 import asyncio
 import re
+import tomllib
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 from typing import Any
@@ -100,6 +101,38 @@ def test_no_v1_dependency() -> None:
         if v1:
             offenders[str(path.relative_to(_REPO_ROOT))] = v1
     assert offenders == {}, "appv2 咬了 V1（app.* import 禁）:" + str(offenders)
+
+
+# ---------- 验收②b：knowledge↔retrieval 双向互禁进 lint 契约（V2-18/S4——闸面锁） ----------
+
+
+def test_engine_mutual_ban_contracted() -> None:
+    """modules.md 边界规则「knowledge/query/retrieval 互引，query→knowledge 走公开
+    接口例外、其余互禁」的机器化：tools/importlinter_v2.toml 必须存在覆盖
+    knowledge→retrieval 与 retrieval→knowledge 两个方向的 forbidden 契约——
+    缺任一向＝闸面缺口即红（V2 契约七→九条的 pytest 看守面）。"""
+    toml_path = _REPO_ROOT / "tools" / "importlinter_v2.toml"
+    with toml_path.open("rb") as fh:
+        contracts = tomllib.load(fh)["tool"]["importlinter"]["contracts"]
+
+    def covered(src: str, dst: str) -> bool:
+        for contract in contracts:
+            if contract.get("type") != "forbidden":
+                continue
+            sources = contract.get("source_modules", [])
+            forbidden = contract.get("forbidden_modules", [])
+            if any(s == src or s.startswith(src + ".") for s in sources) and any(
+                f == dst or f.startswith(dst + ".") for f in forbidden
+            ):
+                return True
+        return False
+
+    assert covered("appv2.knowledge", "appv2.retrieval"), (
+        "knowledge→retrieval 禁引未进任何 forbidden 契约（边界规则闸面缺口）"
+    )
+    assert covered("appv2.retrieval", "appv2.knowledge"), (
+        "retrieval→knowledge 禁引未进任何 forbidden 契约（边界规则闸面缺口）"
+    )
 
 
 # ---------- 验收③：gateway 动态闸＋预算熔断（与 V1 一致） ----------

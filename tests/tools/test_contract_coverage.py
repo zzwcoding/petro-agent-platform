@@ -26,7 +26,7 @@ def test_manifest_shape() -> None:
     """清单形状看守：21 册全量在场、字段齐全、路径参数已归一（无具名参数）。"""
     cc = _load()
     endpoints = cc.load_manifest()["endpoints"]
-    assert len(endpoints) >= 150  # 当前 171 条——合同册扩册只会更多
+    assert len(endpoints) >= 150  # 当前 173 条——合同册扩册只会更多
     books = {str(row["book"]) for row in endpoints}
     assert {"A1", "B1", "B2", "B3", "B4", "B5", "C1", "D1", "D2"} <= books
     for row in endpoints:

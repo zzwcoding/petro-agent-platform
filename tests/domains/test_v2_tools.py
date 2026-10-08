@@ -12,8 +12,9 @@
   不过→failed(bad_args, 校验理由) 且 run 零调用；plan_draft 非法日期/缺必填/
   越参/族越界/二参同给——全部 schema/装配层拒，引擎零触。
 - error_taxonomy：引擎异常统一三分类——超时→retryable；上游 4xx 类→bad_args；
-  5xx/其余上游抖动→retryable；越权→refused；query 闸拒（refuse 联合态）→
-  refused。
+  网关 UpstreamRejected→bad_args／UpstreamUnavailable→retryable（V2-18/C6 补支
+  ——真实网关异常形不带 status_code，类型面判定）；5xx/其余上游抖动→retryable；
+  越权→refused；query 闸拒（refuse 联合态）→refused。
 - query_outcome_mapping：query 六联合态→ToolResult 逐态映射——rows+lineage→
   ok＋observations(权威表 scope=agg＋血缘卡)；freshness_block/unbound_degrade→
   ok＋闸依据观察＋notice 素材；need_clarify/external_table_approval→ask＋
@@ -48,6 +49,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from appv2.infra.llm_client import UpstreamRejected, UpstreamUnavailable
 from appv2.knowledge import Evidence, InMemoryKnowledgeStore, question_array_snapshot
 from appv2.query import (
     LINEAGE_KEY_CALIBER,
@@ -306,6 +308,18 @@ async def test_error_taxonomy() -> None:
     q.run_error = FakeUpstreamRejection(503, "上游暂不可用")
     result = await registry.call(DATA_QUERY, {"plan_draft": _VALID_DRAFT}, CTX)
     assert result.error is not None and result.error.category == CATEGORY_RETRYABLE
+    # 真实网关异常族（V2-18/C6 补支：Upstream 族不带 status_code 属性——duck 型
+    # 判不到，按网关切换判据类型面投影三分类，防接线变化后三分类失真）。
+    # UpstreamRejected（4xx/429 业务性拒绝）→bad_args（上游 4xx 类语义）。
+    q.run_error = UpstreamRejected("petro-main", "上游拒绝 422: BadRequestError")
+    result = await registry.call(DATA_QUERY, {"plan_draft": _VALID_DRAFT}, CTX)
+    assert result.error is not None and result.error.category == CATEGORY_BAD_ARGS
+    assert "上游拒绝" in (result.error.message or "")
+    # UpstreamUnavailable（网络错/超时/5xx）→retryable（上游抖动语义）。
+    q.run_error = UpstreamUnavailable("petro-main", "网络错/超时: APIConnectionError")
+    result = await registry.call(DATA_QUERY, {"plan_draft": _VALID_DRAFT}, CTX)
+    assert result.error is not None and result.error.category == CATEGORY_RETRYABLE
+    assert "重试" in (result.error.hint or "")
     # 越权→refused（不重试）。
     q.run_error = PermissionError("无权口径")
     result = await registry.call(DATA_QUERY, {"plan_draft": _VALID_DRAFT}, CTX)
@@ -317,7 +331,7 @@ async def test_error_taxonomy() -> None:
     assert result.status == STATUS_FAILED
     assert result.error is not None and result.error.category == CATEGORY_REFUSED
     assert result.error.message == "查无数据——如实回报，不编数。"
-    assert q.run_calls == 5  # 五枪全走到 run（validate 过闸后执行）
+    assert q.run_calls == 7  # 七枪全走到 run（validate 过闸后执行）
     q.outcome = None
 
 

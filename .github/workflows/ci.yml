@@ -15,13 +15,15 @@ jobs:
       - name: sync deps
         run: uv sync --all-groups
       - name: lint（ruff）
-        run: uv run ruff check app tests migrations tools
+        run: uv run ruff check app appv2 tests migrations tools
       - name: type（mypy strict）
-        run: uv run mypy app
+        run: uv run mypy app appv2
       - name: test（pytest）
         run: uv run pytest -q
       - name: boundary（import-linter：B16 层间单向 + B1 禁框架）
         run: uv run lint-imports
+      - name: boundary v2（import-linter：V2 契约——ADR-0001/0002 边界闸，root=appv2 双仓禁引/引擎互禁/框架红线）
+        run: uv run lint-imports --config tools/importlinter_v2.toml
       - name: contract coverage（合同覆盖率闸：AGENTS.md 硬纪律 8——实现有/清单无＝0；清单有/实现无必须带 owner）
         run: uv run python tools/contract_coverage.py check
       - name: debt markers（债务标记闸：AGENTS.md 硬纪律 8——web 源码债务短语必须携可解析 DEBT 标签）

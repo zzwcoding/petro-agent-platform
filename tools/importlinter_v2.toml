@@ -28,6 +28,18 @@ source_modules = ["appv2.knowledge", "appv2.retrieval"]
 forbidden_modules = ["appv2.query"]
 
 [[tool.importlinter.contracts]]
+name = "V2 引擎互禁（knowledge→retrieval 禁引）"
+type = "forbidden"
+source_modules = ["appv2.knowledge"]
+forbidden_modules = ["appv2.retrieval"]
+
+[[tool.importlinter.contracts]]
+name = "V2 引擎互禁（retrieval→knowledge 禁引）"
+type = "forbidden"
+source_modules = ["appv2.retrieval"]
+forbidden_modules = ["appv2.knowledge"]
+
+[[tool.importlinter.contracts]]
 name = "V2 不咬 V1（双向禁引之 V2 侧）"
 type = "forbidden"
 source_modules = ["appv2"]

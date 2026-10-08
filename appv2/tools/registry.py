@@ -5,7 +5,8 @@
 2. schema 校验——argscheck 子集校验器：不合→failed(bad_args)，引擎零调用；
 3. 执行——handler（引擎包装），ArgsError（装配层参数拒）转 bad_args，其余
    异常统一三分类封套（classify_exception：超时→retryable；上游 4xx 类→
-   bad_args；越权→refused；ValueError→bad_args；其余上游抖动→retryable）。
+   bad_args；网关 UpstreamRejected→bad_args／UpstreamUnavailable→retryable；
+   越权→refused；ValueError→bad_args；其余上游抖动→retryable）。
 
 INV-2 工具层落点：register 拒绝 readonly!=True 的工具与重名；registry 公开面
 只有 register/descriptors/call 三个方法——零数据写出口（测试钉死）。渐进披露
@@ -17,6 +18,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from appv2.infra.llm_client import UpstreamRejected, UpstreamUnavailable
 from appv2.knowledge import KnowledgeStore
 from appv2.tools.argscheck import ArgsError, validate_args
 from appv2.tools.handlers import (
@@ -38,9 +40,12 @@ from appv2.tools.schema import (
 def classify_exception(exc: Exception) -> tuple[str, str, str | None]:
     """引擎异常→（category, message, hint）三分类（specs/tools.md 行为约定 3）。
 
-    4xx 判定 duck 型：只认异常的 status_code 属性（400–499）——与网关/HTTP
-    异常形状对齐，不绑具体异常类型（真实网关异常与测试桩 FakeUpstreamRejection
-    同判）。asyncio.TimeoutError 在 3.12 即内建 TimeoutError，异步超时同判。
+    4xx 判定双面：duck 型认异常的 status_code 属性（400–499——与 HTTP 异常形状
+    对齐，不绑具体异常类型，真实 HTTP 异常与测试桩 FakeUpstreamRejection 同判）；
+    类型面认网关异常族（UpstreamRejected/UpstreamUnavailable——B6 出口不带
+    status_code 属性，按网关切换判据投影：4xx/429 业务性拒绝→bad_args，
+    网络错/超时/5xx→retryable，防接线变化后三分类失真）。asyncio.TimeoutError
+    在 3.12 即内建 TimeoutError，异步超时同判。
     """
     if isinstance(exc, TimeoutError):
         return (
@@ -50,6 +55,18 @@ def classify_exception(exc: Exception) -> tuple[str, str, str | None]:
         )
     if isinstance(exc, PermissionError):
         return CATEGORY_REFUSED, f"越权拒绝：{exc}", "权限闸拒——不重试"
+    if isinstance(exc, UpstreamUnavailable):
+        return (
+            CATEGORY_RETRYABLE,
+            f"上游暂不可用：{exc}",
+            "可重试——同参重调一次，再败即转人工/收口",
+        )
+    if isinstance(exc, UpstreamRejected):
+        return (
+            CATEGORY_BAD_ARGS,
+            f"上游拒绝（4xx/限流族）：{exc}",
+            "上游业务性拒绝——修参后重试；再败即转人工/收口",
+        )
     status = getattr(exc, "status_code", None)
     if isinstance(status, int) and 400 <= status < 500:
         return (
