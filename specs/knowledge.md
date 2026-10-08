@@ -37,7 +37,7 @@ class KnowledgeStore:
 ## 行为约定
 
 1. 只读 sem_* 现行行（草案态整体呈现沿用 V1 语义）；零写副作用（INV-2）。
-2. `metric_by_name` 命中顺序：精确名→别名八键归一→None；别名命中时 Evidence.source 如实注"经别名归一"。
+2. `metric_by_name` 命中顺序：精确名→别名归一（glossary aliases 投影真源，不钉键数）→None；别名命中时 Evidence.source 如实注"经别名归一"。
 3. binding_state 由台账绑定关系推导（V1 MEASURE_COLUMNS 冻结三绑定的判定逻辑原样移植），不得臆造。
 4. expired（届满）必须带届满日期与现口径指引（V1 漂移标注语义）。
 5. families 返回 ontology 导出物的族标注（completion/monthly/dynamic＋relation group），供 doc_retrieve 供给策略与 plan 语境使用。

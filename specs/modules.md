@@ -32,7 +32,7 @@
 class KnowledgeStore:
     def evidence(self, query: SemanticQuery) -> list[Evidence]: ...
     def metric_by_name(self, name: str) -> Evidence | None: ...
-    def aliases(self) -> dict[str, str]: ...          # 别名八键
+    def aliases(self) -> dict[str, str]: ...          # glossary 别名投影真源（非钉键数，现 12 键）
     def families(self) -> dict[str, list[str]]: ...   # 族标注
 ```
 `Evidence = {element_id, kind, value, source, version, freshness, scope, binding_state}`
