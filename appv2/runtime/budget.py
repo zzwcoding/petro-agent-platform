@@ -5,8 +5,9 @@
 核实部分＋notice 明示未完成项，不得静默截断（有界终止）。
 
 Budget 为冻结合同形（as_dict 进 RunState.budget 随 checkpoint 走，跨进程恢复
-后判据仍生效）；判据函数（steps_exhausted/time_exhausted）与收敛渲染
-（unfinished_items/unfinished_notice）在此单点，六节点入口统一消费。
+后判据仍生效）；判据函数（steps_exhausted/time_exhausted）、材料面单源
+（material_rows）与收敛渲染（unfinished_items/unfinished_notice）在此单点，
+六节点入口统一消费。
 """
 
 from __future__ import annotations
@@ -82,15 +83,34 @@ def unfinished_items(state: Any) -> list[str]:  # RunState
     return items
 
 
+def material_rows(state: Any) -> list[dict[str, Any]]:  # RunState
+    """已取得观察材料（收敛交付面＝已入栈观察＋末次工具结果自带观察）。
+
+    R2 单源：graph._converge 的交付正文与 unfinished_notice 的文案分叉同判
+    此处——材料面一个真源，notice 与答案永不漂移。
+    """
+    rows: list[dict[str, Any]] = list(state.observations)
+    if state.last_result is not None:
+        rows.extend(state.last_result.get("observations") or [])
+    return rows
+
+
 def unfinished_notice(state: Any, gates: list[str]) -> dict[str, Any]:
-    """触界收敛 notice（gates＝命中闸名——机读判据随文案走）。"""
+    """触界收敛 notice（gates＝命中闸名——机读判据随文案走）。
+
+    文案随材料面分叉（P-006b·R2）：零材料情形与答案同口径（「未取得可交付
+    观察材料」——不冒充已交付）；有材料情形维持「已交付已取得部分」。
+    """
     items = unfinished_items(state)
     body = "；".join(items) if items else "已到执行边界——按已取得材料收敛"
+    if material_rows(state):
+        tail = "已交付已取得部分，不静默截断。"
+    else:
+        tail = "未取得可交付观察材料——如实回报，不编造。"
     return {
         "type": "budget_converged",
         "gates": gates,
         "content": (
-            f"预算触界收敛（{'、'.join(gates)}）——未完成项：{body}。"
-            "已交付已取得部分，不静默截断。"
+            f"预算触界收敛（{'、'.join(gates)}）——未完成项：{body}。{tail}"
         ),
     }

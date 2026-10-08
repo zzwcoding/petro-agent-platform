@@ -9,7 +9,8 @@ StateGraph＋条件边承载全部回环（ADR-0002：StateGraph 真承载 loop�
 
 红线自守：langgraph 只在本包 import（红线①）；模型调用全部经 GatewayChatModel
 （红线②）；图状态 RunState 自有（红线③）。工具只经 ToolRegistry.call（受控行动链）。
-核验步为确定性规则（逐行引标核查＋分源列明）——细化批可换更强实现，语义不破（INV-1/4）。
+核验步为确定性规则（断言级支撑核查——被引观察的数值须被断言文本复述，引标贴
+无关行＝无据——＋分源列明），细化批可换更强实现，语义不破（INV-1/4）。
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
-from appv2.runtime.budget import budget_gate_hit, unfinished_notice
+from appv2.runtime.budget import budget_gate_hit, material_rows, unfinished_notice
 from appv2.runtime.context import CompiledContext, ContextBuilder, trust_of
 from appv2.runtime.events import EventBus
 from appv2.runtime.llm import CALLER_PREFIX, GatewayChatModel
@@ -65,6 +66,7 @@ _PLAN_TOOLS: frozenset[str] = frozenset(
 )
 
 _CITE_RE = re.compile(r"\[(\d+)\]")
+_NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
 _CANDIDATE_LINE = "指标候选"
 _UNDERSTAND_INSTRUCTION = (
     "识别问句：输出两行。第一行「理解：〈一句话〉」；"
@@ -162,17 +164,42 @@ def extract_plan_json(content: str) -> dict[str, Any] | None:
 # ---------- 核验步确定性规则（INV-1/INV-4 骨架版） ----------
 
 
+def _assertion_chunks(line: str) -> list[tuple[int, str]]:
+    """行→（引标 n, 其辖断言文本）列——辖断言＝行首/上一引标到本引标之间的文本。"""
+    matches = list(_CITE_RE.finditer(line))
+    chunks: list[tuple[int, str]] = []
+    for position, match in enumerate(matches):
+        start = matches[position - 1].end() if position else 0
+        chunks.append((int(match.group(1)), line[start : match.start()]))
+    return chunks
+
+
+def _supported(
+    citation: int, assertion: str, by_index: dict[int, dict[str, Any]]
+) -> bool:
+    """断言级支撑判定：被引观察 content 中的每个数值 token 须被断言文本复述——
+    引标贴无关行（材料数值行内找不到）＝无支撑（P-006b·R9：非行级引标即过）。
+    方向取「观察→行」：被引观察的每个数值须在行内被复述；行内来自问句语境的量
+    （日期窗等）不作要求——误伤面最小。越界引标判无支撑；零数值观察（纯文本卡）
+    恒过，语义充分性由确定性规则边界如实声明（细化批可换更强实现）。"""
+    obs = by_index.get(citation)
+    if obs is None:
+        return False
+    return all(token in assertion for token in _NUMBER_RE.findall(str(obs.get("content", ""))))
+
+
 def verify_draft(
     draft: str, observations: list[dict[str, Any]]
 ) -> tuple[str, int, list[int], bool]:
-    """草稿逐行核验：返回（核验后文本, 改写数, 被引序号列, 是否分源）。
+    """草稿逐行断言级核验：返回（核验后文本, 改写数, 被引序号列, 是否分源）。
 
-    - 引标 [n] 在界＝有据保留；无引标/越界行＝无据断言，整行改写「未找到（材料
-      未披露）」（INV-1——禁止无据断言进答案）；
+    - 逐引标抽取其辖断言文本做支撑判定：全部断言有据＝行保留（引标收进引用集）；
+      无引标行/越界引标/断言与被引观察无关（材料数值未被复述）＝无据断言，整行
+      改写「未找到（材料未披露）」（INV-1——禁止无据断言进答案）；
     - 被引观察中同一 subject（台账卡内容首段名称）≥2 支且值不同→追加分源列明块
       （INV-4——禁止无出处调和；agg_row 行级事实按 井@日 独立键，不入矛盾池）。
     """
-    known = {int(obs["index"]) for obs in observations}
+    by_index = {int(obs["index"]): obs for obs in observations}
     cited: set[int] = set()
     rewritten = 0
     out_lines: list[str] = []
@@ -181,9 +208,9 @@ def verify_draft(
         if not stripped:
             out_lines.append(line)
             continue
-        valid = [int(m) for m in _CITE_RE.findall(stripped) if int(m) in known]
-        if valid:
-            cited.update(valid)
+        chunks = _assertion_chunks(stripped)
+        if chunks and all(_supported(n, chunk, by_index) for n, chunk in chunks):
+            cited.update(n for n, _ in chunks)
             out_lines.append(line)
         else:
             rewritten += 1
@@ -254,9 +281,7 @@ def _converge(state: RunState, deps: LoopDeps) -> dict[str, Any]:
     """触界收敛（约定 7）：已取得材料如实交付＋notice 明示未完成项——不静默截断。"""
     gates = budget_gate_hit(state)
     notice = unfinished_notice(state, gates)
-    raw: list[dict[str, Any]] = list(state.observations)
-    if state.last_result is not None:
-        raw.extend(state.last_result.get("observations") or [])
+    raw = material_rows(state)
     if raw:
         body = "\n".join(f"- {obs.get('content', '')}" for obs in raw)
         answer = f"（预算触界收敛——已取得材料未及核验，如实原样交付）\n{body}"
@@ -273,10 +298,15 @@ def _converge(state: RunState, deps: LoopDeps) -> dict[str, Any]:
 
 
 def _gate_or_none(state: RunState, deps: LoopDeps) -> dict[str, Any] | None:
-    """节点入口预算闸：触界返回收敛更新，未触界返回 None。"""
-    if budget_gate_hit(state):
-        return _converge(state, deps)
-    return None
+    """节点入口预算闸：触界返回收敛更新，未触界返回 None。
+
+    收敛幂等（P-006b·R1，两入口单点）：budget_hit 非空＝收敛已发生——不再二次
+    收敛（notice 恰 1 条、机读 gates 不重复追加）；已收敛 run 经 next_intent=
+    answer 进 answer 节点正常收口（收敛答案落 answer 步＋文本出流）。
+    """
+    if state.budget_hit or not budget_gate_hit(state):
+        return None
+    return _converge(state, deps)
 
 
 async def _complete(
@@ -655,7 +685,17 @@ def _apply_result(
             updates["notices"] = [*state.notices, notice]
             updates["next_intent"] = INTENT_ANSWER
     else:  # refused（闸拒）——拒因原样如实转答，不重试不改写
-        updates["draft"] = str((result.get("error") or {}).get("message", "口径/数据闸拒"))
+        reason = str((result.get("error") or {}).get("message", "口径/数据闸拒"))
+        updates["draft"] = reason
+        # 机读 notice（P-006b·R3）——与 bad_args 两轮拒/tool_unavailable 通道同形，
+        # V2-05 闸态机读分型在 runtime 侧对齐（按 notice 类型消费的面不漏直接闸拒）。
+        notice = {
+            "type": "refused",
+            "gates": [],
+            "content": f"口径/数据闸拒——拒因如实转答：{reason}",
+        }
+        deps.bus.emit("notice", dict(notice))
+        updates["notices"] = [*state.notices, notice]
         updates["next_intent"] = INTENT_ANSWER
     deps.bus.emit(
         "step", {"step": STEP_TOOL, "seq": seq, "title": title}

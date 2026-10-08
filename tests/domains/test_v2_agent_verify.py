@@ -3,11 +3,15 @@
 - unsupported_claim_rewritten：核验步逐条检查阐述草稿的断言有 Observation 支撑；
   无支撑断言改写为「未找到（材料未披露）」＋notice——禁止无据断言进答案（INV-1）；
 - contradiction_split_source：多来源矛盾时答案必须分源列明（各标出处）或显式声明
-  歧义；禁止无出处调和（INV-4）。
+  歧义；禁止无出处调和（INV-4）；
+- citation_on_unrelated_line_rewritten（P-006b·R9 反例钉测）：引标在界但断言与被引
+  观察「无关」（观察中的数值未被断言文本复述）＝无支撑——改写/拒，非行级引标即过。
 
-骨架版核验规则（确定性，细化批可换更强实现——语义不破）：
-- 草稿逐行核验：行内引标 [n]（n＝观察全局序号）存在且在界＝有据保留；无引标或
-  越界引标行＝无据断言，整行改写「未找到（材料未披露）：〈原文〉」＋notice；
+骨架版核验规则（确定性断言级支撑，细化批可换更强实现——语义不破）：
+- 草稿逐行、逐引标抽取其辖断言文本（行首/上一引标到本引标之间）；断言级支撑判定＝
+  被引观察 content 中的每个数值 token 须被该断言文本复述——引标贴无关行（材料数值
+  行内找不到）＝无据断言，整行改写「未找到（材料未披露）：〈原文〉」＋notice，
+  该引标不收进引用集（INV-1——禁止无据断言进答案）；
 - 矛盾判定：被引观察中，同一 subject（台账卡取内容首段「名称」；agg_row 行级
   事实按 井@日 键独立，不入跨源矛盾池）出现 ≥2 支且值不同→强制分源列明块
   （逐支带 [n] 出处）＋notice——禁止无出处调和。
@@ -159,6 +163,49 @@ async def test_contradiction_split_source(tmp_path: Path) -> None:
         # verdict 事件载 split 结论。
         verdicts = [e.data for e in events if e.event == "verdict"]
         assert verdicts and verdicts[0]["split"] is True
+    finally:
+        await db.dispose()
+
+
+# ---------- 验收⑤补（R9 反例钉测）：引标贴无关行被改写/拒 ----------
+
+
+async def test_citation_on_unrelated_line_rewritten(tmp_path: Path) -> None:
+    # 引标 [1] 在界，但断言文本与被引观察无关（观察中的数值 21.16/井号 01 未被
+    # 行内复述——行内只有无据数值 86/50）：断言级支撑判「无据」，整行改写——
+    # 行级「引标在界即过」的骨架规则已收口（P-006b·R9，INV-1）。
+    draft = "全油田 86 口井昨日均超产 50 吨[1]。"
+    script: dict[str, Sequence[str]] = {
+        "v2.runtime.understand": ["理解：问日产油量。\n指标候选：日产油量"],
+        "v2.runtime.plan": [
+            '{"metric_slot": "日产油量", "ranking": false, '
+            '"window_start": "2025-09-01", "window_end": "2025-09-03", "limit": 5}'
+        ],
+        "v2.runtime.answer_draft": [draft],
+    }
+    runtime, _completer, db = await make_runtime(
+        tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=script
+    )
+    store = RunStore(db)
+    try:
+        handle = await runtime.ask(
+            AskRequest(question="2025 年 9 月 1 日到 3 日的日产油量", actor=ACTOR)
+        )
+        events = await drain(handle)
+        run = await store.get_run(handle.run_id)
+        assert run is not None and run.status == "completed"
+        answer = run.answer or ""
+        # 无关行改写「未找到（材料未披露）」——引标贴无关行过不了（INV-1）。
+        assert "86 口井" in answer
+        assert "未找到（材料未披露）" in answer
+        assert "21.16" not in answer  # 观察数值未被复述——不进答案与引用块
+        # notice＋verdict：改写计数 1；无支撑引标不收进引用集（citation 零发）。
+        notices = _notices(events)
+        assert any(n.get("type") == "unsupported_claim" for n in notices)
+        verdicts = [e.data for e in events if e.event == "verdict"]
+        assert verdicts and verdicts[0]["rewritten"] == 1
+        assert verdicts[0]["cited"] == []
+        assert not [e for e in events if e.event == "citation"]
     finally:
         await db.dispose()
 

@@ -208,7 +208,9 @@ async def test_six_steps_in_order(tmp_path: Path) -> None:
 
 async def test_budget_termination(tmp_path: Path) -> None:
     # （a）步数闸：max_steps=3——understand/plan/tool 三步后 observe 入口收敛；
-    # 已取得观察原样交付（非静默截断）＋notice 明示未完成项。
+    # 已取得观察原样交付（非静默截断）＋notice 明示未完成项。收敛幂等（R1）：
+    # answer 入口不再二次收敛——notice 恰 1 条、机读 gates 不重复；收敛答案经
+    # answer 步正常收口出流（三步截断语义不变：observe/verify 零执行）。
     runtime, _completer, db = await make_runtime(
         tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=HAPPY_SCRIPT,
         budget=Budget(max_steps=3),
@@ -219,15 +221,18 @@ async def test_budget_termination(tmp_path: Path) -> None:
         events = await drain(handle)
         run = await store.get_run(handle.run_id)
         assert run is not None and run.status == "completed"
-        assert len(_step_kinds(events)) == 3
-        assert "21.16" in (run.answer or "")  # 已核实部分交付——不静默截断
+        assert _step_kinds(events) == ["understand", "plan", "tool", "answer"]
+        assert "21.16" in (run.answer or "")  # 已取得材料交付——不静默截断
         notices = _notices(events)
-        assert notices and "未完成" in notices[-1]["content"]
-        assert "max_steps" in notices[-1].get("gates", [])
+        assert len(notices) == 1  # R1 收敛幂等：notice 恰 1 条
+        assert notices[0]["type"] == "budget_converged"
+        assert notices[0]["gates"] == ["max_steps"]  # 机读 gates 不重复追加
+        assert "未完成" in notices[0]["content"]
     finally:
         await db.dispose()
 
-    # （b）时长闸：total_seconds=0——首个节点入口即收敛，notice 明示全链未完成。
+    # （b）时长闸：total_seconds=0——首个节点入口即收敛（零材料情形），notice
+    # 明示全链未完成；文案与答案同口径（R2：零材料不冒充「已交付」）。
     runtime, _completer, db = await make_runtime(
         tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=HAPPY_SCRIPT,
         budget=Budget(total_seconds=0.0),
@@ -239,8 +244,44 @@ async def test_budget_termination(tmp_path: Path) -> None:
         run = await store.get_run(handle.run_id)
         assert run is not None and run.status == "completed"
         notices = _notices(events)
-        assert notices and "未完成" in notices[-1]["content"]
-        assert "total_seconds" in notices[-1].get("gates", [])
+        assert len(notices) == 1  # R1 收敛幂等：notice 恰 1 条
+        assert notices[0]["gates"] == ["total_seconds"]
+        assert "未完成" in notices[0]["content"]
+        # R2 零材料分叉：notice 与答案同一口径（「未取得可交付观察材料」族）。
+        assert "未取得可交付观察材料" in notices[0]["content"]
+        assert "已交付" not in notices[0]["content"]
+        assert "未取得可交付观察材料" in (run.answer or "")
+    finally:
+        await db.dispose()
+
+
+# ---------- 验收①补（R3）：直接 refused（闸拒）路径的机读 notice ----------
+
+
+async def test_refused_gate_notice(tmp_path: Path) -> None:
+    # 直接 refused（三分类闸拒——非 bad_args 两轮/retryable 耗尽通道）：
+    # 拒因原样如实转答＋机读 notice type="refused"（与 V2-05 闸态分型对齐，
+    # 按 notice 类型消费的机读面不漏直接闸拒）；零数值——闸拒不冒充出数。
+    engine = FakeQueryEngine(run_error=PermissionError("越权口径：无据出数"))
+    script: dict[str, Sequence[str]] = {
+        "v2.runtime.understand": [UNDERSTAND_DATA],
+        "v2.runtime.plan": [PLAN_WINDOWED],
+    }
+    runtime, _completer, db = await make_runtime(tmp_path, engine=engine, script=script)
+    store = RunStore(db)
+    try:
+        handle = await runtime.ask(AskRequest(question=HAPPY_QUESTION, actor=ACTOR))
+        events = await drain(handle)
+        run = await store.get_run(handle.run_id)
+        assert run is not None and run.status == "completed"
+        answer = run.answer or ""
+        assert "越权拒绝" in answer  # 拒因原样转答（registry 三分类封套消息）
+        assert "21.16" not in answer  # 零数值（闸拒不冒充）
+        notices = _notices(events)
+        refused = [n for n in notices if n.get("type") == "refused"]
+        assert len(refused) == 1  # 机读分型恰一条
+        assert refused[0]["gates"] == []
+        assert "越权拒绝" in refused[0]["content"]
     finally:
         await db.dispose()
 

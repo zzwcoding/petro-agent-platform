@@ -72,6 +72,9 @@ class AgentV2Checkpoint(Base):
     parent_checkpoint_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     type: Mapped[str] = mapped_column(String(16))
     checkpoint: Mapped[bytes] = mapped_column()
+    # P-006b·R13 工程债注记：列名 metadata_json 沿官方 saver 存储模型命名，实存
+    # serde.dumps_typed 产物（类型标签＋二进制——非 JSON 文本），与 checkpoint 主列
+    # 共用行上单 type 列（见 checkpointer.aput 注记）；改名需迁移文件联动小改，本拍择注记。
     metadata_json: Mapped[bytes] = mapped_column()
 
 
