@@ -1,6 +1,6 @@
 # V2-05 · tools 工具层
 
-状态: open
+状态: done（2026-10-08，P-005 验收通过·收尾报告在案）
 Touches modules: `tools`
 阻塞: V2-02、V2-03、V2-04｜被阻塞: V2-06
 
