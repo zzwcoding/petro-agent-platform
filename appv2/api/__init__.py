@@ -9,14 +9,21 @@ app.** 及引擎模块（importlinter V2 契约在案）；SSE 帧不携带 lang
 
 公开面：
 - router（三端点路由——挂线进 appv2 自有 app 工厂，V1 main.py 零改动）；
-- create_app（组合缝——引擎组合根与 completer 由调用方注入）＋lifespan；
+- create_app（组合缝——registry 注入；缺省＝生产组合 compose_production_
+  registry，V2-19）＋lifespan；
 - wire schema（V2-07·R10 定型）：WIRE_EVENT_KINDS 事件枚举＋render_frame
   信封＋verdict_subtype（verify/终局两形拆分，定型进 api 层事件枚举）；
 - RunStream/RunStreamRegistry（SSE 事件桥——断线游标续传的缓冲面）；
 - ApiError/install_error_handlers（00 §3 统一错误包，V1 同形）。
 """
 
-from appv2.api.app import MODEL_KEYS, create_app, ensure_app_tables, lifespan
+from appv2.api.app import (
+    MODEL_KEYS,
+    compose_production_registry,
+    create_app,
+    ensure_app_tables,
+    lifespan,
+)
 from appv2.api.bridge import RunStream, RunStreamRegistry, sse_frames
 from appv2.api.chat import (
     AskBody,
@@ -73,6 +80,7 @@ __all__ = [
     "RunStreamRegistry",
     "RunView",
     "StepView",
+    "compose_production_registry",
     "create_app",
     "ensure_app_tables",
     "error_payload",

@@ -4,9 +4,12 @@ appv2 工厂，V1 app/main.py 路由零改动）。
 组合缝（modules.md 边界规则「api 只依赖 runtime 公开接口＋infra」的落法）：
 本工厂只 import appv2.runtime＋appv2.infra——引擎侧组合根（knowledge/query/
 retrieval → ToolRegistry）与 completer（生产＝GatewayService，测试＝剧本件）
-由调用方注入，不在 api 层 import 引擎模块。真实入口（演示/生产 main）点亮
-时在此工厂之上传入生产组合（V1 main.py 同位）；本票自带的生产装配样例见
-tests/api/test_v2_runtime_smoke_real.py（R14 真网关冒烟）。
+由调用方注入；**registry 缺省（None）＝生产组合**（V2-19 票面任务 4——三引擎
+生产读面真装配＋DE-16 消费点，compose_production_registry 局部 import 引擎与
+tools 包装配，属 modules.md api 卡注记的组合根例外延伸——create_app 装配
+真引擎替换 fixture 组合，对齐拍回写归属在案）。fixture 组合（测试）照旧经
+registry 参数显式注入。真实入口（演示/生产 main）点亮时在此工厂之上传入
+生产组合（V1 main.py 同位）。
 
 装配面：GraphRunExecutor（六步图＋PG checkpointer）→ AgentRuntime；
 RunStreamRegistry（SSE 事件桥缓冲）＋RunStore（run 簿记读面）入 app.state
@@ -16,8 +19,9 @@ ensure 双轨约定，P0-08 先例）。
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable, Sequence
 from contextlib import asynccontextmanager
+from datetime import date
 from typing import Any, cast
 
 from fastapi import FastAPI
@@ -25,7 +29,8 @@ from fastapi import FastAPI
 from appv2.api.bridge import RunStreamRegistry
 from appv2.api.chat import router as chat_router
 from appv2.api.errors import install_error_handlers
-from appv2.infra.db import ConnectionManager
+from appv2.infra.config import ChatSettings
+from appv2.infra.db import ConnectionManager, DatabaseSpec
 from appv2.infra.gateway.store import ensure_gateway_tables
 from appv2.runtime import (
     CALLER_PREFIX,
@@ -35,6 +40,7 @@ from appv2.runtime import (
     PgCheckpointer,
     RunStore,
     ensure_agent_v2_tables,
+    gate_freshness,
 )
 from appv2.runtime.executor import GraphRunExecutor
 from appv2.runtime.llm import Completer
@@ -44,19 +50,83 @@ from appv2.runtime.llm import Completer
 MODEL_KEYS: tuple[str, ...] = ("understand", "plan", "plan_repair", "answer_draft")
 
 
+def compose_production_registry(
+    *,
+    specs: Sequence[DatabaseSpec] | None = None,
+    chat_settings: ChatSettings | None = None,
+    today: Callable[[], date] | None = None,
+    embedder: Any | None = None,
+) -> Any:
+    """生产组合根（V2-19 票面任务 4）——三引擎生产读面真装配＋DE-16 消费点。
+
+    - knowledge＝PgKnowledgeStore（sem_* 直读——specs/knowledge.md「本期直读
+      PG」的落位件）；
+    - query＝QueryEngine（执行器＝PgQueryExecutor agg 星型真 SQL；水位读缝＝
+      production_waterline（water_line 汇总层直读＋T-1 判定随面）经
+      **gate_freshness 翻板**——enabled＝ChatSettings.freshness_gate_enabled
+      （config/database.yaml chat 段，DE-16），false＝不供给水位（N7.4a 关：
+      不拦停不改绑）；行级权限/外表审批零触碰）；
+    - retrieval＝RetrievalEngine（片段库＝PgFragmentLibrary kb_* 直读；
+      embedder＝RemoteEmbedder——B6 embedding 唯一出口 infra.llm_client；
+      图谱源未接线＝graph 面空集回退，Neo4j 适配器随落位批）。
+
+    局部 import＝组合根例外（modules.md api 卡注记的延伸——本函数是 api 层
+    唯一触引擎/tools 的位置；测试 fixture 组合不走此处，经 registry 注入）。
+    """
+    from appv2.infra.config import load_chat_settings, load_database_specs
+    from appv2.infra.llm_client import LlmClient
+    from appv2.knowledge import PgKnowledgeStore
+    from appv2.query import PgQueryExecutor, QueryEngine, production_waterline
+    from appv2.retrieval import PgFragmentLibrary, RemoteEmbedder, RetrievalEngine
+    from appv2.tools import ToolRegistry
+
+    resolved = tuple(specs) if specs is not None else tuple(load_database_specs())
+    settings = chat_settings if chat_settings is not None else load_chat_settings()
+    knowledge = PgKnowledgeStore(resolved, today=None if today is None else today())
+    query = QueryEngine(
+        knowledge=knowledge,
+        executor=PgQueryExecutor(resolved),
+        # DE-16 消费点（V2-19 票面任务 4）：翻板从 config 进组合根——
+        # enabled=True 原样透传水位供给（现状拦停/改绑）；False＝不供给。
+        waterline=gate_freshness(
+            production_waterline(resolved, today=today),
+            enabled=settings.freshness_gate_enabled,
+        ),
+        today=today,
+    )
+    retrieval = RetrievalEngine(
+        library=PgFragmentLibrary(resolved),
+        embedder=embedder if embedder is not None else RemoteEmbedder(LlmClient()),
+    )
+    return ToolRegistry(knowledge=knowledge, query=query, retrieval=retrieval)
+
+
 def create_app(
     *,
     db: ConnectionManager,
-    registry: Any,
     completer: Completer,
+    registry: Any | None = None,
     budget: Budget | None = None,
+    specs: Sequence[DatabaseSpec] | None = None,
+    chat_settings: ChatSettings | None = None,
+    today: Callable[[], date] | None = None,
+    embedder: Any | None = None,
 ) -> FastAPI:
     """构建 appv2 应用（三端点挂线＋runtime 生产装配——依赖注入面）。
 
     registry＝ToolRegistry 实例（组合根注入——类型真源在 appv2.tools，本层
     按 modules.md api 卡边界「只依赖 runtime＋infra」不 import，经 runtime
-    executor 的签名面消费）。
+    executor 的签名面消费）；**None（缺省）＝生产组合**——compose_production_
+    registry 真装配三引擎（V2-19 票面任务 4；specs/chat_settings/today/
+    embedder 只在该路径生效）。
     """
+    if registry is None:
+        registry = compose_production_registry(
+            specs=specs,
+            chat_settings=chat_settings,
+            today=today,
+            embedder=embedder,
+        )
     models = {
         key: GatewayChatModel(
             completer=completer, caller=f"{CALLER_PREFIX}.{key}", alias=""

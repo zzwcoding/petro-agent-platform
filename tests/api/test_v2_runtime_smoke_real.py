@@ -1,14 +1,16 @@
-"""R14 红线②终实证冒烟（RUNTIME_SMOKE=1 门控）——生产装配真网关一轮 ask。
+"""R14 红线②终实证冒烟（RUNTIME_SMOKE=1 门控）——生产组合真网关一轮 ask。
 
-跑法（P-008 票面 R14 条目；V2-09 校准后复跑扩两题——数-明1 类标准题走完六步）：
+跑法（V2-19 票面任务 5；P-008 票面 R14 条目）：
     RUNTIME_SMOKE=1 uv run pytest tests/api/test_v2_runtime_smoke_real.py -q -s
 
-真装配含义：create_app 真起（真实 primary PG@5433 演示库——config/database.yaml）
-＋真 gateway.complete（B6 唯一出口——GatewayService＋LlmClient，petro-main＝
-MiniMax-M3 真调用真计费）＋真问数链（V2 验收底座：InMemory 台账快照＋
-CsvSnapshotExecutor——tests/domains/test_v2_agent_loop.py readonly_inv2 同款）。
-检索面＝fixture 适配器（真向量服务依赖未在本票范围——如实声明，冒烟问句为
-问数题不触检索）。
+真装配含义（V2-19 起为**生产组合根**——create_app registry 缺省＝真引擎）：
+create_app 真起（真实 primary PG@5433 演示库——config/database.yaml）＋真
+gateway.complete（B6 唯一出口——GatewayService＋LlmClient，petro-main＝
+MiniMax-M3 真调用真计费）＋三引擎生产读面真链路——PgKnowledgeStore（sem_*
+台账直读）／PgQueryExecutor（agg 星型真 SQL＋dim_well 区块列＋batch_id 回
+血缘④）＋生产水位读缝（water_line 汇总层直读＋T-1 判定，DE-16 翻板从
+config 进组合根——config 缺省 true＝闸在位）／PgFragmentLibrary（kb_* 直读
+＋RemoteEmbedder——问数题不触检索，装配在位即如实）。
 
 流程（每题一轮 ask 走通六步 loop）：
 ① POST /api/v2/chat/asks（真实 MiniMax 出理解/计划/草稿）→ SSE 流保留帧 done
@@ -17,12 +19,14 @@ CsvSnapshotExecutor——tests/domains/test_v2_agent_loop.py readonly_inv2 同�
    恰此序（V2-09 验收①——真模型格式校准后不再 understand 拒答中途收口），
    全流零 refused notice；
 ③ GET run 状态＝completed（run 状态机收口）；
-④ R14 核心断言：caller 归因落 spend 记录——`v2.runtime.*` caller 桶本轮在场
+④ V2-19 验收③：血缘④「数据截至批次」带真批次号——observation 流中血缘卡
+   支含「批次 b-*」（b-a1a61db9f458 单源族＝演示库 agg 单一批次，逐字断言）；
+⑤ R14 核心：caller 归因落 spend 记录——`v2.runtime.*` caller 桶本轮在场
    且 cost>0（GatewayChatModel→gateway.complete 的 B6 归因链真账本实证）。
 
 重跑幂等：每轮新增真流水（演示库量级，GATEWAY_SMOKE/CHAT_SMOKE 同款处置）；
 断言只看「本轮桶在场」不看全库计数。证据打印（-s 采集）：每题的理解/计划/
-答案与 spend 行——回报 P-009 模型遵循证据与计费断言的原文来源。
+答案/血缘④与 spend 行——回报 P-013 冒烟输出原文（血缘批次号证据）的来源。
 """
 
 from __future__ import annotations
@@ -49,6 +53,7 @@ SMOKE_QUESTIONS = (
 )
 SIX_STEP_ORDER = ["understand", "plan", "tool", "observe", "verify", "answer"]
 TODAY = date(2026, 10, 8)
+DEMO_BATCH_ID = "b-a1a61db9f458"  # 演示库 agg 单一批次（V2-11 seed 单源——单源族）
 ACTOR = {"X-Dev-User": "aqiang"}
 
 
@@ -78,25 +83,13 @@ def test_runtime_production_smoke_real_gateway() -> None:
     from appv2.infra.gateway import GatewayService, SpendFilter
     from appv2.infra.gateway.store import SpendStore
     from appv2.infra.llm_client import LlmClient
-    from appv2.knowledge import InMemoryKnowledgeStore, question_array_snapshot
-    from appv2.query import CsvSnapshotExecutor, QueryEngine
     from appv2.runtime import RunStore
-    from appv2.tools import FakeRetrievalEngine, ToolRegistry
 
     db = ConnectionManager(load_database_specs())  # 真实 primary PG（演示库）
-    knowledge = InMemoryKnowledgeStore(question_array_snapshot(), today=TODAY)
-    registry = ToolRegistry(
-        knowledge=knowledge,
-        query=QueryEngine(
-            knowledge=knowledge,
-            executor=CsvSnapshotExecutor(),
-            waterline=None,
-            today=lambda: TODAY,
-        ),
-        retrieval=FakeRetrievalEngine(),
-    )
     gateway = GatewayService(db, LlmClient())  # B6 唯一出口真件（MiniMax 真引擎）
-    app = create_app(db=db, registry=registry, completer=gateway)
+    # 生产组合根（V2-19 任务 4）：registry 缺省＝三引擎生产读面真装配
+    # ＋DE-16 翻板从 config 进组合根（config 缺省 true＝水位闸在位）。
+    app = create_app(db=db, completer=gateway, today=lambda: TODAY)
     store = RunStore(db)
     started_at = now()
 
@@ -123,7 +116,18 @@ def test_runtime_production_smoke_real_gateway() -> None:
             status = client.get(f"/api/v2/chat/runs/{run_id}", headers=ACTOR).json()
             assert status["status"] == "completed"
             assert status["manifest_digest"] == finals[-1]["manifest_digest"]
-            # —— 证据打印（-s 采集——回报 P-009 模型遵循证据原文来源） ——
+            # —— ④ V2-19 验收③：血缘④真批次号（agg 星型真 SQL 随行——单源族） ——
+            lineage_obs = [
+                d
+                for n, d in frames
+                if n == "observation" and "④ 数据截至批次" in str(d.get("content", ""))
+            ]
+            assert lineage_obs, "血缘卡④（数据截至批次）未随结果必出"
+            watermark_line = str(lineage_obs[-1]["content"])
+            assert f"批次 {DEMO_BATCH_ID}" in watermark_line, (
+                f"血缘④未带真批次号（期望 {DEMO_BATCH_ID}）：{watermark_line}"
+            )
+            # —— 证据打印（-s 采集——回报 P-013 冒烟输出原文来源） ——
             async def _evidence(run_id: str = run_id) -> tuple[Any, Any]:
                 return await store.get_run(run_id), await store.list_steps(run_id)
 
@@ -143,8 +147,9 @@ def test_runtime_production_smoke_real_gateway() -> None:
             print(f"SMOKE 理解（真模型两行/降级产）：{understanding}")
             print(f"SMOKE 计划（真模型 JSON 产）：{json.dumps(plan_payload, ensure_ascii=False)}")
             print(f"SMOKE 答案首 200 字：{(run_row.answer or '')[:200]}")
+            print(f"SMOKE 血缘④（数据截至批次）：{watermark_line}")
 
-        # —— ④ R14 核心：caller 归因落 spend 记录（红线②真账本实证） ——
+        # —— ⑤ R14 核心：caller 归因落 spend 记录（红线②真账本实证） ——
         spend_store = SpendStore(db)
 
         async def _spend_page() -> Any:

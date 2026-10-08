@@ -33,6 +33,7 @@ from appv2.retrieval.embedder import (
     RemoteEmbedder,
 )
 from appv2.retrieval.engine import Completer, CompletionView, RetrievalEngine
+from appv2.retrieval.pg_source import PgFragmentLibrary
 from appv2.retrieval.source import (
     FragmentLibrary,
     GraphSource,
@@ -58,6 +59,7 @@ __all__ = [
     "InMemoryFragmentLibrary",
     "LocalHashEmbedder",
     "Observation",
+    "PgFragmentLibrary",
     "RemoteEmbedder",
     "RetrievalBundle",
     "RetrievalEngine",

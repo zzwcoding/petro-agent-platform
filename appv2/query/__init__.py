@@ -69,6 +69,8 @@ from appv2.query.executor import (
     QueryExecutor,
     QueryResult,
 )
+from appv2.query.pg_executor import PgQueryExecutor
+from appv2.query.pg_waterline import freshness_judgment, production_waterline
 
 __all__ = [
     "ASKBACK_TIME_CHOICES",
@@ -97,6 +99,7 @@ __all__ = [
     "AggRow",
     "CsvSnapshotExecutor",
     "LineageLine",
+    "PgQueryExecutor",
     "PlanCheck",
     "QueryEngine",
     "QueryExecutor",
@@ -113,10 +116,12 @@ __all__ = [
     "check_plan_window_bounds",
     "detect_external_tables",
     "effective_limit",
+    "freshness_judgment",
     "is_ranking_question",
     "parse_ranking_direction",
     "parse_row_limit",
     "parse_time_window",
+    "production_waterline",
     "render_plan_sql",
     "resolve_askback_window",
 ]

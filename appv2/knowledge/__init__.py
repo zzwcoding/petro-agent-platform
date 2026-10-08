@@ -5,12 +5,13 @@ Knowledge Evidence：agent 查得到、看得懂口径、知道能不能出数�
 
 公开面（specs/modules.md knowledge 卡——KnowledgeStore 四方法＋两 schema；
 依赖只许 appv2.infra 公开接口，不咬 V1 app.**、不引 query/retrieval）：
-- KnowledgeStore／InMemoryKnowledgeStore（seam＋快照适配器）；
+- KnowledgeStore／InMemoryKnowledgeStore（seam＋快照适配器）／PgKnowledgeStore
+  （生产适配器——sem_* 直读，V2-19）；
 - SemanticQuery／Evidence（接口定义节两 schema，随 V2-02 定稿）；
 - KIND_*／BINDING_*／MEASURE_COLUMNS／term_expiry／term_binding_state／
   metric_binding_state（binding_state 三态判定单点——V1 冻结三绑定原样）；
-- LedgerSnapshot／question_array_snapshot／load_relation_families（问数组
-  台账态快照与本体导出物族标注装载）。
+- LedgerSnapshot／question_array_snapshot／glossary_aliases／
+  load_relation_families（问数组台账态快照、别名投影与本体导出物族标注装载）。
 
 只读纪律（INV-2）：本包零写路径——不产任何台账写面（增删改审沿用 V1
 治理线端点）；不做缓存层（本期直读/快照读，量级允许）。
@@ -33,6 +34,7 @@ from appv2.knowledge.domain import (
     term_binding_state,
     term_expiry,
 )
+from appv2.knowledge.pg_store import PgKnowledgeStore
 from appv2.knowledge.snapshot import (
     FamilyRow,
     LedgerSnapshot,
@@ -40,6 +42,7 @@ from appv2.knowledge.snapshot import (
     ObjectRow,
     RelationRow,
     TermRow,
+    glossary_aliases,
     load_relation_families,
     question_array_snapshot,
 )
@@ -63,9 +66,11 @@ __all__ = (
     "LedgerSnapshot",
     "MetricRow",
     "ObjectRow",
+    "PgKnowledgeStore",
     "RelationRow",
     "SemanticQuery",
     "TermRow",
+    "glossary_aliases",
     "load_relation_families",
     "metric_binding_state",
     "question_array_snapshot",

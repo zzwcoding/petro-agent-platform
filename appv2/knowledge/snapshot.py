@@ -169,6 +169,11 @@ _GLOSSARY_ALIASES: tuple[tuple[str, str], ...] = (
 )
 
 
+def glossary_aliases() -> tuple[tuple[str, str], ...]:
+    """别名→规范名对全集（glossary 投影公开读侧——生产读面与快照同源单点）。"""
+    return _GLOSSARY_ALIASES
+
+
 # ---------- 问数组台账态快照（票面钉死：20 指标/11 术语/10 对象/5 关系） ----------
 
 # calibers 字典键序：key/name/default（desc 不投影——见模块 docstring）。
