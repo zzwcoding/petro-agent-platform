@@ -38,6 +38,7 @@ name = "ADR-0002 红线①langgraph 只许在 appv2.runtime"
 type = "forbidden"
 source_modules = ["appv2.api", "appv2.tools", "appv2.knowledge", "appv2.query", "appv2.retrieval", "appv2.infra"]
 forbidden_modules = ["langgraph", "langchain", "langchain_core", "langchain_community"]
+allow_indirect_imports = true  # modules.md api 卡语义＝api 只许消费 runtime 公开接口，而 runtime 内部承载 langgraph（ADR-0002）——api→runtime→langgraph 传递链是设计路径非触界（P-008·V2-07 起 api 真消费 runtime；R6 同款判例：直接引用才违规，红线咬合面＝本模块不得直接 import 框架）
 
 [[tool.importlinter.contracts]]
 name = "V2 B6：litellm 唯一接触点=appv2.infra.llm_client"
