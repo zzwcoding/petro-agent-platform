@@ -191,4 +191,4 @@ GET  /api/v2/chat/runs/{run_id}          → run 状态＋steps＋Manifest 摘�
 | 各引擎绕过 infra 直连接外部（litellm/裸 driver/裸 httpx 外部 API） | （无） | B6 出口纪律，V1 先例 |
 | `langgraph`/`langchain` 出现在 `runtime` 以外任何模块 | （无） | ADR-0002 红线①：框架只许活在 runtime 内部 |
 | LLM 调用绕过 gateway.complete（含经 langchain 自带 provider 直连） | （无） | ADR-0002 红线②：B6 出口纪律 |
-| `web/`、`eval/`、`tests/` 引用 `appv2` 模块内部 | 走 /api/v2 HTTP 公开面 | 同 V1 纪律 |
+| `web/`、`eval/` 引用 `appv2` 模块内部 | tests/ 单模块 seam 级直测（SDD 惯例，infra.md/query.md 等验收表指定）；web/eval 只走 /api/v2 HTTP | spec 模板「单模块行为在模块 seam」＋V1 同先例；跨模块黑盒仍走 HTTP |

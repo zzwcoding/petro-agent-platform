@@ -33,7 +33,9 @@ SEP = re.compile(r":?-{2,}:?")
 STATUS_LINE = re.compile(r"^状态[:：]\s*(\S+)\s*$", re.M)
 LEGAL_STATUS = {"草稿", "已定稿", "实现中", "已完成"}
 LEGAL_PRD_STATUS = {"粗稿", "逼问中", "已定稿"}
-SRC_EXTS = {".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".go", ".java", ".kt", ".rs", ".rb", ".php"}
+SRC_EXTS = {
+    ".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".go", ".java", ".kt", ".rs", ".rb", ".php"
+}
 SRC_DIRS = ("src", "lib", "app", "backend", "frontend/src", "tests", "test", "server")
 CORE_HEADING = re.compile(r"^##\s*语义核心\s*$", re.M)
 ARROW = re.compile(r"\s*(?:→|->|⇒)\s*")
@@ -110,7 +112,7 @@ def check_graph(mods):
                 fail(f"modules.md: 模块 `{u}` 依赖 `{v}`，后者未声明（拼写错误或漏卡）")
             elif color[v] == 1:
                 i = stack.index(v)
-                fail("modules.md: 依赖成环：" + " → ".join(stack[i:] + [v]))
+                fail("modules.md: 依赖成环：" + " → ".join([*stack[i:], v]))
             elif color[v] == 0:
                 dfs(v)
         color[u] = 2
@@ -198,7 +200,10 @@ def check_semantic_core(root):
                     continue
                 for ep in (x.strip("` ") for x in ARROW.split(trans) if x.strip("` ")):
                     if ep not in states:
-                        fail(f"CONTEXT.md 语义核心: 实体 `{entity}` 的流转 `{trans}` 引用了未声明状态 `{ep}`")
+                        fail(
+                            f"CONTEXT.md 语义核心: 实体 `{entity}` 的流转 `{trans}`"
+                            f" 引用了未声明状态 `{ep}`"
+                        )
 
     # 不变量：ID 查重（FAIL）；须被非草稿 spec 以 `INV-x` 引用（WARN）
     inv = table_after(lines, "### 不变量")
@@ -226,7 +231,10 @@ def check_semantic_core(root):
         if spec_texts:
             for i in ids:
                 if not any(f"`{i}`" in t for t in spec_texts):
-                    warn(f"CONTEXT.md 语义核心: 不变量 `{i}` 未被任何非草稿 spec 引用（声明了就要有关闭它的验收行）")
+                    warn(
+                        f"CONTEXT.md 语义核心: 不变量 `{i}` 未被任何非草稿 spec 引用"
+                        "（声明了就要有关闭它的验收行）"
+                    )
 
 
 def check_spec(path, mods, root):
@@ -283,14 +291,23 @@ def check_tickets(root, mods):
         text = f.read_text(encoding="utf-8")
         sm = re.search(r"^\**[^\S\n]*Status[:：][^\S\n]*\**[^\S\n]*(\S+)", text, re.M)
         status = sm.group(1).strip("*") if sm else None
-        bm = re.search(r"^\**[^\S\n]*(?:Belongs to spec|所属[^\S\n]*spec)[:：]?[^\S\n]*\**[^\S\n]*([^\s*:][^\n]*)[^\S\n]*$", text, re.M)
+        bm = re.search(
+            r"^\**[^\S\n]*(?:Belongs to spec|所属[^\S\n]*spec)[:：]?"
+            r"[^\S\n]*\**[^\S\n]*([^\s*:][^\n]*)[^\S\n]*$",
+            text,
+            re.M,
+        )
         belongs = None
         if bm:
             bt = TICK.findall(bm.group(1))
             belongs = (bt[0] if bt else bm.group(1).strip()).split("/")[-1]
         touches = []
         for line in text.splitlines():
-            m = re.match(r"^\**[^\S\n]*(Touches modules|触及模块|模块)[:：]?[^\S\n]*\**[^\S\n]*(.+)$", line)
+            m = re.match(
+                r"^\**[^\S\n]*(Touches modules|触及模块|模块)[:：]?"
+                r"[^\S\n]*\**[^\S\n]*(.+)$",
+                line,
+            )
             if m:
                 touches.extend(TICK.findall(m.group(2)))
         for dep in touches:
@@ -335,7 +352,9 @@ def check_boundary_rules(root):
     for i, cells in enumerate(rows or [], 1):
         exc = cells[1].strip() if len(cells) > 1 else ""
         why = cells[2].strip() if len(cells) > 2 else ""
-        if exc and exc not in {"—", "-", "（无）", "无", "none", "n/a"} and (not why or why in {"—", "-", "无"}):
+        if exc and exc not in {"—", "-", "（无）", "无", "none", "n/a"} and (
+            not why or why in {"—", "-", "无"}
+        ):
             fail(f"modules.md: 边界规则第 {i} 行例外 `{exc}` 未附理由（无理由的例外不许存在）")
 
 
@@ -350,7 +369,10 @@ def check_page_map(root):
         return
     text = path.read_text(encoding="utf-8")
     if not re.search(r"^##\s*页面映射\s*$", text, re.M):
-        fail("modules.md: PRD 含 `## 页面清单` 但缺 `## 页面映射` 节(页面数据需求没有进接口闸 = Web 产品的阶段 2 未完成)")
+        fail(
+            "modules.md: PRD 含 `## 页面清单` 但缺 `## 页面映射` 节"
+            "(页面数据需求没有进接口闸 = Web 产品的阶段 2 未完成)"
+        )
         return
     rows = table_after(text.splitlines(), "## 页面映射")
     if not rows:
