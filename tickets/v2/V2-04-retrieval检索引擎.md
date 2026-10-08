@@ -1,6 +1,6 @@
 # V2-04 · retrieval 检索引擎
 
-状态: open
+状态: 实现中（2026-10-08，P-003 已派发）
 Touches modules: `retrieval`
 阻塞: V2-01｜被阻塞: V2-05
 

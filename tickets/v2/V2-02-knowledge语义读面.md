@@ -1,6 +1,6 @@
 # V2-02 · knowledge 语义读面
 
-状态: open
+状态: 实现中（2026-10-08，P-002 已派发）
 Touches modules: `knowledge`
 阻塞: V2-01｜被阻塞: V2-03、V2-05
 
