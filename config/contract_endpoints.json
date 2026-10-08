@@ -1192,6 +1192,27 @@
       "method": "DELETE",
       "path": "/api/keys/{}",
       "owner": "阶段 4 · F1 对外接口票（roadmap 对外）"
+    },
+    {
+      "book": "V2",
+      "no": "1",
+      "method": "POST",
+      "path": "/api/v2/chat/asks",
+      "owner": "V2-08 合同挂账登记（P-007·b 方案 2026-10-08）：去向＝teach 合同册 V2 登记稿——另立并行事项，登记稿落册后重跑 export 按 (V2,no) 键转正（no 序随本登记：1=asks/2=resume/3=runs 查询）；实现随 P-006（appv2 挂 /api/v2/chat/*）"
+    },
+    {
+      "book": "V2",
+      "no": "2",
+      "method": "POST",
+      "path": "/api/v2/chat/runs/{}/resume",
+      "owner": "V2-08 合同挂账登记（P-007·b 方案 2026-10-08）：去向＝teach 合同册 V2 登记稿——另立并行事项，登记稿落册后重跑 export 按 (V2,no) 键转正（no 序随本登记：1=asks/2=resume/3=runs 查询）；实现随 P-006（appv2 挂 /api/v2/chat/*）"
+    },
+    {
+      "book": "V2",
+      "no": "3",
+      "method": "GET",
+      "path": "/api/v2/chat/runs/{}",
+      "owner": "V2-08 合同挂账登记（P-007·b 方案 2026-10-08）：去向＝teach 合同册 V2 登记稿——另立并行事项，登记稿落册后重跑 export 按 (V2,no) 键转正（no 序随本登记：1=asks/2=resume/3=runs 查询）；实现随 P-006（appv2 挂 /api/v2/chat/*）"
     }
   ]
 }
