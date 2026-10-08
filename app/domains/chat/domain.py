@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 from typing import Any, Protocol
@@ -279,8 +279,13 @@ VERDICT_SOURCE_DETERMINISTIC = "deterministic"
 
 # LLM 意图裁决预算（常量集中可调）：单次分类调用超时秒——超时即兜底，不许问挂。
 INTENT_VERDICT_TIMEOUT_SECONDS = 8.0
+# LLM#plan 数据意图精解析单问超时秒（L-02 票内定案：与 verdict 同值——超时即兜底
+# 确定性快路，不许问挂）。
+INTENT_PLAN_TIMEOUT_SECONDS = 8.0
 # LLM 意图裁决 caller（D1 记账归因——与 chat.retrieval.* 同族点分形）。
 CALLER_INTENT_VERDICT = "chat.intent.verdict"
+# LLM#plan caller（L-02——D6：归因记账经 gateway 落列，同时是跨问熔断的数据源）。
+CALLER_INTENT_PLAN = "chat.intent.plan"
 
 # 建议池晋升闸（F60：孤例不进池——独立问句频次 ≥2 才晋升；faQ 扫库 SCAN_MIN_FREQ 同源）。
 SUGGESTION_PROMOTION_THRESHOLD = 2
@@ -1281,12 +1286,29 @@ ASKBACK_TIME_QUESTION = (
 )
 ASKBACK_TIME_CHOICES: tuple[str, ...] = ("近 3 天", "近 30 天", "本月至今")
 
+# —— 确定性数据问句词族（时间/条数两词表——L-02 提示词台账投影的导出面）——
+# 词表常量是 DATA_QUESTION_RE 的拼装源（同源不造第二份时间/条数词源——L-02 票内
+# 定案）；展示词表把模式形以样例展开（「近 N 天」→「近 3 天」等）。改一词两处同步
+# 由回归测试钉死（tests/domains/chat/test_chat_plan_prompt_wiring.py 词表同源例）。
+PLAN_TIME_WORDS: tuple[str, ...] = (
+    "昨天", "前天", "今天", "本月", "这个月", "上月", "上个月", "今年", "去年", "最近",
+)
+PLAN_COUNT_WORDS: tuple[str, ...] = (
+    "最高", "最低", "最大", "最小", "排名", "TOP", "top",
+)
+_PLAN_NEAR_N_PATTERN = r"近[0-9一二两三四五六七八九十]"
+_PLAN_FRONT_N_PATTERN = r"前\s*[0-9一二两三四五六七八九十]"
+_PLAN_MOUTH_N_PATTERN = r"[0-9一二两三四五六七八九十]+\s*口"
+PLAN_TIME_WORDS_DISPLAY: tuple[str, ...] = (*PLAN_TIME_WORDS, "近3天", "近30天")
+PLAN_COUNT_WORDS_DISPLAY: tuple[str, ...] = (*PLAN_COUNT_WORDS, "前 10", "三口", "TOP 3")
+
 # 确定性数据问句信号（意图路由——指标台账命中＋时间/数量/排名词面才入六站链；
 # 零模型调用。纯检索/释义问法不劫走——维持检索问答链主路径）。
 DATA_QUESTION_RE = re.compile(
-    r"昨天|前天|今天|本月|这个月|上月|上个月|今年|去年|最近|近[0-9一二两三四五六七八九十]"
-    r"|最高|最低|最大|最小|排名|TOP|top|前\s*[0-9一二两三四五六七八九十]"
-    r"|[0-9一二两三四五六七八九十]+\s*口"
+    "|".join((
+        *PLAN_TIME_WORDS, _PLAN_NEAR_N_PATTERN,
+        *PLAN_COUNT_WORDS, _PLAN_FRONT_N_PATTERN, _PLAN_MOUTH_N_PATTERN,
+    ))
 )
 DATA_ROUTE_CONFIDENCE = "高（指标台账命中——数据问句走状态机六站链）"
 
@@ -1553,6 +1575,401 @@ def plan_from_wire(payload: dict[str, Any]) -> QueryPlan:
         external_tables=tuple(payload.get("external_tables") or ()),
         actor=str(payload.get("actor") or ""),
     )
+
+
+# ---------- 问数入口精解析影子观测件（L-01——方案 v2.1 应用线阶段 A） ----------
+#
+# 架构主张（方案-LLM问数演进-20261005 §0/§2.3 D2/D4，拍板记录 2026-10-05 第 2 条）：
+# LLM#plan 只把自然语言问句翻译成受约束的「源槽位」意图草案（QueryPlanDraft），
+# 计量列/单位/身份/LIMIT 收口/外表集等派生字段一律服务端单源重推导；SQL 仍由装配器
+# 唯一产出。影子期（阶段 A）：产物只落日志不进任何生效路——真实 gateway 接线归
+# L-02，生效路与 pinned_plan 归 L-05。本节全是纯语义（B1——不咬框架不触 IO）。
+
+# Draft 准产白名单（五源槽位——LLM 只填问句里才有的信息；方案 §2.1 D2 槽位闭世界）。
+DRAFT_ALLOWED_KEYS: tuple[str, ...] = (
+    "metric_slot", "window", "limit_requested", "ranking", "direction",
+)
+
+# Draft 六禁区键 → 禁因（出现即拒，逐键报明——机制 1/2：防自由文本漂移、身份冒充、
+# 直索引物理列与幻觉外表名；键不在准产白名单，与携带值无关）。
+DRAFT_FORBIDDEN_REASONS: dict[str, str] = {
+    "actor": "身份字段恒服务端注入（生产调用点恒传 ctx.actor_who）——Draft 携带即冒充身份通道",
+    "metric_name": "台账原名由服务端经注册名重推导——LLM 不产展示名",
+    "measure_column": "agg 计量列由 metric_slot 经 MEASURE_COLUMNS 单源重推导"
+    "——禁止 LLM 直索引物理列",
+    "unit": "单位随 MEASURE_COLUMNS 绑定重推导——LLM 不产",
+    "limit_effective": "LIMIT 收口由服务端收口纯函数（50/200 只封顶不抬底）重推导"
+    "——LLM 只产显式条数",
+    "external_tables": "外表集唯一产源＝detect_external_tables 词面比对——LLM 提名即幻觉外表风险",
+}
+
+
+@dataclass(frozen=True, slots=True)
+class QueryPlanDraft:
+    """LLM#plan 源槽位意图草案（影子观测件——五源槽位白名单，六禁区键出现即拒）。
+
+    构造统一走 from_payload（载荷校验＋禁区键即拒都在那条路）；window 半开区间
+    [start, end) 与 TimeWindow 同形（label/is_default 是展示注记——比对算子记日志
+    不判分歧）；limit_requested 是问句显式条数的 LLM 声明（None＝没写），收口值
+    不得由 LLM 产出。影子期本草案只进 validator→比对→日志，零生效。
+    """
+
+    metric_slot: str
+    window: TimeWindow
+    limit_requested: int | None
+    ranking: bool
+    direction: str = DIRECTION_DESC
+
+    @classmethod
+    def from_payload(cls, payload: Mapping[str, Any]) -> QueryPlanDraft:
+        """LLM JSON 载荷 → 草案（字段白名单双向收窄——禁区键出现即拒，逐键报禁因）。"""
+        if not isinstance(payload, Mapping):
+            raise ValueError(
+                f"Draft 载荷必须是 JSON 对象，得到 {type(payload).__name__}"
+            )
+        forbidden = [key for key in DRAFT_FORBIDDEN_REASONS if key in payload]
+        if forbidden:
+            detail = "；".join(
+                f"{key}——{DRAFT_FORBIDDEN_REASONS[key]}" for key in forbidden
+            )
+            raise ValueError(
+                f"Draft 携带禁区键（出现即拒——字段白名单双向收窄）：{detail}"
+            )
+        unknown = sorted(set(payload) - set(DRAFT_ALLOWED_KEYS))
+        if unknown:
+            raise ValueError(
+                f"Draft 载荷含准产白名单外键 {unknown}"
+                f"（闭世界——只收五源槽位 {list(DRAFT_ALLOWED_KEYS)}）"
+            )
+        slot = payload.get("metric_slot")
+        if not isinstance(slot, str) or not slot.strip():
+            raise ValueError(f"Draft metric_slot 必须是非空字符串，得到 {slot!r}")
+        window = _draft_window_from_payload(payload.get("window"))
+        requested = payload.get("limit_requested")
+        if requested is not None:
+            if isinstance(requested, bool) or not isinstance(requested, int):
+                raise ValueError(
+                    f"Draft limit_requested 必须是 [1, 200] 整数或 null，得到 {requested!r}"
+                )
+            if not 1 <= requested <= QUERY_LIMIT_CAP:
+                raise ValueError(
+                    f"Draft limit_requested 超出 [1, {QUERY_LIMIT_CAP}]：{requested}"
+                    "（收口由服务端 effective_limit 做——LLM 只产显式条数）"
+                )
+        ranking = payload.get("ranking", False)
+        if not isinstance(ranking, bool):
+            raise ValueError(f"Draft ranking 必须是布尔值，得到 {ranking!r}")
+        direction = payload.get("direction", DIRECTION_DESC)
+        if direction not in (DIRECTION_ASC, DIRECTION_DESC):
+            raise ValueError(
+                f"Draft direction 必须是 {DIRECTION_ASC}/{DIRECTION_DESC} 二值，得到 {direction!r}"
+            )
+        return cls(
+            metric_slot=slot.strip(),
+            window=window,
+            limit_requested=requested,
+            ranking=ranking,
+            direction=direction,
+        )
+
+
+def _draft_window_from_payload(raw: Any) -> TimeWindow:
+    """Draft window 载荷校验（半开区间 [start, end)——start≥end 即拒）。"""
+    if not isinstance(raw, Mapping):
+        raise ValueError(f"Draft window 必须是含 start/end 的对象，得到 {raw!r}")
+    extra = set(raw) - {"start", "end", "label", "is_default"}
+    if extra:
+        raise ValueError(
+            f"Draft window 含白名单外键 {sorted(extra)}"
+            "（只收 start/end/label/is_default）"
+        )
+    try:
+        start = date.fromisoformat(str(raw.get("start")))
+        end = date.fromisoformat(str(raw.get("end")))
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"Draft window start/end 必须是 ISO 日期（YYYY-MM-DD）：{exc}"
+        ) from exc
+    if start >= end:
+        raise ValueError(
+            f"Draft window 非半开区间（start={start} ≥ end={end}）"
+            "——半开区间 [start, end) 要求 start < end"
+        )
+    label = raw.get("label", "")
+    is_default = raw.get("is_default", False)
+    if not isinstance(label, str):
+        raise ValueError(f"Draft window label 必须是字符串，得到 {label!r}")
+    if not isinstance(is_default, bool):
+        raise ValueError(f"Draft window is_default 必须是布尔值，得到 {is_default!r}")
+    return TimeWindow(start=start, end=end, label=label, is_default=is_default)
+
+
+def validate_query_plan_draft(
+    draft: QueryPlanDraft, *, question: str, actor: str = ""
+) -> QueryPlan:
+    """validator（L-01 交付物②——以 metric_slot 为唯一锚重推导，禁区字段零采信）。
+
+    measure_column/unit←MEASURE_COLUMNS[metric_slot]（resolve_measure 同源——
+    禁止第二份映射表）；metric_name←注册名（MEASURE_COLUMNS 键即注册名）；
+    limit_effective←effective_limit 收口纯函数（50/200）；external_tables←
+    detect_external_tables(问句) 词面比对；actor←函数参数注入（生产调用点恒传
+    ctx.actor_who——影子期恒为测试替身值）。metric_slot 不在注册目录即拒
+    （不在目录不代答——机制 3 台账绑定校验）。
+    """
+    bound = resolve_measure(draft.metric_slot)
+    if bound is None:
+        raise ValueError(
+            f"metric_slot {draft.metric_slot!r} 不在 MEASURE_COLUMNS 注册目录"
+            "——不在目录不代答（台账绑定校验）"
+        )
+    column, unit = bound
+    return QueryPlan(
+        metric_slot=draft.metric_slot,
+        metric_name=draft.metric_slot,
+        measure_column=column,
+        unit=unit,
+        window=draft.window,
+        limit_requested=draft.limit_requested,
+        limit_effective=effective_limit(draft.limit_requested),
+        ranking=draft.ranking,
+        direction=draft.direction,
+        external_tables=detect_external_tables(question),
+        actor=actor,
+    )
+
+
+# 双路比对三态（L-01 交付物③——一致／分歧（列明差异字段）／不可比（缺确定性解析））。
+PLAN_COMPARE_MATCH = "一致"
+PLAN_COMPARE_DIVERGE = "分歧"
+PLAN_COMPARE_INCOMPARABLE = "不可比"
+
+# 执行语义字段集（方案 §2.3 D3/评审意见 3——比对范围即此六字段；window.label/
+# is_default 是展示注记，记差异日志不判分歧）。
+PLAN_COMPARE_FIELDS: tuple[str, ...] = (
+    "metric_slot", "window.start", "window.end", "limit_effective", "ranking", "direction",
+)
+
+
+@dataclass(frozen=True, slots=True)
+class PlanComparison:
+    """双路比对结果（LLM 解析 vs 确定性解析——分歧列明字段，注记不判分歧）。"""
+
+    status: str  # PLAN_COMPARE_* 三态
+    divergent_fields: tuple[str, ...] = ()  # 分歧字段名（PLAN_COMPARE_FIELDS 子集）
+    notes: tuple[str, ...] = ()  # 记日志不判分歧的注记（window.label/is_default 差异）
+
+
+def _plan_compare_values(plan: QueryPlan) -> dict[str, object]:
+    """计划 → 执行语义字段值投影（PLAN_COMPARE_FIELDS 单源枚举驱动）。"""
+    return {
+        "metric_slot": plan.metric_slot,
+        "window.start": plan.window.start,
+        "window.end": plan.window.end,
+        "limit_effective": plan.limit_effective,
+        "ranking": plan.ranking,
+        "direction": plan.direction,
+    }
+
+
+def compare_query_plans(
+    draft_plan: QueryPlan | None, deterministic_plan: QueryPlan | None
+) -> PlanComparison:
+    """比对算子（L-01 交付物③——执行语义字段集逐字段等值；任一侧缺＝不可比）。"""
+    if draft_plan is None or deterministic_plan is None:
+        side = (
+            "draft 侧（未产出或被 validator 拒）"
+            if draft_plan is None
+            else "确定性解析侧（快路缺件未产出计划）"
+        )
+        return PlanComparison(
+            status=PLAN_COMPARE_INCOMPARABLE,
+            notes=(f"{side}缺解析——不可比",),
+        )
+    draft_values = _plan_compare_values(draft_plan)
+    det_values = _plan_compare_values(deterministic_plan)
+    divergent = tuple(
+        field for field in PLAN_COMPARE_FIELDS if draft_values[field] != det_values[field]
+    )
+    notes: list[str] = []
+    if draft_plan.window.label != deterministic_plan.window.label:
+        notes.append(
+            f"window.label 差异（draft={draft_plan.window.label!r}，"
+            f"确定性={deterministic_plan.window.label!r}）——记日志不判分歧"
+        )
+    if draft_plan.window.is_default != deterministic_plan.window.is_default:
+        notes.append(
+            f"window.is_default 差异（draft={draft_plan.window.is_default}，"
+            f"确定性={deterministic_plan.window.is_default}）——记日志不判分歧"
+        )
+    if divergent:
+        return PlanComparison(PLAN_COMPARE_DIVERGE, divergent, tuple(notes))
+    return PlanComparison(PLAN_COMPARE_MATCH, (), tuple(notes))
+
+
+# 触发原因标签（影子日志 trigger 字段值——触发谓词命中原因，对照方案 §2.2 慢路触发式）。
+PLAN_TRIGGER_LEXICAL_GAP = "词面不齐"
+PLAN_TRIGGER_PARSE_GAP = "解析缺件"
+
+
+def data_route_signal(question: str, candidates: Iterable[Candidate]) -> bool:
+    """确定性数据问句路由信号（M-06 单源——指标台账命中＋DATA_QUESTION_RE 词面）。
+
+    从 service._verdict_signals 兜底路由抽出复用（不复制第二份）：service 兜底
+    路由与 L-01 影子触发谓词同源消费。
+    """
+    return any(c.kind == "metric" for c in candidates) and is_data_question(question)
+
+
+def plan_parse_trigger_reasons(
+    *, question: str, metric_slot: str | None
+) -> tuple[str, ...]:
+    """快路缺件原因集（L-01 触发谓词核心——空集＝快路可解不触发）。
+
+    - 词面不齐：DATA_QUESTION_RE（时间/数量/排名词面）不命中——is_data_question
+      单源复用，不复制第二份正则；
+    - 解析缺件：确定性解析缺 metric 锚（无指标候选，或候选槽位未绑定计量列——
+      build_query_plan 前提不成立）。时间窗缺不在此列：「最近」类模糊窗走缺参
+      反问（缺的是用户事实——LLM#plan 不代猜），无显式时间走默认窗。
+    """
+    reasons: list[str] = []
+    if not is_data_question(question):
+        reasons.append(PLAN_TRIGGER_LEXICAL_GAP)
+    if metric_slot is None or resolve_measure(metric_slot) is None:
+        reasons.append(PLAN_TRIGGER_PARSE_GAP)
+    return tuple(reasons)
+
+
+def should_trigger_plan_parse(
+    *, verdict_chain: str | None, question: str, metric_slot: str | None
+) -> bool:
+    """L-01 触发谓词（交付物④）：verdict 判「状态机六站链」∧（词面不齐 ∨ 解析缺件）。
+
+    链名＝CHAIN17 成员字面（闭世界 17 链——与 service 兜底路由同串）。入口裁决层
+    （verdict dict 在场处）由 L-02 消费本谓词接线；链内影子观测点（裁决已判六站链、
+    项恒真）直接用 plan_parse_trigger_reasons。
+    """
+    if verdict_chain != "状态机六站链":
+        return False
+    return bool(plan_parse_trigger_reasons(question=question, metric_slot=metric_slot))
+
+
+# LLM#plan 调用缝类型（照 WaterlineLoader 注入缝同款形状——ChainDeps 可空 callable；
+# 入参＝问句，出参＝schema 校验后的草案或 None（超时/坏 JSON/白名单外/validator 拒
+# 的兜底归 drafter 实现——L-02 照 _verdict_llm 三重兜底模式填生产实现）。
+PlanDrafter = Callable[[str], Awaitable[QueryPlanDraft | None]]
+
+
+# ---------- L-02 提示词构建与影子接线——域内共享语义件（B1 纯语义，IO 归 service） ----------
+#
+# 方案 v2.1 应用线 L-02（tickets/phase3/L-02-提示词构建与影子接线.md）：构建器入参
+# 投影、影子日志增强记录、触发双分桶口径、调用遥测与落盘缝类型在此单源；构建器纯
+# 函数、生产 drafter、熔断器与 JSONL 落盘载体在 service.py（同址 INTENT_VERDICT
+# 提示词先例），链内观测点消费在 chains.py。
+
+
+@dataclass(frozen=True, slots=True)
+class PlanPromptProjection:
+    """LLM#plan 提示词·C1 台账投影（构建器入参②——三源票内定案零第二份）。
+
+    可出数指标＝MEASURE_COLUMNS 键集（注册目录即投影，不造第二份可出数清单）；
+    时间/条数词表＝DATA_QUESTION_RE 词族常量导出（PLAN_TIME_WORDS_DISPLAY/
+    PLAN_COUNT_WORDS_DISPLAY——词表即正则拼装源，改一词两处同步由回归测试钉死）。
+    """
+
+    metrics: tuple[str, ...] = field(default_factory=lambda: tuple(MEASURE_COLUMNS))
+    time_words: tuple[str, ...] = field(default_factory=lambda: PLAN_TIME_WORDS_DISPLAY)
+    count_words: tuple[str, ...] = field(default_factory=lambda: PLAN_COUNT_WORDS_DISPLAY)
+
+
+def default_plan_projection() -> PlanPromptProjection:
+    """现行台账投影（常量每次现取——随注册目录与词族演进同步，无快照漂移）。"""
+    return PlanPromptProjection()
+
+
+# 触发双分桶观测口径（L-02 票内定案——L-03 影子报告直接消费；口径可由实跑后调、
+# 偏差记回报）：过宽＝触发谓词 True 且比对三态「一致」（确定性解析本可解——LLM
+# 调用本可省）；过窄＝触发谓词 False 且本问最终落降级解释链或缺参澄清（快路信号
+# 判齐但快路没真正出数——谓词放过了该触发的问句）。
+PLAN_BUCKET_OVERWIDE = "过宽：触发但快路可解"
+PLAN_BUCKET_OVERNARROW = "过窄：该触发未触发"
+
+
+@dataclass(frozen=True, slots=True)
+class PlanCallTelemetry:
+    """单次 LLM#plan 调用遥测（drafter 产出→链内影子观测消费——影子日志增强字段源）。
+
+    token 值从 completer 返回对象属性读取，缺属性记 null——不因取数失败断流。
+    """
+
+    latency_ms: int | None = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    breaker_tripped: bool = False  # 本次调用被熔断短路（影子行标 breaker=tripped）
+
+
+@dataclass(frozen=True, slots=True)
+class ShadowPlanRecord:
+    """影子日志一行记录（L-01 四要素超集——只增不删向后兼容；LOGGER 行与 JSONL 双写共用）。"""
+
+    run_id: str
+    trigger: str  # 触发原因（"+" 连接——空＝谓词未触发的过窄桶观测行）
+    draft_state: str  # 比对三态（一致/分歧/不可比）
+    elapsed_ms: int  # 影子观测总耗时（drafter 调用＋validator＋比对）
+    divergent: str = ""  # 分歧字段（"," 连接）
+    note: str = ""  # 注记（label/is_default 差异＋validator 拒因＋桶说明等）
+    question: str = ""  # 原问句（JSONL 消费——LOGGER 行不携）
+    latency_ms: int | None = None  # LLM 调用本身延迟（裸替身/无调用＝null）
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    bucket: str | None = None  # 触发双分桶标记（PLAN_BUCKET_*——未入桶＝null）
+    breaker_tripped: bool = False  # 熔断短路标记（影子行标 breaker=tripped）
+
+
+def shadow_plan_log_line(record: ShadowPlanRecord) -> str:
+    """影子行文本渲染（单行结构化——[shadow-plan] 前缀＋L-01 原六字段保留＋L-02 附尾）。"""
+    latency = "-" if record.latency_ms is None else str(record.latency_ms)
+    prompt_tokens = "-" if record.prompt_tokens is None else str(record.prompt_tokens)
+    completion_tokens = (
+        "-" if record.completion_tokens is None else str(record.completion_tokens)
+    )
+    return (
+        f"[shadow-plan] run_id={record.run_id}"
+        f" trigger={record.trigger or '-'}"
+        f" draft_state={record.draft_state}"
+        f" elapsed_ms={record.elapsed_ms}"
+        f" divergent={record.divergent or '-'}"
+        f" note={record.note or '-'}"
+        f" latency_ms={latency}"
+        f" prompt_tokens={prompt_tokens}"
+        f" completion_tokens={completion_tokens}"
+        f" bucket={record.bucket or '-'}"
+        f" breaker={'tripped' if record.breaker_tripped else '-'}"
+    )
+
+
+def shadow_plan_json(record: ShadowPlanRecord, *, ts: str) -> dict[str, Any]:
+    """JSONL 载荷（字段超集——L-03 影子报告直接消费；ts 由落盘侧经 infra.clock 注入）。"""
+    return {
+        "ts": ts,
+        "run_id": record.run_id,
+        "question": record.question,
+        "trigger": record.trigger or None,
+        "draft_state": record.draft_state,
+        "elapsed_ms": record.elapsed_ms,
+        "divergent": record.divergent or None,
+        "note": record.note or None,
+        "latency_ms": record.latency_ms,
+        "prompt_tokens": record.prompt_tokens,
+        "completion_tokens": record.completion_tokens,
+        "bucket": record.bucket,
+        "breaker": "tripped" if record.breaker_tripped else None,
+    }
+
+
+class ShadowLogSinkFace(Protocol):
+    """影子日志落盘缝（生产＝service.ShadowLogSink JSONL＋logger 行双写；测试注桩）。"""
+
+    def write(self, record: ShadowPlanRecord) -> None: ...
 
 
 def render_plan_sql(plan: QueryPlan) -> str:
