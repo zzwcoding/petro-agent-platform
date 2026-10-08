@@ -1,0 +1,547 @@
+"""tools.handlers —— 四工具实现（engines 只读包装；specs/tools.md「四工具」行）。
+
+四工具＝三引擎公开接口的包装（零引擎逻辑——specs/tools.md「不做什么」）：
+- semantic_query（question｜element_name）→ knowledge.evidence＋metric_by_name
+  ——跨 kind 歧义名（「日产液」类）双落并列：evidence() 结果优先（术语卡一等
+  材料语义，在前）＋metric_by_name 补取可出数指标（别名归一落点，element_id
+  去重后并列在后）——V2-02 挂账对齐项①，合同语义在 semantic_query 的
+  ToolDescriptor.description 载明并由 tests/domains/test_v2_tools.py 钉死；
+- data_query（plan_draft）→ query.validate 先行（不过＝failed(bad_args, 校验
+  理由)，run 零调用），过闸后 run——六联合态→ToolResult 逐态映射（行为约定
+  4，_outcome_to_result 单点）；行级身份只从 ctx.actor 进（args 不设 actor——
+  伪造面收口）；FX-13 候选集从 ctx.metric_candidates 逐字转发；
+- doc_retrieve（question, anchors?, family_hints?）→ retrieval.retrieve——
+  anchors/family_hints/ctx.budget 逐字进 RetrievalNeed（P-003 已定实现＝并入
+  关键词腿检索单元＋编号保送——V2-04 挂账对齐项②的参数契约面）；
+- graph_query（question, anchors?）→ retrieval.graph——anchors 并入实体匹配
+  问针（锚定语义的图谱侧投影；引擎 face 按 question 子串匹配实体，锚名只在
+  anchors 提名时可达，测试端到端钉死）。
+
+观察装配单点：_evidence_observation（台账卡）、_rows_observations（权威表行
+scope=agg＋血缘卡＋改绑 notice）、_bundle_to_result（检索支出处链＋window_note
+截断声明）——每支 Observation 来源链必带、locator 机读（INV-1 输入）。
+
+引擎缝：QueryFace/RetrievalFace 结构性 Protocol（生产传真引擎，测试与 P-006
+runtime 传 fake.adapter 假引擎）；knowledge 直接用 KnowledgeStore 抽象基类
+（V2-02 定稿 seam）。本模块零 LLM 调用（精排/嵌入归引擎缝——B6 出口已在
+引擎内收口）。
+"""
+
+from __future__ import annotations
+
+from collections.abc import Iterable, Mapping
+from datetime import date
+from typing import Any, Protocol
+
+from appv2.knowledge import Evidence, KnowledgeStore, SemanticQuery
+from appv2.query import (
+    DIRECTION_DESC,
+    OUTCOME_EXTERNAL_TABLE_APPROVAL,
+    OUTCOME_FRESHNESS_BLOCK,
+    OUTCOME_NEED_CLARIFY,
+    OUTCOME_REFUSE,
+    OUTCOME_ROWS,
+    OUTCOME_UNBOUND_DEGRADE,
+    STAR_TABLES,
+    PlanCheck,
+    QueryOutcome,
+    QueryPlan,
+)
+from appv2.retrieval import (
+    FAMILY_ALL,
+    RetrievalBundle,
+    RetrievalNeed,
+)
+from appv2.retrieval import (
+    Observation as RetrievalObservation,
+)
+from appv2.tools.argscheck import ArgsError
+from appv2.tools.schema import (
+    ASK_CLARIFY,
+    ASK_EXTERNAL_TABLE_APPROVAL,
+    CATEGORY_BAD_ARGS,
+    CATEGORY_REFUSED,
+    AskFrame,
+    Observation,
+    Tool,
+    ToolContext,
+    ToolDescriptor,
+    ToolResult,
+)
+
+# ---------- 工具名闭世界（注册序＝specs/tools.md 接口定义节列序） ----------
+
+SEMANTIC_QUERY = "semantic_query"
+DATA_QUERY = "data_query"
+DOC_RETRIEVE = "doc_retrieve"
+GRAPH_QUERY = "graph_query"
+
+# ---------- 引擎缝（结构性 Protocol——只认公开接口两面） ----------
+
+
+class QueryFace(Protocol):
+    """问数引擎面（QueryEngine validate＋run——specs/modules.md query 卡原形）。"""
+
+    def validate(
+        self, plan: QueryPlan, *, candidates: Iterable[str] | None = None
+    ) -> PlanCheck: ...
+
+    def run(self, plan: QueryPlan) -> QueryOutcome: ...
+
+
+class RetrievalFace(Protocol):
+    """检索引擎面（RetrievalEngine retrieve＋graph——specs/modules.md retrieval 卡）。"""
+
+    async def retrieve(self, need: RetrievalNeed) -> RetrievalBundle: ...
+
+    async def graph(self, need: RetrievalNeed) -> RetrievalBundle: ...
+
+
+# ---------- args_schema（参数契约——数据面 schema 真源在各自引擎卡，工具层只引用） ----------
+
+_SEMANTIC_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "description": "question 与 element_name 二选一（同给同缺均拒）",
+    "properties": {
+        "question": {
+            "type": "string",
+            "minLength": 1,
+            "description": "语义问句（走台账精确名/别名归一匹配，未命中如实回执）",
+        },
+        "element_name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "台账要素精确名（指标/术语/对象/关系/族标注）",
+        },
+    },
+    "additionalProperties": False,
+}
+
+_DATA_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "plan_draft": {
+            "type": "object",
+            "description": (
+                "问数计划草案（QueryPlan 草案形——schema 真源在 query 卡，"
+                "工具层只引用；window 两槽同缺同在＝模糊时间缺参反问）"
+            ),
+            "properties": {
+                "metric_slot": {"type": "string", "minLength": 1},
+                "window_start": {"type": ["string", "null"], "description": "ISO 日期（含）"},
+                "window_end": {"type": ["string", "null"], "description": "ISO 日期（不含）"},
+                "limit": {"type": ["integer", "null"], "minimum": 1},
+                "ranking": {"type": "boolean"},
+                "direction": {"type": "string", "enum": ["asc", "desc"]},
+                "window_label": {"type": "string"},
+                "is_default": {"type": "boolean"},
+                "external_tables": {
+                    "type": "array",
+                    "items": {"type": "string", "minLength": 1},
+                },
+            },
+            "required": ["metric_slot", "ranking"],
+            "additionalProperties": False,
+        }
+    },
+    "required": ["plan_draft"],
+    "additionalProperties": False,
+}
+
+_DOC_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "question": {"type": "string", "minLength": 1},
+        "anchors": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1},
+            "description": "@ 锚定资产名——并入关键词腿检索单元＋编号保送（P-003 已定实现）",
+        },
+        "family_hints": {
+            "type": "array",
+            "items": {"type": "string", "enum": list(FAMILY_ALL)},
+        },
+    },
+    "required": ["question"],
+    "additionalProperties": False,
+}
+
+_GRAPH_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "question": {"type": "string", "minLength": 1},
+        "anchors": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1},
+            "description": "@ 锚定资产名——并入实体匹配问针（锚定语义的图谱侧投影）",
+        },
+    },
+    "required": ["question"],
+    "additionalProperties": False,
+}
+
+# ---------- descriptors（渐进披露：名称/一句话用途/参数 schema/只读声明） ----------
+
+_SEMANTIC_DESCRIPTION = (
+    "语义台账查询：按要素名或问句查指标/术语/对象/关系/族标注的口径卡（只读）。"
+    "跨 kind 歧义名（如「日产液」既是术语又是可出数指标的别名落点）：台账 "
+    "evidence() 结果优先（术语卡一等材料语义，在前），并组合 metric_by_name "
+    "补取可出数指标卡，双落并列返回；question 与 element_name 二选一。"
+)
+_DATA_DESCRIPTION = (
+    "权威问数：接收问数计划草案 plan_draft，先经确定性校验（query.validate），"
+    "过闸后只读执行，返回权威表（scope=agg）＋血缘卡观察；新鲜度拦停/在册未"
+    "绑定降级以闸依据观察＋notice 素材如实返回（零数值不冒充），缺参反问与外"
+    "表越集审批转 ask 帧。只读，不自由生成 SQL。"
+)
+_DOC_DESCRIPTION = (
+    "文档检索：问句双路召回＋供给窗（可带 anchors 锚定资产名——并入关键词腿"
+    "检索单元与编号保送通道；family_hints 族提示驱动供给分池），观察带 "
+    "fragment→report→library 出处链与截断显式 window_note。只读。"
+)
+_GRAPH_DESCRIPTION = (
+    "图谱查询：问句点名实体的一跳邻域边（可带 anchors 锚定资产名——并入实体"
+    "匹配问针），边出处 fail-closed 锚校验，观察带 library/报告出处。只读。"
+)
+
+# 权威表行来源链（agg 星型读模型事实表——表名机读单点）。
+_AGG_SOURCE = STAR_TABLES[0]
+
+
+# ---------- 装配（registry 构造期调用——引擎缝注入闭包） ----------
+
+
+def build_tools(
+    *, knowledge: KnowledgeStore, query: QueryFace, retrieval: RetrievalFace
+) -> list[Tool]:
+    """四工具装配（注册序＝specs/tools.md 列序；全部 readonly=True）。"""
+    async def _semantic(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+        return await semantic_query(args, ctx, knowledge=knowledge)
+
+    async def _data(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+        return await data_query(args, ctx, query=query)
+
+    async def _doc(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+        return await doc_retrieve(args, ctx, retrieval=retrieval)
+
+    async def _graph(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+        return await graph_query(args, ctx, retrieval=retrieval)
+
+    return [
+        Tool(
+            descriptor=ToolDescriptor(
+                name=SEMANTIC_QUERY,
+                description=_SEMANTIC_DESCRIPTION,
+                args_schema=_SEMANTIC_SCHEMA,
+            ),
+            handler=_semantic,
+        ),
+        Tool(
+            descriptor=ToolDescriptor(
+                name=DATA_QUERY,
+                description=_DATA_DESCRIPTION,
+                args_schema=_DATA_SCHEMA,
+            ),
+            handler=_data,
+        ),
+        Tool(
+            descriptor=ToolDescriptor(
+                name=DOC_RETRIEVE,
+                description=_DOC_DESCRIPTION,
+                args_schema=_DOC_SCHEMA,
+            ),
+            handler=_doc,
+        ),
+        Tool(
+            descriptor=ToolDescriptor(
+                name=GRAPH_QUERY,
+                description=_GRAPH_DESCRIPTION,
+                args_schema=_GRAPH_SCHEMA,
+            ),
+            handler=_graph,
+        ),
+    ]
+
+
+# ---------- 工具一：semantic_query ----------
+
+
+async def semantic_query(
+    args: dict[str, Any], ctx: ToolContext, *, knowledge: KnowledgeStore
+) -> ToolResult:
+    """语义台账查询（evidence() 优先＋metric_by_name 补取，双落并列去重）。"""
+    question = args.get("question")
+    element_name = args.get("element_name")
+    if (question is None) == (element_name is None):
+        raise ArgsError("question 与 element_name 须二选一（同给同缺均拒）")
+    text = str(element_name if element_name is not None else question).strip()
+    evidences = knowledge.evidence(SemanticQuery(text=text))
+    observations = [_evidence_observation(evidence) for evidence in evidences]
+    seen = {evidence.element_id for evidence in evidences}
+    metric = knowledge.metric_by_name(text)
+    if metric is not None and metric.element_id not in seen:
+        observations.append(_evidence_observation(metric))  # 对齐项①补取位
+    if not observations:
+        observations.append(
+            _notice_observation(
+                content=f"台账未命中：{text}（精确名与别名归一均未命中——请核对要素名）",
+                notice_type="no_hit",
+                source="sem_* 台账读面",
+                source_id="no_hit",
+            )
+        )
+    return ToolResult.ok(observations)
+
+
+def _evidence_observation(evidence: Evidence) -> Observation:
+    """台账卡→统一观察（content←value、source_id←element_id、locator←source）。"""
+    return Observation(
+        content=evidence.value,
+        source=evidence.source,
+        source_id=evidence.element_id,
+        version=evidence.version,
+        freshness=evidence.freshness,
+        scope=evidence.scope,
+        locator={
+            "kind": evidence.kind,
+            "element_id": evidence.element_id,
+            "source": evidence.source,
+            "binding_state": evidence.binding_state,
+        },
+    )
+
+
+# ---------- 工具二：data_query ----------
+
+
+async def data_query(
+    args: dict[str, Any], ctx: ToolContext, *, query: QueryFace
+) -> ToolResult:
+    """权威问数（plan_draft 先经 query.validate——不过＝bad_args，run 零调用）。"""
+    plan = _plan_from_draft(args["plan_draft"], actor=ctx.actor)
+    check = query.validate(plan, candidates=ctx.metric_candidates)
+    if not check.ok:
+        return ToolResult.failed(
+            CATEGORY_BAD_ARGS,
+            check.reason or "计划校验未过",
+            hint="按校验理由修 plan_draft 后重试（校验拒＝引擎未执行）",
+        )
+    return _outcome_to_result(query.run(plan))
+
+
+def _plan_from_draft(draft: Mapping[str, Any], *, actor: str) -> QueryPlan:
+    """草案→QueryPlan（日期解析/构造校验失败＝ArgsError→bad_args；身份只从 ctx 进）。"""
+    try:
+        start_raw = draft.get("window_start")
+        end_raw = draft.get("window_end")
+        window_start = date.fromisoformat(str(start_raw)) if start_raw is not None else None
+        window_end = date.fromisoformat(str(end_raw)) if end_raw is not None else None
+        return QueryPlan(
+            metric_slot=str(draft["metric_slot"]),
+            window_start=window_start,
+            window_end=window_end,
+            limit=draft.get("limit"),
+            ranking=bool(draft["ranking"]),
+            direction=str(draft.get("direction") or DIRECTION_DESC),
+            window_label=str(draft.get("window_label") or ""),
+            is_default=bool(draft.get("is_default", False)),
+            external_tables=tuple(draft.get("external_tables") or ()),
+            actor=actor,
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ArgsError(f"plan_draft 装配失败：{exc}") from exc
+
+
+def _outcome_to_result(outcome: QueryOutcome) -> ToolResult:
+    """六联合态→ToolResult 逐态映射（specs/tools.md 行为约定 4 单点）。"""
+    if outcome.kind == OUTCOME_ROWS:
+        return ToolResult.ok(_rows_observations(outcome))
+    if outcome.kind == OUTCOME_FRESHNESS_BLOCK:
+        return ToolResult.ok(
+            (
+                _notice_observation(
+                    content=outcome.message or "",
+                    notice_type=OUTCOME_FRESHNESS_BLOCK,
+                    source="汇总层水位读面",
+                    extra={
+                        "watermark_date": (
+                            outcome.watermark_date.isoformat()
+                            if outcome.watermark_date is not None
+                            else ""
+                        ),
+                        "window_label": outcome.window_label or "",
+                        "is_default": "true" if outcome.is_default else "false",
+                    },
+                ),
+            )
+        )
+    if outcome.kind == OUTCOME_UNBOUND_DEGRADE:
+        observations: list[Observation] = []
+        if outcome.evidence is not None:
+            observations.append(_evidence_observation(outcome.evidence))
+        observations.append(
+            _notice_observation(
+                content=outcome.basis or "",
+                notice_type=OUTCOME_UNBOUND_DEGRADE,
+                source="query 引擎降级依据",
+            )
+        )
+        return ToolResult.ok(observations)
+    if outcome.kind == OUTCOME_NEED_CLARIFY:
+        return ToolResult.ask_frame(
+            AskFrame(
+                kind=ASK_CLARIFY,
+                prompt=outcome.clarify_question or "",
+                options=tuple(outcome.choices or ()),
+            )
+        )
+    if outcome.kind == OUTCOME_EXTERNAL_TABLE_APPROVAL:
+        ask_card = dict(outcome.ask or {})
+        return ToolResult.ask_frame(
+            AskFrame(
+                kind=ASK_EXTERNAL_TABLE_APPROVAL,
+                prompt=str(ask_card.get("reason", "")),
+                options=("批准", "驳回"),
+                detail=ask_card or None,
+            )
+        )
+    if outcome.kind == OUTCOME_REFUSE:
+        return ToolResult.failed(
+            CATEGORY_REFUSED,
+            outcome.reason or "闸拒",
+            hint="口径/数据闸拒——不重试，按拒因如实转用户",
+        )
+    raise ValueError(f"未知 QueryOutcome.kind：{outcome.kind!r}（六联合态闭世界外）")
+
+
+def _rows_observations(outcome: QueryOutcome) -> list[Observation]:
+    """权威表＋血缘卡→观察列（行级表名出处＋locator 机读行键；scope=agg）。"""
+    observations: list[Observation] = []
+    columns = outcome.columns or ()
+    keys = [data_index for data_index, _title in columns]
+    titles = [title for _data_index, title in columns]
+    for row in outcome.rows or ():
+        well_id = str(row.get("well_id", ""))
+        prod_date = row.get("prod_date")
+        locator = {"kind": "agg_row", "table": _AGG_SOURCE, "well_id": well_id}
+        source_id = well_id
+        if prod_date is not None:
+            locator["prod_date"] = str(prod_date)
+            source_id = f"{well_id}@{prod_date}"
+        content = "；".join(
+            f"{title}={_cell(row.get(key))}" for key, title in zip(keys, titles, strict=True)
+        )
+        observations.append(
+            Observation(
+                content=content,
+                source=_AGG_SOURCE,
+                source_id=source_id,
+                version=None,  # 行级无版本承载——零发明
+                freshness="",  # 时效在血缘卡④水位行——行级不重复标注
+                scope="agg",  # specs/tools.md 行为约定 4：权威表 scope=agg
+                locator=locator,
+            )
+        )
+    if outcome.lineage:
+        observations.append(
+            Observation(
+                content="\n".join(f"{line.key} {line.value}" for line in outcome.lineage),
+                source=" ⋈ ".join(STAR_TABLES),
+                source_id="lineage",
+                version=None,
+                freshness="",
+                scope="agg",
+                locator={"kind": "lineage", "table": _AGG_SOURCE},
+            )
+        )
+    if outcome.rebind_notice:
+        observations.append(
+            _notice_observation(
+                content=outcome.rebind_notice,
+                notice_type="rebind",
+                source="汇总层水位读面",
+            )
+        )
+    return observations
+
+
+def _cell(value: Any) -> str:
+    return "" if value is None else str(value)
+
+
+def _notice_observation(
+    *,
+    content: str,
+    notice_type: str,
+    source: str,
+    source_id: str | None = None,
+    extra: Mapping[str, str] | None = None,
+) -> Observation:
+    """notice 素材观察（闸依据/截断声明/未命中——locator.kind=notice 机读分型）。"""
+    locator = {"kind": "notice", "notice_type": notice_type}
+    if extra:
+        locator.update(extra)
+    return Observation(
+        content=content,
+        source=source,
+        source_id=source_id if source_id is not None else notice_type,
+        version=None,
+        freshness="",
+        scope="",
+        locator=locator,
+    )
+
+
+# ---------- 工具三/四：doc_retrieve 与 graph_query ----------
+
+
+async def doc_retrieve(
+    args: dict[str, Any], ctx: ToolContext, *, retrieval: RetrievalFace
+) -> ToolResult:
+    """文档检索（anchors/family_hints/ctx.budget 逐字进 RetrievalNeed——对齐项②契约）。"""
+    need = RetrievalNeed(
+        question=str(args["question"]),
+        anchors=tuple(args.get("anchors") or ()),
+        family_hints=tuple(args.get("family_hints") or ()),
+        budget=ctx.budget,
+    )
+    return _bundle_to_result(await retrieval.retrieve(need))
+
+
+async def graph_query(
+    args: dict[str, Any], ctx: ToolContext, *, retrieval: RetrievalFace
+) -> ToolResult:
+    """图谱查询（anchors 并入实体匹配问针——引擎 face 按问针子串匹配实体名）。"""
+    question = str(args["question"])
+    anchors = tuple(args.get("anchors") or ())
+    needle = question if not anchors else f"{question} {' '.join(anchors)}"
+    need = RetrievalNeed(question=needle, anchors=anchors, budget=ctx.budget)
+    return _bundle_to_result(await retrieval.graph(need))
+
+
+def _bundle_to_result(bundle: RetrievalBundle) -> ToolResult:
+    """供给窗→观察列（每支出处链逐支透传＋window_note 截断声明 notice）。"""
+    observations = [_retrieval_observation(obs) for obs in bundle.observations]
+    observations.append(
+        _notice_observation(
+            content=bundle.window_note,
+            notice_type="window_note",
+            source="检索供给窗声明（截断显式）",
+        )
+    )
+    return ToolResult.ok(observations)
+
+
+def _retrieval_observation(obs: RetrievalObservation) -> Observation:
+    """检索观察→统一观察（fragment→report→library 出处链原样＋kind 分型）。"""
+    locator = {str(key): str(value) for key, value in obs.locator.items()}
+    locator["kind"] = obs.kind  # fragment | graph
+    return Observation(
+        content=obs.text,
+        source=obs.report,  # report 级
+        source_id=obs.fragment_id or "",  # fragment 级（图谱无锚边＝空串如实）
+        version=None,
+        freshness="",
+        scope=obs.family,  # family 标注（库 biz_template 透传）
+        locator=locator,  # library 级＋section/fragment_id 机读
+    )

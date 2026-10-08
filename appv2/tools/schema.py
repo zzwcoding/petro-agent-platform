@@ -1,0 +1,193 @@
+"""tools.schema —— 工具层 schema 定稿（specs/tools.md 接口定义节；票面点名随本票定稿）。
+
+四 schema＋两伴生件（票面点名）：
+- ToolDescriptor＝{name, description, args_schema(jsonschema), readonly: True}
+  ——渐进披露发现面（书 5.5 三层披露之发现层：只暴露名称/一句话用途/参数
+  schema/只读声明）；
+- ToolContext＝{actor, budget, metric_candidates}——逐调用上下文：actor＝行级
+  注入身份（data_query→plan.actor；身份只从 ctx 进、不从 args 进——伪造面
+  收口），budget＝检索送窗预算（doc_retrieve/graph_query→RetrievalNeed.budget），
+  metric_candidates＝问句指标候选集（FX-13 一致性闸素材，runtime 规划步供给，
+  data_query 逐字转发 query.validate）；
+- ToolResult＝{status: ok|failed|ask, observations, ask: AskFrame|None,
+  error: ToolError|None}——三态构造即定型不变式：ok 无 ask/error、failed 必有
+  error、ask 必有 ask（C1 slots domain 同款纪律）；
+- AskFrame＝{kind: clarify|external_table_approval, prompt, options, detail}
+  ——detail＝审批卡素材（approval_id/scene/title/reason/impact，A1 帧 15 形状
+  透传，resume 留痕必需——specs 注记三字段之外的定稿补充，票面验收有查）；
+- ToolError＝{category: retryable|bad_args|refused, message, hint}——错误三
+  分类（行为约定 3：超时/上游抖动→retryable；计划或参数错→bad_args；闸拒→
+  refused）；
+- Observation＝{content, source, source_id, version, freshness, scope, locator}
+  ——统一观察（INV-1 的输入）：来源链必带（台账行/fragment→report→library/
+  表名），locator 机读（kind 键分型：ledger 卡/agg_row/lineage/fragment/graph/
+  notice）。knowledge Evidence 同形位映射＝content←value、source_id←
+  element_id、locator←source（V2-02 票面留位，本票落定）。
+
+零 I/O、零第三方依赖（纯 stdlib dataclass）。
+"""
+
+from __future__ import annotations
+
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import dataclass
+from typing import Any
+
+# ---------- ToolResult.status 三态闭世界 ----------
+
+STATUS_OK = "ok"
+STATUS_FAILED = "failed"
+STATUS_ASK = "ask"
+STATUS_ALL: frozenset[str] = frozenset({STATUS_OK, STATUS_FAILED, STATUS_ASK})
+
+# ---------- ToolError.category 三分类闭世界（行为约定 3） ----------
+
+CATEGORY_RETRYABLE = "retryable"  # 超时/上游抖动——可同参重试一次
+CATEGORY_BAD_ARGS = "bad_args"  # 计划或参数错——修参重试
+CATEGORY_REFUSED = "refused"  # 闸拒（无据/越权口径）——不重试
+CATEGORY_ALL: frozenset[str] = frozenset(
+    {CATEGORY_RETRYABLE, CATEGORY_BAD_ARGS, CATEGORY_REFUSED}
+)
+
+# ---------- AskFrame.kind 闭世界 ----------
+
+ASK_CLARIFY = "clarify"  # 缺参反问（askback 时间窗三选一）
+ASK_EXTERNAL_TABLE_APPROVAL = "external_table_approval"  # 外表越集审批
+ASK_KINDS: frozenset[str] = frozenset({ASK_CLARIFY, ASK_EXTERNAL_TABLE_APPROVAL})
+
+
+@dataclass(frozen=True, slots=True)
+class ToolDescriptor:
+    """工具描述卡（渐进披露发现面——registry 只透出这四个字段）。"""
+
+    name: str
+    description: str
+    args_schema: Mapping[str, Any]  # JSON Schema 常用子集（argscheck 校验器消费）
+    readonly: bool = True  # INV-2——registry 拒绝注册 readonly!=True 的工具
+
+
+@dataclass(frozen=True, slots=True)
+class ToolContext:
+    """逐调用上下文（身份/预算/候选集——运行策略归调用方，不进 args）。"""
+
+    actor: str = ""  # 行级注入身份（data_query→plan.actor；两步缝第一步）
+    budget: int = 4  # 检索送窗预算 M（RetrievalNeed.budget——截断显式的 M）
+    metric_candidates: tuple[str, ...] | None = None  # FX-13 候选集（None＝不启用）
+
+    def __post_init__(self) -> None:
+        if isinstance(self.budget, bool) or not isinstance(self.budget, int):
+            raise ValueError(f"ToolContext.budget 须为整数：{self.budget!r}")
+        if self.budget < 1:
+            raise ValueError(f"ToolContext.budget 须 ≥1：{self.budget!r}")
+
+
+@dataclass(frozen=True, slots=True)
+class ToolError:
+    """工具错误（三分类闭世界——构造即拒越界）。"""
+
+    category: str  # CATEGORY_* 三值
+    message: str
+    hint: str | None = None  # 处置指引（可重试/修参/不重试转人工）
+
+    def __post_init__(self) -> None:
+        if self.category not in CATEGORY_ALL:
+            raise ValueError(
+                f"ToolError.category 越界（三分类闭世界 {sorted(CATEGORY_ALL)}）："
+                f"{self.category!r}"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class AskFrame:
+    """ASK 帧（agent 挂起等人工的两形态——缺参反问/外表越集审批）。
+
+    detail＝审批卡素材透传（A1 帧 15 合同形状：approval_id/scene/title/reason/
+    impact/audit_hint——approval_id 供 resume 留痕必需；clarify 态 detail＝None）。
+    """
+
+    kind: str  # ASK_* 两值闭世界
+    prompt: str
+    options: tuple[str, ...] = ()  # 选项（clarify＝三选一；审批＝批准/驳回）
+    detail: Mapping[str, Any] | None = None
+
+    def __post_init__(self) -> None:
+        if self.kind not in ASK_KINDS:
+            raise ValueError(
+                f"AskFrame.kind 越界（闭世界 {sorted(ASK_KINDS)}）：{self.kind!r}"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class Observation:
+    """统一观察（specs/tools.md 接口定义节原形——agent 与世界接触的素材单元）。
+
+    来源链必带（INV-1 的输入）：台账行（source＝sem_*#行 id）、权威表行
+    （source/locator.table＝表名）、检索支（fragment→report→library 三级）；
+    locator 恒机读（kind 键分型＋定位键）。
+    """
+
+    content: str
+    source: str
+    source_id: str
+    version: str | None
+    freshness: str
+    scope: str
+    locator: Mapping[str, str]
+
+
+@dataclass(frozen=True, slots=True)
+class ToolResult:
+    """工具统一出口（三态构造即定型：ok 无 ask/error、failed 必有 error、ask 必有 ask）。"""
+
+    status: str  # STATUS_* 三值闭世界
+    observations: tuple[Observation, ...]
+    ask: AskFrame | None
+    error: ToolError | None
+
+    def __post_init__(self) -> None:
+        if self.status not in STATUS_ALL:
+            raise ValueError(
+                f"ToolResult.status 越界（三态闭世界 {sorted(STATUS_ALL)}）：{self.status!r}"
+            )
+        if self.status == STATUS_OK and (self.ask is not None or self.error is not None):
+            raise ValueError("ToolResult status=ok 不得携带 ask/error")
+        if self.status == STATUS_FAILED and self.error is None:
+            raise ValueError("ToolResult status=failed 必携 error（三分类）")
+        if self.status == STATUS_ASK and self.ask is None:
+            raise ValueError("ToolResult status=ask 必携 AskFrame")
+
+    @classmethod
+    def ok(cls, observations: Sequence[Observation] = ()) -> ToolResult:
+        return cls(STATUS_OK, tuple(observations), None, None)
+
+    @classmethod
+    def failed(
+        cls,
+        category: str,
+        message: str,
+        *,
+        hint: str | None = None,
+        observations: Sequence[Observation] = (),
+    ) -> ToolResult:
+        return cls(
+            STATUS_FAILED, tuple(observations), None,
+            ToolError(category=category, message=message, hint=hint),
+        )
+
+    @classmethod
+    def ask_frame(
+        cls, frame: AskFrame, *, observations: Sequence[Observation] = ()
+    ) -> ToolResult:
+        return cls(STATUS_ASK, tuple(observations), frame, None)
+
+
+# 工具执行器形状（handler 签名——registry 调出口唯一消费形）。
+ToolHandler = Callable[[dict[str, Any], ToolContext], Awaitable[ToolResult]]
+
+
+@dataclass(frozen=True, slots=True)
+class Tool:
+    """注册项（描述卡＋执行器捆绑——registry.register 的入参单元）。"""
+
+    descriptor: ToolDescriptor
+    handler: ToolHandler
