@@ -43,3 +43,6 @@ name = "V2 B6：litellm 唯一接触点=appv2.infra.llm_client"
 type = "forbidden"
 source_modules = ["appv2"]
 forbidden_modules = ["litellm"]
+ignore_imports = [
+    "appv2.infra.llm_client -> litellm",
+]
