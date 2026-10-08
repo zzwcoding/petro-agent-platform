@@ -109,6 +109,10 @@ class ChatRunRow(Base):
     verdict: Mapped[dict[str, Any] | None] = mapped_column(_J, nullable=True)
     pending_interrupt: Mapped[dict[str, Any] | None] = mapped_column(_J, nullable=True)
     pending_approval_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # L-05 pinned_plan 持久化载体（机制 11——已验证 QueryPlan 的 dict 投影，
+    # domain.plan_pinned_payload 单源序列化；NULL＝本 run 未走 LLM 生效路）。
+    # 恢复消费前必经 revalidate_pinned_plan 确定性复验——不盲信持久化载荷。
+    plan_pinned: Mapped[dict[str, Any] | None] = mapped_column(_J, nullable=True)
     clarify_count: Mapped[int] = mapped_column(
         SmallInteger, nullable=False, default=0
     )

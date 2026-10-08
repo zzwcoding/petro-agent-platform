@@ -451,6 +451,7 @@ class ChatService:
         query_executor: d.QueryExecutor | None = None,
         waterline_loader: d.WaterlineLoader | None = None,
         freshness_gate_enabled: bool | None = None,
+        plan_effective_enabled: bool | None = None,
         shadow_log_path: str | Path | None = None,
     ) -> None:
         self._db = db
@@ -476,6 +477,12 @@ class ChatService:
         # env FRESHNESS_GATE_ENABLED 覆盖；缺省 true＝现状）。
         if freshness_gate_enabled is None:
             freshness_gate_enabled = get_chat_settings().freshness_gate_enabled
+        # L-05 生效开关装配缝（闸 B——回退纪律载体）：显式注入优先（测试/覆盖口）；
+        # 缺省读 InfraSettings（infra.config——env PLAN_EFFECTIVE_ENABLED 覆盖；
+        # 缺省 false＝快路-only 现状逐字节不变）。
+        if plan_effective_enabled is None:
+            plan_effective_enabled = get_settings().plan_effective_enabled
+        self._plan_effective_enabled = plan_effective_enabled
         # —— L-02 影子接线（域内装配——组合根零改动）：生产 drafter（gateway B6 出口
         # caller=chat.intent.plan＋单问三重兜底＋跨问熔断——阈值两键经 Settings 面，
         # 缺省 None＝不启用）与影子日志双写载体。completer 未装配（替身缺席的极简单
@@ -700,6 +707,9 @@ class ChatService:
         )
         cfg = await self._config_loader()
         verdict = await self._decide(text, assembly, cfg)
+        # —— L-05 生效路（闸 B）：开关 on∧六站链∧触发谓词 → 入口层 LLM#plan 钉入
+        # （validator 拒的兜底分派在方法内票内定案落位——澄清帧有界一次/现状降级）。
+        pinned_plan = await self._effective_plan_pin(text, assembly, verdict, run, actor_who)
         await self._record_verdict(run, verdict)
         yield d.SseEvent(d.FRAME_VERDICT, _wire_verdict(verdict))
         if verdict.get("need_clarify") is True:
@@ -740,7 +750,7 @@ class ChatService:
         # —— ④ 执行链分发（17 链闭世界；未接线链已在 N5b 回退检索问答链——P1F-01）——
         async for event in self._run_chain(
             str(verdict["chain"]), run, text, actor_who, assembly, verdict=verdict,
-            anchors=anchors, ban_exempt_note=ban_exempt_note,
+            anchors=anchors, ban_exempt_note=ban_exempt_note, pinned_plan=pinned_plan,
         ):
             yield event
 
@@ -1106,6 +1116,10 @@ class ChatService:
                         "text": f"已按默认口径「{caliber_name}」锁定并标注——澄清帧有界循环"
                                 "（最多弹一次），两跳到终态。",
                     })
+        # L-05：澄清续推路不触发生效路（入口生效路只接 ask 主入口——边界记票面回报）；
+        # 来源披露照 on 态六站链恒带口径补 deterministic（链已定路零 LLM#plan 调用）。
+        if str(verdict.get("chain") or "") == "状态机六站链":
+            self._attach_intent_source(verdict, pinned=False)
         await self._record_verdict(run, verdict)
         yield d.SseEvent(d.FRAME_VERDICT, _wire_verdict(verdict))
         chain_clarify = subtype in ("rewrite", d.MISSING_SUBTYPE)
@@ -1223,6 +1237,23 @@ class ChatService:
         approval_id = str(pending.get("approval_id") or "")
         tables = "、".join(str(t) for t in (pending.get("tables") or []))
         chain = str(pending.get("chain") or "状态机六站链")
+        # —— L-05 恢复重放（机制 11：F7 幂等升级为「持久化意图的确定性重放」）——
+        # 取持久化 plan_pinned → 重跑 validator 只做确定性复验（零模型——不重调
+        # LLM，不盲信挂起载荷）；过则整节点重跑消费钉入 plan（D1 前提：批过的
+        # 外表集与重跑后执行的一致——重推导字段以复验产出为准），拒则按现状链路。
+        pinned_plan: d.QueryPlan | None = None
+        if run.plan_pinned:
+            try:
+                pinned_plan = d.revalidate_pinned_plan(
+                    d.plan_pinned_from_payload(run.plan_pinned),
+                    question=question, actor=actor_who,
+                )
+            except ValueError as exc:
+                LOGGER.warning(
+                    "审批恢复：持久化 plan 复验拒（run %s）：%s——按现状链路续跑（不盲信）",
+                    run.id, exc,
+                )
+                pinned_plan = None
         run.status = "running"
         run.pending_interrupt = None
         run.pending_approval_id = None
@@ -1242,6 +1273,7 @@ class ChatService:
             "need_clarify": False,
             "source": d.VERDICT_SOURCE_DETERMINISTIC,
         }
+        self._attach_intent_source(verdict, pinned=pinned_plan is not None)
         await self._record_verdict(run, verdict)
         yield d.SseEvent(d.FRAME_VERDICT, _wire_verdict(verdict))
         yield d.node_frame(
@@ -1273,6 +1305,7 @@ class ChatService:
             verdict=verdict, extable_decision=decision,
             extable_approval_id=approval_id or None,
             anchors=_pending_anchors(pending), ban_exempt_note=approval_note,
+            pinned_plan=pinned_plan,
         ):
             yield event
 
@@ -1841,6 +1874,103 @@ class ChatService:
         verdict["chain"] = "检索问答链"
         return (f"原裁决＝「{chain}」未接线——回退检索问答链", chain)
 
+    # ---------- L-05 生效路（闸 B——入口层生效＋最小披露同批） ----------
+
+    def _attach_intent_source(self, verdict: dict[str, Any], *, pinned: bool) -> None:
+        """verdict 帧 additive 意图来源键（D5/teach T-01 登记——`intent_source`）。
+
+        on 态六站链 run 恒带：llm_plan＝钉入生效｜deterministic＝快路或兜底；
+        off 态零键（回退纪律——快路-only 现状逐字节不变），唯钉入生效例外
+        （off 后恢复已生效 run 仍消费持久化 plan——披露如实随行）。
+        """
+        if self._plan_effective_enabled or pinned:
+            verdict[d.INTENT_SOURCE_KEY] = (
+                d.INTENT_SOURCE_LLM_PLAN if pinned else d.INTENT_SOURCE_DETERMINISTIC
+            )
+
+    async def _effective_plan_pin(
+        self, question: str, assembly: d.AssemblyResult, verdict: dict[str, Any],
+        run: ChatRunRow, actor_who: str,
+    ) -> d.QueryPlan | None:
+        """L-05 生效路单点（入口层唯一 LLM#plan 生效调用位——链体零模型守 D1）。
+
+        开关 on∧裁决「状态机六站链」∧触发谓词命中（d.should_trigger_plan_parse
+        L-01 单源，锚判据 d.plan_metric_anchor 同源）→ deps.plan_drafter（L-02 生产
+        影子 drafter 复用——B6 出口 caller=chat.intent.plan，零新调用面）→ validator
+        收口（validate_query_plan_draft）→ 返回钉入计划：调用方钉进 ctx.pinned_plan
+        进链＋run.plan_pinned 落列（审批恢复确定性重放的持久化载体）；链内 N7.1
+        重跑 validator 只做确定性复验（零模型）后消费。
+
+        副作用面（票内定案分派）：
+        - verdict["intent_source"] additive 键：on 态六站链 run 恒带（llm_plan＝
+          钉入生效｜deterministic＝快路或兜底）；off 态零键（现状逐字节不变）；
+        - validator 拒（drafter None/异常/收口拒）∧澄清额度在∧候选可用 → verdict
+          原地翻转为 candidates 澄清帧（既有 need_clarify 流承接——有界一次，澄清
+          额度机制现状不动，第二次 409 合同值照旧）；无额度或无候选 → 不翻转
+          （现状链路：链内降级解释链接续）。
+        """
+        chain = str(verdict.get("chain") or "")
+        if chain != "状态机六站链":
+            return None  # 非问数入口——verdict 帧零改动（既有形状不变）
+        anchor = d.plan_metric_anchor(assembly.metric_cards)
+        if not d.should_trigger_plan_parse(
+            verdict_chain=chain, question=question,
+            metric_slot=anchor[0] if anchor is not None else None,
+        ):
+            self._attach_intent_source(verdict, pinned=False)  # 快路——恒 deterministic
+            return None
+        if not self._plan_effective_enabled or self._deps.plan_drafter is None:
+            # off＝零键（helper 闸）；on 而 drafter 未装配（替身缺席极简形状）＝快路-only。
+            self._attach_intent_source(verdict, pinned=False)
+            return None
+        draft: d.QueryPlanDraft | None = None
+        try:
+            draft = await self._deps.plan_drafter(question)
+        except Exception as exc:  # LLM 故障不炸主链（影子观测吞并纪律同款）
+            LOGGER.warning("生效路 LLM#plan 异常（%s: %s）——兜底路", type(exc).__name__, exc)
+        plan: d.QueryPlan | None = None
+        if draft is not None:
+            try:
+                plan = d.ground_pinned_window(
+                    d.validate_query_plan_draft(
+                        draft, question=question, actor=actor_who,
+                    ),
+                    question=question,  # 时间落定守卫——零时间词问句的编造窗不生效
+                )
+            except ValueError as exc:
+                LOGGER.warning("生效路 validator 拒：%s——兜底路", exc)
+        if plan is None:
+            if run.clarify_count < d.CLARIFY_MAX_POPUPS:
+                frame = d.build_candidate_clarify(
+                    assembly.candidates, frame_id=f"clarify-{now():%H%M%S%f}",
+                )
+                if frame is not None:
+                    verdict.update({
+                        "chain": None,  # 裁决未定——澄清挂起（照既有 candidates 澄清形状）
+                        "need_clarify": True,
+                        "clarify_frame": frame.question,
+                        "_clarify": frame,
+                        "_clarify_subtype": "candidates",
+                        d.INTENT_SOURCE_KEY: d.INTENT_SOURCE_DETERMINISTIC,
+                    })
+                    LOGGER.info(
+                        "生效路 LLM#plan 未产出可钉计划——澄清额度在，弹候选澄清帧（有界一次）"
+                    )
+                    return None
+            LOGGER.info(
+                "生效路 LLM#plan 未产出可钉计划——无澄清额度或无候选：现状链路"
+                "（链内降级解释链接续）"
+            )
+            self._attach_intent_source(verdict, pinned=False)
+            return None
+        self._attach_intent_source(verdict, pinned=True)
+        run.plan_pinned = d.plan_pinned_payload(plan)
+        LOGGER.info(
+            "生效路 LLM#plan 钉入（run %s · metric=%s）——链体 N7.1 确定性复验后消费",
+            run.id, plan.metric_slot,
+        )
+        return plan
+
     # ---------- ④ 执行链分发与收场 ----------
 
     async def _run_chain(
@@ -1849,6 +1979,7 @@ class ChatService:
         clarified_caliber: str | None = None, skip_rescore: bool = False,
         extable_decision: str | None = None, extable_approval_id: str | None = None,
         anchors: list[str] | None = None, ban_exempt_note: str | None = None,
+        pinned_plan: d.QueryPlan | None = None,
     ) -> AsyncIterator[d.SseEvent]:
         """链体帧流透传＋收场（stage(3) → 链内帧 → answer → done；答案落会话历史）。
 
@@ -1870,6 +2001,7 @@ class ChatService:
             skip_rescore=skip_rescore,
             extable_decision=extable_decision,
             extable_approval_id=extable_approval_id,
+            pinned_plan=pinned_plan,  # L-05 钉入缝（None＝快路-only 现状）
         )
         async for event in self._dispatcher.dispatch(chain, ctx):
             if event.event == d.FRAME_CLARIFY and event.data.get("_chain_signal"):

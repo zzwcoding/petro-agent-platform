@@ -1315,14 +1315,11 @@ async def _stream_answer(
 # ---------- 问数链（状态机六站链——M-06：N7.1–N7.6＋安检三闸） ----------
 
 def _metric_card_for_plan(ctx: d.ChainContext) -> tuple[str, str, str] | None:
-    """装配层指标卡 → 模板可用声明（slot/name/def）——未绑定计量列＝None（降级）。"""
-    for card in ctx.assembly.metric_cards:
-        if d.resolve_measure(card.slot_name) is not None:
-            def_text = "；".join(
-                str(c.get("name", "")) for c in card.calibers if c.get("name")
-            ) or ""
-            return card.slot_name, card.name, def_text
-    return None
+    """装配层指标卡 → 模板可用声明（slot/name/def）——未绑定计量列＝None（降级）。
+
+    绑定判据单源＝d.plan_metric_anchor（L-05 起 service 生效路触发谓词同源消费）。
+    """
+    return d.plan_metric_anchor(ctx.assembly.metric_cards)
 
 
 def _shadow_deterministic_plan(
@@ -1400,22 +1397,30 @@ async def _shadow_plan_observation(
     draft: d.QueryPlanDraft | None = None
     reject_note = ""
     drafter = deps.plan_drafter
-    if drafter is not None:
-        try:
-            draft = await drafter(ctx.question)
-        except Exception as exc:  # 影子路吞并——LLM 故障不许炸主链（照 _verdict_llm 兜底纪律）
-            reject_note = f"drafter 异常 {type(exc).__name__}: {exc}"
-    draft_plan: d.QueryPlan | None = None
-    if draft is not None:
-        try:
-            draft_plan = d.validate_query_plan_draft(
-                draft, question=ctx.question, actor=ctx.actor_who
-            )
-        except ValueError as exc:
-            reject_note = f"validator 拒：{exc}"
+    pinned_head_note = ""
+    if ctx.pinned_plan is not None:
+        # L-05 生效路：入口层已调用 LLM#plan 一次并钉入 ctx.pinned_plan——本观测
+        # 消费钉入计划不重调（一份流量一次调用）；遥测读入口调用遗留（共享 drafter
+        # 的 last_telemetry——L-02 形状，跨问并发时按最近一次调用记，观测件不判真伪）。
+        draft_plan: d.QueryPlan | None = ctx.pinned_plan
+        pinned_head_note = "生效路：本行消费 ctx.pinned_plan（LLM#plan 入口层单次调用，此处不重调）"
+    else:
+        draft_plan = None
+        if drafter is not None:
+            try:
+                draft = await drafter(ctx.question)
+            except Exception as exc:  # 影子路吞并——LLM 故障不许炸主链（照 _verdict_llm 兜底纪律）
+                reject_note = f"drafter 异常 {type(exc).__name__}: {exc}"
+        if draft is not None:
+            try:
+                draft_plan = d.validate_query_plan_draft(
+                    draft, question=ctx.question, actor=ctx.actor_who
+                )
+            except ValueError as exc:
+                reject_note = f"validator 拒：{exc}"
     comparison = d.compare_query_plans(draft_plan, _shadow_deterministic_plan(ctx, declared))
     elapsed_ms = int((time.monotonic() - started) * 1000)
-    notes = [*comparison.notes]
+    notes = ([pinned_head_note] if pinned_head_note else []) + [*comparison.notes]
     if reject_note:
         notes.append(reject_note)
     # L-02 遥测读取（drafter 是可空 callable——生产实现携 last_telemetry，裸替身缺
@@ -1439,6 +1444,61 @@ async def _shadow_plan_observation(
         ),
         breaker_tripped=bool(getattr(telemetry, "breaker_tripped", False)),
     ))
+
+
+async def _degrade_to_retrieval(
+    deps: ChainDeps, ctx: d.ChainContext, *, n71_note: str,
+) -> AsyncIterator[d.SseEvent]:
+    """降级解释链接续（W-AUX③ 现状链路单源——declared None 与钉入复验拒两路共用）。
+
+    N7.1 收行文随路别（n71_note）；N7.2 跳过行／notice／接续检索三件两路同文
+    （现行原文照抄——零新合同形状）。
+    """
+    yield d.node_frame("N7.1", state=d.NODE_FINISH, note=n71_note)
+    yield d.node_frame("N7.2", state=d.NODE_WAIT, skipped=True,
+                       note="降级——不选表、不生成、不执行")
+    yield notice(
+        "该问法没有命中可出数的注册指标声明——平台不做自由生成冒充审定口径。"
+        "出路：在指标台账（C1）登记可绑定计量列的指标，或走语义修订提案池（C2）补登记后再问。",
+        level="warning",
+    )
+    async for event in _continue_with_retrieval(deps, ctx, refusal_answer={
+        "kind": "alert", "alert_type": "warning",
+        "text": (
+            "未命中注册指标声明——不冒充审定口径出数。"
+            "请先在指标台账登记（或走 C2 提案），再来查。"
+        ),
+    }):
+        yield event
+
+
+async def _pinned_reject_fallback(
+    deps: ChainDeps, ctx: d.ChainContext, *, reject_reason: str,
+) -> AsyncIterator[d.SseEvent]:
+    """钉入计划确定性复验拒的兜底路（L-05 交付物 1 票内定案分派——链体内侧）。
+
+    澄清额度在且候选可用 → candidates 澄清帧有界一次（链内哨兵，service 拦截面
+    承接挂起——clarify_count CHECK 0–1 存储强制照旧）；无额度或无候选 → 现行
+    降级解释链接续（_degrade_to_retrieval——零新合同形状）。
+    """
+    if ctx.clarify_available:
+        frame = d.build_candidate_clarify(
+            ctx.assembly.candidates, frame_id=f"clarify-{ctx.run_id}",
+        )
+        if frame is not None:
+            yield d.node_frame(
+                "N7.1", state=d.NODE_FINISH,
+                note=f"钉入计划确定性复验拒（{reject_reason}）——澄清额度在，"
+                     "弹候选澄清帧（有界一次，两跳到终态）",
+            )
+            yield d.chain_clarify_signal(frame, subtype="candidates", optimized_question="")
+            return
+    async for event in _degrade_to_retrieval(deps, ctx, n71_note=(
+        f"钉入计划确定性复验拒（{reject_reason}）——不盲信挂起载荷"
+        "——降级解释链：不自由生成 SQL（不冒充审定口径）"
+        "——接续检索问答链（报告库检索结果作辅助）"
+    )):
+        yield event
 
 
 async def query_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.SseEvent]:
@@ -1466,71 +1526,90 @@ async def query_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.S
     # 缝全未装配＝恒静默零行为变化；生产装配点已在 service 域内接线（L-02）。
     if deps.plan_drafter is not None or deps.shadow_log_sink is not None:
         await _shadow_plan_observation(deps, ctx, declared=declared)
-    if declared is None:
-        # 过窄桶自查（L-02）：降级解释链路指标未绑定＝解析缺件——谓词恒已触发，
-        # N7.1 观测点已落行，钩子自查静默防双记（票面口径「落降级解释链」 faithfully 挂钩）。
-        _shadow_miss_observation(
-            deps, ctx, metric_slot=None,
-            miss_note="过窄桶：本问落降级解释链（快路没真正出数）",
-        )
-        # 降级解释链（不冒充审定口径）：装配层无可绑定计量列的注册指标——
-        # 不自由生成 SQL、不出数；接续检索问答链（报告库辅助）消二选一漏答。
+    # —— L-05 pinned_plan 消费（机制 11：有钉→重跑 validator 只做确定性复验——
+    # 依旧零模型；过则直用钉入计划，拒则按交付物 1 兜底路。快路（无钉）链路零改动）——
+    plan: d.QueryPlan | None = None
+    pinned_intent = False
+    if ctx.pinned_plan is not None:
+        try:
+            plan = d.revalidate_pinned_plan(
+                ctx.pinned_plan, question=question, actor=ctx.actor_who,
+            )
+            pinned_intent = True
+        except ValueError as exc:
+            LOGGER.warning(
+                "N7.1 钉入计划确定性复验拒（run %s）：%s——按兜底路分派", ctx.run_id, exc,
+            )
+            async for event in _pinned_reject_fallback(deps, ctx, reject_reason=str(exc)):
+                yield event
+            return
+    if plan is not None:
+        # 复验过直用——血缘① def_text 取同槽位装配卡（无卡＝空声明占位句，R4 同款）。
+        anchor = d.plan_metric_anchor([
+            card for card in ctx.assembly.metric_cards if card.slot_name == plan.metric_slot
+        ])
+        def_text = anchor[2] if anchor is not None else ""
         yield d.node_frame(
             "N7.1", state=d.NODE_FINISH,
-            note="指标槽位未命中可出数的注册声明（模板只认绑定 agg 计量列的指标）"
-                 "——降级解释链：不自由生成 SQL（不冒充审定口径）"
-                 "——接续检索问答链（报告库检索结果作辅助）",
+            note=f"三要素齐：指标＝{plan.metric_slot}（台账「{plan.metric_name}」）· "
+                 f"时间＝{plan.window.label} · 条数＝{plan.limit_effective}"
+                 + ("（默认窗——问句无显式时间）" if plan.window.is_default else "")
+                 + d.PINNED_NODE_SOURCE_MARK + "——确定性复验通过，未额外调用模型",
         )
-        yield d.node_frame("N7.2", state=d.NODE_WAIT, skipped=True,
-                           note="降级——不选表、不生成、不执行")
-        yield notice(
-            "该问法没有命中可出数的注册指标声明——平台不做自由生成冒充审定口径。"
-            "出路：在指标台账（C1）登记可绑定计量列的指标，或走语义修订提案池（C2）补登记后再问。",
-            level="warning",
+    else:
+        if declared is None:
+            # 过窄桶自查（L-02）：降级解释链路指标未绑定＝解析缺件——谓词恒已触发，
+            # N7.1 观测点已落行，钩子自查静默防双记（票面口径「落降级解释链」 faithfully 挂钩）。
+            _shadow_miss_observation(
+                deps, ctx, metric_slot=None,
+                miss_note="过窄桶：本问落降级解释链（快路没真正出数）",
+            )
+            # 降级解释链（不冒充审定口径）：装配层无可绑定计量列的注册指标——
+            # 不自由生成 SQL、不出数；接续检索问答链（报告库辅助）消二选一漏答。
+            async for event in _degrade_to_retrieval(
+                deps, ctx,
+                n71_note=(
+                    "指标槽位未命中可出数的注册声明（模板只认绑定 agg 计量列的指标）"
+                    "——降级解释链：不自由生成 SQL（不冒充审定口径）"
+                    "——接续检索问答链（报告库检索结果作辅助）"
+                ),
+            ):
+                yield event
+            return
+        metric_slot, metric_name, def_text = declared
+        status, window = d.parse_time_window(question, today=today)
+        if status == "vague":
+            # 过窄桶观测（L-02）：谓词未触发（词面齐＋锚在册）但快路落缺参澄清——
+            # 快路信号判齐但快路没真正出数，谓词放过了该触发的问句。
+            _shadow_miss_observation(
+                deps, ctx, metric_slot=metric_slot,
+                miss_note="过窄桶：快路信号判齐但快路未出数——落缺参澄清（模糊时间窗不代猜）",
+            )
+            # 缺参反问（askback 时间窗三选一照抄——缺的是用户事实，无默认项）。
+            yield d.node_frame(
+                "N7.1", state=d.NODE_FINISH,
+                note="时间窗缺参：「最近/近期」为模糊时间词，无法确定时间窗（近 3 天/近 30 天/"
+                     "本月的数完全不同——不猜数）——澄清反问挂起",
+            )
+            yield d.chain_clarify_signal(
+                d.build_askback_time_clarify(frame_id=f"clarify-{ctx.run_id}"),
+                subtype=d.MISSING_SUBTYPE,
+                optimized_question="",
+            )
+            return
+        if status == "missing" or window is None:
+            window = d.default_time_window(today=today)  # 无显式时间——默认窗＋标注
+        plan = d.build_query_plan(
+            metric_slot=metric_slot, metric_name=metric_name, question=question,
+            window=window, today=today, actor=ctx.actor_who,
         )
-        async for event in _continue_with_retrieval(deps, ctx, refusal_answer={
-            "kind": "alert", "alert_type": "warning",
-            "text": (
-                "未命中注册指标声明——不冒充审定口径出数。"
-                "请先在指标台账登记（或走 C2 提案），再来查。"
-            ),
-        }):
-            yield event
-        return
-    metric_slot, metric_name, def_text = declared
-    status, window = d.parse_time_window(question, today=today)
-    if status == "vague":
-        # 过窄桶观测（L-02）：谓词未触发（词面齐＋锚在册）但快路落缺参澄清——
-        # 快路信号判齐但快路没真正出数，谓词放过了该触发的问句。
-        _shadow_miss_observation(
-            deps, ctx, metric_slot=metric_slot,
-            miss_note="过窄桶：快路信号判齐但快路未出数——落缺参澄清（模糊时间窗不代猜）",
-        )
-        # 缺参反问（askback 时间窗三选一照抄——缺的是用户事实，无默认项）。
         yield d.node_frame(
             "N7.1", state=d.NODE_FINISH,
-            note="时间窗缺参：「最近/近期」为模糊时间词，无法确定时间窗（近 3 天/近 30 天/"
-                 "本月的数完全不同——不猜数）——澄清反问挂起",
+            note=f"三要素齐：指标＝{metric_slot}（台账「{metric_name}」）· "
+                 f"时间＝{plan.window.label} · 条数＝{plan.limit_effective}"
+                 + ("（默认窗——问句无显式时间）" if plan.window.is_default else "")
+                 + "——确定性校验通过，未额外调用模型",
         )
-        yield d.chain_clarify_signal(
-            d.build_askback_time_clarify(frame_id=f"clarify-{ctx.run_id}"),
-            subtype=d.MISSING_SUBTYPE,
-            optimized_question="",
-        )
-        return
-    if status == "missing" or window is None:
-        window = d.default_time_window(today=today)  # 无显式时间——默认窗＋标注
-    plan = d.build_query_plan(
-        metric_slot=metric_slot, metric_name=metric_name, question=question,
-        window=window, today=today, actor=ctx.actor_who,
-    )
-    yield d.node_frame(
-        "N7.1", state=d.NODE_FINISH,
-        note=f"三要素齐：指标＝{metric_slot}（台账「{metric_name}」）· "
-             f"时间＝{plan.window.label} · 条数＝{plan.limit_effective}"
-             + ("（默认窗——问句无显式时间）" if plan.window.is_default else "")
-             + "——确定性校验通过，未额外调用模型",
-    )
 
     # —— N7.2 语义检索（选表＝agg 星型读模型注册面——join 结构即合同值）——
     yield d.node_frame("N7.2", state=d.NODE_PROCESS, tag="选表",
@@ -1745,6 +1824,8 @@ async def query_chain(deps: ChainDeps, ctx: d.ChainContext) -> AsyncIterator[d.S
         waterline = await deps.waterline_loader()
     caliber_line = d.lineage_caliber_line(
         plan, def_text=def_text, clarified_caliber=ctx.clarified_caliber,
+        # L-05 最小披露：LLM 生效路血缘①尾缀（行内文字，五要素键序不动）；快路零变化。
+        intent_source=d.INTENT_SOURCE_LLM_PLAN if pinned_intent else None,
     )
     watermark_line = d.lineage_watermark_line(
         data_date=waterline.data_date if waterline else None,
