@@ -1,0 +1,1529 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Petro-Ontology 语义数据看板（本体应用实例）</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#eee8d5;
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;}
+  #app{position:fixed;inset:0;cursor:grab;}
+  #app.grabbing{cursor:grabbing;}
+  #world{position:absolute;left:0;top:0;transform-origin:0 0;user-select:none;}
+  .card{position:absolute;background:#fdf6e3;border:1px solid #cec7a8;border-radius:12px;
+    box-shadow:0 4px 14px rgba(20,30,50,.10);overflow:hidden;}
+  .card h2{margin:0;padding:9px 14px;font-size:15px;font-weight:700;color:#586e75;}
+  .card h2 .no{display:inline-block;min-width:22px;text-align:center;border-radius:6px;
+    margin-right:8px;padding:1px 4px;font-size:12px;color:#fdf6e3;}
+  .card h2 .tip{float:right;font-weight:400;font-size:11px;color:#93a1a1;}
+  .body{padding:6px 14px 12px;font-size:12px;line-height:1.55;color:#073642;}
+  .body h3{font-size:12px;margin:10px 0 4px;color:#657b83;border-left:3px solid #b58900;padding-left:6px;}
+  .body table{border-collapse:collapse;margin:4px 0;width:100%;}
+  .body th,.body td{border:1px solid #cec7a8;padding:2px 6px;font-size:11.5px;text-align:left;}
+  .body th{background:#eee8d5;font-weight:600;color:#586e75;}
+  code,.mono{font-family:Menlo,Consolas,monospace;font-size:11px;background:#eee8d5;
+    padding:0 3px;border-radius:4px;}
+  .note{color:#93a1a1;font-size:11px;margin:4px 0;}
+  .hl{background:#f2e3b3;border-radius:3px;padding:0 2px;}
+  .bad{background:#f5dcc0;border-radius:3px;padding:0 2px;}
+  del{color:#dc322f;}
+  ul{margin:4px 0;padding-left:18px;} li{margin:2px 0;}
+  /* 选期：本期改动高亮 / 未到期隐藏 */
+  .off{display:none!important;}
+  .cur{background:#f5e0a0!important;box-shadow:0 0 0 2px #b58900 inset;border-radius:3px;}
+  tr.cur>td{background:#f5e0a0!important;}
+  /* 各块主题色（编号沿用五层） */
+  #card-1 h2{background:#eee8d5;} #card-1 .no{background:#268bd2;}
+  #card-3 h2{background:#eee8d5;} #card-3 .no{background:#cb4b16;}
+  #card-4 h2{background:#eee8d5;} #card-4 .no{background:#2aa198;}
+  #card-5 h2{background:#eee8d5;} #card-5 .no{background:#6c71c4;}
+  #card-8 h2{background:#eee8d5;} #card-8 .no{background:#268bd2;}
+  /* 工具栏 */
+  #bar{position:fixed;left:14px;top:14px;z-index:99;display:flex;gap:6px;align-items:center;
+    background:#fdf6e3;border:1px solid #cec7a8;border-radius:10px;padding:6px 10px;
+    box-shadow:0 3px 10px rgba(20,30,50,.12);font-size:13px;flex-wrap:wrap;}
+  #bar button,#bar select{border:1px solid #cec7a8;background:#ddd6c1;border-radius:7px;
+    padding:4px 10px;cursor:pointer;font-size:13px;}
+  #bar button:hover,#bar select:hover{background:#eee8d5;}
+  #bar button:disabled{opacity:.4;cursor:default;}
+  #zoom{color:#657b83;min-width:44px;text-align:center;}
+  #hint{color:#657b83;font-size:12px;}
+  /* 全屏讲解弹窗 */
+  #modal{position:fixed;left:60px;top:60px;width:940px;max-height:min(720px,calc(100vh - 40px));z-index:300;
+    background:#fdf6e3;border:1px solid #cec7a8;border-radius:12px;display:none;
+    box-shadow:0 10px 34px rgba(20,30,50,.22);overflow:hidden;}
+  #modal.open{display:flex;flex-direction:column;}
+  #modalBar{cursor:move;user-select:none;flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;
+    background:#fdf6e3;border-bottom:1px solid #cec7a8;padding:10px 20px;z-index:2;
+    box-shadow:0 2px 8px rgba(20,30,50,.06);}
+  #modalBar .t{font-size:16px;font-weight:700;color:#586e75;}
+  #modalBar .t .no{display:inline-block;border-radius:6px;padding:2px 8px;font-size:12px;
+    color:#fdf6e3;background:#268bd2;margin-right:8px;}
+  #modalBar button{border:1px solid #cec7a8;background:#ddd6c1;border-radius:7px;
+    padding:5px 14px;cursor:pointer;font-size:13px;}
+  #modalBar .tabs{display:flex;gap:6px;}
+  #modalBar .tab.on{background:#268bd2;border-color:#268bd2;color:#fdf6e3;}
+  #modalBody{flex:1 1 auto;overflow-y:auto;padding:20px 22px 60px;font-size:13.5px;
+    line-height:1.75;color:#073642;background:#fdf6e3;min-height:100%;}
+  #modalBody h2{font-size:18px;margin:0 0 14px;color:#586e75;
+    border-bottom:2px solid #b58900;padding-bottom:9px;}
+  #modalBody h3{font-size:14px;margin:20px 0 7px;color:#657b83;
+    border-left:3px solid #b58900;padding-left:9px;}
+  #modalBody p{margin:8px 0;}
+  #modalBody table{border-collapse:collapse;width:100%;margin:10px 0;}
+  #modalBody th,#modalBody td{border:1px solid #cec7a8;padding:5px 9px;font-size:12.5px;text-align:left;}
+  #modalBody th{background:#eee8d5;font-weight:600;color:#586e75;}
+  #modalBody ol,#modalBody ul{padding-left:24px;margin:8px 0;}
+  #modalBody li{margin:7px 0;}
+  #modalBody code{font-family:Menlo,Consolas,monospace;font-size:12px;background:#eee8d5;
+    padding:1px 5px;border-radius:4px;}
+</style>
+</head>
+<body>
+<div id="bar">
+  <button onclick="zoomBy(1.2)">放大 ＋</button>
+  <button onclick="zoomBy(1/1.2)">缩小 －</button>
+  <button onclick="reset()">复位</button>
+  <button onclick="fit()">适配全图</button>
+  <span id="zoom">100%</span>
+  <button id="prevB" onclick="step(-1)">‹ 上一期</button>
+  <select id="lessonSel" onchange="setLesson(+this.value)"></select>
+  <button id="nextB" onclick="step(1)">下一期 ›</button>
+  <button onclick="openModal()">本期说明</button>
+  <span id="hint">黄色高亮＝本期相对上一期新增/修改</span>
+</div>
+<div id="app"><div id="world">
+
+  <!-- 1 本体仓 -->
+  <div class="card" id="card-1" style="width:560px;">
+    <h2><span class="no">①</span>本体仓 · YAML 真源 <span class="tip">人只改这里（提案→裁决→合入）</span></h2>
+    <div class="body">
+      <h3>manifest.json</h3>
+      <code data-lesson="1">{"domain":"petro","schemaVersion":"1.1.0","profile":"v9-full"}</code>
+      <table data-lesson="14">
+        <tr><th>组合</th><th>启用模型</th><th>机器闸</th></tr>
+        <tr><td>v9-full（petro/ 在用）</td><td>按 model-registry 组合启用</td><td>未启用的模型文件出现＝红</td></tr>
+        <tr><td>v9-core / headless</td><td>按需裁模型</td><td>启用的缺文件且无豁免＝红</td></tr>
+      </table>
+      <p class="note" data-lesson="14">profile＝启用的模型组合（第 14 期）；规范的子语言裁“公理表达力”，profile 裁“模型在场性”——裁的对象不同。</p>
+      <h3>glossary-model.yaml（术语表）</h3>
+      <table>
+        <tr><th>id</th><th>词</th><th>状态</th><th>定义 / 注源</th></tr>
+        <tr data-lesson="1"><td>GLS-PETRO-001</td><td>老完成率</td><td><b>禁用</b>（替代：产量完成率）</td><td>v1 口径，不含自用油折算 · 设定书 §6</td></tr>
+        <tr data-lesson="1"><td>GLS-PETRO-901</td><td>产量完成率</td><td>现行</td><td>全年实际合计 ÷ 计划合计（9xx＝示例专用）</td></tr>
+        <tr data-lesson="8"><td>GLS-PETRO-002</td><td>剔检产量</td><td>现行（别名：<b>净产量</b>）</td><td>剔除检修井求和 · 正着按 RULE-PETRO-019 现算；反着按别名收拢</td></tr>
+      </table>
+      <table data-lesson="23">
+        <tr><th>溯源链</th><th>内容</th></tr>
+        <tr><td>结论</td><td>老完成率＝禁用（替代：产量完成率）</td></tr>
+        <tr><td>citations</td><td>命中元素 GLS-PETRO-001（面外元素不进引用）</td></tr>
+        <tr><td>source</td><td>R5·设定书 §6（术语表带 source 字段）</td></tr>
+        <tr><td>裁决</td><td>PROP-* 只追加不重写</td></tr>
+      </table>
+      <p class="note" data-lesson="23">每个元素带注源（出处登记在元素身上）；ID 又带注源——出处有内容不只有名字，通到设定书原文。</p>
+      <h3>m1-object-model.yaml（对象）</h3>
+      <ul>
+        <li data-lesson="1"><b>井 AGG-PETRO-001</b>：wellId（唯一）· wellType EW采油/IW注水 · currentStatus（生产中/停产/检修/待弃置）<span data-lesson="2"> · blockName（行内字符串，引用化悬置）</span><span data-lesson="3"> · <span class="hl">remarks 备注：谁都能写，不参与判断</span></span><span data-lesson="10"> · platform（行内字符串——与关系 ASSOC-PETRO-009 并存，<span class="hl">一条关系两种写法＝双表示，引用化改造悬置待裁（第 10 期）</span>）</span></li>
+        <li data-lesson="1"><b>日产计量 AGG-PETRO-002</b>：wellId＋prodDate＋reportShift（复合主键）· oilOutput <b>吨</b><span data-lesson="3"> · liquidOutput <b>方</b></span> · planOutput 吨<span data-lesson="3"><br><span class="note">行粒度＝班次（真实裁决 PROP-BOHAI-007=A）：A/B 班各行是真实产量，不是重复录入；日口径＝各班合计</span></span><span data-lesson="9"><br><span class="note">refRules 值域：含水率 [0,100]、开井时长 [0,24]（enforcedAt ALWAYS，越界即挂）——闸只查已写入的行（第 9 期）</span></span></li>
+        <li data-lesson="3"><b>井措施 AGG-PETRO-005</b>：measureId（唯一）· wellRef→井 · measureDate · measureType（压裂/酸化/检泵）· investment<br><span class="note">一次措施一条记录（第 3 期新增）</span></li>
+        <li data-lesson="9"><b>受效关系 AGG-PETRO-009</b>：注水井→油井多对多；每条带<b>劈分系数</b>，合计必须＝1（不变量，超出即挂单）；响应起始日随行<br><span class="note">关系实体（第 3 期的"配对要由记录自己承载"），落表装配暂缓待裁（第 9 期）</span></li>
+        <li data-lesson="11"><b>ASSOC-PETRO-008 区块—隶属→油田</b>（关联登记，第 11 期）：隶属链第二段的本体落点——井→区块一段现由 blockName 行内承载（引用化悬置），落地后两跳在引用图上连通</li>
+        <li data-lesson="11"><b>区块 AGG-PETRO-010 / 油田 AGG-PETRO-012</b>（显式空壳雏形位）：隶属链＝井→区块→油田两段，<b>逐段显式登记，不声明"隶属会传递"</b>——要油田归属就沿引用显式多走一跳（--closure 2）</li>
+      </ul>
+      <div data-lesson="3">
+      <h3>m3-rule-model.yaml（规则）</h3>
+      <ul>
+        <li>RULE-PETRO-009 产量完成率＝SUM(油)/SUM(计划)（真实规则，grain=月/区块·油田、unit=%）</li>
+        <li>RULE-PETRO-020 吨方混写检出：超物理合理范围 → <b>挂问题单，人工复核，不直改</b></li>
+        <li data-lesson="8">RULE-PETRO-019 剔检口径登记 <b>calibers 两支口径</b>：开井日历折算 / 检修剔除——显式登记，让选口径的人看见分叉，不机器擅自二选一</li>
+        <li data-lesson="27">产量完成率登记<b>指标口径字段组</b>（七项 mark/grain/unit/modifiers/calibers/ambiguous/dispute，按指标卡原文逐项登记）：徽标（mark＝★）、粒度（grain＝月/区块·油田）、单位（unit＝％）；"有效产量"同组还登记修饰词、口径支（calibers）与歧义（ambiguous），争议（dispute）另有在册先例——"三个系统三个答案"的防法：口径本身是登记物，不是默认值</li>
+      </ul>
+      </div>
+      <div data-lesson="4">
+      <h3>同一份定义的三元组形态（第 4 期 · 对照视图，真实仓没有）</h3>
+<pre class="mono" style="white-space:pre-wrap">&lt;AGG-PETRO-001&gt; a :聚合 ; 名 "井" ;
+    有属性 :wellId, :wellType, :currentStatus .
+&lt;AGG-PETRO-002&gt; a :聚合 ; 名 "日产计量" ; 行粒度 "班次" .
+&lt;GLS-PETRO-001&gt; a :术语 ; 词 "老完成率" ;
+    状态 "禁用" ; 替代 &lt;GLS-PETRO-901&gt; .</pre>
+      <p class="note">分号＝主语同上：文本 5 行，展开后是 <b>12 条事实</b>——行数≠事实数。ID 前缀（AGG-PETRO-001）在这套记法里充当 IRI（全局唯一名）。</p>
+      </div>
+      <h3 data-lesson="13">语义闸报文（第 13 期）</h3>
+      <table data-lesson="13">
+        <tr><th>级别·判据</th><th>位置</th><th>内容</th></tr>
+        <tr><td>L1 required-field</td><td>m1-object-model.yaml:123</td><td>AGG-PETRO-0xx 缺 id</td></tr>
+        <tr><td>DUP-AC1</td><td>:45 与 :167（双位置）</td><td>同名 id 先后出现</td></tr>
+        <tr><td>处置</td><td colspan="2">分层取证：红因到行；修复走提案（预检→裁决→合入→闸复跑）</td></tr>
+      </table>
+      <h3 data-lesson="17">三族约束闸（第 17 期）</h3>
+      <table data-lesson="17">
+        <tr><th>约束族</th><th>查什么</th><th>例</th></tr>
+        <tr><td>值域 refRules</td><td>字段取值范围（比较约束）</td><td>含水率 [0,100]、开井时长 [0,24]</td></tr>
+        <tr><td>结构必填 REQ</td><td>身份/类型判别/载荷容器</td><td>空壳即红</td></tr>
+        <tr><td>词汇禁用 BAN</td><td>消费面词汇</td><td>老完成率不得出现</td></tr>
+      </table>
+      <p class="note" data-lesson="17">目标选择：SHACL 形状自带目标选择器；项目全量逐元素枚举（票 27）——一域仅 7 个模型文件，全量成本可忽略、盲区为零。</p>
+      <h3 data-lesson="18">ci.sh 三闸（第 18 期）</h3>
+      <table data-lesson="18">
+        <tr><th>次序</th><th>闸</th><th>防什么</th></tr>
+        <tr><td>1</td><td>脚本单测</td><td>判据代码自身</td></tr>
+        <tr><td>2</td><td>出厂集回归</td><td>非法变体必须红——判据漂移当场暴露</td></tr>
+        <tr><td>3</td><td>语义闸全量</td><td>存量违规</td></tr>
+        <tr><td>附带</td><td>图索引全量重建</td><td>禁持久化缓存成权威——同输入必得同图</td></tr>
+      </table>
+      <h3 data-lesson="24">演化回归三例（第 24 期）</h3>
+      <table data-lesson="24">
+        <tr><th>变更类型</th><th>做法</th><th>机器闸</th></tr>
+        <tr><td>字段换义</td><td>旧名进 lockedFields 锁死，新含义开新字段</td><td>L4 AC7</td></tr>
+        <tr><td>换口径</td><td>旧词禁用、新词登记（老完成率→产量完成率）</td><td>禁用词闸 BAN</td></tr>
+        <tr><td>联合变更</td><td>schemaVersion 1.1.0 先仓后同步器</td><td>低于钉版拒同步</td></tr>
+      </table>
+      <h3 data-lesson="32">反例检验（第 32 期）</h3>
+      <table data-lesson="32">
+        <tr><th>判据</th><th>反例（必须红）</th><th>漏网后果</th></tr>
+        <tr><td>值域 [0,100]</td><td>101 的行</td><td>值域判据漂移</td></tr>
+        <tr><td>禁用词闸</td><td>老完成率出现在消费面</td><td>词汇约束失守</td></tr>
+        <tr><td>对号表类型</td><td>方向反的边</td><td>错行入图</td></tr>
+      </table>
+      <p class="note" data-lesson="32">结论稳吗：删一条支持→--impact 列受影响集，塌了定位最小前提集（第 7/13 期已建设）。反例一票否决是质量底。</p>
+    </div>
+  </div>
+
+  <!-- 3 平台账库 -->
+  <div class="card" id="card-3" style="width:500px;">
+    <h2><span class="no">③</span>平台台账库 <span class="tip">同步器翻译的只读副本 · 运行时查这里</span></h2>
+    <div class="body">
+      <h3>sem_term</h3>
+      <table>
+        <tr><th>id</th><th>词</th><th>状态</th></tr>
+        <tr data-lesson="1"><td>GLS-PETRO-001</td><td>老完成率</td><td>禁用</td></tr>
+        <tr data-lesson="1"><td>GLS-PETRO-901</td><td>产量完成率</td><td>现行</td></tr>
+        <tr data-lesson="8"><td>GLS-PETRO-002</td><td>剔检产量</td><td>现行（别名：净产量）</td></tr>
+      </table>
+      <h3>sem_object</h3>
+      <table>
+        <tr><th>id</th><th>名</th><th>摘要</th></tr>
+        <tr data-lesson="1"><td>AGG-PETRO-001</td><td>井</td><td>井号唯一；井别/状态枚举<span data-lesson="3">；备注不参与判断</span></td></tr>
+        <tr data-lesson="1"><td>AGG-PETRO-002</td><td>日产计量</td><td>班次粒度<span data-lesson="3">；油＝吨、液＝方</span></td></tr>
+        <tr data-lesson="3"><td>AGG-PETRO-005</td><td>井措施</td><td>一次措施一条记录，指向井</td></tr>
+      </table>
+      <div data-lesson="3">
+      <h3>sem_relation</h3>
+      <table>
+        <tr><th>业务读法</th><th>存储方向</th><th>方向标记</th></tr>
+        <tr><td>措施—作用于→井</td><td>井 1..* 措施记录</td><td><b>reversed</b>（对号表逐行登记，机器核对）</td></tr>
+        <tr data-lesson="10"><td>注水井—受效→油井</td><td>经受效关系 AGG-PETRO-009 展开，两端角色不同</td><td><b>非对称</b>（反向要用另一条关联表达，不自动补）</td></tr>
+      </table>
+      </div>
+      <h3 data-lesson="22">sem_action 映射（第 22 期）</h3>
+      <table data-lesson="22">
+        <tr><th>候选动作</th><th>来源</th><th>判定</th></tr>
+        <tr><td>更新井备注</td><td>C1 合同投影</td><td>收（有 § 直锚）</td></tr>
+        <tr><td>调整配产</td><td>C1 合同投影</td><td>收</td></tr>
+        <tr><td>配注上调</td><td>C1 合同投影</td><td>收</td></tr>
+        <tr><td>无 § 直锚的候选</td><td>抽取候选</td><td><b>拒收</b>：不建本体行为元素</td></tr>
+      </table>
+      <h3 data-lesson="25">派生物（第 25 期）</h3>
+      <table data-lesson="25">
+        <tr><th>派生物</th><th>生成方式</th><th>纪律</th></tr>
+        <tr><td>台账 sem_*</td><td>同步器幂等投影</td><td>行未变零写＋revision 留痕</td></tr>
+        <tr><td>图索引</td><td>每次启动从 Git 真源全量重建</td><td>禁持久化缓存成权威</td></tr>
+        <tr><td>对号表</td><td>导出器从 YAML 生成</td><td>类型核对不过＝拒收（第 5 期）</td></tr>
+      </table>
+      <p class="note" data-lesson="25">小规模下全量重建比增量维护简单正确：先验答案（题册），再谈性能。</p>
+      <h3 data-lesson="26">语义治理（第 26 期）</h3>
+      <table data-lesson="26">
+        <tr><th>动作</th><th>执行者</th><th>留痕</th></tr>
+        <tr><td>改本体</td><td>Owner（提案→裁决→人工合入）</td><td>裁决记录 PROP-*＋审计</td></tr>
+        <tr><td>同步台账</td><td>同步器（唯一写口）</td><td>changed_by＋横切审计</td></tr>
+        <tr><td>面外问题</td><td>语义服务拒答</td><td>refused_out_of_surface</td></tr>
+      </table>
+      <h3 data-lesson="12">sem_join_whitelist（连接白名单，第 12 期）</h3>
+      <table data-lesson="12">
+        <tr><th>连接</th><th>判定</th><th>条件</th></tr>
+        <tr><td>日报表 ⋈ 日期维表</td><td>可以</td><td>按日期连</td></tr>
+        <tr><td>日报表 ⋈ 井档案</td><td>可以</td><td>按井号连</td></tr>
+        <tr><td>日报表 ⋈ 化验表</td><td><b>默认不给</b></td><td>须井号＋取样日期双键＋时间容差，经中间视图配对</td></tr>
+      </table>
+      <p class="note" data-lesson="12">默认拒绝：白名单没有的连接一律不给——数据源有已知质量问题（D1 吨方混写、D6 井号写法），自动拼链会把错配静默放大成"合法结论"。</p>
+      <h3 data-lesson="21">sem_ledger_revision 版本轴（第 21 期）</h3>
+      <table data-lesson="21">
+        <tr><th>版本</th><th>对象</th><th>变更</th><th>留痕</th></tr>
+        <tr><td>v1</td><td>GLS-PETRO-001 老完成率</td><td>初建（状态＝禁用）</td><td>全行快照＋变更人＋时间＋来源提案</td></tr>
+        <tr><td>v2</td><td>GLS-PETRO-002 剔检产量</td><td>新增（含别名净产量）</td><td>同上（第 8 期那次的留痕）</td></tr>
+      </table>
+      <p class="note" data-lesson="21">只追加不删改：每行变更留全行快照——"九点那一刻系统知道什么"在台账里能按行回答；按所知时点读历史版本的查询接口还没有（原料齐、消费面缺，如实说）。</p>
+      <p class="note" data-lesson="1">台账行禁手改；版本 1.1.0 对不上拒同步；每行变更带版本记录。</p>
+    </div>
+  </div>
+
+  <!-- 4 业务数据库 -->
+  <div class="card" id="card-4" style="width:560px;">
+    <h2><span class="no">④</span>业务数据库 <span class="tip">原始行 · 算数取数在这</span></h2>
+    <div class="body">
+      <h3>well_info（一井一行）</h3>
+      <table>
+        <tr><th>well_id</th><th>well_type</th><th>current_status</th><th data-lesson="2">block_name</th></tr>
+        <tr data-lesson="1"><td>Z-16</td><td>EW</td><td>生产中</td><td data-lesson="2">渤南</td></tr>
+        <tr data-lesson="1"><td>N-02</td><td>EW</td><td><span data-lesson="1" data-until="1">生产中</span><span data-lesson="2"><b>检修</b>（改字段值，不复制档案）</span></td><td data-lesson="2">渤中</td></tr>
+        <tr data-lesson="9"><td>W-05</td><td>IW</td><td>生产中</td><td>渤中</td></tr>
+      </table>
+      <table data-lesson="20">
+<tr><th>稽核项</th><th>责任方</th><th>稽核动作</th><th>依据</th></tr>
+<tr><td>井状态时效（D7）</td><td>作业区录入更新</td><td>治理稽核定期查"状态与实际不符"出清单</td><td>裁决 PROP-BOHAI-012</td></tr>
+</table>
+      <h3 data-lesson="2">设备台账 equip_status（第 2 期）</h3>
+      <table data-lesson="2">
+<tr><th>设备号</th><th>类型</th><th>挂靠井</th><th>状态</th></tr>
+<tr><td>PUMP-7</td><td>抽油泵</td><td>Z-16</td><td>运行</td></tr>
+<tr data-lesson="28"><td>E-01</td><td>平板</td><td>共用（甲/乙）</td><td>在用</td></tr>
+</table>
+      <p class="note" data-lesson="2">机采名单条件"EW 且挂泵"的"挂泵"证据落在本表——Z-16 挂泵进名单；N-02 无挂泵不出现在名单。设备台账＝真实源表 equip_status（示例数据行）。</p>
+      <h3 data-lesson="11">区块/油田字典（第 11 期）</h3>
+      <table data-lesson="11">
+<tr><th>区块</th><th>隶属油田</th><th>井</th></tr>
+<tr><td>渤南区块</td><td>渤南油田</td><td>Z-16</td></tr>
+<tr><td>渤中区块</td><td>渤中油田</td><td>N-02、W-05</td></tr>
+</table>
+      <p class="note" data-lesson="11">两跳问答的落点：Z-16→渤南区块→渤南油田。区块/油田取值＝剧设（真实题册 Z-16 记渤中）；井→区块一段现走行内字符串，引用化落地后 --closure 才通。</p>
+      <h3 data-lesson="12">流体化验 fluid_test（第 12 期）</h3>
+      <table data-lesson="12">
+<tr><th>井</th><th>取样日期</th><th>含水率化验(%)</th><th>密度(t/m³)</th><th>结论</th></tr>
+<tr><td>Z-16</td><td>2023-03-06</td><td>77.0</td><td>0.88</td><td>合格</td></tr>
+<tr data-lesson="27"><td>Z-16</td><td>2023-03-13</td><td>77.0</td><td>0.88</td><td>合格（第 27 期：化验 77.0 vs 日报计量折算 ≈76.7，偏差 ≤5pp 以化验校正）</td></tr>
+</table>
+      <p class="note" data-lesson="12">白名单"油⋈化验默认不给"连接的对象就是本表——直连被拒，须井号＋取样日期双键＋时间容差经中间视图配对。N-02 无化验行：第 1 期"油质＝未知"由此永久成立。真实源表 fluid_test（示例数据行）。</p>
+      <h3 data-lesson="28">observation_event 观测事件（第 28 期）</h3>
+      <table data-lesson="28">
+<tr><th>观测号</th><th>操作员</th><th>设备</th><th>时点</th></tr>
+<tr><td>OBS-1</td><td>操作员甲</td><td>E-01 平板</td><td>2026-10-08 08:10</td></tr>
+<tr><td>OBS-2</td><td>操作员乙</td><td>E-01 平板</td><td>2026-10-08 08:20</td></tr>
+</table>
+      <p class="note" data-lesson="28">共用设备＝两条观测、一个人不拆成两个人、设备也不因共用变成两个人的属性——观测实体化（第 3 期模式的延伸）。OBS-PETRO-901＝本期扩展示例对象（真实项目无）。</p>
+      <h3>oil_production_daily（主键＝井号+日期+班次）</h3>
+      <table>
+        <tr><th>well</th><th>date</th><th>班</th><th>油(吨)</th><th data-lesson="3">液(方)</th><th>计划(吨)</th></tr>
+        <tr data-lesson="1"><td>Z-16</td><td>2023-01-01</td><td>A</td><td>8.2</td><td data-lesson="3">41.0</td><td>8.3</td></tr>
+        <tr data-lesson="1"><td>Z-16</td><td>2023-01-01</td><td>B</td><td>7.9</td><td data-lesson="3">39.5</td><td>8.2</td></tr>
+        <tr data-lesson="3"><td colspan="3">日口径＝A＋B</td><td><b>16.1</b></td><td>80.5</td><td>16.5</td></tr>
+        <tr data-lesson="3"><td>N-02</td><td>2023-03-05</td><td>A</td><td class="bad">45.0 ⚠</td><td>12.0</td><td>12.0</td></tr>
+        <tr data-lesson="16"><td>Z-16</td><td>2022-12-31</td><td>A/B</td><td>—</td><td>—</td><td class="hl">16.0 / 16.5（双值）</td></tr>
+      </table>
+      <p class="note" data-lesson="1">全年 365 天×班次，Z-16 油量合计 <b>5839.63</b>、计划合计 6022.5。</p>
+      <p class="note" data-lesson="3"><span class="bad">45.0</span>＝RULE-PETRO-020 检出：疑似吨方混写，挂问题单人工复核，<b>不直改</b>。</p>
+      <table data-lesson="6">
+<tr><th>质检卡</th><th>对象</th><th>判定</th><th>处置</th></tr>
+<tr><td>完整性-井日</td><td>N-02 2023-03-06（坏行次日）</td><td>无任何班次行，<b>缺 1 行</b></td><td>转人工核查漏报；不推"该井停产"（缺记录≠没生产）</td></tr>
+</table>
+      <table data-lesson="7">
+<tr><th>原始井号</th><th>日期</th><th>班次</th><th>油(吨)</th><th>归一化</th><th>处置</th></tr>
+<tr><td>n2</td><td>2023-03-07</td><td>A</td><td>11.9</td><td>→ N-02（RULE-PETRO-005）</td><td>入表：同一口井，不新增档案</td></tr>
+<tr><td>X-99（示意）</td><td>—</td><td>—</td><td>—</td><td>归一不动</td><td>落问题单，不猜</td></tr>
+</table>
+      <p class="note" data-lesson="16">配产双值行（D4）＝版本切换日的<b>版本事实</b>，不是重复录入（裁决 PROP-BOHAI-009=A）：日配产取当日最后班次的非空值，双值行出清单供人复核——先订唯一贡献，再谈求和。</p>
+      <h3 data-lesson="16">monthly_settlement 月度结算（第 16 期）</h3>
+      <table data-lesson="16">
+<tr><th>区块</th><th>结算月</th><th>结算油量(吨)</th></tr>
+<tr><td>渤南</td><td>2023-01</td><td>487.2</td></tr>
+<tr><td>渤中</td><td>2023-01</td><td>356.8</td></tr>
+</table>
+      <p class="note" data-lesson="16">存量与流量的分工：日报行＝流量（每天相加），月度结算＝存量口径（对账求差）。月度正式指标取化验实测（第 27 期双口径），日报折算只做日度监控。真实源表 monthly_settlement（示例数据行；真实源按 AGG-PETRO-008 落为区块+结算月）。</p>
+      <h3 data-lesson="21">well_overhaul 井检修台账（第 21 期）</h3>
+      <table data-lesson="21">
+<tr><th>井</th><th>检修类型</th><th>开始日期</th><th>结束日期</th></tr>
+<tr><td>N-02</td><td>酸化处理（对应 MR-002）</td><td>2026-09-30</td><td><b>NULL（在途）</b></td></tr>
+</table>
+      <p class="note" data-lesson="21">结束日期为 NULL＝检修还没结束——第 3 期问答"缺结束日期"由此保持为真（不是缺列，是真没结束）。真实源表 well_overhaul（带起止日期；示例数据行，真实源有 N-11 检泵 2026-08-28→09-06 先例）。</p>
+      <table data-lesson="29">
+<tr><th>证据</th><th>时点</th><th>匹配窗口</th><th>判定</th></tr>
+<tr><td>化验"合格"</td><td>取样日期</td><td>井号＋取样日期＋时间容差（经中间视图）</td><td>窗内可用；超窗不算当前证据</td></tr>
+</table>
+      <div data-lesson="3">
+      <h3>record_measure（井措施）</h3>
+      <table>
+        <tr><th>id</th><th>井</th><th>日期</th><th>类型</th><th>投入(万)</th></tr>
+        <tr><td>MR-001</td><td>Z-16</td><td><del>2025-06-10</del>→2025-06-12</td><td>压裂</td><td>120（示例数据）</td></tr>
+        <tr><td>MR-002</td><td>N-02</td><td>2026-09-30</td><td>酸化</td><td>—</td></tr>
+      </table>
+      <p class="note">MR-002＝N-02"检修"背后的一次发生；状态字段只是它的投影。MR-001 更正日期只动自己一行（属性归各自的事件）。</p>
+      </div>
+      <h3 data-lesson="9">注水日计量（第 9 期）</h3>
+      <table data-lesson="9">
+<tr><th>井</th><th>注水日期</th><th>注水量(方)</th><th>分层配注</th></tr>
+<tr><td>W-05</td><td>2023-06-01</td><td>75.0</td><td>F1:40;F2:35</td></tr>
+</table>
+      <p class="note" data-lesson="9">键＝井号＋注水日期，无班次（油日报有班次，本表没有）。注水量 75＝两层配注和（F1 40＋F2 35）；泵压未给值，留空不编。W-05＝剧设井号。</p>
+      <h3 data-lesson="9">well_effect_relation 受效关系（第 9 期）</h3>
+      <table data-lesson="9">
+<tr><th>注水井</th><th>受效油井</th><th>劈分系数</th><th>响应起始日</th></tr>
+<tr><td>W-05</td><td>N-02</td><td>0.6</td><td>—</td></tr>
+<tr><td>W-05</td><td>Z-16</td><td>0.4</td><td>—</td></tr>
+</table>
+      <p class="note" data-lesson="9">合计 0.6＋0.4＝1 ✓（不变量）。跨区块受效＝示例设定——<b>受效≠隶属</b>：W-05 隶属渤中，但可以给渤中的 N-02 和渤南的 Z-16 注水。响应起始日未给值，暂空不编。落表装配在真实项目暂缓，本表标"装配后形态（示例数据）"。</p>
+      <div data-lesson="4">
+      <h3>同一行日报的三元组形态（第 4 期 · 对照视图）</h3>
+<pre class="mono" style="white-space:pre-wrap">&lt;日报:Z16-20230101-A&gt; a :日产计量 ;
+    所属井 &lt;井:Z-16&gt; ; 班次 "A" ; 产油 8.2 ; 单位 "吨" .</pre>
+      <p class="note">文本 2 行，展开后 <b>5 条事实</b>（是什么/所属井/班次/产油/单位）。<b>空白节点对照</b>：一行没有井号＋日期＋班次的日报＝空白节点（有数值没身份）——项目两处都不收：表要复合主键，本体仓元素要 id（票 27，无 id＝红）。</p>
+      </div>
+      <table data-lesson="15">
+<tr><th>摘法</th><th>窗口</th><th>Z-16 在第 330 字（923 字片段）</th></tr>
+<tr><td>固定开头截断</td><td>头部 160 字</td><td class="bad">看不到 Z-16 → 精排判无关 → 丢题</td></tr>
+<tr><td>锚点窗口</td><td>首次命中处前 40 后 160</td><td>正文进摘录 → 命中（根修提交 7d77a99）</td></tr>
+</table>
+      <table data-lesson="19">
+<caption class="note" style="caption-side:bottom;text-align:left">注：题册样例行两行对照——第一行为剧设行（时间线 2023）；第二行为真实题册口径。</caption>
+<tr><th>题（问数组）</th><th>冻结输入</th><th>期望答案</th><th>判分</th></tr>
+<tr><td>Z-16 全年产量合计</td><td>86 口生产井×365 天固定数据（重灌＝题册零改动）</td><td><b>5839.63 吨</b></td><td>锚值 ±0.1；拿全年合计冒充窗值直接判错</td></tr>
+<tr data-lesson="19"><td>真实题册·去年窗产量</td><td>86 口生产井×365 天（2025-09-01→2026-08-31）</td><td><b>5839.6 吨</b></td><td>锚值 ±0.1；干扰项＝全年合计 16723.6，直接判错</td></tr>
+</table>
+      <table data-lesson="31">
+<tr><th>问题</th><th>在契约内？</th><th>处置</th></tr>
+<tr><td>Z-16 2023 年产油合计</td><td>是（题册锚值题）</td><td>5839.63 ±0.1 判分</td></tr>
+<tr><td>报价是否全场最低</td><td>否（样本外；方法论场景示例）</td><td>答"未知、缺什么"，不外推不承诺（报价两行见下表）</td></tr>
+</table>
+      <h3 data-lesson="31">quotation 报价（第 31 期 · 方法论场景示例）</h3>
+<table data-lesson="31">
+<tr><th>供应商</th><th>报价</th></tr>
+<tr><td>供应商甲</td><td>100</td></tr>
+<tr><td>供应商乙</td><td>98</td></tr>
+</table>
+      <p class="note" data-lesson="31">只有两条报价＝样本边界。「全场最低」超出数据边界——答"未知、缺什么"，不外推不承诺。quotation＝方法论场景示例表（项目无采购域）。</p>
+      <h3 data-lesson="1">检索语料湖（第 1 期）</h3>
+      <table data-lesson="1">
+<tr><th>片段</th><th>井名提及</th></tr>
+<tr><td>年报语料 923 字片段（第 15 期摘录演示同源）</td><td>Z-16×3、N-02×3——提及 6 次≠井 2 口</td></tr>
+</table>
+      <p class="note" data-lesson="1">真实事故对象：append-only 多批叠加导致语料重复 → 清治（第 16 期反面教材）。</p>
+    </div>
+  </div>
+
+  <!-- 5 实例装配 -->
+  <div class="card" id="card-5" style="width:560px;">
+    <h2><span class="no">⑤</span>实例装配 <span class="tip">平台侧 · 本体仓不存实例</span></h2>
+    <div class="body">
+      <div class="mono" style="white-space:pre-wrap"><span data-lesson="1">节点 Z-16 类型＝井（对号表核验）</span><span data-lesson="2">
+ ├─ ∈ 机采井名单 ＜条件＝EW且有泵型＞
+ ├─ ∈ 措施井名单 ＜条件＝存在措施记录＞
+ ├─ —隶属→ 渤南区块</span><span data-lesson="3">
+ └─ ◇ MR-001（井措施，压裂）→ 指向 Z-16</span>
+
+<span data-lesson="1">节点 N-02 类型＝井</span><span data-lesson="1" data-until="1">
+ ├─ 状态：生产中</span><span data-lesson="2">
+ ├─ 状态：<del>生产中</del>→检修（2026-09-30 起）</span><span data-lesson="3">，背后＝MR-002</span><span data-lesson="2">
+ └─ —隶属→ 渤中区块</span><span data-lesson="9">
+ └─ ◇ W-05 注水井入档（第 9 期）：井档 2→3 口，受效关系两行随行</span><span data-lesson="5">
+
+ ◇ 拒收记录：「MR-001 —隶属→ 渤南区块」→ 对号表类型核对不过（隶属连接的是井/区块，不是措施），未入图</span><span data-lesson="28">
+ ◇ 观测事件：操作员甲、乙共用一台平板（设备 E-01）→ 两条观测记录各带“谁＋在哪台设备”，人是一个人、事件是两件事，设备不因共用变成两个人</span><span data-lesson="30">
+ ◇ 拒收记录：抽取候选「Z-16 状态＝可能停工」→ “可能停工”不在状态枚举（生产中/停产/检修/待弃置），拒收落问题单转人工（第 30 期）</span></div>
+      <table data-lesson="5">
+<tr><th>抽取候选</th><th>核对（类型/枚举）</th><th>判定</th></tr>
+<tr><td>MR-001 —隶属→ 渤南区块</td><td>隶属连接的是井/区块，不是措施——类型不符</td><td><b>拒收</b>，未入图</td></tr>
+<tr data-lesson="30"><td>Z-16 状态＝「可能停工」</td><td>枚举核对不过——状态只有生产中/停产/检修/待弃置四值</td><td><b>拒收</b>，落问题单转人工</td></tr>
+</table>
+      <h3 data-lesson="6">图谱供给（第 6 期）</h3>
+      <table data-lesson="6">
+<tr><th>问题线索</th><th>图谱命中</th><th>处置</th></tr>
+<tr><td>问句提到 Z-16 与措施的关系</td><td>命中 1 条边：MR-001 —作用于→ Z-16（边出处＝MR-001 登记依据）</td><td>边证据进上下文，答案带图谱出处</td></tr>
+<tr><td>问句提到 Z-16 与 W-05 的关系</td><td>无此类边（Z-16 受效方是 N-02）</td><td>明示“图谱未命中”，走兜底检索——不硬答</td></tr>
+</table>
+      <p class="note" data-lesson="6">图谱命中＝边证据带出处进上下文；未命中＝明示并走兜底——写入侧报缺、读取侧明示，同一纪律的两端。</p>
+      <h3 data-lesson="23">边出处校验（第 23 期）</h3>
+      <table data-lesson="23">
+<tr><th>边</th><th>入库依据（片段号）</th><th>读取时回锚</th><th>处置</th></tr>
+<tr><td>MR-001 —作用于→ Z-16</td><td>措施登记片段 MR-001-CHG</td><td>锚上片段台账 ✓</td><td>边证据进上下文，答案带图谱出处</td></tr>
+<tr><td>Z-16 —隶属→ 渤南区块（抽取候选边）</td><td>候选片段未过类型核对（第 5 期拒收），无登记依据</td><td>锚不上 ✗</td><td><b>拦截丢弃</b>＋notice 留痕——绝不带病出帧</td></tr>
+</table>
+      <p class="note" data-lesson="23">fail-closed：校验不过＝丢弃（宁少一条证据，不出一条无据结论）。溯源三层再加一层——节点带注源、结论带 citations、<b>边带入库依据且读取时回锚</b>。</p>
+      <h3 data-lesson="31">证据共池（第 31 期）</h3>
+      <table data-lesson="31">
+<tr><th>证据路</th><th>命中示例</th><th>出处形态</th></tr>
+<tr><td>图谱边</td><td>MR-001 —作用于→ Z-16</td><td>图谱出处＋入库依据片段号（第 23 期回锚）</td></tr>
+<tr><td>检索片段</td><td>年报语料 923 字片段（第 15 期摘录）</td><td>片段出处＋报告号</td></tr>
+<tr><td>两路都未命中</td><td>—</td><td><b>明示未命中，走兜底并说明——不硬答</b></td></tr>
+</table>
+      <p class="note" data-lesson="31">验收口径：每条证据自带出处；答不出＝证据池空，而不是编一个。与第 31 期"样本外不下结论"同一条边界纪律的读取侧。</p>
+      <p class="note" data-lesson="2">名单不是档案，是派生结果；一个节点挂几条成员，井还是一行——集合可以很多，成员只有一个。</p>
+      <p class="note" data-lesson="4">图＝三元组的集合：每条边就是一条"主语—谓词—宾语"事实；同一事实写两遍不变成两条——所以"Z-16 隶属渤南"在图里只存一条，语料提及 3 次也不会让它变重。</p>
+    </div>
+  </div>
+
+  <!-- 8 运行时问答 -->
+  <div class="card" id="card-8" style="width:680px;">
+    <h2><span class="no">⑧</span>运行时问答（累计）<span class="tip">查台账＋业务库，全程不碰 YAML</span></h2>
+    <div class="body">
+      <table>
+        <tr><th>问</th><th>答</th><th>靠什么</th></tr>
+        <tr data-lesson="1"><td>Z-16 的老完成率？</td><td>不按旧口径算，替代＝产量完成率</td><td>台账禁用行</td></tr>
+        <tr data-lesson="1"><td>Z-16 2023 年产油合计？</td><td><b>5839.63 吨</b></td><td>台账定位对象→业务库 SUM</td></tr>
+        <tr data-lesson="1"><td>N-02 的油质合格吗？</td><td><b>未知，缺化验类数据</b></td><td>题册没这道题，台账没这个面</td></tr>
+        <tr data-lesson="2"><td>有几口机采井？</td><td>1（名单条件＝EW 且挂泵）</td><td>名单条件两条都要满足</td></tr>
+        <tr data-lesson="2"><td>N-02 也在机采名单里吗？</td><td>否（名单条件＝EW 且有泵型；N-02 无泵型记录）</td><td>查名单条件，两条都要满足</td></tr>
+        <tr data-lesson="3"><td>Z-16 2023-01-01 产油？</td><td><b>16.1 吨</b>（A 8.2＋B 7.9）</td><td>班次裁决撑腰才敢加</td></tr>
+        <tr data-lesson="3"><td>Z-16 2025 年做过几次措施？</td><td>1 次（压裂）</td><td>数措施记录条数</td></tr>
+        <tr data-lesson="3"><td>N-02 检修什么时候结束？</td><td><b>未知，缺结束日期字段</b></td><td>缺什么说什么，不编</td></tr>
+        <tr data-lesson="4"><td>Z-16 和 z-16 是同一口井吗？</td><td>字面量不相等；归一化后同指（都→Z-16）</td><td>IRI 展开后比较＋RULE-PETRO-005</td></tr>
+        <tr data-lesson="5"><td>抽取出「MR-001 隶属 渤南区块」能入图吗？</td><td>不能——对号表 from/to 类型核对不过，直接拒收</td><td>定义域/值域当闸用（第 5 期）</td></tr>
+        <tr data-lesson="6"><td>N-02 2023-03-06 生产了吗？</td><td><b>未知</b>——日报查不到该行：缺记录≠没生产，转质检核查</td><td>三态：查不到只回到"未知"</td></tr>
+        <tr data-lesson="6"><td>问：图谱里查不到的关系，怎么答？</td><td>明示未命中、走兜底检索并说明——绝不拿相邻边硬凑</td><td>命中走图，没命中明说（查不到≠没有）</td></tr>
+        <tr data-lesson="7"><td>井号写 n2 的日报行，和 N-02 是同一口井吗？</td><td>归一化后同指（都→N-02）；归一不动的写法落问题单</td><td>RULE-PETRO-005＋失败不猜</td></tr>
+        <tr data-lesson="8"><td>有人说"净产量"，查的是哪个指标？</td><td>反着查别名→剔检产量（GLS-PETRO-002）；怎么算正着查 RULE-PETRO-019 现算</td><td>一条定义两个方向：登记两边，不推理</td></tr>
+        <tr data-lesson="9"><td>W-05 给两口油井注水，劈分 0.6＋0.5 行不行？</td><td>不行——合计 1.1 超 Σ＝1，挂问题单</td><td>不变量：合计必须＝1</td></tr>
+        <tr data-lesson="10"><td>受效关系反过来读（油井→注水井）成立吗？</td><td>不自动成立——两端角色不同（注水方/受效方），反向要用另一条关联表达</td><td>非对称：反着读要显式登记</td></tr>
+        <tr data-lesson="11"><td>Z-16 隶属的油田是哪个？</td><td>沿引用边显式走两跳：Z-16→渤南→油田（每跳带路径证明）</td><td>不自动推传递，闭包是计算不是蕴含</td></tr>
+        <tr data-lesson="12"><td>能把日报表和化验表直接连起来算吗？</td><td>不能——白名单默认拒绝；须井号＋取样日期双键＋时间容差，经中间视图配对</td><td>核验条件压进连接条件本身</td></tr>
+        <tr data-lesson="13"><td>两条规则各自合法但互相矛盾，闸会红吗？</td><td>不会——逻辑矛盾不在机判面；闸管确定性判定，这层能力项目如实没有</td><td>规范"不可满足检查"补的就是这条腿</td></tr>
+        <tr data-lesson="13"><td>闸红了怎么定位？</td><td>红因分层（L1–L4）＋报文带 file:line、重复 id 报先后双位置</td><td>三种"空"分三层取证的项目版</td></tr>
+        <tr data-lesson="14"><td>项目为什么不需要 OWL 子语言档位？</td><td>四类问题各走各的：校验＝闸、图计算＝图索引、检索＝语义服务、成稿＝LLM；蕴含整条不做</td><td>没有可换的推理档位，就没有"换档悄悄丢答案"的风险</td></tr>
+        <tr data-lesson="15"><td>Z-16 在报告段落末尾才出现，摘录会漏吗？</td><td>不会——锚点窗口在问句强 token 首次命中处取窗（前 40 后 160），不因固定开头截断丢答案</td><td>曾因开头截断稳定丢 4 题，根修提交 7d77a99</td></tr>
+        <tr data-lesson="16"><td>同井同日两行班次，求和会不会算重？</td><td>不会——裁决已订唯一贡献：每班一行各是真实产量，日口径＝各班合计；真正的重复行进问题单、不静默去重</td><td>PROP-BOHAI-007=A＋RULE-PETRO-030</td></tr>
+        <tr data-lesson="17"><td>校验会不会漏掉没被点名的行？</td><td>不会——全量逐元素枚举，无 id 的混入元素也会被点名（票 27 修掉的正是这个盲区）</td><td>全量枚举 vs 目标选择器</td></tr>
+        <tr data-lesson="18"><td>闸本身错了怎么发现？</td><td>出厂集回归：非法变体夹具必须红，一条漏网＝判据漂移</td><td>冻结输入才能归因：差异来自数据还是工具，要分得开</td></tr>
+        <tr data-lesson="19"><td>问：怎么证明平台"谁的答案算对"？</td><td>98 题题册带锚值判分（Z-16 产油 5839.63 吨 ±0.1），判分脚本可重跑</td><td>能力问题＝问题＋输入＋期望答案</td></tr>
+        <tr data-lesson="20"><td>问：井复产了状态没改，剔检产量会怎样？</td><td>会算错——状态滞后是登记在案的质量问题（D7），治理稽核兜底出清单</td><td>角色信息会过时，要有治理接住</td></tr>
+        <tr data-lesson="21"><td>问：上个月的台账里"老完成率"是什么状态？</td><td>禁用——版本轴只追加不删改，每次变更带全行快照；但"按时间点读旧版本"的查询接口还没有</td><td>双时间模型：结构有原料，消费面缺</td></tr>
+        <tr data-lesson="22"><td>问：抽取器送来一个台账里没有的动作，收吗？</td><td>不收——映射有拒收条件：无设定书直锚不建元素；锚校验不过抛错不静默</td><td>OntologyDriftError＝漂移拦截</td></tr>
+        <tr data-lesson="23"><td>问：这条结论凭什么？</td><td>答：每条回答带 citations（命中元素 ID 集），面外元素不进引用</td><td>ID 带注源，通到设定书与裁决号；记录≠采纳：台账行禁手改，唯一写口是同步器</td></tr>
+        <tr data-lesson="23"><td>问：图谱的边凭什么可信？</td><td>每条边带入库依据片段号，读取时逐条回锚校验；锚不上＝拦截丢弃＋notice</td><td>fail-closed：宁丢证据，不出无据结论</td></tr>
+        <tr data-lesson="24"><td>问：改了本体，怎么知道旧报表没坏？</td><td>--impact 反向走 ref 取受影响集（不数改动行数）＋出厂集/题册两路回归</td><td>按改动处数评估风险靠不住</td></tr>
+        <tr data-lesson="25"><td>问：图为什么不做缓存、同步为什么不增量？</td><td>缓存会变成第二个真源；全量重建同输入必得同图——先保证答案语义，再谈性能</td><td>语义等价基准（题册）在性能之前</td></tr>
+        <tr data-lesson="26"><td>问：谁能改台账里的口径？</td><td>没有人手改——唯一写口是同步器；改本体走提案、Owner 裁决</td><td>治理＝人裁决＋机器预检＋审计留痕</td></tr>
+        <tr data-lesson="27"><td>问：还差多少吨没完成？</td><td>先问哪支口径：开井日历折算还是检修剔除，答案不同——口径不明不挑一支，追问或拒答</td><td>数量语义：口径是登记物</td></tr>
+        <tr data-lesson="28"><td>问：两个操作员共用一台平板，算谁的？</td><td>各记一条观测事件：观测者与设备都留身份——共用设备不合并人，一次使用一条记录</td><td>观测实体化：一次发生一个身份</td></tr>
+        <tr data-lesson="29"><td>问：化验报告写着“合格”，现在还算数吗？</td><td>证据带取样时点，按时间窗配对——超窗不算当前证据；状态同理（D7 滞后）</td><td>证据匹配：时点＋窗口＋依赖可追</td></tr>
+        <tr data-lesson="30"><td>问：报告说“可能停工”，能写成已停工吗？</td><td>不能——枚举没有这个值；不确定就落问题单转人工，不擅自归类</td><td>抽取受本体约束：对号表＋枚举双重把关</td></tr>
+        <tr data-lesson="31"><td>问：只有两家报价，能说采购价最低吗？</td><td>不能——样本外不下结论：答案只到登记面/证据面为止，面外拒答并说明缺什么</td><td>能力问题验收：答到契约边界为止</td></tr>
+        <tr data-lesson="31"><td>问：图谱和检索都查不到时怎么答？</td><td>明示两路都未命中、走兜底并说明——证据池空＝答不出，不编</td><td>证据共池，各带出处</td></tr>
+        <tr data-lesson="32"><td>问：删掉一条支持，结论还成立吗？</td><td>用 --impact 列受影响集：塌了定位最小前提集；不塌＝支持不止一条，删一条不推翻</td><td>反例一票否决＋影响可计算</td></tr>
+      </table>
+    </div>
+  </div>
+
+</div></div>
+
+<!-- 本期说明浮动窗：两页签（设计说明/实施要点），显示当前选中期 -->
+<div id="modal">
+  <div id="modalBar">
+    <span class="t"><span class="no" id="modalNo">第 4 期</span><span id="modalTitle">本期说明</span><span style="font-weight:400;font-size:11px;color:#93a1a1;margin-left:10px;">按住标题栏可拖动</span></span>
+    <span class="tabs">
+      <button class="tab" id="tab-base" onclick="setTab('base')">设计说明</button>
+      <button class="tab" id="tab-renhua" onclick="setTab('renhua')">实施要点</button>
+    </span>
+    <button onclick="closeModal()">关闭 ✕</button>
+  </div>
+  <div id="modalBody"></div>
+</div>
+
+<script>
+const app=document.getElementById('app'),world=document.getElementById('world');
+let tx=40,ty=20,s=1;
+let L=1; const MAXL=32;  // 当前选中期；以后每期：卡片补 data-lesson="N"、LESSONS 补 base/renhua
+let TAB='base';          // 弹窗当前页签：base=设计说明 renhua=实施要点
+
+/* ---------- 各期说明（两页签：base=设计说明 renhua=实施要点）----------
+   缺失的期/页签由 renderNote 兜底显示"（本期说明编制中）" ---------- */
+const LESSONS={
+1:{
+base:`<h2>本期解决的核心问题：<b>同一个词，每个人理解不一样，怎么让它只找到一个意思。</b></h2>
+<p><b>项目里真发生过的事：</b>平台管渤海油田的产量。有个词叫"完成率"，就是实际产量除以计划产量。旧算法叫"<b>老完成率</b>"，不含自用油折算；后来换了新算法，叫"<b>产量完成率</b>"。（这种统一算法规则，项目里叫<b>口径</b>。）同一个词，老报表和新报表算出来是两个数。谁错了？都没错——错在这个词的意思只存在大家脑子里，没写下来。这就是方法论原著开篇那个故事：采购、门店、仓储三个部门对同一个商品三种结论，问题不在人。</p>
+<p><b>原著的解法一句话：</b>把约定明明白白写下来，写成机器能照着检查的规则。这个写下来的约定就叫<b>本体</b>（Ontology）。它的定义（原著引自 Gruber 1993）有四个要求：写的是大家对这个领域共同的理解；真的落在纸面上，不留在脑子里；机器照着执行，谁执行结果都一样；相关的人都认可这份写法。</p>
+<p><b>项目就是这么干的：</b>把"老完成率"登记进本体仓的术语表（登记每个词的标准含义和状态的表），标成"<b>禁用</b>"，写明替代口径是"产量完成率"；再配一个自动检查程序（项目里叫<b>语义闸</b>，闸就是机器检查关卡），扫描所有文件，谁用了禁用词就报错；本体文件还会被同步器（自动翻译程序）搬进平台台账（运行时查的只读副本）。所以问"Z-16 的老完成率？"，系统答：不按旧算法算，替代＝产量完成率——依据就是台账那行禁用行。词的意思从此不靠人记，写错机器拦。</p>
+<h3>本期立的四条规矩（后面每期都在用）</h3>
+<ol>
+<li><b>先出题，再动手建。</b>别一上来把什么都建进去。先写一个具体问题，再写清楚给它什么数据、正确答案是什么——这个"问题＋输入＋标准答案"叫<b>能力问题</b>，它划定只建回答这个问题必需的东西。项目里就是题册那 98 道测试题：比如"Z-16 全年产油多少吨"，标准答案 5839.63 吨，是把 Z-16 全年每天每班的日报行逐行加出来的。平台答不出来或答错就是不合格。题目用不到的东西（库存、成本、供应商），一律先不建。原著特别警告：计划和实际必须分开记——项目日报表里"实际产油"和"计划配产"就是两列，不混在一个格子里。</li>
+<li><b>四种东西别混。</b>同一份材料里有四种不同的东西：<b>分类体系</b>（什么包含什么，比如"采油井都是井"）、<b>数据模型</b>（数据按什么结构保存，比如数据库的表）、<b>知识图谱</b>（一条条具体事实，比如"Z-16 某天产了多少"）、<b>本体</b>（词和关系的准确含义，比如"完成率怎么算"）。把商品名录导成一堆节点和连线，只是画了个框图——类和关系是什么意思一句没写，不算建模完成。判断办法只有一个：核查文件里实际写了什么，不看名字猜。</li>
+<li><b>先定身份，再数数。</b>数东西之前，先说清数的是哪一类对象、按什么标准判断"是同一个"。规范例子：同款酸奶记了三条库存记录，核验后其实只有两种商品。项目里的版本：语料里井名被提到 6 次，核验过的井档只有 2 口（Z-16、N-02）——数的是井档，不是提及次数。这 6 次写在④卡检索语料湖表里那行。没带核验信息的新记录，先留着待核，不许急着合并。</li>
+<li><b>答不出来就明说缺什么，不许编。</b>没有化验记录，不等于"质量不合格"；查不到位置记录，不等于"不在任何库位"。缺记录是"没证据"，不是反方向的结论。项目实际问答：问"N-02 的油质合格吗？"系统答"<b>未知，缺化验类数据</b>"——题册没这道题，台账没这部分内容，就明说缺什么，绝不含糊带过。</li>
+</ol>
+<p><b>第 1 期实施要点：</b>把脑子里的约定写下来给机器看；先出题再建模；数之前先定身份；答不出就说缺什么。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>把只在人脑子里的约定，写成机器能检查的文字。</b>从零再走一遍。</p>
+<h3>第一步：先看清问题——同一个词，算出两个数。</h3>
+<p>平台管渤海油田产量。有个词叫"完成率"，指实际产量除以计划产量。它有两种算法：旧叫"老完成率"，不含自用油折算；后来换了新的，叫"产量完成率"。（这种统一算法规则，项目里叫口径。）于是同一个词，两套报表给出两个不同的数。谁错了？都没错——词的意思从来没写下来。原著开篇的故事同理：同一个商品 SKU200（SKU＝一个商品的最小管理单位），采购判它"要冷藏"，门店判它"不用冷藏"，仓储不敢定。问题不在人，在约定只停在口头上。</p>
+<h3>第二步：解法——把约定写成文件，这份文件叫本体。</h3>
+<p>本体（Ontology）就是：把一群人对一组事物的共同理解，写成明确的、机器能照着执行的文件。它有四个要求：写的是大家对这个领域共同的理解；真的落在纸面上，不留在脑子里；机器照着执行，谁执行结果都一样；相关的人都认可这份写法。</p>
+<p>项目把它落进一个文件。本体仓的术语表（登记每个词的标准含义和状态的表，glossary-model.yaml）里有一行：GLS-PETRO-001，词＝老完成率，状态＝<b>禁用</b>，替代＝产量完成率。旁边配一个自动检查程序（项目里叫语义闸，闸就是机器检查关卡），扫描所有文件，谁用了禁用词就报错。本体文件还会被同步器（自动翻译程序）搬进平台台账（运行时查的只读副本），台账 sem_term 表里就是"GLS-PETRO-001｜老完成率｜禁用"这一行。所以问"Z-16 的老完成率？"系统答：不按旧算法算，替代＝产量完成率——依据就是台账那行禁用行。词的意思从此不靠人记，写错机器拦。</p>
+<h3>第三步：先出题，再动手建——这道题叫能力问题。</h3>
+<p>建模型最容易犯的错是一上来什么都想建。本期的解法：动手前先写一道题——题目＋给定的输入＋期望的答案，三样凑齐叫<b>能力问题</b>。原著的例子：问"订单 O1 实际发出了哪些批次？"给出实际发出记录 L1、计划发出记录 L2，期望答案只有 L1；只建订单、批次、"实际发出"这些必需的东西，价格、供应商题里没出现，先不建。原著还警告一条：计划和实际要分开记——项目日报表里"实际产油"和"计划配产"就是两列；只有计划记录，不等于永远不会实际发出。</p>
+<p>项目的版本是题册里的 98 道测试题，每道带标准答案。比如"Z-16 全年产油多少吨"，标准答案 5839.63 吨——把 Z-16 全年每天每班的日报行逐行加出来的，比如日报行 Z16-20230101-A（2023-01-01 的 A 班）产油 8.2 吨。平台答不出或答错就是不合格。题目没出的东西——库存、成本、供应商——一概不建。</p>
+<h3>第四步：四种东西别混，画了框连线不等于写了定义。</h3>
+<p>同一份材料里有四种东西：<b>分类体系</b>（什么包含什么，如"采油井都是井"）、<b>数据模型</b>（数据按什么结构保存，如数据库的表）、<b>知识图谱</b>（一条条具体事实，如"某井某天产了多少"）、<b>本体</b>（词和关系的准确含义，如"完成率怎么算"）。把商品名录导成一堆节点和连线，只是画了个框图——类和关系是什么意思，一句都没写，不算建模完成。判断办法只有一个：核查文件里实际写了什么，不看名字猜。</p>
+<h3>第五步：先定身份，再数数。</h3>
+<p>数东西之前先说清：数的是哪类对象，按什么标准判断"是同一个"。规范例子：同款酸奶记了三条记录，核验后其实只有两种商品。项目的版本：语料里井名被提到 6 次，核验过的井档只有 2 口（Z-16、N-02）——数的是井档，不是提及次数。这 6 次写在④卡检索语料湖表里那行。原著还补一句：新记录没带核验信息，就不能急着并进去，先留着待核。</p>
+<h3>第六步：答不出来就明说缺什么，不许编。</h3>
+<p>没有化验记录，不等于"质量不合格"；查不到位置记录，不等于"不在任何库位"。缺记录是"没证据"，不是反方向的结论。项目实际问答：问"N-02 的油质合格吗？"系统答"<b>未知，缺化验类数据</b>"——题册没这道题，台账没这部分内容，就明说缺什么，绝不含糊带过。</p>
+<h3>数据核对</h3>
+<p>打开总表画布，选第 1 期。台账卡的 sem_term 表里找 GLS-PETRO-001 那一行，看状态是不是"禁用"；问答卡里看"Z-16 的老完成率"答的是什么。两处都对上，本期验收即完成。</p>`},
+2:{
+base:`<h2>本期解决的核心问题：<b>多一个分类，不多一个身份。</b></h2>
+<p><b>本期要解决的问题：</b>一瓶酸奶（SKU200，SKU＝给一个商品定的唯一编号）既进了"促销品目录"，又进了"临期品清单"。按"一个分类建一份档案"来干，它就被建成两条主数据（主数据＝系统里关于一个东西的核心档案）：一瓶酸奶当两件卖，改一个属性还要同步改两条记录。原著四个设计要点全部集中在一句话上：<b>类是集合，实例是集合里的成员</b>（类＝一份名单，比如"促销品"；实例＝名单里的一个具体成员，比如那瓶酸奶；"∈"读作"在名单里"）。成员可以同时进好几个集合，它还是同一个东西、同一份身份。这对概念第 1 期"先定身份，再数数"已经用过，本期正面展开。</p>
+<p><b>项目里真发生过的事：</b>平台管渤海油田 120 口在产井。第 2 期画布上，井档案里 Z-16 一行没动，实例装配卡上却多了三笔：机采井名单一条成员（条件＝井别 EW 采油且有泵型设备）、措施井名单一条成员（条件＝存在措施记录）、隶属渤南区块一条。名单加了，井数还是 2。机采名单里"有泵"这一条的证据在④卡设备台账那行：PUMP-7 抽油泵挂 Z-16，进名单；N-02 无挂泵，不在名单。反面做法的代价一眼能看到：机采井建一份档案、措施井再建一份，一口井变好几份——产量算几遍，改一个属性要同步改几处。</p>
+<h3>本期的四条设计规则</h3>
+<ol>
+<li><b>多一个分类，不新增身份。</b>"Z-16 ∈ 机采井""Z-16 ∈ 措施井"都是类型断言（声明"它属于哪个名单"的一句话），指向同一个身份，可以同时成立，井数不变。原著补两条边界：名单之间声明了互斥还同时归入，就是不一致；加了类型也不等于自动满足这个分类的其他约定。</li>
+<li><b>分类有层次时，登记最细一层，上位自动补。</b>规范例：商品 D1 只登记"冷藏酸奶"，而"冷藏酸奶⊆冷藏食品⊆商品"这两条事先写进了系统，D1 就自动也算冷藏食品和商品。两种箭头别混：<b>类到类是包含</b>（冷藏酸奶⊆冷藏食品），<b>实例到类是成员</b>（D1 ∈ 冷藏酸奶）。原著跟着警告：<b>反向推不出</b>——只知道某物属于"商品"，推不出它是不是"冷藏食品"；没推出的，不等于否定，只是不知道。项目如实对照：产量域井的分类只有一层（井别一个字段：EW 采油/IW 注水），没有上位要补；"自动补"是分类深到三四层才划算的机制。所以本体仓一个类都没加——这本身是答案。</li>
+<li><b>"每个都是"才是子类；"是一部分"是组成；"归它管"是归属。</b>判据逐字读："每个罐装酸奶都是商品"成立，罐装酸奶才是商品的子类；"每个商品都是一套礼盒"不成立，礼盒装商品是<b>组成关系</b>——写反成"商品类⊆礼盒类"，单个商品就被统计进礼盒数、成本按盒分摊，原著中层级图和分类图就是这么互相污染的。判据只看两条：两端是类还是实例、关系名怎么定义，不看画不画在同一张图里。中文"属于"兼有成员、组成、包含三个意思，动手前先确认两端。项目对照：井—隶属→区块，把话读全——"每口井都是一种渤南"？不通。所以 block_name 建成归属关系不是分类；建成类的话，数井会把区块也数进去。</li>
+<li><b>状态和角色变了，身份不变。</b>原著主场景是角色：企业 E1 在交易 T1 是卖方、在交易 T2 是买方，按角色建"卖方户""买方户"两个户头，系统就认不出是同一家。解法：角色挂在参与上——卖方写在通向 T1 的参与边上，企业身份只有一个。原著两条警告：<b>过去的角色不能无条件当成现在仍成立，角色是否成立要另给条件</b>；角色变化只作用于相应语境（医师做过一次助手，不能取消他所有主刀角色）。项目对照两处：N-02 从"生产中"改"检修"，改的是当前状态字段的一个值（枚举＝取值固定只能选其一：生产中/停产/检修/待弃置），不复制档案；Z-16 的"措施井"角色挂在"存在措施记录"这个条件上，角色跟着参与走，井还是那口井。</li>
+</ol>
+<p><b>第 2 期实施要点：</b>多一个分类不多一个身份；登记最细、上位自动补、反向推不出；"每个都是"才是子类，"是一部分"是组成；角色挂在参与上，身份不变。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>给一个东西加新的分类时，不许把它复制成第二个东西。</b></p>
+<p>先把三个词拆开：</p>
+<ul>
+<li><b>类</b>：一份名单。它的学名叫集合，集合就是"满足某个条件的所有东西的总名单"，比如"机采井名单"（机采井＝用抽油泵采油的井）。</li>
+<li><b>实例</b>：名单里的一个具体成员。Z-16 就是"井"这个类的一个实例。</li>
+<li><b>身份</b>：系统里记录"它是哪一个"的唯一档案。一个东西在系统里只该有一份身份。</li>
+</ul>
+<h3>第一步：加一个分类，只加一条"在名单里"的记录，身份还是一份。</h3>
+<p>Z-16 在机采井名单里（进名单的条件写在画布"实例装配"卡：井别字段取"采油"（画布记作 EW），而且有泵型设备——机采井本来就该有泵，正好对上前面"机采＝用抽油泵采油"；"有泵"的证据在④卡设备台账那行——PUMP-7 抽油泵挂 Z-16；N-02 无挂泵，不在名单），也在措施井名单里（条件＝存在措施记录。措施＝给井做的一次作业，项目里记的类型有压裂、酸化、检泵；Z-16 有措施记录所以进了名单，那条记录本身第 3 期才在画布上出现）。按名单记，Z-16 身上多两条记录，井还是那口井。反面做法是"一个分类建一份档案"：机采井建档一份、措施井再建一份，一口井变好几份——产量算几遍，改一个属性要改几处。我们表里怎么做的？平台管 120 口井，井档案表一井一行，Z-16 只有一行；日报表里那行 Z16-20230101-A（Z-16 在 2023-01-01 的 A 班，产油 8.2 吨）提到它，只写井号，指回那一行——第 1 期已建设日报行怎么指回井档。日报行再多，Z-16 的档案也不会变多。第 2 期画布上给 Z-16 加了两条名单成员、一条隶属，共三笔，井数还是 2。</p>
+<h3>第二步：分类有层次时，只登记最细一层，上层自动补。</h3>
+<p>规范例：商品 D1 只登记"冷藏酸奶"，而"冷藏酸奶属于冷藏食品、冷藏食品属于商品"这两句话事先写进了系统，D1 就自动也算冷藏食品和商品，录的人不用一层层写。原著跟着补一句警告：反着推不行——只知道某个东西属于"商品"，推不出它是不是"冷藏食品"；没推出来的，不等于没有，只是不知道。项目没用到"自动补"，原因如实说：井的分类只有一层——井别一个字段（表里的一列），取值采油或注水，没有上层要补。"自动补"是分类深到三四层才划算的机制；层次浅，一个字段更省事。</p>
+<h3>第三步："每个都是"才是分类，"是一部分"和"归它管"都不是。</h3>
+<p>判据是把话逐字读全："每个罐装酸奶都是商品"读得通，罐装酸奶才是商品下面的小类；"每个商品都是一套礼盒"读不通，所以礼盒装商品不是分类，是"一部分"（原著叫组成关系）。写反了会怎样？单个商品被当成一套礼盒去统计、去分摊成本，数就乱了。项目的例子：Z-16 隶属渤南区块。"每口井都是一种渤南"？读不通，所以隶属是归属，不是分类；写反了，数"有多少口井"会把区块也数进去。中文"属于"有三个意思要分清：接名单的是成员（Z-16 属于机采井名单）、接整体的是组成（礼盒里的商品是礼盒的一部分）、小类接大类是包含（冷藏酸奶属于冷藏食品）。动手前先分清两端说的是什么。</p>
+<h3>第四步：状态和角色变了，身份不变。</h3>
+<p>N-02 从"生产中"改成"检修"：改的是井"当前状态"字段的一个值（这个字段只有四个值：生产中、停产、检修、待弃置），不是新建一份"检修井档案"，井档里 N-02 还是那一行。"剔检产量"这道统计题（把检修井的产量从总产量里剔掉）要挑出检修井，看的就是这个字段。原著的主场景其实是"角色"：同一家企业在甲交易里是卖方、在乙交易里是买方，按角色建两个户头，系统就认不出是同一家；原著的做法是把角色写在参与记录上，企业身份只有一个。原著还警告：过去的角色不能当成现在必然还有效，角色是否成立要另给条件。项目这边对得上一条已知数据质量问题：井状态滞后（状态更新不及时）——状态会过时，状态过时了，靠它算的数就跟着错。状态过时怎么办，原著的治理办法在第 20、21 期展开。</p>
+<h3>数据核对</h3>
+<p>回到看板选第2 期。①实例装配卡里，Z-16 一个节点挂着机采井、措施井两条名单成员；再到业务数据库卡数一数，Z-16 在井档案表里有几行——1 行。名单两条，档案一份。②把第三步的判据自己读一遍："每口井都是一种渤南区块"，读得通吗？读不通，它就不是分类。两处都对上，本期验收即完成。</p>`},
+3:{
+base:`<h2>本期解决的核心问题：<b>一个数字单独摆着没有意义——100 是 100 吨还是 100 方？哪口井的？哪一天的？哪个班的？把它挂进一句完整的事实，才有意义。</b></h2>
+<p><b>项目真事：</b>平台管渤海油田产量。项目的问题清单里登记过一个真实的坑，编号 D1，叫"<b>吨方混写</b>"：日报表的产量格子里，有的队按吨填，有的队按方填，直接加总就错。这正是原著开头那道题：一个 100，是一百袋还是一百箱？量的是哪件商品、哪个仓库、几点钟？数字没把关系说清，同一个数就能读出好几种意思。原著把这拆成五条规矩，项目每一条都有对应的防法。</p>
+<h3>本期的五条设计规则</h3>
+<ol>
+<li><b>属性分三种职责，改标签不等于改事实。</b>属性（对象身上的字段）按职责分三种：对象属性连接两个对象（井—隶属→区块）；数据属性把对象连到一个数值（这天产油 8.2）；注释属性纯给人看（井表的备注、字段的中文名标签）。最容易踩的坑在第三种：原著里把商品标签改成"冷藏商品"，不等于完成了分类——要分类必须另给类型断言（第 2 期已建设，就是"它属于哪个名单"那句话）。项目的版本：把 Z-16 的备注写成"已复产"，不等于它真复产了。防法写进结构：备注字段谁都能写，程序判断井的状态只看状态字段，备注不参与任何判断。</li>
+<li><b>关系的方向写在关系名里（原著叫谓词，就是关系边上的动词），翻箭头不等于造出反方向的关系。</b>"措施—作用于→井"按主语、谓词、宾语读成一句可核验的话：某条措施、作用于、某口井。把箭头掉头、名字不改，下游就读成"井作用于措施"，意思整个反了。想反着说，要另立一个名字并声明两者互逆。项目这条关系的存储方向其实是反的（井的名下挂多条措施记录），为什么不会读乱？平台台账里的对号表（登记业务读法和存储方向怎么对应的表）逐行写明这条是"顺"还是"反"（reversed），机器逐行核对。</li>
+<li><b>数字必须带齐四件：值、单位、对象、时点。</b>项目把单位写进字段定义：日产油量一列单位固定是吨，日产液量一列固定是方，两个格子永远分开——从结构上杜绝"一个 100 是吨还是方"。看 Z-16 那行日报 Z16-20230101-A：井＝Z-16、日期＝2023-01-01、班次＝A、产油 8.2 吨，四件齐了，这才是一句能核验的话。配的检查有两道：化验折算密度值域校验（RULE-PETRO-001，折算密度要落在合理区间）；吨方混写检出（RULE-PETRO-020）——N-02 在 2023-03-05 那行产油 45 吨、产液只有 12 方，产油比产液还多，物理上不可能，检出后挂问题单人工复核，<b>不直改</b>。记住原著这句：<b>换算是算术，不是本体自动执行的推理</b>——项目同样不做自动推理，吨方怎么折，由程序按写明的算法显式算。</li>
+<li><b>一天不是一个数，是几次分开的观察。</b>日报表里 Z-16 同一天两行：A 班 8.2、B 班 7.9。规范警告：两个时点的快照不能当成重复，也不能不问来源直接相加。项目敢把两行加成 16.1 吨，靠一条正式裁决 PROP-BOHAI-007=A：行粒度就是班次，每行是当班的真实产量，日口径定义成各班合计——加法是口径里写明的，不是默认的。前提还是四件套：每行带着"哪口井＋哪天＋哪个班"，表的主键（能唯一确定一行的那几个字段）就是这三样。</li>
+<li><b>一次发生给一个身份；多次发生共用大对象，不复制。</b>"Z-16 做过压裂"不是井上的标记，是一条措施记录：日期、类型、投入都挂在记录上，记录指向井。做了三次措施就是三条记录，全指向同一口井，井不复制。原著反例：把两个时间和两个数量都挂在订单上按顺序硬配，八点配上二十袋，账就错了——配对要由记录自己承载，不靠排列顺序。更正 MR-001 的日期（06-10 改 06-12）只动它自己那一行；Z-16 再做一次酸化是新增一条记录——规范条文：<b>更正一次事件和新增一次事件要分开记录</b>。</li>
+</ol>
+<p><b>第 3 期实施要点：</b>改标签不改事实；方向写在关系名里；数字带齐值、单位、对象、时点；一天不是一个数，是几次各带时点的观察；一次发生一条记录，记录指向对象，不复制对象。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>一个数字单独摆出来没有意义，要把它和单位、对象、时间一起写进一句完整的话里。</b>下面用项目里的真数据从零走一遍。</p>
+<h3>第一步：备注只是备注，改备注不等于改事实。</h3>
+<p>先解释两个词。<b>对象</b>＝系统里描述的那个东西，比如一口井、一条日报行。<b>属性</b>＝对象身上的字段。井 Z-16 有井别、状态、备注几个属性。原著把属性按用途分三种：连接两个对象的（井—隶属→区块，这条隶属第 2 期已建设）、连接一个数值的（这天产油 8.2）、纯给人看说明的（备注，原著叫注释属性）。最容易踩的坑在第三种：把 Z-16 的备注写成"已复产"，不等于 Z-16 真复产了。项目的防法写在结构里：备注字段谁都能写，但程序判断井的状态只看状态字段，备注不参与任何判断。</p>
+<h3>第二步：关系有方向，方向写在关系名里。</h3>
+<p>"措施—作用于→井"读出来是一句完整的话：MR-001 这条措施、作用于、井 Z-16。措施（第 2 期提过）＝给井做的一次作业，项目里记的类型有压裂、酸化、检泵。关系边上的动词，原著叫"谓词"。有人把箭头掉了个头、名字没改，下游就会读成"井作用于措施"，意思整个反了。光翻箭头不算造出反方向的关系；想反着说，要另立一个名字，并写明两者互逆。项目里这条关系的存储方向其实是反的（井的名下挂多条措施记录），为什么没人读乱？台账（第 1 期已建设：本体文件翻译成的只读副本）里的对号表——登记"业务读法和存储方向怎么对应"的表——逐行写明这条是"顺"还是"反"，机器逐行核对。</p>
+<h3>第三步：数字必须带齐四件——值、单位、对象、时点。</h3>
+<p>回标题那个问题：原著问 100 是一百袋还是一百箱；到油井世界，同一道题是"100 是 100 吨还是 100 方"。项目真踩过这个坑（问题清单编号 D1）：日报表填"产油 100"，有的队按吨、有的队按方，直接加总就错。解法是把单位写进字段定义：产油一列单位固定是吨，产液一列固定是方，两个格子永远分开。再看 Z-16 那天的日报行 Z16-20230101-A：井＝Z-16、日期＝2023-01-01、班次＝A、产油 8.2 吨——值、单位、对象、时点四件齐了，这才是一句能核验的话；光写一个 8.2 什么也说明不了。项目还配了两道检查：折算密度要落在合理值域（规则 RULE-PETRO-001）；N-02 在 2023-03-05 那行产油填 45 吨、产液只有 12 方——产油不可能比产液还多，RULE-PETRO-020 把它检出来，登记成问题单等人工复核，不直接改数。还有原著一句原话要记住：换算是算术，不是本体自动执行的推理——吨和方怎么折，是程序按写明的算法显式算的，本体不会自己推。</p>
+<h3>第四步：一天不是一个数，是两次分开的观察。</h3>
+<p>表里 Z-16 同一天有两行：A 班 8.2、B 班 7.9。这不是重复录入。原著先给了警告：两个时点的快照不能当成重复，也不能不问来源直接相加——光看两个数，分不清是不是同一次观察。那项目为什么敢把 8.2 和 7.9 加起来？靠一条正式裁决（编号 PROP-BOHAI-007，项目负责人拍板定下的规矩）：每行是当班的真实产量，日口径＝同一天各班加起来——加法是口径里写明的。敢加的前提还是四件套：每行都带着"哪口井＋哪天＋哪个班"；表的主键（能唯一确定一行的那几个字段）就是井号＋日期＋班次。要是两行不带班次、分不清两个数各是谁的，就不能加。</p>
+<h3>第五步：一次发生记一条；多次发生共用大对象，不复制。</h3>
+<p>原著先给了个反面例子：一张订单挂着两个时间和两个数量，图里没存哪个时间配哪个数量，报表按顺序硬配，把八点配上二十袋，账就错了。解法是给每一次发生一个身份。"Z-16 做过压裂"不是井上的一个标记，是一条单独的措施记录 MR-001：日期、类型压裂、投入 120 万（示例数据），都挂在记录上；记录指向井 Z-16，井本身不复制。要更正 MR-001 的日期（06-10 改成 06-12），只动它自己那一行，别的一条不碰；要是 Z-16 又做一次酸化，那是新增一条记录，不是把 MR-001 改一改——规范条文：更正一次事件和新增一次事件要分开记录。反过来，要是每条措施记录都自带一份井档案的复制品，三次措施就是三份井档案：数井数成三口，改个日期还要改三处。有了记录，问"Z-16 2025 年做过几次措施"就是数记录条数：1 次。</p>
+<h3>数据核对</h3>
+<p>回到看板选第3 期。①业务数据库卡里看日报表 Z-16 那两行 8.2 和 7.9——先自己问一遍：敢不敢直接加？再对一眼表上方的主键说明和那条裁决，看 16.1 是怎么加出来的。②找那行标红的 45.0，读它下面的注：为什么挂问题单而不直改。③措施表里 MR-001 的日期画着删除线改成 06-12——确认别的行一个字没动。三处都对上，本期验收即完成。</p>`},
+4:{
+base:`<h2>本期解决的核心问题：<b>把每条事实写成"主语—谓词—宾语"的最小句子；数事实要展开后数，认身份要拿展开后的全局名字认。</b></h2>
+<p><b>先说清本期改动的性质：</b>选第 4 期，本体仓卡和业务库卡各多出一块"Turtle 样例"（Turtle＝原著那套记法的文本写法）。这两块<b>不是项目往系统里新加了东西</b>——真实系统从头到尾没有存 RDF（RDF＝原著定义的"主语—谓词—宾语"记法，一条记一条事实）。它们是把系统里<b>已有</b>的两样东西——本体仓的 YAML 定义、业务库的日报行——翻译成原著记法，摆在一起对照。同一个东西，原著这么写、项目那么写。所以前 3 期的黄色高亮是"项目真加了"，本期的高亮是"换一套记法重看一遍"。</p>
+<p><b>项目里真发生过的事：</b>原著开头的问题——两个系统都写 E1，就当同一个对象并了库，结果不同对象被误并、同一对象被漏并，每次合库都靠人工比对。项目对应的风险有真实记录：问题清单里登记过同一口井两种写法并存的坑（编号 D6，N2 和 N-2 并存）；本体仓还出过一次真事故（票 27）：早期检查程序只点名"有 id 的元素"，一个没 id 的元素混进文件，程序根本没看见它——静默逃逸，后来闸改成把文件里每个元素挨个点名，没身份＝红。原著把这拆成五个知识点，项目每条都有对应物。</p>
+<h3>本期的五条设计规则</h3>
+<ol>
+<li><b>名字分两种：全局名字（IRI）和纯文本（字面量）；比较前先展开。</b>IRI＝全局唯一的名字，同一个名字永远指同一个东西；带引号的"Z-16"是字面量，只是一段文字，当不了身份。缩写必须先按前缀声明展开成完整名字再比，比较的永远是展开后的结果，不是短标签：规范例里两个系统都写 ex:E1，前缀声明不同，展开后就是两个不同的名字——但展开后不同也还不等于对象不同，要认定同一个，得另给证据。项目对应：ID 前缀就是全局名（AGG-PETRO-001 前缀写错、文件挂错目录，语义闸直接红）；问答卡"Z-16 和 z-16 是同一口井吗"的答案就是这条——字面量不相等，归一化后同指。</li>
+<li><b>数事实要展开后数：分号只复用主语，行数≠事实数。</b>Turtle 里分号＝"主语跟上面一样"；逗号更省——主语、谓语都不动，只接着列宾语；句号收尾一条语句。本体仓那块样例：5 行文本，展开后 12 条事实（井 5 条、日产计量 3 条、老完成率 4 条）；日报那块：2 行，展开后 5 条。原著还提醒：^^类型标记只管"引号里的数按整数解释"，不管业务单位——单位这件事，项目第 3 期已经写进字段定义。项目对应物：YAML 一处定义，同步器展开成台账好几张表好几行——数事实数展开后的行，不数源文件的行。</li>
+<li><b>空白节点：有信息，没全局身份。规范允许存在，项目不收。</b>空白节点＝没名字的东西：一行日报没写井号，数值是真的，但说不清它是谁的，别的语句想引用它都没法下笔——你叫不出它；它的标签只在当前文件里有效，跨文件不能靠标签认身份。项目两处堵死：业务表复合主键（井号＋日期＋班次；主键＝能唯一确定一行的那几个字段，第 3 期已建设）缺一个就插不进去；本体仓每个元素必须有 id——票 27 那次静默逃逸就是这条闸的由来。</li>
+<li><b>定义和事实按语句内容分两层，跟放哪个文件无关。</b>"井有井别和状态"是定义，约定一类所有成员（规范称 TBox，模式层）；"Z-16 那天产油 8.2"是事实，谈具体对象（原著叫 ABox，实例层）。判断标准只有语句内容，不是文件名、目录或大写开头——原著里两层可以同住一个文件，含义不变。项目做得更绝：物理隔离——本体仓只有定义，业务库只有实例，台账只是定义的只读副本（第 1 期已建设台账），谁也混不进去。</li>
+<li><b>一张图就是一组三元组的集合：重复和顺序不产生新事实。</b>判断两份数据是否相同，按展开后的三元组集合比，不按文本行数比：同一句事实写两遍还是一条，顺序打乱还是同一张图；去重比的是主语、谓语、宾语三个位置——另一行数值也是 8.2，但井或班次不同，就是另一条事实。反过来，宾语从对象名字换成一段文字，条数没变，图已经变了。项目的对应物是同步幂等（幂等＝同一操作做多少遍，结果都跟做一遍一样）：同一批 YAML 同步两遍，台账行未变零写入；图索引每次全量重建，同样的输入必得同样的图。</li>
+</ol>
+<p><b>第 4 期实施要点：</b>事实＝主语—谓词—宾语；名字先展开再比，字面量当不了身份；数事实要展开后数，重复和顺序不加事实；没身份的项目不收；定义和事实分开放。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>没有</b>改用原著那套记法。画布上多出来的两块样例，是把项目<b>已有的数据</b>翻译成原著记法摆出来对照——不是项目真加了东西。第 4 期只教一件事：<b>"一条事实"长什么样、怎么数、身份怎么认。</b>用表里的真数据从零走一遍。</p>
+<h3>第一步：三元组＝把每件事拆成最小的一句话。</h3>
+<p>数据库记 Z-16 的产量用表格，一行好几列。原著那套记法（名字叫 RDF）把每件事拆成三个位置：<b>主语</b>说谁、<b>谓词</b>说它的什么（第 3 期已建设，就是关系边上的动词）、<b>宾语</b>说是什么、是多少。"日报 Z16-20230101-A 产油 8.2"拆开就是：主语＝Z16-20230101-A，谓词＝产油，宾语＝8.2。这一句就叫<b>一条三元组＝一条事实</b>。一张 RDF 图没别的，就是一大堆这样的小句子，用的时候挑相关的拼起来。</p>
+<h3>第二步：Turtle＝省行的写法，分号是"主语同上"，所以行数不等于事实数。</h3>
+<p>那条日报有五件事可说：类型是日产计量、所属井 Z-16、班次 A、产油 8.2、单位吨。老实写要五句，主语重复五遍；Turtle 用分号表示"主语跟上面一样"，五行并成两行。数事实的规矩来了：<b>别数文本有几行，数展开后有几句</b>——这两行展开是 5 条。本体仓那块同理：5 行文本，展开后 12 条。逗号更省：主语、谓语都不动，只接着列宾语——"有属性 wellId、wellType、currentStatus"一口气就是 3 条。项目里"YAML 一处定义，同步后变成台账好几行"也是同一条规矩：数事实数展开后的行，不数源文件的行数。</p>
+<h3>第三步：名字分两种，比之前先展开。</h3>
+<p><b>IRI</b>＝全局唯一的名字，规则只有一条：同一个名字永远指同一个东西。<b>字面量</b>＝带引号的纯文本，"8.2"、"A"这种，拿来展示可以，拿来当身份不行。比名字前还有个动作：缩写要先按前缀声明展开成完整名字再比——两个系统都写 E1，前缀不同，展开后就不是同一个名字；但展开后不同，也还不等于对象不同，说"是同一个"要另给证据。落到项目：问答卡里"Z-16 和 z-16 是同一口井吗？"那行——字符串直接比不相等；按归一化规则（归一化＝把各种写法先统一成一种标准写法）RULE-PETRO-005 把 z-16、Z16 统一成标准形 Z-16，再比，同指。ID 前缀（AGG-PETRO-001）在这套对照里充当 IRI：前缀写错、文件挂错目录，语义闸（第 1 期已建设的机器检查关卡）直接红。</p>
+<h3>第四步：空白节点＝有内容、没名字。原著允许，项目不收。</h3>
+<p>假设日报表有一行：产油 8.2、班次 A，井号空着。信息是真的，<b>身份</b>（第 2 期已建设：系统里记录"它是哪一个"的唯一档案）没有——说不清它是谁的，想补一句"它隶属渤南"都没法下笔，因为你叫不出它。这种没名字的东西原著叫<b>空白节点</b>，原著还警告：它的标签只在当前文件里有效，跨文件不能靠标签认身份。项目两处都进不来：①业务表的复合主键（井号＋日期＋班次；主键＝能唯一确定一行的那几个字段，第 3 期已建设）缺一个，这行根本插不进去；②本体仓每个元素必须有 id——这里有个真事故（票 27）：早期检查程序只点名"有 id 的元素"，一个没 id 的元素混在文件里，检查程序根本没看见它，这叫静默逃逸；后来改成把文件里每个元素挨个点名，没 id 直接红。</p>
+<h3>第五步：定义和事实分开放。</h3>
+<p>"井有井别和状态"是<b>定义</b>，约定的是一类所有成员（规范称 TBox，模式层）；"Z-16 那天产油 8.2"是<b>事实</b>，谈的是具体对象（原著叫 ABox，实例层）。规范说：看内容分两层，两层可以住同一个文件。项目更绝对——<b>物理隔离</b>：本体仓只有定义，业务库只有事实，台账只是定义的副本（第 1 期已建设：本体文件翻译成的只读副本），谁也不许混。</p>
+<h3>第六步：一张图就是一组事实的集合——重复和顺序都不加事实。</h3>
+<p>同一句事实写两遍，还是一条；把句子顺序打乱，图还是同一张。所以判断数据变没变，要按"展开后的句子集合"比，不按文本行数比；去重时主语、谓语、宾语三个位置都要一样才算重复——另一行日报数值也是 8.2，但井或班次不同，就是另一条事实。反过来，把宾语从井的名字换成一段文字，条数没变，图已经变了。项目的版本叫<b>幂等</b>（幂等＝同一操作做多少遍，结果都跟做一遍一样）：同一批文件同步两遍，台账一行都不变（行未变零写）；图索引每次全量重建，同样的输入必得同样的图。</p>
+<h3>数据核对</h3>
+<p>回到看板选第4 期。①本体仓卡里那块 5 行样例，自己逐条展开数一遍——是不是 12 条？数对了，"行数≠事实数"就通了。②业务库卡里日报样例 2 行，自己展开——是不是 5 条？③问答卡里 Z-16 和 z-16 那行读一遍：字面量不相等，归一化后同指。三处都对上，本期验收即完成。</p>`},
+5:{
+base:`<h2>本期解决的核心问题：<b>没写出的结论，什么情况算推出来了，什么情况不算。</b></h2>
+<p><b>先说清本期在两边路线上的位置：</b>从本期起，原著正式教"让机器自己推结论"——RDFS（给三元组记法补上类和属性的规则、让机器做有限推理的标准；三元组＝主语—谓词—宾语凑成的一条事实，第 4 期已建设）和它背后的<b>推理机</b>（自动按规则补结论的程序）。项目从始至终<b>有意不装推理机</b>：本体仓里检索子类、RDFS 这类推理声明零命中，一个会自动补结论的程序都没有。同一批目标——结论有据可查、错误录入有人拦、上游撤回能追——项目全用<b>确定性机制</b>达成（确定性＝按写死的规则判定，同样的输入永远同样的结果）：脚本闸拦错、按登记的条件现算结论、逐元素注源当依据。本期就是把两边手段一条条摆开对照。</p>
+<p><b>本期要解决的问题：</b>库存报表把只知道"是商品"的 P2 算进了冷藏库存，却指不出依据是哪条。原著先立门槛：<b>蕴含</b>（前提成立时结论必然成立，这才算"推出来"）——结论要在满足前提的<b>每一种解释</b>里都成立；只要存在一种让结论不成立的解释，原著叫<b>反模型</b>（满足全部前提、却让候选结论不成立的解释），结论就没被推出——<b>一个反例就够</b>。两条边界跟着立：推不出，不等于推出否定；反模型只是一种允许的解释，不是现实中发生的事。项目这边对得上的真事：整座平台没有一个自动推理部件，但"结论必须有据"守得极严——本体仓每个元素行尾注明出自设定书哪节或哪条裁决，说不清出处的登记根本不存在（设定书没有的一律不建）。</p>
+<h3>本期的五条设计规则</h3>
+<ol>
+<li><b>只认所有解释都成立的结论。</b>规范例：前提"冷藏商品⊑商品"（⊑ 读"包含于"，即小类属于大类——类和成员第 2 期已建设）加"P1∈冷藏商品"，推出"P1∈商品"。只知"P2∈商品"则推不出"P2∈冷藏商品"——P2 完全可以不在冷藏商品里，这个解释就是反模型；想反过来下全称结论（"商品都是冷藏商品"），一个反模型就否定。项目版：<b>反例一票否决</b>落在出厂集回归里——每条闸判据配一批非法变体夹具，一条夹具漏网就说明判据漂移；日常结论不靠推理靠现算——机采井名单只存条件（井别＝EW 且有泵型，第 2 期已建设），问答卡"有几口机采井？答 1（按井别＝EW 统计）"，同数据永远同结果。</li>
+<li><b>子类蕴含：每一步推导都带前提编号。</b>规范例：SKU200 只登记为酸奶却被算进商品报表，"因为它是酸奶，酸奶当然是商品"这种没编号的理由审计不采信；编号后每步可重放——F1：SKU200∈酸奶，A1：酸奶⊑冷藏食品，A2：冷藏食品⊑商品；第一步 F1＋A1 得 SKU200∈冷藏食品，第二步拿这条<b>派生事实</b>（推出来的结论）当下一步的前提，加 A2 得 SKU200∈商品。删掉 A1，断点就在第一步；但失去证明不等于证明它不是商品。项目版：没有类层次可推（第 2 期裁决：分类只一层，井别枚举承载），对应物是<b>逐元素注源</b>——每个本体元素注明出处（"R5·设定书 §x"或裁决编号 PROP-*），依据编号写死在登记里，不靠现场推。</li>
+<li><b>子属性蕴含：固定两端，只向上换谓词。</b>谓词＝三元组中间那段关系（第 3 期已建设：关系边上的动词）。规范例：声明"实际发货⊑涉及批次"，"O1—实际发货→L1"就推出"O1—涉及批次→L1"——主语宾语不动，只换中间的谓词；反着推不出（O2 涉及批次 L2 可以有别的原因）；要跨两条边拼，得用第 12 期的属性链公理（把两条边首尾相接拼成一条的规则）。项目版：没有谓词层级可换，方向全靠<b>显式登记</b>——"措施—作用于→井"存储方向是反的，靠对号表逐行写明 reversed、机器核对（第 3 期已建设）；注水受效（注水井—受效→油井：把一口注水井的效果分摊到受益油井）不推链，直接建成关系实体 AGG-PETRO-009 落表（装配暂缓待裁）。</li>
+<li><b>定义域与值域：原著拿它推类型，项目反用作拒收闸。</b>定义域＝声明"用这个属性时主语该是什么类型"，值域＝"宾语该是什么类型"。原著强调：RDFS 里这俩声明是<b>推理的原料，不是检查器</b>——"D1 atWarehouse C01"让两端补出类型（D1∈库存记录、C01∈仓库）；主语错填成商品 E1，RDFS 不报错，照样补一条"E1∈库存记录"。要拦录入错误，规范说第 17 期用 SHACL（专门的校验规则语言）另做。项目有意反用：同一组声明全当<b>闸</b>（机器检查关卡，第 1 期已建设）——①导出器（把本体定义转成平台消费格式的程序）产出对号表（登记"认哪些对象和关系、每条关系两端各是什么类型"的清单），候选关系必须自带两端类型（from_type/to_type），对不上即拦——画布⑤实例装配卡那条拒收记录就是现场（演练数据）：抽出一条候选关系「MR-001 —隶属→ 渤南区块」，出发端 MR-001 是一条措施记录，而对号表里"隶属"登记的两端类型是井和区块，类型核对不过，直接拒收、未入图。拒收台账落在⑤卡那张某表里（第 30 期还会加一行）。按原著那种用法，这条错候选会被收下，还会顺着定义域反推出一条"MR-001 是井"的错类型；项目在入图前就拦下，图里永远不会有这条错边；②字段值域登记合理范围（含水率 0–100、开井时长 0–24），出界挂单；③跨字段对账：N-02 那行油 45 吨比液 12 方还多，物理不可能，检出来挂问题单（第 3 期已建设）；④引用了仓里不存在的编号＝红（悬空引用闸）。判断：本项目判项目对——错一行进库，加总全错，宁拒收不错收；这条拒收就是"反用更好"的现场理由：登记册场景里数据要进自己的账，两端类型不对的行没有"先收下再补类型"的价值；原著用法的前提（数据已可信、想要自动补类型）这里不存在。但记住闸只拦不补：类型不在清单，它不会替你猜一个。</li>
+<li><b>推导依据与支持集：前提撤回，断在哪一步要指得出。</b>每条派生结论记下用到的全部前提编号——这套编号原著叫<b>支持集</b>（推出一条结论所用到的前提清单）。规范例：撤回值域声明 P2 后，断点在步骤二——步骤二、三失去证明，步骤一仍完整；若另有显式事实 C01∈仓库，配合 P4 仍能推出设施类型。两条边界：<b>查一条依赖链不等于证明全部消失；失去证明＝"未证明"，不是"证伪"。</b>项目版：依据落在注源上；台账是只读副本（第 1 期已建设），上游撤一行、重同步即跟着消失，不残留旧结论；删前想看影响，影响分析工具沿依赖边反向列全受影响节点；查不到的问答卡明说"未知，缺什么"（N-02 油质、检修结束两行在案）——把"没查到"和"没有"分开说。</li>
+</ol>
+<p>原著把本期当作第一阶段的收口：三道检测题里关键的一题就是第一条——只知"是商品"，既不能保证是酸奶，也不能断言不是。下一期顺着这条边界问：没有证明时，该记成"假"还是"未知"。</p>
+<p><b>第 5 期实施要点：</b>结论要在所有解释里都成立才算推出，一个反例就能否定；每步推导带前提编号；定义域/值域在规范中用于类型推断、项目反用作拒收闸——「MR-001 隶属渤南」这条候选就是被它拦下未入图的；失去证明是"未证明"，不是"证伪"。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>没写出来的话，凭什么算它成立，凭什么不算。</b>下面从零走一遍。</p>
+<h3>第一步：什么叫"推出来"——每一种解释里都成立才算数。</h3>
+<p>原著把"结论跟着前提成立"叫<b>蕴含</b>：前提成立，结论必然成立，这才算推出来。用原著自己的例子走：规则里写了"酸奶⊑冷藏食品"（⊑ 读"包含于"，意思是小类属于大类——类和成员第 2 期已建设）和"冷藏食品⊑商品"。SKU200 只登记了一句"它是酸奶"，那"SKU200 是商品"这句没写，也算成立——因为不管怎么解释，是酸奶就必然在冷藏食品里，在冷藏食品里就必然在商品里。硬要求：<b>凭什么算数，要能一步步指出用了哪条前提</b>——上例用了两条，缺一条都推不完全。反方向不行：只知道"SKU200 是商品"，推不出"它是酸奶"——它完全可以只是普通商品，这个"它不在酸奶里"的解释和前提不冲突，原著叫<b>反模型</b>（满足全部前提、却让候选结论不成立的解释）。想下全称结论"商品都是酸奶"？一个反模型就够否定。再记两条边界：推不出，不等于推出"不是"；反模型只是一种允许的解释，不是现实中真发生的事。</p>
+<h3>第二步：项目里没有会推理的程序，谁干这个活？</h3>
+<p>没有谁。项目里没有"自动按规则补结论"的程序（本体仓里子类、RDFS 这类推理声明一条都没有）。要结论就现算：问答卡问"有几口机采井？"答 1——机采井名单存的是条件（井别＝EW 采油且有泵型设备，第 2 期已建设），名单本身不存成员，每次按条件现数，同样的数据永远数出同样的结果。代价也要说：没人提前把结论算好摆在那，要用时自己查一遍。</p>
+<h3>第三步：最反直觉的一条——定义域和值域是拿来推类型的，不是拦错的。</h3>
+<p>先拆词：<b>定义域</b>声明"用这个属性时，主语该是什么类型"；<b>值域</b>声明"宾语该是什么类型"。原著强调：在 RDFS（给三元组记法配的规则扩展；三元组＝主语—谓词—宾语凑成的一条事实，第 4 期已建设）里，这两个声明是推理的原料，不是检查器——声明"仓库属性的定义域是库存记录"之后，报一句"D1 存进了 C01"，两端类型自动补出来（D1 是库存记录、C01 是仓库）；把主语错填成商品 E1，RDFS 也不报错，反而补一条"E1 也是库存记录"——<b>填错了没人拦</b>。想拦录入错误，规范说要用 SHACL（专门的校验规则语言，第 17 期讲）另做。项目把同一组声明反过来用：全当<b>闸</b>（机器检查关卡，第 1 期已建设）——①候选关系必须自带两端类型，不在对号表清单里直接拦下（对号表＝登记"认哪些对象和关系、两端各是什么类型"的清单，第 3 期的方向登记走的就是它）。画布⑤实例装配卡最下面那行拒收记录就是一例（演练数据）：抽出来一条候选「MR-001 —隶属→ 渤南区块」，MR-001 是一条措施记录，而"隶属"在对号表里登记的两端类型是井和区块——措施当出发点，类型对不上，当场拒收，图里没有这条边。拒收台账落在⑤卡那张某表里（第 30 期还会加一行）；②字段值域登记合理范围：含水率 0 到 100、开井时长 0 到 24，写进来的数出界就挂单；③跨字段对账：油 45 吨比同行的液 12 方还多，物理不可能，挂问题单人工复核、不直改；④引用了仓里不存在的编号，直接红。哪种对？本项目判项目对：错一行进库，加总全错，宁拒收不错收；要是按原著的用法，这条错候选不但进图，还会倒推出一条"MR-001 是井"的错类型——登记册的账就脏了；原著用法的前提（数据已可信、想自动补类型）这里不存在。但记住：闸只拦不补，类型不在清单，它不会替你猜一个。</p>
+<h3>第四步：每句话带编号依据；上游撤了，断在哪一步要指得出来。</h3>
+<p>原著给前提编号（F1、A1、A2），每步推导记下用了哪几条——这套编号合起来叫<b>支持集</b>（推出一条结论用到的全部前提的清单）。"因为它是酸奶"这种没编号的理由，审计不收。支持集的用处在上游撤回时：规范例里撤掉一条前提，马上能指出断点在第几步——哪几步失去证明、哪一步还完整，清清楚楚。项目的对应物：<b>逐元素注源</b>——本体仓每个元素的行尾写明出处（出自设定书哪节，或哪条裁决 PROP-*），说不清出处的登记不存在。撤回有现成实例："老完成率"在术语表里标成禁用（第 1 期已建设），台账（第 1 期已建设：本体文件翻译成的只读副本、行禁手改）上游删行、重新同步后就跟着消失，不会残留旧口径的结论。删之前想知道影响多大，项目有影响分析：沿依赖边反向走，把受影响的元素一次列全。</p>
+<h3>第五步：证明没了，状态叫"未证明"，不叫"证伪"。</h3>
+<p>前提撤回后，原来那条结论的状态是"未证明"——没证据了，不等于拿到了反方向的证据。项目问答卡原样照做："N-02 的油质合格吗？"——未知，缺化验类数据；"N-02 检修什么时候结束？"——未知，缺结束日期字段。不说"不合格"，也不把"查不到"说成"没有"。缺什么，说什么。</p>
+<h3>数据核对</h3>
+<p>回到看板选第5 期。①实例装配卡最下面找那行拒收记录：「MR-001 —隶属→ 渤南区块」——对号表类型核对不过，未入图；再到业务数据库卡看措施表，MR-001 只作为"压裂措施"指向 Z-16——被拒的候选不会混进图，图里没有"MR-001 隶属渤南"这条边。②问答卡里找到那两行"未知"；翻业务数据库卡对一遍：表里没有化验表，井措施表也没有结束日期列——确认"缺"是真的缺，不是推脱。③实例装配卡看 Z-16 挂的机采井名单那行：写的是条件（井别＝EW 且有泵型），不是结论——名单存条件，问答现数。④业务库卡里找那行标红的 45.0：油 45 吨比液 12 方还多——闸不只查单个字段的范围，还查字段之间物理上说不通的组合，检出来挂问题单、不直改。四处都对上，本期验收即完成。</p>`},
+6:{
+base:`<h2>本期解决的核心问题：<b>查不到，只说明仓里没有记录，不等于这件事没有；每条说法按"正向可证、否定可证、未知"三种证明状态登记，各自带依据。</b></h2>
+<p><b>先接第 5 期留的问题：</b>没有证明时，一条说法该记成"假"还是"未知"？本期正面回答：记"未知"。<b>本期画布上的改动：</b>④业务数据库卡日报表下面多了一张质检结果表，⑧问答卡多了一行问答——都是"缺的行如实报缺、不推结论"的现场，下面展开。<b>项目里真发生的事：</b>问答卡里答"未知"的有三行——问"N-02 的油质合格吗？"答"<b>未知，缺化验类数据</b>"（第 1 期在案）；问"N-02 检修什么时候结束？"答"<b>未知，缺结束日期字段</b>"（第 3 期在案）；第三行是本期新加的：问"N-02 2023-03-06 生产了吗？"，同样答"未知"（规矩 1 展开）。为什么不答"不合格"、不说"没有"？因为项目的问答入口把结果写死成四种：answered（正常作答）加三种拒答——refused_out_of_surface（超出平台管的面）、refused_missing（仓内没有）、refused_banned（禁用词）。其中 refused_missing 说的是"仓里没有"，不说"世上没有"。这正是本期对应的原著主题——<b>开放世界假设</b>：判断只限定在登记下来的事实和规则之内，不替现实下结论；库里没登记的东西，现实中可能照样存在。规范警告过一个反面：人才补贴审核查不到获奖记录就判"不符合条件"，错判引发复核和申诉——把"没查到"当成"没有"是要出事故的。图谱命中＝边证据带出处进上下文；未命中＝明示并走兜底——写入侧报缺、读取侧明示，同一纪律的两端。</p>
+<h3>本期的五条设计规则</h3>
+<ol>
+<li><b>一条说法只有三种证明状态：正向可证、否定可证、未知——规范条文：三态描述的是证明依据，不是概率，也不是三种现实真值。</b>规范例：知识库 K 只有"甲是学生"和"学生包含于人"，"甲是人"正向可证；"甲获过奖"正反都无据，停在未知。补一条"甲是学生"，获奖仍是未知——学生和获奖之间没有任何关联。未知不是假："不合格"是结论，未知是"手上没证据"。项目照做：refused_missing＝仓内没有≠世上没有；问答卡答"未知，缺化验类数据"，不答"不合格"。本期新加的问答行是同一规矩的项目实例：N-02 在 2023-03-05 有行（第 3 期那行 45.0 坏行），次日 2023-03-06 却查不到任何班次行——问"N-02 2023-03-06 生产了吗？"，日报查不到该行，答"<b>未知</b>"；质检报"缺 1 行"转人工核查漏报，缺的行如实报缺，<b>不推"该井停产"</b>（缺记录≠没生产）。</li>
+<li><b>否掉"一定如此"，一个反模型就够。</b>反模型＝满足全部前提、却让结论不成立的情形（第 5 期已建设）。规范例：库里唯一事实"a 是账户"，界面却标"a 待复核"——标记来自默认值，不是证明。动手画两个模型：待复核类显式设为空集的模型里，a 不是待复核——这一个模型就否掉"K 推出 a 待复核"；另一个账户类和待复核类都含 a 的模型，又否掉"K 推出 a 不待复核"。两侧都不蕴含，即未知。不必穷举无穷多个模型；但举两个也不等于穷尽全部——要证明"必然"，得每个允许的模型里都成立。</li>
+<li><b>否定要明写，而且只排除指定的那一组（原著叫否定属性断言：明写的一条记录，内容是"某对象、某个属性、某个值"这一组不成立）。</b>规范例：病历录"P01 不对青霉素 A2 过敏"，只排除"P01—过敏—A2"这一组——推不出不对 A3 过敏，更推不出"没有任何过敏"；开药系统读成后者就放行禁用药，出事故。明写的否定从哪来？不是"查不到正面记录"推出来的，是人拍板后写进去的：台账"老完成率＝禁用（替代：产量完成率）"那行（第 1 期已建设），出处"R5·设定书 §6"就登记在行上——否定也有出处。缺正向的边，不构成否定的证据。</li>
+<li><b>单调性：只加前提，结论不丢；撤掉支持，只回到未知，不产生否定。</b>单调性＝知识库只增不减时，已经推得出的结论不会消失。规范例：靠一条子类公理推出"批次 b 是受控品"；撤掉公理后，"b 是受控品"失去证明，回到未知——不是变成"b 不是受控品"，也不是新版本覆盖老结论；若库里还留着"b 是受控品"的直接断言，结论干脆不消失——所有支持都失效且未被重新推出，才不再蕴含。项目版：没有推理机，就没有"推出来的结论清单"可丢——语义闸每次对当前 YAML 全量重跑、一次性确定性判定，不维护"以前推出的结论"。</li>
+<li><b>四列证据表：每条命题登记依据；正反依据同时在场＝不一致，先报告。</b>原著四列表：命题、能否正向证明、能否否定证明、依据或状态。追加正向事实，命题从未知变正向可证；撤回公理，从可证回未知。项目对应三处：本体元素逐条注源（GLS-PETRO-001 注"R5·设定书 §6"；AGG-PETRO-002 注引裁决 PROP-BOHAI-007）、裁决 PROP-* 留痕、问答卡每答带"靠什么"列。边界：正反依据同时存在，说明登记内容不一致——原著交给一致性检查，不是后写覆盖先写；项目检出矛盾后挂问题单、人工复核、不直改（第 3 期那行 45 吨就是流程样板）。三态判断，以前提一致为前提。</li>
+</ol>
+<p>原著把本期当作这条线的收口，产物是一张"正向、否定、未知"三栏证据表，并在文档中说明它解决了哪个能力问题（能力问题第 1 期已建设）。下一期顺着问：名字不同，就一定是两个对象吗？</p>
+<p><b>第 6 期实施要点：</b>查不到不等于没有；一个反模型就能否掉"一定如此"；否定只排除指定的那一组；只加前提结论不丢，撤支持只回未知；每条命题登记正反依据。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>系统里查不到一个东西，不能说它没有；要说"没有"，必须有明写的否定记录。</b>下面用表里的真数据走一遍。</p>
+<h3>第一步：先看问答卡里答"未知"的行，差别在哪。</h3>
+<p>打开画布 ⑧ 运行时问答卡，挑三行：问"Z-16 2023 年产油合计？"答"5839.63 吨"——查到了，给你数；问"N-02 的油质合格吗？"答"<b>未知，缺化验类数据</b>"（第 1 期在案）；问"N-02 检修什么时候结束？"答"<b>未知，缺结束日期字段</b>"（第 3 期在案）。注意后两行：没说"不合格"，也没说"没有"，说的是"我这里缺这种数据"。第 6 期还在卡上新加了第四行（黄色高亮），也是答"未知"的——第三步专门讲它。原著给这套道理起名叫<b>开放世界假设</b>：系统只对"登记进来的事实和规则"负责，没登记的东西，世界上可能照样存在——所以查不到，不能当成没有。</p>
+<h3>第二步：任何一条说法，只有三种证明状态——说的是证据，不是真假。</h3>
+<p>拿"N-02 有合格化验记录"来说，只有三种可能：<b>正向可证</b>（表里有支持它的行）、<b>否定可证</b>（表里有明写它不成立的行）、<b>未知</b>（两头都没有）。用真数据摆一遍：日报行 Z16-20230101-A 写着产油 8.2 吨，"这行产油 8.2"正向可证；台账（第 1 期已建设：本体仓翻译来的只读副本）里有一行明写"老完成率＝禁用"，"老完成率是禁用词"正向可证；而表里没有化验数据，"N-02 油质合格吗"两头都没证据——未知。关键一句是规范条文：<b>三态描述的是证明依据，不是概率，也不是三种现实真值</b>。"不合格"是结论，未知是"手上没证据"。"未知"本身怎么站住？靠<b>反模型</b>（第 5 期已建设：满足全部前提、却让结论不成立的情形）——构造一个这样的情形，就否掉了"一定如此"，不用把所有可能摆完；反过来，要说"必然成立"，就得每一种允许的情形里都成立。</p>
+<h3>第三步：缺一行记录，推不出任何结论——本期画布上就有这个场面。</h3>
+<p>项目有个值域闸（自动检查字段取值范围的闸，闸＝机器检查关卡，第 1 期已建设）：日产计量的含水率登记合法范围 [0,100]、开井时长 [0,24]，哪一行写超了，闸就把哪一行挂出来。注意闸的边界：<b>它只查写进来的行</b>。某口井某天根本没有日报行，闸什么都不会说——表里没有这一行，它就看不见这一行，谈不上这口井违规。"有一行数据违规"有证据（那行就在表里），"缺一行数据"没有证据，是两个判断。规范条文：记录缺失替代不了明确的否定事实。本期画布把这条边界摆成了看得见的两处（都是黄色高亮的新增）：①到 ④业务数据库卡，日报表下面那张质检结果表——N-02 在 2023-03-06（坏行 45.0 的次日，第 3 期在案）没有任何班次行，质检报的是"缺 1 行"转人工核查漏报，<b>不是"该井停产"</b>：缺记录≠没生产；②到 ⑧问答卡，本期新加的那行：问"N-02 2023-03-06 生产了吗？"答"<b>未知</b>"——日报查不到该行，就只回到"未知"，转质检核查，不替现实下结论。图谱命中＝边证据带出处进上下文；未命中＝明示并走兜底——写入侧报缺、读取侧明示，同一纪律的两端。</p>
+<h3>第四步：否定必须明写，而且只排除明写的那一组。</h3>
+<p>台账里"老完成率＝禁用"怎么来的？不是"查不到老完成率的正面记录，所以禁用"——它是业务设定书 §6 的裁决，有人拍板后明写进术语表的，出处就登记在那一行上。问答卡答"Z-16 的老完成率"，依据列写的是"台账禁用行"——连否定都有出处。原著还补了更细的一刀：<b>明写的否定只排除指定的那一组</b>。规范例：病历录"P01 不对青霉素 A2 过敏"，只排除"P01 对 A2 过敏"这一组——推不出他不对 A3 过敏，更推不出"他没有任何过敏"；开药系统要是读成"没有任何过敏"，就会放行禁用药，出事故。落到项目：要下"N-02 不合格"的结论，必须有一条明写的化验判定记录；没有这条记录，就只能答未知。</p>
+<h3>第五步：单调性——只加前提，结论不丢；撤了支持，回到未知。</h3>
+<p>先拆词：<b>单调性</b>＝知识库只增不减时，已经推得出的结论不会消失。规范例：靠一条子类公理推出"批次 b 是受控品"；后来把这条公理撤了，"b 是受控品"失去证明，状态回到未知。注意三件事：不是变成"b 不是受控品"（撤支持只回到未知，不产生否定）；不是新版本覆盖老结论；要是库里还留着"b 是受控品"的直接断言，结论干脆不消失。项目这边没有推理机（第 5 期已建设：项目有意不装自动补结论的程序），本来就没有"推出来的结论清单"可丢——语义闸每次对当前文件全量重跑，一次算一次的账，不维护"以前推出的结论"。</p>
+<h3>第六步：发现前后矛盾，报出来交人，不许程序自己改。</h3>
+<p>原著规矩：两条记录互相矛盾（先录"不对某药过敏"，又录"对该药过敏"），不算新的覆盖旧的，算登记内容不一致，要先报告。项目同款：日报表里埋过一行坏数据（N-02 产油 45 吨，比同行的产液 12 方还多，物理不可能），RULE-PETRO-020 检出后挂问题单、人工复核、<b>不直改</b>——矛盾报告出来交给人，不被程序悄悄处理。</p>
+<h3>数据核对</h3>
+<p>回到看板选第 6 期（前几期的行都还在场，黄色高亮的是本期新增）。①业务数据库卡里，日报表下面找到那张质检结果表：N-02 在 2023-03-06（坏行次日）无任何班次行——读一遍它报的是什么："缺 1 行"转人工核查漏报，不是"该井停产"。②问答卡里找到本期新加的那行：问"N-02 2023-03-06 生产了吗？"答"未知"——查不到只回到"未知"；再把答"未知"的前两行（缺化验类数据、缺结束日期字段）各念一遍："这是仓里没有，不是没有。"③翻到平台台账卡的 sem_term 表，找"老完成率"那行——"禁用"两个字是明文写在格子里、出处"设定书 §6"就在旁边，不是查不到推出来的。④业务数据库卡里没有化验表、井措施表也没有结束日期列——确认"缺"是真的缺。四处都对上，本期验收即完成。</p>`},
+7:{
+base:`<h2>本期解决的核心问题：<b>名字不同，不一定是不同的对象——名字有几个，不代表对象有几个；身份要靠写下来的依据定，不靠名字猜。</b></h2>
+<p><b>先接第 6 期留的问题：</b>名字不同，就一定是两个对象吗？<b>项目里真发生过的事：</b>问题清单登记过编号 D6 的坑——同一口井的井号，旧数据里并存 N2 和 N-2 两种写法。按名字数，一口井数成两口，日报、措施全要算错账。<b>本期画布上的改动：</b>④业务数据库卡多了一张进料暂存表（进料暂存＝数据进门、收拢清洗前先留痕的一笔）——进来一行 well_id 写成"n2"的日报，进门先按归一化规则（把各种写法统一成一种标准写法，第 4 期提过）收拢成 N-02 后才入表；⑧问答卡也多了一行——问"井号写 n2 的日报行，和 N-02 是同一口井吗？"答"归一化后同指"。反方向的坑也存在：井名"渤中28-1-N2"这个字符串里也含"N2"，可井名在登记里就是普通字符串（字段 wellName，没有唯一约束），它连身份判据都不是——光看字符串相近就合并，井档产量全会错账。原著把这拆成四条规矩，项目每条都有对应物。第 4 期问答卡那条"Z-16 和 z-16 是同一口井吗？"（第 4 期在案）是<b>名字层面的字面量比较</b>——两个字符串展开后直接比，不相等；本期新加的 n2 行是<b>进门时的收拢动作</b>——写法还没入表就先归一成标准形。两句一并读，本期正面讲完。</p>
+<h3>本期的四条设计规则</h3>
+<ol>
+<li><b>无唯一名称假设：名字个数不等于对象个数。</b>先拆词：唯一名称假设＝默认"名字不同就是不同的东西"；原著讲 OWL（一种让机器按写好的规则做推理的描述语言）<b>不作</b>这个假设。规范例：盘点表 U17、V09 两台设备，记录只有四条——都是设备、都在 Lab1。解释成一台（两个名字指同一台）或两台（各一台），两种解释都和这四条记录不冲突——所以共同的属性（同类型、同地点）不能单独决定同一或不同。要定死，必须有人显式补一句"是同一个"（sameAs）或"不是同一个"（differentFrom）；补了"不同"，就不允许再解释成同一台，但仍可共享设备类型和地点。原著还扫了三个行业：病案号、设备位、运单编码——名字不同都不等于差异断言。项目对照：身份不在名字层判，在键层强制——井档案的井号登记了唯一约束（unique＝数据库里写死的规矩：这一列不许出现重复值），一口井一行；日报行的身份靠复合主键（井号＋日期＋班次，第 3 期已建设）。重复身份从写入那刻就进不来。本期④卡那张进料暂存表就是现场：进来一行 well_id 写"n2"的日报——"n2"和"N-2"是名字不同的两个写法，解释成一口井还是两口井，两种解释都和已有记录不冲突（规范说的两个模型都成立）；项目不靠解释收敛，进门先收拢成 N-02 再入表，同一口井不新增档案。归一化匹配不上的写法不猜、落问题单——"未定"是显式挂起等人定，不许替它编。</li>
+<li><b>个体同一性：sameAs 让两个名字在所有关系两端都可替换。</b>sameAs＝明写的一句断言："这两个名字指同一个东西"，效果是两个名字在所有关系的两头都能互相换着用。规范例：P17（旧号）、Q09（新号）确认同一位患者，一条 sameAs，挂在旧号上的青霉素过敏记录，按新号也查得到；<b>原来的名字和原来的事实都保留</b>。三条边界：sameAs 不是相似度打分，0.9 的相似度当不了同一；不能只在某一个关系上生效——要么所有关系都可替换，要么不写；sameAs 换的是"指哪个东西"，不是改文字——两段写法不同的字符串不会因为同指就变成同一段文字（字面量，第 4 期已建设）。项目对照：项目零推理机（第 5 期已建设：有意不装自动补结论的程序），不建 sameAs，写法收拢靠登记的归一化规则 RULE-PETRO-005（归一化＝把各种写法统一成一种标准写法，第 4 期提过）：登记四类变体形态（少连字符、连字符位置不对、混进空格、大小写乱），按归一表统一收成标准形 N-02，算法幂等（做多少遍结果都一样）；匹配失败不猜、落问题单。画布④卡那张进料暂存表就是一次实作：well_id="n2"进门收拢成 N-02 后入表，井档还是一行；收拢不动的写法（没登记过的变体，如 X-99）落问题单——挂起＝明说未定，接本期第四条规矩：真要动它，修复必须有来源依据。归一表放哪、谁来执行也有裁决（PROP-BOHAI-011(b)）：表登记在本体仓当唯一真源，执行放在源侧清洗，语义层保留"旧写法残留"检出告警。差别说死：sameAs 留两个名字、靠推理连通；归一化进门收成一种写法。</li>
+<li><b>功能属性：推出同指，而不是删记录。</b>功能属性＝声明"同一个主语在这个位置至多对应一个值"。规范例：同一件包裹登了 u17、v09 两个保管账号，系统把后写的一条自动删了——错，交接链断裂，重复登记被当成数据错误，丢件时说不清谁在保管。正确做法：把"保管人"声明为功能属性，两条保管边都保留、又没有"两者不同"的断言，就推出 u17 sameAs v09——知识库仍一致，两条记录都在。规范条文要背：<b>功能性限制的是解释中的取值——用推理解释数据，而不是用删除整理数据</b>。两条边界：撤掉功能属性声明，"同一"退回未蕴含；另有前提强制两值不同，知识库才不一致。项目对照：数据库版的"至多一个"就是约束——井号唯一（一个井号至多一行井档）、复合主键（一组键至多一行日报），写入时强制。真冒出双值，项目同样不删：配产双值行（问题清单 D4），Owner 裁决 PROP-BOHAI-009=A：双值＝<b>版本事实</b>——切换日早班按旧版计划、晚班换新版（承接第 3 期 PROP-BOHAI-007 定下的班次粒度），日配产取"当日最后班次的非空值"，全部双值行出清单供人复核。原著用推理消化两个名字，项目用裁决解释两行数据——反删除的立场两边一致。</li>
+<li><b>个体差异与身份一致性：把冲突定位到最小前提集，修复要有来源依据。</b>规范例：账户只能有一个开户人（功能属性），台账却登了 C01、C02 两条，且已核验两人确实不同——功能属性要求相同、差异断言要求不同，直接冲突。这四项输入（一条功能属性声明＋两条开户人记录＋一条差异断言）放在一起，任何解释都容不下，构成<b>最小冲突集</b>（互相冲突的最少那几条前提）。系统只含糊报一句"有冲突"的代价：有人凭猜测删掉真实记录，整库被判不可用。诊断办法：在一份独立副本里逐项去掉前提，看冲突消不消失——规范条文：<b>诊断副本的删除只是检验手段，真正的修复要有来源依据</b>。项目对照：零推理机，没有"前提集"要诊断——冲突由质检规则检出、挂问题单、人工复核、不直改（第 3 期那行产油 45.0 的坏行、本期归一收拢不动的写法，走的就是同一问题单通道）；修复的"来源依据"就是裁决留痕——D4 双值行在 PROP-BOHAI-009 之前是矛盾行，裁决之后是版本事实，历史裁决不重写。</li>
+</ol>
+<p>原著的产物是一张「同一、不同与未定」的身份对照：能证明同一的、能证明不同的、以及眼下定不了的——第三类明说未定，不猜。下一期把类型条件组合成公式：类表达式与等价类。</p>
+<p><b>第 7 期实施要点：</b>名字不同不等于对象不同；sameAs 让两个名字在所有关系两端都可替换；功能属性是推出同指、两条记录都保留——用推理消化数据，不用删除整理数据；冲突定位到最小前提集，修复要有来源依据。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>两个名字，是不是同一个东西？光看名字，什么也定不了；定身份，要靠写下来的依据。</b>下面用表里的真数据走一遍。</p>
+<h3>第一步：写法不同，不一定是两口井——名字个数不等于对象个数。</h3>
+<p>很多人默认"名字不同就是不同的东西"，原著给这个默认想法起名叫<b>唯一名称假设</b>，然后明确说：OWL（一种让机器按写好的规则做推理的描述语言）<b>不作</b>这个假设。规范例：盘点表里 U17、V09 两台设备，记录只有四条——都是设备、都在同一间屋。实物可能是一台（两个名字指同一台），也可能是两台（各一台），光看这四条记录定不了。项目里真有这种事（问题清单 D6）：同一口井的井号，旧数据里 N2、N-2 两种写法并存。按名字数，一口井数成两口，产量、措施全要算错账。项目把"定"放在表结构里：井档案的井号列登记了<b>唯一约束</b>（数据库里写死的规矩：这一列不许出现重复值），一口井一行，重复的插不进去；日报行必须带齐"井号＋日期＋班次"才插得进去（主键，第 3 期已建设）。身份是键定的，不是名字定的。写法之争进门就收拢：本期在 ④业务数据库卡加了一张进料暂存表——进来一行 well_id 写"n2"的日报，进门先按登记的规则把写法收成标准形 N-02 再入表（怎么收，第三步展开）。</p>
+<h3>第二步：名字里含同样的字，也不算证据。</h3>
+<p>井名"渤中28-1-N2"这个字符串里也有"N2"。它跟"N2 旧写法"是一回事吗？不是。井名在登记里是普通字符串（字段 wellName，没有唯一约束），只是给井起的名字，身份只看井号那一列。规范说"共同的属性不能决定同一"（属性＝对象身上的字段，第 3 期已建设）；项目更绝对：连"名字里有同样几个字"都不算证据。两行井名长得再近，井号不同就是两口井。</p>
+<h3>第三步：写法收拢靠登记的归一化，不靠推理。</h3>
+<p><b>归一化</b>（第 4 期提过）＝把各种写法统一成一种标准写法。项目登记了规则 RULE-PETRO-005：数据进库前，把四类变体写法（少连字符、连字符位置不对、混进空格、大小写乱）统一收成标准形 N-02；没登记过的写法不猜，落问题单等人来定。这一步画布上有一行现成演示（本期新增、黄色高亮）：④业务数据库卡日报提示下面那张<b>进料暂存</b>表——进来一行 well_id 写"n2"、2023-03-07、A 班、油 11.9 的日报，进门先按归一表收拢成 N-02 再入表，井档案表里不会多出叫"n2"的第二行（同一口井，不新增档案）；归一表收不动的写法（比如没登记过的 X-99）不猜，落问题单等人来定——挂起是明说"未定"，真要动它，修复得有依据（第五步讲）。⑧问答卡本期新加的那行问的就是这件事："井号写 n2 的日报行，和 N-02 是同一口井吗？"答"归一化后同指（都→N-02）；归一不动的写法落问题单"。它和第 4 期那条"Z-16 和 z-16 是同一口井吗？"凑成一对：那条是<b>名字层面的字面量比较</b>（两个字符串展开后直接比，不相等），这条是<b>进门时的收拢动作</b>（写法还没入表就先归一成标准形）——两句一并读。归一表登在哪、谁来执行，也有裁决（编号 PROP-BOHAI-011(b)）：表登记在本体仓当唯一真源，执行放在源侧清洗，语义层保留"旧写法残留"告警。原著对应的工具叫 <b>sameAs</b>：一句明写的断言——"这两个名字指同一个东西"。效果是：两个名字在<b>所有</b>关系的两头都能互相换着用，挂在一个名字下的记录，用另一个名字也查得到，而且原来的名字和原来的事实都保留。原著还划了三条边界：sameAs 不是相似度打分，0.9 的相似度当不了同一；不能只在某一个关系上生效；它换的是"指哪个东西"，不是改文字——两段字符串不会因为同指就变成同一段字（字面量，第 4 期已建设）。项目为什么不建 sameAs？项目零推理机（第 5 期已建设：有意不装自动补结论的程序）。差别说死：sameAs 留两个名字、靠推理连通；归一化进门收成一种写法。目标一样——别让同一口井数成两口；手段不同。</p>
+<h3>第四步：一个位置冒出两个值，不一定是错误，可能是两个版本——不许删记录。</h3>
+<p>原著有一个声明叫<b>功能属性</b>：规定"同一个东西在这个位置至多填一个值"，比如"保管人"这个位置至多填一个账号。规范例：同一件包裹登了两个保管账号，系统把后写的自动删了——错，交接链断了，丢件时说不清谁在保管。正确做法：把"保管人"声明成功能属性，两条记录都保留，让机器推出"这两个名字同指"。规范条文：<b>用推理解释数据，而不是用删除整理数据。</b>项目对"至多一个"的落实是约束：井号唯一、复合主键，写入时拦（第一步讲过）。真冒出双值呢？项目也不删。真事（问题清单 D4）：配产（计划产量）在版本切换日同一天冒出两个值。系统没删一个，也没报冲突。项目负责人（Owner）裁决（编号 PROP-BOHAI-009，采纳 A 案）：两个值都是真的——切换日早班按旧版计划，晚班换新版，所以叫"版本事实"（这套班次粒度是第 3 期那条 PROP-BOHAI-007 裁决定下的）。日配产取"当天最后一个班次的非空值"，全部双值行另出清单供人复核。</p>
+<h3>第五步：真冲突了，把互相冲突的最少几条前提点名；修要有依据，不许随手删。</h3>
+<p>规范例：账户只能有一个开户人（功能属性），台账却登了 C01、C02 两条，而且已核验两人确实不同——"必须相同"和"必须不同"直接冲突。原著要求系统报出<b>最小冲突集</b>：互相冲突的最少那几条前提，一条声明、两条记录、一条差异断言，四条一起点名，而不是含糊一句"有冲突"。不给最小前提的代价：有人凭猜测删掉真实记录，整库被判不可用。诊断办法是在一份独立副本里逐项去掉前提，看冲突消不消失——规范条文：<b>删除只是检验手段，真正的修复要有来源依据。</b>项目没有推理机，也就没有"前提集"要诊断：冲突由质检规则检出、挂问题单、人工复核、不直改——第 3 期那行产油 45.0 的坏行走的就是同一通道。修复的"来源依据"就是裁决留痕：D4 双值行在 PROP-BOHAI-009 之前是矛盾行，裁决之后是版本事实，历史裁决不重写。</p>
+<h3>数据核对</h3>
+<p>回到看板选第7 期（黄色高亮的就是本期新增）。①④业务数据库卡日报提示下面找那张进料暂存表：进来一行 well_id 写"n2"的日报，进门收拢成 N-02 后入表——井档案表里没有"n2"这一行（同一口井，不新增档案）；归一不动的写法（X-99）落问题单、不猜。②⑧问答卡找本期新加的那行："井号写 n2 的日报行，和 N-02 是同一口井吗？"答"归一化后同指（都→N-02）；归一不动的写法落问题单"。③切到第 4 期，读问答卡里第 4 期加的那行："Z-16 和 z-16 是同一口井吗？"答"字面量不相等；归一化后同指（都→Z-16）"——那条是名字层面的字面量比较，本期这行是进门时的收拢动作，两句一并读：名字当不了证据，登记才是依据。三处都对上，本期验收即完成。</p>`},
+8:{
+base:`<h2>本期解决的核心问题：<b>一条类定义写成什么形状，决定它能朝哪个方向推——条件齐了推出"属于这类"（充分方向），还是属于这类能倒推出"条件齐"（必要方向）。</b></h2>
+<p><b>先接第 7 期：</b>上一期交出了类层级、身份与未定的判断——名字个数不等于对象个数；本期把类定义写成<b>可双向解释的公式</b>，依次讲六个机制：必要条件与子类公理、交集类、等价类、并集类、补集与类互斥、定义改版。<b>项目这边的前提先说死：</b>平台没有 OWL 类表达式（把"哪些东西算这一类"写成带与、或、非的公式），子类公理、交集、等价、并集、补集一类都没有，也没有推理机（自动按规则补结论的程序，第 5 期已建设项目有意不装）。原著用"定义＋推理"达成的事——结论方向明确、改版不误伤——项目全换成"登记＋确定性检查"。本期就是把六个机制逐个摆开，两边各看一眼。</p>
+<p><b>项目里真发生过的事：</b>术语账里有一对现成的方向素材。指标"剔检产量"（别名"净产量"，GLS-PETRO-002）＝把状态＝检修的井剔掉再求和，现算公式登记在规则 RULE-PETRO-019：<code>SUM(dailyProduction.oilOutput WHERE well.currentStatus &lt;&gt; '检修')</code>——条件写死在公式里，程序照着算，不推。"有效产量"（GLS-PETRO-003）一词两译：规则上两支口径并列登记（calibers：开井日历折算/检修剔除），还标了 ambiguous（有歧义），单说这个词必须追问修饰词——"分支未定不许挑"被做成了机器可读的登记字段。改版素材是"老完成率"（GLS-PETRO-001，第 1 期已建设）：2024 年废弃，行没删，状态改"禁用（替代：产量完成率）"，旧口径原文留在定义里；真有人还用旧词，禁用词闸（BAN-AC1–4，扫全域 name/alias，即各元素的名称与别名字段；文档提及不扫）逐个点名。<b>本期画布上的改动（三处，都跟着这一段来）：</b>①本体仓卡术语表加一行 GLS-PETRO-002 剔检产量——状态"现行（别名：净产量）"，定义格写明正算、反查各走哪处登记；①卡 m3 规则区加一条 RULE-PETRO-019——calibers 两支口径显式登记；⑧问答卡加一行——报"净产量"时两个方向各查各的登记。下面六条规矩里逐条用到。</p>
+<h3>本期的六条设计规则</h3>
+<ol>
+<li><b>必要条件与子类公理：只给一个方向，必要条件不能当充分条件反推。</b>规范例：风控只声明"私人银行客户⊑高净值客户"（⊑ 读"包含于"，小类属于大类，第 5 期用过），运营却反着把高净值客户当私人银行客户发了专属额度——这是逻辑错误，不是数据质量问题，怪数据修不好它。解法是只许单向推理，写成子类公理。方向之外还有一层：满足全部公理的一种自洽情形叫一个<b>模型</b>（第 5 期已建设反模型，这里是它的正面）。只知道李某是高净值：一种模型让他也是私人银行客户，另一种只让他是高净值——两种都自洽，<b>既不能证明他是，也不能证明他不是</b>。原著边界：<b>缺记录只是未知，不等于否定</b>——没有冷藏箱记录，不等于非冷藏箱。项目对照：没有推理机，"反着推"这个错误无处发生；代价是跨类自动归类也没有——Z-16 进机采井名单，是程序按登记条件（井别 EW 且有泵型，第 2 期已建设）现算的。</li>
+<li><b>交集类：只加条件，不加个体。</b>规范例：一台设备既是计量器具又是压力容器，系统按类型各建一条台账，记录散落、审核靠人工合并。解法：设备甲只留一个标识，两条已知成员边，再加一条推得的交集成员边（交集＝同时满足两份名单的全部条件），不用复制对象——<b>交集只增加必须满足的条件，不新增个体</b>。原著边界两条：<b>多重类型本身完全允许，只有再声明两类互斥才可能冲突</b>；也不能凭缺"已贴标"记录反推包裹乙不属于交集。项目对照：Z-16 一个节点同挂机采井名单和措施井名单（第 2 期画布），井档还是一行——这一条项目天然做对。</li>
+<li><b>等价类：两个方向都推。</b>规范例：医保把"目录内药品""专科医师开具"写成两条独立校验，判不了可报销，也反查不了依据。解法是一条等价定义：可报销 ≡ 目录内药品 ⊓ 专科医师开具（⊓ 读"并且"，≡ 读"两边互推"）。<b>条件齐备推出可报销是充分方向；可报销推出两个条件齐是必要方向。</b>处方甲两条件齐，走充分方向判可报销；处方乙已知可报销，反推两条件齐；处方丙只满足一条，是否可报销未定——<b>不能把缺失的专科证据补成"非专科"</b>。若改成单向包含"可报销 ⊑ 交集"，充分方向被撤去，甲就不能再判。原著边界：<b>等价不要求两个条件相同，也不要求互斥。</b>项目对照：没有一条顶两向的定义，拆成两处登记——正向＝RULE-PETRO-019 的显式表达式现算；反向＝别名登记 GLS-PETRO-002（别名"净产量"），问"净产量"先查别名找到正主，再顺着台账找到公式。原著登记一次，项目两处；换来的是每步都是查表，闸能拦错。本期画布把反向那处摆成看得见的一行：①卡术语表 GLS-PETRO-002 状态"现行（别名：净产量）"——正算、反查两个方向都有登记，⑧卡问答行当场走一遍。</li>
+<li><b>并集类：至少一支成立，分支未定时不许挑。</b>规范例：系统把服务对象默认当常住人口发补贴，有人实际只是在职参保人——<b>从并集里任选一支当成已知事实</b>，发错还要追缴。定义：服务对象 ≡ 常住人口 ∪ 在职参保人（∪ 读"或"，任一支满足就算）。正向：已知是常住人口，即可推出是服务对象，不必再证明参保。反向：王某只被断言为服务对象，一种模型让他属常住，另一种让他属参保——<b>不能任选一支当答案，并集并不是二选一</b>；要推出他是参保人，还差一个显式否定"不属于常住人口"——<b>缺记录不能当否定</b>。项目对照："有效产量"两支口径并列（开井日历折算/检修剔除，ambiguous 登记），单说"有效产量"必须追问修饰词（GLS-PETRO-003 明文）——把"分支待定"登记成字段，而不是替用户挑一支。本期画布①卡 m3 区也把这条登记摆成一行：RULE-PETRO-019 calibers 两支口径（开井日历折算/检修剔除）显式登记——让选口径的人看见分叉，不机器擅自二选一。</li>
+<li><b>补集与类互斥：否定要显式写。</b>规范例：停运统计把"库里没有检修计划"直接算成"非计划停运"，其实计划单还在审批中、未同步台账——<b>数据缺失被当成逻辑否定</b>。<b>补集是相对整个论域的逻辑否定</b>（论域＝这次讨论覆盖的全部对象），不是某张台账里的名单。四种输入各自独立：已知是计划停运，正向可证；显式给出不是计划停运，否定可证；只知道是一次停运，正反都未知；已知是强迫停运、且计划停运与强迫停运互斥，才能推出"不是计划停运"。<b>互斥只禁止共同属于，允许两类都不属于</b>；要覆盖整个论域，还要补覆盖公理。项目对照：显式否定是字段值比较——RULE-PETRO-019 的"井状态≠'检修'"是比较出来的否定，不是"没有检修记录"；缺记录答"未知"（N-02 检修何时结束，画布问答在案）；互斥做成一格一值的枚举值集——井别只能填 EW/IW 之一、状态只能填生产中/停产/检修/待弃置之一（第 2 期已建设）。</li>
+<li><b>定义改版：撤的是推导路径，不是事实行。</b>规范例：优选供应商定义从等价"优选 ≡ 已认证 ⊓ 按时交付"改成单向"优选 ⊑ 已认证 ⊓ 按时交付"，自动入围名单变了，采购以为数据丢了去手工回填——<b>语义变更被当成数据丢失</b>。两版对照：甲两个条件都有，乙只有认证，丙被直接断言优选。第一版下甲、丙都是优选；第二版下甲的优选失去支持，丙靠直接断言仍成立，乙的优选与按时交付两版都未知。原著的记法纪律：<b>实线记录输入，虚线记录推导，换版本只擦掉依赖旧方向的虚线</b>；甲失去的是支持，不是"非优选"的结论；<b>直接事实要与派生结论分开处理</b>。项目对照：老完成率废弃走的就是这条路——术语账那行没删，状态改"禁用（替代：产量完成率）"，旧口径原文（v1，不含自用油折算）留在定义里；哪里还挂着旧词不用人找，禁用词闸扫全域 name/alias 逐个点名（文档提及不算）。原著靠人工画实线虚线，项目做成机器点名，改版不漏。这个实例画布上一直摆着：①卡术语表 GLS-PETRO-001 禁用行，第 1 期就在——改版不删行，替代口径和旧口径原文都写进行里。</li>
+</ol>
+<p>规范将本期产物定义为一份<b>可双向解释的类定义</b>，交付时提交并说清它解决了哪个能力问题（能力问题第 1 期已建设）。下一期顺着问：条件如何沿着关系作用于关联的对象。</p>
+<p><b>第 8 期实施要点：</b>子类只给必要方向；交集只加条件不加个体；等价两个方向都推；并集至少一支、分支待定；否定要靠补集或互斥；改定义只失效依赖它的那条路径——项目零推理机，两个方向全换成查登记。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>一条定义写好之后，能朝几个方向读——写成什么形状，就定了方向。</b>下面从零走一遍。</p>
+<h3>第一步：先拆词——什么叫"方向"。</h3>
+<p>拿项目登记的"剔检产量"说（别名"净产量"，同一个口径的另一个叫法；意思是把状态＝检修的井剔掉，剩下井的产量按月加起来）。它有两个读法：<b>正向读</b>看条件——Z-16 状态＝生产中，不是检修，条件满足，所以它的产量加进剔检产量（条件齐 → 算它）；<b>反向读</b>看成员——报表里有个数叫"剔检产量"，能不能倒推出"每口非检修井的产量都加进来了"？（是成员 → 条件齐。）原著给这两个方向起名：<b>充分方向</b>＝条件齐了，就足以判定"属于这类"；<b>必要方向</b>＝属于这类，就必然满足那些条件。有的定义只许一个方向读，有的两个方向都行——写成什么形状决定。本期画布上新增的三行登记，全是给这两个方向立的：第四步带你逐行认。</p>
+<h3>第二步：原著把方向写死的两种形状——子类公理和等价类。</h3>
+<p><b>子类公理</b>：只开一个方向。规范例："私人银行客户⊑高净值客户"——某个私人银行客户一定算高净值客户；反过来"高净值客户都是私人银行客户"？原话没说，不许推。运营要是反着把高净值客户当私人银行客户发专属额度，这叫把必要条件当充分条件反推，是逻辑错误，不是数据错了——修数据修不好它。原著再补一层：光看"李某是高净值"这一条，他是不是私人银行客户？既不能证明是，也不能证明不是——<b>缺记录只是未知，不等于否定</b>（没有冷藏箱记录，不等于非冷藏箱）。<b>等价类</b>：两个方向都开。规范例：可报销 ≡ 目录内药品 并且 专科医师开具。处方甲两条件齐，正向推出可报销；处方乙已知可报销，反向倒推出两条件齐；处方丙只满足一条，定不了——不许把缺的专科证据补成"非专科"。要是把等价改成只开一个方向，正向那条路就没了，甲就判不了。一个容易误会的边界：等价只要求两边互推，不要求两个条件是同一回事，也不要求它们互斥。项目的"两个方向都开"不是一条定义，是两行登记，选第 8 期就能看到：①本体仓卡术语表里 GLS-PETRO-002 剔检产量，状态"现行（别名：净产量）"——这行别名管反查；正向的算法规登记在规则 RULE-PETRO-019 里（第四步展开）。</p>
+<h3>第三步：中间还夹着三个形状——交集、并集、补集。</h3>
+<p><b>交集</b>（几份名单的条件都要满足）：一台设备既是计量器具又是压力容器，别按类型复制两条档案；留一个标识、同时进两份名单就行，"受监管设备＝两份都进"只是多一条必须满足的条件，不产生新个体。多重类型本身完全允许，只有另外声明"两类互斥"才可能冲突；也不能因为它缺一条"已贴标"记录，就反推它不属于交集。<b>并集</b>（几支名单任进一支就算）：服务对象 ≡ 常住人口 或 在职参保人。某人只被记了"服务对象"，到底属哪支？两种可能都自洽——不许挑一支当答案，并集不是二选一；要断定他是参保人，得有一条明写的"不属于常住人口"。<b>补集</b>（在全部范围内取"其余"）：补集是相对整个论域（这次讨论覆盖的全部对象）的逻辑否定，不是某张台账里没名单。库里没有检修计划，不等于"非计划停运"——计划单可能还在审批中、没同步进台账。跟补集配套的是<b>互斥</b>：两类不许同属；但互斥只禁"都属于"，不禁"都不属于"——要让每个对象必居其一，还得补一条覆盖声明。并集这条的项目登记画布①卡 m3 规则区就能看到：RULE-PETRO-019 那行写着 calibers 两支口径——开井日历折算 / 检修剔除，两支并列摆明，没有替你挑一支（第五步展开）。</p>
+<h3>第四步：项目不推，两个方向都换成查。</h3>
+<p>项目里没有自动推理这回事（全平台零推理机）。两个方向都换成查：<b>正向查规则</b>——RULE-PETRO-019 里登记着现算公式：把井状态＝检修的行剔掉再求和（公式原文 SUM(dailyProduction.oilOutput WHERE well.currentStatus &lt;&gt; '检修')）。Z-16 进，N-02 现在状态＝检修，剔掉。这不是"推"，是照公式算一遍。<b>反向查登记</b>——有人问"净产量"，先查别名登记：GLS-PETRO-002 剔检产量，别名"净产量"——找到正主，再顺着台账找到公式。代价：原著一条等价定义写一次管两个方向；项目要登记两处（规则一处、别名一处）。换来的是：每一步都是查表，写错了机器闸能拦。⑧问答卡那行就是现场：问"有人说'净产量'，查的是哪个指标？"答"反着查别名→剔检产量（GLS-PETRO-002）；怎么算正着查 RULE-PETRO-019 现算"。</p>
+<h3>第五步：分支未定和记录缺失，都不许替数据做主。</h3>
+<p>"有效产量"有两个算法：开井日历折算、检修剔除。登记里两支口径并列（规则 RULE-PETRO-019 的 calibers 字段），还标了 ambiguous（有歧义）标记；单说"有效产量"不给修饰词，项目必须追问，不许自己挑一支（GLS-PETRO-003 明文）——原著的原话：并集不许任选一支当答案。画布①卡 m3 区那行登记就是它的样子：calibers 两支口径白纸黑字，谁选口径谁看见分叉。缺记录也不等于否定：没有检修记录，不等于"它不是检修"。项目照办：问"N-02 检修什么时候结束？"答"未知，缺结束日期字段"——缺什么说什么，不编（第 6 期已建设：查不到只说明仓里没有）。</p>
+<h3>第六步：定义改版了怎么办——撤推导，不撤数据。</h3>
+<p>老完成率 2024 年废弃。项目没删那一行：术语账里它还在，状态＝禁用，后面跟着"替代：产量完成率"，旧口径原文（口径＝一套算数的方法；v1，不含自用油折算）也留在定义里。为什么留着？改定义撤掉的只是旧方向上的推导，数据一行不动；真有人还拿旧词来用，禁用词闸（一个自动检查程序，扫到禁用词就报错）会逐个点名。要是把旧行一删，别人还当数据丢了去手工回填——原著的反面教材（优选供应商改定义，采购当名单丢了手工回填）就是这么发生的。</p>
+<h3>数据核对</h3>
+<p>回到看板选第8 期，黄色高亮的就是本期新增，共三处。①在本体仓卡找到剔检产量别名行：术语表里 GLS-PETRO-002，状态"现行（别名：净产量）"，定义格写着"剔除检修井求和 · 正着按 RULE-PETRO-019 现算；反着按别名收拢"——两个方向各有登记处。②本体仓卡 m3 规则区找到 RULE-PETRO-019 口径支行：calibers 两支口径（开井日历折算 / 检修剔除）显式登记，没有替你挑一支。③问答卡找到"净产量"那行：问"有人说'净产量'，查的是哪个指标？"答"反着查别名→剔检产量（GLS-PETRO-002）；怎么算正着查 RULE-PETRO-019 现算"。三处都对上，本期验收即完成。改版素材"老完成率"的禁用行第 1 期就摆在画布上，想看"改版不删行"，切回第 1 期对着术语表和问答卡各读一遍。</p>`},
+9:{
+base:`<h2>本期解决的核心问题：<b>限制写成什么形状，机器就只拦得住什么——「有一个」和「是谁」要分开说，「每一个都是」不等于「确实有」，数个数要数不同的个体不数行数，「没有」必须显式声明。</b></h2>
+<p><b>先接第 8 期：</b>上一期把类的条件写成公式，定了能朝哪个方向推；本期把条件压到关系上——沿一条关系，要求另一头的对象"存在""是某类""有几个"。原著开头的故事：反洗钱要求每个企业账户至少登记一名受益所有人，尽调没做完，人是谁没人知道，系统只能留空或填占位人——「有一个」和「是谁」能不能分开说？原著交出「存在与数量」的六条限制，加一次阶段检测。<b>项目里真发生过的事：</b>日报表里躺着一行坏数据——N-02 某日产油 45.0 吨、同日计划才 12.0 吨，疑似吨方混写（第 3 期在案），RULE-PETRO-020 检出、挂问题单、不直改。它暴露的正是本期主题：限制形状各异，得拆开各自落到机器查得了的地方；混着说，系统就把"没查到"当"没有"、把"行数"当"个数"。<b>本期画布上的改动（三处，都跟着这一段来）：</b>①本体仓卡"日产计量"条目尾加一行注——refRules 值域（refRules＝对象属性旁边登记"这个字段什么值合法"的位置；值域＝登记下来的合法取值范围）：含水率 [0,100]、开井时长 [0,24]，enforcedAt＝ALWAYS（登记的"什么时候查"：每次都查、不挑场景），越界即挂，闸只查已写入的行；①本体仓卡对象清单新增"受效关系 AGG-PETRO-009"条目——注水井→油井多对多，每条带劈分系数、合计必须＝1（不变量＝无论何时都必须成立的条件），响应起始日随行，落表装配暂缓待裁；⑧问答卡加一行——W-05 给两口油井注水，劈分 0.6＋0.5 行不行？不行，合计 1.1 超 Σ＝1（Σ 读"西格马"，求和符号，Σ＝1 就是合计为一）。下面六条规矩里逐条用到。本期画布另有新增：④业务数据库卡新加注水日计量表和受效关系表（受效两行：W-05→N-02 劈分 0.6、W-05→Z-16 劈分 0.4，标"装配后形态（示例数据）"）。W-05 注水井本期入井档——井档 2→3 口，第 1、2 期说"井 2 口"是当时的事实。</p>
+<h3>本期的六条设计规则</h3>
+<ol>
+<li><b>存在限制：承诺"有"，不说是谁。</b>规范例：每个账户至少有一名受益所有人，没查清只能留空；写成"每个账户都存在一名受益所有人"，推理机能推出"有一位"，但不给这位见证人造名字——账户乙的见证人只是无名"某位自然人"，不被合并，也不被认定不同。检验边界：<b>开放世界下缺记录不违反存在限制</b>（第 6 期已建设：查不到不等于没有）——光有这条限制，拦不住"没填受益所有人就开户"，入库拦截要用第 17 期的数据形状校验。项目对照："有"钉死在写入时点——本体元素必填四类结构性字段（身份/类型判别/检查锚点/载荷容器，必填闸 REQ-AC1-6），缺一闸红，空壳文件也红（票 27 那次静默逃逸，第 4 期已建设）；日报行靠复合主键缺一不收（第 3 期已建设；"缺一不收"的现场在④业务数据库卡——日报表头写着主键＝井号+日期+班次，REQ 闸本身是检查程序，画布上摆的是它守住的表）。判断：原著"留空＋无名见证人"适合收外部数据的库；登记册数据自己收，项目写入时拦更划算。</li>
+<li><b>全称限制：沿边到的每一个都必须是——它是推理工具，不是入库校验。</b>规范例："全部零件都是认证件"，沿零件边给每个零件补上认证件类型——这是推得的，不是类继承（第 2 期已建设两种箭头别混）。三条边界：零件明确不是认证件，知识库不一致，不能悄悄丢边通过校验；零件只是缺认证记录，推理机不报错，反而推出"它是认证件"——缺记录它不报警；<b>"所有"不蕴含"至少一个"</b>，一个零件都没有的装置这句话也算成立，要承诺存在得另加存在限制。项目对照：同一形状落成值域闸（登记字段合法取值范围的机器检查，第 5、6 期讲过）——含水率须在 [0,100]（出处：设定书 §4 规则 5）、开井时长须在 [0,24]（来历＝D5 矛盾行），闸只查已写入的值，超界挂单。这两条值域就登记在①卡新增的那行注里（AGG-PETRO-002 的 refRules 字段，enforcedAt＝ALWAYS）。"只查已写入的行"的现场是④卡那行 45.0：油 45 吨比液 12 方还多——它不是值域闸查出的（油量、液量两个字段没登记值域），是跨字段对账的 RULE-PETRO-020 检出的，立场相同：只查写进来的行，挂问题单、不直改（第 3 期在案）。判断：原著能自动补类型，项目没推理机；但"缺记录推出合格"项目也不会产生——宁拒收不错收，值域闸更稳。</li>
+<li><b>值限制：先规范成词表里的个体，再限制取值；它不排斥其他的值。</b>规范例：冷藏模式被录成 lengcang、Cold 等自由文本，统计只能靠关键字猜；先把文本规范成受控词表里的一个个体"冷藏模式"，再限定"冷链设备的模式为冷藏模式"——同时关联除霜模式也不冲突（值限制不排斥其他的值）；但从这条关系推不出"冷藏模式是一种模式类型"，类型要另行声明。项目对照：判断字段禁自由文本——井别只有 EW/IW、状态枚举四值、班次只有 A/B/C（枚举＝取值固定只能选其一，第 2 期已建设）；"老完成率"标禁用，谁用谁被拦（第 1 期已建设）；井号同指靠归一化不靠字符串（RULE-PETRO-005，第 4 期在案）。判断：两边方向一致，项目钉进枚举和术语账，执行更硬。</li>
+<li><b>限定基数：数的是不同的个体，不是记录条数。</b>规范例：大额付款要恰两名不同的审批人，系统数到两条记录就放行，一人两个账号就凑过去了；推理机的结论更反直觉——核实两个账号是同一个人后，它不报"审批人不足"，反而推出"还存在一名未记录的审批人"。真正拦截要先按身份规范化合并账号，再用数据形状校验检查"至少两人且彼此不同"（第 17、18 期）。项目对照：同井同日同班恰一行，复合主键保证（第 3 期已建设；④卡日报表头那行"主键＝井号+日期+班次"就是它）；"同一注水井劈分系数合计＝1"数的是不同受效油井——旧写法 N2 并存（D6，第 7 期已建设）会把 1 凑成 2，所以先归一化（RULE-PETRO-005）再合计。这条登记画布上有了着落：①卡新增的"受效关系 AGG-PETRO-009"行——注水井→油井多对多，每条带劈分系数、合计必须＝1；⑧卡问答行把账当场算给你看：两口油井劈分 0.6＋0.5，合计 1.1，超 1，不行、挂问题单。判断："一井两井号"就是项目版；"恰为 N"目前没有机器闸。</li>
+<li><b>嵌套存在限制：两层条件必须落在同一个对象上。</b>规范例：判断"至少供应一个持有有效证书的发动机部件"，两次关联查询把部件乙的证书算到了部件甲头上。正确写法是把两层条件嵌进同一个对象——合格供应商 ≡ 存在一个部件，这个部件既是发动机部件又有有效证书——由内向外证明，内层外层必须用同一个部件当见证；供应商甲没有一个部件同时满足两条，就推不出合格；移除"证书乙是证书"，证明失效。检验边界：药品、资质条件分属两个医嘱，拼不成嵌套——各层条件必须在同一个中间对象上成立。项目对照：日报表和化验表<b>禁止直连</b>——配对须井号＋取样日期双键＋时间容差、经中间视图（注水日计量同款：直连禁止，须经受效关系 AGG-PETRO-009）；配哪些表、按什么连，逐条登记在连接白名单里（登记"谁和谁能连、按什么连"的表），登记之外不放行。补一句实话：这张白名单也是台账的一张表，画布③台账卡只摆了术语、对象、关系三张，白名单那张没摆出来——登记是真的，画布没画全。判断：项目最扎实——"同一对象"钉在连表资格上，比事后查询可靠。</li>
+<li><b>真空真：显式写"零"才能说"没有"；只是查不到，推不出"没有"。</b>规范例：迁移期间查询为空被当成"无逾期"，高风险客户自动拿到优惠——数据缺失被当成了业务事实。<b>真空真</b>＝"所有 X 都满足某条件"这句话，在"X 一个都没有"时自动成立；但前提是有人显式写下"X 至多零条"这种零计数声明——客户甲有显式零声明，一个后继都没有，真空成立；客户乙只是没有已知的逾期边，开放世界允许存在一条不满足条件的逾期，推不出"无逾期"。两条边界：零声明与"存在一条逾期"同时成立，知识库就不一致；业务确需"查不到就视为没有"，要显式采用封闭世界校验（只按已写入的行判定）并记录这个假设——无过敏记录不可当作明确无过敏。项目对照：没推理机，两条纪律——闸只查已写入的行；问答对缺数明说缺："N-02 检修什么时候结束？"答"未知，缺结束日期字段"（第 3 期在案）。判断："如实说缺"对登记册够用，推理不做。</li>
+</ol>
+<p>改进空间如实登记：每条关联都填了基数声明（cardinality，如 ONE_TO_MANY，共 16 处），但全仓没有机器消费——闸不查、台账不载、导出不带；枚举只有四种粗档，写不出"恰为 2""至少 1"；受效关系"合计＝1"只登记在案（①卡新增的 AGG-PETRO-009 行：无源表，劈分系数暂由人工台账维护，落表装配暂缓待裁）。要么让闸消费声明，要么删掉，不留没人执行的假约定。</p>
+<p>规范将本期产物定义为一张「存在与数量的限制卡」，配一次阶段检测（三题 6 分，至少 5 分且关键题拿满才达标；关键题：模型承诺"某型设备都有零件"而图中没有零件边——承诺存在，但不据此报缺记录违规；张三、李四没有同一或差异依据，不能断定是两个人——第 7 期已建设）。下一期顺着问：哪些约束作用于一整条属性。</p>
+<p><b>第 9 期实施要点：</b>"有一个"不说是谁；"每一个都是"不保证存在；数个体不数记录；两层条件落同一对象；查不到不等于没有——要说"没有"，必须显式声明。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>"有几个"和"是谁"要分开说，"没查到"和"没有"要分开说。</b>用我们表里的真数据走一遍。本期画布有三处黄色高亮的新增：①本体仓卡两处（"日产计量"行尾新加的值域注、对象清单新加的"受效关系"行）和⑧问答卡一处（劈分 0.6＋0.5 的问答行）——走到哪一步，就带你去看哪一处。④业务数据库卡本期起还多了注水日计量表和受效关系表（受效两行合计 0.6＋0.4＝1，标"装配后形态（示例数据）"）。W-05 注水井入井档——井档 2→3 口，第 1、2 期说"井 2 口"是当时的事实。</p>
+<h3>第一步：承诺"有一个"，和说出"是谁"，是两句话。</h3>
+<p>日报表规定：每一行日报必须挂在一口井上。看 Z-16 那天的 A 班日报（编号 Z16-20230101-A，产油 8.2 吨）：它带着"所属井＝Z-16"——既承诺了"有"，也说出了"是谁"。原著问：能不能只承诺"有"、先不说"是谁"？可以，这种说法叫<b>存在限制</b>——只声明"存在一个"，不指名是谁，也不许替它编名字。规范例：每个账户必须有一名受益所有人，人还没查清楚，就先说"有一位"，名字留空。但这条限制有个管不到的地方：开放世界下（第 6 期已建设：查不到只说明仓里没有），<b>缺记录不算违反存在限制</b>——所以它拦不住"没填受益所有人就开户"；要拦，得靠专门的校验（原著放在第 17 期）。项目干脆在写入时就拦：日报行缺井号、日期、班次任何一个都插不进表（这三样是行的身份，第 4 期已建设：没身份的行两边都不收；④业务数据库卡的日报表头就写着主键＝井号+日期+班次）；本体仓里每个元素没 id，检查程序直接标红。登记进来的东西，不许无名。</p>
+<h3>第二步："每一个都必须是"，查的是写进来的数，不是猜没写进来的。</h3>
+<p>先拆词：<b>全称限制</b>＝"所有的 X 都必须是 Y"这句话。项目里的同款规矩是值域（字段登记的合法取值范围）：含水率写进来的值必须在 0 到 100 之间（出处：设定书 §4 规则 5），开井时长必须在 0 到 24 之间（来历＝D5 那批矛盾行）。这两条值域就写在①本体仓卡"日产计量"那行的尾部注里（本期新增、黄色高亮）——注里的 refRules 是本体仓登记"这个字段什么值合法"的位置；括号里的 enforcedAt＝ALWAYS 是登记的"什么时候查"，ALWAYS＝每次都查、不挑场景。闸查的是已经写进表里的行：④业务数据库卡里那行 45.0（N-02 产油 45 吨、产液只有 12 方）就是写进来之后被查出来的——油比液还多，物理不可能；查出它的不是值域闸（油量、液量两个字段没登记值域），是跨字段对账的规则 RULE-PETRO-020，下场一样：挂问题单等人工复核，<b>不许直接改掉</b>。规范警告过一种坑：如果你只写了"所有零件都是认证件"，某个零件缺记录，机器不会喊"缺记录"，反而顺着这句话推出"它是认证件"——所以规范说全称限制是推理工具，不是入库校验。项目没有推理机，闸只看已经写进表里的数，这个坑在项目里根本不会发生。原著还补一句：说了"每一个都必须是"，不等于承诺"至少有一个"——一件零件都没有，这句话也算说对了；要承诺存在，得另加存在限制（第一步那句）。原著另有一种<b>值限制</b>：把取值限定到词表里指定的那一个——把"冷藏"规范成词表里的"冷藏模式"，再规定冷链设备的模式就是它；同一台设备同时还挂别的模式也不冲突（值限制不排斥其他的值）。项目版就是枚举字段（取值固定只能选其一，第 2 期已建设）：井别只有 EW/IW，班次只有 A/B/C，状态只有四值；"老完成率"标禁用，谁用谁被拦（第 1 期已建设）。</p>
+<h3>第三步：数个数时，数"不同的东西"，不是数行数。</h3>
+<p>先拆词：<b>基数</b>＝数出来的个数；<b>基数限制</b>＝对个数定的规矩（至少几个、至多几个、恰好几个）。规范例：大额付款要两名<b>不同</b>的审批人，系统要是只数记录条数，一个人开两个账号就有两条记录，混过去了；推理机的结论更怪：查实两个账号是同一个人后，它不报"审批人不足"，反而推出"还有一个没登记的审批人"。项目里有同款坑：井号有旧写法 N2，和标准写法并存（已知数据问题 D6，第 7 期已建设：同一口井两种写法）。算"同一注水井的劈分系数加起来必须等于 1"时——劈分系数＝一口注水井的效果分摊到每口受益油井的份额，全部份额合计为 1——要是把两个写法当两口井，1 就凑成了 2。所以项目的规矩是：先按归一化规则（RULE-PETRO-005，第 4 期在案）把井号收拢成标准写法，再合计。数行数和数个体，是两个不同的数。"合计＝1"这条登记，画布上有了着落：①本体仓卡本期新增的"受效关系 AGG-PETRO-009"行——注水井→油井多对多，每条带劈分系数、合计必须＝1（不变量＝无论何时都必须成立的条件），响应起始日随行；⑧问答卡本期新加的问答行把账当场算了：W-05 给两口油井注水，劈分 0.6＋0.5——合计 1.1，超 1，不行，挂问题单。</p>
+<h3>第四步：条件套条件时，两层必须落在同一个东西上。</h3>
+<p>规范例：要判断"某供应商至少供应一个持有有效证书的发动机部件"，有系统用两次查询——先找部件，再查证书——结果把部件乙的证书算到了部件甲头上。这种"条件里面再套条件"的写法原著叫<b>嵌套存在限制</b>：要求同一个部件<b>同时</b>是发动机部件、<b>同时</b>持有有效证书，两层条件缺一不可。项目把"同一个"钉在连表资格上：日报表和化验表<b>禁止直连</b>——想配对，必须井号＋取样日期两个字段都对上、再加时间容差（两边日期允许的误差范围），而且要经过中间视图（预先把两边按规矩配好对的一层查询）；配哪些表能连，逐条登记在连接白名单里（登记"谁和谁能连、按什么连"的表），没登记的配对不放行。对号表（第 5 期已建设）管"认哪些对象"，这张白名单管"谁和谁能连"——两处登记都在，配错对的数据就进不来。补一句实话：这张白名单也是台账里的一张表，画布③台账卡只摆了术语、对象、关系三张，白名单那张没摆出来——登记是真的，画布没画全。</p>
+<h3>第五步："没查到"和"没有"是两回事；要说"没有"，得有人明确写下"零"。</h3>
+<p>原著把"零个的前提下，'所有 X 都是 Y'自动算真"这件事叫<b>真空真</b>：一个逾期都没有，"所有逾期都满足某条件"这句话自动成立。但注意前提——必须是有人<b>显式写下"零个"</b>这种声明；只是"没查到记录"，这句话推不出来，因为开放世界允许有一条没登记进来的逾期（第 6 期已建设：查不到只说明仓里没有）。项目落成两条纪律：①闸只查已写入的行——某井某天没有日报行，闸什么都不会说，谈不上它违规；②问答对缺数明说缺：问"N-02 检修什么时候结束？"表里压根没有"结束日期"这个字段，系统答"<b>未知，缺结束日期字段</b>"（第 3 期在案），不是"没有结束时间"。顺带把词也收口：台账里"老完成率"那行标着"禁用"，替代词"产量完成率"——否定是明文写在行上的（第 6 期已建设：否定必须明写），不靠人记，也不靠"查不到"猜。</p>
+<h3>数据核对</h3>
+<p>打开总表画布，选第 9 期（黄色高亮的三处就是本期新增）。①在本体仓卡找到受效关系那行（AGG-PETRO-009），读注：每条带劈分系数、合计必须＝1；再到问答卡找到"劈分 0.6＋0.5 行不行"那行，自己核对为什么不行——0.6＋0.5＝1.1，超了 1，挂问题单。②本体仓卡"日产计量"行尾看值域注：含水率 [0,100]、开井时长 [0,24]，enforcedAt＝ALWAYS——闸只查已写入的行；再到业务数据库卡看 45.0 那行的下场：挂问题单，不是被改掉。③业务数据库卡日报表头写着主键＝井号+日期+班次，逐行看 Z-16 两行、N-02 一行，三样都齐了吗？④问答卡"未知，缺结束日期字段"那行：答的是"未知，缺字段"，不是"没有"。四处都对上，本期验收即完成。</p>`},
+10:{
+base:`<h2>本期解决的核心问题：<b>一条关系要从两端都读得出来，得给关系本身声明特征——换方向要换谓词、对称才自动补边、非对称禁止反向、非自反要写公理、功能约束身份不删记录、限定基数只数指定类的取值；不靠名字猜，不靠另建反向表。</b></h2>
+<p><b>先接第 9 期：</b>上一期的限制压在一条关系的取值上（有几个、是谁）；本期把约束搬到关系本身——一整条属性可以声明特征。原著开头的故事：采购库只记「供应商甲—供应→批次甲」，产品召回想反问「批次甲谁供的」，查不到，只好另建反向表——反向表要手工逐条维护，两边不同步就漏查，两条边还会被算成两笔供货。要解决的是：能否只声明一次，同一条事实就从两端读得出来。</p>
+<p><b>项目里真发生过的事，正反都有：</b>正面——措施关系业务读法是「措施—作用于→井」，存储方向是「井 1..* 措施记录」（一口井名下挂一条到多条措施记录）；同一条事实两个读法，对号表逐行登记方向标记 reversed（按业务语义反转），导出器逐行核对、不符就抛错中断（第 3 期已建设）。反面——井—平台关系存了两份：井表的 platform 列是行内字符串，关联账里又立了 ASSOC-PETRO-009「平台—承载→井」，引用化改造悬置待裁。这正是原著开场那个坑：同一事实两处登记，不同步就各说各话——本期画布把正反两面都摆成了看得见的行（见下）。</p>
+<p><b>本期画布上的改动（三处，都跟着这一段来）：</b>③平台台账库卡 sem_relation 表加一行——业务读法「注水井—受效→油井」，存储方向「经受效关系 AGG-PETRO-009 展开，两端角色不同」，方向标记「<b>非对称</b>（反向要用另一条关联表达，不自动补）」；①本体仓卡"井 AGG-PETRO-001"条目尾加一段标注——platform 是行内字符串，与关系 ASSOC-PETRO-009 并存，<b>一条关系两种写法＝双表示</b>，引用化改造悬置待裁；⑧问答卡加一行——问"受效关系反过来读（油井→注水井）成立吗？"答"不自动成立——两端角色不同（注水方/受效方），反向要用另一条关联表达"。下面六条规矩里逐条用到。</p>
+<h3>本期的六条设计规则</h3>
+<ol>
+<li><b>逆属性：换方向，也换谓词；只凭名字推不出反向边。</b>谓词＝关系边上的动词（第 3 期已建设）。声明「供应」与「来自供应商」互为逆属性：由「供应商甲供应批次甲」推出「批次甲来自供应商甲」——交换两端时谓词要一起换，反向边还叫「供应」，意思就错了。规范警告：名字长得像反义词不算数——名叫「被使用于」的属性未必是「使用」的逆，推理只依据写下的公理，不看命名习惯。项目对照：第 3 期的方向登记就是这条的项目版——两个读法都登记在案（业务读法、存储方向、reversed），导出器逐行核对两端必须正好相反，不是就当场报错；本期台账卡又进一行（③卡 sem_relation 表「注水井—受效→油井」那行），同一条受效事实的两个读法也全在行上——业务读法一格、AGG-PETRO-009 展开一格。判断：登记册场景「人声明、机器核对」更好——零推理依赖、错当场红；代价是关系一多逐行登记就繁，自动补边要养推理栈，项目不养。</li>
+<li><b>对称：声明了才自动补同名反向边，谓词不变。</b>「连接」声明对称，「母线甲连接母线乙」自动推出「母线乙连接母线甲」——两端互换、名字不动，这是与逆属性的分别。原著边界：对称只推两端互换，「同车」只能推出「包裹乙与包裹甲同车」，不能外推第三方；没声明时推不出反向边，也不能因为图上没画就断言为假。项目对照：产量域没有一条声明对称的关系——找不到「甲连乙就算乙连甲、名字还不变」的关系；反面样板是受效关系（③卡本期受效行）：两端一边注水井一边油井，不同质，往对称补边就错了。</li>
+<li><b>非对称：声明了就禁止反向；一条边当不了证据。</b>「严格早于」声明非对称后，再追加反向边就与公理冲突。原著两条边界：图上只有一条边，并不说明这条属性非对称——可能只是反向边还没画；缺一条反向转诊边，也不构成全局的非对称公理。项目对照：受效关系（注水井—受效→油井，多对多）两端不同质，一边注水井一边油井，本来就不是对称关系——建成关系实体 AGG-PETRO-009，展开成两条角色名不同的关联：一条挂注水方、一条挂受效油井，方向写在字段名里，另带劈分系数合计＝1 的不变量（第 9 期已建设）。卡位指针：③台账卡本期受效行的方向标记一格明写「非对称（反向要用另一条关联表达，不自动补）」；⑧问答卡本期新加那行把反方向当场问了一遍——油井→注水井，不自动成立。判断：两条登记换一台推理机，零推理项目别无选择；关系网一大，一条声明顶两条登记才占优。</li>
+<li><b>自反与非自反：作用于整个对象域，声明了才算数。</b>非自反＝声明「每个对象都不是自己的真部分」：模块甲的附件误写成模块甲自己，这条自环与公理冲突。原著边界：没有公理，图里没画自环也推不出没有——表达非自反必须写公理；自反同理作用全部对象，定义域不是过滤器，不能只圈某几类对象——「可达」自反可推出「仓库甲可达仓库甲」。项目对照：项目没有这族公理——挡自环靠引用值域：井措施的 wellRef 只能指向井，指了自己过不了闸；井表的 blockName、platform 还是行内字符串，没有可供自环的引用边（platform 在关联账里另立了 ASSOC-PETRO-009「平台—承载→井」，但井表行里仍是字符串——一条关系两种写法＝双表示，①卡井条目尾本期的标注就是它）。判断：产量域暂无「井—连通→井」这类自己指自己的关系，值域够用，不提前建公理；真出现才轮到它。</li>
+<li><b>功能与逆功能：约束身份，不删记录。</b>功能属性＝声明「同一个主语在这个位置至多一个取值」（第 7 期已建设：推的是同指，不是删除）：客户名下两个主账户被推为同一个对象——没删任何一条记录，也没断言第二条录错，等号约束的是身份。逆功能换到宾语一端：两条记录共持证件甲，推出是同一位客户——功能比较同一主语的两个取值，逆功能比较共享宾语的两个主语。原著边界：至多一个不等于至少一个，保证不了每个包裹都已填写承运人。项目对照：「至多一个」进表结构——井号登记唯一约束（第 7 期已建设：wellId 唯一＋归一化清洗都在第 7 期），第二行同号井插不进去（①卡井条目 wellId 后面的「唯一」、④卡井档案表 N-02 只有一行，就是它的样子）；「N2 和 N-02 是否同井」靠归一化清洗 RULE-PETRO-005 收拢成标准写法（第 7 期已建设），匹配失败落问题单、不硬归；坏数处置同态度——吨方混写检出后开清单交业务修复，不删行、不暗改（第 3 期在案）。判断：去重靠清洗不靠推理——有证据链、失败有闭环。</li>
+<li><b>限定基数：只数属于指定类的取值，不是所有后继。</b>规范例：规范写「一条馈线最多一个主供电源」，校核脚本把备用电源也数进去，误判违规——限定基数声明的是「供电来源里，至多一个属于主供电源类」。原著用四行对照划界（每行都有电源甲、乙）：两个都是主供，要求相同，可共存；再加一句「甲乙不同」，才冲突；乙的类型没给，未必相同，不冲突；换成不挑类型的全局功能性，照样推出相同。原著边界：没被数进去，不等于不属于这个类。项目对照：RULE-PETRO-019（有效产量·剔检口径）两支口径并列登记（第 8 期已建设，登记就在①卡 m3 规则区那行）——开井日历折算／检修剔除（检修剔除支别名"剔检产量"）；剔检支的公式只数「状态≠检修」井的产量行，指定类以外的行剔在口径外；两支差异超 3% 时并列展示并注明差异来源；没数进去的检修井行还在表里，不是不属于产量域。判断：原著用公理限定「数谁」，项目把「数谁」写死在公式里——口径显式、机器可算；代价是一支口径一条公式，没有一条声明两处复用。</li>
+</ol>
+<p>规范将本期产物定义为「对象属性特征及其适用范围」，原话回顾：逆属性换方向也换谓词；对称自动补同名反向边；非对称禁止反向；非自反作用于全域；功能性约束身份、不删记录；限定基数只数指定类的取值。下一期顺着问：怎样计算跨层关系而不混入直接关系。</p>
+<p><b>第 10 期实施要点：</b>换方向也换谓词；对称才补边、非对称禁反向、非自反要写公理，没声明的推不出也不断假；功能约束身份不删记录；限定基数只数指定类——项目版＝方向逐行登记机器核对、唯一进表结构、同指靠清洗、数谁写死在公式里。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>一条关系要从两端都读得出来，靠的是把两端的读法明明白白声明下来，不靠名字猜。</b>用我们表里的真数据走一遍。本期画布有三处黄色高亮的新增：③台账卡 sem_relation 表新加的"受效"行、①本体仓卡井条目尾新加的 platform 双表示标注、⑧问答卡新加的"反过来读"问答行——走到哪一步，就带你去看哪一处。</p>
+<h3>第一步：什么叫「只记了一个方向」。</h3>
+<p>两个东西之间的关系（原著叫对象属性），落在记录里就是一列引用。措施表里有一行 MR-001，它的「井」列写着 Z-16——这条记录登记的方向是「井名下挂措施记录」。可业务人员嘴上说反方向：「MR-001 这次压裂，作用于 Z-16」。同一句话，两个读法。原著的坑在采购库：只记「供应商甲—供应→批次甲」，产品召回想反问「批次甲是谁供的」，查不到，只好另建反向表；反向表靠手工逐条维护，两边不同步就漏查，两条边还会被算成两笔供货。项目没踩这个坑：业务库是表格，列没有方向，两个方向都查得动——问「Z-16 做过几次措施」，就在措施表里数「井＝Z-16」的行。但方向没有白记：平台台账里专门有一行写清三个格子——业务读法「措施—作用于→井」、存储方向「井 1..* 措施记录」、方向标记 reversed（方向是反着存的，故意的，不是写错）。这套登记第 3 期已建设。本期这张表又添了一行——注水井受效那行，第三步带你去看。</p>
+<h3>第二步：换方向，要连关系名一起换（逆属性）。</h3>
+<p>关系名（原著叫谓词，就是关系边上的动词，第 3 期已建设）也要跟着换：「供应」的反方向不叫「供应」，叫「来自供应商」。方向和名字一起换，这两条声明互为<b>逆属性</b>——意思是：声明了这一对，从「甲供应乙」就能读出「乙来自甲」，不用另外记一遍。原著还警告：名字长得像反义词不算数——叫「被使用于」的属性未必是「使用」的逆，机器只认写下的声明，不认名字。项目把这条做成死规矩：导出程序逐行核对——台账行的两端（措施记录→井）和本体声明的两端（井→措施记录）必须正好相反，不是就当场报错、同步中断。写错方向活不过检查，这就是「人声明、机器核对」。</p>
+<h3>第三步：「自动补边」和「禁止反向」（对称与非对称）。</h3>
+<p>先拆词：<b>对称</b>＝声明之后，甲连乙就算乙连甲，名字不变；<b>非对称</b>＝声明之后，反向边根本不许出现（出现了就冲突）。还有一个容易误会的点：图上只画了一条边，说明不了这条关系非对称——可能只是反向边还没画。没声明的属性呢？反向边推不出来，也不能说它是假的。项目零推理机（第 5 期已建设），没有自动补边这回事；需要反查的关系，把两端各自登记清楚。真例：受效关系（注水井—受效→油井）——两端一边注水井一边油井，天生不同质，本来就不该对称补边。项目把它建成关系实体 AGG-PETRO-009，展开成两条角色名不同的关联：一条挂注水方、一条挂受效油井，方向写在字段名里，另带劈分系数合计＝1 的规矩（一口注水井的效果分摊到各油井的份额加起来是 1，第 9 期已建设）。本期画布把这条关系摆到了两处：③台账卡 sem_relation 表新加的那行——业务读法「注水井—受效→油井」、存储方向「经受效关系 AGG-PETRO-009 展开，两端角色不同」、方向标记「非对称（反向要用另一条关联表达，不自动补）」；⑧问答卡新加的那行问的就是反方向："受效关系反过来读（油井→注水井）成立吗？"答"不自动成立——两端角色不同（注水方/受效方），反向要用另一条关联表达"。两个格子自己去看，读完再往下走。</p>
+<h3>第四步：自己和自己有关系吗（自反与非自反）。</h3>
+<p>再拆两个词：<b>自反</b>＝声明「每个对象都和自己有这条关系」（规范例：「可达」——仓库甲可达仓库甲）；<b>非自反</b>＝声明「谁都不许和自己有这条关系」（规范例：「真部分」——任何东西都不是自己的真部分，所以「模块甲的附件是模块甲」这条自环直接违规）。注意边界：非自反必须写成声明才生效——没写声明，图里没画自环，也推不出"以后都不会有"。项目没有这族声明：挡自环靠引用值域——井措施的 wellRef 只能指向井，指了自己过不了闸；井表的区块名、平台名还是行内字符串，没有可供自环的引用边。产量域暂时没有「井连井」这类自己指自己的关系，所以没建，真出现再学它。顺带看一眼①本体仓卡井条目尾本期新加的标注——那是平台名的近况：井表里 platform 是行内字符串，关系账里又立了一条「平台—承载→井」（ASSOC-PETRO-009），同一条「井在哪个平台」有两种写法，这叫<b>双表示</b>；改成引用这件事悬着，等负责人裁决。</p>
+<h3>第五步：「至多一个」管身份，不管删记录（功能与逆功能）。</h3>
+<p><b>功能属性</b>＝声明「同一个东西在这个位置至多填一个值」：客户名下登了两个主账户，机器推出"这两个账户其实是同一个"——注意它不删记录，也不判定谁录错，只约束身份。<b>逆功能</b>倒过来看宾语一头：两条记录共用同一个证件号，推出是同一位客户。一句话分清：功能比的是同一主语的两个取值，逆功能比的是共用同一宾语的两个主语。原著还补一句：至多一个不等于至少一个，保证不了每个包裹都填了承运人。项目两层：「至多一个」直接做进表结构——井号在井档案里登记唯一（第 7 期已建设：身份是键定的），第二行同号井插不进去；「N2 和 N-02 是不是同一口井」靠归一化规则 RULE-PETRO-005（把各种写法统一成标准写法，第 7 期已建设）收拢成 N-02，匹配不上的落问题单、明说不认识、不硬归。查出坏数据态度也一样：45.0 那行吨方混写被检出后开清单交业务修复，不删行、不暗改——和原著「约束身份、不删记录」同一个立场。</p>
+<h3>第六步：数个数时，只数指定类的（限定基数）。</h3>
+<p><b>限定基数</b>＝数个数时只数属于指定类的取值，不是见什么数什么。规范例：规范说「一条馈线最多一个主供电源」，校核脚本把备用电源也数进去，误判违规——正确读法是"供电来源里，至多一个属于主供电源这一类"；对照不挑类型的全局版本，同样是两个电源就判冲突。原著边界：没被数进去，不等于不属于这个类。项目对应：RULE-PETRO-019 登记了两支口径（第 8 期已建设，登记在①本体仓卡 m3 规则区那行）——开井日历折算、检修剔除（检修剔除支别名"剔检产量"）；剔检支算产量时只数"状态不是检修"的井，检修井的行被剔在口径外，但行还在表里，没被删也没被开除出产量域；两支差异超 3% 时并列展示、注明差异来源。「数谁」不靠机器自己挑，写死在登记的公式里。</p>
+<h3>数据核对</h3>
+<p>回到看板选第10 期，黄色高亮的三处就是本期新增。①在台账卡（③平台台账库卡）sem_relation 表找到受效那行：业务读法「注水井—受效→油井」、方向标记「非对称」，两个格子都在；再读它上面第 3 期就有的措施行（reversed）——两行摆在一起，一条事实怎么从两端读，全靠行上写清。②在本体仓卡（①卡）"井 AGG-PETRO-001"条目尾找到 platform 那段标注：行内字符串与关系 ASSOC-PETRO-009 并存，一条关系两种写法＝双表示，引用化改造悬置待裁。③问答卡（⑧卡）找到本期新加的那行："受效关系反过来读（油井→注水井）成立吗？"答"不自动成立——两端角色不同"。④老话复核两处：业务库措施表里 Z-16 名下 1 条措施记录（MR-001），问答卡"做过几次措施？答 1 次"数的就是它；井档案表里 N-02 只有一行——井号唯一，第五步的"至多一个"钉在这一列上。三处新增都对上、两句老话没走样，本期验收即完成。</p>`},
+11:{
+base:`<h2>本期解决的核心问题：<b>两跳什么时候能拼成一条——关系要先声明"可传递"，两段事实还要在同一个中间对象上接上；声明了传递，拼出来的边继续参与拼接、每条带证明；没声明传递，就只报告"走得到"，不报告"关系成立"。</b></h2>
+<p><b>先接第 10 期：</b>上一期把约束搬到关系本身（对称、非对称、逆属性这些整条属性的特征）；本期往里走一层——声明一条关系"可传递"之后，机器沿着它自动拼边，拼到什么时候停、拼出来的算什么，规则全部落在本期。原著开头的故事：台账只有两级，大区甲含省仓甲、省仓甲含门店甲，问"门店甲算大区甲的吗"只能逐级翻表，口径对不上、结论不一；而张三认识李四、李四认识王五，却拼不出"张三认识王五"。同样两跳，为什么有的能拼、有的不能？<b>项目里真发生过的事：</b>本体的关系账里躺着两段"隶属"——区块—隶属→油田（ASSOC-PETRO-008）、平台—承载→井（ASSOC-PETRO-009，第 10 期在案），井→区块那一段还是井表的行内字符串 blockName（第 2 期已建设，引用化悬置）；没有哪处声明"隶属会传递"，要油田归属就得一段一段显式查。<b>本期画布上的改动（两处，都跟着这一段来）：</b>①本体仓卡对象清单新增"区块 AGG-PETRO-010 / 油田 AGG-PETRO-012"条目——显式空壳雏形位（只登设定书原文属性的占位对象），隶属链两段逐段显式登记、不声明传递；⑧问答卡加一行——问"Z-16 隶属的油田是哪个？"答"沿引用边显式走两跳，每跳带路径证明"。下面五条规矩里逐条用到。</p>
+<h3>本期的五条设计规则</h3>
+<ol>
+<li><b>传递属性：三项前提缺一不可。</b>传递＝声明了"A 到 B、B 到 C，就能断定 A 到 C"的关系。规范例：要推出"大区甲含门店甲"，三项缺一不可——声明"包含"可传递；有两段包含事实；两段在同一个中间对象（省仓甲）上接上。大区甲含省仓甲、省仓乙含门店乙，中间对象没对上，拼不起来。三条边界：图上有两条路径不等于关系可传递——是否传递由关系的定义决定；传递只沿给定方向组合，不产生反向边和自环（自己连自己）；没推出的结论也不等于被否定。项目对照：受效关系是逐条登记出来的事实（AGG-PETRO-009，第 9 期已建设），不是从"注水井注水、油井产油"两条事实拼出的推论——中间没有显式登记的受效关系，就拼不出"注水井让油井增产"；隶属链两段同样各是各的关系，无传递声明。判断：项目不声明传递更稳——产量域每段关系各有各的语义（受效还带劈分系数），自动拼边会把不同质的段悄悄焊在一起。</li>
+<li><b>传递闭包：推出来的边继续参与匹配。</b>闭包＝把一条关系所有能按传递规则推出的结论全部补齐后的完整关系。规范例：主网供主变、主变供变电站、变电站供馈线，三条原始边第一轮两两拼接，推出"主网供变电站""主变供馈线"；第二轮推出来的边继续参与匹配，再推出"主网供馈线"；再匹配无新边，稳定在六条。两条纪律：同一结论有两个证明也不多出事实；每条新边都记录由哪两条边推出——「带证明的传递闭包」。项目对照：没有推理机，闭包是确定性遍历——graph_index 的 --closure N 沿引用边正向走 N 跳（一层层向外扩展的图遍历），每条结果带 hops（几跳）、via（沿哪个引用字段）、path（完整路径），路径本身就是证明；图每次从 Git 真源全量重建、禁止持久化成权威。判断：项目这边更适合自己——模式层就几十个节点，遍历便宜，"带路径的遍历"拿到同样的可解释性，省掉整个推理机；原著闭包的优势在实例层海量事实需自动补全时才体现，而本项目实例数据不进本体仓。</li>
+<li><b>直接部分关系与传递性拆开。</b>规范例：为查整机含哪些零件，把"直接组成"声明成传递——零件甲的直接上层明明只有组件甲，却被拼出多个"直接上层件"，账乱了。正确做法是拆开语义："直接组成"不传递；另设可传递的"组成部分"；再声明"直接组成"是它的子属性（子属性＝一个关系是另一个关系的更严格版本）——子属性单向蕴含：由"直接组成"能推出任意层的"组成部分"，反过来不行。项目对照：隶属链正是逐段分开登记——区块—隶属→油田独立一条（ASSOC-PETRO-008），井→区块一段由井表 blockName 承载，每段语义各自管各自；区块、油田两个对象是显式空壳雏形位（①卡本期新增那行），主数据行落在④卡区块/油田字典表。判断：逐段登记让每段被逐段核对、不冒隐式边，是对的；代价如实说——blockName 不是引用字段，引用图上从井走不到油田，--closure 2 要等引用化提案落地才真能从井走到油田，项目把这一步登记为悬置项（第 10 期在案），账是清的。</li>
+<li><b>依赖可达给候选，不给结论。</b>规范例：搬运模块依赖总线、总线依赖内存；内存模块一改，沿依赖反向找，把搬运模块列入影响候选、关联用例列入待评估。两条边界：检查边是检查目标，不是执行记录，不能并入依赖的传递链；没有变更后的运行结果，用例不能标为失败或无需运行——可达只给要关注的范围，不是因果结论。项目对照：--impact 沿依赖边反向走到底，返回受影响节点集——候选集语义，列出的元素仍要人工确认（platform 双表示就标着"引用化改造悬置待裁"，裁决前谁也不改）；语义服务更进一层，闭包只是装配指令（告诉下游工序去跑哪条命令），不是答案正文；连接白名单把日产计量连注水日报判"默认不给"——须经受效关系中转，不许硬拼（第 9 期已建设）。判断：项目更硬——候选做成默认拒绝，比原著的原则性提醒可执行。</li>
+<li><b>路径可达性与关系蕴含分开报告。</b>路径可达＝沿已登记的边走若干跳能走到；关系蕴含＝由声明过的规则自动推出的结论。规范例：合规报表沿"关联"边走两跳，把企业丙列为关联方——本体没声明"关联"可传递，路径可达被当成了关系成立，复核时结论相反。规矩：同一组事实，无传递声明时只能报告"甲两跳可达丙"，不蕴含"甲关联丙"；加了声明与传递规则才蕴含。中间事实删掉后应报告"证据不足"，不能断言"无关联"——缺少证明不等于证明了否定（第 6 期已建设：查不到只说明仓里没有）。项目对照：检索问答坚持回答必带元素 ID 引用、查不到就明确拒答（四步瀑布可拒答，第 5 期已建设）——给的是沿边走到的证据，不是脑补的结论。判断：这条项目做得最实——"分开报告"直接长在回答格式里。</li>
+</ol>
+<p>规范将本期产物定义为「带证明的传递闭包」，原话回顾：传递要三项前提齐备；闭包让推出的边继续匹配，直到不再新增；直接与任意层级分开声明；依赖可达只给候选；路径可达和关系蕴含分开报告。下一期顺着问：不同谓词的路径如何合成结论（属性链公理）。</p>
+<p><b>第 11 期实施要点：</b>可传递要先声明＋两段事实＋中间对象对上，三项齐了才拼；闭包拼出的边继续参与匹配、每条带证明；"直接"和"任意层"拆开登记；可达只给候选不给结论；走得到和成立分开报告——项目版＝不声明传递、--closure 显式走、hops/via/path 就是证明。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>两段关系什么时候能拼成一段——要有人先明写"这段关系可以传递"，拼的时候中间那个对象必须对上，拼出来的每一段都要带着"是怎么拼出来的"。</b>用我们表里的真数据走一遍。本期画布有四处黄色高亮的新增：①本体仓卡新加的"区块 AGG-PETRO-010 / 油田 AGG-PETRO-012"行、⑧问答卡新加的"Z-16 隶属的油田"问答行——走到哪一步，就带你去看哪一处。</p>
+<h3>第一步：什么叫"传递"。</h3>
+<p>先拆词：<b>传递</b>＝甲到乙、乙到丙，就能断定甲到丙。这不是理所当然的：Z-16 的管理员是小王、小王还管着 N-02，能直接说 Z-16 和 N-02 共用一个管理员吗？不能——除非"管理"这条关系的定义里明写了"可以传递"。规范例：大区甲含省仓甲、省仓甲含门店甲，"包含"声明了可传递，才推出"大区甲含门店甲"。拼的时候有个硬条件：两段必须在<b>同一个中间对象</b>上接起来——大区甲含省仓甲、省仓乙含门店乙，中间一边是省仓甲一边是省仓乙，对不上，拼不起来。再记三条边界：图上画着两条边，不等于这条关系就能传递（能不能传递看声明，不看图）；传递只朝明写的方向拼，不会拼出反方向的边，也不会拼出"自己连自己"；没拼出来的结论也不等于是假的——只是没证据。</p>
+<h3>第二步：用井的数据走一遍两跳。</h3>
+<p>台账里：井 Z-16 的区块列写着"渤南"（④业务数据库卡 well_info 那行）；"区块—隶属→油田"在关系账里单独登记了一条。问"Z-16 隶属的油田是哪个"，要走两段：Z-16→渤南，再渤南→油田。系统不替你自动拼——没有任何地方写了"隶属会传递"，答案是<b>分段显式走</b>（显式＝明写出来、一步一步照做，不靠猜）：先查 Z-16 的区块，再查这个区块隶属的油田，每一段都留下走过的路——沿哪个字段、从谁到谁。<b>路径证明</b>＝把走过的每一步都写给你看，让你自己能核对。这就是⑧问答卡本期新加那行："沿引用边显式走两跳：Z-16→渤南→油田（每跳带路径证明）"。说实话处：井→区块这一段现在还是井表里的一段文字（blockName 列，第 2 期已建设"引用化悬置"——本来该存指向区块的编号，现在存的是文字），所以本体引用图上从井还走不到油田；要这条路真正打通，得先把第 10 期悬着的引用化改造落地。项目自己把这事记在账上，没装作路已通。</p>
+<h3>第三步：什么叫"闭包"，为什么要"继续参与"。</h3>
+<p><b>闭包</b>＝把一条关系所有能按传递规则拼出来的结论全部拼完、一条不剩。规范例：主网供主变、主变供变电站、变电站供馈线——三条原始边先两两拼接，拼出"主网供变电站""主变供馈线"两条新边；关键在这一步：<b>拼出来的新边还要继续参与拼接</b>，第二轮拼出"主网供馈线"；再拼没有新边了，停——一共六条。两条纪律：同一条结论就算有两套拼法也只算一条（事实不重复计）；每条新边都记着"由哪两条边拼的"。项目没有自动推理（零推理机，第 5 期已建设），对应的工具是 graph_index 的 --closure 2：沿引用边向前走 2 跳，每条结果带 hops（走了几跳）、via（沿哪个引用字段）、path（完整路径）——原著"每条新边有依据"，项目用"每条路径带证明"做到同一件事。图不存档，每次从本体文件现算，算完就扔，仓库里的文件才是真源。</p>
+<h3>第四步："直接"和"隔几层"要拆成两条关系。</h3>
+<p>原著有个反面教材：有人为查"整机含哪些零件"，把"直接组成"声明成可传递——零件甲本来只有一个直接上级（组件甲），被拼出好几个"直接上级"，账乱了。正确做法：<b>"直接组成"不许传递</b>；另立一条可传递的"组成部分"；再声明"直接组成"是它的更严版本（原著叫子属性，单向管用：从"直接组成"能推出隔几层的"组成部分"，反过来推不出）。项目同款做法：隶属链一段一段各立各的关系——井→区块一段（现在是井表文字）、区块→油田一条，每段语义各自管各自；区块、油田这两个对象先占住位置、只登设定书写明的属性，叫"显式空壳雏形位"——①卡本期新加那行就是它，主数据行落在④卡区块/油田字典表。</p>
+<h3>第五步："走得到"和"成立"是两句话。</h3>
+<p>规范例：合规报表沿"关联"边走了两跳，把企业丙写成关联方——可本体从没声明"关联"可传递，复核时结论翻了。规矩：<b>走得到</b>（原著叫路径可达）只能说"沿着已登记的边走了两跳走到它"；<b>成立</b>（原著叫蕴含，＝由明写下的规则自动推出来）必须有声明撑着。没声明传递，就只许报告前者。中间那条边删掉之后呢？报告"证据不足"，不许改口"查无关联"——缺证据不等于证明了反面（第 6 期已建设：查不到只说明仓里没有）。项目把这条做成了日常：问答回答必须带编号引用、查不到就明说拒答（第 5 期已建设的四步瀑布）；改动影响分析只给"受影响的候选名单"，名单上的项还要人工确认——可达给候选，不给结论。</p>
+<h3>数据核对</h3>
+<p>回到看板选第11 期，黄色高亮的两处就是本期新增。①在本体仓卡（①卡）对象清单找到"区块 AGG-PETRO-010 / 油田 AGG-PETRO-012"那行：读那句话——"逐段显式登记，不声明'隶属会传递'"，两段隶属、没有一条传递声明。②在问答卡（⑧卡）找到"Z-16 隶属的油田是哪个？"那行：答"沿引用边显式走两跳"，靠什么一栏写着"闭包是计算不是蕴含"。③顺手复核两处老账：④业务数据库卡 well_info 表里 Z-16 那行，区块列＝渤南（第一跳的起点）；⑤实例装配卡里"Z-16 —隶属→ 渤南区块"那条边（第 2 期装配的）——第一跳在图上真有边。三处都对上，本期验收即完成。</p>`},
+12:{
+base:`<h2>本期解决的核心问题：<b>不同关系的两段要接成一条结论，必须有人先写下"这样接等于什么"——原著叫属性链公理；项目不写这种规则，就把"谁和谁能连"登记成连接白名单，白名单之外默认拒绝。</b></h2>
+<p><b>先接第 11 期：</b>上一期讲同一条关系两跳拼接（传递）；本期讲<b>不同</b>关系首尾相接。规范例："受理。隶属于 ⊑ 归口"（⊑ 读"包含于"）：申请—受理→窗口、窗口—隶属于→部门，两段在共享中间对象（窗口）上接成"归口"。三条硬规矩：结论谓词（关系边上的动词，第 3 期已建设）由公理指定，不由路径形状决定；链只朝一个方向，不能反推；中间对象未证明同一，拼不上。<b>项目里真发生过的事：</b>项目零推理机（第 5 期已建设：结论靠现算不靠推），属性链公理一条没有；同一目标换成确定性机制——台账里的<b>连接白名单</b>（sem_join_whitelist，登记"谁和谁能连、按什么连"）：日报表⋈日期维表按日期放行、⋈井档案按井号放行、⋈化验表<b>默认不给</b>——须井号＋取样日期双键＋时间容差、经中间视图配对。化验表就在④卡（第 12 期实装）——连接的对象现在是看得见的表。<b>本期画布上的改动（两处）：</b>③台账卡 sem_relation 之后新增 sem_join_whitelist 小节（第 9 期说过"画布没画全"，本期摆上）；⑧问答卡加一行："日报表能和化验表直接连吗？不能。"</p>
+<h3>本期的五条设计规则</h3>
+<ol>
+<li><b>属性链与共享变量：两段在中间对象上拼，缺公理就什么结论都没有。</b>规范例：政务平台只存两段边，问归口只能人工跳两次——没公理，路径连得出、结论推不出。项目对照：两张表语法上连得出结果，白名单没放行就不许连。判断：原著适合事实源干净、结论谓词高频复用的域；项目数据源有已知问题（D1 吨方混写、D6 井号写法），默认拒绝更安全。</li>
+<li><b>同质属性链：给多跳路径起专名，每段谓词逐段匹配。</b>规范例："生父。生父 ⊑ 父系祖父"，第二段换成"监护人"，端点名字相同也推不出。项目对照：受效关系（AGG-PETRO-009，第 9 期已建设）单独立关系实体——"起专名"的项目版；白名单条件格逐项核对，键不对不给连。判断：项目不开推理，专名靠显式登记，换来不会隐式拼错。</li>
+<li><b>限定谓词：先核验、先映射，再进链。</b>规范例："父系叔父"专指生父的同父兄弟且已核验；自报称呼"叔叔"不匹配，推理机不替你补证据，称呼要先映射成已核验的谓词再进链。项目版把核验条件<b>压进连接条件本身</b>：连化验表须井号＋取样日期双键都对上、再加时间容差，经中间视图配对；井号先归一成标准形（RULE-PETRO-005，第 7 期已建设），不归一就接错对象。判断：项目更硬——核验写在连接条件里，逐行机器可查。</li>
+<li><b>一致属性链：逐段对齐实际发生的条件，缺一段就断。</b>规范例："实际发货。发运批次。供应方 ⊑ 批次供应来源"，第一段换成"计划发货"就不能应用，删掉任何一段事实证明就断开。项目对照：RULE-PETRO-002（含水率偏差超 5 个百分点以化验校正）要成立，前提是双键配对成功——配对不成立，校正无从谈起。判断：方向一致；项目把"哪段不成立"落成连接被拒的具体原因。</li>
+<li><b>适用条件：三项齐备才支持，缺口要定位。</b>原著判定清单：链公理、逐段谓词匹配、共享中间对象，缺一就是"推不出"，不许把推不出写成否定事实。项目抄成连表三问：白名单有没有这一行？键逐段对齐了吗？两边键值指向同一个对象吗（归一化后同指，第 7 期已建设）？答不出就默认不给，条件格里写明该怎么办——指路长在登记行上（第 6 期"缺什么说什么"同一立场）。判断：默认拒绝加指路，比含糊报错可执行。</li>
+</ol>
+<p><b>第 12 期实施要点：</b>两段在共享中间对象上拼、逐段匹配、结论谓词由公理指定、推不出时定位缺口不写成否定；项目没有推理机，就把这条纪律做成连接白名单——默认不给、双键配对、先归一再连、缺口指路。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>两张表想连起来，不是技术上连得成就连——谁和谁能连、按什么连，要有白纸黑字的登记；没登记的，一律不给连。</b>下面用"日报表想连化验表"一步一步走。</p>
+<h3>第一步：先拆词——什么叫"把两段拼成一条"。</h3>
+<p>先说<b>谓词</b>：关系边上的动词（第 3 期已建设），"井—<b>隶属</b>→区块"里的"隶属"。原著设想：申请—受理→窗口、窗口—隶属于→部门，两句话共享中间那个"窗口"——两段共用的中间对象叫<b>共享变量</b>。有人先写下规则"受理接隶属于，等于归口"，机器就能把两段接起来，得出"申请归口部门"。这种写下来给机器执行的规则，原著叫<b>公理</b>；两段不同关系接成一段，叫<b>属性链</b>。两个边界：结论叫什么由规则说了算；链只朝一个方向，从"归口"倒推不出经过哪个窗口。项目没有会自动做这件事的程序（零推理机，第 5 期已建设：结论靠现算），没有属性链公理——它换个管法：管住"谁和谁能连"。</p>
+<h3>第二步：项目里"谁能连"登记在哪——连接白名单。</h3>
+<p>平台台账（第 1 期已建设：本体文件翻译成的只读副本）里有张<b>连接白名单</b>表：登记"哪两张表可以连、按什么连"，一行一条。本期它上了画布（③台账卡 sem_relation 下面的小节），三行：日报表⋈日期维表——<b>可以</b>，按日期连；日报表⋈井档案——<b>可以</b>，按井号连；日报表⋈化验表——<b>默认不给</b>，须井号＋取样日期双键＋时间容差，经中间视图配对。这叫<b>默认拒绝</b>：表上没写的连接一律不给（登记里还有"⋈注水日报默认不给"，第 9、11 期讲过；画布挑三行作代表）。</p>
+<h3>第三步：日报表想连化验表，为什么默认不给？</h3>
+<p>日报表每行记"哪口井、哪天、哪个班产了多少"（第 3 期已建设）；化验表每行记"哪口井、哪天取的样、化验出什么值"。两表都有井号、日期，技术上随手能连。但项目不放过，原因有二：其一，井号写法乱——同一口井 N2、N-2 两种写法并存（第 7 期已建设的 D6），不先统一，按井号连就把一口井算成两口井；其二，日期对不齐——取样和计量不是同一时刻，硬按同一天配，错了也没人知道。数据源还有别的已知毛病（D1 吨方混写，第 3 期已建设）。连错不报错，只会安静算出错结论。</p>
+<h3>第四步：那到底怎么连——把核验条件压进连接条件本身。</h3>
+<p>白名单那行"条件"格写的就是完整流程：<b>井号＋取样日期双键都对上，再加时间容差，经中间视图配对</b>。拆开说：<b>双键</b>＝两个字段都要对上，光井号相同不算数；<b>时间容差</b>＝两边日期差多少以内还算配得上；<b>中间视图</b>＝预先按这套规矩把两表配好对的一层查询。井号还要先过归一化（RULE-PETRO-005，第 7 期已建设：进门先把 n2 收成标准形 N-02）。这就是原著"先核验、先映射，再进链"的项目版：原著的"父系叔父"专指"已核验的生父同父兄弟"，自报的"叔叔"不算数；项目把核验写进连接条件——配对不成，连接不发生，不存在"先连上再想办法"。化验表就在④卡（第 12 期实装）——连接的对象现在是看得见的表。</p>
+<h3>第五步：三项齐备才支持，缺口要指出来。</h3>
+<p>一次连接放不放行，判定就三问：白名单有没有这一行？连接的键逐段对齐了吗？两边键值指向同一个对象吗（归一化后同指，第 7 期已建设）？三问都过才放行；哪问答不出来，明说缺哪条，不许把"不给连"说成"没有数据"——跟第 6 期"查不到只回未知"同一立场。现成例子：计量含水率与化验值偏差超 5 个百分点时以化验校正（RULE-PETRO-002），它成立的前提正是双键配对成功——配对不成，校正无从谈起。</p>
+<h3>数据核对</h3>
+<p>回到看板选第12 期，黄色高亮的就是本期新增。①③台账卡 sem_relation 表下面找 sem_join_whitelist 小节：三行逐行读——前两行"可以"，第三行"默认不给"，把条件格"井号＋取样日期双键＋时间容差、经中间视图"逐字读一遍。②⑧问答卡找本期新加那行："能把日报表和化验表直接连起来算吗？"答"不能——白名单默认拒绝"。两处都对上，本期验收即完成。</p>`},
+13:{
+base:`<h2>本期解决的核心问题：<b>查出"零条"有三种原因——没数据、定义必空、整库矛盾，三种"空"要分三层取证；修复要改到原始输入，一致性通过不等于修好。</b></h2>
+<p><b>方法论原著中的典型事故：</b>医院把预警规则写成"青霉素禁忌，且必须用青霉素"，患者一录入就报冲突，运维以为是整个库坏了，停用全部推理——其他预警也跟着没了。分不清"是这个类为空，还是整个库没有模型"，一次正常报错就被当成整库灾难。先拆四个词：<b>公理</b>＝写进知识库、直接当作成立的一条声明；<b>模型</b>＝让所有公理同时成立的一种完整设定，一个库可以有多种模型（第 8 期已建设"模型"：一种自洽情形）；<b>不可满足类</b>＝由公理推出、在任何模型里都不可能有成员的类；<b>整库不一致</b>＝连一种模型都造不出来，公理加事实自相矛盾。</p>
+<p><b>原著的推演：</b>三条公理——冲突预警⊑青霉素禁忌（⊑ 读"包含于"，第 2 期已建设）、冲突预警⊑必用青霉素、后两类互斥（无共同成员）。于是"冲突预警"在每个模型里必然为空，是不可满足类；但只要没断言谁属于它，整库仍有模型；直到断言患者甲属于冲突预警，他必须同入两个互斥类，整库才没有模型。结论：<b>类必为空≠整库没有模型</b>。</p>
+<h3>三种"空"分三层取证</h3>
+<ol>
+<li><b>没有记录</b>：类可满足，模型里有成员，只是这次没查到——第 6 期"查不到只回未知"同一立场；</li>
+<li><b>类不可满足</b>：每个模型里都为空，要由公理证明；</li>
+<li><b>整库不一致</b>：再断言某人属于这个空类，就没有任何模型——此时任何结论都能被推出，必须先报不一致，不能继续拿查询结果当结论。</li>
+</ol>
+<p><b>修复侧两条：</b>①给<b>最小冲突集</b>——导致无模型的最少一组前提，拿走任何一项都能造出模型（第 7 期已建设"冲突定位到最小前提集"），修复对象拉回原始输入；只删推理算出的中间结论，原始公理还在，下一批照样冲突。子集最小≠项数最少，≠最可能出错的那一项。②<b>多重支持</b>：同一冲突可能有多条独立支持路径，删掉第一份解释独有的规则，第二份照样无模型——修复前要枚举全部最小冲突解释。<b>真修复四步</b>：核验来源、副本上修改并重算冲突解释、保留正例、归档留痕。清空公理也能"一致"，但正确分类丢了、改动没依据——虚假通过，<b>一致性通过不等于修好</b>。</p>
+<p><b>项目两条腿：</b>有的这条——分层取证：语义闸红因按 L1–L4 分层，报文带文件：行号与元素名，红因到行；重复 id 报先后双位置（DUP-AC1）；同步器锚校验不过抛 OntologyDriftError 不静默（"不一致必须先报"的项目版）；最小反例做成出厂集非法变体夹具（broken、caliber-broken）；真修复走提案制——proposal_check 预检→Owner 裁决→MR 合入→闸复跑，出厂集防判据漂移。"一致性通过≠修好"项目吃过实例：闸全绿而登记失真，之后才补的 L3 口径检查。没有的那条，如实承认——原著"自动发现定义间逻辑矛盾"（不可满足类检查）这层能力项目没有：两条各自合法但互相矛盾的规则，闸是绿的；闸只管确定性判定。<b>本期画布上的改动两处：</b>①本体仓卡最下面新增"语义闸报文"表；⑧问答卡新增两行。</p>
+<p><b>第 13 期实施要点：</b>空有三种——没数据、定义必空、整库矛盾，分三层取证；冲突定位到最小前提集，修复前枚举全部解释；修复改真源、留正例、留痕；一致性通过不等于修好。项目分层取证有了，自动发现定义矛盾没有。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>查出"零条"先分清是哪种"空"；修要修到真正出错的那几条原始输入，不能只让报错消失。</b></p>
+<h3>第一步：先拆词。</h3>
+<p><b>公理</b>＝写进知识库、直接当作成立的一条声明。<b>模型</b>＝让所有公理同时成立的一种完整设定，一个库可以有多种模型（第 8 期已建设）。<b>不可满足类</b>＝在任何模型里都不可能有成员的类。<b>整库不一致</b>＝公理加事实连一种模型都造不出来。</p>
+<h3>第二步：医院的误报——类必为空，不等于整库坏了。</h3>
+<p>医院预警规则写成"青霉素禁忌，且必须用青霉素"——"冲突预警"须同时进两个互斥的类（互斥＝无共同成员）。患者一录入就报冲突，运维当整库坏了，停用全部推理——其他预警跟着没了。拆开看：三条公理让"冲突预警"在每个模型里必然没有成员——不可满足类；但没人被断言属于它时，整库仍有模型；直到录入"患者甲属于冲突预警"，他须同入两个互斥类，整库才没有模型。类为空≠整库坏。</p>
+<h3>第三步：三种"空"，分三层取证。</h3>
+<p>把三种空混成一个"零条"，就说不清依据哪层证据。<b>没有记录</b>——类可满足，模型里有成员，只是这次没查到（第 6 期已建设）；<b>类不可满足</b>——每个模型里都为空，要由公理证明；<b>整库不一致</b>——再断言某人属于这个空类，就没有任何模型；此时任何结论都能被推出——必须先报不一致，不能拿查询结果当结论。</p>
+<h3>第四步：走一遍"红→定位→提案→修复→复跑"。</h3>
+<p><b>红</b>：①卡报文表——"[L1 required-field] m1-object-model.yaml:123 缺 id"、"[DUP-AC1] 同名 id 先后出现在 :45 与 :167"；④卡 N-02 坏行（第 3 期在案）产油 45 吨比产液 12 方还多，RULE-PETRO-020 检出挂问题单。<b>定位</b>：红因按 L1–L4 分层，每条带文件：行号、元素名，重复 id 报先后两个位置。<b>修复</b>：不许随手删，走提案制——proposal_check 预检 → Owner 裁决（项目负责人拍板）→ MR 合入 → 闸复跑；闸的判据靠出厂集防漂移：非法变体夹具（broken、caliber-broken）一个坏例触发一个码，判据漂移立刻红。</p>
+<h3>第五步：最小冲突集——修复对象拉回原始输入。</h3>
+<p>规范例：风控库报不一致，运维删掉推出的"应税"类型，校验跑通了；但原始断言和公理还在，下一批照样冲突。四项前提合在一起没有模型，拿走任何一项都能造出模型——这组前提就是<b>最小冲突集</b>（第 7 期已建设），修复对象是它，删中间结论不算修。子集最小不等于项数最少，也不等于最可能出错的那项；同一冲突可能有多条独立路径（多重支持），删掉第一份解释独有的规则，第二份照样冲突——修复前要<b>枚举全部最小冲突解释</b>。</p>
+<h3>第六步：真修复四步——一致性通过不等于修好。</h3>
+<p>规范例：质量库把零件甲同时断言"已认证"和"未认证"，撤掉互斥公理检查通过了——清空公理也能"一致"，但正确分类丢了、改动没依据，是虚假通过。四步：核验来源；副本上修改，重算冲突解释确认都消失；保留正例——留一个应成立的正确分类；归档——改动、依据、回归结果一起留痕。项目吃过实例：主仓终审发现"闸全绿而登记失真"，才补的 L3 口径检查。如实承认：原著"自动发现定义间逻辑矛盾"这层能力项目没有——两条各自合法但互相矛盾的规则，闸是绿的（⑧卡新增第一行问答）。</p>
+<h3>数据核对</h3>
+<p>回到看板选第13 期。①①卡最下面找"语义闸报文"那张表：层级码、文件：行号、元素名都在表上吗？重复 id 报了两个位置吗？②⑧卡找本期新增两行："两条规则各自合法但互相矛盾，闸会红吗？"答"不会——逻辑矛盾不在机判面"；"闸红了怎么定位？"答"红因分层（L1–L4）＋报文带 file:line、重复 id 报先后双位置"。两处都对上，本期验收即完成。</p>`},
+14:{
+base:`<h2>本期解决的核心问题：<b>能写出来，不等于能推理——写进本体的每句话只是一份申请，机器能不能兑现，取决于所选机制承诺了什么。</b></h2>
+<p><b>方法论原著中的典型事故：</b>政务平台只要文件能解析就入库，查询常年为空，空结果被当成"业务上没有"。先拆四个词：<b>OWL 2 DL</b>＝万维网联盟的本体语言 OWL 2 的严格子集，DL 指描述逻辑，是其中计算性质最有保障的部分；<b>公理</b>＝写进本体的普遍陈述，例如"隶属会传递"；<b>推理机</b>＝输入公理和事实、按逻辑规则补出新事实的程序；这种"能被推出"的关系叫<b>蕴含</b>（第 5 期已建设）。<b>本期画布改动两处：</b>①卡 manifest.json 行下加一张 profile 表；⑧卡加一行"项目为什么不需要 OWL 子语言档位"。</p>
+<h3>本期的五项设计要点</h3>
+<ol>
+<li><b>五层检查：解析成功只是第一层。</b>可解析→结构合法→工具支持→逻辑一致→规模可行，五层互不替代，要分别取证。引擎不支持文件里的链公理，空结果不代表没有对象；小数据跑通也不证明规模扛得住。项目对照：语义闸按 L1–L4 分层取证（第 13 期已建设），L3 明写"任何需 LLM（大语言模型）判断的项不收"——"每层单独取证"的落地；第五层"规模可行"项目没有机器闸，原著对、项目缺。</li>
+<li><b>三种轻量子语言：按任务选，不按类的数量选。</b>子语言＝把 OWL 2 DL 砍掉一部分表达力换计算速度的档位：分类型 EL 只允许交集与存在限制，面向大类层级的分类；查询型 QL 面向数据在关系库里的查询改写；规则型 RL 面向规则引擎批量推事实。任务必需全称、补集、基数时，不能因为类多就选 EL 删条件。项目对照：profile＝启用的模型组合，model-registry.json 注册 v9-full 全量／v9-core 最小核／headless 三个组合，petro/ 用 v9-full，做成双向机器闸——未启用的模型文件出现即红、启用的缺文件且无豁免也红。两边裁的对象不同：规范的子语言裁"公理表达力"，项目 profile 裁"模型在场性"。</li>
+<li><b>基数与功能性只对简单属性生效。</b>简单属性＝不靠传递或属性链（第 12 期已建设）推出的属性。"依赖"若声明传递，它身上"至多一个"的约束不生效；工具报的是结构违规而非逻辑矛盾，当成数据冲突去改，整份本体进不了推理。项目对照：YAML 关系没有子属性、没有属性链，每条关联直接写基数——这类事故在项目结构上不会发生。</li>
+<li><b>属性链正则性：两条链合并出严格次序冲突。</b>规范例：转运・承运⊑转运、承运・转运⊑承运，每条单看都合法，合并经传递推出"转运小于转运"，与严格次序的非自反性冲突，整份被拒——这是本体结构限制，不是数据里有环；项目没有属性链，这条限制无从触发。</li>
+<li><b>四类问题各走各的机制、各留各的证据。</b>公理＋事实→推理机→蕴含（订单来源关系）；数据＋形状→校验语言 SHACL（第 5 期提过）→符合/违规（字段必填）；单位＋时间窗口→查询计算→数值（本月金额汇总）；约束＋目标函数→优化程序→最优方案（最优额度）。推理得到来源关系，不等于金额汇总也是本体推论；工具能串联，<b>但不共享彼此的语义保证</b>。项目把这条当架构原则执行：校验＝语义闸、图计算＝graph_index、确定性检索＝语义服务（零 LLM）、自然语言成稿＝LLM 工序；<b>蕴含整条有意不做</b>——井→区块→油田不声明传递，要油田归属就显式多走一跳（第 11 期已建设）。换来：结论可溯源、判据可写成断言、出厂集防漂移（第 13 期已建设）；失去：隐含事实自动补全。没有可换的推理档位，就没有"换档悄悄丢答案"的风险面。</li>
+</ol>
+<p><b>第 14 期实施要点：</b>能写出来不等于能推理——五层分别取证；子语言按任务选；基数与功能性只管简单属性；两条属性链合并能出次序冲突；四类问题各走各的机制、各留各的证据，项目干脆不做蕴含，依据分开记。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>写进本体的每句话只是一份申请，机器能不能兑现，取决于所选机制承诺了什么。</b>分五步走。</p>
+<h3>第一步：先拆词。</h3>
+<p>OWL 2＝万维网联盟（定网页标准的组织）出的本体语言，用来写"隶属会传递"这类普遍陈述，写进去的陈述叫<b>公理</b>。<b>描述逻辑</b>＝OWL 2 背后的那套数学规则，OWL 2 DL 是其中计算性质最有保障的部分。<b>推理机</b>＝输入公理和事实、按规则自动补出新事实的程序；这种"能被补出"的关系叫<b>蕴含</b>（第 5 期已建设）。</p>
+<h3>第二步：解析成功只是五层检查的第一层。</h3>
+<p>方法论原著中的典型事故：政务平台只要文件能解析就入库，查询常年空结果，空结果被当成"业务上没有"。检查分五层：读得进来（可解析）、符合可判定的语言（结构合法）、工具支持所需表达式、公理之间不打架（逻辑一致）、负载扛得住（规模可行）；五层互不替代。项目对应：语义闸（机器检查关卡，第 1 期已建设）按 L1–L4 分层取证、红因到行（第 13 期已建设），L3 明写"需 LLM（大语言模型）判断的项不收"；第五层"规模可行"没有机器闸——原著对、项目缺。</p>
+<h3>第三步：三种轻量子语言——按任务选，不按类的数量选。</h3>
+<p><b>子语言</b>＝把 OWL 2 DL 砍掉一部分表达力、换更快计算的档位，共三种：分类型 EL 只允许交集和存在限制，面向大类层级的分类；查询型 QL 面向数据在关系库里的查询改写；规则型 RL 面向规则引擎批量推事实。警告：按任务选，不按类的数量选；必需全称、补集、基数时，低档位写不进去，删条件结论就变。项目对应机制叫 <b>profile</b>（启用的模型组合）：model-registry.json 注册三个组合——v9-full 全量、v9-core 最小核、headless 去流程与界面，petro/ 用 v9-full；做成双向机器闸：未启用的模型文件出现即红、启用的缺文件且无豁免也红。规范的子语言裁"公理表达力"（哪些话写得进去），项目 profile 裁"模型在场性"（哪些模型文件在场）——裁的对象不同。</p>
+<h3>第四步：简单属性与属性链正则性——项目结构上不会发生。</h3>
+<p><b>简单属性</b>＝不靠传递或属性链（第 12 期已建设）推出的属性。事故一："依赖"声明传递后，它身上"至多一个"的约束不生效；误当数据冲突去改，整份本体进不了推理。<b>正则性</b>＝对属性链的次序要求：允许的链组合必须能给属性排出严格先后；事故二：两条链单看各合法，合并推出"某属性排在它自己前面"，整份被拒——这是本体结构限制，不是数据里有环。项目呢？YAML 关系没有子属性、没有属性链，每条关联直接写基数——两类事故不会发生；代价是语义全靠人登记、闸逐行核对。</p>
+<h3>第五步：四类问题各走各的，蕴含整条不做。</h3>
+<p>收尾大规矩：蕴含、校验、计算、优化四类问题各有各的输入、机制和输出，依据分开记录——推出"订单来源关系"，不等于"本月金额汇总"也是本体推论；工具能串联，但不共享彼此的语义保证。项目把它当架构原则：校验＝语义闸；图计算＝graph_index（重建引用图、沿边遍历）；确定性检索＝语义服务（零 LLM，查不到明说缺什么，第 5 期已建设）；自然语言成稿＝LLM 工序。<b>蕴含整条有意不做</b>：井→区块→油田不声明传递，要油田归属就显式多走一跳（第 11 期已建设）。换来：结论可溯源、判据可写成断言、出厂集防漂移（固定输入加期望输出的回归，第 13 期已建设）；失去：隐含事实自动补全。没有可换的推理档位，就没有"换档悄悄丢答案"的风险——⑧卡新增那行答的就是它。</p>
+<h3>数据核对</h3>
+<p>回到看板选第14 期，黄色高亮共两处。①本体仓卡 manifest.json 行下读 profile 那张表：双向机器闸——规范的子语言裁"公理表达力"，项目 profile 裁"模型在场性"，裁的对象不同。②问答卡找"项目为什么不需要 OWL 子语言档位？"那行：四类问题各走各的、蕴含整条不做。两处都对上，本期验收即完成。</p>`},
+15:{
+base:`<h2>本期解决的核心问题：<b>查询的每一步都可能悄悄丢行——缺一个值不该丢掉一整行；丢的是"没值"还是"没达标"，要能说清。</b></h2>
+<p><b>本期要解决的问题：</b>客户账户清单要求每行都带余额，客户乙的账户恰好没录余额，整行被剔除，人从清单消失。原著用 SPARQL（RDF 图的查询语言；RDF＝"主语—谓词—宾语"一条记一件事，第 4 期已建设）拆成六个知识点，项目条条有对应物。</p>
+<h3>本期的六项设计要点</h3>
+<ol>
+<li><b>基本图模式：先问关系，不卡取值。</b>问号开头的是变量，每条"拥有"边给出一组绑定（这行里变量的具体取值）。先只问谁拥有哪个账户，余额留到下一步——账户丙没余额不影响匹配。开放世界下（第 6 期已建设），图里没写余额推不出是零。</li>
+<li><b>连接：共享变量才能把两段事实定在同一对象上。</b>账户和余额用两个变量又不共享，三个账户全配上同一笔 80——数值属于别的账户。解法是连接：两条模式共用同一个账户变量，余额只能配给自己的账户。项目更严：连法本身要过闸——连接白名单（第 12 期已建设）登记谁和谁能连、按什么连，白名单外默认拒绝。</li>
+<li><b>可选匹配：缺值也保留这一行。</b>原著叫 OPTIONAL：只尝试补右侧的余额，成功就补上，失败也保留左侧已有的绑定。这条结果里变量没有值叫<b>未绑定</b>，未绑定不等于 0——账户乙有 20，只是低于 50。项目对应"缺值不丢行"：化验表没有某天的记录，不等于当天含水率为零；计量折算与化验值偏差超 5 个百分点要以化验校正（RULE-PETRO-002）——没化验无从校正。</li>
+<li><b>筛选位置：外部筛选会移除未绑定。</b>"余额≥50"放可选块外：账户乙条件为假被移除，账户丙未绑定、比较无法求值也被移除——两条消失原因不同，分不清"有值没达标"还是"根本没值"。项目的剔检口径把"状态≠检修"写进聚合表达式（求和前按条件挑行的算式）：检修井产量不计入，井档案行一条不丢。</li>
+<li><b>属性路径：结构可达不等于资格。</b>属性路径＝沿一条关系连走几跳的写法，加号表示至少一跳，星号允许零跳。沿"组成部分"走到的部件，不等于版本、配置、测试报告齐全、可发布。项目对应：图索引 --closure 沿引用边走 N 跳得到的是结构事实（第 11 期已建设）；注水井沿受效关系走到油井，不等于当前仍受效——资格靠响应起始日与劈分系数判断，不靠边。</li>
+<li><b>蕴含配置：同一份图，结果不一样。</b>简单匹配只看显式写出的三元组，查"谁是客户"为空；启用 RDFS 蕴含（按图里声明的规则把能推出的三元组补进来）才返回客户甲——结论要连同数据版本、本体版本、蕴含方式一起交付。项目对应：检索面裁剪，面＝当前允许查询的元素集合，面外查不到——同一份仓，面配置不同答案不同。项目有意不做自动推理（第 14 期讲过）；台账同步钉死 schemaVersion，锚校验不过即报错。</li>
+</ol>
+<p><b>项目独有的防丢法——锚点窗口：</b>检索问答链路（报告切块→摘录→精排，精排＝用模型给候选片段按相关性重排）曾用固定开头截断：问句里的井号藏在 923 字片段第 330 字，开头截出的头部看不到它，精排判无关，云端两轮稳定丢 4 题；根修（提交 7d77a99）改为在问句强 token（井号、编号、小数指标值等词面特征）首次命中处取窗，前 40 后 160，零模型调用。这和"外部筛选移除未绑定"是同一类错误：上游一步不小心，下游整行整题无声消失。M7 报表模型的 referenceSql（取数语句）、resultColumns（结果列）、joins（连接）是问数链路的合同件——取数、出列、连表照登记。</p>
+<p><b>第 15 期实施要点：</b>模式先于取值，共享变量才连接，缺值不丢行、未绑定不是零，外部筛选移除未绑定，可达不是资格，结论连同配置交付——锚点窗口、连接白名单、检索面裁剪，都是把"一步看不到就当它不存在"做成机器检查。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>查询的某一步没看见一个值，不代表它不存在——好几个环节都会悄悄丢行。</b>下面用井 Z-16 的一桩真事走一遍。</p>
+<h3>第一步：先拆词——查询是怎么在图上找东西的。</h3>
+<p><b>图模式</b>＝写在查询里的形状要求："谁—什么关系—谁"，机器照着在图上找。问号开头的词是<b>变量</b>；图上每条满足形状的边，给变量一组具体取值，叫<b>绑定</b>。规矩一：先问关系，不卡取值——先只问"谁拥有哪个账户"，不附带"必须带余额"；某账户没录余额，"拥有"这条边照样成立。没录余额能当成零吗？不能：图上没写的事实不能当成假（第 6 期已建设：查不到只说明仓里没有）。</p>
+<h3>第二步：两段事实接起来，必须共享同一个变量。</h3>
+<p>想给账户配上它自己的余额，原著叫<b>连接</b>：两条模式用<b>共享变量</b>——同一个变量名指同一个位置，余额只能配给自己的账户。要是账户、余额各用一个变量又不对上，机器随手配对：三个账户全配上同一笔 80，钱记到别人头上。项目的管法更硬：哪两张表能连、按什么连，登记在连接白名单里（第 12 期已建设），白名单外默认不给——日报表连化验表必须井号＋取样日期两把钥匙都对上，井号先按归一化规则收成标准写法再比（Z-16 和 z-16 第 4 期已建设，n2 和 N-02 第 7 期已建设）。</p>
+<h3>第三步：缺值的那一行，留还是丢？</h3>
+<p>原著的写法叫<b>可选匹配</b>（OPTIONAL）：试着补右侧的值，补上就填，补不上，左边已拿到的绑定照原样保留；补不上时那个变量叫<b>未绑定</b>——这一行里它没有值。注意：未绑定不等于 0——0 是一个数，未绑定是"这里没有数"。还有个坑：筛选"余额≥50"写在外面，有值没达标的被移除，没值没法比较的也被移除——两行都消失，原因不一样：分不清"有值没达标"还是"根本没值"。项目的立场：化验表没有某天的记录，不等于当天含水率是零；算剔检产量时检修井不计入，但井档案那一行一条不丢。</p>
+<h3>第四步：Z-16 藏在段落末尾，摘录会漏吗——本期的真事。</h3>
+<p>项目的检索问答链路：报告切成片段，再从片段摘一段，交给精排（用模型给候选片段按相关性重排）挑。曾经的做法是固定开头截断：只取开头 160 字。真事：问句带着"Z-16"，这个词在 923 字片段里第 330 字才出现——开头 160 字里没有它，摘出的内容看不到问的东西，精排判"无关"，云端连着两轮、稳定丢 4 题。根修（提交 7d77a99）改成<b>锚点窗口</b>：找到问句强 token（井号、编号、小数指标值等词面特征）首次出现的位置，从那里前取 40 字、后取 160 字——Z-16 在第 330 字，窗口就从它附近展开，正文进了摘录，题不再丢；全程只找词、零模型调用。共同教训：上游一步不小心，下游整行无声消失——摘录那一步看不见，不代表答案不存在。</p>
+<h3>第五步：走到的，不等于够格的；配置变了，答案也会变。</h3>
+<p><b>属性路径</b>＝沿着一条关系连走几跳的写法：加号至少走一跳，星号允许零跳。坑在：能走到，不等于够格——注水井沿"受效"关系能走到油井，但"当前仍受效"要靠响应起始日和劈分系数这些字段判断，不能只因为有条边就算数。最后一条：同一份图，查询配置不同，结果可以不同——原著里开不开蕴含（按写下的规则把能推出的事实补进来）答案就不一样；项目不开自动推理（第 14 期讲过），但检索面（当前允许查询的元素范围）一收窄，面外的元素同样查不到。答案要连同配置一起交付——光一个空结果，说不清是没数据还是配置挡了。</p>
+<h3>数据核对</h3>
+<p>回到看板选第15 期。①④业务数据库卡拉到最下面，找那张摘录对照表：同一 923 字片段、Z-16 在第 330 字——固定截断为什么丢、锚点窗口为什么留，自己读一遍。②⑧运行时问答卡里问"Z-16 在报告段落末尾才出现，摘录会漏吗？"那行答"不会——锚点窗口取窗（前 40 后 160）"，靠什么一栏写着根修提交 7d77a99。两处都对上，本期验收即完成。</p>`},
+16:{
+base:`<h2>本期解决的核心问题：<b>求和之前先答三个问题——每行代表什么、谁贡献这个数、窗口和单位是什么；原著靠自觉，项目靠裁决加机器闸——写错即红。</b></h2>
+<p><b>方法论原著中的典型事故：</b>两张订单各 100 元、各带两个标签，连接后 4 行，求和 400 元；按金额去重又只剩 100。多出来的不是真实的钱，是连接放大的重复。先拆词：<b>连接</b>＝两张表按条件拼行（第 15 期讲过共享变量）；<b>多重集</b>＝同一组合可重复出现的查询结果集合——查询返回一行行绑定。</p>
+<h3>本期的五项设计要点</h3>
+<ol>
+<li><b>连接多重性：先定计量对象，再去重计数。</b>规范例：客户甲 2 个账户、2 种联系方式，连接后 4 行，账户仍是 2 个——连接放大条数，数业务对象按身份变量去重；计数不说明粒度，先定数的对象。项目对应：日报表同井同日 A/B 两行，第 3 期已建设行粒度＝班次（裁决 PROP-BOHAI-007=A：各行各是当班真实产量，不是重复录入）——不知裁决的人当它重复，日产量少算一半。项目把"什么算一份贡献"裁成 Owner 留痕，RULE-PETRO-030 把（井，日，班次）三元组唯一做成闸：重复行进问题单，不静默去重；日计量⋈化验一对多仍会放大，靠白名单挡（第 12 期已建设）。</li>
+<li><b>去重与求和：先订出唯一贡献。</b>原著正解：先定每单唯一有效金额（不同订单、同币种、同时点），只留（订单，金额）两列去重，两条贡献、求和 200；陷阱：按金额去重得 100——值唯一不等于贡献唯一；同一订单冒出冲突金额，去重裁定不了版本，先裁决唯一有效值。项目对应：配产双值行（D4）——同井同日两条非空计划值，裁决 PROP-BOHAI-009=A 认定双值＝版本事实（切换日早班旧版、晚班新版），RULE-PETRO-022 定死取当日最后班次的非空 planOutput，双值行出清单供人复核。</li>
+<li><b>时间窗口写进契约。</b>规范例：统计契约写明业务日、东八区、窗口左闭右开、币种、状态、按身份去重——右端从不含 10 点改成含 10 点，3 笔变 4 笔：契约变了数字才变。项目对应：取样时间窗写在连接白名单的条件里（第 12 期已建设）——计量与化验含水率偏差超 5 个百分点以化验校正（RULE-PETRO-002），配对须井号＋取样日期双键加时间容差；窗口进了登记、机器可查。</li>
+<li><b>存量求差，流量相加。</b>存量＝某时点的读数：规范例 9 点余额 100、10 点 60，相加报 160 是重复累计——存量只能求差；流量才能相加：期末＝期初＋净流入，缺流水不许补零。项目对应：日产油量是流量，各班相加成日口径（第 3 期那笔 16.1）；月度结算油量＝存量口径的承载面（对账求差），月度结算表在④业务数据库卡；配产量是计划目标，只作完成率分母，不混进实际产量。哪张表存时点存量（余额型），项目没找到，如实存疑不硬套。</li>
+<li><b>结果必须随契约一起交付。</b>规范例：接口只返回 200，没写币种、粒度、去重对象、数据版本，没人能判断对错——数值要连同范围时间窗、单位、去重规则、数据版本一起交付，数值一致代替不了契约一致。项目对应：每条指标登记 mark/grain/unit（徽标/粒度/单位）字段组，同步进台账；井口口径与商品量口径并存披露不互替（PROP-BOHAI-020：生产类用井口、经营结算类用商品量，两口径之差＝自用油＋输差）——同一句"产量"两个数都对。</li>
+</ol>
+<p><b>项目自己的反面教材：</b>检索语料湖只追加不覆盖，多批叠加到云 480 行、本地 124 行重复；清治不走查询时去重，而是清空后按批次单批重灌（提交 07047f1）——检索面没有稳定身份变量，同一报告两次切块片数对不上。教训正是第一条：先定计量对象，再谈去重；有权威批次就清源头更彻底。</p>
+<p><b>第 16 期实施要点：</b>求和之前先答三个问题——一行代表什么（粒度）、谁贡献这个数（唯一贡献）、窗口和单位是什么（契约）；原著靠查询者自觉，项目靠裁决＋永久机器闸——写错即红。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>加一列数之前，先说清每个数代表什么、谁有资格贡献、什么范围什么单位——说不清就别按加号。</b></p>
+<h3>第一步：原著中的典型事故——两单各一百，为什么算出四百？</h3>
+<p>两张订单，各 100 元，每张挂两个标签。报表把"订单连标签"拼在一起：每张订单出两行，两张共 4 行，每行都是 100。求和 400 元，可钱只有 200。多出来的哪来的？<b>连接放大</b>：两张表按条件拼行（这一步叫连接，第 15 期讲过共享变量），一张订单挂两个标签就出两行——订单没变多，行变多了。查询结果里同样内容可重复出现，这种"允许重复的结果集合"叫<b>多重集</b>——数行数不等于数订单。</p>
+<h3>第二步：怎么改才对——先订出"唯一贡献"，再求和。</h3>
+<p>分三小步：①定死每张订单的有效金额——不同订单、同币种、同时点，各贡献一份 100；②只留"订单＋金额"两列去重，得两条贡献；③求和：2 条、200 元。陷阱：有人按"金额"去重——100 只剩一种写法，就报 100 元。错在：写法只有一种，两张订单各有一份 100 要算，<b>值唯一不等于贡献唯一</b>。更难的：同一张订单冒出两个金额（改版前后各一个），留哪个得有人裁决，去重替你裁定不了版本。</p>
+<h3>第三步：对应到我们的表——两班各 8 吨，为什么敢加？</h3>
+<p>日报表里 Z-16 在 2023-01-01 有两行：A 班 8.2 吨、B 班 7.9 吨（第 3 期已建设：行粒度＝班次，主键＝井号+日期+班次）。它和"两单各一百"同型：同一口井、同一天、两行数。为什么敢加成 16.1？负责人早裁定了（PROP-BOHAI-007=A）：A/B 班各行各是当班真实产量，不是重复录入；日口径＝同井同日各班合计——"加"是口径里明写的。反方向的保护：真冒出同井同日同班的第二行，那才是重复，RULE-PETRO-030 把（井，日，班次）三元组唯一做成机器闸——重复行进问题单，<b>不静默去重</b>。原著靠查询作者自觉；项目把"什么算一份贡献"写成裁决、再变成闸，写错即红。</p>
+<h3>第四步：双值行——去重裁定不了的版本，项目怎么办？</h3>
+<p>规范警告"去重替你裁定不了版本"，项目真有这场景（问题清单 D4）：Z-16 在 2022-12-31 的计划产量有两个值：16.0 和 16.5。裁决 PROP-BOHAI-009=A 认定：这不是录入错误，是<b>版本事实</b>——那天正换计划版本，早班旧版 16.0、晚班新版 16.5。取数规则定死：取当日最后一个班次的非空值（16.5）；全部双值行出清单交人复核，不悄悄挑一个。这条裁决第 7 期已建设，本期摆进了④业务数据库卡。</p>
+<h3>第五步：窗口和单位写进契约；存量求差、流量相加。</h3>
+<p>还有三条。<b>时间窗口</b>：统计哪段时间，业务日、时区、币种、状态、左闭右开全要写明——右端从"不含 10 点"改成"含 10 点"，3 笔变 4 笔：契约变了数字才变。项目版：日报表连化验表须按"井号＋取样日期＋时间容差"配对（第 12 期已建设的白名单），容差就是取样时间窗。<b>存量与流量</b>：存量＝某时刻的读数（电表读数、月底余额），流量＝一段时间的累计（这个月用了多少电）；存量只能相减，流量才能相加。日产油量是流量，各班相加成日口径；月度结算油量是存量口径（对账求差），月度结算表在④业务数据库卡；计划产量只当完成率分母，不混进实际产量求和。<b>结果随契约交付</b>：报数要带范围、时间窗、单位、去重规则——项目每条指标都登记徽标/粒度/单位；同一句"产量"还有井口、商品量两个口径，数值不同各有用途——数值一致代替不了契约一致。</p>
+<h3>数据核对</h3>
+<p>回到看板选第16 期，黄色高亮的就是本期新增。①④业务数据库卡日报表里找 Z-16、2022-12-31、计划一栏"16.0 / 16.5（双值）"那行，读表下那条注：双值＝版本事实，出清单供人复核。②⑧问答卡里"同井同日两行班次，求和会不会算重？"那行答"不会"——靠什么一栏写着 PROP-BOHAI-007=A＋RULE-PETRO-030。两处都对上，本期验收即完成。</p>`},
+17:{
+base:`<h2>本期解决的核心问题：<b>一次校验的结论只覆盖它实际枚举的目标和声明了判据的范围——报告必须带结构化字段、能定位回原图；绿不等于对，红要能指到行。</b></h2>
+<p><b>方法论原著中的典型事故：</b>质检报告写"会员邮箱缺失"，运营一查多数会员都有邮箱——校验只圈定了会员甲一个目标，报告却被当成全库结论。拆词：<b>SHACL</b>＝万维网联盟制定的约束描述语言，把"数据要满足什么条件"写成独立的形状文件、交给校验器逐条检查；<b>目标选择器</b>＝形状自带的"这次查谁"声明；<b>值集</b>＝一个节点沿一条路径能走到的全部值。</p>
+<h3>本期的六项设计要点</h3>
+<ol>
+<li><b>目标、路径与计数约束：校验只看目标节点的值集。</b>校验三步：选目标→沿路径取出值集→套计数约束（至少一个/至多一个）。会员乙有邮箱救不了会员甲——他不是目标；只查一张运单，不能说全库运单都符合。项目对照：开井时长值域 [0,24]（refRules，第 9 期已建设）查的是每行自己的值——井 A 合规不能替井 B 的 25 天背书。</li>
+<li><b>类约束：类检查自带子类路径。</b>要求类型是"客户"、数据写"高级客户"：沿"子类"边走的边都在提交的数据图里，直接通过，不必先做闭包物化（预先算出全部推理结论再校验）；子类声明不在参与校验的图里就用不上。项目对照：没有类层次——类型判定靠 ID 前缀（AGG-/RULE-/GLS-，第 4 期已建设），写错即红；"采油井/注水井"只是枚举字段，不是子类——没有层次推理这道题。</li>
+<li><b>推理身份与校验计数：两个工具问的不是同一个问题。</b>保管人挂两个账号：推理机（按公理自动推结论的程序）问"是否同指"——推出同指，一致；校验只数"图里有几个值节点"——2 个，超"至多一个"，违规。报违规不说明现实真有两个人；合并得先身份规范化。项目对照：井号 N2/N-2 并存（D6，第 7 期已建设），不让程序猜"是同一口井"：登记 RULE-PETRO-005 归一成标准形 N-02，失败落问题单、不猜。</li>
+<li><b>比较约束不等于必填约束。</b>工单只声明"开始不晚于结束"：12 对 10 违规；删掉结束时间反而"符合"——值集为空、没有值对可违反；缺值靠另设的"至少一个"来报。项目对照：数据面同款语义——比较闸两端都解析出日期才比较，缺一端不报；缺值归完整性闸，值越界归值域闸；本体侧：必填走 REQ、值域走 refRules，两套判据两个违规码（第 9 期已建设）。</li>
+<li><b>报告靠三个字段定位回原图。</b>把提示语抄进整改单，焦点和路径就丢了，整改人无从下手。一条违规必须带焦点节点、结果路径、约束组件，提示语只是摘要。项目报文 [L1][required-field] file:line — message：违规码＝约束组件、file:line＝位置、message＝人读摘要（第 13 期已建设）；重复 id 带先后双位置（DUP-AC1）。缺口如实说：焦点元素埋在中文 message 里，没有独立结构化字段。</li>
+<li><b>闭合：只锁目标节点的出边。</b>闭合只锁目标节点出现过的字段，没点名的节点不受白名单约束；要"查不到就视为没有"，必须显式声明。项目对应：禁用词闸只扫 name/alias 两个键，说明文档提到禁用词不拦（第 1 期已建设）；枚举字段天然闭合（班次只许 A/B/C）；另有"明示不收"清单。实例：闸全绿仍有 3 处登记失真——绿只绿在查过的判据上。</li>
+</ol>
+<p><b>总体对照：</b>目标一致——约束声明与数据分开、交给机器逐条检查；载体不同——原著用形状文件＋通用校验器，项目判据写进检查脚本（语义闸），另有"约束当数据"的活例：禁用词表就是术语账的行，加禁用词＝加一行、不改闸代码；质检规则可注册成质检卡。目标选择项目反着来：全量逐元素枚举——票 27 后混入的无 id 元素也被点名；一域仅 7 个模型文件，成本可忽略、盲区为零。规范警告"校验违规不证明业务命题为假"在项目架构下自动成立——零推理机，闸只做确定性判定。</p>
+<p><b>第 17 期实施要点：</b>一次校验的结论只覆盖实际枚举的目标和声明了判据的范围；报告要带"查了谁、违反哪条、在哪里"——绿不等于对，红要能定位回原图；必填与比较分闸；校验违规不证明业务命题为假。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>检查跑完一片绿，只说明"查过的、按声明的判据"都过了——查了谁、怎么指回出事位置，比"绿"更要紧。</b></p>
+<h3>第一步：先拆词。</h3>
+<p><b>SHACL</b>＝万维网联盟制定的约束描述语言。<b>约束</b>＝"数据必须满足什么条件"的一条要求，比如"邮箱至少填一个"。<b>形状</b>＝把一组约束写在一份独立文件里；形状和数据分开存放，改规矩只改形状文件。<b>目标选择器</b>＝每个形状开头写明的"这次查哪些节点"，没被选中的不查。<b>焦点元素</b>＝一条违规出在哪个元素身上，报告靠它指回出事位置。</p>
+<h3>第二步：值域闸查含水率——校验只看被点名那几行的值。</h3>
+<p>原著校验三步：选目标→取出值集（它沿声明的路径能走到的全部值）→套约束；项目没用 SHACL 这套记法，三步却一步不少。值域闸（第 9 期已建设：refRules＝对象属性旁登记"这个字段什么值合法"的位置）查含水率：登记范围 0 到 100，每行计量数据的这个值挨个拿出来，不在范围内的，红。注意边界：<b>井 A 的值合格，救不了井 B</b>——井 B 有自己的值，要查就查它自己。开井时长同理：0 到 24（第 9 期已建设）。</p>
+<h3>第三步：数个数，不等于认对象。</h3>
+<p>还有一条容易混的：校验数的是"图里有几个值"，不回答"这几个值是否指同一个东西"。井号新旧写法 N2/N-2 并存（第 7 期已建设的 D6），项目不让程序猜：登记规则 RULE-PETRO-005，先统一成标准形 N-02 再比较，统一不了的落问题单。</p>
+<h3>第四步：REQ 闸查空壳——缺必填和值不对，两个闸各管各的。</h3>
+<p>第二个约束族：结构必填 REQ（第 9 期已建设：身份、类型判别、载荷容器，缺一即红），空壳文件也红。类型怎么判？项目没有类的父子层次，靠 ID 前缀（第 4 期已建设）——原著"类检查自带子类路径"那道题项目不存在。另一条警告：只写"开始不晚于结束"这条比较约束，删掉结束时间反而"符合"——没有值就没有值对可比；缺值要靠"至少填一个"来报。项目做成两个闸：缺字段归 REQ，值越界归 refRules。</p>
+<h3>第五步：BAN 闸扫禁用词——只扫登记过的面。</h3>
+<p>第三个约束族：词汇禁用 BAN（第 1 期已建设：术语账里标"禁用"的词不许出现在消费面——消费面＝平台答题、出报表时实际用词的地方）。它只扫每个元素的 name/alias 两个键，说明文档提到"老完成率"不拦——拦截面只锁声明过的面。这对应原著的"闭合"：白名单只锁目标节点出现过的字段；要"查不到就当没有"，必须写明假设；项目另有"明示不收"清单。实例：闸全绿，人工复核仍找出 3 处登记失真——<b>绿只绿在查过的判据上</b>。</p>
+<h3>第六步：查出违规，报文怎么把你领回出事的位置。</h3>
+<p>原著要求一条违规带三个字段：<b>焦点节点</b>（谁的错）、<b>结果路径</b>（哪个字段）、<b>约束组件</b>（违反哪条）。项目报文三段：违规码＋文件：行号＋一句人读摘要，比如 [L1][required-field] m1-object-model.yaml:123 缺 id（第 13 期已建设红因到行）；重复 id 先后两个位置都报，①卡报文表里就有。缺口如实说："焦点元素"没有独立字段，埋在中文摘要句子里——人读没问题，程序解析就脆。</p>
+<h3>第七步：项目跟原著最大的一处反着来——不挑目标，全查。</h3>
+<p>原著靠目标选择器只查选中的节点，为大图省成本；开头那桩事故就是目标没选够：只查了会员甲，报告却写成全库结论。项目反着来：<b>全量逐元素枚举</b>（枚举＝挨个点名）——每个元素都进检查，票 27 之后连混进来的没 id 元素也会被点名（此前会静默逃逸——没被检查程序看见，第 4 期已建设）。敢全查：一域仅 7 个模型文件，成本可忽略，换来盲区为零。原著问"怎么查"，项目先答"查谁"。</p>
+<h3>数据核对</h3>
+<p>回到看板选第17 期，黄色高亮的就是本期新增。①①本体仓卡拉到最下面找"三族约束闸"那张表：三行分别是值域 refRules、结构必填 REQ、词汇禁用 BAN，注里写明目标选择＝全量枚举、盲区为零。②⑧运行时问答卡里"校验会不会漏掉没被点名的行？"那行答"不会"。两处都对上，本期验收即完成。</p>`},
+18:{
+base:`<h2>本期解决的核心问题：<b>三次运行三种结论，先别吵谁对——把输入和处理设置冻结住，差异才能归因：来自数据，来自处理，还是来自工具。</b></h2>
+<p><b>方法论原著中的典型事故：</b>保管人冲突吵了一周。有人跑了物化（把推理推出的边真的写进图里），有人合并了账号，有人改了推理开关。三次运行、三句结论，却没一次记下当时的输入配置——数据和处理同时变了，谁也说不清差异出在哪，方案定不下来。</p>
+<h3>本期的五项设计要点</h3>
+<ol>
+<li><b>冻结输入，才能归因。</b>要比较两套结论，先固定三样东西：数据图（原始数据）、形状图（约束，第 17 期讲过）、处理设置（推理开关这类），冻结之后分别运行检查，保存原图和报告。把推理推出的边写回数据图？那已是另一份输入——要记新版本、重新回归，不能拿新输入的结果跟旧输入比。</li>
+<li><b>一个模型证明可能，所有模型才是必然。</b>这里的"模型"指每个名字指向谁的一种允许解释。功能属性（声明一个对象至多指向一个取值）配两个取值时：存在一种解释让两个名字指同一人，检查可以一致——但这只证明"可以同指"；要下"必然等同"的结论，必须所有允许的解释都同指，这才叫逻辑蕴含。校验是另一回事：它独立查原图，数出两个值节点就报违反"至多一个"，跟推理互不替代。还要记住：语义上同指，不会自动删掉图里的重复名字——删边、合并都是输入变更，要另记版本。</li>
+<li><b>校验输出相同，不等于前提相同。</b>原图、加"同一"断言、加"差异"断言，三次校验输出完全一样（都是两个值、不符合）。团队差点由此断定身份前提无关紧要。错在拿相同的输出反推前提没差别；两份输入不一致，要先解释冲突；校验忽然通过，第一件事是查输入是不是被人改过。</li>
+<li><b>规范化与物化：顺序一换，结论就变。</b>规范化＝核实身份依据之后消除重复（只留一条边、另存一张映射表）；物化＝把等同推出的别名边补回图里——两个方向相反的变换。原著四版回归：原图两个值不符合→加断言仍不符合→规范化后一个值符合→物化补回别名边又不符合。所以"通过"只属于对应的那个图版本，每次处理之后都要重新校验。两条纪律：改约束要修订声明并提交核验依据，不许为过检改数据；没核验身份、只为消除报错删值，不算规范化。</li>
+<li><b>小结。</b>比较前先冻结数据图、形状图和设置；一个模型证明可能，所有模型才是必然；校验输出相同不等于语义相同；每次处理都重新校验；规范化要有真实身份依据。</li>
+</ol>
+<p><b>项目对照：</b>本项目零推理机（第 5 期已建设：有意不装自动补结论的程序），也没有物化——派生物（由真源算出的结果）不落盘当权威：图索引每次从 Git 真源全量重建（第 4 期已建设：同输入必得同图），禁止持久化缓存成权威；同步器幂等重放（第 4 期已建设：同一输入重放多少遍结果都一样，行未变零写）、变更走版本记录留痕、本体版本 1.1.0 钉版、锚校验不过抛错不静默。"冻结"靠机器不靠自觉：ci.sh 三闸次序固定（脚本单测→出厂集回归→语义闸全量），出厂集＝冻结的输入加断言集，改判据先过出厂集，判据漂移当场暴露。"差异来自工具还是数据"有真实案例：测评的判分脚本只按 ASCII 减号匹配，把用了 Unicode 负号（减号的另一种字符编码写法）的正确答案误报为丢负号——红在工具不在数据，订正的是脚本。含水率在项目里有两个口径（计量折算＝日度监控口径，化验实测＝月度正式口径，偏差超 5 个百分点以化验校正），是同一句提醒：只看"质检通过"不看口径，就把两个前提混成一个结论。</p>
+<p><b>第 18 期实施要点：</b>比较之前先冻结输入和设置；一个模型证明可能，所有模型才是必然；结论相同不代表前提相同；每次处理都重新校验；判据本身也要进回归，否则闸绿只是这一次的偶然。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>两次运行结果不一样，先别急着改——把输入冻住，分清差异来自数据、来自处理、还是来自工具。</b></p>
+<h3>第一步：先拆三个词。</h3>
+<p><b>推理机</b>＝自动按规则补结论的程序（第 5 期已建设：项目有意不装）。<b>物化</b>＝把推理推出来的边真的写进图里。比如推出"账号甲和账号乙是同一个人"，物化就把这条边写回数据——图从此多了一条它原本没有的边。<b>规范化</b>＝核实两个名字确实指同一个东西之后消除重复：只留一条边，另存一张映射表记住另一个名字。注意方向相反：规范化是删掉重复，物化是把推出来的补回来。<b>幂等</b>＝同一个输入重放多少遍，结果都一样（第 4 期已建设）。</p>
+<h3>第二步：原著中的典型事故——三次运行三种结论，谁也没记下自己用了什么输入。</h3>
+<p>保管人冲突吵了一周：有人跑了物化，有人合并账号，有人改推理开关。三个人动的东西不一样，图就不是同一张图，结论当然不一样。说不清差异来自数据还是来自处理，方案就定不下来。原著的解法：比较之前先冻结三样东西——数据图（原始数据）、形状图（约束，第 17 期讲过）、处理设置；分别运行、保存原图和报告。谁把推出来的边写回图，谁就是换了一份新输入，要记新版本重新跑，不能拿新输入的结果去比旧输入的结论。</p>
+<h3>第三步：真实案例一——45.0 这个坏行，红在数据。</h3>
+<p>④业务数据库卡里有一行：N-02、2023-03-05、A 班、产油 45.0 吨、产液 12.0 方。日产油 45 吨、日产液只有 12 方——油比液还多，物理上不可能。这是单位写错了：把方的数写进了油的列（第 3 期已建设的吨方混写检出）。质检规则 RULE-PETRO-020 把它标红，挂问题单人工复核，不直改。归因结论：闸没坏，数据坏了——差异来自数据。</p>
+<h3>第四步：真实案例二——负号误报，红在工具。</h3>
+<p>项目有测评环节：拿题册考平台答题质量，用判分脚本（自动对答案的程序）给分。这个脚本只认一种减号：ASCII 减号（ASCII＝给常用字符编号的编码标准，减号就是键盘上那个"-"）。有一道题的正确答案里用的是 Unicode 负号——Unicode（覆盖更全的另一种字符编码标准）里的减号字符，跟 ASCII 减号写出来几乎一样，但编号不同，机器眼里是两个东西。脚本把这份正确答案误报成"丢了负号"。红了吗？红了。数据错了吗？没错。错在工具：它只认一种写法。订正的是脚本，不是数据。两个案例合起来就是本期的核心：<b>闸红不等于数据错。先问三句：输入变了吗？处理变了吗？工具本身对吗？逐一对完再下结论。</b></p>
+<h3>第五步：项目怎么把"冻结"从纪律变成机器闸。</h3>
+<p>原著靠人自觉记录输入；项目靠闸管住。①本体仓卡三闸表列了：ci.sh 三闸次序固定——脚本单测→出厂集回归→语义闸全量。<b>出厂集</b>＝冻结的输入加断言集（第 13 期已建设）：里面放一批"非法变体"夹具——夹具＝预先做好的测试样例，非法变体＝故意做坏的数据，断言闸看见每一类都必须红。改判据先过出厂集：一条漏网，说明判据被改漂了。为什么这么狠？约定不落闸等于没有。图那边同理：图索引每次从 Git 真源全量重建，禁止持久化缓存成权威——同输入必得同图。物化那一步项目干脆不做：派生物（由真源算出来的结果）不落盘当权威，"哪一版通过才算数"这个问题就不存在了。同步器幂等重放（行未变零写）保证同一份本体同步多少遍，台账都一个样。</p>
+<h3>数据核对</h3>
+<p>回到看板选第18 期，黄色高亮两处。①本体仓卡拉到最下面，找"ci.sh 三闸"那张表：三闸加"附带"共四行——ci.sh 三闸次序（脚本单测→出厂集回归→语义闸全量）、出厂集冻结非法变体夹具、图索引全量重建禁缓存成权威。⑧运行时问答卡里"闸本身错了怎么发现？"那行答"出厂集回归：非法变体夹具必须红，一条漏网＝判据漂移"。两处都对上，本期验收即完成。</p>`},
+19:{
+base:`<h2>本期解决的核心问题：<b>一句口述需求，三个小组三种结果——谁的答案算对？先把问题写成能验收的契约，再谈建模。</b></h2>
+<p><b>方法论原著中的典型事故：</b>一句"查待执行医嘱"，三个小组交出三种结果——输入和预期答案从头没冻结，谁对没人说得清。本期的解法：把业务问题写成<b>能力问题</b>——本体必须答对、能验收的业务问题；一份验收契约三要素：问题原文、冻结的输入、唯一预期答案。（第 1 期已建设"问题＋输入＋标准答案"，本期升级成正式契约。）</p>
+<h3>本期的五项设计要点</h3>
+<ol>
+<li><b>能力问题与验收契约。</b>先冻结输入：三条医嘱，甲待执行、乙已停止、丙待执行。问"哪些待执行？"唯一答案是甲和丙，多返回一个乙就不通过；范围外问"能不能自动退费？"——缺支付事实、政策和授权，正确答案是<b>证据不足</b>，不许硬凑。</li>
+<li><b>关系实体：给配对一个承载对象。</b>订单连着两个商品又挂数量二和五，分不清谁几件，报表把商品甲报成五件。解法：引入订单明细——明细一连商品甲两件，明细二连商品乙五件，数量和归属都落在明细上。像明细这样专门承载一组配对的对象叫<b>关系实体</b>；商品被引用不被复制，身份只有一个；明细是业务记录不是子类，组成关系不能换成类别继承。</li>
+<li><b>公理、校验、政策：三种机制互不代替。</b>把"申请人需为自然人、每件必须有申请人、撤件能免审"三条全塞进申报件的类定义：法人申报被推成自然人（结论错）、缺申请人的件照常放过（漏检）。拆三层：类型层值域公理推类型；校验层"申请人至少一个"，缺了报缺值；政策层（撤件免审）留流程。<b>公理推类型，校验报缺值，授权留流程</b>——只写值域保证不了必填；分类和业务权限不是同一种机制。</li>
+<li><b>模式重构之后：用能力问题回归。</b>初稿把物料甲乙的用量直接挂在工单上，补了投料明细后，物料乙从需料集合里消失了——改一次结构就少一个答案。解法：改完后用<b>同一份冻结输入把旧问题全部重答</b>，再追加反例（已作废的工单必须被排除）。节点多少不是质量指标；丢任何一个旧答案都是回归失败，不能因第一条正确而通过。</li>
+<li><b>先划合格范围，再回答数量问题。</b>四张订单一张缺买方，跳过它汇总，却声称全量已核清。顺序固定：先必填校验，缺买方的列入待补；再在合格记录里筛待发，已取消的排除——<b>排除不等于删原始记录</b>；最后汇总并注明范围。答案只基于合格记录；记录完整性和实质质量判定要分开。</li>
+</ol>
+<p><b>项目对照：</b>原著的能力问题卡，在项目里长成了可重复执行的验收题册——eval/ 目录 98 道题，比原著契约多三样：三档判分、锚值容差（Z-16 产油 5839.63 吨 ±0.1，别的口径的数冒充判错）、诱导题（针对首轮病根的备测题）。冻结输入写到版本级：数值绑定 86 口井×365 天固定数据，"同一数据重灌＝题册零改动"，题干原句不改写、每题只问一遍。两行题册样例——剧设行与真实行——口径差别本身就是第 24 期“演化”的预告。次序差别：原著建模前写契约，项目题册是建成后的验收面——首轮 35 题 11 题栽同一病根，修复后才补诱导题。关系实体有同款：受效关系 AGG-PETRO-009（第 9 期已建设），注水井→油井多对多带劈分系数、合计＝1，配对必须有承载对象——承载对象看两处现成数据：日报班次行（第 3 期）和受效关系表（第 9 期）。三种机制只留两条腿：校验＝语义闸，政策＝提案制；公理腿（推理机）不装（第 5 期已建设）——结论不可预测，写不出唯一预期答案。代价如实记："合计＝1"目前只是文字声明，闸未程序核对。回归做成了机器闸：出厂集（第 13、18 期讲过）非法变体必须红、空断言集判红。先划合格范围对应两条：题册没出的题不建；查不到就拒答说缺什么（第 1 期"油质→未知"、第 6 期"缺记录≠没生产"）。</p>
+<p><b>第 19 期实施要点：</b>先冻结"输入是什么、什么算对、什么该答不知道"，再谈建模；配对要有自己的承载对象；改完结构，用同一组问题加反例全部重答。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>动手建东西之前，先把"什么问题必须答对、给什么输入、正确答案是什么"写成白纸黑字。</b></p>
+<h3>第一步：拆"验收契约"这个词。</h3>
+<p>契约＝双方都认的白纸黑字。验收契约就三行：①问题原文；②冻结的输入（数据固定死，谁测都用同一份）；③期望答案（只有一个，多答、少答、答错都不合格）。原著把它叫<b>能力问题</b>（第 1 期已建设：问题＋输入＋标准答案）。为什么必须有它？一句"查待执行医嘱"，三个小组交出三种结果——没人能说谁错，因为从头就没有"对"的标准。先有契约，后有建模；契约写不出来，说明需求还没想清。</p>
+<h3>第二步：项目的契约长什么样——拿 Z-16 走一遍。</h3>
+<p>项目的验收契约是题册：98 道题放在 eval/ 目录。用④卡里的真实数据走：<b>问题</b>——"Z-16 2023 年产油合计多少？"<b>输入</b>——86 口生产井×365 天的固定日报数据，册头声明"同一数据重灌＝题册零改动"（数据不动，题就不用改）；<b>期望答案</b>——5839.63 吨，直接写死在答案册里（把 Z-16 全年每天的日报行逐行加出来的）。判分脚本拿这个数自动对答案：差超 0.1 判错，拿别的口径的数冒充也判错，可反复重跑。比原著多的三样：三档判分（全对／数对披露缺／错）、容差和干扰项、专门"下套"的诱导题——都是真实评测栽过跟头才补出来的。两行题册样例——剧设行与真实行——口径差别本身就是第 24 期“演化”的预告。</p>
+<h3>第三步：关系实体——"注水井给油井注水"为什么要多一个对象。</h3>
+<p>规范例子：订单连两个商品又挂数量，分不清谁几件。项目的同款问题是"注水井给油井注水"：一口注水井同时给几口油井注水，每对之间有一个分摊比例——项目叫<b>劈分系数</b>（注水井的效果按比例分给每口受效油井，系数合计必须等于 1）。"这口油井的增油里，注水贡献了几成"，答案就落在某一对"注水井→油井"的配对上。配对本身是业务事实，所以项目给它建了专门的承载对象：受效关系 AGG-PETRO-009（第 9 期已建设），每条记录自带两端井号、劈分系数、响应起始日。这种"专门装一组配对"的对象就叫<b>关系实体</b>。不给它身份，配对信息只能散在别处，说不清、改不动；给了它，井还是井，配对单独一条记录。承载对象看两处现成数据：日报班次行（第 3 期）和受效关系表（第 9 期）。</p>
+<h3>第四步：三条机制，项目留了两条。</h3>
+<p>规范说三种机制互不代替：<b>公理</b>（写进模型、机器自动推出新事实的规则）管推类型；<b>校验</b>（机器检查，缺什么报什么）管缺值；<b>政策</b>（该不该办，人按流程裁）留流程。项目的取舍：校验腿有——语义闸查必填、禁用词、值域；政策腿有——改本体走提案制，Owner 裁决；公理腿不装（第 5 期已建设）——推理结论不可预测，没法给每道题写死唯一期望答案，跟验收契约直接冲突。有意缺一条腿；代价如实记：受效关系"合计＝1"现在只是文字声明，闸还没程序核对它。</p>
+<h3>第五步：改完结构旧题重考；先划范围再报数。</h3>
+<p>第一件：改完结构，用同一份冻结输入把旧题全部重答一遍，再加反例（已作废的数据必须被排除）——丢一个旧答案就是回归失败，不能因第一题答对就算过。项目把它做成了出厂集回归（第 13、18 期讲过）。第二件：报数之前先划合格范围——缺必填内容的行先进"待补"，不悄悄混进汇总也不悄悄扔掉；答案只基于合格记录，交付时注明范围；查不到就说缺什么，范围外明确答"证据不足"，不许硬凑。</p>
+<h3>题册样例行表现在有两行——第一行是剧设行（时间线 2023），第二行是真实题册口径（去年窗），两行的差别本身就是第 24 期「演化」的预告。
+数据核对</h3>
+<p>回到看板选第19 期，黄色高亮三处。④业务数据库卡拉到最下面，找那张题册样例行表：数值绑定固定数据、"同一数据重灌＝题册零改动"、锚值写死到行。⑧运行时问答卡里问"怎么证明平台「谁的答案算对」？"那行，答"98 题题册带锚值判分（Z-16 产油 5839.63 吨 ±0.1）"。①本体仓卡对象列表里找"受效关系 AGG-PETRO-009"那行：注水井→油井多对多带劈分系数、合计必须＝1。三处都对上，本期验收即完成。</p>`},
+20:{
+base:`<h2>本期解决的核心问题：<b>时效和归属写进记录自己的字段——一处到期不许连坐；三种「相同」互不替代；报价可修订，成交要冻结。</b></h2>
+<p><b>方法论原著中的典型事故：</b>张三甲院任职到期，脚本按"人"清标签，乙院还有效的审方资格也被停掉——角色存成人身上的标签，没写"哪家组织、哪天到哪天"。本期把角色、数量、版本做成可复用的模式卡；改完模型必须重跑能力问题（第 1 期已建设），防修好一题坏别的。<b>画布改动两处：</b>④业务库卡加 D7 治理稽核表；⑧问答卡加复产状态一行。</p>
+<h3>本期的五项设计要点＋一条扩展规则</h3>
+<ol>
+<li><b>情境角色模式：一处到期，不再连坐。</b>每段任职单独一条记录，自带组织、起止日期，可单独撤销延长。项目对照：第 2 期已建设，N-02 改"检修"改的是状态字段值，井档不复制；剔检产量按它剔井（RULE-PETRO-019，第 8 期已建设）。原著会说：检修是井参与的角色，不是井的类别。项目用属性＋规则判据承载＋治理兜底——裁决 PROP-BOHAI-012 定录入责任方＝作业区，稽核查"状态与实际不符"出清单（D7）。判断：单看"哪天在检修"，原著的记录式更好；项目守历史口径可比，该约束下成立。缺口：状态与检修台账无机器对账。</li>
+<li><b>扩展规则：上游 All-agent 仓 patterns/ 有五个模式件（现成标准答案模板），照骨架填业务、不从零自创。</b>状态机生命周期：状态值列清单、迁移合法性另立规则（井四态＋RULE-PETRO-007）；编码字典：取值集单独立账、码不改、名可改（井别/班次枚举＋GLS 术语账，部分对应）；有效性版本：带版本号＋生效日、停用留行（预留 version/validFrom＋版本轴＋钉版 1.1.0）；主从聚合：从表引用指回主表（井—日报行/措施记录）；审批流：谁批、通过与驳回走哪路（本体无独立审批流对象，真实审批＝提案制预检→裁决→合入）。</li>
+<li><b>数量模式与规格版本。</b>原著事故：收货单只写 10，120 件记成 10 件。解法：数值、单位、对象、计量事件绑成一条记录；规格（一箱装几件）另立版本；换算是查询算术，只对这次收货成立。项目：D1 吨方混写（第 3 期 45.0）数值本身看不出错，RULE-PETRO-020 检出后出清单回业务修复、不在查询层换算——坏数以正确形状流通。配产与实际两列并存＝两个事实（第 1 期已建设分开记）；配产同日两值（D4）已裁成版本事实、RULE-PETRO-022 取版（第 16 期讲过）。</li>
+<li><b>三种「相同」互不替代。</b>概念层"相近"（词义接近，不并记录）、类层"类等价"（实例范围完全相同）、个体层"同一"（两个标识指同一个）——三层互不蕴含，只有权威证据才许声明同一。项目三层剩两层："净产量"＝"剔检产量"的别名（第 8 期已建设）；N2/N-2 靠归一化映射表统一、失败不猜（第 7 期已建设）；类等价层没有：无公理、零推理机（第 5 期已建设）。</li>
+<li><b>术语复用与本体导入。</b>为复用一个术语写导入声明，外部本体连同依赖闭包（它依赖的一整条链条）全部生效，对方一改版结论跟着变。只借术语：记出处、写差异、不声明等价；要导入：钉死版本、重跑回归。项目走复制式：bohai 底稿整份复制加前缀改名（RULE-BOHAI-019→RULE-PETRO-019），逐元素登记去留；复制避开闭包失控，代价是不自动同步。</li>
+<li><b>报价可修订，成交要冻结。</b>全局价格一改，历史订单金额跟着变。解法：订单明细保存接受时的单价数量，改价是新增版本、旧记录不动，历史金额从明细读、不取当前价。项目版：台账行禁手工改，每次变更追加一行带版本号的全行快照，只增不删改；版本 1.1.0 钉版，对不上拒同步。缺口：元素级 version/validFrom 预留字段一期只定义不消费——"规格须与版本匹配"没有对应物。</li>
+</ol>
+<p><b>第 20 期实施要点：</b>时效和归属写进记录自身，一处到期不连坐；三种"相同"互不替代，权威证据才配"同一"；借用导入分两路，导入先钉版；报价可修订，成交要冻结。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>"哪天、在哪、对谁"要单独回答的事，就给它单独一条记录，别把答案放在别处的格子里。</b>分五步走。</p>
+<h3>第一步：先拆词——"角色"和"连坐"。</h3>
+<p><b>角色</b>＝一个人在某组织、某段时间能干什么。<b>情境角色</b>＝把"在哪、到哪天"写进角色记录本身。原著事故：张三甲院有处方权、乙院做审方。系统把角色存成人身上的标签，没写医院和日期；甲院到期，按"人"清标签，乙院还有效的审方资格跟着失效——一处到期连累别处，这就是"连坐"。原著解法：每段任职单独存一条记录，写清组织、起止日期，到期只撤它。</p>
+<h3>第二步：井的"检修"就在这个位置上。</h3>
+<p>第 2 期已建设：N-02 改"检修"改的是"当前状态"字段的值（生产中/停产/检修/待弃置四选一），不复制井档。原著再进一层：检修不是井的类别，是井在一段时期的角色。井状态在项目管两件事：剔检产量（第 8 期已建设：剔掉检修井再求和）按它剔井；它会过时——井复产了状态没改，剔检产量把生产着的井剔掉，数算错。这就是登记在案的质量问题 D7。项目的接法（④卡治理稽核表）：PROP-BOHAI-012 定录入方＝作业区，治理稽核（定期巡检）查"状态与实际不符"出清单。判断：单看"哪天在检修"，原著"每次一行、带起止日期"的记录式更好；项目守历史口径可比，此约束下成立。</p>
+<h3>第三步：配产和实际是两个数；数值要带单位。</h3>
+<p>日报表里 Z-16 每行两个数：配产 planOutput（计划产多少）、实际 oilOutput（真产多少），两列并存叫双轨——各记各的账（第 1 期已建设：计划实际分开记）。原著数量模式补另一半：数值带齐"值、单位、对象、哪次计量"；规格（一箱装几件）会改版，要带版本号。项目踩过没带单位的坑（D1 吨方混写，第 3 期 45.0），处理更严：RULE-PETRO-020 检出后挂问题单回业务修复，不在查询层偷偷换算——换了，错数带着正确外形流通。</p>
+<h3>第四步："相同"分三种；改价要留版本。</h3>
+<p>第一件：说"相同"前先分清哪种。词义接近只是相近——"净产量"就是"剔检产量"的别名（第 8 期已建设），不合并记录；两个编号指同一口井才是同一——N2 和 N-2（第 7 期已建设）靠归一化映射表统一，不靠名字像；第三种类与类完全等价，项目没有（零推理机，第 5 期已建设）。第二件：报价可改、成交价要冻结——卖家改价，历史订单金额不许跟着变。项目做法：台账行禁手工改，每次变更追加一行带版本号的全行快照，只增不删、记来源；本体版本 1.1.0 钉死，低于拒同步。旧事实永远有自己那行载体。</p>
+<h3>第五步：借词和导入是两件事。</h3>
+<p>规范警告：为复用一个词就写导入声明，对方本体连同它依赖的整条链条（叫依赖闭包）一起生效，对方一改版你的结论跟着变。项目不引用：底稿整份复制、前缀改名（同一条剔检规则，底稿 RULE-BOHAI-019、平台 RULE-PETRO-019），逐元素登记去留。复制不受对方改动牵连，代价是两边不自动同步——可接受：底稿一次性，上游是设定书。</p>
+<h3>补一步：五个模式件，画布上指认。</h3>
+<p>模式件来自上游 All-agent 仓 patterns/。<b>状态机生命周期</b>＝状态会变的东西，谁变谁合法另立规则——①卡井状态行＋RULE-PETRO-007。<b>编码字典</b>＝取值集单独立账、码不改、名可改——①卡井别 EW/IW＋术语表显示名。<b>有效性版本</b>＝版本号＋生效日、停用留行——③卡版本轴＋钉版1.1.0。<b>主从聚合</b>＝主表带多行明细、明细注明主表——④卡井档对日报。<b>审批流</b>＝谁批、通过与驳回走哪路——本体无独立审批流对象，真实审批在①卡“提案→裁决→合入”。</p>
+<h3>数据核对</h3>
+<p>回到看板选第20 期，黄色高亮两处。①④业务数据库卡 well_info 表下面找 D7 治理稽核表：状态由作业区录入、稽核出清单（裁决 PROP-BOHAI-012）。②⑧运行时问答卡里"井复产了状态没改，剔检产量会怎样？"那行：答"会算错——状态滞后是登记在案的质量问题（D7），治理稽核兜底出清单"。两处都对上，本期验收即完成。</p>`},
+21:{
+base:`<h2>本期解决的核心问题：<b>"哪段时间有效"和"系统何时获知"是两条时间线——分开记，才答得出"那一刻依据的是什么"。</b></h2>
+<p><b>方法论原著中的典型事故：</b>上午九点发放补贴，十点系统收到更正——这份资格昨天就已到期。复核时库里只剩最新值，说不清九点那一刻依据的是什么：用今天的记录判昨天，结论无法举证。解法：<b>有效时点</b>（事实哪段时间成立）、<b>所知时点</b>（系统哪一刻知道），分开记，按两个时点回放历史快照。</p>
+<h3>本期的五项设计要点</h3>
+<ol>
+<li><b>事件、修订与来源：身份不动，描述进修订。</b>三层：事件层只存业务身份（某到货事件），可变描述（数量、到货日期）放修订层，出处文档和获知时间放来源层；"当前描述"是取最新修订推出来的，不是写死在事件上的字段。边界：新增一次独立投料不能记成旧事件的修订——新的发生和原事件的更正必须区分身份。</li>
+<li><b>双时间模型：有效时点与所知时点是两条时间线。</b>复核九点那笔发放：先按所知时点选出"当时已获知的最新修订"，再看其有效期区间是否覆盖九点（左闭右开）。所知时点九点：只见修订一，资格有效；改成十一点：已获知更正，同一笔发放改判失效——<b>数据没变，所知时点变了，判断就变</b>。边界：后获知的更正能改变现在对过去的判断，但不能伪装成当时已知。</li>
+<li><b>时态查询：先筛可见，再取最新。</b>错误做法是先按版本号取最新、再过滤获知时间——会把唯一一版也滤掉，错在顺序不在数据。固定两步：先只留"获知不晚于所知时点"的修订，再按获知时间倒序取第一条。选版本和检查有效期是两步：返回某一版，不等于资格仍有效；多对象按记录分组各自取最新。</li>
+<li><b>有效事实快照：结论跟着有效支持事实走。</b>快照是某一时刻有效事实的固定副本；推理机（按规则从已有事实自动推出结论的程序）不会因时钟前进自动撤回结论——信号失效后只贴"已失效"标签、不动支持边，旧结论照样被推出来。要移除失效支持边、重建派生图，再看结论是否还成立；旧快照保留，"推不出"不等于反证。</li>
+<li><b>事件更正与历史重放：逐事件选版，再求和。</b>收货事件甲有四十袋、三十袋两版，另有独立的事件乙二十袋；脚本把三条全加，就错了。规矩：先按所知时点逐个事件选修订，再对独立事件求和；<b>同一事件的两版绝不相加</b>，原始历史也不删除。十二点收到的更正不能算进十点四十分的合计——历史的可见范围必须固定。</li>
+</ol>
+<p><b>项目对照：</b>两条时间线项目分开存了。有效时点＝业务时间：日报行靠生产日期 prodDate 定"哪天的事"（主键成分），扣新井看首次投产日期。检修起止的承载面在④卡井检修台账——开始＝有效时点起点，结束 NULL＝还在途。所知时点＝台账版本轴 sem_ledger_revision（③卡新增小节）：每次变更追加一行，带版本号、整行完整备份（全行快照）、变更人、时间、来源提案，只追加不删改。<b>真实案例 D7 井状态滞后（第 20 期讲过治理）＝有效状态与所知状态的落差</b>：井复产了，台账状态还停在检修，剔检产量把生产着的井剔掉，数就算错。裁决 PROP-BOHAI-012：录入方＝作业区，治理稽核出清单；不加状态时间戳——字典没这列，不发明。方法论场景要向监管举证，必须记获知时间；项目只做当期口径计算，走稽核清单——代价：将来要历史举证，现有设计拿不出来。<b>两处缺口如实说：</b>版本轴记了但读不了——按所知时点读历史版本的查询接口还没有（同步器只向前写，不向回查）；语料湖只追加（第 16 期讲过），更正只有整库清空再按批重灌一条路——原著"逐事件选版再求和"的事件级更正与重放，项目没有，是明确的改进空间。<b>做对的一处：</b>D5 矛盾行（第 8 期已建设）按原值计入、入清单交核实、不直改——正是"按有效性契约维护真实输入"的保守实现。</p>
+<p><b>第 21 期实施要点：</b>有效时间和获知时间分开记；先按所知时点筛可见、再取最新；结论跟着有效支持事实走；同一事件的两版不相加——版本轴记了还要能读回来。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>回答"过去某一天"的问题之前，先分清两个时间——这件事什么时候有效，系统什么时候知道的。</b>分五步走。</p>
+<h3>第一步：先拆词——两个"时间"不是一回事。</h3>
+<p><b>有效时点</b>：这件事在业务上发生在哪段时间——井哪天产油、资格哪几天有效。<b>所知时点</b>：系统在哪一刻知道这件事——信息到达的时间。<b>双时间模型</b>＝把这两个时间分开记。为什么必须分开？原著的例子：上午九点发补贴，十点收到更正"这份资格昨天就到期了"。要复核"九点发得对不对"，库里只剩最新值——用今天才知道的信息判昨天，说不清九点那一刻依据的是什么。</p>
+<h3>第二步：项目里的有效时点——日报行的生产日期。</h3>
+<p>项目里每行日报都带生产日期（prodDate），它是主键的一部分（主键＝把一行和别的行区分开的字段组合，日报是井号＋日期＋班次）。问"Z-16 那天产了多少"，先靠它锁定"哪天的事"。另一个有效时点：首次投产日期，算自然递减率时用它判断哪口算新井。业务时间，项目一直记着。检修起止的承载面在④卡井检修台账——开始＝有效时点起点，结束 NULL＝还在途。</p>
+<h3>第三步：项目里的所知时点——台账版本轴。</h3>
+<p>台账（运行时查的只读副本，③卡）有张版本轴表（sem_ledger_revision）：台账行禁手工改，每次变更不改老行，而是<b>追加一行</b>，写清版本号、整行的完整内容备份（全行快照）、谁改的、什么时候改的、依据哪个提案。只追加，不删不改。拿第 8 期的事走一遍：指标"剔检产量"（别名"净产量"）是第 8 期新增的，那次变更在版本轴上留了自己一行——什么时间、谁提的提案，全在。这张表回答的就是"系统什么时候知道"。</p>
+<h3>第四步：D7 状态滞后——两条时间没对齐的真实案例。</h3>
+<p>第 2 期已建设：N-02 检修，改的是"当前状态"字段的值。第 20 期讲过它的毛病：井复产了，状态还停在"检修"，剔检产量按状态剔井，把生产着的井剔掉，数就算错——登记在案的质量问题 D7。用本期的话说：D7 就是<b>有效状态与所知状态的落差</b>——井的实际状态早变了，系统知道的还是旧状态。项目怎么接？裁决 PROP-BOHAI-012：状态由作业区负责录入，治理稽核定期核对"状态与实际不符"出清单，人工追平；不在井表上加状态时间戳——数据源字典没有这列，不发明。方法论场景有监管举证要求，获知时间必须记；项目只做当期产量计算，落差交给稽核清单管。两条路线各有适用条件，代价都写明。</p>
+<h3>第五步：记了还要能读回来——两处缺口，如实说。</h3>
+<p>第一处：版本轴数据齐全，但"按所知时点读历史版本"的<b>查询接口还没有</b>——想问"上个月的台账里老完成率是什么状态"，现在答不出来（⑧卡那行就是这么如实答的）。规范要求了读法，固定两步：先筛出"获知时间不晚于所知时点"的版本，再取其中最新一版。第二处：检索语料的湖只追加、多批叠加（第 16 期讲过），发现切错了没法只改一条——<b>没有事件级更正与重放</b>（重放＝按当时可见的数据把历史结果重新算一遍），只能整库清空、按批重灌，每次更正全量重来。原著的"逐事件选版、再求和"是明确的改进方向；有一条底线两边一致：同一件事的新旧两个数，绝不能加在一起。</p>
+<h3>数据核对</h3>
+<p>回到看板选第21 期，黄色高亮三处。①③平台台账库卡里找 sem_join_whitelist 小节下面的"sem_ledger_revision 版本轴（第 21 期）"：v1 行是老完成率初建（状态＝禁用）、v2 行是剔检产量新增（含别名净产量），每行带全行快照和留痕，注里写明"按所知时点读历史版本的查询接口还没有"。②⑧运行时问答卡里问"上个月的台账里「老完成率」是什么状态？"那行：答"禁用——版本轴只追加不删改，每次变更带全行快照；但「按时间点读旧版本」的查询接口还没有"。两处都对上，本期验收即完成。</p>`},
+22:{
+base:`<h2>本期解决的核心问题：<b>来源记录和规范实体之间要有一份映射契约——写清接收什么、输出什么含义、什么情况拒收；证据不够不合并，字段变义先拦住旧映射。</b></h2>
+<p><b>方法论原著中的典型事故：</b>订货、仓储两系统各有编码 01 的商品，去重脚本只看编码就把两件不同商品并成一件。本期的产物是<b>映射契约</b>：登记"来源记录怎么翻译成规范实体（已核验的标准档案）"的约定。<b>画布改动两处：</b>③台账卡加 sem_action 映射那张表；⑧问答卡加"动作收不收"一行。</p>
+<h3>本期的五项设计要点</h3>
+<ol>
+<li><b>来源标识与规范实体：编码相同不默认同一。</b>同指一物由两条描述推出，不是由编码推出。项目两处：一口井两种写法并存（D6，N2 与 N-2）——只比字符串会把一口井判成两口；z-16 靠归一化统一成标准形再比，不靠字符串相等（第 4 期已建设字面量不相等；归一化＝先统一写法再比，RULE-PETRO-005，第 7 期已建设）。"同指"凭描述和已核验映射推——日报表和化验表都带井号仍禁直连，须井号＋取样日期双键＋时间容差经中间视图配对（第 12 期已建设）。</li>
+<li><b>映射契约：写清输入、输出含义和拒收条件，不能当改列名。</b>四要素：身份（系统＋当地编码，无证据先进待核）、单位（换算，规格未知则隔离）、粒度（快照带观察时间和来源，缺时间不混并）、版本（只收声明过的版本，漂移即阻断）。项目粒度教训：质检规则种子曾把 A/B 班两行当重复行去重保首条——裁决 PROP-BOHAI-007=A 定班次各是真实产量（第 3 期已建设），混并事故（对齐矩阵裁决项 h）。核心对照：原著的契约是文档，靠人读懂、人守；项目的契约是可执行代码——对号表逐行声明台账关系行 id、两端类型、方向 direct/reversed（第 5、10 期已入画布），核对不过即红。<b>可执行才拦得住人。</b></li>
+<li><b>证据分档：线索不能推翻已核验的不同。</b>三档：充分证据才连到同一身份；只有线索存候选、不下结论；证据冲突保持分离并标明——共用设备不能写"同一个人"。项目更保守：只有线索不存候选、直接不建（业务事实零发明），缺口进增补清单。档位做成裁决留痕：「日产液」和「日产液量」的同义词关系经 Owner 2026-09-29 裁决＋add 提案 OWNER-ADD-011 才落账。判断：收紧有理，代价是清单积压。</li>
+<li><b>虚拟 RDF 映射：查询异常先回映射层。</b>虚拟图不复制数据，按映射把原表即时看作图；查询没错却返回空集——十箱被当十件，"不少于 100"把该中的行滤掉。错在单位映射，不在筛选；虚拟化是否复制数据、结果语义是否正确，是两个问题。项目走物化（同步器把七模型投影成台账九张 sem_* 表），每条投影带锚校验。"异常先回映射层"项目有实践（第 15 期摘录根修即问答异常回查根因），但没写成成文契约——如实说。</li>
+<li><b>模式漂移与语义迁移：字段含义变了，先拦住旧映射。</b>源表第二版"在库箱数"换"可用量"（含义、单位、时点全变），旧映射照旧乘 12，报出 1152 件假数。字段名不变不等于兼容——含义、单位、粒度、时间、版本都可能变。项目靠机器拦：同步器逐条校验锚（指向本体元素的引用编号），锚缺失、名称漂移抛 OntologyDriftError，同步失败不静默；版本 1.1.0 钉版，对不上拒同步（第 20 期讲过钉版）。缺口：双键判据已成契约（RULE-PETRO-002），中间视图实现待 Owner 确认。</li>
+</ol>
+<p><b>第 22 期实施要点：</b>编码相同不默认同一，身份靠"来源＋描述＋已核验映射"推出；契约写清身份、单位、粒度、版本和拒收条件；线索不能推翻已核验的不同；查询异常先回映射层；字段变义先拦住旧映射。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>两条记录是不是同一个东西，凭证据对，不凭编码相同或名字像；对不上的，契约要能拒收。</b>分六步走。</p>
+<h3>第一步：先拆四个词。</h3>
+<p><b>实体对齐</b>＝判断两条来自不同来源的记录是不是说同一个东西：台账井叫 N-02，来源记录写 N2，同一口井吗？<b>映射契约</b>＝登记"进来的记录怎么翻译成规范对象"的约定，写清接收什么、输出什么含义、什么情况拒收（契约＝双方都认的白纸黑字，第 19 期讲过）。<b>证据分档</b>＝把"说是同一个"的理由按强度分档：证据够才连，只有线索不下结论，有冲突就分开。<b>模式漂移</b>＝源数据字段名字没变、含义变了，旧映射还按老意思翻译，数就错了。</p>
+<h3>第二步：编码相同，不等于同一个东西。</h3>
+<p>原著事故：订货、仓储两系统各有一条编码 01，脚本只看编码就并成一件。项目两个方向都有坑：一口井两种写法并存（N2 和 N-2，D6）——只比字符串，一口井判成两口；反着的坑第 4 期见过："Z-16 和 z-16 是同一口井吗？"直接比不相等，靠归一化规则（先把各种写法统一成标准写法再比；RULE-PETRO-005，第 7 期已建设）认出同指。所以编码和名字都只是线索。</p>
+<h3>第三步：对号表拒收——契约要有"不收"的权力。</h3>
+<p>第 5 期问答卡有一行：问"抽取出「MR-001 隶属 渤南区块」能入图吗？"答"不能——对号表 from/to 类型核对不过，直接拒收"。对号表＝登记每条关系两端必须是哪类对象、方向是顺是反的表。这就是拒收条件：对不上就退回，不硬收。本期新增那张表又用了一次：台账动作表收三条平台动作（更新井备注、调整配产、配注上调），照 C1 合同投影；本体行为元素一条不建——设定书里没有 § 直锚（直锚＝指得到设定书具体某条的出处编号）。规矩：无设定书直锚，不建本体行为元素——映射有拒收权。</p>
+<h3>第四步：双键配对——"同一个"要凭证据推，不凭一个格子相等。</h3>
+<p>日报表和化验表都带井号，能直接按井号连吗？第 12 期的白名单（登记谁和谁能连、按什么连）写的是：<b>默认不给</b>。条件：井号＋取样日期两个字段都对上（双键＝两个字段一起定配对），加时间容差（允许时间差），经中间视图配对。为什么严？一口井一天多次计量、一次化验，只比井号会配错对、静默混进结果。如实说：判据已成契约（RULE-PETRO-002），中间视图还没实现（待 Owner 确认）。</p>
+<h3>第五步：证据分档——线索不能推翻已核验的不同。</h3>
+<p>规范例子：张三、李四已核验是两个不同的人，共用一台设备；连接程序把共用设备当身份证据，判定两人是同一人，账户随即互换。规矩：同名、同电话、同设备都只是线索，推翻不了已核验的"不同"。项目版：「日产液」算不算「日产液量」的同义词，不由词面像不像决定——经 2026-09-29 负责人裁决、提案 OWNER-ADD-011 落账。没有裁决依据的（那三条平台动作）一律不建。没证据就不合，"为什么不合"登记下来等证据。</p>
+<h3>第六步：模式漂移——字段名字没变、意思变了，先拦住。</h3>
+<p>原著事故：源表第二版把"在库箱数（箱）"换成"可用量（件）"，旧映射照旧乘 12，报出 1152 件假数。字段名不变不等于兼容——含义、单位、粒度、时间、版本都可能变，先拦住再核对。项目靠机器拦：同步器逐条校验锚（锚＝指向本体元素的引用编号），对不上抛 OntologyDriftError，不静默；版本钉死 1.1.0，对不上拒同步。</p>
+<h3>数据核对</h3>
+<p>回到看板选第22 期，黄色高亮两处。①③台账卡 sem_relation 下面找"sem_action 映射（第 22 期）"那张表：三条平台动作照 C1 合同投影、本体行为元素一条不建（无设定书 § 直锚）。②⑧问答卡"抽取器送来一个台账里没有的动作，收吗？"那行：答"不收——映射有拒收条件"。两处都对上，本期验收即完成。</p>`},
+23:{
+base:`<h2>本期解决的核心问题：<b>一条结论凭什么被人信——答案自带出处、前提和版本；记录不等于采纳，通过不等于适用，复现不等于为真。</b></h2>
+<p><b>方法论原著中的典型事故：</b>文书原句写的是"可能对青霉素过敏"，抽取程序却把它存成"患者甲已确认过敏"，医嘱校验照着处理——事后说不清这条事实谁生成、依据哪份文书。本期的产物：把事实、公理（规定好的定义条款）和查询连来源一起，打成<b>可复现的证据包</b>（能把结论从头重算一遍的全部材料）。<b>画布改动两处：</b>①本体仓卡术语表下加溯源链表一张；⑧问答卡加"这条结论凭什么"一行。</p>
+<h3>本期的五项设计要点</h3>
+<ol>
+<li><b>陈述溯源：记录不等于采纳。</b>解法分三层：<b>陈述层</b>——"陈述一"只是对原句的记录，状态是待核候选，不是事实本身；<b>来源层</b>——文书一保存原文和版本，陈述一来源于文书一；<b>活动层</b>——抽取活动一记录生成过程，连到负责的抽取服务。边界：<b>溯源完整和事实真实要分别核验</b>——查得到出处，不等于内容对。项目对照：含水率有折算与化验两个数，裁决 PROP-BOHAI-008 定何时用哪个——记录了裁决不等于数据干净，分开核。</li>
+<li><b>命名图：答案连同所在的图一起返回。</b>受理图说事项甲"受理中"，督查图说"已退件"，默认合并后只剩一个值，说不清来自哪一方。解法：把两份来源当两张图，给每张起个名字（这就是<b>命名图</b>），查询按图名返回两条结果，来源绑定不丢。检验边界：<b>图名叫"可信图"不证明每条事实可信</b>——图名只是上下文标记，可信度仍需来源和核验依据。项目对照：语义服务回答必带 citations（命中元素 ID 集的引用列表），面外（超出登记面）的元素不进引用；引用直接到元素 ID，ID 又带注源——出处有内容不只有名字。</li>
+<li><b>分类证明：结论附上完整支持和定义版本。</b>第七版定义"待复核账户＝账户，且至少有一个复核信号"；三条事实逐条匹配，缺"信号一是复核信号"这条，分类保持未知——<b>未知不是被证明为否，也不提供风险概率</b>；定义升级后要按新版本重新核查支持。项目对照：--closure 沿引用边正向走 N 跳得引用闭包，装进 citations（第 11 期已建设"每跳带路径证明"）——闭包是"结论涉及哪些元素"的集合，不是逐条前提的逻辑证明；自动推理项目有意不做（第 5 期已建设）。</li>
+<li><b>验证报告的证据范围：先比对，再看"通过"。</b>四份报告都标"通过"，评审按文件名挑了报告四，它的规则还是旧甲版。解法：当前目标放首位，实现、配置、工具、规则、结果五项逐项比对——五项同时一致的只有报告二。通过标签掩盖差异；<b>补齐并核对版本再采纳</b>。项目对照：闸判据文档化成"给定—期望"断言表，配机器可跑的出厂集（第 13、18 期讲过）——每次提交必跑，不停在方法上。</li>
+<li><b>可复现的证据包：冻结全部输入。</b>交付只留一张截图，数据、定义、规则、引擎版本都没清单，换一组人复算不出同一结论。解法：列清单，绑定数据、本体、规则、查询和引擎的版本；<b>派生类型不作为基础事实</b>；前提缺支持，分类回到未知。检验边界：<b>复现一致只说明可以重复，不证明原始数据为真</b>；只存截图无法复原过程。项目对照：题册锚值判分（锚值＝写死在答案册的精确数值，第 19 期讲过）加 rerun 可重跑——接近"冻结全部输入再复现"。</li>
+</ol>
+<p><b>项目总对照：</b>原著引到"图名"，项目引到"元素 ID"——citations 引到元素 ID，ID 的注源通到设定书原文与裁决号，出处有内容不只有名字。溯源三层项目齐了：逐元素注源（第 1 期已建设）、裁决 PROP-* 只追加不重写、台账禁手改加版本轴（第 21 期讲过）——连"谁裁的"都冻住。溯源不止节点——边也有入库依据，读取时 fail-closed 回锚（⑤卡边出处校验表）。</p>
+<p><b>第 23 期实施要点：</b>记录不等于采纳，通过不等于适用，复现不等于为真——答案带 citations 引到元素 ID，ID 带注源通到设定书；证据包冻结全部输入，才能复算出同一结论。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>一条答案凭什么信？它要自己带出处、前提和版本，而且全部材料冻住，别人能重算出同一个结果。</b>下面用"老完成率为什么是禁用"这条链，从问答走到设定书原文，分六步。</p>
+<h3>第一步：先拆四个词。</h3>
+<p><b>溯源</b>＝给每条记录登记它从哪来、依据什么、怎么生成的，事后能回头重查。<b>命名图</b>＝给一组数据起的图名：同一批数据来自两方，各起一个名字，查的时候连名字一起返回，分得清谁说的。<b>citations</b>＝引用列表：平台答问题时随答案给出"这条答案用到了哪些元素"，每个引用写的是元素 ID（元素在本体仓的唯一编号，第 1 期已建设前缀即类型）。<b>证据包</b>＝能把结论从头重算一遍的全部材料：数据、定义、规则、查询、引擎版本，一样不少列成清单。</p>
+<h3>第二步：走一遍链条——"老完成率为什么是禁用"，六站走到底。</h3>
+<p>第一站，<b>问答</b>：⑧卡里问"Z-16 的老完成率？"答"不按旧口径算，替代＝产量完成率"。凭什么？第二站，答案带着 <b>citations</b>（引用列表），写明用到了哪个元素。第三站，引用是<b>元素 ID</b>：GLS-PETRO-001，"老完成率"条目的唯一编号。第四站，顺着 ID 找到它的<b>注源</b>（登记在元素身上的出处说明）：source 字段写的是"R5·设定书 §6"——出处有内容，不只有一个名字。第五站，按注源翻到<b>设定书 §6 原文</b>：禁用的理由和替代口径写在里面。第六站，这条禁用怎么定下来的？<b>裁决 PROP-*</b>（负责人拍的板，编号记录，只追加不重写）留了痕——谁裁的、何时裁的，冻在记录里。一条链走完：答案每步都能往前指，指到底是设定书原文和裁决记录。</p>
+<h3>第三步：原著的核心警告——图名叫"可信图"，不证明它可信。</h3>
+<p>方法论场景：两份来源各说各话，合并后只剩一个值，说不清谁说的。解法是命名图：查的时候连图名一起返回，来源不丢。但原著自己划了边界：<b>图名只是上下文标记，可信度仍要看来源和核验依据</b>——给一张图起名"可信图"，里面的内容不会因此变可信。项目更进一步：citations 直接引到元素 ID，ID 又带注源——出处有内容不只有名字，通到设定书原文和裁决号。溯源不止节点——边也有入库依据，读取时 fail-closed 回锚（⑤卡边出处校验表）。</p>
+<h3>第四步：记录不等于采纳。</h3>
+<p>规范条文：<b>记录一条陈述，不等于断言它的内容</b>。文书写"可能过敏"，抽取程序只许记"待核候选"，不许写"已确认"；来源关系只记生成依据，不证明内容为真。项目的对应纪律两层：本体侧，逐元素注源（第 1 期已建设），裁决 PROP-* 只追加不重写；平台侧，<b>台账行禁手工改，唯一写口是同步器</b>（同步器＝把本体文件自动翻译进台账的程序，第 1 期已建设），每次变更追加一行全行快照——版本轴第 21 期已画上，只追加不删改。记录冻住了，谁改的、依据什么，事后查得到。</p>
+<h3>第五步：冻结全部输入，才能复现。</h3>
+<p>原著事故：交付只留一张截图，数据、定义、规则、引擎版本都没清单，换一组人复算不出同一结论。解法：证据包把全部输入列清单、绑版本。两条边界：<b>复现一致只说明可以重复，不证明原始数据为真</b>；缺前提就回到"未知"，不补否定结论。项目对照：题册 98 题带锚值判分（第 19 期讲过，Z-16 全年产油 5839.63 吨写死在答案册），rerun 脚本可重跑——接近"冻结全部输入再复现"。</p>
+<h3>第六步：这三句别记反。</h3>
+<p>"记录≠采纳"——记了出处不等于内容对；"通过≠适用"——版本对不上的报告不能用；"复现≠为真"——重算出同一个数，不证明原始数据是真的。共同点：看证据本身，不看标签。</p>
+<h3>数据核对</h3>
+<p>回到看板选第23 期，黄色高亮两处。①本体仓卡术语表下面找"溯源链"那张表：GLS-PETRO-001 出处＝R5·设定书 §6、PROP-* 只追加不重写、回答必带 citations。⑧运行时问答卡找"这条结论凭什么？"那行：答"每条回答带 citations（命中元素 ID 集），面外元素不进引用"。两处都对上，本期验收即完成。</p>`},
+24:{
+base:`<h2>本期解决的核心问题：<b>改了几处不说明风险，改动了哪一层才说明——旧答案先冻成断言，改完重查一遍。</b></h2>
+<p><b>方法论原著中的典型事故：</b>团队改了三处"小改动"——改显示名、加一条定义域、把客户定义收窄成"已付款的下单者"。看清单哪处都不大，发布后旧报表客户列表悄悄少了一个人，没人发现。<b>回归</b>＝改完后把旧输入重跑一遍、对照旧答案有没有变。跑之前先问：变的是注释、逻辑公理，还是业务定义？</p>
+<h3>本期的六项设计要点</h3>
+<ol>
+<li><b>按改动处数评估风险，靠不住。</b>三种小改动被一视同仁，旧查询范围变了没人知道。改动少不等于语义风险低——一条公理也可能改变大量类型或答案。</li>
+<li><b>三类变更对应三种回归。</b>改显示名触及<b>注释层</b>——外延（类当下实际有哪些对象）不变，只跑界面契约回归；加定义域触及<b>逻辑公理</b>（定义域＝声明某属性必须挂在哪类对象上）——给既有对象推出新类型，跑一致性回归；收窄类定义触及<b>业务定义</b>——答案集变了，要对照使用方假设跑查询契约回归。原则：按触及的层次定回归。</li>
+<li><b>公理变更会传播类型；先定位最小冲突前提再修。</b>银行甲是组织、拥有账户甲；新模型给"拥有"设定义域为自然人，数据没改，却推出"银行甲是自然人"，与互斥公理相撞——不一致。定义域不是必填校验，不拒数据，只推类型。修法：删业务事实不对；删互斥公理仍会错推；定义域改上位类"主体"、回查其他使用方——这才对。</li>
+<li><b>类定义演化：用新类承载新口径，不改写旧的。</b>直接改写客户类，旧列表从张三、李四变成只剩李四——张三不是被证明"未付款"，只是缺新证据。先分清：订单状态是输入事实，客户类型是按定义推出的结果。旧定义不动，新增"已付款客户"类：旧查询仍是两人，新类只推出李四；推出的类型写回基础图会掩盖变化。</li>
+<li><b>四组分层回归，每组冻结输入。</b>正例组——该推出的要推出；非蕴含组——不该推出的推不出（<b>推不出不等于推出否定</b>）；一致性组——该报不一致的要报（预期不一致≠允许不一致模型发布）；查询组——旧查询答案集不变。每组把数据、本体、引擎配置冻结成固定输入，叫<b>夹具</b>。四组全过只证明给定范围内满足契约。</li>
+<li><b>错版与修复版：两份独立夹具分别验收。</b>候选版本里新类和错误定义域并存：错误版预期不一致，修复版预期一致、旧查询答案不变；不能把错误注入修复版再要求一致，错误版的查询答案暂停解释。<b>"不发布"也是完整的决策</b>——留版本、理由、回退包；修复通过后保留失败夹具防复发。</li>
+</ol>
+<p><b>项目对照：</b>项目没有推理机（第 5 期已建设），公理静默传播类型不存在——类型核对与语义闸对不上直接拒收报红，不悄悄改答案。三类变更三路回归落成 ci.sh 三闸加题册重跑（第 18、19 期）。新口径用新条目承载，两边一致：老完成率不删，状态"禁用（替代：产量完成率）"，禁用词闸拦旧词（第 1 期已建设）；语义服务可拒答不编答案，即"推不出≠推出否定"。换义项目更硬：原著允许"迁移加回归"后改写旧定义，项目直接锁名 lockedFields，宁新增不复用。钉版＝"改定义要联动消费方"的机器化：schemaVersion 1.1.0，本体仓与同步器（把本体翻译进台账的程序）联合变更，对不上拒同步（第 20 期）。<b>两组判断：</b>影响分析项目更好——原著靠人工判层，项目用 graph_index --impact 反向走引用边取受影响节点集，机械取证、不数改动行数；回归分组原著更好——原著按语义失败种类分四组，红灯一亮就知道错在数据还是公理，项目三闸按"闸自身→全仓"分层，该吸收；但出厂集防判据漂移是原著没有的——原著默认推理引擎自己不出错，项目连闸本身都进回归（第 18 期）。</p>
+<p><b>第 24 期实施要点：</b>按改动触及的层次定回归，不按改动处数估风险；新口径用新条目承载，换义锁旧名；旧答案先冻成夹具和断言，改完重查。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>改完本体，把旧的问法重新问一遍，对照答案变没变——变了就当面说清，别等人从报表里发现少了一个数。</b></p>
+<h3>第一步：先拆四个词。</h3>
+<p><b>演化</b>＝本体（写下来给机器照着检查的业务约定，第 1 期已建设）跟着业务一起改：口径换了、字段含义变了，文件就得改。<b>回归</b>＝改完之后，把改动前就有的旧问题重新问一遍，对照旧答案有没有变。<b>锁字段</b>＝把一个字段名登记进"不许再用"的名单：含义换过的旧名，谁也不许拿它装新意思。<b>钉版</b>＝把版本号写死：只认 1.1.0 这一版，版本对不上就拒收。</p>
+<h3>第二步：原著中的典型事故——三处"小改动"，旧报表少了一个人。</h3>
+<p>团队改了三处：改一个显示名；加一条定义域（声明某属性必须挂在哪类对象上，机器据此自动推类型）；把"客户"的定义收窄成"已付款的下单者"。看清单都是小改，发布后旧报表的客户列表从张三、李四变成只剩李四。为什么没人发现？因为发布前没人把旧查询重跑一遍。结论：<b>按改动处数评估风险靠不住——一条定义改几个字，答案就能少一片。</b></p>
+<h3>第三步：第一类变更＝换说法。项目：给"剔检产量"加别名"净产量"。</h3>
+<p>改显示名，名单没变：张三李四还是张三李四，只是叫法换了。原著规矩：这类只重测界面，逻辑回归和应用回归分开跑。项目同款是第 8 期：剔检产量登记别名"净产量"（GLS-PETRO-002）——井还是那些井、数还是那些数，回归只需验别名收拢对不对。</p>
+<h3>第四步：第二类变更＝改口径。项目：老完成率改版。</h3>
+<p>这类会改答案。原著故事：直接把"客户"改写成"已付款的下单者"，旧列表少了张三——注意，张三不是被证明"没付款"，只是按新定义缺证据。<b>推不出，不等于推出否定。</b>原著修法：旧类不动，另加一个"已付款客户"类。项目做法一致（第 1 期已建设）：术语表里"老完成率"这一行不删，状态写<b>禁用（替代：产量完成率）</b>；新口径另行登记；禁用词闸拦旧词——消费面谁再写"老完成率"就报错。问"老完成率"，系统答"禁用，替代＝产量完成率"，不是"查无此词"。</p>
+<h3>第五步：第三类变更＝换字段含义。项目：锁字段。</h3>
+<p>字段名没变、意思变了，这是第 22 期"模式漂移"讲过的事故。原著的宽容版：写清迁移方案、跑完回归，可以改写旧定义。项目更硬：旧字段名直接进 lockedFields 锁死，语义闸第 4 层强制检查——<b>换义宁新增不复用</b>：新含义开一个新字段，旧名永远指旧含义。</p>
+<h3>第六步：改完谁要跟着动？钉版加影响分析，回归分两路。</h3>
+<p>改一处本体，用它的地方都得重新验。项目两道机器闸：①<b>钉版</b>——同步器（把本体文件自动翻译进台账的程序）只认 schemaVersion 1.1.0，本体仓和同步器必须先仓后同步器一起改、一起回归，版本对不上拒同步；②<b>影响分析</b>——graph_index --impact 沿引用边反向走到底，列出受影响的节点集，机械取证，不数改动行数。回归两路：出厂集（第 18 期讲过：非法变体夹具必须红，防检查程序自己的判据漂移）加题册重跑（第 19 期 98 题）。原著把回归按失败种类分四组（正例/非蕴含/一致性/查询），每组冻结输入（夹具）；错版和修复版是两份夹具分开验收，"不发布"也是完整的决策——这个分组法比项目"按闸分层"好，项目该吸收；但出厂集防判据漂移是原著没有的：原著默认检查工具自己不会错，项目连工具都要被考。</p>
+<h3>数据核对</h3>
+<p>回到看板选第24 期，黄色高亮两处。①本体仓卡拉到最下面，找"演化回归三例（第 24 期）"那张表：三行——换义锁旧名、换口径旧词禁用新词登记、schemaVersion 1.1.0 钉版联合变更。⑧运行时问答卡里"改了本体，怎么知道旧报表没坏？"那行：答"--impact 反向走 ref 取受影响集（不数改动行数）＋出厂集/题册两路回归"。两处都对上，本期验收即完成。</p>`},
+25:{
+base:`<h2>本期解决的核心问题：<b>先钉死答案契约，再比较实现快慢——答案集合变了，耗时比较随之作废。</b></h2>
+<p><b>方法论原著中的典型事故：</b>电网台账要答"设备继承哪些类型、归属哪个厂站"。两个推理配置一快一慢，团队按快慢选了快的，结果"逆向归属"（从设备反查归属厂站）悄悄查不出来也不报错——快了但漏了答案，不能直接上线。本期产物：<b>语义等价的运行与成本基准</b>：性能比较以语义回归通过为前提。<b>画布改动两处：</b>③卡加派生物那张表；⑧卡加图缓存一行。</p>
+<h3>本期的五项设计要点</h3>
+<ol>
+<li><b>推理配置与答案语义：先写契约，再比耗时。</b>每项需求先归栏（归栏＝宣布归哪类机制管）：继承类型归子类公理，逆向归属归逆属性公理，属性链核对推理档位，过滤求和归查询或程序。<b>推理档位就是一组划定的可用公理与推理能力，不是性能保证</b>；换引擎先比答案集合再测耗时，不支持属性链的引擎不满足契约。</li>
+<li><b>物化与查询改写：先证明对象集合相同。</b>物化＝把推导结果预先算好存进库并保留来源，变更后必须同步清缓存；查询改写＝不预存，查"丙类"现场改写成甲、乙、丙三类并集去重（只适用于子类公理）。事故：删掉"个体一属于甲类"后缓存没清，查丙类仍返回失效的个体一。两路各返回三条<b>不能</b>证明等价——条数相同，对象可能不同；等价后才分别记更新与求答成本。</li>
+<li><b>派生知识的增量维护：按全部支持路径撤回。</b>增量维护＝真源变了不重算全部，只动受影响的部分。账户两条复核信号各自都足以推出"待复核账户"——是<b>可替代的支持，不是两道门槛</b>。删掉信号一后标记没变：缓存只记最后一条来源，解释失真。解法：重算支持集，仍有完整支持则结论保留，<b>全部支持移除才清理</b>派生缓存；全删后不能反推"没有风险"——否定要另有语义前提。</li>
+<li><b>查询范围与资源预算：图、版本、分页绑进契约。</b>不限定图和版本、把一页十条当总数、超时报成空集合，都是缺陷。解法：目标图、版本、固定排序绑进查询契约；最多十条<b>只限返回量，不限耗时</b>，超时或达上限要标"未完成"；正好十条不等于共十份合格，完整数量要独立计数——返回量与预算分别设置、分别报告。</li>
+<li><b>语义等价与性能基准：回基线，先验答案再计时。</b>变更包不回基线就跑下一包，遗留事实串包——<b>错答案跑得更快反被看作优势</b>。解法：每个变更包各自回原始基线，答案全对才计时，更新与读取分开记；没现成环境就交测量计划、标注未实测。</li>
+</ol>
+<p><b>项目总对照：</b>项目没有推理机（第 5 期已建设），自动逻辑推理整块不做——没有可换档位就没有"换档悄悄丢答案"的风险面；答案契约钉在机器闸上：断言表（第 13、18 期讲过）加四型裁决（答出、面外拒答、仓内没有、禁用词），查不到说明缺什么、绝不编（第 1 期已建设）。"物化还是重建"项目两处答案不同：引用图每次启动从 Git 真源全量重建、禁止缓存成权威——不物化，图小重建便宜、永无陈旧窗口；台账是本体 YAML 的投影，行禁手改、每行变更走版本轴留痕（第 21 期讲过）——物化；判据是规模和查询频度。撤回侧：台账行来源单源，来源变了重放同步即显式报错；"全删不能反推没有风险"对应"仓内没有＝拒答并说明缺什么"。预算侧：查不存在的编号报未找到，护栏触发是切备用或标注，不报空集合；成本账分开记——petro-main 主模型、petro-lite 降级便宜出口，答案账归题册（第 19 期讲过），资源账归价格表。反例真发生过：检索配置被重播种回更快档，4 题稳定缺答案，靠变更单才恢复——配置会漂，契约在就抓得住。</p>
+<p><b>第 25 期实施要点：</b>先写契约再比耗时；物化与改写先证明对象集合相同；派生结论按全部支持路径撤回；查询把图、版本、预算绑进契约；每次比较回基线、先验答案再计时——契约先于性能，正是第 1 期"先出题再建模"的收口：先说清对的答案是什么，再谈多快拿到它。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>先保证答案是对的，再比谁快——答案错了，快不占分。</b></p>
+<h3>第一步：先拆四个词。</h3>
+<p><b>派生物</b>＝由真源算出来的结果。真源是最原始、说了算的那份数据（项目里是本体 YAML 文件加 Git 版本库）；从它算出来的索引、台账表，都是派生物。<b>物化</b>＝把算出来的结果预先存起来，下次直接用、不再重算。<b>增量维护</b>＝真源变了不重算全部，只改受影响的那一小块。<b>语义等价</b>＝两种做法对同一个问题给出同一批答案——是同一批答案，不是条数一样多：三条对的三条错的，条数相同也不等价。</p>
+<h3>第二步：原著中的典型事故——缓存没清，失效的答案继续发。</h3>
+<p>方法论场景：甲类、乙类、丙类一条子类链，个体一属于甲类，程序预先把"个体一属于丙类"算好存进库（这就是物化）。后来删掉"个体一属于甲类"，缓存没清，查丙类还是返回个体一——一条已经不成立的事实继续被人查到。更隐蔽的一例：账户有两条复核信号，每条都足以推出"待复核"；删掉一条，缓存只记着最后那条来源，结论看着没变，解释已经失真。规矩：<b>一条结论有几条依据，撤回时要数全部依据——还剩完整依据就保留，全部撤光才清理；全撤光也不能反过来说"没问题"，说"没问题"要另有证据。</b></p>
+<h3>第三步：分步走——项目的图，为什么不做缓存。</h3>
+<p>项目有一张引用图（登记本体元素之间谁引用谁的索引），每次启动都从 Git 真源重算一遍，全量重建，禁止把缓存当权威。分四步看：<b>第一步</b>，看数据量——模式层就几十个节点，重算一遍很便宜。<b>第二步</b>，看风险——缓存是一份存下来的结果，真源改了它不会自己变，等于多出一份数据也"说了算"，两份打架听谁的？<b>第三步</b>，看正确性——全量重建有一条保证：同样的输入必得同样的图（这就是幂等，第 4 期已建设：同一操作做多少遍，结果都跟做一遍一样）；缓存给不了这句保证——它可能停在旧时点。<b>第四步</b>，结论——数据量小的时候，全量重建比增量维护又简单又正确：先验答案，再谈性能；哪天真大到重算明显变慢，再换原著的增量维护方案，换之前先证明两种做法答案集合相同。项目把取舍写在代码头注释里："Git 是真源，图是派生物，无任何缓存文件。"</p>
+<h3>第四步：先写契约，再比耗时——两个实现谁好？先比答案。</h3>
+<p>原著规矩：换引擎、换配置，先比答案集合，再测耗时。项目把这条钉进机器：判据写成断言表（第 13、18 期讲过），语义服务的答案钉成四型——答出、面外拒答、仓内没有拒答、禁用词拒答，查不到就明说缺什么，绝不编（第 1 期已建设）。验收靠题册：98 道题带锚值（预先核定的精确数值，第 19 期讲过），比如 Z-16 全年产油 5839.63 吨——先判这个数对不对，再谈题册跑得快不快。真实反例：检索配置被重播种回更快的档，更快更省，但有 4 道题稳定缺答案——错答案快不是优势，靠变更单才改回来。这正是第 18 期说的：配置会漂，冻结输入加机器闸才抓得住。</p>
+<h3>第五步：范围和预算也要写进契约。</h3>
+<p>查数之前先说清：查哪张图、哪个版本、最多返回几条。原著事故：没限定图和版本，把"一页十条"当成"总共十条"，超时还被报成空集合。项目对应：查不存在的编号明确报"未找到"，不报空；护栏触发是切备用模型或标注未完成，不悄悄报空结果。成本账分开记：模型注册表里 petro-main 是主模型、petro-lite 是降级便宜的出口——<b>答案账归题册，资源账归价格表，两本账分开算。</b></p>
+<h3>数据核对</h3>
+<p>回到看板选第25 期，黄色高亮两处。③平台台账卡拉到 sem_action 那张表下面，找"派生物（第 25 期）"那张表：台账是本体 YAML 的派生物、图索引全量重建禁缓存成权威、先验答案再谈性能。⑧运行时问答卡找"图为什么不做缓存、同步为什么不增量？"那行：答"缓存会变成第二个真源；全量重建同输入必得同图"。两处都对上，本期验收即完成——25 期全部收官。</p>`},
+26:{
+base:`<h2>本期解决的核心问题：<b>身份、访问、变更三份责任清单独立——同一断言不等于访问许可，改本体先交冲突集和责任产物，暂缓也是完整的决策。</b></h2>
+<p><b>方法主题（本体治理与语义权限）：</b>"同一个人，就能看两边的档案吗？"原著答案：不能。<b>身份核验依赖证据，访问许可依赖策略，两者是独立的判断。</b><b>画布改动两处：</b>③卡加"语义治理"那张表；⑧卡加"谁能改台账里的口径"一行。</p>
+<h3>本期的四项设计要点</h3>
+<ol>
+<li><b>派生结论会泄露受限前提：读取范围必须覆盖结论依赖的全部前提。</b>公开图只有「账户甲·账户」，「甲有信号一」等在受限的风险图里；先混合全图推理、再只隐藏信号边，公开接口照样给出「甲待复核」。解法两条路：按授权视图隔离推理（只用有权读的数据，少答是预期）或传播依赖标签再查策略。规范条文：<b>本体本身不会自动实现访问控制。</b></li>
+<li><b>对象同一不等于访问许可：拆两份产物、两位责任人。</b>变更单把"甲和乙是同一人"与"可读受限档案"一并放行，就是身份和授权混为一谈。产物一·身份依据＝已核验的同一断言加证据和来源；产物二·授权决定＝按主体、操作、数据集、用途匹配授权规则并留执行记录。推论：<b>数据写入不能自授权限，数据字段不能自建执行权。</b></li>
+<li><b>公理变更：先交最小冲突集和责任产物。</b>提案给「拥有」加定义域＝自然人，但已核验「公司丙是组织、拥有账户乙」，与互斥公理相撞——冲突拖到审查才暴露。解法：四项前提写成卡片逐张试移除，解释冲突为何消失，再讨论哪种移除有业务依据。责任产物：提案人交目的和影响查询，语义负责人交最小冲突集，数据负责人交核验记录，发布负责人交版本决定和回退包。<b>暂缓也是完整的决策</b>；只说「测试过了」不足以批准。</li>
+<li><b>形状校验：先清理，再在原始图上只查指定目标。</b>错误定义域推出的「自然人」类型若留在图里，账户乙假通过——错误类型掩盖违规。先撤回坏定义、清理派生图，再设形状：沿「拥有」逆路径找持有人，至少一位且都是自然人，不启用推理；报告给出焦点、逆路径、违规类型和修复证据。提醒：不许改「拥有」的含义消报告；校验失败不自动撤销权限。</li>
+</ol>
+<p><b>项目对照（保守，只写核实得到的）：</b>治理三件套项目有，即③卡那张表。<b>①写口唯一：</b>台账行禁手改，唯一写口是同步器，每次同步带变更人、走横切审计 security.audit；行级另有版本轴（第 21 期讲过）——第 23 期讲过溯源：答案指到设定书原文；审计加一笔：改动指到人。<b>②提案制：</b>改本体只改 YAML，proposal_check 预检（机器先查一遍再给人审）→ Owner 裁决（PROP-* 只追加不重写）→ 人工合入、语义闸全绿——裁决权在人，机器只预检，是"暂缓也是完整的决策"的项目版；原著的"最小冲突集"项目没有——没有推理机（第 5 期已建设），无公理冲突可算。<b>③检索面裁剪：</b>面外问题直接拒答——原著裁面为不泄露受限前提，项目裁面为不编答案（第 1 期已建设）。</p>
+<p><b>访问许可这一半，项目如实说没有。</b>开发期身份是桩：请求头 X-Dev-User 写谁就是谁，换正式登录只动 resolve_actor；M5 主体模型（3 参与者、8 角色、8 权限）是登记不是运行时强制——"窗口人员能看两边的档案吗"平台答不了，产物二没有对应物，产物一有部分对应（实体对齐凭证据推，第 22 期讲过）。"数据写入不能自授权限"项目天然成立：台账行禁手改，字段值造不了反。形状校验只查指定目标，项目反着全量枚举（第 17 期讲过）。</p>
+<p><b>第 26 期实施要点：</b>身份凭证据、许可凭策略，同一断言不等于访问许可；派生结论按全部依赖授权；改本体先交冲突集和责任产物，暂缓也是完整的决策——项目治住了"改"，"看"的授权没有，如实说。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>谁能改、谁能看、谁说了算——三件事分开立规矩，不许靠"系统自动"混过去。</b>项目的"改"立全了，"看"没做，分步说清。</p>
+<h3>第一步：先拆四个词。</h3>
+<p><b>治理</b>＝改东西的规矩：谁有资格提修改、按什么步骤改、错了怎么追责。<b>语义权限</b>＝"谁能看哪些内容"的规矩。本期反复问：核验了"甲和乙是同一个人"，窗口人员就能看两边的档案吗？答案：不能——身份归身份，许可归许可。<b>检索面</b>＝这台系统认下"归自己管"的问题范围（面＝范围）；面内的答，面外的明确拒答。<b>提案制</b>＝改本体不许直接改文件了事：先填变更申请（提案），机器预检，负责人裁决，通过才人工合入。</p>
+<h3>第二步：原著的两句硬话。</h3>
+<p>第一句：<b>派生结论会泄露受限前提。</b>公开部分只写"账户甲"，"甲有复核信号"在受限部分；系统把全部数据放一起推，公开接口照样给出"甲待复核"——受限内容跑了出来。原著的规矩：一条结论给谁看，先看它用了哪些前提，前提都得在许可范围内。第二句：<b>同一不等于许可。</b>"甲＝乙"核验了，只是身份认定；能不能看两边的档案是另一道审批，原著要求拆成两份产物、两个责任人。推论：往数据里写"甲是管理员"，读取接口不会因此放行——<b>数据不能自己给自己发权限。</b></p>
+<h3>第三步：拿"老完成率怎么改"走一遍项目治理六步。</h3>
+<p>项目改本体（当年禁用"老完成率"、换"产量完成率"那回，第 1 期已建设）按六步走。<b>第一步提案</b>：写清改什么、为什么、影响哪些查询。<b>第二步预检</b>：机器脚本 proposal_check 先查一遍（确定性检查＝同输入永远同结论）。<b>第三步裁决</b>：负责人拍板，裁决记录 PROP-* 只追加不重写；裁决权在人，机器只预检——原著的"暂缓也是完整的决策"，项目版＝"预检不过就不合入"。<b>第四步合入</b>：人工发起合入，语义闸（自动检查关卡，第 1 期已建设）全绿才许合。<b>第五步同步</b>：同步器把改完的本体翻译进台账；台账行禁手改，没人能直接改数，唯一写口是同步器。<b>第六步审计</b>：每次同步带变更人留痕，走横切审计 security.audit；台账行还有版本轴（第 21 期讲过：只追加不删改、全行快照）。两本账一对，"谁改的、依据哪条提案"查得到——第 23 期讲过溯源：答案指到设定书原文；本期补上后半段：改动还指到人。</p>
+<h3>第四步："看"的这一半，项目如实说没有。</h3>
+<p>项目有审计留痕与写口纪律，<b>细粒度权限不在本画布范围</b>。开发期平台认人靠一根桩：请求头 X-Dev-User 写谁就认谁——不是真登录；换正式登录只改 resolve_actor 一个函数。本体仓登记过一份主体模型：3 参与者、8 角色、8 条权限，出处是设定书角色卡——是登记不是运行时强制。原著的两份产物，项目只有"身份依据"的对应物（是不是同一个东西凭证据推，第 22 期讲过），"授权决定"没有——"窗口人员能不能看两边档案"，平台没有这道闸。检索面沾一半边：面外问题直接拒答。但它管"答不答"，不管"给不给看"——项目裁面为不编答案（第 1 期已建设），原著裁面为不泄露受限前提；同是少答，原因不同。</p>
+<h3>第五步：还有一条顺带的纪律——不许靠改词消报告。</h3>
+<p>规范警告：不许改全局「拥有」的含义来消除校验报告。项目同款：换口径＝旧词禁用、新词另行登记（第 24 期讲过）——"老完成率"至今在术语表里，状态＝禁用，历史不涂改。</p>
+<h3>数据核对</h3>
+<p>回到看板选第26 期，黄色高亮两处。①③平台台账库卡找"语义治理（第 26 期）"那张表：三行——台账行禁手改、唯一写口是同步器带审计留痕；改本体走提案（预检→裁决→人工合入）；检索面裁剪、面外直接拒答。②⑧运行时问答卡找"谁能改台账里的口径？"那行：答"没有人手改——唯一写口是同步器；改本体走提案、Owner 裁决"。两处都对上，本期验收即完成。</p>`},
+27:{
+base:`<h2>本期解决的核心问题：<b>数量要带上下文、口径要显式登记、计算要可复算——"还缺多少"先问口径再算差，四层分开验收。</b></h2>
+<p><b>方法主题（数量语义与约束集成）：</b>"仓库一截至二十五日，商品一还缺多少袋？"三个系统三个答案；原著把数量、时间、推理、优化分层，交出可复核的答案。<b>画布改动两处：</b>①卡 m3 区加"指标口径字段组"一行；⑧卡加"还差多少吨没完成"一行。</p>
+<h3>本期的六项设计要点</h3>
+<ol>
+<li><b>数量不挂在名字上，只经上下文对象关联。</b>商品名下直接标库存数：快照算两次、预留说不清、不带时点。解法：数量放进四类对象——快照（现存 100、预留 30）、到货（40 袋带计划时间）、报价、订单（需求 150 不含预留）；镜像不相加成 200——同一快照只计一次。</li>
+<li><b>形状约束：先声明检查规则，再进汇总。</b>缺仓库的库存记录被相加，文本"100"被当整数。形状＝一组检查规则：仓库至少 1 个值、数量为非负整数；被检记录叫焦点，路径即被检属性；违规隔离在汇总外。<b>通过形状只覆盖声明并执行的约束，不证明数据真实</b>。</li>
+<li><b>双时间快照：按获知时间选修订。</b>可用＝现存 100−预留 30＝70，需求不含预留；到货改期 12 点才获知。判定顺序：获知不晚于分析时点、同一事件取最新、到货早于截止——十点缺 40，十二点缺 80，两个答案都对；<b>晚获知的修订不改写早先的结果</b>。</li>
+<li><b>派生关系与待核消息：链要共享中间对象，消息不断言内容。</b>属性链公理"分配批次∘来自供应商→关联供应商"推出订单一关联供应商一；订单一改分配批次就推不出——名称相似不等于链。"可能停工"进候选容器：只描述陈述，不断言内容。</li>
+<li><b>计算契约：本体管筛选，外部程序管算数，返回包可复算。</b>建议只返回"180 元"——缺口口径、报价编号、截止、算法版本不在包里。可行域＝满足全部约束的分配：甲≤60、乙≤50 均按期到，丙 1 元但 26 日到按截止排除；取甲 60、乙 20 得 180 元。<b>180 元不是本体蕴含，也不是已批准的采购</b>。</li>
+<li><b>分层验证：四层各验各的，每层标注机制和版本。</b>报价甲标了过期，"有效报价视图"没重新生成，旧 180 元又进求解。四层：校验、推理、查询与缺口、优化，各拦各的；报价撤销改变可行性，不改变供应商关联。状态字符串不会自己生效，须应用生成新视图再重算。</li>
+</ol>
+<p><b>项目对照（保守，只写核实得到的）：</b>"三个系统三个答案"的防法＝同一指标多支口径显式登记："有效产量"两支口径（开井日历折算/检修剔除）第 8 期已入画布（RULE-PETRO-019 的 calibers）；含水率双口径并存分场景（第 3 期已建设）：计量折算管日度监控、化验实测管月度正式指标，偏差超 5 个百分点以化验校正（PROP-BOHAI-008=C）。两个数值都在④卡流体化验表里——化验 77.0 是登记值，计量折算 ≈76.7 在日报侧，偏差 ≤5pp 以化验校正；产量完成率把口径字段组（徽标/粒度/单位等七项）逐项登记——即①卡新增行。口径不明不挑一支：必须追问修饰词（GLS-PETRO-003 明文）或拒答（第 6 期已建设）——⑧卡那行就是现场。单位进字段定义：油＝吨、液＝方（第 3 期已建设）。另有对应：同井同日两班不算重（第 16 期讲过）；名称像不许拼链＝连接白名单（第 12 期已建设）；四层分开验＝闸分层＋派生物全量重建（第 13、25 期讲过）。</p>
+<p><b>没有的如实说：</b>属性链自动推关联——没有推理机（第 5 期已建设），换成查登记；"候选消息容器"没有对应物（第 22 期讲过：抽取来的要么入图要么拒收）；"按时点读旧版本"的查询接口还没有（第 21 期讲过：留痕是原料）；优化层整层没有——可行域求解、外部算数程序都没有。</p>
+<p><b>第 27 期实施要点：</b>数量带上下文、口径是登记物、计算可复算、四层分开验；答案不同就追问，绝不替你挑一支。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>"还差多少"这个问题不能张口就答——先问口径，再算差，答案可能不止一个，而且每个都对。</b></p>
+<h3>第一步：先拆三个词。</h3>
+<p><b>数量语义</b>＝一个数怎么读才不算错：它是几点钟的数、含不含预留、按哪套算法算。<b>口径支</b>（第 8 期已建设）＝同一个指标的不同算法，登记下来并列摆着——"有效产量"就有开井日历折算、检修剔除两支。<b>约束集成</b>＝把"哪些数合法、按哪个时间点算、谁来算"这些规矩整合到一起，分开验收。</p>
+<h3>第二步：拿"还差多少吨没完成"走一遍——先问口径。</h3>
+<p>原著里问"仓库一还缺多少袋"，库存、需求、到货三个系统各报一个数：三个答案。项目同款问题：问"还差多少吨没完成"，先问哪支口径——开井日历折算还是检修剔除（第 8 期已建设，两支口径显式登记在 RULE-PETRO-019），答案不同。口径不明，系统不替你挑一支：必须追问修饰词（术语登记 GLS-PETRO-003 明文写了"必须追问"），或者干脆拒答（第 6 期已建设：问不明、查不到，答"未知"，不编）。</p>
+<h3>第三步：再算差，两个答案都对。</h3>
+<p>原著算缺口：可用＝现存 100−预留 30＝70，需求 150 不含预留，缺口 80。路上三个坑，都有规矩：数量要带时点（几点钟的数）；同一事件按"获知时间"取最新——到货改期 12 点才获知，十点的报表就用十点前知道的版本，不用晚知道的改写早先的结论；预留不并进需求，两份镜像也不相加。结果：十点算缺 40、十二点算缺 80——不是谁错了，是分析时点不同。项目的对应：含水率就有两个数并存（第 3 期已建设）——计量折算的管日常监控，化验实测的管月度正式指标，偏差超 5 个百分点以化验校正；两个数值都在④卡流体化验表里——化验 77.0 是登记值，计量折算 ≈76.7 在日报侧，偏差 ≤5pp 以化验校正。口径不同、场景不同，两个都对。</p>
+<h3>第四步：数要合格才能进汇总。</h3>
+<p>原著把这组检查规则叫"形状"：缺仓库的库存记录不许进汇总，文本"100"不是数也得拦。项目把这类规矩拆到三处：日报行靠复合主键缺一不收（第 3 期已建设）；含水率 [0,100]、开井时长 [0,24] 写成值域，越界即挂（第 9 期已建设）；单位直接写进字段定义——油＝吨、液＝方（第 3 期已建设），吨方混写检出挂问题单。边界两边一致：检查只管声明过的规矩，查过了不等于数据真实——缺结束日期就答"未知"（第 6 期已建设）。</p>
+<h3>第五步：谁算数、答案凭什么。</h3>
+<p>原著规矩：本体管筛选和关联，算数交给外部程序；返回包存下缺口口径、报价编号、截止、算法版本——换个人按包里的参数重算一遍，得数一样，这才叫可复算；180 元只是建议，不是已批准的采购。项目对应：本体登记公式和口径（产量完成率＝实际合计÷计划合计，登记在 RULE-PETRO-009），算数在查询层做（第 1 期已建设：台账定位对象→业务库求和）；每条回答带 citations 出处（第 23 期讲过）；验收靠题册锚值判分、脚本可重跑（第 19 期讲过）。还有一层防旧账：报价过期了，"有效报价视图"没重新生成，旧答案又混进来——项目的防法是派生物每次从真源全量重建，不缓存（第 25 期讲过）。原著还有一条边界：两个对象没共享中间环节，不能因为名字像就连起来——项目同款纪律是连接白名单（第 12 期已建设）：日报表和化验表字段名都对得上，也不许直连。</p>
+<h3>数据核对</h3>
+<p>回到看板选第27 期，黄色高亮两处。①本体仓卡 m3 规则区找"产量完成率登记指标口径字段组"那行：徽标（mark＝★）、粒度（月/区块·油田）、单位（％）逐项登记——口径本身是登记物，不是默认值。②⑧运行时问答卡找"还差多少吨没完成？"那行：答"先问哪支口径：开井日历折算还是检修剔除，答案不同——口径不明不挑一支，追问或拒答"。两处都对上，本期验收即完成。</p>`},
+28:{
+base:`<h2>本期解决的核心问题：<b>把每次“谁、何时、用了什么”记成一条带时点带来源的观测——共用设备不等于同一个人；判定可以改，观测不许删。</b></h2>
+<p><b>方法主题（观测事件与复合分类）：</b>共用不证明同一人也不证明欺诈；先把每次连接记成观测。<b>画布改动两处：</b>⑤卡加观测事件演示行，⑧卡加问答行。</p>
+<h3>本期的六项设计要点</h3>
+<ol>
+<li><b>观测事件模式：把每次连接记成观测。</b>报表把“甲乙共用设备一”记成一条“同一关联方”边：家庭共用被当成同一主体、无时点来源无法复核、关联代替不了身份核验；设备一其实是家庭平板。解法：观测一记甲八点十分、观测二记乙八点二十分用设备一，各带来源，“共用设备”由两条观测共同指向设备一推出。</li>
+<li><b>事件去重与窗口聚合：先按身份归一，再按窗口求和。</b>大额监测把交易一到四全额相加：交易二的镜像（同一笔的复本）被算两次。解法：四笔各三万元（八点、九点、九点五十九、十点整），窗口[八点,十点)含头不含尾；镜像按已核验交易编号归一、每笔只记一次，不能按相同金额去重；合计九万元。流水总额不是余额（第 16 期讲过）。</li>
+<li><b>阈值谓词与复合类：程序生成信号，公理负责分类。</b>脚本读到九万元就打“待复核”标签，图里却没有信号对象。解法三步：外部程序按六万元阈值比金额，生成窗口信号连到账户甲；本体补类型——复合信号＝需要人工复核的信号，窗口信号是其子类（第 2 期已建设：多一个分类不多一个身份）；再按“账户且至少有一个复合信号”推出候选。结论可拆三段依据：窗口、阈值版本、类型证明。</li>
+<li><b>有效信号与复核事件：有效区间、意见、处置分三层。</b>信号一十点零五分产生、有效到十四点（不含）；到期只改状态为“过期”，支持边仍在；复核员为消警删掉原始日志——错。三时点：十点零五分应用采纳信号一；十一点复核员记“正常共用”意见——否决线索不等于抹除观测；十四点区间结束，应用移除支持边重推。筛选有效区间的是应用：本体不读时钟。</li>
+<li><b>形式正确性与任务有效性：两套依据、三个分母。</b>六个样本标签固定：一、二阳性，余四阴性。精确率＝提示里多少命中，召回率＝阳性里找回多少：旧提示只中样本一（精确率 1、召回率 1/2），新提示样本一到三（精确率 2/3、召回率 1）。“一减精确率”分母是全部提示（1/3），假阳性率分母是全部阴性（1/4），不能混称误报率。</li>
+<li><b>证据缺失与分层验收：结构违规、形式蕴含、现实判断分开。</b>信号一的来源字段被误删，形状校验报违规；但类型和关系边都在，原始图仍然蕴含“账户甲是候选”——蕴含＝由图里事实和公理能推出来（第 5 期已建设）。值班同事却判“知识库不一致”、删线索、摘要写“账户无风险”；第二轮由应用决定隔离、重推发布图，不能宣告无风险——结构缺项不证明业务命题的否定。</li>
+</ol>
+<p><b>项目对照（保守，只写核实得到的）：</b>观测事件模式项目已在用——第 3 期的事件实体化：日报行 Z16-20230101-A 是一次观察，带井号＋日期＋班次＋产量；井档一井一行、观测行带井号指回（主数据与观测记录分离）；行粒度＝班次（裁决 PROP-BOHAI-007=A，第 16 期讲过），一次观察不是重复录入。⑤卡新增行是这个模式的延伸演示：甲、乙与设备 E-01 是演示用例，不是项目真源实体；观测事件表和 E-01 设备行都在④卡。其余对应：不按金额去重＝（井，日，班次）唯一做闸（第 16 期讲过）；程序生成信号＝RULE-PETRO-020 检出挂问题单、不直改（第 3 期已建设），复合信号类型子类没有对应物（没有推理机，第 5 期已建设）；不删观测＝台账行禁手改、版本轴只追加（第 21 期讲过）；缺项不证明否定＝缺记录只答“未知”（第 6 期已建设）。</p>
+<p><b>第 28 期实施要点：</b>一次发生记一条观测，带时点带来源；共用设备不合并人；信号程序生成、判定人来改；记录不删，缺证据不下“无风险”。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>“两个人共用一台设备，就是同一个人吗？”——不能这么算。每次使用单独记一条记录，人和事件的身份分开；判定可以改，记录不许删。</b>用画布上的演示数据分步走。</p>
+<h3>第一步：先拆三个词。</h3>
+<p><b>观测</b>＝一次发生的一条记录：谁、什么时候、对什么、出处是哪份日志，一条带齐。<b>事件实体化</b>（第 3 期已建设）＝给一次发生单独立身份，不写成对象身上的标记——日报行 Z16-20230101-A 就是这么立的：井号＋日期＋班次＋产量，一次观察一条。<b>复合分类</b>＝一个对象归进某个名单，是几条条件凑在一起推出的结果，不是复制一份新身份——多一个分类不多一个身份，第 2 期已建设。</p>
+<h3>第二步：原著中的典型事故——一条边把两个人并成一个。</h3>
+<p>柜面报表发现账户甲和账户乙共用设备一，直接记成一条“同一关联方”。毛病有三：边何时记的、出自哪份日志没人答得上；设备一其实是家里共用的平板，家庭共用被当成同一主体；“关联”本身代替不了身份核验。解法：每次连接单独记成观测——观测一记“甲八点十分用设备一”，观测二记“乙八点二十分用设备一”，各带时点来源；“共用设备”是两条观测都指向设备一推出的说法。后来确认是家庭平板：改判定、改结论，观测一条不删——不为消除误报篡改观测。</p>
+<h3>第三步：画布上的演示——两个操作员共用一台平板。</h3>
+<p>先说明：操作员甲、乙和设备 E-01 是教学演示用的例子，不是项目真源实体；观测事件表和 E-01 设备行都在④卡。分三小步：第一步，甲八点十分用 E-01，记观测一，谁、何时、设备、来源四件带齐；第二步，乙八点二十分用 E-01，记观测二，同样四件；第三步，回答“是不是同一个人”——两条观测只证明两个人先后用过同一台设备，不能证明是同一个人，也不能证明有问题。人是一个人、事件是两件事：设备不因共用变成两个人，人也不因共用并成一个。项目里同一模式的记录就是日报行：Z-16 同一天 A 班 8.2、B 班 7.9，两行是两次观察，不是重复录入（第 3 期已建设，裁决 PROP-BOHAI-007=A）；井档一井一行，观测行带井号指回去——主数据一份，观测多条。多条记录求和前先归一：复本按编号认，不按相同金额认（第 16 期讲过：重复行进问题单）。</p>
+<h3>第四步：信号、时钟、缺证据、算分母——四条配套规矩。</h3>
+<p><b>一，信号由程序生成，本体不从数值里补。</b>原著：脚本读到九万元就打“待复核”标签，图里却没有信号对象，依据只有“模型判的”。解法：外部程序按六万元阈值比金额，生成“窗口信号”连到账户；本体补类型（复合信号＝需要人工复核的信号）；结论能拆成窗口、阈值、类型三段依据。项目对应：吨方混写检出挂问题单、不直改（第 3 期已建设）——问题单是程序生成的一条记录。<b>二，时钟在应用手里。</b>信号到期只是状态改“过期”，支持边还在；复核员否决线索就记“正常共用”意见，原始日志全保留——否决不等于抹除观测。项目同款：台账行禁手改、版本轴只追加（第 21 期讲过）；井状态滞后靠治理稽核（第 20 期讲过）。<b>三，缺证据不下“无风险”结论。</b>信号来源字段被误删，形状校验（检查必填字段带没带齐）报违规，这不等于“知识库不一致”，更推不出“账户无风险”；项目同款：日报查不到某行只答“未知”，不推“该井停产”（第 6 期已建设）。<b>四，比例必须写明分母。</b>“一减精确率”的分母是全部提示，假阳性率的分母是全部阴性，不能混称“误报率”；项目验收把期望答案写死到行（第 19 期题册锚值），范围不对直接判错。</p>
+<h3>数据核对</h3>
+<p>回到看板选第28 期，黄色高亮四处。①⑤实例装配卡找“观测事件”那行：甲、乙共用设备 E-01——自己数：人名两个、观测两条，一次使用一条记录，人没有并成一个。②⑧运行时问答卡找“两个操作员共用一台平板，算谁的？”那行：答“各记一条观测事件：观测者与设备都留身份——共用设备不合并人，一次使用一条记录”。两处都对上，本期验收即完成。</p>`},
+29:{
+base:`<h2>本期解决的核心问题：<b>一条结论只在它匹配的范围内算数——证据要带时点、按时间窗配对、依赖沿登记可追；“报告写着通过”不等于“现在仍通过”。</b></h2>
+<p><b>方法主题（依赖推理与证据匹配）：</b>原著中的典型事故：验证报告只写一句“测试三：失败”，没写哪个实现、哪个配置、哪一刻，复制改名的报告还被当成第二份证据。原著拆成六个知识点。<b>画布改动两处：</b>④卡加“证据匹配”表，⑧卡加问答行。</p>
+<h3>本期的六项设计要点</h3>
+<ol>
+<li><b>运行实体与报告实体：每次验证立一条运行记录。</b>把每次验证建成“运行”对象——哪次运行、执行哪个测试、对准哪个实现加哪个配置、哪一刻；报告沿运行回溯到需求，适用范围仅限那个目标。测试可反复执行，一次失败不改变测试定义；复制改名仍是同一次运行——文件副本和业务运行不是同一种身份，不产生第二份证据。</li>
+<li><b>当前目标与三种状态：先冻结统计范围，再分状态。</b>先划定当前目标，再在冻结清单——统计前固定的需求范围，结果出来不增减——上分三种状态：缺当前证据、当前通过、当前失败；实现不对、配置不符的运行先排除。通过比例的分母是冻结清单里的需求个数，“三分之一”不是代码覆盖率。先通过、后失败的，按需求、实现和配置选出最新有效运行再读结果。</li>
+<li><b>有效证据视图：先校验，再在视图上提问。</b>直接扫原始运行表，会把缺“实现摘要”（标明实现版本的字段）的记录读进统计，空集还被误判成“程序坏了”。解法：先校验必填字段，缺项隔离；再按需求、实现和配置各组保留最新有效运行，组成有效证据视图，查询只回答视图内的事实。空集表示视图内没有匹配——不是程序报错，也不是现实里不存在；查不到只回“未知”（第 6 期的三态讲过）。</li>
+<li><b>依赖影响走两条轨：传递闭包加属性链。</b>左轨传递闭包：依赖按声明的关系传递，沿“谁依赖谁”推出间接依赖，反查得受影响候选。右轨属性链：两条关系首尾相接才能组合（“分配到”接“实例属于”得“关注”），终点对不上就不能组合——不是所有箭头都可传递。两条边界：可达不证明存在缺陷；缺边不证明现实里没有依赖——失去证明叫“未证明”，不叫“证伪”（第 5 期已建设）。</li>
+<li><b>复验建议与签核分离。</b>门禁＝签核前必须满足的质量门槛和授权检查。证据状态只决定复验建议：旧实现通过的在当前实现复验；当前通过的仍核对配置和依赖；当前失败的先修复再复验、保留失败记录。签不签核另由门禁和授权决定——证据判断和执行决定分别留依据。</li>
+<li><b>新增证据只改变匹配的结论。</b>新增一条通过的运行，报表把整体改写成“已通过”，缺字段的记录也混进了发布视图——别的需求真实的失败被冲掉。解法：先按必填约定校验，缺项隔离；重跑查询——通过集逐条更新，失败的那条不变，签核也不因此完成。</li>
+</ol>
+<p><b>项目对照（保守，只写核实得到的）：</b>化验和日报的配对就是“证据匹配”：化验证据带取样日期（化验表就在④卡——Z-16 两行取样：03-06、03-13，证据带时点看得见摸得着），与日报按“井号＋取样日期＋时间容差”配对才可用（第 12 期连接白名单讲过），容差＝取样时间窗（RULE-PETRO-002）——证据带时点、超窗不自动沿用。井状态同理：状态滞后（问题清单 D7）意味着“上次的通过”不等于“现在仍成立”，靠治理稽核出清单兜底（第 20 期讲过）。依赖可追：本体元素逐条注源，每条结论能沿 ref 找依据；删一条支持，--impact 反查受影响集（第 23、24 期讲过）。</p>
+<p><b>没有的如实说：</b>项目没有“测试运行”对象和“冻结清单”机制；没有推理机（第 5 期已建设），自动推理不做——闭包是显式计算：--closure 沿登记的引用边正向走、--impact 反向走（第 11 期已建设），属性链组合没有对应物。</p>
+<p><b>第 29 期实施要点：</b>证据带时点、按窗配对、超窗不算当前证据；依赖沿登记的引用可追；证据只决定复验建议，签核另走门禁；新证据只改它匹配的那条结论。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>“报告写着通过，现在还算数吗？”——不一定。报告只证明它做出来的那一刻；要拿它当现在的证据，得带时点、按时间窗配对，过期不自动沿用。</b>用“化验报告写着合格”这件事分步走。</p>
+<h3>第一步：先拆三个词。</h3>
+<p><b>证据匹配</b>＝判断一条记录能不能当作某个结论的依据：它说的是谁、哪个时间点、范围多大，三样都对得上才能用。<b>时间窗</b>＝允许配对的时间范围：两件事间隔多近，才认作“说的是同一段时间的事”。<b>依赖推理</b>＝沿着登记好的“谁依赖谁”，算出改一处会牵动哪些——注意，这里的“推理”只是沿登记的链条一步步走，不是机器自己猜。</p>
+<h3>第二步：证据带时点。</h3>
+<p>项目里化验报告（流体化验：记含水率化验值、密度这些实测值）每一份都带取样日期——化验表就在④卡，Z-16 两行取样（03-06、03-13），证据带时点看得见摸得着。报告上写着“合格”，这句话说的是什么？是采样那天那份样品的化验结论。它没有说这口井今天仍然合格。所以拿到“合格”两个字，第一步先把报告的时点找出来——没带时点的结论，连“这是哪天的”都说不清，谈不上当证据。</p>
+<h3>第三步：按窗配对，超窗不算。</h3>
+<p>要拿化验去证明日报里的数（这两张表直接连默认禁止，第 12 期已建设），配对条件登记在连接白名单里：井号相同＋取样日期对得上＋时间差在容差内——容差就是取样时间窗（登记在 RULE-PETRO-002）。三样都满足，这条化验才可用于这条日报；超出时间窗的化验，不自动沿用成现在的结论。井状态同理：状态可能更新不及时（已知质量问题 D7，第 20 期讲过），“上次记录是生产中”不等于“现在仍在生产”——过期信息靠治理稽核定期出清单兜底，不自动沿用。</p>
+<h3>第四步：依赖可追。</h3>
+<p>一条结论凭什么成立，要能顺着链条找到依据：本体里每个元素逐条登记出处，每条回答带引用（第 23 期讲过）；删掉一条支持，用 --impact 反查受影响集（第 24 期讲过）。原著里“依赖影响”还有一个用途：部件改版，沿登记好的依赖关系把间接受影响的都找出来，不靠人工翻表漏项。两条边界记牢：沿链条走到了，不证明真有缺陷；链条上缺一条边，不证明现实里没有这个依赖——“未证明”不等于“证伪”（第 5 期已建设）。</p>
+<h3>第五步：证据只改它匹配的那条结论。</h3>
+<p>原著中的典型事故：新增一条通过的运行记录，报表把整体改写成“已通过”，别的需求真实的失败也被冲掉了。正解：新证据进来，先校验字段齐不齐（缺的隔离，不让它进统计），再重新统计——它只更新和它匹配的那一条结论，失败照旧是失败。统计范围先用冻结清单固定：开算之后不往里加、不往外减，分母不变。查不到当前证据的那几条，状态是“缺当前证据”，不算失败——查不到只回到“未知”（第 6 期已建设）。</p>
+<h3>数据核对</h3>
+<p>回到看板选第29 期，黄色高亮两处。①④业务数据库卡找那张证据匹配表：自己读一遍配对三件套——井号＋取样日期＋时间容差。②⑧运行时问答卡找“化验报告写着合格，现在还算数吗”那一行：答案里三个词——时点、窗口、依赖可追。两处都对上，本期验收即完成。</p>`},
+30:{
+base:`<h2>本期解决的核心问题：<b>抽取模型读出的话先当候选存着，过类型和取值两道闸、人工核过才成事实——“可能停工”不许写成“已停工”，置信度 0.99 也不行。</b></h2>
+<p><b>方法主题（候选采纳及工具响应契约）：</b>原著中的典型事故：原文写“供应商甲可能停工”，抽取模型输出“已停工”，置信度 0.99 直接入库，采购系统随即切换。代价：语气词丢了、结论失真——误切供应商造成赔付。<b>画布改动两处：</b>⑤卡加拒收行，⑧卡加问答行。</p>
+<h3>本期的五项设计要点</h3>
+<ol>
+<li><b>候选陈述与知识采纳：抽取结果先建候选，不直接进事实图。</b>候选保存原句位置、抽取器版本、置信度、拟议内容；它身上的边只描述候选，不新增“已停工”这条事实。采纳前逐项核对对象、时间、来源、语气。置信度只是模型自评的把握，不等于事实，按分数放行须另有政策和评价证据；置信度不改变原文主张的语义（记录不等于采纳，第 23 期讲过）。</li>
+<li><b>结构校验与语义核验：两道独立产物，不互相替代。</b>自动规则“三项不空→采纳”放过了原句“疑似”、拟议“确诊”的候选——结构报告被当成内容核准。解法：结构校验不看内容，只查该填的位置有没有值（空字符串也算值）；语义核验比对原句和拟议内容，看原意改没改。通过结构校验不等于可采纳。</li>
+<li><b>相关性与逻辑蕴含：检索到不等于推得出。</b>一段文字同时出现“需求一”“搬运模块第二版”，摘要写成“两者已关联”——相关被当成蕴含（＝由前提和规则必然推出，第 5 期已建设）。解法分两组：检索组只列段落和引用，送候选核验；推理组要完整前提，沿“分配到”接“实例属于”才推出“关注”；换到没有版本关系边的实例，蕴含已无支持。引用数量补不出关系公理。</li>
+<li><b>工具结果的语义契约：响应必带字段，动作字段不能创建权限。</b>签核助手只回“建议放行”，图版本、证据全丢，动作字段却写“批准”。解法：响应必带查询视图、图版本、证据，动作＝无；允许列表固定可执行的查询。工具契约只允许读取——输出字段本身不能创建权限，应用不照做模型的擅改。</li>
+<li><b>证据依赖与答案失效：证据一变，旧答案失效，在新图上重跑。</b>证据撤回了，看板还挂旧摘要，查询超时被继承成空集。规矩：同一查询在新图重新执行，摘要不伪造引用；空集是视图内没有匹配；超时不可写成空集——报查询未完成，旧答案只带历史版本标签。</li>
+</ol>
+<p><b>项目对照（保守，只写核实得到的）：</b>⑤卡演示「Z-16 状态＝可能停工」走四步：记候选不当事实（第 23 期讲过记录≠采纳）；对号表核类型——对号表＝平台从本体导出的对照表（有哪些类型、谁和谁能连），类型不符直接拒收（第 5 期已建设）；枚举核取值——井状态 currentStatus 是枚举（第 2 期已建设：取值固定只能选其一），只有生产中/停产/检修/待弃置四值，“可能停工”进不来；不猜——拒收落问题单转人工，与第 7 期“匹配失败不猜”同一纪律。拒收台账在⑤卡那张表里——第 5 期的类型拒收和本期的枚举拒收都在同一本台账，两张拒收单并排看。不确定表述另有一道总闸：语义服务四型裁决——面外拒答、仓内没有、禁用词，查不到说明缺什么，绝不编（第 5 期已建设四步瀑布）。工具契约对应：连接白名单＝允许列表（第 12 期已建设）；台账行禁手改、唯一写口是同步器（第 26 期讲过）。证据失效对应：版本轴只追加（第 21 期讲过）；派生物每次从真源全量重建、不缓存（第 25 期讲过）；超时≠空集、查不到如实报（第 6 期已建设三态）。</p>
+<p><b>没有的如实说：</b>项目没有“按置信度阈值自动采纳”的政策——候选过闸靠确定性核对不靠分数；“比对原句与拟议内容”的独立语义核验工序没有对应物——闸管结构（红因分层，第 13 期已建设），原意改没改靠人工核；“可能停工”候选是画布演示用例，不是项目真源数据。</p>
+<p><b>第 30 期实施要点：</b>抽取先当候选，采纳前不进事实图；对号表核类型、枚举核取值，双重把关；不确定落问题单转人工，不擅自归类；证据一变旧答案失效，重跑查询。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>报告里写“可能停工”，系统能不能记成“已停工”？——不能。机器读出的话先当候选存着，过两道闸，过不去就交给人，不猜。</b>用“可能停工”这五个字分步走。</p>
+<h3>第一步：先拆三个词。</h3>
+<p><b>知识抽取</b>＝让程序从报告、表格这些材料里读出一条条事实（谁、是什么状态、哪一天），准备写进图里。<b>对号表</b>＝平台从本体导出的对照清单，写明“有哪些类型、谁和谁能连”；抽取结果先对它核一遍，类型不对直接拒收（第 5 期已建设：「MR-001 隶属 渤南区块」就是这么被拦下的）。<b>枚举</b>＝取值固定只能选其一的清单——井状态的枚举只有四个值：生产中、停产、检修、待弃置（第 2 期已建设 N-02 改状态，改的就是这个字段的一个值）。清单里没有的值，填不进去。</p>
+<h3>第二步：先看原著中的典型事故——“可能”被删成了“已”。</h3>
+<p>文档原文“供应商甲可能停工”，抽取模型输出“已停工”，还带着 0.99 的置信度直接入库，采购系统随即切换供应商。两个毛病：一，“可能”这个语气词丢了，不确定变成了确定——误切供应商要赔付；二，<b>置信度 0.99 只是模型自评的把握，不等于事实</b>——分数再高也代替不了核对。原著的解法：抽取结果先建成“候选”——原句在哪、哪个版本的抽取器读的、置信度多少、打算写成什么，全存着；采纳前逐项核对对象、时间、来源、语气，核对之前不进事实图。</p>
+<h3>第三步：项目的走法——“可能停工”过四步。</h3>
+<p>假设一份报告写到“Z-16 可能停工”（这是画布演示用例，不是项目真源数据）。第一步，记候选：先存成一条待核的抽取结果，不当成事实——记录不等于采纳，第 23 期讲过。第二步，对号表核类型：状态挂在井身上，类型对得上。第三步，枚举核取值：“可能停工”不在四个值的名单里，进不来——枚举外没有第五种写法。第四步，不猜：拒收，落问题单转人工——和第 7 期“归一化匹配失败不猜”是同一纪律：机器判不了的不硬判，交给人。拒收台账在⑤卡那张表里——第 5 期的类型拒收和本期的枚举拒收都在同一本台账，两张拒收单并排看。拒收也不静默：台账里没有的元素硬塞进来，锚校验不过直接抛错（OntologyDriftError，第 22 期讲过）。</p>
+<h3>第四步：三条配套规矩。</h3>
+<p><b>一，查一遍结构不等于核过内容。</b>原著里“字段都填了→自动采纳”的规则，放过了原句“疑似”、拟议“确诊”的候选——要拆两道：一道查字段齐不齐，一道比对原句和要写进去的话，看原意有没有被改掉。<b>二，检索到不等于推得出。</b>一段话同时出现两个名字，就写“两者已关联”——同时出现不等于关系成立；结论要由前提和规则必然推出（蕴含，第 5 期已建设），引用再多也补不出那条规则。<b>三，证据一变，旧答案失效。</b>证据撤回了，看板还挂旧结论，就是事故；要在新数据上重跑同一查询。两条边界：查出来零条，说“视图内没有匹配”；查询超时，说“没查完”——不许把超时写成零条（第 6 期已建设：查不到只回“未知”）。工具侧同理：回答必须带着“查的哪版数据、哪份证据”，动作只能是查——台账行禁手改，唯一写口是同步器（第 26 期讲过）。</p>
+<h3>数据核对</h3>
+<p>回到看板选第30 期，黄色高亮两处。①⑤实例装配卡找两条拒收记录：第 5 期那条——「MR-001 隶属 渤南区块」类型核对不过；第 30 期这条——「Z-16 状态＝可能停工」不在枚举。自己对比：两条候选都没入图，一条卡在对号表，一条卡在枚举。②⑧运行时问答卡找“报告说‘可能停工’，能写成已停工吗”那行：答案三件事——枚举没有这个值、落问题单转人工、对号表＋枚举双重把关。两处都对上，本期验收即完成。</p>`},
+31:{
+base:`<h2>本期解决的核心问题：<b>答案不能比证据更宽——只有两家报价，承诺不了"全场最低"；问题缩到数据能答的范围；公理、事实、派生分开冻结；三类机制各交各的产物；回归从冻结基线独立执行。</b></h2>
+<p><b>方法主题（本体应用与能力问题验收）：</b>方法论场景：开题要"最低补货成本"，手上只有商品一的两条报价——输入？期望答案？写不出来：缺成本模型、缺约束、缺验收口径。这时承诺"最低"就是<b>承诺远超可得的证据</b>。解法：把能力问题改小，固定成"哪些目标有记录证据？证据来源是什么？"——范围、输入、期望答案重新对齐。原著把同一件事换了三个行业演三遍（各两条报价/信号/报告）：标签只是给人看的名字，对象和关系不变；物流边界：两份运价报价，<b>保证不了全局最低成本</b>。</p>
+<h3>本期的四项设计要点</h3>
+<ol>
+<li><b>能力问题的领域迁移：先缩到证据能回答的范围。</b>想直接答"能否签核"，要么补齐模型（目标版本和配置、有效运行和结果、检查清单和授权条件），要么缩小问题；<b>不能把"有报告"改名成"已签核"蒙混过去</b>。</li>
+<li><b>基线：词表与公理、实例图、派生类型分开保存并冻结——实例图是原始事实，派生类型是推得的；变更另建副本，基线是共同起点。</b>原著事故：验收包只剩一句"目标甲 属于 有据目标"，事实和类定义都被清掉——无法重新推出，<b>待证结论反被用作输入</b>。公理里"至少一条证据"叫<b>存在限制</b>：只要求有，不点名哪条。</li>
+<li><b>分类、校验、查询：三类机制分层交产物。</b>原著事故：交付只有一张查询截图——三类机制混成一类，出错找不到哪层。解法：各交各的结果、输入版本和执行设置，按<b>先预测→再运行→再核对</b>做，不许先看结果再补理由。边界：校验只查"有没有来源"不查"可信不可信"；查询结果不能代替分类证明和全部形状报告；纸面执行须注明，不假造工具报告。</li>
+<li><b>变更回归：每张卡从基线独立执行，不可串行。</b>原著事故：回归表只有一列通过/失败——删来源、删边、删两条边记成同一个失败，甚至删反例让表假性"通过"。解法：三张卡都从冻结基线出发、其余事实保留，先写预期再执行；仍返回旧结果就查基线版本和<b>物化缓存</b>（上次推出存下、没更新的旧结果）；<b>失败样例不许删</b>。删两条边后证据、来源还在，校验照过——缺的是连接前提；<b>"未推出"不能写成"否定"</b>；留着卡甲的修改跑卡乙，不算独立回归。</li>
+</ol>
+<p><b>项目对照（保守，只写核实得到的）：</b>渤海油田产量域没有采购报价数据，"两条报价"是原著世界的场景；项目同一条纪律的落点是<b>题册边界</b>——98 题带锚值判分（第 19 期讲过：Z-16 全年产油 5839.63 吨写死到行），题册答对＝契约内的"对"；<b>题册没问的（如"是不是全场最低"）超边界，答"未知、缺什么"，不外推、不承诺</b>（报价表在④卡——两行、样本边界看得见；第 1 期"N-02 油质"答"未知，缺化验类数据"同一纪律；面外拒答、说明缺什么，第 5、6 期讲过）。基线分开对应：本体仓只放定义、实例不进本体仓；引用图每次全量重建、禁止缓存成权威（第 25 期讲过）——原著怕物化缓存返回旧结果，项目干脆禁止缓存。三类机制分层：校验＝闸、图计算＝图索引、检索＝语义服务、成稿＝LLM（第 14 期讲过）。回归独立：出厂集夹具期望先写死，非法变体必须红、失败样例一条不许少，漏一条＝判据漂移（第 18 期讲过"冻结输入才能归因"）；"未推出≠否定"＝第 6 期三态。读取侧同款边界：证据池空＝明示不硬答（⑤卡证据共池表）。</p>
+<p><b>没有的如实说：</b>项目没有公理和存在限制——本体是 YAML，零推理机（第 5 期已建设）；"派生类型可重新推出"没有对应物——派生物不落盘、每次全量重建；⑧卡"两家报价"行是方法论场景的演示行，不是项目真源数据。</p>
+<p><b>第 31 期实施要点：</b>答案只到证据为止——面外拒答、说明缺什么；公理、事实、派生分开冻结，只留结论不算交付；三类机制各交各的产物；每次回归从冻结基线独立执行，失败样例不许删。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>手里只有两家报价，就不能承诺"全场最低"——答案只能下到登记过的数据为止；出了这条线，明说"不知道、缺什么"，不许往外推。</b>就用"两家报价"分步走。</p>
+<h3>第一步：先看数据里有什么。</h3>
+<p>先拆词。<b>证据</b>＝写进系统里的记录：一行日报、一份化验单。<b>能力问题</b>＝"问题＋给什么数据＋期望答案"三样凑齐的一道题，动手建系统前先写它（第 1 期已建设）。原著开场：立项要"最低补货成本"，系统里只有两家供应商的报价记录。清点一下——有的：两家报价各是多少；没有的：其余供应商报价、约束条件、算总成本的方法。所以能答的只有"这两家里谁低"，答不了"全场最低"——全场几家，系统没有任何记录。把能答的题固定下来："哪些目标有报价记录？来源是什么？"——这叫把问题缩小到数据能回答的范围。</p>
+<h3>第二步：再划契约边界。</h3>
+<p><b>契约边界</b>＝写死的验收范围：系统承诺答对哪些题，名单之外不算数。项目的版本是题册：98 道测试题，每题带标准答案，判分脚本拿锚值（写死的精确数，比如 Z-16 全年产油 5839.63 吨）对答案，可重跑（第 19 期讲过）。边界两头：题册内的题，答错就是不合格；题册外的题，平台不接——不是不想答，是<b>题册没把它登记成承诺</b>。原著还要求三样分开保存：<b>公理</b>（写下来的定义和规则）、<b>原始事实</b>（一条条记录）、<b>派生结论</b>（算出来的，比如全年合计）。只交一句结论、删掉原始数据和规则行不行？不行——没法重新算一遍核对，等于把要证的结论自己当证据用。项目照办：本体仓只放定义，业务库只放原始行，台账和引用图都是每次从真源重新生成的副本，不许存档冒充真源（第 25 期讲过）。</p>
+<h3>第三步：边界外拒答、不外推。</h3>
+<p>先拆词：<b>样本外</b>＝要下结论的范围超出了手里记录覆盖的范围——登记面里只有两家报价，"全场"就在样本外；报价表在④卡——两行、样本边界看得见。问"只有两家报价，能说采购价最低吗？"答案：不能说。三条纪律项目全在用：<b>一，面外拒答</b>——超出平台管的面的问题直接拒答，并说明缺什么（第 5 期已建设四步瀑布）；<b>二，查不到只回"未知"</b>——问"N-02 的油质合格吗？"答"未知，缺化验类数据"（第 1 期在案）；缺记录不等于没生产、没报价（第 6 期已建设三态）；<b>三，判分只对题册内负责</b>——题册没问的，不外推、不承诺。原著同款边界："有报告"不许改名成"已签核"——有记录是一回事，合格是另一回事，没登记验收条件就不能跨。读取侧同款边界：证据池空＝明示不硬答（⑤卡证据共池表）。</p>
+<h3>第四步：交作业和改动的三条规矩。</h3>
+<p><b>一，各交各的产物。</b>原著要求分类、校验、查询分开交结果，一张查询截图顶不了全部——查出来了，不等于校验做过，更不等于证明过。项目同款：校验归闸、算图归图索引、检索问答归语义服务（第 14 期讲过）。<b>二，每次改动从同一条基线重新考。</b><b>基线</b>＝验收共用的固定起点版本；<b>回归</b>＝改完把原来的题重跑一遍，看有没有把对的改错。每张回归卡（写明"删哪条、预期什么结果"）都从冻结的基线独立出发，不许接着上一张的改动跑——两处改动搅在一起，错了说不清是哪处引起的。项目同款：出厂集的夹具（固定测试文件）期望先写死，非法变体必须全红，漏一条＝判据漂移（第 18 期讲过）。<b>三，失败样例不许删。</b>删了它，表上"全过"是假通过。还有一句接第 6 期：删掉连接后查不出来，叫"未推出"，不能写成"否定"——查不到只回到"未知"。</p>
+<h3>数据核对</h3>
+<p>回到看板选第31 期，黄色高亮两处。①④业务数据库卡在题册样例行表下面找那张验收边界表，读一遍：题册答对＝契约内的"对"；题册没问的超边界——答"未知、缺什么"，不外推、不承诺。②⑧运行时问答卡最后一行："只有两家报价，能说采购价最低吗？"答案：不能——样本外不下结论，答案只到登记面为止，面外拒答并说明缺什么。两处都对上，本期验收即完成。</p>`},
+32:{
+base:`<h2>本期解决的核心问题：<b>本体建好只算一半，还要过质量两问——判据可靠吗：每条判据配反例，一条漏网＝判据漂移；结论稳吗：删一条支持列受影响集，塌了定位最小前提集，不塌＝支持不止一条。反例一票否决。</b></h2>
+<p><b>方法主题（本体质量评估与反例检验）：</b>开场事故：答辩再播顺利演示，同伴问"删掉一条支持，结果会怎么变"，没人答得上——再播证明不了理解。知识点：反例驱动的本体检验、质量按证据完整性给分、先正确性后成本、错误定位三段知识链。</p>
+<h3>本期的四项设计要点</h3>
+<ol>
+<li><b>反例驱动的本体检验：先写预期，再删一条支持，指出剩余支持。</b>规矩：有据目标＝至少连一份证据，每份证据至少一个来源。流程：先声明输入版本、要证结果、三类输出（分类/校验/查询）预期；同伴指定反例：只移除目标甲到证据一的边；结果是证据二路径完整，仍推出有据目标。只连一份证据的，删掉后分类推不出，但不能写成"不属于"——未证明不是证伪（第 5、6 期讲过）。边界：一次成功展示代替不了对改变前提的测试。</li>
+<li><b>质量按证据完整性给分：分数衡量证据，不衡量规模。</b>原著批评按汇报页数和节点数打分——量的是规模不是证据。分法：五项共 100 分（问题范围 15、语义与公理 25、机制输出 30、来源解释 15、修订与反例检验 15），每项三档——正确且可复现满分；只给结果缺依据半分；机制混淆零分。评审先指证据位置再打分；权重是教学约定非标准。</li>
+<li><b>先正确性，后成本：输入和契约变过就不可比。</b>原著事故：新版查询快三倍，但数据范围变小、失败样例被删、答案契约没固定——删失败样例是制造改进。解法：先固定问题、数据、验收，正确性过了再同环境比成本；基线加三个独立变更（删来源、删一条支持、删全部支持）跑相同问题；新版混入旧缓存先判语义回归失败；物化降读取、增删除维护成本，没测量的写"待测"。</li>
+<li><b>错误定位到三段知识链：对象、蕴含、检验与工程。</b>原著事故：删掉唯一信号的来源后校验报错，团队报"本体不一致"——违规当逻辑不一致，就会去改公理而非补来源。解法：定位到三层——对象（身份、类与实例）、蕴含（继承、传递，查不到≠不存在）、检验与工程（校验、映射、版本、来源）。本例：分类仍被推出，来源形状检查失败——两层各自成立，不是逻辑不一致，校验违规只是数据不合形状。</li>
+</ol>
+<p><b>项目对照（保守，只写核实得到的）：</b>配反例是项目固定工序——出厂集回归给每条闸判据配非法变体夹具（故意写坏的测试文件），一条漏网＝判据漂移（第 5、18 期讲过）。删一条支持看影响：graph_index --impact 反向走依赖边，列受影响节点集，塌了定位最小前提集——共同撑住结论的最少几条前提，逐项去掉看塌不塌（--impact 第 24 期、依赖可达第 11 期、找法第 7 期、红因分层第 13 期）。质量评估＝两道可重跑契约：红因分层 L1–L4＋eval 题册 98 题带锚值判分（第 19 期讲过）。删失败样例＝制造改进，一条不许少（第 31 期讲过）；旧缓存堵死——引用图每次从真源全量重建（第 25 期讲过）。</p>
+<p><b>没有的如实说：</b>"蕴含"层（继承、逆关系、传递的推理）没有——零推理机（第 5 期已建设），红因分层是检验层的分层；五项百分制评分表没有——项目不打总分；"同伴出反例＋互审记录"没有对应物，最接近提案制：预检＋Owner 裁决留痕＋人工合入（第 26 期讲过）。</p>
+<p><b>第 32 期实施要点：</b>判据配反例，一条漏网＝判据漂移；删一条支持，先列受影响集，塌了定位最小前提集，不塌＝支持不止一条；先正确性后成本；错误先分层定位再动手。<b>收官（32 期完）：</b>第 1 期说"答不出就明说缺什么"，本期补上另一半——答得出的也要经得起"删一条支持还成立吗"：答案带证据（第 23 期 citations），判据配反例（出厂集）。</p>`,
+renhua:`<h2>实施要点（面向落地的通俗说明）</h2>
+<p>以下用更直白的语言说明本期改动与数据依据。<b>东西建好了不算完，还要会问两句：检查的规矩可靠吗？结论站得住吗？检验动作就一个：删掉一条支持，看结论塌不塌。</b>下面就用"删掉一条支持"分步走。</p>
+<h3>第一步：先拆三个词。</h3>
+<p><b>反例检验</b>＝故意构造一个应该被系统拦下的坏输入，喂进去看它拦不拦：该红的没红，说明检查规矩自己错了。<b>支持</b>＝撑住一条结论的依据，原著里是"目标连证据、证据连来源"这样一条条完整的路。<b>最小前提集</b>＝撑住一条结论（或一起造成一个错）的最少那几条前提，拿走任何一条，结论就塌。第 7 期已建设最小冲突集（互相冲突的最少那几条前提），第 13 期已建设"冲突定位到最小前提集"，说的是同一件事。</p>
+<h3>第二步：原著的演法——删一条边，指出剩余支持。</h3>
+<p>原著基线：目标甲连证据一、证据二，两份证据各有来源；规矩是"有据目标＝目标至少连一份证据，每份证据至少一个来源"。动手前先写预期：输入是哪个版本、要证明什么、分类/校验/查询三类输出各该出什么。然后同伴指定反例：只移除目标甲到证据一的边。结果：证据二那条路完整，"有据目标"照样推出，查询照样查到目标甲——删一条支持，结论没塌，因为支持不止一条。换一种情形：目标只连一份证据，删掉后分类推不出了。注意只能说"推不出"，不能说"不属于"——没证据是"未证明"，不是反方向的"证伪"（第 5、6 期讲过）。</p>
+<h3>第三步：项目的走法——出厂集反例＋--impact。</h3>
+<p>项目把"配反例"做成固定工序：<b>出厂集回归</b>——给每条检查判据配一批非法变体夹具（故意写坏的测试文件：缺必填的、前缀写错的、用禁用词的），改判据先跑出厂集，该红的必须全红，一条夹具漏网＝判据漂移——检查规矩自己错了（第 18 期讲过；第 5 期已建设"一个反例就能否定"）。<b>删一条支持看影响</b>：用 graph_index --impact 沿依赖边反向走到底，把受影响的节点列成清单（第 24 期讲过"改了本体怎么知道旧报表没坏"；第 11 期已建设依赖可达只给候选、不给结论）。塌了（闸红、出厂集或题册回归挂），先定位最小前提集再修；不塌，说明这条结论的支持不止一条，删一条不推翻。</p>
+<h3>第四步：质量怎么评——按证据，不按规模；先正确，再谈快。</h3>
+<p>原著批评一种验收：按汇报页数和节点数打分——量的是规模，不是证据。替代方案：五个维度合计 100 分，每项按证据完整性三档给分：结论正确且能重跑复现，满分；只给结果、缺出处和依据，半分；机制混淆，零分。权重是教学约定，不是标准。项目能核实的对应物是两道可重跑的契约：<b>语义闸红因分层 L1–L4</b>——闸红了按层报错、报文带文件和行号（第 13 期已建设）；<b>eval 题册 98 题</b>——每题带写死的标准答案，判分脚本可重跑（第 19 期讲过）。项目没有百分制评分表。性能那半段先摆次序：新版查询快三倍，但缩小了数据范围、删了失败样例——这叫制造改进；先固定问题和验收，正确性过了，再在同一环境比耗时（第 31 期讲过失败样例不许删；第 25 期讲过先验答案再谈性能）。最后一个定位教训：删掉唯一信号的来源后校验报错，团队喊"本体不一致"就去改定义——错；校验违规只是数据不合形状，先分层定位（对象、蕴含、检验与工程）再动手。</p>
+<h3>数据核对</h3>
+<p>回到看板选第32 期，黄色高亮两处。①本体仓卡拉到最下面，"演化回归三例（第 24 期）"那张表下面找"反例检验（第 32 期）"那张表，读一遍反例账和"结论稳吗"那句注。②⑧运行时问答卡最后一行："删掉一条支持，结论还成立吗？"答案三件事：--impact 列受影响集；塌了定位最小前提集；不塌＝支持不止一条，删一条不推翻。两处都对上，三十二期就全通了。</p>`}
+};
+
+/* ---------- 本期说明浮动窗：两页签（设计说明/实施要点），只显示当前选中期 ---------- */
+const TABS=['base','renhua'];
+function renderNote(){
+  const les=LESSONS[L];
+  document.getElementById('modalNo').textContent='第 '+L+' 期';
+  TABS.forEach(k=>document.getElementById('tab-'+k).classList.toggle('on',TAB===k));
+  document.getElementById('modalBody').innerHTML=(les&&les[TAB])?les[TAB]:'（本期说明编制中）';
+  document.getElementById('modal').scrollTop=0;
+}
+function setTab(t){TAB=t;renderNote();}
+function openModal(){
+  TAB='renhua';renderNote();
+  const m=document.getElementById('modal');
+  // 首次打开：贴着画布当前可视区左上角（略留边），方便对着数据看
+  if(!m.dataset.placed){
+    const r=app.getBoundingClientRect();
+    m.style.left=Math.max(12,r.left+40)+'px';
+    m.style.top=Math.max(12,r.top+40)+'px';
+    m.dataset.placed='1';
+  }
+  m.classList.add('open');
+}
+function closeModal(){document.getElementById('modal').classList.remove('open');}
+/* 标题栏拖动弹窗 */
+(function(){
+  const m=document.getElementById('modal'),bar=document.getElementById('modalBar');
+  let drag=false,sx=0,sy=0,bx=0,by=0;
+  bar.addEventListener('pointerdown',e=>{
+    if(e.target.tagName==='BUTTON')return;   // 按钮/页签点击不触发拖动
+    drag=true;sx=e.clientX;sy=e.clientY;
+    bx=parseFloat(m.style.left)||60;by=parseFloat(m.style.top)||60;
+    bar.setPointerCapture(e.pointerId);
+  });
+  bar.addEventListener('pointermove',e=>{
+    if(!drag)return;
+    const w=m.offsetWidth,ww=window.innerWidth,hh=m.offsetHeight,wh=window.innerHeight;
+    m.style.left=Math.min(Math.max(bx+e.clientX-sx,-w+80),ww-80)+'px';
+    m.style.top=Math.min(Math.max(by+e.clientY-sy,0),wh-40)+'px';
+  });
+  bar.addEventListener('pointerup',()=>{drag=false;});
+})();
+
+/* ---------- 选期器 ---------- */
+const sel=document.getElementById('lessonSel');
+for(let i=1;i<=MAXL;i++){const o=document.createElement('option');
+  o.value=i;o.textContent='第 '+i+' 期';sel.appendChild(o);}
+function setLesson(n){L=Math.min(MAXL,Math.max(1,n));sel.value=L;applyLesson();layout();
+  if(document.getElementById('modal').classList.contains('open'))renderNote();}
+function step(d){setLesson(L+d);}
+function applyLesson(){
+  document.querySelectorAll('[data-lesson]').forEach(el=>{
+    const l=+el.dataset.lesson, until=el.dataset.until?+el.dataset.until:Infinity;
+    const show=(l<=L)&&(L<=until);
+    el.classList.toggle('off',!show);
+    el.classList.toggle('cur',show&&l===L&&L>1);
+  });
+  document.getElementById('prevB').disabled=(L<=1);
+  document.getElementById('nextB').disabled=(L>=MAXL);
+}
+
+/* ---------- 自动紧凑排版 ---------- */
+const ROWW=3000,GAP=24;  // 五卡连排：560+500+560+560+680+4×24≈2956 ≤ 3000
+function layout(){
+  let x=0,y=0,rowH=0;
+  document.querySelectorAll('.card').forEach(c=>{
+    const w=c.offsetWidth,h=c.offsetHeight;
+    if(x>0&&x+w>ROWW){x=0;y+=rowH+GAP;rowH=0;}
+    c.style.left=x+'px';c.style.top=y+'px';
+    x+=w+GAP;rowH=Math.max(rowH,h);
+  });
+}
+
+/* ---------- 缩放平移 ---------- */
+function apply(){world.style.transform=`translate(${tx}px,${ty}px) scale(${s})`;
+  document.getElementById('zoom').textContent=Math.round(s*100)+'%';}
+function zoomAt(cx,cy,k){const ns=Math.min(2.5,Math.max(0.25,s*k));
+  const r=ns/s; tx=cx-(cx-tx)*r; ty=cy-(cy-ty)*r; s=ns; apply();}
+app.addEventListener('wheel',e=>{e.preventDefault();
+  zoomAt(e.clientX,e.clientY,e.deltaY<0?1.12:1/1.12);},{passive:false});
+
+let panning=false,sx=0,sy=0,bx=0,by=0,moved=false;
+app.addEventListener('pointerdown',e=>{panning=true;moved=false;
+  sx=e.clientX;sy=e.clientY;bx=tx;by=ty;app.classList.add('grabbing');});
+window.addEventListener('pointermove',e=>{if(!panning)return;
+  const dx=e.clientX-sx,dy=e.clientY-sy;
+  if(Math.abs(dx)+Math.abs(dy)>4)moved=true;
+  if(moved){tx=bx+dx;ty=by+dy;apply();}});
+window.addEventListener('pointerup',()=>{panning=false;app.classList.remove('grabbing');});
+
+function zoomBy(k){const r=app.getBoundingClientRect();zoomAt(r.width/2,r.height/2,k);}
+function reset(){tx=40;ty=20;s=1;apply();}
+function fit(){let x1=1e9,y1=1e9,x2=-1e9,y2=-1e9;
+  document.querySelectorAll('.card').forEach(c=>{const r=c.getBoundingClientRect();
+    const lx=r.left-tx,ly=r.top-ty,w=r.width/s,h=r.height/s;
+    x1=Math.min(x1,lx);y1=Math.min(y1,ly);x2=Math.max(x2,lx+w);y2=Math.max(y2,ly+h);});
+  const R=app.getBoundingClientRect(),m=30;
+  s=Math.min((R.width-2*m)/(x2-x1),(R.height-2*m-60)/(y2-y1),2.5);
+  tx=(R.width-(x2-x1)*s)/2-x1*s; ty=(R.height-(y2-y1)*s)/2-y1*s+20; apply();}
+
+window.addEventListener('resize',layout);
+setLesson(1);layout();apply();
+</script>
+</body>
+</html>
