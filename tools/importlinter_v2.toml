@@ -13,6 +13,7 @@ name = "V2 runtime 只经 tools 接触世界"
 type = "forbidden"
 source_modules = ["appv2.runtime"]
 forbidden_modules = ["appv2.knowledge", "appv2.query", "appv2.retrieval"]
+allow_indirect_imports = true  # modules.md 边界规则语义＝直接引用才违规（tools 包装引擎即设计路径——V2-06 起 runtime 真消费 tools，传递链不算触界）
 
 [[tool.importlinter.contracts]]
 name = "V2 tools/runtime 不互咬（单向向下防环）"

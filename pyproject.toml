@@ -20,6 +20,7 @@ dependencies = [
     "litellm>=1.103.0",
     "httpx>=0.27",         # infra.llm_client embeddings 适配（P1-11——MiniMax /v1/embeddings）
     "python-multipart>=0.0.9",  # faq 导入端点 UploadFile（B3 端点 15 multipart 落位）
+    "langgraph>=1.2.14",
 ]
 
 [dependency-groups]
