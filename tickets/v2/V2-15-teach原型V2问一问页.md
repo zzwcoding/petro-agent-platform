@@ -1,6 +1,6 @@
 # V2-15 · teach 原型 V2 问一问页（任务 3——落点裁决：teach 仓真源）
 
-状态: 实现中（2026-10-09，P-019 已派发）
+状态: done（2026-10-09，P-019 验收通过·teach 仓待 Owner 合入拍板）
 Touches modules: （teach-petro-agent/prototype/app——非本仓；AGENTS.md 硬纪律 0：页面真源）
 阻塞: 无（与 V2-14 可并行）｜被阻塞: V2-16 web 对接
 

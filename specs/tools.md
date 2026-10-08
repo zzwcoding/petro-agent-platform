@@ -43,7 +43,7 @@ class ToolRegistry:
 
 1. 全部工具 readonly=True 且不得产生任何写副作用（INV-2）；registry 拒绝注册 readonly!=True 的工具。
 2. 参数先经 args_schema 校验：不合→failed(bad_args) 不触引擎。
-3. 引擎异常统一分类：超时/上游抖动→retryable；计划或参数错→bad_args；闸拒（无据/越权口径）→refused。
+3. 引擎异常统一分类：超时/上游抖动→retryable；计划或参数错（4xx 族除 429 外）→bad_args；**429 限流单列 retryable**（临时性，与 gateway 层重试分层不冲突）；闸拒（无据/越权口径）→refused。
 4. query 引擎返回的联合态映射：rows+lineage→observations(权威表,scope=agg)；freshness_block/unbound_degrade
    →observations(闸依据 Evidence/水位)+notice 素材；need_clarify/external_table_approval→status=ask＋AskFrame。
 5. 每个 Observation 必须带来源链（台账行/fragment→report→library/表名），locator 可机读（INV-1 的输入）。
@@ -55,7 +55,7 @@ class ToolRegistry:
 |---|---|
 | 四工具 descriptors 齐、全 readonly（INV-2） | `tests/domains/test_v2_tools.py::descriptors_readonly` |
 | schema 校验失败→failed(bad_args) 引擎零调用 | `tests/domains/test_v2_tools.py::bad_args_notouch_engine` |
-| 引擎超时→retryable；上游 4xx 类→bad_args；闸拒→refused | `tests/domains/test_v2_tools.py::error_taxonomy` |
+| 引擎超时→retryable；4xx 除 429 外→bad_args；429→retryable；闸拒→refused | `tests/domains/test_v2_tools.py::error_taxonomy` |
 | query 联合态四类映射正确（含 AskFrame 形态） | `tests/domains/test_v2_tools.py::query_outcome_mapping` |
 | Observation 来源链完整（fragment 到 library） | `tests/domains/test_v2_tools.py::observation_provenance` |
 
