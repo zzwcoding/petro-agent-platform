@@ -35,6 +35,9 @@ from typing import Any, Protocol
 # 纯派生函数复用（P1F-02——状态标注串复用 C1 展示串规则单源，不重写；非运行期读缝）
 from app.domains.semantics.domain import term_expiry
 
+# B14 时间单源（L-05 时间落定守卫——钉入/复验的「今天」不再各自取时）
+from app.infra.clock import now as clock_now
+
 # ---------- 19 类事件帧（A1 合同值照抄——帧类型集不可改，A1 行为规则 2） ----------
 
 FRAME_SESSION = "session"
@@ -813,6 +816,10 @@ class ChainContext:
     extable_decision: str | None = None  # 审批回流决策 approve|reject（M-06——N7.4c 判据）
     extable_approval_id: str | None = None  # 审批留痕单号（挂起时生成、回流带回）
     data_fallback_note: str | None = None  # 问数链降级接续标注（W-AUX③——接续路消费）
+    # L-05 pinned_plan 新缝（机制 11——字段闭世界：只钉已验证 QueryPlan，不发明
+    # 第二意图结构，守 D2）。None＝本 run 未走 LLM 生效路（快路-only 现状）；
+    # 有值＝N7.1 重跑 validator 只做确定性复验（零模型——D1 LLM 不放链体）后消费。
+    pinned_plan: QueryPlan | None = None
 
 
 # 链体缝（分派注册面——链内逐帧产出 node_line/token/citation/answer 等 SSE 事件，
@@ -1738,6 +1745,132 @@ def validate_query_plan_draft(
     )
 
 
+# ---------- L-05 pinned_plan 持久化投影与确定性复验（机制 11——chat_run.plan_pinned） ----------
+
+
+def plan_pinned_payload(plan: QueryPlan) -> dict[str, Any]:
+    """钉入计划 → 持久化 dict（chat_run.plan_pinned jsonb 投影——全字段照抄，
+    window 端点 ISO 日期化；纯序列化不做语义校验）。"""
+    return {
+        "metric_slot": plan.metric_slot,
+        "metric_name": plan.metric_name,
+        "measure_column": plan.measure_column,
+        "unit": plan.unit,
+        "window": {
+            "start": plan.window.start.isoformat(),
+            "end": plan.window.end.isoformat(),
+            "label": plan.window.label,
+            "is_default": plan.window.is_default,
+        },
+        "limit_requested": plan.limit_requested,
+        "limit_effective": plan.limit_effective,
+        "ranking": plan.ranking,
+        "direction": plan.direction,
+        "external_tables": list(plan.external_tables),
+        "actor": plan.actor,
+    }
+
+
+def plan_pinned_from_payload(payload: Mapping[str, Any]) -> QueryPlan:
+    """持久化 dict → 钉入计划（两向重建等值；坏载荷 ValueError——调用方按复验拒兜底）。
+
+    本函数只做形状重建（纯序列化反向）；持久化载荷不可信——消费前必经
+    revalidate_pinned_plan 重跑 validator（不盲信挂起载荷，机制 11）。
+    """
+    if not isinstance(payload, Mapping):
+        raise ValueError(f"plan_pinned 必须是 JSON 对象，得到 {type(payload).__name__}")
+    required = (
+        "metric_slot", "metric_name", "measure_column", "unit", "window",
+        "limit_requested", "limit_effective", "ranking", "direction",
+        "external_tables", "actor",
+    )
+    missing = [key for key in required if key not in payload]
+    if missing:
+        raise ValueError(f"plan_pinned 缺字段：{missing}")
+    metric_slot = payload["metric_slot"]
+    if not isinstance(metric_slot, str) or not metric_slot.strip():
+        raise ValueError(f"plan_pinned.metric_slot 必须是非空字符串，得到 {metric_slot!r}")
+    limit_requested = payload["limit_requested"]
+    if limit_requested is not None and (
+        isinstance(limit_requested, bool) or not isinstance(limit_requested, int)
+    ):
+        raise ValueError(
+            f"plan_pinned.limit_requested 必须是整数或 null，得到 {limit_requested!r}"
+        )
+    window_raw = payload["window"]
+    if not isinstance(window_raw, Mapping):
+        raise ValueError(f"plan_pinned.window 必须是对象，得到 {window_raw!r}")
+    try:
+        start = date.fromisoformat(str(window_raw.get("start")))
+        end = date.fromisoformat(str(window_raw.get("end")))
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"plan_pinned.window start/end 必须是 ISO 日期：{exc}") from exc
+    label = window_raw.get("label", "")
+    is_default = window_raw.get("is_default", False)
+    if not isinstance(label, str) or not isinstance(is_default, bool):
+        raise ValueError("plan_pinned.window label/is_default 形状非法")
+    ranking = payload["ranking"]
+    if not isinstance(ranking, bool):
+        raise ValueError(f"plan_pinned.ranking 必须是布尔值，得到 {ranking!r}")
+    external = payload["external_tables"]
+    if not isinstance(external, (list, tuple)):
+        raise ValueError(f"plan_pinned.external_tables 必须是数组，得到 {external!r}")
+    direction = payload["direction"]
+    if direction not in (DIRECTION_ASC, DIRECTION_DESC):
+        raise ValueError(f"plan_pinned.direction 非二值：{direction!r}")
+    return QueryPlan(
+        metric_slot=metric_slot.strip(),
+        metric_name=str(payload["metric_name"]),
+        measure_column=str(payload["measure_column"]),
+        unit=str(payload["unit"]),
+        window=TimeWindow(start=start, end=end, label=label, is_default=is_default),
+        limit_requested=limit_requested,  # None｜int——validator 复验收口
+        limit_effective=int(payload["limit_effective"]),
+        ranking=ranking,
+        direction=direction,
+        external_tables=tuple(str(t) for t in external),
+        actor=str(payload["actor"]),
+    )
+
+
+def ground_pinned_window(
+    plan: QueryPlan, *, question: str, today: date | None = None
+) -> QueryPlan:
+    """钉入计划时间落定守卫（L-05——golden L05G2 实跑红例 L04-14 修正）。
+
+    平台纪律「无显式时间→默认窗并标注默认」（parse_time_window missing 契约同源）：
+    问句零时间词时 LLM 起草的任何 window 都是编造（幻觉通道）——落默认窗照快路
+    同语义，不采信编造值；有显式时间词（含模糊「最近」）照钉入窗不动（模糊窗由
+    LLM 具体化＝设计内能力）。纯函数零模型；生效钉入（service._effective_plan_pin）
+    与恢复复验（revalidate_pinned_plan）同源消费——重放确定性（同问句同落定）。
+    """
+    day = today if today is not None else clock_now().date()
+    status, _ = parse_time_window(question, today=day)
+    if status != "missing":
+        return plan
+    return replace(plan, window=default_time_window(today=day))
+
+
+def revalidate_pinned_plan(plan: QueryPlan, *, question: str, actor: str) -> QueryPlan:
+    """钉入计划确定性复验（机制 11/N7.1 消费——依旧零模型）。
+
+    只取五源槽位（metric_slot/window/limit_requested/ranking/direction）重投
+    validator——measure_column/unit/metric_name/limit_effective/external_tables/
+    actor 全部服务端重推导，持久化载荷在这些字段上的篡改天然不生效（不盲信）；
+    槽位非法（如指标未绑定）＝validator 拒，调用方按兜底路分派。复验过再经
+    ground_pinned_window 时间落定（零时间词问句的编造窗不随重放生效）。
+    """
+    draft = QueryPlanDraft(
+        metric_slot=plan.metric_slot,
+        window=plan.window,
+        limit_requested=plan.limit_requested,
+        ranking=plan.ranking,
+        direction=plan.direction,
+    )
+    validated = validate_query_plan_draft(draft, question=question, actor=actor)
+    return ground_pinned_window(validated, question=question)
+
+
 # 双路比对三态（L-01 交付物③——一致／分歧（列明差异字段）／不可比（缺确定性解析））。
 PLAN_COMPARE_MATCH = "一致"
 PLAN_COMPARE_DIVERGE = "分歧"
@@ -1851,6 +1984,41 @@ def should_trigger_plan_parse(
     if verdict_chain != "状态机六站链":
         return False
     return bool(plan_parse_trigger_reasons(question=question, metric_slot=metric_slot))
+
+
+def plan_metric_anchor(
+    metric_cards: Iterable[MetricCard],
+) -> tuple[str, str, str] | None:
+    """问数模板锚（首个绑定 agg 计量列的装配指标卡 → (slot, name, def_text)）。
+
+    chains._metric_card_for_plan 与 service 生效路触发谓词（L-05）同源消费——
+    单源不造第二份「绑定判据」；未绑定计量列＝None（降级/触发语义照各自票面）。
+    """
+    for card in metric_cards:
+        if resolve_measure(card.slot_name) is not None:
+            def_text = "；".join(
+                str(c.get("name", "")) for c in card.calibers if c.get("name")
+            ) or ""
+            return card.slot_name, card.name, def_text
+    return None
+
+
+# ---------- L-05 生效路与最小披露（方案 v2.1 应用线闸 B——入口层生效＋披露同批） ----------
+
+# verdict 帧 additive 意图来源键（D5 披露与生效同批；键名/值域与 teach T-01 登记
+# 注记对齐——`intent_source` ∈ deterministic｜llm_plan，照 verdict.source additive
+# 先例，缺省不带＝既有形状不变）。快路恒 deterministic，LLM 生效路恒 llm_plan。
+INTENT_SOURCE_KEY = "intent_source"
+INTENT_SOURCE_DETERMINISTIC = "deterministic"
+INTENT_SOURCE_LLM_PLAN = "llm_plan"
+
+# 血缘①口径行 LLM 路来源后缀（teach T-01 注记——行内文字尾缀，五要素键序不动；
+# 仅 intent_source=llm_plan 追加，快路零变化）。
+LINEAGE_LLM_SOURCE_SUFFIX = "——意图来源：LLM 精解析（经校验）"
+
+# N7.1 有钉消费的节点行来源标注（票面定案文案——golden 提取器兼容：行首
+# 「三要素齐：」前缀保留，来源标注缀尾）。
+PINNED_NODE_SOURCE_MARK = "——意图来源：LLM 精解析（已复验）"
 
 
 # LLM#plan 调用缝类型（照 WaterlineLoader 注入缝同款形状——ChainDeps 可空 callable；
@@ -2007,16 +2175,24 @@ def render_plan_sql(plan: QueryPlan) -> str:
 
 
 def lineage_caliber_line(
-    plan: QueryPlan, *, def_text: str, clarified_caliber: str | None = None
+    plan: QueryPlan, *, def_text: str, clarified_caliber: str | None = None,
+    intent_source: str | None = None,
 ) -> str:
     """血缘卡①口径（注册指标声明先行——C1 台账 def/unit 照抄，口径随答案标注；
-    R4：台账行无口径声明→占位句如实标注，不出「声明：，」空腔）。"""
+    R4：台账行无口径声明→占位句如实标注，不出「声明：，」空腔）。
+
+    L-05 最小披露（D5）：intent_source=llm_plan（LLM 生效路）行尾追加来源后缀
+    （LINEAGE_LLM_SOURCE_SUFFIX——行内文字，五要素键序不动）；快路（None/
+    deterministic）零变化。
+    """
     body = def_text.strip() if def_text else ""
     if not body:
         body = "台账未登记口径声明"
     line = f"{plan.metric_name}（单位：{plan.unit}）——指标台账注册声明：{body}，口径随答案标注"
     if clarified_caliber:
         line += f"（澄清锁定：{clarified_caliber}）"
+    if intent_source == INTENT_SOURCE_LLM_PLAN:
+        line += LINEAGE_LLM_SOURCE_SUFFIX
     return line
 
 

@@ -71,6 +71,28 @@ class InfraSettings(BaseSettings):
     # 恢复＝重启进程）。
     plan_breaker_consecutive_failures: int | None = None
     plan_breaker_failure_rate_threshold: float | None = None
+    # L-05 生效开关（闸 B——LLM#plan 从影子转生效的回退纪律载体）：缺省 false＝
+    # 快路-only 现状逐字节不变；true＝裁决六站链∧触发谓词命中时入口层调用
+    # LLM#plan 精解析、过 validator 钉入 ctx.pinned_plan 进链（validator 拒走
+    # 兜底路——澄清帧有界一次或现状降级解释链）。消费面＝chat 域 ChatService
+    # （显式注入优先，缺省读本键）；env 覆盖 PLAN_EFFECTIVE_ENABLED。
+    plan_effective_enabled: bool = False
+
+    @field_validator("plan_effective_enabled", mode="before")
+    @classmethod
+    def _strict_bool_plan_effective(cls, value: Any) -> Any:
+        """仅认 true/false 两字面量（bool 或大小写不敏感串）——其余拒收。
+
+        pydantic 宽容形（yes/on/1/0/off）一并拒绝：开关语义只许显式二值，
+        非法值装载即抛（禁静默回落——ChatSettings.freshness_gate_enabled 同口径）。
+        """
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str) and value.strip().lower() in ("true", "false"):
+            return value.strip().lower() == "true"
+        raise ValueError(
+            f"plan_effective_enabled 仅认 true/false，收到 {value!r}（禁静默回落）"
+        )
 
 
 @lru_cache(maxsize=1)

@@ -17,7 +17,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { applyFrame, clarifyCardView, confidenceTag, citationJump, newTurn } from './A1.jsx'
+import { applyFrame, clarifyCardView, confidenceTag, citationJump, intentSourceLine, newTurn } from './A1.jsx'
 import A1Landing from './A1.jsx'
 import { useAppStore } from '../store/app.js'
 
@@ -757,5 +757,57 @@ describe('A1 落地页 · UI-01 说明收束与 @ 面板（T9/T12）', () => {
     // T13：api 层 hint 恒空串（死分支已删）——资产行不含 hint 小字节点
     const row = document.querySelector('[data-asset="术语·躺井"]')
     expect(row.textContent).not.toContain('undefined')
+  })
+})
+
+// ════ L-05 最小披露（D5——verdict intent_source additive 键白名单渲染，同批落地） ════
+
+/** verdict 携 additive intent_source 键的最小帧序（六站链裁决形态；键可缺省＝既有形状）。 */
+function askIntentSourceFrames(intentSource) {
+  const verdict = {
+    chain: '状态机六站链',
+    slots: '指标＝日产油量',
+    confidence: '高（指标台账命中——数据问句走状态机六站链）',
+    need_clarify: false
+  }
+  if (intentSource) verdict.intent_source = intentSource
+  return [
+    ['session', { run_id: 'run-l05', thread_id: 'sess-l05' }],
+    ['stage', { stage: 0 }],
+    ['stage', { stage: 1 }],
+    ['verdict', verdict],
+    ['done', {}]
+  ]
+}
+
+describe('A1 落地页 · L-05 最小披露（verdict intent_source 渲染）', () => {
+  it('intent_source=llm_plan → 来源行渲染「LLM 精解析（经校验）」', async () => {
+    apiRouter({ asks: () => sseResponse(askIntentSourceFrames('llm_plan')) })
+    render(<A1Landing />)
+    await ask(screen, '去年日产油量最高的井是哪口？')
+    expect(await screen.findByText('意图来源：LLM 精解析（经校验）')).toBeTruthy()
+  })
+
+  it('intent_source=deterministic → 来源行渲染「确定性解析（快路）」', async () => {
+    apiRouter({ asks: () => sseResponse(askIntentSourceFrames('deterministic')) })
+    render(<A1Landing />)
+    await ask(screen, '各井日产油量排名')
+    expect(await screen.findByText('意图来源：确定性解析（快路）')).toBeTruthy()
+  })
+
+  it('verdict 无 intent_source 键 → 零变化（不渲染来源行——既有形状不变）', async () => {
+    apiRouter({ asks: () => sseResponse(askIntentSourceFrames(null)) })
+    render(<A1Landing />)
+    await ask(screen, '防砂方式是什么')
+    await screen.findByText('置信度 高（指标台账命中——数据问句走状态机六站链）') // verdict 块已渲染（整串精确匹配——链名裸文本节点被多元素包含不可直查）
+    expect(screen.queryByText(/意图来源：/)).toBeNull()
+  })
+
+  it('intentSourceLine：缺键 null／两值域映射／未知值原样透出（不吞不猜）', () => {
+    expect(intentSourceLine(undefined)).toBeNull()
+    expect(intentSourceLine(null)).toBeNull()
+    expect(intentSourceLine('llm_plan')).toBe('意图来源：LLM 精解析（经校验）')
+    expect(intentSourceLine('deterministic')).toBe('意图来源：确定性解析（快路）')
+    expect(intentSourceLine('mystery')).toBe('意图来源：mystery')
   })
 })

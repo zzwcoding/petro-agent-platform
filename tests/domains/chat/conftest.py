@@ -113,6 +113,7 @@ class Seams:
     prompts: list[tuple[str, list[dict[str, str]]]] = field(default_factory=list)
     # （caller, messages）捕获——P1F-02 生成层材料块/规则断言的观测面。
     intent_reply: str | None = None  # LLM 意图裁决返回（None＝生成文案混答→解析坏兜底）
+    plan_reply: str | None = None  # LLM#plan 返回（None＝生成文案混答→解析坏兜底——L-05 生效路替身）
     fail_intent: bool = False  # True＝意图裁决调用直接抛（超时/网络错兜底路径）
     intent_delay: float = 0.0  # 意图裁决延迟秒（超时兜底路径）
     faq_served: list[str] = field(default_factory=lambda: ["N-02 井是什么时候投产的？"])
@@ -221,6 +222,9 @@ class Seams:
             if self.intent_reply is not None:
                 return SimpleNamespace(content=self.intent_reply, call_id="call-intent",
                                        served_alias=alias)
+        if caller == "chat.intent.plan" and self.plan_reply is not None:
+            return SimpleNamespace(content=self.plan_reply, call_id="call-plan",
+                                   served_alias=alias)
         if caller == "chat.retrieval.rerank" and self.rerank_replies:
             reply = self.rerank_replies[0]
             if len(self.rerank_replies) > 1:
@@ -254,11 +258,13 @@ def service(chat_db: ConnectionManager, seams: Seams) -> ChatService:
 
 
 def make_service(
-    db: ConnectionManager, seams: Seams, *, freshness_gate_enabled: bool | None = None
+    db: ConnectionManager, seams: Seams, *, freshness_gate_enabled: bool | None = None,
+    plan_effective_enabled: bool | None = None,
 ) -> ChatService:
     """假缝装配（生产＝main.py 组合根同构——配置/台账/FAQ/报告索引/图谱/锚/LLM＋
     问数执行/水位读缝）；freshness_gate_enabled＝DE-16 开关显式注入口（None＝
-    缺省读 database.yaml chat 段——缺省 true＝现状）。"""
+    缺省读 database.yaml chat 段——缺省 true＝现状）；plan_effective_enabled＝
+    L-05 生效开关显式注入口（None＝缺省读 InfraSettings——env 缺省 false＝现状）。"""
     return ChatService(
         db,
         audit=SecurityService(db),  # B12 真写口（sqlite 底座——审计断言直读表）
@@ -278,6 +284,7 @@ def make_service(
         query_executor=seams.execute_query,  # M-06 问数链取数缝（假数据源）
         waterline_loader=seams.load_waterline,  # M-06 新鲜度闸水位缝
         freshness_gate_enabled=freshness_gate_enabled,  # DE-16 新鲜度闸开关
+        plan_effective_enabled=plan_effective_enabled,  # L-05 生效开关
     )
 
 

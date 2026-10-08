@@ -183,6 +183,18 @@ export function confidenceTag(label) {
   return <Tag color={tone} style={{ marginInlineEnd: 0 }}>置信度 {label}</Tag>
 }
 
+/** 意图来源披露文案（L-05 D5——verdict.intent_source additive 键白名单渲染；
+ * 键缺省＝既有形状不变（不渲染该行）；未知值原样透出（不吞不猜）。 */
+const INTENT_SOURCE_LABEL = {
+  deterministic: '确定性解析（快路）',
+  llm_plan: 'LLM 精解析（经校验）'
+}
+
+export function intentSourceLine(source) {
+  if (!source) return null
+  return `意图来源：${INTENT_SOURCE_LABEL[source] || source}`
+}
+
 /**
  * 澄清帧视图分支（P1F-06——clarify 帧 additive `subtype` 键驱动）。
  *
@@ -851,6 +863,7 @@ function ThinkingTree({ turn }) {
         <div style={{ marginBottom: 8, fontSize: 13 }}>
           <b>裁决</b>：{turn.verdict.chain || '（澄清挂起——裁决未定）'}
           <div>{confidenceTag(turn.verdict.confidence)}{turn.verdict.slots && <span style={dim}> {turn.verdict.slots}</span>}</div>
+          {turn.verdict.intent_source && <div style={dim}>{intentSourceLine(turn.verdict.intent_source)}</div>}
         </div>
       )}
 

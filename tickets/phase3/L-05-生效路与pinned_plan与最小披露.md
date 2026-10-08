@@ -1,6 +1,12 @@
 # L-05 生效路与 pinned_plan 与最小披露（生效＋钉入新缝＋披露同批——闸 B 交付）
 
-> 状态：⬜ 可开工 ｜ 依赖：闸 A（Owner 看影子报告拍板过闸）＋L-04（golden 回归闸在位）。
+> 状态：✅ **已完工**（2026-10-08；分支 `l-plan/L-05-effective-path` 自 master e70e2fe
+> （闸 A 后影子批已合）续开，不合入不 push。收尾报告＝tickets/phase3/reports/L-05.收尾.md
+> ——golden 三轮实跑（L05G 环境偏差轮/L05G2 修红轮/L05G3 终轮绿 16/红 0/人审 8 退出码 0
+> ＝L04G2 基线持平）＋L04-14 修红（时间落定守卫 ground_pinned_window）＋疑点五条呈 Owner
+> （含指标替换通道实锤与 teach 注记文案差）。**转正动作＝合入后由 L0 改运行配置
+> PLAN_EFFECTIVE_ENABLED 开启（本票缺省 false＝回退纪律载体，代码零改动即回快路-only）。**
+> 依赖：闸 A（Owner 看影子报告拍板过闸）＋L-04（golden 回归闸在位）——已交付。
 > 开工前置：闸 A 过后影子批（L-01~L-04）合入 master，本票自 master 拉分支；影子批未合入
 > ＝依赖未清，停工升级 Owner。
 
@@ -68,20 +74,26 @@
   （前端测试惯例）
 
 验收:
-- [ ] 生效开关默认 false＝现网行为零变化（既有 pytest 全绿无断言改动）；开→关往返回归
-  测试在案（回退纪律可演练）
-- [ ] 兜底路 TDD：validator 拒→有澄清额度走澄清帧（有界一次）/无额度走降级解释链，两支
-  帧形状与现状合同零差异（断言帧序列）
-- [ ] pinned_plan TDD：ChainContext 新字段缺省 None 零影响；N7.1 有钉→复验通过直用/
+- [x] 生效开关默认 false＝现网行为零变化（既有 pytest 全绿无断言改动）；开→关往返回归
+  测试在案（回退纪律可演练）——TestSwitchWiring 四例（Settings 缺省 false/env 覆盖 on/
+  非法值拒装/off 态零新键逐帧断言）
+- [x] 兜底路 TDD：validator 拒→有澄清额度走澄清帧（有界一次）/无额度走降级解释链，两支
+  帧形状与现状合同零差异（断言帧序列）——TestEffectivePathPin 五例＋链内侧复验拒两例
+- [x] pinned_plan TDD：ChainContext 新字段缺省 None 零影响；N7.1 有钉→复验通过直用/
   复验拒走兜底；快路不钉；plan_pinned 列迁移 up/down 可逆、QueryPlan dict 两向重建等值
-- [ ] 恢复重放 TDD：审批挂起→恢复取持久化 plan→重跑 validator（篡改持久化载荷的拒例
-  在案——不盲信）；全程零 LLM 重调（替身断言）
-- [ ] 披露 TDD：LLM 路 verdict 带 intent_source=llm_plan、快路 deterministic；血缘①
-  LLM 路尾缀在案且五要素键序断言不变；前端渲染测试绿（`cd web && npx vitest run`）
-- [ ] golden 回归绿：L-04 跑批脚本对 golden 全量退出码 0（附实跑输出）；每一问意图来源
-  可见抽查记录在回报
-- [ ] `cd web && npx vitest run` 全绿（回报附输出原文）
-- [ ] `uv run ruff check app tests migrations tools && uv run mypy app && uv run pytest -q && uv run lint-imports && uv run python tools/contract_coverage.py check && uv run python tools/debt_markers.py check` 全绿（回报附输出原文含通过数数字）
+  ——TestChainPinnedConsumption 七例＋TestPinnedSerialization 三例＋PG16 真库 up/down
+  可逆实跑过（tests/domains/chat/test_chat_run_plan_pinned_pg.py，TEST_DATABASE_URL
+  postgresql+asyncpg://…@localhost:5433/petro——两处测试缺陷由实跑抓出修正，见偏差 3）
+- [x] 恢复重放 TDD：审批挂起→恢复取持久化 plan→重跑 validator（篡改持久化载荷的拒例
+  在案——不盲信）；全程零 LLM 重调（替身断言）——TestApprovalResumeReplay 六例（含
+  off 态恢复已钉 run 仍消费＋篡改重推导字段不生效）
+- [x] 披露 TDD：LLM 路 verdict 带 intent_source=llm_plan、快路 deterministic；血缘①
+  LLM 路尾缀在案且五要素键序断言不变；前端渲染测试绿（`cd web && npx vitest run`
+  ＝Test Files 19 passed (19)／Tests 285 passed (285)，含 A1.test.jsx L-05 四例）
+- [x] golden 回归绿：L-04 跑批脚本对 golden 全量退出码 0（附实跑输出）——L05G3 终轮
+  绿 16/红 0/人审 8（退出码 0，与 L04G2 基线逐题持平）；来源可见 24/24 断言记录在回报
+- [x] `cd web && npx vitest run` 全绿（回报附输出原文）——285 passed (285)
+- [x] `uv run ruff check app tests migrations tools && uv run mypy app && uv run pytest -q && uv run lint-imports && uv run python tools/contract_coverage.py check && uv run python tools/debt_markers.py check` 全绿（回报附输出原文含通过数数字）——1203 passed/101 skipped
 
 回报: 写 tickets/phase3/reports/L-05.收尾.md——产物清单（文件＋迁移号＋commit SHA）/
 闸门实跑输出原文（pytest＋vitest 两段）/闸 B 检查项逐条核验记录（正确率数字＋Owner 拍板
