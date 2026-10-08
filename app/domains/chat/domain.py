@@ -1833,22 +1833,90 @@ def plan_pinned_from_payload(payload: Mapping[str, Any]) -> QueryPlan:
     )
 
 
+# ---------- FX-13（R6-01/R6-03 开闸前置）：指标替换封堵闸与钉入窗界校验 ----------
+
+# 钉入窗长上限（R6-03 票内定案）：366 天＝快路确定性时间词函数（parse_time_window）
+# 可产出的最大窗（「去年」全历年，闰年 366 天）——生效路不得比快路同词面更严；
+# 同时远高于缺省窗 30 天（照 QUERY_LIMIT_CAP 对缺省条数的封顶关系同型：只封
+# 野值，不触常规形）。
+PINNED_WINDOW_MAX_DAYS = 366
+
+
+def plan_metric_candidate_slots(candidates: Iterable[Candidate]) -> frozenset[str]:
+    """问句指标候选集（装配候选 kind=metric 的槽位名集——R6-01 一致性闸合法域）。
+
+    指标卡台账路候选名＝slot_name（台账槽位名，与 MEASURE_COLUMNS 键同域）；
+    @ 前门指标候选名＝点名名。只收 kind=metric——术语/报告/FAQ/图谱候选不开放
+    指标槽位。
+    """
+    return frozenset(c.name for c in candidates if c.kind == "metric")
+
+
+def check_metric_slot_in_candidates(
+    metric_slot: str, *, candidates: Iterable[Candidate]
+) -> None:
+    """指标替换封堵闸（R6-01——钉入前一致性校验，超域 ValueError 视同 validator 拒）。
+
+    draft.metric_slot 必须 ∈ 问句指标候选集（assembly.candidates 可绑指标集合）：
+    LLM 把问句问及之外（未注册／在册未绑定）的指标换成在册可出数近似指标＝
+    「给差不多」通道（R6 审查 golden 终轮两例实锤：含水率→油压、配产量→日产油量）
+    ——封堵：不在候选集按 validator 拒走兜底路（澄清/降级照 L-05 既有形态）。
+    对齐纪律：宁可查不到，不给差不多。
+    """
+    allowed = plan_metric_candidate_slots(candidates)
+    if metric_slot not in allowed:
+        raise ValueError(
+            f"metric_slot {metric_slot!r} 不在问句指标候选集 {sorted(allowed)}"
+            "——指标替换封堵（R6-01）：不代问句外指标出数"
+        )
+
+
+def check_pinned_window_bounds(window: TimeWindow, *, today: date) -> None:
+    """钉入窗界校验（R6-03——超界 ValueError，调用方按 validator 拒走兜底）。
+
+    - end ≤ today：窗尾不落未来（未来端点窗＝静默返空数据冒充出数；零时间词形
+      已由时间落定守卫落默认窗兜住，本闸兜显式/模糊时间词形——L05G2 红例同族）。
+      「今天」问句窗 [today, today+1) 不经此闸：词面齐快路直解不进生效路（票内
+      定案 ε=0——生效路钉入窗不含今日后端点）。
+    - 窗长 ≤ PINNED_WINDOW_MAX_DAYS（366 天）：上限与快路可产最大窗（「去年」
+      闰年）对齐——封 LLM 把「最近」具体化为任意大区间的野值。
+    """
+    if window.end > today:
+        raise ValueError(
+            f"钉入窗界越界：window.end={window.end.isoformat()} 晚于今日 "
+            f"{today.isoformat()}——未来窗不代猜不冒充（R6-03 窗界校验）"
+        )
+    days = (window.end - window.start).days
+    if days > PINNED_WINDOW_MAX_DAYS:
+        raise ValueError(
+            f"钉入窗界越界：窗长 {days} 天超上限 {PINNED_WINDOW_MAX_DAYS} 天"
+            "（与快路「去年」最大窗对齐——R6-03 窗界校验）"
+        )
+
+
 def ground_pinned_window(
     plan: QueryPlan, *, question: str, today: date | None = None
 ) -> QueryPlan:
-    """钉入计划时间落定守卫（L-05——golden L05G2 实跑红例 L04-14 修正）。
+    """钉入计划时间落定守卫＋窗界校验（L-05 红例 L04-14 修正＋FX-13/R6-03 窗界）。
 
     平台纪律「无显式时间→默认窗并标注默认」（parse_time_window missing 契约同源）：
     问句零时间词时 LLM 起草的任何 window 都是编造（幻觉通道）——落默认窗照快路
     同语义，不采信编造值；有显式时间词（含模糊「最近」）照钉入窗不动（模糊窗由
-    LLM 具体化＝设计内能力）。纯函数零模型；生效钉入（service._effective_plan_pin）
-    与恢复复验（revalidate_pinned_plan）同源消费——重放确定性（同问句同落定）。
+    LLM 具体化＝设计内能力，窗界由 check_pinned_window_bounds 封堵——未来窗与
+    超 PINNED_WINDOW_MAX_DAYS 野窗 ValueError，调用方按 validator 拒走兜底）。
+    纯函数零模型；生效钉入（service._effective_plan_pin）与恢复复验
+    （revalidate_pinned_plan）同源消费——落定与窗界校验单点生效，重放不复活
+    编造窗/越界窗。
     """
     day = today if today is not None else clock_now().date()
     status, _ = parse_time_window(question, today=day)
-    if status != "missing":
-        return plan
-    return replace(plan, window=default_time_window(today=day))
+    grounded = (
+        plan
+        if status != "missing"
+        else replace(plan, window=default_time_window(today=day))
+    )
+    check_pinned_window_bounds(grounded.window, today=day)
+    return grounded
 
 
 def revalidate_pinned_plan(plan: QueryPlan, *, question: str, actor: str) -> QueryPlan:
