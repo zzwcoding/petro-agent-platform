@@ -1,7 +1,7 @@
 """R14 红线②终实证冒烟（RUNTIME_SMOKE=1 门控）——生产装配真网关一轮 ask。
 
-跑法（P-008 票面 R14 条目）：
-    RUNTIME_SMOKE=1 uv run pytest tests/api/test_v2_runtime_smoke_real.py -q
+跑法（P-008 票面 R14 条目；V2-09 校准后复跑扩两题——数-明1 类标准题走完六步）：
+    RUNTIME_SMOKE=1 uv run pytest tests/api/test_v2_runtime_smoke_real.py -q -s
 
 真装配含义：create_app 真起（真实 primary PG@5433 演示库——config/database.yaml）
 ＋真 gateway.complete（B6 唯一出口——GatewayService＋LlmClient，petro-main＝
@@ -10,15 +10,19 @@ CsvSnapshotExecutor——tests/domains/test_v2_agent_loop.py readonly_inv2 同�
 检索面＝fixture 适配器（真向量服务依赖未在本票范围——如实声明，冒烟问句为
 问数题不触检索）。
 
-流程（一轮 ask 走通六步 loop）：
+流程（每题一轮 ask 走通六步 loop）：
 ① POST /api/v2/chat/asks（真实 MiniMax 出理解/计划/草稿）→ SSE 流保留帧 done
    收场，终局 verdict subtype=final；
-② GET run 状态＝completed（run 状态机收口）；
-③ R14 核心断言：caller 归因落 spend 记录——`v2.runtime.*` caller 桶本轮在场
+② 六步合同次序钉死：understand→plan→tool→observe→verify→answer 全在流且
+   恰此序（V2-09 验收①——真模型格式校准后不再 understand 拒答中途收口），
+   全流零 refused notice；
+③ GET run 状态＝completed（run 状态机收口）；
+④ R14 核心断言：caller 归因落 spend 记录——`v2.runtime.*` caller 桶本轮在场
    且 cost>0（GatewayChatModel→gateway.complete 的 B6 归因链真账本实证）。
 
 重跑幂等：每轮新增真流水（演示库量级，GATEWAY_SMOKE/CHAT_SMOKE 同款处置）；
-断言只看「本轮桶在场」不看全库计数。
+断言只看「本轮桶在场」不看全库计数。证据打印（-s 采集）：每题的理解/计划/
+答案与 spend 行——回报 P-009 模型遵循证据与计费断言的原文来源。
 """
 
 from __future__ import annotations
@@ -37,7 +41,13 @@ pytestmark = [
     )
 ]
 
-QUESTION = "2025 年 9 月 1 日到 3 日的日产油量"
+# 数-明1 类标准题两形：显式窗（P-008 偏差 5 原题——「不再 understand 拒答」回归钉）
+# ＋数-明1 原句（few-shot 样张同题——「去年」相对窗经样张落 ISO 端点）。
+SMOKE_QUESTIONS = (
+    "2025 年 9 月 1 日到 3 日的日产油量",
+    "去年各井每天的日产油量是多少？",
+)
+SIX_STEP_ORDER = ["understand", "plan", "tool", "observe", "verify", "answer"]
 TODAY = date(2026, 10, 8)
 ACTOR = {"X-Dev-User": "aqiang"}
 
@@ -70,6 +80,7 @@ def test_runtime_production_smoke_real_gateway() -> None:
     from appv2.infra.llm_client import LlmClient
     from appv2.knowledge import InMemoryKnowledgeStore, question_array_snapshot
     from appv2.query import CsvSnapshotExecutor, QueryEngine
+    from appv2.runtime import RunStore
     from appv2.tools import FakeRetrievalEngine, ToolRegistry
 
     db = ConnectionManager(load_database_specs())  # 真实 primary PG（演示库）
@@ -86,32 +97,58 @@ def test_runtime_production_smoke_real_gateway() -> None:
     )
     gateway = GatewayService(db, LlmClient())  # B6 唯一出口真件（MiniMax 真引擎）
     app = create_app(db=db, registry=registry, completer=gateway)
+    store = RunStore(db)
     started_at = now()
 
     with TestClient(app) as client:
-        # —— ① 一轮 ask：真实 MiniMax 走六步 loop，SSE 保留帧收场 ——
-        resp = client.post("/api/v2/chat/asks", json={"question": QUESTION}, headers=ACTOR)
-        assert resp.status_code == 200
-        assert resp.headers["content-type"].startswith("text/event-stream")
-        frames = _parse_frames(resp.text)
-        run_id = frames[0][1]["run_id"]
-        assert frames[0][0] == "session" and frames[0][1]["resume"] is False
-        assert frames[-1][0] == "done" and frames[-1][1]["run_id"] == run_id
-        step_kinds = [d["step"] for n, d in frames if n == "step"]
-        assert {"understand", "plan"} <= set(step_kinds)  # loop 真跑（理解＋计划在流）
-        finals = [d for n, d in frames if n == "verdict" and d.get("subtype") == "final"]
-        assert finals and finals[-1]["run_id"] == run_id  # R10 终局判定（wire 定型形）
+        for question in SMOKE_QUESTIONS:
+            # —— ① 一轮 ask：真实 MiniMax 走六步 loop，SSE 保留帧收场 ——
+            resp = client.post("/api/v2/chat/asks", json={"question": question}, headers=ACTOR)
+            assert resp.status_code == 200
+            assert resp.headers["content-type"].startswith("text/event-stream")
+            frames = _parse_frames(resp.text)
+            run_id = frames[0][1]["run_id"]
+            assert frames[0][0] == "session" and frames[0][1]["resume"] is False
+            assert frames[-1][0] == "done" and frames[-1][1]["run_id"] == run_id
+            # —— ② V2-09 验收①：走完六步至 answer（不再 understand 拒答） ——
+            step_kinds = [d["step"] for n, d in frames if n == "step"]
+            assert step_kinds == SIX_STEP_ORDER, f"六步未走完：{step_kinds}"
+            refused = [
+                d for n, d in frames if n == "notice" and d.get("type") == "refused"
+            ]
+            assert not refused, f"understand/plan 拒答链被触发：{refused}"
+            finals = [d for n, d in frames if n == "verdict" and d.get("subtype") == "final"]
+            assert finals and finals[-1]["run_id"] == run_id  # R10 终局判定（wire 定型形）
+            # —— ③ run 状态机收口 ——
+            status = client.get(f"/api/v2/chat/runs/{run_id}", headers=ACTOR).json()
+            assert status["status"] == "completed"
+            assert status["manifest_digest"] == finals[-1]["manifest_digest"]
+            # —— 证据打印（-s 采集——回报 P-009 模型遵循证据原文来源） ——
+            async def _evidence(run_id: str = run_id) -> tuple[Any, Any]:
+                return await store.get_run(run_id), await store.list_steps(run_id)
 
-        # —— ② run 状态机收口 ——
-        status = client.get(f"/api/v2/chat/runs/{run_id}", headers=ACTOR).json()
-        assert status["status"] == "completed"
-        assert status["manifest_digest"] == finals[-1]["manifest_digest"]
+            run_row, steps = client.portal.call(_evidence)
+            understanding = next(
+                (d.get("content", "") for n, d in frames if n == "text"), ""
+            )
+            plan_payload = next(
+                (
+                    (s.payload or {}).get("plan")
+                    for s in steps
+                    if s.step_type == "plan" and (s.payload or {}).get("plan")
+                ),
+                None,
+            )
+            print(f"\nSMOKE 问句：{question}")
+            print(f"SMOKE 理解（真模型两行/降级产）：{understanding}")
+            print(f"SMOKE 计划（真模型 JSON 产）：{json.dumps(plan_payload, ensure_ascii=False)}")
+            print(f"SMOKE 答案首 200 字：{(run_row.answer or '')[:200]}")
 
-        # —— ③ R14 核心：caller 归因落 spend 记录（红线②真账本实证） ——
-        store = SpendStore(db)
+        # —— ④ R14 核心：caller 归因落 spend 记录（红线②真账本实证） ——
+        spend_store = SpendStore(db)
 
         async def _spend_page() -> Any:
-            return await store.page(SpendFilter(), page_size=200)
+            return await spend_store.page(SpendFilter(), page_size=200)
 
         page = client.portal.call(_spend_page)  # portal＝应用事件循环
         mine = [
@@ -120,5 +157,10 @@ def test_runtime_production_smoke_real_gateway() -> None:
             if str(row.caller or "").startswith("v2.runtime.") and row.time >= started_at
         ]
         assert mine, "本轮 runtime 调用未落 spend 账本——红线②归因链断裂"
-        assert {row.caller for row in mine} >= {"v2.runtime.understand"}
+        assert {row.caller for row in mine} >= {"v2.runtime.understand", "v2.runtime.plan"}
         assert all(row.cost_yuan > 0 for row in mine)  # 真调用真计费（非估算零值）
+        for row in mine:
+            print(
+                f"spend: caller={row.caller} alias={row.alias} fallback={row.fallback} "
+                f"cost={row.cost_yuan} in={row.input_tokens} out={row.output_tokens}"
+            )

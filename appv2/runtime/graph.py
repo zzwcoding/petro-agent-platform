@@ -68,15 +68,26 @@ _PLAN_TOOLS: frozenset[str] = frozenset(
 _CITE_RE = re.compile(r"\[(\d+)\]")
 _NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
 _CANDIDATE_LINE = "指标候选"
+# few-shot 样张（V2-09——L-04 golden 少样本同款形态「例：〈问句〉\n输出：〈合同样
+# 张〉」）：样例问句取问数组数-明1 原句（eval/results/golden/plan-golden-v1.json
+# L04-02 同源）；计划样张窗端点按「去年」锚 2026 年（golden anchor 2026-10-08 同值，
+# anchor_scope=year 年内有效——跨年需随 golden 重锚同步更新）。
+_SHUMING1_QUESTION = "去年各井每天的日产油量是多少？"
 _UNDERSTAND_INSTRUCTION = (
     "识别问句：输出两行。第一行「理解：〈一句话〉」；"
     "第二行「指标候选：〈逗号分隔的指标名〉」（无可出数指标写：指标候选：无）。"
+    f"例：{_SHUMING1_QUESTION}\n"
+    "输出：理解：问去年全年各井逐日的日产油量明细。\n"
+    "指标候选：日产油量"
 )
 _PLAN_INSTRUCTION = (
     "输出问数计划：只输出一个 JSON 对象。键：metric_slot（必填）、ranking（必填）、"
     "window_start/window_end（ISO 日期或 null——问句时间窗可定时必填，模糊/缺省时两槽均 null）、"
     "limit、direction、external_tables（越集外表名数组，无则省略）。"
-    "只输出 JSON，不要解释。"
+    "只输出 JSON，不要解释。\n"
+    f"例：{_SHUMING1_QUESTION}\n"
+    "输出：{\"metric_slot\": \"日产油量\", \"ranking\": false, "
+    "\"window_start\": \"2025-01-01\", \"window_end\": \"2026-01-01\"}"
 )
 _VERIFY_INSTRUCTION = (
     "起草答案：逐条事实断言必须带 [n] 引标（n＝观察材料序号）；材料未覆盖的部分"
@@ -122,9 +133,28 @@ class LoopDeps:
 
 # ---------- 文本解析单点（模型应答合同的最小确定性解析） ----------
 
+# understand JSON 降级形的合同键（V2-09 宽容化：中文主键＋真模型常见英文别名——
+# 逐键取值，缺键不编造）。
+_UNDERSTANDING_JSON_KEYS: tuple[str, ...] = ("理解", "understanding")
+_CANDIDATES_JSON_KEYS: tuple[str, ...] = ("指标候选", "metric_candidates")
+
+
+def _json_candidates(raw: Any) -> list[str]:
+    """JSON 降级形的指标候选值归一（数组/分隔串两形——「无」＝空集，与两行式同口径）。"""
+    if isinstance(raw, str):
+        items: list[Any] = re.split(r"[、,，]", raw)
+    elif isinstance(raw, (list, tuple)):
+        items = list(raw)
+    else:
+        return []
+    return [text for text in (str(item).strip() for item in items) if text and text != "无"]
+
 
 def parse_understanding(content: str) -> tuple[str, list[str]]:
-    """understand 应答解析：（理解句, 指标候选列）——「指标候选：无」＝空集。"""
+    """understand 应答解析（V2-09 两级宽容）：先两行合同式（「理解：／指标候选：」）；
+    两行全缺时降级 JSON 子串提取（裸产/围栏产/散文包裹产同路——围栏容错承计划侧
+    平衡块提取器），逐合同键取值、缺键不编造；两级全空＝（""·空集）如实上报——
+    下游照走 plan 校验/repair→拒答链（真非法产不误解析）。"""
     understanding = ""
     candidates: list[str] = []
     for raw_line in content.splitlines():
@@ -138,11 +168,24 @@ def parse_understanding(content: str) -> tuple[str, list[str]]:
             ]
         elif line.startswith("理解"):
             understanding = line.split("：", 1)[-1].strip() if "：" in line else line
+    if understanding or candidates:
+        return understanding, candidates
+    payload = extract_plan_json(content)
+    if isinstance(payload, dict):
+        for key in _UNDERSTANDING_JSON_KEYS:
+            if payload.get(key):
+                understanding = str(payload[key]).strip()
+                break
+        for key in _CANDIDATES_JSON_KEYS:
+            if key in payload:
+                candidates = _json_candidates(payload[key])
+                break
     return understanding, candidates
 
 
 def extract_plan_json(content: str) -> dict[str, Any] | None:
-    """plan 应答解析：首个平衡 {...} 块的 JSON（解析失败＝None——走 repair）。"""
+    """JSON 子串提取单点（首个平衡 {...} 块）：plan 应答与 understand 降级形共用——
+    围栏产/散文包裹产同路（提取失败＝None——plan 走 repair，understand 保持空产出）。"""
     start = content.find("{")
     if start < 0:
         return None
