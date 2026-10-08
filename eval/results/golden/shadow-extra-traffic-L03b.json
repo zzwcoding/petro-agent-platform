@@ -1,0 +1,262 @@
+{
+  "traffic_id": "shadow-extra-traffic-L03b",
+  "created": "2026-10-07",
+  "ticket": "tickets/phase3/L-03-影子报告.md（首轮收尾疑点 1 样本缺口——定向补量）",
+  "purpose": "影子定向补测流量（L-03b）——在册指标＋刁钻问法：把一致率分母做实。与 golden 的区别：本流量是影子期质量代理指标载体，不进题册、不进 golden、不是回归闸；每问带出题人意图标签（author_intent——出题时已知正确翻译），报告按「意图命中率」口径对 LLM 草案逐字段打分。",
+  "semantics_note": "author_intent 按数据真值填：metric_slot 照 MEASURE_COLUMNS 三绑定指标（app/domains/chat/domain.py 实码：日产油量/日产液量/油压）；窗口语义照 golden 既有锚机制（默认窗＝最近 30 天、本月＝月初至今、上月＝上个自然月——端点随执行日实算，本文件不钉具体日期）；ranking/direction/limit 照问句语义（方向无「最低/最少」词面即 desc；limit 只填问句显式条数）。",
+  "judge_note": "意图命中率打分口径（影子观测能力约束下的如实口径）：draft_state=一致→LLM 六字段＝确定性解析（SSE 帧提取值）→逐字段对 author_intent 判；draft_state=分歧→非 divergent 字段＝确定性值可判、divergent 字段 LLM 真值不落日志记「不可观测」；draft_state=不可比＋note 含「确定性解析侧」→LLM 草案产出且过 validator（在册指标）但字段值不落日志→记「产出但在册值不可观测」单列不进命中分母；draft_state=不可比＋note 含「draft 侧」→LLM 无有效草案（拒产/坏 JSON/validator 拒——validator 拒的 note 携明细可提取 LLM 值判错）；无影子行→对照组记「未触发（预期内）」，非对照组记「未入链（verdict 裁决走检索链，LLM#plan 未被调）」。对照组不打意图分。",
+  "questions": [
+    {
+      "qid": "L03B-01",
+      "family": "口语动词替换",
+      "question": "油出得最多的井是哪口",
+      "expected_trigger": true,
+      "author_intent": {
+        "metric_slot": "日产油量",
+        "window_rule": "默认窗",
+        "ranking": true,
+        "direction": "desc",
+        "limit_requested": null
+      },
+      "design_note": "「油出得最多」口语动词替换——无标准指标名（「日产油量」字面缺席），「最多」不在 DATA_QUESTION_RE 词表（PLAN_COUNT_WORDS 只有最高/最低/最大/最小/排名/TOP）→预期双缺件（词面不齐＋解析缺件）触发，drafter 被调。"
+    },
+    {
+      "qid": "L03B-02",
+      "family": "口语动词替换",
+      "question": "哪些井抽得最猛",
+      "expected_trigger": true,
+      "author_intent": {
+        "metric_slot": "日产油量",
+        "window_rule": "默认窗",
+        "ranking": true,
+        "direction": "desc",
+        "limit_requested": null
+      },
+      "design_note": "「抽得最猛」口语替换——出题人裁决：抽油机采油语境，意图指标＝日产油量（非日产液量——「抽」不指举升液体产量）。零指标词面＋零时间/排名词面，预期同 L03B-01 双缺件触发。"
+    },
+    {
+      "qid": "L03B-03",
+      "family": "口语动词替换",
+      "question": "产液最牛的前 5 口",
+      "expected_trigger": true,
+      "author_intent": {
+        "metric_slot": "日产液量",
+        "window_rule": "默认窗",
+        "ranking": true,
+        "direction": "desc",
+        "limit_requested": 5
+      },
+      "design_note": "「产液最牛」口语替换＋「前 5」命中前 N 词面（_PLAN_FRONT_N_PATTERN）→词面齐；metric 候选能否由「产液」命中「日产液量」实测观察（verdict 台账匹配是候选命中前置）。limit=5 显式条数。"
+    },
+    {
+      "qid": "L03B-04",
+      "family": "口语动词替换",
+      "question": "井口压力最高的是哪口井",
+      "expected_trigger": true,
+      "author_intent": {
+        "metric_slot": "油压",
+        "window_rule": "默认窗",
+        "ranking": true,
+        "direction": "desc",
+        "limit_requested": null
+      },
+      "design_note": "「井口压力」口语指油压（窗口语义同 MEASURE_COLUMNS 油压绑定）——「最高」在词表但指标词面非标准名，观察 metric 候选命中形态。"
+    },
+    {
+      "qid": "L03B-05",
+      "family": "口语动词替换",
+      "question": "谁的油最多",
+      "expected_trigger": true,
+      "author_intent": {
+        "metric_slot": "日产油量",
+        "window_rule": "默认窗",
+        "ranking": true,
+        "direction": "desc",
+        "limit_requested": null
+      },
+      "design_note": "极短口语问法——「谁的」口语主语替换「哪口井」，全部词面缺件，预期触发。"
+    },
+    {
+      "qid": "L03B-06",
+      "family": "口语动词替换",
+      "question": "液体出得最多的井",
+      "expected_trigger": true,
+      "author_intent": {
+        "metric_slot": "日产液量",
+        "window_rule": "默认窗",
+        "ranking": true,
+        "direction": "desc",
+        "limit_requested": null
+      },
+      "design_note": "「液体出得最多」口语替换——意图指标＝日产液量。"
+    },
+    {
+      "qid": "L03B-07",
+      "family": "口语动词替换",
+      "question": "压力打得最高的井",
+      "expected_trigger": true,
+      "author_intent": {
+        "metric_slot": "油压",
+        "window_rule": "默认窗",
+        "ranking": true,
+        "direction": "desc",
+        "limit_requested": null
+      },
+      "design_note": "「压力打得最高」口语替换——意图指标＝油压；「最高」词面在但整句极简，观察词面/解析双缺件形态。"
+    },
+    {
+      "qid": "L03B-08",
+      "family": "口语动词替换",
+      "question": "出油冠军是哪口",
+      "expected_trigger": true,
+      "author_intent": {
+        "metric_slot": "日产油量",
+        "window_rule": "默认窗",
+        "ranking": true,
+        "direction": "desc",
+        "limit_requested": null
+      },
+      "design_note": "「出油冠军」口语替换——「冠军」是排名语义但不在 DATA_QUESTION_RE 词表（词表无「冠军/第一」），预期词面缺件触发。"
+    },
+    {
+      "qid": "L03B-09",
+      "family": "非标排名条数词",
+      "question": "产油前三的井",
+      "expected_trigger": true,
+      "author_intent": {
+        "metric_slot": "日产油量",
+        "window_rule": "默认窗",
+        "ranking": true,
+        "direction": "desc",
+        "limit_requested": 3
+      },
+      "design_note": "「前三」命中前 N 词面（汉字数字在 _PLAN_FRONT_N_PATTERN 字符类）→词面齐；「产油」能否命中指标候选实测观察。limit=3。"
+    },
+    {
+      "qid": "L03B-10",
+      "family": "非标排名条数词",
+      "question": "产液头名",
+      "expected_trigger": true,
+      "author_intent": {
+        "metric_slot": "日产液量",
+        "window_rule": "默认窗",
+        "ranking": true,
+        "direction": "desc",
+        "limit_requested": null
+      },
+      "design_note": "「头名」排名语义词不在 DATA_QUESTION_RE 词表（词表只有最高/最低/最大/最小/排名/TOP＋前N＋N口）→词面缺件；limit 未写（出题人不把「头名」算显式条数——语义等价 TOP 1 但确定性解析无此映射，LLM 声明 limit_requested=1 亦属合理翻译，判分按 author_intent=null 记 LLM 若填 1 为「条数宽松命中」注记不判错）。"
+    },
+    {
+      "qid": "L03B-11",
+      "family": "非标排名条数词",
+      "question": "油压排前几位的井",
+      "expected_trigger": true,
+      "author_intent": {
+        "metric_slot": "油压",
+        "window_rule": "默认窗",
+        "ranking": true,
+        "direction": "desc",
+        "limit_requested": null
+      },
+      "design_note": "「油压」标准指标名字面在（MEASURE_COLUMNS 键）→declared 预期命中；「前几位」——「几」不在前 N 字符类→条数词缺；「最高/排名」缺→词面可能仅靠其它词。意图 limit=null（「几位」不定数）。"
+    },
+    {
+      "qid": "L03B-12",
+      "family": "非标排名条数词",
+      "question": "产油量头两名",
+      "expected_trigger": true,
+      "author_intent": {
+        "metric_slot": "日产油量",
+        "window_rule": "默认窗",
+        "ranking": true,
+        "direction": "desc",
+        "limit_requested": 2
+      },
+      "design_note": "「头两名」非标条数词（「头两」不在前 N 字面，「两名」无「口」字不命中 N口 模式）→条数词缺；「产油量」∈「日产油量」子串（锚定包含方向实测）。意图 limit=2。"
+    },
+    {
+      "qid": "L03B-13",
+      "family": "非标时间或默认窗",
+      "question": "这个月油出得最多的井",
+      "expected_trigger": true,
+      "author_intent": {
+        "metric_slot": "日产油量",
+        "window_rule": "本月",
+        "ranking": true,
+        "direction": "desc",
+        "limit_requested": null
+      },
+      "design_note": "「这个月」∈PLAN_TIME_WORDS→时间词面齐；指标词缺→解析缺件触发。意图窗＝本月（月初至执行日，端点随执行日实算）。"
+    },
+    {
+      "qid": "L03B-14",
+      "family": "非标时间或默认窗",
+      "question": "最近产液最猛的井",
+      "expected_trigger": true,
+      "author_intent": {
+        "metric_slot": "日产液量",
+        "window_rule": "模糊最近",
+        "ranking": true,
+        "direction": "desc",
+        "limit_requested": null
+      },
+      "design_note": "模糊窗判例（任务指定观察点）：「最近」∈词表但属模糊窗（parse_time_window vague→确定性侧落缺参反问不产计划）。指标词缺→解析缺件触发→drafter 被调：观察「LLM 补窗 vs 系统反问」分歧形态——确定性侧 vague=None→比对必不可比；LLM 若补具体窗（如近 30 天）即「LLM 代猜用户事实」形态，如实判例登记（author_intent 不给补窗答案——缺的是用户事实）。"
+    },
+    {
+      "qid": "L03B-15",
+      "family": "非标时间或默认窗",
+      "question": "上月油压最高的井",
+      "expected_trigger": false,
+      "author_intent": {
+        "metric_slot": "油压",
+        "window_rule": "上月",
+        "ranking": true,
+        "direction": "desc",
+        "limit_requested": null
+      },
+      "design_note": "「上月」时间词面齐＋「最高」排名词面齐＋「油压」标准指标名→declared 预期命中→快路可解不触发（与 golden L04-05 同构换窗）。预期进对照观察：若实测触发即词面/候选命中与预期不符的证据。"
+    },
+    {
+      "qid": "L03B-16",
+      "family": "非标时间或默认窗",
+      "question": "近期出油最多的几口井",
+      "expected_trigger": true,
+      "author_intent": {
+        "metric_slot": "日产油量",
+        "window_rule": "模糊近期",
+        "ranking": true,
+        "direction": "desc",
+        "limit_requested": null
+      },
+      "design_note": "「近期」在 _VAGUE_TIME_RE（模糊窗反问词族）但不在 DATA_QUESTION_RE 的 PLAN_TIME_WORDS（词表只有「最近」）→词面缺件；「几口」不命中 N口 模式（「几」非数字）；「最多」不在词表→预期词面缺件触发。模糊窗「近期」——确定性侧若走 vague 仍落反问；观察 LLM 补窗形态同 L03B-14。"
+    },
+    {
+      "qid": "L03B-17",
+      "family": "对照组",
+      "question": "上月产油最多的前 10 口井",
+      "expected_trigger": false,
+      "author_intent": {
+        "metric_slot": "日产油量",
+        "window_rule": "上月",
+        "ranking": true,
+        "direction": "desc",
+        "limit_requested": 10
+      },
+      "design_note": "对照组（任务指定）：「上月」时间词面齐＋「前 10」命中前 N 词面→词面齐；预期指标候选命中（「产油」∈「日产油量」子串包含方向）→快路可解不应触发——无影子行＝预期态。若实测有影子行即触发谓词/候选命中偏离预期的一手证据。"
+    },
+    {
+      "qid": "L03B-18",
+      "family": "对照组",
+      "question": "日产液排名前 5 的井",
+      "expected_trigger": false,
+      "author_intent": {
+        "metric_slot": "日产液量",
+        "window_rule": "默认窗",
+        "ranking": true,
+        "direction": "desc",
+        "limit_requested": 5
+      },
+      "design_note": "对照组（任务指定）：「排名」在词表＋「前 5」命中前 N→词面齐；「日产液」∈「日产液量」子串→候选预期命中→快路可解不应触发。"
+    }
+  ]
+}
