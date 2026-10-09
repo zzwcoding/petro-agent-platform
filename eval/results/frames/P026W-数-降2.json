@@ -1,0 +1,444 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-7951a364",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问去年全年各井的配产量数据。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问去年全年各井的配产量数据。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "决策 r1：执行 data"
+   }
+  },
+  {
+   "id": 4,
+   "event": "notice",
+   "data": {
+    "type": "decision_note",
+    "gates": [],
+    "content": "配产量在指标名册属在册未绑定，引擎将如实降级解释"
+   }
+  },
+  {
+   "id": 5,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 3,
+    "title": "data_query：ok"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 2 支"
+   }
+  },
+  {
+   "id": 8,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#204",
+    "content": "配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 9,
+   "event": "notice",
+   "data": {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）"
+   }
+  },
+  {
+   "id": 10,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "决策 r2：执行 data"
+   }
+  },
+  {
+   "id": 12,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 6,
+    "message": null
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 6,
+    "title": "data_query：ok"
+   }
+  },
+  {
+   "id": 14,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 7,
+    "title": "观察回流 2 支"
+   }
+  },
+  {
+   "id": 15,
+   "event": "observation",
+   "data": {
+    "index": 3,
+    "source": "sem_metric#204",
+    "content": "配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 16,
+   "event": "notice",
+   "data": {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）"
+   }
+  },
+  {
+   "id": 17,
+   "event": "observation",
+   "data": {
+    "index": 4,
+    "source": "query 引擎降级依据",
+    "content": "指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 18,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "决策 r3：执行 data"
+   }
+  },
+  {
+   "id": 19,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 9,
+    "message": null
+   }
+  },
+  {
+   "id": 20,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 9,
+    "title": "data_query：ok"
+   }
+  },
+  {
+   "id": 21,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 10,
+    "title": "观察回流 2 支"
+   }
+  },
+  {
+   "id": 22,
+   "event": "observation",
+   "data": {
+    "index": 5,
+    "source": "sem_metric#204",
+    "content": "配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 23,
+   "event": "notice",
+   "data": {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）"
+   }
+  },
+  {
+   "id": 24,
+   "event": "observation",
+   "data": {
+    "index": 6,
+    "source": "query 引擎降级依据",
+    "content": "指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 25,
+   "event": "notice",
+   "data": {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：核验（verify）/阐述（answer）未执行。已交付已取得部分，不静默截断。"
+   }
+  },
+  {
+   "id": 26,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 11,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 27,
+   "event": "text",
+   "data": {
+    "content": "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）\n- 指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）\n- 配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）\n- 指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）\n- 配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）\n- 指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）\n- 配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）\n- 指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）"
+   }
+  },
+  {
+   "id": 28,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-7951a364",
+    "manifest_digest": "245f93174b7dcd6d43d68d2abf82d8032dec5236208c38150bad602656e98fac"
+   }
+  },
+  {
+   "id": 29,
+   "event": "done",
+   "data": {
+    "run_id": "run-7951a364"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）\n- 指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）\n- 配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）\n- 指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）\n- 配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）\n- 指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）\n- 配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）\n- 指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "decision_note",
+    "gates": [],
+    "content": "配产量在指标名册属在册未绑定，引擎将如实降级解释"
+   },
+   {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）"
+   },
+   {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）"
+   },
+   {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）"
+   },
+   {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：核验（verify）/阐述（answer）未执行。已交付已取得部分，不静默截断。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-7951a364",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问去年全年各井的配产量数据。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "决策 r1：执行 data"
+   },
+   {
+    "step": "execute",
+    "seq": 3,
+    "title": "data_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 2 支"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "决策 r2：执行 data"
+   },
+   {
+    "step": "execute",
+    "seq": 6,
+    "title": "data_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 7,
+    "title": "观察回流 2 支"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "决策 r3：执行 data"
+   },
+   {
+    "step": "execute",
+    "seq": 9,
+    "title": "data_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 10,
+    "title": "观察回流 2 支"
+   },
+   {
+    "step": "answer",
+    "seq": 11,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   },
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 6,
+    "message": null
+   },
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 9,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_metric#204",
+    "content": "配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）",
+    "trust": "ledger"
+   },
+   {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）",
+    "trust": "notice"
+   },
+   {
+    "index": 3,
+    "source": "sem_metric#204",
+    "content": "配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）",
+    "trust": "ledger"
+   },
+   {
+    "index": 4,
+    "source": "query 引擎降级依据",
+    "content": "指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）",
+    "trust": "notice"
+   },
+   {
+    "index": 5,
+    "source": "sem_metric#204",
+    "content": "配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）",
+    "trust": "ledger"
+   },
+   {
+    "index": 6,
+    "source": "query 引擎降级依据",
+    "content": "指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-7951a364",
+   "manifest_digest": "245f93174b7dcd6d43d68d2abf82d8032dec5236208c38150bad602656e98fac"
+  },
+  "texts": [
+   "问去年全年各井的配产量数据。",
+   "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）\n- 指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）\n- 配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）\n- 指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）\n- 配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）\n- 指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）\n- 配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）\n- 指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）"
+  ],
+  "duration_s": 8.7
+ }
+}

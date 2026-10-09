@@ -1,0 +1,322 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-7bed0db1",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "本月各井的日产油量明细。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "本月各井的日产油量明细。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "决策 r1 被拒：task_type 缺失或越界（data/knowledge/mixed 三值）：None"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "决策 r2：执行 data"
+   }
+  },
+  {
+   "id": 5,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 4,
+    "message": null
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 4,
+    "title": "data_query：ok"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 5,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 8,
+   "event": "notice",
+   "data": {
+    "type": "freshness_block",
+    "gates": [],
+    "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 38 天 · 超期）——查询窗「2026-10-01～2026-10-08」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。"
+   }
+  },
+  {
+   "id": 9,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "汇总层水位读面",
+    "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 38 天 · 超期）——查询窗「2026-10-01～2026-10-08」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "决策 r3：执行 data"
+   }
+  },
+  {
+   "id": 11,
+   "event": "notice",
+   "data": {
+    "type": "decision_note",
+    "gates": [],
+    "content": "本月窗（2026-10-01~2026-10-09）晚于数据水位 2026-08-31——引擎如拦停/降级请如实注记"
+   }
+  },
+  {
+   "id": 12,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 7,
+    "message": null
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 7,
+    "title": "data_query：ok"
+   }
+  },
+  {
+   "id": 14,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 8,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 15,
+   "event": "notice",
+   "data": {
+    "type": "freshness_block",
+    "gates": [],
+    "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 38 天 · 超期）——查询窗「2026-10-01～2026-10-08」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。"
+   }
+  },
+  {
+   "id": 16,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "汇总层水位读面",
+    "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 38 天 · 超期）——查询窗「2026-10-01～2026-10-08」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 17,
+   "event": "notice",
+   "data": {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：核验（verify）/阐述（answer）未执行。已交付已取得部分，不静默截断。"
+   }
+  },
+  {
+   "id": 18,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 9,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 19,
+   "event": "text",
+   "data": {
+    "content": "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 38 天 · 超期）——查询窗「2026-10-01～2026-10-08」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。\n- 新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 38 天 · 超期）——查询窗「2026-10-01～2026-10-08」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。\n- 新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 38 天 · 超期）——查询窗「2026-10-01～2026-10-08」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。"
+   }
+  },
+  {
+   "id": 20,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-7bed0db1",
+    "manifest_digest": "3cee95afdacba7c3f804b5139630f31d1ff77e3392b698d3ffe8936dd21a2df1"
+   }
+  },
+  {
+   "id": 21,
+   "event": "done",
+   "data": {
+    "run_id": "run-7bed0db1"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 38 天 · 超期）——查询窗「2026-10-01～2026-10-08」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。\n- 新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 38 天 · 超期）——查询窗「2026-10-01～2026-10-08」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。\n- 新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 38 天 · 超期）——查询窗「2026-10-01～2026-10-08」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "freshness_block",
+    "gates": [],
+    "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 38 天 · 超期）——查询窗「2026-10-01～2026-10-08」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。"
+   },
+   {
+    "type": "decision_note",
+    "gates": [],
+    "content": "本月窗（2026-10-01~2026-10-09）晚于数据水位 2026-08-31——引擎如拦停/降级请如实注记"
+   },
+   {
+    "type": "freshness_block",
+    "gates": [],
+    "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 38 天 · 超期）——查询窗「2026-10-01～2026-10-08」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。"
+   },
+   {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：核验（verify）/阐述（answer）未执行。已交付已取得部分，不静默截断。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-7bed0db1",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "本月各井的日产油量明细。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "决策 r1 被拒：task_type 缺失或越界（data/knowledge/mixed 三值）：None"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "决策 r2：执行 data"
+   },
+   {
+    "step": "execute",
+    "seq": 4,
+    "title": "data_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 5,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "决策 r3：执行 data"
+   },
+   {
+    "step": "execute",
+    "seq": 7,
+    "title": "data_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 8,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "answer",
+    "seq": 9,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 4,
+    "message": null
+   },
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 7,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "汇总层水位读面",
+    "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 38 天 · 超期）——查询窗「2026-10-01～2026-10-08」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。",
+    "trust": "notice"
+   },
+   {
+    "index": 2,
+    "source": "汇总层水位读面",
+    "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 38 天 · 超期）——查询窗「2026-10-01～2026-10-08」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-7bed0db1",
+   "manifest_digest": "3cee95afdacba7c3f804b5139630f31d1ff77e3392b698d3ffe8936dd21a2df1"
+  },
+  "texts": [
+   "本月各井的日产油量明细。",
+   "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 38 天 · 超期）——查询窗「2026-10-01～2026-10-08」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。\n- 新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 38 天 · 超期）——查询窗「2026-10-01～2026-10-08」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。\n- 新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 38 天 · 超期）——查询窗「2026-10-01～2026-10-08」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。"
+  ],
+  "duration_s": 13.2
+ }
+}

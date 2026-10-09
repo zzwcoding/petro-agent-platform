@@ -1,0 +1,52 @@
+{
+  "skillPackage": "react-processing-guide",
+  "id": "GUIDE-PETRO-001",
+  "label": "ReAct Skill 处理指南（V2-32——ontology 真源）",
+  "version": "1.0.0",
+  "schemaVersion": "1.1.0",
+  "domain": "petro",
+  "modelType": "SKILL_GUIDE",
+  "modelTypeNote": "SKILL_GUIDE 为本 Skill Package 的资产形态标记（非八模型 schema 注册类型）——指南＝业务语义资产，与台账同治理（Owner 2026-10-09 拍板①a），但不进八模型 schema 扫描面：本目录只含 .md/.json，schema_check（模型 YAML 闸）管辖面外；语义闸 ci.sh 全量跑不受影响（additive，零既有元素改动）。",
+  "governance": {
+    "authority": "Owner 拍板①a（2026-10-09）：Skill 处理指南＝业务语义资产，落 ontology/ 与台账同治理（ci/版本/提案流程）——避免 V1「词表与本体两张皮」老坑。",
+    "authorization": "P-026 派工单（tickets/v2/V2-32-Skill处理指南.md，Owner 2026-09→10-09 裁决链）授权新建本目录；边界红线＝只许新建 ontology/ 内指南资产文件、不改既有本体元素（additive）。",
+    "changeProcess": "内容变更先 proposal_check 过确定性预检，Owner 裁决后进仓（ontology/AGENTS.md 改动纪律 3）；版本位变更随提案登记。",
+    "sourceDiscipline": "业务事实零发明：正文逐节注源（PRD/ADR/题册/拍板原文）；题册没有、设定书没有的一律不建。"
+  },
+  "sourceAnchors": [
+    {"anchor": "docs/prd.md §③", "covers": "三链产品本体原文（问数／问报告／数证结合）、Agent loop、工具清单、INV 不变量"},
+    {"anchor": "docs/adr/0004-react重构.md 拍板⑥⑦", "covers": "澄清分级原文、Skill 处理指南＝ontology 资产"},
+    {"anchor": "docs/adr/0005-子任务图与前置条件机.md（含 Owner 拍板 a 词典层暴露增补——commit 4e38e57）", "covers": "四相位轮语义、问题组分解（子问题≤4）、澄清相位发现 ≤10＋次数埋点、前置条件机四态、词典层全量注入＋semantic_query 转钻取（§A 指标名册＝过渡承载）"},
+    {"anchor": "dispatch/pending/P-026.md 增补节 5–8", "covers": "发射判据（数据路径退化分析结论逐字）、窗词锚定表、单井业务红线、分解指南要点"},
+    {"anchor": "eval/answers/问数组-题目与答案.md 窗口锚定表＋已知边界", "covers": "窗词→解析窗锚定（水位 2026-08-31）、单井过滤未支持登记（L-08 承接）"},
+    {"anchor": "eval/results/Q12-判分-问数组.jsonl ＋ P024BW-跑批结果.jsonl（P-024b S3）", "covers": "退化分析实证基线（占位指南 ✅0/⚠️3/❌13、data_query 执行 0 次）"},
+    {"anchor": "appv2/knowledge/domain.py MEASURE_COLUMNS ＋ appv2/tools/handlers.py 白名单卡", "covers": "冻结三绑定（日产油量→oil_output·吨／日产液量→liquid_output·方／油压→oil_pressure·MPa）、发现工具白名单⑥——读面合同值投影，真源在引擎侧代码"},
+    {"anchor": "teach-petro-agent/docs/business-setting.md（R5·设定书）", "covers": "指标/术语业务语义上游真源（本指南不复制正文，只引用）"}
+  ],
+  "files": {
+    "instructions": "instructions.md",
+    "examples": "examples.md",
+    "evalCases": "eval-cases.md"
+  },
+  "runtimeSurface": {
+    "section": "instructions.md §A",
+    "description": "runtime 决策面（装载切面）：发射判据＋三链路由＋metric_slot 纪律＋窗词锚定＋业务红线＋澄清分级＋发现预算＋finalize 纪律的浓缩文本，占位符 {today}/{month_start}/{start30} 由装载方按 infra.clock 执行日填充。",
+    "composition": "guide() 输出＝本件 §A（本体资产面）＋runtime 发射合同文本（appv2/runtime/guide.py DECISION_CONTRACT——与 graph.parse_decision schema 校验代码同源单点，本指南不复制不设双真源）。装载方按此拼接。",
+    "placeholders": ["{today}", "{month_start}", "{start30}"]
+  },
+  "loadingSeam": {
+    "consumer": "appv2/runtime/guide.py GuideProvider 协议（V2-31 拍板⑦接口缝）——本资产件实现同形协议注入 LoopDeps.guide；graph 决策节点只经 provider.guide() 取文，不感知指南来源。",
+    "path": "ontology 导出（本目录文件）→ runtime Context Builder 装载点（GraphRunExecutor(guide=…) 构造参数——create_app 组合根传递；骨架版 DefaultGuideProvider 内置文案随本资产装载退役，不设双真源）。",
+    "status": "注记在位（本节）——runtime 常驻装载接线随 V2-31 消费批/V2-34 前置条件机批落码；P-026 S3 复测以装载启动器（临时件，不入仓）经 GraphRunExecutor(guide=…) 构造参数真装载实证。",
+    "wiringNote": "常驻装载缝现状：create_app 尚无 guide 形参（骨架版 DefaultGuideProvider 兜底在位）——落码归属 V2-31 消费批（本票只产资产＋装载缝注记，不改 runtime 代码：票面边界红线）。"
+  },
+  "consumers": [
+    {"ticket": "V2-31", "use": "GuideProvider 缝消费（骨架版内置文案退役）"},
+    {"ticket": "V2-34", "use": "问题组分解指南（§7）＋澄清相位预算（§8）——子任务图/前置条件机实施的行为合同输入"},
+    {"ticket": "V2-32（本票）", "use": "S3 复测硬项：本资产装载后问数组 16 题真跑批（修复实证对 P-024b 占位指南基线）"}
+  ],
+  "evalCases": {
+    "file": "eval-cases.md",
+    "note": "验收用例＝指南自问自答检查清单（14 条，AC-G1~G14）；可被 V2-31/V2-34 剧本引用；S3 复测判分对比基线＝Q12（✅5/⚠️5/❌6，票面口径）与 Q12-判分-问数组.jsonl 实测（✅4/⚠️6/❌6）——❌ 不回退。"
+  }
+}

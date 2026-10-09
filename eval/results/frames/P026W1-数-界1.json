@@ -1,0 +1,159 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-685540b8",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问N-01井去年的日产油量。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问N-01井去年的日产油量。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "决策 r1：定稿"
+   }
+  },
+  {
+   "id": 4,
+   "event": "notice",
+   "data": {
+    "type": "decision_note",
+    "gates": [],
+    "content": "未找到关于 N-01 井的观察材料，无法回答其去年的日产油量。请提供相关台账或报表数据后再行查询。"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 3,
+    "title": "核验：支撑 0｜改写 0｜分源 否"
+   }
+  },
+  {
+   "id": 6,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 0,
+    "split": false,
+    "cited": []
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 4,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 8,
+   "event": "text",
+   "data": {
+    "content": "（未取得观察材料——如实回报，不编造。）"
+   }
+  },
+  {
+   "id": 9,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-685540b8",
+    "manifest_digest": "adad3c2be94cbb28bf98264a34cc1e275979f877ae6e00efccdfd8bd41521af0"
+   }
+  },
+  {
+   "id": 10,
+   "event": "done",
+   "data": {
+    "run_id": "run-685540b8"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（未取得观察材料——如实回报，不编造。）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "decision_note",
+    "gates": [],
+    "content": "未找到关于 N-01 井的观察材料，无法回答其去年的日产油量。请提供相关台账或报表数据后再行查询。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-685540b8",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问N-01井去年的日产油量。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "决策 r1：定稿"
+   },
+   {
+    "step": "verify",
+    "seq": 3,
+    "title": "核验：支撑 0｜改写 0｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 4,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 0,
+    "split": false,
+    "cited": []
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-685540b8",
+   "manifest_digest": "adad3c2be94cbb28bf98264a34cc1e275979f877ae6e00efccdfd8bd41521af0"
+  },
+  "texts": [
+   "问N-01井去年的日产油量。",
+   "（未取得观察材料——如实回报，不编造。）"
+  ],
+  "duration_s": 3.2
+ }
+}

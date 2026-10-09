@@ -1,0 +1,163 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-fce3b0c6",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问井位台账中所有井里日产油量数值最大的那口井。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问井位台账中所有井里日产油量数值最大的那口井。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "决策 r1：执行 data"
+   }
+  },
+  {
+   "id": 4,
+   "event": "notice",
+   "data": {
+    "type": "decision_note",
+    "gates": [],
+    "content": "未指明时间窗——已按近 30 天默认（2026-09-09 起）；排名按日产油量降序，定位最高井"
+   }
+  },
+  {
+   "id": 5,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ask",
+    "seq": 3,
+    "message": null
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 3,
+    "title": "data_query：ask"
+   }
+  },
+  {
+   "id": 7,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "external_table_approval",
+     "prompt": "查询引用选表命中集之外的外表：erp_well_register（执行前表引用比对命中——F14）",
+     "options": [
+      "批准",
+      "驳回"
+     ],
+     "detail": {
+      "approval_id": "run-fce3b0c6#APP-1009-erp_well_register",
+      "scene": "extable",
+      "title": "外表引用审批",
+      "reason": "查询引用选表命中集之外的外表：erp_well_register（执行前表引用比对命中——F14）",
+      "impact": "批准＝链恢复续跑（只读执行，生产库未动）；驳回＝权限拒答零重试（不自动改写 SQL）",
+      "audit_hint": "外表 erp_well_register"
+     }
+    },
+    "run_id": "run-fce3b0c6"
+   }
+  },
+  {
+   "id": 8,
+   "event": "done",
+   "data": {
+    "run_id": "run-fce3b0c6"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问井位台账中所有井里日产油量数值最大的那口井。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "decision_note",
+    "gates": [],
+    "content": "未指明时间窗——已按近 30 天默认（2026-09-09 起）；排名按日产油量降序，定位最高井"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-fce3b0c6",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问井位台账中所有井里日产油量数值最大的那口井。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "决策 r1：执行 data"
+   },
+   {
+    "step": "execute",
+    "seq": 3,
+    "title": "data_query：ask"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ask",
+    "seq": 3,
+    "message": null
+   }
+  ],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "external_table_approval",
+     "prompt": "查询引用选表命中集之外的外表：erp_well_register（执行前表引用比对命中——F14）",
+     "options": [
+      "批准",
+      "驳回"
+     ],
+     "detail": {
+      "approval_id": "run-fce3b0c6#APP-1009-erp_well_register",
+      "scene": "extable",
+      "title": "外表引用审批",
+      "reason": "查询引用选表命中集之外的外表：erp_well_register（执行前表引用比对命中——F14）",
+      "impact": "批准＝链恢复续跑（只读执行，生产库未动）；驳回＝权限拒答零重试（不自动改写 SQL）",
+      "audit_hint": "外表 erp_well_register"
+     }
+    },
+    "run_id": "run-fce3b0c6"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "问井位台账中所有井里日产油量数值最大的那口井。"
+  ],
+  "duration_s": 6.0
+ }
+}
