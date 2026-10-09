@@ -1,0 +1,548 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-c0c4d164",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问去年全年日产液量最高的井是哪口。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问去年全年日产液量最高的井是哪口。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "决策 r1：发现×1（semantic_query）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 3,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 7,
+   "event": "notice",
+   "data": {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：日产液量 指标（精确名与别名归一均未命中——请核对要素名）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：日产液量 指标（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "决策 r2：发现×2（semantic_query、semantic_query）"
+   }
+  },
+  {
+   "id": 10,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 6,
+    "message": null
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 6,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 7,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 13,
+   "event": "notice",
+   "data": {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：日产液量 按井排名 年度（精确名与别名归一均未命中——请核对要素名）"
+   }
+  },
+  {
+   "id": 14,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：日产液量 按井排名 年度（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 15,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 8,
+    "message": null
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 8,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 17,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 9,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 18,
+   "event": "notice",
+   "data": {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：daily liquid production per well annual max（精确名与别名归一均未命中——请核对要素名）"
+   }
+  },
+  {
+   "id": 19,
+   "event": "observation",
+   "data": {
+    "index": 3,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：daily liquid production per well annual max（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 20,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 10,
+    "title": "决策 r3：发现×2（semantic_query、table_schema）"
+   }
+  },
+  {
+   "id": 21,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 11,
+    "message": null
+   }
+  },
+  {
+   "id": 22,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 11,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 23,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 12,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 24,
+   "event": "notice",
+   "data": {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：日产液量 daily liquid production 指标 台账（精确名与别名归一均未命中——请核对要素名）"
+   }
+  },
+  {
+   "id": 25,
+   "event": "observation",
+   "data": {
+    "index": 4,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：日产液量 daily liquid production 指标 台账（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 26,
+   "event": "tool",
+   "data": {
+    "tool": "table_schema",
+    "status": "ok",
+    "seq": 13,
+    "message": null
+   }
+  },
+  {
+   "id": 27,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 13,
+    "title": "table_schema：ok"
+   }
+  },
+  {
+   "id": 28,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 14,
+    "title": "观察回流 3 支"
+   }
+  },
+  {
+   "id": 29,
+   "event": "observation",
+   "data": {
+    "index": 5,
+    "source": "table_schema 白名单读面",
+    "content": "表 agg.fct_daily_metering（日产计量事实表·PK well_id+prod_date）：well_id（井号）、prod_date（日期·查询窗端）、oil_output（日产油量·吨）、liquid_output（日产液量·方）、oil_pressure（油压·MPa）、batch_id（数据批次）、quality_flag（质量标记）——问数计划（data_query）唯一取数事实表",
+    "trust": "report"
+   }
+  },
+  {
+   "id": 30,
+   "event": "observation",
+   "data": {
+    "index": 6,
+    "source": "table_schema 白名单读面",
+    "content": "表 agg.dim_well（井维度·PK well_id）：well_id（井号）、block_name（区块）、field_name（油田）",
+    "trust": "report"
+   }
+  },
+  {
+   "id": 31,
+   "event": "observation",
+   "data": {
+    "index": 7,
+    "source": "table_schema 白名单读面",
+    "content": "表 agg.dim_date（日期维度·PK date）：date（日期）、month（月）、quarter（季）",
+    "trust": "report"
+   }
+  },
+  {
+   "id": 32,
+   "event": "notice",
+   "data": {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：核验（verify）/阐述（answer）未执行。已交付已取得部分，不静默截断。"
+   }
+  },
+  {
+   "id": 33,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 15,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 34,
+   "event": "text",
+   "data": {
+    "content": "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 台账未命中：日产液量 指标（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：日产液量 按井排名 年度（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：daily liquid production per well annual max（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：日产液量 daily liquid production 指标 台账（精确名与别名归一均未命中——请核对要素名）\n- 表 agg.fct_daily_metering（日产计量事实表·PK well_id+prod_date）：well_id（井号）、prod_date（日期·查询窗端）、oil_output（日产油量·吨）、liquid_output（日产液量·方）、oil_pressure（油压·MPa）、batch_id（数据批次）、quality_flag（质量标记）——问数计划（data_query）唯一取数事实表\n- 表 agg.dim_well（井维度·PK well_id）：well_id（井号）、block_name（区块）、field_name（油田）\n- 表 agg.dim_date（日期维度·PK date）：date（日期）、month（月）、quarter（季）\n- 表 agg.fct_daily_metering（日产计量事实表·PK well_id+prod_date）：well_id（井号）、prod_date（日期·查询窗端）、oil_output（日产油量·吨）、liquid_output（日产液量·方）、oil_pressure（油压·MPa）、batch_id（数据批次）、quality_flag（质量标记）——问数计划（data_query）唯一取数事实表\n- 表 agg.dim_well（井维度·PK well_id）：well_id（井号）、block_name（区块）、field_name（油田）\n- 表 agg.dim_date（日期维度·PK date）：date（日期）、month（月）、quarter（季）"
+   }
+  },
+  {
+   "id": 35,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-c0c4d164",
+    "manifest_digest": "a696bce65ca256f67bb2235b5633184a1dc52c3143bb7937985c78b126d89b70"
+   }
+  },
+  {
+   "id": 36,
+   "event": "done",
+   "data": {
+    "run_id": "run-c0c4d164"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 台账未命中：日产液量 指标（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：日产液量 按井排名 年度（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：daily liquid production per well annual max（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：日产液量 daily liquid production 指标 台账（精确名与别名归一均未命中——请核对要素名）\n- 表 agg.fct_daily_metering（日产计量事实表·PK well_id+prod_date）：well_id（井号）、prod_date（日期·查询窗端）、oil_output（日产油量·吨）、liquid_output（日产液量·方）、oil_pressure（油压·MPa）、batch_id（数据批次）、quality_flag（质量标记）——问数计划（data_query）唯一取数事实表\n- 表 agg.dim_well（井维度·PK well_id）：well_id（井号）、block_name（区块）、field_name（油田）\n- 表 agg.dim_date（日期维度·PK date）：date（日期）、month（月）、quarter（季）\n- 表 agg.fct_daily_metering（日产计量事实表·PK well_id+prod_date）：well_id（井号）、prod_date（日期·查询窗端）、oil_output（日产油量·吨）、liquid_output（日产液量·方）、oil_pressure（油压·MPa）、batch_id（数据批次）、quality_flag（质量标记）——问数计划（data_query）唯一取数事实表\n- 表 agg.dim_well（井维度·PK well_id）：well_id（井号）、block_name（区块）、field_name（油田）\n- 表 agg.dim_date（日期维度·PK date）：date（日期）、month（月）、quarter（季）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：日产液量 指标（精确名与别名归一均未命中——请核对要素名）"
+   },
+   {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：日产液量 按井排名 年度（精确名与别名归一均未命中——请核对要素名）"
+   },
+   {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：daily liquid production per well annual max（精确名与别名归一均未命中——请核对要素名）"
+   },
+   {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：日产液量 daily liquid production 指标 台账（精确名与别名归一均未命中——请核对要素名）"
+   },
+   {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：核验（verify）/阐述（answer）未执行。已交付已取得部分，不静默截断。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-c0c4d164",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问去年全年日产液量最高的井是哪口。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "决策 r1：发现×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 3,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "决策 r2：发现×2（semantic_query、semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 6,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 7,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "discover",
+    "seq": 8,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 9,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "decision",
+    "seq": 10,
+    "title": "决策 r3：发现×2（semantic_query、table_schema）"
+   },
+   {
+    "step": "discover",
+    "seq": 11,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 12,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "discover",
+    "seq": 13,
+    "title": "table_schema：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 14,
+    "title": "观察回流 3 支"
+   },
+   {
+    "step": "answer",
+    "seq": 15,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 6,
+    "message": null
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 8,
+    "message": null
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 11,
+    "message": null
+   },
+   {
+    "tool": "table_schema",
+    "status": "ok",
+    "seq": 13,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：日产液量 指标（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   },
+   {
+    "index": 2,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：日产液量 按井排名 年度（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   },
+   {
+    "index": 3,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：daily liquid production per well annual max（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   },
+   {
+    "index": 4,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：日产液量 daily liquid production 指标 台账（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   },
+   {
+    "index": 5,
+    "source": "table_schema 白名单读面",
+    "content": "表 agg.fct_daily_metering（日产计量事实表·PK well_id+prod_date）：well_id（井号）、prod_date（日期·查询窗端）、oil_output（日产油量·吨）、liquid_output（日产液量·方）、oil_pressure（油压·MPa）、batch_id（数据批次）、quality_flag（质量标记）——问数计划（data_query）唯一取数事实表",
+    "trust": "report"
+   },
+   {
+    "index": 6,
+    "source": "table_schema 白名单读面",
+    "content": "表 agg.dim_well（井维度·PK well_id）：well_id（井号）、block_name（区块）、field_name（油田）",
+    "trust": "report"
+   },
+   {
+    "index": 7,
+    "source": "table_schema 白名单读面",
+    "content": "表 agg.dim_date（日期维度·PK date）：date（日期）、month（月）、quarter（季）",
+    "trust": "report"
+   }
+  ],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-c0c4d164",
+   "manifest_digest": "a696bce65ca256f67bb2235b5633184a1dc52c3143bb7937985c78b126d89b70"
+  },
+  "texts": [
+   "问去年全年日产液量最高的井是哪口。",
+   "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 台账未命中：日产液量 指标（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：日产液量 按井排名 年度（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：daily liquid production per well annual max（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：日产液量 daily liquid production 指标 台账（精确名与别名归一均未命中——请核对要素名）\n- 表 agg.fct_daily_metering（日产计量事实表·PK well_id+prod_date）：well_id（井号）、prod_date（日期·查询窗端）、oil_output（日产油量·吨）、liquid_output（日产液量·方）、oil_pressure（油压·MPa）、batch_id（数据批次）、quality_flag（质量标记）——问数计划（data_query）唯一取数事实表\n- 表 agg.dim_well（井维度·PK well_id）：well_id（井号）、block_name（区块）、field_name（油田）\n- 表 agg.dim_date（日期维度·PK date）：date（日期）、month（月）、quarter（季）\n- 表 agg.fct_daily_metering（日产计量事实表·PK well_id+prod_date）：well_id（井号）、prod_date（日期·查询窗端）、oil_output（日产油量·吨）、liquid_output（日产液量·方）、oil_pressure（油压·MPa）、batch_id（数据批次）、quality_flag（质量标记）——问数计划（data_query）唯一取数事实表\n- 表 agg.dim_well（井维度·PK well_id）：well_id（井号）、block_name（区块）、field_name（油田）\n- 表 agg.dim_date（日期维度·PK date）：date（日期）、month（月）、quarter（季）"
+  ],
+  "duration_s": 10.2
+ }
+}

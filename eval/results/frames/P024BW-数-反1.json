@@ -1,0 +1,368 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-b515abd5",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问最近各井的日产油量情况。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问最近各井的日产油量情况。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "决策 r1：发现×2（semantic_query、semantic_query）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 3,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 7,
+   "event": "notice",
+   "data": {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：各井日产油量指标（精确名与别名归一均未命中——请核对要素名）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：各井日产油量指标（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 9,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 5,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 6,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 12,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "sem_metric#201",
+    "content": "日产油量（吨）：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12）｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 班次合计日口径（默认）｜争议注记：吨方混写脏值（D1——RULE-BOHAI-020 检出位已建）",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "决策 r2 被拒：discovers 超出轮内上限（≤2 支）"
+   }
+  },
+  {
+   "id": 14,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "决策 r3：发现×1（semantic_query）"
+   }
+  },
+  {
+   "id": 15,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 9,
+    "message": null
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 9,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 17,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 10,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 18,
+   "event": "notice",
+   "data": {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：日产油量指标绑定到哪个读模型列，以及绑定的源表与粒度（精确名与别名归一均未命中——请核对要素名）"
+   }
+  },
+  {
+   "id": 19,
+   "event": "observation",
+   "data": {
+    "index": 3,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：日产油量指标绑定到哪个读模型列，以及绑定的源表与粒度（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 20,
+   "event": "notice",
+   "data": {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：核验（verify）/阐述（answer）未执行。已交付已取得部分，不静默截断。"
+   }
+  },
+  {
+   "id": 21,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 11,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 22,
+   "event": "text",
+   "data": {
+    "content": "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 台账未命中：各井日产油量指标（精确名与别名归一均未命中——请核对要素名）\n- 日产油量（吨）：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12）｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 班次合计日口径（默认）｜争议注记：吨方混写脏值（D1——RULE-BOHAI-020 检出位已建）\n- 台账未命中：日产油量指标绑定到哪个读模型列，以及绑定的源表与粒度（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：日产油量指标绑定到哪个读模型列，以及绑定的源表与粒度（精确名与别名归一均未命中——请核对要素名）"
+   }
+  },
+  {
+   "id": 23,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-b515abd5",
+    "manifest_digest": "7565c8a13bf6d669ede5823aed0f4bb2856111b5d684da1277ae53c06d309013"
+   }
+  },
+  {
+   "id": 24,
+   "event": "done",
+   "data": {
+    "run_id": "run-b515abd5"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 台账未命中：各井日产油量指标（精确名与别名归一均未命中——请核对要素名）\n- 日产油量（吨）：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12）｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 班次合计日口径（默认）｜争议注记：吨方混写脏值（D1——RULE-BOHAI-020 检出位已建）\n- 台账未命中：日产油量指标绑定到哪个读模型列，以及绑定的源表与粒度（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：日产油量指标绑定到哪个读模型列，以及绑定的源表与粒度（精确名与别名归一均未命中——请核对要素名）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：各井日产油量指标（精确名与别名归一均未命中——请核对要素名）"
+   },
+   {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：日产油量指标绑定到哪个读模型列，以及绑定的源表与粒度（精确名与别名归一均未命中——请核对要素名）"
+   },
+   {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：核验（verify）/阐述（answer）未执行。已交付已取得部分，不静默截断。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-b515abd5",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问最近各井的日产油量情况。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "决策 r1：发现×2（semantic_query、semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 3,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "discover",
+    "seq": 5,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 6,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "决策 r2 被拒：discovers 超出轮内上限（≤2 支）"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "决策 r3：发现×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 9,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 10,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "answer",
+    "seq": 11,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 9,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：各井日产油量指标（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   },
+   {
+    "index": 2,
+    "source": "sem_metric#201",
+    "content": "日产油量（吨）：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12）｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 班次合计日口径（默认）｜争议注记：吨方混写脏值（D1——RULE-BOHAI-020 检出位已建）",
+    "trust": "ledger"
+   },
+   {
+    "index": 3,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：日产油量指标绑定到哪个读模型列，以及绑定的源表与粒度（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-b515abd5",
+   "manifest_digest": "7565c8a13bf6d669ede5823aed0f4bb2856111b5d684da1277ae53c06d309013"
+  },
+  "texts": [
+   "问最近各井的日产油量情况。",
+   "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 台账未命中：各井日产油量指标（精确名与别名归一均未命中——请核对要素名）\n- 日产油量（吨）：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12）｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 班次合计日口径（默认）｜争议注记：吨方混写脏值（D1——RULE-BOHAI-020 检出位已建）\n- 台账未命中：日产油量指标绑定到哪个读模型列，以及绑定的源表与粒度（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：日产油量指标绑定到哪个读模型列，以及绑定的源表与粒度（精确名与别名归一均未命中——请核对要素名）"
+  ],
+  "duration_s": 8.9
+ }
+}

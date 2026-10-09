@@ -1,0 +1,156 @@
+id: 0
+event: session
+data: {"run_id": "run-193bb593", "resume": false}
+
+id: 1
+event: step
+data: {"step": "decision", "seq": 1, "title": "问各油田的射孔厚度和射孔总孔数。"}
+
+id: 2
+event: text
+data: {"content": "问各油田的射孔厚度和射孔总孔数。"}
+
+id: 3
+event: step
+data: {"step": "decision", "seq": 2, "title": "决策 r1：发现×1（semantic_query）"}
+
+id: 4
+event: tool
+data: {"tool": "semantic_query", "status": "ok", "seq": 3, "message": null}
+
+id: 5
+event: step
+data: {"step": "discover", "seq": 3, "title": "semantic_query：ok"}
+
+id: 6
+event: step
+data: {"step": "observe", "seq": 4, "title": "观察回流 1 支"}
+
+id: 7
+event: notice
+data: {"type": "no_hit", "gates": [], "content": "台账未命中：射孔厚度 射孔总孔数 油田（精确名与别名归一均未命中——请核对要素名）"}
+
+id: 8
+event: observation
+data: {"index": 1, "source": "sem_* 台账读面", "content": "台账未命中：射孔厚度 射孔总孔数 油田（精确名与别名归一均未命中——请核对要素名）", "trust": "notice"}
+
+id: 9
+event: step
+data: {"step": "decision", "seq": 5, "title": "决策 r2：发现×2（table_schema、semantic_query）"}
+
+id: 10
+event: tool
+data: {"tool": "table_schema", "status": "ok", "seq": 6, "message": null}
+
+id: 11
+event: step
+data: {"step": "discover", "seq": 6, "title": "table_schema：ok"}
+
+id: 12
+event: step
+data: {"step": "observe", "seq": 7, "title": "观察回流 5 支"}
+
+id: 13
+event: observation
+data: {"index": 2, "source": "table_schema 白名单读面", "content": "账 sem_metric（指标台账）：slot_name/定义/粒度/单位/状态/版本/口径支/默认口径——semantic_query(question 或 element_name) 查口径卡，绑定指标才可出数（日产油量→oil_output·吨／日产液量→liquid_output·方／油压→oil_pressure·MPa）", "trust": "report"}
+
+id: 14
+event: observation
+data: {"index": 3, "source": "table_schema 白名单读面", "content": "账 sem_term（术语台账）：term/类型/定义/状态/届满——术语卡经 semantic_query 查", "trust": "report"}
+
+id: 15
+event: observation
+data: {"index": 4, "source": "table_schema 白名单读面", "content": "账 sem_object（对象台账）：obj/属性/状态——对象卡经 semantic_query 查", "trust": "report"}
+
+id: 16
+event: observation
+data: {"index": 5, "source": "table_schema 白名单读面", "content": "账 sem_relation（关系台账）：rel/读法——关系卡经 semantic_query 查", "trust": "report"}
+
+id: 17
+event: observation
+data: {"index": 6, "source": "table_schema 白名单读面", "content": "账 族标注（本体导出物·随台账读面 families）：关系组的族标注——semantic_query 按导出物名查", "trust": "report"}
+
+id: 18
+event: tool
+data: {"tool": "semantic_query", "status": "ok", "seq": 8, "message": null}
+
+id: 19
+event: step
+data: {"step": "discover", "seq": 8, "title": "semantic_query：ok"}
+
+id: 20
+event: step
+data: {"step": "observe", "seq": 9, "title": "观察回流 1 支"}
+
+id: 21
+event: notice
+data: {"type": "no_hit", "gates": [], "content": "台账未命中：射孔厚度 射孔总孔数 分油田（精确名与别名归一均未命中——请核对要素名）"}
+
+id: 22
+event: observation
+data: {"index": 7, "source": "sem_* 台账读面", "content": "台账未命中：射孔厚度 射孔总孔数 分油田（精确名与别名归一均未命中——请核对要素名）", "trust": "notice"}
+
+id: 23
+event: step
+data: {"step": "decision", "seq": 10, "title": "决策 r3：发现×2（semantic_query、semantic_query）"}
+
+id: 24
+event: tool
+data: {"tool": "semantic_query", "status": "ok", "seq": 11, "message": null}
+
+id: 25
+event: step
+data: {"step": "discover", "seq": 11, "title": "semantic_query：ok"}
+
+id: 26
+event: step
+data: {"step": "observe", "seq": 12, "title": "观察回流 1 支"}
+
+id: 27
+event: notice
+data: {"type": "no_hit", "gates": [], "content": "台账未命中：射孔厚度（精确名与别名归一均未命中——请核对要素名）"}
+
+id: 28
+event: observation
+data: {"index": 8, "source": "sem_* 台账读面", "content": "台账未命中：射孔厚度（精确名与别名归一均未命中——请核对要素名）", "trust": "notice"}
+
+id: 29
+event: tool
+data: {"tool": "semantic_query", "status": "ok", "seq": 13, "message": null}
+
+id: 30
+event: step
+data: {"step": "discover", "seq": 13, "title": "semantic_query：ok"}
+
+id: 31
+event: step
+data: {"step": "observe", "seq": 14, "title": "观察回流 1 支"}
+
+id: 32
+event: notice
+data: {"type": "no_hit", "gates": [], "content": "台账未命中：射孔总孔数（精确名与别名归一均未命中——请核对要素名）"}
+
+id: 33
+event: observation
+data: {"index": 9, "source": "sem_* 台账读面", "content": "台账未命中：射孔总孔数（精确名与别名归一均未命中——请核对要素名）", "trust": "notice"}
+
+id: 34
+event: notice
+data: {"type": "budget_converged", "gates": ["max_rounds"], "content": "预算触界收敛（max_rounds）——未完成项：核验（verify）/阐述（answer）未执行。已交付已取得部分，不静默截断。"}
+
+id: 35
+event: step
+data: {"step": "answer", "seq": 15, "title": "答案收口"}
+
+id: 36
+event: text
+data: {"content": "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 台账未命中：射孔厚度 射孔总孔数 油田（精确名与别名归一均未命中——请核对要素名）\n- 账 sem_metric（指标台账）：slot_name/定义/粒度/单位/状态/版本/口径支/默认口径——semantic_query(question 或 element_name) 查口径卡，绑定指标才可出数（日产油量→oil_output·吨／日产液量→liquid_output·方／油压→oil_pressure·MPa）\n- 账 sem_term（术语台账）：term/类型/定义/状态/届满——术语卡经 semantic_query 查\n- 账 sem_object（对象台账）：obj/属性/状态——对象卡经 semantic_query 查\n- 账 sem_relation（关系台账）：rel/读法——关系卡经 semantic_query 查\n- 账 族标注（本体导出物·随台账读面 families）：关系组的族标注——semantic_query 按导出物名查\n- 台账未命中：射孔厚度 射孔总孔数 分油田（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：射孔厚度（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：射孔总孔数（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：射孔总孔数（精确名与别名归一均未命中——请核对要素名）"}
+
+id: 37
+event: verdict
+data: {"subtype": "final", "status": "completed", "run_id": "run-193bb593", "manifest_digest": "94ed2ad3a3db5b37b1831e3881e193a88734c073bc577bde7a0a9b2fa7b643df"}
+
+id: 38
+event: done
+data: {"run_id": "run-193bb593"}
+

@@ -148,16 +148,16 @@ class GraphRunExecutor:
                 raise RunNotSuspendedError(str(exc)) from exc
             graph = build_graph(self._deps(bus), checkpointer=self._saver)
             config = {"configurable": {"thread_id": command.run_id}}
-            # 段时限＋段步基线刷新（挂起等人工不计预算——恢复段重新起算两闸）。
+            # 段时限刷新（挂起等人工不计预算——恢复段重新起算时长闸；原「段步
+            # 基线 segment_step_base」为死字段已删——P-024b C1：全仓零消费点，
+            # 挂起不计预算的实际机制就是本处 deadline_monotonic 段刷新）。
             snapshot = await graph.aget_state(config)
             values = snapshot.values or {}
-            prior_steps = list(values.get("steps") or [])
             resume_choice_base = len(values.get("resume_choices") or [])
             await graph.aupdate_state(
                 config,
                 {
                     "deadline_monotonic": now_monotonic() + self._budget.total_seconds,
-                    "segment_step_base": len(prior_steps),
                 },
             )
             choice = command.choice or AskChoice(value="")

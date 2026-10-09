@@ -110,9 +110,11 @@ DISCOVER_TOOLS: frozenset[str] = frozenset({SEMANTIC_QUERY, SCHEMA_PROBE})
 _CITE_RE = re.compile(r"\[(\d+)\]")
 _NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
 _CANDIDATE_LINE = "指标候选"
-# 权威观察承载（V2-23 豁免域）：表格行/血缘卡是权威观察本身——断言级「全数值
-# 复述」只辖自由文本断言，不辖对它们的转述（豁免仍有底：零重叠照改，见 _supported）。
-_CARRIER_KINDS = frozenset({"agg_row", "lineage"})
+# 权威观察承载（V2-23 豁免域＋P-024b 审查 S2 扩 fragment）：表格行/血缘卡/kb 检索
+# 片段是权威观察本身——断言级「全数值复述」只辖自由文本断言，不辖对它们的转述
+# （kb 长片段数值 token 十余个，全数值复述形同必吞——run-a2961c64 实测支撑
+# 0｜改写 10；豁免仍有底：任一数值 token 重叠即支撑、零重叠照改，见 _supported）。
+_CARRIER_KINDS = frozenset({"agg_row", "lineage", "fragment"})
 # few-shot 样张（V2-09——L-04 golden 少样本同款形态「例：〈问句〉\n输出：〈合同样
 # 张〉」）：样例问句取问数组数-明1 原句（eval/results/golden/plan-golden-v1.json
 # L04-02 同源）；理解样张窗端点按「去年」锚 2026 年（golden anchor 2026-10-08 同值，
@@ -411,10 +413,12 @@ def _supported(
     方向取「观察→行」：被引观察的每个数值须在行内被复述；行内来自问句语境的量
     （日期窗等）不作要求——误伤面最小。越界引标判无支撑；零数值观察（纯文本卡）
     恒过，语义充分性由确定性规则边界如实声明（细化批可换更强实现）。
-    V2-23 豁免：表格行/血缘卡（locator.kind ∈ agg_row/lineage）是权威观察承载
-    而非断言素材——只须复述任一数值 token（行内容含日期/区块等随行数值，「全数值
-    复述」会把 LIMIT 截断下的整张明细表吞成「未找到」——P-015 数-明1 实测；
-    豁免仍有底：零重叠＝引标贴无关行，照改——R9 反例不回退）。"""
+    V2-23 豁免＋P-024b S2 扩域：表格行/血缘卡/kb 片段（locator.kind ∈
+    agg_row/lineage/fragment）是权威观察承载而非断言素材——只须复述任一数值
+    token（行内容含日期/区块等随行数值、长片段含十余数值 token，「全数值
+    复述」会把 LIMIT 截断下的整张明细表/整段 kb 片段吞成「未找到」——P-015
+    数-明1 与 run-a2961c64 实测；豁免仍有底：零重叠＝引标贴无关行，照改——
+    R9 反例不回退）。"""
     obs = by_index.get(citation)
     if obs is None:
         return False
@@ -433,7 +437,7 @@ def verify_draft(
       无引标数字行/越界引标/断言与被引观察无关（材料数值未被复述）＝无据断言，
       整行改写「未找到（材料未披露）」（INV-1——禁止无据断言进答案）。改写只管
       自由文本断言行：无引标且无数字的行（标题/表格头/分隔线等结构承载）不属
-      断言，原样保留（V2-23）；表格行/血缘卡引挂豁免「全数值复述」（见
+      断言，原样保留（V2-23）；表格行/血缘卡/kb 片段引挂豁免「全数值复述」（见
       _supported——零重叠仍改写，R9 反例不回退）；
     - 被引观察中同一 subject（台账卡内容首段名称）≥2 支且值不同→追加分源列明块
       （INV-4——禁止无出处调和；agg_row 行级事实按 井@日 独立键，不入矛盾池）。
@@ -656,6 +660,16 @@ def _direct_answer(updates: dict[str, Any], text: str) -> None:
     updates["next_intent"] = INTENT_ANSWER
 
 
+def _clarify_capped_answer(state: RunState) -> str:
+    """连环澄清截断的直答文本（P-024b 疑点2——带材料如实交付形，_converge 材料
+    面同构；独立于预算三闸——不落 budget_hit，机读分型走 clarify_capped notice）。"""
+    raw = material_rows(state)
+    if raw:
+        body = "\n".join(f"- {obs.get('content', '')}" for obs in raw)
+        return f"（连续澄清截断——已取得材料如实交付，不再挂起）\n{body}"
+    return "（连续澄清截断——未取得可交付观察材料，如实回报，不编造。）"
+
+
 def reseed_approval_id(run_id: str, engine_seed: str) -> str:
     """审批单号 run 前缀重种子（接线③——V2-03 偏差 7：引擎表名种子保留可溯）。"""
     return f"{run_id}#{engine_seed}"
@@ -802,15 +816,34 @@ def _make_decision(
             )
             updates["next_intent"] = INTENT_EXECUTE
         elif emission.action == ACTION_ASK:
-            frame = {
-                "kind": ASK_CLARIFY,
-                "prompt": emission.ask_prompt,
-                "options": list(emission.ask_options),
-                "detail": None,
-            }
-            updates["pending_ask"] = frame
-            updates["next_intent"] = INTENT_DECISION  # 自环进 interrupt（挂起）
-            deps.bus.emit("ask", {"frame": frame, "run_id": state.run_id})
+            # 连续澄清计数（P-024b 疑点2）＝run 生命期内 ask 发射次数：任何路径
+            # 不清零（澄清回收不重置、执行轮不清零——run-69517e02 实测「恢复→
+            # 执行→再澄清」若执行清零则环永不封口，挂起等人工不计轮预算）。
+            # 第 2 次 ask 即截断：不再挂起，带已取得材料如实直答。
+            consecutive = state.consecutive_asks + 1
+            if consecutive >= 2:
+                notice = {
+                    "type": "clarify_capped",
+                    "gates": [],
+                    "content": (
+                        "连续澄清已达上限（连续 ask ≥2）——不再挂起，"
+                        "带已取得材料如实直答。"
+                    ),
+                }
+                deps.bus.emit("notice", dict(notice))
+                updates["notices"] = [*state.notices, notice]
+                _direct_answer(updates, _clarify_capped_answer(state))
+            else:
+                updates["consecutive_asks"] = consecutive
+                frame = {
+                    "kind": ASK_CLARIFY,
+                    "prompt": emission.ask_prompt,
+                    "options": list(emission.ask_options),
+                    "detail": None,
+                }
+                updates["pending_ask"] = frame
+                updates["next_intent"] = INTENT_DECISION  # 自环进 interrupt（挂起）
+                deps.bus.emit("ask", {"frame": frame, "run_id": state.run_id})
         else:  # finalize
             updates["next_intent"] = INTENT_ANSWER
         return updates
@@ -976,9 +1009,12 @@ def _apply_result(
         updates["pending_discovers"] = []
         updates["next_intent"] = INTENT_DECISION
     elif (result.get("error") or {}).get("category") == CATEGORY_RETRYABLE:
-        if state.tool_retries < 1:
+        # 同参重试一次按工具名计数（P-024b C2——discover 链上的重试不挤占 execute
+        # 的重试份额；每工具名各得一次）。
+        retried = state.tool_retries.get(tool_name, 0)
+        if retried < 1:
             updates.update(retry_state)
-            updates["tool_retries"] = state.tool_retries + 1
+            updates["tool_retries"] = {**state.tool_retries, tool_name: retried + 1}
             updates["next_intent"] = (
                 INTENT_DISCOVER if kind == STEP_DISCOVER else INTENT_EXECUTE
             )
@@ -1351,6 +1387,7 @@ _ROUTES: dict[str, dict[Hashable, str]] = {
     },
     NODE_EXECUTE: {
         INTENT_OBSERVE: NODE_OBSERVE,
+        INTENT_EXECUTE: NODE_EXECUTE,  # retryable 同参重试自环（P-024b C2 修补——骨架缺此路）
         INTENT_DECISION: NODE_DECISION,
         INTENT_ANSWER: NODE_ANSWER,
         INTENT_END: END,

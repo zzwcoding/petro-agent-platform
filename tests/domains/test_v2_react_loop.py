@@ -660,3 +660,166 @@ def test_table_schema_discovery_tool() -> None:
     locator = raw.observations[0].locator
     assert locator["kind"] == "notice"
     assert locator["notice_type"] == "schema_not_allowed"
+
+
+def test_table_schema_by_name_forms() -> None:
+    """P-024b 审查 S1 修复钉：按名查询两形态——全名/短名（去 schema 前缀）都命中
+    白名单卡。agg 卡文本表名后紧跟全角「（」（旧匹配要求表名后跟半角空格＝白名单内
+    三表全部误判不开放——P-024.rev S1 实测）；kb 组「库 …（」形同失配。修复后：
+    agg/sem/kb 三组按名可达，白名单外照拒不回退。"""
+    registry = ToolRegistry(
+        knowledge=FakeKnowledgeStore(),
+        query=FakeQueryEngine(),
+        retrieval=FakeRetrievalEngine(),
+    )
+    ctx = ToolContext(actor="dev-u1", budget=4)
+
+    def _one_card(args: dict[str, Any]):
+        result = asyncio.run(registry.call(SCHEMA_PROBE, args, ctx))
+        assert result.status == "ok"
+        assert len(result.observations) == 1
+        return result.observations[0]
+
+    # agg 全名（指南示范形——handlers._SCHEMA_SCHEMA 示例值）与短名（去前缀）。
+    full = _one_card({"table": "agg.fct_daily_metering"})
+    assert "日产计量事实表" in full.content
+    assert full.locator["kind"] == "schema"
+    short = _one_card({"table": "fct_daily_metering"})
+    assert short.content == full.content
+    # agg 其余两表（旧缺陷同形态——全角括号紧邻表名）。
+    assert "井维度" in _one_card({"table": "agg.dim_well"}).content
+    assert "井维度" in _one_card({"table": "dim_well"}).content
+    assert "日期维度" in _one_card({"table": "agg.dim_date"}).content
+    # sem 账按名（旧形态本已命中——修复不回退）。
+    assert "指标台账" in _one_card({"table": "sem_metric"}).content
+    assert "术语台账" in _one_card({"table": "sem_term"}).content
+    # kb 组按名（S1 第二失配形态——「库 kb 片段清单（」无匹配模式）。
+    assert "检索库" in _one_card({"table": "kb 片段清单"}).content
+    # 白名单外照拒（修复不放开湖表）。
+    rejected = _one_card({"table": "raw_lake_wide"})
+    assert rejected.locator["notice_type"] == "schema_not_allowed"
+
+
+async def test_consecutive_asks_capped_material_direct_answer(tmp_path: Path) -> None:
+    """P-024b 疑点2 钉：连环 ask 截断＋材料直答形——r1 执行出数、r2 clarify 挂起
+    （ask＝1），resume 回收后执行一轮再 ask（run-69517e02 实测形态——执行不清零，
+    ask＝2 达上限）→不再挂起，带已取得材料如实直答（completed；零新 ask 帧；
+    机读 notice clarify_capped 恰 1 条）。"""
+    script_a: dict[str, Sequence[str]] = {
+        "v2.runtime.understand": [UNDERSTAND_DATA],
+        "v2.runtime.decision": [DECISION_WINDOWED, DECISION_ASK_TARGET],
+    }
+    runtime_a, _completer_a, db = await make_runtime(
+        tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=script_a,
+    )
+    store = RunStore(db)
+    run_id = ""
+    try:
+        handle = await runtime_a.ask(
+            AskRequest(question="2025 年 9 月 1 日到 3 日的日产油量", actor=ACTOR)
+        )
+        events = await drain(handle)
+        run_id = handle.run_id
+        assert len([e for e in events if e.event == "ask"]) == 1  # 首次澄清照常挂起
+        run = await store.get_run(run_id)
+        assert run is not None and run.status == "waiting_ask"
+    finally:
+        await db.dispose()
+
+    script_b: dict[str, Sequence[str]] = {
+        "v2.runtime.understand": [UNDERSTAND_DATA],
+        # 恢复段：先执行（出数）再 ask——执行轮不清零计数（封口环的关键语义）。
+        "v2.runtime.decision": [DECISION_WINDOWED, DECISION_ASK_TARGET],
+    }
+    runtime_b, _completer, db_b = await make_runtime(
+        tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=script_b,
+    )
+    store_b = RunStore(db_b)
+    try:
+        handle_b = await runtime_b.resume(run_id, AskChoice(value="N-01 井"))
+        events_b = await drain(handle_b)
+        final = await store_b.get_run(run_id)
+        assert final is not None and final.status == "completed"
+        # 材料直答形：已取得的权威行材料原样交付（不再挂起、不编造）。
+        answer = final.answer or ""
+        assert "21.16" in answer and "连续澄清" in answer
+        # 连环 ask 被截断：恢复段零新 ask 帧；截断机读 notice 恰 1 条。
+        assert not [e for e in events_b if e.event == "ask"]
+        capped = [n for n in _notices(events_b) if n.get("type") == "clarify_capped"]
+        assert len(capped) == 1
+    finally:
+        await db_b.dispose()
+
+
+async def test_tool_retry_budget_is_per_tool_name(tmp_path: Path) -> None:
+    """P-024b C2 钉：retryable 同参重试一次按工具名计数——discover 链（semantic_
+    query）上的重试不再挤占 execute（data_query）的重试份额（旧全局一次计数下
+    discover 重试耗掉 execute 份额＝tool_unavailable 零交付）。"""
+
+    class _FlakyKnowledge(FakeKnowledgeStore):
+        """首次 evidence 抛超时（retryable 通道）——discover 重试的被控源。"""
+
+        def __init__(self, hit: Evidence) -> None:
+            super().__init__(metric_hit=hit)
+            self.evidence_calls_list: list[int] = []
+
+        def evidence(self, query: Any) -> list[Evidence]:
+            self.evidence_calls_list.append(1)
+            if len(self.evidence_calls_list) == 1:
+                raise TimeoutError("上游抖动（剧本注入）")
+            return [self._metric_hit]  # type: ignore[list-item]
+
+    class _FlakyOnceEngine(FakeQueryEngine):
+        """首次 run 抛超时（retryable 通道）——execute 重试的被控源。"""
+
+        def __init__(self, outcome: QueryOutcome) -> None:
+            super().__init__()
+            self._outcome = outcome
+
+        def run(self, plan: Any) -> QueryOutcome:
+            self.run_calls += 1
+            if self.run_calls == 1:
+                raise TimeoutError("上游抖动（剧本注入）")
+            return self._outcome
+
+    knowledge = _FlakyKnowledge(
+        Evidence(
+            element_id="201",
+            kind="metric",
+            value="日产油量：班次合计日口径，单位吨（口径卡）",
+            source="sem_metric#201",
+            version="1",
+            freshness="",
+            scope="日",
+            binding_state="bound",
+        )
+    )
+    engine = _FlakyOnceEngine(_rows_outcome())
+    script: dict[str, Sequence[str]] = {
+        "v2.runtime.understand": [UNDERSTAND_DATA],
+        "v2.runtime.decision": [
+            DECISION_DISCOVER, DECISION_WINDOWED, DECISION_FINALIZE,
+        ],
+        "v2.runtime.answer": [ANSWER_DRAFT_CITED],
+    }
+    runtime, _completer, db = await make_runtime(
+        tmp_path, engine=engine, script=script, knowledge=knowledge,
+    )
+    store = RunStore(db)
+    try:
+        handle = await runtime.ask(
+            AskRequest(question="2025 年 9 月 1 日到 3 日的日产油量", actor=ACTOR)
+        )
+        events = await drain(handle)
+        run = await store.get_run(handle.run_id)
+        assert run is not None and run.status == "completed"
+        assert "21.16" in (run.answer or "")
+        # 两工具各得一次重试：semantic_query 恰 2 调（失败＋重试成功）、
+        # data_query run 恰 2 调（失败＋重试成功）。
+        assert len(knowledge.evidence_calls_list) == 2
+        assert engine.run_calls == 2
+        kinds = _step_kinds(events)
+        assert kinds.count("discover") == 2 and kinds.count("execute") == 2
+        assert not [n for n in _notices(events) if n.get("type") == "tool_unavailable"]
+    finally:
+        await db.dispose()

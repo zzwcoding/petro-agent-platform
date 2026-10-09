@@ -222,7 +222,8 @@ async def test_today_question_refused(tmp_path: Path) -> None:
     script: dict[str, Sequence[str]] = {
         "v2.runtime.understand": [_UNDERSTAND],
         "v2.runtime.decision": [_DECISION_TODAY],
-        "v2.runtime.answer": [_ANSWER],
+        # P-024b C5：不再配 answer 桶罐头——轮耗收敛零起草，answer caller 零调用
+        # （下方 counts 断言的闭世界面）。
     }
     runtime, completer, db = await make_runtime(
         tmp_path, engine=engine, script=script, knowledge=knowledge

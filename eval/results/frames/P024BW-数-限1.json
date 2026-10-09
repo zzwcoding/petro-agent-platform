@@ -1,0 +1,194 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-f7be23e3",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问去年全年日产油量排名前30的井或区块。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问去年全年日产油量排名前30的井或区块。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "决策 r1：发现×1（semantic_query）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 3,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 7,
+   "event": "notice",
+   "data": {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：日产油量指标口径与时间窗支持（精确名与别名归一均未命中——请核对要素名）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：日产油量指标口径与时间窗支持（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "决策 r2：澄清（您问的'日产油量排名前30'的对象是？）"
+   }
+  },
+  {
+   "id": 10,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "您问的'日产油量排名前30'的对象是？",
+     "options": [
+      "按井排名",
+      "按区块排名"
+     ],
+     "detail": null
+    },
+    "run_id": "run-f7be23e3"
+   }
+  },
+  {
+   "id": 11,
+   "event": "done",
+   "data": {
+    "run_id": "run-f7be23e3"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问去年全年日产油量排名前30的井或区块。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：日产油量指标口径与时间窗支持（精确名与别名归一均未命中——请核对要素名）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-f7be23e3",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问去年全年日产油量排名前30的井或区块。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "决策 r1：发现×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 3,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "决策 r2：澄清（您问的'日产油量排名前30'的对象是？）"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：日产油量指标口径与时间窗支持（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  ],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "您问的'日产油量排名前30'的对象是？",
+     "options": [
+      "按井排名",
+      "按区块排名"
+     ],
+     "detail": null
+    },
+    "run_id": "run-f7be23e3"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "问去年全年日产油量排名前30的井或区块。"
+  ],
+  "duration_s": 4.2
+ }
+}

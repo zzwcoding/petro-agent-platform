@@ -1,0 +1,516 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-e1630edf",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问去年全年各井的含水率明细。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问去年全年各井的含水率明细。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "决策 r1：发现×2（semantic_query、semantic_query）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 3,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 7,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#203",
+    "content": "含水率（%）：日产计量化验折算含水率——日度监控口径；月度/正式指标以流体化验实测为准、偏差 >5pp 以化验校正（PROP-BOHAI-008=C 并存分场景）；源 oil_production_daily.water_cut（R5·A.2）——agg 读模型未落该列（99 §2.12 事实表仅三计量列），暂不可出数｜粒度 日/井 · 单位 %｜状态 生效中｜口径支：A 计量折算（日度监控）（默认）；B 化验实测（月度/正式）｜争议注记：化验 vs 计量打架（并存分场景已裁——PROP-BOHAI-008=C）",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 8,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 5,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 6,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 11,
+   "event": "notice",
+   "data": {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：各井含水率明细（精确名与别名归一均未命中——请核对要素名）"
+   }
+  },
+  {
+   "id": 12,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：各井含水率明细（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "决策 r2：发现×1（semantic_query）"
+   }
+  },
+  {
+   "id": 14,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 8,
+    "message": null
+   }
+  },
+  {
+   "id": 15,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 8,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 9,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 17,
+   "event": "notice",
+   "data": {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：含水率 按井 月度（精确名与别名归一均未命中——请核对要素名）"
+   }
+  },
+  {
+   "id": 18,
+   "event": "observation",
+   "data": {
+    "index": 3,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：含水率 按井 月度（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 19,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 10,
+    "title": "决策 r3：发现×2（semantic_query、semantic_query）"
+   }
+  },
+  {
+   "id": 20,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 11,
+    "message": null
+   }
+  },
+  {
+   "id": 21,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 11,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 22,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 12,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 23,
+   "event": "notice",
+   "data": {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：water_cut（精确名与别名归一均未命中——请核对要素名）"
+   }
+  },
+  {
+   "id": 24,
+   "event": "observation",
+   "data": {
+    "index": 4,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：water_cut（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 25,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 13,
+    "message": null
+   }
+  },
+  {
+   "id": 26,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 13,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 27,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 14,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 28,
+   "event": "notice",
+   "data": {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：去年各井含水率明细查询对应指标（精确名与别名归一均未命中——请核对要素名）"
+   }
+  },
+  {
+   "id": 29,
+   "event": "observation",
+   "data": {
+    "index": 5,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：去年各井含水率明细查询对应指标（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 30,
+   "event": "notice",
+   "data": {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：核验（verify）/阐述（answer）未执行。已交付已取得部分，不静默截断。"
+   }
+  },
+  {
+   "id": 31,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 15,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 32,
+   "event": "text",
+   "data": {
+    "content": "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 含水率（%）：日产计量化验折算含水率——日度监控口径；月度/正式指标以流体化验实测为准、偏差 >5pp 以化验校正（PROP-BOHAI-008=C 并存分场景）；源 oil_production_daily.water_cut（R5·A.2）——agg 读模型未落该列（99 §2.12 事实表仅三计量列），暂不可出数｜粒度 日/井 · 单位 %｜状态 生效中｜口径支：A 计量折算（日度监控）（默认）；B 化验实测（月度/正式）｜争议注记：化验 vs 计量打架（并存分场景已裁——PROP-BOHAI-008=C）\n- 台账未命中：各井含水率明细（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：含水率 按井 月度（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：water_cut（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：去年各井含水率明细查询对应指标（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：去年各井含水率明细查询对应指标（精确名与别名归一均未命中——请核对要素名）"
+   }
+  },
+  {
+   "id": 33,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-e1630edf",
+    "manifest_digest": "e8b53271caf7ac635ac4c8e092d4c96518e81e52bb9f66dee55d6b7879684965"
+   }
+  },
+  {
+   "id": 34,
+   "event": "done",
+   "data": {
+    "run_id": "run-e1630edf"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 含水率（%）：日产计量化验折算含水率——日度监控口径；月度/正式指标以流体化验实测为准、偏差 >5pp 以化验校正（PROP-BOHAI-008=C 并存分场景）；源 oil_production_daily.water_cut（R5·A.2）——agg 读模型未落该列（99 §2.12 事实表仅三计量列），暂不可出数｜粒度 日/井 · 单位 %｜状态 生效中｜口径支：A 计量折算（日度监控）（默认）；B 化验实测（月度/正式）｜争议注记：化验 vs 计量打架（并存分场景已裁——PROP-BOHAI-008=C）\n- 台账未命中：各井含水率明细（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：含水率 按井 月度（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：water_cut（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：去年各井含水率明细查询对应指标（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：去年各井含水率明细查询对应指标（精确名与别名归一均未命中——请核对要素名）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：各井含水率明细（精确名与别名归一均未命中——请核对要素名）"
+   },
+   {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：含水率 按井 月度（精确名与别名归一均未命中——请核对要素名）"
+   },
+   {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：water_cut（精确名与别名归一均未命中——请核对要素名）"
+   },
+   {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：去年各井含水率明细查询对应指标（精确名与别名归一均未命中——请核对要素名）"
+   },
+   {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：核验（verify）/阐述（answer）未执行。已交付已取得部分，不静默截断。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-e1630edf",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问去年全年各井的含水率明细。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "决策 r1：发现×2（semantic_query、semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 3,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "discover",
+    "seq": 5,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 6,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "决策 r2：发现×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 8,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 9,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "decision",
+    "seq": 10,
+    "title": "决策 r3：发现×2（semantic_query、semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 11,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 12,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "discover",
+    "seq": 13,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 14,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "answer",
+    "seq": 15,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 8,
+    "message": null
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 11,
+    "message": null
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 13,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_metric#203",
+    "content": "含水率（%）：日产计量化验折算含水率——日度监控口径；月度/正式指标以流体化验实测为准、偏差 >5pp 以化验校正（PROP-BOHAI-008=C 并存分场景）；源 oil_production_daily.water_cut（R5·A.2）——agg 读模型未落该列（99 §2.12 事实表仅三计量列），暂不可出数｜粒度 日/井 · 单位 %｜状态 生效中｜口径支：A 计量折算（日度监控）（默认）；B 化验实测（月度/正式）｜争议注记：化验 vs 计量打架（并存分场景已裁——PROP-BOHAI-008=C）",
+    "trust": "ledger"
+   },
+   {
+    "index": 2,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：各井含水率明细（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   },
+   {
+    "index": 3,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：含水率 按井 月度（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   },
+   {
+    "index": 4,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：water_cut（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   },
+   {
+    "index": 5,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：去年各井含水率明细查询对应指标（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-e1630edf",
+   "manifest_digest": "e8b53271caf7ac635ac4c8e092d4c96518e81e52bb9f66dee55d6b7879684965"
+  },
+  "texts": [
+   "问去年全年各井的含水率明细。",
+   "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 含水率（%）：日产计量化验折算含水率——日度监控口径；月度/正式指标以流体化验实测为准、偏差 >5pp 以化验校正（PROP-BOHAI-008=C 并存分场景）；源 oil_production_daily.water_cut（R5·A.2）——agg 读模型未落该列（99 §2.12 事实表仅三计量列），暂不可出数｜粒度 日/井 · 单位 %｜状态 生效中｜口径支：A 计量折算（日度监控）（默认）；B 化验实测（月度/正式）｜争议注记：化验 vs 计量打架（并存分场景已裁——PROP-BOHAI-008=C）\n- 台账未命中：各井含水率明细（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：含水率 按井 月度（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：water_cut（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：去年各井含水率明细查询对应指标（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：去年各井含水率明细查询对应指标（精确名与别名归一均未命中——请核对要素名）"
+  ],
+  "duration_s": 11.3
+ }
+}

@@ -268,6 +268,24 @@ _KB_CARDS: tuple[str, ...] = (
 )
 
 
+def _card_names(card: str) -> tuple[str, ...]:
+    """卡头名两形态提取（P-024b 审查 S1——按名查询的单点判据）。
+
+    卡头合同形「表/账/库 名（…」：名后必跟全角括号（旧实现按 `f"表 {table} "`
+    要求表名后跟半角空格——agg 三卡全数失配误判不开放；kb 组「库 …（」形无匹配
+    模式）。提取出全名与短名（去 schema 前缀）两形态供精确名匹配：
+    表 agg.fct_daily_metering（…）→（agg.fct_daily_metering, fct_daily_metering）；
+    账 sem_metric（…）→（sem_metric,）；库 kb 片段清单（…）→（kb 片段清单,）。
+    """
+    head = card.split("（", 1)[0]
+    parts = head.split(" ", 1)
+    name = parts[1].strip() if len(parts) == 2 else parts[0].strip()
+    names = [name]
+    if "." in name:
+        names.append(name.rsplit(".", 1)[-1])
+    return tuple(names)
+
+
 def _schema_cards(area: str | None, table: str | None) -> list[Observation]:
     """白名单卡→观察列（kind=schema——发现面素材；白名单外如实告知不开放）。"""
     area_cards: dict[str, tuple[str, ...]] = {
@@ -278,7 +296,7 @@ def _schema_cards(area: str | None, table: str | None) -> list[Observation]:
     if table:
         for group in area_cards.values():
             for card in group:
-                if f"表 {table} " in card or f"账 {table}（" in card:
+                if table in _card_names(card):  # 全名/短名精确匹配（S1 修复）
                     return [_schema_observation(card)]
         return [
             _notice_observation(

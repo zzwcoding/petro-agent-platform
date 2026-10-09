@@ -1,0 +1,108 @@
+id: 0
+event: session
+data: {"run_id": "run-a2961c64", "resume": false}
+
+id: 1
+event: step
+data: {"step": "decision", "seq": 1, "title": "分油田的射孔厚度和射孔总孔数分别是多少？"}
+
+id: 2
+event: text
+data: {"content": "分油田的射孔厚度和射孔总孔数分别是多少？"}
+
+id: 3
+event: step
+data: {"step": "decision", "seq": 2, "title": "决策 r1：发现×2（semantic_query、semantic_query）"}
+
+id: 4
+event: tool
+data: {"tool": "semantic_query", "status": "ok", "seq": 3, "message": null}
+
+id: 5
+event: step
+data: {"step": "discover", "seq": 3, "title": "semantic_query：ok"}
+
+id: 6
+event: step
+data: {"step": "observe", "seq": 4, "title": "观察回流 1 支"}
+
+id: 7
+event: notice
+data: {"type": "no_hit", "gates": [], "content": "台账未命中：射孔厚度 射孔总孔数 分油田（精确名与别名归一均未命中——请核对要素名）"}
+
+id: 8
+event: observation
+data: {"index": 1, "source": "sem_* 台账读面", "content": "台账未命中：射孔厚度 射孔总孔数 分油田（精确名与别名归一均未命中——请核对要素名）", "trust": "notice"}
+
+id: 9
+event: tool
+data: {"tool": "semantic_query", "status": "ok", "seq": 5, "message": null}
+
+id: 10
+event: step
+data: {"step": "discover", "seq": 5, "title": "semantic_query：ok"}
+
+id: 11
+event: step
+data: {"step": "observe", "seq": 6, "title": "观察回流 1 支"}
+
+id: 12
+event: notice
+data: {"type": "no_hit", "gates": [], "content": "台账未命中：射孔厚度（精确名与别名归一均未命中——请核对要素名）"}
+
+id: 13
+event: observation
+data: {"index": 2, "source": "sem_* 台账读面", "content": "台账未命中：射孔厚度（精确名与别名归一均未命中——请核对要素名）", "trust": "notice"}
+
+id: 14
+event: step
+data: {"step": "decision", "seq": 7, "title": "决策 r2：执行 knowledge"}
+
+id: 15
+event: tool
+data: {"tool": "doc_retrieve", "status": "ok", "seq": 8, "message": null}
+
+id: 16
+event: step
+data: {"step": "execute", "seq": 8, "title": "doc_retrieve：ok"}
+
+id: 17
+event: step
+data: {"step": "observe", "seq": 9, "title": "观察回流 5 支"}
+
+id: 18
+event: observation
+data: {"index": 3, "source": "《A-W11井完井工程报告》", "content": "3.2 射孔参数射孔方式：油管输送射孔（TCP）＋加压点火，一次下井分段延时起爆。射孔枪型 SYD-102，孔密 16 孔/米，相位角 60°，射孔弹型 DP44HDX，孔径预估 12.4 毫米，穿深预估 786 毫米。全井射孔总厚度 28.0 米，按孔密 16 孔/米计算，设计总孔数 448 发，实发 448 发，发射率 100%。负压设计：射孔负压值 2.5 MPa。依据邻井 W-09 井试油资料反演的地层渗透率（486 mD）与地层压力（21.75 MPa），按岩层强度上限校核后取值，目的在于利用射孔瞬时负压清除孔眼压实带与滤饼。", "trust": "report"}
+
+id: 19
+event: observation
+data: {"index": 4, "source": "《Y-21井完井工程报告》", "content": "3.2 射孔参数（TCP）射孔方式：油管输送射孔（TCP）＋环空加压点火，一次下井分段延时起爆；管柱尾带存储式压力计 2 支（2820.0 米、2650.0 米）。　　项目　　　　　　　参数　　射孔枪型　　　　　SYD-127　　射孔弹型　　　　　DP41RDX-1　　孔密　　　　　　　16 孔/米　　相位角　　　　　　60°　　孔径预估　　　　　12.8 毫米　　穿深预估　　　　　812 毫米　　负压值　　　　　　3.0 MPa全井射孔总厚度 40.0 米，按孔密 16 孔/米计设计总孔数 640 发（三支枪 224、192、224 发），实发 640 发，发射率 100%。负压值按岩层强度上限校核取 3.0 MPa（依据 Y-19 井试油反演渗透率与地层压力 27.16 MPa），用于清除孔眼压实带与钻井液滤饼。", "trust": "report"}
+
+id: 20
+event: observation
+data: {"index": 5, "source": "《A-W11井完井工程报告》", "content": "3.1 射孔井段（实际执行）　　序号　　射孔井段（米）　　　　厚度(米)　层位解释\n　　第一段　2380.0 ～ 2392.0　　　12.0　　　油层\n　　第二段　2398.0 ～ 2406.0　　　 8.0　　　油层\n　　第三段　2410.0 ～ 2418.0　　　 8.0　　　油水同层　　合计　 28.0 米三段之间为 6.0 米与 4.0 米泥岩夹层，夹层遮挡性评价为中等，方案采用三层合采。", "trust": "report"}
+
+id: 21
+event: observation
+data: {"index": 6, "source": "《A-W11井完井工程报告》", "content": "第十章 邻井完井情况对照━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━　　井号　　完井方式　　　射孔段厚(米)　孔密(孔/米)　初期日产油(m³/d)　投产地层\n　　W-07　　套管射孔＋筛管　22.0　　　　 13　　　　　 291　　　　　　　 2023-05\n　　W-09　　套管射孔　　　　31.5　　　　 16　　　　　 402　　　　　　　 2024-11\n　　W-11　　筛管适度防砂　　28.0　　　　 16　　　　　 386　　　　　　　 2026-07对照说明：W-09 井未下防砂筛管（地层评价结论当时偏乐观），生产两年余未见出砂，是本井敢于采用筛管适度防砂（而非砾石充填）的重要参照；W-07 井历史上曾发生筛管堵塞（2024 年 3 月，堵塞段集中于上段），处理方式为酸洗解堵，未影响筛管继续使用。W-07 井目前日产油已递减至 96 m³/d，含水 71.4%，处于双高阶段。━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━附录A 主要入井物资与用量━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━　　物资　　　　　　　　规格　　　　　　　数量\n　　精密冲缝筛管　　　　7″·150μm　　　　 41.0 米（三段跨装）\n　　油管　　　　　　　　4-1/2″·N80　　　 2486.5 米\n　　射孔枪　　　　　　　SYD-102　　　　　 3 支（合计弹 448 发）\n　　永久封隔器　　　　　7″·液压坐封　　　 1 套\n　　井下安全阀　　　　　SCSSV·液控　　　　1 套（液控管线 291.0 米）\n　　滑套　　　　　　　　7″·开关式　　　　 1 套　　扶正套　　　　　　　φ148　　　　　　 36 只　　完井液　　　　　　　过滤海水 KCl 体系 320 立方米（含损耗）注：液控管线到 SCSSV 悬挂点长度 291.0 米（285.3 米阀深＋地面余量），与第五章安全阀深 285.3 米为两个不同口径数值，引用时注意区分。（本报告为评测用拟造数据，井号、数值均非真实生产数据。）", "trust": "report"}
+
+id: 22
+event: notice
+data: {"type": "window_note", "gates": [], "content": "召回 51 支/送窗 4 支；已召回未送窗 47 支；矛盾来源同窗并立（各留代表支）：《A-W11井完井工程报告》、《Y-21井完井工程报告》；缺位来源（预算未及）：《渤中34-8油田躺井治理与检泵作业月报-202701》、《渤中34-8油田一季度注采调整与生产运行分析》、《C-渤中34-5油田三季度注水调整与生产运行分析》"}
+
+id: 23
+event: observation
+data: {"index": 7, "source": "检索供给窗声明（截断显式）", "content": "召回 51 支/送窗 4 支；已召回未送窗 47 支；矛盾来源同窗并立（各留代表支）：《A-W11井完井工程报告》、《Y-21井完井工程报告》；缺位来源（预算未及）：《渤中34-8油田躺井治理与检泵作业月报-202701》、《渤中34-8油田一季度注采调整与生产运行分析》、《C-渤中34-5油田三季度注水调整与生产运行分析》", "trust": "notice"}
+
+id: 24
+event: step
+data: {"step": "decision", "seq": 10, "title": "决策 r3：澄清（问题中'分油田'具体指哪些井？请选择对应口径）"}
+
+id: 25
+event: ask
+data: {"frame": {"kind": "clarify", "prompt": "问题中'分油田'具体指哪些井？请选择对应口径", "options": ["本井（观察[3]/[5]/[6]对应井，射孔总厚度28.0米、总孔数448发）", "Y-19井（观察[4]对应井，射孔总厚度40.0米、总孔数640发）", "邻井对比：W-07（22.0米）、W-09（31.5米）、W-11（28.0米），未给总孔数"], "detail": null}, "run_id": "run-a2961c64"}
+
+id: 26
+event: done
+data: {"run_id": "run-a2961c64"}
+

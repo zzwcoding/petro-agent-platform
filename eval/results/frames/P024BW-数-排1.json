@@ -1,0 +1,446 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-fcd9f0bd",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问去年全年日产油量最高的单井名称。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问去年全年日产油量最高的单井名称。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "决策 r1：发现×2（semantic_query、semantic_query）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 3,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 7,
+   "event": "notice",
+   "data": {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：日产量最高的井（精确名与别名归一均未命中——请核对要素名）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：日产量最高的井（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 9,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 5,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 6,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 12,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "sem_metric#201",
+    "content": "日产油量（吨）：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12）｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 班次合计日口径（默认）｜争议注记：吨方混写脏值（D1——RULE-BOHAI-020 检出位已建）",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "决策 r2：执行 data"
+   }
+  },
+  {
+   "id": 14,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 8,
+    "message": null
+   }
+  },
+  {
+   "id": 15,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 8,
+    "title": "data_query：ok"
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 9,
+    "title": "观察回流 2 支"
+   }
+  },
+  {
+   "id": 17,
+   "event": "observation",
+   "data": {
+    "index": 3,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-16；区块=渤中；日产油量合计（吨）=5839.63",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 18,
+   "event": "observation",
+   "data": {
+    "index": 4,
+    "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date",
+    "content": "① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 38 天 · 超期）\n⑤ 收口注记 LIMIT 1——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 1——只封顶不抬底）",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 19,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 10,
+    "title": "决策 r3：执行 data"
+   }
+  },
+  {
+   "id": 20,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 11,
+    "message": null
+   }
+  },
+  {
+   "id": 21,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 11,
+    "title": "data_query：ok"
+   }
+  },
+  {
+   "id": 22,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 12,
+    "title": "观察回流 2 支"
+   }
+  },
+  {
+   "id": 23,
+   "event": "observation",
+   "data": {
+    "index": 5,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-01；区块=渤南；日期=2025-09-01；日产油量（吨）=21.16",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 24,
+   "event": "observation",
+   "data": {
+    "index": 6,
+    "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date",
+    "content": "① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 38 天 · 超期）\n⑤ 收口注记 LIMIT 1——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 1——只封顶不抬底）",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 25,
+   "event": "notice",
+   "data": {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：核验（verify）/阐述（answer）未执行。已交付已取得部分，不静默截断。"
+   }
+  },
+  {
+   "id": 26,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 13,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 27,
+   "event": "text",
+   "data": {
+    "content": "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 台账未命中：日产量最高的井（精确名与别名归一均未命中——请核对要素名）\n- 日产油量（吨）：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12）｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 班次合计日口径（默认）｜争议注记：吨方混写脏值（D1——RULE-BOHAI-020 检出位已建）\n- 井号=Z-16；区块=渤中；日产油量合计（吨）=5839.63\n- ① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 38 天 · 超期）\n⑤ 收口注记 LIMIT 1——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 1——只封顶不抬底）\n- 井号=N-01；区块=渤南；日期=2025-09-01；日产油量（吨）=21.16\n- ① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 38 天 · 超期）\n⑤ 收口注记 LIMIT 1——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 1——只封顶不抬底）\n- 井号=N-01；区块=渤南；日期=2025-09-01；日产油量（吨）=21.16\n- ① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 38 天 · 超期）\n⑤ 收口注记 LIMIT 1——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 1——只封顶不抬底）"
+   }
+  },
+  {
+   "id": 28,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-fcd9f0bd",
+    "manifest_digest": "3ec5020fcd0fce61a7bea679b063efc8e391d789224ac03729101f3bd87e76d5"
+   }
+  },
+  {
+   "id": 29,
+   "event": "done",
+   "data": {
+    "run_id": "run-fcd9f0bd"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 台账未命中：日产量最高的井（精确名与别名归一均未命中——请核对要素名）\n- 日产油量（吨）：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12）｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 班次合计日口径（默认）｜争议注记：吨方混写脏值（D1——RULE-BOHAI-020 检出位已建）\n- 井号=Z-16；区块=渤中；日产油量合计（吨）=5839.63\n- ① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 38 天 · 超期）\n⑤ 收口注记 LIMIT 1——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 1——只封顶不抬底）\n- 井号=N-01；区块=渤南；日期=2025-09-01；日产油量（吨）=21.16\n- ① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 38 天 · 超期）\n⑤ 收口注记 LIMIT 1——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 1——只封顶不抬底）\n- 井号=N-01；区块=渤南；日期=2025-09-01；日产油量（吨）=21.16\n- ① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 38 天 · 超期）\n⑤ 收口注记 LIMIT 1——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 1——只封顶不抬底）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：日产量最高的井（精确名与别名归一均未命中——请核对要素名）"
+   },
+   {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：核验（verify）/阐述（answer）未执行。已交付已取得部分，不静默截断。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-fcd9f0bd",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问去年全年日产油量最高的单井名称。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "决策 r1：发现×2（semantic_query、semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 3,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "discover",
+    "seq": 5,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 6,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "决策 r2：执行 data"
+   },
+   {
+    "step": "execute",
+    "seq": 8,
+    "title": "data_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 9,
+    "title": "观察回流 2 支"
+   },
+   {
+    "step": "decision",
+    "seq": 10,
+    "title": "决策 r3：执行 data"
+   },
+   {
+    "step": "execute",
+    "seq": 11,
+    "title": "data_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 12,
+    "title": "观察回流 2 支"
+   },
+   {
+    "step": "answer",
+    "seq": 13,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   },
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 8,
+    "message": null
+   },
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 11,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：日产量最高的井（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   },
+   {
+    "index": 2,
+    "source": "sem_metric#201",
+    "content": "日产油量（吨）：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12）｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 班次合计日口径（默认）｜争议注记：吨方混写脏值（D1——RULE-BOHAI-020 检出位已建）",
+    "trust": "ledger"
+   },
+   {
+    "index": 3,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-16；区块=渤中；日产油量合计（吨）=5839.63",
+    "trust": "authoritative"
+   },
+   {
+    "index": 4,
+    "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date",
+    "content": "① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 38 天 · 超期）\n⑤ 收口注记 LIMIT 1——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 1——只封顶不抬底）",
+    "trust": "authoritative"
+   },
+   {
+    "index": 5,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-01；区块=渤南；日期=2025-09-01；日产油量（吨）=21.16",
+    "trust": "authoritative"
+   },
+   {
+    "index": 6,
+    "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date",
+    "content": "① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 38 天 · 超期）\n⑤ 收口注记 LIMIT 1——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 1——只封顶不抬底）",
+    "trust": "authoritative"
+   }
+  ],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-fcd9f0bd",
+   "manifest_digest": "3ec5020fcd0fce61a7bea679b063efc8e391d789224ac03729101f3bd87e76d5"
+  },
+  "texts": [
+   "问去年全年日产油量最高的单井名称。",
+   "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 台账未命中：日产量最高的井（精确名与别名归一均未命中——请核对要素名）\n- 日产油量（吨）：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12）｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 班次合计日口径（默认）｜争议注记：吨方混写脏值（D1——RULE-BOHAI-020 检出位已建）\n- 井号=Z-16；区块=渤中；日产油量合计（吨）=5839.63\n- ① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 38 天 · 超期）\n⑤ 收口注记 LIMIT 1——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 1——只封顶不抬底）\n- 井号=N-01；区块=渤南；日期=2025-09-01；日产油量（吨）=21.16\n- ① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 38 天 · 超期）\n⑤ 收口注记 LIMIT 1——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 1——只封顶不抬底）\n- 井号=N-01；区块=渤南；日期=2025-09-01；日产油量（吨）=21.16\n- ① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 38 天 · 超期）\n⑤ 收口注记 LIMIT 1——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 1——只封顶不抬底）"
+  ],
+  "duration_s": 8.0
+ }
+}

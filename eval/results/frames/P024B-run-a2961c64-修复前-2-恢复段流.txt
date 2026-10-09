@@ -1,0 +1,20 @@
+id: 0
+event: session
+data: {"run_id": "run-a2961c64", "resume": true}
+
+id: 1
+event: step
+data: {"step": "decision", "seq": 11, "title": "澄清回收：本井（观察[3]/[5]/[6]对应井，射孔总厚度28.0米、总孔数448发）"}
+
+id: 2
+event: step
+data: {"step": "decision", "seq": 12, "title": "决策 r1：澄清（您询问的'分油田射孔厚度和射孔总孔数'具体指哪类）"}
+
+id: 3
+event: ask
+data: {"frame": {"kind": "clarify", "prompt": "您询问的'分油田射孔厚度和射孔总孔数'具体指哪类对象？", "options": ["仅本井（本井射孔总厚度28.0米、总孔数448发）", "本井与邻井W-07/W-09/W-11对照（见表）", "本井+两套邻井方案对比（观察[3]与[4]两套射孔参数）"], "detail": null}, "run_id": "run-a2961c64"}
+
+id: 4
+event: done
+data: {"run_id": "run-a2961c64"}
+

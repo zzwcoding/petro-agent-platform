@@ -138,8 +138,13 @@ class RunState:
     pending_plan: dict[str, Any] | None = None  # data_query plan_draft（data|mixed）
     pending_retrieval: dict[str, Any] | None = None  # doc_retrieve args（knowledge|mixed）
     last_execute: dict[str, Any] | None = None  # 末次主执行载荷（审批批准后重跑）
+    # 连续澄清 ask 计数（run 生命期累计不清零——P-024b 疑点2）：第 2 次 ask
+    # 截断带材料直答。
+    consecutive_asks: int = 0
     # —— 工具步产物 ——
-    tool_retries: int = 0  # retryable 同参重试一次（合同上限）
+    tool_retries: dict[str, int] = field(default_factory=dict)
+    # retryable 同参重试一次（合同上限）——按工具名计数（P-024b C2：discover 链
+    # 上的重试不挤占 execute 的重试份额）。
     extable_rounds: int = 0  # 外表审批批准后的重跑轮次（骨架上限 1）
     last_result: dict[str, Any] | None = None  # ToolResult dict 投影
     pending_ask: dict[str, Any] | None = None  # AskFrame dict 投影（挂起帧）
@@ -162,7 +167,6 @@ class RunState:
     budget: dict[str, float] = field(default_factory=dict)
     started_monotonic: float = 0.0
     deadline_monotonic: float = 0.0
-    segment_step_base: int = 0  # 本段步数基线（挂起等人工不计预算——恢复段重置）
     budget_hit: list[str] = field(default_factory=list)
     # —— 路由意图与错误 ——
     next_intent: str = ""

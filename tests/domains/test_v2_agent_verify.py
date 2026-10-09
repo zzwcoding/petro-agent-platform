@@ -325,6 +325,60 @@ def test_verify_draft_lineage_card_carrier_free_text_kept() -> None:
     assert "LIMIT 50 收口[3]" in text
 
 
+# ---------- P-024b 审查 S2：fragment（kb 检索片段）并入观察承载豁免域 ----------
+
+
+_FRAGMENT_CONTENT = (
+    "射孔参数：枪型 102 枪，相位 60°，孔密 16 孔/米，射孔总厚度 60 米，"
+    "射孔总孔数 786 孔，平均每米 12.4 孔，压裂车组 28.0 MPa，"
+    "替浆量 448 方，测试产量 486 方，井温 21.75 ℃。"
+)
+
+
+def _fragment_obs(index: int = 1) -> dict[str, Any]:
+    """kb 检索片段观察（真链形态——handlers._retrieval_observation 同构：长片段
+    数值 token 十余个，「全数值复述」判据形同必吞——P-024 run-a2961c64 实测
+    支撑 0｜改写 10）。"""
+    return {
+        "index": index,
+        "content": _FRAGMENT_CONTENT,
+        "source": "W-111 井完井报告",
+        "source_id": "frag-w111-01",
+        "version": None,
+        "freshness": "",
+        "scope": "completion",
+        "locator": {
+            "library": "完井工程库",
+            "report": "W-111 井完井报告",
+            "kind": "fragment",
+        },
+    }
+
+
+def test_verify_draft_fragment_carrier_any_numeric_overlap_kept() -> None:
+    # fragment 并入承载豁免（P-020 同款形）：转述片段任一数值 token 重叠即支撑——
+    # 逐行转述长片段不再被「全数值复述」整行清成「未找到」（S2 修复钉）。
+    text, rewritten, cited, _split = verify_draft(
+        "W-111 井射孔总孔数 786 孔[1]，采用 102 枪。",
+        [_fragment_obs(1)],
+    )
+    assert rewritten == 0
+    assert cited == [1]
+    assert "射孔总孔数 786 孔[1]" in text
+    assert "未找到（材料未披露）" not in text
+
+
+def test_verify_draft_fragment_zero_overlap_still_rewritten() -> None:
+    # 豁免仍有底（R9 反例不回退）：引挂 fragment 但断言与片段数值零重叠——照改。
+    text, rewritten, cited, _split = verify_draft(
+        "W-111 井投产初期日产油 291 方[1]。",
+        [_fragment_obs(1)],
+    )
+    assert rewritten == 1
+    assert cited == []
+    assert "未找到（材料未披露）：W-111 井投产初期日产油 291 方[1]。" in text
+
+
 # ---------- V2-23：全链两测——表格明细进答案＋收口注记确定性随行 ----------
 
 

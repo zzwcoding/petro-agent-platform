@@ -1,0 +1,120 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-bdea105d",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "未提供观察材料，无法理解问句背景。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "未提供观察材料，无法理解问句背景。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "决策 r1：澄清（您想查询哪个范围的井去年配产量？）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "notice",
+   "data": {
+    "type": "decision_note",
+    "gates": [],
+    "content": "另请确认『去年』是指 2025 年还是其他年份？"
+   }
+  },
+  {
+   "id": 5,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "您想查询哪个范围的井去年配产量？",
+     "options": [
+      "全油田所有井的配产量",
+      "指定某区块/作业区的井",
+      "指定某几口具体井号"
+     ],
+     "detail": null
+    },
+    "run_id": "run-bdea105d"
+   }
+  },
+  {
+   "id": 6,
+   "event": "done",
+   "data": {
+    "run_id": "run-bdea105d"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "未提供观察材料，无法理解问句背景。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "decision_note",
+    "gates": [],
+    "content": "另请确认『去年』是指 2025 年还是其他年份？"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-bdea105d",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "未提供观察材料，无法理解问句背景。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "决策 r1：澄清（您想查询哪个范围的井去年配产量？）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "您想查询哪个范围的井去年配产量？",
+     "options": [
+      "全油田所有井的配产量",
+      "指定某区块/作业区的井",
+      "指定某几口具体井号"
+     ],
+     "detail": null
+    },
+    "run_id": "run-bdea105d"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "未提供观察材料，无法理解问句背景。"
+  ],
+  "duration_s": 2.6
+ }
+}
