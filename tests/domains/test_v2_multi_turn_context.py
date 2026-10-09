@@ -3,8 +3,9 @@
 
 票面验收逐条落钉（tickets/v2/V2-38-多轮对话上下文.md）：
 - 多轮钉测：第 2 轮决策上下文含第 1 轮决策 JSON＋执行台账（参数/结果）逐字可查；
-- 闸拒负信息钉测：被拒执行在历史中留「闸拒（拒因）」行，模型面可见（bad_args
-  同 run 内回喂面；refused 跨 run 面＝追问续会话钉测共担）；
+- 闸拒负信息钉测：被拒执行在历史留分型拒因行，模型面可见（P-032b C2 分型如实：
+  bad_args＝「校验拒（拒因）」非闸拒／refused＝「闸拒（拒因）」——bad_args 同
+  run 内回喂面；refused 跨 run 面＝追问续会话钉测共担）；
 - 追问钉测：追问进会话后上下文含前轮问答历史（前轮问句＋上轮答案）；
 - 同参重投场景对照：有历史簿记后模型自主改参（剧本形），零 V2-37 闸触发；
 - token 截断策略钉测：超预算显式注记进 Manifest.selected_reason（首问轮与当前
@@ -34,6 +35,7 @@ from appv2.runtime import (
     RunState,
     RunStore,
 )
+from appv2.runtime.graph import _ledger_turn
 from appv2.tools import FakeQueryEngine
 from tests.domains.test_v2_agent_loop import (
     ACTOR,
@@ -144,14 +146,16 @@ async def test_second_decision_context_carries_first_round_history(
         await db.dispose()
 
 
-# ---------- 验收②：闸拒负信息钉测——被拒执行留「闸拒（拒因）」行，模型面可见 ----------
+# ---------- 验收②：闸拒负信息钉测——被拒执行留分型拒因行，模型面可见（C2 分型） ----------
 
 
-async def test_rejected_execution_leaves_gate_refusal_line_visible(
+async def test_bad_args_ledger_wording_is_validation_reject_not_gate(
     tmp_path: Path,
 ) -> None:
-    """工具校验拒（bad_args——负信息如实落）：被拒执行在历史留「闸拒（拒因：…）」
-    行，下一轮决策的模型面逐字可见（与拒因回喂 instruction 行并存，互不替代）。"""
+    """C2 分型钉（P-032b）：bad_args（参数校验未过——引擎未执行）执行台账行措辞
+    ＝「校验拒（拒因：…）」，不标「闸拒」（闸拒仅指引擎 refused 面——措辞如实
+    分型，模型不把可修参路径读成永久数据闸）；拒因回喂 instruction 行与机读
+    notice 面既有语义零漂移。"""
     script: dict[str, Sequence[str]] = {
         "v2.runtime.understand": [UNDERSTAND_DATA],
         "v2.runtime.decision": [DECISION_BAD_METRIC, DECISION_FINALIZE],
@@ -166,25 +170,63 @@ async def test_rejected_execution_leaves_gate_refusal_line_visible(
         events = await drain(handle)
         run = await store.get_run(handle.run_id)
         assert run is not None and run.status == "completed"
-        # 拒因回喂 instruction 行（既有语义零漂移）＋历史台账行（新增簿记面）。
+        # 拒因回喂 instruction 行（既有语义零漂移）＋历史台账行（簿记面）。
         second = completer.messages_of("v2.runtime.decision")[1]
         assert "上次决策被拒" in second[-1]["content"]
         joined = _joined(second)
-        assert "闸拒（拒因：" in joined
         assert "不在指标台账" in joined
-        # 台账行是独立 user 轮（负信息作为轮次进历史，非 instruction 附注）。
+        # 台账行是独立 user 轮：bad_args＝「校验拒（拒因：…）」，逐字不含「闸拒」。
         ledger_turns = [
             m for m in second
-            if m["role"] == "user" and "→ 闸拒（拒因：" in m["content"]
+            if m["role"] == "user" and "data_query 参数：" in m["content"]
         ]
         assert len(ledger_turns) == 1
-        assert "data_query 参数：" in ledger_turns[0]["content"]
+        assert "→ 校验拒（拒因：" in ledger_turns[0]["content"]
+        assert "不在指标台账" in ledger_turns[0]["content"]
+        assert "闸拒" not in ledger_turns[0]["content"]
         # 机读 notice 面不回退（decision_rejected 分型在案）。
         assert [
             n for n in _notices(events) if n.get("type") == "decision_rejected"
         ]
     finally:
         await db.dispose()
+
+
+def test_ledger_turn_wording_is_typed_by_error_category() -> None:
+    """C2 分型钉（P-032b）：_ledger_turn 按 ToolError 三分类如实分型——
+    bad_args＝「校验拒（拒因）」（校验未过引擎未执行）、retryable＝「暂不可用
+    （拒因）」（可恢复）、refused＝「闸拒（拒因）」（闸拒仅指本面）；ok/ask
+    两形原样（结果 N 行／挂起审批）。"""
+    args = {"metric_slot": "日产油量", "window_start": "2025-09-01"}
+    ok = _ledger_turn("data_query", args, {
+        "status": "ok", "observations": [{}, {}], "ask": None, "error": None,
+    })
+    assert ok["content"] == (
+        'data_query 参数：{"metric_slot":"日产油量","window_start":"2025-09-01"}'
+        " → 结果：2 行"
+    )
+    ask = _ledger_turn("data_query", args, {
+        "status": "ask", "observations": [], "ask": {"kind": "clarify"},
+        "error": None,
+    })
+    assert "→ 结果：0 行（挂起：审批）" in ask["content"]
+    bad_args = _ledger_turn("data_query", args, {
+        "status": "failed", "observations": [], "ask": None,
+        "error": {"category": "bad_args", "message": "不在指标台账", "hint": ""},
+    })
+    assert "→ 校验拒（拒因：不在指标台账）" in bad_args["content"]
+    assert "闸拒" not in bad_args["content"]
+    retryable = _ledger_turn("data_query", args, {
+        "status": "failed", "observations": [], "ask": None,
+        "error": {"category": "retryable", "message": "上游超时", "hint": ""},
+    })
+    assert "→ 暂不可用（拒因：上游超时）" in retryable["content"]
+    assert "闸拒" not in retryable["content"]
+    refused = _ledger_turn("data_query", args, {
+        "status": "failed", "observations": [], "ask": None,
+        "error": {"category": "refused", "message": "越权口径", "hint": ""},
+    })
+    assert "→ 闸拒（拒因：越权口径）" in refused["content"]
 
 
 # ---------- 验收③：追问钉测——追问进会话后上下文含前轮问答历史 ----------

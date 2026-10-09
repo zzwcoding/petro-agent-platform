@@ -644,6 +644,31 @@ def test_followup_unfinished_run_is_409(env_clarify: Any) -> None:
     assert resp.json()["code"] == "chat_run_state"
 
 
+def test_resume_and_followup_together_is_409_not_silent(env: Any) -> None:
+    """C7 钉（P-032b）：resume_run_id 与 followup_run_id 同在场＝显式 409 互斥
+    拒绝——不开流、不出 run（重连形态不重新执行，同在场的 followup 不许被静默
+    忽略）；机读注记在错误包 detail（conflict 键点名互斥两参）。"""
+    client, _db = env
+    frames = _post_ask(client)
+    run_id = frames[0][1]["run_id"]
+    resp = client.post(
+        "/api/v2/chat/asks",
+        json={"question": "那 9 月 2 日呢？", "resume_run_id": run_id,
+              "followup_run_id": run_id},
+        headers=ACTOR,
+    )
+    assert resp.status_code == 409
+    body = resp.json()
+    assert body["code"] == "chat_run_state"
+    assert body["detail"]["conflict"] == ["resume_run_id", "followup_run_id"]
+    assert body["detail"]["resume_run_id"] == run_id
+    assert body["detail"]["followup_run_id"] == run_id
+    # 无静默路径：互斥拒绝＝新 run 零发生（GET 该 run 仍是原 completed 行）。
+    assert client.get(
+        f"/api/v2/chat/runs/{run_id}", headers=ACTOR
+    ).json()["status"] == "completed"
+
+
 # ---------- 错误码 400/401/404/409（接口定义节错误行） ----------
 
 

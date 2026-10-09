@@ -136,7 +136,8 @@ class RunState:
     understanding: str = ""
     metric_candidates: list[str] = field(default_factory=list)  # FX-13 候选集
     # —— 消息历史簿记（ADR-0006/V2-38）：understand/decision/answer 的调用与输出、
-    # 工具执行台账（参数 → 结果：N 行／闸拒（拒因））、拒因回喂、用户澄清/审批回收
+    # 工具执行台账（参数 → 结果：N 行／分型拒因：校验拒／暂不可用／闸拒）、拒因回
+    # 喂、用户澄清/审批回收
     # 全部作为轮次进历史；后续每步在完整历史上续写（替换「每步全新两条消息」伪
     # 多轮形态）。值全 JSON 原语（checkpointer 序列化面最简）；追问续会话经
     # executor 播种前轮线程历史（followup_of）。

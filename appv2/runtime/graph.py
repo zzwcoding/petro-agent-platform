@@ -743,10 +743,13 @@ def _history_with(state: RunState, *turns: dict[str, str]) -> list[dict[str, str
 def _ledger_turn(
     tool_name: str, args: dict[str, Any], result: dict[str, Any]
 ) -> dict[str, str]:
-    """执行台账段（V2-38 任务 2——「参数 → 结果：N 行／闸拒（拒因）」形落历史）。
+    """执行台账段（V2-38 任务 2——「参数 → 结果：N 行／分型拒因」形落历史）。
 
-    ok＝参数 → 结果：N 行；ask＝参数 → 结果：0 行（挂起：审批）；非 ok（校验拒/
-    retryable/闸拒）＝参数 → 闸拒（拒因：…）——负信息如实落（同参重投由模型读
+    ok＝参数 → 结果：N 行；ask＝参数 → 结果：0 行（挂起：审批）；failed 按
+    ToolError 三分类分型措辞（P-032b C2——措辞如实：bad_args＝参数校验未过、
+    引擎未执行，非闸拒；闸拒仅指引擎 refused 面）：bad_args→「校验拒（拒因）」
+    修参重投／retryable→「暂不可用（拒因）」可恢复（引擎侧同参重试一次）／
+    refused→「闸拒（拒因）」不重试不改写。负信息如实落（同参重投由模型读
     台账自主避免，V2-37 机器闸降格兜底）。参数 JSON＝键序归一紧凑形（与 V2-37
     载荷指纹同规范）。
     """
@@ -757,7 +760,13 @@ def _ledger_turn(
         return _user_turn(f"{tool_name} 参数：{params} → 结果：{lines} 行")
     if status == STATUS_ASK:
         return _user_turn(f"{tool_name} 参数：{params} → 结果：0 行（挂起：审批）")
-    reason = str((result.get("error") or {}).get("message", "校验未过"))
+    error = result.get("error") or {}
+    reason = str(error.get("message", "校验未过"))
+    category = str(error.get("category", ""))
+    if category == CATEGORY_BAD_ARGS:
+        return _user_turn(f"{tool_name} 参数：{params} → 校验拒（拒因：{reason}）")
+    if category == CATEGORY_RETRYABLE:
+        return _user_turn(f"{tool_name} 参数：{params} → 暂不可用（拒因：{reason}）")
     return _user_turn(f"{tool_name} 参数：{params} → 闸拒（拒因：{reason}）")
 
 
@@ -1121,7 +1130,7 @@ def _apply_result(
     - refused（闸拒）→ 拒因原样如实转答，不重试不改写。
 
     每次执行（含被拒）都留执行台账轮进消息历史（V2-38——「参数 → 结果：N 行／
-    闸拒（拒因）」，负信息如实落，模型面可见）。
+    分型拒因（校验拒／暂不可用／闸拒）」，负信息如实落，模型面可见）。
     """
     status = result["status"]
     title = f"{tool_name}：{status}"

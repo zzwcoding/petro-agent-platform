@@ -35,6 +35,7 @@ from appv2.api.errors import (
     CODE_LAST_EVENT_ID_INVALID,
     CODE_PARAM_INVALID,
     CODE_RUN_NOT_FOUND,
+    CODE_RUN_STATE,
     ApiError,
 )
 from appv2.runtime import AskChoice, AskRequest
@@ -68,6 +69,9 @@ class AskBody(BaseModel):
     新 run 播种该前轮线程的消息历史（前轮问句/决策/执行台账/答案随追问进上下文）；
     前轮须 completed（不存在 404／未收口 409——开流前错误包）；V1 帧兼容不破
     （session 首帧形不变，新 run_id＋resume=False）。
+
+    resume_run_id 与 followup_run_id 互斥（P-032b C7）：同在场＝409＋机读注记
+    （detail.conflict）——重连形态不重新执行，同在场的 followup 不被静默忽略。
     """
 
     question: str | None = None
@@ -145,6 +149,23 @@ async def post_ask(
     """
     breakpoint_id = parse_last_event_id(last_event_id)
     resume_run_id = body.resume_run_id if body is not None else None
+    followup_run_id = (body.followup_run_id or "").strip() if body is not None else ""
+    if resume_run_id and followup_run_id:
+        # 参数互斥闸（P-032b C7）：重连与追问同在场＝显式拒绝——重连形态不重新
+        # 执行，同在场的 followup 不许被静默忽略（409＋机读注记，不静默）。
+        raise ApiError(
+            status_code=409,
+            code=CODE_RUN_STATE,
+            message=(
+                "resume_run_id 与 followup_run_id 同在场——重连与追问互斥"
+                "（重连不重新执行，追问须去 resume_run_id 二选一）"
+            ),
+            detail={
+                "conflict": ["resume_run_id", "followup_run_id"],
+                "resume_run_id": resume_run_id,
+                "followup_run_id": followup_run_id,
+            },
+        )
     if resume_run_id is not None:
         stream = registry.get(resume_run_id)
         if stream is None:
@@ -177,7 +198,6 @@ async def post_ask(
             code=CODE_PARAM_INVALID,
             message="question 为空——提问必填（接口定义节错误行 400 参数非法）",
         )
-    followup_run_id = (body.followup_run_id or "").strip() if body is not None else ""
     handle = await runtime.ask(
         AskRequest(
             question=question, actor=actor, followup_of=followup_run_id
