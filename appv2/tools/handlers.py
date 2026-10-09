@@ -251,13 +251,20 @@ _AGG_CARDS: tuple[str, ...] = (
     "field_name（油田）",
     "表 agg.dim_date（日期维度·PK date）：date（日期）、month（月）、quarter（季）",
 )
+# V2-35 数据面盘点回写（卡跟真库走）：sem 四账卡补齐读面投影列——原卡漏列
+# id/原名（metric）、状态键/版本（term）、版本（object）、id（relation）四类读面
+# 消费列（快照 MetricRow/TermRow/ObjectRow/RelationRow 在投）；台账管理列
+# （owner/source/mark/modifiers/ambiguous/时间戳）非读面消费、照投影口径不进卡。
+# 逐字段核对表＝tickets/v2/V2-35.数据面盘点.md §1；agg 三卡/kb 卡核对零差异未动。
 _SEM_CARDS: tuple[str, ...] = (
-    "账 sem_metric（指标台账）：slot_name/定义/粒度/单位/状态/版本/口径支/默认口径"
-    "——semantic_query(question 或 element_name) 查口径卡，绑定指标才可出数"
-    "（日产油量→oil_output·吨／日产液量→liquid_output·方／油压→oil_pressure·MPa）",
-    "账 sem_term（术语台账）：term/类型/定义/状态/届满——术语卡经 semantic_query 查",
-    "账 sem_object（对象台账）：obj/属性/状态——对象卡经 semantic_query 查",
-    "账 sem_relation（关系台账）：rel/读法——关系卡经 semantic_query 查",
+    "账 sem_metric（指标台账）：id/原名/slot_name/定义/粒度/单位/状态/争议注记/版本"
+    "/口径支/默认口径——semantic_query(question 或 element_name) 查口径卡，绑定指标"
+    "才可出数（日产油量→oil_output·吨／日产液量→liquid_output·方／油压→oil_pressure·MPa）",
+    "账 sem_term（术语台账）：id/term/类型/定义/状态/状态键/版本/届满——术语卡经 "
+    "semantic_query 查",
+    "账 sem_object（对象台账）：id/obj/属性/状态/版本（未落版为空）——对象卡经 "
+    "semantic_query 查",
+    "账 sem_relation（关系台账）：id/rel/读法——关系卡经 semantic_query 查",
     "账 族标注（本体导出物·随台账读面 families）：关系组的族标注——semantic_query 按"
     "导出物名查",
 )
