@@ -11,7 +11,9 @@ StateGraph＋条件边承载全部回环（ADR-0002：StateGraph 真承载 loop�
 红线自守：langgraph 只在本包 import（红线①）；模型调用全部经 GatewayChatModel
 （红线②）；图状态 RunState 自有（红线③）。工具只经 ToolRegistry.call（受控行动链）。
 核验步为确定性规则（断言级支撑核查——被引观察的数值须被断言文本复述，引标贴
-无关行＝无据——＋分源列明），细化批可换更强实现，语义不破（INV-1/4）。
+无关行＝无据——＋分源列明；V2-23 豁免：表格行/血缘卡是权威观察承载，引它们
+只须复述任一数值 token，改写只管自由文本断言行），细化批可换更强实现，语义不破
+（INV-1/4）。
 """
 
 from __future__ import annotations
@@ -69,6 +71,9 @@ _PLAN_TOOLS: frozenset[str] = frozenset(
 _CITE_RE = re.compile(r"\[(\d+)\]")
 _NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
 _CANDIDATE_LINE = "指标候选"
+# 权威观察承载（V2-23 豁免域）：表格行/血缘卡是权威观察本身——断言级「全数值
+# 复述」只辖自由文本断言，不辖对它们的转述（豁免仍有底：零重叠照改，见 _supported）。
+_CARRIER_KINDS = frozenset({"agg_row", "lineage"})
 # few-shot 样张（V2-09——L-04 golden 少样本同款形态「例：〈问句〉\n输出：〈合同样
 # 张〉」）：样例问句取问数组数-明1 原句（eval/results/golden/plan-golden-v1.json
 # L04-02 同源）；计划样张窗端点按「去年」锚 2026 年（golden anchor 2026-10-08 同值，
@@ -225,11 +230,18 @@ def _supported(
     引标贴无关行（材料数值行内找不到）＝无支撑（P-006b·R9：非行级引标即过）。
     方向取「观察→行」：被引观察的每个数值须在行内被复述；行内来自问句语境的量
     （日期窗等）不作要求——误伤面最小。越界引标判无支撑；零数值观察（纯文本卡）
-    恒过，语义充分性由确定性规则边界如实声明（细化批可换更强实现）。"""
+    恒过，语义充分性由确定性规则边界如实声明（细化批可换更强实现）。
+    V2-23 豁免：表格行/血缘卡（locator.kind ∈ agg_row/lineage）是权威观察承载
+    而非断言素材——只须复述任一数值 token（行内容含日期/区块等随行数值，「全数值
+    复述」会把 LIMIT 截断下的整张明细表吞成「未找到」——P-015 数-明1 实测；
+    豁免仍有底：零重叠＝引标贴无关行，照改——R9 反例不回退）。"""
     obs = by_index.get(citation)
     if obs is None:
         return False
-    return all(token in assertion for token in _NUMBER_RE.findall(str(obs.get("content", ""))))
+    tokens = _NUMBER_RE.findall(str(obs.get("content", "")))
+    if str((obs.get("locator") or {}).get("kind", "")) in _CARRIER_KINDS:
+        return not tokens or any(token in assertion for token in tokens)
+    return all(token in assertion for token in tokens)
 
 
 def verify_draft(
@@ -238,8 +250,11 @@ def verify_draft(
     """草稿逐行断言级核验：返回（核验后文本, 改写数, 被引序号列, 是否分源）。
 
     - 逐引标抽取其辖断言文本做支撑判定：全部断言有据＝行保留（引标收进引用集）；
-      无引标行/越界引标/断言与被引观察无关（材料数值未被复述）＝无据断言，整行
-      改写「未找到（材料未披露）」（INV-1——禁止无据断言进答案）；
+      无引标数字行/越界引标/断言与被引观察无关（材料数值未被复述）＝无据断言，
+      整行改写「未找到（材料未披露）」（INV-1——禁止无据断言进答案）。改写只管
+      自由文本断言行：无引标且无数字的行（标题/表格头/分隔线等结构承载）不属
+      断言，原样保留（V2-23）；表格行/血缘卡引挂豁免「全数值复述」（见
+      _supported——零重叠仍改写，R9 反例不回退）；
     - 被引观察中同一 subject（台账卡内容首段名称）≥2 支且值不同→追加分源列明块
       （INV-4——禁止无出处调和；agg_row 行级事实按 井@日 独立键，不入矛盾池）。
     """
@@ -253,6 +268,11 @@ def verify_draft(
             out_lines.append(line)
             continue
         chunks = _assertion_chunks(stripped)
+        if not chunks and not _NUMBER_RE.search(stripped):
+            # 非断言行（标题/表格头/分隔线/无数字纯文本——结构承载）不属改写辖域
+            # （INV-1 管断言不管结构——V2-23：改写只管自由文本断言行）。
+            out_lines.append(line)
+            continue
         if chunks and all(_supported(n, chunk, by_index) for n, chunk in chunks):
             cited.update(n for n, _ in chunks)
             out_lines.append(line)
@@ -295,6 +315,19 @@ def _contradiction_members(
         if len(values) > 1:
             members.extend(group)
     return sorted(members, key=lambda obs: int(obs["index"]))
+
+
+def _lineage_closing_note(observations: list[dict[str, Any]]) -> str:
+    """血缘卡⑤收口注记行（V2-23——LIMIT 收口披露确定性随答案：截断不静默）。
+    引权威观察原文，零二次创作；无血缘卡（闸拦停/拒答链）＝空串不追加。"""
+    for obs in observations:
+        if (obs.get("locator") or {}).get("kind") != "lineage":
+            continue
+        for line in str(obs.get("content", "")).splitlines():
+            stripped = line.strip()
+            if stripped.startswith("⑤"):
+                return stripped
+    return ""
 
 
 # ---------- 节点公共位 ----------
@@ -883,6 +916,10 @@ def _make_answer(
         cited: list[int] = list(verdict.get("cited") or [])
         by_index = {int(obs["index"]): obs for obs in state.observations}
         answer = state.draft or state.answer or "（未取得可交付答案——如实回报，不编造。）"
+        # 收口注记确定性随行（V2-23——LIMIT 截断披露不靠模型自觉；草稿已自带则不重复）。
+        closing = _lineage_closing_note(state.observations)
+        if closing and "收口注记" not in answer:
+            answer += "\n\n" + closing
         if cited:
             lines = [
                 f"[{index}] {by_index[index].get('source', '')} · "

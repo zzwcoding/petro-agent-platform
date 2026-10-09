@@ -22,11 +22,16 @@ config 进组合根——config 缺省 true＝闸在位）／PgFragmentLibrary�
 ④ V2-19 验收③：血缘④「数据截至批次」带真批次号——observation 流中血缘卡
    支含「批次 b-*」（b-a1a61db9f458 单源族＝演示库 agg 单一批次，逐字断言）；
 ⑤ R14 核心：caller 归因落 spend 记录——`v2.runtime.*` caller 桶本轮在场
-   且 cost>0（GatewayChatModel→gateway.complete 的 B6 归因链真账本实证）。
+   且 cost>0（GatewayChatModel→gateway.complete 的 B6 归因链真账本实证）；
+⑥ V2-23 内容级断言（防「六步走完了但答案是拒答」式假绿）：数-明1 答案须含
+   明细表首行 N-01 21.16（LIMIT 50 截断形态下仍如实出表——verify 表格/血缘卡
+   豁免后不再整表吞成「未找到」，P-015 实测 rewritten=34 根因）；数-排1 答案
+   须含排名首行 Z-16 5839.6（去年窗合计 5839.63 的前缀形）；全部问数题答案须
+   含截断收口注记（血缘⑤ LIMIT 收口确定性随答案）。
 
 重跑幂等：每轮新增真流水（演示库量级，GATEWAY_SMOKE/CHAT_SMOKE 同款处置）；
 断言只看「本轮桶在场」不看全库计数。证据打印（-s 采集）：每题的理解/计划/
-答案/血缘④与 spend 行——回报 P-013 冒烟输出原文（血缘批次号证据）的来源。
+核验步/答案/血缘④与 spend 行——回报 P-013 冒烟输出原文（血缘批次号证据）的来源。
 """
 
 from __future__ import annotations
@@ -45,11 +50,14 @@ pytestmark = [
     )
 ]
 
-# 数-明1 类标准题两形：显式窗（P-008 偏差 5 原题——「不再 understand 拒答」回归钉）
-# ＋数-明1 原句（few-shot 样张同题——「去年」相对窗经样张落 ISO 端点）。
-SMOKE_QUESTIONS = (
-    "2025 年 9 月 1 日到 3 日的日产油量",
-    "去年各井每天的日产油量是多少？",
+# 数-明1 类标准题三形：显式窗（P-008 偏差 5 原题——「不再 understand 拒答」回归钉）
+# ＋数-明1 原句（few-shot 样张同题——「去年」相对窗经样张落 ISO 端点）
+# ＋数-排1（V2-23 内容级断言面）。值组＝答案内容级必含子串（V2-23 票面③——
+# 防「六步走完了但答案是拒答」式假绿；空组＝只作结构断言）。
+SMOKE_QUESTIONS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("2025 年 9 月 1 日到 3 日的日产油量", ()),
+    ("去年各井每天的日产油量是多少？", ("N-01", "21.16")),  # 明细表首行（截断形态仍出表）
+    ("去年日产油量最高的井是哪口？", ("Z-16", "5839.6")),  # 排名首行（合计 5839.63 前缀形）
 )
 SIX_STEP_ORDER = ["understand", "plan", "tool", "observe", "verify", "answer"]
 TODAY = date(2026, 10, 8)
@@ -94,7 +102,7 @@ def test_runtime_production_smoke_real_gateway() -> None:
     started_at = now()
 
     with TestClient(app) as client:
-        for question in SMOKE_QUESTIONS:
+        for question, content_expect in SMOKE_QUESTIONS:
             # —— ① 一轮 ask：真实 MiniMax 走六步 loop，SSE 保留帧收场 ——
             resp = client.post("/api/v2/chat/asks", json={"question": question}, headers=ACTOR)
             assert resp.status_code == 200
@@ -127,6 +135,18 @@ def test_runtime_production_smoke_real_gateway() -> None:
             assert f"批次 {DEMO_BATCH_ID}" in watermark_line, (
                 f"血缘④未带真批次号（期望 {DEMO_BATCH_ID}）：{watermark_line}"
             )
+            # —— ⑥ V2-23 内容级断言：答案是内容不是拒答 ——
+            # （流尾末条 text 帧＝答案收口——与 run.answer 同源，无需先查 run 行。）
+            answer_text = next(
+                (d.get("content", "") for n, d in reversed(frames) if n == "text"), ""
+            )
+            for needle in content_expect:
+                assert needle in answer_text, (
+                    f"答案缺内容级断言值 {needle!r}（问句：{question}）：{answer_text[:400]}"
+                )
+            assert "收口注记" in answer_text and "LIMIT" in answer_text, (
+                f"答案缺截断收口注记（问句：{question}）：{answer_text[:400]}"
+            )
             # —— 证据打印（-s 采集——回报 P-013 冒烟输出原文来源） ——
             async def _evidence(run_id: str = run_id) -> tuple[Any, Any]:
                 return await store.get_run(run_id), await store.list_steps(run_id)
@@ -143,9 +163,13 @@ def test_runtime_production_smoke_real_gateway() -> None:
                 ),
                 None,
             )
+            verify_title = next(
+                (s.title for s in steps if s.step_type == "verify"), ""
+            )
             print(f"\nSMOKE 问句：{question}")
             print(f"SMOKE 理解（真模型两行/降级产）：{understanding}")
             print(f"SMOKE 计划（真模型 JSON 产）：{json.dumps(plan_payload, ensure_ascii=False)}")
+            print(f"SMOKE 核验（verify 步标题）：{verify_title}")
             print(f"SMOKE 答案首 200 字：{(run_row.answer or '')[:200]}")
             print(f"SMOKE 血缘④（数据截至批次）：{watermark_line}")
 

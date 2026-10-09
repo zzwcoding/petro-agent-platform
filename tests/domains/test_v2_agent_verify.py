@@ -12,6 +12,11 @@
   被引观察 content 中的每个数值 token 须被该断言文本复述——引标贴无关行（材料数值
   行内找不到）＝无据断言，整行改写「未找到（材料未披露）：〈原文〉」＋notice，
   该引标不收进引用集（INV-1——禁止无据断言进答案）；
+- V2-23 豁免（表格/血缘卡观察承载）：agg_row/lineage 卡是权威观察本身（非断言
+  素材）——引它们只须复述至少一个数值 token（P-015 数-明1 实测：行内容含日期/
+  区块随行数值，「全数值复述」把整张明细表吞成「未找到」；零重叠仍改写——R9
+  反例不回退）；改写只管自由文本断言行——无引标且无数字的结构行（标题/表头/
+  分隔线）原样保留；
 - 矛盾判定：被引观察中，同一 subject（台账卡取内容首段「名称」；agg_row 行级
   事实按 井@日 键独立，不入跨源矛盾池）出现 ≥2 支且值不同→强制分源列明块
   （逐支带 [n] 出处）＋notice——禁止无出处调和。
@@ -27,6 +32,7 @@ from typing import Any
 from appv2.knowledge import Evidence
 from appv2.query import (
     LINEAGE_KEY_CALIBER,
+    LINEAGE_KEY_CLOSING,
     LINEAGE_KEY_WATERMARK,
     LineageLine,
     QueryOutcome,
@@ -36,6 +42,7 @@ from appv2.runtime import (
     RunEvent,
     RunStore,
 )
+from appv2.runtime.graph import verify_draft
 from appv2.tools import FakeKnowledgeStore
 from tests.domains.test_v2_agent_loop import (
     ACTOR,
@@ -206,6 +213,205 @@ async def test_citation_on_unrelated_line_rewritten(tmp_path: Path) -> None:
         assert verdicts and verdicts[0]["rewritten"] == 1
         assert verdicts[0]["cited"] == []
         assert not [e for e in events if e.event == "citation"]
+    finally:
+        await db.dispose()
+
+
+# ---------- V2-23：表格/血缘卡观察承载豁免断言级改写（verify_draft 直测） ----------
+
+
+def _agg_row_obs(index: int, well_id: str, value: str) -> dict[str, Any]:
+    """agg 行观察（真实链形态——handlers._rows_observations 同构：内容含日期/区块
+    随行数值，行内数值 token 不止键值本身）。"""
+    return {
+        "index": index,
+        "content": f"井号={well_id}；区块=渤南；日期=2025-09-01；日产油量（吨）={value}",
+        "source": "agg.fct_daily_metering",
+        "source_id": f"{well_id}@2025-09-01",
+        "version": None,
+        "freshness": "",
+        "scope": "agg",
+        "locator": {
+            "kind": "agg_row",
+            "table": "agg.fct_daily_metering",
+            "well_id": well_id,
+        },
+    }
+
+
+_LINEAGE_CONTENT = (
+    "① 口径 日产油量（单位：吨）——口径声明\n"
+    "④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1）\n"
+    "⑤ 收口注记 LIMIT 50——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底"
+)
+
+
+def _lineage_obs(index: int = 3) -> dict[str, Any]:
+    return {
+        "index": index,
+        "content": _LINEAGE_CONTENT,
+        "source": "agg.fct_daily_metering",
+        "source_id": "lineage",
+        "version": None,
+        "freshness": "",
+        "scope": "agg",
+        "locator": {"kind": "lineage", "table": "agg.fct_daily_metering"},
+    }
+
+
+def test_verify_draft_table_rows_carrying_observations_kept() -> None:
+    # 数-明1 P-015 实测形：表格行转述权威行（行内容含日期/区块随行数值，行内只复述
+    # 键值）——豁免「全数值复述」改写；无引标数字断言行照改；非断言结构行保留。
+    observations = [_agg_row_obs(1, "N-01", "21.16"), _agg_row_obs(2, "N-02", "30.79")]
+    draft = (
+        "## 答案\n"
+        "\n"
+        "全油田 86 口井昨日均超产 50 吨。\n"
+        "\n"
+        "| 井号 | 日产油量（吨） | 引标 |\n"
+        "|------|---------------|------|\n"
+        "| N-01 | 21.16 | [1] |\n"
+        "| N-02 | 30.79 | [2] |\n"
+    )
+    text, rewritten, cited, split = verify_draft(draft, observations)
+    assert rewritten == 1  # 恰无引标数字断言行一支
+    assert cited == [1, 2]  # 表格行引标收进引用集
+    assert "| N-01 | 21.16 | [1] |" in text  # 表格行原样保留（无「未找到」前缀）
+    assert "| 井号 | 日产油量（吨） | 引标 |" in text  # 表头/分隔线＝结构行照旧
+    assert "|------|---------------|------|" in text
+    assert "## 答案" in text and "未找到（材料未披露）：## 答案" not in text
+    assert "未找到（材料未披露）：全油田 86 口井" in text  # 无引标数字断言照改（INV-1）
+    assert split is False
+
+
+def test_verify_draft_carrier_zero_overlap_still_rewritten() -> None:
+    # 豁免有底：表格行/血缘卡引挂零重叠的无关断言照改（R9 反例在承载豁免下不回退）。
+    observations = [_agg_row_obs(1, "N-01", "21.16"), _lineage_obs(2)]
+    text, rewritten, cited, _split = verify_draft(
+        "| 全油田 86 口井均超产 50 吨 | [1] |\n口径存疑待核[2]。",
+        observations,
+    )
+    assert rewritten == 2  # 表格形态的无据行与自由文本无据行同判
+    assert cited == []
+    assert "未找到（材料未披露）：| 全油田 86 口井均超产 50 吨 | [1] |" in text
+    assert "未找到（材料未披露）：口径存疑待核[2]。" in text
+
+
+def test_verify_draft_lineage_card_carrier_free_text_kept() -> None:
+    # 血缘卡（lineage）同豁免域：自由文本行引血缘卡只须复述任一数值 token——
+    # 「全数值复述」对大杂烩卡（口径/批次/水位/LIMIT 全在）形同必吞（V2-23）。
+    text, rewritten, cited, _split = verify_draft(
+        "明细按 LIMIT 50 收口[3]；未覆盖部分如实声明。",
+        [_lineage_obs(3)],
+    )
+    assert rewritten == 0
+    assert cited == [3]
+    assert "LIMIT 50 收口[3]" in text
+
+
+# ---------- V2-23：全链两测——表格明细进答案＋收口注记确定性随行 ----------
+
+
+def _rows_with_closing_outcome() -> QueryOutcome:
+    return QueryOutcome.rows_with_lineage(
+        columns=(("well_id", "井号"), ("日产油量（吨）", "日产油量（吨）")),
+        rows=(
+            {"well_id": "N-01", "日产油量（吨）": Decimal("21.16")},
+            {"well_id": "N-02", "日产油量（吨）": Decimal("30.79")},
+        ),
+        lineage=(
+            LineageLine(key=LINEAGE_KEY_CALIBER, value="日产油量（单位：吨）——口径声明"),
+            LineageLine(key=LINEAGE_KEY_WATERMARK, value="汇总层水位 2026-08-31"),
+            LineageLine(
+                key=LINEAGE_KEY_CLOSING,
+                value=(
+                    "LIMIT 50——强制限量纪律：没写补默认 50、超 200 截到 200，"
+                    "只封顶不抬底"
+                ),
+            ),
+        ),
+    )
+
+
+_TABLE_DRAFT = (
+    "## 答案\n"
+    "\n"
+    "材料仅覆盖 2025-09-01 单日（未及全窗——如实声明）。\n"
+    "\n"
+    "| 井号 | 日产油量（吨） | 引标 |\n"
+    "|------|---------------|------|\n"
+    "| N-01 | 21.16 | [1] |\n"
+    "| N-02 | 30.79 | [2] |\n"
+)
+
+
+async def test_table_answer_survives_verify(tmp_path: Path) -> None:
+    # 数-明1 P-015 帧存档同形草稿走全链：六步走完且答案是表格明细——不再整表被
+    # 吞成「未找到」（P-015 实测 rewritten=34/支撑 0 的假绿根因）。
+    script: dict[str, Sequence[str]] = {
+        "v2.runtime.understand": ["理解：问日产油量明细。\n指标候选：日产油量"],
+        "v2.runtime.plan": [
+            '{"metric_slot": "日产油量", "ranking": false, '
+            '"window_start": "2025-01-01", "window_end": "2026-01-01", "limit": 50}'
+        ],
+        "v2.runtime.answer_draft": [_TABLE_DRAFT],
+    }
+    runtime, _completer, db = await make_runtime(
+        tmp_path, engine=QueueQueryEngine([_rows_with_closing_outcome()]), script=script
+    )
+    store = RunStore(db)
+    try:
+        handle = await runtime.ask(
+            AskRequest(question="去年各井每天的日产油量是多少", actor=ACTOR)
+        )
+        events = await drain(handle)
+        run = await store.get_run(handle.run_id)
+        assert run is not None and run.status == "completed"
+        answer = run.answer or ""
+        # 表格行原样进答案（无「未找到」前缀）——内容级断言（票面验收②形状）。
+        assert "| N-01 | 21.16 | [1] |" in answer
+        assert "| N-02 | 30.79 | [2] |" in answer
+        assert "未找到（材料未披露）：|" not in answer  # 表格行零改写
+        assert "## 答案" in answer  # 结构行不再被改写挂前缀
+        # 无引标数字断言行照改（INV-1 不豁免）。
+        assert "未找到（材料未披露）：材料仅覆盖 2025-09-01 单日" in answer
+        # 收口注记确定性随行（血缘⑤ LIMIT 收口——截断不静默）。
+        assert "收口注记" in answer and "LIMIT 50" in answer
+        # 引用集含两表格行引标（citation 事件带出处链）。
+        citations = [e.data for e in events if e.event == "citation"]
+        assert [c["index"] for c in citations] == [1, 2]
+        verdicts = [e.data for e in events if e.event == "verdict"]
+        assert verdicts and verdicts[0]["rewritten"] == 1  # 恰无引标数字行一支
+        assert verdicts[0]["cited"] == [1, 2]
+    finally:
+        await db.dispose()
+
+
+async def test_closing_note_not_duplicated_when_draft_carries_it(tmp_path: Path) -> None:
+    # 草稿自带收口注记（引血缘卡）时答案不重复追加（恰好一次）。
+    draft = _TABLE_DRAFT + "\n明细按⑤ 收口注记 LIMIT 50 收口[3]。\n"
+    script: dict[str, Sequence[str]] = {
+        "v2.runtime.understand": ["理解：问日产油量明细。\n指标候选：日产油量"],
+        "v2.runtime.plan": [
+            '{"metric_slot": "日产油量", "ranking": false, '
+            '"window_start": "2025-01-01", "window_end": "2026-01-01", "limit": 50}'
+        ],
+        "v2.runtime.answer_draft": [draft],
+    }
+    runtime, _completer, db = await make_runtime(
+        tmp_path, engine=QueueQueryEngine([_rows_with_closing_outcome()]), script=script
+    )
+    store = RunStore(db)
+    try:
+        handle = await runtime.ask(
+            AskRequest(question="去年各井每天的日产油量是多少", actor=ACTOR)
+        )
+        await drain(handle)
+        run = await store.get_run(handle.run_id)
+        assert run is not None and run.status == "completed"
+        answer = run.answer or ""
+        assert "收口注记 LIMIT 50 收口[3]" in answer  # 草稿行原样保留（血缘卡豁免）
+        assert answer.count("收口注记") == 1  # 恰一次——不重复追加
     finally:
         await db.dispose()
 
