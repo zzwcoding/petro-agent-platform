@@ -37,7 +37,10 @@ knowledge/query/retrieval（agent 与世界的唯一接触面＝ToolRegistry）�
 - QuestionGroup/Subtask/parse_question_group/parse_tool_match（V2-34 子任务图
   schema 校验单点）＋四相位路由意图；
 - gate_freshness（DE-16 freshness_gate_enabled 编排层接线）/reseed_approval_id
-  （V2-03 偏差 7 审批单号 run 前缀种子）。
+  （V2-03 偏差 7 审批单号 run 前缀种子）；
+- EVAL_FROZEN_DATE_*／resolve_eval_frozen_date／eval_frozen_today（V2-39 测评
+  时钟冻结缝——评测/冒烟面统一注入冻结时钟；生产面 today=None 路径永不读 env，
+  infra.clock B14 实现零改动）。
 """
 
 from appv2.runtime.budget import (
@@ -51,6 +54,13 @@ from appv2.runtime.budget import (
 )
 from appv2.runtime.checkpointer import PgCheckpointer
 from appv2.runtime.context import CompiledContext, ContextBuilder
+from appv2.runtime.eval_clock import (
+    EVAL_FROZEN_DATE_DEFAULT,
+    EVAL_FROZEN_DATE_ENV,
+    EVAL_FROZEN_DATE_REAL,
+    eval_frozen_today,
+    resolve_eval_frozen_date,
+)
 from appv2.runtime.events import (
     EVENT_ASK,
     EVENT_CITATION,
@@ -136,6 +146,9 @@ __all__ = [
     "COMMAND_RESUME",
     "DECISION_CONTRACT",
     "DISCOVER_TOOLS",
+    "EVAL_FROZEN_DATE_DEFAULT",
+    "EVAL_FROZEN_DATE_ENV",
+    "EVAL_FROZEN_DATE_REAL",
     "EVENT_ASK",
     "EVENT_CITATION",
     "EVENT_KINDS",
@@ -198,10 +211,12 @@ __all__ = [
     "Subtask",
     "SubtaskMatch",
     "ensure_agent_v2_tables",
+    "eval_frozen_today",
     "gate_freshness",
     "new_run_id",
     "parse_decision",
     "parse_question_group",
     "parse_tool_match",
     "reseed_approval_id",
+    "resolve_eval_frozen_date",
 ]

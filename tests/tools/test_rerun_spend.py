@@ -235,6 +235,21 @@ class TestSpendSummary:
         assert s["items"] == [] and s["errors"] == []
 
 
+# ---------- 冻结时钟字段（frozen_date_field——V2-39 jsonl 溯源） ----------
+
+
+class TestFrozenDateField:
+    def test_frozen_date_iso_string(self) -> None:
+        """冻结态：jsonl 行 frozen_date＝ISO 日期串（本批评分对应的「今天」）。"""
+        from datetime import date
+
+        assert rerun.frozen_date_field(date(2026, 8, 31)) == "2026-08-31"
+
+    def test_real_mode_none(self) -> None:
+        """real 对照态：frozen_date＝null（真实时钟——墙钟字段已在场）。"""
+        assert rerun.frozen_date_field(None) is None
+
+
 # ---------- 归集查询计划（ledger_query_plan——V2-33 run_id 直查主路） ----------
 
 

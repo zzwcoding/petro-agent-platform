@@ -12,6 +12,12 @@ MiniMax-M3 真调用真计费）＋三引擎生产读面真链路——PgKnowled
 config 进组合根——config 缺省 true＝闸在位）／PgFragmentLibrary（kb_* 直读
 ＋RemoteEmbedder——问数题不触检索，装配在位即如实）。
 
+测评时钟冻结（V2-39）：执行「今天」经 EVAL_FROZEN_DATE 缝统一注入——缺省
+冻结水位日 2026-08-31（四窗词干净通过），显式 real 回真实时钟做对照；生产面
+today=None 路径永不读 env（infra.clock B14 实现不动）。三问窗锚定不受冻结
+影响（显式窗原样／「去年」两态同 [2025-01-01, 2026-01-01)）——内容级断言值
+钉不变。
+
 流程（每题一轮 ask 走通六步 loop）：
 ① POST /api/v2/chat/asks（真实 MiniMax 出理解/计划/草稿）→ SSE 流保留帧 done
    收场，终局 verdict subtype=final；
@@ -38,7 +44,6 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import date
 from typing import Any
 
 import pytest
@@ -67,7 +72,10 @@ REACT_STEP_HEAD = [
 # clarify(decision·分解)→toolmatch(decision·匹配)→precondition(decision·纯代码)
 # →batch(execute)→批量汇聚(observe)→answer(起草)→verify→answer(收口)。
 REACT_STEP_TAIL = ["answer", "verify", "answer"]
-TODAY = date(2026, 10, 8)
+# 测评时钟冻结（V2-39）：冒烟具统一注入——EVAL_FROZEN_DATE 缺省（未设/空）＝
+# 冻结水位日 2026-08-31（四窗词干净通过——测评信号不被新鲜度注记噪声污染），
+# 显式 real 回真实时钟做对照。生产面 today=None 路径永不读 env（infra.clock
+# B14 实现不动——冻结只落评测/冒烟面）。
 DEMO_BATCH_ID = "b-a1a61db9f458"  # 演示库 agg 单一批次（V2-11 seed 单源——单源族）
 ACTOR = {"X-Dev-User": "aqiang"}
 
@@ -98,13 +106,15 @@ def test_runtime_production_smoke_real_gateway() -> None:
     from appv2.infra.gateway import GatewayService, SpendFilter
     from appv2.infra.gateway.store import SpendRecord, SpendStore
     from appv2.infra.llm_client import LlmClient
-    from appv2.runtime import RunStore
+    from appv2.runtime import RunStore, eval_frozen_today
 
     db = ConnectionManager(load_database_specs())  # 真实 primary PG（演示库）
     gateway = GatewayService(db, LlmClient())  # B6 唯一出口真件（MiniMax 真引擎）
     # 生产组合根（V2-19 任务 4）：registry 缺省＝三引擎生产读面真装配
     # ＋DE-16 翻板从 config 进组合根（config 缺省 true＝水位闸在位）。
-    app = create_app(db=db, completer=gateway, today=lambda: TODAY)
+    # 测评时钟冻结（V2-39）：today＝EVAL_FROZEN_DATE 缝（缺省冻结 2026-08-31，
+    # real→None→infra.clock 真实时钟对照——冒烟面统一注入）。
+    app = create_app(db=db, completer=gateway, today=eval_frozen_today())
     # —— 真指南态（P-033b：缺省翻转＋RUNTIME_SMOKE ②钉更新）——生产缺省＝
     # 四相位装配；指南＝OntologyGuideProvider 且 legacy 决策合同不进指南面
     # （include_decision_contract=False——相位合同在 runtime 消费缝前置，

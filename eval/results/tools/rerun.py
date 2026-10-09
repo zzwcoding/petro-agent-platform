@@ -20,6 +20,9 @@ parse_frames 超集——六类 step/ask 帧/verdict subtype），判分辅助�
 steps 列（六步链序，chain 在 v2 流恒空）。--qid 只跑指定题（干跑冒烟用，
 题干原句照题册不改写）。
 
+--out-dir 重定位产物根目录（缺省 eval/results；frames 落
+out-dir/frames——干跑产物隔离用）。
+
 --spend 计费归集（V2-30，Q12 对账挂账 5 清偿）：跑批后逐题从网关 spend 账本
 （PG gateway_spend_record——D5 全平台唯一账本，只读 SELECT）归集计费。
 归集主路（V2-33 run_id 直查）：服务侧 _settle 已盖章（GraphRunExecutor 经
@@ -36,8 +39,15 @@ cost_yuan/by_caller/call_ids/ledger_run_ids/method/fallback?）＋独立摘要�
 归集失败不中断跑批（行内 spend.error 留痕）。连接参数：PG_HOST/PG_PORT/
 PG_DB/PG_USER/PG_PASSWORD 环境量＞仓根 .env＞config/database.yaml 开发默认
 （localhost:5433/petro/petro/petro）；--spend-dsn 传整串 postgres:// DSN
-时直连。--out-dir 重定位产物根目录（缺省 eval/results；frames 落
-out-dir/frames——干跑产物隔离用）。
+时直连。
+
+测评时钟冻结（V2-39）：本批评测面的「今天」冻结在水位日 2026-08-31——
+env EVAL_FROZEN_DATE 缺省（未设/空）即冻结该日；显式 real 回真实时钟做对照；
+显式 ISO 日期冻结该日；非法值启动即拒（fail-fast）。解析单点＝
+appv2.runtime.eval_clock（服务侧 :801x 组合根启动器同源同值——评测组合根
+today 缝与跑批存档永不两套「今天」）。每行 jsonl 增 frozen_date 字段
+（冻结态＝ISO 日期串；real 态＝null——评测可溯源：本批评分对应的「今天」；
+真实时钟态的墙钟已在 ask_started_at/ask_ended_at 在场）。
 """
 
 from __future__ import annotations
@@ -50,7 +60,7 @@ import os
 import sys
 import time
 from collections.abc import Iterable, Mapping
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -59,6 +69,11 @@ import asyncpg
 import httpx
 
 sys.path.insert(0, str(Path(__file__).parent))
+# 仓根进 path——评测时钟冻结缝单源引用（V2-39：与 :801x 组合根启动器同源解析，
+# 禁第二份 env 字面量/缺省值）。parents[3]＝仓根（DOTENV_PATH 同源）。
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
+from appv2.runtime.eval_clock import resolve_eval_frozen_date
 
 from ask import asks_url, parse_frames, parse_sse_text
 
@@ -99,6 +114,15 @@ _PG_DEFAULTS: dict[str, str] = {
 def now_ts() -> datetime:
     """墙钟——东八区本地 naive（与网关账本 time 列同钟同形：appv2/infra/clock 语义镜像）。"""
     return datetime.now(tz=_EAST8).replace(tzinfo=None)
+
+
+def frozen_date_field(frozen: date | None) -> str | None:
+    """jsonl 行 frozen_date 字段值（V2-39 溯源：本批评分对应的「今天」）。
+
+    冻结态＝ISO 日期串（如 "2026-08-31"）；real 对照态＝None（jsonl null——
+    真实时钟的墙钟已在 ask_started_at/ask_ended_at 在场）。
+    """
+    return frozen.isoformat() if frozen is not None else None
 
 
 def fmt_ts(at: datetime) -> str:
@@ -385,6 +409,11 @@ async def main() -> int:
 
     suite = suites[args.suite]
     targets = [e for e in suite if args.qid is None or e[0] == args.qid]
+    # 测评时钟冻结（V2-39）：解析单点同 :801x 组合根启动器——缺省冻结水位日
+    # 2026-08-31，显式 real 回真实时钟对照；逐行 frozen_date 溯源在场。
+    frozen_date = resolve_eval_frozen_date(os.environ)
+    frozen_label = frozen_date.isoformat() if frozen_date is not None else "real（真实时钟对照）"
+    print(f"[frozen] 本批评测「今天」＝{frozen_label}")
     done = 0
     this_run: list[dict] = []  # 本轮写入的行（--spend 时补齐 spend 字段用）
     timeout = httpx.Timeout(connect=10, read=300, write=10, pool=10)
@@ -393,6 +422,7 @@ async def main() -> int:
             for qid, group, question in targets:
                 frame_path = frames_dir / f"{args.tag}-{qid}.json"
                 row = {"qid": qid, "group": group, "question": question}
+                row["frozen_date"] = frozen_date_field(frozen_date)  # V2-39 溯源在场
                 asked_at = fmt_ts(now_ts()) if args.spend else None
                 if asked_at is not None:
                     row["ask_started_at"] = asked_at
