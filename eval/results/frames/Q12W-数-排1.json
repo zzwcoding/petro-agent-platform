@@ -1,0 +1,237 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-b599b0a4",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "understand",
+    "seq": 1,
+    "title": "未产出。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "未产出。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "plan",
+    "seq": 2,
+    "title": "计划：data_query"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "tool",
+    "seq": 3,
+    "title": "工具 data_query：ok"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察入栈 2 支"
+   }
+  },
+  {
+   "id": 7,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-16；区块=渤中；日产油量合计（吨）=5839.63",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 8,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date",
+    "content": "① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 38 天 · 超期）\n⑤ 收口注记 LIMIT 1——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 1——只封顶不抬底）",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 5,
+    "title": "核验：支撑 0｜改写 2｜分源 否"
+   }
+  },
+  {
+   "id": 10,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 2,
+    "split": false,
+    "cited": []
+   }
+  },
+  {
+   "id": 11,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 2 行（INV-1——禁止无据断言进答案）"
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 13,
+   "event": "text",
+   "data": {
+    "content": "**答案：**\n\n根据给定观察材料，未产出该问题的答案。\n\n具体说明：\n\n- 问题询问\"去年日产油量最高的井是哪口\"，需要在聚合事实（如各井的日产油量合计排名）层面进行回答。\n未找到（材料未披露）：- 观察 [1] 仅提供了一口井（井号=Z-16，区块=渤中）的日产油量合计数据（5839.63 吨），不包含与其他井的比较排名信息，无法据此判定\"最高\"。\n未找到（材料未披露）：- 观察 [2] 提供了口径声明、来源表（agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date）、过滤条件（时间=2025-01-01～2025-12-31）、数据截至批次（b-a1a61db9f458，水位 2026-08-31）以及 LIMIT 1 的收口注记，但**未给出任何具体的井号或日产油量数值结果**。\n- 材料中不存在多来源不一致的情形，但也不存在足以回答\"去年日产油量最高的井是哪口\"这一问题的具体事实断言。\n\n因此，观察材料未覆盖判定\"日产油量最高的井\"所必需的全井对比结果，该问题在当前材料下无法作答。"
+   }
+  },
+  {
+   "id": 14,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-b599b0a4",
+    "manifest_digest": "551b7a10797dcd93a4202eb6d42b4de6462b1a28505d9e20d2f510c9aa9b199a"
+   }
+  },
+  {
+   "id": 15,
+   "event": "done",
+   "data": {
+    "run_id": "run-b599b0a4"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "**答案：**\n\n根据给定观察材料，未产出该问题的答案。\n\n具体说明：\n\n- 问题询问\"去年日产油量最高的井是哪口\"，需要在聚合事实（如各井的日产油量合计排名）层面进行回答。\n未找到（材料未披露）：- 观察 [1] 仅提供了一口井（井号=Z-16，区块=渤中）的日产油量合计数据（5839.63 吨），不包含与其他井的比较排名信息，无法据此判定\"最高\"。\n未找到（材料未披露）：- 观察 [2] 提供了口径声明、来源表（agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date）、过滤条件（时间=2025-01-01～2025-12-31）、数据截至批次（b-a1a61db9f458，水位 2026-08-31）以及 LIMIT 1 的收口注记，但**未给出任何具体的井号或日产油量数值结果**。\n- 材料中不存在多来源不一致的情形，但也不存在足以回答\"去年日产油量最高的井是哪口\"这一问题的具体事实断言。\n\n因此，观察材料未覆盖判定\"日产油量最高的井\"所必需的全井对比结果，该问题在当前材料下无法作答。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 2 行（INV-1——禁止无据断言进答案）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-b599b0a4",
+  "steps": [
+   {
+    "step": "understand",
+    "seq": 1,
+    "title": "未产出。"
+   },
+   {
+    "step": "plan",
+    "seq": 2,
+    "title": "计划：data_query"
+   },
+   {
+    "step": "tool",
+    "seq": 3,
+    "title": "工具 data_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察入栈 2 支"
+   },
+   {
+    "step": "verify",
+    "seq": 5,
+    "title": "核验：支撑 0｜改写 2｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-16；区块=渤中；日产油量合计（吨）=5839.63",
+    "trust": "authoritative"
+   },
+   {
+    "index": 2,
+    "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date",
+    "content": "① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 38 天 · 超期）\n⑤ 收口注记 LIMIT 1——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 1——只封顶不抬底）",
+    "trust": "authoritative"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 2,
+    "split": false,
+    "cited": []
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-b599b0a4",
+   "manifest_digest": "551b7a10797dcd93a4202eb6d42b4de6462b1a28505d9e20d2f510c9aa9b199a"
+  },
+  "texts": [
+   "未产出。",
+   "**答案：**\n\n根据给定观察材料，未产出该问题的答案。\n\n具体说明：\n\n- 问题询问\"去年日产油量最高的井是哪口\"，需要在聚合事实（如各井的日产油量合计排名）层面进行回答。\n未找到（材料未披露）：- 观察 [1] 仅提供了一口井（井号=Z-16，区块=渤中）的日产油量合计数据（5839.63 吨），不包含与其他井的比较排名信息，无法据此判定\"最高\"。\n未找到（材料未披露）：- 观察 [2] 提供了口径声明、来源表（agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date）、过滤条件（时间=2025-01-01～2025-12-31）、数据截至批次（b-a1a61db9f458，水位 2026-08-31）以及 LIMIT 1 的收口注记，但**未给出任何具体的井号或日产油量数值结果**。\n- 材料中不存在多来源不一致的情形，但也不存在足以回答\"去年日产油量最高的井是哪口\"这一问题的具体事实断言。\n\n因此，观察材料未覆盖判定\"日产油量最高的井\"所必需的全井对比结果，该问题在当前材料下无法作答。"
+  ],
+  "duration_s": 44.9
+ }
+}

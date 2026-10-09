@@ -1,0 +1,201 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-c213a5b6",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "understand",
+    "seq": 1,
+    "title": "判断评审人对报告4.2节防砂方式、砾石规格、占船日等描述是否准确，并据此反查报告原文以回答防砂方式、筛管型号、防砂精度、砾石量与充填井段，以及\"占船日4.0天\"的语境含义。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "判断评审人对报告4.2节防砂方式、砾石规格、占船日等描述是否准确，并据此反查报告原文以回答防砂方式、筛管型号、防砂精度、砾石量与充填井段，以及\"占船日4.0天\"的语境含义。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "plan",
+    "seq": 2,
+    "title": "计划：data_query"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 3,
+    "message": "metric_slot '防砂方式与砾石充填数据核对' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "tool",
+    "seq": 3,
+    "title": "工具 data_query：failed"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "plan",
+    "seq": 4,
+    "title": "计划：data_query"
+   }
+  },
+  {
+   "id": 7,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 5,
+    "message": "metric_slot '防砂方式' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "notice",
+   "data": {
+    "type": "refused",
+    "gates": [],
+    "content": "计划校验两轮未过——拒因如实转答：metric_slot '防砂方式' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "tool",
+    "seq": 5,
+    "title": "工具 data_query：failed"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 11,
+   "event": "text",
+   "data": {
+    "content": "metric_slot '防砂方式' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 12,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-c213a5b6",
+    "manifest_digest": "b791c49baec87d33cce009401c9d2f23121f8ba1b169f1196b7444e0f36bced5"
+   }
+  },
+  {
+   "id": 13,
+   "event": "done",
+   "data": {
+    "run_id": "run-c213a5b6"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "metric_slot '防砂方式' 不在指标台账——不在目录不代答（台账绑定校验）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "refused",
+    "gates": [],
+    "content": "计划校验两轮未过——拒因如实转答：metric_slot '防砂方式' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-c213a5b6",
+  "steps": [
+   {
+    "step": "understand",
+    "seq": 1,
+    "title": "判断评审人对报告4.2节防砂方式、砾石规格、占船日等描述是否准确，并据此反查报告原文以回答防砂方式、筛管型号、防砂精度、砾石量与充填井段，以及\"占船日4.0天\"的语境含义。"
+   },
+   {
+    "step": "plan",
+    "seq": 2,
+    "title": "计划：data_query"
+   },
+   {
+    "step": "tool",
+    "seq": 3,
+    "title": "工具 data_query：failed"
+   },
+   {
+    "step": "plan",
+    "seq": 4,
+    "title": "计划：data_query"
+   },
+   {
+    "step": "tool",
+    "seq": 5,
+    "title": "工具 data_query：failed"
+   },
+   {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 3,
+    "message": "metric_slot '防砂方式与砾石充填数据核对' 不在指标台账——不在目录不代答（台账绑定校验）"
+   },
+   {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 5,
+    "message": "metric_slot '防砂方式' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  ],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-c213a5b6",
+   "manifest_digest": "b791c49baec87d33cce009401c9d2f23121f8ba1b169f1196b7444e0f36bced5"
+  },
+  "texts": [
+   "判断评审人对报告4.2节防砂方式、砾石规格、占船日等描述是否准确，并据此反查报告原文以回答防砂方式、筛管型号、防砂精度、砾石量与充填井段，以及\"占船日4.0天\"的语境含义。",
+   "metric_slot '防砂方式' 不在指标台账——不在目录不代答（台账绑定校验）"
+  ],
+  "duration_s": 3.9
+ }
+}

@@ -1,0 +1,274 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-52f68d40",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "understand",
+    "seq": 1,
+    "title": "问去年全年日产油量最低的两口井分别是哪两口。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问去年全年日产油量最低的两口井分别是哪两口。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "plan",
+    "seq": 2,
+    "title": "计划：data_query"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "tool",
+    "seq": 3,
+    "title": "工具 data_query：ok"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察入栈 3 支"
+   }
+  },
+  {
+   "id": 7,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-22；区块=渤中；日产油量合计（吨）=1784.67",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 8,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-09；区块=渤南；日产油量合计（吨）=1851.55",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 9,
+   "event": "observation",
+   "data": {
+    "index": 3,
+    "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date",
+    "content": "① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 38 天 · 超期）\n⑤ 收口注记 LIMIT 2——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 2——只封顶不抬底）",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 5,
+    "title": "核验：支撑 1｜改写 5｜分源 否"
+   }
+  },
+  {
+   "id": 11,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 1,
+    "rewritten": 5,
+    "split": false,
+    "cited": [
+     3
+    ]
+   }
+  },
+  {
+   "id": 12,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 5 行（INV-1——禁止无据断言进答案）"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 14,
+   "event": "citation",
+   "data": {
+    "index": 3,
+    "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date",
+    "source_id": "lineage",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 15,
+   "event": "text",
+   "data": {
+    "content": "**无法回答：去年日产油量最低的两口井在给定观察材料中未被覆盖。**\n\n**逐条依据列明如下：**\n\n未找到（材料未披露）：- **关于\"去年\"的时间范围**：观察 [3] ③ 所定义的过滤时间为 **2025-01-01 ~ 2025-12-31**，即 2025 年全年 [1][3]。\n未找到（材料未披露）：- **关于问题所指\"去年\"的对应关系**：问题中的\"去年\"未在观察材料中被显式锁定到某个具体年度 [3]。若按常规理解指向 2025 年（即 [3] 中的时间窗口），则需要取 2025 年全年每日日产油量的最低值；但 [3] 仅提供\"日产油量合计（吨）\"为聚合口径，未提供每日粒度的明细排序结果 [3]。\n- **关于已给出的两口井数据**：\n未找到（材料未披露）：- [1] Z-22（渤中），2025 年日产油量合计 1784.67 吨 [1]。\n未找到（材料未披露）：- [2] N-09（渤南），2025 年日产油量合计 1851.55 吨 [2]。\n  \n未找到（材料未披露）：这两个数值是**全年合计**而非\"日产最低值\"，且只有两口井，**既不构成\"最低两口井\"的排序结论，也不构成最低值的判据** [1][2]。\n\n**结论**：要回答\"去年日产油量最低的两口井是哪两口\"，需要 2025 年每日（甚至每班次）粒度的日产油量明细并按井号排序取最低两名 [3]。当前观察材料中：\n- 没有提供日/班次粒度的明细数据；\n- 没有提供井号级别的最低值排序；\n- 仅有的两口井合计值不能等同于\"日产最低两口井\"的判定依据。\n\n因此，**该问题在给定观察材料范围内未获覆盖，如实说明无法给出答案**。\n\n⑤ 收口注记 LIMIT 2——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 2——只封顶不抬底）\n\n引用：\n[3] agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date · lineage（authoritative）"
+   }
+  },
+  {
+   "id": 16,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-52f68d40",
+    "manifest_digest": "9df0365fc197407999bb7769d8bb15802824562baf28e5115fbefd6101e3eb48"
+   }
+  },
+  {
+   "id": 17,
+   "event": "done",
+   "data": {
+    "run_id": "run-52f68d40"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "**无法回答：去年日产油量最低的两口井在给定观察材料中未被覆盖。**\n\n**逐条依据列明如下：**\n\n未找到（材料未披露）：- **关于\"去年\"的时间范围**：观察 [3] ③ 所定义的过滤时间为 **2025-01-01 ~ 2025-12-31**，即 2025 年全年 [1][3]。\n未找到（材料未披露）：- **关于问题所指\"去年\"的对应关系**：问题中的\"去年\"未在观察材料中被显式锁定到某个具体年度 [3]。若按常规理解指向 2025 年（即 [3] 中的时间窗口），则需要取 2025 年全年每日日产油量的最低值；但 [3] 仅提供\"日产油量合计（吨）\"为聚合口径，未提供每日粒度的明细排序结果 [3]。\n- **关于已给出的两口井数据**：\n未找到（材料未披露）：- [1] Z-22（渤中），2025 年日产油量合计 1784.67 吨 [1]。\n未找到（材料未披露）：- [2] N-09（渤南），2025 年日产油量合计 1851.55 吨 [2]。\n  \n未找到（材料未披露）：这两个数值是**全年合计**而非\"日产最低值\"，且只有两口井，**既不构成\"最低两口井\"的排序结论，也不构成最低值的判据** [1][2]。\n\n**结论**：要回答\"去年日产油量最低的两口井是哪两口\"，需要 2025 年每日（甚至每班次）粒度的日产油量明细并按井号排序取最低两名 [3]。当前观察材料中：\n- 没有提供日/班次粒度的明细数据；\n- 没有提供井号级别的最低值排序；\n- 仅有的两口井合计值不能等同于\"日产最低两口井\"的判定依据。\n\n因此，**该问题在给定观察材料范围内未获覆盖，如实说明无法给出答案**。\n\n⑤ 收口注记 LIMIT 2——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 2——只封顶不抬底）\n\n引用：\n[3] agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date · lineage（authoritative）",
+  "citations": [
+   {
+    "index": 3,
+    "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date",
+    "source_id": "lineage",
+    "trust": "authoritative"
+   }
+  ],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 5 行（INV-1——禁止无据断言进答案）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-52f68d40",
+  "steps": [
+   {
+    "step": "understand",
+    "seq": 1,
+    "title": "问去年全年日产油量最低的两口井分别是哪两口。"
+   },
+   {
+    "step": "plan",
+    "seq": 2,
+    "title": "计划：data_query"
+   },
+   {
+    "step": "tool",
+    "seq": 3,
+    "title": "工具 data_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察入栈 3 支"
+   },
+   {
+    "step": "verify",
+    "seq": 5,
+    "title": "核验：支撑 1｜改写 5｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-22；区块=渤中；日产油量合计（吨）=1784.67",
+    "trust": "authoritative"
+   },
+   {
+    "index": 2,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-09；区块=渤南；日产油量合计（吨）=1851.55",
+    "trust": "authoritative"
+   },
+   {
+    "index": 3,
+    "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date",
+    "content": "① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 38 天 · 超期）\n⑤ 收口注记 LIMIT 2——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 2——只封顶不抬底）",
+    "trust": "authoritative"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 1,
+    "rewritten": 5,
+    "split": false,
+    "cited": [
+     3
+    ]
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-52f68d40",
+   "manifest_digest": "9df0365fc197407999bb7769d8bb15802824562baf28e5115fbefd6101e3eb48"
+  },
+  "texts": [
+   "问去年全年日产油量最低的两口井分别是哪两口。",
+   "**无法回答：去年日产油量最低的两口井在给定观察材料中未被覆盖。**\n\n**逐条依据列明如下：**\n\n未找到（材料未披露）：- **关于\"去年\"的时间范围**：观察 [3] ③ 所定义的过滤时间为 **2025-01-01 ~ 2025-12-31**，即 2025 年全年 [1][3]。\n未找到（材料未披露）：- **关于问题所指\"去年\"的对应关系**：问题中的\"去年\"未在观察材料中被显式锁定到某个具体年度 [3]。若按常规理解指向 2025 年（即 [3] 中的时间窗口），则需要取 2025 年全年每日日产油量的最低值；但 [3] 仅提供\"日产油量合计（吨）\"为聚合口径，未提供每日粒度的明细排序结果 [3]。\n- **关于已给出的两口井数据**：\n未找到（材料未披露）：- [1] Z-22（渤中），2025 年日产油量合计 1784.67 吨 [1]。\n未找到（材料未披露）：- [2] N-09（渤南），2025 年日产油量合计 1851.55 吨 [2]。\n  \n未找到（材料未披露）：这两个数值是**全年合计**而非\"日产最低值\"，且只有两口井，**既不构成\"最低两口井\"的排序结论，也不构成最低值的判据** [1][2]。\n\n**结论**：要回答\"去年日产油量最低的两口井是哪两口\"，需要 2025 年每日（甚至每班次）粒度的日产油量明细并按井号排序取最低两名 [3]。当前观察材料中：\n- 没有提供日/班次粒度的明细数据；\n- 没有提供井号级别的最低值排序；\n- 仅有的两口井合计值不能等同于\"日产最低两口井\"的判定依据。\n\n因此，**该问题在给定观察材料范围内未获覆盖，如实说明无法给出答案**。\n\n⑤ 收口注记 LIMIT 2——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 2——只封顶不抬底）\n\n引用：\n[3] agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date · lineage（authoritative）"
+  ],
+  "duration_s": 9.0
+ }
+}

@@ -1,0 +1,180 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-b5b11b20",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "understand",
+    "seq": 1,
+    "title": "问 N-01 井去年的日产油量（未产出）。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问 N-01 井去年的日产油量（未产出）。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "plan",
+    "seq": 2,
+    "title": "计划：data_query"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 3,
+    "message": "metric_slot 'None' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "tool",
+    "seq": 3,
+    "title": "工具 data_query：failed"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "plan",
+    "seq": 4,
+    "title": "计划：data_query"
+   }
+  },
+  {
+   "id": 7,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ask",
+    "seq": 5,
+    "message": null
+   }
+  },
+  {
+   "id": 8,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「最近」指哪个时间窗？① 近 3 天 ② 近 30 天 ③ 本月至今——选好后我按审定口径取数。",
+     "options": [
+      "近 3 天",
+      "近 30 天",
+      "本月至今"
+     ],
+     "detail": null
+    },
+    "run_id": "run-b5b11b20"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "tool",
+    "seq": 5,
+    "title": "工具 data_query：ask"
+   }
+  },
+  {
+   "id": 10,
+   "event": "done",
+   "data": {
+    "run_id": "run-b5b11b20"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问 N-01 井去年的日产油量（未产出）。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-b5b11b20",
+  "steps": [
+   {
+    "step": "understand",
+    "seq": 1,
+    "title": "问 N-01 井去年的日产油量（未产出）。"
+   },
+   {
+    "step": "plan",
+    "seq": 2,
+    "title": "计划：data_query"
+   },
+   {
+    "step": "tool",
+    "seq": 3,
+    "title": "工具 data_query：failed"
+   },
+   {
+    "step": "plan",
+    "seq": 4,
+    "title": "计划：data_query"
+   },
+   {
+    "step": "tool",
+    "seq": 5,
+    "title": "工具 data_query：ask"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 3,
+    "message": "metric_slot 'None' 不在指标台账——不在目录不代答（台账绑定校验）"
+   },
+   {
+    "tool": "data_query",
+    "status": "ask",
+    "seq": 5,
+    "message": null
+   }
+  ],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「最近」指哪个时间窗？① 近 3 天 ② 近 30 天 ③ 本月至今——选好后我按审定口径取数。",
+     "options": [
+      "近 3 天",
+      "近 30 天",
+      "本月至今"
+     ],
+     "detail": null
+    },
+    "run_id": "run-b5b11b20"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "问 N-01 井去年的日产油量（未产出）。"
+  ],
+  "duration_s": 3.8
+ }
+}

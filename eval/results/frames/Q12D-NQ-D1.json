@@ -1,0 +1,201 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-1fd4fe00",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "understand",
+    "seq": 1,
+    "title": "拼出Y-31井一季度报告中的完整检泵档案，涵盖生产运行、产量完成、检泵时率与环比四章中的开井数变化、检修折算明细、距上次检泵天数及清单归属，以及对季度产油变化的作用。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "拼出Y-31井一季度报告中的完整检泵档案，涵盖生产运行、产量完成、检泵时率与环比四章中的开井数变化、检修折算明细、距上次检泵天数及清单归属，以及对季度产油变化的作用。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "plan",
+    "seq": 2,
+    "title": "计划：data_query"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 3,
+    "message": "metric_slot 'Y-31井检泵档案' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "tool",
+    "seq": 3,
+    "title": "工具 data_query：failed"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "plan",
+    "seq": 4,
+    "title": "计划：data_query"
+   }
+  },
+  {
+   "id": 7,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 5,
+    "message": "metric_slot '日产油量' 不在问句指标候选集 ['停产井日', '季度产油变化贡献', '开井数', '影响产量（吨）', '影响产量（方）', '折算日产油', '检修类型', '检修起止日期', '检泵次数', '距上次检泵天数']——指标替换封堵（FX-13）：不代问句外指标出数"
+   }
+  },
+  {
+   "id": 8,
+   "event": "notice",
+   "data": {
+    "type": "refused",
+    "gates": [],
+    "content": "计划校验两轮未过——拒因如实转答：metric_slot '日产油量' 不在问句指标候选集 ['停产井日', '季度产油变化贡献', '开井数', '影响产量（吨）', '影响产量（方）', '折算日产油', '检修类型', '检修起止日期', '检泵次数', '距上次检泵天数']——指标替换封堵（FX-13）：不代问句外指标出数"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "tool",
+    "seq": 5,
+    "title": "工具 data_query：failed"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 11,
+   "event": "text",
+   "data": {
+    "content": "metric_slot '日产油量' 不在问句指标候选集 ['停产井日', '季度产油变化贡献', '开井数', '影响产量（吨）', '影响产量（方）', '折算日产油', '检修类型', '检修起止日期', '检泵次数', '距上次检泵天数']——指标替换封堵（FX-13）：不代问句外指标出数"
+   }
+  },
+  {
+   "id": 12,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-1fd4fe00",
+    "manifest_digest": "cccedd692f1fee84e143f66ff923ce9a70bb6210fd7bcbc9ee7526a6da854afc"
+   }
+  },
+  {
+   "id": 13,
+   "event": "done",
+   "data": {
+    "run_id": "run-1fd4fe00"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "metric_slot '日产油量' 不在问句指标候选集 ['停产井日', '季度产油变化贡献', '开井数', '影响产量（吨）', '影响产量（方）', '折算日产油', '检修类型', '检修起止日期', '检泵次数', '距上次检泵天数']——指标替换封堵（FX-13）：不代问句外指标出数",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "refused",
+    "gates": [],
+    "content": "计划校验两轮未过——拒因如实转答：metric_slot '日产油量' 不在问句指标候选集 ['停产井日', '季度产油变化贡献', '开井数', '影响产量（吨）', '影响产量（方）', '折算日产油', '检修类型', '检修起止日期', '检泵次数', '距上次检泵天数']——指标替换封堵（FX-13）：不代问句外指标出数"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-1fd4fe00",
+  "steps": [
+   {
+    "step": "understand",
+    "seq": 1,
+    "title": "拼出Y-31井一季度报告中的完整检泵档案，涵盖生产运行、产量完成、检泵时率与环比四章中的开井数变化、检修折算明细、距上次检泵天数及清单归属，以及对季度产油变化的作用。"
+   },
+   {
+    "step": "plan",
+    "seq": 2,
+    "title": "计划：data_query"
+   },
+   {
+    "step": "tool",
+    "seq": 3,
+    "title": "工具 data_query：failed"
+   },
+   {
+    "step": "plan",
+    "seq": 4,
+    "title": "计划：data_query"
+   },
+   {
+    "step": "tool",
+    "seq": 5,
+    "title": "工具 data_query：failed"
+   },
+   {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 3,
+    "message": "metric_slot 'Y-31井检泵档案' 不在指标台账——不在目录不代答（台账绑定校验）"
+   },
+   {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 5,
+    "message": "metric_slot '日产油量' 不在问句指标候选集 ['停产井日', '季度产油变化贡献', '开井数', '影响产量（吨）', '影响产量（方）', '折算日产油', '检修类型', '检修起止日期', '检泵次数', '距上次检泵天数']——指标替换封堵（FX-13）：不代问句外指标出数"
+   }
+  ],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-1fd4fe00",
+   "manifest_digest": "cccedd692f1fee84e143f66ff923ce9a70bb6210fd7bcbc9ee7526a6da854afc"
+  },
+  "texts": [
+   "拼出Y-31井一季度报告中的完整检泵档案，涵盖生产运行、产量完成、检泵时率与环比四章中的开井数变化、检修折算明细、距上次检泵天数及清单归属，以及对季度产油变化的作用。",
+   "metric_slot '日产油量' 不在问句指标候选集 ['停产井日', '季度产油变化贡献', '开井数', '影响产量（吨）', '影响产量（方）', '折算日产油', '检修类型', '检修起止日期', '检泵次数', '距上次检泵天数']——指标替换封堵（FX-13）：不代问句外指标出数"
+  ],
+  "duration_s": 24.3
+ }
+}

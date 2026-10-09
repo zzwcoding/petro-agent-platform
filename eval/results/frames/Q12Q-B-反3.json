@@ -1,0 +1,201 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-65bd19f8",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "understand",
+    "seq": 1,
+    "title": "问渤中 34-5 油田三季度的注采比数值。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问渤中 34-5 油田三季度的注采比数值。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "plan",
+    "seq": 2,
+    "title": "计划：data_query"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 3,
+    "message": "metric_slot '注采比' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "tool",
+    "seq": 3,
+    "title": "工具 data_query：failed"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "plan",
+    "seq": 4,
+    "title": "计划：data_query"
+   }
+  },
+  {
+   "id": 7,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 5,
+    "message": "metric_slot '注采比' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "notice",
+   "data": {
+    "type": "refused",
+    "gates": [],
+    "content": "计划校验两轮未过——拒因如实转答：metric_slot '注采比' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "tool",
+    "seq": 5,
+    "title": "工具 data_query：failed"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 11,
+   "event": "text",
+   "data": {
+    "content": "metric_slot '注采比' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 12,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-65bd19f8",
+    "manifest_digest": "9c4511df7e0439e7558bc5ecaeddee8dcf3acb5cb5676eab88faeb5860eb4d8b"
+   }
+  },
+  {
+   "id": 13,
+   "event": "done",
+   "data": {
+    "run_id": "run-65bd19f8"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "metric_slot '注采比' 不在指标台账——不在目录不代答（台账绑定校验）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "refused",
+    "gates": [],
+    "content": "计划校验两轮未过——拒因如实转答：metric_slot '注采比' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-65bd19f8",
+  "steps": [
+   {
+    "step": "understand",
+    "seq": 1,
+    "title": "问渤中 34-5 油田三季度的注采比数值。"
+   },
+   {
+    "step": "plan",
+    "seq": 2,
+    "title": "计划：data_query"
+   },
+   {
+    "step": "tool",
+    "seq": 3,
+    "title": "工具 data_query：failed"
+   },
+   {
+    "step": "plan",
+    "seq": 4,
+    "title": "计划：data_query"
+   },
+   {
+    "step": "tool",
+    "seq": 5,
+    "title": "工具 data_query：failed"
+   },
+   {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 3,
+    "message": "metric_slot '注采比' 不在指标台账——不在目录不代答（台账绑定校验）"
+   },
+   {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 5,
+    "message": "metric_slot '注采比' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  ],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-65bd19f8",
+   "manifest_digest": "9c4511df7e0439e7558bc5ecaeddee8dcf3acb5cb5676eab88faeb5860eb4d8b"
+  },
+  "texts": [
+   "问渤中 34-5 油田三季度的注采比数值。",
+   "metric_slot '注采比' 不在指标台账——不在目录不代答（台账绑定校验）"
+  ],
+  "duration_s": 3.2
+ }
+}

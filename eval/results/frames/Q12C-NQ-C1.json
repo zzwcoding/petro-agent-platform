@@ -1,0 +1,201 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-ffd53be6",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "understand",
+    "seq": 1,
+    "title": "核对 4.1 节推算的 Y-23 井见砂月份与对照说明记载月份是否一致，并查询 Y-23 井在第十章对照表的多项完井与生产参数及对照说明末句总结，进而判断 Y-19、Y-23 两口邻井证据在本井防砂决策中各自支撑的结论。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "核对 4.1 节推算的 Y-23 井见砂月份与对照说明记载月份是否一致，并查询 Y-23 井在第十章对照表的多项完井与生产参数及对照说明末句总结，进而判断 Y-19、Y-23 两口邻井证据在本井防砂决策中各自支撑的结论。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "plan",
+    "seq": 2,
+    "title": "计划：data_query"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 3,
+    "message": "metric_slot '见砂月份推算与对照、第十章对照表 Y-23 井参数、对照说明总结与邻井证据' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "tool",
+    "seq": 3,
+    "title": "工具 data_query：failed"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "plan",
+    "seq": 4,
+    "title": "计划：data_query"
+   }
+  },
+  {
+   "id": 7,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 5,
+    "message": "metric_slot '见砂月份一致性' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "notice",
+   "data": {
+    "type": "refused",
+    "gates": [],
+    "content": "计划校验两轮未过——拒因如实转答：metric_slot '见砂月份一致性' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "tool",
+    "seq": 5,
+    "title": "工具 data_query：failed"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 11,
+   "event": "text",
+   "data": {
+    "content": "metric_slot '见砂月份一致性' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 12,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-ffd53be6",
+    "manifest_digest": "164ed854802004c050baa027a1c715215e583b4536953d0d4cd62f361776e744"
+   }
+  },
+  {
+   "id": 13,
+   "event": "done",
+   "data": {
+    "run_id": "run-ffd53be6"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "metric_slot '见砂月份一致性' 不在指标台账——不在目录不代答（台账绑定校验）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "refused",
+    "gates": [],
+    "content": "计划校验两轮未过——拒因如实转答：metric_slot '见砂月份一致性' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-ffd53be6",
+  "steps": [
+   {
+    "step": "understand",
+    "seq": 1,
+    "title": "核对 4.1 节推算的 Y-23 井见砂月份与对照说明记载月份是否一致，并查询 Y-23 井在第十章对照表的多项完井与生产参数及对照说明末句总结，进而判断 Y-19、Y-23 两口邻井证据在本井防砂决策中各自支撑的结论。"
+   },
+   {
+    "step": "plan",
+    "seq": 2,
+    "title": "计划：data_query"
+   },
+   {
+    "step": "tool",
+    "seq": 3,
+    "title": "工具 data_query：failed"
+   },
+   {
+    "step": "plan",
+    "seq": 4,
+    "title": "计划：data_query"
+   },
+   {
+    "step": "tool",
+    "seq": 5,
+    "title": "工具 data_query：failed"
+   },
+   {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 3,
+    "message": "metric_slot '见砂月份推算与对照、第十章对照表 Y-23 井参数、对照说明总结与邻井证据' 不在指标台账——不在目录不代答（台账绑定校验）"
+   },
+   {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 5,
+    "message": "metric_slot '见砂月份一致性' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  ],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-ffd53be6",
+   "manifest_digest": "164ed854802004c050baa027a1c715215e583b4536953d0d4cd62f361776e744"
+  },
+  "texts": [
+   "核对 4.1 节推算的 Y-23 井见砂月份与对照说明记载月份是否一致，并查询 Y-23 井在第十章对照表的多项完井与生产参数及对照说明末句总结，进而判断 Y-19、Y-23 两口邻井证据在本井防砂决策中各自支撑的结论。",
+   "metric_slot '见砂月份一致性' 不在指标台账——不在目录不代答（台账绑定校验）"
+  ],
+  "duration_s": 5.7
+ }
+}

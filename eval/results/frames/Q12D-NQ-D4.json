@@ -1,0 +1,201 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-031e0469",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "understand",
+    "seq": 1,
+    "title": "核查 1.2 检修折算表中 3 月检泵井（停产 4 井日、影响 192 m³）的井号折算日产油、电泵工作制度复查清单归属，以及 3 月 3～6 日检泵实际井的检修参数。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "核查 1.2 检修折算表中 3 月检泵井（停产 4 井日、影响 192 m³）的井号折算日产油、电泵工作制度复查清单归属，以及 3 月 3～6 日检泵实际井的检修参数。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "plan",
+    "seq": 2,
+    "title": "计划：data_query"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 3,
+    "message": "metric_slot '折算日产油/停产井日/影响产量' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "tool",
+    "seq": 3,
+    "title": "工具 data_query：failed"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "plan",
+    "seq": 4,
+    "title": "计划：data_query"
+   }
+  },
+  {
+   "id": 7,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 5,
+    "message": "metric_slot '日产油量' 不在问句指标候选集 ['停产井日', '影响产量', '折算日产油', '检修类型', '电泵工作制度复查列入理由']——指标替换封堵（FX-13）：不代问句外指标出数"
+   }
+  },
+  {
+   "id": 8,
+   "event": "notice",
+   "data": {
+    "type": "refused",
+    "gates": [],
+    "content": "计划校验两轮未过——拒因如实转答：metric_slot '日产油量' 不在问句指标候选集 ['停产井日', '影响产量', '折算日产油', '检修类型', '电泵工作制度复查列入理由']——指标替换封堵（FX-13）：不代问句外指标出数"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "tool",
+    "seq": 5,
+    "title": "工具 data_query：failed"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 11,
+   "event": "text",
+   "data": {
+    "content": "metric_slot '日产油量' 不在问句指标候选集 ['停产井日', '影响产量', '折算日产油', '检修类型', '电泵工作制度复查列入理由']——指标替换封堵（FX-13）：不代问句外指标出数"
+   }
+  },
+  {
+   "id": 12,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-031e0469",
+    "manifest_digest": "88d90bf43901b4680a6e2e7e3b5ea70c81fed2970ab271c58c49073f12194a5a"
+   }
+  },
+  {
+   "id": 13,
+   "event": "done",
+   "data": {
+    "run_id": "run-031e0469"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "metric_slot '日产油量' 不在问句指标候选集 ['停产井日', '影响产量', '折算日产油', '检修类型', '电泵工作制度复查列入理由']——指标替换封堵（FX-13）：不代问句外指标出数",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "refused",
+    "gates": [],
+    "content": "计划校验两轮未过——拒因如实转答：metric_slot '日产油量' 不在问句指标候选集 ['停产井日', '影响产量', '折算日产油', '检修类型', '电泵工作制度复查列入理由']——指标替换封堵（FX-13）：不代问句外指标出数"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-031e0469",
+  "steps": [
+   {
+    "step": "understand",
+    "seq": 1,
+    "title": "核查 1.2 检修折算表中 3 月检泵井（停产 4 井日、影响 192 m³）的井号折算日产油、电泵工作制度复查清单归属，以及 3 月 3～6 日检泵实际井的检修参数。"
+   },
+   {
+    "step": "plan",
+    "seq": 2,
+    "title": "计划：data_query"
+   },
+   {
+    "step": "tool",
+    "seq": 3,
+    "title": "工具 data_query：failed"
+   },
+   {
+    "step": "plan",
+    "seq": 4,
+    "title": "计划：data_query"
+   },
+   {
+    "step": "tool",
+    "seq": 5,
+    "title": "工具 data_query：failed"
+   },
+   {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 3,
+    "message": "metric_slot '折算日产油/停产井日/影响产量' 不在指标台账——不在目录不代答（台账绑定校验）"
+   },
+   {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 5,
+    "message": "metric_slot '日产油量' 不在问句指标候选集 ['停产井日', '影响产量', '折算日产油', '检修类型', '电泵工作制度复查列入理由']——指标替换封堵（FX-13）：不代问句外指标出数"
+   }
+  ],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-031e0469",
+   "manifest_digest": "88d90bf43901b4680a6e2e7e3b5ea70c81fed2970ab271c58c49073f12194a5a"
+  },
+  "texts": [
+   "核查 1.2 检修折算表中 3 月检泵井（停产 4 井日、影响 192 m³）的井号折算日产油、电泵工作制度复查清单归属，以及 3 月 3～6 日检泵实际井的检修参数。",
+   "metric_slot '日产油量' 不在问句指标候选集 ['停产井日', '影响产量', '折算日产油', '检修类型', '电泵工作制度复查列入理由']——指标替换封堵（FX-13）：不代问句外指标出数"
+  ],
+  "duration_s": 4.6
+ }
+}

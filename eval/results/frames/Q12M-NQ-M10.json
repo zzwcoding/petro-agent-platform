@@ -1,0 +1,201 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-51922bff",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "understand",
+    "seq": 1,
+    "title": "问 Y-21 与 Y-23 两口井在断点深度、断杆根号（及 Y-21 断点性质）、最大井斜及其位置、最大狗腿度、检泵周期、上次检泵完井日期（仅 Y-21）等项上的对比明细，以防资料串行。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问 Y-21 与 Y-23 两口井在断点深度、断杆根号（及 Y-21 断点性质）、最大井斜及其位置、最大狗腿度、检泵周期、上次检泵完井日期（仅 Y-21）等项上的对比明细，以防资料串行。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "plan",
+    "seq": 2,
+    "title": "计划：data_query"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 3,
+    "message": "metric_slot '断点深度/断杆根号/断点性质/最大井斜/最大井斜位置/最大狗腿度/检泵周期/上次检泵完井日期' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "tool",
+    "seq": 3,
+    "title": "工具 data_query：failed"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "plan",
+    "seq": 4,
+    "title": "计划：data_query"
+   }
+  },
+  {
+   "id": 7,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 5,
+    "message": "metric_slot '未匹配到指标台账项' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "notice",
+   "data": {
+    "type": "refused",
+    "gates": [],
+    "content": "计划校验两轮未过——拒因如实转答：metric_slot '未匹配到指标台账项' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "tool",
+    "seq": 5,
+    "title": "工具 data_query：failed"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 11,
+   "event": "text",
+   "data": {
+    "content": "metric_slot '未匹配到指标台账项' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 12,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-51922bff",
+    "manifest_digest": "b1d982ad17e8dde6025e9c35dcc444a252a200d6a348d79e6500dd4174ae0083"
+   }
+  },
+  {
+   "id": 13,
+   "event": "done",
+   "data": {
+    "run_id": "run-51922bff"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "metric_slot '未匹配到指标台账项' 不在指标台账——不在目录不代答（台账绑定校验）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "refused",
+    "gates": [],
+    "content": "计划校验两轮未过——拒因如实转答：metric_slot '未匹配到指标台账项' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-51922bff",
+  "steps": [
+   {
+    "step": "understand",
+    "seq": 1,
+    "title": "问 Y-21 与 Y-23 两口井在断点深度、断杆根号（及 Y-21 断点性质）、最大井斜及其位置、最大狗腿度、检泵周期、上次检泵完井日期（仅 Y-21）等项上的对比明细，以防资料串行。"
+   },
+   {
+    "step": "plan",
+    "seq": 2,
+    "title": "计划：data_query"
+   },
+   {
+    "step": "tool",
+    "seq": 3,
+    "title": "工具 data_query：failed"
+   },
+   {
+    "step": "plan",
+    "seq": 4,
+    "title": "计划：data_query"
+   },
+   {
+    "step": "tool",
+    "seq": 5,
+    "title": "工具 data_query：failed"
+   },
+   {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 3,
+    "message": "metric_slot '断点深度/断杆根号/断点性质/最大井斜/最大井斜位置/最大狗腿度/检泵周期/上次检泵完井日期' 不在指标台账——不在目录不代答（台账绑定校验）"
+   },
+   {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 5,
+    "message": "metric_slot '未匹配到指标台账项' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  ],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-51922bff",
+   "manifest_digest": "b1d982ad17e8dde6025e9c35dcc444a252a200d6a348d79e6500dd4174ae0083"
+  },
+  "texts": [
+   "问 Y-21 与 Y-23 两口井在断点深度、断杆根号（及 Y-21 断点性质）、最大井斜及其位置、最大狗腿度、检泵周期、上次检泵完井日期（仅 Y-21）等项上的对比明细，以防资料串行。",
+   "metric_slot '未匹配到指标台账项' 不在指标台账——不在目录不代答（台账绑定校验）"
+  ],
+  "duration_s": 5.2
+ }
+}

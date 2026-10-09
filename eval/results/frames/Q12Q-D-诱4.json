@@ -1,0 +1,201 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-d657289d",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "understand",
+    "seq": 1,
+    "title": "问渤中34-5油田今年8月躺井井次及躺井率、与去年8月对比是否上升1.3个百分点至5.8%、环比7月方向，以及这7井次中是否包含W-11和W-12并列出具体井号。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问渤中34-5油田今年8月躺井井次及躺井率、与去年8月对比是否上升1.3个百分点至5.8%、环比7月方向，以及这7井次中是否包含W-11和W-12并列出具体井号。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "plan",
+    "seq": 2,
+    "title": "计划：data_query"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 3,
+    "message": "metric_slot '躺井井次及躺井率' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "tool",
+    "seq": 3,
+    "title": "工具 data_query：failed"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "plan",
+    "seq": 4,
+    "title": "计划：data_query"
+   }
+  },
+  {
+   "id": 7,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 5,
+    "message": "metric_slot '躺井井次' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "notice",
+   "data": {
+    "type": "refused",
+    "gates": [],
+    "content": "计划校验两轮未过——拒因如实转答：metric_slot '躺井井次' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "tool",
+    "seq": 5,
+    "title": "工具 data_query：failed"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 11,
+   "event": "text",
+   "data": {
+    "content": "metric_slot '躺井井次' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 12,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-d657289d",
+    "manifest_digest": "4742b0c72e04104cccdd94dd8e0d6f6cf2945bc28f37846d0ef119e84a32ba77"
+   }
+  },
+  {
+   "id": 13,
+   "event": "done",
+   "data": {
+    "run_id": "run-d657289d"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "metric_slot '躺井井次' 不在指标台账——不在目录不代答（台账绑定校验）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "refused",
+    "gates": [],
+    "content": "计划校验两轮未过——拒因如实转答：metric_slot '躺井井次' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-d657289d",
+  "steps": [
+   {
+    "step": "understand",
+    "seq": 1,
+    "title": "问渤中34-5油田今年8月躺井井次及躺井率、与去年8月对比是否上升1.3个百分点至5.8%、环比7月方向，以及这7井次中是否包含W-11和W-12并列出具体井号。"
+   },
+   {
+    "step": "plan",
+    "seq": 2,
+    "title": "计划：data_query"
+   },
+   {
+    "step": "tool",
+    "seq": 3,
+    "title": "工具 data_query：failed"
+   },
+   {
+    "step": "plan",
+    "seq": 4,
+    "title": "计划：data_query"
+   },
+   {
+    "step": "tool",
+    "seq": 5,
+    "title": "工具 data_query：failed"
+   },
+   {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 3,
+    "message": "metric_slot '躺井井次及躺井率' 不在指标台账——不在目录不代答（台账绑定校验）"
+   },
+   {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 5,
+    "message": "metric_slot '躺井井次' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  ],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-d657289d",
+   "manifest_digest": "4742b0c72e04104cccdd94dd8e0d6f6cf2945bc28f37846d0ef119e84a32ba77"
+  },
+  "texts": [
+   "问渤中34-5油田今年8月躺井井次及躺井率、与去年8月对比是否上升1.3个百分点至5.8%、环比7月方向，以及这7井次中是否包含W-11和W-12并列出具体井号。",
+   "metric_slot '躺井井次' 不在指标台账——不在目录不代答（台账绑定校验）"
+  ],
+  "duration_s": 3.4
+ }
+}

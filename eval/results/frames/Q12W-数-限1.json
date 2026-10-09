@@ -1,0 +1,136 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-2ad36522",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "understand",
+    "seq": 1,
+    "title": "问去年（全年）日产油量排名前30的井或区块信息。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问去年（全年）日产油量排名前30的井或区块信息。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "plan",
+    "seq": 2,
+    "title": "计划：data_query"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ask",
+    "seq": 3,
+    "message": null
+   }
+  },
+  {
+   "id": 5,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「最近」指哪个时间窗？① 近 3 天 ② 近 30 天 ③ 本月至今——选好后我按审定口径取数。",
+     "options": [
+      "近 3 天",
+      "近 30 天",
+      "本月至今"
+     ],
+     "detail": null
+    },
+    "run_id": "run-2ad36522"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "tool",
+    "seq": 3,
+    "title": "工具 data_query：ask"
+   }
+  },
+  {
+   "id": 7,
+   "event": "done",
+   "data": {
+    "run_id": "run-2ad36522"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问去年（全年）日产油量排名前30的井或区块信息。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-2ad36522",
+  "steps": [
+   {
+    "step": "understand",
+    "seq": 1,
+    "title": "问去年（全年）日产油量排名前30的井或区块信息。"
+   },
+   {
+    "step": "plan",
+    "seq": 2,
+    "title": "计划：data_query"
+   },
+   {
+    "step": "tool",
+    "seq": 3,
+    "title": "工具 data_query：ask"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ask",
+    "seq": 3,
+    "message": null
+   }
+  ],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「最近」指哪个时间窗？① 近 3 天 ② 近 30 天 ③ 本月至今——选好后我按审定口径取数。",
+     "options": [
+      "近 3 天",
+      "近 30 天",
+      "本月至今"
+     ],
+     "detail": null
+    },
+    "run_id": "run-2ad36522"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "问去年（全年）日产油量排名前30的井或区块信息。"
+  ],
+  "duration_s": 23.3
+ }
+}

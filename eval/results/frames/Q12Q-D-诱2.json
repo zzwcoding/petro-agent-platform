@@ -1,0 +1,201 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-78fee798",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "understand",
+    "seq": 1,
+    "title": "问渤中34-5油田W-51井采用冻胶调剖+提配注而非直接提配注的原因、调剖封堵层位、II/III层吸水启动验证手段、10月10日配注调整量，以及同期欠注井W-52采用酸化路线的理由和两口井各自的执行日期。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问渤中34-5油田W-51井采用冻胶调剖+提配注而非直接提配注的原因、调剖封堵层位、II/III层吸水启动验证手段、10月10日配注调整量，以及同期欠注井W-52采用酸化路线的理由和两口井各自的执行日期。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "plan",
+    "seq": 2,
+    "title": "计划：data_query"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 3,
+    "message": "plan_draft 装配失败：QueryPlan.window 非半开区间（start=2023-10-10 ≥ end=2023-10-10）——半开区间 [start, end) 要求 start < end"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "tool",
+    "seq": 3,
+    "title": "工具 data_query：failed"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "plan",
+    "seq": 4,
+    "title": "计划：data_query"
+   }
+  },
+  {
+   "id": 7,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 5,
+    "message": "metric_slot '配注量与调剖/酸化作业记录' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "notice",
+   "data": {
+    "type": "refused",
+    "gates": [],
+    "content": "计划校验两轮未过——拒因如实转答：metric_slot '配注量与调剖/酸化作业记录' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "tool",
+    "seq": 5,
+    "title": "工具 data_query：failed"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 11,
+   "event": "text",
+   "data": {
+    "content": "metric_slot '配注量与调剖/酸化作业记录' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  },
+  {
+   "id": 12,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-78fee798",
+    "manifest_digest": "c49ac3406c860438089d7dd96f5ba887c5635d0e5810dc0b4fa70424144477b3"
+   }
+  },
+  {
+   "id": 13,
+   "event": "done",
+   "data": {
+    "run_id": "run-78fee798"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "metric_slot '配注量与调剖/酸化作业记录' 不在指标台账——不在目录不代答（台账绑定校验）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "refused",
+    "gates": [],
+    "content": "计划校验两轮未过——拒因如实转答：metric_slot '配注量与调剖/酸化作业记录' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-78fee798",
+  "steps": [
+   {
+    "step": "understand",
+    "seq": 1,
+    "title": "问渤中34-5油田W-51井采用冻胶调剖+提配注而非直接提配注的原因、调剖封堵层位、II/III层吸水启动验证手段、10月10日配注调整量，以及同期欠注井W-52采用酸化路线的理由和两口井各自的执行日期。"
+   },
+   {
+    "step": "plan",
+    "seq": 2,
+    "title": "计划：data_query"
+   },
+   {
+    "step": "tool",
+    "seq": 3,
+    "title": "工具 data_query：failed"
+   },
+   {
+    "step": "plan",
+    "seq": 4,
+    "title": "计划：data_query"
+   },
+   {
+    "step": "tool",
+    "seq": 5,
+    "title": "工具 data_query：failed"
+   },
+   {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 3,
+    "message": "plan_draft 装配失败：QueryPlan.window 非半开区间（start=2023-10-10 ≥ end=2023-10-10）——半开区间 [start, end) 要求 start < end"
+   },
+   {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 5,
+    "message": "metric_slot '配注量与调剖/酸化作业记录' 不在指标台账——不在目录不代答（台账绑定校验）"
+   }
+  ],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-78fee798",
+   "manifest_digest": "c49ac3406c860438089d7dd96f5ba887c5635d0e5810dc0b4fa70424144477b3"
+  },
+  "texts": [
+   "问渤中34-5油田W-51井采用冻胶调剖+提配注而非直接提配注的原因、调剖封堵层位、II/III层吸水启动验证手段、10月10日配注调整量，以及同期欠注井W-52采用酸化路线的理由和两口井各自的执行日期。",
+   "metric_slot '配注量与调剖/酸化作业记录' 不在指标台账——不在目录不代答（台账绑定校验）"
+  ],
+  "duration_s": 4.2
+ }
+}
