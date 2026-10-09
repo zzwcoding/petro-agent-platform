@@ -27,6 +27,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from appv2.api.ontology_guide import OntologyGuideProvider
 from appv2.infra.db import ConnectionManager, DatabaseSpec
 from appv2.infra.security import Actor
 from appv2.knowledge import InMemoryKnowledgeStore, question_array_snapshot
@@ -126,6 +127,9 @@ async def make_runtime(
     completer: ScriptedCompleter | None = None,
     guide: Any = None,
     retrieval: Any = None,
+    four_phase: bool = False,
+    ledger_dump: Any = None,
+    watermark: Any = None,
 ) -> tuple[AgentRuntime, ScriptedCompleter, ConnectionManager]:
     """标准装配：registry＋剧本 completer＋sqlite 库＋PgCheckpointer＋ReAct 图。
 
@@ -133,7 +137,9 @@ async def make_runtime(
     假引擎测试缺省 FakeKnowledgeStore）；engine＝QueryFace 缝（真/假问数引擎）；
     retrieval＝RetrievalFace 缝（缺省 FakeRetrievalEngine）；completer＝显式
     注入缝（闸门/爆炸 completer 等剧本变体——缺省按 script 现建
-    ScriptedCompleter）；guide＝处理指南缝（拍板⑦——缺省内置指南）。
+    ScriptedCompleter）；guide＝处理指南缝（拍板⑦——缺省 OntologyGuideProvider：
+    占位 DefaultGuideProvider 已随 V2-34 退役，生产唯一指南源＝ontology 资产
+    装载件）；four_phase/ledger_dump/watermark＝V2-34 四相位装配三缝。
     """
     registry = ToolRegistry(
         knowledge=knowledge if knowledge is not None else FakeKnowledgeStore(),
@@ -167,8 +173,11 @@ async def make_runtime(
         db=db,
         saver=PgCheckpointer(db),
         budget=budget or Budget(),
-        guide=guide,
+        guide=guide if guide is not None else OntologyGuideProvider(today=TODAY),
         today=TODAY,
+        four_phase=four_phase,
+        ledger_dump=ledger_dump,
+        watermark=watermark,
     )
     return AgentRuntime(executor), completer, db
 

@@ -1,18 +1,22 @@
-"""runtime.guide —— ReAct 决策处理指南（Skill 处理指南的消费接口——V2-31 拍板⑦）。
+"""runtime.guide —— ReAct 决策处理指南缝（Skill 处理指南的消费接口——V2-31 拍板⑦）。
 
-拍板⑦：Skill 处理指南＝ontology 资产（V2-32 并行起草，本票消费其接口）。本模块
-即被消费的接口缝：`GuideProvider` 协议（结构性——V2-32 的 ontology 资产件实现
-同形即可注入 LoopDeps）＋`DefaultGuideProvider` 内置缺省实现（澄清分级＋决策
-发射合同＋工具使用指引，指南正文＝本模块常量单点）。
+拍板⑦：Skill 处理指南＝ontology 资产（GUIDE-PETRO-001，ontology/petro/
+skill-guides/）。本模块持有：
 
-V2-32 落地后：其 ontology 资产件实现 GuideProvider 协议注入 LoopDeps.guide——
-graph 决策节点只经 `provider.guide()` 取文，不感知指南来源（接口不变，正文可
-整替——骨架版内置文案随 V2-32 退役，不设双真源）。
+- `GuideProvider` 协议（结构性——ontology 资产件实现同形注入 LoopDeps）；
+- `DECISION_CONTRACT`（决策发射合同文本——与 graph.parse_decision schema 校验
+  代码同源单点，运行时所有决策面的发射合同真源）；
+- `CLARIFY_CONTRACT`／`TOOLMATCH_CONTRACT`（V2-34 四相位：相位①澄清-分解与
+  相位②工具匹配的发射合同——runtime 单点，ontology §7 分解指南为业务语义面）。
+
+**DefaultGuideProvider 已退役（V2-34 任务 10，不设双真源）**：生产唯一指南源＝
+ontology 资产装载件（appv2.api.ontology_guide.OntologyGuideProvider——§A 装载
+切面＋DECISION_CONTRACT 拼接，create_app 组合根缺省接线）；内置五段占位文案
+（路由判定/澄清分级/循环纪律）由 §A 对应条款接管。
 """
 
 from __future__ import annotations
 
-from datetime import date, timedelta
 from typing import Protocol
 
 # ---------- 决策发射合同（模型面的结构化发射契约——graph.parse_decision 同源） ----------
@@ -37,66 +41,49 @@ DECISION_CONTRACT = (
     '可带 {"note": "给用户的注记"} 随任何 action 出场。'
 )
 
-# ---------- 澄清分级（拍板⑥——时间窗不问，目标/对象/口径才 ask） ----------
+# ---------- 四相位合同（V2-34——runtime 单点，schema 校验真源同源） ----------
 
-CLARIFY_GRADING = (
-    "澄清分级（硬规则）：\n"
-    "1) 时间窗歧义不许 ask——按默认窗自动取数：近 30 天（window_start={start}、"
-    "window_end={end}，end 为不含端），plan 置 \"is_default\": true，并带 "
-    "\"note\": \"未指明时间窗——已按近 30 天默认（{start} 起）\"；\n"
-    "2) 问句目标/对象/口径歧义（用户补一句话即可解）→ action=ask；\n"
-    "3) 计划涉及外部表（如井位台账 erp_well_register）→ 照常发 plan（data_query "
-    "会走审批挂起，不要自行改道检索）。\n"
+CLARIFY_CONTRACT = (
+    "【相位①·业务澄清】只输出一个 JSON 对象（可围栏）。三动作：\n"
+    '- 分解：{"action": "decompose", "question_group": {"subtasks": '
+    '[{"id": "s1", "question": "子问题原文", "ledger_notes": "〈精确指标 slot 名〉'
+    '〈绑定态〉〈锚定窗〉", "chain": "data"|"knowledge", "tool": '
+    '"data_query"|"doc_retrieve"}]}}——子问题 ≤{max_subtasks} 个；每个子问题可独立'
+    "映射一条工具链（粒度＝一个指标×一个窗×一个对象集）；单一诉求不分解（单子"
+    "问题组）；ledger_notes 必带——从下方台账全量块逐字转抄，不改写不杜撰。\n"
+    '- 钻取：{"action": "discover", "discovers": [{"tool": "semantic_query"|'
+    '"table_schema", "args": {...}}]}——1~2 支；全 run ≤{max_discover_run} 次'
+    "（已用 {discover_used} 次）。开局已给全台账，禁猜词敲门：只作口径/绑定细节"
+    "钻取，不答「能不能出数」。\n"
+    '- 反问：{"action": "ask", "ask": {"prompt": "...", "options": ["…"]}}'
+    "——2~4 个选项。\n"
+    "发射判据：台账命中＋窗已定＝分解完毕，禁再 discover。"
 )
 
-# ---------- ReAct 循环纪律（轮预算与观察回流） ----------
+TOOLMATCH_CONTRACT = (
+    "【相位②·工具匹配】只输出一个 JSON 对象（可围栏）：\n"
+    '{"matches": [{"id": "问题组子问题 id", "chain": "data"|"knowledge", '
+    '"tool": "data_query"|"doc_retrieve", "plan": {…data 链必带…}, '
+    '"retrieval_need": {…knowledge 链必带…}, "caliber_key": "口径支 key（可选）"}]}\n'
+    "matches 与问题组一一对应（每子问题恰一条，id 闭合世界）；caliber_key 仅在"
+    "问句场景词已落定口径支时携带。\n"
+    "plan 形（data 链必带，键名逐字）：{\"metric_slot\": \"台账精确指标名（必填非空，"
+    "禁英文列名/复合注记）\", \"ranking\": true|false（必填布尔——排名题 true 并给 "
+    "\"direction\": \"asc|desc\"，明细题 false）, \"window_start\": \"ISO 日期或 null\", "
+    "\"window_end\": \"ISO 日期或 null（不含端）\", \"limit\": 50（仅问句显式条数时写）, "
+    "\"external_tables\": [...]（仅外表引用时写）}——缺 ranking 等必填键＝参数校验拒。"
+)
 
-REACT_DISCIPLINE = (
-    "循环纪律：最多 {max_rounds} 轮，每轮一个决策；轮内发现工具最多 {max_discovers} 支、"
-    "主执行最多 {max_executes} 支。工具结果以带 [n] 序号的观察材料回流——读序号引用，"
-    "不要凭空复述之前轮次的数字。材料足够就 finalize，不要为凑轮次重复执行。"
-    "上下文携带完整对话历史：你此前的决策 JSON 与执行台账（「参数 → 结果：N 行／"
-    "校验拒（拒因）／暂不可用（拒因）／闸拒（拒因）」——校验拒＝参数未过校验引擎"
-    "未执行，修参重投；暂不可用＝可恢复；闸拒＝口径/数据闸）都在历史消息里——"
-    "已执行过的同参计划不要重复发射，带已有结果"
-    "finalize 直答或改参后再发射；被闸拒过的路径读拒因，不要原样重试。"
+# ---------- 汇总相位合同（相位④后半——LLM 整合全组子结果） ----------
+
+SUMMARY_CONTRACT = (
+    "【相位④·汇总】整合问题组全部子结果：逐子问题给出一行结论（子问题要点→答案），"
+    "成功子问题逐条断言带 [n] 引标指向观察材料；被拒/失败子问题如实说明原因，"
+    "不冒充不出数。"
 )
 
 
 class GuideProvider(Protocol):
-    """处理指南接口缝（V2-32 ontology 资产件的注入形——结构性协议）。"""
+    """处理指南接口缝（ontology 资产件的注入形——结构性协议）。"""
 
     def guide(self) -> str: ...
-
-
-class DefaultGuideProvider:
-    """内置缺省指南（骨架版——V2-32 落地后整替注入，接口不变）。
-
-    guide() 输出五段：角色与红线（ContextBuilder 系统提示的决策面补充）＋
-    决策发射合同＋工具使用次序建议＋澄清分级＋循环纪律。今天锚点进指南
-    （默认窗计算的确定性依据——时钟经 infra.clock 唯一出口）。
-    """
-
-    def __init__(self, *, today: date, max_rounds: int = 3, max_discovers: int = 2,
-                 max_executes: int = 2) -> None:
-        self._today = today
-        self._max_rounds = max_rounds
-        self._max_discovers = max_discovers
-        self._max_executes = max_executes
-
-    def guide(self) -> str:
-        start = (self._today - timedelta(days=30)).isoformat()
-        end = self._today.isoformat()
-        contract = DECISION_CONTRACT
-        grading = CLARIFY_GRADING.replace("{start}", start).replace("{end}", end)
-        discipline = REACT_DISCIPLINE.replace("{max_rounds}", str(self._max_rounds))
-        discipline = discipline.replace("{max_discovers}", str(self._max_discovers))
-        discipline = discipline.replace("{max_executes}", str(self._max_executes))
-        return (
-            f"今天：{end}。\n{contract}\n路由判定（先分型再动手）：报告/文档事实"
-            "（完井工程参数、月报统计、生产动态、术语解释）→execute(knowledge) 走"
-            " doc_retrieve；指标数值→discover(semantic_query) 核口径存在与绑定态再"
-            " execute(data)。台账查询回流 no_hit（未命中）＝该词不在指标台账——不要"
-            "换词重复 discover，改走 execute(knowledge) 检索报告原文。"
-            f"{grading}{discipline}"
-        )

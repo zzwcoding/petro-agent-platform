@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from appv2.runtime.state import Manifest, RunState
+from appv2.tools.ledger import RESIDENT_BLOCK_BEGIN, RESIDENT_BLOCK_END
 
 # 信任级（骨架版确定性映射——细化批可调，语义不破：权威表最高）。
 TRUST_AGG = "authoritative"
@@ -117,14 +118,31 @@ class ContextBuilder:
         step: str,
         instruction: str,
         with_material: bool = True,
+        extra_sources: list[dict[str, str]] | None = None,
     ) -> CompiledContext:
         """编译某步的模型上下文（纯函数——不触网、不改状态）。
 
         instruction＝当前 user 轮正文（任务/指令段）；with_material＝是否随轮
         渲染观察材料段（understand 步 False——理解任务不消费材料）。多轮形态：
         消息列表＝[system]＋历史轮（token 预算截断后）＋当前轮。
+        extra_sources＝常驻注入块（V2-34 词典层第 1 轮全量注入——每块
+        {source_type, source_id, label, content}，渲染进当前轮＋Manifest
+        source_type 记 ledger_dump 族来源行；非懒加载——注入不依赖未命中）。
         """
         current = instruction
+        extra = list(extra_sources or [])
+        if extra:
+            extra_blocks = [
+                f"【{item.get('label', item.get('source_type', ''))}】\n"
+                f"{item.get('content', '')}"
+                for item in extra
+            ]
+            # 常驻注入整块（ledger_dump 族——首尾标记供历史簿记收窄：常驻材料
+            # 不重复入史，防多轮 token 放大；非懒加载——每轮常驻在场）。
+            current += (
+                "\n\n" + RESIDENT_BLOCK_BEGIN + "\n"
+                + "\n\n".join(extra_blocks) + "\n" + RESIDENT_BLOCK_END
+            )
         if with_material:
             # 过滤：notice 类观察不进模型面（元信息走 notice 事件，非断言素材）。
             material = [
@@ -163,6 +181,16 @@ class ContextBuilder:
         else:
             source_types, source_ids, versions, trust_levels = [], [], [], []
             material_reason = f"步骤 {step}：理解步零材料渲染"
+        if extra:
+            # 常驻注入块入 Manifest（R3 证据面——ledger_dump 族来源行）。
+            source_types.extend(str(item.get("source_type", "")) for item in extra)
+            source_ids.extend(str(item.get("source_id", "")) for item in extra)
+            versions.extend(None for _ in extra)
+            trust_levels.extend(str(item.get("trust_level", TRUST_LEDGER)) for item in extra)
+            material_reason += (
+                f"；词典层常驻注入 {len(extra)} 块（ledger_dump 族——第 1 轮全量，"
+                "非懒加载：注入不依赖未命中）"
+            )
         # 消息历史簿记＋token 预算截断（ADR-0006——在完整历史上续写）。
         turns = [*run_state.history, {"role": "user", "content": current}]
         kept, dropped = _fit_history(turns, self.max_context_tokens)

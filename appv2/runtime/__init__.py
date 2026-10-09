@@ -32,13 +32,17 @@ knowledge/query/retrieval（agent 与世界的唯一接触面＝ToolRegistry）�
   MODEL_KEYS（caller 桶闭世界）；
 - PgCheckpointer/RunStore/ensure_agent_v2_tables（agent_v2_* 前缀隔离表）；
 - ScriptedCompleter（剧本化 completer——caller 分流、多轮 replay、计数桶）；
-- GuideProvider/DefaultGuideProvider（处理指南缝——拍板⑦，V2-32 整替注入）；
+- GuideProvider（处理指南缝——拍板⑦；占位 DefaultGuideProvider 已随 V2-34 退役，
+  生产唯一指南源＝OntologyGuideProvider——appv2.api.ontology_guide 装载件）；
+- QuestionGroup/Subtask/parse_question_group/parse_tool_match（V2-34 子任务图
+  schema 校验单点）＋四相位路由意图；
 - gate_freshness（DE-16 freshness_gate_enabled 编排层接线）/reseed_approval_id
   （V2-03 偏差 7 审批单号 run 前缀种子）。
 """
 
 from appv2.runtime.budget import (
     MAX_DISCOVERS_PER_ROUND_CONTRACT,
+    MAX_DISCOVERS_PER_RUN_CONTRACT,
     MAX_EXECUTES_PER_ROUND_CONTRACT,
     MAX_ROUNDS_CONTRACT,
     TOOL_TIMEOUT_SECONDS_CONTRACT,
@@ -81,9 +85,18 @@ from appv2.runtime.graph import (
     parse_decision,
     reseed_approval_id,
 )
-from appv2.runtime.guide import DefaultGuideProvider, GuideProvider
+from appv2.runtime.guide import (
+    CLARIFY_CONTRACT,
+    DECISION_CONTRACT,
+    SUMMARY_CONTRACT,
+    TOOLMATCH_CONTRACT,
+    GuideProvider,
+)
 from appv2.runtime.llm import CALLER_PREFIX, Completer, GatewayChatModel
 from appv2.runtime.state import (
+    INTENT_BATCH,
+    INTENT_PRECONDITION,
+    INTENT_TOOLMATCH,
     RUN_COMPLETED,
     RUN_FAILED,
     RUN_RUNNING,
@@ -103,14 +116,25 @@ from appv2.runtime.state import (
     RunState,
 )
 from appv2.runtime.store import RunStore, ensure_agent_v2_tables
+from appv2.runtime.subtask import (
+    MAX_SUBTASKS_CONTRACT,
+    ClarifyEmission,
+    QuestionGroup,
+    Subtask,
+    SubtaskMatch,
+    parse_question_group,
+    parse_tool_match,
+)
 from appv2.runtime.wiring import gate_freshness
 
 __all__ = [
     "ACTION_KINDS",
     "CALLER_PREFIX",
+    "CLARIFY_CONTRACT",
     "COMMAND_ASK",
     "COMMAND_KINDS",
     "COMMAND_RESUME",
+    "DECISION_CONTRACT",
     "DISCOVER_TOOLS",
     "EVENT_ASK",
     "EVENT_CITATION",
@@ -121,9 +145,14 @@ __all__ = [
     "EVENT_TEXT",
     "EVENT_TOOL",
     "EVENT_VERDICT",
+    "INTENT_BATCH",
+    "INTENT_PRECONDITION",
+    "INTENT_TOOLMATCH",
     "MAX_DISCOVERS_PER_ROUND_CONTRACT",
+    "MAX_DISCOVERS_PER_RUN_CONTRACT",
     "MAX_EXECUTES_PER_ROUND_CONTRACT",
     "MAX_ROUNDS_CONTRACT",
+    "MAX_SUBTASKS_CONTRACT",
     "MODEL_KEYS",
     "RUN_COMPLETED",
     "RUN_FAILED",
@@ -137,24 +166,27 @@ __all__ = [
     "STEP_KINDS",
     "STEP_OBSERVE",
     "STEP_VERIFY",
+    "SUMMARY_CONTRACT",
     "TASK_KINDS",
+    "TOOLMATCH_CONTRACT",
     "TOOL_TIMEOUT_SECONDS_CONTRACT",
     "TOTAL_SECONDS_CONTRACT",
     "AgentRuntime",
     "AskChoice",
     "AskRequest",
     "Budget",
+    "ClarifyEmission",
     "CompiledContext",
     "Completer",
     "ContextBuilder",
     "DecisionEmission",
-    "DefaultGuideProvider",
     "EventBus",
     "GatewayChatModel",
     "GraphRunExecutor",
     "GuideProvider",
     "Manifest",
     "PgCheckpointer",
+    "QuestionGroup",
     "RunCommand",
     "RunEvent",
     "RunHandle",
@@ -163,9 +195,13 @@ __all__ = [
     "RunState",
     "RunStore",
     "ScriptedCompleter",
+    "Subtask",
+    "SubtaskMatch",
     "ensure_agent_v2_tables",
     "gate_freshness",
     "new_run_id",
     "parse_decision",
+    "parse_question_group",
+    "parse_tool_match",
     "reseed_approval_id",
 ]

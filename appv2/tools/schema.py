@@ -68,11 +68,17 @@ class ToolDescriptor:
 
 @dataclass(frozen=True, slots=True)
 class ToolContext:
-    """逐调用上下文（身份/预算/候选集——运行策略归调用方，不进 args）。"""
+    """逐调用上下文（身份/预算/候选集/外表放行态——运行策略归调用方，不进 args）。
+
+    approved_tables（V2-34 任务 8——A2 裁决落点）：外表越集放行名单/审批态
+    （批准过的表名集）——放行态放工具上下文，不走引擎 approved_tables、不重排
+    计划；前置条件机按同一状态判外表越集闸（runtime 侧 state.approved_ids 同源）。
+    """
 
     actor: str = ""  # 行级注入身份（data_query→plan.actor；两步缝第一步）
     budget: int = 4  # 检索送窗预算 M（RetrievalNeed.budget——截断显式的 M）
     metric_candidates: tuple[str, ...] | None = None  # FX-13 候选集（None＝不启用）
+    approved_tables: tuple[str, ...] = ()  # 外表放行态（A2 裁决——批准过的表名集）
 
     def __post_init__(self) -> None:
         if isinstance(self.budget, bool) or not isinstance(self.budget, int):

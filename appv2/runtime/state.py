@@ -60,6 +60,11 @@ INTENT_OBSERVE = "observe"
 INTENT_VERIFY = "verify"
 INTENT_ANSWER = "answer"
 INTENT_END = "end"
+# V2-34 四相位路由意图（clarify 经既有 INTENT_DECISION 值承载——图装配按
+# four_phase 把该值重定向 clarify 节点；三相新意图随本票加入闭世界）。
+INTENT_TOOLMATCH = "toolmatch"
+INTENT_PRECONDITION = "precondition"
+INTENT_BATCH = "batch"
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,6 +140,22 @@ class RunState:
     # —— understand 产物 ——
     understanding: str = ""
     metric_candidates: list[str] = field(default_factory=list)  # FX-13 候选集
+    # —— V2-34 子任务图产物（四相位——ADR-0005） ——
+    # 词典层全量注入（拍板 a）：第 1 次澄清入口从 ledger_dump 缝取一次（现行态
+    # 快照），随 checkpoint 走——后续轮复用不再取。
+    ledger_dump: dict[str, Any] | None = None
+    # 相位①产物：问题组（subtasks[{id/question/ledger_notes/chain?/tool?}]——
+    # 相位②匹配定案后 subtasks 就地补 tool/chain/plan/retrieval_need/caliber_key）。
+    question_group: dict[str, Any] | None = None
+    # 相位②产物：matches（子问题→工具链定案列——批量执行输入）。
+    tool_matches: list[dict[str, Any]] = field(default_factory=list)
+    # 相位③产物：四态判定列（前置条件机 payload——blocked_ask 挂起帧随行）。
+    precondition_verdicts: list[dict[str, Any]] = field(default_factory=list)
+    # 相位④产物：子问题执行结果列（{id,status: ok|failed|refused,reason,
+    # obs_count,fingerprint}）——回炉不重跑的簿记面（R4：成功子问题指纹零重复）。
+    subtask_results: list[dict[str, Any]] = field(default_factory=list)
+    # 全 run 发现预算已用数（澄清相位 ≤10 合同闸判据——Owner 拍板放宽）。
+    discover_used: int = 0
     # —— 消息历史簿记（ADR-0006/V2-38）：understand/decision/answer 的调用与输出、
     # 工具执行台账（参数 → 结果：N 行／分型拒因：校验拒／暂不可用／闸拒）、拒因回
     # 喂、用户澄清/审批回收

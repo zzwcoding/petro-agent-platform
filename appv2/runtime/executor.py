@@ -101,6 +101,9 @@ class GraphRunExecutor:
         security: SecurityService | None = None,
         guide: Any = None,  # GuideProvider（拍板⑦处理指南缝——防环不直接 import 类型）
         today: Any = None,  # date（指南缺省实现的今天锚点——测试钉日；缺省 infra.clock）
+        four_phase: bool = False,  # V2-34 四相位装配（ADR-0005——骨架期缺省 False）
+        ledger_dump: Any = None,  # Callable[[], dict] 词典层全量投影缝（拍板 a）
+        watermark: Any = None,  # Callable[[], date | None] 水位读缝（前置条件机）
     ) -> None:
         self._registry = registry
         self._models = models
@@ -110,6 +113,9 @@ class GraphRunExecutor:
         self._builder = builder or ContextBuilder()
         self._guide = guide
         self._today = today
+        self._four_phase = four_phase
+        self._ledger_dump = ledger_dump
+        self._watermark = watermark
         self._store = RunStore(db)
         self._auditor = RunAuditor(db, security)
         self._tasks: set[asyncio.Task[None]] = set()
@@ -136,7 +142,11 @@ class GraphRunExecutor:
                 question=command.question,
                 who=who,
             )
-            graph = build_graph(self._deps(bus, run_id=run_id), checkpointer=self._saver)
+            graph = build_graph(
+                self._deps(bus, run_id=run_id),
+                checkpointer=self._saver,
+                four_phase=self._four_phase,
+            )
             state = self._initial_state(
                 run_id, command.question, actor.user_id, history=seed_history
             )
@@ -158,7 +168,9 @@ class GraphRunExecutor:
             except ValueError as exc:
                 raise RunNotSuspendedError(str(exc)) from exc
             graph = build_graph(
-                self._deps(bus, run_id=command.run_id), checkpointer=self._saver
+                self._deps(bus, run_id=command.run_id),
+                checkpointer=self._saver,
+                four_phase=self._four_phase,
             )
             config = {"configurable": {"thread_id": command.run_id}}
             # 段时限刷新（挂起等人工不计预算——恢复段重新起算时长闸；原「段步
@@ -206,7 +218,9 @@ class GraphRunExecutor:
                 f"前轮未收口不可追问（status={prior.status}）：{followup_of}"
             )
         graph = build_graph(
-            self._deps(EventBus(), run_id=followup_of), checkpointer=self._saver
+            self._deps(EventBus(), run_id=followup_of),
+            checkpointer=self._saver,
+            four_phase=self._four_phase,
         )
         snapshot = await graph.aget_state(
             {"configurable": {"thread_id": followup_of}}
@@ -239,6 +253,8 @@ class GraphRunExecutor:
             store=self._store,
             bus=bus,
             guide=self._guide,
+            ledger_dump=self._ledger_dump,
+            watermark=self._watermark,
             today=self._today,
         )
 

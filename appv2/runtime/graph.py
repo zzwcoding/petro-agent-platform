@@ -5,6 +5,27 @@ security.audit 唯一写口落，见 runtime/audit.py）：
 
     understand → decision ⇄（discover／execute → observe）→ answer → verify → answer收口
 
+V2-34 四相位叠加（ADR-0005，build_graph(four_phase=True)——一轮＝四相位）：
+
+    understand → clarify ⇄ discover（钻取，全 run ≤10＋计数埋点）
+               → toolmatch（工具匹配，schema 收口）
+               → precondition（前置条件机——纯固定代码零 LLM，判四态）
+               → batch（批量执行＋观察汇聚）→ answer（LLM 汇总）→ verify → 收口
+
+- 轮＝LLM 决策周期（≤3 轮）：clarify 发射 discover 钻取不占轮（受全 run ≤10
+  发现预算闸）；decompose 占轮；轮 2/3 只带失败子问题＋拒因回炉①（成功子问题
+  结果保留不重跑——subtask_results 簿记）。ASK 挂起不占轮。
+- 前置条件机（precondition 节点）＝纯固定代码：逐子问题判四态
+  pass｜blocked_ask→ASK 挂起帧｜blocked_refuse→如实拒答｜note 注记随行；
+  LLM 无权判定（tools.precondition——AST/import 零 LLM 双证有钉）。
+- 词典层第 1 轮全量注入（拍板 a）：clarify/toolmatch 上下文经 extra_sources
+  常驻注入台账全量＋别名＋结构卡（Manifest 记 ledger_dump 族来源行；常驻块
+  不重复入史——token 防放大）。
+- 铁律：LLM 出语义（澄清/分解/提议），代码出判定（前置条件机零 LLM——V1
+  十七站瀑布教训的落点）。
+
+V2-31 原语义（保留件——legacy 路径＝默认装配，四相位经 four_phase=True 装配）：
+
 - 轮＝LLM 决策周期（≤3 轮）；decision 发射结构化 JSON（task_type
   data|knowledge|mixed＋plan/retrieval_need），经 parse_decision schema 校验进
   固定代码执行（discover/execute 节点——工具只经 ToolRegistry.call 受控行动链）；
@@ -19,8 +40,8 @@ security.audit 唯一写口落，见 runtime/audit.py）：
   目标/对象/口径歧义→decision 发射 ask（合成 clarify 帧挂起，用户输入重置轮
   预算）；外表越集→data_query 引擎 ask 帧→审批挂起（不变，resume 批准重跑受
   骨架上限 1 轮约束）。
-- 处理指南经 GuideProvider 缝消费（拍板⑦——V2-32 ontology 资产件整替注入，
-  runtime/guide.py）。
+- 处理指南经 GuideProvider 缝消费（拍板⑦——ontology 资产件注入；V2-34 起
+  占位 DefaultGuideProvider 退役，生产唯一指南源＝OntologyGuideProvider）。
 
 StateGraph＋条件边承载全部回环（ADR-0002：StateGraph 真承载 loop）；
 红线自守：langgraph 只在本包 import（红线①）；模型调用全部经 GatewayChatModel
@@ -45,22 +66,32 @@ from langgraph.types import interrupt
 from appv2.infra import clock
 from appv2.runtime.budget import (
     MAX_DISCOVERS_PER_ROUND_CONTRACT,
+    MAX_DISCOVERS_PER_RUN_CONTRACT,
     MAX_EXECUTES_PER_ROUND_CONTRACT,
+    MAX_ROUNDS_CONTRACT,
     budget_gate_hit,
     material_rows,
     unfinished_notice,
 )
 from appv2.runtime.context import CompiledContext, ContextBuilder, trust_of
 from appv2.runtime.events import EventBus
-from appv2.runtime.guide import DefaultGuideProvider, GuideProvider
+from appv2.runtime.guide import (
+    CLARIFY_CONTRACT,
+    SUMMARY_CONTRACT,
+    TOOLMATCH_CONTRACT,
+    GuideProvider,
+)
 from appv2.runtime.llm import CALLER_PREFIX, GatewayChatModel
 from appv2.runtime.state import (
     INTENT_ANSWER,
+    INTENT_BATCH,
     INTENT_DECISION,
     INTENT_DISCOVER,
     INTENT_END,
     INTENT_EXECUTE,
     INTENT_OBSERVE,
+    INTENT_PRECONDITION,
+    INTENT_TOOLMATCH,
     INTENT_VERIFY,
     STEP_ANSWER,
     STEP_DECISION,
@@ -72,20 +103,44 @@ from appv2.runtime.state import (
     RunState,
 )
 from appv2.runtime.store import RunStore
+from appv2.runtime.subtask import (
+    BUDGET_REJECT_MARK,
+    CLARIFY_DECOMPOSE,
+    CLARIFY_DISCOVER,
+    MAX_SUBTASKS_CONTRACT,
+    QuestionGroup,
+    Subtask,
+    extract_plan_json,
+    parse_question_group,
+    parse_tool_match,
+)
 from appv2.tools import (
     ASK_CLARIFY,
     ASK_EXTERNAL_TABLE_APPROVAL,
     CATEGORY_BAD_ARGS,
+    CATEGORY_REFUSED,
     CATEGORY_RETRYABLE,
     DATA_QUERY,
     DOC_RETRIEVE,
+    RESIDENT_BLOCK_BEGIN,
+    RESIDENT_BLOCK_END,
     SCHEMA_PROBE,
     SEMANTIC_QUERY,
+    STATE_BLOCKED_ASK,
+    STATE_BLOCKED_REFUSE,
+    STATE_NOTE,
+    STATE_PASS,
     STATUS_ASK,
     STATUS_FAILED,
     STATUS_OK,
+    SubtaskInput,
     ToolContext,
     ToolRegistry,
+    judge,
+    ledger_facts,
+    render_aliases,
+    render_cards,
+    render_ledger_rows,
 )
 
 # ---------- 决策发射合同（结构化发射的运行时校验——拍板①②单点） ----------
@@ -166,10 +221,22 @@ NODE_EXECUTE = "execute"
 NODE_OBSERVE = "observe"
 NODE_VERIFY = "verify"
 NODE_ANSWER = "answer"
+# V2-34 四相位节点（four_phase=True 装配时入图——相位③零 LLM、相位④批量执行；
+# 汇总相位复用 answer 节点（SUMMARY_CONTRACT 指令）＋verify 收口不变）。
+NODE_CLARIFY = "clarify"
+NODE_TOOLMATCH = "toolmatch"
+NODE_PRECONDITION = "precondition"
+NODE_BATCH = "batch"
 
 
 class LoopDeps:
-    """ReAct 节点共享依赖（registry/models/builder/store/bus/guide——per-run bus 注入）。"""
+    """ReAct 节点共享依赖（registry/models/builder/store/bus/guide——per-run bus 注入）。
+
+    guide 必填（V2-34 任务 10——占位 DefaultGuideProvider 退役，不设双真源：
+    生产＝OntologyGuideProvider，测试＝剧本/标记指南）。ledger_dump＝词典层
+    全量投影缝（澄清相位第 1 轮注入真源——tools.dump_from_store 装配）；watermark
+    ＝水位读缝（前置条件机新鲜度窗照实判定——组合根经 production_waterline 供给）。
+    """
 
     def __init__(
         self,
@@ -179,7 +246,9 @@ class LoopDeps:
         builder: ContextBuilder,
         store: RunStore,
         bus: EventBus,
-        guide: GuideProvider | None = None,
+        guide: GuideProvider,
+        ledger_dump: Callable[[], dict[str, Any]] | None = None,
+        watermark: Callable[[], Any] | None = None,
         today: Any = None,
     ) -> None:
         self.registry = registry
@@ -187,10 +256,11 @@ class LoopDeps:
         self.builder = builder
         self.store = store
         self.bus = bus
-        # 处理指南缝（拍板⑦）：缺省＝内置指南（V2-32 ontology 资产件可整替注入）。
-        self.guide: GuideProvider = guide or DefaultGuideProvider(
-            today=today if today is not None else clock.now().date()
-        )
+        # 处理指南缝（拍板⑦）：必填——ontology 资产件注入（占位退役）。
+        self.guide: GuideProvider = guide
+        self.ledger_dump = ledger_dump
+        self.watermark = watermark
+        self.today = today if today is not None else clock.now().date()
 
     def model(self, key: str) -> GatewayChatModel:
         model = self.models[key]
@@ -249,25 +319,8 @@ def parse_understanding(content: str) -> tuple[str, list[str]]:
     return understanding, candidates
 
 
-def extract_plan_json(content: str) -> dict[str, Any] | None:
-    """JSON 子串提取单点（首个平衡 {...} 块）：决策发射与 understand 降级形共用——
-    围栏产/散文包裹产同路（提取失败＝None——决策走拒因回喂，understand 保持空产出）。"""
-    start = content.find("{")
-    if start < 0:
-        return None
-    depth = 0
-    for position in range(start, len(content)):
-        if content[position] == "{":
-            depth += 1
-        elif content[position] == "}":
-            depth -= 1
-            if depth == 0:
-                try:
-                    loaded = json.loads(content[start : position + 1])
-                except json.JSONDecodeError:
-                    return None
-                return loaded if isinstance(loaded, dict) else None
-    return None
+# extract_plan_json 已迁 appv2.runtime.subtask（本模块顶部 import re-export——
+# 决策发射/understand 降级形与四相位两道 schema 共用一个平衡块提取单点）。
 
 
 # ---------- 决策发射 schema 校验（拍板①②：拒因回喂、无 repair 的闸单点） ----------
@@ -652,6 +705,8 @@ def _ctx_of(state: RunState) -> ToolContext:
         actor=state.actor,
         budget=4,
         metric_candidates=tuple(state.metric_candidates) or None,
+        # 外表放行态（A2 裁决落点——审批态随上下文走，不进 args、不重排计划）。
+        approved_tables=tuple(state.approved_ids),
     )
 
 
@@ -768,6 +823,45 @@ def _ledger_turn(
     if category == CATEGORY_RETRYABLE:
         return _user_turn(f"{tool_name} 参数：{params} → 暂不可用（拒因：{reason}）")
     return _user_turn(f"{tool_name} 参数：{params} → 闸拒（拒因：{reason}）")
+
+
+# ---------- 词典层常驻注入（V2-34 拍板 a——第 1 轮全量＋历史收窄） ----------
+
+
+def _slim_resident(text: str) -> str:
+    """常驻注入块历史收窄（D 类挂账方向——常驻材料不重复入史，防 token 放大）。
+
+    入史轮把 〖台账全量·常驻注入…〗…〖/常驻注入〗 整块替换为一句占位注记
+    （当前轮每步重新注入，模型面常驻在场；历史只留「曾注入」的痕迹）。
+    """
+    pattern = re.escape(RESIDENT_BLOCK_BEGIN) + r".*?" + re.escape(RESIDENT_BLOCK_END)
+    return re.sub(
+        pattern, "（常驻注入块不重复入史——台账全量见当轮注入）", text, flags=re.DOTALL
+    )
+
+
+def _resident_sources(dump: dict[str, Any]) -> list[dict[str, str]]:
+    """dump→extra_sources 三块（台账/别名/结构卡——Manifest 各记一行来源）。"""
+    return [
+        {
+            "source_type": "ledger_dump",
+            "source_id": "ledger_full_dump",
+            "label": "台账全量（指标/术语/对象/关系/族标注）",
+            "content": render_ledger_rows(dump),
+        },
+        {
+            "source_type": "alias_dump",
+            "source_id": "ledger_aliases",
+            "label": "别名表",
+            "content": render_aliases(dump),
+        },
+        {
+            "source_type": "schema_card",
+            "source_id": "schema_cards",
+            "label": "数据资产结构卡",
+            "content": render_cards(dump),
+        },
+    ]
 
 
 def reseed_approval_id(run_id: str, engine_seed: str) -> str:
@@ -1011,7 +1105,9 @@ def _make_decision(
 # ---------- 挂起恢复（clarify 回喂 / 外表审批——接线①③） ----------
 
 
-async def _handle_choice(state: RunState, deps: LoopDeps) -> dict[str, Any]:
+async def _handle_choice(
+    state: RunState, deps: LoopDeps, *, four_phase: bool = False
+) -> dict[str, Any]:
     frame = dict(state.pending_ask or {})
     payload = interrupt(
         {"kind": frame.get("kind"), "frame": frame, "run_id": state.run_id}
@@ -1076,14 +1172,20 @@ async def _handle_choice(state: RunState, deps: LoopDeps) -> dict[str, Any]:
         else:
             updates["approved_ids"] = [*state.approved_ids, str(approval_id or "")]
             updates["extable_rounds"] = state.extable_rounds + 1
-            # 末次主执行载荷原样重投（ask 帧侧未执行工具——批准后才真正调用）。
-            last = dict(state.last_execute or {})
-            updates["pending_plan"] = last.get("plan")
-            updates["pending_retrieval"] = last.get("retrieval_need")
-            if updates["pending_plan"] is None and updates["pending_retrieval"] is None:
-                updates["next_intent"] = INTENT_DECISION  # 无载荷可重投＝回决策
+            if four_phase:
+                # 四相位（A2 裁决落点）：放行态进 approved_ids（ToolContext 随行）
+                # ——回前置条件机重判（放行后 pass/note），不重排计划、不走
+                # last_execute 重投通道。
+                updates["next_intent"] = INTENT_PRECONDITION
             else:
-                updates["next_intent"] = INTENT_EXECUTE
+                # 末次主执行载荷原样重投（ask 帧侧未执行工具——批准后才真正调用）。
+                last = dict(state.last_execute or {})
+                updates["pending_plan"] = last.get("plan")
+                updates["pending_retrieval"] = last.get("retrieval_need")
+                if updates["pending_plan"] is None and updates["pending_retrieval"] is None:
+                    updates["next_intent"] = INTENT_DECISION  # 无载荷可重投＝回决策
+                else:
+                    updates["next_intent"] = INTENT_EXECUTE
     else:
         impact = str((frame.get("detail") or {}).get(_EXTABLE_REJECT_BASIS_KEY, ""))
         _direct_answer(updates, f"外表引用审批驳回：{impact}")
@@ -1253,6 +1355,26 @@ def _make_discover(
             _timeout_result(tool_name, timeout) if raw is None else _result_dict(raw)
         )
         seq = _next_seq(state)
+        # 发现计数埋点（V2-34 任务 5/R5）：次数/查询词/命中形态落 step payload——
+        # 供跑批分析（no_hit 循环回归为零的判定面）。
+        incoming_tap = _observations_of(result)
+        tap_notices = [
+            obs
+            for obs in incoming_tap
+            if str((obs.get("locator") or {}).get("notice_type", "")) == "no_hit"
+        ]
+        discover_used = int(state.discover_used) + 1
+        tap = {
+            "index": discover_used,
+            "tool": tool_name,
+            "query": _payload_fingerprint(args),
+            "hits": len(incoming_tap),
+            "shape": (
+                "no_hit"
+                if tap_notices
+                else (f"rows:{len(incoming_tap)}" if incoming_tap else "empty")
+            ),
+        }
         updates = _apply_result(
             state,
             deps,
@@ -1261,9 +1383,14 @@ def _make_discover(
             kind=STEP_DISCOVER,
             tool_name=tool_name,
             args=args,
-            record_payload={"tool": tool_name, "status": result["status"]},
+            record_payload={
+                "tool": tool_name,
+                "status": result["status"],
+                "discover_tap": tap,
+            },
             retry_state={"pending_discovers": [call, *queue[1:]]},
         )
+        updates["discover_used"] = discover_used
         if result["status"] == STATUS_OK:
             updates["pending_discovers"] = queue[1:]  # 本支已消费（观察回流后续投）
         return updates
@@ -1321,6 +1448,733 @@ def _make_execute(
         return updates
 
     return execute_node
+
+
+# ---------- V2-34 四相位节点（ADR-0005——①澄清分解／②工具匹配／③前置条件机／④批量执行） ----------
+
+
+def _group_subtasks(state: RunState) -> list[dict[str, Any]]:
+    """问题组子问题投影（question_group dict → dict 列——恢复段读面）。"""
+    group = state.question_group or {}
+    return [st for st in (group.get("subtasks") or []) if isinstance(st, dict)]
+
+
+def _group_of(state: RunState) -> QuestionGroup | None:
+    """问题组 schema 形重建（相位②闭合世界对账的输入面）。"""
+    subtasks = _group_subtasks(state)
+    if not subtasks:
+        return None
+    return QuestionGroup(
+        subtasks=tuple(
+            Subtask(
+                id=str(st.get("id") or ""),
+                question=str(st.get("question") or ""),
+                ledger_notes=str(st.get("ledger_notes") or ""),
+                chain=str(st.get("chain") or ""),
+                tool=str(st.get("tool") or ""),
+            )
+            for st in subtasks
+        )
+    )
+
+
+def _make_clarify(
+    deps: LoopDeps,
+) -> Callable[[RunState], Coroutine[Any, Any, dict[str, Any]]]:
+    """相位①业务澄清（caller decision——分解问题组／钻取 discover／反问 ask）。
+
+    轮语义（Owner 拍板）：decompose 占轮（轮＝回炉循环周期）；discover 钻取与
+    拒因回喂不占轮（受全 run ≤10 发现预算闸——两套预算各守其界）；ask 挂起不
+    占轮（用户输入重置轮预算，与 decision 节点同款）。词典层第 1 轮全量注入
+    （拍板 a）——常驻块随每轮澄清在场，入史轮收窄防 token 放大。
+    """
+
+    async def clarify_node(state: RunState) -> dict[str, Any]:
+        # 挂起恢复路径：interrupt 返回用户选择（ clarify 入口为四相位唯一挂起点）。
+        if state.pending_ask is not None:
+            return await _handle_choice(state, deps, four_phase=True)
+        if (converged := _gate_or_none(state, deps, rounds_gate=True)) is not None:
+            return converged
+        dump = state.ledger_dump
+        if dump is None and deps.ledger_dump is not None:
+            dump = deps.ledger_dump()
+        contract = (
+            CLARIFY_CONTRACT
+            .replace("{max_subtasks}", str(MAX_SUBTASKS_CONTRACT))
+            .replace("{max_discover_run}", str(MAX_DISCOVERS_PER_RUN_CONTRACT))
+            .replace("{discover_used}", str(state.discover_used))
+        )
+        # 指南消费缝消歧：相位发射合同前置（本相位唯一有效合同——真模型对
+        # 首位合同的跟随最稳，P033SK1 实证双合同并存会照抄 legacy 动作）；
+        # 指南正文随后只作业务规则参考（窗词锚定/单井红线/名册——其动作类
+        # 措辞由本合同取代；资产零触碰，消歧在本消费缝）。
+        instruction = (
+            "【相位①·业务澄清——本相位唯一有效发射合同（.action 只许 "
+            "discover|decompose|ask；指南正文中出现的 execute/finalize 动作"
+            "归后续相位，本相位发射它们＝非法）】\n"
+            + contract
+            + "\n\n【业务规则参考（ontology 指南 §A——窗词锚定/单井红线/"
+            "指标名册适用；其中发射判据/收口硬规则的动作面以上方合同为准）】\n"
+            + deps.guide.guide()
+        )
+        failed = [dict(r) for r in state.subtask_results if r.get("status") == "failed"]
+        if failed:
+            lines = "\n".join(
+                f"- [{r.get('id')}] {r.get('question', '')}——拒因：{r.get('reason', '')}"
+                for r in failed
+            )
+            instruction += (
+                "\n\n回炉：只分解以下失败/缺失子问题（成功子问题结果已保留，"
+                f"禁止重复分解执行）：\n{lines}"
+            )
+        if state.user_hint:
+            instruction += f"\n用户已补充：{state.user_hint}——请把它落进本轮分解。"
+        if state.decision_error:
+            # 拒因回喂（拍板②同款——无 repair，修正后重新输出 JSON）。
+            instruction += (
+                f"\n上次发射被拒：{state.decision_error}——修正后重新输出 JSON。"
+            )
+        context = deps.builder.compile(
+            state,
+            step=STEP_DECISION,
+            instruction=instruction,
+            extra_sources=_resident_sources(dump) if dump else None,
+        )
+        content = await _complete(deps.model(MODEL_DECISION), context)
+        history = _history_with(
+            state,
+            {
+                "role": "user",
+                "content": _slim_resident(str(context.messages[-1]["content"])),
+            },
+            _assistant_turn(content),
+        )
+        parsed = parse_question_group(
+            content,
+            max_discovers=int(
+                state.budget.get("max_discovers_per_round", MAX_DISCOVERS_PER_ROUND_CONTRACT)
+            ),
+            discover_budget_left=MAX_DISCOVERS_PER_RUN_CONTRACT - int(state.discover_used),
+        )
+        seq = _next_seq(state)
+        if isinstance(parsed, str):
+            # 拒因回喂（无 repair）＋轮照耗（V2-31 同款语义——被拒发射也是一次
+            # 决策周期，轮数闸收敛兜底，顽投不环）；例外＝发现预算驱动的
+            # discover 拒（钻取面由 ≤10 预算闸自守，不占回炉轮）。
+            budget_reject = parsed.startswith(BUDGET_REJECT_MARK)
+            rnd = state.rounds if budget_reject else state.rounds + 1
+            record = _step_record(
+                seq, STEP_DECISION, f"澄清 r{rnd} 被拒：{parsed}",
+                context.manifest,
+                payload={"phase": "clarify", "rejection": parsed},
+            )
+            deps.bus.emit(
+                "step", {"step": STEP_DECISION, "seq": seq, "title": record["title"]}
+            )
+            return {
+                "rounds": rnd,
+                "decision_error": parsed,
+                "ledger_dump": dump,
+                "history": history,
+                "manifests": [*state.manifests, context.manifest.as_dict()],
+                "steps": [*state.steps, record],
+                "next_intent": INTENT_DECISION,
+            }
+        emission = parsed
+        base: dict[str, Any] = {
+            "decision_error": "",
+            "user_hint": "",
+            "ledger_dump": dump,
+            "history": history,
+            "manifests": [*state.manifests, context.manifest.as_dict()],
+        }
+        payload: dict[str, Any] = {"phase": "clarify", "emission": emission.as_payload()}
+        if emission.kind == CLARIFY_DECOMPOSE:
+            rnd = state.rounds + 1  # 分解占轮——轮 2/3 只带失败子集回炉
+            count = len(emission.group.subtasks) if emission.group is not None else 0
+            record = _step_record(
+                seq, STEP_DECISION, f"澄清 r{rnd}：分解 {count} 子问题",
+                context.manifest, payload,
+            )
+            deps.bus.emit(
+                "step", {"step": STEP_DECISION, "seq": seq, "title": record["title"]}
+            )
+            if emission.note:
+                notice = {
+                    "type": "decision_note", "gates": [], "content": emission.note,
+                }
+                deps.bus.emit("notice", dict(notice))
+                base["notices"] = [*state.notices, notice]
+            return {
+                **base,
+                "rounds": rnd,
+                "question_group": emission.group.as_payload() if emission.group else None,
+                "precondition_verdicts": [],  # 新轮问题组——旧判定作废（判定随组走）
+                "steps": [*state.steps, record],
+                "next_intent": INTENT_TOOLMATCH,
+            }
+        if emission.kind == CLARIFY_DISCOVER:
+            names = "、".join(str(item.get("tool", "?")) for item in emission.discovers)
+            record = _step_record(
+                seq, STEP_DECISION,
+                f"澄清钻取 ×{len(emission.discovers)}（{names}）",
+                context.manifest, payload,
+            )
+            deps.bus.emit(
+                "step", {"step": STEP_DECISION, "seq": seq, "title": record["title"]}
+            )
+            return {
+                **base,
+                "pending_discovers": [dict(item) for item in emission.discovers],
+                "steps": [*state.steps, record],
+                "next_intent": INTENT_DISCOVER,
+            }
+        # ask——连续澄清 cap（≥2 不再挂起带材料直答，与 decision 节点同款）。
+        consecutive = state.consecutive_asks + 1
+        if consecutive >= 2:
+            notice = {
+                "type": "clarify_capped",
+                "gates": [],
+                "content": (
+                    "连续澄清已达上限（连续 ask ≥2）——不再挂起，"
+                    "带已取得材料如实直答。"
+                ),
+            }
+            deps.bus.emit("notice", dict(notice))
+            base["notices"] = [*state.notices, notice]
+            _direct_answer(base, _clarify_capped_answer(state))
+            return base
+        frame = {
+            "kind": ASK_CLARIFY,
+            "prompt": emission.ask_prompt,
+            "options": list(emission.ask_options),
+            "detail": None,
+        }
+        record = _step_record(
+            seq, STEP_DECISION,
+            f"澄清 r{state.rounds + 1}：反问（{emission.ask_prompt[:24]}）",
+            context.manifest, payload,
+        )
+        deps.bus.emit(
+            "step", {"step": STEP_DECISION, "seq": seq, "title": record["title"]}
+        )
+        deps.bus.emit("ask", {"frame": frame, "run_id": state.run_id})
+        base["consecutive_asks"] = consecutive
+        base["pending_ask"] = frame
+        base["steps"] = [*state.steps, record]
+        base["next_intent"] = INTENT_DECISION  # 自环进 interrupt（挂起不占轮）
+        return base
+
+    return clarify_node
+
+
+def _make_toolmatch(
+    deps: LoopDeps,
+) -> Callable[[RunState], Coroutine[Any, Any, dict[str, Any]]]:
+    """相位②工具匹配（caller decision——子问题→工具/链提议；独立 schema 收口点）。
+
+    matches 与问题组闭合世界对账（parse_tool_match——缺/多/未知 id 均拒）；
+    拒因回喂自环（不占轮）；定案就地合并进 question_group（批量执行输入面）。
+    """
+
+    async def toolmatch_node(state: RunState) -> dict[str, Any]:
+        # 轮闸不对称（轮语义：一轮＝完整相位周期）：本相位允许当前轮跑完
+        # （rounds == max 合法），只拦「第 max+1 个决策周期」（被拒烧轮后的
+        # 顽投自环）——clarify 入口闸（>= max）守新轮回炉。
+        if (converged := _gate_or_none(state, deps)) is not None:
+            return converged
+        max_rounds = int(state.budget.get("max_rounds", MAX_ROUNDS_CONTRACT))
+        if int(state.rounds) > max_rounds:
+            return _converge(state, deps, gates=["max_rounds"])
+        group = _group_of(state)
+        if group is None:  # 恢复段边界兜底（无组＝回澄清）
+            return {"next_intent": INTENT_DECISION}
+        dump = state.ledger_dump
+        instruction = (
+            "【相位②·工具匹配——本相位唯一有效发射合同（只许输出 matches JSON）】\n"
+            + TOOLMATCH_CONTRACT
+            + "\n\n【业务规则参考（ontology 指南 §A——窗词锚定/单井红线/"
+            "指标名册适用；动作类措辞以上方合同为准）】\n"
+            + deps.guide.guide()
+            + "\n\n问题组：\n"
+            + json.dumps(group.as_payload(), ensure_ascii=False)
+        )
+        context = deps.builder.compile(
+            state,
+            step=STEP_DECISION,
+            instruction=instruction,
+            extra_sources=_resident_sources(dump) if dump else None,
+        )
+        content = await _complete(deps.model(MODEL_DECISION), context)
+        history = _history_with(
+            state,
+            {
+                "role": "user",
+                "content": _slim_resident(str(context.messages[-1]["content"])),
+            },
+            _assistant_turn(content),
+        )
+        seq = _next_seq(state)
+        parsed = parse_tool_match(content, group)
+        if isinstance(parsed, str):
+            # 拒因回喂（无 repair）＋轮照耗（被拒发射也是一次决策周期——轮数闸
+            # 在本节点入口收敛兜底，顽投不环；P033SK2 实证无界自旋教训）。
+            rnd = state.rounds + 1
+            record = _step_record(
+                seq, STEP_DECISION, f"工具匹配 r{rnd} 被拒：{parsed}", context.manifest,
+                payload={"phase": "toolmatch", "rejection": parsed},
+            )
+            deps.bus.emit(
+                "step", {"step": STEP_DECISION, "seq": seq, "title": record["title"]}
+            )
+            return {
+                "rounds": rnd,
+                "decision_error": parsed,
+                "history": history,
+                "manifests": [*state.manifests, context.manifest.as_dict()],
+                "steps": [*state.steps, record],
+                "next_intent": INTENT_TOOLMATCH,  # 拒因回喂自环
+            }
+        by_id = {m.id: m for m in parsed}
+        merged: list[dict[str, Any]] = []
+        for st in _group_subtasks(state):
+            item = dict(st)
+            match = by_id.get(str(st.get("id") or ""))
+            if match is not None:
+                item.update(
+                    {
+                        "chain": match.chain,
+                        "tool": match.tool,
+                        "plan": dict(match.plan) if match.plan is not None else None,
+                        "retrieval_need": (
+                            dict(match.retrieval_need)
+                            if match.retrieval_need is not None
+                            else None
+                        ),
+                        "caliber_key": match.caliber_key,
+                    }
+                )
+            merged.append(item)
+        record = _step_record(
+            seq, STEP_DECISION, f"工具匹配：{len(parsed)} 条定案", context.manifest,
+            payload={
+                "phase": "toolmatch",
+                "emission": {"matches": [m.as_payload() for m in parsed]},
+            },
+        )
+        deps.bus.emit(
+            "step", {"step": STEP_DECISION, "seq": seq, "title": record["title"]}
+        )
+        # FX-13 候选集随问题组闭世界刷新：当前组 data 链指标槽位＝本轮候选集
+        # （回炉轮新支不被首轮 understand 候选集误伤；台账面校验仍归引擎）。
+        slots = tuple(
+            dict.fromkeys(
+                str((m.plan or {}).get("metric_slot") or "")
+                for m in parsed
+                if m.chain == "data" and (m.plan or {}).get("metric_slot")
+            )
+        )
+        return {
+            "rounds": state.rounds,
+            "decision_error": "",
+            "question_group": {"subtasks": merged},
+            "tool_matches": [m.as_payload() for m in parsed],
+            "metric_candidates": list(slots) if slots else list(state.metric_candidates),
+            "history": history,
+            "manifests": [*state.manifests, context.manifest.as_dict()],
+            "steps": [*state.steps, record],
+            "next_intent": INTENT_PRECONDITION,
+        }
+
+    return toolmatch_node
+
+
+def _make_precondition(
+    deps: LoopDeps,
+) -> Callable[[RunState], Coroutine[Any, Any, dict[str, Any]]]:
+    """相位③前置条件机（纯固定代码零 LLM——逐子问题判四态；LLM 无权判定）。"""
+
+    async def precondition_node(state: RunState) -> dict[str, Any]:
+        if (converged := _gate_or_none(state, deps)) is not None:
+            return converged
+        subtasks = _group_subtasks(state)
+        if not subtasks:  # 恢复段边界兜底（无组＝回澄清）
+            return {"next_intent": INTENT_DECISION}
+        facts = ledger_facts(state.ledger_dump or {})
+        watermark = _watermark_date_of(deps)
+        matches_by_id = {
+            str(m.get("id")): m for m in state.tool_matches if isinstance(m, dict)
+        }
+        verdicts: list[dict[str, Any]] = []
+        for st in subtasks:
+            sid = str(st.get("id") or "")
+            match = matches_by_id.get(sid) or {}
+            verdict = judge(
+                SubtaskInput(
+                    subtask_id=sid,
+                    question=str(st.get("question") or ""),
+                    chain=str(match.get("chain") or st.get("chain") or "data"),
+                    plan=match.get("plan"),
+                    retrieval_need=match.get("retrieval_need"),
+                ),
+                facts,
+                approved_tables=tuple(state.approved_ids),
+                watermark=watermark,
+            )
+            verdicts.append(verdict.as_payload())
+        seq = _next_seq(state)
+        title = "前置条件机：" + "｜".join(
+            f"{v['subtask_id']}={v['state']}" for v in verdicts
+        )
+        deps.bus.emit("step", {"step": STEP_DECISION, "seq": seq, "title": title})
+        updates: dict[str, Any] = {
+            "precondition_verdicts": verdicts,
+            "steps": [
+                *state.steps,
+                _step_record(
+                    seq, STEP_DECISION, title, None,
+                    payload={
+                        "phase": "precondition",
+                        "pure_code": True,
+                        "verdicts": verdicts,
+                    },
+                ),
+            ],
+        }
+        questions = {str(st.get("id") or ""): str(st.get("question") or "") for st in subtasks}
+        refusals = [
+            {
+                "id": v["subtask_id"],
+                "status": "refused",
+                "reason": v["reason"],
+                "question": questions.get(v["subtask_id"], ""),
+                "obs_count": 0,
+                "fingerprint": "",
+                "chain": "data",
+            }
+            for v in verdicts
+            if v["state"] == STATE_BLOCKED_REFUSE
+        ]
+        if refusals:
+            # 同 id 只留最新判定（refused 取代旧条目——后续轮若转 pass 由批量
+            # upsert 接管，结果面不残留双行）。
+            refused_ids = {r["id"] for r in refusals}
+            updates["subtask_results"] = [
+                *[r for r in state.subtask_results if str(r.get("id")) not in refused_ids],
+                *refusals,
+            ]
+        asks = [v for v in verdicts if v["state"] == STATE_BLOCKED_ASK]
+        executable = [
+            v for v in verdicts if v["state"] in (STATE_PASS, STATE_NOTE)
+        ]
+        if asks and executable:
+            # 可执行子问题先进批量（部分结果先行）；blocked_ask 由批量段收尾挂起。
+            updates["next_intent"] = INTENT_BATCH
+            return updates
+        if asks:
+            consecutive = state.consecutive_asks + 1
+            if consecutive >= 2:
+                notice = {
+                    "type": "clarify_capped",
+                    "gates": [],
+                    "content": (
+                        "连续澄清已达上限（连续 ask ≥2）——不再挂起，"
+                        "带已取得材料如实直答。"
+                    ),
+                }
+                deps.bus.emit("notice", dict(notice))
+                updates["notices"] = [*state.notices, notice]
+                _direct_answer(updates, _clarify_capped_answer(state))
+                return updates
+            updates["consecutive_asks"] = consecutive
+            frame = dict(asks[0].get("ask") or {})
+            updates["pending_ask"] = frame
+            updates["next_intent"] = INTENT_DECISION  # 挂起：interrupt 在 clarify 入口
+            deps.bus.emit("ask", {"frame": frame, "run_id": state.run_id})
+            return updates
+        if not executable:
+            # 全部如实拒答——零执行零冒充，直答收口。
+            lines = "\n".join(
+                f"- [{r['id']}] {r['question']}——拒因：{r['reason']}" for r in refusals
+            )
+            _direct_answer(
+                updates,
+                "子问题前置条件判定全部拦截——如实回报，不编造：\n"
+                + (lines or "（无可执行子问题。）"),
+            )
+            updates["next_intent"] = INTENT_ANSWER
+            return updates
+        updates["next_intent"] = INTENT_BATCH
+        return updates
+
+    return precondition_node
+
+
+def _watermark_date_of(deps: LoopDeps) -> Any:
+    """水位读缝→水位日期（WatermarkFace.data_date 投影；None＝缺行/未接线——
+    新鲜度窗注记跳过，引擎闸仍权威）。运行策略面归 runtime（类型真源在
+    query 引擎侧——防环不直接 import，duck 读 data_date 属性）。"""
+    if deps.watermark is None:
+        return None
+    try:
+        face = deps.watermark()
+    except Exception:
+        return None
+    if face is None:
+        return None
+    return getattr(face, "data_date", face)
+
+
+def _subtask_result(
+    subtask_id: str,
+    question: str,
+    chain: str,
+    *,
+    status: str,
+    reason: str = "",
+    obs_count: int = 0,
+    fingerprint: str = "",
+) -> dict[str, Any]:
+    return {
+        "id": subtask_id,
+        "status": status,  # ok | failed | refused（failed＝可回炉；refused＝终局拒答）
+        "reason": reason,
+        "question": question,
+        "obs_count": obs_count,
+        "fingerprint": fingerprint,
+        "chain": chain,
+    }
+
+
+def _make_batch(
+    deps: LoopDeps,
+) -> Callable[[RunState], Coroutine[Any, Any, dict[str, Any]]]:
+    """相位④批量执行（固定代码——子问题组逐支执行＋观察汇聚；汇总归 answer 节点）。
+
+    回炉不重跑（R4）：status=ok 的子问题跳过（subtask_results 簿记＋执行指纹
+    实录）；失败子集在轮预算内回炉①澄清（带拒因）；refused 终局进汇总如实
+    陈述。每次执行落执行台账轮（P-032 簿记主干复用）＋执行步记录
+    （payload 携 subtask_id/fingerprint——R4 断言面）。
+    """
+
+    async def batch_node(state: RunState) -> dict[str, Any]:
+        if (converged := _gate_or_none(state, deps)) is not None:
+            return converged
+        subtasks = _group_subtasks(state)
+        if not subtasks:  # 恢复段边界兜底（无组＝回澄清）
+            return {"next_intent": INTENT_DECISION}
+        matches_by_id = {
+            str(m.get("id")): m for m in state.tool_matches if isinstance(m, dict)
+        }
+        verdicts_by_id = {
+            str(v.get("subtask_id")): v
+            for v in state.precondition_verdicts
+            if isinstance(v, dict)
+        }
+        results: list[dict[str, Any]] = list(state.subtask_results)
+        results_by_id = {str(r.get("id")): r for r in results}
+        observations = list(state.observations)
+        steps = list(state.steps)
+        history = list(state.history)
+        executed = list(state.executed_payloads)
+        pending_frame: dict[str, Any] | None = None
+        aggregated = 0
+        for st in subtasks:
+            sid = str(st.get("id") or "")
+            question = str(st.get("question") or "")
+            verdict = verdicts_by_id.get(sid) or {}
+            if verdict.get("state") not in (STATE_PASS, STATE_NOTE):
+                continue  # 前置未放行（blocked_*——非批量辖域）
+            prior = results_by_id.get(sid)
+            if prior is not None and prior.get("status") == "ok":
+                continue  # 成功子问题不重跑（R4——执行指纹零重复）
+            match = matches_by_id.get(sid) or {}
+            chain = str(match.get("chain") or "")
+            if chain == "data":
+                tool_name = DATA_QUERY
+                plan_exec = {
+                    k: v
+                    for k, v in dict(match.get("plan") or {}).items()
+                    if k != "caliber_key"  # caliber_key 消费点＝前置条件机（域面零漂移）
+                }
+                args: dict[str, Any] = {"plan_draft": plan_exec}
+                fingerprint = _payload_fingerprint(
+                    {"plan": plan_exec, "retrieval_need": None}
+                )
+            else:
+                tool_name = DOC_RETRIEVE
+                args = dict(match.get("retrieval_need") or {})
+                fingerprint = _payload_fingerprint(
+                    {"plan": None, "retrieval_need": args}
+                )
+            raw = await _invoke_tool(deps, state, tool_name, args)
+            timeout = float(state.budget.get("tool_timeout_seconds", 30.0))
+            result = (
+                _timeout_result(tool_name, timeout) if raw is None else _result_dict(raw)
+            )
+            status = result["status"]
+            incoming = _observations_of(result)
+            indexed: list[dict[str, Any]] = []
+            for offset, obs in enumerate(incoming, start=1):
+                entry = dict(obs)
+                entry["index"] = len(observations) + offset
+                entry["trust"] = trust_of(entry)
+                indexed.append(entry)
+            aggregated += len(indexed)
+            seq = len(steps) + 1
+            error_message = (
+                (result.get("error") or {}).get("message")
+                if status == STATUS_FAILED
+                else None
+            )
+            deps.bus.emit(
+                "tool",
+                {"tool": tool_name, "status": status, "seq": seq,
+                 "message": error_message},
+            )
+            title = f"{tool_name}：{status}（子问题 {sid}）"
+            deps.bus.emit("step", {"step": STEP_EXECUTE, "seq": seq, "title": title})
+            steps.append(
+                _step_record(
+                    seq, STEP_EXECUTE, title, None,
+                    payload={
+                        "subtask_id": sid,
+                        "chain": chain,
+                        "tool": tool_name,
+                        "status": status,
+                        "fingerprint": fingerprint,
+                    },
+                )
+            )
+            history = [*history, _ledger_turn(tool_name, args, result)]
+            if status == STATUS_OK:
+                observations.extend(indexed)
+                executed.append(fingerprint)
+                # 同 id 只留最新结果（R4 簿记面：失败条目被成功条目取代——
+                # 旧 failed 滞留会造出假回炉环）。
+                results = [r for r in results if str(r.get("id")) != sid]
+                results.append(
+                    _subtask_result(
+                        sid, question, chain, status="ok",
+                        obs_count=len(indexed), fingerprint=fingerprint,
+                    )
+                )
+                for obs in indexed:
+                    if (obs.get("locator") or {}).get("kind") == "notice":
+                        deps.bus.emit(
+                            "notice",
+                            {
+                                "type": str(
+                                    (obs.get("locator") or {}).get(
+                                        "notice_type", "notice"
+                                    )
+                                ),
+                                "gates": [],
+                                "content": str(obs.get("content", "")),
+                            },
+                        )
+                    deps.bus.emit(
+                        "observation",
+                        {
+                            "index": obs["index"],
+                            "source": obs.get("source", ""),
+                            "content": obs.get("content", ""),
+                            "trust": obs.get("trust", ""),
+                        },
+                    )
+            elif status == STATUS_ASK:
+                frame = dict(result.get("ask") or {})
+                if frame.get("kind") == ASK_EXTERNAL_TABLE_APPROVAL:
+                    detail = dict(frame.get("detail") or {})
+                    engine_seed = str(detail.get("approval_id", ""))
+                    if engine_seed:
+                        detail["approval_id"] = reseed_approval_id(
+                            state.run_id, engine_seed
+                        )
+                        frame["detail"] = detail
+                deps.bus.emit("ask", {"frame": frame, "run_id": state.run_id})
+                pending_frame = frame
+                break  # 挂起不占轮——余下子问题待恢复后随批重入
+            else:
+                category = str((result.get("error") or {}).get("category") or "")
+                reason = str(
+                    (result.get("error") or {}).get("message") or "执行失败"
+                )
+                final = category == CATEGORY_REFUSED
+                results = [r for r in results if str(r.get("id")) != sid]
+                results.append(
+                    _subtask_result(
+                        sid, question, chain,
+                        status="refused" if final else "failed", reason=reason,
+                    )
+                )
+                deps.bus.emit(
+                    "notice",
+                    {
+                        "type": "subtask_refused" if final else "subtask_failed",
+                        "gates": [],
+                        "content": (
+                            f"子问题 {sid} {'闸拒（如实转答）' if final else '执行失败（回炉面）'}"
+                            f"：{reason}"
+                        ),
+                    },
+                )
+                continue  # 失败子集回炉／refused 终局进汇总——批量继续余下子问题
+        # 汇聚记录（观察回流批量形——observe 类步 payload.phase=batch）
+        seq = len(steps) + 1
+        title = f"批量汇聚 {aggregated} 支"
+        deps.bus.emit("step", {"step": STEP_OBSERVE, "seq": seq, "title": title})
+        steps.append(
+            _step_record(seq, STEP_OBSERVE, title, None,
+                         payload={"phase": "batch", "count": aggregated})
+        )
+        updates: dict[str, Any] = {
+            "observations": observations,
+            "steps": steps,
+            "history": history,
+            "executed_payloads": executed,
+            "subtask_results": results,
+        }
+        if pending_frame is not None:
+            updates["pending_ask"] = pending_frame
+            updates["next_intent"] = INTENT_DECISION  # 挂起：interrupt 在 clarify 入口
+            return updates
+        unresolved = [
+            v for v in state.precondition_verdicts
+            if isinstance(v, dict) and v.get("state") == STATE_BLOCKED_ASK
+        ]
+        if unresolved:
+            consecutive = state.consecutive_asks + 1
+            if consecutive >= 2:
+                notice = {
+                    "type": "clarify_capped",
+                    "gates": [],
+                    "content": (
+                        "连续澄清已达上限（连续 ask ≥2）——不再挂起，"
+                        "带已取得材料如实直答。"
+                    ),
+                }
+                deps.bus.emit("notice", dict(notice))
+                updates["notices"] = [*state.notices, notice]
+                _direct_answer(updates, _clarify_capped_answer(state))
+                return updates
+            updates["consecutive_asks"] = consecutive
+            frame = dict(unresolved[0].get("ask") or {})
+            updates["pending_ask"] = frame
+            updates["next_intent"] = INTENT_DECISION
+            deps.bus.emit("ask", {"frame": frame, "run_id": state.run_id})
+            return updates
+        max_rounds = int(state.budget.get("max_rounds", MAX_ROUNDS_CONTRACT))
+        failed = [r for r in results if r.get("status") == "failed"]
+        if failed and int(state.rounds) < max_rounds:
+            # 失败子集回炉①（轮 2/3 只带失败子问题＋拒因——成功不重跑）；
+            # 轮预算耗尽＝带部分结果如实收口（3 轮部分续找语义）。
+            updates["next_intent"] = INTENT_DECISION
+            return updates
+        updates["next_intent"] = INTENT_ANSWER
+        return updates
+
+    return batch_node
 
 
 # ---------- 节点五：observe（观察回流——回喂决策） ----------
@@ -1520,8 +2374,28 @@ def _make_answer(
             )
         ):
             # ——起草段（caller answer——引标断言合同；核验素材面）——
+            # 四相位汇总（相位④后半）：问题组在场＝逐子问题整合全组子结果。
+            instruction = _ANSWER_INSTRUCTION
+            if state.question_group:
+                marks = {"ok": "完成", "refused": "已拒答", "failed": "失败"}
+                lines = [
+                    "- [{id}] {question}——{mark}{reason}".format(
+                        id=r.get("id", ""),
+                        question=r.get("question", ""),
+                        mark=marks.get(str(r.get("status")), str(r.get("status"))),
+                        reason=f"（{r.get('reason')}）" if r.get("reason") else "",
+                    )
+                    for r in state.subtask_results
+                    if isinstance(r, dict)
+                ]
+                instruction = (
+                    SUMMARY_CONTRACT
+                    + "\n子问题结果清单：\n" + ("\n".join(lines) or "（无）")
+                    + "\n\n"
+                    + _ANSWER_INSTRUCTION
+                )
             context = deps.builder.compile(
-                state, step="answer", instruction=_ANSWER_INSTRUCTION
+                state, step="answer", instruction=instruction
             )
             content = await _complete(deps.model(MODEL_ANSWER), context)
             draft = content.strip() or "（模型未产出草稿——如实收口。）"
@@ -1615,8 +2489,14 @@ def _node_of(
     return fn
 
 
-def build_graph(deps: LoopDeps, *, checkpointer: Any = None) -> Any:
-    """编译 ReAct 图（checkpointer 由 executor 注入——挂起/恢复的存储机制）。"""
+def build_graph(deps: LoopDeps, *, checkpointer: Any = None, four_phase: bool = False) -> Any:
+    """编译 ReAct 图（checkpointer 由 executor 注入——挂起/恢复的存储机制）。
+
+    four_phase=True＝V2-34 四相位装配（ADR-0005）：clarify/toolmatch/precondition/
+    batch 四相位真节点入图，understand 与全部「回决策」边重定向 clarify（INTENT_
+    DECISION 值复用——语义＝回第一决策相位）；False＝V2-31 现行七节点图（默认，
+    骨架期既有装配零漂移——缺省翻转随续作拍）。
+    """
     builder = StateGraph(RunState)
     builder.add_node(NODE_UNDERSTAND, _node_of(_make_understand(deps)))
     builder.add_node(NODE_DECISION, _node_of(_make_decision(deps)))
@@ -1625,7 +2505,40 @@ def build_graph(deps: LoopDeps, *, checkpointer: Any = None) -> Any:
     builder.add_node(NODE_OBSERVE, _node_of(_make_observe(deps)))
     builder.add_node(NODE_VERIFY, _node_of(_make_verify(deps)))
     builder.add_node(NODE_ANSWER, _node_of(_make_answer(deps)))
+    routes = {name: dict(mapping) for name, mapping in _ROUTES.items()}
+    if four_phase:
+        builder.add_node(NODE_CLARIFY, _node_of(_make_clarify(deps)))
+        builder.add_node(NODE_TOOLMATCH, _node_of(_make_toolmatch(deps)))
+        builder.add_node(NODE_PRECONDITION, _node_of(_make_precondition(deps)))
+        builder.add_node(NODE_BATCH, _node_of(_make_batch(deps)))
+        for mapping in routes.values():
+            if INTENT_DECISION in mapping:
+                mapping[INTENT_DECISION] = NODE_CLARIFY
+        routes[NODE_CLARIFY] = {
+            INTENT_DECISION: NODE_CLARIFY,  # 拒因回喂自环／ask 挂起恢复入口
+            INTENT_DISCOVER: NODE_DISCOVER,
+            INTENT_TOOLMATCH: NODE_TOOLMATCH,
+            INTENT_ANSWER: NODE_ANSWER,
+            INTENT_END: END,
+        }
+        routes[NODE_TOOLMATCH] = {
+            INTENT_TOOLMATCH: NODE_TOOLMATCH,  # 匹配拒因回喂自环
+            INTENT_PRECONDITION: NODE_PRECONDITION,
+            INTENT_ANSWER: NODE_ANSWER,
+            INTENT_END: END,
+        }
+        routes[NODE_PRECONDITION] = {
+            INTENT_BATCH: NODE_BATCH,
+            INTENT_DECISION: NODE_CLARIFY,  # blocked_ask 挂起恢复→clarify interrupt
+            INTENT_ANSWER: NODE_ANSWER,
+            INTENT_END: END,
+        }
+        routes[NODE_BATCH] = {
+            INTENT_DECISION: NODE_CLARIFY,  # 引擎 ask 挂起／失败子集回炉①
+            INTENT_ANSWER: NODE_ANSWER,
+            INTENT_END: END,
+        }
     builder.add_edge(START, NODE_UNDERSTAND)
-    for name, mapping in _ROUTES.items():
+    for name, mapping in routes.items():
         builder.add_conditional_edges(name, _route, mapping)
     return builder.compile(checkpointer=checkpointer)
