@@ -1127,9 +1127,12 @@ async def _handle_choice(
     }
     if frame.get("kind") == ASK_CLARIFY:
         # 澄清回收：用户选择回喂决策（user_hint——决策下轮消费后清空）；
-        # 用户输入重置轮预算（新信息＝新周期——旧 repairs_since_input 重置同义）。
+        # 用户输入重置轮预算（新信息＝新周期——旧 repairs_since_input 重置同义，
+        # C3 追认落字：轮预算按「每用户输入周期 3 轮」计）；预算拒免轮例外
+        # 计数同周期清零。
         updates["user_hint"] = value
         updates["rounds"] = 0
+        updates["budget_reject_streak"] = 0
         # 消息历史簿记（ADR-0006）：用户选择作为对话轮次落史（user 侧真轮——
         # 非只进 instruction 附注），后续决策在完整对话上续写。
         updates["history"] = _history_with(state, _user_turn(f"用户补充：{value}"))
@@ -1170,14 +1173,26 @@ async def _handle_choice(
                 "如实收口不冒充。",
             )
         else:
-            updates["approved_ids"] = [*state.approved_ids, str(approval_id or "")]
-            updates["extable_rounds"] = state.extable_rounds + 1
             if four_phase:
-                # 四相位（A2 裁决落点）：放行态进 approved_ids（ToolContext 随行）
-                # ——回前置条件机重判（放行后 pass/note），不重排计划、不走
-                # last_execute 重投通道。
+                # 四相位（A2 裁决落点）：放行名单＝帧 detail.tables（表名集——
+                # 前置条件机越集闸的比对面）随审批单号一并进 approved_ids
+                # （ToolContext 随行），回前置条件机重判（放行后 pass/note），
+                # 不重排计划、不走 last_execute 重投通道。
+                tables = [
+                    str(t)
+                    for t in ((frame.get("detail") or {}).get("tables") or ())
+                    if str(t).strip()
+                ]
+                updates["approved_ids"] = [
+                    *state.approved_ids,
+                    str(approval_id or ""),
+                    *tables,
+                ]
+                updates["extable_rounds"] = state.extable_rounds + 1
                 updates["next_intent"] = INTENT_PRECONDITION
             else:
+                updates["approved_ids"] = [*state.approved_ids, str(approval_id or "")]
+                updates["extable_rounds"] = state.extable_rounds + 1
                 # 末次主执行载荷原样重投（ask 帧侧未执行工具——批准后才真正调用）。
                 last = dict(state.last_execute or {})
                 updates["pending_plan"] = last.get("plan")
@@ -1560,9 +1575,16 @@ def _make_clarify(
         if isinstance(parsed, str):
             # 拒因回喂（无 repair）＋轮照耗（V2-31 同款语义——被拒发射也是一次
             # 决策周期，轮数闸收敛兜底，顽投不环）；例外＝发现预算驱动的
-            # discover 拒（钻取面由 ≤10 预算闸自守，不占回炉轮）。
+            # discover 拒（钻取面由 ≤10 预算闸自守，不占回炉轮）。S2 落闸
+            # （P-033 中途审查）：免轮例外只留首次——连续预算拒自第 2 次起
+            # 转占轮，轮数闸确定性收敛（免轮面不重开 SK2 同形无界自旋洞）。
             budget_reject = parsed.startswith(BUDGET_REJECT_MARK)
-            rnd = state.rounds if budget_reject else state.rounds + 1
+            streak = int(state.budget_reject_streak) + 1 if budget_reject else 0
+            rnd = (
+                (state.rounds if streak < 2 else state.rounds + 1)
+                if budget_reject
+                else state.rounds + 1
+            )
             record = _step_record(
                 seq, STEP_DECISION, f"澄清 r{rnd} 被拒：{parsed}",
                 context.manifest,
@@ -1574,6 +1596,7 @@ def _make_clarify(
             return {
                 "rounds": rnd,
                 "decision_error": parsed,
+                "budget_reject_streak": streak,
                 "ledger_dump": dump,
                 "history": history,
                 "manifests": [*state.manifests, context.manifest.as_dict()],
@@ -1584,6 +1607,7 @@ def _make_clarify(
         base: dict[str, Any] = {
             "decision_error": "",
             "user_hint": "",
+            "budget_reject_streak": 0,  # 非预算拒结局——免轮例外计数清零
             "ledger_dump": dump,
             "history": history,
             "manifests": [*state.manifests, context.manifest.as_dict()],
@@ -2518,6 +2542,11 @@ def build_graph(deps: LoopDeps, *, checkpointer: Any = None, four_phase: bool = 
             INTENT_DECISION: NODE_CLARIFY,  # 拒因回喂自环／ask 挂起恢复入口
             INTENT_DISCOVER: NODE_DISCOVER,
             INTENT_TOOLMATCH: NODE_TOOLMATCH,
+            # 审批恢复边（B1，P-033 中途审查）：_handle_choice 批准分支设
+            # INTENT_PRECONDITION（前置条件机重判——A2 裁决落点），clarify
+            # 路由表缺此键＝KeyError「两条审批恢复链全断」——前置条件机越集
+            # 审批与批量引擎侧审批的恢复都从 clarify 入口回场，补边全通。
+            INTENT_PRECONDITION: NODE_PRECONDITION,
             INTENT_ANSWER: NODE_ANSWER,
             INTENT_END: END,
         }

@@ -40,17 +40,31 @@ TODAY = date(2026, 10, 8)
 ACTOR = {"X-Dev-User": "aqiang"}  # 身份桩（五角色键——非键名 401）
 
 _UNDERSTAND = "理解：问 9 月上旬的日产油量。\n指标候选：日产油量"
-_DECISION = (
-    '{"action": "execute", "task_type": "data", '
-    '"plan": {"metric_slot": "日产油量", "ranking": false, '
-    '"window_start": "2026-09-01", "window_end": "2026-09-15"}}'
+# P-033b 缺省翻转：create_app 生产缺省＝四相位装配——剧本随迁移改四相位发射形
+# （澄清 decompose→工具匹配 matches）；拒绝 legacy 直执行形。
+_CLARIFY = (
+    '{"action": "decompose", "question_group": {"subtasks": [{"id": "s1", '
+    '"question": "2026-09-01 到 09-15 各井日产油量", '
+    '"ledger_notes": "日产油量｜bound｜窗 2026-09-01~09-15", "chain": "data", '
+    '"tool": "data_query"}]}}'
 )
-_ANSWER = "答案：见闸依据。"
+_TOOLMATCH = (
+    '{"matches": [{"id": "s1", "chain": "data", "tool": "data_query", "plan": '
+    '{"metric_slot": "日产油量", "ranking": false, "window_start": "2026-09-01", '
+    '"window_end": "2026-09-15"}}]}'
+)
 _SCRIPT: dict[str, Sequence[str]] = {
     "v2.runtime.understand": [_UNDERSTAND],
-    "v2.runtime.decision": [_DECISION, '{"action": "finalize"}'],
-    "v2.runtime.answer": [_ANSWER],
+    "v2.runtime.decision": [_CLARIFY, _TOOLMATCH],
 }
+
+# 四相位步序（生产组合两向同形）：understand/clarify/toolmatch/precondition 四
+# decision 步→batch execute→批量汇聚 observe→（零实质材料——免起草）verify→
+# 收口 answer。新鲜度拦停（notice 观察）与 0 行闸拒都不进断言材料面。
+_FOUR_PHASE_STEP_KINDS = [
+    "decision", "decision", "decision", "decision", "execute", "observe",
+    "verify", "answer",
+]
 
 _SEM_METRIC_DDL = (
     "CREATE TABLE sem_metric (id INTEGER PRIMARY KEY, name TEXT NOT NULL,"
@@ -192,11 +206,9 @@ def test_de16_enabled_freshness_block_stops(tmp_path: Path, agg_db: Path) -> Non
     """闸开（缺省现状）：窗整体晚于水位——水位拦停在（零数值，不冒充出数）。"""
     with _composition_client(tmp_path, agg_db, enabled=True) as client:
         frames = _ask(client)
-        # ReAct 周期走完（拦停不炸链——execute ok→observe→decision finalize→
-        # verify 闸依据如实转答）。
-        assert [d["step"] for n, d in frames if n == "step"] == [
-            "decision", "decision", "execute", "observe", "decision", "verify", "answer",
-        ]
+        # 四相位周期走完（拦停不炸链——batch 执行 ok（notice 观察）→批量汇聚→
+        # verify 闸依据如实转答→收口）。
+        assert [d["step"] for n, d in frames if n == "step"] == _FOUR_PHASE_STEP_KINDS
         # 拦停 notice 在场：水位 2026-08-31＋窗标签——零数值行。
         blocked = [
             d for n, d in frames if n == "notice" and d.get("type") == "freshness_block"
@@ -216,14 +228,14 @@ def test_de16_disabled_zero_rows_refused(tmp_path: Path, agg_db: Path) -> None:
     """闸关：不读水位不拦停——执行缝放行，窗内 0 行＝查无数据如实拒答。"""
     with _composition_client(tmp_path, agg_db, enabled=False) as client:
         frames = _ask(client)
-        # 闸拒直达收口（runtime refused 转答不进观察/核验——ReAct 直接答通道）。
-        assert [d["step"] for n, d in frames if n == "step"] == [
-            "decision", "decision", "execute", "answer",
-        ]
+        # 闸拒在批量相位如实拒答（subtask_refused 机读 notice——四相位批量形）。
+        assert [d["step"] for n, d in frames if n == "step"] == _FOUR_PHASE_STEP_KINDS
         assert not [
             d for n, d in frames if n == "notice" and d.get("type") == "freshness_block"
         ]
-        refused = [d for n, d in frames if n == "notice" and d.get("type") == "refused"]
+        refused = [
+            d for n, d in frames if n == "notice" and d.get("type") == "subtask_refused"
+        ]
         assert refused, "0 行如实拒答 notice 未发出"
         assert "查无数据" in refused[0]["content"]  # 0 行如实拒答——不冒充出数
         run_id = frames[0][1]["run_id"]

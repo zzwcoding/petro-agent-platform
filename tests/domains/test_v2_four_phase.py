@@ -34,6 +34,7 @@ from appv2.query import QueryOutcome
 from appv2.runtime import (
     AskChoice,
     AskRequest,
+    Budget,
     RunStore,
     parse_decision,
 )
@@ -354,6 +355,49 @@ def test_precondition_caliber_three_forms() -> None:
     assert v_illegal.state == STATE_BLOCKED_REFUSE
 
 
+def test_precondition_unknown_slot_refuses_when_ledger_present() -> None:
+    """C5（FX-13 闸力恢复，P-033 中途审查）：data 链指标键 ∈ 台账键闭世界
+    （slot∪指标名∪别名键——引擎 metric_by_name 两段命中同构）确定性校验
+    （零 LLM）——全未命中＝blocked_refuse（不在目录不代答）；名形/别名形发射
+    归一到 slot（绑定态/口径闸照常生效——run-c849d5fb 误伤形的修正钉）；
+    退化世界（空台账＝注入缺缝）不硬拒全量，引擎台账校验仍权威；knowledge
+    链不辖此闸。"""
+    facts = ledger_facts(LEDGER_DUMP)
+    window = {"window_start": "2025-09-01", "window_end": "2025-09-03"}
+
+    v_refuse = judge(SubtaskInput(
+        "f1", "各井采出程度", "data",
+        plan={"metric_slot": "采出程度", "ranking": False, **window},
+    ), facts)
+    assert v_refuse.state == STATE_BLOCKED_REFUSE
+    assert "不在台账全量" in v_refuse.reason
+
+    # 名形发射（真模型常见形——台账名带单位）：归一命中，不误伤（C5 闸对
+    # 引擎可解析键放行——run-c849d5fb 教训）。
+    v_name = judge(SubtaskInput(
+        "f2", "各井日产油量", "data",
+        plan={"metric_slot": "日产油量（吨）", "ranking": False, **window},
+    ), facts)
+    assert v_name.state in (STATE_PASS, STATE_NOTE)
+
+    # 别名形发射（别名归一——引擎第二段命中同构）。
+    v_alias = judge(SubtaskInput(
+        "f3", "各井日产液", "data",
+        plan={"metric_slot": "日产液", "ranking": False, **window},
+    ), facts)
+    assert v_alias.state in (STATE_PASS, STATE_NOTE)
+
+    empty = ledger_facts({})
+    v_skip = judge(SubtaskInput(
+        "f4", "各井采出程度", "data",
+        plan={"metric_slot": "采出程度", "ranking": False, **window},
+    ), empty)
+    assert v_skip.state == STATE_NOTE  # 引擎台账校验兜底注记（不硬拒全量）
+
+    v_knowledge = judge(SubtaskInput("f5", "W-111 井完井报告", "knowledge"), facts)
+    assert v_knowledge.state == STATE_PASS
+
+
 def test_precondition_external_table_gate_uses_approved_state() -> None:
     facts = ledger_facts(LEDGER_DUMP)
     plan = {"metric_slot": "日产油量", "ranking": False,
@@ -395,29 +439,90 @@ def test_ctx_of_carries_approved_tables_from_state() -> None:
 
 
 def test_precondition_and_parse_layers_are_zero_llm() -> None:
-    """R1 双证：AST 扫描（无模型调用形）＋import 扫描（无 LLM 通道）。"""
-    targets = [
+    """R1 双证补强（S4，P-033 中途审查）：直接面 AST（裸名＋属性调用形双查——
+    裸名 complete(...) 不再漏检）＋import 闭包递归扫描（「及其传递依赖」锁进
+    机器闸——闭包内任何 appv2 文件 import 模型判定通道即红）。
+
+    闭包扫描通道集＝模型判定面（appv2.runtime.llm／appv2.infra.gateway／
+    langchain/litellm/openai 供应商 SDK）；appv2.infra.llm_client（B6 embedding
+    唯一出口——供应商 SDK 接触的在册单点，其 litellm import 由 B6 纪律＋
+    import-linter 合同管辖，非判定面）显式放行不入闭包扫描。
+    """
+    repo = Path(__file__).resolve().parents[2]
+    seeds = {
         Path("appv2/tools/precondition.py"),
         Path("appv2/tools/ledger.py"),
         Path("appv2/runtime/subtask.py"),
-    ]
+    }
     forbidden_calls = {"complete", "ainvoke", "invoke", "agenerate", "generate"}
     forbidden_modules = ("llm", "gateway", "litellm", "openai", "langchain")
-    for target in targets:
+    closure_forbidden = (
+        "appv2.runtime.llm",
+        "appv2.infra.gateway",
+        "langchain",
+        "litellm",
+        "openai",
+    )
+
+    def _module_file(module: str) -> Path | None:
+        base = repo.joinpath(*module.split("."))
+        for candidate in (base.with_suffix(".py"), base / "__init__.py"):
+            if candidate.is_file():
+                return candidate
+        return None
+
+    def _imported(node: ast.AST) -> list[str]:
+        names: list[str] = []
+        if isinstance(node, ast.Import):
+            names = [alias.name for alias in node.names]
+        elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+            names = [node.module]
+        return names
+
+    visited: set[Path] = set()
+    queue: list[Path] = [repo / target for target in seeds]
+    while queue:
+        target = queue.pop()
+        if target in visited or not target.is_file():
+            continue
+        visited.add(target)
+        rel = target.relative_to(repo)
         tree = ast.parse(target.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-                assert node.func.attr not in forbidden_calls, (
-                    f"{target}: 前置条件机面出现模型调用形 {node.func.attr}"
+            if isinstance(node, ast.Call) and isinstance(
+                node.func, (ast.Attribute, ast.Name)
+            ):
+                name = (
+                    node.func.attr
+                    if isinstance(node.func, ast.Attribute)
+                    else node.func.id
                 )
-            if isinstance(node, (ast.Import, ast.ImportFrom)):
-                names = [a.name for a in node.names]
-                if isinstance(node, ast.ImportFrom) and node.module:
-                    names.append(node.module)
-                for name in names:
-                    assert not any(part in name for part in forbidden_modules), (
-                        f"{target}: import 了 LLM 通道 {name}"
+                if rel in seeds and name in forbidden_calls:
+                    raise AssertionError(
+                        f"{rel}: 前置条件机直接面出现模型调用形 {name}"
                     )
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                for name in _imported(node):
+                    if rel in seeds and any(
+                        part in name for part in forbidden_modules
+                    ):
+                        raise AssertionError(f"{rel}: import 了 LLM 通道 {name}")
+                    if any(
+                        name == channel or name.startswith(channel + ".")
+                        for channel in closure_forbidden
+                    ):
+                        raise AssertionError(
+                            f"{rel}: 传递依赖 import 模型判定通道 {name}（R1 闭包闸）"
+                        )
+                    if name == "appv2" or name.startswith("appv2."):
+                        resolved = _module_file(name)
+                        if resolved is not None and str(resolved) != str(
+                            repo / "appv2/infra/llm_client.py"
+                        ):
+                            # B6 embedding 唯一出口显式放行（见 docstring 注记）。
+                            queue.append(resolved)
+    # 扫描器空转防假绿：闭包须真到达传递依赖（三种子之外还有被扫文件）。
+    assert len(visited) > len(seeds), f"import 闭包扫描未达传递依赖（扫了 {len(visited)} 文件）"
 
 
 # ---------- 四相位路由真跑（端到端剧本） ----------
@@ -501,9 +606,17 @@ async def test_four_phase_end_to_end_scripted(tmp_path: Path) -> None:
         assert run_row is not None and "s1" in (run_row.answer or "")
         assert "s2" in (run_row.answer or "")
         assert any(s.step_type == "verify" for s in steps)
-        # 消息历史簿记主干在场（P-032 交付零改动——台账轮＋草稿轮入史）
+        # 消息历史簿记主干在场（P-032 交付零改动——台账轮＋草稿轮入史）。
+        # S3（P-033 中途审查）恒真断言清除：原「... or True」零约束——改真断言：
+        # 起草调用上下文带问题轮＋澄清相位轮（历史续写主干真在场）。
         answer_calls = completer.messages_of("v2.runtime.answer")
-        assert (answer_calls and "台账" in answer_calls[0][-1]["content"]) or True
+        assert answer_calls, "汇总起草调用缺席"
+        assert any(
+            _E2E_QUESTION in str(m.get("content", "")) for m in answer_calls[0]
+        ), "起草上下文缺问题历史轮——消息历史簿记主干断裂"
+        assert any(
+            "相位①" in str(m.get("content", "")) for m in answer_calls[0][:-1]
+        ), "起草上下文缺澄清相位历史轮——四相位轮次未入史"
     finally:
         await db.dispose()
 
@@ -599,15 +712,18 @@ async def test_four_phase_blocked_ask_suspends_and_resume_keeps_results(tmp_path
 
 
 async def test_four_phase_refurnace_carries_failed_subset_only(tmp_path: Path) -> None:
-    """轮语义：失败子集＋拒因回炉①澄清；成功子问题结果保留不重跑（R4）。"""
-    engine = QueueQueryEngine([_rows_outcome(), _rows_outcome()])
+    """轮语义：失败子集＋拒因回炉①澄清；成功子问题结果保留不重跑（R4）。
+
+    s2 用「配产量」（台账在册——C5 闭世界校验放行；引擎剧本槽位集不含——
+    引擎校验拒＝failed 回炉面）：C5 之后回炉语义的测试面必须在册槽位，
+    台账外槽位已被前置条件机确定性拒（不入执行轮）。"""
+    engine = FourPhaseEngine([_rows_outcome(), _rows_outcome()])
     clarify_r1 = json.dumps({
         "action": "decompose",
         "question_group": {"subtasks": [
             {"id": "s1", "question": "2025-09-01 到 09-03 各井日产油量",
              "ledger_notes": "日产油量｜bound", "chain": "data"},
-            {"id": "s2", "question": "各井采出程度", "ledger_notes": "采出程度｜未在册",
-             "chain": "data"},
+            {"id": "s2", "question": "各井配产量", "ledger_notes": "配产量｜在册", "chain": "data"},
         ]},
     }, ensure_ascii=False)
     clarify_r2 = json.dumps({
@@ -621,7 +737,7 @@ async def test_four_phase_refurnace_carries_failed_subset_only(tmp_path: Path) -
             "metric_slot": "日产油量", "ranking": False,
             "window_start": "2025-09-01", "window_end": "2025-09-03"}},
         {"id": "s2", "chain": "data", "tool": "data_query", "plan": {
-            "metric_slot": "采出程度", "ranking": False,
+            "metric_slot": "配产量", "ranking": False,
             "window_start": "2025-09-01", "window_end": "2025-09-03"}},
     ]}, ensure_ascii=False)
     toolmatch_r2 = json.dumps({"matches": [
@@ -656,7 +772,7 @@ async def test_four_phase_refurnace_carries_failed_subset_only(tmp_path: Path) -
         assert "回炉：" in round2_clarify
         # 成功子问题不再出现在回炉分解指令（回炉段只带失败子集＋拒因）
         refurnace_tail = round2_clarify.split("回炉：")[-1]
-        assert "s2" in refurnace_tail and "采出程度" in refurnace_tail
+        assert "s2" in refurnace_tail and "配产量" in refurnace_tail
         assert "不在指标台账" in refurnace_tail
         assert "s1" not in refurnace_tail
     finally:
@@ -664,21 +780,23 @@ async def test_four_phase_refurnace_carries_failed_subset_only(tmp_path: Path) -
 
 
 async def test_four_phase_three_rounds_partial_answers(tmp_path: Path) -> None:
-    """3 轮部分续找：连续失败烧满轮预算后带部分结果如实收口。"""
+    """3 轮部分续找：连续失败烧满轮预算后带部分结果如实收口。
+
+    s2 用「商品量」（台账在册——C5 闭世界校验放行；引擎剧本槽位集不含——
+    每轮引擎校验拒＝failed，回炉三轮语义不变）。"""
     engine = QueueQueryEngine([_rows_outcome(), _rows_outcome()])
     clarify_ok = json.dumps({
         "action": "decompose",
         "question_group": {"subtasks": [
             {"id": "s1", "question": "2025-09-01 到 09-03 各井日产油量",
              "ledger_notes": "日产油量｜bound", "chain": "data"},
-            {"id": "s2", "question": "各井采出程度", "ledger_notes": "采出程度｜未在册",
-             "chain": "data"},
+            {"id": "s2", "question": "各井商品量", "ledger_notes": "商品量｜在册", "chain": "data"},
         ]},
     }, ensure_ascii=False)
     clarify_bad = json.dumps({
         "action": "decompose",
         "question_group": {"subtasks": [
-            {"id": "s2", "question": "各井采出程度（重试）", "ledger_notes": "采出程度｜未在册",
+            {"id": "s2", "question": "各井商品量（重试）", "ledger_notes": "商品量｜在册",
              "chain": "data"},
         ]},
     }, ensure_ascii=False)
@@ -687,12 +805,12 @@ async def test_four_phase_three_rounds_partial_answers(tmp_path: Path) -> None:
             "metric_slot": "日产油量", "ranking": False,
             "window_start": "2025-09-01", "window_end": "2025-09-03"}},
         {"id": "s2", "chain": "data", "tool": "data_query", "plan": {
-            "metric_slot": "采出程度", "ranking": False,
+            "metric_slot": "商品量", "ranking": False,
             "window_start": "2025-09-01", "window_end": "2025-09-03"}},
     ]}, ensure_ascii=False)
     toolmatch_s2_bad = json.dumps({"matches": [
         {"id": "s2", "chain": "data", "tool": "data_query", "plan": {
-            "metric_slot": "采出程度", "ranking": False,
+            "metric_slot": "商品量", "ranking": False,
             "window_start": "2025-09-01", "window_end": "2025-09-03"}},
     ]}, ensure_ascii=False)
     script = {
@@ -825,6 +943,225 @@ async def test_four_phase_ledger_dump_round1_injection(tmp_path: Path) -> None:
         await db.dispose()
 
 
+# ---------- S5 审批恢复全链钉（B1 修复面——两链全通：clarify 面＋legacy 面） ----------
+
+
+async def test_four_phase_extable_approval_resume_precondition_chain(tmp_path: Path) -> None:
+    """S5 全链钉·clarify 面（前置条件机审批帧）：越集→审批挂起→批准→前置重判
+    （放行态）→批量续跑全通——routes[NODE_CLARIFY] 缺 INTENT_PRECONDITION 边
+    ＝KeyError（B1：修复前本钉红）。"""
+    engine = QueueQueryEngine([_rows_outcome()])
+    clarify = json.dumps({
+        "action": "decompose",
+        "question_group": {"subtasks": [
+            {"id": "s1", "question": "井位台账关联的日产油量",
+             "ledger_notes": "日产油量｜bound｜外表关联", "chain": "data"},
+        ]},
+    }, ensure_ascii=False)
+    toolmatch = json.dumps({"matches": [
+        {"id": "s1", "chain": "data", "tool": "data_query", "plan": {
+            "metric_slot": "日产油量", "ranking": False,
+            "window_start": "2025-09-01", "window_end": "2025-09-03",
+            "external_tables": ["erp_well_register"]}},
+    ]}, ensure_ascii=False)
+    script = {
+        "v2.runtime.understand": [UNDERSTAND_MULTI],
+        "v2.runtime.decision": [clarify, toolmatch],
+        "v2.runtime.answer": [_SUMMARY_DRAFT],
+    }
+    runtime, _completer, db = await make_runtime(
+        tmp_path, engine=engine, script=script,
+        four_phase=True, ledger_dump=lambda: dict(LEDGER_DUMP),
+    )
+    try:
+        events = await _run_question(runtime, "外表越集审批恢复题")
+        asks = [e.data for e in events if e.event == "ask"]
+        assert asks and asks[-1]["frame"]["kind"] == "external_table_approval"
+        approval_id = asks[-1]["frame"]["detail"]["approval_id"]
+        store = RunStore(db)
+        run_row = await store.get_run(asks[-1]["run_id"])
+        assert run_row is not None and run_row.status == "waiting_ask"
+
+        # 批准 → INTENT_PRECONDITION 重判（放行态进 ToolContext）→ 批量续跑。
+        handle = await runtime.resume(
+            run_row.run_id, AskChoice(value="批准", approval_id=approval_id)
+        )
+        events2 = await drain(handle)
+        assert events2[-1].data["status"] == "completed"
+        steps = await store.list_steps(run_row.run_id)
+        preconds = _step_payloads(steps, "precondition")
+        assert len(preconds) == 2  # 挂起前 blocked_ask＋批准后重判
+        assert preconds[0]["verdicts"][0]["state"] == "blocked_ask"
+        assert preconds[-1]["verdicts"][0]["state"] == "note"  # 放行后注记随行
+        assert any("放行" in n for n in preconds[-1]["verdicts"][0]["notes"])
+        executed = [
+            s for s in steps
+            if s.step_type == "execute" and (s.payload or {}).get("subtask_id")
+        ]
+        assert [s.payload["subtask_id"] for s in executed] == ["s1"]  # 恰执行一次
+        assert engine.run_calls == 1
+    finally:
+        await db.dispose()
+
+
+async def test_four_phase_engine_ask_resume_batch_chain(tmp_path: Path) -> None:
+    """S5 全链钉·legacy 面（批量执行引擎侧审批帧）：批量遇审批挂起→批准→
+    前置重判→批量续跑全通（graph.py:2537 同经 clarify→_handle_choice——
+    修复前同 KeyError）。"""
+    ask_outcome = QueryOutcome.external_table_approval(
+        tables=("erp_well_register",),
+        ask={
+            "approval_id": "APP-1008-erp_well_register",
+            "reason": "外表越集审批",
+            "impact": "批准后该表进放行名单",
+            "audit_hint": "外表 erp_well_register",
+        },
+    )
+    engine = QueueQueryEngine([ask_outcome, _rows_outcome()])
+    clarify = json.dumps({
+        "action": "decompose",
+        "question_group": {"subtasks": [
+            {"id": "s1", "question": "2025-09-01 到 09-03 各井日产油量",
+             "ledger_notes": "日产油量｜bound", "chain": "data"},
+        ]},
+    }, ensure_ascii=False)
+    toolmatch = json.dumps({"matches": [
+        {"id": "s1", "chain": "data", "tool": "data_query", "plan": {
+            "metric_slot": "日产油量", "ranking": False,
+            "window_start": "2025-09-01", "window_end": "2025-09-03"}},
+    ]}, ensure_ascii=False)
+    script = {
+        "v2.runtime.understand": [UNDERSTAND_MULTI],
+        "v2.runtime.decision": [clarify, toolmatch],
+        "v2.runtime.answer": [_SUMMARY_DRAFT],
+    }
+    runtime, _completer, db = await make_runtime(
+        tmp_path, engine=engine, script=script,
+        four_phase=True, ledger_dump=lambda: dict(LEDGER_DUMP),
+    )
+    try:
+        events = await _run_question(runtime, "引擎侧审批恢复题")
+        asks = [e.data for e in events if e.event == "ask"]
+        assert asks and asks[-1]["frame"]["kind"] == "external_table_approval"
+        approval_id = asks[-1]["frame"]["detail"]["approval_id"]
+        assert approval_id.startswith("run-")  # 引擎帧换 run 前缀种子（接线③）
+        store = RunStore(db)
+        run_row = await store.get_run(asks[-1]["run_id"])
+        assert run_row is not None and run_row.status == "waiting_ask"
+
+        handle = await runtime.resume(
+            run_row.run_id, AskChoice(value="批准", approval_id=approval_id)
+        )
+        events2 = await drain(handle)
+        assert events2[-1].data["status"] == "completed"
+        steps = await store.list_steps(run_row.run_id)
+        executed = [
+            s for s in steps
+            if s.step_type == "execute" and (s.payload or {}).get("subtask_id")
+        ]
+        # 首执行挂起（引擎未出数）＋批准重判后续跑恰一次——两支执行留痕。
+        assert [s.payload["status"] for s in executed] == ["ask", "ok"]
+        assert engine.run_calls == 2
+        # 前置重判步在场（批准→INTENT_PRECONDITION 路由真走通）。
+        assert len(_step_payloads(steps, "precondition")) == 2
+        run_row = await store.get_run(run_row.run_id)
+        assert run_row is not None and "21.16" in (run_row.answer or "")
+        resume_records = [
+            s for s in steps if (s.payload or {}).get("resume") is not None
+        ]
+        assert resume_records  # 审批回收留痕（接线①）
+    finally:
+        await db.dispose()
+
+
+# ---------- S2 落闸：clarify 预算拒例外不再开无界自旋洞 ----------
+
+
+async def test_four_phase_clarify_budget_reject_spin_gate(tmp_path: Path) -> None:
+    """S2（P-033 中途审查）：预算驱动的 discover 拒不占轮的例外，在顽投模型下
+    曾是零代价自环（唯一收敛面＝时长闸）——连续预算拒自第 2 次起转占轮，
+    轮数闸确定性收敛；发现预算 ≤10 本体不被绕过。"""
+    discover = json.dumps({
+        "action": "discover",
+        "discovers": [{"tool": "semantic_query", "args": {"question": "日产油量口径"}}],
+    }, ensure_ascii=False)
+    double = json.dumps({
+        "action": "discover",
+        "discovers": [
+            {"tool": "semantic_query", "args": {"question": "q1"}},
+            {"tool": "table_schema", "args": {}},
+        ],
+    }, ensure_ascii=False)
+    script = {
+        "v2.runtime.understand": [UNDERSTAND_MULTI],
+        "v2.runtime.decision": [double] * 5 + [discover],  # 末位驻留＝顽投 discover
+        "v2.runtime.answer": [_SUMMARY_DRAFT],
+    }
+    runtime, completer, db = await make_runtime(
+        tmp_path,
+        engine=QueueQueryEngine([_rows_outcome()]),
+        script=script,
+        budget=Budget(total_seconds=3.0),  # 收窄时长闸——证明收敛走轮数闸非时长闸
+        four_phase=True,
+        ledger_dump=lambda: dict(LEDGER_DUMP),
+        knowledge=FakeKnowledgeStore(),
+    )
+    try:
+        events = await _run_question(runtime, _E2E_QUESTION)
+        final = events[-1].data
+        assert final["status"] == "completed"
+        store = RunStore(db)
+        steps = await store.list_steps(final["run_id"])
+        taps = [
+            s for s in steps
+            if s.step_type == "discover" and (s.payload or {}).get("discover_tap")
+        ]
+        assert len(taps) == 10  # 全 run ≤10 守恒（预算闸本体不被绕过）
+        # 决策调用有界＝5 支双发＋首拒免轮＋其后逐拒耗轮至入口收敛＝恰 9 次。
+        assert completer.counts()["v2.runtime.decision"] == 9
+        notices = [e.data for e in events if e.event == "notice"]
+        converged = [n for n in notices if n.get("type") == "budget_converged"]
+        assert converged and converged[0]["gates"] == ["max_rounds"]  # 轮数闸收敛
+    finally:
+        await db.dispose()
+
+
+async def test_make_runtime_guide_contract_follows_four_phase(tmp_path: Path) -> None:
+    """C6（P-033 中途审查）：测试装配随 four_phase 切换指南合同面——四相位
+    装配不拼 legacy 决策合同（与生产接线同形，消 SK1 双合同隐患形态）；
+    legacy 装配照旧拼接（决策合同不缺席）。"""
+    from appv2.api.ontology_guide import OntologyGuideProvider
+
+    runtime4, _completer, db4 = await make_runtime(
+        tmp_path,
+        engine=QueueQueryEngine([_rows_outcome()]),
+        script={"v2.runtime.understand": [UNDERSTAND_MULTI]},
+        four_phase=True,
+        ledger_dump=lambda: dict(LEDGER_DUMP),
+    )
+    try:
+        guide4 = runtime4._executor._guide
+        assert isinstance(guide4, OntologyGuideProvider)
+        assert guide4._include_decision_contract is False
+        assert "discover|execute|ask|finalize" not in guide4.guide()
+    finally:
+        await db4.dispose()
+
+    legacy_dir = tmp_path / "legacy"
+    legacy_dir.mkdir()
+    runtime_legacy, _completer_l, db_legacy = await make_runtime(
+        legacy_dir,
+        engine=QueueQueryEngine([_rows_outcome()]),
+        script={"v2.runtime.understand": [UNDERSTAND_MULTI]},
+    )
+    try:
+        guide_legacy = runtime_legacy._executor._guide
+        assert guide_legacy._include_decision_contract is True
+        assert "discover|execute|ask|finalize" in guide_legacy.guide()
+    finally:
+        await db_legacy.dispose()
+
+
 # ---------- 装配面：OntologyGuideProvider＋create_app 接线＋占位退役 ----------
 
 
@@ -888,7 +1225,10 @@ def test_create_app_wires_real_guide(tmp_path: Any) -> None:
 
     asyncio.run(_main())
     assert isinstance(holder["guide"], OntologyGuideProvider)
-    assert holder["four_phase"] is False  # 骨架版缺省＝既有 ReAct 面（翻转归续作拍）
+    # 缺省翻转（P-033b——待细化①闭合）：生产缺省＝四相位装配；指南合同面
+    # 随之联动（include_decision_contract=False——相位合同在 runtime 消费缝前置）。
+    assert holder["four_phase"] is True
+    assert holder["guide"]._include_decision_contract is False
 
 
 def test_plan_caliber_key_passes_through_match_not_query_plan() -> None:

@@ -173,7 +173,18 @@ async def make_runtime(
         db=db,
         saver=PgCheckpointer(db),
         budget=budget or Budget(),
-        guide=guide if guide is not None else OntologyGuideProvider(today=TODAY),
+        guide=(
+            guide
+            if guide is not None
+            else OntologyGuideProvider(
+                today=TODAY,
+                # C6（P-033 中途审查）：测试装配随 four_phase 切换指南合同面——
+                # 四相位装配不拼 legacy 决策合同（与生产接线 app.py 的
+                # include_decision_contract=not four_phase 同形，消 SK1
+                # 双合同隐患形态）；legacy 装配照旧拼接。
+                include_decision_contract=not four_phase,
+            )
+        ),
         today=TODAY,
         four_phase=four_phase,
         ledger_dump=ledger_dump,

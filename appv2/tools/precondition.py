@@ -130,6 +130,10 @@ class LedgerFacts:
 
     metrics: Mapping[str, MetricFact]  # slot → 事实
     banned: tuple[BannedFact, ...]
+    # 台账键闭世界（slot∪指标名∪别名键 → slot）——与引擎 metric_by_name 的
+    # 两段命中（精确 slot/名 → 别名归一）同构的确定性解析面（C5 闸与绑定态
+    # 闸共用的归一真源；键序优先级＝引擎同款：slot > 名 > 别名）。
+    keys: Mapping[str, str]
 
     @property
     def banned_terms(self) -> tuple[str, ...]:
@@ -150,6 +154,16 @@ def ledger_facts(dump: Mapping[str, Any]) -> LedgerFacts:
             calibers=tuple(dict(c) for c in (row.get("calibers") or ())),
             default_caliber=row.get("default_caliber"),
         )
+    # 键闭世界（slot/名/别名——引擎 metric_by_name 同构：精确两形→别名归一）。
+    keys: dict[str, str] = {}
+    for slot, fact in metrics.items():
+        keys[slot] = slot
+        if fact.name:
+            keys.setdefault(fact.name, slot)
+    for alias, canonical in (dump.get("aliases") or {}).items():
+        target = keys.get(str(canonical))
+        if target is not None:
+            keys.setdefault(str(alias), target)
     banned: list[BannedFact] = []
     for row in dump.get("terms") or []:
         if not row.get("banned"):
@@ -163,7 +177,7 @@ def ledger_facts(dump: Mapping[str, Any]) -> LedgerFacts:
                 replacement=replacement_match.group(1).strip() if replacement_match else "",
             )
         )
-    return LedgerFacts(metrics=metrics, banned=tuple(banned))
+    return LedgerFacts(metrics=metrics, banned=tuple(banned), keys=keys)
 
 
 # ---------- 闸机（逐子问题过闸——判定序见各闸注释） ----------
@@ -204,7 +218,10 @@ def judge(
 
     notes: list[str] = []
     metric_slot = str(plan.get("metric_slot") or "")
-    metric = facts.metrics.get(metric_slot)
+    # 键归一（引擎 metric_by_name 同构——slot/名/别名三形归到 slot；绑定态闸
+    # 与口径闸因此对名形/别名形发射同样生效）。
+    slot_of = facts.keys.get(metric_slot)
+    metric = facts.metrics.get(slot_of) if slot_of is not None else None
 
     # —— 闸 2：外表越集（A2 裁决落点——放行态放 ToolContext.approved_tables） ——
     external = [str(t) for t in (plan.get("external_tables") or ()) if str(t).strip()]
@@ -308,6 +325,21 @@ def judge(
                 "解释链（零数值不冒充）"
             )
 
+    elif facts.metrics:
+        # —— 闸 3 前置（C5，FX-13 闸力恢复——P-033 中途审查）：台账闭世界
+        # 确定性校验（零 LLM）：data 链指标键 ∈ 台账键闭世界（slot∪指标名∪
+        # 别名键——引擎 metric_by_name 两段命中的同构世界）——全未命中
+        # ＝blocked_refuse（不在目录不代答）。候选集随问题组刷新后（FX-13
+        # 「替换封堵」的语义弱化面），台账闭世界是确定性底闸；退化世界
+        # （空台账＝注入缺缝）不硬拒全量，引擎台账校验仍权威（注记如实）。
+        return Verdict(
+            subtask_id=subtask.subtask_id,
+            state=STATE_BLOCKED_REFUSE,
+            reason=(
+                f"指标 {metric_slot!r} 不在台账全量——确定性校验拒"
+                "（不在目录不代答；台账闭世界校验）"
+            ),
+        )
     else:
         notes.append(
             f"指标 {metric_slot!r} 未在台账全量命中——引擎台账校验将判"

@@ -49,34 +49,52 @@ from appv2.tools import FakeKnowledgeStore, FakeQueryEngine, FakeRetrievalEngine
 ACTOR = {"X-Dev-User": "aqiang"}  # 身份桩（五角色键；缺头落默认角色）
 
 # 剧本与问句（tests/domains/test_v2_agent_loop.py 同款——runtime 侧验收底座复用）。
+# P-033b 缺省翻转：create_app 生产缺省＝四相位装配（ADR-0005）——api 剧本随
+# 翻转迁移四相位发射形（澄清 decompose→工具匹配 matches，拒绝 legacy 直执行形）。
 UNDERSTAND_DATA = "理解：问 2025 年 9 月上旬的日产油量。\n指标候选：日产油量"
-DECISION_WINDOWED = (
-    '{"thought": "问数题——直接执行权威问数", "action": "execute", '
-    '"task_type": "data", "plan": {"metric_slot": "日产油量", "ranking": false, '
-    '"window_start": "2025-09-01", "window_end": "2025-09-03", "limit": 5}}'
+CLARIFY_WINDOWED = (
+    '{"thought": "台账命中＋窗已定——分解", "action": "decompose", '
+    '"question_group": {"subtasks": [{"id": "s1", '
+    '"question": "2025-09-01 到 09-03 各井日产油量", '
+    '"ledger_notes": "日产油量｜bound｜窗 2025-09-01~09-03", "chain": "data", '
+    '"tool": "data_query"}]}}'
 )
-DECISION_VAGUE = (
-    '{"action": "execute", "task_type": "data", '
-    '"plan": {"metric_slot": "日产油量", "ranking": false}}'
+TOOLMATCH_WINDOWED = (
+    '{"matches": [{"id": "s1", "chain": "data", "tool": "data_query", "plan": '
+    '{"metric_slot": "日产油量", "ranking": false, "window_start": "2025-09-01", '
+    '"window_end": "2025-09-03", "limit": 5}}]}'
 )
-DECISION_FINALIZE = '{"thought": "材料已足够", "action": "finalize"}'
+CLARIFY_VAGUE = (
+    '{"action": "decompose", "question_group": {"subtasks": [{"id": "s1", '
+    '"question": "最近的日产油量", "ledger_notes": "日产油量｜bound｜窗未定", '
+    '"chain": "data", "tool": "data_query"}]}}'
+)
+TOOLMATCH_VAGUE = (
+    '{"matches": [{"id": "s1", "chain": "data", "tool": "data_query", "plan": '
+    '{"metric_slot": "日产油量", "ranking": false}}]}'
+)
+CLARIFY_REJECTED = '{"action": "fly"}'  # 澄清发射越界——拒因回喂轮照耗（收敛钉用）
 ANSWER_DRAFT_CITED = "N-01 井 2025-09-01 日产油量 21.16 吨[1]。"
 HAPPY_QUESTION = "2025 年 9 月 1 日到 3 日的日产油量"
 
-# ReAct 钉步序（骨架）：understand 段记 decision 类步（payload.phase=understand）。
+# 四相位钉步序：understand(decision)→clarify(decision)→toolmatch(decision)→
+# precondition(decision·纯代码)→batch(execute)→批量汇聚(observe)→answer(起草)→
+# verify→answer(收口)。
 HAPPY_STEP_KINDS = [
-    "decision", "decision", "execute", "observe", "decision",
+    "decision", "decision", "decision", "decision", "execute", "observe",
     "answer", "verify", "answer",
 ]
 
 HAPPY_SCRIPT = {
     "v2.runtime.understand": [UNDERSTAND_DATA],
-    "v2.runtime.decision": [DECISION_WINDOWED, DECISION_FINALIZE],
+    "v2.runtime.decision": [CLARIFY_WINDOWED, TOOLMATCH_WINDOWED],
     "v2.runtime.answer": [ANSWER_DRAFT_CITED],
 }
 REDECISION_SCRIPT = {
     "v2.runtime.understand": [UNDERSTAND_DATA],
-    "v2.runtime.decision": [DECISION_VAGUE, DECISION_WINDOWED, DECISION_FINALIZE],
+    "v2.runtime.decision": [
+        CLARIFY_VAGUE, TOOLMATCH_VAGUE, CLARIFY_WINDOWED, TOOLMATCH_WINDOWED,
+    ],
     "v2.runtime.answer": [ANSWER_DRAFT_CITED],
 }
 
@@ -146,11 +164,15 @@ async def env(tmp_path: Any) -> AsyncIterator[tuple[TestClient, ConnectionManage
 async def env_budget(
     tmp_path: Any,
 ) -> AsyncIterator[tuple[TestClient, ConnectionManager]]:
-    """max_rounds=1 触界收敛底座（P-006b 形态对齐断言消费）。"""
+    """max_rounds=1 触界收敛底座（P-006b 形态对齐断言消费）——四相位：澄清发射
+    被拒（越界动作）轮照耗，入口轮数闸收敛。"""
     async for pair in _make_client(
         tmp_path,
         engine=QueueQueryEngine([_rows_outcome()]),
-        script=HAPPY_SCRIPT,
+        script={
+            "v2.runtime.understand": [UNDERSTAND_DATA],
+            "v2.runtime.decision": [CLARIFY_REJECTED],  # 末位驻留——轮轮被拒
+        },
         budget=Budget(max_rounds=1),
     ):
         yield pair
@@ -160,7 +182,8 @@ async def env_budget(
 async def env_repair(
     tmp_path: Any,
 ) -> AsyncIterator[tuple[TestClient, ConnectionManager]]:
-    """拒因回喂→clarify→resume 底座（模糊计划→need_clarify ASK→选择后带窗重决策）。"""
+    """拒因回喂→clarify→resume 底座（模糊计划→need_clarify ASK→选择后带窗重
+    分解——四相位形：分解→匹配→批量执行遇缺参反问挂起→回收后带窗重走）。"""
     async for pair in _make_client(
         tmp_path,
         engine=QueueQueryEngine(
@@ -185,7 +208,8 @@ async def env_followup(
     script = {
         "v2.runtime.understand": [UNDERSTAND_DATA],
         "v2.runtime.decision": [
-            DECISION_WINDOWED, DECISION_FINALIZE, DECISION_WINDOWED, DECISION_FINALIZE,
+            CLARIFY_WINDOWED, TOOLMATCH_WINDOWED,
+            CLARIFY_WINDOWED, TOOLMATCH_WINDOWED,
         ],
         "v2.runtime.answer": [ANSWER_DRAFT_CITED, ANSWER_DRAFT_CITED],
     }
@@ -201,12 +225,7 @@ async def env_followup(
 async def env_clarify(
     tmp_path: Any,
 ) -> AsyncIterator[tuple[TestClient, ConnectionManager]]:
-    """clarify 挂起/恢复底座（模糊计划直入 need_clarify——无 repair 前置）。"""
-    script = {
-        "v2.runtime.understand": [UNDERSTAND_DATA],
-        "v2.runtime.decision": [DECISION_VAGUE, DECISION_WINDOWED, DECISION_FINALIZE],
-        "v2.runtime.answer": [ANSWER_DRAFT_CITED],
-    }
+    """clarify 挂起/恢复底座（批量执行遇缺参反问——引擎 need_clarify 直入）。"""
     async for pair in _make_client(
         tmp_path,
         engine=QueueQueryEngine(
@@ -218,7 +237,7 @@ async def env_clarify(
                 _rows_outcome(),
             ]
         ),
-        script=script,
+        script=REDECISION_SCRIPT,
     ):
         yield pair
 
@@ -457,8 +476,8 @@ def test_resume_body_shape_guards(env_clarify: Any) -> None:
 
 
 def test_redecision_clarify_resume(env_repair: Any) -> None:
-    """模糊计划→引擎 need_clarify ASK 帧→resume 选择回喂→带窗重决策→出答案
-    （决策轮发射留痕在案，恢复段出 citation）。"""
+    """模糊计划→引擎 need_clarify ASK 帧→resume 选择回喂→带窗重分解→出答案
+    （四相位：回收后轮预算重置，分解/匹配发射留痕在案，恢复段出 citation）。"""
     client, _db = env_repair
     frames = _post_ask(client, "最近的日产油量")
     run_id = frames[0][1]["run_id"]
@@ -467,7 +486,8 @@ def test_redecision_clarify_resume(env_repair: Any) -> None:
         for name, data in frames
         if name == "step" and data["step"] == "decision"
     ]
-    assert any(t.startswith("决策 r1") and "执行" in t for t in decision_titles)
+    assert any(t.startswith("澄清 r1：分解") for t in decision_titles)
+    assert any("工具匹配" in t for t in decision_titles)
     ask_frames = [data for name, data in frames if name == "ask"]
     assert ask_frames and ask_frames[0]["frame"]["kind"] == "clarify"
 
@@ -518,14 +538,14 @@ def test_verdict_subtype_wire_schema(env: Any) -> None:
 
 
 def test_budget_converged_stream_shape(env_budget: Any) -> None:
-    """max_rounds=1 触界收敛：一轮执行后 decision 入口收敛——收敛答案落 answer 步
-    ＋text 事件出流＋恰一机读 notice（budget_converged）＋终局 verdict 收尾
-    （P-006b·R1 修复后形态）。"""
+    """max_rounds=1 触界收敛：四相位澄清发射被拒轮照耗，入口轮数闸收敛——收敛
+    答案落 answer 步＋text 事件出流＋恰一机读 notice（budget_converged）＋终局
+    verdict 收尾（P-006b·R1 修复后形态）。"""
     client, _db = env_budget
     frames = _post_ask(client)
-    assert _step_kinds(frames) == ["decision", "decision", "execute", "observe", "answer"]
+    assert _step_kinds(frames) == ["decision", "decision", "answer"]
     texts = [data["content"] for name, data in frames if name == "text"]
-    assert any("21.16" in t for t in texts)  # 已取得材料交付——不静默截断
+    assert any("未取得可交付观察材料" in t for t in texts)  # 如实回报——不编造
     notices = [data for name, data in frames if name == "notice"]
     assert len(notices) == 1 and notices[0]["type"] == "budget_converged"
     verdicts = [data for name, data in frames if name == "verdict"]

@@ -60,9 +60,12 @@ SMOKE_QUESTIONS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("去年各井每天的日产油量是多少？", ("N-01", "21.16")),  # 明细表首行（截断形态仍出表）
     ("去年日产油量最高的井是哪口？", ("Z-16", "5839.6")),  # 排名首行（合计 5839.63 前缀形）
 )
-REACT_STEP_HEAD = ["decision", "decision", "execute", "observe", "decision"]
-# ReAct 周期钉序（V2-31）：understand(decision)→decision(execute)→execute→
-# observe→decision(finalize)→answer(起草)→verify→answer(收口)。
+REACT_STEP_HEAD = [
+    "decision", "decision", "decision", "decision", "execute", "observe",
+]
+# 四相位钉序（P-033b 缺省翻转＋RUNTIME_SMOKE ②钉更新）：understand(decision)→
+# clarify(decision·分解)→toolmatch(decision·匹配)→precondition(decision·纯代码)
+# →batch(execute)→批量汇聚(observe)→answer(起草)→verify→answer(收口)。
 REACT_STEP_TAIL = ["answer", "verify", "answer"]
 TODAY = date(2026, 10, 8)
 DEMO_BATCH_ID = "b-a1a61db9f458"  # 演示库 agg 单一批次（V2-11 seed 单源——单源族）
@@ -102,6 +105,18 @@ def test_runtime_production_smoke_real_gateway() -> None:
     # 生产组合根（V2-19 任务 4）：registry 缺省＝三引擎生产读面真装配
     # ＋DE-16 翻板从 config 进组合根（config 缺省 true＝水位闸在位）。
     app = create_app(db=db, completer=gateway, today=lambda: TODAY)
+    # —— 真指南态（P-033b：缺省翻转＋RUNTIME_SMOKE ②钉更新）——生产缺省＝
+    # 四相位装配；指南＝OntologyGuideProvider 且 legacy 决策合同不进指南面
+    # （include_decision_contract=False——相位合同在 runtime 消费缝前置，
+    # P033SK1 双合同并存真模型跟随 legacy 动作的教训）。装配面真件断言。
+    executor = app.state.agent_runtime._executor
+    assert executor._four_phase is True, "生产缺省应为四相位装配（P-033b 翻转）"
+    from appv2.api.ontology_guide import OntologyGuideProvider
+
+    guide = executor._guide
+    assert isinstance(guide, OntologyGuideProvider)
+    assert guide._include_decision_contract is False
+    assert "discover|execute|ask|finalize" not in guide.guide()
     store = RunStore(db)
     started_at = now()
     batch_run_ids: list[str] = []  # 本批 session 帧 run_id（V2-33 全等对账锚）

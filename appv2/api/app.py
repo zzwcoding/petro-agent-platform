@@ -150,7 +150,7 @@ def create_app(
     today: Callable[[], date] | None = None,
     embedder: Any | None = None,
     guide: Any | None = None,
-    four_phase: bool = False,
+    four_phase: bool = True,
     ledger_dump: Any | None = None,
     watermark: Any | None = None,
 ) -> FastAPI:
@@ -164,9 +164,10 @@ def create_app(
     guide＝处理指南（V2-34 任务 10 真指南接线——None＝OntologyGuideProvider
     缺省构造：ontology 资产 §A 装载切面＋DECISION_CONTRACT 拼接；占位
     DefaultGuideProvider 已退役，不设双真源）。
-    four_phase＝V2-34 四相位装配开关（ADR-0005；骨架期缺省 False＝既有 ReAct
-    面零漂移，缺省翻转与 RUNTIME_SMOKE ②钉更新随续作拍）。生产路径（registry
-    缺省）同时接词典层全量投影缝与水位读缝（clarify 注入＋前置条件机新鲜度窗）。
+    four_phase＝V2-34 四相位装配开关（ADR-0005；缺省 True——P-033b 缺省翻转：
+    生产装配四相位真跑，既有 ReAct 七节点图经 four_phase=False 显式装配保留；
+    RUNTIME_SMOKE ②步序钉随四相位更新）。生产路径（registry 缺省）同时接词典层
+    全量投影缝与水位读缝（clarify 注入＋前置条件机新鲜度窗）。
     """
     production = registry is None
     if production:

@@ -168,6 +168,10 @@ class RunState:
     task_type: str = ""  # 末次执行发射的任务型 data|knowledge|mixed
     decision_error: str = ""  # 末次拒因（schema 校验/工具 bad_args——回喂重决策）
     user_hint: str = ""  # 澄清回收的用户补充（decision 下轮消费后清空）
+    # 连续发现预算拒计数（S2 落闸，P-033 中途审查）：预算驱动的 discover 拒不占轮
+    # 的免轮例外只留首次——连续第 2 次起转占轮（轮数闸确定性收敛，顽投自环不环）；
+    # 任何非预算拒结局（分解/钻取成功/反问/其他拒因）与澄清回收即清零。
+    budget_reject_streak: int = 0
     pending_discovers: list[dict[str, Any]] = field(default_factory=list)
     pending_plan: dict[str, Any] | None = None  # data_query plan_draft（data|mixed）
     pending_retrieval: dict[str, Any] | None = None  # doc_retrieve args（knowledge|mixed）
