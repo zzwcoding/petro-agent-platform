@@ -1,0 +1,335 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-49bea05a",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问去年全年各井的配产量明细。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问去年全年各井的配产量明细。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "决策 r1：执行 data"
+   }
+  },
+  {
+   "id": 4,
+   "event": "notice",
+   "data": {
+    "type": "decision_note",
+    "gates": [],
+    "content": "指标「配产量」在册未绑定——按指南照常发射，引擎如实降级解释；时间窗按「去年」锚定 2025-01-01 至 2026-01-01。"
+   }
+  },
+  {
+   "id": 5,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 3,
+    "title": "data_query：ok"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 2 支"
+   }
+  },
+  {
+   "id": 8,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#204",
+    "content": "配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 9,
+   "event": "notice",
+   "data": {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）"
+   }
+  },
+  {
+   "id": 10,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "决策 r2 同参重投被拦：同参已执行（同参重执行零新信息）——带结果直答或改参（finalize 按观察材料作答，或换参数后再发射），不要重复发射同一计划"
+   }
+  },
+  {
+   "id": 12,
+   "event": "notice",
+   "data": {
+    "type": "same_param_replay",
+    "gates": [],
+    "content": "同参重投机器闸：同参已执行（同参重执行零新信息）——带结果直答或改参（finalize 按观察材料作答，或换参数后再发射），不要重复发射同一计划"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "决策 r3：定稿"
+   }
+  },
+  {
+   "id": 14,
+   "event": "notice",
+   "data": {
+    "type": "decision_note",
+    "gates": [],
+    "content": "配产量明细暂不可出数，原因如下"
+   }
+  },
+  {
+   "id": 15,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 7,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 8,
+    "title": "核验：支撑 0｜改写 4｜分源 否"
+   }
+  },
+  {
+   "id": 17,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 4,
+    "split": false,
+    "cited": []
+   }
+  },
+  {
+   "id": 18,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 4 行（INV-1——禁止无据断言进答案）"
+   }
+  },
+  {
+   "id": 19,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 9,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 20,
+   "event": "text",
+   "data": {
+    "content": "## 答案\n\n**去年各井配产量——暂不可出数。**\n\n依据与说明：\n\n未找到（材料未披露）：1. **数据源未落库** [1]：配产量（吨）定义于 `oil_production_daily.plan_output`（R5·A.2），属\"日产计量的配产量\"，但 **agg 读模型并未落实该列**（参见 99 §2.12）。因此当前读侧无法输出该指标。\n未找到（材料未披露）：2. **可支持的粒度与口径** [1]：若后续库表就绪，可按 **日/井粒度、吨** 单位输出；默认口径为 **A 配产版本当日值**。\n未找到（材料未披露）：3. **已知注意事项** [1]：配产版本切换日会存在 **双值行**（D4 待 Owner 处置），逐井明细需先确认该异常行的归属口径。\n\n未找到（材料未披露）：结论：在 agg 读模型补齐 `plan_output` 列之前，去年逐井配产量明细 **无法由现有观察材料给出**，待来源 [1] 所述读模型落库后再行提取。"
+   }
+  },
+  {
+   "id": 21,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-49bea05a",
+    "manifest_digest": "a6739dcfd351a0faf9311d5b8ee28e90356ca8c79f1044a3aedd175ba5efd981"
+   }
+  },
+  {
+   "id": 22,
+   "event": "done",
+   "data": {
+    "run_id": "run-49bea05a"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "## 答案\n\n**去年各井配产量——暂不可出数。**\n\n依据与说明：\n\n未找到（材料未披露）：1. **数据源未落库** [1]：配产量（吨）定义于 `oil_production_daily.plan_output`（R5·A.2），属\"日产计量的配产量\"，但 **agg 读模型并未落实该列**（参见 99 §2.12）。因此当前读侧无法输出该指标。\n未找到（材料未披露）：2. **可支持的粒度与口径** [1]：若后续库表就绪，可按 **日/井粒度、吨** 单位输出；默认口径为 **A 配产版本当日值**。\n未找到（材料未披露）：3. **已知注意事项** [1]：配产版本切换日会存在 **双值行**（D4 待 Owner 处置），逐井明细需先确认该异常行的归属口径。\n\n未找到（材料未披露）：结论：在 agg 读模型补齐 `plan_output` 列之前，去年逐井配产量明细 **无法由现有观察材料给出**，待来源 [1] 所述读模型落库后再行提取。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "decision_note",
+    "gates": [],
+    "content": "指标「配产量」在册未绑定——按指南照常发射，引擎如实降级解释；时间窗按「去年」锚定 2025-01-01 至 2026-01-01。"
+   },
+   {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）"
+   },
+   {
+    "type": "same_param_replay",
+    "gates": [],
+    "content": "同参重投机器闸：同参已执行（同参重执行零新信息）——带结果直答或改参（finalize 按观察材料作答，或换参数后再发射），不要重复发射同一计划"
+   },
+   {
+    "type": "decision_note",
+    "gates": [],
+    "content": "配产量明细暂不可出数，原因如下"
+   },
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 4 行（INV-1——禁止无据断言进答案）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-49bea05a",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问去年全年各井的配产量明细。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "决策 r1：执行 data"
+   },
+   {
+    "step": "execute",
+    "seq": 3,
+    "title": "data_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 2 支"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "决策 r2 同参重投被拦：同参已执行（同参重执行零新信息）——带结果直答或改参（finalize 按观察材料作答，或换参数后再发射），不要重复发射同一计划"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "决策 r3：定稿"
+   },
+   {
+    "step": "answer",
+    "seq": 7,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 8,
+    "title": "核验：支撑 0｜改写 4｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 9,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_metric#204",
+    "content": "配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）",
+    "trust": "ledger"
+   },
+   {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「配产量（吨）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 4,
+    "split": false,
+    "cited": []
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-49bea05a",
+   "manifest_digest": "a6739dcfd351a0faf9311d5b8ee28e90356ca8c79f1044a3aedd175ba5efd981"
+  },
+  "texts": [
+   "问去年全年各井的配产量明细。",
+   "## 答案\n\n**去年各井配产量——暂不可出数。**\n\n依据与说明：\n\n未找到（材料未披露）：1. **数据源未落库** [1]：配产量（吨）定义于 `oil_production_daily.plan_output`（R5·A.2），属\"日产计量的配产量\"，但 **agg 读模型并未落实该列**（参见 99 §2.12）。因此当前读侧无法输出该指标。\n未找到（材料未披露）：2. **可支持的粒度与口径** [1]：若后续库表就绪，可按 **日/井粒度、吨** 单位输出；默认口径为 **A 配产版本当日值**。\n未找到（材料未披露）：3. **已知注意事项** [1]：配产版本切换日会存在 **双值行**（D4 待 Owner 处置），逐井明细需先确认该异常行的归属口径。\n\n未找到（材料未披露）：结论：在 agg 读模型补齐 `plan_output` 列之前，去年逐井配产量明细 **无法由现有观察材料给出**，待来源 [1] 所述读模型落库后再行提取。"
+  ],
+  "duration_s": 15.9
+ }
+}

@@ -104,6 +104,18 @@ TASK_KNOWLEDGE = "knowledge"
 TASK_MIXED = "mixed"
 TASK_KINDS: frozenset[str] = frozenset({TASK_DATA, TASK_KNOWLEDGE, TASK_MIXED})
 
+# 同参重投机器闸（V2-37——P-026 复测残余 9/16 题同参重复执行耗 3 轮→形态收敛
+# 堆叠的机器收口）：decision 出口对主执行载荷（plan/retrieval_need）的同参二次
+# 发射确定性拦截——不再触工具，拒因回喂 LLM 由它重决策（finalize 带结果直答或
+# 改参）。拦截只针对同参二次发射：改参／跨支新信息路径零误伤（_is_same_param_
+# replay）；审批重投（last_execute 通道）与 retryable 同参重试不经 decision 出口，
+# 不受闸辖（语义零漂移）。
+GATE_SAME_PARAM_REPLAY = "same_param_replay"
+SAME_PARAM_REPLAY_REASON = (
+    "同参已执行（同参重执行零新信息）——带结果直答或改参"
+    "（finalize 按观察材料作答，或换参数后再发射），不要重复发射同一计划"
+)
+
 # 发现工具闭世界（拍板④白名单的调用面——registry.call 兜底拒未知名）。
 DISCOVER_TOOLS: frozenset[str] = frozenset({SEMANTIC_QUERY, SCHEMA_PROBE})
 
@@ -296,6 +308,40 @@ class DecisionEmission:
                 "options": list(self.ask_options),
             }
         return payload
+
+
+# ---------- 同参重投机器闸（V2-37——载荷指纹与同参判定的单点） ----------
+
+
+def _payload_fingerprint(payload: dict[str, Any]) -> str:
+    """载荷规范指纹（键序归一的紧凑 JSON——同参判定的比较面）。"""
+    return json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    )
+
+
+def _emission_fingerprints(
+    plan: dict[str, Any] | None, retrieval_need: dict[str, Any] | None
+) -> tuple[str, ...]:
+    """发射载荷的按支执行指纹（单支单形——execute 侧实录同形，两面对得上）。
+
+    data/knowledge 单支发射＝一支指纹；mixed＝两支各一。execute 侧按实际调用
+    逐支实录（{"plan": …} 或 {"retrieval_need": …} 单键形）——故此处按支拆算，
+    不算整发射混合形（那会永不匹配，闸空转）。
+    """
+    prints: list[str] = []
+    if plan is not None:
+        prints.append(_payload_fingerprint({"plan": plan, "retrieval_need": None}))
+    if retrieval_need is not None:
+        prints.append(_payload_fingerprint({"plan": None, "retrieval_need": retrieval_need}))
+    return tuple(prints)
+
+
+def _is_same_param_replay(emission: DecisionEmission, executed: list[str]) -> bool:
+    """同参二次发射判定：发射载荷的全部已执行支都已在实录（mixed＝两支都已执行
+    才算同参——任一支携新参＝有新信息，放行不拦，改参零误伤）。"""
+    prints = _emission_fingerprints(emission.plan, emission.retrieval_need)
+    return bool(prints) and all(item in executed for item in prints)
 
 
 def parse_decision(
@@ -779,6 +825,39 @@ def _make_decision(
                 "next_intent": INTENT_DECISION,
             }
         emission = parsed
+        if emission.action == ACTION_EXECUTE and _is_same_param_replay(
+            emission, state.executed_payloads
+        ):
+            # 同参重投机器闸（V2-37）：同参二次发射确定性拦截——不再触工具，
+            # 拒因回喂 LLM 由它重决策（带结果直答或改参）。轮照耗（LLM 决策
+            # 周期已真实消耗——轮数闸在后续入口收敛兜底，顽投不环）。
+            reason = SAME_PARAM_REPLAY_REASON
+            record = _step_record(
+                seq, STEP_DECISION, f"决策 r{rnd} 同参重投被拦：{reason}",
+                context.manifest,
+                payload={
+                    "phase": "decision",
+                    "rejection": reason,
+                    "gate": GATE_SAME_PARAM_REPLAY,
+                },
+            )
+            deps.bus.emit(
+                "step", {"step": STEP_DECISION, "seq": seq, "title": record["title"]}
+            )
+            notice = {
+                "type": GATE_SAME_PARAM_REPLAY,
+                "gates": [],
+                "content": f"同参重投机器闸：{reason}",
+            }
+            deps.bus.emit("notice", dict(notice))
+            return {
+                "rounds": rnd,
+                "decision_error": reason,
+                "notices": [*state.notices, notice],
+                "manifests": [*state.manifests, context.manifest.as_dict()],
+                "steps": [*state.steps, record],
+                "next_intent": INTENT_DECISION,
+            }
         record = _step_record(
             seq, STEP_DECISION, _decision_title(emission, rnd), context.manifest,
             payload={"phase": "decision", "emission": emission.as_payload()},
@@ -1134,6 +1213,14 @@ def _make_execute(
             # ok＝本支已消费（观察回流后续投）；ask＝载荷留 last_execute 供审批重投。
             updates.update(consume)
             updates["last_execute"] = executed
+            # 主执行实录（V2-37 同参重投机器闸的簿记面）：ok/ask 才算已执行
+            # （bad_args 拒＝引擎未执行，不记——修正后重发不被误拦）。
+            updates["executed_payloads"] = [
+                *state.executed_payloads,
+                *_emission_fingerprints(
+                    executed.get("plan"), executed.get("retrieval_need")
+                ),
+            ]
         return updates
 
     return execute_node

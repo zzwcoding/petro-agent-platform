@@ -138,6 +138,10 @@ class RunState:
     pending_plan: dict[str, Any] | None = None  # data_query plan_draft（data|mixed）
     pending_retrieval: dict[str, Any] | None = None  # doc_retrieve args（knowledge|mixed）
     last_execute: dict[str, Any] | None = None  # 末次主执行载荷（审批批准后重跑）
+    # 主执行实录（V2-37 同参重投机器闸）：实际执行过的主执行载荷规范指纹列
+    # （execute 支 ok/ask 逐支记一条——decision 出口对同参二次发射比对该簿记；
+    # 审批重投／retryable 同参重试走各自通道不经 decision 出口，不受闸辖）。
+    executed_payloads: list[str] = field(default_factory=list)
     # 连续澄清 ask 计数（run 生命期累计不清零——P-024b 疑点2）：第 2 次 ask
     # 截断带材料直答。
     consecutive_asks: int = 0

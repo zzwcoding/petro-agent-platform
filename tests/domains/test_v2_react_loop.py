@@ -322,8 +322,9 @@ async def test_discover_execute_redecide_full_chain(tmp_path: Path) -> None:
 
 
 async def test_three_round_cap_converges(tmp_path: Path) -> None:
-    """轮预算兜底（拍板①）：模型轮轮重执行不 finalize——第 4 决策入口轮数闸收敛，
-    已取得材料如实交付（不静默截断），零起草零核验。"""
+    """轮预算兜底（拍板①）：模型轮轮重执行不 finalize——r1 执行出数后 r2/r3 同参
+    重投被机器闸逐轮拦（V2-37——同参重执行零新信息，不再触工具），第 4 决策入口
+    轮数闸收敛，已取得材料如实交付（不静默截断），零起草零核验。"""
     runtime, completer, db = await make_runtime(
         tmp_path,
         engine=QueueQueryEngine([_rows_outcome()]),
@@ -342,13 +343,16 @@ async def test_three_round_cap_converges(tmp_path: Path) -> None:
         run = await store.get_run(handle.run_id)
         assert run is not None and run.status == "completed"
         assert "21.16" in (run.answer or "")  # 已取得材料交付——不静默截断
-        # 三轮整耗：decision 恰 3 轮、execute/observe 各 3；answer 零调用。
+        # 三轮整耗：decision 恰 3 轮；同参重投被拦——execute/observe 各 1（V2-37：
+        # P026W 同位形态 3 次重复执行的机器收口，重复执行消失）。
         assert completer.counts() == {
             "v2.runtime.understand": 1,
             "v2.runtime.decision": 3,
         }
         kinds = _step_kinds(events)
-        assert kinds.count("execute") == 3 and kinds.count("observe") == 3
+        assert kinds.count("execute") == 1 and kinds.count("observe") == 1
+        replay = [n for n in _notices(events) if n.get("type") == "same_param_replay"]
+        assert len(replay) == 2  # r2/r3 两轮同参发射被拦（拒因回喂）
         converged = [n for n in _notices(events) if n.get("type") == "budget_converged"]
         assert len(converged) == 1
         assert converged[0]["gates"] == ["max_rounds"]
