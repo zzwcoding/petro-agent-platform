@@ -61,10 +61,18 @@ def parse_last_event_id(raw: str | None) -> int | None:
 
 
 class AskBody(BaseModel):
-    """POST /api/v2/chat/asks 入参（两形态：question 提问｜resume_run_id 重连）。"""
+    """POST /api/v2/chat/asks 入参（三形态：question 提问｜resume_run_id 重连｜
+    question＋followup_run_id 追问续会话）。
+
+    followup_run_id（V2-38/ADR-0006 追问续会话）：对话框追问＝会话线程新轮——
+    新 run 播种该前轮线程的消息历史（前轮问句/决策/执行台账/答案随追问进上下文）；
+    前轮须 completed（不存在 404／未收口 409——开流前错误包）；V1 帧兼容不破
+    （session 首帧形不变，新 run_id＋resume=False）。
+    """
 
     question: str | None = None
     resume_run_id: str | None = None
+    followup_run_id: str | None = None
 
 
 class ResumeBody(BaseModel):
@@ -131,7 +139,9 @@ async def post_ask(
     - 重连形态（resume_run_id 在场）：不重新执行——重放该 run 缓冲断点后事件
       （run 不存在 404；缓冲在 api 层进程内——跨进程重启后重放归 ADR-0003
       队列消费者形态）；
-    - 提问形态：question 必填非空（400）；每问新建 run（行为约定 1）。
+    - 提问形态：question 必填非空（400）；每问新建 run（行为约定 1）；
+    - 追问形态（question＋followup_run_id，V2-38）：会话线程新轮——前轮不存在
+      404／未收口 409 在开流前抛（runtime execute 同步段）。
     """
     breakpoint_id = parse_last_event_id(last_event_id)
     resume_run_id = body.resume_run_id if body is not None else None
@@ -167,7 +177,12 @@ async def post_ask(
             code=CODE_PARAM_INVALID,
             message="question 为空——提问必填（接口定义节错误行 400 参数非法）",
         )
-    handle = await runtime.ask(AskRequest(question=question, actor=actor))
+    followup_run_id = (body.followup_run_id or "").strip() if body is not None else ""
+    handle = await runtime.ask(
+        AskRequest(
+            question=question, actor=actor, followup_of=followup_run_id
+        )
+    )
     stream, mark = registry.register(handle)
     return StreamingResponse(
         sse_frames(

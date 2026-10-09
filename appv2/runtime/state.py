@@ -88,10 +88,16 @@ class Manifest:
 
 @dataclass(frozen=True, slots=True)
 class AskRequest:
-    """提问受理（specs/agent-loop.md 接口定义节原形：{question, actor}）。"""
+    """提问受理（specs/agent-loop.md 接口定义节原形：{question, actor}）。
+
+    followup_of（V2-38 追问续会话）：非空＝追问形态——新 run 播种该前轮线程的
+    消息历史（前轮问句/决策/台账/答案随追问进上下文）；前轮须 completed
+    （未收口轮走 resume——执行器把守，映射 404/409）。
+    """
 
     question: str
     actor: Actor
+    followup_of: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,6 +135,12 @@ class RunState:
     # —— understand 产物 ——
     understanding: str = ""
     metric_candidates: list[str] = field(default_factory=list)  # FX-13 候选集
+    # —— 消息历史簿记（ADR-0006/V2-38）：understand/decision/answer 的调用与输出、
+    # 工具执行台账（参数 → 结果：N 行／闸拒（拒因））、拒因回喂、用户澄清/审批回收
+    # 全部作为轮次进历史；后续每步在完整历史上续写（替换「每步全新两条消息」伪
+    # 多轮形态）。值全 JSON 原语（checkpointer 序列化面最简）；追问续会话经
+    # executor 播种前轮线程历史（followup_of）。
+    history: list[dict[str, str]] = field(default_factory=list)
     # —— decision 产物（ReAct 决策出口——行为断言锁定面） ——
     rounds: int = 0  # 已消耗的 LLM 决策周期数（≤3 轮上限闸判据）
     task_type: str = ""  # 末次执行发射的任务型 data|knowledge|mixed

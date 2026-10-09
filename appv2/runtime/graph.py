@@ -38,7 +38,7 @@ from collections.abc import Callable, Coroutine, Hashable
 from dataclasses import dataclass, replace
 from typing import Any
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
@@ -623,13 +623,21 @@ def _gate_or_none(
     return _converge(state, deps, gates=gates)
 
 
+# CompiledContext.messages 的 role → langchain 消息类（多轮形态全消息映射——
+# ADR-0006：历史轮含 assistant/user 交错，不再限定两条件形）。
+_MESSAGE_CLS: dict[str, type] = {
+    "system": SystemMessage,
+    "user": HumanMessage,
+    "assistant": AIMessage,
+}
+
+
 async def _complete(
     model: GatewayChatModel, context: CompiledContext
 ) -> str:
-    """模型调用（CompiledContext.messages → ChatModel——红线②唯一路径）。"""
+    """模型调用（CompiledContext.messages 全量 → ChatModel——红线②唯一路径）。"""
     messages = [
-        SystemMessage(content=context.messages[0]["content"]),
-        HumanMessage(content=context.messages[1]["content"]),
+        _MESSAGE_CLS[m["role"]](content=m["content"]) for m in context.messages
     ]
     reply = await model.ainvoke(messages)
     return str(reply.content)
@@ -716,6 +724,43 @@ def _clarify_capped_answer(state: RunState) -> str:
     return "（连续澄清截断——未取得可交付观察材料，如实回报，不编造。）"
 
 
+# ---------- 消息历史簿记（ADR-0006/V2-38——调用与输出/台账/回收的轮次落史单点） ----------
+
+
+def _user_turn(content: str) -> dict[str, str]:
+    return {"role": "user", "content": content}
+
+
+def _assistant_turn(content: str) -> dict[str, str]:
+    return {"role": "assistant", "content": content}
+
+
+def _history_with(state: RunState, *turns: dict[str, str]) -> list[dict[str, str]]:
+    """历史续写单点（只追加不改写——后续每步在完整历史上续写）。"""
+    return [*state.history, *turns]
+
+
+def _ledger_turn(
+    tool_name: str, args: dict[str, Any], result: dict[str, Any]
+) -> dict[str, str]:
+    """执行台账段（V2-38 任务 2——「参数 → 结果：N 行／闸拒（拒因）」形落历史）。
+
+    ok＝参数 → 结果：N 行；ask＝参数 → 结果：0 行（挂起：审批）；非 ok（校验拒/
+    retryable/闸拒）＝参数 → 闸拒（拒因：…）——负信息如实落（同参重投由模型读
+    台账自主避免，V2-37 机器闸降格兜底）。参数 JSON＝键序归一紧凑形（与 V2-37
+    载荷指纹同规范）。
+    """
+    params = _payload_fingerprint(args)
+    status = result["status"]
+    if status == STATUS_OK:
+        lines = len(result.get("observations") or [])
+        return _user_turn(f"{tool_name} 参数：{params} → 结果：{lines} 行")
+    if status == STATUS_ASK:
+        return _user_turn(f"{tool_name} 参数：{params} → 结果：0 行（挂起：审批）")
+    reason = str((result.get("error") or {}).get("message", "校验未过"))
+    return _user_turn(f"{tool_name} 参数：{params} → 闸拒（拒因：{reason}）")
+
+
 def reseed_approval_id(run_id: str, engine_seed: str) -> str:
     """审批单号 run 前缀重种子（接线③——V2-03 偏差 7：引擎表名种子保留可溯）。"""
     return f"{run_id}#{engine_seed}"
@@ -730,11 +775,24 @@ def _make_understand(
     async def understand_node(state: RunState) -> dict[str, Any]:
         if (converged := _gate_or_none(state, deps)) is not None:
             return converged
+        # 消息历史簿记（ADR-0006）：首问轮＝问题＋理解任务（追问 run 的前轮线程
+        # 历史已在 state.history——executor 播种，此处续写新问轮）。
         context = deps.builder.compile(
-            state, step="understand", instruction=_UNDERSTAND_INSTRUCTION
+            state,
+            step="understand",
+            instruction=(
+                f"问题：{state.question}\n\n任务：{_UNDERSTAND_INSTRUCTION}"
+            ),
+            with_material=False,
         )
         content = await _complete(deps.model(MODEL_UNDERSTAND), context)
         understanding, candidates = parse_understanding(content)
+        # 调用与输出入簿（当前轮原样＋模型原话——后续步在完整历史上续写）。
+        history = _history_with(
+            state,
+            dict(context.messages[-1]),
+            _assistant_turn(content),
+        )
         seq = _next_seq(state)
         record = _step_record(
             seq, STEP_DECISION, understanding or "理解未产出", context.manifest,
@@ -748,6 +806,7 @@ def _make_understand(
         return {
             "understanding": understanding,
             "metric_candidates": candidates,
+            "history": history,
             "manifests": [*state.manifests, context.manifest.as_dict()],
             "steps": [*state.steps, record],
             "next_intent": INTENT_DECISION,
@@ -803,6 +862,13 @@ def _make_decision(
             state, step=STEP_DECISION, instruction=instruction
         )
         content = await _complete(deps.model(MODEL_DECISION), context)
+        # 消息历史簿记（ADR-0006）：本轮调用与输出入簿——无论发射合法与否，
+        # 模型原话（含被拒 JSON）如实落史，拒因回喂由 decision_error 承担。
+        history = _history_with(
+            state,
+            dict(context.messages[-1]),
+            _assistant_turn(content),
+        )
         rnd = state.rounds + 1
         seq = _next_seq(state)
         parsed = parse_decision(
@@ -820,6 +886,7 @@ def _make_decision(
             return {
                 "rounds": rnd,
                 "decision_error": parsed,
+                "history": history,
                 "manifests": [*state.manifests, context.manifest.as_dict()],
                 "steps": [*state.steps, record],
                 "next_intent": INTENT_DECISION,
@@ -853,6 +920,7 @@ def _make_decision(
             return {
                 "rounds": rnd,
                 "decision_error": reason,
+                "history": history,
                 "notices": [*state.notices, notice],
                 "manifests": [*state.manifests, context.manifest.as_dict()],
                 "steps": [*state.steps, record],
@@ -869,6 +937,7 @@ def _make_decision(
             "rounds": rnd,
             "decision_error": "",
             "user_hint": "",
+            "history": history,
             "manifests": [*state.manifests, context.manifest.as_dict()],
             "steps": [*state.steps, record],
             "task_type": emission.task_type,
@@ -956,6 +1025,9 @@ async def _handle_choice(state: RunState, deps: LoopDeps) -> dict[str, Any]:
         # 用户输入重置轮预算（新信息＝新周期——旧 repairs_since_input 重置同义）。
         updates["user_hint"] = value
         updates["rounds"] = 0
+        # 消息历史簿记（ADR-0006）：用户选择作为对话轮次落史（user 侧真轮——
+        # 非只进 instruction 附注），后续决策在完整对话上续写。
+        updates["history"] = _history_with(state, _user_turn(f"用户补充：{value}"))
         deps.bus.emit(
             "step",
             {"step": STEP_DECISION, "seq": _next_seq(state),
@@ -1006,6 +1078,13 @@ async def _handle_choice(state: RunState, deps: LoopDeps) -> dict[str, Any]:
     else:
         impact = str((frame.get("detail") or {}).get(_EXTABLE_REJECT_BASIS_KEY, ""))
         _direct_answer(updates, f"外表引用审批驳回：{impact}")
+    # 消息历史簿记（ADR-0006）：审批决定作为对话轮次落史（批准/驳回都留痕——
+    # clarify 分支已在上方提前 return，此处只达审批路径）。
+    approval_note = (
+        f"外表引用审批决定：{value}"
+        + (f"（审批单号 {approval_id}）" if approval_id else "")
+    )
+    updates["history"] = _history_with(state, _user_turn(approval_note))
     deps.bus.emit(
         "step",
         {"step": STEP_DECISION, "seq": _next_seq(state), "title": f"审批回收：{value}"},
@@ -1029,6 +1108,7 @@ def _apply_result(
     *,
     kind: str,
     tool_name: str,
+    args: dict[str, Any],
     record_payload: dict[str, Any],
     retry_state: dict[str, Any],
 ) -> dict[str, Any]:
@@ -1039,6 +1119,9 @@ def _apply_result(
     - retryable → 同参重试一次（retry_state＝重投载荷更新＋自环意图由节点补）；
       耗尽→如实收敛；
     - refused（闸拒）→ 拒因原样如实转答，不重试不改写。
+
+    每次执行（含被拒）都留执行台账轮进消息历史（V2-38——「参数 → 结果：N 行／
+    闸拒（拒因）」，负信息如实落，模型面可见）。
     """
     status = result["status"]
     title = f"{tool_name}：{status}"
@@ -1055,6 +1138,8 @@ def _apply_result(
             *state.steps,
             _step_record(seq, kind, title, None, payload=dict(record_payload)),
         ],
+        # 执行台账段落史（ok/拒/挂起全形态——被拒执行不再从模型面消失）。
+        "history": _history_with(state, _ledger_turn(tool_name, args, result)),
     }
     if status == STATUS_OK:
         updates["last_result"] = result
@@ -1152,7 +1237,8 @@ def _make_discover(
             return {"next_intent": INTENT_DECISION}
         call = dict(queue[0])
         tool_name = str(call.get("tool", ""))
-        raw = await _invoke_tool(deps, state, tool_name, dict(call.get("args") or {}))
+        args = dict(call.get("args") or {})
+        raw = await _invoke_tool(deps, state, tool_name, args)
         timeout = float(state.budget.get("tool_timeout_seconds", 30.0))
         result = (
             _timeout_result(tool_name, timeout) if raw is None else _result_dict(raw)
@@ -1165,6 +1251,7 @@ def _make_discover(
             seq,
             kind=STEP_DISCOVER,
             tool_name=tool_name,
+            args=args,
             record_payload={"tool": tool_name, "status": result["status"]},
             retry_state={"pending_discovers": [call, *queue[1:]]},
         )
@@ -1206,6 +1293,7 @@ def _make_execute(
             seq,
             kind=STEP_EXECUTE,
             tool_name=tool_name,
+            args=args,
             record_payload={"tool": tool_name, "status": result["status"], **executed},
             retry_state={},  # 载荷仍在位（pending_plan/retrieval 未清）——自环重投
         )
@@ -1432,6 +1520,12 @@ def _make_answer(
             title = "起草答案"
             deps.bus.emit("step", {"step": STEP_ANSWER, "seq": seq, "title": title})
             return {
+                # 消息历史簿记（ADR-0006）：起草调用与草稿输出入簿。
+                "history": _history_with(
+                    state,
+                    dict(context.messages[-1]),
+                    _assistant_turn(content),
+                ),
                 "draft": draft,
                 "manifests": [*state.manifests, context.manifest.as_dict()],
                 "steps": [

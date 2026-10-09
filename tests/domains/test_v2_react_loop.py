@@ -398,9 +398,10 @@ async def test_rejection_feedback_redecision_no_repair(tmp_path: Path) -> None:
             "v2.runtime.answer": 1,
         }
         assert not any("repair" in caller for caller in counts)
-        # 拒因回喂：第 2 轮决策消息含「上次决策被拒」＋台账拒因原文。
+        # 拒因回喂：第 2 轮决策消息（当前轮——多轮历史的末条 user）含
+        # 「上次决策被拒」＋台账拒因原文（V2-38 剧本迁移：历史形态下取末轮）。
         second_round = completer.messages_of("v2.runtime.decision")[1]
-        user_content = second_round[1]["content"]
+        user_content = second_round[-1]["content"]
         assert "上次决策被拒" in user_content
         assert "不在指标台账" in user_content
         # 机读分型 notice（decision_rejected）＋工具拒步留痕（发射合法、
@@ -439,7 +440,7 @@ async def test_unparsable_decision_feedback(tmp_path: Path) -> None:
         assert "21.16" not in answer  # 零材料零编造
         assert completer.counts()["v2.runtime.decision"] == 2
         second_round = completer.messages_of("v2.runtime.decision")[1]
-        assert "决策不可解析" in second_round[1]["content"]
+        assert "决策不可解析" in second_round[-1]["content"]
         steps = await store.list_steps(handle.run_id)
         titles = [s.title for s in steps if s.step_type == "decision"]
         assert any("被拒" in title for title in titles)
@@ -524,9 +525,9 @@ async def test_clarify_target_ambiguity_ask(tmp_path: Path) -> None:
         final = await store_b.get_run(run_id)
         assert final is not None and final.status == "completed"
         assert "21.16" in (final.answer or "")
-        # 用户补充进下轮决策消息（回喂面）。
+        # 用户补充进下轮决策消息（回喂面——多轮历史形态下取当前轮末条）。
         second_round = completer.messages_of("v2.runtime.decision")[0]
-        assert "用户已补充：N-01 井" in second_round[1]["content"]
+        assert "用户已补充：N-01 井" in second_round[-1]["content"]
         assert any(e.event == "citation" for e in events_b)
     finally:
         await db_b.dispose()
@@ -557,7 +558,7 @@ async def test_guide_provider_seam(tmp_path: Path) -> None:
         )
         await drain(handle)
         first_decision = completer.messages_of("v2.runtime.decision")[0]
-        assert "GUIDE-MARKER-XYZ" in first_decision[1]["content"]
+        assert "GUIDE-MARKER-XYZ" in first_decision[-1]["content"]
     finally:
         await db.dispose()
 

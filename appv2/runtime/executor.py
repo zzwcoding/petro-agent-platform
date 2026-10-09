@@ -55,13 +55,18 @@ COMMAND_KINDS: frozenset[str] = frozenset({COMMAND_ASK, COMMAND_RESUME})
 
 @dataclass(frozen=True, slots=True)
 class RunCommand:
-    """run 命令（ask/resume 两态闭世界——api 层只经 AgentRuntime 入命令）。"""
+    """run 命令（ask/resume 两态闭世界——api 层只经 AgentRuntime 入命令）。
+
+    followup_of（V2-38 追问续会话）：非空＝追问形态——新 run 播种该前轮线程的
+    消息历史（前轮问句/决策/执行台账/答案随追问进上下文）；前轮须 completed。
+    """
 
     kind: str
     question: str = ""
     actor: Actor | None = None
     run_id: str = ""
     choice: AskChoice | None = None
+    followup_of: str = ""
 
     def __post_init__(self) -> None:
         if self.kind not in COMMAND_KINDS:
@@ -117,6 +122,10 @@ class GraphRunExecutor:
             actor = command.actor or Actor(user_id="", display="")
             who = who_of(actor)
             run_id = new_run_id()
+            # 追问续会话（V2-38/ADR-0006 会话线程承接形态）：前轮线程消息历史
+            # 播种新 run——追问进上下文含前轮问答（前轮须 completed，未收口轮走
+            # resume；run 状态机零改动——追问＝新 run 行，api 层最小改动）。
+            seed_history = await self._seed_history(command.followup_of)
             await self._store.create_run(
                 run_id=run_id, question=command.question, actor=actor.who
             )
@@ -128,7 +137,9 @@ class GraphRunExecutor:
                 who=who,
             )
             graph = build_graph(self._deps(bus, run_id=run_id), checkpointer=self._saver)
-            state = self._initial_state(run_id, command.question, actor.user_id)
+            state = self._initial_state(
+                run_id, command.question, actor.user_id, history=seed_history
+            )
             config: dict[str, Any] = {"configurable": {"thread_id": run_id}}
             self._spawn(graph, state, config, bus, run_id, who=who)
             return RunHandle(run_id=run_id, stream=bus.stream())
@@ -177,6 +188,40 @@ class GraphRunExecutor:
 
     # ---------- 内部位 ----------
 
+    async def _seed_history(self, followup_of: str) -> list[dict[str, str]]:
+        """前轮线程消息历史（追问续会话的播种面——V2-38）。
+
+        前轮不存在＝RunNotFoundError（api 404）；非 completed＝RunNotSuspendedError
+        （api 409——挂起轮走 resume、在途/失败轮不可续）。历史取自 checkpointer
+        的前轮线程终态（RunState.history 逐轮投影），前轮最终答案作 assistant 轮
+        追加（草稿≠终稿——收口答案含核验改写/引用块，前轮问答史以终稿落）。
+        """
+        if not followup_of:
+            return []
+        prior = await self._store.get_run(followup_of)
+        if prior is None:
+            raise RunNotFoundError(f"run 不存在：{followup_of}")
+        if prior.status != RUN_COMPLETED:
+            raise RunNotSuspendedError(
+                f"前轮未收口不可追问（status={prior.status}）：{followup_of}"
+            )
+        graph = build_graph(
+            self._deps(EventBus(), run_id=followup_of), checkpointer=self._saver
+        )
+        snapshot = await graph.aget_state(
+            {"configurable": {"thread_id": followup_of}}
+        )
+        values = snapshot.values or {}
+        turns = [
+            {"role": str(t.get("role", "user")), "content": str(t.get("content", ""))}
+            for t in (values.get("history") or [])
+            if isinstance(t, dict)
+        ]
+        prior_answer = str(prior.answer or "")
+        if prior_answer:
+            turns.append({"role": "assistant", "content": f"上轮答案：{prior_answer}"})
+        return turns
+
     def _deps(self, bus: EventBus, run_id: str = "") -> LoopDeps:
         # V2-33 run_id 盖章：per-run 模型副本携 run 号（GatewayChatModel.run_id →
         # completer 协议 params 面 → gateway 记账 run_id 列）。共享模型字典零
@@ -197,13 +242,20 @@ class GraphRunExecutor:
             today=self._today,
         )
 
-    def _initial_state(self, run_id: str, question: str, actor_id: str) -> RunState:
+    def _initial_state(
+        self,
+        run_id: str,
+        question: str,
+        actor_id: str,
+        history: list[dict[str, str]] | None = None,
+    ) -> RunState:
         started = now_monotonic()
         return RunState(
             run_id=run_id,
             question=question,
             actor=actor_id,
             status=RUN_RUNNING,
+            history=list(history or []),  # 追问续会话播种（V2-38——前轮线程历史）
             budget=self._budget.as_dict(),
             started_monotonic=started,
             deadline_monotonic=started + self._budget.total_seconds,
@@ -374,9 +426,17 @@ class AgentRuntime:
         self._executor = executor
 
     async def ask(self, q: AskRequest) -> RunHandle:
-        """建 run，返 run_id＋事件流（specs/agent-loop.md 接口定义节）。"""
+        """建 run，返 run_id＋事件流（specs/agent-loop.md 接口定义节）。
+
+        followup_of 非空＝追问续会话（V2-38）——前轮线程历史随追问进上下文。
+        """
         return await self._executor.execute(
-            RunCommand(kind=COMMAND_ASK, question=q.question, actor=q.actor)
+            RunCommand(
+                kind=COMMAND_ASK,
+                question=q.question,
+                actor=q.actor,
+                followup_of=q.followup_of,
+            )
         )
 
     async def resume(self, run_id: str, choice: AskChoice) -> RunHandle:

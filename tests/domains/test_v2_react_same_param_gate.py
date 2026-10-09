@@ -153,10 +153,13 @@ async def test_same_param_second_emission_intercepted(tmp_path: Path) -> None:
         ]
         assert len(replay_notices) == 1
         assert "同参已执行" in replay_notices[0]["content"]
-        # 拒因回喂：第 3 次决策调用消息携「上次决策被拒」＋拒因原文。
+        # 拒因回喂：第 3 次决策调用消息（当前轮——多轮历史末条 user）携
+        # 「上次决策被拒」＋拒因原文（V2-38 剧本迁移：历史形态下取末轮；被拦
+        # 发射的 JSON 与 r1 执行台账亦在该轮历史中——簿记面钉在
+        # test_v2_multi_turn_context）。
         third_round = completer.messages_of("v2.runtime.decision")[2]
-        assert "上次决策被拒" in third_round[1]["content"]
-        assert "同参已执行" in third_round[1]["content"]
+        assert "上次决策被拒" in third_round[-1]["content"]
+        assert "同参已执行" in third_round[-1]["content"]
         # 带材料直答形：finalize 后起草→核验→引用收口（非预算收敛罗列形）。
         assert _step_kinds(events) == [
             "decision", "decision", "execute", "observe", "decision",

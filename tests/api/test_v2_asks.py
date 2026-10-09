@@ -178,6 +178,26 @@ async def env_repair(
 
 
 @pytest.fixture
+async def env_followup(
+    tmp_path: Any,
+) -> AsyncIterator[tuple[TestClient, ConnectionManager]]:
+    """追问续会话底座（两轮剧本＋两份出数——首问与追问各走一轮完整执行链）。"""
+    script = {
+        "v2.runtime.understand": [UNDERSTAND_DATA],
+        "v2.runtime.decision": [
+            DECISION_WINDOWED, DECISION_FINALIZE, DECISION_WINDOWED, DECISION_FINALIZE,
+        ],
+        "v2.runtime.answer": [ANSWER_DRAFT_CITED, ANSWER_DRAFT_CITED],
+    }
+    async for pair in _make_client(
+        tmp_path,
+        engine=QueueQueryEngine([_rows_outcome(), _rows_outcome()]),
+        script=script,
+    ):
+        yield pair
+
+
+@pytest.fixture
 async def env_clarify(
     tmp_path: Any,
 ) -> AsyncIterator[tuple[TestClient, ConnectionManager]]:
@@ -546,6 +566,82 @@ def test_v1_wire_form_compatible(env: Any) -> None:
         assert lines[2].startswith("data: ")
     # 中文不转义（00 §6.1——V1 render_frame ensure_ascii=False 同形）。
     assert "日产油量" in text  # understand 步 title 原文出流（非 \\u 转义形态）
+
+
+# ---------- 验收⑦ 追问续会话（V2-38/ADR-0006）：followup_run_id 会话线程新轮 ----------
+
+
+def test_followup_asks_extend_session(env_followup: Any) -> None:
+    """追问＝会话线程新轮（asks 携 followup_run_id）：新 run 正常走流——V1 帧兼容
+    形不破（session 首帧携新 run_id＋resume=False、保留帧 done 收场、citation 在场）；
+    两个 run 行各自可查（会话线程承接＝新 run 行，run 状态机零改动）。"""
+    client, _db = env_followup
+    first = _post_ask(client)
+    run_id = first[0][1]["run_id"]
+
+    resp = client.post(
+        "/api/v2/chat/asks",
+        json={"question": "那 9 月 2 日呢？", "followup_run_id": run_id},
+        headers=ACTOR,
+    )
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/event-stream")
+    frames = _parse_frames(resp.text)
+    # V1 帧兼容断言在场：session 首帧形不变（新 run_id＋resume=False）。
+    assert frames[0][0] == FRAME_SESSION
+    assert frames[0][1]["resume"] is False
+    new_run_id = frames[0][1]["run_id"]
+    assert new_run_id.startswith("run-") and new_run_id != run_id
+    assert _step_kinds(frames) == HAPPY_STEP_KINDS
+    assert _names(frames)[-1] == FRAME_DONE
+    assert any(name == "citation" for name, _ in frames)
+    # 追问 run 独立收口（completed）；原 run 行不受影响。
+    assert client.get(
+        f"/api/v2/chat/runs/{new_run_id}", headers=ACTOR
+    ).json()["status"] == "completed"
+    assert client.get(
+        f"/api/v2/chat/runs/{run_id}", headers=ACTOR
+    ).json()["status"] == "completed"
+
+
+def test_followup_requires_question(env_followup: Any) -> None:
+    """追问缺 question＝400（提问必填与普通 ask 同闸）。"""
+    client, _db = env_followup
+    frames = _post_ask(client)
+    run_id = frames[0][1]["run_id"]
+    resp = client.post(
+        "/api/v2/chat/asks", json={"followup_run_id": run_id}, headers=ACTOR,
+    )
+    assert resp.status_code == 400
+    assert resp.json()["code"] == "chat_param_invalid"
+
+
+def test_followup_unknown_run_is_404(env: Any) -> None:
+    """追问前轮不存在＝404（开流前错误包）。"""
+    client, _db = env
+    resp = client.post(
+        "/api/v2/chat/asks",
+        json={"question": "追问", "followup_run_id": "run-missing"},
+        headers=ACTOR,
+    )
+    assert resp.status_code == 404
+    assert resp.json()["code"] == "chat_run_not_found"
+
+
+def test_followup_unfinished_run_is_409(env_clarify: Any) -> None:
+    """前轮未收口（waiting_ask）＝409 状态机冲突——挂起轮走 resume，不走追问。"""
+    client, _db = env_clarify
+    frames = _post_ask(client, "最近的日产油量")
+    run_id = frames[0][1]["run_id"]
+    status = client.get(f"/api/v2/chat/runs/{run_id}", headers=ACTOR)
+    assert status.json()["status"] == "waiting_ask"
+    resp = client.post(
+        "/api/v2/chat/asks",
+        json={"question": "追问", "followup_run_id": run_id},
+        headers=ACTOR,
+    )
+    assert resp.status_code == 409
+    assert resp.json()["code"] == "chat_run_state"
 
 
 # ---------- 错误码 400/401/404/409（接口定义节错误行） ----------
