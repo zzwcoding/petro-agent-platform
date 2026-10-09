@@ -31,6 +31,8 @@ class ScriptedCompleter:
         self._script = {caller: list(replies) for caller, replies in script.items()}
         self._alias = alias
         self.calls: list[tuple[str, list[dict[str, str]]]] = []
+        # 逐调用 params 捕获（V2-33 run_id 盖章断言面——与 calls 同序同长）。
+        self.params: list[dict[str, Any]] = []
         self._serial = 0
 
     async def complete(
@@ -43,6 +45,7 @@ class ScriptedCompleter:
     ) -> Completion:
         """按 caller 取剧本应答（队列耗尽＝装配缺应答当场暴露——不静默兜底）。"""
         self.calls.append((caller, [dict(m) for m in messages]))
+        self.params.append(dict(params))
         self._serial += 1
         queue = self._script.get(caller)
         if not queue:

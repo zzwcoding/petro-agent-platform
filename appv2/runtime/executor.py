@@ -127,7 +127,7 @@ class GraphRunExecutor:
                 question=command.question,
                 who=who,
             )
-            graph = build_graph(self._deps(bus), checkpointer=self._saver)
+            graph = build_graph(self._deps(bus, run_id=run_id), checkpointer=self._saver)
             state = self._initial_state(run_id, command.question, actor.user_id)
             config: dict[str, Any] = {"configurable": {"thread_id": run_id}}
             self._spawn(graph, state, config, bus, run_id, who=who)
@@ -146,7 +146,9 @@ class GraphRunExecutor:
                 await self._store.mark_running(command.run_id)
             except ValueError as exc:
                 raise RunNotSuspendedError(str(exc)) from exc
-            graph = build_graph(self._deps(bus), checkpointer=self._saver)
+            graph = build_graph(
+                self._deps(bus, run_id=command.run_id), checkpointer=self._saver
+            )
             config = {"configurable": {"thread_id": command.run_id}}
             # 段时限刷新（挂起等人工不计预算——恢复段重新起算时长闸；原「段步
             # 基线 segment_step_base」为死字段已删——P-024b C1：全仓零消费点，
@@ -175,10 +177,19 @@ class GraphRunExecutor:
 
     # ---------- 内部位 ----------
 
-    def _deps(self, bus: EventBus) -> LoopDeps:
+    def _deps(self, bus: EventBus, run_id: str = "") -> LoopDeps:
+        # V2-33 run_id 盖章：per-run 模型副本携 run 号（GatewayChatModel.run_id →
+        # completer 协议 params 面 → gateway 记账 run_id 列）。共享模型字典零
+        # 变异——并发 run 各持副本，无交叉盖章。
+        models: dict[str, GatewayChatModel] = self._models
+        if run_id:
+            models = {
+                key: model.model_copy(update={"run_id": run_id})
+                for key, model in self._models.items()
+            }
         return LoopDeps(
             registry=self._registry,
-            models=self._models,
+            models=models,
             builder=self._builder,
             store=self._store,
             bus=bus,

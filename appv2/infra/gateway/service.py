@@ -41,9 +41,10 @@ from appv2.infra.llm_client import LlmCompletion, UpstreamUnavailable
 
 LOGGER = logging.getLogger("domains.gateway")
 
-# 域级参数键：complete(**params) 里归网关域消费（记账备注槽），不转发上游
-# （litellm 不识未知业务键——转发前剥除，P0-05 审查收口）。
-_DOMAIN_ONLY_PARAMS: frozenset[str] = frozenset({"note"})
+# 域级参数键：complete(**params) 里归网关域消费（记账备注/归属槽），不转发上游
+# （litellm 不识未知业务键——转发前剥除，P0-05 审查收口；run_id 归属槽 V2-33
+# ——run 归属链写账，调用面 GraphRunExecutor 经 completer 协议上行）。
+_DOMAIN_ONLY_PARAMS: frozenset[str] = frozenset({"note", "run_id"})
 
 # 进程崩溃重启后遗留 running 演练行的收口 summary（lifespan 启动时调用一次，
 # 幂等；双态合同 running|done 不新增第三态——收口即 done 带人话原因）。
@@ -174,6 +175,8 @@ class GatewayService:
           （重试耗尽才计一次别名失败——LiteLLM Router allowed_fails 口径）。
         - 记账自动落（调用粒度账本唯一）；落账后查预算双阈值，触顶置熔断位
           （改路由不拒绝——后续调用整体改降级组 petro-lite，在途照跑完）。
+        - params 的 run_id（V2-33）＝run 归属槽：记账落 SpendRecord.run_id 既有列
+          （零迁移），空串/缺省归一 NULL；域级键剥除后不转发上游。
         """
         config = get_models_config()
         requested = alias or config.routing.default
@@ -276,6 +279,7 @@ class GatewayService:
         )
         model_key = "main" if served_alias == config.routing.default else "backup"
         at = now()
+        run_id = str(params.get("run_id") or "").strip()  # V2-33 归属槽：空串归一 NULL
         row = SpendRecord(
             id=d.new_call_id(),
             time=at,
@@ -290,6 +294,7 @@ class GatewayService:
             fallback=served_alias != requested,
             note=d.default_note(caller, params.get("note")),
             caller=caller,  # 调用方归因落列（D1 v0.2 端点 4/8——complete 受理即归因）
+            run_id=run_id or None,  # run 归属链写账（既有列零迁移——V2-33 补环）
             served_model=answer.model,
             attempted_fallbacks=attempted or None,
         )

@@ -42,6 +42,7 @@ from datetime import date
 from typing import Any
 
 import pytest
+from sqlalchemy import select
 
 pytestmark = [
     pytest.mark.skipif(
@@ -92,7 +93,7 @@ def test_runtime_production_smoke_real_gateway() -> None:
     from appv2.infra.config import load_database_specs
     from appv2.infra.db import ConnectionManager
     from appv2.infra.gateway import GatewayService, SpendFilter
-    from appv2.infra.gateway.store import SpendStore
+    from appv2.infra.gateway.store import SpendRecord, SpendStore
     from appv2.infra.llm_client import LlmClient
     from appv2.runtime import RunStore
 
@@ -103,6 +104,7 @@ def test_runtime_production_smoke_real_gateway() -> None:
     app = create_app(db=db, completer=gateway, today=lambda: TODAY)
     store = RunStore(db)
     started_at = now()
+    batch_run_ids: list[str] = []  # 本批 session 帧 run_id（V2-33 全等对账锚）
 
     with TestClient(app) as client:
         for question, content_expect in SMOKE_QUESTIONS:
@@ -112,6 +114,7 @@ def test_runtime_production_smoke_real_gateway() -> None:
             assert resp.headers["content-type"].startswith("text/event-stream")
             frames = _parse_frames(resp.text)
             run_id = frames[0][1]["run_id"]
+            batch_run_ids.append(run_id)  # V2-33：账本 run_id 全等对账锚
             assert frames[0][0] == "session" and frames[0][1]["resume"] is False
             assert frames[-1][0] == "done" and frames[-1][1]["run_id"] == run_id
             # —— ② ReAct 周期走完至 answer（真模型自主选 data_query 出数） ——
@@ -180,7 +183,26 @@ def test_runtime_production_smoke_real_gateway() -> None:
             print(f"SMOKE 血缘④（数据截至批次）：{watermark_line}")
 
         # —— ⑤ R14 核心：caller 归因落 spend 记录（红线②真账本实证） ——
+        # V2-33 run_id 盖章：本轮新行 run_id 逐笔非空且与本批 session 帧 run_id
+        # 全等（账本归属链真实证——存储行直读，SpendView 合同投影不扩列）。
         spend_store = SpendStore(db)
+        batch_run_ids = set(batch_run_ids)
+
+        async def _mine_rows() -> Any:
+            async with db.readonly() as session:
+                rows = (
+                    (
+                        await session.execute(
+                            select(SpendRecord).where(
+                                SpendRecord.time >= started_at,
+                                SpendRecord.caller.like("v2.runtime.%"),
+                            )
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+            return list(rows)
 
         async def _spend_page() -> Any:
             return await spend_store.page(SpendFilter(), page_size=200)
@@ -196,8 +218,19 @@ def test_runtime_production_smoke_real_gateway() -> None:
             "v2.runtime.understand", "v2.runtime.decision",
         }
         assert all(row.cost_yuan > 0 for row in mine)  # 真调用真计费（非估算零值）
-        for row in mine:
+        ledger_rows = client.portal.call(_mine_rows)
+        assert ledger_rows, "存储行直读零行——账本读形断"
+        assert all(row.run_id for row in ledger_rows), (
+            f"账本新行 run_id 存在空值——盖章链路断裂："
+            f"{[r.id for r in ledger_rows if not r.run_id]}"
+        )
+        assert {str(row.run_id) for row in ledger_rows} <= batch_run_ids, (
+            f"账本 run_id 越批（与本批 session 帧不全等）："
+            f"{sorted({str(r.run_id) for r in ledger_rows} - batch_run_ids)}"
+        )
+        for row in ledger_rows:
             print(
                 f"spend: caller={row.caller} alias={row.alias} fallback={row.fallback} "
-                f"cost={row.cost_yuan} in={row.input_tokens} out={row.output_tokens}"
+                f"cost={row.cost_yuan} in={row.input_tokens} out={row.output_tokens} "
+                f"run_id={row.run_id}"
             )

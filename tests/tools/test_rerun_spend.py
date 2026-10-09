@@ -12,6 +12,10 @@ jsonl 行，供服务侧盖章后复核。
 四组测试：账本行聚合（sums/by_caller/call_ids/run_id 留档/Decimal 成本）/
 PG 连接参数装配（环境量＞.env＞缺省，端口转 int）/.env 解析（注释与裸行
 跳过）/时间窗助手（微秒往返＋margin 外扩）＋批次计费摘要（ok/errors 分计）。
+
+V2-33 增两组：归集查询计划（ledger_query_plan——run_id 直查主路/缺 run_id
+窗兜底）与归集派发（collect_spend——直查命中/直查零行退窗注记/无 run_id
+只走窗/摘要 items 带 method）。
 """
 
 from __future__ import annotations
@@ -21,6 +25,7 @@ import sys
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 REPO = Path(__file__).resolve().parents[2]
 TOOL = REPO / "eval" / "results" / "tools" / "rerun.py"
@@ -228,3 +233,151 @@ class TestSpendSummary:
         assert s["spend_errors"] == 0
         assert s["totals"]["calls"] == 0
         assert s["items"] == [] and s["errors"] == []
+
+
+# ---------- 归集查询计划（ledger_query_plan——V2-33 run_id 直查主路） ----------
+
+
+class TestLedgerQueryPlan:
+    def test_run_id_present_direct_query(self) -> None:
+        """jsonl 行带 run_id＝run_id 直查计划（服务侧盖章后的主路——票面 V2-33）。"""
+        plan = rerun.ledger_query_plan(
+            {"qid": "数-明1", "run_id": "run-abc123",
+             "ask_started_at": "2026-10-09T10:00:00.000000",
+             "ask_ended_at": "2026-10-09T10:00:12.000000"},
+            margin_s=0.0,
+        )
+        assert plan == {"method": "run_id", "run_id": "run-abc123"}
+
+    def test_run_id_blank_string_treated_as_absent(self) -> None:
+        """空串/纯空白 run_id 同缺省——不拿空键直查。"""
+        plan = rerun.ledger_query_plan(
+            {"qid": "数-明1", "run_id": "  ",
+             "ask_started_at": "2026-10-09T10:00:00.000000",
+             "ask_ended_at": "2026-10-09T10:00:12.000000"},
+            margin_s=0.0,
+        )
+        assert plan["method"] == "time_window"
+
+    def test_run_id_absent_time_window_fallback(self) -> None:
+        """无 run_id（V1 base/帧解析失败）＝时间窗兜底计划（margin 两侧外扩）。"""
+        plan = rerun.ledger_query_plan(
+            {"qid": "A-正6",
+             "ask_started_at": "2026-10-09T10:00:00.000000",
+             "ask_ended_at": "2026-10-09T10:00:12.000000"},
+            margin_s=2.5,
+        )
+        assert plan["method"] == "time_window"
+        assert plan["start"] == datetime(2026, 10, 9, 9, 59, 57, 500000)
+        assert plan["end"] == datetime(2026, 10, 9, 10, 0, 14, 500000)
+
+
+# ---------- 归集查询派发（collect_spend——run_id 直查＋窗兜底注记） ----------
+
+
+class _FakeConn:
+    """asyncpg 连接桩：按 SQL 分流返回预设行集，逐次调用留痕（sql＋args）。"""
+
+    def __init__(self, by_run: list[dict], by_window: list[dict]) -> None:
+        self._by_run = by_run
+        self._by_window = by_window
+        self.calls: list[tuple[str, tuple[Any, ...]]] = []
+
+    async def fetch(self, sql: str, *args: Any) -> list[dict]:
+        self.calls.append((sql, args))
+        if sql is rerun.SPEND_SQL_BY_RUN or sql == rerun.SPEND_SQL_BY_RUN:
+            return list(self._by_run)
+        return list(self._by_window)
+
+    async def close(self) -> None:
+        return None
+
+
+_ROW_RUN_X = {
+    "id": "call-1", "time": datetime(2026, 10, 9, 10, 0, 1),
+    "caller": "v2.runtime.understand", "alias": "MiniMax-M3", "model_key": "main",
+    "input_tokens": 384, "output_tokens": 107, "cost_yuan": Decimal("0.000705"),
+    "fallback": False, "run_id": "run-x",
+}
+_ROW_RUN_X_B = {
+    "id": "call-2", "time": datetime(2026, 10, 9, 10, 0, 2),
+    "caller": "v2.runtime.decision", "alias": "MiniMax-M3", "model_key": "main",
+    "input_tokens": 499, "output_tokens": 129, "cost_yuan": Decimal("0.000886"),
+    "fallback": False, "run_id": "run-x",
+}
+
+
+def _ask_row(**extra: Any) -> dict:
+    row = {
+        "qid": "数-明1", "group": "DATA",
+        "ask_started_at": "2026-10-09T10:00:00.000000",
+        "ask_ended_at": "2026-10-09T10:00:12.000000",
+    }
+    row.update(extra)
+    return row
+
+
+class TestCollectSpendDispatch:
+    async def _collect(self, monkeypatch: Any, conn: _FakeConn,
+                       rows: list[dict]) -> None:
+        async def _fake_connect(**_kw: Any) -> _FakeConn:
+            return conn
+
+        monkeypatch.setattr(rerun.asyncpg, "connect", _fake_connect)
+        await rerun.collect_spend(
+            rows, dsn=None, connect_kwargs={}, caller_prefix="v2.runtime.", margin_s=0.0,
+        )
+
+    async def test_direct_hit_uses_run_id_sql_and_notes_method(
+        self, monkeypatch: Any
+    ) -> None:
+        conn = _FakeConn(by_run=[_ROW_RUN_X, _ROW_RUN_X_B], by_window=[])
+        rows = [_ask_row(run_id="run-x")]
+        await self._collect(monkeypatch, conn, rows)
+        assert len(conn.calls) == 1
+        sql, args = conn.calls[0]
+        assert sql == rerun.SPEND_SQL_BY_RUN
+        assert args == ("run-x",)
+        spend = rows[0]["spend"]
+        assert spend["method"] == "run_id"
+        assert "fallback" not in spend  # 直查命中零兜底注记
+        assert spend["calls"] == 2
+        assert spend["ledger_run_ids"] == ["run-x", "run-x"]
+
+    async def test_direct_miss_falls_back_to_window_with_note(
+        self, monkeypatch: Any
+    ) -> None:
+        """直查零行（账本未盖章的旧窗行）→退时间窗，spend.fallback 注记原因。"""
+        conn = _FakeConn(by_run=[], by_window=[_ROW_RUN_X])
+        rows = [_ask_row(run_id="run-old")]
+        await self._collect(monkeypatch, conn, rows)
+        assert [sql for sql, _ in conn.calls] == [rerun.SPEND_SQL_BY_RUN, rerun.SPEND_SQL]
+        spend = rows[0]["spend"]
+        assert spend["method"] == "time_window"
+        assert "run_id 直查零行" in spend["fallback"]
+        assert spend["calls"] == 1
+
+    async def test_missing_run_id_goes_window_only(self, monkeypatch: Any) -> None:
+        """jsonl 行无 run_id＝只走窗 SQL，fallback 注记缺因。"""
+        conn = _FakeConn(by_run=[], by_window=[_ROW_RUN_X])
+        rows = [_ask_row()]
+        await self._collect(monkeypatch, conn, rows)
+        assert [sql for sql, _ in conn.calls] == [rerun.SPEND_SQL]
+        _, args = conn.calls[0]
+        assert args[0] == datetime(2026, 10, 9, 10, 0, 0)
+        assert args[1] == datetime(2026, 10, 9, 10, 0, 12)
+        assert args[2] == "v2.runtime.%"
+        spend = rows[0]["spend"]
+        assert spend["method"] == "time_window"
+        assert "无 run_id" in spend["fallback"]
+
+    async def test_summary_items_carry_method(self, monkeypatch: Any) -> None:
+        """摘要件 items 增 method 列（归集主路/兜底占比可审计）。"""
+        conn = _FakeConn(by_run=[_ROW_RUN_X], by_window=[])
+        rows = [_ask_row(run_id="run-x")]
+        await self._collect(monkeypatch, conn, rows)
+        s = rerun.spend_summary(
+            tag="P030DRY", base="http://localhost:8011/api/v2",
+            caller_prefix="v2.runtime.", rows=rows, generated_at="g",
+        )
+        assert s["items"][0]["method"] == "run_id"

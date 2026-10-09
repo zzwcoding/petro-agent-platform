@@ -22,13 +22,17 @@ steps 列（六步链序，chain 在 v2 流恒空）。--qid 只跑指定题（�
 
 --spend 计费归集（V2-30，Q12 对账挂账 5 清偿）：跑批后逐题从网关 spend 账本
 （PG gateway_spend_record——D5 全平台唯一账本，只读 SELECT）归集计费。
-账本 run_id 列已建（ix_gateway_spend_run）但网关 _settle 现不落值（Q12 轮
-实测 0/3095 行），故归集键＝题级时间窗〔ask_started_at, ask_ended_at〕
-（本机墙钟与账本 time 列同钟同形：东八区 naive）＋caller 前缀（v2 base
-缺省 v2.runtime.，--caller-prefix 可覆写）；session 帧 run_id 照常留档
-jsonl 行，供账本逐笔复核。归集落点：jsonl 行增 spend 字段（calls/
-fallback_calls/input_tokens/output_tokens/cost_yuan/by_caller/call_ids/
-ledger_run_ids）＋独立摘要件 {tag}-计费摘要.json（批次合计＋逐题清单）。
+归集主路（V2-33 run_id 直查）：服务侧 _settle 已盖章（GraphRunExecutor 经
+completer 协议携 run_id → 记账落 run_id 列），session 帧 run_id 即归集键——
+逐题 run_id 等值直查（ix_gateway_spend_run），jsonl 行 run_id 与账本逐笔
+ledger_run_ids 全等即对账成立。时间窗法退役为兜底（fallback 注记不静默）：
+jsonl 行缺 run_id（V1 base/帧解析失败）→题级时间窗〔ask_started_at,
+ask_ended_at〕＋caller 前缀（v2 base 缺省 v2.runtime.，--caller-prefix 可
+覆写；本机墙钟与账本 time 列同钟同形：东八区 naive）；run_id 直查零行
+（账本行未盖章的旧窗）→同样退窗并在 spend.fallback 注记原因。归集落点：
+jsonl 行增 spend 字段（calls/fallback_calls/input_tokens/output_tokens/
+cost_yuan/by_caller/call_ids/ledger_run_ids/method/fallback?）＋独立摘要件
+{tag}-计费摘要.json（批次合计＋逐题清单——items 带 method 列）。
 归集失败不中断跑批（行内 spend.error 留痕）。连接参数：PG_HOST/PG_PORT/
 PG_DB/PG_USER/PG_PASSWORD 环境量＞仓根 .env＞config/database.yaml 开发默认
 （localhost:5433/petro/petro/petro）；--spend-dsn 传整串 postgres:// DSN
@@ -61,12 +65,21 @@ from ask import asks_url, parse_frames, parse_sse_text
 HEADERS = {"X-Dev-User": "aqiang"}
 FRAMES_DIR = Path(__file__).parent.parent / "frames"
 
-# ---------- 计费归集（--spend；V2-30）----------
+# ---------- 计费归集（--spend；V2-30，V2-33 归集主路改 run_id 直查）----------
 
 _EAST8 = ZoneInfo("Asia/Shanghai")
 DOTENV_PATH = Path(__file__).resolve().parents[3] / ".env"
 
-# 账本只读归集查询（窗口含边界；caller 前缀参数化；时序稳定便于逐笔对账）
+# 主路：run_id 等值直查（V2-33——服务侧 _settle 已盖章，run_id 列逐笔有值；
+# 走 ix_gateway_spend_run 索引；时序稳定便于逐笔对账）。
+SPEND_SQL_BY_RUN = (
+    "SELECT id, time, caller, alias, model_key, input_tokens, output_tokens,"
+    " cost_yuan, fallback, run_id FROM gateway_spend_record"
+    " WHERE run_id = $1 ORDER BY time, id"
+)
+
+# 兜底：题级时间窗（V2-30 原法——jsonl 行缺 run_id 或直查零行时退此；
+# 窗口含边界；caller 前缀参数化）。
 SPEND_SQL = (
     "SELECT id, time, caller, alias, model_key, input_tokens, output_tokens,"
     " cost_yuan, fallback, run_id FROM gateway_spend_record"
@@ -132,6 +145,23 @@ def pg_connect_kwargs(*, environ: Mapping[str, str], dotenv: Mapping[str, str]) 
     }
 
 
+def ledger_query_plan(row: Mapping[str, Any], *, margin_s: float) -> dict[str, Any]:
+    """单题归集查询计划（V2-33）：run_id 直查优先；缺 run_id 时间窗兜底。
+
+    主路＝session 帧 run_id 等值直查（服务侧盖章后账本逐笔有值）；空串/纯空白
+    同缺省处理（不拿空键直查）。兜底注记（票面「时间窗法保留为 fallback」）：
+    jsonl 行缺 run_id（V1 base/帧解析失败）→时间窗；run_id 直查零行（账本行
+    未盖章的旧窗）由 collect_spend 再退窗并在 spend.fallback 注记原因。
+    """
+    rid = str(row.get("run_id") or "").strip()
+    if rid:
+        return {"method": "run_id", "run_id": rid}
+    start, end = expand_window(
+        parse_ts(row["ask_started_at"]), parse_ts(row["ask_ended_at"]), margin_s
+    )
+    return {"method": "time_window", "start": start, "end": end}
+
+
 def aggregate_ledger_rows(rows: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
     """账本行 → 单题计费聚合（sums＋by_caller＋逐笔 call_ids＋run_id 现值留档）。"""
     calls = fallback_calls = input_tokens = output_tokens = 0
@@ -194,6 +224,7 @@ def spend_summary(
             "qid": row.get("qid"),
             "group": row.get("group"),
             "run_id": row.get("run_id"),
+            "method": spend.get("method"),
             "calls": spend.get("calls", 0),
             "cost_yuan": spend.get("cost_yuan", 0.0),
             "call_ids": spend.get("call_ids", []),
@@ -223,7 +254,11 @@ async def collect_spend(
     caller_prefix: str,
     margin_s: float,
 ) -> None:
-    """跑批后逐题按时间窗查账本归集计费（只读 SELECT；失败行内留痕不断跑批）。"""
+    """跑批后逐题归集计费（V2-33 主路 run_id 直查；时间窗兜底注记不静默）。
+
+    只读 SELECT；单题归集失败行内留痕不断跑批。spend.method 记实际归集路
+    （run_id｜time_window）；spend.fallback 仅兜底行携带（原因人话注记）。
+    """
     try:
         conn = await asyncpg.connect(dsn=dsn) if dsn else await asyncpg.connect(**connect_kwargs)
     except Exception as exc:  # 连接失败＝整批计费未归集（行内留痕，跑批结果不回滚）
@@ -235,15 +270,37 @@ async def collect_spend(
     try:
         pattern = f"{caller_prefix}%" if caller_prefix else "%"
         for row in rows:
-            start, end = expand_window(
-                parse_ts(row["ask_started_at"]), parse_ts(row["ask_ended_at"]), margin_s
-            )
+            plan = ledger_query_plan(row, margin_s=margin_s)
             try:
-                ledger = await conn.fetch(SPEND_SQL, start, end, pattern)
+                fallback_note: str | None = None
+                if plan["method"] == "run_id":
+                    ledger = await conn.fetch(SPEND_SQL_BY_RUN, plan["run_id"])
+                    method = "run_id"
+                    if not ledger:
+                        # 兜底（票面 V2-33）：直查零行＝账本行未盖章（盖章前旧窗/
+                        # 旧服务版本）——退时间窗归集，注记原因不静默。
+                        method = "time_window"
+                        fallback_note = "run_id 直查零行（账本行未盖章？）——退时间窗兜底"
+                        start, end = expand_window(
+                            parse_ts(row["ask_started_at"]),
+                            parse_ts(row["ask_ended_at"]),
+                            margin_s,
+                        )
+                        ledger = await conn.fetch(SPEND_SQL, start, end, pattern)
+                else:
+                    method = "time_window"
+                    fallback_note = "jsonl 行无 run_id——时间窗兜底"
+                    ledger = await conn.fetch(
+                        SPEND_SQL, plan["start"], plan["end"], pattern
+                    )
                 row["spend"] = aggregate_ledger_rows(ledger)
+                row["spend"]["method"] = method
+                if fallback_note:
+                    row["spend"]["fallback"] = fallback_note
                 s = row["spend"]
                 print(f"[spend] {row['qid']} {s['calls']} 笔 {s['cost_yuan']} 元"
-                      f"（入 {s['input_tokens']}／出 {s['output_tokens']} tokens）")
+                      f"（入 {s['input_tokens']}／出 {s['output_tokens']} tokens"
+                      f"｜{method}）")
             except Exception as exc:  # 单题归集失败不断批次
                 row["spend"] = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
                 print(f"[spend] {row['qid']} 归集失败：{row['spend']['error']}")
