@@ -1,6 +1,6 @@
 # V2-30 · rerun 计费列＋gold 基线行（Q12 欠账清偿）
 
-状态: done（2026-10-09，P-025 验收通过·Q12 挂账 4/5 清偿）
+状态: done（2026-10-09，记账关闭——代码经 P-030 带入，gold README 基线行挂账小修批） 验收通过·Q12 挂账 4/5 清偿）
 Touches modules: （eval 工具链——eval/results/tools/）
 阻塞: 无｜被阻塞: 无
 
