@@ -1,6 +1,6 @@
 # V2-32 · Skill 处理指南资产（ontology 真源——ReAct 的"指南"）
 
-状态: 实现中（2026-10-09，P-026 已派发）
+状态: done（2026-10-09，P-026 验收通过＋收尾报告在案）
 Touches modules: （ontology/ 资产——本体仓普通目录，过 ontology/ci.sh）
 阻塞: 无（与 V2-31 并行）｜被阻塞: V2-31 消费
 
