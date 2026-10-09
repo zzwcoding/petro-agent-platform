@@ -1,8 +1,9 @@
 """knowledge.snapshot —— sem_* 台账读面快照（fixture＝问数组台账态）。
 
 specs/knowledge.md 依赖节：「sem_* fixture（问数组台账态：20 指标/11 术语/
-10 对象/5 关系）」；票面验收「从共享 PG 快照或手建 fixture 快照，跑测试不要求
-真库在场」。本模块＝手建快照：行值逐字誊自现行台账种子真源——
+10 对象/10 关系）」（关系合同值 2026-10-09 起＝10——P-029 裁决 a）；票面验收
+「从共享 PG 快照或手建 fixture 快照，跑测试不要求真库在场」。本模块＝手建
+快照：行值逐字誊自现行台账种子真源——
 
 - 指标 20 行＝bohai 五行（migrations/versions/20261005_0019_sem_ledger_seed.py
   #201~#205，slot_name/定义/口径支/争议注记照抄）＋petro 十五行
@@ -11,8 +12,9 @@ specs/knowledge.md 依赖节：「sem_* fixture（问数组台账态：20 指标
 - 术语 11 行＝TERM_SEEDS 逐字（含 expires_at 届满承载——#11 日产液
   2026-06-30 已届满即漂移标注演示源；0019 版 bohai 六术语行 211~216 已于
   2026-10-05 去重删除，不在台账态）；
-- 对象 10 行＝OBJECT_SEEDS；关系 5 行＝RELATION_SEEDS 前 5 行
-  （问数组台账态 relations＝5——G-05 扩充六~十行不在册）；
+- 对象 10 行＝OBJECT_SEEDS；关系 10 行＝RELATION_SEEDS 全 10 行
+  （G-05 扩充六~十行 2026-10-05 已落库——P-029 裁决 a：fixture 跟现行
+  台账态走，V2-35 盘点 §2.3 与种子双源逐字对账）；
 - 别名表＝ontology/petro/glossary-model.yaml terms[].aliases 全量投影
   （别名→规范单向归一，V1 B2-01 承载位同源；现值 12 键＝GLS-PETRO-012~017
   实体别名 8 键＋GLS-PETRO-002/004/005/011 术语别名 4 键——八键实体批原样
@@ -174,7 +176,7 @@ def glossary_aliases() -> tuple[tuple[str, str], ...]:
     return _GLOSSARY_ALIASES
 
 
-# ---------- 问数组台账态快照（票面钉死：20 指标/11 术语/10 对象/5 关系） ----------
+# ---------- 问数组台账态快照（票面钉死：20 指标/11 术语/10 对象/10 关系） ----------
 
 # calibers 字典键序：key/name/default（desc 不投影——见模块 docstring）。
 
@@ -332,10 +334,18 @@ def question_array_snapshot() -> LedgerSnapshot:
         RelationRow(3, "注水井 —受效→ 油井", "哪口注水井的注水，效果落在哪口油井上"),
         RelationRow(4, "措施 —作用于→ 井", "压裂 / 酸化等措施做在哪口井上"),
         RelationRow(5, "化验样 —取样自→ 井", "化验的水样取自哪口井"),
+        # —— G-05 词表扩充六~十行（2026-10-05 落库——P-029 裁决 a：fixture 跟
+        # 现行台账态走；行值逐字＝RELATION_SEEDS #6~#10 与 V2-35 盘点 §2.3）——
+        RelationRow(6, "设备 —下入→ 井筒",
+                    "套管/尾管/筛管/油管/封隔器等下到了哪口井的井筒里"),
+        RelationRow(7, "井 —射孔→ 井筒", "井对哪些井筒段做了射孔、射了多少"),
+        RelationRow(8, "设备 —坐封→ 井筒", "封隔器等在哪个深度坐封锚定"),
+        RelationRow(9, "井 —配注→ 配注层", "注水井对哪个层配水、配多少"),
+        RelationRow(10, "井 —加装→ 设备", "哪口井加装或更换了什么井口/井下设备"),
     )
     families, families_version = load_relation_families()
     return LedgerSnapshot(
-        label="问数组台账态（20 指标/11 术语/10 对象/5 关系）",
+        label="问数组台账态（20 指标/11 术语/10 对象/10 关系）",
         metrics=metrics, terms=terms, objects=objects, relations=relations,
         aliases=_GLOSSARY_ALIASES, families=families, families_version=families_version,
     )

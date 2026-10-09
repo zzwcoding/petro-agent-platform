@@ -46,6 +46,42 @@ DOTENV = _REPO_ROOT / ".env"
 _PLACEHOLDER = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}")
 
 
+class ConfigLoadError(ValueError):
+    """配置装载失败显式报错（V2-26 启动装配健壮——启动时配置缺失不裸崩两形）。
+
+    两形＝①配置文件缺失②文件在但空/database 段缺/角色段缺必需键——都换本
+    异常（报错自带哪个文件、缺什么、怎么办），替代裸 FileNotFoundError／
+    AttributeError（NoneType.get）／KeyError('driver') 与「缺 database 段
+    静默回空清单」的静默回落。ValueError 子类：调用方既有 except ValueError
+    收口面不变（D1 写回热加载收口同形）；语义仍 fail-fast 拒绝启动（M-01——
+    禁静默回落），只是报错可读可行动。
+    """
+
+
+def _load_yaml_mapping(path: Path, *, label: str) -> dict[str, Any]:
+    """yaml 文件→顶层映射（V2-26 两形收口单点——三装载器共享）。
+
+    形一（文件缺失）与形二前置（空文件/顶层非映射）在此显式报错；yaml 语法
+    错误原样透传（其文案自带行位，非裸崩形态）。label＝装载物角色（报错自释）。
+    """
+    if not path.is_file():
+        raise ConfigLoadError(
+            f"配置文件缺失：{path}（{label}）——拒绝启动；"
+            "补齐该文件或经环境量注入后重试（禁静默回落）"
+        )
+    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if raw is None:
+        raise ConfigLoadError(
+            f"配置文件为空：{path}（{label}）——拒绝启动；补齐内容后重试"
+        )
+    if not isinstance(raw, dict):
+        raise ConfigLoadError(
+            f"配置文件顶层须为映射：{path}（{label}）收到 {type(raw).__name__}"
+            "——拒绝启动"
+        )
+    return raw
+
+
 class InfraSettings(BaseSettings):
     """infra 层环境参数（.env / 环境变量注入；生产值由部署环境覆盖）。
 
@@ -182,7 +218,9 @@ def load_models_config(path: Path | None = None) -> ModelsConfig:
     """装载并解析 models.yaml（占位符解析后 pydantic 校验）；每次即热加载。"""
     global _models_cache
     target = path or MODELS_YAML
-    raw = resolve_placeholders(yaml.safe_load(target.read_text(encoding="utf-8")))
+    raw = resolve_placeholders(
+        _load_yaml_mapping(target, label="models.yaml——模型注册表真源（D1）")
+    )
     config = ModelsConfig.model_validate(raw)
     _models_cache = config
     return config
@@ -289,19 +327,49 @@ def _atomic_write_text(target: Path, text: str) -> None:
 
 _ROLES: tuple[str, ...] = ("primary", "replica", "midplatform")
 
+# 角色段必需键（DatabaseSpec 构造无默认的六键——V2-26 缺键逐个点名不裸 KeyError）。
+_REQUIRED_SPEC_KEYS: tuple[str, ...] = (
+    "driver", "host", "port", "database", "user", "password",
+)
+
 
 def load_database_specs(path: Path | None = None) -> list[DatabaseSpec]:
     """装载 config/database.yaml → DatabaseSpec 列表（角色＝primary/replica/midplatform）。
 
     凭证经 ${VAR:-默认} 注入——文件只进 git 结构与开发默认，真实凭证走环境。
+    文件缺失/空文件/database 段缺/角色段缺必需键＝ConfigLoadError 显式拒绝
+    启动（V2-26——含旧形「缺段静默回空清单」的静默回落一并收口）。
     """
     target = path or DATABASE_YAML
-    raw = resolve_placeholders(yaml.safe_load(target.read_text(encoding="utf-8")))
+    raw = resolve_placeholders(
+        _load_yaml_mapping(target, label="database.yaml——库连接规格（99 §4.1）")
+    )
+    database_body = raw.get("database")
+    if database_body is None:
+        raise ConfigLoadError(
+            f"database.yaml 缺 database 段：{target}——拒绝启动（99 §4.1 三角色）"
+        )
+    if not isinstance(database_body, dict):
+        raise ConfigLoadError(
+            f"database.yaml database 段须为映射：{target} 收到 "
+            f"{type(database_body).__name__}——拒绝启动"
+        )
     specs: list[DatabaseSpec] = []
-    for role_key, body in (raw.get("database") or {}).items():
+    for role_key, body in database_body.items():
         if role_key not in _ROLES:
             raise ValueError(f"未登记的数据库角色: {role_key!r}（99 §4.1 三角色）")
+        if not isinstance(body, dict):
+            raise ConfigLoadError(
+                f"database.yaml 角色 {role_key!r} 段须为映射：{target} 收到 "
+                f"{type(body).__name__}——拒绝启动"
+            )
         entry = dict(body)
+        missing = [key for key in _REQUIRED_SPEC_KEYS if key not in entry]
+        if missing:
+            raise ConfigLoadError(
+                f"database.yaml 角色 {role_key!r} 缺必需键 {missing}：{target}"
+                "——拒绝启动（必需键＝driver/host/port/database/user/password）"
+            )
         specs.append(
             DatabaseSpec(
                 name=entry.pop("name", role_key),
@@ -366,11 +434,15 @@ def load_chat_settings(path: Path | None = None) -> ChatSettings:
     """装载 config/database.yaml `chat:` 段（占位符解析后 pydantic 校验）。
 
     与 load_database_specs 同源同文件——${VAR:-默认} 经环境变量或 .env 解析；
-    段缺省＝ChatSettings()（缺省 true＝现状）。每次调用即重读文件。
+    段缺省＝ChatSettings()（缺省 true＝现状，登记过的旧部署形态语义——不在
+    V2-26 收口域）；文件缺失/空文件＝ConfigLoadError 显式拒绝启动。每次调用
+    即重读文件。
     """
     target = path or DATABASE_YAML
-    raw = resolve_placeholders(yaml.safe_load(target.read_text(encoding="utf-8")))
-    return ChatSettings.model_validate((raw or {}).get("chat") or {})
+    raw = resolve_placeholders(
+        _load_yaml_mapping(target, label="database.yaml——库连接规格（chat 开关同文件）")
+    )
+    return ChatSettings.model_validate(raw.get("chat") or {})
 
 
 def get_chat_settings() -> ChatSettings:

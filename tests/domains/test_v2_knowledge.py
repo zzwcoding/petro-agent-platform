@@ -17,8 +17,10 @@
   返回容器为副本（外部改写不渗入）、seam 无写方法。
 
 fixture＝问数组台账态（eval/answers/问数组-题目与答案.md「数据真源与版本绑定」：
-20 指标/11 术语/10 对象/5 关系——手建快照，真库不在场；seam 级
-InMemoryKnowledgeStore）。时钟注入固定 today（届满判定确定性，不吃墙上时钟）。
+20 指标/11 术语/10 对象/10 关系——手建快照，真库不在场；seam 级
+InMemoryKnowledgeStore。关系合同值 2026-10-09 起＝10——G-05 扩充行已落库，
+P-029 裁决 a：fixture 跟现行台账态走，H2 增补行值逐字誊种子）。
+时钟注入固定 today（届满判定确定性，不吃墙上时钟）。
 """
 
 from copy import deepcopy
@@ -186,12 +188,13 @@ def test_readonly_inv2() -> None:
     assert store.aliases() != {}
     assert store.families() != {}
     # fixture 台账态计数钉死（验收④：问数组台账态 20 指标/11 术语/10 对象/
-    # 5 关系——浏览态逐类清点；族标注行＝导出物十行）。
+    # 10 关系——G-05 扩充行在册（P-029 裁决 a）——浏览态逐类清点；族标注行＝
+    # 导出物十行，与真库 relations 已同步）。
     expected_counts = {
         KIND_METRIC: 20,
         KIND_TERM: 11,
         KIND_OBJECT: 10,
-        KIND_RELATION: 5,
+        KIND_RELATION: 10,
         KIND_FAMILY: 10,
     }
     for kind, expected in expected_counts.items():
