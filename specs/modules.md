@@ -98,7 +98,8 @@ observations 带 fragment 出处链（fragment→report→library），window_no
 
 ## tools
 
-职责: 把 engines 包装成 agent 可调用的只读工具；统一 Observation schema、错误分类、ASK 结果形态
+职责: 把 engines 包装成 agent 可调用的只读工具；统一 Observation schema、错误分类、ASK 结果形态；
+前置条件机（纯固定代码闸件——V2-34 落位本层，runtime 前置相位逐子问题消费，零 LLM）
 目录: `appv2/tools/`
 
 ### 公开接口
@@ -107,10 +108,14 @@ class ToolRegistry:
     def descriptors(self) -> list[ToolDescriptor]: ...      # 渐进披露：名称/描述/参数schema/只读声明
     async def call(self, name: str, args: dict, ctx: ToolContext) -> ToolResult: ...
 ```
-四工具：`semantic_query(question|element)` → knowledge；
+五工具：`semantic_query(question|element)` → knowledge；
 `data_query(plan_draft)` → query（draft 先经 validate）；
 `doc_retrieve(question, anchors?, family_hints?)` → retrieval；
-`graph_query(question, anchors?)` → retrieval 图谱面。
+`graph_query(question, anchors?)` → retrieval 图谱面；
+`table_schema(table?)` → 结构卡发现面（agg 三表＋sem 五账＋kb 片段清单——白名单外
+raw/lake 湖表不开放，只读零 SQL；V2-31 新增发现工具）。
+`ToolContext = {actor, budget, metric_candidates, approved_tables}`（逐调用上下文——
+外表放行态落 approved_tables，A2 裁决：不走引擎 approved_tables、不重排计划）。
 `ToolResult = {observations, status: ok|failed|ask, ask?: AskFrame}`，全部只读（INV-2）。
 
 ### 依赖
@@ -124,8 +129,11 @@ class ToolRegistry:
 
 ## runtime
 
-职责: 有界 agent loop——理解→规划→工具→观察→核验→阐述；计划状态机；预算与终止；
-Context Builder＋Manifest；Verifier；run/steps 持久化；SSE 事件流（LangGraph 实现，ADR-0002 三红线）
+职责: 有界 agent loop——一轮＝四相位：业务澄清（LLM＋discover 钻取，发射 QuestionGroup
+问题组）→工具匹配（子问题→工具/链，闭世界对账收口）→前置条件机（纯固定代码零 LLM，
+逐子问题判四态）→批量执行＋LLM 汇总；每用户输入周期 ≤3 轮部分续找（成功子结果不重跑）；
+预算与终止；Context Builder＋Manifest＋多轮消息历史簿记（ADR-0006）；Verifier；
+run/steps 持久化；SSE 事件流（LangGraph 实现，ADR-0002 三红线；ADR-0004/0005/0006 终态）
 目录: `appv2/runtime/`
 
 ### 公开接口
@@ -134,9 +142,13 @@ class AgentRuntime:
     async def ask(self, q: AskRequest) -> RunHandle: ...        # 建 run，返 run_id＋事件流游标
     async def resume(self, run_id: str, choice: AskChoice) -> RunHandle: ...
 class ContextBuilder:
-    def compile(self, run_state: RunState) -> CompiledContext: ...   # 确定性管线：过滤→排序→预算→引用化
+    def compile(self, run_state: RunState) -> CompiledContext: ...   # 确定性管线：消息历史簿记→词典层常驻注入→过滤→排序→预算→引用化
 ```
-step 类型枚举：understand/plan/tool/observe/verify/answer；每步落 step 记录（Manifest 随模型调用生成）。
+step 类型枚举（六值闭世界）：decision/discover/execute/observe/verify/answer；四相位以
+step payload 的 phase 字段标注（clarify/toolmatch/precondition/batch）；每步落 step 记录
+（Manifest 随模型调用生成；discover 每次落计数埋点：次数/查询词/命中形态）。
+QuestionGroup（LangGraph 校验单点）：subtasks[{id/question/ledger_notes/tool/chain}]，
+子问题上限 ≤4，ledger_notes 必填（台账注释纪律）。
 
 ### 依赖
 - 模块: `tools`（只许走 ToolRegistry 公开接口）、`infra`
@@ -146,9 +158,10 @@ step 类型枚举：understand/plan/tool/observe/verify/answer；每步落 step 
 ### Seam 与测试
 - Seam: AgentRuntime.ask（整个系统的 seam）；LLM completer 经 infra adapter；
   **RunCommand（ask/resume）→执行器→RunEvent 为显式接缝（ADR-0003：将来可换队列消费者，接口不变）**
-- Adapter: 剧本化 completer（按 caller 分流，replay loop 多轮）
-- 测试计划: 有界终止（步数/时长预算）/计划校验失败路径/ASK 挂起恢复/核验步拦截无据断言/
-  Manifest 每次模型调用在场/run 状态可恢复
+- Adapter: 剧本化 completer（按消息历史形态分流，多轮 replay）
+- 测试计划: 有界终止（轮数/发现预算/时长闸）/四相位端到端（分解→过闸四态→批量→失败子集回炉）/
+  前置条件机零 LLM 扫描/ASK 挂起恢复/核验拦截无据断言/Manifest 每次模型调用在场/
+  消息历史簿记（闸拒负信息在史）/run 状态可恢复
 
 ## api
 
@@ -157,11 +170,15 @@ step 类型枚举：understand/plan/tool/observe/verify/answer；每步落 step 
 
 ### 公开接口
 ```
-POST /api/v2/chat/asks            → SSE 事件流（V1 wire 形兼容＋loop 步/工具事件新形态）
+POST /api/v2/chat/asks            → SSE 事件流（入参三形态：question 提问｜resume_run_id 重连｜
+                                    question＋followup_run_id 追问续会话——前轮须 completed，
+                                    前轮消息历史随追问进新 run；重连/追问互斥同 409）
 POST /api/v2/chat/runs/{run_id}/resume   → 澄清/审批选择后续跑
-GET  /api/v2/chat/runs/{run_id}          → run 状态＋steps＋Manifest 摘要
+GET  /api/v2/chat/runs/{run_id}          → run 状态＋steps（含 payload：相位标注/discover
+                                    计数埋点/Manifest）＋Manifest 摘要
 ```
-事件类型：step/text/tool/observation/ask/verdict/citation/notice（V1 形态兼容，新增 step 与 observation）。
+事件八类闭世界：step/text/tool/observation/ask/verdict/citation/notice（V1 wire 形兼容＋
+loop 步/观察新形态——V2-36 终态口径，ADR-0004 拍板 5 演进位）。
 
 ### 依赖
 - 模块: `runtime`（业务面只许走 AgentRuntime 公开接口；组合根 create_app 例外——装配 GraphRunExecutor/PgCheckpointer/GatewayChatModel，V2-07 按组合缝采纳）、`infra`
