@@ -29,7 +29,12 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from appv2.knowledge import InMemoryKnowledgeStore, question_array_snapshot
+from appv2.knowledge import (
+    BINDING_UNBOUND,
+    Evidence,
+    InMemoryKnowledgeStore,
+    question_array_snapshot,
+)
 from appv2.query import QueryOutcome
 from appv2.runtime import (
     AskChoice,
@@ -1070,6 +1075,146 @@ async def test_four_phase_engine_ask_resume_batch_chain(tmp_path: Path) -> None:
             s for s in steps if (s.payload or {}).get("resume") is not None
         ]
         assert resume_records  # 审批回收留痕（接线①）
+    finally:
+        await db.dispose()
+
+
+# ---------- P-033c 降2 收窄：CLARIFY_CONTRACT 反问收窄（窗可锚定＝禁 ask） ----------
+
+
+def test_clarify_contract_narrows_ask_to_threshold_and_true_ambiguity() -> None:
+    """P-033c 降2 修复（真回退——合同面措辞钉）：CLARIFY_CONTRACT 反问收窄。
+
+    P033BW1 数-降2 根因（P-033b 停报闸裁决）：发射判据只有「禁再 discover」
+    面，无「禁不必要 ask」对称面——模型在台账命中＋窗可锚定下仍反问窗/粒度。
+    收窄：ask 仅限阈值判断形/真歧义两种白场；窗可锚定（拍板⑥：无时间词→
+    默认近 30 天/窗词锚定表）＝禁 ask。合同文本＝runtime 单点真源（guide.py）。"""
+    from appv2.runtime import CLARIFY_CONTRACT
+
+    assert "禁再 discover" in CLARIFY_CONTRACT  # 原对称面原样在（零漂移）
+    assert "窗可锚定＝禁 ask" in CLARIFY_CONTRACT  # 新增对称面（本拍收窄）
+    assert "阈值判断形" in CLARIFY_CONTRACT  # ask 白场一：无场景词阈值判断形
+    assert "真歧义" in CLARIFY_CONTRACT  # ask 白场二：目标/对象/口径真歧义
+    assert "默认近 30 天" in CLARIFY_CONTRACT  # 拍板⑥默认窗（无时间词）
+
+
+async def test_four_phase_anchorable_window_skips_ask_delivers_degrade(
+    tmp_path: Path,
+) -> None:
+    """P-033c 降2 剧本钉（窗可锚定场景——收窄后行为形状回归锁）。
+
+    问句带明确时间词（去年——窗词锚定表可解析）＋台账命中（配产量在册未绑定）
+    ＝窗可锚定：收窄后模型直发分解（不做窗/粒度反问），全链零 ask 帧零挂起，
+    降级解释如实交付（unbound_degrade 依据 notice 在场——P033BW1 数-降2
+    「该答未答转反问 ✅→⚠️」病灶的反面钉）；收窄合同面随 clarify 指令装载。"""
+    engine = FourPhaseEngine(
+        [
+            QueryOutcome.unbound_degrade(
+                evidence=Evidence(
+                    element_id="201",
+                    kind="metric",
+                    value="配产量（单位：吨）——在册未绑定 agg 计量列",
+                    source="sem_metric#201",
+                    version=None,
+                    freshness="",
+                    scope="日",
+                    binding_state=BINDING_UNBOUND,
+                ),
+                basis=(
+                    "配产量在册未绑定汇总层计量列（源列在湖表，未进 agg 出数口径）"
+                    "——降级解释，零数值不冒充。"
+                ),
+            )
+        ],
+        slots=frozenset({"日产油量", "日产液量", "油压", "含水率", "配产量"}),
+    )
+    clarify = json.dumps({
+        "action": "decompose",
+        "question_group": {"subtasks": [
+            {"id": "s1", "question": "去年各井配产量",
+             "ledger_notes": "配产量｜在册未绑定｜窗 2025-01-01~2026-01-01",
+             "chain": "data"},
+        ]},
+    }, ensure_ascii=False)
+    toolmatch = json.dumps({"matches": [
+        {"id": "s1", "chain": "data", "tool": "data_query", "plan": {
+            "metric_slot": "配产量", "ranking": False,
+            "window_start": "2025-01-01", "window_end": "2026-01-01"}},
+    ]}, ensure_ascii=False)
+    script = {
+        "v2.runtime.understand": [UNDERSTAND_MULTI],
+        "v2.runtime.decision": [clarify, toolmatch],
+        "v2.runtime.answer": [
+            "未找到（口径未绑定）：配产量在册未绑定汇总层计量列——降级解释，"
+            "零数值不冒充。",
+        ],
+    }
+    runtime, completer, db = await make_runtime(
+        tmp_path, engine=engine, script=script,
+        four_phase=True, ledger_dump=lambda: dict(LEDGER_DUMP),
+    )
+    try:
+        events = await _run_question(runtime, "去年各井配产量是多少？")
+        final = events[-1].data
+        assert final["status"] == "completed"  # 窗可锚定零 ask——不挂起直收口
+        assert not [e for e in events if e.event == "ask"]  # 全链零 ask 帧
+        # 收窄合同面随 clarify 指令在场（runtime 消费缝装载到位——非死文本）
+        first_decision = completer.messages_of("v2.runtime.decision")[0][-1]["content"]
+        assert "窗可锚定＝禁 ask" in first_decision
+        # 降级解释如实交付（引擎降级依据 notice 在场）
+        notices = [e.data for e in events if e.event == "notice"]
+        assert any(n.get("type") == "unbound_degrade" for n in notices)
+    finally:
+        await db.dispose()
+
+
+async def test_four_phase_clarify_ask_threshold_form_still_suspends_and_resumes(
+    tmp_path: Path,
+) -> None:
+    """P-033c 收窄钉（阈值判断形反问仍通）：ask 白场（无场景词阈值判断形——
+    口径支待用户选）在 clarify 相位照常发射→真挂起→resume 回喂→分解续跑收口。
+    收窄只禁窗可锚定下的不必要反问，不禁阈值判断形/真歧义白场（挂起不占轮）。"""
+    engine = FourPhaseEngine([_rows_outcome()])
+    ask_first = json.dumps({
+        "action": "ask",
+        "ask": {"prompt": "含水率按哪支口径判断阈值？",
+                "options": ["A 月报口径", "B 化验实测"]},
+    }, ensure_ascii=False)
+    clarify_after = json.dumps({
+        "action": "decompose",
+        "question_group": {"subtasks": [
+            {"id": "s1", "question": "各井含水率按化验实测口径是否超过 30",
+             "ledger_notes": "含水率｜在册未绑定｜口径支 B（化验实测）",
+             "chain": "data"},
+        ]},
+    }, ensure_ascii=False)
+    toolmatch = json.dumps({"matches": [
+        {"id": "s1", "chain": "data", "tool": "data_query", "plan": {
+            "metric_slot": "含水率", "ranking": False, "caliber_key": "B",
+            "window_start": "2025-01-01", "window_end": "2026-01-01"}},
+    ]}, ensure_ascii=False)
+    script = {
+        "v2.runtime.understand": [UNDERSTAND_MULTI],
+        "v2.runtime.decision": [ask_first, clarify_after, toolmatch],
+        "v2.runtime.answer": [_SUMMARY_DRAFT],
+    }
+    runtime, _completer, db = await make_runtime(
+        tmp_path, engine=engine, script=script,
+        four_phase=True, ledger_dump=lambda: dict(LEDGER_DUMP),
+    )
+    try:
+        events = await _run_question(runtime, "各井含水率是否超过 30？")
+        asks = [e.data for e in events if e.event == "ask"]
+        assert asks and asks[-1]["frame"]["kind"] == "clarify"  # 真挂起帧
+        assert asks[-1]["frame"]["options"] == ["A 月报口径", "B 化验实测"]
+        store = RunStore(db)
+        run_row = await store.get_run(asks[-1]["run_id"])
+        assert run_row is not None and run_row.status == "waiting_ask"
+        # resume：用户选定口径支→回喂分解→批量恰一次执行→收口
+        handle = await runtime.resume(run_row.run_id, AskChoice(value="B 化验实测"))
+        events2 = await drain(handle)
+        assert events2[-1].data["status"] == "completed"
+        assert engine.run_calls == 1
     finally:
         await db.dispose()
 
