@@ -1,0 +1,2 @@
+{"qid": "A-正6", "group": "A", "question": "W-111 井是干什么的？", "chain": "检索问答链", "answer_head": "W-111 井是一口**观察井**，不承担生产任务，主要用于油藏压力监测与注水推进观察 [《A-W11井完井工程报告》 · 章节 01 第一章 井基本情况 ＞ 1.1 井位与井别]。\n\n补充信息：\n- 压力计于 2026 年 6 月 30 ", "citations": 2, "duration_s": 6.4, "frame_file": "P015V1-A-正6.json", "error": null}
+{"qid": "系统-FAQ秒回", "group": "SYS", "question": "N-02 井是什么时候投产的？", "chain": "FAQ直出链", "answer_head": "2019-06-15 投产。\n\n[FAQ「N-02 井是什么时候投产的？」]", "citations": 1, "duration_s": 0.6, "frame_file": "P015V1-系统-FAQ秒回.json", "error": null}

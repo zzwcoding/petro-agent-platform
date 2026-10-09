@@ -1,0 +1,1 @@
+{"qid": "数-明1", "group": "DATA", "question": "去年各井每天的日产油量是多少？", "chain": null, "answer_head": "未找到（材料未披露）：## 答案\n\n未找到（材料未披露）：**无法完整作答。** 题目要求\"去年全年各井逐日的日产油量明细\"，但给定观察材料仅覆盖 **2025-09-01 单日** 的数据，且井号范围为 **N-01 至 N-24**（共", "citations": 0, "duration_s": 5.7, "frame_file": "P015V2-数-明1.json", "error": null, "steps": "understand→plan→tool→observe→verify→answer"}
