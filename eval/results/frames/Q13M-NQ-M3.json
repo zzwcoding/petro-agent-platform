@@ -1,0 +1,210 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-a90dd939",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问本油田本月电潜泵生产井的躺井井次和检泵作业井次，并要求分别从第一章和第二章获取；若报告未按电潜泵口径统计，则需引用原文说明并给出实际躺井/检泵井次所在的井型。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问本油田本月电潜泵生产井的躺井井次和检泵作业井次，并要求分别从第一章和第二章获取；若报告未按电潜泵口径统计，则需引用原文说明并给出实际躺井/检泵井次所在的井型。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清钻取 ×1（semantic_query）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 3,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 7,
+   "event": "notice",
+   "data": {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：躺井井次 检泵作业井次 电潜泵生产井 月报统计口径（精确名与别名归一均未命中——请核对要素名）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：躺井井次 检泵作业井次 电潜泵生产井 月报统计口径（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r1 被拒：澄清发射不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "澄清 r2：反问（本油田本月躺井/检泵作业数据未在台账中按「电潜泵）"
+   }
+  },
+  {
+   "id": 11,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "本油田本月躺井/检泵作业数据未在台账中按「电潜泵生产井」口径绑定，仅有井级停产待检泵(躺井)别名。请确认按以下哪种口径取数？",
+     "options": [
+      "按全油田停产待检泵(躺井)口径取数（不限电潜泵）",
+      "按全油田检泵作业井次取数（不限电潜泵）",
+      "不取数，仅在报告中检索第一章/第二章的明示口径原文"
+     ],
+     "detail": null
+    },
+    "run_id": "run-a90dd939"
+   }
+  },
+  {
+   "id": 12,
+   "event": "done",
+   "data": {
+    "run_id": "run-a90dd939"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问本油田本月电潜泵生产井的躺井井次和检泵作业井次，并要求分别从第一章和第二章获取；若报告未按电潜泵口径统计，则需引用原文说明并给出实际躺井/检泵井次所在的井型。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：躺井井次 检泵作业井次 电潜泵生产井 月报统计口径（精确名与别名归一均未命中——请核对要素名）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-a90dd939",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问本油田本月电潜泵生产井的躺井井次和检泵作业井次，并要求分别从第一章和第二章获取；若报告未按电潜泵口径统计，则需引用原文说明并给出实际躺井/检泵井次所在的井型。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清钻取 ×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 3,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r1 被拒：澄清发射不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "澄清 r2：反问（本油田本月躺井/检泵作业数据未在台账中按「电潜泵）"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：躺井井次 检泵作业井次 电潜泵生产井 月报统计口径（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  ],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "本油田本月躺井/检泵作业数据未在台账中按「电潜泵生产井」口径绑定，仅有井级停产待检泵(躺井)别名。请确认按以下哪种口径取数？",
+     "options": [
+      "按全油田停产待检泵(躺井)口径取数（不限电潜泵）",
+      "按全油田检泵作业井次取数（不限电潜泵）",
+      "不取数，仅在报告中检索第一章/第二章的明示口径原文"
+     ],
+     "detail": null
+    },
+    "run_id": "run-a90dd939"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "问本油田本月电潜泵生产井的躺井井次和检泵作业井次，并要求分别从第一章和第二章获取；若报告未按电潜泵口径统计，则需引用原文说明并给出实际躺井/检泵井次所在的井型。"
+  ],
+  "duration_s": 8.1
+ }
+}

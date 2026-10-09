@@ -1,0 +1,105 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-cdfde2db",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问近三年（即当前年及前两年）每年 8 月的平均检泵周期变化趋势。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问近三年（即当前年及前两年）每年 8 月的平均检泵周期变化趋势。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「近三年」需明确起止范围，请选择：）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「近三年」需明确起止范围，请选择：",
+     "options": [
+      "近三年＝2024、2025、2026（截至当前）三个年份",
+      "近三年＝2023、2024、2025 三个完整年",
+      "仅指当前年前两年（默认 2024、2025）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-cdfde2db"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-cdfde2db"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问近三年（即当前年及前两年）每年 8 月的平均检泵周期变化趋势。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-cdfde2db",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问近三年（即当前年及前两年）每年 8 月的平均检泵周期变化趋势。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「近三年」需明确起止范围，请选择：）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「近三年」需明确起止范围，请选择：",
+     "options": [
+      "近三年＝2024、2025、2026（截至当前）三个年份",
+      "近三年＝2023、2024、2025 三个完整年",
+      "仅指当前年前两年（默认 2024、2025）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-cdfde2db"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "问近三年（即当前年及前两年）每年 8 月的平均检泵周期变化趋势。"
+  ],
+  "duration_s": 5.0
+ }
+}

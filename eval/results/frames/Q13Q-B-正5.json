@@ -1,0 +1,105 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-a5db31d8",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问本月执行的三项躺井治理措施的具体内容。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问本月执行的三项躺井治理措施的具体内容。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「躺井治理措施」属于作业区治理行动事实（措施名/）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「躺井治理措施」属于作业区治理行动事实（措施名/批次/工序），不在可出数指标名册内。请确认您想怎么收这道题：",
+     "options": [
+      "按文档事实检索：本月躺井治理三项措施名+所属工序（走 doc_retrieve 检索月报/动态片段）",
+      "按数据查询：本月躺井井次与措施有效率指标（走 data_query，绑措施有效率 η 指标）",
+      "两者都要：措施名（文档）+ 躺井井次/有效率（数据）混合执行"
+     ],
+     "detail": null
+    },
+    "run_id": "run-a5db31d8"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-a5db31d8"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问本月执行的三项躺井治理措施的具体内容。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-a5db31d8",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问本月执行的三项躺井治理措施的具体内容。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「躺井治理措施」属于作业区治理行动事实（措施名/）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「躺井治理措施」属于作业区治理行动事实（措施名/批次/工序），不在可出数指标名册内。请确认您想怎么收这道题：",
+     "options": [
+      "按文档事实检索：本月躺井治理三项措施名+所属工序（走 doc_retrieve 检索月报/动态片段）",
+      "按数据查询：本月躺井井次与措施有效率指标（走 data_query，绑措施有效率 η 指标）",
+      "两者都要：措施名（文档）+ 躺井井次/有效率（数据）混合执行"
+     ],
+     "detail": null
+    },
+    "run_id": "run-a5db31d8"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "问本月执行的三项躺井治理措施的具体内容。"
+  ],
+  "duration_s": 7.0
+ }
+}

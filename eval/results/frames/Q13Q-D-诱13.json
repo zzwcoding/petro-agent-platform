@@ -1,0 +1,107 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-e9b0504f",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问 W-11 井井下安全阀（SCSSV）的下深、液控管线长度以及地面功能试验液控压力，并问附录中关于下深与管线长度关系的注明内容。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问 W-11 井井下安全阀（SCSSV）的下深、液控管线长度以及地面功能试验液控压力，并问附录中关于下深与管线长度关系的注明内容。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（您问的「W-11 井井下安全阀（SCSSV）下深）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "您问的「W-11 井井下安全阀（SCSSV）下深 / 液控管线长度 / 地面功能试验液控压力」属于完井工程参数，应在完井报告（completion 族）里查；但观察材料为空，需先确认取数来源。请补一句话明确取数路径：",
+     "options": [
+      "走 doc_retrieve 检索完井报告（completion 族），从 W-11 井完井报告抽取 SCSSV 下深、液控管线长度、地面功能试验液控压力及附录注明",
+      "先请上传 W-11 井完井报告原文/附录，我据此抽取上述三项及关系注明",
+      "换查 sem_object「井」+ 关系「设备—下入→井筒」/「设备—坐封→井筒」台账，看 SCSSV 是否作为设备对象在册可绑",
+      "放弃本次查询（信息不足，无法据台账出数）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-e9b0504f"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-e9b0504f"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问 W-11 井井下安全阀（SCSSV）的下深、液控管线长度以及地面功能试验液控压力，并问附录中关于下深与管线长度关系的注明内容。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-e9b0504f",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问 W-11 井井下安全阀（SCSSV）的下深、液控管线长度以及地面功能试验液控压力，并问附录中关于下深与管线长度关系的注明内容。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（您问的「W-11 井井下安全阀（SCSSV）下深）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "您问的「W-11 井井下安全阀（SCSSV）下深 / 液控管线长度 / 地面功能试验液控压力」属于完井工程参数，应在完井报告（completion 族）里查；但观察材料为空，需先确认取数来源。请补一句话明确取数路径：",
+     "options": [
+      "走 doc_retrieve 检索完井报告（completion 族），从 W-11 井完井报告抽取 SCSSV 下深、液控管线长度、地面功能试验液控压力及附录注明",
+      "先请上传 W-11 井完井报告原文/附录，我据此抽取上述三项及关系注明",
+      "换查 sem_object「井」+ 关系「设备—下入→井筒」/「设备—坐封→井筒」台账，看 SCSSV 是否作为设备对象在册可绑",
+      "放弃本次查询（信息不足，无法据台账出数）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-e9b0504f"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "问 W-11 井井下安全阀（SCSSV）的下深、液控管线长度以及地面功能试验液控压力，并问附录中关于下深与管线长度关系的注明内容。"
+  ],
+  "duration_s": 6.2
+ }
+}

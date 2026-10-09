@@ -1,0 +1,322 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-d2e8fa70",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "询问第三章吸水剖面汇总表中 Y-28 井的测试与注水数据，以及本轮治理中欠注井的认定、配注合格率统计口径和 Y-27、Y-29 的井别。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "询问第三章吸水剖面汇总表中 Y-28 井的测试与注水数据，以及本轮治理中欠注井的认定、配注合格率统计口径和 Y-27、Y-29 的井别。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清钻取 ×2（semantic_query、semantic_query）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 3,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 7,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_term#9",
+    "content": "配注合格率（术语 · 有效）：分层实注 / 配注 达标井次占比",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 8,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 5,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 6,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 11,
+   "event": "notice",
+   "data": {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：吸水剖面（精确名与别名归一均未命中——请核对要素名）"
+   }
+  },
+  {
+   "id": 12,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：吸水剖面（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "澄清 r1：分解 4 子问题"
+   }
+  },
+  {
+   "id": 14,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "工具匹配 r2 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   }
+  },
+  {
+   "id": 15,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 9,
+    "title": "工具匹配 r3 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 10,
+    "title": "工具匹配 r4 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   }
+  },
+  {
+   "id": 17,
+   "event": "notice",
+   "data": {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：核验（verify）/阐述（answer）未执行。已交付已取得部分，不静默截断。"
+   }
+  },
+  {
+   "id": 18,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 11,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 19,
+   "event": "text",
+   "data": {
+    "content": "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 配注合格率（术语 · 有效）：分层实注 / 配注 达标井次占比\n- 台账未命中：吸水剖面（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：吸水剖面（精确名与别名归一均未命中——请核对要素名）"
+   }
+  },
+  {
+   "id": 20,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-d2e8fa70",
+    "manifest_digest": "01dda55c2706688065cd41bd7bfe56b499edbdcb48b07359792749573d9178d5"
+   }
+  },
+  {
+   "id": 21,
+   "event": "done",
+   "data": {
+    "run_id": "run-d2e8fa70"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 配注合格率（术语 · 有效）：分层实注 / 配注 达标井次占比\n- 台账未命中：吸水剖面（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：吸水剖面（精确名与别名归一均未命中——请核对要素名）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：吸水剖面（精确名与别名归一均未命中——请核对要素名）"
+   },
+   {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：核验（verify）/阐述（answer）未执行。已交付已取得部分，不静默截断。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-d2e8fa70",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "询问第三章吸水剖面汇总表中 Y-28 井的测试与注水数据，以及本轮治理中欠注井的认定、配注合格率统计口径和 Y-27、Y-29 的井别。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清钻取 ×2（semantic_query、semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 3,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "discover",
+    "seq": 5,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 6,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "澄清 r1：分解 4 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "工具匹配 r2 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   },
+   {
+    "step": "decision",
+    "seq": 9,
+    "title": "工具匹配 r3 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   },
+   {
+    "step": "decision",
+    "seq": 10,
+    "title": "工具匹配 r4 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   },
+   {
+    "step": "answer",
+    "seq": 11,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_term#9",
+    "content": "配注合格率（术语 · 有效）：分层实注 / 配注 达标井次占比",
+    "trust": "ledger"
+   },
+   {
+    "index": 2,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：吸水剖面（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-d2e8fa70",
+   "manifest_digest": "01dda55c2706688065cd41bd7bfe56b499edbdcb48b07359792749573d9178d5"
+  },
+  "texts": [
+   "询问第三章吸水剖面汇总表中 Y-28 井的测试与注水数据，以及本轮治理中欠注井的认定、配注合格率统计口径和 Y-27、Y-29 的井别。",
+   "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 配注合格率（术语 · 有效）：分层实注 / 配注 达标井次占比\n- 台账未命中：吸水剖面（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：吸水剖面（精确名与别名归一均未命中——请核对要素名）"
+  ],
+  "duration_s": 21.5
+ }
+}

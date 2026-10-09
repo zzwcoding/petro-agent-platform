@@ -1,0 +1,121 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-58346635",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问W-11井投产后预计的躺井率。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问W-11井投产后预计的躺井率。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1 被拒：action 缺失或越界（ask/decompose/discover 三值）：'finalize'"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r2：反问（「躺井率」需明确口径，W-11 井投产后预计的躺）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「躺井率」需明确口径，W-11 井投产后预计的躺井率属于哪种口径？",
+     "options": [
+      "抽油机时率的反义口径（Σ停产待检泵天数÷Σ日历天×100%，台账外派生)",
+      "停产待检泵井次占比（停产待检泵井数÷总井数×100%，台账外派生)",
+      "躺井天数占投产计划天数比（投产动态表口径，需 doc_retrieve 查设计文档)",
+      "由抽油机时率反算（100%−抽油机时率，台账可指认·指标名册未列·按派生口径处理）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-58346635"
+   }
+  },
+  {
+   "id": 6,
+   "event": "done",
+   "data": {
+    "run_id": "run-58346635"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问W-11井投产后预计的躺井率。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-58346635",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问W-11井投产后预计的躺井率。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1 被拒：action 缺失或越界（ask/decompose/discover 三值）：'finalize'"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r2：反问（「躺井率」需明确口径，W-11 井投产后预计的躺）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「躺井率」需明确口径，W-11 井投产后预计的躺井率属于哪种口径？",
+     "options": [
+      "抽油机时率的反义口径（Σ停产待检泵天数÷Σ日历天×100%，台账外派生)",
+      "停产待检泵井次占比（停产待检泵井数÷总井数×100%，台账外派生)",
+      "躺井天数占投产计划天数比（投产动态表口径，需 doc_retrieve 查设计文档)",
+      "由抽油机时率反算（100%−抽油机时率，台账可指认·指标名册未列·按派生口径处理）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-58346635"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "问W-11井投产后预计的躺井率。"
+  ],
+  "duration_s": 5.9
+ }
+}

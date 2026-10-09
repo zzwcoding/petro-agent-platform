@@ -1,0 +1,75 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-6d39e0ed",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问第一章五项时率损失的具体百分点构成，以及\"计划性检泵 0.6 个百分点\"与第二章两口井的对应关系、躺井/检泵统计归属，并辨析第一章两处\"0.6 个百分点\"含义是否相同。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问第一章五项时率损失的具体百分点构成，以及\"计划性检泵 0.6 个百分点\"与第二章两口井的对应关系、躺井/检泵统计归属，并辨析第一章两处\"0.6 个百分点\"含义是否相同。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "notice",
+   "data": {
+    "type": "run_failed",
+    "gates": [],
+    "content": "run 执行失败：模型调用失败 alias='petro-main': 上游拒绝 429: RateLimitError"
+   }
+  },
+  {
+   "id": 4,
+   "event": "done",
+   "data": {
+    "run_id": "run-6d39e0ed"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问第一章五项时率损失的具体百分点构成，以及\"计划性检泵 0.6 个百分点\"与第二章两口井的对应关系、躺井/检泵统计归属，并辨析第一章两处\"0.6 个百分点\"含义是否相同。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "run_failed",
+    "gates": [],
+    "content": "run 执行失败：模型调用失败 alias='petro-main': 上游拒绝 429: RateLimitError"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-6d39e0ed",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问第一章五项时率损失的具体百分点构成，以及\"计划性检泵 0.6 个百分点\"与第二章两口井的对应关系、躺井/检泵统计归属，并辨析第一章两处\"0.6 个百分点\"含义是否相同。"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "问第一章五项时率损失的具体百分点构成，以及\"计划性检泵 0.6 个百分点\"与第二章两口井的对应关系、躺井/检泵统计归属，并辨析第一章两处\"0.6 个百分点\"含义是否相同。"
+  ],
+  "duration_s": 2.4
+ }
+}

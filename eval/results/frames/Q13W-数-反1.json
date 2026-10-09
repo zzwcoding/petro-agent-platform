@@ -1,0 +1,107 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-0211d6b5",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问最近各井的日产油量情况。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问最近各井的日产油量情况。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「最近」时间窗不明,请明确要查哪个时段?）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「最近」时间窗不明,请明确要查哪个时段?",
+     "options": [
+      "近 7 天",
+      "近 30 天",
+      "本月（2026-08-01 至今）",
+      "近 90 天"
+     ],
+     "detail": null
+    },
+    "run_id": "run-0211d6b5"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-0211d6b5"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问最近各井的日产油量情况。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-0211d6b5",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问最近各井的日产油量情况。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「最近」时间窗不明,请明确要查哪个时段?）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「最近」时间窗不明,请明确要查哪个时段?",
+     "options": [
+      "近 7 天",
+      "近 30 天",
+      "本月（2026-08-01 至今）",
+      "近 90 天"
+     ],
+     "detail": null
+    },
+    "run_id": "run-0211d6b5"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "问最近各井的日产油量情况。"
+  ],
+  "duration_s": 4.0
+ }
+}

@@ -1,0 +1,314 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-d3d79aa6",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "按台账口径，统计8月5口检泵井中检泵周期最长的井及其天数，计算最短井与最长井的周期差，并汇总这5口井的检泵作业费合计。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "按台账口径，统计8月5口检泵井中检泵周期最长的井及其天数，计算最短井与最长井的周期差，并汇总这5口井的检泵作业费合计。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 2 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：2 条定案"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note｜s2=blocked_refuse"
+   }
+  },
+  {
+   "id": 6,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：ok（子问题 s1）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#13",
+    "content": "☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 9,
+   "event": "notice",
+   "data": {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—"
+   }
+  },
+  {
+   "id": 10,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 6,
+    "title": "批量汇聚 2 支"
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 7,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 8,
+    "title": "核验：支撑 1｜改写 1｜分源 否"
+   }
+  },
+  {
+   "id": 14,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 1,
+    "rewritten": 1,
+    "split": false,
+    "cited": [
+     1
+    ]
+   }
+  },
+  {
+   "id": 15,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 1 行（INV-1——禁止无据断言进答案）"
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 9,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 17,
+   "event": "citation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#13",
+    "source_id": "13",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 18,
+   "event": "text",
+   "data": {
+    "content": "理解：本轮已根据台账指标定义完成对检泵周期最长井的排名，并就检泵作业费的拒答情况如实转述。\n指标候选：检泵周期,检泵作业费\n\n【汇总答复】\n\n- **[s1] 检泵周期最长井及最短差值** [1]：按台账口径「检泵周期＝本次检泵日 − 上次检泵日」（单位：天，粒度：单井），2026-08-01 至 2026-08-31 窗内检泵井中检泵周期最长井及其天数、以及最短井与最长井的周期差——**台账全量指标定义已给出 [1]，但观察材料未返回具体井号与天数行集，无法断言是哪口井、多少天、短多少天**。\n\n未找到（材料未披露）：- **[s2] 5 口井检泵作业费合计**：「检泵作业费」**不在台账全量目录中，被确定性校验拒答（不在目录不代答；台账闭世界校验）**，故无法出具合计金额。\n\n引用：\n[1] sem_metric#13 · 13（ledger）"
+   }
+  },
+  {
+   "id": 19,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-d3d79aa6",
+    "manifest_digest": "aca8df94ee22cf7d4fe97af9960ab48fcff67cd9a50def8518be0b70c273325a"
+   }
+  },
+  {
+   "id": 20,
+   "event": "done",
+   "data": {
+    "run_id": "run-d3d79aa6"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "理解：本轮已根据台账指标定义完成对检泵周期最长井的排名，并就检泵作业费的拒答情况如实转述。\n指标候选：检泵周期,检泵作业费\n\n【汇总答复】\n\n- **[s1] 检泵周期最长井及最短差值** [1]：按台账口径「检泵周期＝本次检泵日 − 上次检泵日」（单位：天，粒度：单井），2026-08-01 至 2026-08-31 窗内检泵井中检泵周期最长井及其天数、以及最短井与最长井的周期差——**台账全量指标定义已给出 [1]，但观察材料未返回具体井号与天数行集，无法断言是哪口井、多少天、短多少天**。\n\n未找到（材料未披露）：- **[s2] 5 口井检泵作业费合计**：「检泵作业费」**不在台账全量目录中，被确定性校验拒答（不在目录不代答；台账闭世界校验）**，故无法出具合计金额。\n\n引用：\n[1] sem_metric#13 · 13（ledger）",
+  "citations": [
+   {
+    "index": 1,
+    "source": "sem_metric#13",
+    "source_id": "13",
+    "trust": "ledger"
+   }
+  ],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—"
+   },
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 1 行（INV-1——禁止无据断言进答案）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-d3d79aa6",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "按台账口径，统计8月5口检泵井中检泵周期最长的井及其天数，计算最短井与最长井的周期差，并汇总这5口井的检泵作业费合计。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 2 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：2 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note｜s2=blocked_refuse"
+   },
+   {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：ok（子问题 s1）"
+   },
+   {
+    "step": "observe",
+    "seq": 6,
+    "title": "批量汇聚 2 支"
+   },
+   {
+    "step": "answer",
+    "seq": 7,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 8,
+    "title": "核验：支撑 1｜改写 1｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 9,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_metric#13",
+    "content": "☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "ledger"
+   },
+   {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 1,
+    "rewritten": 1,
+    "split": false,
+    "cited": [
+     1
+    ]
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-d3d79aa6",
+   "manifest_digest": "aca8df94ee22cf7d4fe97af9960ab48fcff67cd9a50def8518be0b70c273325a"
+  },
+  "texts": [
+   "按台账口径，统计8月5口检泵井中检泵周期最长的井及其天数，计算最短井与最长井的周期差，并汇总这5口井的检泵作业费合计。",
+   "理解：本轮已根据台账指标定义完成对检泵周期最长井的排名，并就检泵作业费的拒答情况如实转述。\n指标候选：检泵周期,检泵作业费\n\n【汇总答复】\n\n- **[s1] 检泵周期最长井及最短差值** [1]：按台账口径「检泵周期＝本次检泵日 − 上次检泵日」（单位：天，粒度：单井），2026-08-01 至 2026-08-31 窗内检泵井中检泵周期最长井及其天数、以及最短井与最长井的周期差——**台账全量指标定义已给出 [1]，但观察材料未返回具体井号与天数行集，无法断言是哪口井、多少天、短多少天**。\n\n未找到（材料未披露）：- **[s2] 5 口井检泵作业费合计**：「检泵作业费」**不在台账全量目录中，被确定性校验拒答（不在目录不代答；台账闭世界校验）**，故无法出具合计金额。\n\n引用：\n[1] sem_metric#13 · 13（ledger）"
+  ],
+  "duration_s": 11.0
+ }
+}

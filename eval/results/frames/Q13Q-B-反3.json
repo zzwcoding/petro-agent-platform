@@ -1,0 +1,139 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-74307812",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问渤中 34-5 油田第三季度（注：现给出的是2024年数据）的注采比数值。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问渤中 34-5 油田第三季度（注：现给出的是2024年数据）的注采比数值。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：1 条定案"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=blocked_refuse"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 5,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 7,
+   "event": "text",
+   "data": {
+    "content": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 渤中 34-5 油田 2024 年第三季度的注采比是多少？——拒因：指标 '注采比' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-74307812",
+    "manifest_digest": "d23d64184d8df799f4bf6dba75e5d049c121f2c81705ac33bc765391d14ccc2a"
+   }
+  },
+  {
+   "id": 9,
+   "event": "done",
+   "data": {
+    "run_id": "run-74307812"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 渤中 34-5 油田 2024 年第三季度的注采比是多少？——拒因：指标 '注采比' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-74307812",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问渤中 34-5 油田第三季度（注：现给出的是2024年数据）的注采比数值。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：1 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=blocked_refuse"
+   },
+   {
+    "step": "answer",
+    "seq": 5,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-74307812",
+   "manifest_digest": "d23d64184d8df799f4bf6dba75e5d049c121f2c81705ac33bc765391d14ccc2a"
+  },
+  "texts": [
+   "问渤中 34-5 油田第三季度（注：现给出的是2024年数据）的注采比数值。",
+   "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 渤中 34-5 油田 2024 年第三季度的注采比是多少？——拒因：指标 '注采比' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）"
+  ],
+  "duration_s": 6.8
+ }
+}

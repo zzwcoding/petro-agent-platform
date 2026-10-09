@@ -1,0 +1,172 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-3a12e24b",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问渤中34-5油田近三年（2024、2025、2026年）8月的平均检泵周期是否持续变差，并要求给出具体数值、说明导致变化的两项治理措施，以及确认今年杆断的3口井平均检泵周期是否为428天。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问渤中34-5油田近三年（2024、2025、2026年）8月的平均检泵周期是否持续变差，并要求给出具体数值、说明导致变化的两项治理措施，以及确认今年杆断的3口井平均检泵周期是否为428天。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 3 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配 r2 被拒：matches s2 retrieval_need 缺 question（必填非空）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "工具匹配 r3 被拒：matches s2 retrieval_need 缺 question（必填非空）"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "工具匹配 r4 被拒：matches s2 retrieval_need 缺 question（必填非空）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "notice",
+   "data": {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：工具（discover/execute）未执行或未取得观察；观察（observe）未入栈；核验（verify）/阐述（answer）未执行。未取得可交付观察材料——如实回报，不编造。"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 9,
+   "event": "text",
+   "data": {
+    "content": "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）"
+   }
+  },
+  {
+   "id": 10,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-3a12e24b",
+    "manifest_digest": "2877ff497e16be40d557dede6fc043549ecaa061c26a2e3566ebfb4ed488fdff"
+   }
+  },
+  {
+   "id": 11,
+   "event": "done",
+   "data": {
+    "run_id": "run-3a12e24b"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：工具（discover/execute）未执行或未取得观察；观察（observe）未入栈；核验（verify）/阐述（answer）未执行。未取得可交付观察材料——如实回报，不编造。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-3a12e24b",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问渤中34-5油田近三年（2024、2025、2026年）8月的平均检泵周期是否持续变差，并要求给出具体数值、说明导致变化的两项治理措施，以及确认今年杆断的3口井平均检泵周期是否为428天。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 3 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配 r2 被拒：matches s2 retrieval_need 缺 question（必填非空）"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "工具匹配 r3 被拒：matches s2 retrieval_need 缺 question（必填非空）"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "工具匹配 r4 被拒：matches s2 retrieval_need 缺 question（必填非空）"
+   },
+   {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-3a12e24b",
+   "manifest_digest": "2877ff497e16be40d557dede6fc043549ecaa061c26a2e3566ebfb4ed488fdff"
+  },
+  "texts": [
+   "问渤中34-5油田近三年（2024、2025、2026年）8月的平均检泵周期是否持续变差，并要求给出具体数值、说明导致变化的两项治理措施，以及确认今年杆断的3口井平均检泵周期是否为428天。",
+   "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）"
+  ],
+  "duration_s": 14.0
+ }
+}

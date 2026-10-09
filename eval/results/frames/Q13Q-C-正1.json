@@ -1,0 +1,105 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-4a9697d4",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问三季度（即第三季度）产量的完成率，按报告主口径统计。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问三季度（即第三季度）产量的完成率，按报告主口径统计。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「报告主口径」存在歧义，需确认数据来源：以哪份报）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「报告主口径」存在歧义，需确认数据来源：以哪份报告为口径？",
+     "options": [
+      "月度生产报表（默认·数据型）",
+      "完井工程报告（知识型·族=completion）",
+      "季度/年度综合报告（知识型）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-4a9697d4"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-4a9697d4"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问三季度（即第三季度）产量的完成率，按报告主口径统计。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-4a9697d4",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问三季度（即第三季度）产量的完成率，按报告主口径统计。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「报告主口径」存在歧义，需确认数据来源：以哪份报）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「报告主口径」存在歧义，需确认数据来源：以哪份报告为口径？",
+     "options": [
+      "月度生产报表（默认·数据型）",
+      "完井工程报告（知识型·族=completion）",
+      "季度/年度综合报告（知识型）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-4a9697d4"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "问三季度（即第三季度）产量的完成率，按报告主口径统计。"
+  ],
+  "duration_s": 2.5
+ }
+}

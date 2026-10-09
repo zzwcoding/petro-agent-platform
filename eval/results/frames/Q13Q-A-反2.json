@@ -1,0 +1,105 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-f296d64b",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问邻井 W-12 井初期（日）的日产油量数值。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问邻井 W-12 井初期（日）的日产油量数值。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「初期日产油」具体指哪个时间范围？请选择或补充：）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「初期日产油」具体指哪个时间范围？请选择或补充：",
+     "options": [
+      "投产首日（默认开井日那天的日产油量）",
+      "投产首月（开井首月各日的日产油量明细或月合计）",
+      "投产初期（首三个月内任一时段，请补充起止日）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-f296d64b"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-f296d64b"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问邻井 W-12 井初期（日）的日产油量数值。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-f296d64b",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问邻井 W-12 井初期（日）的日产油量数值。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「初期日产油」具体指哪个时间范围？请选择或补充：）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「初期日产油」具体指哪个时间范围？请选择或补充：",
+     "options": [
+      "投产首日（默认开井日那天的日产油量）",
+      "投产首月（开井首月各日的日产油量明细或月合计）",
+      "投产初期（首三个月内任一时段，请补充起止日）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-f296d64b"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "问邻井 W-12 井初期（日）的日产油量数值。"
+  ],
+  "duration_s": 4.3
+ }
+}

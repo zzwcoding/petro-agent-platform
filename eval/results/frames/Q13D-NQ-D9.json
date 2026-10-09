@@ -1,0 +1,158 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-b7a3a118",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "核对\"3月月注采比站上1.0后地层压力回升0.2MPa\"这一汇报与报告原文的差异，需明确该说法的主语、对应数值与同步事件，以及一季度地层压力实际变化、保持率、原始地层压力、与红线的差距、报告实际措辞和被混淆的两个量。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "核对\"3月月注采比站上1.0后地层压力回升0.2MPa\"这一汇报与报告原文的差异，需明确该说法的主语、对应数值与同步事件，以及一季度地层压力实际变化、保持率、原始地层压力、与红线的差距、报告实际措辞和被混淆的两个量。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1 被拒：澄清发射不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r2 被拒：action 缺失或越界（ask/decompose/discover 三值）：'finalize'"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清 r3 被拒：澄清发射不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   }
+  },
+  {
+   "id": 6,
+   "event": "notice",
+   "data": {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：工具（discover/execute）未执行或未取得观察；观察（observe）未入栈；核验（verify）/阐述（answer）未执行。未取得可交付观察材料——如实回报，不编造。"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 5,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 8,
+   "event": "text",
+   "data": {
+    "content": "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）"
+   }
+  },
+  {
+   "id": 9,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-b7a3a118",
+    "manifest_digest": "4e40b937bcb4245bbdded47a33928938727693e2af905800592fea677485f739"
+   }
+  },
+  {
+   "id": 10,
+   "event": "done",
+   "data": {
+    "run_id": "run-b7a3a118"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：工具（discover/execute）未执行或未取得观察；观察（observe）未入栈；核验（verify）/阐述（answer）未执行。未取得可交付观察材料——如实回报，不编造。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-b7a3a118",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "核对\"3月月注采比站上1.0后地层压力回升0.2MPa\"这一汇报与报告原文的差异，需明确该说法的主语、对应数值与同步事件，以及一季度地层压力实际变化、保持率、原始地层压力、与红线的差距、报告实际措辞和被混淆的两个量。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1 被拒：澄清发射不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r2 被拒：action 缺失或越界（ask/decompose/discover 三值）：'finalize'"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清 r3 被拒：澄清发射不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   },
+   {
+    "step": "answer",
+    "seq": 5,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-b7a3a118",
+   "manifest_digest": "4e40b937bcb4245bbdded47a33928938727693e2af905800592fea677485f739"
+  },
+  "texts": [
+   "核对\"3月月注采比站上1.0后地层压力回升0.2MPa\"这一汇报与报告原文的差异，需明确该说法的主语、对应数值与同步事件，以及一季度地层压力实际变化、保持率、原始地层压力、与红线的差距、报告实际措辞和被混淆的两个量。",
+   "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）"
+  ],
+  "duration_s": 7.0
+ }
+}

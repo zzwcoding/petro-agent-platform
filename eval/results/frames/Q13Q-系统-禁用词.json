@@ -1,0 +1,105 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-63b7cbbf",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问老的完成率是多少。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问老的完成率是多少。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「老完成率」已禁用，建议改用「产量完成率」。请问）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「老完成率」已禁用，建议改用「产量完成率」。请问您想确认以下哪种意图？",
+     "options": [
+      "产量完成率（默认：Σ实际产油 ÷ Σ计划配产 × 100%，粒度 月/区块·油田）",
+      "更换其它指标名（请补充）",
+      "查询其它油田术语口径"
+     ],
+     "detail": null
+    },
+    "run_id": "run-63b7cbbf"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-63b7cbbf"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问老的完成率是多少。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-63b7cbbf",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问老的完成率是多少。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「老完成率」已禁用，建议改用「产量完成率」。请问）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「老完成率」已禁用，建议改用「产量完成率」。请问您想确认以下哪种意图？",
+     "options": [
+      "产量完成率（默认：Σ实际产油 ÷ Σ计划配产 × 100%，粒度 月/区块·油田）",
+      "更换其它指标名（请补充）",
+      "查询其它油田术语口径"
+     ],
+     "detail": null
+    },
+    "run_id": "run-63b7cbbf"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "问老的完成率是多少。"
+  ],
+  "duration_s": 4.6
+ }
+}

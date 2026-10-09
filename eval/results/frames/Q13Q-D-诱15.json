@@ -1,0 +1,105 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-5eaafdea",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问渤中34-5油田三季度各月注水量逐月明细，并比较三季度合计与二季度40.2万方的差异。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问渤中34-5油田三季度各月注水量逐月明细，并比较三季度合计与二季度40.2万方的差异。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「注水量」在本数据资产中无对应可出数指标（台账无）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「注水量」在本数据资产中无对应可出数指标（台账无月注水量绑定列，agg.fct_daily_metering 事实表未落水注列）。您希望如何处置？",
+     "options": [
+      "改问「月注采比」「累积亏空」等台账可算派生指标（按月产液量与计划注水估算）",
+      "改问日产液量相关指标（台账可出数）",
+      "取消该问题"
+     ],
+     "detail": null
+    },
+    "run_id": "run-5eaafdea"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-5eaafdea"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问渤中34-5油田三季度各月注水量逐月明细，并比较三季度合计与二季度40.2万方的差异。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-5eaafdea",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问渤中34-5油田三季度各月注水量逐月明细，并比较三季度合计与二季度40.2万方的差异。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「注水量」在本数据资产中无对应可出数指标（台账无）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「注水量」在本数据资产中无对应可出数指标（台账无月注水量绑定列，agg.fct_daily_metering 事实表未落水注列）。您希望如何处置？",
+     "options": [
+      "改问「月注采比」「累积亏空」等台账可算派生指标（按月产液量与计划注水估算）",
+      "改问日产液量相关指标（台账可出数）",
+      "取消该问题"
+     ],
+     "detail": null
+    },
+    "run_id": "run-5eaafdea"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "问渤中34-5油田三季度各月注水量逐月明细，并比较三季度合计与二季度40.2万方的差异。"
+  ],
+  "duration_s": 9.3
+ }
+}

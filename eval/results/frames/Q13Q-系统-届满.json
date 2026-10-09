@@ -1,0 +1,105 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-3c0bf4cc",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "询问日产液的定义。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "询问日产液的定义。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「日产液」是术语释义类问题，您希望从以下哪个角度）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「日产液」是术语释义类问题，您希望从以下哪个角度作答？",
+     "options": [
+      "仅给术语定义与别名归属（按台账别名表作答：日产液 → 日产液量）",
+      "术语定义 + 台账指标卡口径（日产液量·方·日/井粒度·R5·A.2 源）",
+      "术语定义 + 给出示例数据片段（如某井某日日产液量数值）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-3c0bf4cc"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-3c0bf4cc"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "询问日产液的定义。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-3c0bf4cc",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "询问日产液的定义。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「日产液」是术语释义类问题，您希望从以下哪个角度）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「日产液」是术语释义类问题，您希望从以下哪个角度作答？",
+     "options": [
+      "仅给术语定义与别名归属（按台账别名表作答：日产液 → 日产液量）",
+      "术语定义 + 台账指标卡口径（日产液量·方·日/井粒度·R5·A.2 源）",
+      "术语定义 + 给出示例数据片段（如某井某日日产液量数值）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-3c0bf4cc"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "询问日产液的定义。"
+  ],
+  "duration_s": 2.2
+ }
+}

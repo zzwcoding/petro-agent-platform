@@ -1,0 +1,105 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-d7529aa5",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问两口欠注井各自的原因及对应的对策。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问两口欠注井各自的原因及对应的对策。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「欠注井」属于知识/文档事实（完井报告·生产月报）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「欠注井」属于知识/文档事实（完井报告·生产月报·注水治理方案等），需定位具体两口井。台账未列欠注井清单，请补一句：这两口井是哪两口？以及文档出处（报告/月报/方案名）？",
+     "options": [
+      "两口井号+报告名（如 A-01H、A-02H，见《XX 月报》/《注水治理方案》）",
+      "两口井号即可，文档来源不限定",
+      "我只知道是欠注井，井号和报告都没有"
+     ],
+     "detail": null
+    },
+    "run_id": "run-d7529aa5"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-d7529aa5"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问两口欠注井各自的原因及对应的对策。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-d7529aa5",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问两口欠注井各自的原因及对应的对策。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「欠注井」属于知识/文档事实（完井报告·生产月报）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「欠注井」属于知识/文档事实（完井报告·生产月报·注水治理方案等），需定位具体两口井。台账未列欠注井清单，请补一句：这两口井是哪两口？以及文档出处（报告/月报/方案名）？",
+     "options": [
+      "两口井号+报告名（如 A-01H、A-02H，见《XX 月报》/《注水治理方案》）",
+      "两口井号即可，文档来源不限定",
+      "我只知道是欠注井，井号和报告都没有"
+     ],
+     "detail": null
+    },
+    "run_id": "run-d7529aa5"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "问两口欠注井各自的原因及对应的对策。"
+  ],
+  "duration_s": 3.9
+ }
+}

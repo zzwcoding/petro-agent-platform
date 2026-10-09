@@ -1,0 +1,107 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-e20d412c",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "询问产量相关的具体内容，但原问题未明确具体产量指标、时间范围、统计对象或维度。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "询问产量相关的具体内容，但原问题未明确具体产量指标、时间范围、统计对象或维度。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「产量相关的问题」范围较广，请补充具体诉求以便精）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「产量相关的问题」范围较广，请补充具体诉求以便精确取数。可选方向：",
+     "options": [
+      "某段时间各井的日产油量明细",
+      "某段时间各井的日产液量明细",
+      "某口井的油压日度数据",
+      "月度的产量完成率（实际 vs 计划）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-e20d412c"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-e20d412c"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "询问产量相关的具体内容，但原问题未明确具体产量指标、时间范围、统计对象或维度。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-e20d412c",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "询问产量相关的具体内容，但原问题未明确具体产量指标、时间范围、统计对象或维度。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「产量相关的问题」范围较广，请补充具体诉求以便精）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「产量相关的问题」范围较广，请补充具体诉求以便精确取数。可选方向：",
+     "options": [
+      "某段时间各井的日产油量明细",
+      "某段时间各井的日产液量明细",
+      "某口井的油压日度数据",
+      "月度的产量完成率（实际 vs 计划）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-e20d412c"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "询问产量相关的具体内容，但原问题未明确具体产量指标、时间范围、统计对象或维度。"
+  ],
+  "duration_s": 2.7
+ }
+}

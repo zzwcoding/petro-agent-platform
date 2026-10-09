@@ -1,0 +1,163 @@
+{
+ "tag": "Q13D",
+ "base": "http://127.0.0.1:8017/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "2026-10-10T00:54:56.794014",
+ "questions": 10,
+ "spend_ok": 10,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 44,
+  "fallback_calls": 0,
+  "input_tokens": 293228,
+  "output_tokens": 10416,
+  "cost_yuan": 0.324476
+ },
+ "items": [
+  {
+   "qid": "NQ-D1",
+   "group": "新语料·动态",
+   "run_id": "run-a83c2553",
+   "method": "run_id",
+   "calls": 5,
+   "cost_yuan": 0.039582,
+   "call_ids": [
+    "call-30b53cc2",
+    "call-2a1b9b6d",
+    "call-5e140437",
+    "call-d4b36a6b",
+    "call-d69ddddb"
+   ]
+  },
+  {
+   "qid": "NQ-D2",
+   "group": "新语料·动态",
+   "run_id": "run-4c5be1c6",
+   "method": "run_id",
+   "calls": 5,
+   "cost_yuan": 0.038639,
+   "call_ids": [
+    "call-64e647f0",
+    "call-fbc802b4",
+    "call-1f3d60e7",
+    "call-4668117f",
+    "call-92d5cf7a"
+   ]
+  },
+  {
+   "qid": "NQ-D3",
+   "group": "新语料·动态",
+   "run_id": "run-61cdf59b",
+   "method": "run_id",
+   "calls": 5,
+   "cost_yuan": 0.037584,
+   "call_ids": [
+    "call-7f64fbbc",
+    "call-f7fe6904",
+    "call-b023faa7",
+    "call-821cdf52",
+    "call-1ab29a6c"
+   ]
+  },
+  {
+   "qid": "NQ-D4",
+   "group": "新语料·动态",
+   "run_id": "run-7647dbe3",
+   "method": "run_id",
+   "calls": 5,
+   "cost_yuan": 0.037926,
+   "call_ids": [
+    "call-0f28b370",
+    "call-c2ef9d6e",
+    "call-b2daa08f",
+    "call-5df6f979",
+    "call-ee9fb0f1"
+   ]
+  },
+  {
+   "qid": "NQ-D5",
+   "group": "新语料·动态",
+   "run_id": "run-628b8357",
+   "method": "run_id",
+   "calls": 2,
+   "cost_yuan": 0.006807,
+   "call_ids": [
+    "call-e3c9055b",
+    "call-654f73aa"
+   ]
+  },
+  {
+   "qid": "NQ-D6",
+   "group": "新语料·动态",
+   "run_id": "run-8434564a",
+   "method": "run_id",
+   "calls": 5,
+   "cost_yuan": 0.039243,
+   "call_ids": [
+    "call-ef34b390",
+    "call-93339209",
+    "call-e360c629",
+    "call-a1f740c1",
+    "call-70360e7a"
+   ]
+  },
+  {
+   "qid": "NQ-D7",
+   "group": "新语料·动态",
+   "run_id": "run-3c51a10d",
+   "method": "run_id",
+   "calls": 2,
+   "cost_yuan": 0.006754,
+   "call_ids": [
+    "call-90751b70",
+    "call-7a4543e8"
+   ]
+  },
+  {
+   "qid": "NQ-D8",
+   "group": "新语料·动态",
+   "run_id": "run-d2e8fa70",
+   "method": "run_id",
+   "calls": 6,
+   "cost_yuan": 0.052648,
+   "call_ids": [
+    "call-b0d9095d",
+    "call-9231ba17",
+    "call-6392aac5",
+    "call-7e6727d0",
+    "call-4e52b713",
+    "call-985df06c"
+   ]
+  },
+  {
+   "qid": "NQ-D9",
+   "group": "新语料·动态",
+   "run_id": "run-b7a3a118",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.024726,
+   "call_ids": [
+    "call-e7cdae90",
+    "call-4fc23062",
+    "call-af45c120",
+    "call-27d4fe6f"
+   ]
+  },
+  {
+   "qid": "NQ-D10",
+   "group": "新语料·动态",
+   "run_id": "run-edf7ccd1",
+   "method": "run_id",
+   "calls": 5,
+   "cost_yuan": 0.040567,
+   "call_ids": [
+    "call-116c53ed",
+    "call-01430f70",
+    "call-2f70e719",
+    "call-7feae12b",
+    "call-456b6730"
+   ]
+  }
+ ],
+ "errors": []
+}

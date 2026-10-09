@@ -1,0 +1,293 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-a3f94793",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问去年全年各井的含水率。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问去年全年各井的含水率。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：1 条定案"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note"
+   }
+  },
+  {
+   "id": 6,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：ok（子问题 s1）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#203",
+    "content": "含水率（%）：日产计量化验折算含水率——日度监控口径；月度/正式指标以流体化验实测为准、偏差 >5pp 以化验校正（PROP-BOHAI-008=C 并存分场景）；源 oil_production_daily.water_cut（R5·A.2）——agg 读模型未落该列（99 §2.12 事实表仅三计量列），暂不可出数｜粒度 日/井 · 单位 %｜状态 生效中｜口径支：A 计量折算（日度监控）（默认）；B 化验实测（月度/正式）｜争议注记：化验 vs 计量打架（并存分场景已裁——PROP-BOHAI-008=C）",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 9,
+   "event": "notice",
+   "data": {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「含水率（%）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：含水率（%）：日产计量化验折算含水率——日度监控口径；月度/正式指标以流体化验实测为准、偏差 >5pp 以化验校正（PROP-BOHAI-008=C 并存分场景）；源 oil_production_daily.water_cut（R5·A.2）——agg 读模型未落该列（99 §2.12 事实表仅三计量列），暂不可出数｜粒度 日/井 · 单位 %｜状态 生效中｜口径支：A 计量折算（日度监控）（默认）；B 化验实测（月度/正式）｜争议注记：化验 vs 计量打架（并存分场景已裁——PROP-BOHAI-008=C）"
+   }
+  },
+  {
+   "id": 10,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「含水率（%）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：含水率（%）：日产计量化验折算含水率——日度监控口径；月度/正式指标以流体化验实测为准、偏差 >5pp 以化验校正（PROP-BOHAI-008=C 并存分场景）；源 oil_production_daily.water_cut（R5·A.2）——agg 读模型未落该列（99 §2.12 事实表仅三计量列），暂不可出数｜粒度 日/井 · 单位 %｜状态 生效中｜口径支：A 计量折算（日度监控）（默认）；B 化验实测（月度/正式）｜争议注记：化验 vs 计量打架（并存分场景已裁——PROP-BOHAI-008=C）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 6,
+    "title": "批量汇聚 2 支"
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 7,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 8,
+    "title": "核验：支撑 0｜改写 4｜分源 否"
+   }
+  },
+  {
+   "id": 14,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 4,
+    "split": false,
+    "cited": []
+   }
+  },
+  {
+   "id": 15,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 4 行（INV-1——禁止无据断言进答案）"
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 9,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 17,
+   "event": "text",
+   "data": {
+    "content": "未找到（材料未披露）：**去年（2025 年）各井的含水率——无法出数**\n\n未找到（材料未披露）：**理解**：未完成。问句要求\"去年各井的含水率\"，指标词\"含水率（%）\"在台账已命中 [1]，但当前出数通道受阻。\n\n**观察依据**：\n\n未找到（材料未披露）：[1] 台账显示\"含水率（%）\"对应源列为 `oil_production_daily.water_cut`（R5·A.2），属于 agg 读模型未落入的事实表附加列——99 §2.12 事实表仅含三个计量列（日产油、日产液、油压），`water_cut` 不在可出数列中，状态注记为\"暂不可出数\"[1]。\n\n**口径支注记**（如启用需用户选 A/B）：\n- A·计量折算（日度监控，默认）\n- B·化验实测（月度/正式）\n\n未找到（材料未披露）：两者对应源不同、并列保留（PROP-BOHAI-008=C）；当前不论 A 还是 B，`water_cut` 均未落到 agg 出数通道 [1]。\n\n**结论**：未找到可出数的去年各井含水率数据；未冒充出数。如需继续请确认：是否切走文档/报告链路（knowledge），或切换口径支（A 计量/B 化验）由挂起审批走返数路径。"
+   }
+  },
+  {
+   "id": 18,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-a3f94793",
+    "manifest_digest": "ff482f92eec1e2737511c8c99f97e85885023f6b36409f90a0291a19ff7de799"
+   }
+  },
+  {
+   "id": 19,
+   "event": "done",
+   "data": {
+    "run_id": "run-a3f94793"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "未找到（材料未披露）：**去年（2025 年）各井的含水率——无法出数**\n\n未找到（材料未披露）：**理解**：未完成。问句要求\"去年各井的含水率\"，指标词\"含水率（%）\"在台账已命中 [1]，但当前出数通道受阻。\n\n**观察依据**：\n\n未找到（材料未披露）：[1] 台账显示\"含水率（%）\"对应源列为 `oil_production_daily.water_cut`（R5·A.2），属于 agg 读模型未落入的事实表附加列——99 §2.12 事实表仅含三个计量列（日产油、日产液、油压），`water_cut` 不在可出数列中，状态注记为\"暂不可出数\"[1]。\n\n**口径支注记**（如启用需用户选 A/B）：\n- A·计量折算（日度监控，默认）\n- B·化验实测（月度/正式）\n\n未找到（材料未披露）：两者对应源不同、并列保留（PROP-BOHAI-008=C）；当前不论 A 还是 B，`water_cut` 均未落到 agg 出数通道 [1]。\n\n**结论**：未找到可出数的去年各井含水率数据；未冒充出数。如需继续请确认：是否切走文档/报告链路（knowledge），或切换口径支（A 计量/B 化验）由挂起审批走返数路径。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「含水率（%）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：含水率（%）：日产计量化验折算含水率——日度监控口径；月度/正式指标以流体化验实测为准、偏差 >5pp 以化验校正（PROP-BOHAI-008=C 并存分场景）；源 oil_production_daily.water_cut（R5·A.2）——agg 读模型未落该列（99 §2.12 事实表仅三计量列），暂不可出数｜粒度 日/井 · 单位 %｜状态 生效中｜口径支：A 计量折算（日度监控）（默认）；B 化验实测（月度/正式）｜争议注记：化验 vs 计量打架（并存分场景已裁——PROP-BOHAI-008=C）"
+   },
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 4 行（INV-1——禁止无据断言进答案）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-a3f94793",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问去年全年各井的含水率。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：1 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note"
+   },
+   {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：ok（子问题 s1）"
+   },
+   {
+    "step": "observe",
+    "seq": 6,
+    "title": "批量汇聚 2 支"
+   },
+   {
+    "step": "answer",
+    "seq": 7,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 8,
+    "title": "核验：支撑 0｜改写 4｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 9,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_metric#203",
+    "content": "含水率（%）：日产计量化验折算含水率——日度监控口径；月度/正式指标以流体化验实测为准、偏差 >5pp 以化验校正（PROP-BOHAI-008=C 并存分场景）；源 oil_production_daily.water_cut（R5·A.2）——agg 读模型未落该列（99 §2.12 事实表仅三计量列），暂不可出数｜粒度 日/井 · 单位 %｜状态 生效中｜口径支：A 计量折算（日度监控）（默认）；B 化验实测（月度/正式）｜争议注记：化验 vs 计量打架（并存分场景已裁——PROP-BOHAI-008=C）",
+    "trust": "ledger"
+   },
+   {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「含水率（%）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：含水率（%）：日产计量化验折算含水率——日度监控口径；月度/正式指标以流体化验实测为准、偏差 >5pp 以化验校正（PROP-BOHAI-008=C 并存分场景）；源 oil_production_daily.water_cut（R5·A.2）——agg 读模型未落该列（99 §2.12 事实表仅三计量列），暂不可出数｜粒度 日/井 · 单位 %｜状态 生效中｜口径支：A 计量折算（日度监控）（默认）；B 化验实测（月度/正式）｜争议注记：化验 vs 计量打架（并存分场景已裁——PROP-BOHAI-008=C）",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 4,
+    "split": false,
+    "cited": []
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-a3f94793",
+   "manifest_digest": "ff482f92eec1e2737511c8c99f97e85885023f6b36409f90a0291a19ff7de799"
+  },
+  "texts": [
+   "问去年全年各井的含水率。",
+   "未找到（材料未披露）：**去年（2025 年）各井的含水率——无法出数**\n\n未找到（材料未披露）：**理解**：未完成。问句要求\"去年各井的含水率\"，指标词\"含水率（%）\"在台账已命中 [1]，但当前出数通道受阻。\n\n**观察依据**：\n\n未找到（材料未披露）：[1] 台账显示\"含水率（%）\"对应源列为 `oil_production_daily.water_cut`（R5·A.2），属于 agg 读模型未落入的事实表附加列——99 §2.12 事实表仅含三个计量列（日产油、日产液、油压），`water_cut` 不在可出数列中，状态注记为\"暂不可出数\"[1]。\n\n**口径支注记**（如启用需用户选 A/B）：\n- A·计量折算（日度监控，默认）\n- B·化验实测（月度/正式）\n\n未找到（材料未披露）：两者对应源不同、并列保留（PROP-BOHAI-008=C）；当前不论 A 还是 B，`water_cut` 均未落到 agg 出数通道 [1]。\n\n**结论**：未找到可出数的去年各井含水率数据；未冒充出数。如需继续请确认：是否切走文档/报告链路（knowledge），或切换口径支（A 计量/B 化验）由挂起审批走返数路径。"
+  ],
+  "duration_s": 10.1
+ }
+}

@@ -1,0 +1,172 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-b7cb5988",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "核查报告第十章对照表与第九章第（4）条注采衔接中，分别关于「Y-25 井」完井方式与初期折算日产油、及「Y-16 井」F3 层配注量的记载；若不存在则需报告实际记载的邻井名单与分层配注全貌。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "核查报告第十章对照表与第九章第（4）条注采衔接中，分别关于「Y-25 井」完井方式与初期折算日产油、及「Y-16 井」F3 层配注量的记载；若不存在则需报告实际记载的邻井名单与分层配注全貌。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 3 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配 r2 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "工具匹配 r3 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "工具匹配 r4 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "notice",
+   "data": {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：工具（discover/execute）未执行或未取得观察；观察（observe）未入栈；核验（verify）/阐述（answer）未执行。未取得可交付观察材料——如实回报，不编造。"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 9,
+   "event": "text",
+   "data": {
+    "content": "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）"
+   }
+  },
+  {
+   "id": 10,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-b7cb5988",
+    "manifest_digest": "20faeddccf6626edb7fa96796621cbce0ad7ee0d5968874a7a6f4fcbd961853f"
+   }
+  },
+  {
+   "id": 11,
+   "event": "done",
+   "data": {
+    "run_id": "run-b7cb5988"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：工具（discover/execute）未执行或未取得观察；观察（observe）未入栈；核验（verify）/阐述（answer）未执行。未取得可交付观察材料——如实回报，不编造。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-b7cb5988",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "核查报告第十章对照表与第九章第（4）条注采衔接中，分别关于「Y-25 井」完井方式与初期折算日产油、及「Y-16 井」F3 层配注量的记载；若不存在则需报告实际记载的邻井名单与分层配注全貌。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 3 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配 r2 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "工具匹配 r3 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "工具匹配 r4 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   },
+   {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-b7cb5988",
+   "manifest_digest": "20faeddccf6626edb7fa96796621cbce0ad7ee0d5968874a7a6f4fcbd961853f"
+  },
+  "texts": [
+   "核查报告第十章对照表与第九章第（4）条注采衔接中，分别关于「Y-25 井」完井方式与初期折算日产油、及「Y-16 井」F3 层配注量的记载；若不存在则需报告实际记载的邻井名单与分层配注全貌。",
+   "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）"
+  ],
+  "duration_s": 16.8
+ }
+}

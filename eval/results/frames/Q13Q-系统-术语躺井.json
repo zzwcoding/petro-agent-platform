@@ -1,0 +1,248 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-038819c1",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问\"躺井\"的定义或概念解释。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问\"躺井\"的定义或概念解释。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清钻取 ×1（semantic_query）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 3,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 7,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_term#4",
+    "content": "躺井（黑话 → 停产待检泵 · 有效（限作业区语境））：作业区口语",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "工具匹配 r2 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "工具匹配 r3 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "工具匹配 r4 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   }
+  },
+  {
+   "id": 12,
+   "event": "notice",
+   "data": {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：核验（verify）/阐述（answer）未执行。已交付已取得部分，不静默截断。"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 9,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 14,
+   "event": "text",
+   "data": {
+    "content": "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 躺井（黑话 → 停产待检泵 · 有效（限作业区语境））：作业区口语\n- 躺井（黑话 → 停产待检泵 · 有效（限作业区语境））：作业区口语"
+   }
+  },
+  {
+   "id": 15,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-038819c1",
+    "manifest_digest": "bbbff51dddd42f2817e23efe3ffadeb7a88df5a06432b49ba51859e4f9a8abfd"
+   }
+  },
+  {
+   "id": 16,
+   "event": "done",
+   "data": {
+    "run_id": "run-038819c1"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 躺井（黑话 → 停产待检泵 · 有效（限作业区语境））：作业区口语\n- 躺井（黑话 → 停产待检泵 · 有效（限作业区语境））：作业区口语",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：核验（verify）/阐述（answer）未执行。已交付已取得部分，不静默截断。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-038819c1",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问\"躺井\"的定义或概念解释。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清钻取 ×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 3,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "工具匹配 r2 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "工具匹配 r3 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "工具匹配 r4 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   },
+   {
+    "step": "answer",
+    "seq": 9,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_term#4",
+    "content": "躺井（黑话 → 停产待检泵 · 有效（限作业区语境））：作业区口语",
+    "trust": "ledger"
+   }
+  ],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-038819c1",
+   "manifest_digest": "bbbff51dddd42f2817e23efe3ffadeb7a88df5a06432b49ba51859e4f9a8abfd"
+  },
+  "texts": [
+   "问\"躺井\"的定义或概念解释。",
+   "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- 躺井（黑话 → 停产待检泵 · 有效（限作业区语境））：作业区口语\n- 躺井（黑话 → 停产待检泵 · 有效（限作业区语境））：作业区口语"
+  ],
+  "duration_s": 7.1
+ }
+}

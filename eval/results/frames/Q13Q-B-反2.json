@@ -1,0 +1,105 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-57ccf6c9",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问全油田全年的躺井率控制目标值。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问全油田全年的躺井率控制目标值。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（问题中「躺井率」未指明时间窗。请确认取数窗：）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "问题中「躺井率」未指明时间窗。请确认取数窗：",
+     "options": [
+      "近 30 天（2026-08-01 起）",
+      "今年至今（2026-01-01 起）",
+      "去年全年（2025-01-01 起）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-57ccf6c9"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-57ccf6c9"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问全油田全年的躺井率控制目标值。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-57ccf6c9",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问全油田全年的躺井率控制目标值。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（问题中「躺井率」未指明时间窗。请确认取数窗：）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "问题中「躺井率」未指明时间窗。请确认取数窗：",
+     "options": [
+      "近 30 天（2026-08-01 起）",
+      "今年至今（2026-01-01 起）",
+      "去年全年（2025-01-01 起）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-57ccf6c9"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "问全油田全年的躺井率控制目标值。"
+  ],
+  "duration_s": 3.2
+ }
+}

@@ -1,0 +1,107 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-8fa7d6a1",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "要求把报告中出现的多个压力数值与具体工艺对象一一对应匹配，并标注出处章节，同时补充封隔器验封的压力降与合格线及酸化停泵压力。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "要求把报告中出现的多个压力数值与具体工艺对象一一对应匹配，并标注出处章节，同时补充封隔器验封的压力降与合格线及酸化停泵压力。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（本问题涉及多个工艺对象的压力数值配对以及验封/酸）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "本问题涉及多个工艺对象的压力数值配对以及验封/酸化停泵参数，这些属于完井/作业报告中的事实材料。请问你需要从哪个资料范围取数？",
+     "options": [
+      "井位台账+完井报告（默认·检索族 completion）",
+      "井位台账+动态报告（族 dynamic）",
+      "井位台账+月报（族 monthly）",
+      "全部族混合检索（completion+dynamic+monthly）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-8fa7d6a1"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-8fa7d6a1"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "要求把报告中出现的多个压力数值与具体工艺对象一一对应匹配，并标注出处章节，同时补充封隔器验封的压力降与合格线及酸化停泵压力。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-8fa7d6a1",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "要求把报告中出现的多个压力数值与具体工艺对象一一对应匹配，并标注出处章节，同时补充封隔器验封的压力降与合格线及酸化停泵压力。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（本问题涉及多个工艺对象的压力数值配对以及验封/酸）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "本问题涉及多个工艺对象的压力数值配对以及验封/酸化停泵参数，这些属于完井/作业报告中的事实材料。请问你需要从哪个资料范围取数？",
+     "options": [
+      "井位台账+完井报告（默认·检索族 completion）",
+      "井位台账+动态报告（族 dynamic）",
+      "井位台账+月报（族 monthly）",
+      "全部族混合检索（completion+dynamic+monthly）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-8fa7d6a1"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "要求把报告中出现的多个压力数值与具体工艺对象一一对应匹配，并标注出处章节，同时补充封隔器验封的压力降与合格线及酸化停泵压力。"
+  ],
+  "duration_s": 4.9
+ }
+}

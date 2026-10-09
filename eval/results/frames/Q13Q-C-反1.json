@@ -1,0 +1,119 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-87529dd6",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问 11 月和 12 月各井（或各层系）的配注量安排。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问 11 月和 12 月各井（或各层系）的配注量安排。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1 被拒：action 缺失或越界（ask/decompose/discover 三值）：'finalize'"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r2：反问（「配注」指标未在台账可出数指标名册（日产油量/日）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「配注」指标未在台账可出数指标名册（日产油量/日产液量/油压）中命中，台账仅有术语「配注合格率」「配注层」（草案对象，无属性）。请确认您要查询的口径：",
+     "options": [
+      "全油田/全井 11-12 月的月注水量（方）——按月汇总",
+      "单井 11 月、12 月的日配注量（方）明细——按日×井",
+      "配注层级的 11-12 月配注安排（按层×井×月）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-87529dd6"
+   }
+  },
+  {
+   "id": 6,
+   "event": "done",
+   "data": {
+    "run_id": "run-87529dd6"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问 11 月和 12 月各井（或各层系）的配注量安排。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-87529dd6",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问 11 月和 12 月各井（或各层系）的配注量安排。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1 被拒：action 缺失或越界（ask/decompose/discover 三值）：'finalize'"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r2：反问（「配注」指标未在台账可出数指标名册（日产油量/日）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「配注」指标未在台账可出数指标名册（日产油量/日产液量/油压）中命中，台账仅有术语「配注合格率」「配注层」（草案对象，无属性）。请确认您要查询的口径：",
+     "options": [
+      "全油田/全井 11-12 月的月注水量（方）——按月汇总",
+      "单井 11 月、12 月的日配注量（方）明细——按日×井",
+      "配注层级的 11-12 月配注安排（按层×井×月）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-87529dd6"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "问 11 月和 12 月各井（或各层系）的配注量安排。"
+  ],
+  "duration_s": 5.0
+ }
+}

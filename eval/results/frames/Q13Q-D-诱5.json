@@ -1,0 +1,374 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-ff63d2b7",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问渤中34-5油田三季度产量的主口径与检修剔除口径各自的计算依据、实际完成量（万吨）、完成率，以及检修剔除口径相比主口径多出的部分由哪些井的什么影响按何种折算得出，并询问在开发数据平台指标台账中读取『有效产量』指标的注意事项。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问渤中34-5油田三季度产量的主口径与检修剔除口径各自的计算依据、实际完成量（万吨）、完成率，以及检修剔除口径相比主口径多出的部分由哪些井的什么影响按何种折算得出，并询问在开发数据平台指标台账中读取『有效产量』指标的注意事项。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 4 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：4 条定案"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note｜s2=pass｜s3=pass｜s4=pass"
+   }
+  },
+  {
+   "id": 6,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：ok（子问题 s1）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#2",
+    "content": "★有效产量（两支口径）：开井日历折算 / 检修剔除｜粒度 月 · 单位 吨｜状态 生效中｜口径支：A 开井日历折算（默认）；B 检修剔除｜争议注记：跨月检修切割",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 9,
+   "event": "notice",
+   "data": {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「★有效产量（两支口径）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：★有效产量（两支口径）：开井日历折算 / 检修剔除｜粒度 月 · 单位 吨｜状态 生效中｜口径支：A 开井日历折算（默认）；B 检修剔除｜争议注记：跨月检修切割"
+   }
+  },
+  {
+   "id": 10,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「★有效产量（两支口径）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：★有效产量（两支口径）：开井日历折算 / 检修剔除｜粒度 月 · 单位 吨｜状态 生效中｜口径支：A 开井日历折算（默认）；B 检修剔除｜争议注记：跨月检修切割",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 11,
+   "event": "tool",
+   "data": {
+    "tool": "doc_retrieve",
+    "status": "failed",
+    "seq": 6,
+    "message": "未知参数键：['term_hints']（args_schema additionalProperties=false）"
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 6,
+    "title": "doc_retrieve：failed（子问题 s2）"
+   }
+  },
+  {
+   "id": 13,
+   "event": "notice",
+   "data": {
+    "type": "subtask_failed",
+    "gates": [],
+    "content": "子问题 s2 执行失败（回炉面）：未知参数键：['term_hints']（args_schema additionalProperties=false）"
+   }
+  },
+  {
+   "id": 14,
+   "event": "tool",
+   "data": {
+    "tool": "doc_retrieve",
+    "status": "failed",
+    "seq": 7,
+    "message": "未知参数键：['term_hints']（args_schema additionalProperties=false）"
+   }
+  },
+  {
+   "id": 15,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 7,
+    "title": "doc_retrieve：failed（子问题 s3）"
+   }
+  },
+  {
+   "id": 16,
+   "event": "notice",
+   "data": {
+    "type": "subtask_failed",
+    "gates": [],
+    "content": "子问题 s3 执行失败（回炉面）：未知参数键：['term_hints']（args_schema additionalProperties=false）"
+   }
+  },
+  {
+   "id": 17,
+   "event": "tool",
+   "data": {
+    "tool": "doc_retrieve",
+    "status": "failed",
+    "seq": 8,
+    "message": "未知参数键：['term_hints']（args_schema additionalProperties=false）"
+   }
+  },
+  {
+   "id": 18,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 8,
+    "title": "doc_retrieve：failed（子问题 s4）"
+   }
+  },
+  {
+   "id": 19,
+   "event": "notice",
+   "data": {
+    "type": "subtask_failed",
+    "gates": [],
+    "content": "子问题 s4 执行失败（回炉面）：未知参数键：['term_hints']（args_schema additionalProperties=false）"
+   }
+  },
+  {
+   "id": 20,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 9,
+    "title": "批量汇聚 2 支"
+   }
+  },
+  {
+   "id": 21,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 10,
+    "title": "澄清 r2：反问（doc_retrieve 不支持 term_hi）"
+   }
+  },
+  {
+   "id": 22,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "doc_retrieve 不支持 term_hints 参数（args_schema 严格 additionalProperties=false）。三条知识子问题的语义信息无法落入请求体，请确认改走何种检索形式？",
+     "options": [
+      "s2/s3/s4 都改为：只传 question 字符串，丢 family_hints 让库按默认族（kb 全池）检索",
+      "s2/s3/s4 都改为：把原 term_hints 词面拼进 question 字符串（长问句），family_hints 仅作 soft hint 不传",
+      "s2/s3/s4 各跑一支 semantic_query 钻口径卡/术语卡，不再走 doc_retrieve",
+      "仅 s2/s3/s4 改 family_hints=[\"blank\"]（空族）发射，由库自行命中月报/动态片段"
+     ],
+     "detail": null
+    },
+    "run_id": "run-ff63d2b7"
+   }
+  },
+  {
+   "id": 23,
+   "event": "done",
+   "data": {
+    "run_id": "run-ff63d2b7"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问渤中34-5油田三季度产量的主口径与检修剔除口径各自的计算依据、实际完成量（万吨）、完成率，以及检修剔除口径相比主口径多出的部分由哪些井的什么影响按何种折算得出，并询问在开发数据平台指标台账中读取『有效产量』指标的注意事项。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「★有效产量（两支口径）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：★有效产量（两支口径）：开井日历折算 / 检修剔除｜粒度 月 · 单位 吨｜状态 生效中｜口径支：A 开井日历折算（默认）；B 检修剔除｜争议注记：跨月检修切割"
+   },
+   {
+    "type": "subtask_failed",
+    "gates": [],
+    "content": "子问题 s2 执行失败（回炉面）：未知参数键：['term_hints']（args_schema additionalProperties=false）"
+   },
+   {
+    "type": "subtask_failed",
+    "gates": [],
+    "content": "子问题 s3 执行失败（回炉面）：未知参数键：['term_hints']（args_schema additionalProperties=false）"
+   },
+   {
+    "type": "subtask_failed",
+    "gates": [],
+    "content": "子问题 s4 执行失败（回炉面）：未知参数键：['term_hints']（args_schema additionalProperties=false）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-ff63d2b7",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问渤中34-5油田三季度产量的主口径与检修剔除口径各自的计算依据、实际完成量（万吨）、完成率，以及检修剔除口径相比主口径多出的部分由哪些井的什么影响按何种折算得出，并询问在开发数据平台指标台账中读取『有效产量』指标的注意事项。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 4 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：4 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note｜s2=pass｜s3=pass｜s4=pass"
+   },
+   {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：ok（子问题 s1）"
+   },
+   {
+    "step": "execute",
+    "seq": 6,
+    "title": "doc_retrieve：failed（子问题 s2）"
+   },
+   {
+    "step": "execute",
+    "seq": 7,
+    "title": "doc_retrieve：failed（子问题 s3）"
+   },
+   {
+    "step": "execute",
+    "seq": 8,
+    "title": "doc_retrieve：failed（子问题 s4）"
+   },
+   {
+    "step": "observe",
+    "seq": 9,
+    "title": "批量汇聚 2 支"
+   },
+   {
+    "step": "decision",
+    "seq": 10,
+    "title": "澄清 r2：反问（doc_retrieve 不支持 term_hi）"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   },
+   {
+    "tool": "doc_retrieve",
+    "status": "failed",
+    "seq": 6,
+    "message": "未知参数键：['term_hints']（args_schema additionalProperties=false）"
+   },
+   {
+    "tool": "doc_retrieve",
+    "status": "failed",
+    "seq": 7,
+    "message": "未知参数键：['term_hints']（args_schema additionalProperties=false）"
+   },
+   {
+    "tool": "doc_retrieve",
+    "status": "failed",
+    "seq": 8,
+    "message": "未知参数键：['term_hints']（args_schema additionalProperties=false）"
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_metric#2",
+    "content": "★有效产量（两支口径）：开井日历折算 / 检修剔除｜粒度 月 · 单位 吨｜状态 生效中｜口径支：A 开井日历折算（默认）；B 检修剔除｜争议注记：跨月检修切割",
+    "trust": "ledger"
+   },
+   {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「★有效产量（两支口径）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：★有效产量（两支口径）：开井日历折算 / 检修剔除｜粒度 月 · 单位 吨｜状态 生效中｜口径支：A 开井日历折算（默认）；B 检修剔除｜争议注记：跨月检修切割",
+    "trust": "notice"
+   }
+  ],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "doc_retrieve 不支持 term_hints 参数（args_schema 严格 additionalProperties=false）。三条知识子问题的语义信息无法落入请求体，请确认改走何种检索形式？",
+     "options": [
+      "s2/s3/s4 都改为：只传 question 字符串，丢 family_hints 让库按默认族（kb 全池）检索",
+      "s2/s3/s4 都改为：把原 term_hints 词面拼进 question 字符串（长问句），family_hints 仅作 soft hint 不传",
+      "s2/s3/s4 各跑一支 semantic_query 钻口径卡/术语卡，不再走 doc_retrieve",
+      "仅 s2/s3/s4 改 family_hints=[\"blank\"]（空族）发射，由库自行命中月报/动态片段"
+     ],
+     "detail": null
+    },
+    "run_id": "run-ff63d2b7"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "问渤中34-5油田三季度产量的主口径与检修剔除口径各自的计算依据、实际完成量（万吨）、完成率，以及检修剔除口径相比主口径多出的部分由哪些井的什么影响按何种折算得出，并询问在开发数据平台指标台账中读取『有效产量』指标的注意事项。"
+  ],
+  "duration_s": 17.4
+ }
+}

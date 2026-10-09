@@ -1,0 +1,105 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-08b7d2f0",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问井位台账中所有井的日产油量最高的那口井。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问井位台账中所有井的日产油量最高的那口井。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「日产油量最高」需要一个统计窗口。您希望按哪个口）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「日产油量最高」需要一个统计窗口。您希望按哪个口径取最高？",
+     "options": [
+      "近 30 天（默认 2026-08-01 起）各井日产油量，取最大者",
+      "今年（2026-01-01 起）各井日产油量，取最大者",
+      "去年（2025-01-01 起）各井日产油量，取最大者"
+     ],
+     "detail": null
+    },
+    "run_id": "run-08b7d2f0"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-08b7d2f0"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问井位台账中所有井的日产油量最高的那口井。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-08b7d2f0",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问井位台账中所有井的日产油量最高的那口井。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「日产油量最高」需要一个统计窗口。您希望按哪个口）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「日产油量最高」需要一个统计窗口。您希望按哪个口径取最高？",
+     "options": [
+      "近 30 天（默认 2026-08-01 起）各井日产油量，取最大者",
+      "今年（2026-01-01 起）各井日产油量，取最大者",
+      "去年（2025-01-01 起）各井日产油量，取最大者"
+     ],
+     "detail": null
+    },
+    "run_id": "run-08b7d2f0"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "问井位台账中所有井的日产油量最高的那口井。"
+  ],
+  "duration_s": 2.5
+ }
+}

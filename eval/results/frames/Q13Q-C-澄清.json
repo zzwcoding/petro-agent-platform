@@ -1,0 +1,314 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-2c93a3ef",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问三季度（即Q3，含7、8、9月）的有效产量完成情况。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问三季度（即Q3，含7、8、9月）的有效产量完成情况。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：1 条定案"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note"
+   }
+  },
+  {
+   "id": 6,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：ok（子问题 s1）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#2",
+    "content": "★有效产量（两支口径）：开井日历折算 / 检修剔除｜粒度 月 · 单位 吨｜状态 生效中｜口径支：A 开井日历折算（默认）；B 检修剔除｜争议注记：跨月检修切割",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 9,
+   "event": "notice",
+   "data": {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「★有效产量（两支口径）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：★有效产量（两支口径）：开井日历折算 / 检修剔除｜粒度 月 · 单位 吨｜状态 生效中｜口径支：A 开井日历折算（默认）；B 检修剔除｜争议注记：跨月检修切割"
+   }
+  },
+  {
+   "id": 10,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「★有效产量（两支口径）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：★有效产量（两支口径）：开井日历折算 / 检修剔除｜粒度 月 · 单位 吨｜状态 生效中｜口径支：A 开井日历折算（默认）；B 检修剔除｜争议注记：跨月检修切割",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 6,
+    "title": "批量汇聚 2 支"
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 7,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 8,
+    "title": "核验：支撑 1｜改写 1｜分源 否"
+   }
+  },
+  {
+   "id": 14,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 1,
+    "rewritten": 1,
+    "split": false,
+    "cited": [
+     1
+    ]
+   }
+  },
+  {
+   "id": 15,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 1 行（INV-1——禁止无据断言进答案）"
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 9,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 17,
+   "event": "citation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#2",
+    "source_id": "2",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 18,
+   "event": "text",
+   "data": {
+    "content": "未找到（材料未披露）：理解：问三季度（即 Q3，含 7、8、9 月）的有效产量完成情况。\n指标候选：有效产量\n\n（注：原题要求为两行格式，以下为按上游要求追加的相位④汇总——若无此格式需求请忽略。）\n\n**汇总（相位④）**\n\n- s1 三季度有效产量完成情况：观察材料 [1] 仅给出「有效产量」的台账口径定义（两支口径：A 开井日历折算 / B 检修剔除，单位吨，粒度月）与绑定状态，未提供 2025 年 7–9 月任一月份的数值行；材料未覆盖实际完成量，故不作数值断言。[1]\n\n引用：\n[1] sem_metric#2 · 2（ledger）"
+   }
+  },
+  {
+   "id": 19,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-2c93a3ef",
+    "manifest_digest": "98cf1724456e10981c6eefadbaaaf388a55aad1e6fd8769e86107e93bd2f6fe8"
+   }
+  },
+  {
+   "id": 20,
+   "event": "done",
+   "data": {
+    "run_id": "run-2c93a3ef"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "未找到（材料未披露）：理解：问三季度（即 Q3，含 7、8、9 月）的有效产量完成情况。\n指标候选：有效产量\n\n（注：原题要求为两行格式，以下为按上游要求追加的相位④汇总——若无此格式需求请忽略。）\n\n**汇总（相位④）**\n\n- s1 三季度有效产量完成情况：观察材料 [1] 仅给出「有效产量」的台账口径定义（两支口径：A 开井日历折算 / B 检修剔除，单位吨，粒度月）与绑定状态，未提供 2025 年 7–9 月任一月份的数值行；材料未覆盖实际完成量，故不作数值断言。[1]\n\n引用：\n[1] sem_metric#2 · 2（ledger）",
+  "citations": [
+   {
+    "index": 1,
+    "source": "sem_metric#2",
+    "source_id": "2",
+    "trust": "ledger"
+   }
+  ],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「★有效产量（两支口径）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：★有效产量（两支口径）：开井日历折算 / 检修剔除｜粒度 月 · 单位 吨｜状态 生效中｜口径支：A 开井日历折算（默认）；B 检修剔除｜争议注记：跨月检修切割"
+   },
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 1 行（INV-1——禁止无据断言进答案）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-2c93a3ef",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问三季度（即Q3，含7、8、9月）的有效产量完成情况。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：1 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note"
+   },
+   {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：ok（子问题 s1）"
+   },
+   {
+    "step": "observe",
+    "seq": 6,
+    "title": "批量汇聚 2 支"
+   },
+   {
+    "step": "answer",
+    "seq": 7,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 8,
+    "title": "核验：支撑 1｜改写 1｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 9,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_metric#2",
+    "content": "★有效产量（两支口径）：开井日历折算 / 检修剔除｜粒度 月 · 单位 吨｜状态 生效中｜口径支：A 开井日历折算（默认）；B 检修剔除｜争议注记：跨月检修切割",
+    "trust": "ledger"
+   },
+   {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「★有效产量（两支口径）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：★有效产量（两支口径）：开井日历折算 / 检修剔除｜粒度 月 · 单位 吨｜状态 生效中｜口径支：A 开井日历折算（默认）；B 检修剔除｜争议注记：跨月检修切割",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 1,
+    "rewritten": 1,
+    "split": false,
+    "cited": [
+     1
+    ]
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-2c93a3ef",
+   "manifest_digest": "98cf1724456e10981c6eefadbaaaf388a55aad1e6fd8769e86107e93bd2f6fe8"
+  },
+  "texts": [
+   "问三季度（即Q3，含7、8、9月）的有效产量完成情况。",
+   "未找到（材料未披露）：理解：问三季度（即 Q3，含 7、8、9 月）的有效产量完成情况。\n指标候选：有效产量\n\n（注：原题要求为两行格式，以下为按上游要求追加的相位④汇总——若无此格式需求请忽略。）\n\n**汇总（相位④）**\n\n- s1 三季度有效产量完成情况：观察材料 [1] 仅给出「有效产量」的台账口径定义（两支口径：A 开井日历折算 / B 检修剔除，单位吨，粒度月）与绑定状态，未提供 2025 年 7–9 月任一月份的数值行；材料未覆盖实际完成量，故不作数值断言。[1]\n\n引用：\n[1] sem_metric#2 · 2（ledger）"
+  ],
+  "duration_s": 5.8
+ }
+}

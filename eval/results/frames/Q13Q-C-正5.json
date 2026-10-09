@@ -1,0 +1,105 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-a270a581",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问 W-57 井吸水剖面各层的占比明细。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问 W-57 井吸水剖面各层的占比明细。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（W-57 井的「吸水剖面各层占比」需要确认数据来）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "W-57 井的「吸水剖面各层占比」需要确认数据来源：吸水剖面属于井下测试/工程资料，常规日产计量表 agg.fct_daily_metering（仅含日产油量/日产液量/油压三列）不出该数据。请明确取数口径：",
+     "options": [
+      "来自完井报告/分层测试文档（按族 completion 走 doc_retrieve）",
+      "来自生产月报统计（按族 monthly 走 doc_retrieve）",
+      "按注水井全井日注入量近似替代分层占比（语义近似·不严谨）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-a270a581"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-a270a581"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问 W-57 井吸水剖面各层的占比明细。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-a270a581",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问 W-57 井吸水剖面各层的占比明细。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（W-57 井的「吸水剖面各层占比」需要确认数据来）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "W-57 井的「吸水剖面各层占比」需要确认数据来源：吸水剖面属于井下测试/工程资料，常规日产计量表 agg.fct_daily_metering（仅含日产油量/日产液量/油压三列）不出该数据。请明确取数口径：",
+     "options": [
+      "来自完井报告/分层测试文档（按族 completion 走 doc_retrieve）",
+      "来自生产月报统计（按族 monthly 走 doc_retrieve）",
+      "按注水井全井日注入量近似替代分层占比（语义近似·不严谨）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-a270a581"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "问 W-57 井吸水剖面各层的占比明细。"
+  ],
+  "duration_s": 5.1
+ }
+}

@@ -1,0 +1,172 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-6a7dcf7b",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问渤中34-5油田8月月报中月末结转的功图预警跟踪清单所列井号、各井的预警类型、首次发现日期、当前状态以及清单末尾的附加说明。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问渤中34-5油田8月月报中月末结转的功图预警跟踪清单所列井号、各井的预警类型、首次发现日期、当前状态以及清单末尾的附加说明。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配 r2 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "工具匹配 r3 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "工具匹配 r4 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "notice",
+   "data": {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：工具（discover/execute）未执行或未取得观察；观察（observe）未入栈；核验（verify）/阐述（answer）未执行。未取得可交付观察材料——如实回报，不编造。"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 9,
+   "event": "text",
+   "data": {
+    "content": "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）"
+   }
+  },
+  {
+   "id": 10,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-6a7dcf7b",
+    "manifest_digest": "bb3a89ef03db226da29c9ae88e96b77b192cc851274306d9df048455e95dee7e"
+   }
+  },
+  {
+   "id": 11,
+   "event": "done",
+   "data": {
+    "run_id": "run-6a7dcf7b"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：工具（discover/execute）未执行或未取得观察；观察（observe）未入栈；核验（verify）/阐述（answer）未执行。未取得可交付观察材料——如实回报，不编造。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-6a7dcf7b",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问渤中34-5油田8月月报中月末结转的功图预警跟踪清单所列井号、各井的预警类型、首次发现日期、当前状态以及清单末尾的附加说明。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配 r2 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "工具匹配 r3 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "工具匹配 r4 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   },
+   {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-6a7dcf7b",
+   "manifest_digest": "bb3a89ef03db226da29c9ae88e96b77b192cc851274306d9df048455e95dee7e"
+  },
+  "texts": [
+   "问渤中34-5油田8月月报中月末结转的功图预警跟踪清单所列井号、各井的预警类型、首次发现日期、当前状态以及清单末尾的附加说明。",
+   "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）"
+  ],
+  "duration_s": 6.3
+ }
+}

@@ -1,0 +1,51 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-313afb2c",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "notice",
+   "data": {
+    "type": "run_failed",
+    "gates": [],
+    "content": "run 执行失败：模型调用失败 alias='petro-main': 上游拒绝 429: RateLimitError"
+   }
+  },
+  {
+   "id": 2,
+   "event": "done",
+   "data": {
+    "run_id": "run-313afb2c"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "run_failed",
+    "gates": [],
+    "content": "run 执行失败：模型调用失败 alias='petro-main': 上游拒绝 429: RateLimitError"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-313afb2c",
+  "steps": [],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": null,
+  "texts": [],
+  "duration_s": 0.1
+ }
+}

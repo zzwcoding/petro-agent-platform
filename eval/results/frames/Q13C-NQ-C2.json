@@ -1,0 +1,172 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-81cd679c",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问报告附录工期统计中五项分项天数是否恰等于合计11.5天，超期0.5天对应的第六章具体节及占船日，以及\"酸化顶替段塞缩减2.5立方米\"的6.2节原文（含前后两个数字），并查询\"插曲一\"处置中钻磨的钻压范围、钻磨时长、复测缩径段长度。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问报告附录工期统计中五项分项天数是否恰等于合计11.5天，超期0.5天对应的第六章具体节及占船日，以及\"酸化顶替段塞缩减2.5立方米\"的6.2节原文（含前后两个数字），并查询\"插曲一\"处置中钻磨的钻压范围、钻磨时长、复测缩径段长度。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 3 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配 r2 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "工具匹配 r3 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "工具匹配 r4 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "notice",
+   "data": {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：工具（discover/execute）未执行或未取得观察；观察（observe）未入栈；核验（verify）/阐述（answer）未执行。未取得可交付观察材料——如实回报，不编造。"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 9,
+   "event": "text",
+   "data": {
+    "content": "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）"
+   }
+  },
+  {
+   "id": 10,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-81cd679c",
+    "manifest_digest": "b6fe5b52e16516fae213e49fd1a83340f9d0849811688bc8115c640ab9d35352"
+   }
+  },
+  {
+   "id": 11,
+   "event": "done",
+   "data": {
+    "run_id": "run-81cd679c"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：工具（discover/execute）未执行或未取得观察；观察（observe）未入栈；核验（verify）/阐述（answer）未执行。未取得可交付观察材料——如实回报，不编造。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-81cd679c",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问报告附录工期统计中五项分项天数是否恰等于合计11.5天，超期0.5天对应的第六章具体节及占船日，以及\"酸化顶替段塞缩减2.5立方米\"的6.2节原文（含前后两个数字），并查询\"插曲一\"处置中钻磨的钻压范围、钻磨时长、复测缩径段长度。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 3 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配 r2 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "工具匹配 r3 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "工具匹配 r4 被拒：matches s1 retrieval_need 缺 question（必填非空）"
+   },
+   {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-81cd679c",
+   "manifest_digest": "b6fe5b52e16516fae213e49fd1a83340f9d0849811688bc8115c640ab9d35352"
+  },
+  "texts": [
+   "问报告附录工期统计中五项分项天数是否恰等于合计11.5天，超期0.5天对应的第六章具体节及占船日，以及\"酸化顶替段塞缩减2.5立方米\"的6.2节原文（含前后两个数字），并查询\"插曲一\"处置中钻磨的钻压范围、钻磨时长、复测缩径段长度。",
+   "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）"
+  ],
+  "duration_s": 18.5
+ }
+}

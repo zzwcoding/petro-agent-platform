@@ -1,0 +1,107 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-2c173cd1",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问 W-111 井的用途或功能（即该井的类型、作用或作业目的）。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问 W-111 井的用途或功能（即该井的类型、作用或作业目的）。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（您问的「W-111 井是干什么的」想了解哪方面？）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "您问的「W-111 井是干什么的」想了解哪方面？",
+     "options": [
+      "该井的井别/类型（如采油井、注水井、观察井等）",
+      "该井的完井/投产背景与作业目的",
+      "该井的当前生产动态概况（如近期日产油/日产液/油压）",
+      "该井在区块/油田/平台中的隶属关系与作用"
+     ],
+     "detail": null
+    },
+    "run_id": "run-2c173cd1"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-2c173cd1"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问 W-111 井的用途或功能（即该井的类型、作用或作业目的）。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-2c173cd1",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问 W-111 井的用途或功能（即该井的类型、作用或作业目的）。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（您问的「W-111 井是干什么的」想了解哪方面？）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "您问的「W-111 井是干什么的」想了解哪方面？",
+     "options": [
+      "该井的井别/类型（如采油井、注水井、观察井等）",
+      "该井的完井/投产背景与作业目的",
+      "该井的当前生产动态概况（如近期日产油/日产液/油压）",
+      "该井在区块/油田/平台中的隶属关系与作用"
+     ],
+     "detail": null
+    },
+    "run_id": "run-2c173cd1"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "问 W-111 井的用途或功能（即该井的类型、作用或作业目的）。"
+  ],
+  "duration_s": 3.6
+ }
+}
