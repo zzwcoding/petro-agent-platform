@@ -50,6 +50,33 @@ WATERMARK = date(2026, 8, 31)
 _UNDERSTAND = "理解：问日产油量。\n指标候选：日产油量"
 _ANSWER = "答案：见引用[1]。"
 
+# 决策发射罐头（V2-31——结构化发射；外表越集照常发 plan 引擎侧审批）。
+_DECISION_EXTABLE = (
+    '{"action": "execute", "task_type": "data", '
+    '"plan": {"metric_slot": "日产油量", "ranking": false, '
+    '"window_start": "2025-09-01", "window_end": "2025-09-03", '
+    '"limit": 5, "external_tables": ["erp_well_register"]}}'
+)
+_DECISION_GATE = (
+    '{"action": "execute", "task_type": "data", '
+    '"plan": {"metric_slot": "日产油量", "ranking": false, '
+    '"window_start": "2026-09-01", "window_end": "2026-09-15"}}'
+)
+_DECISION_TODAY = (
+    '{"action": "execute", "task_type": "data", '
+    '"plan": {"metric_slot": "日产油量", "ranking": false, '
+    '"window_start": "2026-10-08", "window_end": "2026-10-09"}}'
+)
+
+
+def _windowed_script(extra_decision: str) -> dict[str, list[str]]:
+    """带窗计划＋定稿两轮的决策剧本（引擎按队列决定走审批/拦停/拒答）。"""
+    return {
+        "v2.runtime.understand": [_UNDERSTAND],
+        "v2.runtime.decision": [extra_decision, _DECISION_GATE, '{"action": "finalize"}'],
+        "v2.runtime.answer": [_ANSWER],
+    }
+
 
 def _notices(events: list[Any]) -> list[dict[str, Any]]:
     return [e.data for e in events if e.event == "notice"]
@@ -81,12 +108,8 @@ async def test_ask_detail_resume_wire(tmp_path: Path) -> None:
     engine = QueueQueryEngine([extable, rows])
     script: dict[str, Sequence[str]] = {
         "v2.runtime.understand": [_UNDERSTAND],
-        "v2.runtime.plan": [
-            '{"metric_slot": "日产油量", "ranking": false, '
-            '"window_start": "2025-09-01", "window_end": "2025-09-03", '
-            '"limit": 5, "external_tables": ["erp_well_register"]}'
-        ],
-        "v2.runtime.answer_draft": ["外表审批通过后取数：N-01 21.16 吨[1]。"],
+        "v2.runtime.decision": [_DECISION_EXTABLE, '{"action": "finalize"}'],
+        "v2.runtime.answer": ["外表审批通过后取数：N-01 21.16 吨[1]。"],
     }
     runtime, _completer, db = await make_runtime(tmp_path, engine=engine, script=script)
     store = RunStore(db)
@@ -149,15 +172,7 @@ def _gate_engine(*, enabled: bool) -> QueryEngine:
 async def test_de16_freshness_gate_switch(tmp_path: Path) -> None:
     # 窗 2026-09-01..09-15：窗头晚于水位 2026-08-31——闸开＝拦停（零数值）；
     # 闸关＝不读水位不拦停（引擎继续走执行，0 行如实 refuse，不冒充）。
-    plan_json = (
-        '{"metric_slot": "日产油量", "ranking": false, '
-        '"window_start": "2026-09-01", "window_end": "2026-09-15"}'
-    )
-    script: dict[str, Sequence[str]] = {
-        "v2.runtime.understand": [_UNDERSTAND],
-        "v2.runtime.plan": [plan_json],
-        "v2.runtime.answer_draft": [_ANSWER],
-    }
+    script: dict[str, Sequence[str]] = _windowed_script(_DECISION_GATE)
     # （a）开关开（缺省现状）：新鲜度闸拦停话术进答案，零数值。
     runtime, _completer, db = await make_runtime(
         tmp_path, engine=_gate_engine(enabled=True), script=script
@@ -206,18 +221,10 @@ async def test_today_question_refused(tmp_path: Path) -> None:
     )
     script: dict[str, Sequence[str]] = {
         "v2.runtime.understand": [_UNDERSTAND],
-        "v2.runtime.plan": [
-            '{"metric_slot": "日产油量", "ranking": false, '
-            '"window_start": "2026-10-08", "window_end": "2026-10-09"}'
-        ],
-        "v2.runtime.plan_repair": [
-            # repair 一轮（同窗重排——合同：repair 一次）；
-            '{"metric_slot": "日产油量", "ranking": false, '
-            '"window_start": "2026-10-08", "window_end": "2026-10-09"}'
-        ],
-        "v2.runtime.answer_draft": [_ANSWER],
+        "v2.runtime.decision": [_DECISION_TODAY],
+        "v2.runtime.answer": [_ANSWER],
     }
-    runtime, _completer, db = await make_runtime(
+    runtime, completer, db = await make_runtime(
         tmp_path, engine=engine, script=script, knowledge=knowledge
     )
     try:
@@ -227,12 +234,24 @@ async def test_today_question_refused(tmp_path: Path) -> None:
         run = await store.get_run(handle.run_id)
         assert run is not None and run.status == "completed"
         answer = run.answer or ""
-        # 维持 refuse：引擎窗界校验拒因原样转答（未来窗不代猜不冒充——R6-03）。
-        assert "窗界越界" in answer
-        assert "未来窗不代猜" in answer
-        # 无快路豁免：零数值出数，notice 如实。
+        # 维持 refuse 语义（R6-03 未来窗不代猜不冒充）：三轮重决策全部被引擎窗界
+        # 校验拒（拒因回喂——拍板②），零数值出数；轮耗收敛如实收口。
         assert "21.16" not in answer
+        assert "未取得可交付观察材料" in answer
+        # 拒因回喂面：窗界越界拒因逐轮在案（decision_rejected 机读分型）。
         notices = _notices(events)
-        assert any(n.get("type") == "refused" for n in notices)
+        rejected = [n for n in notices if n.get("type") == "decision_rejected"]
+        assert len(rejected) == 3
+        assert all("窗界越界" in n["content"] and "未来窗不代猜" in n["content"]
+                   for n in rejected)
+        converged = [n for n in notices if n.get("type") == "budget_converged"]
+        assert len(converged) == 1 and converged[0]["gates"] == ["max_rounds"]
+        # 零 ASK 帧（时间窗歧义不反问——拍板⑥①：引擎窗界校验拒不是澄清源）。
+        assert not [e for e in events if e.event == "ask"]
+        # 三 caller 桶（无 repair）。
+        assert completer.counts() == {
+            "v2.runtime.understand": 1,
+            "v2.runtime.decision": 3,
+        }
     finally:
         await db.dispose()

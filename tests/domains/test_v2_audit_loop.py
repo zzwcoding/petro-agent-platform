@@ -42,10 +42,11 @@ from appv2.tools import FakeQueryEngine
 from tests.domains.test_v2_agent_loop import (
     ACTOR,
     ANSWER_DRAFT_CITED,
+    DECISION_FINALIZE,
+    DECISION_VAGUE,
+    DECISION_WINDOWED,
     HAPPY_QUESTION,
     HAPPY_SCRIPT,
-    PLAN_VAGUE,
-    PLAN_WINDOWED,
     UNDERSTAND_DATA,
     QueueQueryEngine,
     drain,
@@ -56,12 +57,12 @@ TODAY = date(2026, 10, 8)
 
 _VAGUE_SCRIPT: dict[str, Sequence[str]] = {
     "v2.runtime.understand": [UNDERSTAND_DATA],
-    "v2.runtime.plan": [PLAN_VAGUE],
+    "v2.runtime.decision": [DECISION_VAGUE],
 }
 _WINDOWED_SCRIPT: dict[str, Sequence[str]] = {
     "v2.runtime.understand": [UNDERSTAND_DATA],
-    "v2.runtime.plan": [PLAN_WINDOWED],
-    "v2.runtime.answer_draft": [ANSWER_DRAFT_CITED],
+    "v2.runtime.decision": [DECISION_WINDOWED, DECISION_FINALIZE],
+    "v2.runtime.answer": [ANSWER_DRAFT_CITED],
 }
 
 
@@ -324,8 +325,8 @@ async def test_resume_running_writeback_no_gap(tmp_path: Path) -> None:
     finally:
         await db.dispose()
 
-    # 进程 B：闸门 completer 挂住恢复段 plan 调用——受理段 running 回写的确定性观察窗。
-    gate = _GateCompleter(_WINDOWED_SCRIPT, gate_caller="v2.runtime.plan")
+    # 进程 B：闸门 completer 挂住恢复段 decision 调用——受理段 running 回写的确定性观察窗。
+    gate = _GateCompleter(_WINDOWED_SCRIPT, gate_caller="v2.runtime.decision")
     runtime_b, _completer, db_b = await make_runtime(
         tmp_path, engine=engine, script=_WINDOWED_SCRIPT, completer=gate
     )

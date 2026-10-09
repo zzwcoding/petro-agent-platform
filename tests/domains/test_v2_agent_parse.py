@@ -124,16 +124,17 @@ def test_parse_plan_true_garbage_yields_none() -> None:
     assert extract_plan_json("抱歉，我无法直接输出该计划。") is None
 
 
-# ---------- 真非法产走拒答链（runtime 集成钉测） ----------
+# ---------- 真非法产走拒答链（runtime 集成钉测——ReAct 语义迁移） ----------
 
 
 async def test_true_illegal_output_walks_refusal_chain(tmp_path: Path) -> None:
-    """understand 纯散文（两行/JSON 双缺）＋plan 两轮纯散文（宽容解析两轮失败）
-    →repair 恰一轮→plan_unparsable 如实收敛：零数值不编造、run 正常 completed。"""
+    """understand 纯散文（两行/JSON 双缺）＋decision 轮轮纯散文（宽容解析失败拒因
+    回喂，无 repair）→3 轮轮数闸收敛兜底：零数值不编造、run 正常 completed、
+    机读 budget_converged 收口（旧 plan_unparsable 通道随 repair 取消退役——
+    V2-31 拍板②：拒因回喂重决策，轮预算照耗）。"""
     script: dict[str, Sequence[str]] = {
         "v2.runtime.understand": ["您好！我来帮您分析这个查询请求。"],
-        "v2.runtime.plan": ["抱歉，我无法直接输出该计划。"],
-        "v2.runtime.plan_repair": ["真的很抱歉，我仍然无法输出该计划。"],
+        "v2.runtime.decision": ["抱歉，我无法直接输出该决策。"],
     }
     runtime, completer, db = await make_runtime(
         tmp_path, engine=FakeQueryEngine(), script=script
@@ -145,16 +146,25 @@ async def test_true_illegal_output_walks_refusal_chain(tmp_path: Path) -> None:
         run = await store.get_run(handle.run_id)
         assert run is not None and run.status == "completed"
         answer = run.answer or ""
-        assert "计划未能产出" in answer  # 拒答链收口话术
+        assert "未取得可交付观察材料" in answer  # 轮耗收敛话术（零编造）
         assert "21.16" not in answer  # 零数值不编造
         notices = [e.data for e in events if e.event == "notice"]
-        unparsable = [n for n in notices if n.get("type") == "plan_unparsable"]
-        assert len(unparsable) == 1
-        assert unparsable[0]["gates"] == []
-        # 六步合同次序内收敛：understand→plan→plan（repair 恰一轮）→answer。
+        converged = [n for n in notices if n.get("type") == "budget_converged"]
+        assert len(converged) == 1
+        assert converged[0]["gates"] == ["max_rounds"]
+        # 三轮全耗且每轮被拒留痕：decision 步 ×4（understand 段＋3 决策轮），
+        # 被拒标题在案；answer caller 零调用（无 repair 桶）。
         step_kinds = [e.data["step"] for e in events if e.event == "step"]
-        assert step_kinds == ["understand", "plan", "plan", "answer"]
-        # repair 轮确经 plan_repair caller（归因面）。
-        assert any(caller == "v2.runtime.plan_repair" for caller, _m in completer.calls)
+        assert step_kinds == ["decision", "decision", "decision", "decision", "answer"]
+        steps = await store.list_steps(handle.run_id)
+        rejected_titles = [
+            s.title for s in steps
+            if s.step_type == "decision" and "被拒" in s.title
+        ]
+        assert len(rejected_titles) == 3
+        assert completer.counts() == {
+            "v2.runtime.understand": 1,
+            "v2.runtime.decision": 3,
+        }
     finally:
         await db.dispose()

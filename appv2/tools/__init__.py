@@ -2,7 +2,8 @@
 
 ToolRegistry＝agent 与世界的唯一接触面（受控行动链工具侧落位）——knowledge/
 query/retrieval 三引擎包装成四个只读工具（semantic_query/data_query/
-doc_retrieve/graph_query）：统一 Observation 出处链（INV-1 输入）、错误三分类
+doc_retrieve/graph_query）＋V2-31 发现工具 table_schema（白名单⑥结构卡）：
+统一 Observation 出处链（INV-1 输入）、错误三分类
 （retryable|bad_args|refused）、ASK 帧形态（clarify|external_table_approval）；
 data_query 内部先经 query.validate（不过＝failed(bad_args, 校验理由)，引擎零
 执行）。
@@ -36,6 +37,7 @@ from appv2.tools.handlers import (
     DATA_QUERY,
     DOC_RETRIEVE,
     GRAPH_QUERY,
+    SCHEMA_PROBE,
     SEMANTIC_QUERY,
     QueryFace,
     RetrievalFace,
@@ -74,6 +76,7 @@ __all__ = [
     "DATA_QUERY",
     "DOC_RETRIEVE",
     "GRAPH_QUERY",
+    "SCHEMA_PROBE",
     "SEMANTIC_QUERY",
     "STATUS_ALL",
     "STATUS_ASK",

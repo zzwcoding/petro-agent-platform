@@ -1,23 +1,22 @@
-"""V2-06 runtime 验收（runtime 侧）——specs/agent-loop.md「验收测试」表 runtime 侧条目
-逐条落测（1:1 同名）＋骨架贯通/resume 错误路径两条骨架钉测。
+"""V2-31 ReAct 循环 runtime 验收（runtime 侧）——V2-06 原六步验收经 ReAct 重构
+迁移（V2-31 拍板七条＝设计合同；六步线性流水线 → ReAct 自主循环）：
 
-骨架版（P-006 中途审查拍前置）：StateGraph 六步 loop 贯通＋PG checkpointer＋预算三闸
-＋RunCommand seam；细化打磨归审查后批次（见 dispatch/results/P-006.dev.md 待细化清单）。
-
-五条对应（specs/agent-loop.md 验收表 runtime 侧；文件名按派工单总则 test_v2_* 命名——
-spec 表内 tests/domains/test_agent_loop.py 的 v2 前缀同位映射，测名 1:1 不变）：
-- budget_termination：步数/时长预算收敛＋未完成项 notice（有界终止，行为约定 7）；
+- budget_termination：轮数/时长预算收敛＋未完成项 notice（有界终止——ReAct 语义：
+  轮＝LLM 决策周期 ≤3 轮，拍板①）；
 - run_recover_after_restart：挂起态跨进程恢复——checkpointer 落库（PgCheckpointer），
-  新 runtime 实例（新 ConnectionManager 同库文件）凭 run_id resume 续跑完成（行为约定 8）；
+  新 runtime 实例（新 ConnectionManager 同库文件）凭 run_id resume 续跑完成
+  （行为约定 8）；
 - readonly_inv2：全程无任何写操作落库（INV-2）——真问数引擎（CsvSnapshotExecutor）
   快照逐字节零变＋台账读面零变；
-- six_steps_in_order（骨架钉测）：六类 step 事件按 understand→…→answer 次序齐发，
+- react_happy_path（骨架钉测）：ReAct 周期步序 understand(decision)→decision→
+  execute→observe→decision(finalize)→answer(起草)→verify→answer(收口)，
   每个模型调用 step 落 Manifest（过程态簿记留痕）；
 - resume_error_paths（骨架钉测）：resume 到不存在 run／非挂起 run 的错误路径
   （V2-07 api 404/409 映射的 runtime 侧异常源）。
 
-剧本化 completer（ScriptedCompleter，按 caller 分流、多轮 replay）即 modules.md
-runtime 卡点名的测试 adapter——P-007 api 测试复用同一件。
+剧本化 completer（ScriptedCompleter，按 caller 分流、多轮 replay——三 caller 桶
+understand/decision/answer，无 repair 桶）即 modules.md runtime 卡点名的测试
+adapter——V2-31 剧本升级：counts()/messages_of() 观测面。
 """
 
 from __future__ import annotations
@@ -64,21 +63,32 @@ TODAY = date(2026, 10, 8)
 WATERMARK = date(2026, 8, 31)
 ACTOR = Actor(user_id="dev-u1", display="开发用户")
 
-# 剧本（ScriptedCompleter 按 caller 分流）：
+# 剧本（ScriptedCompleter 按 caller 分流；决策发射＝结构化 JSON——拍板①）：
 UNDERSTAND_DATA = "理解：问 2025 年 9 月上旬的日产油量。\n指标候选：日产油量"
-PLAN_WINDOWED = (
-    '{"metric_slot": "日产油量", "ranking": false, '
-    '"window_start": "2025-09-01", "window_end": "2025-09-03", "limit": 5}'
+DECISION_WINDOWED = (
+    '{"thought": "问数题——直接执行权威问数", "action": "execute", '
+    '"task_type": "data", "plan": {"metric_slot": "日产油量", "ranking": false, '
+    '"window_start": "2025-09-01", "window_end": "2025-09-03", "limit": 5}}'
 )
-PLAN_VAGUE = '{"metric_slot": "日产油量", "ranking": false}'
+DECISION_VAGUE = (
+    '{"action": "execute", "task_type": "data", '
+    '"plan": {"metric_slot": "日产油量", "ranking": false}}'
+)
+DECISION_FINALIZE = '{"thought": "材料已足够", "action": "finalize"}'
 ANSWER_DRAFT_CITED = "N-01 井 2025-09-01 日产油量 21.16 吨[1]。"
 
 HAPPY_SCRIPT: dict[str, Sequence[str]] = {
     "v2.runtime.understand": [UNDERSTAND_DATA],
-    "v2.runtime.plan": [PLAN_WINDOWED],
-    "v2.runtime.answer_draft": [ANSWER_DRAFT_CITED],
+    "v2.runtime.decision": [DECISION_WINDOWED, DECISION_FINALIZE],
+    "v2.runtime.answer": [ANSWER_DRAFT_CITED],
 }
 HAPPY_QUESTION = "2025 年 9 月 1 日到 3 日的日产油量"
+
+# ReAct 钉步序（骨架）：understand 段记 decision 类步（payload.phase=understand）。
+HAPPY_STEP_KINDS = [
+    "decision", "decision", "execute", "observe", "decision",
+    "answer", "verify", "answer",
+]
 
 
 def _rows_outcome() -> QueryOutcome:
@@ -114,18 +124,21 @@ async def make_runtime(
     budget: Budget | None = None,
     knowledge: Any = None,
     completer: ScriptedCompleter | None = None,
+    guide: Any = None,
+    retrieval: Any = None,
 ) -> tuple[AgentRuntime, ScriptedCompleter, ConnectionManager]:
-    """标准装配：registry＋剧本 completer＋sqlite 库＋PgCheckpointer＋六步图。
+    """标准装配：registry＋剧本 completer＋sqlite 库＋PgCheckpointer＋ReAct 图。
 
     knowledge＝registry 的台账缝（真引擎测试传 InMemoryKnowledgeStore，
     假引擎测试缺省 FakeKnowledgeStore）；engine＝QueryFace 缝（真/假问数引擎）；
-    completer＝显式注入缝（V2-20 闸门/爆炸 completer 等剧本变体——缺省按
-    script 现建 ScriptedCompleter）。
+    retrieval＝RetrievalFace 缝（缺省 FakeRetrievalEngine）；completer＝显式
+    注入缝（闸门/爆炸 completer 等剧本变体——缺省按 script 现建
+    ScriptedCompleter）；guide＝处理指南缝（拍板⑦——缺省内置指南）。
     """
     registry = ToolRegistry(
         knowledge=knowledge if knowledge is not None else FakeKnowledgeStore(),
         query=engine,
-        retrieval=FakeRetrievalEngine(),
+        retrieval=retrieval if retrieval is not None else FakeRetrievalEngine(),
     )
     spec = DatabaseSpec(
         name="primary",
@@ -146,7 +159,7 @@ async def make_runtime(
         name: GatewayChatModel(
             completer=completer, caller=f"v2.runtime.{name}", alias=""
         )
-        for name in ("understand", "plan", "plan_repair", "answer_draft")
+        for name in ("understand", "decision", "answer")
     }
     executor = GraphRunExecutor(
         registry=registry,
@@ -154,6 +167,8 @@ async def make_runtime(
         db=db,
         saver=PgCheckpointer(db),
         budget=budget or Budget(),
+        guide=guide,
+        today=TODAY,
     )
     return AgentRuntime(executor), completer, db
 
@@ -170,10 +185,10 @@ def _notices(events: list[RunEvent]) -> list[dict[str, Any]]:
     return [e.data for e in events if e.event == "notice"]
 
 
-# ---------- 骨架钉测①：六步贯通＋次序＋每模型调用落 Manifest（过程态簿记） ----------
+# ---------- 骨架钉测①：ReAct 周期步序＋每模型调用落 Manifest（过程态簿记） ----------
 
 
-async def test_six_steps_in_order(tmp_path: Path) -> None:
+async def test_react_happy_path(tmp_path: Path) -> None:
     runtime, _completer, db = await make_runtime(
         tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=HAPPY_SCRIPT
     )
@@ -181,24 +196,32 @@ async def test_six_steps_in_order(tmp_path: Path) -> None:
     try:
         handle = await runtime.ask(AskRequest(question=HAPPY_QUESTION, actor=ACTOR))
         events = await drain(handle)
-        assert _step_kinds(events) == [
-            "understand", "plan", "tool", "observe", "verify", "answer",
-        ]
+        assert _step_kinds(events) == HAPPY_STEP_KINDS
         run = await store.get_run(handle.run_id)
         assert run is not None and run.status == "completed"
         assert "21.16" in (run.answer or "")
         assert run.manifest_digest  # Manifest 随 step 存档的摘要面（过程态簿记）
-        # 每个模型调用 step 落 Manifest（七字段合同形——过程态簿记）。
+        # 每个模型调用 step（understand 段/decision r1/decision r2/answer 起草）
+        # 落 Manifest（七字段合同形）；verify 零 LLM 不落（拍板③保留件语义）。
         steps = await store.list_steps(handle.run_id)
-        manifest_by_step = {s.step_type: s.manifest for s in steps}
-        for kind in ("understand", "plan", "verify"):
-            manifest = manifest_by_step[kind]
-            assert set(manifest) == {
+        with_manifest = [s for s in steps if s.manifest is not None]
+        assert [s.step_type for s in with_manifest] == [
+            "decision", "decision", "decision", "answer",
+        ]
+        for step in with_manifest:
+            assert set(step.manifest) == {
                 "source_type", "source_id", "version", "trust_level",
                 "selected_reason", "token_count", "transform",
             }
-            assert manifest["token_count"] > 0
-            assert manifest["transform"] == "filter→rank→budget→cite"
+            assert step.manifest["token_count"] > 0
+            assert step.manifest["transform"] == "filter→rank→budget→cite"
+        # 决策出口（拍板任务 5——行为断言锁在决策出口）：r1＝execute data、
+        # r2＝finalize，emission 投影随 step payload 在案。
+        decisions = [s for s in steps if s.step_type == "decision"
+                     and (s.payload or {}).get("phase") == "decision"]
+        assert decisions[0].payload["emission"]["action"] == "execute"
+        assert decisions[0].payload["emission"]["task_type"] == "data"
+        assert decisions[1].payload["emission"]["action"] == "finalize"
         # 引用事件带出处链（答案 fail-closed 引用的 runtime 侧素材）。
         citations = [e.data for e in events if e.event == "citation"]
         assert citations and citations[0]["source"] == "agg.fct_daily_metering"
@@ -206,17 +229,21 @@ async def test_six_steps_in_order(tmp_path: Path) -> None:
         await db.dispose()
 
 
-# ---------- 验收①：预算触界收敛＋未完成项 notice（步数/时长两闸） ----------
+# ---------- 验收①：预算触界收敛＋未完成项 notice（轮数/时长两闸——ReAct 语义） ----------
 
 
 async def test_budget_termination(tmp_path: Path) -> None:
-    # （a）步数闸：max_steps=3——understand/plan/tool 三步后 observe 入口收敛；
-    # 已取得观察原样交付（非静默截断）＋notice 明示未完成项。收敛幂等（R1）：
-    # answer 入口不再二次收敛——notice 恰 1 条、机读 gates 不重复；收敛答案经
-    # answer 步正常收口出流（三步截断语义不变：observe/verify 零执行）。
-    runtime, _completer, db = await make_runtime(
-        tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=HAPPY_SCRIPT,
-        budget=Budget(max_steps=3),
+    # （a）轮数闸：max_rounds=2——r1/r2 两轮执行后 decision 入口收敛；已取得观察
+    # 原样交付（非静默截断）＋notice 明示未完成项。收敛幂等（R1）：notice 恰 1 条、
+    # 机读 gates 不重复追加；已收敛 run 不再起草/核验（零 verify 判定）。
+    runtime, completer, db = await make_runtime(
+        tmp_path,
+        engine=QueueQueryEngine([_rows_outcome()]),
+        script={
+            "v2.runtime.understand": [UNDERSTAND_DATA],
+            "v2.runtime.decision": [DECISION_WINDOWED],  # 末条驻留——轮轮重执行
+        },
+        budget=Budget(max_rounds=2),
     )
     store = RunStore(db)
     try:
@@ -224,13 +251,19 @@ async def test_budget_termination(tmp_path: Path) -> None:
         events = await drain(handle)
         run = await store.get_run(handle.run_id)
         assert run is not None and run.status == "completed"
-        assert _step_kinds(events) == ["understand", "plan", "tool", "answer"]
         assert "21.16" in (run.answer or "")  # 已取得材料交付——不静默截断
+        # 三 caller 桶：decision 恰 2 轮（上限 2）——第 3 入口闸收敛，零起草。
+        assert completer.counts() == {
+            "v2.runtime.understand": 1,
+            "v2.runtime.decision": 2,
+        }
         notices = _notices(events)
-        assert len(notices) == 1  # R1 收敛幂等：notice 恰 1 条
-        assert notices[0]["type"] == "budget_converged"
-        assert notices[0]["gates"] == ["max_steps"]  # 机读 gates 不重复追加
-        assert "未完成" in notices[0]["content"]
+        converged = [n for n in notices if n.get("type") == "budget_converged"]
+        assert len(converged) == 1  # R1 收敛幂等：notice 恰 1 条
+        assert converged[0]["gates"] == ["max_rounds"]  # 机读 gates 不重复追加
+        assert "未完成" in converged[0]["content"]
+        verdicts = [e.data for e in events if e.event == "verdict"]
+        assert not [v for v in verdicts if v.get("rewritten") is not None]  # 零 verify 判定
     finally:
         await db.dispose()
 
@@ -247,12 +280,13 @@ async def test_budget_termination(tmp_path: Path) -> None:
         run = await store.get_run(handle.run_id)
         assert run is not None and run.status == "completed"
         notices = _notices(events)
-        assert len(notices) == 1  # R1 收敛幂等：notice 恰 1 条
-        assert notices[0]["gates"] == ["total_seconds"]
-        assert "未完成" in notices[0]["content"]
+        converged = [n for n in notices if n.get("type") == "budget_converged"]
+        assert len(converged) == 1  # R1 收敛幂等：notice 恰 1 条
+        assert converged[0]["gates"] == ["total_seconds"]
+        assert "未完成" in converged[0]["content"]
         # R2 零材料分叉：notice 与答案同一口径（「未取得可交付观察材料」族）。
-        assert "未取得可交付观察材料" in notices[0]["content"]
-        assert "已交付" not in notices[0]["content"]
+        assert "未取得可交付观察材料" in converged[0]["content"]
+        assert "已交付" not in converged[0]["content"]
         assert "未取得可交付观察材料" in (run.answer or "")
     finally:
         await db.dispose()
@@ -262,13 +296,13 @@ async def test_budget_termination(tmp_path: Path) -> None:
 
 
 async def test_refused_gate_notice(tmp_path: Path) -> None:
-    # 直接 refused（三分类闸拒——非 bad_args 两轮/retryable 耗尽通道）：
+    # 直接 refused（三分类闸拒——非 bad_args 回喂/retryable 耗尽通道）：
     # 拒因原样如实转答＋机读 notice type="refused"（与 V2-05 闸态分型对齐，
     # 按 notice 类型消费的机读面不漏直接闸拒）；零数值——闸拒不冒充出数。
     engine = FakeQueryEngine(run_error=PermissionError("越权口径：无据出数"))
     script: dict[str, Sequence[str]] = {
         "v2.runtime.understand": [UNDERSTAND_DATA],
-        "v2.runtime.plan": [PLAN_WINDOWED],
+        "v2.runtime.decision": [DECISION_WINDOWED],
     }
     runtime, _completer, db = await make_runtime(tmp_path, engine=engine, script=script)
     store = RunStore(db)
@@ -302,17 +336,18 @@ async def test_run_recover_after_restart(tmp_path: Path) -> None:
             _rows_outcome(),
         ]
     )
-    # 剧本按段分装（ScriptedCompleter 按 caller FIFO——A 段消模糊计划，B 段起带窗计划）。
+    # 剧本按段分装（ScriptedCompleter 按 caller FIFO——A 段模糊计划出 clarify，
+    # B 段起带窗计划＋定稿）。
     script_a: dict[str, Sequence[str]] = {
         "v2.runtime.understand": [UNDERSTAND_DATA],
-        "v2.runtime.plan": [PLAN_VAGUE],
+        "v2.runtime.decision": [DECISION_VAGUE],
     }
     script_b: dict[str, Sequence[str]] = {
         "v2.runtime.understand": [UNDERSTAND_DATA],
-        "v2.runtime.plan": [PLAN_WINDOWED],
-        "v2.runtime.answer_draft": [ANSWER_DRAFT_CITED],
+        "v2.runtime.decision": [DECISION_WINDOWED, DECISION_FINALIZE],
+        "v2.runtime.answer": [ANSWER_DRAFT_CITED],
     }
-    # 进程 A：提问→缺时间窗→need_clarify ASK 挂起（waiting_ask）。
+    # 进程 A：提问→模糊计划→引擎 need_clarify ASK 挂起（waiting_ask）。
     runtime_a, _completer, db = await make_runtime(tmp_path, engine=engine, script=script_a)
     store = RunStore(db)
     run_id = ""

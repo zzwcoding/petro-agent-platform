@@ -46,6 +46,7 @@ from appv2.runtime.graph import verify_draft
 from appv2.tools import FakeKnowledgeStore
 from tests.domains.test_v2_agent_loop import (
     ACTOR,
+    DECISION_FINALIZE,
     QueueQueryEngine,
     drain,
     make_runtime,
@@ -84,12 +85,23 @@ _EVIDENCE_CUBIC = Evidence(
     binding_state="bound",
 )
 
+# 决策发射罐头（V2-31——发现语义卡/带表计划/定稿）。
+_DECISION_SEMANTIC = (
+    '{"action": "discover", "discovers": '
+    '[{"tool": "semantic_query", "args": {"element_name": "日产油量"}}]}'
+)
+_DECISION_TABLED = (
+    '{"action": "execute", "task_type": "data", '
+    '"plan": {"metric_slot": "日产油量", "ranking": false, '
+    '"window_start": "2025-01-01", "window_end": "2026-01-01", "limit": 50}}'
+)
+
 
 def _semantic_script(draft: str) -> dict[str, Sequence[str]]:
     return {
         "v2.runtime.understand": ["理解：问日产油量口径。\n指标候选：无"],
-        "v2.runtime.plan": ['{"tool": "semantic_query", "args": {"element_name": "日产油量"}}'],
-        "v2.runtime.answer_draft": [draft],
+        "v2.runtime.decision": [_DECISION_SEMANTIC, DECISION_FINALIZE],
+        "v2.runtime.answer": [draft],
     }
 
 
@@ -108,11 +120,13 @@ async def test_unsupported_claim_rewritten(tmp_path: Path) -> None:
     )
     script: dict[str, Sequence[str]] = {
         "v2.runtime.understand": ["理解：问日产油量。\n指标候选：日产油量"],
-        "v2.runtime.plan": [
-            '{"metric_slot": "日产油量", "ranking": false, '
-            '"window_start": "2025-09-01", "window_end": "2025-09-03", "limit": 5}'
+        "v2.runtime.decision": [
+            '{"action": "execute", "task_type": "data", '
+            '"plan": {"metric_slot": "日产油量", "ranking": false, '
+            '"window_start": "2025-09-01", "window_end": "2025-09-03", "limit": 5}}',
+            DECISION_FINALIZE,
         ],
-        "v2.runtime.answer_draft": [draft],
+        "v2.runtime.answer": [draft],
     }
     runtime, _completer, db = await make_runtime(
         tmp_path, engine=QueueQueryEngine([rows]), script=script
@@ -184,11 +198,13 @@ async def test_citation_on_unrelated_line_rewritten(tmp_path: Path) -> None:
     draft = "全油田 86 口井昨日均超产 50 吨[1]。"
     script: dict[str, Sequence[str]] = {
         "v2.runtime.understand": ["理解：问日产油量。\n指标候选：日产油量"],
-        "v2.runtime.plan": [
-            '{"metric_slot": "日产油量", "ranking": false, '
-            '"window_start": "2025-09-01", "window_end": "2025-09-03", "limit": 5}'
+        "v2.runtime.decision": [
+            '{"action": "execute", "task_type": "data", '
+            '"plan": {"metric_slot": "日产油量", "ranking": false, '
+            '"window_start": "2025-09-01", "window_end": "2025-09-03", "limit": 5}}',
+            DECISION_FINALIZE,
         ],
-        "v2.runtime.answer_draft": [draft],
+        "v2.runtime.answer": [draft],
     }
     runtime, _completer, db = await make_runtime(
         tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=script
@@ -350,11 +366,8 @@ async def test_table_answer_survives_verify(tmp_path: Path) -> None:
     # 吞成「未找到」（P-015 实测 rewritten=34/支撑 0 的假绿根因）。
     script: dict[str, Sequence[str]] = {
         "v2.runtime.understand": ["理解：问日产油量明细。\n指标候选：日产油量"],
-        "v2.runtime.plan": [
-            '{"metric_slot": "日产油量", "ranking": false, '
-            '"window_start": "2025-01-01", "window_end": "2026-01-01", "limit": 50}'
-        ],
-        "v2.runtime.answer_draft": [_TABLE_DRAFT],
+        "v2.runtime.decision": [_DECISION_TABLED, DECISION_FINALIZE],
+        "v2.runtime.answer": [_TABLE_DRAFT],
     }
     runtime, _completer, db = await make_runtime(
         tmp_path, engine=QueueQueryEngine([_rows_with_closing_outcome()]), script=script
@@ -392,11 +405,8 @@ async def test_closing_note_not_duplicated_when_draft_carries_it(tmp_path: Path)
     draft = _TABLE_DRAFT + "\n明细按⑤ 收口注记 LIMIT 50 收口[3]。\n"
     script: dict[str, Sequence[str]] = {
         "v2.runtime.understand": ["理解：问日产油量明细。\n指标候选：日产油量"],
-        "v2.runtime.plan": [
-            '{"metric_slot": "日产油量", "ranking": false, '
-            '"window_start": "2025-01-01", "window_end": "2026-01-01", "limit": 50}'
-        ],
-        "v2.runtime.answer_draft": [draft],
+        "v2.runtime.decision": [_DECISION_TABLED, DECISION_FINALIZE],
+        "v2.runtime.answer": [draft],
     }
     runtime, _completer, db = await make_runtime(
         tmp_path, engine=QueueQueryEngine([_rows_with_closing_outcome()]), script=script

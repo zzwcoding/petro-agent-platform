@@ -1,19 +1,31 @@
-"""runtime.graph —— LangGraph StateGraph 六步 loop（specs/agent-loop.md 行为约定 1–7）。
+"""runtime.graph —— LangGraph StateGraph ReAct 自主循环（V2-31 拍板七条＝设计合同）。
 
-六步：understand→plan→tool→observe→verify→answer（每步落 step 记录——过程态
-簿记留痕；INV-5 审计责任账经 security.audit 唯一写口落，见 runtime/audit.py）；
-StateGraph＋条件边承载全部回环（ADR-0002：StateGraph 真承载 loop）：
-- plan↔tool：计划校验不过→repair 一次→仍不过→need_clarify 转 ASK 帧（约定 3）；
-- tool→tool：retryable 同参重试一次；工具 status=ask 自环进 interrupt 挂起
-  （约定 4：挂起等人工，resume 带选择续跑——langgraph interrupt/Command）；
-- 触界（预算三闸）→answer 收敛：交付已核实部分＋notice 明示未完成项（约定 7）。
+节点按 ReAct 周期（每步落 step 记录——过程态簿记留痕；INV-5 审计责任账经
+security.audit 唯一写口落，见 runtime/audit.py）：
 
+    understand → decision ⇄（discover／execute → observe）→ answer → verify → answer收口
+
+- 轮＝LLM 决策周期（≤3 轮）；decision 发射结构化 JSON（task_type
+  data|knowledge|mixed＋plan/retrieval_need），经 parse_decision schema 校验进
+  固定代码执行（discover/execute 节点——工具只经 ToolRegistry.call 受控行动链）；
+  观察回流后模型自主决策再轮或 finalize 定稿（ReAct：模型在循环里、工具在手边、
+  观察回流转）。
+- schema 校验失败取消自动 repair（拍板②）——拒因写进 decision_error 回喂
+  LLM 由它重决策（同 caller 复用，无 repair 桶）；轮预算随拒回照耗。
+- verify 节点保留零 LLM（拍板③）——INV-1/4 机器底线；P-020/V2-23 表格豁免
+  继承（_supported 豁免域 agg_row/lineage 原样）。答案草稿由 answer 节点
+  （caller answer）按引标合同起草，verify 只做确定性断言级核验。
+- 澄清分级（拍板⑥）：时间窗歧义→模型按指南自动默认（近 30 天）＋note 注记；
+  目标/对象/口径歧义→decision 发射 ask（合成 clarify 帧挂起，用户输入重置轮
+  预算）；外表越集→data_query 引擎 ask 帧→审批挂起（不变，resume 批准重跑受
+  骨架上限 1 轮约束）。
+- 处理指南经 GuideProvider 缝消费（拍板⑦——V2-32 ontology 资产件整替注入，
+  runtime/guide.py）。
+
+StateGraph＋条件边承载全部回环（ADR-0002：StateGraph 真承载 loop）；
 红线自守：langgraph 只在本包 import（红线①）；模型调用全部经 GatewayChatModel
-（红线②）；图状态 RunState 自有（红线③）。工具只经 ToolRegistry.call（受控行动链）。
-核验步为确定性规则（断言级支撑核查——被引观察的数值须被断言文本复述，引标贴
-无关行＝无据——＋分源列明；V2-23 豁免：表格行/血缘卡是权威观察承载，引它们
-只须复述任一数值 token，改写只管自由文本断言行），细化批可换更强实现，语义不破
-（INV-1/4）。
+（红线②，caller 桶＝understand/decision/answer 三值闭世界）；图状态 RunState
+自有（红线③）。核验步确定性规则见 verify_draft（细化批可换更强实现，语义不破）。
 """
 
 from __future__ import annotations
@@ -23,28 +35,38 @@ import hashlib
 import json
 import re
 from collections.abc import Callable, Coroutine, Hashable
+from dataclasses import dataclass, replace
 from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
-from appv2.runtime.budget import budget_gate_hit, material_rows, unfinished_notice
+from appv2.infra import clock
+from appv2.runtime.budget import (
+    MAX_DISCOVERS_PER_ROUND_CONTRACT,
+    MAX_EXECUTES_PER_ROUND_CONTRACT,
+    budget_gate_hit,
+    material_rows,
+    unfinished_notice,
+)
 from appv2.runtime.context import CompiledContext, ContextBuilder, trust_of
 from appv2.runtime.events import EventBus
+from appv2.runtime.guide import DefaultGuideProvider, GuideProvider
 from appv2.runtime.llm import CALLER_PREFIX, GatewayChatModel
 from appv2.runtime.state import (
     INTENT_ANSWER,
+    INTENT_DECISION,
+    INTENT_DISCOVER,
     INTENT_END,
+    INTENT_EXECUTE,
     INTENT_OBSERVE,
-    INTENT_PLAN,
-    INTENT_TOOL,
     INTENT_VERIFY,
     STEP_ANSWER,
+    STEP_DECISION,
+    STEP_DISCOVER,
+    STEP_EXECUTE,
     STEP_OBSERVE,
-    STEP_PLAN,
-    STEP_TOOL,
-    STEP_UNDERSTAND,
     STEP_VERIFY,
     Manifest,
     RunState,
@@ -56,6 +78,9 @@ from appv2.tools import (
     CATEGORY_BAD_ARGS,
     CATEGORY_RETRYABLE,
     DATA_QUERY,
+    DOC_RETRIEVE,
+    SCHEMA_PROBE,
+    SEMANTIC_QUERY,
     STATUS_ASK,
     STATUS_FAILED,
     STATUS_OK,
@@ -63,10 +88,24 @@ from appv2.tools import (
     ToolRegistry,
 )
 
-# 计划产出工具闭世界（骨架版：plan 只在四工具内选择——registry.call 兜底拒未知名）。
-_PLAN_TOOLS: frozenset[str] = frozenset(
-    {DATA_QUERY, "semantic_query", "doc_retrieve", "graph_query"}
+# ---------- 决策发射合同（结构化发射的运行时校验——拍板①②单点） ----------
+
+ACTION_DISCOVER = "discover"
+ACTION_EXECUTE = "execute"
+ACTION_ASK = "ask"
+ACTION_FINALIZE = "finalize"
+ACTION_KINDS: frozenset[str] = frozenset(
+    {ACTION_DISCOVER, ACTION_EXECUTE, ACTION_ASK, ACTION_FINALIZE}
 )
+
+# 任务型闭世界（结构化发射 task_type 三值——data|knowledge|mixed）。
+TASK_DATA = "data"
+TASK_KNOWLEDGE = "knowledge"
+TASK_MIXED = "mixed"
+TASK_KINDS: frozenset[str] = frozenset({TASK_DATA, TASK_KNOWLEDGE, TASK_MIXED})
+
+# 发现工具闭世界（拍板④白名单的调用面——registry.call 兜底拒未知名）。
+DISCOVER_TOOLS: frozenset[str] = frozenset({SEMANTIC_QUERY, SCHEMA_PROBE})
 
 _CITE_RE = re.compile(r"\[(\d+)\]")
 _NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
@@ -76,7 +115,7 @@ _CANDIDATE_LINE = "指标候选"
 _CARRIER_KINDS = frozenset({"agg_row", "lineage"})
 # few-shot 样张（V2-09——L-04 golden 少样本同款形态「例：〈问句〉\n输出：〈合同样
 # 张〉」）：样例问句取问数组数-明1 原句（eval/results/golden/plan-golden-v1.json
-# L04-02 同源）；计划样张窗端点按「去年」锚 2026 年（golden anchor 2026-10-08 同值，
+# L04-02 同源）；理解样张窗端点按「去年」锚 2026 年（golden anchor 2026-10-08 同值，
 # anchor_scope=year 年内有效——跨年需随 golden 重锚同步更新）。
 _SHUMING1_QUESTION = "去年各井每天的日产油量是多少？"
 _UNDERSTAND_INSTRUCTION = (
@@ -86,36 +125,37 @@ _UNDERSTAND_INSTRUCTION = (
     "输出：理解：问去年全年各井逐日的日产油量明细。\n"
     "指标候选：日产油量"
 )
-_PLAN_INSTRUCTION = (
-    "输出问数计划：只输出一个 JSON 对象。键：metric_slot（必填）、ranking（必填）、"
-    "window_start/window_end（ISO 日期或 null——问句时间窗可定时必填，模糊/缺省时两槽均 null）、"
-    "limit、direction、external_tables（越集外表名数组，无则省略）。"
-    "只输出 JSON，不要解释。\n"
-    f"例：{_SHUMING1_QUESTION}\n"
-    "输出：{\"metric_slot\": \"日产油量\", \"ranking\": false, "
-    "\"window_start\": \"2025-01-01\", \"window_end\": \"2026-01-01\"}"
-)
-_VERIFY_INSTRUCTION = (
+# 答案起草合同（引标断言——verify 确定性核验的素材面）。
+_ANSWER_INSTRUCTION = (
     "起草答案：逐条事实断言必须带 [n] 引标（n＝观察材料序号）；材料未覆盖的部分"
     "不得断言；多来源不一致时逐源列明。"
 )
 # 审批卡批准后的答复基础＝引擎卡 impact 原文（零二次创作——合同值不出引擎侧）。
 _EXTABLE_REJECT_BASIS_KEY = "impact"
 
-# 模型 caller 名闭世界（B6 归因段——网关账本按此归因到步）＋模型键（executor
-# 装配的 models 字典键＝caller 去前缀短名）。
+# 模型 caller 桶闭世界（B6 归因段——三桶无 repair；网关账本按此归因到步）＋
+# 模型键（executor 装配的 models 字典键＝caller 去前缀短名）。
 CALLER_UNDERSTAND = f"{CALLER_PREFIX}.understand"
-CALLER_PLAN = f"{CALLER_PREFIX}.plan"
-CALLER_PLAN_REPAIR = f"{CALLER_PREFIX}.plan_repair"
-CALLER_ANSWER_DRAFT = f"{CALLER_PREFIX}.answer_draft"
+CALLER_DECISION = f"{CALLER_PREFIX}.decision"
+CALLER_ANSWER = f"{CALLER_PREFIX}.answer"
 MODEL_UNDERSTAND = "understand"
-MODEL_PLAN = "plan"
-MODEL_PLAN_REPAIR = "plan_repair"
-MODEL_ANSWER_DRAFT = "answer_draft"
+MODEL_DECISION = "decision"
+MODEL_ANSWER = "answer"
+MODEL_KEYS: tuple[str, ...] = (MODEL_UNDERSTAND, MODEL_DECISION, MODEL_ANSWER)
+
+# 图节点名（LangGraph 拓扑名——与 step 类型闭世界分立：understand 段记
+# decision 类步 payload.phase=understand，六值闭世界不破）。
+NODE_UNDERSTAND = "understand"
+NODE_DECISION = "decision"
+NODE_DISCOVER = "discover"
+NODE_EXECUTE = "execute"
+NODE_OBSERVE = "observe"
+NODE_VERIFY = "verify"
+NODE_ANSWER = "answer"
 
 
 class LoopDeps:
-    """六节点共享依赖（registry/models/builder/store/bus——per-run bus 注入）。"""
+    """ReAct 节点共享依赖（registry/models/builder/store/bus/guide——per-run bus 注入）。"""
 
     def __init__(
         self,
@@ -125,12 +165,18 @@ class LoopDeps:
         builder: ContextBuilder,
         store: RunStore,
         bus: EventBus,
+        guide: GuideProvider | None = None,
+        today: Any = None,
     ) -> None:
         self.registry = registry
         self.models = models
         self.builder = builder
         self.store = store
         self.bus = bus
+        # 处理指南缝（拍板⑦）：缺省＝内置指南（V2-32 ontology 资产件可整替注入）。
+        self.guide: GuideProvider = guide or DefaultGuideProvider(
+            today=today if today is not None else clock.now().date()
+        )
 
     def model(self, key: str) -> GatewayChatModel:
         model = self.models[key]
@@ -158,9 +204,9 @@ def _json_candidates(raw: Any) -> list[str]:
 
 def parse_understanding(content: str) -> tuple[str, list[str]]:
     """understand 应答解析（V2-09 两级宽容）：先两行合同式（「理解：／指标候选：」）；
-    两行全缺时降级 JSON 子串提取（裸产/围栏产/散文包裹产同路——围栏容错承计划侧
+    两行全缺时降级 JSON 子串提取（裸产/围栏产/散文包裹产同路——围栏容错承决策侧
     平衡块提取器），逐合同键取值、缺键不编造；两级全空＝（""·空集）如实上报——
-    下游照走 plan 校验/repair→拒答链（真非法产不误解析）。"""
+    下游照走决策轮（真非法产不误解析）。"""
     understanding = ""
     candidates: list[str] = []
     for raw_line in content.splitlines():
@@ -190,8 +236,8 @@ def parse_understanding(content: str) -> tuple[str, list[str]]:
 
 
 def extract_plan_json(content: str) -> dict[str, Any] | None:
-    """JSON 子串提取单点（首个平衡 {...} 块）：plan 应答与 understand 降级形共用——
-    围栏产/散文包裹产同路（提取失败＝None——plan 走 repair，understand 保持空产出）。"""
+    """JSON 子串提取单点（首个平衡 {...} 块）：决策发射与 understand 降级形共用——
+    围栏产/散文包裹产同路（提取失败＝None——决策走拒因回喂，understand 保持空产出）。"""
     start = content.find("{")
     if start < 0:
         return None
@@ -210,7 +256,141 @@ def extract_plan_json(content: str) -> dict[str, Any] | None:
     return None
 
 
-# ---------- 核验步确定性规则（INV-1/INV-4 骨架版） ----------
+# ---------- 决策发射 schema 校验（拍板①②：拒因回喂、无 repair 的闸单点） ----------
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionEmission:
+    """决策出口（结构化发射的定型形——行为断言锁在决策出口的机读投影）。"""
+
+    action: str  # ACTION_* 四值闭世界
+    thought: str = ""
+    note: str = ""
+    discovers: tuple[dict[str, Any], ...] = ()  # discover 发射（≤轮内上限）
+    task_type: str = ""  # TASK_* 三值（execute 发射）
+    plan: dict[str, Any] | None = None  # data_query plan_draft（data|mixed）
+    retrieval_need: dict[str, Any] | None = None  # doc_retrieve args（knowledge|mixed）
+    ask_prompt: str = ""  # ask 发射（澄清分级②——目标/对象/口径歧义）
+    ask_options: tuple[str, ...] = ()
+
+    def as_payload(self) -> dict[str, Any]:
+        """决策出口投影（step 记录 payload——剧本钉测的断言面）。"""
+        payload: dict[str, Any] = {"action": self.action}
+        if self.thought:
+            payload["thought"] = self.thought
+        if self.note:
+            payload["note"] = self.note
+        if self.discovers:
+            payload["discovers"] = [dict(item) for item in self.discovers]
+        if self.task_type:
+            payload["task_type"] = self.task_type
+        if self.plan is not None:
+            payload["plan"] = dict(self.plan)
+        if self.retrieval_need is not None:
+            payload["retrieval_need"] = dict(self.retrieval_need)
+        if self.ask_prompt:
+            payload["ask"] = {
+                "prompt": self.ask_prompt,
+                "options": list(self.ask_options),
+            }
+        return payload
+
+
+def parse_decision(
+    content: str,
+    *,
+    max_discovers: int = MAX_DISCOVERS_PER_ROUND_CONTRACT,
+    max_executes: int = MAX_EXECUTES_PER_ROUND_CONTRACT,
+) -> DecisionEmission | str:
+    """决策应答解析＋schema 校验（裸产/围栏产/散文包裹产同路——平衡块提取单点）。
+
+    返回 DecisionEmission（合法发射）或 str（拒因——回喂 LLM 重决策，无 repair）。
+    校验只判结构与闭世界（action/task_type/工具名/必填载荷/轮内上限）；载荷深形
+    （plan 字段细节）归工具层 args_schema（bad_args 同路回喂——两道闸一个去处）。
+    """
+    payload = extract_plan_json(content)
+    if payload is None:
+        return "决策不可解析（未产出 JSON 对象）——只输出一个 JSON 决策"
+    action = payload.get("action")
+    if action not in ACTION_KINDS:
+        return (
+            f"action 缺失或越界（{'/'.join(sorted(ACTION_KINDS))} 四值）：{action!r}"
+        )
+    emission = DecisionEmission(
+        action=str(action),
+        thought=str(payload.get("thought") or ""),
+        note=str(payload.get("note") or ""),
+    )
+    if emission.action == ACTION_DISCOVER:
+        raw_discovers = payload.get("discovers")
+        if not isinstance(raw_discovers, list) or not raw_discovers:
+            return "action=discover 缺 discovers（非空数组，1~2 支）"
+        if len(raw_discovers) > max_discovers:
+            return f"discovers 超出轮内上限（≤{max_discovers} 支）"
+        items: list[dict[str, Any]] = []
+        for raw in raw_discovers:
+            if not isinstance(raw, dict) or "tool" not in raw:
+                return "discovers 支缺 tool（{'tool': 名, 'args': {...}}）"
+            tool = str(raw["tool"])
+            if tool not in DISCOVER_TOOLS:
+                return (
+                    f"未知发现工具 {tool!r}（{'/'.join(sorted(DISCOVER_TOOLS))}）"
+                )
+            args = raw.get("args") or {}
+            if not isinstance(args, dict):
+                return f"发现工具 {tool} 的 args 须为对象"
+            items.append({"tool": tool, "args": dict(args)})
+        return replace(emission, discovers=tuple(items))
+    if emission.action == ACTION_EXECUTE:
+        task_type = payload.get("task_type")
+        if task_type not in TASK_KINDS:
+            return (
+                f"task_type 缺失或越界（{'/'.join(sorted(TASK_KINDS))} 三值）："
+                f"{task_type!r}"
+            )
+        plan = payload.get("plan")
+        need = payload.get("retrieval_need")
+        if task_type in (TASK_DATA, TASK_MIXED):
+            if not isinstance(plan, dict):
+                return f"task_type={task_type} 缺 plan（data_query 计划草案对象）"
+            if not str(plan.get("metric_slot") or "").strip():
+                return "plan 缺 metric_slot（必填非空）"
+        if task_type in (TASK_KNOWLEDGE, TASK_MIXED):
+            if not isinstance(need, dict):
+                return (
+                    f"task_type={task_type} 缺 retrieval_need（doc_retrieve 参数对象）"
+                )
+            if not str(need.get("question") or "").strip():
+                return "retrieval_need 缺 question（必填非空）"
+        executes = 2 if task_type == TASK_MIXED else 1
+        if executes > max_executes:
+            return f"task_type=mixed 超出轮内主执行上限（≤{max_executes} 支）"
+        return replace(
+            emission,
+            task_type=str(task_type),
+            plan=dict(plan) if isinstance(plan, dict) else None,
+            retrieval_need=dict(need) if isinstance(need, dict) else None,
+        )
+    if emission.action == ACTION_ASK:
+        raw_ask = payload.get("ask")
+        if not isinstance(raw_ask, dict):
+            return "action=ask 缺 ask 对象（{'prompt': …, 'options': […]}）"
+        prompt = str(raw_ask.get("prompt") or "").strip()
+        raw_options = raw_ask.get("options")
+        options = (
+            [str(item).strip() for item in raw_options if str(item).strip()]
+            if isinstance(raw_options, list)
+            else []
+        )
+        if not prompt:
+            return "ask 缺 prompt（问用户什么必填）"
+        if not 2 <= len(options) <= 4:
+            return "ask 缺 options 或个数越界（2~4 个选项）"
+        return replace(emission, ask_prompt=prompt, ask_options=tuple(options))
+    return emission  # finalize——零附加载荷
+
+
+# ---------- 核验步确定性规则（INV-1/INV-4 骨架版——保留件零改动） ----------
 
 
 def _assertion_chunks(line: str) -> list[tuple[int, str]]:
@@ -354,36 +534,43 @@ def _next_seq(state: RunState) -> int:
     return len(state.steps) + 1
 
 
-def _converge(state: RunState, deps: LoopDeps) -> dict[str, Any]:
-    """触界收敛（约定 7）：已取得材料如实交付＋notice 明示未完成项——不静默截断。"""
-    gates = budget_gate_hit(state)
+def _converge(state: RunState, deps: LoopDeps, *, gates: list[str]) -> dict[str, Any]:
+    """触界收敛（有界终止）：已取得材料如实交付＋notice 明示未完成项——不静默截断。"""
     notice = unfinished_notice(state, gates)
     raw = material_rows(state)
     if raw:
         body = "\n".join(f"- {obs.get('content', '')}" for obs in raw)
-        answer = f"（预算触界收敛——已取得材料未及核验，如实原样交付）\n{body}"
+        answer = f"（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n{body}"
     else:
-        answer = "（预算触界收敛——未取得可交付观察材料，如实回报，不编造。）"
+        answer = "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）"
     deps.bus.emit("notice", dict(notice))
     return {
         "budget_hit": [*state.budget_hit, *gates],
         "notices": [*state.notices, notice],
         "answer": answer,
+        "draft_kind": "direct",
         "status": "completed",
         "next_intent": INTENT_ANSWER,
     }
 
 
-def _gate_or_none(state: RunState, deps: LoopDeps) -> dict[str, Any] | None:
+def _gate_or_none(
+    state: RunState, deps: LoopDeps, *, rounds_gate: bool = False
+) -> dict[str, Any] | None:
     """节点入口预算闸：触界返回收敛更新，未触界返回 None。
 
-    收敛幂等（P-006b·R1，两入口单点）：budget_hit 非空＝收敛已发生——不再二次
-    收敛（notice 恰 1 条、机读 gates 不重复追加）；已收敛 run 经 next_intent=
-    answer 进 answer 节点正常收口（收敛答案落 answer 步＋文本出流）。
+    rounds_gate＝轮数闸开关（只 decision 入口开——轮内执行/定稿后段不受轮数闸
+    拦；时长闸全节点守）。收敛幂等（P-006b·R1，多入口单点）：budget_hit 非空＝
+    收敛已发生——不再二次收敛（notice 恰 1 条、机读 gates 不重复追加）；已收敛
+    run 经 next_intent=answer 进 answer 节点正常收口（收敛答案落 answer 步＋
+    文本出流）。
     """
-    if state.budget_hit or not budget_gate_hit(state):
+    if state.budget_hit:
         return None
-    return _converge(state, deps)
+    gates = budget_gate_hit(state, include_rounds=rounds_gate)
+    if not gates:
+        return None
+    return _converge(state, deps, gates=gates)
 
 
 async def _complete(
@@ -402,253 +589,26 @@ def _observations_of(result: dict[str, Any]) -> list[dict[str, Any]]:
     return list(result.get("observations") or [])
 
 
-# ---------- 六节点 ----------
-
-
-def _make_understand(
-    deps: LoopDeps,
-) -> Callable[[RunState], Coroutine[Any, Any, dict[str, Any]]]:
-    async def understand_node(state: RunState) -> dict[str, Any]:
-        if (converged := _gate_or_none(state, deps)) is not None:
-            return converged
-        context = deps.builder.compile(
-            state, step=STEP_UNDERSTAND, instruction=_UNDERSTAND_INSTRUCTION
-        )
-        content = await _complete(deps.model(MODEL_UNDERSTAND), context)
-        understanding, candidates = parse_understanding(content)
-        seq = _next_seq(state)
-        record = _step_record(seq, STEP_UNDERSTAND, understanding or "理解未产出", context.manifest)
-        deps.bus.emit(
-            "step", {"step": STEP_UNDERSTAND, "seq": seq, "title": record["title"]}
-        )
-        if understanding:
-            deps.bus.emit("text", {"content": understanding})
-        return {
-            "understanding": understanding,
-            "metric_candidates": candidates,
-            "manifests": [*state.manifests, context.manifest.as_dict()],
-            "steps": [*state.steps, record],
-            "next_intent": INTENT_PLAN,
-        }
-
-    return understand_node
-
-
-def _make_plan(
-    deps: LoopDeps,
-) -> Callable[[RunState], Coroutine[Any, Any, dict[str, Any]]]:
-    async def plan_node(state: RunState) -> dict[str, Any]:
-        if (converged := _gate_or_none(state, deps)) is not None:
-            return converged
-        hint = state.replan_hint
-        repair_reason = state.plan_error
-        if not repair_reason and state.last_result is not None:
-            error = state.last_result.get("error") or {}
-            if (
-                state.last_result.get("status") == STATUS_FAILED
-                and error.get("category") == CATEGORY_BAD_ARGS
-            ):
-                repair_reason = str(error.get("message", "计划校验未过"))
-        instruction = _PLAN_INSTRUCTION
-        if repair_reason:
-            instruction += f"\n上次计划被确定性校验拒绝：{repair_reason}——修正后重新只输出 JSON。"
-        if hint:
-            instruction += f"\n用户已补充：{hint}——请把它落进 plan_draft（时间窗转 ISO 日期）。"
-        context = deps.builder.compile(state, step=STEP_PLAN, instruction=instruction)
-        model_key = MODEL_PLAN_REPAIR if repair_reason else MODEL_PLAN
-        content = await _complete(deps.model(model_key), context)
-        plan = extract_plan_json(content)
-        seq = _next_seq(state)
-        updates: dict[str, Any] = {
-            "replan_hint": "",
-            "plan_error": "",
-            "manifests": [*state.manifests, context.manifest.as_dict()],
-            "steps": list(state.steps),
-            "next_intent": INTENT_TOOL,
-        }
-        if plan is None:
-            # JSON 不可解析：repair 一次；再败＝收敛（约定 7——不静默截断）。
-            updates["steps"] = [*state.steps,
-            _step_record(seq, STEP_PLAN, "计划解析失败", context.manifest)
-            ]
-            if state.repairs_since_input >= 1:
-                notice = {
-                    "type": "plan_unparsable",
-                    "gates": [],
-                    "content": "计划两轮均不可解析——如实收敛，未取得数据。",
-                }
-                deps.bus.emit("notice", dict(notice))
-                updates["notices"] = [*state.notices, notice]
-                updates["answer"] = "计划未能产出（模型输出两轮不可解析）——如实回报，不编造。"
-                updates["next_intent"] = INTENT_ANSWER
-            else:
-                updates["plan_error"] = "模型输出不可解析（未产出 JSON 计划）"
-                updates["repairs_since_input"] = state.repairs_since_input + 1
-                updates["plan_repairs"] = state.plan_repairs + 1
-                updates["next_intent"] = INTENT_PLAN
-        elif "tool" in plan:
-            # 通用工具计划形（骨架版合同：{"tool": 名称, "args": {...}}）。
-            tool_name = str(plan.get("tool", DATA_QUERY))
-            if tool_name not in _PLAN_TOOLS:
-                tool_name = DATA_QUERY
-            updates["tool_name"] = tool_name
-            updates["tool_args"] = dict(plan.get("args") or {})
-            updates["steps"] = [*state.steps,
-            _step_record(seq, STEP_PLAN, f"计划：{tool_name}", context.manifest,
-                             payload={"plan": plan})
-            ]
-        elif "metric_slot" in plan:
-            # 问数计划草案形（plan_draft——schema 真源在 query 卡，runtime 只引用）。
-            updates["tool_name"] = DATA_QUERY
-            updates["tool_args"] = {"plan_draft": plan}
-            updates["steps"] = [*state.steps,
-            _step_record(seq, STEP_PLAN, f"计划：{DATA_QUERY}", context.manifest,
-                             payload={"plan": plan})
-            ]
-        else:
-            # 缺 metric_slot 的半形计划——按校验拒处理（走 repair/ASK 合同路径）。
-            updates["last_result"] = {
-                "status": STATUS_FAILED,
-                "observations": [],
-                "ask": None,
-                "error": {
-                    "category": CATEGORY_BAD_ARGS,
-                    "message": "计划缺 metric_slot",
-                    "hint": None,
-                },
-            }
-            updates["steps"] = [*state.steps,
-            _step_record(seq, STEP_PLAN, "计划缺 metric_slot", context.manifest)
-            ]
-        deps.bus.emit(
-            "step",
-            {"step": STEP_PLAN, "seq": seq, "title": updates["steps"][-1]["title"]},
-        )
-        return updates
-
-    return plan_node
-
-
-def _make_tool(
-    deps: LoopDeps,
-) -> Callable[[RunState], Coroutine[Any, Any, dict[str, Any]]]:
-    async def tool_node(state: RunState) -> dict[str, Any]:
-        if (converged := _gate_or_none(state, deps)) is not None:
-            return converged
-        # ——挂起恢复路径：interrupt 返回用户选择（恢复后节点重入，此分支先于工具执行——
-        #  registry.call 全程恰一次，恢复不重跑已挂起的调用）。——
-        if state.pending_ask is not None:
-            return await _handle_choice(state, deps)
-        return await _execute_tool(state, deps)
-
-    return tool_node
-
-
-async def _handle_choice(state: RunState, deps: LoopDeps) -> dict[str, Any]:
-    frame = dict(state.pending_ask or {})
-    payload = interrupt({"kind": frame.get("kind"), "frame": frame, "run_id": state.run_id})
-    choice = payload if isinstance(payload, dict) else {"value": str(payload)}
-    value = str(choice.get("value", ""))
-    approval_id = choice.get("approval_id")
-    resume_record = {"kind": frame.get("kind"), "value": value, "approval_id": approval_id}
-    updates: dict[str, Any] = {
-        "pending_ask": None,
-        "resume_choices": [*state.resume_choices, resume_record],
-        "next_intent": INTENT_PLAN,
-    }
-    if frame.get("kind") == ASK_CLARIFY:
-        updates["replan_hint"] = value
-        updates["repairs_since_input"] = 0  # 用户输入重置 repair 配额（合同：每输入一轮一次）
-        deps.bus.emit(
-            "step",
-            {"step": STEP_TOOL, "seq": _next_seq(state), "title": f"澄清回收：{value}"},
-        )
-        updates["steps"] = [
-            *state.steps,
-            _step_record(_next_seq(state), STEP_TOOL, f"澄清回收：{value}",
-                         None, payload={"resume": resume_record}),
-        ]
-        return updates
-    # ——外表越集审批（接线①/③：choice.approval_id 留痕；批准重跑受骨架上限 1 轮约束）——
-    if value == "批准":
-        notice = {
-            "type": "approval_recorded",
-            "gates": [],
-            "content": f"审批单号 {approval_id} 已留痕（resume 留痕，可回溯）。",
-        }
-        deps.bus.emit("notice", dict(notice))
-        updates["notices"] = [*state.notices, notice]
-        if state.extable_rounds >= 1:
-            notice = {
-                "type": "approval_gate_pending",
-                "gates": [],
-                "content": (
-                    f"审批已通过并留痕（单号 {approval_id}），但权威引擎侧闸未放行续跑"
-                    "——骨架版如实收口，待引擎侧审批放行接线。"
-                ),
-            }
-            deps.bus.emit("notice", dict(notice))
-            updates["notices"] = [*state.notices, notice]
-            updates["answer"] = (
-                f"外表引用审批已通过（单号 {approval_id}）；权威引擎侧闸未放行续跑，"
-                "如实收口不冒充。"
-            )
-            updates["next_intent"] = INTENT_ANSWER
-        else:
-            updates["approved_ids"] = [*state.approved_ids, str(approval_id or "")]
-            updates["extable_rounds"] = state.extable_rounds + 1
-            updates["next_intent"] = INTENT_TOOL
-    else:
-        impact = str((frame.get("detail") or {}).get(_EXTABLE_REJECT_BASIS_KEY, ""))
-        updates["draft"] = f"外表引用审批驳回：{impact}"
-        updates["next_intent"] = INTENT_ANSWER
-    deps.bus.emit(
-        "step",
-        {"step": STEP_TOOL, "seq": _next_seq(state), "title": f"审批回收：{value}"},
-    )
-    updates["steps"] = [
-        *state.steps,
-        _step_record(_next_seq(state), STEP_TOOL, f"审批回收：{value}",
-                     None, payload={"resume": resume_record}),
-    ]
-    return updates
-
-
-async def _execute_tool(state: RunState, deps: LoopDeps) -> dict[str, Any]:
-    tool_name = state.tool_name or ""
-    timeout = float(state.budget.get("tool_timeout_seconds", 30.0))
-    ctx = ToolContext(
+def _ctx_of(state: RunState) -> ToolContext:
+    return ToolContext(
         actor=state.actor,
         budget=4,
         metric_candidates=tuple(state.metric_candidates) or None,
     )
-    result: Any = None
-    try:
-        result = await asyncio.wait_for(
-            deps.registry.call(tool_name, state.tool_args, ctx), timeout=timeout
-        )
-    except TimeoutError:
-        result = None
-    seq = _next_seq(state)
-    if result is None:
-        # 单工具超时闸（约定 7 三闸之三）——同参重试一次（retryable 通道）。
-        return _apply_result(
-            state,
-            deps,
-            {
-                "status": STATUS_FAILED,
-                "observations": [],
-                "ask": None,
-                "error": {
-                    "category": CATEGORY_RETRYABLE,
-                    "message": f"工具 {tool_name} 超 {timeout:g}s 未返回（单工具超时闸）",
-                    "hint": "可重试——同参重调一次",
-                },
-            },
-            seq,
-            timed_out=True,
-        )
-    return _apply_result(state, deps, _result_dict(result), seq)
+
+
+def _timeout_result(tool_name: str, timeout: float) -> dict[str, Any]:
+    """单工具超时闸（三闸之三）——retryable 通道（同参重试一次）。"""
+    return {
+        "status": STATUS_FAILED,
+        "observations": [],
+        "ask": None,
+        "error": {
+            "category": CATEGORY_RETRYABLE,
+            "message": f"工具 {tool_name} 超 {timeout:g}s 未返回（单工具超时闸）",
+            "hint": "可重试——同参重调一次",
+        },
+    }
 
 
 def _result_dict(result: Any) -> dict[str, Any]:  # ToolResult
@@ -689,31 +649,303 @@ def _result_dict(result: Any) -> dict[str, Any]:  # ToolResult
     }
 
 
+def _direct_answer(updates: dict[str, Any], text: str) -> None:
+    """确定性直答标记（拒因/闸拒/收敛转答——answer 节点免起草免核验直接收口）。"""
+    updates["draft"] = text
+    updates["draft_kind"] = "direct"
+    updates["next_intent"] = INTENT_ANSWER
+
+
+def reseed_approval_id(run_id: str, engine_seed: str) -> str:
+    """审批单号 run 前缀重种子（接线③——V2-03 偏差 7：引擎表名种子保留可溯）。"""
+    return f"{run_id}#{engine_seed}"
+
+
+# ---------- 节点一：understand（理解——caller understand；记 decision 类步） ----------
+
+
+def _make_understand(
+    deps: LoopDeps,
+) -> Callable[[RunState], Coroutine[Any, Any, dict[str, Any]]]:
+    async def understand_node(state: RunState) -> dict[str, Any]:
+        if (converged := _gate_or_none(state, deps)) is not None:
+            return converged
+        context = deps.builder.compile(
+            state, step="understand", instruction=_UNDERSTAND_INSTRUCTION
+        )
+        content = await _complete(deps.model(MODEL_UNDERSTAND), context)
+        understanding, candidates = parse_understanding(content)
+        seq = _next_seq(state)
+        record = _step_record(
+            seq, STEP_DECISION, understanding or "理解未产出", context.manifest,
+            payload={"phase": "understand"},
+        )
+        deps.bus.emit(
+            "step", {"step": STEP_DECISION, "seq": seq, "title": record["title"]}
+        )
+        if understanding:
+            deps.bus.emit("text", {"content": understanding})
+        return {
+            "understanding": understanding,
+            "metric_candidates": candidates,
+            "manifests": [*state.manifests, context.manifest.as_dict()],
+            "steps": [*state.steps, record],
+            "next_intent": INTENT_DECISION,
+        }
+
+    return understand_node
+
+
+# ---------- 节点二：decision（ReAct 决策——caller decision；轮＝决策周期） ----------
+
+
+def _decision_title(emission: DecisionEmission, rnd: int) -> str:
+    if emission.action == ACTION_DISCOVER:
+        names = "、".join(str(item.get("tool", "?")) for item in emission.discovers)
+        return f"决策 r{rnd}：发现×{len(emission.discovers)}（{names}）"
+    if emission.action == ACTION_EXECUTE:
+        return f"决策 r{rnd}：执行 {emission.task_type}"
+    if emission.action == ACTION_ASK:
+        return f"决策 r{rnd}：澄清（{emission.ask_prompt[:24]}）"
+    return f"决策 r{rnd}：定稿"
+
+
+def _make_decision(
+    deps: LoopDeps,
+) -> Callable[[RunState], Coroutine[Any, Any, dict[str, Any]]]:
+    async def decision_node(state: RunState) -> dict[str, Any]:
+        # ——挂起恢复路径：interrupt 返回用户选择（恢复后节点重入，此分支先于
+        #  闸与模型调用——挂起等人工不计预算）。——
+        if state.pending_ask is not None:
+            return await _handle_choice(state, deps)
+        if (converged := _gate_or_none(state, deps, rounds_gate=True)) is not None:
+            return converged
+        max_discovers = int(
+            state.budget.get(
+                "max_discovers_per_round", MAX_DISCOVERS_PER_ROUND_CONTRACT
+            )
+        )
+        max_executes = int(
+            state.budget.get(
+                "max_executes_per_round", MAX_EXECUTES_PER_ROUND_CONTRACT
+            )
+        )
+        instruction = deps.guide.guide()
+        instruction += "\n\n任务：输出本轮决策 JSON。"
+        if state.decision_error:
+            # 拍板②拒因回喂：schema/工具校验拒因进上下文——LLM 重决策（无 repair）。
+            instruction += (
+                f"\n上次决策被拒：{state.decision_error}——修正后重新输出 JSON。"
+            )
+        if state.user_hint:
+            instruction += f"\n用户已补充：{state.user_hint}——请把它落进本轮决策。"
+        context = deps.builder.compile(
+            state, step=STEP_DECISION, instruction=instruction
+        )
+        content = await _complete(deps.model(MODEL_DECISION), context)
+        rnd = state.rounds + 1
+        seq = _next_seq(state)
+        parsed = parse_decision(
+            content, max_discovers=max_discovers, max_executes=max_executes
+        )
+        if isinstance(parsed, str):
+            # 拒因回喂（无 repair）：轮照耗；轮数闸在下一入口收敛兜底。
+            record = _step_record(
+                seq, STEP_DECISION, f"决策 r{rnd} 被拒：{parsed}", context.manifest,
+                payload={"phase": "decision", "rejection": parsed},
+            )
+            deps.bus.emit(
+                "step", {"step": STEP_DECISION, "seq": seq, "title": record["title"]}
+            )
+            return {
+                "rounds": rnd,
+                "decision_error": parsed,
+                "manifests": [*state.manifests, context.manifest.as_dict()],
+                "steps": [*state.steps, record],
+                "next_intent": INTENT_DECISION,
+            }
+        emission = parsed
+        record = _step_record(
+            seq, STEP_DECISION, _decision_title(emission, rnd), context.manifest,
+            payload={"phase": "decision", "emission": emission.as_payload()},
+        )
+        deps.bus.emit(
+            "step", {"step": STEP_DECISION, "seq": seq, "title": record["title"]}
+        )
+        updates: dict[str, Any] = {
+            "rounds": rnd,
+            "decision_error": "",
+            "user_hint": "",
+            "manifests": [*state.manifests, context.manifest.as_dict()],
+            "steps": [*state.steps, record],
+            "task_type": emission.task_type,
+        }
+        if emission.note:
+            notice = {
+                "type": "decision_note",
+                "gates": [],
+                "content": emission.note,
+            }
+            deps.bus.emit("notice", dict(notice))
+            updates["notices"] = [*state.notices, notice]
+        if emission.action == ACTION_DISCOVER:
+            updates["pending_discovers"] = [dict(item) for item in emission.discovers]
+            updates["next_intent"] = INTENT_DISCOVER
+        elif emission.action == ACTION_EXECUTE:
+            updates["pending_plan"] = (
+                dict(emission.plan) if emission.plan is not None else None
+            )
+            updates["pending_retrieval"] = (
+                dict(emission.retrieval_need)
+                if emission.retrieval_need is not None
+                else None
+            )
+            updates["next_intent"] = INTENT_EXECUTE
+        elif emission.action == ACTION_ASK:
+            frame = {
+                "kind": ASK_CLARIFY,
+                "prompt": emission.ask_prompt,
+                "options": list(emission.ask_options),
+                "detail": None,
+            }
+            updates["pending_ask"] = frame
+            updates["next_intent"] = INTENT_DECISION  # 自环进 interrupt（挂起）
+            deps.bus.emit("ask", {"frame": frame, "run_id": state.run_id})
+        else:  # finalize
+            updates["next_intent"] = INTENT_ANSWER
+        return updates
+
+    return decision_node
+
+
+# ---------- 挂起恢复（clarify 回喂 / 外表审批——接线①③） ----------
+
+
+async def _handle_choice(state: RunState, deps: LoopDeps) -> dict[str, Any]:
+    frame = dict(state.pending_ask or {})
+    payload = interrupt(
+        {"kind": frame.get("kind"), "frame": frame, "run_id": state.run_id}
+    )
+    choice = payload if isinstance(payload, dict) else {"value": str(payload)}
+    value = str(choice.get("value", ""))
+    approval_id = choice.get("approval_id")
+    resume_record = {
+        "kind": frame.get("kind"),
+        "value": value,
+        "approval_id": approval_id,
+    }
+    updates: dict[str, Any] = {
+        "pending_ask": None,
+        "resume_choices": [*state.resume_choices, resume_record],
+        "next_intent": INTENT_DECISION,
+    }
+    if frame.get("kind") == ASK_CLARIFY:
+        # 澄清回收：用户选择回喂决策（user_hint——决策下轮消费后清空）；
+        # 用户输入重置轮预算（新信息＝新周期——旧 repairs_since_input 重置同义）。
+        updates["user_hint"] = value
+        updates["rounds"] = 0
+        deps.bus.emit(
+            "step",
+            {"step": STEP_DECISION, "seq": _next_seq(state),
+             "title": f"澄清回收：{value}"},
+        )
+        updates["steps"] = [
+            *state.steps,
+            _step_record(_next_seq(state), STEP_DECISION, f"澄清回收：{value}",
+                         None, payload={"resume": resume_record}),
+        ]
+        return updates
+    # ——外表越集审批（接线①/③：choice.approval_id 留痕；批准重跑受骨架上限 1 轮约束）——
+    if value == "批准":
+        notice = {
+            "type": "approval_recorded",
+            "gates": [],
+            "content": f"审批单号 {approval_id} 已留痕（resume 留痕，可回溯）。",
+        }
+        deps.bus.emit("notice", dict(notice))
+        updates["notices"] = [*state.notices, notice]
+        if state.extable_rounds >= 1:
+            notice = {
+                "type": "approval_gate_pending",
+                "gates": [],
+                "content": (
+                    f"审批已通过并留痕（单号 {approval_id}），但权威引擎侧闸未放行续跑"
+                    "——骨架版如实收口，待引擎侧审批放行接线。"
+                ),
+            }
+            deps.bus.emit("notice", dict(notice))
+            updates["notices"] = [*state.notices, notice]
+            _direct_answer(
+                updates,
+                f"外表引用审批已通过（单号 {approval_id}）；权威引擎侧闸未放行续跑，"
+                "如实收口不冒充。",
+            )
+        else:
+            updates["approved_ids"] = [*state.approved_ids, str(approval_id or "")]
+            updates["extable_rounds"] = state.extable_rounds + 1
+            # 末次主执行载荷原样重投（ask 帧侧未执行工具——批准后才真正调用）。
+            last = dict(state.last_execute or {})
+            updates["pending_plan"] = last.get("plan")
+            updates["pending_retrieval"] = last.get("retrieval_need")
+            if updates["pending_plan"] is None and updates["pending_retrieval"] is None:
+                updates["next_intent"] = INTENT_DECISION  # 无载荷可重投＝回决策
+            else:
+                updates["next_intent"] = INTENT_EXECUTE
+    else:
+        impact = str((frame.get("detail") or {}).get(_EXTABLE_REJECT_BASIS_KEY, ""))
+        _direct_answer(updates, f"外表引用审批驳回：{impact}")
+    deps.bus.emit(
+        "step",
+        {"step": STEP_DECISION, "seq": _next_seq(state), "title": f"审批回收：{value}"},
+    )
+    updates["steps"] = [
+        *state.steps,
+        _step_record(_next_seq(state), STEP_DECISION, f"审批回收：{value}",
+                     None, payload={"resume": resume_record}),
+    ]
+    return updates
+
+
+# ---------- 节点三/四：discover／execute（固定代码执行——工具只经 registry.call） ----------
+
+
 def _apply_result(
     state: RunState,
     deps: LoopDeps,
     result: dict[str, Any],
     seq: int,
     *,
-    timed_out: bool = False,
+    kind: str,
+    tool_name: str,
+    record_payload: dict[str, Any],
+    retry_state: dict[str, Any],
 ) -> dict[str, Any]:
-    """工具结果→状态更新与路由（bad_args repair/ASK、retryable 重试、refused 如实转答）。"""
+    """工具结果→状态更新与路由（ReAct 语义：bad_args 拒因回喂重决策、无 repair）。
+
+    - ok → observe（观察回流）；ask → 挂起（自环进 decision 入口 interrupt）；
+    - bad_args → 拒因写 decision_error 回喂 LLM 重决策（拍板②——取消自动 repair）；
+    - retryable → 同参重试一次（retry_state＝重投载荷更新＋自环意图由节点补）；
+      耗尽→如实收敛；
+    - refused（闸拒）→ 拒因原样如实转答，不重试不改写。
+    """
     status = result["status"]
-    title = f"工具 {state.tool_name or '?'}：{status}" + ("（超时）" if timed_out else "")
+    title = f"{tool_name}：{status}"
+    error_message = (
+        (result.get("error") or {}).get("message") if status == STATUS_FAILED else None
+    )
     deps.bus.emit(
         "tool",
-        {"tool": state.tool_name, "status": status, "seq": seq,
-         "message": (
-             (result.get("error") or {}).get("message") if status == STATUS_FAILED else None
-         )},
+        {"tool": tool_name, "status": status, "seq": seq, "message": error_message},
     )
+    deps.bus.emit("step", {"step": kind, "seq": seq, "title": title})
     updates: dict[str, Any] = {
-        "last_result": result,
-        "steps": [*state.steps, _step_record(seq, STEP_TOOL, title, None,
-                                                   payload={"tool": state.tool_name,
-                                                            "status": status})],
+        "steps": [
+            *state.steps,
+            _step_record(seq, kind, title, None, payload=dict(record_payload)),
+        ],
     }
     if status == STATUS_OK:
+        updates["last_result"] = result
         updates["next_intent"] = INTENT_OBSERVE
     elif status == STATUS_ASK:
         frame = dict(result.get("ask") or {})
@@ -725,46 +957,47 @@ def _apply_result(
                 detail["approval_id"] = reseed_approval_id(state.run_id, engine_seed)
                 frame["detail"] = detail
         updates["pending_ask"] = frame
-        updates["next_intent"] = INTENT_TOOL  # 自环进 interrupt（挂起；恢复不重跑调用）
+        updates["next_intent"] = INTENT_DECISION  # 挂起：interrupt 在 decision 入口
         # ask 帧＝挂起信号（行为约定 4：事件流发 ask 帧后正常收束——V2-07 SSE 出口）。
         deps.bus.emit("ask", {"frame": frame, "run_id": state.run_id})
     elif (result.get("error") or {}).get("category") == CATEGORY_BAD_ARGS:
-        if state.repairs_since_input < 1:
-            updates["repairs_since_input"] = state.repairs_since_input + 1
-            updates["plan_repairs"] = state.plan_repairs + 1
-            updates["next_intent"] = INTENT_PLAN  # 约定 3：校验不过→repair 一次
-        else:
-            # 仍不过（用户未补充新输入）＝不可修复的确定性拒——拒因原样如实转答
-            # （骨架裁定：无限澄清循环不合同；可修复/终拒的 richer 契约归细化批
-            # 提设计仓——窗界越界类（「今天」）按 V2-03 偏差 4 维持 refuse）。
-            reason = str((result.get("error") or {}).get("message", "计划校验未过"))
-            updates["draft"] = reason
-            notice = {
-                "type": "refused",
-                "gates": [],
-                "content": f"计划校验两轮未过——拒因如实转答：{reason}",
-            }
-            deps.bus.emit("notice", dict(notice))
-            updates["notices"] = [*state.notices, notice]
-            updates["next_intent"] = INTENT_ANSWER
+        # 拍板②：取消自动 repair——拒因回喂 LLM 由它重决策（轮预算照耗）。
+        reason = str((result.get("error") or {}).get("message", "校验未过"))
+        notice = {
+            "type": "decision_rejected",
+            "gates": [],
+            "content": f"工具校验拒因回喂重决策：{reason}",
+        }
+        deps.bus.emit("notice", dict(notice))
+        updates["decision_error"] = reason
+        updates["notices"] = [*state.notices, notice]
+        updates["pending_plan"] = None
+        updates["pending_retrieval"] = None
+        updates["pending_discovers"] = []
+        updates["next_intent"] = INTENT_DECISION
     elif (result.get("error") or {}).get("category") == CATEGORY_RETRYABLE:
         if state.tool_retries < 1:
+            updates.update(retry_state)
             updates["tool_retries"] = state.tool_retries + 1
-            updates["next_intent"] = INTENT_TOOL  # 同参重试一次
+            updates["next_intent"] = (
+                INTENT_DISCOVER if kind == STEP_DISCOVER else INTENT_EXECUTE
+            )
         else:
             notice = {
                 "type": "tool_unavailable",
                 "gates": [],
-                "content": f"工具 {state.tool_name} 重试后仍不可用——如实收敛。"
+                "content": f"工具 {tool_name} 重试后仍不可用——如实收敛。"
                            f"（{(result.get('error') or {}).get('message', '')}）",
             }
             deps.bus.emit("notice", dict(notice))
             updates["notices"] = [*state.notices, notice]
-            updates["next_intent"] = INTENT_ANSWER
+            updates["pending_plan"] = None
+            updates["pending_retrieval"] = None
+            updates["pending_discovers"] = []
+            _direct_answer(updates, "（工具重试后仍不可用——如实收敛，不编造。）")
     else:  # refused（闸拒）——拒因原样如实转答，不重试不改写
         reason = str((result.get("error") or {}).get("message", "口径/数据闸拒"))
-        updates["draft"] = reason
-        # 机读 notice（P-006b·R3）——与 bad_args 两轮拒/tool_unavailable 通道同形，
+        # 机读 notice（P-006b·R3）——与 bad_args 回喂/tool_unavailable 通道同形，
         # V2-05 闸态机读分型在 runtime 侧对齐（按 notice 类型消费的面不漏直接闸拒）。
         notice = {
             "type": "refused",
@@ -773,16 +1006,104 @@ def _apply_result(
         }
         deps.bus.emit("notice", dict(notice))
         updates["notices"] = [*state.notices, notice]
-        updates["next_intent"] = INTENT_ANSWER
-    deps.bus.emit(
-        "step", {"step": STEP_TOOL, "seq": seq, "title": title}
-    )
+        updates["pending_plan"] = None
+        updates["pending_retrieval"] = None
+        updates["pending_discovers"] = []
+        _direct_answer(updates, reason)
     return updates
 
 
-def reseed_approval_id(run_id: str, engine_seed: str) -> str:
-    """审批单号 run 前缀重种子（接线③——V2-03 偏差 7：引擎表名种子保留可溯）。"""
-    return f"{run_id}#{engine_seed}"
+async def _invoke_tool(
+    deps: LoopDeps, state: RunState, tool_name: str, args: dict[str, Any]
+) -> Any:
+    """统一调出口＋单工具超时闸（wait_for——超时转 retryable 通道）。"""
+    timeout = float(state.budget.get("tool_timeout_seconds", 30.0))
+    try:
+        return await asyncio.wait_for(
+            deps.registry.call(tool_name, args, _ctx_of(state)), timeout=timeout
+        )
+    except TimeoutError:
+        return None
+
+
+def _make_discover(
+    deps: LoopDeps,
+) -> Callable[[RunState], Coroutine[Any, Any, dict[str, Any]]]:
+    async def discover_node(state: RunState) -> dict[str, Any]:
+        if (converged := _gate_or_none(state, deps)) is not None:
+            return converged
+        queue = list(state.pending_discovers)
+        if not queue:  # 恢复段边界兜底（队列空＝回决策）
+            return {"next_intent": INTENT_DECISION}
+        call = dict(queue[0])
+        tool_name = str(call.get("tool", ""))
+        raw = await _invoke_tool(deps, state, tool_name, dict(call.get("args") or {}))
+        timeout = float(state.budget.get("tool_timeout_seconds", 30.0))
+        result = (
+            _timeout_result(tool_name, timeout) if raw is None else _result_dict(raw)
+        )
+        seq = _next_seq(state)
+        updates = _apply_result(
+            state,
+            deps,
+            result,
+            seq,
+            kind=STEP_DISCOVER,
+            tool_name=tool_name,
+            record_payload={"tool": tool_name, "status": result["status"]},
+            retry_state={"pending_discovers": [call, *queue[1:]]},
+        )
+        if result["status"] == STATUS_OK:
+            updates["pending_discovers"] = queue[1:]  # 本支已消费（观察回流后续投）
+        return updates
+
+    return discover_node
+
+
+def _make_execute(
+    deps: LoopDeps,
+) -> Callable[[RunState], Coroutine[Any, Any, dict[str, Any]]]:
+    async def execute_node(state: RunState) -> dict[str, Any]:
+        if (converged := _gate_or_none(state, deps)) is not None:
+            return converged
+        if state.pending_plan is not None:
+            tool_name = DATA_QUERY
+            args: dict[str, Any] = {"plan_draft": dict(state.pending_plan)}
+            executed: dict[str, Any] = {"plan": dict(state.pending_plan)}
+            consume: dict[str, Any] = {"pending_plan": None}
+        elif state.pending_retrieval is not None:
+            tool_name = DOC_RETRIEVE
+            args = dict(state.pending_retrieval)
+            executed = {"retrieval_need": dict(state.pending_retrieval)}
+            consume = {"pending_retrieval": None}
+        else:  # 恢复段边界兜底（无待执行载荷＝回决策）
+            return {"next_intent": INTENT_DECISION}
+        raw = await _invoke_tool(deps, state, tool_name, args)
+        timeout = float(state.budget.get("tool_timeout_seconds", 30.0))
+        result = (
+            _timeout_result(tool_name, timeout) if raw is None else _result_dict(raw)
+        )
+        seq = _next_seq(state)
+        updates = _apply_result(
+            state,
+            deps,
+            result,
+            seq,
+            kind=STEP_EXECUTE,
+            tool_name=tool_name,
+            record_payload={"tool": tool_name, "status": result["status"], **executed},
+            retry_state={},  # 载荷仍在位（pending_plan/retrieval 未清）——自环重投
+        )
+        if result["status"] in (STATUS_OK, STATUS_ASK):
+            # ok＝本支已消费（观察回流后续投）；ask＝载荷留 last_execute 供审批重投。
+            updates.update(consume)
+            updates["last_execute"] = executed
+        return updates
+
+    return execute_node
+
+
+# ---------- 节点五：observe（观察回流——回喂决策） ----------
 
 
 def _make_observe(
@@ -801,7 +1122,7 @@ def _make_observe(
             entry["trust"] = trust_of(entry)
             indexed.append(entry)
         seq = _next_seq(state)
-        title = f"观察入栈 {len(indexed)} 支"
+        title = f"观察回流 {len(indexed)} 支"
         deps.bus.emit("step", {"step": STEP_OBSERVE, "seq": seq, "title": title})
         for obs in indexed:
             if (obs.get("locator") or {}).get("kind") == "notice":
@@ -809,7 +1130,9 @@ def _make_observe(
                 deps.bus.emit(
                     "notice",
                     {
-                        "type": str((obs.get("locator") or {}).get("notice_type", "notice")),
+                        "type": str(
+                            (obs.get("locator") or {}).get("notice_type", "notice")
+                        ),
                         "gates": [],
                         "content": str(obs.get("content", "")),
                     },
@@ -825,13 +1148,23 @@ def _make_observe(
             )
         record = _step_record(seq, STEP_OBSERVE, title, None,
                               payload={"count": len(indexed)})
+        # 回流路由：待投载荷在位→继续执行；否则回决策（模型自主再轮或定稿）。
+        if state.pending_discovers:
+            intent = INTENT_DISCOVER
+        elif state.pending_plan is not None or state.pending_retrieval is not None:
+            intent = INTENT_EXECUTE
+        else:
+            intent = INTENT_DECISION
         return {
             "observations": [*state.observations, *indexed],
             "steps": [*state.steps, record],
-            "next_intent": INTENT_VERIFY,
+            "next_intent": intent,
         }
 
     return observe_node
+
+
+# ---------- 节点六：verify（零 LLM——INV-1/4 机器底线；拍板③保留件） ----------
 
 
 def _make_verify(
@@ -861,15 +1194,10 @@ def _make_verify(
                     else "（未取得观察材料——如实回报，不编造。）"
                 )
             rewritten, cited, split = 0, list[int](), False
-            manifest: Manifest | None = None
         else:
-            context = deps.builder.compile(
-                state, step=STEP_VERIFY, instruction=_VERIFY_INSTRUCTION
+            text, rewritten, cited, split = verify_draft(
+                state.draft, state.observations
             )
-            content = await _complete(deps.model(MODEL_ANSWER_DRAFT), context)
-            draft = content.strip() or "（模型未产出草稿——如实收口。）"
-            text, rewritten, cited, split = verify_draft(draft, state.observations)
-            manifest = context.manifest
         verdict = {
             "supported": len(cited),
             "rewritten": rewritten,
@@ -884,7 +1212,8 @@ def _make_verify(
             deps.bus.emit(
                 "notice",
                 {"type": "unsupported_claim", "gates": [],
-                 "content": f"核验步改写无据断言 {rewritten} 行（INV-1——禁止无据断言进答案）"},
+                 "content": f"核验步改写无据断言 {rewritten} 行"
+                            "（INV-1——禁止无据断言进答案）"},
             )
         if split:
             deps.bus.emit(
@@ -892,17 +1221,65 @@ def _make_verify(
                 {"type": "contradiction_split", "gates": [],
                  "content": "多来源不一致——答案分源列明（INV-4——禁止无出处调和）"},
             )
-        updates: dict[str, Any] = {
+        return {
             "draft": text,
             "verdict": verdict,
-            "steps": [*state.steps, _step_record(seq, STEP_VERIFY, title, manifest)],
+            "steps": [*state.steps, _step_record(seq, STEP_VERIFY, title, None,
+                                                       payload={"zero_llm": True})],
             "next_intent": INTENT_ANSWER,
         }
-        if manifest is not None:
-            updates["manifests"] = [*state.manifests, manifest.as_dict()]
-        return updates
 
     return verify_node
+
+
+# ---------- 节点七：answer（起草[caller answer]→verify→收口——两段一节点） ----------
+
+
+def _finalize(state: RunState, deps: LoopDeps) -> dict[str, Any]:
+    """答案收口（引用块＋血缘⑤注记＋摘要——确定性装配，零二次创作）。"""
+    verdict = state.verdict or {}
+    cited: list[int] = list(verdict.get("cited") or [])
+    by_index = {int(obs["index"]): obs for obs in state.observations}
+    answer = state.draft or state.answer or "（未取得可交付答案——如实回报，不编造。）"
+    # 收口注记确定性随行（V2-23——LIMIT 截断披露不靠模型自觉；草稿已自带则不重复）。
+    closing = _lineage_closing_note(state.observations)
+    if closing and "收口注记" not in answer:
+        answer += "\n\n" + closing
+    if cited:
+        lines = [
+            f"[{index}] {by_index[index].get('source', '')} · "
+            f"{by_index[index].get('source_id', '')}（{by_index[index].get('trust', '')}）"
+            for index in cited
+            if index in by_index
+        ]
+        answer += "\n\n引用：\n" + "\n".join(lines)
+    digest = hashlib.sha256(
+        json.dumps(state.manifests, ensure_ascii=False, sort_keys=True).encode()
+    ).hexdigest()
+    seq = _next_seq(state)
+    title = "答案收口"
+    deps.bus.emit("step", {"step": STEP_ANSWER, "seq": seq, "title": title})
+    for index in cited:
+        obs = by_index.get(index)
+        if obs is not None:
+            deps.bus.emit(
+                "citation",
+                {"index": index, "source": obs.get("source", ""),
+                 "source_id": obs.get("source_id", ""), "trust": obs.get("trust", "")},
+            )
+    deps.bus.emit("text", {"content": answer})
+    deps.bus.emit(
+        "verdict",
+        {"status": "completed", "run_id": state.run_id, "manifest_digest": digest},
+    )
+    return {
+        "answer": answer,
+        "status": "completed",
+        "manifest_digest": digest,
+        "steps": [*state.steps, _step_record(seq, STEP_ANSWER, title, None,
+                                                   payload={"phase": "finalize"})],
+        "next_intent": INTENT_END,
+    }
 
 
 def _make_answer(
@@ -912,72 +1289,85 @@ def _make_answer(
         if (converged := _gate_or_none(state, deps)) is not None:
             converged["next_intent"] = INTENT_END  # 收敛路由终点（防 answer→answer 环）
             return converged
-        verdict = state.verdict or {}
-        cited: list[int] = list(verdict.get("cited") or [])
-        by_index = {int(obs["index"]): obs for obs in state.observations}
-        answer = state.draft or state.answer or "（未取得可交付答案——如实回报，不编造。）"
-        # 收口注记确定性随行（V2-23——LIMIT 截断披露不靠模型自觉；草稿已自带则不重复）。
-        closing = _lineage_closing_note(state.observations)
-        if closing and "收口注记" not in answer:
-            answer += "\n\n" + closing
-        if cited:
-            lines = [
-                f"[{index}] {by_index[index].get('source', '')} · "
-                f"{by_index[index].get('source_id', '')}（{by_index[index].get('trust', '')}）"
-                for index in cited
-                if index in by_index
-            ]
-            answer += "\n\n引用：\n" + "\n".join(lines)
-        digest = hashlib.sha256(
-            json.dumps(state.manifests, ensure_ascii=False, sort_keys=True).encode()
-        ).hexdigest()
-        seq = _next_seq(state)
-        title = "答案收口"
-        deps.bus.emit("step", {"step": STEP_ANSWER, "seq": seq, "title": title})
-        for index in cited:
-            obs = by_index.get(index)
-            if obs is not None:
-                deps.bus.emit(
-                    "citation",
-                    {"index": index, "source": obs.get("source", ""),
-                     "source_id": obs.get("source_id", ""), "trust": obs.get("trust", "")},
-                )
-        deps.bus.emit("text", {"content": answer})
-        deps.bus.emit(
-            "verdict",
-            {"status": "completed", "run_id": state.run_id, "manifest_digest": digest},
-        )
-        return {
-            "answer": answer,
-            "status": "completed",
-            "manifest_digest": digest,
-            "steps": [*state.steps, _step_record(seq, STEP_ANSWER, title, None)],
-            "next_intent": INTENT_END,
-        }
+        if (
+            not state.answer
+            and state.verdict is None
+            and state.draft_kind != "direct"
+            and not state.draft
+            and any(  # 有实质材料才起草（零材料——闸依据/拒答如实转答，不烧模型）
+                (obs.get("locator") or {}).get("kind") != "notice"
+                for obs in state.observations
+            )
+        ):
+            # ——起草段（caller answer——引标断言合同；核验素材面）——
+            context = deps.builder.compile(
+                state, step="answer", instruction=_ANSWER_INSTRUCTION
+            )
+            content = await _complete(deps.model(MODEL_ANSWER), context)
+            draft = content.strip() or "（模型未产出草稿——如实收口。）"
+            seq = _next_seq(state)
+            title = "起草答案"
+            deps.bus.emit("step", {"step": STEP_ANSWER, "seq": seq, "title": title})
+            return {
+                "draft": draft,
+                "manifests": [*state.manifests, context.manifest.as_dict()],
+                "steps": [
+                    *state.steps,
+                    _step_record(seq, STEP_ANSWER, title, context.manifest,
+                                 payload={"phase": "draft"}),
+                ],
+                "next_intent": INTENT_VERIFY,
+            }
+        if state.verdict is None and state.draft_kind != "direct" and not state.answer:
+            # 零材料且未核验——先过 verify（闸依据如实转答由 verify 确定性装配）。
+            return {"next_intent": INTENT_VERIFY}
+        # ——收口段（verdict 在场／确定性直答／收敛答案——引用块＋注记＋摘要出流）——
+        return _finalize(state, deps)
 
     return answer_node
 
 
-# ---------- 图装配（六节点＋条件边——StateGraph 真承载 loop） ----------
+# ---------- 图装配（七节点＋条件边——StateGraph 真承载 loop） ----------
 
 _ROUTES: dict[str, dict[Hashable, str]] = {
-    STEP_UNDERSTAND: {INTENT_PLAN: STEP_PLAN, INTENT_ANSWER: STEP_ANSWER, INTENT_END: END},
-    STEP_PLAN: {
-        INTENT_TOOL: STEP_TOOL,
-        INTENT_PLAN: STEP_PLAN,
-        INTENT_ANSWER: STEP_ANSWER,
+    NODE_UNDERSTAND: {
+        INTENT_DECISION: NODE_DECISION,
+        INTENT_ANSWER: NODE_ANSWER,
         INTENT_END: END,
     },
-    STEP_TOOL: {
-        INTENT_TOOL: STEP_TOOL,
-        INTENT_PLAN: STEP_PLAN,
-        INTENT_OBSERVE: STEP_OBSERVE,
-        INTENT_ANSWER: STEP_ANSWER,
+    NODE_DECISION: {
+        INTENT_DECISION: NODE_DECISION,
+        INTENT_DISCOVER: NODE_DISCOVER,
+        INTENT_EXECUTE: NODE_EXECUTE,
+        INTENT_ANSWER: NODE_ANSWER,
         INTENT_END: END,
     },
-    STEP_OBSERVE: {INTENT_VERIFY: STEP_VERIFY, INTENT_ANSWER: STEP_ANSWER, INTENT_END: END},
-    STEP_VERIFY: {INTENT_ANSWER: STEP_ANSWER, INTENT_END: END},
-    STEP_ANSWER: {INTENT_END: END},
+    NODE_DISCOVER: {
+        INTENT_OBSERVE: NODE_OBSERVE,
+        INTENT_DISCOVER: NODE_DISCOVER,
+        INTENT_DECISION: NODE_DECISION,
+        INTENT_ANSWER: NODE_ANSWER,
+        INTENT_END: END,
+    },
+    NODE_EXECUTE: {
+        INTENT_OBSERVE: NODE_OBSERVE,
+        INTENT_DECISION: NODE_DECISION,
+        INTENT_ANSWER: NODE_ANSWER,
+        INTENT_END: END,
+    },
+    NODE_OBSERVE: {
+        INTENT_DISCOVER: NODE_DISCOVER,
+        INTENT_EXECUTE: NODE_EXECUTE,
+        INTENT_DECISION: NODE_DECISION,
+        INTENT_ANSWER: NODE_ANSWER,
+        INTENT_END: END,
+    },
+    NODE_VERIFY: {INTENT_ANSWER: NODE_ANSWER, INTENT_END: END},
+    NODE_ANSWER: {
+        INTENT_VERIFY: NODE_VERIFY,
+        INTENT_ANSWER: NODE_ANSWER,
+        INTENT_END: END,
+    },
 }
 
 
@@ -993,21 +1383,22 @@ def _node_of(
     langgraph add_node 的 `_Node` Protocol（NodeInputT 逆变＋StateLike 上界）在
     mypy 下对「工厂返回的 async callable」解不出泛型（最小复现在案：直接 def
     函数可绑定，Callable 值绑定为 Never）——恒等转换收口这处框架类型限制，
-    运行时零行为差；六节点签名仍受本模块 Callable 注记约束。
+    运行时零行为差；节点签名仍受本模块 Callable 注记约束。
     """
     return fn
 
 
 def build_graph(deps: LoopDeps, *, checkpointer: Any = None) -> Any:
-    """编译六步图（checkpointer 由 executor 注入——挂起/恢复的存储机制）。"""
+    """编译 ReAct 图（checkpointer 由 executor 注入——挂起/恢复的存储机制）。"""
     builder = StateGraph(RunState)
-    builder.add_node(STEP_UNDERSTAND, _node_of(_make_understand(deps)))
-    builder.add_node(STEP_PLAN, _node_of(_make_plan(deps)))
-    builder.add_node(STEP_TOOL, _node_of(_make_tool(deps)))
-    builder.add_node(STEP_OBSERVE, _node_of(_make_observe(deps)))
-    builder.add_node(STEP_VERIFY, _node_of(_make_verify(deps)))
-    builder.add_node(STEP_ANSWER, _node_of(_make_answer(deps)))
-    builder.add_edge(START, STEP_UNDERSTAND)
+    builder.add_node(NODE_UNDERSTAND, _node_of(_make_understand(deps)))
+    builder.add_node(NODE_DECISION, _node_of(_make_decision(deps)))
+    builder.add_node(NODE_DISCOVER, _node_of(_make_discover(deps)))
+    builder.add_node(NODE_EXECUTE, _node_of(_make_execute(deps)))
+    builder.add_node(NODE_OBSERVE, _node_of(_make_observe(deps)))
+    builder.add_node(NODE_VERIFY, _node_of(_make_verify(deps)))
+    builder.add_node(NODE_ANSWER, _node_of(_make_answer(deps)))
+    builder.add_edge(START, NODE_UNDERSTAND)
     for name, mapping in _ROUTES.items():
         builder.add_conditional_edges(name, _route, mapping)
     return builder.compile(checkpointer=checkpointer)

@@ -2,8 +2,11 @@
 
 ScriptedCompleter：按 caller 分流的应答罐头——每个 caller 一条回答队列（多轮
 replay：同 caller 第二次调用取队列第二条，末条驻留），全部调用留痕（caller＋
-messages 全量捕获——断言面）。P-006 runtime 侧五条验收与 P-007 api 测试复用
-同一件。
+messages 全量捕获——断言面）。V2-31 ReAct 升级：决策轮 replay 面显式化——
+`counts`（per-caller 调用计数桶——三 caller 桶计数断言的观测面）＋
+`messages_of(caller)`（逐轮消息回看——拒因回喂/用户补充进上下文的断言面）；
+行为断言锁在决策出口与观察流形，不锁模型原话。P-006 runtime 侧验收与 P-007
+api 测试复用同一件。
 
 只读（INV-2）：应答罐头不改注入剧本；调用计数是观测面不是写路径。
 """
@@ -57,3 +60,16 @@ class ScriptedCompleter:
             fallback=False,
             served_alias=alias or self._alias,
         )
+
+    # ---------- V2-31 ReAct replay 升级面（观测面——零写路径） ----------
+
+    def counts(self) -> dict[str, int]:
+        """per-caller 调用计数桶（三 caller 桶计数断言——无 repair 桶的机读面）。"""
+        buckets: dict[str, int] = {}
+        for caller, _messages in self.calls:
+            buckets[caller] = buckets.get(caller, 0) + 1
+        return buckets
+
+    def messages_of(self, caller: str) -> list[list[dict[str, str]]]:
+        """指定 caller 的逐轮消息回看（第 n 轮＝第 n 次调用的 messages 副本列）。"""
+        return [list(messages) for hit_caller, messages in self.calls if hit_caller == caller]

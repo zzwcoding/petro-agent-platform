@@ -1,6 +1,8 @@
-"""tools.handlers —— 四工具实现（engines 只读包装；specs/tools.md「四工具」行）。
+"""tools.handlers —— 五工具实现（engines 只读包装；specs/tools.md「四工具」行
+＋V2-31 发现工具扩展 table_schema）。
 
-四工具＝三引擎公开接口的包装（零引擎逻辑——specs/tools.md「不做什么」）：
+五工具＝三引擎公开接口的包装＋白名单结构卡（零引擎逻辑——specs/tools.md「不做
+什么」）：
 - semantic_query（question｜element_name）→ knowledge.evidence＋metric_by_name
   ——跨 kind 歧义名（「日产液」类）双落并列：evidence() 结果优先（术语卡一等
   材料语义，在前）＋metric_by_name 补取可出数指标（别名归一落点，element_id
@@ -69,12 +71,13 @@ from appv2.tools.schema import (
     ToolResult,
 )
 
-# ---------- 工具名闭世界（注册序＝specs/tools.md 接口定义节列序） ----------
+# ---------- 工具名闭世界（注册序＝specs/tools.md 接口定义节列序＋V2-31 发现工具） ----------
 
 SEMANTIC_QUERY = "semantic_query"
 DATA_QUERY = "data_query"
 DOC_RETRIEVE = "doc_retrieve"
 GRAPH_QUERY = "graph_query"
+SCHEMA_PROBE = "table_schema"
 
 # ---------- 引擎缝（结构性 Protocol——只认公开接口两面） ----------
 
@@ -180,6 +183,24 @@ _GRAPH_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
 }
 
+_SCHEMA_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "area": {
+            "type": "string",
+            "enum": ["agg", "sem", "kb"],
+            "description": "探查范围（缺省＝全白名单：agg 三表＋sem 五账＋kb 片段清单）",
+        },
+        "table": {
+            "type": "string",
+            "minLength": 1,
+            "description": "表/账名（如 agg.fct_daily_metering／sem_metric）——"
+                           "白名单外如实告知不开放",
+        },
+    },
+    "additionalProperties": False,
+}
+
 # ---------- descriptors（渐进披露：名称/一句话用途/参数 schema/只读声明） ----------
 
 _SEMANTIC_DESCRIPTION = (
@@ -203,9 +224,104 @@ _GRAPH_DESCRIPTION = (
     "图谱查询：问句点名实体的一跳邻域边（可带 anchors 锚定资产名——并入实体"
     "匹配问针），边出处 fail-closed 锚校验，观察带 library/报告出处。只读。"
 )
+# V2-31 拍板④：发现工具探查范围＝agg 三表＋sem 五账＋kb 片段清单；raw/lake
+# 湖表不开放（白名单外只如实告知，永不给探查卡）。
+_SCHEMA_DESCRIPTION = (
+    "表结构探查（发现工具）：查数据资产的结构卡——agg 三表（fct_daily_metering"
+    " 日产计量事实表/dim_well 井维/dim_date 日期维）、sem 五账（指标/术语/对象/"
+    "关系/族标注台账）、kb 片段清单（检索库分族）。白名单外（raw/lake 湖表等）"
+    "不在探查范围——如实告知不开放。只读，零 SQL。"
+)
 
 # 权威表行来源链（agg 星型读模型事实表——表名机读单点）。
 _AGG_SOURCE = STAR_TABLES[0]
+
+# ---------- 表结构白名单卡（拍板④范围真源——列值全部仓内合同值投影） ----------
+# agg 列值源＝query.pg_executor Core 轻声明（DDL 真源＝Alembic 0014）；计量列
+# 绑定与单位源＝knowledge.domain.MEASURE_COLUMNS（冻结三绑定）；sem 账面源＝
+# knowledge.pg_store 轻声明（DDL 真源＝Alembic 0002/0019）；kb 族源＝
+# retrieval.domain.FAMILY_ALL。零发明：本表是读面合同值的发现层投影。
+
+_AGG_CARDS: tuple[str, ...] = (
+    "表 agg.fct_daily_metering（日产计量事实表·PK well_id+prod_date）："
+    "well_id（井号）、prod_date（日期·查询窗端）、oil_output（日产油量·吨）、"
+    "liquid_output（日产液量·方）、oil_pressure（油压·MPa）、batch_id（数据批次）、"
+    "quality_flag（质量标记）——问数计划（data_query）唯一取数事实表",
+    "表 agg.dim_well（井维度·PK well_id）：well_id（井号）、block_name（区块）、"
+    "field_name（油田）",
+    "表 agg.dim_date（日期维度·PK date）：date（日期）、month（月）、quarter（季）",
+)
+_SEM_CARDS: tuple[str, ...] = (
+    "账 sem_metric（指标台账）：slot_name/定义/粒度/单位/状态/版本/口径支/默认口径"
+    "——semantic_query(question 或 element_name) 查口径卡，绑定指标才可出数"
+    "（日产油量→oil_output·吨／日产液量→liquid_output·方／油压→oil_pressure·MPa）",
+    "账 sem_term（术语台账）：term/类型/定义/状态/届满——术语卡经 semantic_query 查",
+    "账 sem_object（对象台账）：obj/属性/状态——对象卡经 semantic_query 查",
+    "账 sem_relation（关系台账）：rel/读法——关系卡经 semantic_query 查",
+    "账 族标注（本体导出物·随台账读面 families）：关系组的族标注——semantic_query 按"
+    "导出物名查",
+)
+_KB_CARDS: tuple[str, ...] = (
+    "库 kb 片段清单（检索库·doc_retrieve 检索面）：报告级/片段级两级；分族 "
+    "completion（完井报告）/monthly（月报）/dynamic（动态）/blank（空族）——"
+    "retrieval_need.family_hints 可按族提示分池",
+)
+
+
+def _schema_cards(area: str | None, table: str | None) -> list[Observation]:
+    """白名单卡→观察列（kind=schema——发现面素材；白名单外如实告知不开放）。"""
+    area_cards: dict[str, tuple[str, ...]] = {
+        "agg": _AGG_CARDS,
+        "sem": _SEM_CARDS,
+        "kb": _KB_CARDS,
+    }
+    if table:
+        for group in area_cards.values():
+            for card in group:
+                if f"表 {table} " in card or f"账 {table}（" in card:
+                    return [_schema_observation(card)]
+        return [
+            _notice_observation(
+                content=(
+                    f"表 {table} 不在探查白名单（agg 三表＋sem 五账＋kb 片段清单；"
+                    "raw/lake 湖表不开放）——只可探查白名单内资产结构。"
+                ),
+                notice_type="schema_not_allowed",
+                source="table_schema 白名单闸",
+                source_id=table,
+            )
+        ]
+    if area is not None:
+        cards: tuple[str, ...] | None = area_cards.get(area)
+        if cards is None:
+            return [
+                _notice_observation(
+                    content=(
+                        f"未知探查范围 {area!r}（允许 agg/sem/kb——白名单⑥；"
+                        "raw/lake 湖表不开放）"
+                    ),
+                    notice_type="schema_not_allowed",
+                    source="table_schema 白名单闸",
+                )
+            ]
+        return [_schema_observation(card) for card in cards]
+    return [
+        _schema_observation(card)
+        for cards in area_cards.values()
+        for card in cards
+    ]
+
+
+def _schema_observation(card: str) -> Observation:
+    return Observation(
+        content=card,
+        source="table_schema 白名单读面",
+        source_id=card.split("：", 1)[0],
+        version=None,
+        freshness="",
+        scope="schema",
+        locator={"kind": "schema", "area": "whitelist"},
+    )
 
 
 # ---------- 装配（registry 构造期调用——引擎缝注入闭包） ----------
@@ -214,7 +330,7 @@ _AGG_SOURCE = STAR_TABLES[0]
 def build_tools(
     *, knowledge: KnowledgeStore, query: QueryFace, retrieval: RetrievalFace
 ) -> list[Tool]:
-    """四工具装配（注册序＝specs/tools.md 列序；全部 readonly=True）。"""
+    """五工具装配（注册序＝specs/tools.md 列序＋V2-31 发现工具殿后；全部 readonly=True）。"""
     async def _semantic(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return await semantic_query(args, ctx, knowledge=knowledge)
 
@@ -226,6 +342,9 @@ def build_tools(
 
     async def _graph(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return await graph_query(args, ctx, retrieval=retrieval)
+
+    async def _schema(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+        return table_schema(args, ctx)
 
     return [
         Tool(
@@ -259,6 +378,14 @@ def build_tools(
                 args_schema=_GRAPH_SCHEMA,
             ),
             handler=_graph,
+        ),
+        Tool(
+            descriptor=ToolDescriptor(
+                name=SCHEMA_PROBE,
+                description=_SCHEMA_DESCRIPTION,
+                args_schema=_SCHEMA_SCHEMA,
+            ),
+            handler=_schema,
         ),
     ]
 
@@ -517,6 +644,21 @@ async def graph_query(
     needle = question if not anchors else f"{question} {' '.join(anchors)}"
     need = RetrievalNeed(question=needle, anchors=anchors, budget=ctx.budget)
     return _bundle_to_result(await retrieval.graph(need))
+
+
+# ---------- 工具五：table_schema（V2-31 发现工具——白名单⑥结构卡） ----------
+
+
+def table_schema(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """表结构探查（零 IO——白名单卡静态投影；拍板④：raw/lake 湖表不开放）。"""
+    area = args.get("area")
+    table = args.get("table")
+    if area is not None and table is not None:
+        raise ArgsError("area 与 table 二选一（同给不收）")
+    return ToolResult.ok(_schema_cards(
+        str(area) if area is not None else None,
+        str(table).strip() if table is not None else None,
+    ))
 
 
 def _bundle_to_result(bundle: RetrievalBundle) -> ToolResult:

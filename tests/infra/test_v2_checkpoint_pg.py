@@ -48,20 +48,25 @@ TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "")
 TODAY = date(2026, 10, 8)
 ACTOR = Actor(user_id="dev-u1", display="开发用户")
 
-_VAGUE_PLAN = '{"metric_slot": "日产油量", "ranking": false}'
-_WINDOWED_PLAN = (
-    '{"metric_slot": "日产油量", "ranking": false, '
-    '"window_start": "2025-09-01", "window_end": "2025-09-03", "limit": 5}'
+_VAGUE_DECISION = (
+    '{"action": "execute", "task_type": "data", '
+    '"plan": {"metric_slot": "日产油量", "ranking": false}}'
 )
-# 剧本按段分装（ScriptedCompleter 按 caller FIFO——A 段消模糊计划，B 段起带窗计划）。
+_WINDOWED_DECISION = (
+    '{"action": "execute", "task_type": "data", '
+    '"plan": {"metric_slot": "日产油量", "ranking": false, '
+    '"window_start": "2025-09-01", "window_end": "2025-09-03", "limit": 5}}'
+)
+# 剧本按段分装（ScriptedCompleter 按 caller FIFO——A 段模糊计划出 clarify，
+# B 段起带窗计划＋定稿）。
 _SCRIPT_A: dict[str, Sequence[str]] = {
     "v2.runtime.understand": ["理解：问最近的日产油量。\n指标候选：日产油量"],
-    "v2.runtime.plan": [_VAGUE_PLAN],
+    "v2.runtime.decision": [_VAGUE_DECISION],
 }
 _SCRIPT_B: dict[str, Sequence[str]] = {
     "v2.runtime.understand": ["理解：问最近的日产油量。\n指标候选：日产油量"],
-    "v2.runtime.plan": [_WINDOWED_PLAN],
-    "v2.runtime.answer_draft": ["N-01 井 21.16 吨[1]。"],
+    "v2.runtime.decision": [_WINDOWED_DECISION, '{"action": "finalize"}'],
+    "v2.runtime.answer": ["N-01 井 21.16 吨[1]。"],
 }
 
 
@@ -169,7 +174,7 @@ def _runtime(
     completer = ScriptedCompleter(script)
     models = {
         name: GatewayChatModel(completer=completer, caller=f"v2.runtime.{name}", alias="")
-        for name in ("understand", "plan", "plan_repair", "answer_draft")
+        for name in ("understand", "decision", "answer")
     }
     return AgentRuntime(
         GraphRunExecutor(

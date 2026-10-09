@@ -45,9 +45,10 @@ from appv2.runtime import (
 from appv2.runtime.executor import GraphRunExecutor
 from appv2.runtime.llm import Completer
 
-# 六步图模型键闭世界（appv2.runtime.graph 装配契约——executor.models 字典键
-# ＝caller 去前缀短名；graph.py「模型 caller 名闭世界」节同源）。
-MODEL_KEYS: tuple[str, ...] = ("understand", "plan", "plan_repair", "answer_draft")
+# ReAct 图模型键闭世界（appv2.runtime.graph 装配契约——executor.models 字典键
+# ＝caller 去前缀短名；graph.py「模型 caller 桶闭世界」节同源。V2-31：三桶
+# 无 repair）。
+MODEL_KEYS: tuple[str, ...] = ("understand", "decision", "answer")
 
 
 def compose_production_registry(

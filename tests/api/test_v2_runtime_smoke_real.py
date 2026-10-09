@@ -59,7 +59,10 @@ SMOKE_QUESTIONS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("去年各井每天的日产油量是多少？", ("N-01", "21.16")),  # 明细表首行（截断形态仍出表）
     ("去年日产油量最高的井是哪口？", ("Z-16", "5839.6")),  # 排名首行（合计 5839.63 前缀形）
 )
-SIX_STEP_ORDER = ["understand", "plan", "tool", "observe", "verify", "answer"]
+REACT_STEP_HEAD = ["decision", "decision", "execute", "observe", "decision"]
+# ReAct 周期钉序（V2-31）：understand(decision)→decision(execute)→execute→
+# observe→decision(finalize)→answer(起草)→verify→answer(收口)。
+REACT_STEP_TAIL = ["answer", "verify", "answer"]
 TODAY = date(2026, 10, 8)
 DEMO_BATCH_ID = "b-a1a61db9f458"  # 演示库 agg 单一批次（V2-11 seed 单源——单源族）
 ACTOR = {"X-Dev-User": "aqiang"}
@@ -111,13 +114,15 @@ def test_runtime_production_smoke_real_gateway() -> None:
             run_id = frames[0][1]["run_id"]
             assert frames[0][0] == "session" and frames[0][1]["resume"] is False
             assert frames[-1][0] == "done" and frames[-1][1]["run_id"] == run_id
-            # —— ② V2-09 验收①：走完六步至 answer（不再 understand 拒答） ——
+            # —— ② ReAct 周期走完至 answer（真模型自主选 data_query 出数） ——
             step_kinds = [d["step"] for n, d in frames if n == "step"]
-            assert step_kinds == SIX_STEP_ORDER, f"六步未走完：{step_kinds}"
+            assert step_kinds == REACT_STEP_HEAD + REACT_STEP_TAIL, (
+                f"ReAct 周期未走完：{step_kinds}"
+            )
             refused = [
                 d for n, d in frames if n == "notice" and d.get("type") == "refused"
             ]
-            assert not refused, f"understand/plan 拒答链被触发：{refused}"
+            assert not refused, f"理解/决策拒答链被触发：{refused}"
             finals = [d for n, d in frames if n == "verdict" and d.get("subtype") == "final"]
             assert finals and finals[-1]["run_id"] == run_id  # R10 终局判定（wire 定型形）
             # —— ③ run 状态机收口 ——
@@ -157,9 +162,10 @@ def test_runtime_production_smoke_real_gateway() -> None:
             )
             plan_payload = next(
                 (
-                    (s.payload or {}).get("plan")
+                    (s.payload or {}).get("emission", {}).get("plan")
                     for s in steps
-                    if s.step_type == "plan" and (s.payload or {}).get("plan")
+                    if s.step_type == "decision"
+                    and (s.payload or {}).get("emission", {}).get("plan")
                 ),
                 None,
             )
@@ -186,7 +192,9 @@ def test_runtime_production_smoke_real_gateway() -> None:
             if str(row.caller or "").startswith("v2.runtime.") and row.time >= started_at
         ]
         assert mine, "本轮 runtime 调用未落 spend 账本——红线②归因链断裂"
-        assert {row.caller for row in mine} >= {"v2.runtime.understand", "v2.runtime.plan"}
+        assert {row.caller for row in mine} >= {
+            "v2.runtime.understand", "v2.runtime.decision",
+        }
         assert all(row.cost_yuan > 0 for row in mine)  # 真调用真计费（非估算零值）
         for row in mine:
             print(

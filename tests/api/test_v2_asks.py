@@ -1,8 +1,10 @@
-"""V2-07 api 层验收——specs/agent-loop.md「验收测试」表 API 侧六条 1:1 同名落测
+"""V2-07 api 层验收——specs/agent-loop.md「验收测试」表 API 侧条目 1:1 同名落测
 （loop_step_sequence / manifest_present_each_call / ask_suspend_resume /
-sse_cursor_resume / resume_error_paths / plan_repair_clarify_resume）＋
+sse_cursor_resume / resume_error_paths / redecision_clarify_resume）＋
 R10 verdict subtype wire 定型断言＋P-006b 触界收敛事件流形态对齐＋V1 前端
-旧事件形兼容断言（web/ 零改动可连）。
+旧事件形兼容断言（web/ 零改动可连）。V2-31 ReAct 迁移：步序/剧本按 ReAct
+周期（decision/discover/execute/observe/verify/answer），repair 桶退役
+（拍板②拒因回喂重决策）。
 
 接口级测试（modules.md api 卡 Seam 行——FastAPI TestClient，不起真实端口）；
 runtime 侧全剧本件（ScriptedCompleter＋假引擎——tests/domains/test_v2_agent_loop.py
@@ -48,25 +50,34 @@ ACTOR = {"X-Dev-User": "aqiang"}  # 身份桩（五角色键；缺头落默认�
 
 # 剧本与问句（tests/domains/test_v2_agent_loop.py 同款——runtime 侧验收底座复用）。
 UNDERSTAND_DATA = "理解：问 2025 年 9 月上旬的日产油量。\n指标候选：日产油量"
-PLAN_WINDOWED = (
-    '{"metric_slot": "日产油量", "ranking": false, '
-    '"window_start": "2025-09-01", "window_end": "2025-09-03", "limit": 5}'
+DECISION_WINDOWED = (
+    '{"thought": "问数题——直接执行权威问数", "action": "execute", '
+    '"task_type": "data", "plan": {"metric_slot": "日产油量", "ranking": false, '
+    '"window_start": "2025-09-01", "window_end": "2025-09-03", "limit": 5}}'
 )
-PLAN_VAGUE = '{"metric_slot": "日产油量", "ranking": false}'
-PLAN_NO_SLOT = '{"ranking": false}'  # 缺 metric_slot 的半形计划（bad_args→repair 源）
+DECISION_VAGUE = (
+    '{"action": "execute", "task_type": "data", '
+    '"plan": {"metric_slot": "日产油量", "ranking": false}}'
+)
+DECISION_FINALIZE = '{"thought": "材料已足够", "action": "finalize"}'
 ANSWER_DRAFT_CITED = "N-01 井 2025-09-01 日产油量 21.16 吨[1]。"
 HAPPY_QUESTION = "2025 年 9 月 1 日到 3 日的日产油量"
 
+# ReAct 钉步序（骨架）：understand 段记 decision 类步（payload.phase=understand）。
+HAPPY_STEP_KINDS = [
+    "decision", "decision", "execute", "observe", "decision",
+    "answer", "verify", "answer",
+]
+
 HAPPY_SCRIPT = {
     "v2.runtime.understand": [UNDERSTAND_DATA],
-    "v2.runtime.plan": [PLAN_WINDOWED],
-    "v2.runtime.answer_draft": [ANSWER_DRAFT_CITED],
+    "v2.runtime.decision": [DECISION_WINDOWED, DECISION_FINALIZE],
+    "v2.runtime.answer": [ANSWER_DRAFT_CITED],
 }
-REPAIR_SCRIPT = {
+REDECISION_SCRIPT = {
     "v2.runtime.understand": [UNDERSTAND_DATA],
-    "v2.runtime.plan": [PLAN_NO_SLOT, PLAN_WINDOWED],  # repair 后带窗计划
-    "v2.runtime.plan_repair": [PLAN_VAGUE],  # repair 一轮：消模糊（出 clarify 源）
-    "v2.runtime.answer_draft": [ANSWER_DRAFT_CITED],
+    "v2.runtime.decision": [DECISION_VAGUE, DECISION_WINDOWED, DECISION_FINALIZE],
+    "v2.runtime.answer": [ANSWER_DRAFT_CITED],
 }
 
 
@@ -135,12 +146,12 @@ async def env(tmp_path: Any) -> AsyncIterator[tuple[TestClient, ConnectionManage
 async def env_budget(
     tmp_path: Any,
 ) -> AsyncIterator[tuple[TestClient, ConnectionManager]]:
-    """max_steps=3 触界收敛底座（P-006b 形态对齐断言消费）。"""
+    """max_rounds=1 触界收敛底座（P-006b 形态对齐断言消费）。"""
     async for pair in _make_client(
         tmp_path,
         engine=QueueQueryEngine([_rows_outcome()]),
         script=HAPPY_SCRIPT,
-        budget=Budget(max_steps=3),
+        budget=Budget(max_rounds=1),
     ):
         yield pair
 
@@ -149,7 +160,7 @@ async def env_budget(
 async def env_repair(
     tmp_path: Any,
 ) -> AsyncIterator[tuple[TestClient, ConnectionManager]]:
-    """repair→clarify→resume 底座（计划校验失败源＝缺 metric_slot 半形计划）。"""
+    """拒因回喂→clarify→resume 底座（模糊计划→need_clarify ASK→选择后带窗重决策）。"""
     async for pair in _make_client(
         tmp_path,
         engine=QueueQueryEngine(
@@ -161,7 +172,7 @@ async def env_repair(
                 _rows_outcome(),
             ]
         ),
-        script=REPAIR_SCRIPT,
+        script=REDECISION_SCRIPT,
     ):
         yield pair
 
@@ -173,8 +184,8 @@ async def env_clarify(
     """clarify 挂起/恢复底座（模糊计划直入 need_clarify——无 repair 前置）。"""
     script = {
         "v2.runtime.understand": [UNDERSTAND_DATA],
-        "v2.runtime.plan": [PLAN_VAGUE, PLAN_WINDOWED],
-        "v2.runtime.answer_draft": [ANSWER_DRAFT_CITED],
+        "v2.runtime.decision": [DECISION_VAGUE, DECISION_WINDOWED, DECISION_FINALIZE],
+        "v2.runtime.answer": [ANSWER_DRAFT_CITED],
     }
     async for pair in _make_client(
         tmp_path,
@@ -227,21 +238,20 @@ def _names(frames: list[tuple[str, dict[str, Any]]]) -> list[str]:
     return [name for name, _ in frames]
 
 
-# ---------- 验收① loop_step_sequence：六类 step 按合同次序 ----------
+# ---------- 验收① loop_step_sequence：ReAct 周期步序 ----------
 
 
 def test_loop_step_sequence(env: Any) -> None:
-    """正常提问→事件流含六类 step 且按 understand→…→answer 次序（首帧 session
-    携 run_id；保留帧 done 收场）。"""
+    """正常提问→事件流含 ReAct 周期步且按 understand(decision)→decision→execute→
+    observe→decision(finalize)→answer→verify→answer 次序（首帧 session 携
+    run_id；保留帧 done 收场）。"""
     client, _db = env
     frames = _post_ask(client)
     assert frames[0][0] == FRAME_SESSION
     run_id = frames[0][1]["run_id"]
     assert run_id.startswith("run-")
     assert frames[0][1]["resume"] is False
-    assert _step_kinds(frames) == [
-        "understand", "plan", "tool", "observe", "verify", "answer",
-    ]
+    assert _step_kinds(frames) == HAPPY_STEP_KINDS
     assert _names(frames)[-1] == FRAME_DONE  # 保留帧收场（V1 客户端干净收流判据）
 
 
@@ -250,8 +260,8 @@ def test_loop_step_sequence(env: Any) -> None:
 
 def test_manifest_present_each_call(env: Any) -> None:
     """GET /api/v2/chat/runs/{run_id} → {status, steps, manifest_digest}；
-    每个模型调用 step（understand/plan/verify）落七字段合同 Manifest
-    （INV-5），终局 verdict 携 manifest_digest。"""
+    每个模型调用 step（understand 段/decision 两轮/answer 起草）落七字段合同
+    Manifest（INV-5），终局 verdict 携 manifest_digest；verify 零 LLM 不落。"""
     client, _db = env
     frames = _post_ask(client)
     run_id = frames[0][1]["run_id"]
@@ -265,9 +275,12 @@ def test_manifest_present_each_call(env: Any) -> None:
     assert set(body) == {"status", "steps", "manifest_digest"}  # 接口定义节合同形
     assert body["status"] == "completed"
     assert body["manifest_digest"] == final[-1]["manifest_digest"]
-    manifest_by_step = {s["step"]: s["manifest"] for s in body["steps"]}
-    for kind in ("understand", "plan", "verify"):
-        manifest = manifest_by_step[kind]
+    with_manifest = [s for s in body["steps"] if s["manifest"] is not None]
+    assert [s["step"] for s in with_manifest] == [
+        "decision", "decision", "decision", "answer",
+    ]
+    for step in with_manifest:
+        manifest = step["manifest"]
         assert set(manifest) == {
             "source_type", "source_id", "version", "trust_level",
             "selected_reason", "token_count", "transform",
@@ -418,18 +431,23 @@ def test_resume_body_shape_guards(env_clarify: Any) -> None:
         assert resp.json()["code"] == code, (body, resp.text)
 
 
-# ---------- 验收⑥ plan_repair_clarify_resume：校验失败→repair→ASK→resume ----------
+# ---------- 验收⑥ redecision_clarify_resume：拒因回喂重决策→ASK→resume ----------
+# （V2-31 拍板②：repair 桶退役——模糊计划经 need_clarify 挂起，用户选择回喂
+#   重决策；原 plan_repair_clarify_resume 的 ReAct 同位测试。）
 
 
-def test_plan_repair_clarify_resume(env_repair: Any) -> None:
-    """计划校验失败（缺 metric_slot）→repair 一次→clarify ASK 帧→resume 续跑
-    出答案（repair 后 plan 步再现，恢复段出 citation）。"""
+def test_redecision_clarify_resume(env_repair: Any) -> None:
+    """模糊计划→引擎 need_clarify ASK 帧→resume 选择回喂→带窗重决策→出答案
+    （决策轮发射留痕在案，恢复段出 citation）。"""
     client, _db = env_repair
     frames = _post_ask(client, "最近的日产油量")
     run_id = frames[0][1]["run_id"]
-    plans = [data for name, data in frames if name == "step" and data["step"] == "plan"]
-    assert len(plans) == 2  # 原计划＋repair 计划
-    assert any(data["title"] == "计划缺 metric_slot" for name, data in frames if name == "step")
+    decision_titles = [
+        data["title"]
+        for name, data in frames
+        if name == "step" and data["step"] == "decision"
+    ]
+    assert any(t.startswith("决策 r1") and "执行" in t for t in decision_titles)
     ask_frames = [data for name, data in frames if name == "ask"]
     assert ask_frames and ask_frames[0]["frame"]["kind"] == "clarify"
 
@@ -464,25 +482,28 @@ def test_verdict_subtype_wire_schema(env: Any) -> None:
     assert final["subtype"] == "final"
     assert set(final) == {"subtype", "status", "run_id", "manifest_digest"}
     assert final["run_id"] == frames[0][1]["run_id"]
-    # 流序：verify 判定先于 answer 步，终局判定收尾。
+    # 流序：起草 answer 步→verify 步→verify 判定→收口 answer 步→终局判定收尾。
     order = [
         ("step", data["step"]) if name == "step" else ("verdict", data["subtype"])
         for name, data in frames
         if name in ("step", "verdict")
     ]
-    assert order.index(("verdict", "verify")) < order.index(("step", "answer"))
-    assert order[-1] == ("verdict", "final")
+    assert order[-5:] == [
+        ("step", "answer"), ("step", "verify"), ("verdict", "verify"),
+        ("step", "answer"), ("verdict", "final"),
+    ]
 
 
 # ---------- P-006b 形态对齐：触界收敛 run 事件流＝answer 步＋text＋终局 verdict ----------
 
 
 def test_budget_converged_stream_shape(env_budget: Any) -> None:
-    """max_steps=3 触界收敛：收敛答案落 answer 步＋text 事件出流＋恰一机读
-    notice（budget_converged）＋终局 verdict 收尾（P-006b·R1 修复后形态）。"""
+    """max_rounds=1 触界收敛：一轮执行后 decision 入口收敛——收敛答案落 answer 步
+    ＋text 事件出流＋恰一机读 notice（budget_converged）＋终局 verdict 收尾
+    （P-006b·R1 修复后形态）。"""
     client, _db = env_budget
     frames = _post_ask(client)
-    assert _step_kinds(frames) == ["understand", "plan", "tool", "answer"]
+    assert _step_kinds(frames) == ["decision", "decision", "execute", "observe", "answer"]
     texts = [data["content"] for name, data in frames if name == "text"]
     assert any("21.16" in t for t in texts)  # 已取得材料交付——不静默截断
     notices = [data for name, data in frames if name == "notice"]

@@ -94,6 +94,8 @@ class GraphRunExecutor:
         budget: Budget | None = None,
         builder: ContextBuilder | None = None,
         security: SecurityService | None = None,
+        guide: Any = None,  # GuideProvider（拍板⑦处理指南缝——防环不直接 import 类型）
+        today: Any = None,  # date（指南缺省实现的今天锚点——测试钉日；缺省 infra.clock）
     ) -> None:
         self._registry = registry
         self._models = models
@@ -101,6 +103,8 @@ class GraphRunExecutor:
         self._saver = saver
         self._budget = budget or Budget()
         self._builder = builder or ContextBuilder()
+        self._guide = guide
+        self._today = today
         self._store = RunStore(db)
         self._auditor = RunAuditor(db, security)
         self._tasks: set[asyncio.Task[None]] = set()
@@ -178,6 +182,8 @@ class GraphRunExecutor:
             builder=self._builder,
             store=self._store,
             bus=bus,
+            guide=self._guide,
+            today=self._today,
         )
 
     def _initial_state(self, run_id: str, question: str, actor_id: str) -> RunState:

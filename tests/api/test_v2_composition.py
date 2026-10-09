@@ -40,15 +40,16 @@ TODAY = date(2026, 10, 8)
 ACTOR = {"X-Dev-User": "aqiang"}  # 身份桩（五角色键——非键名 401）
 
 _UNDERSTAND = "理解：问 9 月上旬的日产油量。\n指标候选：日产油量"
-_PLAN = (
-    '{"metric_slot": "日产油量", "ranking": false, '
-    '"window_start": "2026-09-01", "window_end": "2026-09-15"}'
+_DECISION = (
+    '{"action": "execute", "task_type": "data", '
+    '"plan": {"metric_slot": "日产油量", "ranking": false, '
+    '"window_start": "2026-09-01", "window_end": "2026-09-15"}}'
 )
 _ANSWER = "答案：见闸依据。"
 _SCRIPT: dict[str, Sequence[str]] = {
     "v2.runtime.understand": [_UNDERSTAND],
-    "v2.runtime.plan": [_PLAN],
-    "v2.runtime.answer_draft": [_ANSWER],
+    "v2.runtime.decision": [_DECISION, '{"action": "finalize"}'],
+    "v2.runtime.answer": [_ANSWER],
 }
 
 _SEM_METRIC_DDL = (
@@ -191,9 +192,10 @@ def test_de16_enabled_freshness_block_stops(tmp_path: Path, agg_db: Path) -> Non
     """闸开（缺省现状）：窗整体晚于水位——水位拦停在（零数值，不冒充出数）。"""
     with _composition_client(tmp_path, agg_db, enabled=True) as client:
         frames = _ask(client)
-        # 六步走完（拦停不炸链——tool ok→observe→verify 闸依据如实转答）。
+        # ReAct 周期走完（拦停不炸链——execute ok→observe→decision finalize→
+        # verify 闸依据如实转答）。
         assert [d["step"] for n, d in frames if n == "step"] == [
-            "understand", "plan", "tool", "observe", "verify", "answer",
+            "decision", "decision", "execute", "observe", "decision", "verify", "answer",
         ]
         # 拦停 notice 在场：水位 2026-08-31＋窗标签——零数值行。
         blocked = [
@@ -214,9 +216,9 @@ def test_de16_disabled_zero_rows_refused(tmp_path: Path, agg_db: Path) -> None:
     """闸关：不读水位不拦停——执行缝放行，窗内 0 行＝查无数据如实拒答。"""
     with _composition_client(tmp_path, agg_db, enabled=False) as client:
         frames = _ask(client)
-        # 闸拒直达收口（runtime refused 转答不进观察/核验——graph._apply_result）。
+        # 闸拒直达收口（runtime refused 转答不进观察/核验——ReAct 直接答通道）。
         assert [d["step"] for n, d in frames if n == "step"] == [
-            "understand", "plan", "tool", "answer",
+            "decision", "decision", "execute", "answer",
         ]
         assert not [
             d for n, d in frames if n == "notice" and d.get("type") == "freshness_block"
