@@ -1,6 +1,6 @@
 # V2-30 · rerun 计费列＋gold 基线行（Q12 欠账清偿）
 
-状态: 实现中（2026-10-09，P-025 已派发）
+状态: done（2026-10-09，P-025 验收通过·Q12 挂账 4/5 清偿）
 Touches modules: （eval 工具链——eval/results/tools/）
 阻塞: 无｜被阻塞: 无
 
