@@ -41,9 +41,16 @@ SCHEME_HANDOFF = re.compile(r"视情况|自行设计|自己决定|自行(选择|
 CROSS_DOMAIN = re.compile(r"跨域|多个模块|多模块|大改|架构级|大规模重构")
 MID_REVIEW_DECLARED = re.compile(r"中途审查|审查拍")
 # 施工指令词（排除验收常用语：逐字段/逐字可查/逐字落字/措辞不如实类缺陷描述）
-VERBATIM_NEED = re.compile(r"逐字(?!段|落|可|查|比对|一致|在场)|措辞(?!不|如|随|同步)|替换为|追加段|行为定义")
+VERBATIM_NEED = re.compile(
+    r"逐字(?!段|落|可|查|比对|一致|在场)|措辞(?!不|如|随|同步)"
+    r"|替换为|追加段|行为定义"
+)
 # 逐字稿载体：引用块/代码块/「原文」引号/票面附节指针
-VERBATIM_BLOCK = re.compile(r"^> ?\S|^＞ ?\S|```|「[^」]{6,}」|见票面附\s*[0-9０-９]|附\s*[1-9０-９][：:]", re.M)
+VERBATIM_BLOCK = re.compile(
+    r"^> ?\S|^＞ ?\S|```|「[^」]{6,}」|见票面附\s*[0-9０-９]"
+    r"|附\s*[1-9０-９][：:]",
+    re.M,
+)
 
 
 def check(text: str, name: str) -> None:
