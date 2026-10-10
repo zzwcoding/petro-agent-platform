@@ -32,6 +32,7 @@ from datetime import date
 from typing import Any
 
 from appv2.tools.schema import ASK_CLARIFY, ASK_EXTERNAL_TABLE_APPROVAL, AskFrame
+from appv2.tools.table_scan import scan_unapproved_tables
 
 # ---------- 四态枚举（R1 判定面——闭世界） ----------
 
@@ -287,31 +288,70 @@ def judge(
             f"指标名「{raw_slot}」归一→台账 slot「{metric.slot}」（名归一闸命中）"
         )
 
-    # —— 闸 2：外表越集（A2 裁决落点——放行态放 ToolContext.approved_tables） ——
-    external = [str(t) for t in (plan.get("external_tables") or ()) if str(t).strip()]
-    if external:
-        unapproved = [t for t in external if t not in approved_tables]
-        if unapproved:
-            return Verdict(
-                subtask_id=subtask.subtask_id,
-                state=STATE_BLOCKED_ASK,
-                reason=f"计划引用外部表 {unapproved}——越集审批（模型与流程无权自批）",
-                ask=AskFrame(
-                    kind=ASK_EXTERNAL_TABLE_APPROVAL,
-                    prompt=(
-                        f"子问题 {subtask.subtask_id} 的取数计划引用外部表 "
-                        f"{'、'.join(unapproved)}——是否批准越集查询？"
-                    ),
-                    options=("批准", "驳回"),
-                    detail={
-                        "approval_id": f"precond-{subtask.subtask_id}",
-                        "tables": unapproved,
-                        "reason": "外表越集审批（前置条件机判定——放行态落 ToolContext）",
-                        "impact": "批准后该表进放行名单（ToolContext），不重排计划",
-                    },
+    # —— 闸 2：外表越集（V2-44 申报/实扫双闸并存——越集后置确定性扫描） ——
+    # 申报面现语义逐字保留（计划申报 external_tables 对放行名单——拦停措辞/
+    # 帧形/resume 通道零改动；引擎 N7.4c 申报闸同零改动）；实扫兜底面
+    # （table_scan 单源）不看申报——问句词面外表引用（别名＋schema 限定全解析）
+    # 对审定开放集（放行名单＋agg 三表基座）执行前比对：未审定＝同形拦停挂
+    # 审批（漏报也拦——P039BW run-afbe7aad 高危形根治）；计划未申报而实扫命中
+    # ＝漏报捕获机读留痕（notes＋审批卡 detail 双落——审计可溯）。
+    scan = scan_unapproved_tables(question, plan, approved_tables=approved_tables)
+    unapproved = list(scan.unapproved)
+    if unapproved:
+        miss = list(scan.miss_declared)
+        return Verdict(
+            subtask_id=subtask.subtask_id,
+            state=STATE_BLOCKED_ASK,
+            reason=(
+                f"计划引用外部表 {unapproved}——越集审批（模型与流程无权自批）"
+                + (
+                    f"；漏报捕获：{'、'.join(miss)} 未在计划申报——执行前实扫命中"
+                    "（越集后置确定性闸，申报/实扫双闸并存）"
+                    if miss
+                    else ""
+                )
+            ),
+            ask=AskFrame(
+                kind=ASK_EXTERNAL_TABLE_APPROVAL,
+                prompt=(
+                    f"子问题 {subtask.subtask_id} 的取数计划引用外部表 "
+                    f"{'、'.join(unapproved)}——是否批准越集查询？"
                 ),
+                options=("批准", "驳回"),
+                detail={
+                    "approval_id": f"precond-{subtask.subtask_id}",
+                    "tables": unapproved,
+                    "reason": "外表越集审批（前置条件机判定——放行态落 ToolContext）",
+                    "impact": "批准后该表进放行名单（ToolContext），不重排计划",
+                    # V2-44 审计面（additive——resume 通道只读 tables/approval_id/
+                    # impact，零剥除负担）：表名集在场＋漏报捕获机读标记。
+                    "declared_tables": list(scan.declared_tables),
+                    "detected_tables": list(scan.detected_tables),
+                    "miss_declared": miss,
+                },
+            ),
+            notes=(
+                (
+                    f"漏报捕获：外表 {'、'.join(miss)} 未在计划申报——执行前实扫"
+                    "命中（越集后置确定性闸，申报/实扫双闸并存）",
+                )
+                if miss
+                else ()
+            ),
+        )
+    external = [
+        *scan.declared_tables,
+        *(t for t in scan.detected_tables if t not in scan.declared_tables),
+    ]
+    if external:
+        notes.append(
+            f"外部表 {'、'.join(external)} 已放行（ToolContext 审批态）——不重排计划"
+        )
+        if scan.miss_declared:
+            notes.append(
+                f"漏报捕获：外表 {'、'.join(scan.miss_declared)} 未在计划申报——"
+                "实扫命中已审定放行（照常执行，留痕不静默）"
             )
-        notes.append(f"外部表 {'、'.join(external)} 已放行（ToolContext 审批态）——不重排计划")
 
     # —— 闸 3：合法口径校验＋caliber_key 三态（B5 裁决） ——
     if metric is not None:

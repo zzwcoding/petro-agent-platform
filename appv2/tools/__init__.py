@@ -90,6 +90,11 @@ from appv2.tools.schema import (
     ToolError,
     ToolResult,
 )
+from appv2.tools.table_scan import (
+    TableScanFindings,
+    extract_external_table_refs,
+    scan_unapproved_tables,
+)
 
 __all__ = [
     "ALL_SCHEMA_CARDS",
@@ -130,6 +135,7 @@ __all__ = [
     "QueryFace",
     "RetrievalFace",
     "SubtaskInput",
+    "TableScanFindings",
     "Tool",
     "ToolContext",
     "ToolDescriptor",
@@ -140,6 +146,7 @@ __all__ = [
     "build_tools",
     "classify_exception",
     "dump_from_store",
+    "extract_external_table_refs",
     "judge",
     "ledger_facts",
     "normalize_metric_name",
@@ -147,4 +154,5 @@ __all__ = [
     "render_cards",
     "render_ledger_rows",
     "resolve_metric_slot",
+    "scan_unapproved_tables",
 ]
