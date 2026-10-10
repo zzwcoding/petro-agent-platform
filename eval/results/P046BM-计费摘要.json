@@ -1,0 +1,77 @@
+{
+ "tag": "P046BM",
+ "base": "http://127.0.0.1:8022/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "rebuilt-from-jsonl",
+ "questions": 4,
+ "spend_ok": 4,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 17,
+  "fallback_calls": 0,
+  "input_tokens": 111803,
+  "output_tokens": 4910,
+  "cost_yuan": 0.126533
+ },
+ "items": [
+  {
+   "qid": "NQ-M4",
+   "group": "新语料·月报",
+   "run_id": "run-6092b1be",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.028486,
+   "call_ids": [
+    "call-653b200c",
+    "call-93d1d92e",
+    "call-47858159",
+    "call-e5a6221d"
+   ]
+  },
+  {
+   "qid": "NQ-M5",
+   "group": "新语料·月报",
+   "run_id": "run-e8e2a859",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.030922,
+   "call_ids": [
+    "call-cf0252cd",
+    "call-72a98d3e",
+    "call-40d76683",
+    "call-fb20988e"
+   ]
+  },
+  {
+   "qid": "NQ-M6",
+   "group": "新语料·月报",
+   "run_id": "run-480f1cdd",
+   "method": "run_id",
+   "calls": 5,
+   "cost_yuan": 0.0407,
+   "call_ids": [
+    "call-932808d6",
+    "call-a9dc382e",
+    "call-c1a5ee57",
+    "call-97ee700b",
+    "call-c87f5751"
+   ]
+  },
+  {
+   "qid": "NQ-M10",
+   "group": "新语料·月报",
+   "run_id": "run-920e166a",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.026425,
+   "call_ids": [
+    "call-a04b10c3",
+    "call-1ce6fb46",
+    "call-707e2a77",
+    "call-3d7dcd2a"
+   ]
+  }
+ ],
+ "errors": [],
+ "note": "逐题 --qid 调用后由 jsonl spend 字段重建（rerun.spend_summary 同口径）"
+}

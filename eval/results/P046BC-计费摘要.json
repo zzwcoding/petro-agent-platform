@@ -1,0 +1,78 @@
+{
+ "tag": "P046BC",
+ "base": "http://127.0.0.1:8022/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "rebuilt-from-jsonl",
+ "questions": 4,
+ "spend_ok": 4,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 18,
+  "fallback_calls": 0,
+  "input_tokens": 127948,
+  "output_tokens": 5353,
+  "cost_yuan": 0.144007
+ },
+ "items": [
+  {
+   "qid": "NQ-C1",
+   "group": "新语料·完井",
+   "run_id": "run-be2cbb83",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.031761,
+   "call_ids": [
+    "call-ef3d147c",
+    "call-7058cf6b",
+    "call-5238c546",
+    "call-7a8861ae"
+   ]
+  },
+  {
+   "qid": "NQ-C2",
+   "group": "新语料·完井",
+   "run_id": "run-38a07655",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.028227,
+   "call_ids": [
+    "call-4fdb8a99",
+    "call-9da11a96",
+    "call-892df231",
+    "call-78de7cb5"
+   ]
+  },
+  {
+   "qid": "NQ-C5",
+   "group": "新语料·完井",
+   "run_id": "run-04102519",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.022713,
+   "call_ids": [
+    "call-f16399b8",
+    "call-6008a6d3",
+    "call-c1102b80",
+    "call-5f8c497e"
+   ]
+  },
+  {
+   "qid": "NQ-C9",
+   "group": "新语料·完井",
+   "run_id": "run-7a3cefd3",
+   "method": "run_id",
+   "calls": 6,
+   "cost_yuan": 0.061306,
+   "call_ids": [
+    "call-ae2cfebe",
+    "call-cbd6305d",
+    "call-8a4953c6",
+    "call-2815b590",
+    "call-0c28b8e1",
+    "call-64ff4c47"
+   ]
+  }
+ ],
+ "errors": [],
+ "note": "逐题 --qid 调用后由 jsonl spend 字段重建（rerun.spend_summary 同口径）"
+}

@@ -1,0 +1,158 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-76111395",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "核查 3 月检泵折算表中停产井号 Y-34 的折算日产油、是否与 Y-31 一同列入电泵工作制度复查清单；若 Y-34 不存在，则找出 3 月 3～6 日实际检泵井号及其检修类型、停产井日、折算日产油、影响产量（方与吨）；并明确实际列入电泵工作制度复查清单的井号及理由。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "核查 3 月检泵折算表中停产井号 Y-34 的折算日产油、是否与 Y-31 一同列入电泵工作制度复查清单；若 Y-34 不存在，则找出 3 月 3～6 日实际检泵井号及其检修类型、停产井日、折算日产油、影响产量（方与吨）；并明确实际列入电泵工作制度复查清单的井号及理由。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1 被拒：澄清发射不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r2 被拒：澄清发射不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清 r3 被拒：澄清发射不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   }
+  },
+  {
+   "id": 6,
+   "event": "notice",
+   "data": {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：工具（discover/execute）未执行或未取得观察；观察（observe）未入栈；核验（verify）/阐述（answer）未执行。未取得可交付观察材料——如实回报，不编造。"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 5,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 8,
+   "event": "text",
+   "data": {
+    "content": "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）"
+   }
+  },
+  {
+   "id": 9,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-76111395",
+    "manifest_digest": "3b1a0e685e438cf0eb68f710354a9bcd9177194ecc744bfdec94a9d096a199bf"
+   }
+  },
+  {
+   "id": 10,
+   "event": "done",
+   "data": {
+    "run_id": "run-76111395"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：工具（discover/execute）未执行或未取得观察；观察（observe）未入栈；核验（verify）/阐述（answer）未执行。未取得可交付观察材料——如实回报，不编造。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-76111395",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "核查 3 月检泵折算表中停产井号 Y-34 的折算日产油、是否与 Y-31 一同列入电泵工作制度复查清单；若 Y-34 不存在，则找出 3 月 3～6 日实际检泵井号及其检修类型、停产井日、折算日产油、影响产量（方与吨）；并明确实际列入电泵工作制度复查清单的井号及理由。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1 被拒：澄清发射不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r2 被拒：澄清发射不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清 r3 被拒：澄清发射不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   },
+   {
+    "step": "answer",
+    "seq": 5,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-76111395",
+   "manifest_digest": "3b1a0e685e438cf0eb68f710354a9bcd9177194ecc744bfdec94a9d096a199bf"
+  },
+  "texts": [
+   "核查 3 月检泵折算表中停产井号 Y-34 的折算日产油、是否与 Y-31 一同列入电泵工作制度复查清单；若 Y-34 不存在，则找出 3 月 3～6 日实际检泵井号及其检修类型、停产井日、折算日产油、影响产量（方与吨）；并明确实际列入电泵工作制度复查清单的井号及理由。",
+   "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）"
+  ],
+  "duration_s": 8.5
+ }
+}
