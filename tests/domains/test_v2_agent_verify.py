@@ -222,13 +222,21 @@ async def test_citation_on_unrelated_line_rewritten(tmp_path: Path) -> None:
         assert "86 口井" in answer
         assert "未找到（材料未披露）" in answer
         assert "21.16" not in answer  # 观察数值未被复述——不进答案与引用块
-        # notice＋verdict：改写计数 1；无支撑引标不收进引用集（citation 零发）。
+        # notice＋verdict：改写计数 1；无支撑引标不收进引用集（引用块零列出——
+        # verdict.cited 仍空，R9 语义不变）。
         notices = _notices(events)
         assert any(n.get("type") == "unsupported_claim" for n in notices)
         verdicts = [e.data for e in events if e.event == "verdict"]
         assert verdicts and verdicts[0]["rewritten"] == 1
         assert verdicts[0]["cited"] == []
-        assert not [e for e in events if e.event == "citation"]
+        assert "引用：" not in answer  # 引用块不收无支撑引标（R9 不变）
+        # citation 帧行为变化（V2-48 citation 落账——L0 追认注记）：改写行保留的
+        # 悬空 [1] 仍在答案面（INV-1 改写不剥引标），V2-48 起 [n]↔citation 帧
+        # 同步（悬空形清零）——帧照发（帧集＝支撑集 ∪ 答案面合法 [n]），
+        # 「citation 零发」旧钉由 V2-48 票面验收「citation 落账钉」取代；本钉
+        # 核心判据（改写/引用集不含/答案无被引数值）全部保持。
+        citation_frames = [e for e in events if e.event == "citation"]
+        assert [int(e.data["index"]) for e in citation_frames] == [1]
     finally:
         await db.dispose()
 

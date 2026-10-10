@@ -197,10 +197,13 @@ _UNDERSTAND_INSTRUCTION = (
     "输出：理解：问去年全年各井逐日的日产油量明细。\n"
     "指标候选：日产油量"
 )
-# 答案起草合同（引标断言——verify 确定性核验的素材面）。
+# 答案起草合同（引标断言——verify 确定性核验的素材面）。V2-48 追加 JSON 通道
+# 隔离句（finalize/ask 发射 JSON 不进答案面——确定性剥离是 enforcement，此句
+# 只降首发泄漏率省重试）。
 _ANSWER_INSTRUCTION = (
     "起草答案：逐条事实断言必须带 [n] 引标（n＝观察材料序号）；材料未覆盖的部分"
-    "不得断言；多来源不一致时逐源列明。"
+    "不得断言；多来源不一致时逐源列明。答案只出交付正文——finalize/ask 等发射"
+    " JSON（含围栏形）不得出现在答案中。"
 )
 # 审批卡批准后的答复基础＝引擎卡 impact 原文（零二次创作——合同值不出引擎侧）。
 _EXTABLE_REJECT_BASIS_KEY = "impact"
@@ -494,7 +497,61 @@ def parse_decision(
     return emission  # finalize——零附加载荷
 
 
-# ---------- 核验步确定性规则（INV-1/INV-4 骨架版——保留件零改动） ----------
+# ---------- 起草面 JSON 通道隔离（V2-48 族 A——发射围栏不进答案面） ----------
+
+# 裸发射 JSON 令牌（单行平面形）：action 值 ∈ ACTION_KINDS 闭世界才判泄漏
+# （域外 JSON 零误伤——非发射形围栏/对象原样保留）。
+_EMISSION_TOKEN_RE = re.compile(r'\{\s*"action"\s*:\s*"([^"]+)"[^{}]*\}')
+# 围栏块（```info\n body```）——body 解析为发射形 JSON 对象才剥。
+_FENCE_RE = re.compile(r"```[^\n]*\n?(.*?)```", re.DOTALL)
+
+
+def _is_emission_payload(body: str) -> bool:
+    """围栏体是否发射形 JSON（dict 且 action ∈ ACTION_KINDS 闭世界）。"""
+    try:
+        payload = json.loads(body)
+    except ValueError:
+        return False
+    return isinstance(payload, dict) and payload.get("action") in ACTION_KINDS
+
+
+def strip_emission_fences(text: str) -> tuple[str, bool]:
+    """发射围栏/裸发射 JSON 确定性剥离（V2-48 族 A——JSON 通道隔离单点）。
+
+    finalize/ask 发射通道与答案文本通道分离的确定性收口（Q14 族 A 帧形全辖：
+    NQ-D10 纯围栏零交付／NQ-D1·D7 围栏裹载荷／数-闸2 相位提示回声行内裸发射
+    对象／系统-届满 正文尾挂围栏）：
+
+    - 围栏块：body 解析为发射形 JSON（action ∈ ACTION_KINDS）→整块剥除；
+    - 裸发射行：行内含裸发射 JSON 令牌（action ∈ ACTION_KINDS）→整行剥除
+      （回声行余文＝提示原文，同属泄漏承载——一并离场）；
+    - 非发射围栏/普通 JSON（无 action 键或 action 越界闭世界）零误伤原样保留。
+
+    返回（剥离后文本, 是否检出发射泄漏）。纯格式隔离零语义判定——剥离不计数
+    进 INV-1 改写（发射残片非断言）。
+    """
+    leaked = False
+
+    def _drop(m: re.Match[str]) -> str:
+        nonlocal leaked
+        if _is_emission_payload(m.group(1).strip()):
+            leaked = True
+            return ""
+        return m.group(0)
+
+    text = _FENCE_RE.sub(_drop, text)
+    kept: list[str] = []
+    for line in text.splitlines():
+        token = _EMISSION_TOKEN_RE.search(line)
+        if token is not None and token.group(1) in ACTION_KINDS:
+            leaked = True
+            continue
+        kept.append(line)
+    return "\n".join(kept), leaked
+
+
+# ---------- 核验步确定性规则（INV-1/INV-4 骨架版——保留件；V2-48 入口增发射
+# 剥除一道（strip_emission_fences——改写面无裸 JSON 段），其余零改动） ----------
 
 
 def _assertion_chunks(line: str) -> list[tuple[int, str]]:
@@ -542,9 +599,12 @@ def verify_draft(
       断言，原样保留（V2-23）；表格行/血缘卡/kb 片段引挂豁免「全数值复述」（见
       _supported——零重叠仍改写，R9 反例不回退）；
     - 被引观察中同一 subject（台账卡内容首段名称）≥2 支且值不同→追加分源列明块
-      （INV-4——禁止无出处调和；agg_row 行级事实按 井@日 独立键，不入矛盾池）。
+      （INV-4——禁止无出处调和；agg_row 行级事实按 井@日 独立键，不入矛盾池）；
+    - V2-48 入口发射剥除：draft 先过 strip_emission_fences（核验步改写面无裸
+      JSON 段——NQ-D10 形围栏不进答案面；剥除不计改写数——发射残片非断言）。
     """
     by_index = {int(obs["index"]): obs for obs in observations}
+    draft = strip_emission_fences(draft)[0]
     cited: set[int] = set()
     rewritten = 0
     out_lines: list[str] = []
@@ -2550,21 +2610,29 @@ def _make_verify(
 def _finalize(state: RunState, deps: LoopDeps) -> dict[str, Any]:
     """答案收口（引用块＋血缘⑤注记＋摘要——确定性装配，零二次创作）。"""
     verdict = state.verdict or {}
-    cited: list[int] = list(verdict.get("cited") or [])
     by_index = {int(obs["index"]): obs for obs in state.observations}
     answer = state.draft or state.answer or "（未取得可交付答案——如实回报，不编造。）"
     # 收口注记确定性随行（V2-23——LIMIT 截断披露不靠模型自觉；草稿已自带则不重复）。
     closing = _lineage_closing_note(state.observations)
     if closing and "收口注记" not in answer:
         answer += "\n\n" + closing
-    if cited:
+    # V2-48 citation 落账：答案面 [n] ↔ citation 帧同步（悬空形清零——答案有
+    # [n] 而 citation 帧零支的 ⚠20 宽口径形收口）。帧集＝核验支撑集 ∪ 答案文本
+    # 携带的合法 [n]（观察在界）；引用块仍只列核验支撑集（R9「无支撑引标不收
+    # 进引用集」语义不变——悬空 [n] 只落帧不进引用块）。
+    supported: list[int] = sorted({int(n) for n in verdict.get("cited") or []})
+    if supported:
         lines = [
             f"[{index}] {by_index[index].get('source', '')} · "
             f"{by_index[index].get('source_id', '')}（{by_index[index].get('trust', '')}）"
-            for index in cited
+            for index in supported
             if index in by_index
         ]
         answer += "\n\n引用：\n" + "\n".join(lines)
+    cited: list[int] = sorted(
+        set(supported)
+        | {int(n) for n in _CITE_RE.findall(answer) if int(n) in by_index}
+    )
     digest = hashlib.sha256(
         json.dumps(state.manifests, ensure_ascii=False, sort_keys=True).encode()
     ).hexdigest()
@@ -2635,18 +2703,46 @@ def _make_answer(
             context = deps.builder.compile(
                 state, step="answer", instruction=instruction
             )
-            content = await _complete(deps.model(MODEL_ANSWER), context)
-            draft = content.strip() or "（模型未产出草稿——如实收口。）"
+            first_content = await _complete(deps.model(MODEL_ANSWER), context)
+            # V2-48 JSON 通道隔离：发射围栏确定性剥离校验——泄漏→剥离（有余量
+            # 直接交付）；零余量→同相位重试一次→交付重试草稿；再泄/再零→如实
+            # 收口注记（发射围栏在任何路径下不进答案面）。
+            draft, leaked = strip_emission_fences(first_content.strip())
+            retry_content: str | None = None
+            if not draft.strip():
+                retry_content = await _complete(deps.model(MODEL_ANSWER), context)
+                draft, retry_leaked = strip_emission_fences(retry_content.strip())
+                leaked = leaked or retry_leaked
+            if not draft.strip():
+                draft = (
+                    "（模型草稿为发射 JSON 围栏——剥离重试仍未取得有效草稿，"
+                    "如实收口。）"
+                    if leaked
+                    else "（模型未产出草稿——如实收口。）"
+                )
+            if leaked:
+                deps.bus.emit(
+                    "notice",
+                    {
+                        "type": "emission_strip",
+                        "gates": [],
+                        "content": (
+                            "起草面检出发射 JSON 围栏泄漏——确定性剥离"
+                            + ("＋同相位重试一次" if retry_content is not None else "")
+                            + "（V2-48 JSON 通道隔离——发射围栏不进答案面）"
+                        ),
+                    },
+                )
+            history_turns = [dict(context.messages[-1]), _assistant_turn(first_content)]
+            if retry_content is not None:
+                # 消息历史簿记（ADR-0006）：重试调用与两拍输出均如实入史。
+                history_turns.append(_assistant_turn(retry_content))
             seq = _next_seq(state)
             title = "起草答案"
             deps.bus.emit("step", {"step": STEP_ANSWER, "seq": seq, "title": title})
             return {
                 # 消息历史簿记（ADR-0006）：起草调用与草稿输出入簿。
-                "history": _history_with(
-                    state,
-                    dict(context.messages[-1]),
-                    _assistant_turn(content),
-                ),
+                "history": _history_with(state, *history_turns),
                 "draft": draft,
                 "manifests": [*state.manifests, context.manifest.as_dict()],
                 "steps": [
