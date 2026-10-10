@@ -17,6 +17,14 @@ additive 幂等（票面边界红线）：富化产物只写富化索引表（En
 
 在线消费：EnrichedFragmentLibrary 包装任一 FragmentLibrary——overlay 覆写切
 片向量＋摘要节点追加入语料；空富化库＝原样透传（上线未富化态零漂移）。
+读面时延治理（P-046 中途审查 S1）：快照按 store.version() 变更令牌缓存——
+每次 retrieve 只付一次廉价版本查询（标量行零向量列），全量向量读只在富化
+库变更后首次发生（离线批间检索面 +227ms/retrieve 收敛为毫秒级版本读）。
+
+摘要生成规则（P-046 中途审查 consider 1 采纳）：cover_count≥2（SUMMARY_MIN_
+COVER）才生成节级摘要节点——单成员簇无「节级」信息增量（占真库 36/59 簇），
+成员不足簇不调用模型、不生成节点；规则变更重跑由 prune_summaries 清理陈旧
+摘要行（终态幂等——库态恰等于本轮新鲜集）。
 
 批入口＝tools/v2_enrich_batch.py（生产装配面——R1 闭包闸把网关装配隔离
 在检索包外；本模块只留注入缝 completer/embedder/store）。
@@ -50,6 +58,11 @@ CALLER_ENRICH = "agent_v2.retrieval.enrich"
 
 # 单次向量化批量上限（embo-01 单文本 4096 token——V1 reembed 同值保守实施）。
 EMBED_BATCH_SIZE = 16
+
+# 摘要生成最小覆盖（P-046 中途审查 consider 1 采纳）：同节切片 ≥2 支才生成
+# 节级摘要节点——单成员簇「聚类」未发生，摘要≈单切片改写入索引（近重复候
+# 选），信息增量存疑；成员不足簇不调用模型不生成节点。
+SUMMARY_MIN_COVER = 2
 
 # ---------- 节级摘要提示词（要点式短摘要——检索索引用，非生成窗材料） ----------
 
@@ -131,6 +144,7 @@ class EnrichLedger:
     complete_calls: int
     embedding_calls: int
     embedding_tokens: int
+    clusters_single_cover: int = 0  # 成员不足 SUMMARY_MIN_COVER 的簇数（不生成摘要——如实入账）
 
 
 # ---------- 节聚类与摘要文本（确定性——零模型） ----------
@@ -199,6 +213,22 @@ class EnrichStore(abc.ABC):
         """富化快照（切片 overlay 向量映射＋摘要节点列——只读副本语义）。"""
 
     @abc.abstractmethod
+    async def version(self) -> str:
+        """富化库变更令牌（廉价读——库态变则令牌变；读面缓存失效判据，S1）。
+
+        实现须远廉于 snapshot（无向量列传输）——EnrichedFragmentLibrary 每次
+        retrieve 只付本查询，全量快照仅在令牌变更后重读。
+        """
+
+    @abc.abstractmethod
+    async def prune_summaries(self, keep_node_ids: set[str]) -> int:
+        """删除 keep 集之外的摘要节点行，返回删除行数。
+
+        规则变更重跑的终态幂等半边（consider 1）：upsert 只覆写同键——本轮
+        不再生成的陈旧摘要（如单成员簇节点）须显式清理，库态恰等于新鲜集。
+        """
+
+    @abc.abstractmethod
     async def upsert(
         self, overlays: Sequence[SliceOverlay], summaries: Sequence[SummaryNode]
     ) -> int:
@@ -211,9 +241,21 @@ class InMemoryEnrichStore(EnrichStore):
     def __init__(self) -> None:
         self._overlays: dict[str, list[float]] = {}
         self._nodes: dict[str, SummaryNode] = {}
+        self._version = 0  # 变更令牌（upsert/prune 递增——缓存失效判据）
 
     async def snapshot(self) -> tuple[dict[str, list[float]], list[SummaryNode]]:
         return dict(self._overlays), list(self._nodes.values())
+
+    async def version(self) -> str:
+        return str(self._version)
+
+    async def prune_summaries(self, keep_node_ids: set[str]) -> int:
+        keep = {str(key) for key in keep_node_ids}
+        stale = [key for key in self._nodes if key not in keep]
+        for key in stale:
+            del self._nodes[key]
+        self._version += 1
+        return len(stale)
 
     async def upsert(
         self, overlays: Sequence[SliceOverlay], summaries: Sequence[SummaryNode]
@@ -222,6 +264,7 @@ class InMemoryEnrichStore(EnrichStore):
             self._overlays[overlay.fragment_id] = list(overlay.embedding)
         for node in summaries:
             self._nodes[node.node_id] = node
+        self._version += 1
         return len(overlays) + len(summaries)
 
 
@@ -232,16 +275,28 @@ class EnrichedFragmentLibrary(FragmentLibrary):
       原表不动，旧索引可重建）；
     - 摘要节点：追加入语料尾（node_kind=section_summary——双路召回独立可检
       索，engine 命中后展开节内切片）；
-    - 空富化库＝原样透传（未富化态零漂移）。
+    - 空富化库＝原样透传（未富化态零漂移）；
+    - 快照缓存（S1 时延治理）：按 store.version() 令牌缓存——同令牌重复读
+      零全量快照（每次 retrieve 一次版本查询），令牌变更（富化批落库）即
+      失效重读（新索引及时可见）。
     """
 
     def __init__(self, inner: FragmentLibrary, store: EnrichStore) -> None:
         self._inner = inner
         self._store = store
+        self._cache_version: str | None = None
+        self._cache: tuple[dict[str, list[float]], list[SummaryNode]] | None = None
+
+    async def _enrich_snapshot(self) -> tuple[dict[str, list[float]], list[SummaryNode]]:
+        version = await self._store.version()
+        if self._cache is None or version != self._cache_version:
+            self._cache = await self._store.snapshot()
+            self._cache_version = version
+        return self._cache
 
     async def fragments(self) -> list[FragmentRecord]:
         base = await self._inner.fragments()
-        overlays, nodes = await self._store.snapshot()
+        overlays, nodes = await self._enrich_snapshot()
         out: list[FragmentRecord] = []
         for frag in base:
             vector = overlays.get(frag.fragment_id)
@@ -284,7 +339,10 @@ async def enrich_index(
     - 重嵌面：切片索引文本（前缀＋原文）db 型向量化（与入库管线同型——
       query/db 分型纪律在 embedder 缝）；
     - 摘要面：逐簇一次 complete 调用（失败跳过入账本不炸批——重跑补齐）；
-    - 落库：全量 upsert（同键覆写——幂等钉）。
+      cover_count≥SUMMARY_MIN_COVER 才生成（consider 1——单成员簇无节级增量，
+      不调用模型）；
+    - 落库：全量 upsert＋陈旧摘要清理（同键覆写＋prune——终态幂等：库态恰
+      等于本轮新鲜集，规则变更重跑即得）。
     """
     slices = [
         frag
@@ -292,10 +350,12 @@ async def enrich_index(
         if frag.node_kind == NODE_SLICE and frag.text and frag.fragment_id
     ]
     clusters = cluster_sections(corpus)
+    eligible = [c for c in clusters if len(c.members) >= SUMMARY_MIN_COVER]
+    single_cover = len(clusters) - len(eligible)
 
     nodes: list[SummaryNode] = []
     failed: list[str] = []
-    for cluster in clusters:
+    for cluster in eligible:
         body = await _summary_body(cluster, completer, summary_alias, caller)
         if body is None:
             failed.append(f"{cluster.report}·{cluster.root}")
@@ -336,6 +396,7 @@ async def enrich_index(
         for node, vector in zip(nodes, summary_vectors, strict=True)
     ]
     await store.upsert(overlays, nodes)
+    await store.prune_summaries({node.node_id for node in nodes})
     return EnrichLedger(
         corpus_total=len(corpus),
         corpus_embedded=len(slices),
@@ -343,9 +404,10 @@ async def enrich_index(
         clusters_total=len(clusters),
         summaries_written=len(nodes),
         summaries_failed=tuple(failed),
-        complete_calls=len(clusters) - len(failed),
+        complete_calls=len(eligible) - len(failed),
         embedding_calls=embed_calls,
         embedding_tokens=_embedding_tokens(embedder),
+        clusters_single_cover=single_cover,
     )
 
 

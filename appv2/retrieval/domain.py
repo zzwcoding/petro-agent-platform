@@ -241,8 +241,12 @@ def context_prefix(report: str, section: str | None) -> str:
     """切片上下文前缀（索引期富化——报告名＋章节路径；元数据已备，确定性拼装）。
 
     - 章节路径在位：〔本段节选自〈报告名〉·〈章节路径〉〕（全路径逐字——
-      BM25 词面与向量语义双受益；论文口径检索失败率降 49%）；
+      BM25 词面与向量语义双受益）；
     - 路径缺席：〔本段节选自〈报告名〉〕（不发明章节）。
+
+    勘误（P-046 中途审查 consider 2 采纳）：上下文前缀为「报告名＋章节路径」
+    的元数据确定性拼装（非 LLM 生成前缀）；书中"检索失败率降 49%"系 LLM
+    前缀实验口径，本实现不作效果背书。
     """
     if section:
         return CONTEXT_PREFIX_TEMPLATE.format(report=report, section=section)

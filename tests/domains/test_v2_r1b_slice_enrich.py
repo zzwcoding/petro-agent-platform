@@ -22,6 +22,7 @@ from appv2.infra.db import ConnectionManager, DatabaseSpec
 from appv2.retrieval import (
     NODE_SECTION_SUMMARY,
     NODE_SLICE,
+    SUMMARY_MIN_COVER,
     EnrichedFragmentLibrary,
     FragmentRecord,
     InMemoryEnrichStore,
@@ -194,7 +195,11 @@ def test_build_summary_text_contains_path_and_covers() -> None:
 
 
 async def test_generate_summaries_in_enrich_index_records_caller() -> None:
-    """摘要生成走 complete 面：alias/caller 逐调用在案；正文进节点文本。"""
+    """摘要生成走 complete 面：alias/caller 逐调用在案；正文进节点文本。
+
+    consider 1（P-046b 采纳）：仅 cover_count≥2 簇生成摘要——A/Y 防砂两簇，
+    射孔/结论单成员簇零调用零节点。
+    """
     store = InMemoryEnrichStore()
     completer = _ScriptCompleter({
         "章节 04 第四章 防砂设计与实施": "防砂精度选型要点。",
@@ -205,18 +210,41 @@ async def test_generate_summaries_in_enrich_index_records_caller() -> None:
     ledger = await enrich_index(
         corpus=corpus, store=store, completer=completer, embedder=LocalHashEmbedder(),
     )
-    assert ledger.complete_calls == len(completer.calls) == 4
+    assert ledger.complete_calls == len(completer.calls) == 2  # 仅两防砂簇
     assert all(caller == "agent_v2.retrieval.enrich" for _alias, caller, _u in completer.calls)
     _overlays, nodes = await store.snapshot()
-    assert {n.section for n in nodes} == {
-        "章节 04 第四章 防砂设计与实施",
-        "章节 03 第三章 射孔设计",
-        "章节 09 第九章 结论与建议",
-    }
+    assert {n.section for n in nodes} == {"章节 04 第四章 防砂设计与实施"}
+    assert {n.report_id for n in nodes} == {"rpt-a", "rpt-y"}
     y_sand = next(n for n in nodes if n.report_id == "rpt-y")
     assert "防砂精度选型要点" in y_sand.text  # 剧本正文进节点
     assert y_sand.cover_count == 2 and y_sand.source_ids == ("f-y1", "f-y2")
     assert ledger.summaries_failed == ()
+    assert ledger.clusters_single_cover == 2  # 射孔/结论单成员簇跳过如实入账
+
+
+async def test_single_member_cluster_gets_no_summary_node() -> None:
+    """consider 1 钉（cover_count≥2）：单成员簇无摘要节点、零模型调用。
+
+    「单成员簇 61% 摘要增量存疑」（P-046 中途审查 C1）的落地钉：射孔（1 支）/
+    结论（1 支）两簇不聚类不摘要——成员不足簇不生成摘要节点。
+    """
+    store = InMemoryEnrichStore()
+    completer = _ScriptCompleter({
+        "章节 04 第四章 防砂设计与实施": "防砂要点。",
+        "章节 03 第三章 射孔设计": "射孔要点。",
+        "章节 09 第九章 结论与建议": "结论要点。",
+    })
+    ledger = await enrich_index(
+        corpus=await _embedded_corpus(), store=store,
+        completer=completer, embedder=LocalHashEmbedder(),
+    )
+    _overlays, nodes = await store.snapshot()
+    assert all(n.cover_count >= SUMMARY_MIN_COVER for n in nodes)
+    assert {n.section for n in nodes} == {"章节 04 第四章 防砂设计与实施"}
+    assert len(completer.calls) == 2  # 单成员簇零 complete 调用（零模型成本）
+    assert ledger.clusters_total == 4
+    assert ledger.clusters_single_cover == 2
+    assert ledger.summaries_written == len(nodes) == 2
 
 
 async def test_summary_failure_skips_and_reports() -> None:
@@ -224,20 +252,20 @@ async def test_summary_failure_skips_and_reports() -> None:
     store = InMemoryEnrichStore()
     completer = _ScriptCompleter(
         {
-            "章节 04 第四章 防砂设计与实施": "防砂精度选型要点。",
-            "章节 03 第三章 射孔设计": "射孔参数要点。",
-            "章节 09 第九章 结论与建议": "结论要点。",
+            "《A-W11井完井工程报告》": "防砂精度选型要点。",
+            "《Y-21井完井工程报告》": "螺杆泵举升参数论证要点。",
         },
-        fail_keys={"章节 03 第三章 射孔设计"},
+        fail_keys={"《A-W11井完井工程报告》"},
     )
     ledger = await enrich_index(
         corpus=await _embedded_corpus(), store=store,
         completer=completer, embedder=LocalHashEmbedder(),
     )
     _overlays, nodes = await store.snapshot()
-    assert len(nodes) == 3  # 失败簇无节点
-    assert ledger.summaries_written == 3
-    assert ledger.summaries_failed == ("《A-W11井完井工程报告》·章节 03 第三章 射孔设计",)
+    assert len(nodes) == 1  # 失败簇无节点
+    assert ledger.summaries_written == 1
+    assert ledger.summaries_failed == ("《A-W11井完井工程报告》·章节 04 第四章 防砂设计与实施",)
+    assert ledger.complete_calls == 1
 
 
 # ---------- 幂等钉：重跑零重复节点＋旧索引可重建 ----------
@@ -257,7 +285,7 @@ async def test_enrich_rerun_zero_duplicate_nodes() -> None:
     first_overlays, first_nodes = await store.snapshot()
     await enrich_index(**rerun)
     second_overlays, second_nodes = await store.snapshot()
-    assert len(second_nodes) == len(first_nodes) == 4
+    assert len(second_nodes) == len(first_nodes) == 2  # 仅 cover_count≥2 簇
     assert [n.node_id for n in second_nodes] == [n.node_id for n in first_nodes]
     ids = {"f-a1", "f-a2", "f-a3", "f-y1", "f-y2", "f-y3"}
     assert set(second_overlays) == set(first_overlays) == ids
@@ -296,6 +324,36 @@ async def test_pg_enrich_store_sqlite_roundtrip_and_kb_untouched(tmp_path: Path)
         assert row == "[0.5,0.5]"  # 旧索引（原向量列）逐字未动
         count = (await _table_count(manager)).scalar()
         assert count == 2  # 重跑后富化表恰 2 行（1 overlay＋1 node）
+    finally:
+        await manager.dispose()
+
+
+async def test_pg_enrich_store_version_and_prune(tmp_path: Path) -> None:
+    """S1 版本令牌＋consider 1 陈旧清理（sqlite 底座）。
+
+    version 随写入变更、空 upsert 不变；prune 只删 keep 外摘要行、overlay 行
+    零触碰（规则变更重跑的终态幂等半边）。
+    """
+    db_path = tmp_path / "enrich-prune.db"
+    specs = [_spec(db_path)]
+    manager = ConnectionManager(specs)
+    try:
+        await ensure_enrich_tables(manager.engine())
+        store = PgEnrichStore(specs)
+        node = _summary_node_fixture()
+        await store.upsert([_overlay_fixture("f-a1")], [node])
+        version_first = await store.version()
+        await store.upsert([], [])  # 空入参零行——令牌不变
+        assert await store.version() == version_first
+        await store.upsert([_overlay_fixture("f-a2")], [])
+        assert await store.version() != version_first
+        # prune：keep 内零删除；keep 空＝清空摘要面，overlay 行不受影响。
+        assert await store.prune_summaries({node.node_id}) == 0
+        overlays, nodes = await store.snapshot()
+        assert len(nodes) == 1 and set(overlays) == {"f-a1", "f-a2"}
+        assert await store.prune_summaries(set()) == 1
+        overlays, nodes = await store.snapshot()
+        assert nodes == [] and set(overlays) == {"f-a1", "f-a2"}
     finally:
         await manager.dispose()
 
@@ -365,6 +423,46 @@ async def test_enriched_library_empty_store_passthrough() -> None:
     assert [f.node_kind for f in frags] == [NODE_SLICE] * 6
 
 
+class _CountingEnrichStore(InMemoryEnrichStore):
+    """S1 时延钉桩：version/snapshot 调用计数（读面收敛实证面）。"""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.version_calls = 0
+        self.snapshot_calls = 0
+
+    async def version(self) -> str:
+        self.version_calls += 1
+        return await super().version()
+
+    async def snapshot(self):  # type: ignore[no-untyped-def]
+        self.snapshot_calls += 1
+        return await super().snapshot()
+
+
+async def test_enriched_library_snapshot_cached_by_version() -> None:
+    """S1 时延钉：同版本重复读零全量快照——retrieve 读面只付版本查询。
+
+    治理前每次 retrieve 付一次全表向量读（197 行×1536 维≈+227ms/retrieve）；
+    治理后读面＝version() 廉价查询×1，snapshot() 仅在富化库变更（upsert→
+    令牌变）后首次重读——新索引及时可见。
+    """
+    store = _CountingEnrichStore()
+    await store.upsert([_overlay_fixture("f-a1")], [_summary_node_fixture()])
+    library = EnrichedFragmentLibrary(
+        InMemoryFragmentLibrary(await _embedded_corpus()), store
+    )
+    first = await library.fragments()
+    assert store.snapshot_calls == 1 and store.version_calls == 1
+    second = await library.fragments()
+    assert store.snapshot_calls == 1  # 缓存命中——零全量向量读
+    assert [f.fragment_id for f in first] == [f.fragment_id for f in second]
+    # 版本变更（富化批落库）→ 快照失效重读（一次）。
+    await store.upsert([_overlay_fixture("f-a2")], [])
+    await library.fragments()
+    assert store.snapshot_calls == 2 and store.version_calls == 3  # 三次读各一次版本查询
+
+
 # ---------- 引擎面：双层路由（前缀进 BM25＋摘要命中→节内展开） ----------
 
 
@@ -402,7 +500,6 @@ async def test_engine_summary_hit_expands_section_slices() -> None:
         corpus=corpus, store=store, completer=completer, embedder=LocalHashEmbedder()
     )
     engine, inner = await _engine_with_enrich(store)
-    recalled = await inner.fragments()
     # 问针「螺杆泵举升参数」只出现在摘要正文（切片正文零词面重叠）——摘要腿命中。
     bundle = await engine.retrieve(
         RetrievalNeed(question="螺杆泵举升参数论证", budget=2)
@@ -418,11 +515,19 @@ async def test_engine_summary_hit_expands_section_slices() -> None:
         if obs.fragment_id in {"f-a1", "f-a2", "f-y1", "f-y2"}
     ]
     assert expanded, "摘要命中后其节内切片应补席展开"
-    assert all(section_root(o.section) in sections or o.fragment_id for o in expanded)
+    # S2 清钉（P-046b）真实谓词：每支展开切片的节根 ∈ 窗内摘要节节集——
+    # 展开按簇取材，非摘要节切片不得借展开进窗（原「or o.fragment_id」恒真摘除）。
+    assert all(section_root(o.section) in sections for o in expanded)
     assert "节级摘要展开" in bundle.window_note  # 扩席实录如实（window_note extra 段）
-    # 未召回支也被展开（零新召回红线在 R1a 送窗层——R1b 摘要展开按票面「节内展开」取全节）
-    recalled_ids = {f.fragment_id for f in recalled}
-    assert any(o.fragment_id not in recalled_ids for o in expanded) or True  # 展开池＝全节语料
+    # S2 清钉（P-046b）真实谓词：展开池＝全节语料（含未召回支）——对照无富化
+    # 引擎的同问基线窗，展开新席至少一支在基线窗外（词面零重叠切片不因自身
+    # 弱被拒——原「or True」恒真摘除）。
+    baseline = await RetrievalEngine(
+        library=inner, embedder=LocalHashEmbedder()
+    ).retrieve(RetrievalNeed(question="螺杆泵举升参数论证", budget=2))
+    baseline_ids = {obs.fragment_id for obs in baseline.observations}
+    expanded_ids = {obs.fragment_id for obs in expanded}
+    assert expanded_ids - baseline_ids, "展开池应含召回未及的节内切片（未召回支）"
 
 
 async def test_engine_locator_marks_summary_nodes() -> None:
@@ -482,8 +587,9 @@ async def test_enrich_index_ledger_numbers() -> None:
     assert ledger.corpus_total == 6  # 全库行数如实
     assert ledger.corpus_embedded == 6  # 全量重嵌（overlay 覆写语义——不止缺向量行）
     assert ledger.clusters_total == 4
-    assert ledger.summaries_written == 4
+    assert ledger.clusters_single_cover == 2  # consider 1——单成员簇跳过如实入账
+    assert ledger.summaries_written == 2
     assert ledger.overlay_written == 6
-    assert ledger.complete_calls == 4
+    assert ledger.complete_calls == 2
     _overlays, nodes = await store.snapshot()
-    assert len(nodes) == 4 and all(n.embedding is not None for n in nodes)  # 节点全带向量
+    assert len(nodes) == 2 and all(n.embedding is not None for n in nodes)  # 节点全带向量

@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import (
     Column,
@@ -31,10 +31,13 @@ from sqlalchemy import (
     String,
     Table,
     Text,
+    delete,
+    func,
     insert,
     select,
     tuple_,
 )
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.types import JSON, UserDefinedType
 
@@ -159,6 +162,40 @@ class PgEnrichStore(EnrichStore):
                 )
             )
         return overlays, nodes
+
+    async def version(self) -> str:
+        """富化库变更令牌（S1 读面缓存判据——标量行零向量列，远廉于 snapshot）。
+
+        令牌＝行数＋enriched_at 最大戳（upsert 整批同戳、删行变行数——离线批
+        变更两形全覆盖；同秒内覆写且行数不变的极端形按离线批节奏不可达）。
+        """
+        stmt = select(
+            func.count(_KB_RETRIEVAL_ENRICH.c.key),
+            func.max(_KB_RETRIEVAL_ENRICH.c.enriched_at),
+        )
+        db = ConnectionManager(self._specs)
+        try:
+            async with db.readonly() as session:
+                count, stamp = (await session.execute(stmt)).one()
+        finally:
+            await db.dispose()
+        return f"{int(count or 0)}:{stamp or ''}"
+
+    async def prune_summaries(self, keep_node_ids: set[str]) -> int:
+        """删除 keep 集外摘要节点行（规则变更重跑的陈旧清理——终态幂等半边）。"""
+        keep = {str(key) for key in keep_node_ids}
+        stmt = delete(_KB_RETRIEVAL_ENRICH).where(
+            _KB_RETRIEVAL_ENRICH.c.kind == KIND_SECTION_SUMMARY
+        )
+        if keep:
+            stmt = stmt.where(_KB_RETRIEVAL_ENRICH.c.key.not_in(keep))
+        db = ConnectionManager(self._specs)
+        try:
+            async with db.session() as session:
+                result = cast(CursorResult[Any], await session.execute(stmt))
+        finally:
+            await db.dispose()
+        return int(result.rowcount or 0)
 
     async def upsert(
         self, overlays: Sequence[SliceOverlay], summaries: Sequence[SummaryNode]

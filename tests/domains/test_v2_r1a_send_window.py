@@ -289,6 +289,8 @@ async def test_retrieve_rowset_window_note_truthful() -> None:
     note = bundle.window_note
     # 实走计数（V2-47 R1b 随动：前缀进 BM25——原零分切片经索引文本前缀词面
     # 获非零分，召回池 5→6；窗构成不变——f-t1/f-t2/整组扩席同形）。
+    # 追认登记（P-046b S5，2026-10-11）：该行为变化经 L0 显式追认
+    # （P-046b 派工单 S4/S5 条「R1a 钉测 5→6 追认登记」——本注记即登记载体）。
     assert note.startswith("召回 6 支/送窗 3 支；已召回未送窗 3 支")  # 实走计数
     assert "表类整行集进窗 +1 支" in note
     assert any("Y-24" in obs.text for obs in bundle.observations)  # 表格行真支在窗

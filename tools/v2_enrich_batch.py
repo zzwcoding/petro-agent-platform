@@ -85,11 +85,16 @@ def _write_ledger_json(ledger: Any, path: str, at: str) -> None:
         "corpus_embedded": ledger.corpus_embedded,
         "overlay_written": ledger.overlay_written,
         "clusters_total": ledger.clusters_total,
+        "clusters_single_cover": ledger.clusters_single_cover,
         "summaries_written": ledger.summaries_written,
         "summaries_failed": list(ledger.summaries_failed),
         "complete_calls": ledger.complete_calls,
         "embedding_calls": ledger.embedding_calls,
         "embedding_tokens": ledger.embedding_tokens,
+        "summary_rule": (
+            "cover_count≥2 才生成节级摘要（P-046 中途审查 consider 1 采纳——"
+            "单成员簇不生成；陈旧摘要行由 prune_summaries 清理）"
+        ),
         "complete_ledger": (
             "gateway_spend_record WHERE caller='agent_v2.retrieval.enrich'"
         ),

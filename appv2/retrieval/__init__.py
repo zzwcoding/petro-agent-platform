@@ -48,6 +48,7 @@ from appv2.retrieval.embedder import (
 )
 from appv2.retrieval.engine import Completer, CompletionView, RetrievalEngine
 from appv2.retrieval.enrich import (
+    SUMMARY_MIN_COVER,
     EnrichedFragmentLibrary,
     EnrichLedger,
     EnrichStore,
@@ -77,6 +78,7 @@ __all__ = [
     "NODE_SECTION_SUMMARY",
     "NODE_SLICE",
     "RRF_K",
+    "SUMMARY_MIN_COVER",
     "Completer",
     "CompletionView",
     "EmbedUsage",
