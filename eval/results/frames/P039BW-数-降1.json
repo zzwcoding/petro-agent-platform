@@ -1,0 +1,351 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-9c423c60",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问去年全年各井的含水率数据。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问去年全年各井的含水率数据。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清钻取 ×1（table_schema）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "table_schema",
+    "status": "failed",
+    "seq": 3,
+    "message": "未知参数键：['purpose']（args_schema additionalProperties=false）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 3,
+    "title": "table_schema：failed"
+   }
+  },
+  {
+   "id": 6,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具校验拒因回喂重决策：未知参数键：['purpose']（args_schema additionalProperties=false）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "工具匹配：1 条定案"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "前置条件机：s1=note"
+   }
+  },
+  {
+   "id": 10,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 7,
+    "message": null
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 7,
+    "title": "data_query：ok（子问题 s1）"
+   }
+  },
+  {
+   "id": 12,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#203",
+    "content": "含水率（%）：日产计量化验折算含水率——日度监控口径；月度/正式指标以流体化验实测为准、偏差 >5pp 以化验校正（PROP-BOHAI-008=C 并存分场景）；源 oil_production_daily.water_cut（R5·A.2）——agg 读模型未落该列（99 §2.12 事实表仅三计量列），暂不可出数｜粒度 日/井 · 单位 %｜状态 生效中｜口径支：A 计量折算（日度监控）（默认）；B 化验实测（月度/正式）｜争议注记：化验 vs 计量打架（并存分场景已裁——PROP-BOHAI-008=C）",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 13,
+   "event": "notice",
+   "data": {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「含水率（%）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：含水率（%）：日产计量化验折算含水率——日度监控口径；月度/正式指标以流体化验实测为准、偏差 >5pp 以化验校正（PROP-BOHAI-008=C 并存分场景）；源 oil_production_daily.water_cut（R5·A.2）——agg 读模型未落该列（99 §2.12 事实表仅三计量列），暂不可出数｜粒度 日/井 · 单位 %｜状态 生效中｜口径支：A 计量折算（日度监控）（默认）；B 化验实测（月度/正式）｜争议注记：化验 vs 计量打架（并存分场景已裁——PROP-BOHAI-008=C）"
+   }
+  },
+  {
+   "id": 14,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「含水率（%）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：含水率（%）：日产计量化验折算含水率——日度监控口径；月度/正式指标以流体化验实测为准、偏差 >5pp 以化验校正（PROP-BOHAI-008=C 并存分场景）；源 oil_production_daily.water_cut（R5·A.2）——agg 读模型未落该列（99 §2.12 事实表仅三计量列），暂不可出数｜粒度 日/井 · 单位 %｜状态 生效中｜口径支：A 计量折算（日度监控）（默认）；B 化验实测（月度/正式）｜争议注记：化验 vs 计量打架（并存分场景已裁——PROP-BOHAI-008=C）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 15,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 8,
+    "title": "批量汇聚 2 支"
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 9,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 17,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 10,
+    "title": "核验：支撑 0｜改写 5｜分源 否"
+   }
+  },
+  {
+   "id": 18,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 5,
+    "split": false,
+    "cited": []
+   }
+  },
+  {
+   "id": 19,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 5 行（INV-1——禁止无据断言进答案）"
+   }
+  },
+  {
+   "id": 20,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 11,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 21,
+   "event": "text",
+   "data": {
+    "content": "去年各井的含水率是多少？——结论：**该指标在当前台账口径下暂不可出数**。\n\n未找到（材料未披露）：依据 [1]：「含水率」对应源 `oil_production_daily.water_cut`（R5·A.2），但 agg 读模型未落该列（99 §2.12 事实表仅三计量列——日产油量／日产液量／油压），因而按默认日度计量折算口径无返回行；化验实测口径亦未在聚合事实表落列，调用侧即被台账闸拒——是答案的一部分，按指示如实转述如下：\n\n未找到（材料未披露）：- [1] 默认口径（A · 计量折算，日度监控）：agg 读模型未落该列，台账闸拒「暂不可出数」，不出数。\n未找到（材料未披露）：- [1] 备选口径（B · 化验实测，月度/正式）：亦未落聚合列，同上闸拒，不冒充出数。\n未找到（材料未披露）：- [1] 两口径并存且 `>5pp` 偏差需以化验校正（PROP-BOHAI-008=C），无读模型落列前一律按闸拒处理。\n\n可选下一步：\n未找到（材料未披露）：A. 改取派生口径——用「日产油量／日产液量」推算近似含水率（公式 1−oil/liquid，单位 %），该两个指标在 [1] 同事实表中可出数；\nB. 维持含水率原口径，等待读模型落列后重试；\nC. 取化验实测月值，请提供报表名/章节。"
+   }
+  },
+  {
+   "id": 22,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-9c423c60",
+    "manifest_digest": "f170fb3194165806782db9621062d71e061a18343254eae12ce9352dbdf620db"
+   }
+  },
+  {
+   "id": 23,
+   "event": "done",
+   "data": {
+    "run_id": "run-9c423c60"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "去年各井的含水率是多少？——结论：**该指标在当前台账口径下暂不可出数**。\n\n未找到（材料未披露）：依据 [1]：「含水率」对应源 `oil_production_daily.water_cut`（R5·A.2），但 agg 读模型未落该列（99 §2.12 事实表仅三计量列——日产油量／日产液量／油压），因而按默认日度计量折算口径无返回行；化验实测口径亦未在聚合事实表落列，调用侧即被台账闸拒——是答案的一部分，按指示如实转述如下：\n\n未找到（材料未披露）：- [1] 默认口径（A · 计量折算，日度监控）：agg 读模型未落该列，台账闸拒「暂不可出数」，不出数。\n未找到（材料未披露）：- [1] 备选口径（B · 化验实测，月度/正式）：亦未落聚合列，同上闸拒，不冒充出数。\n未找到（材料未披露）：- [1] 两口径并存且 `>5pp` 偏差需以化验校正（PROP-BOHAI-008=C），无读模型落列前一律按闸拒处理。\n\n可选下一步：\n未找到（材料未披露）：A. 改取派生口径——用「日产油量／日产液量」推算近似含水率（公式 1−oil/liquid，单位 %），该两个指标在 [1] 同事实表中可出数；\nB. 维持含水率原口径，等待读模型落列后重试；\nC. 取化验实测月值，请提供报表名/章节。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具校验拒因回喂重决策：未知参数键：['purpose']（args_schema additionalProperties=false）"
+   },
+   {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「含水率（%）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：含水率（%）：日产计量化验折算含水率——日度监控口径；月度/正式指标以流体化验实测为准、偏差 >5pp 以化验校正（PROP-BOHAI-008=C 并存分场景）；源 oil_production_daily.water_cut（R5·A.2）——agg 读模型未落该列（99 §2.12 事实表仅三计量列），暂不可出数｜粒度 日/井 · 单位 %｜状态 生效中｜口径支：A 计量折算（日度监控）（默认）；B 化验实测（月度/正式）｜争议注记：化验 vs 计量打架（并存分场景已裁——PROP-BOHAI-008=C）"
+   },
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 5 行（INV-1——禁止无据断言进答案）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-9c423c60",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问去年全年各井的含水率数据。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清钻取 ×1（table_schema）"
+   },
+   {
+    "step": "discover",
+    "seq": 3,
+    "title": "table_schema：failed"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "工具匹配：1 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "前置条件机：s1=note"
+   },
+   {
+    "step": "execute",
+    "seq": 7,
+    "title": "data_query：ok（子问题 s1）"
+   },
+   {
+    "step": "observe",
+    "seq": 8,
+    "title": "批量汇聚 2 支"
+   },
+   {
+    "step": "answer",
+    "seq": 9,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 10,
+    "title": "核验：支撑 0｜改写 5｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 11,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "table_schema",
+    "status": "failed",
+    "seq": 3,
+    "message": "未知参数键：['purpose']（args_schema additionalProperties=false）"
+   },
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 7,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_metric#203",
+    "content": "含水率（%）：日产计量化验折算含水率——日度监控口径；月度/正式指标以流体化验实测为准、偏差 >5pp 以化验校正（PROP-BOHAI-008=C 并存分场景）；源 oil_production_daily.water_cut（R5·A.2）——agg 读模型未落该列（99 §2.12 事实表仅三计量列），暂不可出数｜粒度 日/井 · 单位 %｜状态 生效中｜口径支：A 计量折算（日度监控）（默认）；B 化验实测（月度/正式）｜争议注记：化验 vs 计量打架（并存分场景已裁——PROP-BOHAI-008=C）",
+    "trust": "ledger"
+   },
+   {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「含水率（%）」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：含水率（%）：日产计量化验折算含水率——日度监控口径；月度/正式指标以流体化验实测为准、偏差 >5pp 以化验校正（PROP-BOHAI-008=C 并存分场景）；源 oil_production_daily.water_cut（R5·A.2）——agg 读模型未落该列（99 §2.12 事实表仅三计量列），暂不可出数｜粒度 日/井 · 单位 %｜状态 生效中｜口径支：A 计量折算（日度监控）（默认）；B 化验实测（月度/正式）｜争议注记：化验 vs 计量打架（并存分场景已裁——PROP-BOHAI-008=C）",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 5,
+    "split": false,
+    "cited": []
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-9c423c60",
+   "manifest_digest": "f170fb3194165806782db9621062d71e061a18343254eae12ce9352dbdf620db"
+  },
+  "texts": [
+   "问去年全年各井的含水率数据。",
+   "去年各井的含水率是多少？——结论：**该指标在当前台账口径下暂不可出数**。\n\n未找到（材料未披露）：依据 [1]：「含水率」对应源 `oil_production_daily.water_cut`（R5·A.2），但 agg 读模型未落该列（99 §2.12 事实表仅三计量列——日产油量／日产液量／油压），因而按默认日度计量折算口径无返回行；化验实测口径亦未在聚合事实表落列，调用侧即被台账闸拒——是答案的一部分，按指示如实转述如下：\n\n未找到（材料未披露）：- [1] 默认口径（A · 计量折算，日度监控）：agg 读模型未落该列，台账闸拒「暂不可出数」，不出数。\n未找到（材料未披露）：- [1] 备选口径（B · 化验实测，月度/正式）：亦未落聚合列，同上闸拒，不冒充出数。\n未找到（材料未披露）：- [1] 两口径并存且 `>5pp` 偏差需以化验校正（PROP-BOHAI-008=C），无读模型落列前一律按闸拒处理。\n\n可选下一步：\n未找到（材料未披露）：A. 改取派生口径——用「日产油量／日产液量」推算近似含水率（公式 1−oil/liquid，单位 %），该两个指标在 [1] 同事实表中可出数；\nB. 维持含水率原口径，等待读模型落列后重试；\nC. 取化验实测月值，请提供报表名/章节。"
+  ],
+  "duration_s": 16.0
+ }
+}

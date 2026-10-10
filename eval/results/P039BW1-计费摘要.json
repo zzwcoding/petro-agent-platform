@@ -1,0 +1,33 @@
+{
+ "tag": "P039BW1",
+ "base": "http://localhost:8019/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "2026-10-10T12:34:59.129936",
+ "questions": 1,
+ "spend_ok": 1,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 4,
+  "fallback_calls": 0,
+  "input_tokens": 18076,
+  "output_tokens": 946,
+  "cost_yuan": 0.020914
+ },
+ "items": [
+  {
+   "qid": "数-反1",
+   "group": "DATA",
+   "run_id": "run-b73d10c1",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.020914,
+   "call_ids": [
+    "call-076a5b1b",
+    "call-c3f085e3",
+    "call-2ff6f787",
+    "call-6bdb4cc8"
+   ]
+  }
+ ],
+ "errors": []
+}
