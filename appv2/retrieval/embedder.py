@@ -19,6 +19,7 @@ from __future__ import annotations
 import hashlib
 import math
 import re
+from dataclasses import dataclass
 from typing import Any, Protocol
 
 from appv2.infra.llm_client import LlmClient
@@ -32,6 +33,15 @@ class Embedder(Protocol):
     """向量化 seam（真实 embedding 模型落位批只换实现，签名不动——V1 同注）。"""
 
     async def embed(self, texts: list[str]) -> list[list[float]]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class EmbedUsage:
+    """单次向量化调用留痕（V2-47 R1b 富化批账本面——笔数/token/部署名）。"""
+
+    texts: int
+    total_tokens: int
+    model: str
 
 
 def _tokenize(text: str) -> list[str]:
@@ -69,19 +79,40 @@ class LocalHashEmbedder:
 
 
 class RemoteEmbedder:
-    """真 embedding 后端（检索探针侧——infra.llm_client.embeddings 消费视图）。
+    """真 embedding 后端（infra.llm_client.embeddings 消费视图——B6 单点域侧视图）。
 
     B6 单点：供应商接触只在 infra.llm_client；本类是同一缝的域侧视图
     （V1 kb.service.RemoteEmbedder 同构——组合根装配，retrieval 不碰 SDK）。
-    input_type 固定 "query"（MiniMax 检索文本型——与入库 db 型分型，禁混用
-    单实例）；上游失败（UpstreamUnavailable/UpstreamRejected）直抛调用方
-    不静默——engine 向量腿按空腿处理（关键词腿兜底）。
+    input_type＝MiniMax 检索文本分型（缺省 "query"＝检索探针——与入库 db 型
+    分型，禁混用单实例；V2-47 R1b 富化批重嵌/摘要节点入库以 input_type="db"
+    显式构造，V1 kb RemoteEmbedder 同款形参）；上游失败（UpstreamUnavailable/
+    UpstreamRejected）直抛调用方不静默——engine 向量腿按空腿处理（关键词腿
+    兜底）。
+
+    usage_log（V2-47 R1b）：每次调用追加一条 EmbedUsage（笔数/token/部署名）
+    ——富化批「账本如实记账」的向量化面留痕（Embedder 协议外附加属性，
+    协议消费方零感知）。
     """
 
-    def __init__(self, client: LlmClient, alias: str = "petro-embed") -> None:
+    def __init__(
+        self, client: LlmClient, alias: str = "petro-embed", input_type: str = "query"
+    ) -> None:
+        if input_type not in ("db", "query"):
+            raise ValueError(f"input_type 越界：{input_type!r}（允许 db|query）")
         self._client: Any = client
         self._alias = alias
+        self._input_type = input_type
+        self.usage_log: list[EmbedUsage] = []
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
-        out = await self._client.embeddings(self._alias, list(texts), input_type="query")
+        out = await self._client.embeddings(
+            self._alias, list(texts), input_type=self._input_type
+        )
+        self.usage_log.append(
+            EmbedUsage(
+                texts=len(texts),
+                total_tokens=int(out.total_tokens),
+                model=str(out.model),
+            )
+        )
         return [[float(x) for x in vec] for vec in out.vectors]

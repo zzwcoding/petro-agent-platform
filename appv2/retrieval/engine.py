@@ -31,6 +31,8 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 from appv2.retrieval.domain import (
+    NODE_SECTION_SUMMARY,
+    NODE_SLICE,
     SNIPPET_CHARS,
     FragmentRecord,
     GraphEdgeRecord,
@@ -44,12 +46,14 @@ from appv2.retrieval.domain import (
     bm25_scores,
     build_window_note,
     cosine_similarity,
+    enriched_index_text,
     is_table_rowset_question,
     normalize_bm25,
     parse_confidence_scores,
     parse_rank_order,
     promote_entity_hits,
     rrf_merge,
+    section_root,
     snippet_window,
     supply_window,
 )
@@ -91,9 +95,15 @@ GRAPH_SECTION = "关系图谱"  # 图谱边出处 section 槽（V1 图谱链同�
 
 
 class CompletionView(Protocol):
-    """complete 应答的最小视图（infra gateway Completion 同形——content 在位）。"""
+    """complete 应答的最小视图（infra gateway Completion 同形——content 在位）。
 
-    content: str
+    成员＝只读 property 形（V2-47 R1b）：生产应答 d.Completion 为 frozen
+    dataclass（属性只读）——协议成员同形只读，GatewayService 结构性兼容
+    （enrich 批直接注入网关过 mypy strict）。
+    """
+
+    @property
+    def content(self) -> str: ...
 
 
 class Completer(Protocol):
@@ -154,12 +164,18 @@ class RetrievalEngine:
             anchors=anchor_seat_tokens(need.question, need.anchors),
             rowset_question=is_table_rowset_question(need.question),
         )
-        observations = [self._fragment_observation(hit) for hit, _fused in supply.window]
+        # 节级摘要展开（V2-47 R1b——摘要命中→节内切片补席）：摘要节点进窗后
+        # 其节内切片（全节语料，含未召回支——R1b 索引期治本面）按追加席补入，
+        # 实录进 window_note extra（扩席如实，窗支数照实可超预算——R1a 同尺）。
+        expanded = _expand_summary_sections(supply.window, fragments)
+        observations = [
+            self._fragment_observation(hit) for hit, _fused in [*supply.window, *expanded]
+        ]
         sources: list[str] = []
         for obs in observations:
             if obs.report not in sources:
                 sources.append(obs.report)
-        extra = _supply_extra_note(supply)
+        extra = _supply_extra_note(supply, summary_expanded=len(expanded))
         return RetrievalBundle(
             observations=observations,
             window_note=build_window_note(
@@ -236,12 +252,17 @@ class RetrievalEngine:
 
         anchors 并入检索单元与保送通道（@ 锚定资产名直取——V1 S1 锚定材料语义
         的检索侧投影；空 anchors 时与 V1 问句单源同形）。
+
+        检索单元＝富化索引文本（V2-47 R1b——切片带上下文前缀、摘要节点照入；
+        enriched_index_text 单点）：问句点名的报告名/章节路径可在前缀逐字命中，
+        编号保送的词面判据同尺（前缀在索引文本内——保送与打分同一文本面）。
         """
         query_text = need.question.strip()
         if need.anchors:
             query_text = query_text + " " + " ".join(need.anchors)
         eligible = [frag for frag in fragments if frag.text]
-        raw = bm25_scores(query_text, [frag.text for frag in eligible])
+        index_texts = [enriched_index_text(frag) for frag in eligible]
+        raw = bm25_scores(query_text, index_texts)
         scored = sorted(
             (
                 (Hit(frag, normalize_bm25(score), "keyword"), normalize_bm25(score))
@@ -254,7 +275,7 @@ class RetrievalEngine:
         tokens = alnum_tokens(need.question) + [a for a in need.anchors if a.strip()]
         ranked = promote_entity_hits(
             ranked, list(scored), tokens,
-            top_k=self._recall_k, text_of=lambda hit: hit.fragment.text,
+            top_k=self._recall_k, text_of=lambda hit: enriched_index_text(hit.fragment),
         )
         return [hit for hit, _score in ranked]
 
@@ -349,6 +370,15 @@ class RetrievalEngine:
 
     def _fragment_observation(self, hit: Hit) -> Observation:
         frag = hit.fragment
+        locator = {
+            "library": frag.library,
+            "report": frag.report,
+            "section": frag.section or "",
+            "fragment_id": frag.fragment_id,
+        }
+        if frag.node_kind != NODE_SLICE:
+            # 摘要节点机读位（V2-47 R1b——切片 locator 不带此键，旧形零漂移）。
+            locator["node_kind"] = frag.node_kind
         return Observation(
             kind="fragment",
             text=frag.text,
@@ -362,12 +392,7 @@ class RetrievalEngine:
             library_id=frag.library_id,
             library=frag.library,
             section=frag.section,
-            locator={
-                "library": frag.library,
-                "report": frag.report,
-                "section": frag.section or "",
-                "fragment_id": frag.fragment_id,
-            },
+            locator=locator,
         )
 
     def _edge_observation(self, edge: GraphEdgeRecord) -> Observation:
@@ -399,17 +424,52 @@ def _candidate_place(frag: FragmentRecord) -> str:
     return f"{frag.report} · {frag.section}" if frag.section else frag.report
 
 
-def _supply_extra_note(supply: WindowSupply) -> str:
-    """扩席实录段（V2-45 R1a——window_note extra：锚保底与表类整组留痕）。
+def _expand_summary_sections(
+    window: list[tuple[Hit, float]], corpus: list[FragmentRecord]
+) -> list[tuple[Hit, float]]:
+    """节级摘要展开（V2-47 R1b——窗内摘要节点→其节内切片补席，追加席不挤占）。
+
+    - 成员判据＝（report_id, section_root(section)）同簇（簇键与富化批聚类
+      同一单点 domain.section_root）；
+    - 取材＝全节语料（含未召回支——R1b 索引期治本面：摘要命中即节相关信号，
+      节内切片不该因自身词面弱而被拒；R1a 送窗层「零新召回」红线不约束本面
+      ——票面任务 2/4 原文「展开其节内切片」）；
+    - 追加席：窗内已有支不重补；序＝窗内摘要序×语料序（确定性）；融合分槽
+      记 0.0（非召回产物——只作窗成员，不参与供给序）。
+    """
+    expanded: list[tuple[Hit, float]] = []
+    seated = {pair[0].fragment.fragment_id for pair in window}
+    for pair in window:
+        frag = pair[0].fragment
+        if frag.node_kind != NODE_SECTION_SUMMARY:
+            continue
+        for cand in corpus:
+            if cand.node_kind != NODE_SLICE:
+                continue
+            if cand.report_id != frag.report_id:
+                continue
+            if section_root(cand.section) != frag.section:
+                continue
+            if cand.fragment_id in seated:
+                continue
+            seated.add(cand.fragment_id)
+            expanded.append((Hit(cand, pair[0].score, pair[0].leg), 0.0))
+    return expanded
+
+
+def _supply_extra_note(supply: WindowSupply, *, summary_expanded: int = 0) -> str:
+    """扩席实录段（window_note extra：锚保底/表类整组/摘要展开留痕）。
 
     数字如实：送窗 M 已按实走支数计数（build_window_note 主段），本段只声明
-    扩席来源与整组增量——无扩席＝空串（旧注记形零漂移）。
+    扩席来源与增量——无扩席＝空串（旧注记形零漂移）。
     """
     segments: list[str] = []
     if supply.anchor_seated:
         segments.append("题眼锚保底席位：" + "、".join(supply.anchor_seated))
     if supply.rowset_added:
         segments.append(f"表类整行集进窗 +{supply.rowset_added} 支（不计入送窗配额）")
+    if summary_expanded:
+        segments.append(f"节级摘要展开节内切片 +{summary_expanded} 支（摘要命中→节内补席）")
     return "；".join(segments)
 
 

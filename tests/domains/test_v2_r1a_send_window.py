@@ -287,7 +287,9 @@ async def test_retrieve_rowset_window_note_truthful() -> None:
     # 数字如实：送窗 M＝实际支数（含整组增量）；扩席留痕机读（本形下目标
     # 报告经族配额已获席——保底未触发，整组扩席段在场）。
     note = bundle.window_note
-    assert note.startswith("召回 5 支/送窗 3 支；已召回未送窗 2 支")  # 实走计数
+    # 实走计数（V2-47 R1b 随动：前缀进 BM25——原零分切片经索引文本前缀词面
+    # 获非零分，召回池 5→6；窗构成不变——f-t1/f-t2/整组扩席同形）。
+    assert note.startswith("召回 6 支/送窗 3 支；已召回未送窗 3 支")  # 实走计数
     assert "表类整行集进窗 +1 支" in note
     assert any("Y-24" in obs.text for obs in bundle.observations)  # 表格行真支在窗
     assert "缺位来源" not in note  # 目标报告已获席——无缺位可列

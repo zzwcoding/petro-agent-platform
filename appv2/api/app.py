@@ -79,7 +79,13 @@ def compose_production_registry(
     from appv2.infra.llm_client import LlmClient
     from appv2.knowledge import PgKnowledgeStore
     from appv2.query import PgQueryExecutor, QueryEngine, production_waterline
-    from appv2.retrieval import PgFragmentLibrary, RemoteEmbedder, RetrievalEngine
+    from appv2.retrieval import (
+        EnrichedFragmentLibrary,
+        PgEnrichStore,
+        PgFragmentLibrary,
+        RemoteEmbedder,
+        RetrievalEngine,
+    )
     from appv2.tools import ToolRegistry
 
     resolved = tuple(specs) if specs is not None else tuple(load_database_specs())
@@ -97,7 +103,12 @@ def compose_production_registry(
         today=today,
     )
     retrieval = RetrievalEngine(
-        library=PgFragmentLibrary(resolved),
+        # 富化装配读面（V2-47 R1b）：PgFragmentLibrary 外套 EnrichedFragmentLibrary
+        # ——富化向量 overlay 覆写＋节级摘要节点追加入语料；空富化表＝原样透传
+        # （未富化态零漂移）。
+        library=EnrichedFragmentLibrary(
+            PgFragmentLibrary(resolved), PgEnrichStore(resolved)
+        ),
         embedder=embedder if embedder is not None else RemoteEmbedder(LlmClient()),
     )
     return ToolRegistry(knowledge=knowledge, query=query, retrieval=retrieval)
@@ -217,9 +228,12 @@ def create_app(
 
 
 async def ensure_app_tables(db: ConnectionManager) -> None:
-    """幂等建表（lifespan 消费——agent_v2 五表＋gateway 三表）。"""
+    """幂等建表（lifespan 消费——agent_v2 五表＋gateway 三表＋富化索引表）。"""
+    from appv2.retrieval.pg_enrich import ensure_enrich_tables
+
     await ensure_agent_v2_tables(db.engine())
     await ensure_gateway_tables(db.engine())
+    await ensure_enrich_tables(db.engine())  # V2-47 R1b——检索富化索引（additive）
 
 
 @asynccontextmanager

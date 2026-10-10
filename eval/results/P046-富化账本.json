@@ -1,0 +1,15 @@
+{
+  "ticket": "P-046 / V2-47 R1b 切片富化",
+  "finished_at": "2026-10-10T22:52:43",
+  "corpus_total": 138,
+  "corpus_embedded": 138,
+  "overlay_written": 138,
+  "clusters_total": 59,
+  "summaries_written": 59,
+  "summaries_failed": [],
+  "complete_calls": 59,
+  "embedding_calls": 13,
+  "embedding_tokens": 68776,
+  "complete_ledger": "gateway_spend_record WHERE caller='agent_v2.retrieval.enrich'",
+  "rollback": "清空 kb_retrieval_enrich 即回滚——kb_* 原表零触碰，检索回落原向量"
+}

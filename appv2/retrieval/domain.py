@@ -25,6 +25,7 @@ FAMILY_ALL 单点；库行列不进本票，值域随库合同）。
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import re
@@ -38,6 +39,20 @@ FAMILY_MONTHLY = "monthly"
 FAMILY_DYNAMIC = "dynamic"
 FAMILY_BLANK = "blank"
 FAMILY_ALL: tuple[str, ...] = (FAMILY_COMPLETION, FAMILY_MONTHLY, FAMILY_DYNAMIC, FAMILY_BLANK)
+
+# 语料节点分型（FragmentRecord.node_kind 闭世界）：slice＝原文切片（缺省——旧
+# 构造零漂移）；section_summary＝节级摘要节点（V2-47 R1b 富化产物——按节聚类
+# 的 LLM 摘要，独立可检索、命中展开节内切片）。
+NODE_SLICE = "slice"
+NODE_SECTION_SUMMARY = "section_summary"
+
+# 切片上下文前缀逐字格式（票面钉：〔本段节选自〈报告名〉·〈章节路径〉〕——
+# Anthropic 上下文感知检索式；报告名/章节路径取 kb 台账元数据，零模型调用）。
+CONTEXT_PREFIX_TEMPLATE = "〔本段节选自{report}·{section}〕"
+CONTEXT_PREFIX_NO_SECTION = "〔本段节选自{report}〕"
+
+SECTION_PATH_SEPARATOR = "＞"  # 章节路径层级分隔（kb 台账 section 原生形）
+
 
 # ---------- 检索单元与向量（V1 kb.domain 移植——G-07/P1-11 同款） ----------
 
@@ -177,7 +192,8 @@ class FragmentRecord:
 
     text＝生成上下文用全文（V1 生成窗全文纪律——不再截 500）；embedding＝None
     表示未入向量索引（向量腿跳过、关键词腿兜底）；family＝库 biz_template
-    透传（供给分池的族键）；library/report＝出处链 library/报告名两级。
+    透传（供给分池的族键）；library/report＝出处链 library/报告名两级；
+    node_kind＝语料节点分型（V2-47 R1b——缺省 slice，旧构造零漂移）。
     """
 
     fragment_id: str
@@ -189,6 +205,13 @@ class FragmentRecord:
     family: str
     text: str
     embedding: list[float] | None = None
+    node_kind: str = NODE_SLICE
+
+    def __post_init__(self) -> None:
+        if self.node_kind not in (NODE_SLICE, NODE_SECTION_SUMMARY):
+            raise ValueError(
+                f"node_kind 越界：{self.node_kind!r}（允许 {NODE_SLICE}/{NODE_SECTION_SUMMARY}）"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -210,6 +233,55 @@ class GraphEdgeRecord:
     library_id: str | None = None
     library: str = ""
     family: str = ""
+
+
+# ---------- 索引富化节点分型与纯语义（V2-47 R1b——切片上下文前缀＋节级摘要层） ----------
+
+def context_prefix(report: str, section: str | None) -> str:
+    """切片上下文前缀（索引期富化——报告名＋章节路径；元数据已备，确定性拼装）。
+
+    - 章节路径在位：〔本段节选自〈报告名〉·〈章节路径〉〕（全路径逐字——
+      BM25 词面与向量语义双受益；论文口径检索失败率降 49%）；
+    - 路径缺席：〔本段节选自〈报告名〉〕（不发明章节）。
+    """
+    if section:
+        return CONTEXT_PREFIX_TEMPLATE.format(report=report, section=section)
+    return CONTEXT_PREFIX_NO_SECTION.format(report=report)
+
+
+def section_root(section: str | None) -> str | None:
+    """章节路径顶层段（节聚类的簇键——「章节 04 … ＞ 4.1 … ＞ 4.2 …」取首段）。
+
+    节级摘要层的「节」粒度＝顶层章（切片→章→全文的中间层——RAPTOR 单级版；
+    「正文」「全文档摘要」「问题块·第 N 批」等非章节路径整段即顶层）。None
+    原样返回（无路径切片不入节聚类）。
+    """
+    if section is None:
+        return None
+    return section.split(SECTION_PATH_SEPARATOR)[0].strip()
+
+
+def summary_node_id(report_id: str, root: str) -> str:
+    """节级摘要节点确定性身份（md5(report_id|root) 前 12 位——幂等钉半边）。
+
+    同（报告，节）恒同 id：富化重跑 upsert 同键零重复节点；旧节点可追溯。
+    """
+    digest = hashlib.md5(f"{report_id}|{root}".encode()).hexdigest()
+    return f"ensum-{digest[:12]}"
+
+
+def enriched_index_text(frag: FragmentRecord) -> str:
+    """检索单元的索引文本（BM25 腿与编号保送共用的拼接单点）。
+
+    - 切片：上下文前缀＋原文（前缀进索引——BM25 词面扩容，问句点名的报告名/
+      章节路径可在前缀逐字命中）；
+    - 节级摘要节点：摘要文本照入（节路径与覆盖要点已在其文本内——不再套前缀）。
+
+    送窗原文（Observation.text）不走本函数——前缀只进索引面，生成窗文本零漂移。
+    """
+    if frag.node_kind == NODE_SECTION_SUMMARY:
+        return frag.text
+    return context_prefix(frag.report, frag.section) + frag.text
 
 
 # ---------- 命中与融合（V1 IndexHitFace/rrf_merge 同款） ----------
