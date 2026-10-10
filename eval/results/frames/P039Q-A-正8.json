@@ -1,0 +1,613 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-807c229f",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问邻井 W-07 井初期日产油量及当前日产油量。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问邻井 W-07 井初期日产油量及当前日产油量。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 2 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：2 条定案"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note｜s2=note"
+   }
+  },
+  {
+   "id": 6,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ask",
+    "seq": 5,
+    "message": null
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：ask（子问题 s1）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「最近」指哪个时间窗？① 近 3 天 ② 近 30 天 ③ 本月至今——选好后我按审定口径取数。",
+     "options": [
+      "近 3 天",
+      "近 30 天",
+      "本月至今"
+     ],
+     "detail": null
+    },
+    "run_id": "run-807c229f"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 6,
+    "title": "批量汇聚 0 支"
+   }
+  },
+  {
+   "id": 10,
+   "event": "done",
+   "data": {
+    "run_id": "run-807c229f"
+   }
+  },
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-807c229f",
+    "resume": true
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "澄清回收：近 3 天"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "澄清 r1：分解 2 子问题"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 9,
+    "title": "工具匹配：2 条定案"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 10,
+    "title": "前置条件机：s1=note｜s2=note"
+   }
+  },
+  {
+   "id": 5,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ask",
+    "seq": 11,
+    "message": null
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 11,
+    "title": "data_query：ask（子问题 s1）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「最近」指哪个时间窗？① 近 3 天 ② 近 30 天 ③ 本月至今——选好后我按审定口径取数。",
+     "options": [
+      "近 3 天",
+      "近 30 天",
+      "本月至今"
+     ],
+     "detail": null
+    },
+    "run_id": "run-807c229f"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 12,
+    "title": "批量汇聚 0 支"
+   }
+  },
+  {
+   "id": 9,
+   "event": "done",
+   "data": {
+    "run_id": "run-807c229f"
+   }
+  },
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-807c229f",
+    "resume": true
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 13,
+    "title": "澄清回收：近 3 天"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 14,
+    "title": "澄清 r1：分解 2 子问题"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 15,
+    "title": "工具匹配：2 条定案"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 16,
+    "title": "前置条件机：s1=note｜s2=note"
+   }
+  },
+  {
+   "id": 5,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ask",
+    "seq": 17,
+    "message": null
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 17,
+    "title": "data_query：ask（子问题 s1）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「最近」指哪个时间窗？① 近 3 天 ② 近 30 天 ③ 本月至今——选好后我按审定口径取数。",
+     "options": [
+      "近 3 天",
+      "近 30 天",
+      "本月至今"
+     ],
+     "detail": null
+    },
+    "run_id": "run-807c229f"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 18,
+    "title": "批量汇聚 0 支"
+   }
+  },
+  {
+   "id": 9,
+   "event": "done",
+   "data": {
+    "run_id": "run-807c229f"
+   }
+  },
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-807c229f",
+    "resume": true
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 19,
+    "title": "澄清回收：近 3 天"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 20,
+    "title": "澄清 r1：分解 2 子问题"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 21,
+    "title": "工具匹配：2 条定案"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 22,
+    "title": "前置条件机：s1=note｜s2=note"
+   }
+  },
+  {
+   "id": 5,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ask",
+    "seq": 23,
+    "message": null
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 23,
+    "title": "data_query：ask（子问题 s1）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「最近」指哪个时间窗？① 近 3 天 ② 近 30 天 ③ 本月至今——选好后我按审定口径取数。",
+     "options": [
+      "近 3 天",
+      "近 30 天",
+      "本月至今"
+     ],
+     "detail": null
+    },
+    "run_id": "run-807c229f"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 24,
+    "title": "批量汇聚 0 支"
+   }
+  },
+  {
+   "id": 9,
+   "event": "done",
+   "data": {
+    "run_id": "run-807c229f"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问邻井 W-07 井初期日产油量及当前日产油量。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-807c229f",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问邻井 W-07 井初期日产油量及当前日产油量。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 2 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：2 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note｜s2=note"
+   },
+   {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：ask（子问题 s1）"
+   },
+   {
+    "step": "observe",
+    "seq": 6,
+    "title": "批量汇聚 0 支"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "澄清回收：近 3 天"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "澄清 r1：分解 2 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 9,
+    "title": "工具匹配：2 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 10,
+    "title": "前置条件机：s1=note｜s2=note"
+   },
+   {
+    "step": "execute",
+    "seq": 11,
+    "title": "data_query：ask（子问题 s1）"
+   },
+   {
+    "step": "observe",
+    "seq": 12,
+    "title": "批量汇聚 0 支"
+   },
+   {
+    "step": "decision",
+    "seq": 13,
+    "title": "澄清回收：近 3 天"
+   },
+   {
+    "step": "decision",
+    "seq": 14,
+    "title": "澄清 r1：分解 2 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 15,
+    "title": "工具匹配：2 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 16,
+    "title": "前置条件机：s1=note｜s2=note"
+   },
+   {
+    "step": "execute",
+    "seq": 17,
+    "title": "data_query：ask（子问题 s1）"
+   },
+   {
+    "step": "observe",
+    "seq": 18,
+    "title": "批量汇聚 0 支"
+   },
+   {
+    "step": "decision",
+    "seq": 19,
+    "title": "澄清回收：近 3 天"
+   },
+   {
+    "step": "decision",
+    "seq": 20,
+    "title": "澄清 r1：分解 2 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 21,
+    "title": "工具匹配：2 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 22,
+    "title": "前置条件机：s1=note｜s2=note"
+   },
+   {
+    "step": "execute",
+    "seq": 23,
+    "title": "data_query：ask（子问题 s1）"
+   },
+   {
+    "step": "observe",
+    "seq": 24,
+    "title": "批量汇聚 0 支"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ask",
+    "seq": 5,
+    "message": null
+   },
+   {
+    "tool": "data_query",
+    "status": "ask",
+    "seq": 11,
+    "message": null
+   },
+   {
+    "tool": "data_query",
+    "status": "ask",
+    "seq": 17,
+    "message": null
+   },
+   {
+    "tool": "data_query",
+    "status": "ask",
+    "seq": 23,
+    "message": null
+   }
+  ],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「最近」指哪个时间窗？① 近 3 天 ② 近 30 天 ③ 本月至今——选好后我按审定口径取数。",
+     "options": [
+      "近 3 天",
+      "近 30 天",
+      "本月至今"
+     ],
+     "detail": null
+    },
+    "run_id": "run-807c229f"
+   },
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「最近」指哪个时间窗？① 近 3 天 ② 近 30 天 ③ 本月至今——选好后我按审定口径取数。",
+     "options": [
+      "近 3 天",
+      "近 30 天",
+      "本月至今"
+     ],
+     "detail": null
+    },
+    "run_id": "run-807c229f"
+   },
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「最近」指哪个时间窗？① 近 3 天 ② 近 30 天 ③ 本月至今——选好后我按审定口径取数。",
+     "options": [
+      "近 3 天",
+      "近 30 天",
+      "本月至今"
+     ],
+     "detail": null
+    },
+    "run_id": "run-807c229f"
+   },
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「最近」指哪个时间窗？① 近 3 天 ② 近 30 天 ③ 本月至今——选好后我按审定口径取数。",
+     "options": [
+      "近 3 天",
+      "近 30 天",
+      "本月至今"
+     ],
+     "detail": null
+    },
+    "run_id": "run-807c229f"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "问邻井 W-07 井初期日产油量及当前日产油量。"
+  ],
+  "duration_s": 23.0
+ }
+}

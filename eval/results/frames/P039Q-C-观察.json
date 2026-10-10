@@ -1,0 +1,314 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-7cf4be7e",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问自然递减率这个指标的数值。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问自然递减率这个指标的数值。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：1 条定案"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note"
+   }
+  },
+  {
+   "id": 6,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：ok（子问题 s1）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#3",
+    "content": "☆自然递减率：月：1 − q_t / q_(t−1)（扣新井与措施增油）；年化：指数拟合 q(t)=q_i·e^(−Dt)｜粒度 月·年 · 单位 %｜状态 生效中｜争议注记：措施扣除口径",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 9,
+   "event": "notice",
+   "data": {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「☆自然递减率」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆自然递减率：月：1 − q_t / q_(t−1)（扣新井与措施增油）；年化：指数拟合 q(t)=q_i·e^(−Dt)｜粒度 月·年 · 单位 %｜状态 生效中｜争议注记：措施扣除口径"
+   }
+  },
+  {
+   "id": 10,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「☆自然递减率」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆自然递减率：月：1 − q_t / q_(t−1)（扣新井与措施增油）；年化：指数拟合 q(t)=q_i·e^(−Dt)｜粒度 月·年 · 单位 %｜状态 生效中｜争议注记：措施扣除口径",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 6,
+    "title": "批量汇聚 2 支"
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 7,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 8,
+    "title": "核验：支撑 1｜改写 1｜分源 否"
+   }
+  },
+  {
+   "id": 14,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 1,
+    "rewritten": 1,
+    "split": false,
+    "cited": [
+     1
+    ]
+   }
+  },
+  {
+   "id": 15,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 1 行（INV-1——禁止无据断言进答案）"
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 9,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 17,
+   "event": "citation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#3",
+    "source_id": "3",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 18,
+   "event": "text",
+   "data": {
+    "content": "s1. 自然递减率：自然递减率（%）∈在册指标（metric_slot=\"自然递减率\"），月口径定义为 1 − q_t / q_(t−1)（扣新井与措施增油），年化口径定义为指数拟合 q(t)=q_i·e^(−Dt)；指标粒度支持月/年 [1]。\n\n⚠ 注记（绑定态）：自然递减率在台账中标记为「措施扣除口径」unbound——措施扣减的具体口径未绑定，本次默认按台账定义式出数；如需调整措施扣除口径请补一句说明。\n\n未找到（材料未披露）：📅 窗注记：问句未指明时间窗——已按近 30 天默认（2026-08-01 起，end 不含端 2026-08-31，is_default=true）——但数据水位同为 2026-08-31，该窗内若引擎无可出数据将走拦停/降级并注记；如需月递减率请指定月份（如「2025 年 8 月自然递减率」），如需年递减率请指定年度（去年=2025-01-01 至 2026-01-01；今年截至 2026-08-31）。\n\n引用：\n[1] sem_metric#3 · 3（ledger）"
+   }
+  },
+  {
+   "id": 19,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-7cf4be7e",
+    "manifest_digest": "814178616ecdacd33c201d21557d20b5811989868222e8766bc9315778d7a90a"
+   }
+  },
+  {
+   "id": 20,
+   "event": "done",
+   "data": {
+    "run_id": "run-7cf4be7e"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "s1. 自然递减率：自然递减率（%）∈在册指标（metric_slot=\"自然递减率\"），月口径定义为 1 − q_t / q_(t−1)（扣新井与措施增油），年化口径定义为指数拟合 q(t)=q_i·e^(−Dt)；指标粒度支持月/年 [1]。\n\n⚠ 注记（绑定态）：自然递减率在台账中标记为「措施扣除口径」unbound——措施扣减的具体口径未绑定，本次默认按台账定义式出数；如需调整措施扣除口径请补一句说明。\n\n未找到（材料未披露）：📅 窗注记：问句未指明时间窗——已按近 30 天默认（2026-08-01 起，end 不含端 2026-08-31，is_default=true）——但数据水位同为 2026-08-31，该窗内若引擎无可出数据将走拦停/降级并注记；如需月递减率请指定月份（如「2025 年 8 月自然递减率」），如需年递减率请指定年度（去年=2025-01-01 至 2026-01-01；今年截至 2026-08-31）。\n\n引用：\n[1] sem_metric#3 · 3（ledger）",
+  "citations": [
+   {
+    "index": 1,
+    "source": "sem_metric#3",
+    "source_id": "3",
+    "trust": "ledger"
+   }
+  ],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「☆自然递减率」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆自然递减率：月：1 − q_t / q_(t−1)（扣新井与措施增油）；年化：指数拟合 q(t)=q_i·e^(−Dt)｜粒度 月·年 · 单位 %｜状态 生效中｜争议注记：措施扣除口径"
+   },
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 1 行（INV-1——禁止无据断言进答案）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-7cf4be7e",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问自然递减率这个指标的数值。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：1 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note"
+   },
+   {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：ok（子问题 s1）"
+   },
+   {
+    "step": "observe",
+    "seq": 6,
+    "title": "批量汇聚 2 支"
+   },
+   {
+    "step": "answer",
+    "seq": 7,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 8,
+    "title": "核验：支撑 1｜改写 1｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 9,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_metric#3",
+    "content": "☆自然递减率：月：1 − q_t / q_(t−1)（扣新井与措施增油）；年化：指数拟合 q(t)=q_i·e^(−Dt)｜粒度 月·年 · 单位 %｜状态 生效中｜争议注记：措施扣除口径",
+    "trust": "ledger"
+   },
+   {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「☆自然递减率」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆自然递减率：月：1 − q_t / q_(t−1)（扣新井与措施增油）；年化：指数拟合 q(t)=q_i·e^(−Dt)｜粒度 月·年 · 单位 %｜状态 生效中｜争议注记：措施扣除口径",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 1,
+    "rewritten": 1,
+    "split": false,
+    "cited": [
+     1
+    ]
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-7cf4be7e",
+   "manifest_digest": "814178616ecdacd33c201d21557d20b5811989868222e8766bc9315778d7a90a"
+  },
+  "texts": [
+   "问自然递减率这个指标的数值。",
+   "s1. 自然递减率：自然递减率（%）∈在册指标（metric_slot=\"自然递减率\"），月口径定义为 1 − q_t / q_(t−1)（扣新井与措施增油），年化口径定义为指数拟合 q(t)=q_i·e^(−Dt)；指标粒度支持月/年 [1]。\n\n⚠ 注记（绑定态）：自然递减率在台账中标记为「措施扣除口径」unbound——措施扣减的具体口径未绑定，本次默认按台账定义式出数；如需调整措施扣除口径请补一句说明。\n\n未找到（材料未披露）：📅 窗注记：问句未指明时间窗——已按近 30 天默认（2026-08-01 起，end 不含端 2026-08-31，is_default=true）——但数据水位同为 2026-08-31，该窗内若引擎无可出数据将走拦停/降级并注记；如需月递减率请指定月份（如「2025 年 8 月自然递减率」），如需年递减率请指定年度（去年=2025-01-01 至 2026-01-01；今年截至 2026-08-31）。\n\n引用：\n[1] sem_metric#3 · 3（ledger）"
+  ],
+  "duration_s": 8.4
+ }
+}

@@ -27,10 +27,12 @@ out-dir/frames——干跑产物隔离用）。
 ask 且 done 前无终稿 verdict）时对挂起帧 POST 题册登记的合法选项续跑至收口
 ——缺省选第一项（＝题册 expectedBehavior 指定项）；非挂起帧不受影响；判分
 照旧只看最终交付轮（合并帧重新归约，answer_head/citations 取续跑后终稿）。
-续跑流＝POST {base}/chat/runs/{run_id}/resume（json {"choice": 选项原文}），
-续跑帧并入同题帧存档；jsonl 行增 resume 字段（逐次 {run_id, choice} 留痕）。
-安全上限 3 次续跑（澄清连问 ≥2 上限/审批单挂的内生收敛面之外的海啸保险——
-正常至多 1~2 次）。V1 base（非 /api/v2）无挂起帧形，--resume 不生效。
+续跑流＝POST {base}/chat/runs/{run_id}/resume（ResumeBody 合同：clarify 挂起
+携 {"kind": "clarify", "choice": 选项原文}；审批挂起携 {"kind": "approval",
+"decision": "approve"}——第一选项「批准」），续跑帧并入同题帧存档；jsonl 行
+增 resume 字段（逐次 {run_id, choice} 留痕）。安全上限 3 次续跑（澄清连问
+≥2 上限/审批单挂的内生收敛面之外的海啸保险——正常至多 1~2 次）。V1 base
+（非 /api/v2）无挂起帧形，--resume 不生效。
 
 --spend 计费归集（V2-30，Q12 对账挂账 5 清偿）：跑批后逐题从网关 spend 账本
 （PG gateway_spend_record——D5 全平台唯一账本，只读 SELECT）归集计费。
@@ -378,12 +380,17 @@ def is_suspended(parsed: Mapping[str, Any]) -> bool:
 
 
 async def resume_once(
-    c: httpx.AsyncClient, base: str, run_id: str, choice: str
+    c: httpx.AsyncClient, base: str, run_id: str, body: dict[str, Any]
 ) -> dict:
-    """挂起段续跑一程（SSE 流全量收集——ask_once 同形，端点与载荷按 resume 面）。"""
+    """挂起段续跑一程（SSE 流全量收集——ask_once 同形，端点与载荷按 resume 面）。
+
+    body＝ResumeBody 形（appv2/api/chat.py 合同）：clarify 挂起＝
+    {"kind": "clarify", "choice": 选项原文}；approval 挂起＝{"kind": "approval",
+    "decision": "approve"|"reject", "approval_id": …}。
+    """
     t0 = time.monotonic()
     async with c.stream(
-        "POST", resume_url(base, run_id), json={"choice": choice}, headers=HEADERS
+        "POST", resume_url(base, run_id), json=body, headers=HEADERS
     ) as resp:
         if resp.status_code != 200:
             body = (await resp.aread()).decode("utf-8", "replace")
@@ -403,7 +410,11 @@ async def resume_suspended(
 ) -> list[dict[str, str]]:
     """--resume 模式的挂起续跑（附 5）：对挂起帧 POST 题册登记的合法选项（缺省
     第一项＝题册 expectedBehavior 指定项），续跑至收口；续跑帧并入 out_data
-    帧列并重新归约（判分只看最终交付轮）；返回逐次 {run_id, choice} 留痕。"""
+    帧列并重新归约（判分只看最终交付轮）；返回逐次 {run_id, choice} 留痕。
+
+    载荷按挂起帧 kind 分流（ResumeBody 合同——appv2/api/chat.py）：clarify＝
+    帧第一选项原文；external_table_approval＝第一选项「批准」→approve（帧
+    detail.approval_id 随行）。"""
     resumes: list[dict[str, str]] = []
     for _ in range(max_resumes):
         parsed = out_data.get("parsed") or {}
@@ -416,7 +427,14 @@ async def resume_suspended(
         if not run_id or not options:
             break  # 挂起帧缺 run_id/选项——无从续跑（行内如实留原样）
         choice = options[0]  # 缺省选第一项＝题册 expectedBehavior 指定项
-        resumed = await resume_once(c, base, run_id, choice)
+        frame_kind = str(frame.get("kind") or "clarify")
+        if frame_kind == "clarify":
+            body: dict[str, Any] = {"kind": "clarify", "choice": choice}
+        else:  # external_table_approval——第一选项＝「批准」（approve 语义面）
+            approval_id = str((frame.get("detail") or {}).get("approval_id") or "")
+            body = {"kind": "approval", "decision": "approve",
+                    "approval_id": approval_id}
+        resumed = await resume_once(c, base, run_id, body)
         resumes.append({"run_id": run_id, "choice": choice})
         if resumed.get("error"):
             print(f"[resume] {run_id} 续跑失败：{resumed['error']}")

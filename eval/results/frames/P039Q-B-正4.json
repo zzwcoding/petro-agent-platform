@@ -1,0 +1,408 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-0444adcc",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问 W-21 井的检泵周期和对应的作业费用各是多少。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问 W-21 井的检泵周期和对应的作业费用各是多少。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 2 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：2 条定案"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note｜s2=note"
+   }
+  },
+  {
+   "id": 6,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：ok（子问题 s1）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#13",
+    "content": "☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 9,
+   "event": "notice",
+   "data": {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—"
+   }
+  },
+  {
+   "id": 10,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 11,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 6,
+    "message": null
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 6,
+    "title": "data_query：ok（子问题 s2）"
+   }
+  },
+  {
+   "id": 13,
+   "event": "observation",
+   "data": {
+    "index": 3,
+    "source": "sem_metric#13",
+    "content": "☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 14,
+   "event": "notice",
+   "data": {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—"
+   }
+  },
+  {
+   "id": 15,
+   "event": "observation",
+   "data": {
+    "index": 4,
+    "source": "query 引擎降级依据",
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 7,
+    "title": "批量汇聚 4 支"
+   }
+  },
+  {
+   "id": 17,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 8,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 18,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 9,
+    "title": "核验：支撑 2｜改写 3｜分源 否"
+   }
+  },
+  {
+   "id": 19,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 2,
+    "rewritten": 3,
+    "split": false,
+    "cited": [
+     1,
+     3
+    ]
+   }
+  },
+  {
+   "id": 20,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 3 行（INV-1——禁止无据断言进答案）"
+   }
+  },
+  {
+   "id": 21,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 10,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 22,
+   "event": "citation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#13",
+    "source_id": "13",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 23,
+   "event": "citation",
+   "data": {
+    "index": 3,
+    "source": "sem_metric#13",
+    "source_id": "13",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 24,
+   "event": "text",
+   "data": {
+    "content": "未找到（材料未披露）：**W-21 井检泵周期与作业费用查询结果**\n\n**结论先说明：**\n台账已命中「检泵周期」指标并返回数据 [1][3]；「检泵作业费用」在当前台账中**未找到对应指标**，无据不得断言。\n\n---\n\n未找到（材料未披露）：**子问题 1：W-21 井的检泵周期是多少？**\n- W-21 井的检泵周期可从台账指标「检泵周期」读取，计算口径为「本次检泵日 − 上次检泵日」，粒度单井，单位天 [1][3]。\n- 观察材料 [1][3] 仅给出指标定义（绑定态 unbound，本次未返回具体井行的数值行），因此具体周期天数未在材料中体现。\n\n未找到（材料未披露）：**子问题 2：W-21 井的检泵作业费用是多少？**\n- 当前台账无「检泵作业费用」指标槽位，未观察到任何与检泵费用相关的台账行或文档片段。\n- 如实说明：**未找到「检泵作业费用」对应的出数指标**。\n\n引用：\n[1] sem_metric#13 · 13（ledger）\n[3] sem_metric#13 · 13（ledger）"
+   }
+  },
+  {
+   "id": 25,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-0444adcc",
+    "manifest_digest": "5fef78973fd7e3d8e10816f7f03b7061d2da4cf856e73deb1681a1acd8cf48f8"
+   }
+  },
+  {
+   "id": 26,
+   "event": "done",
+   "data": {
+    "run_id": "run-0444adcc"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "未找到（材料未披露）：**W-21 井检泵周期与作业费用查询结果**\n\n**结论先说明：**\n台账已命中「检泵周期」指标并返回数据 [1][3]；「检泵作业费用」在当前台账中**未找到对应指标**，无据不得断言。\n\n---\n\n未找到（材料未披露）：**子问题 1：W-21 井的检泵周期是多少？**\n- W-21 井的检泵周期可从台账指标「检泵周期」读取，计算口径为「本次检泵日 − 上次检泵日」，粒度单井，单位天 [1][3]。\n- 观察材料 [1][3] 仅给出指标定义（绑定态 unbound，本次未返回具体井行的数值行），因此具体周期天数未在材料中体现。\n\n未找到（材料未披露）：**子问题 2：W-21 井的检泵作业费用是多少？**\n- 当前台账无「检泵作业费用」指标槽位，未观察到任何与检泵费用相关的台账行或文档片段。\n- 如实说明：**未找到「检泵作业费用」对应的出数指标**。\n\n引用：\n[1] sem_metric#13 · 13（ledger）\n[3] sem_metric#13 · 13（ledger）",
+  "citations": [
+   {
+    "index": 1,
+    "source": "sem_metric#13",
+    "source_id": "13",
+    "trust": "ledger"
+   },
+   {
+    "index": 3,
+    "source": "sem_metric#13",
+    "source_id": "13",
+    "trust": "ledger"
+   }
+  ],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—"
+   },
+   {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—"
+   },
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 3 行（INV-1——禁止无据断言进答案）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-0444adcc",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问 W-21 井的检泵周期和对应的作业费用各是多少。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 2 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：2 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note｜s2=note"
+   },
+   {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：ok（子问题 s1）"
+   },
+   {
+    "step": "execute",
+    "seq": 6,
+    "title": "data_query：ok（子问题 s2）"
+   },
+   {
+    "step": "observe",
+    "seq": 7,
+    "title": "批量汇聚 4 支"
+   },
+   {
+    "step": "answer",
+    "seq": 8,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 9,
+    "title": "核验：支撑 2｜改写 3｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 10,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   },
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 6,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_metric#13",
+    "content": "☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "ledger"
+   },
+   {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "notice"
+   },
+   {
+    "index": 3,
+    "source": "sem_metric#13",
+    "content": "☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "ledger"
+   },
+   {
+    "index": 4,
+    "source": "query 引擎降级依据",
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 2,
+    "rewritten": 3,
+    "split": false,
+    "cited": [
+     1,
+     3
+    ]
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-0444adcc",
+   "manifest_digest": "5fef78973fd7e3d8e10816f7f03b7061d2da4cf856e73deb1681a1acd8cf48f8"
+  },
+  "texts": [
+   "问 W-21 井的检泵周期和对应的作业费用各是多少。",
+   "未找到（材料未披露）：**W-21 井检泵周期与作业费用查询结果**\n\n**结论先说明：**\n台账已命中「检泵周期」指标并返回数据 [1][3]；「检泵作业费用」在当前台账中**未找到对应指标**，无据不得断言。\n\n---\n\n未找到（材料未披露）：**子问题 1：W-21 井的检泵周期是多少？**\n- W-21 井的检泵周期可从台账指标「检泵周期」读取，计算口径为「本次检泵日 − 上次检泵日」，粒度单井，单位天 [1][3]。\n- 观察材料 [1][3] 仅给出指标定义（绑定态 unbound，本次未返回具体井行的数值行），因此具体周期天数未在材料中体现。\n\n未找到（材料未披露）：**子问题 2：W-21 井的检泵作业费用是多少？**\n- 当前台账无「检泵作业费用」指标槽位，未观察到任何与检泵费用相关的台账行或文档片段。\n- 如实说明：**未找到「检泵作业费用」对应的出数指标**。\n\n引用：\n[1] sem_metric#13 · 13（ledger）\n[3] sem_metric#13 · 13（ledger）"
+  ],
+  "duration_s": 9.2
+ }
+}

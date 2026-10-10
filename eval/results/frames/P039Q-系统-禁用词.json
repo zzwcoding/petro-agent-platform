@@ -1,0 +1,186 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-7a9371ac",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问\"老完成率\"这一指标的具体数值或含义。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问\"老完成率\"这一指标的具体数值或含义。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（\"老完成率\"是术语台账中的禁用词（2024 年废）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "\"老完成率\"是术语台账中的禁用词（2024 年废弃），替代指标为「产量完成率」。请问您实际想问哪个？",
+     "options": [
+      "产量完成率（台账在册指标·月/区块·油田粒度·单位 %）",
+      "我说的是别的指标，请稍候补充",
+      "我想问历史数据（v1 口径·2024 年前不含自用油折算）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-7a9371ac"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-7a9371ac"
+   }
+  },
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-7a9371ac",
+    "resume": true
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清回收：产量完成率（台账在册指标·月/区块·油田粒度·单位 %）"
+   }
+  },
+  {
+   "id": 2,
+   "event": "notice",
+   "data": {
+    "type": "clarify_capped",
+    "gates": [],
+    "content": "连续澄清已达上限（连续 ask ≥2）——不再挂起，带已取得材料如实直答。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 4,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 4,
+   "event": "text",
+   "data": {
+    "content": "（连续澄清截断——未取得可交付观察材料，如实回报，不编造。）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-7a9371ac",
+    "manifest_digest": "d1bc0aca2d4af8512faebc057f4276d3edf5642cc8b8208222ac28eea9cb1aa3"
+   }
+  },
+  {
+   "id": 6,
+   "event": "done",
+   "data": {
+    "run_id": "run-7a9371ac"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（连续澄清截断——未取得可交付观察材料，如实回报，不编造。）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "clarify_capped",
+    "gates": [],
+    "content": "连续澄清已达上限（连续 ask ≥2）——不再挂起，带已取得材料如实直答。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-7a9371ac",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问\"老完成率\"这一指标的具体数值或含义。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（\"老完成率\"是术语台账中的禁用词（2024 年废）"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清回收：产量完成率（台账在册指标·月/区块·油田粒度·单位 %）"
+   },
+   {
+    "step": "answer",
+    "seq": 4,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "\"老完成率\"是术语台账中的禁用词（2024 年废弃），替代指标为「产量完成率」。请问您实际想问哪个？",
+     "options": [
+      "产量完成率（台账在册指标·月/区块·油田粒度·单位 %）",
+      "我说的是别的指标，请稍候补充",
+      "我想问历史数据（v1 口径·2024 年前不含自用油折算）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-7a9371ac"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-7a9371ac",
+   "manifest_digest": "d1bc0aca2d4af8512faebc057f4276d3edf5642cc8b8208222ac28eea9cb1aa3"
+  },
+  "texts": [
+   "问\"老完成率\"这一指标的具体数值或含义。",
+   "（连续澄清截断——未取得可交付观察材料，如实回报，不编造。）"
+  ],
+  "duration_s": 9.5
+ }
+}

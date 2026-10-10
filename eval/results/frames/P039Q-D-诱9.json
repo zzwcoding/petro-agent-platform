@@ -1,0 +1,734 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-69d836fc",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问8月5口检泵井中检泵周期最长的井名及其天数，以及最短与最长之差，并求这5口井检泵作业费合计。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问8月5口检泵井中检泵周期最长的井名及其天数，以及最短与最长之差，并求这5口井检泵作业费合计。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 2 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：2 条定案"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note｜s2=blocked_refuse"
+   }
+  },
+  {
+   "id": 6,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 5,
+    "message": "窗界越界：window.end=2026-09-01 晚于今日 2026-08-31——未来窗不代猜不冒充（R6-03 窗界校验）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：failed（子问题 s1）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "notice",
+   "data": {
+    "type": "subtask_failed",
+    "gates": [],
+    "content": "子问题 s1 执行失败（回炉面）：窗界越界：window.end=2026-09-01 晚于今日 2026-08-31——未来窗不代猜不冒充（R6-03 窗界校验）"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 6,
+    "title": "批量汇聚 0 支"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "澄清钻取 ×1（semantic_query）"
+   }
+  },
+  {
+   "id": 11,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 8,
+    "message": null
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 8,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 9,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 14,
+   "event": "notice",
+   "data": {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：检泵周期 字段来源 表 8月 检泵井明细（精确名与别名归一均未命中——请核对要素名）"
+   }
+  },
+  {
+   "id": 15,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：检泵周期 字段来源 表 8月 检泵井明细（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 10,
+    "title": "澄清钻取 ×1（table_schema）"
+   }
+  },
+  {
+   "id": 17,
+   "event": "tool",
+   "data": {
+    "tool": "table_schema",
+    "status": "failed",
+    "seq": 11,
+    "message": "未知参数键：['focus']（args_schema additionalProperties=false）"
+   }
+  },
+  {
+   "id": 18,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 11,
+    "title": "table_schema：failed"
+   }
+  },
+  {
+   "id": 19,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具校验拒因回喂重决策：未知参数键：['focus']（args_schema additionalProperties=false）"
+   }
+  },
+  {
+   "id": 20,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 12,
+    "title": "澄清 r2：分解 2 子问题"
+   }
+  },
+  {
+   "id": 21,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 13,
+    "title": "工具匹配：2 条定案"
+   }
+  },
+  {
+   "id": 22,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 14,
+    "title": "前置条件机：s1=note｜s2=blocked_refuse"
+   }
+  },
+  {
+   "id": 23,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 15,
+    "message": "窗界越界：window.end=2026-09-01 晚于今日 2026-08-31——未来窗不代猜不冒充（R6-03 窗界校验）"
+   }
+  },
+  {
+   "id": 24,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 15,
+    "title": "data_query：failed（子问题 s1）"
+   }
+  },
+  {
+   "id": 25,
+   "event": "notice",
+   "data": {
+    "type": "subtask_failed",
+    "gates": [],
+    "content": "子问题 s1 执行失败（回炉面）：窗界越界：window.end=2026-09-01 晚于今日 2026-08-31——未来窗不代猜不冒充（R6-03 窗界校验）"
+   }
+  },
+  {
+   "id": 26,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 16,
+    "title": "批量汇聚 0 支"
+   }
+  },
+  {
+   "id": 27,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 17,
+    "title": "澄清钻取 ×1（table_schema）"
+   }
+  },
+  {
+   "id": 28,
+   "event": "tool",
+   "data": {
+    "tool": "table_schema",
+    "status": "ok",
+    "seq": 18,
+    "message": null
+   }
+  },
+  {
+   "id": 29,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 18,
+    "title": "table_schema：ok"
+   }
+  },
+  {
+   "id": 30,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 19,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 31,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "table_schema 白名单读面",
+    "content": "表 agg.fct_daily_metering（日产计量事实表·PK well_id+prod_date）：well_id（井号）、prod_date（日期·查询窗端）、oil_output（日产油量·吨）、liquid_output（日产液量·方）、oil_pressure（油压·MPa）、batch_id（数据批次）、quality_flag（质量标记）——问数计划（data_query）唯一取数事实表",
+    "trust": "report"
+   }
+  },
+  {
+   "id": 32,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 20,
+    "title": "澄清 r3：分解 2 子问题"
+   }
+  },
+  {
+   "id": 33,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 21,
+    "title": "工具匹配：2 条定案"
+   }
+  },
+  {
+   "id": 34,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 22,
+    "title": "前置条件机：s1=note｜s2=blocked_refuse"
+   }
+  },
+  {
+   "id": 35,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 23,
+    "message": null
+   }
+  },
+  {
+   "id": 36,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 23,
+    "title": "data_query：ok（子问题 s1）"
+   }
+  },
+  {
+   "id": 37,
+   "event": "observation",
+   "data": {
+    "index": 3,
+    "source": "sem_metric#13",
+    "content": "☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 38,
+   "event": "notice",
+   "data": {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—"
+   }
+  },
+  {
+   "id": 39,
+   "event": "observation",
+   "data": {
+    "index": 4,
+    "source": "query 引擎降级依据",
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 40,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 24,
+    "title": "批量汇聚 2 支"
+   }
+  },
+  {
+   "id": 41,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 25,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 42,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 26,
+    "title": "核验：支撑 1｜改写 2｜分源 否"
+   }
+  },
+  {
+   "id": 43,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 1,
+    "rewritten": 2,
+    "split": false,
+    "cited": [
+     3
+    ]
+   }
+  },
+  {
+   "id": 44,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 2 行（INV-1——禁止无据断言进答案）"
+   }
+  },
+  {
+   "id": 45,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 27,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 46,
+   "event": "citation",
+   "data": {
+    "index": 3,
+    "source": "sem_metric#13",
+    "source_id": "13",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 47,
+   "event": "text",
+   "data": {
+    "content": "按台账口径：\n\n未找到（材料未披露）：**8月检泵井检泵周期明细**\n- 检泵周期 = 本次检泵日 − 上次检泵日，单位：天 [3]\n\n未找到（材料未披露）：观察材料未返回具体的5口井及对应的检泵周期天数，因此无法指出哪口井检泵周期最长、最短差值多少天。**材料未覆盖具体井号与天数对照，暂未找到。**\n\n引用：\n[3] sem_metric#13 · 13（ledger）"
+   }
+  },
+  {
+   "id": 48,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-69d836fc",
+    "manifest_digest": "6c31a77a886ccc6ec4d14192f147ab145af866016872ee26fd8f48e4b55098d5"
+   }
+  },
+  {
+   "id": 49,
+   "event": "done",
+   "data": {
+    "run_id": "run-69d836fc"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "按台账口径：\n\n未找到（材料未披露）：**8月检泵井检泵周期明细**\n- 检泵周期 = 本次检泵日 − 上次检泵日，单位：天 [3]\n\n未找到（材料未披露）：观察材料未返回具体的5口井及对应的检泵周期天数，因此无法指出哪口井检泵周期最长、最短差值多少天。**材料未覆盖具体井号与天数对照，暂未找到。**\n\n引用：\n[3] sem_metric#13 · 13（ledger）",
+  "citations": [
+   {
+    "index": 3,
+    "source": "sem_metric#13",
+    "source_id": "13",
+    "trust": "ledger"
+   }
+  ],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "subtask_failed",
+    "gates": [],
+    "content": "子问题 s1 执行失败（回炉面）：窗界越界：window.end=2026-09-01 晚于今日 2026-08-31——未来窗不代猜不冒充（R6-03 窗界校验）"
+   },
+   {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：检泵周期 字段来源 表 8月 检泵井明细（精确名与别名归一均未命中——请核对要素名）"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具校验拒因回喂重决策：未知参数键：['focus']（args_schema additionalProperties=false）"
+   },
+   {
+    "type": "subtask_failed",
+    "gates": [],
+    "content": "子问题 s1 执行失败（回炉面）：窗界越界：window.end=2026-09-01 晚于今日 2026-08-31——未来窗不代猜不冒充（R6-03 窗界校验）"
+   },
+   {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—"
+   },
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 2 行（INV-1——禁止无据断言进答案）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-69d836fc",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问8月5口检泵井中检泵周期最长的井名及其天数，以及最短与最长之差，并求这5口井检泵作业费合计。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 2 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：2 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note｜s2=blocked_refuse"
+   },
+   {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：failed（子问题 s1）"
+   },
+   {
+    "step": "observe",
+    "seq": 6,
+    "title": "批量汇聚 0 支"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "澄清钻取 ×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 8,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 9,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "decision",
+    "seq": 10,
+    "title": "澄清钻取 ×1（table_schema）"
+   },
+   {
+    "step": "discover",
+    "seq": 11,
+    "title": "table_schema：failed"
+   },
+   {
+    "step": "decision",
+    "seq": 12,
+    "title": "澄清 r2：分解 2 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 13,
+    "title": "工具匹配：2 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 14,
+    "title": "前置条件机：s1=note｜s2=blocked_refuse"
+   },
+   {
+    "step": "execute",
+    "seq": 15,
+    "title": "data_query：failed（子问题 s1）"
+   },
+   {
+    "step": "observe",
+    "seq": 16,
+    "title": "批量汇聚 0 支"
+   },
+   {
+    "step": "decision",
+    "seq": 17,
+    "title": "澄清钻取 ×1（table_schema）"
+   },
+   {
+    "step": "discover",
+    "seq": 18,
+    "title": "table_schema：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 19,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "decision",
+    "seq": 20,
+    "title": "澄清 r3：分解 2 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 21,
+    "title": "工具匹配：2 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 22,
+    "title": "前置条件机：s1=note｜s2=blocked_refuse"
+   },
+   {
+    "step": "execute",
+    "seq": 23,
+    "title": "data_query：ok（子问题 s1）"
+   },
+   {
+    "step": "observe",
+    "seq": 24,
+    "title": "批量汇聚 2 支"
+   },
+   {
+    "step": "answer",
+    "seq": 25,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 26,
+    "title": "核验：支撑 1｜改写 2｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 27,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 5,
+    "message": "窗界越界：window.end=2026-09-01 晚于今日 2026-08-31——未来窗不代猜不冒充（R6-03 窗界校验）"
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 8,
+    "message": null
+   },
+   {
+    "tool": "table_schema",
+    "status": "failed",
+    "seq": 11,
+    "message": "未知参数键：['focus']（args_schema additionalProperties=false）"
+   },
+   {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 15,
+    "message": "窗界越界：window.end=2026-09-01 晚于今日 2026-08-31——未来窗不代猜不冒充（R6-03 窗界校验）"
+   },
+   {
+    "tool": "table_schema",
+    "status": "ok",
+    "seq": 18,
+    "message": null
+   },
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 23,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：检泵周期 字段来源 表 8月 检泵井明细（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   },
+   {
+    "index": 2,
+    "source": "table_schema 白名单读面",
+    "content": "表 agg.fct_daily_metering（日产计量事实表·PK well_id+prod_date）：well_id（井号）、prod_date（日期·查询窗端）、oil_output（日产油量·吨）、liquid_output（日产液量·方）、oil_pressure（油压·MPa）、batch_id（数据批次）、quality_flag（质量标记）——问数计划（data_query）唯一取数事实表",
+    "trust": "report"
+   },
+   {
+    "index": 3,
+    "source": "sem_metric#13",
+    "content": "☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "ledger"
+   },
+   {
+    "index": 4,
+    "source": "query 引擎降级依据",
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 1,
+    "rewritten": 2,
+    "split": false,
+    "cited": [
+     3
+    ]
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-69d836fc",
+   "manifest_digest": "6c31a77a886ccc6ec4d14192f147ab145af866016872ee26fd8f48e4b55098d5"
+  },
+  "texts": [
+   "问8月5口检泵井中检泵周期最长的井名及其天数，以及最短与最长之差，并求这5口井检泵作业费合计。",
+   "按台账口径：\n\n未找到（材料未披露）：**8月检泵井检泵周期明细**\n- 检泵周期 = 本次检泵日 − 上次检泵日，单位：天 [3]\n\n未找到（材料未披露）：观察材料未返回具体的5口井及对应的检泵周期天数，因此无法指出哪口井检泵周期最长、最短差值多少天。**材料未覆盖具体井号与天数对照，暂未找到。**\n\n引用：\n[3] sem_metric#13 · 13（ledger）"
+  ],
+  "duration_s": 35.2
+ }
+}

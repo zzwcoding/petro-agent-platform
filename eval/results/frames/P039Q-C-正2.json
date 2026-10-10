@@ -1,0 +1,414 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-6cb6e671",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "询问三季度各月的注采比和季度合计注采比，并判断其状态。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "询问三季度各月的注采比和季度合计注采比，并判断其状态。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：1 条定案"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note"
+   }
+  },
+  {
+   "id": 6,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 5,
+    "message": "窗界越界：window.end=2026-10-01 晚于今日 2026-08-31——未来窗不代猜不冒充（R6-03 窗界校验）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：failed（子问题 s1）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "notice",
+   "data": {
+    "type": "subtask_failed",
+    "gates": [],
+    "content": "子问题 s1 执行失败（回炉面）：窗界越界：window.end=2026-10-01 晚于今日 2026-08-31——未来窗不代猜不冒充（R6-03 窗界校验）"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 6,
+    "title": "批量汇聚 0 支"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "澄清 r2：分解 1 子问题"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "工具匹配：1 条定案"
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 9,
+    "title": "前置条件机：s1=note"
+   }
+  },
+  {
+   "id": 13,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 10,
+    "message": null
+   }
+  },
+  {
+   "id": 14,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 10,
+    "title": "data_query：ok（子问题 s1）"
+   }
+  },
+  {
+   "id": 15,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#6",
+    "content": "☆注采比 β：月注水量 ÷ 月产液量（体积折算）｜粒度 月 · 单位 无量纲｜状态 生效中｜争议注记：折算系数按区块",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 16,
+   "event": "notice",
+   "data": {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「☆注采比 β」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆注采比 β：月注水量 ÷ 月产液量（体积折算）｜粒度 月 · 单位 无量纲｜状态 生效中｜争议注记：折算系数按区块"
+   }
+  },
+  {
+   "id": 17,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「☆注采比 β」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆注采比 β：月注水量 ÷ 月产液量（体积折算）｜粒度 月 · 单位 无量纲｜状态 生效中｜争议注记：折算系数按区块",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 18,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 11,
+    "title": "批量汇聚 2 支"
+   }
+  },
+  {
+   "id": 19,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 12,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 20,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 13,
+    "title": "核验：支撑 1｜改写 1｜分源 否"
+   }
+  },
+  {
+   "id": 21,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 1,
+    "rewritten": 1,
+    "split": false,
+    "cited": [
+     1
+    ]
+   }
+  },
+  {
+   "id": 22,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 1 行（INV-1——禁止无据断言进答案）"
+   }
+  },
+  {
+   "id": 23,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 14,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 24,
+   "event": "citation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#6",
+    "source_id": "6",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 25,
+   "event": "text",
+   "data": {
+    "content": "未找到（材料未披露）：[s1] 三季度逐月注采比及季度合计注采比，并判断状态：\n\n未找到。三季度逐月注采比及季度合计的取值在给定观察材料中未出现；可指认的仅有该指标的口径定义（[1] 标注为月注水量 ÷ 月产液量，体积折算，月粒度，无量纲，折算系数按区块约定），数值层面无据可断言。\n\n引用：\n[1] sem_metric#6 · 6（ledger）"
+   }
+  },
+  {
+   "id": 26,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-6cb6e671",
+    "manifest_digest": "83d5bc5c0a777afc5bf50f55ba3b4e0158981d006a920d3c21cd173205f0e809"
+   }
+  },
+  {
+   "id": 27,
+   "event": "done",
+   "data": {
+    "run_id": "run-6cb6e671"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "未找到（材料未披露）：[s1] 三季度逐月注采比及季度合计注采比，并判断状态：\n\n未找到。三季度逐月注采比及季度合计的取值在给定观察材料中未出现；可指认的仅有该指标的口径定义（[1] 标注为月注水量 ÷ 月产液量，体积折算，月粒度，无量纲，折算系数按区块约定），数值层面无据可断言。\n\n引用：\n[1] sem_metric#6 · 6（ledger）",
+  "citations": [
+   {
+    "index": 1,
+    "source": "sem_metric#6",
+    "source_id": "6",
+    "trust": "ledger"
+   }
+  ],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "subtask_failed",
+    "gates": [],
+    "content": "子问题 s1 执行失败（回炉面）：窗界越界：window.end=2026-10-01 晚于今日 2026-08-31——未来窗不代猜不冒充（R6-03 窗界校验）"
+   },
+   {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「☆注采比 β」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆注采比 β：月注水量 ÷ 月产液量（体积折算）｜粒度 月 · 单位 无量纲｜状态 生效中｜争议注记：折算系数按区块"
+   },
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 1 行（INV-1——禁止无据断言进答案）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-6cb6e671",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "询问三季度各月的注采比和季度合计注采比，并判断其状态。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：1 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note"
+   },
+   {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：failed（子问题 s1）"
+   },
+   {
+    "step": "observe",
+    "seq": 6,
+    "title": "批量汇聚 0 支"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "澄清 r2：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "工具匹配：1 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 9,
+    "title": "前置条件机：s1=note"
+   },
+   {
+    "step": "execute",
+    "seq": 10,
+    "title": "data_query：ok（子问题 s1）"
+   },
+   {
+    "step": "observe",
+    "seq": 11,
+    "title": "批量汇聚 2 支"
+   },
+   {
+    "step": "answer",
+    "seq": 12,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 13,
+    "title": "核验：支撑 1｜改写 1｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 14,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "failed",
+    "seq": 5,
+    "message": "窗界越界：window.end=2026-10-01 晚于今日 2026-08-31——未来窗不代猜不冒充（R6-03 窗界校验）"
+   },
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 10,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_metric#6",
+    "content": "☆注采比 β：月注水量 ÷ 月产液量（体积折算）｜粒度 月 · 单位 无量纲｜状态 生效中｜争议注记：折算系数按区块",
+    "trust": "ledger"
+   },
+   {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「☆注采比 β」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆注采比 β：月注水量 ÷ 月产液量（体积折算）｜粒度 月 · 单位 无量纲｜状态 生效中｜争议注记：折算系数按区块",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 1,
+    "rewritten": 1,
+    "split": false,
+    "cited": [
+     1
+    ]
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-6cb6e671",
+   "manifest_digest": "83d5bc5c0a777afc5bf50f55ba3b4e0158981d006a920d3c21cd173205f0e809"
+  },
+  "texts": [
+   "询问三季度各月的注采比和季度合计注采比，并判断其状态。",
+   "未找到（材料未披露）：[s1] 三季度逐月注采比及季度合计注采比，并判断状态：\n\n未找到。三季度逐月注采比及季度合计的取值在给定观察材料中未出现；可指认的仅有该指标的口径定义（[1] 标注为月注水量 ÷ 月产液量，体积折算，月粒度，无量纲，折算系数按区块约定），数值层面无据可断言。\n\n引用：\n[1] sem_metric#6 · 6（ledger）"
+  ],
+  "duration_s": 9.5
+ }
+}

@@ -1,0 +1,293 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-422bc89e",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问第三季度产量完成率，按报告主口径统计。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问第三季度产量完成率，按报告主口径统计。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：1 条定案"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note"
+   }
+  },
+  {
+   "id": 6,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：ok（子问题 s1）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#1",
+    "content": "★产量完成率：Σ实际产油 ÷ Σ计划配产 × 100%｜粒度 月/区块·油田 · 单位 %｜状态 生效中｜争议注记：计划版本切换日双值",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 9,
+   "event": "notice",
+   "data": {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「★产量完成率」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：★产量完成率：Σ实际产油 ÷ Σ计划配产 × 100%｜粒度 月/区块·油田 · 单位 %｜状态 生效中｜争议注记：计划版本切换日双值"
+   }
+  },
+  {
+   "id": 10,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「★产量完成率」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：★产量完成率：Σ实际产油 ÷ Σ计划配产 × 100%｜粒度 月/区块·油田 · 单位 %｜状态 生效中｜争议注记：计划版本切换日双值",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 6,
+    "title": "批量汇聚 2 支"
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 7,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 8,
+    "title": "核验：支撑 0｜改写 2｜分源 否"
+   }
+  },
+  {
+   "id": 14,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 2,
+    "split": false,
+    "cited": []
+   }
+  },
+  {
+   "id": 15,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 2 行（INV-1——禁止无据断言进答案）"
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 9,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 17,
+   "event": "text",
+   "data": {
+    "content": "理解：问第三季度产量完成率，按报告主口径统计。\n指标候选：产量完成率\n\n未找到（材料未披露）：注：按当前台账与发射规则，「三季度」未带年份且无默认窗归属，按窗双 null 发射由引擎缺参反问兜底；本相位观察仅一条台账口径行 [1]，尚未拿到「三季度」的时段事实，未观察到执行结果。\n\n问题组结果（待引擎执行回填后最终落数）：\n\n未找到（材料未披露）：- s1 三季度产量完成率是多少（报告主口径）？——暂无执行回填。当前台账口径见 [1]：产量完成率＝Σ实际产油 ÷ Σ计划配产 × 100%，粒度 月/区块·油田，状态生效中，争议注记「计划版本切换日双值」。"
+   }
+  },
+  {
+   "id": 18,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-422bc89e",
+    "manifest_digest": "c90b583c3e2344195139b1fad7e5c0e7f5efba6264899a51aca2f62635065380"
+   }
+  },
+  {
+   "id": 19,
+   "event": "done",
+   "data": {
+    "run_id": "run-422bc89e"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "理解：问第三季度产量完成率，按报告主口径统计。\n指标候选：产量完成率\n\n未找到（材料未披露）：注：按当前台账与发射规则，「三季度」未带年份且无默认窗归属，按窗双 null 发射由引擎缺参反问兜底；本相位观察仅一条台账口径行 [1]，尚未拿到「三季度」的时段事实，未观察到执行结果。\n\n问题组结果（待引擎执行回填后最终落数）：\n\n未找到（材料未披露）：- s1 三季度产量完成率是多少（报告主口径）？——暂无执行回填。当前台账口径见 [1]：产量完成率＝Σ实际产油 ÷ Σ计划配产 × 100%，粒度 月/区块·油田，状态生效中，争议注记「计划版本切换日双值」。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「★产量完成率」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：★产量完成率：Σ实际产油 ÷ Σ计划配产 × 100%｜粒度 月/区块·油田 · 单位 %｜状态 生效中｜争议注记：计划版本切换日双值"
+   },
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 2 行（INV-1——禁止无据断言进答案）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-422bc89e",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问第三季度产量完成率，按报告主口径统计。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：1 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note"
+   },
+   {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：ok（子问题 s1）"
+   },
+   {
+    "step": "observe",
+    "seq": 6,
+    "title": "批量汇聚 2 支"
+   },
+   {
+    "step": "answer",
+    "seq": 7,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 8,
+    "title": "核验：支撑 0｜改写 2｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 9,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_metric#1",
+    "content": "★产量完成率：Σ实际产油 ÷ Σ计划配产 × 100%｜粒度 月/区块·油田 · 单位 %｜状态 生效中｜争议注记：计划版本切换日双值",
+    "trust": "ledger"
+   },
+   {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「★产量完成率」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：★产量完成率：Σ实际产油 ÷ Σ计划配产 × 100%｜粒度 月/区块·油田 · 单位 %｜状态 生效中｜争议注记：计划版本切换日双值",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 2,
+    "split": false,
+    "cited": []
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-422bc89e",
+   "manifest_digest": "c90b583c3e2344195139b1fad7e5c0e7f5efba6264899a51aca2f62635065380"
+  },
+  "texts": [
+   "问第三季度产量完成率，按报告主口径统计。",
+   "理解：问第三季度产量完成率，按报告主口径统计。\n指标候选：产量完成率\n\n未找到（材料未披露）：注：按当前台账与发射规则，「三季度」未带年份且无默认窗归属，按窗双 null 发射由引擎缺参反问兜底；本相位观察仅一条台账口径行 [1]，尚未拿到「三季度」的时段事实，未观察到执行结果。\n\n问题组结果（待引擎执行回填后最终落数）：\n\n未找到（材料未披露）：- s1 三季度产量完成率是多少（报告主口径）？——暂无执行回填。当前台账口径见 [1]：产量完成率＝Σ实际产油 ÷ Σ计划配产 × 100%，粒度 月/区块·油田，状态生效中，争议注记「计划版本切换日双值」。"
+  ],
+  "duration_s": 6.7
+ }
+}

@@ -116,12 +116,13 @@ def test_resume_posts_first_option_and_merges_final_round() -> None:
     resumes = asyncio.run(_drive_resume(
         V2_BASE, out_data, calls, _resume_frames("run-ask-1", "按近 30 天出数。"),
     ))
-    # 缺省选第一项（附 5——题册 expectedBehavior 指定项）
+    # 缺省选第一项（附 5——题册 expectedBehavior 指定项）；载荷按 ResumeBody
+    # 合同携 kind=clarify（appv2/api/chat.py resume 入参形）。
     assert resumes == [{"run_id": "run-ask-1", "choice": "近 7 天"}]
     assert calls == [{
         "method": "POST",
         "url": "http://localhost:8010/api/v2/chat/runs/run-ask-1/resume",
-        "body": {"choice": "近 7 天"},
+        "body": {"kind": "clarify", "choice": "近 7 天"},
     }]
     # 续跑帧并入＋重新归约——判分只看最终交付轮（终稿答案/verdict 在场）。
     assert out_data["parsed"]["final"] is not None
@@ -212,3 +213,29 @@ def test_resume_bound_at_three_rounds() -> None:
     resumes = asyncio.run(_drive())
     assert len(resumes) == 3
     assert len(transport_calls) == 3
+
+
+def test_resume_approval_frame_maps_to_approve_with_id() -> None:
+    """审批挂起帧（external_table_approval）→ ResumeBody approval 形（第一选项
+    「批准」→approve；帧 detail.approval_id 随行）。"""
+    import asyncio
+
+    out_data = _suspended_out_data("run-ext-1")
+    out_data["frames"][1]["data"]["frame"] = {
+        "kind": "external_table_approval",
+        "prompt": "计划引用外部表 erp_well_register——是否批准越集查询？",
+        "options": ["批准", "驳回"],
+        "detail": {"approval_id": "run-ext-1#APP-0910-erp_well_register"},
+    }
+    out_data["parsed"] = rerun.parse_frames(out_data["frames"])
+    calls: list[dict] = []
+    resumes = asyncio.run(_drive_resume(
+        V2_BASE, out_data, calls,
+        _resume_frames("run-ext-1", "外表引用审批已通过（单号留痕）。"),
+    ))
+    assert resumes == [{"run_id": "run-ext-1", "choice": "批准"}]
+    assert calls[0]["body"] == {
+        "kind": "approval",
+        "decision": "approve",
+        "approval_id": "run-ext-1#APP-0910-erp_well_register",
+    }

@@ -1,0 +1,424 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-6da56097",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问8月份躺井发生的井次、躺井率，以及对应的统计口径。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问8月份躺井发生的井次、躺井率，以及对应的统计口径。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（问「8 月躺井多少井次？躺井率多少？按什么口径？）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "问「8 月躺井多少井次？躺井率多少？按什么口径？」中，「躺井」是作业区口语（停产待检泵，台账有别名映射），「躺井率」台账未直接列出口径定义；「8 月」时间窗已锚定为 2026-08-01 至 2026-08-31。\n\n关于「躺井率」的口径，按以下哪种理解取数？",
+     "options": [
+      "躺井率＝躺井井次 ÷ 当月开井总井次 × 100%（口径A）",
+      "躺井率＝躺井井次 ÷ 当月在册总井次 × 100%（口径B）",
+      "躺井率＝Σ躺井天数 ÷ Σ日历天数（井次加权·口径C）",
+      "用户补充口径说明"
+     ],
+     "detail": null
+    },
+    "run_id": "run-6da56097"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-6da56097"
+   }
+  },
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-6da56097",
+    "resume": true
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清回收：躺井率＝躺井井次 ÷ 当月开井总井次 × 100%（口径A）"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清钻取 ×2（semantic_query、semantic_query）"
+   }
+  },
+  {
+   "id": 3,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "failed",
+    "seq": 5,
+    "message": "question 与 element_name 须二选一（同给同缺均拒）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 5,
+    "title": "semantic_query：failed"
+   }
+  },
+  {
+   "id": 5,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具校验拒因回喂重决策：question 与 element_name 须二选一（同给同缺均拒）"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "澄清钻取 ×2（semantic_query、semantic_query）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 7,
+    "message": null
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 7,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 8,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 10,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_term#4",
+    "content": "躺井（黑话 → 停产待检泵 · 有效（限作业区语境））：作业区口语",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 11,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 9,
+    "message": null
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 9,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 10,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 14,
+   "event": "notice",
+   "data": {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：躺井率（精确名与别名归一均未命中——请核对要素名）"
+   }
+  },
+  {
+   "id": 15,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：躺井率（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 11,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 17,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 12,
+    "title": "工具匹配：1 条定案"
+   }
+  },
+  {
+   "id": 18,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 13,
+    "title": "前置条件机：s1=blocked_refuse"
+   }
+  },
+  {
+   "id": 19,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 14,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 20,
+   "event": "text",
+   "data": {
+    "content": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 8月躺井多少井次？躺井率多少？按口径A：躺井井次÷当月开井总井次×100%——拒因：指标 '躺井' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）"
+   }
+  },
+  {
+   "id": 21,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-6da56097",
+    "manifest_digest": "aed99fc48e0561d227a13f494c024fe9b1b96ae386a01920ab6926adc6149a15"
+   }
+  },
+  {
+   "id": 22,
+   "event": "done",
+   "data": {
+    "run_id": "run-6da56097"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 8月躺井多少井次？躺井率多少？按口径A：躺井井次÷当月开井总井次×100%——拒因：指标 '躺井' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具校验拒因回喂重决策：question 与 element_name 须二选一（同给同缺均拒）"
+   },
+   {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：躺井率（精确名与别名归一均未命中——请核对要素名）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-6da56097",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问8月份躺井发生的井次、躺井率，以及对应的统计口径。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（问「8 月躺井多少井次？躺井率多少？按什么口径？）"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清回收：躺井率＝躺井井次 ÷ 当月开井总井次 × 100%（口径A）"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清钻取 ×2（semantic_query、semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 5,
+    "title": "semantic_query：failed"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "澄清钻取 ×2（semantic_query、semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 7,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 8,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "discover",
+    "seq": 9,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 10,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "decision",
+    "seq": 11,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 12,
+    "title": "工具匹配：1 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 13,
+    "title": "前置条件机：s1=blocked_refuse"
+   },
+   {
+    "step": "answer",
+    "seq": 14,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "semantic_query",
+    "status": "failed",
+    "seq": 5,
+    "message": "question 与 element_name 须二选一（同给同缺均拒）"
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 7,
+    "message": null
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 9,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_term#4",
+    "content": "躺井（黑话 → 停产待检泵 · 有效（限作业区语境））：作业区口语",
+    "trust": "ledger"
+   },
+   {
+    "index": 2,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：躺井率（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  ],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "问「8 月躺井多少井次？躺井率多少？按什么口径？」中，「躺井」是作业区口语（停产待检泵，台账有别名映射），「躺井率」台账未直接列出口径定义；「8 月」时间窗已锚定为 2026-08-01 至 2026-08-31。\n\n关于「躺井率」的口径，按以下哪种理解取数？",
+     "options": [
+      "躺井率＝躺井井次 ÷ 当月开井总井次 × 100%（口径A）",
+      "躺井率＝躺井井次 ÷ 当月在册总井次 × 100%（口径B）",
+      "躺井率＝Σ躺井天数 ÷ Σ日历天数（井次加权·口径C）",
+      "用户补充口径说明"
+     ],
+     "detail": null
+    },
+    "run_id": "run-6da56097"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-6da56097",
+   "manifest_digest": "aed99fc48e0561d227a13f494c024fe9b1b96ae386a01920ab6926adc6149a15"
+  },
+  "texts": [
+   "问8月份躺井发生的井次、躺井率，以及对应的统计口径。",
+   "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 8月躺井多少井次？躺井率多少？按口径A：躺井井次÷当月开井总井次×100%——拒因：指标 '躺井' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）"
+  ],
+  "duration_s": 25.4
+ }
+}

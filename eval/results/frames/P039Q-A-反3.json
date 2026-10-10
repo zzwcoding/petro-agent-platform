@@ -1,0 +1,482 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-668d2521",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问 W-11 井投产后的预计躺井率。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问 W-11 井投产后的预计躺井率。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清钻取 ×1（semantic_query）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 3,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 7,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_term#4",
+    "content": "躺井（黑话 → 停产待检泵 · 有效（限作业区语境））：作业区口语",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r1：反问（「躺井率」在台账未直接收录，常见派生口径需先确认）"
+   }
+  },
+  {
+   "id": 9,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「躺井率」在台账未直接收录，常见派生口径需先确认按哪种取数：",
+     "options": [
+      "抽油机时率（开井天数÷日历天，台账已有指标）",
+      "停产待检泵日数÷日历天数（按术语别名·停产待检泵=躺井）",
+      "停产井数÷总井数（井次口径·停产/在册）",
+      "用其它自定义公式（请补充）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-668d2521"
+   }
+  },
+  {
+   "id": 10,
+   "event": "done",
+   "data": {
+    "run_id": "run-668d2521"
+   }
+  },
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-668d2521",
+    "resume": true
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "澄清回收：抽油机时率（开井天数÷日历天，台账已有指标）"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "工具匹配：1 条定案"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 9,
+    "title": "前置条件机：s1=note"
+   }
+  },
+  {
+   "id": 5,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 10,
+    "message": null
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 10,
+    "title": "data_query：ok（子问题 s1）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "sem_metric#14",
+    "content": "☆抽油机时率：Σ开井天数 ÷ Σ日历天 × 100%｜粒度 月 · 单位 %｜状态 生效中｜争议注记：—",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 8,
+   "event": "notice",
+   "data": {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「☆抽油机时率」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆抽油机时率：Σ开井天数 ÷ Σ日历天 × 100%｜粒度 月 · 单位 %｜状态 生效中｜争议注记：—"
+   }
+  },
+  {
+   "id": 9,
+   "event": "observation",
+   "data": {
+    "index": 3,
+    "source": "query 引擎降级依据",
+    "content": "指标「☆抽油机时率」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆抽油机时率：Σ开井天数 ÷ Σ日历天 × 100%｜粒度 月 · 单位 %｜状态 生效中｜争议注记：—",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 11,
+    "title": "批量汇聚 2 支"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 12,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 13,
+    "title": "核验：支撑 2｜改写 6｜分源 否"
+   }
+  },
+  {
+   "id": 13,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 2,
+    "rewritten": 6,
+    "split": false,
+    "cited": [
+     1,
+     2
+    ]
+   }
+  },
+  {
+   "id": 14,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 6 行（INV-1——禁止无据断言进答案）"
+   }
+  },
+  {
+   "id": 15,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 14,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 16,
+   "event": "citation",
+   "data": {
+    "index": 1,
+    "source": "sem_term#4",
+    "source_id": "4",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 17,
+   "event": "citation",
+   "data": {
+    "index": 2,
+    "source": "sem_metric#14",
+    "source_id": "14",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 18,
+   "event": "text",
+   "data": {
+    "content": "未找到（材料未披露）：**s1：W-11 井投产后预计躺井率（口径按抽油机时率）**\n\n未找到（材料未披露）：未在给定观察材料中检索到 W-11 井投产后的具体躺井率数值 [1][2]。\n\n按口径与台账现状如实说明：\n- 「躺井」为作业区口语黑话，台账映射至「停产待检泵」[1]；用户已确认按「抽油机时率（Σ开井天数 ÷ Σ日历天 × 100%，粒度月）」口径取数 [2]。\n未找到（材料未披露）：- 抽油机时率在台账为生效中指标，粒度＝月 [2]；未绑定 W-11 井投产后的预计/投产日信息，未带时间窗。\n未找到（材料未披露）：- data_query 已按该计划取数，但本次观察材料未返回任何「井号=W-11」的抽油机时率行——未观察到 W-11 投产后的躺井率数值，未找到具体值，不做断言。\n未找到（材料未披露）：- 单井过滤未支持：本计划按全井发射（如有结果需读 W-11 行），此次结果亦未给出该井行。\n\n未找到（材料未披露）：建议：补充 W-11 井投产日期（或投产月起止月份），以便按月粒度锚定窗并重取抽油机时率 [2]。\n\n引用：\n[1] sem_term#4 · 4（ledger）\n[2] sem_metric#14 · 14（ledger）"
+   }
+  },
+  {
+   "id": 19,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-668d2521",
+    "manifest_digest": "42a166897fccd72919f186a7a327125bef7eb44d698dab1807e706b6a1eac1f5"
+   }
+  },
+  {
+   "id": 20,
+   "event": "done",
+   "data": {
+    "run_id": "run-668d2521"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "未找到（材料未披露）：**s1：W-11 井投产后预计躺井率（口径按抽油机时率）**\n\n未找到（材料未披露）：未在给定观察材料中检索到 W-11 井投产后的具体躺井率数值 [1][2]。\n\n按口径与台账现状如实说明：\n- 「躺井」为作业区口语黑话，台账映射至「停产待检泵」[1]；用户已确认按「抽油机时率（Σ开井天数 ÷ Σ日历天 × 100%，粒度月）」口径取数 [2]。\n未找到（材料未披露）：- 抽油机时率在台账为生效中指标，粒度＝月 [2]；未绑定 W-11 井投产后的预计/投产日信息，未带时间窗。\n未找到（材料未披露）：- data_query 已按该计划取数，但本次观察材料未返回任何「井号=W-11」的抽油机时率行——未观察到 W-11 投产后的躺井率数值，未找到具体值，不做断言。\n未找到（材料未披露）：- 单井过滤未支持：本计划按全井发射（如有结果需读 W-11 行），此次结果亦未给出该井行。\n\n未找到（材料未披露）：建议：补充 W-11 井投产日期（或投产月起止月份），以便按月粒度锚定窗并重取抽油机时率 [2]。\n\n引用：\n[1] sem_term#4 · 4（ledger）\n[2] sem_metric#14 · 14（ledger）",
+  "citations": [
+   {
+    "index": 1,
+    "source": "sem_term#4",
+    "source_id": "4",
+    "trust": "ledger"
+   },
+   {
+    "index": 2,
+    "source": "sem_metric#14",
+    "source_id": "14",
+    "trust": "ledger"
+   }
+  ],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「☆抽油机时率」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆抽油机时率：Σ开井天数 ÷ Σ日历天 × 100%｜粒度 月 · 单位 %｜状态 生效中｜争议注记：—"
+   },
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 6 行（INV-1——禁止无据断言进答案）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-668d2521",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问 W-11 井投产后的预计躺井率。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清钻取 ×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 3,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r1：反问（「躺井率」在台账未直接收录，常见派生口径需先确认）"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "澄清回收：抽油机时率（开井天数÷日历天，台账已有指标）"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "工具匹配：1 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 9,
+    "title": "前置条件机：s1=note"
+   },
+   {
+    "step": "execute",
+    "seq": 10,
+    "title": "data_query：ok（子问题 s1）"
+   },
+   {
+    "step": "observe",
+    "seq": 11,
+    "title": "批量汇聚 2 支"
+   },
+   {
+    "step": "answer",
+    "seq": 12,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 13,
+    "title": "核验：支撑 2｜改写 6｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 14,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   },
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 10,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_term#4",
+    "content": "躺井（黑话 → 停产待检泵 · 有效（限作业区语境））：作业区口语",
+    "trust": "ledger"
+   },
+   {
+    "index": 2,
+    "source": "sem_metric#14",
+    "content": "☆抽油机时率：Σ开井天数 ÷ Σ日历天 × 100%｜粒度 月 · 单位 %｜状态 生效中｜争议注记：—",
+    "trust": "ledger"
+   },
+   {
+    "index": 3,
+    "source": "query 引擎降级依据",
+    "content": "指标「☆抽油机时率」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆抽油机时率：Σ开井天数 ÷ Σ日历天 × 100%｜粒度 月 · 单位 %｜状态 生效中｜争议注记：—",
+    "trust": "notice"
+   }
+  ],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「躺井率」在台账未直接收录，常见派生口径需先确认按哪种取数：",
+     "options": [
+      "抽油机时率（开井天数÷日历天，台账已有指标）",
+      "停产待检泵日数÷日历天数（按术语别名·停产待检泵=躺井）",
+      "停产井数÷总井数（井次口径·停产/在册）",
+      "用其它自定义公式（请补充）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-668d2521"
+   }
+  ],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 2,
+    "rewritten": 6,
+    "split": false,
+    "cited": [
+     1,
+     2
+    ]
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-668d2521",
+   "manifest_digest": "42a166897fccd72919f186a7a327125bef7eb44d698dab1807e706b6a1eac1f5"
+  },
+  "texts": [
+   "问 W-11 井投产后的预计躺井率。",
+   "未找到（材料未披露）：**s1：W-11 井投产后预计躺井率（口径按抽油机时率）**\n\n未找到（材料未披露）：未在给定观察材料中检索到 W-11 井投产后的具体躺井率数值 [1][2]。\n\n按口径与台账现状如实说明：\n- 「躺井」为作业区口语黑话，台账映射至「停产待检泵」[1]；用户已确认按「抽油机时率（Σ开井天数 ÷ Σ日历天 × 100%，粒度月）」口径取数 [2]。\n未找到（材料未披露）：- 抽油机时率在台账为生效中指标，粒度＝月 [2]；未绑定 W-11 井投产后的预计/投产日信息，未带时间窗。\n未找到（材料未披露）：- data_query 已按该计划取数，但本次观察材料未返回任何「井号=W-11」的抽油机时率行——未观察到 W-11 投产后的躺井率数值，未找到具体值，不做断言。\n未找到（材料未披露）：- 单井过滤未支持：本计划按全井发射（如有结果需读 W-11 行），此次结果亦未给出该井行。\n\n未找到（材料未披露）：建议：补充 W-11 井投产日期（或投产月起止月份），以便按月粒度锚定窗并重取抽油机时率 [2]。\n\n引用：\n[1] sem_term#4 · 4（ledger）\n[2] sem_metric#14 · 14（ledger）"
+  ],
+  "duration_s": 23.2
+ }
+}

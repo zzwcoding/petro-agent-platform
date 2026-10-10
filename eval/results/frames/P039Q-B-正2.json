@@ -1,0 +1,394 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-5850daab",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问哪些井发生过杆断，以及这些井的平均检泵周期是多少。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问哪些井发生过杆断，以及这些井的平均检泵周期是多少。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 2 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：2 条定案"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note｜s2=note"
+   }
+  },
+  {
+   "id": 6,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：ok（子问题 s1）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#13",
+    "content": "☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 9,
+   "event": "notice",
+   "data": {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—"
+   }
+  },
+  {
+   "id": 10,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 11,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 6,
+    "message": null
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 6,
+    "title": "data_query：ok（子问题 s2）"
+   }
+  },
+  {
+   "id": 13,
+   "event": "observation",
+   "data": {
+    "index": 3,
+    "source": "sem_metric#13",
+    "content": "☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 14,
+   "event": "notice",
+   "data": {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—"
+   }
+  },
+  {
+   "id": 15,
+   "event": "observation",
+   "data": {
+    "index": 4,
+    "source": "query 引擎降级依据",
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 7,
+    "title": "批量汇聚 4 支"
+   }
+  },
+  {
+   "id": 17,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 8,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 18,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 9,
+    "title": "核验：支撑 2｜改写 0｜分源 否"
+   }
+  },
+  {
+   "id": 19,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 2,
+    "rewritten": 0,
+    "split": false,
+    "cited": [
+     1,
+     3
+    ]
+   }
+  },
+  {
+   "id": 20,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 10,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 21,
+   "event": "citation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#13",
+    "source_id": "13",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 22,
+   "event": "citation",
+   "data": {
+    "index": 3,
+    "source": "sem_metric#13",
+    "source_id": "13",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 23,
+   "event": "text",
+   "data": {
+    "content": "根据本次查询返回的台账材料，无法直接给出问题所求的两项答案。说明如下：\n\n- **杆断的是哪几口井**：观察材料仅返回 2 行「检泵周期」台账记录 [1][3]，未包含井号、井名或故障类型（如「杆断」）字段；台账 schema 未覆盖「杆断」这一故障类别，故无法从材料中识别哪些井发生过杆断——**未找到**。\n- **平均检泵周期多少**：观察材料 [1][3] 仅给出「检泵周期」指标的粒度（单井）、单位（天）与口径定义（本次检泵日 − 上次检泵日），但未返回具体数值行（井号=…、周期=…天），无据可算——**未找到**。\n\n如需进一步定位，建议补充：①「杆断」是否在检泵原因/故障台账中可查（当前 ledger 未覆盖该字段）；②检泵周期数值行的取数路径（本次返回未带回井级数值）。\n\n引用：\n[1] sem_metric#13 · 13（ledger）\n[3] sem_metric#13 · 13（ledger）"
+   }
+  },
+  {
+   "id": 24,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-5850daab",
+    "manifest_digest": "826a3c343892048fb5d8aed40cdace5b02cb977577cb9cc3949aba3f32ca0732"
+   }
+  },
+  {
+   "id": 25,
+   "event": "done",
+   "data": {
+    "run_id": "run-5850daab"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "根据本次查询返回的台账材料，无法直接给出问题所求的两项答案。说明如下：\n\n- **杆断的是哪几口井**：观察材料仅返回 2 行「检泵周期」台账记录 [1][3]，未包含井号、井名或故障类型（如「杆断」）字段；台账 schema 未覆盖「杆断」这一故障类别，故无法从材料中识别哪些井发生过杆断——**未找到**。\n- **平均检泵周期多少**：观察材料 [1][3] 仅给出「检泵周期」指标的粒度（单井）、单位（天）与口径定义（本次检泵日 − 上次检泵日），但未返回具体数值行（井号=…、周期=…天），无据可算——**未找到**。\n\n如需进一步定位，建议补充：①「杆断」是否在检泵原因/故障台账中可查（当前 ledger 未覆盖该字段）；②检泵周期数值行的取数路径（本次返回未带回井级数值）。\n\n引用：\n[1] sem_metric#13 · 13（ledger）\n[3] sem_metric#13 · 13（ledger）",
+  "citations": [
+   {
+    "index": 1,
+    "source": "sem_metric#13",
+    "source_id": "13",
+    "trust": "ledger"
+   },
+   {
+    "index": 3,
+    "source": "sem_metric#13",
+    "source_id": "13",
+    "trust": "ledger"
+   }
+  ],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—"
+   },
+   {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-5850daab",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问哪些井发生过杆断，以及这些井的平均检泵周期是多少。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 2 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：2 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note｜s2=note"
+   },
+   {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：ok（子问题 s1）"
+   },
+   {
+    "step": "execute",
+    "seq": 6,
+    "title": "data_query：ok（子问题 s2）"
+   },
+   {
+    "step": "observe",
+    "seq": 7,
+    "title": "批量汇聚 4 支"
+   },
+   {
+    "step": "answer",
+    "seq": 8,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 9,
+    "title": "核验：支撑 2｜改写 0｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 10,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   },
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 6,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_metric#13",
+    "content": "☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "ledger"
+   },
+   {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "notice"
+   },
+   {
+    "index": 3,
+    "source": "sem_metric#13",
+    "content": "☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "ledger"
+   },
+   {
+    "index": 4,
+    "source": "query 引擎降级依据",
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 2,
+    "rewritten": 0,
+    "split": false,
+    "cited": [
+     1,
+     3
+    ]
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-5850daab",
+   "manifest_digest": "826a3c343892048fb5d8aed40cdace5b02cb977577cb9cc3949aba3f32ca0732"
+  },
+  "texts": [
+   "问哪些井发生过杆断，以及这些井的平均检泵周期是多少。",
+   "根据本次查询返回的台账材料，无法直接给出问题所求的两项答案。说明如下：\n\n- **杆断的是哪几口井**：观察材料仅返回 2 行「检泵周期」台账记录 [1][3]，未包含井号、井名或故障类型（如「杆断」）字段；台账 schema 未覆盖「杆断」这一故障类别，故无法从材料中识别哪些井发生过杆断——**未找到**。\n- **平均检泵周期多少**：观察材料 [1][3] 仅给出「检泵周期」指标的粒度（单井）、单位（天）与口径定义（本次检泵日 − 上次检泵日），但未返回具体数值行（井号=…、周期=…天），无据可算——**未找到**。\n\n如需进一步定位，建议补充：①「杆断」是否在检泵原因/故障台账中可查（当前 ledger 未覆盖该字段）；②检泵周期数值行的取数路径（本次返回未带回井级数值）。\n\n引用：\n[1] sem_metric#13 · 13（ledger）\n[3] sem_metric#13 · 13（ledger）"
+  ],
+  "duration_s": 17.1
+ }
+}

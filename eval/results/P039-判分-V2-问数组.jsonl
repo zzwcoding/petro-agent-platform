@@ -1,0 +1,16 @@
+{"qid": "数-明1", "judge": "⚠️", "q13w_judge": "⚠️", "run_id": "run-e322f177", "resumed": null, "frame_file": "P039W-数-明1.json", "note": ""}
+{"qid": "数-明2", "judge": "⚠️", "q13w_judge": "⚠️", "run_id": "run-a49a7ae7", "resumed": null, "frame_file": "P039W-数-明2.json", "note": ""}
+{"qid": "数-明3", "judge": "⚠️", "q13w_judge": "⚠️", "run_id": "run-f3322ec0", "resumed": null, "frame_file": "P039W-数-明3.json", "note": ""}
+{"qid": "数-排1", "judge": "✅", "q13w_judge": "✅", "run_id": "run-5bab2c4b", "resumed": null, "frame_file": "P039W-数-排1.json", "note": ""}
+{"qid": "数-排2", "judge": "⚠️", "q13w_judge": "✅", "run_id": "run-f764acbd", "resumed": null, "frame_file": "P039W-数-排2.json", "note": "Z-22 1784.67/N-09 1851.55 数值引标全对，但结论行被核验改写挂「未找到」前缀——披露缺 ⚠️（Q13W ✅ 一档跌：核验改写表现面波动）"}
+{"qid": "数-排3", "judge": "✅", "q13w_judge": "✅", "run_id": "run-5971df21", "resumed": null, "frame_file": "P039W-数-排3.json", "note": ""}
+{"qid": "数-限1", "judge": "⚠️", "q13w_judge": "⚠️", "run_id": "run-8ec03a27", "resumed": null, "frame_file": "P039W-数-限1.json", "note": ""}
+{"qid": "数-闸1", "judge": "⚠️", "q13w_judge": "⚠️", "run_id": "run-08342cea", "resumed": null, "frame_file": "P039W-数-闸1.json", "note": ""}
+{"qid": "数-闸2", "judge": "⚠️", "q13w_judge": "⚠️", "run_id": "run-db25731c", "resumed": null, "frame_file": "P039W-数-闸2.json", "note": ""}
+{"qid": "数-闸3", "judge": "⚠️", "q13w_judge": "⚠️", "run_id": "run-8fb8e0bf", "resumed": null, "frame_file": "P039W-数-闸3.json", "note": ""}
+{"qid": "数-反1", "judge": "❌", "q13w_judge": "✅", "run_id": "run-46639cba", "resumed": null, "frame_file": "P039W-数-反1.json", "note": "「最近」被默认近 30 天直发出数（24 井 19.42...）——答案册「不反问直接出数 ❌」；F2c 直发 emphasis 对模糊时间词的副作用（发射判据「模糊→窗双 null」被盖过）——合同使然，⑦族反向残余，登记 D 类观察归 L0"}
+{"qid": "数-降1", "judge": "✅", "q13w_judge": "✅", "run_id": "run-bbf2f90b", "resumed": null, "frame_file": "P039W-数-降1.json", "note": ""}
+{"qid": "数-降2", "judge": "✅", "q13w_judge": "✅", "run_id": "run-90030b13", "resumed": null, "frame_file": "P039W-数-降2.json", "note": ""}
+{"qid": "数-察1", "judge": "⚠️", "q13w_judge": "⚠️", "run_id": "run-c7f26b0d", "resumed": null, "frame_file": "P039W-数-察1.json", "note": ""}
+{"qid": "数-界1", "judge": "⚠️", "q13w_judge": "⚠️", "run_id": "run-c05e9854", "resumed": null, "frame_file": "P039W-数-界1.json", "note": ""}
+{"qid": "数-察2", "judge": "⚠️", "q13w_judge": "⚠️", "run_id": "run-6331c337", "resumed": [{"run_id": "run-6331c337", "choice": "批准"}, {"run_id": "run-6331c337", "choice": "批准"}], "frame_file": "P039W2-数-察2.json", "note": "F14 双道审批帧在场＋resume 批准续跑如实收口（零数值）——审批可达性较 Q13W（帧缺席）改善，维持 ⚠️（P039W2 复跑行）"}

@@ -1,0 +1,388 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-59eabd19",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问 W-45 井当前的泵效数值。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问 W-45 井当前的泵效数值。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（泵效属于机采系统能效指标族（含系统级／单元级／设）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "泵效属于机采系统能效指标族（含系统级／单元级／设备级），问「W-45 井现在的泵效」需要确认取数粒度与时间窗。",
+     "options": [
+      "W-45 井近 30 天（2026-08-01 至 2026-08-31）设备级泵效日值明细",
+      "W-45 井本月（2026-08）单元级泵效月值",
+      "W-45 井截止当前的最新泵效瞬时值"
+     ],
+     "detail": null
+    },
+    "run_id": "run-59eabd19"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-59eabd19"
+   }
+  },
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-59eabd19",
+    "resume": true
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清回收：W-45 井近 30 天（2026-08-01 至 2026-08-31）设备级泵效日值明细"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "工具匹配：1 条定案"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "前置条件机：s1=note"
+   }
+  },
+  {
+   "id": 5,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 7,
+    "message": null
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 7,
+    "title": "data_query：ok（子问题 s1）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#12",
+    "content": "☆机采系统能效：系统级 / 单元级 / 设备级三级＋统计限值（优良 / 合格）｜粒度 月 · 单位 %｜状态 生效中｜争议注记：分组限值",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 8,
+   "event": "notice",
+   "data": {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「☆机采系统能效」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆机采系统能效：系统级 / 单元级 / 设备级三级＋统计限值（优良 / 合格）｜粒度 月 · 单位 %｜状态 生效中｜争议注记：分组限值"
+   }
+  },
+  {
+   "id": 9,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「☆机采系统能效」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆机采系统能效：系统级 / 单元级 / 设备级三级＋统计限值（优良 / 合格）｜粒度 月 · 单位 %｜状态 生效中｜争议注记：分组限值",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 8,
+    "title": "批量汇聚 2 支"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 9,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 10,
+    "title": "核验：支撑 1｜改写 3｜分源 否"
+   }
+  },
+  {
+   "id": 13,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 1,
+    "rewritten": 3,
+    "split": false,
+    "cited": [
+     1
+    ]
+   }
+  },
+  {
+   "id": 14,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 3 行（INV-1——禁止无据断言进答案）"
+   }
+  },
+  {
+   "id": 15,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 11,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 16,
+   "event": "citation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#12",
+    "source_id": "12",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 17,
+   "event": "text",
+   "data": {
+    "content": "未找到（材料未披露）：**关于 W-45 井近 30 天（2026-08-01 至 2026-08-31）设备级泵效日值明细的查询结果：**\n\n未找到（材料未披露）：未找到 W-45 井近 30 天的设备级泵效日值明细。\n\n原因：「机采系统能效」指标的台账记录为**月度粒度、单位 %、分系统级／单元级／设备级三个层级** [1]，不承载日值明细；且问句指定了「W-45」单井，按业务红线单井过滤暂不支持，返回结果中未定位到 W-45 井的设备级月值记录，故无法给出日级明细。\n\n建议口径调整：\n未找到（材料未披露）：- 若可接受**设备级月值**（2026-08 单月），可重新按月粒度取数；\n- 若必须日级明细，需确认是否存在「机采系统能效」日值口径的外部数据源（当前台账无）。\n\n参考依据：\n- [1]（ledger）：机采系统能效——系统级／单元级／设备级三级＋统计限值（优良／合格），粒度 月·单位 %，状态 生效中，争议注记 分组限值。\n\n引用：\n[1] sem_metric#12 · 12（ledger）"
+   }
+  },
+  {
+   "id": 18,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-59eabd19",
+    "manifest_digest": "9ebd3beaddde5198e0d8b597a046415a8aae6f753d702eb7ab25107ab6fd0f11"
+   }
+  },
+  {
+   "id": 19,
+   "event": "done",
+   "data": {
+    "run_id": "run-59eabd19"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "未找到（材料未披露）：**关于 W-45 井近 30 天（2026-08-01 至 2026-08-31）设备级泵效日值明细的查询结果：**\n\n未找到（材料未披露）：未找到 W-45 井近 30 天的设备级泵效日值明细。\n\n原因：「机采系统能效」指标的台账记录为**月度粒度、单位 %、分系统级／单元级／设备级三个层级** [1]，不承载日值明细；且问句指定了「W-45」单井，按业务红线单井过滤暂不支持，返回结果中未定位到 W-45 井的设备级月值记录，故无法给出日级明细。\n\n建议口径调整：\n未找到（材料未披露）：- 若可接受**设备级月值**（2026-08 单月），可重新按月粒度取数；\n- 若必须日级明细，需确认是否存在「机采系统能效」日值口径的外部数据源（当前台账无）。\n\n参考依据：\n- [1]（ledger）：机采系统能效——系统级／单元级／设备级三级＋统计限值（优良／合格），粒度 月·单位 %，状态 生效中，争议注记 分组限值。\n\n引用：\n[1] sem_metric#12 · 12（ledger）",
+  "citations": [
+   {
+    "index": 1,
+    "source": "sem_metric#12",
+    "source_id": "12",
+    "trust": "ledger"
+   }
+  ],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "unbound_degrade",
+    "gates": [],
+    "content": "指标「☆机采系统能效」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆机采系统能效：系统级 / 单元级 / 设备级三级＋统计限值（优良 / 合格）｜粒度 月 · 单位 %｜状态 生效中｜争议注记：分组限值"
+   },
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 3 行（INV-1——禁止无据断言进答案）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-59eabd19",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问 W-45 井当前的泵效数值。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（泵效属于机采系统能效指标族（含系统级／单元级／设）"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清回收：W-45 井近 30 天（2026-08-01 至 2026-08-31）设备级泵效日值明细"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "工具匹配：1 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "前置条件机：s1=note"
+   },
+   {
+    "step": "execute",
+    "seq": 7,
+    "title": "data_query：ok（子问题 s1）"
+   },
+   {
+    "step": "observe",
+    "seq": 8,
+    "title": "批量汇聚 2 支"
+   },
+   {
+    "step": "answer",
+    "seq": 9,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 10,
+    "title": "核验：支撑 1｜改写 3｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 11,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 7,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_metric#12",
+    "content": "☆机采系统能效：系统级 / 单元级 / 设备级三级＋统计限值（优良 / 合格）｜粒度 月 · 单位 %｜状态 生效中｜争议注记：分组限值",
+    "trust": "ledger"
+   },
+   {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「☆机采系统能效」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆机采系统能效：系统级 / 单元级 / 设备级三级＋统计限值（优良 / 合格）｜粒度 月 · 单位 %｜状态 生效中｜争议注记：分组限值",
+    "trust": "notice"
+   }
+  ],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "泵效属于机采系统能效指标族（含系统级／单元级／设备级），问「W-45 井现在的泵效」需要确认取数粒度与时间窗。",
+     "options": [
+      "W-45 井近 30 天（2026-08-01 至 2026-08-31）设备级泵效日值明细",
+      "W-45 井本月（2026-08）单元级泵效月值",
+      "W-45 井截止当前的最新泵效瞬时值"
+     ],
+     "detail": null
+    },
+    "run_id": "run-59eabd19"
+   }
+  ],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 1,
+    "rewritten": 3,
+    "split": false,
+    "cited": [
+     1
+    ]
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-59eabd19",
+   "manifest_digest": "9ebd3beaddde5198e0d8b597a046415a8aae6f753d702eb7ab25107ab6fd0f11"
+  },
+  "texts": [
+   "问 W-45 井当前的泵效数值。",
+   "未找到（材料未披露）：**关于 W-45 井近 30 天（2026-08-01 至 2026-08-31）设备级泵效日值明细的查询结果：**\n\n未找到（材料未披露）：未找到 W-45 井近 30 天的设备级泵效日值明细。\n\n原因：「机采系统能效」指标的台账记录为**月度粒度、单位 %、分系统级／单元级／设备级三个层级** [1]，不承载日值明细；且问句指定了「W-45」单井，按业务红线单井过滤暂不支持，返回结果中未定位到 W-45 井的设备级月值记录，故无法给出日级明细。\n\n建议口径调整：\n未找到（材料未披露）：- 若可接受**设备级月值**（2026-08 单月），可重新按月粒度取数；\n- 若必须日级明细，需确认是否存在「机采系统能效」日值口径的外部数据源（当前台账无）。\n\n参考依据：\n- [1]（ledger）：机采系统能效——系统级／单元级／设备级三级＋统计限值（优良／合格），粒度 月·单位 %，状态 生效中，争议注记 分组限值。\n\n引用：\n[1] sem_metric#12 · 12（ledger）"
+  ],
+  "duration_s": 10.7
+ }
+}

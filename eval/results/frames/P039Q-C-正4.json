@@ -1,0 +1,247 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-58814976",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问W-33井酸化措施效果的四要素（评价维度）。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问W-33井酸化措施效果的四要素（评价维度）。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「W-33 井酸化措施的效果四要素」中所说的「四）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「W-33 井酸化措施的效果四要素」中所说的「四要素」具体指哪四项？常见理解包括：①日增产油量（吨）、②措施有效期（天）、③措施有效率（%）、④递减增油量（吨）；也有指：①增油量②有效期③含水变化④投入产出。请确认：",
+     "options": [
+      "①日产油量↑ ②措施有效期 ③递减增油 ④桶油增产成本",
+      "①增油量 ②有效期 ③含水变化 ④投入产出比",
+      "我只关心①②日产油量↑ 和措施有效期",
+      "其他四要素（请在补充说明里写明）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-58814976"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-58814976"
+   }
+  },
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-58814976",
+    "resume": true
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清回收：①日产油量↑ ②措施有效期 ③递减增油 ④桶油增产成本"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清钻取 ×2（semantic_query、semantic_query）"
+   }
+  },
+  {
+   "id": 3,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "failed",
+    "seq": 5,
+    "message": "未知参数键：['kind']（args_schema additionalProperties=false）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 5,
+    "title": "semantic_query：failed"
+   }
+  },
+  {
+   "id": 5,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具校验拒因回喂重决策：未知参数键：['kind']（args_schema additionalProperties=false）"
+   }
+  },
+  {
+   "id": 6,
+   "event": "notice",
+   "data": {
+    "type": "clarify_capped",
+    "gates": [],
+    "content": "连续澄清已达上限（连续 ask ≥2）——不再挂起，带已取得材料如实直答。"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 8,
+   "event": "text",
+   "data": {
+    "content": "（连续澄清截断——未取得可交付观察材料，如实回报，不编造。）"
+   }
+  },
+  {
+   "id": 9,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-58814976",
+    "manifest_digest": "fb761a9a4d83c8021263f0d91a5e3a7f90033812a244398b619d2bf56ee8b215"
+   }
+  },
+  {
+   "id": 10,
+   "event": "done",
+   "data": {
+    "run_id": "run-58814976"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（连续澄清截断——未取得可交付观察材料，如实回报，不编造。）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具校验拒因回喂重决策：未知参数键：['kind']（args_schema additionalProperties=false）"
+   },
+   {
+    "type": "clarify_capped",
+    "gates": [],
+    "content": "连续澄清已达上限（连续 ask ≥2）——不再挂起，带已取得材料如实直答。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-58814976",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问W-33井酸化措施效果的四要素（评价维度）。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「W-33 井酸化措施的效果四要素」中所说的「四）"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清回收：①日产油量↑ ②措施有效期 ③递减增油 ④桶油增产成本"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清钻取 ×2（semantic_query、semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 5,
+    "title": "semantic_query：failed"
+   },
+   {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "semantic_query",
+    "status": "failed",
+    "seq": 5,
+    "message": "未知参数键：['kind']（args_schema additionalProperties=false）"
+   }
+  ],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「W-33 井酸化措施的效果四要素」中所说的「四要素」具体指哪四项？常见理解包括：①日增产油量（吨）、②措施有效期（天）、③措施有效率（%）、④递减增油量（吨）；也有指：①增油量②有效期③含水变化④投入产出。请确认：",
+     "options": [
+      "①日产油量↑ ②措施有效期 ③递减增油 ④桶油增产成本",
+      "①增油量 ②有效期 ③含水变化 ④投入产出比",
+      "我只关心①②日产油量↑ 和措施有效期",
+      "其他四要素（请在补充说明里写明）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-58814976"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-58814976",
+   "manifest_digest": "fb761a9a4d83c8021263f0d91a5e3a7f90033812a244398b619d2bf56ee8b215"
+  },
+  "texts": [
+   "问W-33井酸化措施效果的四要素（评价维度）。",
+   "（连续澄清截断——未取得可交付观察材料，如实回报，不编造。）"
+  ],
+  "duration_s": 12.4
+ }
+}

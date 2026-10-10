@@ -1,0 +1,172 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-6aa8ca29",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "要求依据报告对\"Y-26 欠注类型为层间矛盾型并照搬 Y-24 冻胶调剖封堵 I 层大孔道\"的推断进行逐点核查，包括 Y-26 欠注类型判定、判定证据（第三章一条、2.2 表一条）、二季度实际治理与提配安排，以及\"冻胶调剖封堵 I 层大孔道\"对应的实际井号。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "要求依据报告对\"Y-26 欠注类型为层间矛盾型并照搬 Y-24 冻胶调剖封堵 I 层大孔道\"的推断进行逐点核查，包括 Y-26 欠注类型判定、判定证据（第三章一条、2.2 表一条）、二季度实际治理与提配安排，以及\"冻胶调剖封堵 I 层大孔道\"对应的实际井号。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 4 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配 r2 被拒：工具匹配不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "工具匹配 r3 被拒：工具匹配不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "工具匹配 r4 被拒：工具匹配不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   }
+  },
+  {
+   "id": 7,
+   "event": "notice",
+   "data": {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：工具（discover/execute）未执行或未取得观察；观察（observe）未入栈；核验（verify）/阐述（answer）未执行。未取得可交付观察材料——如实回报，不编造。"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 9,
+   "event": "text",
+   "data": {
+    "content": "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）"
+   }
+  },
+  {
+   "id": 10,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-6aa8ca29",
+    "manifest_digest": "c1100476021c7b645c5184c6ecab3c0d3d3400ada32d70a2c63858f5c3247079"
+   }
+  },
+  {
+   "id": 11,
+   "event": "done",
+   "data": {
+    "run_id": "run-6aa8ca29"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：工具（discover/execute）未执行或未取得观察；观察（observe）未入栈；核验（verify）/阐述（answer）未执行。未取得可交付观察材料——如实回报，不编造。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-6aa8ca29",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "要求依据报告对\"Y-26 欠注类型为层间矛盾型并照搬 Y-24 冻胶调剖封堵 I 层大孔道\"的推断进行逐点核查，包括 Y-26 欠注类型判定、判定证据（第三章一条、2.2 表一条）、二季度实际治理与提配安排，以及\"冻胶调剖封堵 I 层大孔道\"对应的实际井号。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 4 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配 r2 被拒：工具匹配不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "工具匹配 r3 被拒：工具匹配不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "工具匹配 r4 被拒：工具匹配不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   },
+   {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-6aa8ca29",
+   "manifest_digest": "c1100476021c7b645c5184c6ecab3c0d3d3400ada32d70a2c63858f5c3247079"
+  },
+  "texts": [
+   "要求依据报告对\"Y-26 欠注类型为层间矛盾型并照搬 Y-24 冻胶调剖封堵 I 层大孔道\"的推断进行逐点核查，包括 Y-26 欠注类型判定、判定证据（第三章一条、2.2 表一条）、二季度实际治理与提配安排，以及\"冻胶调剖封堵 I 层大孔道\"对应的实际井号。",
+   "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）"
+  ],
+  "duration_s": 25.4
+ }
+}

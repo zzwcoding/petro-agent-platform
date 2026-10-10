@@ -1,0 +1,246 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-789cf40f",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问渤中34-5油田三季度自然递减率是否为6.1%、综合递减率是否为4.6%，并询问这两项同比变化幅度及原因。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问渤中34-5油田三季度自然递减率是否为6.1%、综合递减率是否为4.6%，并询问这两项同比变化幅度及原因。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（您问的「渤中34-5 油田三季度自然递减率/综合）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "您问的「渤中34-5 油田三季度自然递减率/综合递减率」涉及数据口径确认，请明确以下两点：\n1) 递减率的口径支：自然递减率涉及措施增油扣除方式，综合递减率是否扣措施？是否采用台账默认口径？\n2) 同比对比的基期：是与「去年同期」（2024 年三季度）还是「上季度」对比？同比变化幅度按百分点还是绝对值？",
+     "options": [
+      "默认口径＋对去年同期（2024 Q3）对比，按百分点",
+      "默认口径＋对上一季度对比，按百分点",
+      "需自定义口径（请补充说明）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-789cf40f"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-789cf40f"
+   }
+  },
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-789cf40f",
+    "resume": true
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清回收：默认口径＋对去年同期（2024 Q3）对比，按百分点"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清 r1：分解 2 子问题"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "工具匹配 r2 被拒：matches id 重复：'s1'（每子问题恰一条匹配）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "工具匹配 r3 被拒：matches id 重复：'s1'（每子问题恰一条匹配）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "工具匹配 r4 被拒：matches id 重复：'s1'（每子问题恰一条匹配）"
+   }
+  },
+  {
+   "id": 6,
+   "event": "notice",
+   "data": {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：工具（discover/execute）未执行或未取得观察；观察（observe）未入栈；核验（verify）/阐述（answer）未执行。未取得可交付观察材料——如实回报，不编造。"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 8,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 8,
+   "event": "text",
+   "data": {
+    "content": "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）"
+   }
+  },
+  {
+   "id": 9,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-789cf40f",
+    "manifest_digest": "d9cf4f5e94905f5a505a026dabeb5673624a2cf6a5ba8f4a2689f99d11536a4a"
+   }
+  },
+  {
+   "id": 10,
+   "event": "done",
+   "data": {
+    "run_id": "run-789cf40f"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：工具（discover/execute）未执行或未取得观察；观察（observe）未入栈；核验（verify）/阐述（answer）未执行。未取得可交付观察材料——如实回报，不编造。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-789cf40f",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问渤中34-5油田三季度自然递减率是否为6.1%、综合递减率是否为4.6%，并询问这两项同比变化幅度及原因。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（您问的「渤中34-5 油田三季度自然递减率/综合）"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清回收：默认口径＋对去年同期（2024 Q3）对比，按百分点"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清 r1：分解 2 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "工具匹配 r2 被拒：matches id 重复：'s1'（每子问题恰一条匹配）"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "工具匹配 r3 被拒：matches id 重复：'s1'（每子问题恰一条匹配）"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "工具匹配 r4 被拒：matches id 重复：'s1'（每子问题恰一条匹配）"
+   },
+   {
+    "step": "answer",
+    "seq": 8,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "您问的「渤中34-5 油田三季度自然递减率/综合递减率」涉及数据口径确认，请明确以下两点：\n1) 递减率的口径支：自然递减率涉及措施增油扣除方式，综合递减率是否扣措施？是否采用台账默认口径？\n2) 同比对比的基期：是与「去年同期」（2024 年三季度）还是「上季度」对比？同比变化幅度按百分点还是绝对值？",
+     "options": [
+      "默认口径＋对去年同期（2024 Q3）对比，按百分点",
+      "默认口径＋对上一季度对比，按百分点",
+      "需自定义口径（请补充说明）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-789cf40f"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-789cf40f",
+   "manifest_digest": "d9cf4f5e94905f5a505a026dabeb5673624a2cf6a5ba8f4a2689f99d11536a4a"
+  },
+  "texts": [
+   "问渤中34-5油田三季度自然递减率是否为6.1%、综合递减率是否为4.6%，并询问这两项同比变化幅度及原因。",
+   "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）"
+  ],
+  "duration_s": 46.8
+ }
+}
