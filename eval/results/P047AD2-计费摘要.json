@@ -1,0 +1,33 @@
+{
+ "tag": "P047AD2",
+ "base": "http://127.0.0.1:8022/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "2026-10-11T03:11:51.298149",
+ "questions": 1,
+ "spend_ok": 1,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 4,
+  "fallback_calls": 0,
+  "input_tokens": 25115,
+  "output_tokens": 1261,
+  "cost_yuan": 0.028898
+ },
+ "items": [
+  {
+   "qid": "NQ-D7",
+   "group": "新语料·动态",
+   "run_id": "run-31d979b6",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.028898,
+   "call_ids": [
+    "call-4bc45b7e",
+    "call-7c8a23ac",
+    "call-d651b80d",
+    "call-b56d72fd"
+   ]
+  }
+ ],
+ "errors": []
+}

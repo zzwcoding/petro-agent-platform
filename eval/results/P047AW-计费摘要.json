@@ -1,0 +1,33 @@
+{
+ "tag": "P047AW",
+ "base": "http://127.0.0.1:8022/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "2026-10-11T02:53:09.435905",
+ "questions": 1,
+ "spend_ok": 1,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 4,
+  "fallback_calls": 0,
+  "input_tokens": 18437,
+  "output_tokens": 973,
+  "cost_yuan": 0.021356
+ },
+ "items": [
+  {
+   "qid": "数-闸2",
+   "group": "DATA",
+   "run_id": "run-0f2051ea",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.021356,
+   "call_ids": [
+    "call-9f26db3b",
+    "call-376e27eb",
+    "call-275e2e95",
+    "call-eefd3158"
+   ]
+  }
+ ],
+ "errors": []
+}

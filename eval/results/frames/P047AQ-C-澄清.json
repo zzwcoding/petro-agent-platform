@@ -1,0 +1,213 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-45fa312e",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问第三季度有效产量的完成情况。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问第三季度有效产量的完成情况。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「有效产量」指标存在两个口径分支，请选择本次要问）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「有效产量」指标存在两个口径分支，请选择本次要问的口径：",
+     "options": [
+      "A 开井日历折算（默认）",
+      "B 检修剔除（剔检产量）",
+      "C 两个口径都要（双值并陈）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-45fa312e"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-45fa312e"
+   }
+  },
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-45fa312e",
+    "resume": true
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清回收：A 开井日历折算（默认）"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "工具匹配：1 条定案"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "前置条件机：s1=blocked_refuse"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 7,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 6,
+   "event": "text",
+   "data": {
+    "content": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 三季度有效产量完成情况如何？（口径：A 开井日历折算；粒度：月；执行日 2026-08-31，窗=三季度）——拒因：caliber_key 'A_开井日历折算' 不在指标「有效产量」口径支 ['A', 'B']——合法口径校验拒（非法口径不代答）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-45fa312e",
+    "manifest_digest": "42c41b7d1620602799d094872ca729849013f258bca1a28399d10a5b22004311"
+   }
+  },
+  {
+   "id": 8,
+   "event": "done",
+   "data": {
+    "run_id": "run-45fa312e"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 三季度有效产量完成情况如何？（口径：A 开井日历折算；粒度：月；执行日 2026-08-31，窗=三季度）——拒因：caliber_key 'A_开井日历折算' 不在指标「有效产量」口径支 ['A', 'B']——合法口径校验拒（非法口径不代答）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-45fa312e",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问第三季度有效产量的完成情况。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「有效产量」指标存在两个口径分支，请选择本次要问）"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清回收：A 开井日历折算（默认）"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "工具匹配：1 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "前置条件机：s1=blocked_refuse"
+   },
+   {
+    "step": "answer",
+    "seq": 7,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「有效产量」指标存在两个口径分支，请选择本次要问的口径：",
+     "options": [
+      "A 开井日历折算（默认）",
+      "B 检修剔除（剔检产量）",
+      "C 两个口径都要（双值并陈）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-45fa312e"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-45fa312e",
+   "manifest_digest": "42c41b7d1620602799d094872ca729849013f258bca1a28399d10a5b22004311"
+  },
+  "texts": [
+   "问第三季度有效产量的完成情况。",
+   "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 三季度有效产量完成情况如何？（口径：A 开井日历折算；粒度：月；执行日 2026-08-31，窗=三季度）——拒因：caliber_key 'A_开井日历折算' 不在指标「有效产量」口径支 ['A', 'B']——合法口径校验拒（非法口径不代答）"
+  ],
+  "duration_s": 5.4
+ }
+}

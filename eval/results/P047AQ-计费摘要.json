@@ -1,0 +1,62 @@
+{
+ "tag": "P047AQ",
+ "base": "http://127.0.0.1:8022/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "2026-10-11T03:13:06.158886",
+ "questions": 3,
+ "spend_ok": 3,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 13,
+  "fallback_calls": 0,
+  "input_tokens": 79321,
+  "output_tokens": 1543,
+  "cost_yuan": 0.08395
+ },
+ "items": [
+  {
+   "qid": "系统-届满",
+   "group": "SYS",
+   "run_id": "run-c65779da",
+   "method": "run_id",
+   "calls": 5,
+   "cost_yuan": 0.033034,
+   "call_ids": [
+    "call-2975742d",
+    "call-f2ef28bd",
+    "call-9ad06b39",
+    "call-bce93a5e",
+    "call-83d27433"
+   ]
+  },
+  {
+   "qid": "C-澄清",
+   "group": "C",
+   "run_id": "run-45fa312e",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.023432,
+   "call_ids": [
+    "call-d6c7d3fa",
+    "call-83ab3957",
+    "call-6254e924",
+    "call-c79c8490"
+   ]
+  },
+  {
+   "qid": "B-正3",
+   "group": "B",
+   "run_id": "run-2e976898",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.027484,
+   "call_ids": [
+    "call-3b0766b2",
+    "call-674c4832",
+    "call-ed18f89b",
+    "call-5d043f68"
+   ]
+  }
+ ],
+ "errors": []
+}
