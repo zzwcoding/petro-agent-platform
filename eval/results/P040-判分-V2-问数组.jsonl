@@ -1,0 +1,16 @@
+{"qid": "数-明1", "judge": "⚠️", "delta": "平", "note": "steps 同形＋citations 24 全等（丢行族维持——F4 归属票未动）"}
+{"qid": "数-明2", "judge": "⚠️", "delta": "平", "note": "steps 同形＋citations 全等（丢行族维持）"}
+{"qid": "数-明3", "judge": "⚠️", "delta": "平", "note": "steps 同形＋citations 全等（丢行族维持）"}
+{"qid": "数-排1", "judge": "✅", "delta": "平", "note": "steps 同形（bound 题零触回炉闸——V2-43 零误伤）"}
+{"qid": "数-排2", "judge": "✅", "delta": "平", "note": "steps 同形"}
+{"qid": "数-排3", "judge": "✅", "delta": "平", "note": "steps 同形＋8824.36 在场"}
+{"qid": "数-限1", "judge": "⚠️", "delta": "平", "note": "steps 同形＋citations 24 全等（丢行族维持）"}
+{"qid": "数-闸1", "judge": "⚠️", "delta": "平", "note": "新鲜度拦停形维持＋citations 24 全等"}
+{"qid": "数-闸2", "judge": "⚠️", "delta": "平", "note": "拦停/部分覆盖形维持"}
+{"qid": "数-闸3", "judge": "⚠️", "delta": "平", "note": "默认窗排名形维持"}
+{"qid": "数-反1", "judge": "✅", "delta": "平（批级维持·波动记 D）", "note": "P040W 单跑无反问帧（❌形）——P040W1 复跑三选一反问帧在场（✅形，run-b5885272）；e95d7f1 L0 裁决批级 ✅ 生效/单跑波动归 D 观测，本批波动频次 2/4 如实记（P039W ❌→P039BW1 ✅→P040W ❌→P040W1 ✅）"}
+{"qid": "数-降1", "judge": "✅", "delta": "平（形状随 V2-43 演进）", "note": "换链回炉真跑全链：data 链→绑定闸拒（trigger=true）→chain_switch_reentry 回炉①→轮 2 换 knowledge 链→doc_retrieve ok→零数值如实面（未找到去年全年含水率明细片段＋文档覆盖列明）——答案册 W-AUX 后 sanctioned 形（自动接续检索＋如实无），零冒充维持"}
+{"qid": "数-降2", "judge": "✅", "delta": "平（形状随 V2-43 演进）", "note": "同 数-降1（配产量）——回炉换链→doc_retrieve→『去年各井配产量未找到。』零数值零冒充"}
+{"qid": "数-察1", "judge": "⚠️", "delta": "平", "note": "无时间词默认窗直发面维持（A-正7 形真跑不回退）"}
+{"qid": "数-察2", "judge": "⚠️", "delta": "升", "note": "基线 ❌（toolmatch 漏带 external_tables 越集不审直出数——高危形）→本批 toolmatch 携外表→前置条件机越集审批帧＋resume 批准＋引擎侧 F14 审批帧→『审批已通过（单号在案）；权威引擎侧闸未放行续跑，如实收口不冒充』——高危泄漏消除，零数值交付（V2-44 确定性闸仍归后置）"}
+{"qid": "数-界1", "judge": "⚠️", "delta": "平", "note": "单井过滤未支持披露＋21.16 维持"}

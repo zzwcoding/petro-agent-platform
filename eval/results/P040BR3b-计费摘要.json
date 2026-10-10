@@ -1,0 +1,33 @@
+{
+ "tag": "P040BR3b",
+ "base": "http://127.0.0.1:8015/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "2026-10-10T13:25:41.160267",
+ "questions": 1,
+ "spend_ok": 1,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 4,
+  "fallback_calls": 0,
+  "input_tokens": 19807,
+  "output_tokens": 1097,
+  "cost_yuan": 0.023098
+ },
+ "items": [
+  {
+   "qid": "B-反3",
+   "group": "B",
+   "run_id": "run-7c6f3f59",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.023098,
+   "call_ids": [
+    "call-e0efe436",
+    "call-b0c6b027",
+    "call-42ac900f",
+    "call-c7b83714"
+   ]
+  }
+ ],
+ "errors": []
+}

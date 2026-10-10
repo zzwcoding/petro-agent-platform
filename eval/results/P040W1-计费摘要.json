@@ -1,0 +1,35 @@
+{
+ "tag": "P040W1",
+ "base": "http://127.0.0.1:8015/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "2026-10-10T13:25:03.337614",
+ "questions": 1,
+ "spend_ok": 1,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 6,
+  "fallback_calls": 0,
+  "input_tokens": 42472,
+  "output_tokens": 769,
+  "cost_yuan": 0.044779
+ },
+ "items": [
+  {
+   "qid": "数-反1",
+   "group": "DATA",
+   "run_id": "run-b5885272",
+   "method": "run_id",
+   "calls": 6,
+   "cost_yuan": 0.044779,
+   "call_ids": [
+    "call-bf53a3e2",
+    "call-6553b9e0",
+    "call-63542a8d",
+    "call-89ef445e",
+    "call-d3ec04d7",
+    "call-a619aa67"
+   ]
+  }
+ ],
+ "errors": []
+}
