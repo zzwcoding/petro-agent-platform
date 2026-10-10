@@ -1,0 +1,33 @@
+{
+ "tag": "P049CC10",
+ "base": "http://127.0.0.1:8023/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "2026-10-11T07:41:55.047188",
+ "questions": 1,
+ "spend_ok": 1,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 4,
+  "fallback_calls": 0,
+  "input_tokens": 24459,
+  "output_tokens": 1228,
+  "cost_yuan": 0.028143
+ },
+ "items": [
+  {
+   "qid": "NQ-C10",
+   "group": "新语料·完井",
+   "run_id": "run-8912a2fd",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.028143,
+   "call_ids": [
+    "call-cf5810ed",
+    "call-15b4ecbe",
+    "call-604ca50c",
+    "call-13e25361"
+   ]
+  }
+ ],
+ "errors": []
+}

@@ -1,0 +1,33 @@
+{
+ "tag": "P049CC3",
+ "base": "http://127.0.0.1:8023/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "2026-10-11T07:39:17.677703",
+ "questions": 1,
+ "spend_ok": 1,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 4,
+  "fallback_calls": 0,
+  "input_tokens": 19356,
+  "output_tokens": 487,
+  "cost_yuan": 0.020817
+ },
+ "items": [
+  {
+   "qid": "C-正3",
+   "group": "C",
+   "run_id": "run-90142d58",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.020817,
+   "call_ids": [
+    "call-fc7ffa2e",
+    "call-6f578cad",
+    "call-92808849",
+    "call-485df245"
+   ]
+  }
+ ],
+ "errors": []
+}

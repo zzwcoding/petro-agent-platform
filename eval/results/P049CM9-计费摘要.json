@@ -1,0 +1,33 @@
+{
+ "tag": "P049CM9",
+ "base": "http://127.0.0.1:8023/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "2026-10-11T07:42:51.314106",
+ "questions": 1,
+ "spend_ok": 1,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 4,
+  "fallback_calls": 0,
+  "input_tokens": 29615,
+  "output_tokens": 1408,
+  "cost_yuan": 0.033839
+ },
+ "items": [
+  {
+   "qid": "NQ-M9",
+   "group": "新语料·月报",
+   "run_id": "run-a428d096",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.033839,
+   "call_ids": [
+    "call-6852c00e",
+    "call-108a3832",
+    "call-609f6f76",
+    "call-8e945f0d"
+   ]
+  }
+ ],
+ "errors": []
+}

@@ -1,0 +1,33 @@
+{
+ "tag": "P049CC4",
+ "base": "http://127.0.0.1:8023/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "2026-10-11T07:40:32.052407",
+ "questions": 1,
+ "spend_ok": 1,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 4,
+  "fallback_calls": 0,
+  "input_tokens": 27076,
+  "output_tokens": 1778,
+  "cost_yuan": 0.03241
+ },
+ "items": [
+  {
+   "qid": "NQ-C4",
+   "group": "新语料·完井",
+   "run_id": "run-9fd6b278",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.03241,
+   "call_ids": [
+    "call-512974a5",
+    "call-7186190e",
+    "call-719e8d20",
+    "call-e1fe3508"
+   ]
+  }
+ ],
+ "errors": []
+}

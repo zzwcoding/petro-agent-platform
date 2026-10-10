@@ -1,0 +1,33 @@
+{
+ "tag": "P049CA1",
+ "base": "http://127.0.0.1:8023/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "2026-10-11T07:38:58.712125",
+ "questions": 1,
+ "spend_ok": 1,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 4,
+  "fallback_calls": 0,
+  "input_tokens": 23338,
+  "output_tokens": 477,
+  "cost_yuan": 0.024769
+ },
+ "items": [
+  {
+   "qid": "A-正1",
+   "group": "A",
+   "run_id": "run-d607aa0d",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.024769,
+   "call_ids": [
+    "call-2c45aadd",
+    "call-44b45153",
+    "call-3a60a68d",
+    "call-b7e57e1f"
+   ]
+  }
+ ],
+ "errors": []
+}
