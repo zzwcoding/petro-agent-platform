@@ -53,6 +53,7 @@ from appv2.retrieval import (
     FAMILY_ALL,
     RetrievalBundle,
     RetrievalNeed,
+    anchor_seat_tokens,
 )
 from appv2.retrieval import (
     Observation as RetrievalObservation,
@@ -686,8 +687,46 @@ def table_schema(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     ))
 
 
+def _missing_sources_segment(window_note: str) -> str:
+    """缺位段提取（V2-46 R1c——window_note 载缺位名单时的「检索窗注记」素材面）。
+
+    build_window_note（retrieval.domain 组装单点）的缺位段措辞＝
+    「缺位来源（预算未及）：〈报告名列〉」，段界＝「；」或串尾（扩席实录等
+    extra 段在其后）。无缺位段＝空串（零注记——旧形零漂移）。
+    """
+    marker = "缺位来源（预算未及）："
+    position = window_note.find(marker)
+    if position < 0:
+        return ""
+    rest = window_note[position:]
+    cut = rest.find("；")
+    return rest if cut < 0 else rest[:cut]
+
+
+def recall_relevant(question: str, missing_note: str) -> bool:
+    """缺位回捞相关面（V2-46 R1c——回捞白场合同条件「本问题组相关报告/章节
+    在列」的确定性机读；零模型词面判定，anchor_seat_tokens 同款先例）。
+
+    问句资产 token（井号/报告号等编号形——纯数字与语义词不作判据，防保底
+    泛化）任一命中缺位注记文本＝相关在列；问句无资产 token 或零命中＝名单
+    与题面无表面关联（机器不为噪声名单开回炉轮——保守面：名单可见性不受
+    影响，模型面照常）。零 LLM、零 IO。
+    """
+    content = missing_note.casefold()
+    return any(
+        token.casefold() in content for token in anchor_seat_tokens(question)
+    )
+
+
 def _bundle_to_result(bundle: RetrievalBundle) -> ToolResult:
-    """供给窗→观察列（每支出处链逐支透传＋window_note 截断声明 notice）。"""
+    """供给窗→观察列（每支出处链逐支透传＋window_note 截断声明 notice）。
+
+    V2-46 R1c：缺位来源名单在场（window_note 载「缺位来源」段）时追加
+    **非 notice 类**「检索窗注记」观察（locator.kind=window_miss——未进窗
+    名单＋原因）：名单模型可见，回捞白场（CLARIFY_CONTRACT 追加段）的触发
+    信号。notice 过滤机制零改动——window_miss 是新增观察类，不经 notice
+    通道（notice 面照旧：window_note 截断声明仍走原通道）。
+    """
     observations = [_retrieval_observation(obs) for obs in bundle.observations]
     observations.append(
         _notice_observation(
@@ -696,6 +735,19 @@ def _bundle_to_result(bundle: RetrievalBundle) -> ToolResult:
             source="检索供给窗声明（截断显式）",
         )
     )
+    missing = _missing_sources_segment(bundle.window_note)
+    if missing:
+        observations.append(
+            Observation(
+                content=f"检索窗注记：{missing}",
+                source="检索供给窗声明（缺位名单）",
+                source_id="window_miss",
+                version=None,
+                freshness="",
+                scope="",
+                locator={"kind": "window_miss"},
+            )
+        )
     return ToolResult.ok(observations)
 
 

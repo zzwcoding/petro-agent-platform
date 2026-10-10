@@ -160,6 +160,12 @@ class RunState:
     # V2-37 executed_payloads 执行面簿记同向互替——本簿记辖前置条件机回炉面，
     # 执行面指纹照旧归 executed_payloads。
     chain_switch_marks: dict[str, str] = field(default_factory=dict)
+    # 缺位回捞簿记（V2-46 R1c）：knowledge 链检索窗载缺位来源（window_miss 观察
+    # 在场）触发过回捞门的子问题 id → 触发时检索载荷规范指纹（同参比对面）。
+    # 一次为界：标记在册后同支（同 id 或同参指纹）再触发＝直答如实终局（不环）；
+    # 与 V2-43 chain_switch_marks（前置条件机回炉面）/V2-37 executed_payloads
+    # （执行面）同构分辖——本簿记辖批量相位缺位回捞面。
+    window_miss_marks: dict[str, str] = field(default_factory=dict)
     # 全 run 发现预算已用数（澄清相位 ≤10 合同闸判据——Owner 拍板放宽）。
     discover_used: int = 0
     # —— 消息历史簿记（ADR-0006/V2-38）：understand/decision/answer 的调用与输出、

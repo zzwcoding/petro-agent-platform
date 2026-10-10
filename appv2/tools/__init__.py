@@ -42,6 +42,7 @@ from appv2.tools.handlers import (
     QueryFace,
     RetrievalFace,
     build_tools,
+    recall_relevant,
 )
 from appv2.tools.ledger import (
     ALL_SCHEMA_CARDS,
@@ -151,6 +152,7 @@ __all__ = [
     "judge",
     "ledger_facts",
     "normalize_metric_name",
+    "recall_relevant",
     "render_aliases",
     "render_cards",
     "render_ledger_rows",

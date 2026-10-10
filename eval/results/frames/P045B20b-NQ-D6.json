@@ -1,0 +1,172 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-e84d2af5",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "要求还原 1.3 节\"抽油机时率 94.1%\"的口径算式，包括分母构成（是否含 Y-59）、分子的三项扣减及金额、长停井两口的具体井号，以及一季度单井日产油量的派生口径。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "要求还原 1.3 节\"抽油机时率 94.1%\"的口径算式，包括分母构成（是否含 Y-59）、分子的三项扣减及金额、长停井两口的具体井号，以及一季度单井日产油量的派生口径。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 2 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配 r2 被拒：工具匹配不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "工具匹配 r3 被拒：工具匹配不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "工具匹配 r4 被拒：工具匹配不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   }
+  },
+  {
+   "id": 7,
+   "event": "notice",
+   "data": {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：工具（discover/execute）未执行或未取得观察；观察（observe）未入栈；核验（verify）/阐述（answer）未执行。未取得可交付观察材料——如实回报，不编造。"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 9,
+   "event": "text",
+   "data": {
+    "content": "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）"
+   }
+  },
+  {
+   "id": 10,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-e84d2af5",
+    "manifest_digest": "d54073585a1cae834fb31eff3d4afe129db491810353b215b85997463383cf0f"
+   }
+  },
+  {
+   "id": 11,
+   "event": "done",
+   "data": {
+    "run_id": "run-e84d2af5"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：工具（discover/execute）未执行或未取得观察；观察（observe）未入栈；核验（verify）/阐述（answer）未执行。未取得可交付观察材料——如实回报，不编造。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-e84d2af5",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "要求还原 1.3 节\"抽油机时率 94.1%\"的口径算式，包括分母构成（是否含 Y-59）、分子的三项扣减及金额、长停井两口的具体井号，以及一季度单井日产油量的派生口径。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 2 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配 r2 被拒：工具匹配不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "工具匹配 r3 被拒：工具匹配不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "工具匹配 r4 被拒：工具匹配不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   },
+   {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-e84d2af5",
+   "manifest_digest": "d54073585a1cae834fb31eff3d4afe129db491810353b215b85997463383cf0f"
+  },
+  "texts": [
+   "要求还原 1.3 节\"抽油机时率 94.1%\"的口径算式，包括分母构成（是否含 Y-59）、分子的三项扣减及金额、长停井两口的具体井号，以及一季度单井日产油量的派生口径。",
+   "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）"
+  ],
+  "duration_s": 14.0
+ }
+}

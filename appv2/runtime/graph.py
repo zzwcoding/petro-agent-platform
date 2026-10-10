@@ -139,6 +139,7 @@ from appv2.tools import (
     ToolRegistry,
     judge,
     ledger_facts,
+    recall_relevant,
     render_aliases,
     render_cards,
     render_ledger_rows,
@@ -2133,6 +2134,10 @@ def _make_batch(
         executed = list(state.executed_payloads)
         pending_frame: dict[str, Any] | None = None
         aggregated = 0
+        # 缺位回捞簿记与门帧（V2-46 R1c——marks 随 state 更新；门帧机读 notice）。
+        marks = dict(state.window_miss_marks)
+        recall_notices: list[dict[str, Any]] = []
+        max_rounds = int(state.budget.get("max_rounds", MAX_ROUNDS_CONTRACT))
         for st in subtasks:
             sid = str(st.get("id") or "")
             question = str(st.get("question") or "")
@@ -2181,6 +2186,15 @@ def _make_batch(
                 entry["trust"] = trust_of(entry)
                 indexed.append(entry)
             aggregated += len(indexed)
+            # 缺位回捞信号面（V2-46 R1c）：window_miss 观察在场＝缺位来源名单非空。
+            miss_obs = next(
+                (
+                    obs
+                    for obs in indexed
+                    if (obs.get("locator") or {}).get("kind") == "window_miss"
+                ),
+                None,
+            )
             seq = len(steps) + 1
             error_message = (
                 (result.get("error") or {}).get("message")
@@ -2203,6 +2217,12 @@ def _make_batch(
                         "tool": tool_name,
                         "status": status,
                         "fingerprint": fingerprint,
+                        # 缺位注记随行（V2-46 R1c——回捞触发帧证据面；无缺位零键）。
+                        **(
+                            {"window_miss": str(miss_obs.get("content", ""))}
+                            if miss_obs is not None
+                            else {}
+                        ),
                     },
                 )
             )
@@ -2210,15 +2230,70 @@ def _make_batch(
             if status == STATUS_OK:
                 observations.extend(indexed)
                 executed.append(fingerprint)
-                # 同 id 只留最新结果（R4 簿记面：失败条目被成功条目取代——
-                # 旧 failed 滞留会造出假回炉环）。
+                # —— V2-46 R1c 缺位回捞（「够得着」）：window_miss 观察在场＝缺位
+                # 来源名单非空（模型面已可见）。三分支：回捞已用尽（同 id 或同参
+                # 指纹在簿——V2-37 簿记同向）＝直答如实终局（ok＋终局注记，不环）；
+                # 首遇缺位＋轮预算有余＋名单与题面表面相关（recall_relevant——
+                # 合同条件「本问题组相关报告/章节在列」的确定性机读）＝开回捞门
+                # （转回炉面 failed——拒因携检索窗注记，clarify 回炉重发带 anchors
+                # 的 knowledge 链检索，每子问题限一次、消耗一轮、不挂起不占 ask）；
+                # 轮预算无余或名单与题面无表面关联＝门不开（ok 原形——注记照常
+                # 在窗）。无缺位＝原形零漂移。
                 results = [r for r in results if str(r.get("id")) != sid]
-                results.append(
-                    _subtask_result(
-                        sid, question, chain, status="ok",
-                        obs_count=len(indexed), fingerprint=fingerprint,
+                if miss_obs is not None and (
+                    sid in marks or fingerprint in marks.values()
+                ):
+                    results.append(
+                        _subtask_result(
+                            sid, question, chain, status="ok",
+                            obs_count=len(indexed), fingerprint=fingerprint,
+                            reason=(
+                                "缺位回捞已用尽（一次为界）：缺位来源仍未进窗"
+                                "——按现有材料如实作答，不再重发检索"
+                            ),
+                        )
                     )
-                )
+                elif (
+                    miss_obs is not None
+                    and int(state.rounds) < max_rounds
+                    # 回捞白场合同条件「本问题组相关报告/章节在列」的确定性机读
+                    # （recall_relevant——零模型词面判定）：名单与题面无表面关联
+                    # ＝门不开（机器不为噪声名单消耗回炉轮——名单可见性照常）。
+                    and recall_relevant(question, str(miss_obs.get("content", "")))
+                ):
+                    marks[sid] = fingerprint
+                    results.append(
+                        _subtask_result(
+                            sid, question, chain, status="failed",
+                            reason=(
+                                f"{miss_obs.get('content', '')}"
+                                "（缺位回捞白场：可经回炉对该子问题重发带 anchors"
+                                "（报告名/章节锚）的 knowledge 链检索——一次为界）"
+                            ),
+                            fingerprint=fingerprint,
+                        )
+                    )
+                    notice = {
+                        "type": "window_miss_reentry",
+                        "gates": [],
+                        "content": (
+                            f"缺位回捞闸（V2-46）：子问题 {sid} 检索窗载缺位来源"
+                            "（名单已以 window_miss 观察进模型面）——回炉回捞："
+                            "重发带 anchors（报告名/章节锚）的 knowledge 链检索"
+                            "（每子问题限一次；再触发＝直答终局不环）"
+                        ),
+                    }
+                    deps.bus.emit("notice", dict(notice))
+                    recall_notices.append(notice)
+                else:
+                    # 同 id 只留最新结果（R4 簿记面：失败条目被成功条目取代——
+                    # 旧 failed 滞留会造出假回炉环）。
+                    results.append(
+                        _subtask_result(
+                            sid, question, chain, status="ok",
+                            obs_count=len(indexed), fingerprint=fingerprint,
+                        )
+                    )
                 for obs in indexed:
                     if (obs.get("locator") or {}).get("kind") == "notice":
                         deps.bus.emit(
@@ -2295,6 +2370,10 @@ def _make_batch(
             "executed_payloads": executed,
             "subtask_results": results,
         }
+        if marks != state.window_miss_marks:
+            updates["window_miss_marks"] = marks
+        if recall_notices:
+            updates["notices"] = [*state.notices, *recall_notices]
         if pending_frame is not None:
             updates["pending_ask"] = pending_frame
             updates["next_intent"] = INTENT_DECISION  # 挂起：interrupt 在 clarify 入口
@@ -2324,7 +2403,6 @@ def _make_batch(
             updates["next_intent"] = INTENT_DECISION
             deps.bus.emit("ask", {"frame": frame, "run_id": state.run_id})
             return updates
-        max_rounds = int(state.budget.get("max_rounds", MAX_ROUNDS_CONTRACT))
         failed = [r for r in results if r.get("status") == "failed"]
         if failed and int(state.rounds) < max_rounds:
             # 失败子集回炉①（轮 2/3 只带失败子问题＋拒因——成功不重跑）；

@@ -39,6 +39,7 @@ from tests.domains.test_v2_four_phase import (
     FourPhaseEngine,
     _step_payloads,
 )
+from tests.domains.test_v2_r1c_window_recall import RECALL_CLAUSE
 from tests.domains.test_v2_react_loop import _rows_outcome
 
 # ---------- V2-42 票面逐字稿（char 相等基准——增删一字即红） ----------
@@ -86,19 +87,28 @@ P039_CLARIFY_CONTRACT = (
 
 
 def test_v242_last_sentence_replaced_verbatim_char_equal() -> None:
-    """验收①替换逐字（char 相等）：附 2 末句＝V2-42 票面稿；旧末句整句退场。"""
-    assert CLARIFY_CONTRACT.endswith(V2_42_LAST_SENTENCE)  # 末句＝合同收尾（整句替换位）
+    """验收①替换逐字（char 相等）：附 2 末句＝V2-42 票面稿；旧末句整句退场。
+
+    位置随动（V2-46 R1c——P-045 派工单批准的回捞白场逐字稿追加在合同尾部）：
+    本句不再是合同末句，但仍在 R1c 追加段之前（追加不插入既有段）。"""
+    assert V2_42_LAST_SENTENCE in CLARIFY_CONTRACT  # 替换稿逐字在场
     assert len(V2_42_LAST_SENTENCE) == 90  # 票面稿字数（char 相等的计数面）
     assert P039_OLD_LAST_SENTENCE not in CLARIFY_CONTRACT  # 旧末句退场（无双合同面）
+    # 追加不插入：V2-42 末句在前、V2-46 回捞白场逐字稿收尾。
+    assert CLARIFY_CONTRACT.index(V2_42_LAST_SENTENCE) < CLARIFY_CONTRACT.index(
+        RECALL_CLAUSE
+    )
+    assert CLARIFY_CONTRACT.endswith(RECALL_CLAUSE)
 
 
 def test_v242_zero_deletion_restoring_old_sentence_reproduces_p039() -> None:
-    """验收①零删改钉：新末句还原回旧末句＝P-039 版合同全文 char-level 全等
-
-    （「只许替换末句，其余一字不动」——V2-41 施工红线机检形）。"""
+    """验收①零删改钉：新末句还原回旧末句＋剥除 V2-46 回捞白场追加段＝P-039 版
+    合同全文 char-level 全等（「只许替换末句，其余一字不动」——V2-41 施工红线
+    机检形；V2-46 追加段随动剥除——P-045 派工单批准的合同尾部追加）。"""
     restored = CLARIFY_CONTRACT.replace(V2_42_LAST_SENTENCE, P039_OLD_LAST_SENTENCE)
-    assert restored == P039_CLARIFY_CONTRACT
-    assert len(restored) == len(P039_CLARIFY_CONTRACT) == 1066  # P-039 版合同字数不变
+    assert restored.removesuffix(RECALL_CLAUSE) == P039_CLARIFY_CONTRACT
+    assert len(restored) == len(P039_CLARIFY_CONTRACT) + len(RECALL_CLAUSE)
+    assert len(P039_CLARIFY_CONTRACT) == 1066  # P-039 版合同字数不变（基准面）
 
 
 def test_v242_two_branch_wording_both_present() -> None:

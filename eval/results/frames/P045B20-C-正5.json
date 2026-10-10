@@ -1,0 +1,213 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-a6b7d045",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问 W-57 井吸水剖面各层的吸水量占比明细。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问 W-57 井吸水剖面各层的吸水量占比明细。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「吸水剖面各层占比」问的具体是什么？）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「吸水剖面各层占比」问的具体是什么？",
+     "options": [
+      "W-57 井各配注层的配注量占比（数据链·按井月度）",
+      "W-57 井吸水剖面测试报告中各层段吸水量占比（文档链·检索完井/动态报告）",
+      "W-57 井所在井组各油层受效注水占比（数据/混合链）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-a6b7d045"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-a6b7d045"
+   }
+  },
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-a6b7d045",
+    "resume": true
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清回收：W-57 井各配注层的配注量占比（数据链·按井月度）"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "工具匹配：1 条定案"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "前置条件机：s1=blocked_refuse"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 7,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 6,
+   "event": "text",
+   "data": {
+    "content": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] W-57 井各配注层的配注量占比（按井月度）——拒因：指标 '配注量' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-a6b7d045",
+    "manifest_digest": "00c48a7046771977c8f06b4be252688a795921062175c87ed60729700ce1236c"
+   }
+  },
+  {
+   "id": 8,
+   "event": "done",
+   "data": {
+    "run_id": "run-a6b7d045"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] W-57 井各配注层的配注量占比（按井月度）——拒因：指标 '配注量' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-a6b7d045",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问 W-57 井吸水剖面各层的吸水量占比明细。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「吸水剖面各层占比」问的具体是什么？）"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清回收：W-57 井各配注层的配注量占比（数据链·按井月度）"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "工具匹配：1 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "前置条件机：s1=blocked_refuse"
+   },
+   {
+    "step": "answer",
+    "seq": 7,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「吸水剖面各层占比」问的具体是什么？",
+     "options": [
+      "W-57 井各配注层的配注量占比（数据链·按井月度）",
+      "W-57 井吸水剖面测试报告中各层段吸水量占比（文档链·检索完井/动态报告）",
+      "W-57 井所在井组各油层受效注水占比（数据/混合链）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-a6b7d045"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-a6b7d045",
+   "manifest_digest": "00c48a7046771977c8f06b4be252688a795921062175c87ed60729700ce1236c"
+  },
+  "texts": [
+   "问 W-57 井吸水剖面各层的吸水量占比明细。",
+   "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] W-57 井各配注层的配注量占比（按井月度）——拒因：指标 '配注量' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）"
+  ],
+  "duration_s": 9.5
+ }
+}
