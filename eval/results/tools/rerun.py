@@ -23,6 +23,15 @@ steps 列（六步链序，chain 在 v2 流恒空）。--qid 只跑指定题（�
 --out-dir 重定位产物根目录（缺省 eval/results；frames 落
 out-dir/frames——干跑产物隔离用）。
 
+--resume 挂起续跑（F3，V2-41/P-039 附 5 行为定义）：rerun 遇 run 挂起（帧含
+ask 且 done 前无终稿 verdict）时对挂起帧 POST 题册登记的合法选项续跑至收口
+——缺省选第一项（＝题册 expectedBehavior 指定项）；非挂起帧不受影响；判分
+照旧只看最终交付轮（合并帧重新归约，answer_head/citations 取续跑后终稿）。
+续跑流＝POST {base}/chat/runs/{run_id}/resume（json {"choice": 选项原文}），
+续跑帧并入同题帧存档；jsonl 行增 resume 字段（逐次 {run_id, choice} 留痕）。
+安全上限 3 次续跑（澄清连问 ≥2 上限/审批单挂的内生收敛面之外的海啸保险——
+正常至多 1~2 次）。V1 base（非 /api/v2）无挂起帧形，--resume 不生效。
+
 --spend 计费归集（V2-30，Q12 对账挂账 5 清偿）：跑批后逐题从网关 spend 账本
 （PG gateway_spend_record——D5 全平台唯一账本，只读 SELECT）归集计费。
 归集主路（V2-33 run_id 直查）：服务侧 _settle 已盖章（GraphRunExecutor 经
@@ -358,6 +367,73 @@ def rewrite_jsonl_rows(out_path: Path, updated: list[dict[str, Any]]) -> None:
 # ---------- 跑批主流程 ----------
 
 
+def resume_url(base: str, run_id: str) -> str:
+    """base（/api/v2 结尾）→ 挂起续跑端点 URL（F3——appv2/api/chat.py resume 面）。"""
+    return f"{base.rstrip('/')}/chat/runs/{run_id}/resume"
+
+
+def is_suspended(parsed: Mapping[str, Any]) -> bool:
+    """挂起帧判定（附 5）：帧含 ask 且 done 前无终稿答案（final verdict 缺席）。"""
+    return bool(parsed.get("asks")) and parsed.get("final") is None
+
+
+async def resume_once(
+    c: httpx.AsyncClient, base: str, run_id: str, choice: str
+) -> dict:
+    """挂起段续跑一程（SSE 流全量收集——ask_once 同形，端点与载荷按 resume 面）。"""
+    t0 = time.monotonic()
+    async with c.stream(
+        "POST", resume_url(base, run_id), json={"choice": choice}, headers=HEADERS
+    ) as resp:
+        if resp.status_code != 200:
+            body = (await resp.aread()).decode("utf-8", "replace")
+            return {"error": {"status": resp.status_code, "body": body[:400]}}
+        chunks = []
+        async for piece in resp.aiter_text():
+            chunks.append(piece)
+    raw = "".join(chunks)
+    frames = parse_sse_text(raw)
+    parsed = parse_frames(frames)
+    parsed["duration_s"] = round(time.monotonic() - t0, 1)
+    return {"frames": frames, "parsed": parsed}
+
+
+async def resume_suspended(
+    c: httpx.AsyncClient, base: str, out_data: dict, *, max_resumes: int = 3
+) -> list[dict[str, str]]:
+    """--resume 模式的挂起续跑（附 5）：对挂起帧 POST 题册登记的合法选项（缺省
+    第一项＝题册 expectedBehavior 指定项），续跑至收口；续跑帧并入 out_data
+    帧列并重新归约（判分只看最终交付轮）；返回逐次 {run_id, choice} 留痕。"""
+    resumes: list[dict[str, str]] = []
+    for _ in range(max_resumes):
+        parsed = out_data.get("parsed") or {}
+        if not is_suspended(parsed) or not base.rstrip("/").endswith("/api/v2"):
+            break  # 非挂起帧／非 v2 端点族——不受影响（附 5）
+        ask = (parsed.get("asks") or [{}])[-1]
+        frame = ask.get("frame") or {}
+        run_id = str(ask.get("run_id") or parsed.get("run_id") or "")
+        options = [str(o) for o in (frame.get("options") or []) if str(o).strip()]
+        if not run_id or not options:
+            break  # 挂起帧缺 run_id/选项——无从续跑（行内如实留原样）
+        choice = options[0]  # 缺省选第一项＝题册 expectedBehavior 指定项
+        resumed = await resume_once(c, base, run_id, choice)
+        resumes.append({"run_id": run_id, "choice": choice})
+        if resumed.get("error"):
+            print(f"[resume] {run_id} 续跑失败：{resumed['error']}")
+            break
+        prev_duration = float((out_data.get("parsed") or {}).get("duration_s") or 0)
+        out_data["frames"] = [
+            *(out_data.get("frames") or []),
+            *resumed["frames"],
+        ]
+        out_data["parsed"] = parse_frames(out_data["frames"])
+        total = prev_duration + float(
+            (resumed.get("parsed") or {}).get("duration_s") or 0
+        )
+        out_data["parsed"]["duration_s"] = round(total, 1)
+    return resumes
+
+
 async def ask_once(c: httpx.AsyncClient, base: str, question: str) -> dict:
     t0 = time.monotonic()
     async with c.stream(
@@ -394,6 +470,8 @@ async def main() -> int:
     ap.add_argument("--qid", default=None, help="只跑指定 qid（干跑冒烟用）")
     ap.add_argument("--out-dir", default=None,
                     help="产物根目录重定位（缺省 eval/results；frames 落其下 frames/）")
+    ap.add_argument("--resume", action="store_true",
+                    help="遇挂起帧（ask 且无终稿）续跑至收口——缺省选帧第一选项（F3/P-039 附 5）")
     ap.add_argument("--spend", action="store_true",
                     help="跑批后逐题从网关 spend 账本归集计费（jsonl 增 spend 字段＋计费摘要件）")
     ap.add_argument("--spend-dsn", default=None, help="账本 PG DSN 整串（缺省按 PG_* 参数装配）")
@@ -440,6 +518,10 @@ async def main() -> int:
                     continue
                 if asked_at is not None:
                     row["ask_ended_at"] = fmt_ts(now_ts())
+                if args.resume:
+                    resumes = await resume_suspended(c, args.base, out_data)
+                    if resumes:
+                        row["resume"] = resumes  # 逐次 {run_id, choice} 留痕（附 5）
                 frame_path.write_text(
                     json.dumps(out_data, ensure_ascii=False, indent=1), encoding="utf-8"
                 )

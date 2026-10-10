@@ -120,6 +120,7 @@ from appv2.tools import (
     CATEGORY_BAD_ARGS,
     CATEGORY_REFUSED,
     CATEGORY_RETRYABLE,
+    CHAIN_SWITCH_HINT,
     DATA_QUERY,
     DOC_RETRIEVE,
     RESIDENT_BLOCK_BEGIN,
@@ -1851,8 +1852,53 @@ def _make_precondition(
             f"{v['subtask_id']}={v['state']}" for v in verdicts
         )
         deps.bus.emit("step", {"step": STEP_DECISION, "seq": seq, "title": title})
+        # F7 名归一落载（P-039 附 4）：命中归一的子问题把 plan.metric_slot 改写为
+        # 台账 slot（后续闸与批量执行对 slot 判定——引擎 metric_by_name 精确命
+        # 中）。改写随 precondition_verdicts 一并落 state（tool_matches 执行面＋
+        # question_group 记录面同改，防双面漂移）。
+        normalized_slots = {
+            str(v["subtask_id"]): str(v["normalized_slot"])
+            for v in verdicts
+            if v.get("normalized_slot")
+        }
+        if normalized_slots:
+            rewritten_matches: list[dict[str, Any]] = []
+            for item in state.tool_matches:
+                entry = dict(item)
+                slot = normalized_slots.get(str(entry.get("id") or ""))
+                plan_item = entry.get("plan")
+                if slot and isinstance(plan_item, dict):
+                    entry["plan"] = {**plan_item, "metric_slot": slot}
+                rewritten_matches.append(entry)
+            rewritten_group: list[dict[str, Any]] = []
+            for st in _group_subtasks(state):
+                entry = dict(st)
+                slot = normalized_slots.get(str(entry.get("id") or ""))
+                plan_item = entry.get("plan")
+                if slot and isinstance(plan_item, dict):
+                    entry["plan"] = {**plan_item, "metric_slot": slot}
+                rewritten_group.append(entry)
+        else:
+            rewritten_matches = list(state.tool_matches)
+            rewritten_group = _group_subtasks(state)
+        # FX-13 候选集随归一刷新（改写后的 data 链 slot 才是引擎候选面——原始
+        # 发射名滞留候选集会把归一 slot 误判成「指标替换」）。
+        canonical_slots = tuple(
+            dict.fromkeys(
+                str((m.get("plan") or {}).get("metric_slot") or "")
+                for m in rewritten_matches
+                if m.get("chain") == "data" and (m.get("plan") or {}).get("metric_slot")
+            )
+        )
         updates: dict[str, Any] = {
             "precondition_verdicts": verdicts,
+            "tool_matches": rewritten_matches,
+            "question_group": {"subtasks": rewritten_group},
+            "metric_candidates": (
+                list(canonical_slots)
+                if canonical_slots
+                else list(state.metric_candidates)
+            ),
             "steps": [
                 *state.steps,
                 _step_record(
@@ -1917,9 +1963,12 @@ def _make_precondition(
             deps.bus.emit("ask", {"frame": frame, "run_id": state.run_id})
             return updates
         if not executable:
-            # 全部如实拒答——零执行零冒充，直答收口。
+            # 全部如实拒答——零执行零冒充，直答收口。（附 3：blocked_refuse 直答
+            # 路径不带改链 hint——直答是终局；hint 只给可回炉重决策的路径面。）
             lines = "\n".join(
-                f"- [{r['id']}] {r['question']}——拒因：{r['reason']}" for r in refusals
+                f"- [{r['id']}] {r['question']}——拒因："
+                f"{str(r['reason']).removesuffix(CHAIN_SWITCH_HINT)}"
+                for r in refusals
             )
             _direct_answer(
                 updates,

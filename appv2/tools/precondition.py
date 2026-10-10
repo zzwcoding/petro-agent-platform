@@ -57,6 +57,13 @@ _WELL_RE = re.compile(r"\b[A-Z]{1,3}-\d{1,4}\b")
 # 禁用词替代提示（term value「禁用（替代：产量完成率）」段——替代词提取）。
 _REPLACEMENT_RE = re.compile(r"替代：([^）]+)")
 
+# ---------- 改链建议（P-039 附 3——拒因模板逐字） ----------
+
+# data 链被在册闸/绑定闸拦停时拒因尾部追加的 knowledge 备选提示——回炉重决策
+# 路径可据此换链；blocked_refuse 直答路径不加（直答是终局——runtime 前置条件
+# 节点在全部拦截直答收口时剥除本 hint）。
+CHAIN_SWITCH_HINT = "——或改走 knowledge 链检索文档所载（本指标口径/数值可能载于文档）"
+
 
 # ---------- 输入/输出形 ----------
 
@@ -81,6 +88,7 @@ class Verdict:
     reason: str = ""
     notes: tuple[str, ...] = ()
     ask: AskFrame | None = None
+    normalized_slot: str = ""  # F7 名归一：非空＝发射名经名归一闸命中该台账 slot
 
     def as_payload(self) -> dict[str, Any]:
         return {
@@ -98,6 +106,7 @@ class Verdict:
                 if self.ask is not None
                 else None
             ),
+            "normalized_slot": self.normalized_slot,
         }
 
 
@@ -180,6 +189,44 @@ def ledger_facts(dump: Mapping[str, Any]) -> LedgerFacts:
     return LedgerFacts(metrics=metrics, banned=tuple(banned), keys=keys)
 
 
+# ---------- F7 名归一闸（P-039 附 4——确定性定义） ----------
+
+
+def normalize_metric_name(name: str) -> str:
+    """附 4 名归一（确定性）：删除装饰符号（★☆※*＊等非字母数字汉字字符——
+    空白除外，作 token 分隔承载）→去首尾空白→连续空白收 1→小写拉丁。
+
+    「☆注采比 β」→「注采比 β」（装饰符删除、单空格保留）；「★产量完成率」→
+    「产量完成率」。空白保留是附 4 真值对的承载面——token 集按空白切分，
+    「注采比」的 token 集 {注采比} ⊆ {注采比, β} 才得以成立。
+    """
+    kept = "".join(ch for ch in name if ch.isalnum() or ch.isspace())
+    return " ".join(kept.split()).lower()
+
+
+def resolve_metric_slot(facts: LedgerFacts, raw_slot: str) -> str | None:
+    """台账键解析单点（F7）：先精确命中（keys 映射——slot/名/别名，引擎
+    metric_by_name 两段命中同构），未命中再名归一扫描（附 4 命中判定：
+    normalize(查询) == normalize(slot 名/指标名)，或查询的 token 集 ⊆ 后者
+    token 集）；全未命中＝None（blocked_refuse「不在台账全量」语义不变）。
+    扫描序＝facts.metrics 装配序（确定性——首命中即断）。"""
+    exact = facts.keys.get(raw_slot)
+    if exact is not None:
+        return exact
+    query = normalize_metric_name(raw_slot)
+    if not query:
+        return None
+    query_tokens = frozenset(query.split())
+    for slot, metric in facts.metrics.items():
+        for candidate in (slot, metric.name):
+            normalized = normalize_metric_name(candidate)
+            if not normalized:
+                continue
+            if query == normalized or query_tokens <= frozenset(normalized.split()):
+                return slot
+    return None
+
+
 # ---------- 闸机（逐子问题过闸——判定序见各闸注释） ----------
 
 
@@ -219,9 +266,19 @@ def judge(
     notes: list[str] = []
     metric_slot = str(plan.get("metric_slot") or "")
     # 键归一（引擎 metric_by_name 同构——slot/名/别名三形归到 slot；绑定态闸
-    # 与口径闸因此对名形/别名形发射同样生效）。
-    slot_of = facts.keys.get(metric_slot)
-    metric = facts.metrics.get(slot_of) if slot_of is not None else None
+    # 与口径闸因此对名形/别名形发射同样生效）。F7 名归一闸（P-039 附 4）：
+    # 精确键未命中时按名归一扫描兜底——命中归一到该指标 slot 再进后续闸
+    # （绑定/口径闸对 slot 判定）；全未命中维持 C5 拒（语义不变）。
+    raw_slot = metric_slot
+    resolved = resolve_metric_slot(facts, metric_slot)
+    metric = facts.metrics.get(resolved) if resolved is not None else None
+    normalized_slot = ""
+    if metric is not None and facts.keys.get(metric_slot) is None:
+        normalized_slot = metric.slot
+        metric_slot = metric.slot  # 后续闸（绑定/口径）对归一 slot 判定
+        notes.append(
+            f"指标名「{raw_slot}」归一→台账 slot「{metric.slot}」（名归一闸命中）"
+        )
 
     # —— 闸 2：外表越集（A2 裁决落点——放行态放 ToolContext.approved_tables） ——
     external = [str(t) for t in (plan.get("external_tables") or ()) if str(t).strip()]
@@ -322,7 +379,7 @@ def judge(
         if metric.binding_state == "unbound":
             notes.append(
                 f"「{metric_slot}」在册未绑定——agg 汇总层无承载列，引擎将走降级"
-                "解释链（零数值不冒充）"
+                "解释链（零数值不冒充）" + CHAIN_SWITCH_HINT
             )
 
     elif facts.metrics:
@@ -332,13 +389,16 @@ def judge(
         # ＝blocked_refuse（不在目录不代答）。候选集随问题组刷新后（FX-13
         # 「替换封堵」的语义弱化面），台账闭世界是确定性底闸；退化世界
         # （空台账＝注入缺缝）不硬拒全量，引擎台账校验仍权威（注记如实）。
+        # 拒因尾部携改链 hint（P-039 附 3）——回炉重决策路径可据此换链；
+        # 直答终局面由 runtime 前置条件节点剥除（附 3：直答是终局）。
         return Verdict(
             subtask_id=subtask.subtask_id,
             state=STATE_BLOCKED_REFUSE,
             reason=(
                 f"指标 {metric_slot!r} 不在台账全量——确定性校验拒"
-                "（不在目录不代答；台账闭世界校验）"
+                "（不在目录不代答；台账闭世界校验）" + CHAIN_SWITCH_HINT
             ),
+            normalized_slot=normalized_slot,
         )
     else:
         notes.append(
@@ -370,5 +430,6 @@ def judge(
         return Verdict(
             subtask_id=subtask.subtask_id, state=STATE_NOTE,
             reason="；".join(notes), notes=tuple(notes),
+            normalized_slot=normalized_slot,
         )
     return Verdict(subtask_id=subtask.subtask_id, state=STATE_PASS)

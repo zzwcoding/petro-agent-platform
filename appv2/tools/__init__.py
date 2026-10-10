@@ -53,6 +53,7 @@ from appv2.tools.ledger import (
     render_ledger_rows,
 )
 from appv2.tools.precondition import (
+    CHAIN_SWITCH_HINT,
     STATE_BLOCKED_ASK,
     STATE_BLOCKED_REFUSE,
     STATE_NOTE,
@@ -65,6 +66,8 @@ from appv2.tools.precondition import (
     Verdict,
     judge,
     ledger_facts,
+    normalize_metric_name,
+    resolve_metric_slot,
 )
 from appv2.tools.registry import ToolRegistry, classify_exception
 from appv2.tools.schema import (
@@ -97,6 +100,7 @@ __all__ = [
     "CATEGORY_BAD_ARGS",
     "CATEGORY_REFUSED",
     "CATEGORY_RETRYABLE",
+    "CHAIN_SWITCH_HINT",
     "DATA_QUERY",
     "DOC_RETRIEVE",
     "GRAPH_QUERY",
@@ -138,7 +142,9 @@ __all__ = [
     "dump_from_store",
     "judge",
     "ledger_facts",
+    "normalize_metric_name",
     "render_aliases",
     "render_cards",
     "render_ledger_rows",
+    "resolve_metric_slot",
 ]
