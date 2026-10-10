@@ -280,9 +280,31 @@ def test_verify_draft_strips_bare_json_segments() -> None:
     assert rewritten == 0 and cited == [1] and split is False
 
 
-def test_verify_draft_non_emission_json_kept() -> None:
-    # 非发射形 JSON（无 action 键）不辖剥除——域外内容零误伤。
-    draft = "口径数据 {\"metric\": \"日产油量\", \"unit\": \"吨\"} 仅为示例。\n" + _REAL_DRAFT
+def test_verify_draft_strips_non_emission_json_fence() -> None:
+    # P047AD-NQ-D7 帧形：汇总相位重发非发射形 JSON（matches 围栏）——JSON 通道
+    # 全隔离（验收钉「改写面无裸 JSON 段」按字面全辖：答案面是散文交付面，
+    # 围栏 JSON 段一律协议残留）；前缀噪声形（围栏体带文字前缀裹 JSON）同剥。
+    matches = (
+        '{"matches": [{"id": "s1", "chain": "knowledge", '
+        '"tool": "doc_retrieve", "retrieval_need": {"question": "配注安排"}}]}'
+    )
+    for fence_body in (matches, f"未找到（材料未披露）：{matches}"):
+        draft = f"```json\n{fence_body}\n```\n" + _REAL_DRAFT
+        text, rewritten, cited, _split = verify_draft(draft, [_agg_obs(1)])
+        assert "```" not in text and '"matches"' not in text
+        assert "21.16 吨[1]" in text
+        assert rewritten == 0 and cited == [1]  # 剥除不计 INV-1 改写
+
+
+def test_verify_draft_prose_and_inline_braces_kept() -> None:
+    # 零误伤边界：纯散文围栏保留；散文行内非发射花括号片段保留——剥除只辖
+    # JSON 段（围栏 JSON 体／整行可解析 JSON／发射令牌整行）。
+    draft = (
+        "报告摘录：```\n本节为纯散文引文，不含花括号结构。\n```\n"
+        "口径数据 {\"metric\": \"日产油量\", \"unit\": \"吨\"} 仅为示例说明。\n"
+        + _REAL_DRAFT
+    )
     text, _rewritten, _cited, _split = verify_draft(draft, [_agg_obs(1)])
-    assert '"metric"' in text  # 非发射 JSON 原样保留（剥除只辖发射形）
+    assert "纯散文引文" in text  # 无 JSON 段的围栏原样保留
+    assert '"metric"' in text  # 散文行内非发射花括号片段零误伤
     assert "21.16 吨[1]" in text

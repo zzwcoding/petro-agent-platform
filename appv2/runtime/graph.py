@@ -506,35 +506,49 @@ _EMISSION_TOKEN_RE = re.compile(r'\{\s*"action"\s*:\s*"([^"]+)"[^{}]*\}')
 _FENCE_RE = re.compile(r"```[^\n]*\n?(.*?)```", re.DOTALL)
 
 
-def _is_emission_payload(body: str) -> bool:
-    """围栏体是否发射形 JSON（dict 且 action ∈ ACTION_KINDS 闭世界）。"""
+def _parses_as_json(text: str) -> bool:
     try:
-        payload = json.loads(body)
+        payload = json.loads(text)
     except ValueError:
         return False
-    return isinstance(payload, dict) and payload.get("action") in ACTION_KINDS
+    return isinstance(payload, (dict, list))
+
+
+def _fence_is_json(body: str) -> bool:
+    """围栏体是否 JSON 段（整段可解／前缀噪声形首个 { 到末个 } 可解——P047AD
+    NQ-D7 帧形：汇总相位重发 matches JSON 围栏，答案面是散文交付面，围栏 JSON
+    段一律属协议残留）。"""
+    candidate = body.strip()
+    if _parses_as_json(candidate):
+        return True
+    start = candidate.find("{")
+    end = candidate.rfind("}")
+    return start != -1 and end > start and _parses_as_json(candidate[start : end + 1])
 
 
 def strip_emission_fences(text: str) -> tuple[str, bool]:
-    """发射围栏/裸发射 JSON 确定性剥离（V2-48 族 A——JSON 通道隔离单点）。
+    """JSON 通道确定性剥离（V2-48 族 A——发射围栏/裸 JSON 段不进答案面）。
 
     finalize/ask 发射通道与答案文本通道分离的确定性收口（Q14 族 A 帧形全辖：
     NQ-D10 纯围栏零交付／NQ-D1·D7 围栏裹载荷／数-闸2 相位提示回声行内裸发射
-    对象／系统-届满 正文尾挂围栏）：
+    对象／系统-届满 正文尾挂围栏／P047AD-NQ-D7 汇总相位重发 matches JSON
+    围栏——非发射形 JSON 段同属协议残留）：
 
-    - 围栏块：body 解析为发射形 JSON（action ∈ ACTION_KINDS）→整块剥除；
+    - 围栏块：body 为 JSON 段（整段或前缀噪声形可解析为 JSON 对象/数组）→
+      整块剥除（发射形与否都剥——答案面零裸 JSON 段）；
     - 裸发射行：行内含裸发射 JSON 令牌（action ∈ ACTION_KINDS）→整行剥除
-      （回声行余文＝提示原文，同属泄漏承载——一并离场）；
-    - 非发射围栏/普通 JSON（无 action 键或 action 越界闭世界）零误伤原样保留。
+      （回声行余文＝提示原文，同属泄漏承载——一并离场）；整行就是一个可解析
+      JSON 对象/数组的行→剥除（无围栏裸 JSON 行）；
+    - 纯散文围栏（无 JSON 段）与散文行内非发射花括号片段零误伤原样保留。
 
-    返回（剥离后文本, 是否检出发射泄漏）。纯格式隔离零语义判定——剥离不计数
-    进 INV-1 改写（发射残片非断言）。
+    返回（剥离后文本, 是否检出 JSON 通道残留）。纯格式隔离零语义判定——剥离
+    不计数进 INV-1 改写（协议残片非断言）。
     """
     leaked = False
 
     def _drop(m: re.Match[str]) -> str:
         nonlocal leaked
-        if _is_emission_payload(m.group(1).strip()):
+        if _fence_is_json(m.group(1)):
             leaked = True
             return ""
         return m.group(0)
@@ -544,6 +558,10 @@ def strip_emission_fences(text: str) -> tuple[str, bool]:
     for line in text.splitlines():
         token = _EMISSION_TOKEN_RE.search(line)
         if token is not None and token.group(1) in ACTION_KINDS:
+            leaked = True
+            continue
+        stripped = line.strip()
+        if stripped.startswith(("{", "[")) and _parses_as_json(stripped):
             leaked = True
             continue
         kept.append(line)
@@ -2715,7 +2733,7 @@ def _make_answer(
                 leaked = leaked or retry_leaked
             if not draft.strip():
                 draft = (
-                    "（模型草稿为发射 JSON 围栏——剥离重试仍未取得有效草稿，"
+                    "（模型草稿为 JSON 通道残留——剥离重试仍未取得有效草稿，"
                     "如实收口。）"
                     if leaked
                     else "（模型未产出草稿——如实收口。）"
@@ -2727,9 +2745,10 @@ def _make_answer(
                         "type": "emission_strip",
                         "gates": [],
                         "content": (
-                            "起草面检出发射 JSON 围栏泄漏——确定性剥离"
+                            "起草面检出 JSON 通道残留（发射围栏/裸 JSON 段）"
+                            "——确定性剥离"
                             + ("＋同相位重试一次" if retry_content is not None else "")
-                            + "（V2-48 JSON 通道隔离——发射围栏不进答案面）"
+                            + "（V2-48 JSON 通道隔离——不进答案面）"
                         ),
                     },
                 )
