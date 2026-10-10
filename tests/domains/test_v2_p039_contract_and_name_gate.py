@@ -252,7 +252,11 @@ async def _run_all(runtime: Any, question: str) -> list[Any]:
 async def test_p039_f2_caliber_ambiguity_goes_to_precondition_not_clarify(
     tmp_path: Path,
 ) -> None:
-    """口径歧义走前置条件机 caliber 三态（附 2b）——clarify 发射是分解不是反问。"""
+    """口径歧义走前置条件机 caliber 三态（附 2b）——clarify 发射是分解不是反问。
+    V2-43：用户答口径后含水率仍触发绑定闸拒（未绑定）——回炉①换 knowledge
+    链交付（口径三态面照常先行，不因回炉闸回退）。"""
+    retrieval = _retrieval_with(_fragment_obs(
+        "各井含水率按化验实测口径 21.4%（月报所载）。", "frag-hsl-p039"))
     engine = FourPhaseEngine([_rows_outcome(), _rows_outcome()])
     clarify_r1 = json.dumps({
         "action": "decompose",
@@ -279,13 +283,29 @@ async def test_p039_f2_caliber_ambiguity_goes_to_precondition_not_clarify(
             "metric_slot": "含水率", "ranking": False, "caliber_key": "B",
             "window_start": "2025-09-01", "window_end": "2025-09-03"},
     }]}, ensure_ascii=False)
+    clarify_r3 = json.dumps({
+        "action": "decompose",
+        "question_group": {"subtasks": [
+            {"id": "s1", "question": "各井含水率月报口径是否超过 30"
+             "（据拒因提示换检索链）",
+             "ledger_notes": "文档所载——knowledge 链", "chain": "knowledge",
+             "tool": "doc_retrieve"},
+        ]},
+    }, ensure_ascii=False)
+    toolmatch_r3 = json.dumps({"matches": [{
+        "id": "s1", "chain": "knowledge", "tool": "doc_retrieve",
+        "retrieval_need": {"question": "各井含水率 月报口径"},
+    }]}, ensure_ascii=False)
     script: dict[str, Sequence[str]] = {
         "v2.runtime.understand": [_UNDERSTAND],
-        "v2.runtime.decision": [clarify_r1, toolmatch_r1, clarify_r2, toolmatch_r2],
+        "v2.runtime.decision": [
+            clarify_r1, toolmatch_r1, clarify_r2, toolmatch_r2,
+            clarify_r3, toolmatch_r3,
+        ],
         "v2.runtime.answer": ["各井含水率 21.4%[1]。"],
     }
     runtime, _completer, db = await make_runtime(
-        tmp_path, engine=engine, script=script,
+        tmp_path, engine=engine, script=script, retrieval=retrieval,
         four_phase=True, ledger_dump=lambda: dict(LEDGER_DUMP),
     )
     try:
@@ -299,10 +319,12 @@ async def test_p039_f2_caliber_ambiguity_goes_to_precondition_not_clarify(
         assert clarify_steps[0]["emission"]["action"] == "decompose"  # clarify 不反问口径
         verdicts = _step_payloads(steps, "precondition")[0]["verdicts"]
         assert verdicts[0]["state"] == STATE_BLOCKED_ASK
-        # 用户选定口径支——续跑收口。
+        # 用户选定口径支——续跑：绑定闸拒触发回炉①换链，如实收口。
         handle = await runtime.resume(asks[-1]["run_id"], AskChoice(value="B 检修剔除"))
         events2 = await drain(handle)
         assert events2[-1].data["status"] == "completed"
+        assert engine.run_calls == 0  # 含水率在册未绑定——零 data 执行
+        assert retrieval.retrieve_calls == 1
     finally:
         await db.dispose()
 
@@ -629,7 +651,11 @@ def test_p039_f7_judge_normalizes_reports_slot_and_keeps_miss_refusal() -> None:
 
 
 async def test_p039_f7_e2e_plan_rewritten_to_ledger_slot(tmp_path: Path) -> None:
-    """执行面：命中归一的 plan.metric_slot 改写为台账 slot——引擎按 slot 精确命中。"""
+    """执行面：命中归一的 plan.metric_slot 改写为台账 slot（判定面 normalized_
+    slot 在场）；V2-43 后归一命中的台账槽位在册未绑定——改写面照旧落载，执行
+    面走换链回炉（data 引擎零执行，轮 2 换 knowledge 链 doc_retrieve 交付）。"""
+    retrieval = _retrieval_with(_fragment_obs(
+        "渤中 34-5 油田注采比 0.98（月报所载）。", "frag-zcb-f7"))
     engine = FourPhaseEngine([_rows_outcome()], slots=frozenset({"注采比 β"}))
     clarify_r1 = json.dumps({
         "action": "decompose",
@@ -643,24 +669,40 @@ async def test_p039_f7_e2e_plan_rewritten_to_ledger_slot(tmp_path: Path) -> None
             "metric_slot": "注采比", "ranking": False,
             "window_start": "2026-08-01", "window_end": "2026-08-31"},
     }]}, ensure_ascii=False)
+    clarify_r2 = json.dumps({
+        "action": "decompose",
+        "question_group": {"subtasks": [
+            {"id": "s1", "question": "渤中 34-5 油田注采比（据拒因提示换检索链）",
+             "ledger_notes": "文档所载——knowledge 链", "chain": "knowledge",
+             "tool": "doc_retrieve"},
+        ]},
+    }, ensure_ascii=False)
+    toolmatch_r2 = json.dumps({"matches": [{
+        "id": "s1", "chain": "knowledge", "tool": "doc_retrieve",
+        "retrieval_need": {"question": "渤中 34-5 油田注采比"},
+    }]}, ensure_ascii=False)
     script: dict[str, Sequence[str]] = {
         "v2.runtime.understand": [_UNDERSTAND],
-        "v2.runtime.decision": [clarify_r1, toolmatch_r1],
-        "v2.runtime.answer": ["注采比 0.98[1]。"],
+        "v2.runtime.decision": [clarify_r1, toolmatch_r1, clarify_r2, toolmatch_r2],
+        "v2.runtime.answer": ["渤中 34-5 油田注采比 0.98[1]。"],
     }
     runtime, _completer, db = await make_runtime(
-        tmp_path, engine=engine, script=script,
+        tmp_path, engine=engine, script=script, retrieval=retrieval,
         four_phase=True, ledger_dump=lambda: dict(LEDGER_DUMP),
     )
     try:
         events = await _run_all(runtime, "注采比题")
         assert events[-1].data["status"] == "completed"
-        assert engine.run_calls == 1
-        assert engine.plans[0].metric_slot == "注采比 β"  # 归一 slot 进执行面
+        assert engine.run_calls == 0  # V2-43：未绑定槽位不再落 data 执行面
+        assert engine.plans == []  # 归一改写面不触引擎（回炉换链交付）
+        assert retrieval.retrieve_calls == 1
         store = RunStore(db)
         steps = await store.list_steps(events[-1].data["run_id"])
-        verdicts = _step_payloads(steps, "precondition")[0]["verdicts"]
+        preconds = _step_payloads(steps, "precondition")
+        verdicts = preconds[0]["verdicts"]
         assert verdicts[0]["normalized_slot"] == "注采比 β"
+        assert verdicts[0]["chain_switch_trigger"] is True  # V2-43 触发面
+        assert preconds[0]["chain_switch_marks"]["s1"]  # 换链指纹簿记在场
         toolmatch = _step_payloads(steps, "toolmatch")[0]
         assert toolmatch["emission"]["matches"][0]["plan"]["metric_slot"] == "注采比"
     finally:

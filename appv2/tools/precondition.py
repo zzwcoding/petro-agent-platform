@@ -9,9 +9,10 @@ V1 闸语义移植（ADR-0005：禁用词/新鲜度窗/在册绑定态/外表越
   （ASK_CLARIFY——B5 裁决：用户已答才代选，否则反问）；
 - blocked_refuse → 子问题如实拒答：禁用词（N1——带替代词）＋非法 caliber_key
   （合法口径校验）；
-- note → 注记随行照常执行：单井支持性（照常发射全井计划）、在册未绑定（引擎
-  降级解释链权威）、水位窗（照实判定不造达标假象——票面任务 7）、外表已放行、
-  双口径并列（血缘卡两支同载——PROP-BOHAI-008=C）。
+- note → 注记随行照常执行：单井支持性（照常发射全井计划）、水位窗（照实判定
+  不造达标假象——票面任务 7）、外表已放行、双口径并列（血缘卡两支同载
+  ——PROP-BOHAI-008=C）；在册未绑定自 V2-43 起＝换链回炉闸触发面（判定仍是
+  note——runtime 前置条件节点拦下执行面，携拒因＋hint 回炉①澄清相位一次为界）。
 
 铁律（ADR-0005）：LLM 出语义，代码出判定——本模块零 LLM（R1 红线：AST＋import
 双证扫描见 tests/domains/test_v2_four_phase.py）。放行态落点（A2 裁决）：外表
@@ -89,6 +90,10 @@ class Verdict:
     notes: tuple[str, ...] = ()
     ask: AskFrame | None = None
     normalized_slot: str = ""  # F7 名归一：非空＝发射名经名归一闸命中该台账 slot
+    # V2-43 换链回炉闸触发面：data 链＋在册（F7 归一后）＋绑定闸拒（未绑定 agg）
+    # ＝True——runtime 前置条件节点据此拦下执行面，携拒因＋hint＋「换链提议」
+    # 标记回炉①澄清相位（一次为界；其余闸此值恒 False，四态语义一字不动）。
+    chain_switch_trigger: bool = False
 
     def as_payload(self) -> dict[str, Any]:
         return {
@@ -107,6 +112,7 @@ class Verdict:
                 else None
             ),
             "normalized_slot": self.normalized_slot,
+            "chain_switch_trigger": self.chain_switch_trigger,
         }
 
 
@@ -264,6 +270,7 @@ def judge(
         return Verdict(subtask_id=subtask.subtask_id, state=STATE_PASS)
 
     notes: list[str] = []
+    unbound_binding = False  # V2-43 换链回炉闸触发面（绑定闸在册未绑定置位）
     metric_slot = str(plan.get("metric_slot") or "")
     # 键归一（引擎 metric_by_name 同构——slot/名/别名三形归到 slot；绑定态闸
     # 与口径闸因此对名形/别名形发射同样生效）。F7 名归一闸（P-039 附 4）：
@@ -376,7 +383,12 @@ def judge(
             )
 
         # —— 闸 4：在册绑定态（引擎降级解释链权威——注记随行不代判） ——
+        # V2-43（Owner 方案 A）：此闸命中＝换链回炉闸触发面——runtime 前置条件
+        # 节点拦下执行面，携拒因＋hint＋「换链提议」标记回炉①澄清相位（一次为
+        # 界；坚持 data 链同参再触发＝blocked_refuse 直答终局，不环）。判定面
+        # 四态语义不变（仍是 note——触发只在 runtime 消费）。
         if metric.binding_state == "unbound":
+            unbound_binding = True
             notes.append(
                 f"「{metric_slot}」在册未绑定——agg 汇总层无承载列，引擎将走降级"
                 "解释链（零数值不冒充）" + CHAIN_SWITCH_HINT
@@ -431,5 +443,6 @@ def judge(
             subtask_id=subtask.subtask_id, state=STATE_NOTE,
             reason="；".join(notes), notes=tuple(notes),
             normalized_slot=normalized_slot,
+            chain_switch_trigger=unbound_binding,
         )
     return Verdict(subtask_id=subtask.subtask_id, state=STATE_PASS)

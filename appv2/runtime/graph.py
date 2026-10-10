@@ -1830,11 +1830,12 @@ def _make_precondition(
         matches_by_id = {
             str(m.get("id")): m for m in state.tool_matches if isinstance(m, dict)
         }
-        verdicts: list[dict[str, Any]] = []
+        judged: list[Any] = []
+        plan_prints: dict[str, str] = {}  # 子问题 id → 判定面计划载荷指纹（同参比对面）
         for st in subtasks:
             sid = str(st.get("id") or "")
             match = matches_by_id.get(sid) or {}
-            verdict = judge(
+            judged.append(judge(
                 SubtaskInput(
                     subtask_id=sid,
                     question=str(st.get("question") or ""),
@@ -1845,8 +1846,36 @@ def _make_precondition(
                 facts,
                 approved_tables=tuple(state.approved_ids),
                 watermark=watermark,
+            ))
+            plan_prints[sid] = _payload_fingerprint(
+                {"plan": dict(match.get("plan") or {}), "retrieval_need": None}
             )
-            verdicts.append(verdict.as_payload())
+        # —— V2-43 换链回炉闸（Owner 方案 A——P-039 疑点 3 拍板）：data 链＋指标
+        # 在册（F7 归一后）＋绑定闸拒（未绑定 agg）＝不直答不执行——携拒因＋改链
+        # hint＋「换链提议」标记回炉①澄清相位（复用现有失败子集回炉机制；占一轮，
+        # 不占 ask 预算/不挂起）。一次为界：标记在册后同支（同 id 或同参指纹）再
+        # 触发＝blocked_refuse 直答终局（不环——同参指纹在本簿记；V2-37 执行面
+        # executed_payloads 簿记同向互替）。其余拒因四态语义一字不动。
+        marks = dict(state.chain_switch_marks)
+        chain_pending: set[str] = set()
+        for index, verdict in enumerate(judged):
+            if not verdict.chain_switch_trigger:
+                continue
+            sid = verdict.subtask_id
+            fingerprint = plan_prints.get(sid, "")
+            if sid in marks or fingerprint in marks.values():
+                judged[index] = replace(
+                    verdict,
+                    state=STATE_BLOCKED_REFUSE,
+                    reason=(
+                        "换链回炉已用尽（一次为界）：坚持 data 链同参"
+                        f"（指纹 {fingerprint[:12]}…在簿）——未绑定口径如实拒答，不代答"
+                    ),
+                )
+                continue
+            marks[sid] = fingerprint
+            chain_pending.add(sid)
+        verdicts: list[dict[str, Any]] = [v.as_payload() for v in judged]
         seq = _next_seq(state)
         title = "前置条件机：" + "｜".join(
             f"{v['subtask_id']}={v['state']}" for v in verdicts
@@ -1907,6 +1936,8 @@ def _make_precondition(
                         "phase": "precondition",
                         "pure_code": True,
                         "verdicts": verdicts,
+                        # 换链回炉指纹簿记（V2-43——不环钉的 step payload 断言面）。
+                        **({"chain_switch_marks": dict(marks)} if marks else {}),
                     },
                 ),
             ],
@@ -1925,17 +1956,56 @@ def _make_precondition(
             for v in verdicts
             if v["state"] == STATE_BLOCKED_REFUSE
         ]
-        if refusals:
-            # 同 id 只留最新判定（refused 取代旧条目——后续轮若转 pass 由批量
-            # upsert 接管，结果面不残留双行）。
-            refused_ids = {r["id"] for r in refusals}
-            updates["subtask_results"] = [
-                *[r for r in state.subtask_results if str(r.get("id")) not in refused_ids],
-                *refusals,
-            ]
+        # 换链回炉触发支＝回炉面失败条目（非终局——status=failed 供澄清相位
+        # 失败子集回炉消费；拒因携 hint＋「换链提议」标记随行）。
+        chain_entries = [
+            {
+                "id": v["subtask_id"],
+                "status": "failed",
+                "reason": (
+                    str(v["reason"]) + "（换链提议：回炉①改链重决策——一次为界）"
+                ),
+                "question": questions.get(v["subtask_id"], ""),
+                "obs_count": 0,
+                "fingerprint": marks.get(str(v["subtask_id"]), ""),
+                "chain": "data",
+                "chain_switch": True,
+            }
+            for v in verdicts
+            if str(v["subtask_id"]) in chain_pending
+        ]
+        if refusals or chain_entries:
+            # 同 id 只留最新判定（refused/回炉面 failed 取代旧条目——后续轮若转
+            # pass 由批量 upsert 接管，结果面不残留双行）。
+            results = list(state.subtask_results)
+            for block in (refusals, chain_entries):
+                block_ids = {r["id"] for r in block}
+                results = [
+                    r for r in results if str(r.get("id")) not in block_ids
+                ]
+                results.extend(block)
+            updates["subtask_results"] = results
+        extra_notices: list[dict[str, Any]] = []
+        if chain_pending:
+            notice = {
+                "type": "chain_switch_reentry",
+                "gates": [],
+                "content": (
+                    "换链回炉闸（V2-43）：子问题 "
+                    + "、".join(sorted(chain_pending))
+                    + " 绑定闸拒（data 链在册未绑定 agg）——携拒因＋改链 hint 回炉"
+                    "①澄清相位（一次为界；坚持原链同参再触发＝直答终局，不环）"
+                ),
+            }
+            deps.bus.emit("notice", dict(notice))
+            extra_notices.append(notice)
+            updates["notices"] = [*state.notices, *extra_notices]
+            updates["chain_switch_marks"] = marks
         asks = [v for v in verdicts if v["state"] == STATE_BLOCKED_ASK]
         executable = [
-            v for v in verdicts if v["state"] in (STATE_PASS, STATE_NOTE)
+            v for v in verdicts
+            if v["state"] in (STATE_PASS, STATE_NOTE)
+            and str(v["subtask_id"]) not in chain_pending
         ]
         if asks and executable:
             # 可执行子问题先进批量（部分结果先行）；blocked_ask 由批量段收尾挂起。
@@ -1953,7 +2023,7 @@ def _make_precondition(
                     ),
                 }
                 deps.bus.emit("notice", dict(notice))
-                updates["notices"] = [*state.notices, notice]
+                updates["notices"] = [*state.notices, *extra_notices, notice]
                 _direct_answer(updates, _clarify_capped_answer(state))
                 return updates
             updates["consecutive_asks"] = consecutive
@@ -1961,6 +2031,11 @@ def _make_precondition(
             updates["pending_ask"] = frame
             updates["next_intent"] = INTENT_DECISION  # 挂起：interrupt 在 clarify 入口
             deps.bus.emit("ask", {"frame": frame, "run_id": state.run_id})
+            return updates
+        if chain_pending and not executable:
+            # 纯触发组（V2-43 语义变更点）：不直答——回炉①澄清相位（占一轮；
+            # 失败子集回炉是发射回喂非 ASK——零挂起零 ask 预算）。
+            updates["next_intent"] = INTENT_DECISION
             return updates
         if not executable:
             # 全部如实拒答——零执行零冒充，直答收口。（附 3：blocked_refuse 直答
@@ -2058,6 +2133,12 @@ def _make_batch(
             verdict = verdicts_by_id.get(sid) or {}
             if verdict.get("state") not in (STATE_PASS, STATE_NOTE):
                 continue  # 前置未放行（blocked_*——非批量辖域）
+            if (
+                verdict.get("state") == STATE_NOTE
+                and verdict.get("chain_switch_trigger")
+                and sid in state.chain_switch_marks
+            ):
+                continue  # V2-43 换链回炉标记面：触发支本轮不执行——回炉①改链重决策
             prior = results_by_id.get(sid)
             if prior is not None and prior.get("status") == "ok":
                 continue  # 成功子问题不重跑（R4——执行指纹零重复）

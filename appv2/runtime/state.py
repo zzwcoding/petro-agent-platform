@@ -154,6 +154,12 @@ class RunState:
     # 相位④产物：子问题执行结果列（{id,status: ok|failed|refused,reason,
     # obs_count,fingerprint}）——回炉不重跑的簿记面（R4：成功子问题指纹零重复）。
     subtask_results: list[dict[str, Any]] = field(default_factory=list)
+    # 换链回炉簿记（V2-43）：绑定闸拒（data 链＋在册未绑定 agg）触发过回炉①的
+    # 子问题 id → 触发时计划载荷规范指纹（同参比对面）。一次为界：标记在册后
+    # 同支（同 id 或同参指纹）再触发＝blocked_refuse 直答终局（不环）；与
+    # V2-37 executed_payloads 执行面簿记同向互替——本簿记辖前置条件机回炉面，
+    # 执行面指纹照旧归 executed_payloads。
+    chain_switch_marks: dict[str, str] = field(default_factory=dict)
     # 全 run 发现预算已用数（澄清相位 ≤10 合同闸判据——Owner 拍板放宽）。
     discover_used: int = 0
     # —— 消息历史簿记（ADR-0006/V2-38）：understand/decision/answer 的调用与输出、

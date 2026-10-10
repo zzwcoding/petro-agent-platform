@@ -30,8 +30,6 @@ from pathlib import Path
 from typing import Any
 
 from appv2.knowledge import (
-    BINDING_UNBOUND,
-    Evidence,
     InMemoryKnowledgeStore,
     question_array_snapshot,
 )
@@ -668,16 +666,33 @@ async def test_four_phase_blocked_ask_suspends_and_resume_keeps_results(tmp_path
             "metric_slot": "含水率", "ranking": False, "caliber_key": "B",
             "window_start": "2025-09-01", "window_end": "2025-09-03"}},
     ]}, ensure_ascii=False)
+    # V2-43：resume 后 s2 口径已答仍触发绑定闸拒（含水率未绑定）——回炉①换链。
+    clarify_r3 = json.dumps({
+        "action": "decompose",
+        "question_group": {"subtasks": [
+            {"id": "s2", "question": "各井含水率按化验实测（月度/正式）口径是否超过 30"
+             "（据拒因提示换检索链）",
+             "ledger_notes": "文档所载——knowledge 链", "chain": "knowledge",
+             "tool": "doc_retrieve"},
+        ]},
+    }, ensure_ascii=False)
+    toolmatch_r3 = json.dumps({"matches": [
+        {"id": "s2", "chain": "knowledge", "tool": "doc_retrieve",
+         "retrieval_need": {"question": "各井含水率 化验实测 口径"}},
+    ]}, ensure_ascii=False)
     script = {
         "v2.runtime.understand": [UNDERSTAND_MULTI],
         "v2.runtime.decision": [
             clarify_r1, toolmatch_r1, clarify_r2, toolmatch_r2,
+            clarify_r3, toolmatch_r3,
         ],
         "v2.runtime.answer": [_SUMMARY_DRAFT],
     }
     runtime, _completer, db = await make_runtime(
-        tmp_path, engine=engine, script=script,
-        four_phase=True, ledger_dump=lambda: dict(LEDGER_DUMP),
+        tmp_path, engine=engine, script=script, four_phase=True,
+        ledger_dump=lambda: dict(LEDGER_DUMP),
+        retrieval=_retrieval_with(_fragment_obs(
+            "各井含水率化验实测口径 21.4%（月报所载）。", "frag-hsl-e2e")),
     )
     try:
         events = await _run_question(runtime, "四态分支综合题")
@@ -709,9 +724,10 @@ async def test_four_phase_blocked_ask_suspends_and_resume_keeps_results(tmp_path
         executed_after = [s for s in steps2 if s.step_type == "execute" and
                           (s.payload or {}).get("subtask_id")]
         ids = [s.payload["subtask_id"] for s in executed_after]
-        # s1/s4 恰一次（回炉不重跑——R4），s2 补跑恰一次
+        # s1/s4 恰一次（回炉不重跑——R4），s2 补跑恰一次（V2-43：回炉①换
+        # knowledge 链——含水率未绑定，data 面零执行）
         assert ids.count("s1") == 1 and ids.count("s4") == 1 and ids.count("s2") == 1
-        assert engine.run_calls == 3
+        assert engine.run_calls == 2  # 仅 s1/s4 走 data 引擎；s2 走 doc_retrieve
     finally:
         await db.dispose()
 
@@ -719,16 +735,19 @@ async def test_four_phase_blocked_ask_suspends_and_resume_keeps_results(tmp_path
 async def test_four_phase_refurnace_carries_failed_subset_only(tmp_path: Path) -> None:
     """轮语义：失败子集＋拒因回炉①澄清；成功子问题结果保留不重跑（R4）。
 
-    s2 用「配产量」（台账在册——C5 闭世界校验放行；引擎剧本槽位集不含——
-    引擎校验拒＝failed 回炉面）：C5 之后回炉语义的测试面必须在册槽位，
-    台账外槽位已被前置条件机确定性拒（不入执行轮）。"""
-    engine = FourPhaseEngine([_rows_outcome(), _rows_outcome()])
+    s2 用「日产液量」（台账在册 bound——前置条件机放行；引擎剧本槽位集不含
+    ——引擎校验拒＝failed 回炉面。V2-43 后回炉测试面必须在册 bound 槽位：
+    在册未绑定槽位已改走换链回炉闸，引擎拒面只对 bound 槽位可达）。"""
+    engine = FourPhaseEngine(
+        [_rows_outcome(), _rows_outcome()], slots=frozenset({"日产油量", "油压"})
+    )
     clarify_r1 = json.dumps({
         "action": "decompose",
         "question_group": {"subtasks": [
             {"id": "s1", "question": "2025-09-01 到 09-03 各井日产油量",
              "ledger_notes": "日产油量｜bound", "chain": "data"},
-            {"id": "s2", "question": "各井配产量", "ledger_notes": "配产量｜在册", "chain": "data"},
+            {"id": "s2", "question": "各井日产液量",
+             "ledger_notes": "日产液量｜bound", "chain": "data"},
         ]},
     }, ensure_ascii=False)
     clarify_r2 = json.dumps({
@@ -742,7 +761,7 @@ async def test_four_phase_refurnace_carries_failed_subset_only(tmp_path: Path) -
             "metric_slot": "日产油量", "ranking": False,
             "window_start": "2025-09-01", "window_end": "2025-09-03"}},
         {"id": "s2", "chain": "data", "tool": "data_query", "plan": {
-            "metric_slot": "配产量", "ranking": False,
+            "metric_slot": "日产液量", "ranking": False,
             "window_start": "2025-09-01", "window_end": "2025-09-03"}},
     ]}, ensure_ascii=False)
     toolmatch_r2 = json.dumps({"matches": [
@@ -777,7 +796,7 @@ async def test_four_phase_refurnace_carries_failed_subset_only(tmp_path: Path) -
         assert "回炉：" in round2_clarify
         # 成功子问题不再出现在回炉分解指令（回炉段只带失败子集＋拒因）
         refurnace_tail = round2_clarify.split("回炉：")[-1]
-        assert "s2" in refurnace_tail and "配产量" in refurnace_tail
+        assert "s2" in refurnace_tail and "日产液量" in refurnace_tail
         assert "不在指标台账" in refurnace_tail
         assert "s1" not in refurnace_tail
     finally:
@@ -787,21 +806,23 @@ async def test_four_phase_refurnace_carries_failed_subset_only(tmp_path: Path) -
 async def test_four_phase_three_rounds_partial_answers(tmp_path: Path) -> None:
     """3 轮部分续找：连续失败烧满轮预算后带部分结果如实收口。
 
-    s2 用「商品量」（台账在册——C5 闭世界校验放行；引擎剧本槽位集不含——
-    每轮引擎校验拒＝failed，回炉三轮语义不变）。"""
-    engine = QueueQueryEngine([_rows_outcome(), _rows_outcome()])
+    s2 用「日产液量」（台账在册 bound——前置条件机放行；引擎剧本槽位集不含
+    ——每轮引擎校验拒＝failed，回炉三轮语义不变。V2-43 后回炉测试面必须在
+    册 bound 槽位：在册未绑定槽位已改走换链回炉闸）。"""
+    engine = FourPhaseEngine([_rows_outcome()], slots=frozenset({"日产油量"}))
     clarify_ok = json.dumps({
         "action": "decompose",
         "question_group": {"subtasks": [
             {"id": "s1", "question": "2025-09-01 到 09-03 各井日产油量",
              "ledger_notes": "日产油量｜bound", "chain": "data"},
-            {"id": "s2", "question": "各井商品量", "ledger_notes": "商品量｜在册", "chain": "data"},
+            {"id": "s2", "question": "各井日产液量",
+             "ledger_notes": "日产液量｜bound", "chain": "data"},
         ]},
     }, ensure_ascii=False)
     clarify_bad = json.dumps({
         "action": "decompose",
         "question_group": {"subtasks": [
-            {"id": "s2", "question": "各井商品量（重试）", "ledger_notes": "商品量｜在册",
+            {"id": "s2", "question": "各井日产液量（重试）", "ledger_notes": "日产液量｜bound",
              "chain": "data"},
         ]},
     }, ensure_ascii=False)
@@ -810,12 +831,12 @@ async def test_four_phase_three_rounds_partial_answers(tmp_path: Path) -> None:
             "metric_slot": "日产油量", "ranking": False,
             "window_start": "2025-09-01", "window_end": "2025-09-03"}},
         {"id": "s2", "chain": "data", "tool": "data_query", "plan": {
-            "metric_slot": "商品量", "ranking": False,
+            "metric_slot": "日产液量", "ranking": False,
             "window_start": "2025-09-01", "window_end": "2025-09-03"}},
     ]}, ensure_ascii=False)
     toolmatch_s2_bad = json.dumps({"matches": [
         {"id": "s2", "chain": "data", "tool": "data_query", "plan": {
-            "metric_slot": "商品量", "ranking": False,
+            "metric_slot": "日产液量", "ranking": False,
             "window_start": "2025-09-01", "window_end": "2025-09-03"}},
     ]}, ensure_ascii=False)
     script = {
@@ -1101,32 +1122,19 @@ def test_clarify_contract_narrows_ask_to_threshold_and_true_ambiguity() -> None:
 async def test_four_phase_anchorable_window_skips_ask_delivers_degrade(
     tmp_path: Path,
 ) -> None:
-    """P-033c 降2 剧本钉（窗可锚定场景——收窄后行为形状回归锁）。
+    """P-033c 降2 剧本钉（窗可锚定场景——收窄后行为形状回归锁；V2-43 更新）。
 
     问句带明确时间词（去年——窗词锚定表可解析）＋台账命中（配产量在册未绑定）
-    ＝窗可锚定：收窄后模型直发分解（不做窗/粒度反问），全链零 ask 帧零挂起，
-    降级解释如实交付（unbound_degrade 依据 notice 在场——P033BW1 数-降2
-    「该答未答转反问 ✅→⚠️」病灶的反面钉）；收窄合同面随 clarify 指令装载。"""
+    ＝窗可锚定：收窄后模型直发分解（不做窗/粒度反问），全链零 ask 帧零挂起；
+    V2-43 换链回炉闸：绑定闸拒（未绑定 agg）不再降级直答终局——携拒因＋hint
+    标记回炉①澄清相位，轮 2 换 knowledge 链 doc_retrieve 真执行（数据实载于
+    文档的题不再被未绑定面误杀），如实交付零冒充。"""
+    retrieval = _retrieval_with(_fragment_obs(
+        "配产量按月度计划分解下达：各井合计月度配产 21.4 万方（月报所载）。",
+        "frag-peichan-1",
+    ))
     engine = FourPhaseEngine(
-        [
-            QueryOutcome.unbound_degrade(
-                evidence=Evidence(
-                    element_id="201",
-                    kind="metric",
-                    value="配产量（单位：吨）——在册未绑定 agg 计量列",
-                    source="sem_metric#201",
-                    version=None,
-                    freshness="",
-                    scope="日",
-                    binding_state=BINDING_UNBOUND,
-                ),
-                basis=(
-                    "配产量在册未绑定汇总层计量列（源列在湖表，未进 agg 出数口径）"
-                    "——降级解释，零数值不冒充。"
-                ),
-            )
-        ],
-        slots=frozenset({"日产油量", "日产液量", "油压", "含水率", "配产量"}),
+        [], slots=frozenset({"日产油量", "日产液量", "油压", "含水率", "配产量"})
     )
     clarify = json.dumps({
         "action": "decompose",
@@ -1141,29 +1149,49 @@ async def test_four_phase_anchorable_window_skips_ask_delivers_degrade(
             "metric_slot": "配产量", "ranking": False,
             "window_start": "2025-01-01", "window_end": "2026-01-01"}},
     ]}, ensure_ascii=False)
+    clarify_r2 = json.dumps({
+        "action": "decompose",
+        "question_group": {"subtasks": [
+            {"id": "s1", "question": "去年各井配产量（据拒因提示换检索链）",
+             "ledger_notes": "文档所载——knowledge 链", "chain": "knowledge",
+             "tool": "doc_retrieve"},
+        ]},
+    }, ensure_ascii=False)
+    toolmatch_r2 = json.dumps({"matches": [
+        {"id": "s1", "chain": "knowledge", "tool": "doc_retrieve",
+         "retrieval_need": {"question": "去年各井配产量"}},
+    ]}, ensure_ascii=False)
     script = {
         "v2.runtime.understand": [UNDERSTAND_MULTI],
-        "v2.runtime.decision": [clarify, toolmatch],
+        "v2.runtime.decision": [clarify, toolmatch, clarify_r2, toolmatch_r2],
         "v2.runtime.answer": [
-            "未找到（口径未绑定）：配产量在册未绑定汇总层计量列——降级解释，"
-            "零数值不冒充。",
+            "去年各井配产量：月度配产合计 21.4 万方[1]（汇总层未绑定，按文档所载交付）。",
         ],
     }
     runtime, completer, db = await make_runtime(
-        tmp_path, engine=engine, script=script,
+        tmp_path, engine=engine, script=script, retrieval=retrieval,
         four_phase=True, ledger_dump=lambda: dict(LEDGER_DUMP),
     )
     try:
         events = await _run_question(runtime, "去年各井配产量是多少？")
         final = events[-1].data
         assert final["status"] == "completed"  # 窗可锚定零 ask——不挂起直收口
-        assert not [e for e in events if e.event == "ask"]  # 全链零 ask 帧
+        assert not [e for e in events if e.event == "ask"]  # 全链零 ask 帧（回炉非挂起）
         # 收窄合同面随 clarify 指令在场（runtime 消费缝装载到位——非死文本）
         first_decision = completer.messages_of("v2.runtime.decision")[0][-1]["content"]
         assert "窗可锚定＝禁 ask" in first_decision
-        # 降级解释如实交付（引擎降级依据 notice 在场）
+        # V2-43 换链回炉面：绑定闸拒触发回炉①恰一次，轮 2 换链真执行交付
+        store = RunStore(db)
+        steps = await store.list_steps(final["run_id"])
+        preconds = _step_payloads(steps, "precondition")
+        assert preconds[0]["verdicts"][0]["chain_switch_trigger"] is True
+        assert preconds[0]["chain_switch_marks"]["s1"]  # 换链指纹簿记在场
+        assert preconds[1]["verdicts"][0]["state"] == "pass"  # 换 knowledge 链放行
+        assert engine.run_calls == 0  # data 引擎零执行（降级直答终局退役）
+        assert retrieval.retrieve_calls == 1
         notices = [e.data for e in events if e.event == "notice"]
-        assert any(n.get("type") == "unbound_degrade" for n in notices)
+        assert any(n.get("type") == "chain_switch_reentry" for n in notices)
+        assert not any(n.get("type") == "unbound_degrade" for n in notices)
     finally:
         await db.dispose()
 
@@ -1172,8 +1200,12 @@ async def test_four_phase_clarify_ask_threshold_form_still_suspends_and_resumes(
     tmp_path: Path,
 ) -> None:
     """P-033c 收窄钉（阈值判断形反问仍通）：ask 白场（无场景词阈值判断形——
-    口径支待用户选）在 clarify 相位照常发射→真挂起→resume 回喂→分解续跑收口。
-    收窄只禁窗可锚定下的不必要反问，不禁阈值判断形/真歧义白场（挂起不占轮）。"""
+    口径支待用户选）在 clarify 相位照常发射→真挂起→resume 回喂→续跑收口。
+    收窄只禁窗可锚定下的不必要反问，不禁阈值判断形/真歧义白场（挂起不占轮）。
+    V2-43：resume 后口径已答仍触发绑定闸拒（含水率未绑定）——换链回炉①后
+    轮 3 换 knowledge 链交付（零 data 执行）。"""
+    retrieval = _retrieval_with(_fragment_obs(
+        "各井含水率按化验实测口径 2025-09 平均 21.4%（月报所载）。", "frag-hsl-1"))
     engine = FourPhaseEngine([_rows_outcome()])
     ask_first = json.dumps({
         "action": "ask",
@@ -1193,13 +1225,27 @@ async def test_four_phase_clarify_ask_threshold_form_still_suspends_and_resumes(
             "metric_slot": "含水率", "ranking": False, "caliber_key": "B",
             "window_start": "2025-01-01", "window_end": "2026-01-01"}},
     ]}, ensure_ascii=False)
+    clarify_r3 = json.dumps({
+        "action": "decompose",
+        "question_group": {"subtasks": [
+            {"id": "s1", "question": "各井含水率按化验实测口径是否超过 30"
+             "（据拒因提示换检索链）",
+             "ledger_notes": "文档所载——knowledge 链", "chain": "knowledge",
+             "tool": "doc_retrieve"},
+        ]},
+    }, ensure_ascii=False)
+    toolmatch_r3 = json.dumps({"matches": [
+        {"id": "s1", "chain": "knowledge", "tool": "doc_retrieve",
+         "retrieval_need": {"question": "各井含水率 化验实测 口径"}},
+    ]}, ensure_ascii=False)
     script = {
         "v2.runtime.understand": [UNDERSTAND_MULTI],
-        "v2.runtime.decision": [ask_first, clarify_after, toolmatch],
-        "v2.runtime.answer": [_SUMMARY_DRAFT],
+        "v2.runtime.decision": [ask_first, clarify_after, toolmatch,
+                                clarify_r3, toolmatch_r3],
+        "v2.runtime.answer": ["各井含水率化验实测口径 21.4%[1]——未超过 30。"],
     }
     runtime, _completer, db = await make_runtime(
-        tmp_path, engine=engine, script=script,
+        tmp_path, engine=engine, script=script, retrieval=retrieval,
         four_phase=True, ledger_dump=lambda: dict(LEDGER_DUMP),
     )
     try:
@@ -1210,11 +1256,12 @@ async def test_four_phase_clarify_ask_threshold_form_still_suspends_and_resumes(
         store = RunStore(db)
         run_row = await store.get_run(asks[-1]["run_id"])
         assert run_row is not None and run_row.status == "waiting_ask"
-        # resume：用户选定口径支→回喂分解→批量恰一次执行→收口
+        # resume：用户选定口径支→回喂分解→（V2-43 绑定闸拒触发回炉①换链）→收口
         handle = await runtime.resume(run_row.run_id, AskChoice(value="B 化验实测"))
         events2 = await drain(handle)
         assert events2[-1].data["status"] == "completed"
-        assert engine.run_calls == 1
+        assert engine.run_calls == 0  # 含水率在册未绑定——换链回炉后零 data 执行
+        assert retrieval.retrieve_calls == 1  # 轮 3 换 knowledge 链真执行
     finally:
         await db.dispose()
 

@@ -63,7 +63,11 @@ GET  /api/v2/chat/runs/{run_id}        200 → {status, steps, manifest_digest}
    ③**前置条件机（precondition）**：纯固定代码零 LLM（铁律——LLM 无权判定），
    逐子问题过闸判四态：`pass｜blocked_ask→ASK 挂起｜blocked_refuse→子问题如实拒答｜
    note 注记随行`；闸项＝V1 语义移植：禁用词（带替代词）、新鲜度窗、在册绑定态、
-   外表越集、单井支持性、合法口径（caliber_key 三态，见约定 6）；
+   外表越集、单井支持性、合法口径（caliber_key 三态，见约定 6）；其中「data 链＋
+   指标在册（F7 归一后）＋绑定闸拒（在册未绑定 agg）」自 V2-43 起＝**换链回炉态**：
+   不直答不执行——携拒因＋改链 hint＋「换链提议」标记回炉①澄清相位（复用失败子集
+   回炉机制，占一轮、不占 ask 预算/不挂起），一次为界——坚持 data 链同参再触发＝
+   blocked_refuse 直答终局（不环，同参指纹在 chain_switch_marks 簿记）；
    ④**批量执行＋汇总（batch）**：子问题组执行＋观察汇聚，LLM 整合全组子结果
    （逐子问题引用）→ verify 核验收口。
    每步落 step 记录（类型六值闭世界 decision/discover/execute/observe/verify/answer；
