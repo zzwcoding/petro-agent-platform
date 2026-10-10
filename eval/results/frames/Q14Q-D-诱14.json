@@ -1,0 +1,139 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-7cf5aaaa",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问渤中34-5油田三季度各注水井的欠注情况及W-56井8月停注6天是否构成欠注。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问渤中34-5油田三季度各注水井的欠注情况及W-56井8月停注6天是否构成欠注。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 2 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：2 条定案"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=blocked_refuse｜s2=blocked_refuse"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 5,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 7,
+   "event": "text",
+   "data": {
+    "content": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 渤中34-5油田三季度（2026-Q3）注水井欠注明细：哪些注水井欠注？每口配注、实注、欠注率分别是多少？——拒因：指标 '配注量' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）\n- [s2] W-56井2026年8月停注天数明细及是否计入欠注——拒因：指标 '配注量' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-7cf5aaaa",
+    "manifest_digest": "b0ce1bc88e0b38533c5f718b7ebf8b96112f35497b8e0f297f51c2dde10eb4a3"
+   }
+  },
+  {
+   "id": 9,
+   "event": "done",
+   "data": {
+    "run_id": "run-7cf5aaaa"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 渤中34-5油田三季度（2026-Q3）注水井欠注明细：哪些注水井欠注？每口配注、实注、欠注率分别是多少？——拒因：指标 '配注量' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）\n- [s2] W-56井2026年8月停注天数明细及是否计入欠注——拒因：指标 '配注量' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-7cf5aaaa",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问渤中34-5油田三季度各注水井的欠注情况及W-56井8月停注6天是否构成欠注。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 2 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：2 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=blocked_refuse｜s2=blocked_refuse"
+   },
+   {
+    "step": "answer",
+    "seq": 5,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-7cf5aaaa",
+   "manifest_digest": "b0ce1bc88e0b38533c5f718b7ebf8b96112f35497b8e0f297f51c2dde10eb4a3"
+  },
+  "texts": [
+   "问渤中34-5油田三季度各注水井的欠注情况及W-56井8月停注6天是否构成欠注。",
+   "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 渤中34-5油田三季度（2026-Q3）注水井欠注明细：哪些注水井欠注？每口配注、实注、欠注率分别是多少？——拒因：指标 '配注量' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）\n- [s2] W-56井2026年8月停注天数明细及是否计入欠注——拒因：指标 '配注量' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）"
+  ],
+  "duration_s": 6.6
+ }
+}

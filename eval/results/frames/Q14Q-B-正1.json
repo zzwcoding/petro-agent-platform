@@ -1,0 +1,215 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-06584487",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问8月份躺井的井次总数及躺井率，并明确统计口径。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问8月份躺井的井次总数及躺井率，并明确统计口径。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「躺井」涉及统计口径与对象范围，请明确以下要点：）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「躺井」涉及统计口径与对象范围，请明确以下要点：",
+     "options": [
+      "按全油田口径：8月躺井井次=停产待检泵的井次合计；躺井率=躺井井次÷计划开井井次×100%",
+      "按单井口径：8月躺井井次=停产待检泵的井次合计；躺井率=躺井天数÷日历天数×100%",
+      "按作业区口语：仅作业区在册井；躺井井次+躺井率同上口径 A/B 自选",
+      "以上都不是，我补充说明"
+     ],
+     "detail": null
+    },
+    "run_id": "run-06584487"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-06584487"
+   }
+  },
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-06584487",
+    "resume": true
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清回收：按全油田口径：8月躺井井次=停产待检泵的井次合计；躺井率=躺井井次÷计划开井井次×100%"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "工具匹配：1 条定案"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "前置条件机：s1=blocked_refuse"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 7,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 6,
+   "event": "text",
+   "data": {
+    "content": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 8月躺井多少井次？躺井率多少？按什么口径？——拒因：指标 '停产待检泵' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-06584487",
+    "manifest_digest": "c3745b1198ea1af34fdefe7249563bd40af32e2035069b39f3b7c2a12593307d"
+   }
+  },
+  {
+   "id": 8,
+   "event": "done",
+   "data": {
+    "run_id": "run-06584487"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 8月躺井多少井次？躺井率多少？按什么口径？——拒因：指标 '停产待检泵' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-06584487",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问8月份躺井的井次总数及躺井率，并明确统计口径。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「躺井」涉及统计口径与对象范围，请明确以下要点：）"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清回收：按全油田口径：8月躺井井次=停产待检泵的井次合计；躺井率=躺井井次÷计划开井井次×100%"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "工具匹配：1 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "前置条件机：s1=blocked_refuse"
+   },
+   {
+    "step": "answer",
+    "seq": 7,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「躺井」涉及统计口径与对象范围，请明确以下要点：",
+     "options": [
+      "按全油田口径：8月躺井井次=停产待检泵的井次合计；躺井率=躺井井次÷计划开井井次×100%",
+      "按单井口径：8月躺井井次=停产待检泵的井次合计；躺井率=躺井天数÷日历天数×100%",
+      "按作业区口语：仅作业区在册井；躺井井次+躺井率同上口径 A/B 自选",
+      "以上都不是，我补充说明"
+     ],
+     "detail": null
+    },
+    "run_id": "run-06584487"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-06584487",
+   "manifest_digest": "c3745b1198ea1af34fdefe7249563bd40af32e2035069b39f3b7c2a12593307d"
+  },
+  "texts": [
+   "问8月份躺井的井次总数及躺井率，并明确统计口径。",
+   "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 8月躺井多少井次？躺井率多少？按什么口径？——拒因：指标 '停产待检泵' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）"
+  ],
+  "duration_s": 7.0
+ }
+}

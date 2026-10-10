@@ -1,0 +1,139 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-58f7128e",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问在12 mm油嘴工作制度下的折算日产油量、生产压差和采油指数。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问在12 mm油嘴工作制度下的折算日产油量、生产压差和采油指数。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 3 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：3 条定案"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=blocked_refuse｜s2=blocked_refuse｜s3=blocked_refuse"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 5,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 7,
+   "event": "text",
+   "data": {
+    "content": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 12 mm 油嘴下的折算日产油量是多少？——拒因：指标 '折算日产油' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）\n- [s2] 12 mm 油嘴下的生产压差是多少？——拒因：指标 '生产压差' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）\n- [s3] 12 mm 油嘴下的采油指数是多少？——拒因：指标 '采油指数' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-58f7128e",
+    "manifest_digest": "47ff6237e765664211585ef864c7ba0cbf6cfb04984d1e4e751e80853fa8b862"
+   }
+  },
+  {
+   "id": 9,
+   "event": "done",
+   "data": {
+    "run_id": "run-58f7128e"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 12 mm 油嘴下的折算日产油量是多少？——拒因：指标 '折算日产油' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）\n- [s2] 12 mm 油嘴下的生产压差是多少？——拒因：指标 '生产压差' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）\n- [s3] 12 mm 油嘴下的采油指数是多少？——拒因：指标 '采油指数' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-58f7128e",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问在12 mm油嘴工作制度下的折算日产油量、生产压差和采油指数。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 3 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：3 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=blocked_refuse｜s2=blocked_refuse｜s3=blocked_refuse"
+   },
+   {
+    "step": "answer",
+    "seq": 5,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-58f7128e",
+   "manifest_digest": "47ff6237e765664211585ef864c7ba0cbf6cfb04984d1e4e751e80853fa8b862"
+  },
+  "texts": [
+   "问在12 mm油嘴工作制度下的折算日产油量、生产压差和采油指数。",
+   "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 12 mm 油嘴下的折算日产油量是多少？——拒因：指标 '折算日产油' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）\n- [s2] 12 mm 油嘴下的生产压差是多少？——拒因：指标 '生产压差' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）\n- [s3] 12 mm 油嘴下的采油指数是多少？——拒因：指标 '采油指数' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）"
+  ],
+  "duration_s": 6.5
+ }
+}

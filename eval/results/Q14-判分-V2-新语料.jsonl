@@ -1,0 +1,30 @@
+{"qid": "NQ-M1", "batch": "Q14M", "frame_file": "Q14M-NQ-M1.json", "judge": "❌", "key_points": "轮预算触界收敛零交付（五子问全缺）；Q13 同 ❌ 维持", "note": ""}
+{"qid": "NQ-M2", "batch": "Q14M", "frame_file": "Q14M-NQ-M2.json", "judge": "✅", "key_points": "说明二原文引用（246 天＝在用周期不得计入）＋口径错置辨析＋真最短 Y-25 351 天＋建档门槛判断（351≥350 不入档＋Y-34 不能由表直接推）全对——表外注释主判达成", "note": ""}
+{"qid": "NQ-M3", "batch": "Q14M", "frame_file": "Q14M-NQ-M3.json", "judge": "❌", "key_points": "「模型未产出草稿——如实收口」零交付（躺井率口径式/跨月规则/复算 6.8% 全缺）——起草面塌方零冒充", "note": ""}
+{"qid": "NQ-M4", "batch": "Q14M", "frame_file": "Q14M-NQ-M4.json", "judge": "❌", "key_points": "检索缺 34-8 月报第五章——以 34-5 月报第九节（渤海 302/305 W 系）交付并自注「下采样回答」；三处纠正（306/308 对调/Y-34 不占船日/超计划 2.0 天）零交付；零编造", "note": "错源交付"}
+{"qid": "NQ-M5", "batch": "Q14M", "frame_file": "Q14M-NQ-M5.json", "judge": "❌", "key_points": "Y-21 设计缺陷断言五要点全缺（3.1 节检索缺）——逐子项「未覆盖」如实零编造；正题零交付", "note": ""}
+{"qid": "NQ-M6", "batch": "Q14M", "frame_file": "Q14M-NQ-M6.json", "judge": "❌", "key_points": "2027-01 月报原文检索缺——躺井率口径式引 34-5 8 月月报代答（出处如实）＋跨月归属规则未找到＋复算 3÷44≈6.8% 零交付（s3 数据链拒＋材料无载）", "note": ""}
+{"qid": "NQ-M7", "batch": "Q14M", "frame_file": "Q14M-NQ-M7.json", "judge": "❌", "key_points": "轮预算触界收敛零交付（gold 题——4 口划分/封闭枚举/Y-45-Y-49 辨析全缺）；Q13 同 ❌ 维持", "note": ""}
+{"qid": "NQ-M8", "batch": "Q14M", "frame_file": "Q14M-NQ-M8.json", "judge": "❌", "key_points": "跨油田近名张冠李戴——以 34-5 月报（躺井 7 井次/杆断 W-21/22/24/「其他」含 W-41）核 34-8 题（躺井 3 井次 Y-21/23/25）——W-41/Y-41 题眼正中；气锚判断同错源；零编造", "note": "跨油田张冠李戴"}
+{"qid": "NQ-M9", "batch": "Q14M", "frame_file": "Q14M-NQ-M9.json", "judge": "❌", "key_points": "五项时率损失答 2.1/1.9/1.8（34-5 月报 94.2% 语境）——非 34-8 月报值（1.1/0.6/1.7/1.5/0.1）；对应井零交付；跨报告数据错配", "note": ""}
+{"qid": "NQ-M10", "batch": "Q14M", "frame_file": "Q14M-NQ-M10.json", "judge": "⚠️", "key_points": "s2 检泵周期 Y-21 486/Y-23 402✓ 带引标；s1 断点/根号/井斜/狗腿度三组检索缺如实＋上次检泵完井日期缺——漏答多组但零互换零编造", "note": ""}
+{"qid": "NQ-C1", "batch": "Q14C", "frame_file": "Q14C-NQ-C1.json", "judge": "❌", "key_points": "第十章 Y-23 行/对照说明检索缺（误以 A-W11 报告第十章为「报告第十章」）——三问零交付（推算/六项参数/结语分工）；P039 ✅ 的波动面", "note": ""}
+{"qid": "NQ-C2", "batch": "Q14C", "frame_file": "Q14C-NQ-C2.json", "judge": "⚠️", "key_points": "s1 加和 11.5 验证＋6.1 归因＋0.5 天＋s3 三值全对带引标；s2（6.2 节 5.5/3.0 原句）检索缺如实", "note": ""}
+{"qid": "NQ-C3", "batch": "Q14C", "frame_file": "Q14C-NQ-C3.json", "judge": "⚠️", "key_points": "前提错误指出＋不砾石充填＋Star-PSⅡ/175 μm＋20/40 目＝未实施预案＋无砾石量井段＋4.0 天经济性含义＋两源 4.0/3.5 逐源列明；(3)「另两处 4.0 天」跨源错位（引 A-W11 工期/泥岩夹层）", "note": ""}
+{"qid": "NQ-C4", "batch": "Q14C", "frame_file": "Q14C-NQ-C4.json", "judge": "⚠️", "key_points": "Y-25/F3 双不存在判定✓＋邻井名单（W 侧）如实；配注全貌引 C 报告分层测试充当（源错位）＋34-8 侧 F1:200/F2:150=350 零交付", "note": ""}
+{"qid": "NQ-C5", "batch": "Q14C", "frame_file": "Q14C-NQ-C5.json", "judge": "❌", "key_points": "Y-21 报告检索缺（片段全 W-11）——井深台账核对零交付＋答案内嵌 ask JSON 块（交付面破损）", "note": ""}
+{"qid": "NQ-C6", "batch": "Q14C", "frame_file": "Q14C-NQ-C6.json", "judge": "❌", "key_points": "六档配对错 ≥2（32↔坐封 错配——真值 20；21 MPa 二次坐封无据引他报告；16.5/12.5/20 未找到）；34/9.8/25/24 四对对", "note": ""}
+{"qid": "NQ-C7", "batch": "Q14C", "frame_file": "Q14C-NQ-C7.json", "judge": "✅", "key_points": "(1) 278.4/242.8/0.872＋(2) 体积口径判定＋(3) 119.8↔8 mm/120.0↔12 mm 配对全对（书内 ✅ 判据为内容轴）；引标列表缺席注记", "note": ""}
+{"qid": "NQ-C8", "batch": "Q14C", "frame_file": "Q14C-NQ-C8.json", "judge": "✅", "key_points": "两口径区分＋附录 A 备注原文＋5.9=地面余量＋申报判 318.5＋(4) 原文——四子问全对（P039「318.5 疑漏」复核消）", "note": ""}
+{"qid": "NQ-C9", "batch": "Q14C", "frame_file": "Q14C-NQ-C9.json", "judge": "❌", "key_points": "(3)(4) 原文引用完整（132 立方米在场＋两版本并列）；但 (2) 错源（引 A-W11 第九章(5) 滑套句）误判「报告无相关记载」——Y-21(5) 明示句（不涉及考核＋Y-19 512 天）零召回＝无据否定；无据否定＝判 ❌", "note": ""}
+{"qid": "NQ-C10", "batch": "Q14C", "frame_file": "Q14C-NQ-C10.json", "judge": "⚠️", "key_points": "缓蚀剂对调判定✓（0.3% 完井液/0.5% 酸液）＋酸液配方全貌（12%/8.0＋土酸 8%+2%/34.5＋5.5＋1.06）；防膨剂核验跨源错判（引 A-W11 1.5% 否定 Y-21 正确值 2.0%）", "note": ""}
+{"qid": "NQ-D1", "batch": "Q14D", "frame_file": "Q14D-NQ-D1.json", "judge": "❌", "key_points": "答案面泄漏 finalize JSON 围栏＋四组（开井数/折算表/287 天/环比解读）全缺（data 链拒＋doc_retrieve 未注入）——零交付", "note": ""}
+{"qid": "NQ-D2", "batch": "Q14D", "frame_file": "Q14D-NQ-D2.json", "judge": "✅", "key_points": "五要点全对：5.60＋两口径 5.52/98.6 与 5.67/101.2＋主口径判定＋2.6 个百分点/不代表虚增/1,490 吨＋先选口径＋老完成率 2024 废弃停用——引标 f82 在", "note": ""}
+{"qid": "NQ-D3", "batch": "Q14D", "frame_file": "Q14D-NQ-D3.json", "judge": "⚠️", "key_points": "判定「不对」✓＋堵塞型✓＋两条证据（吸水指数 9.6/降幅 48%＋泵压 12.1→14.0）✓；治理措施（4 月中旬酸化＋260→320）检索缺零交付；调剖归属引 34-5 W-51（出处如实）未落本报告 Y-24", "note": ""}
+{"qid": "NQ-D4", "batch": "Q14D", "frame_file": "Q14D-NQ-D4.json", "judge": "⚠️", "key_points": "(a) Y-34 不存在拒绝作答✓＋(c) Y-31 复查清单＋287 天理由✓；(b) Y-35 四项数字零交付（1.2 折算表行检索缺）——零编造", "note": ""}
+{"qid": "NQ-D5", "batch": "Q14D", "frame_file": "Q14D-NQ-D5.json", "judge": "❌", "key_points": "5.2 配注调整表检索缺——(a)~(e) 镜像三组/酸液用量/11.0 万方/1.04/其余 7 口全缺（如实注记 320 为现状值非新值）；零交付", "note": ""}
+{"qid": "NQ-D6", "batch": "Q14D", "frame_file": "Q14D-NQ-D6.json", "judge": "❌", "key_points": "1.3 时率 94.1% 算式/3,631/3,415/180/31/5/Y-37、Y-38/38 口/18 方全缺（材料未覆盖如实＋94.2% 异报口径未挪用）；零交付", "note": ""}
+{"qid": "NQ-D7", "batch": "Q14D", "frame_file": "Q14D-NQ-D7.json", "judge": "❌", "key_points": "答案面 finalize JSON 泄漏＋(a) 本方案不含缺位句＋(b) 无新措施/Y-33 酸化尾 全缺（检索缺）；零编造", "note": ""}
+{"qid": "NQ-D8", "batch": "Q14D", "frame_file": "Q14D-NQ-D8.json", "judge": "⚠️", "key_points": "(a) Y-28 三项全对（1-20/38-40-22/35.2）＋(b) 非治理对象定位（实质对照组）＋零编造＋(c) 口径三要素（井次/7/9/95%）全对；(d) Y-27/Y-29 井别未找到（1.2/4.2 检索缺）；引标列表缺席", "note": ""}
+{"qid": "NQ-D9", "batch": "Q14D", "frame_file": "Q14D-NQ-D9.json", "judge": "❌", "key_points": "跨报告张冠李戴——s2/s3 以 34-5 数据（W-111 21.9→21.4/97.7%/红线 96%/21.1）答 34-8 题（真值 19.6→19.5/92.0%/红线 90%/19.1）；油压回升 0.2 主语未破（s1 未命中原文）", "note": ""}
+{"qid": "NQ-D10", "batch": "Q14D", "frame_file": "Q14D-NQ-D10.json", "judge": "❌", "key_points": "检索链四支 doc_retrieve 全 ok＋20 obs 在窗，但起草面塌成裸 finalize JSON 围栏——零交付（最后一公里塌方样本）", "note": ""}

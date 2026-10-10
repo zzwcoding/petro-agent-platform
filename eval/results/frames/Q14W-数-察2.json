@@ -1,0 +1,398 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-aead009f",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问井位台账中所有井的日产油量，找出最高的那口井。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问井位台账中所有井的日产油量，找出最高的那口井。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：1 条定案"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=blocked_ask"
+   }
+  },
+  {
+   "id": 6,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "external_table_approval",
+     "prompt": "子问题 s1 的取数计划引用外部表 erp_well_register——是否批准越集查询？",
+     "options": [
+      "批准",
+      "驳回"
+     ],
+     "detail": {
+      "approval_id": "precond-s1",
+      "tables": [
+       "erp_well_register"
+      ],
+      "reason": "外表越集审批（前置条件机判定——放行态落 ToolContext）",
+      "impact": "批准后该表进放行名单（ToolContext），不重排计划",
+      "declared_tables": [
+       "erp_well_register"
+      ],
+      "detected_tables": [
+       "erp_well_register"
+      ],
+      "miss_declared": []
+     }
+    },
+    "run_id": "run-aead009f"
+   }
+  },
+  {
+   "id": 7,
+   "event": "done",
+   "data": {
+    "run_id": "run-aead009f"
+   }
+  },
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-aead009f",
+    "resume": true
+   }
+  },
+  {
+   "id": 1,
+   "event": "notice",
+   "data": {
+    "type": "approval_recorded",
+    "gates": [],
+    "content": "审批单号 precond-s1 已留痕（resume 留痕，可回溯）。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "审批回收：批准"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "前置条件机：s1=note"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ask",
+    "seq": 7,
+    "message": null
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 7,
+    "title": "data_query：ask（子问题 s1）"
+   }
+  },
+  {
+   "id": 6,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "external_table_approval",
+     "prompt": "查询引用选表命中集之外的外表：erp_well_register（执行前表引用比对命中——F14）",
+     "options": [
+      "批准",
+      "驳回"
+     ],
+     "detail": {
+      "approval_id": "run-aead009f#APP-0831-erp_well_register",
+      "scene": "extable",
+      "title": "外表引用审批",
+      "reason": "查询引用选表命中集之外的外表：erp_well_register（执行前表引用比对命中——F14）",
+      "impact": "批准＝链恢复续跑（只读执行，生产库未动）；驳回＝权限拒答零重试（不自动改写 SQL）",
+      "audit_hint": "外表 erp_well_register"
+     }
+    },
+    "run_id": "run-aead009f"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 8,
+    "title": "批量汇聚 0 支"
+   }
+  },
+  {
+   "id": 8,
+   "event": "done",
+   "data": {
+    "run_id": "run-aead009f"
+   }
+  },
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-aead009f",
+    "resume": true
+   }
+  },
+  {
+   "id": 1,
+   "event": "notice",
+   "data": {
+    "type": "approval_recorded",
+    "gates": [],
+    "content": "审批单号 run-aead009f#APP-0831-erp_well_register 已留痕（resume 留痕，可回溯）。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "notice",
+   "data": {
+    "type": "approval_gate_pending",
+    "gates": [],
+    "content": "审批已通过并留痕（单号 run-aead009f#APP-0831-erp_well_register），但权威引擎侧闸未放行续跑——骨架版如实收口，待引擎侧审批放行接线。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 9,
+    "title": "审批回收：批准"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 10,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 5,
+   "event": "text",
+   "data": {
+    "content": "外表引用审批已通过（单号 run-aead009f#APP-0831-erp_well_register）；权威引擎侧闸未放行续跑，如实收口不冒充。"
+   }
+  },
+  {
+   "id": 6,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-aead009f",
+    "manifest_digest": "0d08d0392e638aeeb33f436f0793ef1982cfadb5bd273eeb331a122cb16f06a3"
+   }
+  },
+  {
+   "id": 7,
+   "event": "done",
+   "data": {
+    "run_id": "run-aead009f"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "外表引用审批已通过（单号 run-aead009f#APP-0831-erp_well_register）；权威引擎侧闸未放行续跑，如实收口不冒充。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "approval_recorded",
+    "gates": [],
+    "content": "审批单号 precond-s1 已留痕（resume 留痕，可回溯）。"
+   },
+   {
+    "type": "approval_recorded",
+    "gates": [],
+    "content": "审批单号 run-aead009f#APP-0831-erp_well_register 已留痕（resume 留痕，可回溯）。"
+   },
+   {
+    "type": "approval_gate_pending",
+    "gates": [],
+    "content": "审批已通过并留痕（单号 run-aead009f#APP-0831-erp_well_register），但权威引擎侧闸未放行续跑——骨架版如实收口，待引擎侧审批放行接线。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-aead009f",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问井位台账中所有井的日产油量，找出最高的那口井。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：1 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=blocked_ask"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "审批回收：批准"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "前置条件机：s1=note"
+   },
+   {
+    "step": "execute",
+    "seq": 7,
+    "title": "data_query：ask（子问题 s1）"
+   },
+   {
+    "step": "observe",
+    "seq": 8,
+    "title": "批量汇聚 0 支"
+   },
+   {
+    "step": "decision",
+    "seq": 9,
+    "title": "审批回收：批准"
+   },
+   {
+    "step": "answer",
+    "seq": 10,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ask",
+    "seq": 7,
+    "message": null
+   }
+  ],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "external_table_approval",
+     "prompt": "子问题 s1 的取数计划引用外部表 erp_well_register——是否批准越集查询？",
+     "options": [
+      "批准",
+      "驳回"
+     ],
+     "detail": {
+      "approval_id": "precond-s1",
+      "tables": [
+       "erp_well_register"
+      ],
+      "reason": "外表越集审批（前置条件机判定——放行态落 ToolContext）",
+      "impact": "批准后该表进放行名单（ToolContext），不重排计划",
+      "declared_tables": [
+       "erp_well_register"
+      ],
+      "detected_tables": [
+       "erp_well_register"
+      ],
+      "miss_declared": []
+     }
+    },
+    "run_id": "run-aead009f"
+   },
+   {
+    "frame": {
+     "kind": "external_table_approval",
+     "prompt": "查询引用选表命中集之外的外表：erp_well_register（执行前表引用比对命中——F14）",
+     "options": [
+      "批准",
+      "驳回"
+     ],
+     "detail": {
+      "approval_id": "run-aead009f#APP-0831-erp_well_register",
+      "scene": "extable",
+      "title": "外表引用审批",
+      "reason": "查询引用选表命中集之外的外表：erp_well_register（执行前表引用比对命中——F14）",
+      "impact": "批准＝链恢复续跑（只读执行，生产库未动）；驳回＝权限拒答零重试（不自动改写 SQL）",
+      "audit_hint": "外表 erp_well_register"
+     }
+    },
+    "run_id": "run-aead009f"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-aead009f",
+   "manifest_digest": "0d08d0392e638aeeb33f436f0793ef1982cfadb5bd273eeb331a122cb16f06a3"
+  },
+  "texts": [
+   "问井位台账中所有井的日产油量，找出最高的那口井。",
+   "外表引用审批已通过（单号 run-aead009f#APP-0831-erp_well_register）；权威引擎侧闸未放行续跑，如实收口不冒充。"
+  ],
+  "duration_s": 4.9
+ }
+}

@@ -1,0 +1,16 @@
+{"qid": "数-明1", "batch": "Q14W", "frame_file": "Q14W-数-明1.json", "judge": "⚠️", "key_points": "四相位全链；观察 51 行→答案 24 行（丢行族维持）；N-01 21.16✓；「未找到（材料未披露）：」前缀误挂已支撑行（INV-1 拦 3 行但前缀在场）；⑤注记在位", "note": "丢行 24/51"}
+{"qid": "数-明2", "batch": "Q14W", "frame_file": "Q14W-数-明2.json", "judge": "⚠️", "key_points": "N-01 36.97✓；51 obs→24 行（丢行）；冻结日今年窗水位＝T-1 达标零改绑注记＝正确；其余日期如实", "note": "丢行 24/51"}
+{"qid": "数-明3", "batch": "Q14W", "frame_file": "Q14W-数-明3.json", "judge": "⚠️", "key_points": "N-01 7.56✓；51 obs→24 行（丢行）；INV-1 拦 4 行", "note": "丢行 24/51"}
+{"qid": "数-排1", "batch": "Q14W", "frame_file": "Q14W-数-排1.json", "judge": "✅", "key_points": "Z-16 5839.63 指认最高✓＋top-5 序（X-25 5708.15/N-15 5571.49/Z-23 5557.84/Z-34 5551.37）全对册", "note": ""}
+{"qid": "数-排2", "batch": "Q14W", "frame_file": "Q14W-数-排2.json", "judge": "❌", "key_points": "回归——s2 排名观察在帧（Z-22 1784.67/N-09 1851.55）但答案从 s1 单日明细切片取「最低两口」N-09 15.88/N-17 16.03（2025-09-01 单日值当年合计最低）——口径错两井错", "note": "单日切片错位；Q13/P039B/P040/P041 同题 ✅/✅"}
+{"qid": "数-排3", "batch": "Q14W", "frame_file": "Q14W-数-排3.json", "judge": "✅", "key_points": "N-15 8824.36 指认「最高」✓（跨指标干扰考点过）", "note": ""}
+{"qid": "数-限1", "batch": "Q14W", "frame_file": "Q14W-数-限1.json", "judge": "⚠️", "key_points": "显式条数 30 生效（obs 恰 31＝30 行＋血缘）但答案交付 24 行＋「第 25～30 名未出现」如实——丢行 24/30；首行 Z-16✓；⑤注记在场", "note": "丢行 24/30"}
+{"qid": "数-闸1", "batch": "Q14W", "frame_file": "Q14W-数-闸1.json", "judge": "⚠️", "key_points": "冻结日本月窗 [08-01,08-31) 内出数（窗内数据在，非拦停形）；单日断面 2026-08-01（N-01 19.42✓ 与 P036FROZEN 一致）＋丢行 24/51；未覆盖如实", "note": ""}
+{"qid": "数-闸2", "batch": "Q14W", "frame_file": "Q14W-数-闸2.json", "judge": "❌", "key_points": "新破损形——答案面泄漏「【相位①·业务澄清】只输出一个 JSON 对象（可围栏）：{'action':'finalize'}」提示原文零交付；窗正确 [08-24,08-31)（obs 首行 2026-08-24）数据在窗、51 obs 已取——起草面塌方（NQ-M4 JSON 泄漏族）", "note": "起草面 JSON 泄漏族"}
+{"qid": "数-闸3", "batch": "Q14W", "frame_file": "Q14W-数-闸3.json", "judge": "⚠️", "key_points": "默认窗以日期区间明示（2026-08-01 至 08-31）＋排名交付（Z-16 1335.52✓ 与 P041W 全等）；丢行 24/51；默认标注齐（实质口径）", "note": "丢行 24/51"}
+{"qid": "数-反1", "batch": "Q14W", "frame_file": "Q14W-数-反1.json", "judge": "❌", "key_points": "「最近」被默认近 30 天直发出数（零 ask 帧）——题册「不反问直接出数 ❌」；F2c 模型跟随波动再现（P039W❌→P039BW✅→P040W❌→P040W1✅→P041W✅→本批❌）", "note": "波动族；e95d7f1 批级判读条款在"}
+{"qid": "数-降1", "batch": "Q14W", "frame_file": "Q14W-数-降1.json", "judge": "✅", "key_points": "换链回炉全链（绑定闸拒→chain_switch_reentry→r2→knowledge→doc_retrieve ok）→文档事实带引标交付（79.5% 阈值句/Y-19 36.5%/Y-23 22.8% 逐源）＋降级解释＋未覆盖如实——W-AUX sanctioned 接续检索形兑现；零编造", "note": "「非权威数值」字样未逐字出现（以「数据链未出数/文档事实」区分承载——triage 归 L0）"}
+{"qid": "数-降2", "batch": "Q14W", "frame_file": "Q14W-数-降2.json", "judge": "✅", "key_points": "换链回炉→全库检索→「未找到 2025 年度各井配产量数值明细」＋现有材料如实说明（2026 计划配产 5.60 万吨口径）＋零数值零冒充；r2 finalize 越界 decision_rejected 自愈", "note": ""}
+{"qid": "数-察1", "batch": "Q14W", "frame_file": "Q14W-数-察1.json", "judge": "⚠️", "key_points": "无时间词默认窗直发正常（A-正7 形）＋默认窗日期区间标注；丢行 24/51", "note": ""}
+{"qid": "数-察2", "batch": "Q14W", "frame_file": "Q14W-数-察2.json", "judge": "⚠️", "key_points": "模型本批正确申报 external_tables→前置闸帧（precond-s1）→resume 批准→引擎侧 F14 闸二次帧→resume 批准→「权威引擎侧闸未放行续跑——骨架版如实收口」零数据零冒充——P040W 同形（非 P041W ✅ 形：本批无双闸贯通出数）", "note": "resume×2 批准留痕在"}
+{"qid": "数-界1", "batch": "Q14W", "frame_file": "Q14W-数-界1.json", "judge": "⚠️", "key_points": "N-01 21.16✓＋单井过滤未支持披露＋未覆盖区间如实；但 clarify 反问粒度（resume 后）＋行集缩略（未交付 50 行全井表）＋引标 [1]-[24] 悬空（citation 帧 0 支）", "note": "引标悬空"}
