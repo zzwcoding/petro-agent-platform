@@ -12,6 +12,9 @@
 - 验收节空/无判据关键词黑名单 FAIL
 - 全文含"拍板/裁决/已定"类词却无任何引用形（来源标注/引号原文块）FAIL
 - 方案决策授权词（视情况/自行设计/自己决定…）FAIL——方案决策属拆票（L0 策略亲征），不许下放
+- 施工基准：含"逐字/措辞/替换为/追加段/行为定义"类施工指令却无逐字稿载体
+  （引用块/>/```代码块/「原文」引号）FAIL——意图级票面逼子代理自行设计措辞
+  （Owner 2026-10-10 固化：票面即交接，交接必须自足）
 退出码：0=绿；1=红（FAIL 明细打印到 stdout）。
 """
 import re
@@ -37,6 +40,10 @@ CITATION = re.compile(r"〔来源[:：][^〕]+〕|「[^」]{6,}」")
 SCHEME_HANDOFF = re.compile(r"视情况|自行设计|自己决定|自行(选择|判断)|按需(设计|决定)")
 CROSS_DOMAIN = re.compile(r"跨域|多个模块|多模块|大改|架构级|大规模重构")
 MID_REVIEW_DECLARED = re.compile(r"中途审查|审查拍")
+# 施工指令词（排除验收常用语：逐字段/逐字可查/逐字落字/措辞不如实类缺陷描述）
+VERBATIM_NEED = re.compile(r"逐字(?!段|落|可|查|比对|一致|在场)|措辞(?!不|如|随|同步)|替换为|追加段|行为定义")
+# 逐字稿载体：引用块/代码块/「原文」引号/票面附节指针
+VERBATIM_BLOCK = re.compile(r"^> ?\S|^＞ ?\S|```|「[^」]{6,}」|见票面附\s*[0-9０-９]|附\s*[1-9０-９][：:]", re.M)
 
 
 def check(text: str, name: str) -> None:
@@ -57,6 +64,14 @@ def check(text: str, name: str) -> None:
         FAILS.append(
             f"{name}: 声明跨域/大改却未预挂「中途审查拍」"
             "（T3 触发线，ticket-gates.md 闸三）"
+        )
+    task_seg = re.split(r"先读[:：]", text, maxsplit=1)[0]  # 只查任务段——验收节的
+    # 「逐字可查/逐字比对」类判据不算施工指令
+    if VERBATIM_NEED.search(task_seg) and not VERBATIM_BLOCK.search(task_seg):
+        FAILS.append(
+            f"{name}: 任务段含施工指令（逐字稿/措辞定稿/替换/追加段/行为定义）却无"
+            "逐字稿载体（引用块/代码块/「原文」引号/票面附节指针）"
+            "——意图级票面逼子代理自行设计（Owner 2026-10-10 固化）"
         )
 
 
