@@ -23,7 +23,9 @@ from appv2.retrieval.domain import (
     Observation,
     RetrievalBundle,
     RetrievalNeed,
+    anchor_seat_tokens,
     build_window_note,
+    is_table_rowset_question,
     supply_window,
 )
 from appv2.retrieval.embedder import (
@@ -64,6 +66,8 @@ __all__ = [
     "RetrievalBundle",
     "RetrievalEngine",
     "RetrievalNeed",
+    "anchor_seat_tokens",
     "build_window_note",
+    "is_table_rowset_question",
     "supply_window",
 ]

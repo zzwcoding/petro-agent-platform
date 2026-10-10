@@ -142,6 +142,7 @@ from appv2.tools import (
     render_aliases,
     render_cards,
     render_ledger_rows,
+    resolve_send_budget,
 )
 
 # ---------- 决策发射合同（结构化发射的运行时校验——拍板①②单点） ----------
@@ -702,9 +703,14 @@ def _observations_of(result: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _ctx_of(state: RunState) -> ToolContext:
+    # 送窗预算动态化（V2-45 R1a——「装得下」）：缺省 4 → 按调用上下文赋值——
+    # 问题组子问题数 ×每子问题基线 6、上限 24（batch 相位逐支执行各自调用，
+    # 组尺寸是逐支共享上下文；无组/legacy 单发射按 1 支计＝基线 6，≥ 旧缺省
+    # 只扩不缩）。data 链不消费此值零扰；表类整行集与锚保底席位在检索供给层
+    # 解锁（题面词面判定——retrieval.domain），不占本数值配额。
     return ToolContext(
         actor=state.actor,
-        budget=4,
+        budget=resolve_send_budget(len(_group_subtasks(state))),
         metric_candidates=tuple(state.metric_candidates) or None,
         # 外表放行态（A2 裁决落点——审批态随上下文走，不进 args、不重排计划）。
         approved_tables=tuple(state.approved_ids),

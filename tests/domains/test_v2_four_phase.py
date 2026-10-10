@@ -438,7 +438,9 @@ def test_ctx_of_carries_approved_tables_from_state() -> None:
     state = RunState(run_id="run-x", approved_ids=["erp_well_register"])
     ctx = _ctx_of(state)
     assert ctx.approved_tables == ("erp_well_register",)
-    assert ctx.actor == "" and ctx.budget == 4  # 既有字段零漂移
+    # budget＝送窗预算动态化（V2-45 R1a）：无问题组＝按 1 支计→基线 6
+    # （旧硬编码 4 由单支基线覆盖——只扩不缩；组尺寸随数扩另钉 R1a 钉测）。
+    assert ctx.actor == "" and ctx.budget == 6
 
 
 def test_precondition_and_parse_layers_are_zero_llm() -> None:

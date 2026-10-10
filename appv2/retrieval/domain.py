@@ -393,14 +393,74 @@ def source_diversify(members: list[tuple[Hit, float]], cap: int) -> list[tuple[H
 
 @dataclass(frozen=True, slots=True)
 class WindowSupply:
-    """供给窗构成结果（window＝入选候选；missing＝缺位来源报告名）。"""
+    """供给窗构成结果（window＝入选候选；missing＝缺位来源报告名）。
+
+    anchor_seated（V2-45 R1a）＝题眼锚保底新增席位的来源报告名（保底实录——
+    进 window_note 留痕）；rowset_added＝表类整行集扩窗支数（不计入配额的
+    增量实录）。两者缺省空——旧配额路径零漂移。
+    """
 
     window: list[tuple[Hit, float]]
     missing_sources: list[str]
+    anchor_seated: tuple[str, ...] = ()
+    rowset_added: int = 0
+
+
+# ---------- 题面词面判定（V2-45 R1a——表类解锁与题眼锚集，确定性零模型） ----------
+
+# 表格/明细类问句词面：「表」后不跟动词性后缀（表示/表达/表面/表演/表决/
+# 表露/表态/表述/表征/表彰——名词形「表格/表中/对照表/配注调整表/明细表」
+# 全命中）；另收明细/逐日/每天/表格/行集（问数组明细题与表类题同 unlocks）。
+_TABLE_NOUN_RE = re.compile(r"表(?![示达面演决露态述征彰])|明细|逐日|每天|行集")
+
+# 题眼资产 token：字母前缀连字号数字（Y-24/W-22/SCSSV-1）与数字连字号数字
+# （34-8/2025-11）两形——井号/报告号是跨来源区分度最高的题眼；纯数字
+# （320/12）与纯字母词（MPa/报告）不作保底判据（防保底泛化成全员摊派）。
+_ASSET_TOKEN_RE = re.compile(
+    r"(?<![A-Za-z0-9])(?:[A-Za-z][A-Za-z0-9]*-\d+|\d+-\d+)(?![0-9])"
+)
+
+# 表格承载片段判定：全角/宽空白缩进且含数字的行 ≥2（本库表格版式——
+# 「　　Y-24　　　320　　　…」行；prose 节无缩进数字行）。
+_TABLE_ROW_LINE_RE = re.compile(r"^[　 \t]{2,}.*[0-9０-９]", re.MULTILINE)
+
+
+def is_table_rowset_question(question: str) -> bool:
+    """表格/明细类问句判定（整行集优先规则的解锁词面——确定性零模型调用）。"""
+    return _TABLE_NOUN_RE.search(question or "") is not None
+
+
+def anchor_seat_tokens(
+    question: str, anchors: Sequence[str] = ()
+) -> tuple[str, ...]:
+    """题眼锚 token 集（席位保底判定面——need.anchors 全收＋问句资产编号）。
+
+    - 显式 anchors 全收后去重在前（@ 锚定资产名是最高置信题眼）；
+    - 问句侧取资产编号形 token（井号 Y-24、报告号 34-8——alnum token 中过
+      _ASSET_TOKEN_RE 全匹配者；「渤中34-8油田」连写由 alnum 切分自然出
+      「34-8」）；
+    - 非编号语义词锚（「注采比」类）不进保底集——它们已在召回/保送通道生效，
+      不作席位判据。
+    """
+    tokens: list[str] = []
+    for token in [*anchors, *alnum_tokens(question)]:
+        cleaned = token.strip()
+        if cleaned and cleaned not in tokens and _ASSET_TOKEN_RE.fullmatch(cleaned):
+            tokens.append(cleaned)
+    return tuple(tokens)
+
+
+def _is_table_bearing(text: str) -> bool:
+    """表格承载片段判定（缩进数字行 ≥2——确定性版式词面，不靠模型判断）。"""
+    return len(_TABLE_ROW_LINE_RE.findall(text or "")) >= 2
 
 
 def supply_window(
-    ranked: list[tuple[Hit, float]], budget: int, family_hints: Sequence[str] = ()
+    ranked: list[tuple[Hit, float]],
+    budget: int,
+    family_hints: Sequence[str] = (),
+    anchors: Sequence[str] = (),
+    rowset_question: bool = False,
 ) -> WindowSupply:
     """生成窗供给（specs 行为约定 2——同窗规则在供给层硬编码实现）。
 
@@ -411,8 +471,17 @@ def supply_window(
     2. 族内来源多样性：source_diversify（同报告至多半额——每来源至少留
        代表支）。
     3. 族配额用不满（该族候选少于配额）→余量按融合序补给未满预算的其他候选。
-    4. 预算 < 候选来源数→部分来源零席位＝缺位，报告名逐个枚举（调用方进
-       window_note）。
+    4. 题眼锚保底（V2-45 R1a——多来源竞争下锚命中来源 ≥1 席位，消灭目标
+       报告零席位形）：逐锚找「片段文本命中该锚的来源」，未获席者取其融合序
+       最优一支追加进窗（追加席——不挤占既有族分池代表支；窗支数照实可超
+       预算，window_note 数字面如实）。锚集由调用方给（engine 侧
+       anchor_seat_tokens——显式锚＋问句资产编号）。
+    5. 表类整行集（V2-45 R1a——明细/表格类整行集优先）：rowset_question
+       解锁时，目标表格片段＝融合序最前的「表格承载＋锚命中（无锚不设锚
+       条件）」支；其同报告同 section 的已召回候选整组补席（不计入单支配额，
+       只从召回池取——零新召回）。
+    6. 预算 < 候选来源数→部分来源零席位＝缺位，报告名逐个枚举（调用方进
+       window_note）——锚保底/整组已保席的来源不再入缺位。
 
     送窗序列保持融合序（只丢不重排——V1 分池纪律同尺）。hints 不改族遍历序
     （族序＝融合序首现），只改各族配额。
@@ -472,7 +541,51 @@ def supply_window(
                 window.append(pair)
                 picked_ids.add(pair[0].fragment.fragment_id)
 
-    # 缺位来源：召回池有候选但零席位（预算 < 来源数）——报告名枚举不静默。
+    # 题眼锚保底（追加席——见 docstring 4）：逐锚扫全召回池，文本命中该锚的
+    # 每个来源未获席者各补 1 席（来源级去重；代表席＝该来源融合序最优命中支）。
+    anchor_seated: list[str] = []
+    for token in anchors:
+        needle = token.casefold()
+        if not needle:
+            continue
+        for pair in ranked:
+            frag = pair[0].fragment
+            if needle not in frag.text.casefold():
+                continue
+            if any(p[0].fragment.report == frag.report for p in window):
+                continue  # 该来源已有席位——继续找同锚的其他命中来源
+            window.append(pair)
+            picked_ids.add(frag.fragment_id)
+            anchor_seated.append(frag.report)
+
+    # 表类整行集（追加席——见 docstring 5）：目标表格片段同组整补。
+    rowset_added = 0
+    if rowset_question:
+        anchor_set = {token.casefold() for token in anchors}
+        target_key: tuple[str, str | None] | None = None
+        for pair in ranked:
+            frag = pair[0].fragment
+            if not _is_table_bearing(frag.text):
+                continue
+            if anchor_set and not any(
+                token in frag.text.casefold() for token in anchor_set
+            ):
+                continue
+            target_key = (frag.report_id, frag.section)
+            break
+        if target_key is not None:
+            for pair in ranked:
+                frag = pair[0].fragment
+                if (frag.report_id, frag.section) != target_key:
+                    continue
+                if frag.fragment_id in picked_ids:
+                    continue
+                window.append(pair)
+                picked_ids.add(frag.fragment_id)
+                rowset_added += 1
+
+    # 缺位来源：召回池有候选但零席位（预算 < 来源数）——报告名枚举不静默
+    # （锚保底/整组已保席的来源不在此列——扩席如实先于缺位判定）。
     seated_reports = {pair[0].fragment.report for pair in window}
     missing: list[str] = []
     for pair in ranked:
@@ -483,7 +596,12 @@ def supply_window(
     # 保持融合序（只丢不重排）。
     order = {id(pair[0]): i for i, pair in enumerate(ranked)}
     window.sort(key=lambda pair: order[id(pair[0])])
-    return WindowSupply(window=window, missing_sources=missing)
+    return WindowSupply(
+        window=window,
+        missing_sources=missing,
+        anchor_seated=tuple(anchor_seated),
+        rowset_added=rowset_added,
+    )
 
 
 # ---------- LLM 精排解析面（批量排序＋来源置信度——失败回退由 engine 兜） ----------

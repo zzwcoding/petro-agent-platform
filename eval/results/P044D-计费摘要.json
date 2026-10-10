@@ -1,0 +1,107 @@
+{
+ "tag": "P044D",
+ "base": "http://127.0.0.1:8020/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "2026-10-10T19:16:14.126345",
+ "questions": 6,
+ "spend_ok": 6,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 28,
+  "fallback_calls": 0,
+  "input_tokens": 204490,
+  "output_tokens": 8086,
+  "cost_yuan": 0.228748
+ },
+ "items": [
+  {
+   "qid": "NQ-D3",
+   "group": "新语料·动态",
+   "run_id": "run-8c549976",
+   "method": "run_id",
+   "calls": 5,
+   "cost_yuan": 0.044626,
+   "call_ids": [
+    "call-5d5e9647",
+    "call-60e528b2",
+    "call-2a67b636",
+    "call-e2833093",
+    "call-7523d54d"
+   ]
+  },
+  {
+   "qid": "NQ-D4",
+   "group": "新语料·动态",
+   "run_id": "run-692591ea",
+   "method": "run_id",
+   "calls": 5,
+   "cost_yuan": 0.044045,
+   "call_ids": [
+    "call-d07dc94c",
+    "call-bc7fa8ce",
+    "call-48c07328",
+    "call-2deaf6b1",
+    "call-17813dab"
+   ]
+  },
+  {
+   "qid": "NQ-D5",
+   "group": "新语料·动态",
+   "run_id": "run-57b73ea9",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.024909,
+   "call_ids": [
+    "call-98ec5ff7",
+    "call-2d40872c",
+    "call-404b7594",
+    "call-fc44d2e2"
+   ]
+  },
+  {
+   "qid": "NQ-D6",
+   "group": "新语料·动态",
+   "run_id": "run-8edd7199",
+   "method": "run_id",
+   "calls": 6,
+   "cost_yuan": 0.057304,
+   "call_ids": [
+    "call-12287016",
+    "call-9651e45a",
+    "call-22f04860",
+    "call-a05ab8e6",
+    "call-6a14b76c",
+    "call-1019d886"
+   ]
+  },
+  {
+   "qid": "NQ-D8",
+   "group": "新语料·动态",
+   "run_id": "run-85bf4e5f",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.030865,
+   "call_ids": [
+    "call-ac51ad6c",
+    "call-d92876b1",
+    "call-d24eccde",
+    "call-91da2795"
+   ]
+  },
+  {
+   "qid": "NQ-D9",
+   "group": "新语料·动态",
+   "run_id": "run-3d71d690",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.026999,
+   "call_ids": [
+    "call-eef170bd",
+    "call-fa457eac",
+    "call-5510b5c8",
+    "call-d9e02bdc"
+   ]
+  }
+ ],
+ "errors": []
+}

@@ -1,0 +1,186 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-0be4e40e",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问全年（全油田）躺井率的控制目标值。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问全年（全油田）躺井率的控制目标值。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「躺井率」的口径需要您确认，请问按以下哪种口径取）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「躺井率」的口径需要您确认，请问按以下哪种口径取数？",
+     "options": [
+      "A. 躺井数 ÷ 总井数 × 100%（默认口径）",
+      "B. 躺井日历天数 ÷ 总日历天数 × 100%（时率式口径）",
+      "C. 另请说明"
+     ],
+     "detail": null
+    },
+    "run_id": "run-0be4e40e"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-0be4e40e"
+   }
+  },
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-0be4e40e",
+    "resume": true
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清回收：A. 躺井数 ÷ 总井数 × 100%（默认口径）"
+   }
+  },
+  {
+   "id": 2,
+   "event": "notice",
+   "data": {
+    "type": "clarify_capped",
+    "gates": [],
+    "content": "连续澄清已达上限（连续 ask ≥2）——不再挂起，带已取得材料如实直答。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 4,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 4,
+   "event": "text",
+   "data": {
+    "content": "（连续澄清截断——未取得可交付观察材料，如实回报，不编造。）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-0be4e40e",
+    "manifest_digest": "c1839c4cb4398855e92afec52b44b42b19d817b616e5ef3f844694e5c8e43623"
+   }
+  },
+  {
+   "id": 6,
+   "event": "done",
+   "data": {
+    "run_id": "run-0be4e40e"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（连续澄清截断——未取得可交付观察材料，如实回报，不编造。）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "clarify_capped",
+    "gates": [],
+    "content": "连续澄清已达上限（连续 ask ≥2）——不再挂起，带已取得材料如实直答。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-0be4e40e",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问全年（全油田）躺井率的控制目标值。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（「躺井率」的口径需要您确认，请问按以下哪种口径取）"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清回收：A. 躺井数 ÷ 总井数 × 100%（默认口径）"
+   },
+   {
+    "step": "answer",
+    "seq": 4,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「躺井率」的口径需要您确认，请问按以下哪种口径取数？",
+     "options": [
+      "A. 躺井数 ÷ 总井数 × 100%（默认口径）",
+      "B. 躺井日历天数 ÷ 总日历天数 × 100%（时率式口径）",
+      "C. 另请说明"
+     ],
+     "detail": null
+    },
+    "run_id": "run-0be4e40e"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-0be4e40e",
+   "manifest_digest": "c1839c4cb4398855e92afec52b44b42b19d817b616e5ef3f844694e5c8e43623"
+  },
+  "texts": [
+   "问全年（全油田）躺井率的控制目标值。",
+   "（连续澄清截断——未取得可交付观察材料，如实回报，不编造。）"
+  ],
+  "duration_s": 5.6
+ }
+}

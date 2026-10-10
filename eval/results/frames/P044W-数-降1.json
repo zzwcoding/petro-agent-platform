@@ -1,0 +1,270 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-92558bad",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问去年全年各井的含水率情况。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问去年全年各井的含水率情况。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：1 条定案"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note"
+   }
+  },
+  {
+   "id": 6,
+   "event": "notice",
+   "data": {
+    "type": "chain_switch_reentry",
+    "gates": [],
+    "content": "换链回炉闸（V2-43）：子问题 s1 绑定闸拒（data 链在册未绑定 agg）——携拒因＋改链 hint 回炉①澄清相位（一次为界；坚持原链同参再触发＝直答终局，不环）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r2：反问（「含水率」存在 A（计量折算·日度监控，默认）与）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「含水率」存在 A（计量折算·日度监控，默认）与 B（化验实测·月度/正式）两支口径，请选择要查询的口径：",
+     "options": [
+      "A 计量折算（日度监控，默认）",
+      "B 化验实测（月度/正式）",
+      "两支口径都查（同期并列输出）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-92558bad"
+   }
+  },
+  {
+   "id": 9,
+   "event": "done",
+   "data": {
+    "run_id": "run-92558bad"
+   }
+  },
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-92558bad",
+    "resume": true
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "澄清回收：A 计量折算（日度监控，默认）"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "工具匹配：1 条定案"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 9,
+    "title": "前置条件机：s1=blocked_refuse"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 10,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 6,
+   "event": "text",
+   "data": {
+    "content": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 去年各井的含水率（A 计量折算·日度监控）是多少？——拒因：换链回炉已用尽（一次为界）：坚持 data 链同参（指纹 {\"plan\":{\"me…在簿）——未绑定口径如实拒答，不代答"
+   }
+  },
+  {
+   "id": 7,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-92558bad",
+    "manifest_digest": "e5c0aedb3dd7264ca6d3ce432272c6a36866950f799ed923793019ca84a23320"
+   }
+  },
+  {
+   "id": 8,
+   "event": "done",
+   "data": {
+    "run_id": "run-92558bad"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 去年各井的含水率（A 计量折算·日度监控）是多少？——拒因：换链回炉已用尽（一次为界）：坚持 data 链同参（指纹 {\"plan\":{\"me…在簿）——未绑定口径如实拒答，不代答",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "chain_switch_reentry",
+    "gates": [],
+    "content": "换链回炉闸（V2-43）：子问题 s1 绑定闸拒（data 链在册未绑定 agg）——携拒因＋改链 hint 回炉①澄清相位（一次为界；坚持原链同参再触发＝直答终局，不环）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-92558bad",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问去年全年各井的含水率情况。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：1 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r2：反问（「含水率」存在 A（计量折算·日度监控，默认）与）"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "澄清回收：A 计量折算（日度监控，默认）"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "工具匹配：1 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 9,
+    "title": "前置条件机：s1=blocked_refuse"
+   },
+   {
+    "step": "answer",
+    "seq": 10,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「含水率」存在 A（计量折算·日度监控，默认）与 B（化验实测·月度/正式）两支口径，请选择要查询的口径：",
+     "options": [
+      "A 计量折算（日度监控，默认）",
+      "B 化验实测（月度/正式）",
+      "两支口径都查（同期并列输出）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-92558bad"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-92558bad",
+   "manifest_digest": "e5c0aedb3dd7264ca6d3ce432272c6a36866950f799ed923793019ca84a23320"
+  },
+  "texts": [
+   "问去年全年各井的含水率情况。",
+   "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 去年各井的含水率（A 计量折算·日度监控）是多少？——拒因：换链回炉已用尽（一次为界）：坚持 data 链同参（指纹 {\"plan\":{\"me…在簿）——未绑定口径如实拒答，不代答"
+  ],
+  "duration_s": 23.6
+ }
+}

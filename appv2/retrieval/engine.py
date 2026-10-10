@@ -38,10 +38,13 @@ from appv2.retrieval.domain import (
     Observation,
     RetrievalBundle,
     RetrievalNeed,
+    WindowSupply,
     alnum_tokens,
+    anchor_seat_tokens,
     bm25_scores,
     build_window_note,
     cosine_similarity,
+    is_table_rowset_question,
     normalize_bm25,
     parse_confidence_scores,
     parse_rank_order,
@@ -141,12 +144,22 @@ class RetrievalEngine:
         fused = rrf_merge(vector_hits, keyword_hits)
         recalled = len(fused)
         ordered = await self._llm_rerank(need.question, fused)
-        supply = supply_window(ordered, need.budget, need.family_hints)
+        # 送窗席位分配（V2-45 R1a）：题眼锚集与表类解锁由题面词面判定
+        # （确定性零模型）——锚保底与表类整行集在供给层追加席位（不挤占
+        # 族分池配额），扩席实录随 window_note 留痕。
+        supply = supply_window(
+            ordered,
+            need.budget,
+            need.family_hints,
+            anchors=anchor_seat_tokens(need.question, need.anchors),
+            rowset_question=is_table_rowset_question(need.question),
+        )
         observations = [self._fragment_observation(hit) for hit, _fused in supply.window]
         sources: list[str] = []
         for obs in observations:
             if obs.report not in sources:
                 sources.append(obs.report)
+        extra = _supply_extra_note(supply)
         return RetrievalBundle(
             observations=observations,
             window_note=build_window_note(
@@ -154,6 +167,7 @@ class RetrievalEngine:
                 len(observations),
                 sources=sources,
                 missing=supply.missing_sources,
+                extra=extra,
             ),
         )
 
@@ -383,6 +397,20 @@ class RetrievalEngine:
 def _candidate_place(frag: FragmentRecord) -> str:
     """候选出处名（报告 · 章节——V1 精排清单 place 同形）。"""
     return f"{frag.report} · {frag.section}" if frag.section else frag.report
+
+
+def _supply_extra_note(supply: WindowSupply) -> str:
+    """扩席实录段（V2-45 R1a——window_note extra：锚保底与表类整组留痕）。
+
+    数字如实：送窗 M 已按实走支数计数（build_window_note 主段），本段只声明
+    扩席来源与整组增量——无扩席＝空串（旧注记形零漂移）。
+    """
+    segments: list[str] = []
+    if supply.anchor_seated:
+        segments.append("题眼锚保底席位：" + "、".join(supply.anchor_seated))
+    if supply.rowset_added:
+        segments.append(f"表类整行集进窗 +{supply.rowset_added} 支（不计入送窗配额）")
+    return "；".join(segments)
 
 
 def _reorder_by_source_confidence(

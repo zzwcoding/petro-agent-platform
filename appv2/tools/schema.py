@@ -73,6 +73,11 @@ class ToolContext:
     approved_tables（V2-34 任务 8——A2 裁决落点）：外表越集放行名单/审批态
     （批准过的表名集）——放行态放工具上下文，不走引擎 approved_tables、不重排
     计划；前置条件机按同一状态判外表越集闸（runtime 侧 state.approved_ids 同源）。
+
+    budget（V2-45 R1a 送窗预算动态化）：检索送窗预算 M（doc_retrieve/graph_query
+    →RetrievalNeed.budget）——runtime 侧经 resolve_send_budget 按调用上下文赋值
+    （问题组子问题数×基线 6、上限 24）；本 schema 缺省 4 保留给直接构造面
+    （测试/旧调用形），生产运行面不再落硬编码。
     """
 
     actor: str = ""  # 行级注入身份（data_query→plan.actor；两步缝第一步）
@@ -85,6 +90,30 @@ class ToolContext:
             raise ValueError(f"ToolContext.budget 须为整数：{self.budget!r}")
         if self.budget < 1:
             raise ValueError(f"ToolContext.budget 须 ≥1：{self.budget!r}")
+
+
+# ---------- 送窗预算动态化（V2-45 R1a——ToolContext.budget 赋值规则单点） ----------
+
+# 每子问题基线（票面「如每子问题基线 6」）与多子问题组上限（票面「上限 24」）。
+# 旧缺省 4（本文件 ToolContext.budget 字面值——动态化前的硬编码）由单支基线
+# 6 自然覆盖（只扩不缩），不另设下限常量。
+SEND_BUDGET_PER_SUBTASK = 6
+SEND_BUDGET_CAP = 24
+
+
+def resolve_send_budget(subtask_count: int) -> int:
+    """送窗预算动态化（每次 doc_retrieve/graph_query 调用的送窗预算 M）。
+
+    M＝每子问题基线 6 × 问题组子问题数（至少按 1 支计），上限 24——长题干
+    多子问题组的检索配额随子问题数扩（batch 相位逐支执行各自调用，组尺寸
+    是逐支共享的调用上下文）；单支问句 6（≥ 旧缺省 4，只扩不缩）。
+
+    表格/明细类的「整行集优先」不在本数值面——其目标表格所在片段整组由供给
+    层追加进窗、不计入 M（appv2.retrieval.domain.supply_window 的 rowset 通道，
+    题面词面判定归检索域）。
+    """
+    count = max(1, int(subtask_count))
+    return min(SEND_BUDGET_CAP, SEND_BUDGET_PER_SUBTASK * count)
 
 
 @dataclass(frozen=True, slots=True)

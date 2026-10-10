@@ -89,6 +89,7 @@ from appv2.tools.schema import (
     ToolDescriptor,
     ToolError,
     ToolResult,
+    resolve_send_budget,
 )
 from appv2.tools.table_scan import (
     TableScanFindings,
@@ -154,5 +155,6 @@ __all__ = [
     "render_cards",
     "render_ledger_rows",
     "resolve_metric_slot",
+    "resolve_send_budget",
     "scan_unapproved_tables",
 ]
