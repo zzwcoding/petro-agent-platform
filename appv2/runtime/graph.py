@@ -55,7 +55,7 @@ import asyncio
 import hashlib
 import json
 import re
-from collections.abc import Callable, Coroutine, Hashable
+from collections.abc import Callable, Coroutine, Hashable, Sequence
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -137,8 +137,11 @@ from appv2.tools import (
     SubtaskInput,
     ToolContext,
     ToolRegistry,
+    entity_anchor_tokens,
+    inject_retrieval_anchors,
     judge,
     ledger_facts,
+    normalize_anchor_text,
     recall_relevant,
     render_aliases,
     render_cards,
@@ -606,7 +609,10 @@ def _supported(
 
 
 def verify_draft(
-    draft: str, observations: list[dict[str, Any]]
+    draft: str,
+    observations: list[dict[str, Any]],
+    *,
+    anchors: Sequence[str] = (),
 ) -> tuple[str, int, list[int], bool]:
     """草稿逐行断言级核验：返回（核验后文本, 改写数, 被引序号列, 是否分源）。
 
@@ -619,7 +625,13 @@ def verify_draft(
     - 被引观察中同一 subject（台账卡内容首段名称）≥2 支且值不同→追加分源列明块
       （INV-4——禁止无出处调和；agg_row 行级事实按 井@日 独立键，不入矛盾池）；
     - V2-48 入口发射剥除：draft 先过 strip_emission_fences（核验步改写面无裸
-      JSON 段——NQ-D10 形围栏不进答案面；剥除不计改写数——发射残片非断言）。
+      JSON 段——NQ-D10 形围栏不进答案面；剥除不计改写数——发射残片非断言）；
+    - V2-50 归属审（②）：anchors 非空时对被引**检索片段**（locator.kind ∈
+      fragment/graph）做引标源↔题眼一致性审——出处名（source/locator.report）
+      与内容均不含任一题眼锚＝跨源引用，追加「跨源归属审——分源列明」块（对齐
+      源/跨源逐支带出处列出；对齐材料在窗未引或窗内无对齐材料如实注记）。无锚
+      （无实体题）＝零追加（不误伤钉）；数据链行级观察（agg_row/lineage）不入
+      辖域；归属审不改写行、不计 INV-1 改写数（数值支撑判定语义不变）。
     """
     by_index = {int(obs["index"]): obs for obs in observations}
     draft = strip_emission_fences(draft)[0]
@@ -652,7 +664,122 @@ def verify_draft(
             f"[{obs['index']}] {obs.get('source', '')}：{obs.get('content', '')}"
             for obs in split_members
         )
+    if anchors:
+        block = _attribution_block(anchors, cited, observations)
+        if block:
+            text += "\n\n" + block
     return text, rewritten, sorted(cited), split
+
+
+# ---------- 归属审（V2-50 族 C ②——引标源↔题眼一致性审） ----------
+
+# 归属审辖域（检索家族观察承载——fragment/graph；数据链行级 agg_row/lineage 与
+# 元信息 notice/window_miss 不入辖域：行级事实按 井@日 独立键、元信息无出处面）。
+_ATTRIBUTION_CARRIER_KINDS = frozenset({"fragment", "graph"})
+# 在窗未引对齐支的列名上限（分源列明 bounded——超出计数注记，不无限拉长答案）。
+_ATTRIBUTION_LIST_CAP = 4
+
+
+def _observation_aligns(obs: dict[str, Any], needles: tuple[str, ...]) -> bool:
+    """观察与题眼锚对齐判定：任一锚规范形出现在（出处名＋内容）规范形中。
+
+    出处名＝source＋locator.report（报告名/油田/井号承载）；内容对齐保住
+    「出处名不含锚但行文点名题眼实体」的正当引用（B-正3 形月报行文——零误伤）。
+    """
+    haystack = normalize_anchor_text(
+        str(obs.get("source", ""))
+        + " "
+        + str((obs.get("locator") or {}).get("report", ""))
+        + " "
+        + str(obs.get("content", ""))
+    )
+    return any(needle in haystack for needle in needles)
+
+
+def _attribution_conflicts(
+    anchors: Sequence[str], cited: set[int], observations: list[dict[str, Any]]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """归属审二分（被引检索片段——对齐列，跨源列；序＝观察序确定性）。
+
+    返回（对齐支, 跨源支）。cited 之外零消费；无锚＝空空（审静默）。
+    """
+    needles = tuple(
+        normalized
+        for normalized in (normalize_anchor_text(a) for a in anchors)
+        if normalized
+    )
+    if not needles:
+        return [], []
+    aligned: list[dict[str, Any]] = []
+    crossed: list[dict[str, Any]] = []
+    for obs in observations:
+        index = int(obs["index"])
+        if index not in cited:
+            continue
+        if str((obs.get("locator") or {}).get("kind", "")) not in _ATTRIBUTION_CARRIER_KINDS:
+            continue
+        (aligned if _observation_aligns(obs, needles) else crossed).append(obs)
+    return aligned, crossed
+
+
+def _attribution_block(
+    anchors: Sequence[str], cited: set[int], observations: list[dict[str, Any]]
+) -> str:
+    """跨源归属审块（分源列明或如实说无——票面钉的两支出场形）。
+
+    - 跨源支在场才出块（全对齐＝零追加——不误伤钉）；逐支带 [n] 出处列出；
+    - 对齐面三分：被引对齐支全列；在窗未引对齐支列前 4 支＋余量计数（A-正1 形
+      的「对齐材料在场而消费错源」——对齐源与跨源逐支并立才是分源列明的本义）；
+      全窗无对齐材料→「如实说无」声明（跨源材料不作题眼归属断言）。
+    """
+    aligned, crossed = _attribution_conflicts(anchors, cited, observations)
+    if not crossed:
+        return ""
+    needles = tuple(
+        normalized
+        for normalized in (normalize_anchor_text(a) for a in anchors)
+        if normalized
+    )
+    cited_ids = set(cited)
+    uncited_aligned = [
+        obs
+        for obs in observations
+        if int(obs["index"]) not in cited_ids
+        and str((obs.get("locator") or {}).get("kind", ""))
+        in _ATTRIBUTION_CARRIER_KINDS
+        and _observation_aligns(obs, needles)
+    ]
+    needles_text = "、".join(str(a) for a in anchors)
+    lines = [f"跨源归属审——分源列明（题眼锚：{needles_text}；禁止无出处调和）："]
+    if aligned or uncited_aligned:
+        if aligned:
+            lines.append("对齐题眼锚：")
+            lines.extend(
+                f"[{obs['index']}] {obs.get('source', '')}：{obs.get('content', '')}"
+                for obs in aligned
+            )
+        if uncited_aligned:
+            lines.append("对齐题眼锚的材料（在窗未进答案引用——按出处核对）：")
+            lines.extend(
+                f"[{obs['index']}] {obs.get('source', '')}：{obs.get('content', '')}"
+                for obs in uncited_aligned[:_ATTRIBUTION_LIST_CAP]
+            )
+            if len(uncited_aligned) > _ATTRIBUTION_LIST_CAP:
+                lines.append(
+                    f"……另 {len(uncited_aligned) - _ATTRIBUTION_LIST_CAP} 支对齐"
+                    "材料从略（按出处核对）。"
+                )
+    else:
+        lines.append(
+            f"窗内无对齐题眼锚（{needles_text}）的材料——所引均为跨源材料，"
+            "如实列明，不作题眼归属断言。"
+        )
+    lines.append("跨源引用（引标源与题眼锚不一致——按出处如实区分，不得并入题眼断言）：")
+    lines.extend(
+        f"[{obs['index']}] {obs.get('source', '')}：{obs.get('content', '')}"
+        for obs in crossed
+    )
+    return "\n".join(lines)
 
 
 def _contradiction_members(
@@ -1081,6 +1208,14 @@ def _make_decision(
                 "next_intent": INTENT_DECISION,
             }
         emission = parsed
+        if emission.retrieval_need is not None:
+            # V2-50 族 C ①anchors 确定性注入：问句实体词（井号/油田名/报告号——
+            # 本体对象闭世界匹配）由代码解析注入，模型可增补不可清空（注入在
+            # 同参指纹之前——注入随发射载荷定型，重投闸比对面一致）。
+            emission = replace(
+                emission,
+                retrieval_need=inject_retrieval_anchors(emission.retrieval_need),
+            )
         if emission.action == ACTION_EXECUTE and _is_same_param_replay(
             emission, state.executed_payloads
         ):
@@ -1845,7 +1980,21 @@ def _make_toolmatch(
                 "steps": [*state.steps, record],
                 "next_intent": INTENT_TOOLMATCH,  # 拒因回喂自环
             }
-        by_id = {m.id: m for m in parsed}
+        # V2-50 族 C ①anchors 确定性注入（四相位半边）：knowledge 链匹配定案的
+        # retrieval_need 逐支注入问句实体锚（模型可增补不可清空）——注入随定案
+        # 落 question_group 与 tool_matches 双面（批量执行输入面同源零漂移）。
+        injected = tuple(
+            (
+                replace(
+                    match,
+                    retrieval_need=inject_retrieval_anchors(match.retrieval_need),
+                )
+                if match.retrieval_need is not None
+                else match
+            )
+            for match in parsed
+        )
+        by_id = {m.id: m for m in injected}
         merged: list[dict[str, Any]] = []
         for st in _group_subtasks(state):
             item = dict(st)
@@ -1866,10 +2015,10 @@ def _make_toolmatch(
                 )
             merged.append(item)
         record = _step_record(
-            seq, STEP_DECISION, f"工具匹配：{len(parsed)} 条定案", context.manifest,
+            seq, STEP_DECISION, f"工具匹配：{len(injected)} 条定案", context.manifest,
             payload={
                 "phase": "toolmatch",
-                "emission": {"matches": [m.as_payload() for m in parsed]},
+                "emission": {"matches": [m.as_payload() for m in injected]},
             },
         )
         deps.bus.emit(
@@ -1888,7 +2037,7 @@ def _make_toolmatch(
             "rounds": state.rounds,
             "decision_error": "",
             "question_group": {"subtasks": merged},
-            "tool_matches": [m.as_payload() for m in parsed],
+            "tool_matches": [m.as_payload() for m in injected],
             "metric_candidates": list(slots) if slots else list(state.metric_candidates),
             "history": history,
             "manifests": [*state.manifests, context.manifest.as_dict()],
@@ -2563,6 +2712,9 @@ def _make_verify(
     async def verify_node(state: RunState) -> dict[str, Any]:
         if (converged := _gate_or_none(state, deps)) is not None:
             return converged
+        # V2-50 族 C ②归属审锚面：题眼锚＝问句实体词（闭世界解析，确定性零模型）
+        # ——无实体题＝空锚，审全静默（不误伤钉）。
+        anchors = entity_anchor_tokens(state.question)
         material = [
             obs
             for obs in state.observations
@@ -2586,13 +2738,21 @@ def _make_verify(
             rewritten, cited, split = 0, list[int](), False
         else:
             text, rewritten, cited, split = verify_draft(
-                state.draft, state.observations
+                state.draft, state.observations, anchors=anchors
             )
+        _aligned, crossed = _attribution_conflicts(
+            anchors, set(cited), state.observations
+        )
+        attribution = {
+            "anchors": list(anchors),
+            "cross": sorted(int(obs["index"]) for obs in crossed),
+        }
         verdict = {
             "supported": len(cited),
             "rewritten": rewritten,
             "split": split,
             "cited": cited,
+            "attribution": attribution,
         }
         seq = _next_seq(state)
         title = f"核验：支撑 {len(cited)}｜改写 {rewritten}｜分源 {'是' if split else '否'}"
@@ -2610,6 +2770,21 @@ def _make_verify(
                 "notice",
                 {"type": "contradiction_split", "gates": [],
                  "content": "多来源不一致——答案分源列明（INV-4——禁止无出处调和）"},
+            )
+        if crossed:
+            deps.bus.emit(
+                "notice",
+                {
+                    "type": "attribution_split",
+                    "gates": [],
+                    "content": (
+                        "跨源归属审（V2-50）：答案被引检索片段 "
+                        + "、".join(f"[{obs['index']}]" for obs in crossed)
+                        + " 的引标源与题眼锚（"
+                        + ("、".join(anchors) if anchors else "")
+                        + "）不一致——答案面分源列明（跨源引用按出处如实区分）"
+                    ),
+                },
             )
         return {
             "draft": text,

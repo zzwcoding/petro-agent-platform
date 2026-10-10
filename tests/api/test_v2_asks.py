@@ -510,14 +510,19 @@ def test_redecision_clarify_resume(env_repair: Any) -> None:
 def test_verdict_subtype_wire_schema(env: Any) -> None:
     """verify 步 verdict 载 {supported,rewritten,split,cited}＋subtype=verify；
     终局 verdict 载 {status,run_id,manifest_digest}＋subtype=final——两形按
-    subtype 判别（消费面不再靠键猜载荷形态）。"""
+    subtype 判别（消费面不再靠键猜载荷形态）。V2-50 起 verify 判定增 additive
+    键 attribution（{anchors, cross}——族 C 归属审机读锚；行为变化，L0 追认
+    注记：键集由四键扩五键，四原键语义零漂移）。"""
     client, _db = env
     frames = _post_ask(client)
     verdicts = [data for name, data in frames if name == "verdict"]
     assert len(verdicts) == 2
     verify, final = verdicts
     assert verify["subtype"] == "verify"
-    assert set(verify) == {"subtype", "supported", "rewritten", "split", "cited"}
+    assert set(verify) == {
+        "subtype", "supported", "rewritten", "split", "cited", "attribution",
+    }
+    assert verify["attribution"]["cross"] == []  # 无实体题/全对齐＝审静默
     assert verify["cited"] == [1] and verify["supported"] == 1 and verify["rewritten"] == 0
     assert final["subtype"] == "final"
     assert set(final) == {"subtype", "status", "run_id", "manifest_digest"}

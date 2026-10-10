@@ -276,8 +276,11 @@ async def test_recall_end_to_end_target_seated(tmp_path: Path) -> None:
         assert "s1" in reentry[0]["content"]
         # 恰两次检索：首支缺位→回炉→带 anchors 重检（目标进窗）。
         assert retrieval.retrieve_calls == 2
-        assert retrieval.needs[0].anchors == ()
-        assert retrieval.needs[1].anchors == (_RECALL_TARGET, "4.1")
+        # V2-50 ①anchors 确定性注入：首支模型未填锚——问句实体词 W-22 代码注入
+        # （注入钉行为变化：旧形断言 anchors == ()，随 V2-50 注入面语义更新）。
+        assert retrieval.needs[0].anchors == ("W-22",)
+        # 注入项在前不可清空，模型锚增补续后（模型可增补不可清空钉）。
+        assert retrieval.needs[1].anchors == ("W-22", _RECALL_TARGET, "4.1")
         steps = await RunStore(db).list_steps(events[-1].data["run_id"])
         payloads = _batch_execute_payloads(steps)
         assert [p["status"] for p in payloads] == ["ok", "ok"]

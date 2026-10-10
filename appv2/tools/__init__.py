@@ -26,6 +26,11 @@ readonly!=True 的工具，公开面仅 register/descriptors/call；假引擎 ad
 - fake 三假引擎＋FakeUpstreamRejection（P-006 复用件）。
 """
 
+from appv2.tools.anchors import (
+    entity_anchor_tokens,
+    inject_retrieval_anchors,
+    normalize_anchor_text,
+)
 from appv2.tools.argscheck import ArgsError
 from appv2.tools.fake import (
     FakeKnowledgeStore,
@@ -148,9 +153,12 @@ __all__ = [
     "build_tools",
     "classify_exception",
     "dump_from_store",
+    "entity_anchor_tokens",
     "extract_external_table_refs",
+    "inject_retrieval_anchors",
     "judge",
     "ledger_facts",
+    "normalize_anchor_text",
     "normalize_metric_name",
     "recall_relevant",
     "render_aliases",
