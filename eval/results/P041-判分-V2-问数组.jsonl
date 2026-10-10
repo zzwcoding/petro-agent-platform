@@ -1,0 +1,15 @@
+{"qid": "数-明1", "judge": "⚠️", "delta": "平", "note": "steps 同形（51 obs）＋丢行族维持（unsupported_claim notice 在场）——F4 归属票未动"}
+{"qid": "数-明2", "judge": "⚠️", "delta": "平", "note": "丢行族维持（51 obs 同形）"}
+{"qid": "数-明3", "judge": "⚠️", "delta": "平", "note": "丢行族维持（51 obs 同形）"}
+{"qid": "数-排1", "judge": "✅", "delta": "平", "note": "Z-16 5839.63 在场＋steps 同形（前置 pass 零拦截——V2-44 零误伤）"}
+{"qid": "数-排2", "judge": "✅", "delta": "平", "note": "Z-22 1784.67 在场＋steps 同形"}
+{"qid": "数-排3", "judge": "✅", "delta": "平", "note": "N-15 8824.36 在场（液量冠军与油量异井）"}
+{"qid": "数-限1", "judge": "⚠️", "delta": "平", "note": "前 30 显式条数形维持（31 obs 同形）——丢行族维持"}
+{"qid": "数-闸1", "judge": "⚠️", "delta": "平", "note": "本月首日覆盖族维持（冻结钟 today=2026-08-31 本月窗＝水位内）"}
+{"qid": "数-闸2", "judge": "⚠️", "delta": "平", "note": "终态同族（近 7 天明细交付）；中间两轮回炉＝模型发射脏日期（day out of range）＋未来窗（2026-09-01）被 R6-03 确定性闸拒——闸工作正常如实留痕，非本票改动面"}
+{"qid": "数-反1", "judge": "✅", "delta": "平", "note": "反问帧在场（✅形——「最近」→三选一 ask 帧）＋resume「近 3 天」收口（P039W 同形）"}
+{"qid": "数-降1", "judge": "✅", "delta": "平", "note": "换链回炉全链同形（chain_switch_reentry→轮 2 knowledge 链→doc_retrieve→零数值如实面）"}
+{"qid": "数-降2", "judge": "✅", "delta": "平", "note": "同降1（配产量）；中途澄清钻取 semantic_query 失败一跳如实留痕（decision_rejected），终态同形"}
+{"qid": "数-察1", "judge": "⚠️", "delta": "平", "note": "无时间词默认窗直发面维持（A-正7 形真跑不回退）"}
+{"qid": "数-察2", "judge": "✅", "delta": "升", "note": "V2-44 验收题：模型本轮又漏报（帧 detail.declared_tables=[]）→前置条件机实扫执行前拦截（miss_declared=[erp_well_register] 机读留痕在场）→resume 批准→前置重判 note 放行→data_query ok→Z-16 1335.52 带引标交付——挂起审批帧在＋批准前零数据＋批准后交付带审批留痕；P039BW ❌（漏报直出数，高危）确定性根治"}
+{"qid": "数-界1", "judge": "⚠️", "delta": "平", "note": "单井过滤未支持披露＋N-01 21.16 维持（s1=note 单井注记在场）"}

@@ -1,0 +1,254 @@
+{
+ "tag": "P041W",
+ "base": "http://localhost:8016/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "2026-10-10T15:19:22.054956",
+ "questions": 16,
+ "spend_ok": 16,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 75,
+  "fallback_calls": 0,
+  "input_tokens": 437383,
+  "output_tokens": 9384,
+  "cost_yuan": 0.465535
+ },
+ "items": [
+  {
+   "qid": "数-明1",
+   "group": "DATA",
+   "run_id": "run-32c71c15",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.019776,
+   "call_ids": [
+    "call-a3f38ff9",
+    "call-17b997a6",
+    "call-d832e272",
+    "call-8d49dcac"
+   ]
+  },
+  {
+   "qid": "数-明2",
+   "group": "DATA",
+   "run_id": "run-6954a840",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.020284,
+   "call_ids": [
+    "call-e474beee",
+    "call-1b340b96",
+    "call-cbfa8026",
+    "call-9b3052b5"
+   ]
+  },
+  {
+   "qid": "数-明3",
+   "group": "DATA",
+   "run_id": "run-addc9eaa",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.020802,
+   "call_ids": [
+    "call-94a2b3ae",
+    "call-b1ef3621",
+    "call-22845b2c",
+    "call-1740dd67"
+   ]
+  },
+  {
+   "qid": "数-排1",
+   "group": "DATA",
+   "run_id": "run-4bc31b0c",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.018948,
+   "call_ids": [
+    "call-a911935b",
+    "call-28901b55",
+    "call-eed66461",
+    "call-dd874033"
+   ]
+  },
+  {
+   "qid": "数-排2",
+   "group": "DATA",
+   "run_id": "run-86450000",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.018916,
+   "call_ids": [
+    "call-28d971d5",
+    "call-c2210bf8",
+    "call-43d6827c",
+    "call-0eec91ba"
+   ]
+  },
+  {
+   "qid": "数-排3",
+   "group": "DATA",
+   "run_id": "run-06448175",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.019035,
+   "call_ids": [
+    "call-0d773ebd",
+    "call-752e63a7",
+    "call-5acea394",
+    "call-0515e461"
+   ]
+  },
+  {
+   "qid": "数-限1",
+   "group": "DATA",
+   "run_id": "run-e5f15df5",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.020656,
+   "call_ids": [
+    "call-731dc6a5",
+    "call-451ac57b",
+    "call-4d5ab776",
+    "call-f112f139"
+   ]
+  },
+  {
+   "qid": "数-闸1",
+   "group": "DATA",
+   "run_id": "run-f75499ee",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.02111,
+   "call_ids": [
+    "call-ca2baee6",
+    "call-4bbf4f0c",
+    "call-c8610898",
+    "call-100af210"
+   ]
+  },
+  {
+   "qid": "数-闸2",
+   "group": "DATA",
+   "run_id": "run-ccdbcebe",
+   "method": "run_id",
+   "calls": 8,
+   "cost_yuan": 0.077828,
+   "call_ids": [
+    "call-47137fb6",
+    "call-d90939f3",
+    "call-dcf2ffd3",
+    "call-a72b97a5",
+    "call-4ab8544b",
+    "call-31f4cb21",
+    "call-d9105b89",
+    "call-d20a641c"
+   ]
+  },
+  {
+   "qid": "数-闸3",
+   "group": "DATA",
+   "run_id": "run-95c64893",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.020378,
+   "call_ids": [
+    "call-aa3460b7",
+    "call-2ce96ced",
+    "call-fd55199a",
+    "call-3ce9d404"
+   ]
+  },
+  {
+   "qid": "数-反1",
+   "group": "DATA",
+   "run_id": "run-ebfe542d",
+   "method": "run_id",
+   "calls": 6,
+   "cost_yuan": 0.04534,
+   "call_ids": [
+    "call-c01be5d7",
+    "call-f455f595",
+    "call-b64de308",
+    "call-85aee7e2",
+    "call-f690b3ca",
+    "call-4901e738"
+   ]
+  },
+  {
+   "qid": "数-降1",
+   "group": "DATA",
+   "run_id": "run-c88c5618",
+   "method": "run_id",
+   "calls": 6,
+   "cost_yuan": 0.044499,
+   "call_ids": [
+    "call-cb5cd243",
+    "call-1cd084cd",
+    "call-1177cf80",
+    "call-b5e053fa",
+    "call-1330d034",
+    "call-03471bf1"
+   ]
+  },
+  {
+   "qid": "数-降2",
+   "group": "DATA",
+   "run_id": "run-fd01d536",
+   "method": "run_id",
+   "calls": 7,
+   "cost_yuan": 0.060388,
+   "call_ids": [
+    "call-158d55a0",
+    "call-52b8b387",
+    "call-65cfeb3b",
+    "call-724e75c0",
+    "call-f047a0dc",
+    "call-d6d037b8",
+    "call-e6ca0261"
+   ]
+  },
+  {
+   "qid": "数-察1",
+   "group": "DATA",
+   "run_id": "run-653feeed",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.019602,
+   "call_ids": [
+    "call-4957fb7d",
+    "call-5a3c6aa7",
+    "call-8bc6dc43",
+    "call-412daf00"
+   ]
+  },
+  {
+   "qid": "数-察2",
+   "group": "DATA",
+   "run_id": "run-3c2ba542",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.018952,
+   "call_ids": [
+    "call-80c8f50f",
+    "call-8688080c",
+    "call-571fc688",
+    "call-3ced0768"
+   ]
+  },
+  {
+   "qid": "数-界1",
+   "group": "DATA",
+   "run_id": "run-ec18fbf2",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.019021,
+   "call_ids": [
+    "call-d59dc73b",
+    "call-995a58d5",
+    "call-5eca8d51",
+    "call-2b112aea"
+   ]
+  }
+ ],
+ "errors": []
+}
