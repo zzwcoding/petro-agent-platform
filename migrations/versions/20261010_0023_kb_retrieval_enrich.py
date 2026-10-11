@@ -34,7 +34,7 @@ depends_on: str | Sequence[str] | None = None
 
 _COMMENTS: list[tuple[str, str, str]] = [
     ("kb_retrieval_enrich", "kind", "行类（slice_embed＝切片向量｜section_summary＝摘要节点）"),
-    ("kb_retrieval_enrich", "key", "行键（fragment_id｜node_id＝ensum-md5(report|root)[:12]）"),
+    ("kb_retrieval_enrich", "key", "行键（fragment_id｜node_id＝ensum-md5 前 12 字符）"),
     ("kb_retrieval_enrich", "report_id", "出处报告 id（摘要节点在案；overlay 行空串）"),
     ("kb_retrieval_enrich", "report", "出处报告名（摘要节点出处链——读面自足）"),
     ("kb_retrieval_enrich", "library_id", "出处库 id（出处链三级）"),

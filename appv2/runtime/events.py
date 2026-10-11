@@ -3,7 +3,8 @@
 事件帧＝00 §6.1 信封 `id/event/data` 的流内最小单位：RunEvent{seq, event, data}
 ——seq 即断线游标（V2-07 SSE 游标续传消费）；event 九类闭世界（specs/modules.md
 api 卡枚举）：step/text/tool/observation/ask/verdict/citation/notice/blackbox
-（blackbox＝V2-54 黑匣子终态蒸馏——执行器收口单点发射，帧落盘自动收录）。
+（blackbox＝V2-54 黑匣子收口指针——V2-55 起蒸馏全文入库 agent_v2_blackbox，
+流内只出瘦指针，帧落盘自动收录）。
 
 EventBus＝进程内事件流（asyncio.Queue）：节点发射、RunHandle.stream 消费；
 ask 挂起帧发出后流正常收束（specs/agent-loop.md 行为约定 4）。本模块零框架

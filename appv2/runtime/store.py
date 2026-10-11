@@ -66,6 +66,16 @@ class AgentV2Step(Base):
     created_at: Mapped[datetime] = mapped_column(default=now)
 
 
+class AgentV2Blackbox(Base):
+    """黑匣子蒸馏存档（V2-55——payload 入库不入帧：git 只留判分与指针）。"""
+
+    __tablename__ = "agent_v2_blackbox"
+
+    run_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(default=now)
+
+
 class AgentV2Checkpoint(Base):
     """checkpoint 行（thread_id＝run_id；只作存储机制——schema 自有红线③）。"""
 
@@ -204,6 +214,19 @@ class RunStore:
             )
             return list(rows)
 
+    async def put_blackbox(self, run_id: str, payload: dict[str, Any]) -> None:
+        """黑匣子蒸馏存档（V2-55——幂等 upsert，run_id 主键覆写取末次）。"""
+        async with self._db.session() as session:
+            await session.merge(
+                AgentV2Blackbox(run_id=run_id, payload=payload, created_at=now())
+            )
+            await session.flush()
+
+    async def get_blackbox(self, run_id: str) -> dict[str, Any] | None:
+        async with self._db.session() as session:
+            row = await session.get(AgentV2Blackbox, run_id)
+            return dict(row.payload) if row is not None else None
+
     async def count_checkpoints(self, run_id: str) -> int:
         async with self._db.session() as session:
             total = await session.scalar(
@@ -219,6 +242,7 @@ async def ensure_agent_v2_tables(engine: AsyncEngine) -> None:
     for model in (
         AgentV2Run,
         AgentV2Step,
+        AgentV2Blackbox,
         AgentV2Checkpoint,
         AgentV2CheckpointBlob,
         AgentV2CheckpointWrite,

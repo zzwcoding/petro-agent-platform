@@ -101,6 +101,32 @@ def distill(
     return record
 
 
+def pointer(
+    record: Mapping[str, Any],
+    *,
+    stored: bool = False,
+    bytes_written: int = 0,
+) -> dict[str, Any]:
+    """蒸馏记录→瘦指针（V2-55——wire 面只出指针防帧/仓膨胀，完整面在库）。
+
+    帧落盘器全量存档 SSE 故指针即帧所载全部；过程档案经
+    `agent_v2_blackbox` 表（RunStore.get_blackbox）或回放工具读取。
+    """
+    return {
+        "run_id": str(record.get("run_id", "")),
+        "question": str(record.get("question", "")),
+        "status": str(record.get("status", "")),
+        "error": str(record.get("error", "")),
+        "stored": stored,
+        "bytes": int(bytes_written),
+        "counts": {
+            "history": len(record.get("history") or []),
+            "observations": len(record.get("observations") or []),
+            "steps": len(record.get("steps") or []),
+        },
+    }
+
+
 def render_snapshots(snapshots: list[dict[str, Any]], *, as_json: bool = False) -> str:
     """快照列→转写文本（人读缺省；as_json＝机器全量，直 dump 不再蒸馏）。"""
     if as_json:

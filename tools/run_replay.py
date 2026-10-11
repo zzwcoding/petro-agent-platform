@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import sys
 from typing import Any
 
@@ -55,7 +56,23 @@ def main() -> int:
     parser.add_argument("run_id", help="run 号（run-XXXXXXXX）")
     parser.add_argument("--json", action="store_true", help="机器全量 JSON")
     parser.add_argument("--list", action="store_true", help="仅快照清单")
+    parser.add_argument(
+        "--distill", action="store_true", help="仅黑匣子蒸馏行（agent_v2_blackbox）"
+    )
     args = parser.parse_args()
+
+    from appv2.infra.config import load_database_specs
+    from appv2.infra.db import ConnectionManager
+    from appv2.runtime.store import RunStore
+
+    if args.distill:
+        store = RunStore(ConnectionManager(load_database_specs()))
+        payload = await store.get_blackbox(args.run_id)
+        if payload is None:
+            print(f"无黑匣子行：{args.run_id}", file=sys.stderr)
+            return 1
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
 
     from appv2.runtime.blackbox import render_snapshots
 

@@ -13,8 +13,8 @@ from typing import Any
 
 import pytest
 
-from appv2.runtime import AskRequest
-from appv2.runtime.blackbox import distill, render_snapshots
+from appv2.runtime import AskRequest, RunStore
+from appv2.runtime.blackbox import distill, pointer, render_snapshots
 from appv2.runtime.events import EVENT_BLACKBOX, EVENT_KINDS
 from tests.domains.test_v2_agent_loop import (
     ACTOR,
@@ -115,27 +115,76 @@ def test_distill_dirty_value_degrades() -> None:
     assert d["verdict"]["supported"] == "odd!"
 
 
-# ---------- T4 · 执行器收口单点发射 ----------
+# ---------- T4 · 执行器收口：瘦指针出流＋蒸馏入库（V2-55 改形） ----------
 
 
 @pytest.mark.asyncio
-async def test_blackbox_emitted_last_on_completion(tmp_path) -> None:  # type: ignore[no-untyped-def]
-    runtime, _completer, _db = await make_runtime(
+async def test_blackbox_pointer_last_and_stored(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    runtime, _completer, db = await make_runtime(
         tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=HAPPY_SCRIPT
     )
     handle = await runtime.ask(AskRequest(question=HAPPY_QUESTION, actor=ACTOR))
     events = await drain(handle)
     kinds = [e.event for e in events]
-    assert "blackbox" in kinds
     assert kinds[-1] == "blackbox"  # 收口前最后一件（close 前单点发射）
     data = next(e.data for e in events if e.event == "blackbox")
+    # 瘦指针：身份面＋入库标记＋计数——无过程载荷（帧不收录大体档案）
     assert data["run_id"] == handle.run_id
     assert data["question"] == HAPPY_QUESTION
+    assert data["stored"] is True
+    assert data["bytes"] > 0
+    assert data["counts"]["history"] > 0
+    assert "history" not in data and "observations" not in data and "steps" not in data
+    # 完整面在库：模型原话与观察全字段经 get_blackbox 取回
+    payload = await RunStore(db).get_blackbox(handle.run_id)
+    assert payload is not None
     assistant_texts = [
-        str(t.get("content")) for t in data["history"] if t.get("role") == "assistant"
+        str(t.get("content")) for t in payload["history"] if t.get("role") == "assistant"
     ]
-    assert any("finalize" in text for text in assistant_texts)  # 模型原话在场
-    assert isinstance(data["observations"], list)
+    assert any("finalize" in text for text in assistant_texts)
+    assert isinstance(payload["observations"], list)
+    assert "ledger_dump" not in payload  # 蒸馏语义不变——巨体键排除
+
+
+@pytest.mark.asyncio
+async def test_blackbox_store_overwrite_roundtrip(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    runtime, _completer, db = await make_runtime(
+        tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=HAPPY_SCRIPT
+    )
+    handle = await runtime.ask(AskRequest(question=HAPPY_QUESTION, actor=ACTOR))
+    await drain(handle)
+    store = RunStore(db)
+    first = await store.get_blackbox(handle.run_id)
+    assert first is not None
+    await store.put_blackbox(handle.run_id, {"run_id": handle.run_id, "marker": "v2"})
+    second = await store.get_blackbox(handle.run_id)
+    assert second is not None and second.get("marker") == "v2"  # upsert 覆写取末次
+
+
+# ---------- T6 · 瘦指针形状（blackbox.pointer 单点） ----------
+
+
+def test_pointer_shape() -> None:
+    record = {
+        "run_id": "run-x",
+        "question": "q",
+        "status": "completed",
+        "error": "",
+        "history": [{"role": "assistant", "content": "a"}, {"role": "user", "content": "b"}],
+        "observations": [],
+        "steps": [{"seq": 1}],
+        "ledger_dump": {"huge": "excluded"},
+    }
+    p = pointer(record, stored=True, bytes_written=123)
+    assert p == {
+        "run_id": "run-x",
+        "question": "q",
+        "status": "completed",
+        "error": "",
+        "stored": True,
+        "bytes": 123,
+        "counts": {"history": 2, "observations": 0, "steps": 1},
+    }
 
 
 # ---------- T5 · 快照回放渲染 ----------

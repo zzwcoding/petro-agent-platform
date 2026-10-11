@@ -18,6 +18,7 @@ security.audit，action 恒 agent_v2.* 前缀）；审计写口异常转 notice 
 from __future__ import annotations
 
 import asyncio
+import json
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -28,7 +29,7 @@ from langgraph.types import Command
 from appv2.infra.db import ConnectionManager
 from appv2.infra.security import Actor, SecurityService
 from appv2.runtime.audit import RunAuditor, who_of
-from appv2.runtime.blackbox import distill
+from appv2.runtime.blackbox import distill, pointer
 from appv2.runtime.budget import Budget, now_monotonic
 from appv2.runtime.context import ContextBuilder
 from appv2.runtime.events import EVENT_BLACKBOX, EventBus
@@ -388,10 +389,31 @@ class GraphRunExecutor:
                 {"type": "run_failed", "gates": [], "content": f"run 执行失败：{exc}"},
             )
         finally:
-            # V2-54 黑匣子收口发射（单一取材点——蒸馏语义见 runtime.blackbox；
-            # 帧落盘器全量存档 SSE 故自动收录；快照回放工具读同一语义的快照层。
-            # 异常段 final=None＝骨架记录——错误面经 error 在场）。
-            bus.emit(EVENT_BLACKBOX, distill(final, run_id=run_id, error=run_error))
+            # V2-54/V2-55 黑匣子收口：蒸馏入库（agent_v2_blackbox——过程档案
+            # 不入帧防仓膨胀）＋瘦指针出流（帧自动收录的只是指针；完整面经
+            # get_blackbox／tools.run_replay 读库）。写口失败→notice 留痕缺口
+            # 不静默（审计守卫同款），终态零翻盘。异常段 final=None＝骨架记录。
+            record = distill(final, run_id=run_id, error=run_error)
+            stored, blob_bytes = False, 0
+            try:
+                blob_bytes = len(json.dumps(record, ensure_ascii=False))
+                await self._store.put_blackbox(run_id, record)
+                stored = True
+            except Exception as exc:
+                bus.emit(
+                    "notice",
+                    {
+                        "type": "blackbox_write_failed",
+                        "gates": [],
+                        "content": (
+                            f"黑匣子写口异常（过程档案缺口，run 终态不受影响）：{exc}"
+                        ),
+                    },
+                )
+            bus.emit(
+                EVENT_BLACKBOX,
+                pointer(record, stored=stored, bytes_written=blob_bytes),
+            )
             bus.close()
 
     # ---------- 审计四事件（V2-20——唯一写口 security.audit，失败不静默不翻盘） ----------

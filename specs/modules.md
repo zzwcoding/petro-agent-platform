@@ -179,7 +179,8 @@ GET  /api/v2/chat/runs/{run_id}          → run 状态＋steps（含 payload：
 ```
 事件九类闭世界：step/text/tool/observation/ask/verdict/citation/notice/blackbox（V1 wire 形兼容＋
 loop 步/观察新形态——V2-36 终态口径，ADR-0004 拍板 5 演进位；blackbox＝V2-54 黑匣子
-终态蒸馏——执行器收口单点发射 runtime.blackbox.distill 产物，帧落盘自动收录，取证面）。
+收口指针——V2-55 起蒸馏全文入库 agent_v2_blackbox，帧只收录瘦指针；完整面经
+tools/run_replay／RunStore.get_blackbox 读库，取证面）。
 
 ### 依赖
 - 模块: `runtime`（业务面只许走 AgentRuntime 公开接口；组合根 create_app 例外——装配 GraphRunExecutor/PgCheckpointer/GatewayChatModel，V2-07 按组合缝采纳）、`infra`
