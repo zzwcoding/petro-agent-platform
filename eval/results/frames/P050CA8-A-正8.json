@@ -1,0 +1,543 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-14f1bf84",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问邻井 W-07 井初期（投产时）的日产油量以及当前的日产油量。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问邻井 W-07 井初期（投产时）的日产油量以及当前的日产油量。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 2 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：2 条定案"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note｜s2=note"
+   }
+  },
+  {
+   "id": 6,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ask",
+    "seq": 5,
+    "message": null
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：ask（子问题 s1）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「最近」指哪个时间窗？① 近 3 天 ② 近 30 天 ③ 本月至今——选好后我按审定口径取数。",
+     "options": [
+      "近 3 天",
+      "近 30 天",
+      "本月至今"
+     ],
+     "detail": null
+    },
+    "run_id": "run-14f1bf84"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 6,
+    "title": "批量汇聚 0 支"
+   }
+  },
+  {
+   "id": 10,
+   "event": "done",
+   "data": {
+    "run_id": "run-14f1bf84"
+   }
+  },
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-14f1bf84",
+    "resume": true
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "澄清回收：近 3 天"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "澄清 r1：反问（「初期」具体指投产后的哪个时段？这会决定初期日产）"
+   }
+  },
+  {
+   "id": 3,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「初期」具体指投产后的哪个时段？这会决定初期日产油取数的窗口起点。",
+     "options": [
+      "投产当月（投产首月内）",
+      "投产首年（前 6 个月）",
+      "投产首年（前 12 个月）",
+      "投产首日（投产当日）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-14f1bf84"
+   }
+  },
+  {
+   "id": 4,
+   "event": "done",
+   "data": {
+    "run_id": "run-14f1bf84"
+   }
+  },
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-14f1bf84",
+    "resume": true
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 9,
+    "title": "澄清回收：投产当月（投产首月内）"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 10,
+    "title": "澄清 r1：分解 2 子问题"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 11,
+    "title": "工具匹配：2 条定案"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 12,
+    "title": "前置条件机：s1=note｜s2=note"
+   }
+  },
+  {
+   "id": 5,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ask",
+    "seq": 13,
+    "message": null
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 13,
+    "title": "data_query：ask（子问题 s1）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「最近」指哪个时间窗？① 近 3 天 ② 近 30 天 ③ 本月至今——选好后我按审定口径取数。",
+     "options": [
+      "近 3 天",
+      "近 30 天",
+      "本月至今"
+     ],
+     "detail": null
+    },
+    "run_id": "run-14f1bf84"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 14,
+    "title": "批量汇聚 0 支"
+   }
+  },
+  {
+   "id": 9,
+   "event": "done",
+   "data": {
+    "run_id": "run-14f1bf84"
+   }
+  },
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-14f1bf84",
+    "resume": true
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 15,
+    "title": "澄清回收：近 3 天"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 16,
+    "title": "澄清 r1：分解 2 子问题"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 17,
+    "title": "工具匹配：2 条定案"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 18,
+    "title": "前置条件机：s1=note｜s2=note"
+   }
+  },
+  {
+   "id": 5,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ask",
+    "seq": 19,
+    "message": null
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 19,
+    "title": "data_query：ask（子问题 s1）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「最近」指哪个时间窗？① 近 3 天 ② 近 30 天 ③ 本月至今——选好后我按审定口径取数。",
+     "options": [
+      "近 3 天",
+      "近 30 天",
+      "本月至今"
+     ],
+     "detail": null
+    },
+    "run_id": "run-14f1bf84"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 20,
+    "title": "批量汇聚 0 支"
+   }
+  },
+  {
+   "id": 9,
+   "event": "done",
+   "data": {
+    "run_id": "run-14f1bf84"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问邻井 W-07 井初期（投产时）的日产油量以及当前的日产油量。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-14f1bf84",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问邻井 W-07 井初期（投产时）的日产油量以及当前的日产油量。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 2 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：2 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note｜s2=note"
+   },
+   {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：ask（子问题 s1）"
+   },
+   {
+    "step": "observe",
+    "seq": 6,
+    "title": "批量汇聚 0 支"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "澄清回收：近 3 天"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "澄清 r1：反问（「初期」具体指投产后的哪个时段？这会决定初期日产）"
+   },
+   {
+    "step": "decision",
+    "seq": 9,
+    "title": "澄清回收：投产当月（投产首月内）"
+   },
+   {
+    "step": "decision",
+    "seq": 10,
+    "title": "澄清 r1：分解 2 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 11,
+    "title": "工具匹配：2 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 12,
+    "title": "前置条件机：s1=note｜s2=note"
+   },
+   {
+    "step": "execute",
+    "seq": 13,
+    "title": "data_query：ask（子问题 s1）"
+   },
+   {
+    "step": "observe",
+    "seq": 14,
+    "title": "批量汇聚 0 支"
+   },
+   {
+    "step": "decision",
+    "seq": 15,
+    "title": "澄清回收：近 3 天"
+   },
+   {
+    "step": "decision",
+    "seq": 16,
+    "title": "澄清 r1：分解 2 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 17,
+    "title": "工具匹配：2 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 18,
+    "title": "前置条件机：s1=note｜s2=note"
+   },
+   {
+    "step": "execute",
+    "seq": 19,
+    "title": "data_query：ask（子问题 s1）"
+   },
+   {
+    "step": "observe",
+    "seq": 20,
+    "title": "批量汇聚 0 支"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ask",
+    "seq": 5,
+    "message": null
+   },
+   {
+    "tool": "data_query",
+    "status": "ask",
+    "seq": 13,
+    "message": null
+   },
+   {
+    "tool": "data_query",
+    "status": "ask",
+    "seq": 19,
+    "message": null
+   }
+  ],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「最近」指哪个时间窗？① 近 3 天 ② 近 30 天 ③ 本月至今——选好后我按审定口径取数。",
+     "options": [
+      "近 3 天",
+      "近 30 天",
+      "本月至今"
+     ],
+     "detail": null
+    },
+    "run_id": "run-14f1bf84"
+   },
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「初期」具体指投产后的哪个时段？这会决定初期日产油取数的窗口起点。",
+     "options": [
+      "投产当月（投产首月内）",
+      "投产首年（前 6 个月）",
+      "投产首年（前 12 个月）",
+      "投产首日（投产当日）"
+     ],
+     "detail": null
+    },
+    "run_id": "run-14f1bf84"
+   },
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「最近」指哪个时间窗？① 近 3 天 ② 近 30 天 ③ 本月至今——选好后我按审定口径取数。",
+     "options": [
+      "近 3 天",
+      "近 30 天",
+      "本月至今"
+     ],
+     "detail": null
+    },
+    "run_id": "run-14f1bf84"
+   },
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「最近」指哪个时间窗？① 近 3 天 ② 近 30 天 ③ 本月至今——选好后我按审定口径取数。",
+     "options": [
+      "近 3 天",
+      "近 30 天",
+      "本月至今"
+     ],
+     "detail": null
+    },
+    "run_id": "run-14f1bf84"
+   }
+  ],
+  "verify": [],
+  "final": null,
+  "texts": [
+   "问邻井 W-07 井初期（投产时）的日产油量以及当前的日产油量。"
+  ],
+  "duration_s": 14.8
+ }
+}

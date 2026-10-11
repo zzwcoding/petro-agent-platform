@@ -1,0 +1,252 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-0c1a98df",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问邻井 W-07 井初期及当前的日产油量。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问邻井 W-07 井初期及当前的日产油量。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 2 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：2 条定案"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note｜s2=blocked_refuse"
+   }
+  },
+  {
+   "id": 6,
+   "event": "notice",
+   "data": {
+    "type": "chain_switch_reentry",
+    "gates": [],
+    "content": "换链回炉闸（V2-43/V2-51）：子问题 s1 题眼井不在数据链井闭世界（data 链域错成功返回——软失败域闸）——携拒因＋改链 hint 回炉①澄清相位（一次为界；坚持原链同参再触发＝直答终局，不环）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r2：分解 2 子问题"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "工具匹配：2 条定案"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "前置条件机：s1=blocked_refuse｜s2=note"
+   }
+  },
+  {
+   "id": 10,
+   "event": "notice",
+   "data": {
+    "type": "chain_switch_reentry",
+    "gates": [],
+    "content": "换链回炉闸（V2-43/V2-51）：子问题 s2 题眼井不在数据链井闭世界（data 链域错成功返回——软失败域闸）——携拒因＋改链 hint 回炉①澄清相位（一次为界；坚持原链同参再触发＝直答终局，不环）"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "澄清 r3：分解 1 子问题"
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 9,
+    "title": "工具匹配：1 条定案"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 10,
+    "title": "前置条件机：s2=blocked_refuse"
+   }
+  },
+  {
+   "id": 14,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 11,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 15,
+   "event": "text",
+   "data": {
+    "content": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s2] W-07 井当前日产油量是多少——拒因：换链回炉已用尽（一次为界）：坚持 data 链同参（指纹 {\"plan\":{\"me…在簿）——题眼井不在数据链井闭世界——域错如实拒答，不代答"
+   }
+  },
+  {
+   "id": 16,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-0c1a98df",
+    "manifest_digest": "de01efaf811921e6438ffad53155f5bb1d88e0c8cd96c5dba581f68f7770f253"
+   }
+  },
+  {
+   "id": 17,
+   "event": "done",
+   "data": {
+    "run_id": "run-0c1a98df"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s2] W-07 井当前日产油量是多少——拒因：换链回炉已用尽（一次为界）：坚持 data 链同参（指纹 {\"plan\":{\"me…在簿）——题眼井不在数据链井闭世界——域错如实拒答，不代答",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "chain_switch_reentry",
+    "gates": [],
+    "content": "换链回炉闸（V2-43/V2-51）：子问题 s1 题眼井不在数据链井闭世界（data 链域错成功返回——软失败域闸）——携拒因＋改链 hint 回炉①澄清相位（一次为界；坚持原链同参再触发＝直答终局，不环）"
+   },
+   {
+    "type": "chain_switch_reentry",
+    "gates": [],
+    "content": "换链回炉闸（V2-43/V2-51）：子问题 s2 题眼井不在数据链井闭世界（data 链域错成功返回——软失败域闸）——携拒因＋改链 hint 回炉①澄清相位（一次为界；坚持原链同参再触发＝直答终局，不环）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-0c1a98df",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问邻井 W-07 井初期及当前的日产油量。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 2 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：2 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note｜s2=blocked_refuse"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r2：分解 2 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "工具匹配：2 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "前置条件机：s1=blocked_refuse｜s2=note"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "澄清 r3：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 9,
+    "title": "工具匹配：1 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 10,
+    "title": "前置条件机：s2=blocked_refuse"
+   },
+   {
+    "step": "answer",
+    "seq": 11,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-0c1a98df",
+   "manifest_digest": "de01efaf811921e6438ffad53155f5bb1d88e0c8cd96c5dba581f68f7770f253"
+  },
+  "texts": [
+   "问邻井 W-07 井初期及当前的日产油量。",
+   "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s2] W-07 井当前日产油量是多少——拒因：换链回炉已用尽（一次为界）：坚持 data 链同参（指纹 {\"plan\":{\"me…在簿）——题眼井不在数据链井闭世界——域错如实拒答，不代答"
+  ],
+  "duration_s": 11.8
+ }
+}

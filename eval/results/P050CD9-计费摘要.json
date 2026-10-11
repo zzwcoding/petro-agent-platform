@@ -1,0 +1,35 @@
+{
+ "tag": "P050CD9",
+ "base": "http://127.0.0.1:8024/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "2026-10-11T08:36:20.837427",
+ "questions": 1,
+ "spend_ok": 1,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 6,
+  "fallback_calls": 0,
+  "input_tokens": 55375,
+  "output_tokens": 1343,
+  "cost_yuan": 0.059404
+ },
+ "items": [
+  {
+   "qid": "D-诱9",
+   "group": "D",
+   "run_id": "run-d3456b54",
+   "method": "run_id",
+   "calls": 6,
+   "cost_yuan": 0.059404,
+   "call_ids": [
+    "call-a65b53d1",
+    "call-8669cea0",
+    "call-344f6dc2",
+    "call-b982d0f5",
+    "call-fffe4df9",
+    "call-ed09566c"
+   ]
+  }
+ ],
+ "errors": []
+}

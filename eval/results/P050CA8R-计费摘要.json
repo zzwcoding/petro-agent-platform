@@ -1,0 +1,36 @@
+{
+ "tag": "P050CA8R",
+ "base": "http://127.0.0.1:8024/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "2026-10-11T08:40:56.565246",
+ "questions": 1,
+ "spend_ok": 1,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 7,
+  "fallback_calls": 0,
+  "input_tokens": 65113,
+  "output_tokens": 793,
+  "cost_yuan": 0.067492
+ },
+ "items": [
+  {
+   "qid": "A-正8",
+   "group": "A",
+   "run_id": "run-0c1a98df",
+   "method": "run_id",
+   "calls": 7,
+   "cost_yuan": 0.067492,
+   "call_ids": [
+    "call-27238d33",
+    "call-e2ee74c7",
+    "call-c4fb9e10",
+    "call-38eb3238",
+    "call-3eb4b361",
+    "call-e320a7ec",
+    "call-f7bc57b2"
+   ]
+  }
+ ],
+ "errors": []
+}

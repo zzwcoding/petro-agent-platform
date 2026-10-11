@@ -1,0 +1,33 @@
+{
+ "tag": "P050CC4",
+ "base": "http://127.0.0.1:8024/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "2026-10-11T08:35:58.189775",
+ "questions": 1,
+ "spend_ok": 1,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 4,
+  "fallback_calls": 0,
+  "input_tokens": 19121,
+  "output_tokens": 609,
+  "cost_yuan": 0.020948
+ },
+ "items": [
+  {
+   "qid": "C-正4",
+   "group": "C",
+   "run_id": "run-87e6c05a",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.020948,
+   "call_ids": [
+    "call-e54e7b7c",
+    "call-ab04927f",
+    "call-3f30acb5",
+    "call-f0d436e7"
+   ]
+  }
+ ],
+ "errors": []
+}
