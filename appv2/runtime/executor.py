@@ -28,9 +28,10 @@ from langgraph.types import Command
 from appv2.infra.db import ConnectionManager
 from appv2.infra.security import Actor, SecurityService
 from appv2.runtime.audit import RunAuditor, who_of
+from appv2.runtime.blackbox import distill
 from appv2.runtime.budget import Budget, now_monotonic
 from appv2.runtime.context import ContextBuilder
-from appv2.runtime.events import EventBus
+from appv2.runtime.events import EVENT_BLACKBOX, EventBus
 from appv2.runtime.graph import LoopDeps, build_graph
 from appv2.runtime.llm import GatewayChatModel
 from appv2.runtime.state import (
@@ -326,6 +327,8 @@ class GraphRunExecutor:
         ban_exempt_base: int = 0,
     ) -> None:
         """图驱动收口：状态落库（run 状态机四态）＋审计四事件＋事件流收束。"""
+        final: dict[str, Any] | None = None
+        run_error = ""
         try:
             final = await graph.ainvoke(graph_input, config)
             await self._store.put_steps(run_id, list(final.get("steps") or []))
@@ -371,6 +374,7 @@ class GraphRunExecutor:
                     bus, run_id=run_id, final=final, answer=answer, who=who
                 )
         except Exception as exc:  # 引擎/网关异常——run failed，如实留痕（不静默）
+            run_error = str(exc)
             await self._store.finish_run(run_id, status=RUN_FAILED, error=str(exc))
             await self._audit(
                 bus,
@@ -384,6 +388,10 @@ class GraphRunExecutor:
                 {"type": "run_failed", "gates": [], "content": f"run 执行失败：{exc}"},
             )
         finally:
+            # V2-54 黑匣子收口发射（单一取材点——蒸馏语义见 runtime.blackbox；
+            # 帧落盘器全量存档 SSE 故自动收录；快照回放工具读同一语义的快照层。
+            # 异常段 final=None＝骨架记录——错误面经 error 在场）。
+            bus.emit(EVENT_BLACKBOX, distill(final, run_id=run_id, error=run_error))
             bus.close()
 
     # ---------- 审计四事件（V2-20——唯一写口 security.audit，失败不静默不翻盘） ----------

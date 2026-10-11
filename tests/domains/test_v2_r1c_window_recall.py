@@ -268,8 +268,9 @@ async def test_recall_end_to_end_target_seated(tmp_path: Path) -> None:
         summary=_SUMMARY_RECALL,
     )
     try:
-        assert events[-1].event == "verdict"
-        assert events[-1].data["status"] == "completed"
+        assert events[-1].event == "blackbox"  # V2-54 黑匣子＝收口末事件
+        assert events[-2].event == "verdict"
+        assert events[-2].data["status"] == "completed"
         # 回捞门机读帧在场（window_miss_reentry notice——触发帧证据面）。
         reentry = _reentry_notices(events)
         assert len(reentry) == 1
@@ -281,7 +282,7 @@ async def test_recall_end_to_end_target_seated(tmp_path: Path) -> None:
         assert retrieval.needs[0].anchors == ("W-22",)
         # 注入项在前不可清空，模型锚增补续后（模型可增补不可清空钉）。
         assert retrieval.needs[1].anchors == ("W-22", _RECALL_TARGET, "4.1")
-        steps = await RunStore(db).list_steps(events[-1].data["run_id"])
+        steps = await RunStore(db).list_steps(events[-2].data["run_id"])
         payloads = _batch_execute_payloads(steps)
         assert [p["status"] for p in payloads] == ["ok", "ok"]
         # 首支缺位步携检索窗注记（step payload 证据面）。
@@ -302,7 +303,7 @@ async def test_refurnace_instruction_carries_window_note(tmp_path: Path) -> None
         summary=_SUMMARY_RECALL,
     )
     try:
-        assert events[-1].data["status"] == "completed"
+        assert events[-2].data["status"] == "completed"
         calls = completer.messages_of("v2.runtime.decision")
         assert len(calls) == 4  # clar1→match1→clar2（回炉）→match2（带锚重发）
         furnace_context = "".join(str(m.get("content", "")) for m in calls[2])
@@ -322,11 +323,12 @@ async def test_second_miss_answers_honestly_without_loop(tmp_path: Path) -> None
         summary=_SUMMARY_HONEST,
     )
     try:
-        assert events[-1].event == "verdict"
-        assert events[-1].data["status"] == "completed"
+        assert events[-1].event == "blackbox"  # V2-54 黑匣子＝收口末事件
+        assert events[-2].event == "verdict"
+        assert events[-2].data["status"] == "completed"
         assert retrieval.retrieve_calls == 2  # 恰两次——不环
         assert len(_reentry_notices(events)) == 1  # 门只开一次
-        steps = await RunStore(db).list_steps(events[-1].data["run_id"])
+        steps = await RunStore(db).list_steps(events[-2].data["run_id"])
         payloads = _batch_execute_payloads(steps)
         assert [p["status"] for p in payloads] == ["ok", "ok"]
         # 汇总合同消费终局注记：子问题结果清单带「回捞已用尽」直答标记。
@@ -348,11 +350,12 @@ async def test_no_round_budget_left_keeps_plain_ok(tmp_path: Path) -> None:
         budget=Budget(max_rounds=1),
     )
     try:
-        assert events[-1].event == "verdict"
-        assert events[-1].data["status"] == "completed"
+        assert events[-1].event == "blackbox"  # V2-54 黑匣子＝收口末事件
+        assert events[-2].event == "verdict"
+        assert events[-2].data["status"] == "completed"
         assert not _reentry_notices(events)  # 门不开
         assert retrieval.retrieve_calls == 1  # 恰一次检索
-        steps = await RunStore(db).list_steps(events[-1].data["run_id"])
+        steps = await RunStore(db).list_steps(events[-2].data["run_id"])
         payloads = _batch_execute_payloads(steps)
         assert [p["status"] for p in payloads] == ["ok"]
     finally:
@@ -372,11 +375,12 @@ async def test_irrelevant_missing_list_keeps_door_shut(tmp_path: Path) -> None:
         summary=_SUMMARY_HONEST,
     )
     try:
-        assert events[-1].event == "verdict"
-        assert events[-1].data["status"] == "completed"
+        assert events[-1].event == "blackbox"  # V2-54 黑匣子＝收口末事件
+        assert events[-2].event == "verdict"
+        assert events[-2].data["status"] == "completed"
         assert not _reentry_notices(events)  # 门不开
         assert retrieval.retrieve_calls == 1  # 恰一次检索（零回捞）
-        steps = await RunStore(db).list_steps(events[-1].data["run_id"])
+        steps = await RunStore(db).list_steps(events[-2].data["run_id"])
         payloads = _batch_execute_payloads(steps)
         assert [p["status"] for p in payloads] == ["ok"]
         assert "缺位来源" in str(payloads[0].get("window_miss", ""))  # 注记照常随行

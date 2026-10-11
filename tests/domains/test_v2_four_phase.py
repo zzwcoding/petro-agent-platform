@@ -579,8 +579,9 @@ async def test_four_phase_end_to_end_scripted(tmp_path: Path) -> None:
     )
     try:
         events = await _run_question(runtime, _E2E_QUESTION)
-        assert [e.event for e in events][-1] == "verdict"
-        final = events[-1].data
+        assert [e.event for e in events][-1] == "blackbox"  # V2-54 黑匣子＝收口末事件
+        assert [e.event for e in events][-2] == "verdict"
+        final = events[-2].data
         assert final["status"] == "completed"
 
         store = RunStore(db)

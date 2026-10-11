@@ -1,8 +1,9 @@
 """runtime.events —— RunEvent 流（V1 wire 形兼容＋loop 新形态）。
 
 事件帧＝00 §6.1 信封 `id/event/data` 的流内最小单位：RunEvent{seq, event, data}
-——seq 即断线游标（V2-07 SSE 游标续传消费）；event 八类闭世界（specs/modules.md
-api 卡枚举）：step/text/tool/observation/ask/verdict/citation/notice。
+——seq 即断线游标（V2-07 SSE 游标续传消费）；event 九类闭世界（specs/modules.md
+api 卡枚举）：step/text/tool/observation/ask/verdict/citation/notice/blackbox
+（blackbox＝V2-54 黑匣子终态蒸馏——执行器收口单点发射，帧落盘自动收录）。
 
 EventBus＝进程内事件流（asyncio.Queue）：节点发射、RunHandle.stream 消费；
 ask 挂起帧发出后流正常收束（specs/agent-loop.md 行为约定 4）。本模块零框架
@@ -26,6 +27,7 @@ EVENT_ASK = "ask"
 EVENT_VERDICT = "verdict"
 EVENT_CITATION = "citation"
 EVENT_NOTICE = "notice"
+EVENT_BLACKBOX = "blackbox"
 EVENT_KINDS: frozenset[str] = frozenset(
     {
         EVENT_STEP,
@@ -36,6 +38,7 @@ EVENT_KINDS: frozenset[str] = frozenset(
         EVENT_VERDICT,
         EVENT_CITATION,
         EVENT_NOTICE,
+        EVENT_BLACKBOX,
     }
 )
 
