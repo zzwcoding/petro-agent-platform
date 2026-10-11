@@ -121,6 +121,8 @@ from appv2.tools import (
     CATEGORY_REFUSED,
     CATEGORY_RETRYABLE,
     CHAIN_SWITCH_HINT,
+    CHAIN_SWITCH_KIND_DOMAIN,
+    CHAIN_SWITCH_KIND_UNBOUND,
     DATA_QUERY,
     DOC_RETRIEVE,
     RESIDENT_BLOCK_BEGIN,
@@ -202,11 +204,15 @@ _UNDERSTAND_INSTRUCTION = (
 )
 # 答案起草合同（引标断言——verify 确定性核验的素材面）。V2-48 追加 JSON 通道
 # 隔离句（finalize/ask 发射 JSON 不进答案面——确定性剥离是 enforcement，此句
-# 只降首发泄漏率省重试）。
+# 只降首发泄漏率省重试）。V2-51 追加台账卡非数据源句（C-正4 台账词面拼凑形：
+# 台账定义卡只作口径注记，不得拼装成点名对象的数据答案）。
 _ANSWER_INSTRUCTION = (
     "起草答案：逐条事实断言必须带 [n] 引标（n＝观察材料序号）；材料未覆盖的部分"
     "不得断言；多来源不一致时逐源列明。答案只出交付正文——finalize/ask 等发射"
-    " JSON（含围栏形）不得出现在答案中。"
+    " JSON（含围栏形）不得出现在答案中。台账卡（指标/术语定义面）只承载口径与"
+    "定义，不是井/对象的取数面——点名具体井、报告或对象的数据题，结论必须取自"
+    "该对象自己的观察材料本体，不得以台账定义卡拼装该对象的数据答案；材料未"
+    "覆盖该对象时如实说明未覆盖。"
 )
 # 审批卡批准后的答复基础＝引擎卡 impact 原文（零二次创作——合同值不出引擎侧）。
 _EXTABLE_REJECT_BASIS_KEY = "impact"
@@ -244,7 +250,9 @@ class LoopDeps:
     guide 必填（V2-34 任务 10——占位 DefaultGuideProvider 退役，不设双真源：
     生产＝OntologyGuideProvider，测试＝剧本/标记指南）。ledger_dump＝词典层
     全量投影缝（澄清相位第 1 轮注入真源——tools.dump_from_store 装配）；watermark
-    ＝水位读缝（前置条件机新鲜度窗照实判定——组合根经 production_waterline 供给）。
+    ＝水位读缝（前置条件机新鲜度窗照实判定——组合根经 production_waterline 供给）；
+    data_wells＝数据链井闭世界读缝（V2-51 软失败域闸——组合根经
+    production_data_wells 供给 agg.dim_well 井号集；缺省 None＝域闸静默零漂移）。
     """
 
     def __init__(
@@ -258,6 +266,7 @@ class LoopDeps:
         guide: GuideProvider,
         ledger_dump: Callable[[], dict[str, Any]] | None = None,
         watermark: Callable[[], Any] | None = None,
+        data_wells: Callable[[], Any] | None = None,
         today: Any = None,
     ) -> None:
         self.registry = registry
@@ -269,6 +278,7 @@ class LoopDeps:
         self.guide: GuideProvider = guide
         self.ledger_dump = ledger_dump
         self.watermark = watermark
+        self.data_wells = data_wells
         self.today = today if today is not None else clock.now().date()
 
     def model(self, key: str) -> GatewayChatModel:
@@ -2061,6 +2071,13 @@ def _make_precondition(
             return {"next_intent": INTENT_DECISION}
         facts = ledger_facts(state.ledger_dump or {})
         watermark = _watermark_date_of(deps)
+        data_wells = _data_wells_set(deps)
+        # 用户已答窗（V2-51 词面门零误伤面）：run 内有 clarify resume 留痕＝窗经
+        # 用户锚定——词面门静默（机械改判会与用户答案打架）。
+        window_resolved = any(
+            isinstance(choice, dict) and choice.get("kind") == ASK_CLARIFY
+            for choice in state.resume_choices
+        )
         matches_by_id = {
             str(m.get("id")): m for m in state.tool_matches if isinstance(m, dict)
         }
@@ -2080,6 +2097,8 @@ def _make_precondition(
                 facts,
                 approved_tables=tuple(state.approved_ids),
                 watermark=watermark,
+                window_resolved=window_resolved,
+                data_wells=data_wells or None,
             ))
             plan_prints[sid] = _payload_fingerprint(
                 {"plan": dict(match.get("plan") or {}), "retrieval_need": None}
@@ -2090,25 +2109,35 @@ def _make_precondition(
         # 不占 ask 预算/不挂起）。一次为界：标记在册后同支（同 id 或同参指纹）再
         # 触发＝blocked_refuse 直答终局（不环——同参指纹在本簿记；V2-37 执行面
         # executed_payloads 簿记同向互替）。其余拒因四态语义一字不动。
+        # V2-51 同轨扩面：软失败域闸（题眼井全外于数据链井闭世界——chain_switch_
+        # kind="domain"）同轨同簿记，仅拒因/通知措辞随型分叉（轨道语义零改动）。
         marks = dict(state.chain_switch_marks)
         chain_pending: set[str] = set()
+        chain_kinds: dict[str, str] = {}
         for index, verdict in enumerate(judged):
             if not verdict.chain_switch_trigger:
                 continue
             sid = verdict.subtask_id
             fingerprint = plan_prints.get(sid, "")
+            kind = verdict.chain_switch_kind or CHAIN_SWITCH_KIND_UNBOUND
             if sid in marks or fingerprint in marks.values():
+                terminal_tail = (
+                    "未绑定口径如实拒答，不代答"
+                    if kind == CHAIN_SWITCH_KIND_UNBOUND
+                    else "题眼井不在数据链井闭世界——域错如实拒答，不代答"
+                )
                 judged[index] = replace(
                     verdict,
                     state=STATE_BLOCKED_REFUSE,
                     reason=(
                         "换链回炉已用尽（一次为界）：坚持 data 链同参"
-                        f"（指纹 {fingerprint[:12]}…在簿）——未绑定口径如实拒答，不代答"
+                        f"（指纹 {fingerprint[:12]}…在簿）——{terminal_tail}"
                     ),
                 )
                 continue
             marks[sid] = fingerprint
             chain_pending.add(sid)
+            chain_kinds[sid] = kind
         verdicts: list[dict[str, Any]] = [v.as_payload() for v in judged]
         seq = _next_seq(state)
         title = "前置条件机：" + "｜".join(
@@ -2117,29 +2146,48 @@ def _make_precondition(
         deps.bus.emit("step", {"step": STEP_DECISION, "seq": seq, "title": title})
         # F7 名归一落载（P-039 附 4）：命中归一的子问题把 plan.metric_slot 改写为
         # 台账 slot（后续闸与批量执行对 slot 判定——引擎 metric_by_name 精确命
-        # 中）。改写随 precondition_verdicts 一并落 state（tool_matches 执行面＋
-        # question_group 记录面同改，防双面漂移）。
+        # 中）。V2-51 词面门落载：fuzzy_window_rewrite 的子问题把 plan 窗双槽
+        # 确定性改写 None（引擎缺参反问兜底——数-反1 形）。两类改写随
+        # precondition_verdicts 一并落 state（tool_matches 执行面＋question_group
+        # 记录面同改，防双面漂移）。
         normalized_slots = {
             str(v["subtask_id"]): str(v["normalized_slot"])
             for v in verdicts
             if v.get("normalized_slot")
         }
-        if normalized_slots:
+        fuzzy_ids = {
+            str(v["subtask_id"]) for v in verdicts if v.get("fuzzy_window_rewrite")
+        }
+        if normalized_slots or fuzzy_ids:
             rewritten_matches: list[dict[str, Any]] = []
             for item in state.tool_matches:
                 entry = dict(item)
-                slot = normalized_slots.get(str(entry.get("id") or ""))
+                sid = str(entry.get("id") or "")
                 plan_item = entry.get("plan")
-                if slot and isinstance(plan_item, dict):
-                    entry["plan"] = {**plan_item, "metric_slot": slot}
+                if isinstance(plan_item, dict) and (sid in fuzzy_ids or normalized_slots.get(sid)):
+                    if sid in fuzzy_ids:
+                        plan_item = {
+                            **plan_item, "window_start": None, "window_end": None,
+                        }
+                    slot = normalized_slots.get(sid)
+                    if slot:
+                        plan_item = {**plan_item, "metric_slot": slot}
+                    entry["plan"] = plan_item
                 rewritten_matches.append(entry)
             rewritten_group: list[dict[str, Any]] = []
             for st in _group_subtasks(state):
                 entry = dict(st)
-                slot = normalized_slots.get(str(entry.get("id") or ""))
+                sid = str(entry.get("id") or "")
                 plan_item = entry.get("plan")
-                if slot and isinstance(plan_item, dict):
-                    entry["plan"] = {**plan_item, "metric_slot": slot}
+                if isinstance(plan_item, dict) and (sid in fuzzy_ids or normalized_slots.get(sid)):
+                    if sid in fuzzy_ids:
+                        plan_item = {
+                            **plan_item, "window_start": None, "window_end": None,
+                        }
+                    slot = normalized_slots.get(sid)
+                    if slot:
+                        plan_item = {**plan_item, "metric_slot": slot}
+                    entry["plan"] = plan_item
                 rewritten_group.append(entry)
         else:
             rewritten_matches = list(state.tool_matches)
@@ -2221,14 +2269,41 @@ def _make_precondition(
             updates["subtask_results"] = results
         extra_notices: list[dict[str, Any]] = []
         if chain_pending:
+            # 分型措辞（V2-51）：绑定闸拒型保持 V2-43 原文逐字；域闸型携域错措辞
+            # ——同轨同通知类型（chain_switch_reentry），一次为界语义零改动。
+            unbound_ids = sorted(
+                sid for sid in chain_pending
+                if chain_kinds.get(sid, CHAIN_SWITCH_KIND_UNBOUND)
+                == CHAIN_SWITCH_KIND_UNBOUND
+            )
+            domain_ids = sorted(
+                sid for sid in chain_pending
+                if chain_kinds.get(sid, CHAIN_SWITCH_KIND_UNBOUND)
+                == CHAIN_SWITCH_KIND_DOMAIN
+            )
+            segments = ""
+            if unbound_ids:
+                segments += (
+                    "子问题 " + "、".join(unbound_ids)
+                    + " 绑定闸拒（data 链在册未绑定 agg）"
+                )
+            if domain_ids:
+                if segments:
+                    segments += "；"
+                segments += (
+                    "子问题 " + "、".join(domain_ids)
+                    + " 题眼井不在数据链井闭世界（data 链域错成功返回——软失败域闸）"
+                )
+            header = (
+                "换链回炉闸（V2-43）：" if not domain_ids else "换链回炉闸（V2-43/V2-51）："
+            )
             notice = {
                 "type": "chain_switch_reentry",
                 "gates": [],
                 "content": (
-                    "换链回炉闸（V2-43）：子问题 "
-                    + "、".join(sorted(chain_pending))
-                    + " 绑定闸拒（data 链在册未绑定 agg）——携拒因＋改链 hint 回炉"
-                    "①澄清相位（一次为界；坚持原链同参再触发＝直答终局，不环）"
+                    header + segments
+                    + "——携拒因＋改链 hint 回炉①澄清相位（一次为界；坚持原链同参"
+                    "再触发＝直答终局，不环）"
                 ),
             }
             deps.bus.emit("notice", dict(notice))
@@ -2305,6 +2380,21 @@ def _watermark_date_of(deps: LoopDeps) -> Any:
     if face is None:
         return None
     return getattr(face, "data_date", face)
+
+
+def _data_wells_set(deps: LoopDeps) -> frozenset[str]:
+    """数据链井闭世界读缝→井号集（V2-51 软失败域闸判定输入——agg.dim_well
+    投影；读缝缺省/异常/空＝空集——域闸静默零漂移，不误伤）。运行策略面归
+    runtime（类型真源在 query 引擎侧——防环不直接 import，duck 迭代）。"""
+    if deps.data_wells is None:
+        return frozenset()
+    try:
+        world = deps.data_wells()
+    except Exception:
+        return frozenset()
+    if not world:
+        return frozenset()
+    return frozenset(str(well) for well in world)
 
 
 def _subtask_result(
@@ -2877,16 +2967,34 @@ def _make_answer(
             instruction = _ANSWER_INSTRUCTION
             if state.question_group:
                 marks = {"ok": "完成", "refused": "已拒答", "failed": "失败"}
-                lines = [
-                    "- [{id}] {question}——{mark}{reason}".format(
-                        id=r.get("id", ""),
-                        question=r.get("question", ""),
-                        mark=marks.get(str(r.get("status")), str(r.get("status"))),
-                        reason=f"（{r.get('reason')}）" if r.get("reason") else "",
+                # plan 支配标记（V2-51 数-排2 形——drafting 指令面）：排名型子问题
+                # 在清单行标注「结论必须从本子问题排名观察支取值」，明细型零标记
+                # （零噪声）。
+                plans_by_id = {
+                    str(m.get("id")): dict(m.get("plan") or {})
+                    for m in state.tool_matches
+                    if isinstance(m, dict)
+                }
+                lines = []
+                for r in state.subtask_results:
+                    if not isinstance(r, dict):
+                        continue
+                    plan = plans_by_id.get(str(r.get("id", ""))) or {}
+                    dominance = (
+                        "（排名型——结论必须从本子问题排名观察支（合计行口径）取值，"
+                        "不得从其他子问题的明细行切片换算或跨子问题取值）"
+                        if plan.get("ranking") is True
+                        else ""
                     )
-                    for r in state.subtask_results
-                    if isinstance(r, dict)
-                ]
+                    lines.append(
+                        "- [{id}] {question}——{mark}{reason}{dominance}".format(
+                            id=r.get("id", ""),
+                            question=r.get("question", ""),
+                            mark=marks.get(str(r.get("status")), str(r.get("status"))),
+                            reason=f"（{r.get('reason')}）" if r.get("reason") else "",
+                            dominance=dominance,
+                        )
+                    )
                 instruction = (
                     SUMMARY_CONTRACT
                     + "\n子问题结果清单：\n" + ("\n".join(lines) or "（无）")

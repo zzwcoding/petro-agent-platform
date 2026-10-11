@@ -104,6 +104,7 @@ class GraphRunExecutor:
         four_phase: bool = False,  # V2-34 四相位装配（ADR-0005——骨架期缺省 False）
         ledger_dump: Any = None,  # Callable[[], dict] 词典层全量投影缝（拍板 a）
         watermark: Any = None,  # Callable[[], date | None] 水位读缝（前置条件机）
+        data_wells: Any = None,  # Callable[[], frozenset[str]] 井闭世界读缝（V2-51 域闸）
     ) -> None:
         self._registry = registry
         self._models = models
@@ -116,6 +117,7 @@ class GraphRunExecutor:
         self._four_phase = four_phase
         self._ledger_dump = ledger_dump
         self._watermark = watermark
+        self._data_wells = data_wells
         self._store = RunStore(db)
         self._auditor = RunAuditor(db, security)
         self._tasks: set[asyncio.Task[None]] = set()
@@ -255,6 +257,7 @@ class GraphRunExecutor:
             guide=self._guide,
             ledger_dump=self._ledger_dump,
             watermark=self._watermark,
+            data_wells=self._data_wells,
             today=self._today,
         )
 

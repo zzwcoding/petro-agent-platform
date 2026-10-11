@@ -26,7 +26,7 @@ V1 闸语义移植（ADR-0005：禁用词/新鲜度窗/在册绑定态/外表越
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
@@ -59,12 +59,23 @@ _WELL_RE = re.compile(r"\b[A-Z]{1,3}-\d{1,4}\b")
 # 禁用词替代提示（term value「禁用（替代：产量完成率）」段——替代词提取）。
 _REPLACEMENT_RE = re.compile(r"替代：([^）]+)")
 
+# 模糊时间词词表（V2-51 数-反1 形——CLARIFY_CONTRACT「模糊时间词（最近/近期/
+# 前段时间类）＝窗双 null 发射」的确定性机读词面；词源＝合同逐字，零发明）。
+FUZZY_TIME_MARKERS: tuple[str, ...] = ("最近", "近期", "前段时间")
+
 # ---------- 改链建议（P-039 附 3——拒因模板逐字） ----------
 
 # data 链被在册闸/绑定闸拦停时拒因尾部追加的 knowledge 备选提示——回炉重决策
 # 路径可据此换链；blocked_refuse 直答路径不加（直答是终局——runtime 前置条件
 # 节点在全部拦截直答收口时剥除本 hint）。
 CHAIN_SWITCH_HINT = "——或改走 knowledge 链检索文档所载（本指标口径/数值可能载于文档）"
+
+# 换链回炉触发面分型（V2-51）：""＝V2-43 绑定闸拒（在册未绑定 agg——既有轨道，
+# 措辞零漂移）；"domain"＝软失败域闸（题眼井全外于数据链井闭世界——A-正8 形）。
+# 两型同轨（chain_switch_trigger→回炉①一次为界→坚持同参＝直答终局），仅拒因/
+# 通知措辞随型分叉。
+CHAIN_SWITCH_KIND_UNBOUND = ""
+CHAIN_SWITCH_KIND_DOMAIN = "domain"
 
 
 # ---------- 输入/输出形 ----------
@@ -95,6 +106,13 @@ class Verdict:
     # ＝True——runtime 前置条件节点据此拦下执行面，携拒因＋hint＋「换链提议」
     # 标记回炉①澄清相位（一次为界；其余闸此值恒 False，四态语义一字不动）。
     chain_switch_trigger: bool = False
+    # 换链触发面分型（V2-51）：""＝V2-43 绑定闸拒（既有轨道措辞零漂移）；
+    # "domain"＝软失败域闸（题眼井全外于数据链井闭世界——A-正8 形）。
+    chain_switch_kind: str = CHAIN_SWITCH_KIND_UNBOUND
+    # 模糊时间词词面门（V2-51 数-反1 形）：True＝问句携模糊时间词而计划窗非空
+    # ——runtime 前置条件节点据此把 plan 窗双槽确定性改写为 None（引擎缺参
+    # 反问兜底）；判定四态语义不变（仍是 note/pass——改写只在 runtime 消费）。
+    fuzzy_window_rewrite: bool = False
 
     def as_payload(self) -> dict[str, Any]:
         return {
@@ -114,6 +132,8 @@ class Verdict:
             ),
             "normalized_slot": self.normalized_slot,
             "chain_switch_trigger": self.chain_switch_trigger,
+            "chain_switch_kind": self.chain_switch_kind,
+            "fuzzy_window_rewrite": self.fuzzy_window_rewrite,
         }
 
 
@@ -243,12 +263,20 @@ def judge(
     *,
     approved_tables: tuple[str, ...] = (),
     watermark: date | None = None,
+    window_resolved: bool = False,
+    data_wells: Collection[str] | None = None,
 ) -> Verdict:
     """逐子问题过闸判四态（纯函数——零 LLM、零 I/O）。
 
     判定序：N1 禁用词 → 外表越集（放行态）→ 合法口径校验/三态触发（data 链）→
-    在册绑定态 → 新鲜度窗 → 单井支持性。blocked_* 即刻返回（首个命中闸定态）；
-    其余闸命中累积为注记（全注记＝note 态，零注记＝pass）。
+    在册绑定态 → 软失败域闸 → 新鲜度窗 → 单井支持性。blocked_* 即刻返回（首个
+    命中闸定态）；其余闸命中累积为注记（全注记＝note 态，零注记＝pass）。
+
+    V2-51 两新增面（判定四态语义不变——都随注记走）：
+    - window_resolved＝用户已答窗（run 内有 clarify resume 留痕）——True 时词面
+      门静默（用户答案锚定的窗不机械改判，零误伤）；
+    - data_wells＝数据链井闭世界（agg.dim_well 井号集，调用方接线供给）——缺省
+      None/空集＝域闸静默（不发明域语义）。
     """
     question = subtask.question
     plan = subtask.plan or {}
@@ -272,7 +300,24 @@ def judge(
 
     notes: list[str] = []
     unbound_binding = False  # V2-43 换链回炉闸触发面（绑定闸在册未绑定置位）
+    domain_mismatch = False  # V2-51 软失败域闸触发面（题眼井全外于井闭世界置位）
+    fuzzy_rewrite = False  # V2-51 词面门改判标记（模糊时间词＋非空窗置位）
     metric_slot = str(plan.get("metric_slot") or "")
+
+    # —— 闸 1b：模糊时间词词面门（数-反1 形——合同「窗双 null 发射」的确定性
+    # 执行面）：问句携模糊时间词而计划窗任一槽非空＝模型默认窗直发违约形——
+    # 标记改判（runtime 节点把窗双槽改写 None，引擎缺参反问兜底）。用户已答窗
+    # （window_resolved）不改判；窗已双 null（合同面已跟）不改判。 ——
+    if (
+        not window_resolved
+        and any(marker in question for marker in FUZZY_TIME_MARKERS)
+        and (plan.get("window_start") is not None or plan.get("window_end") is not None)
+    ):
+        fuzzy_rewrite = True
+        notes.append(
+            "模糊时间词＋计划窗非空——确定性改判窗双 null（引擎缺参反问三选一兜底；"
+            "「最近」类不解析不默认——词面门）"
+        )
     # 键归一（引擎 metric_by_name 同构——slot/名/别名三形归到 slot；绑定态闸
     # 与口径闸因此对名形/别名形发射同样生效）。F7 名归一闸（P-039 附 4）：
     # 精确键未命中时按名归一扫描兜底——命中归一到该指标 slot 再进后续闸
@@ -434,6 +479,28 @@ def judge(
                 "解释链（零数值不冒充）" + CHAIN_SWITCH_HINT
             )
 
+        # —— 闸 4b：软失败域闸（V2-51 R4·A-正8 形——链路域↔题眼域一致性） ——
+        # data 链题眼井全部不在数据链井闭世界（agg.dim_well——链路域真源）＝
+        # 域错预判：该链成功出数也必不含题眼井（N 系井域答 W 系井问的「成功返回
+        # 但域错」软失败面——Q14 帧证）。同轨 V2-43：note＋换链触发面（分型
+        # domain），runtime 前置条件节点拦下执行面回炉①换 knowledge 链（一次
+        # 为界）。零误伤面：单源域对（题眼井在册——数-界1 形）/混合域（部分在
+        # 册）/无题眼井/闭世界未接线（None/空集）＝闸静默。V2-43 触发面已点亮时
+        # 本闸不重复注记（同支同轨——触发布尔或聚，分型以先命中闸为准）。
+        named_wells = sorted(set(_WELL_RE.findall(question)))
+        if (
+            not unbound_binding
+            and data_wells
+            and named_wells
+            and all(well not in data_wells for well in named_wells)
+        ):
+            domain_mismatch = True
+            notes.append(
+                f"题眼井 {'、'.join(named_wells)} 不在数据链井闭世界"
+                f"（{len(set(data_wells))} 口井域）——data 链成功出数也必不含题眼井"
+                "（域错成功返回软失败面——软失败域闸）" + CHAIN_SWITCH_HINT
+            )
+
     elif facts.metrics:
         # —— 闸 3 前置（C5，FX-13 闸力恢复——P-033 中途审查）：台账闭世界
         # 确定性校验（零 LLM）：data 链指标键 ∈ 台账键闭世界（slot∪指标名∪
@@ -483,6 +550,15 @@ def judge(
             subtask_id=subtask.subtask_id, state=STATE_NOTE,
             reason="；".join(notes), notes=tuple(notes),
             normalized_slot=normalized_slot,
-            chain_switch_trigger=unbound_binding,
+            chain_switch_trigger=unbound_binding or domain_mismatch,
+            chain_switch_kind=(
+                CHAIN_SWITCH_KIND_DOMAIN
+                if domain_mismatch and not unbound_binding
+                else CHAIN_SWITCH_KIND_UNBOUND
+            ),
+            fuzzy_window_rewrite=fuzzy_rewrite,
         )
-    return Verdict(subtask_id=subtask.subtask_id, state=STATE_PASS)
+    return Verdict(
+        subtask_id=subtask.subtask_id, state=STATE_PASS,
+        fuzzy_window_rewrite=fuzzy_rewrite,
+    )

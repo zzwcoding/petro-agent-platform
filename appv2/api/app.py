@@ -150,6 +150,19 @@ def compose_production_watermark(
     return production_waterline(resolved, today=today)
 
 
+def compose_production_data_wells(
+    *, specs: Sequence[DatabaseSpec] | None = None
+) -> Any:
+    """数据链井闭世界读缝（V2-51 R4 软失败域闸的生产装配——agg.dim_well 井号
+    集直读，与问数执行缝的 dim_well 同源单点）。局部 import＝组合根例外（同上
+    注记）。"""
+    from appv2.infra.config import load_database_specs
+    from appv2.query import production_data_wells
+
+    resolved = tuple(specs) if specs is not None else tuple(load_database_specs())
+    return production_data_wells(resolved)
+
+
 def create_app(
     *,
     db: ConnectionManager,
@@ -164,6 +177,7 @@ def create_app(
     four_phase: bool = True,
     ledger_dump: Any | None = None,
     watermark: Any | None = None,
+    data_wells: Any | None = None,
 ) -> FastAPI:
     """构建 appv2 应用（三端点挂线＋runtime 生产装配——依赖注入面）。
 
@@ -178,7 +192,8 @@ def create_app(
     four_phase＝V2-34 四相位装配开关（ADR-0005；缺省 True——P-033b 缺省翻转：
     生产装配四相位真跑，既有 ReAct 七节点图经 four_phase=False 显式装配保留；
     RUNTIME_SMOKE ②步序钉随四相位更新）。生产路径（registry 缺省）同时接词典层
-    全量投影缝与水位读缝（clarify 注入＋前置条件机新鲜度窗）。
+    全量投影缝、水位读缝与数据链井闭世界读缝（clarify 注入＋前置条件机新鲜度窗
+    ＋V2-51 软失败域闸）。
     """
     production = registry is None
     if production:
@@ -192,6 +207,8 @@ def create_app(
             ledger_dump = compose_production_ledger_dump(specs=specs, today=today)
         if watermark is None:
             watermark = compose_production_watermark(specs=specs, today=today)
+        if data_wells is None:
+            data_wells = compose_production_data_wells(specs=specs)
     if guide is None:
         guide = OntologyGuideProvider(
             today=None if today is None else today(),
@@ -215,6 +232,7 @@ def create_app(
         four_phase=four_phase,
         ledger_dump=ledger_dump,
         watermark=watermark,
+        data_wells=data_wells,
     )
     app = FastAPI(title="Petro-Agent V2", version="2.0", lifespan=lifespan)
     install_error_handlers(app)
