@@ -1,0 +1,330 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-475cfaa2",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问去年全年各井的配产量（即各井年度配产指标）。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问去年全年各井的配产量（即各井年度配产指标）。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：1 条定案"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note"
+   }
+  },
+  {
+   "id": 6,
+   "event": "notice",
+   "data": {
+    "type": "chain_switch_reentry",
+    "gates": [],
+    "content": "换链回炉闸（V2-43）：子问题 s1 绑定闸拒（data 链在册未绑定 agg）——携拒因＋改链 hint 回炉①澄清相位（一次为界；坚持原链同参再触发＝直答终局，不环）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清钻取 ×1（semantic_query）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 6,
+    "message": null
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 6,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 7,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 11,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#204",
+    "content": "配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "澄清定稿：材料足够——直答收口"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 9,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 14,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 10,
+    "title": "核验：支撑 0｜改写 1｜分源 否"
+   }
+  },
+  {
+   "id": 15,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 1,
+    "split": false,
+    "cited": [],
+    "attribution": {
+     "anchors": [],
+     "cross": []
+    }
+   }
+  },
+  {
+   "id": 16,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 1 行（INV-1——禁止无据断言进答案）"
+   }
+  },
+  {
+   "id": 17,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 11,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 18,
+   "event": "citation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#204",
+    "source_id": "204",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 19,
+   "event": "text",
+   "data": {
+    "content": "去年各井配产量是多少？\n\n**结论：当前无法给出具体数值。**\n\n未找到（材料未披露）：依据观察材料 [1]，「配产量」指标在台账中虽已登记（源 oil_production_daily.plan_output），但其聚合读取模型未承载该列（99 §2.12），agg 汇总层暂不可出数——引擎走降级解释，零数值不冒充。\n\n如需该指标具体口径或历史计划值，建议改走文档检索（knowledge 链），看是否载于月报／年度配产方案类报告。"
+   }
+  },
+  {
+   "id": 20,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-475cfaa2",
+    "manifest_digest": "6edcc6914bbcbaac3d2ccdfaf8f480cb88c8ecd4ad4f6dbe5a7f6dd6d1246772"
+   }
+  },
+  {
+   "id": 21,
+   "event": "done",
+   "data": {
+    "run_id": "run-475cfaa2"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "去年各井配产量是多少？\n\n**结论：当前无法给出具体数值。**\n\n未找到（材料未披露）：依据观察材料 [1]，「配产量」指标在台账中虽已登记（源 oil_production_daily.plan_output），但其聚合读取模型未承载该列（99 §2.12），agg 汇总层暂不可出数——引擎走降级解释，零数值不冒充。\n\n如需该指标具体口径或历史计划值，建议改走文档检索（knowledge 链），看是否载于月报／年度配产方案类报告。",
+  "citations": [
+   {
+    "index": 1,
+    "source": "sem_metric#204",
+    "source_id": "204",
+    "trust": "ledger"
+   }
+  ],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "chain_switch_reentry",
+    "gates": [],
+    "content": "换链回炉闸（V2-43）：子问题 s1 绑定闸拒（data 链在册未绑定 agg）——携拒因＋改链 hint 回炉①澄清相位（一次为界；坚持原链同参再触发＝直答终局，不环）"
+   },
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 1 行（INV-1——禁止无据断言进答案）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-475cfaa2",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问去年全年各井的配产量（即各井年度配产指标）。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：1 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清钻取 ×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 6,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 7,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "澄清定稿：材料足够——直答收口"
+   },
+   {
+    "step": "answer",
+    "seq": 9,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 10,
+    "title": "核验：支撑 0｜改写 1｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 11,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 6,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_metric#204",
+    "content": "配产量（吨）：日产计量的配产量——源 oil_production_daily.plan_output（R5·A.2）；agg 读模型未落该列（99 §2.12），暂不可出数｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 配产版本当日值（默认）｜争议注记：配产版本切换日双值行（D4 待 Owner）",
+    "trust": "ledger"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 1,
+    "split": false,
+    "cited": [],
+    "attribution": {
+     "anchors": [],
+     "cross": []
+    }
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-475cfaa2",
+   "manifest_digest": "6edcc6914bbcbaac3d2ccdfaf8f480cb88c8ecd4ad4f6dbe5a7f6dd6d1246772"
+  },
+  "texts": [
+   "问去年全年各井的配产量（即各井年度配产指标）。",
+   "去年各井配产量是多少？\n\n**结论：当前无法给出具体数值。**\n\n未找到（材料未披露）：依据观察材料 [1]，「配产量」指标在台账中虽已登记（源 oil_production_daily.plan_output），但其聚合读取模型未承载该列（99 §2.12），agg 汇总层暂不可出数——引擎走降级解释，零数值不冒充。\n\n如需该指标具体口径或历史计划值，建议改走文档检索（knowledge 链），看是否载于月报／年度配产方案类报告。"
+  ],
+  "duration_s": 8.7
+ }
+}

@@ -1,0 +1,152 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-91b62174",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问领导要的\"二季度5～6月计划注水量及各井配注安排\"和\"一季度新实施油井措施清单及各措施增产量\"两份材料应如何依据报告正确作答，包括报告对配注安排的原话说明、缺失项的补办程序，以及对新措施、有效期的明示。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问领导要的\"二季度5～6月计划注水量及各井配注安排\"和\"一季度新实施油井措施清单及各措施增产量\"两份材料应如何依据报告正确作答，包括报告对配注安排的原话说明、缺失项的补办程序，以及对新措施、有效期的明示。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清定稿：材料足够——直答收口"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 3,
+    "title": "核验：支撑 0｜改写 0｜分源 否"
+   }
+  },
+  {
+   "id": 5,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 0,
+    "split": false,
+    "cited": [],
+    "attribution": {
+     "anchors": [],
+     "cross": []
+    }
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 4,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 7,
+   "event": "text",
+   "data": {
+    "content": "（未取得观察材料——如实回报，不编造。）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-91b62174",
+    "manifest_digest": "298678f31e98bb03aff28081c709a13286239018e1cc3b07d347a0fe2e473dce"
+   }
+  },
+  {
+   "id": 9,
+   "event": "done",
+   "data": {
+    "run_id": "run-91b62174"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（未取得观察材料——如实回报，不编造。）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-91b62174",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问领导要的\"二季度5～6月计划注水量及各井配注安排\"和\"一季度新实施油井措施清单及各措施增产量\"两份材料应如何依据报告正确作答，包括报告对配注安排的原话说明、缺失项的补办程序，以及对新措施、有效期的明示。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清定稿：材料足够——直答收口"
+   },
+   {
+    "step": "verify",
+    "seq": 3,
+    "title": "核验：支撑 0｜改写 0｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 4,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 0,
+    "split": false,
+    "cited": [],
+    "attribution": {
+     "anchors": [],
+     "cross": []
+    }
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-91b62174",
+   "manifest_digest": "298678f31e98bb03aff28081c709a13286239018e1cc3b07d347a0fe2e473dce"
+  },
+  "texts": [
+   "问领导要的\"二季度5～6月计划注水量及各井配注安排\"和\"一季度新实施油井措施清单及各措施增产量\"两份材料应如何依据报告正确作答，包括报告对配注安排的原话说明、缺失项的补办程序，以及对新措施、有效期的明示。",
+   "（未取得观察材料——如实回报，不编造。）"
+  ],
+  "duration_s": 3.4
+ }
+}

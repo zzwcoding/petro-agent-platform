@@ -1,0 +1,157 @@
+{
+ "tag": "Q15C",
+ "base": "http://127.0.0.1:8021/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "2026-10-11T15:04:08.026724",
+ "questions": 10,
+ "spend_ok": 10,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 38,
+  "fallback_calls": 0,
+  "input_tokens": 242909,
+  "output_tokens": 11675,
+  "cost_yuan": 0.277934
+ },
+ "items": [
+  {
+   "qid": "NQ-C1",
+   "group": "新语料·完井",
+   "run_id": "run-2d7d9125",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.033291,
+   "call_ids": [
+    "call-d655820d",
+    "call-af05195d",
+    "call-536028bd",
+    "call-d1c988ae"
+   ]
+  },
+  {
+   "qid": "NQ-C2",
+   "group": "新语料·完井",
+   "run_id": "run-a15d9f93",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.02973,
+   "call_ids": [
+    "call-1e15a6cd",
+    "call-ff9972e8",
+    "call-ec880b6d",
+    "call-c3c19074"
+   ]
+  },
+  {
+   "qid": "NQ-C3",
+   "group": "新语料·完井",
+   "run_id": "run-9f5418a5",
+   "method": "run_id",
+   "calls": 3,
+   "cost_yuan": 0.016251,
+   "call_ids": [
+    "call-76aafec8",
+    "call-d9543c37",
+    "call-9638860a"
+   ]
+  },
+  {
+   "qid": "NQ-C4",
+   "group": "新语料·完井",
+   "run_id": "run-251eca28",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.030468,
+   "call_ids": [
+    "call-0d282eca",
+    "call-e246da0c",
+    "call-04deb4b7",
+    "call-5d857151"
+   ]
+  },
+  {
+   "qid": "NQ-C5",
+   "group": "新语料·完井",
+   "run_id": "run-8a008545",
+   "method": "run_id",
+   "calls": 5,
+   "cost_yuan": 0.040557,
+   "call_ids": [
+    "call-8117c43d",
+    "call-af285256",
+    "call-cc53055e",
+    "call-396a3d72",
+    "call-78875655"
+   ]
+  },
+  {
+   "qid": "NQ-C6",
+   "group": "新语料·完井",
+   "run_id": "run-9bcb243b",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.029792,
+   "call_ids": [
+    "call-9e4e5ff3",
+    "call-068343b3",
+    "call-53c8fed5",
+    "call-a361773f"
+   ]
+  },
+  {
+   "qid": "NQ-C7",
+   "group": "新语料·完井",
+   "run_id": "run-7ca1d3ea",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.032635,
+   "call_ids": [
+    "call-5b40dfd1",
+    "call-b36b14e9",
+    "call-e99a83d1",
+    "call-9ddac4b4"
+   ]
+  },
+  {
+   "qid": "NQ-C8",
+   "group": "新语料·完井",
+   "run_id": "run-89f2967a",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.027722,
+   "call_ids": [
+    "call-967db063",
+    "call-b3e35ce0",
+    "call-c85adabc",
+    "call-ab20f3e9"
+   ]
+  },
+  {
+   "qid": "NQ-C9",
+   "group": "新语料·完井",
+   "run_id": "run-69c30a96",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.031154,
+   "call_ids": [
+    "call-7ce1491e",
+    "call-8a39440e",
+    "call-703b2a7c",
+    "call-484a174e"
+   ]
+  },
+  {
+   "qid": "NQ-C10",
+   "group": "新语料·完井",
+   "run_id": "run-6e68e56f",
+   "method": "run_id",
+   "calls": 2,
+   "cost_yuan": 0.006334,
+   "call_ids": [
+    "call-3a44d203",
+    "call-bfcfab60"
+   ]
+  }
+ ],
+ "errors": []
+}

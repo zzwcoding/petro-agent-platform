@@ -1,0 +1,139 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-8c26b366",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问 11 月和 12 月各井的配注安排。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问 11 月和 12 月各井的配注安排。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 2 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：2 条定案"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=blocked_refuse｜s2=blocked_refuse"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 5,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 7,
+   "event": "text",
+   "data": {
+    "content": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 11月各井的配注是怎么安排的？——拒因：指标 '配注' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）\n- [s2] 12月各井的配注是怎么安排的？——拒因：指标 '配注' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-8c26b366",
+    "manifest_digest": "312d538ad3f5084f97c0993b81f9faabff6ef7026b8f92aa9bac4f4d9c5a7930"
+   }
+  },
+  {
+   "id": 9,
+   "event": "done",
+   "data": {
+    "run_id": "run-8c26b366"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 11月各井的配注是怎么安排的？——拒因：指标 '配注' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）\n- [s2] 12月各井的配注是怎么安排的？——拒因：指标 '配注' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-8c26b366",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问 11 月和 12 月各井的配注安排。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 2 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：2 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=blocked_refuse｜s2=blocked_refuse"
+   },
+   {
+    "step": "answer",
+    "seq": 5,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-8c26b366",
+   "manifest_digest": "312d538ad3f5084f97c0993b81f9faabff6ef7026b8f92aa9bac4f4d9c5a7930"
+  },
+  "texts": [
+   "问 11 月和 12 月各井的配注安排。",
+   "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 11月各井的配注是怎么安排的？——拒因：指标 '配注' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）\n- [s2] 12月各井的配注是怎么安排的？——拒因：指标 '配注' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）"
+  ],
+  "duration_s": 4.2
+ }
+}

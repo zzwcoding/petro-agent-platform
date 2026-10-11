@@ -1,0 +1,213 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-290a2939",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问邻井 W-12 井初期的日产油量。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问邻井 W-12 井初期的日产油量。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：1 条定案"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note"
+   }
+  },
+  {
+   "id": 6,
+   "event": "notice",
+   "data": {
+    "type": "chain_switch_reentry",
+    "gates": [],
+    "content": "换链回炉闸（V2-43/V2-51）：子问题 s1 题眼井不在数据链井闭世界（data 链域错成功返回——软失败域闸）——携拒因＋改链 hint 回炉①澄清相位（一次为界；坚持原链同参再触发＝直答终局，不环）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清定稿：材料足够——直答收口"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 6,
+    "title": "核验：支撑 0｜改写 0｜分源 否"
+   }
+  },
+  {
+   "id": 9,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 0,
+    "split": false,
+    "cited": [],
+    "attribution": {
+     "anchors": [
+      "W-12"
+     ],
+     "cross": []
+    }
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 7,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 11,
+   "event": "text",
+   "data": {
+    "content": "（未取得观察材料——如实回报，不编造。）"
+   }
+  },
+  {
+   "id": 12,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-290a2939",
+    "manifest_digest": "8d3201641fe9dc6c0e7718ce9d4926b04fa18ca68c96d38d65a34d353f84c5ae"
+   }
+  },
+  {
+   "id": 13,
+   "event": "done",
+   "data": {
+    "run_id": "run-290a2939"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（未取得观察材料——如实回报，不编造。）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "chain_switch_reentry",
+    "gates": [],
+    "content": "换链回炉闸（V2-43/V2-51）：子问题 s1 题眼井不在数据链井闭世界（data 链域错成功返回——软失败域闸）——携拒因＋改链 hint 回炉①澄清相位（一次为界；坚持原链同参再触发＝直答终局，不环）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-290a2939",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问邻井 W-12 井初期的日产油量。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：1 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=note"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清定稿：材料足够——直答收口"
+   },
+   {
+    "step": "verify",
+    "seq": 6,
+    "title": "核验：支撑 0｜改写 0｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 7,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 0,
+    "split": false,
+    "cited": [],
+    "attribution": {
+     "anchors": [
+      "W-12"
+     ],
+     "cross": []
+    }
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-290a2939",
+   "manifest_digest": "8d3201641fe9dc6c0e7718ce9d4926b04fa18ca68c96d38d65a34d353f84c5ae"
+  },
+  "texts": [
+   "问邻井 W-12 井初期的日产油量。",
+   "（未取得观察材料——如实回报，不编造。）"
+  ],
+  "duration_s": 7.4
+ }
+}

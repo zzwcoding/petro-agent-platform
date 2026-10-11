@@ -1,0 +1,152 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-44c5c607",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "核对汇报中\"3月月注采比站上1.0后地层压力回升0.2 MPa\"的说法，要求明确报告原文里该数值的主语与起止值/同步事件，并给出地层压力一季度实际变化、压力保持率、原始地层压力、距红线差距及红线对应的压力保持率与压力值，同时指出汇报混淆了哪两个量及报告对地层压力趋势的实际措辞。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "核对汇报中\"3月月注采比站上1.0后地层压力回升0.2 MPa\"的说法，要求明确报告原文里该数值的主语与起止值/同步事件，并给出地层压力一季度实际变化、压力保持率、原始地层压力、距红线差距及红线对应的压力保持率与压力值，同时指出汇报混淆了哪两个量及报告对地层压力趋势的实际措辞。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清定稿：材料足够——直答收口"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 3,
+    "title": "核验：支撑 0｜改写 0｜分源 否"
+   }
+  },
+  {
+   "id": 5,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 0,
+    "split": false,
+    "cited": [],
+    "attribution": {
+     "anchors": [],
+     "cross": []
+    }
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 4,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 7,
+   "event": "text",
+   "data": {
+    "content": "（未取得观察材料——如实回报，不编造。）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-44c5c607",
+    "manifest_digest": "463c68454584361a96aa2a966c702a5b9681f8fcc0c265288d06f32a7c9c270e"
+   }
+  },
+  {
+   "id": 9,
+   "event": "done",
+   "data": {
+    "run_id": "run-44c5c607"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（未取得观察材料——如实回报，不编造。）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-44c5c607",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "核对汇报中\"3月月注采比站上1.0后地层压力回升0.2 MPa\"的说法，要求明确报告原文里该数值的主语与起止值/同步事件，并给出地层压力一季度实际变化、压力保持率、原始地层压力、距红线差距及红线对应的压力保持率与压力值，同时指出汇报混淆了哪两个量及报告对地层压力趋势的实际措辞。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清定稿：材料足够——直答收口"
+   },
+   {
+    "step": "verify",
+    "seq": 3,
+    "title": "核验：支撑 0｜改写 0｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 4,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 0,
+    "split": false,
+    "cited": [],
+    "attribution": {
+     "anchors": [],
+     "cross": []
+    }
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-44c5c607",
+   "manifest_digest": "463c68454584361a96aa2a966c702a5b9681f8fcc0c265288d06f32a7c9c270e"
+  },
+  "texts": [
+   "核对汇报中\"3月月注采比站上1.0后地层压力回升0.2 MPa\"的说法，要求明确报告原文里该数值的主语与起止值/同步事件，并给出地层压力一季度实际变化、压力保持率、原始地层压力、距红线差距及红线对应的压力保持率与压力值，同时指出汇报混淆了哪两个量及报告对地层压力趋势的实际措辞。",
+   "（未取得观察材料——如实回报，不编造。）"
+  ],
+  "duration_s": 3.2
+ }
+}

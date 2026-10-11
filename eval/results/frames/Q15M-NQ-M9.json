@@ -1,0 +1,152 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-e34b9052",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "要求列出抽油机时率损失的五项构成百分点、对照第二章指出与\"计划性检泵 0.6 个百分点\"对应的两口井及其在躺井/检泵两个统计中的计入情况，并辨析第一章中两处出现的\"0.6 个百分点\"含义是否相同。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "要求列出抽油机时率损失的五项构成百分点、对照第二章指出与\"计划性检泵 0.6 个百分点\"对应的两口井及其在躺井/检泵两个统计中的计入情况，并辨析第一章中两处出现的\"0.6 个百分点\"含义是否相同。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清定稿：材料足够——直答收口"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 3,
+    "title": "核验：支撑 0｜改写 0｜分源 否"
+   }
+  },
+  {
+   "id": 5,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 0,
+    "split": false,
+    "cited": [],
+    "attribution": {
+     "anchors": [],
+     "cross": []
+    }
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 4,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 7,
+   "event": "text",
+   "data": {
+    "content": "（未取得观察材料——如实回报，不编造。）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-e34b9052",
+    "manifest_digest": "46d6e72198987ea7393efcd3e03d75f2eb44bf3a4e281cd93bd84b8c1836647a"
+   }
+  },
+  {
+   "id": 9,
+   "event": "done",
+   "data": {
+    "run_id": "run-e34b9052"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（未取得观察材料——如实回报，不编造。）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-e34b9052",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "要求列出抽油机时率损失的五项构成百分点、对照第二章指出与\"计划性检泵 0.6 个百分点\"对应的两口井及其在躺井/检泵两个统计中的计入情况，并辨析第一章中两处出现的\"0.6 个百分点\"含义是否相同。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清定稿：材料足够——直答收口"
+   },
+   {
+    "step": "verify",
+    "seq": 3,
+    "title": "核验：支撑 0｜改写 0｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 4,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 0,
+    "split": false,
+    "cited": [],
+    "attribution": {
+     "anchors": [],
+     "cross": []
+    }
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-e34b9052",
+   "manifest_digest": "46d6e72198987ea7393efcd3e03d75f2eb44bf3a4e281cd93bd84b8c1836647a"
+  },
+  "texts": [
+   "要求列出抽油机时率损失的五项构成百分点、对照第二章指出与\"计划性检泵 0.6 个百分点\"对应的两口井及其在躺井/检泵两个统计中的计入情况，并辨析第一章中两处出现的\"0.6 个百分点\"含义是否相同。",
+   "（未取得观察材料——如实回报，不编造。）"
+  ],
+  "duration_s": 4.8
+ }
+}

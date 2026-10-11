@@ -1,0 +1,767 @@
+{
+ "tag": "Q15Q",
+ "base": "http://127.0.0.1:8021/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "2026-10-11T15:35:30.846409",
+ "questions": 51,
+ "spend_ok": 51,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 239,
+  "fallback_calls": 0,
+  "input_tokens": 1864260,
+  "output_tokens": 34724,
+  "cost_yuan": 1.968432
+ },
+ "items": [
+  {
+   "qid": "A-正1",
+   "group": "A",
+   "run_id": "run-8a63ed65",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.022083,
+   "call_ids": [
+    "call-15d9560f",
+    "call-f069d287",
+    "call-79f785fc",
+    "call-9c605c85"
+   ]
+  },
+  {
+   "qid": "A-正2",
+   "group": "A",
+   "run_id": "run-4b1632e3",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.026073,
+   "call_ids": [
+    "call-b95241ee",
+    "call-1e645455",
+    "call-4237e5f0",
+    "call-4e02aa18"
+   ]
+  },
+  {
+   "qid": "A-正3",
+   "group": "A",
+   "run_id": "run-59626ed5",
+   "method": "run_id",
+   "calls": 5,
+   "cost_yuan": 0.03492,
+   "call_ids": [
+    "call-bf0684fd",
+    "call-d52bb9d1",
+    "call-1070efc1",
+    "call-cad046df",
+    "call-ebe2a513"
+   ]
+  },
+  {
+   "qid": "A-正4",
+   "group": "A",
+   "run_id": "run-e04ac278",
+   "method": "run_id",
+   "calls": 6,
+   "cost_yuan": 0.053288,
+   "call_ids": [
+    "call-4c1732a7",
+    "call-7959fa03",
+    "call-cef98c26",
+    "call-a14fc41c",
+    "call-511bf646",
+    "call-c8512157"
+   ]
+  },
+  {
+   "qid": "A-正5",
+   "group": "A",
+   "run_id": "run-74cc9c84",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.022718,
+   "call_ids": [
+    "call-1786c5e2",
+    "call-36d17d0e",
+    "call-439e1883",
+    "call-a8adafb7"
+   ]
+  },
+  {
+   "qid": "A-正6",
+   "group": "A",
+   "run_id": "run-eedbaaa8",
+   "method": "run_id",
+   "calls": 7,
+   "cost_yuan": 0.068303,
+   "call_ids": [
+    "call-1fd98bf5",
+    "call-92a267d8",
+    "call-729d9c27",
+    "call-66b592b3",
+    "call-38160c4a",
+    "call-70bf82ed",
+    "call-1da1b686"
+   ]
+  },
+  {
+   "qid": "A-正7",
+   "group": "A",
+   "run_id": "run-3df10258",
+   "method": "run_id",
+   "calls": 5,
+   "cost_yuan": 0.035052,
+   "call_ids": [
+    "call-2c7d9e7a",
+    "call-5a8463b6",
+    "call-944f3677",
+    "call-1fd9ac50",
+    "call-5d382e60"
+   ]
+  },
+  {
+   "qid": "A-正8",
+   "group": "A",
+   "run_id": "run-94084c1e",
+   "method": "run_id",
+   "calls": 6,
+   "cost_yuan": 0.055146,
+   "call_ids": [
+    "call-befe0a81",
+    "call-fa6be905",
+    "call-6d0ff5a9",
+    "call-e5417dc5",
+    "call-4a5e68ca",
+    "call-0715ec70"
+   ]
+  },
+  {
+   "qid": "A-反1",
+   "group": "A",
+   "run_id": "run-eb19c9f8",
+   "method": "run_id",
+   "calls": 6,
+   "cost_yuan": 0.048468,
+   "call_ids": [
+    "call-9187a22d",
+    "call-87530908",
+    "call-b2a4d7d6",
+    "call-004fdbf9",
+    "call-d5471040",
+    "call-509b4fb0"
+   ]
+  },
+  {
+   "qid": "A-反2",
+   "group": "A",
+   "run_id": "run-290a2939",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.023798,
+   "call_ids": [
+    "call-222f2d22",
+    "call-7f245c4f",
+    "call-54aaf93f",
+    "call-a4c6d647"
+   ]
+  },
+  {
+   "qid": "A-反3",
+   "group": "A",
+   "run_id": "run-a93db3eb",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.022687,
+   "call_ids": [
+    "call-8056f4cd",
+    "call-c273fbce",
+    "call-93d3a8b2",
+    "call-4a43b0ca"
+   ]
+  },
+  {
+   "qid": "系统-禁用词",
+   "group": "SYS",
+   "run_id": "run-b1419a25",
+   "method": "time_window",
+   "calls": 0,
+   "cost_yuan": 0.0,
+   "call_ids": []
+  },
+  {
+   "qid": "系统-术语躺井",
+   "group": "SYS",
+   "run_id": "run-8466628a",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.020847,
+   "call_ids": [
+    "call-088d9a94",
+    "call-35a5aba6",
+    "call-81be7fc7",
+    "call-77092e93"
+   ]
+  },
+  {
+   "qid": "系统-届满",
+   "group": "SYS",
+   "run_id": "run-8d9b4cc1",
+   "method": "run_id",
+   "calls": 5,
+   "cost_yuan": 0.032197,
+   "call_ids": [
+    "call-d6d27aea",
+    "call-aa685224",
+    "call-9f3a3c2f",
+    "call-05ffcdc7",
+    "call-80161a4b"
+   ]
+  },
+  {
+   "qid": "系统-FAQ秒回",
+   "group": "SYS",
+   "run_id": "run-741ef5b7",
+   "method": "run_id",
+   "calls": 6,
+   "cost_yuan": 0.050374,
+   "call_ids": [
+    "call-afe9e0ec",
+    "call-fc6bc6ed",
+    "call-77a5fb56",
+    "call-ea01d6f2",
+    "call-c89b45fb",
+    "call-ef151bca"
+   ]
+  },
+  {
+   "qid": "系统-澄清观察",
+   "group": "SYS",
+   "run_id": "run-1e0678bf",
+   "method": "run_id",
+   "calls": 5,
+   "cost_yuan": 0.035582,
+   "call_ids": [
+    "call-3f1667ff",
+    "call-95a2b2ef",
+    "call-098f54ff",
+    "call-dcbc53ff",
+    "call-beeedf79"
+   ]
+  },
+  {
+   "qid": "B-正1",
+   "group": "B",
+   "run_id": "run-998ee1f4",
+   "method": "run_id",
+   "calls": 3,
+   "cost_yuan": 0.01441,
+   "call_ids": [
+    "call-d1040841",
+    "call-a22eabde",
+    "call-2dc440f3"
+   ]
+  },
+  {
+   "qid": "B-正2",
+   "group": "B",
+   "run_id": "run-9f7fc177",
+   "method": "run_id",
+   "calls": 7,
+   "cost_yuan": 0.067113,
+   "call_ids": [
+    "call-8f22c443",
+    "call-734b0a93",
+    "call-58635a13",
+    "call-18be7818",
+    "call-15324736",
+    "call-7fa39db8",
+    "call-841ef891"
+   ]
+  },
+  {
+   "qid": "B-正3",
+   "group": "B",
+   "run_id": "run-7909d92c",
+   "method": "run_id",
+   "calls": 5,
+   "cost_yuan": 0.034776,
+   "call_ids": [
+    "call-73720ce8",
+    "call-cbcf2bc2",
+    "call-d3f962f6",
+    "call-33bab582",
+    "call-f3470c3e"
+   ]
+  },
+  {
+   "qid": "B-正4",
+   "group": "B",
+   "run_id": "run-8ccdca25",
+   "method": "run_id",
+   "calls": 2,
+   "cost_yuan": 0.005977,
+   "call_ids": [
+    "call-5be147f1",
+    "call-9e5bb4ce"
+   ]
+  },
+  {
+   "qid": "B-正5",
+   "group": "B",
+   "run_id": "run-d91f899b",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.022429,
+   "call_ids": [
+    "call-aa59bfd5",
+    "call-f8b34c92",
+    "call-d43b1477",
+    "call-210bdc26"
+   ]
+  },
+  {
+   "qid": "B-正6",
+   "group": "B",
+   "run_id": "run-23f59a9e",
+   "method": "run_id",
+   "calls": 8,
+   "cost_yuan": 0.093186,
+   "call_ids": [
+    "call-88ec7dcd",
+    "call-c7e87e52",
+    "call-4c4a6d7d",
+    "call-179aafd7",
+    "call-3b907005",
+    "call-beceb1e5",
+    "call-be457951",
+    "call-0f8c9853"
+   ]
+  },
+  {
+   "qid": "B-正7",
+   "group": "B",
+   "run_id": "run-0c720212",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.021833,
+   "call_ids": [
+    "call-da0ce1bd",
+    "call-d58b602b",
+    "call-c864c5e5",
+    "call-8dde22bf"
+   ]
+  },
+  {
+   "qid": "B-反1",
+   "group": "B",
+   "run_id": "run-a2c6a059",
+   "method": "run_id",
+   "calls": 3,
+   "cost_yuan": 0.013856,
+   "call_ids": [
+    "call-fb2f3239",
+    "call-8c4b6e6e",
+    "call-164c02bf"
+   ]
+  },
+  {
+   "qid": "B-反2",
+   "group": "B",
+   "run_id": "run-a93d04be",
+   "method": "run_id",
+   "calls": 2,
+   "cost_yuan": 0.005946,
+   "call_ids": [
+    "call-040cbf21",
+    "call-0113d088"
+   ]
+  },
+  {
+   "qid": "B-反3",
+   "group": "B",
+   "run_id": "run-4cb57285",
+   "method": "run_id",
+   "calls": 9,
+   "cost_yuan": 0.108777,
+   "call_ids": [
+    "call-b96abfae",
+    "call-07921220",
+    "call-3b1c9e8e",
+    "call-a722defd",
+    "call-2ae11c36",
+    "call-ae5bb60e",
+    "call-ac7ec214",
+    "call-984a5d9f",
+    "call-5614932f"
+   ]
+  },
+  {
+   "qid": "C-正1",
+   "group": "C",
+   "run_id": "run-412f85e2",
+   "method": "run_id",
+   "calls": 6,
+   "cost_yuan": 0.047713,
+   "call_ids": [
+    "call-690cfd5d",
+    "call-2712c320",
+    "call-2b63c1ba",
+    "call-38e054a9",
+    "call-e6aa4df3",
+    "call-f2748ba5"
+   ]
+  },
+  {
+   "qid": "C-澄清",
+   "group": "C",
+   "run_id": "run-95b35593",
+   "method": "run_id",
+   "calls": 6,
+   "cost_yuan": 0.049002,
+   "call_ids": [
+    "call-75034d62",
+    "call-92e411d2",
+    "call-10744b76",
+    "call-27190a47",
+    "call-97c2b2c9",
+    "call-1de41ef1"
+   ]
+  },
+  {
+   "qid": "C-正2",
+   "group": "C",
+   "run_id": "run-640abf75",
+   "method": "run_id",
+   "calls": 6,
+   "cost_yuan": 0.048046,
+   "call_ids": [
+    "call-d486d0d2",
+    "call-bbbd83e7",
+    "call-9044eabf",
+    "call-ba3e5c7b",
+    "call-e7aab3e9",
+    "call-50397b63"
+   ]
+  },
+  {
+   "qid": "C-正3",
+   "group": "C",
+   "run_id": "run-4258029a",
+   "method": "run_id",
+   "calls": 2,
+   "cost_yuan": 0.005938,
+   "call_ids": [
+    "call-5c0e5071",
+    "call-3ac33c48"
+   ]
+  },
+  {
+   "qid": "C-正4",
+   "group": "C",
+   "run_id": "run-6115ef46",
+   "method": "run_id",
+   "calls": 2,
+   "cost_yuan": 0.006089,
+   "call_ids": [
+    "call-8f5b3b0a",
+    "call-6dcc835a"
+   ]
+  },
+  {
+   "qid": "C-正5",
+   "group": "C",
+   "run_id": "run-987df8e1",
+   "method": "run_id",
+   "calls": 3,
+   "cost_yuan": 0.013965,
+   "call_ids": [
+    "call-5d6bfa45",
+    "call-657057da",
+    "call-9523b68f"
+   ]
+  },
+  {
+   "qid": "C-正6",
+   "group": "C",
+   "run_id": "run-612ce0e3",
+   "method": "run_id",
+   "calls": 5,
+   "cost_yuan": 0.056594,
+   "call_ids": [
+    "call-72602ef6",
+    "call-f2ed7245",
+    "call-2491feb8",
+    "call-cecb52b2",
+    "call-c3d1f5d9"
+   ]
+  },
+  {
+   "qid": "C-反1",
+   "group": "C",
+   "run_id": "run-8c26b366",
+   "method": "run_id",
+   "calls": 3,
+   "cost_yuan": 0.014253,
+   "call_ids": [
+    "call-dcc4d41d",
+    "call-ea5f7981",
+    "call-f03f6a79"
+   ]
+  },
+  {
+   "qid": "C-反2",
+   "group": "C",
+   "run_id": "run-0eaa4ee4",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.022513,
+   "call_ids": [
+    "call-023019f1",
+    "call-b807b8c6",
+    "call-3165d8b5",
+    "call-34998764"
+   ]
+  },
+  {
+   "qid": "C-观察",
+   "group": "C",
+   "run_id": "run-79d62f4f",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.023737,
+   "call_ids": [
+    "call-a547230d",
+    "call-bf3057f9",
+    "call-02740e76",
+    "call-9dcda65a"
+   ]
+  },
+  {
+   "qid": "D-诱1",
+   "group": "D",
+   "run_id": "run-12e9b861",
+   "method": "run_id",
+   "calls": 5,
+   "cost_yuan": 0.056009,
+   "call_ids": [
+    "call-186f13ae",
+    "call-07b83342",
+    "call-93b38c5a",
+    "call-53d2cdbb",
+    "call-ebd72994"
+   ]
+  },
+  {
+   "qid": "D-诱2",
+   "group": "D",
+   "run_id": "run-584bb9de",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.029663,
+   "call_ids": [
+    "call-bfd8be3b",
+    "call-11571412",
+    "call-aa0d156a",
+    "call-49ae3b65"
+   ]
+  },
+  {
+   "qid": "D-诱3",
+   "group": "D",
+   "run_id": "run-16eafb04",
+   "method": "run_id",
+   "calls": 5,
+   "cost_yuan": 0.055385,
+   "call_ids": [
+    "call-7fa1ac25",
+    "call-bca9d907",
+    "call-e4f7bd98",
+    "call-50b1e743",
+    "call-0b770f40"
+   ]
+  },
+  {
+   "qid": "D-诱4",
+   "group": "D",
+   "run_id": "run-6964f9c5",
+   "method": "run_id",
+   "calls": 6,
+   "cost_yuan": 0.058853,
+   "call_ids": [
+    "call-f9ab6b8f",
+    "call-e685e64a",
+    "call-bbcfaf9a",
+    "call-6c8d5916",
+    "call-5885803b",
+    "call-be208d00"
+   ]
+  },
+  {
+   "qid": "D-诱5",
+   "group": "D",
+   "run_id": "run-bd0693bc",
+   "method": "run_id",
+   "calls": 6,
+   "cost_yuan": 0.070158,
+   "call_ids": [
+    "call-4b27f0b4",
+    "call-d63b1d52",
+    "call-ad9639e2",
+    "call-3aab534b",
+    "call-d6cee516",
+    "call-7c823d81"
+   ]
+  },
+  {
+   "qid": "D-诱6",
+   "group": "D",
+   "run_id": "run-0848b377",
+   "method": "run_id",
+   "calls": 7,
+   "cost_yuan": 0.074843,
+   "call_ids": [
+    "call-e74929ff",
+    "call-c2e09642",
+    "call-d865dd04",
+    "call-d29565ff",
+    "call-9469641c",
+    "call-312c8e4b",
+    "call-0b0f2403"
+   ]
+  },
+  {
+   "qid": "D-诱7",
+   "group": "D",
+   "run_id": "run-9acab58c",
+   "method": "run_id",
+   "calls": 6,
+   "cost_yuan": 0.096901,
+   "call_ids": [
+    "call-6c8dcadd",
+    "call-8e5db49f",
+    "call-86667259",
+    "call-42646335",
+    "call-14b36214",
+    "call-786c0762"
+   ]
+  },
+  {
+   "qid": "D-诱8",
+   "group": "D",
+   "run_id": "run-8ae03bd3",
+   "method": "run_id",
+   "calls": 5,
+   "cost_yuan": 0.036132,
+   "call_ids": [
+    "call-a61f274f",
+    "call-ce71007e",
+    "call-7142492b",
+    "call-25f1f42b",
+    "call-0b7a822a"
+   ]
+  },
+  {
+   "qid": "D-诱9",
+   "group": "D",
+   "run_id": "run-989496fe",
+   "method": "run_id",
+   "calls": 7,
+   "cost_yuan": 0.077384,
+   "call_ids": [
+    "call-39450369",
+    "call-e4f751fb",
+    "call-d83f1e5e",
+    "call-b236cd7d",
+    "call-d0f358c9",
+    "call-d1f0baaa",
+    "call-06a20b57"
+   ]
+  },
+  {
+   "qid": "D-诱10",
+   "group": "D",
+   "run_id": "run-1e5b8fb2",
+   "method": "run_id",
+   "calls": 5,
+   "cost_yuan": 0.057764,
+   "call_ids": [
+    "call-c065e378",
+    "call-c547a0e7",
+    "call-f4767412",
+    "call-3e2b151b",
+    "call-5a613d91"
+   ]
+  },
+  {
+   "qid": "D-诱11",
+   "group": "D",
+   "run_id": "run-fff6737d",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.023103,
+   "call_ids": [
+    "call-e86f0225",
+    "call-0e0542f4",
+    "call-4a5c8dfb",
+    "call-33da58e8"
+   ]
+  },
+  {
+   "qid": "D-诱12",
+   "group": "D",
+   "run_id": "run-87779787",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.028825,
+   "call_ids": [
+    "call-0976d3ea",
+    "call-392cd130",
+    "call-17cd526f",
+    "call-6e9cf007"
+   ]
+  },
+  {
+   "qid": "D-诱13",
+   "group": "D",
+   "run_id": "run-a41bf1b6",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.022611,
+   "call_ids": [
+    "call-5f475b23",
+    "call-0645f521",
+    "call-c73438ce",
+    "call-b674eb46"
+   ]
+  },
+  {
+   "qid": "D-诱14",
+   "group": "D",
+   "run_id": "run-de4cfc48",
+   "method": "run_id",
+   "calls": 5,
+   "cost_yuan": 0.038484,
+   "call_ids": [
+    "call-b22642d5",
+    "call-83b3eee1",
+    "call-11c2fc39",
+    "call-62abecc4",
+    "call-531a288d"
+   ]
+  },
+  {
+   "qid": "D-诱15",
+   "group": "D",
+   "run_id": "run-0a77d6d4",
+   "method": "run_id",
+   "calls": 3,
+   "cost_yuan": 0.014628,
+   "call_ids": [
+    "call-ee4b8a89",
+    "call-13daf3a3",
+    "call-bd92758c"
+   ]
+  }
+ ],
+ "errors": []
+}

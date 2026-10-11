@@ -1,0 +1,104 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-b1419a25",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "notice",
+   "data": {
+    "type": "refused",
+    "gates": [],
+    "content": "禁用词「老完成率」已废弃——如实拒答，不代答废弃口径（替代：产量完成率）"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "N1 禁用词硬终止"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 2,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 4,
+   "event": "text",
+   "data": {
+    "content": "禁用词「老完成率」已废弃——如实拒答，不代答废弃口径（替代：产量完成率）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-b1419a25",
+    "manifest_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+   }
+  },
+  {
+   "id": 6,
+   "event": "done",
+   "data": {
+    "run_id": "run-b1419a25"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "禁用词「老完成率」已废弃——如实拒答，不代答废弃口径（替代：产量完成率）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "refused",
+    "gates": [],
+    "content": "禁用词「老完成率」已废弃——如实拒答，不代答废弃口径（替代：产量完成率）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-b1419a25",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "N1 禁用词硬终止"
+   },
+   {
+    "step": "answer",
+    "seq": 2,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-b1419a25",
+   "manifest_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "texts": [
+   "禁用词「老完成率」已废弃——如实拒答，不代答废弃口径（替代：产量完成率）"
+  ],
+  "duration_s": 0.2
+ }
+}
