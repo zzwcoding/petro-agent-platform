@@ -150,7 +150,8 @@ class GraphRunExecutor:
                 four_phase=self._four_phase,
             )
             state = self._initial_state(
-                run_id, command.question, actor.user_id, history=seed_history
+                run_id, command.question, actor.user_id, history=seed_history,
+                followup_of=command.followup_of,
             )
             config: dict[str, Any] = {"configurable": {"thread_id": run_id}}
             self._spawn(graph, state, config, bus, run_id, who=who)
@@ -275,6 +276,7 @@ class GraphRunExecutor:
         question: str,
         actor_id: str,
         history: list[dict[str, str]] | None = None,
+        followup_of: str = "",
     ) -> RunState:
         started = now_monotonic()
         return RunState(
@@ -282,6 +284,7 @@ class GraphRunExecutor:
             question=question,
             actor=actor_id,
             status=RUN_RUNNING,
+            followup_of=followup_of,  # V2-53 追问旁路判据（RunCommand 随行播种）
             history=list(history or []),  # 追问续会话播种（V2-38——前轮线程历史）
             budget=self._budget.as_dict(),
             started_monotonic=started,

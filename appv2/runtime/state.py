@@ -137,6 +137,9 @@ class RunState:
     question: str = ""
     actor: str = ""  # 行级身份（ctx.actor 注入——身份只从 ctx 进）
     status: str = RUN_RUNNING
+    # 追问续会话标记（V2-38；V2-53 零探查拒回闸的追问旁路判据——前轮材料在
+    # 史的追问 run 零探查定稿放行）。executor 受理段随 RunCommand 播种，仅读。
+    followup_of: str = ""
     # —— understand 产物 ——
     understanding: str = ""
     metric_candidates: list[str] = field(default_factory=list)  # FX-13 候选集

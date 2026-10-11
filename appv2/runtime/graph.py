@@ -183,6 +183,25 @@ SAME_PARAM_REPLAY_REASON = (
     "（finalize 按观察材料作答，或换参数后再发射），不要重复发射同一计划"
 )
 
+# V2-53 零探查拒回闸（附 C——零观察定稿治理，Q15 族 Z 12 题零交付形）：
+# 零探查发射 finalize 的拒因回喂文（复用「发射被拒→拒因回喂→模型改发」
+# 既有通道）＋拦截判定（实质材料过滤式与答案相位「未取得观察材料」同式
+# ——非 notice 观察）。
+ZERO_PROBE_FEEDBACK = (
+    "零探查观察禁定稿——台账常驻注入是字典不是数据，不构成观察材料；"
+    "请先 discover 钻取（faq_lookup/semantic_query/table_schema）取得条目，"
+    "或 decompose 分解走检索执行。"
+)
+
+
+def _zero_probe_block(state: RunState) -> bool:
+    """V2-53 零探查定稿拦截判定（实质材料定义与答案相位同源——非 notice 观察）。"""
+    if state.followup_of:          # 追问续跑旁路（前轮材料在史——追问语义本票零触碰）
+        return False
+    material = [obs for obs in state.observations
+                if (obs.get("locator") or {}).get("kind") != "notice"]
+    return int(state.discover_used) == 0 and not material
+
 # 发现工具闭世界（拍板④白名单的调用面——registry.call 兜底拒未知名）。
 # V2-52 辅助模式：faq_lookup 进闭世界（附 B 消费规则——辅助材料 discover 面）。
 DISCOVER_TOOLS: frozenset[str] = frozenset(
@@ -2003,6 +2022,35 @@ def _make_clarify(
                 "next_intent": INTENT_DISCOVER,
             }
         if emission.kind == CLARIFY_FINALIZE:
+            # V2-53 零探查拒回闸（附 C）：零探查观察发射 finalize＝非法发射，
+            # 程序拒回并要求改发（拒因回喂——现成通道承接）。
+            if _zero_probe_block(state):
+                # 首拒免轮、连续拒自第 2 次起占轮——复用预算拒收敛机（S2 同款公式）
+                streak = int(state.budget_reject_streak) + 1
+                rnd = state.rounds if streak < 2 else state.rounds + 1
+                record = _step_record(
+                    seq, STEP_DECISION,
+                    f"澄清 r{rnd} 被拒：零探查观察禁定稿",
+                    context.manifest,
+                    payload={"phase": "clarify",
+                             "rejection": ZERO_PROBE_FEEDBACK,
+                             "emission": emission.as_payload()},
+                )
+                deps.bus.emit(
+                    "step", {"step": STEP_DECISION, "seq": seq,
+                             "title": record["title"],
+                             "emission": emission.as_payload()}
+                )
+                return {
+                    "rounds": rnd,
+                    "decision_error": ZERO_PROBE_FEEDBACK,   # 拒因回喂——现成通道承接
+                    "budget_reject_streak": streak,
+                    "ledger_dump": dump,
+                    "history": history,
+                    "manifests": [*state.manifests, context.manifest.as_dict()],
+                    "steps": [*state.steps, record],
+                    "next_intent": INTENT_DECISION,
+                }
             # V2-52 辅助模式消费规则（附 B）：faq 等辅助材料足够时模型判
             # sufficiency 直答（秒答形——路由起草面按观察材料出带引用答案；
             # 代码不干预判定）。不占轮（与 discover 同——轮＝回炉循环周期）。
@@ -2011,7 +2059,9 @@ def _make_clarify(
                 context.manifest, payload,
             )
             deps.bus.emit(
-                "step", {"step": STEP_DECISION, "seq": seq, "title": record["title"]}
+                "step", {"step": STEP_DECISION, "seq": seq,
+                         "title": record["title"],
+                         "emission": emission.as_payload()}
             )
             if emission.note:
                 notice = {

@@ -57,6 +57,14 @@ SYSTEM_PROMPT = (
     "回答，观察未覆盖的部分如实说明未找到。"
 )
 
+# V2-53 附 B 逐字稿（台账全量块的「字典不是数据」头注——常驻块 BEGIN 标记后
+# 首行，位于 BEGIN/END 标记之间：历史簿记 _slim_resident 整块收窄自动覆盖）。
+LEDGER_DICT_NOTE = (
+    "（台账全量是字典不是数据：本块只载指标/术语/对象的定义、粒度与绑定态，"
+    "不载任何数值——「在台账」不等于「数值在手」；数值一律经检索执行取得，"
+    "禁止仅凭本块 finalize 定稿。）"
+)
+
 
 @dataclass(frozen=True, slots=True)
 class CompiledContext:
@@ -141,6 +149,7 @@ class ContextBuilder:
             # 不重复入史，防多轮 token 放大；非懒加载——每轮常驻在场）。
             current += (
                 "\n\n" + RESIDENT_BLOCK_BEGIN + "\n"
+                + LEDGER_DICT_NOTE + "\n"
                 + "\n\n".join(extra_blocks) + "\n" + RESIDENT_BLOCK_END
             )
         if with_material:

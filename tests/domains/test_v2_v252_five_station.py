@@ -337,13 +337,14 @@ async def test_faq_lookup_handler_args_and_registry() -> None:
 
 # ---------- 单测：合同目录指路（附 A char 相等）＋发射闭世界＋finalize 合法 ----------
 
-# 附 A 逐字稿（tickets/v2/V2-52-五站缺口迁移批.md 附 A——char 相等，禁改一字）。
+# 附 A 逐字稿（V2-53 附 A 随动改型——tickets/v2/V2-53-零观察定稿治理.md 附 A
+# char 相等，禁改一字）。
 _APPENDIX_A = (
     "可用探查（discover，全 run ≤10 次，已用 {discover_used} 次）：\n"
     "- semantic_query：本体口径/绑定/届满细节钻取（开局台账已全量，仅细节用）\n"
     "- table_schema：表结构钻取（agg/sem/kb 分区）\n"
     "- faq_lookup：FAQ 现成问答库——问句有现成标准答案时加速/互证；\n"
-    "  命中条目作辅助材料进上下文，你判断够 finalize 即可直答，不够继续检索"
+    "  命中条目作观察材料进上下文——有探查观察在场方可 finalize，不够继续检索"
 )
 
 
@@ -778,12 +779,26 @@ async def test_station_n1_meta_form_exempt_with_audit(tmp_path: Path) -> None:
 
 async def test_station_plain_question_gate_silent(tmp_path: Path) -> None:
     """快车道拆除后普通问零误伤：N1 闸静默——understand 照常恰一次调用，
-    零快车道直出（无 faq 直出/词条卡/拒答 notice）。"""
+    零快车道直出（无 faq 直出/词条卡/拒答 notice）。V2-53 随动：剧本首发射
+    零探查 finalize 被拒回闸拦（拒因回喂）→模型改发分解继续（新合法流）。"""
     dump = _sys_dump()
+    decompose = json.dumps({
+        "action": "decompose",
+        "question_group": {"subtasks": [
+            {"id": "s1", "question": "2025-09-01 到 09-03 各井日产油量",
+             "ledger_notes": "日产油量｜bound｜窗 2025-09-01~2025-09-03", "chain": "data"},
+        ]},
+    }, ensure_ascii=False)
+    toolmatch = json.dumps({"matches": [
+        {"id": "s1", "chain": "data", "tool": "data_query", "plan": {
+            "metric_slot": "日产油量", "ranking": False,
+            "window_start": "2025-09-01", "window_end": "2025-09-03"}},
+    ]}, ensure_ascii=False)
     script = {
         "v2.runtime.understand": ["理解：问日产油量。\n指标候选：日产油量"],
-        "v2.runtime.decision": ['{"thought": "定稿", "action": "finalize"}'],
-        "v2.runtime.answer": ["按材料如实作答。"],
+        "v2.runtime.decision": ['{"thought": "定稿", "action": "finalize"}',
+                                decompose, toolmatch],
+        "v2.runtime.answer": ["各井日产油量 N-01 为 21.16 吨 [1]。"],
     }
     runtime, completer, db = await make_runtime(
         tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=script,
