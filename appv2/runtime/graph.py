@@ -1875,6 +1875,11 @@ def _make_clarify(
             + "\n\n【业务规则参考（ontology 指南 §A——窗词锚定/单井红线/"
             "指标名册适用；其中发射判据/收口硬规则的动作面以上方合同为准）】\n"
             + deps.guide.guide()
+            # P-051b 真批修正（P051BW 术语躺井/数-降1/数-降2 零交付形——真模型
+            # 把台账常驻注入当「材料足够」零观察定稿）：finalize 交付面边界句。
+            + "\n\n【finalize 交付面边界——台账常驻注入不进交付面（不计入"
+            "「材料足够」）：仅凭注入就能回答的术语/口径定义问，先 discover "
+            "semantic_query 取条目卡再定稿；零探查观察时禁 finalize。】"
         )
         failed = [dict(r) for r in state.subtask_results if r.get("status") == "failed"]
         if failed:
