@@ -1,0 +1,232 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-426a7b0f",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "询问自然递减率这一指标的具体数值。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "询问自然递减率这一指标的具体数值。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清钻取 ×1（faq_lookup）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "faq_lookup",
+    "status": "failed",
+    "seq": 3,
+    "message": "未知参数键：['query']（args_schema additionalProperties=false）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 3,
+    "title": "faq_lookup：failed"
+   }
+  },
+  {
+   "id": 6,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具校验拒因回喂重决策：未知参数键：['query']（args_schema additionalProperties=false）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清定稿：材料足够——直答收口",
+    "emission": {
+     "action": "finalize"
+    }
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 5,
+    "title": "核验：支撑 0｜改写 0｜分源 否"
+   }
+  },
+  {
+   "id": 9,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 0,
+    "split": false,
+    "cited": [],
+    "attribution": {
+     "anchors": [],
+     "cross": []
+    }
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 11,
+   "event": "text",
+   "data": {
+    "content": "（未取得观察材料——如实回报，不编造。）"
+   }
+  },
+  {
+   "id": 12,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-426a7b0f",
+    "manifest_digest": "ab95b5fe31d602ac8a1655d8b52420896dec27a7c1d422b23b6205a533649fe9"
+   }
+  },
+  {
+   "id": 13,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-426a7b0f",
+    "question": "自然递减率是多少？",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 12204,
+    "counts": {
+     "history": 7,
+     "observations": 0,
+     "steps": 6
+    }
+   }
+  },
+  {
+   "id": 14,
+   "event": "done",
+   "data": {
+    "run_id": "run-426a7b0f"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（未取得观察材料——如实回报，不编造。）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具校验拒因回喂重决策：未知参数键：['query']（args_schema additionalProperties=false）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-426a7b0f",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "询问自然递减率这一指标的具体数值。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清钻取 ×1（faq_lookup）"
+   },
+   {
+    "step": "discover",
+    "seq": 3,
+    "title": "faq_lookup：failed"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清定稿：材料足够——直答收口"
+   },
+   {
+    "step": "verify",
+    "seq": 5,
+    "title": "核验：支撑 0｜改写 0｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 6,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "faq_lookup",
+    "status": "failed",
+    "seq": 3,
+    "message": "未知参数键：['query']（args_schema additionalProperties=false）"
+   }
+  ],
+  "observations": [],
+  "asks": [],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 0,
+    "split": false,
+    "cited": [],
+    "attribution": {
+     "anchors": [],
+     "cross": []
+    }
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-426a7b0f",
+   "manifest_digest": "ab95b5fe31d602ac8a1655d8b52420896dec27a7c1d422b23b6205a533649fe9"
+  },
+  "texts": [
+   "询问自然递减率这一指标的具体数值。",
+   "（未取得观察材料——如实回报，不编造。）"
+  ],
+  "duration_s": 12.5
+ }
+}

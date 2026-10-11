@@ -1,0 +1,721 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-09402898",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问二季度注采调整方案是否安排了5–6月配注及原话表述、补定程序；以及一季度新措施清单、各措施增产量、综合递减率与自然递减率差值的来源措施、该措施实施时间与有效期；并给出对领导两份材料的合理答法。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问二季度注采调整方案是否安排了5–6月配注及原话表述、补定程序；以及一季度新措施清单、各措施增产量、综合递减率与自然递减率差值的来源措施、该措施实施时间与有效期；并给出对领导两份材料的合理答法。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清钻取 ×2（faq_lookup、semantic_query）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "faq_lookup",
+    "status": "failed",
+    "seq": 3,
+    "message": "未知参数键：['hint']（args_schema additionalProperties=false）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 3,
+    "title": "faq_lookup：failed"
+   }
+  },
+  {
+   "id": 6,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具校验拒因回喂重决策：未知参数键：['hint']（args_schema additionalProperties=false）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清钻取 ×2（faq_lookup、semantic_query）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "tool",
+   "data": {
+    "tool": "faq_lookup",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 5,
+    "title": "faq_lookup：ok"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 6,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 11,
+   "event": "notice",
+   "data": {
+    "type": "no_hit",
+    "gates": [],
+    "content": "FAQ 库无命中（二季度注采调整方案 5月 6月 计划注水量 配注安排）——现成问答库未收该问句，请按台账/检索继续"
+   }
+  },
+  {
+   "id": 12,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "faq_* 读面",
+    "content": "FAQ 库无命中（二季度注采调整方案 5月 6月 计划注水量 配注安排）——现成问答库未收该问句，请按台账/检索继续",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 13,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 7,
+    "message": null
+   }
+  },
+  {
+   "id": 14,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 7,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 15,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 8,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 16,
+   "event": "notice",
+   "data": {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：递减增油 措施 配注 综合递减率 自然递减率 一季度（精确名与别名归一均未命中——请核对要素名）"
+   }
+  },
+  {
+   "id": 17,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：递减增油 措施 配注 综合递减率 自然递减率 一季度（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 18,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 9,
+    "title": "澄清钻取 ×2（faq_lookup、faq_lookup）"
+   }
+  },
+  {
+   "id": 19,
+   "event": "tool",
+   "data": {
+    "tool": "faq_lookup",
+    "status": "ok",
+    "seq": 10,
+    "message": null
+   }
+  },
+  {
+   "id": 20,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 10,
+    "title": "faq_lookup：ok"
+   }
+  },
+  {
+   "id": 21,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 11,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 22,
+   "event": "notice",
+   "data": {
+    "type": "no_hit",
+    "gates": [],
+    "content": "FAQ 库无命中（注采调整方案 二季度 5月 6月 配注 计划注水量 各井配注安排）——现成问答库未收该问句，请按台账/检索继续"
+   }
+  },
+  {
+   "id": 23,
+   "event": "observation",
+   "data": {
+    "index": 3,
+    "source": "faq_* 读面",
+    "content": "FAQ 库无命中（注采调整方案 二季度 5月 6月 配注 计划注水量 各井配注安排）——现成问答库未收该问句，请按台账/检索继续",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 24,
+   "event": "tool",
+   "data": {
+    "tool": "faq_lookup",
+    "status": "ok",
+    "seq": 12,
+    "message": null
+   }
+  },
+  {
+   "id": 25,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 12,
+    "title": "faq_lookup：ok"
+   }
+  },
+  {
+   "id": 26,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 13,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 27,
+   "event": "notice",
+   "data": {
+    "type": "no_hit",
+    "gates": [],
+    "content": "FAQ 库无命中（一季度 新实施 油井措施 措施清单 措施增油 措施有效期 综合递减率 自然递减率）——现成问答库未收该问句，请按台账/检索继续"
+   }
+  },
+  {
+   "id": 28,
+   "event": "observation",
+   "data": {
+    "index": 4,
+    "source": "faq_* 读面",
+    "content": "FAQ 库无命中（一季度 新实施 油井措施 措施清单 措施增油 措施有效期 综合递减率 自然递减率）——现成问答库未收该问句，请按台账/检索继续",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 29,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 14,
+    "title": "澄清 r1 被拒：澄清发射不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   }
+  },
+  {
+   "id": 30,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 15,
+    "title": "澄清钻取 ×2（semantic_query、faq_lookup）"
+   }
+  },
+  {
+   "id": 31,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 16,
+    "message": null
+   }
+  },
+  {
+   "id": 32,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 16,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 33,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 17,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 34,
+   "event": "notice",
+   "data": {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：措施 对象 属性 措施清单 一季度 新实施 措施有效期 T 综合递减率 自然递减率（精确名与别名归一均未命中——请核对要素名）"
+   }
+  },
+  {
+   "id": 35,
+   "event": "observation",
+   "data": {
+    "index": 5,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：措施 对象 属性 措施清单 一季度 新实施 措施有效期 T 综合递减率 自然递减率（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 36,
+   "event": "tool",
+   "data": {
+    "tool": "faq_lookup",
+    "status": "ok",
+    "seq": 18,
+    "message": null
+   }
+  },
+  {
+   "id": 37,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 18,
+    "title": "faq_lookup：ok"
+   }
+  },
+  {
+   "id": 38,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 19,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 39,
+   "event": "notice",
+   "data": {
+    "type": "no_hit",
+    "gates": [],
+    "content": "FAQ 库无命中（二季度注采调整方案 5月 6月 计划注水量 配注 各井 补定程序）——现成问答库未收该问句，请按台账/检索继续"
+   }
+  },
+  {
+   "id": 40,
+   "event": "observation",
+   "data": {
+    "index": 6,
+    "source": "faq_* 读面",
+    "content": "FAQ 库无命中（二季度注采调整方案 5月 6月 计划注水量 配注 各井 补定程序）——现成问答库未收该问句，请按台账/检索继续",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 41,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 20,
+    "title": "澄清 r2 被拒：澄清发射不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   }
+  },
+  {
+   "id": 42,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 21,
+    "title": "澄清 r3 被拒：澄清发射不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   }
+  },
+  {
+   "id": 43,
+   "event": "notice",
+   "data": {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：核验（verify）/阐述（answer）未执行。已交付已取得部分，不静默截断。"
+   }
+  },
+  {
+   "id": 44,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 22,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 45,
+   "event": "text",
+   "data": {
+    "content": "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- FAQ 库无命中（二季度注采调整方案 5月 6月 计划注水量 配注安排）——现成问答库未收该问句，请按台账/检索继续\n- 台账未命中：递减增油 措施 配注 综合递减率 自然递减率 一季度（精确名与别名归一均未命中——请核对要素名）\n- FAQ 库无命中（注采调整方案 二季度 5月 6月 配注 计划注水量 各井配注安排）——现成问答库未收该问句，请按台账/检索继续\n- FAQ 库无命中（一季度 新实施 油井措施 措施清单 措施增油 措施有效期 综合递减率 自然递减率）——现成问答库未收该问句，请按台账/检索继续\n- 台账未命中：措施 对象 属性 措施清单 一季度 新实施 措施有效期 T 综合递减率 自然递减率（精确名与别名归一均未命中——请核对要素名）\n- FAQ 库无命中（二季度注采调整方案 5月 6月 计划注水量 配注 各井 补定程序）——现成问答库未收该问句，请按台账/检索继续\n- FAQ 库无命中（二季度注采调整方案 5月 6月 计划注水量 配注 各井 补定程序）——现成问答库未收该问句，请按台账/检索继续"
+   }
+  },
+  {
+   "id": 46,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-09402898",
+    "manifest_digest": "4660e3e5e8eb8047ca6857d926d3dc9d62efc83625fc06f0f997b87eb1acce68"
+   }
+  },
+  {
+   "id": 47,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-09402898",
+    "question": "领导布置：\"请从这份二季度注采调整方案里摘出 5～6 月的计划注水量和各井配注安排；再把一季度新实施的油井措施列个清单、各措施增产多少也算出来。\"请严格按报告作答：(a) 本方案对 5～6 月配注到底有没有安排？报告原话怎么说的、后续按什么程序补上？(b) 报告对一季度\"新措施\"是怎么明示的？综合递减率低于自然递减率的差值来自哪个措施、该措施是一季度实施的吗、其有效期状态如何？(c) 对领导要的两份材料，正确的答法是什么？",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 47130,
+    "counts": {
+     "history": 23,
+     "observations": 6,
+     "steps": 22
+    }
+   }
+  },
+  {
+   "id": 48,
+   "event": "done",
+   "data": {
+    "run_id": "run-09402898"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- FAQ 库无命中（二季度注采调整方案 5月 6月 计划注水量 配注安排）——现成问答库未收该问句，请按台账/检索继续\n- 台账未命中：递减增油 措施 配注 综合递减率 自然递减率 一季度（精确名与别名归一均未命中——请核对要素名）\n- FAQ 库无命中（注采调整方案 二季度 5月 6月 配注 计划注水量 各井配注安排）——现成问答库未收该问句，请按台账/检索继续\n- FAQ 库无命中（一季度 新实施 油井措施 措施清单 措施增油 措施有效期 综合递减率 自然递减率）——现成问答库未收该问句，请按台账/检索继续\n- 台账未命中：措施 对象 属性 措施清单 一季度 新实施 措施有效期 T 综合递减率 自然递减率（精确名与别名归一均未命中——请核对要素名）\n- FAQ 库无命中（二季度注采调整方案 5月 6月 计划注水量 配注 各井 补定程序）——现成问答库未收该问句，请按台账/检索继续\n- FAQ 库无命中（二季度注采调整方案 5月 6月 计划注水量 配注 各井 补定程序）——现成问答库未收该问句，请按台账/检索继续",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具校验拒因回喂重决策：未知参数键：['hint']（args_schema additionalProperties=false）"
+   },
+   {
+    "type": "no_hit",
+    "gates": [],
+    "content": "FAQ 库无命中（二季度注采调整方案 5月 6月 计划注水量 配注安排）——现成问答库未收该问句，请按台账/检索继续"
+   },
+   {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：递减增油 措施 配注 综合递减率 自然递减率 一季度（精确名与别名归一均未命中——请核对要素名）"
+   },
+   {
+    "type": "no_hit",
+    "gates": [],
+    "content": "FAQ 库无命中（注采调整方案 二季度 5月 6月 配注 计划注水量 各井配注安排）——现成问答库未收该问句，请按台账/检索继续"
+   },
+   {
+    "type": "no_hit",
+    "gates": [],
+    "content": "FAQ 库无命中（一季度 新实施 油井措施 措施清单 措施增油 措施有效期 综合递减率 自然递减率）——现成问答库未收该问句，请按台账/检索继续"
+   },
+   {
+    "type": "no_hit",
+    "gates": [],
+    "content": "台账未命中：措施 对象 属性 措施清单 一季度 新实施 措施有效期 T 综合递减率 自然递减率（精确名与别名归一均未命中——请核对要素名）"
+   },
+   {
+    "type": "no_hit",
+    "gates": [],
+    "content": "FAQ 库无命中（二季度注采调整方案 5月 6月 计划注水量 配注 各井 补定程序）——现成问答库未收该问句，请按台账/检索继续"
+   },
+   {
+    "type": "budget_converged",
+    "gates": [
+     "max_rounds"
+    ],
+    "content": "预算触界收敛（max_rounds）——未完成项：核验（verify）/阐述（answer）未执行。已交付已取得部分，不静默截断。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-09402898",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问二季度注采调整方案是否安排了5–6月配注及原话表述、补定程序；以及一季度新措施清单、各措施增产量、综合递减率与自然递减率差值的来源措施、该措施实施时间与有效期；并给出对领导两份材料的合理答法。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清钻取 ×2（faq_lookup、semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 3,
+    "title": "faq_lookup：failed"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清钻取 ×2（faq_lookup、semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 5,
+    "title": "faq_lookup：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 6,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "discover",
+    "seq": 7,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 8,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "decision",
+    "seq": 9,
+    "title": "澄清钻取 ×2（faq_lookup、faq_lookup）"
+   },
+   {
+    "step": "discover",
+    "seq": 10,
+    "title": "faq_lookup：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 11,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "discover",
+    "seq": 12,
+    "title": "faq_lookup：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 13,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "decision",
+    "seq": 14,
+    "title": "澄清 r1 被拒：澄清发射不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   },
+   {
+    "step": "decision",
+    "seq": 15,
+    "title": "澄清钻取 ×2（semantic_query、faq_lookup）"
+   },
+   {
+    "step": "discover",
+    "seq": 16,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 17,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "discover",
+    "seq": 18,
+    "title": "faq_lookup：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 19,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "decision",
+    "seq": 20,
+    "title": "澄清 r2 被拒：澄清发射不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   },
+   {
+    "step": "decision",
+    "seq": 21,
+    "title": "澄清 r3 被拒：澄清发射不可解析（未产出 JSON 对象）——只输出一个 JSON"
+   },
+   {
+    "step": "answer",
+    "seq": 22,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "faq_lookup",
+    "status": "failed",
+    "seq": 3,
+    "message": "未知参数键：['hint']（args_schema additionalProperties=false）"
+   },
+   {
+    "tool": "faq_lookup",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 7,
+    "message": null
+   },
+   {
+    "tool": "faq_lookup",
+    "status": "ok",
+    "seq": 10,
+    "message": null
+   },
+   {
+    "tool": "faq_lookup",
+    "status": "ok",
+    "seq": 12,
+    "message": null
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 16,
+    "message": null
+   },
+   {
+    "tool": "faq_lookup",
+    "status": "ok",
+    "seq": 18,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "faq_* 读面",
+    "content": "FAQ 库无命中（二季度注采调整方案 5月 6月 计划注水量 配注安排）——现成问答库未收该问句，请按台账/检索继续",
+    "trust": "notice"
+   },
+   {
+    "index": 2,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：递减增油 措施 配注 综合递减率 自然递减率 一季度（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   },
+   {
+    "index": 3,
+    "source": "faq_* 读面",
+    "content": "FAQ 库无命中（注采调整方案 二季度 5月 6月 配注 计划注水量 各井配注安排）——现成问答库未收该问句，请按台账/检索继续",
+    "trust": "notice"
+   },
+   {
+    "index": 4,
+    "source": "faq_* 读面",
+    "content": "FAQ 库无命中（一季度 新实施 油井措施 措施清单 措施增油 措施有效期 综合递减率 自然递减率）——现成问答库未收该问句，请按台账/检索继续",
+    "trust": "notice"
+   },
+   {
+    "index": 5,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：措施 对象 属性 措施清单 一季度 新实施 措施有效期 T 综合递减率 自然递减率（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   },
+   {
+    "index": 6,
+    "source": "faq_* 读面",
+    "content": "FAQ 库无命中（二季度注采调整方案 5月 6月 计划注水量 配注 各井 补定程序）——现成问答库未收该问句，请按台账/检索继续",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-09402898",
+   "manifest_digest": "4660e3e5e8eb8047ca6857d926d3dc9d62efc83625fc06f0f997b87eb1acce68"
+  },
+  "texts": [
+   "问二季度注采调整方案是否安排了5–6月配注及原话表述、补定程序；以及一季度新措施清单、各措施增产量、综合递减率与自然递减率差值的来源措施、该措施实施时间与有效期；并给出对领导两份材料的合理答法。",
+   "（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n- FAQ 库无命中（二季度注采调整方案 5月 6月 计划注水量 配注安排）——现成问答库未收该问句，请按台账/检索继续\n- 台账未命中：递减增油 措施 配注 综合递减率 自然递减率 一季度（精确名与别名归一均未命中——请核对要素名）\n- FAQ 库无命中（注采调整方案 二季度 5月 6月 配注 计划注水量 各井配注安排）——现成问答库未收该问句，请按台账/检索继续\n- FAQ 库无命中（一季度 新实施 油井措施 措施清单 措施增油 措施有效期 综合递减率 自然递减率）——现成问答库未收该问句，请按台账/检索继续\n- 台账未命中：措施 对象 属性 措施清单 一季度 新实施 措施有效期 T 综合递减率 自然递减率（精确名与别名归一均未命中——请核对要素名）\n- FAQ 库无命中（二季度注采调整方案 5月 6月 计划注水量 配注 各井 补定程序）——现成问答库未收该问句，请按台账/检索继续\n- FAQ 库无命中（二季度注采调整方案 5月 6月 计划注水量 配注 各井 补定程序）——现成问答库未收该问句，请按台账/检索继续"
+  ],
+  "duration_s": 21.6
+ }
+}

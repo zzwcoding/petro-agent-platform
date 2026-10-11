@@ -1,0 +1,222 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-c815a472",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问两口欠注井各自的欠注原因及对应的对策措施。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问两口欠注井各自的欠注原因及对应的对策措施。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（问「两口欠注井分别是什么原因、什么对策」需要先定）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "问「两口欠注井分别是什么原因、什么对策」需要先定位具体井：本次想问的是哪两口欠注井？请提供井号或井名（例如：A-01、A-02），或选择以下任一范围让我列示具体井：",
+     "options": [
+      "我直接提供井号（请在追问时写明井号）",
+      "列出所有欠注井（不限两口）",
+      "近 30 天内欠注最严重的两口井",
+      "最近一期月报里点名的两口欠注井"
+     ],
+     "detail": null
+    },
+    "run_id": "run-c815a472"
+   }
+  },
+  {
+   "id": 5,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-c815a472",
+    "question": "两口欠注井分别是什么原因、什么对策？",
+    "status": "running",
+    "error": "",
+    "stored": true,
+    "bytes": 6664,
+    "counts": {
+     "history": 4,
+     "observations": 0,
+     "steps": 2
+    }
+   }
+  },
+  {
+   "id": 6,
+   "event": "done",
+   "data": {
+    "run_id": "run-c815a472"
+   }
+  },
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-c815a472",
+    "resume": true
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清回收：我直接提供井号（请在追问时写明井号）"
+   }
+  },
+  {
+   "id": 2,
+   "event": "notice",
+   "data": {
+    "type": "clarify_capped",
+    "gates": [],
+    "content": "连续澄清已达上限（连续 ask ≥2）——不再挂起，带已取得材料如实直答。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 4,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 4,
+   "event": "text",
+   "data": {
+    "content": "（连续澄清截断——未取得可交付观察材料，如实回报，不编造。）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-c815a472",
+    "manifest_digest": "79f37d34447c4702cb81b67a6b71e5212da24379f16807d4498b5a58846b80a3"
+   }
+  },
+  {
+   "id": 6,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-c815a472",
+    "question": "两口欠注井分别是什么原因、什么对策？",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 11725,
+    "counts": {
+     "history": 7,
+     "observations": 0,
+     "steps": 4
+    }
+   }
+  },
+  {
+   "id": 7,
+   "event": "done",
+   "data": {
+    "run_id": "run-c815a472"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（连续澄清截断——未取得可交付观察材料，如实回报，不编造。）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "clarify_capped",
+    "gates": [],
+    "content": "连续澄清已达上限（连续 ask ≥2）——不再挂起，带已取得材料如实直答。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-c815a472",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问两口欠注井各自的欠注原因及对应的对策措施。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（问「两口欠注井分别是什么原因、什么对策」需要先定）"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清回收：我直接提供井号（请在追问时写明井号）"
+   },
+   {
+    "step": "answer",
+    "seq": 4,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "问「两口欠注井分别是什么原因、什么对策」需要先定位具体井：本次想问的是哪两口欠注井？请提供井号或井名（例如：A-01、A-02），或选择以下任一范围让我列示具体井：",
+     "options": [
+      "我直接提供井号（请在追问时写明井号）",
+      "列出所有欠注井（不限两口）",
+      "近 30 天内欠注最严重的两口井",
+      "最近一期月报里点名的两口欠注井"
+     ],
+     "detail": null
+    },
+    "run_id": "run-c815a472"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-c815a472",
+   "manifest_digest": "79f37d34447c4702cb81b67a6b71e5212da24379f16807d4498b5a58846b80a3"
+  },
+  "texts": [
+   "问两口欠注井各自的欠注原因及对应的对策措施。",
+   "（连续澄清截断——未取得可交付观察材料，如实回报，不编造。）"
+  ],
+  "duration_s": 6.5
+ }
+}

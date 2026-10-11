@@ -644,6 +644,26 @@ def _supported(
     return all(token in assertion for token in tokens)
 
 
+def _scope_usable(text: str) -> bool:
+    """辖域可用判定（V2-54 修一）：剥除全部非文字字符后仍有实质内容＝可用。
+    空壳辖域＝行首引标/邻接引标切出（[n][m] 连写的第二辖域为零宽空串）。"""
+    return bool(re.sub(r"[^\w]+", "", text))
+
+
+def _window_aligned(
+    assertion_text: str, observations: list[dict[str, Any]]
+) -> bool:
+    """窗内对齐放行（V2-54 修二）：断言的全部数字 token 在窗内任一观察
+    content 中出现＝有据放行（防引标指错份——B-正4 512/52.3 在窗形）。
+    零数字断言恒 False（纯文本断言维持原判）；all() 保守语义——任一数字
+    窗内找不到即不放行（编造数拦得住）。"""
+    nums = _NUMBER_RE.findall(assertion_text)
+    if not nums:
+        return False
+    contents = [str(o.get("content", "")) for o in observations]
+    return all(any(n in content for content in contents) for n in nums)
+
+
 def verify_draft(
     draft: str,
     observations: list[dict[str, Any]],
@@ -667,7 +687,12 @@ def verify_draft(
       与内容均不含任一题眼锚＝跨源引用，追加「跨源归属审——分源列明」块（对齐
       源/跨源逐支带出处列出；对齐材料在窗未引或窗内无对齐材料如实注记）。无锚
       （无实体题）＝零追加（不误伤钉）；数据链行级观察（agg_row/lineage）不入
-      辖域；归属审不改写行、不计 INV-1 改写数（数值支撑判定语义不变）。
+      辖域；归属审不改写行、不计 INV-1 改写数（数值支撑判定语义不变）；
+    - V2-54 核验辖域治理：空壳辖域（邻接/行首引标切出的零宽或纯符号辖域）剥引标
+      用整行重判（引标序号自身不作数——防自证）；整行重判仍不过时窗内对齐放行
+      （断言的全部数字 token 在窗内任一观察 content 出现即保留；零数字断言恒不
+      放行；放行不计 cited）；真无据照旧盖章（改写数只降不升——放行线仍纯数字
+      字符串查找，零向量零模型调用）。
     """
     by_index = {int(obs["index"]): obs for obs in observations}
     draft = strip_emission_fences(draft)[0]
@@ -687,10 +712,25 @@ def verify_draft(
             continue
         if chunks and all(_supported(n, chunk, by_index) for n, chunk in chunks):
             cited.update(n for n, _ in chunks)
+            out_lines.append(line)  # 原支撑路径——零变化
+            continue
+        # V2-54 修一：空壳辖域整行重判——任一辖域为空壳时，剥引标记号后
+        # 用整行文本对各引标逐一重判（引标序号自身不作数，防自证）。
+        bare = _CITE_RE.sub("", stripped)
+        if (
+            chunks
+            and any(not _scope_usable(chunk) for _, chunk in chunks)
+            and all(_supported(n, bare, by_index) for n, _ in chunks)
+        ):
+            cited.update(n for n, _ in chunks)
             out_lines.append(line)
-        else:
-            rewritten += 1
-            out_lines.append(f"未找到（材料未披露）：{stripped}")
+            continue
+        # V2-54 修二：窗内对齐放行（附 B）——引标指歪份不盖章。
+        if _window_aligned(bare, observations):
+            out_lines.append(line)  # 放行不计 cited——指歪的路牌不记功
+            continue
+        rewritten += 1  # 修三：真无据照旧盖章——零变化
+        out_lines.append(f"未找到（材料未披露）：{stripped}")
     split = False
     text = "\n".join(out_lines)
     split_members = _contradiction_members(cited, observations)

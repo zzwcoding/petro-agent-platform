@@ -496,3 +496,141 @@ class FakeQueryEngineStub:
 
     def run(self, plan: Any, *, approved_tables: tuple[str, ...] = ()) -> Any:
         raise AssertionError("semantic 路径不得触 data_query")
+
+
+# ---------- V2-54：INV-1 核验辖域治理（空辖域兜底＋窗内对齐放行） ----------
+# 病因＝_assertion_chunks 辖域切分缺陷：邻接引标 [1][20] 的第二辖域为零宽空串、
+# 行首引标的辖域为「- 」符号串——空壳辖域必判无据，整行误盖「未找到（材料未
+# 披露）：」前缀（Q15 65 帧/394 行主机理）。修三层：①空壳辖域整行重判；
+# ②窗内对齐放行（全部数字在窗内任一观察 content 出现）；③真无据照旧盖章。
+
+
+def _frag_carrier(index: int, content: str) -> dict[str, Any]:
+    """fragment 载体观察（真链 handlers._retrieval_observation 同构——测试钉）。"""
+    return {
+        "index": index,
+        "content": content,
+        "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》",
+        "source_id": f"frag-v254-{index}",
+        "version": None,
+        "freshness": "",
+        "scope": "monthly",
+        "locator": {
+            "kind": "fragment",
+            "library": "月报库",
+            "report": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》",
+        },
+    }
+
+
+def test_verify_v254_t1_adjacent_citations_empty_scope_whole_line_kept() -> None:
+    # T1 邻接引标放行（修前必挂形反转）：[1][20] 连写时 [20] 辖域＝零宽空串——
+    # 修一剥引标整行重判（两引标观察均 fragment 载体且含 512／52.3）→零改写。
+    observations = [
+        _frag_carrier(1, "W-21 井本周期检泵周期 512 天，上周期 486 天。"),
+        _frag_carrier(20, "W-21 井本次检泵作业费用 52.3 万元（含合准）。"),
+    ]
+    text, rewritten, cited, _split = verify_draft(
+        "W-21 井检泵周期为 512 天，作业费用为 52.3 万元 [1][20]",
+        observations,
+    )
+    assert rewritten == 0
+    assert cited == [1, 20]
+    assert "W-21 井检泵周期为 512 天，作业费用为 52.3 万元 [1][20]" in text
+    assert "未找到（材料未披露）" not in text
+
+
+def test_verify_v254_t2_line_head_citation_dash_scope_whole_line_kept() -> None:
+    # T2 行首引标放行：「- [12] …」辖域＝「- 」符号串必死形——修一剥引标整行
+    # 重判（agg_row 载体含 210）→零改写、引标收账。
+    text, rewritten, cited, _split = verify_draft(
+        "- [12] W-11 210 吨", [_agg_row_obs(12, "W-11", "210")]
+    )
+    assert rewritten == 0
+    assert cited == [12]
+    assert "- [12] W-11 210 吨" in text
+    assert "未找到（材料未披露）" not in text
+
+
+def test_verify_v254_t3_true_no_evidence_still_stamped() -> None:
+    # T3 真无据照旧盖章（修三钉——行为零变化）：断言数字窗内零观察可寻→
+    # 照旧盖「未找到（材料未披露）：」前缀（前缀逐字相等）。
+    text, rewritten, cited, _split = verify_draft(
+        "全油田年产液 999.9 万方 [1]", [_agg_row_obs(1, "N-01", "21.16")]
+    )
+    assert rewritten == 1
+    assert cited == []
+    assert "未找到（材料未披露）：全油田年产液 999.9 万方 [1]" in text
+
+
+def test_verify_v254_t4_window_aligned_pass_not_credited() -> None:
+    # T4 窗内对齐放行不计功（修二钉）：引标 [1] 自身观察不含 77.7（原支撑路径
+    # 不过）、另一窗内观察含全部数字 → 行保留、cited 不增、改写数不增。
+    observations = [
+        _frag_carrier(1, "W-31 井检泵周期 512 天，卧式采油树。"),
+        _frag_carrier(2, "12 月 W-51 井计划配注 77.7 方。"),
+    ]
+    text, rewritten, cited, _split = verify_draft(
+        "12 月计划配注 77.7 方 [1]", observations
+    )
+    assert rewritten == 0
+    assert cited == []  # 放行不计 cited——指歪的路牌不记功
+    assert "12 月计划配注 77.7 方 [1]" in text
+    assert "未找到（材料未披露）" not in text
+
+
+def test_verify_v254_t5_citation_index_itself_not_evidence() -> None:
+    # T5 引标序号不作数（防自证）：剥引标后断言零数字 → 窗内对齐恒不放行，
+    # 照旧盖章（引标编号自身救不了无据断言）。
+    text, rewritten, cited, _split = verify_draft(
+        "该井为本年度标杆井 [1]", [_fragment_obs(1)]
+    )
+    assert rewritten == 1
+    assert cited == []
+    assert "未找到（材料未披露）：该井为本年度标杆井 [1]" in text
+
+
+def test_verify_v254_t6_non_assertion_lines_regression() -> None:
+    # T6 非断言行回归：无引标无数字行／空行照旧原样保留（零改写零前缀）。
+    draft = "## 答案\n\n| 井号 | 日产油量 |\n|---|---|"
+    text, rewritten, cited, _split = verify_draft(draft, [])
+    assert rewritten == 0
+    assert cited == []
+    assert text == draft
+
+
+def test_verify_v254_t7_existing_support_paths_zero_regression() -> None:
+    # T7 既有支撑路径零回归（三面：正常辖域全数字复述判法／分源列明块／归属审
+    # 块——行为零变化；既有测试全绿即证，本测为同面公开行为钉）。
+    # ① 正常辖域全数值复述：非载体观察全部数值 token 被复述→行保留引标收账。
+    plain = {
+        "index": 1,
+        "content": "W-11 井生产套管下深 2462.0 米",
+        "source": "《A-W11井完井工程报告》",
+        "source_id": "f-w11-1",
+        "version": None,
+        "freshness": "",
+        "scope": "completion",
+        "locator": {"kind": "table", "report": "《A-W11井完井工程报告》"},
+    }
+    text, rewritten, cited, split = verify_draft(
+        "W-11 井生产套管下深 2462.0 米[1]。", [plain]
+    )
+    assert rewritten == 0 and cited == [1] and split is False
+    assert "未找到（材料未披露）" not in text
+    # ② 分源列明块：同 subject 值不同的两被引 fragment→INV-4 块照常追加。
+    pair = [
+        _frag_carrier(1, "自然递减率：4.6%（三季度）"),
+        _frag_carrier(2, "自然递减率：6.1%（另一口径）"),
+    ]
+    text2, rewritten2, cited2, split2 = verify_draft(
+        "自然递减率为 4.6% [1]，另一口径为 6.1% [2]。", pair
+    )
+    assert split2 is True and rewritten2 == 0 and cited2 == [1, 2]
+    assert "多来源不一致——分源列明（禁止无出处调和）：" in text2
+    # ③ 归属审块：anchors 非空且引标源与题眼对齐→零追加块（行为零变化）。
+    text3, rewritten3, cited3, split3 = verify_draft(
+        "W-11 井生产套管下深 2462.0 米[1]。", [plain], anchors=("W-11",)
+    )
+    assert rewritten3 == 0 and cited3 == [1] and split3 is False
+    assert "跨源归属审" not in text3
