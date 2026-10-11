@@ -163,6 +163,19 @@ def compose_production_data_wells(
     return production_data_wells(resolved)
 
 
+def compose_production_faq_lookup(
+    *, specs: Sequence[DatabaseSpec] | None = None
+) -> Any:
+    """FAQ serve 精确命中读缝（V2-52 FAQ 直出链的生产装配——faq_* 两表直读，
+    PgFaqStore.lookup 单公开方法；零缓存逐调用直读，与台账直读同纪律）。局部
+    import＝组合根例外（同上注记）。"""
+    from appv2.infra.config import load_database_specs
+    from appv2.knowledge import PgFaqStore
+
+    resolved = tuple(specs) if specs is not None else tuple(load_database_specs())
+    return PgFaqStore(resolved).lookup
+
+
 def create_app(
     *,
     db: ConnectionManager,
@@ -178,6 +191,7 @@ def create_app(
     ledger_dump: Any | None = None,
     watermark: Any | None = None,
     data_wells: Any | None = None,
+    faq_lookup: Any | None = None,
 ) -> FastAPI:
     """构建 appv2 应用（三端点挂线＋runtime 生产装配——依赖注入面）。
 
@@ -192,8 +206,8 @@ def create_app(
     four_phase＝V2-34 四相位装配开关（ADR-0005；缺省 True——P-033b 缺省翻转：
     生产装配四相位真跑，既有 ReAct 七节点图经 four_phase=False 显式装配保留；
     RUNTIME_SMOKE ②步序钉随四相位更新）。生产路径（registry 缺省）同时接词典层
-    全量投影缝、水位读缝与数据链井闭世界读缝（clarify 注入＋前置条件机新鲜度窗
-    ＋V2-51 软失败域闸）。
+    全量投影缝、水位读缝、数据链井闭世界读缝与 FAQ 命中读缝（clarify 注入＋
+    前置条件机新鲜度窗＋V2-51 软失败域闸＋V2-52 FAQ 直出链）。
     """
     production = registry is None
     if production:
@@ -209,6 +223,8 @@ def create_app(
             watermark = compose_production_watermark(specs=specs, today=today)
         if data_wells is None:
             data_wells = compose_production_data_wells(specs=specs)
+        if faq_lookup is None:
+            faq_lookup = compose_production_faq_lookup(specs=specs)
     if guide is None:
         guide = OntologyGuideProvider(
             today=None if today is None else today(),
@@ -233,6 +249,7 @@ def create_app(
         ledger_dump=ledger_dump,
         watermark=watermark,
         data_wells=data_wells,
+        faq_lookup=faq_lookup,
     )
     app = FastAPI(title="Petro-Agent V2", version="2.0", lifespan=lifespan)
     install_error_handlers(app)

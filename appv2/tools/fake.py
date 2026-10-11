@@ -124,7 +124,9 @@ class FakeQueryEngine:
                 )
         return PlanCheck(ok=True, reason=None)
 
-    def run(self, plan: QueryPlan) -> QueryOutcome:
+    def run(
+        self, plan: QueryPlan, *, approved_tables: tuple[str, ...] = ()
+    ) -> QueryOutcome:
         self.run_calls += 1
         if self.run_error is not None:
             raise self.run_error

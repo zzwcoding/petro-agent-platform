@@ -140,6 +140,7 @@ from appv2.tools import (
     ToolContext,
     ToolRegistry,
     entity_anchor_tokens,
+    fast_lane_verdict,
     inject_retrieval_anchors,
     judge,
     ledger_facts,
@@ -252,7 +253,9 @@ class LoopDeps:
     全量投影缝（澄清相位第 1 轮注入真源——tools.dump_from_store 装配）；watermark
     ＝水位读缝（前置条件机新鲜度窗照实判定——组合根经 production_waterline 供给）；
     data_wells＝数据链井闭世界读缝（V2-51 软失败域闸——组合根经
-    production_data_wells 供给 agg.dim_well 井号集；缺省 None＝域闸静默零漂移）。
+    production_data_wells 供给 agg.dim_well 井号集；缺省 None＝域闸静默零漂移）；
+    faq_lookup＝FAQ serve 精确命中读缝（V2-52 FAQ 直出链——组合根经
+    PgFaqStore.lookup 供给；缺省 None＝FAQ 直出门静默零漂移）。
     """
 
     def __init__(
@@ -267,6 +270,7 @@ class LoopDeps:
         ledger_dump: Callable[[], dict[str, Any]] | None = None,
         watermark: Callable[[], Any] | None = None,
         data_wells: Callable[[], Any] | None = None,
+        faq_lookup: Callable[[str], Any] | None = None,
         today: Any = None,
     ) -> None:
         self.registry = registry
@@ -279,6 +283,7 @@ class LoopDeps:
         self.ledger_dump = ledger_dump
         self.watermark = watermark
         self.data_wells = data_wells
+        self.faq_lookup = faq_lookup
         self.today = today if today is not None else clock.now().date()
 
     def model(self, key: str) -> GatewayChatModel:
@@ -1092,6 +1097,74 @@ def reseed_approval_id(run_id: str, engine_seed: str) -> str:
     return f"{run_id}#{engine_seed}"
 
 
+# ---------- 五站快车道（V2-52——understand 入口确定性直出，零 LLM） ----------
+
+_FAST_LANE_TITLES: dict[str, str] = {
+    "term_card": "术语词条卡收口",
+    "refused": "N1 禁用词硬终止",
+    "faq_direct": "FAQ 直出",
+}
+
+
+def _fast_lane_closure(state: RunState, deps: LoopDeps) -> dict[str, Any] | None:
+    """词条卡/N1 硬终止/FAQ 直出三形的确定性收口（缝缺省＝静默零漂移）。
+
+    判定序：禁用词/词条卡（tools.fast_lane_verdict——词典层 facts）先于 FAQ
+    serve 精确命中（deps.faq_lookup 读缝；读缝异常吞并＝门静默，watermark 缝
+    同款）。命中即直答收口（draft_kind=direct——免起草免核验），机读 notice
+    随流（禁用词硬终止恒 type="refused"＝审计拒答收口行的同源面）。
+    """
+    dump = state.ledger_dump
+    if dump is None and deps.ledger_dump is not None:
+        dump = deps.ledger_dump()
+    question = state.question
+    verdict = (
+        fast_lane_verdict(question, ledger_facts(dump)) if dump is not None else None
+    )
+    hit: Any = None
+    if verdict is None and deps.faq_lookup is not None:
+        try:
+            hit = deps.faq_lookup(question)
+        except Exception:
+            hit = None  # 读缝异常＝直出门静默（不炸链——watermark 缝同款）
+    if verdict is None and hit is None:
+        return None
+    if hit is not None:
+        answer = (
+            f"{hit.answer}\n（本条命中 FAQ 直出——未调用模型；"
+            f"出处：FAQ 条目 {hit.entry_id}）"
+        )
+        notice_type = "faq_direct"
+        notice = (
+            f"FAQ 精确命中「{hit.question}」——直出语义（不走检索执行，"
+            "语义锚定 FAQ 条目）"
+        )
+        extra: dict[str, Any] = {"faq_entry_id": hit.entry_id}
+    else:
+        assert verdict is not None
+        answer = verdict.answer
+        notice_type = verdict.notice_type
+        notice = verdict.notice
+        extra = {"fast_lane_kind": verdict.kind}
+    seq = _next_seq(state)
+    title = _FAST_LANE_TITLES.get(notice_type, "快车道直出")
+    record = _step_record(
+        seq, STEP_DECISION, title, None,
+        payload={"phase": "understand", "fast_lane": notice_type, **extra},
+    )
+    deps.bus.emit("step", {"step": STEP_DECISION, "seq": seq, "title": title})
+    notice_data = {"type": notice_type, "gates": [], "content": notice}
+    deps.bus.emit("notice", dict(notice_data))
+    updates: dict[str, Any] = {
+        "notices": [*state.notices, notice_data],
+        "steps": [*state.steps, record],
+    }
+    if dump is not None and state.ledger_dump is None:
+        updates["ledger_dump"] = dump  # 直读缓存随 run（澄清相位免二次读取）
+    _direct_answer(updates, answer)
+    return updates
+
+
 # ---------- 节点一：understand（理解——caller understand；记 decision 类步） ----------
 
 
@@ -1101,6 +1174,13 @@ def _make_understand(
     async def understand_node(state: RunState) -> dict[str, Any]:
         if (converged := _gate_or_none(state, deps)) is not None:
             return converged
+        # ——五站快车道（V2-52——确定性直出先于一切解析，V1 W-F19 0 号位语义）：
+        # 术语词条卡/N1 禁用词硬终止/FAQ 直出三形；判定面零 LLM
+        # （tools.fast_lane_verdict），FAQ 命中＝serve 精确匹配读缝。缝缺省
+        # （词典层与 faq_lookup 均缺）＝快车道静默零漂移。——
+        fast = _fast_lane_closure(state, deps)
+        if fast is not None:
+            return fast
         # 消息历史簿记（ADR-0006）：首问轮＝问题＋理解任务（追问 run 的前轮线程
         # 历史已在 state.history——executor 播种，此处续写新问轮）。
         context = deps.builder.compile(
@@ -1387,42 +1467,47 @@ async def _handle_choice(
         }
         deps.bus.emit("notice", dict(notice))
         updates["notices"] = [*state.notices, notice]
-        if state.extable_rounds >= 1:
-            notice = {
-                "type": "approval_gate_pending",
-                "gates": [],
-                "content": (
-                    f"审批已通过并留痕（单号 {approval_id}），但权威引擎侧闸未放行续跑"
-                    "——骨架版如实收口，待引擎侧审批放行接线。"
-                ),
-            }
-            deps.bus.emit("notice", dict(notice))
-            updates["notices"] = [*state.notices, notice]
-            _direct_answer(
-                updates,
-                f"外表引用审批已通过（单号 {approval_id}）；权威引擎侧闸未放行续跑，"
-                "如实收口不冒充。",
-            )
+        if four_phase:
+            # 四相位（A2 裁决落点＋V2-52 续跑全通道）：放行名单＝帧 detail.tables
+            # （表名集——前置条件机越集闸与引擎 F14 闸共同的比对面）随审批单号
+            # 一并进 approved_ids（ToolContext 随行），回前置条件机重判（放行后
+            # pass/note），不重排计划、不走 last_execute 重投通道。前置闸与引擎
+            # 侧闸（V2-44 实扫/F14）两道审批共用本通道——批准即续跑（前置重判
+            # →批量重执行；引擎 run 按放行态放行已批表，出数收口）。
+            tables = [
+                str(t)
+                for t in ((frame.get("detail") or {}).get("tables") or ())
+                if str(t).strip()
+            ]
+            updates["approved_ids"] = [
+                *state.approved_ids,
+                str(approval_id or ""),
+                *tables,
+            ]
+            updates["extable_rounds"] = state.extable_rounds + 1
+            updates["next_intent"] = INTENT_PRECONDITION
         else:
-            if four_phase:
-                # 四相位（A2 裁决落点）：放行名单＝帧 detail.tables（表名集——
-                # 前置条件机越集闸的比对面）随审批单号一并进 approved_ids
-                # （ToolContext 随行），回前置条件机重判（放行后 pass/note），
-                # 不重排计划、不走 last_execute 重投通道。
-                tables = [
-                    str(t)
-                    for t in ((frame.get("detail") or {}).get("tables") or ())
-                    if str(t).strip()
-                ]
+            if state.extable_rounds >= 1:
+                notice = {
+                    "type": "approval_gate_pending",
+                    "gates": [],
+                    "content": (
+                        f"审批已通过并留痕（单号 {approval_id}），但权威引擎侧闸未放行续跑"
+                        "——骨架版如实收口，待引擎侧审批放行接线。"
+                    ),
+                }
+                deps.bus.emit("notice", dict(notice))
+                updates["notices"] = [*state.notices, notice]
+                _direct_answer(
+                    updates,
+                    f"外表引用审批已通过（单号 {approval_id}）；权威引擎侧闸未放行续跑，"
+                    "如实收口不冒充。",
+                )
+            else:
                 updates["approved_ids"] = [
                     *state.approved_ids,
                     str(approval_id or ""),
-                    *tables,
                 ]
-                updates["extable_rounds"] = state.extable_rounds + 1
-                updates["next_intent"] = INTENT_PRECONDITION
-            else:
-                updates["approved_ids"] = [*state.approved_ids, str(approval_id or "")]
                 updates["extable_rounds"] = state.extable_rounds + 1
                 # 末次主执行载荷原样重投（ask 帧侧未执行工具——批准后才真正调用）。
                 last = dict(state.last_execute or {})

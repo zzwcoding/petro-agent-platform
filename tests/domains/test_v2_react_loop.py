@@ -783,7 +783,9 @@ async def test_tool_retry_budget_is_per_tool_name(tmp_path: Path) -> None:
             super().__init__()
             self._outcome = outcome
 
-        def run(self, plan: Any) -> QueryOutcome:
+        def run(
+            self, plan: Any, *, approved_tables: tuple[str, ...] = ()
+        ) -> QueryOutcome:
             self.run_calls += 1
             if self.run_calls == 1:
                 raise TimeoutError("上游抖动（剧本注入）")

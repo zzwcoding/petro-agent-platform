@@ -494,5 +494,5 @@ class FakeQueryEngineStub:
     def validate(self, plan: Any, *, candidates: Any = None) -> Any:
         raise AssertionError("semantic 路径不得触 data_query")
 
-    def run(self, plan: Any) -> Any:
+    def run(self, plan: Any, *, approved_tables: tuple[str, ...] = ()) -> Any:
         raise AssertionError("semantic 路径不得触 data_query")

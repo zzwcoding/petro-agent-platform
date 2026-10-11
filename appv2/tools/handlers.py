@@ -90,7 +90,9 @@ class QueryFace(Protocol):
         self, plan: QueryPlan, *, candidates: Iterable[str] | None = None
     ) -> PlanCheck: ...
 
-    def run(self, plan: QueryPlan) -> QueryOutcome: ...
+    def run(
+        self, plan: QueryPlan, *, approved_tables: tuple[str, ...] = ()
+    ) -> QueryOutcome: ...
 
 
 class RetrievalFace(Protocol):
@@ -470,7 +472,11 @@ def _evidence_observation(evidence: Evidence) -> Observation:
 async def data_query(
     args: dict[str, Any], ctx: ToolContext, *, query: QueryFace
 ) -> ToolResult:
-    """权威问数（plan_draft 先经 query.validate——不过＝bad_args，run 零调用）。"""
+    """权威问数（plan_draft 先经 query.validate——不过＝bad_args，run 零调用）。
+
+    放行态随行（V2-52 越集续跑全通道）：ctx.approved_tables 传引擎——已批表
+    放行续跑，未批子集照旧挂审批（审批不再二循环）。
+    """
     plan = _plan_from_draft(args["plan_draft"], actor=ctx.actor)
     check = query.validate(plan, candidates=ctx.metric_candidates)
     if not check.ok:
@@ -479,7 +485,7 @@ async def data_query(
             check.reason or "计划校验未过",
             hint="按校验理由修 plan_draft 后重试（校验拒＝引擎未执行）",
         )
-    return _outcome_to_result(query.run(plan))
+    return _outcome_to_result(query.run(plan, approved_tables=ctx.approved_tables))
 
 
 def _plan_from_draft(draft: Mapping[str, Any], *, actor: str) -> QueryPlan:
@@ -550,6 +556,10 @@ def _outcome_to_result(outcome: QueryOutcome) -> ToolResult:
         )
     if outcome.kind == OUTCOME_EXTERNAL_TABLE_APPROVAL:
         ask_card = dict(outcome.ask or {})
+        # V2-52 越集续跑通道：表名集随卡（additive 键——放行名单回填的机读面，
+        # runtime 批准落点经 detail.tables 进 approved_ids 随行重判/放行）。
+        if outcome.external_tables:
+            ask_card["tables"] = [str(t) for t in outcome.external_tables]
         return ToolResult.ask_frame(
             AskFrame(
                 kind=ASK_EXTERNAL_TABLE_APPROVAL,

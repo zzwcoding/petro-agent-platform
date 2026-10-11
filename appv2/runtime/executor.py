@@ -105,6 +105,7 @@ class GraphRunExecutor:
         ledger_dump: Any = None,  # Callable[[], dict] 词典层全量投影缝（拍板 a）
         watermark: Any = None,  # Callable[[], date | None] 水位读缝（前置条件机）
         data_wells: Any = None,  # Callable[[], frozenset[str]] 井闭世界读缝（V2-51 域闸）
+        faq_lookup: Any = None,  # Callable[[str], FaqHit | None] FAQ 命中读缝（V2-52 直出链）
     ) -> None:
         self._registry = registry
         self._models = models
@@ -118,6 +119,7 @@ class GraphRunExecutor:
         self._ledger_dump = ledger_dump
         self._watermark = watermark
         self._data_wells = data_wells
+        self._faq_lookup = faq_lookup
         self._store = RunStore(db)
         self._auditor = RunAuditor(db, security)
         self._tasks: set[asyncio.Task[None]] = set()
@@ -258,6 +260,7 @@ class GraphRunExecutor:
             ledger_dump=self._ledger_dump,
             watermark=self._watermark,
             data_wells=self._data_wells,
+            faq_lookup=self._faq_lookup,
             today=self._today,
         )
 

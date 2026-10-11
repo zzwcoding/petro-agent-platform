@@ -161,6 +161,17 @@ class BannedFact:
 
 
 @dataclass(frozen=True, slots=True)
+class TermFact:
+    """术语事实（V2-52 词条卡面——dump terms 行投影；freshness＝term_expiry
+    展示串族，届满/禁用标注随卡）。"""
+
+    term: str
+    value: str
+    freshness: str
+    banned: bool
+
+
+@dataclass(frozen=True, slots=True)
 class LedgerFacts:
     """前置条件机判定事实（ledger_facts(dump) 产物）。"""
 
@@ -170,6 +181,8 @@ class LedgerFacts:
     # 两段命中（精确 slot/名 → 别名归一）同构的确定性解析面（C5 闸与绑定态
     # 闸共用的归一真源；键序优先级＝引擎同款：slot > 名 > 别名）。
     keys: Mapping[str, str]
+    # 术语行投影（V2-52 词条卡面——additive，缺省空集＝既有构造零漂移）。
+    terms: tuple[TermFact, ...] = ()
 
     @property
     def banned_terms(self) -> tuple[str, ...]:
@@ -201,19 +214,28 @@ def ledger_facts(dump: Mapping[str, Any]) -> LedgerFacts:
         if target is not None:
             keys.setdefault(str(alias), target)
     banned: list[BannedFact] = []
+    terms: list[TermFact] = []
     for row in dump.get("terms") or []:
-        if not row.get("banned"):
-            continue
         value = str(row.get("value") or "")
+        term_name = str(row.get("term") or "")
+        freshness = str(row.get("freshness") or "")
+        is_banned = bool(row.get("banned"))
+        terms.append(
+            TermFact(term=term_name, value=value, freshness=freshness,
+                     banned=is_banned)
+        )
+        if not is_banned:
+            continue
         replacement_match = _REPLACEMENT_RE.search(value)
         banned.append(
             BannedFact(
-                term=str(row.get("term") or ""),
-                status=str(row.get("freshness") or "已禁用"),
+                term=term_name,
+                status=freshness or "已禁用",
                 replacement=replacement_match.group(1).strip() if replacement_match else "",
             )
         )
-    return LedgerFacts(metrics=metrics, banned=tuple(banned), keys=keys)
+    return LedgerFacts(metrics=metrics, banned=tuple(banned), keys=keys,
+                       terms=tuple(terms))
 
 
 # ---------- F7 名归一闸（P-039 附 4——确定性定义） ----------
@@ -562,3 +584,113 @@ def judge(
         subtask_id=subtask.subtask_id, state=STATE_PASS,
         fuzzy_window_rewrite=fuzzy_rewrite,
     )
+
+
+# ---------- 快车道判定面（V2-52 五站迁移——纯固定代码零 LLM，先于一切解析） ----------
+
+# 收口分型闭世界（runtime 消费——understand 入口确定性直出两形）。
+FAST_LANE_TERM_CARD = "term_card"
+FAST_LANE_BANNED = "banned"
+
+# 引用符号剥离集（定义形提取的归一面——「“躺井”是什么意思？」与
+# 「躺井是什么意思」同判）。
+_FAST_LANE_QUOTES = "「」『』“”\"'"
+
+# 术语定义形词面（确定性提取候选词条——exact-match 台账命中才收口，防误伤：
+# 「什么是躺井率？」候选＝躺井率 ∉ 台账＝零触发）。判定序即列表序。
+_DEFINITION_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"^什么是(.+)$"),
+    re.compile(r"^啥是(.+)$"),
+    re.compile(r"^(.+?)是啥(?:意思|含义)?$"),
+    re.compile(r"^(.+?)是什么(?:意思|含义|口径)?$"),
+    re.compile(r"^(.+?)的(?:定义|含义|意思|口径)是啥$"),
+    re.compile(r"^(.+?)的(?:定义|含义|意思)$"),
+)
+
+
+@dataclass(frozen=True, slots=True)
+class FastLaneClosure:
+    """快车道直出判定（understand 入口确定性收口的素材面——零 LLM）。
+
+    kind＝FAST_LANE_* 两值闭世界；answer＝直答正文（draft 直落）；notice＝
+    机读通知素材（type/content——runtime 按 type 出流；禁用词硬终止恒
+    type="refused"＝审计同源面，拒答收口一行 agent_v2.refused）。
+    """
+
+    kind: str
+    answer: str
+    notice_type: str
+    notice: str
+
+
+def extract_definition_term(question: str) -> str | None:
+    """术语定义形问句→候选词条（确定性词面；非定义形＝None）。
+
+    归一：剥引用符号（_FAST_LANE_QUOTES）＋收尾问号＋去空白；逐模式提取
+    候选；空候选＝None。
+    """
+    normalized = "".join(
+        ch for ch in question.strip() if ch not in _FAST_LANE_QUOTES
+    ).replace("？", "").replace("?", "").replace(" ", "").replace("\u3000", "")
+    if not normalized:
+        return None
+    for pattern in _DEFINITION_PATTERNS:
+        match = pattern.match(normalized)
+        if match is not None:
+            candidate = match.group(1).strip()
+            return candidate or None
+    return None
+
+
+def _term_card_answer(fact: TermFact, *, replacement: str) -> str:
+    """词条卡正文（定义/届满标注/争议注记照台账行原文——零改写）。"""
+    card = f"术语台账收录：{fact.value}（时效：{fact.freshness}）"
+    if fact.banned:
+        card += f"——该词为禁用词，现行叫法：{replacement or '见台账'}"
+    return card
+
+
+def fast_lane_verdict(question: str, facts: LedgerFacts) -> FastLaneClosure | None:
+    """问句快车道判定（V1 五站的 ReAct 形承载——零 LLM 零 I/O 纯函数）。
+
+    判定序（V1 W-F19 0 号位语义：禁用词先于一切解析；元问句/引用形豁免＝
+    词条卡收口不拦停）：
+    ① 术语定义形＋台账术语 exact 命中 → 词条卡收口（定义/届满标注/争议注记
+       随卡；禁用词条卡＝元问句豁免形——禁用标注＋替代词随卡）；
+    ② 禁用词命中（非定义形）→ N1 硬终止（拒因带替代词；notice 恒
+       type="refused"＝审计同源）；
+    ③ 其余 None（runtime 照常走四相位）。
+    """
+    facts_by_term = {fact.term: fact for fact in facts.terms if fact.term}
+    banned_by_term = {item.term: item for item in facts.banned if item.term}
+    candidate = extract_definition_term(question)
+    if candidate is not None and candidate in facts_by_term:
+        fact = facts_by_term[candidate]
+        replacement = (
+            banned_by_term[candidate].replacement if candidate in banned_by_term else ""
+        )
+        answer = _term_card_answer(fact, replacement=replacement)
+        return FastLaneClosure(
+            kind=FAST_LANE_TERM_CARD,
+            answer=answer,
+            notice_type="term_card",
+            notice=f"术语词条卡收口：「{fact.term}」（时效：{fact.freshness}）"
+                   "——定义与状态标注照台账行",
+        )
+    banned = next(
+        (item for item in facts.banned if item.term and item.term in question),
+        None,
+    )
+    if banned is not None:
+        replacement = f"替代：{banned.replacement}" if banned.replacement else "见台账"
+        reason = (
+            f"禁用词「{banned.term}」已废弃——如实拒答，不代答废弃口径"
+            f"（{replacement}）"
+        )
+        return FastLaneClosure(
+            kind=FAST_LANE_BANNED,
+            answer=reason,
+            notice_type="refused",
+            notice=f"N1 禁用词硬终止——拒因如实转答：{reason}",
+        )
+    return None

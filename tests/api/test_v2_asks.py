@@ -117,7 +117,9 @@ class QueueQueryEngine(FakeQueryEngine):
         super().__init__()
         self._queue = list(outcomes)
 
-    def run(self, plan: Any) -> QueryOutcome:
+    def run(
+        self, plan: Any, *, approved_tables: tuple[str, ...] = ()
+    ) -> QueryOutcome:
         self.run_calls += 1
         if len(self._queue) > 1:
             return self._queue.pop(0)

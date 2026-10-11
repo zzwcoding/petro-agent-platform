@@ -143,14 +143,18 @@ def _engine_script(*, segment: str) -> FakeQueryEngine:
         ]
 
         class QueueEngine(FakeQueryEngine):
-            def run(self, plan: object) -> QueryOutcome:
+            def run(
+                self, plan: object, *, approved_tables: tuple[str, ...] = ()
+            ) -> QueryOutcome:
                 self.run_calls += 1
                 return outcomes.pop(0) if len(outcomes) > 1 else outcomes[0]
 
         return QueueEngine()
 
     class RowsEngine(FakeQueryEngine):
-        def run(self, plan: object) -> QueryOutcome:
+        def run(
+            self, plan: object, *, approved_tables: tuple[str, ...] = ()
+        ) -> QueryOutcome:
             self.run_calls += 1
             return QueryOutcome.rows_with_lineage(
                 columns=(("well_id", "井号"), ("日产油量（吨）", "日产油量（吨）")),

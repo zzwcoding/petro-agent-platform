@@ -30,6 +30,7 @@ specs/query.md「不做什么」）。
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
+from dataclasses import replace
 from datetime import date, timedelta
 
 from appv2.infra import clock
@@ -166,8 +167,16 @@ class QueryEngine:
 
     # ---------- run：六站闸链（六联合态逐一产出） ----------
 
-    def run(self, plan: QueryPlan) -> QueryOutcome:
-        """执行计划（六联合态——权威表＋血缘卡或闸结果，零模型调用）。"""
+    def run(
+        self, plan: QueryPlan, *, approved_tables: tuple[str, ...] = ()
+    ) -> QueryOutcome:
+        """执行计划（六联合态——权威表＋血缘卡或闸结果，零模型调用）。
+
+        approved_tables＝外表放行态（V2-52 越集续跑全通道——runtime 批准落点
+        经 ToolContext 随行传入；缺省空＝闸语义零漂移）：plan 申报外表集对放行
+        态比对，已批表放行、未批子集照旧挂审批（批准即续跑——放行态进引擎后
+        出数收口，审批不再二循环）。
+        """
         evidence = self.knowledge.metric_by_name(plan.metric_slot)
         if evidence is None:
             return QueryOutcome.refuse(
@@ -190,13 +199,20 @@ class QueryEngine:
             return QueryOutcome.refuse(reason=str(exc))
         # 外表越集审批（N7.4c）——先于新鲜度闸（Q11 闸序修复：默认窗拦停
         # 不再掩蔽 interrupt；模型与流程都无权自批——挂起等人工）。
-        if plan.external_tables:
+        # V2-52 续跑全通道：放行态比对——已批表放行，仅未批子集挂审批。
+        pending_tables = tuple(
+            t for t in plan.external_tables if t not in set(approved_tables)
+        )
+        if pending_tables:
             approval_id = (
-                f"APP-{self._today():%m%d}-{'-'.join(plan.external_tables)}"
+                f"APP-{self._today():%m%d}-{'-'.join(pending_tables)}"
             )
             return QueryOutcome.external_table_approval(
-                tables=plan.external_tables,
-                ask=build_extable_ask(plan, approval_id=approval_id),
+                tables=pending_tables,
+                ask=build_extable_ask(
+                    replace(plan, external_tables=pending_tables),
+                    approval_id=approval_id,
+                ),
             )
         # 新鲜度闸（N7.4a——超窗拦停/改绑，E2 T-1 语义渲染面）。
         waterline = self.waterline() if self.waterline is not None else None

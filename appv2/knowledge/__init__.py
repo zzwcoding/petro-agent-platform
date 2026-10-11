@@ -11,7 +11,9 @@ Knowledge Evidence：agent 查得到、看得懂口径、知道能不能出数�
 - KIND_*／BINDING_*／MEASURE_COLUMNS／term_expiry／term_binding_state／
   metric_binding_state（binding_state 三态判定单点——V1 冻结三绑定原样）；
 - LedgerSnapshot／question_array_snapshot／glossary_aliases／
-  load_relation_families（问数组台账态快照、别名投影与本体导出物族标注装载）。
+  load_relation_families（问数组台账态快照、别名投影与本体导出物族标注装载）；
+- FaqHit／PgFaqStore／normalize_faq_question（faq_* 常见问题库只读投影——
+  serve 精确命中判定，V2-52 FAQ 直出链取数件）。
 
 只读纪律（INV-2）：本包零写路径——不产任何台账写面（增删改审沿用 V1
 治理线端点）；不做缓存层（本期直读/快照读，量级允许）。
@@ -34,6 +36,7 @@ from appv2.knowledge.domain import (
     term_binding_state,
     term_expiry,
 )
+from appv2.knowledge.pg_faq import FaqHit, PgFaqStore, normalize_faq_question
 from appv2.knowledge.pg_store import PgKnowledgeStore
 from appv2.knowledge.snapshot import (
     FamilyRow,
@@ -61,11 +64,13 @@ __all__ = (
     "MEASURE_COLUMNS",
     "Evidence",
     "FamilyRow",
+    "FaqHit",
     "InMemoryKnowledgeStore",
     "KnowledgeStore",
     "LedgerSnapshot",
     "MetricRow",
     "ObjectRow",
+    "PgFaqStore",
     "PgKnowledgeStore",
     "RelationRow",
     "SemanticQuery",
@@ -73,6 +78,7 @@ __all__ = (
     "glossary_aliases",
     "load_relation_families",
     "metric_binding_state",
+    "normalize_faq_question",
     "question_array_snapshot",
     "term_binding_state",
     "term_expiry",
