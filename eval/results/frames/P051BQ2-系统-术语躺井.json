@@ -1,0 +1,263 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-1b0753a8",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问\"躺井\"这一术语的定义或含义。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问\"躺井\"这一术语的定义或含义。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清钻取 ×1（semantic_query）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 3,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 7,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_term#4",
+    "content": "躺井（黑话 → 停产待检泵 · 有效（限作业区语境））：作业区口语",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清定稿：材料足够——直答收口"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 6,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 7,
+    "title": "核验：支撑 1｜改写 0｜分源 否"
+   }
+  },
+  {
+   "id": 11,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 1,
+    "rewritten": 0,
+    "split": false,
+    "cited": [
+     1
+    ],
+    "attribution": {
+     "anchors": [],
+     "cross": []
+    }
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 8,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 13,
+   "event": "citation",
+   "data": {
+    "index": 1,
+    "source": "sem_term#4",
+    "source_id": "4",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 14,
+   "event": "text",
+   "data": {
+    "content": "躺井是作业区口语化的俗称，特指停产待检泵的井 [1]。\n\n引用：\n[1] sem_term#4 · 4（ledger）"
+   }
+  },
+  {
+   "id": 15,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-1b0753a8",
+    "manifest_digest": "a4af0252c2f31afbfdffd7b889178d4c69338f6afde75cfa14bec9043d35da92"
+   }
+  },
+  {
+   "id": 16,
+   "event": "done",
+   "data": {
+    "run_id": "run-1b0753a8"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "躺井是作业区口语化的俗称，特指停产待检泵的井 [1]。\n\n引用：\n[1] sem_term#4 · 4（ledger）",
+  "citations": [
+   {
+    "index": 1,
+    "source": "sem_term#4",
+    "source_id": "4",
+    "trust": "ledger"
+   }
+  ],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-1b0753a8",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问\"躺井\"这一术语的定义或含义。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清钻取 ×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 3,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清定稿：材料足够——直答收口"
+   },
+   {
+    "step": "answer",
+    "seq": 6,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 7,
+    "title": "核验：支撑 1｜改写 0｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 8,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_term#4",
+    "content": "躺井（黑话 → 停产待检泵 · 有效（限作业区语境））：作业区口语",
+    "trust": "ledger"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 1,
+    "rewritten": 0,
+    "split": false,
+    "cited": [
+     1
+    ],
+    "attribution": {
+     "anchors": [],
+     "cross": []
+    }
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-1b0753a8",
+   "manifest_digest": "a4af0252c2f31afbfdffd7b889178d4c69338f6afde75cfa14bec9043d35da92"
+  },
+  "texts": [
+   "问\"躺井\"这一术语的定义或含义。",
+   "躺井是作业区口语化的俗称，特指停产待检泵的井 [1]。\n\n引用：\n[1] sem_term#4 · 4（ledger）"
+  ],
+  "duration_s": 4.8
+ }
+}

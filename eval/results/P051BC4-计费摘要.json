@@ -1,0 +1,33 @@
+{
+ "tag": "P051BC4",
+ "base": "http://127.0.0.1:8014/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "2026-10-11T13:58:17.212847",
+ "questions": 1,
+ "spend_ok": 1,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 4,
+  "fallback_calls": 0,
+  "input_tokens": 18930,
+  "output_tokens": 330,
+  "cost_yuan": 0.01992
+ },
+ "items": [
+  {
+   "qid": "数-察2",
+   "group": "DATA",
+   "run_id": "run-88f48907",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.01992,
+   "call_ids": [
+    "call-ce7d53a8",
+    "call-74901c85",
+    "call-0ab58e7e",
+    "call-cff77ed6"
+   ]
+  }
+ ],
+ "errors": []
+}

@@ -1,0 +1,28 @@
+{
+ "tag": "P051BQ",
+ "base": "http://127.0.0.1:8014/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "2026-10-11T13:57:55.714423",
+ "questions": 1,
+ "spend_ok": 1,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 0,
+  "fallback_calls": 0,
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "cost_yuan": 0.0
+ },
+ "items": [
+  {
+   "qid": "系统-禁用词",
+   "group": "SYS",
+   "run_id": "run-df6d890c",
+   "method": "time_window",
+   "calls": 0,
+   "cost_yuan": 0.0,
+   "call_ids": []
+  }
+ ],
+ "errors": []
+}

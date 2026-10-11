@@ -1,0 +1,152 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-a89b4f05",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问\"躺井\"这一术语的含义。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问\"躺井\"这一术语的含义。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清定稿：材料足够——直答收口"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 3,
+    "title": "核验：支撑 0｜改写 0｜分源 否"
+   }
+  },
+  {
+   "id": 5,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 0,
+    "split": false,
+    "cited": [],
+    "attribution": {
+     "anchors": [],
+     "cross": []
+    }
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 4,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 7,
+   "event": "text",
+   "data": {
+    "content": "（未取得观察材料——如实回报，不编造。）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-a89b4f05",
+    "manifest_digest": "35c3a772569da7b6075aff1e186ad148fd8794c1d2612d26eeda3330ec75ed91"
+   }
+  },
+  {
+   "id": 9,
+   "event": "done",
+   "data": {
+    "run_id": "run-a89b4f05"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（未取得观察材料——如实回报，不编造。）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-a89b4f05",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问\"躺井\"这一术语的含义。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清定稿：材料足够——直答收口"
+   },
+   {
+    "step": "verify",
+    "seq": 3,
+    "title": "核验：支撑 0｜改写 0｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 4,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 0,
+    "rewritten": 0,
+    "split": false,
+    "cited": [],
+    "attribution": {
+     "anchors": [],
+     "cross": []
+    }
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-a89b4f05",
+   "manifest_digest": "35c3a772569da7b6075aff1e186ad148fd8794c1d2612d26eeda3330ec75ed91"
+  },
+  "texts": [
+   "问\"躺井\"这一术语的含义。",
+   "（未取得观察材料——如实回报，不编造。）"
+  ],
+  "duration_s": 2.3
+ }
+}

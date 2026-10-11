@@ -1,0 +1,36 @@
+{
+ "tag": "P051BD92",
+ "base": "http://127.0.0.1:8014/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "2026-10-11T14:12:17.540890",
+ "questions": 1,
+ "spend_ok": 1,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 7,
+  "fallback_calls": 0,
+  "input_tokens": 67339,
+  "output_tokens": 735,
+  "cost_yuan": 0.069544
+ },
+ "items": [
+  {
+   "qid": "D-诱9",
+   "group": "D",
+   "run_id": "run-0010798f",
+   "method": "run_id",
+   "calls": 7,
+   "cost_yuan": 0.069544,
+   "call_ids": [
+    "call-66a57060",
+    "call-a1164f03",
+    "call-c30afc9f",
+    "call-64a8c550",
+    "call-331621e5",
+    "call-8a17f6b0",
+    "call-c0291336"
+   ]
+  }
+ ],
+ "errors": []
+}
