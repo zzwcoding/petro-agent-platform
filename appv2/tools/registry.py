@@ -24,6 +24,7 @@ from appv2.infra.llm_client import UpstreamRejected, UpstreamUnavailable
 from appv2.knowledge import KnowledgeStore
 from appv2.tools.argscheck import ArgsError, validate_args
 from appv2.tools.handlers import (
+    FaqLookupFace,
     QueryFace,
     RetrievalFace,
     build_tools,
@@ -117,9 +118,12 @@ class ToolRegistry:
         knowledge: KnowledgeStore,
         query: QueryFace,
         retrieval: RetrievalFace,
+        faq: FaqLookupFace | None = None,
     ) -> None:
         self._tools: dict[str, Tool] = {}
-        for tool in build_tools(knowledge=knowledge, query=query, retrieval=retrieval):
+        for tool in build_tools(
+            knowledge=knowledge, query=query, retrieval=retrieval, faq=faq
+        ):
             self.register(tool)
 
     def register(self, tool: Tool) -> None:

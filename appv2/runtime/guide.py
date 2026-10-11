@@ -44,7 +44,7 @@ DECISION_CONTRACT = (
 # ---------- 四相位合同（V2-34——runtime 单点，schema 校验真源同源） ----------
 
 CLARIFY_CONTRACT = (
-    "【相位①·业务澄清】只输出一个 JSON 对象（可围栏）。三动作：\n"
+    "【相位①·业务澄清】只输出一个 JSON 对象（可围栏）。四动作：\n"
     '- 分解：{"action": "decompose", "question_group": {"subtasks": '
     '[{"id": "s1", "question": "子问题原文", "ledger_notes": "〈精确指标 slot 名〉'
     '〈绑定态〉〈锚定窗〉", "chain": "data"|"knowledge", "tool": '
@@ -52,9 +52,19 @@ CLARIFY_CONTRACT = (
     "映射一条工具链（粒度＝一个指标×一个窗×一个对象集）；单一诉求不分解（单子"
     "问题组）；ledger_notes 必带——从下方台账全量块逐字转抄，不改写不杜撰。\n"
     '- 钻取：{"action": "discover", "discovers": [{"tool": "semantic_query"|'
-    '"table_schema", "args": {...}}]}——1~2 支；全 run ≤{max_discover_run} 次'
-    "（已用 {discover_used} 次）。开局已给全台账，禁猜词敲门：只作口径/绑定细节"
-    "钻取，不答「能不能出数」。\n"
+    '"table_schema"|"faq_lookup", "args": {...}}]}——1~2 支。开局已给全台账，'
+    "禁猜词敲门：只作口径/绑定细节钻取，不答「能不能出数」。\n"
+    # ↓↓ V2-52 附 A 工具目录逐字稿（票面施工基准——char 相等，本段不得增删字；
+    #    {discover_used} 为运行时替换槽，clarify 节点统一 replace）
+    "可用探查（discover，全 run ≤10 次，已用 {discover_used} 次）：\n"
+    "- semantic_query：本体口径/绑定/届满细节钻取（开局台账已全量，仅细节用）\n"
+    "- table_schema：表结构钻取（agg/sem/kb 分区）\n"
+    "- faq_lookup：FAQ 现成问答库——问句有现成标准答案时加速/互证；\n"
+    "  命中条目作辅助材料进上下文，你判断够 finalize 即可直答，不够继续检索\n"
+    # ↓↓ V2-52 辅助模式消费规则（附 B——finalize 直答合法化，二者皆合法）
+    '- 定稿直答：{"action": "finalize"}——辅助材料已足够回答时直接收口'
+    "（系统按观察材料起草带引用的答案——秒答形，不走检索执行）；材料不够则"
+    "继续分解或反问。\n"
     '- 反问：{"action": "ask", "ask": {"prompt": "...", "options": ["…"]}}'
     "——2~4 个选项；仅限两种白场：无场景词＋阈值判断形（口径支待用户选），"
     "或目标/对象/口径真歧义（用户补一句话即可解——拍板⑥澄清分级②）。\n"

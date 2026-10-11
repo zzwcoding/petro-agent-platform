@@ -31,7 +31,7 @@ runtime 传 fake.adapter 假引擎）；knowledge 直接用 KnowledgeStore 抽�
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import date
 from typing import Any, Protocol
 
@@ -79,6 +79,15 @@ DATA_QUERY = "data_query"
 DOC_RETRIEVE = "doc_retrieve"
 GRAPH_QUERY = "graph_query"
 SCHEMA_PROBE = "table_schema"
+FAQ_LOOKUP = "faq_lookup"
+
+# ---------- faq_lookup 辅助读面缝（V2-52 辅助模式——结构性 Protocol） ----------
+
+
+class FaqLookupFace(Protocol):
+    """FAQ 现成问答库读面（PgFaqStore.similar 同形——serve 归一精确命中）。"""
+
+    def similar(self, question: str, top: int = 3) -> Sequence[Any]: ...
 
 # ---------- 引擎缝（结构性 Protocol——只认公开接口两面） ----------
 
@@ -204,6 +213,19 @@ _SCHEMA_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
 }
 
+_FAQ_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "question": {
+            "type": "string",
+            "minLength": 1,
+            "description": "原问句或子问题（FAQ 现成问答库归一精确匹配）",
+        },
+    },
+    "required": ["question"],
+    "additionalProperties": False,
+}
+
 # ---------- descriptors（渐进披露：名称/一句话用途/参数 schema/只读声明） ----------
 
 _SEMANTIC_DESCRIPTION = (
@@ -235,6 +257,19 @@ _SCHEMA_DESCRIPTION = (
     "关系/族标注台账）、kb 片段清单（检索库分族）。白名单外（raw/lake 湖表等）"
     "不在探查范围——如实告知不开放。只读，零 SQL。"
 )
+# V2-52 辅助模式（附 B）：faq 命中条目作辅助材料进上下文（locator.kind=faq_aux），
+# 不进血缘卡（非断言素材源）、不进任何闸的判面；sufficiency 由模型判。
+_FAQ_DESCRIPTION = (
+    "FAQ 现成问答库查询（发现工具）：问句归一精确匹配服务中条目（标准问/相似"
+    "问——相似问优先），命中条目作辅助材料返回（Q/A 形），问句有现成标准答案"
+    "时可据此直答或与检索互证；未命中如实回执不阻断。只读。"
+)
+
+# 阈值常量钉死（附 B——THRESHOLD：score ≥ 阈值才消费；读面精确命中恒满分，
+# 向量相似路未接线，阈下形态在读面不存在）。
+FAQ_AUX_THRESHOLD = 1.0
+# 单次调用返回条目上限（附 B——top=3）。
+FAQ_TOP_N = 3
 
 # 权威表行来源链（agg 星型读模型事实表——表名机读单点）。
 _AGG_SOURCE = STAR_TABLES[0]
@@ -356,9 +391,17 @@ def _schema_observation(card: str) -> Observation:
 
 
 def build_tools(
-    *, knowledge: KnowledgeStore, query: QueryFace, retrieval: RetrievalFace
+    *,
+    knowledge: KnowledgeStore,
+    query: QueryFace,
+    retrieval: RetrievalFace,
+    faq: FaqLookupFace | None = None,
 ) -> list[Tool]:
-    """五工具装配（注册序＝specs/tools.md 列序＋V2-31 发现工具殿后；全部 readonly=True）。"""
+    """五工具装配（注册序＝specs/tools.md 列序＋V2-31 发现工具殿后；全部 readonly=True）。
+
+    faq＝FAQ 现成问答库读缝（V2-52 辅助模式——提供时注册 faq_lookup 发现工具，
+    缺省 None＝不在册：faq_* 缝未接线的装配零漂移）。
+    """
     async def _semantic(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return await semantic_query(args, ctx, knowledge=knowledge)
 
@@ -374,7 +417,7 @@ def build_tools(
     async def _schema(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return table_schema(args, ctx)
 
-    return [
+    tools = [
         Tool(
             descriptor=ToolDescriptor(
                 name=SEMANTIC_QUERY,
@@ -416,6 +459,22 @@ def build_tools(
             handler=_schema,
         ),
     ]
+    if faq is not None:
+
+        async def _faq(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+            return await faq_lookup(args, ctx, faq=faq)
+
+        tools.append(
+            Tool(
+                descriptor=ToolDescriptor(
+                    name=FAQ_LOOKUP,
+                    description=_FAQ_DESCRIPTION,
+                    args_schema=_FAQ_SCHEMA,
+                ),
+                handler=_faq,
+            )
+        )
+    return tools
 
 
 # ---------- 工具一：semantic_query ----------
@@ -695,6 +754,55 @@ def table_schema(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         str(area) if area is not None else None,
         str(table).strip() if table is not None else None,
     ))
+
+
+# ---------- 工具六：faq_lookup（V2-52 辅助模式——附 B 执行语义） ----------
+
+
+async def faq_lookup(
+    args: dict[str, Any], ctx: ToolContext, *, faq: FaqLookupFace
+) -> ToolResult:
+    """FAQ 现成问答库查询（附 B 伪代码的执行件落位——施工基准照抄）：
+
+    归一（NFKC＋剥全部标点——knowledge.normalize_faq_question 单点）→读面
+    相似问优先取 top →阈值（FAQ_AUX_THRESHOLD）与禁用条目（disabled）剔除 →
+    命中＝辅助材料观察（locator.kind=faq_aux、source_id=faq_entry:<id>、
+    content＝逐条「Q：标准问 / A：答案」——不进血缘卡，不进任何闸的判面，
+    sufficiency 由模型判）；未命中＝机读 note「FAQ 库无命中」如实（空集，
+    不阻断继续检索）。
+    """
+    question = str(args.get("question") or "").strip()
+    if not question:
+        raise ArgsError("缺 question（原问句或子问题必填）")
+    hits = [
+        hit
+        for hit in faq.similar(question, top=FAQ_TOP_N)
+        if float(getattr(hit, "score", 0.0)) >= FAQ_AUX_THRESHOLD
+        and not getattr(hit, "disabled", False)
+    ]
+    if not hits:
+        return ToolResult.ok([
+            _notice_observation(
+                content=f"FAQ 库无命中（{question}）——现成问答库未收该问句，"
+                        "请按台账/检索继续",
+                notice_type="no_hit",
+                source="faq_* 读面",
+                source_id="no_hit",
+            )
+        ])
+    observations = [
+        Observation(
+            content=f"Q：{hit.question} / A：{hit.answer}",
+            source="faq_entry",
+            source_id=f"faq_entry:{hit.entry_id}",
+            version=None,
+            freshness="",  # FAQ 库无时效承载——零发明
+            scope="faq",
+            locator={"kind": "faq_aux", "entry_id": str(hit.entry_id)},
+        )
+        for hit in hits
+    ]
+    return ToolResult.ok(observations)
 
 
 def _missing_sources_segment(window_note: str) -> str:

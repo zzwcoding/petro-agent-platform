@@ -2,8 +2,8 @@
 
 四相位的两道 schema 收口（LLM 出语义，本模块出结构判定——零 LLM 纯校验）：
 
-- 相位①业务澄清发射（parse_question_group）：discover｜decompose｜ask 三动作
-  闭世界。decompose 产出 QuestionGroup——subtasks[{id/question/ledger_notes/
+- 相位①业务澄清发射（parse_question_group）：discover｜decompose｜ask｜finalize
+  四动作闭世界。decompose 产出 QuestionGroup——subtasks[{id/question/ledger_notes/
   chain?/tool?}]，子问题上限 ≤4（Owner 认可值）；ledger_notes 必填非空（台账
   注释纪律：从词典层注入块逐字转抄，前置条件机按注释过闸）。
 - 相位②工具匹配发射（parse_tool_match）：matches 与问题组闭合世界对账——组内
@@ -42,13 +42,15 @@ _CHAIN_TOOL: dict[str, str] = {
     CHAIN_KNOWLEDGE: TOOL_DOC_RETRIEVE,
 }
 
-# 相位①动作闭世界（发现/分解/反问——与 ReAct 决策四动作分立：分解发射进
-# 固定代码四相位管线，不再直达 execute）。
+# 相位①动作闭世界（发现/分解/反问/定稿直答——与 ReAct 决策四动作分立：分解
+# 发射进固定代码四相位管线，不再直达 execute；finalize＝V2-52 辅助模式消费
+# 规则——faq 等辅助材料足够时模型判 sufficiency 直答，代码不干预）。
 CLARIFY_DISCOVER = "discover"
 CLARIFY_DECOMPOSE = "decompose"
 CLARIFY_ASK = "ask"
+CLARIFY_FINALIZE = "finalize"
 CLARIFY_ACTIONS: frozenset[str] = frozenset(
-    {CLARIFY_DISCOVER, CLARIFY_DECOMPOSE, CLARIFY_ASK}
+    {CLARIFY_DISCOVER, CLARIFY_DECOMPOSE, CLARIFY_ASK, CLARIFY_FINALIZE}
 )
 
 # 发现预算闸拒因标记（graph 澄清节点消费：预算驱动的 discover 拒不占轮——
@@ -115,9 +117,9 @@ class QuestionGroup:
 
 @dataclass(frozen=True, slots=True)
 class ClarifyEmission:
-    """相位①发射（三动作闭世界的定型形——step payload 断言面）。"""
+    """相位①发射（四动作闭世界的定型形——step payload 断言面）。"""
 
-    kind: str  # discover|decompose|ask
+    kind: str  # discover|decompose|ask|finalize
     group: QuestionGroup | None = None
     discovers: tuple[dict[str, Any], ...] = ()
     ask_prompt: str = ""
@@ -208,7 +210,7 @@ def parse_question_group(
     action = payload.get("action")
     if action not in CLARIFY_ACTIONS:
         return (
-            f"action 缺失或越界（{'/'.join(sorted(CLARIFY_ACTIONS))} 三值）：{action!r}"
+            f"action 缺失或越界（{'/'.join(sorted(CLARIFY_ACTIONS))} 四值）：{action!r}"
         )
     emission = ClarifyEmission(
         kind=str(action),
@@ -237,6 +239,8 @@ def parse_question_group(
         if isinstance(group, str):
             return group
         return replace(emission, group=group)
+    if emission.kind == CLARIFY_FINALIZE:
+        return emission  # 定稿直答无载荷（thought/note 基形已携——sufficiency 模型判）
     # ask——与决策发射 ask 同形
     raw_ask = payload.get("ask")
     if not isinstance(raw_ask, dict):

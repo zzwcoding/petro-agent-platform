@@ -265,6 +265,37 @@ def test_external_table_ask() -> None:
     assert outcome.rows is None  # 挂起等审批——不直接出数
 
 
+# ---------- V2-52/P-051b 审查④清偿（S4）：真引擎放行态闸函数级直钉 ----------
+
+
+def test_external_table_approved_state_direct() -> None:
+    """放行态直钉（真 QueryEngine——非替身旁路）：已批表全放行→出数不再挂
+    审批（续跑通道的引擎侧权威闸语义）；零放行→审批帧（既有语义）；部分
+    放行→审批只挂未批子集。窗钉历史区间（显式窗——默认窗会先撞新鲜度闸，
+    混淆本钉的放行态语义面）。"""
+    plan = replace(
+        _plan("日产油量", "井位台账里日产油量最高的井是哪口？"),
+        window_start=date(2025, 9, 1),
+        window_end=date(2025, 9, 3),
+    )
+    assert plan.external_tables == ("erp_well_register",)
+    # 全放行→出数（批准后重执行零二次挂审批——Q14W 数-察2 骨架收口形根治）。
+    approved = _engine().run(plan, approved_tables=("erp_well_register",))
+    assert approved.kind == OUTCOME_ROWS
+    assert approved.rows is not None and approved.rows
+    # 零放行→审批帧（未批照挂）。
+    bare = _engine().run(plan)
+    assert bare.kind == OUTCOME_EXTERNAL_TABLE_APPROVAL
+    assert bare.external_tables == ("erp_well_register",)
+    # 部分放行→审批只携未批子集（放行态逐表比对——engine run 放行态缝语义）。
+    widened = replace(
+        plan, external_tables=("erp_well_register", "erp_well_monthly")
+    )
+    partial = _engine().run(widened, approved_tables=("erp_well_register",))
+    assert partial.kind == OUTCOME_EXTERNAL_TABLE_APPROVAL
+    assert partial.external_tables == ("erp_well_monthly",)
+
+
 # ---------- V2-22：血缘③窗标签空串填实（真模型草案不带 window_label 三形态） ----------
 
 

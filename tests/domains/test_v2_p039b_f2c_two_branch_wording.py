@@ -56,6 +56,34 @@ P039_OLD_LAST_SENTENCE = (
     "无时间词的数据链问题＝默认近 30 天直发，禁反问时间窗（窗双 null 由引擎缺参反问兜底）。"
 )
 
+# ---------- V2-52 辅助模式合同改型面（P-051b——零删改钉的随动还原件） ----------
+
+# V2-52 附 A 目录逐字稿＋finalize 直答行（追加段——还原时整段剥除；与
+# guide.py 施工基准同源，char 相等）。
+V252_DIRECTORY_AND_FINALIZE = (
+    "可用探查（discover，全 run ≤10 次，已用 {discover_used} 次）：\n"
+    "- semantic_query：本体口径/绑定/届满细节钻取（开局台账已全量，仅细节用）\n"
+    "- table_schema：表结构钻取（agg/sem/kb 分区）\n"
+    "- faq_lookup：FAQ 现成问答库——问句有现成标准答案时加速/互证；\n"
+    "  命中条目作辅助材料进上下文，你判断够 finalize 即可直答，不够继续检索\n"
+    '- 定稿直答：{"action": "finalize"}——辅助材料已足够回答时直接收口'
+    "（系统按观察材料起草带引用的答案——秒答形，不走检索执行）；材料不够则"
+    "继续分解或反问。\n"
+)
+
+# 钻取行改型（发射闭世界升三工具＋预算语移入目录头——还原回 P-039 两工具形）。
+V252_DISCOVER_LINE = (
+    '- 钻取：{"action": "discover", "discovers": [{"tool": "semantic_query"|'
+    '"table_schema"|"faq_lookup", "args": {...}}]}——1~2 支。开局已给全台账，'
+    "禁猜词敲门：只作口径/绑定细节钻取，不答「能不能出数」。\n"
+)
+P039_DISCOVER_LINE = (
+    '- 钻取：{"action": "discover", "discovers": [{"tool": "semantic_query"|'
+    '"table_schema", "args": {...}}]}——1~2 支；全 run ≤{max_discover_run} 次'
+    "（已用 {discover_used} 次）。开局已给全台账，禁猜词敲门：只作口径/绑定细节"
+    "钻取，不答「能不能出数」。\n"
+)
+
 # P-039 版 CLARIFY_CONTRACT 全文（master adb4321 appv2/runtime/guide.py 逐字取下
 # ——零删改钉的还原基准：现合同把新末句还原回旧末句必须与它 char-level 全等）。
 P039_CLARIFY_CONTRACT = (
@@ -102,12 +130,18 @@ def test_v242_last_sentence_replaced_verbatim_char_equal() -> None:
 
 
 def test_v242_zero_deletion_restoring_old_sentence_reproduces_p039() -> None:
-    """验收①零删改钉：新末句还原回旧末句＋剥除 V2-46 回捞白场追加段＝P-039 版
-    合同全文 char-level 全等（「只许替换末句，其余一字不动」——V2-41 施工红线
-    机检形；V2-46 追加段随动剥除——P-045 派工单批准的合同尾部追加）。"""
-    restored = CLARIFY_CONTRACT.replace(V2_42_LAST_SENTENCE, P039_OLD_LAST_SENTENCE)
+    """验收①零删改钉（V2-52 随动升版——P-051b 辅助模式返工的合法合同变更）：
+    新末句还原回旧末句＋剥 V2-52 目录/finalize 追加段＋钻取行还原两工具形＋
+    四动作还原三动作＋剥 V2-46 回捞白场追加段＝P-039 版合同全文 char-level
+    全等。受保护面不变：knowledge 链规则/发射判据/反问白场段一字不动——V2-52
+    改型只许落在动作闭世界行/钻取行/目录与 finalize 追加段。"""
+    restored = (
+        CLARIFY_CONTRACT.replace(V2_42_LAST_SENTENCE, P039_OLD_LAST_SENTENCE)
+        .replace(V252_DIRECTORY_AND_FINALIZE, "")
+        .replace(V252_DISCOVER_LINE, P039_DISCOVER_LINE)
+        .replace("四动作：", "三动作：")
+    )
     assert restored.removesuffix(RECALL_CLAUSE) == P039_CLARIFY_CONTRACT
-    assert len(restored) == len(P039_CLARIFY_CONTRACT) + len(RECALL_CLAUSE)
     assert len(P039_CLARIFY_CONTRACT) == 1066  # P-039 版合同字数不变（基准面）
 
 

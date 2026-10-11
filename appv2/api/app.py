@@ -70,14 +70,16 @@ def compose_production_registry(
       不拦停不改绑）；行级权限/外表审批零触碰）；
     - retrieval＝RetrievalEngine（片段库＝PgFragmentLibrary kb_* 直读；
       embedder＝RemoteEmbedder——B6 embedding 唯一出口 infra.llm_client；
-      图谱源未接线＝graph 面空集回退，Neo4j 适配器随落位批）。
+      图谱源未接线＝graph 面空集回退，Neo4j 适配器随落位批）；
+    - faq＝PgFaqStore（V2-52 辅助模式——faq_lookup 发现工具读缝，faq_* 两表
+      直读零缓存逐调用现行行）。
 
     局部 import＝组合根例外（modules.md api 卡注记的延伸——本函数是 api 层
     唯一触引擎/tools 的位置；测试 fixture 组合不走此处，经 registry 注入）。
     """
     from appv2.infra.config import load_chat_settings, load_database_specs
     from appv2.infra.llm_client import LlmClient
-    from appv2.knowledge import PgKnowledgeStore
+    from appv2.knowledge import PgFaqStore, PgKnowledgeStore
     from appv2.query import PgQueryExecutor, QueryEngine, production_waterline
     from appv2.retrieval import (
         EnrichedFragmentLibrary,
@@ -111,7 +113,12 @@ def compose_production_registry(
         ),
         embedder=embedder if embedder is not None else RemoteEmbedder(LlmClient()),
     )
-    return ToolRegistry(knowledge=knowledge, query=query, retrieval=retrieval)
+    return ToolRegistry(
+        knowledge=knowledge,
+        query=query,
+        retrieval=retrieval,
+        faq=PgFaqStore(resolved),
+    )
 
 
 def compose_production_ledger_dump(
@@ -163,19 +170,6 @@ def compose_production_data_wells(
     return production_data_wells(resolved)
 
 
-def compose_production_faq_lookup(
-    *, specs: Sequence[DatabaseSpec] | None = None
-) -> Any:
-    """FAQ serve 精确命中读缝（V2-52 FAQ 直出链的生产装配——faq_* 两表直读，
-    PgFaqStore.lookup 单公开方法；零缓存逐调用直读，与台账直读同纪律）。局部
-    import＝组合根例外（同上注记）。"""
-    from appv2.infra.config import load_database_specs
-    from appv2.knowledge import PgFaqStore
-
-    resolved = tuple(specs) if specs is not None else tuple(load_database_specs())
-    return PgFaqStore(resolved).lookup
-
-
 def create_app(
     *,
     db: ConnectionManager,
@@ -191,23 +185,22 @@ def create_app(
     ledger_dump: Any | None = None,
     watermark: Any | None = None,
     data_wells: Any | None = None,
-    faq_lookup: Any | None = None,
 ) -> FastAPI:
     """构建 appv2 应用（三端点挂线＋runtime 生产装配——依赖注入面）。
 
     registry＝ToolRegistry 实例（组合根注入——类型真源在 appv2.tools，本层
     按 modules.md api 卡边界「只依赖 runtime＋infra」不 import，经 runtime
     executor 的签名面消费）；**None（缺省）＝生产组合**——compose_production_
-    registry 真装配三引擎（V2-19 票面任务 4；specs/chat_settings/today/
-    embedder 只在该路径生效）。
+    registry 真装配三引擎＋faq_lookup 读缝（V2-19 票面任务 4；specs/chat_
+    settings/today/embedder 只在该路径生效）。
     guide＝处理指南（V2-34 任务 10 真指南接线——None＝OntologyGuideProvider
     缺省构造：ontology 资产 §A 装载切面＋DECISION_CONTRACT 拼接；占位
     DefaultGuideProvider 已退役，不设双真源）。
     four_phase＝V2-34 四相位装配开关（ADR-0005；缺省 True——P-033b 缺省翻转：
     生产装配四相位真跑，既有 ReAct 七节点图经 four_phase=False 显式装配保留；
     RUNTIME_SMOKE ②步序钉随四相位更新）。生产路径（registry 缺省）同时接词典层
-    全量投影缝、水位读缝、数据链井闭世界读缝与 FAQ 命中读缝（clarify 注入＋
-    前置条件机新鲜度窗＋V2-51 软失败域闸＋V2-52 FAQ 直出链）。
+    全量投影缝、水位读缝与数据链井闭世界读缝（clarify 注入＋前置条件机新鲜度窗
+    ＋V2-51 软失败域闸）；faq_lookup 工具随生产组合根在册（V2-52 辅助模式）。
     """
     production = registry is None
     if production:
@@ -223,8 +216,6 @@ def create_app(
             watermark = compose_production_watermark(specs=specs, today=today)
         if data_wells is None:
             data_wells = compose_production_data_wells(specs=specs)
-        if faq_lookup is None:
-            faq_lookup = compose_production_faq_lookup(specs=specs)
     if guide is None:
         guide = OntologyGuideProvider(
             today=None if today is None else today(),
@@ -249,7 +240,6 @@ def create_app(
         ledger_dump=ledger_dump,
         watermark=watermark,
         data_wells=data_wells,
-        faq_lookup=faq_lookup,
     )
     app = FastAPI(title="Petro-Agent V2", version="2.0", lifespan=lifespan)
     install_error_handlers(app)

@@ -105,7 +105,6 @@ class GraphRunExecutor:
         ledger_dump: Any = None,  # Callable[[], dict] 词典层全量投影缝（拍板 a）
         watermark: Any = None,  # Callable[[], date | None] 水位读缝（前置条件机）
         data_wells: Any = None,  # Callable[[], frozenset[str]] 井闭世界读缝（V2-51 域闸）
-        faq_lookup: Any = None,  # Callable[[str], FaqHit | None] FAQ 命中读缝（V2-52 直出链）
     ) -> None:
         self._registry = registry
         self._models = models
@@ -119,7 +118,6 @@ class GraphRunExecutor:
         self._ledger_dump = ledger_dump
         self._watermark = watermark
         self._data_wells = data_wells
-        self._faq_lookup = faq_lookup
         self._store = RunStore(db)
         self._auditor = RunAuditor(db, security)
         self._tasks: set[asyncio.Task[None]] = set()
@@ -183,6 +181,13 @@ class GraphRunExecutor:
             snapshot = await graph.aget_state(config)
             values = snapshot.values or {}
             resume_choice_base = len(values.get("resume_choices") or [])
+            # 豁免审计基线（挂起前已落账的 ban_exempt notice 数——恢复段只补
+            # 增量，防累计 notices 重放重复行；resume_choice_base 同款切片法）。
+            ban_exempt_base = sum(
+                1
+                for n in (values.get("notices") or [])
+                if isinstance(n, dict) and n.get("type") == "ban_exempt"
+            )
             await graph.aupdate_state(
                 config,
                 {
@@ -198,6 +203,7 @@ class GraphRunExecutor:
                 command.run_id,
                 who=str(run.actor),
                 resume_choice_base=resume_choice_base,
+                ban_exempt_base=ban_exempt_base,
             )
             return RunHandle(run_id=command.run_id, stream=bus.stream())
         raise ValueError(f"未知 RunCommand：{command.kind!r}")
@@ -260,7 +266,6 @@ class GraphRunExecutor:
             ledger_dump=self._ledger_dump,
             watermark=self._watermark,
             data_wells=self._data_wells,
-            faq_lookup=self._faq_lookup,
             today=self._today,
         )
 
@@ -293,11 +298,13 @@ class GraphRunExecutor:
         *,
         who: str = "",
         resume_choice_base: int = 0,
+        ban_exempt_base: int = 0,
     ) -> None:
         task = asyncio.create_task(
             self._drive(
                 graph, graph_input, config, bus, run_id,
                 who=who, resume_choice_base=resume_choice_base,
+                ban_exempt_base=ban_exempt_base,
             )
         )
         self._tasks.add(task)
@@ -313,6 +320,7 @@ class GraphRunExecutor:
         *,
         who: str = "",
         resume_choice_base: int = 0,
+        ban_exempt_base: int = 0,
     ) -> None:
         """图驱动收口：状态落库（run 状态机四态）＋审计四事件＋事件流收束。"""
         try:
@@ -324,6 +332,9 @@ class GraphRunExecutor:
                 await self._audit_decisions(
                     bus, run_id=run_id, final=final, who=who, base=resume_choice_base
                 )
+                await self._audit_ban_exempts(
+                    bus, run_id=run_id, final=final, who=who, base=ban_exempt_base
+                )
             elif final.get("error"):
                 error = str(final["error"])
                 await self._store.finish_run(run_id, status=RUN_FAILED, error=error)
@@ -332,6 +343,9 @@ class GraphRunExecutor:
                 )
                 await self._audit_decisions(
                     bus, run_id=run_id, final=final, who=who, base=resume_choice_base
+                )
+                await self._audit_ban_exempts(
+                    bus, run_id=run_id, final=final, who=who, base=ban_exempt_base
                 )
             else:
                 answer = str(final.get("answer") or "")
@@ -345,6 +359,10 @@ class GraphRunExecutor:
                 # 决定行先于收口行（写入序＝时序）；拒答与正常收口互斥恰一行。
                 await self._audit_decisions(
                     bus, run_id=run_id, final=final, who=who, base=resume_choice_base
+                )
+                # 豁免放行行先于收口行（N1 豁免必留痕——P-051b 审查②）。
+                await self._audit_ban_exempts(
+                    bus, run_id=run_id, final=final, who=who, base=ban_exempt_base
                 )
                 await self._audit_closeout(
                     bus, run_id=run_id, final=final, answer=answer, who=who
@@ -437,6 +455,27 @@ class GraphRunExecutor:
                 run_id=run_id,
                 approved=record.get("value") == "批准",
                 approval_id=str(record.get("approval_id") or ""),
+                who=who,
+            )
+
+    async def _audit_ban_exempts(
+        self, bus: EventBus, *, run_id: str, final: dict[str, Any], who: str, base: int
+    ) -> None:
+        """本段 N1 豁免放行审计（V2-52 附 C——豁免必留 audit 行，P-051b 审查②）。
+
+        理解入口闸的豁免 notice（type=ban_exempt，携 term 机读键）逐条一行
+        agent_v2.ban_exempt（三终态全覆盖——豁免后挂起/失败/收口都留痕）；
+        base＝挂起前已落账数（恢复段切片只补增量——resume_choice_base 同款）。
+        """
+        notices = [n for n in (final.get("notices") or []) if isinstance(n, dict)]
+        for notice in notices[max(base, 0) :]:
+            if notice.get("type") != "ban_exempt":
+                continue
+            await self._audit(
+                bus,
+                self._auditor.ban_exempt,
+                run_id=run_id,
+                term=str(notice.get("term") or ""),
                 who=who,
             )
 

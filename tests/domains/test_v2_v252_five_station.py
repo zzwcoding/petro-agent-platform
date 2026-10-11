@@ -1,19 +1,26 @@
-"""V2-52 五站缺口迁移批——骨架钉测（P-051 开发拍，TDD 红先绿后）。
+"""V2-52 五站缺口迁移批——辅助模式返工钉测（P-051b，TDD 红先绿后）。
 
-五站＝V1 能力在 ReAct/四相位下的行为等效重建（票面：重建非照搬）：
-- FAQ 直出链：N18 种子（faq_entry serve）精确命中→直出语义（不走检索执行，
-  语义锚定 FAQ 条目，零模型调用）；
-- 术语词条卡（含届满标注/争议注记随卡）：术语定义问→词条卡收口（台账行原文
-  ＋term_expiry 展示串）；
-- N1 禁用词硬终止链：禁用词命中（非元问句形）→硬终止拒答＋审计留痕
-  （security.audit 唯一写口 agent_v2.refused）；元问句/引用形豁免＝词条卡收口
-  （禁用标注＋替代词随卡，不拦停）；
-- 越集 interrupt 续跑通道：V2-44 引擎侧拦停→resume 批准→续跑（前置重判→
-  批量重执行→引擎按放行态出数——骨架收口段补齐为全通道）。
+返工基准＝tickets/v2/V2-52-五站缺口迁移批.md v2 票面（Owner 辅助模式拍板）＋
+P-051 中途审查四件裁决（等效补齐×2/追认×2）：
 
-判定面全部纯固定代码零 LLM（tools.precondition fast_lane_verdict＋
-knowledge.pg_faq 精确匹配）；运行面挂 understand 入口（先于一切解析——
-V1 W-F19 0 号位语义的 ReAct 形承载）。
+- 快车道拆除钉：fast_lane_verdict 判定面（understand 入口确定性直出＋定义形
+  词条卡直出）整体移除（非注记留死）；仅服务它的 LedgerFacts terms 投影随拆；
+  词条卡语义由「开局台账注入＋semantic_query」承载；
+- faq_lookup 辅助钉（附 B）：归一 NFKC＋剥全部标点（审查①等效补齐）/相似问
+  优先/THRESHOLD 阈值/禁用条目剔除；进 discover 闭世界，命中条目作辅助材料
+  （locator.kind=faq_aux）进上下文观察流——模型 finalize 直答（零 doc_retrieve
+  秒答形）或 decompose 继续，二者皆合法；未命中＝机读 note 如实不阻断；
+- 辅助不触发闸钉：faq 材料在窗时 precondition 各闸零新增触发（纯增料）；
+- N1 钉（附 C——唯一代码前置例外）：禁问→零执行＋audit 行（agent_v2.refused）
+  在场；豁免词面 V1 等效补齐（审查②——元问五词同句共现＋引号全内含）＋豁免
+  必留 audit 行（agent_v2.ban_exempt）；快车道拆除后普通问零误伤零新增延迟；
+- 越集续跑钉：批准→续跑出数（P-051 已绿，随合并保留——接口不变）；
+- 审查清偿钉：过时注记改型（S3——schema/precondition A2 裁决措辞随实现同步）
+  ＋真引擎放行态闸函数级直钉（S4——落 test_v2_query.py）。
+
+判定面全部纯固定代码零 LLM；运行面 N1 挂 understand 入口（先于一切解析——
+V1 W-F19 0 号位语义的 ReAct 形承载）；faq_lookup 执行件在 tools 层（注册制，
+world 接触只经 ToolRegistry.call 受控行动链）。
 """
 
 from __future__ import annotations
@@ -28,15 +35,20 @@ from sqlalchemy import select, text
 
 from appv2.infra.db import ConnectionManager, DatabaseSpec
 from appv2.infra.security.store import AuditLog
-from appv2.knowledge import PgFaqStore
+from appv2.knowledge import PgFaqStore, normalize_faq_question
 from appv2.query import QueryOutcome
 from appv2.runtime import AskChoice, AskRequest, RunStore
+from appv2.runtime.guide import CLARIFY_CONTRACT
+from appv2.runtime.subtask import parse_question_group
 from appv2.tools import (
-    FakeQueryEngine,
-    FastLaneClosure,
-    fast_lane_verdict,
+    FAQ_AUX_THRESHOLD,
+    FAQ_LOOKUP,
+    ToolRegistry,
     ledger_facts,
 )
+from appv2.tools.handlers import faq_lookup as faq_lookup_handler
+from appv2.tools.precondition import is_ban_exempt
+from appv2.tools.schema import ToolContext
 from tests.domains.test_v2_agent_loop import (
     ACTOR,
     QueueQueryEngine,
@@ -44,7 +56,11 @@ from tests.domains.test_v2_agent_loop import (
     make_runtime,
 )
 from tests.domains.test_v2_four_phase import LEDGER_DUMP
-from tests.domains.test_v2_react_loop import _rows_outcome
+from tests.domains.test_v2_react_loop import (
+    _fragment_obs,
+    _retrieval_with,
+    _rows_outcome,
+)
 
 TODAY = date(2026, 10, 8)
 
@@ -76,14 +92,32 @@ _SYS_TERMS: list[dict[str, Any]] = [
 
 
 def _sys_dump() -> dict[str, Any]:
-    """问数组台账 dump＋系统级术语行（fast lane 判定输入——行值零发明）。"""
+    """问数组台账 dump＋系统级术语行（N1 闸判定输入——行值零发明）。"""
     dump = json.loads(json.dumps(LEDGER_DUMP, ensure_ascii=False))
     dump["terms"] = [dict(row) for row in _SYS_TERMS]
     return dump
 
 
-def _faq_seam_hit(entry_id: str, question: str, answer: str) -> Any:
-    """剧本 FAQ 缝（生产＝PgFaqStore.lookup——测试按同形回罐头）。"""
+# ---------- 剧本 FAQ 读面（生产＝PgFaqStore.similar——测试按同形回罐头） ----------
+
+
+class _FaqFace:
+    """FaqLookupFace 剧本件（similar 同形——hits 罐头出列）。"""
+
+    def __init__(self, hits: Sequence[Any] = ()) -> None:
+        self._hits = list(hits)
+        self.calls: list[tuple[str, int]] = []
+
+    def similar(self, question: str, top: int = 3) -> list[Any]:
+        self.calls.append((question, top))
+        return list(self._hits)
+
+
+def _faq_hit(
+    entry_id: str, question: str, answer: str, *, score: float = 1.0,
+    disabled: bool = False,
+) -> Any:
+    """FaqAuxHit 形罐头（duck——生产为冻结 dataclass）。"""
 
     class _Hit:
         pass
@@ -92,58 +126,63 @@ def _faq_seam_hit(entry_id: str, question: str, answer: str) -> Any:
     hit.entry_id = entry_id
     hit.question = question
     hit.answer = answer
+    hit.matched = question
+    hit.score = score
+    hit.disabled = disabled
     return hit
 
 
-# ---------- 判定面单测：定义形提取＋LedgerFacts terms 投影＋fast_lane_verdict ----------
+# ---------- 单测：N1 豁免词面（V1 DE-03 等效补齐——审查②） ----------
 
 
-def test_ledger_facts_terms_projection() -> None:
-    """LedgerFacts 增 terms 投影（词典层 dump terms 行→TermFact——additive）。"""
-    facts = ledger_facts(_sys_dump())
-    assert [item.term for item in facts.terms] == [
-        "老完成率", "躺井", "日产液", "递减增油",
-    ]
-    expired = next(item for item in facts.terms if item.term == "日产液")
-    assert expired.freshness == "2026-06-30（已届满）"
-    banned = next(item for item in facts.terms if item.banned)
-    assert banned.term == "老完成率"
+def test_ban_exempt_meta_question_forms() -> None:
+    """元问形：五词（旧称/以前叫/现在叫/还叫/原名）与命中词同句共现＝豁免。"""
+    assert is_ban_exempt("老完成率现在叫什么", "老完成率")
+    assert is_ban_exempt("以前叫老完成率的指标现在叫什么", "老完成率")
+    assert is_ban_exempt("老完成率还叫这个名吗", "老完成率")
+    assert is_ban_exempt("老完成率的原名是什么", "老完成率")
+    assert is_ban_exempt("顺便问下老完成率的原名是什么", "老完成率")
 
 
-def test_fast_lane_verdict_forms() -> None:
-    """fast_lane_verdict 四形：词条卡（届满/语境/争议随卡）／禁用词硬终止／
-    元问句豁免（禁用词条卡）／普通问零触发。"""
-    facts = ledger_facts(_sys_dump())
-
-    # ① 定义形＋届满术语 → 词条卡（届满标注随卡）。
-    out = fast_lane_verdict("什么是日产液？", facts)
-    assert isinstance(out, FastLaneClosure)
-    assert out.kind == "term_card"
-    assert "作业区口语缩写" in out.answer
-    assert "2026-06-30（已届满）" in out.answer  # 届满标注随词条卡面
-
-    # ② 定义形＋争议注记术语 → 词条卡（status 注记随卡）。
-    out = fast_lane_verdict("递减增油是什么意思？", facts)
-    assert out is not None and out.kind == "term_card"
-    assert "待联席裁决" in out.answer
-
-    # ③ 禁用词元问句形 → 豁免（词条卡收口——禁用标注＋替代词随卡，不拦停）。
-    out = fast_lane_verdict("「老完成率」是什么口径？", facts)
-    assert out is not None and out.kind == "term_card"
-    assert "禁用" in out.answer and "产量完成率" in out.answer
-
-    # ④ 禁用词非定义形 → N1 硬终止（拒因带替代词）。
-    out = fast_lane_verdict("老完成率是多少？", facts)
-    assert out is not None and out.kind == "banned"
-    assert "老完成率" in out.answer and "产量完成率" in out.answer
-
-    # ⑤ 普通问句零触发（非定义形/无禁用词——fast lane 静默）。
-    assert fast_lane_verdict("2025-09-01 到 09-03 各井日产油量", facts) is None
-    # ⑥ 定义形但候选不在台账 → 零触发（exact-match 防误伤——躺井率≠躺井）。
-    assert fast_lane_verdict("什么是躺井率？", facts) is None
+def test_ban_exempt_quote_forms() -> None:
+    """引用形：命中词每次出现都在引号对内＝豁免（四形引号闭世界）。"""
+    assert is_ban_exempt("「老完成率」是什么口径？", "老完成率")
+    assert is_ban_exempt("按「老完成率」口径给我出数", "老完成率")
+    assert is_ban_exempt("按“老完成率”口径给我出数", "老完成率")
+    assert is_ban_exempt("问一下'老完成率'的现状", "老完成率")
 
 
-# ---------- FAQ 读面（pg_faq）：serve 精确命中＋相似问＋非 serve 排除 ----------
+def test_ban_exempt_not_exempt_forms() -> None:
+    """不豁免形：裸写/一次裸写即不豁免/跨句拼接不放行（V1 FX-03/R1-07 等效）。"""
+    assert not is_ban_exempt("老完成率是多少？", "老完成率")
+    # 定义形裸写（什么是老完成率？——无元问词/非全引号）＝不豁免（V1 同拦）。
+    assert not is_ban_exempt("什么是老完成率？", "老完成率")
+    assert not is_ban_exempt("按老完成率口径给我出数", "老完成率")
+    # 一次裸写即不豁免（窄豁免不放松）。
+    assert not is_ban_exempt("老完成率怎么算？是「老完成率」这个吧", "老完成率")
+    # 跨句拼接形不放行（同句以分句符判定）。
+    assert not is_ban_exempt("老完成率是多少？顺便问下这词原名是啥", "老完成率")
+    assert not is_ban_exempt("老完成率怎么算；这词的旧称是啥", "老完成率")
+
+
+# ---------- 单测：faq 归一（NFKC＋剥全部标点——审查①等效补齐） ----------
+
+
+def test_normalize_faq_question_v1_equivalent() -> None:
+    """归一升全：NFKC 全半角折叠＋casefold＋剥全部标点/空白（V1 normalize_text
+    等效——全角「Ｎ－０２」与半角「N-02」、带标点与剥标点同判）。"""
+    assert (
+        normalize_faq_question("Ｎ－０２ 井，是什么时候投产的？")
+        == normalize_faq_question("N-02井是什么时候投产的")
+    )
+    assert normalize_faq_question("Ｎ－０２ 井，是什么时候投产的？") == (
+        "n02井是什么时候投产的"
+    )
+    # 归一单点保留：空串入空串出（未命中面照旧）。
+    assert normalize_faq_question("？？？") == ""
+
+
+# ---------- 单测：PgFaqStore.similar（相似问优先/禁用剔除/top 上限） ----------
 
 _FAQ_DDL = (
     """CREATE TABLE faq_entry (
@@ -154,11 +193,14 @@ _FAQ_DDL = (
 )
 
 _FAQ_SEED = [
+    # faq-3：标准问与相似问都能命中「躺井啥意思」形——相似问优先序的比对面。
     (
         "faq-3", "「躺井」是什么意思？",
         "停产待检泵，作业区口语（限作业区语境；Owner：采油工艺所）", "serve",
     ),
     ("faq-4", "N-02 井是什么时候投产的？", "2019-06-15 投产。", "serve"),
+    # faq-7：标准问归一后同形命中（另一条目——相似问优先序的第二比对面）。
+    ("faq-7", "躺井啥意思", "faq-7 标准问直配。", "serve"),
     ("faq-8", "「老完成率」是什么口径？", "已禁用——现行口径为产量完成率。", "disabled"),
 ]
 
@@ -186,22 +228,6 @@ async def _faq_db(tmp_path: Path) -> ConnectionManager:
     return db
 
 
-async def test_pg_faq_store_lookup(tmp_path: Path) -> None:
-    """PgFaqStore：serve 标准问/相似问精确命中；disabled 排除；未命中 None。"""
-    db = await _faq_db(tmp_path)
-    try:
-        store = PgFaqStore.from_specs(_spec_of(tmp_path))
-        hit = store.lookup("N-02 井是什么时候投产的？")
-        assert hit is not None and hit.entry_id == "faq-4"
-        assert hit.answer == "2019-06-15 投产。"
-        hit = store.lookup("躺井啥意思")  # 相似问精确命中
-        assert hit is not None and hit.entry_id == "faq-3"
-        assert store.lookup("「老完成率」是什么口径？") is None  # disabled 不消费
-        assert store.lookup("随便问一句") is None
-    finally:
-        await db.dispose()
-
-
 def _spec_of(tmp_path: Path) -> DatabaseSpec:
     return DatabaseSpec(
         name="primary", role="primary", driver="sqlite", host="", port=0,
@@ -210,19 +236,219 @@ def _spec_of(tmp_path: Path) -> DatabaseSpec:
     )
 
 
-# ---------- 端到端钉测①：FAQ 直出（零模型——直出语义不走检索执行） ----------
+async def test_pg_faq_similar_priority_and_serve_only(tmp_path: Path) -> None:
+    """similar 读面：相似问先于标准问（V1 match_index 序——审查①）；disabled
+    不进命中集；未命中空集如实；归一跨全半角/标点命中。"""
+    db = await _faq_db(tmp_path)
+    try:
+        store = PgFaqStore.from_specs(_spec_of(tmp_path))
+        # 相似问优先：faq-3 相似问与 faq-7 标准问归一同形——faq-3 在前。
+        hits = store.similar("躺井啥意思？", top=3)
+        assert [h.entry_id for h in hits] == ["faq-3", "faq-7"]
+        assert hits[0].score >= FAQ_AUX_THRESHOLD and not hits[0].disabled
+        # 标准问命中（NFKC＋剥标点等效——全角/标点变体同判）。
+        hits = store.similar("Ｎ－０２井，是什么时候投产的？", top=3)
+        assert [h.entry_id for h in hits] == ["faq-4"]
+        assert hits[0].answer == "2019-06-15 投产。"
+        # disabled 不消费；未命中空集。
+        assert store.similar("「老完成率」是什么口径？", top=3) == []
+        assert store.similar("随便问一句", top=3) == []
+        # top 上限收口（命中面不超过 top）。
+        assert len(store.similar("躺井啥意思？", top=1)) == 1
+    finally:
+        await db.dispose()
 
 
-async def test_station_faq_direct_zero_model(tmp_path: Path) -> None:
+# ---------- 单测：faq_lookup 执行件（附 B——辅助材料观察/机读 note/阈值剔除） ----------
+
+
+def _ctx() -> ToolContext:
+    return ToolContext()
+
+
+async def test_faq_lookup_handler_aux_material() -> None:
+    """命中→辅助材料观察：locator.kind=faq_aux、source_id=faq_entry:<id>、
+    content=逐条「Q：标准问 / A：答案」。"""
+    face = _FaqFace([
+        _faq_hit("faq-4", "N-02 井是什么时候投产的？", "2019-06-15 投产。"),
+    ])
+    result = await faq_lookup_handler(
+        {"question": "N-02 井是什么时候投产的？"}, _ctx(), faq=face
+    )
+    assert result.status == "ok" and result.ask is None and result.error is None
+    assert len(result.observations) == 1
+    obs = result.observations[0]
+    assert obs.locator["kind"] == "faq_aux"
+    assert obs.source_id == "faq_entry:faq-4"
+    assert "Q：N-02 井是什么时候投产的？" in obs.content
+    assert "A：2019-06-15 投产。" in obs.content
+
+
+async def test_faq_lookup_handler_miss_note_and_filters() -> None:
+    """未命中→机读 note「FAQ 库无命中」（no_hit 分型）；阈下/禁用条目不消费。"""
+    face = _FaqFace([])
+    result = await faq_lookup_handler({"question": "随便问"}, _ctx(), faq=face)
+    assert result.status == "ok"
+    assert len(result.observations) == 1
+    obs = result.observations[0]
+    assert obs.locator == {"kind": "notice", "notice_type": "no_hit"}
+    assert "FAQ 库无命中" in obs.content
+    # 阈下（score < FAUX_THRESHOLD）与 disabled 条目被剔除→同样如实 note。
+    face = _FaqFace([
+        _faq_hit("faq-9", "近名问", "阈下条目", score=0.5),
+        _faq_hit("faq-8", "禁用条目", "disabled 条目", disabled=True),
+    ])
+    result = await faq_lookup_handler({"question": "近名问"}, _ctx(), faq=face)
+    assert result.status == "ok"
+    assert len(result.observations) == 1
+    assert result.observations[0].locator.get("notice_type") == "no_hit"
+
+
+async def test_faq_lookup_handler_args_and_registry() -> None:
+    """缺 question＝bad_args（registry 统一调出口三分类封套）；registry 带
+    faq 缝→faq_lookup 注册在册（发射闭世界生效），不带→不在册。"""
+    from appv2.tools import (
+        FakeKnowledgeStore,
+        FakeQueryEngine,
+        FakeRetrievalEngine,
+    )
+
+    registry = ToolRegistry(
+        knowledge=FakeKnowledgeStore(),
+        query=FakeQueryEngine(),
+        retrieval=FakeRetrievalEngine(),
+        faq=_FaqFace(),
+    )
+    result = await registry.call(FAQ_LOOKUP, {}, ToolContext())
+    assert result.status == "failed" and result.error is not None
+    assert result.error.category == "bad_args"
+    # 注册面：带 faq→在册；缺省→不在册（既有五工具零漂移）。
+    def _names(reg: ToolRegistry) -> list[str]:
+        return [d.name for d in reg.descriptors()]
+
+    assert FAQ_LOOKUP in _names(registry)
+    without_faq = ToolRegistry(
+        knowledge=FakeKnowledgeStore(),
+        query=FakeQueryEngine(),
+        retrieval=FakeRetrievalEngine(),
+    )
+    assert FAQ_LOOKUP not in _names(without_faq)
+
+
+# ---------- 单测：合同目录指路（附 A char 相等）＋发射闭世界＋finalize 合法 ----------
+
+# 附 A 逐字稿（tickets/v2/V2-52-五站缺口迁移批.md 附 A——char 相等，禁改一字）。
+_APPENDIX_A = (
+    "可用探查（discover，全 run ≤10 次，已用 {discover_used} 次）：\n"
+    "- semantic_query：本体口径/绑定/届满细节钻取（开局台账已全量，仅细节用）\n"
+    "- table_schema：表结构钻取（agg/sem/kb 分区）\n"
+    "- faq_lookup：FAQ 现成问答库——问句有现成标准答案时加速/互证；\n"
+    "  命中条目作辅助材料进上下文，你判断够 finalize 即可直答，不够继续检索"
+)
+
+
+def test_clarify_contract_directory_verbatim() -> None:
+    """目录钉：三工具词面指路在合同（char 相等）＋faq_lookup 在发射闭世界。"""
+    assert _APPENDIX_A in CLARIFY_CONTRACT
+    from appv2.runtime.graph import DISCOVER_TOOLS
+
+    assert FAQ_LOOKUP in DISCOVER_TOOLS
+    assert {"semantic_query", "table_schema", "faq_lookup"} <= DISCOVER_TOOLS
+
+
+def test_clarify_finalize_emission_legal() -> None:
+    """消费规则：clarify 相位 finalize 直答合法（解析闭世界收口）；faq_lookup
+    discover 发射通过 schema 校验。"""
+    emission = parse_question_group('{"action": "finalize"}')
+    assert not isinstance(emission, str)
+    assert emission.kind == "finalize"
+    emission = parse_question_group(
+        '{"action": "discover", "discovers": '
+        '[{"tool": "faq_lookup", "args": {"question": "N-02 井什么时候投产的？"}}]}'
+    )
+    assert not isinstance(emission, str)
+    assert emission.discovers[0]["tool"] == "faq_lookup"
+
+
+# ---------- 单测：快车道拆除（代码移除——非注记留死） ----------
+
+
+def test_fast_lane_dismantled() -> None:
+    """拆除钉：fast_lane_verdict 判定面/词条卡直出件/terms 投影全 absent。"""
+    import appv2.tools as tools_pkg
+    from appv2.tools import precondition
+
+    for name in (
+        "fast_lane_verdict",
+        "FastLaneClosure",
+        "extract_definition_term",
+        "FAST_LANE_BANNED",
+        "FAST_LANE_TERM_CARD",
+        "TermFact",
+    ):
+        assert not hasattr(tools_pkg, name), f"tools 公开面残留 {name}"
+        assert not hasattr(precondition, name), f"precondition 残留 {name}"
+    # LedgerFacts terms 投影随拆（dataclass 字段闭世界无 terms）。
+    import dataclasses
+
+    facts_fields = {f.name for f in dataclasses.fields(ledger_facts({}))}
+    assert "terms" not in facts_fields
+    # graph 快车道直出件移除。
+    from appv2.runtime import graph
+
+    assert not hasattr(graph, "_fast_lane_closure")
+    assert not hasattr(graph, "_FAST_LANE_TITLES")
+
+
+def test_annotations_follow_implementation() -> None:
+    """审查③清偿钉（S3）：A2 裁决注记与实现同步——「不走引擎 approved_tables」
+    反话措辞绝迹，放行态随执行进引擎的新措辞在场。"""
+    import inspect
+
+    from appv2.tools import precondition, schema
+
+    schema_source = inspect.getsource(schema)
+    precondition_source = inspect.getsource(precondition)
+    for source in (schema_source, precondition_source):
+        assert "不走引擎 approved_tables" not in source  # 反话措辞绝迹
+        assert "随执行进引擎" in source  # 新措辞（放行态随 data_query 进引擎）在场
+    # C1 顺手注记（state.extable_rounds——骨架上限 1 反话改型）。
+    from appv2.runtime import state as state_mod
+
+    state_source = inspect.getsource(state_mod)
+    assert "骨架上限 1" not in state_source
+
+
+# ---------- 端到端钉测①：faq 命中→辅助材料进上下文→finalize 直答（秒答形） ----------
+
+
+async def test_station_faq_aux_finalize_direct(tmp_path: Path) -> None:
+    """辅助语义钉：clarify 发射 faq_lookup→辅助材料进上下文→模型 finalize
+    直答——零 doc_retrieve 秒答形（检索引擎零调用）。"""
     dump = _sys_dump()
-    script: dict[str, Sequence[str]] = {"v2.runtime.understand": [], "v2.runtime.decision": []}
+    script = {
+        "v2.runtime.understand": ["理解：问 N-02 井投产日期。\n指标候选：无"],
+        "v2.runtime.decision": [
+            json.dumps({
+                "thought": "问句像 FAQ——先查现成问答库",
+                "action": "discover",
+                "discovers": [{
+                    "tool": "faq_lookup",
+                    "args": {"question": "N-02 井是什么时候投产的？"},
+                }],
+            }, ensure_ascii=False),
+            '{"thought": "FAQ 命中足够", "action": "finalize"}',
+        ],
+        "v2.runtime.answer": ["N-02 井 2019-06-15 投产 [1]。"],
+    }
+    retrieval = _retrieval_with(_fragment_obs("干扰片段——不应被消费", "f-noise"))
+    faq = _FaqFace([
+        _faq_hit("faq-4", "N-02 井是什么时候投产的？", "2019-06-15 投产。"),
+    ])
     runtime, completer, db = await make_runtime(
         tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=script,
         four_phase=True, ledger_dump=lambda: dict(dump),
-        faq_lookup=lambda q: (
-            _faq_seam_hit("faq-4", "N-02 井是什么时候投产的？", "2019-06-15 投产。")
-            if q == "N-02 井是什么时候投产的？" else None
-        ),
+        retrieval=retrieval, faq=faq,
     )
     store = RunStore(db)
     try:
@@ -232,44 +458,157 @@ async def test_station_faq_direct_zero_model(tmp_path: Path) -> None:
         events = await drain(handle)
         run = await store.get_run(handle.run_id)
         assert run is not None and run.status == "completed"
-        assert "2019-06-15 投产" in (run.answer or "")  # 语义锚定 FAQ 条目直出
-        assert "FAQ 直出" in (run.answer or "")  # 未调用模型标注（no_model 语义）
-        assert completer.counts() == {}  # 零模型调用（秒回——不走检索执行）
-        notices = [e.data for e in events if e.event == "notice"]
-        faq_notice = next(n for n in notices if n.get("type") == "faq_direct")
-        assert "N-02 井" in faq_notice["content"]
+        assert "2019-06-15 投产" in (run.answer or "")
+        # 零 doc_retrieve 秒答形（检索引擎零调用——辅助材料 finalize 直答）。
+        assert retrieval.retrieve_calls == 0
+        # 辅助材料在窗：答案引标 [1] 指向 faq 辅助观察（citation 同源）。
+        citations = [e.data for e in events if e.event == "citation"]
+        assert any(
+            c.get("source_id") == "faq_entry:faq-4" for c in citations
+        )
+        # 模型参与判定（秒答形非零模型直出——sufficiency 由模型判）。
+        assert completer.counts().get("v2.runtime.understand") == 1
+        assert completer.counts().get("v2.runtime.decision") == 2
+        assert completer.counts().get("v2.runtime.answer") == 1
+        # faq 读缝消费在案（执行件经 registry 受控行动链）。
+        assert faq.calls == [("N-02 井是什么时候投产的？", 3)]
     finally:
         await db.dispose()
 
 
-# ---------- 端到端钉测②：术语词条卡收口（届满标注随卡——零模型） ----------
+# ---------- 端到端钉测②：faq 未命中→机读 note→继续检索零阻断 ----------
 
 
-async def test_station_term_card_expiry(tmp_path: Path) -> None:
+async def test_station_faq_miss_note_then_retrieve(tmp_path: Path) -> None:
+    """未命中→「FAQ 库无命中」如实 note→模型 decompose 继续——knowledge 链
+    doc_retrieve 照常执行（零阻断）。"""
     dump = _sys_dump()
-    runtime, completer, db = await make_runtime(
-        tmp_path, engine=QueueQueryEngine([_rows_outcome()]),
-        script={"v2.runtime.understand": [], "v2.runtime.decision": []},
+    clarify = json.dumps({
+        "action": "decompose",
+        "question_group": {"subtasks": [
+            {"id": "s1", "question": "W-111 井投产初期日产油是多少",
+             "ledger_notes": "日产油量｜bound｜无", "chain": "knowledge"},
+        ]},
+    }, ensure_ascii=False)
+    toolmatch = json.dumps({"matches": [
+        {"id": "s1", "chain": "knowledge", "tool": "doc_retrieve",
+         "retrieval_need": {"question": "W-111 井投产初期日产油是多少"}},
+    ]}, ensure_ascii=False)
+    script = {
+        "v2.runtime.understand": ["理解：问 W-111 井初期日产油。\n指标候选：无"],
+        "v2.runtime.decision": [
+            json.dumps({
+                "thought": "先查 FAQ",
+                "action": "discover",
+                "discovers": [{
+                    "tool": "faq_lookup",
+                    "args": {"question": "W-111 井投产初期日产油是多少"},
+                }],
+            }, ensure_ascii=False),
+            clarify,
+            toolmatch,
+        ],
+        "v2.runtime.answer": ["W-111 井投产初期日产油 291 方 [1]。"],
+    }
+    retrieval = _retrieval_with(
+        _fragment_obs("W-111 井采用酸压完井，投产初期日产油 291 方。", "f-1")
+    )
+    runtime, _completer, db = await make_runtime(
+        tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=script,
         four_phase=True, ledger_dump=lambda: dict(dump),
+        retrieval=retrieval, faq=_FaqFace(),
     )
     store = RunStore(db)
     try:
-        handle = await runtime.ask(AskRequest(question="什么是日产液？", actor=ACTOR))
-        await drain(handle)
+        handle = await runtime.ask(
+            AskRequest(question="W-111 井投产初期日产油是多少？", actor=ACTOR)
+        )
+        events = await drain(handle)
         run = await store.get_run(handle.run_id)
         assert run is not None and run.status == "completed"
-        answer = run.answer or ""
-        assert "日产液" in answer and "作业区口语缩写" in answer
-        assert "2026-06-30（已届满）" in answer  # 届满漂移标注随词条卡
-        assert completer.counts() == {}  # 词条卡收口零模型
+        # 未命中如实 note 在场（机读 no_hit 分型）。
+        notices = [e.data for e in events if e.event == "notice"]
+        assert any(
+            n.get("type") == "no_hit" and "FAQ 库无命中" in str(n.get("content", ""))
+            for n in notices
+        )
+        # 继续检索零阻断：doc_retrieve 真执行＋答案引报告材料。
+        assert retrieval.retrieve_calls == 1
+        assert "291" in (run.answer or "")
     finally:
         await db.dispose()
 
 
-# ---------- 端到端钉测③：N1 硬终止＋审计留痕（agent_v2.refused） ----------
+# ---------- 端到端钉测③：faq 材料在窗时 precondition 各闸零新增触发 ----------
 
 
-async def test_station_n1_hard_stop_with_audit(tmp_path: Path) -> None:
+async def test_station_faq_material_triggers_no_gates(tmp_path: Path) -> None:
+    """辅助不触发闸钉：faq 命中条目答案携禁用词＋未申报外表名——材料在窗，
+    子问题过闸零新增触发（纯增料，不进任何闸的判面）。"""
+    dump = _sys_dump()
+    clarify = json.dumps({
+        "thought": "先查 FAQ 互证",
+        "action": "discover",
+        "discovers": [{
+            "tool": "faq_lookup",
+            "args": {"question": "老完成率是怎么算的"},
+        }],
+    }, ensure_ascii=False)
+    decompose = json.dumps({
+        "action": "decompose",
+        "question_group": {"subtasks": [
+            {"id": "s1", "question": "2025-09-01 到 09-03 各井日产油量",
+             "ledger_notes": "日产油量｜bound｜2025-09-01~2025-09-03",
+             "chain": "data"},
+        ]},
+    }, ensure_ascii=False)
+    toolmatch = json.dumps({"matches": [
+        {"id": "s1", "chain": "data", "tool": "data_query", "plan": {
+            "metric_slot": "日产油量", "ranking": False,
+            "window_start": "2025-09-01", "window_end": "2025-09-03"}},
+    ]}, ensure_ascii=False)
+    script = {
+        "v2.runtime.understand": ["理解：问 9 月上旬日产油量。\n指标候选：日产油量"],
+        "v2.runtime.decision": [clarify, decompose, toolmatch],
+        "v2.runtime.answer": ["各井日产油量 N-01 为 21.16 吨 [1]。"],
+    }
+    faq = _FaqFace([
+        _faq_hit(
+            "faq-8", "老完成率是怎么算的",
+            "老完成率按 erp_secret_x 表口径……",  # 材料携禁用词＋外表名（干扰设计）
+        ),
+    ])
+    engine = QueueQueryEngine([_rows_outcome()])
+    runtime, _completer, db = await make_runtime(
+        tmp_path, engine=engine, script=script,
+        four_phase=True, ledger_dump=lambda: dict(dump),
+        faq=faq,
+    )
+    store = RunStore(db)
+    try:
+        handle = await runtime.ask(
+            AskRequest(question="2025-09-01 到 09-03 各井日产油量", actor=ACTOR)
+        )
+        events = await drain(handle)
+        run = await store.get_run(handle.run_id)
+        assert run is not None and run.status == "completed"
+        # 零挂起零拒答（材料在窗不触发越集审批/禁用词拒——纯增料）。
+        assert not [e for e in events if e.event == "ask"]
+        notices = [e.data for e in events if e.event == "notice"]
+        assert not [n for n in notices if n.get("type") == "refused"]
+        # 正常出数（前置各闸零新增触发——data 链照常执行）。
+        assert engine.run_calls == 1
+        assert "21.16" in (run.answer or "")
+    finally:
+        await db.dispose()
+
+
+# ---------- 端到端钉测④：N1 硬终止（裸写/定义形裸写）＋审计留痕 ----------
+
+
+async def test_station_n1_bare_question_refused_with_audit(tmp_path: Path) -> None:
+    """N1 钉：禁问（老完成率是多少？）→零执行＋audit 行（agent_v2.refused）
+    在场——附 C code_first_gate 语义（快车道拆除后 N1 原位保留）。"""
     dump = _sys_dump()
     runtime, completer, db = await make_runtime(
         tmp_path, engine=QueueQueryEngine([_rows_outcome()]),
@@ -290,21 +629,17 @@ async def test_station_n1_hard_stop_with_audit(tmp_path: Path) -> None:
         refused = [n for n in notices if n.get("type") == "refused"]
         assert len(refused) == 1  # 机读分型恰一条（审计同源面）
         # 审计留痕：拒答收口一行（security.audit 唯一写口——B12）。
-        async with db.readonly() as session:
-            rows = (
-                (await session.execute(select(AuditLog).order_by(AuditLog.id)))
-                .scalars()
-                .all()
-            )
-        assert [row.action for row in rows] == ["agent_v2.run_created", "agent_v2.refused"]
+        rows = await _audit_rows(db)
+        assert [row.action for row in rows] == [
+            "agent_v2.run_created", "agent_v2.refused",
+        ]
     finally:
         await db.dispose()
 
 
-# ---------- 端到端钉测④：N1 元问句豁免（禁用词条卡——不拦停） ----------
-
-
-async def test_station_n1_meta_question_exempt(tmp_path: Path) -> None:
+async def test_station_n1_definition_form_refused(tmp_path: Path) -> None:
+    """审查②等效补齐分叉实例（V1 对齐）：定义形裸写「什么是老完成率？」——
+    V1 拦停（无元问词/裸写）；快车道词条卡直出已拆除，本形照 V1 拦停。"""
     dump = _sys_dump()
     runtime, completer, db = await make_runtime(
         tmp_path, engine=QueueQueryEngine([_rows_outcome()]),
@@ -314,25 +649,136 @@ async def test_station_n1_meta_question_exempt(tmp_path: Path) -> None:
     store = RunStore(db)
     try:
         handle = await runtime.ask(
-            AskRequest(question="「老完成率」是什么口径？", actor=ACTOR)
+            AskRequest(question="什么是老完成率？", actor=ACTOR)
         )
         events = await drain(handle)
         run = await store.get_run(handle.run_id)
         assert run is not None and run.status == "completed"
         answer = run.answer or ""
-        assert "产量完成率" in answer and "禁用" in answer  # 词条卡（禁用标注随卡）
+        assert "已废弃" in answer and "产量完成率" in answer  # 拒答形（非词条卡直出）
+        assert "作业区口语" not in answer and "词条卡" not in answer
+        assert completer.counts() == {}  # 零模型（先于一切解析）
         notices = [e.data for e in events if e.event == "notice"]
-        assert not [n for n in notices if n.get("type") == "refused"]  # 豁免不拦停
-        assert any(n.get("type") == "term_card" for n in notices)
-        assert completer.counts() == {}
+        assert len([n for n in notices if n.get("type") == "refused"]) == 1
+        rows = await _audit_rows(db)
+        assert [row.action for row in rows] == [
+            "agent_v2.run_created", "agent_v2.refused",
+        ]
     finally:
         await db.dispose()
 
 
-# ---------- 端到端钉测⑤：fast lane 零误伤（普通问句照常走四相位） ----------
+# ---------- 端到端钉测⑤：N1 豁免（元问/引用形）放行＋豁免审计行 ----------
 
 
-async def test_station_fast_lane_silent_on_plain_question(tmp_path: Path) -> None:
+async def test_station_n1_quote_form_exempt_with_audit(tmp_path: Path) -> None:
+    """审查②清偿钉：引用形（「老完成率」是什么口径？——每次出现均在引号内）
+    豁免放行（不拦停）＋豁免必留 audit 行（agent_v2.ban_exempt）＋零 refused。"""
+    dump = _sys_dump()
+    clarify = json.dumps({
+        "action": "decompose",
+        "question_group": {"subtasks": [
+            {"id": "s1", "question": "「老完成率」是什么口径？",
+             "ledger_notes": "老完成率｜禁用词｜无", "chain": "knowledge"},
+        ]},
+    }, ensure_ascii=False)
+    toolmatch = json.dumps({"matches": [
+        {"id": "s1", "chain": "knowledge", "tool": "doc_retrieve",
+         "retrieval_need": {"question": "「老完成率」是什么口径？"}},
+    ]}, ensure_ascii=False)
+    script = {
+        "v2.runtime.understand": ["理解：问「老完成率」一词的口径。\n指标候选：无"],
+        "v2.runtime.decision": [clarify, toolmatch],
+        "v2.runtime.answer": ["「老完成率」是已禁用的旧口径，现行口径为产量完成率 [1]。"],
+    }
+    retrieval = _retrieval_with(
+        _fragment_obs("老完成率为 2024 年废弃口径，现行口径为产量完成率。", "f-1")
+    )
+    runtime, completer, db = await make_runtime(
+        tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=script,
+        four_phase=True, ledger_dump=lambda: dict(dump),
+        retrieval=retrieval,
+    )
+    store = RunStore(db)
+    try:
+        handle = await runtime.ask(
+            AskRequest(question="「老完成率」是什么口径？", actor=ACTOR)
+        )
+        events = await drain(handle)
+        run = await store.get_run(handle.run_id)
+        assert run is not None and run.status == "completed"
+        # 豁免放行：子问题知识链照常检索执行（不拦停不拒答）。
+        assert retrieval.retrieve_calls == 1
+        notices = [e.data for e in events if e.event == "notice"]
+        assert not [n for n in notices if n.get("type") == "refused"]
+        # 豁免机读 notice 在场（禁用标注＋现行口径随行）。
+        exempt = [n for n in notices if n.get("type") == "ban_exempt"]
+        assert len(exempt) == 1
+        assert "老完成率" in str(exempt[0].get("content"))
+        assert "产量完成率" in str(exempt[0].get("content"))
+        # 豁免必留 audit 行（写入序＝时序：创建→豁免→收口）。
+        rows = await _audit_rows(db)
+        assert [row.action for row in rows] == [
+            "agent_v2.run_created", "agent_v2.ban_exempt", "agent_v2.run_completed",
+        ]
+        assert completer.counts().get("v2.runtime.understand") == 1
+    finally:
+        await db.dispose()
+
+
+async def test_station_n1_meta_form_exempt_with_audit(tmp_path: Path) -> None:
+    """审查②分叉实例（V1 对齐）：元问形「老完成率现在叫什么？」——V1 放行；
+    豁免放行＋audit 行在场。"""
+    dump = _sys_dump()
+    clarify = json.dumps({
+        "action": "decompose",
+        "question_group": {"subtasks": [
+            {"id": "s1", "question": "老完成率现在叫什么？",
+             "ledger_notes": "老完成率｜禁用词｜无", "chain": "knowledge"},
+        ]},
+    }, ensure_ascii=False)
+    toolmatch = json.dumps({"matches": [
+        {"id": "s1", "chain": "knowledge", "tool": "doc_retrieve",
+         "retrieval_need": {"question": "老完成率现在叫什么？"}},
+    ]}, ensure_ascii=False)
+    script = {
+        "v2.runtime.understand": ["理解：问旧称谓的现行叫法。\n指标候选：无"],
+        "v2.runtime.decision": [clarify, toolmatch],
+        "v2.runtime.answer": ["「老完成率」现叫「产量完成率」[1]。"],
+    }
+    retrieval = _retrieval_with(
+        _fragment_obs("老完成率已废弃，现行口径为产量完成率。", "f-1")
+    )
+    runtime, _completer, db = await make_runtime(
+        tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=script,
+        four_phase=True, ledger_dump=lambda: dict(dump),
+        retrieval=retrieval,
+    )
+    store = RunStore(db)
+    try:
+        handle = await runtime.ask(
+            AskRequest(question="老完成率现在叫什么？", actor=ACTOR)
+        )
+        events = await drain(handle)
+        run = await store.get_run(handle.run_id)
+        assert run is not None and run.status == "completed"
+        assert retrieval.retrieve_calls == 1  # 放行检索（V1 等效——豁免路照走）
+        notices = [e.data for e in events if e.event == "notice"]
+        assert not [n for n in notices if n.get("type") == "refused"]
+        assert any(n.get("type") == "ban_exempt" for n in notices)
+        rows = await _audit_rows(db)
+        assert "agent_v2.ban_exempt" in [row.action for row in rows]
+        assert "agent_v2.refused" not in [row.action for row in rows]
+    finally:
+        await db.dispose()
+
+
+# ---------- 端到端钉测⑥：普通问零误伤零新增延迟（N1 闸静默） ----------
+
+
+async def test_station_plain_question_gate_silent(tmp_path: Path) -> None:
+    """快车道拆除后普通问零误伤：N1 闸静默——understand 照常恰一次调用，
+    零快车道直出（无 faq 直出/词条卡/拒答 notice）。"""
     dump = _sys_dump()
     script = {
         "v2.runtime.understand": ["理解：问日产油量。\n指标候选：日产油量"],
@@ -342,38 +788,40 @@ async def test_station_fast_lane_silent_on_plain_question(tmp_path: Path) -> Non
     runtime, completer, db = await make_runtime(
         tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=script,
         four_phase=True, ledger_dump=lambda: dict(dump),
-        faq_lookup=lambda q: None,
     )
     try:
         handle = await runtime.ask(
             AskRequest(question="2025-09-01 到 09-03 各井日产油量", actor=ACTOR)
         )
-        await drain(handle)
-        assert completer.counts().get("v2.runtime.understand") == 1  # fast lane 静默
+        events = await drain(handle)
+        assert completer.counts().get("v2.runtime.understand") == 1  # 闸静默零直出
+        notices = [e.data for e in events if e.event == "notice"]
+        assert not [
+            n for n in notices
+            if n.get("type") in {"refused", "faq_direct", "term_card"}
+        ]
     finally:
         await db.dispose()
 
 
-# ---------- 端到端钉测⑥：越集续跑全通道（双审批→批准→续跑出数） ----------
+# ---------- 端到端钉测⑦：越集续跑全通道（保留件——P-051 已绿随合并） ----------
 
 
-class ApprovalProbeEngine(FakeQueryEngine):
+class ApprovalProbeEngine(QueueQueryEngine):
     """剧本引擎——逐次出列＋捕获 run 收到的放行态（approved_tables 断言面）。"""
 
     def __init__(self, outcomes: Sequence[QueryOutcome]) -> None:
-        super().__init__()
-        self._queue = list(outcomes)
+        super().__init__(outcomes)
         self.approved_seen: list[tuple[str, ...]] = []
 
     def run(self, plan: Any, *, approved_tables: tuple[str, ...] = ()) -> QueryOutcome:
         self.approved_seen.append(tuple(approved_tables))
-        self.run_calls += 1
-        return self._queue.pop(0)
+        return super().run(plan, approved_tables=approved_tables)
 
 
 async def test_station_extable_resume_full_channel(tmp_path: Path) -> None:
     """数-察2 形全通道钉：前置闸审批→批准→引擎侧闸审批→批准→前置重判→
-    批量重执行（放行态进引擎）→出数收口——骨架收口段退役。"""
+    批量重执行（放行态进引擎）→出数收口（附 D 保留件——接口不变）。"""
     ask_outcome = QueryOutcome.external_table_approval(
         tables=("erp_well_register",),
         ask={
@@ -412,7 +860,10 @@ async def test_station_extable_resume_full_channel(tmp_path: Path) -> None:
     )
     store = RunStore(db)
     try:
-        events = await _ask(runtime, "外表越集续跑题")
+        handle = await runtime.ask(
+            AskRequest(question="外表越集续跑题", actor=ACTOR)
+        )
+        events = await drain(handle)
         asks = [e.data for e in events if e.event == "ask"]
         assert len(asks) == 1  # 首段：前置闸审批帧
         precond_approval = asks[-1]["frame"]["detail"]["approval_id"]
@@ -426,7 +877,6 @@ async def test_station_extable_resume_full_channel(tmp_path: Path) -> None:
         assert len(asks2) == 1  # 引擎侧审批帧在场
         engine_frame = asks2[-1]["frame"]
         assert engine_frame["kind"] == "external_table_approval"
-        # 审批卡 detail 携表名集（放行名单回填的机读面——handlers additive 键）。
         assert engine_frame["detail"]["tables"] == ["erp_well_register"]
         engine_approval = engine_frame["detail"]["approval_id"]
         run_row = await store.get_run(run_id)
@@ -441,13 +891,19 @@ async def test_station_extable_resume_full_channel(tmp_path: Path) -> None:
         run_row = await store.get_run(run_id)
         assert run_row is not None and "21.16" in (run_row.answer or "")
         assert engine.run_calls == 2  # 首执行挂起＋批准后续跑恰一次
-        # 放行态真进引擎（第二次 run 携外表名——续跑通道的机读断言面）。
         assert any("erp_well_register" in seen for seen in engine.approved_seen[1:])
-        assert "如实收口不冒充" not in (run_row.answer or "")  # 骨架收口段退役
+        assert "如实收口不冒充" not in (run_row.answer or "")
     finally:
         await db.dispose()
 
 
-async def _ask(runtime: Any, question: str) -> list[Any]:
-    handle = await runtime.ask(AskRequest(question=question, actor=ACTOR))
-    return await drain(handle)
+# ---------- 审计读面（断言辅助——audit_log 只读投影） ----------
+
+
+async def _audit_rows(db: ConnectionManager) -> list[AuditLog]:
+    async with db.readonly() as session:
+        return (
+            (await session.execute(select(AuditLog).order_by(AuditLog.id)))
+            .scalars()
+            .all()
+        )

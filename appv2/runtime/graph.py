@@ -107,6 +107,7 @@ from appv2.runtime.subtask import (
     BUDGET_REJECT_MARK,
     CLARIFY_DECOMPOSE,
     CLARIFY_DISCOVER,
+    CLARIFY_FINALIZE,
     MAX_SUBTASKS_CONTRACT,
     QuestionGroup,
     Subtask,
@@ -125,6 +126,7 @@ from appv2.tools import (
     CHAIN_SWITCH_KIND_UNBOUND,
     DATA_QUERY,
     DOC_RETRIEVE,
+    FAQ_LOOKUP,
     RESIDENT_BLOCK_BEGIN,
     RESIDENT_BLOCK_END,
     SCHEMA_PROBE,
@@ -139,9 +141,10 @@ from appv2.tools import (
     SubtaskInput,
     ToolContext,
     ToolRegistry,
+    ban_exempt_notice_text,
     entity_anchor_tokens,
-    fast_lane_verdict,
     inject_retrieval_anchors,
+    is_ban_exempt,
     judge,
     ledger_facts,
     normalize_anchor_text,
@@ -181,7 +184,10 @@ SAME_PARAM_REPLAY_REASON = (
 )
 
 # 发现工具闭世界（拍板④白名单的调用面——registry.call 兜底拒未知名）。
-DISCOVER_TOOLS: frozenset[str] = frozenset({SEMANTIC_QUERY, SCHEMA_PROBE})
+# V2-52 辅助模式：faq_lookup 进闭世界（附 B 消费规则——辅助材料 discover 面）。
+DISCOVER_TOOLS: frozenset[str] = frozenset(
+    {SEMANTIC_QUERY, SCHEMA_PROBE, FAQ_LOOKUP}
+)
 
 _CITE_RE = re.compile(r"\[(\d+)\]")
 _NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
@@ -253,9 +259,7 @@ class LoopDeps:
     全量投影缝（澄清相位第 1 轮注入真源——tools.dump_from_store 装配）；watermark
     ＝水位读缝（前置条件机新鲜度窗照实判定——组合根经 production_waterline 供给）；
     data_wells＝数据链井闭世界读缝（V2-51 软失败域闸——组合根经
-    production_data_wells 供给 agg.dim_well 井号集；缺省 None＝域闸静默零漂移）；
-    faq_lookup＝FAQ serve 精确命中读缝（V2-52 FAQ 直出链——组合根经
-    PgFaqStore.lookup 供给；缺省 None＝FAQ 直出门静默零漂移）。
+    production_data_wells 供给 agg.dim_well 井号集；缺省 None＝域闸静默零漂移）。
     """
 
     def __init__(
@@ -270,7 +274,6 @@ class LoopDeps:
         ledger_dump: Callable[[], dict[str, Any]] | None = None,
         watermark: Callable[[], Any] | None = None,
         data_wells: Callable[[], Any] | None = None,
-        faq_lookup: Callable[[str], Any] | None = None,
         today: Any = None,
     ) -> None:
         self.registry = registry
@@ -283,7 +286,6 @@ class LoopDeps:
         self.ledger_dump = ledger_dump
         self.watermark = watermark
         self.data_wells = data_wells
-        self.faq_lookup = faq_lookup
         self.today = today if today is not None else clock.now().date()
 
     def model(self, key: str) -> GatewayChatModel:
@@ -1097,72 +1099,82 @@ def reseed_approval_id(run_id: str, engine_seed: str) -> str:
     return f"{run_id}#{engine_seed}"
 
 
-# ---------- 五站快车道（V2-52——understand 入口确定性直出，零 LLM） ----------
-
-_FAST_LANE_TITLES: dict[str, str] = {
-    "term_card": "术语词条卡收口",
-    "refused": "N1 禁用词硬终止",
-    "faq_direct": "FAQ 直出",
-}
+# ---------- N1 禁用词代码前置安全闸（V2-52 附 C——唯一前置例外；P-051b 返工） ----------
 
 
-def _fast_lane_closure(state: RunState, deps: LoopDeps) -> dict[str, Any] | None:
-    """词条卡/N1 硬终止/FAQ 直出三形的确定性收口（缝缺省＝静默零漂移）。
+def _n1_code_first_gate(
+    state: RunState, deps: LoopDeps
+) -> tuple[str | None, Any]:
+    """understand 入口禁用词闸分类（附 C 语义——词面闭世界零 LLM，先于一切
+    解析；V1 W-F19 0 号位语义的 ReAct 形承载）。
 
-    判定序：禁用词/词条卡（tools.fast_lane_verdict——词典层 facts）先于 FAQ
-    serve 精确命中（deps.faq_lookup 读缝；读缝异常吞并＝门静默，watermark 缝
-    同款）。命中即直答收口（draft_kind=direct——免起草免核验），机读 notice
-    随流（禁用词硬终止恒 type="refused"＝审计拒答收口行的同源面）。
+    返回（kind, payload）：
+    - ("refused", updates)——非豁免命中：硬终止收口 updates（understand 立即
+      返回——零执行零模型，notice type="refused"＝审计同源面 agent_v2.refused）；
+    - ("exempt", BannedFact)——元问/引用形豁免命中（is_ban_exempt——审查②
+      等效补齐）：understand 出豁免 notice/步后照常解析（豁免＝放行非直出，
+      executor 据 notice 落 agent_v2.ban_exempt 审计行——豁免必留痕）；
+    - (None, None)——闸静默（未命中/词典层缝缺省＝零漂移；快车道词条卡/FAQ
+      直出形已随 P-051b 拆除，本闸只辖禁用词）。
     """
     dump = state.ledger_dump
     if dump is None and deps.ledger_dump is not None:
         dump = deps.ledger_dump()
+    if dump is None:
+        return None, None
     question = state.question
-    verdict = (
-        fast_lane_verdict(question, ledger_facts(dump)) if dump is not None else None
-    )
-    hit: Any = None
-    if verdict is None and deps.faq_lookup is not None:
-        try:
-            hit = deps.faq_lookup(question)
-        except Exception:
-            hit = None  # 读缝异常＝直出门静默（不炸链——watermark 缝同款）
-    if verdict is None and hit is None:
-        return None
-    if hit is not None:
-        answer = (
-            f"{hit.answer}\n（本条命中 FAQ 直出——未调用模型；"
-            f"出处：FAQ 条目 {hit.entry_id}）"
+    for item in ledger_facts(dump).banned:
+        if not (item.term and item.term in question):
+            continue
+        if is_ban_exempt(question, item.term):
+            return "exempt", item
+        # 非豁免＝硬终止（拒因带替代词——零执行不冒充）。
+        replacement = f"替代：{item.replacement}" if item.replacement else "见台账"
+        reason = (
+            f"禁用词「{item.term}」已废弃——如实拒答，不代答废弃口径（{replacement}）"
         )
-        notice_type = "faq_direct"
-        notice = (
-            f"FAQ 精确命中「{hit.question}」——直出语义（不走检索执行，"
-            "语义锚定 FAQ 条目）"
+        notice = {"type": "refused", "gates": [], "content": reason}
+        deps.bus.emit("notice", dict(notice))
+        seq = _next_seq(state)
+        record = _step_record(
+            seq, STEP_DECISION, "N1 禁用词硬终止", None,
+            payload={"phase": "understand", "n1_gate": "refused", "term": item.term},
         )
-        extra: dict[str, Any] = {"faq_entry_id": hit.entry_id}
-    else:
-        assert verdict is not None
-        answer = verdict.answer
-        notice_type = verdict.notice_type
-        notice = verdict.notice
-        extra = {"fast_lane_kind": verdict.kind}
-    seq = _next_seq(state)
-    title = _FAST_LANE_TITLES.get(notice_type, "快车道直出")
-    record = _step_record(
-        seq, STEP_DECISION, title, None,
-        payload={"phase": "understand", "fast_lane": notice_type, **extra},
-    )
-    deps.bus.emit("step", {"step": STEP_DECISION, "seq": seq, "title": title})
-    notice_data = {"type": notice_type, "gates": [], "content": notice}
-    deps.bus.emit("notice", dict(notice_data))
-    updates: dict[str, Any] = {
-        "notices": [*state.notices, notice_data],
-        "steps": [*state.steps, record],
+        deps.bus.emit("step", {"step": STEP_DECISION, "seq": seq, "title": record["title"]})
+        updates: dict[str, Any] = {
+            "notices": [*state.notices, notice],
+            "steps": [*state.steps, record],
+        }
+        if state.ledger_dump is None:
+            updates["ledger_dump"] = dump
+        _direct_answer(updates, reason)
+        return "refused", updates
+    return None, None
+
+
+def _ban_exempt_preflight(
+    state: RunState, deps: LoopDeps, item: Any
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """豁免命中出流（notice＋步记录）——understand 照常解析前的簿记位。
+
+    返回（notice, record）：notice 携 term 机读键（executor 审计逐行消费；
+    SSE 出流面只带 type/gates/content 三键——机读分型约定形状不变）。
+    """
+    notice = {
+        "type": "ban_exempt",
+        "gates": [],
+        "content": ban_exempt_notice_text(item.term, item.replacement),
+        "term": item.term,
     }
-    if dump is not None and state.ledger_dump is None:
-        updates["ledger_dump"] = dump  # 直读缓存随 run（澄清相位免二次读取）
-    _direct_answer(updates, answer)
-    return updates
+    deps.bus.emit("notice", {key: notice[key] for key in ("type", "gates", "content")})
+    record = _step_record(
+        _next_seq(state), STEP_DECISION, "N1 禁用词豁免放行（元问/引用形）", None,
+        payload={"phase": "understand", "n1_gate": "ban_exempt", "term": item.term},
+    )
+    deps.bus.emit(
+        "step", {"step": STEP_DECISION, "seq": record["seq"], "title": record["title"]}
+    )
+    return notice, record
 
 
 # ---------- 节点一：understand（理解——caller understand；记 decision 类步） ----------
@@ -1174,13 +1186,23 @@ def _make_understand(
     async def understand_node(state: RunState) -> dict[str, Any]:
         if (converged := _gate_or_none(state, deps)) is not None:
             return converged
-        # ——五站快车道（V2-52——确定性直出先于一切解析，V1 W-F19 0 号位语义）：
-        # 术语词条卡/N1 禁用词硬终止/FAQ 直出三形；判定面零 LLM
-        # （tools.fast_lane_verdict），FAQ 命中＝serve 精确匹配读缝。缝缺省
-        # （词典层与 faq_lookup 均缺）＝快车道静默零漂移。——
-        fast = _fast_lane_closure(state, deps)
-        if fast is not None:
-            return fast
+        # ——N1 禁用词代码前置安全闸（V2-52 附 C——唯一前置例外，零 LLM）：
+        # 词面闭世界命中→豁免判定（元问/引用形）→豁免放行照常解析/硬终止拒答；
+        # 先于一切解析（V1 W-F19 0 号位语义）。缝缺省（词典层缺）＝闸静默
+        # 零漂移。快车道（词条卡/FAQ 直出）已随 P-051b 辅助模式返工拆除。——
+        gate_kind, gate_payload = _n1_code_first_gate(state, deps)
+        if gate_kind == "refused":
+            assert isinstance(gate_payload, dict)
+            return gate_payload
+        exempt_notice: dict[str, Any] | None = None
+        exempt_step: dict[str, Any] | None = None
+        if gate_kind == "exempt":
+            # 豁免放行（元问/引用形——V1 DE-03 等效补齐）：豁免 notice/步先落，
+            # understand 照常解析（放行路＝原问句进完整管线，非直出非拦停）。
+            assert gate_payload is not None
+            exempt_notice, exempt_step = _ban_exempt_preflight(
+                state, deps, gate_payload
+            )
         # 消息历史簿记（ADR-0006）：首问轮＝问题＋理解任务（追问 run 的前轮线程
         # 历史已在 state.history——executor 播种，此处续写新问轮）。
         context = deps.builder.compile(
@@ -1199,7 +1221,8 @@ def _make_understand(
             dict(context.messages[-1]),
             _assistant_turn(content),
         )
-        seq = _next_seq(state)
+        # 豁免步已占 seq（0 号位簿记先行）——本步 seq 顺延一位。
+        seq = _next_seq(state) + (1 if exempt_step is not None else 0)
         record = _step_record(
             seq, STEP_DECISION, understanding or "理解未产出", context.manifest,
             payload={"phase": "understand"},
@@ -1209,14 +1232,20 @@ def _make_understand(
         )
         if understanding:
             deps.bus.emit("text", {"content": understanding})
-        return {
+        steps = [*state.steps, record]
+        if exempt_step is not None:
+            steps = [*state.steps, exempt_step, record]  # 豁免步在前（seq 序）
+        updates: dict[str, Any] = {
             "understanding": understanding,
             "metric_candidates": candidates,
             "history": history,
             "manifests": [*state.manifests, context.manifest.as_dict()],
-            "steps": [*state.steps, record],
+            "steps": steps,
             "next_intent": INTENT_DECISION,
         }
+        if exempt_notice is not None:
+            updates["notices"] = [*state.notices, exempt_notice]
+        return updates
 
     return understand_node
 
@@ -1832,7 +1861,6 @@ def _make_clarify(
         contract = (
             CLARIFY_CONTRACT
             .replace("{max_subtasks}", str(MAX_SUBTASKS_CONTRACT))
-            .replace("{max_discover_run}", str(MAX_DISCOVERS_PER_RUN_CONTRACT))
             .replace("{discover_used}", str(state.discover_used))
         )
         # 指南消费缝消歧：相位发射合同前置（本相位唯一有效合同——真模型对
@@ -1841,8 +1869,8 @@ def _make_clarify(
         # 措辞由本合同取代；资产零触碰，消歧在本消费缝）。
         instruction = (
             "【相位①·业务澄清——本相位唯一有效发射合同（.action 只许 "
-            "discover|decompose|ask；指南正文中出现的 execute/finalize 动作"
-            "归后续相位，本相位发射它们＝非法）】\n"
+            "discover|decompose|ask|finalize；指南正文中出现的 execute 动作"
+            "归后续相位，本相位发射它＝非法）】\n"
             + contract
             + "\n\n【业务规则参考（ontology 指南 §A——窗词锚定/单井红线/"
             "指标名册适用；其中发射判据/收口硬规则的动作面以上方合同为准）】\n"
@@ -1968,6 +1996,28 @@ def _make_clarify(
                 "pending_discovers": [dict(item) for item in emission.discovers],
                 "steps": [*state.steps, record],
                 "next_intent": INTENT_DISCOVER,
+            }
+        if emission.kind == CLARIFY_FINALIZE:
+            # V2-52 辅助模式消费规则（附 B）：faq 等辅助材料足够时模型判
+            # sufficiency 直答（秒答形——路由起草面按观察材料出带引用答案；
+            # 代码不干预判定）。不占轮（与 discover 同——轮＝回炉循环周期）。
+            record = _step_record(
+                seq, STEP_DECISION, "澄清定稿：材料足够——直答收口",
+                context.manifest, payload,
+            )
+            deps.bus.emit(
+                "step", {"step": STEP_DECISION, "seq": seq, "title": record["title"]}
+            )
+            if emission.note:
+                notice = {
+                    "type": "decision_note", "gates": [], "content": emission.note,
+                }
+                deps.bus.emit("notice", dict(notice))
+                base["notices"] = [*state.notices, notice]
+            return {
+                **base,
+                "steps": [*state.steps, record],
+                "next_intent": INTENT_ANSWER,
             }
         # ask——连续澄清 cap（≥2 不再挂起带材料直答，与 decision 节点同款）。
         consecutive = state.consecutive_asks + 1

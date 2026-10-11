@@ -133,7 +133,7 @@ async def make_runtime(
     ledger_dump: Any = None,
     watermark: Any = None,
     data_wells: Any = None,
-    faq_lookup: Any = None,
+    faq: Any = None,
 ) -> tuple[AgentRuntime, ScriptedCompleter, ConnectionManager]:
     """标准装配：registry＋剧本 completer＋sqlite 库＋PgCheckpointer＋ReAct 图。
 
@@ -145,12 +145,14 @@ async def make_runtime(
     占位 DefaultGuideProvider 已随 V2-34 退役，生产唯一指南源＝ontology 资产
     装载件）；four_phase/ledger_dump/watermark＝V2-34 四相位装配三缝；
     data_wells＝数据链井闭世界读缝（V2-51 软失败域闸——缺省 None＝闸静默）；
-    faq_lookup＝FAQ serve 精确命中读缝（V2-52 FAQ 直出链——缺省 None＝直出门静默）。
+    faq＝FaqLookupFace 缝（V2-52 faq_lookup 发现工具读面——缺省 None＝工具
+    不在册）。
     """
     registry = ToolRegistry(
         knowledge=knowledge if knowledge is not None else FakeKnowledgeStore(),
         query=engine,
         retrieval=retrieval if retrieval is not None else FakeRetrievalEngine(),
+        faq=faq,
     )
     spec = DatabaseSpec(
         name="primary",
@@ -196,7 +198,6 @@ async def make_runtime(
         ledger_dump=ledger_dump,
         watermark=watermark,
         data_wells=data_wells,
-        faq_lookup=faq_lookup,
     )
     return AgentRuntime(executor), completer, db
 

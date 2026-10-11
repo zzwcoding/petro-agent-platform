@@ -70,9 +70,11 @@ class ToolDescriptor:
 class ToolContext:
     """逐调用上下文（身份/预算/候选集/外表放行态——运行策略归调用方，不进 args）。
 
-    approved_tables（V2-34 任务 8——A2 裁决落点）：外表越集放行名单/审批态
-    （批准过的表名集）——放行态放工具上下文，不走引擎 approved_tables、不重排
-    计划；前置条件机按同一状态判外表越集闸（runtime 侧 state.approved_ids 同源）。
+    approved_tables（V2-34 任务 8——A2 裁决落点；P-051b 审查③注记改型随实现
+    同步）：外表越集放行名单/审批态（批准过的表名集）——放行态放工具上下文，
+    并随执行进引擎 approved_tables（data_query 传参——已批表放行续跑，批准后
+    重执行零二次挂审批；未批子集照挂），不重排计划；前置条件机按同一状态判
+    外表越集闸（runtime 侧 state.approved_ids 同源）。
 
     budget（V2-45 R1a 送窗预算动态化）：检索送窗预算 M（doc_retrieve/graph_query
     →RetrievalNeed.budget）——runtime 侧经 resolve_send_budget 按调用上下文赋值

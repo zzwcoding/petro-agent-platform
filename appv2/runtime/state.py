@@ -199,7 +199,11 @@ class RunState:
     tool_retries: dict[str, int] = field(default_factory=dict)
     # retryable 同参重试一次（合同上限）——按工具名计数（P-024b C2：discover 链
     # 上的重试不挤占 execute 的重试份额）。
-    extable_rounds: int = 0  # 外表审批批准后的重跑轮次（骨架上限 1）
+    # 外表审批批准后的重跑轮次（V2-52 越集全通道：四相位下双审批为常态——
+    # extable_rounds 可达 2＝前置闸＋引擎闸各一轮，四相位批准分支无 cap、单调
+    # 收敛无死循环〔放行集只增、plan 不重排〕；legacy 骨架通道保留 cap 1——
+    # C1 裁决登记 2026-10-11：生产 four_phase=True，legacy 不补全通道）。
+    extable_rounds: int = 0
     last_result: dict[str, Any] | None = None  # ToolResult dict 投影
     pending_ask: dict[str, Any] | None = None  # AskFrame dict 投影（挂起帧）
     # —— observe 产物 ——

@@ -7,6 +7,7 @@ action 命名空间隔离）；写口唯一＝security.audit（B12）：
 - 终态收口      → agent_v2.run_completed / agent_v2.run_failed（一类两值）
 - 拒答收口      → agent_v2.refused（与 notice type=refused 机读同源——约定 3）
 - 外表审批决定  → agent_v2.extable_approved / agent_v2.extable_rejected（一类两值）
+- N1 豁免放行   → agent_v2.ban_exempt（V2-52 附 C——豁免必留痕，P-051b 审查②）
 
 职责边界注记（票面任务 1）：run 簿记表（agent_v2_run/agent_v2_step）＝过程态
 ——状态机现值与逐步留痕，服务状态读面/回放；audit_log＝责任账——谁在何时以
@@ -37,6 +38,9 @@ ACTION_RUN_FAILED = "agent_v2.run_failed"
 ACTION_REFUSED = "agent_v2.refused"
 ACTION_EXTABLE_APPROVED = "agent_v2.extable_approved"
 ACTION_EXTABLE_REJECTED = "agent_v2.extable_rejected"
+# N1 豁免放行（V2-52 附 C——P-051b 审查②等效补齐：豁免必留痕；V1 同位留痕
+# ＝chat.ask.ban_exempt，本命名空间 agent_v2.* 前缀不变）。
+ACTION_BAN_EXEMPT = "agent_v2.ban_exempt"
 
 # 输入/收口摘要截断（content 槽携人话摘要——正文全文归簿记行/事件流，不进审计）。
 SUMMARY_LIMIT = 120
@@ -115,6 +119,21 @@ class RunAuditor:
                 action=ACTION_REFUSED,
                 content=f"拒答收口：{summarize(reason)}",
                 meta={"run_id": run_id},
+            )
+        )
+
+    async def ban_exempt(self, *, run_id: str, term: str, who: str) -> None:
+        """N1 豁免放行留痕（V2-52 附 C——豁免必留 audit 行；Owner 知情项同位）。
+
+        元问/引用形命中降级放行不拦停——放行路不做口径两译复检的残余风险
+        登记随 V1 DE-03 Owner 知情项同源（app/domains/chat/domain.py）。
+        """
+        await self._security.audit(
+            AuditRow(
+                who=who,
+                action=ACTION_BAN_EXEMPT,
+                content=f"N1 禁用词豁免放行（元问/引用形）：{summarize(term)}",
+                meta={"run_id": run_id, "term": term},
             )
         )
 
