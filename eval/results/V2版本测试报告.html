@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>V2 版本测试报告</title>
+<style>
+  :root{
+    --ink:#1f2430; --sub:#5a6472; --line:#e4e7ec; --bg:#f6f7f9; --card:#ffffff;
+    --ok:#1a7f4b; --ok-bg:#e8f5ee; --warn:#9a6b00; --warn-bg:#fdf3dd;
+    --bad:#b3261e; --bad-bg:#fbeae9; --blue:#1c5fd6; --blue-bg:#e9f0fd;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+       font-size:16px;line-height:1.75}
+  .wrap{max-width:960px;margin:0 auto;padding:32px 20px 80px}
+  header.hero{background:linear-gradient(135deg,#12314f,#1c5fd6);color:#fff;
+       border-radius:16px;padding:34px 36px 26px;margin-bottom:26px}
+  header.hero h1{margin:0 0 8px;font-size:29px;letter-spacing:1px}
+  header.hero p{margin:4px 0;color:#dbe6f7;font-size:15px}
+  .badge{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);
+       border-radius:999px;padding:2px 14px;font-size:13px;margin-right:8px}
+  h2.sec{font-size:22px;margin:42px 0 6px;padding-left:12px;border-left:5px solid var(--blue)}
+  p.sec-sub{color:var(--sub);margin:0 0 14px;font-size:14.5px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+       padding:22px 26px;margin:14px 0;box-shadow:0 1px 3px rgba(16,24,40,.05)}
+  .card h3{margin:0 0 8px;font-size:18px}
+  .what{background:var(--blue-bg);border-radius:10px;padding:11px 16px;margin:10px 0;font-size:15px}
+  .what b{color:var(--blue)}
+  .notice{background:var(--warn-bg);border:1px solid #ecd9a8;border-radius:12px;
+       padding:14px 18px;margin:14px 0;font-size:15px}
+  .notice b{color:var(--warn)}
+  ul.tight{margin:8px 0;padding-left:4px;list-style:none}
+  ul.tight li{margin:7px 0;padding-left:28px;position:relative;font-size:15px}
+  ul.tight li::before{content:attr(data-n);position:absolute;left:0;top:1px;
+       width:22px;height:22px;line-height:22px;text-align:center;background:var(--ink);
+       color:#fff;border-radius:50%;font-size:12px}
+  .compare{display:flex;gap:18px;flex-wrap:wrap;margin:16px 0 6px}
+  .cmp-box{flex:1;min-width:250px;border-radius:12px;padding:15px 18px;border:1px solid var(--line);font-size:14.5px}
+  .cmp-box.before{background:#fbf3f2;border-color:#f0d2cf}
+  .cmp-box.after{background:#eff8f2;border-color:#cfe8d8}
+  .cmp-box h4{margin:0 0 6px;font-size:15px}
+  .cmp-box.before h4{color:var(--bad)}
+  .cmp-box.after h4{color:var(--ok)}
+  .cmp-box p{margin:4px 0}
+  .bar{height:14px;border-radius:7px;background:#e9ebef;overflow:hidden;display:flex;margin:8px 0 4px}
+  .bar i{display:block;height:100%}
+  .bar i.g{background:#2e9e63}.bar i.y{background:#e2a713}.bar i.r{background:#d05450}
+  .legend{font-size:12.5px;color:var(--sub)}
+  .pill{display:inline-block;border-radius:6px;padding:1px 8px;font-size:13px;font-weight:600}
+  .pill.ok{background:var(--ok-bg);color:var(--ok)}
+  .pill.warn{background:var(--warn-bg);color:var(--warn)}
+  .pill.bad{background:var(--bad-bg);color:var(--bad)}
+  .note{color:var(--sub);font-size:13.5px;margin:8px 0 0}
+  .kpi-row{display:flex;gap:14px;flex-wrap:wrap;margin:16px 0 4px}
+  .kpi{flex:1;min-width:170px;background:var(--card);border:1px solid var(--line);
+       border-radius:14px;padding:16px 18px;text-align:center}
+  .kpi .v{font-size:26px;font-weight:700}
+  .kpi .t{font-size:13px;color:var(--sub);margin-top:2px}
+  .kpi.green .v{color:var(--ok)} .kpi.blue .v{color:var(--blue)}
+  .kpi.red .v{color:var(--bad)} .kpi.grey .v{color:var(--sub)}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14.5px}
+  th{background:#eef1f6;text-align:left;padding:9px 10px;border:1px solid var(--line);font-weight:600}
+  td{padding:8px 10px;border:1px solid var(--line);vertical-align:top}
+  tr:nth-child(even) td{background:#fafbfd}
+  footer{margin-top:44px;color:var(--sub);font-size:13px;border-top:1px solid var(--line);padding-top:16px}
+  code{background:#eef1f6;border-radius:4px;padding:1px 6px;font-size:13.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <span class="badge">V2 版本 · 演化中</span>
+  <span class="badge">冻结点 Q17</span>
+  <span class="badge">2026-10-09 → 10-12 五轮大考</span>
+  <h1>V2 版本测试报告</h1>
+  <p>V2＝推倒重写的第二版问答系统（模型自己决定下一步做什么的「自主循环」）。本报告按七个功能维度讲：考什么、查出什么毛病、改了什么、好了多少。</p>
+  <p>依据：git 提交记录（V2-31～V2-63 三十余张修复票）＋ eval/results/ 下 Q12～Q16 五轮大考存档（每题过程都有记录，判分凭记录）。</p>
+</header>
+
+<h2 class="sec">一句话总评</h2>
+<div class="card">
+  <p>V2 起点很低：第一轮大考（Q12，10-09）97 题只对 10 道、错 48 道——<strong>报告类问题 81 道全被送进了「台账查数」那条路</strong>，负责翻报告的那条腿一次都没被用上。</p>
+  <p>之后四轮大考，每轮修掉一层毛病，分数一路往上爬：<strong>10 → 7 → 18 → 34 → 48</strong>（对的题数），错的题从 48 降到 5。中间有个反复出现的现象：<strong>每修好一层，下一层毛病才露出来</strong>——先「选了检索却执行不了」，再「答案里漏出程序格式」，再「料就在眼前却说没料」，最后「引错了报告」。</p>
+  <div class="kpi-row">
+    <div class="kpi red"><div class="v">10✅/97</div><div class="t">Q12 起点（10-09）</div></div>
+    <div class="kpi blue"><div class="v">5 轮</div><div class="t">全量大考（Q12→Q16）</div></div>
+    <div class="kpi green"><div class="v">48✅/97</div><div class="t">Q16 最新（10-12）</div></div>
+    <div class="kpi grey"><div class="v">Q17</div><div class="t">指定冻结点（尚未开跑）</div></div>
+  </div>
+  <p class="note">判分三档：✅ 答对且出处对；⚠️ 部分对（如只答单套、答得不全）；❌ 答错／编造／该说没有却给了数。反题铁律：「给数就是错，说没有才算过」。</p>
+</div>
+
+<div class="notice">
+  <b>冻结点说明：</b>按 Owner 指定，V2 的冻结点为 <strong>Q17 轮</strong>。截至本报告出稿，Q17 尚未开跑——<strong>Q16（10-12）是当前最新一轮真实成绩</strong>。Q17 的用途是复考验证 Q16 残留的两大形态（引错报告、无据调和）是否收敛，跑完后本报告再补 Q17 一列即可定稿。
+</div>
+
+<!-- 维度一 -->
+<h2 class="sec">维度一：正题——报告里写了的，答得对吗？</h2>
+<p class="sec-sub">考题：问答组 A／B／C 组正题</p>
+<div class="card">
+  <div class="what"><b>测什么：</b>报告里的事实问答——数字对不对、出处标得对不对。</div>
+  <p><strong>查出的毛病（一轮一层，逐层露出）：</strong></p>
+  <ul class="tight">
+    <li data-n="1">Q12：报告类 81 道题<strong>全部被送进台账查数</strong>，翻报告的路一次没走；答案要么「不在目录不代答」，要么弹一张固定反问卡。</li>
+    <li data-n="2">Q13：改完路由后「选了却执行不了」——工具匹配缺一个必填字段被拒、反问卡把 30 道题挂起不答。</li>
+    <li data-n="3">Q14：路通了，但答案里<strong>直接吐出程序格式的 JSON</strong>（6 题）；检索召回 50 条，只送 4 条给模型看。</li>
+    <li data-n="4">Q15：料就在窗口里，系统却判「材料不足」直接收口（零交付族 22 题）。</li>
+  </ul>
+  <p><strong>改了什么：</strong>① 把六步流水线改成模型自主循环（V2-31）；② 修检索域合同与参数名（V2-41）；③ 答案通道与程序格式通道隔离，程序格式不再漏进答案（V2-48）；④ 送窗按子问题动态配额（V2-45）；⑤ 治「料在窗却说没料」的定稿判定（V2-53/56）。</p>
+  <div class="compare">
+    <div class="cmp-box before"><h4>改之前（Q12 问答组 A）</h4>
+      <div class="bar"><i class="g" style="width:18%"></i><i class="y" style="width:9%"></i><i class="r" style="width:73%"></i></div>
+      <p>2✅ 1⚠️ 8❌（11 题）</p><p class="legend">报告题被全数送错路</p></div>
+    <div class="cmp-box after"><h4>改之后（Q16 问答组 A＋B）</h4>
+      <div class="bar"><i class="g" style="width:33%"></i><i class="y" style="width:67%"></i><i class="r" style="width:0%"></i></div>
+      <p>7✅ 14⚠️ 0❌（21 题）</p><p class="legend">错答清零，余下的多是「答得不全」</p></div>
+  </div>
+</div>
+
+<!-- 维度二 -->
+<h2 class="sec">维度二：反题——报告里没有的，你会不会瞎编？</h2>
+<p class="sec-sub">考题：反题＋诱导题 D 组</p>
+<div class="card">
+  <div class="what"><b>测什么：</b>故意问不存在的东西，看顶不顶得住诱惑；诱导题还会喂错误前提看跟不跟。</div>
+  <p><strong>查出的毛病：</strong></p>
+  <ul class="tight">
+    <li data-n="1">V2 的反题一直「不编数」，但早期很大程度是<strong>干脆不答</strong>（零交付）——不是真的顶住了，而是没走到答题那一步。</li>
+    <li data-n="2">Q15 起出现「无据调和」新形态：真数字在手，却被错误的口径框架吞掉，等于换个方式给错答案。</li>
+  </ul>
+  <p><strong>改了什么：</strong>① 归属校验：引用的出处必须跟题目点名的对象对上（V2-50）；② 答案轮加「转述义务」——该如实转述的不许含糊（V2-62）。</p>
+  <div class="compare">
+    <div class="cmp-box before"><h4>改之前（Q12）</h4>
+      <p>反题零带数——但答案是「零交付」形态</p></div>
+    <div class="cmp-box after"><h4>改之后（Q16）</h4>
+      <p>剩余 5 个 ❌ 里 2 个是无据调和（真数被错误框架吞掉），编造类为零</p></div>
+  </div>
+</div>
+
+<!-- 维度三 -->
+<h2 class="sec">维度三：检索找得到吗——东西在库里，递得到 AI 眼前吗</h2>
+<p class="sec-sub">V2 的主战场；五轮里每轮的主毛病都出在这里</p>
+<div class="card">
+  <div class="what"><b>测什么：</b>答案确实在报告里，考「找料递料」——把对的内容送进模型的视野（窗口）。</div>
+  <p><strong>查出的毛病：</strong></p>
+  <ul class="tight">
+    <li data-n="1">Q12：检索腿<strong>一次都没被选中</strong>（报告题全被规划成台账查数）。</li>
+    <li data-n="2">Q13：选了，但执行不了——三段断裂（工具匹配缺字段被拒／反问卡挂起／参数合同不认）。</li>
+    <li data-n="3">Q14：能查了，但<strong>召回 50 条只送 4 条</strong>给模型，目标段落结构性看不到。</li>
+    <li data-n="4">Q15：送窗扩到 16～31 条，目标段落仍会缺（「从来没被召回，就无料可保」）。</li>
+  </ul>
+  <p><strong>改了什么：</strong>① 检索域合同修补与参数名归一（V2-41）；② 送窗按子问题动态配额（V2-45）；③ 缺位回捞（V2-46）；④ 切片富化（V2-47）；⑤ 选席时目标段落优先（V2-49）。</p>
+  <div class="compare">
+    <div class="cmp-box before"><h4>改之前</h4>
+      <p>送窗只有 <span class="pill bad">4 条</span>；Q14 四大缺行题全 ❌</p>
+      <p>总时延 Q14 涨到 2,817 秒（检索真参与进来后的代价）</p></div>
+    <div class="cmp-box after"><h4>改之后</h4>
+      <p>送窗扩到 <span class="pill ok">16～31 条</span>（97 份记录实测）；四大缺行中 3 题升档</p>
+      <p>总时延回落到 1,348 秒（Q15，长尾消退）</p></div>
+  </div>
+  <p class="note">参照：V1 的全量总时延是 2,575 秒，V2 修好后更快——因为 V2 是模型自主循环，不做 V1 那套多级级联。</p>
+</div>
+
+<!-- 维度四 -->
+<h2 class="sec">维度四：多文档判源——库里有多份像的材料，引对了吗</h2>
+<p class="sec-sub">考题：跨报告／跨油田题；Q16 的两大残留形态之一</p>
+<div class="card">
+  <div class="what"><b>测什么：</b>库里有多个油田的同型报告（格式几乎一样），看引用的是不是对的那份、有没有把不同对象的数据混着抄。</div>
+  <p><strong>查出的毛病：</strong></p>
+  <ul class="tight">
+    <li data-n="1">Q14：拿 W-11 报告的内容回答 Y-21 报告的题（张冠李戴）；Y-41 被 W-41 顶替；34-5 的数据答了 34-8 的题。</li>
+    <li data-n="2">Q16：升级成「错域锚定」——题干点名的报告名／月次／油田名，跟模型实际去检索的域对不上（3 题）。</li>
+  </ul>
+  <p><strong>改了什么：</strong>① 检索请求里强制注入「报告锚定词」（V2-50）；② 答案面加归属一致性审，引错源时改成「分源列明」而不是硬编一个结论。</p>
+  <div class="compare">
+    <div class="cmp-box before"><h4>改之前（Q14）</h4>
+      <p>3 题张冠李戴 ❌</p></div>
+    <div class="cmp-box after"><h4>改之后（Q15）</h4>
+      <p>3 题张冠李戴 <span class="pill ok">清零</span>；Q16 残余「错域锚定」3 题（题眼→检索域锚定是下一层瓶颈）</p></div>
+  </div>
+</div>
+
+<!-- 维度五 -->
+<h2 class="sec">维度五：问数——台账里的数，查得对、算得对吗</h2>
+<p class="sec-sub">考题：问数组 16 题（走专门的取数路径）</p>
+<div class="card">
+  <div class="what"><b>测什么：</b>查库、算数、排名——明细表、排名、限行、过期拦停、缺参反问、指标降级等小族。</div>
+  <p><strong>查出的毛病：</strong></p>
+  <ul class="tight">
+    <li data-n="1">Q12：问数族也塌（4✅ 6⚠️ 6❌），排名题从单日切片取值、限行题被反问卡拦下。</li>
+    <li data-n="2">明细题「观察 50 行、答案只给 24 行」——真源头是装配环节<strong>硬截断 24 条</strong>，比取数引擎给出的 50 条还低，模型从没见过第 25～50 行（Q15 才查清）。</li>
+    <li data-n="3">同参数反复重投，白白烧掉轮次预算。</li>
+  </ul>
+  <p><strong>改了什么：</strong>① 材料按承载体分开渲染，权威行集全量交给模型、截断必披露（V2-61）；② 排名题强制消费排名观察支（V2-51）；③ 同参数重投确定性拦截＋拒因回喂（V2-37）。</p>
+  <div class="compare">
+    <div class="cmp-box before"><h4>改之前（16 题专项，10-09）</h4>
+      <div class="bar"><i class="g" style="width:0%"></i><i class="y" style="width:19%"></i><i class="r" style="width:81%"></i></div>
+      <p>0✅ 3⚠️ 13❌</p></div>
+    <div class="cmp-box after"><h4>改之后</h4>
+      <p>同参闸后 12✅ 4⚠️ 0❌；后续各轮保持 ❌=0</p>
+      <p>Q16 问数组＋系统 21 题：<strong>17✅ 4⚠️ 0❌</strong>（形态基线达标）</p></div>
+  </div>
+</div>
+
+<!-- 维度六 -->
+<h2 class="sec">维度六：系统级——安全闸和体验规矩守不守</h2>
+<p class="sec-sub">考题：系统级 5 题（禁用词／术语卡／FAQ 秒回／澄清／越集审批）</p>
+<div class="card">
+  <div class="what"><b>测什么：</b>V1 里已经做好的安全闸和礼貌规矩，V2 重写后有没有搬过来。</div>
+  <p><strong>查出的毛病：</strong>V2 起步时这些站<strong>整个缺失</strong>——禁用词拦截、FAQ 秒回、届满标注、越集审批在 V2 里都没有对应环节（Q12 系统级 1✅ 0⚠️ 4❌）。</p>
+  <p><strong>改了什么：</strong>五站缺口迁移批（V2-52）——新建 FAQ 查询（含归一化、相似问优先、禁用词剔除）、禁用词豁免按「如实引用＋放行」、台账常驻信息不计入「材料足够」判定。</p>
+  <div class="compare">
+    <div class="cmp-box before"><h4>改之前（Q12）</h4>
+      <p>系统级 5 题：1✅ 0⚠️ 4❌</p></div>
+    <div class="cmp-box after"><h4>改之后（Q15）</h4>
+      <p>禁用词 <span class="pill ok">✅</span>｜届满 <span class="pill warn">⚠️</span>｜术语卡、澄清持平｜FAQ 直出链仍未兑现</p>
+      <p class="note">判分口径也同步统一（V2-63）：FAQ 秒回按「答得对」判，不再要求「零模型调用」。</p></div>
+  </div>
+</div>
+
+<!-- 维度七 -->
+<h2 class="sec">维度七：新语料三册——材料本身有毛病，你怎么办</h2>
+<p class="sec-sub">考题：完井／动态／月报三册 30 题</p>
+<div class="card">
+  <div class="what"><b>测什么：</b>三份报告故意保留矛盾、内部差错和明示缺位，考「如实阐述、不编造、缺位就明说」。</div>
+  <p><strong>查出的毛病：</strong>与检索同根（送窗截断、零观察定稿），另有长题干（四五个子问题）预算不够用不完。</p>
+  <p><strong>改了什么：</strong>与维度三共用同一批修复；长题干按子问题分组配额。</p>
+  <div class="compare">
+    <div class="cmp-box before"><h4>改之前（Q12）</h4>
+      <div class="bar"><i class="g" style="width:0%"></i><i class="y" style="width:47%"></i><i class="r" style="width:53%"></i></div>
+      <p>0✅ 14⚠️ 16❌</p></div>
+    <div class="cmp-box after"><h4>改之后（Q16）</h4>
+      <div class="bar"><i class="g" style="width:27%"></i><i class="y" style="width:63%"></i><i class="r" style="width:10%"></i></div>
+      <p>8✅ 19⚠️ 3❌（升 14 跌 3 平 13）</p></div>
+  </div>
+  <p class="note">亮点：零交付三题（M2 9339 字／M7 1096 字／D6 4110 字）与回声题（M8 3408 字／M9 1298 字）从 ❌ 转为实质交付。</p>
+</div>
+
+<!-- 时间线 -->
+<h2 class="sec">V2 全部测试轮（时间线）</h2>
+<div class="card">
+  <table>
+    <tr><th>轮次</th><th>日期</th><th>成绩</th><th>这一轮的主毛病（修掉一层，露出一层）</th></tr>
+    <tr><td>Q12 首轮大考</td><td>10-09</td><td class="pill bad">10✅ 39⚠️ 48❌</td><td>报告题全被送进台账查数，翻报告的路零使用</td></tr>
+    <tr><td>Q13</td><td>10-10</td><td class="pill bad">7✅ 44⚠️ 46❌</td><td>选了检索却执行不了：工具匹配缺字段被拒、反问卡挂起 30 题</td></tr>
+    <tr><td>Q14</td><td>10-10</td><td class="pill warn">18✅ 49⚠️ 30❌</td><td>答案漏出程序格式 JSON（6 题）；召回 50 条只送 4 条</td></tr>
+    <tr><td>Q15</td><td>10-11</td><td class="pill warn">34✅ 34⚠️ 29❌</td><td>料在窗口里却说没料（零交付族 22 题）；错答与新增对冲</td></tr>
+    <tr><td>Q16</td><td>10-12</td><td class="pill ok">48✅ 44⚠️ 5❌</td><td>只剩两大新形态：错域锚定 3＋无据调和 2；出口线 ❌&lt;5 差一道贴线</td></tr>
+    <tr><td><b>Q17 冻结点</b></td><td>待跑</td><td class="pill warn">—</td><td>指定为 V2 冻结点，用于复考验证上述两大形态是否收敛</td></tr>
+  </table>
+  <p class="note">V2 特有的两项保障：① 测评时钟冻结（每次大考都锁在 2026-08-31 这个「水位日」，保证跑出来的数可复现）；② 黑匣子观测（每轮模型的原始输出可回放，判分有据可查）。</p>
+</div>
+
+<!-- 遗留 -->
+<h2 class="sec">Q17 冻结点与尚未修好的问题</h2>
+<div class="card">
+  <ul class="tight">
+    <li data-n="1"><strong>错域锚定</strong>（Q16 的 3 道 ❌）——题干点名的报告／月次／油田名，跟模型实际检索的域对不上。建议的最小修法＝把这些「题眼」注入检索锚定词（纯装配层改动）。</li>
+    <li data-n="2"><strong>无据调和</strong>（Q16 的 2 道 ❌）——真数字在手，却被错误的口径框架吞掉，改成「分源列明」即可解决。</li>
+    <li data-n="3"><strong>FAQ 直出链</strong>——建好了但模型不发射；判分口径已统一，属观测项。</li>
+    <li data-n="4"><strong>在窗未取</strong>（完备性缺口主源）——切片已经在观察材料里，答案却说「未找到」。</li>
+  </ul>
+  <p class="note">Q17 前置条件：不需要新闸，判分轴四条继续有效。跑完 Q17 后，本报告在时间线补一行、并在各维度补上「冻结点成绩」即可定稿。</p>
+</div>
+
+<footer>
+  依据：git 提交（V2-31 ReAct 重构／V2-41 检索域合同修补／V2-45～V2-49 检索供给窗四票／V2-48 起草面塌方治理／V2-50 归属校验／V2-52 五站缺口迁移／V2-53 零观察定稿治理／V2-61 材料承载分形渲染／V2-62 轮次任务自足性／V2-63 判分轴统一 等）＋ eval/results/ 下 Q12～Q16 五轮对账报告。<br>
+  配套：<code>eval/results/Q16-对账报告.md</code>（最新一轮明细）、<code>eval/results/题集测试轮次台账.md</code>（全项目两版总台账）。
+</footer>
+
+</div>
+</body>
+</html>
