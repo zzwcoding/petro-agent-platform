@@ -82,6 +82,7 @@ from appv2.runtime.guide import (
     GuideProvider,
 )
 from appv2.runtime.llm import CALLER_PREFIX, GatewayChatModel
+from appv2.runtime.orientation import build_understand_instruction
 from appv2.runtime.state import (
     INTENT_ANSWER,
     INTENT_BATCH,
@@ -250,18 +251,6 @@ _CANDIDATE_LINE = "指标候选"
 # （kb 长片段数值 token 十余个，全数值复述形同必吞——run-a2961c64 实测支撑
 # 0｜改写 10；豁免仍有底：任一数值 token 重叠即支撑、零重叠照改，见 _supported）。
 _CARRIER_KINDS = frozenset({"agg_row", "lineage", "fragment"})
-# few-shot 样张（V2-09——L-04 golden 少样本同款形态「例：〈问句〉\n输出：〈合同样
-# 张〉」）：样例问句取问数组数-明1 原句（eval/results/golden/plan-golden-v1.json
-# L04-02 同源）；理解样张窗端点按「去年」锚 2026 年（golden anchor 2026-10-08 同值，
-# anchor_scope=year 年内有效——跨年需随 golden 重锚同步更新）。
-_SHUMING1_QUESTION = "去年各井每天的日产油量是多少？"
-_UNDERSTAND_INSTRUCTION = (
-    "识别问句：输出两行。第一行「理解：〈一句话〉」；"
-    "第二行「指标候选：〈逗号分隔的指标名〉」（无可出数指标写：指标候选：无）。"
-    f"例：{_SHUMING1_QUESTION}\n"
-    "输出：理解：问去年全年各井逐日的日产油量明细。\n"
-    "指标候选：日产油量"
-)
 # 答案起草合同（引标断言——verify 确定性核验的素材面）。V2-48 追加 JSON 通道
 # 隔离句（finalize/ask 发射 JSON 不进答案面——确定性剥离是 enforcement，此句
 # 只降首发泄漏率省重试）。V2-51 追加台账卡非数据源句（C-正4 台账词面拼凑形：
@@ -327,6 +316,7 @@ class LoopDeps:
         ledger_dump: Callable[[], dict[str, Any]] | None = None,
         watermark: Callable[[], Any] | None = None,
         data_wells: Callable[[], Any] | None = None,
+        object_digests: Callable[[], list[str]] | None = None,
         today: Any = None,
     ) -> None:
         self.registry = registry
@@ -339,6 +329,9 @@ class LoopDeps:
         self.ledger_dump = ledger_dump
         self.watermark = watermark
         self.data_wells = data_wells
+        # V2-58 理解步任务书本对象摘要缝（组合根经 api.load_object_digests 供给；
+        # None＝回退台账 dump.objects 薄形渲染）。
+        self.object_digests = object_digests
         self.today = today if today is not None else clock.now().date()
 
     def model(self, key: str) -> GatewayChatModel:
@@ -1304,12 +1297,33 @@ def _make_understand(
             )
         # 消息历史簿记（ADR-0006）：首问轮＝问题＋理解任务（追问 run 的前轮线程
         # 历史已在 state.history——executor 播种，此处续写新问轮）。
+        # V2-58 理解步信息面治理：首轮 user 消息改动态装配任务书（静态骨架＋活体
+        # 环境——名录/术语/本体/水位与程序闸同源；语义归模型，程序管装配）。
+        dump = state.ledger_dump
+        if dump is None and deps.ledger_dump is not None:
+            dump = deps.ledger_dump()
+        watermark_date = None
+        if deps.watermark is not None:
+            try:
+                watermark_face = deps.watermark()
+            except Exception:
+                watermark_face = None
+            watermark_date = (
+                getattr(watermark_face, "data_date", watermark_face)
+                if watermark_face is not None
+                else None
+            )
+        instruction = build_understand_instruction(
+            question=state.question,
+            dump=dump,
+            object_lines=deps.object_digests() if deps.object_digests is not None else None,
+            watermark_date=watermark_date,
+            today=deps.today,
+        )
         context = deps.builder.compile(
             state,
             step="understand",
-            instruction=(
-                f"问题：{state.question}\n\n任务：{_UNDERSTAND_INSTRUCTION}"
-            ),
+            instruction=instruction,
             with_material=False,
         )
         content = await _complete(deps.model(MODEL_UNDERSTAND), context)

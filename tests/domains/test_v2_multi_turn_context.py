@@ -114,13 +114,14 @@ async def test_second_decision_context_carries_first_round_history(
         # ＋当前轮；第 2 轮在完整历史上续写（更长）。
         assert first[0]["role"] == "system"
         assert len(first) == 4
-        assert first[1]["role"] == "user" and f"问题：{QUESTION_A}" in first[1]["content"]
+        assert first[1]["role"] == "user"
+        assert f"【待解构的题干】\n{QUESTION_A}" in first[1]["content"]
         assert first[2]["role"] == "assistant" and "理解" in first[2]["content"]
         assert len(second) == 7  # system＋首问＋理解＋r1 调用＋r1 输出＋台账＋当前轮
         assert second[0]["role"] == "system"
         # 首问轮逐字保留在历史（对话源头不丢）。
         assert any(
-            m["role"] == "user" and f"问题：{QUESTION_A}" in m["content"]
+            m["role"] == "user" and f"【待解构的题干】\n{QUESTION_A}" in m["content"]
             for m in second
         )
         # 第 1 轮决策 JSON 逐字可查（assistant 轮＝模型当时输出的原话）。
@@ -280,7 +281,7 @@ async def test_followup_context_carries_prior_qa_history(tmp_path: Path) -> None
         # ①前轮问句轮逐字；②前轮最终答案轮（上轮答案：…含值与引用块）。
         understand_msgs = completer_b.messages_of("v2.runtime.understand")[0]
         joined = _joined(understand_msgs)
-        assert f"问题：{QUESTION_A}" in joined
+        assert f"【待解构的题干】\n{QUESTION_A}" in joined
         assert "上轮答案：" in joined
         assert "21.16" in joined and "引用：" in joined
         # 前轮决策 JSON／执行台账同样随线程可见（多轮簿记跨 run 延续）。

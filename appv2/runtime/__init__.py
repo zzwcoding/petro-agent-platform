@@ -103,6 +103,15 @@ from appv2.runtime.guide import (
     GuideProvider,
 )
 from appv2.runtime.llm import CALLER_PREFIX, Completer, GatewayChatModel
+from appv2.runtime.orientation import (
+    assemble_understand_turn,
+    build_understand_instruction,
+    iso_day,
+    render_metric_lines,
+    render_relation_lines,
+    render_term_lines,
+    thin_object_lines,
+)
 from appv2.runtime.state import (
     INTENT_BATCH,
     INTENT_PRECONDITION,
@@ -210,13 +219,20 @@ __all__ = [
     "ScriptedCompleter",
     "Subtask",
     "SubtaskMatch",
+    "assemble_understand_turn",
+    "build_understand_instruction",
     "ensure_agent_v2_tables",
     "eval_frozen_today",
     "gate_freshness",
+    "iso_day",
     "new_run_id",
     "parse_decision",
     "parse_question_group",
     "parse_tool_match",
+    "render_metric_lines",
+    "render_relation_lines",
+    "render_term_lines",
     "reseed_approval_id",
     "resolve_eval_frozen_date",
+    "thin_object_lines",
 ]

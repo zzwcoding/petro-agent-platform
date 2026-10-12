@@ -31,8 +31,43 @@ DEFAULT_GUIDE_PATH = (
     Path(__file__).resolve().parents[2] / "ontology" / "petro" / "skill-guides" / "instructions.md"
 )
 
+# 本体对象模型缺省路径（V2-58 理解步任务书注入面——对象摘要提取源）。
+DEFAULT_M1_PATH = (
+    Path(__file__).resolve().parents[2] / "ontology" / "petro" / "m1-object-model.yaml"
+)
+
 _SECTION_A_HEAD = "## §A"
 _SECTION_END_MARK = "\n---"
+
+
+def load_object_digests(path: Path | None = None) -> list[str]:
+    """本体对象摘要（V2-58 理解步任务书注入面——m1 对象模型程序化提取）。
+
+    每聚合一行「name：label（枚举1／枚举2）·label…」；lifecycle 值集若与某属性
+    枚举重复（井：当前状态＝状态机）则不重复渲染。api 层读本体资产＝
+    OntologyGuideProvider 同款组合根例外（只读 repo 内本体文件，零引擎接触）。
+    """
+    import yaml
+
+    m1_path = path if path is not None else DEFAULT_M1_PATH
+    with m1_path.open(encoding="utf-8") as fh:
+        m1 = yaml.safe_load(fh)
+    lines: list[str] = []
+    for agg in m1.get("aggregates", []):
+        labels: list[str] = []
+        enums_by_attr: list[set[str]] = []
+        for attr in agg.get("attributes", []):
+            label = str(attr.get("label", attr.get("name", "")))
+            ev = list(attr.get("enumValues") or [])
+            enums_by_attr.append(set(ev))
+            labels.append(f"{label}（{'／'.join(ev)}）" if ev else label)
+        lifecycle = list(agg.get("lifecycle") or [])
+        if lifecycle and not any(set(lifecycle) == enums for enums in enums_by_attr):
+            labels.append(f"状态机（{'／'.join(lifecycle)}）")
+        body = "·".join(labels)
+        name = str(agg.get("name", ""))
+        lines.append(f"{name}：{body}" if body else name)
+    return lines
 
 
 def _extract_section_a(text: str) -> str:

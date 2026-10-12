@@ -29,7 +29,7 @@ from fastapi import FastAPI
 from appv2.api.bridge import RunStreamRegistry
 from appv2.api.chat import router as chat_router
 from appv2.api.errors import install_error_handlers
-from appv2.api.ontology_guide import OntologyGuideProvider
+from appv2.api.ontology_guide import OntologyGuideProvider, load_object_digests
 from appv2.infra.config import ChatSettings
 from appv2.infra.db import ConnectionManager, DatabaseSpec
 from appv2.infra.gateway.store import ensure_gateway_tables
@@ -240,6 +240,8 @@ def create_app(
         ledger_dump=ledger_dump,
         watermark=watermark,
         data_wells=data_wells,
+        # V2-58 理解步任务书本对象摘要缝（组合根缺省装配——api 读本体资产例外同 guide）
+        object_digests=load_object_digests,
     )
     app = FastAPI(title="Petro-Agent V2", version="2.0", lifespan=lifespan)
     install_error_handlers(app)
