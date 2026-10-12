@@ -2001,6 +2001,18 @@ def _make_clarify(
         # 首位合同的跟随最稳，P033SK1 实证双合同并存会照抄 legacy 动作）；
         # 指南正文随后只作业务规则参考（窗词锚定/单井红线/名册——其动作类
         # 措辞由本合同取代；资产零触碰，消歧在本消费缝）。
+        # V2-59 样例窗锚＝数据水位（合法数据窗的锚；水位缝缺省回退 deps.today）
+        watermark_date = None
+        if deps.watermark is not None:
+            try:
+                watermark_face = deps.watermark()
+            except Exception:
+                watermark_face = None
+            watermark_date = (
+                getattr(watermark_face, "data_date", watermark_face)
+                if watermark_face is not None
+                else None
+            )
         instruction = (
             "【相位①·业务澄清——本相位唯一有效发射合同（.action 只许 "
             "discover|decompose|ask|finalize；指南正文中出现的 execute 动作"
@@ -2008,7 +2020,8 @@ def _make_clarify(
             + contract
             + "\n"
             + render_decompose_example(
-                list(dump.get("metrics") or []), today=deps.today
+                list(dump.get("metrics") or []),
+                today=watermark_date if watermark_date is not None else deps.today,
             )
             + "\n\n【业务规则参考（ontology 指南 §A——窗词锚定/单井红线/"
             "三链路由；动作类措辞以上方合同为准）】\n"
