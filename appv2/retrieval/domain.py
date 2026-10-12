@@ -193,7 +193,8 @@ class FragmentRecord:
     text＝生成上下文用全文（V1 生成窗全文纪律——不再截 500）；embedding＝None
     表示未入向量索引（向量腿跳过、关键词腿兜底）；family＝库 biz_template
     透传（供给分池的族键）；library/report＝出处链 library/报告名两级；
-    node_kind＝语料节点分型（V2-47 R1b——缺省 slice，旧构造零漂移）。
+    node_kind＝语料节点分型（V2-47 R1b——缺省 slice，旧构造零漂移）；
+    well＝切片本体标签（V2-64——入库抽取回写 kb_fragment.well，缺省 None 零漂移）。
     """
 
     fragment_id: str
@@ -206,6 +207,7 @@ class FragmentRecord:
     text: str
     embedding: list[float] | None = None
     node_kind: str = NODE_SLICE
+    well: str | None = None
 
     def __post_init__(self) -> None:
         if self.node_kind not in (NODE_SLICE, NODE_SECTION_SUMMARY):
@@ -364,7 +366,8 @@ class Observation:
 
     score 恒原始腿分（精排只重排不改分）；locator＝出处链 wire 面
     {library, report, section, fragment_id}——同型文档来源标注（specs 行为
-    约定 4：锚错 A-W11 vs Y-21 可被核验步发现）。
+    约定 4：锚错 A-W11 vs Y-21 可被核验步发现）；well＝切片本体标签透传
+    （V2-64——装配面把出处/对象随材料交模型，缺省 None 零漂移）。
     """
 
     kind: str  # fragment | graph
@@ -380,6 +383,7 @@ class Observation:
     library: str
     section: str | None
     locator: Mapping[str, str]
+    well: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

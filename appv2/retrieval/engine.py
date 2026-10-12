@@ -393,6 +393,7 @@ class RetrievalEngine:
             library=frag.library,
             section=frag.section,
             locator=locator,
+            well=frag.well,
         )
 
     def _edge_observation(self, edge: GraphEdgeRecord) -> Observation:

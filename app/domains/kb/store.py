@@ -739,6 +739,19 @@ class FragmentStore:
         async with self._db.readonly() as session:
             return await session.get(FragmentRow, fragment_id)
 
+    async def set_well(self, fragment_id: str, well: str) -> None:
+        """切片本体标签回写（V2-64——graph 支路抽取结果落 kb_fragment.well）。
+
+        单行 UPDATE；行不存在静默返回（抽取与切片重建竞态下不炸链）。
+        """
+        async with self._db.session() as session:
+            row = await session.get(FragmentRow, fragment_id)
+            if row is None:
+                return
+            row.well = well
+            row.updated_at = now()
+            await session.flush()
+
     async def revise(
         self, frag: FragmentRow, version: FragmentVersionRow
     ) -> tuple[FragmentRow, FragmentVersionRow]:

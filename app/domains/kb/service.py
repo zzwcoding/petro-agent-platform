@@ -737,6 +737,14 @@ class KbService:
                 row.updated_at = now()
                 await session.flush()
 
+    async def set_fragment_well(self, fragment_id: str, well: str) -> None:
+        """切片本体标签回写（V2-64——derivatives graph 支路抽取结果落切片）。
+
+        B9 例外族公开写口（同 publish_wiki_version 先例）：本体标签属切片读面
+        属性，graph 支路不直写 kb_fragment（禁他模块直写本表）——经本口落。
+        """
+        await self._fragments.set_well(fragment_id, well)
+
     # ---------- 重建任务体（source=片段修正——不重切、重嵌、问题块重生） ----------
 
     def _spawn_rebuild(self, task_id: str, fragment_id: str) -> None:

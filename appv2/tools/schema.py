@@ -160,7 +160,8 @@ class Observation:
 
     来源链必带（INV-1 的输入）：台账行（source＝sem_*#行 id）、权威表行
     （source/locator.table＝表名）、检索支（fragment→report→library 三级）；
-    locator 恒机读（kind 键分型＋定位键）。
+    locator 恒机读（kind 键分型＋定位键）；well＝切片本体标签（V2-64——检索支
+    透传 kb_fragment.well；其余观察缺省 None，装配面按缺省省略）。
     """
 
     content: str
@@ -170,6 +171,7 @@ class Observation:
     freshness: str
     scope: str
     locator: Mapping[str, str]
+    well: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

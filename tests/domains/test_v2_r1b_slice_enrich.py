@@ -304,10 +304,10 @@ async def test_pg_enrich_store_sqlite_roundtrip_and_kb_untouched(tmp_path: Path)
             await session.execute(text(
                 "CREATE TABLE IF NOT EXISTS kb_fragment ("
                 "id TEXT PRIMARY KEY, report_id TEXT NOT NULL, section TEXT,"
-                "is_parent_only INTEGER NOT NULL, embedding TEXT)"
+                "well TEXT, is_parent_only INTEGER NOT NULL, embedding TEXT)"
             ))
             await session.execute(text(
-                "INSERT INTO kb_fragment VALUES ('f-a1', 'rpt-a', 'sec', 0, '[0.5,0.5]')"
+                "INSERT INTO kb_fragment VALUES ('f-a1', 'rpt-a', 'sec', NULL, 0, '[0.5,0.5]')"
             ))
         store = PgEnrichStore(specs)
         node = _summary_node_fixture()

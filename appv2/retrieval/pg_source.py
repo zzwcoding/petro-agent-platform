@@ -88,6 +88,7 @@ _KB_FRAGMENT = Table(
     Column("id", String(32)),
     Column("report_id", String(32)),
     Column("section", Text),
+    Column("well", Text),
     Column("is_parent_only", Boolean),
     Column("embedding", _PgVector().with_variant(JSON(), "sqlite")),
 )
@@ -120,6 +121,7 @@ class PgFragmentLibrary(FragmentLibrary):
                 _KB_FRAGMENT.c.report_id,
                 _KB_REPORT.c.doc.label("report"),
                 _KB_FRAGMENT.c.section,
+                _KB_FRAGMENT.c.well,
                 _KB_LIBRARY.c.id.label("library_id"),
                 _KB_LIBRARY.c.name.label("library"),
                 _KB_LIBRARY.c.biz_template.label("family"),
@@ -155,6 +157,7 @@ class PgFragmentLibrary(FragmentLibrary):
                 family=str(row.family),
                 text=str(row.text),
                 embedding=list(row.embedding) if row.embedding is not None else None,
+                well=str(row.well) if row.well is not None else None,
             )
             for row in rows
         ]

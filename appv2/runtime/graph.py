@@ -266,7 +266,8 @@ _CARRIER_KINDS = frozenset({"agg_row", "lineage", "fragment"})
 # 台账定义卡只作口径注记，不得拼装成点名对象的数据答案）。
 _ANSWER_INSTRUCTION = (
     "起草答案：逐条事实断言必须带 [n] 引标（n＝观察材料序号）；材料未覆盖的部分"
-    "不得断言；多来源不一致时逐源列明。答案只出交付正文——finalize/ask 等发射"
+    "不得断言；材料含多个来源（不同报告／油田／井）时逐个来源分别作答（不冲突也"
+    "要分别列出）。答案只出交付正文——finalize/ask 等发射"
     " JSON（含围栏形）不得出现在答案中。台账卡（指标/术语定义面）只承载口径与"
     "定义，不是井/对象的取数面——点名具体井、报告或对象的数据题，结论必须取自"
     "该对象自己的观察材料本体，不得以台账定义卡拼装该对象的数据答案；材料未"
@@ -1106,6 +1107,7 @@ def _result_dict(result: Any) -> dict[str, Any]:  # ToolResult
                 "freshness": obs.freshness,
                 "scope": obs.scope,
                 "locator": dict(obs.locator),
+                "well": obs.well,  # V2-64 切片本体标签（装配面出处随材料）
             }
             for obs in result.observations
         ],

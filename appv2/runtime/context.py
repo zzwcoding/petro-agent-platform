@@ -53,7 +53,8 @@ DEFAULT_MAX_CONTEXT_TOKENS = 12000
 
 SYSTEM_PROMPT = (
     "你是油田数据问答助手。红线：1) 每条事实断言必须带 [n] 引标指向给定观察，"
-    "无据不得断言；2) 多来源不一致时逐源列明，禁止无出处调和；3) 只依据给定观察"
+    "无据不得断言；2) 材料含多个来源（不同报告／油田／井）时逐个来源分别作答——"
+    "即使各源不冲突也要分别列出，不得只取其一；禁止无出处调和；3) 只依据给定观察"
     "回答，观察未覆盖的部分如实说明未找到。"
 )
 
@@ -180,7 +181,12 @@ class ContextBuilder:
             for _, obs in ordered:
                 index = int(obs["index"])
                 trust = trust_of(obs)
-                blocks.append(f"[{index}]（{trust}）{obs.get('content', '')}")
+                # V2-64 出处随材料：信任级｜报告名（source）｜本体标签（well）——
+                # 让模型分得清每支材料属于哪个报告/对象（缺省逐段省略，零漂移）。
+                origin = str(obs.get("source") or "").strip()
+                well = str(obs.get("well") or "").strip()
+                label = "｜".join(part for part in (trust, origin, well) if part)
+                blocks.append(f"[{index}]（{label}）{obs.get('content', '')}")
                 source_types.append(str((obs.get("locator") or {}).get("kind", "")))
                 source_ids.append(str(obs.get("source_id", "")))
                 versions.append(obs.get("version"))

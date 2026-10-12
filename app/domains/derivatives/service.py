@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -66,6 +67,27 @@ GRAPH_DRAFT_CALLER = "graph.draft"
 EVIDENCE_TYPES: tuple[str, ...] = ("原文块", "图片说明块", "图片文字块")
 _EXCERPT_CHARS = 200
 
+# V2-64 切片本体标签：抽取三元组里定位性实体类型（井/油田/区块/平台）入标签；
+# 井筒/设备/措施/化验样等「作用对象」不入（不是切片主语）；上限防膨胀。
+_SLICE_TAG_TYPES: tuple[str, ...] = ("井", "油田", "区块", "平台")
+_SLICE_TAG_SEP = "·"
+_SLICE_TAG_CAP = 6
+
+
+def _slice_well_tag(edges: Sequence[Any]) -> str:
+    """过闸边→切片本体标签串（确定性，零模型——V2-64）。
+
+    取三元组两端中类型 ∈ _SLICE_TAG_TYPES 的实体名，保序去重、上限 _SLICE_TAG_CAP。
+    例：「W-11 井—隶属→渤中 34-5 油田」→「W-11井·渤中34-5油田」。空＝空串（不写）。
+    """
+    tags: list[str] = []
+    for edge in edges:
+        for label, etype in ((edge.from_, edge.from_type), (edge.to, edge.to_type)):
+            text = str(label or "").strip()
+            if etype in _SLICE_TAG_TYPES and text and text not in tags:
+                tags.append(text)
+    return _SLICE_TAG_SEP.join(tags[:_SLICE_TAG_CAP])
+
 
 class Completer(Protocol):
     """LLM 出口 seam（生产装配＝GatewayService——B6 唯一出口；测试注桩）。"""
@@ -86,6 +108,8 @@ class KbFacade(Protocol):
     ) -> None: ...
 
     async def publish_wiki_version(self, report_id: str, version: int) -> None: ...
+
+    async def set_fragment_well(self, fragment_id: str, well: str) -> None: ...
 
     async def list_libraries(
         self, graph: str | None = None, keyword: str | None = None
@@ -655,6 +679,14 @@ class DerivativesService:
                     to_id=edge.to, note=edge.note, evidence=edge.evidence,
                     chunk_id=edge.chunk_id, report_id=edge.report_id,
                 )
+            # V2-64：抽取结果回写切片本体标签（本体驱动——过闸三元组的定位性实体，
+            # 落 kb_fragment.well 供装配面「出处随材料」；空标签不写不覆盖）。
+            tag = _slice_well_tag(passed)
+            if tag:
+                try:
+                    await self._kb.set_fragment_well(frag.id, tag)
+                except Exception:  # 标签回写失败不阻塞整卷（富化失败先例）
+                    LOGGER.exception("切片本体标签回写失败 frag=%s", frag.id)
             for item in blocked:
                 await self._graph.record_blocked(
                     lib_id, key=item.key, from_id=item.from_,

@@ -881,4 +881,5 @@ def _retrieval_observation(obs: RetrievalObservation) -> Observation:
         freshness="",
         scope=obs.family,  # family 标注（库 biz_template 透传）
         locator=locator,  # library 级＋section/fragment_id 机读
+        well=obs.well,  # V2-64 切片本体标签透传（缺省 None）
     )
