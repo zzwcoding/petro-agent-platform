@@ -28,9 +28,9 @@
   .card h3{margin:0 0 8px;font-size:18px}
   .what{background:var(--blue-bg);border-radius:10px;padding:11px 16px;margin:10px 0;font-size:15px}
   .what b{color:var(--blue)}
-  .notice{background:var(--warn-bg);border:1px solid #ecd9a8;border-radius:12px;
+  .notice{background:var(--ok-bg);border:1px solid #cfe8d8;border-radius:12px;
        padding:14px 18px;margin:14px 0;font-size:15px}
-  .notice b{color:var(--warn)}
+  .notice b{color:var(--ok)}
   ul.tight{margin:8px 0;padding-left:4px;list-style:none}
   ul.tight li{margin:7px 0;padding-left:28px;position:relative;font-size:15px}
   ul.tight li::before{content:attr(data-n);position:absolute;left:0;top:1px;
@@ -72,29 +72,31 @@
 <div class="wrap">
 
 <header class="hero">
-  <span class="badge">V2 版本 · 演化中</span>
-  <span class="badge">冻结点 Q17</span>
-  <span class="badge">2026-10-09 → 10-12 五轮大考</span>
+  <span class="badge">V2 版本 · 已冻结</span>
+  <span class="badge">冻结点 Q17（2026-10-13）</span>
+  <span class="badge">2026-10-09 → 10-13 六轮大考</span>
   <h1>V2 版本测试报告</h1>
   <p>V2＝推倒重写的第二版问答系统（模型自己决定下一步做什么的「自主循环」）。本报告按七个功能维度讲：考什么、查出什么毛病、改了什么、好了多少。</p>
-  <p>依据：git 提交记录（V2-31～V2-63 三十余张修复票）＋ eval/results/ 下 Q12～Q16 五轮大考存档（每题过程都有记录，判分凭记录）。</p>
+  <p>依据：git 提交记录（V2-31～V2-65 修复票）＋ eval/results/ 下 Q12～Q17 六轮大考存档（每题过程都有记录，判分凭记录）。</p>
 </header>
 
 <h2 class="sec">一句话总评</h2>
 <div class="card">
   <p>V2 起点很低：第一轮大考（Q12，10-09）97 题只对 10 道、错 48 道——<strong>报告类问题 81 道全被送进了「台账查数」那条路</strong>，负责翻报告的那条腿一次都没被用上。</p>
-  <p>之后四轮大考，每轮修掉一层毛病，分数一路往上爬：<strong>10 → 7 → 18 → 34 → 48</strong>（对的题数），错的题从 48 降到 5。中间有个反复出现的现象：<strong>每修好一层，下一层毛病才露出来</strong>——先「选了检索却执行不了」，再「答案里漏出程序格式」，再「料就在眼前却说没料」，最后「引错了报告」。</p>
+  <p>之后五轮大考，每轮修掉一层毛病，分数一路爬到冻结：<strong>10 → 7 → 18 → 34 → 48 → 76</strong>（对的题数），错的题从 48 降到 2。中间反复出现一个规律：<strong>每修好一层，下一层毛病才露出来</strong>——先「选了检索却执行不了」，再「答案里漏出程序格式」，再「料就在眼前却说没料」，再「引错了报告」，最后一层是「同一题五次连跑里模型后轮自己纠正了，但按防择优口径仍按首跑判错」。</p>
+  <p>冻结点 Q17（10-13）：<strong>✅76 / ⚠️19 / ❌2</strong>——毕业线（检索域错题少于 5 道）首次达标。</p>
   <div class="kpi-row">
     <div class="kpi red"><div class="v">10✅/97</div><div class="t">Q12 起点（10-09）</div></div>
-    <div class="kpi blue"><div class="v">5 轮</div><div class="t">全量大考（Q12→Q16）</div></div>
-    <div class="kpi green"><div class="v">48✅/97</div><div class="t">Q16 最新（10-12）</div></div>
-    <div class="kpi grey"><div class="v">Q17</div><div class="t">指定冻结点（尚未开跑）</div></div>
+    <div class="kpi blue"><div class="v">6 轮</div><div class="t">全量大考（Q12→Q17）</div></div>
+    <div class="kpi green"><div class="v">76✅/97</div><div class="t">冻结轮 Q17</div></div>
+    <div class="kpi green"><div class="v">48 → 2</div><div class="t">错题数降幅</div></div>
   </div>
   <p class="note">判分三档：✅ 答对且出处对；⚠️ 部分对（如只答单套、答得不全）；❌ 答错／编造／该说没有却给了数。反题铁律：「给数就是错，说没有才算过」。</p>
 </div>
 
 <div class="notice">
-  <b>冻结点说明：</b>按 Owner 指定，V2 的冻结点为 <strong>Q17 轮</strong>。截至本报告出稿，Q17 尚未开跑——<strong>Q16（10-12）是当前最新一轮真实成绩</strong>。Q17 的用途是复考验证 Q16 残留的两大形态（引错报告、无据调和）是否收敛，跑完后本报告再补 Q17 一列即可定稿。
+  <b>冻结点结论：</b>Q17 于 2026-10-13 完成并达标——错题 2 道，低于毕业线（&lt;5）。Q16 的 5 道错题<strong>全部消灭</strong>（错域锚定 3 题转为部分对，无据调和 2 题转为全对）。<br>
+  <b>读分数注意：</b>Q17 与 Q16 不是同一把尺——Q17 起判分尺升级为 7 条（新增「多来源已辨源如实提示＝判对」「截断披露如实＝不降档」「首跑有实质交付按首跑判＝防择优」）。其中「防择优」这条同时是唯一压分的尺，Q17 仅存的两道错题就是它的代价。
 </div>
 
 <!-- 维度一 -->
@@ -109,14 +111,15 @@
     <li data-n="3">Q14：路通了，但答案里<strong>直接吐出程序格式的 JSON</strong>（6 题）；检索召回 50 条，只送 4 条给模型看。</li>
     <li data-n="4">Q15：料就在窗口里，系统却判「材料不足」直接收口（零交付族 22 题）。</li>
   </ul>
-  <p><strong>改了什么：</strong>① 把六步流水线改成模型自主循环（V2-31）；② 修检索域合同与参数名（V2-41）；③ 答案通道与程序格式通道隔离，程序格式不再漏进答案（V2-48）；④ 送窗按子问题动态配额（V2-45）；⑤ 治「料在窗却说没料」的定稿判定（V2-53/56）。</p>
+  <p><strong>改了什么：</strong>① 把六步流水线改成模型自主循环（V2-31）；② 修检索域合同与参数名（V2-41）；③ 答案通道与程序格式通道隔离（V2-48）；④ 送窗按子问题动态配额（V2-45）；⑤ 治「料在窗却说没料」的定稿判定（V2-53/56）；⑥ 材料带出处（报告名／本体标签随材料走，V2-64）；⑦ 检索供给面两闸（问题块退赛＋代表席摘要优先，V2-65）。</p>
   <div class="compare">
     <div class="cmp-box before"><h4>改之前（Q12 问答组 A）</h4>
       <div class="bar"><i class="g" style="width:18%"></i><i class="y" style="width:9%"></i><i class="r" style="width:73%"></i></div>
       <p>2✅ 1⚠️ 8❌（11 题）</p><p class="legend">报告题被全数送错路</p></div>
-    <div class="cmp-box after"><h4>改之后（Q16 问答组 A＋B）</h4>
-      <div class="bar"><i class="g" style="width:33%"></i><i class="y" style="width:67%"></i><i class="r" style="width:0%"></i></div>
-      <p>7✅ 14⚠️ 0❌（21 题）</p><p class="legend">错答清零，余下的多是「答得不全」</p></div>
+    <div class="cmp-box after"><h4>改之后（Q17 冻结轮）</h4>
+      <div class="bar"><i class="g" style="width:62%"></i><i class="y" style="width:29%"></i><i class="r" style="width:10%"></i></div>
+      <p>问答组 A＋B：13✅ 6⚠️ 2❌（21 题）｜C＋D：22✅ 3⚠️ 0❌（25 题）</p>
+      <p class="legend">剩余 2 道错题＝首跑答错、后轮自己纠正（防择优口径的代价）</p></div>
   </div>
 </div>
 
@@ -128,14 +131,15 @@
   <p><strong>查出的毛病：</strong></p>
   <ul class="tight">
     <li data-n="1">V2 的反题一直「不编数」，但早期很大程度是<strong>干脆不答</strong>（零交付）——不是真的顶住了，而是没走到答题那一步。</li>
-    <li data-n="2">Q15 起出现「无据调和」新形态：真数字在手，却被错误的口径框架吞掉，等于换个方式给错答案。</li>
+    <li data-n="2">Q15 起出现「无据调和」新形态：真数字在手，却被错误的口径框架吞掉，等于换个方式给错答案（Q16 还剩 2 道）。</li>
   </ul>
-  <p><strong>改了什么：</strong>① 归属校验：引用的出处必须跟题目点名的对象对上（V2-50）；② 答案轮加「转述义务」——该如实转述的不许含糊（V2-62）。</p>
+  <p><strong>改了什么：</strong>① 归属校验：引用的出处必须跟题目点名的对象对上（V2-50）；② 材料带出处、多来源不再预设「不一致」（V2-64）；③ 答案轮加「转述义务」（V2-62）；④ 判分尺补两条（已辨源如实提示＝判对、截断披露如实＝不降档）。</p>
   <div class="compare">
     <div class="cmp-box before"><h4>改之前（Q12）</h4>
       <p>反题零带数——但答案是「零交付」形态</p></div>
-    <div class="cmp-box after"><h4>改之后（Q16）</h4>
-      <p>剩余 5 个 ❌ 里 2 个是无据调和（真数被错误框架吞掉），编造类为零</p></div>
+    <div class="cmp-box after"><h4>改之后（Q17 冻结轮）</h4>
+      <p>无据调和 2 道（C-正6／D-诱9）<span class="pill ok">全部转为全对</span>；诱导题四个数全对</p>
+      <p>反题面错题 0 道</p></div>
   </div>
 </div>
 
@@ -149,36 +153,37 @@
     <li data-n="1">Q12：检索腿<strong>一次都没被选中</strong>（报告题全被规划成台账查数）。</li>
     <li data-n="2">Q13：选了，但执行不了——三段断裂（工具匹配缺字段被拒／反问卡挂起／参数合同不认）。</li>
     <li data-n="3">Q14：能查了，但<strong>召回 50 条只送 4 条</strong>给模型，目标段落结构性看不到。</li>
-    <li data-n="4">Q15：送窗扩到 16～31 条，目标段落仍会缺（「从来没被召回，就无料可保」）。</li>
+    <li data-n="4">Q15：送窗扩到 16～31 条，目标段落仍会缺。</li>
+    <li data-n="5">Q16/Q17：查清一个隐藏坑——入库时生成的「可能被问的 10 个问题」这种展示用切片，混进了检索语料，把本该给正文的席位抢走（实测 12 支占语料 8%，抢走 6 席中的 3 席）。</li>
   </ul>
-  <p><strong>改了什么：</strong>① 检索域合同修补与参数名归一（V2-41）；② 送窗按子问题动态配额（V2-45）；③ 缺位回捞（V2-46）；④ 切片富化（V2-47）；⑤ 选席时目标段落优先（V2-49）。</p>
+  <p><strong>改了什么：</strong>① 检索域合同修补与参数名归一（V2-41）；② 送窗按子问题动态配额（V2-45）；③ 缺位回捞（V2-46）；④ 切片富化（V2-47）；⑤ 选席时目标段落优先（V2-49）；⑥ 问题块切片退出检索语料＋摘要切片优先占代表席（V2-65）。</p>
   <div class="compare">
     <div class="cmp-box before"><h4>改之前</h4>
       <p>送窗只有 <span class="pill bad">4 条</span>；Q14 四大缺行题全 ❌</p>
       <p>总时延 Q14 涨到 2,817 秒（检索真参与进来后的代价）</p></div>
-    <div class="cmp-box after"><h4>改之后</h4>
-      <p>送窗扩到 <span class="pill ok">16～31 条</span>（97 份记录实测）；四大缺行中 3 题升档</p>
+    <div class="cmp-box after"><h4>改之后（Q17 冻结轮）</h4>
+      <p>送窗扩到 <span class="pill ok">16～31 条</span>；供给面两闸后十题验证 <strong>9✅ 1⚠️ 0❌</strong>（上一轮 4✅ 6⚠️），五道窗口缺题全收敛</p>
       <p>总时延回落到 1,348 秒（Q15，长尾消退）</p></div>
   </div>
-  <p class="note">参照：V1 的全量总时延是 2,575 秒，V2 修好后更快——因为 V2 是模型自主循环，不做 V1 那套多级级联。</p>
+  <p class="note">参照：V1 的全量总时延是 2,575 秒，V2 修好后更快——因为 V2 是模型自主循环，不做 V1 那套多级级联。另有一笔账记在文末：多轮大题一次要 40～80 条材料，而单次最多给 24 条，答案视野会被割尾（478 场里 196 场有截断记录）——这是冻结时仍未修的一项。</p>
 </div>
 
 <!-- 维度四 -->
 <h2 class="sec">维度四：多文档判源——库里有多份像的材料，引对了吗</h2>
-<p class="sec-sub">考题：跨报告／跨油田题；Q16 的两大残留形态之一</p>
+<p class="sec-sub">考题：跨报告／跨油田题；Q16 的主病灶，Q17 已清零</p>
 <div class="card">
   <div class="what"><b>测什么：</b>库里有多个油田的同型报告（格式几乎一样），看引用的是不是对的那份、有没有把不同对象的数据混着抄。</div>
   <p><strong>查出的毛病：</strong></p>
   <ul class="tight">
     <li data-n="1">Q14：拿 W-11 报告的内容回答 Y-21 报告的题（张冠李戴）；Y-41 被 W-41 顶替；34-5 的数据答了 34-8 的题。</li>
-    <li data-n="2">Q16：升级成「错域锚定」——题干点名的报告名／月次／油田名，跟模型实际去检索的域对不上（3 题）。</li>
+    <li data-n="2">Q16：升级成「错域锚定」——题干点名的报告名／月次／油田名，跟模型实际去检索的域对不上（3 题 ❌）。</li>
   </ul>
-  <p><strong>改了什么：</strong>① 检索请求里强制注入「报告锚定词」（V2-50）；② 答案面加归属一致性审，引错源时改成「分源列明」而不是硬编一个结论。</p>
+  <p><strong>改了什么：</strong>① 检索请求里强制注入「报告锚定词」（V2-50）；② 答案面加归属一致性审，引错源时改成「分源列明」而不是硬编结论；③ 材料带出处（V2-64）；④ 判分尺补「多来源已辨源如实提示＝判对」。原计划的本体绑定票（V2-66）经 Owner 决定撤案，不施工。</p>
   <div class="compare">
-    <div class="cmp-box before"><h4>改之前（Q14）</h4>
-      <p>3 题张冠李戴 ❌</p></div>
-    <div class="cmp-box after"><h4>改之后（Q15）</h4>
-      <p>3 题张冠李戴 <span class="pill ok">清零</span>；Q16 残余「错域锚定」3 题（题眼→检索域锚定是下一层瓶颈）</p></div>
+    <div class="cmp-box before"><h4>改之前（Q16）</h4>
+      <p>3 道错域锚定 ❌（NQ-C3／D9／M4）</p></div>
+    <div class="cmp-box after"><h4>改之后（Q17 冻结轮）</h4>
+      <p>错域锚定族 <span class="pill ok">清零</span>——3 道全部转为部分对（缺的真值已如实声明为「未覆盖」，不再冒充别的报告）</p></div>
   </div>
 </div>
 
@@ -198,9 +203,9 @@
     <div class="cmp-box before"><h4>改之前（16 题专项，10-09）</h4>
       <div class="bar"><i class="g" style="width:0%"></i><i class="y" style="width:19%"></i><i class="r" style="width:81%"></i></div>
       <p>0✅ 3⚠️ 13❌</p></div>
-    <div class="cmp-box after"><h4>改之后</h4>
-      <p>同参闸后 12✅ 4⚠️ 0❌；后续各轮保持 ❌=0</p>
-      <p>Q16 问数组＋系统 21 题：<strong>17✅ 4⚠️ 0❌</strong>（形态基线达标）</p></div>
+    <div class="cmp-box after"><h4>改之后（Q17 冻结轮）</h4>
+      <p>问数组＋系统 21 题：<strong>19✅ 2⚠️ 0❌</strong>（形态基线持续达标）</p>
+      <p>明细丢行治本后，明细题转为全对</p></div>
   </div>
 </div>
 
@@ -210,13 +215,13 @@
 <div class="card">
   <div class="what"><b>测什么：</b>V1 里已经做好的安全闸和礼貌规矩，V2 重写后有没有搬过来。</div>
   <p><strong>查出的毛病：</strong>V2 起步时这些站<strong>整个缺失</strong>——禁用词拦截、FAQ 秒回、届满标注、越集审批在 V2 里都没有对应环节（Q12 系统级 1✅ 0⚠️ 4❌）。</p>
-  <p><strong>改了什么：</strong>五站缺口迁移批（V2-52）——新建 FAQ 查询（含归一化、相似问优先、禁用词剔除）、禁用词豁免按「如实引用＋放行」、台账常驻信息不计入「材料足够」判定。</p>
+  <p><strong>改了什么：</strong>五站缺口迁移批（V2-52）——新建 FAQ 查询、禁用词豁免按「如实引用＋放行」、台账常驻信息不计入「材料足够」判定；判分口径同步统一（V2-63 四条＋Q17 前增补两条）。</p>
   <div class="compare">
     <div class="cmp-box before"><h4>改之前（Q12）</h4>
       <p>系统级 5 题：1✅ 0⚠️ 4❌</p></div>
-    <div class="cmp-box after"><h4>改之后（Q15）</h4>
-      <p>禁用词 <span class="pill ok">✅</span>｜届满 <span class="pill warn">⚠️</span>｜术语卡、澄清持平｜FAQ 直出链仍未兑现</p>
-      <p class="note">判分口径也同步统一（V2-63）：FAQ 秒回按「答得对」判，不再要求「零模型调用」。</p></div>
+    <div class="cmp-box after"><h4>改之后（Q17 冻结轮）</h4>
+      <p>禁用词 <span class="pill ok">✅</span>｜系统级所在批次（问数组＋系统 21 题）错题 0</p>
+      <p class="note">仍有两笔待查：①「届满标注」缺——病根在数据面的台账有效期与卡面不一致；②「FAQ 秒回」——怀疑考试环境没灌演示库的问答种子，需复测定案。</p></div>
   </div>
 </div>
 
@@ -226,16 +231,16 @@
 <div class="card">
   <div class="what"><b>测什么：</b>三份报告故意保留矛盾、内部差错和明示缺位，考「如实阐述、不编造、缺位就明说」。</div>
   <p><strong>查出的毛病：</strong>与检索同根（送窗截断、零观察定稿），另有长题干（四五个子问题）预算不够用不完。</p>
-  <p><strong>改了什么：</strong>与维度三共用同一批修复；长题干按子问题分组配额。</p>
+  <p><strong>改了什么：</strong>与维度三共用同一批修复；长题干按子问题分组配额；材料带出处（V2-64）。</p>
   <div class="compare">
     <div class="cmp-box before"><h4>改之前（Q12）</h4>
       <div class="bar"><i class="g" style="width:0%"></i><i class="y" style="width:47%"></i><i class="r" style="width:53%"></i></div>
       <p>0✅ 14⚠️ 16❌</p></div>
-    <div class="cmp-box after"><h4>改之后（Q16）</h4>
-      <div class="bar"><i class="g" style="width:27%"></i><i class="y" style="width:63%"></i><i class="r" style="width:10%"></i></div>
-      <p>8✅ 19⚠️ 3❌（升 14 跌 3 平 13）</p></div>
+    <div class="cmp-box after"><h4>改之后（Q17 冻结轮）</h4>
+      <div class="bar"><i class="g" style="width:73%"></i><i class="y" style="width:27%"></i><i class="r" style="width:0%"></i></div>
+      <p><strong>22✅ 8⚠️ 0❌</strong>（Q16 是 8✅ 19⚠️ 3❌）</p>
+      <p class="legend">错题清零；零交付三题与回声题全部转为实质交付</p></div>
   </div>
-  <p class="note">亮点：零交付三题（M2 9339 字／M7 1096 字／D6 4110 字）与回声题（M8 3408 字／M9 1298 字）从 ❌ 转为实质交付。</p>
 </div>
 
 <!-- 时间线 -->
@@ -247,27 +252,30 @@
     <tr><td>Q13</td><td>10-10</td><td class="pill bad">7✅ 44⚠️ 46❌</td><td>选了检索却执行不了：工具匹配缺字段被拒、反问卡挂起 30 题</td></tr>
     <tr><td>Q14</td><td>10-10</td><td class="pill warn">18✅ 49⚠️ 30❌</td><td>答案漏出程序格式 JSON（6 题）；召回 50 条只送 4 条</td></tr>
     <tr><td>Q15</td><td>10-11</td><td class="pill warn">34✅ 34⚠️ 29❌</td><td>料在窗口里却说没料（零交付族 22 题）；错答与新增对冲</td></tr>
-    <tr><td>Q16</td><td>10-12</td><td class="pill ok">48✅ 44⚠️ 5❌</td><td>只剩两大新形态：错域锚定 3＋无据调和 2；出口线 ❌&lt;5 差一道贴线</td></tr>
-    <tr><td><b>Q17 冻结点</b></td><td>待跑</td><td class="pill warn">—</td><td>指定为 V2 冻结点，用于复考验证上述两大形态是否收敛</td></tr>
+    <tr><td>Q16</td><td>10-12</td><td class="pill warn">48✅ 44⚠️ 5❌</td><td>只剩两大新形态：错域锚定 3＋无据调和 2；毕业线差一道贴线</td></tr>
+    <tr><td><b>Q17 冻结点</b></td><td>10-13</td><td class="pill ok">76✅ 19⚠️ 2❌</td><td>错域锚定族清零、无据调和全转对；仅存两题「首跑错值、后轮自纠」——<strong>毕业线首次达标</strong></td></tr>
   </table>
-  <p class="note">V2 特有的两项保障：① 测评时钟冻结（每次大考都锁在 2026-08-31 这个「水位日」，保证跑出来的数可复现）；② 黑匣子观测（每轮模型的原始输出可回放，判分有据可查）。</p>
+  <p class="note">V2 特有的三项保障：① 测评时钟冻结（每次大考都锁在 2026-08-31 这个「水位日」，保证跑出来的数可复现）；② 黑匣子观测（每轮模型的原始输出可回放，判分有据可查）；③ 冻结轮考务＝4 路并发×5 连跑（共 478 场，97 题全覆盖，零报错），4 组独立评卷子代理分开判分后由 L0 核对。</p>
 </div>
 
 <!-- 遗留 -->
-<h2 class="sec">Q17 冻结点与尚未修好的问题</h2>
+<h2 class="sec">冻结时仍存在的问题</h2>
 <div class="card">
+  <p><strong>分数内的两道错题（同一形态）：</strong>A-正3 与 A-正5——同一道题连跑五次，模型后轮自己纠正了，但按「防择优」口径仍按首跑判错。这是判分口径的代价，如实入账；两道题的错误类型（密度答成邻段值、把二次坐封误列异常）都是答案册明文的错项。</p>
+  <p><strong>分数之外还有一本病因账</strong>（如实登记，不因分数好看而销账）：</p>
   <ul class="tight">
-    <li data-n="1"><strong>错域锚定</strong>（Q16 的 3 道 ❌）——题干点名的报告／月次／油田名，跟模型实际检索的域对不上。建议的最小修法＝把这些「题眼」注入检索锚定词（纯装配层改动）。</li>
-    <li data-n="2"><strong>无据调和</strong>（Q16 的 2 道 ❌）——真数字在手，却被错误的口径框架吞掉，改成「分源列明」即可解决。</li>
-    <li data-n="3"><strong>FAQ 直出链</strong>——建好了但模型不发射；判分口径已统一，属观测项。</li>
-    <li data-n="4"><strong>在窗未取</strong>（完备性缺口主源）——切片已经在观察材料里，答案却说「未找到」。</li>
+    <li data-n="1"><strong>材料帽仍在咬</strong>：单次最多给 24 条材料，多轮大题一次要 40～80 条，答案视野被割尾——478 场里 196 场有截断记录（治 A／治 B 两项未实施）。</li>
+    <li data-n="2"><strong>召回未及</strong>：个别真值没进窗口（如 34-8 侧一季度数据）。</li>
+    <li data-n="3"><strong>渲染噪音</strong>：「未找到（材料未披露）」前缀误挂到已有支撑的行首——内容与引标都对，纯形式问题。</li>
+    <li data-n="4"><strong>届满标注缺</strong>：病根在数据面的台账有效期与卡面不一致，不是问答逻辑问题。</li>
+    <li data-n="5"><strong>FAQ 秒回</strong>：怀疑考试环境未灌演示库问答种子，需复测定案。</li>
   </ul>
-  <p class="note">Q17 前置条件：不需要新闸，判分轴四条继续有效。跑完 Q17 后，本报告在时间线补一行、并在各维度补上「冻结点成绩」即可定稿。</p>
+  <p><strong>待 Owner 裁决一项：</strong>A-正8 存在双口径——若按「完整对话终态」判则该题全对，全卷成绩变为 77✅/18⚠️/2❌；现按首跑口径定稿（76✅/19⚠️/2❌）。改不改由 Owner 另裁。</p>
 </div>
 
 <footer>
-  依据：git 提交（V2-31 ReAct 重构／V2-41 检索域合同修补／V2-45～V2-49 检索供给窗四票／V2-48 起草面塌方治理／V2-50 归属校验／V2-52 五站缺口迁移／V2-53 零观察定稿治理／V2-61 材料承载分形渲染／V2-62 轮次任务自足性／V2-63 判分轴统一 等）＋ eval/results/ 下 Q12～Q16 五轮对账报告。<br>
-  配套：<code>eval/results/Q16-对账报告.md</code>（最新一轮明细）、<code>eval/results/题集测试轮次台账.md</code>（全项目两版总台账）。
+  依据：git 提交（V2-31 ReAct 重构／V2-41 检索域合同修补／V2-45～V2-49 检索供给窗四票／V2-48 起草面塌方治理／V2-50 归属校验／V2-52 五站缺口迁移／V2-53 零观察定稿治理／V2-61 材料承载分形渲染／V2-62 轮次任务自足性／V2-63 判分轴统一／V2-64 材料带出处／V2-65 检索供给面两闸；V2-66 撤案 等）＋ eval/results/ 下 Q12～Q17 六轮对账与判分报告。<br>
+  配套：<code>eval/results/Q17-判分报告.md</code>（冻结轮明细）、<code>eval/results/Q16-对账报告.md</code>、<code>eval/results/题集测试轮次台账.md</code>（全项目两版总台账）。
 </footer>
 
 </div>
