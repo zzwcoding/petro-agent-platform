@@ -45,6 +45,12 @@ DECISION_CONTRACT = (
 
 CLARIFY_CONTRACT = (
     "【相位①·业务澄清】只输出一个 JSON 对象（可围栏）。四动作：\n"
+    # ↓↓ V2-60 引号规矩（票面附 A 逐字稿——交接-澄清相位发射格式治理；
+    #    格式合规契约：值内裸英文双引号把字符串提前截断，族D 三题字节级实证）
+    "JSON 字符串值内需要引号时（引题干原文/术语等）：一律用中文引号「」（或单引号'），"
+    "禁止写不转义的英文双引号 \"——它会把字符串提前截断，整条发射作废。\n"
+    "错例：\"question\": \"1.3 节关于\"杆柱\"的算式\"   ← 值内裸引号，非法\n"
+    "对例：\"question\": \"1.3 节关于「杆柱」的算式\"   ← 值内中文引号，合法\n"
     '- 分解：{"action": "decompose", "question_group": {"subtasks": '
     '[{"id": "s1", "question": "子问题原文", "ledger_notes": "〈精确指标 slot 名〉'
     '〈绑定态〉〈锚定窗〉", "chain": "data"|"knowledge", "tool": '
@@ -92,6 +98,11 @@ CLARIFY_CONTRACT = (
 
 TOOLMATCH_CONTRACT = (
     "【相位②·工具匹配】只输出一个 JSON 对象（可围栏）：\n"
+    # ↓↓ V2-60 引号规矩（附 A 三行逐字复制——retrieval_need.question 等字段同坑）
+    "JSON 字符串值内需要引号时（引题干原文/术语等）：一律用中文引号「」（或单引号'），"
+    "禁止写不转义的英文双引号 \"——它会把字符串提前截断，整条发射作废。\n"
+    "错例：\"question\": \"1.3 节关于\"杆柱\"的算式\"   ← 值内裸引号，非法\n"
+    "对例：\"question\": \"1.3 节关于「杆柱」的算式\"   ← 值内中文引号，合法\n"
     '{"matches": [{"id": "问题组子问题 id", "chain": "data"|"knowledge", '
     '"tool": "data_query"|"doc_retrieve", "plan": {…data 链必带…}, '
     '"retrieval_need": {…knowledge 链必带…}, "caliber_key": "口径支 key（可选）"}]}\n'

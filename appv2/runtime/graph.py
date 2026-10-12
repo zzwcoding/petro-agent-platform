@@ -119,6 +119,7 @@ from appv2.runtime.subtask import (
     json_syntax_feedback,
     parse_question_group,
     parse_tool_match,
+    repair_inner_quotes,
 )
 from appv2.tools import (
     ASK_CLARIFY,
@@ -340,6 +341,36 @@ class LoopDeps:
     def model(self, key: str) -> GatewayChatModel:
         model = self.models[key]
         return model
+
+
+
+
+def _parse_with_quote_repair(
+    parse: Callable[[str], Any], content: str
+) -> tuple[Any, bool]:
+    """V2-60 引号自修兜底（③层——零模型零语义，设计宪法「程序管格式合规」）：
+    解析拒→确定性引号修复一次→重解析；修好＝(结果, True)（调用方发
+    emission_quote_repair notice——不占轮不回喂，与 V2-48 emission_strip 同形）；
+    修不好＝(原拒因, False)（既有 V2-57 定位回喂零改动）。"""
+    result = parse(content)
+    if not isinstance(result, str):
+        return result, False
+    repaired = repair_inner_quotes(content)
+    if repaired is None:
+        return result, False
+    second = parse(repaired)
+    if isinstance(second, str):
+        return result, False
+    return second, True
+
+
+def _quote_repair_notice() -> dict[str, Any]:
+    """修复受理的机读 notice（emission_quote_repair——V2-48 emission_strip 同形）。"""
+    return {
+        "type": "emission_quote_repair",
+        "gates": [],
+        "content": "发射 JSON 值内裸引号——程序确定性修复后受理（零模型零占轮；值内引号换中文引号）",
+    }
 
 
 # ---------- 文本解析单点（模型应答合同的最小确定性解析） ----------
@@ -1423,9 +1454,15 @@ def _make_decision(
         )
         rnd = state.rounds + 1
         seq = _next_seq(state)
-        parsed = parse_decision(
-            content, max_discovers=max_discovers, max_executes=max_executes
+        parsed, quote_repaired = _parse_with_quote_repair(
+            lambda c: parse_decision(
+                c, max_discovers=max_discovers, max_executes=max_executes
+            ),
+            content,
         )
+        if quote_repaired:
+            notice = _quote_repair_notice()
+            deps.bus.emit("notice", dict(notice))
         if isinstance(parsed, str):
             # 拒因回喂（无 repair）：轮照耗；轮数闸在下一入口收敛兜底。
             record = _step_record(
@@ -2070,14 +2107,20 @@ def _make_clarify(
             },
             _assistant_turn(content),
         )
-        parsed = parse_question_group(
-            content,
-            max_discovers=int(
-                state.budget.get("max_discovers_per_round", MAX_DISCOVERS_PER_ROUND_CONTRACT)
+        parsed, quote_repaired = _parse_with_quote_repair(
+            lambda c: parse_question_group(
+                c,
+                max_discovers=int(
+                    state.budget.get("max_discovers_per_round", MAX_DISCOVERS_PER_ROUND_CONTRACT)
+                ),
+                discover_budget_left=MAX_DISCOVERS_PER_RUN_CONTRACT - int(state.discover_used),
             ),
-            discover_budget_left=MAX_DISCOVERS_PER_RUN_CONTRACT - int(state.discover_used),
+            content,
         )
         seq = _next_seq(state)
+        if quote_repaired:
+            # 与 V2-48 emission_strip 同形：bus 事件即可观测面（帧档案自动收录）。
+            deps.bus.emit("notice", dict(_quote_repair_notice()))
         if isinstance(parsed, str):
             # 拒因回喂（无 repair）＋轮照耗（V2-31 同款语义——被拒发射也是一次
             # 决策周期，轮数闸收敛兜底，顽投不环）；例外＝发现预算驱动的
@@ -2336,7 +2379,13 @@ def _make_toolmatch(
             _assistant_turn(content),
         )
         seq = _next_seq(state)
-        parsed = parse_tool_match(content, group)
+        parsed, quote_repaired = _parse_with_quote_repair(
+            lambda c: parse_tool_match(c, group), content
+        )
+        seq = _next_seq(state)
+        if quote_repaired:
+            # 与 V2-48 emission_strip 同形：bus 事件即可观测面（帧档案自动收录）。
+            deps.bus.emit("notice", dict(_quote_repair_notice()))
         if isinstance(parsed, str):
             # 拒因回喂（无 repair）＋轮照耗（被拒发射也是一次决策周期——轮数闸
             # 在本节点入口收敛兜底，顽投不环；P033SK2 实证无界自旋教训）。

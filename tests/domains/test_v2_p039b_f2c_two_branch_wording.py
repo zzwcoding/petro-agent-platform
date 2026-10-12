@@ -42,6 +42,13 @@ from tests.domains.test_v2_four_phase import (
 from tests.domains.test_v2_r1c_window_recall import RECALL_CLAUSE
 from tests.domains.test_v2_react_loop import _rows_outcome
 
+# V2-60 引号规矩（合同合法演化段——还原链新增逆向步；示例词杆柱＝非台账词过命名闸）
+V260_QUOTE_RULE = (
+    "JSON 字符串值内需要引号时（引题干原文/术语等）：一律用中文引号「」（或单引号'），"
+    '禁止写不转义的英文双引号 "——它会把字符串提前截断，整条发射作废。\n'
+    '错例："question": "1.3 节关于"杆柱"的算式"   ← 值内裸引号，非法\n'
+    '对例："question": "1.3 节关于「杆柱」的算式"   ← 值内中文引号，合法\n'
+)
 # ---------- V2-42 票面逐字稿（char 相等基准——增删一字即红） ----------
 
 # tickets/v2/V2-42-F2c措辞两分支校准.md「整句替换为」引块去折行逐字（char 相等）。
@@ -143,6 +150,7 @@ def test_v242_zero_deletion_restoring_old_sentence_reproduces_p039() -> None:
         .replace(V252_DIRECTORY_AND_FINALIZE, "")
         .replace(V252_DISCOVER_LINE, P039_DISCOVER_LINE)
         .replace("四动作：", "三动作：")
+        .replace(V260_QUOTE_RULE, "")
     )
     assert restored.removesuffix(RECALL_CLAUSE) == P039_CLARIFY_CONTRACT
     assert len(P039_CLARIFY_CONTRACT) == 1066  # P-039 版合同字数不变（基准面）

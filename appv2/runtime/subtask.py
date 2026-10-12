@@ -373,3 +373,56 @@ def parse_tool_match(content: str, group: QuestionGroup) -> tuple[SubtaskMatch, 
     if missing:
         return f"matches 覆盖缺口（组内子问题缺匹配：{missing}）——每子问题恰一条"
     return tuple(matches)
+
+
+# ---------- V2-60 发射引号自修（③层格式合规兜底——零模型零语义） ----------
+
+
+def repair_inner_quotes(text: str) -> str | None:
+    """值内裸引号确定性修复（V2-60——族D 真病因：题干英文引号短语照抄进字符串值
+    不转义，json.loads 断裂）。逐字符扫描跟踪在串/不在串态：串内遇 \" 且其后
+    （跳空白）非结构字符 , } ] : ＝值内裸引号→换中文引号（开「闭」交替）；
+    转义序列原样带过。修后 json.loads 成功才返回修复文本；扫描无值内引号
+    （无病不修）或修后仍失败（结构伤——引号修不了括号）＝None，调用方走既有
+    V2-57 定位回喂。纯字符格式处理，零语义零模型。"""
+    out: list[str] = []
+    in_string = False
+    inner_open = False
+    i, n = 0, len(text)
+    while i < n:
+        ch = text[i]
+        if not in_string:
+            if ch == '"':
+                in_string = True
+                inner_open = False
+            out.append(ch)
+            i += 1
+            continue
+        if ch == "\\":  # 转义序列原样带过（防误伤合法 \"）
+            out.append(text[i:i + 2])
+            i += 2
+            continue
+        if ch != '"':
+            out.append(ch)
+            i += 1
+            continue
+        j = i + 1
+        while j < n and text[j] in " \t\r\n":
+            j += 1
+        nxt = text[j] if j < n else ""
+        if nxt in ",}]:":  # 结构引号——串在此结束
+            in_string = False
+            inner_open = False
+            out.append(ch)
+        else:  # 值内裸引号——换中文引号（开「闭」交替）
+            out.append("」" if inner_open else "「")
+            inner_open = not inner_open
+        i += 1
+    repaired = "".join(out)
+    if repaired == text:
+        return None
+    try:
+        json.loads(repaired)
+    except json.JSONDecodeError:
+        return None
+    return repaired
