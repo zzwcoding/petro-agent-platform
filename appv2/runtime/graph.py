@@ -82,7 +82,10 @@ from appv2.runtime.guide import (
     GuideProvider,
 )
 from appv2.runtime.llm import CALLER_PREFIX, GatewayChatModel
-from appv2.runtime.orientation import build_understand_instruction
+from appv2.runtime.orientation import (
+    build_understand_instruction,
+    render_decompose_example,
+)
 from appv2.runtime.state import (
     INTENT_ANSWER,
     INTENT_BATCH,
@@ -1302,6 +1305,7 @@ def _make_understand(
         dump = state.ledger_dump
         if dump is None and deps.ledger_dump is not None:
             dump = deps.ledger_dump()
+        dump = dump or {}  # V2-59：缝缺省（None）归一空投影——样例渲染与常驻注入双兜底
         watermark_date = None
         if deps.watermark is not None:
             try:
@@ -1987,6 +1991,7 @@ def _make_clarify(
         dump = state.ledger_dump
         if dump is None and deps.ledger_dump is not None:
             dump = deps.ledger_dump()
+        dump = dump or {}  # V2-59：缝缺省（None）归一空投影——样例渲染与常驻注入双兜底
         contract = (
             CLARIFY_CONTRACT
             .replace("{max_subtasks}", str(MAX_SUBTASKS_CONTRACT))
@@ -2001,8 +2006,12 @@ def _make_clarify(
             "discover|decompose|ask|finalize；指南正文中出现的 execute 动作"
             "归后续相位，本相位发射它＝非法）】\n"
             + contract
+            + "\n"
+            + render_decompose_example(
+                list(dump.get("metrics") or []), today=deps.today
+            )
             + "\n\n【业务规则参考（ontology 指南 §A——窗词锚定/单井红线/"
-            "指标名册适用；其中发射判据/收口硬规则的动作面以上方合同为准）】\n"
+            "三链路由；动作类措辞以上方合同为准）】\n"
             + deps.guide.guide()
             # P-051b 真批修正（P051BW 术语躺井/数-降1/数-降2 零交付形——真模型
             # 把台账常驻注入当「材料足够」零观察定稿）：finalize 交付面边界句。
@@ -2287,7 +2296,7 @@ def _make_toolmatch(
             "【相位②·工具匹配——本相位唯一有效发射合同（只许输出 matches JSON）】\n"
             + TOOLMATCH_CONTRACT
             + "\n\n【业务规则参考（ontology 指南 §A——窗词锚定/单井红线/"
-            "指标名册适用；动作类措辞以上方合同为准）】\n"
+            "三链路由；动作类措辞以上方合同为准）】\n"
             + deps.guide.guide()
             + "\n\n问题组：\n"
             + json.dumps(group.as_payload(), ensure_ascii=False)

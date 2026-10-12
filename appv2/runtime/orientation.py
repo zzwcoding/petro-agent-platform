@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import re
+from datetime import date, timedelta
 from typing import Any
 
 # ---------- 静态骨架（Owner 2026-10-12 审定逐字——票面附 A 施工基准） ----------
@@ -182,6 +183,42 @@ def build_understand_instruction(
         term_lines=render_term_lines(list(dump.get("terms") or [])),
         object_lines=lines,
         relation_lines=render_relation_lines(list(dump.get("relations") or [])),
+    )
+
+
+def render_decompose_example(metrics: list[dict[str, Any]], *, today: Any) -> str:
+    """分解发射填写样例（V2-59 一补——运行时动态装配，不进合同）。
+
+    P-039 命名闸（合同零业务名词——井号形/数字段/台账真源汉字连串）使「填真名
+    样例」结构性不能进合同常量；本渲染器在澄清节点拼指令时从活体台账现造：
+    取首条未绑定指标（演示 knowledge 链路由——与 V2-56 回炉路由动词一致），
+    无未绑定取首条可出数（data 链形）。窗＝today−30 天 ~ today（默认近 30 天示意）。
+    台账空投影返回空串（调用方跳过—— degraded 面不造空样例）。
+    """
+    ordered = sorted(
+        metrics, key=lambda m: 0 if m.get("binding_state") == "unbound" else 1
+    )
+    if not ordered:
+        return ""
+    pick = ordered[0]
+    slot = str(pick.get("slot", ""))
+    unbound = pick.get("binding_state") == "unbound"
+    binding = "未绑定" if unbound else "在册可出数"
+    chain = "knowledge" if unbound else "data"
+    tool = "doc_retrieve" if unbound else "data_query"
+    day = today() if callable(today) else today
+    if not hasattr(day, "year"):
+        day = date.fromisoformat(str(day))
+    window = f"{(day - timedelta(days=30)).isoformat()}~{day.isoformat()}"
+    payload = (
+        '{"action": "decompose", "question_group": {"subtasks": [{"id": "s1", '
+        '"question": "' + slot + '是多少？", "ledger_notes": '
+        '"' + slot + "｜" + binding + "｜" + window + '", "chain": "' + chain + '", '
+        '"tool": "' + tool + '"}]}}'
+    )
+    return (
+        "填写样例（分解形——五键齐全，ledger_notes 逐字转抄台账全量块，"
+        f"窗为示意按窗词锚定表现算）：{payload}"
     )
 
 
