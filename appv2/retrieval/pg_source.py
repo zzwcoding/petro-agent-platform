@@ -87,6 +87,7 @@ _KB_FRAGMENT = Table(
     "kb_fragment", _KB_META,
     Column("id", String(32)),
     Column("report_id", String(32)),
+    Column("type", String(8)),
     Column("section", Text),
     Column("well", Text),
     Column("is_parent_only", Boolean),
@@ -119,6 +120,7 @@ class PgFragmentLibrary(FragmentLibrary):
             select(
                 _KB_FRAGMENT.c.id.label("fragment_id"),
                 _KB_FRAGMENT.c.report_id,
+                _KB_FRAGMENT.c.type.label("frag_type"),
                 _KB_REPORT.c.doc.label("report"),
                 _KB_FRAGMENT.c.section,
                 _KB_FRAGMENT.c.well,
@@ -151,6 +153,7 @@ class PgFragmentLibrary(FragmentLibrary):
                 fragment_id=str(row.fragment_id),
                 report_id=str(row.report_id),
                 report=str(row.report),
+                frag_type=str(row.frag_type) if row.frag_type is not None else "原文块",
                 section=str(row.section) if row.section is not None else None,
                 library_id=str(row.library_id),
                 library=str(row.library),

@@ -41,7 +41,8 @@ _KB_DDL = (
     """CREATE TABLE kb_report (
         id TEXT PRIMARY KEY, lib_id TEXT NOT NULL, doc TEXT NOT NULL)""",
     """CREATE TABLE kb_fragment (
-        id TEXT PRIMARY KEY, report_id TEXT NOT NULL, section TEXT, well TEXT,
+        id TEXT PRIMARY KEY, report_id TEXT NOT NULL, type TEXT NOT NULL,
+        section TEXT, well TEXT,
         is_parent_only INTEGER NOT NULL, embedding TEXT)""",
     """CREATE TABLE kb_fragment_version (
         fragment_id TEXT NOT NULL, v INTEGER NOT NULL, text TEXT NOT NULL,
@@ -51,11 +52,12 @@ _KB_DDL = (
 _SEED = (
     "INSERT INTO kb_library VALUES ('lib-1', '完井报告类', 'completion', 'active')",
     "INSERT INTO kb_report VALUES ('rpt-1', 'lib-1', '《A-W11井完井工程报告》')",
-    # f1：有向量＋两版（v2 修正版胜出）；f2：无向量单版；f3：父块（不对外寻址）。
-    "INSERT INTO kb_fragment VALUES ('f1', 'rpt-1', '章节 03 射孔设计', "
+    # f1：有向量＋两版（v2 修正版胜出）；f2：无向量单版（问题块型——type 随行
+    # 读出断言）；f3：父块（不对外寻址）。
+    "INSERT INTO kb_fragment VALUES ('f1', 'rpt-1', '原文块', '章节 03 射孔设计', "
     "'W-11井·渤中34-5油田', 0, '" + json.dumps(EMBEDDING) + "')",
-    "INSERT INTO kb_fragment VALUES ('f2', 'rpt-1', '正文', NULL, 0, NULL)",
-    "INSERT INTO kb_fragment VALUES ('f3', 'rpt-1', NULL, NULL, 1, NULL)",
+    "INSERT INTO kb_fragment VALUES ('f2', 'rpt-1', '问题块', '正文', NULL, 0, NULL)",
+    "INSERT INTO kb_fragment VALUES ('f3', 'rpt-1', '原文块', NULL, NULL, 1, NULL)",
     "INSERT INTO kb_fragment_version VALUES ('f1', 1, 'v1 原文：射孔井段 2850-2910m')",
     "INSERT INTO kb_fragment_version VALUES ('f1', 2, 'v2 修正：射孔井段 2850.0-2910.5m')",
     "INSERT INTO kb_fragment_version VALUES ('f2', 1, '防砂方式：筛管完井')",
@@ -88,8 +90,10 @@ async def test_fragments_provenance_chain(library: PgFragmentLibrary) -> None:
     assert f1.family == "completion"
     assert f1.section == "章节 03 射孔设计"
     assert f1.text == "v2 修正：射孔井段 2850.0-2910.5m"  # max(v) 修正版胜出
+    assert f1.frag_type == "原文块"  # V2-65 附 A——type 随行读出
     f2 = fragments["f2"]
     assert f2.text == "防砂方式：筛管完井"
+    assert f2.frag_type == "问题块"  # 引擎侧退赛判定字段（库读面照实透传）
     assert f2.embedding is None  # 未入向量索引——向量腿跳过（关键词腿兜底）
 
 

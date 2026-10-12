@@ -33,6 +33,7 @@ from typing import Any, Protocol
 from appv2.retrieval.domain import (
     NODE_SECTION_SUMMARY,
     NODE_SLICE,
+    QUESTION_BLOCK_TYPE,
     SNIPPET_CHARS,
     FragmentRecord,
     GraphEdgeRecord,
@@ -142,8 +143,17 @@ class RetrievalEngine:
     # ---------- 文档面（双路召回→融合→精排→供给窗） ----------
 
     async def retrieve(self, need: RetrievalNeed) -> RetrievalBundle:
-        """检索供给窗（RetrievalNeed→RetrievalBundle——specs 接口定义节原形）。"""
-        fragments = await self._library.fragments()
+        """检索供给窗（RetrievalNeed→RetrievalBundle——specs 接口定义节原形）。
+
+        语料装配单点过滤（V2-65 附 A）：`kb_fragment.type='问题块'` 展示面
+        专用切片不参赛——不进召回、不进送窗、不进摘要展开语料（召回腿/关键词
+        腿/展开语料共用这一份）。展示面消费（端点 9 ingest_additions）不经本
+        读面，零影响。
+        """
+        fragments = [
+            f for f in await self._library.fragments()
+            if f.frag_type != QUESTION_BLOCK_TYPE
+        ]
         if not fragments or not need.question.strip():
             return RetrievalBundle(
                 observations=[],

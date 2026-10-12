@@ -24,6 +24,7 @@ from appv2.retrieval.domain import (
     FAMILY_MONTHLY,
     NODE_SECTION_SUMMARY,
     NODE_SLICE,
+    QUESTION_BLOCK_TYPE,
     RRF_K,
     FragmentRecord,
     GraphEdgeRecord,
@@ -36,6 +37,7 @@ from appv2.retrieval.domain import (
     enriched_index_text,
     is_table_rowset_question,
     section_root,
+    source_diversify,
     summary_node_id,
     supply_window,
 )
@@ -77,6 +79,7 @@ __all__ = [
     "FAMILY_MONTHLY",
     "NODE_SECTION_SUMMARY",
     "NODE_SLICE",
+    "QUESTION_BLOCK_TYPE",
     "RRF_K",
     "SUMMARY_MIN_COVER",
     "Completer",
@@ -113,6 +116,7 @@ __all__ = [
     "ensure_enrich_tables",
     "is_table_rowset_question",
     "section_root",
+    "source_diversify",
     "summary_node_id",
     "supply_window",
 ]

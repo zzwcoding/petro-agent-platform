@@ -46,6 +46,13 @@ FAMILY_ALL: tuple[str, ...] = (FAMILY_COMPLETION, FAMILY_MONTHLY, FAMILY_DYNAMIC
 NODE_SLICE = "slice"
 NODE_SECTION_SUMMARY = "section_summary"
 
+# 问题块型（kb_fragment.type 五值之一——入库问题块重生批次生成
+# （app/domains/kb/service.py F37，「这份报告可能被问的 10 个问题」）。
+# 展示面专用（端点 9 ingest_additions 直读消费），非答案材料——V2-65 附 A
+# 裁决：不参加检索排序（通篇问句零答案内容、逐字包含报告关键题眼，融合分
+# 天然抢占代表席——V264F1 实锤 12 支占语料 8% 抢走 6 席中 3 席）。
+QUESTION_BLOCK_TYPE = "问题块"
+
 # 切片上下文前缀逐字格式（票面钉：〔本段节选自〈报告名〉·〈章节路径〉〕——
 # Anthropic 上下文感知检索式；报告名/章节路径取 kb 台账元数据，零模型调用）。
 CONTEXT_PREFIX_TEMPLATE = "〔本段节选自{report}·{section}〕"
@@ -208,6 +215,9 @@ class FragmentRecord:
     embedding: list[float] | None = None
     node_kind: str = NODE_SLICE
     well: str | None = None
+    # kb_fragment.type 透传（V2-65 附 A——缺省内容主型＝既有构造零漂移；
+    # 「问题块」型在 engine 语料装配层退赛，不进召回/送窗/展开语料）。
+    frag_type: str = "原文块"
 
     def __post_init__(self) -> None:
         if self.node_kind not in (NODE_SLICE, NODE_SECTION_SUMMARY):
@@ -435,19 +445,35 @@ def source_diversify(members: list[tuple[Hit, float]], cap: int) -> list[tuple[H
     多报告语料下向量腿会饱和：单报告片段对问句普遍高分，按分直取会整窗挤满
     单报告。窗口内**同报告至多 cap/2 支**：按报告分组轮询各取首支，余量再按
     原序补齐——只改入选构成、不改相对序，不做任何语义判断。
+
+    代表席摘要优先（V2-65 附 B）：每来源队列若含节级摘要支（node_kind=
+    section_summary 结构标记——零语义判定），以其为队首（代表席＝摘要席，
+    进窗即触发 R1b 节内整组展开——1 席撬一节，数据正文随摘要进窗；治
+    V264F1 实锤「代表支被高分标题/问句类切片占据、数据表进不了窗」形）。
+    摘要支占一个本源席位，队列总长仍守 per_source_cap；无摘要支队列原样，
+    输出逐支不变（零漂移）。
     """
     if len(members) <= cap:
         return members
     per_source_cap = max(1, cap // 2)
     by_source: dict[str, list[tuple[Hit, float]]] = {}
+    summary_pair: dict[str, tuple[Hit, float]] = {}
     order: list[str] = []
     for pair in members:
         key = pair[0].fragment.report_id or "?"
         if key not in by_source:
             by_source[key] = []
             order.append(key)
+        if pair[0].fragment.node_kind == NODE_SECTION_SUMMARY:
+            if key not in summary_pair:
+                summary_pair[key] = pair  # 融合序最前的摘要支（首见即最优）
+            continue
         if len(by_source[key]) < per_source_cap:
             by_source[key].append(pair)
+    for key, pair in summary_pair.items():
+        queue = by_source[key]
+        queue.insert(0, pair)
+        del queue[per_source_cap:]  # 摘要席占一个本源名额——总队列仍守 cap
     picked: list[tuple[Hit, float]] = []
     seen: set[int] = set()
     while len(picked) < cap:
