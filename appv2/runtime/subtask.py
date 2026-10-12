@@ -79,6 +79,37 @@ def extract_plan_json(content: str) -> dict[str, Any] | None:
     return None
 
 
+def json_syntax_feedback(content: str, fallback: str) -> str:
+    """V2-57 拒因带定位（错误原样回喂——Owner 拍板统一纪律）：
+    extract_plan_json 判失败时，重放同款平衡块扫描取 json 异常定位＋坏点前后
+    片段，拼进打回理由。零模型调用、零新依赖——信息本来就在异常里。"""
+    start = content.find("{")
+    if start < 0:
+        return fallback + "——输出中没有任何以左花括号起始的 JSON 对象" \
+               "（检查是否漏了 JSON 外壳、只输出了围栏或解释文字）"
+    depth = 0
+    for position in range(start, len(content)):
+        ch = content[position]
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                segment = content[start : position + 1]
+                try:
+                    json.loads(segment)
+                except json.JSONDecodeError as exc:
+                    bad = start + exc.pos          # 绝对位置（exc.pos 相对片段）
+                    snippet = content[max(0, bad - 40) : bad + 40]
+                    return (
+                        f"{fallback}——JSON 语法错误：{exc.msg}（约第 {bad} 字符）。"
+                        "常见原因：少写右括号或方括号、尾逗号、引号未闭合。"
+                        f"你上次输出坏点附近原文：「{snippet}」"
+                        "——只修正语法错误，结构与其余内容照旧，重新输出一个 JSON。"
+                    )
+    return fallback    # 重放意外成功（防御性——理论不可达）→ 原笼统话兜底
+
+
 # ---------- 相位①产物：QuestionGroup（子任务图） ----------
 
 
@@ -206,7 +237,7 @@ def parse_question_group(
     """
     payload = extract_plan_json(content)
     if payload is None:
-        return "澄清发射不可解析（未产出 JSON 对象）——只输出一个 JSON"
+        return json_syntax_feedback(content, "澄清发射不可解析——只输出一个 JSON")
     action = payload.get("action")
     if action not in CLARIFY_ACTIONS:
         return (
@@ -288,7 +319,7 @@ def parse_tool_match(content: str, group: QuestionGroup) -> tuple[SubtaskMatch, 
     """相位②发射解析＋闭合世界对账（matches ↔ 问题组一一对应——schema 收口单点）。"""
     payload = extract_plan_json(content)
     if payload is None:
-        return "工具匹配不可解析（未产出 JSON 对象）——只输出一个 JSON"
+        return json_syntax_feedback(content, "工具匹配不可解析——只输出一个 JSON")
     raw_matches = payload.get("matches")
     if not isinstance(raw_matches, list) or not raw_matches:
         return "缺 matches（非空数组——组内每个子问题恰一条）"

@@ -112,6 +112,7 @@ from appv2.runtime.subtask import (
     QuestionGroup,
     Subtask,
     extract_plan_json,
+    json_syntax_feedback,
     parse_question_group,
     parse_tool_match,
 )
@@ -495,7 +496,7 @@ def parse_decision(
     """
     payload = extract_plan_json(content)
     if payload is None:
-        return "决策不可解析（未产出 JSON 对象）——只输出一个 JSON 决策"
+        return json_syntax_feedback(content, "决策不可解析——只输出一个 JSON 决策")
     action = payload.get("action")
     if action not in ACTION_KINDS:
         return (
@@ -2277,6 +2278,12 @@ def _make_toolmatch(
             + "\n\n问题组：\n"
             + json.dumps(group.as_payload(), ensure_ascii=False)
         )
+        if state.decision_error:
+            # V2-57 回喂补线（clarify 节点同款——此前本相位拒后自环零反馈，
+            # 模型只见自己旧输出不知何错，同错三遍烧预算实证 run-forensic）。
+            instruction += (
+                f"\n\n上次发射被拒：{state.decision_error}——修正后重新输出 JSON。"
+            )
         context = deps.builder.compile(
             state,
             step=STEP_DECISION,
