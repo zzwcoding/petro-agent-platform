@@ -1,0 +1,298 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-0a827beb",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问自然递减率是多少。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问自然递减率是多少。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清钻取 ×1（semantic_query）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 3,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 1 支"
+   }
+  },
+  {
+   "id": 7,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#3",
+    "content": "☆自然递减率：月：1 − q_t / q_(t−1)（扣新井与措施增油）；年化：指数拟合 q(t)=q_i·e^(−Dt)｜粒度 月·年 · 单位 %｜状态 生效中｜争议注记：措施扣除口径",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清定稿：材料足够——直答收口",
+    "emission": {
+     "action": "finalize"
+    }
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 6,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 7,
+    "title": "核验：支撑 1｜改写 6｜分源 否"
+   }
+  },
+  {
+   "id": 11,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 1,
+    "rewritten": 6,
+    "split": false,
+    "cited": [
+     1
+    ],
+    "attribution": {
+     "anchors": [],
+     "cross": []
+    }
+   }
+  },
+  {
+   "id": 12,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 6 行（INV-1——禁止无据断言进答案）"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 8,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 14,
+   "event": "citation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#3",
+    "source_id": "3",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 15,
+   "event": "text",
+   "data": {
+    "content": "依据观察材料：\n\n未找到（材料未披露）：- 自然递减率的口径定义——[1]\n- 月度计算式：1 − q_t / q_(t−1)（扣除新井与措施增油）——[1]\n未找到（材料未披露）：- 年化方法：指数拟合 q(t) = q_i·e^(−Dt)——[1]\n未找到（材料未披露）：- 粒度：月、年——[1]\n未找到（材料未披露）：- 单位：%——[1]\n未找到（材料未披露）：- 状态：生效中——[1]\n未找到（材料未披露）：- 争议注记：措施扣除口径存在分歧——[1]\n\n**说明**：观察材料只给出自然递减率的口径定义与计算式，未提供具体数值（未指明时间窗、未绑定具体井位或区块的数据行集）。如需给出某区块/某时段的具体自然递减率数值，请补充时间窗与对象范围后重新提问。\n\n引用：\n[1] sem_metric#3 · 3（ledger）"
+   }
+  },
+  {
+   "id": 16,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-0a827beb",
+    "manifest_digest": "5bb188a9136bd343b938dbdd6a0504452617c75418754b6866a3175b88a24200"
+   }
+  },
+  {
+   "id": 17,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-0a827beb",
+    "question": "自然递减率是多少？",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 14227,
+    "counts": {
+     "history": 9,
+     "observations": 1,
+     "steps": 8
+    }
+   }
+  },
+  {
+   "id": 18,
+   "event": "done",
+   "data": {
+    "run_id": "run-0a827beb"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "依据观察材料：\n\n未找到（材料未披露）：- 自然递减率的口径定义——[1]\n- 月度计算式：1 − q_t / q_(t−1)（扣除新井与措施增油）——[1]\n未找到（材料未披露）：- 年化方法：指数拟合 q(t) = q_i·e^(−Dt)——[1]\n未找到（材料未披露）：- 粒度：月、年——[1]\n未找到（材料未披露）：- 单位：%——[1]\n未找到（材料未披露）：- 状态：生效中——[1]\n未找到（材料未披露）：- 争议注记：措施扣除口径存在分歧——[1]\n\n**说明**：观察材料只给出自然递减率的口径定义与计算式，未提供具体数值（未指明时间窗、未绑定具体井位或区块的数据行集）。如需给出某区块/某时段的具体自然递减率数值，请补充时间窗与对象范围后重新提问。\n\n引用：\n[1] sem_metric#3 · 3（ledger）",
+  "citations": [
+   {
+    "index": 1,
+    "source": "sem_metric#3",
+    "source_id": "3",
+    "trust": "ledger"
+   }
+  ],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步改写无据断言 6 行（INV-1——禁止无据断言进答案）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-0a827beb",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问自然递减率是多少。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清钻取 ×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 3,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "observe",
+    "seq": 4,
+    "title": "观察回流 1 支"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清定稿：材料足够——直答收口"
+   },
+   {
+    "step": "answer",
+    "seq": 6,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 7,
+    "title": "核验：支撑 1｜改写 6｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 8,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 3,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_metric#3",
+    "content": "☆自然递减率：月：1 − q_t / q_(t−1)（扣新井与措施增油）；年化：指数拟合 q(t)=q_i·e^(−Dt)｜粒度 月·年 · 单位 %｜状态 生效中｜争议注记：措施扣除口径",
+    "trust": "ledger"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 1,
+    "rewritten": 6,
+    "split": false,
+    "cited": [
+     1
+    ],
+    "attribution": {
+     "anchors": [],
+     "cross": []
+    }
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-0a827beb",
+   "manifest_digest": "5bb188a9136bd343b938dbdd6a0504452617c75418754b6866a3175b88a24200"
+  },
+  "texts": [
+   "问自然递减率是多少。",
+   "依据观察材料：\n\n未找到（材料未披露）：- 自然递减率的口径定义——[1]\n- 月度计算式：1 − q_t / q_(t−1)（扣除新井与措施增油）——[1]\n未找到（材料未披露）：- 年化方法：指数拟合 q(t) = q_i·e^(−Dt)——[1]\n未找到（材料未披露）：- 粒度：月、年——[1]\n未找到（材料未披露）：- 单位：%——[1]\n未找到（材料未披露）：- 状态：生效中——[1]\n未找到（材料未披露）：- 争议注记：措施扣除口径存在分歧——[1]\n\n**说明**：观察材料只给出自然递减率的口径定义与计算式，未提供具体数值（未指明时间窗、未绑定具体井位或区块的数据行集）。如需给出某区块/某时段的具体自然递减率数值，请补充时间窗与对象范围后重新提问。\n\n引用：\n[1] sem_metric#3 · 3（ledger）"
+  ],
+  "duration_s": 9.0
+ }
+}

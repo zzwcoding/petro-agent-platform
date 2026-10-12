@@ -186,21 +186,54 @@ SAME_PARAM_REPLAY_REASON = (
 # V2-53 零探查拒回闸（附 C——零观察定稿治理，Q15 族 Z 12 题零交付形）：
 # 零探查发射 finalize 的拒因回喂文（复用「发射被拒→拒因回喂→模型改发」
 # 既有通道）＋拦截判定（实质材料过滤式与答案相位「未取得观察材料」同式
-# ——非 notice 观察）。
-ZERO_PROBE_FEEDBACK = (
-    "零探查观察禁定稿——台账常驻注入是字典不是数据，不构成观察材料；"
-    "请先 discover 钻取（faq_lookup/semantic_query/table_schema）取得条目，"
-    "或 decompose 分解走检索执行。"
-)
+# ——非 notice 观察）。V2-56 浅探查定稿治理：闸收紧（附 A——discover_used≥1
+# 通行证废除）＋拒因常量改函数构造（附 B——打回带路，机器事实→路由指令）。
 
 
 def _zero_probe_block(state: RunState) -> bool:
-    """V2-53 零探查定稿拦截判定（实质材料定义与答案相位同源——非 notice 观察）。"""
-    if state.followup_of:          # 追问续跑旁路（前轮材料在史——追问语义本票零触碰）
+    """V2-56 浅探查定稿拦截（V2-53 收紧版）：finalize 合法 ⇔ 窗内已有实质观察
+    （非 notice——faq 命中卡/台账条目卡/检索片段）。空手探查（未命中 notice/
+    工具失败/零观察）不算数——V2-53 的 discover_used≥1 通行证废除（合同 A2
+    「仅当已有探查观察（discover 命中条目）时可用」的代码落地）。"""
+    if state.followup_of:          # 追问续跑旁路——零改动
         return False
     material = [obs for obs in state.observations
                 if (obs.get("locator") or {}).get("kind") != "notice"]
-    return int(state.discover_used) == 0 and not material
+    return not material
+
+
+def _shallow_probe_feedback(state: RunState) -> str:
+    """V2-56 打回带路（机器事实→路由指令，零模型调用）。三段拼装，段缺则跳：
+    ①前置判定在场且有绑定拒/台账外形（verdicts 判定键实现时按实际字段核对，
+      候选键 state ∈ {"note", "blocked_refuse"}）→
+      「数据链已被前置判定拒（在册未绑定/台账外）——该指标材料走报告检索：
+      分解时 chain=knowledge、tool=doc_retrieve」；
+    ②已空手探查清单（读 state.empty_probes 指纹还原工具名，去重排序）→
+      「已空手探查：{tools}——禁再试同名同参」；
+    ③兜底句（恒在）：「先 discover 取得条目（精确名单词），或 decompose 分解
+      走 doc_retrieve 检索执行。」
+    拼装为「；」连接的单段文本，作为 decision_error 回喂与步 payload.rejection。"""
+    segments: list[str] = []
+    if any(
+        isinstance(v, dict) and str(v.get("state")) in {"note", "blocked_refuse"}
+        for v in state.precondition_verdicts
+    ):
+        segments.append(
+            "数据链已被前置判定拒（在册未绑定/台账外）——该指标材料走报告检索："
+            "分解时 chain=knowledge、tool=doc_retrieve"
+        )
+    if state.empty_probes:
+        tools = sorted({
+            str(json.loads(fingerprint).get("tool", ""))
+            for fingerprint in state.empty_probes
+            if isinstance(fingerprint, str)
+        } - {""})
+        if tools:
+            segments.append(f"已空手探查：{'、'.join(tools)}——禁再试同名同参")
+    segments.append(
+        "先 discover 取得条目（精确名单词），或 decompose 分解走 doc_retrieve 检索执行。"
+    )
+    return "；".join(segments)
 
 # 发现工具闭世界（拍板④白名单的调用面——registry.call 兜底拒未知名）。
 # V2-52 辅助模式：faq_lookup 进闭世界（附 B 消费规则——辅助材料 discover 面）。
@@ -416,6 +449,12 @@ def _payload_fingerprint(payload: dict[str, Any]) -> str:
     return json.dumps(
         payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
     )
+
+
+def _discover_fingerprint(tool_name: str, args: dict[str, Any]) -> str:
+    """同参判定键（逐字——参数改了＝新尝试，门开着：Owner 拍板）。"""
+    return json.dumps({"tool": tool_name, "args": args},
+                      sort_keys=True, ensure_ascii=False)
 
 
 def _emission_fingerprints(
@@ -1810,6 +1849,22 @@ def _make_discover(
             retry_state={"pending_discovers": [call, *queue[1:]]},
         )
         updates["discover_used"] = discover_used
+        # V2-56 空手指纹记录（附 C1）：
+        # 空手判定：(a) error 分支（failed/refused/retryable 耗尽），或
+        #           (b) ok 分支且本次新增非 notice 观察数为 0（no_hit 通知形）。
+        # 空手 → updates["empty_probes"] = [*state.empty_probes,
+        #           _discover_fingerprint(tool_name, args)]
+        # 命中（新增非 notice 观察 ≥1）→ 不记录（允许同参复查——有料即非空手）。
+        fresh_material = [
+            obs for obs in _observations_of(result)
+            if (obs.get("locator") or {}).get("kind") != "notice"
+        ]
+        if result["status"] == STATUS_FAILED or (
+            result["status"] == STATUS_OK and not fresh_material
+        ):
+            updates["empty_probes"] = [
+                *state.empty_probes, _discover_fingerprint(tool_name, args)
+            ]
         if result["status"] == STATUS_OK:
             updates["pending_discovers"] = queue[1:]  # 本支已消费（观察回流后续投）
         return updates
@@ -1942,10 +1997,16 @@ def _make_clarify(
         )
         failed = [dict(r) for r in state.subtask_results if r.get("status") == "failed"]
         if failed:
-            lines = "\n".join(
-                f"- [{r.get('id')}] {r.get('question', '')}——拒因：{r.get('reason', '')}"
-                for r in failed
-            )
+            def _rework_line(r: dict[str, Any]) -> str:
+                # V2-56 回炉行路由动词（附 D）：拒因词面含「未绑定」或「不在台账」
+                # → 行尾接路由动词（改走 knowledge 链 doc_retrieve）；不含词面的
+                # 拒因行零追加。词面以 precondition 实际 reason 字符串为准。
+                reason = str(r.get("reason", ""))
+                reason_shown = reason
+                if ("未绑定" in reason) or ("不在台账" in reason):
+                    reason_shown = f"{reason}→改走 knowledge 链（tool=doc_retrieve）"
+                return f"- [{r.get('id')}] {r.get('question', '')}——拒因：{reason_shown}"
+            lines = "\n".join(_rework_line(r) for r in failed)
             instruction += (
                 "\n\n回炉：只分解以下失败/缺失子问题（成功子问题结果已保留，"
                 f"禁止重复分解执行）：\n{lines}"
@@ -2046,6 +2107,36 @@ def _make_clarify(
                 "next_intent": INTENT_TOOLMATCH,
             }
         if emission.kind == CLARIFY_DISCOVER:
+            # V2-56 同款空手探查拒重发（附 C2·发射级）：同工具同参已空手＝整发射
+            # 拒——不触工具、不占探查预算；换参视为新尝试（门开着——Owner 拍板）。
+            dupes = [d for d in emission.discovers
+                     if _discover_fingerprint(str(d.get("tool", "")),
+                                              dict(d.get("args") or {})) in state.empty_probes]
+            if dupes:
+                # 与 finalize 拒回同款机制：首拒免轮、连续拒第 2 次起占轮（streak 公式复用）
+                streak = int(state.budget_reject_streak) + 1
+                rnd = state.rounds if streak < 2 else state.rounds + 1
+                tool_name = str(dupes[0].get("tool", "?"))
+                feedback = (f"{tool_name} 同参已空手（探查未命中）——禁原样重发；"
+                            "改用其他探查（换参视为新尝试），或 decompose 分解走 doc_retrieve。")
+                record = _step_record(
+                    seq, STEP_DECISION,
+                    f"澄清 r{state.rounds + 1} 被拒：{tool_name} 同参已空手",
+                    context.manifest,
+                    payload={"phase": "clarify", "rejection": feedback},
+                )
+                deps.bus.emit("step", {"step": STEP_DECISION, "seq": seq,
+                                       "title": record["title"]})
+                return {
+                    "rounds": rnd,
+                    "decision_error": feedback,   # 拒因回喂——现成通道承接
+                    "budget_reject_streak": streak,
+                    "ledger_dump": dump,
+                    "history": history,
+                    "manifests": [*state.manifests, context.manifest.as_dict()],
+                    "steps": [*state.steps, record],
+                    "next_intent": INTENT_DECISION,
+                }
             names = "、".join(str(item.get("tool", "?")) for item in emission.discovers)
             record = _step_record(
                 seq, STEP_DECISION,
@@ -2063,17 +2154,19 @@ def _make_clarify(
             }
         if emission.kind == CLARIFY_FINALIZE:
             # V2-53 零探查拒回闸（附 C）：零探查观察发射 finalize＝非法发射，
-            # 程序拒回并要求改发（拒因回喂——现成通道承接）。
+            # 程序拒回并要求改发（拒因回喂——现成通道承接）。V2-56 附 B：拒因
+            # 改函数构造（打回带路——机器已知事实→路由指令，零模型调用）。
             if _zero_probe_block(state):
                 # 首拒免轮、连续拒自第 2 次起占轮——复用预算拒收敛机（S2 同款公式）
                 streak = int(state.budget_reject_streak) + 1
                 rnd = state.rounds if streak < 2 else state.rounds + 1
+                feedback = _shallow_probe_feedback(state)
                 record = _step_record(
                     seq, STEP_DECISION,
                     f"澄清 r{rnd} 被拒：零探查观察禁定稿",
                     context.manifest,
                     payload={"phase": "clarify",
-                             "rejection": ZERO_PROBE_FEEDBACK,
+                             "rejection": feedback,
                              "emission": emission.as_payload()},
                 )
                 deps.bus.emit(
@@ -2083,7 +2176,7 @@ def _make_clarify(
                 )
                 return {
                     "rounds": rnd,
-                    "decision_error": ZERO_PROBE_FEEDBACK,   # 拒因回喂——现成通道承接
+                    "decision_error": feedback,              # 拒因回喂——现成通道承接
                     "budget_reject_streak": streak,
                     "ledger_dump": dump,
                     "history": history,

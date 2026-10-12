@@ -10,17 +10,23 @@
 tests/domains/test_v2_v252_five_station.py 与
 tests/domains/test_v2_p039b_f2c_two_branch_wording.py 两处既有断言面）：
 
-- T1 零探查 finalize 拒回：拒因与 ZERO_PROBE_FEEDBACK 逐字相等＋步标题含
+- T1 零探查 finalize 拒回：拒因与打回带路兜底段逐字相等（V2-56 附 B——拒因
+  常量改函数构造，r0 无前置判定/无空手记录＝纯兜底段）＋步标题含
   「被拒：零探查观察禁定稿」＋首拒免轮（rounds 不变）＋下一轮 instruction
   含拒因回喂句。budget_reject_streak==1 钉经其公开后果断言（首拒免轮＝
   streak<2 分支被走到——streak 本体不经公开面直接可读，行为断言锁轮记账）。
 - T2 连环拒占轮：第二次零探查 finalize → rounds+1（步标题 r1）。
 - T3 放行不回退：discover 已执行（faq 命中形）→ finalize 照旧放行（步标题
-  「澄清定稿：材料足够——直答收口」不变）。
+  「澄清定稿：材料足够——直答收口」不变；V2-56 语义下＝命中卡实质观察放行，
+  断言面不变）。
 - T4 followup 旁路：followup_of 非空＋零探查 finalize → 放行。
 - T5 逐字稿钉：CLARIFY_CONTRACT 含附 A1/A2 新句、不含旧句；常驻块首行含
   LEDGER_DICT_NOTE 句。
 - T6 step 事件 emission 键在场（放行与拒两点）。
+
+V2-56 随动（tickets/v2/V2-56-浅探查定稿治理.md T10）：拒因常量
+ZERO_PROBE_FEEDBACK 由 graph._shallow_probe_feedback 函数构造取代——本文件
+断言文本随附 B 逐字稿修订（兜底段），断言结构零删减。
 """
 
 from __future__ import annotations
@@ -32,7 +38,6 @@ from typing import Any
 
 from appv2.runtime import AskRequest, RunStore, ScriptedCompleter
 from appv2.runtime.context import LEDGER_DICT_NOTE, ContextBuilder
-from appv2.runtime.graph import ZERO_PROBE_FEEDBACK
 from appv2.runtime.guide import CLARIFY_CONTRACT
 from appv2.runtime.state import STEP_DECISION, RunState
 from appv2.tools import RESIDENT_BLOCK_BEGIN
@@ -45,6 +50,11 @@ from tests.domains.test_v2_agent_loop import (
 from tests.domains.test_v2_four_phase import LEDGER_DUMP, UNDERSTAND_MULTI
 from tests.domains.test_v2_react_loop import _rows_outcome
 from tests.domains.test_v2_v252_five_station import _faq_hit, _FaqFace
+
+# V2-56 附 B 打回带路兜底段（r0 拒因全文——无前置判定/无空手记录时唯一段）。
+_FALLBACK_FEEDBACK = (
+    "先 discover 取得条目（精确名单词），或 decompose 分解走 doc_retrieve 检索执行。"
+)
 
 # ---------- 剧本罐头（四相位 clarify 面） ----------
 
@@ -131,18 +141,19 @@ async def test_t1_zero_probe_finalize_rejected_with_verbatim_feedback(
         assert final["status"] == "completed"
         steps = await store.list_steps(final["run_id"])
         # 拒步恰一：步标题含「被拒：零探查观察禁定稿」＋payload.rejection 与
-        # ZERO_PROBE_FEEDBACK 逐字相等（拒因回喂真源同源）。
+        # 打回带路兜底段逐字相等（V2-56 附 B 函数构造——r0 纯兜底段，拒因回喂
+        # 真源同源）。
         rejects = [s for s in steps if "被拒：零探查观察禁定稿" in s.title]
         assert len(rejects) == 1
         payload = rejects[0].payload or {}
-        assert payload["rejection"] == ZERO_PROBE_FEEDBACK
+        assert payload["rejection"] == _FALLBACK_FEEDBACK
         # 首拒免轮（budget_reject_streak==1 → streak<2 分支）：rounds 不变——
         # 拒步记 r0，后续分解照常记 r1。
         assert rejects[0].title.startswith("澄清 r0 被拒：")
         assert any(s.title == "澄清 r1：分解 1 子问题" for s in steps)
         # 下一轮 instruction 含拒因回喂句（既有通道承接——决策被拒同款）。
         second_call = completer.messages_of("v2.runtime.decision")[1]
-        assert ZERO_PROBE_FEEDBACK in str(second_call[-1]["content"])
+        assert _FALLBACK_FEEDBACK in str(second_call[-1]["content"])
         assert "上次发射被拒：" in str(second_call[-1]["content"])
     finally:
         await db.dispose()

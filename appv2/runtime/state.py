@@ -140,6 +140,9 @@ class RunState:
     # 追问续会话标记（V2-38；V2-53 零探查拒回闸的追问旁路判据——前轮材料在
     # 史的追问 run 零探查定稿放行）。executor 受理段随 RunCommand 播种，仅读。
     followup_of: str = ""
+    # V2-56 同款空手探查指纹（discover 拒重发判定键——逐字 json 指纹；
+    # 空手才记录，命中不记录——允许同参复查）。
+    empty_probes: list[str] = field(default_factory=list)
     # —— understand 产物 ——
     understanding: str = ""
     metric_candidates: list[str] = field(default_factory=list)  # FX-13 候选集

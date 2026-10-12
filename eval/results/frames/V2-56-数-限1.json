@@ -1,0 +1,1188 @@
+{
+ "frames": [
+  {
+   "id": 0,
+   "event": "session",
+   "data": {
+    "run_id": "run-dabd3080",
+    "resume": false
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "问去年（全年）日产油量排名前30的井或其记录。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "text",
+   "data": {
+    "content": "问去年（全年）日产油量排名前30的井或其记录。"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：1 条定案"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=pass"
+   }
+  },
+  {
+   "id": 6,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：ok（子问题 s1）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-16；区块=渤中；日产油量合计（吨）=5839.63",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 9,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-25；区块=渤西；日产油量合计（吨）=5708.15",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 10,
+   "event": "observation",
+   "data": {
+    "index": 3,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-15；区块=渤南；日产油量合计（吨）=5571.49",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 11,
+   "event": "observation",
+   "data": {
+    "index": 4,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-23；区块=渤中；日产油量合计（吨）=5557.84",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 12,
+   "event": "observation",
+   "data": {
+    "index": 5,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-34；区块=渤中；日产油量合计（吨）=5551.37",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 13,
+   "event": "observation",
+   "data": {
+    "index": 6,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-23；区块=渤南；日产油量合计（吨）=5528.66",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 14,
+   "event": "observation",
+   "data": {
+    "index": 7,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-24；区块=渤西；日产油量合计（吨）=5409.99",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 15,
+   "event": "observation",
+   "data": {
+    "index": 8,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-22；区块=渤西；日产油量合计（吨）=5369.58",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 16,
+   "event": "observation",
+   "data": {
+    "index": 9,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-20；区块=渤南；日产油量合计（吨）=5173.26",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 17,
+   "event": "observation",
+   "data": {
+    "index": 10,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-05；区块=渤西；日产油量合计（吨）=5162.14",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 18,
+   "event": "observation",
+   "data": {
+    "index": 11,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-11；区块=渤南；日产油量合计（吨）=5156.82",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 19,
+   "event": "observation",
+   "data": {
+    "index": 12,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-05；区块=渤南；日产油量合计（吨）=5149.83",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 20,
+   "event": "observation",
+   "data": {
+    "index": 13,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-13；区块=渤中；日产油量合计（吨）=5024.50",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 21,
+   "event": "observation",
+   "data": {
+    "index": 14,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-09；区块=渤中；日产油量合计（吨）=4988.29",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 22,
+   "event": "observation",
+   "data": {
+    "index": 15,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-06；区块=渤南；日产油量合计（吨）=4942.61",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 23,
+   "event": "observation",
+   "data": {
+    "index": 16,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-07；区块=渤西；日产油量合计（吨）=4911.99",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 24,
+   "event": "observation",
+   "data": {
+    "index": 17,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-07；区块=渤中；日产油量合计（吨）=4904.74",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 25,
+   "event": "observation",
+   "data": {
+    "index": 18,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-31；区块=渤中；日产油量合计（吨）=4784.07",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 26,
+   "event": "observation",
+   "data": {
+    "index": 19,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-30；区块=渤中；日产油量合计（吨）=4783.90",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 27,
+   "event": "observation",
+   "data": {
+    "index": 20,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-10；区块=渤中；日产油量合计（吨）=4760.35",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 28,
+   "event": "observation",
+   "data": {
+    "index": 21,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-06；区块=渤中；日产油量合计（吨）=4656.37",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 29,
+   "event": "observation",
+   "data": {
+    "index": 22,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-04；区块=渤中；日产油量合计（吨）=4642.57",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 30,
+   "event": "observation",
+   "data": {
+    "index": 23,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-15；区块=渤中；日产油量合计（吨）=4598.22",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 31,
+   "event": "observation",
+   "data": {
+    "index": 24,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-13；区块=渤西；日产油量合计（吨）=4546.07",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 32,
+   "event": "observation",
+   "data": {
+    "index": 25,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-18；区块=渤中；日产油量合计（吨）=4539.62",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 33,
+   "event": "observation",
+   "data": {
+    "index": 26,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-19；区块=渤中；日产油量合计（吨）=4495.77",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 34,
+   "event": "observation",
+   "data": {
+    "index": 27,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-08；区块=渤西；日产油量合计（吨）=4489.74",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 35,
+   "event": "observation",
+   "data": {
+    "index": 28,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-03；区块=渤西；日产油量合计（吨）=4467.52",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 36,
+   "event": "observation",
+   "data": {
+    "index": 29,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-04；区块=渤西；日产油量合计（吨）=4421.85",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 37,
+   "event": "observation",
+   "data": {
+    "index": 30,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-05；区块=渤中；日产油量合计（吨）=4142.01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 38,
+   "event": "observation",
+   "data": {
+    "index": 31,
+    "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date",
+    "content": "① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 达标（承诺 T-1））\n⑤ 收口注记 LIMIT 30——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 30——只封顶不抬底）",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 39,
+   "event": "step",
+   "data": {
+    "step": "observe",
+    "seq": 6,
+    "title": "批量汇聚 31 支"
+   }
+  },
+  {
+   "id": 40,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 7,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 41,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 8,
+    "title": "核验：支撑 24｜改写 0｜分源 否"
+   }
+  },
+  {
+   "id": 42,
+   "event": "verdict",
+   "data": {
+    "subtype": "verify",
+    "supported": 24,
+    "rewritten": 0,
+    "split": false,
+    "cited": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     11,
+     12,
+     13,
+     14,
+     15,
+     16,
+     17,
+     18,
+     19,
+     20,
+     21,
+     22,
+     23,
+     24
+    ],
+    "attribution": {
+     "anchors": [],
+     "cross": []
+    }
+   }
+  },
+  {
+   "id": 43,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 9,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 44,
+   "event": "citation",
+   "data": {
+    "index": 1,
+    "source": "agg.fct_daily_metering",
+    "source_id": "Z-16",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 45,
+   "event": "citation",
+   "data": {
+    "index": 2,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-25",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 46,
+   "event": "citation",
+   "data": {
+    "index": 3,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-15",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 47,
+   "event": "citation",
+   "data": {
+    "index": 4,
+    "source": "agg.fct_daily_metering",
+    "source_id": "Z-23",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 48,
+   "event": "citation",
+   "data": {
+    "index": 5,
+    "source": "agg.fct_daily_metering",
+    "source_id": "Z-34",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 49,
+   "event": "citation",
+   "data": {
+    "index": 6,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-23",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 50,
+   "event": "citation",
+   "data": {
+    "index": 7,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-24",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 51,
+   "event": "citation",
+   "data": {
+    "index": 8,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-22",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 52,
+   "event": "citation",
+   "data": {
+    "index": 9,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-20",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 53,
+   "event": "citation",
+   "data": {
+    "index": 10,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-05",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 54,
+   "event": "citation",
+   "data": {
+    "index": 11,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-11",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 55,
+   "event": "citation",
+   "data": {
+    "index": 12,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-05",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 56,
+   "event": "citation",
+   "data": {
+    "index": 13,
+    "source": "agg.fct_daily_metering",
+    "source_id": "Z-13",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 57,
+   "event": "citation",
+   "data": {
+    "index": 14,
+    "source": "agg.fct_daily_metering",
+    "source_id": "Z-09",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 58,
+   "event": "citation",
+   "data": {
+    "index": 15,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-06",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 59,
+   "event": "citation",
+   "data": {
+    "index": 16,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-07",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 60,
+   "event": "citation",
+   "data": {
+    "index": 17,
+    "source": "agg.fct_daily_metering",
+    "source_id": "Z-07",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 61,
+   "event": "citation",
+   "data": {
+    "index": 18,
+    "source": "agg.fct_daily_metering",
+    "source_id": "Z-31",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 62,
+   "event": "citation",
+   "data": {
+    "index": 19,
+    "source": "agg.fct_daily_metering",
+    "source_id": "Z-30",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 63,
+   "event": "citation",
+   "data": {
+    "index": 20,
+    "source": "agg.fct_daily_metering",
+    "source_id": "Z-10",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 64,
+   "event": "citation",
+   "data": {
+    "index": 21,
+    "source": "agg.fct_daily_metering",
+    "source_id": "Z-06",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 65,
+   "event": "citation",
+   "data": {
+    "index": 22,
+    "source": "agg.fct_daily_metering",
+    "source_id": "Z-04",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 66,
+   "event": "citation",
+   "data": {
+    "index": 23,
+    "source": "agg.fct_daily_metering",
+    "source_id": "Z-15",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 67,
+   "event": "citation",
+   "data": {
+    "index": 24,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-13",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 68,
+   "event": "text",
+   "data": {
+    "content": "去年（2025-01-01 至 2026-01-01）各井日产油量合计排名前 24 位的井号、区块与累计日产油量如下 [1]-[24]：\n\n| 排名 | 井号 | 区块 | 日产油量合计（吨） |\n|---|---|---|---|\n| 1 | Z-16 | 渤中 | 5839.63 [1] |\n| 2 | X-25 | 渤西 | 5708.15 [2] |\n| 3 | N-15 | 渤南 | 5571.49 [3] |\n| 4 | Z-23 | 渤中 | 5557.84 [4] |\n| 5 | Z-34 | 渤中 | 5551.37 [5] |\n| 6 | N-23 | 渤南 | 5528.66 [6] |\n| 7 | X-24 | 渤西 | 5409.99 [7] |\n| 8 | X-22 | 渤西 | 5369.58 [8] |\n| 9 | N-20 | 渤南 | 5173.26 [9] |\n| 10 | X-05 | 渤西 | 5162.14 [10] |\n| 11 | N-11 | 渤南 | 5156.82 [11] |\n| 12 | N-05 | 渤南 | 5149.83 [12] |\n| 13 | Z-13 | 渤中 | 5024.50 [13] |\n| 14 | Z-09 | 渤中 | 4988.29 [14] |\n| 15 | N-06 | 渤南 | 4942.61 [15] |\n| 16 | X-07 | 渤西 | 4911.99 [16] |\n| 17 | Z-07 | 渤中 | 4904.74 [17] |\n| 18 | Z-31 | 渤中 | 4784.07 [18] |\n| 19 | Z-30 | 渤中 | 4783.90 [19] |\n| 20 | Z-10 | 渤中 | 4760.35 [20] |\n| 21 | Z-06 | 渤中 | 4656.37 [21] |\n| 22 | Z-04 | 渤中 | 4642.57 [22] |\n| 23 | Z-15 | 渤中 | 4598.22 [23] |\n| 24 | X-13 | 渤西 | 4546.07 [24] |\n\n问句要求前 30 名，但观察材料仅覆盖前 24 名（合计 31 行，剔除表头等非排名行后实为 24 条排名井号），第 25-30 名未在返回结果中列出——未找到该部分记录。\n\n⑤ 收口注记 LIMIT 30——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 30——只封顶不抬底）\n\n引用：\n[1] agg.fct_daily_metering · Z-16（authoritative）\n[2] agg.fct_daily_metering · X-25（authoritative）\n[3] agg.fct_daily_metering · N-15（authoritative）\n[4] agg.fct_daily_metering · Z-23（authoritative）\n[5] agg.fct_daily_metering · Z-34（authoritative）\n[6] agg.fct_daily_metering · N-23（authoritative）\n[7] agg.fct_daily_metering · X-24（authoritative）\n[8] agg.fct_daily_metering · X-22（authoritative）\n[9] agg.fct_daily_metering · N-20（authoritative）\n[10] agg.fct_daily_metering · X-05（authoritative）\n[11] agg.fct_daily_metering · N-11（authoritative）\n[12] agg.fct_daily_metering · N-05（authoritative）\n[13] agg.fct_daily_metering · Z-13（authoritative）\n[14] agg.fct_daily_metering · Z-09（authoritative）\n[15] agg.fct_daily_metering · N-06（authoritative）\n[16] agg.fct_daily_metering · X-07（authoritative）\n[17] agg.fct_daily_metering · Z-07（authoritative）\n[18] agg.fct_daily_metering · Z-31（authoritative）\n[19] agg.fct_daily_metering · Z-30（authoritative）\n[20] agg.fct_daily_metering · Z-10（authoritative）\n[21] agg.fct_daily_metering · Z-06（authoritative）\n[22] agg.fct_daily_metering · Z-04（authoritative）\n[23] agg.fct_daily_metering · Z-15（authoritative）\n[24] agg.fct_daily_metering · X-13（authoritative）"
+   }
+  },
+  {
+   "id": 69,
+   "event": "verdict",
+   "data": {
+    "subtype": "final",
+    "status": "completed",
+    "run_id": "run-dabd3080",
+    "manifest_digest": "90307e97bdb3c6337e5a38e78148994496e4a5709f1f078e5f7f0dab68a8d3ce"
+   }
+  },
+  {
+   "id": 70,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-dabd3080",
+    "question": "去年日产油量排名前 30",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 30131,
+    "counts": {
+     "history": 9,
+     "observations": 31,
+     "steps": 9
+    }
+   }
+  },
+  {
+   "id": 71,
+   "event": "done",
+   "data": {
+    "run_id": "run-dabd3080"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "去年（2025-01-01 至 2026-01-01）各井日产油量合计排名前 24 位的井号、区块与累计日产油量如下 [1]-[24]：\n\n| 排名 | 井号 | 区块 | 日产油量合计（吨） |\n|---|---|---|---|\n| 1 | Z-16 | 渤中 | 5839.63 [1] |\n| 2 | X-25 | 渤西 | 5708.15 [2] |\n| 3 | N-15 | 渤南 | 5571.49 [3] |\n| 4 | Z-23 | 渤中 | 5557.84 [4] |\n| 5 | Z-34 | 渤中 | 5551.37 [5] |\n| 6 | N-23 | 渤南 | 5528.66 [6] |\n| 7 | X-24 | 渤西 | 5409.99 [7] |\n| 8 | X-22 | 渤西 | 5369.58 [8] |\n| 9 | N-20 | 渤南 | 5173.26 [9] |\n| 10 | X-05 | 渤西 | 5162.14 [10] |\n| 11 | N-11 | 渤南 | 5156.82 [11] |\n| 12 | N-05 | 渤南 | 5149.83 [12] |\n| 13 | Z-13 | 渤中 | 5024.50 [13] |\n| 14 | Z-09 | 渤中 | 4988.29 [14] |\n| 15 | N-06 | 渤南 | 4942.61 [15] |\n| 16 | X-07 | 渤西 | 4911.99 [16] |\n| 17 | Z-07 | 渤中 | 4904.74 [17] |\n| 18 | Z-31 | 渤中 | 4784.07 [18] |\n| 19 | Z-30 | 渤中 | 4783.90 [19] |\n| 20 | Z-10 | 渤中 | 4760.35 [20] |\n| 21 | Z-06 | 渤中 | 4656.37 [21] |\n| 22 | Z-04 | 渤中 | 4642.57 [22] |\n| 23 | Z-15 | 渤中 | 4598.22 [23] |\n| 24 | X-13 | 渤西 | 4546.07 [24] |\n\n问句要求前 30 名，但观察材料仅覆盖前 24 名（合计 31 行，剔除表头等非排名行后实为 24 条排名井号），第 25-30 名未在返回结果中列出——未找到该部分记录。\n\n⑤ 收口注记 LIMIT 30——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 30——只封顶不抬底）\n\n引用：\n[1] agg.fct_daily_metering · Z-16（authoritative）\n[2] agg.fct_daily_metering · X-25（authoritative）\n[3] agg.fct_daily_metering · N-15（authoritative）\n[4] agg.fct_daily_metering · Z-23（authoritative）\n[5] agg.fct_daily_metering · Z-34（authoritative）\n[6] agg.fct_daily_metering · N-23（authoritative）\n[7] agg.fct_daily_metering · X-24（authoritative）\n[8] agg.fct_daily_metering · X-22（authoritative）\n[9] agg.fct_daily_metering · N-20（authoritative）\n[10] agg.fct_daily_metering · X-05（authoritative）\n[11] agg.fct_daily_metering · N-11（authoritative）\n[12] agg.fct_daily_metering · N-05（authoritative）\n[13] agg.fct_daily_metering · Z-13（authoritative）\n[14] agg.fct_daily_metering · Z-09（authoritative）\n[15] agg.fct_daily_metering · N-06（authoritative）\n[16] agg.fct_daily_metering · X-07（authoritative）\n[17] agg.fct_daily_metering · Z-07（authoritative）\n[18] agg.fct_daily_metering · Z-31（authoritative）\n[19] agg.fct_daily_metering · Z-30（authoritative）\n[20] agg.fct_daily_metering · Z-10（authoritative）\n[21] agg.fct_daily_metering · Z-06（authoritative）\n[22] agg.fct_daily_metering · Z-04（authoritative）\n[23] agg.fct_daily_metering · Z-15（authoritative）\n[24] agg.fct_daily_metering · X-13（authoritative）",
+  "citations": [
+   {
+    "index": 1,
+    "source": "agg.fct_daily_metering",
+    "source_id": "Z-16",
+    "trust": "authoritative"
+   },
+   {
+    "index": 2,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-25",
+    "trust": "authoritative"
+   },
+   {
+    "index": 3,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-15",
+    "trust": "authoritative"
+   },
+   {
+    "index": 4,
+    "source": "agg.fct_daily_metering",
+    "source_id": "Z-23",
+    "trust": "authoritative"
+   },
+   {
+    "index": 5,
+    "source": "agg.fct_daily_metering",
+    "source_id": "Z-34",
+    "trust": "authoritative"
+   },
+   {
+    "index": 6,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-23",
+    "trust": "authoritative"
+   },
+   {
+    "index": 7,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-24",
+    "trust": "authoritative"
+   },
+   {
+    "index": 8,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-22",
+    "trust": "authoritative"
+   },
+   {
+    "index": 9,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-20",
+    "trust": "authoritative"
+   },
+   {
+    "index": 10,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-05",
+    "trust": "authoritative"
+   },
+   {
+    "index": 11,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-11",
+    "trust": "authoritative"
+   },
+   {
+    "index": 12,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-05",
+    "trust": "authoritative"
+   },
+   {
+    "index": 13,
+    "source": "agg.fct_daily_metering",
+    "source_id": "Z-13",
+    "trust": "authoritative"
+   },
+   {
+    "index": 14,
+    "source": "agg.fct_daily_metering",
+    "source_id": "Z-09",
+    "trust": "authoritative"
+   },
+   {
+    "index": 15,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-06",
+    "trust": "authoritative"
+   },
+   {
+    "index": 16,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-07",
+    "trust": "authoritative"
+   },
+   {
+    "index": 17,
+    "source": "agg.fct_daily_metering",
+    "source_id": "Z-07",
+    "trust": "authoritative"
+   },
+   {
+    "index": 18,
+    "source": "agg.fct_daily_metering",
+    "source_id": "Z-31",
+    "trust": "authoritative"
+   },
+   {
+    "index": 19,
+    "source": "agg.fct_daily_metering",
+    "source_id": "Z-30",
+    "trust": "authoritative"
+   },
+   {
+    "index": 20,
+    "source": "agg.fct_daily_metering",
+    "source_id": "Z-10",
+    "trust": "authoritative"
+   },
+   {
+    "index": 21,
+    "source": "agg.fct_daily_metering",
+    "source_id": "Z-06",
+    "trust": "authoritative"
+   },
+   {
+    "index": 22,
+    "source": "agg.fct_daily_metering",
+    "source_id": "Z-04",
+    "trust": "authoritative"
+   },
+   {
+    "index": 23,
+    "source": "agg.fct_daily_metering",
+    "source_id": "Z-15",
+    "trust": "authoritative"
+   },
+   {
+    "index": 24,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-13",
+    "trust": "authoritative"
+   }
+  ],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-dabd3080",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "问去年（全年）日产油量排名前30的井或其记录。"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "工具匹配：1 条定案"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "前置条件机：s1=pass"
+   },
+   {
+    "step": "execute",
+    "seq": 5,
+    "title": "data_query：ok（子问题 s1）"
+   },
+   {
+    "step": "observe",
+    "seq": 6,
+    "title": "批量汇聚 31 支"
+   },
+   {
+    "step": "answer",
+    "seq": 7,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 8,
+    "title": "核验：支撑 24｜改写 0｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 9,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 5,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-16；区块=渤中；日产油量合计（吨）=5839.63",
+    "trust": "authoritative"
+   },
+   {
+    "index": 2,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-25；区块=渤西；日产油量合计（吨）=5708.15",
+    "trust": "authoritative"
+   },
+   {
+    "index": 3,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-15；区块=渤南；日产油量合计（吨）=5571.49",
+    "trust": "authoritative"
+   },
+   {
+    "index": 4,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-23；区块=渤中；日产油量合计（吨）=5557.84",
+    "trust": "authoritative"
+   },
+   {
+    "index": 5,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-34；区块=渤中；日产油量合计（吨）=5551.37",
+    "trust": "authoritative"
+   },
+   {
+    "index": 6,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-23；区块=渤南；日产油量合计（吨）=5528.66",
+    "trust": "authoritative"
+   },
+   {
+    "index": 7,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-24；区块=渤西；日产油量合计（吨）=5409.99",
+    "trust": "authoritative"
+   },
+   {
+    "index": 8,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-22；区块=渤西；日产油量合计（吨）=5369.58",
+    "trust": "authoritative"
+   },
+   {
+    "index": 9,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-20；区块=渤南；日产油量合计（吨）=5173.26",
+    "trust": "authoritative"
+   },
+   {
+    "index": 10,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-05；区块=渤西；日产油量合计（吨）=5162.14",
+    "trust": "authoritative"
+   },
+   {
+    "index": 11,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-11；区块=渤南；日产油量合计（吨）=5156.82",
+    "trust": "authoritative"
+   },
+   {
+    "index": 12,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-05；区块=渤南；日产油量合计（吨）=5149.83",
+    "trust": "authoritative"
+   },
+   {
+    "index": 13,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-13；区块=渤中；日产油量合计（吨）=5024.50",
+    "trust": "authoritative"
+   },
+   {
+    "index": 14,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-09；区块=渤中；日产油量合计（吨）=4988.29",
+    "trust": "authoritative"
+   },
+   {
+    "index": 15,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-06；区块=渤南；日产油量合计（吨）=4942.61",
+    "trust": "authoritative"
+   },
+   {
+    "index": 16,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-07；区块=渤西；日产油量合计（吨）=4911.99",
+    "trust": "authoritative"
+   },
+   {
+    "index": 17,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-07；区块=渤中；日产油量合计（吨）=4904.74",
+    "trust": "authoritative"
+   },
+   {
+    "index": 18,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-31；区块=渤中；日产油量合计（吨）=4784.07",
+    "trust": "authoritative"
+   },
+   {
+    "index": 19,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-30；区块=渤中；日产油量合计（吨）=4783.90",
+    "trust": "authoritative"
+   },
+   {
+    "index": 20,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-10；区块=渤中；日产油量合计（吨）=4760.35",
+    "trust": "authoritative"
+   },
+   {
+    "index": 21,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-06；区块=渤中；日产油量合计（吨）=4656.37",
+    "trust": "authoritative"
+   },
+   {
+    "index": 22,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-04；区块=渤中；日产油量合计（吨）=4642.57",
+    "trust": "authoritative"
+   },
+   {
+    "index": 23,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-15；区块=渤中；日产油量合计（吨）=4598.22",
+    "trust": "authoritative"
+   },
+   {
+    "index": 24,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-13；区块=渤西；日产油量合计（吨）=4546.07",
+    "trust": "authoritative"
+   },
+   {
+    "index": 25,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-18；区块=渤中；日产油量合计（吨）=4539.62",
+    "trust": "authoritative"
+   },
+   {
+    "index": 26,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-19；区块=渤中；日产油量合计（吨）=4495.77",
+    "trust": "authoritative"
+   },
+   {
+    "index": 27,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-08；区块=渤西；日产油量合计（吨）=4489.74",
+    "trust": "authoritative"
+   },
+   {
+    "index": 28,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-03；区块=渤西；日产油量合计（吨）=4467.52",
+    "trust": "authoritative"
+   },
+   {
+    "index": 29,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-04；区块=渤西；日产油量合计（吨）=4421.85",
+    "trust": "authoritative"
+   },
+   {
+    "index": 30,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-05；区块=渤中；日产油量合计（吨）=4142.01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 31,
+    "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date",
+    "content": "① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 达标（承诺 T-1））\n⑤ 收口注记 LIMIT 30——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 30——只封顶不抬底）",
+    "trust": "authoritative"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "subtype": "verify",
+    "supported": 24,
+    "rewritten": 0,
+    "split": false,
+    "cited": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     11,
+     12,
+     13,
+     14,
+     15,
+     16,
+     17,
+     18,
+     19,
+     20,
+     21,
+     22,
+     23,
+     24
+    ],
+    "attribution": {
+     "anchors": [],
+     "cross": []
+    }
+   }
+  ],
+  "final": {
+   "subtype": "final",
+   "status": "completed",
+   "run_id": "run-dabd3080",
+   "manifest_digest": "90307e97bdb3c6337e5a38e78148994496e4a5709f1f078e5f7f0dab68a8d3ce"
+  },
+  "texts": [
+   "问去年（全年）日产油量排名前30的井或其记录。",
+   "去年（2025-01-01 至 2026-01-01）各井日产油量合计排名前 24 位的井号、区块与累计日产油量如下 [1]-[24]：\n\n| 排名 | 井号 | 区块 | 日产油量合计（吨） |\n|---|---|---|---|\n| 1 | Z-16 | 渤中 | 5839.63 [1] |\n| 2 | X-25 | 渤西 | 5708.15 [2] |\n| 3 | N-15 | 渤南 | 5571.49 [3] |\n| 4 | Z-23 | 渤中 | 5557.84 [4] |\n| 5 | Z-34 | 渤中 | 5551.37 [5] |\n| 6 | N-23 | 渤南 | 5528.66 [6] |\n| 7 | X-24 | 渤西 | 5409.99 [7] |\n| 8 | X-22 | 渤西 | 5369.58 [8] |\n| 9 | N-20 | 渤南 | 5173.26 [9] |\n| 10 | X-05 | 渤西 | 5162.14 [10] |\n| 11 | N-11 | 渤南 | 5156.82 [11] |\n| 12 | N-05 | 渤南 | 5149.83 [12] |\n| 13 | Z-13 | 渤中 | 5024.50 [13] |\n| 14 | Z-09 | 渤中 | 4988.29 [14] |\n| 15 | N-06 | 渤南 | 4942.61 [15] |\n| 16 | X-07 | 渤西 | 4911.99 [16] |\n| 17 | Z-07 | 渤中 | 4904.74 [17] |\n| 18 | Z-31 | 渤中 | 4784.07 [18] |\n| 19 | Z-30 | 渤中 | 4783.90 [19] |\n| 20 | Z-10 | 渤中 | 4760.35 [20] |\n| 21 | Z-06 | 渤中 | 4656.37 [21] |\n| 22 | Z-04 | 渤中 | 4642.57 [22] |\n| 23 | Z-15 | 渤中 | 4598.22 [23] |\n| 24 | X-13 | 渤西 | 4546.07 [24] |\n\n问句要求前 30 名，但观察材料仅覆盖前 24 名（合计 31 行，剔除表头等非排名行后实为 24 条排名井号），第 25-30 名未在返回结果中列出——未找到该部分记录。\n\n⑤ 收口注记 LIMIT 30——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 30——只封顶不抬底）\n\n引用：\n[1] agg.fct_daily_metering · Z-16（authoritative）\n[2] agg.fct_daily_metering · X-25（authoritative）\n[3] agg.fct_daily_metering · N-15（authoritative）\n[4] agg.fct_daily_metering · Z-23（authoritative）\n[5] agg.fct_daily_metering · Z-34（authoritative）\n[6] agg.fct_daily_metering · N-23（authoritative）\n[7] agg.fct_daily_metering · X-24（authoritative）\n[8] agg.fct_daily_metering · X-22（authoritative）\n[9] agg.fct_daily_metering · N-20（authoritative）\n[10] agg.fct_daily_metering · X-05（authoritative）\n[11] agg.fct_daily_metering · N-11（authoritative）\n[12] agg.fct_daily_metering · N-05（authoritative）\n[13] agg.fct_daily_metering · Z-13（authoritative）\n[14] agg.fct_daily_metering · Z-09（authoritative）\n[15] agg.fct_daily_metering · N-06（authoritative）\n[16] agg.fct_daily_metering · X-07（authoritative）\n[17] agg.fct_daily_metering · Z-07（authoritative）\n[18] agg.fct_daily_metering · Z-31（authoritative）\n[19] agg.fct_daily_metering · Z-30（authoritative）\n[20] agg.fct_daily_metering · Z-10（authoritative）\n[21] agg.fct_daily_metering · Z-06（authoritative）\n[22] agg.fct_daily_metering · Z-04（authoritative）\n[23] agg.fct_daily_metering · Z-15（authoritative）\n[24] agg.fct_daily_metering · X-13（authoritative）"
+  ],
+  "duration_s": 22.5
+ }
+}

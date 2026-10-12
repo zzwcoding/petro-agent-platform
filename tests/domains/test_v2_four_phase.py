@@ -882,16 +882,22 @@ async def test_four_phase_discover_budget_ten_and_taps(tmp_path: Path) -> None:
         "action": "discover",
         "discovers": [{"tool": "semantic_query", "args": {"question": "日产油量口径"}}],
     }, ensure_ascii=False)
-    double = json.dumps({
-        "action": "discover",
-        "discovers": [
-            {"tool": "semantic_query", "args": {"question": "q1"}},
-            {"tool": "table_schema", "args": {}},
-        ],
-    }, ensure_ascii=False)
-    decision_script: list[str] = [double] * 5 + [double, discover, discover,
-                                                 CLARIFY_GROUP_DATA_KNOWLEDGE,
-                                                 TOOLMATCH_TWO]
+    # V2-56 随动：同款空手探查拒重发（附 C2）生效后，打满预算闸的剧本罐头改
+    # 异参形（逐支 question 各异）——预算闸钉面与断言零改动，只换罐头参数。
+    doubles = [
+        json.dumps({
+            "action": "discover",
+            "discovers": [
+                {"tool": "semantic_query", "args": {"question": f"q{i}"}},
+                {"tool": "table_schema", "args": {}},
+            ],
+        }, ensure_ascii=False)
+        for i in range(1, 7)
+    ]
+    decision_script: list[str] = [
+        *doubles[:5], doubles[5], discover, discover,
+        CLARIFY_GROUP_DATA_KNOWLEDGE, TOOLMATCH_TWO,
+    ]
     script = {
         "v2.runtime.understand": [UNDERSTAND_MULTI],
         "v2.runtime.decision": decision_script,
@@ -1280,16 +1286,22 @@ async def test_four_phase_clarify_budget_reject_spin_gate(tmp_path: Path) -> Non
         "action": "discover",
         "discovers": [{"tool": "semantic_query", "args": {"question": "日产油量口径"}}],
     }, ensure_ascii=False)
-    double = json.dumps({
-        "action": "discover",
-        "discovers": [
-            {"tool": "semantic_query", "args": {"question": "q1"}},
-            {"tool": "table_schema", "args": {}},
-        ],
-    }, ensure_ascii=False)
+    # V2-56 随动：同款空手探查拒重发（附 C2）生效后，打满预算闸的剧本罐头改
+    # 异参形（逐支 question 各异）——S2 自旋收敛钉面与断言零改动，只换罐头
+    # 参数（预算拒在 schema 层 parse 先于发射级拒重发，异参形仍测预算闸本体）。
+    doubles = [
+        json.dumps({
+            "action": "discover",
+            "discovers": [
+                {"tool": "semantic_query", "args": {"question": f"q{i}"}},
+                {"tool": "table_schema", "args": {}},
+            ],
+        }, ensure_ascii=False)
+        for i in range(1, 6)
+    ]
     script = {
         "v2.runtime.understand": [UNDERSTAND_MULTI],
-        "v2.runtime.decision": [double] * 5 + [discover],  # 末位驻留＝顽投 discover
+        "v2.runtime.decision": [*doubles, discover],  # 末位驻留＝顽投 discover
         "v2.runtime.answer": [_SUMMARY_DRAFT],
     }
     runtime, completer, db = await make_runtime(
