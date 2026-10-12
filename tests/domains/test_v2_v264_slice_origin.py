@@ -95,10 +95,22 @@ def test_t5_multi_source_rule_widened_in_three_places() -> None:
 
     for text in (SYSTEM_PROMPT, _ANSWER_REQUIREMENTS, _ANSWER_INSTRUCTION):
         assert "材料含多个来源（不同报告／油田／井）时逐个来源分别作答" in text
+        assert "不以反问代替作答" in text  # V2-64 ①：先作答、后给出路
     # 旧「不一致」前提不再作为唯一触发条件
     assert "多来源不一致时逐源列明" not in SYSTEM_PROMPT
     assert "多来源不一致逐源列明" not in _ANSWER_REQUIREMENTS
     assert "多来源不一致时逐源列明" not in _ANSWER_INSTRUCTION
+
+
+# ---------- T5b 未覆盖来源给出路（答案两处） ----------
+
+def test_t5b_uncovered_source_hint() -> None:
+    from appv2.runtime.graph import _ANSWER_INSTRUCTION
+    from appv2.runtime.orientation import _ANSWER_REQUIREMENTS
+
+    for text in (_ANSWER_REQUIREMENTS, _ANSWER_INSTRUCTION):
+        assert "作答后仍有未覆盖的来源" in text
+        assert "请用户补充检索或指明对象" in text
 
 
 # ---------- T6 FragmentRecord→Observation well 透传 ----------
