@@ -325,6 +325,8 @@ def test_manifest_present_each_call(env: Any) -> None:
         assert set(manifest) == {
             "source_type", "source_id", "version", "trust_level",
             "selected_reason", "token_count", "transform",
+            # V2-61 材料承载分形记账三键（追加式——Manifest.as_dict 同步）。
+            "material_total", "material_rendered", "material_truncated",
         }
         assert manifest["token_count"] > 0
 

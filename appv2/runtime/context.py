@@ -162,9 +162,15 @@ class ContextBuilder:
             ordered = sorted(
                 enumerate(material), key=lambda pair: _TRUST_RANK.get(trust_of(pair[1]), 9)
             )
-            # 预算：截断显式（manifest selected_reason 载明）。
-            truncated = len(ordered) > self.max_observations
-            ordered = ordered[: self.max_observations]
+            # V2-61 分承载体预算：权威/台账承载体（agg_row/lineage/metric/term/…）
+            # 是引擎封顶输出（agg 行集 limit_effective ≤ QUERY_LIMIT_CAP=200 引擎侧
+            # 已截；台账卡 ≤ discover 预算 10 支量级），装配不再重复封顶——Owner
+            # 2026-10-12 裁决「出口明细 ≤50＝系统设定」的落实面；检索承载体
+            # （fragment/graph）体量无上界，保留支数帽（token 安全面）。
+            authority = [pair for pair in ordered if trust_of(pair[1]) != TRUST_REPORT]
+            reports = [pair for pair in ordered if trust_of(pair[1]) == TRUST_REPORT]
+            truncated = len(reports) > self.max_observations
+            ordered = authority + reports[: self.max_observations]
             # 引用化：[n]＝全局观察序号（1 起）——模型面与答案引用同一套序号。
             blocks: list[str] = []
             source_types: list[str] = []
@@ -181,15 +187,33 @@ class ContextBuilder:
                 trust_levels.append(trust)
             current += (
                 "\n\n观察材料：\n" + ("\n".join(blocks) if blocks else "（无）")
+                + (
+                    f"\n（材料披露：检索片段共 {len(reports)} 支，本轮渲染前 "
+                    f"{min(len(reports), self.max_observations)} 支——未渲染片段不在"
+                    "本轮视野，不得对其断言；权威行集与台账卡已全量渲染。）"
+                    if truncated
+                    else ""
+                )
             )
             material_reason = (
-                f"步骤 {step}：信任级降序稳定排序；"
-                + (f"预算 {self.max_observations} 支截断（{len(ordered)}/{len(material)}）"
-                   if truncated else f"全量入选（{len(ordered)} 支）")
+                f"步骤 {step}：信任级降序稳定排序；权威 {len(authority)} 支全量；"
+                + (
+                    f"检索片段帽 {self.max_observations} 支截断"
+                    f"（{min(len(reports), self.max_observations)}/{len(reports)}）"
+                    if truncated
+                    else f"检索片段 {len(reports)} 支全量"
+                )
+                + f"（合计入选 {len(ordered)}/{len(material)}）"
             )
+            material_total = len(material)
+            material_rendered = len(ordered)
+            material_truncated = truncated
         else:
             source_types, source_ids, versions, trust_levels = [], [], [], []
             material_reason = f"步骤 {step}：理解步零材料渲染"
+            material_total = 0
+            material_rendered = 0
+            material_truncated = False
         if extra:
             # 常驻注入块入 Manifest（R3 证据面——ledger_dump 族来源行）。
             source_types.extend(str(item.get("source_type", "")) for item in extra)
@@ -222,5 +246,9 @@ class ContextBuilder:
             token_count=_estimate_tokens(
                 "".join(str(m.get("content", "")) for m in messages)
             ),
+            # V2-61 材料承载分形记账（三机检字段——附 B）。
+            material_total=material_total,
+            material_rendered=material_rendered,
+            material_truncated=material_truncated,
         )
         return CompiledContext(messages=messages, manifest=manifest)

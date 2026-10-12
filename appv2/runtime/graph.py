@@ -266,6 +266,14 @@ _ANSWER_INSTRUCTION = (
     "定义，不是井/对象的取数面——点名具体井、报告或对象的数据题，结论必须取自"
     "该对象自己的观察材料本体，不得以台账定义卡拼装该对象的数据答案；材料未"
     "覆盖该对象时如实说明未覆盖。"
+    # ↓↓ V2-61 逐字追加段（票面附 C——既有文本零删改，本段不得增删字）：行集
+    #    交付规矩——治数-限1 汇总引标形（表格逐行无 [n] 被 INV-1 全表改写 27 行）；
+    #    v2 修订（验证拍实锤数-界1 整表倾倒回归）：交付面以问句诉求为界——
+    #    问句要行集才整表交付，问句要单值禁倾倒。
+    "行集型子问题（问句要求明细/排名/列举全行集时）：引擎返回的全部数据行逐行"
+    "交付并逐行带 [n] 引标——禁汇总引标（如「[1]–[24]」写在表尾注里）；引擎的 "
+    "LIMIT 截断注记如实转述进答案。问句只要特定对象或单值（如单井读数、某井某"
+    "指标）时，只交付所问对象的行并如实声明窗口与过滤态——禁止把整表倾倒充当答案。"
 )
 # 审批卡批准后的答复基础＝引擎卡 impact 原文（零二次创作——合同值不出引擎侧）。
 _EXTABLE_REJECT_BASIS_KEY = "impact"
@@ -3419,6 +3427,24 @@ def _make_answer(
             context = deps.builder.compile(
                 state, step="answer", instruction=instruction
             )
+            # V2-61 截断必披露（票面附 D）：检索片段帽触发时用户/审计面 notice——
+            # 权威行集恒全量（Owner 裁决「出口明细 ≤50＝系统设定」落实面），
+            # 截断只可能落在检索族，与模型面披露行同源同态。
+            if context.manifest.material_truncated:
+                deps.bus.emit(
+                    "notice",
+                    {
+                        "type": "material_truncated",
+                        "gates": [],
+                        "content": (
+                            f"答案视野检索片段仅渲染 "
+                            f"{context.manifest.material_rendered}/"
+                            f"{context.manifest.material_total}"
+                            " 支（权威行集与台账卡已全量）——未渲染部分不作答"
+                            "（V2-61）。"
+                        ),
+                    },
+                )
             first_content = await _complete(deps.model(MODEL_ANSWER), context)
             # V2-48 JSON 通道隔离：发射围栏确定性剥离校验——泄漏→剥离（有余量
             # 直接交付）；零余量→同相位重试一次→交付重试草稿；再泄/再零→如实

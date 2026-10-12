@@ -241,6 +241,8 @@ async def test_react_happy_path(tmp_path: Path) -> None:
             assert set(step.manifest) == {
                 "source_type", "source_id", "version", "trust_level",
                 "selected_reason", "token_count", "transform",
+                # V2-61 材料承载分形记账三键（追加式——Manifest.as_dict 同步）。
+                "material_total", "material_rendered", "material_truncated",
             }
             assert step.manifest["token_count"] > 0
             assert step.manifest["transform"] == "filter→rank→budget→cite"

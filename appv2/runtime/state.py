@@ -78,6 +78,10 @@ class Manifest:
     selected_reason: str = ""
     token_count: int = 0
     transform: str = "filter→rank→budget→cite"
+    # V2-61 材料承载分形记账（三机检字段——截断必披露纪律的账证面）。
+    material_total: int = 0  # 渲染候选总数（非 notice；零材料步＝0）
+    material_rendered: int = 0  # 实渲染支数（权威全量＋检索帽内）
+    material_truncated: bool = False  # 检索片段帽触发（截断态＝True）
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -88,6 +92,9 @@ class Manifest:
             "selected_reason": self.selected_reason,
             "token_count": self.token_count,
             "transform": self.transform,
+            "material_total": self.material_total,
+            "material_rendered": self.material_rendered,
+            "material_truncated": self.material_truncated,
         }
 
 
