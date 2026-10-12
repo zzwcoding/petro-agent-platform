@@ -130,6 +130,8 @@ raw/lake 湖表不开放，只读零 SQL；V2-31 新增发现工具）。
 ## runtime
 
 职责: 有界 agent loop——一轮＝四相位：业务澄清（LLM＋discover 钻取，发射 QuestionGroup
+- LLM 触点装配四要素（V2-62 起）：任务动词／题意锚／产出样例／失败反馈——新触点按此审查（装配件：runtime/orientation.py）。
+
 问题组）→工具匹配（子问题→工具/链，闭世界对账收口）→前置条件机（纯固定代码零 LLM，
 逐子问题判四态）→批量执行＋LLM 汇总；每用户输入周期 ≤3 轮部分续找（成功子结果不重跑）；
 预算与终止；Context Builder＋Manifest＋多轮消息历史簿记（ADR-0006）；Verifier；

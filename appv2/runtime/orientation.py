@@ -1,4 +1,7 @@
-"""runtime.orientation —— 理解步首轮信息装配（V2-58——设计宪法「语义归模型，程序管装配」）。
+"""runtime.orientation —— LLM 触点信息装配（V2-58 理解步首轮＋V2-62 轮次任务自足性）。
+
+设计宪法「语义归模型，程序管装配」；**四要素制度（V2-62 起）**：每条发模型的轮次
+自带「任务动词／题意锚／产出样例／失败反馈」——新触点按此审查，缺件即装配欠账。
 
 首轮 user 消息＝静态骨架（场景/任务/样例/红线——本模块常量，Owner 逐轮审定，
 改格式须过票）＋动态环境（库族/水位/指标名录/术语表/本体速览——渲染器从与程序闸
@@ -258,3 +261,70 @@ def assemble_understand_turn(
         _ORIENT_REDLINE,
         f"【待解构的题干】\n{question}\n（现在输出两行。）",
     ])
+
+
+# ---------- V2-62 轮次任务自足性（答案轮三件套/题意锚行/观察字段） ----------
+
+_ANSWER_REQUIREMENTS = (
+    "逐条事实断言带 [n] 引标（n＝观察材料序号）；材料未覆盖的部分不得断言、如实说明"
+    "未覆盖；多来源不一致逐源列明；引擎的降级/未绑定/拦停注记必须如实转述进对应子问题"
+    "条目（不得静默丢弃）；引用观察材料请摘录必要短语并带引标，禁整段照搬原文充当回答；"
+    "「理解：／指标候选：」及任何动作 JSON 是过程产物，出现在答案中即废品。"
+)
+
+
+def answer_turn_preamble(question: str) -> str:
+    """写答案轮三件套置顶（题目锚/动词钉死/答案要求——V2-61 方案附 A 逐字）。"""
+    return (
+        f"用户问题：{question}\n"
+        "现在：写最终答案交付用户。本步是写答案步——不再做任何决策、不再发射任何"
+        "动作指令（finalize/decompose 等动作出现即废品）。\n"
+        f"【答案要求】{_ANSWER_REQUIREMENTS}\n"
+    )
+
+
+def assemble_answer_instruction(
+    *,
+    question: str,
+    summary_contract: str,
+    subtask_list: str,
+    answer_instruction: str,
+) -> str:
+    """写答案轮指令装配（四相位消费——三件套置顶，既有字面依次居中/垫底）。"""
+    return (
+        answer_turn_preamble(question)
+        + "\n"
+        + summary_contract
+        + "\n子问题结果清单：\n" + subtask_list
+        + "\n\n" + answer_instruction
+    )
+
+
+def anchor_line(question: str, understanding: str = "") -> str:
+    """题意锚行（决策轮标准装配件——原题与理解置于当轮，免长历史考古）。"""
+    if understanding:
+        return f"用户原题：{question}｜题意：{understanding}"
+    return f"用户原题：{question}"
+
+
+def echo_signature_hit(draft: str) -> bool:
+    """回声签名（只记不拦——V2-58 方案附 D）：模板头即过程废品特征。"""
+    first = draft.split("\n", 1)[0].strip()
+    return first.startswith("理解：") or ("指标候选" in draft[:100])
+
+
+def paste_ratio(draft: str, observations: list[dict[str, Any]]) -> float:
+    """粘贴重合占比（只记不拦）：草稿与任一观察 content 的 60 字窗口逐字重合
+    最大长度 ÷ 草稿长度（窗口步进 40；零观察/空草稿＝0.0）。"""
+    if not draft:
+        return 0.0
+    best = 0
+    for obs in observations:
+        content = str(obs.get("content", ""))
+        if len(content) < 60:
+            continue
+        for i in range(0, len(content) - 59, 40):
+            if content[i:i + 60] in draft:
+                best = max(best, 60)
+                break
+    return round(min(best / len(draft), 1.0), 4)

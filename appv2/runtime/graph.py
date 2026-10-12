@@ -83,7 +83,12 @@ from appv2.runtime.guide import (
 )
 from appv2.runtime.llm import CALLER_PREFIX, GatewayChatModel
 from appv2.runtime.orientation import (
+    anchor_line,
+    answer_turn_preamble,
+    assemble_answer_instruction,
     build_understand_instruction,
+    echo_signature_hit,
+    paste_ratio,
     render_decompose_example,
 )
 from appv2.runtime.state import (
@@ -2059,6 +2064,7 @@ def _make_clarify(
                 else None
             )
         instruction = (
+            anchor_line(state.question, state.understanding) + "\n"
             "【相位①·业务澄清——本相位唯一有效发射合同（.action 只许 "
             "discover|decompose|ask|finalize；指南正文中出现的 execute 动作"
             "归后续相位，本相位发射它＝非法）】\n"
@@ -2357,6 +2363,7 @@ def _make_toolmatch(
             return {"next_intent": INTENT_DECISION}
         dump = state.ledger_dump
         instruction = (
+            anchor_line(state.question, state.understanding) + "\n"
             "【相位②·工具匹配——本相位唯一有效发射合同（只许输出 matches JSON）】\n"
             + TOOLMATCH_CONTRACT
             + "\n\n【业务规则参考（ontology 指南 §A——窗词锚定/单井红线/"
@@ -3387,7 +3394,11 @@ def _make_answer(
         ):
             # ——起草段（caller answer——引标断言合同；核验素材面）——
             # 四相位汇总（相位④后半）：问题组在场＝逐子问题整合全组子结果。
-            instruction = _ANSWER_INSTRUCTION
+            instruction = (
+                answer_turn_preamble(state.question)
+                + "\n"
+                + _ANSWER_INSTRUCTION
+            )
             if state.question_group:
                 marks = {"ok": "完成", "refused": "已拒答", "failed": "失败"}
                 # plan 支配标记（V2-51 数-排2 形——drafting 指令面）：排名型子问题
@@ -3418,11 +3429,11 @@ def _make_answer(
                             dominance=dominance,
                         )
                     )
-                instruction = (
-                    SUMMARY_CONTRACT
-                    + "\n子问题结果清单：\n" + ("\n".join(lines) or "（无）")
-                    + "\n\n"
-                    + _ANSWER_INSTRUCTION
+                instruction = assemble_answer_instruction(
+                    question=state.question,
+                    summary_contract=SUMMARY_CONTRACT,
+                    subtask_list="\n".join(lines) or "（无）",
+                    answer_instruction=_ANSWER_INSTRUCTION,
                 )
             context = deps.builder.compile(
                 state, step="answer", instruction=instruction
@@ -3482,6 +3493,14 @@ def _make_answer(
                 history_turns.append(_assistant_turn(retry_content))
             seq = _next_seq(state)
             title = "起草答案"
+            # V2-62 观察字段（只记不拦——回声/粘贴占比入机读账，Q16 拿分布定阈值）
+            step_payload = {
+                "phase": "draft",
+                "echo_flag": echo_signature_hit(draft),
+                "paste_ratio": paste_ratio(
+                    draft, list(state.observations or [])
+                ),
+            }
             deps.bus.emit("step", {"step": STEP_ANSWER, "seq": seq, "title": title})
             return {
                 # 消息历史簿记（ADR-0006）：起草调用与草稿输出入簿。
@@ -3491,7 +3510,7 @@ def _make_answer(
                 "steps": [
                     *state.steps,
                     _step_record(seq, STEP_ANSWER, title, context.manifest,
-                                 payload={"phase": "draft"}),
+                                 payload=step_payload),
                 ],
                 "next_intent": INTENT_VERIFY,
             }

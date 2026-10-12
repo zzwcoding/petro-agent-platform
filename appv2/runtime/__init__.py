@@ -104,6 +104,8 @@ from appv2.runtime.guide import (
 )
 from appv2.runtime.llm import CALLER_PREFIX, Completer, GatewayChatModel
 from appv2.runtime.orientation import (
+    anchor_line,
+    assemble_answer_instruction,
     assemble_understand_turn,
     build_understand_instruction,
     iso_day,
@@ -219,8 +221,11 @@ __all__ = [
     "ScriptedCompleter",
     "Subtask",
     "SubtaskMatch",
+    "anchor_line",
+    "assemble_answer_instruction",
     "assemble_understand_turn",
     "build_understand_instruction",
+    "echo_signature_hit",
     "ensure_agent_v2_tables",
     "eval_frozen_today",
     "gate_freshness",
@@ -229,6 +234,7 @@ __all__ = [
     "parse_decision",
     "parse_question_group",
     "parse_tool_match",
+    "paste_ratio",
     "render_metric_lines",
     "render_relation_lines",
     "render_term_lines",

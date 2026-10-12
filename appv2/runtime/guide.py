@@ -118,7 +118,12 @@ TOOLMATCH_CONTRACT = (
     "（必填非空——逐字转抄该子问题的 question）\", \"anchors\": [\"锚点词\", …]"
     "（可选——井号/报告名/章节等精确定位词）, \"family_hints\": [\"completion\"|"
     "\"monthly\"|\"dynamic\"|\"blank\"]（可选——族机器名，不要写中文名）}"
-    "——缺 question＝参数校验拒；只许这三个键，禁造键名。"
+    "——缺 question＝参数校验拒；只许这三个键，禁造键名。\n"
+    # ↓↓ V2-62 轮次任务自足性（票面附 C 逐字稿）：填写样例——id 对应问题组、
+    #    question 逐字转抄子问题原句；示例词杆柱＝非台账词过 P-039 命名闸。
+    "填写样例（单匹配 knowledge 形）：{\"matches\": [{\"id\": \"s1\", \"chain\": "
+    "\"knowledge\", \"tool\": \"doc_retrieve\", \"retrieval_need\": {\"question\": "
+    "\"1.3 节关于杆柱的算式具体是什么\", \"anchors\": [\"杆柱\", \"1.3 节\"]}}]}\n"
 )
 
 # ---------- 汇总相位合同（相位④后半——LLM 整合全组子结果） ----------
