@@ -10,7 +10,8 @@ export const ROLES = [
 // 组/页面对角色的可见规则：roles 字段缺省=全员可见
 export const MENU = [
   { group: '工作台', items: [
-    { key: 'A1', label: '问一问' },
+    { key: 'A1', label: '问一问V1' },
+    { key: 'A1V2', label: '问一问V2' },
     { key: 'A2', label: '井档案' },
     { key: 'A3', label: '数据变动审批', roles: ['aqiang', 'zhuren'] }
   ]},

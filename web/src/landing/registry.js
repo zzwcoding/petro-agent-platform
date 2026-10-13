@@ -12,6 +12,7 @@
 /** 落地页模块表（显式注册——Vite 动态导入不支持自目录变量导入）。 */
 const LANDING_MODULES = {
   A1: () => import('./A1.jsx'),
+  A1V2: () => import('./A1V2.jsx'),
   D1: () => import('./D1.jsx'),
   B1: () => import('./B1.jsx'),
   B2: () => import('./B2.jsx'),

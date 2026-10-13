@@ -58,8 +58,8 @@ function allow(...prefixes) {
 }
 
 describe('双树冒烟 · 注册表（例 1）', () => {
-  it('LANDING_LIT 九键在册：A1/D1/B1/B2/B5/B3/A2/B4/E2——既有六页不丢、接线批三页点亮', () => {
-    expect(LANDING_LIT).toEqual(['A1', 'D1', 'B1', 'B2', 'B5', 'B3', 'A2', 'B4', 'E2'])
+  it('LANDING_LIT 十键在册：A1/A1V2/D1/B1/B2/B5/B3/A2/B4/E2——既有九页不丢、A1V2＝问一问V2 对接基线页', () => {
+    expect(LANDING_LIT).toEqual(['A1', 'A1V2', 'D1', 'B1', 'B2', 'B5', 'B3', 'A2', 'B4', 'E2'])
   })
 })
 
