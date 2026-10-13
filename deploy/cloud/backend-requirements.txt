@@ -251,3 +251,6 @@ yarl==1.25.1
     # via aiohttp
 zipp==4.1.0
     # via importlib-metadata
+
+# ---- V2 问一问后端（appv2/ 运行面——2026-10-13 云上复上补录；传递依赖随 pip 解析）----
+langgraph==1.2.14
