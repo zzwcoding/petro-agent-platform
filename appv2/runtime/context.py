@@ -11,9 +11,10 @@
   全局观察序号（RunState.observations 稳定序），模型面与答案引用同一套序号
   （fail-closed 引用的机读底座，语义零漂移）；notice 类观察仍不进模型面；
 - 排序：材料信任级稳定序（agg 权威表 > 台账 > 检索）——同序保持入栈序（确定性）；
-- 预算：双层——观察材料 max_observations 支截断＋对话层 token 预算
-  （max_context_tokens，chars/4 估算；超限确定性截断＝首问轮与最新轮保留、
-  最旧中间轮先弃；摘要化压缩随 V2-79d），两处截断均显式写进
+- 预算：双层——观察材料 max_observations 支截断＋对话层 compaction（V2-79d：
+  视窗 token 预算 DEFAULT_DIALOGUE_VIEW_TOKENS=4000，chars/4 估算；超限旧轮对
+  规则摘要化＝问原文＋答首行，近期窗全量保留，摘要以 system 消息置顶；压缩
+  只作用模型视图——原史在 checkpoint 全量可查），压缩显式写进
   Manifest.selected_reason（不静默）。
 
 CompiledContext{messages, manifest}——manifest 七字段随 step 存档（过程态簿记）；
@@ -47,9 +48,13 @@ _KIND_TRUST: dict[str, str] = {
 }
 _TRUST_RANK: dict[str, int] = {TRUST_AGG: 0, TRUST_LEDGER: 1, TRUST_REPORT: 2}
 
+# compaction 摘要行取材上限（V2-79d——问原文/答首行单行截断）。
+_SUMMARY_HEAD_CAP = 120
+
 DEFAULT_MAX_OBSERVATIONS = 24
-# 历史 token 预算合同值（chars/4 估算口径；测试可收窄——合同值不因测试改动）。
-DEFAULT_MAX_CONTEXT_TOKENS = 12000
+# 对话层视窗 token 预算（V2-79d compaction——方案 §3.6 建议值 4000；独立于任务书
+# 预算；chars/4 估算口径；测试可收窄——合同值不因测试改动）。
+DEFAULT_DIALOGUE_VIEW_TOKENS = 4000
 
 SYSTEM_PROMPT = (
     "你是油田数据问答助手。红线：1) 每条事实断言必须带 [n] 引标指向给定观察，"
@@ -90,28 +95,51 @@ def _estimate_tokens(text: str) -> int:
     return len(text) // 4
 
 
-def _fit_history(
-    turns: list[dict[str, str]], max_tokens: int
-) -> tuple[list[dict[str, str]], int]:
-    """对话层 token 预算截断（确定性——token 预算/截断策略单点，V2-38 任务 4）。
+def _head_line(text: str, cap: int = _SUMMARY_HEAD_CAP) -> str:
+    """摘要行取材（首行＋单行上限截断——规则抽取的确定性取材单点）。"""
+    first_line = text.strip().splitlines()[0] if text.strip() else ""
+    return first_line[:cap]
 
-    首问轮（turns[0]——对话源头）与最新轮（turns[-1]）恒保留；超限时最旧的
-    中间轮先弃，直至入预算或只剩两轮。返回（保留轮, 弃置数）。
-    摘要化压缩（超限旧轮摘要替代原文）随 V2-79d——本函数暂为纯截断。
+
+def _compact_dialogue(
+    turns: list[dict[str, str]], budget: int
+) -> tuple[list[dict[str, str]], str | None]:
+    """对话层 compaction（V2-79d——方案 §3.6 长对话治理；规则抽取零模型成本）。
+
+    超预算旧轮对摘要化（user→问原文／assistant→答首行），近期窗全量保留；
+    压缩只作用于模型视图——checkpoint 原史零覆盖（完整对话可查）。返回
+    （保留轮, 前情摘要｜None）：总量入预算＝(原轮, None) 零漂移；保留窗从尾部
+    向前累积、至少 1 轮（最新轮恒在场——哪怕单轮超预算，对话锚不丢）。
+    摘要以 system 消息置顶（装配在 compile——序列合法性：system,system,user/assistant…）。
     """
     def _total(items: list[dict[str, str]]) -> int:
         return sum(_estimate_tokens(str(item.get("content", ""))) for item in items)
 
-    if _total(turns) <= max_tokens:
-        return turns, 0
-    kept = list(turns)
-    dropped = 0
-    while len(kept) > 2 and _estimate_tokens(
-        "".join(str(item.get("content", "")) for item in kept)
-    ) > max_tokens:
-        kept.pop(1)
-        dropped += 1
-    return kept, dropped
+    if _total(turns) <= budget:
+        return turns, None
+    kept: list[dict[str, str]] = []
+    total = 0
+    index = len(turns) - 1
+    while index >= 0:
+        turn = turns[index]
+        cost = _estimate_tokens(str(turn.get("content", "")))
+        if kept and total + cost > budget:
+            break  # 保留窗满（至少保 1 轮——最新轮无条件在场）
+        kept.append(turn)
+        total += cost
+        index -= 1
+    kept.reverse()
+    older = turns[: index + 1]
+    if not older:  # 单巨轮独占预算——无旧轮可压，原样放行（不静默丢锚）
+        return turns, None
+    lines = ["（前情摘要——旧轮原文已压缩，完整原史在会话档案可查）"]
+    for turn in older:
+        role = str(turn.get("role", "user"))
+        content = str(turn.get("content", ""))
+        lines.append(
+            f"问：{_head_line(content)}" if role == "user" else f"答：{_head_line(content)}"
+        )
+    return kept, "\n".join(lines)
 
 
 @dataclass(slots=True)
@@ -119,7 +147,7 @@ class ContextBuilder:
     """确定性编译管线（簿记→材料渲染→双层预算→引用化——行为约定 2 的单点实现）。"""
 
     max_observations: int = DEFAULT_MAX_OBSERVATIONS
-    max_context_tokens: int = DEFAULT_MAX_CONTEXT_TOKENS
+    dialogue_view_tokens: int = DEFAULT_DIALOGUE_VIEW_TOKENS
     system_prompt: str = SYSTEM_PROMPT
 
     def compile(
@@ -233,22 +261,26 @@ class ContextBuilder:
                 f"；词典层常驻注入 {len(extra)} 块（ledger_dump 族——第 1 轮全量，"
                 "非懒加载：注入不依赖未命中）"
             )
-        # 对话层簿记＋token 预算截断（V2-79a 三层分离）：fit 只作用于 dialogue；
-        # 当前轮恒在场且不入史。
-        kept, dropped = _fit_history(run_state.dialogue, self.max_context_tokens)
-        messages = [
-            {"role": "system", "content": self.system_prompt},
-            *kept,
-            {"role": "user", "content": current},
+        # 对话层 compaction（V2-79d——方案 §3.6）：超预算旧轮对规则摘要化（零模型
+        # 成本），近期窗全量保留；压缩只作用于模型视图，checkpoint 原史零覆盖；
+        # 当前轮不入史（V2-79a）。
+        kept, summary = _compact_dialogue(
+            run_state.dialogue, self.dialogue_view_tokens
+        )
+        messages: list[dict[str, str]] = [
+            {"role": "system", "content": self.system_prompt}
         ]
+        if summary is not None:
+            # 前情摘要置顶（序列合法：system,system,user/assistant…——裁剪红线）。
+            messages.append({"role": "system", "content": summary})
+        messages.extend(kept)
+        messages.append({"role": "user", "content": current})
         reason = material_reason
-        if dropped or _estimate_tokens(
-            "".join(str(m.get("content", "")) for m in kept)
-        ) > self.max_context_tokens:
+        if summary is not None:
             reason += (
-                f"；token 预算 {self.max_context_tokens} 截断：对话层 "
-                f"{len(run_state.dialogue)} 轮→{len(kept)} 轮（弃 {dropped}，"
-                "首问轮与最新轮保留）"
+                f"；对话层 compaction：{len(run_state.dialogue)} 轮→保留 "
+                f"{len(kept)} 轮＋前情摘要（预算 {self.dialogue_view_tokens}，"
+                "原史在会话档案全量可查）"
             )
         manifest = Manifest(
             source_type=source_types,

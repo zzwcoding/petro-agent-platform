@@ -449,8 +449,8 @@ def _big_dialogue(turns: int) -> list[dict[str, str]]:
 
 
 def test_compile_keeps_full_dialogue_within_budget() -> None:
-    """预算内：全对话层续写（system＋全部对话轮＋当前轮），Manifest 无截断注记。"""
-    builder = ContextBuilder(max_context_tokens=100000)
+    """预算内：全对话层续写（system＋全部对话轮＋当前轮），Manifest 无压缩注记。"""
+    builder = ContextBuilder(dialogue_view_tokens=100000)
     state = RunState(question="合成首问（截断钉测）", dialogue=_big_dialogue(3))
     context = builder.compile(
         state, step="decision", instruction="任务：输出本轮决策 JSON。", with_material=True,
@@ -465,31 +465,78 @@ def test_compile_keeps_full_dialogue_within_budget() -> None:
     )
 
 
-def test_compile_truncates_dialogue_over_budget_with_manifest_note() -> None:
-    """超预算：确定性截断（首问轮与最新轮保留、最旧中间轮先弃），截断显式注记进
-    Manifest.selected_reason（对话层轮数前后账＋token 预算值），token_count 为
-    截断后实量；当前轮不入对话层账（轮数只数 dialogue）。"""
-    builder = ContextBuilder(max_context_tokens=600)
+def test_compile_compacts_dialogue_over_budget_with_manifest_note() -> None:
+    """超预算（V2-79d compaction）：旧轮对规则摘要化——messages＝[system 角色红线,
+    system 前情摘要, 近期轮…, 当前轮]；摘要含最早问句原文与「问：/答：」行；压缩
+    显式注记进 Manifest.selected_reason（轮数前后账＋预算值）；压缩只作用模型视图
+    （state.dialogue 原史零覆盖）；token_count 为压缩后实量。"""
+    builder = ContextBuilder(dialogue_view_tokens=600)
     state = RunState(question="合成首问（截断钉测）", dialogue=_big_dialogue(30))
     context = builder.compile(
         state, step="decision", instruction="任务：输出本轮决策 JSON。", with_material=False,
     )
     manifest = context.manifest
-    # 显式注记进 Manifest（票面验收——超预算形态钉测）。
-    assert "token 预算" in manifest.selected_reason
-    assert "截断" in manifest.selected_reason
-    assert f"对话层 {len(state.dialogue)} 轮" in manifest.selected_reason
-    assert f"轮→{len(context.messages) - 2} 轮" in manifest.selected_reason  # 保留数对账
-    # 截断形态：首问轮保留（对话源头）＋当前轮保留（本轮任务），中间最旧先弃。
-    assert context.messages[1]["content"].startswith("问题：")
+    # 显式注记进 Manifest（压缩必披露——不静默）。
+    assert "compaction" in manifest.selected_reason
+    assert f"compaction：{len(state.dialogue)} 轮→保留" in manifest.selected_reason
+    assert "原史在会话档案全量可查" in manifest.selected_reason
+    # 形态：前情摘要 system 消息置顶（序列合法）；近期轮＋当前轮保留。
+    assert context.messages[0]["role"] == "system"
+    assert context.messages[1]["role"] == "system"
+    assert context.messages[1]["content"].startswith("（前情摘要")
+    assert "问：问题：合成首问（截断钉测）" in context.messages[1]["content"]
+    assert "答：第 0 轮回答" in context.messages[1]["content"]
     assert context.messages[-1]["content"].startswith("任务：")
     assert len(context.messages) < 1 + len(state.dialogue) + 1
-    # token_count＝截断后消息实量（chars/4 口径）。
+    # 保留窗含最新对话轮（对话锚不丢）。
+    assert context.messages[-2] == state.dialogue[-1]
+    # 压缩只作用模型视图——原史零覆盖。
+    assert len(state.dialogue) == 61
+    # token_count＝压缩后消息实量（chars/4 口径）。
     assert manifest.token_count == (
         sum(len(str(m["content"])) for m in context.messages) // 4
     )
-    # 保留轮均为合法消息形（role 闭世界——user/assistant）。
-    assert all(m["role"] in ("user", "assistant") for m in context.messages[1:-1])
+    # 保留轮均为合法消息形（user/assistant；摘要轮 system 已单列）。
+    assert all(m["role"] in ("user", "assistant") for m in context.messages[2:-1])
+
+
+def test_compaction_keeps_sole_giant_turn_uncompacted() -> None:
+    """单巨轮独占预算＝无旧轮可压——原样放行零压缩（不静默丢对话锚）。"""
+    from appv2.runtime.context import _compact_dialogue
+
+    giant = "答" * 5000
+    kept, summary = _compact_dialogue(
+        [{"role": "assistant", "content": giant}], 600
+    )
+    assert summary is None
+    assert kept == [{"role": "assistant", "content": giant}]
+
+
+def test_compaction_summary_line_rules() -> None:
+    """摘要行规则钉：user→「问：〈首行 ≤120〉」；assistant→「答：〈首行 ≤120〉」；
+    多行取首行；超长截 120。"""
+    from appv2.runtime.context import _compact_dialogue
+
+    turns = [
+        {"role": "user", "content": "问句首行\n问句第二行" + "长" * 200},
+        {"role": "assistant", "content": "答案首行\n答案第二行"},
+        {"role": "user", "content": "最新追问"},  # 最新轮恒在保留窗（对话锚不丢）
+    ]
+    _kept, summary = _compact_dialogue(turns, 1)  # 预算 1——旧轮全压
+    assert _kept == [{"role": "user", "content": "最新追问"}]
+    assert summary is not None
+    assert "问：问句首行" in summary  # 多行取首行
+    assert "答：答案首行" in summary
+    assert "问句第二行" not in summary and "答案第二行" not in summary
+
+
+def test_compaction_head_line_cap_is_120() -> None:
+    """摘要行取材上限：单行超长截 120（确定性取材单点）。"""
+    from appv2.runtime.context import _head_line
+
+    assert _head_line("超" * 300) == "超" * 120
+    assert _head_line("第一行\n第二行") == "第一行"
+    assert _head_line("   ") == ""
 
 
 async def test_followup_zero_material_finalizes_as_not_found(tmp_path: Path) -> None:
