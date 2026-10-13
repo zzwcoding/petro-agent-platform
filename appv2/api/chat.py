@@ -107,6 +107,17 @@ class RunView(BaseModel):
     manifest_digest: str | None
 
 
+class RunListItem(BaseModel):
+    """GET runs 列表项（V2-73 会话历史读口——最近任务面；answer 全文随行）。"""
+
+    run_id: str
+    question: str
+    status: str
+    answer: str | None
+    created_at: str
+    updated_at: str
+
+
 def _choice_of(body: ResumeBody) -> AskChoice:
     """resume 入参 → AskChoice（形状 400 单点；值映射 AskFrame 选项闭世界）。"""
     if body.kind == "clarify":
@@ -128,6 +139,28 @@ def _choice_of(body: ResumeBody) -> AskChoice:
         value="批准" if body.decision == "approve" else "驳回",
         approval_id=body.approval_id,
     )
+
+
+@router.get("/runs")
+async def list_runs(
+    actor: CurrentActor, store: StoreDep, limit: int = 20
+) -> list[RunListItem]:
+    """GET /api/v2/chat/runs?limit=N → 最近 N 条任务（V2-73 会话历史读口）。
+
+    created_at 降序；limit 夹取 1..100（越界静默夹取，不 400——只读面宽容）。
+    """
+    rows = await store.list_runs(max(1, min(limit, 100)))
+    return [
+        RunListItem(
+            run_id=r.run_id,
+            question=r.question,
+            status=r.status,
+            answer=r.answer,
+            created_at=r.created_at.isoformat(),
+            updated_at=r.updated_at.isoformat(),
+        )
+        for r in rows
+    ]
 
 
 @router.post("/asks")

@@ -138,6 +138,16 @@ class RunStore:
         async with self._db.session() as session:
             return await session.get(AgentV2Run, run_id)
 
+    async def list_runs(self, limit: int = 20) -> list[AgentV2Run]:
+        """最近任务列表（V2-73 会话历史读口——created_at 降序截 N；只读零写面）。"""
+        async with self._db.session() as session:
+            rows = await session.execute(
+                select(AgentV2Run)
+                .order_by(AgentV2Run.created_at.desc())
+                .limit(limit)
+            )
+            return list(rows.scalars().all())
+
     async def finish_run(
         self,
         run_id: str,

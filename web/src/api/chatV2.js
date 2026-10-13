@@ -80,3 +80,16 @@ export async function getRunV2(runId) {
   }
   return res.json()
 }
+
+/** 最近任务列表（V2-73 会话历史读口——created_at 降序，answer 全文随行）。 */
+export async function listRunsV2(limit = 20) {
+  const res = await fetch(`${API_BASE}/v2/chat/runs?limit=${limit}`, {
+    headers: { ...authHeaders() }
+  })
+  if (!res.ok) {
+    let pkg = {}
+    try { pkg = await res.json() } catch { /* 空体容错 */ }
+    throw new ApiError(res.status, pkg, pkg.message || `查询失败（HTTP ${res.status}）`)
+  }
+  return res.json()
+}

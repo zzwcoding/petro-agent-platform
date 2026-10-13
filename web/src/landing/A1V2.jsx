@@ -6,13 +6,13 @@
  * DEBT(V2-00)：会话历史/@资产/逐帧回放（V1 端点 2/4/6）不在 V2 合同内，随 V2
  * 会话面票补。挂起判定铁律：ask 帧在场＝等人工（挂起腿 done 只收束本腿流）。
  */
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
-  Alert, Button, Card, Collapse, Drawer, Input, Modal, Spin, Tag
+  Alert, Button, Card, Collapse, Drawer, Input, Modal, Space, Spin, Tag
 } from 'antd'
 import { ApartmentOutlined, SendOutlined } from '@ant-design/icons'
 import { ApiError, errText } from '../api/client.js'
-import { postAskV2, postResumeV2, resumeBodyFromAskFrame } from '../api/chatV2.js'
+import { listRunsV2, postAskV2, postResumeV2, resumeBodyFromAskFrame } from '../api/chatV2.js'
 // UI-00 共享件——helpIcon/dim 唯一定义点
 import { helpIcon, dim } from '../components/helpIcon.jsx'
 // 决策树（V2 主链版——pages/DecisionTreeV2；场景 kw 词面匹配同构 V1）
@@ -81,6 +81,9 @@ export default function A1V2Landing() {
   const [treeOpen, setTreeOpen] = useState(false)
   const [active, setActive] = useState(null)
   const [citeTurn, setCiteTurn] = useState(null) // 引用抽屉当前回合
+  const [runs, setRuns] = useState([]) // 最近任务（V2-73 会话历史读口）
+  const [expandedRun, setExpandedRun] = useState(null)
+  const [followupRunId, setFollowupRunId] = useState('') // 追问线程前轮
   const busyRef = useRef(false)
   const listRef = useRef(null)
 
@@ -101,10 +104,15 @@ export default function A1V2Landing() {
     })
   }
 
+  function loadRuns() {
+    listRunsV2(20).then(setRuns).catch(() => { /* 列表失败静默——不拦主链路 */ })
+  }
+  useEffect(() => { loadRuns() }, [])
+
   function handlers() {
     return {
       onFrame: f => { setLastTurn(t => reduceV2Frame(t, f)); scrollBottom() },
-      onDone: () => { busyRef.current = false; setBusy(false) },
+      onDone: () => { busyRef.current = false; setBusy(false); loadRuns() },
       onError: d => {
         setLastTurn(t => ({ ...t, closed: 'error', runStatus: 'failed', errMsg: d?.message || '流内错误' }))
         busyRef.current = false; setBusy(false)
@@ -131,7 +139,10 @@ export default function A1V2Landing() {
     ])
     setInput('')
     busyRef.current = true; setBusy(true)
-    Promise.resolve(postAskV2({ question }, handlers()))
+    setFollowupRunId('')
+    Promise.resolve(postAskV2(
+      { question, ...(followupRunId ? { followupRunId } : {}) }, handlers()
+    ))
       .catch(err => {
         setLastTurn(t => ({
           ...t, closed: 'error', runStatus: 'failed',
@@ -209,7 +220,35 @@ export default function A1V2Landing() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)' }}>
+    <div style={{ display: 'flex', height: 'calc(100vh - 56px)' }}>
+      {/* 最近对话栏（V2-73 会话历史读口——点击回显问答，追问按钮挂会话线程） */}
+      <div style={{ width: 264, flexShrink: 0, borderRight: '1px solid #21262d', overflowY: 'auto', padding: 8 }}>
+        <div style={{ ...dim, marginBottom: 6 }}>最近对话{helpIcon('V2 任务档案（agent_v2_runs）——点击回显答案；「追问此任务」把该任务作为会话线程前轮，下一条问题带完整历史')}</div>
+        {runs.map(r => (
+          <div key={r.run_id} style={{ borderBottom: '1px solid #21262d', padding: '6px 4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+              <a style={{ fontSize: 12, cursor: 'pointer', color: '#79b8ff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                onClick={() => setExpandedRun(expandedRun === r.run_id ? null : r.run_id)}>
+                {(r.question || '').slice(0, 22) || r.run_id}
+              </a>
+              <Tag color={r.status === 'completed' ? 'green' : r.status === 'waiting_ask' ? 'gold' : r.status === 'failed' ? 'red' : 'blue'}
+                style={{ fontSize: 10, flexShrink: 0 }}>{r.status}</Tag>
+            </div>
+            {expandedRun === r.run_id && (
+              <div style={{ fontSize: 12, whiteSpace: 'pre-wrap', marginTop: 4, maxHeight: 220, overflowY: 'auto', color: '#c9d1d9' }}>
+                {r.answer || '（未收口——无答案文本）'}
+              </div>
+            )}
+            <Button size="small" type="link" style={{ padding: 0, fontSize: 11 }}
+              onClick={() => setFollowupRunId(r.run_id)}>追问此任务</Button>
+            {followupRunId === r.run_id && (
+              <Tag color="geekblue" style={{ fontSize: 10 }}>追问中——下一条问题带会话线程</Tag>
+            )}
+          </div>
+        ))}
+        {runs.length === 0 && <div style={dim}>暂无任务。</div>}
+      </div>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
       <Card title={<>问一问V2{helpIcon('V2 问答主链：意图澄清→工具阀→前置条件阀→查询执行→核验收口；全程只读')}<Tag style={{ marginLeft: 8 }} color="geekblue">V2 后端</Tag></>}
         extra={<Button size="small" icon={<ApartmentOutlined />} onClick={() => setTreeOpen(true)}>决策树</Button>}
         styles={{ body: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '12px 16px' } }}
@@ -279,6 +318,7 @@ export default function A1V2Landing() {
           <DecisionTreeV2 byKey={TREE_BY_KEY} active={active} />
         </div>
       </Modal>
+      </div>
     </div>
   )
 }
