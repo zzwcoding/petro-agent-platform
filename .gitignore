@@ -40,3 +40,6 @@ eval/results/drafts/
 
 # 根级误装产物（某次根目录 npm install 遗留——仓根无 package.json）
 /node_modules/
+
+# 运行日志（本地运行态，不入库）
+logs/
