@@ -191,9 +191,6 @@ class RunState:
     dialogue: list[dict[str, str]] = field(default_factory=list)
     process_notes: list[dict[str, str]] = field(default_factory=list)
     schema_version: int = 2  # checkpoint 版本（旧快照无此键＝v1——读侧兼容判据）
-    # 【V2-79a 兼容死字段】旧混装消息历史——零读写，仅保 v1 checkpoint（含
-    # history 键）读入不炸；V2-79e 清账删除。
-    history: list[dict[str, str]] = field(default_factory=list)
     # —— decision 产物（ReAct 决策出口——行为断言锁定面） ——
     rounds: int = 0  # 已消耗的 LLM 决策周期数（≤3 轮上限闸判据）
     task_type: str = ""  # 末次执行发射的任务型 data|knowledge|mixed

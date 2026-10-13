@@ -246,15 +246,15 @@ def _note_of_digest(digest: str) -> dict[str, str]:
     return _note("test", "测试", digest)
 
 
-def test_legacy_history_field_is_dead_but_present() -> None:
-    """v1 checkpoint 兼容死字段（V2-79a）：RunState 仍带 history 键（零读写）——
-    旧快照（含 history 通道）读入不炸的 schema 面；schema_version=2 为新旧判据
-    （方案 §4.1 版本化）；V2-79e 清账删除时本钉随之改写。"""
-    assert "history" in RunState.__dataclass_fields__
+def test_legacy_history_field_is_gone() -> None:
+    """v1 混装史字段清账钉（V2-79e）：history 字段已删除——schema 面只剩三层
+    分离字段；schema_version=2 为新旧判据（方案 §4.1 版本化）；v1 旧 checkpoint
+    的 history 通道由 LangGraph 按未知通道忽略（读兼容抽取面在
+    extract_dialogue_from_legacy_history——golden 钉测守）。"""
+    assert "history" not in RunState.__dataclass_fields__
     assert "dialogue" in RunState.__dataclass_fields__
     assert "process_notes" in RunState.__dataclass_fields__
     assert RunState().schema_version == 2
-    assert RunState().history == []  # 死字段零写——新路径无人落值
 
 
 # ---------- 验收③：追问播种最小形——对话层承载前轮问答 ----------
