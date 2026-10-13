@@ -11,8 +11,7 @@
 | 仓库 | 角色 | 可见性 |
 |---|---|---|
 | **本仓** [petro-agent-platform](https://github.com/zzwcoding/petro-agent-platform) | 平台实现仓：后端 `app/`＋`appv2/` · 前端 `web/` · 本体 `ontology/`（已并入） | 公开 |
-| [teach-petro-agent](https://github.com/zzwcoding/teach-petro-agent) | 设计/教学真源仓：合同册 · ADR · 业务设定 · 场景课 | 公开 |
-| [teach-petro-agent-public](https://github.com/zzwcoding/teach-petro-agent-public) | 教学仓公开向副本（架构设计项目形态） | 公开 |
+| [teach-petro-agent-public](https://github.com/zzwcoding/teach-petro-agent-public) | 设计/教学真源仓：合同册 specs/api · ADR 链 · 业务设定 · 架构大图 · 前端原型 | 私有（清洗中，完成后转公开） |
 | [tpa-data-plane](https://github.com/zzwcoding/tpa-data-plane) | 数据面仓：独立数据服务（进料→清洗→出汇总→质检→报水位） | 公开 |
 | [fieldforge](https://github.com/zzwcoding/fieldforge) | 油气领域合成数据生成工作台 | 公开 |
 
@@ -164,8 +163,8 @@ data-plane/    独立仓：数据面服务（进料→清洗→出汇总→质�
 
 | 想看什么 | 去哪 |
 |---|---|
-| API 合同 / 模块划分 / 数据库设计（设计真源，不复制进本仓） | [teach-petro-agent/specs/api/](https://github.com/zzwcoding/teach-petro-agent) |
-| 架构图 v1（已过审 ADR-0006）· 阶段规划 · ADR 链 0003–0008 | teach-petro-agent `docs/` |
+| API 合同 / 模块划分 / 数据库设计（设计真源，不复制进本仓） | [teach-petro-agent-public/specs/](https://github.com/zzwcoding/teach-petro-agent-public) |
+| 架构大图 · ADR 链 · 业务设定 · 阶段规划 | teach-petro-agent-public `docs/` 与 `diagrams/` |
 | V2 架构说明 | 本仓 [docs/architecture-v2.md](docs/architecture-v2.md) |
 | 评测全部轮次报告与判分证据 | 本仓 `eval/results/`（两份 HTML 报告见上） |
 | 施工过程（一票一分支一提交） | 本仓 `tickets/` · `dispatch/` |
