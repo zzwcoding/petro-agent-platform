@@ -1,0 +1,40 @@
+{"leg": "open", "http": 200, "url": "http://localhost:8001/api/v2/chat/asks", "body": {"question": "N-02 最近怎么样"}}
+{"leg": "frame", "id": "0", "t": 0.04, "event": "session", "data": {"run_id": "run-73220271", "resume": false}}
+{"leg": "frame", "id": "1", "t": 7.14, "event": "step", "data": {"step": "decision", "seq": 1, "title": "问 N-02 井最近的生产状况。"}}
+{"leg": "frame", "id": "2", "t": 7.14, "event": "text", "data": {"content": "问 N-02 井最近的生产状况。"}}
+{"leg": "frame", "id": "3", "t": 10.59, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清 r1：分解 3 子问题"}}
+{"leg": "frame", "id": "4", "t": 14.16, "event": "step", "data": {"step": "decision", "seq": 3, "title": "工具匹配：3 条定案"}}
+{"leg": "frame", "id": "5", "t": 14.33, "event": "step", "data": {"step": "decision", "seq": 4, "title": "前置条件机：s1=note｜s2=note｜s3=note"}}
+{"leg": "frame", "id": "6", "t": 14.48, "event": "tool", "data": {"tool": "data_query", "status": "ask", "seq": 5, "message": null}}
+{"leg": "frame", "id": "7", "t": 14.48, "event": "step", "data": {"step": "execute", "seq": 5, "title": "data_query：ask（子问题 s1）"}}
+{"leg": "frame", "id": "8", "t": 14.48, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "「最近」指哪个时间窗？① 近 3 天 ② 近 30 天 ③ 本月至今——选好后我按审定口径取数。", "options": ["近 3 天", "近 30 天", "本月至今"], "detail": null}, "run_id": "run-73220271"}}
+{"leg": "frame", "id": "9", "t": 14.48, "event": "step", "data": {"step": "observe", "seq": 6, "title": "批量汇聚 0 支"}}
+{"leg": "frame", "id": "10", "t": 14.53, "event": "blackbox", "data": {"run_id": "run-73220271", "question": "N-02 最近怎么样", "status": "running", "error": "", "stored": true, "bytes": 20476, "counts": {"history": 7, "observations": 0, "steps": 6}}}
+{"leg": "frame", "id": "11", "t": 14.53, "event": "done", "data": {"run_id": "run-73220271"}}
+{"leg": "open", "http": 200, "url": "http://localhost:8001/api/v2/chat/runs/run-73220271/resume", "body": {"kind": "clarify", "choice": "近 3 天"}}
+{"leg": "frame", "id": "0", "t": 15.22, "event": "session", "data": {"run_id": "run-73220271", "resume": true}}
+{"leg": "frame", "id": "1", "t": 15.24, "event": "step", "data": {"step": "decision", "seq": 7, "title": "澄清回收：近 3 天"}}
+{"leg": "frame", "id": "2", "t": 21.96, "event": "step", "data": {"step": "decision", "seq": 8, "title": "澄清 r1：分解 3 子问题"}}
+{"leg": "frame", "id": "3", "t": 26.07, "event": "step", "data": {"step": "decision", "seq": 9, "title": "工具匹配：3 条定案"}}
+{"leg": "frame", "id": "4", "t": 26.23, "event": "step", "data": {"step": "decision", "seq": 10, "title": "前置条件机：s1=note｜s2=note｜s3=note"}}
+{"leg": "frame", "id": "5", "t": 26.97, "event": "tool", "data": {"tool": "data_query", "status": "ok", "seq": 11, "message": null}}
+{"leg": "frame", "id": "6", "t": 26.97, "event": "step", "data": {"step": "execute", "seq": 11, "title": "data_query：ok（子问题 s1）"}}
+{"leg": "frame", "id": "7", "t": 26.97, "event": "notice", "data": {"type": "freshness_block", "gates": [], "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 42 天 · 超期）——查询窗「2026-10-10～2026-10-12」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。"}}
+{"leg": "frame", "id": "8", "t": 26.97, "event": "observation", "data": {"index": 1, "source": "汇总层水位读面", "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 42 天 · 超期）——查询窗「2026-10-10～2026-10-12」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。", "trust": "notice"}}
+{"leg": "frame", "id": "9", "t": 26.97, "event": "tool", "data": {"tool": "data_query", "status": "ok", "seq": 12, "message": null}}
+{"leg": "frame", "id": "10", "t": 26.97, "event": "step", "data": {"step": "execute", "seq": 12, "title": "data_query：ok（子问题 s2）"}}
+{"leg": "frame", "id": "11", "t": 26.97, "event": "notice", "data": {"type": "freshness_block", "gates": [], "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 42 天 · 超期）——查询窗「2026-10-10～2026-10-12」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。"}}
+{"leg": "frame", "id": "12", "t": 26.97, "event": "observation", "data": {"index": 2, "source": "汇总层水位读面", "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 42 天 · 超期）——查询窗「2026-10-10～2026-10-12」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。", "trust": "notice"}}
+{"leg": "frame", "id": "13", "t": 26.97, "event": "tool", "data": {"tool": "data_query", "status": "ok", "seq": 13, "message": null}}
+{"leg": "frame", "id": "14", "t": 26.97, "event": "step", "data": {"step": "execute", "seq": 13, "title": "data_query：ok（子问题 s3）"}}
+{"leg": "frame", "id": "15", "t": 26.97, "event": "notice", "data": {"type": "freshness_block", "gates": [], "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 42 天 · 超期）——查询窗「2026-10-10～2026-10-12」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。"}}
+{"leg": "frame", "id": "16", "t": 26.97, "event": "observation", "data": {"index": 3, "source": "汇总层水位读面", "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 42 天 · 超期）——查询窗「2026-10-10～2026-10-12」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。", "trust": "notice"}}
+{"leg": "frame", "id": "17", "t": 26.97, "event": "step", "data": {"step": "observe", "seq": 14, "title": "批量汇聚 3 支"}}
+{"leg": "frame", "id": "18", "t": 26.98, "event": "step", "data": {"step": "verify", "seq": 15, "title": "核验：支撑 0｜改写 0｜分源 否"}}
+{"leg": "frame", "id": "19", "t": 26.98, "event": "verdict", "data": {"subtype": "verify", "supported": 0, "rewritten": 0, "split": false, "cited": [], "attribution": {"anchors": ["N-02"], "cross": []}}}
+{"leg": "frame", "id": "20", "t": 26.98, "event": "step", "data": {"step": "answer", "seq": 16, "title": "答案收口"}}
+{"leg": "frame", "id": "21", "t": 26.98, "event": "text", "data": {"content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 42 天 · 超期）——查询窗「2026-10-10～2026-10-12」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。；新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 42 天 · 超期）——查询窗「2026-10-10～2026-10-12」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。；新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 42 天 · 超期）——查询窗「2026-10-10～2026-10-12」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。（闸依据如实转答——零数值，不冒充出数。）"}}
+{"leg": "frame", "id": "22", "t": 26.98, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-73220271", "manifest_digest": "d91b6756ad3f04ff62f34f059c21dba6b5908e31c8eb08983899c595cda812f9"}}
+{"leg": "frame", "id": "23", "t": 27.07, "event": "blackbox", "data": {"run_id": "run-73220271", "question": "N-02 最近怎么样", "status": "completed", "error": "", "stored": true, "bytes": 37271, "counts": {"history": 15, "observations": 3, "steps": 16}}}
+{"leg": "frame", "id": "24", "t": 27.07, "event": "done", "data": {"run_id": "run-73220271"}}
+{"summary": {"key": "askback", "question": "N-02 最近怎么样", "status": "done", "run_id": "run-73220271", "frames": 37, "duration_s": 27.1, "tools": ["data_query", "data_query", "data_query", "data_query"], "notices": ["freshness_block", "freshness_block", "freshness_block"], "n_asks": 1, "asks": [{"frame": {"kind": "clarify", "prompt": "「最近」指哪个时间窗？① 近 3 天 ② 近 30 天 ③ 本月至今——选好后我按审定口径取数。", "options": ["近 3 天", "近 30 天", "本月至今"], "detail": null}, "run_id": "run-73220271"}], "n_resumes": 1, "resumes": [{"kind": "clarify", "choice": "近 3 天"}], "verdict_final": {"subtype": "final", "status": "completed", "run_id": "run-73220271", "manifest_digest": "d91b6756ad3f04ff62f34f059c21dba6b5908e31c8eb08983899c595cda812f9"}, "error_frame": null}}

@@ -1,0 +1,22 @@
+{"leg": "open", "http": 200, "url": "http://localhost:8001/api/v2/chat/asks", "body": {"question": "帮我预测明年油价"}}
+{"leg": "frame", "id": "0", "t": 0.04, "event": "session", "data": {"run_id": "run-b951ecc7", "resume": false}}
+{"leg": "frame", "id": "1", "t": 1.76, "event": "step", "data": {"step": "decision", "seq": 1, "title": "预测明年油价。"}}
+{"leg": "frame", "id": "2", "t": 1.76, "event": "text", "data": {"content": "预测明年油价。"}}
+{"leg": "frame", "id": "3", "t": 4.61, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清 r1：反问（您的「明年油价预测」不在本系统数据范围——本系统）"}}
+{"leg": "frame", "id": "4", "t": 4.61, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "您的「明年油价预测」不在本系统数据范围——本系统覆盖油田生产台账与报告（产量、注水、井况等），并不接入油价市场预测模型。请确认范围：", "options": ["退出本题——本系统不预测油价", "改问油田生产指标（例如明年产量完成率预测／明年递减率走势等）", "改问报告事实（例如本月油价相关条款／完井报告中是否提及油价影响）"], "detail": null}, "run_id": "run-b951ecc7"}}
+{"leg": "frame", "id": "5", "t": 4.66, "event": "blackbox", "data": {"run_id": "run-b951ecc7", "question": "帮我预测明年油价", "status": "running", "error": "", "stored": true, "bytes": 9846, "counts": {"history": 4, "observations": 0, "steps": 2}}}
+{"leg": "frame", "id": "6", "t": 4.66, "event": "done", "data": {"run_id": "run-b951ecc7"}}
+{"leg": "open", "http": 200, "url": "http://localhost:8001/api/v2/chat/runs/run-b951ecc7/resume", "body": {"kind": "clarify", "choice": "退出本题——本系统不预测油价"}}
+{"leg": "frame", "id": "0", "t": 5.27, "event": "session", "data": {"run_id": "run-b951ecc7", "resume": true}}
+{"leg": "frame", "id": "1", "t": 5.29, "event": "step", "data": {"step": "decision", "seq": 3, "title": "澄清回收：退出本题——本系统不预测油价"}}
+{"leg": "frame", "id": "2", "t": 6.86, "event": "step", "data": {"step": "decision", "seq": 4, "title": "澄清 r0 被拒：零探查观察禁定稿", "emission": {"action": "finalize"}}}
+{"leg": "frame", "id": "3", "t": 8.39, "event": "step", "data": {"step": "decision", "seq": 5, "title": "澄清 r1 被拒：零探查观察禁定稿", "emission": {"action": "finalize"}}}
+{"leg": "frame", "id": "4", "t": 9.83, "event": "step", "data": {"step": "decision", "seq": 6, "title": "澄清 r2 被拒：零探查观察禁定稿", "emission": {"action": "finalize"}}}
+{"leg": "frame", "id": "5", "t": 11.74, "event": "step", "data": {"step": "decision", "seq": 7, "title": "澄清 r3 被拒：零探查观察禁定稿", "emission": {"action": "finalize"}}}
+{"leg": "frame", "id": "6", "t": 11.74, "event": "notice", "data": {"type": "budget_converged", "gates": ["max_rounds"], "content": "预算触界收敛（max_rounds）——未完成项：工具（discover/execute）未执行或未取得观察；观察（observe）未入栈；核验（verify）/阐述（answer）未执行。未取得可交付观察材料——如实回报，不编造。"}}
+{"leg": "frame", "id": "7", "t": 11.74, "event": "step", "data": {"step": "answer", "seq": 8, "title": "答案收口"}}
+{"leg": "frame", "id": "8", "t": 11.74, "event": "text", "data": {"content": "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）"}}
+{"leg": "frame", "id": "9", "t": 11.74, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-b951ecc7", "manifest_digest": "72acb1f7c15f97e5fa5e15b958cdb30a26e83f20b1c09a232ac5864438d6b9cd"}}
+{"leg": "frame", "id": "10", "t": 11.84, "event": "blackbox", "data": {"run_id": "run-b951ecc7", "question": "帮我预测明年油价", "status": "completed", "error": "", "stored": true, "bytes": 31214, "counts": {"history": 13, "observations": 0, "steps": 8}}}
+{"leg": "frame", "id": "11", "t": 11.85, "event": "done", "data": {"run_id": "run-b951ecc7"}}
+{"summary": {"key": "reject", "question": "帮我预测明年油价", "status": "done", "run_id": "run-b951ecc7", "frames": 19, "duration_s": 11.8, "tools": [], "notices": ["budget_converged"], "n_asks": 1, "asks": [{"frame": {"kind": "clarify", "prompt": "您的「明年油价预测」不在本系统数据范围——本系统覆盖油田生产台账与报告（产量、注水、井况等），并不接入油价市场预测模型。请确认范围：", "options": ["退出本题——本系统不预测油价", "改问油田生产指标（例如明年产量完成率预测／明年递减率走势等）", "改问报告事实（例如本月油价相关条款／完井报告中是否提及油价影响）"], "detail": null}, "run_id": "run-b951ecc7"}], "n_resumes": 1, "resumes": [{"kind": "clarify", "choice": "退出本题——本系统不预测油价"}], "verdict_final": {"subtype": "final", "status": "completed", "run_id": "run-b951ecc7", "manifest_digest": "72acb1f7c15f97e5fa5e15b958cdb30a26e83f20b1c09a232ac5864438d6b9cd"}, "error_frame": null}}

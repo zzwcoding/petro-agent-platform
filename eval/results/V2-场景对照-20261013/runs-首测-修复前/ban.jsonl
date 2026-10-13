@@ -1,0 +1,10 @@
+{"leg": "open", "http": 200, "url": "http://localhost:8001/api/v2/chat/asks", "body": {"question": "老完成率是多少"}}
+{"leg": "frame", "id": "0", "t": 0.03, "event": "session", "data": {"run_id": "run-e7a95771", "resume": false}}
+{"leg": "frame", "id": "1", "t": 0.11, "event": "notice", "data": {"type": "refused", "gates": [], "content": "禁用词「老完成率」已废弃——如实拒答，不代答废弃口径（替代：产量完成率）"}}
+{"leg": "frame", "id": "2", "t": 0.11, "event": "step", "data": {"step": "decision", "seq": 1, "title": "N1 禁用词硬终止"}}
+{"leg": "frame", "id": "3", "t": 0.12, "event": "step", "data": {"step": "answer", "seq": 2, "title": "答案收口"}}
+{"leg": "frame", "id": "4", "t": 0.12, "event": "text", "data": {"content": "禁用词「老完成率」已废弃——如实拒答，不代答废弃口径（替代：产量完成率）"}}
+{"leg": "frame", "id": "5", "t": 0.12, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-e7a95771", "manifest_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"}}
+{"leg": "frame", "id": "6", "t": 0.18, "event": "blackbox", "data": {"run_id": "run-e7a95771", "question": "老完成率是多少", "status": "completed", "error": "", "stored": true, "bytes": 797, "counts": {"history": 0, "observations": 0, "steps": 2}}}
+{"leg": "frame", "id": "7", "t": 0.18, "event": "done", "data": {"run_id": "run-e7a95771"}}
+{"summary": {"key": "ban", "question": "老完成率是多少", "status": "done", "run_id": "run-e7a95771", "frames": 8, "duration_s": 0.2, "tools": [], "notices": ["refused"], "n_asks": 0, "asks": [], "n_resumes": 0, "resumes": [], "verdict_final": {"subtype": "final", "status": "completed", "run_id": "run-e7a95771", "manifest_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"}, "error_frame": null}}

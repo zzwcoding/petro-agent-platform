@@ -11,6 +11,11 @@
  * 挂起语义（真机踩坑实录）：ask 帧＝run 转 waiting_ask；其后照发 done（本腿流
  * 正常收束）——归约器把 closed 记 'done' 但 runStatus 保持 'waiting_ask'，页面
  * 以 askFrame 在场与否驱动续推 UI，不以 done 判完局。
+ *
+ * 引擎异常腿（收束语义三分之三）：executor 落库 failed 后 bus 干净收束、桥面照发
+ * done（appv2/runtime/executor.py:380-385 发 notice run_failed；api/bridge.py:149-156
+ * stream.error 为空即 done）——done 无 ask 帧但 run_failed notice 在场 ⇒ runStatus
+ * 'failed' 不判完局（页面锚推进同判据：A1V2.jsx handlers runFailed 旗标）。
  */
 
 /** 空回合（一次提问/一次续推/一次重连＝一个 assistant 回合的帧容器）。 */
@@ -25,7 +30,8 @@ export function newTurnV2(kind, question) {
     materials: [], // {index, source, trust, content}——按 index 原位升更新
     notices: [], // {type, gates, content}——追加
     citations: [], // {index, source, source_id, trust}——按 index 原位升更新
-    answerText: '', // text 帧拼贴（流式）
+    understanding: '', // V2-77 理解旁白（text 帧 kind=understanding——独立渲染灰条，不混入答案）
+    answerText: '', // text 帧拼贴（流式——最终答案面）
     verdicts: [], // 核验帧依序（中途 verify＋收口各一）
     blackbox: null,
     askFrame: null, // 挂起帧 {kind,prompt,options,detail}（在场＝等人工）
@@ -93,7 +99,13 @@ export function reduceV2Frame(turn, frame) {
       t.runStatus = 'waiting_ask'
       break
     case 'text':
-      t.answerText = t.answerText + (data.content ?? '')
+      // V2-77 理解旁白分流：kind=understanding＝理解步旁白——进独立字段渲染灰条，
+      // 不再与最终答案同块拼接（后端 graph.py 理解步随行键；无 kind＝答案正文）。
+      if (data.kind === 'understanding') {
+        t.understanding = t.understanding + (data.content ?? '')
+      } else {
+        t.answerText = t.answerText + (data.content ?? '')
+      }
       break
     case 'verdict':
       t.verdicts = [...t.verdicts, data]
@@ -103,8 +115,12 @@ export function reduceV2Frame(turn, frame) {
       break
     case 'done':
       t.closed = 'done'
-      // 挂起腿收束：askFrame 在场＝仍在等人工（不以 done 判完局）
-      t.runStatus = t.askFrame ? 'waiting_ask' : 'completed'
+      // 收束语义三分：askFrame 在场＝仍等人工（挂起腿收束）；run_failed notice
+      // 在场＝引擎异常腿——run 已落库 failed，不判完局（流尾 done 只代表本腿收束）；
+      // 其余＝completed。判据与页面锚推进同源（run_failed notice 字面量）
+      t.runStatus = t.askFrame ? 'waiting_ask'
+        : t.notices.some(n => n.type === 'run_failed') ? 'failed'
+          : 'completed'
       break
     case 'error':
       t.closed = 'error'

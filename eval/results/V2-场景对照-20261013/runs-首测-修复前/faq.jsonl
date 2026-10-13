@@ -1,0 +1,20 @@
+{"leg": "open", "http": 200, "url": "http://localhost:8001/api/v2/chat/asks", "body": {"question": "产量完成率怎么算？"}}
+{"leg": "frame", "id": "0", "t": 0.04, "event": "session", "data": {"run_id": "run-b6b7f2f4", "resume": false}}
+{"leg": "frame", "id": "1", "t": 2.29, "event": "step", "data": {"step": "decision", "seq": 1, "title": "问产量完成率的计算方法。"}}
+{"leg": "frame", "id": "2", "t": 2.29, "event": "text", "data": {"content": "问产量完成率的计算方法。"}}
+{"leg": "frame", "id": "3", "t": 6.15, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清钻取 ×1（semantic_query）"}}
+{"leg": "frame", "id": "4", "t": 6.33, "event": "tool", "data": {"tool": "semantic_query", "status": "ok", "seq": 3, "message": null}}
+{"leg": "frame", "id": "5", "t": 6.33, "event": "step", "data": {"step": "discover", "seq": 3, "title": "semantic_query：ok"}}
+{"leg": "frame", "id": "6", "t": 6.34, "event": "step", "data": {"step": "observe", "seq": 4, "title": "观察回流 1 支"}}
+{"leg": "frame", "id": "7", "t": 6.34, "event": "observation", "data": {"index": 1, "source": "sem_metric#1", "content": "★产量完成率：Σ实际产油 ÷ Σ计划配产 × 100%｜粒度 月/区块·油田 · 单位 %｜状态 生效中｜争议注记：计划版本切换日双值", "trust": "ledger"}}
+{"leg": "frame", "id": "8", "t": 10.67, "event": "step", "data": {"step": "decision", "seq": 5, "title": "澄清定稿：材料足够——直答收口", "emission": {"action": "finalize"}}}
+{"leg": "frame", "id": "9", "t": 13.03, "event": "step", "data": {"step": "answer", "seq": 6, "title": "起草答案"}}
+{"leg": "frame", "id": "10", "t": 13.03, "event": "step", "data": {"step": "verify", "seq": 7, "title": "核验：支撑 1｜改写 0｜分源 否"}}
+{"leg": "frame", "id": "11", "t": 13.03, "event": "verdict", "data": {"subtype": "verify", "supported": 1, "rewritten": 0, "split": false, "cited": [1], "attribution": {"anchors": [], "cross": []}}}
+{"leg": "frame", "id": "12", "t": 13.03, "event": "step", "data": {"step": "answer", "seq": 8, "title": "答案收口"}}
+{"leg": "frame", "id": "13", "t": 13.03, "event": "citation", "data": {"index": 1, "source": "sem_metric#1", "source_id": "1", "trust": "ledger"}}
+{"leg": "frame", "id": "14", "t": 13.03, "event": "text", "data": {"content": "产量完成率的计算公式为：Σ实际产油 ÷ Σ计划配产 × 100%（即实际产油总量除以计划配产总量，再乘以 100%）[1]。\n\n引用：\n[1] sem_metric#1 · 1（ledger）"}}
+{"leg": "frame", "id": "15", "t": 13.03, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-b6b7f2f4", "manifest_digest": "a344d295cddf3695ef9be6a0dc8671eaeec867efb0333a4cc110b519c1f2a0c2"}}
+{"leg": "frame", "id": "16", "t": 13.11, "event": "blackbox", "data": {"run_id": "run-b6b7f2f4", "question": "产量完成率怎么算？", "status": "completed", "error": "", "stored": true, "bytes": 17425, "counts": {"history": 9, "observations": 1, "steps": 8}}}
+{"leg": "frame", "id": "17", "t": 13.11, "event": "done", "data": {"run_id": "run-b6b7f2f4"}}
+{"summary": {"key": "faq", "question": "产量完成率怎么算？", "status": "done", "run_id": "run-b6b7f2f4", "frames": 18, "duration_s": 13.1, "tools": ["semantic_query"], "notices": [], "n_asks": 0, "asks": [], "n_resumes": 0, "resumes": [], "verdict_final": {"subtype": "final", "status": "completed", "run_id": "run-b6b7f2f4", "manifest_digest": "a344d295cddf3695ef9be6a0dc8671eaeec867efb0333a4cc110b519c1f2a0c2"}, "error_frame": null}}

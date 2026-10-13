@@ -1,0 +1,35 @@
+{"leg": "open", "http": 200, "url": "http://localhost:8001/api/v2/chat/asks", "body": {"question": "渤海油田各区块的产量，和 erp 井位台账里的坐标对一下"}}
+{"leg": "frame", "id": "0", "t": 0.05, "event": "session", "data": {"run_id": "run-3a8ee2ab", "resume": false}}
+{"leg": "frame", "id": "1", "t": 1.37, "event": "step", "data": {"step": "decision", "seq": 1, "title": "问渤海油田各区块的产量，与 ERP 井位台账里的坐标进行核对。"}}
+{"leg": "frame", "id": "2", "t": 1.37, "event": "text", "data": {"content": "问渤海油田各区块的产量，与 ERP 井位台账里的坐标进行核对。"}}
+{"leg": "frame", "id": "3", "t": 4.29, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清 r1 被拒：subtasks s1 chain 越界（data/knowledge）：'mixed'"}}
+{"leg": "frame", "id": "4", "t": 6.9, "event": "step", "data": {"step": "decision", "seq": 3, "title": "澄清 r2 被拒：subtasks s1 chain 越界（data/knowledge）：'mixed'"}}
+{"leg": "frame", "id": "5", "t": 9.45, "event": "step", "data": {"step": "decision", "seq": 4, "title": "澄清 r3：分解 2 子问题"}}
+{"leg": "frame", "id": "6", "t": 11.26, "event": "step", "data": {"step": "decision", "seq": 5, "title": "工具匹配：2 条定案"}}
+{"leg": "frame", "id": "7", "t": 11.4, "event": "step", "data": {"step": "decision", "seq": 6, "title": "前置条件机：s1=note｜s2=blocked_ask"}}
+{"leg": "frame", "id": "8", "t": 11.63, "event": "tool", "data": {"tool": "data_query", "status": "ok", "seq": 7, "message": null}}
+{"leg": "frame", "id": "9", "t": 11.63, "event": "step", "data": {"step": "execute", "seq": 7, "title": "data_query：ok（子问题 s1）"}}
+{"leg": "frame", "id": "10", "t": 11.63, "event": "notice", "data": {"type": "freshness_block", "gates": [], "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 42 天 · 超期）——查询窗「2026-09-13～2026-10-12」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。"}}
+{"leg": "frame", "id": "11", "t": 11.63, "event": "observation", "data": {"index": 1, "source": "汇总层水位读面", "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 42 天 · 超期）——查询窗「2026-09-13～2026-10-12」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。", "trust": "notice"}}
+{"leg": "frame", "id": "12", "t": 11.63, "event": "step", "data": {"step": "observe", "seq": 8, "title": "批量汇聚 1 支"}}
+{"leg": "frame", "id": "13", "t": 11.63, "event": "ask", "data": {"frame": {"kind": "external_table_approval", "prompt": "子问题 s2 的取数计划引用外部表 erp_well_register——是否批准越集查询？", "options": ["批准", "驳回"], "detail": {"approval_id": "precond-s2", "tables": ["erp_well_register"], "reason": "外表越集审批（前置条件机判定——放行态落 ToolContext）", "impact": "批准后该表进放行名单（ToolContext），不重排计划", "declared_tables": ["erp_well_register"], "detected_tables": ["erp_well_register"], "miss_declared": []}}, "run_id": "run-3a8ee2ab"}}
+{"leg": "frame", "id": "14", "t": 11.73, "event": "blackbox", "data": {"run_id": "run-3a8ee2ab", "question": "渤海油田各区块的产量，和 erp 井位台账里的坐标对一下", "status": "running", "error": "", "stored": true, "bytes": 31556, "counts": {"history": 11, "observations": 1, "steps": 8}}}
+{"leg": "frame", "id": "15", "t": 11.73, "event": "done", "data": {"run_id": "run-3a8ee2ab"}}
+{"leg": "open", "http": 200, "url": "http://localhost:8001/api/v2/chat/runs/run-3a8ee2ab/resume", "body": {"kind": "approval", "decision": "approve", "approval_id": "precond-s2"}}
+{"leg": "frame", "id": "0", "t": 12.42, "event": "session", "data": {"run_id": "run-3a8ee2ab", "resume": true}}
+{"leg": "frame", "id": "1", "t": 12.45, "event": "notice", "data": {"type": "approval_recorded", "gates": [], "content": "审批单号 precond-s2 已留痕（resume 留痕，可回溯）。"}}
+{"leg": "frame", "id": "2", "t": 12.45, "event": "step", "data": {"step": "decision", "seq": 9, "title": "审批回收：批准"}}
+{"leg": "frame", "id": "3", "t": 12.6, "event": "step", "data": {"step": "decision", "seq": 10, "title": "前置条件机：s1=note｜s2=note"}}
+{"leg": "frame", "id": "4", "t": 12.83, "event": "tool", "data": {"tool": "data_query", "status": "ok", "seq": 11, "message": null}}
+{"leg": "frame", "id": "5", "t": 12.83, "event": "step", "data": {"step": "execute", "seq": 11, "title": "data_query：ok（子问题 s2）"}}
+{"leg": "frame", "id": "6", "t": 12.83, "event": "notice", "data": {"type": "freshness_block", "gates": [], "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 42 天 · 超期）——查询窗「2026-09-13～2026-10-12」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。"}}
+{"leg": "frame", "id": "7", "t": 12.83, "event": "observation", "data": {"index": 2, "source": "汇总层水位读面", "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 42 天 · 超期）——查询窗「2026-09-13～2026-10-12」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。", "trust": "notice"}}
+{"leg": "frame", "id": "8", "t": 12.83, "event": "step", "data": {"step": "observe", "seq": 12, "title": "批量汇聚 1 支"}}
+{"leg": "frame", "id": "9", "t": 12.83, "event": "step", "data": {"step": "verify", "seq": 13, "title": "核验：支撑 0｜改写 0｜分源 否"}}
+{"leg": "frame", "id": "10", "t": 12.83, "event": "verdict", "data": {"subtype": "verify", "supported": 0, "rewritten": 0, "split": false, "cited": [], "attribution": {"anchors": [], "cross": []}}}
+{"leg": "frame", "id": "11", "t": 12.83, "event": "step", "data": {"step": "answer", "seq": 14, "title": "答案收口"}}
+{"leg": "frame", "id": "12", "t": 12.83, "event": "text", "data": {"content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 42 天 · 超期）——查询窗「2026-09-13～2026-10-12」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。；新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 42 天 · 超期）——查询窗「2026-09-13～2026-10-12」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。（闸依据如实转答——零数值，不冒充出数。）"}}
+{"leg": "frame", "id": "13", "t": 12.83, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-3a8ee2ab", "manifest_digest": "270a87db35de7f6a88023d3c59306619392f25c7a0c289b48e66b83a77a749d0"}}
+{"leg": "frame", "id": "14", "t": 12.97, "event": "blackbox", "data": {"run_id": "run-3a8ee2ab", "question": "渤海油田各区块的产量，和 erp 井位台账里的坐标对一下", "status": "completed", "error": "", "stored": true, "bytes": 34311, "counts": {"history": 13, "observations": 2, "steps": 14}}}
+{"leg": "frame", "id": "15", "t": 12.97, "event": "done", "data": {"run_id": "run-3a8ee2ab"}}
+{"summary": {"key": "extable", "question": "渤海油田各区块的产量，和 erp 井位台账里的坐标对一下", "status": "done", "run_id": "run-3a8ee2ab", "frames": 32, "duration_s": 13.0, "tools": ["data_query", "data_query"], "notices": ["freshness_block", "approval_recorded", "freshness_block"], "n_asks": 1, "asks": [{"frame": {"kind": "external_table_approval", "prompt": "子问题 s2 的取数计划引用外部表 erp_well_register——是否批准越集查询？", "options": ["批准", "驳回"], "detail": {"approval_id": "precond-s2", "tables": ["erp_well_register"], "reason": "外表越集审批（前置条件机判定——放行态落 ToolContext）", "impact": "批准后该表进放行名单（ToolContext），不重排计划", "declared_tables": ["erp_well_register"], "detected_tables": ["erp_well_register"], "miss_declared": []}}, "run_id": "run-3a8ee2ab"}], "n_resumes": 1, "resumes": [{"kind": "approval", "decision": "approve", "approval_id": "precond-s2"}], "verdict_final": {"subtype": "final", "status": "completed", "run_id": "run-3a8ee2ab", "manifest_digest": "270a87db35de7f6a88023d3c59306619392f25c7a0c289b48e66b83a77a749d0"}, "error_frame": null}}

@@ -1,0 +1,27 @@
+{"leg": "open", "http": 200, "url": "http://localhost:8001/api/v2/chat/asks", "body": {"question": "上个月产量最高的三口井"}}
+{"leg": "frame", "id": "0", "t": 0.1, "event": "session", "data": {"run_id": "run-a5dfe978", "resume": false}}
+{"leg": "frame", "id": "1", "t": 1.65, "event": "step", "data": {"step": "decision", "seq": 1, "title": "问上月产量最高的三口井。"}}
+{"leg": "frame", "id": "2", "t": 1.65, "event": "text", "data": {"content": "问上月产量最高的三口井。"}}
+{"leg": "frame", "id": "3", "t": 3.28, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清 r1：分解 1 子问题"}}
+{"leg": "frame", "id": "4", "t": 4.49, "event": "step", "data": {"step": "decision", "seq": 3, "title": "工具匹配：1 条定案"}}
+{"leg": "frame", "id": "5", "t": 4.67, "event": "step", "data": {"step": "decision", "seq": 4, "title": "前置条件机：s1=pass"}}
+{"leg": "frame", "id": "6", "t": 5.02, "event": "tool", "data": {"tool": "data_query", "status": "ok", "seq": 5, "message": null}}
+{"leg": "frame", "id": "7", "t": 5.02, "event": "step", "data": {"step": "execute", "seq": 5, "title": "data_query：ok（子问题 s1）"}}
+{"leg": "frame", "id": "8", "t": 5.02, "event": "observation", "data": {"index": 1, "source": "agg.fct_daily_metering", "content": "井号=Z-16；区块=渤中；日产油量合计（吨）=1349.68", "trust": "authoritative"}}
+{"leg": "frame", "id": "9", "t": 5.02, "event": "observation", "data": {"index": 2, "source": "agg.fct_daily_metering", "content": "井号=X-25；区块=渤西；日产油量合计（吨）=1298.03", "trust": "authoritative"}}
+{"leg": "frame", "id": "10", "t": 5.02, "event": "observation", "data": {"index": 3, "source": "agg.fct_daily_metering", "content": "井号=Z-34；区块=渤中；日产油量合计（吨）=1291.03", "trust": "authoritative"}}
+{"leg": "frame", "id": "11", "t": 5.02, "event": "observation", "data": {"index": 4, "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date", "content": "① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2026-07-01～2026-07-30 [2026-07-01, 2026-07-31)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 42 天 · 超期）\n⑤ 收口注记 LIMIT 3——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 3——只封顶不抬底）", "trust": "authoritative"}}
+{"leg": "frame", "id": "12", "t": 5.02, "event": "step", "data": {"step": "observe", "seq": 6, "title": "批量汇聚 4 支"}}
+{"leg": "frame", "id": "13", "t": 6.96, "event": "step", "data": {"step": "answer", "seq": 7, "title": "起草答案"}}
+{"leg": "frame", "id": "14", "t": 6.96, "event": "step", "data": {"step": "verify", "seq": 8, "title": "核验：支撑 4｜改写 0｜分源 否"}}
+{"leg": "frame", "id": "15", "t": 6.96, "event": "verdict", "data": {"subtype": "verify", "supported": 4, "rewritten": 0, "split": false, "cited": [1, 2, 3, 4], "attribution": {"anchors": [], "cross": []}}}
+{"leg": "frame", "id": "16", "t": 6.96, "event": "step", "data": {"step": "answer", "seq": 9, "title": "答案收口"}}
+{"leg": "frame", "id": "17", "t": 6.96, "event": "citation", "data": {"index": 1, "source": "agg.fct_daily_metering", "source_id": "Z-16", "trust": "authoritative"}}
+{"leg": "frame", "id": "18", "t": 6.96, "event": "citation", "data": {"index": 2, "source": "agg.fct_daily_metering", "source_id": "X-25", "trust": "authoritative"}}
+{"leg": "frame", "id": "19", "t": 6.96, "event": "citation", "data": {"index": 3, "source": "agg.fct_daily_metering", "source_id": "Z-34", "trust": "authoritative"}}
+{"leg": "frame", "id": "20", "t": 6.96, "event": "citation", "data": {"index": 4, "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date", "source_id": "lineage", "trust": "authoritative"}}
+{"leg": "frame", "id": "21", "t": 6.96, "event": "text", "data": {"content": "上月（2026-07-01～2026-07-31）日产油量合计排名前三的井为：\n\n| 排名 | 井号 | 区块 | 日产油量合计（吨） |\n|---|---|---|---|\n| 1 | Z-16 | 渤中 | 1349.68 [1] |\n| 2 | X-25 | 渤西 | 1298.03 [2] |\n| 3 | Z-34 | 渤中 | 1291.03 [3] |\n\n口径注记：上述合计取自日产计量表（agg.fct_daily_metering），按日（班次合计）聚合到 2026-07-01～2026-07-31（不含 7-31 当日数据落位）[4]。\n\n⑤ 收口注记 LIMIT 3——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 3——只封顶不抬底）\n\n引用：\n[1] agg.fct_daily_metering · Z-16（authoritative）\n[2] agg.fct_daily_metering · X-25（authoritative）\n[3] agg.fct_daily_metering · Z-34（authoritative）\n[4] agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date · lineage（authoritative）"}}
+{"leg": "frame", "id": "22", "t": 6.96, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-a5dfe978", "manifest_digest": "57840a0b012f52341b60f1532b714cafd73b7a789ae2301b41d6008ecbe491b0"}}
+{"leg": "frame", "id": "23", "t": 7.05, "event": "blackbox", "data": {"run_id": "run-a5dfe978", "question": "上个月产量最高的三口井", "status": "completed", "error": "", "stored": true, "bytes": 21879, "counts": {"history": 9, "observations": 4, "steps": 9}}}
+{"leg": "frame", "id": "24", "t": 7.05, "event": "done", "data": {"run_id": "run-a5dfe978"}}
+{"summary": {"key": "data-fix", "question": "上个月产量最高的三口井", "status": "done", "run_id": "run-a5dfe978", "frames": 25, "duration_s": 7.1, "tools": ["data_query"], "notices": [], "n_asks": 0, "asks": [], "n_resumes": 0, "resumes": [], "verdict_final": {"subtype": "final", "status": "completed", "run_id": "run-a5dfe978", "manifest_digest": "57840a0b012f52341b60f1532b714cafd73b7a789ae2301b41d6008ecbe491b0"}, "error_frame": null}}

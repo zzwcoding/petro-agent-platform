@@ -45,8 +45,8 @@ class AgentRuntime:
 POST /api/v2/chat/asks                 200 → text/event-stream（首帧 run_id）
     入参三形态：question 提问｜resume_run_id 重连｜question＋followup_run_id 追问续会话
 POST /api/v2/chat/runs/{run_id}/resume 200 → text/event-stream
-GET  /api/v2/chat/runs/{run_id}        200 → {status, steps, manifest_digest}
-GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,created_at,updated_at}]（V2-73 最近任务读口，created_at 降序）
+GET  /api/v2/chat/runs/{run_id}        200 → {status, steps, manifest_digest, pending_ask?}（pending_ask＝挂起帧投影，仅 waiting_ask 在场——V2-78 刷新还原面）
+GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,followup_of,created_at,updated_at}]（V2-73 最近任务读口，created_at 降序；followup_of＝追问链前轮——V2-74 对话任务分组，空串＝链根）
 错误：400 参数非法｜401 身份缺失｜404 run 不存在｜409 run 非挂起态不可 resume（重连/追问互斥同 409）
 ```
 

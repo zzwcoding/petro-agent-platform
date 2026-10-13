@@ -290,6 +290,18 @@ _ANSWER_INSTRUCTION = (
     "序号时一个引用记号都不许写（如实写「据平台术语台账」），禁止把本指令的占位符"
     "[n] 原样写进答案。"
 )
+# V2-77 追问历史可答面（Owner 2026-10-13 A 项拍板）：追问轮的消息历史带着前轮
+# 问答——历史是合法答案来源。能由历史直接回答的追问（复述前轮问句/答案、问候
+# 寒暄、指代前轮内容的追问）直接依历史起草作答，不因零观察材料空手落「未找到」
+# 壳；历史里没有的内容照旧不得编造。消费面＝answer_node 起草指令尾部（追问轮追加）。
+_FOLLOWUP_HISTORY_ANSWER_CLAUSE = (
+    "本轮是会话追问（前轮问答在消息历史里，随上下文可见）：问句能由会话历史直接"
+    "回答的——复述上一轮问了什么/答了什么、问候寒暄、指代前轮内容的追问——直接"
+    "依历史作答：历史不是观察材料，此类内容不写 [n] 引标、不算无据断言；只有"
+    "历史也覆盖不了的数据/事实诉求才如实说明没有依据。历史里没有的内容照旧"
+    "不得编造。回答只写本轮回复本身——消息历史里的先前回复原文、决策 JSON、"
+    "执行台账等过程记录一律不得复述进答案（历史是给你看的上下文，不是答案素材）。"
+)
 # 审批卡批准后的答复基础＝引擎卡 impact 原文（零二次创作——合同值不出引擎侧）。
 _EXTABLE_REJECT_BASIS_KEY = "impact"
 
@@ -446,6 +458,24 @@ def parse_understanding(content: str) -> tuple[str, list[str]]:
                 candidates = _json_candidates(payload[key])
                 break
     return understanding, candidates
+
+
+_DIRECT_REPLY_LINE = "直接回答"
+
+
+def parse_direct_reply(content: str) -> str:
+    """V2-78 无关业务直答解析（Owner 2026-10-13 拍板）：understand 应答含
+    「直接回答：〈回复〉」行＝无关业务输入的直答形（orientation 任务书例外条款
+    的消费面）——取该行冒号后内容，多行直答逐行拼接；无该行＝空串（两行式解析
+    面零变化）。只认行首前缀，正文提及「直接回答」字样不误触。"""
+    lines: list[str] = []
+    for raw_line in content.splitlines():
+        line = raw_line.strip()
+        if line.startswith(_DIRECT_REPLY_LINE):
+            body = line.split("：", 1)[-1] if "：" in line else line.split(":", 1)[-1]
+            if body.strip():
+                lines.append(body.strip())
+    return "\n".join(lines)
 
 
 # extract_plan_json 已迁 appv2.runtime.subtask（本模块顶部 import re-export——
@@ -1527,6 +1557,11 @@ def _make_understand(
         )
         content = await _complete(deps.model(MODEL_UNDERSTAND), context)
         understanding, candidates = parse_understanding(content)
+        # V2-78 无关业务直答（Owner 2026-10-13 拍板）：第一次调用即分流——模型对
+        # 纯问候/寒暄/闲聊输出「直接回答：〈回复〉」单行形，走确定性直答通道
+        # （draft_kind=direct——answer 免起草免核验收口），业务零进环；业务含糊
+        # （缺对象/窗界）不适用此形，照常两行式进决策轮澄清。
+        direct_reply = parse_direct_reply(content)
         # 调用与输出入簿（当前轮原样＋模型原话——后续步在完整历史上续写）。
         history = _history_with(
             state,
@@ -1536,14 +1571,22 @@ def _make_understand(
         # 豁免步已占 seq（0 号位簿记先行）——本步 seq 顺延一位。
         seq = _next_seq(state) + (1 if exempt_step is not None else 0)
         record = _step_record(
-            seq, STEP_DECISION, understanding or "理解未产出", context.manifest,
-            payload={"phase": "understand"},
+            seq, STEP_DECISION,
+            "无关业务——直接回答" if direct_reply
+            else (understanding or "理解未产出"),
+            context.manifest,
+            payload={
+                "phase": "understand",
+                **({"direct_reply": True} if direct_reply else {}),
+            },
         )
         deps.bus.emit(
             "step", {"step": STEP_DECISION, "seq": seq, "title": record["title"]}
         )
         if understanding:
-            deps.bus.emit("text", {"content": understanding})
+            # V2-77 理解旁白分流（Owner B 项）：kind=understanding——前端独立渲染
+            # 灰条，不再与最终答案同流拼接（content 字段不变，纯增量键）。
+            deps.bus.emit("text", {"content": understanding, "kind": "understanding"})
         steps = [*state.steps, record]
         if exempt_step is not None:
             steps = [*state.steps, exempt_step, record]  # 豁免步在前（seq 序）
@@ -1557,6 +1600,8 @@ def _make_understand(
         }
         if exempt_notice is not None:
             updates["notices"] = [*state.notices, exempt_notice]
+        if direct_reply:
+            _direct_answer(updates, direct_reply)
         return updates
 
     return understand_node
@@ -1735,8 +1780,8 @@ def _make_decision(
                     "type": "clarify_capped",
                     "gates": [],
                     "content": (
-                        "连续澄清已达上限（连续 ask ≥3）——不再挂起，"
-                        "带已取得材料如实直答。"
+                        f"连续澄清已达上限（连续 ask ≥{CLARIFY_ASK_CAP_CONTRACT}）"
+                        "——不再挂起，带已取得材料如实直答。"
                     ),
                 }
                 deps.bus.emit("notice", dict(notice))
@@ -2452,15 +2497,16 @@ def _make_clarify(
                 "steps": [*state.steps, record],
                 "next_intent": INTENT_ANSWER,
             }
-        # ask——连续澄清 cap（≥3 不再挂起带材料直答——V2-70 b 案，与 decision 节点同款）。
+        # ask——连续澄清 cap（达合同值不再挂起带材料直答——V2-70 b 案，与
+        # decision 节点同款；V2-77 修漏网：原写死 ≥2 早截断真凶，改回合同值）。
         consecutive = state.consecutive_asks + 1
-        if consecutive >= 2:
+        if consecutive >= CLARIFY_ASK_CAP_CONTRACT:
             notice = {
                 "type": "clarify_capped",
                 "gates": [],
                 "content": (
-                    "连续澄清已达上限（连续 ask ≥2）——不再挂起，"
-                    "带已取得材料如实直答。"
+                    f"连续澄清已达上限（连续 ask ≥{CLARIFY_ASK_CAP_CONTRACT}）"
+                    "——不再挂起，带已取得材料如实直答。"
                 ),
             }
             deps.bus.emit("notice", dict(notice))
@@ -2908,8 +2954,8 @@ def _make_precondition(
                     "type": "clarify_capped",
                     "gates": [],
                     "content": (
-                        "连续澄清已达上限（连续 ask ≥3）——不再挂起，"
-                        "带已取得材料如实直答。"
+                        f"连续澄清已达上限（连续 ask ≥{CLARIFY_ASK_CAP_CONTRACT}）"
+                        "——不再挂起，带已取得材料如实直答。"
                     ),
                 }
                 deps.bus.emit("notice", dict(notice))
@@ -3287,8 +3333,8 @@ def _make_batch(
                     "type": "clarify_capped",
                     "gates": [],
                     "content": (
-                        "连续澄清已达上限（连续 ask ≥3）——不再挂起，"
-                        "带已取得材料如实直答。"
+                        f"连续澄清已达上限（连续 ask ≥{CLARIFY_ASK_CAP_CONTRACT}）"
+                        "——不再挂起，带已取得材料如实直答。"
                     ),
                 }
                 deps.bus.emit("notice", dict(notice))
@@ -3400,14 +3446,15 @@ def _make_verify(
                 # V2-72 b 案（Owner 2026-10-13）：追问旁路保留（零探查直答能力
                 # 不动——draft 面照走上一支），但零实质材料收口不再以 no_hit
                 # 文本冒充答案面——按「未找到」如实作答＋机读 notice 随行。
+                # V2-77 C 项：措辞改人话（内容纪律不变——不编造、给下一步）。
                 text = (
-                    "未找到（材料未披露）：追问与前轮材料均未覆盖本题——"
-                    "未取得可交付观察材料，如实回报，不编造。"
+                    "这个问题在本对话的材料和前轮问答里都没有找到依据，"
+                    "我不能编造答案。可以换个问法，或让我先去查相关数据。"
                 )
                 deps.bus.emit(
                     "notice",
                     {"type": "decision_note", "gates": [],
-                     "content": "追问零实质材料——按「未找到」如实作答（不冒充直答）"},
+                     "content": "追问零实质材料——如实说明无依据（不编造）"},
                 )
             else:
                 notice_texts = [
@@ -3551,9 +3598,15 @@ def _make_answer(
             and state.verdict is None
             and state.draft_kind != "direct"
             and not state.draft
-            and any(  # 有实质材料才起草（零材料——闸依据/拒答如实转答，不烧模型）
-                (obs.get("locator") or {}).get("kind") != "notice"
-                for obs in state.observations
+            and (
+                # 有实质材料才起草（零材料——闸依据/拒答如实转答，不烧模型）；
+                # V2-77 追问历史可答面：追问轮例外——前轮问答史随行在消息历史，
+                # 历史可答（复述前轮/问候/指代追问）也必须起草，不得空手落壳。
+                any(
+                    (obs.get("locator") or {}).get("kind") != "notice"
+                    for obs in state.observations
+                )
+                or bool(state.followup_of)
             )
         ):
             # ——起草段（caller answer——引标断言合同；核验素材面）——
@@ -3563,6 +3616,8 @@ def _make_answer(
                 + "\n"
                 + _ANSWER_INSTRUCTION
             )
+            if state.followup_of:
+                instruction += "\n" + _FOLLOWUP_HISTORY_ANSWER_CLAUSE
             if state.question_group:
                 marks = {"ok": "完成", "refused": "已拒答", "failed": "失败"}
                 # plan 支配标记（V2-51 数-排2 形——drafting 指令面）：排名型子问题
@@ -3627,16 +3682,30 @@ def _make_answer(
             draft, leaked = strip_emission_fences(first_content.strip())
             retry_content: str | None = None
             if not draft.strip():
+                # V2-48 零余量重试一次（既有语义——空草稿先重试再兜底）。
                 retry_content = await _complete(deps.model(MODEL_ANSWER), context)
                 draft, retry_leaked = strip_emission_fences(retry_content.strip())
                 leaked = leaked or retry_leaked
             if not draft.strip():
-                draft = (
-                    "（模型草稿为 JSON 通道残留——剥离重试仍未取得有效草稿，"
-                    "如实收口。）"
-                    if leaked
-                    else "（模型未产出草稿——如实收口。）"
-                )
+                if leaked:
+                    draft = (
+                        "（模型草稿为 JSON 通道残留——剥离重试仍未取得有效草稿，"
+                        "如实收口。）"
+                    )
+                elif state.followup_of:
+                    # V2-77 C 项：追问轮模型放弃起草——人话兜底（不冒充答案），
+                    # 机读 decision_note 随行（V2-72 b 案语义延续）。
+                    draft = (
+                        "这个问题在本对话的材料和前轮问答里都没有找到依据，"
+                        "我不能编造答案。可以换个问法，或让我先去查相关数据。"
+                    )
+                    deps.bus.emit(
+                        "notice",
+                        {"type": "decision_note", "gates": [],
+                         "content": "追问零实质材料——如实说明无依据（不编造）"},
+                    )
+                else:
+                    draft = "（模型未产出草稿——如实收口。）"
             if leaked:
                 deps.bus.emit(
                     "notice",

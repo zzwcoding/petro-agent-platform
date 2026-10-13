@@ -45,6 +45,8 @@ from appv2.runtime import (
     RunStore,
     parse_decision,
 )
+from appv2.runtime import graph as v2_graph
+from appv2.runtime.budget import CLARIFY_ASK_CAP_CONTRACT
 from appv2.tools import (
     SCHEMA_PROBE,
     FakeKnowledgeStore,
@@ -707,11 +709,22 @@ def test_table_schema_by_name_forms() -> None:
     assert rejected.locator["notice_type"] == "schema_not_allowed"
 
 
-async def test_consecutive_asks_capped_material_direct_answer(tmp_path: Path) -> None:
-    """P-024b 疑点2 钉（V2-70 b 案上限 3）：ask＝1 挂起→resume 执行后 ask＝2
+def test_clarify_ask_cap_contract_value() -> None:
+    """V2-77（Owner 2026-10-13 拍板）：澄清连续 ask 合同上限 3→6——多轮澄清场景
+    （口径/窗界/对象逐项确认）3 次截断过早，放宽到 6 次封顶。防环语义不变：
+    run 生命期计数任何路径不清零（run-69517e02 实测封环面）。"""
+    assert CLARIFY_ASK_CAP_CONTRACT == 6
+
+
+async def test_consecutive_asks_capped_material_direct_answer(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    """P-024b 疑点2 钉（V2-70 b 案机制；V2-77 合同值 3→6——本测 monkeypatch 收窄
+    3 驱动截断机制，合同值钉测见上一条）：ask＝1 挂起→resume 执行后 ask＝2
     照常挂起（回收不清零——run-69517e02 防环语义不变）→resume 再执行后
-    ask＝3 达上限截断，带已取得材料如实直答（completed；截断腿零新 ask 帧；
+    ask＝3 达收窄上限截断，带已取得材料如实直答（completed；截断腿零新 ask 帧；
     机读 notice clarify_capped 恰 1 条）。"""
+    monkeypatch.setattr(v2_graph, "CLARIFY_ASK_CAP_CONTRACT", 3)
     script_a: dict[str, Sequence[str]] = {
         "v2.runtime.understand": [UNDERSTAND_DATA],
         "v2.runtime.decision": [DECISION_WINDOWED, DECISION_ASK_TARGET],
@@ -840,5 +853,34 @@ async def test_tool_retry_budget_is_per_tool_name(tmp_path: Path) -> None:
         kinds = _step_kinds(events)
         assert kinds.count("discover") == 2 and kinds.count("execute") == 2
         assert not [n for n in _notices(events) if n.get("type") == "tool_unavailable"]
+    finally:
+        await db.dispose()
+
+
+async def test_non_business_direct_reply_at_understand(tmp_path: Path) -> None:
+    """V2-78（Owner 2026-10-13 拍板）：无关业务输入在第一次调用（understand）即
+    分流直答——「直接回答：」单行形走确定性直答通道（draft_kind=direct），run
+    收口为该回复；决策/作答轮零调用（业务零进环）、零挂起、零工具。业务含糊
+    （缺对象/窗界）不适用此形——照常两行式进决策轮澄清（既有钉面零漂移）。"""
+    script: dict[str, Sequence[str]] = {
+        "v2.runtime.understand": ["直接回答：您好！请问想查什么油田数据？"],
+    }
+    runtime, completer, db = await make_runtime(
+        tmp_path, engine=QueueQueryEngine([]), script=script,
+    )
+    store = RunStore(db)
+    try:
+        handle = await runtime.ask(AskRequest(question="你好", actor=ACTOR))
+        events = await drain(handle)
+        run = await store.get_run(handle.run_id)
+        assert run is not None and run.status == "completed"
+        assert "您好" in (run.answer or "")
+        # 第一次调用即分流：决策/作答轮零调用（业务零进环）。
+        counts = completer.counts()
+        assert counts.get("v2.runtime.understand") == 1
+        assert counts.get("v2.runtime.decision", 0) == 0
+        assert counts.get("v2.runtime.answer", 0) == 0
+        assert not [e for e in events if e.event == "ask"]
+        assert not [n for n in _notices(events) if n.get("type") == "run_failed"]
     finally:
         await db.dispose()

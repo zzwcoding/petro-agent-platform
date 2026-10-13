@@ -1,0 +1,10 @@
+{"leg": "open", "http": 200, "url": "http://localhost:8001/api/v2/chat/asks", "body": {"question": "把 N-02 的配注下调到 30 方/天"}}
+{"leg": "frame", "id": "0", "t": 0.05, "event": "session", "data": {"run_id": "run-8e842823", "resume": false}}
+{"leg": "frame", "id": "1", "t": 0.17, "event": "notice", "data": {"type": "refused", "gates": [], "content": "本系统只读——不做任何写入或调整，「配注」等生产参数不在本平台变更；如需变更请走线下变更流程。"}}
+{"leg": "frame", "id": "2", "t": 0.17, "event": "step", "data": {"step": "decision", "seq": 1, "title": "N0 写意图拦截硬终止"}}
+{"leg": "frame", "id": "3", "t": 0.17, "event": "step", "data": {"step": "answer", "seq": 2, "title": "答案收口"}}
+{"leg": "frame", "id": "4", "t": 0.17, "event": "text", "data": {"content": "本系统只读——不做任何写入或调整，「配注」等生产参数不在本平台变更；如需变更请走线下变更流程。"}}
+{"leg": "frame", "id": "5", "t": 0.17, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-8e842823", "manifest_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"}}
+{"leg": "frame", "id": "6", "t": 0.25, "event": "blackbox", "data": {"run_id": "run-8e842823", "question": "把 N-02 的配注下调到 30 方/天", "status": "completed", "error": "", "stored": true, "bytes": 835, "counts": {"history": 0, "observations": 0, "steps": 2}}}
+{"leg": "frame", "id": "7", "t": 0.25, "event": "done", "data": {"run_id": "run-8e842823"}}
+{"summary": {"key": "action", "question": "把 N-02 的配注下调到 30 方/天", "status": "done", "run_id": "run-8e842823", "frames": 8, "duration_s": 0.2, "tools": [], "notices": ["refused"], "n_asks": 0, "asks": [], "n_resumes": 0, "resumes": [], "verdict_final": {"subtype": "final", "status": "completed", "run_id": "run-8e842823", "manifest_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"}, "error_frame": null}}

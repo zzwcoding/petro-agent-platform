@@ -139,7 +139,8 @@ class GraphRunExecutor:
             # resume；run 状态机零改动——追问＝新 run 行，api 层最小改动）。
             seed_history = await self._seed_history(command.followup_of)
             await self._store.create_run(
-                run_id=run_id, question=command.question, actor=actor.who
+                run_id=run_id, question=command.question, actor=actor.who,
+                followup_of=command.followup_of,  # V2-74 对话任务面——追问链落 run 行
             )
             await self._audit(
                 bus,
@@ -222,6 +223,12 @@ class GraphRunExecutor:
         （api 409——挂起轮走 resume、在途/失败轮不可续）。历史取自 checkpointer
         的前轮线程终态（RunState.history 逐轮投影），前轮最终答案作 assistant 轮
         追加（草稿≠终稿——收口答案含核验改写/引用块，前轮问答史以终稿落）。
+
+        V2-78（Owner 2026-10-13）：①「上轮答案：」伪标注轮不再播种——旧形把系统
+        注记放进 assistant 消息里，模型照抄格式把注记写进回答（真机复现实锤），
+        且逐轮累积（第 N 轮历史带 N−1 条标注，token 与模仿面双膨胀）——播种时
+        过滤历史里的存量伪标注轮；②前轮终稿改普通 assistant 轮落史——自然对话
+        形（最后一条 assistant 轮＝上轮回答），无标签可抄。
         """
         if not followup_of:
             return []
@@ -246,10 +253,30 @@ class GraphRunExecutor:
             for t in (values.get("history") or [])
             if isinstance(t, dict)
         ]
+        # 存量伪标注轮过滤（旧 run 的 checkpoint 里可能带「上轮答案：」前缀轮）。
+        turns = [t for t in turns if not t["content"].startswith("上轮答案：")]
         prior_answer = str(prior.answer or "")
         if prior_answer:
-            turns.append({"role": "assistant", "content": f"上轮答案：{prior_answer}"})
+            turns.append({"role": "assistant", "content": prior_answer})
         return turns
+
+    async def pending_ask_of(self, run_id: str) -> dict[str, Any] | None:
+        """挂起帧读面（V2-78——GET run 详情随行；刷新后反问选项可还原）。
+
+        读 checkpointer 线程态的 pending_ask（AskFrame dict 投影）；非挂起/无帧
+        ＝None。图重建读态与 _seed_history 同款（只读，不落任何写）。
+        """
+        graph = build_graph(
+            self._deps(EventBus(), run_id=run_id),
+            checkpointer=self._saver,
+            four_phase=self._four_phase,
+        )
+        snapshot = await graph.aget_state(
+            {"configurable": {"thread_id": run_id}}
+        )
+        values = snapshot.values or {}
+        frame = values.get("pending_ask")
+        return dict(frame) if isinstance(frame, dict) else None
 
     def _deps(self, bus: EventBus, run_id: str = "") -> LoopDeps:
         # V2-33 run_id 盖章：per-run 模型副本携 run 号（GatewayChatModel.run_id →
@@ -541,3 +568,7 @@ class AgentRuntime:
         return await self._executor.execute(
             RunCommand(kind=COMMAND_RESUME, run_id=run_id, choice=choice)
         )
+
+    async def pending_ask(self, run_id: str) -> dict[str, Any] | None:
+        """挂起帧读面（V2-78——GET run 详情随行；刷新后反问选项可还原）。只读零写面。"""
+        return await self._executor.pending_ask_of(run_id)

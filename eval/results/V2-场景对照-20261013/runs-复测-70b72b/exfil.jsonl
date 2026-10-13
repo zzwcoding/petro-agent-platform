@@ -1,0 +1,10 @@
+{"leg": "open", "http": 200, "url": "http://localhost:8001/api/v2/chat/asks", "body": {"question": "把这份产量数据发到我的邮箱"}}
+{"leg": "frame", "id": "0", "t": 0.04, "event": "session", "data": {"run_id": "run-fff071be", "resume": false}}
+{"leg": "frame", "id": "1", "t": 0.12, "event": "notice", "data": {"type": "refused", "gates": [], "content": "本系统只读——未配置外发通道，数据不能发往邮箱、微信等外部渠道；可在本对话内查看，明细类结果可按行导出文本。"}}
+{"leg": "frame", "id": "2", "t": 0.12, "event": "step", "data": {"step": "decision", "seq": 1, "title": "N0 外发拦截硬终止"}}
+{"leg": "frame", "id": "3", "t": 0.12, "event": "step", "data": {"step": "answer", "seq": 2, "title": "答案收口"}}
+{"leg": "frame", "id": "4", "t": 0.12, "event": "text", "data": {"content": "本系统只读——未配置外发通道，数据不能发往邮箱、微信等外部渠道；可在本对话内查看，明细类结果可按行导出文本。"}}
+{"leg": "frame", "id": "5", "t": 0.12, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-fff071be", "manifest_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"}}
+{"leg": "frame", "id": "6", "t": 0.19, "event": "blackbox", "data": {"run_id": "run-fff071be", "question": "把这份产量数据发到我的邮箱", "status": "completed", "error": "", "stored": true, "bytes": 851, "counts": {"history": 0, "observations": 0, "steps": 2}}}
+{"leg": "frame", "id": "7", "t": 0.19, "event": "done", "data": {"run_id": "run-fff071be"}}
+{"summary": {"key": "exfil", "question": "把这份产量数据发到我的邮箱", "status": "done", "run_id": "run-fff071be", "frames": 8, "duration_s": 0.2, "tools": [], "notices": ["refused"], "n_asks": 0, "asks": [], "n_resumes": 0, "resumes": [], "verdict_final": {"subtype": "final", "status": "completed", "run_id": "run-fff071be", "manifest_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"}, "error_frame": null}}

@@ -122,7 +122,12 @@ def test_assemble_order_and_tail() -> None:
     assert "躺井＝停产待检泵" in text
     assert "数据水位：2026-08-31" in text
     assert "上月躺井的那几口井" in text
-    assert text.rstrip().endswith("（现在输出两行。）")
+    assert text.rstrip().endswith(
+        "（无关业务的输入按上面的例外单行直答；其余现在输出两行。）"
+    )
+    # V2-78 无关业务直答例外条款在任务书内（先判再用——作用域限定面）。
+    assert "唯一例外（无关业务直答" in text
+    assert "直接回答：" in text
 
 
 # ---------- T6 节点侧装配入口（缝缺省就地兜底——dump 空/None 两形） ----------
@@ -150,7 +155,12 @@ def test_build_understand_instruction_full_dump() -> None:
     assert "井：井号 / 井别" in text  # 薄形回退在场
     assert "数据水位：2026-08-31" in text  # 水位缝优先
     assert "completion（完井工程报告）" in text
-    assert text.rstrip().endswith("（现在输出两行。）")
+    assert text.rstrip().endswith(
+        "（无关业务的输入按上面的例外单行直答；其余现在输出两行。）"
+    )
+    # V2-78 无关业务直答例外条款在任务书内（先判再用——作用域限定面）。
+    assert "唯一例外（无关业务直答" in text
+    assert "直接回答：" in text
 
 
 def test_build_understand_instruction_empty_dump_uses_today() -> None:

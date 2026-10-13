@@ -254,12 +254,46 @@ describe('未知事件与保留收场（11 事件闭世界容错）', () => {
     expect(turn.runStatus).toBe('running')
   })
 
+  it('V2-77 理解旁白分流：text 帧 kind=understanding→进 understanding 字段不混入 answerText；无 kind＝答案正文照旧', () => {
+    let turn = newTurnV2('ask', '有效产量是多少')
+    turn = reduceV2Frame(turn, { id: '1', event: 'text', data: { content: '用户在问候寒暄。', kind: 'understanding' } })
+    turn = reduceV2Frame(turn, { id: '2', event: 'text', data: { content: '您好！请问想查什么油田数据？' } })
+    expect(turn.understanding).toBe('用户在问候寒暄。') // 旁白独立成字段——灰条渲染源
+    expect(turn.answerText).toBe('您好！请问想查什么油田数据？') // 答案面不再被旁白污染
+    // 多段旁白拼接；kind 缺省帧恒进答案（老流兼容）。
+    turn = reduceV2Frame(turn, { id: '3', event: 'text', data: { content: '（续）', kind: 'understanding' } })
+    expect(turn.understanding).toBe('用户在问候寒暄。（续）')
+    turn = reduceV2Frame(turn, { id: '4', event: 'text', data: { content: '。' } })
+    expect(turn.answerText).toBe('您好！请问想查什么油田数据？。')
+  })
+
   it('error 帧→closed=error 且 runStatus=failed', () => {
     const turn = reduceV2Frame(newTurnV2('ask', '有效产量是多少'), {
       id: '9', event: 'error', data: { code: 'chat_stream_failed', message: '流内异常' }
     })
     expect(turn.closed).toBe('error')
     expect(turn.runStatus).toBe('failed')
+  })
+})
+
+describe('引擎异常腿（run_failed notice 随行、流尾照发 done——收束语义三分之三）', () => {
+  // 帧形按合同构造（eval 素材三 jsonl 无此腿真实转录）：executor.py:380-385 except 分支
+  // 发 notice{type:'run_failed',gates:[],content:'run 执行失败：…'}，bridge.py:149-156
+  // stream.error 为空（bus finally 干净 close）→ done 帧照发——done 无 ask 帧不再判完局
+  it('done 无 ask 帧但 run_failed notice 在场 → runStatus failed（不判完局）、closed 仍 done', () => {
+    const turn = reduceV2Frames(newTurnV2('ask', '有效产量是多少'), [
+      { id: '0', event: 'session', data: { run_id: 'run-engfail', resume: false } },
+      { id: '1', event: 'notice', data: { type: 'run_failed', gates: [], content: 'run 执行失败：引擎异常' } },
+      { id: '2', event: 'done', data: { run_id: 'run-engfail' } }
+    ])
+    expect(turn.closed).toBe('done') // 流干净收束（桥面照发 done）
+    expect(turn.runStatus).toBe('failed') // run 已落库 failed——不判完局（锚推进闸同判据）
+    expect(turn.notices.map(n => n.type)).toEqual(['run_failed'])
+  })
+
+  it('正常收口腿无 run_failed notice → 既有语义不回归（completed）', () => {
+    const turn = reduceV2Frames(newTurnV2('ask', '有效产量是多少'), AMBIG_FRAMES)
+    expect(turn.runStatus).toBe('completed')
   })
 })
 

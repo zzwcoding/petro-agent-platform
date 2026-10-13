@@ -1,0 +1,18 @@
+{"leg": "open", "http": 200, "url": "http://localhost:8001/api/v2/chat/asks", "body": {"question": "帮我预测明年油价"}}
+{"leg": "frame", "id": "0", "t": 0.04, "event": "session", "data": {"run_id": "run-256ab94b", "resume": false}}
+{"leg": "frame", "id": "1", "t": 1.96, "event": "step", "data": {"step": "decision", "seq": 1, "title": "问明年油价预测。"}}
+{"leg": "frame", "id": "2", "t": 1.96, "event": "text", "data": {"content": "问明年油价预测。"}}
+{"leg": "frame", "id": "3", "t": 5.54, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清 r1：反问（「明年油价」不在本系统数据范围（油田生产数据·完）"}}
+{"leg": "frame", "id": "4", "t": 5.54, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "「明年油价」不在本系统数据范围（油田生产数据·完井／月报／动态报告；油价属外部市场指标）。请确认诉求：", "options": ["取消——油价非本系统覆盖", "改问本系统相关项（如配产量／商品量／日产油量等油田产量预测）", "改问油田内的某项成本（桶油增产成本等）"], "detail": null}, "run_id": "run-256ab94b"}}
+{"leg": "frame", "id": "5", "t": 5.58, "event": "blackbox", "data": {"run_id": "run-256ab94b", "question": "帮我预测明年油价", "status": "running", "error": "", "stored": true, "bytes": 9767, "counts": {"history": 4, "observations": 0, "steps": 2}}}
+{"leg": "frame", "id": "6", "t": 5.58, "event": "done", "data": {"run_id": "run-256ab94b"}}
+{"leg": "open", "http": 200, "url": "http://localhost:8001/api/v2/chat/runs/run-256ab94b/resume", "body": {"kind": "clarify", "choice": "取消——油价非本系统覆盖"}}
+{"leg": "frame", "id": "0", "t": 6.23, "event": "session", "data": {"run_id": "run-256ab94b", "resume": true}}
+{"leg": "frame", "id": "1", "t": 6.25, "event": "step", "data": {"step": "decision", "seq": 3, "title": "澄清回收：取消——油价非本系统覆盖"}}
+{"leg": "frame", "id": "2", "t": 11.45, "event": "notice", "data": {"type": "clarify_capped", "gates": [], "content": "连续澄清已达上限（连续 ask ≥2）——不再挂起，带已取得材料如实直答。"}}
+{"leg": "frame", "id": "3", "t": 11.45, "event": "step", "data": {"step": "answer", "seq": 4, "title": "答案收口"}}
+{"leg": "frame", "id": "4", "t": 11.45, "event": "text", "data": {"content": "（连续澄清截断——未取得可交付观察材料，如实回报，不编造。）"}}
+{"leg": "frame", "id": "5", "t": 11.45, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-256ab94b", "manifest_digest": "dd495b5e9b630493bc5cd7ea16e3b977bc6d16611dafea8281d4e2772028d679"}}
+{"leg": "frame", "id": "6", "t": 11.51, "event": "blackbox", "data": {"run_id": "run-256ab94b", "question": "帮我预测明年油价", "status": "completed", "error": "", "stored": true, "bytes": 14773, "counts": {"history": 7, "observations": 0, "steps": 4}}}
+{"leg": "frame", "id": "7", "t": 11.51, "event": "done", "data": {"run_id": "run-256ab94b"}}
+{"summary": {"key": "reject", "question": "帮我预测明年油价", "status": "done", "run_id": "run-256ab94b", "frames": 15, "duration_s": 11.5, "tools": [], "notices": ["clarify_capped"], "n_asks": 1, "asks": [{"frame": {"kind": "clarify", "prompt": "「明年油价」不在本系统数据范围（油田生产数据·完井／月报／动态报告；油价属外部市场指标）。请确认诉求：", "options": ["取消——油价非本系统覆盖", "改问本系统相关项（如配产量／商品量／日产油量等油田产量预测）", "改问油田内的某项成本（桶油增产成本等）"], "detail": null}, "run_id": "run-256ab94b"}], "n_resumes": 1, "resumes": [{"kind": "clarify", "choice": "取消——油价非本系统覆盖"}], "verdict_final": {"subtype": "final", "status": "completed", "run_id": "run-256ab94b", "manifest_digest": "dd495b5e9b630493bc5cd7ea16e3b977bc6d16611dafea8281d4e2772028d679"}, "error_frame": null}}

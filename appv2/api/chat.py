@@ -100,20 +100,30 @@ class StepView(BaseModel):
 
 
 class RunView(BaseModel):
-    """GET runs/{run_id} 响应（接口定义节合同形：{status, steps, manifest_digest}）。"""
+    """GET runs/{run_id} 响应（接口定义节合同形：{status, steps, manifest_digest}）。
+
+    pending_ask（V2-78）：挂起轮的 AskFrame dict 投影（kind/prompt/options/detail）
+    ——仅 waiting_ask 且线程态在场时非 None；刷新后反问选项由此还原。
+    """
 
     status: str
     steps: list[StepView]
     manifest_digest: str | None
+    pending_ask: dict[str, Any] | None = None
 
 
 class RunListItem(BaseModel):
-    """GET runs 列表项（V2-73 会话历史读口——最近任务面；answer 全文随行）。"""
+    """GET runs 列表项（V2-73 会话历史读口——最近任务面；answer 全文随行）。
+
+    followup_of（V2-74 对话任务面）：追问链前轮 run_id——空串＝独立新对话（链根），
+    非空＝追问轮；前端按链分组呈现「一个对话任务一行」。
+    """
 
     run_id: str
     question: str
     status: str
     answer: str | None
+    followup_of: str
     created_at: str
     updated_at: str
 
@@ -156,6 +166,7 @@ async def list_runs(
             question=r.question,
             status=r.status,
             answer=r.answer,
+            followup_of=r.followup_of,
             created_at=r.created_at.isoformat(),
             updated_at=r.updated_at.isoformat(),
         )
@@ -278,13 +289,14 @@ async def post_resume(
 
 @router.get("/runs/{run_id}")
 async def get_run(
-    run_id: str, actor: CurrentActor, store: StoreDep
+    run_id: str, actor: CurrentActor, store: StoreDep, runtime: RuntimeDep
 ) -> RunView:
-    """GET /api/v2/chat/runs/{run_id} → {status, steps, manifest_digest}
+    """GET /api/v2/chat/runs/{run_id} → {status, steps, manifest_digest, pending_ask?}
     （接口定义节第三行——run 历史/步详情回看，页面映射 A1 行）。
 
     步记录按 seq 升序直出（INV-5 存档形——Manifest 随模型调用步在场）；
-    run 不存在 404（不泄漏存在性差异）。
+    run 不存在 404（不泄漏存在性差异）。V2-78：waiting_ask 随行挂起帧
+    （pending_ask——刷新后反问选项/审批面由此还原；非挂起＝None）。
     """
     row = await store.get_run(run_id)
     if row is None:
@@ -294,7 +306,11 @@ async def get_run(
             message=f"run 不存在：{run_id}",
         )
     steps = await store.list_steps(run_id)
+    pending = (
+        await runtime.pending_ask(run_id) if row.status == "waiting_ask" else None
+    )
     return RunView(
+        pending_ask=pending,
         status=row.status,
         steps=[
             StepView(

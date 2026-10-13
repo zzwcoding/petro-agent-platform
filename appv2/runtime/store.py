@@ -35,7 +35,11 @@ _TERMINABLE: frozenset[str] = frozenset({"waiting_ask", "completed", "failed"})
 
 
 class AgentV2Run(Base):
-    """run 状态机行（行为约定 8 四态闭世界在 RunStore 写入口把守）。"""
+    """run 状态机行（行为约定 8 四态闭世界在 RunStore 写入口把守）。
+
+    followup_of（V2-74 对话任务面）：追问链前轮 run_id——非空＝本 run 是该前轮
+    的追问轮；空串＝独立新对话（链根）。列表读口随行，前端按链分组呈现对话。
+    """
 
     __tablename__ = "agent_v2_run"
 
@@ -46,6 +50,7 @@ class AgentV2Run(Base):
     answer: Mapped[str | None] = mapped_column(Text, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     manifest_digest: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    followup_of: Mapped[str] = mapped_column(String(32), default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(default=now)
     updated_at: Mapped[datetime] = mapped_column(default=now, onupdate=now)
 
@@ -127,8 +132,18 @@ class RunStore:
     def __init__(self, db: ConnectionManager) -> None:
         self._db = db
 
-    async def create_run(self, *, run_id: str, question: str, actor: str) -> AgentV2Run:
-        row = AgentV2Run(run_id=run_id, question=question, actor=actor, status="running")
+    async def create_run(
+        self,
+        *,
+        run_id: str,
+        question: str,
+        actor: str,
+        followup_of: str = "",
+    ) -> AgentV2Run:
+        row = AgentV2Run(
+            run_id=run_id, question=question, actor=actor, status="running",
+            followup_of=followup_of,
+        )
         async with self._db.session() as session:
             session.add(row)
             await session.flush()

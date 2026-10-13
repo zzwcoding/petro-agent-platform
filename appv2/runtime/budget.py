@@ -25,9 +25,10 @@ TOTAL_SECONDS_CONTRACT = 300.0
 TOOL_TIMEOUT_SECONDS_CONTRACT = 30.0
 # 澄清相位发现预算（V2-34——Owner 2026-10-09 拍板放宽原 3-4：全 run ≤10）。
 MAX_DISCOVERS_PER_RUN_CONTRACT = 10
-# 连续 ask 截断上限（V2-70 b 案——Owner 2026-10-13：2→3，与轮预算同档对齐）。
+# 连续 ask 截断上限（V2-70 b 案——Owner 2026-10-13：2→3；同日再拍板 3→6——
+# 多轮澄清场景（口径/窗界/对象逐项确认）3 次截断过早，放宽到 6 次封顶）。
 # 防环语义不变：run 生命期计数任何路径不清零（run-69517e02 实测封环面）。
-CLARIFY_ASK_CAP_CONTRACT = 3
+CLARIFY_ASK_CAP_CONTRACT = 6
 
 
 @dataclass(frozen=True, slots=True)

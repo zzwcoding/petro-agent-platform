@@ -1,0 +1,57 @@
+{"seed": {"leg": "open", "http": 200, "url": "http://localhost:8001/api/v2/chat/asks", "body": {"question": "N-02 最近怎么样"}}}
+{"seed": {"leg": "frame", "id": "0", "t": 0.04, "event": "session", "data": {"run_id": "run-6dad4db8", "resume": false}}}
+{"seed": {"leg": "frame", "id": "1", "t": 2.54, "event": "step", "data": {"step": "decision", "seq": 1, "title": "问 N-02 井最近的生产状况。"}}}
+{"seed": {"leg": "frame", "id": "2", "t": 2.54, "event": "text", "data": {"content": "问 N-02 井最近的生产状况。"}}}
+{"seed": {"leg": "frame", "id": "3", "t": 6.66, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清 r1：分解 1 子问题"}}}
+{"seed": {"leg": "frame", "id": "4", "t": 9.66, "event": "step", "data": {"step": "decision", "seq": 3, "title": "工具匹配：1 条定案"}}}
+{"seed": {"leg": "frame", "id": "5", "t": 9.82, "event": "step", "data": {"step": "decision", "seq": 4, "title": "前置条件机：s1=note"}}}
+{"seed": {"leg": "frame", "id": "6", "t": 10.0, "event": "tool", "data": {"tool": "data_query", "status": "ask", "seq": 5, "message": null}}}
+{"seed": {"leg": "frame", "id": "7", "t": 10.0, "event": "step", "data": {"step": "execute", "seq": 5, "title": "data_query：ask（子问题 s1）"}}}
+{"seed": {"leg": "frame", "id": "8", "t": 10.0, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "「最近」指哪个时间窗？① 近 3 天 ② 近 30 天 ③ 本月至今——选好后我按审定口径取数。", "options": ["近 3 天", "近 30 天", "本月至今"], "detail": null}, "run_id": "run-6dad4db8"}}}
+{"seed": {"leg": "frame", "id": "9", "t": 10.0, "event": "step", "data": {"step": "observe", "seq": 6, "title": "批量汇聚 0 支"}}}
+{"seed": {"leg": "frame", "id": "10", "t": 10.05, "event": "blackbox", "data": {"run_id": "run-6dad4db8", "question": "N-02 最近怎么样", "status": "running", "error": "", "stored": true, "bytes": 17093, "counts": {"history": 7, "observations": 0, "steps": 6}}}}
+{"seed": {"leg": "frame", "id": "11", "t": 10.05, "event": "done", "data": {"run_id": "run-6dad4db8"}}}
+{"seed": {"leg": "open", "http": 200, "url": "http://localhost:8001/api/v2/chat/runs/run-6dad4db8/resume", "body": {"kind": "clarify", "choice": "近 3 天"}}}
+{"seed": {"leg": "frame", "id": "0", "t": 10.69, "event": "session", "data": {"run_id": "run-6dad4db8", "resume": true}}}
+{"seed": {"leg": "frame", "id": "1", "t": 10.71, "event": "step", "data": {"step": "decision", "seq": 7, "title": "澄清回收：近 3 天"}}}
+{"seed": {"leg": "frame", "id": "2", "t": 14.15, "event": "step", "data": {"step": "decision", "seq": 8, "title": "澄清 r1：分解 1 子问题"}}}
+{"seed": {"leg": "frame", "id": "3", "t": 18.39, "event": "step", "data": {"step": "decision", "seq": 9, "title": "工具匹配：1 条定案"}}}
+{"seed": {"leg": "frame", "id": "4", "t": 18.55, "event": "step", "data": {"step": "decision", "seq": 10, "title": "前置条件机：s1=note"}}}
+{"seed": {"leg": "frame", "id": "5", "t": 18.79, "event": "tool", "data": {"tool": "data_query", "status": "ok", "seq": 11, "message": null}}}
+{"seed": {"leg": "frame", "id": "6", "t": 18.79, "event": "step", "data": {"step": "execute", "seq": 11, "title": "data_query：ok（子问题 s1）"}}}
+{"seed": {"leg": "frame", "id": "7", "t": 18.79, "event": "notice", "data": {"type": "freshness_block", "gates": [], "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 42 天 · 超期）——查询窗「2026-10-11～2026-10-12」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。"}}}
+{"seed": {"leg": "frame", "id": "8", "t": 18.79, "event": "observation", "data": {"index": 1, "source": "汇总层水位读面", "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 42 天 · 超期）——查询窗「2026-10-11～2026-10-12」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。", "trust": "notice"}}}
+{"seed": {"leg": "frame", "id": "9", "t": 18.79, "event": "step", "data": {"step": "observe", "seq": 12, "title": "批量汇聚 1 支"}}}
+{"seed": {"leg": "frame", "id": "10", "t": 18.79, "event": "step", "data": {"step": "verify", "seq": 13, "title": "核验：支撑 0｜改写 0｜分源 否"}}}
+{"seed": {"leg": "frame", "id": "11", "t": 18.79, "event": "verdict", "data": {"subtype": "verify", "supported": 0, "rewritten": 0, "split": false, "cited": [], "attribution": {"anchors": ["N-02"], "cross": []}}}}
+{"seed": {"leg": "frame", "id": "12", "t": 18.79, "event": "step", "data": {"step": "answer", "seq": 14, "title": "答案收口"}}}
+{"seed": {"leg": "frame", "id": "13", "t": 18.79, "event": "text", "data": {"content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 42 天 · 超期）——查询窗「2026-10-11～2026-10-12」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。（闸依据如实转答——零数值，不冒充出数。）"}}}
+{"seed": {"leg": "frame", "id": "14", "t": 18.79, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-6dad4db8", "manifest_digest": "c6d0c2bc32f9498f3a615a34792848ae05b7fa1c15cf77f3feec3a4e354ccb2f"}}}
+{"seed": {"leg": "frame", "id": "15", "t": 18.87, "event": "blackbox", "data": {"run_id": "run-6dad4db8", "question": "N-02 最近怎么样", "status": "completed", "error": "", "stored": true, "bytes": 29655, "counts": {"history": 13, "observations": 1, "steps": 14}}}}
+{"seed": {"leg": "frame", "id": "16", "t": 18.87, "event": "done", "data": {"run_id": "run-6dad4db8"}}}
+{"seed_done": {"run_id": "run-6dad4db8", "status": "done", "asks": 1, "notices": ["freshness_block"]}}
+{"leg": "open", "http": 200, "url": "http://localhost:8001/api/v2/chat/asks", "body": {"question": "那口井最近有递减风险吗？", "followup_run_id": "run-6dad4db8"}}
+{"leg": "frame", "id": "0", "t": 18.95, "event": "session", "data": {"run_id": "run-c47a112d", "resume": false}}
+{"leg": "frame", "id": "1", "t": 21.86, "event": "step", "data": {"step": "decision", "seq": 1, "title": "问「那口井」（指代 N-02 井）最近是否有递减风险。"}}
+{"leg": "frame", "id": "2", "t": 21.86, "event": "text", "data": {"content": "问「那口井」（指代 N-02 井）最近是否有递减风险。"}}
+{"leg": "frame", "id": "3", "t": 27.82, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清钻取 ×1（faq_lookup）"}}
+{"leg": "frame", "id": "4", "t": 27.91, "event": "tool", "data": {"tool": "faq_lookup", "status": "ok", "seq": 3, "message": null}}
+{"leg": "frame", "id": "5", "t": 27.91, "event": "step", "data": {"step": "discover", "seq": 3, "title": "faq_lookup：ok"}}
+{"leg": "frame", "id": "6", "t": 27.92, "event": "step", "data": {"step": "observe", "seq": 4, "title": "观察回流 1 支"}}
+{"leg": "frame", "id": "7", "t": 27.92, "event": "notice", "data": {"type": "no_hit", "gates": [], "content": "FAQ 库无命中（N-02 井最近有递减风险吗（结合月报里的预警与递减分析））——现成问答库未收该问句，请按台账/检索继续"}}
+{"leg": "frame", "id": "8", "t": 27.92, "event": "observation", "data": {"index": 1, "source": "faq_* 读面", "content": "FAQ 库无命中（N-02 井最近有递减风险吗（结合月报里的预警与递减分析））——现成问答库未收该问句，请按台账/检索继续", "trust": "notice"}}
+{"leg": "frame", "id": "9", "t": 31.11, "event": "step", "data": {"step": "decision", "seq": 5, "title": "澄清钻取 ×1（semantic_query）"}}
+{"leg": "frame", "id": "10", "t": 31.3, "event": "tool", "data": {"tool": "semantic_query", "status": "ok", "seq": 6, "message": null}}
+{"leg": "frame", "id": "11", "t": 31.3, "event": "step", "data": {"step": "discover", "seq": 6, "title": "semantic_query：ok"}}
+{"leg": "frame", "id": "12", "t": 31.3, "event": "step", "data": {"step": "observe", "seq": 7, "title": "观察回流 1 支"}}
+{"leg": "frame", "id": "13", "t": 31.31, "event": "notice", "data": {"type": "no_hit", "gates": [], "content": "台账未命中：递减风险预警在月报里的呈现形式与判据阈值（精确名与别名归一均未命中——请核对要素名）"}}
+{"leg": "frame", "id": "14", "t": 31.31, "event": "observation", "data": {"index": 2, "source": "sem_* 台账读面", "content": "台账未命中：递减风险预警在月报里的呈现形式与判据阈值（精确名与别名归一均未命中——请核对要素名）", "trust": "notice"}}
+{"leg": "frame", "id": "15", "t": 33.96, "event": "step", "data": {"step": "decision", "seq": 8, "title": "澄清定稿：材料足够——直答收口", "emission": {"action": "finalize"}}}
+{"leg": "frame", "id": "16", "t": 33.97, "event": "step", "data": {"step": "verify", "seq": 9, "title": "核验：支撑 0｜改写 0｜分源 否"}}
+{"leg": "frame", "id": "17", "t": 33.97, "event": "verdict", "data": {"subtype": "verify", "supported": 0, "rewritten": 0, "split": false, "cited": [], "attribution": {"anchors": [], "cross": []}}}
+{"leg": "frame", "id": "18", "t": 33.97, "event": "step", "data": {"step": "answer", "seq": 10, "title": "答案收口"}}
+{"leg": "frame", "id": "19", "t": 33.97, "event": "text", "data": {"content": "FAQ 库无命中（N-02 井最近有递减风险吗（结合月报里的预警与递减分析））——现成问答库未收该问句，请按台账/检索继续；台账未命中：递减风险预警在月报里的呈现形式与判据阈值（精确名与别名归一均未命中——请核对要素名）（闸依据如实转答——零数值，不冒充出数。）"}}
+{"leg": "frame", "id": "20", "t": 33.97, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-c47a112d", "manifest_digest": "9542850e8b3937bba0ba38819198204c7487a6188d0c6924e436bf64c258cfe2"}}
+{"leg": "frame", "id": "21", "t": 34.05, "event": "blackbox", "data": {"run_id": "run-c47a112d", "question": "那口井最近有递减风险吗？", "status": "completed", "error": "", "stored": true, "bytes": 43427, "counts": {"history": 24, "observations": 2, "steps": 10}}}
+{"leg": "frame", "id": "22", "t": 34.05, "event": "done", "data": {"run_id": "run-c47a112d"}}
+{"summary": {"key": "context", "question": "那口井最近有递减风险吗？", "status": "done", "run_id": "run-c47a112d", "frames": 23, "duration_s": 34.0, "tools": ["faq_lookup", "semantic_query"], "notices": ["no_hit", "no_hit"], "n_asks": 0, "asks": [], "n_resumes": 0, "resumes": [], "verdict_final": {"subtype": "final", "status": "completed", "run_id": "run-c47a112d", "manifest_digest": "9542850e8b3937bba0ba38819198204c7487a6188d0c6924e436bf64c258cfe2"}, "error_frame": null}}

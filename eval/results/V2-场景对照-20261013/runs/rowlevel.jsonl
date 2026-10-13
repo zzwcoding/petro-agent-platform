@@ -1,0 +1,21 @@
+{"leg": "open", "http": 200, "url": "http://localhost:8001/api/v2/chat/asks", "body": {"question": "全油田所有井的产量给我看看"}}
+{"leg": "frame", "id": "0", "t": 0.05, "event": "session", "data": {"run_id": "run-66e1379b", "resume": false}}
+{"leg": "frame", "id": "1", "t": 1.68, "event": "step", "data": {"step": "decision", "seq": 1, "title": "问全油田所有井的产量情况。"}}
+{"leg": "frame", "id": "2", "t": 1.68, "event": "text", "data": {"content": "问全油田所有井的产量情况。"}}
+{"leg": "frame", "id": "3", "t": 3.17, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清 r0 被拒：零探查观察禁定稿", "emission": {"action": "finalize"}}}
+{"leg": "frame", "id": "4", "t": 5.68, "event": "step", "data": {"step": "decision", "seq": 3, "title": "澄清 r1：分解 1 子问题"}}
+{"leg": "frame", "id": "5", "t": 7.67, "event": "step", "data": {"step": "decision", "seq": 4, "title": "工具匹配：1 条定案"}}
+{"leg": "frame", "id": "6", "t": 7.85, "event": "step", "data": {"step": "decision", "seq": 5, "title": "前置条件机：s1=note"}}
+{"leg": "frame", "id": "7", "t": 8.11, "event": "tool", "data": {"tool": "data_query", "status": "ok", "seq": 6, "message": null}}
+{"leg": "frame", "id": "8", "t": 8.11, "event": "step", "data": {"step": "execute", "seq": 6, "title": "data_query：ok（子问题 s1）"}}
+{"leg": "frame", "id": "9", "t": 8.11, "event": "notice", "data": {"type": "freshness_block", "gates": [], "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 42 天 · 超期）——查询窗「2026-09-13～2026-10-12」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。"}}
+{"leg": "frame", "id": "10", "t": 8.11, "event": "observation", "data": {"index": 1, "source": "汇总层水位读面", "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 42 天 · 超期）——查询窗「2026-09-13～2026-10-12」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。", "trust": "notice"}}
+{"leg": "frame", "id": "11", "t": 8.11, "event": "step", "data": {"step": "observe", "seq": 7, "title": "批量汇聚 1 支"}}
+{"leg": "frame", "id": "12", "t": 8.11, "event": "step", "data": {"step": "verify", "seq": 8, "title": "核验：支撑 0｜改写 0｜分源 否"}}
+{"leg": "frame", "id": "13", "t": 8.11, "event": "verdict", "data": {"subtype": "verify", "supported": 0, "rewritten": 0, "split": false, "cited": [], "attribution": {"anchors": [], "cross": []}}}
+{"leg": "frame", "id": "14", "t": 8.12, "event": "step", "data": {"step": "answer", "seq": 9, "title": "答案收口"}}
+{"leg": "frame", "id": "15", "t": 8.12, "event": "text", "data": {"content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 42 天 · 超期）——查询窗「2026-09-13～2026-10-12」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。（闸依据如实转答——零数值，不冒充出数。）"}}
+{"leg": "frame", "id": "16", "t": 8.12, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-66e1379b", "manifest_digest": "7cb1e773da9130c952e1c747eafe5e519e5ed9044380340378b1ea898b7a8462"}}
+{"leg": "frame", "id": "17", "t": 8.19, "event": "blackbox", "data": {"run_id": "run-66e1379b", "question": "全油田所有井的产量给我看看", "status": "completed", "error": "", "stored": true, "bytes": 22416, "counts": {"history": 9, "observations": 1, "steps": 9}}}
+{"leg": "frame", "id": "18", "t": 8.19, "event": "done", "data": {"run_id": "run-66e1379b"}}
+{"summary": {"key": "rowlevel", "question": "全油田所有井的产量给我看看", "status": "done", "run_id": "run-66e1379b", "frames": 19, "duration_s": 8.2, "tools": ["data_query"], "notices": ["freshness_block"], "n_asks": 0, "asks": [], "n_resumes": 0, "resumes": [], "verdict_final": {"subtype": "final", "status": "completed", "run_id": "run-66e1379b", "manifest_digest": "7cb1e773da9130c952e1c747eafe5e519e5ed9044380340378b1ea898b7a8462"}, "error_frame": null}}

@@ -313,7 +313,10 @@ def test_manifest_present_each_call(env: Any) -> None:
     resp = client.get(f"/api/v2/chat/runs/{run_id}", headers=ACTOR)
     assert resp.status_code == 200
     body = resp.json()
-    assert set(body) == {"status", "steps", "manifest_digest"}  # 接口定义节合同形
+    assert set(body) == {
+        "status", "steps", "manifest_digest", "pending_ask",
+    }  # 接口定义节合同形（V2-78 加 pending_ask——非挂起 run 恒 None）
+    assert body["pending_ask"] is None  # completed run 无挂起帧
     assert body["status"] == "completed"
     assert body["manifest_digest"] == final[-1]["manifest_digest"]
     with_manifest = [s for s in body["steps"] if s["manifest"] is not None]
@@ -350,6 +353,11 @@ def test_ask_suspend_resume(env_clarify: Any) -> None:
     status = client.get(f"/api/v2/chat/runs/{run_id}", headers=ACTOR)
     assert status.status_code == 200
     assert status.json()["status"] == "waiting_ask"
+    # V2-78 挂起帧随行：pending_ask 与流内 ask 帧同形（刷新还原面）。
+    pending = status.json()["pending_ask"]
+    assert pending is not None and pending["kind"] == "clarify"
+    assert pending["prompt"] == frame["prompt"]
+    assert pending["options"] == list(ASKBACK_TIME_CHOICES)
 
     resumed = client.post(
         f"/api/v2/chat/runs/{run_id}/resume",

@@ -167,12 +167,13 @@ def test_list_contains_completed_run(env: Any) -> None:
     assert len(items) == 1
     item = items[0]
     assert set(item) == {
-        "run_id", "question", "status", "answer", "created_at", "updated_at",
-    }  # RunListItem 合同形（接口定义节）
+        "run_id", "question", "status", "answer", "followup_of", "created_at", "updated_at",
+    }  # RunListItem 合同形（接口定义节——V2-74 加 followup_of 追问链列）
     assert item["run_id"] == run_id
     assert item["question"] == HAPPY_QUESTION  # question 逐字
     assert item["status"] == "completed"
     assert item["answer"] and item["answer"].strip()  # answer 非空（全文随行）
+    assert item["followup_of"] == ""  # 独立新问＝链根（空串）
     for stamp in (item["created_at"], item["updated_at"]):
         assert isinstance(stamp, str)
         datetime.fromisoformat(stamp)  # ISO 形可解析
@@ -213,3 +214,28 @@ def test_limit_one_returns_newest_and_large_limit_clamps(env: Any) -> None:
     large = client.get("/api/v2/chat/runs", params={"limit": 500}, headers=ACTOR)
     assert large.status_code == 200  # 越界静默夹取——不 400
     assert len(large.json()) == 2  # 夹到上限内全量仍在
+
+
+# ---------- 追问链：followup_of 落 run 行并随列表读口带出（V2-74 对话任务面） ----------
+
+
+def test_followup_run_carries_followup_of(env: Any) -> None:
+    """追问 run（question＋followup_run_id）→ 列表项 followup_of＝前轮 run_id；
+    前轮（链根）followup_of＝空串——前端按此把两 run 归入同一对话任务。"""
+    client, _db = env
+    root_frames = _post_ask(client, "链根问：9 月上旬日产油量")
+    root_id = root_frames[0][1]["run_id"]
+
+    resp = client.post(
+        "/api/v2/chat/asks",
+        json={"question": "追问：那中旬呢？", "followup_run_id": root_id},
+        headers=ACTOR,
+    )
+    assert resp.status_code == 200
+    follow_frames = _parse_frames(resp.text)
+    follow_id = follow_frames[0][1]["run_id"]
+
+    items = client.get("/api/v2/chat/runs", headers=ACTOR).json()
+    by_id = {i["run_id"]: i for i in items}
+    assert by_id[follow_id]["followup_of"] == root_id  # 追问轮指向链根
+    assert by_id[root_id]["followup_of"] == ""  # 链根＝空串

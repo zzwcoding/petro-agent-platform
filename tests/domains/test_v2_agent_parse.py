@@ -21,7 +21,11 @@ from appv2.runtime import (
     RunEvent,
     RunStore,
 )
-from appv2.runtime.graph import extract_plan_json, parse_understanding
+from appv2.runtime.graph import (
+    extract_plan_json,
+    parse_direct_reply,
+    parse_understanding,
+)
 from appv2.tools import FakeQueryEngine
 from tests.domains.test_v2_agent_loop import ACTOR, drain, make_runtime
 
@@ -168,3 +172,23 @@ async def test_true_illegal_output_walks_refusal_chain(tmp_path: Path) -> None:
         }
     finally:
         await db.dispose()
+
+
+# ---------- V2-78 无关业务直答形（「直接回答：」单行——理解步第一次调用分流） ----------
+
+
+def test_parse_direct_reply_present() -> None:
+    """「直接回答：」行→取冒号后内容；理解/指标候选两行不解析（直答形独占）。"""
+    assert parse_direct_reply("直接回答：您好！请问想查什么油田数据？") == (
+        "您好！请问想查什么油田数据？"
+    )
+
+
+def test_parse_direct_reply_absent_and_multiline() -> None:
+    """无该行＝空串（两行式解析面零变化）；多行直答逐行拼接；行首前缀才触发。"""
+    assert parse_direct_reply("理解：问日产油量。\n指标候选：日产油量") == ""
+    assert parse_direct_reply(
+        "直接回答：您好！\n直接回答：请问想查什么油田数据？"
+    ) == "您好！\n请问想查什么油田数据？"
+    # 正文提及「直接回答」字样但不在行首——不误触。
+    assert parse_direct_reply("理解：用户想让我直接回答问题。") == ""
