@@ -39,7 +39,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Alert, Badge, Button, Card, Collapse, Descriptions, Drawer, Empty, Input, List,
-  Space, Spin, Tag, Tooltip
+  Modal, Space, Spin, Tag, Tooltip
 } from 'antd'
 import { ApartmentOutlined, SendOutlined } from '@ant-design/icons'
 import { ApiError, errText } from '../api/client.js'
@@ -48,6 +48,21 @@ import {
 } from '../api/chat.js'
 // UI-00 共享件（方案-阶段1交互优化 §3.3）——helpIcon/dim 唯一定义点（T16 页内同构副本删除）
 import { helpIcon, dim } from '../components/helpIcon.jsx'
+// 决策树（自原型 pages/A1Chat 搬入——业务执行全景树静态 viz＋场景 kw 词面匹配）
+import DecisionTree from '../pages/DecisionTree.jsx'
+import { SCENARIOS } from '../pages/A1Chat.jsx'
+
+// 场景 kw 词面匹配（原型 route() 同尺——最低 pri 优先；无命中＝null 不高亮）
+const TREE_BY_KEY = Object.fromEntries(SCENARIOS.map(s => [s.key, s]))
+function routeOf(text) {
+  const t = (text || '').toLowerCase()
+  let best = null, bestPri = Infinity
+  for (const s of SCENARIOS) {
+    if (!s.kw.some(k => t.includes(k.toLowerCase()))) continue
+    if (s.pri < bestPri) { best = s; bestPri = s.pri }
+  }
+  return best ? best.key : null
+}
 
 // ---------- 帧归约（纯函数——单测直喂帧序列，不经渲染） ----------
 
@@ -331,6 +346,8 @@ export default function A1Landing() {
   const [serverSessions, setServerSessions] = useState({ items: [], available: false })
   const [viewing, setViewing] = useState(null) // 历史回放（端点 3）：{sessionId,title,loading,error,messages}
   const [drawer, setDrawer] = useState(null) // citation 抽屉
+  const [treeOpen, setTreeOpen] = useState(false) // 决策树全屏抽屉（原型同款）
+  const [active, setActive] = useState(null) // 当前命中场景 key（routeOf 词面匹配）
   const [rejectReason, setRejectReason] = useState('')
   const [rejectReasonError, setRejectReasonError] = useState(false) // T14：空理由驳回反馈（页面级，随 rejectReason 共享）
   const busyRef = useRef(false)
@@ -442,6 +459,7 @@ export default function A1Landing() {
     if (!question || busyRef.current) return
     setAtOpen(false)
     setViewing(null) // 新提问＝新会话（回放中提问即退出回放——诚实口径）
+    setActive(routeOf(question))
     const anchors = [...question.matchAll(/@([^\s@]+)/g)].map(m => m[1])
     turnRef.current = newTurn('ask', question)
     setItems(prev => [...prev,
@@ -674,6 +692,7 @@ export default function A1Landing() {
 
       {/* ── 右栏 · 思考过程树（node 帧流式推进——「长出来的」） ── */}
       <Card title={<>思考过程 <ApartmentOutlined style={{ color: '#8a94a3' }} /></>} size="small"
+        extra={<Button size="small" icon={<ApartmentOutlined />} onClick={() => setTreeOpen(true)}>决策树</Button>}
         style={{ width: 330, flexShrink: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
         styles={{ body: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } }}>
         <div ref={treeRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
@@ -685,6 +704,27 @@ export default function A1Landing() {
           {tree && <ThinkingTree turn={tree} />}
         </div>
       </Card>
+
+      {/* ── 决策树（自原型 A1Chat 搬入——业务执行全景树；active＝问句 kw 命中场景） ── */}
+      <Modal footer={null} width="100%" open={treeOpen} onCancel={() => setTreeOpen(false)}
+        style={{ top: 0, maxWidth: '100vw', height: '100vh', paddingBottom: 0 }}
+        styles={{ body: { height: 'calc(100vh - 110px)', overflow: 'auto' } }}
+        title={(
+          <span>
+            决策树
+            {(() => {
+              const sc = active ? TREE_BY_KEY[active] : null
+              return sc
+                ? <Tag style={{ marginLeft: 8 }} color={sc.tag.color}>当前命中：{sc.hist}</Tag>
+                : <Tag style={{ marginLeft: 8 }}>当前无命中场景（输入问句后按 kw 词面高亮路径）</Tag>
+            })()}
+          </span>
+        )}
+      >
+        <div style={{ overflowX: 'auto' }}>
+          <DecisionTree byKey={TREE_BY_KEY} active={active} />
+        </div>
+      </Modal>
 
       {/* ── 出处抽屉（citation 点击 → 出处三件套＋回跳链路） ── */}
       <Drawer title="出处" placement="right" width={480} open={!!drawer} onClose={() => setDrawer(null)}>

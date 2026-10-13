@@ -103,7 +103,7 @@ const ART = {
   audio: ['《上月产量解读 · 语音.mp3》', '朗读解读音频 · 下载直链：已签发，小时级有效（上限 7 天）']
 }
 
-const SCENARIOS = [
+export const SCENARIOS = [
   {
     key: 'data-fix', group: '问数据 · 状态机', pri: 95, kw: ['最高的', 'top3'],
     tag: { color: 'blue', label: '数据 · 状态机' },
