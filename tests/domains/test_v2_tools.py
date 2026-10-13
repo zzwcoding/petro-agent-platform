@@ -184,6 +184,7 @@ async def test_descriptors_readonly() -> None:
         "window_label",
         "is_default",
         "external_tables",
+        "aggregate",  # V2-71 汇总型（聚合下推——整窗 SUM 库内算）
     }
     # family_hints 值域＝四族闭世界（retrieval FAMILY_ALL 透传，不造第二份）。
     assert schema_of[DOC_RETRIEVE]["properties"]["family_hints"]["items"]["enum"] == list(

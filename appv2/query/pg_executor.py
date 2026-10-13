@@ -101,6 +101,10 @@ def _measure_column(plan: SqlPlan) -> Any:
 
 def _result_columns(plan: SqlPlan) -> tuple[QueryResultColumn, ...]:
     """答案表卡列序（dataIndex, title——dim_well 区块列随行；排名型合计列）。"""
+    if plan.aggregate:
+        # V2-71 汇总型答案表卡：单合计列（batch_id 剥离面随 _execute 统一）。
+        total = f"{plan.metric_slot}合计（{plan.unit}）"
+        return ((total, total),)
     if plan.ranking:
         total = f"{plan.metric_slot}合计（{plan.unit}）"
         return (
@@ -164,6 +168,17 @@ class PgQueryExecutor:
             _FCT_DAILY_METERING.c.prod_date >= plan.window.start,
             _FCT_DAILY_METERING.c.prod_date < plan.window.end,
         )
+        if plan.aggregate:
+            # V2-71 汇总型（Owner 拍聚合下推 2026-10-13）：整窗 SUM 库内算——
+            # 单行返回，无 GROUP BY 无 LIMIT（原始明细 50 上限不动）。
+            total = func.sum(measure).label(f"{plan.metric_slot}合计（{plan.unit}）")
+            batch_max = func.max(_FCT_DAILY_METERING.c.batch_id).label("batch_id")
+            return (
+                select(total, batch_max)
+                .join(*joins[0])
+                .join(*joins[1])
+                .where(*bounds)
+            )
         if plan.ranking:
             total = func.sum(measure).label(f"{plan.metric_slot}合计（{plan.unit}）")
             batch_max = func.max(_FCT_DAILY_METERING.c.batch_id).label("batch_id")

@@ -39,6 +39,7 @@ from decimal import Decimal
 from appv2.knowledge import InMemoryKnowledgeStore, question_array_snapshot
 from appv2.query import (
     ASKBACK_TIME_CHOICES,
+    DIRECTION_DESC,
     LINEAGE_KEY_CLOSING,
     LINEAGE_KEY_FILTER,
     LINEAGE_KEY_WATERMARK,
@@ -49,11 +50,25 @@ from appv2.query import (
     OUTCOME_ROWS,
     OUTCOME_UNBOUND_DEGRADE,
     CsvSnapshotExecutor,
+    PgQueryExecutor,
     QueryEngine,
+    QueryOutcome,
     QueryPlan,
+    QueryResult,
+    SqlPlan,
+    TimeWindow,
     WatermarkFace,
     build_query_plan,
     resolve_askback_window,
+)
+from appv2.tools import (
+    CATEGORY_REFUSED,
+    DATA_QUERY,
+    FakeKnowledgeStore,
+    FakeQueryEngine,
+    FakeRetrievalEngine,
+    ToolContext,
+    ToolRegistry,
 )
 
 # 执行日钉 2026-10-08（题册窗口锚定表执行月；水位 2026-08-31＝题册版本绑定）。
@@ -429,3 +444,196 @@ def test_readonly_inv2() -> None:
     # 执行面无写方法（INV-2——只读面零写出口）。
     public = {name for name in vars(CsvSnapshotExecutor) if not name.startswith("_")}
     assert public == {"execute", "records"}
+
+
+# ---------- V2-71：聚合下推数据库（汇总型 aggregate——整窗 SUM 库内算单行） ----------
+
+
+class _V271AggregateSnapshotExecutor(CsvSnapshotExecutor):
+    """V2-71 端到端缝替身——CsvSnapshotExecutor 补汇总形投影（不改既有假执行器）。
+
+    pg_executor 汇总分支（整窗 SUM 单行、无 GROUP BY 无 LIMIT）在题册快照上的
+    对位：窗内行计量列求和（None 跳过——排名形同口径），单行单合计列返回；
+    明细/排名两形照旧走 super() 原语义（零漂移）。last_plan＝执行缝入参观测面
+    （引擎 SqlPlan 装配透传 aggregate 的断言依据）。
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.last_plan: SqlPlan | None = None
+
+    def execute(self, plan: SqlPlan) -> QueryResult:
+        self.last_plan = plan
+        if not plan.aggregate:
+            return super().execute(plan)
+        values = [
+            getattr(row, plan.measure_column)
+            for row in self.records()
+            if plan.window.start <= row.prod_date < plan.window.end
+        ]
+        total = sum((value for value in values if value is not None), Decimal("0"))
+        total_col = f"{plan.metric_slot}合计（{plan.unit}）"
+        return QueryResult(columns=((total_col, total_col),), rows=({total_col: total},))
+
+
+def _v271_sql_plan(*, ranking: bool, aggregate: bool) -> SqlPlan:
+    """三形同参数 SQL 计划（同窗/同 LIMIT 收口值——形状隔离对照面）。"""
+    return SqlPlan(
+        metric_slot="日产油量",
+        measure_column="oil_output",
+        unit="吨",
+        window=TimeWindow(start=date(2025, 9, 1), end=date(2026, 1, 1), label="去年"),
+        limit_effective=50,
+        ranking=ranking,
+        direction=DIRECTION_DESC,
+        aggregate=aggregate,
+        actor="dev-u1",
+    )
+
+
+def _v271_compiled_sql(plan: SqlPlan) -> str:
+    """SqlPlan → 编译 SQL 文本（PgQueryExecutor._statement 测试观测面——零连库）。"""
+    statement = PgQueryExecutor(())._statement(plan)
+    return str(statement.compile(compile_kwargs={"literal_binds": True})).upper()
+
+
+def test_v271_query_plan_aggregate_flag_and_zero_drift_default() -> None:
+    """构造面：aggregate=True 合法；缺省 False——既有计划装配零漂移锚。"""
+    plan = QueryPlan(
+        metric_slot="日产油量",
+        window_start=date(2025, 9, 1),
+        window_end=date(2026, 1, 1),
+        limit=None,
+        ranking=False,
+        aggregate=True,
+    )
+    assert plan.aggregate is True
+    # 不传 aggregate 的计划（既有明细/排名形）缺省 False——零漂移。
+    bare = QueryPlan(
+        metric_slot="日产油量",
+        window_start=date(2025, 9, 1),
+        window_end=date(2026, 1, 1),
+        limit=None,
+        ranking=False,
+    )
+    assert bare.aggregate is False
+    # 既有装配链（build_query_plan）不产汇总形——明细问句/排名问句照旧。
+    assert _plan("日产油量", "去年各井每天的日产油量是多少？").aggregate is False
+    assert _plan("日产油量", "去年日产油量最高的井是哪口？").aggregate is False
+
+
+def test_v271_engine_aggregate_single_row_window_total() -> None:
+    """引擎端到端：aggregate=True 计划 → SqlPlan 透传 → 整窗合计单行返回。
+
+    期望值＝fixture 数据源（题册绑定 CSV 快照）去年窗 [2025-09-01, 2026-01-01)
+    全量 10,492 行 oil_output 逐行求和＝312100.16（题册口径 ±0.1）——
+    明细 50 截断/排名分组形在此都不可能出现该数值（单行整窗合计专属）。
+    """
+    executor = _V271AggregateSnapshotExecutor()
+    engine = QueryEngine(
+        knowledge=InMemoryKnowledgeStore(question_array_snapshot(), today=TODAY),
+        executor=executor,
+        waterline=lambda: WatermarkFace(
+            data_date=WATERMARK, promise="T-1", tag="落后 38 天（超期）",
+        ),
+        today=lambda: TODAY,
+    )
+    plan = QueryPlan(
+        metric_slot="日产油量",
+        window_start=date(2025, 9, 1),
+        window_end=date(2026, 1, 1),
+        limit=None,
+        ranking=False,
+        aggregate=True,
+    )
+    outcome = engine.run(plan)
+    assert outcome.kind == OUTCOME_ROWS
+    # 引擎装配透传：汇总形进执行缝（ranking=False 纯汇总——不混排名形）。
+    assert executor.last_plan is not None
+    assert executor.last_plan.aggregate is True
+    assert executor.last_plan.ranking is False
+    # 答案表卡只有一列「{指标}合计（{单位}）」，恰单行。
+    assert outcome.columns == ((OIL_TOTAL_COL, OIL_TOTAL_COL),)
+    assert outcome.rows is not None
+    assert len(outcome.rows) == 1
+    assert set(outcome.rows[0]) == {OIL_TOTAL_COL}
+    # 数值＝fixture 数据源去年窗合计（既有数据源现算＋题册钉值双锚）。
+    window_rows = [
+        row for row in executor.records()
+        if date(2025, 9, 1) <= row.prod_date < date(2026, 1, 1)
+    ]
+    expected = sum(
+        (row.oil_output for row in window_rows if row.oil_output is not None),
+        Decimal("0"),
+    )
+    assert outcome.rows[0][OIL_TOTAL_COL] == expected
+    _assert_pinned(outcome.rows[0][OIL_TOTAL_COL], "312100.16")
+    # 窗全在水位前——零改绑注记；血缘照常落（口径/窗口/水位注记不丢）。
+    assert outcome.rebind_notice is None
+    assert outcome.lineage is not None
+    assert any(line.key == LINEAGE_KEY_WATERMARK for line in outcome.lineage)
+    filter_line = next(line for line in outcome.lineage if line.key == LINEAGE_KEY_FILTER)
+    assert "2025-09-01" in filter_line.value
+
+
+def test_v271_statement_aggregate_sum_without_limit() -> None:
+    """SQL 形状：汇总形 → SUM 在场、无 GROUP BY 无 LIMIT（明细 50 上限不挡库内算）。"""
+    sql = _v271_compiled_sql(_v271_sql_plan(ranking=False, aggregate=True))
+    assert "SUM(" in sql
+    assert "GROUP BY" not in sql
+    assert "LIMIT" not in sql
+    # 窗界半开区间下推在场（[2025-09-01, 2026-01-01)）。
+    assert "2025-09-01" in sql
+    assert "2026-01-01" in sql
+
+
+def test_v271_statement_ranking_detail_shapes_unchanged() -> None:
+    """零漂移锚：同参数 ranking/明细形 SQL 与改前一致（LIMIT 在场、各自形状不变）。"""
+    ranking_sql = _v271_compiled_sql(_v271_sql_plan(ranking=True, aggregate=False))
+    assert "SUM(" in ranking_sql
+    assert "GROUP BY" in ranking_sql
+    assert "ORDER BY" in ranking_sql
+    assert "DESC" in ranking_sql
+    assert "LIMIT 50" in ranking_sql
+    detail_sql = _v271_compiled_sql(_v271_sql_plan(ranking=False, aggregate=False))
+    assert "SUM(" not in detail_sql
+    assert "GROUP BY" not in detail_sql
+    assert "ORDER BY" in detail_sql
+    assert "LIMIT 50" in detail_sql
+
+
+async def test_v271_data_query_whitelist_accepts_aggregate_draft() -> None:
+    """白名单：data_query args 校验放行 plan_draft.aggregate=true（V2-71 发射键）。
+
+    schema 拒＝bad_args 引擎零触——本钉走通到引擎（validate_calls==1）且计划
+    带 aggregate=True，即键在闭世界白名单并透传装配（_plan_from_draft）。
+    """
+    engine = FakeQueryEngine(outcome=QueryOutcome.refuse(reason="V2-71 白名单钉测罐头"))
+    registry = ToolRegistry(
+        knowledge=FakeKnowledgeStore(), query=engine, retrieval=FakeRetrievalEngine(),
+    )
+    result = await registry.call(
+        DATA_QUERY,
+        {
+            "plan_draft": {
+                "metric_slot": "日产油量",
+                "ranking": False,
+                "aggregate": True,
+                "window_start": "2025-09-01",
+                "window_end": "2026-01-01",
+            }
+        },
+        ToolContext(actor="dev-u1", budget=4),
+    )
+    # schema 放行且草案透传：引擎收到 aggregate=True 计划。
+    assert engine.validate_calls == 1
+    assert engine.plans
+    assert engine.plans[0].aggregate is True
+    assert engine.plans[0].ranking is False
+    # 罐头 refuse 原样回（非 bad_args——schema/装配两闸都没拦）。
+    assert result.error is not None
+    assert result.error.category == CATEGORY_REFUSED
+    # schema 面自钉：plan_draft.properties 增 aggregate（boolean 类型）。
+    descriptor = next(d for d in registry.descriptors() if d.name == DATA_QUERY)
+    plan_props = descriptor.args_schema["properties"]["plan_draft"]["properties"]
+    assert plan_props["aggregate"]["type"] == "boolean"

@@ -1,6 +1,6 @@
 # V2-71 · 聚合下推数据库（求和/排名题在库内算完只回少量行）
 
-状态: 待施工（2026-10-13 Owner 裁决改向——见下）｜ 优先级: P1 ｜ 来源: 场景对照报告瑕疵③（data-clean/bigresult）
+状态: 已完工（2026-10-13——代码/白名单/指南/钉测全绿；真机路由随机性见尾注）｜ 优先级: P1 ｜ 来源: 场景对照报告瑕疵③（data-clean/bigresult）
 
 ## Owner 裁决（2026-10-13）
 
@@ -50,3 +50,19 @@
 
 验收钉测：聚合计划→单行 SUM＋无 LIMIT 约束；明细/ranking 零漂移；
 真机验收＝data-clean 题（渤南本月产油量→全月合计可达）。
+
+## 完工记录（2026-10-13）
+
+- 六处改动：QueryPlan/SqlPlan 增 `aggregate: bool = False`；engine SqlPlan 装配透传；
+  pg_executor `_statement` 汇总分支（整窗 SUM＋batch MAX 随行，无 GROUP BY 无 LIMIT）
+  ＋`_result_columns` 单合计列；handlers `_DATA_SCHEMA.plan_draft.properties` 放行
+  `aggregate`（boolean）＋`_plan_from_draft` 透传；guide.py TOOLMATCH_CONTRACT 计划键
+  教学句（求和/合计/总量类 true——数据库整窗 SUM 只回一行合计）。
+- 钉测（子代理实施，tests/domains/test_v2_query.py 追加 5 钉）：构造/缺省零漂移锚、
+  引擎端到端单行合计（钉值 312100.16±0.1）、SQL 形状（SUM 在场/无 GROUP BY/无 LIMIT）、
+  ranking/detail 形状不变锚、白名单放行；test_v2_tools.py 陈旧九键钉补 aggregate。
+- 全量 1713 过零跌；ruff/mypy/lint-imports 绿。
+- 真机首抽注记：data-clean 题（渤南本月产油量）本轮模型路由至知识链（如实答未找到＋
+  请指明对象）——链路选择为模型语义判断（随机性）；聚合机器已由钉测锁死，
+  「模型选汇总模板」的真机到达率随 23 条回归继续观察；如到达率不足，后续票强化
+  澄清相位对求和形的路由偏置。

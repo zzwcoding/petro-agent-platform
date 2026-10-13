@@ -110,7 +110,9 @@ TOOLMATCH_CONTRACT = (
     "问句场景词已落定口径支时携带。\n"
     "plan 形（data 链必带，键名逐字）：{\"metric_slot\": \"台账精确指标名（必填非空，"
     "禁英文列名/复合注记）\", \"ranking\": true|false（必填布尔——排名题 true 并给 "
-    "\"direction\": \"asc|desc\"，明细题 false）, \"window_start\": \"ISO 日期或 null\", "
+    "\"direction\": \"asc|desc\"，明细题 false）, \"aggregate\": true|false（缺省 "
+    "false——求和/合计/总量类问题 true：数据库整窗 SUM 只回一行合计，不拉原始明细）, "
+    "\"window_start\": \"ISO 日期或 null\", "
     "\"window_end\": \"ISO 日期或 null（不含端）\", \"limit\": 50（仅问句显式条数时写）, "
     "\"external_tables\": [...]（仅外表引用时写）}——缺 ranking 等必填键＝参数校验拒。\n"
     # ↓↓ P-039 附 1 逐字追加段（票面施工基准——现有措辞零删改，本段不得增删字）

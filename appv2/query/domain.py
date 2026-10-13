@@ -314,6 +314,7 @@ class QueryPlan:
     window_end: date | None
     limit: int | None  # 问句显式条数（None＝没写；引擎按 F14 收口，草案值不直用）
     ranking: bool  # 排名型（GROUP BY 井＋ORDER BY 合计）｜明细型
+    aggregate: bool = False  # 汇总型（V2-71——整窗 SUM 库内算单行返回；明细 50 上限不动）
     direction: str = DIRECTION_DESC  # asc/desc 白名单二值（R1：最低类问句升序）
     window_label: str = ""  # 人话标签（「去年」「最近 30 天（默认）」——血缘③/拦停话术）
     is_default: bool = False  # 无显式时间词的默认窗（答案与血缘卡必须标注「默认」）
@@ -474,6 +475,7 @@ class SqlPlan:
     limit_effective: int  # F14 收口后值（只封顶不抬底）
     ranking: bool
     direction: str  # asc/desc 白名单二值分派 ORDER BY，非字符串拼接
+    aggregate: bool = False  # V2-71 汇总型（渲染优先于 ranking；互斥由 validate 把守）
     actor: str = ""
 
 

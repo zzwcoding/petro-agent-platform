@@ -147,6 +147,10 @@ _DATA_SCHEMA: dict[str, Any] = {
                 "window_end": {"type": ["string", "null"], "description": "ISO 日期（不含）"},
                 "limit": {"type": ["integer", "null"], "minimum": 1},
                 "ranking": {"type": "boolean"},
+                "aggregate": {
+                    "type": "boolean",
+                    "description": "汇总型（V2-71——整窗 SUM 库内算单行返回）",
+                },
                 "direction": {"type": "string", "enum": ["asc", "desc"]},
                 "window_label": {"type": "string"},
                 "is_default": {"type": "boolean"},
@@ -560,6 +564,7 @@ def _plan_from_draft(draft: Mapping[str, Any], *, actor: str) -> QueryPlan:
             window_end=window_end,
             limit=draft.get("limit"),
             ranking=bool(draft["ranking"]),
+            aggregate=bool(draft.get("aggregate", False)),
             direction=str(draft.get("direction") or DIRECTION_DESC),
             window_label=str(draft.get("window_label") or ""),
             is_default=bool(draft.get("is_default", False)),

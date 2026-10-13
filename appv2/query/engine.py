@@ -256,6 +256,7 @@ class QueryEngine:
             window=window,
             limit_effective=effective_limit(plan.limit),
             ranking=plan.ranking,
+            aggregate=plan.aggregate,
             direction=plan.direction,
             actor=plan.actor,
         )
