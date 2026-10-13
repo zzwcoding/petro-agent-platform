@@ -1245,6 +1245,122 @@ def reseed_approval_id(run_id: str, engine_seed: str) -> str:
 # ---------- N1 禁用词代码前置安全闸（V2-52 附 C——唯一前置例外；P-051b 返工） ----------
 
 
+# ---------- N0 入口词面闸族（V2-66/V2-67——注入/外发/写意图） ----------
+# V1 安检层同源移植＋闭世界扩充。位次：understand 入口、禁用词闸之前——
+# V1 安检序「注入扫描先于禁用词索引」。命中＝硬终止：零模型零执行，notice type="refused"（审计同源面
+# agent_v2.refused 复用——零新增审计型），步 payload.n1_gate 分型；未命中＝闸静默
+# 零漂移。词面族为闭世界常量（只扩不删）；appv2 不 import app/——注入族逐字移植
+# 自 app/domains/chat/domain.py INJECTION_PATTERNS（promptfoo 红队用例同源）。
+
+INJECTION_PATTERNS: tuple[str, ...] = (
+    "忽略之前", "忽略你之前的", "无视之前", "ignore previous", "ignore all previous",
+)
+INJECTION_ANSWER_TEMPLATE = (
+    "我注意到这句话包含「{feature}」——这类要求不会被执行，"
+    "平台规则不可能被对话内容覆盖。"
+)
+# 外发族（V2-67 新立——V1 N11 判定归模型＋执行闸，V2 无执行面→0 号位词面承接）：
+# 动词＋通道同句共现才命中（降误伤——单一词面会拦「邮箱格式是什么」这类无辜问句）。
+OUTBOUND_VERBS: tuple[str, ...] = (
+    "发到", "发送到", "发送给", "发给", "推送到", "传到", "外传",
+)
+OUTBOUND_CHANNELS: tuple[str, ...] = (
+    "邮箱", "邮件", "微信", "短信", "手机", "钉钉", "飞书", "外部系统",
+)
+OUTBOUND_ANSWER = (
+    "本系统只读——未配置外发通道，数据不能发往邮箱、微信等外部渠道；"
+    "可在本对话内查看，明细类结果可按行导出文本。"
+)
+# 写意图族（V2-67 新立——INV-2 只读的确定性话术面）：写动词＋写对象同句共现。
+WRITE_VERBS: tuple[str, ...] = (
+    "下调", "上调", "调到", "调成", "改成", "改为", "写入", "删除", "停用", "启用",
+)
+WRITE_TARGETS: tuple[str, ...] = ("配注", "配产", "计划产量", "指标", "台账", "数据")
+WRITE_ANSWER_TEMPLATE = (
+    "本系统只读——不做任何写入或调整，「{target}」等生产参数不在本平台变更；"
+    "如需变更请走线下变更流程。"
+)
+
+
+def _n0_injection_hit(question: str) -> str | None:
+    """注入特征字面匹配（V1 scan_injection 同构——casefold 折叠）。"""
+    folded = question.casefold()
+    return next((p for p in INJECTION_PATTERNS if p.casefold() in folded), None)
+
+
+def _n0_outbound_hit(question: str) -> str | None:
+    """外发词面命中（动词＋通道同句共现——返回通道词，未命中 None）。"""
+    if not any(v in question for v in OUTBOUND_VERBS):
+        return None
+    return next((c for c in OUTBOUND_CHANNELS if c in question), None)
+
+
+def _n0_write_hit(question: str) -> tuple[str, str] | None:
+    """写意图词面命中（写动词＋写对象共现——返回（动词，对象），未命中 None）。"""
+    for verb in WRITE_VERBS:
+        if verb not in question:
+            continue
+        target = next((t for t in WRITE_TARGETS if t in question), None)
+        if target is not None:
+            return verb, target
+    return None
+
+
+def _n0_refuse(
+    state: RunState, deps: LoopDeps, *, content: str, gate_key: str, title: str
+) -> dict[str, Any]:
+    """N0 命中硬终止收口（与 _n1_code_first_gate 拒答支同形——notice/步/直答）。"""
+    notice = {"type": "refused", "gates": [], "content": content}
+    deps.bus.emit("notice", dict(notice))
+    seq = _next_seq(state)
+    record = _step_record(
+        seq, STEP_DECISION, title, None,
+        payload={"phase": "understand", "n1_gate": gate_key},
+    )
+    deps.bus.emit("step", {"step": STEP_DECISION, "seq": seq, "title": record["title"]})
+    updates: dict[str, Any] = {
+        "notices": [*state.notices, notice],
+        "steps": [*state.steps, record],
+    }
+    if state.ledger_dump is None and deps.ledger_dump is not None:
+        updates["ledger_dump"] = deps.ledger_dump()
+    _direct_answer(updates, content)
+    return updates
+
+
+def _n0_intent_word_gate(
+    state: RunState, deps: LoopDeps
+) -> tuple[str | None, Any]:
+    """understand 入口 0 号位词面闸族（V2-66/67）——安检序：注入→外发→写意图。
+
+    返回（kind, payload）：("refused", updates)＝硬终止（understand 立即返回——
+    零模型零执行零 I/O，纯词面闭世界）；(None, None)＝闸静默（零漂移）。
+    """
+    question = state.question
+    feature = _n0_injection_hit(question)
+    if feature is not None:
+        return "refused", _n0_refuse(
+            state, deps,
+            content=INJECTION_ANSWER_TEMPLATE.format(feature=feature),
+            gate_key="injection_refused", title="N0 注入拦截硬终止",
+        )
+    channel = _n0_outbound_hit(question)
+    if channel is not None:
+        return "refused", _n0_refuse(
+            state, deps, content=OUTBOUND_ANSWER,
+            gate_key="outbound_refused", title="N0 外发拦截硬终止",
+        )
+    write_hit = _n0_write_hit(question)
+    if write_hit is not None:
+        _verb, target = write_hit
+        return "refused", _n0_refuse(
+            state, deps,
+            content=WRITE_ANSWER_TEMPLATE.format(target=target),
+            gate_key="write_refused", title="N0 写意图拦截硬终止",
+        )
+    return None, None
+
+
 def _n1_code_first_gate(
     state: RunState, deps: LoopDeps
 ) -> tuple[str | None, Any]:
@@ -1329,6 +1445,11 @@ def _make_understand(
     async def understand_node(state: RunState) -> dict[str, Any]:
         if (converged := _gate_or_none(state, deps)) is not None:
             return converged
+        # ——N0 入口词面闸族（V2-66/67——注入/外发/写意图硬终止，安检序先于禁用词）：
+        n0_kind, n0_payload = _n0_intent_word_gate(state, deps)
+        if n0_kind == "refused":
+            assert isinstance(n0_payload, dict)
+            return n0_payload
         # ——N1 禁用词代码前置安全闸（V2-52 附 C——唯一前置例外，零 LLM）：
         # 词面闭世界命中→豁免判定（元问/引用形）→豁免放行照常解析/硬终止拒答；
         # 先于一切解析（V1 W-F19 0 号位语义）。缝缺省（词典层缺）＝闸静默
