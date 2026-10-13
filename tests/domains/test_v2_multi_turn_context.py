@@ -448,3 +448,48 @@ def test_compile_truncates_history_over_budget_with_manifest_note() -> None:
     )
     # 保留轮均为合法消息形（role 闭世界——user/assistant）。
     assert all(m["role"] in ("user", "assistant") for m in context.messages[1:])
+
+
+async def test_followup_zero_material_finalizes_as_not_found(tmp_path: Path) -> None:
+    """V2-72 b 案钉：追问旁路保留（零探查定稿不拒回——直答能力不动），但零实质
+    材料收口＝「未找到」如实作答（不以 no_hit 文本冒充答案面）＋decision_note
+    机读 notice 随行；有实质材料的追问零漂移（execute 形见上一钉）。"""
+    script_a: dict[str, Sequence[str]] = {
+        "v2.runtime.understand": [UNDERSTAND_DATA],
+        "v2.runtime.decision": [DECISION_WINDOWED, DECISION_FINALIZE],
+        "v2.runtime.answer": [ANSWER_DRAFT_CITED],
+    }
+    runtime_a, _completer_a, db = await make_runtime(
+        tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=script_a,
+    )
+    run_id_a = ""
+    try:
+        handle_a = await runtime_a.ask(AskRequest(question=QUESTION_A, actor=ACTOR))
+        await drain(handle_a)
+        run_id_a = handle_a.run_id
+    finally:
+        await db.dispose()
+
+    # 追问零探查（decision 直接收稿定稿）＋零执行——零实质材料收口面。
+    script_b: dict[str, Sequence[str]] = {
+        "v2.runtime.understand": [UNDERSTAND_DATA],
+        "v2.runtime.decision": [DECISION_FINALIZE],
+    }
+    runtime_b, _completer_b, db_b = await make_runtime(
+        tmp_path, engine=QueueQueryEngine([]), script=script_b,
+    )
+    store_b = RunStore(db_b)
+    try:
+        handle_b = await runtime_b.ask(
+            AskRequest(question="那递减风险呢？", actor=ACTOR, followup_of=run_id_a)
+        )
+        events_b = await drain(handle_b)
+        run_b = await store_b.get_run(handle_b.run_id)
+        assert run_b is not None and run_b.status == "completed"
+        answer = run_b.answer or ""
+        assert answer.startswith("未找到（材料未披露）")
+        assert "不编造" in answer
+        notes = [n for n in _notices(events_b) if n.get("type") == "decision_note"]
+        assert any("未找到" in str(n.get("content", "")) for n in notes)
+    finally:
+        await db_b.dispose()

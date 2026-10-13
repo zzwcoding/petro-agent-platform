@@ -1,6 +1,6 @@
 # V2-70 · clarify_capped 连续计数修正（resume 回收轮不计连续）
 
-状态: 待施工 ｜ 优先级: P1 ｜ 来源: 场景对照报告瑕疵②（reject 题实锤）
+状态: 已完工（2026-10-13 Owner 拍 b 案——上限 2→3）｜ 优先级: P1 ｜ 来源: 场景对照报告瑕疵②（reject 题实锤）
 
 ## 背景与根因
 
@@ -40,4 +40,15 @@
 a) 维持现状——reject 题 1 问 1 答即截断视为设计内（截断后如实直答，无害）；
 b) 上限 2→3（与轮预算对齐，防环面不变）；
 c) streak 语义＋新防环面（同参 ask 指纹去重——成本最高）。
+
+## 拍案与实施（2026-10-13——b 案完工）
+
+Owner 拍 **b 案**（上限 2→3，防环语义不变）。实施：
+- `budget.py` 新合同常量 `CLARIFY_ASK_CAP_CONTRACT = 3`（注释载拍案与 run-69517e02 封环面）；
+- graph.py 四处闸位（decision/clarify/batch/verify 相位）统一改读常量，notice 文案
+  「连续 ask ≥2」→「≥3」，注释同步；
+- 钉测 `test_consecutive_asks_capped_material_direct_answer` 重写为三段式：
+  ask1 挂起→resume 执行后 ask2 **照常挂起**→resume 再执行后 ask3 截断直答；
+- 全量 1708 过零跌，ruff/mypy/lint-imports 绿。
+
 

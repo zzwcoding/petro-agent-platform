@@ -65,6 +65,7 @@ from langgraph.types import interrupt
 
 from appv2.infra import clock
 from appv2.runtime.budget import (
+    CLARIFY_ASK_CAP_CONTRACT,
     MAX_DISCOVERS_PER_ROUND_CONTRACT,
     MAX_DISCOVERS_PER_RUN_CONTRACT,
     MAX_EXECUTES_PER_ROUND_CONTRACT,
@@ -1702,14 +1703,14 @@ def _make_decision(
             # 连续澄清计数（P-024b 疑点2）＝run 生命期内 ask 发射次数：任何路径
             # 不清零（澄清回收不重置、执行轮不清零——run-69517e02 实测「恢复→
             # 执行→再澄清」若执行清零则环永不封口，挂起等人工不计轮预算）。
-            # 第 2 次 ask 即截断：不再挂起，带已取得材料如实直答。
+            # 第 3 次 ask 即截断（V2-70 b 案上限 3）：不再挂起，带已取得材料如实直答。
             consecutive = state.consecutive_asks + 1
-            if consecutive >= 2:
+            if consecutive >= CLARIFY_ASK_CAP_CONTRACT:
                 notice = {
                     "type": "clarify_capped",
                     "gates": [],
                     "content": (
-                        "连续澄清已达上限（连续 ask ≥2）——不再挂起，"
+                        "连续澄清已达上限（连续 ask ≥3）——不再挂起，"
                         "带已取得材料如实直答。"
                     ),
                 }
@@ -2426,7 +2427,7 @@ def _make_clarify(
                 "steps": [*state.steps, record],
                 "next_intent": INTENT_ANSWER,
             }
-        # ask——连续澄清 cap（≥2 不再挂起带材料直答，与 decision 节点同款）。
+        # ask——连续澄清 cap（≥3 不再挂起带材料直答——V2-70 b 案，与 decision 节点同款）。
         consecutive = state.consecutive_asks + 1
         if consecutive >= 2:
             notice = {
@@ -2877,12 +2878,12 @@ def _make_precondition(
             return updates
         if asks:
             consecutive = state.consecutive_asks + 1
-            if consecutive >= 2:
+            if consecutive >= CLARIFY_ASK_CAP_CONTRACT:
                 notice = {
                     "type": "clarify_capped",
                     "gates": [],
                     "content": (
-                        "连续澄清已达上限（连续 ask ≥2）——不再挂起，"
+                        "连续澄清已达上限（连续 ask ≥3）——不再挂起，"
                         "带已取得材料如实直答。"
                     ),
                 }
@@ -3256,12 +3257,12 @@ def _make_batch(
         ]
         if unresolved:
             consecutive = state.consecutive_asks + 1
-            if consecutive >= 2:
+            if consecutive >= CLARIFY_ASK_CAP_CONTRACT:
                 notice = {
                     "type": "clarify_capped",
                     "gates": [],
                     "content": (
-                        "连续澄清已达上限（连续 ask ≥2）——不再挂起，"
+                        "连续澄清已达上限（连续 ask ≥3）——不再挂起，"
                         "带已取得材料如实直答。"
                     ),
                 }
@@ -3370,6 +3371,19 @@ def _make_verify(
             # 拒答话术（refused 直达的 draft）原样过核验（拒绝话术非断言）。
             if state.draft and not state.observations:
                 text = state.draft
+            elif state.followup_of and not state.draft:
+                # V2-72 b 案（Owner 2026-10-13）：追问旁路保留（零探查直答能力
+                # 不动——draft 面照走上一支），但零实质材料收口不再以 no_hit
+                # 文本冒充答案面——按「未找到」如实作答＋机读 notice 随行。
+                text = (
+                    "未找到（材料未披露）：追问与前轮材料均未覆盖本题——"
+                    "未取得可交付观察材料，如实回报，不编造。"
+                )
+                deps.bus.emit(
+                    "notice",
+                    {"type": "decision_note", "gates": [],
+                     "content": "追问零实质材料——按「未找到」如实作答（不冒充直答）"},
+                )
             else:
                 notice_texts = [
                     str(obs.get("content", "")) for obs in state.observations

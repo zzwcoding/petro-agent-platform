@@ -708,9 +708,9 @@ def test_table_schema_by_name_forms() -> None:
 
 
 async def test_consecutive_asks_capped_material_direct_answer(tmp_path: Path) -> None:
-    """P-024b 疑点2 钉：连环 ask 截断＋材料直答形——r1 执行出数、r2 clarify 挂起
-    （ask＝1），resume 回收后执行一轮再 ask（run-69517e02 实测形态——执行不清零，
-    ask＝2 达上限）→不再挂起，带已取得材料如实直答（completed；零新 ask 帧；
+    """P-024b 疑点2 钉（V2-70 b 案上限 3）：ask＝1 挂起→resume 执行后 ask＝2
+    照常挂起（回收不清零——run-69517e02 防环语义不变）→resume 再执行后
+    ask＝3 达上限截断，带已取得材料如实直答（completed；截断腿零新 ask 帧；
     机读 notice clarify_capped 恰 1 条）。"""
     script_a: dict[str, Sequence[str]] = {
         "v2.runtime.understand": [UNDERSTAND_DATA],
@@ -735,24 +735,34 @@ async def test_consecutive_asks_capped_material_direct_answer(tmp_path: Path) ->
 
     script_b: dict[str, Sequence[str]] = {
         "v2.runtime.understand": [UNDERSTAND_DATA],
-        # 恢复段：先执行（出数）再 ask——执行轮不清零计数（封口环的关键语义）。
-        "v2.runtime.decision": [DECISION_WINDOWED, DECISION_ASK_TARGET],
+        # 恢复段两腿（V2-70 b 案上限 3）：腿 1 执行出数后第 2 次 ask＝照常挂起
+        # （回收/执行不清零——防环语义不变）；腿 2 再执行后第 3 次 ask＝达上限
+        # 截断，带已取得材料如实直答。
+        "v2.runtime.decision": [
+            DECISION_WINDOWED, DECISION_ASK_TARGET,
+            DECISION_WINDOWED, DECISION_ASK_TARGET,
+        ],
     }
     runtime_b, _completer, db_b = await make_runtime(
-        tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=script_b,
+        tmp_path, engine=QueueQueryEngine([_rows_outcome(), _rows_outcome()]), script=script_b,
     )
     store_b = RunStore(db_b)
     try:
         handle_b = await runtime_b.resume(run_id, AskChoice(value="N-01 井"))
         events_b = await drain(handle_b)
+        mid = await store_b.get_run(run_id)
+        assert mid is not None and mid.status == "waiting_ask"  # 第 2 次 ask 照常挂起
+        assert len([e for e in events_b if e.event == "ask"]) == 1
+        handle_c = await runtime_b.resume(run_id, AskChoice(value="N-01 井"))
+        events_c = await drain(handle_c)
         final = await store_b.get_run(run_id)
         assert final is not None and final.status == "completed"
         # 材料直答形：已取得的权威行材料原样交付（不再挂起、不编造）。
         answer = final.answer or ""
         assert "21.16" in answer and "连续澄清" in answer
-        # 连环 ask 被截断：恢复段零新 ask 帧；截断机读 notice 恰 1 条。
-        assert not [e for e in events_b if e.event == "ask"]
-        capped = [n for n in _notices(events_b) if n.get("type") == "clarify_capped"]
+        # 连环 ask 被截断：截断腿零新 ask 帧；截断机读 notice 恰 1 条。
+        assert not [e for e in events_c if e.event == "ask"]
+        capped = [n for n in _notices(events_c) if n.get("type") == "clarify_capped"]
         assert len(capped) == 1
     finally:
         await db_b.dispose()
