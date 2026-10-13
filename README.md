@@ -1,16 +1,8 @@
 # Petro-Agent 平台（真实实现仓）
 
-> 单仓聚合：**后端 `app/`（Python 3.12 + uv · FastAPI）· 前端 `web/`（React18+antd5）· 本体 `ontology/`（平台仓普通目录，全部历史已并入）· 数据面 `data-plane/`（嵌套独立 git）**。
-> 本体资产随本仓一起提交管理（改动前跑 `bash ontology/ci.sh` 语义闸——all-agent 纪律）；数据面为独立服务保留独立 git（.gitignore 排除）；**整个文件夹拷走＝全量备份**。
+面向油气田生产场景的智能问答平台：**问报告**（知识检索问答，回答带原文出处）、**问数据**（自然语言查台账，Text2SQL 与指标计算）、**问智**（把答案加工成汇报成品）。平台由 ReAct 自主回路驱动（V2），模型调用走统一网关，落国产化栈——金仓数据库兼容 + SM3/SM4 国密字段加密。97 题标准题册多轮实测：正确题数从重写起点的 10 爬到冻结点 **76/97**。
 
-
-## 克隆/备份
-
-```bash
-git clone https://github.com/zzwcoding/petro-agent-platform.git   # 平台仓全量（app/web/tickets/ontology…）
-git clone https://github.com/zzwcoding/tpa-data-plane.git         # 数据面仓（本地嵌套于 data-plane/，平台仓 .gitignore 排除——两仓齐即全量）
-备份：整个文件夹直接拷贝也可（两份 .git 全在内：平台仓 + data-plane）；云端＝GitHub 两仓（本体已并入平台仓）
-```
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white) ![FastAPI](https://img.shields.io/badge/FastAPI-后端-009688?logo=fastapi&logoColor=white) ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black) ![LangGraph](https://img.shields.io/badge/LangGraph-ReAct-8B5CF6) ![tests](https://img.shields.io/badge/pytest-1600%2B_passed-16A34A) ![评测](https://img.shields.io/badge/评测Q17-✅76_of_97-0EA5E9)
 
 ## 项目地图（同一项目的各部分 GitHub 仓）
 
@@ -24,25 +16,118 @@ git clone https://github.com/zzwcoding/tpa-data-plane.git         # 数据面仓
 | [tpa-data-plane](https://github.com/zzwcoding/tpa-data-plane) | 数据面仓：独立数据服务（进料→清洗→出汇总→质检→报水位） | 公开 |
 | [fieldforge](https://github.com/zzwcoding/fieldforge) | 油气领域合成数据生成工作台 | 公开 |
 
-## 设计真源（不复制进本仓）
+## 平台能做什么
 
-| 设计件 | 位置 |
+技术团队用自然语言问平台三件事：
+
+- **问报告**——「N-2 井的完井方式是什么」：检索报告库并回答，答案必须带原文出处，检索不到就明说没有，不许编。
+- **问数据**——「上个月产量最高的三口井」：把问题翻译成台账查询与指标计算，数字必须与台账对得上，口径要交代。
+- **问智**——「做成汇报材料配图表」：把前两者的结果加工成报告成品（文档/图表）。
+
+三条能力共享同一套知识资产：报告库、常见问题库、语义台账（本体资产驱动口径统一）、关系图谱，底层由数据面仓持续供给经过质检的数据。
+
+## 功能概览
+
+| 面 | 内容 |
 |---|---|
-| 21 册 API 合同 + 98 模块划分 + 99 数据库设计 | `teach-petro-agent/specs/api/` |
-| 架构图 v1（已过审 ADR-0006） | `teach-petro-agent/docs/architecture-v1.md` |
-| 前端底座设计 | `teach-petro-agent/specs/frontend-foundation.md` |
-| 阶段规划 | `teach-petro-agent/docs/roadmap.md` |
-| ADR 链 0003–0008 | `teach-petro-agent/docs/adr/` |
+| **V1 后端 `app/`**（已冻结） | 接口层 11 路由族：security 身份 · gateway 模型网关 · chat 对话 · semantics 语义台账 · kb 报告库 · wiki 报告百科 · graph 关系图谱 · faq 常见问题库 · retrieval 检索 · wells 井档案 · quality 质量。问答侧是多链流水线：检索问答链 · 状态机六站链 · FAQ 直出 · 图谱链 |
+| **V2 后端 `appv2/`**（主线） | 重写为 ReAct 自主回路：模型自主决策「检索 / 查数 / 反问 / 直答」，六个包分职——retrieval 检索 · runtime 运行时 · query 问数 · knowledge 知识 · tools 工具层 · api 接口；带同参重投拦截、新鲜度闸、审批重投等确定性护栏 |
+| **前端 `web/`** | React 18 + antd5 + AntV G6，页面族 A（对话）· B（报告库/百科/图谱/FAQ）· C（台账/语义）· D（数据面观测），Vite 构建、Vitest 测试 |
+| **本体 `ontology/`** | 平台仓普通目录：本体资产 Git+YAML 真源，改动过语义闸 `bash ontology/ci.sh` |
+| **数据面 `data-plane/`** | 嵌套独立仓：进料→清洗→出汇总→质检→报水位，纪律见其 AGENTS.md |
+| **评测 `eval/`** | 97 题门禁题册 gold-v1 · 判分总则 · 全部轮次报告与逐题判分证据（SSE 帧） |
+
+## 架构一图
+
+```mermaid
+flowchart TB
+    web["web/ 前端（React 18 + antd5）"]
+    subgraph 平台后端
+        v1["app/ · V1 多链流水线（已冻结）"]
+        v2["appv2/ · V2 ReAct 自主回路（主线）"]
+        infra["infra 8 适配器：db · llm_client · graph_store · object_storage · eventbus · clock · crypto · config"]
+        ont["ontology/ 本体资产（Git+YAML 真源，语义闸 ci.sh）"]
+    end
+    subgraph 中间件
+        pg[("PostgreSQL + pgvector")]
+        redis[("Redis")]
+        minio[("MinIO")]
+        neo4j[("Neo4j")]
+    end
+    dp["data-plane/ 独立数据面仓（进料→清洗→出汇总→质检→报水位）"]
+    llm["模型网关 gateway.complete<br/>MiniMax-M3 主 · GLM 备"]
+    web --> v2
+    web -.-> v1
+    v2 --> infra
+    v1 --> infra
+    v2 --> ont
+    infra --> llm
+    infra --> pg
+    infra --> redis
+    infra --> minio
+    infra --> neo4j
+    dp --> pg
+```
+
+四层架构（接口层 / 领域层 / 基础设施层 / 资产层）层间依赖单向向下，边界规则逐条进 `import-linter` 机检。
+
+## 双版本演进与评测曲线
+
+97 题门禁题册（`eval/gold-v1/`）贯穿两代实现，**同一把尺量到底**。判分三级：✅ 正确且有据 · ⚠️ 部分正确 · ❌ 错误/编造/应拒未拒。反题铁律：报告里没有的数，给数就是错，说没有才算过。
+
+```mermaid
+xychart-beta
+    title "V2 评测 97 题：每轮正确题数（Q12 起点 → Q17 冻结点）"
+    x-axis ["Q12", "Q13", "Q14", "Q15", "Q16", "Q17"]
+    y-axis "✅ 正确题数" 0 --> 100
+    line [10, 7, 18, 34, 48, 76]
+```
+
+**六轮明细**（每轮暴露的问题 → 下一轮修复）：
+
+| 轮次 | 日期 | 成绩 | 该轮焦点 |
+|---|---|---|---|
+| Q12 首轮大考 | 10-09 | 10✅ 39⚠️ 48❌ | 报告题全被送进台账查数，翻报告的路零使用 |
+| Q13 | 10-10 | 7✅ 44⚠️ 46❌ | 选了检索却执行不了：工具匹配缺字段被拒、反问卡挂起 30 题 |
+| Q14 | 10-10 | 18✅ 49⚠️ 30❌ | 答案漏出程序格式 JSON（6 题）；召回 50 条只送 4 条 |
+| Q15 | 10-11 | 34✅ 34⚠️ 29❌ | 料在窗口里却说没料（零交付族 22 题）；错答与新增对冲 |
+| Q16 | 10-12 | 48✅ 44⚠️ 5❌ | 只剩两大新形态：错域锚定 3＋无据调和 2；毕业线差一道贴线 |
+| Q17 冻结点 | 10-13 | 76✅ 19⚠️ 2❌ | 错域锚定族清零、无据调和全转对；仅存两题「首跑错值、后轮自纠」——毕业线首次达标 |
+
+**Q17 冻结点的七个测试维度**：
+
+| 维度 | 考什么 | Q17 结果 |
+|---|---|---|
+| 一 · 正题 | 报告里写了的，答得对吗 | 问答组 A＋B：13✅ 6⚠️ 2❌；C＋D：22✅ 3⚠️ 0❌ |
+| 二 · 反题 | 报告里没有的，会不会瞎编 | 无据调和 2 道全转正确（明说没有＋指向正确数据域） |
+| 三 · 检索 | 东西在库里，递得到 AI 眼前吗 | 问题块抢席位问题定位并修复（V2-65） |
+| 四 · 多文档判源 | 库里多份像的材料，引对了吗 | 错域锚定族清零 |
+| 五 · 问数 | 台账里的数查得对、算得对吗 | 19✅ 2⚠️ 0❌ |
+| 六 · 系统级 | 安全闸和体验规矩守不守 | 0 错 |
+| 七 · 新语料三册 | 材料本身有毛病，怎么办 | 22✅ 8⚠️ 0❌ |
+
+**评测方法论**（让 76 分可信的东西）：
+
+- 同卷同尺：Q12→Q17 全部跑同一份 97 题，跨轮可比；判分总则四轮演进全部留档（`eval/README.md`）。
+- 测评时钟冻结：评测面系统时间冻结在水位日 2026-08-31，生产时钟不动——时间类问题零歧义。
+- 金钉值抽查：跨轮核对固定锚点答案（如 Z-16=5839.63、N-15=8824.36），尺子漂移即红。
+- 全留痕：每题的完整对话帧（SSE）与跑批结果落 `eval/results/`，判分可回放、可复核。
+- 详细报告：**[V1 版本测试报告](eval/results/V1版本测试报告.html)**（V1 冻结成绩单 Q11：✅52 ⚠️35 ❌10）· **[V2 版本测试报告](eval/results/V2版本测试报告.html)**（六轮曲线到 Q17）· **[题集测试轮次台账](eval/results/题集测试轮次台账.md)**（35 个病根族的问题/措施/前后对比）。
 
 ## 快速开始
 
 ```bash
-git clone https://github.com/zzwcoding/petro-agent-platform.git   # data-plane 为独立仓（github.com/zzwcoding/tpa-data-plane），需要时另行 clone
-cp .env.example .env                          # 填入 LLM 凭证（Owner 提供测试 key）
-uv sync                                  # 后端依赖（Python 3.12 由 uv 管理）
-docker compose up -d                     # 中间件：PG(+pgvector)/Redis/MinIO/Neo4j（Langfuse 见 observe profile）
-uv run uvicorn app.main:app --reload     # 开发服 :8000
+git clone https://github.com/zzwcoding/petro-agent-platform.git
+cd petro-agent-platform
+cp .env.example .env                          # 填入 LLM 凭证（MINIMAX_API_KEY 等）
+uv sync                                       # 后端依赖（Python 3.12 由 uv 管理）
+docker compose up -d                          # 中间件：PG(+pgvector)/Redis/MinIO/Neo4j（Langfuse 见 observe profile）
+uv run uvicorn app.main:app --reload          # V1 后端 :8000
+uv run uvicorn appv2.api.app:app --reload     # V2 后端（Petro-Agent V2）
+cd web && npm install && npm run dev          # 前端（Vite）
 ```
+
+数据面为独立仓：`git clone https://github.com/zzwcoding/tpa-data-plane.git`。备份：平台仓＋数据面仓两仓即全量（本体已并入平台仓）；本地整个文件夹拷走也可（两份 `.git` 全在内）。
 
 ## 模型注册表（调用别名制）
 
@@ -59,13 +144,13 @@ ontology/      平台仓目录：本体资产（Git+YAML 真源，all-agent 纪�
 data-plane/    独立仓：数据面服务（进料→清洗→出汇总→质检→报水位，纪律见其 AGENTS.md）
 ```
 
+层间依赖单向向下（B16），边界规则逐条进 `import-linter`（见 pyproject），CI 五闸：lint/类型/测试/边界闸/合同覆盖率闸（`tools/contract_coverage.py`——合同册端点 × 实现路由双向对账）＋债务标记闸（`tools/debt_markers.py`）——**两道机器闸是交付闸，红即不过**（AGENTS.md 硬纪律 8）。
+
 ## 嵌套仓纪律（data-plane）
 
 1. data-plane 内容**回 data-plane 仓提交推送**（cd data-plane && git commit…，远程 https://github.com/zzwcoding/tpa-data-plane），平台仓 .gitignore 排除之，不记版本；
 2. 改动守 data-plane 仓自己的 AGENTS.md（ADR 链）；
 3. ontology/ 已并入平台仓普通目录（2026-09-30 子树合并，历史随合并提交可溯）——本体改动直接提交本仓，提交前跑 `bash ontology/ci.sh` 语义闸。
-
-层间依赖单向向下（B16），边界规则逐条进 `import-linter`（见 pyproject），CI 五闸：lint/类型/测试/边界闸/合同覆盖率闸（`tools/contract_coverage.py`——合同册端点 × 实现路由双向对账，AGENTS.md 硬纪律 8）。
 
 ## 开发期身份
 
@@ -74,3 +159,14 @@ data-plane/    独立仓：数据面服务（进料→清洗→出汇总→质�
 ## 双库纪律
 
 开发 PostgreSQL / 生产金仓——SQL 一律经 `infra.db` 连接层（B3），方言切换唯一缝；禁止裸驱动（psycopg/asyncpg）散落业务代码。
+
+## 文档指引
+
+| 想看什么 | 去哪 |
+|---|---|
+| API 合同 / 模块划分 / 数据库设计（设计真源，不复制进本仓） | [teach-petro-agent/specs/api/](https://github.com/zzwcoding/teach-petro-agent) |
+| 架构图 v1（已过审 ADR-0006）· 阶段规划 · ADR 链 0003–0008 | teach-petro-agent `docs/` |
+| V2 架构说明 | 本仓 [docs/architecture-v2.md](docs/architecture-v2.md) |
+| 评测全部轮次报告与判分证据 | 本仓 `eval/results/`（两份 HTML 报告见上） |
+| 施工过程（一票一分支一提交） | 本仓 `tickets/` · `dispatch/` |
+| 数据库账号与运维 runbook | 本仓 docs/deploy/ |
