@@ -254,6 +254,7 @@ DISCOVER_TOOLS: frozenset[str] = frozenset(
 )
 
 _CITE_RE = re.compile(r"\[(\d+)\]")
+_PLACEHOLDER_CITE_RE = re.compile(r"\[n\]")  # V2-69——指令占位符串台字面形（引标抽取只认数字）
 _NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
 _CANDIDATE_LINE = "指标候选"
 # 权威观察承载（V2-23 豁免域＋P-024b 审查 S2 扩 fragment）：表格行/血缘卡/kb 检索
@@ -283,6 +284,11 @@ _ANSWER_INSTRUCTION = (
     "交付并逐行带 [n] 引标——禁汇总引标（如「[1]–[24]」写在表尾注里）；引擎的 "
     "LIMIT 截断注记如实转述进答案。问句只要特定对象或单值（如单井读数、某井某"
     "指标）时，只交付所问对象的行并如实声明窗口与过滤态——禁止把整表倾倒充当答案。"
+    # ↓↓ V2-69 逐字追加段（票面修二——既有文本零删改）：引用记号来源纪律——
+    #    治占位符串台形（[n] 字面进答案、核验 0 支撑照发）。
+    "引用记号纪律：台账卡/权威行集在视野内有序号的，引标直接写那个序号；确无可引"
+    "序号时一个引用记号都不许写（如实写「据平台术语台账」），禁止把本指令的占位符"
+    "[n] 原样写进答案。"
 )
 # 审批卡批准后的答复基础＝引擎卡 impact 原文（零二次创作——合同值不出引擎侧）。
 _EXTABLE_REJECT_BASIS_KEY = "impact"
@@ -787,6 +793,25 @@ def verify_draft(
         stripped = line.strip()
         if not stripped:
             out_lines.append(line)
+            continue
+        # V2-69 修一：字面占位符引标（[n]——答案指令模板串台形）不属结构承载：
+        # 引标抽取只认数字，占位符行此前被当结构行原样放行（核验 supported=0
+        # 照发——rag 题实锤）。剥占位符整行重判——数字引标全支撑或窗内对齐＝
+        # 保留剥占位符行；仍无据＝无据断言改写（占位符不进答案面）。
+        if _PLACEHOLDER_CITE_RE.search(stripped):
+            bare = _PLACEHOLDER_CITE_RE.sub("", stripped).strip()
+            cleaned = _PLACEHOLDER_CITE_RE.sub("", line).rstrip()
+            chunks_bare = _assertion_chunks(bare) if bare else []
+            if chunks_bare and all(
+                _supported(n, chunk, by_index) for n, chunk in chunks_bare
+            ):
+                cited.update(n for n, _ in chunks_bare)
+                out_lines.append(cleaned)
+            elif _window_aligned(bare, observations):
+                out_lines.append(cleaned)  # 放行不计 cited（同修二口径）
+            else:
+                rewritten += 1
+                out_lines.append(f"未找到（材料未披露）：{bare}")
             continue
         chunks = _assertion_chunks(stripped)
         if not chunks and not _NUMBER_RE.search(stripped):

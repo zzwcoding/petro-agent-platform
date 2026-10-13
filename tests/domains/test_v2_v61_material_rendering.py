@@ -178,7 +178,9 @@ def test_t7_answer_instruction_verbatim() -> None:
     pos = instruction.find(anchor)
     assert pos != -1, "既有合同文本被删改（V2-51 台账卡句不在场）"
     tail = instruction[pos + len(anchor):]
-    assert tail == (
+    # V2-69 起改为前缀断言：追加式合同（V2-48→51→61→69 同模式）允许后续票在
+    # 本段之后逐字追加——本钉守「V2-61 段逐字在场且未被删改」，不守「其后为空」。
+    assert tail.startswith(
         "行集型子问题（问句要求明细/排名/列举全行集时）：引擎返回的全部数据行逐行"
         "交付并逐行带 [n] 引标——禁汇总引标（如「[1]–[24]」写在表尾注里）；引擎的 "
         "LIMIT 截断注记如实转述进答案。问句只要特定对象或单值（如单井读数、某井某"

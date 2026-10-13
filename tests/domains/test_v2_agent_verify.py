@@ -42,7 +42,7 @@ from appv2.runtime import (
     RunEvent,
     RunStore,
 )
-from appv2.runtime.graph import verify_draft
+from appv2.runtime.graph import _ANSWER_INSTRUCTION, verify_draft
 from appv2.tools import FakeKnowledgeStore
 from tests.domains.test_v2_agent_loop import (
     ACTOR,
@@ -634,3 +634,78 @@ def test_verify_v254_t7_existing_support_paths_zero_regression() -> None:
     )
     assert rewritten3 == 0 and cited3 == [1] and split3 is False
     assert "跨源归属审" not in text3
+
+
+# ---------- V2-69：占位符 [n] 串台治理（核验步剥占位符整行重判） ----------
+# 病因＝答案指令占位符 [n] 被模型照抄进答案行；_CITE_RE 只认数字引标，行内又
+# 无数字时该行被判「结构行」原样放行——核验 supported=0 照发（rag 题实锤）。
+# 修＝行含 [n] 剥占位符整行重判：数字引标全支撑→保留并收账；窗内对齐→保留
+# 不收账；仍无据→改写「未找到（材料未披露）：」（占位符不进答案面）。
+
+
+def test_verify_v269_t1_placeholder_no_evidence_rewritten() -> None:
+    # T1 占位符行无据：剥 [n] 后行内无数字（窗内对齐恒不放行、亦无数字引标）
+    # →照旧盖章「未找到（材料未披露）：」，占位符不进答案面；改写计 1、零收账。
+    text, rewritten, cited, _split = verify_draft(
+        "术语表对「躺井」的定义：停产待检泵[n]",
+        [_frag_carrier(1, "W-21 井本周期检泵周期 512 天。")],
+    )
+    assert rewritten == 1
+    assert cited == []
+    assert "未找到（材料未披露）：术语表对「躺井」的定义：停产待检泵" in text
+    assert "[n]" not in text
+
+
+def test_verify_v269_t2_placeholder_window_aligned_kept_not_credited() -> None:
+    # T2 占位符行窗内对齐：剥 [n] 后断言数字（01/21.16）全在窗内观察 content
+    # 出现→行保留（[n] 已剥）、放行不计 cited、改写数不增。
+    text, rewritten, cited, _split = verify_draft(
+        "N-01 井日产油量 21.16 吨[n]", [_agg_row_obs(1, "N-01", "21.16")]
+    )
+    assert rewritten == 0
+    assert cited == []
+    assert "N-01 井日产油量 21.16 吨" in text
+    assert "[n]" not in text
+    assert "未找到（材料未披露）" not in text
+
+
+def test_verify_v269_t3_placeholder_mixed_numeric_citation_supported() -> None:
+    # T3 占位符＋数字引标混合：[1][n] 连写——剥 [n] 后 [1] 辖域支撑（agg_row
+    # 载体任一数值 token 重叠）→保留且 [n] 剥净、cited 收 1、改写数不增。
+    text, rewritten, cited, _split = verify_draft(
+        "合计 21.16 吨[1][n]", [_agg_row_obs(1, "N-01", "21.16")]
+    )
+    assert rewritten == 0
+    assert cited == [1]
+    assert "合计 21.16 吨[1]" in text
+    assert "[n]" not in text
+    assert "未找到（材料未披露）" not in text
+
+
+def test_verify_v269_t4_zero_drift_numeric_support_rewrite_structural_line() -> None:
+    # T4 零漂移锚（修三钉——行为零变化）：纯数字引标三形与改前一致（既有
+    # V2-54 T2/T3/T6 同形即锚，本测为占位符分支旁路面的同形公开钉）。
+    # ① 纯数字引标支撑：行保留＋引标收账。
+    text1, rewritten1, cited1, _s1 = verify_draft(
+        "N-01 井日产油量 21.16 吨[1]。", [_agg_row_obs(1, "N-01", "21.16")]
+    )
+    assert rewritten1 == 0 and cited1 == [1]
+    assert "N-01 井日产油量 21.16 吨[1]。" in text1
+    assert "未找到（材料未披露）" not in text1
+    # ② 纯数字引标无据：照旧盖章（前缀逐字相等——悬空 [1] 照旧留存）。
+    text2, rewritten2, cited2, _s2 = verify_draft(
+        "全油田年产液 999.9 万方 [1]", [_agg_row_obs(1, "N-01", "21.16")]
+    )
+    assert rewritten2 == 1 and cited2 == []
+    assert "未找到（材料未披露）：全油田年产液 999.9 万方 [1]" in text2
+    # ③ 结构行（表头/分隔线）：无引标无数字→原样保留（零改写零前缀）。
+    draft3 = "| 井号 | 日产油量 |\n|---|---|"
+    text3, rewritten3, cited3, _s3 = verify_draft(draft3, [])
+    assert rewritten3 == 0 and cited3 == [] and text3 == draft3
+
+
+def test_verify_v269_t5_answer_instruction_citation_discipline_taught() -> None:
+    # T5 指令教学钉：答案起草合同含「引用记号纪律」教学句（V2-69 逐字追加段
+    # ——视野内有序号写序号、确无可引序号一个记号都不写、禁止占位符进答案）。
+    assert "引用记号纪律" in _ANSWER_INSTRUCTION
+    assert "禁止把本指令的占位符" in _ANSWER_INSTRUCTION
