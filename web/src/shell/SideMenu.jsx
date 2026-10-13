@@ -1,6 +1,6 @@
 import { Fragment } from 'react'
 import { Layout, Menu, Tag, Typography } from 'antd'
-import { LANDING_LIT } from '../landing/registry.js'
+import { LANDING_LIT, PROTO_EXCLUDED } from '../landing/registry.js'
 
 /** 「原型」角标（frontend-foundation §4：原型页常显带「原型」角标）。 */
 function ProtoBadge() {
@@ -18,7 +18,7 @@ export default function SideMenu({ role, tree, current, onNavigate }) {
     const lit = g.items.filter(it => LANDING_LIT.includes(it.key))
     const children = [
       ...lit.map(it => ({ key: it.key, label: it.label })),
-      ...g.items.map(it => ({
+      ...g.items.filter(it => !PROTO_EXCLUDED.includes(it.key)).map(it => ({
         key: `proto/${it.key}`,
         label: <Fragment>{it.label}<ProtoBadge /></Fragment>
       }))

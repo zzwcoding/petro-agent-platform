@@ -26,6 +26,10 @@ const LANDING_MODULES = {
 /** 已点亮（已有落地页）的页面 key，按 frontend-foundation §5 阶段顺序增长。 */
 export const LANDING_LIT = Object.keys(LANDING_MODULES)
 
+/** 原型树排除集（不出「原型」菜单条目）：A1V2＝问一问V2 新建改造页——
+ *  没有 mock 原型对应物，原型树复用落地组件只会产生同名假条目。 */
+export const PROTO_EXCLUDED = ['A1V2']
+
 /** 落地页懒加载器（key ∈ LANDING_LIT 保证命中；Shell 侧包 React.lazy）。 */
 export function loadLandingPage(key) {
   return LANDING_MODULES[key]()
