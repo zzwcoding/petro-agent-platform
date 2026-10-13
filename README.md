@@ -158,7 +158,7 @@ data-plane/    独立仓：数据面服务（进料→清洗→出汇总→质�
 
 ## 双库纪律
 
-开发 PostgreSQL / 生产金仓——SQL 一律经 `infra.db` 连接层（B3），方言切换唯一缝；禁止裸驱动（psycopg/asyncpg）散落业务代码。
+开发 PostgreSQL / 生产数据库——SQL 一律经 `infra.db` 连接层（B3），方言切换唯一缝；禁止裸驱动（psycopg/asyncpg）散落业务代码。
 
 ## 文档指引
 
