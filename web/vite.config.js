@@ -12,6 +12,11 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      // V2 后端（:8001）——须排在 '/api' 之前（前缀匹配先到先得）。
+      '/api/v2': {
+        target: 'http://localhost:8001',
+        changeOrigin: true
+      },
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true
