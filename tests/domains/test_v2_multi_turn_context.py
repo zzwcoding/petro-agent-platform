@@ -30,11 +30,13 @@ from appv2.query import (
     QueryOutcome,
 )
 from appv2.runtime import (
+    AskChoice,
     AskRequest,
     ContextBuilder,
     RunState,
     RunStore,
 )
+from appv2.runtime.executor import extract_dialogue_from_legacy_history
 from appv2.runtime.graph import _tool_note
 from appv2.tools import FakeQueryEngine
 from tests.domains.test_v2_agent_loop import (
@@ -593,3 +595,193 @@ async def test_followup_history_answerable_drafts_not_shell(tmp_path: Path) -> N
         assert "你上一轮问的是" in dialogue[3]["content"]  # 本轮终稿
     finally:
         await db_b.dispose()
+
+
+# ---------- V2-79b：播种新形（checkpoint 级全量传承）＋v1 读兼容抽取 golden ----------
+
+CLARIFY_ASK_TARGET = (
+    '{"action": "ask", "ask": {"prompt": "您想问哪口井的日产油量？", '
+    '"options": ["N-01 井", "Z-16 井"]}}'
+)
+
+
+def test_extract_legacy_v1_golden_greeting_shape() -> None:
+    """golden①（真实库 run-4435a7ce 样形逐字）：v1 混装史＝任务书×2＋「直接回答：」
+    原话×2＋播种轮——抽取后只剩自然对话（问＋终稿），任务书/模型原话/伪标注全不进。"""
+    question = "我能问什么"
+    answer = "您好，我是油田数据问答助手，可以帮您查询生产动态。"
+    task_book = (
+        "【场景】你是油田数据问答系统的读题环节。\n【待解构的题干】\n"
+        + question
+        + "\n（无关业务的输入按上面的例外单行直答；其余现在输出两行。）"
+    )
+    values = {
+        "history": [
+            {"role": "user", "content": task_book},
+            {"role": "assistant", "content": f"直接回答：{answer}"},
+            {"role": "assistant", "content": answer},  # 79a 前播种的终稿轮
+            {"role": "user", "content": task_book.replace(question, "我刚刚问了什么")},
+            {"role": "assistant", "content": "直接回答：您好，看起来您的上一条消息没有成功发送。"},
+        ]
+    }
+    turns = extract_dialogue_from_legacy_history(
+        values, question=question, answer=answer
+    )
+    assert turns == [
+        {"role": "user", "content": question},
+        {"role": "assistant", "content": answer},
+    ]
+
+
+def test_extract_legacy_v1_golden_clarify_recycle_shape() -> None:
+    """golden②：v1 澄清回收轮「用户补充：X」→user 轮 X（去系统前缀——对话纯度）。"""
+    values = {
+        "history": [
+            {"role": "user", "content": "【场景】理解任务书……【待解构的题干】\n日产油量"},
+            {"role": "assistant", "content": "理解：问日产油量\n指标候选：日产油量"},
+            {"role": "user", "content": "用户补充：N-01 井"},
+            {"role": "assistant", "content": '{"action": "execute"}'},
+            {
+                "role": "user",
+                "content": 'data_query 参数：{"window_start":"2025-09-01"} → 结果：2 行',
+            },
+        ]
+    }
+    turns = extract_dialogue_from_legacy_history(
+        values, question="日产油量", answer="N-01 井 21.16 吨[1]。"
+    )
+    assert turns == [
+        {"role": "user", "content": "日产油量"},
+        {"role": "user", "content": "N-01 井"},
+        {"role": "assistant", "content": "N-01 井 21.16 吨[1]。"},
+    ]
+
+
+def test_extract_legacy_v1_golden_approval_recycle_shape() -> None:
+    """golden③：v1 审批回收轮「外表引用审批决定：批准（审批单号 …）」→user 轮
+    「批准」（单号细节不入对话层）。"""
+    values = {
+        "history": [
+            {"role": "user", "content": "任务书……【待解构的题干】\n首问"},
+            {
+                "role": "user",
+                "content": "外表引用审批决定：批准（审批单号 eng-abc123）",
+            },
+        ]
+    }
+    turns = extract_dialogue_from_legacy_history(
+        values, question="首问", answer="终稿。"
+    )
+    assert turns == [
+        {"role": "user", "content": "首问"},
+        {"role": "user", "content": "批准"},
+        {"role": "assistant", "content": "终稿。"},
+    ]
+
+
+def test_extract_legacy_v1_fail_closed_on_unclassifiable() -> None:
+    """golden④ fail-closed：决策指令轮/澄清合同轮等不可分类 user 轮与全部
+    assistant 轮不进抽取面（宁可少传不可错传——不编造对话）。"""
+    values = {
+        "history": [
+            {"role": "user", "content": "任务：输出本轮决策 JSON。上次决策被拒：x"},
+            {"role": "assistant", "content": '{"action": "finalize"}'},
+            {"role": "user", "content": "随便什么指令轮"},
+        ]
+    }
+    turns = extract_dialogue_from_legacy_history(values, question="Q", answer="")
+    assert turns == [{"role": "user", "content": "Q"}]  # answer 空＝省终稿轮
+
+
+async def test_followup_seeds_full_checkpoint_dialogue(tmp_path: Path) -> None:
+    """V2-79b 传承 e2e（v2 直读）：run A 澄清挂起→resume→completed（dialogue＝
+    [问, 补充, 答] 三轮）→追问 run B 的 understand 上下文含全三轮——checkpoint
+    级全量传承（非 runs 行两轮最小形）。"""
+    script_a: dict[str, Sequence[str]] = {
+        "v2.runtime.understand": [UNDERSTAND_DATA],
+        "v2.runtime.decision": [CLARIFY_ASK_TARGET, DECISION_WINDOWED, DECISION_FINALIZE],
+        "v2.runtime.answer": [ANSWER_DRAFT_CITED],
+    }
+    runtime_a, _completer_a, db = await make_runtime(
+        tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=script_a,
+    )
+    store = RunStore(db)
+    run_id_a = ""
+    try:
+        handle_a = await runtime_a.ask(
+            AskRequest(question="日产油量是多少？", actor=ACTOR)
+        )
+        events = await drain(handle_a)
+        assert [e for e in events if e.event == "ask"], "澄清 ASK 帧未发出"
+        run_a = await store.get_run(handle_a.run_id)
+        assert run_a is not None and run_a.status == "waiting_ask"
+        handle_r = await runtime_a.resume(handle_a.run_id, AskChoice(value="N-01 井"))
+        await drain(handle_r)
+        run_a = await store.get_run(handle_a.run_id)
+        assert run_a is not None and run_a.status == "completed"
+        assert "21.16" in (run_a.answer or "")
+        run_id_a = handle_a.run_id
+        # 前轮 dialogue 形（黑匣子蒸馏面）：[问, 澄清补充, 终稿]。
+        record_a = await store.get_blackbox(run_id_a)
+        assert record_a is not None
+        dialogue_a = record_a.get("dialogue") or []
+        assert [t.get("role") for t in dialogue_a] == ["user", "user", "assistant"]
+        assert dialogue_a[1]["content"] == "N-01 井"
+    finally:
+        await db.dispose()
+
+    script_b: dict[str, Sequence[str]] = {
+        "v2.runtime.understand": [UNDERSTAND_DATA],
+        "v2.runtime.decision": [DECISION_FINALIZE],
+        "v2.runtime.answer": ["承接前轮。"],
+    }
+    runtime_b, completer_b, db_b = await make_runtime(
+        tmp_path, engine=QueueQueryEngine([]), script=script_b,
+    )
+    try:
+        handle_b = await runtime_b.ask(
+            AskRequest(question="那 Z-16 井呢？", actor=ACTOR, followup_of=run_id_a)
+        )
+        await drain(handle_b)
+        # understand 上下文＝[system, 前轮问, 澄清补充, 前轮答, 本轮问, 当前任务书]——
+        # 澄清回收轮随 checkpoint 全量传承（播种 3 轮＋受理本轮问＝4 对话轮）。
+        understand_msgs = completer_b.messages_of("v2.runtime.understand")[0]
+        assert understand_msgs[0]["role"] == "system"
+        assert understand_msgs[1] == {"role": "user", "content": "日产油量是多少？"}
+        assert understand_msgs[2] == {"role": "user", "content": "N-01 井"}
+        assert understand_msgs[3]["role"] == "assistant"
+        assert "21.16" in understand_msgs[3]["content"]
+        assert understand_msgs[4] == {"role": "user", "content": "那 Z-16 井呢？"}
+        assert "【待解构的题干】" in understand_msgs[5]["content"]
+    finally:
+        await db_b.dispose()
+
+
+async def test_followup_degraded_run_row_without_checkpoint(tmp_path: Path) -> None:
+    """V2-79b 降级 e2e：run 行在库（completed＋answer）但 checkpoint 缺（v1 前
+    存量形）→_seed_dialogue 走 v1 抽取支＝[问, 答]（fail-closed——不编造对话）。"""
+    script_orphan_followup: dict[str, Sequence[str]] = {
+        "v2.runtime.understand": [UNDERSTAND_DATA],
+        "v2.runtime.decision": [DECISION_FINALIZE],
+        "v2.runtime.answer": ["承接前轮。"],
+    }
+    runtime, completer, db = await make_runtime(
+        tmp_path, engine=QueueQueryEngine([]), script=script_orphan_followup,
+    )
+    store = RunStore(db)
+    orphan_id = "run-orphan0"
+    try:
+        await store.create_run(run_id=orphan_id, question="前轮问句", actor="dev-u1")
+        await store.finish_run(orphan_id, status="completed", answer="前轮终稿答案。")
+        handle = await runtime.ask(
+            AskRequest(question="追问一句", actor=ACTOR, followup_of=orphan_id)
+        )
+        await drain(handle)
+        run_b = await store.get_run(handle.run_id)
+        assert run_b is not None and run_b.status == "completed"
+        # 播种面＝v1 抽取支输出（[问, 答]——无 checkpoint 可读，fail-closed）。
+        understand_msgs = completer.messages_of("v2.runtime.understand")[0]
+        assert understand_msgs[1] == {"role": "user", "content": "前轮问句"}
+        assert understand_msgs[2] == {"role": "assistant", "content": "前轮终稿答案。"}
+    finally:
+        await db.dispose()

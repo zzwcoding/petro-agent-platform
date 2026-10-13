@@ -88,6 +88,52 @@ def new_run_id() -> str:
     return f"run-{uuid.uuid4().hex[:8]}"
 
 
+# ---------- 旧 v1 checkpoint 读兼容抽取（V2-79b——纯函数零 I/O，golden 钉测守） ----------
+
+_LEDGER_LINE_MARK = "参数："
+_LEDGER_LINE_RESULT = "→ 结果"
+_RECYCLE_CLARIFY_PREFIX = "用户补充："
+_RECYCLE_APPROVAL_PREFIX = "外表引用审批决定："
+
+
+def extract_dialogue_from_legacy_history(
+    values: dict[str, Any], *, question: str, answer: str
+) -> list[dict[str, str]]:
+    """旧 v1 checkpoint（history 混装史）→对话层抽取（V2-79 方案 §4.2——只读不改写）。
+
+    fail-closed：只保留可分类轮——
+    - 首轮 user＝前轮 question 权威字段（任务书轮整体跳过——题干嵌任务书尾部，
+      不做尾部剥离再抽取：多份任务书同形，question 字段已权威）；
+    - 「用户补充：X」回收轮 → user 轮 X（去系统前缀——对话纯度红线）；
+    - 「外表引用审批决定：V（审批单号 …）」回收轮 → user 轮 V（批准/驳回）；
+    - 台账轮（「{tool} 参数：{…} → 结果…」形）跳过；assistant 轮全部跳过
+      （模型过程原话不进对话层——终稿以 runs.answer 权威字段落）；其余不可
+      分类轮（决策/澄清指令等）fail-closed 跳过。
+    输出＝[user question, *回收轮(自然化), assistant answer]（answer 空则省）。
+    """
+    turns: list[dict[str, str]] = [{"role": "user", "content": question}]
+    for turn in values.get("history") or []:
+        if not isinstance(turn, dict) or str(turn.get("role")) != "user":
+            continue  # assistant 过程原话不进对话层（终稿以 runs.answer 权威落）
+        content = str(turn.get("content", ""))
+        if "【待解构的题干】" in content:
+            continue  # 任务书轮（题干在尾部——question 权威字段已承载）
+        if _LEDGER_LINE_MARK in content and _LEDGER_LINE_RESULT in content:
+            continue  # 执行台账轮
+        if content.startswith(_RECYCLE_CLARIFY_PREFIX):
+            value = content[len(_RECYCLE_CLARIFY_PREFIX):].strip()
+            if value:
+                turns.append({"role": "user", "content": value})
+        elif content.startswith(_RECYCLE_APPROVAL_PREFIX):
+            value = content[len(_RECYCLE_APPROVAL_PREFIX):].split("（", 1)[0].strip()
+            if value:
+                turns.append({"role": "user", "content": value})
+        # 其余不可分类轮（决策/澄清指令等）——fail-closed 跳过
+    if answer:
+        turns.append({"role": "assistant", "content": answer})
+    return turns
+
+
 class GraphRunExecutor:
     """命令执行器：RunCommand →六步图驱动→RunEvent 流（seam 的默认实现）。"""
 
@@ -217,18 +263,18 @@ class GraphRunExecutor:
     # ---------- 内部位 ----------
 
     async def _seed_dialogue(self, followup_of: str) -> list[dict[str, str]]:
-        """前轮对话播种（追问续会话——V2-79a 对话层最小形）。
+        """前轮对话播种（追问续会话——V2-79b checkpoint 级全量传承）。
 
         前轮不存在＝RunNotFoundError（api 404）；非 completed＝RunNotSuspendedError
         （api 409——挂起轮走 resume、在途/失败轮不可续）。
 
-        V2-79a 最小形：播种＝[前轮问（user）, 前轮答（assistant）] 两轮——两者都是
-        runs 行权威字段，不读 checkpoint（v1/v2 一视同仁）。V2-79b 升级 checkpoint
-        级全量传承（dialogue 通道直读＋旧 v1 history 抽取，golden 钉测）——旧 run
-        的中间澄清/审批轮在最小形下不传承（如实降级，不编造）。
-
-        对话纯度红线（V2-79a）：只播种自然对话轮——问句原文与终稿原文，无任何
-        系统注记前缀（「上轮答案：」「用户补充：」等旧形标注在三层分离后不再存在）。
+        分流（V2-79 方案 §3.5/§4.2）：
+        - v2 checkpoint（dialogue 通道在场）→直读——问/答/澄清回收/审批回收
+          全量进追问（末轮非 assistant 且 runs.answer 在＝防御位补终稿轮）；
+        - v1 旧 checkpoint（无 dialogue 键/无 checkpoint）→读兼容抽取纯函数
+          （extract_dialogue_from_legacy_history——fail-closed，golden 钉测守）。
+        只读不改写——前轮 checkpoint 零写回。对话纯度红线（V2-79a）：播种面只有
+        自然对话轮，无任何系统注记前缀。
         """
         if not followup_of:
             return []
@@ -239,13 +285,32 @@ class GraphRunExecutor:
             raise RunNotSuspendedError(
                 f"前轮未收口不可追问（status={prior.status}）：{followup_of}"
             )
-        turns: list[dict[str, str]] = [
-            {"role": "user", "content": str(prior.question or "")}
+        graph = build_graph(
+            self._deps(EventBus(), run_id=followup_of),
+            checkpointer=self._saver,
+            four_phase=self._four_phase,
+        )
+        snapshot = await graph.aget_state(
+            {"configurable": {"thread_id": followup_of}}
+        )
+        values = snapshot.values or {}
+        dialogue = [
+            {"role": str(t.get("role", "user")), "content": str(t.get("content", ""))}
+            for t in (values.get("dialogue") or [])
+            if isinstance(t, dict)
         ]
-        prior_answer = str(prior.answer or "")
-        if prior_answer:
-            turns.append({"role": "assistant", "content": prior_answer})
-        return turns
+        if dialogue:
+            # v2 对话层直读（checkpoint 级全量传承）；防御位：末轮非 assistant
+            # 且终稿在＝补落（正常 completed 形末轮恒终稿——此支常态不走）。
+            if dialogue[-1]["role"] != "assistant" and (prior.answer or ""):
+                dialogue.append({"role": "assistant", "content": str(prior.answer)})
+            return dialogue
+        # v1 旧 checkpoint（无 dialogue 键）→读兼容抽取。
+        return extract_dialogue_from_legacy_history(
+            values,
+            question=str(prior.question or ""),
+            answer=str(prior.answer or ""),
+        )
 
     async def pending_ask_of(self, run_id: str) -> dict[str, Any] | None:
         """挂起帧读面（V2-78——GET run 详情随行；刷新后反问选项可还原）。
