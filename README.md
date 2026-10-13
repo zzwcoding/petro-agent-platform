@@ -27,22 +27,35 @@
 
 ## 功能架构
 
+「问一问」V2 的真实决策树（依据 `specs/agent-loop.md`，ADR-0005 四相位子任务图）——模型在四个相位里自主决策，每个出口都有代码闸把守：
+
 ```mermaid
-flowchart LR
-    q["自然语言提问"] --> dec["V2 决策<br/>（appv2/runtime）"]
-    dec -->|报告类问题| ret["retrieval<br/>召回 → 重排 → 拾源"]
-    dec -->|数据类问题| qry["query<br/>台账查询 · 指标计算"]
-    dec -->|缺参数| ask["澄清反问"]
-    dec -->|可直接回答| ans["直答"]
-    ret --> exe["tools<br/>工具执行与护栏"]
-    qry --> exe
-    exe --> obs["观察结果回喂决策"]
-    obs --> dec
-    ask --> user2["等用户补充后继续"]
-    ans --> out["带出处的回答"]
+flowchart TB
+    q["提问（每问新建 run）"] --> un["understand 理解"]
+    un --> c{"① clarify 业务澄清<br/>三动作闭世界：discover ｜ decompose ｜ ask"}
+    c -->|"discover 钻取（不占轮）"| c
+    c -->|"ask 反问（仅两种白场：口径反问 / 真歧义）"| susp["ASK 挂起 waiting_ask<br/>resume 带选择续跑"]
+    c -->|"decompose 分解（占轮）<br/>QuestionGroup ≤4 子问题 · 台账注释必填"| tm{"② toolmatch 工具匹配<br/>data 链必带 plan → 台账查询<br/>knowledge 链必带 retrieval_need → 报告检索<br/>与问题组闭世界对账（缺 / 多 / 未知 id 均拒）"}
+    tm --> pc{"③ precondition 前置条件机<br/>纯固定代码零 LLM（LLM 无权判定）"}
+    pc -->|"pass ／ note 注记随行"| bat["④ batch 批量执行＋汇总<br/>data_query 台账查询 · doc_retrieve 报告检索<br/>工具只经 ToolRegistry.call"]
+    pc -->|"blocked_ask（外表越集审批 / 口径反问）"| susp
+    pc -->|"blocked_refuse"| refuse["该子问题如实拒答"]
+    pc -->|"换链回炉（在册指标未绑定 agg）"| c
+    bat --> vf["verify 核验收口<br/>逐条断言须有 Observation 支撑<br/>无支撑改写「未找到 / 材料未披露」"]
+    vf -->|"预算未到 · 有失败子问题（拒因回炉①）"| c
+    vf --> out["带出处的答案（逐子问题引用）"]
+    susp -->|"resume 续跑"| un
 ```
 
-一次提问的完整闭环：模型在运行时里自主决策「走检索 / 查台账 / 反问澄清 / 直接回答」，每步执行结果回喂给下一步决策，直到给出带出处的回答。决策不是裸奔的，外面有一圈**确定性护栏**：同参重投拦截（同一载荷二次发射直接拦，拒因回喂模型重决策）、数据新鲜度闸、审批重投通道、工具重试预算、轮数预算收敛——全部是代码闸，不依赖模型自觉。
+**确定性护栏**（全部是代码闸，不依赖模型自觉）：
+
+- **发射判据**：窗可锚定＝禁 ask；无时间词＝默认近 30 天＋注记；台账命中＋窗已定＝禁再 discover——专治数据路径退化和犹豫空转。
+- **前置条件机六类闸**：禁用词（带替代词）、新鲜度窗、在册绑定态、外表越集、单井支持性、合法口径（caliber_key 三态）——零 LLM，铁律是 LLM 无权判定。
+- **同参重投闸**：decision 出口对同一载荷的二次发射确定性拦截，拒因回喂模型重决策（兜底闸；主力是消息历史簿记）。
+- **预算闸**：每问 ≤3 轮、discover ≤10 次、单段 300s、单工具 30s——触界即收敛，交付已取得的观察材料（未核验的明示标注，不静默截断）。
+- **核验收口**：无据断言禁止进答案；轮 2/3 只重跑失败子问题，成功子问题结果保留不重跑。
+
+run 状态机：running→waiting_ask→（resume）→running→completed/failed；事件流外置持久化，断线凭游标续传，进程重启后挂起态可恢复。
 
 ### 功能概览
 
