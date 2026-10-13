@@ -1261,6 +1261,40 @@ def _tool_note(
     return _note("tool", f"{tool_name}：{status}", digest)
 
 
+# ---------- 过程档案摘要渲染（V2-79c——决策/澄清/匹配轮「本 run 已做」承载面） ----------
+
+# 有界值（V2-79 方案 §3.4——摘要段 ≤400 字，截断必披露不静默）。
+_PROCESS_NOTES_BUDGET = 400
+_PROCESS_NOTES_HEADER = "【本 run 已做（过程档案摘要——防重参考，不是作答材料）】"
+
+
+def _render_process_notes(
+    state: RunState, *, budget: int = _PROCESS_NOTES_BUDGET
+) -> str:
+    """process_notes→有界摘要段（拼进当前指令——永不以对话轮出现）。
+
+    零档案＝零段（首轮零噪声）；逐条追加超预算即止，截断带披露行（条数前后账）。
+    """
+    if not state.process_notes:
+        return ""
+    lines: list[str] = []
+    total = len(_PROCESS_NOTES_HEADER)
+    for note in state.process_notes:
+        line = (
+            f"- [{note.get('phase', '?')}] {note.get('title', '')}"
+            f"｜{note.get('digest', '')}"
+        )
+        if total + len(line) + 1 > budget:
+            lines.append(
+                f"-（过程档案摘要有界截断——已渲染 {len(lines)}/"
+                f"{len(state.process_notes)} 条）"
+            )
+            break
+        lines.append(line)
+        total += len(line) + 1
+    return _PROCESS_NOTES_HEADER + "\n" + "\n".join(lines)
+
+
 # ---------- 词典层常驻注入（V2-34 拍板 a——第 1 轮全量；V2-79a 起无历史收窄面） ----------
 
 
@@ -1650,6 +1684,10 @@ def _make_decision(
             )
         if state.user_hint:
             instruction += f"\n用户已补充：{state.user_hint}——请把它落进本轮决策。"
+        if segment := _render_process_notes(state):
+            # 「本 run 已做」有界摘要段（V2-79c——过程档案接回模型面，防重/防
+            # 重复探查；V2-37 闸保持机器兜底双保险）。
+            instruction += "\n\n" + segment
         context = deps.builder.compile(
             state, step=STEP_DECISION, instruction=instruction
         )
@@ -2315,6 +2353,9 @@ def _make_clarify(
             instruction += (
                 f"\n上次发射被拒：{state.decision_error}——修正后重新输出 JSON。"
             )
+        if segment := _render_process_notes(state):
+            # 「本 run 已做」有界摘要段（V2-79c——回炉轮看得见已探查/已执行）。
+            instruction += "\n\n" + segment
         context = deps.builder.compile(
             state,
             step=STEP_DECISION,
@@ -2607,6 +2648,9 @@ def _make_toolmatch(
             instruction += (
                 f"\n\n上次发射被拒：{state.decision_error}——修正后重新输出 JSON。"
             )
+        if segment := _render_process_notes(state):
+            # 「本 run 已做」有界摘要段（V2-79c——匹配轮看得见理解/探查档案）。
+            instruction += "\n\n" + segment
         context = deps.builder.compile(
             state,
             step=STEP_DECISION,

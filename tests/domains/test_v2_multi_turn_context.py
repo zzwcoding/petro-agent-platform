@@ -121,8 +121,12 @@ async def test_decision_context_carries_dialogue_only(
             assert messages[1] == {"role": "user", "content": QUESTION_A}
             assert "【待解构的题干】" not in messages[1]["content"]
         assert DECISION_WINDOWED not in _joined(second)
-        assert "data_query 参数：" not in _joined(second)
-        assert "问 2025 年 9 月上旬的日产油量" not in _joined(second)
+        # 对话层（messages[1:-1]）零过程记录（V2-79a）；「本 run 已做」摘要有界
+        # 进当前指令面（V2-79c——非对话层）。
+        assert not any("data_query 参数：" in m["content"] for m in second[1:-1])
+        assert not any(
+            "问 2025 年 9 月上旬的日产油量" in m["content"] for m in second[1:-1]
+        )
         # 台账/决策/理解/起草/核验全进过程档案（黑匣子蒸馏投影终态）。
         record = await store.get_blackbox(handle.run_id)
         assert record is not None
@@ -170,8 +174,8 @@ async def test_bad_args_ledger_wording_is_validation_reject_not_gate(
         # 拒因回喂 instruction 行（既有语义零漂移）。
         second = completer.messages_of("v2.runtime.decision")[1]
         assert "上次决策被拒" in second[-1]["content"]
-        # 对话层零台账轮（承载面改造）。
-        assert "data_query 参数：" not in _joined(second)
+        # 对话层零台账轮（承载面改造；台账摘要在当前指令面——V2-79c）。
+        assert not any("data_query 参数：" in m["content"] for m in second[1:-1])
         # 台账措辞在过程档案（分型逐字——bad_args＝「校验拒（拒因：…）」）。
         record = await store.get_blackbox(handle.run_id)
         assert record is not None
@@ -702,7 +706,7 @@ async def test_followup_seeds_full_checkpoint_dialogue(tmp_path: Path) -> None:
         "v2.runtime.decision": [CLARIFY_ASK_TARGET, DECISION_WINDOWED, DECISION_FINALIZE],
         "v2.runtime.answer": [ANSWER_DRAFT_CITED],
     }
-    runtime_a, _completer_a, db = await make_runtime(
+    runtime_a, completer_a, db = await make_runtime(
         tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=script_a,
     )
     store = RunStore(db)
@@ -727,6 +731,12 @@ async def test_followup_seeds_full_checkpoint_dialogue(tmp_path: Path) -> None:
         dialogue_a = record_a.get("dialogue") or []
         assert [t.get("role") for t in dialogue_a] == ["user", "user", "assistant"]
         assert dialogue_a[1]["content"] == "N-01 井"
+        # V2-79c：resume 后的决策轮指令带「本 run 已做」段（澄清回收在案）。
+        resume_round = completer_a.messages_of("v2.runtime.decision")[1]
+        resume_current = resume_round[-1]["content"]
+        assert "本 run 已做" in resume_current
+        assert "[clarify] 澄清回收｜N-01 井" in resume_current
+        assert "[decision] 决策｜决策 r1：澄清（您想问哪口井的日产油量？" in resume_current
     finally:
         await db.dispose()
 
@@ -783,5 +793,61 @@ async def test_followup_degraded_run_row_without_checkpoint(tmp_path: Path) -> N
         understand_msgs = completer.messages_of("v2.runtime.understand")[0]
         assert understand_msgs[1] == {"role": "user", "content": "前轮问句"}
         assert understand_msgs[2] == {"role": "assistant", "content": "前轮终稿答案。"}
+    finally:
+        await db.dispose()
+
+
+# ---------- V2-79c：过程档案摘要渲染（决策/澄清/匹配指令「本 run 已做」段） ----------
+
+
+def test_render_process_notes_bounded_with_disclosure() -> None:
+    """有界纪律（V2-79c）：零档案＝零段；多条长档案渲染 ≤ 预算＋披露行，
+    截断带条数前后账（不静默）。"""
+    from appv2.runtime.graph import _render_process_notes
+
+    assert _render_process_notes(RunState()) == ""  # 零档案零段（首轮零噪声）
+    state = RunState()
+    state.process_notes = [
+        {"phase": "tool", "title": f"工具{i}", "digest": "行" * 120}
+        for i in range(10)
+    ]
+    segment = _render_process_notes(state)
+    assert segment.startswith("【本 run 已做")
+    assert "有界截断" in segment
+    assert len(segment) <= 460  # 头 26＋预算 400＋披露行（截断必披露不越界）
+
+
+async def test_decision_instruction_carries_process_notes_digest(
+    tmp_path: Path,
+) -> None:
+    """「本 run 已做」段（V2-79c）：r1 决策指令带理解档案条目（零工具条目）；
+    r2 带 r1 决策摘要＋执行台账行——「已探查/已执行」接回模型面（V2-37 闸
+    保持机器兜底双保险）。"""
+    script: dict[str, Sequence[str]] = {
+        "v2.runtime.understand": [UNDERSTAND_DATA],
+        "v2.runtime.decision": [DECISION_WINDOWED, DECISION_FINALIZE],
+        "v2.runtime.answer": [ANSWER_DRAFT_CITED],
+    }
+    runtime, completer, db = await make_runtime(
+        tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=script,
+    )
+    store = RunStore(db)
+    try:
+        handle = await runtime.ask(AskRequest(question=QUESTION_A, actor=ACTOR))
+        await drain(handle)
+        run = await store.get_run(handle.run_id)
+        assert run is not None and run.status == "completed"
+        rounds = completer.messages_of("v2.runtime.decision")
+        first_current = rounds[0][-1]["content"]
+        assert "本 run 已做" in first_current
+        assert "[understand] 理解｜" in first_current
+        assert "- [tool]" not in first_current  # r1 时工具未执行
+        second_current = rounds[1][-1]["content"]
+        assert "[decision] 决策｜决策 r1：执行 data" in second_current
+        tool_lines = [
+            line for line in second_current.splitlines()
+            if line.startswith("- [tool]")
+        ]
+        assert len(tool_lines) == 1 and "→ 结果：2 行" in tool_lines[0]
     finally:
         await db.dispose()
