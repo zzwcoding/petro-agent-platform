@@ -11,7 +11,7 @@
 | 仓库 | 角色 | 可见性 |
 |---|---|---|
 | **本仓** [petro-agent-platform](https://github.com/zzwcoding/petro-agent-platform) | 平台实现仓：后端 `app/`＋`appv2/` · 前端 `web/` · 本体 `ontology/`（已并入） | 公开 |
-| [teach-petro-agent-public](https://github.com/zzwcoding/teach-petro-agent-public) | 设计/教学真源仓：合同册 specs/api · ADR 链 · 业务设定 · 架构大图 · 前端原型 | 私有（清洗中，完成后转公开） |
+| [teach-petro-agent-public](https://github.com/zzwcoding/teach-petro-agent-public) | 设计/教学真源仓：合同册 specs/api · ADR 链 · 业务设定 · 架构大图 · 前端原型 | 公开 |
 | [tpa-data-plane](https://github.com/zzwcoding/tpa-data-plane) | 数据面仓：独立数据服务（进料→清洗→出汇总→质检→报水位） | 公开 |
 | [fieldforge](https://github.com/zzwcoding/fieldforge) | 油气领域合成数据生成工作台 | 公开 |
 
@@ -25,18 +25,37 @@
 
 三条能力共享同一套知识资产：报告库、常见问题库、语义台账（本体资产驱动口径统一）、关系图谱，底层由数据面仓持续供给经过质检的数据。
 
-## 功能概览
+## 功能架构
+
+```mermaid
+flowchart LR
+    q["自然语言提问"] --> dec["V2 决策<br/>（appv2/runtime）"]
+    dec -->|报告类问题| ret["retrieval<br/>召回 → 重排 → 拾源"]
+    dec -->|数据类问题| qry["query<br/>台账查询 · 指标计算"]
+    dec -->|缺参数| ask["澄清反问"]
+    dec -->|可直接回答| ans["直答"]
+    ret --> exe["tools<br/>工具执行与护栏"]
+    qry --> exe
+    exe --> obs["观察结果回喂决策"]
+    obs --> dec
+    ask --> user2["等用户补充后继续"]
+    ans --> out["带出处的回答"]
+```
+
+一次提问的完整闭环：模型在运行时里自主决策「走检索 / 查台账 / 反问澄清 / 直接回答」，每步执行结果回喂给下一步决策，直到给出带出处的回答。决策不是裸奔的，外面有一圈**确定性护栏**：同参重投拦截（同一载荷二次发射直接拦，拒因回喂模型重决策）、数据新鲜度闸、审批重投通道、工具重试预算、轮数预算收敛——全部是代码闸，不依赖模型自觉。
+
+### 功能概览
 
 | 面 | 内容 |
 |---|---|
 | **V1 后端 `app/`**（已冻结） | 接口层 11 路由族：security 身份 · gateway 模型网关 · chat 对话 · semantics 语义台账 · kb 报告库 · wiki 报告百科 · graph 关系图谱 · faq 常见问题库 · retrieval 检索 · wells 井档案 · quality 质量。问答侧是多链流水线：检索问答链 · 状态机六站链 · FAQ 直出 · 图谱链 |
-| **V2 后端 `appv2/`**（主线） | 重写为 ReAct 自主回路：模型自主决策「检索 / 查数 / 反问 / 直答」，六个包分职——retrieval 检索 · runtime 运行时 · query 问数 · knowledge 知识 · tools 工具层 · api 接口；带同参重投拦截、新鲜度闸、审批重投等确定性护栏 |
+| **V2 后端 `appv2/`**（主线） | 重写为 ReAct 自主回路：模型自主决策「检索 / 查数 / 反问 / 直答」，六个包分职——retrieval 检索 · runtime 运行时 · query 问数 · knowledge 知识 · tools 工具层 · api 接口 |
 | **前端 `web/`** | React 18 + antd5 + AntV G6，页面族 A（对话）· B（报告库/百科/图谱/FAQ）· C（台账/语义）· D（数据面观测），Vite 构建、Vitest 测试 |
 | **本体 `ontology/`** | 平台仓普通目录：本体资产 Git+YAML 真源，改动过语义闸 `bash ontology/ci.sh` |
 | **数据面 `data-plane/`** | 嵌套独立仓：进料→清洗→出汇总→质检→报水位，纪律见其 AGENTS.md |
 | **评测 `eval/`** | 97 题门禁题册 gold-v1 · 判分总则 · 全部轮次报告与逐题判分证据（SSE 帧） |
 
-## 架构一图
+## 系统架构一图
 
 ```mermaid
 flowchart TB
@@ -69,6 +88,85 @@ flowchart TB
 ```
 
 四层架构（接口层 / 领域层 / 基础设施层 / 资产层）层间依赖单向向下，边界规则逐条进 `import-linter` 机检。
+
+## 文件架构
+
+```
+petro-agent-platform/
+├── app/                  # V1 后端（已冻结）——四层架构
+│   ├── api/              #   接口层：路由薄壳（11 路由族，唯一框架接触面）
+│   ├── domains/          #   领域层：14 模块（kb 报告库 · semantics 语义台账 · derivatives 百科/图谱 ·
+│   │                     #     faq · wells 井档案 · retrieval · gateway · security · chat ·
+│   │                     #     approval · assessment · dataops · expose · governance）
+│   ├── infra/            #   基础设施层：8 适配器（db · llm_client · graph_store · object_storage ·
+│   │                     #     eventbus · clock · crypto · config；queue/sse_channel/scheduler 预留）
+│   └── main.py           #   V1 入口（:8000）
+├── appv2/                # V2 后端（主线）——ReAct 自主回路
+│   ├── runtime/          #   运行时：循环编排 + 护栏（executor · graph · state · budget 预算 ·
+│   │                     #     checkpointer 断点 · blackbox 黑匣子观测 · eval_clock 评测时钟 · audit 审计）
+│   ├── retrieval/        #   检索：embedder 向量化 · engine 引擎 · enrich 拾源（PG 实装 + 假件双轨）
+│   ├── query/            #   问数：engine · executor 台账执行 · pg_waterline 水位 · pg_wells 井档案
+│   ├── knowledge/        #   知识：报告库/FAQ 存储（pg_store · pg_faq · snapshot）
+│   ├── tools/            #   工具层：registry 注册表 · handlers · precondition 前置闸 · argscheck 参检 ·
+│   │                     #     anchors 锚点 · ledger 台账工具
+│   ├── api/              #   接口：app.py（Petro-Agent V2）· chat SSE 对话流
+│   └── infra/            #   V2 基础设施
+├── web/                  # 前端：React18 + antd5（pages 页面族 A/B/C/D · flows 流程 · landing 落地页 · store 状态）
+├── ontology/             # 本体资产（Git+YAML 真源；ci.sh 语义闸＝98 单测+出厂集）
+├── data-plane/           # 数据面（嵌套独立 git 仓，.gitignore 排除）
+├── eval/                 # 评测：gold-v1 门禁题册（97 题） · reports 报告 · results（HTML 报告 + frames 逐题帧）
+├── tickets/              # 施工票：一票一分支一提交（phase1/phase3/v2 分册）
+├── dispatch/             # 双窗口调度运行态（PROTOCOL.md 协议本体进 git）
+├── config/               # models.yaml 模型别名 · database.yaml · contract_endpoints.json 合同清单
+│                         #   entity_types.json / relation_types.json 本体类型注册
+├── specs/                # V2 模块规格快照（agent-loop · retrieval · query · knowledge · infra · modules）
+├── tools/                # 机器闸：contract_coverage 合同覆盖率 · debt_markers 债务标记 · check_specs 规格
+│                         #   ticket_close_check 关票 · run_replay 复跑 · prototype_guard 原型
+├── tests/                # pytest 全量（1600+ 用例）
+├── migrations/           # 数据库迁移（alembic）
+├── deploy/cloud/         # 云部署：backend.Dockerfile · compose.yml · nginx-tpa.conf
+├── scripts/              # 部署脚本（compose-up / restore-data / app-install / smoke）
+├── docs/                 # architecture-v2 · deploy runbook · 本体应用讲解
+└── README.md             # 本文件
+```
+
+## 组织架构（仓间分工与施工流）
+
+**四仓分工**：设计真源在 teach-petro-agent-public（API 合同册/模块划分/数据库设计/ADR 链），本仓只放实现代码并**引用**真源路径（合同正文不复制进来）；数据面独立仓独立提交节奏；fieldforge 产出合成数据经数据面进料。
+
+**施工流**（本仓的开发方式）：
+
+```
+合同册端点 → 拆施工票（合同册端点闭世界全量分派，不留白）
+  → 一票一分支一提交 → 验收（票面对象全勾才合）
+  → 两道机器闸把守交付：contract_coverage（合同 × 路由双向对账）
+     debt_markers（债务短语必须携去向标签）＋ CI 五闸（lint/类型/测试/边界/合同）
+```
+
+每张票的施工、验收、判分过程都留档在 `tickets/` 与 `eval/`，可回溯每一行代码的来历。
+
+## 技术选型
+
+| 层 | 选型 | 在项目中的角色 |
+|---|---|---|
+| 运行时 | Python 3.12 + uv | 后端语言与依赖管理（uv.lock 锁版本） |
+| Web 框架 | FastAPI | 接口层薄壳与 SSE 流式输出（对话帧逐 token 推送） |
+| 数据访问 | SQLAlchemy 2 (asyncio) + asyncpg | 异步数据库访问，唯一出口 `infra.db`（B3 边界） |
+| 迁移 | Alembic | `migrations/` 版本化建库 |
+| Agent 编排 | LangGraph | V2 ReAct 回路的图编排（`appv2/runtime`） |
+| 模型接入 | LiteLLM | 多供应商适配，统一出口 `gateway.complete`（B6 边界），别名制路由主备模型 |
+| 向量检索 | PostgreSQL + pgvector | RAG 向量存储与召回（报告库/FAQ 检索） |
+| 图数据库 | Neo4j | 关系图谱（B5 图谱面） |
+| 对象存储 | MinIO | 报告/文件存储 |
+| 缓存 | Redis | 会话与运行态缓存 |
+| 定时任务 | APScheduler | 数据面联动与周期任务调度 |
+| 字段加密 | gmssl（SM4） | `infra.crypto` EncryptedField 敏感字段加密 |
+| 前端框架 | React 18 + antd5 | `web/` 全部界面 |
+| 图可视化 | AntV G6 | 关系图谱渲染 |
+| 前端状态 | zustand | 轻量状态管理 |
+| 构建 | Vite | 前端构建与开发服 |
+| 前端测试 | Vitest | web 组件测试 |
+| 质量闸 | pytest · ruff · mypy · import-linter | 测试（1600+）/lint/类型/边界合同四闸，加合同覆盖率与债务标记两道交付闸 |
 
 ## 双版本演进与评测曲线
 
