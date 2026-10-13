@@ -71,9 +71,9 @@ afterEach(() => {
 
 /** 左栏某条任务所在行容器（锚 → flex 行 → 行容器——A1V2 左栏结构两跳）。 */
 function runRowOf(questionText) {
-  const anchor = screen.getByText(questionText).closest('a')
-  expect(anchor).toBeTruthy()
-  return anchor.parentElement.parentElement
+  const row = screen.getByText(questionText).closest('li')
+  expect(row).toBeTruthy()
+  return row
 }
 
 describe('A1V2 最近对话栏 · mount 拉取与状态 Tag（V2-73）', () => {
@@ -84,10 +84,12 @@ describe('A1V2 最近对话栏 · mount 拉取与状态 Tag（V2-73）', () => {
     expect(listRunsV2).toHaveBeenCalledTimes(1)
     expect(listRunsV2).toHaveBeenCalledWith(20) // mount 缺省 20 条
 
-    const doneTag = screen.getByText('completed')
-    expect(doneTag.className).toContain('ant-tag-green')
-    const waitingTag = screen.getByText('waiting_ask')
-    expect(waitingTag.className).toContain('ant-tag-gold')
+    // V1 式列内 UI（V2-73 终版）：行1 标题（waiting_ask 前缀金色询问图标）＋行2 dim 状态文案
+    const doneRow = screen.getByText('9 月上旬各井日产油量是多少？').closest('li')
+    expect(doneRow.textContent).toContain('已完成')
+    const waitingRow = screen.getByText('帮我预测明年油价走势').closest('li')
+    expect(waitingRow.textContent).toContain('待确认')
+    expect(waitingRow.querySelector('.anticon-question-circle')).toBeTruthy()
   })
 })
 

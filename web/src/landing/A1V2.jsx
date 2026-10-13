@@ -12,7 +12,9 @@ import { useEffect, useRef, useState } from 'react'
 import {
   Alert, Button, Card, Collapse, Drawer, Input, List, Modal, Space, Spin, Tag
 } from 'antd'
-import { ApartmentOutlined, SendOutlined } from '@ant-design/icons'
+import {
+  ApartmentOutlined, QuestionCircleOutlined, SendOutlined
+} from '@ant-design/icons'
 import { ApiError, errText } from '../api/client.js'
 import {
   listRunsV2, postAskV2, postResumeV2, resumeBodyFromAskFrame
@@ -48,6 +50,11 @@ function NoticeRow({ n }) {
     )
   }
   return <div style={{ ...dim, margin: '4px 0' }}>{n.content}</div>
+}
+
+// 状态文案（V1 列内两行式——行2 dim 文本；waiting_ask 行1 前缀金色询问图标）
+const STATUS_TEXT = {
+  running: '运行中', waiting_ask: '待确认', completed: '已完成', failed: '失败'
 }
 
 function statusTag(status) {
@@ -272,17 +279,22 @@ export default function A1V2Landing() {
         <div style={{ ...dim, marginBottom: 4 }}>共 {runs.length} 条</div>
         <List size="small" dataSource={runs} locale={{ emptyText: '暂无数据' }}
           renderItem={r => (
-            <List.Item style={{ cursor: busy ? 'wait' : 'pointer', padding: '4px 0', display: 'block' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
-                <a style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                  onClick={() => !busy && setViewing({ run: r, loading: false, error: null })}>
+            <List.Item style={{ cursor: busy ? 'wait' : 'pointer', padding: '4px 0' }}
+              onClick={() => !busy && setViewing({ run: r, loading: false, error: null })}>
+              <div>
+                <div style={{ fontSize: 13 }}>
+                  {r.status === 'waiting_ask' && (
+                    <QuestionCircleOutlined style={{ color: '#e8b339', marginRight: 6 }} />
+                  )}
                   {(r.question || '').slice(0, 18) || r.run_id}
-                </a>
-                {statusTag(r.status)}
-              </div>
-              <div style={{ ...dim, display: 'flex', justifyContent: 'space-between' }}>
-                <span>{r.created_at?.replace('T', ' ').slice(5, 16) ?? ''}</span>
-                <a style={{ fontSize: 11 }} onClick={() => !busy && setFollowupRunId(r.run_id)}>追问此任务</a>
+                </div>
+                <div style={{ ...dim, display: 'flex', justifyContent: 'space-between' }}>
+                  <span>{STATUS_TEXT[r.status] ?? r.status}{r.created_at ? ` · ${r.created_at.replace('T', ' ').slice(5, 16)}` : ''}</span>
+                  <a style={{ fontSize: 11 }}
+                    onClick={e => { e.stopPropagation(); if (!busy) setFollowupRunId(r.run_id) }}>
+                    追问此任务
+                  </a>
+                </div>
               </div>
             </List.Item>
           )} />
