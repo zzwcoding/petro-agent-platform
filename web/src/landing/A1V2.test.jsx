@@ -110,13 +110,14 @@ describe('A1V2 最近对话栏 · 追问此任务（会话线程挂前轮）', (
     const waitingRow = runRowOf('帮我预测明年油价走势')
 
     fireEvent.click(within(waitingRow).getByText('追问此任务'))
-    const mark = screen.getByText('追问中——下一条问题带会话线程')
-    expect(within(waitingRow).getByText('追问中——下一条问题带会话线程')).toBe(mark) // 标记挂所点行
+    // 三栏版（V2-73 终版布局）：面板级标记（单选模型）＋中栏线程 Tag 双面在场
+    screen.getByText('追问中——下一条问题带会话线程')
+    screen.getByText('追问线程：run-v73b')
 
-    fireEvent.change(screen.getByPlaceholderText(/向 V2 提问/), {
+    fireEvent.change(screen.getByPlaceholderText(/输入问题/), {
       target: { value: '那 9 月中旬呢？' }
     })
-    fireEvent.keyDown(screen.getByPlaceholderText(/向 V2 提问/), { key: 'Enter', keyCode: 13 })
+    fireEvent.keyDown(screen.getByPlaceholderText(/输入问题/), { key: 'Enter', keyCode: 13 })
     await waitFor(() => expect(postAskV2).toHaveBeenCalledTimes(1))
     expect(postAskV2.mock.calls[0][0]).toEqual({
       question: '那 9 月中旬呢？',
@@ -139,7 +140,7 @@ it('挂起卡渲染：ask 帧后出反问卡＋选项按钮，页面不崩', asy
     return Promise.resolve({ lastEventId: '' })
   })
   render(<A1V2Landing />)
-  fireEvent.change(await screen.findByPlaceholderText('向 V2 提问（Enter 发送）'),
+  fireEvent.change(await screen.findByPlaceholderText('输入问题（Enter 发送）'),
     { target: { value: 'N-02 最近怎么样' } })
   fireEvent.click(screen.getByText('发送'))
   expect(await screen.findByText('「最近」指哪个时间窗？')).toBeTruthy()
