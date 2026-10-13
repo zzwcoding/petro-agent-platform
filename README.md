@@ -1,6 +1,6 @@
 # Petro-Agent 平台（真实实现仓）
 
-面向油气田生产场景的智能问答平台：**问报告**（知识检索问答，回答带原文出处）、**问数据**（自然语言查台账，Text2SQL 与指标计算）、**问智**（把答案加工成汇报成品）。平台由 ReAct 自主回路驱动（V2），模型调用走统一网关，落国产化栈——金仓数据库兼容 + SM3/SM4 国密字段加密。97 题标准题册多轮实测：正确题数从重写起点的 10 爬到冻结点 **76/97**。
+面向油气田生产场景的智能问答平台：**问报告**（知识检索问答，回答带原文出处）、**问数据**（自然语言查台账，Text2SQL 与指标计算）、**问智**（把答案加工成汇报成品）。平台由 ReAct 自主回路驱动（V2），模型调用走统一网关。97 题标准题册多轮实测：正确题数从重写起点的 10 爬到冻结点 **76/97**。
 
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white) ![FastAPI](https://img.shields.io/badge/FastAPI-后端-009688?logo=fastapi&logoColor=white) ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black) ![LangGraph](https://img.shields.io/badge/LangGraph-ReAct-8B5CF6) ![tests](https://img.shields.io/badge/pytest-1600%2B_passed-16A34A) ![评测](https://img.shields.io/badge/评测Q17-✅76_of_97-0EA5E9)
 
