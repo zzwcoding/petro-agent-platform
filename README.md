@@ -7,9 +7,22 @@
 ## 克隆/备份
 
 ```bash
-git clone <本仓地址>          # 平台仓全量（app/web/tickets/ontology…）；data-plane/ 为独立 git 仓，需要时另行 clone
-备份：整个文件夹直接拷贝即可（两份 .git 全在内：平台仓 + data-plane）
+git clone https://github.com/zzwcoding/petro-agent-platform.git   # 平台仓全量（app/web/tickets/ontology…）
+git clone https://github.com/zzwcoding/tpa-data-plane.git         # 数据面仓（本地嵌套于 data-plane/，平台仓 .gitignore 排除——两仓齐即全量）
+备份：整个文件夹直接拷贝也可（两份 .git 全在内：平台仓 + data-plane）；云端＝GitHub 两仓（本体已并入平台仓）
 ```
+
+## 项目地图（同一项目的各部分 GitHub 仓）
+
+本项目按「设计真源 → 平台实现 → 数据面 → 合成数据」分仓协作，各仓独立 git，GitHub 平级发布：
+
+| 仓库 | 角色 | 可见性 |
+|---|---|---|
+| **本仓** [petro-agent-platform](https://github.com/zzwcoding/petro-agent-platform) | 平台实现仓：后端 `app/`＋`appv2/` · 前端 `web/` · 本体 `ontology/`（已并入） | 公开 |
+| [teach-petro-agent](https://github.com/zzwcoding/teach-petro-agent) | 设计/教学真源仓：合同册 · ADR · 业务设定 · 场景课 | 私有 |
+| [teach-petro-agent-public](https://github.com/zzwcoding/teach-petro-agent-public) | 教学仓公开向副本（架构设计项目形态） | 私有 |
+| [tpa-data-plane](https://github.com/zzwcoding/tpa-data-plane) | 数据面仓：独立数据服务（进料→清洗→出汇总→质检→报水位） | 私有 |
+| [fieldforge](https://github.com/zzwcoding/fieldforge) | 油气领域合成数据生成工作台 | 公开 |
 
 ## 设计真源（不复制进本仓）
 
@@ -24,7 +37,7 @@ git clone <本仓地址>          # 平台仓全量（app/web/tickets/ontology�
 ## 快速开始
 
 ```bash
-git clone <本仓地址>                       # data-plane 为独立仓，需要时另行 clone
+git clone https://github.com/zzwcoding/petro-agent-platform.git   # data-plane 为独立仓（github.com/zzwcoding/tpa-data-plane），需要时另行 clone
 cp .env.example .env                          # 填入 LLM 凭证（Owner 提供测试 key）
 uv sync                                  # 后端依赖（Python 3.12 由 uv 管理）
 docker compose up -d                     # 中间件：PG(+pgvector)/Redis/MinIO/Neo4j（Langfuse 见 observe profile）
@@ -48,7 +61,7 @@ data-plane/    独立仓：数据面服务（进料→清洗→出汇总→质�
 
 ## 嵌套仓纪律（data-plane）
 
-1. data-plane 内容**回 data-plane 仓提交推送**（cd data-plane && git commit…），平台仓 .gitignore 排除之，不记版本；
+1. data-plane 内容**回 data-plane 仓提交推送**（cd data-plane && git commit…，远程 https://github.com/zzwcoding/tpa-data-plane），平台仓 .gitignore 排除之，不记版本；
 2. 改动守 data-plane 仓自己的 AGENTS.md（ADR 链）；
 3. ontology/ 已并入平台仓普通目录（2026-09-30 子树合并，历史随合并提交可溯）——本体改动直接提交本仓，提交前跑 `bash ontology/ci.sh` 语义闸。
 
