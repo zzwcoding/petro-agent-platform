@@ -1,0 +1,18 @@
+[Unit]
+Description=petro-agent V2 ask backend (q12_v2_launcher :8001)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/petro-agent-platform
+# 真实时钟：EVAL_FROZEN_DATE=real 必须显式——空串/未设＝默认冻结 2026-08-31（eval_clock.py 语义）
+Environment=EVAL_FROZEN_DATE=real
+EnvironmentFile=-/opt/petro-agent-platform/.env
+ExecStart=/opt/petro-agent-platform/.venv/bin/python -m uvicorn q12_v2_launcher:app --host 127.0.0.1 --port 8001
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
