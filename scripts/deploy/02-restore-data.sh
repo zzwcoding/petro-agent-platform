@@ -11,6 +11,15 @@ docker exec petro-agent-platform-pg-1 psql -U petro -d petro -tAc \
 docker exec petro-agent-platform-pg-1 psql -U petro -d petro -tAc \
   "select 'metering='||count(*) from agg.fct_daily_metering"
 
+echo "== 1b/3 中台只读授权（runbook §1.1——--clean 恢复会丢 schema 级 GRANT，灌完必补）"
+docker exec petro-agent-platform-pg-1 psql -U petro -d petro -c "DO \$\$ BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='midplatform') THEN
+    CREATE ROLE midplatform LOGIN PASSWORD '${MIDPLATFORM_PASSWORD:-midplatform}';
+  END IF;
+END \$\$;"
+docker exec petro-agent-platform-pg-1 psql -U petro -d petro -c \
+  "GRANT USAGE ON SCHEMA raw TO midplatform; GRANT SELECT ON ALL TABLES IN SCHEMA raw TO midplatform; ALTER DEFAULT PRIVILEGES IN SCHEMA raw GRANT SELECT ON TABLES TO midplatform;"
+
 echo "== 2/3 MinIO 卷恢复（运行中解包，解完重启让其重扫）"
 docker exec petro-agent-platform-minio-1 sh -c "cd /data && tar xzf -" < "$STAGING/minio-data.tgz"
 docker compose restart minio
