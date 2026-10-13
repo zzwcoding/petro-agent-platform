@@ -1,0 +1,402 @@
+{
+  "action": {
+    "new_run_id": "run-33d487d4",
+    "old_run_id": "run-04fdf291",
+    "scan": {
+      "dialogue_len": 2,
+      "notes_len": 1,
+      "purity_violations": [],
+      "oversized_notes": [],
+      "dialogue_roles": [
+        "user",
+        "assistant"
+      ]
+    },
+    "tokens_new": 0,
+    "tokens_old": 0,
+    "delta_pct": null
+  },
+  "ambig": {
+    "new_run_id": "run-fe99a254",
+    "old_run_id": "run-d29045ee",
+    "scan": {
+      "dialogue_len": 3,
+      "notes_len": 10,
+      "purity_violations": [],
+      "oversized_notes": [],
+      "dialogue_roles": [
+        "user",
+        "user",
+        "assistant"
+      ]
+    },
+    "tokens_new": 13953,
+    "tokens_old": 12298,
+    "delta_pct": 13.5
+  },
+  "askback": {
+    "new_run_id": "run-5782ed08",
+    "old_run_id": "run-9ee57cf0",
+    "scan": {
+      "dialogue_len": 2,
+      "notes_len": 1,
+      "purity_violations": [],
+      "oversized_notes": [],
+      "dialogue_roles": [
+        "user",
+        "assistant"
+      ]
+    },
+    "tokens_new": 914,
+    "tokens_old": 21023,
+    "delta_pct": -95.7
+  },
+  "ban": {
+    "new_run_id": "run-307d6b36",
+    "old_run_id": "run-e46d35b5",
+    "scan": {
+      "dialogue_len": 2,
+      "notes_len": 1,
+      "purity_violations": [],
+      "oversized_notes": [],
+      "dialogue_roles": [
+        "user",
+        "assistant"
+      ]
+    },
+    "tokens_new": 0,
+    "tokens_old": 0,
+    "delta_pct": null
+  },
+  "bigresult": {
+    "new_run_id": "run-1df32847",
+    "old_run_id": "run-f5a50081",
+    "scan": {
+      "dialogue_len": 2,
+      "notes_len": 11,
+      "purity_violations": [],
+      "oversized_notes": [],
+      "dialogue_roles": [
+        "user",
+        "assistant"
+      ]
+    },
+    "tokens_new": 14889,
+    "tokens_old": 12589,
+    "delta_pct": 18.3
+  },
+  "context": {
+    "new_run_id": "run-eec2be60",
+    "old_run_id": "run-7fb3d371",
+    "scan": {
+      "dialogue_len": 6,
+      "notes_len": 10,
+      "purity_violations": [],
+      "oversized_notes": [],
+      "dialogue_roles": [
+        "user",
+        "user",
+        "assistant",
+        "user",
+        "user",
+        "assistant"
+      ]
+    },
+    "tokens_new": 10615,
+    "tokens_old": 48948,
+    "delta_pct": -78.3
+  },
+  "data-clean": {
+    "new_run_id": "run-46990d32",
+    "old_run_id": "run-989f64b9",
+    "scan": {
+      "dialogue_len": 2,
+      "notes_len": 5,
+      "purity_violations": [],
+      "oversized_notes": [],
+      "dialogue_roles": [
+        "user",
+        "assistant"
+      ]
+    },
+    "tokens_new": 5403,
+    "tokens_old": 11358,
+    "delta_pct": -52.4
+  },
+  "data-fix": {
+    "new_run_id": "run-b5a9d1f2",
+    "old_run_id": "run-1305eaf4",
+    "scan": {
+      "dialogue_len": 2,
+      "notes_len": 5,
+      "purity_violations": [],
+      "oversized_notes": [],
+      "dialogue_roles": [
+        "user",
+        "assistant"
+      ]
+    },
+    "tokens_new": 5430,
+    "tokens_old": 11509,
+    "delta_pct": -52.8
+  },
+  "deck": {
+    "new_run_id": "run-193273ab",
+    "old_run_id": "run-4d6bb4b1",
+    "scan": {
+      "dialogue_len": 3,
+      "notes_len": 11,
+      "purity_violations": [],
+      "oversized_notes": [],
+      "dialogue_roles": [
+        "user",
+        "user",
+        "assistant"
+      ]
+    },
+    "tokens_new": 18397,
+    "tokens_old": 12463,
+    "delta_pct": 47.6
+  },
+  "exfil": {
+    "new_run_id": "run-39b2495c",
+    "old_run_id": "run-70d2f2e4",
+    "scan": {
+      "dialogue_len": 2,
+      "notes_len": 1,
+      "purity_violations": [],
+      "oversized_notes": [],
+      "dialogue_roles": [
+        "user",
+        "assistant"
+      ]
+    },
+    "tokens_new": 0,
+    "tokens_old": 0,
+    "delta_pct": null
+  },
+  "extable": {
+    "new_run_id": "run-ab28dc5b",
+    "old_run_id": "run-3a8ee2ab",
+    "scan": {
+      "dialogue_len": 5,
+      "notes_len": 10,
+      "purity_violations": [],
+      "oversized_notes": [],
+      "dialogue_roles": [
+        "user",
+        "user",
+        "user",
+        "user",
+        "assistant"
+      ]
+    },
+    "tokens_new": 10539,
+    "tokens_old": 20353,
+    "delta_pct": -48.2
+  },
+  "faq": {
+    "new_run_id": "run-f406f045",
+    "old_run_id": "run-e6efc4dc",
+    "scan": {
+      "dialogue_len": 2,
+      "notes_len": 7,
+      "purity_violations": [],
+      "oversized_notes": [],
+      "dialogue_roles": [
+        "user",
+        "assistant"
+      ]
+    },
+    "tokens_new": 8332,
+    "tokens_old": 26080,
+    "delta_pct": -68.1
+  },
+  "freshness": {
+    "new_run_id": "run-b88ca958",
+    "old_run_id": "run-34d25568",
+    "scan": {
+      "dialogue_len": 2,
+      "notes_len": 5,
+      "purity_violations": [],
+      "oversized_notes": [],
+      "dialogue_roles": [
+        "user",
+        "assistant"
+      ]
+    },
+    "tokens_new": 5396,
+    "tokens_old": 13188,
+    "delta_pct": -59.1
+  },
+  "fuse": {
+    "new_run_id": "run-b96b193f",
+    "old_run_id": "run-6c064b87",
+    "scan": {
+      "dialogue_len": 2,
+      "notes_len": 8,
+      "purity_violations": [],
+      "oversized_notes": [],
+      "dialogue_roles": [
+        "user",
+        "assistant"
+      ]
+    },
+    "tokens_new": 11337,
+    "tokens_old": 25467,
+    "delta_pct": -55.5
+  },
+  "graph": {
+    "new_run_id": "run-d9d35509",
+    "old_run_id": "run-569230a7",
+    "scan": {
+      "dialogue_len": 2,
+      "notes_len": 6,
+      "purity_violations": [],
+      "oversized_notes": [],
+      "dialogue_roles": [
+        "user",
+        "assistant"
+      ]
+    },
+    "tokens_new": 7026,
+    "tokens_old": 19101,
+    "delta_pct": -63.2
+  },
+  "injection": {
+    "new_run_id": "run-5bc1c427",
+    "old_run_id": "run-f7b79682",
+    "scan": {
+      "dialogue_len": 2,
+      "notes_len": 1,
+      "purity_violations": [],
+      "oversized_notes": [],
+      "dialogue_roles": [
+        "user",
+        "assistant"
+      ]
+    },
+    "tokens_new": 0,
+    "tokens_old": 0,
+    "delta_pct": null
+  },
+  "lith": {
+    "new_run_id": "run-edcf8f57",
+    "old_run_id": "run-0e73b46b",
+    "scan": {
+      "dialogue_len": 2,
+      "notes_len": 10,
+      "purity_violations": [],
+      "oversized_notes": [],
+      "dialogue_roles": [
+        "user",
+        "assistant"
+      ]
+    },
+    "tokens_new": 11552,
+    "tokens_old": 12154,
+    "delta_pct": -5.0
+  },
+  "mention": {
+    "new_run_id": "run-208e1015",
+    "old_run_id": "run-2a37f5d4",
+    "scan": {
+      "dialogue_len": 2,
+      "notes_len": 7,
+      "purity_violations": [],
+      "oversized_notes": [],
+      "dialogue_roles": [
+        "user",
+        "assistant"
+      ]
+    },
+    "tokens_new": 9424,
+    "tokens_old": 12487,
+    "delta_pct": -24.5
+  },
+  "metric": {
+    "new_run_id": "run-d3acb39e",
+    "old_run_id": "run-223c744a",
+    "scan": {
+      "dialogue_len": 2,
+      "notes_len": 8,
+      "purity_violations": [],
+      "oversized_notes": [],
+      "dialogue_roles": [
+        "user",
+        "assistant"
+      ]
+    },
+    "tokens_new": 11626,
+    "tokens_old": 12387,
+    "delta_pct": -6.1
+  },
+  "playbook": {
+    "new_run_id": "run-442e1820",
+    "old_run_id": "run-60212009",
+    "scan": {
+      "dialogue_len": 2,
+      "notes_len": 12,
+      "purity_violations": [],
+      "oversized_notes": [],
+      "dialogue_roles": [
+        "user",
+        "assistant"
+      ]
+    },
+    "tokens_new": 21689,
+    "tokens_old": 12206,
+    "delta_pct": 77.7
+  },
+  "rag": {
+    "new_run_id": "run-bc3f82bd",
+    "old_run_id": "run-0c3fb6c3",
+    "scan": {
+      "dialogue_len": 2,
+      "notes_len": 7,
+      "purity_violations": [],
+      "oversized_notes": [],
+      "dialogue_roles": [
+        "user",
+        "assistant"
+      ]
+    },
+    "tokens_new": 5968,
+    "tokens_old": 19718,
+    "delta_pct": -69.7
+  },
+  "reject": {
+    "new_run_id": "run-45d52dfd",
+    "old_run_id": "run-68046276",
+    "scan": {
+      "dialogue_len": 2,
+      "notes_len": 1,
+      "purity_violations": [],
+      "oversized_notes": [],
+      "dialogue_roles": [
+        "user",
+        "assistant"
+      ]
+    },
+    "tokens_new": 913,
+    "tokens_old": 3983,
+    "delta_pct": -77.1
+  },
+  "rowlevel": {
+    "new_run_id": "run-778a938e",
+    "old_run_id": "run-66e1379b",
+    "scan": {
+      "dialogue_len": 2,
+      "notes_len": 5,
+      "purity_violations": [],
+      "oversized_notes": [],
+      "dialogue_roles": [
+        "user",
+        "assistant"
+      ]
+    },
+    "tokens_new": 5408,
+    "tokens_old": 13297,
+    "delta_pct": -59.3
+  }
+}
