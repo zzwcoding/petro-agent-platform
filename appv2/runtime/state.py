@@ -181,12 +181,18 @@ class RunState:
     window_miss_marks: dict[str, str] = field(default_factory=dict)
     # 全 run 发现预算已用数（澄清相位 ≤10 合同闸判据——Owner 拍板放宽）。
     discover_used: int = 0
-    # —— 消息历史簿记（ADR-0006/V2-38）：understand/decision/answer 的调用与输出、
-    # 工具执行台账（参数 → 结果：N 行／分型拒因：校验拒／暂不可用／闸拒）、拒因回
-    # 喂、用户澄清/审批回收
-    # 全部作为轮次进历史；后续每步在完整历史上续写（替换「每步全新两条消息」伪
-    # 多轮形态）。值全 JSON 原语（checkpointer 序列化面最简）；追问续会话经
-    # executor 播种前轮线程历史（followup_of）。
+    # —— 对话状态三层分离（V2-79a——ADR-0006 修订）：dialogue＝自然对话层
+    # （user 原话/assistant 终稿/澄清审批回收原文；纯度红线：禁任务书、禁指令、
+    # 禁模型过程原话、禁任何系统注记前缀）；process_notes＝过程档案层
+    # （[{phase,title,digest}] 有界摘要——只追加不改写，每条 digest ≤200 字；
+    # 读侧渲染随 V2-79c）。每步模型上下文＝[system]＋dialogue 截断＋当前轮
+    # （任务书/指令现拼——用完即弃不入史）；追问续会话经 executor 播种前轮
+    # dialogue（followup_of）。值全 JSON 原语（checkpointer 序列化面最简）。
+    dialogue: list[dict[str, str]] = field(default_factory=list)
+    process_notes: list[dict[str, str]] = field(default_factory=list)
+    schema_version: int = 2  # checkpoint 版本（旧快照无此键＝v1——读侧兼容判据）
+    # 【V2-79a 兼容死字段】旧混装消息历史——零读写，仅保 v1 checkpoint（含
+    # history 键）读入不炸；V2-79e 清账删除。
     history: list[dict[str, str]] = field(default_factory=list)
     # —— decision 产物（ReAct 决策出口——行为断言锁定面） ——
     rounds: int = 0  # 已消耗的 LLM 决策周期数（≤3 轮上限闸判据）

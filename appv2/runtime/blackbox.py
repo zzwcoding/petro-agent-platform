@@ -19,7 +19,8 @@ from typing import Any
 # ---------- 蒸馏白名单（final 状态键闭世界——新增状态键须显式入列） ----------
 
 _DISTILL_KEYS: tuple[str, ...] = (
-    "history",
+    "dialogue",
+    "process_notes",
     "steps",
     "observations",
     "notices",
@@ -46,7 +47,8 @@ CURATED_CHANNELS: frozenset[str] = frozenset(
         "question",
         "understanding",
         "task_type",
-        "history",
+        "dialogue",
+        "process_notes",
         "steps",
         "observations",
         "notices",
@@ -120,7 +122,8 @@ def pointer(
         "stored": stored,
         "bytes": int(bytes_written),
         "counts": {
-            "history": len(record.get("history") or []),
+            "dialogue": len(record.get("dialogue") or []),
+            "process_notes": len(record.get("process_notes") or []),
             "observations": len(record.get("observations") or []),
             "steps": len(record.get("steps") or []),
         },
@@ -160,9 +163,9 @@ def _head(value: str, limit: int = 96) -> str:
 
 
 def _render_channel(name: str, value: Any) -> list[str]:
-    """单通道→转写行（history/observations/steps 专属美化，其余短形）。"""
-    if name == "history" and isinstance(value, list):
-        lines = [f"  history（{len(value)} 条）——模型每步所见（收窄形）与原话:"]
+    """单通道→转写行（dialogue/process_notes/observations/steps 专属美化，其余短形）。"""
+    if name == "dialogue" and isinstance(value, list):
+        lines = [f"  dialogue（{len(value)} 轮）——自然对话层（用户原话与终稿）:"]
         for message in value:
             if isinstance(message, dict):
                 role = str(message.get("role", "?"))
@@ -170,6 +173,18 @@ def _render_channel(name: str, value: Any) -> list[str]:
             else:
                 role, content = "?", str(message)
             lines.append(f"    [{role}] {_head(content)}")
+        return lines
+    if name == "process_notes" and isinstance(value, list):
+        lines = [f"  process_notes（{len(value)} 条）——过程档案（有界摘要）:"]
+        for note in value:
+            if isinstance(note, dict):
+                lines.append(
+                    f"    [{note.get('phase', '?')}] "
+                    f"{_head(str(note.get('title', '')), 30)}"
+                    f"｜{_head(str(note.get('digest', '')), 80)}"
+                )
+            else:
+                lines.append(f"    {_head(str(note))}")
         return lines
     if name == "observations" and isinstance(value, list):
         lines = [f"  observations（{len(value)} 支）——全字段:"]

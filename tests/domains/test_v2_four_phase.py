@@ -612,17 +612,18 @@ async def test_four_phase_end_to_end_scripted(tmp_path: Path) -> None:
         assert run_row is not None and "s1" in (run_row.answer or "")
         assert "s2" in (run_row.answer or "")
         assert any(s.step_type == "verify" for s in steps)
-        # 消息历史簿记主干在场（P-032 交付零改动——台账轮＋草稿轮入史）。
-        # S3（P-033 中途审查）恒真断言清除：原「... or True」零约束——改真断言：
-        # 起草调用上下文带问题轮＋澄清相位轮（历史续写主干真在场）。
+        # 对话层承载（V2-79a 三层分离）：起草调用上下文带对话层 user 原话轮
+        # （自然对话在史）；澄清相位任务书/台账不再入史（当前轮用完即弃——
+        # 过程信息走 process_notes，承载面钉测见 test_v2_multi_turn_context）。
         answer_calls = completer.messages_of("v2.runtime.answer")
         assert answer_calls, "汇总起草调用缺席"
         assert any(
             _E2E_QUESTION in str(m.get("content", "")) for m in answer_calls[0]
-        ), "起草上下文缺问题历史轮——消息历史簿记主干断裂"
+        ), "起草上下文缺问题轮——对话层承载断裂"
         assert any(
-            "相位①" in str(m.get("content", "")) for m in answer_calls[0][:-1]
-        ), "起草上下文缺澄清相位历史轮——四相位轮次未入史"
+            m.get("role") == "user" and m.get("content") == _E2E_QUESTION
+            for m in answer_calls[0][:-1]
+        ), "起草上下文对话层缺 user 原话轮"
     finally:
         await db.dispose()
 
@@ -969,11 +970,13 @@ async def test_four_phase_ledger_dump_round1_injection(tmp_path: Path) -> None:
         assert "schema_card" in manifest["source_type"]
         # 非懒加载：本 run 零 discover，注入照常在场（注入不依赖未命中）
         assert not [s for s in steps if s.step_type == "discover"]
-        # 常驻块不重复入史：第 2 次决策调用（toolmatch）的历史轮里台账块被收窄
+        # 对话层零任务书（V2-79a——当前轮用完即弃不入史）：第 2 次决策调用
+        # （toolmatch）的历史轮只有对话层（user 原话），台账全量块根本不在历史。
         second_call = completer.messages_of("v2.runtime.decision")[1]
         history = second_call[1:-1]
-        assert any("常驻注入块不重复入史" in m["content"] for m in history)
+        assert history == [{"role": "user", "content": _E2E_QUESTION}]
         assert not any("agg.fct_daily_metering" in m["content"] for m in history)
+        assert not any("台账全量" in m["content"] for m in history)
     finally:
         await db.dispose()
 

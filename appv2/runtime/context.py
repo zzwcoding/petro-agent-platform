@@ -1,20 +1,20 @@
 """runtime.context —— Context Builder＋Manifest（specs/agent-loop.md 行为约定 2）。
 
-模型每次调用前经 ContextBuilder 确定性编译（ADR-0006/V2-38 消息历史簿记形态）：
+模型每次调用前经 ContextBuilder 确定性编译（V2-79a 三层分离——ADR-0006 修订）：
 
-- 簿记：消息列表＝[system]＋RunState.history＋当前 user 轮——understand/decision/
-  answer 的调用与输出、工具执行台账（参数 → 结果：N 行／分型拒因：校验拒／
-  暂不可用／闸拒）、拒因回
-  喂、用户澄清/审批回收全部由图节点写入 history；后续每步在完整历史上续写，
-  不再每步把 run 状态重序列化成单条 user（伪多轮形态退役——P-026 复测 9/16 题
-  同参重投的根因即「模型没有记忆自己做过的事」）；
+- 簿记：消息列表＝[system]＋RunState.dialogue（自然对话层——user 原话/assistant
+  终稿/澄清审批回收原文）＋当前 user 轮。任务书/指令/材料**现拼现用、用完即弃、
+  不入史**（任务书入史＝旧反模式，V2-79 拆除）；模型过程原话（理解两行式、
+  决策 JSON）与工具台账不进对话层，以 process_notes 结构化档案承载（graph 侧），
+  需要时按需有界渲染进当前指令；
 - 材料：观察材料段（[n] 引标视图）随当前轮渲染（decision/answer 步）——引标＝
   全局观察序号（RunState.observations 稳定序），模型面与答案引用同一套序号
   （fail-closed 引用的机读底座，语义零漂移）；notice 类观察仍不进模型面；
 - 排序：材料信任级稳定序（agg 权威表 > 台账 > 检索）——同序保持入栈序（确定性）；
-- 预算：双层——观察材料 max_observations 支截断＋历史 token 预算
-  （max_context_tokens，chars/4 估算；超限确定性截断＝首问轮与当前轮保留、
-  最旧中间轮先弃），两处截断均显式写进 Manifest.selected_reason（不静默）。
+- 预算：双层——观察材料 max_observations 支截断＋对话层 token 预算
+  （max_context_tokens，chars/4 估算；超限确定性截断＝首问轮与最新轮保留、
+  最旧中间轮先弃；摘要化压缩随 V2-79d），两处截断均显式写进
+  Manifest.selected_reason（不静默）。
 
 CompiledContext{messages, manifest}——manifest 七字段随 step 存档（过程态簿记）；
 token_count 按 chars/4 估算（与网关记账兜底同口径），计全消息实量。
@@ -60,7 +60,7 @@ SYSTEM_PROMPT = (
 )
 
 # V2-53 附 B 逐字稿（台账全量块的「字典不是数据」头注——常驻块 BEGIN 标记后
-# 首行，位于 BEGIN/END 标记之间：历史簿记 _slim_resident 整块收窄自动覆盖）。
+# 首行，位于 BEGIN/END 标记之间；V2-79a 起当前轮不入史，块随当轮渲染、无收窄面）。
 LEDGER_DICT_NOTE = (
     "（台账全量是字典不是数据：本块只载指标/术语/对象的定义、粒度与绑定态，"
     "不载任何数值——「在台账」不等于「数值在手」；数值一律经检索执行取得，"
@@ -72,8 +72,8 @@ LEDGER_DICT_NOTE = (
 class CompiledContext:
     """确定性编译产物（messages 进模型；manifest 随 step 存档——过程态簿记）。
 
-    messages＝[system, *历史轮（RunState.history 截断后）, 当前 user 轮]——
-    多轮对话形态（ADR-0006）；图节点经 messages[-1] 取回当前轮原样落史。
+    messages＝[system, *RunState.dialogue（截断后）, 当前 user 轮]——
+    多轮对话形态（ADR-0006 修订：任务书/指令/材料随当前轮现拼，不入史）。
     """
 
     messages: list[dict[str, str]]
@@ -93,10 +93,11 @@ def _estimate_tokens(text: str) -> int:
 def _fit_history(
     turns: list[dict[str, str]], max_tokens: int
 ) -> tuple[list[dict[str, str]], int]:
-    """历史 token 预算截断（确定性——token 预算/截断策略单点，V2-38 任务 4）。
+    """对话层 token 预算截断（确定性——token 预算/截断策略单点，V2-38 任务 4）。
 
-    首问轮（turns[0]——对话源头）与当前轮（turns[-1]）恒保留；超限时最旧的
+    首问轮（turns[0]——对话源头）与最新轮（turns[-1]）恒保留；超限时最旧的
     中间轮先弃，直至入预算或只剩两轮。返回（保留轮, 弃置数）。
+    摘要化压缩（超限旧轮摘要替代原文）随 V2-79d——本函数暂为纯截断。
     """
     def _total(items: list[dict[str, str]]) -> int:
         return sum(_estimate_tokens(str(item.get("content", ""))) for item in items)
@@ -134,7 +135,8 @@ class ContextBuilder:
 
         instruction＝当前 user 轮正文（任务/指令段）；with_material＝是否随轮
         渲染观察材料段（understand 步 False——理解任务不消费材料）。多轮形态：
-        消息列表＝[system]＋历史轮（token 预算截断后）＋当前轮。
+        消息列表＝[system]＋对话层轮（token 预算截断后）＋当前轮——当前轮用完
+        即弃不入史（V2-79a 三层分离）。
         extra_sources＝常驻注入块（V2-34 词典层第 1 轮全量注入——每块
         {source_type, source_id, label, content}，渲染进当前轮＋Manifest
         source_type 记 ledger_dump 族来源行；非懒加载——注入不依赖未命中）。
@@ -231,17 +233,22 @@ class ContextBuilder:
                 f"；词典层常驻注入 {len(extra)} 块（ledger_dump 族——第 1 轮全量，"
                 "非懒加载：注入不依赖未命中）"
             )
-        # 消息历史簿记＋token 预算截断（ADR-0006——在完整历史上续写）。
-        turns = [*run_state.history, {"role": "user", "content": current}]
-        kept, dropped = _fit_history(turns, self.max_context_tokens)
-        messages = [{"role": "system", "content": self.system_prompt}, *kept]
+        # 对话层簿记＋token 预算截断（V2-79a 三层分离）：fit 只作用于 dialogue；
+        # 当前轮恒在场且不入史。
+        kept, dropped = _fit_history(run_state.dialogue, self.max_context_tokens)
+        messages = [
+            {"role": "system", "content": self.system_prompt},
+            *kept,
+            {"role": "user", "content": current},
+        ]
         reason = material_reason
         if dropped or _estimate_tokens(
             "".join(str(m.get("content", "")) for m in kept)
         ) > self.max_context_tokens:
             reason += (
-                f"；token 预算 {self.max_context_tokens} 截断：历史 "
-                f"{len(turns)} 轮→{len(kept)} 轮（弃 {dropped}，首问轮与当前轮保留）"
+                f"；token 预算 {self.max_context_tokens} 截断：对话层 "
+                f"{len(run_state.dialogue)} 轮→{len(kept)} 轮（弃 {dropped}，"
+                "首问轮与最新轮保留）"
             )
         manifest = Manifest(
             source_type=source_types,

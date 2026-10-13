@@ -43,9 +43,12 @@ def _final_state() -> dict[str, Any]:
         "question": "问 W-21 的检泵周期。",
         "status": "completed",
         "actor": "dev-u1",
-        "history": [
-            {"role": "user", "content": "【相位①·业务澄清】……"},
-            {"role": "assistant", "content": '{"action": "finalize"}'},
+        "dialogue": [
+            {"role": "user", "content": "问 W-21 的检泵周期。"},
+            {"role": "assistant", "content": "答案：512 天[1]。"},
+        ],
+        "process_notes": [
+            {"phase": "clarify", "title": "澄清", "digest": "澄清定稿：材料足够——直答收口"},
         ],
         "steps": [
             {
@@ -83,8 +86,9 @@ def test_distill_full_shape() -> None:
     assert d["question"] == "问 W-21 的检泵周期。"
     assert d["status"] == "completed"
     assert d["error"] == ""
-    # 模型原话随 history 全量在场
-    assert d["history"][-1]["content"] == '{"action": "finalize"}'
+    # 对话层（自然对话——用户原话与终稿）与过程档案（有界摘要）全量在场
+    assert d["dialogue"][-1]["content"] == "答案：512 天[1]。"
+    assert d["process_notes"][0]["phase"] == "clarify"
     # 步骤 payload（发射原文）在场
     assert d["steps"][0]["payload"] == {"phase": "clarify", "emission": {"kind": "finalize"}}
     # 观察全字段（locator.kind）保留
@@ -97,13 +101,14 @@ def test_distill_full_shape() -> None:
     # 巨体/噪声键排除
     assert "ledger_dump" not in d
     assert "manifests" not in d
+    assert "history" not in d  # V2-79a——混装史键退出蒸馏白名单
 
 
 def test_distill_error_skeleton() -> None:
     d = distill(None, run_id="run-y", error="boom")
     assert d["run_id"] == "run-y"
     assert d["error"] == "boom"
-    assert "history" not in d and "observations" not in d  # 骨架无状态键
+    assert "dialogue" not in d and "observations" not in d  # 骨架无状态键
 
 
 def test_distill_dirty_value_degrades() -> None:
@@ -133,15 +138,16 @@ async def test_blackbox_pointer_last_and_stored(tmp_path) -> None:  # type: igno
     assert data["question"] == HAPPY_QUESTION
     assert data["stored"] is True
     assert data["bytes"] > 0
-    assert data["counts"]["history"] > 0
-    assert "history" not in data and "observations" not in data and "steps" not in data
-    # 完整面在库：模型原话与观察全字段经 get_blackbox 取回
+    assert data["counts"]["dialogue"] > 0
+    assert "dialogue" not in data and "observations" not in data and "steps" not in data
+    # 完整面在库：对话层（自然对话）与观察全字段经 get_blackbox 取回
     payload = await RunStore(db).get_blackbox(handle.run_id)
     assert payload is not None
     assistant_texts = [
-        str(t.get("content")) for t in payload["history"] if t.get("role") == "assistant"
+        str(t.get("content")) for t in payload["dialogue"] if t.get("role") == "assistant"
     ]
-    assert any("finalize" in text for text in assistant_texts)
+    assert assistant_texts  # 收口终稿在对话层（唯一写手）
+    assert payload.get("process_notes")  # 过程档案在案
     assert isinstance(payload["observations"], list)
     assert "ledger_dump" not in payload  # 蒸馏语义不变——巨体键排除
 
@@ -170,7 +176,8 @@ def test_pointer_shape() -> None:
         "question": "q",
         "status": "completed",
         "error": "",
-        "history": [{"role": "assistant", "content": "a"}, {"role": "user", "content": "b"}],
+        "dialogue": [{"role": "user", "content": "a"}, {"role": "assistant", "content": "b"}],
+        "process_notes": [{"phase": "decision", "title": "决策", "digest": "d"}],
         "observations": [],
         "steps": [{"seq": 1}],
         "ledger_dump": {"huge": "excluded"},
@@ -183,7 +190,9 @@ def test_pointer_shape() -> None:
         "error": "",
         "stored": True,
         "bytes": 123,
-        "counts": {"history": 2, "observations": 0, "steps": 1},
+        "counts": {
+            "dialogue": 2, "process_notes": 1, "observations": 0, "steps": 1,
+        },
     }
 
 
@@ -196,9 +205,12 @@ def _fake_snapshots() -> list[dict[str, Any]]:
             "checkpoint_id": "cp-1",
             "channels": {
                 "question": "问 W-21 的检泵周期。",
-                "history": [
-                    {"role": "user", "content": "【相位①】"},
-                    {"role": "assistant", "content": '{"action": "finalize"}'},
+                "dialogue": [
+                    {"role": "user", "content": "问 W-21 的检泵周期。"},
+                    {"role": "assistant", "content": "答案：512 天[1]。"},
+                ],
+                "process_notes": [
+                    {"phase": "clarify", "title": "澄清", "digest": "定稿直答"},
                 ],
                 "observations": [],
             },
@@ -224,7 +236,8 @@ def _fake_snapshots() -> list[dict[str, Any]]:
 def test_render_snapshots_human() -> None:
     text = render_snapshots(_fake_snapshots())
     assert "cp-1" in text and "cp-2" in text  # 快照标头
-    assert '{"action": "finalize"}' in text  # 模型原话渲染
+    assert "答案：512 天[1]。" in text  # 对话层轮渲染
+    assert "dialogue" in text and "process_notes" in text  # 通道名渲染
     assert "fragment" in text  # 观察全字段（locator.kind）渲染
     assert "rounds" in text  # 标量通道渲染
 

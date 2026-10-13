@@ -137,7 +137,7 @@ class GraphRunExecutor:
             # 追问续会话（V2-38/ADR-0006 会话线程承接形态）：前轮线程消息历史
             # 播种新 run——追问进上下文含前轮问答（前轮须 completed，未收口轮走
             # resume；run 状态机零改动——追问＝新 run 行，api 层最小改动）。
-            seed_history = await self._seed_history(command.followup_of)
+            seed_dialogue = await self._seed_dialogue(command.followup_of)
             await self._store.create_run(
                 run_id=run_id, question=command.question, actor=actor.who,
                 followup_of=command.followup_of,  # V2-74 对话任务面——追问链落 run 行
@@ -155,7 +155,7 @@ class GraphRunExecutor:
                 four_phase=self._four_phase,
             )
             state = self._initial_state(
-                run_id, command.question, actor.user_id, history=seed_history,
+                run_id, command.question, actor.user_id, dialogue=seed_dialogue,
                 followup_of=command.followup_of,
             )
             config: dict[str, Any] = {"configurable": {"thread_id": run_id}}
@@ -216,19 +216,19 @@ class GraphRunExecutor:
 
     # ---------- 内部位 ----------
 
-    async def _seed_history(self, followup_of: str) -> list[dict[str, str]]:
-        """前轮线程消息历史（追问续会话的播种面——V2-38）。
+    async def _seed_dialogue(self, followup_of: str) -> list[dict[str, str]]:
+        """前轮对话播种（追问续会话——V2-79a 对话层最小形）。
 
         前轮不存在＝RunNotFoundError（api 404）；非 completed＝RunNotSuspendedError
-        （api 409——挂起轮走 resume、在途/失败轮不可续）。历史取自 checkpointer
-        的前轮线程终态（RunState.history 逐轮投影），前轮最终答案作 assistant 轮
-        追加（草稿≠终稿——收口答案含核验改写/引用块，前轮问答史以终稿落）。
+        （api 409——挂起轮走 resume、在途/失败轮不可续）。
 
-        V2-78（Owner 2026-10-13）：①「上轮答案：」伪标注轮不再播种——旧形把系统
-        注记放进 assistant 消息里，模型照抄格式把注记写进回答（真机复现实锤），
-        且逐轮累积（第 N 轮历史带 N−1 条标注，token 与模仿面双膨胀）——播种时
-        过滤历史里的存量伪标注轮；②前轮终稿改普通 assistant 轮落史——自然对话
-        形（最后一条 assistant 轮＝上轮回答），无标签可抄。
+        V2-79a 最小形：播种＝[前轮问（user）, 前轮答（assistant）] 两轮——两者都是
+        runs 行权威字段，不读 checkpoint（v1/v2 一视同仁）。V2-79b 升级 checkpoint
+        级全量传承（dialogue 通道直读＋旧 v1 history 抽取，golden 钉测）——旧 run
+        的中间澄清/审批轮在最小形下不传承（如实降级，不编造）。
+
+        对话纯度红线（V2-79a）：只播种自然对话轮——问句原文与终稿原文，无任何
+        系统注记前缀（「上轮答案：」「用户补充：」等旧形标注在三层分离后不再存在）。
         """
         if not followup_of:
             return []
@@ -239,22 +239,9 @@ class GraphRunExecutor:
             raise RunNotSuspendedError(
                 f"前轮未收口不可追问（status={prior.status}）：{followup_of}"
             )
-        graph = build_graph(
-            self._deps(EventBus(), run_id=followup_of),
-            checkpointer=self._saver,
-            four_phase=self._four_phase,
-        )
-        snapshot = await graph.aget_state(
-            {"configurable": {"thread_id": followup_of}}
-        )
-        values = snapshot.values or {}
-        turns = [
-            {"role": str(t.get("role", "user")), "content": str(t.get("content", ""))}
-            for t in (values.get("history") or [])
-            if isinstance(t, dict)
+        turns: list[dict[str, str]] = [
+            {"role": "user", "content": str(prior.question or "")}
         ]
-        # 存量伪标注轮过滤（旧 run 的 checkpoint 里可能带「上轮答案：」前缀轮）。
-        turns = [t for t in turns if not t["content"].startswith("上轮答案：")]
         prior_answer = str(prior.answer or "")
         if prior_answer:
             turns.append({"role": "assistant", "content": prior_answer})
@@ -307,7 +294,7 @@ class GraphRunExecutor:
         run_id: str,
         question: str,
         actor_id: str,
-        history: list[dict[str, str]] | None = None,
+        dialogue: list[dict[str, str]] | None = None,
         followup_of: str = "",
     ) -> RunState:
         started = now_monotonic()
@@ -317,7 +304,9 @@ class GraphRunExecutor:
             actor=actor_id,
             status=RUN_RUNNING,
             followup_of=followup_of,  # V2-53 追问旁路判据（RunCommand 随行播种）
-            history=list(history or []),  # 追问续会话播种（V2-38——前轮线程历史）
+            # 对话层受理（V2-79a）：user 原话必落；追问播种的前轮问答在前
+            #（[前轮问, 前轮答, 本轮问] 自然对话序）。
+            dialogue=[*(dialogue or []), {"role": "user", "content": question}],
             budget=self._budget.as_dict(),
             started_monotonic=started,
             deadline_monotonic=started + self._budget.total_seconds,

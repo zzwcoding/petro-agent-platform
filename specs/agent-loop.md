@@ -74,12 +74,17 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
    每步落 step 记录（类型六值闭世界 decision/discover/execute/observe/verify/answer；
    相位以 payload.phase=clarify/toolmatch/precondition/batch 标注——过程态簿记留痕
    agent_v2_step；INV-5 责任账唯一写口 security.audit，见 specs/infra.md 行为约定 3）。
-2. 模型每次调用前经 Context Builder 确定性编译（**多轮消息历史簿记**——ADR-0006：
-   调用与输出、工具参数与结果、闸拒拒因全部作为消息轮次进历史，后续每步在完整
-   历史上续写；历史增长带 token 预算/截断显式进 Manifest；执行台账以
-   「参数 → 结果：N 行／闸拒（拒因）」形落史）。词典层**每轮常驻注入**（拍板 a 的
+2. 模型每次调用前经 Context Builder 确定性编译（**多轮消息历史簿记**——ADR-0006；
+   **V2-79a 三层分离修订**（tickets/v2/V2-79-对话状态重构方案.md；ADR-0006 增补
+   修订随设计仓，本行为真源以方案为准）：混装消息历史退役，对话状态＝`dialogue`
+   （自然对话层——user 原话/assistant 终稿/澄清审批回收原文；禁任务书/指令/
+   过程原话/注记前缀）＋`process_notes`（过程档案层——[{phase,title,digest}]
+   有界摘要每条 ≤200 字）双字段；编译契约＝[system]＋dialogue 截断＋当前轮，
+   任务书/指令/材料**现拼现用、用完即弃、不入史**；执行台账以
+   「参数 → 结果：N 行／闸拒（拒因）」形落 process_notes；历史增长带 token
+   预算/截断显式进 Manifest）。词典层**每轮常驻注入**（拍板 a 的
    C2 追认落法）：clarify/toolmatch 相位把台账全量＋别名＋结构卡直接编进上下文
-   （Manifest 记 ledger_dump 族来源行），常驻块不重复入史防 token 放大——
+   （Manifest 记 ledger_dump 族来源行），常驻块随当轮渲染、不入史防 token 放大——
    "开局已给全台账，禁猜词敲门"，semantic_query 定位转为钻取。
    调用产出 Manifest（source_type/source_id/version/trust_level/selected_reason/
    token_count/transform）随 step 存档。
@@ -88,7 +93,8 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
    已定＝禁再 discover（直发分解）；ask 仅限两种白场——无场景词＋阈值判断形的口径
    反问、目标/对象/口径真歧义（澄清合同收窄）；越集→审批。schema 校验失败＝拒因
    回喂重发射，**无 repair**；decision 出口同参重投闸保留，定位降为确定性兜底
-   （主力是消息历史簿记——ADR-0006）。
+   （主力是过程摘要渲染——V2-79c；V2-79a 三层分离后原「消息历史簿记」承载面
+   退役）。
 4. 工具只经 ToolRegistry.call；返回 status=ask 时 run 转 waiting_ask 挂起，事件流发
    ask 帧后正常收束；resume 带选择续跑（INV-2：全程只读）。外表越集审批态落
    **ToolContext.approved_tables**（不走引擎 approved_tables、不重排计划——A2 裁决）；
