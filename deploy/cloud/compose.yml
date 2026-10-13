@@ -98,6 +98,38 @@ services:
       retries: 10
       start_period: 30s
 
+  # V2 问一问后端（:8001——q12_v2_launcher；与 tpa-backend 共用镜像）。
+  # 公网入口 nginx /api/v2/ → tpa-v2-backend:8001（ECS nginx 实配）。
+  # 本服务块 2026-10-14 从 ECS 实况回仓（此前只在云上 compose 里——源码重建
+  # 会丢；20261013 交接「compose 形按 ECS 实况」的缺口随本块收口）。
+  tpa-v2-backend:
+    image: tpa-backend:latest
+    env_file: .env
+    environment:
+      EVAL_FROZEN_DATE: "real"
+      # DE-16 新鲜度闸临时关闭（Owner 2026-10-14 拍板——水位止 8-31 与真实时钟
+      # 差距拦停体验面；恢复＝改回 "true" 并 up -d 重建。非法值拒绝启动）。
+      FRESHNESS_GATE_ENABLED: "false"
+    command: ["python", "-m", "uvicorn", "q12_v2_launcher:app", "--host", "0.0.0.0", "--port", "8001"]
+    restart: unless-stopped
+    networks:
+      - default
+      - deploy-net
+    depends_on:
+      tpa-postgres:
+        condition: service_healthy
+      tpa-neo4j:
+        condition: service_healthy
+      tpa-minio:
+        condition: service_healthy
+    healthcheck:
+      # 8001 不发布宿主端口（nginx 走内网名）——容器内 TCP 探活。
+      test: ["CMD", "python", "-c", "import socket;socket.create_connection(('localhost',8001),3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
   tpa-worker:
     image: tpa-worker:latest
     build:
