@@ -1683,19 +1683,22 @@ def _make_decision(
         )
         instruction = deps.guide.guide()
         instruction += "\n\n任务：输出本轮决策 JSON。"
+        # —— 每轮变量后置 tail（V2-80g，clarify 同构）。
+        tail_parts: list[str] = []
         if state.decision_error:
             # 拍板②拒因回喂：schema/工具校验拒因进上下文——LLM 重决策（无 repair）。
-            instruction += (
-                f"\n上次决策被拒：{state.decision_error}——修正后重新输出 JSON。"
+            tail_parts.append(
+                f"上次决策被拒：{state.decision_error}——修正后重新输出 JSON。"
             )
         if state.user_hint:
-            instruction += f"\n用户已补充：{state.user_hint}——请把它落进本轮决策。"
+            tail_parts.append(f"用户已补充：{state.user_hint}——请把它落进本轮决策。")
         if segment := _render_process_notes(state):
             # 「本 run 已做」有界摘要段（V2-79c——过程档案接回模型面，防重/防
             # 重复探查；V2-37 闸保持机器兜底双保险）。
-            instruction += "\n\n" + segment
+            tail_parts.append(segment)
         context = deps.builder.compile(
-            state, step=STEP_DECISION, instruction=instruction
+            state, step=STEP_DECISION, instruction=instruction,
+            tail="\n".join(tail_parts),
         )
         content = await _complete(deps.model(MODEL_DECISION), context)
         # 模型原话（决策 JSON）不入对话层（V2-79a 三层分离）——发射摘要/拒因
@@ -2336,6 +2339,9 @@ def _make_clarify(
             "「材料足够」）：仅凭注入就能回答的术语/口径定义问，先 discover "
             "semantic_query 取条目卡再定稿；零探查观察时禁 finalize。】"
         )
+        # —— 每轮变量后置 tail（V2-80g：回喂/回炉/已做段收拢最末——内容逐字
+        # 保留，只挪位置；骨架＋常驻块的前缀推理缓存不再被中段变化连坐失效）。
+        tail_parts: list[str] = []
         failed = [dict(r) for r in state.subtask_results if r.get("status") == "failed"]
         if failed:
             def _rework_line(r: dict[str, Any]) -> str:
@@ -2348,25 +2354,26 @@ def _make_clarify(
                     reason_shown = f"{reason}→改走 knowledge 链（tool=doc_retrieve）"
                 return f"- [{r.get('id')}] {r.get('question', '')}——拒因：{reason_shown}"
             lines = "\n".join(_rework_line(r) for r in failed)
-            instruction += (
-                "\n\n回炉：只分解以下失败/缺失子问题（成功子问题结果已保留，"
+            tail_parts.append(
+                "回炉：只分解以下失败/缺失子问题（成功子问题结果已保留，"
                 f"禁止重复分解执行）：\n{lines}"
             )
         if state.user_hint:
-            instruction += f"\n用户已补充：{state.user_hint}——请把它落进本轮分解。"
+            tail_parts.append(f"用户已补充：{state.user_hint}——请把它落进本轮分解。")
         if state.decision_error:
             # 拒因回喂（拍板②同款——无 repair，修正后重新输出 JSON）。
-            instruction += (
-                f"\n上次发射被拒：{state.decision_error}——修正后重新输出 JSON。"
+            tail_parts.append(
+                f"上次发射被拒：{state.decision_error}——修正后重新输出 JSON。"
             )
         if segment := _render_process_notes(state):
             # 「本 run 已做」有界摘要段（V2-79c——回炉轮看得见已探查/已执行）。
-            instruction += "\n\n" + segment
+            tail_parts.append(segment)
         context = deps.builder.compile(
             state,
             step=STEP_DECISION,
             instruction=instruction,
             extra_sources=_resident_sources(dump) if dump else None,
+            tail="\n".join(tail_parts),
         )
         content = await _complete(deps.model(MODEL_DECISION), context)
         # 模型原话不入对话层（V2-79a 三层分离）——发射摘要/拒因落过程档案。
@@ -2648,20 +2655,23 @@ def _make_toolmatch(
             + "\n\n问题组：\n"
             + json.dumps(group.as_payload(), ensure_ascii=False)
         )
+        # —— 每轮变量后置 tail（V2-80g，clarify 同构）。
+        tail_parts: list[str] = []
         if state.decision_error:
             # V2-57 回喂补线（clarify 节点同款——此前本相位拒后自环零反馈，
             # 模型只见自己旧输出不知何错，同错三遍烧预算实证 run-forensic）。
-            instruction += (
-                f"\n\n上次发射被拒：{state.decision_error}——修正后重新输出 JSON。"
+            tail_parts.append(
+                f"上次发射被拒：{state.decision_error}——修正后重新输出 JSON。"
             )
         if segment := _render_process_notes(state):
             # 「本 run 已做」有界摘要段（V2-79c——匹配轮看得见理解/探查档案）。
-            instruction += "\n\n" + segment
+            tail_parts.append(segment)
         context = deps.builder.compile(
             state,
             step=STEP_DECISION,
             instruction=instruction,
             extra_sources=_resident_sources(dump) if dump else None,
+            tail="\n".join(tail_parts),
         )
         content = await _complete(deps.model(MODEL_DECISION), context)
         # 模型原话不入对话层（V2-79a 三层分离）——发射摘要/拒因落过程档案。

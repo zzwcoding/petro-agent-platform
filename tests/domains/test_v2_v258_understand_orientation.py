@@ -261,3 +261,31 @@ def test_v2_80e_answer_instruction_jargon_rule() -> None:
 
     assert "系统的原始检查措辞不进答案" in _ANSWER_INSTRUCTION
     assert "说清查不了什么、原因大意、下一步" in _ANSWER_INSTRUCTION
+
+
+# ---------- V2-80g 钉（compile tail——变量后置） ----------
+
+
+def test_v2_80g_compile_tail_appended_last() -> None:
+    """compile tail 参数：变量行后置到当前轮最末（骨架/常驻/材料之后），
+    带 V2-80g 稳定段头；无 tail＝零变化。"""
+    from appv2.runtime.context import ContextBuilder
+    from appv2.runtime.state import RunState as _RunState
+
+    builder = ContextBuilder()
+    state = _RunState(question="合成题", dialogue=[{"role": "user", "content": "问"}])
+    base = builder.compile(
+        state, step="decision", instruction="骨架。", with_material=False,
+    )
+    tailed = builder.compile(
+        state, step="decision", instruction="骨架。", with_material=False,
+        tail="上次发射被拒：x——修正后重新输出 JSON。\n用户已补充：y",
+    )
+    # 骨架段逐字一致（重排不改骨架）。
+    assert tailed.messages[-1]["content"].startswith("骨架。")
+    # tail 段在最末＋稳定段头在册。
+    assert tailed.messages[-1]["content"].endswith(
+        "上次发射被拒：x——修正后重新输出 JSON。\n用户已补充：y"
+    )
+    assert "【本轮动态（每轮变化——置于末尾以保持前缀稳定）】" in tailed.messages[-1]["content"]
+    assert "【本轮动态】" not in base.messages[-1]["content"]

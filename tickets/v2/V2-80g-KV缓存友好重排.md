@@ -143,3 +143,12 @@ def compile(self, run_state, *, step, instruction,
 ## 6. 验收
 
 六闸绿＋新钉绿＋真机多轮对比 cached_tokens 有命中提升（或如实记录模型不支持）；每票一提交。
+
+## 7. 完工记录（2026-10-14）
+
+- context.py：compile 新增 `tail` 参数——变量行统一后置到当前轮最末（骨架→常驻→材料→
+  【本轮动态】），缺省空串零变化；
+- graph.py 四装配位搬家：clarify（回喂/回炉/已做段四件）、toolmatch（回喂/已做段两件）、
+  decision（回喂/已做段三件）——内容逐字保留只挪位置；understand/answer 零改动；
+- 钉：compile tail 追加/无 tail 零变化；全量 1751 过（基线 1750＋1）＋六闸绿；
+- cached_tokens 对照验证见追加记录。

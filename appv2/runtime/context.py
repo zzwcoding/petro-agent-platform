@@ -163,6 +163,7 @@ class ContextBuilder:
         instruction: str,
         with_material: bool = True,
         extra_sources: list[dict[str, str]] | None = None,
+        tail: str = "",
     ) -> CompiledContext:
         """编译某步的模型上下文（纯函数——不触网、不改状态）。
 
@@ -272,6 +273,10 @@ class ContextBuilder:
         kept, summary = _compact_dialogue(
             run_state.dialogue, self.dialogue_view_tokens
         )
+        if tail:
+            # 每轮变量后置（V2-80g——回喂/计数/已做段收拢最末，保住骨架＋常驻
+            # 块的推理端前缀缓存；内容逐字保留，只挪位置）。
+            current += "\n\n【本轮动态（每轮变化——置于末尾以保持前缀稳定）】\n" + tail
         messages: list[dict[str, str]] = [
             {"role": "system", "content": self.system_prompt}
         ]
