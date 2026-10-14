@@ -92,6 +92,32 @@ def test_relation_lines_chain_and_gloss() -> None:
     assert lines == ["井—隶属→油田（井属于哪个油田）"]
 
 
+# ---------- V2-80a 路由原则化钉（能力块＋清单降级句） ----------
+
+
+def test_v2_80a_capability_block_and_list_demotion() -> None:
+    """【本系统】能力块在环境块首条（相关性判断的成文依据），且明文把名录/术语/
+    本体清单降级为取数依据——防清单变成相关性门槛（判断面收窄的回归钉）。"""
+    text = assemble_understand_turn(
+        question="数据库里都有什么油田？",
+        families=["monthly"],
+        watermark="2026-08-31",
+        metric_lines=render_metric_lines([_metric("日产油量", "吨", True)]),
+        term_lines=[],
+        object_lines=["井：井号·井别（EW／IW）"],
+        relation_lines=[],
+    )
+    assert "【本系统】（事实描述——业务相关性的判断依据）" in text
+    assert "本系统是油田生产与管理数据的问答系统" in text
+    # 清单降级句在册（名录/术语/本体＝取数依据，相关性只看领域沾边）。
+    assert "它们是后续环节取数的依据" in text
+    assert "你判断相关性只看领域是否沾边" in text
+    # 能力块在环境块首条（资料库族行之前）。
+    assert text.index("【本系统】") < text.index("资料库族")
+    # 数据止于水位日的边界陈述在场。
+    assert "数据止于下方水位日" in text
+
+
 # ---------- T1 装配序与尾部（题干紧邻生成点） ----------
 
 
@@ -123,11 +149,16 @@ def test_assemble_order_and_tail() -> None:
     assert "数据水位：2026-08-31" in text
     assert "上月躺井的那几口井" in text
     assert text.rstrip().endswith(
-        "（无关业务的输入按上面的例外单行直答；其余现在输出两行。）"
+        "（先判与业务的相关性：可能有关＝两行式；确定无关的寒暄闲聊＝直答。现在输出。）"
     )
-    # V2-78 无关业务直答例外条款在任务书内（先判再用——作用域限定面）。
-    assert "唯一例外（无关业务直答" in text
-    assert "直接回答：" in text
+    # V2-80a 路由原则化条款在任务书内（可能有关＝两行式／确定无关＝直答——零禁令零例子）。
+    assert "唯一例外（纯寒暄直答）" in text
+    assert "你的判断只有一个" in text and "可能" in text
+    assert "确定与业务毫无关系" in text
+    assert "以油田数据问答助手的身份" in text
+    # 原禁令式措辞退役（V2-80a——禁止式白名单拆除）。
+    assert "一律不用" not in text
+    assert "不含任何查询" not in text
 
 
 # ---------- T6 节点侧装配入口（缝缺省就地兜底——dump 空/None 两形） ----------
@@ -156,11 +187,16 @@ def test_build_understand_instruction_full_dump() -> None:
     assert "数据水位：2026-08-31" in text  # 水位缝优先
     assert "completion（完井工程报告）" in text
     assert text.rstrip().endswith(
-        "（无关业务的输入按上面的例外单行直答；其余现在输出两行。）"
+        "（先判与业务的相关性：可能有关＝两行式；确定无关的寒暄闲聊＝直答。现在输出。）"
     )
-    # V2-78 无关业务直答例外条款在任务书内（先判再用——作用域限定面）。
-    assert "唯一例外（无关业务直答" in text
-    assert "直接回答：" in text
+    # V2-80a 路由原则化条款在任务书内（可能有关＝两行式／确定无关＝直答——零禁令零例子）。
+    assert "唯一例外（纯寒暄直答）" in text
+    assert "你的判断只有一个" in text and "可能" in text
+    assert "确定与业务毫无关系" in text
+    assert "以油田数据问答助手的身份" in text
+    # 原禁令式措辞退役（V2-80a——禁止式白名单拆除）。
+    assert "一律不用" not in text
+    assert "不含任何查询" not in text
 
 
 def test_build_understand_instruction_empty_dump_uses_today() -> None:
