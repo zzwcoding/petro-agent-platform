@@ -47,3 +47,12 @@ def test_record_call_failure_never_breaks_call(tmp_path: Path, monkeypatch) -> N
     monkeypatch.setattr(calllog, "_LOG_DIR", tmp_path)
     monkeypatch.setattr(Path, "open", lambda *a, **k: (_ for _ in ()).throw(OSError("disk full")))
     calllog.record_call(alias="a", caller="c", run_id="r", messages=[], requested="a")  # 不抛
+
+
+def test_cached_tokens_extraction_shapes() -> None:
+    """缓存命中字段三形提取（litellm 归一/DeepSeek 原生/缺省零）。"""
+    from appv2.infra.llm_client import _cached_tokens_of
+
+    assert _cached_tokens_of({"prompt_tokens_details": {"cached_tokens": 512}}) == 512
+    assert _cached_tokens_of({"prompt_cache_hit_tokens": 700}) == 700
+    assert _cached_tokens_of({}) == 0

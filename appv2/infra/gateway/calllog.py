@@ -41,6 +41,7 @@ def record_call(
     content: str | None = None,
     prompt_tokens: int = 0,
     completion_tokens: int = 0,
+    cached_tokens: int = 0,
     duration_ms: int = 0,
     error: str | None = None,
 ) -> None:
@@ -65,6 +66,7 @@ def record_call(
                 "content": content or "",
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
+                "cached_tokens": cached_tokens,
                 "duration_ms": duration_ms,
             },
             "error": error,

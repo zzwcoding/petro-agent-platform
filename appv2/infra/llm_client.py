@@ -65,6 +65,15 @@ class AliasNotRegistered(KeyError):
     """未注册的调用别名（B6：别名是唯一入口，拼错模型名在此拦截）。"""
 
 
+def _cached_tokens_of(usage: dict[str, Any]) -> int:
+    """usage→前缀缓存命中 tokens（litellm 归一形/DeepSeek 原生形/缺省零）。"""
+    return int(
+        (usage.get("prompt_tokens_details") or {}).get("cached_tokens")
+        or usage.get("prompt_cache_hit_tokens")
+        or 0
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class LlmCompletion:
     """单次上游应答的 adapter 视图（gateway 域再投影为业务 Completion）。"""
@@ -75,6 +84,7 @@ class LlmCompletion:
     usage_estimated: bool  # True＝上游无 usage，按 chars/4 估算（椒图蓝本）
     duration_ms: int
     model: str  # 实际应答的部署形（provider/model，切换留痕用）
+    cached_tokens: int = 0  # 前缀缓存命中 tokens（V2-80 方案 KV 验证面——上游未报＝0）
 
 
 @dataclass(frozen=True, slots=True)
@@ -194,6 +204,9 @@ class LlmClient:
         content = "".join(parts)
         prompt = int(usage.get("prompt_tokens") or 0)
         completion = int(usage.get("completion_tokens") or 0)
+        # 前缀缓存命中（供应商字段名对照：litellm 归一 prompt_tokens_details.
+        # cached_tokens；DeepSeek 原生 prompt_cache_hit_tokens）。
+        cached = _cached_tokens_of(usage)
         estimated = prompt == 0 and completion == 0
         if estimated:
             # 椒图蓝本：无 usage 时 chars/4 估算（推理模型流不可控时的兜底口径）。
@@ -203,6 +216,7 @@ class LlmClient:
             content=content,
             prompt_tokens=prompt,
             completion_tokens=completion,
+            cached_tokens=cached,
             usage_estimated=estimated,
             duration_ms=duration_ms,
             model=f"{entry.provider}/{entry.model}",

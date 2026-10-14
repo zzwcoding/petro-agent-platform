@@ -248,6 +248,7 @@ class GatewayService:
                             content=answer.content,
                             prompt_tokens=answer.prompt_tokens,
                             completion_tokens=answer.completion_tokens,
+                            cached_tokens=answer.cached_tokens,
                             duration_ms=answer.duration_ms,
                         )
                     break
