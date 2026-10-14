@@ -1,0 +1,21 @@
+{"leg": "open", "http": 200, "body": {"question": "前段时间那波含水上升，现在回落了没？"}}
+{"leg": "frame", "id": "0", "t": 0.05, "event": "session", "data": {"run_id": "run-7bf8b17f", "resume": false}}
+{"leg": "frame", "id": "1", "t": 2.04, "event": "step", "data": {"step": "decision", "seq": 1, "title": "问含水率（含水上升那波趋势）目前是否已回落。"}}
+{"leg": "frame", "id": "2", "t": 2.04, "event": "text", "data": {"content": "问含水率（含水上升那波趋势）目前是否已回落。", "kind": "understanding"}}
+{"leg": "frame", "id": "3", "t": 4.59, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清钻取 ×1（semantic_query）"}}
+{"leg": "frame", "id": "4", "t": 4.59, "event": "tool", "data": {"tool": "semantic_query", "status": "failed", "seq": 3, "message": "未知参数键：['intent']（args_schema additionalProperties=false）"}}
+{"leg": "frame", "id": "5", "t": 4.59, "event": "step", "data": {"step": "discover", "seq": 3, "title": "semantic_query：failed"}}
+{"leg": "frame", "id": "6", "t": 4.59, "event": "notice", "data": {"type": "decision_rejected", "gates": [], "content": "工具校验拒因回喂重决策：未知参数键：['intent']（args_schema additionalProperties=false）"}}
+{"leg": "frame", "id": "7", "t": 6.56, "event": "step", "data": {"step": "decision", "seq": 4, "title": "澄清 r1：分解 1 子问题"}}
+{"leg": "frame", "id": "8", "t": 9.02, "event": "step", "data": {"step": "decision", "seq": 5, "title": "工具匹配：1 条定案"}}
+{"leg": "frame", "id": "9", "t": 9.22, "event": "step", "data": {"step": "decision", "seq": 6, "title": "前置条件机：s1=blocked_ask"}}
+{"leg": "frame", "id": "10", "t": 9.22, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "「含水率」按哪一口径支判断？", "options": ["A 计量折算（日度监控）", "B 化验实测（月度/正式）｜争议注记：化验 vs 计量打架（并存分场景已裁——PROP-BOHAI-008=C）"], "detail": null}, "run_id": "run-7bf8b17f"}}
+{"leg": "frame", "id": "11", "t": 9.29, "event": "blackbox", "data": {"run_id": "run-7bf8b17f", "question": "前段时间那波含水上升，现在回落了没？", "status": "running", "error": "", "stored": true, "bytes": 5663, "counts": {"dialogue": 1, "process_notes": 5, "observations": 0, "steps": 6}}}
+{"leg": "frame", "id": "12", "t": 9.29, "event": "done", "data": {"run_id": "run-7bf8b17f"}}
+{"leg": "open", "http": 200, "body": {"kind": "clarify", "choice": "A 计量折算（日度监控）"}}
+{"leg": "frame", "id": "0", "t": 9.94, "event": "session", "data": {"run_id": "run-7bf8b17f", "resume": true}}
+{"leg": "frame", "id": "1", "t": 9.97, "event": "step", "data": {"step": "decision", "seq": 7, "title": "澄清回收：A 计量折算（日度监控）"}}
+{"leg": "frame", "id": "2", "t": 99.17, "event": "notice", "data": {"type": "run_failed", "gates": [], "content": "run 执行失败：模型调用失败 alias='petro-main': 上游拒绝 429: RateLimitError"}}
+{"leg": "frame", "id": "3", "t": 99.18, "event": "blackbox", "data": {"run_id": "run-7bf8b17f", "question": "", "status": "", "error": "模型调用失败 alias='petro-main': 上游拒绝 429: RateLimitError", "stored": true, "bytes": 120, "counts": {"dialogue": 0, "process_notes": 0, "observations": 0, "steps": 0}}}
+{"leg": "frame", "id": "4", "t": 99.18, "event": "done", "data": {"run_id": "run-7bf8b17f"}}
+{"summary": {"id": "Q16", "dimension": "时间模糊", "question": "前段时间那波含水上升，现在回落了没？", "hidden_intent": "需先定位“前段时间”的含水上升时段，再判断当前是否回落", "expect_hint": "挂起反问", "status": "done", "run_id": "run-7bf8b17f", "frames": 18, "duration_s": 99.2, "n_steps": 7, "steps": ["问含水率（含水上升那波趋势）目前是否已回落。", "澄清钻取 ×1（semantic_query）", "semantic_query：failed", "澄清 r1：分解 1 子问题", "工具匹配：1 条定案", "前置条件机：s1=blocked_ask", "澄清回收：A 计量折算（日度监控）"], "notices": ["decision_rejected", "run_failed"], "n_asks": 1, "n_resumes": 1, "answer": "问含水率（含水上升那波趋势）目前是否已回落。", "error_frame": null}}

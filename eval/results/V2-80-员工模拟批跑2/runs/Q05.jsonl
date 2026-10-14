@@ -1,0 +1,30 @@
+{"leg": "open", "http": 200, "body": {"question": "他昨天提的那个事儿后来咋样了？就井上那事儿。"}}
+{"leg": "frame", "id": "0", "t": 0.04, "event": "session", "data": {"run_id": "run-302c2ebf", "resume": false}}
+{"leg": "frame", "id": "1", "t": 2.31, "event": "step", "data": {"step": "decision", "seq": 1, "title": "询问用户口中\"他昨天提的、关于井上的那件事\"的最新进展或后续情况，所指代的具体事件内容未在题干中给出，需先向用户澄清所指事件。"}}
+{"leg": "frame", "id": "2", "t": 2.31, "event": "text", "data": {"content": "询问用户口中\"他昨天提的、关于井上的那件事\"的最新进展或后续情况，所指代的具体事件内容未在题干中给出，需先向用户澄清所指事件。", "kind": "understanding"}}
+{"leg": "frame", "id": "3", "t": 5.74, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清 r1：反问（您提到的「他昨天提的、关于井上的那件事」，我这边）"}}
+{"leg": "frame", "id": "4", "t": 5.74, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "您提到的「他昨天提的、关于井上的那件事」，我这边没有上下文——您是指哪一类？我列几个常见情形供您指认，或您直接补充一句也行：", "options": ["某口井停产/检泵（躺井）处理进展", "某口井的作业措施（压裂、酸化等）效果或进度", "某口井的产量/含水/油压异常及处置", "井上的设备/井口/井下工具问题处理"], "detail": null}, "run_id": "run-302c2ebf"}}
+{"leg": "frame", "id": "5", "t": 5.78, "event": "blackbox", "data": {"run_id": "run-302c2ebf", "question": "他昨天提的那个事儿后来咋样了？就井上那事儿。", "status": "running", "error": "", "stored": true, "bytes": 2129, "counts": {"dialogue": 1, "process_notes": 2, "observations": 0, "steps": 2}}}
+{"leg": "frame", "id": "6", "t": 5.78, "event": "done", "data": {"run_id": "run-302c2ebf"}}
+{"leg": "open", "http": 200, "body": {"kind": "clarify", "choice": "某口井停产/检泵（躺井）处理进展"}}
+{"leg": "frame", "id": "0", "t": 6.41, "event": "session", "data": {"run_id": "run-302c2ebf", "resume": true}}
+{"leg": "frame", "id": "1", "t": 6.43, "event": "step", "data": {"step": "decision", "seq": 3, "title": "澄清回收：某口井停产/检泵（躺井）处理进展"}}
+{"leg": "frame", "id": "2", "t": 9.46, "event": "step", "data": {"step": "decision", "seq": 4, "title": "澄清 r1：反问（已确认要查的是「某口井停产/检泵（躺井）处理进展）"}}
+{"leg": "frame", "id": "3", "t": 9.46, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "已确认要查的是「某口井停产/检泵（躺井）处理进展」。要拉数据／查文档，还差三个关键点，麻烦补一句：", "options": ["1. 哪口井？给井号（如 A-12H、B-03 之类）", "2. 哪个油田/区块？（不点井号至少给区块名）", "3. 想看哪段时间？默认近 30 天（2026-09-14 起），要别的窗请告诉我"], "detail": null}, "run_id": "run-302c2ebf"}}
+{"leg": "frame", "id": "4", "t": 9.5, "event": "blackbox", "data": {"run_id": "run-302c2ebf", "question": "他昨天提的那个事儿后来咋样了？就井上那事儿。", "status": "running", "error": "", "stored": true, "bytes": 3421, "counts": {"dialogue": 2, "process_notes": 4, "observations": 0, "steps": 4}}}
+{"leg": "frame", "id": "5", "t": 9.5, "event": "done", "data": {"run_id": "run-302c2ebf"}}
+{"leg": "open", "http": 200, "body": {"kind": "clarify", "choice": "1. 哪口井？给井号（如 A-12H、B-03 之类）"}}
+{"leg": "frame", "id": "0", "t": 10.13, "event": "session", "data": {"run_id": "run-302c2ebf", "resume": true}}
+{"leg": "frame", "id": "1", "t": 10.15, "event": "step", "data": {"step": "decision", "seq": 5, "title": "澄清回收：1. 哪口井？给井号（如 A-12H、B-03 之类）"}}
+{"leg": "frame", "id": "2", "t": 12.96, "event": "step", "data": {"step": "decision", "seq": 6, "title": "澄清 r1：反问（您问的「他昨天提的、关于井上的那件事」我已经收到）"}}
+{"leg": "frame", "id": "3", "t": 12.96, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "您问的「他昨天提的、关于井上的那件事」我已经收到了，现在要查的是「某口井停产/检泵（躺井）处理进展」。请先确认井号是哪一口？", "options": ["我现在给您井号（A-12H、B-03 等）", "改问全油田/全区块最近躺井处理进展（不指定井号）", "先帮我查一下台账里有哪些在停产/检泵状态的井"], "detail": null}, "run_id": "run-302c2ebf"}}
+{"leg": "frame", "id": "4", "t": 13.03, "event": "blackbox", "data": {"run_id": "run-302c2ebf", "question": "他昨天提的那个事儿后来咋样了？就井上那事儿。", "status": "running", "error": "", "stored": true, "bytes": 4745, "counts": {"dialogue": 3, "process_notes": 6, "observations": 0, "steps": 6}}}
+{"leg": "frame", "id": "5", "t": 13.03, "event": "done", "data": {"run_id": "run-302c2ebf"}}
+{"leg": "open", "http": 200, "body": {"kind": "clarify", "choice": "我现在给您井号（A-12H、B-03 等）"}}
+{"leg": "frame", "id": "0", "t": 13.63, "event": "session", "data": {"run_id": "run-302c2ebf", "resume": true}}
+{"leg": "frame", "id": "1", "t": 13.66, "event": "step", "data": {"step": "decision", "seq": 7, "title": "澄清回收：我现在给您井号（A-12H、B-03 等）"}}
+{"leg": "frame", "id": "2", "t": 16.02, "event": "step", "data": {"step": "decision", "seq": 8, "title": "澄清 r1：反问（您提到「他昨天提的、关于井上的那件事」,想查某口）"}}
+{"leg": "frame", "id": "3", "t": 16.02, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "您提到「他昨天提的、关于井上的那件事」,想查某口井停产/检泵（躺井）的处理进展。但您尚未提供具体井号——请补一句您要查的是哪口井（例如 A-12H、B-03 等）,我这边才好去取该井的停产/检泵处理进展。", "options": ["我现在给您井号 (A-12H、B-03 等)", "先查我名下所有躺井井的最新处理进展（全区块/全油田）", "取消,先不查了"], "detail": null}, "run_id": "run-302c2ebf"}}
+{"leg": "frame", "id": "4", "t": 16.11, "event": "blackbox", "data": {"run_id": "run-302c2ebf", "question": "他昨天提的那个事儿后来咋样了？就井上那事儿。", "status": "running", "error": "", "stored": true, "bytes": 6106, "counts": {"dialogue": 4, "process_notes": 8, "observations": 0, "steps": 8}}}
+{"leg": "frame", "id": "5", "t": 16.11, "event": "done", "data": {"run_id": "run-302c2ebf"}}
+{"summary": {"id": "Q05", "dimension": "模糊指代", "question": "他昨天提的那个事儿后来咋样了？就井上那事儿。", "hidden_intent": "指代完全悬空：井名与事项都未给出，只能反问澄清后才能处理", "expect_hint": "挂起反问", "status": "done", "run_id": "run-302c2ebf", "frames": 25, "duration_s": 16.1, "n_steps": 8, "steps": ["询问用户口中\"他昨天提的、关于井上的那件事\"的最新进展或后续情况，所指代的具体事件内容未在题干中给出，需先向用户澄清所指事件。", "澄清 r1：反问（您提到的「他昨天提的、关于井上的那件事」，我这边）", "澄清回收：某口井停产/检泵（躺井）处理进展", "澄清 r1：反问（已确认要查的是「某口井停产/检泵（躺井）处理进展）", "澄清回收：1. 哪口井？给井号（如 A-12H、B-03 之类）", "澄清 r1：反问（您问的「他昨天提的、关于井上的那件事」我已经收到）", "澄清回收：我现在给您井号（A-12H、B-03 等）", "澄清 r1：反问（您提到「他昨天提的、关于井上的那件事」,想查某口）"], "notices": [], "n_asks": 4, "n_resumes": 3, "answer": "询问用户口中\"他昨天提的、关于井上的那件事\"的最新进展或后续情况，所指代的具体事件内容未在题干中给出，需先向用户澄清所指事件。", "error_frame": null}}

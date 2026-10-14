@@ -1,0 +1,6 @@
+{"leg": "open", "http": 200, "body": {"question": "五一前后产量掉没掉？"}}
+{"leg": "frame", "id": "0", "t": 0.07, "event": "session", "data": {"run_id": "run-09070147", "resume": false}}
+{"leg": "frame", "id": "1", "t": 90.06, "event": "notice", "data": {"type": "run_failed", "gates": [], "content": "run 执行失败：模型调用失败 alias='petro-main': 上游拒绝 429: RateLimitError"}}
+{"leg": "frame", "id": "2", "t": 90.07, "event": "blackbox", "data": {"run_id": "run-09070147", "question": "", "status": "", "error": "模型调用失败 alias='petro-main': 上游拒绝 429: RateLimitError", "stored": true, "bytes": 120, "counts": {"dialogue": 0, "process_notes": 0, "observations": 0, "steps": 0}}}
+{"leg": "frame", "id": "3", "t": 90.07, "event": "done", "data": {"run_id": "run-09070147"}}
+{"summary": {"id": "Q17", "dimension": "时间模糊", "question": "五一前后产量掉没掉？", "hidden_intent": "“五一前后”指5月初假期窗口，想对比该窗口前后的日产变化", "expect_hint": "管线应答", "status": "done", "run_id": "run-09070147", "frames": 4, "duration_s": 90.1, "n_steps": 0, "steps": [], "notices": ["run_failed"], "n_asks": 0, "n_resumes": 0, "answer": "", "error_frame": null}}

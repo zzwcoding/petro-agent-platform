@@ -1,0 +1,12 @@
+{"leg": "open", "http": 200, "body": {"question": "停产待检泵的那几口，现在恢复生产了没？"}}
+{"leg": "frame", "id": "0", "t": 0.04, "event": "session", "data": {"run_id": "run-215e1aa3", "resume": false}}
+{"leg": "frame", "id": "1", "t": 1.61, "event": "step", "data": {"step": "decision", "seq": 1, "title": "问此前停产待检泵的那几口井现在是否已恢复生产。"}}
+{"leg": "frame", "id": "2", "t": 1.61, "event": "text", "data": {"content": "问此前停产待检泵的那几口井现在是否已恢复生产。", "kind": "understanding"}}
+{"leg": "frame", "id": "3", "t": 393.57, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清 r1：分解 1 子问题"}}
+{"leg": "frame", "id": "4", "t": 393.58, "event": "notice", "data": {"type": "budget_converged", "gates": ["total_seconds"], "content": "预算触界收敛（total_seconds）——未完成项：工具（discover/execute）未执行或未取得观察；观察（observe）未入栈；核验（verify）/阐述（answer）未执行。没能查到能回答这个问题的材料——可以换个问法，或告诉我更多背景（哪口井、哪个时间段），我再帮您查。"}}
+{"leg": "frame", "id": "5", "t": 393.58, "event": "step", "data": {"step": "answer", "seq": 3, "title": "答案收口"}}
+{"leg": "frame", "id": "6", "t": 393.58, "event": "text", "data": {"content": "没能查到能回答这个问题的材料——可以换个问法，或告诉我更多背景（哪口井、哪个时间段），我再帮您查。"}}
+{"leg": "frame", "id": "7", "t": 393.58, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-215e1aa3", "manifest_digest": "c780fd397c9d4ba14684d91bc1f56a4da3f1c282176d5f0cfaa7b8e8d96b1c0d"}}
+{"leg": "frame", "id": "8", "t": 394.05, "event": "blackbox", "data": {"run_id": "run-215e1aa3", "question": "停产待检泵的那几口，现在恢复生产了没？", "status": "completed", "error": "", "stored": true, "bytes": 2455, "counts": {"dialogue": 2, "process_notes": 2, "observations": 0, "steps": 3}}}
+{"leg": "frame", "id": "9", "t": 394.05, "event": "done", "data": {"run_id": "run-215e1aa3"}}
+{"summary": {"id": "Q03", "dimension": "模糊指代", "question": "停产待检泵的那几口，现在恢复生产了没？", "hidden_intent": "想按状态筛选当前处于停产待检泵的井，并逐口确认是否已恢复生产", "expect_hint": "管线应答", "status": "done", "run_id": "run-215e1aa3", "frames": 10, "duration_s": 394.1, "n_steps": 3, "steps": ["问此前停产待检泵的那几口井现在是否已恢复生产。", "澄清 r1：分解 1 子问题", "答案收口"], "notices": ["budget_converged"], "n_asks": 0, "n_resumes": 0, "answer": "没能查到能回答这个问题的材料——可以换个问法，或告诉我更多背景（哪口井、哪个时间段），我再帮您查。", "error_frame": null}}

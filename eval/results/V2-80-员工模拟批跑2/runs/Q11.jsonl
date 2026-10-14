@@ -1,0 +1,13 @@
+{"leg": "open", "http": 200, "body": {"question": "明早队里碰头，我得带上N-02这月躺了几回、检泵作业用了几天、还有措施增油顶上多少。"}}
+{"leg": "frame", "id": "0", "t": 0.06, "event": "session", "data": {"run_id": "run-6765398d", "resume": false}}
+{"leg": "frame", "id": "1", "t": 2.31, "event": "step", "data": {"step": "decision", "seq": 1, "title": "问 N-02 井本月停产待检泵（躺井）次数、检泵作业占用天数，以及本月措施增油量。"}}
+{"leg": "frame", "id": "2", "t": 2.31, "event": "text", "data": {"content": "问 N-02 井本月停产待检泵（躺井）次数、检泵作业占用天数，以及本月措施增油量。", "kind": "understanding"}}
+{"leg": "frame", "id": "3", "t": 5.22, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清 r1：分解 3 子问题"}}
+{"leg": "frame", "id": "4", "t": 6.98, "event": "step", "data": {"step": "decision", "seq": 3, "title": "工具匹配：3 条定案"}}
+{"leg": "frame", "id": "5", "t": 7.2, "event": "step", "data": {"step": "decision", "seq": 4, "title": "前置条件机：s1=blocked_refuse｜s2=blocked_refuse｜s3=blocked_refuse"}}
+{"leg": "frame", "id": "6", "t": 7.2, "event": "step", "data": {"step": "answer", "seq": 5, "title": "答案收口"}}
+{"leg": "frame", "id": "7", "t": 7.2, "event": "text", "data": {"content": "这几件事我在数据里都没能给出现成的答案，原因和下一步：\n- [s1] N-02 井本月停产待检泵（躺井）次数——「'停产待检泵次数'」不在可查询的指标名录里——系统按名录里的指标名查数。想知道都能查什么，可以直接问我。\n- [s2] N-02 井本月检泵作业占用天数——「'检泵作业占用天数'」不在可查询的指标名录里——系统按名录里的指标名查数。想知道都能查什么，可以直接问我。\n- [s3] N-02 井本月措施增油量（吨）——「'措施增油量'」不在可查询的指标名录里——系统按名录里的指标名查数。想知道都能查什么，可以直接问我。"}}
+{"leg": "frame", "id": "8", "t": 7.2, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-6765398d", "manifest_digest": "b8a3ca651758e2427e393385a8a52f9dfa3f8793c958ba69cfb7b181c918274e"}}
+{"leg": "frame", "id": "9", "t": 7.27, "event": "blackbox", "data": {"run_id": "run-6765398d", "question": "明早队里碰头，我得带上N-02这月躺了几回、检泵作业用了几天、还有措施增油顶上多少。", "status": "completed", "error": "", "stored": true, "bytes": 7197, "counts": {"dialogue": 2, "process_notes": 3, "observations": 0, "steps": 5}}}
+{"leg": "frame", "id": "10", "t": 7.27, "event": "done", "data": {"run_id": "run-6765398d"}}
+{"summary": {"id": "Q11", "dimension": "多事打包", "question": "明早队里碰头，我得带上N-02这月躺了几回、检泵作业用了几天、还有措施增油顶上多少。", "hidden_intent": "打包三项碰头材料：N-02当月躺井次数、检泵作业时长、措施增油量", "expect_hint": "管线应答", "status": "done", "run_id": "run-6765398d", "frames": 11, "duration_s": 7.3, "n_steps": 5, "steps": ["问 N-02 井本月停产待检泵（躺井）次数、检泵作业占用天数，以及本月措施增油量。", "澄清 r1：分解 3 子问题", "工具匹配：3 条定案", "前置条件机：s1=blocked_refuse｜s2=blocked_refuse｜s3=blocked_refuse", "答案收口"], "notices": [], "n_asks": 0, "n_resumes": 0, "answer": "这几件事我在数据里都没能给出现成的答案，原因和下一步：\n- [s1] N-02 井本月停产待检泵（躺井）次数——「'停产待检泵次数'」不在可查询的指标名录里——系统按名录里的指标名查数。想知道都能查什么，可以直接问我。\n- [s2] N-02 井本月检泵作业占用天数——「'检泵作业占用天数'」不在可查询的指标名录里——系统按名录里的指标名查数。想知道都能查什么，可以直接问我。\n- [s3] N-02 井本月措施增油量（吨）——「'措施增油量'」不在可查询的指标名录里——系统按名录里的指标名查数。想知道都能查什么，可以直接问我。", "error_frame": null}}

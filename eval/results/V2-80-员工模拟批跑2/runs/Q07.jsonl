@@ -1,0 +1,36 @@
+{"leg": "open", "http": 200, "body": {"question": "Y-21这口躺了几天了？啥时候能扶起来？"}}
+{"leg": "frame", "id": "0", "t": 0.05, "event": "session", "data": {"run_id": "run-063220c4", "resume": false}}
+{"leg": "frame", "id": "1", "t": 2.6, "event": "step", "data": {"step": "decision", "seq": 1, "title": "问 Y-21 井停产待检泵（躺井）已持续的天数，以及何时能恢复生产（扶起）。"}}
+{"leg": "frame", "id": "2", "t": 2.6, "event": "text", "data": {"content": "问 Y-21 井停产待检泵（躺井）已持续的天数，以及何时能恢复生产（扶起）。", "kind": "understanding"}}
+{"leg": "frame", "id": "3", "t": 6.36, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清 r1：反问（Y-21 不是台账默认的井号写法，且台账未命中。）"}}
+{"leg": "frame", "id": "4", "t": 6.36, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "Y-21 不是台账默认的井号写法，且台账未命中。您说的「Y-21」是哪个油田或平台的哪口井？可在以下候选中选一个，或直接补全井号。", "options": ["Y-21 井（候选未命中——请补全所属油田/平台/区块，或检查井号写法）", "Y-2-1 井（候选未命中——同上）", "Y21 井（候选未命中——同上）", "上面都不是，我补充井号"], "detail": null}, "run_id": "run-063220c4"}}
+{"leg": "frame", "id": "5", "t": 6.41, "event": "blackbox", "data": {"run_id": "run-063220c4", "question": "Y-21这口躺了几天了？啥时候能扶起来？", "status": "running", "error": "", "stored": true, "bytes": 2097, "counts": {"dialogue": 1, "process_notes": 2, "observations": 0, "steps": 2}}}
+{"leg": "frame", "id": "6", "t": 6.41, "event": "done", "data": {"run_id": "run-063220c4"}}
+{"leg": "open", "http": 200, "body": {"kind": "clarify", "choice": "Y-21 井（候选未命中——请补全所属油田/平台/区块，或检查井号写法）"}}
+{"leg": "frame", "id": "0", "t": 7.07, "event": "session", "data": {"run_id": "run-063220c4", "resume": true}}
+{"leg": "frame", "id": "1", "t": 7.09, "event": "step", "data": {"step": "decision", "seq": 3, "title": "澄清回收：Y-21 井（候选未命中——请补全所属油田/平台/区块，或检查井号写法）"}}
+{"leg": "frame", "id": "2", "t": 11.26, "event": "step", "data": {"step": "decision", "seq": 4, "title": "澄清 r1：反问（「Y-21」在本系统台账与资料中未命中——是否为）"}}
+{"leg": "frame", "id": "3", "t": 11.27, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "「Y-21」在本系统台账与资料中未命中——是否为另一写法（如 Y21、Y-021、Y-21H、Yu-21 等），或请补全所属油田/平台/区块以便定位到具体井。可附：油田名（如 CEP-C、渤中 34-5 等）、平台名或区块名。", "options": ["补全油田/平台/区块（如：CEP-C 平台 Y-21、渤中 34-5 油田 Y-21）", "改写井号写法（如 Y21、Y-021、Y-21H）", "我说的就是 Y-21，请按全井计划出数并注记单井过滤未支持"], "detail": null}, "run_id": "run-063220c4"}}
+{"leg": "frame", "id": "4", "t": 11.32, "event": "blackbox", "data": {"run_id": "run-063220c4", "question": "Y-21这口躺了几天了？啥时候能扶起来？", "status": "running", "error": "", "stored": true, "bytes": 3616, "counts": {"dialogue": 2, "process_notes": 4, "observations": 0, "steps": 4}}}
+{"leg": "frame", "id": "5", "t": 11.32, "event": "done", "data": {"run_id": "run-063220c4"}}
+{"leg": "open", "http": 200, "body": {"kind": "clarify", "choice": "补全油田/平台/区块（如：CEP-C 平台 Y-21、渤中 34-5 油田 Y-21）"}}
+{"leg": "frame", "id": "0", "t": 12.0, "event": "session", "data": {"run_id": "run-063220c4", "resume": true}}
+{"leg": "frame", "id": "1", "t": 12.02, "event": "step", "data": {"step": "decision", "seq": 5, "title": "澄清回收：补全油田/平台/区块（如：CEP-C 平台 Y-21、渤中 34-5 油田 Y-21）"}}
+{"leg": "frame", "id": "2", "t": 14.72, "event": "step", "data": {"step": "decision", "seq": 6, "title": "澄清 r1 被拒：ask 缺 options 或个数越界（2~4 个选项）"}}
+{"leg": "frame", "id": "3", "t": 16.61, "event": "step", "data": {"step": "decision", "seq": 7, "title": "澄清 r2：反问（「Y-21」在台账与资料中未命中——请确认所属主）"}}
+{"leg": "frame", "id": "4", "t": 16.61, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "「Y-21」在台账与资料中未命中——请确认所属主体（全井区口径默认全井，给不出单井行）", "options": ["CEP-C 平台 Y-21", "渤中 34-5 油田 Y-21", "CEP-D 平台 Y-21", "其他（请补全油田/平台/区块）"], "detail": null}, "run_id": "run-063220c4"}}
+{"leg": "frame", "id": "5", "t": 16.65, "event": "blackbox", "data": {"run_id": "run-063220c4", "question": "Y-21这口躺了几天了？啥时候能扶起来？", "status": "running", "error": "", "stored": true, "bytes": 5643, "counts": {"dialogue": 3, "process_notes": 7, "observations": 0, "steps": 7}}}
+{"leg": "frame", "id": "6", "t": 16.65, "event": "done", "data": {"run_id": "run-063220c4"}}
+{"leg": "open", "http": 200, "body": {"kind": "clarify", "choice": "CEP-C 平台 Y-21"}}
+{"leg": "frame", "id": "0", "t": 17.3, "event": "session", "data": {"run_id": "run-063220c4", "resume": true}}
+{"leg": "frame", "id": "1", "t": 17.33, "event": "step", "data": {"step": "decision", "seq": 8, "title": "澄清回收：CEP-C 平台 Y-21"}}
+{"leg": "frame", "id": "2", "t": 21.26, "event": "step", "data": {"step": "decision", "seq": 9, "title": "澄清 r1：分解 1 子问题"}}
+{"leg": "frame", "id": "3", "t": 23.32, "event": "step", "data": {"step": "decision", "seq": 10, "title": "工具匹配：1 条定案"}}
+{"leg": "frame", "id": "4", "t": 23.5, "event": "step", "data": {"step": "decision", "seq": 11, "title": "前置条件机：s1=note"}}
+{"leg": "frame", "id": "5", "t": 23.5, "event": "notice", "data": {"type": "chain_switch_reentry", "gates": [], "content": "换链回炉闸（V2-43/V2-51）：子问题 s1 题眼井不在数据链井闭世界（data 链域错成功返回——软失败域闸）——携拒因＋改链 hint 回炉①澄清相位（一次为界；坚持原链同参再触发＝直答终局，不环）"}}
+{"leg": "frame", "id": "6", "t": 24.53, "event": "step", "data": {"step": "decision", "seq": 12, "title": "澄清 r1 被拒：零探查观察禁定稿", "emission": {"action": "finalize"}}}
+{"leg": "frame", "id": "7", "t": 27.23, "event": "step", "data": {"step": "decision", "seq": 13, "title": "澄清 r2：反问（Y-21 不在台账默认井号写法中——请确认所属主）"}}
+{"leg": "frame", "id": "8", "t": 27.23, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "Y-21 不在台账默认井号写法中——请确认所属主体（油田/平台/区块）或校正井号写法，以便检索该井的停产待检泵（躺井）天数与扶起时间。", "options": ["CEP-C 平台 Y-21 井", "CEP-D 平台 Y-21 井", "CEP-E 平台 Y-21 井", "井号写法校正（非以上平台）"], "detail": null}, "run_id": "run-063220c4"}}
+{"leg": "frame", "id": "9", "t": 27.3, "event": "blackbox", "data": {"run_id": "run-063220c4", "question": "Y-21这口躺了几天了？啥时候能扶起来？", "status": "running", "error": "", "stored": true, "bytes": 12115, "counts": {"dialogue": 4, "process_notes": 12, "observations": 0, "steps": 13}}}
+{"leg": "frame", "id": "10", "t": 27.3, "event": "done", "data": {"run_id": "run-063220c4"}}
+{"summary": {"id": "Q07", "dimension": "口语黑话", "question": "Y-21这口躺了几天了？啥时候能扶起来？", "hidden_intent": "“躺/扶起来”即躺井与复产，想知道Y-21当前是否躺井、已躺天数及处置安排", "expect_hint": "管线应答", "status": "done", "run_id": "run-063220c4", "frames": 31, "duration_s": 27.3, "n_steps": 13, "steps": ["问 Y-21 井停产待检泵（躺井）已持续的天数，以及何时能恢复生产（扶起）。", "澄清 r1：反问（Y-21 不是台账默认的井号写法，且台账未命中。）", "澄清回收：Y-21 井（候选未命中——请补全所属油田/平台/区块，或检查井号写法）", "澄清 r1：反问（「Y-21」在本系统台账与资料中未命中——是否为）", "澄清回收：补全油田/平台/区块（如：CEP-C 平台 Y-21、渤中 34-5 油田 Y-21）", "澄清 r1 被拒：ask 缺 options 或个数越界（2~4 个选项）", "澄清 r2：反问（「Y-21」在台账与资料中未命中——请确认所属主）", "澄清回收：CEP-C 平台 Y-21", "澄清 r1：分解 1 子问题", "工具匹配：1 条定案", "前置条件机：s1=note", "澄清 r1 被拒：零探查观察禁定稿", "澄清 r2：反问（Y-21 不在台账默认井号写法中——请确认所属主）"], "notices": ["chain_switch_reentry"], "n_asks": 4, "n_resumes": 3, "answer": "问 Y-21 井停产待检泵（躺井）已持续的天数，以及何时能恢复生产（扶起）。", "error_frame": null}}

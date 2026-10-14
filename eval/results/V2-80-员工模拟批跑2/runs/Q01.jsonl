@@ -1,0 +1,30 @@
+{"leg": "open", "http": 200, "body": {"question": "那口井最近咋样？就上次生产会上提的老出问题的那口。"}}
+{"leg": "frame", "id": "0", "t": 0.08, "event": "session", "data": {"run_id": "run-ee569655", "resume": false}}
+{"leg": "frame", "id": "1", "t": 2.71, "event": "step", "data": {"step": "decision", "seq": 1, "title": "问上次生产会上提及的、近期频繁出现问题的那口井的最近生产情况。"}}
+{"leg": "frame", "id": "2", "t": 2.71, "event": "text", "data": {"content": "问上次生产会上提及的、近期频繁出现问题的那口井的最近生产情况。", "kind": "understanding"}}
+{"leg": "frame", "id": "3", "t": 5.84, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清 r1：反问（「上次生产会上提的那口井」是哪口井？请选择或直接）"}}
+{"leg": "frame", "id": "4", "t": 5.84, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "「上次生产会上提的那口井」是哪口井？请选择或直接告诉我井号：", "options": ["我记得井号（请补充井号）", "CEP-C 平台上的某口井", "CEP-D 平台上的某口井", "其他区块/平台（请补充）"], "detail": null}, "run_id": "run-ee569655"}}
+{"leg": "frame", "id": "5", "t": 5.95, "event": "blackbox", "data": {"run_id": "run-ee569655", "question": "那口井最近咋样？就上次生产会上提的老出问题的那口。", "status": "running", "error": "", "stored": true, "bytes": 1961, "counts": {"dialogue": 1, "process_notes": 2, "observations": 0, "steps": 2}}}
+{"leg": "frame", "id": "6", "t": 5.95, "event": "done", "data": {"run_id": "run-ee569655"}}
+{"leg": "open", "http": 200, "body": {"kind": "clarify", "choice": "我记得井号（请补充井号）"}}
+{"leg": "frame", "id": "0", "t": 6.62, "event": "session", "data": {"run_id": "run-ee569655", "resume": true}}
+{"leg": "frame", "id": "1", "t": 6.64, "event": "step", "data": {"step": "decision", "seq": 3, "title": "澄清回收：我记得井号（请补充井号）"}}
+{"leg": "frame", "id": "2", "t": 9.34, "event": "step", "data": {"step": "decision", "seq": 4, "title": "澄清 r1：反问（您说「记得井号（请补充井号）」——实际井号尚未给）"}}
+{"leg": "frame", "id": "3", "t": 9.34, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "您说「记得井号（请补充井号）」——实际井号尚未给出，而上次生产会的议题在系统里没有常驻记录，需要您补一句话才能锁定对象。请从下面挑一个方向告诉我：", "options": ["直接给井号（例如 N-01、C-12H 这类）", "给井所在的油田／区块名（例如 HEL-C 平台 / BZ34-5 油田），让我按区块把近期出问题多的井列出来", "上次生产会的日期／会议名（例如「9 月 28 日生产例会」），我去翻会议纪要定位"], "detail": null}, "run_id": "run-ee569655"}}
+{"leg": "frame", "id": "4", "t": 9.4, "event": "blackbox", "data": {"run_id": "run-ee569655", "question": "那口井最近咋样？就上次生产会上提的老出问题的那口。", "status": "running", "error": "", "stored": true, "bytes": 3386, "counts": {"dialogue": 2, "process_notes": 4, "observations": 0, "steps": 4}}}
+{"leg": "frame", "id": "5", "t": 9.4, "event": "done", "data": {"run_id": "run-ee569655"}}
+{"leg": "open", "http": 200, "body": {"kind": "clarify", "choice": "直接给井号（例如 N-01、C-12H 这类）"}}
+{"leg": "frame", "id": "0", "t": 9.98, "event": "session", "data": {"run_id": "run-ee569655", "resume": true}}
+{"leg": "frame", "id": "1", "t": 10.0, "event": "step", "data": {"step": "decision", "seq": 5, "title": "澄清回收：直接给井号（例如 N-01、C-12H 这类）"}}
+{"leg": "frame", "id": "2", "t": 13.36, "event": "step", "data": {"step": "decision", "seq": 6, "title": "澄清 r1：反问（您本次给的井号是「请补充井号」——实际井号尚未给）"}}
+{"leg": "frame", "id": "3", "t": 13.36, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "您本次给的井号是「请补充井号」——实际井号尚未给出，主体未命中。请直接给一口井号（例如 N-01、C-12H），或在下列相近候选中挑一口：", "options": ["我直接给井号（请在追问里写出）", "系统内暂无相近候选，请排查井位台账"], "detail": null}, "run_id": "run-ee569655"}}
+{"leg": "frame", "id": "4", "t": 13.4, "event": "blackbox", "data": {"run_id": "run-ee569655", "question": "那口井最近咋样？就上次生产会上提的老出问题的那口。", "status": "running", "error": "", "stored": true, "bytes": 4576, "counts": {"dialogue": 3, "process_notes": 6, "observations": 0, "steps": 6}}}
+{"leg": "frame", "id": "5", "t": 13.4, "event": "done", "data": {"run_id": "run-ee569655"}}
+{"leg": "open", "http": 200, "body": {"kind": "clarify", "choice": "我直接给井号（请在追问里写出）"}}
+{"leg": "frame", "id": "0", "t": 14.02, "event": "session", "data": {"run_id": "run-ee569655", "resume": true}}
+{"leg": "frame", "id": "1", "t": 14.05, "event": "step", "data": {"step": "decision", "seq": 7, "title": "澄清回收：我直接给井号（请在追问里写出）"}}
+{"leg": "frame", "id": "2", "t": 23.13, "event": "step", "data": {"step": "decision", "seq": 8, "title": "澄清 r1：反问（你本次说的「井号」还是占位文本，实际井号仍空。请）"}}
+{"leg": "frame", "id": "3", "t": 23.13, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "你本次说的「井号」还是占位文本，实际井号仍空。请直接给出井号（例如 N-01、C-12H），或从下面选一个。", "options": ["我现在补一个井号（请在追问里直接写出完整井号）", "查 CEP-C 平台名下全部井最近 30 天日产油量变化（无单井过滤）", "查 BSP 油田产液量最大的 5 口井最近 30 天情况（无单井过滤）", "查 CEP-E 平台名下故障／躺井频次最高的 3 口井最近 30 天情况（无单井过滤）"], "detail": null}, "run_id": "run-ee569655"}}
+{"leg": "frame", "id": "4", "t": 23.16, "event": "blackbox", "data": {"run_id": "run-ee569655", "question": "那口井最近咋样？就上次生产会上提的老出问题的那口。", "status": "running", "error": "", "stored": true, "bytes": 6013, "counts": {"dialogue": 4, "process_notes": 8, "observations": 0, "steps": 8}}}
+{"leg": "frame", "id": "5", "t": 23.16, "event": "done", "data": {"run_id": "run-ee569655"}}
+{"summary": {"id": "Q01", "dimension": "模糊指代", "question": "那口井最近咋样？就上次生产会上提的老出问题的那口。", "hidden_intent": "指代靠上下文锚定：需先识别会上提到的常出问题井（疑为N-02），再给近期生产情况", "expect_hint": "挂起反问", "status": "done", "run_id": "run-ee569655", "frames": 25, "duration_s": 23.2, "n_steps": 8, "steps": ["问上次生产会上提及的、近期频繁出现问题的那口井的最近生产情况。", "澄清 r1：反问（「上次生产会上提的那口井」是哪口井？请选择或直接）", "澄清回收：我记得井号（请补充井号）", "澄清 r1：反问（您说「记得井号（请补充井号）」——实际井号尚未给）", "澄清回收：直接给井号（例如 N-01、C-12H 这类）", "澄清 r1：反问（您本次给的井号是「请补充井号」——实际井号尚未给）", "澄清回收：我直接给井号（请在追问里写出）", "澄清 r1：反问（你本次说的「井号」还是占位文本，实际井号仍空。请）"], "notices": [], "n_asks": 4, "n_resumes": 3, "answer": "问上次生产会上提及的、近期频繁出现问题的那口井的最近生产情况。", "error_frame": null}}

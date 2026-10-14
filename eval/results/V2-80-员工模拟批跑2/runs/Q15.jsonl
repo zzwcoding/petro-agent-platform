@@ -1,0 +1,25 @@
+{"leg": "open", "http": 200, "body": {"question": "去年这个时候咱区块干得咋样？"}}
+{"leg": "frame", "id": "0", "t": 0.04, "event": "session", "data": {"run_id": "run-501ff23a", "resume": false}}
+{"leg": "frame", "id": "1", "t": 1.38, "event": "step", "data": {"step": "decision", "seq": 1, "title": "问\"去年这个时候\"（以 2026-08-31 为锚，即 2025 年 8 月）所辖区块的生产情况如何。"}}
+{"leg": "frame", "id": "2", "t": 1.38, "event": "text", "data": {"content": "问\"去年这个时候\"（以 2026-08-31 为锚，即 2025 年 8 月）所辖区块的生产情况如何。", "kind": "understanding"}}
+{"leg": "frame", "id": "3", "t": 6.64, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清 r1：分解 3 子问题"}}
+{"leg": "frame", "id": "4", "t": 8.98, "event": "step", "data": {"step": "decision", "seq": 3, "title": "工具匹配：3 条定案"}}
+{"leg": "frame", "id": "5", "t": 9.15, "event": "step", "data": {"step": "decision", "seq": 4, "title": "前置条件机：s1=pass｜s2=pass｜s3=pass"}}
+{"leg": "frame", "id": "6", "t": 10.33, "event": "tool", "data": {"tool": "data_query", "status": "failed", "seq": 5, "message": "查询执行成功但无数据行（时间窗「2025-08-01～2025-08-31」内查无数据）——如实回报，不编数。"}}
+{"leg": "frame", "id": "7", "t": 10.33, "event": "step", "data": {"step": "execute", "seq": 5, "title": "data_query：failed（子问题 s1）"}}
+{"leg": "frame", "id": "8", "t": 10.33, "event": "notice", "data": {"type": "subtask_refused", "gates": [], "content": "子问题 s1 闸拒（如实转答）：查询执行成功但无数据行（时间窗「2025-08-01～2025-08-31」内查无数据）——如实回报，不编数。"}}
+{"leg": "frame", "id": "9", "t": 10.33, "event": "tool", "data": {"tool": "data_query", "status": "failed", "seq": 6, "message": "查询执行成功但无数据行（时间窗「2025-08-01～2025-08-31」内查无数据）——如实回报，不编数。"}}
+{"leg": "frame", "id": "10", "t": 10.33, "event": "step", "data": {"step": "execute", "seq": 6, "title": "data_query：failed（子问题 s2）"}}
+{"leg": "frame", "id": "11", "t": 10.33, "event": "notice", "data": {"type": "subtask_refused", "gates": [], "content": "子问题 s2 闸拒（如实转答）：查询执行成功但无数据行（时间窗「2025-08-01～2025-08-31」内查无数据）——如实回报，不编数。"}}
+{"leg": "frame", "id": "12", "t": 10.33, "event": "tool", "data": {"tool": "data_query", "status": "failed", "seq": 7, "message": "查询执行成功但无数据行（时间窗「2025-08-01～2025-08-31」内查无数据）——如实回报，不编数。"}}
+{"leg": "frame", "id": "13", "t": 10.33, "event": "step", "data": {"step": "execute", "seq": 7, "title": "data_query：failed（子问题 s3）"}}
+{"leg": "frame", "id": "14", "t": 10.33, "event": "notice", "data": {"type": "subtask_refused", "gates": [], "content": "子问题 s3 闸拒（如实转答）：查询执行成功但无数据行（时间窗「2025-08-01～2025-08-31」内查无数据）——如实回报，不编数。"}}
+{"leg": "frame", "id": "15", "t": 10.33, "event": "step", "data": {"step": "observe", "seq": 8, "title": "批量汇聚 0 支"}}
+{"leg": "frame", "id": "16", "t": 10.34, "event": "step", "data": {"step": "verify", "seq": 9, "title": "核验：支撑 0｜改写 0｜分源 否"}}
+{"leg": "frame", "id": "17", "t": 10.34, "event": "verdict", "data": {"subtype": "verify", "supported": 0, "rewritten": 0, "split": false, "cited": [], "attribution": {"anchors": [], "cross": []}}}
+{"leg": "frame", "id": "18", "t": 10.34, "event": "step", "data": {"step": "answer", "seq": 10, "title": "答案收口"}}
+{"leg": "frame", "id": "19", "t": 10.34, "event": "text", "data": {"content": "没能查到能回答这个问题的材料——可以换个问法，或告诉我更多背景（哪口井、哪个时间段），我再帮您查。"}}
+{"leg": "frame", "id": "20", "t": 10.34, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-501ff23a", "manifest_digest": "4d8a979ecf87871a2ac513ed382e6b4fd3644cd7dc0f6575c73f9742734dc91c"}}
+{"leg": "frame", "id": "21", "t": 10.46, "event": "blackbox", "data": {"run_id": "run-501ff23a", "question": "去年这个时候咱区块干得咋样？", "status": "completed", "error": "", "stored": true, "bytes": 8463, "counts": {"dialogue": 2, "process_notes": 7, "observations": 0, "steps": 10}}}
+{"leg": "frame", "id": "22", "t": 10.46, "event": "done", "data": {"run_id": "run-501ff23a"}}
+{"summary": {"id": "Q15", "dimension": "时间模糊", "question": "去年这个时候咱区块干得咋样？", "hidden_intent": "“去年这个时候”指去年同期，想看区块当时的产量水平作对照", "expect_hint": "管线应答", "status": "done", "run_id": "run-501ff23a", "frames": 23, "duration_s": 10.5, "n_steps": 10, "steps": ["问\"去年这个时候\"（以 2026-08-31 为锚，即 2025 年 8 月）所辖区块的生产情况如何。", "澄清 r1：分解 3 子问题", "工具匹配：3 条定案", "前置条件机：s1=pass｜s2=pass｜s3=pass", "data_query：failed（子问题 s1）", "data_query：failed（子问题 s2）", "data_query：failed（子问题 s3）", "批量汇聚 0 支", "核验：支撑 0｜改写 0｜分源 否", "答案收口"], "notices": ["subtask_refused", "subtask_refused", "subtask_refused"], "n_asks": 0, "n_resumes": 0, "answer": "没能查到能回答这个问题的材料——可以换个问法，或告诉我更多背景（哪口井、哪个时间段），我再帮您查。", "error_frame": null}}
