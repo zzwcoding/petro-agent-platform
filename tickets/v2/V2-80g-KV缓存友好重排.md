@@ -152,3 +152,9 @@ def compile(self, run_state, *, step, instruction,
   decision（回喂/已做段三件）——内容逐字保留只挪位置；understand/answer 零改动；
 - 钉：compile tail 追加/无 tail 零变化；全量 1751 过（基线 1750＋1）＋六闸绿；
 - cached_tokens 对照验证见追加记录。
+
+## 8. cached_tokens 对照验证记录（2026-10-14）
+
+- 实测 run-197551fc（躺井多轮，5 次调用）：**cached_tokens 全 0**——主模型 MiniMax-M3 不缓存/不上报（调研缺口证实）；备用 glm-5.3-flash 门槛 8,960 tokens，本 run prompt 5.2k-6.1k 未达。
+- **结构性验证（重排目标达成实证）**：相邻两次澄清轮当前轮 LCP＝851 字（8.8%），**唯一分叉点＝CLARIFY_CONTRACT 的 {discover_used} 计数**（「已用 0 次」→「已用 1 次」，discover 发生后 +1）——回喂行/本 run 已做段已全部后置不再截断前缀；分叉点之后 8.8k 字（合同尾＋样例＋§A＋常驻块）逐字节一致。
+- **裁决点（呈 Owner）**：{discover_used} 挪尾需动 V2-53 附 A 锁定逐字稿一行（重过锁）；挪则同相位命中前缀 851→~9.2k（99%+，前提模型支持）；不挪则每 discover 一次重算一次合同尾段＋常驻块。现状维持不动（锁定优先）。
