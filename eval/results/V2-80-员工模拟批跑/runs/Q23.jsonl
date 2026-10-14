@@ -1,0 +1,9 @@
+{"leg": "open", "http": 200, "body": {"question": "周五喽，熬过今天就能歇班，美滋滋。"}}
+{"leg": "frame", "id": "0", "t": 0.04, "event": "session", "data": {"run_id": "run-3812ce21", "resume": false}}
+{"leg": "frame", "id": "1", "t": 2.96, "event": "step", "data": {"step": "decision", "seq": 1, "title": "无关业务——直接回答"}}
+{"leg": "frame", "id": "2", "t": 2.96, "event": "step", "data": {"step": "answer", "seq": 2, "title": "答案收口"}}
+{"leg": "frame", "id": "3", "t": 2.96, "event": "text", "data": {"content": "哈哈，周五确实让人期待下班～聊完轻松事，要不咱们也看看油田这边有啥数据动态？比如本月生产指标、躺井情况或者哪口井要上措施，您想从哪儿聊起？"}}
+{"leg": "frame", "id": "4", "t": 2.96, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-3812ce21", "manifest_digest": "b584efac2d1369da647759cf2104b4765349f823b4e58a484fe37a72a17724e5"}}
+{"leg": "frame", "id": "5", "t": 3.0, "event": "blackbox", "data": {"run_id": "run-3812ce21", "question": "周五喽，熬过今天就能歇班，美滋滋。", "status": "completed", "error": "", "stored": true, "bytes": 1318, "counts": {"dialogue": 2, "process_notes": 1, "observations": 0, "steps": 2}}}
+{"leg": "frame", "id": "6", "t": 3.0, "event": "done", "data": {"run_id": "run-3812ce21"}}
+{"summary": {"id": "Q23", "dimension": "伪装寒暄", "question": "周五喽，熬过今天就能歇班，美滋滋。", "hidden_intent": "纯闲聊，无任何业务诉求", "expect_hint": "直答寒暄", "status": "done", "run_id": "run-3812ce21", "frames": 7, "duration_s": 3.0, "n_steps": 2, "steps": ["无关业务——直接回答", "答案收口"], "notices": [], "n_asks": 0, "n_resumes": 0, "answer": "哈哈，周五确实让人期待下班～聊完轻松事，要不咱们也看看油田这边有啥数据动态？比如本月生产指标、躺井情况或者哪口井要上措施，您想从哪儿聊起？", "error_frame": null}}

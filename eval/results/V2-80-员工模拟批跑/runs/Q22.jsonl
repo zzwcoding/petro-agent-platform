@@ -1,0 +1,9 @@
+{"leg": "open", "http": 200, "body": {"question": "今儿降温了，井上巡井的多穿点哈。"}}
+{"leg": "frame", "id": "0", "t": 0.07, "event": "session", "data": {"run_id": "run-c9254b4e", "resume": false}}
+{"leg": "frame", "id": "1", "t": 24.32, "event": "step", "data": {"step": "decision", "seq": 1, "title": "无关业务——直接回答"}}
+{"leg": "frame", "id": "2", "t": 24.32, "event": "step", "data": {"step": "answer", "seq": 2, "title": "答案收口"}}
+{"leg": "frame", "id": "3", "t": 24.32, "event": "text", "data": {"content": "谢您提醒！降温天巡线确实辛苦，提醒大伙注意保暖和井口、设备的防冻保温巡检。要是后续需要查某口井的日产油、时率，或者看看低温对生产有什么影响，随时招呼我。"}}
+{"leg": "frame", "id": "4", "t": 24.32, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-c9254b4e", "manifest_digest": "b584efac2d1369da647759cf2104b4765349f823b4e58a484fe37a72a17724e5"}}
+{"leg": "frame", "id": "5", "t": 24.36, "event": "blackbox", "data": {"run_id": "run-c9254b4e", "question": "今儿降温了，井上巡井的多穿点哈。", "status": "completed", "error": "", "stored": true, "bytes": 1344, "counts": {"dialogue": 2, "process_notes": 1, "observations": 0, "steps": 2}}}
+{"leg": "frame", "id": "6", "t": 24.36, "event": "done", "data": {"run_id": "run-c9254b4e"}}
+{"summary": {"id": "Q22", "dimension": "伪装寒暄", "question": "今儿降温了，井上巡井的多穿点哈。", "hidden_intent": "纯寒暄关心，无任何业务诉求", "expect_hint": "直答寒暄", "status": "done", "run_id": "run-c9254b4e", "frames": 7, "duration_s": 24.4, "n_steps": 2, "steps": ["无关业务——直接回答", "答案收口"], "notices": [], "n_asks": 0, "n_resumes": 0, "answer": "谢您提醒！降温天巡线确实辛苦，提醒大伙注意保暖和井口、设备的防冻保温巡检。要是后续需要查某口井的日产油、时率，或者看看低温对生产有什么影响，随时招呼我。", "error_frame": null}}

@@ -1,0 +1,34 @@
+{"leg": "open", "http": 200, "body": {"question": "队里时率老上不去，到底是哪几口拖了后腿？"}}
+{"leg": "frame", "id": "0", "t": 0.05, "event": "session", "data": {"run_id": "run-a319829a", "resume": false}}
+{"leg": "frame", "id": "1", "t": 2.82, "event": "step", "data": {"step": "decision", "seq": 1, "title": "问本队（所属井）中抽油机时率偏低、拖累整体时率的是哪几口井。"}}
+{"leg": "frame", "id": "2", "t": 2.82, "event": "text", "data": {"content": "问本队（所属井）中抽油机时率偏低、拖累整体时率的是哪几口井。", "kind": "understanding"}}
+{"leg": "frame", "id": "3", "t": 10.25, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清 r1：反问（「本队」在数据里没有现成口径，本队对应哪种取数对）"}}
+{"leg": "frame", "id": "4", "t": 10.25, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "「本队」在数据里没有现成口径，本队对应哪种取数对象？", "options": ["按区块筛（指定一个区块名）", "按油田筛（指定一个油田名）", "按平台筛（指定一个平台名）", "全井（不筛）"], "detail": null}, "run_id": "run-a319829a"}}
+{"leg": "frame", "id": "5", "t": 10.28, "event": "blackbox", "data": {"run_id": "run-a319829a", "question": "队里时率老上不去，到底是哪几口拖了后腿？", "status": "running", "error": "", "stored": true, "bytes": 1930, "counts": {"dialogue": 1, "process_notes": 2, "observations": 0, "steps": 2}}}
+{"leg": "frame", "id": "6", "t": 10.28, "event": "done", "data": {"run_id": "run-a319829a"}}
+{"leg": "open", "http": 200, "body": {"kind": "clarify", "choice": "按区块筛（指定一个区块名）"}}
+{"leg": "frame", "id": "0", "t": 10.94, "event": "session", "data": {"run_id": "run-a319829a", "resume": true}}
+{"leg": "frame", "id": "1", "t": 10.97, "event": "step", "data": {"step": "decision", "seq": 3, "title": "澄清回收：按区块筛（指定一个区块名）"}}
+{"leg": "frame", "id": "2", "t": 24.32, "event": "step", "data": {"step": "decision", "seq": 4, "title": "澄清 r1：反问（本轮要在指定区块下筛出「抽油机时率偏低、拖累整体）"}}
+{"leg": "frame", "id": "3", "t": 24.32, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "本轮要在指定区块下筛出「抽油机时率偏低、拖累整体时率」的井。请补一个区块名以便落到对象集；其余默认近 30 天（2026-09-14～2026-10-14），抽油机时率口径按台账默认（A：Σ开井天数 ÷ Σ日历天 × 100%，月/井粒度）。", "options": ["区块 X（请在追问里给出具体区块名）", "用全部区块（不筛）", "先告诉我本队对应哪个区块——我在追问里写"], "detail": null}, "run_id": "run-a319829a"}}
+{"leg": "frame", "id": "4", "t": 24.36, "event": "blackbox", "data": {"run_id": "run-a319829a", "question": "队里时率老上不去，到底是哪几口拖了后腿？", "status": "running", "error": "", "stored": true, "bytes": 3325, "counts": {"dialogue": 2, "process_notes": 4, "observations": 0, "steps": 4}}}
+{"leg": "frame", "id": "5", "t": 24.36, "event": "done", "data": {"run_id": "run-a319829a"}}
+{"leg": "open", "http": 200, "body": {"kind": "clarify", "choice": "区块 X（请在追问里给出具体区块名）"}}
+{"leg": "frame", "id": "0", "t": 25.03, "event": "session", "data": {"run_id": "run-a319829a", "resume": true}}
+{"leg": "frame", "id": "1", "t": 25.06, "event": "step", "data": {"step": "decision", "seq": 5, "title": "澄清回收：区块 X（请在追问里给出具体区块名）"}}
+{"leg": "frame", "id": "2", "t": 28.64, "event": "step", "data": {"step": "decision", "seq": 6, "title": "澄清 r1：反问（区块 X（请在追问里给出具体区块名）——请明确区）"}}
+{"leg": "frame", "id": "3", "t": 28.64, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "区块 X（请在追问里给出具体区块名）——请明确区块名，以便落到具体井名筛", "options": ["渤中 34-5 区块", "渤中 34-8 区块", "主块", "其他（请补具体区块名）"], "detail": null}, "run_id": "run-a319829a"}}
+{"leg": "frame", "id": "4", "t": 28.67, "event": "blackbox", "data": {"run_id": "run-a319829a", "question": "队里时率老上不去，到底是哪几口拖了后腿？", "status": "running", "error": "", "stored": true, "bytes": 4464, "counts": {"dialogue": 3, "process_notes": 6, "observations": 0, "steps": 6}}}
+{"leg": "frame", "id": "5", "t": 28.67, "event": "done", "data": {"run_id": "run-a319829a"}}
+{"leg": "open", "http": 200, "body": {"kind": "clarify", "choice": "渤中 34-5 区块"}}
+{"leg": "frame", "id": "0", "t": 29.33, "event": "session", "data": {"run_id": "run-a319829a", "resume": true}}
+{"leg": "frame", "id": "1", "t": 29.35, "event": "step", "data": {"step": "decision", "seq": 7, "title": "澄清回收：渤中 34-5 区块"}}
+{"leg": "frame", "id": "2", "t": 32.45, "event": "step", "data": {"step": "decision", "seq": 8, "title": "澄清 r1：分解 1 子问题"}}
+{"leg": "frame", "id": "3", "t": 34.17, "event": "step", "data": {"step": "decision", "seq": 9, "title": "工具匹配：1 条定案"}}
+{"leg": "frame", "id": "4", "t": 34.36, "event": "step", "data": {"step": "decision", "seq": 10, "title": "前置条件机：s1=note"}}
+{"leg": "frame", "id": "5", "t": 34.36, "event": "notice", "data": {"type": "chain_switch_reentry", "gates": [], "content": "换链回炉闸（V2-43）：子问题 s1 绑定闸拒（data 链在册未绑定 agg）——携拒因＋改链 hint 回炉①澄清相位（一次为界；坚持原链同参再触发＝直答终局，不环）"}}
+{"leg": "frame", "id": "6", "t": 40.58, "event": "step", "data": {"step": "decision", "seq": 11, "title": "澄清 r2：反问（「抽油机时率」在聚合层无承载列、无法直接出数值；）"}}
+{"leg": "frame", "id": "7", "t": 40.58, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "「抽油机时率」在聚合层无承载列、无法直接出数值；近 30 天窗又超出水位 2026-08-31，按数据链走将被新鲜度闸拦停。可改走文档链去月报里找该口径/数值的载录。请确认走法：", "options": ["走文档链检索——到渤中 34-5 区块月报里找「抽油机时率」相关记载，按区块筛井（窗放宽为水位内最新可得月份 2026-08）", "走文档链检索——同上，但窗锚定 2026-08 月（2026-08-01~2026-08-31）", "先 discover 探查一次该指标在月报里是否有载（语义/片段级），再决定检索式", "改问别的指标（如时率偏低直接看停产/检泵记录）"], "detail": null}, "run_id": "run-a319829a"}}
+{"leg": "frame", "id": "8", "t": 40.62, "event": "blackbox", "data": {"run_id": "run-a319829a", "question": "队里时率老上不去，到底是哪几口拖了后腿？", "status": "running", "error": "", "stored": true, "bytes": 10029, "counts": {"dialogue": 4, "process_notes": 10, "observations": 0, "steps": 11}}}
+{"leg": "frame", "id": "9", "t": 40.62, "event": "done", "data": {"run_id": "run-a319829a"}}
+{"summary": {"id": "Q09", "dimension": "口语黑话", "question": "队里时率老上不去，到底是哪几口拖了后腿？", "hidden_intent": "想找拉低抽油机时率的井，即按井拆解时率并排找偏低者", "expect_hint": "管线应答", "status": "done", "run_id": "run-a319829a", "frames": 29, "duration_s": 40.6, "n_steps": 11, "steps": ["问本队（所属井）中抽油机时率偏低、拖累整体时率的是哪几口井。", "澄清 r1：反问（「本队」在数据里没有现成口径，本队对应哪种取数对）", "澄清回收：按区块筛（指定一个区块名）", "澄清 r1：反问（本轮要在指定区块下筛出「抽油机时率偏低、拖累整体）", "澄清回收：区块 X（请在追问里给出具体区块名）", "澄清 r1：反问（区块 X（请在追问里给出具体区块名）——请明确区）", "澄清回收：渤中 34-5 区块", "澄清 r1：分解 1 子问题", "工具匹配：1 条定案", "前置条件机：s1=note", "澄清 r2：反问（「抽油机时率」在聚合层无承载列、无法直接出数值；）"], "notices": ["chain_switch_reentry"], "n_asks": 4, "n_resumes": 3, "answer": "问本队（所属井）中抽油机时率偏低、拖累整体时率的是哪几口井。", "error_frame": null}}

@@ -1,0 +1,13 @@
+{"leg": "open", "http": 200, "body": {"question": "哈哈你们这玩意儿还挺能唠。行，顺手帮我瞅瞅Z-16上旬干得咋样呗。"}}
+{"leg": "frame", "id": "0", "t": 0.03, "event": "session", "data": {"run_id": "run-7bc0e713", "resume": false}}
+{"leg": "frame", "id": "1", "t": 1.89, "event": "step", "data": {"step": "decision", "seq": 1, "title": "问 Z-16 井上旬的生产状况。"}}
+{"leg": "frame", "id": "2", "t": 1.89, "event": "text", "data": {"content": "问 Z-16 井上旬的生产状况。", "kind": "understanding"}}
+{"leg": "frame", "id": "3", "t": 8.04, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清 r1：分解 1 子问题"}}
+{"leg": "frame", "id": "4", "t": 12.16, "event": "step", "data": {"step": "decision", "seq": 3, "title": "工具匹配：1 条定案"}}
+{"leg": "frame", "id": "5", "t": 12.35, "event": "step", "data": {"step": "decision", "seq": 4, "title": "前置条件机：s1=blocked_refuse"}}
+{"leg": "frame", "id": "6", "t": 12.36, "event": "step", "data": {"step": "answer", "seq": 5, "title": "答案收口"}}
+{"leg": "frame", "id": "7", "t": 12.36, "event": "text", "data": {"content": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] Z-16 井上旬生产状况——拒因：指标 '日产油量（吨）,日产液量（方）,含水率（%）,油压（MPa）' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）"}}
+{"leg": "frame", "id": "8", "t": 12.36, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-7bc0e713", "manifest_digest": "a1e32d6f8c329afd1b80071b18c85ba4ebb086d6cd5906fb2976fefcd61ffa1a"}}
+{"leg": "frame", "id": "9", "t": 12.41, "event": "blackbox", "data": {"run_id": "run-7bc0e713", "question": "哈哈你们这玩意儿还挺能唠。行，顺手帮我瞅瞅Z-16上旬干得咋样呗。", "status": "completed", "error": "", "stored": true, "bytes": 4324, "counts": {"dialogue": 2, "process_notes": 3, "observations": 0, "steps": 5}}}
+{"leg": "frame", "id": "10", "t": 12.41, "event": "done", "data": {"run_id": "run-7bc0e713"}}
+{"summary": {"id": "Q26", "dimension": "伪装寒暄", "question": "哈哈你们这玩意儿还挺能唠。行，顺手帮我瞅瞅Z-16上旬干得咋样呗。", "hidden_intent": "闲聊语气包装诉求：Z-16上旬的生产表现", "expect_hint": "管线应答", "status": "done", "run_id": "run-7bc0e713", "frames": 11, "duration_s": 12.4, "n_steps": 5, "steps": ["问 Z-16 井上旬的生产状况。", "澄清 r1：分解 1 子问题", "工具匹配：1 条定案", "前置条件机：s1=blocked_refuse", "答案收口"], "notices": [], "n_asks": 0, "n_resumes": 0, "answer": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] Z-16 井上旬生产状况——拒因：指标 '日产油量（吨）,日产液量（方）,含水率（%）,油压（MPa）' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）", "error_frame": null}}

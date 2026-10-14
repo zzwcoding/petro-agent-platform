@@ -1,0 +1,20 @@
+{"leg": "open", "http": 200, "body": {"question": "要是N-02再躺上一个月，咱区块月产量得掉多少？"}}
+{"leg": "frame", "id": "0", "t": 0.05, "event": "session", "data": {"run_id": "run-31838713", "resume": false}}
+{"leg": "frame", "id": "1", "t": 3.79, "event": "step", "data": {"step": "decision", "seq": 1, "title": "问若井号 N-02 再停产待检泵持续一个月，所在区块的月产量会减少多少。"}}
+{"leg": "frame", "id": "2", "t": 3.79, "event": "text", "data": {"content": "问若井号 N-02 再停产待检泵持续一个月，所在区块的月产量会减少多少。", "kind": "understanding"}}
+{"leg": "frame", "id": "3", "t": 9.79, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清 r1：分解 2 子问题"}}
+{"leg": "frame", "id": "4", "t": 12.14, "event": "step", "data": {"step": "decision", "seq": 3, "title": "工具匹配：2 条定案"}}
+{"leg": "frame", "id": "5", "t": 12.33, "event": "step", "data": {"step": "decision", "seq": 4, "title": "前置条件机：s1=blocked_refuse｜s2=note"}}
+{"leg": "frame", "id": "6", "t": 12.58, "event": "tool", "data": {"tool": "data_query", "status": "ok", "seq": 5, "message": null}}
+{"leg": "frame", "id": "7", "t": 12.58, "event": "step", "data": {"step": "execute", "seq": 5, "title": "data_query：ok（子问题 s2）"}}
+{"leg": "frame", "id": "8", "t": 12.58, "event": "notice", "data": {"type": "freshness_block", "gates": [], "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 43 天 · 超期）——查询窗「2026-09-14～2026-10-13」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。"}}
+{"leg": "frame", "id": "9", "t": 12.58, "event": "observation", "data": {"index": 1, "source": "汇总层水位读面", "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 43 天 · 超期）——查询窗「2026-09-14～2026-10-13」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。", "trust": "notice"}}
+{"leg": "frame", "id": "10", "t": 12.58, "event": "step", "data": {"step": "observe", "seq": 6, "title": "批量汇聚 1 支"}}
+{"leg": "frame", "id": "11", "t": 12.58, "event": "step", "data": {"step": "verify", "seq": 7, "title": "核验：支撑 0｜改写 0｜分源 否"}}
+{"leg": "frame", "id": "12", "t": 12.58, "event": "verdict", "data": {"subtype": "verify", "supported": 0, "rewritten": 0, "split": false, "cited": [], "attribution": {"anchors": ["N-02"], "cross": []}}}
+{"leg": "frame", "id": "13", "t": 12.59, "event": "step", "data": {"step": "answer", "seq": 8, "title": "答案收口"}}
+{"leg": "frame", "id": "14", "t": 12.59, "event": "text", "data": {"content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 43 天 · 超期）——查询窗「2026-09-14～2026-10-13」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。（闸依据如实转答——零数值，不冒充出数。）"}}
+{"leg": "frame", "id": "15", "t": 12.59, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-31838713", "manifest_digest": "82203e021cd1a915ed25566695a0582998c485511a71894d81e1aef6f14d7f78"}}
+{"leg": "frame", "id": "16", "t": 12.65, "event": "blackbox", "data": {"run_id": "run-31838713", "question": "要是N-02再躺上一个月，咱区块月产量得掉多少？", "status": "completed", "error": "", "stored": true, "bytes": 7126, "counts": {"dialogue": 2, "process_notes": 5, "observations": 1, "steps": 8}}}
+{"leg": "frame", "id": "17", "t": 12.65, "event": "done", "data": {"run_id": "run-31838713"}}
+{"summary": {"id": "Q47", "dimension": "假设推理", "question": "要是N-02再躺上一个月，咱区块月产量得掉多少？", "hidden_intent": "情景测算：基于N-02产能估算其停产一个月对区块月产量的影响", "expect_hint": "管线应答", "status": "done", "run_id": "run-31838713", "frames": 18, "duration_s": 12.6, "n_steps": 8, "steps": ["问若井号 N-02 再停产待检泵持续一个月，所在区块的月产量会减少多少。", "澄清 r1：分解 2 子问题", "工具匹配：2 条定案", "前置条件机：s1=blocked_refuse｜s2=note", "data_query：ok（子问题 s2）", "批量汇聚 1 支", "核验：支撑 0｜改写 0｜分源 否", "答案收口"], "notices": ["freshness_block"], "n_asks": 0, "n_resumes": 0, "answer": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 43 天 · 超期）——查询窗「2026-09-14～2026-10-13」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。（闸依据如实转答——零数值，不冒充出数。）", "error_frame": null}}

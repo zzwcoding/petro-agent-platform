@@ -1,0 +1,35 @@
+{"leg": "open", "http": 200, "body": {"question": "停产待检泵的那几口，现在恢复生产了没？"}}
+{"leg": "frame", "id": "0", "t": 0.03, "event": "session", "data": {"run_id": "run-603bf051", "resume": false}}
+{"leg": "frame", "id": "1", "t": 3.99, "event": "step", "data": {"step": "decision", "seq": 1, "title": "问停产待检泵（躺井）的井当前是否已恢复生产。"}}
+{"leg": "frame", "id": "2", "t": 3.99, "event": "text", "data": {"content": "问停产待检泵（躺井）的井当前是否已恢复生产。", "kind": "understanding"}}
+{"leg": "frame", "id": "3", "t": 6.2, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清钻取 ×1（faq_lookup）"}}
+{"leg": "frame", "id": "4", "t": 6.2, "event": "tool", "data": {"tool": "faq_lookup", "status": "failed", "seq": 3, "message": "未知参数键：['query']（args_schema additionalProperties=false）"}}
+{"leg": "frame", "id": "5", "t": 6.2, "event": "step", "data": {"step": "discover", "seq": 3, "title": "faq_lookup：failed"}}
+{"leg": "frame", "id": "6", "t": 6.2, "event": "notice", "data": {"type": "decision_rejected", "gates": [], "content": "工具校验拒因回喂重决策：未知参数键：['query']（args_schema additionalProperties=false）"}}
+{"leg": "frame", "id": "7", "t": 9.15, "event": "step", "data": {"step": "decision", "seq": 4, "title": "澄清 r1：反问（停产待检泵（躺井）的井当前是否已恢复生产——请确）"}}
+{"leg": "frame", "id": "8", "t": 9.15, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "停产待检泵（躺井）的井当前是否已恢复生产——请确认范围：", "options": ["按全油田（CEP-C / CEP-D / CEP-E 等）当前停产待检泵井列表，逐井回答是否已恢复", "只问某一口具体井号", "近 30 天内转为停产待检泵的井，现在是否已恢复", "近 30 天内已恢复的停产待检泵井清单"], "detail": null}, "run_id": "run-603bf051"}}
+{"leg": "frame", "id": "9", "t": 9.19, "event": "blackbox", "data": {"run_id": "run-603bf051", "question": "停产待检泵的那几口，现在恢复生产了没？", "status": "running", "error": "", "stored": true, "bytes": 3373, "counts": {"dialogue": 1, "process_notes": 4, "observations": 0, "steps": 4}}}
+{"leg": "frame", "id": "10", "t": 9.19, "event": "done", "data": {"run_id": "run-603bf051"}}
+{"leg": "open", "http": 200, "body": {"kind": "clarify", "choice": "按全油田（CEP-C / CEP-D / CEP-E 等）当前停产待检泵井列表，逐井回答是否已恢复"}}
+{"leg": "frame", "id": "0", "t": 9.86, "event": "session", "data": {"run_id": "run-603bf051", "resume": true}}
+{"leg": "frame", "id": "1", "t": 9.89, "event": "step", "data": {"step": "decision", "seq": 5, "title": "澄清回收：按全油田（CEP-C / CEP-D / CEP-E 等）当前停产待检泵井列表，逐井回答是否已恢复"}}
+{"leg": "frame", "id": "2", "t": 14.23, "event": "step", "data": {"step": "decision", "seq": 6, "title": "澄清 r1：反问（「停产待检泵（躺井）」当前是否已恢复生产——需取）"}}
+{"leg": "frame", "id": "3", "t": 14.23, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "「停产待检泵（躺井）」当前是否已恢复生产——需取全油田停产待检泵井清单后逐井比对恢复状态。本轮检索锚窗与对象范围请确认：", "options": ["按全油田最近停产待检泵井清单，逐井回答最近 30 天（2026-09-14~2026-10-14）状态", "按全油田最近停产待检泵井清单，逐井回答本月（2026-10-01~2026-10-14）状态", "按全油田最近停产待检泵井清单，逐井回答最近 7 天（2026-10-07~2026-10-14）状态"], "detail": null}, "run_id": "run-603bf051"}}
+{"leg": "frame", "id": "4", "t": 14.27, "event": "blackbox", "data": {"run_id": "run-603bf051", "question": "停产待检泵的那几口，现在恢复生产了没？", "status": "running", "error": "", "stored": true, "bytes": 4968, "counts": {"dialogue": 2, "process_notes": 6, "observations": 0, "steps": 6}}}
+{"leg": "frame", "id": "5", "t": 14.27, "event": "done", "data": {"run_id": "run-603bf051"}}
+{"leg": "open", "http": 200, "body": {"kind": "clarify", "choice": "按全油田最近停产待检泵井清单，逐井回答最近 30 天（2026-09-14~2026-10-14）状态"}}
+{"leg": "frame", "id": "0", "t": 14.94, "event": "session", "data": {"run_id": "run-603bf051", "resume": true}}
+{"leg": "frame", "id": "1", "t": 14.96, "event": "step", "data": {"step": "decision", "seq": 7, "title": "澄清回收：按全油田最近停产待检泵井清单，逐井回答最近 30 天（2026-09-14~2026-10-14）状态"}}
+{"leg": "frame", "id": "2", "t": 28.78, "event": "step", "data": {"step": "decision", "seq": 8, "title": "澄清钻取 ×2（semantic_query、semantic_query）"}}
+{"leg": "frame", "id": "3", "t": 28.78, "event": "tool", "data": {"tool": "semantic_query", "status": "failed", "seq": 9, "message": "question 与 element_name 须二选一（同给同缺均拒）"}}
+{"leg": "frame", "id": "4", "t": 28.78, "event": "step", "data": {"step": "discover", "seq": 9, "title": "semantic_query：failed"}}
+{"leg": "frame", "id": "5", "t": 28.78, "event": "notice", "data": {"type": "decision_rejected", "gates": [], "content": "工具校验拒因回喂重决策：question 与 element_name 须二选一（同给同缺均拒）"}}
+{"leg": "frame", "id": "6", "t": 32.24, "event": "step", "data": {"step": "decision", "seq": 10, "title": "澄清 r1：分解 1 子问题"}}
+{"leg": "frame", "id": "7", "t": 36.9, "event": "step", "data": {"step": "decision", "seq": 11, "title": "工具匹配：1 条定案"}}
+{"leg": "frame", "id": "8", "t": 37.09, "event": "step", "data": {"step": "decision", "seq": 12, "title": "前置条件机：s1=blocked_refuse"}}
+{"leg": "frame", "id": "9", "t": 37.09, "event": "step", "data": {"step": "answer", "seq": 13, "title": "答案收口"}}
+{"leg": "frame", "id": "10", "t": 37.09, "event": "text", "data": {"content": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 全油田（CEP-C / CEP-D / CEP-E 等）当前停产待检泵井清单及近 30 天（2026-09-14~2026-10-14）逐井状态——拒因：指标 '停产待检泵井清单' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）"}}
+{"leg": "frame", "id": "11", "t": 37.09, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-603bf051", "manifest_digest": "c2d93920e4ec4acbfe0c02f3f3f81facc20dd0f615dfd040f9602a4d4346cac7"}}
+{"leg": "frame", "id": "12", "t": 37.15, "event": "blackbox", "data": {"run_id": "run-603bf051", "question": "停产待检泵的那几口，现在恢复生产了没？", "status": "completed", "error": "", "stored": true, "bytes": 10354, "counts": {"dialogue": 4, "process_notes": 11, "observations": 0, "steps": 13}}}
+{"leg": "frame", "id": "13", "t": 37.15, "event": "done", "data": {"run_id": "run-603bf051"}}
+{"summary": {"id": "Q03", "dimension": "模糊指代", "question": "停产待检泵的那几口，现在恢复生产了没？", "hidden_intent": "想按状态筛选当前处于停产待检泵的井，并逐口确认是否已恢复生产", "expect_hint": "管线应答", "status": "done", "run_id": "run-603bf051", "frames": 31, "duration_s": 37.2, "n_steps": 13, "steps": ["问停产待检泵（躺井）的井当前是否已恢复生产。", "澄清钻取 ×1（faq_lookup）", "faq_lookup：failed", "澄清 r1：反问（停产待检泵（躺井）的井当前是否已恢复生产——请确）", "澄清回收：按全油田（CEP-C / CEP-D / CEP-E 等）当前停产待检泵井列表，逐井回答是否已恢复", "澄清 r1：反问（「停产待检泵（躺井）」当前是否已恢复生产——需取）", "澄清回收：按全油田最近停产待检泵井清单，逐井回答最近 30 天（2026-09-14~2026-10-14）状态", "澄清钻取 ×2（semantic_query、semantic_query）", "semantic_query：failed", "澄清 r1：分解 1 子问题", "工具匹配：1 条定案", "前置条件机：s1=blocked_refuse", "答案收口"], "notices": ["decision_rejected", "decision_rejected"], "n_asks": 2, "n_resumes": 2, "answer": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] 全油田（CEP-C / CEP-D / CEP-E 等）当前停产待检泵井清单及近 30 天（2026-09-14~2026-10-14）逐井状态——拒因：指标 '停产待检泵井清单' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）", "error_frame": null}}

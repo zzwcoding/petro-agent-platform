@@ -1,0 +1,27 @@
+{"leg": "open", "http": 200, "body": {"question": "早上好啊，昨儿夜班给我累坏了——对了，昨晚N-01产量稳不稳？"}}
+{"leg": "frame", "id": "0", "t": 0.05, "event": "session", "data": {"run_id": "run-b17010f5", "resume": false}}
+{"leg": "frame", "id": "1", "t": 2.27, "event": "step", "data": {"step": "decision", "seq": 1, "title": "问昨晚 N-01 井的产量是否稳定。"}}
+{"leg": "frame", "id": "2", "t": 2.27, "event": "text", "data": {"content": "问昨晚 N-01 井的产量是否稳定。", "kind": "understanding"}}
+{"leg": "frame", "id": "3", "t": 5.9, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清 r1：反问（「昨晚」具体指哪一天？您可从下面选一个，或另写日）"}}
+{"leg": "frame", "id": "4", "t": 5.9, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "「昨晚」具体指哪一天？您可从下面选一个，或另写日期：", "options": ["2026-10-13（昨夜）", "默认近 30 天（即 2026-09-14~2026-10-14，按窗词锚定表自动取数）", "近 7 天（2026-10-07~2026-10-14）"], "detail": null}, "run_id": "run-b17010f5"}}
+{"leg": "frame", "id": "5", "t": 5.93, "event": "blackbox", "data": {"run_id": "run-b17010f5", "question": "早上好啊，昨儿夜班给我累坏了——对了，昨晚N-01产量稳不稳？", "status": "running", "error": "", "stored": true, "bytes": 2002, "counts": {"dialogue": 1, "process_notes": 2, "observations": 0, "steps": 2}}}
+{"leg": "frame", "id": "6", "t": 5.93, "event": "done", "data": {"run_id": "run-b17010f5"}}
+{"leg": "open", "http": 200, "body": {"kind": "clarify", "choice": "2026-10-13（昨夜）"}}
+{"leg": "frame", "id": "0", "t": 6.6, "event": "session", "data": {"run_id": "run-b17010f5", "resume": true}}
+{"leg": "frame", "id": "1", "t": 6.62, "event": "step", "data": {"step": "decision", "seq": 3, "title": "澄清回收：2026-10-13（昨夜）"}}
+{"leg": "frame", "id": "2", "t": 35.92, "event": "step", "data": {"step": "decision", "seq": 4, "title": "澄清 r1：分解 1 子问题"}}
+{"leg": "frame", "id": "3", "t": 38.04, "event": "step", "data": {"step": "decision", "seq": 5, "title": "工具匹配：1 条定案"}}
+{"leg": "frame", "id": "4", "t": 38.21, "event": "step", "data": {"step": "decision", "seq": 6, "title": "前置条件机：s1=note"}}
+{"leg": "frame", "id": "5", "t": 38.47, "event": "tool", "data": {"tool": "data_query", "status": "ok", "seq": 7, "message": null}}
+{"leg": "frame", "id": "6", "t": 38.47, "event": "step", "data": {"step": "execute", "seq": 7, "title": "data_query：ok（子问题 s1）"}}
+{"leg": "frame", "id": "7", "t": 38.47, "event": "notice", "data": {"type": "freshness_block", "gates": [], "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 43 天 · 超期）——查询窗「2026-10-13～2026-10-13」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。"}}
+{"leg": "frame", "id": "8", "t": 38.47, "event": "observation", "data": {"index": 1, "source": "汇总层水位读面", "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 43 天 · 超期）——查询窗「2026-10-13～2026-10-13」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。", "trust": "notice"}}
+{"leg": "frame", "id": "9", "t": 38.47, "event": "step", "data": {"step": "observe", "seq": 8, "title": "批量汇聚 1 支"}}
+{"leg": "frame", "id": "10", "t": 38.48, "event": "step", "data": {"step": "verify", "seq": 9, "title": "核验：支撑 0｜改写 0｜分源 否"}}
+{"leg": "frame", "id": "11", "t": 38.48, "event": "verdict", "data": {"subtype": "verify", "supported": 0, "rewritten": 0, "split": false, "cited": [], "attribution": {"anchors": ["N-01"], "cross": []}}}
+{"leg": "frame", "id": "12", "t": 38.49, "event": "step", "data": {"step": "answer", "seq": 10, "title": "答案收口"}}
+{"leg": "frame", "id": "13", "t": 38.49, "event": "text", "data": {"content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 43 天 · 超期）——查询窗「2026-10-13～2026-10-13」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。（闸依据如实转答——零数值，不冒充出数。）"}}
+{"leg": "frame", "id": "14", "t": 38.49, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-b17010f5", "manifest_digest": "6415db77ac7cba3842fea1fdd1171c0324ad253fc1458d9cb4d36f7b762157da"}}
+{"leg": "frame", "id": "15", "t": 38.54, "event": "blackbox", "data": {"run_id": "run-b17010f5", "question": "早上好啊，昨儿夜班给我累坏了——对了，昨晚N-01产量稳不稳？", "status": "completed", "error": "", "stored": true, "bytes": 7368, "counts": {"dialogue": 3, "process_notes": 7, "observations": 1, "steps": 10}}}
+{"leg": "frame", "id": "16", "t": 38.54, "event": "done", "data": {"run_id": "run-b17010f5"}}
+{"summary": {"id": "Q24", "dimension": "伪装寒暄", "question": "早上好啊，昨儿夜班给我累坏了——对了，昨晚N-01产量稳不稳？", "hidden_intent": "寒暄尾巴上挂真实诉求：N-01最近一日的产量是否平稳", "expect_hint": "管线应答", "status": "done", "run_id": "run-b17010f5", "frames": 24, "duration_s": 38.5, "n_steps": 10, "steps": ["问昨晚 N-01 井的产量是否稳定。", "澄清 r1：反问（「昨晚」具体指哪一天？您可从下面选一个，或另写日）", "澄清回收：2026-10-13（昨夜）", "澄清 r1：分解 1 子问题", "工具匹配：1 条定案", "前置条件机：s1=note", "data_query：ok（子问题 s1）", "批量汇聚 1 支", "核验：支撑 0｜改写 0｜分源 否", "答案收口"], "notices": ["freshness_block"], "n_asks": 1, "n_resumes": 1, "answer": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 43 天 · 超期）——查询窗「2026-10-13～2026-10-13」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。（闸依据如实转答——零数值，不冒充出数。）", "error_frame": null}}

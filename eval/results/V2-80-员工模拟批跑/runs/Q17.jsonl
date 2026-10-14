@@ -1,0 +1,40 @@
+{"leg": "open", "http": 200, "body": {"question": "五一前后产量掉没掉？"}}
+{"leg": "frame", "id": "0", "t": 0.06, "event": "session", "data": {"run_id": "run-1dd9508e", "resume": false}}
+{"leg": "frame", "id": "1", "t": 18.42, "event": "step", "data": {"step": "decision", "seq": 1, "title": "问五一节日前后（相对数据水位日 2026-08-31 向前回溯，即五月份前后）油田的产量是否下降。"}}
+{"leg": "frame", "id": "2", "t": 18.42, "event": "text", "data": {"content": "问五一节日前后（相对数据水位日 2026-08-31 向前回溯，即五月份前后）油田的产量是否下降。", "kind": "understanding"}}
+{"leg": "frame", "id": "3", "t": 22.86, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清 r1：分解 2 子问题"}}
+{"leg": "frame", "id": "4", "t": 25.67, "event": "step", "data": {"step": "decision", "seq": 3, "title": "工具匹配：2 条定案"}}
+{"leg": "frame", "id": "5", "t": 25.85, "event": "step", "data": {"step": "decision", "seq": 4, "title": "前置条件机：s1=pass｜s2=blocked_ask"}}
+{"leg": "frame", "id": "6", "t": 26.11, "event": "tool", "data": {"tool": "data_query", "status": "failed", "seq": 5, "message": "上游抖动：'日产油量（吨）'"}}
+{"leg": "frame", "id": "7", "t": 26.11, "event": "step", "data": {"step": "execute", "seq": 5, "title": "data_query：failed（子问题 s1）"}}
+{"leg": "frame", "id": "8", "t": 26.11, "event": "notice", "data": {"type": "subtask_failed", "gates": [], "content": "子问题 s1 执行失败（回炉面）：上游抖动：'日产油量（吨）'"}}
+{"leg": "frame", "id": "9", "t": 26.11, "event": "step", "data": {"step": "observe", "seq": 6, "title": "批量汇聚 0 支"}}
+{"leg": "frame", "id": "10", "t": 26.11, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "「有效产量」按哪一口径支判断？", "options": ["A 开井日历折算", "B 检修剔除｜争议注记：跨月检修切割"], "detail": null}, "run_id": "run-1dd9508e"}}
+{"leg": "frame", "id": "11", "t": 26.15, "event": "blackbox", "data": {"run_id": "run-1dd9508e", "question": "五一前后产量掉没掉？", "status": "running", "error": "", "stored": true, "bytes": 5921, "counts": {"dialogue": 1, "process_notes": 4, "observations": 0, "steps": 6}}}
+{"leg": "frame", "id": "12", "t": 26.15, "event": "done", "data": {"run_id": "run-1dd9508e"}}
+{"leg": "open", "http": 200, "body": {"kind": "clarify", "choice": "A 开井日历折算"}}
+{"leg": "frame", "id": "0", "t": 26.82, "event": "session", "data": {"run_id": "run-1dd9508e", "resume": true}}
+{"leg": "frame", "id": "1", "t": 26.85, "event": "step", "data": {"step": "decision", "seq": 7, "title": "澄清回收：A 开井日历折算"}}
+{"leg": "frame", "id": "2", "t": 29.82, "event": "step", "data": {"step": "decision", "seq": 8, "title": "澄清 r1：分解 1 子问题"}}
+{"leg": "frame", "id": "3", "t": 32.76, "event": "step", "data": {"step": "decision", "seq": 9, "title": "工具匹配：1 条定案"}}
+{"leg": "frame", "id": "4", "t": 32.93, "event": "step", "data": {"step": "decision", "seq": 10, "title": "前置条件机：s1=pass"}}
+{"leg": "frame", "id": "5", "t": 33.16, "event": "tool", "data": {"tool": "data_query", "status": "failed", "seq": 11, "message": "上游抖动：'日产油量（吨）'"}}
+{"leg": "frame", "id": "6", "t": 33.16, "event": "step", "data": {"step": "execute", "seq": 11, "title": "data_query：failed（子问题 s1）"}}
+{"leg": "frame", "id": "7", "t": 33.16, "event": "notice", "data": {"type": "subtask_failed", "gates": [], "content": "子问题 s1 执行失败（回炉面）：上游抖动：'日产油量（吨）'"}}
+{"leg": "frame", "id": "8", "t": 33.16, "event": "step", "data": {"step": "observe", "seq": 12, "title": "批量汇聚 0 支"}}
+{"leg": "frame", "id": "9", "t": 37.76, "event": "step", "data": {"step": "decision", "seq": 13, "title": "澄清 r2：反问（用户原题「五一前后产量掉没掉」需按 A 开井日历）"}}
+{"leg": "frame", "id": "10", "t": 37.76, "event": "ask", "data": {"frame": {"kind": "clarify", "prompt": "用户原题「五一前后产量掉没掉」需按 A 开井日历折算口径核验有效产量（粒度=月）。窗口已可锚定为 2026-04-25 ~ 2026-05-11，但口径支与对比基线需用户拍板（台账载「有效产量」双口径并列：A 开井日历折算 / B 检修剔除；用户原题指定 A，但「掉没掉」需选对照基准方可判「掉」）。请选其一：", "options": ["仅看五一当月（2026-04）有效产量环比 2026-03 是否下降", "看 2026-04 ~ 2026-05 内日折算产量趋势（按开井日历折算日序列）", "看五一前后两周（2026-04-25 ~ 2026-05-10）日折算产量趋势"], "detail": null}, "run_id": "run-1dd9508e"}}
+{"leg": "frame", "id": "11", "t": 37.8, "event": "blackbox", "data": {"run_id": "run-1dd9508e", "question": "五一前后产量掉没掉？", "status": "running", "error": "", "stored": true, "bytes": 9745, "counts": {"dialogue": 2, "process_notes": 9, "observations": 0, "steps": 13}}}
+{"leg": "frame", "id": "12", "t": 37.8, "event": "done", "data": {"run_id": "run-1dd9508e"}}
+{"leg": "open", "http": 200, "body": {"kind": "clarify", "choice": "仅看五一当月（2026-04）有效产量环比 2026-03 是否下降"}}
+{"leg": "frame", "id": "0", "t": 38.47, "event": "session", "data": {"run_id": "run-1dd9508e", "resume": true}}
+{"leg": "frame", "id": "1", "t": 38.5, "event": "step", "data": {"step": "decision", "seq": 14, "title": "澄清回收：仅看五一当月（2026-04）有效产量环比 2026-03 是否下降"}}
+{"leg": "frame", "id": "2", "t": 41.09, "event": "step", "data": {"step": "decision", "seq": 15, "title": "澄清 r1：分解 1 子问题"}}
+{"leg": "frame", "id": "3", "t": 44.23, "event": "step", "data": {"step": "decision", "seq": 16, "title": "工具匹配：1 条定案"}}
+{"leg": "frame", "id": "4", "t": 44.39, "event": "step", "data": {"step": "decision", "seq": 17, "title": "前置条件机：s1=blocked_refuse"}}
+{"leg": "frame", "id": "5", "t": 44.39, "event": "step", "data": {"step": "answer", "seq": 18, "title": "答案收口"}}
+{"leg": "frame", "id": "6", "t": 44.39, "event": "text", "data": {"content": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] A 开井日历折算口径下，2026-04 月油田有效产量（吨）较 2026-03 月是否下降？——拒因：指标 '有效产量（吨）' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）"}}
+{"leg": "frame", "id": "7", "t": 44.39, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-1dd9508e", "manifest_digest": "785b58e0332dc0e0918fac9af06d5af8b439862d9704df3cd6a2c628dd58804a"}}
+{"leg": "frame", "id": "8", "t": 44.47, "event": "blackbox", "data": {"run_id": "run-1dd9508e", "question": "五一前后产量掉没掉？", "status": "completed", "error": "", "stored": true, "bytes": 12819, "counts": {"dialogue": 4, "process_notes": 12, "observations": 0, "steps": 18}}}
+{"leg": "frame", "id": "9", "t": 44.47, "event": "done", "data": {"run_id": "run-1dd9508e"}}
+{"summary": {"id": "Q17", "dimension": "时间模糊", "question": "五一前后产量掉没掉？", "hidden_intent": "“五一前后”指5月初假期窗口，想对比该窗口前后的日产变化", "expect_hint": "管线应答", "status": "done", "run_id": "run-1dd9508e", "frames": 36, "duration_s": 44.5, "n_steps": 18, "steps": ["问五一节日前后（相对数据水位日 2026-08-31 向前回溯，即五月份前后）油田的产量是否下降。", "澄清 r1：分解 2 子问题", "工具匹配：2 条定案", "前置条件机：s1=pass｜s2=blocked_ask", "data_query：failed（子问题 s1）", "批量汇聚 0 支", "澄清回收：A 开井日历折算", "澄清 r1：分解 1 子问题", "工具匹配：1 条定案", "前置条件机：s1=pass", "data_query：failed（子问题 s1）", "批量汇聚 0 支", "澄清 r2：反问（用户原题「五一前后产量掉没掉」需按 A 开井日历）", "澄清回收：仅看五一当月（2026-04）有效产量环比 2026-03 是否下降", "澄清 r1：分解 1 子问题", "工具匹配：1 条定案", "前置条件机：s1=blocked_refuse", "答案收口"], "notices": ["subtask_failed", "subtask_failed"], "n_asks": 2, "n_resumes": 2, "answer": "子问题前置条件判定全部拦截——如实回报，不编造：\n- [s1] A 开井日历折算口径下，2026-04 月油田有效产量（吨）较 2026-03 月是否下降？——拒因：指标 '有效产量（吨）' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）", "error_frame": null}}

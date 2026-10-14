@@ -1,0 +1,20 @@
+{"leg": "open", "http": 200, "body": {"question": "烦死了矿里又催材料！快说N-01这个月产量到底完成多少了！"}}
+{"leg": "frame", "id": "0", "t": 0.04, "event": "session", "data": {"run_id": "run-121f2ad7", "resume": false}}
+{"leg": "frame", "id": "1", "t": 1.91, "event": "step", "data": {"step": "decision", "seq": 1, "title": "问 N-01 井本月产量完成量（即本月产油量完成数）。"}}
+{"leg": "frame", "id": "2", "t": 1.91, "event": "text", "data": {"content": "问 N-01 井本月产量完成量（即本月产油量完成数）。", "kind": "understanding"}}
+{"leg": "frame", "id": "3", "t": 7.32, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清 r1：分解 1 子问题"}}
+{"leg": "frame", "id": "4", "t": 13.67, "event": "step", "data": {"step": "decision", "seq": 3, "title": "工具匹配：1 条定案"}}
+{"leg": "frame", "id": "5", "t": 13.86, "event": "step", "data": {"step": "decision", "seq": 4, "title": "前置条件机：s1=note"}}
+{"leg": "frame", "id": "6", "t": 14.11, "event": "tool", "data": {"tool": "data_query", "status": "ok", "seq": 5, "message": null}}
+{"leg": "frame", "id": "7", "t": 14.11, "event": "step", "data": {"step": "execute", "seq": 5, "title": "data_query：ok（子问题 s1）"}}
+{"leg": "frame", "id": "8", "t": 14.11, "event": "notice", "data": {"type": "freshness_block", "gates": [], "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 43 天 · 超期）——查询窗「2026-10-01～2026-10-13」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。"}}
+{"leg": "frame", "id": "9", "t": 14.11, "event": "observation", "data": {"index": 1, "source": "汇总层水位读面", "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 43 天 · 超期）——查询窗「2026-10-01～2026-10-13」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。", "trust": "notice"}}
+{"leg": "frame", "id": "10", "t": 14.11, "event": "step", "data": {"step": "observe", "seq": 6, "title": "批量汇聚 1 支"}}
+{"leg": "frame", "id": "11", "t": 14.11, "event": "step", "data": {"step": "verify", "seq": 7, "title": "核验：支撑 0｜改写 0｜分源 否"}}
+{"leg": "frame", "id": "12", "t": 14.11, "event": "verdict", "data": {"subtype": "verify", "supported": 0, "rewritten": 0, "split": false, "cited": [], "attribution": {"anchors": ["N-01"], "cross": []}}}
+{"leg": "frame", "id": "13", "t": 14.12, "event": "step", "data": {"step": "answer", "seq": 8, "title": "答案收口"}}
+{"leg": "frame", "id": "14", "t": 14.12, "event": "text", "data": {"content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 43 天 · 超期）——查询窗「2026-10-01～2026-10-13」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。（闸依据如实转答——零数值，不冒充出数。）"}}
+{"leg": "frame", "id": "15", "t": 14.12, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-121f2ad7", "manifest_digest": "11ff034560cacde1798923e576ec07abc4f62f12873e3add961af85f83394a7b"}}
+{"leg": "frame", "id": "16", "t": 14.18, "event": "blackbox", "data": {"run_id": "run-121f2ad7", "question": "烦死了矿里又催材料！快说N-01这个月产量到底完成多少了！", "status": "completed", "error": "", "stored": true, "bytes": 5982, "counts": {"dialogue": 2, "process_notes": 5, "observations": 1, "steps": 8}}}
+{"leg": "frame", "id": "17", "t": 14.18, "event": "done", "data": {"run_id": "run-121f2ad7"}}
+{"summary": {"id": "Q31", "dimension": "情绪化催促", "question": "烦死了矿里又催材料！快说N-01这个月产量到底完成多少了！", "hidden_intent": "情绪化催促包裹真实诉求：N-01当月产量完成率", "expect_hint": "管线应答", "status": "done", "run_id": "run-121f2ad7", "frames": 18, "duration_s": 14.2, "n_steps": 8, "steps": ["问 N-01 井本月产量完成量（即本月产油量完成数）。", "澄清 r1：分解 1 子问题", "工具匹配：1 条定案", "前置条件机：s1=note", "data_query：ok（子问题 s1）", "批量汇聚 1 支", "核验：支撑 0｜改写 0｜分源 否", "答案收口"], "notices": ["freshness_block"], "n_asks": 0, "n_resumes": 0, "answer": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 43 天 · 超期）——查询窗「2026-10-01～2026-10-13」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。（闸依据如实转答——零数值，不冒充出数。）", "error_frame": null}}
