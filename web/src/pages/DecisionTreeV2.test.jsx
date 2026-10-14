@@ -56,9 +56,9 @@ describe('V2 决策树 · 结构一致性', () => {
     }
   })
 
-  it('节点/场景规模锚（防误删）：33 节点 · 15 场景', () => {
-    expect(NODE_KEYS.size).toBe(33)
-    expect(V2_SCENARIOS.length).toBe(15)
+  it('节点/场景规模锚（防误删）：38 节点 · 19 场景（V2-80 词面阀/直答/四场景入图）', () => {
+    expect(NODE_KEYS.size).toBe(38)
+    expect(V2_SCENARIOS.length).toBe(19)
   })
 
   it('kw 词面真值抽测（词源＝precondition.py 真常量）', () => {
@@ -83,10 +83,10 @@ describe('V2 决策树 · 渲染冒烟', () => {
   it('active 命中/未命中两态渲染不抛错，主干节点在文档中', () => {
     const byKey = Object.fromEntries(V2_SCENARIOS.map(s => [s.key, s]))
     const { unmount } = render(<DecisionTreeV2 byKey={byKey} active="data-clean" />)
-    expect(document.querySelectorAll('foreignObject').length).toBe(33)
+    expect(document.querySelectorAll('foreignObject').length).toBe(38)
     unmount()
     const { unmount: unmount2 } = render(<DecisionTreeV2 byKey={byKey} active={null} />)
-    expect(document.querySelectorAll('foreignObject').length).toBe(33)
+    expect(document.querySelectorAll('foreignObject').length).toBe(38)
     unmount2()
   })
 })
