@@ -612,18 +612,19 @@ async def test_four_phase_end_to_end_scripted(tmp_path: Path) -> None:
         assert run_row is not None and "s1" in (run_row.answer or "")
         assert "s2" in (run_row.answer or "")
         assert any(s.step_type == "verify" for s in steps)
-        # 对话层承载（V2-79a 三层分离）：起草调用上下文带对话层 user 原话轮
-        # （自然对话在史）；澄清相位任务书/台账不再入史（当前轮用完即弃——
-        # 过程信息走 process_notes，承载面钉测见 test_v2_multi_turn_context）。
+        # 对话链承载（V2-80h 追加式）：起草调用的链含任务书轮（user 原话在链）
+        # 与此前全部相位包/应答——只追加；链形断言见 test_v2_agent_loop。
         answer_calls = completer.messages_of("v2.runtime.answer")
         assert answer_calls, "汇总起草调用缺席"
+        chain = answer_calls[0]
+        assert chain[0]["role"] == "system"
         assert any(
-            _E2E_QUESTION in str(m.get("content", "")) for m in answer_calls[0]
-        ), "起草上下文缺问题轮——对话层承载断裂"
+            m.get("role") == "user" and _E2E_QUESTION in str(m.get("content", ""))
+            for m in chain
+        ), "起草链缺任务书 user 轮（原话承载断裂）"
         assert any(
-            m.get("role") == "user" and m.get("content") == _E2E_QUESTION
-            for m in answer_calls[0][:-1]
-        ), "起草上下文对话层缺 user 原话轮"
+            m.get("role") == "assistant" for m in chain[:-1]
+        ), "起草链缺既有应答轮（追加式断裂）"
     finally:
         await db.dispose()
 
@@ -952,31 +953,41 @@ async def test_four_phase_ledger_dump_round1_injection(tmp_path: Path) -> None:
         four_phase=True, ledger_dump=lambda: dict(LEDGER_DUMP),
     )
     try:
+        from appv2.runtime import EventBus
+        from appv2.runtime.graph import build_graph
+
         events = await _run_question(runtime, _E2E_QUESTION)
         assert events[-1].data["status"] == "completed"
-        # 第 1 轮决策上下文带台账全量块（指标/术语/别名/结构卡逐字在场）
-        first_clarify = completer.messages_of("v2.runtime.decision")[0][-1]["content"]
-        assert "台账全量" in first_clarify
-        assert "日产油量" in first_clarify and "老完成率" in first_clarify
-        assert any("→" in line for line in first_clarify.splitlines())  # 别名映射行
-        assert "agg.fct_daily_metering" in first_clarify  # 结构卡
-        # Manifest 来源行：ledger_dump 族（台账＋别名＋结构卡）
+        # 澄清相位包（V2-80h 首入一次性追加）带台账全量块（指标/术语/别名/结构卡逐字在场）
+        first_clarify_chain = completer.messages_of("v2.runtime.decision")[0]
+        package = next(
+            m["content"] for m in first_clarify_chain
+            if m.get("role") == "user" and "台账全量" in str(m.get("content", ""))
+        )
+        assert "日产油量" in package and "老完成率" in package
+        assert any("→" in line for line in package.splitlines())  # 别名映射行
+        assert "agg.fct_daily_metering" in package  # 结构卡
+        # V2-80h：注入来源记录在对话链相位包本身（compile 时代 manifest
+        # source_type 来源行退役）——持久化终态链载台账全量块恰一次（澄清包）。
         store = RunStore(db)
         steps = await store.list_steps(events[-1].data["run_id"])
-        clarify_step = next(s for s in steps if (s.payload or {}).get("phase") == "clarify")
-        manifest = clarify_step.manifest or {}
-        assert "ledger_dump" in manifest["source_type"]
-        assert "alias_dump" in manifest["source_type"]
-        assert "schema_card" in manifest["source_type"]
+        graph_ref = build_graph(
+            runtime._executor._deps(EventBus(), run_id=events[-1].data["run_id"]),
+            checkpointer=runtime._executor._saver,
+        )
+        snap = await graph_ref.aget_state(
+            {"configurable": {"thread_id": events[-1].data["run_id"]}}
+        )
+        chain = snap.values["messages"]
+        assert sum("台账全量" in m.get("content", "") for m in chain) >= 1
         # 非懒加载：本 run 零 discover，注入照常在场（注入不依赖未命中）
         assert not [s for s in steps if s.step_type == "discover"]
-        # 对话层零任务书（V2-79a——当前轮用完即弃不入史）：第 2 次决策调用
-        # （toolmatch）的历史轮只有对话层（user 原话），台账全量块根本不在历史。
+        # V2-80h 追加链：第 2 次决策调用（toolmatch）＝第 1 次（clarify）的
+        # 前缀延长（KV 缓存原生形——相邻调用共享前缀零重排零丢弃）。
         second_call = completer.messages_of("v2.runtime.decision")[1]
-        history = second_call[1:-1]
-        assert history == [{"role": "user", "content": _E2E_QUESTION}]
-        assert not any("agg.fct_daily_metering" in m["content"] for m in history)
-        assert not any("台账全量" in m["content"] for m in history)
+        assert second_call[: len(first_clarify_chain)] == first_clarify_chain
+        # 相位一次性：台账全量在链上恰两次（澄清包＋匹配包各一次，无逐轮重复）。
+        assert sum("台账全量" in m.get("content", "") for m in second_call) == 2
     finally:
         await db.dispose()
 
@@ -1189,8 +1200,11 @@ async def test_four_phase_anchorable_window_skips_ask_delivers_degrade(
         final = events[-1].data
         assert final["status"] == "completed"  # 窗可锚定零 ask——不挂起直收口
         assert not [e for e in events if e.event == "ask"]  # 全链零 ask 帧（回炉非挂起）
-        # 收窄合同面随 clarify 指令在场（runtime 消费缝装载到位——非死文本）
-        first_decision = completer.messages_of("v2.runtime.decision")[0][-1]["content"]
+        # 收窄合同面随 clarify 相位包在场（runtime 消费缝装载到位——非死文本；
+        # V2-80h 包在链中段，链尾为已做段增量——全调用面搜索）。
+        first_decision = "\n".join(
+            m.get("content", "") for m in completer.messages_of("v2.runtime.decision")[0]
+        )
         assert "窗可锚定＝禁 ask" in first_decision
         # V2-43 换链回炉面：绑定闸拒触发回炉①恰一次，轮 2 换链真执行交付
         store = RunStore(db)

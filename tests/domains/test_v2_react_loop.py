@@ -399,12 +399,14 @@ async def test_rejection_feedback_redecision_no_repair(tmp_path: Path) -> None:
             "v2.runtime.answer": 1,
         }
         assert not any("repair" in caller for caller in counts)
-        # 拒因回喂：第 2 轮决策消息（当前轮——多轮历史的末条 user）含
-        # 「上次决策被拒」＋台账拒因原文（V2-38 剧本迁移：历史形态下取末轮）。
+        # 拒因回喂：第 2 轮决策调用的增量 user 轮含「上次决策被拒」＋台账拒因
+        # 原文（V2-80h——增量各自成消息追加链尾，不再拼进当前轮末条）。
         second_round = completer.messages_of("v2.runtime.decision")[1]
-        user_content = second_round[-1]["content"]
-        assert "上次决策被拒" in user_content
-        assert "不在指标台账" in user_content
+        assert any(
+            m.get("role") == "user" and "上次决策被拒" in str(m.get("content", ""))
+            for m in second_round
+        )
+        assert any("不在指标台账" in str(m.get("content", "")) for m in second_round)
         # 机读分型 notice（decision_rejected）＋工具拒步留痕（发射合法、
         # 拒在 data_query 校验——execute 步 failed 在案）。
         rejected = [n for n in _notices(events) if n.get("type") == "decision_rejected"]
@@ -526,9 +528,11 @@ async def test_clarify_target_ambiguity_ask(tmp_path: Path) -> None:
         final = await store_b.get_run(run_id)
         assert final is not None and final.status == "completed"
         assert "21.16" in (final.answer or "")
-        # 用户补充进下轮决策消息（回喂面——多轮历史形态下取当前轮末条）。
+        # 用户补充进下轮决策消息（V2-80h——回收原话 user 轮＋回喂行增量都在链）。
         second_round = completer.messages_of("v2.runtime.decision")[0]
-        assert "用户已补充：N-01 井" in second_round[-1]["content"]
+        assert any(
+            "用户已补充：N-01 井" in str(m.get("content", "")) for m in second_round
+        )
         assert any(e.event == "citation" for e in events_b)
     finally:
         await db_b.dispose()
@@ -559,7 +563,10 @@ async def test_guide_provider_seam(tmp_path: Path) -> None:
         )
         await drain(handle)
         first_decision = completer.messages_of("v2.runtime.decision")[0]
-        assert "GUIDE-MARKER-XYZ" in first_decision[-1]["content"]
+        # V2-80h：指南包在链中段（后随已做段增量）——全调用面搜索。
+        assert any(
+            "GUIDE-MARKER-XYZ" in str(m.get("content", "")) for m in first_decision
+        )
     finally:
         await db.dispose()
 

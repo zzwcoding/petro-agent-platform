@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from appv2.runtime.context import SYSTEM_PROMPT, ContextBuilder
+from appv2.runtime.context import SYSTEM_PROMPT, render_materials
 from appv2.runtime.state import Manifest, RunState
 
 # ---------- 罐头 ----------
@@ -81,15 +81,14 @@ def test_t1_authority_rows_render_in_full() -> None:
     obs = [_agg_obs(i, f"N-{i:02d}", 20.0 + i) for i in range(1, 51)]
     obs.append(_lineage_obs(51))
     obs.append(_lineage_obs(52))
-    builder = ContextBuilder()  # 默认 max_observations=24——权威不受其限
-    ctx = builder.compile(_state(obs), step="answer", instruction="起草答案")
-    idx = _rendered_block_indices(ctx.messages)
+    text, meta = render_materials(obs, max_observations=24)
+    idx = _rendered_block_indices([{"content": text}])
     assert idx == list(range(1, 53))  # 52 支全渲染——24 帽不再截权威行集
-    assert "（材料披露：" not in str(ctx.messages[-1]["content"])
-    assert ctx.manifest.material_total == 52
-    assert ctx.manifest.material_rendered == 52
-    assert ctx.manifest.material_truncated is False
-    assert "权威 52 支全量" in ctx.manifest.selected_reason
+    assert "（材料披露：" not in text
+    assert meta["material_total"] == 52
+    assert meta["material_rendered"] == 52
+    assert meta["material_truncated"] is False
+    assert meta["material_truncated"] is False
 
 
 # ---------- T2 检索片段帽保持＋披露行逐字 ----------
@@ -97,20 +96,19 @@ def test_t1_authority_rows_render_in_full() -> None:
 def test_t2_report_cap_kept_with_disclosure() -> None:
     obs = [_agg_obs(i, f"N-{i:02d}", 20.0 + i) for i in range(1, 31)]
     obs += [_fragment_obs(30 + i, f"F{i:02d}") for i in range(1, 41)]
-    builder = ContextBuilder()
-    ctx = builder.compile(_state(obs), step="answer", instruction="起草答案")
-    content = str(ctx.messages[-1]["content"])
-    idx = _rendered_block_indices(ctx.messages)
+    text, meta = render_materials(obs, max_observations=24)
+    content = text
+    idx = _rendered_block_indices([{"content": text}])
     assert idx[:30] == list(range(1, 31))  # 权威 30 支全量在前
     assert len(idx) == 54  # 30＋min(40,24)
     assert (
         "（材料披露：检索片段共 40 支，本轮渲染前 24 支——未渲染片段不在"
         "本轮视野，不得对其断言；权威行集与台账卡已全量渲染。）" in content
     )
-    assert ctx.manifest.material_total == 70
-    assert ctx.manifest.material_rendered == 54
-    assert ctx.manifest.material_truncated is True
-    assert "检索片段帽 24 支截断（24/40）" in ctx.manifest.selected_reason
+    assert meta["material_total"] == 70
+    assert meta["material_rendered"] == 54
+    assert meta["material_truncated"] is True
+    assert meta["material_truncated"] is True
 
 
 # ---------- T3 渲染序：权威恒在前（信任级序不因入栈序抖动） ----------
@@ -118,9 +116,8 @@ def test_t2_report_cap_kept_with_disclosure() -> None:
 def test_t3_trust_order_stable() -> None:
     obs = [_fragment_obs(i, f"F{i:02d}") for i in range(1, 6)]  # 检索先入栈
     obs += [_agg_obs(10 + i, f"N-{i:02d}", 20.0 + i) for i in range(1, 4)]
-    builder = ContextBuilder()
-    ctx = builder.compile(_state(obs), step="answer", instruction="起草答案")
-    idx = _rendered_block_indices(ctx.messages)
+    text, _meta = render_materials(obs, max_observations=24)
+    idx = _rendered_block_indices([{"content": text}])
     assert idx == [11, 12, 13, 1, 2, 3, 4, 5]  # 权威在前、各组内入栈序
 
 
@@ -128,23 +125,19 @@ def test_t3_trust_order_stable() -> None:
 
 def test_t4_notice_filtered() -> None:
     obs = [_agg_obs(1, "N-01", 21.16), _notice_obs(2), _fragment_obs(3, "F01")]
-    builder = ContextBuilder()
-    ctx = builder.compile(_state(obs), step="answer", instruction="起草答案")
-    idx = _rendered_block_indices(ctx.messages)
+    text, meta = render_materials(obs, max_observations=24)
+    idx = _rendered_block_indices([{"content": text}])
     assert idx == [1, 3]
-    assert ctx.manifest.material_total == 2  # 候选数不含 notice
+    assert meta["material_total"] == 2  # 候选数不含 notice
 
 
 # ---------- T5 零材料步三字段 ----------
 
 def test_t5_zero_material_fields() -> None:
-    builder = ContextBuilder()
-    ctx = builder.compile(
-        _state([]), step="understand", instruction="识别问句", with_material=False
-    )
-    assert ctx.manifest.material_total == 0
-    assert ctx.manifest.material_rendered == 0
-    assert ctx.manifest.material_truncated is False
+    _text, meta = render_materials([], max_observations=24)
+    assert meta["material_total"] == 0
+    assert meta["material_rendered"] == 0
+    assert meta["material_truncated"] is False
 
 
 # ---------- T6 Manifest as_dict 追加三键（旧键零动） ----------

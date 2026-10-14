@@ -19,6 +19,7 @@ from typing import Any
 # ---------- 蒸馏白名单（final 状态键闭世界——新增状态键须显式入列） ----------
 
 _DISTILL_KEYS: tuple[str, ...] = (
+    "messages",
     "dialogue",
     "process_notes",
     "steps",
@@ -47,6 +48,7 @@ CURATED_CHANNELS: frozenset[str] = frozenset(
         "question",
         "understanding",
         "task_type",
+        "messages",
         "dialogue",
         "process_notes",
         "steps",
@@ -122,6 +124,7 @@ def pointer(
         "stored": stored,
         "bytes": int(bytes_written),
         "counts": {
+            "messages": len(record.get("messages") or []),
             "dialogue": len(record.get("dialogue") or []),
             "process_notes": len(record.get("process_notes") or []),
             "observations": len(record.get("observations") or []),
@@ -164,8 +167,12 @@ def _head(value: str, limit: int = 96) -> str:
 
 def _render_channel(name: str, value: Any) -> list[str]:
     """单通道→转写行（dialogue/process_notes/observations/steps 专属美化，其余短形）。"""
-    if name == "dialogue" and isinstance(value, list):
-        lines = [f"  dialogue（{len(value)} 轮）——自然对话层（用户原话与终稿）:"]
+    if name in ("messages", "dialogue") and isinstance(value, list):
+        label = (
+            "对话链（只追加——LLM 收发的逐轮形）" if name == "messages"
+            else "自然对话层（用户原话与终稿）"
+        )
+        lines = [f"  {name}（{len(value)} 轮）——{label}:"]
         for message in value:
             if isinstance(message, dict):
                 role = str(message.get("role", "?"))

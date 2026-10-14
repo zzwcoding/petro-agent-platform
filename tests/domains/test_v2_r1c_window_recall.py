@@ -24,9 +24,8 @@ from typing import Any
 
 from appv2.retrieval import RetrievalBundle, RetrievalNeed
 from appv2.runtime import Budget, RunStore
-from appv2.runtime.context import ContextBuilder
+from appv2.runtime.context import render_materials
 from appv2.runtime.guide import CLARIFY_CONTRACT
-from appv2.runtime.state import RunState
 from appv2.tools.handlers import _bundle_to_result
 from tests.domains.test_v2_agent_loop import (
     QueueQueryEngine,
@@ -97,11 +96,12 @@ def test_bundle_to_result_without_missing_has_no_window_miss() -> None:
     assert all(obs.locator["kind"] != "window_miss" for obs in result.observations)
 
 
-# ---------- 钉三：模型面可见（ContextBuilder——window_miss 进材料、notice 仍滤） ----------
+# ---------- 钉三：模型面可见（render_materials——window_miss 进材料、notice 仍滤） ----------
 
 
 def test_window_miss_reaches_model_face_and_notice_still_filtered() -> None:
-    """window_miss 观察进模型面材料；notice 类观察照旧被滤（过滤面零改动）。"""
+    """window_miss 观察进模型面材料；notice 类观察照旧被滤（过滤面零改动；
+    V2-80h——渲染位＝render_materials，compile 退役）。"""
     miss = {
         "index": 1,
         "content": "检索窗注记：缺位来源（预算未及）：《Y-21井完井工程报告》",
@@ -116,12 +116,12 @@ def test_window_miss_reaches_model_face_and_notice_still_filtered() -> None:
         "source_id": "window_note",
         "locator": {"kind": "notice", "notice_type": "window_note"},
     }
-    state = RunState(run_id="run-r1c", question="q", observations=[miss, note])
-    compiled = ContextBuilder().compile(state, step="decision", instruction="任务")
-    material = compiled.messages[-1]["content"]
-    assert "缺位来源（预算未及）：《Y-21井完井工程报告》" in material  # 模型面可见
-    assert "window_miss" in compiled.manifest.source_type  # Manifest 来源行随行
-    assert "召回 2 支/送窗 1 支" not in material  # notice 过滤面不动
+    text, meta = render_materials([miss, note], max_observations=24)
+    assert "缺位来源（预算未及）：《Y-21井完井工程报告》" in text  # 模型面可见
+    assert "召回 2 支/送窗 1 支" not in text  # notice 过滤面不动
+    assert meta == {
+        "material_truncated": False, "material_rendered": 1, "material_total": 1,
+    }  # notice 不计材料（元数据面同源）
 
 
 # ---------- 钉四/五：回捞端到端（四相位真跑——回炉→anchors 重检→进窗／不环） ----------

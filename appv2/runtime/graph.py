@@ -75,7 +75,11 @@ from appv2.runtime.budget import (
     material_rows,
     unfinished_notice,
 )
-from appv2.runtime.context import CompiledContext, ContextBuilder, trust_of
+from appv2.runtime.context import (
+    LEDGER_DICT_NOTE,
+    render_materials,
+    trust_of,
+)
 from appv2.runtime.events import EventBus
 from appv2.runtime.guide import (
     CLARIFY_CONTRACT,
@@ -165,6 +169,7 @@ from appv2.tools import (
     render_ledger_rows,
     resolve_send_budget,
 )
+from appv2.tools.ledger import RESIDENT_BLOCK_BEGIN, RESIDENT_BLOCK_END
 
 # ---------- 决策发射合同（结构化发射的运行时校验——拍板①②单点） ----------
 
@@ -352,7 +357,7 @@ class LoopDeps:
         *,
         registry: ToolRegistry,
         models: dict[str, GatewayChatModel],
-        builder: ContextBuilder,
+        builder: Any,  # V2-80h：compile 退役——缝保留（blackbox/测试注入位）
         store: RunStore,
         bus: EventBus,
         guide: GuideProvider,
@@ -1113,13 +1118,13 @@ _MESSAGE_CLS: dict[str, type] = {
 
 
 async def _complete(
-    model: GatewayChatModel, context: CompiledContext
+    model: GatewayChatModel, messages: list[dict[str, str]]
 ) -> str:
-    """模型调用（CompiledContext.messages 全量 → ChatModel——红线②唯一路径）。"""
-    messages = [
-        _MESSAGE_CLS[m["role"]](content=m["content"]) for m in context.messages
+    """模型调用（对话链全量 → ChatModel——V2-80h 追加式：链即上下文）。"""
+    lc = [
+        _MESSAGE_CLS[m["role"]](content=m["content"]) for m in messages
     ]
-    reply = await model.ainvoke(messages)
+    reply = await model.ainvoke(lc)
     return str(reply.content)
 
 
@@ -1217,10 +1222,6 @@ def _clarify_capped_answer(state: RunState) -> str:
 
 def _user_turn(content: str) -> dict[str, str]:
     return {"role": "user", "content": content}
-
-
-def _assistant_turn(content: str) -> dict[str, str]:
-    return {"role": "assistant", "content": content}
 
 
 def _note(phase: str, title: str, digest: str) -> dict[str, str]:
@@ -1331,6 +1332,19 @@ def _resident_sources(dump: dict[str, Any]) -> list[dict[str, str]]:
 def reseed_approval_id(run_id: str, engine_seed: str) -> str:
     """审批单号 run 前缀重种子（接线③——V2-03 偏差 7：引擎表名种子保留可溯）。"""
     return f"{run_id}#{engine_seed}"
+
+
+def _resident_block(dump: dict[str, Any]) -> str:
+    """台账常驻块（V2-80h——澄清/匹配相位包尾部附件单点；BEGIN 后首行＝
+    LEDGER_DICT_NOTE 逐字——字典头注纪律的拼装单点）。"""
+    blocks = [
+        f"【{item.get('label', item.get('source_type', ''))}】\n{item.get('content', '')}"
+        for item in _resident_sources(dump)
+    ]
+    return (
+        RESIDENT_BLOCK_BEGIN + "\n" + LEDGER_DICT_NOTE + "\n"
+        + "\n\n".join(blocks) + "\n" + RESIDENT_BLOCK_END
+    )
 
 
 # ---------- N1 禁用词代码前置安全闸（V2-52 附 C——唯一前置例外；P-051b 返工） ----------
@@ -1564,10 +1578,9 @@ def _make_understand(
             exempt_notice, exempt_step = _ban_exempt_preflight(
                 state, deps, gate_payload
             )
-        # 对话层受理原话已在 state.dialogue（executor 播种——V2-79a）；任务书
-        # 随当前轮现拼、用完即弃不入史。V2-58 理解步信息面治理：首轮 user 消息
-        # 改动态装配任务书（静态骨架＋活体环境——名录/术语/本体/水位与程序闸
-        # 同源；语义归模型，程序管装配）。
+        # 对话链受理（V2-80h）：任务书作为 user 消息追加链尾（每 run 一次，
+        # 永久留在链上——追问/多轮的前缀缓存本源形态）。V2-58 理解步信息面
+        # 治理：任务书＝静态骨架＋活体环境（名录/术语/本体/水位与程序闸同源）。
         dump = state.ledger_dump
         if dump is None and deps.ledger_dump is not None:
             dump = deps.ledger_dump()
@@ -1590,13 +1603,10 @@ def _make_understand(
             watermark_date=watermark_date,
             today=deps.today,
         )
-        context = deps.builder.compile(
-            state,
-            step="understand",
-            instruction=instruction,
-            with_material=False,
-        )
-        content = await _complete(deps.model(MODEL_UNDERSTAND), context)
+        # V2-80h：链尾追加任务书 → 整链调用 → 应答追加链尾。
+        new_messages = [*state.messages, {"role": "user", "content": instruction}]
+        content = await _complete(deps.model(MODEL_UNDERSTAND), new_messages)
+        new_messages = [*new_messages, {"role": "assistant", "content": content}]
         understanding, candidates = parse_understanding(content)
         # V2-78 无关业务直答（Owner 2026-10-13 拍板）：第一次调用即分流——模型对
         # 纯问候/寒暄/闲聊输出「直接回答：〈回复〉」单行形，走确定性直答通道
@@ -1614,7 +1624,7 @@ def _make_understand(
             seq, STEP_DECISION,
             "无关业务——直接回答" if direct_reply
             else (understanding or "理解未产出"),
-            context.manifest,
+            None,
             payload={
                 "phase": "understand",
                 **({"direct_reply": True} if direct_reply else {}),
@@ -1633,8 +1643,8 @@ def _make_understand(
         updates: dict[str, Any] = {
             "understanding": understanding,
             "metric_candidates": candidates,
+            "messages": new_messages,  # V2-80h：任务书＋应答已追加链尾
             "process_notes": _notes_with(state, note),
-            "manifests": [*state.manifests, context.manifest.as_dict()],
             "steps": steps,
             "next_intent": INTENT_DECISION,
         }
@@ -1681,26 +1691,36 @@ def _make_decision(
                 "max_executes_per_round", MAX_EXECUTES_PER_ROUND_CONTRACT
             )
         )
-        instruction = deps.guide.guide()
-        instruction += "\n\n任务：输出本轮决策 JSON。"
-        # —— 每轮变量后置 tail（V2-80g，clarify 同构）。
-        tail_parts: list[str] = []
+        # —— V2-80h 追加式：指南包（＋台账常驻块——legacy 注入语义保留，首入
+        # 一次性）首次进入追加一条，每轮增量各追加一条（链只追加——相邻调用
+        # 互为前缀延伸）。
+        new_messages = [*state.messages]
+        if "decision" not in state.contracts_appended:
+            package = deps.guide.guide() + "\n\n任务：输出本轮决策 JSON。"
+            dump = state.ledger_dump
+            if dump is None and deps.ledger_dump is not None:
+                dump = deps.ledger_dump()
+            if dump:
+                package += "\n\n" + _resident_block(dump)
+            new_messages.append({"role": "user", "content": package})
+            contracts_flag = True
+        else:
+            contracts_flag = False
         if state.decision_error:
             # 拍板②拒因回喂：schema/工具校验拒因进上下文——LLM 重决策（无 repair）。
-            tail_parts.append(
+            new_messages.append({"role": "user", "content": (
                 f"上次决策被拒：{state.decision_error}——修正后重新输出 JSON。"
-            )
+            )})
         if state.user_hint:
-            tail_parts.append(f"用户已补充：{state.user_hint}——请把它落进本轮决策。")
+            new_messages.append({"role": "user", "content": (
+                f"用户已补充：{state.user_hint}——请把它落进本轮决策。"
+            )})
         if segment := _render_process_notes(state):
             # 「本 run 已做」有界摘要段（V2-79c——过程档案接回模型面，防重/防
             # 重复探查；V2-37 闸保持机器兜底双保险）。
-            tail_parts.append(segment)
-        context = deps.builder.compile(
-            state, step=STEP_DECISION, instruction=instruction,
-            tail="\n".join(tail_parts),
-        )
-        content = await _complete(deps.model(MODEL_DECISION), context)
+            new_messages.append({"role": "user", "content": segment})
+        content = await _complete(deps.model(MODEL_DECISION), new_messages)
+        new_messages.append({"role": "assistant", "content": content})
         # 模型原话（决策 JSON）不入对话层（V2-79a 三层分离）——发射摘要/拒因
         # 落过程档案，拒因回喂由 decision_error 承担（指令面，不变）。
         rnd = state.rounds + 1
@@ -1717,7 +1737,7 @@ def _make_decision(
         if isinstance(parsed, str):
             # 拒因回喂（无 repair）：轮照耗；轮数闸在下一入口收敛兜底。
             record = _step_record(
-                seq, STEP_DECISION, f"决策 r{rnd} 被拒：{parsed}", context.manifest,
+                seq, STEP_DECISION, f"决策 r{rnd} 被拒：{parsed}", None,
                 payload={"phase": "decision", "rejection": parsed},
             )
             deps.bus.emit(
@@ -1726,11 +1746,15 @@ def _make_decision(
             return {
                 "rounds": rnd,
                 "decision_error": parsed,
+                "messages": new_messages,
+                "contracts_appended": (
+                    [*state.contracts_appended, "decision"] if contracts_flag
+                    else state.contracts_appended
+                ),
                 "process_notes": _notes_with(
                     state, _note("decision", "决策", f"决策 r{rnd} 被拒：{parsed}")
                 ),
-                "manifests": [*state.manifests, context.manifest.as_dict()],
-                "steps": [*state.steps, record],
+                    "steps": [*state.steps, record],
                 "next_intent": INTENT_DECISION,
             }
         emission = parsed
@@ -1751,7 +1775,7 @@ def _make_decision(
             reason = SAME_PARAM_REPLAY_REASON
             record = _step_record(
                 seq, STEP_DECISION, f"决策 r{rnd} 同参重投被拦：{reason}",
-                context.manifest,
+                None,
                 payload={
                     "phase": "decision",
                     "rejection": reason,
@@ -1770,17 +1794,21 @@ def _make_decision(
             return {
                 "rounds": rnd,
                 "decision_error": reason,
+                "messages": new_messages,
+                "contracts_appended": (
+                    [*state.contracts_appended, "decision"] if contracts_flag
+                    else state.contracts_appended
+                ),
                 "process_notes": _notes_with(
                     state,
                     _note("decision", "决策", f"决策 r{rnd} 同参重投被拦：{reason}"),
                 ),
                 "notices": [*state.notices, notice],
-                "manifests": [*state.manifests, context.manifest.as_dict()],
-                "steps": [*state.steps, record],
+                    "steps": [*state.steps, record],
                 "next_intent": INTENT_DECISION,
             }
         record = _step_record(
-            seq, STEP_DECISION, _decision_title(emission, rnd), context.manifest,
+            seq, STEP_DECISION, _decision_title(emission, rnd), None,
             payload={"phase": "decision", "emission": emission.as_payload()},
         )
         deps.bus.emit(
@@ -1790,10 +1818,14 @@ def _make_decision(
             "rounds": rnd,
             "decision_error": "",
             "user_hint": "",
+            "messages": new_messages,
+            "contracts_appended": (
+                [*state.contracts_appended, "decision"] if contracts_flag
+                else state.contracts_appended
+            ),
             "process_notes": _notes_with(
                 state, _note("decision", "决策", _decision_title(emission, rnd))
             ),
-            "manifests": [*state.manifests, context.manifest.as_dict()],
             "steps": [*state.steps, record],
             "task_type": emission.task_type,
         }
@@ -1888,7 +1920,7 @@ async def _handle_choice(
         # 对话层簿记（V2-79a）：用户补充原话落对话层（去系统前缀——对话纯度红线，
         # 「用户补充：」这类注记是模型照抄的模仿源）；过程档案随行；决策回喂仍走
         # user_hint 指令面（不变）。
-        updates["dialogue"] = [*state.dialogue, _user_turn(value)]
+        updates["messages"] = [*state.messages, {"role": "user", "content": value}]
         updates["process_notes"] = _notes_with(
             state, _note("clarify", "澄清回收", value)
         )
@@ -1967,7 +1999,7 @@ async def _handle_choice(
         _direct_answer(updates, f"外表引用审批驳回：{impact}")
     # 对话层簿记（V2-79a）：批准/驳回原文落对话层（自然对话形——单号等细节入
     # 过程档案；clarify 分支已在上方提前 return，此处只达审批路径）。
-    updates["dialogue"] = [*state.dialogue, _user_turn(value)]
+    updates["messages"] = [*state.messages, {"role": "user", "content": value}]
     updates["process_notes"] = _notes_with(
         state,
         _note(
@@ -2339,9 +2371,26 @@ def _make_clarify(
             "「材料足够」）：仅凭注入就能回答的术语/口径定义问，先 discover "
             "semantic_query 取条目卡再定稿；零探查观察时禁 finalize。】"
         )
-        # —— 每轮变量后置 tail（V2-80g：回喂/回炉/已做段收拢最末——内容逐字
-        # 保留，只挪位置；骨架＋常驻块的前缀推理缓存不再被中段变化连坐失效）。
+        # —— V2-80h 追加式：相位包（锚行＋合同＋样例＋§A＋边界句＋台账常驻块）
+        # 首次进入澄清时追加一条（永久留在链上）；每轮增量（回喂/回炉/已做段）
+        # 各追加一条 user——链只追加不改写，相邻调用互为前缀延伸。
+        new_messages = [*state.messages]
+        contracts_flag = False
+        if "clarify" not in state.contracts_appended:
+            package = instruction
+            if dump:
+                package += "\n\n" + _resident_block(dump)
+            new_messages.append({"role": "user", "content": package})
+            contracts_flag = True
         tail_parts: list[str] = []
+        if not contracts_flag:
+            # 探查预算槽逐轮刷新（V2-80h——合同包首入一次性后槽值会陈旧，最新
+            # 计数恒以增量行在链尾；链上模型可自见历史探查，此行是机计数的
+            # 权威披露面——双保险同向）。
+            tail_parts.append(
+                f"探查预算：全 run ≤{MAX_DISCOVERS_PER_RUN_CONTRACT} 次，"
+                f"已用 {int(state.discover_used)} 次。"
+            )
         failed = [dict(r) for r in state.subtask_results if r.get("status") == "failed"]
         if failed:
             def _rework_line(r: dict[str, Any]) -> str:
@@ -2368,14 +2417,10 @@ def _make_clarify(
         if segment := _render_process_notes(state):
             # 「本 run 已做」有界摘要段（V2-79c——回炉轮看得见已探查/已执行）。
             tail_parts.append(segment)
-        context = deps.builder.compile(
-            state,
-            step=STEP_DECISION,
-            instruction=instruction,
-            extra_sources=_resident_sources(dump) if dump else None,
-            tail="\n".join(tail_parts),
-        )
-        content = await _complete(deps.model(MODEL_DECISION), context)
+        if tail_parts:
+            new_messages.append({"role": "user", "content": "\n".join(tail_parts)})
+        content = await _complete(deps.model(MODEL_DECISION), new_messages)
+        new_messages.append({"role": "assistant", "content": content})
         # 模型原话不入对话层（V2-79a 三层分离）——发射摘要/拒因落过程档案。
         parsed, quote_repaired = _parse_with_quote_repair(
             lambda c: parse_question_group(
@@ -2406,7 +2451,7 @@ def _make_clarify(
             )
             record = _step_record(
                 seq, STEP_DECISION, f"澄清 r{rnd} 被拒：{parsed}",
-                context.manifest,
+                None,
                 payload={"phase": "clarify", "rejection": parsed},
             )
             deps.bus.emit(
@@ -2415,13 +2460,17 @@ def _make_clarify(
             return {
                 "rounds": rnd,
                 "decision_error": parsed,
+                "messages": new_messages,  # V2-80h：被拒轮的包/增量/应答照常入链
+                "contracts_appended": (
+                    [*state.contracts_appended, "clarify"] if contracts_flag
+                    else state.contracts_appended
+                ),
                 "budget_reject_streak": streak,
                 "ledger_dump": dump,
                 "process_notes": _notes_with(
                     state, _note("clarify", "澄清", f"澄清 r{rnd} 被拒：{parsed}")
                 ),
-                "manifests": [*state.manifests, context.manifest.as_dict()],
-                "steps": [*state.steps, record],
+                    "steps": [*state.steps, record],
                 "next_intent": INTENT_DECISION,
             }
         emission = parsed
@@ -2430,7 +2479,11 @@ def _make_clarify(
             "user_hint": "",
             "budget_reject_streak": 0,  # 非预算拒结局——免轮例外计数清零
             "ledger_dump": dump,
-            "manifests": [*state.manifests, context.manifest.as_dict()],
+            "messages": new_messages,  # V2-80h：相位包/增量/应答已追加链尾
+            "contracts_appended": (
+                [*state.contracts_appended, "clarify"] if contracts_flag
+                else state.contracts_appended
+            ),
         }
         payload: dict[str, Any] = {"phase": "clarify", "emission": emission.as_payload()}
         if emission.kind == CLARIFY_DECOMPOSE:
@@ -2438,7 +2491,7 @@ def _make_clarify(
             count = len(emission.group.subtasks) if emission.group is not None else 0
             record = _step_record(
                 seq, STEP_DECISION, f"澄清 r{rnd}：分解 {count} 子问题",
-                context.manifest, payload,
+                None, payload,
             )
             deps.bus.emit(
                 "step", {"step": STEP_DECISION, "seq": seq, "title": record["title"]}
@@ -2477,7 +2530,7 @@ def _make_clarify(
                 record = _step_record(
                     seq, STEP_DECISION,
                     f"澄清 r{state.rounds + 1} 被拒：{tool_name} 同参已空手",
-                    context.manifest,
+                    None,
                     payload={"phase": "clarify", "rejection": feedback},
                 )
                 deps.bus.emit("step", {"step": STEP_DECISION, "seq": seq,
@@ -2490,15 +2543,14 @@ def _make_clarify(
                     "process_notes": _notes_with(
                         state, _note("clarify", "澄清", feedback)
                     ),
-                    "manifests": [*state.manifests, context.manifest.as_dict()],
-                    "steps": [*state.steps, record],
+                            "steps": [*state.steps, record],
                     "next_intent": INTENT_DECISION,
                 }
             names = "、".join(str(item.get("tool", "?")) for item in emission.discovers)
             record = _step_record(
                 seq, STEP_DECISION,
                 f"澄清钻取 ×{len(emission.discovers)}（{names}）",
-                context.manifest, payload,
+                None, payload,
             )
             deps.bus.emit(
                 "step", {"step": STEP_DECISION, "seq": seq, "title": record["title"]}
@@ -2526,7 +2578,7 @@ def _make_clarify(
                 record = _step_record(
                     seq, STEP_DECISION,
                     f"澄清 r{rnd} 被拒：零探查观察禁定稿",
-                    context.manifest,
+                    None,
                     payload={"phase": "clarify",
                              "rejection": feedback,
                              "emission": emission.as_payload()},
@@ -2544,8 +2596,7 @@ def _make_clarify(
                     "process_notes": _notes_with(
                         state, _note("clarify", "澄清", feedback)
                     ),
-                    "manifests": [*state.manifests, context.manifest.as_dict()],
-                    "steps": [*state.steps, record],
+                            "steps": [*state.steps, record],
                     "next_intent": INTENT_DECISION,
                 }
             # V2-52 辅助模式消费规则（附 B）：faq 等辅助材料足够时模型判
@@ -2553,7 +2604,7 @@ def _make_clarify(
             # 代码不干预判定）。不占轮（与 discover 同——轮＝回炉循环周期）。
             record = _step_record(
                 seq, STEP_DECISION, "澄清定稿：材料足够——直答收口",
-                context.manifest, payload,
+                None, payload,
             )
             deps.bus.emit(
                 "step", {"step": STEP_DECISION, "seq": seq,
@@ -2604,7 +2655,7 @@ def _make_clarify(
         record = _step_record(
             seq, STEP_DECISION,
             f"澄清 r{state.rounds + 1}：反问（{emission.ask_prompt[:24]}）",
-            context.manifest, payload,
+            None, payload,
         )
         deps.bus.emit(
             "step", {"step": STEP_DECISION, "seq": seq, "title": record["title"]}
@@ -2666,14 +2717,20 @@ def _make_toolmatch(
         if segment := _render_process_notes(state):
             # 「本 run 已做」有界摘要段（V2-79c——匹配轮看得见理解/探查档案）。
             tail_parts.append(segment)
-        context = deps.builder.compile(
-            state,
-            step=STEP_DECISION,
-            instruction=instruction,
-            extra_sources=_resident_sources(dump) if dump else None,
-            tail="\n".join(tail_parts),
-        )
-        content = await _complete(deps.model(MODEL_DECISION), context)
+        # —— V2-80h 追加式：相位包（锚行＋匹配合同＋§A＋问题组＋台账常驻块）
+        # 首次进入匹配时追加一条；每轮增量（回喂行/已做段）各追加一条。
+        new_messages = [*state.messages]
+        contracts_flag = False
+        if "toolmatch" not in state.contracts_appended:
+            package = instruction
+            if dump:
+                package += "\n\n" + _resident_block(dump)
+            new_messages.append({"role": "user", "content": package})
+            contracts_flag = True
+        if tail_parts:
+            new_messages.append({"role": "user", "content": "\n".join(tail_parts)})
+        content = await _complete(deps.model(MODEL_DECISION), new_messages)
+        new_messages.append({"role": "assistant", "content": content})
         # 模型原话不入对话层（V2-79a 三层分离）——发射摘要/拒因落过程档案。
         seq = _next_seq(state)
         parsed, quote_repaired = _parse_with_quote_repair(
@@ -2688,7 +2745,7 @@ def _make_toolmatch(
             # 在本节点入口收敛兜底，顽投不环；P033SK2 实证无界自旋教训）。
             rnd = state.rounds + 1
             record = _step_record(
-                seq, STEP_DECISION, f"工具匹配 r{rnd} 被拒：{parsed}", context.manifest,
+                seq, STEP_DECISION, f"工具匹配 r{rnd} 被拒：{parsed}", None,
                 payload={"phase": "toolmatch", "rejection": parsed},
             )
             deps.bus.emit(
@@ -2697,12 +2754,16 @@ def _make_toolmatch(
             return {
                 "rounds": rnd,
                 "decision_error": parsed,
+                "messages": new_messages,
+                "contracts_appended": (
+                    [*state.contracts_appended, "toolmatch"] if contracts_flag
+                    else state.contracts_appended
+                ),
                 "process_notes": _notes_with(
                     state,
                     _note("toolmatch", "工具匹配", f"工具匹配 r{rnd} 被拒：{parsed}"),
                 ),
-                "manifests": [*state.manifests, context.manifest.as_dict()],
-                "steps": [*state.steps, record],
+                    "steps": [*state.steps, record],
                 "next_intent": INTENT_TOOLMATCH,  # 拒因回喂自环
             }
         # V2-50 族 C ①anchors 确定性注入（四相位半边）：knowledge 链匹配定案的
@@ -2740,7 +2801,7 @@ def _make_toolmatch(
                 )
             merged.append(item)
         record = _step_record(
-            seq, STEP_DECISION, f"工具匹配：{len(injected)} 条定案", context.manifest,
+            seq, STEP_DECISION, f"工具匹配：{len(injected)} 条定案", None,
             payload={
                 "phase": "toolmatch",
                 "emission": {"matches": [m.as_payload() for m in injected]},
@@ -2761,6 +2822,11 @@ def _make_toolmatch(
         return {
             "rounds": state.rounds,
             "decision_error": "",
+            "messages": new_messages,
+            "contracts_appended": (
+                [*state.contracts_appended, "toolmatch"] if contracts_flag
+                else state.contracts_appended
+            ),
             "question_group": {"subtasks": merged},
             "tool_matches": [m.as_payload() for m in injected],
             "metric_candidates": list(slots) if slots else list(state.metric_candidates),
@@ -2768,7 +2834,6 @@ def _make_toolmatch(
                 state,
                 _note("toolmatch", "工具匹配", f"工具匹配：{len(injected)} 条定案"),
             ),
-            "manifests": [*state.manifests, context.manifest.as_dict()],
             "steps": [*state.steps, record],
             "next_intent": INTENT_PRECONDITION,
         }
@@ -3187,6 +3252,7 @@ def _make_batch(
         observations = list(state.observations)
         steps = list(state.steps)
         notes = list(state.process_notes)  # 执行台账逐支累积（V2-79a 过程档案承载）
+        messages = list(state.messages)  # 对话链只追加（V2-80h——工具台账行逐支入链）
         executed = list(state.executed_payloads)
         pending_frame: dict[str, Any] | None = None
         aggregated = 0
@@ -3283,6 +3349,18 @@ def _make_batch(
                 )
             )
             notes = [*notes, _tool_note(tool_name, args, result)]
+            # 工具台账行逐支入链（V2-80h §4.4——类型正确性红线：工具结果＝user；
+            # 结果数／分型拒因人话，作答轮的链上执行史由此可溯）。
+            if status == STATUS_OK:
+                outcome = f"返回 {len(indexed)} 行观察"
+            elif status == STATUS_ASK:
+                outcome = "引擎反问挂起（待用户补充后续跑）"
+            else:
+                outcome = f"未取得数据：{error_message or '执行失败'}"
+            messages.append({"role": "user", "content": (
+                f"〔工具执行台账〕子问题 {sid}：{tool_name}，"
+                f"参数指纹 {fingerprint[:12]}… → {outcome}。"
+            )})
             if status == STATUS_OK:
                 observations.extend(indexed)
                 executed.append(fingerprint)
@@ -3425,6 +3503,7 @@ def _make_batch(
             "process_notes": notes,
             "executed_payloads": executed,
             "subtask_results": results,
+            "messages": messages,
         }
         if marks != state.window_miss_marks:
             updates["window_miss_marks"] = marks
@@ -3629,7 +3708,13 @@ def _make_verify(
                     ),
                 },
             )
+        # V2-80h 就地替换（append-only 唯一例外——核验改写后的答案替换链尾
+        # assistant 原稿；原稿入 step 档案可查）：
+        replaced = [*state.messages]
+        if replaced and replaced[-1]["role"] == "assistant":
+            replaced[-1] = {**replaced[-1], "content": text}
         return {
+            "messages": replaced,
             "draft": text,
             "verdict": verdict,
             "process_notes": _notes_with(
@@ -3694,11 +3779,19 @@ def _finalize(state: RunState, deps: LoopDeps) -> dict[str, Any]:
         "verdict",
         {"status": "completed", "run_id": state.run_id, "manifest_digest": digest},
     )
+    # 收口链同步单点（V2-80h §4.6——全路径经此一处）：LLM 收口路径链尾
+    # assistant＝作答轮草稿（T8 已就地核验改写），终稿（含收口注记＋引用块）
+    # 就地成形（追加式两处许可的第二处）；直答/N0·N1 拒答/闸拦转答/收敛转答
+    # 路径链上无本轮 assistant——追加话术轮。
+    messages = list(state.messages)
+    final_turn = {"role": "assistant", "content": answer}
+    if messages and messages[-1].get("role") == "assistant":
+        messages[-1] = final_turn
+    else:
+        messages.append(final_turn)
     return {
         "answer": answer,
-        # 终稿落对话层（V2-79a——唯一写手：LLM 收口/直答/N0·N1 拒答/闸拒转答/
-        # 收敛转答全路径经此单点，含引用块的最终交付形）。
-        "dialogue": [*state.dialogue, _assistant_turn(answer)],
+        "messages": messages,
         "status": "completed",
         "manifest_digest": digest,
         "steps": [*state.steps, _step_record(seq, STEP_ANSWER, title, None,
@@ -3778,13 +3871,17 @@ def _make_answer(
                     subtask_list="\n".join(lines) or "（无）",
                     answer_instruction=_ANSWER_INSTRUCTION,
                 )
-            context = deps.builder.compile(
-                state, step="answer", instruction=instruction
+            # V2-80h 追加式：作答指令＋全量材料段＝一条 user 消息追加链尾
+            # （每次作答一次；核验/收口不重发——最终答案由收口单点追加）。
+            materials_text, materials_meta = render_materials(
+                state.observations, max_observations=deps.builder.max_observations
             )
+            instruction_full = instruction + materials_text
+            new_messages = [*state.messages, {"role": "user", "content": instruction_full}]
             # V2-61 截断必披露（票面附 D）：检索片段帽触发时用户/审计面 notice——
             # 权威行集恒全量（Owner 裁决「出口明细 ≤50＝系统设定」落实面），
             # 截断只可能落在检索族，与模型面披露行同源同态。
-            if context.manifest.material_truncated:
+            if materials_meta["material_truncated"]:
                 deps.bus.emit(
                     "notice",
                     {
@@ -3792,14 +3889,14 @@ def _make_answer(
                         "gates": [],
                         "content": (
                             f"答案视野检索片段仅渲染 "
-                            f"{context.manifest.material_rendered}/"
-                            f"{context.manifest.material_total}"
+                            f"{materials_meta['material_rendered']}/"
+                            f"{materials_meta['material_total']}"
                             " 支（权威行集与台账卡已全量）——未渲染部分不作答"
                             "（V2-61）。"
                         ),
                     },
                 )
-            first_content = await _complete(deps.model(MODEL_ANSWER), context)
+            first_content = await _complete(deps.model(MODEL_ANSWER), new_messages)
             # V2-48 JSON 通道隔离：发射围栏确定性剥离校验——泄漏→剥离（有余量
             # 直接交付）；零余量→同相位重试一次→交付重试草稿；再泄/再零→如实
             # 收口注记（发射围栏在任何路径下不进答案面）。
@@ -3807,7 +3904,7 @@ def _make_answer(
             retry_content: str | None = None
             if not draft.strip():
                 # V2-48 零余量重试一次（既有语义——空草稿先重试再兜底）。
-                retry_content = await _complete(deps.model(MODEL_ANSWER), context)
+                retry_content = await _complete(deps.model(MODEL_ANSWER), new_messages)
                 draft, retry_leaked = strip_emission_fences(retry_content.strip())
                 leaked = leaked or retry_leaked
             if not draft.strip():
@@ -3862,16 +3959,21 @@ def _make_answer(
                 + ("（含同相位重试）" if retry_content is not None else "")
             )
             deps.bus.emit("step", {"step": STEP_ANSWER, "seq": seq, "title": title})
+            # V2-80h：作答指令包＋草稿（核验前原稿）追加链尾——核验改写后就地替换。
+            answer_messages = [
+                *new_messages,
+                {"role": "assistant", "content": draft},
+            ]
             return {
+                "messages": answer_messages,
                 # 起草观察值入过程档案（V2-79a——草稿不入对话层，终稿由收口单点落）。
                 "process_notes": _notes_with(
                     state, _note("draft", "起草答案", draft_digest)
                 ),
                 "draft": draft,
-                "manifests": [*state.manifests, context.manifest.as_dict()],
-                "steps": [
+                    "steps": [
                     *state.steps,
-                    _step_record(seq, STEP_ANSWER, title, context.manifest,
+                    _step_record(seq, STEP_ANSWER, title, None,
                                  payload=step_payload),
                 ],
                 "next_intent": INTENT_VERIFY,

@@ -43,7 +43,8 @@ def _final_state() -> dict[str, Any]:
         "question": "问 W-21 的检泵周期。",
         "status": "completed",
         "actor": "dev-u1",
-        "dialogue": [
+        "messages": [
+            {"role": "system", "content": "系统红线"},
             {"role": "user", "content": "问 W-21 的检泵周期。"},
             {"role": "assistant", "content": "答案：512 天[1]。"},
         ],
@@ -86,8 +87,8 @@ def test_distill_full_shape() -> None:
     assert d["question"] == "问 W-21 的检泵周期。"
     assert d["status"] == "completed"
     assert d["error"] == ""
-    # 对话层（自然对话——用户原话与终稿）与过程档案（有界摘要）全量在场
-    assert d["dialogue"][-1]["content"] == "答案：512 天[1]。"
+    # 对话链（V2-80h——LLM 收发逐轮形）与过程档案（有界摘要）全量在场
+    assert d["messages"][-1]["content"] == "答案：512 天[1]。"
     assert d["process_notes"][0]["phase"] == "clarify"
     # 步骤 payload（发射原文）在场
     assert d["steps"][0]["payload"] == {"phase": "clarify", "emission": {"kind": "finalize"}}
@@ -108,7 +109,7 @@ def test_distill_error_skeleton() -> None:
     d = distill(None, run_id="run-y", error="boom")
     assert d["run_id"] == "run-y"
     assert d["error"] == "boom"
-    assert "dialogue" not in d and "observations" not in d  # 骨架无状态键
+    assert "dialogue" not in d and "messages" not in d and "observations" not in d  # 骨架无状态键
 
 
 def test_distill_dirty_value_degrades() -> None:
@@ -138,13 +139,13 @@ async def test_blackbox_pointer_last_and_stored(tmp_path) -> None:  # type: igno
     assert data["question"] == HAPPY_QUESTION
     assert data["stored"] is True
     assert data["bytes"] > 0
-    assert data["counts"]["dialogue"] > 0
+    assert data["counts"]["messages"] > 0
     assert "dialogue" not in data and "observations" not in data and "steps" not in data
-    # 完整面在库：对话层（自然对话）与观察全字段经 get_blackbox 取回
+    # 完整面在库：对话链（V2-80h）与观察全字段经 get_blackbox 取回
     payload = await RunStore(db).get_blackbox(handle.run_id)
     assert payload is not None
     assistant_texts = [
-        str(t.get("content")) for t in payload["dialogue"] if t.get("role") == "assistant"
+        str(t.get("content")) for t in payload["messages"] if t.get("role") == "assistant"
     ]
     assert assistant_texts  # 收口终稿在对话层（唯一写手）
     assert payload.get("process_notes")  # 过程档案在案
@@ -191,7 +192,8 @@ def test_pointer_shape() -> None:
         "stored": True,
         "bytes": 123,
         "counts": {
-            "dialogue": 2, "process_notes": 1, "observations": 0, "steps": 1,
+            "messages": 0, "dialogue": 2, "process_notes": 1,
+            "observations": 0, "steps": 1,
         },
     }
 

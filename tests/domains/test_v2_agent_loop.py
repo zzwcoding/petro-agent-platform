@@ -218,6 +218,9 @@ def _notices(events: list[RunEvent]) -> list[dict[str, Any]]:
 
 
 async def test_react_happy_path(tmp_path: Path) -> None:
+    from appv2.runtime.events import EventBus
+    from appv2.runtime.graph import build_graph
+
     runtime, _completer, db = await make_runtime(
         tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=HAPPY_SCRIPT
     )
@@ -229,23 +232,24 @@ async def test_react_happy_path(tmp_path: Path) -> None:
         run = await store.get_run(handle.run_id)
         assert run is not None and run.status == "completed"
         assert "21.16" in (run.answer or "")
-        assert run.manifest_digest  # Manifest 随 step 存档的摘要面（过程态簿记）
-        # 每个模型调用 step（understand 段/decision r1/decision r2/answer 起草）
-        # 落 Manifest（七字段合同形）；verify 零 LLM 不落（拍板③保留件语义）。
-        steps = await store.list_steps(handle.run_id)
-        with_manifest = [s for s in steps if s.manifest is not None]
-        assert [s.step_type for s in with_manifest] == [
-            "decision", "decision", "decision", "answer",
+        assert run.manifest_digest  # 收口摘要面（过程态簿记）
+        # V2-80h 对话链：只追加——终态链形＝[system, user 任务书, assistant 理解,
+        # user 决策包, assistant r1 JSON, user 台账行, assistant r2 JSON,
+        # user 作答指令＋材料, assistant 最终答案]（9 条；类型正确性红线）。
+        graph_ref = build_graph(
+            runtime._executor._deps(EventBus(), run_id=handle.run_id),
+            checkpointer=runtime._executor._saver,
+        )
+        snap = await graph_ref.aget_state({"configurable": {"thread_id": handle.run_id}})
+        chain = snap.values["messages"]
+        # V2-80h 追加式实态（10 条）：system／任务书→理解／指南包→已做段→
+        # r1 JSON→已做段→r2 JSON→作答指令＋材料→最终答案（相邻 user 连发合法）。
+        assert [m["role"] for m in chain] == [
+            "system", "user", "assistant", "user", "user",
+            "assistant", "user", "assistant", "user", "assistant",
         ]
-        for step in with_manifest:
-            assert set(step.manifest) == {
-                "source_type", "source_id", "version", "trust_level",
-                "selected_reason", "token_count", "transform",
-                # V2-61 材料承载分形记账三键（追加式——Manifest.as_dict 同步）。
-                "material_total", "material_rendered", "material_truncated",
-            }
-            assert step.manifest["token_count"] > 0
-            assert step.manifest["transform"] == "filter→rank→budget→cite"
+        assert "21.16" in chain[-1]["content"]  # 终答案在链尾
+        steps = await store.list_steps(handle.run_id)
         # 决策出口（拍板任务 5——行为断言锁在决策出口）：r1＝execute data、
         # r2＝finalize，emission 投影随 step payload 在案。
         decisions = [s for s in steps if s.step_type == "decision"

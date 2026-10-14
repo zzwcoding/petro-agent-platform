@@ -31,7 +31,7 @@ from appv2.infra.security import Actor, SecurityService
 from appv2.runtime.audit import RunAuditor, who_of
 from appv2.runtime.blackbox import distill, pointer
 from appv2.runtime.budget import Budget, now_monotonic
-from appv2.runtime.context import ContextBuilder
+from appv2.runtime.context import SYSTEM_PROMPT, ContextBuilder
 from appv2.runtime.events import EVENT_BLACKBOX, EventBus
 from appv2.runtime.graph import LoopDeps, build_graph
 from appv2.runtime.llm import GatewayChatModel
@@ -183,7 +183,7 @@ class GraphRunExecutor:
             # 追问续会话（V2-38/ADR-0006 会话线程承接形态）：前轮线程消息历史
             # 播种新 run——追问进上下文含前轮问答（前轮须 completed，未收口轮走
             # resume；run 状态机零改动——追问＝新 run 行，api 层最小改动）。
-            seed_dialogue = await self._seed_dialogue(command.followup_of)
+            seed_messages = await self._seed_messages(command.followup_of)
             await self._store.create_run(
                 run_id=run_id, question=command.question, actor=actor.who,
                 followup_of=command.followup_of,  # V2-74 对话任务面——追问链落 run 行
@@ -201,7 +201,7 @@ class GraphRunExecutor:
                 four_phase=self._four_phase,
             )
             state = self._initial_state(
-                run_id, command.question, actor.user_id, dialogue=seed_dialogue,
+                run_id, command.question, actor.user_id, seed_messages=seed_messages,
                 followup_of=command.followup_of,
             )
             config: dict[str, Any] = {"configurable": {"thread_id": run_id}}
@@ -262,19 +262,18 @@ class GraphRunExecutor:
 
     # ---------- 内部位 ----------
 
-    async def _seed_dialogue(self, followup_of: str) -> list[dict[str, str]]:
+    async def _seed_messages(self, followup_of: str) -> list[dict[str, str]]:
         """前轮对话播种（追问续会话——V2-79b checkpoint 级全量传承）。
 
         前轮不存在＝RunNotFoundError（api 404）；非 completed＝RunNotSuspendedError
         （api 409——挂起轮走 resume、在途/失败轮不可续）。
 
-        分流（V2-79 方案 §3.5/§4.2）：
-        - v2 checkpoint（dialogue 通道在场）→直读——问/答/澄清回收/审批回收
-          全量进追问（末轮非 assistant 且 runs.answer 在＝防御位补终稿轮）；
-        - v1 旧 checkpoint（无 dialogue 键/无 checkpoint）→读兼容抽取纯函数
-          （extract_dialogue_from_legacy_history——fail-closed，golden 钉测守）。
-        只读不改写——前轮 checkpoint 零写回。对话纯度红线（V2-79a）：播种面只有
-        自然对话轮，无任何系统注记前缀。
+        分流（V2-80h 对话链）：
+        - v3 checkpoint（messages 通道在场）→**整链承接**——前链全量（任务书/
+          合同/台账/应答）成为新链前缀，跨 run 前缀延伸（KV 缓存本源形态）；
+        - v2 checkpoint（仅 dialogue 通道）→降级抽取：自然对话轮＋防御位终稿；
+        - v1/无 checkpoint→extract_dialogue_from_legacy_history。
+        只读不改写——前轮 checkpoint 零写回。
         """
         if not followup_of:
             return []
@@ -294,23 +293,30 @@ class GraphRunExecutor:
             {"configurable": {"thread_id": followup_of}}
         )
         values = snapshot.values or {}
+        chain = [
+            {"role": str(t.get("role", "user")), "content": str(t.get("content", ""))}
+            for t in (values.get("messages") or [])
+            if isinstance(t, dict)
+        ]
+        if chain:
+            return chain  # v3 整链承接（前链含 system 首条——不重复）
         dialogue = [
             {"role": str(t.get("role", "user")), "content": str(t.get("content", ""))}
             for t in (values.get("dialogue") or [])
             if isinstance(t, dict)
         ]
         if dialogue:
-            # v2 对话层直读（checkpoint 级全量传承）；防御位：末轮非 assistant
-            # 且终稿在＝补落（正常 completed 形末轮恒终稿——此支常态不走）。
+            # v2 对话层降级：自然对话轮＋防御位终稿。
             if dialogue[-1]["role"] != "assistant" and (prior.answer or ""):
                 dialogue.append({"role": "assistant", "content": str(prior.answer)})
-            return dialogue
+            return [{"role": "system", "content": SYSTEM_PROMPT}, *dialogue]
         # v1 旧 checkpoint（无 dialogue 键）→读兼容抽取。
-        return extract_dialogue_from_legacy_history(
+        legacy = extract_dialogue_from_legacy_history(
             values,
             question=str(prior.question or ""),
             answer=str(prior.answer or ""),
         )
+        return [{"role": "system", "content": SYSTEM_PROMPT}, *legacy]
 
     async def pending_ask_of(self, run_id: str) -> dict[str, Any] | None:
         """挂起帧读面（V2-78——GET run 详情随行；刷新后反问选项可还原）。
@@ -359,19 +365,23 @@ class GraphRunExecutor:
         run_id: str,
         question: str,
         actor_id: str,
-        dialogue: list[dict[str, str]] | None = None,
+        seed_messages: list[dict[str, str]] | None = None,
         followup_of: str = "",
     ) -> RunState:
         started = now_monotonic()
+        if seed_messages:
+            # 追问（V2-80h）：前链整体承接＋新问——跨 run 前缀延伸（KV 缓存
+            # 本源形态；前链含其 system 首条，此处不重复）。
+            messages = [*seed_messages, {"role": "user", "content": question}]
+        else:
+            messages = [{"role": "system", "content": SYSTEM_PROMPT}]
         return RunState(
             run_id=run_id,
             question=question,
             actor=actor_id,
             status=RUN_RUNNING,
             followup_of=followup_of,  # V2-53 追问旁路判据（RunCommand 随行播种）
-            # 对话层受理（V2-79a）：user 原话必落；追问播种的前轮问答在前
-            #（[前轮问, 前轮答, 本轮问] 自然对话序）。
-            dialogue=[*(dialogue or []), {"role": "user", "content": question}],
+            messages=messages,
             budget=self._budget.as_dict(),
             started_monotonic=started,
             deadline_monotonic=started + self._budget.total_seconds,

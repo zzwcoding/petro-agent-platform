@@ -25,8 +25,7 @@ knowledge/query/retrieval（agent 与世界的唯一接触面＝ToolRegistry）�
 - AgentRuntime（ask/resume）＋GraphRunExecutor＋RunCommand/COMMAND_* 闭世界
   ＋RunNotFoundError/RunNotSuspendedError（api 404/409 异常源）；
 - AskRequest/AskChoice/RunHandle/RunEvent/EVENT_* 八类闭世界/RunState/Manifest/
-  STEP_* 六类闭世界（ReAct 周期）/RUN_STATUS_* 四态闭世界/ContextBuilder/
-  CompiledContext；
+  STEP_* 六类闭世界（ReAct 周期）/RUN_STATUS_* 四态闭世界/ContextBuilder；
 - Budget 轮数/时长闸＋合同值；GatewayChatModel/Completer（B6 红线②缝）；
 - DecisionEmission/parse_decision（决策发射 schema 校验单点）/ACTION_*/TASK_*/
   MODEL_KEYS（caller 桶闭世界）；
@@ -53,7 +52,7 @@ from appv2.runtime.budget import (
     Budget,
 )
 from appv2.runtime.checkpointer import PgCheckpointer
-from appv2.runtime.context import CompiledContext, ContextBuilder
+from appv2.runtime.context import ContextBuilder
 from appv2.runtime.eval_clock import (
     EVAL_FROZEN_DATE_DEFAULT,
     EVAL_FROZEN_DATE_ENV,
@@ -200,7 +199,6 @@ __all__ = [
     "AskRequest",
     "Budget",
     "ClarifyEmission",
-    "CompiledContext",
     "Completer",
     "ContextBuilder",
     "DecisionEmission",

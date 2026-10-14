@@ -263,29 +263,15 @@ def test_v2_80e_answer_instruction_jargon_rule() -> None:
     assert "说清查不了什么、原因大意、下一步" in _ANSWER_INSTRUCTION
 
 
-# ---------- V2-80g 钉（compile tail——变量后置） ----------
+# ---------- V2-80g 钉（compile tail——变量后置；随 80h 退役） ----------
 
 
-def test_v2_80g_compile_tail_appended_last() -> None:
-    """compile tail 参数：变量行后置到当前轮最末（骨架/常驻/材料之后），
-    带 V2-80g 稳定段头；无 tail＝零变化。"""
-    from appv2.runtime.context import ContextBuilder
-    from appv2.runtime.state import RunState as _RunState
+def test_v2_80g_tail_mechanism_superseded_by_append_chain() -> None:
+    """V2-80g「变量行后置拼接保前缀稳定」随 compile 退役——V2-80h 追加链以
+    结构取代拼接：每轮增量各自成 user 消息追加链尾（前缀零改动），tail 参数
+    与稳定段头一并消失。前缀稳定由 e2e 钉守（four_phase/multi_turn 的
+    second_call[:len(first)] == first 前缀延长断言）。"""
+    from appv2.runtime import ContextBuilder
 
-    builder = ContextBuilder()
-    state = _RunState(question="合成题", dialogue=[{"role": "user", "content": "问"}])
-    base = builder.compile(
-        state, step="decision", instruction="骨架。", with_material=False,
-    )
-    tailed = builder.compile(
-        state, step="decision", instruction="骨架。", with_material=False,
-        tail="上次发射被拒：x——修正后重新输出 JSON。\n用户已补充：y",
-    )
-    # 骨架段逐字一致（重排不改骨架）。
-    assert tailed.messages[-1]["content"].startswith("骨架。")
-    # tail 段在最末＋稳定段头在册。
-    assert tailed.messages[-1]["content"].endswith(
-        "上次发射被拒：x——修正后重新输出 JSON。\n用户已补充：y"
-    )
-    assert "【本轮动态（每轮变化——置于末尾以保持前缀稳定）】" in tailed.messages[-1]["content"]
-    assert "【本轮动态】" not in base.messages[-1]["content"]
+    assert not hasattr(ContextBuilder(), "compile")  # tail 参数随 compile 消失
+

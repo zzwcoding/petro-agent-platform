@@ -37,10 +37,9 @@ from pathlib import Path
 from typing import Any
 
 from appv2.runtime import AskRequest, RunStore, ScriptedCompleter
-from appv2.runtime.context import LEDGER_DICT_NOTE, ContextBuilder
+from appv2.runtime.context import LEDGER_DICT_NOTE
 from appv2.runtime.guide import CLARIFY_CONTRACT
-from appv2.runtime.state import STEP_DECISION, RunState
-from appv2.tools import RESIDENT_BLOCK_BEGIN
+from appv2.tools import RESIDENT_BLOCK_BEGIN, RESIDENT_BLOCK_END
 from tests.domains.test_v2_agent_loop import (
     ACTOR,
     QueueQueryEngine,
@@ -270,19 +269,14 @@ def test_t5_contract_verbatim_and_ledger_dict_note() -> None:
     # 附 A2：新句在场、旧句退场。
     assert _A2_NEW in CLARIFY_CONTRACT
     assert _A2_OLD not in CLARIFY_CONTRACT
-    # 附 B：常驻块 BEGIN 后首行＝LEDGER_DICT_NOTE（历史簿记 _slim_resident
-    # 整块收窄自动覆盖面——注入缝单点）。
-    builder = ContextBuilder()
-    compiled = builder.compile(
-        RunState(run_id="run-t5"),
-        step=STEP_DECISION,
-        instruction="任务",
-        extra_sources=[{"source_type": "ledger_dump", "source_id": "d1",
-                        "label": "台账全量", "content": "日产油量——bound——行"}],
-    )
-    content = str(compiled.messages[-1]["content"])
-    assert (RESIDENT_BLOCK_BEGIN + "\n" + LEDGER_DICT_NOTE + "\n") in content
-    assert "（台账全量是字典不是数据" in content
+    # 附 B：常驻块 BEGIN 后首行＝LEDGER_DICT_NOTE（V2-80h——拼装单点
+    # _resident_block，澄清/匹配/legacy 决策三包同源；注入缝单点语义不变）。
+    from appv2.runtime.graph import _resident_block
+
+    block = _resident_block({})
+    assert block.startswith(RESIDENT_BLOCK_BEGIN + "\n" + LEDGER_DICT_NOTE + "\n")
+    assert "（台账全量是字典不是数据" in block
+    assert block.endswith(RESIDENT_BLOCK_END)
 
 
 # ---------- T6：step 事件 emission 键在场（放行与拒两点） ----------

@@ -14,8 +14,7 @@ from typing import Any
 
 from appv2.retrieval.domain import FragmentRecord, Observation
 from appv2.retrieval.engine import RetrievalEngine
-from appv2.runtime.context import SYSTEM_PROMPT, ContextBuilder
-from appv2.runtime.state import RunState
+from appv2.runtime.context import SYSTEM_PROMPT, render_materials
 
 # ---------- 罐头 ----------
 
@@ -44,19 +43,15 @@ def _ledger_obs(index: int) -> dict[str, Any]:
     }
 
 
-def _state(observations: list[dict[str, Any]]) -> RunState:
-    return RunState(question="本井射孔参数", observations=observations)
-
-
-def _render(state: RunState) -> str:
-    ctx = ContextBuilder().compile(state, step="answer", instruction="起草答案")
-    return str(ctx.messages[-1]["content"])
+def _render(observations: list[dict[str, Any]]) -> str:
+    text, _meta = render_materials(observations, max_observations=24)
+    return text
 
 
 # ---------- T1 材料渲染带报告名出处（治「分不清」） ----------
 
 def test_t1_material_carries_report_origin() -> None:
-    out = _render(_state([_fragment_obs(1, "A-W11井完井工程报告")]))
+    out = _render([_fragment_obs(1, "A-W11井完井工程报告")])
     assert "[1]（report｜《A-W11井完井工程报告》）" in out
 
 
@@ -67,7 +62,7 @@ def test_t2_material_carries_ontology_tag() -> None:
         _fragment_obs(1, "A-W11井完井工程报告", well="W-11井·渤中34-5油田"),
         _fragment_obs(2, "Y-21井完井工程报告", well="Y-21井·渤中34-8油田"),
     ]
-    out = _render(_state(obs))
+    out = _render(obs)
     assert "[1]（report｜《A-W11井完井工程报告》｜W-11井·渤中34-5油田）" in out
     assert "[2]（report｜《Y-21井完井工程报告》｜Y-21井·渤中34-8油田）" in out
 
@@ -75,7 +70,7 @@ def test_t2_material_carries_ontology_tag() -> None:
 # ---------- T3 well 缺省退化（图开关关/未抽取——零漂移） ----------
 
 def test_t3_missing_well_degrades_to_trust_origin() -> None:
-    out = _render(_state([_fragment_obs(1, "B-月报")]))
+    out = _render([_fragment_obs(1, "B-月报")])
     assert "[1]（report｜《B-月报》）" in out
     assert "[1]（report｜《B-月报》｜）" not in out  # 空段不留分隔符
 
@@ -83,7 +78,7 @@ def test_t3_missing_well_degrades_to_trust_origin() -> None:
 # ---------- T4 台账卡（kind=metric）带出处不炸 ----------
 
 def test_t4_ledger_card_renders_with_origin() -> None:
-    out = _render(_state([_ledger_obs(1)]))
+    out = _render([_ledger_obs(1)])
     assert "[1]（ledger｜sem_metric#202）" in out
 
 

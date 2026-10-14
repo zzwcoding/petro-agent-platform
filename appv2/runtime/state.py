@@ -181,16 +181,19 @@ class RunState:
     window_miss_marks: dict[str, str] = field(default_factory=dict)
     # 全 run 发现预算已用数（澄清相位 ≤10 合同闸判据——Owner 拍板放宽）。
     discover_used: int = 0
-    # —— 对话状态三层分离（V2-79a——ADR-0006 修订）：dialogue＝自然对话层
-    # （user 原话/assistant 终稿/澄清审批回收原文；纯度红线：禁任务书、禁指令、
-    # 禁模型过程原话、禁任何系统注记前缀）；process_notes＝过程档案层
-    # （[{phase,title,digest}] 有界摘要——只追加不改写，每条 digest ≤200 字；
-    # 读侧渲染随 V2-79c）。每步模型上下文＝[system]＋dialogue 截断＋当前轮
-    # （任务书/指令现拼——用完即弃不入史）；追问续会话经 executor 播种前轮
-    # dialogue（followup_of）。值全 JSON 原语（checkpointer 序列化面最简）。
-    dialogue: list[dict[str, str]] = field(default_factory=list)
+    # —— 对话链追加式（V2-80h——KV 缓存本源形态）：messages＝整条对话链
+    # （只追加不改写——每次 LLM 调用发送整链，任意相邻调用互为前缀延伸）。
+    # 类型正确性红线：user＝任务书/相位合同/工具台账行/回喂/用户选择/材料段；
+    # assistant＝模型原样输出/话术/最终答案；伪标注形永不出现。
+    # 相位合同一次性：clarify/toolmatch 包在相位首次进入时追加一条
+    # （contracts_appended 标记——回炉轮不重发，链上已有缓存照命中）。
+    messages: list[dict[str, str]] = field(default_factory=list)
+    contracts_appended: list[str] = field(default_factory=list)
     process_notes: list[dict[str, str]] = field(default_factory=list)
-    schema_version: int = 2  # checkpoint 版本（旧快照无此键＝v1——读侧兼容判据）
+    # 【V2-80h 兼容死字段】dialogue（80a 自然对话层）——零读写，仅保 v2 快照
+    # （含 dialogue 通道）读入不炸；追问种子降级抽取用它（executor）。
+    dialogue: list[dict[str, str]] = field(default_factory=list)
+    schema_version: int = 3  # checkpoint 版本（v1＝history 混装/v2＝dialogue 层）
     # —— decision 产物（ReAct 决策出口——行为断言锁定面） ——
     rounds: int = 0  # 已消耗的 LLM 决策周期数（≤3 轮上限闸判据）
     task_type: str = ""  # 末次执行发射的任务型 data|knowledge|mixed

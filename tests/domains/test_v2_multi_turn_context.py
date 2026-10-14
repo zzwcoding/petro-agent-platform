@@ -1,5 +1,5 @@
-"""V2-79a 对话状态三层分离验收钉测（ADR-0006 修订——dialogue/process_notes 双字段
-＋compile 新契约＋播种最小形；总方案 tickets/v2/V2-79-对话状态重构方案.md §5）。
+"""对话上下文验收钉测（V2-79a 三层分离 → V2-80h 对话链追加式改写——本文件
+各钉已按链形更新：对话链（messages，只追加）即上下文，compile 已退役）。
 
 票面验收逐条落钉（tickets/v2/V2-79a-对话状态三层分离核心票.md）：
 - 对话层纯度：决策轮上下文＝[system]＋dialogue（只有 user 原话）＋当前轮——任务书/
@@ -88,13 +88,13 @@ def _joined(messages: list[dict[str, str]]) -> str:
 # ---------- 验收①：对话层纯度——决策轮上下文零过程记录（反模式拆除钉） ----------
 
 
-async def test_decision_context_carries_dialogue_only(
+async def test_decision_chain_prefix_extends_across_rounds(
     tmp_path: Path,
 ) -> None:
-    """r1 决策（execute data）→执行→r2 决策（finalize）：两轮决策上下文均为
-    [system]＋dialogue（只有 user 原话）＋当前轮——第 1 轮决策 JSON/执行台账/理解
-    原话不再进模型上下文（V2-79 拆除「过程记录以助手轮在史」反模式）；上下文长度
-    跨轮恒定（过程不膨胀上下文）；台账/决策摘要落 process_notes（黑匣子蒸馏面）。"""
+    """V2-80h 追加链（79a「对话层纯度」的演进形——本钉改写）：r1 决策→执行→
+    r2 决策两轮上下文＝前缀延伸（相邻调用互为前缀——KV 缓存本源形态）；r1 决策
+    JSON 以 assistant 轮、已做段以 user 轮在链（模型可见自己的历史输出）；执行
+    台账照旧落 process_notes（黑匣子蒸馏面——承载面不变）。"""
     script: dict[str, Sequence[str]] = {
         "v2.runtime.understand": [UNDERSTAND_DATA],
         "v2.runtime.decision": [DECISION_WINDOWED, DECISION_FINALIZE],
@@ -113,21 +113,20 @@ async def test_decision_context_carries_dialogue_only(
         rounds = completer.messages_of("v2.runtime.decision")
         assert len(rounds) == 2
         first, second = rounds
-        # 两轮决策上下文形态恒定：system＋对话层（user 原话）＋当前轮——无任务书、
-        # 无理解原话、无决策 JSON、无台账轮（三层分离）。
-        for messages in (first, second):
-            assert messages[0]["role"] == "system"
-            assert len(messages) == 3
-            assert messages[1] == {"role": "user", "content": QUESTION_A}
-            assert "【待解构的题干】" not in messages[1]["content"]
-        assert DECISION_WINDOWED not in _joined(second)
-        # 对话层（messages[1:-1]）零过程记录（V2-79a）；「本 run 已做」摘要有界
-        # 进当前指令面（V2-79c——非对话层）。
-        assert not any("data_query 参数：" in m["content"] for m in second[1:-1])
-        assert not any(
-            "问 2025 年 9 月上旬的日产油量" in m["content"] for m in second[1:-1]
-        )
-        # 台账/决策/理解/起草/核验全进过程档案（黑匣子蒸馏投影终态）。
+        # r1 链形：system／任务书（嵌原话）／理解应答／指南包／已做段。
+        assert first[0]["role"] == "system"
+        assert [m["role"] for m in first] == [
+            "system", "user", "assistant", "user", "user",
+        ]
+        assert QUESTION_A in first[1]["content"]
+        assert "任务：输出本轮决策 JSON。" in first[3]["content"]
+        assert "本 run 已做" in first[4]["content"]
+        # r2＝r1 前缀零改动延长＋[r1 决策 JSON（assistant），已做段（user）]。
+        assert second[: len(first)] == first
+        assert [m["role"] for m in second[len(first):]] == ["assistant", "user"]
+        assert DECISION_WINDOWED in second[len(first)]["content"]
+        assert "[decision] 决策｜决策 r1：执行 data" in second[-1]["content"]
+        # 执行台账照旧落过程档案（黑匣子蒸馏面——分型措辞零漂移）。
         record = await store.get_blackbox(handle.run_id)
         assert record is not None
         phases = [n.get("phase") for n in record.get("process_notes") or []]
@@ -137,12 +136,13 @@ async def test_decision_context_carries_dialogue_only(
         ]
         assert len(tool_notes) == 1
         assert "→ 结果：2 行" in tool_notes[0]["digest"]  # 1 权威行＋1 随行血缘卡
-        # 收口终稿落对话层（唯一写手——收口答案含引用块）。
-        dialogue = record.get("dialogue") or []
-        assert len(dialogue) == 2
-        assert dialogue[0] == {"role": "user", "content": QUESTION_A}
-        assert dialogue[1]["role"] == "assistant"
-        assert "21.16" in dialogue[1]["content"] and "引用：" in dialogue[1]["content"]
+        # 终态链（黑匣子蒸馏面）：10 条追加形——终稿（含引用块）在链尾。
+        chain = record.get("messages") or []
+        assert [m["role"] for m in chain] == [
+            "system", "user", "assistant", "user", "user",
+            "assistant", "user", "assistant", "user", "assistant",
+        ]
+        assert "21.16" in chain[-1]["content"] and "引用：" in chain[-1]["content"]
     finally:
         await db.dispose()
 
@@ -171,9 +171,14 @@ async def test_bad_args_ledger_wording_is_validation_reject_not_gate(
         events = await drain(handle)
         run = await store.get_run(handle.run_id)
         assert run is not None and run.status == "completed"
-        # 拒因回喂 instruction 行（既有语义零漂移）。
+        # 拒因回喂行在链（V2-80h——增量 user 轮；r1 被拒 JSON 以 assistant 轮同链
+        # 在场——模型看得见自己被拒的原输出）。
         second = completer.messages_of("v2.runtime.decision")[1]
-        assert "上次决策被拒" in second[-1]["content"]
+        assert any("上次决策被拒" in m.get("content", "") for m in second)
+        assert any(
+            m.get("role") == "assistant" and "采出程度" in str(m.get("content", ""))
+            for m in second
+        )
         # 对话层零台账轮（承载面改造；台账摘要在当前指令面——V2-79c）。
         assert not any("data_query 参数：" in m["content"] for m in second[1:-1])
         # 台账措辞在过程档案（分型逐字——bad_args＝「校验拒（拒因：…）」）。
@@ -247,14 +252,16 @@ def _note_of_digest(digest: str) -> dict[str, str]:
 
 
 def test_legacy_history_field_is_gone() -> None:
-    """v1 混装史字段清账钉（V2-79e）：history 字段已删除——schema 面只剩三层
-    分离字段；schema_version=2 为新旧判据（方案 §4.1 版本化）；v1 旧 checkpoint
-    的 history 通道由 LangGraph 按未知通道忽略（读兼容抽取面在
+    """v1 混装史字段清账钉（V2-79e）：history 字段已删除——V2-80h 起 schema 面
+    ＝对话链（messages，只追加）＋过程档案（process_notes）；dialogue 保留为
+    v2 快照读兼容死字段（新代码零写入）；schema_version=3 为新旧判据；v1 旧
+    checkpoint 的 history 通道由 LangGraph 按未知通道忽略（读兼容抽取面在
     extract_dialogue_from_legacy_history——golden 钉测守）。"""
     assert "history" not in RunState.__dataclass_fields__
-    assert "dialogue" in RunState.__dataclass_fields__
+    assert "messages" in RunState.__dataclass_fields__
     assert "process_notes" in RunState.__dataclass_fields__
-    assert RunState().schema_version == 2
+    assert "dialogue" in RunState.__dataclass_fields__  # v2 快照兼容死字段（零写入）
+    assert RunState().schema_version == 3
 
 
 # ---------- 验收③：追问播种最小形——对话层承载前轮问答 ----------
@@ -262,10 +269,9 @@ def test_legacy_history_field_is_gone() -> None:
 
 async def test_followup_context_carries_prior_qa_history(tmp_path: Path) -> None:
     """前轮 completed 后追问（followup_of）：新 run 的 understand 上下文＝
-    [system]＋dialogue（[前轮问 user 轮, 前轮答 assistant 轮]）＋当前任务书——
-    会话线程承接以自然对话形承载（V2-79a 最小形：runs 行权威字段，不读
-    checkpoint）；前轮决策 JSON/执行台账不再播种（过程记录退出对话层——V2-79
-    拆除的模仿面；checkpoint 级全量传承随 V2-79b）。"""
+    前链整链承接＋本轮问＋本轮任务书（V2-80h——跨 run 前缀延伸，KV 缓存本源
+    形态；前链含前轮任务书/理解/决策 JSON/终稿全量）；前轮终稿以 assistant 轮
+    在链（自然问答承接——「我刚刚问了什么」类问题模型可直读）。"""
     script_a: dict[str, Sequence[str]] = {
         "v2.runtime.understand": [UNDERSTAND_DATA],
         "v2.runtime.decision": [DECISION_WINDOWED, DECISION_FINALIZE],
@@ -307,25 +313,31 @@ async def test_followup_context_carries_prior_qa_history(tmp_path: Path) -> None
         run_b = await store_b.get_run(handle_b.run_id)
         assert run_b is not None and run_b.status == "completed"
         assert "21.16" in (run_b.answer or "")
-        # 追问 run 的 understand 消息形态：system＋前轮问＋前轮答＋当前任务书
-        # （对话层自然序——「我刚刚问了什么」类问题模型可直读）。
+        # 追问 run 的 understand 消息形态：system＋前链全量＋本轮问（裸 user 轮）
+        # ＋本轮任务书（【待解构的题干】尾随）。
         understand_msgs = completer_b.messages_of("v2.runtime.understand")[0]
         assert understand_msgs[0]["role"] == "system"
-        assert understand_msgs[1] == {"role": "user", "content": QUESTION_A}
-        assert understand_msgs[2]["role"] == "assistant"
-        assert "21.16" in understand_msgs[2]["content"]
-        assert "引用：" in understand_msgs[2]["content"]
-        # 追问问句以当前轮任务书尾随（【待解构的题干】）＋对话层 user 轮双面在场。
+        assert QUESTION_A in understand_msgs[1]["content"]  # 前轮任务书嵌前问
+        assert understand_msgs[2]["role"] == "assistant"  # 前轮理解应答
+        assert understand_msgs[-2] == {
+            "role": "user", "content": "那 N-01 井 9 月 2 日的日产油量呢？",
+        }
+        assert "【待解构的题干】" in understand_msgs[-1]["content"]
         joined = _joined(understand_msgs)
-        assert "那 N-01 井 9 月 2 日的日产油量呢？" in joined
-        # 「上轮答案：」伪标注永不出现（对话纯度红线）。
+        # 「上轮答案：」伪标注永不出现（对话纯度红线——承接靠真实角色轮）。
         assert "上轮答案：" not in joined
-        # 前轮决策 JSON／执行台账退出播种面（过程记录不再进对话层——V2-79b
-        # 才升 checkpoint 级全量传承，本钉显式锁 79a 最小形边界）。
+        # 前轮终稿以 assistant 轮在链（跨轮问答承接——KV 前缀本源）。
+        assert any(
+            m.get("role") == "assistant" and "21.16" in str(m.get("content", ""))
+            for m in understand_msgs
+        )
+        # 决策面：前轮决策 JSON 已在前链（整链承接——不再以指令轮重发）。
         decision_msgs = completer_b.messages_of("v2.runtime.decision")[0]
-        joined_d = _joined(decision_msgs)
-        assert DECISION_WINDOWED not in joined_d
-        assert "data_query 参数：" not in joined_d
+        assert any(
+            m.get("role") == "assistant"
+            and DECISION_WINDOWED in str(m.get("content", ""))
+            for m in decision_msgs
+        )
         assert not [n for n in _notices(events_b) if n.get("type") == "run_failed"]
     finally:
         await db_b.dispose()
@@ -432,111 +444,16 @@ async def test_history_ledger_lets_model_change_param_without_gate(
 # ---------- 验收⑤：token 截断策略钉测（超预算显式注记进 Manifest） ----------
 
 
-def _big_dialogue(turns: int) -> list[dict[str, str]]:
-    """合成对话层（首问＋N 轮问答——触发预算截断的形）。"""
-    dialogue = [{"role": "user", "content": "问题：合成首问（截断钉测）"}]
-    for index in range(turns):
-        dialogue.append({
-            "role": "assistant",
-            "content": f"第 {index} 轮回答：合成对话轮（截断钉测填充行——内容展开到"
-                       f"足够长度以便预算起算）{'细节' * 20}",
-        })
-        dialogue.append({
-            "role": "user",
-            "content": f"第 {index} 轮追问：继续（截断钉测填充行）",
-        })
-    return dialogue
+def test_compile_retired_chain_is_the_context() -> None:
+    """V2-80h：compile() 退役——对话链即上下文（只追加，相邻调用互为前缀）。
+    79a 的逐轮重排装配与 79d 的视图截断压缩随之退役（链内轮数受轮预算约束，
+    跨 run 前缀延伸是继承形非重排形）；ContextBuilder 只余材料渲染配置面
+    （render_materials——作答轮全量观察 [n] 渲染，模块级函数）。"""
+    from appv2.runtime.context import render_materials
 
-
-def test_compile_keeps_full_dialogue_within_budget() -> None:
-    """预算内：全对话层续写（system＋全部对话轮＋当前轮），Manifest 无压缩注记。"""
-    builder = ContextBuilder(dialogue_view_tokens=100000)
-    state = RunState(question="合成首问（截断钉测）", dialogue=_big_dialogue(3))
-    context = builder.compile(
-        state, step="decision", instruction="任务：输出本轮决策 JSON。", with_material=True,
-    )
-    assert context.messages[0]["role"] == "system"
-    assert len(context.messages) == 1 + len(state.dialogue) + 1
-    assert context.messages[-1]["content"].startswith("任务：输出本轮决策 JSON。")
-    assert "观察材料：" in context.messages[-1]["content"]
-    assert "截断" not in context.manifest.selected_reason
-    assert context.manifest.token_count == (
-        sum(len(str(m["content"])) for m in context.messages) // 4
-    )
-
-
-def test_compile_compacts_dialogue_over_budget_with_manifest_note() -> None:
-    """超预算（V2-79d compaction）：旧轮对规则摘要化——messages＝[system 角色红线,
-    system 前情摘要, 近期轮…, 当前轮]；摘要含最早问句原文与「问：/答：」行；压缩
-    显式注记进 Manifest.selected_reason（轮数前后账＋预算值）；压缩只作用模型视图
-    （state.dialogue 原史零覆盖）；token_count 为压缩后实量。"""
-    builder = ContextBuilder(dialogue_view_tokens=600)
-    state = RunState(question="合成首问（截断钉测）", dialogue=_big_dialogue(30))
-    context = builder.compile(
-        state, step="decision", instruction="任务：输出本轮决策 JSON。", with_material=False,
-    )
-    manifest = context.manifest
-    # 显式注记进 Manifest（压缩必披露——不静默）。
-    assert "compaction" in manifest.selected_reason
-    assert f"compaction：{len(state.dialogue)} 轮→保留" in manifest.selected_reason
-    assert "原史在会话档案全量可查" in manifest.selected_reason
-    # 形态：前情摘要 system 消息置顶（序列合法）；近期轮＋当前轮保留。
-    assert context.messages[0]["role"] == "system"
-    assert context.messages[1]["role"] == "system"
-    assert context.messages[1]["content"].startswith("（前情摘要")
-    assert "问：问题：合成首问（截断钉测）" in context.messages[1]["content"]
-    assert "答：第 0 轮回答" in context.messages[1]["content"]
-    assert context.messages[-1]["content"].startswith("任务：")
-    assert len(context.messages) < 1 + len(state.dialogue) + 1
-    # 保留窗含最新对话轮（对话锚不丢）。
-    assert context.messages[-2] == state.dialogue[-1]
-    # 压缩只作用模型视图——原史零覆盖。
-    assert len(state.dialogue) == 61
-    # token_count＝压缩后消息实量（chars/4 口径）。
-    assert manifest.token_count == (
-        sum(len(str(m["content"])) for m in context.messages) // 4
-    )
-    # 保留轮均为合法消息形（user/assistant；摘要轮 system 已单列）。
-    assert all(m["role"] in ("user", "assistant") for m in context.messages[2:-1])
-
-
-def test_compaction_keeps_sole_giant_turn_uncompacted() -> None:
-    """单巨轮独占预算＝无旧轮可压——原样放行零压缩（不静默丢对话锚）。"""
-    from appv2.runtime.context import _compact_dialogue
-
-    giant = "答" * 5000
-    kept, summary = _compact_dialogue(
-        [{"role": "assistant", "content": giant}], 600
-    )
-    assert summary is None
-    assert kept == [{"role": "assistant", "content": giant}]
-
-
-def test_compaction_summary_line_rules() -> None:
-    """摘要行规则钉：user→「问：〈首行 ≤120〉」；assistant→「答：〈首行 ≤120〉」；
-    多行取首行；超长截 120。"""
-    from appv2.runtime.context import _compact_dialogue
-
-    turns = [
-        {"role": "user", "content": "问句首行\n问句第二行" + "长" * 200},
-        {"role": "assistant", "content": "答案首行\n答案第二行"},
-        {"role": "user", "content": "最新追问"},  # 最新轮恒在保留窗（对话锚不丢）
-    ]
-    _kept, summary = _compact_dialogue(turns, 1)  # 预算 1——旧轮全压
-    assert _kept == [{"role": "user", "content": "最新追问"}]
-    assert summary is not None
-    assert "问：问句首行" in summary  # 多行取首行
-    assert "答：答案首行" in summary
-    assert "问句第二行" not in summary and "答案第二行" not in summary
-
-
-def test_compaction_head_line_cap_is_120() -> None:
-    """摘要行取材上限：单行超长截 120（确定性取材单点）。"""
-    from appv2.runtime.context import _head_line
-
-    assert _head_line("超" * 300) == "超" * 120
-    assert _head_line("第一行\n第二行") == "第一行"
-    assert _head_line("   ") == ""
+    builder = ContextBuilder()
+    assert not hasattr(builder, "compile")
+    assert callable(render_materials)
 
 
 async def test_followup_zero_material_finalizes_as_not_found(tmp_path: Path) -> None:
@@ -636,14 +553,22 @@ async def test_followup_history_answerable_drafts_not_shell(tmp_path: Path) -> N
             str(m.get("content", "")) for m in answer_msgs
         )
         assert not [n for n in _notices(events_b) if n.get("type") == "decision_note"]
-        # 收口终稿落对话层（追问轮 dialogue＝前轮问＋前轮答＋本轮问＋本轮答）。
+        # V2-80h：追问轮链＝前链整链承接＋本轮问答（裸问句 user 轮在链中段，
+        # 作答指令＋终稿在链尾）。
         record = await store_b.get_blackbox(handle_b.run_id)
         assert record is not None
-        dialogue = record.get("dialogue") or []
-        assert [t.get("role") for t in dialogue] == ["user", "assistant", "user", "assistant"]
-        assert dialogue[0]["content"] == QUESTION_A
-        assert dialogue[2]["content"] == "我刚问了什么问题？"  # 本轮追问原话
-        assert "你上一轮问的是" in dialogue[3]["content"]  # 本轮终稿
+        chain = record.get("messages") or []
+        assert chain[0]["role"] == "system"
+        assert {
+            "role": "user", "content": "我刚问了什么问题？",
+        } in chain  # 本轮追问原话（裸 user 轮）
+        assert "你上一轮问的是" in chain[-1]["content"]  # 本轮终稿在链尾
+        # 前轮问答承接在链（前轮任务书嵌前问＋前轮终稿 assistant 轮）。
+        assert QUESTION_A in chain[1]["content"]
+        assert any(
+            m.get("role") == "assistant" and "21.16" in str(m.get("content", ""))
+            for m in chain
+        )
     finally:
         await db_b.dispose()
 
@@ -772,12 +697,18 @@ async def test_followup_seeds_full_checkpoint_dialogue(tmp_path: Path) -> None:
         assert run_a is not None and run_a.status == "completed"
         assert "21.16" in (run_a.answer or "")
         run_id_a = handle_a.run_id
-        # 前轮 dialogue 形（黑匣子蒸馏面）：[问, 澄清补充, 终稿]。
+        # 前轮终态链形（黑匣子蒸馏面——V2-80h 追加链）：澄清回收轮 user 轮在链。
         record_a = await store.get_blackbox(run_id_a)
         assert record_a is not None
-        dialogue_a = record_a.get("dialogue") or []
-        assert [t.get("role") for t in dialogue_a] == ["user", "user", "assistant"]
-        assert dialogue_a[1]["content"] == "N-01 井"
+        chain_a = record_a.get("messages") or []
+        assert any(
+            m.get("role") == "user" and m.get("content") == "N-01 井"
+            for m in chain_a
+        )
+        assert any(
+            m.get("role") == "assistant" and "21.16" in str(m.get("content", ""))
+            for m in chain_a
+        )
         # V2-79c：resume 后的决策轮指令带「本 run 已做」段（澄清回收在案）。
         resume_round = completer_a.messages_of("v2.runtime.decision")[1]
         resume_current = resume_round[-1]["content"]
@@ -800,16 +731,21 @@ async def test_followup_seeds_full_checkpoint_dialogue(tmp_path: Path) -> None:
             AskRequest(question="那 Z-16 井呢？", actor=ACTOR, followup_of=run_id_a)
         )
         await drain(handle_b)
-        # understand 上下文＝[system, 前轮问, 澄清补充, 前轮答, 本轮问, 当前任务书]——
-        # 澄清回收轮随 checkpoint 全量传承（播种 3 轮＋受理本轮问＝4 对话轮）。
+        # V2-80h 整链承接：understand 上下文＝前链全量（任务书/澄清回收/终稿）
+        # ＋本轮问（裸 user 轮尾随）＋本轮任务书。
         understand_msgs = completer_b.messages_of("v2.runtime.understand")[0]
         assert understand_msgs[0]["role"] == "system"
-        assert understand_msgs[1] == {"role": "user", "content": "日产油量是多少？"}
-        assert understand_msgs[2] == {"role": "user", "content": "N-01 井"}
-        assert understand_msgs[3]["role"] == "assistant"
-        assert "21.16" in understand_msgs[3]["content"]
-        assert understand_msgs[4] == {"role": "user", "content": "那 Z-16 井呢？"}
-        assert "【待解构的题干】" in understand_msgs[5]["content"]
+        assert "日产油量是多少？" in understand_msgs[1]["content"]  # 前轮任务书嵌前问
+        assert any(
+            m.get("role") == "user" and m.get("content") == "N-01 井"
+            for m in understand_msgs
+        )
+        assert any(
+            m.get("role") == "assistant" and "21.16" in str(m.get("content", ""))
+            for m in understand_msgs
+        )
+        assert understand_msgs[-2] == {"role": "user", "content": "那 Z-16 井呢？"}
+        assert "【待解构的题干】" in understand_msgs[-1]["content"]
     finally:
         await db_b.dispose()
 

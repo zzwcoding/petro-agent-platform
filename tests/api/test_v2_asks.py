@@ -296,13 +296,14 @@ def test_loop_step_sequence(env: Any) -> None:
     assert _names(frames)[-1] == FRAME_DONE  # 保留帧收场（V1 客户端干净收流判据）
 
 
-# ---------- 验收② manifest_present_each_call：每模型调用落 Manifest ----------
+# ---------- 验收② manifest_present_each_call：步面 Manifest 形（80h 退役形） ----------
 
 
 def test_manifest_present_each_call(env: Any) -> None:
-    """GET /api/v2/chat/runs/{run_id} → {status, steps, manifest_digest}；
-    每个模型调用 step（understand 段/decision 两轮/answer 起草）落七字段合同
-    Manifest（INV-5），终局 verdict 携 manifest_digest；verify 零 LLM 不落。"""
+    """GET /api/v2/chat/runs/{run_id} → {status, steps, manifest_digest,
+    pending_ask}；V2-80h：compile 退役——七字段合同 Manifest（INV-5）随之退役，
+    步面 manifest 恒 None（逐调用收发实录＝对话链＋网关 calllog 承载）；终局
+    verdict 仍携 manifest_digest（收口摘要面）。"""
     client, _db = env
     frames = _post_ask(client)
     run_id = frames[0][1]["run_id"]
@@ -319,19 +320,8 @@ def test_manifest_present_each_call(env: Any) -> None:
     assert body["pending_ask"] is None  # completed run 无挂起帧
     assert body["status"] == "completed"
     assert body["manifest_digest"] == final[-1]["manifest_digest"]
-    with_manifest = [s for s in body["steps"] if s["manifest"] is not None]
-    assert [s["step"] for s in with_manifest] == [
-        "decision", "decision", "decision", "answer",
-    ]
-    for step in with_manifest:
-        manifest = step["manifest"]
-        assert set(manifest) == {
-            "source_type", "source_id", "version", "trust_level",
-            "selected_reason", "token_count", "transform",
-            # V2-61 材料承载分形记账三键（追加式——Manifest.as_dict 同步）。
-            "material_total", "material_rendered", "material_truncated",
-        }
-        assert manifest["token_count"] > 0
+    # Manifest 退役：步面 manifest 恒 None（键保留——接口合同形不破）。
+    assert body["steps"] and all(s["manifest"] is None for s in body["steps"])
 
 
 # ---------- 验收③ ask_suspend_resume：工具 ask 挂起→GET waiting_ask→resume ----------
