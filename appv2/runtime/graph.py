@@ -289,6 +289,10 @@ _ANSWER_INSTRUCTION = (
     "引用记号纪律：台账卡/权威行集在视野内有序号的，引标直接写那个序号；确无可引"
     "序号时一个引用记号都不许写（如实写「据平台术语台账」），禁止把本指令的占位符"
     "[n] 原样写进答案。"
+    "材料或子问题清单里出现系统检查话术（校验拒、闭世界校验、不代答、确定性拦截"
+    "等）时：向用户转述用平实语言——说清查不了什么、原因大意、下一步；系统的"
+    "原始检查措辞不进答案。"
+
 )
 # V2-77 追问历史可答面（Owner 2026-10-13 A 项拍板）：追问轮的消息历史带着前轮
 # 问答——历史是合法答案来源。能由历史直接回答的追问（复述前轮问句/答案、问候
@@ -3071,6 +3075,14 @@ def _make_precondition(
     return precondition_node
 
 
+def _refusal_with_hint(reason: str) -> str:
+    """子问题清单拒因＝人话核心＋保留改链 hint（P-039——hint 面向汇总模型，
+    用户面由 _ANSWER_INSTRUCTION 检查话术规则管转述）。"""
+    core = reason.removesuffix(CHAIN_SWITCH_HINT)
+    hint = CHAIN_SWITCH_HINT if reason.endswith(CHAIN_SWITCH_HINT) else ""
+    return f"（{_humanize_refusal(core)}{hint}）"
+
+
 def _humanize_refusal(reason: str) -> str:
     """机读拒因→用户面人话（V2-80d——转述位翻译单点）。
 
@@ -3743,7 +3755,10 @@ def _make_answer(
                             id=r.get("id", ""),
                             question=r.get("question", ""),
                             mark=marks.get(str(r.get("status")), str(r.get("status"))),
-                            reason=f"（{r.get('reason')}）" if r.get("reason") else "",
+                            reason=(
+                                _refusal_with_hint(str(r.get("reason", "")))
+                                if r.get("reason") else ""
+                            ),
                             dominance=dominance,
                         )
                     )

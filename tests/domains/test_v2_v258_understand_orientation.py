@@ -253,3 +253,11 @@ def test_v2_80d_humanize_refusal_translations() -> None:
     assert "确定性校验拒" not in known  # 机读措辞不达用户面
     unknown = _humanize_refusal("某种全新拒因形态")
     assert "系统没法直接给这条的数" in unknown and "某种全新拒因形态" in unknown
+
+
+def test_v2_80e_answer_instruction_jargon_rule() -> None:
+    """V2-80e：检查话术不进答案（起草消费点行为句在册）。"""
+    from appv2.runtime.graph import _ANSWER_INSTRUCTION
+
+    assert "系统的原始检查措辞不进答案" in _ANSWER_INSTRUCTION
+    assert "说清查不了什么、原因大意、下一步" in _ANSWER_INSTRUCTION
