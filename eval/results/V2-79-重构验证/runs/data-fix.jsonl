@@ -1,0 +1,20 @@
+{"leg": "open", "http": 200, "url": "http://localhost:8001/api/v2/chat/asks", "body": {"question": "上个月产量最高的三口井"}}
+{"leg": "frame", "id": "0", "t": 0.05, "event": "session", "data": {"run_id": "run-b5a9d1f2", "resume": false}}
+{"leg": "frame", "id": "1", "t": 1.71, "event": "step", "data": {"step": "decision", "seq": 1, "title": "问上个月产量最高的三口井。"}}
+{"leg": "frame", "id": "2", "t": 1.71, "event": "text", "data": {"content": "问上个月产量最高的三口井。", "kind": "understanding"}}
+{"leg": "frame", "id": "3", "t": 3.46, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清 r1：分解 1 子问题"}}
+{"leg": "frame", "id": "4", "t": 5.23, "event": "step", "data": {"step": "decision", "seq": 3, "title": "工具匹配：1 条定案"}}
+{"leg": "frame", "id": "5", "t": 5.38, "event": "step", "data": {"step": "decision", "seq": 4, "title": "前置条件机：s1=note"}}
+{"leg": "frame", "id": "6", "t": 5.61, "event": "tool", "data": {"tool": "data_query", "status": "ok", "seq": 5, "message": null}}
+{"leg": "frame", "id": "7", "t": 5.61, "event": "step", "data": {"step": "execute", "seq": 5, "title": "data_query：ok（子问题 s1）"}}
+{"leg": "frame", "id": "8", "t": 5.61, "event": "notice", "data": {"type": "freshness_block", "gates": [], "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 42 天 · 超期）——查询窗「2026-09-01～2026-09-29」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。"}}
+{"leg": "frame", "id": "9", "t": 5.61, "event": "observation", "data": {"index": 1, "source": "汇总层水位读面", "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 42 天 · 超期）——查询窗「2026-09-01～2026-09-29」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。", "trust": "notice"}}
+{"leg": "frame", "id": "10", "t": 5.61, "event": "step", "data": {"step": "observe", "seq": 6, "title": "批量汇聚 1 支"}}
+{"leg": "frame", "id": "11", "t": 5.62, "event": "step", "data": {"step": "verify", "seq": 7, "title": "核验：支撑 0｜改写 0｜分源 否"}}
+{"leg": "frame", "id": "12", "t": 5.62, "event": "verdict", "data": {"subtype": "verify", "supported": 0, "rewritten": 0, "split": false, "cited": [], "attribution": {"anchors": [], "cross": []}}}
+{"leg": "frame", "id": "13", "t": 5.62, "event": "step", "data": {"step": "answer", "seq": 8, "title": "答案收口"}}
+{"leg": "frame", "id": "14", "t": 5.62, "event": "text", "data": {"content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 42 天 · 超期）——查询窗「2026-09-01～2026-09-29」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。（闸依据如实转答——零数值，不冒充出数。）"}}
+{"leg": "frame", "id": "15", "t": 5.62, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-b5a9d1f2", "manifest_digest": "0075ad74f3d0ecd7c40925ab6f961a3491111fc678e452b6732df49f05c4dd43"}}
+{"leg": "frame", "id": "16", "t": 5.78, "event": "blackbox", "data": {"run_id": "run-b5a9d1f2", "question": "上个月产量最高的三口井", "status": "completed", "error": "", "stored": true, "bytes": 6036, "counts": {"dialogue": 2, "process_notes": 5, "observations": 1, "steps": 8}}}
+{"leg": "frame", "id": "17", "t": 5.78, "event": "done", "data": {"run_id": "run-b5a9d1f2"}}
+{"summary": {"key": "data-fix", "question": "上个月产量最高的三口井", "status": "done", "run_id": "run-b5a9d1f2", "frames": 18, "duration_s": 5.8, "tools": ["data_query"], "notices": ["freshness_block"], "n_asks": 0, "asks": [], "n_resumes": 0, "resumes": [], "verdict_final": {"subtype": "final", "status": "completed", "run_id": "run-b5a9d1f2", "manifest_digest": "0075ad74f3d0ecd7c40925ab6f961a3491111fc678e452b6732df49f05c4dd43"}, "error_frame": null}}

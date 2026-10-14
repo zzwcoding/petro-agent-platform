@@ -1,0 +1,9 @@
+{"leg": "open", "http": 200, "url": "http://localhost:8001/api/v2/chat/asks", "body": {"question": "N-02 最近怎么样"}}
+{"leg": "frame", "id": "0", "t": 0.04, "event": "session", "data": {"run_id": "run-5782ed08", "resume": false}}
+{"leg": "frame", "id": "1", "t": 1.98, "event": "step", "data": {"step": "decision", "seq": 1, "title": "无关业务——直接回答"}}
+{"leg": "frame", "id": "2", "t": 1.98, "event": "step", "data": {"step": "answer", "seq": 2, "title": "答案收口"}}
+{"leg": "frame", "id": "3", "t": 1.98, "event": "text", "data": {"content": "你好！我是油田数据问答助手，可以帮你查询井的生产数据、台账指标或报告内容。请告诉我你想了解哪口井、哪个区块，或具体想查什么指标和事项。"}}
+{"leg": "frame", "id": "4", "t": 1.98, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-5782ed08", "manifest_digest": "ba3eea42bf0e39005e1edf09597bd3571a1ab6b2c9836600f5804d8348ced9e8"}}
+{"leg": "frame", "id": "5", "t": 2.03, "event": "blackbox", "data": {"run_id": "run-5782ed08", "question": "N-02 最近怎么样", "status": "completed", "error": "", "stored": true, "bytes": 1296, "counts": {"dialogue": 2, "process_notes": 1, "observations": 0, "steps": 2}}}
+{"leg": "frame", "id": "6", "t": 2.03, "event": "done", "data": {"run_id": "run-5782ed08"}}
+{"summary": {"key": "askback", "question": "N-02 最近怎么样", "status": "done", "run_id": "run-5782ed08", "frames": 7, "duration_s": 2.0, "tools": [], "notices": [], "n_asks": 0, "asks": [], "n_resumes": 0, "resumes": [], "verdict_final": {"subtype": "final", "status": "completed", "run_id": "run-5782ed08", "manifest_digest": "ba3eea42bf0e39005e1edf09597bd3571a1ab6b2c9836600f5804d8348ced9e8"}, "error_frame": null}}

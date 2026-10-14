@@ -1,0 +1,9 @@
+{"leg": "open", "http": 200, "url": "http://localhost:8001/api/v2/chat/asks", "body": {"question": "帮我预测明年油价"}}
+{"leg": "frame", "id": "0", "t": 0.04, "event": "session", "data": {"run_id": "run-45d52dfd", "resume": false}}
+{"leg": "frame", "id": "1", "t": 2.03, "event": "step", "data": {"step": "decision", "seq": 1, "title": "无关业务——直接回答"}}
+{"leg": "frame", "id": "2", "t": 2.03, "event": "step", "data": {"step": "answer", "seq": 2, "title": "答案收口"}}
+{"leg": "frame", "id": "3", "t": 2.03, "event": "text", "data": {"content": "您好！我是油田数据问答助手，专注解答井别、产量、时率、检泵、注水、措施、化验、设备等油田生产数据与报告事实相关的问题。明年油价受国际供需、地缘、宏观金融等多重外部因素影响，不在油田数据系统可作答的范畴，建议查阅专业能源机构或行情平台的预测报告；如您有油田数据相关的具体问题，欢迎随时提出。"}}
+{"leg": "frame", "id": "4", "t": 2.03, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-45d52dfd", "manifest_digest": "9d1bacf00f875dc32e9aa0b175e49f94b704793929c920197f404d2682722c8f"}}
+{"leg": "frame", "id": "5", "t": 2.07, "event": "blackbox", "data": {"run_id": "run-45d52dfd", "question": "帮我预测明年油价", "status": "completed", "error": "", "stored": true, "bytes": 1600, "counts": {"dialogue": 2, "process_notes": 1, "observations": 0, "steps": 2}}}
+{"leg": "frame", "id": "6", "t": 2.07, "event": "done", "data": {"run_id": "run-45d52dfd"}}
+{"summary": {"key": "reject", "question": "帮我预测明年油价", "status": "done", "run_id": "run-45d52dfd", "frames": 7, "duration_s": 2.1, "tools": [], "notices": [], "n_asks": 0, "asks": [], "n_resumes": 0, "resumes": [], "verdict_final": {"subtype": "final", "status": "completed", "run_id": "run-45d52dfd", "manifest_digest": "9d1bacf00f875dc32e9aa0b175e49f94b704793929c920197f404d2682722c8f"}, "error_frame": null}}

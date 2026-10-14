@@ -1,0 +1,25 @@
+{"leg": "open", "http": 200, "url": "http://localhost:8001/api/v2/chat/asks", "body": {"question": "「躺井」是什么意思？哪份材料里有？"}}
+{"leg": "frame", "id": "0", "t": 0.04, "event": "session", "data": {"run_id": "run-bc3f82bd", "resume": false}}
+{"leg": "frame", "id": "1", "t": 1.91, "event": "step", "data": {"step": "decision", "seq": 1, "title": "问「躺井」这一术语的含义，以及该术语出现在哪份材料里。"}}
+{"leg": "frame", "id": "2", "t": 1.92, "event": "text", "data": {"content": "问「躺井」这一术语的含义，以及该术语出现在哪份材料里。", "kind": "understanding"}}
+{"leg": "frame", "id": "3", "t": 3.7, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清钻取 ×2（semantic_query、faq_lookup）"}}
+{"leg": "frame", "id": "4", "t": 3.88, "event": "tool", "data": {"tool": "semantic_query", "status": "ok", "seq": 3, "message": null}}
+{"leg": "frame", "id": "5", "t": 3.88, "event": "step", "data": {"step": "discover", "seq": 3, "title": "semantic_query：ok"}}
+{"leg": "frame", "id": "6", "t": 3.88, "event": "step", "data": {"step": "observe", "seq": 4, "title": "观察回流 1 支"}}
+{"leg": "frame", "id": "7", "t": 3.88, "event": "observation", "data": {"index": 1, "source": "sem_term#4", "content": "躺井（黑话 → 停产待检泵 · 有效（限作业区语境））：作业区口语", "trust": "ledger"}}
+{"leg": "frame", "id": "8", "t": 3.96, "event": "tool", "data": {"tool": "faq_lookup", "status": "ok", "seq": 5, "message": null}}
+{"leg": "frame", "id": "9", "t": 3.96, "event": "step", "data": {"step": "discover", "seq": 5, "title": "faq_lookup：ok"}}
+{"leg": "frame", "id": "10", "t": 3.96, "event": "step", "data": {"step": "observe", "seq": 6, "title": "观察回流 1 支"}}
+{"leg": "frame", "id": "11", "t": 3.96, "event": "notice", "data": {"type": "no_hit", "gates": [], "content": "FAQ 库无命中（躺井是什么意思？出现在哪份材料里？）——现成问答库未收该问句，请按台账/检索继续"}}
+{"leg": "frame", "id": "12", "t": 3.96, "event": "observation", "data": {"index": 2, "source": "faq_* 读面", "content": "FAQ 库无命中（躺井是什么意思？出现在哪份材料里？）——现成问答库未收该问句，请按台账/检索继续", "trust": "notice"}}
+{"leg": "frame", "id": "13", "t": 4.89, "event": "step", "data": {"step": "decision", "seq": 7, "title": "澄清定稿：材料足够——直答收口", "emission": {"action": "finalize"}}}
+{"leg": "frame", "id": "14", "t": 9.13, "event": "step", "data": {"step": "answer", "seq": 8, "title": "起草答案"}}
+{"leg": "frame", "id": "15", "t": 9.14, "event": "step", "data": {"step": "verify", "seq": 9, "title": "核验：支撑 0｜改写 1｜分源 否"}}
+{"leg": "frame", "id": "16", "t": 9.14, "event": "verdict", "data": {"subtype": "verify", "supported": 0, "rewritten": 1, "split": false, "cited": [], "attribution": {"anchors": [], "cross": []}}}
+{"leg": "frame", "id": "17", "t": 9.14, "event": "notice", "data": {"type": "unsupported_claim", "gates": [], "content": "核验步改写无据断言 1 行（INV-1——禁止无据断言进答案）"}}
+{"leg": "frame", "id": "18", "t": 9.14, "event": "step", "data": {"step": "answer", "seq": 10, "title": "答案收口"}}
+{"leg": "frame", "id": "19", "t": 9.14, "event": "text", "data": {"content": "未找到（材料未披露）：「躺井」是作业区口语里的黑话，指**停产待检泵**——即油井暂时停产、等待检泵作业的状态。来源：作业区术语台账（sem_term#4）。\n\n说明：当前观察材料中仅有一条与「躺井」直接相关的记载，即上述作业区术语台账条目；材料未覆盖该词在具体某份报告、某油田或某井的实证用例，如需在特定对象语境下确认，请补充检索并指明对象。"}}
+{"leg": "frame", "id": "20", "t": 9.14, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-bc3f82bd", "manifest_digest": "f18701af64c563b8ebc164c7f02e5b130f1439d5f1624c3cb4ef3fb6a3e600b6"}}
+{"leg": "frame", "id": "21", "t": 9.2, "event": "blackbox", "data": {"run_id": "run-bc3f82bd", "question": "「躺井」是什么意思？哪份材料里有？", "status": "completed", "error": "", "stored": true, "bytes": 5557, "counts": {"dialogue": 2, "process_notes": 7, "observations": 2, "steps": 10}}}
+{"leg": "frame", "id": "22", "t": 9.2, "event": "done", "data": {"run_id": "run-bc3f82bd"}}
+{"summary": {"key": "rag", "question": "「躺井」是什么意思？哪份材料里有？", "status": "done", "run_id": "run-bc3f82bd", "frames": 23, "duration_s": 9.2, "tools": ["semantic_query", "faq_lookup"], "notices": ["no_hit", "unsupported_claim"], "n_asks": 0, "asks": [], "n_resumes": 0, "resumes": [], "verdict_final": {"subtype": "final", "status": "completed", "run_id": "run-bc3f82bd", "manifest_digest": "f18701af64c563b8ebc164c7f02e5b130f1439d5f1624c3cb4ef3fb6a3e600b6"}, "error_frame": null}}

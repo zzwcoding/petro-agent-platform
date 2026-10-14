@@ -1,0 +1,33 @@
+{"leg": "open", "http": 200, "url": "http://localhost:8001/api/v2/chat/asks", "body": {"question": "给我全部在产井这一年的日产量明细"}}
+{"leg": "frame", "id": "0", "t": 0.04, "event": "session", "data": {"run_id": "run-1df32847", "resume": false}}
+{"leg": "frame", "id": "1", "t": 1.36, "event": "step", "data": {"step": "decision", "seq": 1, "title": "给出当前在产井（当前状态为生产中的井）这一整年的日产量明细（按井、按日展开）。"}}
+{"leg": "frame", "id": "2", "t": 1.36, "event": "text", "data": {"content": "给出当前在产井（当前状态为生产中的井）这一整年的日产量明细（按井、按日展开）。", "kind": "understanding"}}
+{"leg": "frame", "id": "3", "t": 9.13, "event": "step", "data": {"step": "decision", "seq": 2, "title": "澄清 r1：分解 1 子问题"}}
+{"leg": "frame", "id": "4", "t": 10.75, "event": "step", "data": {"step": "decision", "seq": 3, "title": "工具匹配：1 条定案"}}
+{"leg": "frame", "id": "5", "t": 10.92, "event": "step", "data": {"step": "decision", "seq": 4, "title": "前置条件机：s1=note"}}
+{"leg": "frame", "id": "6", "t": 11.15, "event": "tool", "data": {"tool": "data_query", "status": "failed", "seq": 5, "message": "上游抖动：'日产油量（吨）'"}}
+{"leg": "frame", "id": "7", "t": 11.15, "event": "step", "data": {"step": "execute", "seq": 5, "title": "data_query：failed（子问题 s1）"}}
+{"leg": "frame", "id": "8", "t": 11.15, "event": "notice", "data": {"type": "subtask_failed", "gates": [], "content": "子问题 s1 执行失败（回炉面）：上游抖动：'日产油量（吨）'"}}
+{"leg": "frame", "id": "9", "t": 11.15, "event": "step", "data": {"step": "observe", "seq": 6, "title": "批量汇聚 0 支"}}
+{"leg": "frame", "id": "10", "t": 12.71, "event": "step", "data": {"step": "decision", "seq": 7, "title": "澄清 r2：分解 1 子问题"}}
+{"leg": "frame", "id": "11", "t": 14.66, "event": "step", "data": {"step": "decision", "seq": 8, "title": "工具匹配：1 条定案"}}
+{"leg": "frame", "id": "12", "t": 14.83, "event": "step", "data": {"step": "decision", "seq": 9, "title": "前置条件机：s1=note"}}
+{"leg": "frame", "id": "13", "t": 15.05, "event": "tool", "data": {"tool": "data_query", "status": "failed", "seq": 10, "message": "上游抖动：'日产油量（吨）'"}}
+{"leg": "frame", "id": "14", "t": 15.05, "event": "step", "data": {"step": "execute", "seq": 10, "title": "data_query：failed（子问题 s1）"}}
+{"leg": "frame", "id": "15", "t": 15.05, "event": "notice", "data": {"type": "subtask_failed", "gates": [], "content": "子问题 s1 执行失败（回炉面）：上游抖动：'日产油量（吨）'"}}
+{"leg": "frame", "id": "16", "t": 15.05, "event": "step", "data": {"step": "observe", "seq": 11, "title": "批量汇聚 0 支"}}
+{"leg": "frame", "id": "17", "t": 16.63, "event": "step", "data": {"step": "decision", "seq": 12, "title": "澄清 r3：分解 1 子问题"}}
+{"leg": "frame", "id": "18", "t": 18.64, "event": "step", "data": {"step": "decision", "seq": 13, "title": "工具匹配：1 条定案"}}
+{"leg": "frame", "id": "19", "t": 18.81, "event": "step", "data": {"step": "decision", "seq": 14, "title": "前置条件机：s1=note"}}
+{"leg": "frame", "id": "20", "t": 19.04, "event": "tool", "data": {"tool": "data_query", "status": "failed", "seq": 15, "message": "上游抖动：'日产油量（吨）'"}}
+{"leg": "frame", "id": "21", "t": 19.04, "event": "step", "data": {"step": "execute", "seq": 15, "title": "data_query：failed（子问题 s1）"}}
+{"leg": "frame", "id": "22", "t": 19.04, "event": "notice", "data": {"type": "subtask_failed", "gates": [], "content": "子问题 s1 执行失败（回炉面）：上游抖动：'日产油量（吨）'"}}
+{"leg": "frame", "id": "23", "t": 19.04, "event": "step", "data": {"step": "observe", "seq": 16, "title": "批量汇聚 0 支"}}
+{"leg": "frame", "id": "24", "t": 19.04, "event": "step", "data": {"step": "verify", "seq": 17, "title": "核验：支撑 0｜改写 0｜分源 否"}}
+{"leg": "frame", "id": "25", "t": 19.04, "event": "verdict", "data": {"subtype": "verify", "supported": 0, "rewritten": 0, "split": false, "cited": [], "attribution": {"anchors": [], "cross": []}}}
+{"leg": "frame", "id": "26", "t": 19.04, "event": "step", "data": {"step": "answer", "seq": 18, "title": "答案收口"}}
+{"leg": "frame", "id": "27", "t": 19.04, "event": "text", "data": {"content": "（未取得观察材料——如实回报，不编造。）"}}
+{"leg": "frame", "id": "28", "t": 19.04, "event": "verdict", "data": {"subtype": "final", "status": "completed", "run_id": "run-1df32847", "manifest_digest": "1a76d13ee4adf0068ee21c965be9779ead0ff4d4cb7a29d6eb5e650e3253939f"}}
+{"leg": "frame", "id": "29", "t": 19.11, "event": "blackbox", "data": {"run_id": "run-1df32847", "question": "给我全部在产井这一年的日产量明细", "status": "completed", "error": "", "stored": true, "bytes": 11246, "counts": {"dialogue": 2, "process_notes": 11, "observations": 0, "steps": 18}}}
+{"leg": "frame", "id": "30", "t": 19.11, "event": "done", "data": {"run_id": "run-1df32847"}}
+{"summary": {"key": "bigresult", "question": "给我全部在产井这一年的日产量明细", "status": "done", "run_id": "run-1df32847", "frames": 31, "duration_s": 19.1, "tools": ["data_query", "data_query", "data_query"], "notices": ["subtask_failed", "subtask_failed", "subtask_failed"], "n_asks": 0, "asks": [], "n_resumes": 0, "resumes": [], "verdict_final": {"subtype": "final", "status": "completed", "run_id": "run-1df32847", "manifest_digest": "1a76d13ee4adf0068ee21c965be9779ead0ff4d4cb7a29d6eb5e650e3253939f"}, "error_frame": null}}
