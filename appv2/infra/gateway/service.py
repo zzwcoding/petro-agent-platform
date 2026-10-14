@@ -36,6 +36,7 @@ from appv2.infra.config import (
 )
 from appv2.infra.db import ConnectionManager
 from appv2.infra.gateway import domain as d
+from appv2.infra.gateway.calllog import record_call
 from appv2.infra.gateway.store import BudgetStore, DrillRun, DrillStore, SpendRecord, SpendStore
 from appv2.infra.llm_client import LlmCompletion, UpstreamUnavailable
 
@@ -218,11 +219,36 @@ class GatewayService:
                     # G-06：全局并发闸在此收口——排队等而非挂死（含支路并发）；
                     # DE-14：尺寸随配置热加载（acquire 判现额，缩不中断在途）。
                     async with gate:
-                        answer = await self._backend.complete(
-                            candidate,
-                            messages,
-                            timeout_seconds=timeout,
-                            **forward,
+                        try:
+                            answer = await self._backend.complete(
+                                candidate,
+                                messages,
+                                timeout_seconds=timeout,
+                                **forward,
+                            )
+                        except Exception as exc:
+                            # V2-80f 调用留痕：失败尝试（429/超时/5xx）同样全量记录。
+                            record_call(
+                                alias=candidate,
+                                caller=caller,
+                                run_id=str(params.get("run_id") or ""),
+                                messages=messages,
+                                requested=requested,
+                                error=f"{type(exc).__name__}: {exc}",
+                            )
+                            raise
+                        # V2-80f 调用留痕：发送 messages＋返回全文（旁路观测——
+                        # 写失败降级不影响调用；LLM_CALL_LOG=off 关闭）。
+                        record_call(
+                            alias=candidate,
+                            caller=caller,
+                            run_id=str(params.get("run_id") or ""),
+                            messages=messages,
+                            requested=requested,
+                            content=answer.content,
+                            prompt_tokens=answer.prompt_tokens,
+                            completion_tokens=answer.completion_tokens,
+                            duration_ms=answer.duration_ms,
                         )
                     break
                 except UpstreamUnavailable as exc:  # 网络错/超时/5xx——可重试可切备
