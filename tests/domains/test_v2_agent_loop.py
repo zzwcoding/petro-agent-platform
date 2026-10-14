@@ -315,10 +315,10 @@ async def test_budget_termination(tmp_path: Path) -> None:
         assert len(converged) == 1  # R1 收敛幂等：notice 恰 1 条
         assert converged[0]["gates"] == ["total_seconds"]
         assert "未完成" in converged[0]["content"]
-        # R2 零材料分叉：notice 与答案同一口径（「未取得可交付观察材料」族）。
-        assert "未取得可交付观察材料" in converged[0]["content"]
+        # R2 零材料分叉：notice 与答案同一口径（V2-80d 人话壳单源）。
+        assert "没能查到能回答" in converged[0]["content"]
         assert "已交付" not in converged[0]["content"]
-        assert "未取得可交付观察材料" in (run.answer or "")
+        assert "没能查到能回答" in (run.answer or "")
     finally:
         await db.dispose()
 

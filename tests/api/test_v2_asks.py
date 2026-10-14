@@ -562,7 +562,7 @@ def test_budget_converged_stream_shape(env_budget: Any) -> None:
     frames = _post_ask(client)
     assert _step_kinds(frames) == ["decision", "decision", "answer"]
     texts = [data["content"] for name, data in frames if name == "text"]
-    assert any("未取得可交付观察材料" in t for t in texts)  # 如实回报——不编造
+    assert any("没能查到能回答" in t for t in texts)  # 如实回报——不编造（V2-80d 人话壳单源）
     notices = [data for name, data in frames if name == "notice"]
     assert len(notices) == 1 and notices[0]["type"] == "budget_converged"
     verdicts = [data for name, data in frames if name == "verdict"]

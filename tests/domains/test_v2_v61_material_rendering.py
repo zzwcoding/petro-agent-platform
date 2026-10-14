@@ -255,5 +255,5 @@ async def test_t8_answer_node_truncation_notice(tmp_path: Any) -> None:
 # ---------- 系统提示零触碰回归 ----------
 
 def test_system_prompt_unchanged() -> None:
-    assert SYSTEM_PROMPT.startswith("你是油田数据问答助手")
+    assert SYSTEM_PROMPT.startswith("你是油田生产数据的查询与解读系统")  # V2-80d 查询性质声明
     assert "红线：1)" in SYSTEM_PROMPT

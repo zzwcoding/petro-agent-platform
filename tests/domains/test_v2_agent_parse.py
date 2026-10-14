@@ -150,7 +150,7 @@ async def test_true_illegal_output_walks_refusal_chain(tmp_path: Path) -> None:
         run = await store.get_run(handle.run_id)
         assert run is not None and run.status == "completed"
         answer = run.answer or ""
-        assert "未取得可交付观察材料" in answer  # 轮耗收敛话术（零编造）
+        assert "没能查到能回答" in answer  # 轮耗收敛话术（V2-80d 人话壳单源——零编造）
         assert "21.16" not in answer  # 零数值不编造
         notices = [e.data for e in events if e.event == "notice"]
         converged = [n for n in notices if n.get("type") == "budget_converged"]

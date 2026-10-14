@@ -70,6 +70,7 @@ from appv2.runtime.budget import (
     MAX_DISCOVERS_PER_RUN_CONTRACT,
     MAX_EXECUTES_PER_ROUND_CONTRACT,
     MAX_ROUNDS_CONTRACT,
+    NO_MATERIAL_SHELL,
     budget_gate_hit,
     material_rows,
     unfinished_notice,
@@ -268,7 +269,8 @@ _ANSWER_INSTRUCTION = (
     "起草答案：逐条事实断言必须带 [n] 引标（n＝观察材料序号）；材料未覆盖的部分"
     "不得断言；材料含多个来源（不同报告／油田／井）时逐个来源分别作答（不冲突也"
     "要分别列出，不以反问代替作答）；作答后仍有未覆盖的来源或指代不明处，如实点名"
-    "未覆盖来源（含检索窗注记的未进窗来源）并请用户补充检索或指明对象，不静默略过。"
+    "未覆盖来源（含检索窗注记的未进窗来源）并请用户补充检索或指明对象，不静默略过"
+    "（材料未覆盖所问时：只简短说明未找到与所缺，不逐源铺陈无关材料）。"
     "答案只出交付正文——finalize/ask 等发射"
     " JSON（含围栏形）不得出现在答案中。台账卡（指标/术语定义面）只承载口径与"
     "定义，不是井/对象的取数面——点名具体井、报告或对象的数据题，结论必须取自"
@@ -1066,7 +1068,7 @@ def _converge(state: RunState, deps: LoopDeps, *, gates: list[str]) -> dict[str,
         body = "\n".join(f"- {obs.get('content', '')}" for obs in raw)
         answer = f"（轮预算触界收敛——已取得材料未及核验，如实原样交付）\n{body}"
     else:
-        answer = "（轮预算触界收敛——未取得可交付观察材料，如实回报，不编造。）"
+        answer = NO_MATERIAL_SHELL
     deps.bus.emit("notice", dict(notice))
     return {
         "budget_hit": [*state.budget_hit, *gates],
@@ -1203,7 +1205,7 @@ def _clarify_capped_answer(state: RunState) -> str:
     if raw:
         body = "\n".join(f"- {obs.get('content', '')}" for obs in raw)
         return f"（连续澄清截断——已取得材料如实交付，不再挂起）\n{body}"
-    return "（连续澄清截断——未取得可交付观察材料，如实回报，不编造。）"
+    return NO_MATERIAL_SHELL
 
 
 # ---------- 消息历史簿记（ADR-0006/V2-38——调用与输出/台账/回收的轮次落史单点） ----------
@@ -3052,13 +3054,13 @@ def _make_precondition(
             # 全部如实拒答——零执行零冒充，直答收口。（附 3：blocked_refuse 直答
             # 路径不带改链 hint——直答是终局；hint 只给可回炉重决策的路径面。）
             lines = "\n".join(
-                f"- [{r['id']}] {r['question']}——拒因："
-                f"{str(r['reason']).removesuffix(CHAIN_SWITCH_HINT)}"
+                f"- [{r['id']}] {r['question']}——"
+                f"{_humanize_refusal(str(r['reason']).removesuffix(CHAIN_SWITCH_HINT))}"
                 for r in refusals
             )
             _direct_answer(
                 updates,
-                "子问题前置条件判定全部拦截——如实回报，不编造：\n"
+                "这几件事我在数据里都没能给出现成的答案，原因和下一步：\n"
                 + (lines or "（无可执行子问题。）"),
             )
             updates["next_intent"] = INTENT_ANSWER
@@ -3067,6 +3069,19 @@ def _make_precondition(
         return updates
 
     return precondition_node
+
+
+def _humanize_refusal(reason: str) -> str:
+    """机读拒因→用户面人话（V2-80d——转述位翻译单点）。
+
+    机器拒因原文零改动：回炉重决策与审计仍消费原文（precondition.py 生成面
+    不动）；本函数只服务直答转述位。已知形翻译，未知形兜底保留原文。
+    """
+    m = re.match(r"指标 (.+?) 不在台账全量", reason)
+    if m:
+        return (f"「{m.group(1)}」不在可查询的指标名录里——系统按名录里的指标名"
+                "查数。想知道都能查什么，可以直接问我。")
+    return f"系统没法直接给这条的数：{reason}"
 
 
 def _watermark_date_of(deps: LoopDeps) -> Any:
@@ -3539,7 +3554,7 @@ def _make_verify(
                 text = (
                     f"{body}（闸依据如实转答——零数值，不冒充出数。）"
                     if body
-                    else "（未取得观察材料——如实回报，不编造。）"
+                    else NO_MATERIAL_SHELL
                 )
             rewritten, cited, split = 0, list[int](), False
         else:

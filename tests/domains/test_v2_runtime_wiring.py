@@ -238,7 +238,7 @@ async def test_today_question_refused(tmp_path: Path) -> None:
         # 维持 refuse 语义（R6-03 未来窗不代猜不冒充）：三轮重决策全部被引擎窗界
         # 校验拒（拒因回喂——拍板②），零数值出数；轮耗收敛如实收口。
         assert "21.16" not in answer
-        assert "未取得可交付观察材料" in answer
+        assert "没能查到能回答" in answer  # V2-80d 人话壳单源
         # 拒因回喂面：窗界越界拒因逐轮在案（decision_rejected 机读分型）。
         notices = _notices(events)
         rejected = [n for n in notices if n.get("type") == "decision_rejected"]

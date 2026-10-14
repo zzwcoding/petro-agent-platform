@@ -219,3 +219,37 @@ def test_iso_day_shapes() -> None:
     assert iso_day(date(2026, 8, 31)) == "2026-08-31"
     assert iso_day(lambda: date(2026, 8, 31)) == "2026-08-31"
     assert iso_day(None) == ""
+
+
+# ---------- V2-80d 钉（查询性质声明＋作用域句＋拒因翻译） ----------
+
+
+def test_v2_80d_system_prompt_query_identity_and_scope() -> None:
+    """SYSTEM_PROMPT：查询性质声明（执行类诉求不在系统内）＋红线 2 作用域句
+    （找到才逐源详答／没找到简短说明＋主体未命中请确认）。"""
+    from appv2.runtime.context import SYSTEM_PROMPT
+
+    assert "查询与解读系统" in SYSTEM_PROMPT
+    assert "执行类诉求" in SYSTEM_PROMPT and "引导线下流程" in SYSTEM_PROMPT
+    assert "逐源作答只用于材料确实覆盖了所问内容的情形" in SYSTEM_PROMPT
+    assert "只说明未找到并请用户确认" in SYSTEM_PROMPT
+
+
+def test_v2_80d_answer_instruction_scope_clause() -> None:
+    """作答指令：未找到比例半句在册（追加不删改——V2-61 锁定段零触碰）。"""
+    from appv2.runtime.graph import _ANSWER_INSTRUCTION
+
+    assert "（材料未覆盖所问时：只简短说明未找到与所缺，不逐源铺陈无关材料）" in _ANSWER_INSTRUCTION
+
+
+def test_v2_80d_humanize_refusal_translations() -> None:
+    """拒因翻译单点：已知形（指标不在台账全量）→人话；未知形→兜底保留原文。"""
+    from appv2.runtime.graph import _humanize_refusal
+
+    known = _humanize_refusal(
+        "指标 '油田' 不在台账全量——确定性校验拒（不在目录不代答；台账闭世界校验）"
+    )
+    assert "「'油田'」不在可查询的指标名录里" in known
+    assert "确定性校验拒" not in known  # 机读措辞不达用户面
+    unknown = _humanize_refusal("某种全新拒因形态")
+    assert "系统没法直接给这条的数" in unknown and "某种全新拒因形态" in unknown

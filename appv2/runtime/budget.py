@@ -17,6 +17,13 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+# V2-80d 人话壳单源（未找到/未取得材料的用户面文案——五装配点消费；
+# 追问版人话壳 V2-77 独立不动）。
+NO_MATERIAL_SHELL = (
+    "没能查到能回答这个问题的材料——可以换个问法，或告诉我更多背景"
+    "（哪口井、哪个时间段），我再帮您查。"
+)
+
 # 预算闸合同值（ReAct 语义——拍板①；测试可收窄，合同值本身不因测试改动）。
 MAX_ROUNDS_CONTRACT = 3
 MAX_DISCOVERS_PER_ROUND_CONTRACT = 2
@@ -121,7 +128,7 @@ def unfinished_notice(state: Any, gates: list[str]) -> dict[str, Any]:
     if material_rows(state):
         tail = "已交付已取得部分，不静默截断。"
     else:
-        tail = "未取得可交付观察材料——如实回报，不编造。"
+        tail = NO_MATERIAL_SHELL
     return {
         "type": "budget_converged",
         "gates": gates,
