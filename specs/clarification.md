@@ -32,7 +32,8 @@
 | clarification | 新增 | 四动作澄清 ＋ 反问挂起与恢复 ＋ 覆盖校验 |
 | prompts | 新增 | 澄清轮指令与台账注入块（只出文本） |
 | parsing | 新增 | 发射与问题组的解析、闭世界 schema 对账 |
-| gateway_adapter | 新增 | 模型调用唯一出口；本 spec 只消费 |
+| bookkeeping | 新增依赖 | 模型调用发起面：经 bookkeeping.call_model（单点发起），本块不直引 gateway_adapter |
+| gateway_adapter | 新增 | 模型出口（唯一出口仍归它）；本块不直引——经 bookkeeping.call_model 发起 |
 | state | 新增 | `pending_ask`／子问题列等状态形状 |
 
 ## 接口定义
@@ -69,7 +70,7 @@ class ClarifyReason:                                # 结构化拒因单条
 ## 框架与依赖红线
 
 - **无点名框架**（本模块不引入任何框架）。
-- **模型调用唯一出口＝`gateway_adapter`，禁手写替代**：不得自建模型客户端、不得绕过 `gateway_adapter` 直连上游。对应闸：`tools/importlinter_v2.toml` 的 **R7 契约**（runtimev2 各块只经 `gateway_adapter` 调模型；**B6 只管 litellm 出 `infra`，不含「绕过 `gateway_adapter` 直引」这一面**）；验收写法：「无旁路」行为断言（模型调用点只出现在 `gateway_adapter`，无自建旁路）。
+- **模型调用发起面＝`bookkeeping.call_model`（单点发起），禁手写替代；其内部唯一出口＝`gateway_adapter`**：本块不直引 `gateway_adapter`（import 落点＝`appv2.runtimev2.bookkeeping` 包根——R2 禁深层子模块）、不得自建模型客户端、不得绕过该发起面直连上游。对应闸：`tools/importlinter_v2.toml` 的 **R7 契约**（禁直引 `appv2.infra.llm_client`——模型出口仍唯一归 `gateway_adapter`；**B6 只管 litellm 出 `infra`，不含「绕过 `gateway_adapter` 直引」这一面**；发起面收敛为规格层 doctrine，不设闸——主窗 2026-10-15 裁）；验收写法：「无旁路」行为断言（模型调用发起点只出现在 `bookkeeping.call_model`，无自建旁路）。
 - **不得直接 import `langgraph`／`langchain`**（框架只许在 `orchestration`）；对应闸：**R5b 契约**。
 
 ## 行为约定
@@ -127,7 +128,7 @@ class ClarifyReason:                                # 结构化拒因单条
 
 ## 依赖与风险
 
-- 依赖：`prompts`／`parsing`（同批新增）、`gateway_adapter`（模型出口，真源 `specs/modules.md` `## gateway_adapter`）、`state`（状态形状）。
+- 依赖：`prompts`／`parsing`（同批新增）、`bookkeeping`（模型调用发起面——`call_model` 单点发起）、`gateway_adapter`（模型出口——经 `call_model` 的内部唯一出口，本块不直引；真源 `specs/modules.md` `## gateway_adapter`）、`state`（状态形状）。
 - 风险与对策：
   1. **限额数值被复制进实现** → 漂移。对策：限额数值只从真源双指读（`recon/K-上下文事件指南预算.md` R-K-72…R-K-78 逐键 ＋ `walk/裁决表.md` §06-A 循环上限五项）；检测手段＝限额常量单点测试（`state` 卡）。
   2. **覆盖校验滑成程序判** → 违总纪律。对策：判据只留在模型侧；检测手段＝AST 机检测试 `no_lexicon_or_regex_in_clarification`（**豁免面＝形态处理**：逐字子串校与集合成员判定不算语义词表／正则）。
@@ -140,7 +141,7 @@ class ClarifyReason:                                # 结构化拒因单条
 | 触及模块名已声明 | spec gate | 已进 CI |
 | 验收测试逐行有标识 | spec gate | 已进 CI |
 | 不 import `langgraph`／`langchain` | 边界闸 R5b | 已真跑 |
-| 模型调用只经 `gateway_adapter` | 边界闸 R7（B6 只管 litellm 出 `infra`，不含「绕过 `gateway_adapter` 直引」面） | 已真跑（`tools/importlinter_v2.toml` R7 契约） |
+| 模型调用经 `bookkeeping.call_model` 发起（单点发起；其内部唯一出口 `gateway_adapter`） | 边界闸 R7（出口面：禁直引 `appv2.infra.llm_client`；B6 只管 litellm 出 `infra`，不含「绕过 `gateway_adapter` 直引」面。发起面为规格层 doctrine，不设闸） | 已真跑（`tools/importlinter_v2.toml` R7 契约） |
 | 程序不判语义（无词表／正则） | 测试 `::no_lexicon_or_regex_in_clarification` | 待实现（阶段 5） |
 | 封顶数值不复制、只引限额真源双指（`recon/K-上下文事件指南预算.md` R-K-72…R-K-78 ＋ `walk/裁决表.md` §06-A） | 测试 `::subtask_cap_from_budget_table` ＋ `state` 侧常量单点测试 | 待实现 |
 | 到顶截断不静默（带材料交付） | 测试 `::ask_cap_truncate_with_material` | 待实现 |

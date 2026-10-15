@@ -32,3 +32,16 @@
 2. **「绑定闸拒＝换链回炉」侧**：在 `specs/agent-loop.md`，由另一窗口施工——本批只在行为 3 做了区分性措辞，未改 agent-loop 任何内容；两侧措辞最终对齐待 agent-loop 回工完成后人审一遍。
 3. **发射级拒的机读信号形**：真源 A-P4b-06 只定「不执行工具、不占探查预算」的拒语义，未定义专用事件形；本批未新增信号要求（不发明业务事实），发射级拒的留痕面随阶段 5 织网时按 `tool` 事件实态定。
 4. pin-16 的钉本体在 preconditions 侧（`::rewire_once_then_refuse`，`specs/preconditions.md:108` 已有验收行）——本块触发面（域错→回炉发起）的独立断言是否需要、归谁，待主窗核定后随织网补。
+
+
+---
+
+## V1 发起面回改（主窗裁 doctrine）——2026-10-15
+
+- **依据**：复审⑦处置（`docs/runtime-refactor/00-决议与方法.md` 流水 27 第①裁）——相位调模型一律经 `bookkeeping.call_model`（其内部唯一出口 `appv2.runtimev2.gateway_adapter`）。本次只改 `specs/execution.md`（147 行不变）＋本记录，其它文件未动；未 git commit（主窗统一提交）。
+- **本块定性**：`execution` 属**零 LLM 面**（R8 契约 source 覆盖 `preconditions`／`verification`／`execution` 三块）——**不调模型、不存在发起面**。按主窗裁注「零 LLM 不调模型，不加 bookkeeping 依赖」，本次**不新增 bookkeeping 依赖行**，只改措辞声明：
+  1. 「框架与依赖红线」零 LLM 条（:71）：补「本块零 LLM 面（R8），**不存在模型调用发起面**——不调模型，模型调用发起面（`bookkeeping.call_model`）不在本块作用面」；「不得引 `appv2.runtimev2.gateway_adapter`」与 R8/R7 括注不变。
+  2. 「与闸的挂钩表」零 LLM 行（:138）：硬要求列由「零 LLM 面（本块不引 `gateway_adapter`）」改为「零 LLM 面（本块不调模型、不存在发起面；不引 `gateway_adapter`）」；挂钩与现状列不变。
+- **不加闸（裁定照录）**：importlinter 边界闸**不随本批加**——R8 零 LLM 面语义不变，doctrine 是规格层不是闸层（主窗 2026-10-15 裁）。
+- **契约字面核对（未改 toml）**：R8（forbidden＝`appv2.runtimev2.gateway_adapter`，source 含本块）与新 doctrine 无字面冲突；R7 对本块「天然满足」的表述不受影响。
+- **验证**：`uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿（20 份规格）**。均 exit 0（批次一改后实跑）。

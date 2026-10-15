@@ -33,7 +33,8 @@
 | tool_matching | 新增 | 提议 ＋ 闭世界对账（恰配一条） |
 | parsing | 新增 | 工具匹配发射的解析（同批新增） |
 | prompts | 新增 | 工具匹配轮的指令与提示词合同（只出文本）；本 spec 只消费 |
-| gateway_adapter | 新增 | 模型调用唯一出口；本 spec 只消费 |
+| bookkeeping | 新增依赖 | 模型调用发起面：经 bookkeeping.call_model（单点发起），本块不直引 gateway_adapter |
+| gateway_adapter | 新增 | 模型出口（唯一出口仍归它）；本块不直引——经 bookkeeping.call_model 发起 |
 | state | 新增 | 匹配列等状态形状；本 spec 只消费 |
 | tools | 改实现 | **工具描述写全**（何时用／不能做什么／参数示例）——本块只消费其公开面 |
 
@@ -74,10 +75,10 @@ class MatchReason:                         # 结构化拒因单条：缺配／�
 ## 框架与依赖红线
 
 - **无点名框架**（本模块不引入任何框架）。
-- **模型调用唯一出口＝`gateway_adapter`**；对应闸：`tools/importlinter_v2.toml` 的 **R7 契约**（runtimev2 各块只经 `gateway_adapter` 调模型；**B6 只管 litellm 出 `infra`，不含「绕过 `gateway_adapter` 直引」这一面**）。
+- **模型调用发起面＝`bookkeeping.call_model`（单点发起）；其内部唯一出口＝`gateway_adapter`**：本块不直引 `gateway_adapter`（import 落点＝`appv2.runtimev2.bookkeeping` 包根——R2 禁深层子模块）。对应闸：`tools/importlinter_v2.toml` 的 **R7 契约**（禁直引 `appv2.infra.llm_client`——模型出口仍唯一归 `gateway_adapter`；**B6 只管 litellm 出 `infra`，不含「绕过 `gateway_adapter` 直引」这一面**；发起面收敛为规格层 doctrine，不设闸——主窗 2026-10-15 裁）。
 - **不得直接 import `langgraph`／`langchain`**；对应闸：**R5b 契约**。
 - **只经 `tools` 公开面**接触世界；对应闸：`specs/modules.md` 边界规则 R6（`runtimev2` 各块只经 `appv2.tools` 公开面）。
-- **禁手写替代**：不得自建模型客户端／自建工具目录。对应闸：`tools/importlinter_v2.toml` 的 **R7 契约**（模型只经 `gateway_adapter`）＋ **R6 契约**（只经 `tools` 公开面）；验收写法：「无旁路」行为断言。
+- **禁手写替代**：不得自建模型客户端／自建工具目录。对应闸：`tools/importlinter_v2.toml` 的 **R7 契约**（模型出口唯一归 `gateway_adapter`——发起经 `bookkeeping.call_model`）＋ **R6 契约**（只经 `tools` 公开面）；验收写法：「无旁路」行为断言。
 
 ## 行为约定
 
@@ -118,7 +119,7 @@ class MatchReason:                         # 结构化拒因单条：缺配／�
 
 ## 依赖与风险
 
-- 依赖：`parsing`（发射解析）、`prompts`（本相位指令与合同）、`gateway_adapter`（模型出口）、`state`（状态形状）、`tools`（公开面＋描述文本）。
+- 依赖：`parsing`（发射解析）、`prompts`（本相位指令与合同）、`bookkeeping`（模型调用发起面——`call_model` 单点发起）、`gateway_adapter`（模型出口——经 `call_model` 的内部唯一出口，本块不直引）、`state`（状态形状）、`tools`（公开面＋描述文本）。
 - 风险与对策：
   1. **参数校验与 `query` 卡的 `QueryPlan` 真源漂移** → 两处规则不一致。对策：`QueryPlan` 只引用不复制；检测手段＝与 `specs/query.md` 的字段对照测试。
   2. **工具描述写全落在 `tools` 侧**（本块唯一涉及 runtimev2 之外文件的地方）。对策：改动限于描述文本，不动 `tools` 公开接口签名；检测手段＝`tools` 卡公开接口对账（阶段 7 体检）。
@@ -134,7 +135,7 @@ class MatchReason:                         # 结构化拒因单条：缺配／�
 | 验收测试逐行有标识 | spec gate | 已进 CI |
 | 只经 `tools` 公开面接触世界 | 边界闸 R6 | 已真跑（`tools/importlinter_v2.toml` R6 契约；已用探针验证会红） |
 | 不 import `langgraph`／`langchain` | 边界闸 R5b | 已真跑 |
-| 模型调用只经 `gateway_adapter` | 边界闸 **R7**（B6 只管 litellm 出 `infra`，不含绕过面） | 已真跑 |
+| 模型调用经 `bookkeeping.call_model` 发起（单点发起；其内部唯一出口 `gateway_adapter`） | 边界闸 **R7**（出口面：禁直引 `appv2.infra.llm_client`；B6 只管 litellm 出 `infra`，不含绕过面。发起面为规格层 doctrine，不设闸） | 已真跑 |
 | 程序只对账、不替模型选工具 | 测试 `::no_lexicon_or_regex_in_tool_matching` | 待实现（阶段 5） |
 | 限额数值不复制、只引限额真源双指（`recon/K-上下文事件指南预算.md` R-K-72…R-K-78 ＋ `walk/裁决表.md` §06-A） | `state` 侧常量单点测试 ＋ `::exactly_one_match_per_subtask` | 待实现 |
 | 工具描述三件套 | 测试 `::descriptor_covers_three_parts` | 待实现 |

@@ -35,3 +35,16 @@
 ## 验证
 
 - `uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿（13 份规格）**。未 git commit。
+
+
+---
+
+## V1 发起面回改（主窗裁 doctrine）——2026-10-15
+
+- **依据**：复审⑦处置（`docs/runtime-refactor/00-决议与方法.md` 流水 27 第①裁）——相位调模型一律经 `bookkeeping.call_model`（其内部唯一出口 `appv2.runtimev2.gateway_adapter`）。本次只改 `specs/verification.md`（142 行不变）＋本记录，其它文件未动；未 git commit（主窗统一提交）。
+- **本块定性**：`verification` 属**零 LLM 面**（R8 契约 source 覆盖 `preconditions`／`verification`／`execution` 三块）——**不调模型、不存在发起面**。按主窗裁注「零 LLM 不调模型，不加 bookkeeping 依赖」，本次**不新增 bookkeeping 依赖行**，只改措辞声明：
+  1. 「框架与依赖红线」零 LLM 条（:63）：补「本块零 LLM 面（R8），**不存在模型调用发起面**——不调模型，模型调用发起面（`bookkeeping.call_model`）不在本块作用面」；R8/R7 分层辨明与验收写法不变。
+  2. 「与闸的挂钩表」零 LLM 行（:129）：硬要求列由「零 LLM 面（不调模型）」改为「零 LLM 面（不调模型、不存在发起面）」；挂钩与现状列不变。
+- **不加闸（裁定照录）**：importlinter 边界闸**不随本批加**——R8 零 LLM 面语义不变，doctrine 是规格层不是闸层（主窗 2026-10-15 裁）。
+- **契约字面核对（未改 toml）**：R8（forbidden＝`appv2.runtimev2.gateway_adapter`，source 含本块）与新 doctrine 无字面冲突；R7 对本块「天然满足」的表述不受影响。
+- **验证**：`uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿（20 份规格）**。均 exit 0（批次一改后实跑）。

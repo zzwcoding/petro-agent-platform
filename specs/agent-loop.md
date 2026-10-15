@@ -33,6 +33,7 @@ LLM 判断孤岛。
 | 模块 | 改动类型 | 说明 |
 |---|---|---|
 | orchestration | 新增 | 四相位循环与路由/命令受理与挂起恢复（LangGraph 实现） |
+| bookkeeping | 新增依赖 | 模型调用发起面：经 bookkeeping.call_model（单点发起），本块不直引 gateway_adapter |
 | preconditions | 新增 | 前置条件机调度（闸件本体在 `tools` 侧） |
 | context | 新增 | Context Builder＋对话状态簿记（`dialogue`＋`process_notes` 双字段） |
 | verification | 新增 | Verifier 核验收口 |
@@ -68,7 +69,7 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 ## 框架与依赖红线
 
 - **框架只许本模块内部**：LangGraph（含 `langchain*`）**不得渗漏出本模块**；state schema 自有（`RunState` 为自有 dataclass，框架只当 schema 消费）。对应闸：`tools/importlinter_v2.toml` 的 **R5b 契约**（框架只许在 `runtimev2.orchestration`，其余 16 块禁引）。
-- **模型调用唯一出口＝`gateway_adapter`**；对应闸：**R7 契约**（runtimev2 各块禁直引 `appv2.infra.llm_client`）＋「无旁路」行为断言。
+- **模型调用发起面＝`bookkeeping.call_model`（单点发起）；其内部唯一出口＝`gateway_adapter`**：编排层与各相位不直引 `gateway_adapter` 发起模型调用、不自建模型客户端。对应闸：**R7 契约**（runtimev2 各块禁直引 `appv2.infra.llm_client`；发起面收敛为规格层 doctrine，不设闸——主窗 2026-10-15 裁）＋「无旁路」行为断言。
 - **只经 `tools` 公开面接触世界**；对应闸：**R6 契约**。
 - **不直引引擎**（`knowledge`／`query`／`retrieval`）——引擎面只经 `tools` 公开面接触世界；对应闸：**R6 契约**。
 - **只经 `transport` 包根**发帧（不自行拼 wire 帧）：**R2 契约不覆盖本块**（R2 的 source 只含七个业务相位，不含 `orchestration`）——故这一半**如实登记为无专属闸 → 人审**（见「与闸的挂钩表」）。
@@ -207,7 +208,7 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 
 ## 依赖与风险
 
-- 依赖：`tools` 五工具接口（specs/tools.md）；Skill 指南＝ontology 资产
+- 依赖：`tools` 五工具接口（specs/tools.md）；`bookkeeping`（模型调用发起面——`call_model` 单点发起）；Skill 指南＝ontology 资产
   （OntologyGuideProvider——含发射判据与澄清合同；DefaultGuideProvider 已退役，
   create_app 组合根接正式指南）；infra 复制票（gateway completer/时钟/db）。
 - 风险：LangGraph checkpointer 的 PG saver 与 V1 表共存（新表前缀 agent_v2_ 隔离）；
@@ -222,7 +223,7 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 | 十节标题齐备、逐字、有序 | **人审** | 原因：`tools/check_specs.py` 不校标题名／顺序，仓内无标题闸（登记：可降维为一条标题机检，本批未授权） |
 | 真源引用可解析（路径／边界规则编号／被引卡片在册） | 真源引用闸 `tools/ref_resolvable.py` | 已进 CI |
 | 框架只在本块（LangGraph 不外溢） | 边界闸 **R5b** | 已真跑 |
-| 模型调用只经 `gateway_adapter` | 边界闸 **R7** | 已真跑 |
+| 模型调用经 `bookkeeping.call_model` 发起（单点发起；其内部唯一出口 `gateway_adapter`） | 边界闸 **R7**（出口面；发起面为规格层 doctrine，不设闸） | 已真跑 |
 | 只经 `tools` 公开面接触世界 | 边界闸 **R6** | 已真跑 |
 | 不直引引擎（`knowledge`／`query`／`retrieval`） | 边界闸 **R6** | 已真跑 |
 | 只经 `transport` 包根发帧 | **R2 不覆盖本块**（其 source 只含七个业务相位，不含 `orchestration`）→ **人审** | 原因：R1–R8 无「本块只经 transport 包根」一面；降维 AST 断言需新增验收行，登记待补 |

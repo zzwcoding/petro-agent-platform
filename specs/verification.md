@@ -60,7 +60,7 @@ class Gap:                               # 复用 answering 的 Gap 口径（字
 ## 框架与依赖红线
 
 - **无点名框架**（本模块不引入任何框架）。
-- **零 LLM 面（不调模型）**：本块的硬要求是**不调模型**。对应闸：`tools/importlinter_v2.toml` **R8 契约**（`forbidden`＝`appv2.runtimev2.gateway_adapter`；`preconditions`／`verification`／`execution` 禁引）——**真正覆盖本块的是 R8**；**R7**（`forbidden`＝`appv2.infra.llm_client`）只禁「直引 `appv2.infra.llm_client`」一面，对本块仅是「天然满足」（本块既不调模型、也不直引该出口）。验收写法：**AST 机检**（先例 `tests/domains/test_v2_four_phase.py:446`）＋「无旁路」断言。
+- **零 LLM 面（不调模型）**：本块零 LLM 面（R8），**不存在模型调用发起面**——不调模型，模型调用发起面（`bookkeeping.call_model`）不在本块作用面；本块的硬要求是**不调模型**。对应闸：`tools/importlinter_v2.toml` **R8 契约**（`forbidden`＝`appv2.runtimev2.gateway_adapter`；`preconditions`／`verification`／`execution` 禁引）——**真正覆盖本块的是 R8**；**R7**（`forbidden`＝`appv2.infra.llm_client`）只禁「直引 `appv2.infra.llm_client`」一面，对本块仅是「天然满足」（本块既不调模型、也不直引该出口）。验收写法：**AST 机检**（先例 `tests/domains/test_v2_four_phase.py:446`）＋「无旁路」断言。
 - **不得直接 import `langgraph`／`langchain`**；对应闸：**R5b 契约**。
 - **只经 `transport` 公开面**发帧（「只经包根」半面由 **R2 契约**覆盖）。
 - **禁手写替代**：不得自建模型客户端、不得自建帧通路。对应闸：`tools/importlinter_v2.toml` **R8 契约**（`forbidden`＝`appv2.runtimev2.gateway_adapter`，本块禁引）。（**「自建帧通路」一面**：`transport` 的「只经包根」半面由 **R2 契约**覆盖，见「与闸的挂钩表」；另一半「不自行拼 wire 帧」无专属闸 → **人审**，理由：R1–R8 无「不许出现直连帧通路符号」一面；降维（AST 断言）需新增验收行，本批未授权，登记待补。）
@@ -126,7 +126,7 @@ class Gap:                               # 复用 answering 的 Gap 口径（字
 |---|---|---|
 | 触及模块名已声明 | spec gate | 已进 CI |
 | 验收测试逐行有标识 | spec gate | 已进 CI |
-| 零 LLM 面（不调模型） | 边界闸 **R8** ＋ AST 机检 `::no_model_call_in_verification` | R8 已真跑；AST 测试待实现 |
+| 零 LLM 面（不调模型、不存在发起面） | 边界闸 **R8** ＋ AST 机检 `::no_model_call_in_verification` | R8 已真跑；AST 测试待实现 |
 | 不直接 import `langgraph`／`langchain` | 边界闸 **R5b** | 已真跑 |
 | 只经 `transport` 公开面发帧（只经包根半面） | 边界闸 **R2** | 已真跑 |
 | 不自行拼 wire 帧／不直连 SSE 通道（另一半） | **无专属闸** → **人审** | 原因：R1–R8 无「不许出现直连帧通路符号」一面；降维（AST 断言）需新增验收行，本批未授权，登记待补 |

@@ -61,3 +61,19 @@
 **验证（2026-10-15）**：`uv run python tools/check_specs.py`＝**PASS（0 警告）**；`uv run python tools/ref_resolvable.py check`＝**绿（14 份规格可解析）**。本规格现登记钉：pin-04/08/09/13/19/20 共 6 根（另 pin-10 行为/验收落点已备、钉登记随织网统筹）。
 
 
+
+
+---
+
+## V1 发起面回改（主窗裁 doctrine）——2026-10-15
+
+- **依据**：复审⑦处置（`docs/runtime-refactor/00-决议与方法.md` 流水 27 第①裁）——相位调模型一律经 `bookkeeping.call_model`（其内部唯一出口 `appv2.runtimev2.gateway_adapter`）。本次只改 `specs/answering.md`（149→150 行）＋本记录，其它文件未动；未 git commit（主窗统一提交）。
+- **修改点**（行号指改后文件）：
+  1. 「触及的模块」依赖表（:30-32）：新增 `bookkeeping` 行（改动类型＝**新增依赖**；说明＝「模型调用发起面：经 bookkeeping.call_model（单点发起），本块不直引 gateway_adapter」）；同表 `gateway_adapter` 行说明由「模型调用唯一出口（本块只消费）」改为「模型出口（唯一出口仍归它）；本块不直引——经 bookkeeping.call_model 发起」。
+  2. 「框架与依赖红线」（:65）：「模型调用唯一出口＝gateway_adapter」改为「**模型调用发起面＝`bookkeeping.call_model`（单点发起）；其内部唯一出口＝`gateway_adapter`**」，补「import 落点＝`appv2.runtimev2.bookkeeping` 包根——R2 禁深层子模块」；R7 括注改准为「禁直引 `appv2.infra.llm_client`——模型出口仍唯一归 `gateway_adapter`」；验收写法改为「模型调用发起点只出现在 `bookkeeping.call_model` ＋ 调用行为测试绿」，并注「发起面收敛为规格层 doctrine，不设闸——主窗 2026-10-15 裁」。
+  3. 「框架与依赖红线」禁手写替代条（:68)：R7 括注由「runtimev2 各块只经 `gateway_adapter` 调模型」改为「模型出口唯一归 `gateway_adapter`——发起经 `bookkeeping.call_model`」；「无旁路」断言对象同步改为发起点。
+  4. 「依赖与风险」依赖行（:123)：补 `bookkeeping`（模型调用发起面——`call_model` 单点发起）；`gateway_adapter` 括注改为「经 `call_model` 的内部唯一出口，本块不直引」。
+  5. 「与闸的挂钩表」（:136)：「模型调用只经 `gateway_adapter`」行改为「模型调用经 `bookkeeping.call_model` 发起（单点发起；其内部唯一出口 `gateway_adapter`）」；挂钩列注「出口面 R7；发起面为规格层 doctrine，不设闸」；现状列不变。
+- **不加闸（裁定照录）**：importlinter 边界闸**不随本批加**——R7「只经出口」＋R8 语义不变，doctrine 是规格层不是闸层（主窗 2026-10-15 裁）。
+- **契约字面核对（未改 toml）**：逐条实读 `tools/importlinter_v2.toml`——R7（forbidden＝`appv2.infra.llm_client`；source 含 `appv2.runtimev2.bookkeeping`）与 R2（业务相位 forbidden 含 `appv2.runtimev2.bookkeeping.*` 深层子模块、不含包根）均与新 doctrine **无字面冲突**。实现期注意：相位 import 只许 `appv2.runtimev2.bookkeeping` 包根（R2 面）。
+- **验证**：`uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿（20 份规格）**。均 exit 0（批次一改后实跑）。

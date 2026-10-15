@@ -18,7 +18,7 @@
 | **供应侧失败分类的单源化**（把现状两处判据归一） | `infra` 规格侧（**登记待办**）——本块只**摄入＋映射**（见行为 7） | `recon/L3-网关与支撑小件.md`（两分类现状＋旧码 429 私有重写 D-L3-03） |
 | 事件与帧（模型产出如何变成页面帧） | `transport` | `specs/transport.md` |
 | 限额／预算判定 | `state`（判定）＋`bookkeeping`（落地） | `specs/state.md` 行为 10／13 |
-| **自由参数透传**（`**params` 一类「供应商参数随便传」的口子） | **不做**——调参在本块内单点；本块不对外开自由键 | 本规格行为 3 |
+| **自由参数透传**（`**params` 一类「供应商参数随便传」的口子） | **不做**——调参在本块内单点；本块不对外开自由键 | 本规格行为 2 |
 | 用程序替模型做语义判断（本块零判断：只转发与记账） | **不做** | `docs/runtime-refactor/walk/判断归责表.md` |
 
 ## 触及的模块
@@ -57,6 +57,7 @@ def frozen_date() -> date: ...         # 冻结「今天」：未设/空串→�
 # ── 测试替身（同面——织网地基件，已随本规格回写）─────────────
 class ScriptedCompleter:
     async def complete(self, messages, *, caller: str, run_id: str = "") -> ModelReply: ...
+    calls: list[tuple[str, list[dict[str, str]]]]    # 公开留痕属性（测试断言专用）：逐调用 (caller, messages 拷贝) 快照
     def counts(self) -> dict[str, int]: ...          # per-caller 计数桶（观测面）
     def messages_of(self, caller: str) -> list[list[dict[str, str]]]: ...   # 逐轮 messages 回看
 ```
@@ -80,13 +81,13 @@ class ScriptedCompleter:
 2. **入参面固定三件**：`messages`（消息序列）／`caller`（关键词）／`run_id`（关键词）；**无自由 `params`**。断言：签名参数集合恰为此三者（+`self`）；传未知键报错。
 3. **回执面恒全键**：`ModelReply` 十个字段**恒在场**（失败尝试时 `error` 非 None、`content` 为空串）；`cached_tokens` **上游未上报时 =0**（不缺口、不省略——钉 `pin-25`）。断言：成功／失败两路径的回执键集合相等。
 4. **`async` 是硬要求**：`complete` 是协程（真实 I/O）；**不得在事件循环内同步阻塞调用**。断言：`inspect.iscoroutinefunction(complete)`。
-5. **归因面逐调用保留**：每次调用把 `caller` 与 `run_id` 交给出口（记账归因面），**逐调用不合并、不覆盖**；`caller` 取值来自调用方（三桶族：理解／决策／作答）。断言：逐调用留痕可按 `caller`／`run_id` 分组（替身 `counts()`／`messages_of()` 与 calllog 行同口径）。
-6. **重试只对可重试类**：限流／超时／网络错／5xx → 按配置的**重试次数与退避**重试；**4xx 业务性拒绝不重试**（不误伤）。断言：注入非限流失败 → 一次即抛（调用计数＝1）；注入限流失败 → 重试到上限后抛（调用计数＝上限）。
+5. **归因面逐调用保留**：每次调用把 `caller` 与 `run_id` 交给出口（记账归因面），**逐调用不合并、不覆盖**；`caller` 取值来自调用方（三桶族：理解／决策／作答）。断言：逐调用留痕可按 `caller`／`run_id` 分组（替身 `calls`／`counts()`／`messages_of()` 与 calllog 行同口径——`calls` 测试断言专用）。
+6. **重试只对可重试类**：限流／超时／网络错／5xx → 按配置的**重试次数与退避**重试（缺省值以现状 env 面 `appv2/runtime/llm.py`（:47-49）的 `GATEWAY_429_RETRIES`／`GATEWAY_429_BACKOFF` 为**现状锚**——env 可覆写；**正式数值阶段 5 随真机定**，本规格不复制字面值）；**4xx 业务性拒绝不重试**（不误伤）。断言：注入非限流失败 → 一次即抛（调用计数＝1）；注入限流失败 → 重试到上限后抛（调用计数＝上限）。
 7. **可重试性的判据在本块成闭世界，且与「切备」分层（两件事，不许并成一句）**：合法失败类别＝`rate_limited`（429）｜`timeout`｜`upstream_unavailable`（网络错／5xx）｜`rejected`（4xx 业务性拒绝）；**前两类可重试、后两类不可重试**。**分层辨明**：`infra` 侧的现状判据回答的是「**要不要切备用部署**」（网络错／超时／5xx 可切；**429 不可切**——换部署救不了请求本身）；本块回答的是「**同一个调用要不要再试一次**」——**429 可重试**。两者判据方向不同、都不是对方。现状锚：`appv2/infra/llm_client.py`（可切／不可切二值）与 `appv2/tools/registry.py`（三分类，429→可重试）；旧码的 429 重试判据是旧 `appv2/runtime/llm.py` 的私有重写（漂移风险见 `recon/L3-网关与支撑小件.md` D-L3-03）。**跨块待办**：把供应侧失败分类**单源化**（`infra` 规格侧）——本块只做**摄入＋映射**，不新造第二张阈值表。断言：类别映射只在本块出现一次（单点函数）；`rejected` 类一次即抛、`rate_limited`／`timeout` 类重试到上限。
 8. **重试耗尽 fail-closed**：重试耗尽或不可重试类 → **原异常上抛**（不返回空应答、不静默降级为「无材料」）；收口归 `orchestration`。断言：耗尽路径抛错且最后一个回执的 `error` 非 None（失败尝试也留痕）。
 9. **评测冻结时钟**：`frozen_date()` 的解析规则——环境变量**未设或空串 → 缺省冻结日**（`EVAL_FROZEN_DATE_DEFAULT`，数值真源见「依赖与风险」）；**`real` → 当日真实日期**（读 `infra.clock`；**必须显式指定**，不得默认走真实钟）——**这一取向是对现状的有意收正**（现状 `resolve_eval_frozen_date` 在 `real` 时回 `None` 交调用方另取钟，两处判据易漂移；本块统一为「**恒回一个日期**」，取真实钟的细节封在本块内）；**ISO 日期 → 该日**；**非法值 → 抛错**（fail-fast，不静默回落）（钉 `pin-27` 的**时钟面**）。**生产装配路径不得读该环境变量**（只经显式注入缝）。断言：四种输入各按其规则；非法值抛错。
 10. **用时与用量如实**：`duration_ms`／token 计数实测（非估算时 `usage_estimated=False`）；**估算必须显式标注**（不许把估算当实数——`usage_estimated` 就是那个机读信号）。断言：估算路径 `usage_estimated=True`；实测路径为 `False`。
-11. **替身与生产桥同面**：测试替身 `ScriptedCompleter` 的 `complete` 与生产桥**同一签名与同一回执形状**（`async`／关键词参数／`ModelReply`），离线零触网；观测面 `counts()`／`messages_of()` 只读留痕、**不改注入剧本**。断言：替身测试 `tests/runtimev2/test_gateway_adapter_fake.py` **14 测**全绿（含签名卡面行）。
+11. **替身与生产桥同面**：测试替身 `ScriptedCompleter` 的 `complete` 与生产桥**同形签名（替身 `run_id` 可缺省＝测试便利，生产面必填）与同一回执形状**（`async`／关键词参数／`ModelReply`），离线零触网；观测面 `calls`／`counts()`／`messages_of()` 只读留痕（`calls` 为公开留痕属性，**测试断言专用**）、**不改注入剧本**。断言：替身测试 `tests/runtimev2/test_gateway_adapter_fake.py` **14 测**全绿（含签名卡面行）。
 12. **替身不静默兜底**：未剧本化 caller 且未设 `default` → **当场抛错**（不静默返回空串）；设了 `default` 则照回且**调用照样留痕**（兜底不静默丢）。断言：无 `default` 时抛错、有 `default` 时计数含该 caller。
 13. **本块零判断**：不读词表、不判语义、不做业务分支（只有「可重试／不可重试」这类由 `infra` 判据给出的结构分派）。断言：AST 扫描本块源码。
 

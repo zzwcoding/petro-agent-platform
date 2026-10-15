@@ -32,7 +32,8 @@
 | prompts | 新增 | 任务书三区的合同文本与装配函数 |
 | parsing | 新增 | 统一 JSON 的解析与 schema 校验 |
 | gate | 新增 | 入口两道闸；本 spec 只消费其结论 |
-| gateway_adapter | 新增 | 模型调用唯一出口；本 spec 只消费 |
+| bookkeeping | 新增依赖 | 模型调用发起面：经 bookkeeping.call_model（单点发起），本块不直引 gateway_adapter |
+| gateway_adapter | 新增 | 模型出口（唯一出口仍归它）；本块不直引——经 bookkeeping.call_model 发起 |
 | state | 新增 | 状态形状；本 spec 只消费 |
 | tools | 新增 | 结构卡与名录面；本 spec 只消费其公开面 |
 
@@ -59,7 +60,7 @@ class Direct:                              # route 闭世界
 ## 框架与依赖红线
 
 - **无点名框架**（本模块不引入任何框架）。
-- **模型调用唯一出口＝`gateway_adapter`（禁手写替代）**：模型调用点只出现在该出口，不得自建模型客户端、不得绕过 `gateway_adapter` 直连上游。对应闸：`tools/importlinter_v2.toml` 的 **R7 契约**（runtimev2 各块只经 `gateway_adapter` 调模型；**B6 只管 litellm 出 `infra`，不含「绕过 `gateway_adapter` 直引」这一面**）；验收写法：「无旁路」行为断言（模型调用点只出现在 `gateway_adapter`、无自建旁路；写法照 `specs/tool_matching.md` 同款）。
+- **模型调用发起面＝`bookkeeping.call_model`（单点发起，禁手写替代）；其内部唯一出口＝`gateway_adapter`**：本块不直引 `gateway_adapter`（import 落点＝`appv2.runtimev2.bookkeeping` 包根——R2 禁深层子模块）、不自建模型客户端、不得绕过该发起面直连上游。对应闸：`tools/importlinter_v2.toml` 的 **R7 契约**（禁直引 `appv2.infra.llm_client`——模型出口仍唯一归 `gateway_adapter`；**B6 只管 litellm 出 `infra`，不含「绕过 `gateway_adapter` 直引」这一面**；发起面收敛为规格层 doctrine，不设闸——主窗 2026-10-15 裁）；验收写法：「无旁路」行为断言（模型调用发起点只出现在 `bookkeeping.call_model`、无自建旁路；写法照 `specs/tool_matching.md` 同款）。
 - **不得直接 import `langgraph`／`langchain`**（框架只许在 `orchestration`）。对应闸：**R5b 契约**。
 - **只经 `tools` 公开面**接触世界（结构卡与名录面均经它取自引擎）；对应闸：`specs/modules.md` 边界规则 **R6**（`runtimev2` 各块只经 `appv2.tools` 公开面）。
 
@@ -111,7 +112,7 @@ class Direct:                              # route 闭世界
 
 ## 依赖与风险
 
-- 依赖：`gate`（入口闸结论）、`prompts`／`parsing`（同批新增）、`gateway_adapter`（模型出口，真源 `specs/modules.md` `## gateway_adapter`）、`state`（状态形状，只消费）、`tools`（结构卡与名录面，只消费其公开面）。
+- 依赖：`gate`（入口闸结论）、`prompts`／`parsing`（同批新增）、`bookkeeping`（模型调用发起面——`call_model` 单点发起）、`gateway_adapter`（模型出口——经 `call_model` 的内部唯一出口，本块不直引；真源 `specs/modules.md` `## gateway_adapter`）、`state`（状态形状，只消费）、`tools`（结构卡与名录面，只消费其公开面）。
 - 声明：**身份层单一来源**（`V2-80d`）——系统提示词（`SYSTEM_PROMPT`）全文本属他模块，本块**只声明身份层单一来源**（真源 `docs/runtime-refactor/proposals/M1-理解模块修订提案.md`）。
 - 风险与对策：
   1. **JSON 字段集变更牵连下游** → 对策：三消费面（**候选白名单闸／理解旁白灰条／直答通道**，真源 `walk/裁决表.md` §04-B）**同批改**；检测手段＝`understanding` 与 `parsing` 的契约测试。
@@ -125,7 +126,7 @@ class Direct:                              # route 闭世界
 | 触及模块名已声明 | spec gate | **已进 CI**（本轮补挂） |
 | 不 import `langgraph`／`langchain` | 边界闸 R5b | 已真跑 |
 | 只经 `tools` 公开面接触世界 | 边界闸 R6 | 已真跑（`tools/importlinter_v2.toml` R6 契约；探针验证会红） |
-| 模型调用只经 `gateway_adapter` | 边界闸 R7（B6 只管 litellm 出 `infra`，不含「绕过 `gateway_adapter` 直引」面） | 已真跑（`tools/importlinter_v2.toml` R7 契约） |
+| 模型调用经 `bookkeeping.call_model` 发起（单点发起；其内部唯一出口 `gateway_adapter`） | 边界闸 R7（出口面：禁直引 `appv2.infra.llm_client`；B6 只管 litellm 出 `infra`，不含「绕过 `gateway_adapter` 直引」面。发起面为规格层 doctrine，不设闸） | 已真跑（`tools/importlinter_v2.toml` R7 契约） |
 | 程序不判语义（无词表／正则） | 测试 `::no_lexicon_or_regex_in_understanding` | 待实现（阶段 5） |
 | 直答结构核验闭世界 | 测试 `::direct_with_assertion_rejected` ＋边界集行 | 待实现 |
 | 如实上报带机读信号 | 测试 `::reporting_signal_present` | 待实现 |

@@ -68,7 +68,7 @@ class Observation:
 
 - **无点名框架**（本模块不引入任何框架）。
 - **模型调用不在本块**：本块只做确定性的工具调用与结果归一（若将来需要模型参与汇总，那属 `answering`）。
-- **零 LLM 面**：`execution` 属零 LLM 面——**不得引 `appv2.runtimev2.gateway_adapter`**。对应闸：**R8 契约**（`tools/importlinter_v2.toml`；source 覆盖 `preconditions`／`verification`／`execution` 三块）。**R7 亦覆盖本块**（模型只经 `gateway_adapter`）——本块不调模型，R7 天然满足。
+- **零 LLM 面**：`execution` 属零 LLM 面（R8），**不存在模型调用发起面**——不调模型，模型调用发起面（`bookkeeping.call_model`）不在本块作用面；**不得引 `appv2.runtimev2.gateway_adapter`**。对应闸：**R8 契约**（`tools/importlinter_v2.toml`；source 覆盖 `preconditions`／`verification`／`execution` 三块）。**R7 亦覆盖本块**（模型只经 `gateway_adapter`）——本块不调模型，R7 天然满足。
 - **只经 `tools` 公开面**接触世界（本块不直引任何引擎）。对应闸：**R6 契约**。
 - 大结果落引用**只经 `persistence` 公开面**（不自行写库／不直连对象存储）：**无对应边界闸**——按 `docs/spec-format.md` §五降维为 AST 断言「不许出现直连符号」（对象存储客户端／裸 DB driver 等直连符号）。原因：`tools/importlinter_v2.toml` R1–R8 未覆盖「直连对象存储／自写库」这一面（R2 只禁公共层**深层子模块**，不禁公开面与外部直连）。对应测试：`tests/domains/test_v2_execution.py::no_direct_storage_symbols`。
 - **禁手写替代**：不得自建工具调用旁路、不得绕过 `tools` 直引引擎。
@@ -135,7 +135,7 @@ class Observation:
 | 验收测试逐行有标识 | spec gate | 已进 CI |
 | 只经 `tools` 公开面接触世界 | 边界闸 **R6** | 已真跑 |
 | 不直接 import `langgraph`／`langchain` | 边界闸 **R5b** | 已真跑 |
-| 零 LLM 面（本块不引 `gateway_adapter`） | 边界闸 **R8**（零 LLM 面） | 已真跑 |
+| 零 LLM 面（本块不调模型、不存在发起面；不引 `gateway_adapter`） | 边界闸 **R8**（零 LLM 面） | 已真跑 |
 | 程序不判语义（无词表／正则） | 测试 `::no_lexicon_or_regex_in_execution` | 待实现（阶段 5） |
 | 大结果落引用只经 `persistence` 公开面 | 无边界闸 → AST 断言 `::no_direct_storage_symbols` | 待实现（阶段 5）；原因：R1–R8 未覆盖此面 |
 | 大结果不留全文（只留摘要＋引用＋行数） | 测试 `::big_result_ref_only` | 待实现（阶段 5） |

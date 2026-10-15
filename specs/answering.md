@@ -27,7 +27,8 @@
 | answering | 新增 | 起草 ＋ 真流式推出 ＋ 引用落账 ＋ 结构化缺口 |
 | context | 新增 | 材料段与 Manifest（本块只消费其编译出口） |
 | prompts | 新增 | 答案轮的指令与材料装配文本（只出文本） |
-| gateway_adapter | 新增 | 模型调用唯一出口（本块只消费） |
+| bookkeeping | 新增依赖 | 模型调用发起面：经 bookkeeping.call_model（单点发起），本块不直引 gateway_adapter |
+| gateway_adapter | 新增 | 模型出口（唯一出口仍归它）；本块不直引——经 bookkeeping.call_model 发起 |
 | state | 新增 | 草稿／引用块／缺口的状态形状（本块只消费） |
 | transport | 新增 | **`text` 帧的增量发射**（本块只经其公开面） |
 
@@ -61,10 +62,10 @@ class Gap:
 ## 框架与依赖红线
 
 - **无点名框架**（本模块不引入任何框架）。
-- **模型调用唯一出口＝`gateway_adapter`**；验收写法：模型调用点只出现在该出口 ＋ 调用行为测试绿。对应闸：`tools/importlinter_v2.toml` 的 **R7 契约**（runtimev2 各块只经 `gateway_adapter` 调模型；**B6 只管 litellm 出 `infra`，不含「绕过 `gateway_adapter` 直引」这一面**）＋ 一条「无旁路」行为断言（写法照 `specs/tool_matching.md` 同款）。
+- **模型调用发起面＝`bookkeeping.call_model`（单点发起）；其内部唯一出口＝`gateway_adapter`**：本块不直引 `gateway_adapter`（import 落点＝`appv2.runtimev2.bookkeeping` 包根——R2 禁深层子模块）。验收写法：模型调用发起点只出现在 `bookkeeping.call_model` ＋ 调用行为测试绿。对应闸：`tools/importlinter_v2.toml` 的 **R7 契约**（禁直引 `appv2.infra.llm_client`——模型出口仍唯一归 `gateway_adapter`；**B6 只管 litellm 出 `infra`，不含「绕过 `gateway_adapter` 直引」这一面**）＋ 一条「无旁路」行为断言（写法照 `specs/tool_matching.md` 同款；发起面收敛为规格层 doctrine，不设闸——主窗 2026-10-15 裁）。
 - **不得直接 import `langgraph`／`langchain`**（框架只许在 `orchestration`）；对应闸：**R5b 契约**。
 - **只经 `transport` 公开面**发帧（不自行拼 wire 帧、不直接接触 SSE 通道）。
-- **禁手写替代**：不得自建模型客户端、不得自建帧通路。对应闸：`tools/importlinter_v2.toml` **R7 契约**（runtimev2 各块只经 `gateway_adapter` 调模型）；验收写法：「无旁路」行为断言（模型调用点只出现在 `gateway_adapter`，无自建旁路）。（**「自建帧通路」一面**：`transport` 的「只经包根」半面由 **R2 契约**覆盖，见「与闸的挂钩表」；另一半无闸。）
+- **禁手写替代**：不得自建模型客户端、不得自建帧通路。对应闸：`tools/importlinter_v2.toml` **R7 契约**（模型出口唯一归 `gateway_adapter`——发起经 `bookkeeping.call_model`）；验收写法：「无旁路」行为断言（模型调用发起点只出现在 `bookkeeping.call_model`，无自建旁路）。（**「自建帧通路」一面**：`transport` 的「只经包根」半面由 **R2 契约**覆盖，见「与闸的挂钩表」；另一半无闸。）
 
 ## 行为约定
 
@@ -119,7 +120,7 @@ class Gap:
 
 ## 依赖与风险
 
-- 依赖：`context`（材料与 Manifest）、`prompts`（答案轮指令）、`gateway_adapter`（模型出口）、`state`（状态形状）、`transport`（`text` 帧）。
+- 依赖：`context`（材料与 Manifest）、`prompts`（答案轮指令）、`bookkeeping`（模型调用发起面——`call_model` 单点发起）、`gateway_adapter`（模型出口——经 `call_model` 的内部唯一出口，本块不直引）、`state`（状态形状）、`transport`（`text` 帧）。
 - 风险与对策：
   1. **「真流式」退化成「收口一次推全量」**（本块最大缺口、易复发）→ 对策：验收以「多段 `text` 帧」为判据；检测手段＝`streaming_segments`。
   2. **引标与增量脱节**（段出了、引用没跟上）→ 对策：每段自带 `citation_seqs` 且必须可解析；检测手段＝`segment_citations_resolve`／`dangling_citation_rejected`。
@@ -132,7 +133,7 @@ class Gap:
 |---|---|---|
 | 触及模块名已声明 | spec gate | 已进 CI |
 | 验收测试逐行有标识 | spec gate | 已进 CI |
-| 模型调用只经 `gateway_adapter` | 边界闸 **R7**（B6 只管 litellm 出 `infra`） | 已真跑 |
+| 模型调用经 `bookkeeping.call_model` 发起（单点发起；其内部唯一出口 `gateway_adapter`） | 边界闸 **R7**（出口面：禁直引 `appv2.infra.llm_client`；B6 只管 litellm 出 `infra`。发起面为规格层 doctrine，不设闸） | 已真跑 |
 | 不直接 import `langgraph`／`langchain` | 边界闸 **R5b** | 已真跑 |
 | 只经 `transport` 公开面发帧（**只经包根**半面） | 边界闸 **R2**（业务相位禁引公共层块的**深层子模块**；`forbidden` 含 `appv2.runtimev2.transport.*`） | 已真跑 |
 | 不自行拼 wire 帧／不直连 SSE 通道（另一半） | **无专属闸** → **人审** | 原因：R1–R8 无「不许出现直连帧通路符号」一面；降维（AST 断言）需新增验收行，本批未授权，登记待补 |
