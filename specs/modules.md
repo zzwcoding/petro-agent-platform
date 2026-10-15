@@ -416,13 +416,20 @@ def is_same_param_replay(fingerprints, executed) -> bool: ...           # 同参
 
 ## context
 
-职责: 上下文——材料段渲染、过程档案（有界摘要）、术语表常驻注入、对话链追加
+职责: 上下文——材料段渲染、过程档案（有界摘要）、台账/名录投影取得（经 `tools` 公开面装载进 state——原「术语表常驻注入」改述，补录 2026-10-16，prompts-评审 P-07；常驻块包裹与逐字转抄渲染归 `prompts`）、对话链追加（＝追加内容渲染＋compaction 治理归本块；物理追加归 `bookkeeping.append_message` 写口、追加时点归调用方——补录 2026-10-16 改述，context-评审 P-16①）
 目录: `appv2/runtimev2/context/`
 
 ### 公开接口
 ```python
 def compile(state: RunState) -> CompiledContext: ...
+# 卡面本函数＝阶段 2 初拟形（补录 2026-10-16，context-评审 卡级清单①）——V2 定案＝compile 退役为
+# 「追加内容渲染器」（真源 `docs/runtime-refactor/arch/P6b-票堆V2-80系列后半.md` A-P6b-24），不施工；
+# 施工以 `specs/context.md` 接口定义节「V2 定案签名」为准。
+# 族名单权威注（补录 2026-10-16，context-评审 P-16②）：本卡公开面以 `specs/context.md` 接口定义为准
+# （族名单闭世界——六函数＋常量族，见其接口定义节；卡面 `compile` 为初拟形、不施工）。
 ```
+
+> **卡级补注（2026-10-16，ContextBuilder 去留——context-评审 卡级清单④）**：现状 `ContextBuilder` 配置载体的 V2 去留＝**已退役、不进 V2 面**（与卡面 compile 退役同批定案——照 `specs/agent-loop.md` 行为 2 改述口径「compile 已退役——流水 43⑦c」；对话装配改「每步在 `messages` 整链续写＋追加内容渲染器族」，施工以 `specs/context.md`「V2 定案签名」为准）。
 
 ### 依赖
 - 模块: `state`；`tools`（台账只读经其公开面，见边界规则）
@@ -542,7 +549,21 @@ def frozen_date() -> date: ...   # 评测冻结「今天」（未设/空串＝�
 ### 公开接口
 ```python
 def screen(text: str) -> Refusal | None: ...              # 安全阀：明显中招／越界早退
-def apply_term_verdict(verdict) -> Disposition: ...        # 废弃词闸：模型结论入、机械分派出
+def apply_term_verdict(verdict) -> Disposition: ...        # 废弃词闸：模型结论入、机械分派出——已移出（裁决 #12：判在模型/派在 preconditions；不施工——补录 2026-10-16，gate-评审 卡级张力①；V2 定案见 `specs/gate.md`「不做什么」行 2＋接口定义注）
+# 族成员补录（补录 2026-10-16，gate-评审 卡级张力③——照 `specs/gate.md` 接口定义节「V2 定案签名」逐字）：
+@dataclass(frozen=True, slots=True)
+class Refusal:
+    family: Literal["injection", "outbound", "write"]   # 三族闭世界（收口步分型＝family＋"_refused"，
+                                                         #  恰回 V1 三字面——R-B2-25）
+    hit: str          # 命中槽值：注入＝模式词原形｜外发＝通道词｜写意图＝对象词（话术槽与步 term 取此值）
+    content: str      # 拒答话术（三条模板逐字、槽已填——见下；恒非空）
+# 常量族八件（词表与话术文本逐字迁移——逐件字面见 `specs/gate.md` 接口定义节）：
+#   INJECTION_PATTERNS／INJECTION_ANSWER_TEMPLATE／OUTBOUND_VERBS／OUTBOUND_CHANNELS／
+#   OUTBOUND_ANSWER／WRITE_VERBS／WRITE_TARGETS／WRITE_ANSWER_TEMPLATE
+# STEP_TITLES：family→标题映射闭世界（步标题三形，迁移照抄）：
+#   injection→「N0 注入拦截硬终止」／outbound→「N0 外发拦截硬终止」／write→「N0 写意图拦截硬终止」
+# 族名单权威注（补录 2026-10-16）：本卡公开面以 `specs/gate.md` 接口定义为准（族名单闭世界——
+#   `screen`＋`Refusal`＋常量族〔八件＋`STEP_TITLES`〕之外新增公开成员＝只许「新增成员入名单＋同批对账消费方规格」进块）。
 ```
 
 ### 依赖
@@ -550,9 +571,9 @@ def apply_term_verdict(verdict) -> Disposition: ...        # 废弃词闸：模�
 - 外部: （无）
 
 ### Seam 与测试
-- Seam: 结论入口（模型结论 → 分派）
+- Seam: 词面判定入口（文本 → 命中结论）——安全阀快路径零模型（原「结论入口（模型结论 → 分派）」系裁决 #12 移出件遗物，改述——补录 2026-10-16）
 - Adapter: 固定词表 fixture
-- 测试计划: 安全阀明显中招即拒（**漏判由执行层兜，不靠它**）；废弃词闸**程序不做语义判断**（只收模型结论）；「出数只认现行口径」由 `tool_matching` 守
+- 测试计划: 安全阀明显中招即拒（**漏判由执行层兜，不靠它**）；废弃词闸面已随裁决 #12 移出（原「废弃词闸程序不做语义判断」句系移出件遗物——补录 2026-10-16，gate-评审 P-17）；「出数只认现行口径」由 `tool_matching` 守
 
 ## api
 
