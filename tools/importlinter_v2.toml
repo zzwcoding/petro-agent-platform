@@ -61,7 +61,7 @@ ignore_imports = [
     "appv2.infra.llm_client -> litellm",
 ]
 
-# ===== ADR-0007 落位批：runtimev2 内部边界（specs/modules.md 边界规则 R1–R5）=====
+# ===== ADR-0007 落位批：runtimev2 内部边界（specs/modules.md 边界规则 R1–R6）=====
 
 [[tool.importlinter.contracts]]
 name = "R1 runtimev2 七个业务相位互不 import（顺序由编排层定；ADR-0007）"

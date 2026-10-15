@@ -121,3 +121,67 @@ Q1 描述写全→行为 6＋`:104`✔；Q2 熔断→「不做什么」＋行为
 
 **给修订步的修复单**：F-01（规格侧）／F-02／F-03／F-04／F-05／F-06／F-10／F-11／F-12／F-13／F-14，共 11 处。
 **给 Owner 的**：F-07（`tool` 字段归属）。
+
+---
+
+## 六、复审（2026-10-15）
+
+> 复审对象＝当前工作区 `specs/tool_matching.md`（含修订步＋L0 三处补丁的未提交改动，`git diff HEAD` 实读）。本步只读，仅供追加结论。
+
+**结论**：11 处修复单**全部闭合**（含 L0 另行裁决的 R-8）；12 条判据**无红**；但新增 **1 条低严重度自相矛盾**（`caliber_key` 信号句，C-1）＋2 条低瑕疵（C-2、C-3）。规格正文已无悬空引用、无裸字面值、十节标题逐字、`spec gate` 实跑 PASS、`import-linter` 实跑 16 契约全 KEPT（含新 R6）。**判：规格文本层面可定稿**；仅两处外部未决项卡住定稿动作——①F-07 `tool` 字段归属待 Owner 裁决（本规格未做任何预设，符合要求）；②`specs/tools.md` 行为 6 三件套同步属变更路由、待 Owner 知悉。建议先落 C-1 一句微修再定稿。
+
+### A 表｜修复单 11 处闭环核验
+
+| 编号 | 闭合？ | 证据锚点 | 备注 |
+| --- | --- | --- | --- |
+| R-1（F-01） | **闭合** | `specs/tool_matching.md:76,132,138`；真源 `specs/modules.md:517`（R6 行）；闸 `tools/importlinter_v2.toml:108-111` | 全篇 `R7` grep 零命中；`R6` 三处到位。**实跑** `lint-imports --config tools/importlinter_v2.toml`＝16 kept／0 broken（R6 契约真实在跑，「已真跑」成立）。仅「探针验证会红」子句无法复现（只读纪律，不埋违规） |
+| R-2（F-02） | **闭合** | `spec:41`（签名）／`spec:43,46,58,61`（四类型）；卡 `specs/modules.md:175-177` | spec 签名 `-> ToolPlan \| ToolMatchRejection` 与卡逐字一致；`MatchReason` 已补；「签名以卡为准」不再打架 |
+| R-3（F-03） | **闭合（含外文挂账）** | `spec:86`（载体＝`ToolDescriptor.description`）；`spec:124`（风险 5） | 冲突已如实立为风险并声明「`specs/tools.md` 属变更路由、待 Owner」（该文 `specs/tools.md:50` 仍为「一句话用途」，**未改**——符合预期） |
+| R-4（F-04） | **闭合** | `spec` 行为节现为 1–10（原第 11 条已整条移除）；保留集拆 `spec:113`／`spec:114` | 全篇「聚合下推」仅存 `spec:114` 且标「归属 `execution`」；无任何其他条目引用已删行为，无悬空引用 |
+| R-5（F-05） | **闭合** | `spec:87`；真源 `docs/runtime-refactor/walk/裁决表.md#§12-A`／`#§07` | 已改述为「**模型产出归一后的名字**；本体账本只提供 alias↔canonical 的**结构映射**（不替模型做语义判断）」——语义判断回模型侧，对齐 §12-A |
+| R-6（F-06） | **闭合** | `spec:84`（行为 4 改「不得为英文列名形／形态判定」）；`spec:110`（豁免面＝结构归一／形态处理） | 与 `::no_lexicon_or_regex_in_tool_matching` 的边界已界定；真源 `arch/P3b-票堆V2-35至45.md:135`（A-P3b-44）为形态处理，非语义词表 |
+| R-7（F-10） | **闭合（有残留）** | `spec:68`＋`spec:84`（caliber 只透传、归 `preconditions`） | 两处已落；**但 `spec:95` 未同步**——见 C-1（残留矛盾） |
+| R-8（F-11） | **闭合** | `spec:24`（「不做什么」新增行）；`spec:123`（风险 4）；真源 `docs/runtime-refactor/synth/S1-重写单元与证据交叉矩阵.md:96`（M3）／`:104`（H4） | L0 裁决（归 `parsing`＋`state`，本块只被拦不实现）已落「不做什么」与「依赖与风险」两节。与 S1 两处归属**共存说得通**：S1 表 B 自注「**归属为草案**，写提案时逐票复核」，M3 列「决策出口」＝本块发射点（故「被拦」），H4「指纹面」＝`parsing`，两者非互斥 |
+| R-9（F-12） | **闭合** | `spec:77`；句式真源 `specs/understanding.md:56` | 第 4 条红线已补「对应闸：B6 契约 ＋『无旁路』行为断言」，与 understanding 同款句式 |
+| R-10（F-13） | **闭合** | `spec:109` | 已标「经 tools seam 测；本块只消费其公开面」 |
+| R-11（F-14） | **闭合** | `spec:65`；真源 `specs/query.md:29-31` | 实读 `query.md` 十字段确**无 `aggregate`**——「真源以该文为准／缺则待回阶段 3 补」成立 |
+
+### B 表｜12 条判据复跑
+
+| # | 判据 | 结论 | 证据 |
+| --- | --- | --- | --- |
+| 1 | 十节齐＋标题逐字 | **无发现** | `spec:7,11,27,38,71,79,92,98,116,126`——十节名逐字命中 `spec-format.md` §二之二；`状态: 草稿` 行在场（`:3`）。注：`check_specs.py` 实际只对 `## 触及的模块`／`## 验收测试` 做逐字解析（`table_after`），此为版式文档与实现的历史差，非本规格缺陷 |
+| 2 | 行为约定条条可断言 | **无发现** | `grep 尽量/合理/必要时/视情况` 零命中；行为 1–10 连续无缺号（`:81-90`）；R-4 删除未留悬空 |
+| 3 | 数字无裸字面值 | **无发现** | `grep [0-9]` 仅命中标识符/锚点；限额显式「引统一预算表…本规格不写字面值」（`:89`，真源 `裁决表.md#§06-A`） |
+| 4 | 不做什么条条「由谁＋锚点」 | **无发现（两处小瑕）** | 11 行均有落点（`:15-24`）。小瑕：熔断行「靠轮数闸兜底」未点名模块（原评审已记）；新增同参重投行锚点为「L0 裁决＋S1 表 B」而非 `文件#节` 形式（见 C-2） |
+| 5 | 红线点名闸名 | **无发现** | `:74` gateway_adapter→B6；`:75` langgraph→R5b；`:76` tools-only→R6；`:77` 禁手写替代→B6（本轮补）。F-01／F-12 均闭合 |
+| 6 | 不降级与静默禁令 | **1 处新发现** | 合法降级路径「无」（`:94`）✔；机读信号（`:95`）＋断言行 `::rejection_signal_present`（`:111`）✔；静默禁令引 `arch/P7a:98`（A-P7a-37 原文在场）✔。**C-1**：`:95` 与本轮新增的 `:68`／`:84` 打架 |
+| 7 | 验收测试行 | **无发现（一名新增待认）** | 每行有反引号标识；边界集 1 行（`:112`）＋保留集 2 行（`:113-114`）齐；**无行指向已删行为**（原合并标识 `retention_normalize_and_pushdown` 已不存在，改为两条）。注：两条新标识名为修订步自拟（回执自陈），实施侧命名约定未核 |
+| 8 | 与闸的挂钩表 | **无发现** | 表在场逐条填（`:128-138`）；R6 行已修（`:132`，含实证）；末行人审行理由在场且含 `R1/R6`（`:138`）。「已真跑」子 claim 见未验证清单 |
+| 9 | 与 `walk/` 决策冲突 | **无发现** | 语义交模型（`:87`）已对齐 §12-A；前置三态归 `preconditions`（`:17`）；预算表不复制（`:89`）；「出数只认现行口径」＝`裁决表.md#§07` 结构约束（`:87`）。F-05 张力已消 |
+| 10 | 覆盖（walk/11＋S1 M3） | **无发现（越界已消）** | Q1/Q2/Q3↔行为 6/「不做什么」/行为 8（`:86,22,88`）；D1–D6 逐条对上；F-04 越界（聚合下推）已移出并标 `execution`（`:114`）；F-11（V2-37）已注 L0 归属（`:24,123`）。S1 证据列 V2-24/V2-29/V2-52 仍未逐票核（见未验证） |
+| 11 | 总纪律残留 | **无发现** | 无「词表/正则猜配哪个工具」设计（`:25,81,110`）；F-06 豁免面已界定 |
+| 12 | 与模块卡一致 | **无发现** | 签名一致（`spec:41`↔`modules.md:175`）；依赖一致（卡 `modules.md:181`＝`state/parsing/prompts/gateway_adapter/tools`，与 spec 触及表 `:31-36`＋依赖 `:118` 全同，`prompts` 已补）。F-02／F-08 闭合 |
+
+### C｜新增问题清单
+
+- **C-1（低）自相矛盾——`caliber_key` 信号句未随 R-7 同步**：`spec:95` 仍写「失败、拒因、**`caliber_key` 归一**都必须产生**机读信号**」，而本轮新增的 `spec:68`／`spec:84` 已裁定「`caliber_key` 本块只透传，归一判据归 `preconditions` 承接（本块不做 caliber 语义归一）」。本块既然不做 caliber 归一，就不该在本模块「不降级」节声明其信号义务；且验收表（`:111`）只覆盖「失败与拒因」信号，未覆盖 caliber。**建议**：`:95` 删去「`caliber_key` 归一」（或改述「caliber 归一信号由 `preconditions` 承担」）。
+- **C-2（低）新行锚点不合 `文件#节` 形式**：`spec:24` 同参重投行的锚点格为「L0 裁决：`synth/S1` 表 B…」，且把限额归 `state` 无真源指针（评审原 F-11 建议的 `orchestration`／`state` 亦无出处）。属可追溯性瑕疵，非语义错误。
+- **C-3（低，闸侧外溢——非本 spec 正文）**：L0 补 R6 后，真源 `specs/modules.md:511`（「R1–R5 为 runtimev2 内部约束」）与 `tools/importlinter_v2.toml:64`（注释「R1–R5」）未同步为 R1–R6，形成区间陈旧。另注：`modules.md:517` 的 R6 行排在未编号行上方（R6 与 R1–R5 未连续），仅影响可读性。
+- **回执自述不可采信（备注，非规格缺陷）**：`tool_matching-修订回执.md` 有两处自述与文件实况不符——其「未覆盖问题 1」称 `prompts` 未进触及表，实际 `spec:33`＋`spec:118` 已在；其「未覆盖问题 2」称验收行仍写旧措辞，实际 `spec:106` 已改为「呈英文列名**形态**（形态判定）」。故以文件为准（本复审即按此执行）。
+- **F-07 复核（按要求不重报，仅确认无预设）**：`git diff HEAD` 未见任何为 `tool` 字段归属做预设或补丁的改动；`spec:81`「子问题 → 工具 ＋ 参数」为本规格既有前提（非本轮新增），F-07 仍属 Owner 未决项、无新缺陷。
+
+### 未验证清单 ＋ 覆盖自检
+
+**未验证**
+1. R-1「已用探针验证会红」——只读纪律下未埋违规探针；只实证了 R6 契约存在且在跑（16 kept）。
+2. `import-linter` 是否已挂 CI——只本地实跑 `lint-imports`，未重核 CI 配置。
+3. `synth/S1` M3 证据列 V2-24／V2-29／V2-52 是否与本块有对应条目——未逐票读，沿用上轮判定。
+4. `preconditions` 侧是否真有 caliber 归一/三态实现承接——只核到 `arch/P3b:132`（A-P3b-41 口径支由前置条件机三态处理），`specs/preconditions.md` 尚不存在故无处承接。
+5. 新增两条保留集测试标识名（`retention_normalize`／`retention_pushdown`）是否符合实施侧命名约定——无真源可比。
+6. F-07 Owner 裁决未出。
+
+**覆盖自检（本步实读／实跑）**
+- 实读：`specs/tool_matching.md`（全文＋`git diff HEAD`）；`docs/spec-process.md`；`docs/spec-format.md`；`docs/runtime-refactor/spec-review/tool_matching-评审.md`、`tool_matching-修订回执.md`；`specs/modules.md`（tool_matching／preconditions／understanding 卡＋`## 边界规则`）；`tools/importlinter_v2.toml`（全文）；`tools/check_specs.py`（全文）；`specs/tools.md`、`specs/query.md`、`specs/understanding.md`、`specs/clarification.md`；`CONTEXT.md`；`docs/runtime-refactor/walk/11-匹配-工具阀.md`、`walk/裁决表.md`（§06/§07/§12）；`docs/runtime-refactor/synth/S1`、`S6`；`docs/runtime-refactor/arch/P7a`（A-P7a-37）、`arch/P3b`（A-P3b-41/44）。
+- 实跑：`python3 tools/check_specs.py` → **PASS（0 警告）**；`.venv/bin/lint-imports --config tools/importlinter_v2.toml` → **16 kept／0 broken**。
+- 计数：修复单闭合 **11/11**；12 判据 **0 红**；新增问题 **3 条（全 低）**。
