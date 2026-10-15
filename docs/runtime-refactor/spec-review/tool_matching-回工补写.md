@@ -20,3 +20,15 @@
 ## 验证
 
 - `uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿**。未 git commit。
+
+---
+
+# 补记（2026-10-15 二轮）：英文列名形判定形 Owner 拍板 B 案，三处同步落地
+
+- **拍板**：上报项 1 经 Owner 定 **B 案**——大小写不敏感 ASCII 标识符形：值整体呈 `[A-Za-z][A-Za-z0-9_]*`（首字符 `[A-Za-z]`、其余仅 `[A-Za-z0-9_]`，大小写都咬，`oil_pressure` 与 `WELL_NAME` 都咬）。fail-closed 取向：咬错的代价是模型从台账重提议，漏咬的代价是脏指标进查询——宁可误拒重提议，不可漏放列名形。
+- **本轮改动面**：`specs/tool_matching.md` 行 87／109／142 三处措辞（行数不变，仍 143 行；测试标识 `::metric_slot_not_english_column` 不变）＋ `docs/runtime-refactor/walk/11-匹配-工具阀.md` 末追加补注节（只追加不改正文）。
+  - `specs/tool_matching.md:87`（行为 4）：判定形改为「值整体呈 ASCII 标识符形——首字符 `[A-Za-z]`、其余仅 `[A-Za-z0-9_]`，大小写都咬」；删「**形状定义（本规格自立，待 Owner 过目）**」临时标注，改注「**Owner 2026-10-15 拍板 B 案**（fail-closed：宁可误拒重提议，不可漏放列名形）」；禁例改 `oil_pressure`／`WELL_NAME`（前者保留 AC-G11 锚，后者为大写形补例）；walk/11 现状注记由「§一／§七仅记『禁英文列名』、未给判定形」改为判定形真源锚指其末「补注（2026-10-15 Owner 拍板）」节。
+  - `specs/tool_matching.md:109`（验收行）：判定形措辞同步为 ASCII 标识符形（Owner 2026-10-15 拍板 B 案，判定形见行为 4）。
+  - `specs/tool_matching.md:142`（挂钩表行）：删「本规格自立，待 Owner 过目」，改「判定形＝ASCII 标识符形，见行为 4——Owner 2026-10-15 拍板 B 案」。
+- **真源回填**：`walk/11-匹配-工具阀.md` 末「补注（2026-10-15 Owner 拍板）」节载：「『禁英文列名』的判定形状拍板为 ASCII 标识符形 `[A-Za-z][A-Za-z0-9_]*`（大小写都咬；禁例 oil_pressure/WELL_NAME）；真源锚回本节。」——上报项 1 的「建议回填 walk/11 作真源锚」就此落实（改判同步三处＋回填真源并行完成）。
+- **验证**：`uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿**。未 git commit。

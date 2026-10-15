@@ -84,7 +84,7 @@ class MatchReason:                         # 结构化拒因单条：缺配／�
 1. **模型只提议**（子问题 → 工具 ＋ 参数）；程序做**闭世界对账**，不替模型选工具。
 2. **恰配一条**：每个子问题**恰好一条**匹配；**漏配／多配／编号对不上**任一 → 判失败。
 3. **拒因回喂、不自动修补**：失败一律带**结构化拒因**回喂模型重配；程序不补齐、不猜。
-4. **参数强校验**：`chain="data"` → `plan` 必填；`chain="knowledge"` → `retrieval_need` 必填；`metric_slot` 必填非空且**不得为英文列名形**（**形态判定**——只判形状，不判语义；**判定形**＝值整体呈全小写字母开头、仅由 `[a-z0-9_]` 构成的 token 形——**形状定义（本规格自立，待 Owner 过目）**，阶段 5 织网以此为准；真源禁例 `oil_pressure` 见 `ontology/petro/skill-guides/eval-cases.md` AC-G11，`walk/11-匹配-工具阀.md` §一／§七仅记「禁英文列名」、未给判定形）；`ranking` 必填布尔且与 `direction` 同现；`caliber_key` **由本块产出**（模型用账本归一旧名到现行名；`preconditions` 只做台账闭世界结构校验）。
+4. **参数强校验**：`chain="data"` → `plan` 必填；`chain="knowledge"` → `retrieval_need` 必填；`metric_slot` 必填非空且**不得为英文列名形**（**形态判定**——只判形状，不判语义；**判定形**＝值整体呈 ASCII 标识符形——首字符 `[A-Za-z]`、其余仅 `[A-Za-z0-9_]`，大小写都咬——**Owner 2026-10-15 拍板 B 案**（fail-closed：宁可误拒重提议，不可漏放列名形），阶段 5 织网以此为准；禁例 `oil_pressure`／`WELL_NAME`——前者见 `ontology/petro/skill-guides/eval-cases.md` AC-G11，判定形真源锚 `walk/11-匹配-工具阀.md` 末「补注（2026-10-15 Owner 拍板）」节）；`ranking` 必填布尔且与 `direction` 同现；`caliber_key` **由本块产出**（模型用账本归一旧名到现行名；`preconditions` 只做台账闭世界结构校验）。
 5. **枚举闭世界**：`chain`（`data`｜`knowledge`）、`direction`（`asc`｜`desc`）、`tool`（注册表名单）——越界值判失败。
 6. **工具描述写全**：每个工具的**载体＝`ToolDescriptor.description`**（模型选工具时看到的就是它），必须含**何时用／不能做什么／参数示例**三项（真源 `walk/11-匹配-工具阀.md` §七 Q-A）。这是选得准的**第一因**——**不加额外选型规则**。
 7. **「出数只认现行口径」的结构约束落点**：`metric_slot` 到查询引擎前**只认现行名**；**模型产出归一后的名字**，本体账本只提供 alias↔canonical 的**「结构映射」**（不替模型做语义判断）（真源 `walk/裁决表.md` §12-A／§07）。
@@ -106,7 +106,7 @@ class MatchReason:                         # 结构化拒因单条：缺配／�
 | 多配／编号对不上 → 判失败 | `tests/domains/test_v2_tool_matching.py::duplicate_or_unknown_id_rejected` |
 | 工具名不在注册表名单 → 判失败（闭世界） | `tests/domains/test_v2_tool_matching.py::tool_name_closed_world` |
 | `chain="data"` 缺 `plan` ／ `chain="knowledge"` 缺 `retrieval_need` → 判失败 | `tests/domains/test_v2_tool_matching.py::required_by_chain` |
-| `metric_slot` 为空，或呈英文列名**形态**（形态判定；判定形＝全小写字母开头、仅 `[a-z0-9_]` 的 token 形——形状定义见行为 4）→ 判失败 | `tests/domains/test_v2_tool_matching.py::metric_slot_not_english_column` |
+| `metric_slot` 为空，或呈英文列名**形态**（形态判定；判定形＝ASCII 标识符形——首字符 `[A-Za-z]`、其余仅 `[A-Za-z0-9_]`，大小写都咬；Owner 2026-10-15 拍板 B 案，判定形见行为 4）→ 判失败 | `tests/domains/test_v2_tool_matching.py::metric_slot_not_english_column` |
 | `ranking` 与 `direction` 同现约束 | `tests/domains/test_v2_tool_matching.py::ranking_direction_paired` |
 | 旧名经账本归一后才出数（出数只认现行口径） | `tests/domains/test_v2_tool_matching.py::legacy_name_normalized_before_query` |
 | 每个工具描述含「何时用／不能做什么／参数示例」三项（**经 tools seam 测**；本块只消费其公开面） | `tests/domains/test_v2_tool_matching.py::descriptor_covers_three_parts` |
@@ -139,5 +139,5 @@ class MatchReason:                         # 结构化拒因单条：缺配／�
 | 限额数值不复制、只引预算表 | `state` 侧常量单点测试 ＋ `::exactly_one_match_per_subtask` | 待实现 |
 | 工具描述三件套 | 测试 `::descriptor_covers_three_parts` | 待实现 |
 | 产出「提及 vs 执行」结论（废弃词闸的判断；与 `caliber_key` 同批产出） | 钉 **`pin-31`** | 待织网（阶段 5） |
-| `metric_slot` 英文列名形判定（形状定义见行为 4——本规格自立，待 Owner 过目） | 测试 `::metric_slot_not_english_column` | 待实现 |
+| `metric_slot` 英文列名形判定（判定形＝ASCII 标识符形，见行为 4——Owner 2026-10-15 拍板 B 案） | 测试 `::metric_slot_not_english_column` | 待实现 |
 | 「不做什么」的纯范围排除（不查数／不做主动发现等） | **人审** | 接不上闸的原因：纯范围排除没有形状／存在性／退出码判据；能降维的部分已由边界闸 R1/R6 覆盖 |
