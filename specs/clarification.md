@@ -92,22 +92,22 @@ class Subtask:
 
 | 验收标准 | 对应测试 |
 |---|---|
-| 动作越界 → 判失败（不猜、不取默认） | `tests/runtimev2/test_clarification.py::emission_action_closed_world` |
-| `ledger_notes` 为空 → 判失败并带拒因回喂（不自动修补） | `tests/runtimev2/test_clarification.py::ledger_notes_required_with_reject_feedback` |
-| 子问题条数越界 → 判失败（上限取统一预算表） | `tests/runtimev2/test_clarification.py::subtask_cap_from_budget_table` |
-| `chain` 越界值 → 判失败 | `tests/runtimev2/test_clarification.py::chain_enum_closed_world` |
-| 时间可确定 → 不反问，直接定范围 | `tests/runtimev2/test_clarification.py::no_ask_when_time_resolvable` |
-| 无时间词 → 默认近 30 天并带注记 | `tests/runtimev2/test_clarification.py::default_window_with_note` |
-| 口径歧义 → 反问（不给默认） | `tests/runtimev2/test_clarification.py::caliber_ambiguity_asks` |
-| 同轮多处歧义 → 合并成一张卡 | `tests/runtimev2/test_clarification.py::ask_card_merged` |
-| 台账注入块存在且注释可逐字求得 | `tests/runtimev2/test_clarification.py::ledger_notes_verbatim_from_injection` |
-| 挂起等待不计轮；`resume` 重置轮预算 | `tests/runtimev2/test_clarification.py::waiting_not_counted_resume_resets` |
-| 恢复时重取易变量（水位／新鲜度／地基） | `tests/runtimev2/test_clarification.py::resume_reloads_volatile` |
-| 到上限 → 截断＋带材料如实直答（不环） | `tests/runtimev2/test_clarification.py::ask_cap_truncate_with_material` |
-| 覆盖校验由模型自证；程序不判覆盖 | `tests/runtimev2/test_clarification.py::coverage_self_proof_model_only` |
-| 程序侧无词表／正则语义判断（AST 扫描本模块） | `tests/runtimev2/test_clarification.py::no_lexicon_or_regex_in_clarification` |
-| 【边界集】`ledger_notes` 语义改写（非逐字）→ 判违约 | `tests/runtimev2/test_clarification.py::boundary_paraphrased_notes_rejected` |
-| 【保留集】非歧义问句不产生 ask；子问题独立并行行为不变 | `tests/runtimev2/test_clarification.py::retention_no_ask_no_dependency` |
+| 动作越界 → 判失败（不猜、不取默认） | `tests/domains/test_v2_clarification.py::emission_action_closed_world` |
+| `ledger_notes` 为空 → 判失败并带拒因回喂（不自动修补） | `tests/domains/test_v2_clarification.py::ledger_notes_required_with_reject_feedback` |
+| 子问题条数越界 → 判失败（上限取统一预算表） | `tests/domains/test_v2_clarification.py::subtask_cap_from_budget_table` |
+| `chain` 越界值 → 判失败 | `tests/domains/test_v2_clarification.py::chain_enum_closed_world` |
+| 时间可确定 → 不反问，直接定范围 | `tests/domains/test_v2_clarification.py::no_ask_when_time_resolvable` |
+| 无时间词 → 默认近 30 天并带注记 | `tests/domains/test_v2_clarification.py::default_window_with_note` |
+| 口径歧义 → 反问（不给默认） | `tests/domains/test_v2_clarification.py::caliber_ambiguity_asks` |
+| 同轮多处歧义 → 合并成一张卡 | `tests/domains/test_v2_clarification.py::ask_card_merged` |
+| 台账注入块存在且注释可逐字求得 | `tests/domains/test_v2_clarification.py::ledger_notes_verbatim_from_injection` |
+| 挂起等待不计轮；`resume` 重置轮预算 | `tests/domains/test_v2_clarification.py::waiting_not_counted_resume_resets` |
+| 恢复时重取易变量（水位／新鲜度／地基） | `tests/domains/test_v2_clarification.py::resume_reloads_volatile` |
+| 到上限 → 截断＋带材料如实直答（不环） | `tests/domains/test_v2_clarification.py::ask_cap_truncate_with_material` |
+| 覆盖校验由模型自证；程序不判覆盖 | `tests/domains/test_v2_clarification.py::coverage_self_proof_model_only` |
+| 程序侧无词表／正则语义判断（AST 扫描本模块） | `tests/domains/test_v2_clarification.py::no_lexicon_or_regex_in_clarification` |
+| 【边界集】`ledger_notes` 语义改写（非逐字）→ 判违约 | `tests/domains/test_v2_clarification.py::boundary_paraphrased_notes_rejected` |
+| 【保留集】非歧义问句不产生 ask；子问题独立并行行为不变 | `tests/domains/test_v2_clarification.py::retention_no_ask_no_dependency` |
 
 ## 依赖与风险
 

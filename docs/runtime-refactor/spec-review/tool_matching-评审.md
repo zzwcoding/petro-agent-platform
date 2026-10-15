@@ -185,3 +185,16 @@ Q1 描述写全→行为 6＋`:104`✔；Q2 熔断→「不做什么」＋行为
 - 实读：`specs/tool_matching.md`（全文＋`git diff HEAD`）；`docs/spec-process.md`；`docs/spec-format.md`；`docs/runtime-refactor/spec-review/tool_matching-评审.md`、`tool_matching-修订回执.md`；`specs/modules.md`（tool_matching／preconditions／understanding 卡＋`## 边界规则`）；`tools/importlinter_v2.toml`（全文）；`tools/check_specs.py`（全文）；`specs/tools.md`、`specs/query.md`、`specs/understanding.md`、`specs/clarification.md`；`CONTEXT.md`；`docs/runtime-refactor/walk/11-匹配-工具阀.md`、`walk/裁决表.md`（§06/§07/§12）；`docs/runtime-refactor/synth/S1`、`S6`；`docs/runtime-refactor/arch/P7a`（A-P7a-37）、`arch/P3b`（A-P3b-41/44）。
 - 实跑：`python3 tools/check_specs.py` → **PASS（0 警告）**；`.venv/bin/lint-imports --config tools/importlinter_v2.toml` → **16 kept／0 broken**。
 - 计数：修复单闭合 **11/11**；12 判据 **0 红**；新增问题 **3 条（全 低）**。
+
+---
+
+## 七、定稿（2026-10-15）
+
+**两处 Owner 项已裁**（当日）：
+
+1. **① `tool` 字段归谁写 → 归匹配相位产出**。落点：`CONTEXT.md` 的 `QuestionGroup` 词条**去掉 `tool`**（子任务图＝`{id/question/ledger_notes/chain}`）并注明「选工具由②匹配相位产出」；**另立 `SubtaskMatch` 词条**（`{id/tool/chain/plan/retrieval_need/caliber_key}`，恰配一条）。变更从词汇表先行（sdd-flow 变更路由）。
+2. **② 说明书要不要写全并给模型看 → 要**。落点：`specs/tools.md` 行为 6 由「一句话用途」扩为**三件套**（何时用／不能做什么／参数示例，进 `descriptors()` 的 `description`），并加一行变更记录与一条验收行（`tests/domains/test_v2_tools.py::descriptor_covers_three_parts`）。
+
+**L0 复核新增一条（低，已修）**：三份已写规格的测试标识路径原用 `tests/runtimev2/...`，与本仓既有约定（`tests/domains/test_v2_*.py`）不一致——**已统一**（`understanding.md` 14 处／`clarification.md` 16 处／`tool_matching.md` 13 处，共 43 处）。
+
+**结论**：`specs/tool_matching.md` ＝ **已定稿**。工序六步全部走完（起草→评审→处置→修订→复审→定稿）。

@@ -2,6 +2,7 @@
 
 状态: 已定稿
 来源: specs/modules.md `tools` 卡、docs/prd.md §③、ADR-0001
+变更: 2026-10-15 行为 6 由「一句话用途」扩为**三件套**（Owner 裁定「要」；真源 `walk/11` §七 Q-A；配套 `specs/tool_matching.md` 的工具描述三件套条）
 
 ## 目标
 
@@ -47,7 +48,7 @@ class ToolRegistry:
 4. query 引擎返回的联合态映射：rows+lineage→observations(权威表,scope=agg)；freshness_block/unbound_degrade
    →observations(闸依据 Evidence/水位)+notice 素材；need_clarify/external_table_approval→status=ask＋AskFrame。
 5. 每个 Observation 必须带来源链（台账行/fragment→report→library/表名），locator 可机读（INV-1 的输入）。
-6. descriptors 渐进披露：只暴露名称/一句话用途/参数 schema/只读声明（书 5.5 三层披露之发现层）。
+6. **工具描述写全并给模型看**：`descriptors()` 的 `description` 须含**何时用／不能做什么／参数示例**三项（真源 `walk/11-匹配-工具阀.md` §七 Q-A——选得准的**第一因**，靠写清描述而非加规则）；仍保持渐进披露（不展开引擎内部细节）。
 
 ## 验收测试
 
@@ -58,6 +59,7 @@ class ToolRegistry:
 | 引擎超时→retryable；4xx 除 429 外→bad_args；429→retryable；闸拒→refused | `tests/domains/test_v2_tools.py::error_taxonomy` |
 | query 联合态四类映射正确（含 AskFrame 形态） | `tests/domains/test_v2_tools.py::query_outcome_mapping` |
 | Observation 来源链完整（fragment 到 library） | `tests/domains/test_v2_tools.py::observation_provenance` |
+| 每个工具 `description` 含「何时用／不能做什么／参数示例」三项 | `tests/domains/test_v2_tools.py::descriptor_covers_three_parts` |
 
 ## 依赖与风险
 

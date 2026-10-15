@@ -84,20 +84,20 @@ class Direct:                              # route 闭世界
 
 | 验收标准 | 对应测试 |
 |---|---|
-| route=full 时返回 Understanding，且候选全部出自名录 | `tests/runtimev2/test_understanding.py::full_route_candidates_in_roster` |
-| 候选出现名录外名字 → 判违约（不静默丢弃） | `tests/runtimev2/test_understanding.py::candidate_out_of_roster_violates` |
-| 寒暄句（道谢／道别）→ route=direct，文本不含数据或事实断言 | `tests/runtimev2/test_understanding.py::direct_on_greeting` |
-| route=direct 但文本命中闭世界 → 不合格，退回 full | `tests/runtimev2/test_understanding.py::direct_with_assertion_rejected` |
-| 应答 JSON 不合 schema → 抛 UnderstandingParseError，不静默降级 | `tests/runtimev2/test_understanding.py::malformed_json_raises_no_fallback` |
-| route 越界取值 → 判失败（不猜、不取默认） | `tests/runtimev2/test_understanding.py::route_enum_closed_world` |
-| 任务书三区顺序正确、数据区标来源且置于末尾 | `tests/runtimev2/test_understanding.py::task_book_three_zones` |
-| 台账投影变化 → 数据区文本随之变 | `tests/runtimev2/test_understanding.py::data_zone_from_live_projection` |
-| 任务书每 run 只装配一次；模型原话不进对话层 | `tests/runtimev2/test_understanding.py::assembled_once_raw_not_in_dialogue` |
-| 程序只按 route 分派（换任意 route 取值都不触发词面判断） | `tests/runtimev2/test_understanding.py::dispatch_by_route_only` |
-| 程序侧无词表／正则语义判断（AST 扫描本模块） | `tests/runtimev2/test_understanding.py::no_lexicon_or_regex_in_understanding` |
-| 「如实上报」的机读信号在场（notice ＋ step payload 字段） | `tests/runtimev2/test_understanding.py::reporting_signal_present` |
-| 【边界集】全角数字／名录外指标名／表名别名 → 直答判不合格 | `tests/runtimev2/test_understanding.py::direct_boundary_cases_rejected` |
-| 【保留集】寒暄仍走 direct；route=full 的既有候选校验行为不变 | `tests/runtimev2/test_understanding.py::retention_non_direct_unchanged` |
+| route=full 时返回 Understanding，且候选全部出自名录 | `tests/domains/test_v2_understanding.py::full_route_candidates_in_roster` |
+| 候选出现名录外名字 → 判违约（不静默丢弃） | `tests/domains/test_v2_understanding.py::candidate_out_of_roster_violates` |
+| 寒暄句（道谢／道别）→ route=direct，文本不含数据或事实断言 | `tests/domains/test_v2_understanding.py::direct_on_greeting` |
+| route=direct 但文本命中闭世界 → 不合格，退回 full | `tests/domains/test_v2_understanding.py::direct_with_assertion_rejected` |
+| 应答 JSON 不合 schema → 抛 UnderstandingParseError，不静默降级 | `tests/domains/test_v2_understanding.py::malformed_json_raises_no_fallback` |
+| route 越界取值 → 判失败（不猜、不取默认） | `tests/domains/test_v2_understanding.py::route_enum_closed_world` |
+| 任务书三区顺序正确、数据区标来源且置于末尾 | `tests/domains/test_v2_understanding.py::task_book_three_zones` |
+| 台账投影变化 → 数据区文本随之变 | `tests/domains/test_v2_understanding.py::data_zone_from_live_projection` |
+| 任务书每 run 只装配一次；模型原话不进对话层 | `tests/domains/test_v2_understanding.py::assembled_once_raw_not_in_dialogue` |
+| 程序只按 route 分派（换任意 route 取值都不触发词面判断） | `tests/domains/test_v2_understanding.py::dispatch_by_route_only` |
+| 程序侧无词表／正则语义判断（AST 扫描本模块） | `tests/domains/test_v2_understanding.py::no_lexicon_or_regex_in_understanding` |
+| 「如实上报」的机读信号在场（notice ＋ step payload 字段） | `tests/domains/test_v2_understanding.py::reporting_signal_present` |
+| 【边界集】全角数字／名录外指标名／表名别名 → 直答判不合格 | `tests/domains/test_v2_understanding.py::direct_boundary_cases_rejected` |
+| 【保留集】寒暄仍走 direct；route=full 的既有候选校验行为不变 | `tests/domains/test_v2_understanding.py::retention_non_direct_unchanged` |
 
 ## 依赖与风险
 

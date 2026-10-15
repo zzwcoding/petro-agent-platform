@@ -19,7 +19,7 @@
 | **decision** | step 六值之一：LLM 决策发射步；轮＝LLM 决策周期，模型只许在轮内出语义动作（ReAct 面 discover/execute/answer，四相位面 clarify 的 discover｜decompose｜ask 与 toolmatch 匹配），发射经 schema 校验，失败拒因回喂重发射（无 repair） |
 | **discover** | 钻取发现动作：只读探查（semantic_query/doc_retrieve/table_schema），全 run ≤10 次（预算拒不占轮——免轮例外只留首次，连续第 2 次起转占轮）；每次落计数埋点（次数/查询词/命中形态）进 step payload |
 | **execute** | 执行动作：子问题过前置条件机后的确定性工具执行；四相位下批量进行（batch 相位汇聚观察），成功子问题结果保留不重跑 |
-| **QuestionGroup** | 四相位①业务澄清的发射产物（子任务图）：subtasks[{id/question/ledger_notes/tool/chain}]，子问题上限 ≤4，ledger_notes 必填（从词典层注入块逐字转抄的台账注释）；LangGraph 校验单点（runtime/subtask.py） |
+| **QuestionGroup** | 四相位①业务澄清的发射产物（子任务图）：subtasks[{id/question/ledger_notes/chain}]，子问题上限 ≤4，ledger_notes 必填（从词典层注入块逐字转抄的台账注释）；LangGraph 校验单点（runtime/subtask.py）。**不含 `tool`——选工具由②匹配相位产出**（Owner 2026-10-15 裁定；见 `SubtaskMatch`） |
 | **前置条件机** | 纯固定代码闸件（tools/precondition.py，零 LLM）：逐子问题过闸（禁用词/新鲜度窗/在册绑定态/外表越集/单井支持性/合法口径）判四态——pass｜blocked_ask→ASK 挂起｜blocked_refuse→子问题如实拒答｜note 注记随行；铁律＝LLM 出语义，代码出判定 |
 | **发射判据** | 澄清相位的发射纪律（Skill 指南承载，治"犹豫空转"数据路径退化）：窗可锚定＝禁 ask（无时间词默认近 30 天＋注记）；台账命中＋窗已定＝禁再 discover；ask 仅限两白场——无场景词阈值判断形的口径反问、目标/对象/口径真歧义 |
 | **Skill 指南** | LLM 相位的处理指南＝ontology 资产（与台账同治理）：发射判据/澄清合同/工具边界随指南装载进 clarify/toolmatch 相位；OntologyGuideProvider 供装，DefaultGuideProvider 占位已退役 |
@@ -27,6 +27,7 @@
 | **工具（Tool）** | agent 可调用的确定性能力：semantic_query／data_query／doc_retrieve／graph_query／table_schema（结构卡发现面），全只读 |
 | **Skill** | data_query 的定性——V1 六站链降格为可验证方法资产（模板装配＋三闸＋血缘卡封装在工具内） |
 | **Observation** | 工具返回的统一结构：值/来源/版本/时效/适用范围（Knowledge Evidence 形） |
+| **SubtaskMatch** | 四相位②工具匹配的产物：`{id/tool/chain/plan/retrieval_need/caliber_key}`，与子问题**一一对应**（恰配一条）；`tool`／`chain` 均为闭世界；拒因回喂重配、不自动修补（Owner 2026-10-15 裁定：**选工具归匹配出**） |
 | **计划（plan）** | loop 中模型产出的查询意图（指标槽/时间窗/条数/排名…），经确定性校验后成为 Task State；四相位下随子问题在 toolmatch 相位收口（可携 caliber_key 场景口径支） |
 | **Context Manifest** | 每次模型调用的输入账目：来源/版本/信任级/选中理由/token/变换——"模型为什么看到这个" |
 | **ASK 帧** | 人在回路挂起点：clarify 反问（阈值判断形口径/真歧义白场）或外表越集审批（批准/驳回）；ASK 挂起不占轮 |

@@ -1,6 +1,6 @@
 # V2 工具匹配（tool_matching）
 
-状态: 草稿
+状态: 已定稿
 来源: `specs/modules.md` `tool_matching` 卡、`docs/runtime-refactor/walk/11-匹配-工具阀.md`、`walk/裁决表.md` §06/§07/§11、`specs/query.md`（`QueryPlan` 真源）、`specs/tools.md`（工具注册表真源）
 版式: `docs/spec-format.md` ｜ 工序: `docs/spec-process.md`
 
@@ -99,19 +99,19 @@ class MatchReason:                         # 结构化拒因单条：缺配／�
 
 | 验收标准 | 对应测试 |
 |---|---|
-| 子问题恰配一条；漏配 → 判失败带结构化拒因 | `tests/runtimev2/test_tool_matching.py::exactly_one_match_per_subtask` |
-| 多配／编号对不上 → 判失败 | `tests/runtimev2/test_tool_matching.py::duplicate_or_unknown_id_rejected` |
-| 工具名不在注册表名单 → 判失败（闭世界） | `tests/runtimev2/test_tool_matching.py::tool_name_closed_world` |
-| `chain="data"` 缺 `plan` ／ `chain="knowledge"` 缺 `retrieval_need` → 判失败 | `tests/runtimev2/test_tool_matching.py::required_by_chain` |
-| `metric_slot` 为空，或呈英文列名**形态**（形态判定）→ 判失败 | `tests/runtimev2/test_tool_matching.py::metric_slot_not_english_column` |
-| `ranking` 与 `direction` 同现约束 | `tests/runtimev2/test_tool_matching.py::ranking_direction_paired` |
-| 旧名经账本归一后才出数（出数只认现行口径） | `tests/runtimev2/test_tool_matching.py::legacy_name_normalized_before_query` |
-| 每个工具描述含「何时用／不能做什么／参数示例」三项（**经 tools seam 测**；本块只消费其公开面） | `tests/runtimev2/test_tool_matching.py::descriptor_covers_three_parts` |
-| 程序只对账、不替模型选工具（AST 扫描本模块；**豁免面＝结构归一／形态处理**，如去装饰符号、token 包含匹配，**不算语义词表**） | `tests/runtimev2/test_tool_matching.py::no_lexicon_or_regex_in_tool_matching` |
-| 失败与拒因的机读信号在场（step payload ＋ notice） | `tests/runtimev2/test_tool_matching.py::rejection_signal_present` |
-| 【边界集】`chain`／`direction` 越界取值 → 判失败 | `tests/runtimev2/test_tool_matching.py::boundary_enum_out_of_range` |
-| 【保留集】名归一闸行为不变（本块） | `tests/runtimev2/test_tool_matching.py::retention_normalize` |
-| 【保留集】聚合下推行为不变（归属 `execution`） | `tests/runtimev2/test_tool_matching.py::retention_pushdown` |
+| 子问题恰配一条；漏配 → 判失败带结构化拒因 | `tests/domains/test_v2_tool_matching.py::exactly_one_match_per_subtask` |
+| 多配／编号对不上 → 判失败 | `tests/domains/test_v2_tool_matching.py::duplicate_or_unknown_id_rejected` |
+| 工具名不在注册表名单 → 判失败（闭世界） | `tests/domains/test_v2_tool_matching.py::tool_name_closed_world` |
+| `chain="data"` 缺 `plan` ／ `chain="knowledge"` 缺 `retrieval_need` → 判失败 | `tests/domains/test_v2_tool_matching.py::required_by_chain` |
+| `metric_slot` 为空，或呈英文列名**形态**（形态判定）→ 判失败 | `tests/domains/test_v2_tool_matching.py::metric_slot_not_english_column` |
+| `ranking` 与 `direction` 同现约束 | `tests/domains/test_v2_tool_matching.py::ranking_direction_paired` |
+| 旧名经账本归一后才出数（出数只认现行口径） | `tests/domains/test_v2_tool_matching.py::legacy_name_normalized_before_query` |
+| 每个工具描述含「何时用／不能做什么／参数示例」三项（**经 tools seam 测**；本块只消费其公开面） | `tests/domains/test_v2_tool_matching.py::descriptor_covers_three_parts` |
+| 程序只对账、不替模型选工具（AST 扫描本模块；**豁免面＝结构归一／形态处理**，如去装饰符号、token 包含匹配，**不算语义词表**） | `tests/domains/test_v2_tool_matching.py::no_lexicon_or_regex_in_tool_matching` |
+| 失败与拒因的机读信号在场（step payload ＋ notice） | `tests/domains/test_v2_tool_matching.py::rejection_signal_present` |
+| 【边界集】`chain`／`direction` 越界取值 → 判失败 | `tests/domains/test_v2_tool_matching.py::boundary_enum_out_of_range` |
+| 【保留集】名归一闸行为不变（本块） | `tests/domains/test_v2_tool_matching.py::retention_normalize` |
+| 【保留集】聚合下推行为不变（归属 `execution`） | `tests/domains/test_v2_tool_matching.py::retention_pushdown` |
 
 ## 依赖与风险
 
@@ -121,7 +121,7 @@ class MatchReason:                         # 结构化拒因单条：缺配／�
   2. **工具描述写全落在 `tools` 侧**（本块唯一涉及 runtimev2 之外文件的地方）。对策：改动限于描述文本，不动 `tools` 公开接口签名；检测手段＝`tools` 卡公开接口对账（阶段 7 体检）。
   3. **对账滑成"程序替模型选工具"** → 违总纪律。对策：程序只做存在性/一致性/枚举三类结构判定；检测手段＝AST 机检 `no_lexicon_or_regex_in_tool_matching`。
   4. **同参重投闸归属**（原评审 F-11）：`synth/S1` 表 B 给了两个面（M3 决策出口／H4 指纹面）——**L0 裁决：闸件本体归 `parsing`（指纹）＋ `state`（限额），本块只被拦、不实现**；检测手段＝`parsing`／`state` 各自测试（不在本块验收表）。
-  5. **工具描述三件套触已定稿 `specs/tools.md`** → 该文行为 6 现为渐进披露（一句话用途），需同步补三件套。对策：**`specs/tools.md` 行为 6 需同步补三件套——该文为已定稿 spec，属变更路由，待 Owner 知悉后再改（本规格不擅自改它）**；检测手段＝`tools` 侧 descriptor 对账（经 tools seam 测）。
+  5. **工具描述三件套与 `specs/tools.md` 的对齐**（原评审 F-03）→ **Owner 2026-10-15 已裁「要」**：`specs/tools.md` 行为 6 已同步补三件套（`descriptors()` 的 `description` 含何时用／不能做什么／参数示例），本规格不再挂待办；检测手段＝`tests/domains/test_v2_tools.py::descriptor_covers_three_parts`。
 
 ## 与闸的挂钩表
 
