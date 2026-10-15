@@ -4,8 +4,8 @@
 来源: docs/prd.md §③、specs/modules.md `orchestration`/`understanding`/`clarification`/`tool_matching`/`preconditions`/`execution`/`answering`/`verification`/`context`/`persistence`/`api`/`tools` 卡、ADR-0004（ReAct 重构）、ADR-0005（子任务图＋前置条件机，含增补）、ADR-0006（多轮对话上下文）、ADR-0007（重写运行时 17 块划分，本表模块名随阶段 2 改名）
 > 本文为 V2-36 终态重写（2026-10-09），取代前版「六步流水线」条款（repair 链／max_steps 8
 > 预算／understand-plan-tool-observe-verify-answer 六类型——旧测试标识随旧语义一并退役，
-> 现行测试标识见验收表）。现行实现真源：`appv2/runtime/graph.py`（节点与路由）、
-> `appv2/tools/precondition.py`（前置条件机）、`appv2/runtime/subtask.py`（QuestionGroup）。
+> 现行测试标识见验收表）。重写后实现落 `appv2/runtimev2/`（旧 `appv2/runtime/` 只作备份——ADR-0007）；
+> 前置条件机闸件本体在 `appv2/tools/precondition.py`。
 
 ## 目标
 
@@ -38,12 +38,18 @@ schema 校验失败不做自动 repair——拒因回喂 LLM 重发射（ADR-000
 ## 接口定义
 
 ```python
-# runtime 公开接口（真源在 modules.md runtime 卡，此处细化）
+# 公开接口（真源在 specs/modules.md `## orchestration` 卡；本处只做本功能视角的细化）
 class AgentRuntime:
     async def ask(self, q: AskRequest) -> RunHandle: ...
     async def resume(self, run_id: str, choice: AskChoice) -> RunHandle: ...
-# AskRequest = {question: str, actor: Actor}
-# RunHandle = {run_id: str, stream: AsyncIterator[SseEvent]}
+# AskRequest = {question: str | None, resume_run_id: str | None,
+#               followup_run_id: str | None, actor: Actor}
+#   三形态（②③互斥，同在场＝409）：①仅 question＝提问；②resume_run_id＝断线重连；
+#   ③question＋followup_run_id＝追问续会话（前轮须 completed）
+# AskChoice  = {kind: "clarify" | "approval", choice: str | None,
+#               decision: "approve" | "reject" | None, approval_id: str | None}
+# RunHandle  = {run_id: str, stream: AsyncIterator[SseEvent], cursor: int}
+#   cursor＝**全流单调**断线游标（重放不位移）
 # 事件枚举: step/text/tool/observation/ask/verdict/citation/notice/blackbox（九类闭世界；真源 synth/S3 C-05）
 
 POST /api/v2/chat/asks                 200 → text/event-stream（首帧 run_id）
@@ -53,6 +59,14 @@ GET  /api/v2/chat/runs/{run_id}        200 → {status, steps, manifest_digest, 
 GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,followup_of,created_at,updated_at}]（V2-73 最近任务读口，created_at 降序；followup_of＝追问链前轮——V2-74 对话任务分组，空串＝链根）
 错误：400 参数非法｜401 身份缺失｜404 run 不存在｜409 run 非挂起态不可 resume（重连/追问互斥同 409）
 ```
+
+## 框架与依赖红线
+
+- **框架只许本模块内部**：LangGraph（含 `langchain*`）**不得渗漏出本模块**；state schema 自有（`RunState` 为自有 dataclass，框架只当 schema 消费）。对应闸：`tools/importlinter_v2.toml` 的 **R5b 契约**（框架只许在 `runtimev2.orchestration`，其余 16 块禁引）。
+- **模型调用唯一出口＝`gateway_adapter`**；对应闸：**R7 契约**（runtimev2 各块禁直引 `appv2.infra.llm_client`）＋「无旁路」行为断言。
+- **只经 `tools` 公开面接触世界**；对应闸：**R6 契约**。
+- **不直引引擎**（`knowledge`／`query`／`retrieval`）与 **只经 `transport` 公开面**发帧——两者的「只经包根」半面由 **R2 契约**覆盖。
+- **禁手写替代**：不得自建图执行器旁路、不得自建模型客户端、不得自建帧通路。
 
 ## 行为约定
 
@@ -121,10 +135,24 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
    - **单工具超时 30s**；
    - **discover 计数埋点**：每次钻取落 step payload（次数/查询词指纹/命中数/命中
      形态 no_hit|rows:N|empty）供跑批分析（no_hit 循环回归判定面）。
-8. run 状态机：running→waiting_ask→（resume）→running→completed/failed；
+9. **执行器与命令入口（`synth/S1` 的 H3 落位，本块集中）**：
+   - **命令受理**：`ask`／`resume` 是唯一入口——**`RunCommand → 执行器 → RunEvent` 为显式接缝**（将来换队列消费者，`api`／`tools`／事件契约零改动）；
+   - **三终态落库**：`completed`／`failed`／`waiting_ask` 三终态由本块写 run 表（`answer`／`manifest_digest` 随终态落）；
+   - **审计接线**：run 创建／终态收口／拒答收口／外表审批决定**四事件经 `security.audit` 唯一写口**落责任账（action 恒 `agent_v2.*` 前缀，INV-5）；
+   - **身份缝**：请求身份经 `infra.security.resolve_actor` 解析（开发期身份桩；正式接 OAuth2.0 **只换该函数实现**，其余零改动）；
+   - **组合图装配与路由表**：节点注册、条件边、路由表在本块**一处集中**——**业务相位不得自行决定跳转**。
+
+10. run 状态机：running→waiting_ask→（resume）→running→completed/failed；
    引擎事件外置持久化，断线凭游标续传，进程重启后可恢复 waiting_ask 态（resume
    可达）；追问（followup_run_id）＝会话线程新轮——前轮消息历史（含问答/执行台账）
    随追问进新 run 上下文，前轮须 completed（404/409 开流前错误包）。
+
+## 不降级与静默禁令
+
+- **合法降级路径：无**（编排层不自降级；图执行器不可用时按 fail-closed 收束为 `failed`，**不产出半成品答案**）。
+- 三终态、挂起、预算触界、审计**都必须产生机读信号**：事件帧（九类闭世界，真源 `synth/S6-事件与帧目录.md`）＋ step payload ＋ `security.audit` 责任账。
+- **触界不得静默**：预算到顶时交付已取得材料 ＋ notice 明示未完成项（与行为 7 同源）；红线原文 `docs/runtime-refactor/arch/P7a-交接包与挂账清单.md`（A-P7a-37）。
+- **不许自述完成**：模型只能**申请**完成，**提交完成的是本块**（依据核验结果）。
 
 ## 验收测试
 
@@ -160,6 +188,10 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 | resume/追问错误路径（404/409/互斥 409） | `tests/api/test_v2_asks.py::test_resume_error_paths` |
 | 追问端点会话线程延展（新 run 播种前轮历史） | `tests/api/test_v2_asks.py::test_followup_asks_extend_session` |
 | 全程业务事实零写（run 簿记表 agent_v2_* 除外，INV-2） | `tests/domains/test_v2_agent_loop.py::test_readonly_inv2` |
+| 三终态落库（completed／failed／waiting_ask 写 run 表） | `tests/domains/test_v2_agent_loop.py::test_three_terminal_states_persisted` |
+| 审计四事件接线（经 security.audit 唯一写口） | `tests/domains/test_v2_agent_loop.py::test_audit_wiring_four_events` |
+| 身份缝单一入口（身份解析只经 resolve_actor） | `tests/domains/test_v2_agent_loop.py::test_identity_seam_single_entry` |
+| 图装配与路由表集中（业务相位不自行跳转） | `tests/domains/test_v2_agent_loop.py::test_routing_table_centralized` |
 
 ## 依赖与风险
 
@@ -169,3 +201,18 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 - 风险：LangGraph checkpointer 的 PG saver 与 V1 表共存（新表前缀 agent_v2_ 隔离）；
   剧本化 completer 按消息历史形态驱动（多轮 replay）；历史 token 预算截断策略
   失当会挤占词典层常驻块（截断显式进 Manifest 可查）。
+
+## 与闸的挂钩表
+
+| 本规格的硬要求 | 挂钩 | 现状 |
+|---|---|---|
+| 十节标题齐备 ／ 触及模块名已声明 ／ 验收测试逐行有标识 | spec gate | 已进 CI |
+| 真源引用可解析（路径／边界规则编号／被引卡片在册） | 真源引用闸 `tools/ref_resolvable.py` | 已进 CI |
+| 框架只在本块（LangGraph 不外溢） | 边界闸 **R5b** | 已真跑 |
+| 模型调用只经 `gateway_adapter` | 边界闸 **R7** | 已真跑 |
+| 只经 `tools` 公开面接触世界 | 边界闸 **R6** | 已真跑 |
+| 不直引引擎／只经 `transport` 包根 | 边界闸 **R2** | 已真跑 |
+| 追问播种＝前 run 检查点**终链整链承接**（跨 run 前缀延伸） | 钉 **`pin-23`**（P0） | 待织网（阶段 5） |
+| 挂起→resume 闭环（clarify 选项／越集审批两形态 ask 帧） | 钉 **`pin-29`**（P0） | 待织网 |
+| run_id 全盖章（计费可对账） | 钉 **`pin-28`**（P1） | 待织网 |
+| 「不做什么」的纯范围排除（不做记忆／不做写操作等） | **人审** | 接不上闸的原因：纯范围排除没有形状／存在性／退出码判据；能降维的部分已由边界闸 R2／R5b／R6／R7 覆盖 |
