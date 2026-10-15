@@ -26,7 +26,7 @@
 |---|---|---|
 | answering | 新增 | 起草 ＋ 真流式推出 ＋ 引用落账 ＋ 结构化缺口 |
 | context | 新增 | 材料段与 Manifest（本块只消费其编译出口） |
-| prompts | 新增 | 答案轮的指令与材料装配文本（只出文本） |
+| prompts | 新增 | 答案轮指令装配文本（只出文本；材料段不在装配输出内——材料渲染归 `context`，本块材料渲染＝消费 `context` 编译产物、零自取，与 `specs/context.md` 定界互认） |
 | bookkeeping | 新增依赖 | 模型调用发起面：经 bookkeeping.call_model（单点发起），本块不直引 gateway_adapter |
 | gateway_adapter | 新增 | 模型出口（唯一出口仍归它）；本块不直引——经 bookkeeping.call_model 发起 |
 | state | 新增 | 草稿／引用块／缺口的状态形状（本块只消费） |
@@ -85,6 +85,7 @@ class Gap:
 14. **起草回声＝0**：草稿首行不得以「理解：」开头、草稿前 100 字不得含「指标候选」（`echo_flag` 恒 0——观测字段只记不拦）。真源：`docs/runtime-refactor/arch/P4b-票堆V2-56至65.md`（A-P4b-61——`echo_flag` 形态判据定义）；`eval/results/Q16-对账报告.md`（:61——echo_flag 全批 0，回声形态自 V2-62 后零再现）。
 15. **台账 no_hit 降级交付三段形**：台账 no_hit（agg 未落列 notice 在场）时的降级交付必须**三段齐**——①油田级邻近可得量**带引用**交付；②逐井明细**逐井「未找到」明示**；③**指路**（替代出路指引）；且**零逐井数值冒充**（无逐井数据不得以油田级值充当逐井值）。真源：`eval/results/Q16-判分报告-G1.md`（:39 数-降2 判语——「油田级 8.10 万吨邻近可得引用＋逐井明细未找到明示＋指路，零逐井数值——轴第 4 条满分形」）；`eval/README.md`（「判分轴统一登记」第 4 条——引擎降级解释＋如实标注＝✅ 满分，诚实转述也是正确交付，数-降1/数-降2 跷跷板就此封尺）。
 16. **排名型子问题强制消费排名观察支**：排名型子问题（问句求排名／排序序）的答案必须从**排名观察支**取值——交付的排名序对（对象↔名次／值）须与排名观察支的序信息一致，**不得弃排名支、以他支拼排名**（数-排2 形——帧证 obs[52]/[53] 曾弃即病形）。真源：`docs/runtime-refactor/arch/P4a2-票堆V2-51至55.md`（A-P4a2-04——「排名型子问题答案强制消费排名观察支（数-排2 形，帧证 obs[52]/[53] 曾弃）」）。
+17. **跨油田题分源列明油田归属**：交付面涉**多油田**（或跨区块／跨层系）的题，答案必须**分源列明每条结论的归属**（油田名↔数值／结论配对），**不得框成「某区块／小范围结算序列」等含糊归属**（C-正6 形禁现）；**无据归属不得进答案面**（与行为 3「无据的话不写进答案」同族；`eng/04a` 族面＝pin-02「无据差值/无据口径框架」）。合同侧承接＝`prompts` 答案要求③（多来源逐个来源分别作答，不冲突也要分别列出）。可写成 assert：多油田 fixture 下答案面归属配对在场＋「某区块」形零命中。真源：`eval/results/Q16-判分报告-G3.md`（:32——C-正6 判语逐字：「34-8 侧 −42.6 被无据框成"某区块/小范围结算序列"、不认列渤中34-8 油田归属——跨套混写不分油田档＋无据调和」）；`eval/results/Q15-对账报告.md`（:167——族 C 跨报告归属校验：attribution_split 分源列明块帧证）；`docs/runtime-refactor/eng/04a-应钉行为清单.md`（pin-03——「跨油田题交付必须分源列明油田归属，不得框成『某区块』不认归属」，golden，P0）。
 
 ## 不降级与静默禁令
 
@@ -113,6 +114,7 @@ class Gap:
 | 起草回声=0：首行不以「理解：」开头／前 100 字不含「指标候选」（echo_flag 恒 0） | `tests/domains/test_v2_answering.py::echo_flag_zero` |
 | 台账 no_hit → 降级交付三段形（油田级邻近可得引用＋逐井「未找到」明示＋指路）且零逐井数值冒充 | `tests/domains/test_v2_answering.py::no_hit_degraded_delivery_three_part` |
 | 排名型子问题答案消费排名观察支（排名序对与排名支序信息一致，不弃支他拼） | `tests/domains/test_v2_answering.py::ranking_answer_consumes_ranking_obs` |
+| 多油田题答案面分源列明归属配对（油田名↔数值／结论）在场＋「某区块」含糊归属形零命中 | `tests/domains/test_v2_answering.py::cross_oilfield_attribution_paired` |
 | 程序侧无词表／正则语义判断（AST 扫描；豁免面＝形态处理／集合成员判定） | `tests/domains/test_v2_answering.py::no_lexicon_or_regex_in_answering` |
 | 流式、缺口、截断披露的机读信号在场（text／citation 帧＋material_truncated notice＋step payload；verdict 为消费方信号，批次落定归 orchestration） | `tests/domains/test_v2_answering.py::answering_signal_present` |
 | 【边界集】单段答案／零材料／矛盾双源／坏引标 → 各自落到对应分支 | `tests/domains/test_v2_answering.py::boundary_single_seg_zero_material_conflict_bad_cite` |
@@ -147,4 +149,5 @@ class Gap:
 | 起草回声=0（`echo_flag` 恒 0） | 钉 **`pin-13`**（P1） | 待织网（阶段 5） |
 | 台账 no_hit 降级交付三段形（油田级邻近可得引用＋逐井「未找到」明示＋指路，零逐井数值冒充——轴④封尺满分形）——落点＝行为 15 | 钉 **`pin-20`**（P1） | 待织网（阶段 5） |
 | 排名型子问题强制消费排名观察支（排名序对与排名支序信息一致，不弃支他拼）——落点＝行为 16 | 钉 **`pin-19`**（P1） | 待织网（阶段 5） |
+| 跨油田题分源列明油田归属（油田名↔数值／结论配对；「某区块」含糊归属形禁现——C-正6 形）——落点＝行为 17 | 钉 **`pin-03`**（P0） | 待织网（阶段 5） |
 | 「不做什么」的纯范围排除（不执行查询／不核验等） | **人审** | 接不上闸的原因：纯范围排除没有形状／存在性／退出码判据；能降维的部分（相位互不 import）已由边界闸 R1 覆盖 |

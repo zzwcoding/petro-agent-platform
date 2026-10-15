@@ -77,3 +77,22 @@
 - **不加闸（裁定照录）**：importlinter 边界闸**不随本批加**——R7「只经出口」＋R8 语义不变，doctrine 是规格层不是闸层（主窗 2026-10-15 裁）。
 - **契约字面核对（未改 toml）**：逐条实读 `tools/importlinter_v2.toml`——R7（forbidden＝`appv2.infra.llm_client`；source 含 `appv2.runtimev2.bookkeeping`）与 R2（业务相位 forbidden 含 `appv2.runtimev2.bookkeeping.*` 深层子模块、不含包根）均与新 doctrine **无字面冲突**。实现期注意：相位 import 只许 `appv2.runtimev2.bookkeeping` 包根（R2 面）。
 - **验证**：`uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿（20 份规格）**。均 exit 0（批次一改后实跑）。
+
+---
+
+## 流水 30③ 后续：pin-03 落 answering（主窗裁）——2026-10-16
+
+主窗裁决：`eng/04a` **pin-03**（P0 golden，跨油田题交付必须分源列明油田归属、不得框成「某区块」不认归属——C-正6 形禁现）**落本块**（交付面正主）——窗 B 评审 P-05 指出的「该钉三处登记（`specs/prompts.md` 行为 2 ③承接注记＋挂钩表 :161、`specs/verification.md:141` 备查登记）无一处落验收行」就此闭合。同批修窗 B 点名的 P-11 措辞（`specs/prompts.md` 风险 7③ 登记件的销项面）。本轮只改 `specs/answering.md` ＋ 本台账，未 commit。
+
+| # | 落点 file:line | 一句话 | 依据 |
+|---|---|---|---|
+| 16 | `specs/answering.md:88`（行为约定 17「跨油田题分源列明油田归属」新增） | 交付面涉**多油田**（或跨区块／跨层系）的题答案必须**分源列明每条结论的归属**（油田名↔数值／结论配对），不得框成「某区块／小范围结算序列」等含糊归属（C-正6 形禁现）；**无据归属不得进答案面**（与行为 3「无据的话不写进答案」同族——`eng/04a` 族面＝pin-02「无据差值/无据口径框架」）；合同侧承接＝prompts 答案要求③（多来源逐个来源分别作答）——可写成 assert（多油田 fixture 下答案面归属配对在场＋「某区块」形零命中）；真源 `eval/results/Q16-判分报告-G3.md`:32（C-正6 判语逐字引）＋`eval/results/Q15-对账报告.md`:167（族 C attribution_split 分源列明块帧证）＋`docs/runtime-refactor/eng/04a-应钉行为清单.md` pin-03（P0 golden） | 主窗裁 pin-03 落 answering（补充任务①） |
+| 17 | `specs/answering.md:117`（验收表新增 1 行） | 「多油田题答案面分源列明归属配对（油田名↔数值／结论）在场＋『某区块』含糊归属形零命中」→ `tests/domains/test_v2_answering.py::cross_oilfield_attribution_paired`（阶段 5 承诺，标识格式照既有行） | 补充任务② |
+| 18 | `specs/answering.md:152`（挂钩表新增 pin-03 正式钉行） | 「跨油田题分源列明油田归属（油田名↔数值／结论配对；『某区块』含糊归属形禁现——C-正6 形）——落点＝行为 17｜钉 **`pin-03`**（P0）｜待织网（阶段 5）」——格式与其余钉行同款 | 补充任务③ |
+| 19 | `specs/answering.md:29`（触及的模块 prompts 行措辞改述） | 「答案轮的指令与材料装配文本（只出文本）」→「答案轮指令装配文本（只出文本；材料段不在装配输出内——材料渲染归 context，本块材料渲染＝消费 context 编译产物、零自取，与 specs/context.md 定界互认）」——消 P-11 两说（对齐 `specs/prompts.md` 行为 12 材料零渗入定界） | 窗 B 点名 P-11（补充任务④，主窗裁口径） |
+
+**真源行号勘正**：`eng/04a` pin-03 来源列标 `Q16-判分报告-G3.md:31`，C-正6 判语实落 **:32**（:31 是 C-正5 行）——本规格按 :32 引（同 pin-19 勘正先例；`eng/04a` 侧勘正待 eng/ 文件随批治理，本批不动 eng/）。
+
+**遗留移交**：① `specs/prompts.md:161` 的「其挂钩表现无 pin-03 行——跨规格债登记交主窗」表述自本批起过时——prompts 侧回提句随其块下批修订对账（单写者纪律，本批不动他块文件）；`specs/verification.md:141` 备查登记照旧（verify 侧无独立落点，答案交付面现落本块行为 17）。② 新增测试标识 `cross_oilfield_attribution_paired` 为阶段 5 承诺，`tests/domains/test_v2_answering.py` 尚不存在——与既有行同状态。
+
+**验证（2026-10-16）**：`uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿（22 份规格）**。均 exit 0（本批改后实跑）。本规格现登记钉：pin-03/04/08/09/13/19/20 共 7 根（另 pin-10 行为/验收落点已备、钉登记随织网统筹）。
