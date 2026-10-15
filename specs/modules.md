@@ -299,7 +299,7 @@ def check_limits(state: RunState) -> Convergence: ...
 
 ## orchestration
 
-职责: 编排与执行——图装配与路由、命令受理与执行器、挂起恢复
+职责: 编排与执行——图装配与路由、命令受理与执行器、挂起恢复、**检查点 saver 组合**（LangGraph PG saver 实现——组合 `persistence` 的框架无关行级口，不直连表）
 目录: `appv2/runtimev2/orchestration/`
 
 ### 公开接口
@@ -426,25 +426,44 @@ SseEvent = ...               # 帧载荷形状（本卡定义；`state.RunHandle
 
 ## persistence
 
-职责: 存储归档——运行记录、检查点、黑匣子（只追加）、审计唯一写口、**大结果原文的引用载体**（可寻址 handle）
+职责: 存储归档——运行记录、检查点**表与读写入口**、黑匣子（只追加）、审计唯一写口、**大结果原文的引用载体**（可寻址 handle）
 目录: `appv2/runtimev2/persistence/`
 
 ### 公开接口
 ```python
 class RunStore:
-    def save(...) -> None: ...
-    def load(run_id: str) -> RunState: ...
-def audit(...) -> None: ...     # 唯一写口＝security.audit（B12）
+    def save(record) -> None: ...          # 统一落盘入口（run 行／步记录／黑匣子；只追加面见卡注）
+    def load(run_id: str) -> RunState: ...          # 检查点恢复（跨进程重放）
+    def run(run_id: str) -> RunRecord | None: ...
+    def steps(run_id: str) -> list[StepRecord]: ... # seq 升序
+    def blackbox(run_id: str) -> BlackBox | None: ...
+    def put_ref(blob: bytes) -> BlobRef: ...        # 大结果原文的引用载体（可寻址 handle）
+    def read_ref(handle: str) -> bytes: ...
+    def ensure_tables() -> None: ...                # 幂等建表
+
+# 检查点三表的**框架无关行级读写口**（编排块的 LangGraph saver 组合它，不直连表）
+def put_checkpoint_rows(rows) -> None: ...
+def checkpoint_rows(thread_id: str) -> list[CheckpointRow]: ...
+def checkpoint_blobs(thread_id: str, checkpoint_id: str) -> list[CheckpointBlobRow]: ...
+def checkpoint_writes(thread_id: str, checkpoint_id: str) -> list[CheckpointWriteRow]: ...
+def delete_thread(thread_id: str) -> None: ...
+
+def audit(record) -> None: ...             # 唯一写口＝security.audit（B12）
 ```
+
+> **三处卡级澄清（2026-10-15，L0，随 persistence 规格起草）**：
+> ① **框架类型不进本块**——`langgraph` 的 PG saver（`BaseCheckpointSaver` 实现，需框架类型）归 `## orchestration`（ADR-0002 红线①／R5b 只许框架活在编排块内）；**本块出框架无关的检查点三表行级读写口**，编排块 saver **组合本口、不直连表**。
+> ② **「只读 DB」的准确含义**——**业务数据面只读**（INV-2 全程只读）；**簿记表 `agent_v2_*` 是本块唯一写面**（表名前缀隔离）。
+> ③ **公开类型的字段形状以 `specs/persistence.md` 的接口定义为准**（卡面只列类名与签名概要；字段形状、枚举闭世界、断言在规格里）——涉及 `RunRecord`／`StepRecord`／`BlackBox`／`BlobRef`／`CheckpointRow`／`CheckpointBlobRow`／`CheckpointWriteRow`／`AuditRecord` 八类。
 
 ### 依赖
 - 模块: `state`
-- 外部: `infra`（只读 DB／审计出口）、PostgreSQL
+- 外部: `infra`（DB 会话／时钟／审计出口）、PostgreSQL
 
 ### Seam 与测试
 - Seam: 存储入口（换载体不改调用面）
 - Adapter: 内存 store／假检查点
-- 测试计划: 只追加不原地改；恢复可重放；审计四要素（主体／意图／事实／结果）
+- 测试计划: 只追加不原地改；恢复可重放；审计四要素（主体与范围／意图与授权／执行事实／结果与证据）
 
 ## gateway_adapter
 

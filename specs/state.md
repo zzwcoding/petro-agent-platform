@@ -110,7 +110,7 @@ def check_limits(state: RunState) -> Convergence: ...   # 纯函数：不改入�
 5. **相位合同一次性**（钉 `pin-24`）：`contracts_appended` 记录已追加过合同文本的相位；**回炉轮不重发**。断言：同一相位二次进入后，`messages` 中该相位合同条数不变、标记写入幂等。
 6. **对话层纯度**（钉 `pin-26`）：`dialogue` 只装**自然对话**——条目形态固定为 `{role, content, origin}`：`role` ∈ `user`｜`assistant`（同 `messages` 口径）；`origin` 是**来源闭世界**，合法值仅三——`user_verbatim`（用户原话）｜`assistant_final`（assistant 终稿）｜`clarify_approval_replay`（澄清与审批回收原文）。任务书、相位指令、过程原话、注记前缀只入 `process_notes`（有界摘要）。**`origin` 是本次重写自立的新结构**：现状 `dialogue` 条目只有 `role`／`content`、无来源标签，过程记录与自然对话同链混装（现状锚点＝`docs/runtime-refactor/arch/P5b1-对话状态重构方案.md` 与 `recon/I2b-RunState全字段.md` 的条目形态）——**待 Owner 过目**，阶段 5 以本规格为准。断言：注入含任务书与指令的一轮后，每个 `dialogue` 条目都带 `origin` 且取值落在三值内（越界即失败）——过程内容要混进 `dialogue` 只能伪造来源标签，伪造即越界被抓。
 7. **追问播种＝前轮终链整链承接**（钉 `pin-23`，P0）：`followup_of` 非空的新 run，其 `messages` 以**前 run 检查点终链整条**为前缀（不裁剪、不摘要化），再接新问。断言：跨 run 前缀关系成立（后 run 链前 N 段与前轮终链逐字相等）。
-8. **旧检查点如实读入**（钉 `pin-30`）：v1／v2 旧检查点读入**不抛错**；旧 run 的对话通道**如实空显**，不得伪造或补写历史。`schema_version` 真值真源＝`synth/S3-口径裁决清单.md` C-07。断言：读入 v1 fixture → 不抛错，且 `dialogue` 为空或如实投影。
+8. **旧检查点如实读入**（钉 `pin-30` 的**状态字段面**）：v1／v2 旧检查点读入**不抛错**；`dialogue` 是兼容字段、本块对它**零业务写**（不得伪造或补写历史）；`schema_version` 真值真源＝`synth/S3-口径裁决清单.md` C-07。断言：读入 v1 fixture → 不抛错；`schema_version` 取读入态；`dialogue` 无本块写入点（AST＋行为双证）。（**分工**：「旧 run 的对话通道在**黑匣子回放**时如实空显」那一条断言归 `specs/persistence.md` 行为 12——同一钉的另一面，两处不各写一遍。）
 9. **三族常量为闭世界且单点消费**：`STEP_KINDS`／`RUN_STATUS_KINDS`／`INTENT` 只在本块定义；**任何写入口的取值必须 ∈ 对应族**，越界抛错；**每族必须有真实消费点**（禁「定义了没人用」）。断言：越界值抛错；全仓无第二处自建状态集合、无裸状态字面量参与把守（`grep`／AST）。
 10. **限额参数键集闭世界**：`Budget` 键＝轮数／轮内发现／轮内执行／段时长／单工具超时／全 run 发现／连续反问上限；**数值与缺省值只引真源**（`recon/K-上下文事件指南预算.md` R-K-72…R-K-78 逐键承载七项 ＋ `docs/runtime-refactor/walk/裁决表.md` §06-A 承载循环上限五项），**常量定义与合同文本同源引用、不重复硬编码**。断言：`Budget` 键集合相等；缺键取缺省、禁散落的兜底字面量。
 11. **触界判定确定、纯、不改入参**：`check_limits` 同输入两次结果相等；调用前后入参深比较相等；无 IO、无模型、无随机。断言：两跑结果相等 ＋ `asdict` 深比较相等。
@@ -175,7 +175,8 @@ def check_limits(state: RunState) -> Convergence: ...   # 纯函数：不改入�
 
 | 本规格的硬要求 | 挂钩 | 现状 |
 |---|---|---|
-| 十节标题齐备 ／ 触及模块名已声明 ／ 验收测试逐行有标识 | spec gate | 已进 CI |
+| 验收测试逐行有标识 ／ 触及模块名已声明 | spec gate（**该闸只校这两项**——十节标题不在其作用面） | 已进 CI |
+| 十节标题齐备、逐字、有序 | **人审** | 原因：`tools/check_specs.py` 不校标题名／顺序，仓内无标题闸（登记：可降维为一条标题机检，本批未授权） |
 | 真源引用可解析（路径／边界规则编号／被引卡片在册） | 真源引用闸 `tools/ref_resolvable.py` | 已进 CI |
 | 不 import runtimev2 内任何其它块 | 边界闸 **R4**（本批补公共层九块＋探针验证） | 已真跑（18/18 KEPT） |
 | 不引框架 | 边界闸 **R5b** | 已真跑 |
@@ -185,7 +186,7 @@ def check_limits(state: RunState) -> Convergence: ...   # 纯函数：不改入�
 | 追问播种＝前轮终链整链承接（**状态字段面**） | 钉 **`pin-23`**（P0）；测试 `::followup_seeds_full_chain` | 待织网（阶段 5）；播种动作面同钉挂 `specs/agent-loop.md` |
 | 相位合同一次性（`contracts_appended`） | 钉 **`pin-24`**；测试 `::contracts_appended_idempotent` | 待织网（阶段 5） |
 | 对话层纯度（`dialogue`／`process_notes` 不混层） | 钉 **`pin-26`**；测试 `::dialogue_layer_purity` | 待织网（阶段 5）；渲染面同钉挂 `specs/understanding.md` |
-| 旧 run 对话通道如实空显（`pin-30` 的**后半面**；**compaction 半面**归 `context`——`synth/S1` H6／V2-79d） | 钉 **`pin-30`**（P2）；测试 `::legacy_checkpoint_read_honest` | 待织网（阶段 5） |
+| 旧 run **状态字段读入**如实（`schema_version` 如实、`dialogue` 无业务写）——`pin-30` 另两面：**回放面**挂 `specs/persistence.md`；**compaction 半面**归 `context`（`synth/S1` H6／V2-79d）——该规格尚未定稿，**待 `context` 规格（窗 B 编写）定稿时登记** | 钉 **`pin-30`**（P2）；测试 `::legacy_checkpoint_read_honest` | 待织网（阶段 5） |
 | `AskChoice` 的 `kind` 判别字段（**形状面**） | 钉 **`pin-29`**（P0，**闭环面挂 `specs/agent-loop.md`**）；本块测试 `::ask_payload_shape_closed_world` | 待织网（阶段 5） |
 | 触界不静默（注记＋`budget_hit` 同现） | 测试 `::converge_requires_notice`／`::budget_hit_signal_present` | 待实现 |
 | 限额数值单点（禁散落字面量） | 测试 `::budget_keys_closed_world`／`::no_second_source_of_constants` | 待实现 |

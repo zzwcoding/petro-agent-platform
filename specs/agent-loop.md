@@ -144,7 +144,7 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
    - **命令受理（H3）**：`ask`／`resume` 是唯一入口——**`RunCommand → 执行器 → RunEvent` 为显式接缝**（将来换队列消费者，`api`／`tools`／事件契约零改动）；
    - **图驱动（H3）**：组合图执行由本块驱动（命令进、事件流出），业务相位不自驱；
    - **三态落库（H3）**：`completed`／`failed`／`waiting_ask` 三态由本块写 run 表（`answer`／`manifest_digest` 随三态落）；
-   - **审计接线（H3）**：run 创建／三态收口／拒答收口／外表审批决定**四事件经 `security.audit` 唯一写口**落责任账（action 恒 `agent_v2.*` 前缀，INV-5）；
+   - **审计接线（H3）**：受理／三态收口／拒答收口／外表审批决定／禁用词豁免**五处留痕**都经 `security.audit` 唯一写口落责任账——**计数口径以「action 闭世界七值」为准**（真源 `docs/runtime-refactor/recon/J-存储留痕与网关缝.md` R-J-05；三态收口＝完成／失败两值、审批决定＝批准／驳回两值），**本处不写类数**（旧「四事件」说法已废——它漏了禁用词豁免）；action 恒 `agent_v2.*` 前缀，INV-5；
    - **身份缝（H3）**：请求身份经 `infra.security.resolve_actor` 解析（开发期身份桩；正式接 OAuth2.0 **只换该函数实现**，其余零改动）；
    - **组合图装配与路由表（H2）**：节点注册、条件边、路由表在本块**一处集中**——**业务相位不得自行决定跳转**。
 
@@ -199,7 +199,7 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 | 追问端点会话线程延展（新 run 播种前轮历史） | `tests/api/test_v2_asks.py::test_followup_asks_extend_session` |
 | 全程业务事实零写（run 簿记表 agent_v2_* 除外，INV-2） | `tests/domains/test_v2_agent_loop.py::test_readonly_inv2` |
 | 三态落库（completed／failed／waiting_ask 写 run 表） | `tests/domains/test_v2_agent_loop.py::test_three_terminal_states_persisted` |
-| 审计四事件接线（经 security.audit 唯一写口） | `tests/domains/test_v2_agent_loop.py::test_audit_wiring_four_events` |
+| 审计留痕经 `security.audit` 唯一写口（**action 闭世界七值**，计数只此一个口径） | `tests/domains/test_v2_agent_loop.py::test_audit_wiring_action_closed_world` |
 | 身份缝单一入口（身份解析只经 resolve_actor） | `tests/domains/test_v2_agent_loop.py::test_identity_seam_single_entry` |
 | 图装配与路由表集中（业务相位不自行跳转） | `tests/domains/test_v2_agent_loop.py::test_routing_table_centralized` |
 | 【边界集】挂起／中断／预算触界／换链回炉／坏引标 → 各自落到对应分支 | `tests/domains/test_v2_four_phase.py::boundary_suspend_interrupt_budget_rewire_bad_cite` |
@@ -218,7 +218,8 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 
 | 本规格的硬要求 | 挂钩 | 现状 |
 |---|---|---|
-| 十节标题齐备 ／ 触及模块名已声明 ／ 验收测试逐行有标识 | spec gate | 已进 CI |
+| 验收测试逐行有标识 ／ 触及模块名已声明 | spec gate（**该闸只校这两项**——十节标题不在其作用面） | 已进 CI |
+| 十节标题齐备、逐字、有序 | **人审** | 原因：`tools/check_specs.py` 不校标题名／顺序，仓内无标题闸（登记：可降维为一条标题机检，本批未授权） |
 | 真源引用可解析（路径／边界规则编号／被引卡片在册） | 真源引用闸 `tools/ref_resolvable.py` | 已进 CI |
 | 框架只在本块（LangGraph 不外溢） | 边界闸 **R5b** | 已真跑 |
 | 模型调用只经 `gateway_adapter` | 边界闸 **R7** | 已真跑 |
