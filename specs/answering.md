@@ -83,6 +83,7 @@ class Gap:
 13. **占位符不进答案面**：答案面不得出现字面占位引标 `[n]`（确无可引序号时一个引用记号都不写）；含 `[n]` 字面的行不得以占位符形式交付。真源：`eval/results/Q16-判分报告-G3.md`（:56——数字在场而 cited=[] 的 D-诱15 形）；`tickets/v2/V2-69-坏引标修复.md`（占位符串台根因＋「禁止占位符 [n] 进答案」指令纪律）。
 14. **起草回声＝0**：草稿首行不得以「理解：」开头、草稿前 100 字不得含「指标候选」（`echo_flag` 恒 0——观测字段只记不拦）。真源：`docs/runtime-refactor/arch/P4b-票堆V2-56至65.md`（A-P4b-61——`echo_flag` 形态判据定义）；`eval/results/Q16-对账报告.md`（:61——echo_flag 全批 0，回声形态自 V2-62 后零再现）。
 15. **台账 no_hit 降级交付三段形**：台账 no_hit（agg 未落列 notice 在场）时的降级交付必须**三段齐**——①油田级邻近可得量**带引用**交付；②逐井明细**逐井「未找到」明示**；③**指路**（替代出路指引）；且**零逐井数值冒充**（无逐井数据不得以油田级值充当逐井值）。真源：`eval/results/Q16-判分报告-G1.md`（:39 数-降2 判语——「油田级 8.10 万吨邻近可得引用＋逐井明细未找到明示＋指路，零逐井数值——轴第 4 条满分形」）；`eval/README.md`（「判分轴统一登记」第 4 条——引擎降级解释＋如实标注＝✅ 满分，诚实转述也是正确交付，数-降1/数-降2 跷跷板就此封尺）。
+16. **排名型子问题强制消费排名观察支**：排名型子问题（问句求排名／排序序）的答案必须从**排名观察支**取值——交付的排名序对（对象↔名次／值）须与排名观察支的序信息一致，**不得弃排名支、以他支拼排名**（数-排2 形——帧证 obs[52]/[53] 曾弃即病形）。真源：`docs/runtime-refactor/arch/P4a2-票堆V2-51至55.md`（A-P4a2-04——「排名型子问题答案强制消费排名观察支（数-排2 形，帧证 obs[52]/[53] 曾弃）」）。
 
 ## 不降级与静默禁令
 
@@ -110,6 +111,7 @@ class Gap:
 | 答案面无字面占位符 `[n]`（含 `[n]` 行不以占位符交付） | `tests/domains/test_v2_answering.py::placeholder_marker_not_in_answer` |
 | 起草回声=0：首行不以「理解：」开头／前 100 字不含「指标候选」（echo_flag 恒 0） | `tests/domains/test_v2_answering.py::echo_flag_zero` |
 | 台账 no_hit → 降级交付三段形（油田级邻近可得引用＋逐井「未找到」明示＋指路）且零逐井数值冒充 | `tests/domains/test_v2_answering.py::no_hit_degraded_delivery_three_part` |
+| 排名型子问题答案消费排名观察支（排名序对与排名支序信息一致，不弃支他拼） | `tests/domains/test_v2_answering.py::ranking_answer_consumes_ranking_obs` |
 | 程序侧无词表／正则语义判断（AST 扫描；豁免面＝形态处理／集合成员判定） | `tests/domains/test_v2_answering.py::no_lexicon_or_regex_in_answering` |
 | 流式、缺口、截断披露的机读信号在场（text／citation 帧＋material_truncated notice＋step payload；verdict 为消费方信号，批次落定归 orchestration） | `tests/domains/test_v2_answering.py::answering_signal_present` |
 | 【边界集】单段答案／零材料／矛盾双源／坏引标 → 各自落到对应分支 | `tests/domains/test_v2_answering.py::boundary_single_seg_zero_material_conflict_bad_cite` |
@@ -143,4 +145,5 @@ class Gap:
 | 材料截断必披露（`material_truncated` notice＋「未渲染部分不作答」声明） | 钉 **`pin-09`**（P1） | 待织网（阶段 5） |
 | 起草回声=0（`echo_flag` 恒 0） | 钉 **`pin-13`**（P1） | 待织网（阶段 5） |
 | 台账 no_hit 降级交付三段形（油田级邻近可得引用＋逐井「未找到」明示＋指路，零逐井数值冒充——轴④封尺满分形）——落点＝行为 15 | 钉 **`pin-20`**（P1） | 待织网（阶段 5） |
+| 排名型子问题强制消费排名观察支（排名序对与排名支序信息一致，不弃支他拼）——落点＝行为 16 | 钉 **`pin-19`**（P1） | 待织网（阶段 5） |
 | 「不做什么」的纯范围排除（不执行查询／不核验等） | **人审** | 接不上闸的原因：纯范围排除没有形状／存在性／退出码判据；能降维的部分（相位互不 import）已由边界闸 R1 覆盖 |
