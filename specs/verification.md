@@ -36,6 +36,8 @@ class Verdict:                           # 对外判定（**不是 answer 侧文
     rewritten: int                       # 无据被改写的句子数
     split: int                           # 因矛盾被分列的组数
     cited: list[int]                     # 被引用的观察序号
+    delivered_rows: int                  # 答案交付行数（行集对账——答案面实际交付的数据行数）
+    obs_rows: int                        # 在窗数据行数（材料窗内数据链行集支数；与 delivered_rows 确定性对账）
     attribution: bool                    # 归属审是否通过（引的材料与被点名对象对得上）
     ok: bool                             # 是否仍有「无据断言」残留（Verdict.ok=False 才需回炉）
     gaps: list[Gap]                      # 结构化缺口（复用 answering 的 Gap 口径；核验侧产出 kind="unverified"）
@@ -66,20 +68,21 @@ class Gap:                               # 复用 answering 的 Gap 口径（字
 ## 行为约定
 
 1. **逐行断言级核验**：先把答案剥掉结构性残留（JSON／引标记号），再**逐行**判定；**不是整段判**。
-2. **数值须复述（承载豁免）**：被引观察里的**数值须在断言文本里复述**才算有支撑——只凭"引用了一个数"不算；**但表格行／血缘卡／fragment 承载形式下豁免「全数值复述」**——任一数值重叠即支撑、零重叠照改（零重叠不回退；真源 `docs/runtime-refactor/recon/A2-核验规则与归属审.md` R-A2-11）。
+2. **数值须复述（承载豁免）**：被引观察里的**数值须在断言文本里复述**才算有支撑——只凭"引用了一个数"不算；**但 `agg_row`（表格行）／`lineage`（血缘卡）／`fragment` 承载形式下豁免「全数值复述」**——任一数值重叠即支撑、零重叠照改（零重叠不回退；真源 `docs/runtime-refactor/recon/A2-核验规则与归属审.md` R-A2-11——carrier 字面以真源为准）。
 3. **无据 → 改写**：没有支撑的句子**改写成「未找到／材料未披露」**（`RewriteRecord.reason="no_material"`），并发 `notice`。
 4. **矛盾 → 分列**：两个来源给的数对不上时**分开列、各带出处**（`reason="conflict"`），**不强调和**、不取其一。
 5. **归属审**：引用的材料与问句点名的对象对不上号 → `attribution=False`，并把该情形写进缺口。
-6. **给出核对结果卡**：`Verdict` **各字段齐备**（五计数 supported／rewritten／split／cited／attribution ＋ `ok`／`gaps`）——**缺键＝判失败**。
+6. **给出核对结果卡**：`Verdict` **各字段齐备**（五计数 supported／rewritten／split／cited／attribution ＋ `ok`／`gaps` ＋ 行集对账 `delivered_rows`／`obs_rows`）——**缺键＝判失败**。
 7. **判据加严（治已知假阳／假阴）**：数值比对**先做边界记号化**（`52` 不得命中 `1520`）；**全角与半角标点先归一**再切分。
 8. **零数值断言不恒过**：断言里**没有任何数值**时，**不得自动判过**——仍须有可解析引标支撑，否则计入无据。
 9. **`Verdict.ok=False` 才回炉**：只要仍存在无据断言残留，`Verdict.ok=False`（供 `orchestration` 决定回炉）；`Verdict.ok=True` 时不得再改写。
 10. **`verdict` 帧的批次落定由 `orchestration` 协调**；本块只保证自产部分（`Verdict`／`notice`）就位。
+11. **行集对账（记账面、非拦截阀门）**：verify 面确定性对账**在窗数据行数 vs 答案交付行数**——`Verdict` 产出 `obs_rows`（在窗数据行数）／`delivered_rows`（答案交付行数）两机读字段并随 step payload 落账；**差额>0 且答案面无行集声明 → 补如实注记**；**不改写数值断言、不重试、不拦截**（真源 `docs/runtime-refactor/arch/P7a-交接包与挂账清单.md` A-P7a-38；钉 `pin-12`）。
 
 ## 不降级与静默禁令
 
 - **合法降级路径：无**（本模块不降级；核验器不可用时按 fail-closed 取 `ok=False`）。
-- 改写、分列、归属失败**都必须产生机读信号**：`verdict`／`notice` 事件（类型取自 `synth/S6-事件与帧目录.md`）＋ step payload 的 `supported`／`rewritten`／`split`／`cited` 字段。
+- 改写、分列、归属失败**都必须产生机读信号**：`verdict`／`notice` 事件（类型取自 `synth/S6-事件与帧目录.md`）＋ step payload 的 `supported`／`rewritten`／`split`／`cited`／`delivered_rows`／`obs_rows` 字段。
 - 改写**不得静默**：被改写的原句与原因必须留痕（`RewriteRecord`）；红线原文 `arch/P7a-交接包与挂账清单.md`（A-P7a-37）「不许静默」。
 
 ## 验收测试
@@ -101,6 +104,7 @@ class Gap:                               # 复用 answering 的 Gap 口径（字
 | 本模块零 LLM（AST＋import 双证） | `tests/domains/test_v2_verification.py::no_model_call_in_verification` |
 | 程序侧无词表／正则语义判断（AST 扫描；豁免面＝形态处理／集合成员判定） | `tests/domains/test_v2_verification.py::no_lexicon_or_regex_in_verification` |
 | 机读信号在场（verdict／notice ＋ step payload） | `tests/domains/test_v2_verification.py::verification_signal_present` |
+| 行集对账：`delivered_rows`／`obs_rows` 入 `Verdict` 与 step payload；差额>0 且答案面无行集声明 → 补如实注记（不改写、不拦截） | `tests/domains/test_v2_verification.py::row_reconciliation_bookkeeping` |
 | 【边界集】单句答案／零材料答案／双源矛盾／全角数字 → 各自落到对应分支 | `tests/domains/test_v2_verification.py::boundary_single_zero_material_conflict_fullwidth` |
 | 【保留集】无矛盾、有支撑的普通答案：各字段取值与 `ok=True` 行为不变 | `tests/domains/test_v2_verification.py::retention_clean_answer_unchanged` |
 
@@ -129,4 +133,9 @@ class Gap:                               # 复用 answering 的 Gap 口径（字
 | 程序不判语义 | 测试 `::no_lexicon_or_regex_in_verification` | 待实现（阶段 5） |
 | 判据加严（边界记号化／全角归一） | 测试 `::token_boundary_no_substring_false_positive`／`::fullwidth_normalized_before_split` | 待实现 |
 | 质量度量（精确率／召回率） | **测试网**（人工标注对照，非运行时闸） | 待织网（阶段 5） |
+| 题眼锚定归属审（答案引用的报告≠题干点名报告即失败） | 钉 **`pin-01`**（落点＝行为 5 归属审 → `attribution=False` ＋缺口留痕） | 待织网（阶段 5） |
+| 答案面禁现无据差值／无据口径框架（「252 天」型：全文零出现的数值不得充当答案） | 钉 **`pin-02`**（落点＝行为 2 数值须复述 ＋ 行为 3 无据改写） | 待织网（阶段 5） |
+| citation 落账（引标对应窗内切片；不得 `cited=[]` 且数字在场） | 钉 **`pin-10`**（落点＝行为 8 零数值断言不恒过 ＋ `Verdict.cited`） | 待织网（阶段 5） |
+| verify 对账机读字段（delivered_rows／obs_rows）入 step payload | 钉 **`pin-12`**（落点＝接口 `Verdict` 两字段 ＋ 行为 11 行集对账；真源 `arch/P7a-交接包与挂账清单.md` A-P7a-38） | 待织网（阶段 5） |
+| 跨油田题交付分源列明油田归属（C-正6 形禁现） | 钉 **`pin-03`**（本块无独立落点——verify 侧仅行为 5 归属审触发面；答案交付面的分源列明属 prompts 合同「7 条③引用链承接」，prompts 规格落盘后承接，登记备查不落本块验收） | 待织网（阶段 5） |
 | 「不做什么」的纯范围排除（不起草／不执行查询等） | **人审** | 接不上闸的原因：纯范围排除没有形状／存在性／退出码判据；能降维的部分（相位互不 import、零 LLM 面）已由边界闸 R1／R8 覆盖 |

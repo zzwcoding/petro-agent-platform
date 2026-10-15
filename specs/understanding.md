@@ -59,10 +59,9 @@ class Direct:                              # route 闭世界
 ## 框架与依赖红线
 
 - **无点名框架**（本模块不引入任何框架）。
-- **模型调用唯一出口＝`gateway_adapter`**；验收写法：模型调用点只出现在该出口 ＋ 调用行为测试绿。对应闸：`tools/importlinter_v2.toml` 的 **R7 契约**（runtimev2 各块只经 `gateway_adapter` 调模型；**B6 只管 litellm 出 `infra`，不含「绕过 `gateway_adapter` 直引」这一面**）＋ 一条「无旁路」行为断言（写法照 `specs/tool_matching.md` 同款）。
+- **模型调用唯一出口＝`gateway_adapter`（禁手写替代）**：模型调用点只出现在该出口，不得自建模型客户端、不得绕过 `gateway_adapter` 直连上游。对应闸：`tools/importlinter_v2.toml` 的 **R7 契约**（runtimev2 各块只经 `gateway_adapter` 调模型；**B6 只管 litellm 出 `infra`，不含「绕过 `gateway_adapter` 直引」这一面**）；验收写法：「无旁路」行为断言（模型调用点只出现在 `gateway_adapter`、无自建旁路；写法照 `specs/tool_matching.md` 同款）。
 - **不得直接 import `langgraph`／`langchain`**（框架只许在 `orchestration`）。对应闸：**R5b 契约**。
 - **只经 `tools` 公开面**接触世界（结构卡与名录面均经它取自引擎）；对应闸：`specs/modules.md` 边界规则 **R6**（`runtimev2` 各块只经 `appv2.tools` 公开面）。
-- **禁手写替代**：不得自建模型客户端、不得绕过 `gateway_adapter` 直连上游。对应闸：`tools/importlinter_v2.toml` **R7 契约**（runtimev2 各块只经 `gateway_adapter` 调模型）；验收写法：「无旁路」行为断言（模型调用点只出现在 `gateway_adapter`，无自建旁路）。
 
 ## 行为约定
 
@@ -131,4 +130,5 @@ class Direct:                              # route 闭世界
 | 直答结构核验闭世界 | 测试 `::direct_with_assertion_rejected` ＋边界集行 | 待实现 |
 | 如实上报带机读信号 | 测试 `::reporting_signal_present` | 待实现 |
 | 验收测试逐行有标识 | spec gate | 已进 CI |
+| 对话层纯度（dialogue 只装自然对话，过程记录入 process_notes 不混层） | 钉 **`pin-26`**（落点＝行为 9 模型原话不进对话层——只进过程档案与留痕） | 待织网（阶段 5） |
 | 「不做什么」的纯范围排除（不做澄清／查数等） | **人审** | 原因：纯范围排除没有形状／存在性／退出码判据，接不上闸；能降维的部分（相位互不 import）已由边界闸 R1 覆盖 |
