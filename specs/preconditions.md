@@ -134,4 +134,5 @@ class AskReason:
 | 不直接 import `langgraph`／`langchain` | 边界闸 **R5b** | 已真跑 |
 | 三态闭世界 / 判定序固定 / 注记并入放行 | 测试 `::decision_enum_closed_world`／`::fixed_order_short_circuit`／`::note_merges_into_allow` | 待实现 |
 | 静默禁令（非 allow 与注记均留痕） | 测试 `::verdict_signal_present` | 待实现 |
+| 废弃词结论的**分派**（判定序第 1 位，机械分派；判断在 `tool_matching`） | 钉 **`pin-31`**（模型判「提及 vs 执行」／机械分派在 `preconditions` 判定序第 1 位／出数只认现行口径） | 待织网（阶段 5） |
 | 「不做什么」的纯范围排除（不查数／不出子问题等） | **人审** | 接不上闸的原因：纯范围排除没有形状／存在性／退出码判据；能降维的部分（相位互不 import、只经 tools）已由边界闸 R1／R6 覆盖 |

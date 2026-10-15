@@ -46,6 +46,8 @@ _EXEMPT_PREFIXES = ("tests/",)
 # 节号：§06-A → 06 ；§四 之类中文数字不判（无法可靠解析，计入 skip）
 _SECTION = re.compile(r"§\s*([0-9]+)")
 _RULE_ID = re.compile(r"\bR([0-9]+[a-z]?)\b")
+# 被引的模块卡名：反引号包住的 `## <名>`
+_CARD_REF = re.compile(r"`##\s*([^`]+?)\s*`")
 _RULE_LABEL = re.compile(r"\*\*\s*(R[0-9]+[a-z]?)\s*\*\*")
 _LINTER_NAME = re.compile(r'^name\s*=\s*"(R[0-9]+[a-z]?)', re.M)
 
@@ -72,6 +74,20 @@ def section_exists(target: Path, num: str) -> bool:
         return False
 
 
+def declared_cards() -> set[str]:
+    """modules.md 里在册的模块卡名（`## <名>` ＋ `目录:` 才算卡）。"""
+    if not MODULES.is_file():
+        return set()
+    names: set[str] = set()
+    cur: str | None = None
+    for line in MODULES.read_text(encoding="utf-8").splitlines():
+        if line.startswith("## "):
+            cur = line[3:].strip()
+        elif cur and line.startswith("目录"):
+            names.add(cur)
+    return names
+
+
 def rule_ids() -> set[str]:
     """真源编号集：modules.md 边界规则表标签 ∪ importlinter 契约名前缀。"""
     ids: set[str] = set()
@@ -87,6 +103,7 @@ def check(repo: Path | None = None) -> list[str]:
     root = repo or REPO_ROOT
     specs = sorted(p for p in (root / "specs").glob("*.md") if p.name != "modules.md")
     valid_ids = rule_ids()
+    valid_cards = declared_cards()
     problems: list[str] = []
 
     for spec in specs:
@@ -109,6 +126,12 @@ def check(repo: Path | None = None) -> list[str]:
                             f"{rel}:{lineno} 真源节不存在：`{token}` §{m.group(1)}"
                             f"（{target.relative_to(root)} 里无此节）"
                         )
+            for card in _CARD_REF.findall(line):
+                if card not in valid_cards:
+                    problems.append(
+                        f"{rel}:{lineno} 被引模块卡不在册：`## {card}`"
+                        f"（modules.md 现有卡：{'、'.join(sorted(valid_cards))}）"
+                    )
             for rid in _RULE_ID.findall(line):
                 if f"R{rid}" not in valid_ids:
                     problems.append(

@@ -138,4 +138,5 @@ class MatchReason:                         # 结构化拒因单条：缺配／�
 | 程序只对账、不替模型选工具 | 测试 `::no_lexicon_or_regex_in_tool_matching` | 待实现（阶段 5） |
 | 限额数值不复制、只引预算表 | `state` 侧常量单点测试 ＋ `::exactly_one_match_per_subtask` | 待实现 |
 | 工具描述三件套 | 测试 `::descriptor_covers_three_parts` | 待实现 |
+| 产出「提及 vs 执行」结论（废弃词闸的判断；与 `caliber_key` 同批产出） | 钉 **`pin-31`** | 待织网（阶段 5） |
 | 「不做什么」的纯范围排除（不查数／不做主动发现等） | **人审** | 接不上闸的原因：纯范围排除没有形状／存在性／退出码判据；能降维的部分已由边界闸 R1/R6 覆盖 |

@@ -39,3 +39,11 @@ def test_resolves_shorthand_and_reports_missing() -> None:
     assert rr.resolve_ref("walk/08") is not None
     assert rr.resolve_ref("synth/S3") is not None
     assert rr.resolve_ref("walk/99-不存在.md") is None
+
+
+def test_card_refs_must_be_declared() -> None:
+    """第四条判据：被引的 `## <卡名>` 必须在 modules.md 在册；旧 `runtime` 卡已不在册。"""
+    rr = _load()
+    cards = rr.declared_cards()
+    assert {"gate", "state", "answering", "verification"} <= cards
+    assert "runtime" not in cards  # 旧 `## runtime` 一张卡已被 17 张卡取代
