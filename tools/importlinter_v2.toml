@@ -103,3 +103,9 @@ type = "forbidden"
 source_modules = ["appv2.runtimev2.understanding", "appv2.runtimev2.clarification", "appv2.runtimev2.tool_matching", "appv2.runtimev2.preconditions", "appv2.runtimev2.execution", "appv2.runtimev2.answering", "appv2.runtimev2.verification", "appv2.runtimev2.state", "appv2.runtimev2.bookkeeping", "appv2.runtimev2.prompts", "appv2.runtimev2.parsing", "appv2.runtimev2.context", "appv2.runtimev2.transport", "appv2.runtimev2.persistence", "appv2.runtimev2.gateway_adapter", "appv2.runtimev2.gate"]
 forbidden_modules = ["langgraph", "langchain", "langchain_core", "langchain_community"]
 allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "R6 runtimev2 各块只经 tools 接触引擎（禁直引 knowledge/query/retrieval；ADR-0007）"
+type = "forbidden"
+source_modules = ["appv2.runtimev2.understanding", "appv2.runtimev2.clarification", "appv2.runtimev2.tool_matching", "appv2.runtimev2.preconditions", "appv2.runtimev2.execution", "appv2.runtimev2.answering", "appv2.runtimev2.verification", "appv2.runtimev2.state", "appv2.runtimev2.orchestration", "appv2.runtimev2.bookkeeping", "appv2.runtimev2.prompts", "appv2.runtimev2.parsing", "appv2.runtimev2.context", "appv2.runtimev2.transport", "appv2.runtimev2.persistence", "appv2.runtimev2.gateway_adapter", "appv2.runtimev2.gate"]
+forbidden_modules = ["appv2.knowledge", "appv2.query", "appv2.retrieval"]

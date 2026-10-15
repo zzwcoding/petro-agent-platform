@@ -138,7 +138,7 @@ def interpret(state: RunState) -> Understanding | Direct: ...
 ```
 
 ### 依赖
-- 模块: `gate`、`prompts`、`parsing`、`gateway_adapter`、`state`
+- 模块: `gate`、`prompts`、`parsing`、`gateway_adapter`、`state`；`tools`（结构卡发现面——直答结构核验读它，只经其公开面）
 - 外部: （无——模型调用经 `gateway_adapter`）
 
 ### Seam 与测试
@@ -172,11 +172,13 @@ def clarify(state: RunState) -> ClarifyOutcome: ...
 
 ### 公开接口
 ```python
-def match(state: RunState) -> ToolPlan: ...
+def match(state: RunState) -> ToolPlan | ToolMatchRejection: ...
+# ToolPlan            = {matches: list[SubtaskMatch]}（与子问题一一对应）
+# ToolMatchRejection  = {reasons: list[MatchReason]}（结构化拒因——回喂重配，非终局）
 ```
 
 ### 依赖
-- 模块: `state`；`tools`（只许走其公开面）
+- 模块: `state`、`parsing`、`prompts`、`gateway_adapter`；`tools`（只许走其公开面）
 - 外部: （无）
 
 ### Seam 与测试
@@ -512,7 +514,7 @@ tools/run_replay／RunStore.get_blackbox 读库，取证面）。
 |---|---|---|
 | `appv2` 任何模块引用 `app`（V1）内部；`app` 引用 `appv2` | （无） | Owner 2026-10-08 拍板：共存双跑互不依赖，共享只走数据面 |
 | `api` 引用 `orchestration` 以外模块 | （无） | 端点薄层，编排语义全在运行时 |
-| `runtimev2` 各块引用 `tools` 以外引擎（knowledge/query/retrieval） | （无） | agent 与世界的唯一接触面＝工具注册表（受控行动链工具侧落位） |
+| **R6** `runtimev2` 各块引用 `tools` 以外引擎（knowledge/query/retrieval） | （无） | agent 与世界的唯一接触面＝工具注册表（受控行动链工具侧落位）；对应闸：`tools/importlinter_v2.toml` R6 契约（ADR-0007 落位批） |
 | `tools` 引用 `runtimev2` | （无） | 单向向下，防环 |
 | `knowledge`/`query`/`retrieval` 互引 | `query`→`knowledge`（只许走公开接口） | 未绑定指标降级需 Evidence；其余互禁 |
 | 各引擎绕过 infra 直连接外部（litellm／裸 driver／裸 httpx 外部 API） | （无） | B6 出口纪律，V1 先例 |
