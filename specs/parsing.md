@@ -1,6 +1,6 @@
 # V2 解析与发射（parsing）
 
-状态: 草稿
+状态: 已定稿
 来源: `specs/modules.md` `## parsing` 卡、`docs/runtime-refactor/eng/00-阶段2-模块划分草案.md` §三 B、`docs/runtime-refactor/walk/判断归责表.md`、`docs/runtime-refactor/walk/04-理解-读题步.md`、`docs/runtime-refactor/walk/05-理解-定路由.md`、`docs/runtime-refactor/walk/09-澄清-分解问题.md`、`docs/runtime-refactor/walk/11-匹配-工具阀.md`、`docs/runtime-refactor/walk/裁决表.md`（§04／§07／§11＋项目级裁决 #12/#13）、`docs/runtime-refactor/recon/A1-头部常量与解析校验.md`、`docs/runtime-refactor/recon/L1a-子任务前半.md`、`docs/runtime-refactor/recon/L1b-子任务后半.md`、`docs/runtime-refactor/recon/C-理解与legacy决策节点.md`、`docs/runtime-refactor/recon/E1-澄清节点.md`、`docs/runtime-refactor/recon/E2-工具匹配节点.md`、`docs/runtime-refactor/recon/I2b-RunState全字段.md`、`docs/runtime-refactor/arch/P4b-票堆V2-56至65.md`（V2-56／57／60）、`docs/runtime-refactor/arch/P6a-票堆V2-80系列前半.md`、`docs/runtime-refactor/arch/P6b-票堆V2-80系列后半.md`（A-P6b-05／24／34）、`docs/runtime-refactor/synth/S1-重写单元与证据交叉矩阵.md`（H4／H11）、`docs/runtime-refactor/synth/S4-调用图.md`、`docs/runtime-refactor/eng/04a-应钉行为清单.md`、`specs/understanding.md`、`specs/clarification.md`、`specs/tool_matching.md`、`specs/answering.md`、`specs/state.md`、`specs/execution.md`、`specs/agent-loop.md`、`appv2/runtime/subtask.py`、`appv2/runtime/graph.py`（形随迁移＋新拒文借文指针面）
 版式: `docs/spec-format.md`（节标题按该文 §二之二 逐字命名） ｜ 工序: `docs/spec-process.md`
 块性: 本块＝**纯结构判定块**（真源 `docs/runtime-refactor/walk/判断归责表.md`）——解析拒收（缺字段／超限／引号异常／闭世界对账）＝结构判可做；语义判断（语义词表判「提及 vs 执行」／要不要问／覆盖没覆盖）一律不落本块。
