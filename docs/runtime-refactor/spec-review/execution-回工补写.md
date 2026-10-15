@@ -57,3 +57,13 @@
   3. 验收测试表新增一行（:118）：`tests/domains/test_v2_execution.py::same_param_replay_dispatch_gate`（待织网，阶段 5）。
 - **未随批改面（登记交主窗）**：挂钩表未新增同参重投闸行（票面只授权行为＋验收行＋互引）；钉面归属（新钉或并入 `pin-06` 闸族表述）待主窗核定。
 - **验证**：`uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿（21 份规格）**；`uv run lint-imports --config tools/importlinter_v2.toml` → **Contracts: 18 kept, 0 broken**。均 exit 0（改后实跑）。未 git commit（主窗统一提交）。
+
+---
+
+## 流水 43 裁决落笔（裁决⑦b＝挂钩表补 pin-08 正式钉行）——2026-10-16
+
+- **依据**：主窗流水 43⑦（2026-10-16，真源 `docs/runtime-refactor/00-决议与方法.md` 流水 43）零散回提三项之二——execution 挂钩表补 pin-08 正式钉行（落点＝行为 4 同规则行，「行集全交付为默认」半面，一钉一行登记一处，待织网；钉文真源 `docs/runtime-refactor/eng/04a-应钉行为清单.md` pin-08「明细行集题：答案交付行数＝引擎返回行数（50 行全交付，丢行=0）」，P0）。
+- **修改点**（行号指改后文件；149→150 行）：
+  1. 「与闸的挂钩表」pin-06 行（:147）之后新增一行（:148，编号序在 pin-16 前）：硬要求＝「行集全交付为默认、丢行＝0（行为 4「行集题交付与落引用界线」同规则行——交付行为面；与 `specs/answering.md` 行为 12 同一规则互引、逐字一致）」｜挂钩＝钉 **`pin-08`**（P0）｜现状＝待织网（阶段 5）。
+- **未随批改面（登记交主窗）**：行为 4 正文与验收行 `::big_result_ref_only` 已载同一规则，本批只补钉行登记、未改行为面；跨规格销项随批完成——`specs/context.md` 挂钩表 pin-08 行分工注改「（其挂钩表已补 pin-08 行——流水 43⑦b）」、其风险 7⑪ 标销项。
+- **验证**：`uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿（22 份规格）**。均 exit 0（改后实跑）。未 git commit（主窗统一提交）。

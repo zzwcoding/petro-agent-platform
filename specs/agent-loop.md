@@ -35,7 +35,7 @@ LLM 判断孤岛。
 | orchestration | 新增 | 四相位循环与路由/命令受理与挂起恢复（LangGraph 实现） |
 | bookkeeping | 新增依赖 | 模型调用发起面：经 bookkeeping.call_model（单点发起），本块不直引 gateway_adapter |
 | preconditions | 新增 | 前置条件机调度（闸件本体在 `tools` 侧） |
-| context | 新增 | Context Builder＋对话状态簿记（`dialogue`＋`process_notes` 双字段） |
+| context | 新增 | 追加内容渲染（compile 已退役——流水 43⑦c）＋对话状态簿记（`dialogue`＋`process_notes` 双字段） |
 | verification | 新增 | Verifier 核验收口 |
 | persistence | 新增 | run／step 持久化与恢复 |
 | api | 新增 | 三端点＋SSE 事件桥（asks 三形态：提问/重连/追问续会话） |
@@ -99,15 +99,19 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
    每步落 step 记录（类型六值闭世界 decision/discover/execute/observe/verify/answer，真源 `synth/S6-事件与帧目录.md`；
    相位以 payload.phase=clarify/toolmatch/precondition/batch 标注——过程态簿记留痕
    agent_v2_step；INV-5 责任账唯一写口 security.audit，见 specs/infra.md 行为约定 3）。
-2. 模型每次调用前经 Context Builder 确定性编译（**多轮消息历史簿记**——ADR-0006；
-   **V2-79a 三层分离修订**（tickets/v2/V2-79-对话状态重构方案.md；ADR-0006 增补
-   修订随设计仓，本行为真源以方案为准）：混装消息历史退役，对话状态＝`dialogue`
+2. **每步在 `messages` 整链续写**（真源 `specs/state.md` 行为 4＋V2-80h 追加式——
+   `tickets/v2/V2-80h-对话链追加式架构.md`；**compile 已退役**——流水 43⑦c 改述，
+   删 79a 形「Context Builder 确定性编译／[system]＋dialogue 截断＋当前轮／现拼现用
+   用完即弃」旧文）：每个 LLM 调用发送**整条链**（＝上次链＋尾段），模型应答与过程
+   记录以类型正确的消息**追加链尾**、任意相邻调用互为前缀延伸（**多轮消息历史簿记**
+   ——ADR-0006）；对话状态双字段不变（**V2-79a 三层分离修订**——tickets/v2/V2-79-对话状态重构方案.md；ADR-0006 增补修订随设计仓）＝`dialogue`
    （自然对话层——user 原话/assistant 终稿/澄清审批回收原文；禁任务书/指令/
-   过程原话/注记前缀）＋`process_notes`（过程档案层——[{phase,title,digest}]
-   有界摘要每条 ≤200 字——真源 `docs/runtime-refactor/arch/P5b2-票堆V2-79a至79b.md` A-P5b2-03：`process_notes` 条目形 `{phase, title, digest}`、digest 在写入点截断 ≤200 字）双字段；编译契约＝[system]＋dialogue 截断＋当前轮，
-   任务书/指令/材料**现拼现用、用完即弃、不入史**；执行台账以
-   「参数 → 结果：N 行／闸拒（拒因）」形落 process_notes；历史增长带 token
-   预算/截断显式进 Manifest）。词典层**每轮常驻注入**（拍板 a 的
+   过程原话/注记前缀——条目形状与来源闭世界真源 `specs/state.md` 行为 6）
+   ＋`process_notes`（过程档案层——[{phase,title,digest}]
+   有界摘要每条 ≤200 字——真源 `docs/runtime-refactor/arch/P5b2-票堆V2-79a至79b.md` A-P5b2-03：`process_notes` 条目形 `{phase, title, digest}`、digest 在写入点截断 ≤200 字）；执行台账以
+   「参数 → 结果：N 行／闸拒（拒因）」形落 process_notes；历史增长的超窗压缩＝
+   compaction（只压模型视图、`state.messages` 原史零覆盖——真源 `specs/context.md`
+   行为 9），披露账目显式进 Manifest。词典层**每轮常驻注入**（拍板 a 的
    C2 追认落法）：clarify/toolmatch 相位把台账全量＋别名＋结构卡直接编进上下文
    （Manifest 记 ledger_dump 族来源行），常驻块随当轮渲染、不入史防 token 放大——
    "开局已给全台账，禁猜词敲门"，semantic_query 定位转为钻取。
@@ -231,6 +235,7 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 | 禁手写替代（不得自建图执行器旁路／自建模型客户端／自建帧通路） | 边界闸 **R5b**／**R7**（可降维面）＋ 其余无专属闸 → **人审** | 原因：R1–R8 无「不许出现自建旁路符号」一面；降维（AST 断言）需新增验收行，本批未授权，登记待补 |
 | 追问播种＝前 run 检查点**终链整链承接**（跨 run 前缀延伸） | 钉 **`pin-23`**（P0） | 待织网（阶段 5） |
 | `RunState.messages` 只追加不改写（任意相邻调用互为前缀延伸） | 钉 **`pin-22`**（P0） | 待织网（阶段 5） |
+| 相位合同一次性（消费侧重发判定＝追加编排归 `orchestration`＋标记写入归 `bookkeeping.append_contract`——落法真源 `specs/context.md` 挂钩表） | 钉 **`pin-24`**（P1） | 待织网（阶段 5） |
 | 挂起→resume 闭环（clarify 选项／越集审批两形态 ask 帧） | 钉 **`pin-29`**（P0） | 待织网 |
 | run_id 全盖章（计费可对账） | 钉 **`pin-28`**（P1） | 待织网 |
 | 「不做什么」的纯范围排除（不做记忆／不做写操作等） | **人审** | 接不上闸的原因：纯范围排除没有形状／存在性／退出码判据；能降维的部分已由边界闸 R2／R5b／R6／R7 覆盖 |

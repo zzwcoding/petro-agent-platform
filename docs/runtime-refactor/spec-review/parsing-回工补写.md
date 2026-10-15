@@ -12,3 +12,16 @@
   3. 风险 5（:170）：「转换点归属未定案」改「**已裁：转换在消费方（流水 31①），本块只产 `str` 拒文**」（P-09 随裁决销项；落点＝两消费方规格行为约定）；风险 7④ 标销项。
 - **未随批改面（登记交主窗）**：行为 13「触发点与拦截／回喂归消费方」的「消费方」未收窄为 execution、挂钩表指纹行「触发面归属＝人审（风险 4）」未标销项、风险 7④／⑧ 登记条目正文未改述——票面未授权，语义无冲突（execution 即消费方、风险 4／5 已裁在案），建议主窗随批收词。
 - **验证**：`uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿（21 份规格）**；`uv run lint-imports --config tools/importlinter_v2.toml` → **Contracts: 18 kept, 0 broken**。均 exit 0（改后实跑）。
+
+---
+
+## 流水 43 裁决落笔（裁决②＝args 拒文字面过目通过）——2026-10-16
+
+- **依据**：主窗流水 43②（2026-10-16，真源 `docs/runtime-refactor/00-决议与方法.md` 流水 43）——parsing `args` 拒文字面＝过目通过，adopt `appv2/runtime/graph.py:616` 字面「发现工具 {tool} 的 args 须为对象」（裸抛违承诺／另拟违零编造，唯一可行）。字面已对照现行代码核实（`appv2/runtime/graph.py` L616 `return f"发现工具 {tool} 的 args 须为对象"`）。
+- **修改点**（行号指改后文件；行数 196 不变）：
+  1. 「V2 定案差异点」②（:88）：「现形 `appv2/runtime/graph.py` L616，**待主窗过目**」改「现形 `appv2/runtime/graph.py` L616——**已过目（流水 43②）：adopt graph.py:616 字面「发现工具 {tool} 的 args 须为对象」**」。
+  2. 行为 4（:103）：同款改述（`args` 非对象拒文括注由「待主窗过目」改「已过目（流水 43②）」＋裁决字面在场）。
+  3. 行为 7（:106）：断言括注「无 V1 快照，字面待主窗过目，风险 7⑦」改「无 V1 快照，字面已过目（流水 43②）：adopt graph.py:616 字面「发现工具 {tool} 的 args 须为对象」，风险 7⑦」。
+  4. 风险 7⑦（:172）：登记条目「`args` 拒文待主窗过目——P-07」改「`args` 拒文已过目（流水 43②）：adopt graph.py:616 字面……——P-07 销项」（同批销项指针；清单其余条目未动）。
+- **未随批改面（登记交主窗）**：风险 7②（预算拒文内嵌数值与 `ask` 边界「2~4」插槽化与否）仍为待裁——流水 43 未涉，行为 7／16 的例外指针保持原状。
+- **验证**：`uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿（22 份规格）**。均 exit 0（改后实跑）。未 git commit（主窗统一提交）。

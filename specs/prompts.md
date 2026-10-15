@@ -41,9 +41,11 @@
 # ③ 工具匹配发射合同——含相位合同头行＋合同内嵌定案样例
 #                                     #（真源 recon/E2 R-E2-04、arch/P4b A-P4b-60；消费方 tool_matching）
 # ④ 汇总合同                          # 答案轮中段
-# ⑤ 起草答案合同——承载行集交付规矩（arch/P4b A-P4b-49 票面附 C 本段不得增删字）＋台账卡边界句
-#   ＋A-P6a-35 追加半句（逐字保留）；其 V1 字面句首的答案规则句群＝D-L2b-01 病灶副本，
-#   V2 由⑥单点承接去重（待 Owner 过目，见风险 2）
+# ⑤ 起草答案合同——构成（去重后形态，拼接序照现状）＝行集交付规矩段
+#   （arch/P4b A-P4b-49 票面附 C 本段不得增删字）＋台账卡边界句＋A-P6a-35 追加半句
+#   （逐字保留）；与 V1 的差异＝删句首重复句群（其 V1 字面句首的答案规则句群＝
+#   D-L2b-01 病灶副本，由族⑥单点承接去重——已裁（流水 43①，Owner 可否决）：
+#   句首 V1 字面答案规则句群去重、由族⑥单点承接；见风险 2）
 # ⑥ 答案要求清单（7 条——迁移照抄逐字稿见「行为约定」2）
 # ── 装配函数族（卡面两函数逐字照录；纯文本进出＝Seam；逐成员真源可溯）──────────────
 def assemble_task_book(state: RunState) -> str: ...
@@ -136,12 +138,12 @@ def assemble_answer_prompt(state: RunState) -> str: ...
 - 依赖：`state`（唯一模块依赖——R3；只读投影）；消费方＝四业务相位（经 R2 包根）；真源＝`specs/modules.md` `## prompts` 卡。
 - 风险与对策（每条带检测手段）：
   1. **卡与规格分叉（族成员展开）**：卡面公开接口只列两函数＋「合同常量＋各轮装配函数」注释，本规格把族成员展开成名单。**评审已裁定**＝族成员展开属卡面注释复数预留的具体化、非新公开类型，不构成 `docs/runtime-refactor/spec-review/state-评审.md` S-2 同款「卡缺公开成员」（`docs/runtime-refactor/spec-review/prompts-评审.md` P-08）；卡面补「族名单以 prompts 规格接口定义为准（闭世界）」注记＝卡级登记件交主窗（见风险 7⑤）。检测手段＝**人审**（评审工序，已完成）。
-  2. **合同文本多处复制复发**（V1 病灶：同一答案规则三处字面并维护，真源 `docs/runtime-refactor/recon/L2b-作答装配与回声.md` D-L2b-01）。对策：单点断言＋消费方只引用。**待 Owner 过目件**：族⑤ V1 字面句首的答案规则句群副本去重（由⑥单点承接；A-P4b-49 票面附 C 锁定段不在去重范围）——见接口定义⑤。检测手段＝`::answer_requirements_single_source`／`::contract_constants_no_duplicate_literals`。
+  2. **合同文本多处复制复发**（V1 病灶：同一答案规则三处字面并维护，真源 `docs/runtime-refactor/recon/L2b-作答装配与回声.md` D-L2b-01）。对策：单点断言＋消费方只引用。**已裁（流水 43①，Owner 可否决）：句首 V1 字面答案规则句群去重、由族⑥单点承接**——族⑤构成＝去重后形态（行集规矩段＋台账卡边界句＋A-P6a-35 半句，拼接序照现状）、与 V1 的差异＝删句首重复句群（A-P4b-49 票面附 C 锁定段不在去重范围）——见接口定义⑤。检测手段＝`::answer_requirements_single_source`／`::contract_constants_no_duplicate_literals`。
   3. **台账常驻块交界两说**：`specs/clarification.md` 触及面把「台账注入块」记在 prompts、`specs/modules.md` `## context` 卡有「术语表常驻注入」。本规格定界＝**固定包裹文本＋逐字转抄渲染归本块；投影取得归 context（经 tools 公开面）；Manifest 记账与不入史归 context/state 面**。检测手段＝**人审**（阶段 7 接口契约对账）＋`::ledger_resident_block_verbatim_once`。
   4. **装配滑成判断**（把三选一/放行拒答等语义结论写进装配）。对策：确定性纯函数断言＋AST 机检。检测手段＝`::assembly_pure_deterministic`／`::no_lexicon_or_regex_in_prompts`。
   5. **R3 半覆盖**（「只许依赖 state」对公共层其余块的面无闸）。对策：AST import 扫描测试补位。检测手段＝`::imports_state_only`＋人审（边界闸覆盖面声明，见挂钩表）。
   6. **样例渲染器产出非法 JSON**（V1 病灶 D-L2a-13：字符串拼接无转义）。对策：合法 JSON 形断言。检测手段＝`::decompose_example_valid_json`。
-  7. **跨规格债与卡级登记清单（本批只登记、不代办——单写者纪律，交主窗统一回提）**：①`specs/understanding.md` 行为 1 指令区枚举补「样例」（或裁定样例归区——P-01 附属枚举缺口）＋题干段与输出契约区「末尾」的先后关系（SZP-05）；②`specs/answering.md` 挂钩表补 pin-03 交付面承接行（P-05）；③`specs/answering.md` 触及面「材料装配文本」措辞改述为「答案轮指令装配文本（材料段渲染归 context）」（P-11）；④`specs/modules.md` `## context` 卡「术语表常驻注入」与本规格常驻块渲染定界两说——回阶段 2 改卡（P-07，销项时点＝阶段 7 接口契约对账）；⑤`specs/modules.md` `## prompts` 卡注释补「族名单以 prompts 规格接口定义为准（闭世界）」（P-08）；⑥`SYSTEM_PROMPT` 落块归属（M1 :160 记「属 H9/H6 落点」，确切落块待阶段 2 对账——P-10）；⑦GuideProvider 装载实现落点（`synth/S1` H9 记 prompts 名下但本块零 IO——P-02）。检测手段＝**人审**（主窗回提＋阶段 7 接口契约对账）。
+  7. **跨规格债与卡级登记清单（本批只登记、不代办——单写者纪律，交主窗统一回提）**：①`specs/understanding.md` 行为 1 指令区枚举补「样例」（或裁定样例归区——P-01 附属枚举缺口）＋题干段与输出契约区「末尾」的先后关系（SZP-05）；②`specs/answering.md` 挂钩表补 pin-03 交付面承接行（P-05）；③`specs/answering.md` 触及面「材料装配文本」措辞改述为「答案轮指令装配文本（材料段渲染归 context）」（P-11）；④`specs/modules.md` `## context` 卡「术语表常驻注入」与本规格常驻块渲染定界两说——回阶段 2 改卡（P-07，销项时点＝阶段 7 接口契约对账）；⑤`specs/modules.md` `## prompts` 卡注释补「族名单以 prompts 规格接口定义为准（闭世界）」（P-08）；⑥`SYSTEM_PROMPT` 落块归属（M1 :160 记「属 H9/H6 落点」，确切落块待阶段 2 对账——P-10）；⑦GuideProvider 装载实现落点——**已裁（流水 43⑥）：装载归 `context`（与台账同形、取一次装载进 state），prompts 只读渲染**（`synth/S1` H9 记 prompts 名下但本块零 IO——P-02 随裁销项）。检测手段＝**人审**（主窗回提＋阶段 7 接口契约对账）。
 
 ## 与闸的挂钩表
 

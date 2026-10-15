@@ -30,3 +30,14 @@
 - **不加闸（裁定照录）**：importlinter 边界闸**不随本批加**——R7「只经出口」＋R8 语义不变，doctrine 是规格层不是闸层（主窗 2026-10-15 裁）。
 - **契约字面核对（未改 toml）**：逐条实读 `tools/importlinter_v2.toml`——R7（name「R7 runtimev2 各块只经 gateway_adapter 调模型」，forbidden＝`appv2.infra.llm_client`；source 含 `appv2.runtimev2.bookkeeping`）与 R2（业务相位 forbidden 含 `appv2.runtimev2.bookkeeping.*` 深层子模块、不含包根）均与新 doctrine **无字面冲突**。实现期注意：相位 import 只许 `appv2.runtimev2.bookkeeping` 包根（R2 面）。
 - **验证**：`uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿（20 份规格）**。均 exit 0（批次一改后实跑）。
+
+---
+
+## 流水 43 裁决落笔（裁决⑦a＝补 parsing None→本块转译的输入半面）——2026-10-16
+
+- **依据**：主窗流水 43⑦（2026-10-16，真源 `docs/runtime-refactor/00-决议与方法.md` 流水 43）零散回提三项之一——understanding 补「parsing 返 None → 本块抛 `UnderstandingParseError`」输入半面（照 parsing 风险 6 措辞；真源 `specs/parsing.md` 行为 1／接口⑤）。销 `docs/runtime-refactor/spec-review/parsing-评审.md` 风险 7⑩（P-23「understanding 回认输入半面」）。
+- **修改点**（行号指改后文件；135→136 行）：
+  1. 接口定义「错误契约」行（:56）：句尾补「parsing 解析不合格（`parse_understanding` 返 `None`）在场时由本块转译抛 `UnderstandingParseError`（唯一转译出口；真源 `specs/parsing.md` 行为 1／接口⑤——流水 43⑦ 补落输入半面）」。
+  2. 「依赖与风险」新增风险 4（:121）：「parsing 不合格信号的转译衔接（输入半面）」——转译义务＋销项登记（parsing-评审 风险 7⑩／P-23 随本句销项，流水 43⑦）＋检测手段（与 `specs/parsing.md` 行为 1 对读＋`::understanding_malformed_none_no_fallback`）。
+- **未随批改面（登记交主窗）**：①行为 7（解析严格）未重复补句——错误契约是该句唯一落点，避免同文两写（验收行 `malformed_json_raises_no_fallback` 已覆盖断言面）；②`specs/parsing.md` 风险 6 的「回提登记」句未回改（其清单体例＝只登记不代办，销项以本件与本规格风险 4 为凭）。
+- **验证**：`uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿（22 份规格）**。均 exit 0（改后实跑）。未 git commit（主窗统一提交）。

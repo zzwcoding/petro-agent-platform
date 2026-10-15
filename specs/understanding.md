@@ -53,7 +53,7 @@ class Direct:                              # route 闭世界
 ```
 
 - **`route` 是闭世界**：合法值仅 `"full"`｜`"direct"`；**越界值判失败**（不猜、不取默认）。
-- **错误契约**：应答不是合法 JSON／缺必填字段／字段类型不符 → **抛 `UnderstandingParseError`**（携带原始应答片段供留痕）。**不返回半成品**。
+- **错误契约**：应答不是合法 JSON／缺必填字段／字段类型不符 → **抛 `UnderstandingParseError`**（携带原始应答片段供留痕）。**不返回半成品**。parsing 解析不合格（`parse_understanding` 返 `None`）在场时由本块转译抛 `UnderstandingParseError`（唯一转译出口；真源 `specs/parsing.md` 行为 1／接口⑤——流水 43⑦ 补落输入半面）。
 - **直答退回不抛错**：结构核验不合格（见「行为约定」第 5 条）→ 返回 `route="full"` 的 `Understanding`，并在过程档案记一条「直答退回」。
 - 真源：`specs/modules.md` `## understanding` 卡（签名以卡为准）。
 
@@ -118,6 +118,7 @@ class Direct:                              # route 闭世界
   1. **JSON 字段集变更牵连下游** → 对策：三消费面（**候选白名单闸／理解旁白灰条／直答通道**，真源 `walk/裁决表.md` §04-B）**同批改**；检测手段＝`understanding` 与 `parsing` 的契约测试。
   2. **第 5 条滑成语义判断** → 对策：判据锁在闭世界（数值形／名录集合／结构卡集合）；检测手段＝AST 机检测试 `no_lexicon_or_regex_in_understanding`（**豁免面＝形态处理**：数字形判定与集合成员判定不算语义词表／正则；先例 `tests/domains/test_v2_four_phase.py:446`）。
   3. **模型出口被绕过** → 对策：交付前跑边界闸；检测手段＝**R7**／R5b／B6 契约（CI 真跑）。
+  4. **parsing 不合格信号的转译衔接（输入半面）**：parsing 解析不合格（`parse_understanding` 返 `None`）在场时由本块转译抛 `UnderstandingParseError`（唯一转译出口——真源 `specs/parsing.md` 行为 1／接口⑤；落笔见接口定义错误契约）；**销项登记**＝`docs/runtime-refactor/spec-review/parsing-评审.md` 风险 7⑩（P-23「understanding 回认输入半面」）随本句销项（流水 43⑦）；检测手段＝与 `specs/parsing.md` 行为 1 对读＋`::understanding_malformed_none_no_fallback`。
 
 ## 与闸的挂钩表
 
