@@ -12,7 +12,7 @@
 
 用户向 `/api/v2/chat/asks` 提一个问题，系统以**有界自主循环**推理作答：
 一轮＝四相位（业务澄清→工具匹配→前置条件机→批量执行＋汇总），整循环每用户输入
-周期 ≤3 轮（真源 `docs/runtime-refactor/walk/裁决表.md` §06-A 统一预算表）——轮 1 得部分答案，轮 2/3 只带失败/缺失子问题回炉；LLM 出语义
+周期 ≤3 轮（真源 `docs/runtime-refactor/walk/裁决表.md` §06-A（循环上限五项）＋ `recon/K-上下文事件指南预算.md` R-K-72…R-K-78）——轮 1 得部分答案，轮 2/3 只带失败/缺失子问题回炉；LLM 出语义
 （澄清/分解/提议），代码出判定（前置条件机零 LLM）；全程事件可见、答案带
 fail-closed 引用、中途可澄清/审批挂起并可恢复。替代 V1 十七站瀑布＋无状态
 LLM 判断孤岛。
@@ -130,11 +130,11 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
    （用户已答才代选）。plan 带 caliber_key 做合法口径校验，QueryPlan 域面零改动。
 7. 预算闸（触界即收敛——交付已取得观察材料（未核实的直排标注"未及核验"，非断言
    不违反 INV-1）＋notice 明示未完成项，不得静默截断）：
-   - **轮数**：每用户输入周期 ≤3 轮（真源 `docs/runtime-refactor/walk/裁决表.md` §06-A 统一预算表；轮＝LLM 决策周期；clarify 发射 discover 钻取
+   - **轮数**：每用户输入周期 ≤3 轮（真源 `docs/runtime-refactor/walk/裁决表.md` §06-A（循环上限五项）＋ `recon/K-上下文事件指南预算.md` R-K-72…R-K-78；轮＝LLM 决策周期；clarify 发射 discover 钻取
      不占轮，decompose 占轮；ASK 挂起等人工不计轮；澄清回收（resume）重置轮预算
      合法——rounds=0）；轮 2/3 只带失败/缺失子问题＋拒因回炉①，成功子问题结果
      保留不重跑（subtask_results 簿记）。
-   - **发现预算**：全 run discover ≤10（真源 `docs/runtime-refactor/walk/裁决表.md` §06-A 统一预算表；Owner 拍板放宽原 3-4）；预算拒免轮例外
+   - **发现预算**：全 run discover ≤10（真源 `docs/runtime-refactor/walk/裁决表.md` §06-A（循环上限五项）＋ `recon/K-上下文事件指南预算.md` R-K-72…R-K-78；Owner 拍板放宽原 3-4）；预算拒免轮例外
      只留首次——连续第 2 次起转占轮（自旋收敛闸）。
    - **单段时限 300s**（真源 `docs/runtime-refactor/recon/K-上下文事件指南预算.md` R-K-74；挂起等人工不计时、不累计跨段——计步计时均按段）；
    - **单工具超时 30s**（真源 `docs/runtime-refactor/recon/K-上下文事件指南预算.md` R-K-74）；

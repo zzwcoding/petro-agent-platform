@@ -267,16 +267,26 @@ def verify(state: RunState) -> Verdict: ...
 
 ## state
 
-职责: 状态与限额——运行状态（53 字段重划）、Manifest、请求回执数据类、常量；限额机制
+职责: 状态与限额——运行状态（53 字段重划）、Manifest、请求回执数据类、闭世界常量；限额参数与触界**判定**（纯计算，不写状态）
 目录: `appv2/runtimev2/state/`
 
 ### 公开接口
 ```python
 class RunState: ...          # 字段形状（被全体 import；不含行为）
-class Manifest: ...
-# 限额机制（触界收敛）；数值以 walk/裁决表 §06-A 统一预算表为唯一真源
-def converge(state: RunState) -> Convergence: ...
+class Manifest: ...          # 模型调用 Manifest 形状（含 as_dict 投影）
+class AskRequest: ...        # 受理载荷（三形态闭世界：提问／重连／追问续会话）
+class AskChoice: ...         # resume 载荷（kind 闭世界：clarify／external_table_approval）
+class RunHandle: ...         # 受理回执（run_id／stream／cursor）
+class Budget: ...            # 限额参数表（键集闭世界；数值不落本卡）
+class Convergence: ...       # 触界判定结果形状（hit／notice）
+class LimitHit: ...          # 触界命中项（limit 闭世界／used／cap）——Convergence.hit 的元素类型
+# 闭世界常量族：STEP_KINDS／RUN_STATUS_KINDS／INTENT（三族都取自 RunState 字段取值域）
+# 触界**判定**（纯函数——不改入参、不写状态）；数值真源＝recon/K R-K-72…R-K-78 ＋ walk/裁决表 §06-A
+def check_limits(state: RunState) -> Convergence: ...
 ```
+
+> **`converge` 归属裁决（2026-10-15，L0）**：本卡与 `## bookkeeping` 卡原各列一个 `converge`——**判定**归本块（更名 `check_limits`，纯计算）｜**落地写入**（`budget_hit`／`notices`／`status`／`next_intent` 六键）归 `bookkeeping` 的唯一写口 `converge`（**无回值**）。一物一处，避免双写口漂移。
+> **notice 分型闭世界不落本卡（2026-10-15，L0）**：通知类型（`notice.type`）属**帧载荷面**，闭世界归 `## transport`（事件名闭世界亦在该卡）；本块只定义「触界注记必须恰三键」的形状，不复述类型取值。
 
 ### 依赖
 - 模块: （无——runtimev2 内最底层）
@@ -317,7 +327,7 @@ class AgentRuntime:
 ```python
 def record_step(state, **payload) -> None: ...
 def next_seq(state) -> int: ...
-def converge(state) -> Convergence: ...
+def converge(state) -> None: ...        # 触界收敛的**落地写入**（判定归 `state.check_limits`；本函数无回值——写入 budget_hit／notices／status／next_intent 六键）
 def call_model(state, caller: str, messages) -> str: ...
 def tool_context(state) -> ToolContext: ...
 ```
@@ -393,12 +403,13 @@ def compile(state: RunState) -> CompiledContext: ...
 
 ## transport
 
-职责: 事件通路——事件名闭世界（9 类）、事件总线、帧通路与断线续推
+职责: 事件通路——事件名闭世界（9 类）、**帧载荷分型闭世界（含 `notice.type`）**、事件总线、帧通路与断线续推
 目录: `appv2/runtimev2/transport/`
 
 ### 公开接口
 ```python
 def emit(state, name: str, payload: dict) -> None: ...
+SseEvent = ...               # 帧载荷形状（本卡定义；`state.RunHandle.stream` 以结构别名引用——不 import，守 R4）
 # 帧序列（seq 即断线游标）
 ```
 
@@ -409,7 +420,9 @@ def emit(state, name: str, payload: dict) -> None: ...
 ### Seam 与测试
 - Seam: 帧出口（事件 → wire 帧）
 - Adapter: 内存帧收集器
-- 测试计划: 九类闭世界；游标全流单调；重放不位移
+- 测试计划: 九类闭世界；**帧载荷分型闭世界（含通知类型；`state` 侧只定义「触界注记恰三键」的形状，不承载取值）**；游标全流单调；重放不位移
+
+> **归位登记（2026-10-15，L0）**：`notice.type` 的**取值闭世界在本卡**（现状该值散落各处、无闭世界常量，属历史缺陷）——`transport` 规格定稿时须立该闭世界并**落定取值真源**；`state` 卡只定义「触界注记恰三键」的形状，不复述取值。
 
 ## persistence
 
