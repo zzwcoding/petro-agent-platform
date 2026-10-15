@@ -111,7 +111,7 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
    （Manifest 记 ledger_dump 族来源行），常驻块随当轮渲染、不入史防 token 放大——
    "开局已给全台账，禁猜词敲门"，semantic_query 定位转为钻取。
    调用产出 Manifest（字段以真源为准——`synth/S3` C-11 所记类体 **10 字段**；本处不复述逐字列表）随 step 存档。
-3. **发射判据**（治"数据路径退化/犹豫空转"——ADR-0005 立项根因）：窗可锚定＝禁 ask；
+3. **发射判据**（治"数据路径退化/犹豫空转"——ADR-0005 立项根因；**「能不能锚定／要不要反问」的判断在模型侧产出，程序只按结论分派——真源 `docs/runtime-refactor/walk/裁决表.md` 项目级裁决 #13，本行为不入程序验收面**）：窗可锚定＝禁 ask；
    时间词按窗词锚定表可解析即锚定发射，无时间词→默认近 30 天＋注记；台账命中＋窗
    已定＝禁再 discover（直发分解）；ask 仅限两种白场——无场景词＋阈值判断形的口径
    反问、目标/对象/口径真歧义（澄清合同收窄）；越集→审批。schema 校验失败＝拒因
@@ -135,7 +135,7 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
      合法——rounds=0）；轮 2/3 只带失败/缺失子问题＋拒因回炉①，成功子问题结果
      保留不重跑（subtask_results 簿记）。
    - **发现预算**：全 run discover ≤10（真源 `docs/runtime-refactor/walk/裁决表.md` §06-A（循环上限五项）＋ `recon/K-上下文事件指南预算.md` R-K-72…R-K-78；Owner 拍板放宽原 3-4）；预算拒免轮例外
-     只留首次——连续第 2 次起转占轮（自旋收敛闸）。
+     只留首次——连续第 2 次起转占轮（自旋收敛闸；真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-06「首拒免轮、连续拒第 2 次起占轮」）。
    - **单段时限 300s**（真源 `docs/runtime-refactor/recon/K-上下文事件指南预算.md` R-K-74；挂起等人工不计时、不累计跨段——计步计时均按段）；
    - **单工具超时 30s**（真源 `docs/runtime-refactor/recon/K-上下文事件指南预算.md` R-K-74）；
    - **discover 计数埋点**：每次钻取落 step payload（次数/查询词指纹/命中数/命中
@@ -155,6 +155,8 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 
 10. **`run_id` 全盖章**：每个 run（及其子问题）盖 `run_id`，逐题 `ledger_run_ids` 集合与 jsonl 账的 `run_id` **等值**（计费可逐题对账）。
 
+11. **`verdict` 帧两形的批次落定（承接条款）**：`verdict` 帧有 `verify`（核验裁决）与 `final`（收口）两形（形状真源 `docs/runtime-refactor/synth/S6-事件与帧目录.md` §二 verdict 拆形）；**两形的发帧时机与批次由本块协调**——`verification`（`verify` 形）与 `answering`（`final` 形：引用块＋`citation` 帧＋链尾）各自**只保证自产部分就位**（真源 `specs/verification.md` 行为 10／`specs/answering.md` 行为 7），**由本块把它们与链尾收口按同一批落定**；两形缺任一同批判失败。
+
 ## 不降级与静默禁令
 
 - **合法降级路径：无**（编排层不自降级；图执行器不可用时按 fail-closed 收束为 `failed`，**不产出半成品答案**）。
@@ -169,7 +171,7 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 | 四相位路由拓扑（clarify/toolmatch/precondition/batch 入图、回决策边重定向） | `tests/domains/test_v2_four_phase.py::test_four_phase_routing_topology` |
 | QuestionGroup schema（子问题 ≤4 上限/ledger_notes 必填/chain-tool 一致） | `tests/domains/test_v2_four_phase.py::test_question_group_schema_happy_and_caps` |
 | 工具匹配与问题组闭世界对账（缺/多/未知 id 拒） | `tests/domains/test_v2_four_phase.py::test_tool_match_closes_world_against_group` |
-| 前置条件机**三态**分支（`allow`／`refuse`／`ask`；注记并入放行——Owner 裁决 §12-Q-B） | `tests/domains/test_v2_four_phase.py::test_precondition_three_states_reachable` |
+| 前置条件机**三态**分支（`allow`／`refuse`／`ask`；注记并入放行——Owner 裁决 §12-Q-B）**【该测试标识＝织网② 改写对象：旧四态断言 `test_precondition_four_states_reachable` 待退役、三态版待织——登记 `eng/04` 盲区 B2b】** | `tests/domains/test_v2_four_phase.py::test_precondition_three_states_reachable` |
 | 前置条件机零 LLM（AST＋import 双证扫描） | `tests/domains/test_v2_four_phase.py::test_precondition_and_parse_layers_are_zero_llm` |
 | caliber_key 三态（场景词/双口径并列/阈值反问） | `tests/domains/test_v2_four_phase.py::test_precondition_caliber_three_forms` |
 | 澄清合同收窄（窗可锚定＝禁 ask，直发分解零挂起） | `tests/domains/test_v2_four_phase.py::test_four_phase_anchorable_window_skips_ask_delivers_degrade` |

@@ -49,6 +49,8 @@ class AskReason:
     options: list[str]
 ```
 
+- **`AskReason.kind` → ask 帧 `frame.kind` 的映射（唯一映射表）**：`external_table_approval` → `external_table_approval`；`caliber_clarify` → `clarify`。帧侧 `frame.kind` 是闭世界 `clarify`｜`external_table_approval`（真源 `docs/runtime-refactor/synth/S6-事件与帧目录.md` §一）；本块产出的是 `AskReason.kind`，**发帧与映射由 `orchestration`／`transport` 承接**——两处取值**不得各说各话**（本表即对账依据）。
+
 - **`decision` 是三态闭世界**：`allow`｜`refuse`｜`ask`；**越界值判失败**（不猜、不取默认）。
 - **三态与真源「四态」的差异**：与 ADR-0005／`synth/S1` 所记「四态」的差异，由 `walk/12-前置检查-前置条件机.md` §七 Q-B（另见 `walk/裁决表.md` §12-B）裁决覆盖；ADR／S1 同步修订**已兑现**（2026-10-15）——`docs/adr/0005-子任务图与前置条件机.md` 末附修订注记（原文保留加注）、`synth/S1` M4 行改「三态闸」。
 - **唯一确定性来源**：本函数**不做任何模型调用**（可机检，见「框架与依赖红线」）。
