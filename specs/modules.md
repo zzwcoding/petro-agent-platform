@@ -175,10 +175,16 @@ def clarify(state: RunState) -> ClarifyOutcome: ...
 def match(state: RunState) -> ToolPlan | ToolMatchRejection: ...
 # ToolPlan            = {matches: list[SubtaskMatch]}（与子问题一一对应）
 # ToolMatchRejection  = {reasons: list[MatchReason]}（结构化拒因——回喂重配，非终局）
+# SubtaskMatch        = {id, tool, chain, plan?, retrieval_need?, caliber_key, mention_mode}
+#   —— mention_mode 闭世界：executed|mentioned_only（「提及 vs 执行」结论——pin-31 判断产出面）
+# MatchReason         = {kind: 缺配|多配|编号不符|必填缺|枚举越界|malformed_matches, reason: str}（kind 六类闭世界）
 ```
 
+> **卡级修正（2026-10-16，L0，拆票期——流水 50）**：`SubtaskMatch` 补 `mention_mode`（闭世界 `executed`／`mentioned_only`）＝「提及 vs 执行」结论的字段载体，`MatchReason` 补拒因枚举五类成员（逐字拒文清单见 `specs/tool_matching.md`「接口定义」）——**2026-10-16 补：pin-31/pin-14 消费面（流水 50）**；**卡与规格接口节同批改，不许脱节**。**随批补（2026-10-16，流水 51）**：`MatchReason` 拒因枚举**五类→六类**——原「未归类一条」（`matches` 支非对象的**支形状失败**，原规格「未归类一条」条）经主窗裁**增第六类** `malformed_matches`（**成员名照码面，2026-10-16 归位（流水 51）**；逐字拒文照码面 `appv2/runtime/subtask.py:332`）；**卡与规格接口节同批改，不许脱节**（本批同批：卡面本行 ＋ 规格「接口定义」节枚举与逐字拒文表）。**依赖行勘误（2026-10-16 拆票期收词）**：「### 依赖」的「- 模块」行原直列 `gateway_adapter` 为模块依赖，与 `specs/tool_matching.md`「触及的模块」表 :37 原文「gateway_adapter｜新增｜模型出口（唯一出口仍归它）；**本块不直引**——经 `bookkeeping.call_model` 发起」＋同规格「框架与依赖红线」条「本块不直引 `gateway_adapter`（import 落点＝`appv2.runtimev2.bookkeeping` 包根——R2 禁深层子模块）」**相抵**；**该模块名已从「- 模块」行删除**（勘误注见下「### 依赖」节），`eng/03` §一依赖图 `tool_matching → state` 同样不列该边——只删**读法上的直引名**，不动签名、不动依赖实质（唯一模型出口仍归 `gateway_adapter`，本块经 `bookkeeping.call_model` 桥间接到达；`check_specs` 依赖面无环、零 FAIL）。
+
 ### 依赖
-- 模块: `state`、`parsing`、`prompts`、`bookkeeping`（模型调用发起面——经 call_model 单点发起）、`gateway_adapter`；`tools`（只许走其公开面）
+- 模块: `state`、`parsing`、`prompts`、`bookkeeping`（模型调用发起面——经 call_model 单点发起）；`tools`（只许走其公开面）
+- 注: **2026-10-16 勘误：不直引 `gateway_adapter`——经 `bookkeeping` 桥（流水 51）**（原「- 模块」行直列 `gateway_adapter` 为模块依赖，与 `specs/tool_matching.md`「框架与依赖红线」条相抵；`eng/03` §一依赖图 `tool_matching → state` 亦不列该边）
 - 外部: （无）
 
 ### Seam 与测试
@@ -197,7 +203,7 @@ def gate_all(state: RunState) -> list[SubtaskVerdict]: ...   # 逐子问题三�
 ```
 
 ### 依赖
-- 模块: `state`；`tools`（前置条件机本体在 tools 侧，只经其公开面）
+- 模块: `state`；`tools`（前置条件机本体在 tools 侧，只经其公开面）；`bookkeeping`（**写口面**——落 step 记录/notice 经其唯一写口，只引函数、不引其内部）
 - 外部: （无）
 
 ### Seam 与测试
@@ -258,9 +264,9 @@ def verify(state: RunState) -> Verdict: ...
 ```
 
 ### 依赖
-- 模块: `state`、`transport`（verdict/notice 帧的发射，只经其公开面）
+- 模块: `state`、`transport`（verdict/notice 帧的发射，只经其公开面）；`bookkeeping`（**写口面**——落 step 记录/notice 经其唯一写口，只引函数、不引其内部）
 - 外部: （无）
-- 注: 零 LLM 面（R8），无发起面
+- 注: 零 LLM 面（R8），无发起面（**写口面不引入发起面**——`bookkeeping` 发起面在本块作用面外，本块不调模型）
 
 ### Seam 与测试
 - Seam: 核验接缝（草稿＋观察 → verdict）
@@ -310,6 +316,8 @@ class AgentRuntime:
     async def ask(self, q: AskRequest) -> RunHandle: ...
     async def resume(self, run_id: str, choice: AskChoice) -> RunHandle: ...
 ```
+
+> **公开面注（流水 51 卡级修正）**：受理三形状（AskRequest/AskChoice/RunHandle）与装配面经包根 re-export 供 api 消费（2026-10-16，流水 51）。
 
 ### 依赖
 - 模块: `state`、`bookkeeping`、`transport`、`persistence`、`infra`（身份缝与审计唯一写口，只经其公开面），以及七个业务相位
@@ -595,7 +603,7 @@ loop 步/观察新形态——V2-36 终态口径，ADR-0004 拍板 5 演进位�
 tools/run_replay／RunStore.get_blackbox 读库，取证面）。
 
 ### 依赖
-- 模块: `orchestration`（业务面只许走其公开接口；组合根 create_app 例外——装配执行器/检查点/网关模型，V2-07 按组合缝采纳）、`infra`
+- 模块: `orchestration`（业务面只许走其公开接口；**受理三形状 AskRequest／AskChoice／RunHandle 与组合根装配面经其包根 re-export**；组合根 create_app 例外——装配执行器/检查点/网关模型，V2-07 按组合缝采纳）、`transport`、`persistence`（**帧类型与读口行投影面**——SseEvent 帧类型、两读口（run 行／步记录）行投影；**类型/常量面只引形状**，不许引其行为：不自建帧通路、不落盘）、`infra`
 - 外部: （无）
 
 ### Seam 与测试
@@ -619,7 +627,7 @@ tools/run_replay／RunStore.get_blackbox 读库，取证面）。
 | 禁止 | 例外 | 理由 |
 |---|---|---|
 | `appv2` 任何模块引用 `app`（V1）内部；`app` 引用 `appv2` | （无） | Owner 2026-10-08 拍板：共存双跑互不依赖，共享只走数据面 |
-| `api` 引用 `orchestration` 以外模块 | （无） | 端点薄层，编排语义全在运行时 |
+| `api` 引用 `orchestration` 以外模块 | `transport`／`persistence`／`state`——**只许类型/常量形状面**（帧类型 SseEvent、读口行投影、Budget 装配形状），行为只经 orchestration | 端点薄层，编排语义全在运行时 |
 | **R6** `runtimev2` 各块引用 `tools` 以外引擎（knowledge/query/retrieval） | （无） | agent 与世界的唯一接触面＝工具注册表（受控行动链工具侧落位）；对应闸：`tools/importlinter_v2.toml` R6 契约（ADR-0007 落位批） |
 | `tools` 引用 `runtimev2` | （无） | 单向向下，防环 |
 | `knowledge`/`query`/`retrieval` 互引 | `query`→`knowledge`（只许走公开接口） | 未绑定指标降级需 Evidence；其余互禁 |

@@ -48,3 +48,18 @@
 - **不加闸（裁定照录）**：importlinter 边界闸**不随本批加**——R8 零 LLM 面语义不变，doctrine 是规格层不是闸层（主窗 2026-10-15 裁）。
 - **契约字面核对（未改 toml）**：R8（forbidden＝`appv2.runtimev2.gateway_adapter`，source 含本块）与新 doctrine 无字面冲突；R7 对本块「天然满足」的表述不受影响。
 - **验证**：`uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿（20 份规格）**。均 exit 0（批次一改后实跑）。
+
+---
+
+## 拆票期卡级修正（流水 50）——2026-10-16
+
+- **缺口描述**：本规格行为 3（`:73`，无据 → 改写并发 `notice`）与行为 11（`:81`，行集对账机读字段**随 step payload 落账**）都要求**写落账**，而「触及的模块」表只列 `verification`／`state`／`transport`——**写口面缺列**；相位禁直写是全局铁律（`bookkeeping` 唯一写面，同批 `preconditions` 同型缺口见 `spec-review/preconditions-回工补写.md` 流水 50 节）。
+- **裁口径（主窗 L0，2026-10-16）**：「同修正 2，加 bookkeeping 写口面行＋卡依赖行注」——**不改任何行为定义**。
+- **改动位置**（行号指改后文件；`specs/verification.md` 142→143 行、`specs/modules.md` 到 640 行）：
+  1. `specs/verification.md:28`——「触及的模块」表新增行：`| bookkeeping | 新增依赖 | **写口面**——落 step 记录/notice 经 bookkeeping 唯一写口，只引函数、不引其内部 |`。
+  2. `specs/modules.md:266`——`## verification` 卡依赖行补 `；\`bookkeeping\`（**写口面**——落 step 记录/notice 经其唯一写口，只引函数、不引其内部）`；`:268`——卡「注」行半面辨明补「（**写口面不引入发起面**——`bookkeeping` 发起面在本块作用面外，本块不调模型）」（防「写口面」被误读成发起面；R8 零 LLM 面语义不变）。
+- **依据（逐字）**：写口面＝`specs/modules.md` `## bookkeeping` 公开接口节树「**共享写口（唯一入口；相位禁直写）**」与两行签名 `def record_step(state, *, kind, title, status="ok", payload=None, manifest=None) -> StepRecord: ...`／`def notice(state, *, type, gates=(), content) -> None: ...`；本规格行为 3（`:73`）「并发 `notice`」＋行为 11（`:81`）「两机读字段并随 step payload 落账」＋「不降级与静默禁令」（`:86`）「改写、分列、归属失败**都必须产生机读信号**：`verdict`／`notice` 事件 ＋ step payload 的 … 字段」——**行为定义一字未动**（行为 1–11、验收表 `:93–:110`、挂钩表 `:124–:143` 均未改）。
+- **未随批改面（登记交主窗）**：本规格「依赖与风险」依赖行（`:116`）仍只列 `state`／`transport`（本批只授权「触及表＋卡依赖行」，该行未同步；先例：tool_matching 的 V1 发起面回改曾四处同步）。
+- **R8 语义面（同一发现，探针实测）**：临时探针（`appv2/runtimev2/verification/__init__.py` 加 `from appv2.runtimev2.bookkeeping import record_step`；`bookkeeping` 包根加 `from appv2.runtimev2.gateway_adapter import complete`）实跑 → **`16 kept, 2 broken`**：R8 报链 `verification → bookkeeping (l.7) → gateway_adapter (l.7)`（R2 亦红）。**根因**＝R8 未设 `allow_indirect_imports`，forbidden 契约默认**检间接链**（对照 `tools/importlinter_v2.toml:16` R6 侧注释「`allow_indirect_imports = true`＝直接引用才违规」）。**即：本块按本批卡面 import `bookkeeping` 包根，施工期 R8 必红**；修法须主窗裁（`ignore_imports`／R8 设 `allow_indirect_imports = true`／写口改经 `state` 形状）。**探针已全部回退**（`git checkout --`），回退后复跑 18 kept／0 broken、6 kept／0 broken。详见 `spec-review/preconditions-回工补写.md` 同批节。
+- **行号漂移（供票面回填）**：`specs/verification.md` 原 `:1–:27` 不变、原 `:28` 起 **+1**——原行为 3 `:72`→`:73`；原行为 11 `:80`→`:81`；原验收表 `:92–:109`→`:93–:110`；原「依赖与风险」依赖行 `:115`→`:116`；原挂钩表 `:123–:142`→`:124–:143`；文件 **142→143 行**。`specs/modules.md`：`## verification` 卡依赖行 `:261`→`:266`（该卡位于 tool_matching 卡之后，含前述 +5 漂移）。
+- **验证**：`uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿（22 份规格）**；`uv run lint-imports --config tools/importlinter_v2.toml` → **Contracts: 18 kept, 0 broken**；`uv run lint-imports`（默认配置）→ **6 kept, 0 broken**。均 exit 0（改后／探针回退后实跑）。未 git commit。

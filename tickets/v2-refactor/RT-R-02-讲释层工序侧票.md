@@ -36,4 +36,12 @@
 - `git diff --stat` 显示零触碰真源（`specs/`、`walk/`、`appv2/`、`tools/`、测试树均无 diff）；
 - `.venv/bin/python tools/ticket_shape_check.py tickets/v2-refactor/RT-R-02-讲释层工序侧票.md` 绿。
 
+**补登记（2026-10-16，回补批已完成，呈主窗）**：`docs/runtime-refactor/explain/` 下 16 份讲释（`state`／`persistence`／`transport`／`gateway_adapter`／`bookkeeping`／`prompts`／`parsing`／`context`／`clarification`／`tool_matching`／`preconditions`／`execution`／`answering`／`verification`／`gate`／`orchestration`；日期 2026-10-16；各份五节齐备、逐字项照抄、锚号闸号不进正文），连同 Owner 亲产样张 `understanding-讲释.md` 共 **17/17 全齐**。验收判据逐条对照：
+- ① **在场**：16 份讲释在场（＋样张共 17 份）✅；`GLOSSARY-人话词典.md`（工序③独立成篇）不属本批回补产物——术语词条随各讲释正文内嵌说明。
+- ② **头部派生视图声明**：在场 17 份逐字一致 ✅。
+- ③ **「逐条讲行为约定」条数**：各讲释覆盖对应规格「行为约定」全条数（讲释自述条数＝规格条数，逐块 N/N）✅。
+- ④ **「自检三问」节**（样张第五节惯例）：回补 16 份第五节为「一句话记住它」收尾节；样张式「自检三问」名未逐份落（版式采批次统一五节，判归主窗）。
+- ⑤ **零触碰真源**：本批只新增 `explain/` 下文件，`specs/`／`walk/`／`appv2/`／`tools/`／测试树无本批 diff ✅。
+- ⑥ **shape 闸**：`tools/ticket_shape_check.py tickets/v2-refactor/*.md` GREEN ✅。
+
 回报: 完成后回主窗——「RT-R-02 完成，产物 explain/ 下 17 份，偏差: 有/无（有则逐条列），头部声明逐字比对: 17/17 过，行为条数清点: <块名>=<n/n> 全列」。对版式五要素或头部声明任何偏离即停笔停报 L0，不落盘。

@@ -75,7 +75,7 @@ name = "R2 runtimev2 业务相位只经公共层包根（禁深层子模块）"
 type = "forbidden"
 source_modules = ["appv2.runtimev2.understanding", "appv2.runtimev2.clarification", "appv2.runtimev2.tool_matching", "appv2.runtimev2.preconditions", "appv2.runtimev2.execution", "appv2.runtimev2.answering", "appv2.runtimev2.verification"]
 forbidden_modules = ["appv2.runtimev2.state.*", "appv2.runtimev2.orchestration.*", "appv2.runtimev2.bookkeeping.*", "appv2.runtimev2.prompts.*", "appv2.runtimev2.parsing.*", "appv2.runtimev2.context.*", "appv2.runtimev2.transport.*", "appv2.runtimev2.persistence.*", "appv2.runtimev2.gateway_adapter.*"]
-allow_indirect_imports = false
+allow_indirect_imports = true  # R2 语义注（2026-10-16 主窗裁，流水 51，Owner 可否决）：禁**直引**深层；间接经包根/批准桥接不违——相位只经包根（`appv2.runtimev2.state`）为合规写法，而包根自 re-export 边（`state/__init__` → `state.models`）必经间接链，与「只经包根」口径自相矛盾（探针证实），故 true
 
 [[tool.importlinter.contracts]]
 name = "R3 runtimev2 parsing/prompts 只许依赖 state"
@@ -104,20 +104,29 @@ source_modules = ["appv2.runtimev2.understanding", "appv2.runtimev2.clarificatio
 forbidden_modules = ["langgraph", "langchain", "langchain_core", "langchain_community"]
 allow_indirect_imports = true
 
+# R6 语义注（2026-10-16 主窗裁，流水 51，Owner 可否决）：禁 runtimev2 各块**直引**引擎（knowledge/query/retrieval）；
+# 间接经批准桥接不违——tools 包装引擎＝设计路径（相位 → `appv2.tools` → 引擎 传递链非触界），故 allow_indirect_imports = true。
 [[tool.importlinter.contracts]]
 name = "R6 runtimev2 各块只经 tools 接触引擎（禁直引 knowledge/query/retrieval；ADR-0007）"
 type = "forbidden"
 source_modules = ["appv2.runtimev2.understanding", "appv2.runtimev2.clarification", "appv2.runtimev2.tool_matching", "appv2.runtimev2.preconditions", "appv2.runtimev2.execution", "appv2.runtimev2.answering", "appv2.runtimev2.verification", "appv2.runtimev2.state", "appv2.runtimev2.orchestration", "appv2.runtimev2.bookkeeping", "appv2.runtimev2.prompts", "appv2.runtimev2.parsing", "appv2.runtimev2.context", "appv2.runtimev2.transport", "appv2.runtimev2.persistence", "appv2.runtimev2.gateway_adapter", "appv2.runtimev2.gate"]
 forbidden_modules = ["appv2.knowledge", "appv2.query", "appv2.retrieval"]
+allow_indirect_imports = true  # 只咬直接引用；间接经批准桥接（tools 类型面）不违
 
+# R7 语义注（2026-10-16 主窗裁，流水 51，Owner 可否决）：禁 runtimev2 各块**直引** `appv2.infra.llm_client`；
+# 间接经批准桥接不违——模型出口唯一桥＝`bookkeeping.call_model` → `gateway_adapter`（＋ tools 侧异常类型面），故 allow_indirect_imports = true。
 [[tool.importlinter.contracts]]
 name = "R7 runtimev2 各块只经 gateway_adapter 调模型（禁直引 appv2.infra.llm_client；B6 的 runtimev2 面）"
 type = "forbidden"
 source_modules = ["appv2.runtimev2.understanding", "appv2.runtimev2.clarification", "appv2.runtimev2.tool_matching", "appv2.runtimev2.preconditions", "appv2.runtimev2.execution", "appv2.runtimev2.answering", "appv2.runtimev2.verification", "appv2.runtimev2.state", "appv2.runtimev2.orchestration", "appv2.runtimev2.bookkeeping", "appv2.runtimev2.prompts", "appv2.runtimev2.parsing", "appv2.runtimev2.context", "appv2.runtimev2.transport", "appv2.runtimev2.persistence", "appv2.runtimev2.gate"]
 forbidden_modules = ["appv2.infra.llm_client"]
+allow_indirect_imports = true  # 只咬直接引用；间接经批准桥接（bookkeeping 模型桥／tools 类型面）不违
 
+# R8 语义注（2026-10-16 主窗裁，流水 51，Owner 可否决）：禁 preconditions／verification／execution **直引** `gateway_adapter`（零 LLM 铁律）；
+# 间接经批准桥接不违——写口面 `bookkeeping` 内部承载模型桥（verification → bookkeeping → gateway_adapter ＝写口链，非本块发起面），故 allow_indirect_imports = true。
 [[tool.importlinter.contracts]]
 name = "R8 runtimev2 零 LLM 面：preconditions/verification/execution 不得引 gateway_adapter（铁律不调模型）"
 type = "forbidden"
 source_modules = ["appv2.runtimev2.preconditions", "appv2.runtimev2.verification", "appv2.runtimev2.execution"]
 forbidden_modules = ["appv2.runtimev2.gateway_adapter"]
+allow_indirect_imports = true  # 只咬直接引用；间接经批准桥接（bookkeeping 模型桥）不违

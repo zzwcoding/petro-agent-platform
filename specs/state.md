@@ -187,7 +187,7 @@ def check_limits(state: RunState) -> Convergence: ...   # 纯函数：不改入�
 | 追问播种＝前轮终链整链承接（**状态字段面**） | 钉 **`pin-23`**（P0）；测试 `::followup_seeds_full_chain` | 待织网（阶段 5）；播种动作面同钉挂 `specs/agent-loop.md` |
 | 相位合同一次性（`contracts_appended`） | 钉 **`pin-24`**；测试 `::contracts_appended_idempotent` | 待织网（阶段 5） |
 | 对话层纯度（`dialogue`／`process_notes` 不混层） | 钉 **`pin-26`**；测试 `::dialogue_layer_purity` | 待织网（阶段 5）；渲染面同钉挂 `specs/understanding.md` |
-| 旧 run **状态字段读入**如实（`schema_version` 如实、`dialogue` 无业务写）——注：**钉文原两面＝compaction／黑匣子回放**（`eng/04a` pin-30 原文），本规格仅承接**状态字段读入面**（延伸挂法）；**回放面**挂 `specs/persistence.md`（行为 12，分工互认）；**compaction 半面**归 `context`（`synth/S1` H6／V2-79d）——该规格尚未定稿，**待 `context` 规格（窗 B 编写）定稿时登记** | 钉 **`pin-30`**（P2）；测试 `::legacy_checkpoint_read_honest` | 待织网（阶段 5） |
+| 旧 run **状态字段读入**如实（`schema_version` 如实、`dialogue` 无业务写）——注：**钉文原两面＝compaction／黑匣子回放**（`eng/04a` pin-30 原文），本规格仅承接**状态字段读入面**（延伸挂法）；**回放面**挂 `specs/persistence.md`（行为 12，分工互认）；**compaction 半面**归 `context`（`synth/S1` H6／V2-79d）——**已登记于 `specs/context.md` 行为 9**（2026-10-16 收词：原「该规格尚未定稿，**待 `context` 规格（窗 B 编写）定稿时登记**」系时点表述，已过时——context 已定稿并登记） | 钉 **`pin-30`**（P2）；测试 `::legacy_checkpoint_read_honest` | 待织网（阶段 5） |
 | `AskChoice` 的 `kind` 判别字段（**形状面**） | 钉 **`pin-29`**（P0，**闭环面挂 `specs/agent-loop.md`**）；本块测试 `::ask_payload_shape_closed_world` | 待织网（阶段 5） |
 | 触界不静默（注记＋`budget_hit` 同现） | 测试 `::converge_requires_notice`／`::budget_hit_signal_present` | 待实现 |
 | 限额数值单点（禁散落字面量） | 测试 `::budget_keys_closed_world`／`::no_second_source_of_constants` | 待实现 |

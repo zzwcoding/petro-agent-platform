@@ -53,16 +53,18 @@ class SubtaskMatch:
     plan: QueryPlan | None                 # chain == "data" 时必填
     retrieval_need: RetrievalNeed | None   # chain == "knowledge" 时必填
     caliber_key: str | None
+    mention_mode: Literal["executed", "mentioned_only"]   # 闭世界：「提及 vs 执行」结论（模型产出）
 
 class RetrievalNeed:
     question: str                          # 必填；逐字转抄子问题原文
     anchors: list[str]                     # 可选
 
 class ToolMatchRejection:                  # 拒因回喂用（非终局）
-    reasons: list[MatchReason]             # 结构化：缺配/多配/编号不符/必填缺/枚举越界
+    reasons: list[MatchReason]             # 结构化：缺配/多配/编号不符/必填缺/枚举越界/malformed_matches
 
-class MatchReason:                         # 结构化拒因单条：缺配／多配／编号不符／必填缺／枚举越界
-    ...
+class MatchReason:                         # 结构化拒因单条：kind 六类闭世界（成员见下表）＋ reason 拒文
+    kind: Literal["缺配", "多配", "编号不符", "必填缺", "枚举越界", "malformed_matches"]   # 闭世界六类（前五类与「错误契约」逐字同源；第六类＝**支形状失败**，成员名照码面，2026-10-16 归位（流水 51））
+    reason: str                            # 拒文（行为 11：`str` 逐字进 `reason` 字段）
 ```
 
 - `QueryPlan` 的真源是 `specs/query.md`（**真源以该文为准**；若该文缺 `aggregate` 字段则记「待回阶段 3 补」——本块只引不复述字段）。
@@ -70,6 +72,21 @@ class MatchReason:                         # 结构化拒因单条：缺配／�
 - **错误契约**：**漏配／多配／编号对不上／必填缺／枚举越界** → 返回 `ToolMatchRejection`（**结构化拒因**），由 `orchestration` **回喂模型、回到本相位重配**（**不做自动修补**）。
 - **本块亦产出「提及 vs 执行」的结论**（废弃词闸的判断；Owner 裁决 #12）——**与 `caliber_key` 同批产出**，交 `preconditions` 判定序第 1 位做机械分派。
 - **`caliber_key` 由本块产出**（L0 2026-10-15 裁决，按 `walk/裁决表.md` §12-A「语义上移到匹配相位」）：**模型在配工具时用本体账本把旧名归一到现行名、产出 `caliber_key`**；`preconditions` 只做**台账闭世界的结构校验**（该键在不在册），不承担语义归一。
+- **`mention_mode` 是闭世界两值**：`executed`｜`mentioned_only`——「提及 vs 执行」结论的**字段载体**（**2026-10-16 补：pin-31/pin-14 消费面（流水 50）**）。取值与产出归属的逐字依据引文三条：本节「本块亦产出「提及 vs 执行」的结论」条（`:73`）「**本块亦产出「提及 vs 执行」的结论**（废弃词闸的判断；Owner 裁决 #12）——**与 `caliber_key` 同批产出**，交 `preconditions` 判定序第 1 位做机械分派」；`docs/runtime-refactor/eng/04a-应钉行为清单.md` pin-31 行原文「提及 vs 执行由**模型**在配工具那次调用产出；按结论放行/拒答的**机械分派**留在 `preconditions` 判定序第 1 位；出数只认现行口径（旧名归一在 `tool_matching`）」；`walk/裁决表.md` §12 行原文「**判断**（提及 vs 执行）由**模型**在**配工具那一次调用**产出；**分派**（按结论放行／拒答）留在 `preconditions` 判定序**第 1 位**（机械分派）」。**越界取值或缺该字段 → 判失败**（不猜、不取默认）。
+- **`MatchReason` 的拒因枚举＝六类闭世界**（前五类成员名逐字取本规格 :63／:65 与「错误契约」:72 的五类词；第六类 `malformed_matches` 系原「未归类一条」经主窗裁归入而增——**逐字拒文＝V1 码面字面，字面真源 `recon/L1b-子任务后半.md` 所记 `appv2/runtime/subtask.py` 行——施工票照抄，偏离即停报，不许改写**）：
+
+| 成员（`kind`） | 逐字拒文（照抄；`{…}` 为原 f-string 占位） | 字面锚（recon 行／码面行） |
+|---|---|---|
+| 缺配 | `缺 matches（非空数组——组内每个子问题恰一条）` ／ `matches 覆盖缺口（组内子问题缺匹配：{missing}）——每子问题恰一条` | recon L49／L62；`appv2/runtime/subtask.py` L325／L372-374 |
+| 多配 | `matches id 重复：{match_id!r}（每子问题恰一条匹配）` | recon L54；`appv2/runtime/subtask.py` L338-339 |
+| 编号不符 | `matches 支缺 id` ／ `matches id {match_id!r} 不在问题组内（闭合世界：{group_ids}）` | recon L52／L53；`appv2/runtime/subtask.py` L335／L336-337 |
+| 必填缺 | `matches {match_id} 缺 tool` ／ `matches {match_id} data 链缺 plan（data_query 计划草案对象）` ／ `matches {match_id} plan 缺 metric_slot（必填非空）` ／ `matches {match_id} knowledge 链缺 retrieval_need（参数对象）` ／ `matches {match_id} retrieval_need 缺 question（必填非空）` | recon L56／L58／L59；`appv2/runtime/subtask.py` L345／L353／L355／L360／L362 |
+| 枚举越界 | `matches {match_id} chain 越界（{'/'.join(sorted(CHAIN_KINDS))}）：{chain!r}` ／ `matches {match_id} chain/tool 不一致（{chain} 链须配 {_CHAIN_TOOL[chain]}）` | recon L55／L57；`appv2/runtime/subtask.py` L340-342／L346-347 |
+| malformed_matches | `matches 支须为对象（{id/chain/tool/plan\|retrieval_need}）` | recon L51；`appv2/runtime/subtask.py` L332 |
+
+- **第六类归位注（2026-10-16，流水 51）**：上表末行＝**支形状失败**（`matches` 数组的**支不是对象**时拒）；**成员名照码面，2026-10-16 归位（流水 51）**——本类系原「未归类一条」（原 :87）经主窗裁归入而增，**前五类成员名与逐字拒文一字未动**；表内 `\|` 系 markdown 转义，逐字照抄为 `plan|retrieval_need`。
+- **占位记法**：上表逐字拒文按**码面字面**照抄（`{match_id}`）；recon 记法把 `{match_id}` 写作 `{id}`、把 `{'/'.join(sorted(CHAIN_KINDS))}` 写作 `data/knowledge`——两处**仅占位记法差异**，逐字以码面行为准（施工票照抄码面字面）。**第六类拒文里的 `{id/chain/tool/plan|retrieval_need}` 不是占位**——码面该行**无 `f` 前缀**（`appv2/runtime/subtask.py` L332 为整串字面），不得当占位替换或改写。
+- **未归类一条——已销项（2026-10-16，流水 51）**：V1 字面 `matches 支须为对象（{id/chain/tool/plan|retrieval_need}）`（字面锚 recon L51；`appv2/runtime/subtask.py` L332）＝**支形状失败**，原五类成员无一逐字覆盖；**主窗裁：增第六类**（kind 名 `malformed_matches`，拒文照码面逐字，注「成员名照码面，2026-10-16 归位（流水 51）」）——闭世界以上述**六类**为准，原「**不新增成员**／登记待主窗裁归」**就此销项**。
 - 真源：`specs/modules.md` `## tool_matching` 卡（签名以卡为准）。
 
 ## 框架与依赖红线
@@ -86,7 +103,7 @@ class MatchReason:                         # 结构化拒因单条：缺配／�
 2. **恰配一条**：每个子问题**恰好一条**匹配；**漏配／多配／编号对不上**任一 → 判失败。
 3. **拒因回喂、不自动修补**：失败一律带**结构化拒因**回喂模型重配；程序不补齐、不猜。
 4. **参数强校验**：`chain="data"` → `plan` 必填；`chain="knowledge"` → `retrieval_need` 必填；`metric_slot` 必填非空且**不得为英文列名形**（**形态判定**——只判形状，不判语义；**判定形**＝值整体呈 ASCII 标识符形——首字符 `[A-Za-z]`、其余仅 `[A-Za-z0-9_]`，大小写都咬——**Owner 2026-10-15 拍板 B 案**（fail-closed：宁可误拒重提议，不可漏放列名形），阶段 5 织网以此为准；禁例 `oil_pressure`／`WELL_NAME`——前者见 `ontology/petro/skill-guides/eval-cases.md` AC-G11，判定形真源锚 `walk/11-匹配-工具阀.md` 末「补注（2026-10-15 Owner 拍板）」节）；`ranking` 必填布尔且与 `direction` 同现；`caliber_key` **由本块产出**（模型用账本归一旧名到现行名；`preconditions` 只做台账闭世界结构校验）。
-5. **枚举闭世界**：`chain`（`data`｜`knowledge`）、`direction`（`asc`｜`desc`）、`tool`（注册表名单）——越界值判失败。
+5. **枚举闭世界**：`chain`（`data`｜`knowledge`）、`direction`（`asc`｜`desc`）、`tool`（注册表名单）、`mention_mode`（`executed`｜`mentioned_only`——**2026-10-16 补（流水 51）**；字段载体见「接口定义」节 `SubtaskMatch`）——越界值判失败。
 6. **工具描述写全**：每个工具的**载体＝`ToolDescriptor.description`**（模型选工具时看到的就是它），必须含**何时用／不能做什么／参数示例**三项（真源 `walk/11-匹配-工具阀.md` §七 Q-A）。这是选得准的**第一因**——**不加额外选型规则**。
 7. **「出数只认现行口径」的结构约束落点**：`metric_slot` 到查询引擎前**只认现行名**；**模型产出归一后的名字**，本体账本只提供 alias↔canonical 的**「结构映射」**（不替模型做语义判断）（真源 `walk/裁决表.md` §12-A／§07）。
 8. **不做主动发现**：不引入检索式选工具／工具主动发现设施（工具集小）。
@@ -118,10 +135,13 @@ class MatchReason:                         # 结构化拒因单条：缺配／�
 | 【边界集】`chain`／`direction` 越界取值 → 判失败 | `tests/domains/test_v2_tool_matching.py::boundary_enum_out_of_range` |
 | 【保留集】名归一闸行为不变（本块） | `tests/domains/test_v2_tool_matching.py::retention_normalize` |
 | 【保留集】聚合下推行为不变（归属 `execution`） | `tests/domains/test_v2_tool_matching.py::retention_pushdown` |
+| `SubtaskMatch.mention_mode` 取值闭世界（`executed`／`mentioned_only`）越界即拒 | `tests/domains/test_v2_tool_matching.py::mention_mode_closed_world` |
+
+> **增行＝流水 51 收尾一致**（2026-10-16，第 15 行）：随行为 5「枚举闭世界」补 `mention_mode` 成员（`2026-10-16 补（流水 51）`）同批增；字段载体见「接口定义」节 `SubtaskMatch.mention_mode` 条，越界取值或缺该字段 → 判失败（不猜、不取默认）。
 
 ## 依赖与风险
 
-- 依赖：`parsing`（发射解析）、`prompts`（本相位指令与合同）、`bookkeeping`（模型调用发起面——`call_model` 单点发起）、`gateway_adapter`（模型出口——经 `call_model` 的内部唯一出口，本块不直引）、`state`（状态形状）、`tools`（公开面＋描述文本）。
+- 依赖：`parsing`（发射解析）、`prompts`（本相位指令与合同）、`bookkeeping`（模型调用发起面——`call_model` 单点发起；**写口面**——落 step 记录/notice 经 bookkeeping 唯一写口，只引函数、不引其内部。2026-10-16 补（流水 51）——照 `specs/preconditions.md:30` 句式，本块「不降级与静默禁令」的 step payload 拒因字段＋notice 即该写口面的产出物，本块**不自建写路径**）、`gateway_adapter`（模型出口——经 `call_model` 的内部唯一出口，本块不直引）、`state`（状态形状）、`tools`（公开面＋描述文本）。
 - 风险与对策：
   1. **参数校验与 `query` 卡的 `QueryPlan` 真源漂移** → 两处规则不一致。对策：`QueryPlan` 只引用不复制；检测手段＝与 `specs/query.md` 的字段对照测试。
   2. **工具描述写全落在 `tools` 侧**（本块唯一涉及 runtimev2 之外文件的地方）。对策：改动限于描述文本，不动 `tools` 公开接口签名；检测手段＝`tools` 卡公开接口对账（阶段 7 体检）。

@@ -27,6 +27,7 @@
 | preconditions | 新增 | 三态闸的调度与结果汇总 |
 | tools | 改实现 | **闸件本体在 `appv2/tools/precondition.py`**（ADR-0007 同时裁决 4）：语义类判定位上移后，闸内只留结构校验；本块只经其公开面 |
 | state | 新增 | 判定结果与注记的状态形状；本 spec 只消费 |
+| bookkeeping | 新增依赖 | **写口面**——落 step 记录/notice 经 bookkeeping 唯一写口，只引函数、不引其内部 |
 
 ## 接口定义
 

@@ -25,6 +25,7 @@
 | verification | 新增 | 断言级核验 ＋ 无据改写 ＋ 矛盾分列 ＋ 归属审 ＋ verdict |
 | state | 新增 | verdict／改写行／引用的状态形状；本 spec 只消费 |
 | transport | 新增 | `verdict`／`notice` 帧的发射（本块只经其公开面） |
+| bookkeeping | 新增依赖 | **写口面**——落 step 记录/notice 经 bookkeeping 唯一写口，只引函数、不引其内部 |
 
 ## 接口定义
 
