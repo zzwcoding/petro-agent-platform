@@ -58,9 +58,9 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 
 1. **四相位循环**（ADR-0005，生产装配 `four_phase=True`）：每问新建 run，
    understand 理解后进四相位——
-   ①**业务澄清（clarify）**：LLM 带 Skill 指南发射三动作闭世界 `discover｜decompose｜ask`；
+   ①**业务澄清（clarify）**：LLM 带 Skill 指南发射**四动作**闭世界 `discover｜decompose｜ask｜finalize`（Owner 2026-10-15 按 `walk/08` 同步）；
    discover＝钻取（semantic_query/doc_retrieve/table_schema），decompose 产出
-   **QuestionGroup**（subtasks[{id/question/ledger_notes/tool/chain}]，子问题上限 ≤4，
+   **QuestionGroup**（subtasks[{id/question/ledger_notes/chain}]——**已去 `tool`**（选工具归②匹配相位，`裁决表` 项目级裁决 #10）；子问题上限 ≤4，
    ledger_notes 必填——从词典层注入块逐字转抄的台账注释）；ask＝反问挂起；
    ②**工具匹配（toolmatch）**：LLM 逐子问题提议工具/链（data→data_query、
    knowledge→doc_retrieve，data 链必带 plan、knowledge 链必带 retrieval_need），

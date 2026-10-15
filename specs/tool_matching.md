@@ -71,10 +71,10 @@ class MatchReason:                         # 结构化拒因单条：缺配／�
 ## 框架与依赖红线
 
 - **无点名框架**（本模块不引入任何框架）。
-- **模型调用唯一出口＝`gateway_adapter`**；对应闸：`tools/importlinter_v2.toml` 的 **B6 契约**。
+- **模型调用唯一出口＝`gateway_adapter`**；对应闸：`tools/importlinter_v2.toml` 的 **R7 契约**（runtimev2 各块只经 `gateway_adapter` 调模型；**B6 只管 litellm 出 `infra`，不含「绕过 `gateway_adapter` 直引」这一面**）。
 - **不得直接 import `langgraph`／`langchain`**；对应闸：**R5b 契约**。
 - **只经 `tools` 公开面**接触世界；对应闸：`specs/modules.md` 边界规则 R6（`runtimev2` 各块只经 `appv2.tools` 公开面）。
-- **禁手写替代**：不得自建模型客户端／自建工具目录。对应闸：`tools/importlinter_v2.toml` 的 **B6 契约**；验收写法：「无旁路」行为断言（模型调用点只出现在 `gateway_adapter`、工具访问只经 `tools` 公开面，无自建旁路）。
+- **禁手写替代**：不得自建模型客户端／自建工具目录。对应闸：`tools/importlinter_v2.toml` 的 **R7 契约**（模型只经 `gateway_adapter`）＋ **R6 契约**（只经 `tools` 公开面）；验收写法：「无旁路」行为断言。
 
 ## 行为约定
 
@@ -131,7 +131,7 @@ class MatchReason:                         # 结构化拒因单条：缺配／�
 | 验收测试逐行有标识 | spec gate | 已进 CI |
 | 只经 `tools` 公开面接触世界 | 边界闸 R6 | 已真跑（`tools/importlinter_v2.toml` R6 契约；已用探针验证会红） |
 | 不 import `langgraph`／`langchain` | 边界闸 R5b | 已真跑 |
-| 模型调用只经 `gateway_adapter` | 边界闸 B6 | 已真跑 |
+| 模型调用只经 `gateway_adapter` | 边界闸 **R7**（B6 只管 litellm 出 `infra`，不含绕过面） | 已真跑 |
 | 程序只对账、不替模型选工具 | 测试 `::no_lexicon_or_regex_in_tool_matching` | 待实现（阶段 5） |
 | 限额数值不复制、只引预算表 | `state` 侧常量单点测试 ＋ `::exactly_one_match_per_subtask` | 待实现 |
 | 工具描述三件套 | 测试 `::descriptor_covers_three_parts` | 待实现 |
