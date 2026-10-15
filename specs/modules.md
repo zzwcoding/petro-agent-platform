@@ -257,7 +257,7 @@ def verify(state: RunState) -> Verdict: ...
 ```
 
 ### 依赖
-- 模块: `state`
+- 模块: `state`、`transport`（verdict/notice 帧的发射，只经其公开面）
 - 外部: （无）
 
 ### Seam 与测试
