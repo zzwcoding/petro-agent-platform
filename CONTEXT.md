@@ -27,6 +27,8 @@
 | **工具（Tool）** | agent 可调用的确定性能力：semantic_query／data_query／doc_retrieve／graph_query／table_schema（结构卡发现面），全只读 |
 | **Skill** | data_query 的定性——V1 六站链降格为可验证方法资产（模板装配＋三闸＋血缘卡封装在工具内） |
 | **Observation** | 工具返回的统一结构：值/来源/版本/时效/适用范围（Knowledge Evidence 形） |
+| **读题结论（Understanding）** | 四相位前「理解」步的产物：一句读题结论 ＋ 指标候选 ＋ 路由；路由字段 `route` 是闭世界（`full`｜`direct`），拿不准默认 `full` |
+| **指标名录 / 结构卡集合** | 直答准入核验的两个**闭世界**来源：前者＝经 `tools.semantic_query` 取得的名录／别名面；后者＝经 `tools` 的 `table_schema` 发现面取得的结构卡集合（二者都不直引引擎） |
 | **SubtaskMatch** | 四相位②工具匹配的产物：`{id/tool/chain/plan/retrieval_need/caliber_key}`，与子问题**一一对应**（恰配一条）；`tool`／`chain` 均为闭世界；拒因回喂重配、不自动修补（Owner 2026-10-15 裁定：**选工具归匹配出**） |
 | **计划（plan）** | loop 中模型产出的查询意图（指标槽/时间窗/条数/排名…），经确定性校验后成为 Task State；四相位下随子问题在 toolmatch 相位收口（可携 caliber_key 场景口径支） |
 | **Context Manifest** | 每次模型调用的输入账目：来源/版本/信任级/选中理由/token/变换——"模型为什么看到这个" |
