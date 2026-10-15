@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+  <title>架构图 V3 · Petro 数据问答平台</title>
+  <style>
+    html, body { height:100%; margin:0; }
+    body { display:flex; flex-direction:column; background:#1e1e2e; color:#cdd6f4; font-family:system-ui,sans-serif; }
+    h1 { font-size:16px; padding:8px 16px; margin:0; display:flex; align-items:center; gap:12px; flex:0 0 auto; }
+    .toggle-btn { font-size:12px; padding:4px 10px; background:#313244; color:#cdd6f4; border:1px solid #89b4fa; border-radius:4px; cursor:pointer; font-family:inherit; }
+    .toggle-btn:hover { background:#45475a; }
+    .toggle-btn .state { color:#a6e3a1; margin-left:4px; }
+    .overview.hidden { display:none; }
+    #host { flex:1 1 auto; width:100vw; min-height:0; }
+    #host svg { width:100%; height:100%; display:block; }
+    .mermaid { shape-rendering: geometricPrecision; }
+    .overview { padding:0 16px 8px; font-size:12px; color:#bac2de; }
+    .overview table { border-collapse:collapse; margin-top:6px; }
+    .overview td, .overview th { border:1px solid #45475a; padding:3px 8px; text-align:left; }
+  </style>
+</head>
+<body>
+  <h1>架构图 V3 · 重写后的运行时 · 拖拽平移 · 滚轮缩放<button id="toggle-overview" class="toggle-btn" type="button">显示说明文字<span class="state"></span></button></h1>
+  <div class="overview hidden">
+    <b>这张图是什么</b>：阶段 2 产物（重写后的运行时模块划分）。图＝模块划分文档的可视投影，卡为准、图为导览。泳道即层次——最上是外部，然后接口层 → 业务相位 → 公共层 → 工具层 → 引擎层 → 基础设施层，箭头即数据与调用的流向。<br>
+    <b>怎么读</b>：蓝框＝普通节点；红框 🛡️＝防护节点（防什么见节点描述）；实线＝主流程（请求），虚线＝响应／只读回路；红虚线＝跨容器出站。<br>
+    <b>防护清单表</b>：
+    <table id="guard-table"><tr><th>闸</th><th>节点</th><th>防什么</th><th>INV</th></tr>
+      <tr><td>安全阀</td><td>安全阀（词面闸·辅助快路径）</td><td>明显中招／越界的早退——不是防线；只读保证在执行层</td><td>—（不承载）</td></tr>
+      <tr><td>前置条件机</td><td>前置条件机（纯程序过闸）</td><td>越集表／数据过期／单井不支持——全结构项；口径语义已上移到工具匹配</td><td>INV-4</td></tr>
+      <tr><td>核验</td><td>核验（逐句核对有没有材料撑着）</td><td>编造内容进入答案</td><td>INV-1</td></tr>
+      <tr><td>工具层只读</td><td>工具注册表（唯一接触面）</td><td>写数据／执行副作用——只读硬保证的落点</td><td>INV-2</td></tr>
+    </table>
+    <b>节点明细表</b>：
+    <table id="node-table"><tr><th>节点 ID</th><th>干什么</th><th>为什么</th><th>下游</th></tr>
+      <tr><td>APIN</td><td>薄端点：鉴权、参数校验、事件桥接</td><td>端点薄层，编排语义全在运行时</td><td>编排与执行</td></tr>
+      <tr><td>OR</td><td>编排与执行：图装配、命令受理</td><td>顺序由它定，业务相位不许互相调用</td><td>全部业务相位</td></tr>
+      <tr><td>BK</td><td>公共簿记：全节点共享的写入面</td><td>步记录/序号/触界收敛集中一处，禁各节点自行直写</td><td>状态与限额（落库）</td></tr>
+      <tr><td>UD</td><td>读题：装配任务书 → 模型读 → 定路由</td><td>语义判断交模型；程序只按结论分派</td><td>澄清 或 直接作答</td></tr>
+      <tr><td>GT</td><td>安全阀：词面闸，命中即不放行</td><td>不是防线，只作明显情况的早退；真正保证在执行层</td><td>编排与执行（拒答收口）</td></tr>
+      <tr><td>BG</td><td>废弃词闸：判据交模型，程序只按结论分派</td><td>提及旧名可放行，但不许按旧口径出数</td><td>工具匹配（出数只认现行口径）</td></tr>
+      <tr><td>CL</td><td>澄清：反问挂起、分解问题</td><td>问题或口径有歧义时停下来问清</td><td>工具匹配</td></tr>
+      <tr><td>TM</td><td>工具匹配：子问题 → 工具，闭世界对账</td><td>语义类判断（提旧名 vs 要旧口径）在此收口</td><td>前置检查</td></tr>
+      <tr><td>PC</td><td>前置检查：逐子问题过闸</td><td>纯程序零模型，语义判断已上移到工具匹配</td><td>批量执行</td></tr>
+      <tr><td>EX</td><td>批量执行：发现、执行、观察回流</td><td>只读子问题并行；失败子集带拒因回炉</td><td>作答</td></tr>
+      <tr><td>AN</td><td>作答：材料渲染、逐句带出处、真流式推出</td><td>每句话都要能指回材料</td><td>核验</td></tr>
+      <tr><td>VF</td><td>核验：逐句核对有没有材料撑着</td><td>零模型的机器底线，防编造</td><td>作答收口</td></tr>
+      <tr><td>ST</td><td>状态与限额：运行状态、四道限额</td><td>状态形状是全体共用地基，限额集中一处声明</td><td>全部相位</td></tr>
+      <tr><td>PR</td><td>指令与提示词：任务书、各轮合同文本</td><td>只出文本不做判断；文本变与格式变是两件事</td><td>读题／澄清／作答</td></tr>
+      <tr><td>PS</td><td>解析与发射：模型输出解析、格式校验</td><td>模型输出是外部输入，要按契约解析</td><td>读题／澄清／工具匹配</td></tr>
+      <tr><td>CX</td><td>上下文：材料段、过程档案、台账注入</td><td>模型每轮看到的材料经确定性编译</td><td>作答</td></tr>
+      <tr><td>TR2</td><td>事件通路：九类事件、断线续推</td><td>事件名是闭世界；断线要能接上</td><td>接口层</td></tr>
+      <tr><td>PE</td><td>存储归档：运行记录、黑匣子、审计</td><td>只追加不改；审计唯一写口</td><td>基础设施层</td></tr>
+      <tr><td>GW</td><td>网关桥：模型调用唯一出口</td><td>模型出口单点，记账与限流才有唯一字段语义</td><td>基础设施层</td></tr>
+      <tr><td>TLR</td><td>工具注册表：五个只读工具</td><td>agent 与世界的唯一接触面</td><td>引擎层</td></tr>
+      <tr><td>PCM</td><td>前置条件机：纯固定代码过闸</td><td>零模型；闸件本体在工具层，运行时只消费</td><td>回到前置检查相位</td></tr>
+    </table>
+  </div>
+  <div id="host" class="mermaid">
+    flowchart TB
+      subgraph EXT["外部（只经数据面共享，双向禁引）"]
+        V1["V1 主平台<br/>端点不动·转归档候选"]
+        ONTO[("本体真源<br/>术语与指标台账·指南资产")]
+        DP[("共享数据面<br/>汇总三表 / 图谱 / 对象存储")]
+      end
+
+      subgraph AV2["重写后的运行时（本次新建面）"]
+        subgraph LAPI["接口层 · 进入:HTTP 请求 · 节拍:每请求 · 退出:事件流收束"]
+            APIN["薄端点<br/>鉴权·参数校验·事件桥接"]
+        end
+
+        subgraph LG["入口闸族 · 进入:每轮读题前 · 节拍:每次提问 · 退出:放行或拒答"]
+            GT["安全阀 🛡️ 防注入／外发／写数据意图<br/>辅助快路径·命中即不放行（不是防线）"]
+            BG["废弃词闸<br/>判据交模型·程序只按结论分派"]
+        end
+
+        subgraph LB["业务相位 · 进入:编排层调用 · 节拍:每轮 · 退出:下一相位或挂起"]
+            UD["读题<br/>装配任务书→模型读→定路由"]
+            CL["澄清<br/>反问挂起·分解问题·失败子集回炉"]
+            TM["工具匹配<br/>子问题→工具·闭世界对账"]
+            PC["前置检查<br/>逐子问题过闸·判放行／拒答／等用户"]
+            EX["批量执行<br/>发现·执行·观察回流·只读并行"]
+            AN["作答<br/>材料渲染·逐句带出处·真流式推出"]
+            VF["核验 🛡️ 防编造<br/>逐句核对有没有材料撑着"]
+        end
+
+        subgraph LC["公共层 · 进入:相位调用 · 节拍:按需 · 退出:返回结果"]
+            ST[("状态与限额<br/>运行状态·四道限额·触界收敛")]
+            OR["编排与执行<br/>图装配·命令受理·挂起恢复"]
+            BK["公共簿记<br/>步记录·序号·触界收敛·结果归一（全节点同一写口）"]
+            PR["指令与提示词<br/>任务书·各轮合同文本（只出文本）"]
+            PS["解析与发射<br/>模型输出解析·格式校验·载荷定型"]
+            CX["上下文<br/>材料段·过程档案·台账常驻注入"]
+            TR2["事件通路<br/>九类事件·断线续推"]
+            PE[("存储归档<br/>运行记录·黑匣子·审计写口")]
+            GW["网关桥<br/>模型调用唯一出口·限流退避"]
+        end
+
+        subgraph LT["工具层 · 进入:相位请求 · 节拍:每次调用 · 退出:观察结果"]
+            TLR["工具注册表<br/>五个只读工具·参数校验·错误分类"]
+            PCM["前置条件机 🛡️ 防越集／过期／废弃口径<br/>纯固定代码·零模型"]
+        end
+
+        subgraph LE["引擎层 · 进入:工具层请求 · 节拍:每次查询 · 退出:结果集"]
+            KN["台账证据<br/>指标/术语/对象/关系"]
+            QY["查询<br/>计划校验·装语句·三闸·只读执行"]
+            RT["检索<br/>双路召回·精排·矛盾同窗·图谱"]
+        end
+
+        subgraph LI["基础设施层 · 节拍:每次读写"]
+            IF["数据库（只读）·模型出口·时钟·审计·对象存储"]
+        end
+      end
+
+      WEB["页面 A1 问一问<br/>事件渲染：分步视图"]
+      USER(["用户 · 身份桩"])
+
+      USER -->|"请求 提问"| WEB
+      WEB -->|"请求 提问／重连／追问"| APIN
+      APIN -->|"请求 建运行"| OR
+      OR -->|"请求 读题"| UD
+      UD -->|"请求 过安全阀（明显中招／越界才早退）"| GT
+      GT -.->|"命中 → 固定话术拒答"| OR
+      UD -->|"请求 过废弃词闸"| BG
+      BG -.->|"非豁免 → 如实拒答带替代；豁免 → 放行进管线"| OR
+      UD -->|"请求 定路由：可能有关 → 走完整流程"| CL
+      UD -.->|"确定无关（寒暄道谢）→ 直接作答"| AN
+      CL -->|"请求 交匹配"| TM
+      TM -->|"请求 交闸"| PC
+      PCM -.->|"纯函数判定（零读写）"| PC
+      PC -->|"放行"| EX
+      PC -.->|"缺参／口径歧义 → 挂起反问"| OR
+      PC -.->|"越集／废弃口径 → 该子问题如实拒答"| AN
+      EX -->|"请求 汇总"| AN
+      AN -->|"请求 核验"| VF
+      VF -.->|"无据 → 改写后回到作答"| AN
+      EX -.->|"失败子集＋拒因 → 回炉澄清（成功结果保留）"| CL
+
+      OR -->|"请求 模型调用"| GW
+      UD & CL & TM & AN -->|"请求 模型调用"| GW
+      OR -->|"请求 落盘／恢复"| PE
+      OR -->|"请求 发事件"| TR2
+      OR -.->|"请求 记步／触界收敛"| BK
+      TR2 -.->|"响应 事件流（断线续推）"| APIN
+      AN -.->|"读 材料段"| CX
+      CX -.->|"读 术语表（经工具面）"| TLR
+      TM & EX -.->|"读 工具面"| TLR
+      TLR --> KN & QY & RT
+      GW -->|"请求 上游模型"| IF
+      KN & QY & RT -.->|"读"| IF
+      PE -->|"写 只追加"| IF
+
+      QY & RT -.->|"读 汇总表／图谱／对象存储"| DP
+      ONTO -.->|"导出 台账与指南资产"| DP
+      V1 -.->|"共享 只经数据面"| DP
+
+      classDef guardSec fill:#3a1a1a,stroke:#f38ba8,stroke-width:2px,color:#f38ba8
+      classDef new fill:#313244,stroke:#89b4fa
+      classDef phase fill:#3a3020,stroke:#d90
+      class UD,CL,TM,PC,EX,AN,VF,ST,OR,BK,PR,PS,CX,TR2,PE,GW,APIN,TLR,BG new
+      class UD,CL,TM,PC,EX,AN phase
+      class GT,PCM,VF guardSec
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.2/dist/svg-pan-zoom.min.js"></script>
+  <script>
+    mermaid.initialize({ startOnLoad: false, theme: "dark",
+      themeVariables: { darkMode: true, background: "#1e1e2e", primaryColor: "#313244",
+        primaryBorderColor: "#89b4fa", primaryTextColor: "#cdd6f4", lineColor: "#89b4fa" },
+      securityLevel: "loose" });
+    mermaid.run({ querySelector: "#host" }).then(() => {
+      const svg = document.querySelector("#host svg");
+      svg.removeAttribute("height");
+      window.pz = svgPanZoom(svg, { zoomEnabled: true, controlIconsEnabled: true, fit: true, center: true });
+    });
+  </script>
+  <script>
+    (function() {
+      const btn = document.getElementById("toggle-overview");
+      const overview = document.querySelector(".overview");
+      const stateEl = btn.querySelector(".state");
+      btn.addEventListener("click", function() {
+        const isHidden = overview.classList.toggle("hidden");
+        stateEl.textContent = isHidden ? "（已隐藏）" : "（已显示）";
+      });
+      stateEl.textContent = "（已隐藏）";
+    })();
+  </script>
+</body>
+</html>
