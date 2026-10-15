@@ -28,6 +28,8 @@ jobs:
         run: uv run python tools/contract_coverage.py check
       - name: debt markers（债务标记闸：AGENTS.md 硬纪律 8——web 源码债务短语必须携可解析 DEBT 标签）
         run: uv run python tools/debt_markers.py check
+      - name: spec gate（规格闸：modules.md 依赖无环/边界规则节/页面映射＋每份 spec 的触及模块与验收测试）
+        run: uv run python tools/check_specs.py
 
   frontend:
     runs-on: ubuntu-latest

@@ -38,7 +38,7 @@ PHASE_REF = re.compile(r"^阶段\d")
 # strict 面：web 源码（非测试——测试断言合法引用 UI 文案原文）
 STRICT_GLOBS = ("web/src/**/*.js", "web/src/**/*.jsx", "web/src/**/*.ts", "web/src/**/*.tsx")
 # inventory 面：后端与测试（裸短语只进盘点报告）
-INVENTORY_GLOBS = ("app/**/*.py", "tests/**/*.py")
+INVENTORY_GLOBS = ("app/**/*.py", "appv2/**/*.py", "tests/**/*.py")
 
 
 def _iter_files(repo: Path, globs: tuple[str, ...]) -> list[Path]:

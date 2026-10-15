@@ -44,7 +44,7 @@ class AgentRuntime:
     async def resume(self, run_id: str, choice: AskChoice) -> RunHandle: ...
 # AskRequest = {question: str, actor: Actor}
 # RunHandle = {run_id: str, stream: AsyncIterator[SseEvent]}
-# 事件枚举: step/text/tool/observation/ask/verdict/citation/notice（八类闭世界）
+# 事件枚举: step/text/tool/observation/ask/verdict/citation/notice/blackbox（九类闭世界；真源 synth/S3 C-05）
 
 POST /api/v2/chat/asks                 200 → text/event-stream（首帧 run_id）
     入参三形态：question 提问｜resume_run_id 重连｜question＋followup_run_id 追问续会话
