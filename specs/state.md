@@ -169,7 +169,7 @@ def check_limits(state: RunState) -> Convergence: ...   # 纯函数：不改入�
   9. **字段重划漏项**：字段集改动若只改一侧即全链失配。检测＝`::field_set_matches_matrix` ＋ 阶段 5 逐字段读写方对账（人审）。
   10. **旧检查点迁移**：旧码 `schema_version` 真值见 `synth/S3-口径裁决清单.md` C-07，读入分流必须如实。检测＝`::legacy_checkpoint_read_honest`。
   11. **本块「不含行为」是纯范围排除**（没有形状判据）。对策＝降维为 AST 断言。检测＝`::no_judgement_or_io_in_state` ＋ 人审。
-  12. **「统一预算表」是未落盘的引用名**（跨规格命名债）：`walk/裁决表.md` §06-A 只是一行循环上限、仓内无同名文件，而多份规格曾拿它当数值真源名。对策＝本规格改用**双指**（`recon/K` R-K-72…R-K-78 逐键 ＋ `walk/裁决表.md` §06-A 五项）；**改述对象＝`specs` 目录下 `grep -rn 统一预算表 specs` 的全量命中**（现含 `specs/agent-loop.md`、`specs/clarification.md`、`specs/tool_matching.md`）——其中 `specs/agent-loop.md` 三处**已由本批就地改述**，其余两份（含未提交改动）**登记待主窗统一改述**。检测＝真源引用闸（路径可解析）＋ **人审**（该节里是否真有那条事实）。
+  12. **「统一预算表」是未落盘的引用名**（跨规格命名债）：`walk/裁决表.md` §06-A 只是一行循环上限、仓内无同名文件，而多份规格曾拿它当数值真源名。对策＝本规格改用**双指**（`recon/K` R-K-72…R-K-78 逐键 ＋ `walk/裁决表.md` §06-A 五项）；**改述对象＝`specs` 目录下 `grep -rn 统一预算表 specs` 的全量命中**（现含 `specs/agent-loop.md`、`specs/clarification.md`、`specs/tool_matching.md`）——`specs/agent-loop.md` 三处已由 6f4848c 批就地改述，`specs/clarification.md` 六处＋`specs/tool_matching.md` 二处已经主窗 2026-10-15 派单改述完成（含两处裸「预算表」补刀；残留 grep 仅本登记行）——**本债已清**。检测＝真源引用闸（路径可解析）＋ **人审**（该节里是否真有那条事实）。
   13. **`dialogue` 条目的 `origin` 是本规格自立的新结构**（现状 `dialogue` 条目只有 `role`／`content`，无来源标签——现状锚点 `recon/I2b-RunState全字段.md`）：无现状真源可抄，属本次重写新立的设计。对策＝在规格里**列全合法值**并明标「本规格自立、待 Owner 过目」，阶段 5 以本规格为准。检测＝`::dialogue_layer_purity` ＋ **人审**（Owner 过目）。
 
 ## 与闸的挂钩表

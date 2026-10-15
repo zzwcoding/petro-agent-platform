@@ -46,7 +46,7 @@ class ClarifyAsk:                                   # 反问卡 → interrupt �
     prompt: str
     options: list[str]
 class ClarifyFinal:                                 # 定案 → 进下一相位
-    subtasks: list[Subtask]                         # 条数上限见统一预算表（本规格不复制字面值）
+    subtasks: list[Subtask]                         # 条数上限引限额真源双指（真源 recon/K-上下文事件指南预算.md R-K-72…R-K-78 逐键 ＋ walk/裁决表.md §06-A 循环上限五项；条数键两源未单列，数值真源 walk/09-澄清-分解问题.md §七 Q-C；本规格不复制字面值）
 class Subtask:
     id: str
     question: str
@@ -80,7 +80,7 @@ class ClarifyReason:                                # 结构化拒因单条
 4. **口径不给默认**：口径有歧义 → **反问**，不交模型猜（真源 `walk/08` §七 Q-B）。
 5. **先探后问为首选策略（属模型侧策略，不入程序验收面）**：模型先 `discover` 出候选，再带候选反问（真源 `walk/08` §七 Q-C）；**程序侧只做闭世界 schema 对账，不验收该策略**。
 6. **台账全量每轮注入**（词典层小、利于前缀缓存）；**词典层变大即转按需检索**：**阈值待定、暂以全量注入为唯一现行为**（真源 `walk/08` §七 Q-A 亦未给数值）。
-7. **封顶数值一律引统一预算表**：子问题条数上限、连续反问次数上限、发现次数上限、返工轮次上限——**本规格不写字面值**（真源 `walk/裁决表.md` §06-A 统一预算表）。
+7. **封顶数值一律引限额真源双指**：子问题条数上限、连续反问次数上限（R-K-76）、发现次数上限（R-K-75）、返工轮次上限（R-K-72；§06-A 回炉一次）——**本规格不写字面值**（真源 `recon/K-上下文事件指南预算.md` R-K-72…R-K-78 逐键 ＋ `walk/裁决表.md` §06-A 循环上限五项；子问题条数上限两源均未单列，数值真源 `walk/09-澄清-分解问题.md` §七 Q-C）。
 8. **注释逐字抄台账**：`ledger_notes` 必填非空，内容须能在**台账注入块里逐字求得**（不做语义改写、不摘要）。
 9. **覆盖校验交模型**：拆完后由**模型**自证「子问题合起来覆盖原题」；**程序只校格式，不拿词表猜覆盖**。
 10. **子问题无依赖**：`Subtask` 不含依赖字段，子问题**独立并行**。
@@ -105,7 +105,7 @@ class ClarifyReason:                                # 结构化拒因单条
 |---|---|
 | 动作越界 → 判失败（不猜、不取默认） | `tests/domains/test_v2_clarification.py::emission_action_closed_world` |
 | `ledger_notes` 为空 → 判失败并带拒因回喂（不自动修补） | `tests/domains/test_v2_clarification.py::ledger_notes_required_with_reject_feedback` |
-| 子问题条数越界 → 判失败（上限取统一预算表） | `tests/domains/test_v2_clarification.py::subtask_cap_from_budget_table` |
+| 子问题条数越界 → 判失败（上限取限额真源双指：`recon/K-上下文事件指南预算.md` R-K-72…R-K-78 ＋ `walk/裁决表.md` §06-A；条数键两源未单列，数值真源 `walk/09-澄清-分解问题.md` §七 Q-C） | `tests/domains/test_v2_clarification.py::subtask_cap_from_budget_table` |
 | `chain` 越界值 → 判失败 | `tests/domains/test_v2_clarification.py::chain_enum_closed_world` |
 | 零实质观察（非 notice）→ 不得判「材料足够」直答收口：`finalize` 前置＝窗内非 notice 观察数 ≥1，否则拒因「零实质观察禁定稿」回喂 | `tests/domains/test_v2_clarification.py::finalize_requires_substantive_observation` |
 | `finalize` 被拒（打回）→ 拒因载荷带三段带路（前置判定指路→空手清单→兜底 discover/doc_retrieve 指引；零模型调用、段缺则跳、「；」连接） | `tests/domains/test_v2_clarification.py::finalize_rejection_three_segment_guidance` |
@@ -129,7 +129,7 @@ class ClarifyReason:                                # 结构化拒因单条
 
 - 依赖：`prompts`／`parsing`（同批新增）、`gateway_adapter`（模型出口，真源 `specs/modules.md` `## gateway_adapter`）、`state`（状态形状）。
 - 风险与对策：
-  1. **预算表数值被复制进实现** → 漂移。对策：只从统一预算表读；检测手段＝限额常量单点测试（`state` 卡）。
+  1. **限额数值被复制进实现** → 漂移。对策：限额数值只从真源双指读（`recon/K-上下文事件指南预算.md` R-K-72…R-K-78 逐键 ＋ `walk/裁决表.md` §06-A 循环上限五项）；检测手段＝限额常量单点测试（`state` 卡）。
   2. **覆盖校验滑成程序判** → 违总纪律。对策：判据只留在模型侧；检测手段＝AST 机检测试 `no_lexicon_or_regex_in_clarification`（**豁免面＝形态处理**：逐字子串校与集合成员判定不算语义词表／正则）。
   3. **恢复重取漏项**（等待期环境失效）→ 交付用旧数据。对策：明确清单（水位／新鲜度／地基／落库新数据）；检测手段＝测试 `resume_reloads_volatile`。
 
@@ -142,10 +142,10 @@ class ClarifyReason:                                # 结构化拒因单条
 | 不 import `langgraph`／`langchain` | 边界闸 R5b | 已真跑 |
 | 模型调用只经 `gateway_adapter` | 边界闸 R7（B6 只管 litellm 出 `infra`，不含「绕过 `gateway_adapter` 直引」面） | 已真跑（`tools/importlinter_v2.toml` R7 契约） |
 | 程序不判语义（无词表／正则） | 测试 `::no_lexicon_or_regex_in_clarification` | 待实现（阶段 5） |
-| 封顶数值不复制、只引预算表 | 测试 `::subtask_cap_from_budget_table` ＋ `state` 侧常量单点测试 | 待实现 |
+| 封顶数值不复制、只引限额真源双指（`recon/K-上下文事件指南预算.md` R-K-72…R-K-78 ＋ `walk/裁决表.md` §06-A） | 测试 `::subtask_cap_from_budget_table` ＋ `state` 侧常量单点测试 | 待实现 |
 | 到顶截断不静默（带材料交付） | 测试 `::ask_cap_truncate_with_material` | 待实现 |
 | 挂起不计轮／恢复重置轮预算 | 测试 `::waiting_not_counted_resume_resets` | 待实现 |
 | `finalize` 合法性闸：零实质观察（非 notice）不得判「材料足够」直答收口（窗内非 notice 观察数 ≥1 才许定案——纯结构判定） | 钉 **`pin-05`**（P0）＋ 测试 `::finalize_requires_substantive_observation` | 待织网（阶段 5） |
-| 连续澄清反问到顶 → 截断＋带已取得材料如实直答；挂起不计轮、恢复重置轮预算（上限值只引统一预算表） | 钉 **`pin-15`**（P1；上限值真源＝`walk/裁决表.md` §06-A 统一预算表——连续澄清≤6） | 待织网（阶段 5） |
+| 连续澄清反问到顶 → 截断＋带已取得材料如实直答；挂起不计轮、恢复重置轮预算（上限值引 `recon/K-上下文事件指南预算.md` R-K-76——连续 ask 截断上限） | 钉 **`pin-15`**（P1；上限值真源＝`walk/裁决表.md` §06-A——连续澄清≤6） | 待织网（阶段 5） |
 | 定稿打回理由三段带路（前置判定指路→空手清单→兜底 `doc_retrieve` 指引） | 钉 **`pin-07`**（P1；落点＝行为 18，测试 `::finalize_rejection_three_segment_guidance`） | 待织网（阶段 5） |
 | 「不做什么」的纯范围排除（不查数／不选工具等） | **人审** | 接不上闸的原因：纯范围排除没有形状／存在性／退出码判据；能降维的部分已由边界闸 R1（相位互不 import）覆盖 |
