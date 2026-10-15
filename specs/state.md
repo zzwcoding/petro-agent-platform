@@ -66,9 +66,10 @@ class AskChoice:
 @dataclass(frozen=True, slots=True)
 class RunHandle:
     run_id: str
-    stream: AsyncIterator[SseEvent]
-    cursor: int
-SseEvent = Mapping[str, Any]                 # 帧载荷的结构别名（形状真源在 transport；本块不 import——R4）
+    stream: AsyncIterator["SseEvent"]        # 元素类型＝transport 的帧对象 {seq, event, data}
+    cursor: int                              # 全流单调断线游标（＝下一帧 seq；语义真源 specs/transport.md 行为 3／5）
+# `SseEvent`（帧）的类型真源在 `transport`；本块**不 import**（守 R4），故以**字符串前向引用**标注——
+# 本块不定义它的形状，也不得给它安第二套含义。
 
 # ── 限额参数与触界判定 ────────────────────────────────────
 @dataclass(frozen=True, slots=True)
@@ -88,7 +89,7 @@ def check_limits(state: RunState) -> Convergence: ...   # 纯函数：不改入�
 
 - **闭世界常量族**（本块导出、全体消费）：`STEP_KINDS`（step 类型六值）｜`RUN_STATUS_KINDS`（run 状态四值）｜`INTENT`（路由意图十值）——三族都是 **`RunState` 字段的取值域**。取值与条数真源＝`recon/I2a-状态常量与清单.md`（22 条常量实测）；本规格不复述取值。**通知类型（`notice.type`）的闭世界不属本块**——它是帧载荷面，归 `transport`（其规格定稿时须立该闭世界并落定取值真源）。
 - **三类不可变载荷的形态闭世界**：`AskRequest` 三形态——仅 `question`＝提问｜`resume_run_id`＝断线重连｜`question`＋`followup_run_id`＝追问续会话；`resume_run_id` 与 `followup_run_id` 同在场＝判失败。`AskChoice.kind`＝`clarify`｜`external_table_approval`；`AskChoice.decision`＝`approve`｜`reject`｜`None`。越界值一律判失败。
-- **`RunHandle` 的结构别名**：`SseEvent` 只作类型别名（帧载荷是 JSON 对象），**形状真源在 `transport`**；本块不 import 任何 runtimev2 块（R4），故以别名表示，别名不得承载行为。
+- **`RunHandle.stream` 的元素类型是外部类型**：`SseEvent`（帧对象 `{seq, event, data}`）的**形状真源在 `transport`**；本块不 import 任何 runtimev2 块（R4），故以**字符串前向引用**标注（`AsyncIterator["SseEvent"]`）——**本块不定义它、也不得给它安第二套含义**（禁把 `SseEvent` 当成"载荷 dict 别名"）。
 - **错误契约**：形态／枚举越界 → **抛参数错误**（由 `api`／`orchestration` 映射成对外错误码，映射表不在本块）；本块**不吞错、不返回哨兵值**。
 - 真源：`specs/modules.md` `## state` 卡（签名以卡为准）。
 
@@ -99,7 +100,7 @@ def check_limits(state: RunState) -> Convergence: ...   # 纯函数：不改入�
 - **模型出口零接触**：本块不含模型调用、不引用模型出口。对应闸＝**两闸合覆盖**：不直引 `appv2.infra.llm_client`＝**R7 契约**；不引 `gateway_adapter`＝**R4 契约**（本批补全后的 forbidden 含它。单挂 R7 属部分覆盖——R7 的 forbidden 只含 `infra.llm_client` 一面）。
 - **不直引引擎**（`knowledge`／`query`／`retrieval`）。对应闸：**R6 契约**。
 - **外部依赖只许 `infra`**（身份对象 `Actor` 的类型）。对应闸：**无专属闸 → 人审**（原因：R1–R8 里没有「依赖白名单」这一面）；**可降维的部分＝四闸合覆盖**——不引包内其它块＝**R4**、不引框架＝**R5b**、不引引擎＝**R6**、不直引 `appv2.infra.llm_client`＝**R7**，另加 **B6 出口纪律**（`appv2` 全层禁 litellm）。
-- **禁手写替代**：本块不产帧、不调模型、不落盘，故无「自建通路」面；将来若需帧类型，只许引用 `transport` 的**结构别名**（见接口定义），不得自建第二套帧形状。对应闸：**无专属闸 → 人审**（原因：R1–R8 无「不许出现自建帧类型符号」一面；降维面＝AST 断言「本块不出现自建帧类型符号」，登记待补）。
+- **禁手写替代**：本块不产帧、不调模型、不落盘，故无「自建通路」面；帧类型只许以**字符串前向引用**指向 `transport` 的 `SseEvent`（见接口定义），**不得自建第二套帧形状**。对应闸：**无专属闸 → 人审**（原因：R1–R8 无「不许出现自建帧类型符号」一面；降维面＝AST 断言「本块不出现自建帧类型符号」，登记待补）。
 
 ## 行为约定
 

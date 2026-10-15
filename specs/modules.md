@@ -408,10 +408,20 @@ def compile(state: RunState) -> CompiledContext: ...
 
 ### 公开接口
 ```python
-def emit(state, name: str, payload: dict) -> None: ...
-SseEvent = ...               # 帧载荷形状（本卡定义；`state.RunHandle.stream` 以结构别名引用——不 import，守 R4）
-# 帧序列（seq 即断线游标）
+class SseEvent:                  # 帧（wire 面单元）：{seq: int, event: str, data: dict}
+class EventBus:                  # per-run 总线（编排块持有、注入各相位——RunState 必须保持 JSON 可投影，故总线不挂在状态上）
+    def emit(self, name: str, payload: dict) -> SseEvent: ...
+    def stream(self, cursor: int = 0) -> AsyncIterator[SseEvent]: ...   # seq 即断线游标（全流单调；cursor＝下一帧 seq，排他）
+    def close(self) -> None: ...
+    @property
+    def closed(self) -> bool: ...
+def envelope(frame: SseEvent) -> str: ...      # 帧信封字节形："id: …\nevent: …\ndata: …\n\n"
+# 闭世界常量族：EVENT_KINDS（runtime 九类）／WIRE_FRAMES（session/done/error）／
+#   NOTICE_TYPES（通知类型，取值真源＝本卡所指规格）／VERDICT_SUBTYPES（verify/final）／ASK_FRAME_KINDS（clarify/external_table_approval）
 ```
+
+> **卡级修正（2026-10-15，L0，随 transport 规格起草）**：原「`def emit(state, name, payload)`」是**现状形状的草稿**——`RunState` 必须保持 JSON 原语可投影（见 `specs/state.md` 行为 3），**总线不能挂在状态上**；故公开面收正为 **per-run `EventBus`**（编排块持有，与现状 `deps.bus.emit` 同形），`SseEvent` 由「载荷别名」收正为**帧对象**（`{seq, event, data}`）。
+> **归位登记（2026-10-15，L0）**：`notice.type` 的**取值闭世界在本卡**（现状该值散落各处、无闭世界常量，属历史缺陷）——`transport` 规格定稿时须立该闭世界并**落定取值真源**；`state` 卡只定义「触界注记恰三键」的形状，不复述取值。
 
 ### 依赖
 - 模块: `state`
