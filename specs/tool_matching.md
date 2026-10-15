@@ -65,7 +65,7 @@ class MatchReason:                         # 结构化拒因单条：缺配／�
 - `QueryPlan` 的真源是 `specs/query.md`（**真源以该文为准**；若该文缺 `aggregate` 字段则记「待回阶段 3 补」——本块只引不复述字段）。
 - **`tool` 与 `chain` 都是闭世界**：`tool` ∈ 工具注册表名单；`chain` ∈ `data`｜`knowledge`。**越界值判失败**。
 - **错误契约**：**漏配／多配／编号对不上／必填缺／枚举越界** → 返回 `ToolMatchRejection`（**结构化拒因**），由 `orchestration` **回喂模型、回到本相位重配**（**不做自动修补**）。
-- **`caliber_key` 本块只透传**：其归一判据归 `preconditions` 承接（本块不做 caliber 语义归一）。
+- **`caliber_key` 由本块产出**（L0 2026-10-15 裁决，按 `walk/裁决表.md` §12-A「语义上移到匹配相位」）：**模型在配工具时用本体账本把旧名归一到现行名、产出 `caliber_key`**；`preconditions` 只做**台账闭世界的结构校验**（该键在不在册），不承担语义归一。
 - 真源：`specs/modules.md` `## tool_matching` 卡（签名以卡为准）。
 
 ## 框架与依赖红线
@@ -81,7 +81,7 @@ class MatchReason:                         # 结构化拒因单条：缺配／�
 1. **模型只提议**（子问题 → 工具 ＋ 参数）；程序做**闭世界对账**，不替模型选工具。
 2. **恰配一条**：每个子问题**恰好一条**匹配；**漏配／多配／编号对不上**任一 → 判失败。
 3. **拒因回喂、不自动修补**：失败一律带**结构化拒因**回喂模型重配；程序不补齐、不猜。
-4. **参数强校验**：`chain="data"` → `plan` 必填；`chain="knowledge"` → `retrieval_need` 必填；`metric_slot` 必填非空且**不得为英文列名形**（**形态判定**——只判形状，不判语义）；`ranking` 必填布尔且与 `direction` 同现；`caliber_key` **本块只透传**，其归一判据归 `preconditions` 承接。
+4. **参数强校验**：`chain="data"` → `plan` 必填；`chain="knowledge"` → `retrieval_need` 必填；`metric_slot` 必填非空且**不得为英文列名形**（**形态判定**——只判形状，不判语义）；`ranking` 必填布尔且与 `direction` 同现；`caliber_key` **由本块产出**（模型用账本归一旧名到现行名；`preconditions` 只做台账闭世界结构校验）。
 5. **枚举闭世界**：`chain`（`data`｜`knowledge`）、`direction`（`asc`｜`desc`）、`tool`（注册表名单）——越界值判失败。
 6. **工具描述写全**：每个工具的**载体＝`ToolDescriptor.description`**（模型选工具时看到的就是它），必须含**何时用／不能做什么／参数示例**三项（真源 `walk/11-匹配-工具阀.md` §七 Q-A）。这是选得准的**第一因**——**不加额外选型规则**。
 7. **「出数只认现行口径」的结构约束落点**：`metric_slot` 到查询引擎前**只认现行名**；**模型产出归一后的名字**，本体账本只提供 alias↔canonical 的**「结构映射」**（不替模型做语义判断）（真源 `walk/裁决表.md` §12-A／§07）。
@@ -92,7 +92,7 @@ class MatchReason:                         # 结构化拒因单条：缺配／�
 ## 不降级与静默禁令
 
 - **合法降级路径：无**（本模块不自降级）。
-- 失败与拒因必须产生**机读信号**：step payload 拒因字段 ＋ notice（类型取自 `synth/S6-事件与帧目录.md`）。`caliber_key` 的归一由 `preconditions` 承担，其信号**不在本块**。
+- 失败与拒因必须产生**机读信号**：step payload 拒因字段 ＋ notice（类型取自 `synth/S6-事件与帧目录.md`）。`caliber_key` 由本块产出（语义归一在模型侧），其归一的机读信号落本块 step payload。
 - **不得静默丢子问题**：漏配即判失败，**不许"当作已配"**或跳过该子问题（红线原文 `arch/P7a-交接包与挂账清单.md` A-P7a-37）。
 
 ## 验收测试
