@@ -13,7 +13,9 @@
 
 | 不做 | 由谁承担 | 锚点 |
 |---|---|---|
-| 入口安全闸（注入／外发／写意图、废弃口径） | `gate` | `specs/modules.md` `## gate`；`walk/07-理解段重估.md` §一/§二 |
+| 入口安全阀（注入／外发／写意图） | `gate` | `specs/modules.md` `## gate` |
+| 废弃口径的**判断**（提及 vs 执行） | `tool_matching`（模型产出） | `walk/裁决表.md` #12 |
+| 废弃口径结论的**分派**（放行／拒答） | `preconditions`（判定序第 1 位，机械分派） | `walk/裁决表.md` #12 |
 | 澄清与反问 | `clarification` | `specs/modules.md` `## clarification` |
 | 工具选择与闭世界对账 | `tool_matching` | `specs/modules.md` `## tool_matching` |
 | 查数与检索 | `execution`（只经 `tools` 公开面） | `specs/modules.md` `## execution` |

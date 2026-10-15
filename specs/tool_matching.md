@@ -12,7 +12,9 @@
 
 | 不做 | 由谁承担 | 锚点 |
 |---|---|---|
-| 入口安全闸（注入／外发／写意图、废弃口径） | `gate` | `specs/modules.md` `## gate` |
+| 入口安全阀（注入／外发／写意图） | `gate` | `specs/modules.md` `## gate` |
+| 废弃口径的**判断**（提及 vs 执行） | `tool_matching`（模型产出） | `walk/裁决表.md` #12 |
+| 废弃口径结论的**分派**（放行／拒答） | `preconditions`（判定序第 1 位，机械分派） | `walk/裁决表.md` #12 |
 | 澄清与反问 | `clarification` | `specs/modules.md` `## clarification` |
 | 逐子问题过闸（三态） | `preconditions` | `specs/modules.md` `## preconditions` |
 | 真正执行工具 | `execution` | `specs/modules.md` `## execution` |
@@ -65,6 +67,7 @@ class MatchReason:                         # 结构化拒因单条：缺配／�
 - `QueryPlan` 的真源是 `specs/query.md`（**真源以该文为准**；若该文缺 `aggregate` 字段则记「待回阶段 3 补」——本块只引不复述字段）。
 - **`tool` 与 `chain` 都是闭世界**：`tool` ∈ 工具注册表名单；`chain` ∈ `data`｜`knowledge`。**越界值判失败**。
 - **错误契约**：**漏配／多配／编号对不上／必填缺／枚举越界** → 返回 `ToolMatchRejection`（**结构化拒因**），由 `orchestration` **回喂模型、回到本相位重配**（**不做自动修补**）。
+- **本块亦产出「提及 vs 执行」的结论**（废弃词闸的判断；Owner 裁决 #12）——**与 `caliber_key` 同批产出**，交 `preconditions` 判定序第 1 位做机械分派。
 - **`caliber_key` 由本块产出**（L0 2026-10-15 裁决，按 `walk/裁决表.md` §12-A「语义上移到匹配相位」）：**模型在配工具时用本体账本把旧名归一到现行名、产出 `caliber_key`**；`preconditions` 只做**台账闭世界的结构校验**（该键在不在册），不承担语义归一。
 - 真源：`specs/modules.md` `## tool_matching` 卡（签名以卡为准）。
 

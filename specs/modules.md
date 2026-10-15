@@ -188,7 +188,7 @@ def match(state: RunState) -> ToolPlan | ToolMatchRejection: ...
 
 ## preconditions
 
-职责: 前置检查——逐子问题三态闸（放行／拒答／等用户），纯程序零 LLM，注记并入放行
+职责: 前置检查——逐子问题三态闸（放行／拒答／等用户），纯程序零 LLM，注记并入放行；**8 个判定位全部为结构／机械分派**（语义类结论——废弃词闸「提及 vs 执行」与口径归一——由 `tool_matching` 的模型产出，本块只消费；Owner 2026-10-15 裁决 #12／#13）
 目录: `appv2/runtimev2/preconditions/`
 
 ### 公开接口
@@ -451,7 +451,7 @@ def complete(messages, caller: str) -> str: ...
 
 ## gate
 
-职责: 入口闸族——**两道词面闸的收口点**：安全阀（注入／外发／写意图）＝辅助快路径、命中即不放行；废弃词闸＝业务阀、判据交模型、程序只按结论机械分派
+职责: **安全阀**——注入／外发／写意图的词面快路径（命中即不放行；**不承载红线**，只读硬保证在执行层）。（**废弃词闸已移出本模块**——判断归 `tool_matching` 的模型产出、分派归 `preconditions` 判定序第 1 位；Owner 2026-10-15 裁决 #12）
 目录: `appv2/runtimev2/gate/`
 
 ### 公开接口
