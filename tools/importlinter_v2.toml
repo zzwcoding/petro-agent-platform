@@ -117,7 +117,7 @@ source_modules = ["appv2.runtimev2.understanding", "appv2.runtimev2.clarificatio
 forbidden_modules = ["appv2.infra.llm_client"]
 
 [[tool.importlinter.contracts]]
-name = "R8 runtimev2 零 LLM 面：preconditions/verification 不得引 gateway_adapter（铁律不调模型）"
+name = "R8 runtimev2 零 LLM 面：preconditions/verification/execution 不得引 gateway_adapter（铁律不调模型）"
 type = "forbidden"
-source_modules = ["appv2.runtimev2.preconditions", "appv2.runtimev2.verification"]
+source_modules = ["appv2.runtimev2.preconditions", "appv2.runtimev2.verification", "appv2.runtimev2.execution"]
 forbidden_modules = ["appv2.runtimev2.gateway_adapter"]

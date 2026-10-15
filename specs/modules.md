@@ -212,11 +212,14 @@ def gate_all(state: RunState) -> list[SubtaskVerdict]: ...   # 逐子问题三�
 
 ### 公开接口
 ```python
-def execute(state: RunState) -> list[Observation]: ...
+def execute(state: RunState) -> ExecutionOutcome: ...
+# ExecutionOutcome = {observations: list[Observation], subtasks: list[SubtaskExec]}
+# SubtaskExec = {subtask_id, exec_status: ok|failed|need_input, answered: bool, error, row_count, ref}
+#   —— **exec_status（执行状态）与 answered（是否真答上）分开记**（Owner 裁决 §13-Q-C）
 ```
 
 ### 依赖
-- 模块: `state`、`transport`；`tools`（只许走其公开面）
+- 模块: `state`、`transport`、`persistence`（大结果引用落盘，只经其公开面）；`tools`（只许走其公开面）
 - 外部: （无）
 
 ### Seam 与测试
@@ -410,7 +413,7 @@ def emit(state, name: str, payload: dict) -> None: ...
 
 ## persistence
 
-职责: 存储归档——运行记录、检查点、黑匣子（只追加）、审计唯一写口
+职责: 存储归档——运行记录、检查点、黑匣子（只追加）、审计唯一写口、**大结果原文的引用载体**（可寻址 handle）
 目录: `appv2/runtimev2/persistence/`
 
 ### 公开接口
@@ -519,7 +522,7 @@ tools/run_replay／RunStore.get_blackbox 读库，取证面）。
 | `knowledge`/`query`/`retrieval` 互引 | `query`→`knowledge`（只许走公开接口） | 未绑定指标降级需 Evidence；其余互禁 |
 | 各引擎绕过 infra 直连接外部（litellm／裸 driver／裸 httpx 外部 API） | （无） | B6 出口纪律，V1 先例 |
 | `langgraph`／`langchain` 出现在 `runtimev2.orchestration` 以外任何模块 | （无） | ADR-0002 红线①：框架只许活在编排块内（ADR-0007 落位） |
-| **R8** `preconditions`／`verification` 引 `appv2.runtimev2.gateway_adapter`（**零 LLM 面**：这两块的铁律是不调模型；R7 只禁「直引 infra」，不禁「经 gateway_adapter 调模型」，故单列） | （无） | 零模型铁律（ADR-0005；`walk/12` Q-A／`walk/15` A）；对应闸：`tools/importlinter_v2.toml` R8 契约 |
+| **R8** `preconditions`／`verification`／`execution` 引 `appv2.runtimev2.gateway_adapter`（**零 LLM 面**：这两块的铁律是不调模型；R7 只禁「直引 infra」，不禁「经 gateway_adapter 调模型」，故单列） | （无） | 零模型铁律（ADR-0005；`walk/12` Q-A／`walk/15` A）；对应闸：`tools/importlinter_v2.toml` R8 契约 |
 | **R7** `runtimev2` 各块（除 `gateway_adapter`）直引 `appv2.infra.llm_client`——模型只经 `gateway_adapter` | （无） | ADR-0002 红线②：模型出口唯一；B6 契约只禁 litellm 出 infra，**不含**「绕过 `gateway_adapter` 直引」这一面，故单列 R7（对应闸：`tools/importlinter_v2.toml` R7 契约） |
 | `web/`、`eval/` 引用 `appv2` 模块内部 | tests/ 单模块 seam 级直测（SDD 惯例）；web/eval 只走 /api/v2 HTTP | spec 模板「单模块行为在模块 seam」＋V1 同先例 |
 | **R1** 七个业务相位（`understanding`／`clarification`／`tool_matching`／`preconditions`／`execution`／`answering`／`verification`）之间互相 import | 只经 `state`（数据形状）与 `orchestration`（编排接口） | 相位要能单独测；顺序由编排层定（ADR-0007 同时裁决 3） |
