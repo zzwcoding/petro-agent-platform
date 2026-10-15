@@ -249,6 +249,14 @@ $ uv run lint-imports --config tools/importlinter_v2.toml | tail -1
 Contracts: 18 kept, 0 broken.                                # exit 0
 ```
 
+---
+
+## 十一、L0 补录进度追记（2026-10-15 夜，窗 B）
+
+- **已补（`821968f`，主窗「流水31」批）**：`specs/modules.md` `## parsing` 卡公开接口区已补**指纹器材四件**（`payload_fingerprint`／`discover_fingerprint`／`emission_fingerprints`／`is_same_param_replay`；卡注标明「L0 补录 2026-10-15——签名照 `specs/parsing.md` 接口定义节④逐字」）——P-01 的核心缺件（S-2 类）已消除。
+- **待补（按 P-01／P-04 登记的清算包余项）**：①`parse_tool_match` 成员（V2 定案公开成员）；②`parse_question_group` 返回形勘正（`-> ClarifyEmission | str`）或补「初拟形（阶段 2），施工以 V2 定案签名为准」注；③族名单权威注「公开面以 parsing 规格接口定义为准（族名单闭世界）」。
+- **口径**：三项补齐即视为 P-01（L0）清零完成，`specs/parsing.md` 翻「已定稿」（一行提交，窗 B 执行）；若主窗裁「指纹四件＝L0 已清、余三项随阶段 7 接口契约对账收口」亦可——**请主窗定夺**后窗 B 执行状态翻转。
+
 ## 起草方留档：三闸实跑记录（2026-10-15）
 
 ```
