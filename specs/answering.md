@@ -1,0 +1,130 @@
+# V2 作答（answering）
+
+状态: 已定稿
+来源: `specs/modules.md` `## answering` 卡、`docs/runtime-refactor/walk/14-作答-汇总作答.md`、`walk/裁决表.md` §14、`synth/S1`（M6）
+版式: `docs/spec-format.md` ｜ 工序: `docs/spec-process.md`
+
+## 目标
+
+把前面查到的**全部子问题结果**整理成**一份答案**——**一段段推给页面（真流式）**、**每句带出处**、**缺口如实交代**。
+
+## 不做什么
+
+| 不做 | 由谁承担 | 锚点 |
+|---|---|---|
+| 逐句核验「有没有材料撑着」 | `verification` | `specs/modules.md` `## verification` |
+| 执行查询、产观察 | `execution` | `specs/modules.md` `## execution` |
+| 大结果**原文**的落盘与引用载体 | `execution` 落、`persistence` 为载体（本块**只消费引用**） | `walk/裁决表.md` §14-B；评审 E-10 处置（`docs/runtime-refactor/spec-review/execution-评审.md` E-10） |
+| 材料段与 Manifest 的编译 | `context` | `specs/modules.md` `## context` |
+| 提示词合同文本与指令装配 | `prompts` | `specs/modules.md` `## prompts` |
+| 模型调用出口 | `gateway_adapter` | `specs/modules.md` `## gateway_adapter` |
+| 拿词表／正则猜「这句话答没答上原问题」 | 交模型与 `verification`；程序只做结构判据 | `walk/00-设计总纲.md` §二 |
+
+## 触及的模块
+
+| 模块 | 改动类型 | 说明 |
+|---|---|---|
+| answering | 新增 | 起草 ＋ 真流式推出 ＋ 引用落账 ＋ 结构化缺口 |
+| context | 新增 | 材料段与 Manifest（本块只消费其编译出口） |
+| prompts | 新增 | 答案轮的指令与材料装配文本（只出文本） |
+| gateway_adapter | 新增 | 模型调用唯一出口（本块只消费） |
+| state | 新增 | 草稿／引用块／缺口的状态形状（本块只消费） |
+| transport | 新增 | **`text` 帧的增量发射**（本块只经其公开面） |
+
+## 接口定义
+
+```python
+def answer(state: RunState) -> AnswerDraft: ...
+
+class AnswerDraft:
+    segments: list[AnswerSegment]     # **增量片段**（流式逐段；顺序即呈现顺序）
+    citations: list[Citation]         # 引用块（引标 → 观察序号）
+    gaps: list[Gap]                   # **结构化缺口**（被拒／缺失／未及核验）
+class AnswerSegment:
+    text: str
+    citation_seqs: list[int]          # 本段引用的观察序号（[n]；与全局观察同一套序）
+class Citation:
+    seq: int                          # 引标编号（＝观察序号）
+    locator: str                      # 可机读出处（台账行／片段→报告→库／表名）
+class Gap:
+    kind: Literal["refused", "missing", "unverified"]   # 闭世界
+    subtask_id: str | None
+    reason: str
+```
+
+- **`Gap.kind` 是闭世界**（`refused`｜`missing`｜`unverified`）；越界值判失败。
+- **`citation_seqs` 里的每个序号必须真实存在于观察序列**；不存在的引标＝判失败（对应「坏引标」病灶）。
+- **大结果引用经 `seq → observation.ref`（`MaterialRef`）可达**：`Citation` 不另设 `handle` 字段，与 `specs/execution.md` 的字段口径显式对齐（真源 `walk/裁决表.md` §14-B）。
+- 错误契约：起草失败（模型不可用／空稿超限）→ **不返回半成品**；由 `orchestration` 承接（挂起或如实收口），**不静默推空答案**。
+- 真源：`specs/modules.md` `## answering` 卡（签名以卡为准）。
+
+## 框架与依赖红线
+
+- **无点名框架**（本模块不引入任何框架）。
+- **模型调用唯一出口＝`gateway_adapter`**；验收写法：模型调用点只出现在该出口 ＋ 调用行为测试绿。对应闸：`tools/importlinter_v2.toml` 的 **R7 契约**（runtimev2 各块只经 `gateway_adapter` 调模型；**B6 只管 litellm 出 `infra`，不含「绕过 `gateway_adapter` 直引」这一面**）＋ 一条「无旁路」行为断言（写法照 `specs/tool_matching.md` 同款）。
+- **不得直接 import `langgraph`／`langchain`**（框架只许在 `orchestration`）；对应闸：**R5b 契约**。
+- **只经 `transport` 公开面**发帧（不自行拼 wire 帧、不直接接触 SSE 通道）。
+- **禁手写替代**：不得自建模型客户端、不得自建帧通路。对应闸：`tools/importlinter_v2.toml` **R7 契约**（runtimev2 各块只经 `gateway_adapter` 调模型）；验收写法：「无旁路」行为断言（模型调用点只出现在 `gateway_adapter`，无自建旁路）。（**「自建帧通路」一面**：`transport` 的「只经包根」半面由 **R2 契约**覆盖，见「与闸的挂钩表」；另一半无闸。）
+
+## 行为约定
+
+1. **真流式**：答案**一段段推**（`text` 帧随增量发射），**不是收口时一次性推全量**。
+2. **引标与增量同步**：每段自带 `citation_seqs`；**引标编号＝观察序号**（全局同一套），段与引用不脱节。
+3. **逐句可核**：每个事实断言都带引标；**无据的话不写进答案**（无据由 `verification` 改写，本块不产出无据句）。
+4. **材料进上下文必须显式（本块只消费 `context` 的编译出口、只断言不实现）**：每次模型调用**必须有 Manifest 在场**（缺失＝判失败；Manifest 的编译归 `context`）；**大结果只以引用形式进窗口**（正文落 `persistence`，见 `execution`），本块不重复落。
+5. **结构化缺口**：被拒／缺失／未及核验的部分，除文字外必须给出 `Gap`（哪个子问题、哪一类、为什么、还差什么）；**不静默截断**。
+6. **多来源矛盾分开列**：矛盾数据**分源列明、不强调和**；并在 `Gap`／引用块里标出「互不一致」（对应最佳实践的 `refuted_by` 取向）。
+7. **链尾同步**：收口时引用块、`citation` 帧、`verdict` 帧、对话链尾**同批落定**，不得只落其一；其中 **`verdict` 帧的批次落定由 `orchestration` 协调**，本块只保证自产部分（引用块／`citation` 帧）就位。
+8. **模型原话不进对话层**：模型的中间原话只进过程档案与留痕。
+9. **空稿不推**：若起草得到空稿或全部无据，**不推空答案**——按结构化缺口如实收口。
+10. **答案要求以 `prompts` 的合同文本为唯一真源**：本规格不复制该清单（避免两处漂移）；条数现状真源＝`docs/runtime-refactor/recon/L2b-作答装配与回声.md`（`_ANSWER_REQUIREMENTS`，现 **7 条**），**V2 条数以 `prompts` 合同定稿为准**。
+
+## 不降级与静默禁令
+
+- **合法降级路径：无**（本模块不自降级；起草原话不完整时走结构化缺口，不改写事实）。
+- 流式增量、缺口、收口都必须产生机读信号：`text`／`citation`／`verdict` 事件（类型取自 `synth/S6-事件与帧目录.md`）＋ step payload 的 `citations`／`gaps` 字段。
+- 红线原文：`arch/P7a-交接包与挂账清单.md`（A-P7a-37）「**不许静默**——若任何相位仍发生截断，模型面必须随材料段带明示……收口注记面同步披露」。
+
+## 验收测试
+
+| 验收标准 | 对应测试 |
+|---|---|
+| 答案**一段段推**（多段 `text` 帧），非一次性推全量 | `tests/domains/test_v2_answering.py::streaming_segments` |
+| 每段自带 `citation_seqs`，且序号**真实存在于观察序列** | `tests/domains/test_v2_answering.py::segment_citations_resolve` |
+| 出现不存在的引标号 → 判失败（坏引标） | `tests/domains/test_v2_answering.py::dangling_citation_rejected` |
+| 每次模型调用都有 Manifest；大结果只以引用进窗口 | `tests/domains/test_v2_answering.py::manifest_and_ref_only` |
+| 被拒／缺失／未及核验 → 产出结构化 `Gap`（三档闭世界） | `tests/domains/test_v2_answering.py::structured_gaps_all_kinds` |
+| `Gap.kind` 越界取值 → 判失败 | `tests/domains/test_v2_answering.py::gap_kind_closed_world` |
+| 矛盾来源分列且标「互不一致」，不调和 | `tests/domains/test_v2_answering.py::contradiction_split_not_merged` |
+| 收口同批落定（引用块＋citation 帧＋verdict 帧＋链尾） | `tests/domains/test_v2_answering.py::finalize_atomic` |
+| 空稿／全无据 → 不推空答案，按缺口如实收口 | `tests/domains/test_v2_answering.py::empty_draft_not_pushed` |
+| 模型原话不进对话层 | `tests/domains/test_v2_answering.py::raw_not_in_dialogue` |
+| 程序侧无词表／正则语义判断（AST 扫描；豁免面＝形态处理／集合成员判定） | `tests/domains/test_v2_answering.py::no_lexicon_or_regex_in_answering` |
+| 流式与缺口的机读信号在场（text／citation／verdict 帧 ＋ step payload） | `tests/domains/test_v2_answering.py::answering_signal_present` |
+| 【边界集】单段答案／零材料／矛盾双源／坏引标 → 各自落到对应分支 | `tests/domains/test_v2_answering.py::boundary_single_seg_zero_material_conflict_bad_cite` |
+| 【保留集】无矛盾、无缺口的普通答案：引标与分源行为不变 | `tests/domains/test_v2_answering.py::retention_plain_answer_unchanged` |
+
+## 依赖与风险
+
+- 依赖：`context`（材料与 Manifest）、`prompts`（答案轮指令）、`gateway_adapter`（模型出口）、`state`（状态形状）、`transport`（`text` 帧）。
+- 风险与对策：
+  1. **「真流式」退化成「收口一次推全量」**（本块最大缺口、易复发）→ 对策：验收以「多段 `text` 帧」为判据；检测手段＝`streaming_segments`。
+  2. **引标与增量脱节**（段出了、引用没跟上）→ 对策：每段自带 `citation_seqs` 且必须可解析；检测手段＝`segment_citations_resolve`／`dangling_citation_rejected`。
+  3. **缺口只写文字、不给结构化**（回到旧形态）→ 对策：`Gap` 为必填产物；检测手段＝`structured_gaps_all_kinds`。
+  4. **答案要求清单两处漂移**（规格复制一份 vs `prompts` 合同）→ 对策：本规格**只引不复述**；检测手段＝人审（阶段 7 接口契约对账）。
+
+## 与闸的挂钩表
+
+| 本规格的硬要求 | 挂钩 | 现状 |
+|---|---|---|
+| 触及模块名已声明 | spec gate | 已进 CI |
+| 验收测试逐行有标识 | spec gate | 已进 CI |
+| 模型调用只经 `gateway_adapter` | 边界闸 **R7**（B6 只管 litellm 出 `infra`） | 已真跑 |
+| 不直接 import `langgraph`／`langchain` | 边界闸 **R5b** | 已真跑 |
+| 只经 `transport` 公开面发帧（**只经包根**半面） | 边界闸 **R2**（业务相位禁引公共层块的**深层子模块**；`forbidden` 含 `appv2.runtimev2.transport.*`） | 已真跑 |
+| 不自行拼 wire 帧／不直连 SSE 通道（另一半） | **无专属闸** → **人审** | 原因：R1–R8 无「不许出现直连帧通路符号」一面；降维（AST 断言）需新增验收行，本批未授权，登记待补 |
+| 真流式（多段 `text` 帧） | 测试 `::streaming_segments` | 待实现（阶段 5） |
+| 引标可解析 | 测试 `::segment_citations_resolve`／`::dangling_citation_rejected` | 待实现 |
+| 结构化缺口（三档闭世界） | 测试 `::structured_gaps_all_kinds`／`::gap_kind_closed_world` | 待实现 |
+| 程序不判语义 | 测试 `::no_lexicon_or_regex_in_answering` | 待实现 |
+| 「不做什么」的纯范围排除（不执行查询／不核验等） | **人审** | 接不上闸的原因：纯范围排除没有形状／存在性／退出码判据；能降维的部分（相位互不 import）已由边界闸 R1 覆盖 |

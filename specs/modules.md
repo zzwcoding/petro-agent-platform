@@ -238,7 +238,7 @@ def answer(state: RunState) -> AnswerDraft: ...
 ```
 
 ### 依赖
-- 模块: `context`、`prompts`、`gateway_adapter`、`state`
+- 模块: `context`、`prompts`、`gateway_adapter`、`state`、`transport`（text 帧的增量发射，只经其公开面）
 - 外部: （无）
 
 ### Seam 与测试
