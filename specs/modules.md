@@ -1,7 +1,7 @@
 # 模块划分 · Petro Data Agent V2
 
 > 阶段 2 产物（唯一真源）。原则：深模块；V1 `app/` 与 V2 `appv2/` 双向禁引，共享只走数据面（PG/Neo4j/MinIO）；
-> appv2 内四层单向向下：api → runtime → tools → engines（knowledge/query/retrieval）→ infra。
+> appv2 内四层单向向下：api → runtimev2（重写后的运行时，17 块见下，ADR-0007）→ tools → engines（knowledge/query/retrieval）→ infra。
 > 注：模块卡以 `## <名>` 为模块名（spec gate 解析契约），描述语在职责行。
 
 ## infra
@@ -127,43 +127,345 @@ raw/lake 湖表不开放，只读零 SQL；V2-31 新增发现工具）。
 - Adapter: 假引擎
 - 测试计划: 只读声明不可违背/错误分类（可重试|修参|拒答）/ASK 帧形态/参数 schema 校验
 
-## runtime
+## understanding
 
-职责: 有界 agent loop——一轮＝四相位：业务澄清（LLM＋discover 钻取，发射 QuestionGroup
-- LLM 触点装配四要素（V2-62 起）：任务动词／题意锚／产出样例／失败反馈——新触点按此审查（装配件：runtime/orientation.py）。
+职责: 读题——装配任务书 → 模型读 → 解析；定路由（模型判、程序机械分派、直答过结构核验）
+目录: `appv2/runtimev2/understanding/`
 
-问题组）→工具匹配（子问题→工具/链，闭世界对账收口）→前置条件机（纯固定代码零 LLM，
-逐子问题判四态）→批量执行＋LLM 汇总；每用户输入周期 ≤3 轮部分续找（成功子结果不重跑）；
-预算与终止；Context Builder＋Manifest＋多轮消息历史簿记（ADR-0006）；Verifier；
-run/steps 持久化；SSE 事件流（LangGraph 实现，ADR-0002 三红线；ADR-0004/0005/0006 终态）
-目录: `appv2/runtime/`
+### 公开接口
+```python
+def interpret(state: RunState) -> Understanding | Direct: ...
+```
+
+### 依赖
+- 模块: `gate`、`prompts`、`parsing`、`gateway_adapter`、`state`
+- 外部: （无——模型调用经 `gateway_adapter`）
+
+### Seam 与测试
+- Seam: 决策出口（模型应答 → 定型结论）
+- Adapter: 剧本化 completer
+- 测试计划: 直答／完整流程分流（拿不准走完整流程）；直答含数据或事实断言即退回；候选须出自名录
+
+## clarification
+
+职责: 澄清——意图澄清、分解问题、反问挂起与恢复
+目录: `appv2/runtimev2/clarification/`
+
+### 公开接口
+```python
+def clarify(state: RunState) -> ClarifyOutcome: ...
+```
+
+### 依赖
+- 模块: `prompts`、`parsing`、`gateway_adapter`、`state`
+- 外部: （无）
+
+### Seam 与测试
+- Seam: 反问卡载荷（挂起／恢复）
+- Adapter: 剧本化 completer
+- 测试计划: 挂起恢复（等待不计轮／恢复重取易变环境量）；连续澄清上限；失败子集回炉
+
+## tool_matching
+
+职责: 工具匹配——子问题 → 工具的提议与闭世界对账；「出数只认现行口径」结构约束落点
+目录: `appv2/runtimev2/tool_matching/`
+
+### 公开接口
+```python
+def match(state: RunState) -> ToolPlan: ...
+```
+
+### 依赖
+- 模块: `state`；`tools`（只许走其公开面）
+- 外部: （无）
+
+### Seam 与测试
+- Seam: 工具目录（`tools` 公开面）
+- Adapter: 假工具目录
+- 测试计划: 每子问题恰配一条、编号对得上；旧名经本体账本归一后才出数
+
+## preconditions
+
+职责: 前置检查——逐子问题三态闸（放行／拒答／等用户），纯程序零 LLM，注记并入放行
+目录: `appv2/runtimev2/preconditions/`
+
+### 公开接口
+```python
+def gate_all(state: RunState) -> list[Verdict]: ...
+```
+
+### 依赖
+- 模块: `state`；`tools`（前置条件机本体在 tools 侧，只经其公开面）
+- 外部: （无）
+
+### Seam 与测试
+- Seam: 闸件本体（在 `tools` 侧，可替换）
+- Adapter: 假闸件
+- 测试计划: 三态判定；固定序＋命中即停；**全结构项**（越集／绑定／新鲜度／单井）
+
+## execution
+
+职责: 批量执行——发现、执行、观察回流；工具调用统一出口；只读并行
+目录: `appv2/runtimev2/execution/`
+
+### 公开接口
+```python
+def execute(state: RunState) -> list[Observation]: ...
+```
+
+### 依赖
+- 模块: `state`、`transport`；`tools`（只许走其公开面）
+- 外部: （无）
+
+### Seam 与测试
+- Seam: 工具调用（`tools` 公开面）
+- Adapter: 假引擎
+- 测试计划: 成功不重跑、每次记账；只重做失败子集；只读并行无副作用
+
+## answering
+
+职责: 作答——起草（指令装配＋材料渲染）、真流式收口、引用落账
+目录: `appv2/runtimev2/answering/`
+
+### 公开接口
+```python
+def answer(state: RunState) -> AnswerDraft: ...
+```
+
+### 依赖
+- 模块: `context`、`prompts`、`gateway_adapter`、`state`
+- 外部: （无）
+
+### Seam 与测试
+- Seam: 起草出口（增量文本 → 事件帧）
+- Adapter: 剧本化 completer
+- 测试计划: 每句带出处；一段段推（真流式）；结构化缺口；被拒／缺失如实列
+
+## verification
+
+职责: 核验——断言级核验（零模型）、归属审、矛盾分源、verdict
+目录: `appv2/runtimev2/verification/`
+
+### 公开接口
+```python
+def verify(state: RunState) -> Verdict: ...
+```
+
+### 依赖
+- 模块: `state`
+- 外部: （无）
+
+### Seam 与测试
+- Seam: 核验接缝（草稿＋观察 → verdict）
+- Adapter: fixture 草稿与观察
+- 测试计划: 无据句改写；矛盾分列；子串假阳／假阴（数值边界、全角标点）；精确率／召回率（人工标注）
+
+## state
+
+职责: 状态与限额——运行状态（53 字段重划）、Manifest、请求回执数据类、常量；限额机制
+目录: `appv2/runtimev2/state/`
+
+### 公开接口
+```python
+class RunState: ...          # 字段形状（被全体 import；不含行为）
+class Manifest: ...
+# 限额机制（触界收敛）；数值以 walk/裁决表 §06-A 统一预算表为唯一真源
+def converge(state: RunState) -> Convergence: ...
+```
+
+### 依赖
+- 模块: （无——runtimev2 内最底层）
+- 外部: `infra`
+
+### Seam 与测试
+- Seam: 数据形状本身（纯结构）
+- Adapter: fixture 状态工厂
+- 测试计划: 字段读写矩阵（`synth/S5`）逐字段在场；限额常量单点、禁散落
+
+## orchestration
+
+职责: 编排与执行——图装配与路由、命令受理与执行器、挂起恢复
+目录: `appv2/runtimev2/orchestration/`
 
 ### 公开接口
 ```python
 class AgentRuntime:
-    async def ask(self, q: AskRequest) -> RunHandle: ...        # 建 run，返 run_id＋事件流游标
+    async def ask(self, q: AskRequest) -> RunHandle: ...
     async def resume(self, run_id: str, choice: AskChoice) -> RunHandle: ...
-class ContextBuilder:
-    def compile(self, run_state: RunState) -> CompiledContext: ...   # 确定性管线：消息历史簿记→词典层常驻注入→过滤→排序→预算→引用化
 ```
-step 类型枚举（六值闭世界）：decision/discover/execute/observe/verify/answer；四相位以
-step payload 的 phase 字段标注（clarify/toolmatch/precondition/batch）；每步落 step 记录
-（Manifest 随模型调用生成；discover 每次落计数埋点：次数/查询词/命中形态）。
-QuestionGroup（LangGraph 校验单点）：subtasks[{id/question/ledger_notes/tool/chain}]，
-子问题上限 ≤4，ledger_notes 必填（台账注释纪律）。
 
 ### 依赖
-- 模块: `tools`（只许走 ToolRegistry 公开接口）、`infra`
-- 外部: **LangGraph**（ADR-0002：只许本模块内部使用，三红线——LLM 必经 gateway ChatModel adapter；
-  state schema 自有；框架类型禁止渗漏出本模块）
+- 模块: `state`、`bookkeeping`、`transport`、`persistence`，以及七个业务相位
+- 外部: **LangGraph**（ADR-0002 红线①：只许本块内使用；state schema 自有；框架类型不得外泄）
 
 ### Seam 与测试
-- Seam: AgentRuntime.ask（整个系统的 seam）；LLM completer 经 infra adapter；
-  **RunCommand（ask/resume）→执行器→RunEvent 为显式接缝（ADR-0003：将来可换队列消费者，接口不变）**
-- Adapter: 剧本化 completer（按消息历史形态分流，多轮 replay）
-- 测试计划: 有界终止（轮数/发现预算/时长闸）/四相位端到端（分解→过闸四态→批量→失败子集回炉）/
-  前置条件机零 LLM 扫描/ASK 挂起恢复/核验拦截无据断言/Manifest 每次模型调用在场/
-  消息历史簿记（闸拒负信息在史）/run 状态可恢复
+- Seam: **RunCommand（ask/resume）→ 执行器 → 事件流**（将来换队列消费者，接口不变）
+- Adapter: 假执行器
+- 测试计划: 有界终止（轮／发现／时长）；挂起恢复；相位顺序只由本块决定
+
+## bookkeeping
+
+职责: 公共簿记——全节点共享的写入面：步记录、序号、触界收敛、完成收口、节点调模型单点、工具上下文装配、结果投影
+目录: `appv2/runtimev2/bookkeeping/`
+
+### 公开接口
+```python
+def record_step(state, **payload) -> None: ...
+def next_seq(state) -> int: ...
+def converge(state) -> Convergence: ...
+def call_model(state, caller: str, messages) -> str: ...
+def tool_context(state) -> ToolContext: ...
+```
+
+### 依赖
+- 模块: `state`、`gateway_adapter`
+- 外部: （无）
+
+### Seam 与测试
+- Seam: 写口（全节点同一入口）
+- Adapter: 内存写口替身
+- 测试计划: 每个节点都经同一写口（禁旁路直写）；序号单调；触界即收敛交付（不静默截断）
+
+## prompts
+
+职责: 指令与提示词——各相位提示词合同常量与各轮指令装配（只出文本，不做判断）
+目录: `appv2/runtimev2/prompts/`
+
+### 公开接口
+```python
+# 合同常量 ＋ 各轮装配函数（纯文本进出）
+def assemble_task_book(state: RunState) -> str: ...
+def assemble_answer_prompt(state: RunState) -> str: ...
+```
+
+### 依赖
+- 模块: `state`
+- 外部: （无）
+
+### Seam 与测试
+- Seam: 装配函数（纯文本输入输出）
+- Adapter: 固定 fixture 状态
+- 测试计划: 每轮指令在位；题意锚行；样例固定集；不夹带程序判断
+
+## parsing
+
+职责: 解析与发射——模型输出解析、发射 schema 校验、子任务与问题组载荷定型
+目录: `appv2/runtimev2/parsing/`
+
+### 公开接口
+```python
+def parse_understanding(text: str) -> Understanding | Direct | None: ...
+def parse_question_group(text: str) -> QuestionGroup | None: ...
+```
+
+### 依赖
+- 模块: `state`
+- 外部: （无）
+
+### Seam 与测试
+- Seam: 解析入口（外部文本 → 定型载荷）
+- Adapter: 文本 fixture 集
+- 测试计划: 缺字段／超限／引号异常分支；同类行多次出现不静默覆盖
+
+## context
+
+职责: 上下文——材料段渲染、过程档案（有界摘要）、术语表常驻注入、对话链追加
+目录: `appv2/runtimev2/context/`
+
+### 公开接口
+```python
+def compile(state: RunState) -> CompiledContext: ...
+```
+
+### 依赖
+- 模块: `state`；`tools`（台账只读经其公开面，见边界规则）
+- 外部: （无）
+
+### Seam 与测试
+- Seam: 上下文编译（确定性管线）
+- Adapter: fixture 材料集
+- 测试计划: 每次模型调用都有 Manifest；材料标来源；配额与截断显式
+
+## transport
+
+职责: 事件通路——事件名闭世界（9 类）、事件总线、帧通路与断线续推
+目录: `appv2/runtimev2/transport/`
+
+### 公开接口
+```python
+def emit(state, name: str, payload: dict) -> None: ...
+# 帧序列（seq 即断线游标）
+```
+
+### 依赖
+- 模块: `state`
+- 外部: （无）
+
+### Seam 与测试
+- Seam: 帧出口（事件 → wire 帧）
+- Adapter: 内存帧收集器
+- 测试计划: 九类闭世界；游标全流单调；重放不位移
+
+## persistence
+
+职责: 存储归档——运行记录、检查点、黑匣子（只追加）、审计唯一写口
+目录: `appv2/runtimev2/persistence/`
+
+### 公开接口
+```python
+class RunStore:
+    def save(...) -> None: ...
+    def load(run_id: str) -> RunState: ...
+def audit(...) -> None: ...     # 唯一写口＝security.audit（B12）
+```
+
+### 依赖
+- 模块: `state`
+- 外部: `infra`（只读 DB／审计出口）、PostgreSQL
+
+### Seam 与测试
+- Seam: 存储入口（换载体不改调用面）
+- Adapter: 内存 store／假检查点
+- 测试计划: 只追加不原地改；恢复可重放；审计四要素（主体／意图／事实／结果）
+
+## gateway_adapter
+
+职责: 网关桥——模型调用唯一出口桥、限流退避、测试替身、评测时钟
+目录: `appv2/runtimev2/gateway_adapter/`
+
+### 公开接口
+```python
+def complete(messages, caller: str) -> str: ...
+```
+
+### 依赖
+- 模块: （无）
+- 外部: `infra`（`llm_client`／`gateway.complete` 唯一出口，B6）
+
+### Seam 与测试
+- Seam: 模型出口（换供应商不改调用面）
+- Adapter: 剧本化 completer（per-caller 分流）、评测时钟
+- 测试计划: 出口唯一（无旁路）；限流分类不误伤；记账 caller 归因逐调用保留
+
+## gate
+
+职责: 入口闸族——**两道词面闸的收口点**：安全阀（注入／外发／写意图）＝辅助快路径、命中即不放行；废弃词闸＝业务阀、判据交模型、程序只按结论机械分派
+目录: `appv2/runtimev2/gate/`
+
+### 公开接口
+```python
+def screen(text: str) -> Refusal | None: ...              # 安全阀：明显中招／越界早退
+def apply_term_verdict(verdict) -> Disposition: ...        # 废弃词闸：模型结论入、机械分派出
+```
+
+### 依赖
+- 模块: `state`
+- 外部: （无）
+
+### Seam 与测试
+- Seam: 结论入口（模型结论 → 分派）
+- Adapter: 固定词表 fixture
+- 测试计划: 安全阀明显中招即拒（**漏判由执行层兜，不靠它**）；废弃词闸**程序不做语义判断**（只收模型结论）；「出数只认现行口径」由 `tool_matching` 守
 
 ## api
 
@@ -185,7 +487,7 @@ loop 步/观察新形态——V2-36 终态口径，ADR-0004 拍板 5 演进位�
 tools/run_replay／RunStore.get_blackbox 读库，取证面）。
 
 ### 依赖
-- 模块: `runtime`（业务面只许走 AgentRuntime 公开接口；组合根 create_app 例外——装配 GraphRunExecutor/PgCheckpointer/GatewayChatModel，V2-07 按组合缝采纳）、`infra`
+- 模块: `orchestration`（业务面只许走其公开接口；组合根 create_app 例外——装配执行器/检查点/网关模型，V2-07 按组合缝采纳）、`infra`
 - 外部: （无）
 
 ### Seam 与测试
@@ -204,14 +506,21 @@ tools/run_replay／RunStore.get_blackbox 读库，取证面）。
 
 ## 边界规则
 
+> 阶段 6 边界闸的唯一事实来源；每条禁令都必须能落成 CI 机器检查（ADR-0007 落位批，R1–R5 为 runtimev2 内部约束）。
+
 | 禁止 | 例外 | 理由 |
 |---|---|---|
 | `appv2` 任何模块引用 `app`（V1）内部；`app` 引用 `appv2` | （无） | Owner 2026-10-08 拍板：共存双跑互不依赖，共享只走数据面 |
-| `api` 引用 `runtime` 以外模块 | （无） | 端点薄层，编排语义全在 runtime |
-| `runtime` 引用 `tools` 以外引擎（knowledge/query/retrieval） | （无） | agent 与世界的唯一接触面＝ToolRegistry（受控行动链工具侧落位） |
-| `tools` 引用 `runtime` | （无） | 单向向下，防环 |
+| `api` 引用 `orchestration` 以外模块 | （无） | 端点薄层，编排语义全在运行时 |
+| `runtimev2` 各块引用 `tools` 以外引擎（knowledge/query/retrieval） | （无） | agent 与世界的唯一接触面＝工具注册表（受控行动链工具侧落位） |
+| `tools` 引用 `runtimev2` | （无） | 单向向下，防环 |
 | `knowledge`/`query`/`retrieval` 互引 | `query`→`knowledge`（只许走公开接口） | 未绑定指标降级需 Evidence；其余互禁 |
-| 各引擎绕过 infra 直连接外部（litellm/裸 driver/裸 httpx 外部 API） | （无） | B6 出口纪律，V1 先例 |
-| `langgraph`/`langchain` 出现在 `runtime` 以外任何模块 | （无） | ADR-0002 红线①：框架只许活在 runtime 内部 |
-| LLM 调用绕过 gateway.complete（含经 langchain 自带 provider 直连） | （无） | ADR-0002 红线②：B6 出口纪律 |
-| `web/`、`eval/` 引用 `appv2` 模块内部 | tests/ 单模块 seam 级直测（SDD 惯例，infra.md/query.md 等验收表指定）；web/eval 只走 /api/v2 HTTP | spec 模板「单模块行为在模块 seam」＋V1 同先例；跨模块黑盒仍走 HTTP |
+| 各引擎绕过 infra 直连接外部（litellm／裸 driver／裸 httpx 外部 API） | （无） | B6 出口纪律，V1 先例 |
+| `langgraph`／`langchain` 出现在 `runtimev2.orchestration` 以外任何模块 | （无） | ADR-0002 红线①：框架只许活在编排块内（ADR-0007 落位） |
+| LLM 调用绕过 `infra.llm_client`／`runtimev2.gateway_adapter` | （无） | ADR-0002 红线②：B6 出口纪律 |
+| `web/`、`eval/` 引用 `appv2` 模块内部 | tests/ 单模块 seam 级直测（SDD 惯例）；web/eval 只走 /api/v2 HTTP | spec 模板「单模块行为在模块 seam」＋V1 同先例 |
+| **R1** 七个业务相位（`understanding`／`clarification`／`tool_matching`／`preconditions`／`execution`／`answering`／`verification`）之间互相 import | 只经 `state`（数据形状）与 `orchestration`（编排接口） | 相位要能单独测；顺序由编排层定（ADR-0007 同时裁决 3） |
+| **R2** 业务相位 import 九个公共层块（`state`／`orchestration`／`bookkeeping`／`prompts`／`parsing`／`context`／`transport`／`persistence`／`gateway_adapter`）的深层子模块 | （无） | 稳定接口：公共面只经各块包根，深层实现属私有 |
+| **R3** `parsing`／`prompts` import `state` 以外的 runtimev2 块 | （无） | 两者是「纯文本与纯解析」，不感知运行状态机 |
+| **R4** `state` import runtimev2 内任何其它块 | （无） | 最底层数据形状，防环 |
+| **R5** `runtimev2` 任何块引用旧 `appv2.runtime` | （无） | 新旧不互咬；旧码只作备份（ADR-0007） |

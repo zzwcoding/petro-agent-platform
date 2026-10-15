@@ -60,3 +60,46 @@ forbidden_modules = ["litellm"]
 ignore_imports = [
     "appv2.infra.llm_client -> litellm",
 ]
+
+# ===== ADR-0007 落位批：runtimev2 内部边界（specs/modules.md 边界规则 R1–R5）=====
+
+[[tool.importlinter.contracts]]
+name = "R1 runtimev2 七个业务相位互不 import（顺序由编排层定；ADR-0007）"
+type = "forbidden"
+source_modules = ["appv2.runtimev2.understanding", "appv2.runtimev2.clarification", "appv2.runtimev2.tool_matching", "appv2.runtimev2.preconditions", "appv2.runtimev2.execution", "appv2.runtimev2.answering", "appv2.runtimev2.verification"]
+forbidden_modules = ["appv2.runtimev2.clarification", "appv2.runtimev2.tool_matching", "appv2.runtimev2.preconditions", "appv2.runtimev2.execution", "appv2.runtimev2.answering", "appv2.runtimev2.verification", "appv2.runtimev2.understanding"]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
+name = "R2 runtimev2 业务相位只经公共层包根（禁深层子模块）"
+type = "forbidden"
+source_modules = ["appv2.runtimev2.understanding", "appv2.runtimev2.clarification", "appv2.runtimev2.tool_matching", "appv2.runtimev2.preconditions", "appv2.runtimev2.execution", "appv2.runtimev2.answering", "appv2.runtimev2.verification"]
+forbidden_modules = ["appv2.runtimev2.state.*", "appv2.runtimev2.orchestration.*", "appv2.runtimev2.bookkeeping.*", "appv2.runtimev2.prompts.*", "appv2.runtimev2.parsing.*", "appv2.runtimev2.context.*", "appv2.runtimev2.transport.*", "appv2.runtimev2.persistence.*", "appv2.runtimev2.gateway_adapter.*"]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
+name = "R3 runtimev2 parsing/prompts 只许依赖 state"
+type = "forbidden"
+source_modules = ["appv2.runtimev2.parsing", "appv2.runtimev2.prompts"]
+forbidden_modules = ["appv2.runtimev2.understanding", "appv2.runtimev2.clarification", "appv2.runtimev2.tool_matching", "appv2.runtimev2.preconditions", "appv2.runtimev2.execution", "appv2.runtimev2.answering", "appv2.runtimev2.verification"]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
+name = "R4 runtimev2 state 不 import 本包内任何其它块"
+type = "forbidden"
+source_modules = ["appv2.runtimev2.state"]
+forbidden_modules = ["appv2.runtimev2.understanding", "appv2.runtimev2.clarification", "appv2.runtimev2.tool_matching", "appv2.runtimev2.preconditions", "appv2.runtimev2.execution", "appv2.runtimev2.answering", "appv2.runtimev2.verification"]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
+name = "R5 runtimev2 不引用旧 runtime/（旧码只作备份）"
+type = "forbidden"
+source_modules = ["appv2.runtimev2"]
+forbidden_modules = ["appv2.runtime"]
+
+[[tool.importlinter.contracts]]
+name = "R5b ADR-0002 红线① 扩展：框架只许在 runtimev2.orchestration（其余 16 块禁引）"
+type = "forbidden"
+source_modules = ["appv2.runtimev2.understanding", "appv2.runtimev2.clarification", "appv2.runtimev2.tool_matching", "appv2.runtimev2.preconditions", "appv2.runtimev2.execution", "appv2.runtimev2.answering", "appv2.runtimev2.verification", "appv2.runtimev2.state", "appv2.runtimev2.bookkeeping", "appv2.runtimev2.prompts", "appv2.runtimev2.parsing", "appv2.runtimev2.context", "appv2.runtimev2.transport", "appv2.runtimev2.persistence", "appv2.runtimev2.gateway_adapter", "appv2.runtimev2.gate"]
+forbidden_modules = ["langgraph", "langchain", "langchain_core", "langchain_community"]
+allow_indirect_imports = true

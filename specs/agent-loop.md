@@ -1,7 +1,7 @@
 # V2 问答主链路（agent loop＝ReAct＋四相位子任务图终态）
 
 状态: 已定稿
-来源: docs/prd.md §③、specs/modules.md `runtime`/`api`/`tools` 卡、ADR-0004（ReAct 重构）、ADR-0005（子任务图＋前置条件机，含增补）、ADR-0006（多轮对话上下文）
+来源: docs/prd.md §③、specs/modules.md `orchestration`/`understanding`/`clarification`/`tool_matching`/`preconditions`/`execution`/`answering`/`verification`/`context`/`persistence`/`api`/`tools` 卡、ADR-0004（ReAct 重构）、ADR-0005（子任务图＋前置条件机，含增补）、ADR-0006（多轮对话上下文）、ADR-0007（重写运行时 17 块划分，本表模块名随阶段 2 改名）
 > 本文为 V2-36 终态重写（2026-10-09），取代前版「六步流水线」条款（repair 链／max_steps 8
 > 预算／understand-plan-tool-observe-verify-answer 六类型——旧测试标识随旧语义一并退役，
 > 现行测试标识见验收表）。现行实现真源：`appv2/runtime/graph.py`（节点与路由）、
@@ -27,7 +27,11 @@ schema 校验失败不做自动 repair——拒因回喂 LLM 重发射（ADR-000
 
 | 模块 | 改动类型 | 说明 |
 |---|---|---|
-| runtime | 新增 | 四相位循环/前置条件机调度/Context Builder＋消息历史簿记/Verifier/run 持久化（LangGraph 实现） |
+| orchestration | 新增 | 四相位循环与路由/命令受理与挂起恢复（LangGraph 实现） |
+| preconditions | 新增 | 前置条件机调度（闸件本体在 `tools` 侧） |
+| context | 新增 | Context Builder＋消息历史簿记 |
+| verification | 新增 | Verifier 核验收口 |
+| persistence | 新增 | run／step 持久化与恢复 |
 | api | 新增 | 三端点＋SSE 事件桥（asks 三形态：提问/重连/追问续会话） |
 | tools | 新增 | loop 经 ToolRegistry 调五工具（本 spec 只消费其公开接口） |
 
