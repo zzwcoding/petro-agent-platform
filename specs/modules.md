@@ -300,7 +300,7 @@ class AgentRuntime:
 ```
 
 ### 依赖
-- 模块: `state`、`bookkeeping`、`transport`、`persistence`，以及七个业务相位
+- 模块: `state`、`bookkeeping`、`transport`、`persistence`、`infra`（身份缝与审计唯一写口，只经其公开面），以及七个业务相位
 - 外部: **LangGraph**（ADR-0002 红线①：只许本块内使用；state schema 自有；框架类型不得外泄）
 
 ### Seam 与测试
