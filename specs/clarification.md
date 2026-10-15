@@ -1,7 +1,7 @@
 # V2 澄清（clarification）
 
 状态: 已定稿
-来源: `specs/modules.md` `clarification` 卡、`docs/runtime-refactor/walk/08-澄清-意图澄清.md`、`walk/09-澄清-分解问题.md`、`walk/10-澄清-澄清反问挂起.md`、`walk/06-过程图-循环挂起判断.md`、`walk/裁决表.md` §06/§08/§09/§10 ＋项目级裁决 #13、`docs/runtime-refactor/arch/P4b-票堆V2-56至65.md`（回工补写：pin-05 finalize 合法性闸）
+来源: `specs/modules.md` `clarification` 卡、`docs/runtime-refactor/walk/08-澄清-意图澄清.md`、`walk/09-澄清-分解问题.md`、`walk/10-澄清-澄清反问挂起.md`、`walk/06-过程图-循环挂起判断.md`、`walk/裁决表.md` §06/§08/§09/§10 ＋项目级裁决 #13、`docs/runtime-refactor/arch/P4b-票堆V2-56至65.md`（回工补写：pin-05 finalize 合法性闸＋pin-07 打回三段带路）
 版式: `docs/spec-format.md`（节标题按该文 §二之二 逐字命名）
 
 ## 目标
@@ -91,6 +91,7 @@ class ClarifyReason:                                # 结构化拒因单条
 15. **到顶不环**：连续反问到上限 → **截断 ＋ 带已取得材料如实直答**（不继续环）。
 16. **发射判据**：**ask 仅限两种白场**（阈值判断形口径反问／目标-对象-口径真歧义）——**属模型侧策略，由 Skill 指南承载，程序不验收、不做语义判断**（与行为 5 同款处理；真源 `CONTEXT.md`「发射判据」词条）；**台账命中且时间窗已定 → 禁再 `discover`**（机械半句，程序可验收；「时间窗已定」的判断属模型侧策略判断，程序只分派模型结论，不入程序验收面——真源 `walk/裁决表.md` 项目级裁决 #13）。
 17. **`finalize` 合法性闸**：判「材料足够」直答收口的前置＝**窗内非 notice 实质观察数 ≥1**（faq 命中卡／台账条目卡／检索片段；空手探查——未命中 notice／工具失败／零观察——不算数），否则拒因「零实质观察禁定稿」回喂、**不得直答收口**；程序侧只数观察数（纯结构判定，零语义判断；计数属形态处理，在 `no_lexicon_or_regex_in_clarification` 豁免面内）（真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-01；钉 `pin-05`，P0）。
+18. **`finalize` 打回三段带路**：`finalize` 被拒（打回）时，拒因载荷必带**三段拼装文本**（机器已知事实说全、**零模型调用**）——①有绑定拒／台账外形的前置判定 →「该指标材料走报告检索：分解时 chain=knowledge、tool=doc_retrieve」；②已空手探查清单 →「已空手探查：{tools}——禁再试同名同参」；③兜底句**恒在**「先 discover 取得条目（精确名单词），或 decompose 分解走 doc_retrieve 检索执行。」；段缺则跳、「；」连接成单段文本（真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-03；钉 `pin-07`，P1）。
 
 ## 不降级与静默禁令
 
@@ -107,6 +108,7 @@ class ClarifyReason:                                # 结构化拒因单条
 | 子问题条数越界 → 判失败（上限取统一预算表） | `tests/domains/test_v2_clarification.py::subtask_cap_from_budget_table` |
 | `chain` 越界值 → 判失败 | `tests/domains/test_v2_clarification.py::chain_enum_closed_world` |
 | 零实质观察（非 notice）→ 不得判「材料足够」直答收口：`finalize` 前置＝窗内非 notice 观察数 ≥1，否则拒因「零实质观察禁定稿」回喂 | `tests/domains/test_v2_clarification.py::finalize_requires_substantive_observation` |
+| `finalize` 被拒（打回）→ 拒因载荷带三段带路（前置判定指路→空手清单→兜底 discover/doc_retrieve 指引；零模型调用、段缺则跳、「；」连接） | `tests/domains/test_v2_clarification.py::finalize_rejection_three_segment_guidance` |
 | 时间可确定 → 不反问，直接定范围（断的是模型结论的分派形——「能否确定」判断在模型侧（`walk/裁决表.md` 项目级裁决 #13），程序只验收分派形，不验收判断本身） | `tests/domains/test_v2_clarification.py::no_ask_when_time_resolvable` |
 | 无时间词 → 默认近 30 天并带注记 | `tests/domains/test_v2_clarification.py::default_window_with_note` |
 | 口径歧义 → 反问（不给默认） | `tests/domains/test_v2_clarification.py::caliber_ambiguity_asks` |
@@ -145,5 +147,5 @@ class ClarifyReason:                                # 结构化拒因单条
 | 挂起不计轮／恢复重置轮预算 | 测试 `::waiting_not_counted_resume_resets` | 待实现 |
 | `finalize` 合法性闸：零实质观察（非 notice）不得判「材料足够」直答收口（窗内非 notice 观察数 ≥1 才许定案——纯结构判定） | 钉 **`pin-05`**（P0）＋ 测试 `::finalize_requires_substantive_observation` | 待织网（阶段 5） |
 | 连续澄清反问到顶 → 截断＋带已取得材料如实直答；挂起不计轮、恢复重置轮预算（上限值只引统一预算表） | 钉 **`pin-15`**（P1；上限值真源＝`walk/裁决表.md` §06-A 统一预算表——连续澄清≤6） | 待织网（阶段 5） |
-| 定稿打回理由三段带路（前置判定指路→空手清单→兜底 `doc_retrieve` 指引） | 钉 **`pin-07`**（P1） | 待织网（阶段 5） |
+| 定稿打回理由三段带路（前置判定指路→空手清单→兜底 `doc_retrieve` 指引） | 钉 **`pin-07`**（P1；落点＝行为 18，测试 `::finalize_rejection_three_segment_guidance`） | 待织网（阶段 5） |
 | 「不做什么」的纯范围排除（不查数／不选工具等） | **人审** | 接不上闸的原因：纯范围排除没有形状／存在性／退出码判据；能降维的部分已由边界闸 R1（相位互不 import）覆盖 |

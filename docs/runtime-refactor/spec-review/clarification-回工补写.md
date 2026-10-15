@@ -52,3 +52,26 @@ $ uv run python tools/ref_resolvable.py check
 2. **`::finalize_requires_substantive_observation` 未实现**：阶段 5 承诺，与全表其他「待实现」行同态；spec 状态＝已定稿，闸不要求测试在场。
 3. **pin-15 的挂起不计轮面**在挂钩表走 pin-15 单行承载，既有「挂起不计轮／恢复重置轮预算」行（:145）未重复挂钉——一钉一行登记，避免同钉散挂；复审若要求两行都挂可再补。
 4. **复审稿行号位移**：复审提示词的 :62/:65/:122-134 与现行文件行号对不上（基于较早版本），本回执已按语义定位并给出实际行号；若复审需按行号复验，请以本记录行号为准。
+
+---
+
+## 补充任务（主窗核定：pin-07 归本块）——2026-10-15
+
+- **核定**：eng/04a pin-07（P1，「定稿打回理由必须三段带路：前置判定指路→空手清单→兜底 doc_retrieve 指引」）**归 clarification 块**（finalize 拒因内容，与 pin-05 同块）。本规格由「仅挂钩登记」升级为三处补齐：
+  1. **行为约定**（`specs/clarification.md:94` 新增行为 18，assert 形）：`finalize` 被拒（打回）时拒因载荷必带**三段拼装文本**（机器已知事实说全、零模型调用）——①有绑定拒／台账外形的前置判定→「该指标材料走报告检索：分解时 chain=knowledge、tool=doc_retrieve」；②已空手探查清单→「已空手探查：{tools}——禁再试同名同参」；③兜底句恒在「先 discover 取得条目（精确名单词），或 decompose 分解走 doc_retrieve 检索执行。」；段缺则跳、「；」连接成单段文本。真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-03（:27）；三段措辞逐字引真源，未自造。
+  2. **验收测试表**（`specs/clarification.md:111` 新增行，紧随 finalize 合法性闸行 :110）：绑 `tests/domains/test_v2_clarification.py::finalize_rejection_three_segment_guidance`（标识格式照既有行体例）。
+  3. **挂钩表**（`specs/clarification.md:150`）：pin-07 行由「仅登记」改为「钉 **`pin-07`**（P1；**落点＝行为 18**，测试 `::finalize_rejection_three_segment_guidance`）｜待织网（阶段 5）」。
+  4. 来源行（`specs/clarification.md:4`）补「＋pin-07 打回三段带路」。
+- **遗留第 1 条消解**：pin-07 不再是「无行为正文行」——行为行／验收行／挂钩落点均已落本规格。
+- **行号位移**：本轮净增 2 行（行为 18＋验收行），规格 149→**151** 行；上节所记行号中，验收 finalize 闸行 ：109→:110、挂钩 pin-05／pin-15／pin-07 :146/:147/:148→:147/:148/:150，其余不变。
+- **验证（改后复跑）**：
+
+```
+$ uv run python tools/check_specs.py
+spec gate: PASS（0 警告）
+
+$ uv run python tools/ref_resolvable.py check
+真源引用可解析闸绿：14 份规格的真源引用与边界规则编号均可解析。
+```
+
+（均 exit 0；未 commit。注：闸计数「14 份规格」含并行窗口新增的规格文件，非本轮所动。）
