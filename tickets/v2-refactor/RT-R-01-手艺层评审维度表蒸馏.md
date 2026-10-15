@@ -99,10 +99,10 @@
 - DEBT 短语挂法：`tools/debt_markers.py` 的判定规则（文件:行引用）。
 
 验收: 以下判据逐条全绿为过——
-- `docs/runtime-refactor/craft-rubric.md` 在场，含「反过度工程四问」＋「Key Questions 三问」＋手艺层 10 条，英文原文逐条在场且与逐字稿逐字一致（13 组逐字比对：四问＋三问＋10 条）；
+- `docs/runtime-refactor/craft-rubric.md` 在场，含「反过度工程四问」＋「Key Questions 三问」＋手艺层 10 条，英文原文逐条在场且与逐字稿逐字一致（17 组逐字比对＝四问 4＋三问 3＋检查项 10，逐组清点）；
 - 每条手艺层检查项带「仓内落法」小节，小节内每条规矩有引用形（引用块／文件:行）；
 - 文档正文零 TS/Java 落法（外文例只许出现在逐字稿展示位）；
 - `git status` 显示除该新文档外零触碰（`specs/`、`appv2/`、`tools/`、测试树均无改动）；
 - `.venv/bin/python tools/ticket_shape_check.py tickets/v2-refactor/RT-R-01-手艺层评审维度表蒸馏.md` 绿。
 
-回报: 完成后回主窗——「RT-R-01 完成，产物 docs/runtime-refactor/craft-rubric.md，偏差: 有/无（有则逐条列），逐字比对: 13/13 过」。对逐字稿任何一行偏离即停笔停报 L0，不落盘。
+回报: 完成后回主窗——「RT-R-01 完成，产物 docs/runtime-refactor/craft-rubric.md，偏差: 有/无（有则逐条列），逐字比对: 17/17 过」。对逐字稿任何一行偏离即停笔停报 L0，不落盘。
