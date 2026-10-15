@@ -328,7 +328,7 @@ class AgentRuntime:
 def record_step(state, **payload) -> None: ...
 def next_seq(state) -> int: ...
 def converge(state) -> None: ...        # 触界收敛的**落地写入**（判定归 `state.check_limits`；本函数无回值——写入 budget_hit／notices／status／next_intent 六键）
-def call_model(state, caller: str, messages) -> str: ...
+def call_model(state, caller: str, messages) -> str: ...   # 节点侧调模型单点：从 state 取 run_id → 调 gateway_adapter.complete → 向节点只回 content；回执的用量/归因面归本块记账（禁裸文本吞掉记账面）
 def tool_context(state) -> ToolContext: ...
 ```
 
@@ -482,8 +482,16 @@ def audit(record) -> None: ...             # 唯一写口＝security.audit（B12
 
 ### 公开接口
 ```python
-def complete(messages, caller: str) -> str: ...
+class ModelReply:                # 一次模型调用的回执（{content, caller, run_id, alias, prompt_tokens,
+                                 #   completion_tokens, cached_tokens, usage_estimated, duration_ms, error}）
+async def complete(messages, *, caller: str, run_id: str) -> ModelReply: ...
+class ScriptedCompleter:         # 测试替身（**同面**：async complete ＋ counts／messages_of 观测面）
+EVAL_FROZEN_DATE_DEFAULT: date   # 缺省冻结日（取值真源见规格，不落本卡）
+EVAL_FROZEN_DATE_REAL: str       # 显式走真实时钟的唯一取值
+def frozen_date() -> date: ...   # 评测冻结「今天」（未设/空串＝缺省冻结日；real 须显式；非法抛错）
 ```
+
+> **卡级修正（2026-10-15，L0，随 gateway_adapter 规格起草——兑现织网挂账）**：原「`def complete(messages, caller) -> str`」是**按卡面收窄的替身草稿**。正式面收正三处：① **async**（真实 I/O，运行时是 async；同步桥会阻塞事件循环）；② **返回 `ModelReply` 而非裸 `str`**——调用记账要 `cached_tokens`／token 计数／服务别名／时长（钉 `pin-25`），裸串承载不了；③ **`alias` 与自由 `params` 不进公开面**（模型调参在本块内单点，服务别名由路由决定、随回执返回）——**`run_id` 进面**（每次调用盖章，计费可对账）。同批回写：替身 `appv2/runtimev2/gateway_adapter/fake.py` ＋ 包根 `__init__.py` 导出（「两边不许脱节」）；随规格同步维护的看守件＝`tests/runtimev2/test_gateway_adapter_fake.py`。
 
 ### 依赖
 - 模块: （无）
