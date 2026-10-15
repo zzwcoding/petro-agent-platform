@@ -30,6 +30,8 @@ jobs:
         run: uv run python tools/debt_markers.py check
       - name: spec gate（规格闸：modules.md 依赖无环/边界规则节/页面映射＋每份 spec 的触及模块与验收测试）
         run: uv run python tools/check_specs.py
+      - name: ref resolvable（真源引用可解析闸：规格的真源引用与边界规则编号必须在真源里存在）
+        run: uv run python tools/ref_resolvable.py check
 
   frontend:
     runs-on: ubuntu-latest
