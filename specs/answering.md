@@ -78,11 +78,15 @@ class Gap:
 8. **模型原话不进对话层**：模型的中间原话只进过程档案与留痕。
 9. **空稿不推**：若起草得到空稿或全部无据，**不推空答案**——按结构化缺口如实收口。
 10. **答案要求以 `prompts` 的合同文本为唯一真源**：本规格不复制该清单（避免两处漂移）；条数现状真源＝`docs/runtime-refactor/recon/L2b-作答装配与回声.md`（`_ANSWER_REQUIREMENTS`，现 **7 条**），**V2 条数以 `prompts` 合同定稿为准**。
+11. **发射剥离**：模型应答在进答案面（`AnswerDraft` 片段与其 `text` 帧增量）之前经**发射围栏／JSON 形确定性剥离**——发射 JSON 不得进答案面（泄漏=0）。真源：`eval/results/Q15-对账报告.md`（:38——Q14 6 题→0，V2-48 发射围栏确定性剥离＋通道隔离兑现）；旧码真源 `docs/runtime-refactor/recon/L2b-作答装配与回声.md`（:58 `strip_emission_fences`／:101 剥离后草稿才进答案装配）。
+12. **行集题交付与落引用界线**（与 `specs/execution.md` 行为 4 同一规则、逐字一致）：行集题（明细行集类：问句要求明细／排名／列举全行集）全量交付为默认——引擎返回的全部数据行逐行交付、丢行＝0；非行集大结果超阈才落引用（窗口只留摘要＋稳定引用＋行数），截断与落引用必披露。阈值数值阶段 5 待定（随真机数据定），行为归属与披露义务即此定死：行集题不得因落引用而丢行。真源：`tickets/v2/V2-61-材料承载分形渲染.md`（:5——24 支一刀切截断废除、改分承载体渲染）。
+13. **占位符不进答案面**：答案面不得出现字面占位引标 `[n]`（确无可引序号时一个引用记号都不写）；含 `[n]` 字面的行不得以占位符形式交付。真源：`eval/results/Q16-判分报告-G3.md`（:56——数字在场而 cited=[] 的 D-诱15 形）；`tickets/v2/V2-69-坏引标修复.md`（占位符串台根因＋「禁止占位符 [n] 进答案」指令纪律）。
+14. **起草回声＝0**：草稿首行不得以「理解：」开头、草稿前 100 字不得含「指标候选」（`echo_flag` 恒 0——观测字段只记不拦）。真源：`docs/runtime-refactor/arch/P4b-票堆V2-56至65.md`（A-P4b-61——`echo_flag` 形态判据定义）；`eval/results/Q16-对账报告.md`（:61——echo_flag 全批 0，回声形态自 V2-62 后零再现）。
 
 ## 不降级与静默禁令
 
 - **合法降级路径：无**（本模块不自降级；起草原话不完整时走结构化缺口，不改写事实）。
-- 流式增量、缺口、收口都必须产生机读信号：`text`／`citation`／`verdict` 事件（类型取自 `synth/S6-事件与帧目录.md`）＋ step payload 的 `citations`／`gaps` 字段。
+- 流式增量、缺口、截断披露、收口都必须产生机读信号：本块自产的 `text`／`citation` 事件（类型取自 `synth/S6-事件与帧目录.md`）＋ 材料截断的 `material_truncated` notice（真源 `tickets/v2/V2-61-材料承载分形渲染.md` 附 D）＋ step payload 的 `citations`／`gaps` 字段；`verdict` 事件为**消费方信号**——其批次落定由 `orchestration` 协调（见行为 7），本块只保证自产帧。
 - 红线原文：`arch/P7a-交接包与挂账清单.md`（A-P7a-37）「**不许静默**——若任何相位仍发生截断，模型面必须随材料段带明示……收口注记面同步披露」。
 
 ## 验收测试
@@ -99,8 +103,13 @@ class Gap:
 | 收口同批落定（引用块＋citation 帧＋verdict 帧＋链尾） | `tests/domains/test_v2_answering.py::finalize_atomic` |
 | 空稿／全无据 → 不推空答案，按缺口如实收口 | `tests/domains/test_v2_answering.py::empty_draft_not_pushed` |
 | 模型原话不进对话层 | `tests/domains/test_v2_answering.py::raw_not_in_dialogue` |
+| 发射 JSON 不进答案面（发射围栏／JSON 形确定性剥离，泄漏=0） | `tests/domains/test_v2_answering.py::emission_strip_zero_leak` |
+| 明细行集题交付行数＝引擎返回行数（50 行全交付，丢行=0） | `tests/domains/test_v2_answering.py::rowset_full_delivery` |
+| 材料截断必披露：`material_truncated` notice＋「未渲染部分不作答」声明在场（未截断零 notice） | `tests/domains/test_v2_answering.py::truncation_disclosed` |
+| 答案面无字面占位符 `[n]`（含 `[n]` 行不以占位符交付） | `tests/domains/test_v2_answering.py::placeholder_marker_not_in_answer` |
+| 起草回声=0：首行不以「理解：」开头／前 100 字不含「指标候选」（echo_flag 恒 0） | `tests/domains/test_v2_answering.py::echo_flag_zero` |
 | 程序侧无词表／正则语义判断（AST 扫描；豁免面＝形态处理／集合成员判定） | `tests/domains/test_v2_answering.py::no_lexicon_or_regex_in_answering` |
-| 流式与缺口的机读信号在场（text／citation／verdict 帧 ＋ step payload） | `tests/domains/test_v2_answering.py::answering_signal_present` |
+| 流式、缺口、截断披露的机读信号在场（text／citation 帧＋material_truncated notice＋step payload；verdict 为消费方信号，批次落定归 orchestration） | `tests/domains/test_v2_answering.py::answering_signal_present` |
 | 【边界集】单段答案／零材料／矛盾双源／坏引标 → 各自落到对应分支 | `tests/domains/test_v2_answering.py::boundary_single_seg_zero_material_conflict_bad_cite` |
 | 【保留集】无矛盾、无缺口的普通答案：引标与分源行为不变 | `tests/domains/test_v2_answering.py::retention_plain_answer_unchanged` |
 
@@ -127,4 +136,9 @@ class Gap:
 | 引标可解析 | 测试 `::segment_citations_resolve`／`::dangling_citation_rejected` | 待实现 |
 | 结构化缺口（三档闭世界） | 测试 `::structured_gaps_all_kinds`／`::gap_kind_closed_world` | 待实现 |
 | 程序不判语义 | 测试 `::no_lexicon_or_regex_in_answering` | 待实现 |
+| 发射 JSON 不进答案面（确定性剥离，泄漏=0） | 钉 **`pin-04`**（P0） | 待织网（阶段 5） |
+| 明细行集题全量交付（交付行数＝引擎返回行数，丢行=0；与 execution 行为 4 同一界线） | 钉 **`pin-08`**（P0） | 待织网（阶段 5） |
+| 材料截断必披露（`material_truncated` notice＋「未渲染部分不作答」声明） | 钉 **`pin-09`**（P1） | 待织网（阶段 5） |
+| 起草回声=0（`echo_flag` 恒 0） | 钉 **`pin-13`**（P1） | 待织网（阶段 5） |
+| 迁移建议：pin-07/20 归 clarification，待主窗核定（pin-07 定稿打回带路——finalize 属 clarification 四动作；pin-20 台账 no_hit 降级链横跨探查与交付） | 人审（主窗） | 本批不硬挂，归属待核 |
 | 「不做什么」的纯范围排除（不执行查询／不核验等） | **人审** | 接不上闸的原因：纯范围排除没有形状／存在性／退出码判据；能降维的部分（相位互不 import）已由边界闸 R1 覆盖 |
