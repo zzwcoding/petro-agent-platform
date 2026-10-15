@@ -320,20 +320,32 @@ class AgentRuntime:
 
 ## bookkeeping
 
-职责: 公共簿记——全节点共享的写入面：步记录、序号、触界收敛、完成收口、节点调模型单点、工具上下文装配、结果投影
+职责: 公共簿记——全节点共享的写入面：步记录、序号、**对话链与对话层追加**、过程档案、通知、触界收敛、完成收口、节点调模型单点、工具上下文装配、结果投影
 目录: `appv2/runtimev2/bookkeeping/`
 
 ### 公开接口
 ```python
-def record_step(state, **payload) -> None: ...
+# ── 共享写口（唯一入口；相位禁直写）────────────────────────
+def record_step(state, *, kind, title, status="ok", payload=None, manifest=None) -> StepRecord: ...  # status 闭世界 ok/failed/refused（由调用方如实给，本块不猜）
 def next_seq(state) -> int: ...
-def converge(state) -> None: ...        # 触界收敛的**落地写入**（判定归 `state.check_limits`；本函数无回值——写入 budget_hit／notices／status／next_intent 六键）
-def call_model(state, caller: str, messages) -> str: ...   # 节点侧调模型单点：从 state 取 run_id → 调 gateway_adapter.complete → 向节点只回 content；回执的用量/归因面归本块记账（禁裸文本吞掉记账面）
+def append_message(state, *, role, content) -> None: ...     # 对话链（messages）追加（只追加）
+def append_dialogue(state, *, role, content, origin) -> None: ...  # 对话层（dialogue）追加（origin 闭世界）
+def note(state, *, phase, title, digest) -> None: ...        # 过程档案（process_notes）续写（digest 有界）
+def notice(state, *, type, gates=(), content) -> None: ...   # 通知追加（type 闭世界）
+def set_intent(state, intent: str) -> None: ...              # next_intent 唯一写口（闭世界越界即拒；路由决策仍在 orchestration）
+# ── 触界收敛与完成收口 ────────────────────────────────────
+def converge(state) -> None: ...        # 落地写入（判定归 `state.check_limits`；无回值——写 budget_hit／notices／正文／draft_kind／status／next_intent）
+def direct_answer(state, text) -> None: ...                  # 确定性直答标记（免起草免核验的收口旁路）
+# ── 调模型与工具面 ────────────────────────────────────────
+def call_model(state, caller: str, messages) -> str: ...   # 节点侧调模型单点：从 state 取 run_id → 调 gateway_adapter.complete → 向节点只回 content；回执的用量/归因面归本块记账
 def tool_context(state) -> ToolContext: ...
+def result_projection(result) -> dict: ...
 ```
 
+> **卡级修正（2026-10-15，L0，随 bookkeeping 规格起草）**：原公开面只列五件，而职责行自称「全节点共享的写入面」——**多个共享写口没有承接函数**（现状证据 `synth/S5-RunState字段矩阵.md` §四【结构-2】列 `notices`／`steps`／`next_intent` 三件全节点共享写口；同文件 §二观察另把 `messages` 并列）。本批按「一物一处」补全：**对话链／对话层／过程档案／通知四类追加各设唯一入口**，加 `direct_answer`（完成收口的直答旁路）、`result_projection`（职责行已点名的「结果投影」）与 `set_intent`（`next_intent` 的唯一写口——「写字段」与「做路由决策」分开，决策仍在 `orchestration`）。依赖行同批补：**类型与常量形状另引 `tools`／`persistence`／`transport` 三块（只引形状，不引行为）**——原依赖行只列两块，与公开面（返回 `ToolContext`／`StepRecord`、用 `NOTICE_TYPES`）不符。
+
 ### 依赖
-- 模块: `state`、`gateway_adapter`
+- 模块: `state`、`gateway_adapter`（**运行逻辑**）；`tools`、`persistence`、`transport`（**类型与常量形状面**——ToolContext 类型、StepRecord 形状、NOTICE_TYPES 常量；只引形状，不许引其行为：不调工具、不落盘、不发帧）
 - 外部: （无）
 
 ### Seam 与测试
