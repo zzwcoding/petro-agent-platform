@@ -1,7 +1,7 @@
 # V2 问答主链路（agent loop＝ReAct＋四相位子任务图终态）
 
 状态: 已定稿
-来源: docs/prd.md §③、specs/modules.md `orchestration`/`understanding`/`clarification`/`tool_matching`/`preconditions`/`execution`/`answering`/`verification`/`context`/`persistence`/`api`/`tools` 卡、`docs/runtime-refactor/walk/裁决表.md`、`docs/runtime-refactor/walk/08-澄清-意图澄清.md`、`docs/runtime-refactor/walk/12-前置检查-前置条件机.md`、`docs/runtime-refactor/synth/S1-重写单元与证据交叉矩阵.md`、`docs/runtime-refactor/synth/S3-口径裁决清单.md`、`docs/runtime-refactor/synth/S6-事件与帧目录.md`、`docs/runtime-refactor/arch/P7a-交接包与挂账清单.md`、`tickets/v2/V2-79-对话状态重构方案.md`、ADR-0004（ReAct 重构）、ADR-0005（子任务图＋前置条件机，含增补）、ADR-0006（多轮对话上下文）、ADR-0007（重写运行时 17 块划分，本表模块名随阶段 2 改名）
+来源: docs/prd.md §③、specs/modules.md `orchestration`/`understanding`/`clarification`/`tool_matching`/`preconditions`/`execution`/`answering`/`verification`/`context`/`persistence`/`api`/`tools` 卡、`docs/runtime-refactor/walk/裁决表.md`、`docs/runtime-refactor/walk/08-澄清-意图澄清.md`、`docs/runtime-refactor/walk/12-前置检查-前置条件机.md`、`docs/runtime-refactor/recon/K-上下文事件指南预算.md`、`docs/runtime-refactor/synth/S1-重写单元与证据交叉矩阵.md`、`docs/runtime-refactor/synth/S3-口径裁决清单.md`、`docs/runtime-refactor/synth/S6-事件与帧目录.md`、`docs/runtime-refactor/arch/P7a-交接包与挂账清单.md`、`docs/runtime-refactor/arch/P4b-票堆V2-56至65.md`、`docs/runtime-refactor/arch/P5b2-票堆V2-79a至79b.md`、`tickets/v2/V2-79-对话状态重构方案.md`、ADR-0004（ReAct 重构）、ADR-0005（子任务图＋前置条件机，含增补）、ADR-0006（多轮对话上下文）、ADR-0007（重写运行时 17 块划分，本表模块名随阶段 2 改名）
 版式: docs/spec-format.md ｜ 工序: docs/spec-process.md
 > 本文为 V2-36 终态重写（2026-10-09），取代前版「六步流水线」条款（repair 链／max_steps 8
 > 预算／understand-plan-tool-observe-verify-answer 六类型——旧测试标识随旧语义一并退役，
@@ -80,7 +80,7 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
    understand 理解后进四相位——
    ①**业务澄清（clarify）**：LLM 带 Skill 指南发射**四动作**闭世界 `discover｜decompose｜ask｜finalize`（Owner 2026-10-15 按 `walk/08` 同步）；
    discover＝钻取（semantic_query/doc_retrieve/table_schema），decompose 产出
-   **QuestionGroup**（subtasks[{id/question/ledger_notes/chain}]——**已去 `tool`**（选工具归②匹配相位，`裁决表` 项目级裁决 #10）；子问题上限 ≤4，
+   **QuestionGroup**（subtasks[{id/question/ledger_notes/chain}]——**已去 `tool`**（选工具归②匹配相位，`裁决表` 项目级裁决 #10）；子问题上限 ≤4（真源 `docs/runtime-refactor/walk/09-澄清-分解问题.md` §七 Q-C——本项目自定值、随限额参数表收口），
    ledger_notes 必填——从词典层注入块逐字转抄的台账注释）；ask＝反问挂起；
    ②**工具匹配（toolmatch）**：LLM 逐子问题提议工具/链（data→data_query、
    knowledge→doc_retrieve，data 链必带 plan、knowledge 链必带 retrieval_need），
@@ -103,7 +103,7 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
    修订随设计仓，本行为真源以方案为准）：混装消息历史退役，对话状态＝`dialogue`
    （自然对话层——user 原话/assistant 终稿/澄清审批回收原文；禁任务书/指令/
    过程原话/注记前缀）＋`process_notes`（过程档案层——[{phase,title,digest}]
-   有界摘要每条 ≤200 字）双字段；编译契约＝[system]＋dialogue 截断＋当前轮，
+   有界摘要每条 ≤200 字——真源 `docs/runtime-refactor/arch/P5b2-票堆V2-79a至79b.md` A-P5b2-03：`process_notes` 条目形 `{phase, title, digest}`、digest 在写入点截断 ≤200 字）双字段；编译契约＝[system]＋dialogue 截断＋当前轮，
    任务书/指令/材料**现拼现用、用完即弃、不入史**；执行台账以
    「参数 → 结果：N 行／闸拒（拒因）」形落 process_notes；历史增长带 token
    预算/截断显式进 Manifest）。词典层**每轮常驻注入**（拍板 a 的
