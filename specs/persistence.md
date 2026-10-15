@@ -69,6 +69,7 @@ class StepRecord:                    # agent_v2_step 行的投影
     title: str
     manifest: dict[str, Any] | None
     payload: dict[str, Any] | None   # 原样保真（不裁剪——见行为 8）
+    created_at: datetime             # 该记录末次落盘时间（现状列如实投影——recon/J `AgentV2Step`；语义定死＝末次落盘，首写时间不可回溯——见风险 4）
 class BlackBox:                      # agent_v2_blackbox 的投影
     run_id: str
     record: dict[str, Any]           # 键白名单闭世界（真源 recon/J 蒸馏白名单）
@@ -77,7 +78,7 @@ class BlobRef:                       # 大结果原文的引用载体（可寻�
     handle: str                      # 不透明标识——**与 execution.MaterialRef.handle 同源同值**（见下）
     bytes: int
     sha256: str
-class CheckpointRow:                 # agent_v2_checkpoint 行的投影（框架无关）
+class CheckpointRow:                 # agent_v2_checkpoint 行的投影（框架无关；列名映射：ns↔checkpoint_ns、kind↔type、metadata↔metadata_json——投影改名不换列，真源 recon/J 表事实）
     thread_id: str
     ns: str
     checkpoint_id: str
@@ -113,7 +114,7 @@ def audit(record: AuditRecord) -> None: ...   # 唯一写口＝security.audit（
 ```
 
 - **闭世界一：`RunRecord.status`** ＝ `state.RUN_STATUS_KINDS`（四值，真源 `specs/state.md`）——**本块不复述取值**。
-- **闭世界二：`StepRecord.step`** ＝ `state.STEP_KINDS`（六值，真源 `specs/state.md`）；`StepRecord.status` ＝ `ok`｜`failed`｜`refused`。
+- **闭世界二：`StepRecord.step`** ＝ `state.STEP_KINDS`（六值，真源 `specs/state.md`）；`StepRecord.status` ＝ `ok`｜`failed`｜`refused`（真源＝`specs/bookkeeping.md` 已定口径——`status` 是显式关键词参，闭世界三值、缺省 `ok`、由调用方如实给）。
 - **闭世界三：`AuditRecord.action`** ＝ 七值、恒 `agent_v2.*` 前缀（真源 `recon/J-存储留痕与网关缝.md` R-J-05）。
 - **闭世界四：`BlackBox.record` 的键白名单**（真源 `recon/J-存储留痕与网关缝.md` R-J-02／R-J-03）：**新增状态键须显式入列**，未入列键不进黑匣子。
 - **`BlobRef.handle` 与 `execution.MaterialRef.handle` 是同一标识（同源同值）**：`execution` 产的是**窗口侧材料条目**（`{handle, summary, row_count}`——已定稿真源 `specs/execution.md`，`answering` 已按它对齐），`persistence` 产的是**载体回执**（把 handle 解析回原文的凭据）。两处键名**统一为 `handle`**、本块**不另起 `ref` 之类的第二个名字**（治「同名类型两套字段」）。断言：`execution` 产出的 `handle` 直接喂给 `read_ref` 能取回原文。
@@ -138,15 +139,15 @@ def audit(record: AuditRecord) -> None: ...   # 唯一写口＝security.audit（
 2. **状态机把守在本块（结构约束，非迁移决策）**：`RunRecord.status` 写入值必须 ∈ `RUN_STATUS_KINDS`（四值）；**`waiting_ask → running` 是唯一合法的「恢复」迁移方向**——这是**结构约束**（现状先例＝`recon/J-存储留痕与网关缝.md` R-J-17「唯一合法转移 waiting_ask→running」），**「该不该迁移」的决策仍在 `orchestration`**（见「不做什么」row 1）。断言：越界取值抛错；`waiting_ask → running` 成功、反向抛错。
 3. **恢复可重放**：同一 run 两次 `load` 得**等价** `RunState`；`load` 不得产生副作用（不写盘）。断言：两次 `load` 逐字段相等 ＋ 落盘计数不变。
 4. **黑匣子只追加、首写为准**：每个 run 的归档**至多一次**；重复归档**不覆盖**并**如实记账**（幂等跳过 ＋ 机读信号）。**跳过记账的落点**＝该次归档调用的**返回值／错误面**（`save` 对该 run 已有归档 → 抛既定异常「已归档」；调用方据该异常记一条 notice，发帧由 `orchestration` 协调）。断言：二次归档后 `blackbox(run_id)` 内容与首次逐字相同，且「已归档」异常被抛出、调用方一次跳过记账在场。
-5. **审计四要素齐备**：每条 `AuditRecord` 必须给出**主体**（`who`）／**范围**（`scope`）／**意图与授权**（`action` ＋ `authorization`）／**执行事实**（`facts`）／**结果与证据**（`evidence`）——**缺组判失败**。断言：构造缺 `scope` 或 `evidence` 的记录 → 抛错。
+5. **审计四要素齐备**（四项＝Owner 裁决 `walk/16` §七 Q-C「审计按四要素补齐字段」，枚举同 `walk/裁决表.md` §16-C——**主体／意图／事实／结果**）：每条 `AuditRecord` 必须给出**主体**（`who`；`scope` 是主体的范围细化——会话线程／子问题域，并入本项、不另立要素）／**意图**（`action`；`authorization` 是其授权依据——角色／审批单号，无则空串，并入本项、不另立要素）／**事实**（`facts`）／**结果**（`evidence`）——**缺项判失败**。断言：构造缺 `scope` 或 `evidence` 的记录 → 抛错。
 6. **审计 action 闭世界（计数只有一个口径）**：取值 ∈ **七值闭世界**（真源 `recon/J-存储留痕与网关缝.md` R-J-05），恒 `agent_v2.*` 前缀；越界抛错。**计数口径以「action 七值」为唯一真源**——分组说法（谁把它叫成几类事件）**不产生第二个数字**，本规格不写类数。对账：`specs/agent-loop.md` 行为 8 原写「四事件」，那是**现状陈旧口径**（漏 `ban_exempt` 禁用词豁免留痕），**已就地改述为「action 闭世界七值」**（与 `walk/16-收尾-归档.md` 口径一致——该处「六类」是方法粒度分组，同样不再当计数真源）。
 7. **业务数据零写入**（INV-2）：本块对业务表零写；所有写入落在 `agent_v2_*` 簿记表。断言：测试注入探针——任何对业务表的写入尝试被判失败；表名清单与簿记前缀一致。
 8. **步记录 payload 原样保真**：`payload` **不做裁剪、不做假值归一**（空 `{}` 与「无 payload」是两件事，读回必须可区分）；核验对账等机读字段**必须能被读面机检**（字段真源＝`specs/verification.md` 行为 11 ＋ `arch/P7a-交接包与挂账清单.md` A-P7a-38；本块只负责**原样落盘、原样读回**，不复述字段清单）。断言：落盘再读回 `payload` 逐字段相等，空结构与缺失各归各位（钉 `pin-12` 的**落盘面**）。
-9. **`run_id` 全盖章（落盘面）**：run／步／黑匣子／审计四类记录**都携 `run_id`**，读回可按 `run_id` 聚合到同一 run；逐题账集合与落盘记录**等值可对账**。断言：按 `run_id` 聚合四类记录无遗漏、无外键错挂（钉 `pin-28` 的**落盘面**）。
+9. **`run_id` 全盖章（落盘面）**：run／步／黑匣子／审计四类记录**都携 `run_id`**，读回可按 `run_id` 聚合到同一 run；逐题账集合与落盘记录**等值可对账**——对账数据源＝逐题 `ledger_run_ids` 集合与跑批 jsonl（eval/results 下各题记录）的 `run_id` **集合等值**（真源 `eval/results/Q15-对账报告.md`（:207——逐题 `ledger_run_ids` 与 jsonl `run_id` 集合等值））。断言：按 `run_id` 聚合四类记录无遗漏、无外键错挂（钉 `pin-28` 的**落盘面**）。
 10. **引用载体可寻址**：`put_ref(blob)` 返回 `BlobRef`；`read_ref(handle)` 返回**逐字节相同**的原文；`handle` 不可解析 → 抛错。断言：往返等价 ＋ 坏 handle 抛错。载体实现（簿记表／对象存储）阶段 5 定，**语义不随载体变**。
 11. **黑匣子键白名单闭世界**：`BlackBox.record` 的键 ⊆ 白名单（真源 `recon/J-存储留痕与网关缝.md` R-J-02）；**新增状态键必须同批入列**（禁"白名单外偷偷进"）。断言：越界键判失败；白名单变更必须同步改该表与测试。
 12. **旧检查点／旧黑匣子如实读入**（钉 `pin-30` 的**回放面**）：v1／v2 旧黑匣子／旧检查点**回放**不抛错；旧 run 的对话通道**如实空显**（不得伪造补写）。断言：回放 v1 fixture → 不抛错、对话通道如实空显。（**分工**：状态字段的读入不炸与 `schema_version` 如实由 `specs/state.md` 行为 8 断言；本块只断言**回放读口**这一面。）
-13. **截断必可见**：审计 `facts` 摘要与黑匣子转写文本的截断**必须留可见标记**（不得静默截断）——摘要截断长度真源＝`recon/J-存储留痕与网关缝.md` R-J-06（审计）、转写文本截断长度真源＝同文件 R-J-60／R-J-62（单行摘要／各分面截断）。断言：超长输入 → 输出带截断标记且长度受控。
+13. **截断必可见**：审计 `facts` 摘要与黑匣子转写文本的截断**必须留可见标记**（不得静默截断）——摘要截断长度真源＝`recon/J-存储留痕与网关缝.md` R-J-06（审计）、转写文本截断长度真源＝同文件 R-J-60／R-J-62（单行摘要／各分面截断）。断言：超长输入 → 输出带截断标记且**长度受控**（判据＝真源值：审计 `facts` 摘要 ≤120 字符（R-J-06 `SUMMARY_LIMIT=120`）；黑匣子单行摘要 ≤96 字符、换行替换后按字符数计（R-J-60）；分面截断 title 30／60、digest 80、source 40（R-J-62））。
 14. **落盘失败 fail-closed**：写失败上抛、不吞错、不半写（同一记录要么落要么不落）；**不留无声缺口**（红线 `arch/P7a-交接包与挂账清单.md` A-P7a-37）。**发帧的实施口是 `transport`、批次协调归 `orchestration`**（本块只负责把错误如实抛出，不产帧）。断言：注入写失败 → 抛错且无部分行。
 15. **本块零判断**：无词表／正则语义判定、无模型调用。断言：AST 扫描本块源码（`no_lexicon_or_regex_in_persistence`／`no_model_call_in_persistence`）。
 
@@ -166,7 +167,7 @@ def audit(record: AuditRecord) -> None: ...   # 唯一写口＝security.audit（
 | `status` 取值闭世界；`waiting_ask→running` 唯一合法方向 | `tests/domains/test_v2_persistence.py::status_machine_guarded` |
 | 两次 `load` 等价且无副作用 | `tests/domains/test_v2_persistence.py::load_replayable_idempotent` |
 | 黑匣子重复归档不覆盖＋跳过记账在场 | `tests/domains/test_v2_persistence.py::blackbox_first_write_wins` |
-| 审计四要素缺组判失败 | `tests/domains/test_v2_persistence.py::audit_four_elements_required` |
+| 审计四要素缺项判失败 | `tests/domains/test_v2_persistence.py::audit_four_elements_required` |
 | 审计 action 七值闭世界＋`agent_v2.` 前缀 | `tests/domains/test_v2_persistence.py::audit_action_closed_world` |
 | 业务表零写（探针注入判失败） | `tests/domains/test_v2_persistence.py::no_business_table_write` |
 | 步记录 payload 原样保真（空结构与缺失可区分） | `tests/domains/test_v2_persistence.py::step_payload_faithful` |
@@ -191,7 +192,7 @@ def audit(record: AuditRecord) -> None: ...   # 唯一写口＝security.audit（
   1. **框架类型越界进本块**（检查点 saver 需要 `langgraph.checkpoint.base` 一族）→ 对策＝saver 实现归 `orchestration`，本块只出框架无关入口（卡级澄清已记流水）。检测＝**R5b 契约** ＋ `::no_model_call_in_persistence` 同族 AST 面（人审补）。
   2. **黑匣子语义从 upsert 改「只追加」**（现状 `merge` 覆盖，Owner 裁决改追加）→ 检测＝`::blackbox_first_write_wins`；历史行处理＝**不回溯改写**（旧行照旧可读，登记为迁移事实）。
   3. **步记录 payload 假值归 NULL 造成语义丢失**（现状 `or None`）→ 对策＝行为 8 保真（空结构与缺失可区分）。检测＝`::step_payload_faithful`。
-  4. **`created_at` 语义漂移**（现状步记录时间戳＝**末次投影时间**，首次落库时间不可回溯）→ 对策＝列语义在规格内定死为「该记录末次落盘时间」；若要首写时间，须新增列（**登记为阶段 5 可选项**）。检测＝人审 ＋ 读面断言。
+  4. **`created_at` 语义漂移**（现状步记录时间戳＝**末次投影时间**，首次落库时间不可回溯）→ 对策＝列语义在规格内定死为「该记录末次落盘时间」；若要首写时间，须新增列（**登记为阶段 5 可选项**）。本批已按此对策在 `StepRecord` 投影**补 `created_at` 列**（末次落盘时间——见接口定义）。检测＝人审 ＋ 读面断言。
   5. **长 run 全量读无分页**（现状 `list_steps` 无 limit）→ 对策＝本块读口不改语义，**分页/上限归 `api` 侧**；检测＝**人审**（本批不新增，登记 `api` 块）。
   6. **建表双轨**（幂等建表 vs 迁移脚本）→ 对策＝`ensure_tables()` 幂等、与迁移脚本同形；检测＝**人审**（无机器闸看守「两处同形」，登记）。
   7. **审计字段从四列扩到四要素**（Owner 裁决）→ 对既有“六类方法／七 action 值”的映射口径必须单点；检测＝`::audit_four_elements_required` ＋ `::audit_action_closed_world`。

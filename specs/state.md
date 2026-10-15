@@ -18,7 +18,7 @@
 | 事件与帧的发射（含触界注记的发帧） | `transport` | `specs/modules.md` `## transport` |
 | 任何模型调用（本块连模型出口类型都不引用） | `gateway_adapter` | `specs/modules.md` `## gateway_adapter` |
 | 语义判断（限额触界＝纯数值比较；禁词表／正则参与判定） | **本块不做**；语义判断归各相位的模型产出 | `docs/runtime-refactor/walk/判断归责表.md` |
-| 限额数值的复述（数值只许引真源） | 引数值真源（`recon/K` R-K-72…R-K-78 逐键 ＋ `walk/裁决表.md` §06-A 循环上限五项） | `docs/runtime-refactor/recon/K-上下文事件指南预算.md` |
+| 限额数值的复述（数值只许引真源） | 引数值真源（`recon/K` R-K-72…R-K-76 逐键承载七键 ＋ `walk/裁决表.md` §06-A 循环上限五项——其中「回炉一次／同参重投」为行为机制、非 Budget 键） | `docs/runtime-refactor/recon/K-上下文事件指南预算.md` |
 
 ## 触及的模块
 
@@ -35,20 +35,20 @@
 @dataclass(slots=True)                      # 可变图状态（非 frozen）
 class RunState: ...                         # 字段集＝synth/S5 矩阵全量（逐字段读写方见该表）
 
-# ── 模型调用 Manifest（骨架逐字真源 recon/I2a）────────────
+# ── 模型调用 Manifest（骨架字段逐字真源 recon/I2a；缺省值面同源＝R-I2a-05 码面实测）──
 @dataclass(frozen=True, slots=True)
 class Manifest:
-    source_type: list[str]
-    source_id: list[str]
-    version: list[str | None]
-    trust_level: list[str]
-    selected_reason: str
-    token_count: int
-    transform: str
-    material_total: int
-    material_rendered: int
-    material_truncated: bool
-    def as_dict(self) -> dict[str, Any]: ...
+    source_type: list[str] = field(default_factory=list)
+    source_id: list[str] = field(default_factory=list)
+    version: list[str | None] = field(default_factory=list)
+    trust_level: list[str] = field(default_factory=list)
+    selected_reason: str = ""
+    token_count: int = 0
+    transform: str = "filter→rank→budget→cite"
+    material_total: int = 0
+    material_rendered: int = 0
+    material_truncated: bool = False
+    def as_dict(self) -> dict[str, Any]: ...   # `Manifest()` 无参可构造（七合同字段＋三机检字段全带缺省——真源 recon/I2a R-I2a-05）
 
 # ── 受理载荷与回执（不可变；与 specs/agent-loop.md 接口定义逐字一致）──
 @dataclass(frozen=True, slots=True)
@@ -109,11 +109,11 @@ def check_limits(state: RunState) -> Convergence: ...   # 纯函数：不改入�
 3. **状态可投影**：`RunState` 全部字段值是 JSON 原语（`json.dumps(asdict(state))` 成功）——这是「跨进程恢复无损」的结构前提。断言：全字段 fixture 可序列化。唯一例外是 `RunHandle.stream`（非状态字段）。
 4. **`messages` 只追加不改写**（钉 `pin-22`，P0）：`messages` 是整条对话链，每次模型调用发送**整链**，任意相邻两次调用互为前缀延伸（`后[:-len(尾段)] == 前`）。断言：两轮脚本化调用后前缀关系成立；**任何替换／重排历史条＝判失败**。
 5. **相位合同一次性**（钉 `pin-24`）：`contracts_appended` 记录已追加过合同文本的相位；**回炉轮不重发**。断言：同一相位二次进入后，`messages` 中该相位合同条数不变、标记写入幂等。
-6. **对话层纯度**（钉 `pin-26`）：`dialogue` 只装**自然对话**——条目形态固定为 `{role, content, origin}`：`role` ∈ `user`｜`assistant`（同 `messages` 口径）；`origin` 是**来源闭世界**，合法值仅三——`user_verbatim`（用户原话）｜`assistant_final`（assistant 终稿）｜`clarify_approval_replay`（澄清与审批回收原文）。任务书、相位指令、过程原话、注记前缀只入 `process_notes`（有界摘要）。**`origin` 是本次重写自立的新结构**：现状 `dialogue` 条目只有 `role`／`content`、无来源标签，过程记录与自然对话同链混装（现状锚点＝`docs/runtime-refactor/arch/P5b1-对话状态重构方案.md` 与 `recon/I2b-RunState全字段.md` 的条目形态）——**Owner 2026-10-15 已追认**（按最佳实践定型：单链＋闭世界标签，「隔离优于过滤」——写入点即拒，详见决议流水 29）。断言：①注入含任务书与指令的一轮后，每个 `dialogue` 条目都带 `origin` 且取值落在三值内（越界即失败）——过程内容要混进 `dialogue` 只能伪造来源标签，伪造即越界被抓；②**origin↔role 一致性不变量**——`user_verbatim ⇒ role=user`、`assistant_final ⇒ role=assistant`、`clarify_approval_replay ⇒ role=user`，张冠李戴同判失败。
+6. **对话层纯度**（钉 `pin-26`）：`dialogue` 只装**自然对话**——条目形态固定为 `{role, content, origin}`：`role` ∈ `user`｜`assistant`（同 `messages` 口径）；`origin` 是**来源闭世界**，合法值仅三——`user_verbatim`（用户原话）｜`assistant_final`（assistant 终稿）｜`clarify_approval_replay`（澄清与审批回收原文）。任务书、相位指令、过程原话、注记前缀只入 `process_notes`（有界摘要）。**`dialogue` 的写口承担＝`bookkeeping`（对话层追加唯一入口 `append_dialogue`）**——本块只定条目形状与来源闭世界、不提供写函数。**`origin` 是本次重写自立的新结构**：现状 `dialogue` 条目只有 `role`／`content`、无来源标签，过程记录与自然对话同链混装（现状锚点＝`docs/runtime-refactor/arch/P5b1-对话状态重构方案.md` 与 `recon/I2b-RunState全字段.md` 的条目形态）——**Owner 2026-10-15 已追认**（按最佳实践定型：单链＋闭世界标签，「隔离优于过滤」——写入点即拒，详见决议流水 29）。断言：①注入含任务书与指令的一轮后，每个 `dialogue` 条目都带 `origin` 且取值落在三值内（越界即失败）——过程内容要混进 `dialogue` 只能伪造来源标签，伪造即越界被抓；②**origin↔role 一致性不变量**——`user_verbatim ⇒ role=user`、`assistant_final ⇒ role=assistant`、`clarify_approval_replay ⇒ role=user`，张冠李戴同判失败。
 7. **追问播种＝前轮终链整链承接**（钉 `pin-23`，P0）：`followup_of` 非空的新 run，其 `messages` 以**前 run 检查点终链整条**为前缀（不裁剪、不摘要化），再接新问。断言：跨 run 前缀关系成立（后 run 链前 N 段与前轮终链逐字相等）。
 8. **旧检查点如实读入**（钉 `pin-30` 的**状态字段面**）：v1／v2 旧检查点读入**不抛错**；`dialogue` 是兼容字段、本块对它**零业务写**（不得伪造或补写历史）；`schema_version` 真值真源＝`synth/S3-口径裁决清单.md` C-07。断言：读入 v1 fixture → 不抛错；`schema_version` 取读入态；`dialogue` 无本块写入点（AST＋行为双证）。（**分工**：「旧 run 的对话通道在**黑匣子回放**时如实空显」那一条断言归 `specs/persistence.md` 行为 12——同一钉的另一面，两处不各写一遍。）
 9. **三族常量为闭世界且单点消费**：`STEP_KINDS`／`RUN_STATUS_KINDS`／`INTENT` 只在本块定义；**任何写入口的取值必须 ∈ 对应族**，越界抛错；**每族必须有真实消费点**（禁「定义了没人用」）。断言：越界值抛错；全仓无第二处自建状态集合、无裸状态字面量参与把守（`grep`／AST）。
-10. **限额参数键集闭世界**：`Budget` 键＝轮数／轮内发现／轮内执行／段时长／单工具超时／全 run 发现／连续反问上限；**数值与缺省值只引真源**（`recon/K-上下文事件指南预算.md` R-K-72…R-K-78 逐键承载七项 ＋ `docs/runtime-refactor/walk/裁决表.md` §06-A 承载循环上限五项），**常量定义与合同文本同源引用、不重复硬编码**。断言：`Budget` 键集合相等；缺键取缺省、禁散落的兜底字面量。
+10. **限额参数键集闭世界**：`Budget` 键＝轮数／轮内发现／轮内执行／段时长／单工具超时／全 run 发现／连续反问上限；**数值与缺省值只引真源**（`Budget` 键集唯 `recon/K-上下文事件指南预算.md` R-K-72…R-K-76 逐键承载七项；`docs/runtime-refactor/walk/裁决表.md` §06-A 五项中「回炉一次／同参重投即拦」两项为**行为机制、非 Budget 键**，其余三项数值与 R-K 同源），**常量定义与合同文本同源引用、不重复硬编码**。断言：`Budget` 键集合相等；缺键取缺省、禁散落的兜底字面量。
 11. **触界判定确定、纯、不改入参**：`check_limits` 同输入两次结果相等；调用前后入参深比较相等；无 IO、无模型、无随机。断言：两跑结果相等 ＋ `asdict` 深比较相等。
 12. **触界必带如实注记**：`hit` 非空 ⇔ `notice` 非 None（`notice` 恰三键 `type`／`gates`／`content`，形状真源＝`synth/S6-事件与帧目录.md` §一）；**未触界恒 `notice is None`**（不得凭空产注记）。断言：超限 fixture → `hit` 非空且注记三键在场；未超限 → `hit` 为空元组且 `notice is None`。
 13. **触界不静默**：触界时若未落 `budget_hit` 即判失败；「未完成项」明细由 `bookkeeping` 装配进注记（红线＝`arch/P7a-交接包与挂账清单.md` A-P7a-37「不许静默」）。断言：`Convergence` 与 `budget_hit` **同现**。
@@ -125,7 +125,7 @@ def check_limits(state: RunState) -> Convergence: ...   # 纯函数：不改入�
 
 - **合法降级路径：无**（数据形状不降级；限额触界**不是降级**，是契约内的**有界终止**）。
 - 触界必须产生**机读信号**（本块承诺面＝两处）：`budget_hit`（状态字段）＋ `Convergence.notice`（恰三键）；断言：两处同现（行为 13）。**第三处「触界步的过程记录（计数与命中项）」是消费方义务**——由 `bookkeeping` 的写口落账并在其规格中断言，本块不冒充覆盖。
-- **唯一允许的「降级」是旧检查点读入**：缺字段按 `schema_version` 补缺省并**如实标注**（禁伪造历史）；机读信号＝`schema_version` 取值 ＋ 读入注记；断言：v1 fixture 读入后 `schema_version` 为读入态、对话通道空显（行为 8）。
+- **唯一允许的「降级」是旧检查点读入**：缺字段按 `schema_version` 补缺省并**如实标注**（禁伪造历史）；机读信号＝`schema_version` 取值 ＋ 读入注记；断言：v1 fixture 读入后 `schema_version` 为读入态（行为 8）；「对话通道空显」**归 `specs/persistence.md` 行为 12**（分工互认——本块不另写该断言，见行为 8 的分工注）。
 - **不许自述完成**：完成判定归程序侧（`verification`／`orchestration`）；本块只承载状态取值，**不判断完成**。
 
 ## 验收测试
@@ -156,7 +156,7 @@ def check_limits(state: RunState) -> Convergence: ...   # 纯函数：不改入�
 
 ## 依赖与风险
 
-- 依赖：`infra`（身份对象类型）｜字段矩阵真源＝`synth/S5`｜数值真源＝`recon/K` R-K-72…R-K-78（逐键）＋ `walk/裁决表.md` §06-A（循环上限五项）。
+- 依赖：`infra`（身份对象类型）｜字段矩阵真源＝`synth/S5`｜数值真源＝`recon/K` R-K-72…R-K-76（逐键承载七键）＋ `walk/裁决表.md` §06-A（循环上限五项——「回炉一次／同参重投」两项为行为机制、非 Budget 键，见行为 10）。
 - 风险与对策（每条带检测手段）：
   1. **卡与实装分叉（`converge` 双卡）**——两卡各列一个同签名函数。已裁：**判定**归本块（更名 `check_limits`，纯计算）／**落地写入**归 `bookkeeping` 唯一写口。检测＝卡与规格一致人审 ＋ 签名断言；已记施工流水。
   2. **共享写口无归属**（`synth/S5` 第四节的写手收敛问题）：`messages`／`steps`／`notices`／`next_intent` 几乎每个节点都写。对策＝写口归 `bookkeeping` 单点、本块**不提供写函数**。检测＝`bookkeeping` 侧的「禁旁路直写」测试（本批不新增）。
@@ -187,7 +187,7 @@ def check_limits(state: RunState) -> Convergence: ...   # 纯函数：不改入�
 | 追问播种＝前轮终链整链承接（**状态字段面**） | 钉 **`pin-23`**（P0）；测试 `::followup_seeds_full_chain` | 待织网（阶段 5）；播种动作面同钉挂 `specs/agent-loop.md` |
 | 相位合同一次性（`contracts_appended`） | 钉 **`pin-24`**；测试 `::contracts_appended_idempotent` | 待织网（阶段 5） |
 | 对话层纯度（`dialogue`／`process_notes` 不混层） | 钉 **`pin-26`**；测试 `::dialogue_layer_purity` | 待织网（阶段 5）；渲染面同钉挂 `specs/understanding.md` |
-| 旧 run **状态字段读入**如实（`schema_version` 如实、`dialogue` 无业务写）——`pin-30` 另两面：**回放面**挂 `specs/persistence.md`；**compaction 半面**归 `context`（`synth/S1` H6／V2-79d）——该规格尚未定稿，**待 `context` 规格（窗 B 编写）定稿时登记** | 钉 **`pin-30`**（P2）；测试 `::legacy_checkpoint_read_honest` | 待织网（阶段 5） |
+| 旧 run **状态字段读入**如实（`schema_version` 如实、`dialogue` 无业务写）——注：**钉文原两面＝compaction／黑匣子回放**（`eng/04a` pin-30 原文），本规格仅承接**状态字段读入面**（延伸挂法）；**回放面**挂 `specs/persistence.md`（行为 12，分工互认）；**compaction 半面**归 `context`（`synth/S1` H6／V2-79d）——该规格尚未定稿，**待 `context` 规格（窗 B 编写）定稿时登记** | 钉 **`pin-30`**（P2）；测试 `::legacy_checkpoint_read_honest` | 待织网（阶段 5） |
 | `AskChoice` 的 `kind` 判别字段（**形状面**） | 钉 **`pin-29`**（P0，**闭环面挂 `specs/agent-loop.md`**）；本块测试 `::ask_payload_shape_closed_world` | 待织网（阶段 5） |
 | 触界不静默（注记＋`budget_hit` 同现） | 测试 `::converge_requires_notice`／`::budget_hit_signal_present` | 待实现 |
 | 限额数值单点（禁散落字面量） | 测试 `::budget_keys_closed_world`／`::no_second_source_of_constants` | 待实现 |
