@@ -1,0 +1,35 @@
+{
+  "source": "手写冻结基线（V2 无仓外合同册真源）：源自 ADR-0002 统一入口＋V2-07 端点裁决，经 iface/P9a1 取证与 appv2/api 实读三方对齐后冻结。此后端点增删必须同步本清单（闸会拦「实现有/清单无」）；owner=归属注记（票号/挂账行/阶段标注）",
+  "exported_at": "2026-10-15",
+  "gate": "tools/contract_coverage.py check（硬纪律 8——V2 面同款双向对账；Owner 2026-10-15 裁定「建」：成本低、对象是正主、豁免会烂）",
+  "endpoints": [
+    {
+      "book": "V2",
+      "no": "E1",
+      "method": "GET",
+      "path": "/api/v2/chat/runs",
+      "owner": "冻结基线——真源：ADR-0002 统一入口＋V2-07 端点裁决；与 iface/P9a1 取证（E1 任务列表）逐字对齐"
+    },
+    {
+      "book": "V2",
+      "no": "E2",
+      "method": "POST",
+      "path": "/api/v2/chat/asks",
+      "owner": "冻结基线——真源：同上（E2 提问/重连/追问三形态）"
+    },
+    {
+      "book": "V2",
+      "no": "E3",
+      "method": "POST",
+      "path": "/api/v2/chat/runs/{}/resume",
+      "owner": "冻结基线——真源：同上（E3 挂起续推）"
+    },
+    {
+      "book": "V2",
+      "no": "E4",
+      "method": "GET",
+      "path": "/api/v2/chat/runs/{}",
+      "owner": "冻结基线——真源：同上（E4 run 详情）"
+    }
+  ]
+}

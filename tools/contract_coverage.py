@@ -29,6 +29,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = REPO_ROOT / "config" / "contract_endpoints.json"
 TEACH_DEFAULT = REPO_ROOT.parent / "teach-petro-agent"
+# V2 面（Owner 2026-10-15 裁定「建」）：V2 无仓外合同册真源，清单为手写**冻结基线**，
+# 与 iface/P9a1 取证＋appv2/api 实读三方对齐后冻结；此后端点增删由闸拦。
+V2_MANIFEST_PATH = REPO_ROOT / "config" / "runtimev2_endpoints.json"
+V2_API_DIR = REPO_ROOT / "appv2" / "api"
 
 # 合同册端点表行：| 3 | `GET /api/chat/sessions/{id}/messages` | ... |
 _ROW = re.compile(r"^\|\s*(\d+)\s*\|\s*`?(GET|POST|PUT|DELETE|PATCH)\s+(/[^\s`|]+)")
@@ -81,10 +85,11 @@ def parse_implemented(api_dir: Path | None = None) -> set[tuple[str, str]]:
     return routes
 
 
-def load_manifest() -> dict[str, object]:
-    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+def load_manifest(path: Path | None = None) -> dict[str, object]:
+    path = path or MANIFEST_PATH
+    manifest = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(manifest.get("endpoints"), list):
-        raise SystemExit(f"清单形状非法（endpoints 缺失）：{MANIFEST_PATH}")
+        raise SystemExit(f"清单形状非法（endpoints 缺失）：{path}")
     return manifest
 
 
@@ -108,9 +113,17 @@ def reconcile(
 
 
 def check() -> list[str]:
-    """清单 × app/api 路由双向对账 → 违规清单（空＝绿）。看守测试与 CLI 同源调用。"""
-    manifest = load_manifest()
-    return reconcile(manifest["endpoints"], parse_implemented())  # type: ignore[arg-type]
+    """清单 × 路由双向对账（V1 `app/api` ＋ V2 `appv2/api`）→ 违规清单（空＝绿）。
+
+    看守测试与 CLI 同源调用。V2 清单为冻结基线（见 ``V2_MANIFEST_PATH``）。
+    """
+    problems = reconcile(load_manifest()["endpoints"], parse_implemented())  # type: ignore[arg-type]
+    if V2_MANIFEST_PATH.exists():
+        problems += reconcile(
+            load_manifest(V2_MANIFEST_PATH)["endpoints"],  # type: ignore[arg-type]
+            parse_implemented(V2_API_DIR),
+        )
+    return problems
 
 
 def export(teach: Path) -> None:
@@ -154,9 +167,9 @@ def main(argv: list[str] | None = None) -> int:
         for p in problems:
             print(f"  - {p}")
         return 1
-    manifest = load_manifest()
-    total = len(manifest["endpoints"])  # type: ignore[union-attr]
-    print(f"合同覆盖率闸绿：{total} 条合同端点双向对账通过。")
+    total_v1 = len(load_manifest()["endpoints"])  # type: ignore[arg-type]
+    total_v2 = len(load_manifest(V2_MANIFEST_PATH)["endpoints"]) if V2_MANIFEST_PATH.exists() else 0
+    print(f"合同覆盖率闸绿：V1 {total_v1} 条 ＋ V2 {total_v2} 条端点双向对账通过。")
     return 0
 
 

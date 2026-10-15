@@ -55,3 +55,17 @@ def test_reconcile_flags_unowned_and_undeclared() -> None:
     assert any("实现有/清单无" in p and "/api/x/extra" in p for p in problems)
     # 已归属未实现＋实现面全对上 → 绿
     assert cc.reconcile(endpoints[:1], {("GET", "/api/x/owned")}) == []
+
+
+def test_v2_manifest_shape_and_match() -> None:
+    """V2 面看守（Owner 2026-10-15 裁定「建」）：冻结基线形状合法且与 appv2/api 路由完全对上。"""
+    cc = _load()
+    endpoints = cc.load_manifest(cc.V2_MANIFEST_PATH)["endpoints"]
+    assert len(endpoints) >= 4  # 现 4 条（E1–E4）；端点增删须同步清单
+    for row in endpoints:
+        assert str(row["book"]) == "V2"
+        assert str(row["path"]).startswith("/api/v2/")
+        assert str(row["owner"]).strip()  # 冻结基线每条带归属注记
+        for param in re.findall(r"\{[^}]*\}", str(row["path"])):
+            assert param == "{}"  # 路径参数归一
+    assert cc.reconcile(endpoints, cc.parse_implemented(cc.V2_API_DIR)) == []
