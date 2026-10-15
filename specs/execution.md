@@ -87,7 +87,8 @@ class Observation:
 10. **失败不炸整批**：任一子问题失败不阻断其余子问题的执行与回流。
 11. **发现步（discover）归本块**：本块职责含「发现」——发现步的只读工具调用与 `tool` 事件的发射同属本块（发射单元 **M5**；真源 `specs/modules.md` `## execution` 卡职责「发现、执行、观察回流」、`synth/S6-事件与帧目录.md` §一）；发现步同样只经 `tools` 公开面、同受零 LLM 约束。
 12. **落引用的单一责任方**：大结果落引用**由本块（`execution`）落**、`persistence` 为**引用载体**；`answering`（作答块）**只消费引用、不重复落**（真源 `docs/runtime-refactor/walk/裁决表.md` §14-B「与 §13-B 合并」）。
-13. **空手探查记指纹＋同参空手重发发射级拒**：探查空手（工具失败／`refused`／重试耗尽，或成功但本次新增非 notice 观察为 0）→ 记**同参指纹**（判定键＝工具名＋参数逐字 JSON——参数改了＝新尝试，门开着）；同参空手重发在**发射级整发射拒**（不执行工具、不占探查预算）；**首拒免轮、第 2 次起占轮**。真源：`docs/runtime-refactor/arch/P4b-票堆V2-56至65.md`（:26-28——A-P4b-04 空手记录纪律／A-P4b-05 同参判定键／A-P4b-06 发射级拒）。
+13. **空手探查记指纹＋同参空手重发发射级拒**：探查空手（工具失败／`refused`／重试耗尽，或成功但本次新增非 notice 观察为 0）→ 记**同参指纹**（判定键＝工具名＋参数逐字 JSON——参数改了＝新尝试，门开着）；同参空手重发在**发射级整发射拒**（不执行工具、不占探查预算）；**首拒免轮、第 2 次起占轮**；与行为 14 **同参重投闸**成对——「闸族」互引（两闸勿混：本闸记 `discover_fingerprint` 拦同参**空手**重发；行为 14 查发射支载荷指纹拦同参**重投**）。真源：`docs/runtime-refactor/arch/P4b-票堆V2-56至65.md`（:26-28——A-P4b-04 空手记录纪律／A-P4b-05 同参判定键／A-P4b-06 发射级拒）。
+14. **同参重投闸（与行为 13 空手探查闸成对的第二闸——「闸族」互引，两闸勿混）**：dispatch 工具调用前查同参指纹簿（指纹器材归 `specs/parsing.md` 行为 13、指纹簿记字段归 `specs/state.md`）；**全支皆在实录＝拦**（拒因回喂模型重决策，首拦免轮、连续第 2 次起占轮——自旋收敛语义与裁决 `docs/runtime-refactor/walk/裁决表.md` §06-A 一致）；**任一支新参＝放行**。（裁决真源＝主窗流水 30②，2026-10-15——销 `docs/runtime-refactor/spec-review/parsing-评审.md` P-10「两头都不认」；与行为 13 的分工：空手闸记 `discover_fingerprint` 拦同参空手重发，本闸查发射支载荷指纹拦同参重投。）
 
 ## 不降级与静默禁令
 
@@ -114,6 +115,7 @@ class Observation:
 | 单子问题失败不阻断其余（不炸整批） | `tests/domains/test_v2_execution.py::one_failure_does_not_abort_batch` |
 | 每次记账字段齐（参数／行数／拒因） | `tests/domains/test_v2_execution.py::per_call_accounting` |
 | 同参空手重发 → 发射级拒（不执行工具、不占探查预算）；首拒免轮、第 2 次起占轮；异参不拒（门开着） | `tests/domains/test_v2_execution.py::empty_probe_fingerprint_emission_reject` |
+| 同参重投闸（行为 14）：dispatch 前查同参指纹簿——全支皆在实录＝拦（拒因回喂模型重决策；首拦免轮、连续第 2 次起占轮）、任一支新参＝放行 | `tests/domains/test_v2_execution.py::same_param_replay_dispatch_gate` |
 | 机读信号在场（落引用／失败／缺参） | `tests/domains/test_v2_execution.py::execution_signal_present` |
 | 【边界集】空结果／超大结果／限流失败／缺参 → 各自落到对应分支 | `tests/domains/test_v2_execution.py::boundary_empty_huge_ratelimit_needinput` |
 | 【保留集】全成功时无额外信号、无回炉行为不变 | `tests/domains/test_v2_execution.py::retention_all_ok_unchanged` |

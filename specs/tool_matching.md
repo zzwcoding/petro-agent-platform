@@ -92,6 +92,7 @@ class MatchReason:                         # 结构化拒因单条：缺配／�
 8. **不做主动发现**：不引入检索式选工具／工具主动发现设施（工具集小）。
 9. **熔断暂不加**：拒因回喂自环**靠轮数闸兜底**；轮数等限额**引限额真源双指**（真源 `walk/裁决表.md` §06-A 循环上限五项 ＋ `recon/K-上下文事件指南预算.md` R-K-72…R-K-78 逐键——轮数＝R-K-72），**本规格不写字面值**。
 10. **名归一闸保留**：精确键未命中时按名归一扫描（真源 `walk/11-匹配-工具阀.md` §一）。
+11. **解析拒文→结构化拒因的转换归本块（消费方）**：解析拒文（parsing 产出的 `str` 拒文）→ `ToolMatchRejection` 的结构化转换归本块（消费方）：转换是机械适配（`str` 逐字进 `reason` 字段＋映射拒因枚举），零语义判断；parsing 不感知本块类型（R3）。（主窗流水 30① 裁决，2026-10-15——销 `docs/runtime-refactor/spec-review/parsing-评审.md` P-09「两头都不认」；解析本体与拒文产出归 `specs/parsing.md`，其风险 5 同步「已裁：转换在消费方」。）
 
 ## 不降级与静默禁令
 
@@ -110,6 +111,7 @@ class MatchReason:                         # 结构化拒因单条：缺配／�
 | `metric_slot` 为空，或呈英文列名**形态**（形态判定；判定形＝ASCII 标识符形——首字符 `[A-Za-z]`、其余仅 `[A-Za-z0-9_]`，大小写都咬；Owner 2026-10-15 拍板 B 案，判定形见行为 4）→ 判失败 | `tests/domains/test_v2_tool_matching.py::metric_slot_not_english_column` |
 | `ranking` 与 `direction` 同现约束 | `tests/domains/test_v2_tool_matching.py::ranking_direction_paired` |
 | 旧名经账本归一后才出数（出数只认现行口径） | `tests/domains/test_v2_tool_matching.py::legacy_name_normalized_before_query` |
+| 解析拒文（parsing `str`）→ `ToolMatchRejection` 结构化转换归本块（消费方）：机械适配（str 逐字进 `reason` 字段＋映射拒因枚举）、零语义判断（行为 11） | `tests/domains/test_v2_tool_matching.py::parse_rejection_str_to_tool_match_rejection_consumer_side` |
 | 每个工具描述含「何时用／不能做什么／参数示例」三项（**经 tools seam 测**；本块只消费其公开面） | `tests/domains/test_v2_tool_matching.py::descriptor_covers_three_parts` |
 | 程序只对账、不替模型选工具（AST 扫描本模块；**豁免面＝结构归一／形态处理**，如去装饰符号、token 包含匹配，**不算语义词表**） | `tests/domains/test_v2_tool_matching.py::no_lexicon_or_regex_in_tool_matching` |
 | 失败与拒因的机读信号在场（step payload ＋ notice） | `tests/domains/test_v2_tool_matching.py::rejection_signal_present` |
@@ -124,7 +126,7 @@ class MatchReason:                         # 结构化拒因单条：缺配／�
   1. **参数校验与 `query` 卡的 `QueryPlan` 真源漂移** → 两处规则不一致。对策：`QueryPlan` 只引用不复制；检测手段＝与 `specs/query.md` 的字段对照测试。
   2. **工具描述写全落在 `tools` 侧**（本块唯一涉及 runtimev2 之外文件的地方）。对策：改动限于描述文本，不动 `tools` 公开接口签名；检测手段＝`tools` 卡公开接口对账（阶段 7 体检）。
   3. **对账滑成"程序替模型选工具"** → 违总纪律。对策：程序只做存在性/一致性/枚举三类结构判定；检测手段＝AST 机检 `no_lexicon_or_regex_in_tool_matching`。
-  4. **同参重投闸归属**（原评审 F-11）：`synth/S1` 表 B 给了两个面（M3 决策出口／H4 指纹面）——**L0 裁决：闸件本体归 `parsing`（指纹）＋ `state`（限额），本块只被拦、不实现**；检测手段＝`parsing`／`state` 各自测试（不在本块验收表）。
+  4. **同参重投闸归属**（原评审 F-11）：`synth/S1` 表 B 给了两个面（M3 决策出口／H4 指纹面）——**L0 裁决：闸件本体归 `parsing`（指纹）＋ `state`（限额），本块只被拦、不实现**；**拦截实现归 `execution`（dispatch 统一出口，流水 30②）**——触发／拦截／回喂均不在本块；检测手段＝`parsing`／`state`／`execution` 各自测试（不在本块验收表）。
   5. **工具描述三件套与 `specs/tools.md` 的对齐**（原评审 F-03）→ **Owner 2026-10-15 已裁「要」**：`specs/tools.md` 行为 6 已同步补三件套（`descriptors()` 的 `description` 含何时用／不能做什么／参数示例），本规格不再挂待办；检测手段＝`tests/domains/test_v2_tools.py::descriptor_covers_three_parts`。
 
 ## 与闸的挂钩表

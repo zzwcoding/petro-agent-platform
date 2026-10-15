@@ -45,3 +45,15 @@
 - **不加闸（裁定照录）**：importlinter 边界闸**不随本批加**——R8 零 LLM 面语义不变，doctrine 是规格层不是闸层（主窗 2026-10-15 裁）。
 - **契约字面核对（未改 toml）**：R8（forbidden＝`appv2.runtimev2.gateway_adapter`，source 含本块）与新 doctrine 无字面冲突；R7 对本块「天然满足」的表述不受影响。
 - **验证**：`uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿（20 份规格）**。均 exit 0（批次一改后实跑）。
+
+---
+
+## 流水 31 裁决落笔（裁决二＝同参重投闸触发面归 execution）——2026-10-15
+
+- **依据**：主窗流水 31②（2026-10-15）——同参重投闸（与空手探查闸成对的第二闸）的触发／拦截／回喂归本块（dispatch 统一出口）。销 `parsing-评审.md` P-10（原判「两头都不认」）；`specs/parsing.md` 风险 4、`specs/tool_matching.md` 风险 4、`specs/agent-loop.md` 行为 3 同批回提。
+- **修改点**（只改 `specs/execution.md`，147→149 行）：
+  1. 行为约定新增**行为 14**「同参重投闸（与行为 13 空手探查闸成对的第二闸——「闸族」互引，两闸勿混）」（:91）：dispatch 工具调用前查同参指纹簿（指纹器材归 `specs/parsing.md` 行为 13、指纹簿记字段归 `specs/state.md`）；**全支皆在实录＝拦**（拒因回喂模型重决策，首拦免轮、连续第 2 次起占轮——自旋收敛语义与裁决 `walk/裁决表.md` §06-A 一致）；**任一支新参＝放行**。
+  2. 行为 13（:90）补互引句（与行为 14 成对——「闸族」互引、两闸勿混：空手闸记 `discover_fingerprint` 拦同参**空手**重发 vs 行为 14 查发射支载荷指纹拦同参**重投**）。
+  3. 验收测试表新增一行（:118）：`tests/domains/test_v2_execution.py::same_param_replay_dispatch_gate`（待织网，阶段 5）。
+- **未随批改面（登记交主窗）**：挂钩表未新增同参重投闸行（票面只授权行为＋验收行＋互引）；钉面归属（新钉或并入 `pin-06` 闸族表述）待主窗核定。
+- **验证**：`uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿（21 份规格）**；`uv run lint-imports --config tools/importlinter_v2.toml` → **Contracts: 18 kept, 0 broken**。均 exit 0（改后实跑）。未 git commit（主窗统一提交）。

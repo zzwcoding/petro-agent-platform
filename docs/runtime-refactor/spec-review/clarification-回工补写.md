@@ -90,3 +90,13 @@ $ uv run python tools/ref_resolvable.py check
 - **不加闸（裁定照录）**：importlinter 边界闸**不随本批加**——R7「只经出口」＋R8 语义不变，doctrine 是规格层不是闸层（主窗 2026-10-15 裁）。
 - **契约字面核对（未改 toml）**：逐条实读 `tools/importlinter_v2.toml`——R7（forbidden＝`appv2.infra.llm_client`；source 含 `appv2.runtimev2.bookkeeping`）与 R2（业务相位 forbidden 含 `appv2.runtimev2.bookkeeping.*` 深层子模块、不含包根）均与新 doctrine **无字面冲突**。实现期注意：相位 import 只许 `appv2.runtimev2.bookkeeping` 包根（R2 面）。
 - **验证**：`uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿（20 份规格）**。均 exit 0（批次一改后实跑）。
+
+---
+
+## 流水 31 裁决落笔（裁决一＝拒因转换点在消费方）——2026-10-15
+
+- **依据**：主窗流水 31①（2026-10-15）——解析拒文（parsing 产出的 `str` 拒文）→ `ClarifyRejection` 的结构化转换归本块（消费方）：转换是机械适配（`str` 逐字进 `reason` 字段＋映射拒因枚举），零语义判断；parsing 不感知本块类型（R3）。销 `parsing-评审.md` P-09（原判「两头都不认」）；`specs/parsing.md` 风险 5 同批改「已裁：转换在消费方」。
+- **修改点**（只改 `specs/clarification.md`，152→154 行）：
+  1. 行为约定新增**行为 19**「解析拒文→结构化拒因的转换归本块（消费方）」（:96）——机械适配（str 逐字进 `reason` 字段＋映射拒因枚举）、零语义判断、parsing 不感知本块类型（R3）。
+  2. 验收测试表新增一行（:127，【边界集】前）：`tests/domains/test_v2_clarification.py::parse_rejection_str_to_clarify_rejection_consumer_side`——测试标识待织网（阶段 5），同表口径。
+- **验证**：`uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿（21 份规格）**；`uv run lint-imports --config tools/importlinter_v2.toml` → **Contracts: 18 kept, 0 broken**。均 exit 0（改后实跑）。未 git commit（主窗统一提交）。

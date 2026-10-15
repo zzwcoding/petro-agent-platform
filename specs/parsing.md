@@ -24,7 +24,7 @@
 | 起草应答的发射剥离（`strip_emission_fences`）与回声／粘贴观测 | `answering`（答案面归属） | `specs/answering.md` 行为 11／行为 14 |
 | 提示词合同常量与各轮指令装配 | `prompts` | `specs/modules.md` `## prompts` |
 | 工具执行与观察回流 | `execution` | `specs/modules.md` `## execution` |
-| 同参重投闸的**触发与拦截／回喂** | 消费方（触发面归属登记件——见风险 4）＋`state`（指纹簿记字段） | `specs/tool_matching.md` 风险 4；`specs/execution.md` 行为 13 |
+| 同参重投闸的**触发与拦截／回喂** | `execution`（已裁：触发/拦截/回喂归 execution（流水 30②），本块只产指纹纯函数——见风险 4）＋`state`（指纹簿记字段） | `specs/execution.md` 行为 14；`specs/tool_matching.md` 风险 4 |
 | legacy 决策发射解析（`parse_decision` 四动作＋repair 桶） | **不做**——随 legacy 决策节点整体废弃（决策语义并入澄清相位） | `docs/runtime-refactor/synth/S4-调用图.md`（结构-1） |
 
 ## 触及的模块
@@ -166,8 +166,8 @@ def parse_tool_match(content: str, group: QuestionGroup) -> tuple[SubtaskMatch, 
   1. **卡与规格分叉（返回形＋成员展开）＝评审判 L0（`docs/runtime-refactor/spec-review/parsing-评审.md` P-01——指纹器材四件＝卡缺公开成员，S-2 类）**：卡面 `parse_question_group` 为初拟返回形（问题组容器单件），本块按 V1 逐字迁移形（含四动作定形＋拒因）并把族成员展开成名单。**登记件**（卡级，只登记不改卡）；**L0 清零＝卡面补录（主窗派窗 A），清零前本规格不定稿**；检测手段＝**人审**（评审工序＋卡级登记见风险 7①）。
   2. **迁移照抄 vs 数字单点相抵**（预算拒因文本内嵌数值：保字面 vs 插槽化）——**待裁差异点**。检测手段＝golden 比对件＋**人审**（主窗裁定；见风险 7②）。
   3. **载荷定型类物理定义点宣告（本块）与两份已定稿消费方类体差异**：`specs/clarification.md` `Subtask`（chain 必填形）与 `specs/tool_matching.md` `SubtaskMatch`（`caliber_key: str|None`／`plan: QueryPlan|None`）同物不同形——本块宣告「消费面形状以本规格行为 11 为准」，两份已定稿类体待主窗回改为引用句；若主窗裁定另置＝须回阶段 2 改卡。检测手段＝**人审**（阶段 7 接口契约对账；风险 7③）。
-  4. **同参重投闸的触发面与拦截落点未定案**（本块只锁指纹器材纯函数面；触发点在 V2 何面、拦截与回喂归谁两面无裁决文本——评审判「两头都不认」，`docs/runtime-refactor/spec-review/parsing-评审.md` P-10）。注：`specs/execution.md` 行为 13 系**空手探查闸（另一件闸，勿混）**。检测手段＝**人审**（与 `specs/tool_matching.md` 风险 4／`specs/agent-loop.md` 行为 3 对账；风险 7⑧）。
-  5. **拒因正文（`str`）与消费方结构化拒因**（`clarification` 的 `ClarifyRejection`／`tool_matching` 的 `ToolMatchRejection`）**转换点归属未定案**（评审判「两头都不认」，P-09）。检测手段＝**人审**（阶段 7 接口契约对账；风险 7④）。
+  4. **同参重投闸的触发面与拦截落点**：**已裁：触发/拦截/回喂归 execution（流水 30②），本块只产指纹纯函数**（原评审判「两头都不认」——`docs/runtime-refactor/spec-review/parsing-评审.md` P-10 随裁决销项；落点＝`specs/execution.md` 行为 14）。注：`specs/execution.md` 行为 13 系**空手探查闸（另一件闸，勿混）**——同参重投闸落其行为 14。检测手段＝**人审**（与 `specs/execution.md` 行为 14／`specs/tool_matching.md` 风险 4／`specs/agent-loop.md` 行为 3 对账；风险 7⑧ 销项）。
+  5. **拒因正文（`str`）与消费方结构化拒因**（`clarification` 的 `ClarifyRejection`／`tool_matching` 的 `ToolMatchRejection`）转换点：**已裁：转换在消费方（流水 30①），本块只产 `str` 拒文**（原评审判「两头都不认」——P-09 随裁决销项；落点＝两消费方规格行为约定）。检测手段＝**人审**（阶段 7 接口契约对账；风险 7④ 销项）。
   6. **理解面异常面分工**：本块只产 `None`、`UnderstandingParseError` 由 `understanding` 抛——两规格分工须对读一致；**回提登记**：`specs/understanding.md` 补「parsing 不合格（None）在场时抛」输入半面（风险 7⑩）。检测手段＝`specs/understanding.md` 行为 7／错误契约＋本规格行为 1 对读＋`::understanding_malformed_none_no_fallback`。
   7. **跨规格债与卡级登记清单（本批只登记、不代办——单写者纪律，交主窗统一回提）**：①`specs/modules.md` `## parsing` 卡：**指纹器材四件＋V2 定案公开成员补录＋返回形勘正（L0——`docs/runtime-refactor/spec-review/parsing-评审.md` P-01；卡补录＝L0 清零动作）**＋族名单注记（建议补「族名单以 parsing 规格接口定义为准（闭世界）」）；②预算拒因内嵌数值与 `ask` 边界「2~4」待裁（两解择一后行为 7／16 随批同步——P-06）；③载荷类消费面两处类体回改（`specs/clarification.md`／`specs/tool_matching.md`——P-05）；④拒因转换点归属三选一定案（P-09）；⑤`max_subtasks` 承载位落定（数值真源已定＝`walk/09` §七 Q-C＋`eng/00` F-14；`state` 键面待落定——P-03）；⑥JSON 重复键形裁定（卡面测试计划「不静默覆盖」剩余面——P-18）；⑦V1 裸抛收口差异点字面（`args` 拒文待主窗过目——P-07；D-L1a-09／D-L1a-10）；⑧同参重投闸触发/拦截/回喂落点裁定＋`specs/agent-loop.md` 行为 3 表述回提（P-10）；⑨plan／`ranking` 归属与 `specs/tool_matching.md` 行为 4 对账（P-11）；⑩`specs/understanding.md` 回认输入半面（P-23）。检测手段＝**人审**（主窗回提＋阶段 7 接口契约对账）。
 

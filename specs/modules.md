@@ -386,6 +386,12 @@ def assemble_answer_prompt(state: RunState) -> str: ...
 ```python
 def parse_understanding(text: str) -> Understanding | Direct | None: ...
 def parse_question_group(text: str) -> QuestionGroup | None: ...
+# 指纹器材（同参重投闸指纹面；L0 补录 2026-10-15——签名照 `specs/parsing.md` 接口定义节④逐字，
+# 「指纹器材公开化（去下划线）」＝窗 B 评审定案项）：
+def payload_fingerprint(payload) -> str: ...                            # 键序归一紧凑 JSON（R-A1-24）
+def discover_fingerprint(tool_name, args) -> str: ...                   # 空手探查指纹（R-A1-25）
+def emission_fingerprints(plan, retrieval_need) -> tuple[str, ...]: ... # 按支拆算（R-A1-26）
+def is_same_param_replay(fingerprints, executed) -> bool: ...           # 同参判定（R-A1-27/28）
 ```
 
 ### 依赖

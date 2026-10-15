@@ -12,3 +12,11 @@
 - **不加闸（裁定照录）**：importlinter 边界闸**不随本批加**——R7「只经出口」＋R8 语义不变，doctrine 是规格层不是闸层（主窗 2026-10-15 裁）。
 - **契约字面核对（未改 toml）**：逐条实读 `tools/importlinter_v2.toml`——R7（forbidden＝`appv2.infra.llm_client`；source 含 `appv2.runtimev2.orchestration` 与 `appv2.runtimev2.bookkeeping`）与 R2（forbidden 含 `appv2.runtimev2.bookkeeping.*` 深层子模块、不含包根）均与新 doctrine **无字面冲突**。实现期注意：相位 import 只许 `appv2.runtimev2.bookkeeping` 包根（R2 面）。
 - **验证**：`uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿（20 份规格）**。均 exit 0（批次一改后实跑；批次三后全量复跑仍绿）。
+
+---
+
+## 流水 31 裁决落笔（裁决二＝同参重投闸落 execution，行为 3 表述回提）——2026-10-15
+
+- **依据**：主窗流水 31②（2026-10-15）——「decision 出口同参重投闸保留」在 legacy 决策节点废弃（`synth/S4` 结构-1）后 V2 无落点（`parsing-评审.md` P-10），裁＝闸落 `execution`（dispatch 统一出口），本块只保留轮数闸／自旋收敛的预算面层。
+- **修改点**（只改 `specs/agent-loop.md`，235→236 行）：行为 3（:119-120）「decision 出口同参重投闸保留，定位降为确定性兜底」改为「同参重投闸落 execution（dispatch 统一出口，流水 31②），本块保留轮数闸／自旋收敛的预算面层；定位降为确定性兜底」——其后括注（主力是过程摘要渲染——V2-79c；V2-79a 三层分离后原「消息历史簿记」承载面退役）不变。
+- **验证**：`uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿（21 份规格）**；`uv run lint-imports --config tools/importlinter_v2.toml` → **Contracts: 18 kept, 0 broken**。均 exit 0（改后实跑）。未 git commit（主窗统一提交）。

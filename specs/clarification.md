@@ -93,6 +93,7 @@ class ClarifyReason:                                # 结构化拒因单条
 16. **发射判据**：**ask 仅限两种白场**（阈值判断形口径反问／目标-对象-口径真歧义）——**属模型侧策略，由 Skill 指南承载，程序不验收、不做语义判断**（与行为 5 同款处理；真源 `CONTEXT.md`「发射判据」词条）；**台账命中且时间窗已定 → 禁再 `discover`**（机械半句，程序可验收；「时间窗已定」的判断属模型侧策略判断，程序只分派模型结论，不入程序验收面——真源 `walk/裁决表.md` 项目级裁决 #13）。
 17. **`finalize` 合法性闸**：判「材料足够」直答收口的前置＝**窗内非 notice 实质观察数 ≥1**（faq 命中卡／台账条目卡／检索片段；空手探查——未命中 notice／工具失败／零观察——不算数），否则拒因「零实质观察禁定稿」回喂、**不得直答收口**；程序侧只数观察数（纯结构判定，零语义判断；计数属形态处理，在 `no_lexicon_or_regex_in_clarification` 豁免面内）（真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-01；钉 `pin-05`，P0）。
 18. **`finalize` 打回三段带路**：`finalize` 被拒（打回）时，拒因载荷必带**三段拼装文本**（机器已知事实说全、**零模型调用**）——①有绑定拒／台账外形的前置判定 →「该指标材料走报告检索：分解时 chain=knowledge、tool=doc_retrieve」；②已空手探查清单 →「已空手探查：{tools}——禁再试同名同参」；③兜底句**恒在**「先 discover 取得条目（精确名单词），或 decompose 分解走 doc_retrieve 检索执行。」；段缺则跳、「；」连接成单段文本（真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-03；钉 `pin-07`，P1）。
+19. **解析拒文→结构化拒因的转换归本块（消费方）**：解析拒文（parsing 产出的 `str` 拒文）→ `ClarifyRejection` 的结构化转换归本块（消费方）：转换是机械适配（`str` 逐字进 `reason` 字段＋映射拒因枚举），零语义判断；parsing 不感知本块类型（R3）。（主窗流水 30① 裁决，2026-10-15——销 `docs/runtime-refactor/spec-review/parsing-评审.md` P-09「两头都不认」；解析本体与拒文产出归 `specs/parsing.md`，其风险 5 同步「已裁：转换在消费方」。）
 
 ## 不降级与静默禁令
 
@@ -123,6 +124,7 @@ class ClarifyReason:                                # 结构化拒因单条
 | 拒因／截断／挂起的机读信号在场（ask 帧／`pending_ask`／step payload 拒因字段／notice） | `tests/domains/test_v2_clarification.py::clarify_signal_present` |
 | `discover` 经 `orchestration` 路由出去执行（本块零工具直调、不返回） | `tests/domains/test_v2_clarification.py::discover_routed_not_direct_call` |
 | 台账命中且时间窗已定 → 禁再 `discover`（机械半句，断的是模型结论的分派形——「时间窗已定」判断在模型侧（`walk/裁决表.md` 项目级裁决 #13）；「两白场」属模型侧策略，程序不验收） | `tests/domains/test_v2_clarification.py::no_rediscover_when_window_set` |
+| 解析拒文（parsing `str`）→ `ClarifyRejection` 结构化转换归本块（消费方）：机械适配（str 逐字进 `reason` 字段＋映射拒因枚举）、零语义判断（行为 19） | `tests/domains/test_v2_clarification.py::parse_rejection_str_to_clarify_rejection_consumer_side` |
 | 【边界集】`ledger_notes` 语义改写（非逐字）→ 判违约 | `tests/domains/test_v2_clarification.py::boundary_paraphrased_notes_rejected` |
 | 【保留集】非歧义问句不产生 ask；子问题独立并行行为不变 | `tests/domains/test_v2_clarification.py::retention_no_ask_no_dependency` |
 

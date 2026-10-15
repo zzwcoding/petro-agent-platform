@@ -116,7 +116,8 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
    时间词按窗词锚定表可解析即锚定发射，无时间词→默认近 30 天＋注记；台账命中＋窗
    已定＝禁再 discover（直发分解）；ask 仅限两种白场——无场景词＋阈值判断形的口径
    反问、目标/对象/口径真歧义（澄清合同收窄）；越集→审批。schema 校验失败＝拒因
-   回喂重发射，**无 repair**；decision 出口同参重投闸保留，定位降为确定性兜底
+   回喂重发射，**无 repair**；同参重投闸落 execution（dispatch 统一出口，流水 30②），
+   本块保留轮数闸／自旋收敛的预算面层；定位降为确定性兜底
    （主力是过程摘要渲染——V2-79c；V2-79a 三层分离后原「消息历史簿记」承载面
    退役）。
 4. 工具只经 ToolRegistry.call；返回 status=ask 时 run 转 waiting_ask 挂起，事件流发
