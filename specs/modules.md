@@ -363,10 +363,13 @@ def result_projection(result) -> dict: ...
 
 ### 公开接口
 ```python
-# 合同常量 ＋ 各轮装配函数（纯文本进出）
+# 合同常量 ＋ 各轮装配函数（纯文本进出）——族成员名单以 `specs/prompts.md` 接口定义为准
+# （闭世界；族名单补录 2026-10-15，P-08）
 def assemble_task_book(state: RunState) -> str: ...
 def assemble_answer_prompt(state: RunState) -> str: ...
 ```
+
+> **卡级补注（2026-10-15，P-07 联动注）**：台账常驻块交界定界＝**投影取得归 `context`（经 `tools` 公开面装载进 state）；常驻块包裹与逐字转抄渲染归本块**（Manifest 记账与不入史归 context/state 面——真源 `specs/prompts.md` 行为 7／8＋风险 3）。
 
 ### 依赖
 - 模块: `state`
@@ -386,12 +389,20 @@ def assemble_answer_prompt(state: RunState) -> str: ...
 ```python
 def parse_understanding(text: str) -> Understanding | Direct | None: ...
 def parse_question_group(text: str) -> QuestionGroup | None: ...
+# 卡面两函数＝阶段 2 初拟形（补录 2026-10-15，P-04 裁决「以迁移照抄为准」）——施工以
+# `specs/parsing.md` 接口定义节「V2 定案签名」为准：parse_understanding 两处同形；
+# parse_question_group 返回形勘正后＝`ClarifyEmission | str`＋注入制限额参数（参数名以卡为准）。
+def parse_tool_match(content: str, group: QuestionGroup) -> tuple[SubtaskMatch, ...] | str: ...
+#   （V2 定案公开成员，L0 补录 2026-10-15——签名照 `specs/parsing.md` 接口定义节逐字：
+#   工具匹配发射解析＋闭合世界对账（matches ↔ 问题组一一对应），真源 R-L1b-05…R-L1b-21）
 # 指纹器材（同参重投闸指纹面；L0 补录 2026-10-15——签名照 `specs/parsing.md` 接口定义节④逐字，
 # 「指纹器材公开化（去下划线）」＝窗 B 评审定案项）：
 def payload_fingerprint(payload) -> str: ...                            # 键序归一紧凑 JSON（R-A1-24）
 def discover_fingerprint(tool_name, args) -> str: ...                   # 空手探查指纹（R-A1-25）
 def emission_fingerprints(plan, retrieval_need) -> tuple[str, ...]: ... # 按支拆算（R-A1-26）
 def is_same_param_replay(fingerprints, executed) -> bool: ...           # 同参判定（R-A1-27/28）
+# 族名单权威注（补录 2026-10-15，P-01 清算包③）：本卡公开面以 `specs/parsing.md` 接口定义为准
+# （族名单闭世界——卡面未逐件重抄的其余成员＝②共用件四件／③载荷定型类四件，见其接口定义节）。
 ```
 
 ### 依赖
