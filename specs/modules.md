@@ -138,7 +138,7 @@ def interpret(state: RunState) -> Understanding | Direct: ...
 ```
 
 ### 依赖
-- 模块: `gate`、`prompts`、`parsing`、`gateway_adapter`、`state`；`tools`（结构卡发现面——直答结构核验读它，只经其公开面）
+- 模块: `gate`、`prompts`、`parsing`、`bookkeeping`（模型调用发起面——经 call_model 单点发起）、`gateway_adapter`、`state`；`tools`（结构卡发现面——直答结构核验读它，只经其公开面）
 - 外部: （无——模型调用经 `gateway_adapter`）
 
 ### Seam 与测试
@@ -157,7 +157,7 @@ def clarify(state: RunState) -> ClarifyOutcome: ...
 ```
 
 ### 依赖
-- 模块: `prompts`、`parsing`、`gateway_adapter`、`state`
+- 模块: `prompts`、`parsing`、`bookkeeping`（模型调用发起面——经 call_model 单点发起）、`gateway_adapter`、`state`
 - 外部: （无）
 
 ### Seam 与测试
@@ -178,7 +178,7 @@ def match(state: RunState) -> ToolPlan | ToolMatchRejection: ...
 ```
 
 ### 依赖
-- 模块: `state`、`parsing`、`prompts`、`gateway_adapter`；`tools`（只许走其公开面）
+- 模块: `state`、`parsing`、`prompts`、`bookkeeping`（模型调用发起面——经 call_model 单点发起）、`gateway_adapter`；`tools`（只许走其公开面）
 - 外部: （无）
 
 ### Seam 与测试
@@ -221,6 +221,7 @@ def execute(state: RunState) -> ExecutionOutcome: ...
 ### 依赖
 - 模块: `state`、`transport`、`persistence`（大结果引用落盘，只经其公开面）；`tools`（只许走其公开面）
 - 外部: （无）
+- 注: 零 LLM 面（R8），无发起面
 
 ### Seam 与测试
 - Seam: 工具调用（`tools` 公开面）
@@ -238,7 +239,7 @@ def answer(state: RunState) -> AnswerDraft: ...
 ```
 
 ### 依赖
-- 模块: `context`、`prompts`、`gateway_adapter`、`state`、`transport`（text 帧的增量发射，只经其公开面）
+- 模块: `context`、`prompts`、`bookkeeping`（模型调用发起面——经 call_model 单点发起）、`gateway_adapter`、`state`、`transport`（text 帧的增量发射，只经其公开面）
 - 外部: （无）
 
 ### Seam 与测试
@@ -259,6 +260,7 @@ def verify(state: RunState) -> Verdict: ...
 ### 依赖
 - 模块: `state`、`transport`（verdict/notice 帧的发射，只经其公开面）
 - 外部: （无）
+- 注: 零 LLM 面（R8），无发起面
 
 ### Seam 与测试
 - Seam: 核验接缝（草稿＋观察 → verdict）
@@ -333,6 +335,7 @@ def append_dialogue(state, *, role, content, origin) -> None: ...  # 对话层�
 def note(state, *, phase, title, digest) -> None: ...        # 过程档案（process_notes）续写（digest 有界）
 def notice(state, *, type, gates=(), content) -> None: ...   # 通知追加（type 闭世界）
 def set_intent(state, intent: str) -> None: ...              # next_intent 唯一写口（闭世界越界即拒；路由决策仍在 orchestration）
+def append_contract(state, phase) -> None: ...                # contracts_appended 字段唯一写函数（幂等、越界相位抛错）
 # ── 触界收敛与完成收口 ────────────────────────────────────
 def converge(state) -> None: ...        # 落地写入（判定归 `state.check_limits`；无回值——写 budget_hit／notices／正文／draft_kind／status／next_intent）
 def direct_answer(state, text) -> None: ...                  # 确定性直答标记（免起草免核验的收口旁路）
@@ -485,7 +488,7 @@ def audit(record) -> None: ...             # 唯一写口＝security.audit（B12
 ### Seam 与测试
 - Seam: 存储入口（换载体不改调用面）
 - Adapter: 内存 store／假检查点
-- 测试计划: 只追加不原地改；恢复可重放；审计四要素（主体与范围／意图与授权／执行事实／结果与证据）
+- 测试计划: 只追加不原地改；恢复可重放；审计四要素（主体／意图／事实／结果——范围并入主体、授权并入意图）
 
 ## gateway_adapter
 
