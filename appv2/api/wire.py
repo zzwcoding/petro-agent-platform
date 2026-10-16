@@ -1,96 +1,61 @@
-"""appv2.api.wire —— SSE wire schema 定型（V2-07；specs/agent-loop.md 接口定义节
-「事件枚举」与 R10 审查发现的落点）。
+"""appv2.api.wire —— wire 面适配（帧对象与信封的真源在 transport；本层只渲染）。
 
-三段定型（本模块是 wire 形唯一真源，端点与事件桥只消费不另立）：
-①帧信封＝00 §6.1 V1 wire 形：`id/event/data` 三行＋空行收束；帧序号即
-  Last-Event-ID 断点依据；中文不转义（ensure_ascii=False）。
-②事件类型集＝runtime 八类闭世界（step/text/tool/observation/ask/verdict/
-  citation/notice——appv2.runtime.events 单源 re-export）＋wire 面三帧：
-  session（首帧携 run_id——接口定义节「首帧 run_id」；V1 前端 applyFrame
-  以 session 帧接线 run 上下文）＋done/error 保留帧（V1 客户端 streamChat
-  只在保留帧上干净收流——web/ 零改动可连的机制判据）。
-③verdict 拆 subtype（R10：verify 步与终局两形同挂 "verdict" 类型，消费面
-  不再靠键猜载荷形态）：verify 载 {supported,rewritten,split,cited}、终局载
-  {status,run_id,manifest_digest}；subtype 判别单点 verdict_subtype，事件桥
-  据此把 `subtype` 键写进 wire 载荷（runtime 事件零改动——拆形只落 api 层）。
+帧通路收口（specs/transport.md「框架与依赖红线」原文「**禁手写替代（不得自建
+第二套帧通路）**：帧对象、信封、游标都只在本块实现；`api` 只做渲染」）：本模块
+**不自建**帧对象与信封——`SseEvent`／`envelope` 与闭世界常量族一律取
+`appv2.runtimev2.transport` 包根，帧信封字节形的唯一实现在该包 `frames.py`；
+本层把帧渲染成 SSE 文本，不另立第二套编号或第二套 subtype 判别。
 
-SSE 帧不携带 langgraph 类型（ADR-0002 红线①——载荷全 JSON 原语，本模块
-零框架依赖；事件桥只透传 runtime RunEvent.data）。
+消费面（`specs/modules.md` `## api` 卡的「类型/常量形状面」——帧类型 SseEvent）：
+
+- `FRAME_SESSION`／`FRAME_DONE`／`FRAME_ERROR`＝wire 三帧名（开流段 `session` 与
+  收束段 `done`／`error` 的发射时机归本层——`specs/transport.md`「不做什么」表行；
+  帧名闭世界与信封形状归 transport）；
+- `WIRE_EVENT_KINDS`＝事件十二值全集（九 runtime＋三 wire）；
+- `render_frame`＝帧→SSE 文本渲染缝（`id/event/data` 三行＋空行收束；中文不转义；
+  非 JSON 原语兜底为字符串——三条都由 transport 的 `envelope` 单点保证）；
+- verdict 帧的 `subtype` 注入同在该调用链内由 `SseEvent` 构造期单点完成
+  （specs/transport.md 行为 6「唯一改造＝`verdict` 帧注入 `subtype` 键」）——
+  本层零第二套判别（旧 `verdict_subtype` 单点随帧通路收口撤除）。
 """
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from typing import Any
 
-from appv2.runtime import (
-    EVENT_ASK,
-    EVENT_CITATION,
+from appv2.runtimev2.transport import (
     EVENT_KINDS,
-    EVENT_NOTICE,
-    EVENT_OBSERVATION,
-    EVENT_STEP,
-    EVENT_TEXT,
-    EVENT_TOOL,
-    EVENT_VERDICT,
+    WIRE_FRAMES,
+    SseEvent,
+    envelope,
 )
 
-# ---------- 帧信封（00 §6.1 V1 wire 形） ----------
+# ---------- 帧名（wire 三帧——取值真源 transport.WIRE_FRAMES） ----------
 
 FRAME_SESSION = "session"
 FRAME_DONE = "done"
 FRAME_ERROR = "error"
 
-# ---------- 事件类型集（runtime 八类闭世界＋wire 面三帧——V1 超集面） ----------
+# ---------- 事件类型集（runtime 九类闭世界＋wire 面三帧——V1 超集面） ----------
 
-WIRE_EVENT_KINDS: frozenset[str] = EVENT_KINDS | {FRAME_SESSION, FRAME_DONE, FRAME_ERROR}
-
-# ---------- verdict subtype（R10 两形闭世界） ----------
-
-VERDICT_VERIFY = "verify"
-VERDICT_FINAL = "final"
-VERDICT_SUBTYPES: frozenset[str] = frozenset({VERDICT_VERIFY, VERDICT_FINAL})
-
-
-def verdict_subtype(data: Mapping[str, Any]) -> str:
-    """verdict 载荷 subtype 判别单点：终局形携 status 键（verify 形无）。
-
-    runtime 两发射点（graph.verify_node/answer_node）载荷键集互斥——按键判别
-    是确定性分型，不是内容猜测；未知键集（runtime 契约外）判 verify 并在
-    wire 载荷如实透传原键（不吞不猜）。
-    """
-    return VERDICT_FINAL if "status" in data else VERDICT_VERIFY
+WIRE_EVENT_KINDS: frozenset[str] = EVENT_KINDS | WIRE_FRAMES
 
 
 def render_frame(frame_id: int, event: str, data: Mapping[str, Any]) -> str:
-    """00 §6.1 帧信封：`id/event/data` 三行＋空行收束（SSE 帧界）。
+    """帧→SSE 文本（信封字节形的唯一实现＝transport 的 `envelope`）。
 
-    帧序号即 Last-Event-ID 依据（00 §6.1）——续推断点按此回放；
-    ensure_ascii=False（中文不转义，V1 render_frame 同形）；default=str 兜底
-    （问数链表格答案含 Decimal/date 对象——V1 同款防流内异常）。
+    帧名越界与定形载荷（`notice`／`ask`／`error`）越界在帧构造期抛错
+    （fail-closed，不静默丢弃、不降级）；verdict 帧的 `subtype` 注入同在构造期
+    单点完成（本层不再注入）。
     """
-    payload = json.dumps(dict(data), ensure_ascii=False, default=str)
-    return f"id: {frame_id}\nevent: {event}\ndata: {payload}\n\n"
+    return envelope(SseEvent(seq=frame_id, event=event, data=dict(data)))
 
 
 __all__ = [
-    "EVENT_ASK",
-    "EVENT_CITATION",
-    "EVENT_KINDS",
-    "EVENT_NOTICE",
-    "EVENT_OBSERVATION",
-    "EVENT_STEP",
-    "EVENT_TEXT",
-    "EVENT_TOOL",
-    "EVENT_VERDICT",
     "FRAME_DONE",
     "FRAME_ERROR",
     "FRAME_SESSION",
-    "VERDICT_FINAL",
-    "VERDICT_SUBTYPES",
-    "VERDICT_VERIFY",
     "WIRE_EVENT_KINDS",
     "render_frame",
-    "verdict_subtype",
 ]

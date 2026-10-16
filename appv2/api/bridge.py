@@ -4,14 +4,22 @@
 - RunStream（per-run 缓冲）：api 层是 handle.stream 的唯一排空点——ask/resume
   各段事件流续拼进同一 run 缓冲，多消费者（原响应/断线重放/后连观察者）各凭
   游标读同一缓冲，互不抢占（AsyncIterator 单消费者限制在桥内收口）；
-- sse_frames（帧渲染）：缓冲 → `id/event/data` 信封帧流（wire.render_frame），
-  verdict 事件按 R10 拆 subtype 写进 wire 载荷，流尾保留帧收场（done＝正常/
+- sse_frames（帧渲染）：缓冲 → `id/event/data` 信封帧流（`wire.render_frame`——
+  帧对象与信封的唯一实现在 transport，本层只渲染），verdict 的 subtype 由该帧
+  构造期单点注入（specs/transport.md 行为 6），流尾保留帧收场（done＝正常/
   挂起收束，error＝排空异常——00 §6.1 流内异常不发 HTTP 错误包）。
+
+error 帧只出稳定话术（specs/transport.md 行为 9／14：原始异常文本不进帧）——
+排空异常原文留在 `RunStream.error` 内部字段（对外留痕归 persistence／audit
+其块），帧载荷定形恰二键 `{code, message}`。
 
 游标语义（行为约定 8「断线凭游标续传」）：缓冲位 p 的帧号＝p＋1（session
 首帧占 0）；Last-Event-ID＝客户端最后收到的帧号 L → 重放缓冲位 ≥ L 的事件，
 不重复不遗漏。重放流自 L＋1 续枚举帧号（重放帧号与原流不对齐——能补的是
-缓冲内容而非原流帧序，V1 重放同形，如实登记）。
+缓冲内容而非原流帧序，V1 重放同形，如实登记）。**帧号与游标的收口面**＝
+transport 的出帧面（`EventBus.stream(cursor)`／`SseEvent.seq`——specs/
+transport.md 行为 3／4／5「一处编号＋重放不位移」）——本层该处编号随运行时
+出帧面（`RunHandle.stream`／`cursor`）改接一并移交，现形如实为响应内自编号。
 
 进程内边界（如实声明）：缓冲存活于本进程——跨进程重放与缓冲淘汰归
 ADR-0003 RunCommand seam 的队列消费者形态（执行器换 Redis Stream 消费者时
@@ -25,15 +33,12 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from appv2.api.errors import CODE_STREAM_FAILED
-from appv2.api.wire import (
-    EVENT_VERDICT,
-    FRAME_DONE,
-    FRAME_ERROR,
-    FRAME_SESSION,
-    render_frame,
-    verdict_subtype,
-)
+from appv2.api.wire import FRAME_DONE, FRAME_ERROR, FRAME_SESSION, render_frame
 from appv2.runtime import RunEvent, RunHandle
+
+# 帧内稳定话术（specs/transport.md 行为 9：`error` 帧 `message` 为稳定话术、
+# `code` 为稳定错误码；行为 14：任何帧不得携带内部堆栈／模块路径／SQL 文本）。
+ERROR_FRAME_MESSAGE = "本次回答中断——请重新提问"
 
 
 class RunStream:
@@ -129,8 +134,8 @@ async def sse_frames(
     follow_cursor: int,
     session: dict[str, Any] | None,
 ) -> AsyncIterator[str]:
-    """事件缓冲 → 信封帧流：首帧 session[可选] → 事件帧（verdict 拆 subtype）
-    → 保留帧收场（done＝正常/挂起；error＝排空异常，{code,message} 形）。
+    """事件缓冲 → 信封帧流：首帧 session[可选] → 事件帧 → 保留帧收场
+    （done＝正常/挂起；error＝排空异常，载荷定形恰二键 {code,message} 的稳定话术）。
 
     first_frame_id＝本响应首帧号（新流 0；重放＝断点＋1——V1 重放续枚举同形）；
     follow_cursor＝事件消费起点（新段＝挂接游标；重放＝断点帧号）。
@@ -141,22 +146,19 @@ async def sse_frames(
             yield render_frame(idx, FRAME_SESSION, session)
             idx += 1
         async for event in stream.follow(cursor=follow_cursor):
-            data = event.data
-            if event.event == EVENT_VERDICT:
-                data = {"subtype": verdict_subtype(event.data), **data}
-            yield render_frame(idx, event.event, data)
+            yield render_frame(idx, event.event, event.data)
             idx += 1
         if stream.error is not None:
             yield render_frame(
                 idx,
                 FRAME_ERROR,
-                {"code": CODE_STREAM_FAILED, "message": f"流内异常——{stream.error}"},
+                {"code": CODE_STREAM_FAILED, "message": ERROR_FRAME_MESSAGE},
             )
         else:
             yield render_frame(idx, FRAME_DONE, {"run_id": stream.run_id})
-    except Exception as exc:  # 渲染面异常——error 帧收场后关流（00 §6.1）
+    except Exception:  # 渲染面异常——error 帧收场后关流（00 §6.1；只用稳定话术）
         yield render_frame(
             idx,
             FRAME_ERROR,
-            {"code": CODE_STREAM_FAILED, "message": f"流内异常——请重新提问：{exc}"},
+            {"code": CODE_STREAM_FAILED, "message": ERROR_FRAME_MESSAGE},
         )
