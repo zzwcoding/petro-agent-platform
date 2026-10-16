@@ -10,25 +10,33 @@
    零自取**；作答轮零常驻来源行）；材料段经 `context.render_materials` 渲染（帽为注入参数、
    数值单点仍在 `context`）；指令文本经 `prompts.assemble_answer_prompt` 装配（材料段不在装配
    输出内——调用方追加于尾）。截断态**必披露**：`material_truncated` notice 在场（未截断零通知）；
-2. **起草**：作答指令＋材料段一条 user 消息追加链尾（`bookkeeping.append_message`）→ 经
-   `bookkeeping.call_model` **单点发起**模型调用（本块不直引 `gateway_adapter`、不直引
+   **引擎注记段**（行为 15 的「不静默」面）：`locator.kind == notice` 的观察（台账 no_hit 等降级／
+   拦停注记——`context` 材料段整体排除）由本块以**原文**追加于材料段之后（不得静默丢弃）；
+2. **起草**：作答指令＋材料段（＋引擎注记段）一条 user 消息追加链尾（`bookkeeping.append_message`）
+   → 经 `bookkeeping.call_model` **单点发起**模型调用（本块不直引 `gateway_adapter`、不直引
    `appv2.infra.llm_client`、不自建模型客户端——R7 ＋「无旁路」行为断言）；
 3. **发射剥离**（行为 11，钉 `pin-04`）：应答先过 `strip_emission_fences`（`emission` 单点），
-   发射 JSON 不进答案面（泄漏=0）；检出即发 `emission_strip` notice（机读面）；
+   发射 JSON 不进答案面（泄漏=0）；检出即发 `emission_strip` notice（机读面）；随后过
+   `strip_placeholders`（行为 13）：字面占位引标 `[n]` 整枚离场——剥离后才是
+   答案面文本（分段／发帧／落 `state.draft` 三者同源）；
 4. **分段与引标**（行为 1／2／3）：草稿按空行分**段**，逐段取本段 `citation_seqs`（`[n]` 序）；
    **引标必须真实存在于观察序列**——出现不存在的引标号即抛 `DanglingCitationError`（判失败，
    fail-closed），**且校验先于发帧**（坏引标不得上帧面）；
 5. **真流式推出**（行为 1）：逐段发 `text` 帧（一段一帧）——**不是收口时一次性推全量**；模型原话
    **只进过程档案**（`bookkeeping.note` 留痕——行为 8：模型原话不进对话层），草稿另落
    `state.draft` 供核验消费；答案面步落 `payload` 的 `citations`／`gaps` 机读字段（「不降级与
-   静默禁令」节）＋**材料面 Manifest**（见下「步面接缝」）；
+   静默禁令」节）＋**降级与引用簇七键**（`_delivery_face`：行为 6／12／14／15／16 的机读面——
+   `echo_flag`／`engine_notes`／`contradiction_seqs`／`engine_rows`／`delivered_rows`／
+   `ranking_seqs`／`ranking_order_ok`）＋**材料面 Manifest**（见下「步面接缝」）；
 6. **结构化缺口**（行为 5）：被拒子问题→`Gap(kind="refused")`、其余失败／缺料→
    `Gap(kind="missing")`、零实质材料（无非 notice 观察）→`Gap(kind="unverified")`——三档齐由
    同一确定性分派产生，**不静默截断**；空稿（剥离后）→ **不推空答案**（零 text 帧、`state.draft`
    保持空），按缺口如实收口（行为 9）；
 7. **收口**（行为 7，核验后重入面）：`verdict` 在场／直答态／已有起草标记＝**收口段**——引用块
-   生成、`citation` 帧逐支发射、终稿一条 assistant 消息追加链尾，**同批落定**。`verdict` 帧本体
-   是**消费方信号**（批次落定归 `orchestration`，行为 7 明写），本块不产。
+   生成、`citation` 帧逐支发射、终稿一条 assistant 消息追加链尾，**同批落定**；正文与引用块之间
+   依次接**「互不一致」分源块**（行为 6）与**分源列明归属块**（行为 17）——两块由 `degradation`
+   以形态判据确定性装配（不靠模型自觉、逐支原文照抄、单源／无矛盾零追加、重入幂等）。`verdict`
+   帧本体是**消费方信号**（批次落定归 `orchestration`，行为 7 明写），本块不产。
 
 **步面接缝（登记呈主窗）**：模型调用步由 `bookkeeping.call_model` **单点记账**（用量与归因面＋
 `token_count`），本块**不为同一调用再记模型调用步**；本块的答案面步（`起草答案`／`答案收口`）
@@ -69,6 +77,9 @@ from appv2.runtimev2.answering.constants import (
     NOTICE_EMISSION_STRIP,
     NOTICE_MATERIAL_TRUNCATED,
     PAYLOAD_CITATIONS_KEY,
+    PAYLOAD_CONTRADICTION_SEQS_KEY,
+    PAYLOAD_ECHO_FLAG_KEY,
+    PAYLOAD_ENGINE_NOTES_KEY,
     PAYLOAD_GAP_KIND_KEY,
     PAYLOAD_GAP_REASON_KEY,
     PAYLOAD_GAP_SUBTASK_KEY,
@@ -76,6 +87,8 @@ from appv2.runtimev2.answering.constants import (
     PAYLOAD_PHASE_DRAFT,
     PAYLOAD_PHASE_FINALIZE,
     PAYLOAD_PHASE_KEY,
+    PAYLOAD_RANKING_ORDER_OK_KEY,
+    PAYLOAD_RANKING_SEQS_KEY,
     PHASE,
     ROLE_ASSISTANT,
     ROLE_USER,
@@ -85,6 +98,21 @@ from appv2.runtimev2.answering.constants import (
     TEXT_EVENT,
     TEXT_PAYLOAD_CONTENT,
     ZERO_MATERIAL_REASON,
+)
+from appv2.runtimev2.answering.degradation import (
+    citation_seqs,
+    contradiction_groups,
+    contradiction_section,
+    delivery_accounting,
+    echo_flag,
+    engine_notes,
+    engine_notes_block,
+    ranking_order_ok,
+    rowset_seqs,
+    source_id_of,
+    source_of,
+    source_section,
+    strip_placeholders,
 )
 from appv2.runtimev2.answering.emission import strip_emission_fences
 from appv2.runtimev2.answering.models import (
@@ -120,7 +148,6 @@ _BUS_MISSING = (
     "fail-closed：不静默丢弃（行为 1／2）"
 )
 _CITATION_BLOCK_LINE = "[{seq}] {source} · {source_id}（{trust}）"
-_ASCII_DIGITS = "0123456789"
 
 
 class DanglingCitationError(ValueError):
@@ -202,12 +229,19 @@ def _draft(state: RunState, bus: EventBus, *, max_observations: int) -> AnswerDr
     append_message(
         state,
         role=ROLE_USER,
-        content=assemble_answer_prompt(state) + materials_text,
+        content=(
+            assemble_answer_prompt(state)
+            + materials_text
+            + engine_notes_block(engine_notes(state.observations))
+        ),
     )
     raw = call_model(state, MODEL_CALLER, list(state.messages))
     draft_text, leaked = strip_emission_fences(raw)
     if leaked:
         notice(state, type=NOTICE_EMISSION_STRIP, content=EMISSION_STRIP_CONTENT)
+    # 占位符不进答案面（行为 13）：字面占位引标 `[n]` 整枚离场——剥离后才是答案面文本
+    # （分段／发帧／落 `state.draft` 三者同源；剥后成空的行由空段跳过自然丢弃）。
+    draft_text = strip_placeholders(draft_text)
     # 模型原话只进过程档案与留痕（行为 8；对话层零写入）——本条同时是「已起草」机读标记。
     note(state, phase=PHASE, title=DRAFT_NOTE_TITLE, digest=raw)
     by_index = _observation_index(state)
@@ -218,7 +252,10 @@ def _draft(state: RunState, bus: EventBus, *, max_observations: int) -> AnswerDr
         kind=DRAFT_STEP_KIND,
         title=DRAFT_STEP_TITLE,
         status=STEP_STATUS_OK if draft_text.strip() else STEP_STATUS_FAILED,
-        payload=_citations_gaps_payload(PAYLOAD_PHASE_DRAFT, segments, gaps),
+        payload={
+            **_citations_gaps_payload(PAYLOAD_PHASE_DRAFT, segments, gaps),
+            **_delivery_face(state, by_index, segments, draft_text),
+        },
         manifest=manifest,
     )
     if not draft_text.strip():
@@ -243,6 +280,12 @@ def _finalize(state: RunState, bus: EventBus) -> AnswerDraft:
     终稿文本＝核验后的草稿（`state.draft`）或直答/收敛正文（`state.answer`）；引用块与 `citation`
     帧取**同一序集**（答案面实际携带的合法引标 ∪ 核验支撑集）——两处同源不脱节（行为 2／7）。
     无稿可收口（空稿路径重入／直答空文本）→ **不推空答案**，按结构化缺口如实收口（行为 9）。
+
+    **降级与引用簇**（`RT-W4-06b`，收口段两处确定性装配——**不靠模型自觉**，逐支原文照抄、
+    零二次创作、零语义裁决）：正文之后、引用块之前依次接「互不一致」分源块（行为 6——被引支
+    同 subject 异值即分源列明，标「互不一致」，不调和）与分源列明归属块（行为 17——被引集跨
+    ≥2 出处即逐源配对「来源名↔数值／结论」）。两块的触发都是**形态判据**（见 `degradation`），
+    单源／无矛盾＝零追加（保留集：普通答案的分源行为不变），收口重入面幂等（同块头在场＝不重复落）。
     """
     by_index = _observation_index(state)
     text = state.draft or state.answer
@@ -260,7 +303,13 @@ def _finalize(state: RunState, bus: EventBus) -> AnswerDraft:
     segments = _final_segments(text, by_index)
     cited = _cited_seqs(state, text, by_index)
     citations = [Citation(seq=seq, locator=_locator_of(by_index[seq])) for seq in cited]
-    final_text = text + _citation_block(cited, by_index)
+    groups = contradiction_groups(cited, by_index)
+    final_text = (
+        text
+        + contradiction_section(groups, by_index, text)
+        + source_section(cited, by_index, text)
+        + _citation_block(cited, by_index)
+    )
     for seq in cited:
         bus.emit(CITATION_EVENT, _citation_payload(seq, by_index[seq]))
     append_message(state, role=ROLE_ASSISTANT, content=final_text)  # 链尾（同批）
@@ -269,7 +318,12 @@ def _finalize(state: RunState, bus: EventBus) -> AnswerDraft:
         state,
         kind=FINALIZE_STEP_KIND,
         title=FINALIZE_STEP_TITLE,
-        payload=_citations_gaps_payload(PAYLOAD_PHASE_FINALIZE, segments, []),
+        payload={
+            **_citations_gaps_payload(PAYLOAD_PHASE_FINALIZE, segments, []),
+            PAYLOAD_CONTRADICTION_SEQS_KEY: [
+                seq for group in groups for seq in group
+            ],
+        },
     )
     set_intent(state, INTENT_END)
     return AnswerDraft(segments=segments, citations=citations, gaps=[])
@@ -284,20 +338,11 @@ def _split_segments(text: str) -> list[str]:
 
 
 def _citation_seqs(text: str) -> list[int]:
-    """文本内的引标序号列（`[n]`，ASCII 数字形；出现序、含重复）——**形态扫描，零语义**。"""
-    seqs: list[int] = []
-    cursor = 0
-    while True:
-        start = text.find("[", cursor)
-        if start < 0:
-            return seqs
-        end = text.find("]", start + 1)
-        if end < 0:
-            return seqs
-        token = text[start + 1 : end]
-        if token and all(char in _ASCII_DIGITS for char in token):
-            seqs.append(int(token))
-        cursor = end + 1
+    """文本内的引标序号列（`[n]`，ASCII 数字形；出现序、含重复）——**形态扫描，零语义**。
+
+    单点在 `degradation.citation_seqs`（同族还有占位符记号剥离——同一方括号扫描面，禁第二份）。
+    """
+    return citation_seqs(text)
 
 
 def _draft_segments(text: str, by_index: Mapping[int, Mapping[str, Any]]) -> list[AnswerSegment]:
@@ -370,6 +415,60 @@ def _observation_index(state: RunState) -> dict[int, Mapping[str, Any]]:
     return index
 
 
+# ── 降级与引用簇机读面（`RT-W4-06b`：行为 6／12／14／15／16）─────────────────────
+
+
+def _has_ranking_subtask(state: RunState) -> bool:
+    """是否存在排名型子问题（形态读取：`state.tool_matches` 的 `plan.ranking` 布尔真——零语义）。
+
+    取值真源＝`specs/tool_matching.md` 匹配计划的必填布尔 `ranking`（`prompts` 汇总合同的排名
+    支配句同源判定）；本函数只读布尔形，不判「这句问句要不要排名」（语义面归模型）。
+    """
+    for match in state.tool_matches:
+        if not isinstance(match, Mapping):
+            continue
+        plan = match.get("plan")
+        if isinstance(plan, Mapping) and plan.get("ranking") is True:
+            return True
+    return False
+
+
+def _delivery_face(
+    state: RunState,
+    by_index: Mapping[int, Mapping[str, Any]],
+    segments: list[AnswerSegment],
+    draft_text: str,
+) -> dict[str, Any]:
+    """降级与引用簇的**交付面机读字段**（起草步 payload 单点，-B 七键）。
+
+    - `echo_flag`（行为 14）：起草回声签名真值——**观测字段只记不拦**（不拦交付、不改写）；
+    - `engine_notes`（行为 15）：引擎注记原文列（台账 no_hit 等——不静默丢弃）；
+    - `contradiction_seqs`（行为 6）：被引支里的矛盾池成员序号（分源列明面）；
+    - `engine_rows`／`delivered_rows`（行为 12 交付侧）：行集题交付行数＝引擎返回行数（丢行=0）
+      的机检形——**只记账、不拦截**（拦截／如实注记归 `verification` 行为 11，同一界线）；
+    - `ranking_seqs`／`ranking_order_ok`（行为 16）：排名观察支序号（有排名型子问题才在册）＋
+      交付序与支序一致性（**序信息**面；数值复述面归 `verification`）。
+
+    **判据代理登记（呈主窗对账）**：状态面**无「子问题 → 观察」归属链**（`RunState.subtask_results`
+    只记 `obs_count`／`ref`，观察行不带子问题号），故「排名观察支」以**窗口行集族行**为形态代理
+    （引擎按计划序返回的数据行——`specs/execution.md` 行为 4）；「跨油田归属」以**出处名差异**
+    为形态代理（见 `degradation.source_section`）。
+    """
+    cited = sorted({seq for segment in segments for seq in segment.citation_seqs})
+    ranking = _has_ranking_subtask(state)
+    branch = rowset_seqs(by_index)
+    return {
+        PAYLOAD_ECHO_FLAG_KEY: echo_flag(draft_text),
+        PAYLOAD_ENGINE_NOTES_KEY: engine_notes(state.observations),
+        PAYLOAD_CONTRADICTION_SEQS_KEY: [
+            seq for group in contradiction_groups(cited, by_index) for seq in group
+        ],
+        **delivery_accounting(by_index, cited),
+        PAYLOAD_RANKING_SEQS_KEY: branch if ranking else [],
+        PAYLOAD_RANKING_ORDER_OK_KEY: (not ranking) or ranking_order_ok(draft_text, branch),
+    }
+
+
 # ── 缺口（行为 5）───────────────────────────────────────────────────────────
 
 
@@ -427,13 +526,13 @@ def _scalar(value: Any) -> bool:
 
 
 def _source_of(observation: Mapping[str, Any]) -> str:
-    source = observation.get("source")
-    return source if isinstance(source, str) else ""
+    """出处名读取（单点在 `degradation.source_of`——引用块／帧载荷／分源块同源，禁第二份）。"""
+    return source_of(observation)
 
 
 def _source_id_of(observation: Mapping[str, Any]) -> str:
-    source_id = observation.get("source_id")
-    return source_id if isinstance(source_id, str) else ""
+    """出处标识读取（单点在 `degradation.source_id_of`——同源纪律同上）。"""
+    return source_id_of(observation)
 
 
 def _trust_of(observation: Mapping[str, Any]) -> str:

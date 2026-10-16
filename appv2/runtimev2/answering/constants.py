@@ -50,6 +50,20 @@ CITATION_PAYLOAD_TRUST = "trust"
 NOTICE_EMISSION_STRIP = "emission_strip"  # 发射通道残留检出（钉 pin-04 的机读面）
 NOTICE_MATERIAL_TRUNCATED = "material_truncated"  # 材料截断披露（帧面分型同族）
 
+# ── 降级与引用簇机读面（`RT-W4-06b`：行为 6／12／14／15／16 的步 payload 键单点）──────
+# 七键同落**起草答案**步 payload（起草＝交付面第一手；收口步另携 `contradiction_seqs`）。
+PAYLOAD_ECHO_FLAG_KEY = "echo_flag"  # 行为 14（字段名逐字＝A-P4b-61——观测字段只记不拦）
+PAYLOAD_ENGINE_NOTES_KEY = "engine_notes"  # 行为 15：引擎注记原文（no_hit 等——不得静默丢弃）
+PAYLOAD_CONTRADICTION_SEQS_KEY = "contradiction_seqs"  # 行为 6：矛盾池成员序号（分源列明面）
+# 行集交付对账（行为 12 **交付侧**）：`engine_rows`＝引擎返回行数（窗口行集族行数）、
+# `delivered_rows`＝答案面实际交付的行数（被引支数）——与 `specs/verification.md` 行为 11 的
+# `obs_rows`／`delivered_rows` 同口径（本块为交付侧第一手记账，核验侧对账归 verification）。
+PAYLOAD_ENGINE_ROWS_KEY = "engine_rows"
+PAYLOAD_DELIVERED_ROWS_KEY = "delivered_rows"
+# 排名型子问题消费面（行为 16）：排名观察支序号（窗口行集族序）＋交付序一致性（序信息面）。
+PAYLOAD_RANKING_SEQS_KEY = "ranking_seqs"
+PAYLOAD_RANKING_ORDER_OK_KEY = "ranking_order_ok"
+
 # ── 机读 payload 键名（本块答案面步的 `citations`／`gaps` 字段——「不降级与静默禁令」节）──
 PAYLOAD_PHASE_KEY = "phase"
 PAYLOAD_CITATIONS_KEY = "citations"
@@ -90,6 +104,38 @@ MATERIAL_TRUNCATED_CONTENT = (
     "答案视野检索片段仅渲染 {rendered}/{total} 支（权威行集与台账卡已全量）"
     "——未渲染部分不作答（V2-61）。"
 )
+
+# ── 降级与引用簇（`RT-W4-06b`：行为 6／12／13／14／15／16／17——本块自有文案单点）─────────
+# 矛盾分源块（行为 6：分源列明、不强调和；「互不一致」标出——对应 `refuted_by` 取向）。
+# 逐支行形逐字迁移 V1 `graph.py` `_contradiction_members` 的列明形（recon/A2 R-A2-29）。
+CONTRADICTION_SECTION_HEAD = "\n\n互不一致——多来源分源列明（禁止无出处调和）："
+CONTRADICTION_LINE = "[{seq}] {source} · {source_id}：{content}"
+# 分源列明归属块（行为 17：逐源归属配对——来源名↔数值／结论配对；「某区块」含糊形不得由本块产出）。
+SOURCE_SECTION_HEAD = "\n\n分源列明（逐源归属——来源名↔数值／结论配对）："
+SOURCE_LINE = "[{seq}] {source}：{content}"
+# 引擎注记段（行为 15 的「不静默」面：台账 no_hit 等引擎注记在 `context.render_materials` 里
+# 整体排除（`specs/context.md` 行为 2），故本块另以其原文送入窗口——「不得静默丢弃」）。
+ENGINE_NOTES_HEAD = "\n引擎注记（引擎降级／拦停／未绑定注记——如实转述，不得静默丢弃）：\n"
+# 起草回声签名判据（行为 14；字面逐字＝A-P4b-61）。两字面是规格给定的**形态签名**：
+# 只记签名、零拦截、零改写（「观测字段只记不拦」——不是语义词表，见 `degradation` 模块注）。
+ECHO_HEAD = "理解："
+ECHO_CANDIDATE_MARK = "指标候选"
+ECHO_WINDOW = 100
+# 方括号记号体分型（行为 13 占位符 `[n]` 与引标 `[n]` 的形态判据字符集——零语义）。
+ASCII_DIGITS = "0123456789"
+ASCII_LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+FULLWIDTH_COLON = "："  # 矛盾池 subject 切分符（逐字迁移 V1 `_contradiction_members`）
+
+# ── 观察面形态取值指针（`locator.kind` 判定面——闭世界取值真源不在本块，此处只作取值指针）──
+# 行集族：`locator.kind` ∈ 行集族 ⇔ 该观察是引擎返回的**数据行**（行集全量交付、丢行＝0——
+# 取值真源＝`specs/execution.md` 行为 4 与 `execution.constants.ROWSET_OBSERVATION_KINDS`；
+# **R1 禁引其它相位**，故以取值指针落此，落点唯一）。
+ROWSET_OBSERVATION_KINDS: frozenset[str] = frozenset({"agg_row"})
+# 引擎注记观察（`context.render_materials` 行为 2 整体排除面——本块以「引擎注记」段补回窗口）。
+KIND_NOTICE = "notice"
+# 矛盾池豁免面（逐字迁移 V1 `_contradiction_members`：行级时序事实 `agg_row`／血缘卡 `lineage`／
+# 元信息 `notice` 不入池——recon/A2 R-A2-30）。
+CONTRADICTION_EXEMPT_KINDS: frozenset[str] = frozenset({"agg_row", "lineage", "notice"})
 
 # ── 发射动作闭世界（`strip_emission_fences` 的域内判据）─────────────────────────
 # 真源＝旧码 `appv2/runtime/graph.py` L180 `ACTION_KINDS` 四值（`docs/runtime-refactor/recon/

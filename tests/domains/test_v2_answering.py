@@ -1,7 +1,8 @@
-"""answering 块验收（RT-W4-06a：骨架＋接口＋交付行为簇）。
+"""answering 块验收（RT-W4-06a：骨架＋接口＋交付行为簇 ｜ RT-W4-06b：降级与引用簇）。
 
-票面对象＝`specs/answering.md`「验收测试」表 :100–:110 的 **10 行**（`#` 列保留规格表行序
-1–6、8–11，逐字照票面；测试标识同规格列——`test_` 前缀为本仓 pytest 收集口径，其余逐字一致）：
+**-A 票**（`RT-W4-06a`）票面对象＝`specs/answering.md`「验收测试」表 :100–:110 的 **10 行**
+（`#` 列保留规格表行序 1–6、8–11，逐字照票面；测试标识同规格列——`test_` 前缀为本仓 pytest
+收集口径，其余逐字一致）：
 
 - 行 1 `::streaming_segments`：答案一段段推（多段 `text` 帧），非一次性推全量；
 - 行 2 `::segment_citations_resolve`：每段自带 `citation_seqs`，且序号真实存在于观察序列；
@@ -14,15 +15,31 @@
 - 行 10 `::raw_not_in_dialogue`：模型原话不进对话层；
 - 行 11 `::emission_strip_zero_leak`：发射 JSON 不进答案面（确定性剥离，泄漏=0）。
 
-测试网钉＝**`pin-04`**（P0「发射 JSON 不得进答案面（emission_strip 确定性剥离，泄漏=0 是已根治
-态）」）——对应用例＝行 11 的 `::emission_strip_zero_leak`（本票承载『交付面』1 行；另 6 条 pin 行
-归 `RT-W4-06b-answering.md`）。
+**-B 票**（`RT-W4-06b`）票面对象＝同表 **12 行**（第 7、12–22 行，`#` 列同一行序不重编）：
 
-本票另两条自有面（非规格表行，与 -A 验收节同源）：
-- `::card_signature_and_five_shapes`：骨架与公开面按卡面签名（`answer(state) -> AnswerDraft`）
-  ＋五形状齐（规格 :37–:60）；
-- `::no_bypass_on_public_faces`：模型调用发起面单点（只经 `bookkeeping.call_model`；本块零
-  `gateway_adapter` import、零 `appv2.infra.llm_client`、零自建模型客户端／帧通路）。
+- 行 7 `::contradiction_split_not_merged`：矛盾来源分列且标「互不一致」，不调和；
+- 行 12 `::rowset_full_delivery`：明细行集题交付行数＝引擎返回行数（50 行全交付，丢行=0）；
+- 行 13 `::truncation_disclosed`：材料截断必披露（`material_truncated` notice＋「未渲染部分不作答」
+  声明在场；未截断零 notice）；
+- 行 14 `::placeholder_marker_not_in_answer`：答案面无字面占位符 `[n]`；
+- 行 15 `::echo_flag_zero`：起草回声=0（`echo_flag` 恒 0——观测字段只记不拦）；
+- 行 16 `::no_hit_degraded_delivery_three_part`：台账 no_hit → 降级交付三段形且零逐井数值冒充；
+- 行 17 `::ranking_answer_consumes_ranking_obs`：排名型子问题消费排名观察支（序信息一致）；
+- 行 18 `::cross_oilfield_attribution_paired`：多油田题分源列明归属配对＋「某区块」含糊归属零命中；
+- 行 19 `::no_lexicon_or_regex_in_answering`：程序侧无词表／正则语义判断（AST 扫描；豁免面＝
+  形态处理／集合成员判定）；
+- 行 20 `::answering_signal_present`：流式、缺口、截断披露的机读信号在场；
+- 行 21 `::boundary_single_seg_zero_material_conflict_bad_cite`：【边界集】四形各落对应分支；
+- 行 22 `::retention_plain_answer_unchanged`：【保留集】无矛盾、无缺口的普通答案行为不变。
+
+测试网钉＝**`pin-04`**（P0「发射 JSON 不得进答案面」——对应用例＝行 11 的
+`::emission_strip_zero_leak`）＋ **-B 六钉**：`pin-08`（行 12 交付侧）／`pin-09`（行 13）／
+`pin-13`（行 15）／`pin-20`（行 16）／`pin-19`（行 17）／`pin-03`（行 18，P0）。
+
+两票各自的自有面（非规格表行）：-A 的 `::card_signature_and_five_shapes`／
+`::no_bypass_on_public_faces`／`::model_call_goes_through_bookkeeping_single_point`／
+`::material_face_explicit_on_truncation`；-B 零自有面（12 行逐行落网——形态层两单点的直测
+并入行 14／15 两例）。
 
 接缝（`core` 模块注）：`bus`（`transport.EventBus`——本块自产 `text`／`citation` 帧的唯一出口）
 与 `max_observations`（材料帽）两处关键词注入面；Seam＝起草出口（增量文本 → 事件帧），
@@ -45,17 +62,31 @@ import pytest
 import appv2.runtimev2.answering as answering
 from appv2.runtimev2.answering import (
     CITATION_EVENT,
+    CONTRADICTION_SECTION_HEAD,
+    ECHO_CANDIDATE_MARK,
+    ECHO_HEAD,
     EMPTY_DRAFT_REASON,
     GAP_KINDS,
     MODEL_CALLER,
     NOTICE_EMISSION_STRIP,
+    PAYLOAD_CONTRADICTION_SEQS_KEY,
+    PAYLOAD_DELIVERED_ROWS_KEY,
+    PAYLOAD_ECHO_FLAG_KEY,
+    PAYLOAD_ENGINE_NOTES_KEY,
+    PAYLOAD_ENGINE_ROWS_KEY,
+    PAYLOAD_RANKING_ORDER_OK_KEY,
+    PAYLOAD_RANKING_SEQS_KEY,
+    ROWSET_OBSERVATION_KINDS,
+    SOURCE_SECTION_HEAD,
     AnswerDraft,
     AnswerSegment,
     Citation,
     DanglingCitationError,
     Gap,
     answer,
+    echo_flag,
     strip_emission_fences,
+    strip_placeholders,
 )
 from appv2.runtimev2.context import DEFAULT_MAX_OBSERVATIONS, render_materials
 from appv2.runtimev2.gateway_adapter import ScriptedCompleter, set_completer
@@ -166,6 +197,56 @@ def _answer_face(draft: AnswerDraft, frames: list[SseEvent]) -> str:
 def _citing(observations: list[dict[str, Any]]) -> dict[str, Any]:
     """观察序号索引（引标解析面）。"""
     return {int(row["index"]): row for row in observations}
+
+
+def _unmarked(text: str) -> str:
+    """剥去引标记号 `[数字]`（**测试面**形态扫描——数字来源判据用）。"""
+    out: list[str] = []
+    cursor = 0
+    while True:
+        start = text.find("[", cursor)
+        if start < 0:
+            out.append(text[cursor:])
+            return "".join(out)
+        end = text.find("]", start + 1)
+        if end < 0:
+            out.append(text[cursor:])
+            return "".join(out)
+        body = text[start + 1 : end]
+        if body and body.isdigit():
+            out.append(text[cursor:start])
+        else:
+            out.append(text[cursor : end + 1])
+        cursor = end + 1
+
+
+def _digits(text: str) -> list[str]:
+    """文本内数字记号列（**测试面**形态扫描：连续 ASCII 数字／小数点段）——零冒充判据用。"""
+    found: list[str] = []
+    current = ""
+    for char in text:
+        if char in "0123456789.":
+            current += char
+        elif current:
+            found.append(current)
+            current = ""
+    if current:
+        found.append(current)
+    return found
+
+
+def _number_tokens(text: str) -> list[str]:
+    """答案面数字记号列（先剥引标——判据面＝交付正文，记号本身不作数）。"""
+    return _digits(_unmarked(text))
+
+
+def _without_wells(text: str, observations: list[dict[str, Any]]) -> str:
+    """剥去窗口观察自带井号（`well` 字段`——井号内含数字，属对象标识不属数值）。"""
+    for row in observations:
+        well = str(row.get("well") or "")
+        if well:
+            text = text.replace(well, "")
+    return text
 
 
 # ---------- 1 答案一段段推（多段 text 帧），非一次性推全量 ----------
@@ -672,3 +753,659 @@ async def test_model_call_goes_through_bookkeeping_single_point() -> None:
     assert messages[-1]["role"] == "user"
     assert "【答案要求】" in messages[-1]["content"]
     assert "观察材料：" in messages[-1]["content"]
+
+# ══════════════ RT-W4-06b：降级与引用簇（规格表行 7、12–22）══════════════════
+
+
+# ---------- 7 矛盾来源分列且标「互不一致」，不调和 ----------
+
+
+async def test_contradiction_split_not_merged() -> None:
+    """行 7｜矛盾数据**分源列明、不强调和**，并在引用块面标出「互不一致」（行为 6）。
+
+    形态逐字迁移真源＝`recon/A2-核验规则与归属审.md` R-A2-29／R-A2-30（同 subject 异值 ≥2 支
+    → 全组成员列明；行级事实与元信息不入池）。本块在收口段**确定性装配**（不靠模型自觉）。
+    """
+    observations = [
+        _obs(1, "fragment", content="日产油量：10 吨", source="报告A", source_id="A-1"),
+        _obs(2, "fragment", content="日产油量：12 吨", source="报告B", source_id="B-1"),
+        _obs(3, "fragment", content="日产液量：30 吨", source="报告A", source_id="A-2"),
+    ]
+    state = _state(
+        observations=observations,
+        draft="结论：日产油量两来源互有出入[1][2]。\n\n补充：日产液量另计[3]。",
+        verdict={"cited": [1, 2, 3], "ok": True},
+    )
+    with _phase() as session:
+        final = session.call(state)
+    await _frames(session.bus)
+    face = state.answer
+
+    assert "互不一致" in face and CONTRADICTION_SECTION_HEAD.strip() in face  # 标出「互不一致」
+    # 分源列明：逐支原文照抄、各带出处（不调和＝无合并值、无取其一）
+    assert "[1] 报告A · A-1：日产油量：10 吨" in face
+    assert "[2] 报告B · B-1：日产油量：12 吨" in face
+    assert "11 吨" not in face  # 零调和（不取中值）
+    assert "[3] 报告A · A-2：日产液量：30 吨" not in face  # 县成组才列明（同 subject 才入池）
+    assert [citation.seq for citation in final.citations] == [1, 2, 3]
+    # 机读面同源（收口步 payload 的 `contradiction_seqs`）
+    finalize = _payloads(state, _PAYLOAD_PHASE_FINALIZE)[0]
+    assert finalize[PAYLOAD_CONTRADICTION_SEQS_KEY] == [1, 2]
+
+    # 反向：同 subject **同值** → 不入池（不误判矛盾）；单支 → 不成组
+    same = _state(
+        observations=[
+            _obs(1, "fragment", content="日产油量：10 吨", source="报告A"),
+            _obs(2, "fragment", content="日产油量：10 吨", source="报告B"),
+        ],
+        draft="结论：两来源一致[1][2]。",
+        verdict={"cited": [1, 2], "ok": True},
+    )
+    with _phase() as session2:
+        session2.call(same)
+    assert "互不一致" not in same.answer
+
+
+# ---------- 12 明细行集题交付行数＝引擎返回行数（丢行=0） ----------
+
+
+async def test_rowset_full_delivery() -> None:
+    """行 12｜明细行集题**全量交付**：交付行数＝引擎返回行数（50 行全交付，丢行=0）。
+
+    钉 **`pin-08`**（P0；**交付侧**落点＝本行——执行侧落点＝`specs/execution.md` 行为 4，见
+    `RT-W4-05a-execution.md` 行 4 `::big_result_ref_only`）。与 `specs/execution.md` 行为 4
+    同一界线（逐字一致）：行集族观察逐行一观察、不落引用、不受检索族帽；答案面逐行带 `[n]`
+    引标交付；交付行数对账落机读 payload（`engine_rows`／`delivered_rows`——差额如实，拦截与
+    补注记归 `verification` 行为 11）。非行集大结果只以引用进窗口（摘要＋行数，`ref` 可达）。
+    """
+    observations = [
+        _obs(
+            index, "agg_row", content=f"井{index} 日产油量 {index} 吨", source="台账",
+            source_id=f"well-{index}",
+        )
+        for index in range(1, 51)
+    ]
+    summary = "（摘要）共 50 行——原文已落引用载体"
+    observations.append(
+        _obs(
+            51, "fragment", content=summary, source="报告", source_id="report-9",
+            ref={"handle": "blob-9", "summary": summary, "row_count": 50},
+        )
+    )
+    state = _state(observations=observations)
+    reply = "\n\n".join(f"井{index} 日产油量 {index} 吨[{index}]。" for index in range(1, 51))
+    with _phase(reply, max_observations=3) as session:  # 帽只辖检索族（行集族恒全量）
+        draft = session.call(state)
+    frames = await _frames(session.bus)
+
+    # ① 材料面：行集族 50 行全渲染（帽不咬）、零截断 notice
+    window = str(state.messages[-1]["content"])
+    rendered = [
+        index
+        for index in range(1, 51)
+        if f"[{index}]（authoritative｜台账）井{index} 日产油量 {index} 吨" in window
+    ]
+    assert len(rendered) == 50
+    assert state.notices == []
+    assert summary in window  # 非行集大结果只以引用进窗口（全文不在窗口）
+    assert state.observations[50]["ref"]["row_count"] == 50  # `seq → observation.ref` 可达
+
+    # ② 交付面：一段一行、行行带引标；交付行数＝引擎返回行数
+    assert len(draft.segments) == 50
+    assert [str(item["content"]) for item in _of(frames, "text")] == [
+        segment.text for segment in draft.segments
+    ]
+    cited = {seq for segment in draft.segments for seq in segment.citation_seqs}
+    assert cited == set(range(1, 51))
+    face = _answer_face(draft, frames)
+    assert all(f"[{index}]" in face for index in range(1, 51))
+    payload = _payloads(state, _PAYLOAD_PHASE_DRAFT)[0]
+    assert (payload[PAYLOAD_ENGINE_ROWS_KEY], payload[PAYLOAD_DELIVERED_ROWS_KEY]) == (50, 50)
+    assert ROWSET_OBSERVATION_KINDS == {"agg_row"}
+
+    # ③ 差额不静默：只交付一行时两数如实显差（丢行⇒机读面可判）
+    short = _state(observations=observations)
+    with _phase("共 50 行明细，行集从略[1]。", max_observations=3) as session2:
+        session2.call(short)
+    short_payload = _payloads(short, _PAYLOAD_PHASE_DRAFT)[0]
+    assert (
+        short_payload[PAYLOAD_ENGINE_ROWS_KEY],
+        short_payload[PAYLOAD_DELIVERED_ROWS_KEY],
+    ) == (50, 1)
+
+
+# ---------- 13 材料截断必披露（未截断零 notice） ----------
+
+
+async def test_truncation_disclosed() -> None:
+    """行 13｜材料截断**必披露**：`material_truncated` notice＋「未渲染部分不作答」声明在场。
+
+    钉 **`pin-09`**（P1）；真源＝`tickets/v2/V2-61-材料承载分形渲染.md` 附 D。截断只可能落
+    检索族（权威行集与台账卡恒全量渲染——`specs/context.md` 行为 4）。
+    """
+    observations = [
+        _obs(index, "fragment", content=f"检索片段{index}", source="报告")
+        for index in range(1, 6)
+    ]
+    state = _state(observations=observations)
+    with _phase("结论[1]。", max_observations=2) as session:
+        session.call(state)
+
+    truncated = [note for note in state.notices if note["type"] == "material_truncated"]
+    assert len(truncated) == 1
+    assert set(truncated[0]) == {"type", "gates", "content"}
+    assert "2/5" in truncated[0]["content"]  # 渲染支数／候选支数两计数
+    assert "未渲染部分不作答" in truncated[0]["content"]  # 不作答声明在场
+
+    # 未截断 → 零 notice（零残留）
+    clean = _state(observations=[_obs(1, "agg_row")])
+    with _phase("结论[1]。") as clean_session:
+        clean_session.call(clean)
+    assert clean.notices == []
+
+
+# ---------- 14 答案面无字面占位符 `[n]` ----------
+
+
+async def test_placeholder_marker_not_in_answer() -> None:
+    """行 14｜答案面不得出现字面占位引标 `[n]`：含 `[n]` 的行以剥占位符形交付。
+
+    行为 13；真源＝`eval/results/Q16-判分报告-G3.md`（:56 D-诱15 形）＋
+    `tickets/v2/V2-69-坏引标修复.md`（「禁止占位符 [n] 进答案」指令纪律）。剥离单点在
+    `degradation.strip_placeholders`（方括号形态扫描，零正则）；真引标 `[1]` 原样保留。
+    """
+    state = _state(observations=[_obs(1, "agg_row", content="日产油量 10 吨")])
+    reply = "结论：日产油量 10 吨[n] 已复核[1]。\n\n[n]\n\n另注：口径以台账为准[n]。"
+    with _phase(reply) as session:
+        draft = session.call(state)
+    frames = await _frames(session.bus)
+    face = _answer_face(draft, frames)
+
+    assert "[n]" not in face and "[N]" not in face  # 字面占位符零命中（片段与帧两处都清）
+    assert [segment.text for segment in draft.segments] == [
+        "结论：日产油量 10 吨 已复核[1]。",
+        "另注：口径以台账为准。",
+    ]  # 含 `[n]` 的行以剥占位符形交付；仅 `[n]` 的行不成段（不以占位符形式交付）
+    assert [segment.citation_seqs for segment in draft.segments] == [[1], []]
+    assert "[1]" in face  # 真引标原样保留
+    assert all("[n]" not in str(item["content"]) for item in _of(frames, "text"))
+    # 单点直测（形态判据：字母体剥、数字体留、空体留）
+    assert strip_placeholders("[n]与[1]与[N]") == "与[1]与"
+    assert strip_placeholders("[]保留[2]") == "[]保留[2]"
+
+
+# ---------- 15 起草回声=0（echo_flag 恒 0；观测字段只记不拦） ----------
+
+
+async def test_echo_flag_zero() -> None:
+    """行 15｜起草回声＝0：草稿首行不以「理解：」开头／前 100 字不含「指标候选」。
+
+    钉 **`pin-13`**（P1，观测面）；判据字面真源＝`arch/P4b-票堆V2-56至65.md` A-P4b-61。
+    **观测字段只记不拦**：签名只进机读 payload，零拦截、零改写（交付面照常）。
+    """
+    clean = _state(observations=[_obs(1, "agg_row")])
+    with _phase("结论：日产油量 10 吨[1]。") as session:
+        clean_draft = session.call(clean)
+    assert _payloads(clean, _PAYLOAD_PHASE_DRAFT)[0][PAYLOAD_ECHO_FLAG_KEY] is False
+    assert clean_draft.segments  # 正常稿照常交付
+
+    # 首行「理解：」开头 → 签名 True；**只记不拦**（交付面逐段不变）
+    head = _state(observations=[_obs(1, "agg_row")])
+    head_reply = f"{ECHO_HEAD}用户问的是日产油量。\n\n结论：10 吨[1]。"
+    with _phase(head_reply) as session2:
+        head_draft = session2.call(head)
+    assert _payloads(head, _PAYLOAD_PHASE_DRAFT)[0][PAYLOAD_ECHO_FLAG_KEY] is True
+    assert [segment.text for segment in head_draft.segments] == [
+        "理解：用户问的是日产油量。",
+        "结论：10 吨[1]。",
+    ]
+
+    # 前 100 字含「指标候选」→ True；落在 100 字窗外 → False（窗口判据）
+    inside = _state(observations=[_obs(1, "agg_row")])
+    with _phase("字" * 96 + f"{ECHO_CANDIDATE_MARK}：日产油量[1]。") as session3:
+        session3.call(inside)
+    assert _payloads(inside, _PAYLOAD_PHASE_DRAFT)[0][PAYLOAD_ECHO_FLAG_KEY] is True
+
+    outside = _state(observations=[_obs(1, "agg_row")])
+    with _phase("字" * 101 + f"{ECHO_CANDIDATE_MARK}：日产油量[1]。") as session4:
+        outside_draft = session4.call(outside)
+    assert _payloads(outside, _PAYLOAD_PHASE_DRAFT)[0][PAYLOAD_ECHO_FLAG_KEY] is False
+    assert outside_draft.segments  # 窗外字样不改交付（签名只记不拦）
+    # 单点直测（两判据字面同源常量）
+    assert echo_flag(f"{ECHO_HEAD}说明") is True
+    assert echo_flag("结论：无回声") is False
+
+
+# ---------- 16 台账 no_hit → 降级交付三段形（零逐井数值冒充） ----------
+
+
+async def test_no_hit_degraded_delivery_three_part() -> None:
+    """行 16｜台账 no_hit（agg 未落列 notice 在场）→ 降级交付**三段齐**。
+
+    钉 **`pin-20`**（P1；落点＝行为 15）；满分形真源＝`eval/results/Q16-判分报告-G1.md`（:39
+    数-降2 判语：油田级邻近可得引用＋逐井「未找到」明示＋指路，零逐井数值——轴④封尺满分形）。
+
+    程序面（本块可确定性保证的半面，**零业务事实发明**）＝**不静默**：引擎注记（`locator.kind
+    == notice`，`context` 材料段整体排除面）以**原文**送入窗口（`prompts` 合同④「引擎的降级／
+    未绑定／拦停注记必须如实转述」的材料侧承接）＋落机读 `engine_notes` 字段。三段形的**业务面
+    枚举**（邻近可得量取哪支、逐井点名、指路措辞）属模型面义务（`prompts` 答案要求③／④）。
+    """
+    no_hit_content = "台账未命中：配产量（精确名与别名归一均未命中——请核对要素名）"
+    observations = [
+        {
+            "index": 1,
+            "locator": {"kind": "notice", "notice_type": "no_hit"},
+            "content": no_hit_content,
+            "source": "sem_* 台账读面",
+            "source_id": "no_hit",
+            "well": "",
+            "version": None,
+        },
+        _obs(
+            2, "fragment", content="计划配产 8.10 万吨，完成率 101.9%",
+            source="《C-月度分析》", source_id="frag-9",
+        ),
+        _obs(3, "agg_row", content="Z-16 日产油量 5839.6 吨", source="台账", well="Z-16"),
+        _obs(4, "agg_row", content="N-09 日产油量 1851.5 吨", source="台账", well="N-09"),
+    ]
+    state = _state(
+        observations=observations,
+        subtask_results=[
+            {"id": "s1", "question": "去年各井配产量是多少？", "status": "ok", "reason": ""}
+        ],
+    )
+    reply = (
+        "① 油田级邻近可得：计划配产 8.10 万吨、完成率 101.9%[2]"
+        f"（{no_hit_content}）。\n\n"
+        "② 逐井明细：Z-16：未找到；N-09：未找到（本轮未取得逐井配产量）。\n\n"
+        "③ 如需逐井配产量，请指明具体井或改用产量口径复核。"
+    )
+    with _phase(reply) as session:
+        draft = session.call(state)
+    frames = await _frames(session.bus)
+    face = _answer_face(draft, frames)
+
+    # 三段齐：①邻近可得带引用 ②逐井「未找到」明示 ③指路
+    aggregate_line = next(line for line in face.splitlines() if "8.10" in line)
+    assert "[2]" in aggregate_line  # ①带引用交付
+    per_well = sorted({line for line in face.splitlines() if "未找到" in line})
+    assert len(per_well) == 1
+    assert "Z-16：未找到" in per_well[0] and "N-09：未找到" in per_well[0]  # ②逐井明示
+    assert "请指明具体井" in face  # ③指路
+
+    # 零逐井数值冒充：逐井行零数值（井号自身的数字除外）；答案面数值全部可溯到被引观察
+    assert _number_tokens(_without_wells(per_well[0], observations)) == []
+    cited = {seq for segment in draft.segments for seq in segment.citation_seqs}
+    evidence = "".join(
+        str(observations[seq - 1]["content"]) for seq in sorted(cited)
+    )
+    body = _without_wells("".join(segment.text for segment in draft.segments), observations)
+    for token in _number_tokens(body):
+        assert token in evidence, token
+
+    # 不静默：引擎注记原文送入窗口 ＋ 落机读 payload（显式可判）
+    window = str(state.messages[-1]["content"])
+    assert no_hit_content in window
+    payload = _payloads(state, _PAYLOAD_PHASE_DRAFT)[0]
+    assert payload[PAYLOAD_ENGINE_NOTES_KEY] == [no_hit_content]
+
+
+# ---------- 17 排名型子问题强制消费排名观察支 ----------
+
+
+async def test_ranking_answer_consumes_ranking_obs() -> None:
+    """行 17｜排名型子问题的答案必须从**排名观察支**取值（排名序对与排名支序信息一致）。
+
+    钉 **`pin-19`**（P1；落点＝行为 16）；病形真源＝`arch/P4a2-票堆V2-51至55.md` A-P4a2-04
+    （数-排2 形，帧证 obs[52]/[53] 曾弃）。本块落**序信息面**的结构对账（`ranking_seqs`＝排名
+    观察支序号／`ranking_order_ok`＝交付序与支序一致——只记不判罚；数值复述面归 `verification`）。
+    """
+    observations = [
+        _obs(1, "agg_row", content="Z-22 1784.7 吨", source="台账", source_id="rank-1"),
+        _obs(2, "agg_row", content="N-09 1851.5 吨", source="台账", source_id="rank-2"),
+        _obs(3, "agg_row", content="X-14 1873.4 吨", source="台账", source_id="rank-3"),
+        _obs(4, "fragment", content="明细切片：Z-22 1784.7；N-09 1851.5", source="报告",
+             source_id="frag-1"),
+    ]
+    matches = [{"id": "s1", "plan": {"ranking": True, "direction": "asc"}}]
+    results = [{"id": "s1", "question": "去年日产油量最低的两口井", "status": "ok", "reason": ""}]
+
+    state = _state(observations=observations, tool_matches=matches, subtask_results=results)
+    ordered_reply = "去年日产油量最低的两口井：Z-22（1784.7 吨）[1]、N-09（1851.5 吨）[2]。"
+    with _phase(ordered_reply) as session:
+        draft = session.call(state)
+    face = _answer_face(draft, await _frames(session.bus))
+
+    assert "Z-22" in face and "N-09" in face  # 交付排名序对来自排名支
+    assert [citation.seq for citation in draft.citations] == [1, 2]  # 引标锚在排名支行上
+    payload = _payloads(state, _PAYLOAD_PHASE_DRAFT)[0]
+    assert payload[PAYLOAD_RANKING_SEQS_KEY] == [1, 2, 3]  # 排名观察支在册（行集族序）
+    assert payload[PAYLOAD_RANKING_ORDER_OK_KEY] is True  # 排名序对与支序一致
+
+    # 反向（弃支他拼／序反形）：交付序与支序不一致——如实落机读面（不静默）
+    reversed_state = _state(
+        observations=observations, tool_matches=matches, subtask_results=results
+    )
+    with _phase("最低两口：N-09（1851.5 吨）[2]、Z-22（1784.7 吨）[1]。") as session2:
+        session2.call(reversed_state)
+    assert (
+        _payloads(reversed_state, _PAYLOAD_PHASE_DRAFT)[0][PAYLOAD_RANKING_ORDER_OK_KEY] is False
+    )
+
+    # 非排名题：排名支面零在册（保留集：普通答案的取值行为不变）
+    plain = _state(observations=observations, subtask_results=results)
+    with _phase("结论：Z-22 为 1784.7 吨[1]。") as session3:
+        session3.call(plain)
+    plain_payload = _payloads(plain, _PAYLOAD_PHASE_DRAFT)[0]
+    assert plain_payload[PAYLOAD_RANKING_SEQS_KEY] == []
+    assert plain_payload[PAYLOAD_RANKING_ORDER_OK_KEY] is True
+
+
+# ---------- 18 多油田题分源列明归属配对（「某区块」形零命中） ----------
+
+
+async def test_cross_oilfield_attribution_paired() -> None:
+    """行 18｜跨油田题的答案面**分源列明归属配对**（油田名↔数值／结论）在场。
+
+    钉 **`pin-03`**（P0；落点＝行为 17）；禁形真源＝`eval/results/Q16-判分报告-G3.md`（:32
+    C-正6 判语：「34-8 侧 −42.6 被无据框成『某区块／小范围结算序列』、不认列渤中34-8 油田归属」）。
+    本块在收口段**确定性装配**逐源配对块（逐支原文照抄——不靠模型自觉、零业务发明）；含糊归属形
+    与无据归属不由本块产出；单出处＝零追加（保留集）。
+    """
+    observations = [
+        _obs(1, "fragment", content="渤中34-8 油田累积亏空 −42.6 万吨",
+             source="《渤中34-8油田季报》", source_id="BZ34-8-Q3"),
+        _obs(2, "fragment", content="渤中34-5 油田累积亏空 −128.6 万吨",
+             source="《渤中34-5油田注水分析》", source_id="BZ34-5-Q3"),
+    ]
+    state = _state(
+        observations=observations,
+        draft="累积亏空分别约 −42.6 与 −128.6 万吨，口径见来源[1][2]。",  # 含糊归属的模型稿
+        verdict={"cited": [1, 2], "ok": True},
+    )
+    with _phase() as session:
+        session.call(state)
+    face = state.answer
+
+    assert SOURCE_SECTION_HEAD.strip() in face  # 分源列明块在场
+    assert "[1] 《渤中34-8油田季报》：渤中34-8 油田累积亏空 −42.6 万吨" in face
+    assert "[2] 《渤中34-5油田注水分析》：渤中34-5 油田累积亏空 −128.6 万吨" in face
+    attribution = face.split(SOURCE_SECTION_HEAD.strip())[1]  # 归属块面（逐源配对行）
+    for line in attribution.splitlines():  # 归属配对：每条数值与自己的油田名同行
+        if "−42.6" in line:
+            assert "渤中34-8" in line
+        if "−128.6" in line:
+            assert "渤中34-5" in line
+    assert "某区块" not in face  # 含糊归属形零命中（C-正6 形禁现）
+    assert "小范围结算序列" not in face
+
+    # 单出处（普通答案）＝零分源块（保留集：分源行为不变）
+    plain = _state(
+        observations=[_obs(1, "metric", content="日产油量口径：开井日历折算", source="台账")],
+        draft="口径为开井日历折算[1]。",
+        verdict={"cited": [1], "ok": True},
+    )
+    with _phase() as session2:
+        session2.call(plain)
+    assert SOURCE_SECTION_HEAD.strip() not in plain.answer
+    assert "互不一致" not in plain.answer
+
+
+# ---------- 19 程序侧无词表／正则语义判断（AST 扫描） ----------
+
+_CASE_FOLD_METHODS = {"lower", "upper", "casefold"}
+_WORD_FACE_METHODS = {"startswith", "endswith", "partition", "count"}
+# 扫描面＝本块全部正则面（`re`）与**语义词表**两类；豁免面＝形态处理／集合成员判定（规格行 19）：
+# 方括号／空白／信任级／JSON 首字符等**结构字符集**的成员判定与**闭世界取值**判定不算词表，
+# `strip`／`split`／`find` 等**形态切分与形态扫描**不算词面判。被咬三形＝①含汉字串的字面集合
+# （语义词表形）；②非 ASCII 字面成员判定（拿中文词当判据）；③**词面判**——大小写折叠（无条件）
+# 与「以中文词起止／切分／计数」的字符串方法（结构字符集参数不咬：-A 的 JSON 首字符判定即此面）。
+
+
+def _has_cjk(text: str) -> bool:
+    return any("\u4e00" <= char <= "\u9fff" for char in text)
+
+
+def _has_cjk_argument(node: ast.Call) -> bool:
+    """调用是否以**汉字串字面**为参（词面判据的形态面——结构字符集参数不算）。"""
+    for arg in (*node.args, *(keyword.value for keyword in node.keywords)):
+        if isinstance(arg, ast.Constant) and isinstance(arg.value, str) and _has_cjk(arg.value):
+            return True
+        if isinstance(arg, (ast.Tuple, ast.List, ast.Set)):
+            for item in arg.elts:
+                if (
+                    isinstance(item, ast.Constant)
+                    and isinstance(item.value, str)
+                    and _has_cjk(item.value)
+                ):
+                    return True
+    return False
+
+
+def _lexicon_violations(tree: ast.Module) -> list[str]:
+    """词表／正则面探测（`re` 面＋含汉字串的字面集合＋非 ASCII 字面成员判定＋词面判方法）。"""
+    findings: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            names = [alias.name for alias in node.names]
+            if isinstance(node, ast.ImportFrom) and node.module:
+                names.append(node.module)
+            for name in names:
+                if name.split(".")[0] in {"re", "regex"}:
+                    findings.append(f"L{node.lineno} 引入正则面：{name}")
+        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+            if node.value.id in {"re", "regex"}:
+                findings.append(f"L{node.lineno} 使用正则面：{node.value.id}.{node.attr}")
+        if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+            for item in node.elts:
+                if (
+                    isinstance(item, ast.Constant)
+                    and isinstance(item.value, str)
+                    and _has_cjk(item.value)
+                ):
+                    findings.append(f"L{node.lineno} 字面集合含汉字串（语义词表形）")
+        if isinstance(node, ast.Compare):
+            for op in node.ops:
+                if isinstance(op, (ast.In, ast.NotIn)):
+                    for operand in (node.left, *node.comparators):
+                        if (
+                            isinstance(operand, ast.Constant)
+                            and isinstance(operand.value, str)
+                            and not operand.value.isascii()
+                        ):
+                            findings.append(
+                                f"L{node.lineno} 非结构字符集的成员判据：{operand.value!r}"
+                            )
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            attr = node.func.attr
+            if attr in _CASE_FOLD_METHODS:
+                findings.append(f"L{node.lineno} 词面判方法：{attr}")
+            elif attr in _WORD_FACE_METHODS and _has_cjk_argument(node):
+                findings.append(f"L{node.lineno} 词面判方法（中文词参）：{attr}")
+    return findings
+
+
+def _membership_sites(tree: ast.Module) -> list[int]:
+    """集合成员判定位点（豁免面的实际出现面——扫描面非空转的判据）。"""
+    return [
+        node.lineno
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Compare)
+        and any(isinstance(op, (ast.In, ast.NotIn)) for op in node.ops)
+    ]
+
+
+def test_no_lexicon_or_regex_in_answering() -> None:
+    """行 19｜程序侧**无词表／正则语义判断**（AST 扫描本模块；豁免面＝形态处理／集合成员判定）。
+
+    「答没答上原问题」交模型与 `verification`（`walk/00-设计总纲.md` §二）；本块只做结构判据。
+    豁免面两半的实际出现＝集合成员判定（`Gap.kind`／发射动作／行集族／矛盾池豁免面闭世界取值）
+    与形态处理（方括号记号扫描、空行分段、JSON 形判定——零正则实现，见 `emission` 模块注）。
+    """
+    sources = sorted(_ANSWERING_DIR.glob("*.py"))
+    assert len(sources) >= 5, f"扫描面可疑（文件数 {len(sources)}）"
+    for path in sources:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        assert _lexicon_violations(tree) == [], f"{path.name}: {_lexicon_violations(tree)}"
+
+    # 豁免面非空转：本块确有闭世界集合成员判定位点（形态处理／集合成员判定）
+    membership = [line for path in sources for line in _membership_sites(_tree_of(path))]
+    assert membership, "集合成员判定缺席——扫描面空转"
+    # 闭世界取值面全 ASCII（结构取值，非语义词表）；回声签名两字面是**规格逐字给定的形态签名**
+    # （A-P4b-61，只记不拦）——以单值常量承载、不入任何字面集合（故不被词表探测咬）。
+    assert all(value.isascii() for value in ROWSET_OBSERVATION_KINDS | GAP_KINDS)
+    assert _defined(sources, "strip_placeholders") and _defined(sources, "echo_flag")
+    assert _defined(sources, "citation_seqs"), "形态扫描单点（引标／占位符同面）缺席"
+    # 两判据字面以单值常量承载（非集合形）——回声签名的字面不被词表探测咬，是豁免面的**显式**面
+    assert not _lexicon_violations(ast.parse(f'MARK = "{ECHO_CANDIDATE_MARK}"\n'))
+    assert _lexicon_violations(ast.parse(f'MARKS = ["{ECHO_CANDIDATE_MARK}"]\n'))
+
+    # 探测器非空转：词表／正则／词面判方法／汉字串成员判据四形各被咬
+    assert _lexicon_violations(ast.parse('WORDS = ["提及", "执行"]\n'))
+    assert _lexicon_violations(ast.parse('import re\nre.search("理解", text)\n'))
+    assert _lexicon_violations(ast.parse('if "谢谢" in text:\n    pass\n'))
+    assert _lexicon_violations(ast.parse('text.startswith("理解：")\n'))
+    assert _lexicon_violations(ast.parse('names.count("日产油量")\n'))
+    assert _lexicon_violations(ast.parse('if text.lower() == "no_hit":\n    pass\n'))
+    # 豁免不是漏网：结构字符集起止判与闭世界取值成员判（-A `emission` 的 JSON 首字符判定面）不被咬
+    assert not _lexicon_violations(ast.parse('line.startswith(("{", "["))\n'))
+    assert not _lexicon_violations(ast.parse('kind in {"agg_row", "lineage"}\n'))
+
+
+def _tree_of(path: Path) -> ast.Module:
+    return ast.parse(path.read_text(encoding="utf-8"))
+
+
+def _defined(sources: list[Path], name: str) -> bool:
+    """形态层函数在场判据（`degradation` 单点：占位符剥离／回声签名／引标扫描）。"""
+    return any(
+        isinstance(node, ast.FunctionDef) and node.name == name
+        for path in sources
+        for node in ast.walk(_tree_of(path))
+    )
+
+
+# ---------- 20 流式、缺口、截断披露的机读信号在场 ----------
+
+
+async def test_answering_signal_present() -> None:
+    """行 20｜流式、缺口、截断披露的机读信号在场（`text`／`citation` 帧＋`material_truncated`
+    notice＋step payload；`verdict` 为消费方信号——批次落定归 `orchestration`）。
+    """
+    observations = [
+        _obs(index, "fragment", content=f"检索片段{index}", source="报告")
+        for index in range(1, 6)
+    ]
+    state = _state(
+        observations=observations,
+        subtask_results=[
+            {"id": "s1", "question": "q1", "status": "refused", "reason": "前置闸拒：越集"}
+        ],
+    )
+    with _phase("第一段[1]。\n\n第二段[2]。", max_observations=2) as session:
+        session.call(state)  # 起草拍
+        state.verdict = {"cited": [1, 2], "ok": True}
+        session.call(state)  # 收口拍
+    frames = await _frames(session.bus)
+
+    assert len(_of(frames, "text")) == 2  # 流式增量机读信号（多段帧）
+    assert [body["index"] for body in _of(frames, CITATION_EVENT)] == [1, 2]  # 引标落账信号
+    truncated = [note for note in state.notices if note["type"] == "material_truncated"]
+    assert len(truncated) == 1 and "未渲染部分不作答" in truncated[0]["content"]  # 截断披露信号
+    draft_payload = _payloads(state, _PAYLOAD_PHASE_DRAFT)[0]
+    assert draft_payload[_PAYLOAD_CITATIONS_KEY] == [1, 2]
+    assert [entry["kind"] for entry in draft_payload[_PAYLOAD_GAPS_KEY]] == ["refused"]  # 缺口信号
+    finalize_payload = _payloads(state, _PAYLOAD_PHASE_FINALIZE)[0]
+    assert finalize_payload[_PAYLOAD_CITATIONS_KEY] == [1, 2]
+    assert finalize_payload[_PAYLOAD_GAPS_KEY] == []
+    assert _of(frames, "verdict") == []  # verdict 帧＝消费方信号（本块不产）
+
+
+# ---------- 21 【边界集】四形各落对应分支 ----------
+
+
+async def test_boundary_single_seg_zero_material_conflict_bad_cite() -> None:
+    """行 21｜【边界集】单段答案／零材料／矛盾双源／坏引标 → 各自落到对应分支。"""
+    # ① 单段答案：恰一段、恰一帧；零分源块（单支不成组）
+    single = _state(observations=[_obs(1, "metric", content="口径：开井日历折算", source="台账")])
+    with _phase("结论：口径为开井日历折算[1]。") as session:
+        single_draft = session.call(single)
+    single_frames = await _frames(session.bus)
+    assert len(single_draft.segments) == 1 and len(_of(single_frames, "text")) == 1
+    assert "互不一致" not in _answer_face(single_draft, single_frames)
+
+    # ② 零材料：零实质材料 → `unverified` 缺口（材料段逐字「（无）」；有稿仍交付）
+    empty = _state(observations=[])
+    with _phase("本轮未取得材料，如实说明。") as session2:
+        empty_draft = session2.call(empty)
+    assert [gap.kind for gap in empty_draft.gaps] == ["unverified"]
+    assert empty_draft.segments
+    assert "观察材料：\n（无）" in str(empty.messages[-1]["content"])
+    assert _payloads(empty, _PAYLOAD_PHASE_DRAFT)[0][PAYLOAD_ENGINE_ROWS_KEY] == 0
+
+    # ③ 矛盾双源：分源列明＋「互不一致」在场（不调和）
+    conflict = _state(
+        observations=[
+            _obs(1, "fragment", content="日产油量：10 吨", source="报告A"),
+            _obs(2, "fragment", content="日产油量：12 吨", source="报告B"),
+        ],
+        draft="结论：两来源有出入[1][2]。",
+        verdict={"cited": [1, 2], "ok": True},
+    )
+    with _phase() as session3:
+        session3.call(conflict)
+    assert "互不一致" in conflict.answer
+
+    # ④ 坏引标：判失败（不返回半成品、坏引标不上帧面）
+    bad = _state(observations=[_obs(1, "agg_row")])
+    with _phase("结论成立[9]。") as session4:
+        with pytest.raises(DanglingCitationError) as excinfo:
+            session4.call(bad)
+    assert excinfo.value.dangling == (9,)
+    assert _of(await _frames(session4.bus), "text") == []
+    assert bad.draft == ""
+
+
+# ---------- 22 【保留集】无矛盾、无缺口的普通答案：引标与分源行为不变 ----------
+
+
+async def test_retention_plain_answer_unchanged() -> None:
+    """行 22｜【保留集】无矛盾、无缺口的普通答案：引标与分源行为不变（零新增块／零新增信号）。"""
+    observations = [
+        _obs(1, "metric", content="日产油量口径：开井日历折算", source="台账", source_id="metric-1")
+    ]
+    results = [{"id": "s1", "question": "口径是什么", "status": "ok", "reason": ""}]
+
+    # ① 起草拍：机读面零新增信号（回声签名 False、引擎注记空、矛盾池空、行集族零在册）
+    drafting = _state(observations=observations, subtask_results=results)
+    with _phase("口径为开井日历折算[1]。") as session:
+        draft = session.call(drafting)
+    assert draft.gaps == []  # 无缺口
+    payload = _payloads(drafting, _PAYLOAD_PHASE_DRAFT)[0]
+    assert payload[PAYLOAD_ECHO_FLAG_KEY] is False
+    assert payload[PAYLOAD_ENGINE_NOTES_KEY] == []
+    assert payload[PAYLOAD_CONTRADICTION_SEQS_KEY] == []
+    assert (payload[PAYLOAD_ENGINE_ROWS_KEY], payload[PAYLOAD_DELIVERED_ROWS_KEY]) == (0, 0)
+    assert payload[PAYLOAD_RANKING_SEQS_KEY] == []
+    assert payload[PAYLOAD_RANKING_ORDER_OK_KEY] is True
+    assert drafting.notices == []
+
+    # ② 收口拍：引标行为不变（段引标／引用块／citation 帧／链尾逐字同 -A 形）
+    state = _state(
+        observations=observations,
+        subtask_results=results,
+        draft="口径为开井日历折算[1]。",
+        verdict={"cited": [1], "ok": True},
+    )
+    with _phase() as session2:
+        final = session2.call(state)
+    frames = await _frames(session2.bus)
+    assert final.gaps == []
+    assert [segment.citation_seqs for segment in final.segments] == [[1]]
+    assert [citation.seq for citation in final.citations] == [1]
+    assert [body["index"] for body in _of(frames, CITATION_EVENT)] == [1]
+    assert state.answer.endswith("\n\n引用：\n[1] 台账 · metric-1（ledger）")
+    assert "互不一致" not in state.answer
+    assert SOURCE_SECTION_HEAD.strip() not in state.answer  # 单出处＝零分源块
+    assert _of(frames, "verdict") == []
+    assert state.answer == state.messages[-1]["content"]

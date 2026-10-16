@@ -12,6 +12,11 @@
 - 判失败单点：`DanglingCitationError`（坏引标——引标号不存在于观察序列）；
 - 发射剥离单点：`strip_emission_fences`（钉 `pin-04`，P0；`specs/parsing.md` :24 的答案面归属）＋
   发射动作闭世界 `EMISSION_ACTIONS`；
+- 降级与引用簇单点（`RT-W4-06b`）：`degradation` 模块（行为 6／12／13／14／15／16／17 的形态层
+  ——矛盾分源／占位符剥离／回声签名／引擎注记／行集交付对账／排名支序；**零语义判断**，豁免面＝
+  形态处理／集合成员判定）＋其机读面七键（`PAYLOAD_ECHO_FLAG_KEY`／`PAYLOAD_ENGINE_NOTES_KEY`／
+  `PAYLOAD_CONTRADICTION_SEQS_KEY`／`PAYLOAD_ENGINE_ROWS_KEY`／`PAYLOAD_DELIVERED_ROWS_KEY`／
+  `PAYLOAD_RANKING_SEQS_KEY`／`PAYLOAD_RANKING_ORDER_OK_KEY`）；
 - 接线与机读面常量：`MODEL_CALLER`／`PHASE`／`TEXT_EVENT`／`CITATION_EVENT`／`PAYLOAD_*` 键名
   （真源逐条注在 `constants`）。
 
@@ -32,15 +37,28 @@
 from appv2.runtimev2.answering.constants import (
     CITATION_BLOCK_HEAD,
     CITATION_EVENT,
+    CONTRADICTION_SECTION_HEAD,
     DRAFT_KIND_DIRECT,
     DRAFT_NOTE_TITLE,
+    ECHO_CANDIDATE_MARK,
+    ECHO_HEAD,
     EMISSION_ACTIONS,
     EMPTY_DRAFT_REASON,
     MODEL_CALLER,
     NOTICE_EMISSION_STRIP,
     NOTICE_MATERIAL_TRUNCATED,
+    PAYLOAD_CONTRADICTION_SEQS_KEY,
+    PAYLOAD_DELIVERED_ROWS_KEY,
+    PAYLOAD_ECHO_FLAG_KEY,
+    PAYLOAD_ENGINE_NOTES_KEY,
+    PAYLOAD_ENGINE_ROWS_KEY,
+    PAYLOAD_RANKING_ORDER_OK_KEY,
+    PAYLOAD_RANKING_SEQS_KEY,
+    ROWSET_OBSERVATION_KINDS,
+    SOURCE_SECTION_HEAD,
 )
 from appv2.runtimev2.answering.core import DanglingCitationError, answer
+from appv2.runtimev2.answering.degradation import echo_flag, strip_placeholders
 from appv2.runtimev2.answering.emission import strip_emission_fences
 from appv2.runtimev2.answering.models import (
     GAP_KINDS,
@@ -56,8 +74,11 @@ from appv2.runtimev2.answering.models import (
 __all__ = [
     "CITATION_BLOCK_HEAD",
     "CITATION_EVENT",
+    "CONTRADICTION_SECTION_HEAD",
     "DRAFT_KIND_DIRECT",
     "DRAFT_NOTE_TITLE",
+    "ECHO_CANDIDATE_MARK",
+    "ECHO_HEAD",
     "EMISSION_ACTIONS",
     "EMPTY_DRAFT_REASON",
     "GAP_KINDS",
@@ -67,11 +88,22 @@ __all__ = [
     "MODEL_CALLER",
     "NOTICE_EMISSION_STRIP",
     "NOTICE_MATERIAL_TRUNCATED",
+    "PAYLOAD_CONTRADICTION_SEQS_KEY",
+    "PAYLOAD_DELIVERED_ROWS_KEY",
+    "PAYLOAD_ECHO_FLAG_KEY",
+    "PAYLOAD_ENGINE_NOTES_KEY",
+    "PAYLOAD_ENGINE_ROWS_KEY",
+    "PAYLOAD_RANKING_ORDER_OK_KEY",
+    "PAYLOAD_RANKING_SEQS_KEY",
+    "ROWSET_OBSERVATION_KINDS",
+    "SOURCE_SECTION_HEAD",
     "AnswerDraft",
     "AnswerSegment",
     "Citation",
     "DanglingCitationError",
     "Gap",
     "answer",
+    "echo_flag",
     "strip_emission_fences",
+    "strip_placeholders",
 ]
