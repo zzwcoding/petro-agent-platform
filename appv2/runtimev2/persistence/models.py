@@ -80,6 +80,12 @@ BLACKBOX_RECORD_KEYS: tuple[str, ...] = (
 # 身份面四键（真源 recon/J R-J-50）：记录恒含——`run_id` 全盖章的另一面（行为 9）。
 BLACKBOX_IDENTITY_KEYS: tuple[str, ...] = ("run_id", "question", "status", "error")
 
+# 记录键闭世界（写入把守面）：蒸馏白名单二十键 ＋ 身份面四键——越界键判失败（行为 11，把守在
+# `RunStore._save_blackbox`）；**读面不校验**：迁移落地的历史行照旧可读、不回溯改写（风险 2）。
+BLACKBOX_ALLOWED_KEYS: frozenset[str] = frozenset(BLACKBOX_RECORD_KEYS) | frozenset(
+    BLACKBOX_IDENTITY_KEYS
+)
+
 # ── 闭世界：审计 action 七值、恒 `agent_v2.` 前缀（真源 recon/J R-J-05）────────────
 AUDIT_ACTION_PREFIX = "agent_v2."
 AUDIT_ACTION_RUN_CREATED = "agent_v2.run_created"

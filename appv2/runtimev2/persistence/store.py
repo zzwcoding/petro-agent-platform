@@ -2,8 +2,8 @@
 
 真源＝`specs/persistence.md` 接口定义节（签名以 `specs/modules.md` `## persistence` 卡为准）＋
 行为 1（三类落盘语义）／行为 2（状态机把守）／行为 3（恢复可重放）／行为 4（黑匣子首写为准）／
-行为 8（`payload` 原样保真）／行为 9（`run_id` 全盖章）／行为 10（引用载体可寻址）／行为 12
-（旧记录如实读入）。
+行为 8（`payload` 原样保真）／行为 9（`run_id` 全盖章）／行为 10（引用载体可寻址）／行为 11
+（黑匣子键白名单闭世界）／行为 12（旧记录如实读入）。
 
 边界纪律：写面只有簿记表（`tables.TABLES`，前缀 `agent_v2_*`；INV-2 业务数据零写入）；时间列经
 `infra.clock`（B14，唯二时间出口之一）；本模块零框架类型（R5b）、零引擎直引（R6）、零模型出口（R7）、
@@ -23,6 +23,7 @@ from appv2.infra import clock as infra_clock
 from appv2.runtimev2.persistence.checkpoint import decode_state, latest_state_row
 from appv2.runtimev2.persistence.errors import (
     AlreadyArchivedError,
+    BlackBoxKeyOutOfWorldError,
     PersistenceError,
     RunNotFoundError,
     StatusTransitionError,
@@ -30,6 +31,7 @@ from appv2.runtimev2.persistence.errors import (
     UnknownHandleError,
 )
 from appv2.runtimev2.persistence.models import (
+    BLACKBOX_ALLOWED_KEYS,
     STEP_STATUS_KINDS,
     BlackBox,
     BlobRef,
@@ -121,8 +123,15 @@ class RunStore:
         self._tables.write([RowOp(TABLE_STEP, key, row, "put")])
 
     def _save_blackbox(self, record: BlackBox) -> None:
-        """黑匣子＝只追加、首写为准（行为 4）：重复归档不覆盖并抛出「已归档」（跳过的机读信号）。"""
+        """黑匣子＝只追加、首写为准（行为 4）：重复归档不覆盖并抛出「已归档」（跳过的机读信号）。
+
+        键闭世界把守（行为 11）：`record` 键越出白名单（R-J-02 二十键＋身份面四键）→ 抛错、
+        一行不落（未入列键不进黑匣子；新增状态键须同批入列）。
+        """
         self._require_run(record.run_id)
+        unknown = sorted(set(record.record) - BLACKBOX_ALLOWED_KEYS)
+        if unknown:
+            raise BlackBoxKeyOutOfWorldError(record.run_id, unknown)
         stored = self._tables.get(TABLE_BLACKBOX, (record.run_id,))
         if stored is not None:
             raise AlreadyArchivedError(record.run_id, _as_datetime(stored["created_at"]))

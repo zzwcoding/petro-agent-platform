@@ -8,6 +8,7 @@ run 不存在、`read_ref` 的 `handle` 不可解析 → **抛错**；错误码�
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 
 
@@ -57,6 +58,37 @@ class UnknownHandleError(PersistenceError, ValueError):
 
 class TableWriteError(PersistenceError, ValueError):
     """簿记表行级写被拒：非簿记表（INV-2 业务数据零写入）、表不允许该操作、只追加表键已在场。"""
+
+
+class AuditElementMissingError(PersistenceError, ValueError):
+    """审计四要素缺项（行为 5）：主体（`who`；`scope` 是主体的范围细化）／意图（`action`）／
+    事实（`facts`）／结果（`evidence`）——缺项判失败（不静默丢弃、不落残缺行）。"""
+
+    def __init__(self, run_id: str, missing: Sequence[str]) -> None:
+        super().__init__(f"审计四要素缺项（run={run_id!r}）：{'／'.join(missing)}")
+        self.run_id = run_id
+        self.missing: tuple[str, ...] = tuple(missing)
+
+
+class AuditActionOutOfWorldError(PersistenceError, ValueError):
+    """审计 `action` 越界（行为 6）：闭世界七值、恒 `agent_v2.` 前缀（真源 `recon/J` R-J-05）。"""
+
+    def __init__(self, action: str) -> None:
+        super().__init__(f"审计 action 越界（闭世界七值、恒 agent_v2. 前缀）：{action!r}")
+        self.action = action
+
+
+class BlackBoxKeyOutOfWorldError(PersistenceError, ValueError):
+    """黑匣子记录键越界（行为 11）：`record` 键 ⊆ 白名单（真源 `recon/J` R-J-02 二十键＋
+    R-J-50 身份面四键）——**新增状态键须显式入列**，未入列键不进黑匣子。"""
+
+    def __init__(self, run_id: str, unknown: Sequence[str]) -> None:
+        super().__init__(
+            f"黑匣子记录键越界（未入列白名单——新增状态键须同批入列）："
+            f"run={run_id!r} 键={'／'.join(unknown)}"
+        )
+        self.run_id = run_id
+        self.unknown: tuple[str, ...] = tuple(unknown)
 
 
 class AuditSinkNotConfiguredError(PersistenceError):

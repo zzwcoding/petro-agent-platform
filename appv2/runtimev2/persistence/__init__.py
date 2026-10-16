@@ -12,17 +12,21 @@
 编解码 `encode_state`／`decode_state`／`encode_metadata`／`decode_metadata`／`latest_state_row`
 （框架无关载荷：状态快照＋通道版本机读映射——编排块 saver 组合本口、不直连表）；黑匣子回放面
 `replay_channels`／`dialogue_channel`（旧记录如实空显，行为 12）；审计写口装配
-`configure_audit_sink`（唯一写口＝`security.audit`，B12）；错误族 `errors`。
+`configure_audit_sink`（唯一写口＝`security.audit`，B12）＋审计守门 `guard_audit_record`
+（四要素齐备／action 闭世界／`facts` 截断可见——行为 5／6／13）；截断单点 `summary`
+（`summarize`／`head`／`facet_head`＋真源长度常量——行为 13）；错误族 `errors`。
 
 `load` 的返回面＝`state.RunState`（真源 `specs/state.md`）；本块只依赖 `state` 与 `infra`
 （R4／R5b／R6／R7 由边界闸与人审看守）。
 """
 
 from appv2.runtimev2.persistence.audit import (
+    AUDIT_REQUIRED_FIELDS,
     AuditSink,
     audit,
     configure_audit_sink,
     current_audit_sink,
+    guard_audit_record,
 )
 from appv2.runtimev2.persistence.blackbox import (
     REPLAY_CHANNELS,
@@ -46,7 +50,10 @@ from appv2.runtimev2.persistence.checkpoint import (
 )
 from appv2.runtimev2.persistence.errors import (
     AlreadyArchivedError,
+    AuditActionOutOfWorldError,
+    AuditElementMissingError,
     AuditSinkNotConfiguredError,
+    BlackBoxKeyOutOfWorldError,
     PersistenceError,
     RunNotFoundError,
     StatusTransitionError,
@@ -64,6 +71,7 @@ from appv2.runtimev2.persistence.models import (
     AUDIT_ACTION_RUN_CREATED,
     AUDIT_ACTION_RUN_FAILED,
     AUDIT_ACTIONS,
+    BLACKBOX_ALLOWED_KEYS,
     BLACKBOX_IDENTITY_KEYS,
     BLACKBOX_RECORD_KEYS,
     STEP_STATUS_DEFAULT,
@@ -81,6 +89,17 @@ from appv2.runtimev2.persistence.models import (
     StepRecord,
 )
 from appv2.runtimev2.persistence.store import REF_HANDLE_PREFIX, RunStore
+from appv2.runtimev2.persistence.summary import (
+    BLACKBOX_LINE_LIMIT,
+    BLACKBOX_NEWLINE_MARK,
+    FACET_LIMITS,
+    SUMMARY_LIMIT,
+    TRUNCATION_MARK,
+    clip,
+    facet_head,
+    head,
+    summarize,
+)
 from appv2.runtimev2.persistence.tables import (
     APPEND_ONLY_TABLES,
     BOOKKEEPING_TABLE_PREFIX,
@@ -112,12 +131,17 @@ __all__ = [
     "AUDIT_ACTION_RUN_COMPLETED",
     "AUDIT_ACTION_RUN_CREATED",
     "AUDIT_ACTION_RUN_FAILED",
+    "AUDIT_REQUIRED_FIELDS",
+    "BLACKBOX_ALLOWED_KEYS",
     "BLACKBOX_IDENTITY_KEYS",
+    "BLACKBOX_LINE_LIMIT",
+    "BLACKBOX_NEWLINE_MARK",
     "BLACKBOX_RECORD_KEYS",
     "BOOKKEEPING_TABLE_PREFIX",
     "CHECKPOINT_KIND_STATE",
     "CHECKPOINT_TABLES",
     "DEFAULT_NS",
+    "FACET_LIMITS",
     "REF_HANDLE_PREFIX",
     "REPLAY_CHANNELS",
     "STEP_STATUS_DEFAULT",
@@ -125,6 +149,7 @@ __all__ = [
     "STEP_STATUS_KINDS",
     "STEP_STATUS_OK",
     "STEP_STATUS_REFUSED",
+    "SUMMARY_LIMIT",
     "TABLES",
     "TABLE_BLACKBOX",
     "TABLE_BLOB",
@@ -134,11 +159,15 @@ __all__ = [
     "TABLE_OPS",
     "TABLE_RUN",
     "TABLE_STEP",
+    "TRUNCATION_MARK",
     "AlreadyArchivedError",
+    "AuditActionOutOfWorldError",
+    "AuditElementMissingError",
     "AuditRecord",
     "AuditSink",
     "AuditSinkNotConfiguredError",
     "BlackBox",
+    "BlackBoxKeyOutOfWorldError",
     "BlobRef",
     "CheckpointBlobRow",
     "CheckpointRow",
@@ -159,6 +188,7 @@ __all__ = [
     "checkpoint_blobs",
     "checkpoint_rows",
     "checkpoint_writes",
+    "clip",
     "configure_audit_sink",
     "configure_tables",
     "current_audit_sink",
@@ -169,8 +199,12 @@ __all__ = [
     "dialogue_channel",
     "encode_metadata",
     "encode_state",
+    "facet_head",
+    "guard_audit_record",
+    "head",
     "is_v2_dialogue_entry",
     "latest_state_row",
     "put_checkpoint_rows",
     "replay_channels",
+    "summarize",
 ]

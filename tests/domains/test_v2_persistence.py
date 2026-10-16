@@ -1,13 +1,17 @@
-"""persistence 块验收（RT-W2-01a：骨架＋接口＋落盘读回主干＋本块全部 3 条 pin 行）。
+"""persistence 块验收（RT-W2-01a：骨架＋接口＋落盘读回主干＋本块全部 3 条 pin 行；
+RT-W2-01b：守门与红线面／元／边界·保留集）。
 
-票面对象＝`specs/persistence.md`「验收测试」表第 1–5、9、10、11、12、15 行（-a 逐字，测试标识同
-规格列）；测试网钉＝pin-12（`::verify_fields_readable_in_step`，落盘面）／pin-28
+票面对象＝`specs/persistence.md`「验收测试」表：-a 收第 1–5、9、10、11、12、15 行；**-b** 收第
+6、7、8、13、14、16、17、18、19、20 行（逐字，测试标识同规格列；`#` 保留规格表行序、不重编）。
+测试网钉＝pin-12（`::verify_fields_readable_in_step`，落盘面）／pin-28
 （`::run_id_stamped_across_records`，落盘面）／pin-30（`::legacy_read_honest`——本块**唯一**挂断言的
-面：旧 run **黑匣子回放**如实；检查点状态字段读入面挂 `specs/state.md` 行为 8，两处对象不同）。
+面：旧 run **黑匣子回放**如实；检查点状态字段读入面挂 `specs/state.md` 行为 8，两处对象不同）——三钉
+全在 -a，-b 零 pin 行。
 
 真源指针：形状＝`specs/modules.md` `## persistence` 卡＋`specs/persistence.md` 接口定义节；
 列事实与常量＝`docs/runtime-refactor/recon/J-存储留痕与网关缝.md`（R-J-02 白名单／R-J-05 审计
-action 七值／R-J-06 摘要长度／R-J-17 唯一合法转移）；`pin-12` 字段面＝`specs/verification.md`
+action 七值／R-J-06 摘要长度 120／R-J-17 唯一合法转移／R-J-50 身份面四键／R-J-60 单行 96／
+R-J-62 分面 30·60·80·40／R-J-63 空白折叠）；`pin-12` 字段面＝`specs/verification.md`
 行为 11（`delivered_rows`／`obs_rows`）＋`arch/P7a-交接包与挂账清单.md` A-P7a-38；`pin-28` 对账口径
 ＝`eval/results/Q15-对账报告.md`（逐题 `ledger_run_ids` 与 jsonl 同跑 `run_id` 集合等值）。
 
@@ -20,7 +24,7 @@ import ast
 import hashlib
 import json
 from collections.abc import Iterator, Sequence
-from dataclasses import FrozenInstanceError, asdict, fields
+from dataclasses import FrozenInstanceError, asdict, fields, replace
 from datetime import datetime
 from inspect import signature
 from pathlib import Path
@@ -31,21 +35,39 @@ import pytest
 from appv2.infra import clock
 from appv2.runtimev2.persistence import (
     APPEND_ONLY_TABLES,
+    AUDIT_ACTION_PREFIX,
     AUDIT_ACTION_REFUSED,
     AUDIT_ACTION_RUN_COMPLETED,
     AUDIT_ACTION_RUN_CREATED,
+    AUDIT_ACTIONS,
+    AUDIT_REQUIRED_FIELDS,
+    BLACKBOX_ALLOWED_KEYS,
+    BLACKBOX_IDENTITY_KEYS,
+    BLACKBOX_LINE_LIMIT,
+    BLACKBOX_NEWLINE_MARK,
     BLACKBOX_RECORD_KEYS,
+    BOOKKEEPING_TABLE_PREFIX,
     CHECKPOINT_KIND_STATE,
+    CHECKPOINT_TABLES,
     DEFAULT_NS,
+    FACET_LIMITS,
     REPLAY_CHANNELS,
+    SUMMARY_LIMIT,
     TABLE_BLACKBOX,
     TABLE_BLOB,
+    TABLE_CHECKPOINT,
+    TABLE_CHECKPOINT_BLOB,
+    TABLE_CHECKPOINT_WRITE,
     TABLE_RUN,
     TABLE_STEP,
     TABLES,
+    TRUNCATION_MARK,
     AlreadyArchivedError,
+    AuditActionOutOfWorldError,
+    AuditElementMissingError,
     AuditRecord,
     BlackBox,
+    BlackBoxKeyOutOfWorldError,
     BlobRef,
     CheckpointBlobRow,
     CheckpointRow,
@@ -69,8 +91,11 @@ from appv2.runtimev2.persistence import (
     delete_thread,
     encode_metadata,
     encode_state,
+    facet_head,
+    head,
     put_checkpoint_rows,
     replay_channels,
+    summarize,
 )
 from appv2.runtimev2.state import DIALOGUE_ORIGINS, RUN_STATUS_KINDS, STEP_KINDS, RunState
 
@@ -82,6 +107,68 @@ _T0 = datetime(2026, 10, 16, 9, 0, 0)
 _SPEC_RUN_STATUSES = {"running", "waiting_ask", "completed", "failed"}
 _SPEC_STEP_KINDS = {"decision", "discover", "execute", "observe", "verify", "answer"}
 _SPEC_STEP_STATUSES = {"ok", "failed", "refused"}
+
+# 规格 行为 6 的 action 闭世界七值（真源 recon/J R-J-05——计数唯一口径＝七值本身）
+_SPEC_AUDIT_ACTIONS = {
+    "agent_v2.run_created",
+    "agent_v2.run_completed",
+    "agent_v2.run_failed",
+    "agent_v2.refused",
+    "agent_v2.extable_approved",
+    "agent_v2.extable_rejected",
+    "agent_v2.ban_exempt",
+}
+# 规格 行为 13 的截断长度（真源 recon/J R-J-06／R-J-60／R-J-62——分面名即 R-J-62 分面）
+_SPEC_FACET_LIMITS = {
+    "title_process_notes": 30,
+    "title_steps": 60,
+    "digest": 80,
+    "source": 40,
+    "content": 96,
+}
+# 检查点三表（写操作只经五个行级口——行 13）：源面常量名与表名字面值两形都算直连判据
+_CHECKPOINT_TABLE_MARKS = (
+    "TABLE_CHECKPOINT",
+    "TABLE_CHECKPOINT_BLOB",
+    "TABLE_CHECKPOINT_WRITE",
+    TABLE_CHECKPOINT,
+    TABLE_CHECKPOINT_BLOB,
+    TABLE_CHECKPOINT_WRITE,
+)
+
+# 禁引模块（行 18 AST 红线）：正则／词表族 ＋ 模型出口族 ＋ 框架族（R5b 与 R7 的 AST 降维面）
+_FORBIDDEN_IMPORT_MODULES = (
+    "re",
+    "regex",
+    "litellm",
+    "openai",
+    "anthropic",
+    "langgraph",
+    "langchain",
+    "langchain_core",
+    "langchain_community",
+    "appv2.infra.llm_client",
+)
+_REGEX_CALL_NAMES = (
+    "match",
+    "fullmatch",
+    "search",
+    "findall",
+    "finditer",
+    "compile",
+    "sub",
+    "split",
+)
+_MODEL_CALL_NAMES = (
+    "complete",
+    "acomplete",
+    "chat",
+    "responses",
+    "embed",
+    "embedding",
+    "embeddings",
+)
+_LEXICON_NAME_MARKS = ("lexicon", "wordlist", "keyword_table", "词表")
 
 # v1 旧黑匣子记录（`recon/I2b` 旧形）：对话条目只有 `{role, content}`、**无来源标签**
 _V1_BLACKBOX_RECORD: dict[str, Any] = {
@@ -251,6 +338,142 @@ def _table_write_calls(tree: ast.Module) -> list[str]:
         elif isinstance(func, ast.Name) and func.id == "RowOp":
             findings.append(f"L{node.lineno} 构造 RowOp")
     return findings
+
+
+def _direct_checkpoint_write_sites(trees: Sequence[tuple[str, ast.Module]]) -> list[str]:
+    """直连检查点三表的写位点（`RowOp(...)` 构造）：只许出现在唯一行级口模块 `checkpoint.py`。
+
+    表名实参按**源面两形**识别（常量名 `TABLE_CHECKPOINT*` 与字面值 `agent_v2_checkpoint*`）
+    ——绕开常量直写字面值同样算直连。
+    """
+    findings: list[str] = []
+    for name, line, table, _op in _row_op_sites(trees):
+        if table in _CHECKPOINT_TABLE_MARKS and name != "checkpoint.py":
+            findings.append(f"{name}:{line} 直连检查点表 {table}")
+    return findings
+
+
+def _judgement_or_model_findings(trees: Sequence[tuple[str, ast.Module]]) -> list[str]:
+    """行 18 的 AST 判据：词表／正则语义判定与模型调用在本块源码里的全部位点。
+
+    判据面＝禁引模块（正则族／模型出口族／框架族）＋正则族根名的调用＋模型面调用名＋
+    词表名面。**不判**纯长度边界与空白归一（截断单点合法）。
+    """
+    findings: list[str] = []
+    for name, tree in trees:
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if _is_forbidden_module(alias.name):
+                        findings.append(f"{name}:{node.lineno} 禁引模块 {alias.name}")
+            elif isinstance(node, ast.ImportFrom):
+                module = node.module or ""
+                if _is_forbidden_module(module):
+                    findings.append(f"{name}:{node.lineno} 禁引模块 {module}")
+            elif isinstance(node, ast.Call):
+                findings.extend(
+                    f"{name}:{node.lineno} {finding}" for finding in _call_findings(node)
+                )
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                if any(mark in node.name.lower() for mark in _LEXICON_NAME_MARKS):
+                    findings.append(f"{name}:{node.lineno} 词表名面 {node.name}")
+            elif isinstance(node, ast.Name):
+                if any(mark in node.id.lower() for mark in _LEXICON_NAME_MARKS):
+                    findings.append(f"{name}:{node.lineno} 词表名面 {node.id}")
+    return findings
+
+
+def _is_forbidden_module(module: str) -> bool:
+    return module in _FORBIDDEN_IMPORT_MODULES or module.split(".")[0] in _FORBIDDEN_IMPORT_MODULES
+
+
+def _call_findings(node: ast.Call) -> list[str]:
+    """一次调用的判据命中——正则族根名的调用、模型面调用名。"""
+    findings: list[str] = []
+    target = node.func
+    if isinstance(target, ast.Attribute):
+        root = target
+        while isinstance(root, ast.Attribute):
+            root = root.value
+        root_name = root.id if isinstance(root, ast.Name) else ""
+        if root_name in {"re", "regex"} and target.attr in _REGEX_CALL_NAMES:
+            findings.append(f"正则语义判定 {root_name}.{target.attr}")
+        if target.attr in _MODEL_CALL_NAMES:
+            findings.append(f"模型调用 .{target.attr}")
+    elif isinstance(target, ast.Name) and target.id in _MODEL_CALL_NAMES:
+        findings.append(f"模型调用 {target.id}")
+    return findings
+
+
+def _import_findings(trees: Sequence[tuple[str, ast.Module]]) -> list[str]:
+    """import 白名单（规格 框架与依赖红线④的 AST 降维面）：本块只依赖 `state`／`infra`＋自身。"""
+    findings: list[str] = []
+    allowed = (
+        "appv2.runtimev2.state",
+        "appv2.runtimev2.persistence",
+        "appv2.infra",
+    )
+    for name, tree in trees:
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                modules = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                modules = [node.module or ""]
+            else:
+                continue
+            for module in modules:
+                if not module.startswith("appv2."):
+                    continue
+                if not module.startswith(allowed):
+                    findings.append(f"{name}:{node.lineno} 越界引块 {module}")
+    return findings
+
+
+class _ProbeTables:
+    """业务表写入探针（`Tables` 端口替身）：记下每次行级写的表名，非簿记表一律拒收（INV-2）。"""
+
+    def __init__(self) -> None:
+        self._inner = MemoryTables()
+        self._inner.ensure()
+        self.attempted: list[str] = []
+
+    def ensure(self) -> None:
+        self._inner.ensure()
+
+    def write(self, ops: Sequence[RowOp]) -> None:
+        for op in ops:
+            self.attempted.append(op.table)
+            if not op.table.startswith(BOOKKEEPING_TABLE_PREFIX):
+                raise TableWriteError(f"业务表拒写（INV-2 唯一写面＝簿记表）：{op.table}")
+        self._inner.write(ops)
+
+    def get(self, table: str, key: tuple[str, ...]) -> dict[str, Any] | None:
+        return self._inner.get(table, key)
+
+    def scan(self, table: str, column: str, value: str) -> list[dict[str, Any]]:
+        return self._inner.scan(table, column, value)
+
+
+class _FailingTables:
+    """写失败注入件（行为 14）：记下本次尝试后原样抛出——无部分行、不吞错、不返回哨兵。"""
+
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+        self.attempted: list[RowOp] = []
+        self.rows: dict[str, dict[tuple[str, ...], dict[str, Any]]] = {}
+
+    def ensure(self) -> None:
+        raise self.error
+
+    def write(self, ops: Sequence[RowOp]) -> None:
+        self.attempted.extend(ops)
+        raise self.error
+
+    def get(self, table: str, key: tuple[str, ...]) -> dict[str, Any] | None:
+        return self.rows.get(table, {}).get(key)
+
+    def scan(self, table: str, column: str, value: str) -> list[dict[str, Any]]:
+        return [row for row in self.rows.get(table, {}).values() if row.get(column) == value]
 
 
 # ---------- 1 三类落盘语义（行为 1） ----------
@@ -785,3 +1008,488 @@ def test_checkpoint_ports_roundtrip() -> None:
         checkpoint_blobs("run-a", "0002", tables=tables)
     assert store.run("run-a") is not None and len(store.steps("run-a")) == 1
     assert store.blackbox("run-a") is not None
+
+
+# ══════════════════════════════════════════════════════════════════════════════════
+# RT-W2-01b 票面（`specs/persistence.md`「验收测试」表第 6、7、8、13、14、16、17、18、19、20 行）
+# ══════════════════════════════════════════════════════════════════════════════════
+
+
+# ---------- 6 审计四要素齐备（行为 5；Owner 裁决 walk/16 §七 Q-C） ----------
+
+
+def test_audit_four_elements_required(audit_records: list[AuditRecord]) -> None:
+    """审计四要素缺项判失败。"""
+    audit(_audit("run-a"))  # 四要素齐备 → 过
+    assert len(audit_records) == 1
+
+    # 四要素＝主体（`who`；`scope` 是主体的范围细化）／意图（`action`；`authorization` 是其授权
+    # 依据、无则空串）／事实（`facts`）／结果（`evidence`）；`run_id` 是四类记录同源聚合的范围键。
+    assert AUDIT_REQUIRED_FIELDS == ("run_id", "who", "scope", "action", "facts", "evidence")
+    missing_cases: dict[str, dict[str, Any]] = {
+        "run_id": {"run_id": ""},
+        "who": {"who": ""},
+        "scope": {"scope": ""},
+        "action": {"action": ""},
+        "facts": {"facts": ""},
+        "evidence": {"evidence": {}},
+    }
+    for field_name, override in missing_cases.items():
+        with pytest.raises(AuditElementMissingError) as raised:
+            audit(replace(_audit("run-a"), **override))
+        assert raised.value.missing == (field_name,), f"{field_name} 未落缺项分支"
+        assert raised.value.run_id == override.get("run_id", "run-a")
+    assert len(audit_records) == 1, "缺项记录被落库（静默吞错——缺项判失败须一行不落）"
+
+    # `authorization` 无则空串＝不算缺项（并入意图、不另立要素）；`evidence` 有内容即在场
+    audit(replace(_audit("run-a"), authorization="", evidence={"notice": "无审批单"}))
+    assert audit_records[-1].authorization == ""
+    assert len(audit_records) == 2
+
+
+# ---------- 7 审计 action 七值闭世界（行为 6；真源 recon/J R-J-05） ----------
+
+
+def test_audit_action_closed_world(audit_records: list[AuditRecord]) -> None:
+    """审计 action 七值闭世界＋`agent_v2.` 前缀。"""
+    # 计数唯一口径＝action 七值（分组说法不产生第二个数字）
+    assert AUDIT_ACTIONS == _SPEC_AUDIT_ACTIONS
+    assert len(AUDIT_ACTIONS) == 7
+    assert all(action.startswith(AUDIT_ACTION_PREFIX) for action in AUDIT_ACTIONS)
+
+    for action in sorted(AUDIT_ACTIONS):
+        audit(_audit("run-a", action=action))
+    assert [record.action for record in audit_records] == sorted(AUDIT_ACTIONS)
+
+    # 越界 → 抛错、一行不落（前缀缺失／未知值／近似前缀／另一命名空间）
+    for bad in (
+        "run_created",
+        "agent_v2.",
+        "agent_v2.unknown",
+        "agent_v2x.run_created",
+        "chat.ask.ban_exempt",
+        "agent_v2.RUN_CREATED",
+    ):
+        with pytest.raises(AuditActionOutOfWorldError) as raised:
+            audit(_audit("run-a", action=bad))
+        assert raised.value.action == bad
+    assert len(audit_records) == 7, "越界 action 被落库"
+
+    # 空串落缺项分支（四要素守门在先——action 是要素之一）
+    with pytest.raises(AuditElementMissingError):
+        audit(_audit("run-a", action=""))
+
+
+# ---------- 8 业务表零写（INV-2；行为 7） ----------
+
+
+def test_no_business_table_write(audit_records: list[AuditRecord]) -> None:
+    """业务表零写（探针注入判失败）。"""
+    probe = _ProbeTables()
+    store = RunStore(probe)
+
+    # 全生命周期（四类记录＋引用载体＋检查点三表口）的每一次写都经探针
+    store.save(_run("run-a", status="completed"))
+    store.save(_step("run-a", 1))
+    store.save(_blackbox("run-a", {"run_id": "run-a", "status": "completed"}))
+    store.put_ref("大结果原文".encode())
+    put_checkpoint_rows(
+        [
+            CheckpointRow(
+                "run-a", DEFAULT_NS, "0001", None, CHECKPOINT_KIND_STATE, b"{}", b"{}"
+            )
+        ],
+        tables=probe,
+    )
+    delete_thread("run-a", tables=probe)
+    audit(_audit("run-a"))
+    assert probe.attempted, "探针未接到任何写入（探测器空转）"
+    assert all(table.startswith(BOOKKEEPING_TABLE_PREFIX) for table in probe.attempted)
+    assert set(probe.attempted) <= set(TABLES)
+
+    # 表名清单与簿记前缀一致（唯一写面＝`agent_v2_*` 簿记表）
+    assert TABLES == (
+        TABLE_RUN,
+        TABLE_STEP,
+        TABLE_BLACKBOX,
+        TABLE_BLOB,
+        TABLE_CHECKPOINT,
+        TABLE_CHECKPOINT_BLOB,
+        TABLE_CHECKPOINT_WRITE,
+    )
+    assert all(table.startswith(BOOKKEEPING_TABLE_PREFIX) for table in TABLES)
+
+    # 探针注入：任何对业务表的写入尝试被判失败（含近似前缀的伪装名）
+    for business in ("petro_well", "public.wells", "oilfield_production", "agent_v3_run"):
+        with pytest.raises(TableWriteError):
+            probe.write([RowOp(business, ("w-1",), {"run_id": "run-a"}, "put")])
+    assert probe.scan(TABLE_RUN, "run_id", "run-a") != [], "探针内层件失灵（先前的合法写未落）"
+
+    # 缺省件同款把守（INV-2 在端口层，不靠调用方自觉）
+    inner = MemoryTables()
+    inner.ensure()
+    for business in ("petro_well", "agent_v3_run"):
+        with pytest.raises(TableWriteError, match="非簿记表"):
+            inner.write([RowOp(business, ("w-1",), {"well_id": "w-1"}, "put")])
+    assert inner.scan(TABLE_STEP, "run_id", "run-a") == [], "业务表写入漏进了簿记面"
+
+
+# ---------- 13 检查点三表写操作只经五个行级口（接口定义 + 行 13） ----------
+
+
+def test_saver_writes_only_via_port_functions() -> None:
+    """检查点三表的写操作全经五个行级口（编排块 saver 不直连表）。"""
+    store, tables = _store()
+    store.save(_run("run-a", status="completed"))
+
+    # 行为证①：saver 组合路径——写只经 `put_checkpoint_rows`，三表行如实落地、读口可见
+    put_checkpoint_rows(
+        [
+            CheckpointRow(
+                "run-a",
+                DEFAULT_NS,
+                "0001",
+                None,
+                CHECKPOINT_KIND_STATE,
+                encode_state(RunState(run_id="run-a")),
+                encode_metadata({"messages": "1"}),
+            ),
+            CheckpointBlobRow("run-a", DEFAULT_NS, "messages", "1", "json", b"blob-1"),
+            CheckpointWriteRow("run-a", DEFAULT_NS, "0001", "task-1", 0, "messages", "json", b"w1"),
+        ],
+        tables=tables,
+    )
+    assert [row.checkpoint_id for row in checkpoint_rows("run-a", tables=tables)] == ["0001"]
+    assert [row.blob for row in checkpoint_blobs("run-a", "0001", tables=tables)] == [b"blob-1"]
+    assert [row.blob for row in checkpoint_writes("run-a", "0001", tables=tables)] == [b"w1"]
+    written = [table for table, _key, _op in tables.writes]
+    assert set(written) <= set(TABLES)
+    assert CHECKPOINT_TABLES == {TABLE_CHECKPOINT, TABLE_CHECKPOINT_BLOB, TABLE_CHECKPOINT_WRITE}
+
+    # 行为证②：本块其它写面不碰检查点三表（`RunStore.save` 落 run／步／黑匣子／引用载体）
+    before = len(tables.writes)
+    store.save(_step("run-a", 1))
+    store.save(_blackbox("run-a", {"run_id": "run-a", "status": "completed"}))
+    store.put_ref("原文".encode())
+    assert all(table not in CHECKPOINT_TABLES for table, _key, _op in tables.writes[before:])
+
+    # 行为证③：四读口零写（读不动表）；删线程＝五口里的 delete 口（只清检查点三表）
+    before = len(tables.writes)
+    checkpoint_rows("run-a", tables=tables)
+    checkpoint_blobs("run-a", "0001", tables=tables)
+    checkpoint_writes("run-a", "0001", tables=tables)
+    assert len(tables.writes) == before, "读口产生写（读面不净）"
+    delete_thread("run-a", tables=tables)
+    assert checkpoint_rows("run-a", tables=tables) == []
+    assert store.run("run-a") is not None, "删线程误清簿记面（R-J-45）"
+
+    # AST 证：检查点三表的 `RowOp` 构造位点只在唯一行级口模块（saver 不直连表的本块面）
+    assert _direct_checkpoint_write_sites(_source_trees()) == []
+    forged = [("store.py", ast.parse("RowOp(TABLE_CHECKPOINT, ('t',), {}, 'put')"))]
+    assert _direct_checkpoint_write_sites(forged) != [], "探测器空转"
+
+
+# ---------- 14 黑匣子键白名单闭世界（行为 11；真源 recon/J R-J-02／R-J-03／R-J-50） ----------
+
+
+def test_blackbox_keys_closed_world() -> None:
+    """黑匣子键白名单闭世界（越界键判失败）。"""
+    store, tables = _store()
+    store.save(_run("run-a", status="completed"))
+    # 白名单＝蒸馏二十键（顺序即记录键插入顺序）＋身份面四键；越界判据＝键集差
+    assert len(BLACKBOX_RECORD_KEYS) == 20
+    assert BLACKBOX_ALLOWED_KEYS == set(BLACKBOX_RECORD_KEYS) | set(BLACKBOX_IDENTITY_KEYS)
+    assert set(BLACKBOX_IDENTITY_KEYS) == {"run_id", "question", "status", "error"}
+
+    # 全白名单键 → 过（白名单内不设额外限制：值面归各相位，本块只保真）
+    full_record: dict[str, Any] = dict.fromkeys(sorted(BLACKBOX_ALLOWED_KEYS))
+    full_record["run_id"] = "run-a"
+    full_record["status"] = "completed"
+    store.save(_blackbox("run-a", full_record))
+    stored = store.blackbox("run-a")
+    assert stored is not None and set(stored.record) == set(BLACKBOX_ALLOWED_KEYS)
+
+    # 越界键判失败：未入列键不进黑匣子（含已取消字段名与近似名）
+    store.save(_run("run-b", status="completed"))
+    for bad_key in ("consecutive_asks", "messages_v2", "understanding", "question_group_x"):
+        with pytest.raises(BlackBoxKeyOutOfWorldError) as raised:
+            store.save(_blackbox("run-b", {"run_id": "run-b", bad_key: "越界"}))
+        assert raised.value.unknown == (bad_key,)
+        assert raised.value.run_id == "run-b"
+    assert tables.scan(TABLE_BLACKBOX, "run_id", "run-b") == [], "越界键被落库（白名单外偷偷进）"
+    assert store.blackbox("run-b") is None
+
+    # 越界不引入改写路径：首写行逐字不变、仍为一行
+    assert store.blackbox("run-a").record == full_record
+    assert len(tables.scan(TABLE_BLACKBOX, "run_id", "run-a")) == 1
+
+
+# ---------- 16 截断必带可见标记（行为 13；真源 recon/J R-J-06／R-J-60／R-J-62／R-J-63） ----------
+
+
+def test_truncation_visible(audit_records: list[AuditRecord]) -> None:
+    """截断必带可见标记。"""
+    # ① 审计 `facts`：空白折叠（R-J-63）＋超长截断可见、长度受控 ≤ SUMMARY_LIMIT=120（R-J-06）
+    long_facts = "核对" * 200
+    audit(replace(_audit("run-a"), facts=long_facts))
+    truncated = audit_records[-1].facts
+    assert truncated.endswith(TRUNCATION_MARK), "超长审计摘要未带截断标记（静默截断）"
+    assert len(truncated) <= SUMMARY_LIMIT, "审计摘要长度不受控"
+    assert truncated[:-1] == long_facts[: SUMMARY_LIMIT - 1], "截断保留了非原文内容"
+    audit(replace(_audit("run-a"), facts="第一行\n第二行\t第三行"))
+    assert audit_records[-1].facts == "第一行 第二行 第三行"
+    assert summarize("短摘要") == "短摘要"
+
+    # ② 黑匣子单行摘要：换行替换 `" ⏎ "`、按替换后字符数计（R-J-60）＋截断可见 ≤ 96
+    lines = head("行一\n行二\n" + "长" * 300)
+    assert lines.startswith("行一" + BLACKBOX_NEWLINE_MARK + "行二" + BLACKBOX_NEWLINE_MARK)
+    assert lines.endswith(TRUNCATION_MARK)
+    assert len(lines) <= BLACKBOX_LINE_LIMIT
+    assert head("单行短值") == "单行短值"
+
+    # ③ 转写分面截断（R-J-62）：title 30（process_notes）／60（steps）、digest 80、source 40
+    assert dict(FACET_LIMITS) == _SPEC_FACET_LIMITS
+    for facet, limit in _SPEC_FACET_LIMITS.items():
+        text = "字" * 500
+        clipped = facet_head(facet, text)
+        assert len(clipped) <= limit, f"{facet} 未按分面长度截断"
+        assert clipped.endswith(TRUNCATION_MARK)
+        assert clipped[:-1] == text[: limit - 1]
+    assert facet_head("未在册分面", "字" * 500) == facet_head(
+        "content", "字" * 500
+    )  # 未在册＝通用值
+
+
+# ---------- 17 写失败 fail-closed（行为 14；A-P7a-37） ----------
+
+
+def test_write_failure_fail_closed() -> None:
+    """写失败 fail-closed：抛错且无部分行、无静默缺口。"""
+    failure = RuntimeError("存储不可用：写失败")
+    failing = _FailingTables(failure)
+    store = RunStore(failing)
+
+    # ① 写失败上抛（原样上抛、不吞错、不换形、不返回哨兵）
+    with pytest.raises(RuntimeError) as raised:
+        store.save(_run("run-a"))
+    assert raised.value is failure
+    assert len(failing.attempted) == 1, "写失败未如实上抛（重试／吞错）"
+    assert failing.rows == {}, "写失败留下部分行"
+    # 步／黑匣子写入先经 run 在场把守（缺行即抛错）——写面任一路都不静默、不落半成品
+    with pytest.raises(RunNotFoundError):
+        store.save(_step("run-a", 1))
+    for attempt in (
+        lambda: store.put_ref("原文".encode()),
+        lambda: store.ensure_tables(),
+        lambda: put_checkpoint_rows(
+            [CheckpointRow("t", DEFAULT_NS, "1", None, CHECKPOINT_KIND_STATE, b"", b"")],
+            tables=failing,
+        ),
+    ):
+        with pytest.raises(RuntimeError):
+            attempt()
+
+    # ② 无静默缺口：读面如实（缺行＝None／抛错），不留无声的半成品
+    assert store.run("run-a") is None
+    with pytest.raises(RunNotFoundError):
+        store.load("run-a")
+    assert failing.scan(TABLE_RUN, "run_id", "run-a") == []
+
+    # ③ 批量原子：同批次后一行非法 → 前一行不落（无部分行、失败批次不入写账）
+    _, tables = _store()
+    good = RowOp(TABLE_STEP, ("run-a", "1"), {"run_id": "run-a", "seq": 1}, "put")
+    with pytest.raises(TableWriteError):
+        tables.write([good, RowOp("petro_well", ("w-1",), {"well_id": "w-1"}, "put")])
+    assert tables.scan(TABLE_STEP, "run_id", "run-a") == [], "批次半写（前一行已落）"
+    assert tables.writes == [], "失败批次被记入写账（假成功）"
+
+    # ④ 检查点批量口同款：批中一枚非行投影 → 全批不落（接口面 fail-closed）
+    with pytest.raises(TypeError):
+        put_checkpoint_rows(
+            [
+                CheckpointRow("run-a", DEFAULT_NS, "1", None, CHECKPOINT_KIND_STATE, b"", b""),
+                {"thread_id": "run-a"},  # type: ignore[list-item]
+            ],
+            tables=tables,
+        )
+    assert checkpoint_rows("run-a", tables=tables) == []
+    assert tables.writes == []
+
+
+# ---------- 18 本块零判断零模型（行为 15 AST 扫描） ----------
+
+
+def test_no_judgement_or_model_in_persistence() -> None:
+    """本块零判断零模型（AST 扫描）。"""
+    trees = _source_trees()
+    assert trees, "未扫到本块源码（探测器失效）"
+    assert _judgement_or_model_findings(trees) == [], "本块出现词表／正则语义判定或模型调用"
+
+    # 同族红线面（规格 框架与依赖红线④的 AST 降维）：本块只依赖 `state`／`infra`＋自身
+    assert _import_findings(trees) == [], "本块引了包内其它块（成环风险）"
+
+    # 探测器非空转：伪造源各形逐一命中
+    forged = [
+        ("probe", ast.parse("import re\nre.match('x', text)")),
+        ("probe", ast.parse("from appv2.infra.llm_client import embeddings\nembeddings(['x'])")),
+        ("probe", ast.parse("llm.complete('提示')")),
+        ("probe", ast.parse("LEXICON = {'关键词': '值'}")),
+        ("probe", ast.parse("import langgraph")),
+        ("probe", ast.parse("from appv2.runtimev2.orchestration import saver")),
+    ]
+    findings = _judgement_or_model_findings(forged)
+    assert any("禁引模块 re" in finding for finding in findings)
+    assert any("禁引模块 appv2.infra.llm_client" in finding for finding in findings)
+    assert any("模型调用 .complete" in finding for finding in findings)
+    assert any("词表名面 LEXICON" in finding for finding in findings)
+    assert any("禁引模块 langgraph" in finding for finding in findings)
+    assert _import_findings(forged) != []
+
+
+# ---------- 19 【边界集】（规格 表行 19） ----------
+
+
+def test_boundary_empty_huge_badref_legacy(audit_records: list[AuditRecord]) -> None:
+    """【边界集】空 payload／超长事实／坏 ref／旧版本记录 → 各落对应分支。"""
+    store, tables = _store()
+    store.save(_run("run-a", status="completed"))
+
+    # ① 空 payload／空结构：如实落盘读回（不归 NULL、不抛错——空结构与缺失可区分）
+    store.save(_step("run-a", 1, payload={}, manifest={}))
+    empty = store.steps("run-a")[0]
+    assert empty.payload == {} and empty.payload is not None
+    assert empty.manifest == {} and empty.manifest is not None
+
+    # ② 超长事实：落截断可见分支（标记＋长度受控）；空串＝不触界（不添标记）
+    audit(replace(_audit("run-a"), facts="超" * 500))
+    assert audit_records[-1].facts.endswith(TRUNCATION_MARK)
+    assert len(audit_records[-1].facts) <= SUMMARY_LIMIT
+    assert len(head("长" * 500)) <= BLACKBOX_LINE_LIMIT
+    assert summarize("") == "" and head("") == ""
+
+    # ③ 坏 ref：不可解析 handle → 抛错分支（不猜、不返回哨兵）；空原文＝合法 handle 的边界
+    empty_ref = store.put_ref(b"")
+    assert empty_ref.bytes == 0 and empty_ref.sha256 == hashlib.sha256(b"").hexdigest()
+    assert store.read_ref(empty_ref.handle) == b""
+    for bad_handle in (
+        "",
+        "blob-",
+        "blob-" + "0" * 63,
+        "blob-" + "0" * 65,
+        "blob-" + "Z" * 64,
+        "sha256:" + "0" * 64,
+    ):
+        with pytest.raises(UnknownHandleError):
+            store.read_ref(bad_handle)
+
+    # ④ 旧版本记录：黑匣子回放／检查点读入各落「如实空显」分支（不抛错、不补写、不回溯改写）
+    store.save(_run("run-v1", status="completed"))
+    store.save(_blackbox("run-v1", _V1_BLACKBOX_RECORD))
+    archived = store.blackbox("run-v1")
+    assert archived is not None
+    assert replay_channels(archived.record)["dialogue"] == []
+    assert archived.record["dialogue"] == _V1_BLACKBOX_RECORD["dialogue"]
+
+    store.save(_run("run-legacy", status="completed"))
+    put_checkpoint_rows(
+        [
+            CheckpointRow(
+                "run-legacy",
+                DEFAULT_NS,
+                "0001",
+                None,
+                CHECKPOINT_KIND_STATE,
+                json.dumps(
+                    dict(_V1_STATE_PAYLOAD, run_id="run-legacy"), ensure_ascii=False
+                ).encode("utf-8"),
+                b"not-json",
+            )
+        ],
+        tables=tables,
+    )
+    legacy = store.load("run-legacy")  # 不抛错
+    assert legacy.schema_version == 1 and legacy.dialogue == [] and legacy.answer == "旧答案"
+
+    # 迁移落地的历史行（含已取消列）读面照旧可读、不回溯改写（风险 2 对策）；写面把守不变
+    migrated = {"run_id": "run-legacy", "status": "completed", "legacy_only_key": "旧列"}
+    tables.write(
+        [
+            RowOp(
+                TABLE_BLACKBOX,
+                ("run-legacy",),
+                {"run_id": "run-legacy", "record": migrated, "created_at": _T0},
+                "append",
+            )
+        ]
+    )
+    read_back = store.blackbox("run-legacy")
+    assert read_back is not None and read_back.record == migrated
+    with pytest.raises(BlackBoxKeyOutOfWorldError):
+        store.save(_blackbox("run-legacy", migrated))
+
+
+# ---------- 20 【保留集】（规格 表行 20） ----------
+
+
+def test_retention_normal_roundtrip_unchanged(audit_records: list[AuditRecord]) -> None:
+    """【保留集】常规落盘读回与未触发边界时的行为不变。"""
+    store, tables = _store()
+    store.ensure_tables()
+
+    # 常规四类记录＋引用载体＋检查点三表：全量落盘（无一处触界）
+    run = _run("run-a", status="waiting_ask")
+    step = _step("run-a", 1, payload={"delivered_rows": 12, "obs_rows": 20}, manifest={"kb": 1})
+    box_record: dict[str, Any] = {
+        "run_id": "run-a",
+        "status": "waiting_ask",
+        "answer": "短答案",
+        "dialogue": [{"role": "user", "content": "原话", "origin": "user_verbatim"}],
+    }
+    facts = "问答受理（四要素齐备）"
+    blob = "大结果原文".encode()
+    checkpoint = CheckpointRow(
+        "run-a",
+        DEFAULT_NS,
+        "0001",
+        None,
+        CHECKPOINT_KIND_STATE,
+        encode_state(RunState(run_id="run-a", status="waiting_ask")),
+        encode_metadata({"messages": "1"}),
+    )
+    blob_row = CheckpointBlobRow("run-a", DEFAULT_NS, "messages", "1", "json", b"blob-1")
+    write_row = CheckpointWriteRow(
+        "run-a", DEFAULT_NS, "0001", "task-1", 0, "messages", "json", b"w1"
+    )
+    store.save(run)
+    store.save(step)
+    store.save(_blackbox("run-a", box_record))
+    audit(replace(_audit("run-a"), facts=facts))
+    ref = store.put_ref(blob)
+    put_checkpoint_rows([checkpoint, blob_row, write_row], tables=tables)
+
+    # 读回逐字段等价（未触发边界＝不改写、不归一）
+    assert store.run("run-a") == run
+    assert store.steps("run-a") == [step]
+    assert store.blackbox("run-a") == BlackBox("run-a", box_record, _T0)
+    assert audit_records[-1].facts == facts, "短摘要被改写／加了标记"
+    assert audit_records[-1].evidence == {"run_id": "run-a"}
+    assert store.read_ref(ref.handle) == blob
+    assert checkpoint_rows("run-a", tables=tables) == [checkpoint]
+    assert checkpoint_blobs("run-a", "0001", tables=tables) == [blob_row]
+    assert checkpoint_writes("run-a", "0001", tables=tables) == [write_row]
+
+    # 每表恰一行（无多写、无重复落盘）——各按其主键列计
+    assert len(tables.scan(TABLE_RUN, "run_id", "run-a")) == 1
+    assert len(tables.scan(TABLE_STEP, "run_id", "run-a")) == 1
+    assert len(tables.scan(TABLE_BLACKBOX, "run_id", "run-a")) == 1
+    assert len(tables.scan(TABLE_BLOB, "handle", ref.handle)) == 1
+    assert len(tables.scan(TABLE_CHECKPOINT, "thread_id", "run-a")) == 1
+    assert len(tables.scan(TABLE_CHECKPOINT_BLOB, "thread_id", "run-a")) == 1
+    assert len(tables.scan(TABLE_CHECKPOINT_WRITE, "thread_id", "run-a")) == 1
+
+    # 两次读回等价且无副作用
+    before = len(tables.writes)
+    assert store.load("run-a") == store.load("run-a")
+    assert store.run("run-a") == run and store.steps("run-a") == [step]
+    assert store.read_ref(ref.handle) == blob
+    assert len(tables.writes) == before, "读回产生副作用"
