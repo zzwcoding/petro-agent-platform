@@ -1,9 +1,9 @@
-"""prompts 块验收（RT-W2-04a 骨架/常量族/任务书/答案轮＋RT-W2-04b 决策轮/常驻块/分解样例）。
+"""prompts 块验收（-04a 常量族/任务书/答案轮＋-04b 决策轮/常驻块/样例＋-04c 元面·边界·保留）。
 
-票面对象＝`specs/prompts.md`「验收测试」表逐行（-04a 取第 1–8、16–18 行；-04b 取第 9–15 行——
-测试标识同规格列、`#` 保留规格表行序；-04c 续 19–23）；
+票面对象＝`specs/prompts.md`「验收测试」表逐行（23 行全量：-04a 取第 1–8、16–18 行；-04b 取第
+9–15 行；-04c 取第 19–23 行——测试标识同规格列、`#` 保留规格表行序）；
 测试网钉＝pin-24（落点行 1：合同常量逐字稳定面）／pin-03（落点行 2：答案要求③逐字在场）／
-pin-13（落点行 18：答案轮禁令件在场＝合同侧）——3 条 pin 行全在 -04a，-04b 零 pin 行。
+pin-13（落点行 18：答案轮禁令件在场＝合同侧）——3 条 pin 行全在 -04a，-04b／-04c 零 pin 行。
 
 逐字稿真源（迁移照抄面）：`appv2/runtime/orientation.py` `_ORIENT_*`／`_ANSWER_REQUIREMENTS`
 ／`answer_turn_preamble`／`anchor_line`／`render_decompose_example`、`appv2/runtime/guide.py`
@@ -26,13 +26,18 @@ pin-13（落点行 18：答案轮禁令件在场＝合同侧）——3 条 pin �
 from __future__ import annotations
 
 import ast
+import inspect
 import json
 import re
 import string
+import sys
+from collections.abc import Callable
+from copy import deepcopy
+from dataclasses import asdict
 from datetime import date
 from importlib import import_module
 from pathlib import Path
-from typing import Any
+from typing import Any, get_type_hints
 
 import pytest
 
@@ -976,3 +981,631 @@ def test_decompose_example_valid_json() -> None:
     assert isinstance(state.ledger_dump, dict)
     assert line == render_decompose_example(state.ledger_dump["metrics"], today=_DECISION_TODAY)
     json.loads(line[line.index("{") :])
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════
+# -04c：元面（行 19–21）＋【边界集】（行 22）／【保留集】（行 23）
+# ══════════════════════════════════════════════════════════════════════════════════════
+
+# 本块依赖面白名单（行 19／20 共用）：appv2 面只许 `state`＋自身；stdlib 面只许纯计算件
+# （R3「只许 import state」的半覆盖面降维补位——公共层其余块与七业务相位均在此名单外）。
+_ALLOWED_APPV2_IMPORTS = ("appv2.runtimev2.state", "appv2.runtimev2.prompts")
+_ALLOWED_STDLIB_ROOTS = ("__future__", "collections", "datetime", "json", "typing")
+# 行 19 禁引模块（IO／落盘／网络族＋时钟族＋随机族＋模型与框架族）
+_FORBIDDEN_PURE_MODULES = (
+    "aiohttp",
+    "anthropic",
+    "httpx",
+    "io",
+    "langchain",
+    "langgraph",
+    "litellm",
+    "openai",
+    "os",
+    "pathlib",
+    "random",
+    "requests",
+    "secrets",
+    "shutil",
+    "socket",
+    "subprocess",
+    "tempfile",
+    "time",
+    "urllib",
+)
+# 行 19 禁止调用：零 IO（文件／进程／动态执行）／零模型；时钟与随机面按**属性形**判
+# （裸 `today()`＝调用方注入的时间量，合法——真源 `render_decompose_example` 的入参面）。
+_FORBIDDEN_BARE_CALLS = ("__import__", "compile", "eval", "exec", "input", "open", "print")
+_FORBIDDEN_ATTR_CALLS = (
+    "choice",
+    "monotonic",
+    "now",
+    "perf_counter",
+    "randint",
+    "shuffle",
+    "sleep",
+    "time",
+    "today",
+    "urandom",
+    "utcnow",
+)
+_MODEL_CALL_NAMES = ("acomplete", "chat", "complete", "embed", "embedding", "embeddings")
+
+# 行 21 判据面：正则族＋词表名面＋非标识符形字符串集合（语义词表的机检代理，先例 state 件）
+_REGEX_MODULES = ("re", "regex")
+_REGEX_CALL_NAMES = (
+    "compile",
+    "findall",
+    "finditer",
+    "fullmatch",
+    "match",
+    "search",
+    "split",
+    "sub",
+)
+_LEXICON_NAME_MARKS = ("keyword_table", "lexicon", "wordlist", "词表")
+_IDENTIFIER_SHAPE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+# 豁免面（行为 15 原文「集合成员判定与逐字子串校」＝形态处理，不算语义词表／正则）：
+# 块内唯一豁免容器＝机器拒因原文的闭世界子串校（机器拒因面零改动，`arch/P6b` A-P6b-05）。
+_VERBATIM_CHECK_EXEMPT = ("_REROUTE_TRIGGERS",)
+# 超长清单边界（行 22 ④——超 `max_subtasks` 声明槽：装配不做上限判定、零截断）
+_HUGE_SUBTASK_COUNT = 12
+
+
+def _prompts_sources() -> list[tuple[Path, ast.Module]]:
+    """本块源码树（元面三行共用的扫描面）。"""
+    return [
+        (path, ast.parse(path.read_text(encoding="utf-8")))
+        for path in sorted(_PROMPTS_DIR.rglob("*.py"))
+    ]
+
+
+def _imported_modules(tree: ast.Module) -> list[tuple[int, str]]:
+    """文件内 import 位点（`(行, 模块名)`；相对引以点号前缀记名）。"""
+    found: list[tuple[int, str]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            found.extend((node.lineno, alias.name) for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            found.append((node.lineno, "." * node.level + (node.module or "")))
+    return found
+
+
+def _call_sites(tree: ast.Module) -> list[tuple[int, str, str]]:
+    """调用位点（`(行, 形, 被调名)`；形 ∈ `bare`／`attr`）。"""
+    found: list[tuple[int, str, str]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Name):
+            found.append((node.lineno, "bare", func.id))
+        elif isinstance(func, ast.Attribute):
+            found.append((node.lineno, "attr", func.attr))
+    return found
+
+
+def _purity_findings(sources: list[tuple[Path, ast.Module]]) -> list[str]:
+    """行 19 AST 判据面：IO／网络／时钟／随机／模型位点＋跨块引（零 IO／模型／时钟／随机）。"""
+    findings: list[str] = []
+    for name, tree in sources:
+        for lineno, module in _imported_modules(tree):
+            root = module.split(".")[0]
+            if root in _FORBIDDEN_PURE_MODULES:
+                findings.append(f"{name}:{lineno} 禁引模块 {module}")
+            elif root == "appv2" and not module.startswith(_ALLOWED_APPV2_IMPORTS):
+                findings.append(f"{name}:{lineno} 越界引块 {module}")
+        for lineno, kind, callee in _call_sites(tree):
+            if kind == "bare" and callee in _FORBIDDEN_BARE_CALLS:
+                findings.append(f"{name}:{lineno} 禁止调用 {callee}")
+            if kind == "attr" and callee in _FORBIDDEN_ATTR_CALLS:
+                findings.append(f"{name}:{lineno} 时钟／随机面调用 .{callee}")
+            if callee in _MODEL_CALL_NAMES:
+                findings.append(f"{name}:{lineno} 模型调用 {callee}")
+    return findings
+
+
+def _import_findings(sources: list[tuple[Path, ast.Module]]) -> list[str]:
+    """行 20 AST 判据面：appv2 面白名单（只许 `state`＋自身）＋依赖面（只许 stdlib 纯计算件）。"""
+    findings: list[str] = []
+    for name, tree in sources:
+        for lineno, module in _imported_modules(tree):
+            root = module.split(".")[0] if module else ""
+            if not root:
+                continue
+            if root == "appv2":
+                if not module.startswith(_ALLOWED_APPV2_IMPORTS):
+                    findings.append(f"{name}:{lineno} 越界引块 {module}")
+            elif root not in _ALLOWED_STDLIB_ROOTS:
+                external = root not in sys.stdlib_module_names
+                shape = "非 stdlib 依赖" if external else "白名单外 stdlib"
+                findings.append(f"{name}:{lineno} {shape} {module}")
+    return findings
+
+
+def _str_collection_sites(tree: ast.Module) -> list[tuple[int, str, tuple[str, ...]]]:
+    """模块级字符串集合常量（`Tuple`／`List`／`Set` 形与 `set|frozenset({...})` 调用，映射取键集）。
+
+    元素非标识符形即「自建词表」的机检代理（枚举闭世界取值与 `__all__` 名单都是标识符形）。
+    """
+    sites: list[tuple[int, str, tuple[str, ...]]] = []
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+        elif isinstance(node, ast.AnnAssign):
+            targets = [node.target]
+        else:
+            continue
+        target = targets[0]
+        if not isinstance(target, ast.Name):
+            continue
+        value = node.value
+        values: tuple[str, ...] = ()
+        if isinstance(value, (ast.Tuple, ast.List, ast.Set)):
+            values = tuple(
+                element.value
+                for element in value.elts
+                if isinstance(element, ast.Constant) and isinstance(element.value, str)
+            )
+        elif (
+            isinstance(value, ast.Call)
+            and isinstance(value.func, ast.Name)
+            and value.func.id in ("set", "frozenset")
+            and value.args
+            and isinstance(value.args[0], (ast.Tuple, ast.List, ast.Set))
+        ):
+            values = tuple(
+                element.value
+                for element in value.args[0].elts
+                if isinstance(element, ast.Constant) and isinstance(element.value, str)
+            )
+        elif isinstance(value, ast.Dict) and all(
+            isinstance(key, ast.Constant) and isinstance(key.value, str) for key in value.keys
+        ):
+            values = tuple(key.value for key in value.keys)
+        if values:
+            sites.append((node.lineno, target.id, values))
+    return sites
+
+
+def _in_test_subtrees(tree: ast.Module) -> list[ast.AST]:
+    """含 `in`／`not in` 判定的比较与推导式子树——豁免面「逐字子串校」的语法位。"""
+    subtrees: list[ast.AST] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Compare) and any(
+            isinstance(op, (ast.In, ast.NotIn)) for op in node.ops
+        ):
+            subtrees.append(node)
+        elif isinstance(node, (ast.GeneratorExp, ast.ListComp, ast.SetComp, ast.DictComp)) and any(
+            isinstance(sub, ast.Compare)
+            and any(isinstance(op, (ast.In, ast.NotIn)) for op in sub.ops)
+            for sub in ast.walk(node)
+        ):
+            subtrees.append(node)
+    return subtrees
+
+
+def _exempt_use_findings(tree: ast.Module) -> list[str]:
+    """豁免容器使用面：每次取值必须落在「逐字子串校」的语法位（否则豁免成了漏网）。"""
+    covered = {id(sub) for node in _in_test_subtrees(tree) for sub in ast.walk(node)}
+    return [
+        f"L{node.lineno} 豁免容器 {node.id} 用于逐字子串校之外"
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Name)
+        and isinstance(node.ctx, ast.Load)
+        and node.id in _VERBATIM_CHECK_EXEMPT
+        and id(node) not in covered
+    ]
+
+
+def _branch_cjk_literals(tree: ast.Module) -> list[tuple[int, str]]:
+    """分支判据里的中文明文（按业务词面分派＝语义判断的机检代理，先例 gateway_adapter 件）。"""
+    found: list[tuple[int, str]] = []
+    for node in ast.walk(tree):
+        test: ast.expr | None = None
+        if isinstance(node, (ast.If, ast.While)):
+            test = node.test
+        elif isinstance(node, ast.IfExp):
+            test = node.test
+        elif isinstance(node, ast.Assert):
+            test = node.test
+        if test is None:
+            continue
+        found.extend(
+            (node.lineno, sub.value)
+            for sub in ast.walk(test)
+            if isinstance(sub, ast.Constant)
+            and isinstance(sub.value, str)
+            and any("\u4e00" <= char <= "\u9fff" for char in sub.value)
+        )
+    return found
+
+
+def _lexicon_findings(sources: list[tuple[Path, ast.Module]]) -> list[str]:
+    """行 21 AST 判据面：正则语义判定＋自建词表＋词表名面＋分支判据中文明文。
+
+    豁免面（规格原文「集合成员判定与逐字子串校」）＝形态处理：注册表 `_VERBATIM_CHECK_EXEMPT`
+    所列容器的项与用法不判；其余非标识符形字符串集合／映射键判「疑似语义词表」。
+    """
+    exempt_items = {
+        value
+        for _name, tree in sources
+        for _lineno, target, values in _str_collection_sites(tree)
+        if target in _VERBATIM_CHECK_EXEMPT
+        for value in values
+    }
+    findings: list[str] = []
+    for name, tree in sources:
+        for lineno, module in _imported_modules(tree):
+            if module.split(".")[0] in _REGEX_MODULES:
+                findings.append(f"{name}:{lineno} 禁引模块 {module}")
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr in _REGEX_CALL_NAMES
+            ):
+                root = node.func.value
+                while isinstance(root, ast.Attribute):
+                    root = root.value
+                if isinstance(root, ast.Name) and root.id in _REGEX_MODULES:
+                    findings.append(f"{name}:{node.lineno} 正则语义判定 {root.id}.{node.func.attr}")
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                if any(mark in node.name.lower() for mark in _LEXICON_NAME_MARKS):
+                    findings.append(f"{name}:{node.lineno} 词表名面 {node.name}")
+            elif isinstance(node, ast.Name):
+                if any(mark in node.id.lower() for mark in _LEXICON_NAME_MARKS):
+                    findings.append(f"{name}:{node.lineno} 词表名面 {node.id}")
+        for lineno, target, values in _str_collection_sites(tree):
+            if target in _VERBATIM_CHECK_EXEMPT:
+                continue
+            for value in values:
+                if not _IDENTIFIER_SHAPE.fullmatch(value):
+                    findings.append(f"{name}:{lineno} 疑似语义词表项 {value!r}")
+        findings.extend(f"{name} {finding}" for finding in _exempt_use_findings(tree))
+        for lineno, literal in _branch_cjk_literals(tree):
+            if literal not in exempt_items:
+                findings.append(f"{name}:{lineno} 分支判据疑似语义明文 {literal!r}")
+    return findings
+
+
+def _deep_import_findings(sources: list[tuple[Path, ast.Module]]) -> list[str]:
+    """消费方向（R2）：四相位＋编排块只许经包根 `appv2.runtimev2.prompts` 消费（深模块私有）。"""
+    return [
+        f"{path.name}:{lineno} 引深层子模块 {module}"
+        for path, tree in sources
+        for lineno, module in _imported_modules(tree)
+        if module.startswith("appv2.runtimev2.prompts.")
+    ]
+
+
+# ---------- 19 装配确定性纯函数：两跑逐字相等／不改入参／零 IO·模型·时钟·随机（元） ----------
+
+
+def test_assembly_pure_deterministic() -> None:
+    """行 19 装配确定性纯函数：两跑逐字相等、不改入参、零 IO／模型／时钟（AST）（行为 14）。"""
+    task_book_state = _ledger_state()
+    decision_state = _decision_state(
+        contracts_appended=[PHASE_CLARIFY],
+        discover_used=2,
+        user_hint="窗按上月",
+        decision_error="缺 subtasks 键",
+        subtask_results=[
+            {"id": "s1", "question": "K12-3 井生产时长", "status": "ok"},
+            {"id": "s2", "question": "含水率", "status": "failed", "reason": "不在台账"},
+        ],
+    )
+    answer_state = _answer_state()
+    states = (task_book_state, decision_state, answer_state, _empty_state())
+
+    calls: list[tuple[str, Callable[[], str]]] = [
+        ("assemble_task_book", lambda: assemble_task_book(task_book_state, watermark="2026-08-24")),
+        ("assemble_answer_prompt", lambda: assemble_answer_prompt(answer_state)),
+        ("assemble_decision_package·clarify", lambda: _clarify_package(decision_state)),
+        ("assemble_decision_package·toolmatch", lambda: _toolmatch_package(decision_state)),
+        (
+            "assemble_decision_increment",
+            lambda: assemble_decision_increment(
+                decision_state, phase=PHASE_CLARIFY, done_text=_DONE_TEXT
+            ),
+        ),
+        ("render_ledger_resident_block", lambda: render_ledger_resident_block(decision_state)),
+        (
+            "render_decompose_example",
+            lambda: render_decompose_example(_decision_dump()["metrics"], today=_DECISION_TODAY),
+        ),
+        ("anchor_line", lambda: anchor_line(decision_state.question, decision_state.understanding)),
+    ]
+    before = [asdict(state) for state in states]
+    for label, call in calls:
+        first, second = call(), call()
+        assert isinstance(first, str), f"{label} 输出非 str"
+        assert first == second, f"{label} 两跑不逐字相等"
+    assert [asdict(state) for state in states] == before, "装配改动了入参（零写入被破）"
+    assert [deepcopy(state) for state in states] == list(states), "装配含随机／副作用"
+    # 同输入异实例同结果（结果只由入参与合同常量决定——装配确定性）
+    assert assemble_answer_prompt(_answer_state()) == assemble_answer_prompt(_answer_state())
+    assert assemble_task_book(_ledger_state(), watermark="2026-08-24") == assemble_task_book(
+        _ledger_state(), watermark="2026-08-24"
+    )
+
+    sources = _prompts_sources()
+    assert sources, "扫描面为空——看守失效"
+    assert _purity_findings(sources) == [], "本块出现 IO／模型／时钟／随机／跨块位点"
+
+    # 探测器非空转（IO／网络／时钟／随机／模型／跨块六面各命中）
+    probes: dict[str, str] = {
+        "IO": "import os\nopen('痕迹')\n",
+        "网络": "import requests\n",
+        "时钟": "from datetime import datetime\nnow = datetime.now()\n",
+        "随机": "import random\npick = random.choice([1])\n",
+        "模型": "async def go(egress):\n    await egress.complete([])\n",
+        "跨块": "from appv2.runtimev2.gateway_adapter import complete\n",
+    }
+    for label, source in probes.items():
+        assert _purity_findings([(Path("forged.py"), ast.parse(source))]), f"{label} 面探测器空转"
+
+
+# ---------- 20 import 面只许 state（元 AST——R3 半覆盖面的降维补位） ----------
+
+
+def test_imports_state_only() -> None:
+    """行 20 import 面只许 state（AST 扫描——R3 半覆盖面的降维补位；风险 5）。"""
+    sources = _prompts_sources()
+    assert sources, "扫描面为空——看守失效"
+    assert _import_findings(sources) == [], "本块 import 面越出「只许 state＋自身」"
+
+    appv2_modules = {
+        module
+        for _name, tree in sources
+        for _lineno, module in _imported_modules(tree)
+        if module.startswith("appv2")
+    }
+    assert appv2_modules == {
+        "appv2.runtimev2.state",
+        "appv2.runtimev2.prompts.answer_round",
+        "appv2.runtimev2.prompts.constants",
+        "appv2.runtimev2.prompts.decision_round",
+        "appv2.runtimev2.prompts.task_book",
+    }
+    stdlib_roots = {
+        module.split(".")[0]
+        for _name, tree in sources
+        for _lineno, module in _imported_modules(tree)
+        if module and not module.startswith("appv2")
+    }
+    assert stdlib_roots and stdlib_roots <= set(_ALLOWED_STDLIB_ROOTS)
+
+    # 探测器非空转：公共层其余块（R3 半面无闸的那半面）与七业务相位、外加依赖三形逐一被咬
+    for block in (
+        "bookkeeping",
+        "context",
+        "transport",
+        "persistence",
+        "gateway_adapter",
+        "orchestration",
+        "gate",
+        "understanding",
+        "clarification",
+        "tool_matching",
+        "answering",
+    ):
+        forged = [(Path("forged.py"), ast.parse(f"from appv2.runtimev2.{block} import x\n"))]
+        assert any("越界引块" in finding for finding in _import_findings(forged)), f"{block} 未被咬"
+    assert "非 stdlib 依赖" in "".join(
+        _import_findings([(Path("forged.py"), ast.parse("import requests\n"))])
+    )
+    assert "白名单外 stdlib" in "".join(
+        _import_findings([(Path("forged.py"), ast.parse("import functools\n"))])
+    )
+    assert _import_findings(
+        [(Path("forged.py"), ast.parse("from appv2.infra.llm_client import embeddings\n"))]
+    )
+
+
+# ---------- 21 程序侧无词表／正则语义判断（元 AST；豁免面＝集合成员判定与逐字子串校） ----------
+
+
+def test_no_lexicon_or_regex_in_prompts() -> None:
+    """行 21 程序侧无词表／正则语义判断（AST；豁免面＝集合成员判定与逐字子串校——行为 15）。"""
+    sources = _prompts_sources()
+    assert sources, "扫描面为空——看守失效"
+    assert _lexicon_findings(sources) == [], "本块出现正则／语义词表位点"
+
+    # 豁免面＝闭世界注册表，且块内非标识符形字符串集合**恰一处**（机器拒因闭世界子串校）
+    non_identifier_sites = [
+        (target, values)
+        for _name, tree in sources
+        for _lineno, target, values in _str_collection_sites(tree)
+        if any(not _IDENTIFIER_SHAPE.fullmatch(value) for value in values)
+    ]
+    assert dict(non_identifier_sites) == {"_REROUTE_TRIGGERS": ("未绑定", "不在台账")}
+    assert tuple(dict(non_identifier_sites)) == _VERBATIM_CHECK_EXEMPT
+
+    # 探测器非空转（正则／词表名面／自建词表／豁免面外使用／分支判据语义明文五类各命中）
+    probes: dict[str, str] = {
+        "正则": "import re\nhit = re.search('拒答', text)\n",
+        "词表名面": "LEXICON = {'拒答': '无据'}\n",
+        "自建词表": "WORDS: tuple[str, ...] = ('拒答', '无据')\n",
+        "豁免面外使用": (
+            "_REROUTE_TRIGGERS: tuple[str, ...] = ('未绑定',)\nALL = list(_REROUTE_TRIGGERS)\n"
+        ),
+        "分支判据语义明文": "if kind == '拒答':\n    pass\n",
+    }
+    for label, source in probes.items():
+        assert _lexicon_findings([(Path("forged.py"), ast.parse(source))]), f"{label} 面探测器空转"
+    # 豁免不是漏网：豁免容器的合法用法（闭世界子串校）不被咬
+    legit = (
+        "_REROUTE_TRIGGERS: tuple[str, ...] = ('未绑定', '不在台账')\n"
+        "shown = any(trigger in reason for trigger in _REROUTE_TRIGGERS)\n"
+    )
+    assert _lexicon_findings([(Path("forged.py"), ast.parse(legit))]) == []
+
+
+# ---------- 22 【边界集】（空台账／缺水位／零未绑定指标／子问题清单超长） ----------
+
+
+def test_boundary_empty_projection_variants() -> None:
+    """行 22【边界集】空台账／缺水位／零未绑定指标（全可出数）／子问题清单超长 →
+    各落占位文案／空串段／data 链形分支（行为 5／10；不降级与静默禁令）。"""
+    # ① 空台账（未取得 `None` 与已取之空 `{}` 同落）→ 占位文案逐字在场；常驻块／分解样例＝空串段
+    for empty in (_empty_state(), _empty_state_with_empty_dump()):
+        book = assemble_task_book(empty, watermark="2026-08-24")
+        assert _PLACEHOLDER_FAMILY in book and _PLACEHOLDER_RELATION in book
+        assert book.count("\n  " + _PLACEHOLDER_EMPTY) == 3  # 指标／术语／对象各一（段不删）
+        assert render_ledger_resident_block(empty) == ""  # 空串段（调用方跳过）
+        assert render_decompose_example(empty.ledger_dump, today=_DECISION_TODAY) == ""
+        package = _clarify_package(empty)
+        assert "填写样例（分解形" not in package
+        assert RESIDENT_BLOCK_BEGIN not in package and RESIDENT_BLOCK_END not in package
+        # 不删段、不静默：指南段与 finalize 边界句仍在
+        assert GUIDE_REFERENCE_HEAD in package and CLARIFY_FINALIZE_BOUNDARY in package
+    assert "子问题结果清单：\n（无）" in assemble_answer_prompt(_empty_state())  # 占位文案
+
+    # ② 缺水位 → 「（水位未取得）」逐字在场（不编造日期——零时钟接触的装配面形态）
+    no_watermark = assemble_task_book(_ledger_state(), watermark="")
+    assert f"- 数据水位：{_PLACEHOLDER_WATERMARK}——" in no_watermark
+    assert re.search(r"\d{4}-\d{2}-\d{2}", no_watermark) is None  # 不因缺位凭空造日
+    assert "- 数据水位：2026-08-24——" in assemble_task_book(
+        _ledger_state(), watermark="2026-08-24"
+    )
+
+    # ③ 零未绑定指标（全可出数）→ data 链形分支；指标名录空列 → 该段空串（不编造样例）
+    all_bound = _decision_dump()
+    all_bound["metrics"] = [m for m in all_bound["metrics"] if m["binding_state"] == "bound"]
+    example = render_decompose_example(all_bound["metrics"], today=_DECISION_TODAY)
+    assert '"chain": "data", "tool": "data_query"' in example
+    assert '"chain": "knowledge"' not in example
+    assert '"chain": "data"' in _clarify_package(_decision_state(ledger_dump=all_bound))
+    no_metrics = _decision_dump()
+    no_metrics["metrics"] = []
+    assert "填写样例（分解形" not in _clarify_package(_decision_state(ledger_dump=no_metrics))
+    # 只该段缺位：台账其余块仍在（不整块降级、不另拼替代段）
+    assert RESIDENT_BLOCK_BEGIN in _clarify_package(_decision_state(ledger_dump=no_metrics))
+
+    # ④ 子问题清单超长（超 `max_subtasks` 声明槽）→ 全量在场（零截断：不省略、不落占位／空串）
+    huge = [
+        {
+            "id": f"s{index}",
+            "question": f"K12-3 井第{index}项生产数据？",
+            "ledger_notes": "生产时长｜可出数｜2026-08-01~2026-08-24",
+            "chain": "data",
+            "tool": "data_query",
+        }
+        for index in range(1, _HUGE_SUBTASK_COUNT + 1)
+    ]
+    toolmatch = _toolmatch_package(_decision_state(question_group={"subtasks": huge}))
+    group_json = toolmatch.split("问题组：\n", 1)[1].split("\n", 1)[0]
+    rendered = json.loads(group_json)["subtasks"]
+    assert [row["id"] for row in rendered] == [row["id"] for row in huge]  # 全量（不减条）
+    assert all(row["question"] in toolmatch for row in huge)  # 逐条逐字在场
+    assert "…" not in group_json  # 零省略号形占位
+    long_results = [
+        {"id": f"r{index}", "question": f"子问题{index}", "status": "ok"}
+        for index in range(1, 41)
+    ]
+    long_answer = assemble_answer_prompt(
+        RunState(run_id="run-long", question="超长清单题？", subtask_results=long_results)
+    )
+    assert long_answer.count("\n- [") == len(long_results)  # 逐条全量
+    assert "…" not in long_answer and "（略）" not in long_answer
+
+
+# ---------- 23 【保留集】（常规投影装配输出不受空投影分支影响） ----------
+
+
+def test_retention_normal_assembly_unchanged() -> None:
+    """行 23【保留集】常规投影装配输出不受空投影分支影响；四消费方既有验收断言不因本块改形
+    回归（形状单点在 -04a——本票只加断言、不改形状）。"""
+    answer_state = _answer_state()
+    normal_book = assemble_task_book(_ledger_state(), watermark="2026-08-24")
+    normal_decision = _decision_state()
+    normal_clarify = _clarify_package(normal_decision)
+    normal_toolmatch = _toolmatch_package(normal_decision)
+    normal_answer = assemble_answer_prompt(answer_state)
+
+    # ① 分支隔离：常规投影（-04a／-04b fixture）装配输出不含任何空投影／缺位产物
+    empty_signals = (
+        _PLACEHOLDER_FAMILY,
+        _PLACEHOLDER_EMPTY,
+        _PLACEHOLDER_RELATION,
+        _PLACEHOLDER_WATERMARK,
+        "（无）",
+    )
+    for label, output in (
+        ("任务书", normal_book),
+        ("澄清轮首入包", normal_clarify),
+        ("匹配轮首入包", normal_toolmatch),
+        ("答案轮", normal_answer),
+    ):
+        for signal in empty_signals:
+            assert signal not in output, f"{label} 常规投影落空投影分支产物：{signal}"
+    # 局部空块只染该块（分支不扩散）：术语块空 → 只该块落占位，其余块与水位照常
+    partial = _ledger_dump()
+    partial["terms"] = []
+    partial_book = assemble_task_book(_ledger_state(ledger_dump=partial), watermark="2026-08-24")
+    assert partial_book.count("\n  " + _PLACEHOLDER_EMPTY) == 1
+    assert "生产时长｜可出数" in partial_book
+    assert _PLACEHOLDER_FAMILY not in partial_book and _PLACEHOLDER_WATERMARK not in partial_book
+
+    # ② 常规投影下各件原样（-04a／-04b 判据面抽样重钉——本票不改形）
+    assert (
+        normal_book.index(TASK_BOOK_SCENE)
+        < normal_book.index(_DATA_ZONE_HEAD)
+        < normal_book.index(TASK_BOOK_OUTPUT_CONTRACT)
+        < normal_book.index(_QUESTION_HEAD)
+    )
+    assert "含水率｜未绑定（台账无数值——数值走报告检索）" in normal_book
+    assert normal_clarify.count(RESIDENT_BLOCK_BEGIN) == 1
+    assert normal_clarify.count(RESIDENT_BLOCK_END) == 1
+    assert "填写样例（分解形" in normal_clarify and "问题组：" not in normal_clarify
+    assert "问题组：" in normal_toolmatch and "填写样例（分解形" not in normal_toolmatch
+    assert normal_answer.split("\n", 1)[0] == f"用户问题：{answer_state.question}"
+    assert normal_answer.endswith(ANSWER_DRAFT_CONTRACT)
+    assert "- [s2] K12-3 井含水率——失败（不在台账）" in normal_answer
+
+    # ③ 四消费方消费面（R2 包根）形状保留：名单闭世界逐字＋Seam 签名位置面不变
+    root = import_module("appv2.runtimev2.prompts")
+    assert root.ASSEMBLY_FUNCTIONS == ASSEMBLY_FUNCTIONS
+    assert dict(root.CONTRACT_CONSTANT_FAMILIES) == _SPEC_FAMILIES
+    for func, card_name in (
+        (assemble_task_book, "assemble_task_book"),
+        (assemble_answer_prompt, "assemble_answer_prompt"),
+    ):
+        assert card_name in ASSEMBLY_FUNCTIONS  # 卡面两函数仍在族名单（四相位消费面）
+        hints = get_type_hints(func)
+        assert hints["state"] is RunState and hints["return"] is str
+        parameters = list(inspect.signature(func).parameters.values())
+        assert parameters[0].name == "state"  # 卡面 `(state) -> str` 的位置面不变
+        assert all(
+            parameter.kind is inspect.Parameter.KEYWORD_ONLY for parameter in parameters[1:]
+        )  # 追加仕入参只许关键字形（四相位既有调用不回归）
+
+    # ④ 消费方向（R2）＝包根唯一入口：四相位＋编排块零引深层子模块
+    consumers = _consumer_sources()
+    assert consumers, "消费方扫描面为空——看守失效"
+    assert _deep_import_findings(consumers) == []
+    forged = [
+        (
+            Path("forged.py"),
+            ast.parse("from appv2.runtimev2.prompts.constants import ANSWER_REQUIREMENTS\n"),
+        )
+    ]
+    assert _deep_import_findings(forged), "深层子模块引法未被咬（探测器空转）"
+
+    # ⑤ 既有验收断言载体在场、旧码装配面不引本块（本票只加新件——四相位既有断言不回归）
+    for relative in (
+        "tests/domains/test_v2_v258_understand_orientation.py",
+        "tests/domains/test_v2_v259_clarify_assembly.py",
+        "tests/domains/test_v2_v262_turn_selfsufficiency.py",
+    ):
+        assert (_REPO_ROOT / relative).is_file(), f"四消费方既有验收断言载体丢失：{relative}"
+    for relative in ("appv2/runtime/orientation.py", "appv2/runtime/graph.py"):
+        path = _REPO_ROOT / relative
+        assert path.is_file()
+        modules = [
+            module
+            for _lineno, module in _imported_modules(ast.parse(path.read_text(encoding="utf-8")))
+            if module.startswith("appv2.runtimev2")
+        ]
+        assert modules == [], f"旧码装配载体引了 V2 面：{relative} → {modules}"
