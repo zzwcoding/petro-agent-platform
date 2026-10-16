@@ -803,11 +803,11 @@ def test_decision_increment_lines_present() -> None:
             {
                 "id": "s2",
                 "question": "含水率",
-                "status": "failed",
+                "status": "bad_args",
                 "reason": "未绑定（台账无数值）",
             },
-            {"id": "s3", "question": "井筒口径", "status": "failed", "reason": "不在台账"},
-            {"id": "s4", "question": "生产时长", "status": "failed", "reason": "参数缺失"},
+            {"id": "s3", "question": "井筒口径", "status": "bad_args", "reason": "不在台账"},
+            {"id": "s4", "question": "生产时长", "status": "retryable", "reason": "参数缺失"},
         ],
     )
     # 单条 user 内各段以「\n」连接、段序固定（①探查预算②回炉③用户补充④拒因回喂⑤已做段）
@@ -839,6 +839,61 @@ def test_decision_increment_lines_present() -> None:
         _DONE_TEXT,
     ]
     assert assemble_decision_increment(_decision_state(), phase=PHASE_TOOLMATCH) == ""
+
+
+def test_rework_line_status_world() -> None:
+    """行 11 补：回炉条判据＝**重跑面两档**（`bad_args`／`retryable`——真源 execution
+    `subtask_results` 状态闭世界〔流水 59〕）：两档渲染回炉条；`ok`（成品不重跑）／`refused`
+    （终局不回炉）零渲染。
+    """
+    # 判据单点＝prompts 常量点两档（不引 execution 包——R1）
+    module = import_module("appv2.runtimev2.prompts.decision_round")
+    assert module._REWORK_STATUSES == {"bad_args", "retryable"}
+
+    rerun = _decision_state(
+        contracts_appended=[PHASE_CLARIFY],
+        subtask_results=[
+            {"id": "s1", "question": "含水率", "status": "bad_args", "reason": "参数缺失"},
+            {"id": "s2", "question": "井筒口径", "status": "retryable", "reason": "上游超时"},
+        ],
+    )
+    # 两档各成一行、逐字在场（预算条在前——段序不变）
+    assert assemble_decision_increment(rerun, phase=PHASE_CLARIFY).split("\n")[1:] == [
+        "回炉：只分解以下失败/缺失子问题（成功子问题结果已保留，禁止重复分解执行）：",
+        "- [s1] 含水率——拒因：参数缺失",
+        "- [s2] 井筒口径——拒因：上游超时",
+    ]
+
+    # 非重跑两档零渲染：`ok` 不重跑、`refused` 终局不回炉 → 回炉条整条缺席
+    for status in ("ok", "refused"):
+        terminal = _decision_state(
+            contracts_appended=[PHASE_CLARIFY],
+            subtask_results=[
+                {
+                    "id": "s1",
+                    "question": "含水率",
+                    "status": status,
+                    "reason": "未绑定（台账无数值）",
+                }
+            ],
+        )
+        assert "回炉：" not in assemble_decision_increment(terminal, phase=PHASE_CLARIFY)
+
+    # 混合态：只重跑档成行，终局／成品两档一律不进条
+    mixed = _decision_state(
+        contracts_appended=[PHASE_CLARIFY],
+        subtask_results=[
+            {"id": "s1", "question": "已成", "status": "ok"},
+            {"id": "s2", "question": "已拒", "status": "refused", "reason": "不在台账"},
+            {"id": "s3", "question": "改参", "status": "bad_args", "reason": "参数缺失"},
+            {"id": "s4", "question": "重试", "status": "retryable", "reason": "上游超时"},
+        ],
+    )
+    assert assemble_decision_increment(mixed, phase=PHASE_CLARIFY).split("\n")[1:] == [
+        "回炉：只分解以下失败/缺失子问题（成功子问题结果已保留，禁止重复分解执行）：",
+        "- [s3] 改参——拒因：参数缺失",
+        "- [s4] 重试——拒因：上游超时",
+    ]
 
 
 # ---------- 12 台账常驻块逐字转抄恰一份；三删段名缺席 ----------

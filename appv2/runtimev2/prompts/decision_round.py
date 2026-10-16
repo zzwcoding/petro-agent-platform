@@ -27,8 +27,8 @@
 输出恒为 `str`——缺位走**空串段**（调用方跳过）或**占位文案**，不降级、不截断、不编造、不静默。
 
 **何时追加增量条整条＝调用方义务**（编排面，`specs/prompts.md` 行为 16）：本模块只供条文本与
-条内自身条件（①仅非首入轮／②仅存在 failed 子问题／③user_hint 非空／④decision_error 非空／
-⑤调用方传入文本原样在场）。
+条内自身条件（①仅非首入轮／②仅存在重跑档失败子问题〔`bad_args`／`retryable`〕／
+③user_hint 非空／④decision_error 非空／⑤调用方传入文本原样在场）。
 """
 
 from __future__ import annotations
@@ -97,10 +97,17 @@ _REROUTE_SUFFIX = "→改走 knowledge 链（tool=doc_retrieve）"
 _REROUTE_TRIGGERS: tuple[str, ...] = ("未绑定", "不在台账")
 _HINT_LINE = "用户已补充：{hint}——请把它落进本轮分解。"
 _REJECTION_LINE = "上次发射被拒：{reason}——修正后重新输出 JSON。"
-# 子问题结果态面（回炉条判据＝V1 clarify「status == "failed"」——`subtask_results` 面取值域
-# `ok/refused/failed`，与 `state` 的 run 状态族**系同名巧合**、非其第二处定义；同款常量引用
-# 承载见 `answer_round` 的清单标记表）。
-_SUBTASK_STATUS_FAILED = "failed"
+# 回炉条判据：**重跑面两档**（真源＝execution `subtask_results` 状态闭世界〔流水 59〕：
+# `ok／refused／bad_args／retryable`——「失败子集回炉」语义真源＝execution 三档失败分类
+# 〔`specs/execution.md:49／:62`〕＋澄清相位回炉行为）：`bad_args`（参数错——回炉「修参」）
+# ／`retryable`（超时／上游抖动／限流——**只重跑此档**）两档重跑回炉；`ok` 成品不重跑、
+# `refused`（前置闸拒／闸拒）**终局不回炉**。两值按 R1 在本常量点以字面承载（不引 execution
+# 包），单点判据＝`_REWORK_STATUSES`。
+_SUBTASK_STATUS_BAD_ARGS = "bad_args"
+_SUBTASK_STATUS_RETRYABLE = "retryable"
+_REWORK_STATUSES: frozenset[str] = frozenset(
+    {_SUBTASK_STATUS_BAD_ARGS, _SUBTASK_STATUS_RETRYABLE}
+)
 # 问题组 JSON 段头（逐字迁移——graph.py L2706-2708）。
 _QUESTION_GROUP_HEAD = "问题组："
 
@@ -342,15 +349,16 @@ def _rework_line(row: Mapping[str, Any]) -> str:
 
 
 def _rework_block(state: RunState) -> str:
-    """回炉条（仅当存在 failed 子问题——成功子问题结果保留、禁重复分解执行）。"""
-    failed = [
+    """回炉条（仅当存在**重跑档**失败子问题——`bad_args`／`retryable` 两档；成功结果保留、
+    禁重复分解执行；`refused` 终局不回炉）。"""
+    rework_rows = [
         row
         for row in state.subtask_results
-        if isinstance(row, Mapping) and row.get("status") == _SUBTASK_STATUS_FAILED
+        if isinstance(row, Mapping) and row.get("status") in _REWORK_STATUSES
     ]
-    if not failed:
+    if not rework_rows:
         return ""
-    return _REWORK_HEAD + "\n" + "\n".join(_rework_line(row) for row in failed)
+    return _REWORK_HEAD + "\n" + "\n".join(_rework_line(row) for row in rework_rows)
 
 
 def assemble_decision_increment(
@@ -360,8 +368,8 @@ def assemble_decision_increment(
 
     澄清轮五件：①探查预算条（**仅非首入轮**——判据＝相位标记已在 `state.contracts_appended`，
     同 V1 `contracts_flag`；首入包内槽值会陈旧，机计数权威披露双保险同向）②回炉条（仅当存在
-    failed 子问题）③用户补充条（`user_hint` 非空）④拒因回喂条（`decision_error` 非空）⑤已做段
-    （调用方传入文本**原样在场、零改写**——渲染归 `context`）。
+    重跑档失败子问题——`bad_args`／`retryable`）③用户补充条（`user_hint` 非空）④拒因回喂条
+    （`decision_error` 非空）⑤已做段（调用方传入文本**原样在场、零改写**——渲染归 `context`）。
     工具匹配轮两件：④拒因回喂条＋⑤已做段。
 
     **何时追加整条＝调用方义务**（编排面）：本函数只供条文本与条内自身条件；输出恒为 `str`。
