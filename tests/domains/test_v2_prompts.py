@@ -1,35 +1,56 @@
-"""prompts 块验收（RT-W2-04a——骨架＋合同常量族＋任务书装配＋答案轮装配）。
+"""prompts 块验收（RT-W2-04a 骨架/常量族/任务书/答案轮＋RT-W2-04b 决策轮/常驻块/分解样例）。
 
-票面对象＝`specs/prompts.md`「验收测试」表第 1–8、16–18 行（-a 逐字，测试标识同规格列）；
+票面对象＝`specs/prompts.md`「验收测试」表逐行（-04a 取第 1–8、16–18 行；-04b 取第 9–15 行——
+测试标识同规格列、`#` 保留规格表行序；-04c 续 19–23）；
 测试网钉＝pin-24（落点行 1：合同常量逐字稳定面）／pin-03（落点行 2：答案要求③逐字在场）／
-pin-13（落点行 18：答案轮禁令件在场＝合同侧）。
+pin-13（落点行 18：答案轮禁令件在场＝合同侧）——3 条 pin 行全在 -04a，-04b 零 pin 行。
 
 逐字稿真源（迁移照抄面）：`appv2/runtime/orientation.py` `_ORIENT_*`／`_ANSWER_REQUIREMENTS`
-／`answer_turn_preamble`、`appv2/runtime/guide.py` 三合同、`appv2/runtime/graph.py`
-`_ANSWER_INSTRUCTION`（族⑤去重后形态——流水 43①）。
+／`answer_turn_preamble`／`anchor_line`／`render_decompose_example`、`appv2/runtime/guide.py`
+三合同、`appv2/runtime/graph.py` `_ANSWER_INSTRUCTION`（族⑤去重后形态——流水 43①）＋
+`clarify_node`／`toolmatch_node` 相位包与增量条段＋`_resident_block`／`_resident_sources`。
 
 **已登记张力（本件如实标注，不静默）**：族①成员 `TASK_BOOK_EXAMPLES`＝V1 Owner 审定三则样例
 逐字迁移，其示例文内含实仓台账真源词（如「抽油机时率」「躺井」「Y-41」）；行为 11 的「示例词
 纪律同款」（`arch/P4b` A-P4b-60 先例）若按实仓台账词集解释，本常量需改写三则样例——本票无逐字稿，
 不自行裁量，登记待主窗裁决。本件行 16 的扫描词集＝本文件 fixture 投影的台账词集＋井号形＋
 水位日形（规格 行为 11 判据面原文「fixture 词集与水位日形交集＝∅」）。
+
+**行 12／13 的判据面说明（-04b 如实标注）**：规格 行为 8／9 的「三删段名字面缺席」按**段名形**落网
+（`◆ **发射判据**`／`◆ **指标名册**`／`收口硬规则`——V1 三删段名形＋先例
+`tests/domains/test_v2_v259_clarify_assembly.py:24-26`）：族②常量本体（V1 `CLARIFY_CONTRACT` 逐字
+迁移）内含 inline 句「发射判据：台账命中＋窗已定＝分解完毕」——A-P4b-30 载该句正是「与相位合同
+发射判据逐字重复」的那处重复，故「发射判据」四字的**全输出缺席**读法与常量逐字迁移相抵、不可满足。
 """
 
 from __future__ import annotations
 
 import ast
+import json
 import re
 import string
+from datetime import date
 from importlib import import_module
 from pathlib import Path
 from typing import Any
+
+import pytest
 
 from appv2.runtimev2.prompts import (
     ANSWER_DRAFT_CONTRACT,
     ANSWER_REQUIREMENTS,
     ASSEMBLY_FUNCTIONS,
     CLARIFY_EMISSION_CONTRACT,
+    CLARIFY_FINALIZE_BOUNDARY,
+    CLARIFY_PHASE_HEAD,
     CONTRACT_CONSTANT_FAMILIES,
+    DECISION_PHASES,
+    GUIDE_REFERENCE_HEAD,
+    LEDGER_DICT_NOTE,
+    PHASE_CLARIFY,
+    PHASE_TOOLMATCH,
+    RESIDENT_BLOCK_BEGIN,
+    RESIDENT_BLOCK_END,
     SUMMARY_CONTRACT,
     TASK_BOOK_EXAMPLES,
     TASK_BOOK_OUTPUT_CONTRACT,
@@ -37,11 +58,17 @@ from appv2.runtimev2.prompts import (
     TASK_BOOK_SCENE,
     TASK_BOOK_TASK,
     TOOLMATCH_EMISSION_CONTRACT,
+    TOOLMATCH_PHASE_HEAD,
+    anchor_line,
     assemble_answer_prompt,
+    assemble_decision_increment,
+    assemble_decision_package,
     assemble_task_book,
+    render_decompose_example,
+    render_ledger_resident_block,
 )
 from appv2.runtimev2.prompts import constants as constants_module
-from appv2.runtimev2.state import RunState
+from appv2.runtimev2.state import MAX_DISCOVERS_PER_RUN, RunState
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _V2_DIR = _REPO_ROOT / "appv2" / "runtimev2"
@@ -564,3 +591,388 @@ def test_answer_round_ban_lines_present() -> None:
     assert "回声" not in output
     # 空状态亦恒在场（禁令件不随 state 缺位消失）
     assert _VERB_PIN in assemble_answer_prompt(_empty_state())
+
+# =====================================================================================
+# -04b：决策轮装配（行 9–15）——fixtures
+# =====================================================================================
+
+_DECISION_TODAY = date(2026, 8, 24)
+_MAX_SUBTASKS = 4
+_GUIDE_TEXT = "指南正文（§A 业务规则细则占位）。"
+_DONE_TEXT = "【本 run 已做】- 澄清 r1：分解 1 子问题"
+_DECISION_QUESTION = "K12-3 井近三天生产时长？"
+_DECISION_UNDERSTANDING = "问 K12-3 井近三天生产时长。"
+
+
+def _decision_dump() -> dict[str, Any]:
+    """决策轮 fixture 投影＝-04a fixture＋`families` 行（常驻块台账行五族齐）。"""
+    dump = _ledger_dump()
+    dump["families"] = [
+        {"name": "completion", "value": "completion（完井工程报告）", "source_id": "E-6"}
+    ]
+    return dump
+
+
+def _decision_state(**overrides: Any) -> RunState:
+    fields: dict[str, Any] = {
+        "run_id": "run-prompts-decision",
+        "question": _DECISION_QUESTION,
+        "understanding": _DECISION_UNDERSTANDING,
+        "ledger_dump": _decision_dump(),
+        "question_group": {
+            "subtasks": [
+                {
+                    "id": "s1",
+                    "question": "K12-3 井生产时长",
+                    "ledger_notes": "生产时长｜可出数｜2026-08-01~2026-08-24",
+                    "chain": "data",
+                    "tool": "data_query",
+                }
+            ]
+        },
+    }
+    fields.update(overrides)
+    return RunState(**fields)
+
+
+def _clarify_package(state: RunState, **overrides: Any) -> str:
+    kwargs: dict[str, Any] = {
+        "guide_text": _GUIDE_TEXT,
+        "today": _DECISION_TODAY,
+        "max_subtasks": _MAX_SUBTASKS,
+    }
+    kwargs.update(overrides)
+    return assemble_decision_package(state, phase=PHASE_CLARIFY, **kwargs)
+
+
+def _toolmatch_package(state: RunState, **overrides: Any) -> str:
+    kwargs: dict[str, Any] = {"guide_text": _GUIDE_TEXT}
+    kwargs.update(overrides)
+    return assemble_decision_package(state, phase=PHASE_TOOLMATCH, **kwargs)
+
+
+def _unique_line(output: str, prefix: str) -> str:
+    """单点定位件（段行恰一处——段名/消歧头查询用）。"""
+    found = [line for line in output.split("\n") if line.startswith(prefix)]
+    assert len(found) == 1, f"段行非恰一处（{prefix}）：{found}"
+    return found[0]
+
+
+# ---------- 9 题意锚行两形且置决策轮指令首行 ----------
+
+
+def test_anchor_line_two_forms_first_line() -> None:
+    """行 9 题意锚行两形（理解真值/假值）且置于决策轮指令首行（行为 6；A-P4b-59）。"""
+    state = _decision_state()
+    truth = f"用户原题：{state.question}｜题意：{state.understanding}"
+    assert anchor_line(state.question, state.understanding) == truth
+    assert anchor_line(
+        state.question, state.understanding
+    ) == f"用户原题：{state.question}｜题意：{state.understanding}"
+    for output in (_clarify_package(state), _toolmatch_package(state)):
+        assert output.split("\n", 1)[0] == truth  # 锚行在指令最前（首行位）
+
+    # 理解假值形：单段「用户原题：{question}」——不输出空「题意：」段
+    blank = _decision_state(understanding="")
+    empty_form = f"用户原题：{blank.question}"
+    assert anchor_line(blank.question, "") == empty_form
+    assert anchor_line(blank.question) == empty_form
+    outputs = {
+        PHASE_CLARIFY: _clarify_package(blank),
+        PHASE_TOOLMATCH: _toolmatch_package(blank),
+    }
+    assert set(outputs) == set(DECISION_PHASES)
+    for output in outputs.values():
+        first_line = output.split("\n", 1)[0]
+        assert first_line == empty_form
+        assert "｜题意：" not in first_line
+
+
+# ---------- 10 决策轮首入包构成逐件在场 ＋ 四要素 ----------
+
+
+def test_decision_package_four_elements() -> None:
+    """行 10 首入包构成逐件在场（澄清／匹配轮各按其件）、常驻块包裹对恰一对；四要素按轮合看
+    逐轮在场（行为 7；A-P4b-56／60）。
+    """
+    state = _decision_state(discover_used=2)
+    clarify = _clarify_package(state)
+    toolmatch = _toolmatch_package(state)
+
+    # ①题意锚行（首行）＋②相位合同（头行＋正文；澄清轮另含 finalize 交付面边界句）
+    assert clarify.split("\n", 1)[0] == anchor_line(state.question, state.understanding)
+    assert CLARIFY_PHASE_HEAD in clarify
+    assert "【相位①·业务澄清】只输出一个 JSON 对象（可围栏）。四动作：" in clarify
+    assert "子问题 ≤4 个" in clarify  # 声明槽 {max_subtasks}＝调用方注入值
+    assert "已用 2 次）：" in clarify  # 声明槽 {discover_used}＝state 投影现取
+    assert CLARIFY_FINALIZE_BOUNDARY in clarify
+    # ③产出样例（澄清轮）＋④§A 指南段（文本经入参注入）
+    assert "填写样例（分解形——五键齐全" in clarify
+    assert '"chain": "knowledge"' in clarify
+    assert f"{GUIDE_REFERENCE_HEAD}\n{_GUIDE_TEXT}" in clarify
+    # ⑥常驻块包裹对恰一对（投影非空）＋包尾
+    assert clarify.count(RESIDENT_BLOCK_BEGIN) == 1
+    assert clarify.count(RESIDENT_BLOCK_END) == 1
+    assert clarify.endswith(RESIDENT_BLOCK_END)
+    # 首入包逐件序：锚行→合同头→合同正文→样例→指南段→边界句→常驻块
+    order = [
+        anchor_line(state.question, state.understanding),
+        CLARIFY_PHASE_HEAD,
+        "【相位①·业务澄清】只输出",
+        "填写样例（分解形",
+        GUIDE_REFERENCE_HEAD,
+        CLARIFY_FINALIZE_BOUNDARY,
+        RESIDENT_BLOCK_BEGIN,
+    ]
+    positions = [clarify.index(marker) for marker in order]
+    assert positions == sorted(positions) and len(set(positions)) == len(positions)
+
+    # 匹配轮各按其件：合同头＋正文；产出样例＝合同内嵌样例；⑤问题组 JSON（顶层 subtasks 单键形）
+    assert toolmatch.split("\n", 1)[0] == anchor_line(state.question, state.understanding)
+    assert TOOLMATCH_PHASE_HEAD in toolmatch
+    assert TOOLMATCH_EMISSION_CONTRACT in toolmatch
+    assert "填写样例（单匹配 knowledge 形）" in toolmatch
+    assert '\n\n问题组：\n{"subtasks": [{"id": "s1"' in toolmatch
+    assert toolmatch.count(RESIDENT_BLOCK_BEGIN) == 1
+    assert toolmatch.count(RESIDENT_BLOCK_END) == 1
+    assert toolmatch.endswith(RESIDENT_BLOCK_END)
+    # 各按其件（不互串）：澄清轮无问题组段、匹配轮无分解样例段
+    assert "问题组：" not in clarify
+    assert "填写样例（分解形" not in toolmatch
+
+    # 四要素按轮合看逐轮在场：任务动词（合同头）／题意锚（锚行）／产出样例／失败反馈（增量条回喂）
+    rejected = _decision_state(discover_used=2, decision_error="缺 subtasks 键")
+    for phase, package, sample, head in (
+        (PHASE_CLARIFY, _clarify_package(rejected), "填写样例（分解形", CLARIFY_PHASE_HEAD),
+        (
+            PHASE_TOOLMATCH,
+            _toolmatch_package(rejected),
+            "填写样例（单匹配 knowledge 形）",
+            TOOLMATCH_PHASE_HEAD,
+        ),
+    ):
+        assert phase in DECISION_PHASES
+        assert package.split("\n", 1)[0] == anchor_line(
+            rejected.question, rejected.understanding
+        )
+        assert head in package
+        assert sample in package
+        assert "上次发射被拒：缺 subtasks 键——修正后重新输出 JSON。" in (
+            assemble_decision_increment(rejected, phase=phase)
+        )
+
+    # 装配函数族成员经包根可达（本票成员全在名单闭世界——R2 公开面）
+    for name in (
+        "anchor_line",
+        "assemble_decision_package",
+        "assemble_decision_increment",
+        "render_ledger_resident_block",
+        "render_decompose_example",
+    ):
+        assert name in ASSEMBLY_FUNCTIONS
+
+    # 形态越界＝参数错误（不吞错、不返回哨兵——先例 `specs/context.md` 错误契约：
+    # 相位越界／族②声明槽缺值均属调用方违约，非业务错，故不落占位文案也不静默）
+    with pytest.raises(ValueError):
+        assemble_decision_package(state, phase="no-such-phase", guide_text=_GUIDE_TEXT)
+    with pytest.raises(ValueError):
+        assemble_decision_package(
+            state, phase=PHASE_CLARIFY, guide_text=_GUIDE_TEXT, today=_DECISION_TODAY
+        )
+
+
+# ---------- 11 决策轮增量条构成与逐字稿 ----------
+
+
+def test_decision_increment_lines_present() -> None:
+    """行 11 决策轮增量条构成与逐字稿（澄清轮五件／匹配轮两件）；改道后缀＝机器拒因闭世界
+    子串校（行为 16；R-E1-08／R-E1-19／R-E2-05）。
+    """
+    state = _decision_state(
+        contracts_appended=[PHASE_CLARIFY],
+        discover_used=3,
+        user_hint="窗按上月",
+        decision_error="缺 subtasks 键",
+        subtask_results=[
+            {"id": "s1", "question": "K12-3 井生产时长", "status": "ok"},
+            {
+                "id": "s2",
+                "question": "含水率",
+                "status": "failed",
+                "reason": "未绑定（台账无数值）",
+            },
+            {"id": "s3", "question": "井筒口径", "status": "failed", "reason": "不在台账"},
+            {"id": "s4", "question": "生产时长", "status": "failed", "reason": "参数缺失"},
+        ],
+    )
+    # 单条 user 内各段以「\n」连接、段序固定（①探查预算②回炉③用户补充④拒因回喂⑤已做段）
+    assert assemble_decision_increment(
+        state, phase=PHASE_CLARIFY, done_text=_DONE_TEXT
+    ).split("\n") == [
+        f"探查预算：全 run ≤{MAX_DISCOVERS_PER_RUN} 次，已用 3 次。",  # 上限＝state 限额单点
+        "回炉：只分解以下失败/缺失子问题（成功子问题结果已保留，禁止重复分解执行）：",
+        "- [s2] 含水率——拒因：未绑定（台账无数值）→改走 knowledge 链（tool=doc_retrieve）",
+        "- [s3] 井筒口径——拒因：不在台账→改走 knowledge 链（tool=doc_retrieve）",
+        "- [s4] 生产时长——拒因：参数缺失",  # 拒因词面未命中 → 零追加（闭世界子串校）
+        "用户已补充：窗按上月——请把它落进本轮分解。",
+        "上次发射被拒：缺 subtasks 键——修正后重新输出 JSON。",
+        _DONE_TEXT,  # 已做段＝调用方传入文本原样在场、零改写
+    ]
+
+    # ①仅非首入轮：相位标记未落（首入轮）→ 无预算条；零条 → 空串（整条追加＝调用方义务）
+    assert assemble_decision_increment(_decision_state(), phase=PHASE_CLARIFY) == ""
+    assert assemble_decision_increment(
+        _decision_state(contracts_appended=[PHASE_CLARIFY], discover_used=3),
+        phase=PHASE_CLARIFY,
+    ) == f"探查预算：全 run ≤{MAX_DISCOVERS_PER_RUN} 次，已用 3 次。"
+
+    # 匹配轮仅两件：拒因回喂＋已做段（无预算／回炉／用户补充条）
+    assert assemble_decision_increment(
+        state, phase=PHASE_TOOLMATCH, done_text=_DONE_TEXT
+    ).split("\n") == [
+        "上次发射被拒：缺 subtasks 键——修正后重新输出 JSON。",
+        _DONE_TEXT,
+    ]
+    assert assemble_decision_increment(_decision_state(), phase=PHASE_TOOLMATCH) == ""
+
+
+# ---------- 12 台账常驻块逐字转抄恰一份；三删段名缺席 ----------
+
+
+def test_ledger_resident_block_verbatim_once() -> None:
+    """行 12 台账常驻块逐字转抄、恰一份；三删段名字面缺席（行为 8；V2-59 三删纪律装配面）。"""
+    state = _decision_state()
+    dump = state.ledger_dump
+    assert isinstance(dump, dict)
+    block = render_ledger_resident_block(state)
+    head, *body = block.split("\n")
+    assert head == RESIDENT_BLOCK_BEGIN
+    assert body[0] == LEDGER_DICT_NOTE  # 字典说明行紧随 BEGIN（逐字、单行位）
+    assert block.endswith("\n" + RESIDENT_BLOCK_END)
+    for label in ("台账全量（指标/术语/对象/关系/族标注）", "别名表", "数据资产结构卡"):
+        assert f"【{label}】" in block
+    rows = (
+        [f"指标｜{m['value']}（绑定态：{m['binding_state']}）" for m in dump["metrics"]]
+        + [f"术语｜{t['value']}（时效：{t['freshness']}）" for t in dump["terms"]]
+        + [f"对象｜{o['value']}" for o in dump["objects"]]
+        + [f"关系｜{r['value']}" for r in dump["relations"]]
+        + [f"族标注｜{f['value']}" for f in dump["families"]]
+    )
+    assert rows and all(row in block for row in rows)  # 逐字转抄（值串直取、零改写零摘要）
+    assert "含水率→含水率" in block  # 别名表块
+    assert "- agg_oil" in block  # 结构卡块
+
+    output = _clarify_package(state)
+    assert output.count(RESIDENT_BLOCK_BEGIN) == 1  # 恰一份（包裹对恰一对）
+    assert output.count(RESIDENT_BLOCK_END) == 1
+    for row in rows:
+        assert output.count(row) == 1, f"台账行非恰一次：{row}"
+    for entry in (
+        "生产时长（单位 h）",
+        "含水率（单位 %）",
+        "井筒（井身结构）",
+        "抽油井——位于——区块",
+        "completion（完井工程报告）",
+    ):
+        assert output.count(entry) == 1
+
+    # 三删段名字面缺席（段名形／旧句逐字——见模块头「判据面说明」）
+    for name in ("◆ **发射判据**", "◆ **指标名册**", "收口硬规则"):
+        assert name not in output
+
+    # 空投影（未取得 None 与已取之空态 {}）→ 空串段（不包裹、不另拼名录段）
+    for empty in (_empty_state(), _empty_state_with_empty_dump()):
+        assert render_ledger_resident_block(empty) == ""
+        package = _clarify_package(empty)
+        assert RESIDENT_BLOCK_BEGIN not in package
+        assert RESIDENT_BLOCK_END not in package
+
+
+# ---------- 13 消歧头统一措辞 ----------
+
+
+def test_disambiguation_header_uniform() -> None:
+    """行 13 消歧头统一措辞逐字在场、两轮同一字面（行为 9；A-P4b-33）。"""
+    state = _decision_state()
+    outputs = {
+        PHASE_CLARIFY: _clarify_package(state),
+        PHASE_TOOLMATCH: _toolmatch_package(state),
+    }
+    assert set(outputs) == set(DECISION_PHASES)
+    heads = {phase: _unique_line(output, "【业务规则参考") for phase, output in outputs.items()}
+    assert len(set(heads.values())) == 1  # 两轮统一（同一字面——单点常量）
+    head = next(iter(heads.values()))
+    assert head == GUIDE_REFERENCE_HEAD
+    assert "窗词锚定/单井红线/三链路由；动作类措辞以上方合同为准" in head
+    for name in ("发射判据", "指标名册", "收口硬规则"):  # 不点名已删段
+        assert name not in head
+    for output in outputs.values():
+        assert f"{GUIDE_REFERENCE_HEAD}\n{_GUIDE_TEXT}" in output  # §A 正文紧随（入参注入）
+        # 三删段名形缺席（见模块头「判据面说明」）
+        assert "◆ **发射判据**" not in output
+        assert "◆ **指标名册**" not in output
+        assert "收口硬规则" not in output
+
+
+# ---------- 14 分解样例三分支 ----------
+
+
+def test_decompose_example_three_branches() -> None:
+    """行 14 分解样例三分支（未绑定→knowledge／可出数→data／空→空串）（行为 10；A-P4b-32）。"""
+    bound = {"slot": "生产时长", "binding_state": "bound", "value": "生产时长（单位 h）"}
+    unbound = {"slot": "含水率", "binding_state": "unbound", "value": "含水率（单位 %）"}
+
+    knowledge = render_decompose_example([bound, unbound], today=_DECISION_TODAY)
+    assert "含水率是多少？" in knowledge  # 首条未绑定优先（演示 knowledge 链路由）
+    assert "含水率｜未绑定｜2026-07-25~2026-08-24" in knowledge  # 窗＝today−30 天~today
+    assert '"chain": "knowledge", "tool": "doc_retrieve"' in knowledge
+    assert "生产时长" not in knowledge  # 仅取一条
+
+    data = render_decompose_example([bound], today=_DECISION_TODAY)  # 无未绑定 → 首条可出数
+    assert "生产时长是多少？" in data
+    assert "生产时长｜在册可出数｜2026-07-25~2026-08-24" in data
+    assert '"chain": "data", "tool": "data_query"' in data
+
+    for empty_metrics in ([], None, {"slot": "x"}):  # 空投影／非列 → 空串（调用方跳过）
+        assert render_decompose_example(empty_metrics, today=_DECISION_TODAY) == ""
+    assert render_decompose_example([unbound], today="2026-08-24") == knowledge  # ISO 串入参同形
+
+    # 装配面三分支：未绑定 → knowledge 样例在场；全可出数 → data 分支；空投影 → 段缺位（空串段）
+    assert '"chain": "knowledge"' in _clarify_package(_decision_state())
+    all_bound = _decision_dump()
+    all_bound["metrics"] = [m for m in all_bound["metrics"] if m["binding_state"] == "bound"]
+    assert '"chain": "data"' in _clarify_package(_decision_state(ledger_dump=all_bound))
+    assert "填写样例（分解形" not in _clarify_package(_empty_state())
+
+
+# ---------- 15 分解样例产出为合法 JSON 且键形正确 ----------
+
+
+def test_decompose_example_valid_json() -> None:
+    """行 15 分解样例产出为合法 JSON 且键形正确（行为 10；D-L2a-13 病灶不复现）。"""
+    bound = {"slot": "生产时长", "binding_state": "bound", "value": "x"}
+    example = render_decompose_example([bound], today=_DECISION_TODAY)
+    assert example.endswith("}]}}")
+    payload = example[example.index("{") :]
+    obj = json.loads(payload)  # 合法 JSON（V1 字符串拼接无转义病灶不复现）
+    assert set(obj) == {"action", "question_group"}  # 顶层恰两键
+    assert obj["action"] == "decompose"
+    assert set(obj["question_group"]) == {"subtasks"}  # 顶层 subtasks 单键形
+    subtasks = obj["question_group"]["subtasks"]
+    assert isinstance(subtasks, list) and len(subtasks) == 1  # subtasks 单条
+    assert set(subtasks[0]) == {"id", "question", "ledger_notes", "chain", "tool"}  # 五键齐全
+    assert subtasks[0]["id"] == "s1"
+    assert subtasks[0]["ledger_notes"] == "生产时长｜在册可出数｜2026-07-25~2026-08-24"
+
+    # 转义面：指标名含裸引号／反斜杠时，json.dumps 转义后仍合法（裸拼即非法）
+    hostile = {"slot": '时率"高"\\', "binding_state": "bound", "value": "x"}
+    hostile_example = render_decompose_example([hostile], today=_DECISION_TODAY)
+    hostile_obj = json.loads(hostile_example[hostile_example.index("{") :])
+    assert hostile_obj["question_group"]["subtasks"][0]["question"] == '时率"高"\\是多少？'
+
+    # 澄清轮首入包内现造的同一条样例亦为合法 JSON（装配面无第二拼接路径）
+    state = _decision_state()
+    line = _unique_line(_clarify_package(state), "填写样例（分解形")
+    assert isinstance(state.ledger_dump, dict)
+    assert line == render_decompose_example(state.ledger_dump["metrics"], today=_DECISION_TODAY)
+    json.loads(line[line.index("{") :])
