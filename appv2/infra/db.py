@@ -36,6 +36,7 @@ tickets/phase0/README.md P0-03）：
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections.abc import AsyncIterator, Callable, Sequence
@@ -164,8 +165,21 @@ class MidplatformRouteError(RuntimeError):
     """
 
 
+@dataclass
+class _LoopResources:
+    """**单环**资源集：一套引擎＋两张会话工厂（环绑定纪律＝`ConnectionManager._resources`）。
+
+    `asyncpg` 连接绑创建它的环——跨环复用即抛 `RuntimeError: Task ... got Future ...
+    attached to a different loop`；故引擎与其池按**使用环**分置，一份资源集只服务一个环。
+    """
+
+    engines: dict[DatabaseRole, AsyncEngine]
+    sessions: dict[DatabaseRole, async_sessionmaker[AsyncSession]]
+    readonly_sessions: dict[DatabaseRole, async_sessionmaker[AsyncSession]]
+
+
 class ConnectionManager:
-    """连接池与会话/事务的唯一出口（每数据库角色一个异步引擎）。
+    """连接池与会话/事务的唯一出口（每数据库角色 × **每事件环**一个异步引擎）。
 
     用法（领域仓储内；异步版——await 语义）：
         async with db.session() as session:            # 自动提交/回滚的轻会话
@@ -175,14 +189,25 @@ class ConnectionManager:
                 ...
         async with db.readonly() as session:           # replica/midplatform 只读
             ...
+
+    **环绑定（2026-10-16 真机缺陷固化）**：池与连接只在本环内复用——服务器环与同步缝桥
+    （`_run_sync` 形：`bookkeeping.closing`／`execution.core`／`query.*`／`knowledge.*`）
+    自建的一次性工作环**各拿一套引擎**，互不踩。根因与实证见 `_resources`。
     """
 
     def __init__(self, specs: Sequence[DatabaseSpec]) -> None:
-        self._engines: dict[DatabaseRole, AsyncEngine] = {}
-        self._sessions: dict[DatabaseRole, async_sessionmaker[AsyncSession]] = {}
-        self._readonly_sessions: dict[DatabaseRole, async_sessionmaker[AsyncSession]] = {}
         self._specs: dict[DatabaseRole, DatabaseSpec] = {}
+        # 环 → 资源集（懒建）；`None` 桶＝无运行环语境（构造期即建——保留「构造期装配」
+        # 形状与失败面：驱动未登记／URL 装配错仍在构造期抛）。
+        self._resources_by_loop: dict[asyncio.AbstractEventLoop | None, _LoopResources] = {}
         for spec in specs:
+            self._specs[spec.role] = spec
+        self._resources_by_loop[None] = self._build()
+
+    def _build(self) -> _LoopResources:
+        """按 `self._specs` 装**一套**资源集（引擎＋两张会话工厂；观测钩子随引擎挂）。"""
+        resources = _LoopResources(engines={}, sessions={}, readonly_sessions={})
+        for role, spec in self._specs.items():
             engine = create_async_engine(
                 spec.url(),
                 pool_size=spec.pool_size,
@@ -193,20 +218,48 @@ class ConnectionManager:
             # SQLAlchemy 2.1：异步事件未实现，同步监听挂 sync_engine
             # （引擎级事件在 greenlet 语境下对异步执行同样生效）。
             self._attach_observers(engine.sync_engine, spec)
-            self._engines[spec.role] = engine
-            self._sessions[spec.role] = async_sessionmaker(
-                bind=engine, expire_on_commit=False
-            )
+            resources.engines[role] = engine
+            resources.sessions[role] = async_sessionmaker(bind=engine, expire_on_commit=False)
             # 只读会话工厂：方言连接特性 postgresql_readonly（每次 BEGIN READ ONLY）。
             # 连接级 GUC（SET default_transaction_read_only）会被 asyncpg 方言的
             # 显式 BEGIN READ WRITE 覆盖——事务只读必须走这条（见 readonly() 注；
             # 曾试连接级方案，集成实测与该特性相克，GUC 方案整体退役勿重挂）。
-            self._readonly_sessions[spec.role] = async_sessionmaker(
+            resources.readonly_sessions[role] = async_sessionmaker(
                 bind=engine,
                 expire_on_commit=False,
                 execution_options={"postgresql_readonly": True},
             )
-            self._specs[spec.role] = spec
+        return resources
+
+    def _resources(self) -> _LoopResources:
+        """取**当前环**的资源集（懒建）：同环内共用一套池，跨环各一套。
+
+        根因（真机 2026-10-16，`:8001` V2 服务「Y-41井昨天的日产液量」首问即 `run_failed`）：
+        `asyncpg` 连接绑创建它的环，而引擎/池是共享的——服务器环（api 落帧／审计／建表）先建的
+        连接，被同步缝桥自建的一次性工作环取用 → `Task <complete() at gateway_adapter/
+        bridge.py:296> got Future <Future pending cb=[BaseProtocol._on_waiter_completed()]>
+        attached to a different loop`（SQLAlchemy 池 `pool_pre_ping` 探活处先炸——车道
+        `GatewayService._settle` 写账）。故按环分置：**连接与池只在其创建环内使用**。
+
+        已关环（一次性工作环退出）的条目在下次取用时剔除：其连接不可再 `close`
+        （环已关），随条目一并释放。
+        """
+        try:
+            loop: asyncio.AbstractEventLoop | None = asyncio.get_running_loop()
+        except RuntimeError:  # 无运行环语境（构造期／纯同步面）→ `None` 桶
+            loop = None
+        self._drop_closed()
+        resources = self._resources_by_loop.get(loop)
+        if resources is None:
+            resources = self._resources_by_loop[loop] = self._build()
+        return resources
+
+    def _drop_closed(self) -> None:
+        """剔除已关环的资源集（一次性工作环退出后不留条目、不留池）。"""
+        for key in [
+            key for key in self._resources_by_loop if key is not None and key.is_closed()
+        ]:
+            self._resources_by_loop.pop(key, None)
 
     # ---------- 观测钩子（慢查询/计时；不写业务审计表） ----------
 
@@ -249,7 +302,7 @@ class ConnectionManager:
     async def session(self, role: DatabaseRole = "primary") -> AsyncIterator[AsyncSession]:
         """轻会话：块结束即 commit（异常回滚）。写角色前置只读校验。"""
         self._assert_writable(role)
-        session = self._sessions[role]()
+        session = self._resources().sessions[role]()
         try:
             yield session
             await session.commit()
@@ -280,7 +333,7 @@ class ConnectionManager:
             return
         role = role_or_session
         self._assert_writable(role)
-        session = self._sessions[role]()
+        session = self._resources().sessions[role]()
         try:
             async with session.begin():
                 yield session
@@ -302,7 +355,7 @@ class ConnectionManager:
         SQLAlchemy 忽略该连接特性，只读靠上面的意图级 flush 守卫恒挂兜住。
         """
         target = self.resolve_read_role(role)
-        session = self._readonly_sessions[target]()
+        session = self._resources().readonly_sessions[target]()
         spec = self._specs[target]
 
         def guard(_session: Any, flush_context: Any, _instances: Any) -> None:
@@ -317,13 +370,16 @@ class ConnectionManager:
 
     def resolve_read_role(self, role: DatabaseRole = "primary") -> DatabaseRole:
         """读路由解析：primary 有 replica 配置时读走 replica（预留 seam）。"""
-        if role == "primary" and "replica" in self._engines:
+        if role == "primary" and "replica" in self._specs:
             return "replica"
         return role
 
     def engine(self, role: DatabaseRole = "primary") -> AsyncEngine:
-        """引擎定位（DDL 运维口：P0-08 前建表函数经此拿 primary 引擎，幂等 checkfirst）。"""
-        return self._engines[role]
+        """引擎定位（DDL 运维口：P0-08 前建表函数经此拿 primary 引擎，幂等 checkfirst）。
+
+        **取当前环的那一份**（建表在服务器环 lifespan 内调用——与请求面同一环同一池）。
+        """
+        return self._resources().engines[role]
 
     # ---------- 行级权限注入点（与 D3 row_filter 衔接） ----------
 
@@ -347,7 +403,7 @@ class ConnectionManager:
 
     async def check_health(self) -> dict[str, str]:
         lights: dict[str, str] = {}
-        for role, engine in self._engines.items():
+        for role, engine in self._resources().engines.items():
             try:
                 async with engine.connect() as conn:
                     await conn.execute(text("SELECT 1"))
@@ -381,7 +437,7 @@ class ConnectionManager:
             raise MidplatformRouteError(
                 "midplatform 规格未声明 readonly=true——拒绝启动（99 §4.1 强制只读）"
             )
-        engine = self._engines["midplatform"]
+        engine = self._resources().engines["midplatform"]
         try:
             async with engine.connect() as conn:
                 await conn.execute(text("SELECT 1"))  # 可达性探活
@@ -403,8 +459,14 @@ class ConnectionManager:
             raise MidplatformRouteError(f"midplatform 连接不可达：{exc}") from exc
 
     async def dispose(self) -> None:
-        for engine in self._engines.values():
-            await engine.dispose()
+        """关闭**全部环**的引擎（各环一套池——见 `_resources`）。
+
+        已关环的条目先剔除（其连接不可再 close——环已关，只能随条目释放）。
+        """
+        self._drop_closed()
+        for resources in self._resources_by_loop.values():
+            for engine in resources.engines.values():
+                await engine.dispose()
 
 
 # ---------- 行级权限预埋装配器（M-01——99 §2.0②/§4.2 消费缝，形状冻结） ----------
