@@ -60,7 +60,6 @@ from appv2.tools.precondition import (
     STATE_BLOCKED_REFUSE,
     STATE_NOTE,
     STATE_PASS,
-    SUBTASK_STATES,
     SubtaskInput,
 )
 from tests.domains.test_v2_agent_loop import (
@@ -278,49 +277,70 @@ def test_tool_match_closes_world_against_group() -> None:
     assert isinstance(wrong_tool, str)
 
 
-# ---------- 前置条件机单测：四态＋零 LLM 双证 ----------
+# ---------- 前置条件机单测：三态（B2b 织网②——四态断言退役，钉新不钉旧）＋零 LLM 双证 ----------
 
 
-def test_precondition_four_states_reachable() -> None:
+def test_precondition_three_states_reachable() -> None:
+    """三态版（`eng/04` 盲区 B2b 的织网② 动作——`specs/agent-loop.md:180` 验收行挂此名）。
+
+    旧四态闭世界断言（`SUBTASK_STATES == {pass, blocked_ask, blocked_refuse, note}`）随 Owner
+    裁决 §12-B 退役：V2 前置条件机（`appv2.runtimev2.preconditions.gate_all`）是**三态**闭世界
+    ——`allow`／`refuse`／`ask`，注记并入放行＝**不设第四态**。V1 闸件
+    （`appv2.tools.precondition.judge`）的四位面作为三态的输入照旧在场（工具侧行为零回归，
+    其闭世界由 tools 自守）。
+    """
+    from appv2.runtimev2.preconditions import DECISIONS, gate_all
+    from appv2.runtimev2.state import RunState
+
+    window = {"window_start": "2025-09-01", "window_end": "2025-09-03"}
+    state = RunState(
+        run_id="run-three-state",
+        actor="dev-user",
+        question="各井日产油量",
+        question_group={
+            "subtasks": [
+                {"id": "s1", "question": "各井日产油量", "chain": "data", "tool": "data_query"},
+                {"id": "s2", "question": "各井含水率是否超过 30", "chain": "data",
+                 "tool": "data_query"},
+                {"id": "s3", "question": "各井老完成率", "chain": "data", "tool": "data_query"},
+                {"id": "s4", "question": "N-01 井 2025-09-01 日产油量", "chain": "data",
+                 "tool": "data_query"},
+            ]
+        },
+        tool_matches=[
+            {"id": "s1", "chain": "data", "tool": "data_query",
+             "plan": {"metric_slot": "日产油量", "ranking": False, **window}},
+            {"id": "s2", "chain": "data", "tool": "data_query",
+             "plan": {"metric_slot": "含水率", "ranking": False, **window}},
+            {"id": "s3", "chain": "data", "tool": "data_query",
+             "plan": {"metric_slot": "老完成率", "ranking": False, **window}},
+            {"id": "s4", "chain": "data", "tool": "data_query",
+             "plan": {"metric_slot": "日产油量", "ranking": False, **window}},
+        ],
+        ledger_dump=LEDGER_DUMP,
+    )
+    verdicts = {verdict.subtask_id: verdict for verdict in gate_all(state)}
+
+    # 三态各态可达：放行／等用户／拒答
+    assert verdicts["s1"].decision == "allow"
+    assert verdicts["s2"].decision == "ask"
+    assert verdicts["s3"].decision == "refuse"
+    # 注记并入放行（单井注记随行照常执行）——**不设第四态**
+    assert verdicts["s4"].decision == "allow"
+    assert verdicts["s4"].notes and any("单井" in n for n in verdicts["s4"].notes)
+    # 三态闭世界（R1 判定面——2026-10-15 Owner 裁决 §12-B）
+    assert DECISIONS == frozenset(
+        {verdicts["s1"].decision, verdicts["s2"].decision, verdicts["s3"].decision}
+    )
+
+    # V1 闸件四位面仍在场（工具侧零回归：三态是它的消费面，不是它的替换）
     facts = ledger_facts(LEDGER_DUMP)
-    base_plan = {"metric_slot": "日产油量", "ranking": False,
-                 "window_start": "2025-09-01", "window_end": "2025-09-03"}
-
-    # pass：干净取数形
-    v_pass = judge(SubtaskInput("s1", "各井日产油量", "data", plan=dict(base_plan)), facts)
-    assert v_pass.state == STATE_PASS
-
-    # blocked_ask：无场景词＋阈值判断形（双口径支）→ ASK 反问口径
-    v_ask = judge(SubtaskInput(
-        "s2", "各井含水率是否超过 30", "data",
-        plan={"metric_slot": "含水率", "ranking": False,
-              "window_start": "2025-09-01", "window_end": "2025-09-03"},
-    ), facts)
-    assert v_ask.state == STATE_BLOCKED_ASK
-    assert v_ask.ask is not None and len(v_ask.ask.options) == 2
-
-    # blocked_refuse：禁用词子问题如实拒答（带替代）
-    v_refuse = judge(SubtaskInput(
-        "s3", "各井老完成率", "data",
-        plan={"metric_slot": "老完成率", "ranking": False,
-              "window_start": "2025-09-01", "window_end": "2025-09-03"},
-    ), facts)
-    assert v_refuse.state == STATE_BLOCKED_REFUSE
-    assert "产量完成率" in v_refuse.reason
-
-    # note：单井支持性注记随行（照常执行）
     v_note = judge(SubtaskInput(
         "s4", "N-01 井 2025-09-01 日产油量", "data",
         plan={"metric_slot": "日产油量", "ranking": False,
               "window_start": "2025-09-01", "window_end": "2025-09-02"},
     ), facts)
     assert v_note.state == STATE_NOTE
-    assert any("单井" in n for n in v_note.notes)
-
-    # 四态枚举闭世界（R1 判定面）
-    assert SUBTASK_STATES == frozenset(
-        {STATE_PASS, STATE_BLOCKED_ASK, STATE_BLOCKED_REFUSE, STATE_NOTE}
-    )
 
 
 def test_precondition_caliber_three_forms() -> None:
