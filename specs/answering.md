@@ -127,7 +127,7 @@ class Gap:
   1. **「真流式」退化成「收口一次推全量」**（本块最大缺口、易复发）→ 对策：验收以「多段 `text` 帧」为判据；检测手段＝`streaming_segments`。
   2. **引标与增量脱节**（段出了、引用没跟上）→ 对策：每段自带 `citation_seqs` 且必须可解析；检测手段＝`segment_citations_resolve`／`dangling_citation_rejected`。
   3. **缺口只写文字、不给结构化**（回到旧形态）→ 对策：`Gap` 为必填产物；检测手段＝`structured_gaps_all_kinds`。
-  4. **答案要求清单两处漂移**（规格复制一份 vs `prompts` 合同）→ 对策：本规格**只引不复述**；检测手段＝人审（阶段 7 接口契约对账）。
+  4. **答案要求清单两处漂移**（规格复制一份 vs `prompts` 合同）→ 对策：本规格**只引不复述**；检测手段＝人审（阶段 7 接口契约对账）。**登记（W4 对账批，2026-10-16）——V2 发射动作全量枚举无单点真源**：`parsing.CLARIFY_ACTIONS`（澄清面四动作：`discover`／`decompose`／`ask`／`finalize`）与本块 `EMISSION_ACTIONS`（`discover`／`execute`／`ask`／`finalize`——行为 11 剥离的域内判据，V1 `graph.ACTION_KINDS` 字面迁移）**非同族**；**扩域＝规格变更**（须同批对账两处并回设计仓），本批只登记、不扩、不新立第二闭世界。
 
 ## 与闸的挂钩表
 

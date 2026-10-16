@@ -113,7 +113,7 @@ class Gap:                               # 复用 answering 的 Gap 口径（字
 
 ## 依赖与风险
 
-- 依赖：`state`（状态形状）、`transport`（`verdict`／`notice` 帧）。
+- 依赖：`state`（状态形状）、`transport`（`verdict`／`notice` 帧）、`tools`（**只引 `entity_anchor_tokens` 公开面**——行为 5 题眼锚，流水 56-W4 登记；W4 对账批 2026-10-16 回填）。
 - 风险与对策：
   1. **召回／误杀从未与人工标注度量过**（本块最大空白，Owner 裁决 Q-B「要补」）→ 对策：**用人工标注样本算核验的精确率／召回率**（拦错的 vs 放过的），**进测试网**（不是本块实现的运行时能力）；检测手段＝测试网的人工标注对照。
   2. **子串假阳／假阴**（历史病例：`52` 命中 `1520`；全角「：」切分错）→ 对策：边界记号化 ＋ 全角归一；检测手段＝`token_boundary_no_substring_false_positive`／`fullwidth_normalized_before_split`。

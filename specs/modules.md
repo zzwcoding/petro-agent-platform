@@ -201,10 +201,10 @@ def match(state: RunState) -> ToolPlan | ToolMatchRejection: ...
 
 ### 公开接口
 ```python
-def gate_all(state: RunState, *, window_candidates=None) -> list[SubtaskVerdict]: ...   # 逐子问题三态；与核验的 Verdict 区分（同名不同物）
+def gate_all(state: RunState, *, window_candidates=None, watermark=None, data_wells=None) -> list[SubtaskVerdict]: ...   # 逐子问题三态；与核验的 Verdict 区分（同名不同物）
 ```
 
-> **卡级微注（2026-10-16 裁，流水 56）**：`gate_all` 签名补注入形参 `*, window_candidates=None`——**序 2 位时间窗结论＝结构判据**：模型发射载荷窗槽双 null＝不能确定（不写词面门，裁决 #13）；ask 支候选窗＝**注入参** `window_candidates`（producer＝orchestration，本块不直引 query）。
+> **卡级微注（2026-10-16 裁，流水 56）**：`gate_all` 签名补注入形参 `*, window_candidates=None`——**序 2 位时间窗结论＝结构判据**：模型发射载荷窗槽双 null＝不能确定（不写词面门，裁决 #13）；ask 支候选窗＝**注入参** `window_candidates`（producer＝orchestration，本块不直引 query）。**卡级补注（W4 对账批，2026-10-16）**：同签名另有 `watermark`（位 7 新鲜度窗水位读数）／`data_wells`（位 6 数据链井闭世界）两注入参——**位 6／7 输入路径**（producer＝orchestration；未注入或空＝对应闸静默：不造达标假象、不发明域语义），W4-04 登记补录（实现已在位：`appv2/runtimev2/preconditions/core.py:115-121`）。
 
 ### 依赖
 - 模块: `state`；`tools`（前置条件机本体在 tools 侧，只经其公开面）；`bookkeeping`（**写口面**——落 step 记录/notice 经其唯一写口，只引函数、不引其内部）
@@ -269,7 +269,7 @@ def verify(state: RunState) -> Verdict: ...
 ```
 
 ### 依赖
-- 模块: `state`、`transport`（verdict/notice 帧的发射，只经其公开面）；`bookkeeping`（**写口面**——落 step 记录/notice 经其唯一写口，只引函数、不引其内部）
+- 模块: `state`、`transport`（verdict/notice 帧的发射，只经其公开面）；`bookkeeping`（**写口面**——落 step 记录/notice 经其唯一写口，只引函数、不引其内部）；`tools`（只引 entity_anchor_tokens 公开面——行为 5 题眼锚，流水 56-W4 登记；W4 对账批 2026-10-16 回填）
 - 外部: （无）
 - 注: 零 LLM 面（R8），无发起面（**写口面不引入发起面**——`bookkeeping` 发起面在本块作用面外，本块不调模型）
 

@@ -46,14 +46,14 @@ def match(state: RunState) -> ToolPlan | ToolMatchRejection: ...
 class ToolPlan:
     matches: list[SubtaskMatch]            # 与子问题一一对应；条数＝子问题条数
 
-class SubtaskMatch:
+class SubtaskMatch:                        # **形状单点在 `parsing.models`（P-05，2026-10-16 归位；`specs/parsing.md` 行为 12）；本册只定义语义面**——字段照 parsing 类体（含 `mention_mode`——取值把守归本册消费面对账），`plan`／`retrieval_need`＝映射形（非 `QueryPlan`／`RetrievalNeed` 对象）、`caliber_key`＝空串缺省
     id: str                                # 必须对上某个子问题 id
     tool: str                              # 闭世界：工具注册表名单内的名字
     chain: Literal["data", "knowledge"]    # 闭世界
-    plan: QueryPlan | None                 # chain == "data" 时必填
-    retrieval_need: RetrievalNeed | None   # chain == "knowledge" 时必填
-    caliber_key: str | None
-    mention_mode: Literal["executed", "mentioned_only"]   # 闭世界：「提及 vs 执行」结论（模型产出）
+    plan: dict | None                      # chain == "data" 时必填（映射承载）
+    retrieval_need: dict | None            # chain == "knowledge" 时必填（映射形，非 `RetrievalNeed` 对象）
+    caliber_key: str                       # 空串缺省（真值才出键）
+    mention_mode: str                      # 闭世界 executed｜mentioned_only；空串＝未装载（模型产出）
 
 class RetrievalNeed:
     question: str                          # 必填；逐字转抄子问题原文
@@ -114,7 +114,7 @@ class MatchReason:                         # 结构化拒因单条：kind 六类
 ## 不降级与静默禁令
 
 - **合法降级路径：无**（本模块不自降级）。
-- 失败与拒因必须产生**机读信号**：step payload 拒因字段 ＋ notice（类型取自 `synth/S6-事件与帧目录.md`）。`caliber_key` 由本块产出（语义归一在模型侧），其归一的机读信号落本块 step payload。
+- 失败与拒因必须产生**机读信号**：step payload 拒因字段 ＋ notice（类型取自 `synth/S6-事件与帧目录.md`）。`caliber_key` 由本块产出（语义归一在模型侧），其归一的机读信号落本块 step payload（**旁注 2026-10-16（W4 对账批）**：成功路径零补记步，信号现由返回值 `ToolPlan.matches[].caliber_key` 承载）。
 - **不得静默丢子问题**：漏配即判失败，**不许"当作已配"**或跳过该子问题（红线原文 `arch/P7a-交接包与挂账清单.md` A-P7a-37）。
 
 ## 验收测试

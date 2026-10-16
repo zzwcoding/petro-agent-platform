@@ -32,7 +32,7 @@
 ## 接口定义
 
 ```python
-def gate_all(state: RunState) -> list[SubtaskVerdict]: ...
+def gate_all(state: RunState, *, window_candidates=None, watermark=None, data_wells=None) -> list[SubtaskVerdict]: ...   # 签名以卡为准（`specs/modules.md` `## preconditions`）；三注入参＝位 2／6／7 输入路径（W4 对账批 2026-10-16 回填——卡面已列、本行旧签名收齐；producer＝orchestration）
 
 class SubtaskVerdict:
     subtask_id: str

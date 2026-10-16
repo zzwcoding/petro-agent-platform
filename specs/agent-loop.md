@@ -177,7 +177,7 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 | 四相位路由拓扑（clarify/toolmatch/precondition/batch 入图、回决策边重定向） | `tests/domains/test_v2_four_phase.py::test_four_phase_routing_topology` |
 | QuestionGroup schema（子问题 ≤4 上限/ledger_notes 必填/chain-tool 一致） | `tests/domains/test_v2_four_phase.py::test_question_group_schema_happy_and_caps` |
 | 工具匹配与问题组闭世界对账（缺/多/未知 id 拒） | `tests/domains/test_v2_four_phase.py::test_tool_match_closes_world_against_group` |
-| 前置条件机**三态**分支（`allow`／`refuse`／`ask`；注记并入放行——Owner 裁决 §12-Q-B）**【该测试标识＝织网② 改写对象：旧四态断言 `test_precondition_four_states_reachable` 待退役、三态版待织——登记 `eng/04` 盲区 B2b】** | `tests/domains/test_v2_four_phase.py::test_precondition_three_states_reachable` |
+| 前置条件机**三态**分支（`allow`／`refuse`／`ask`；注记并入放行——Owner 裁决 §12-Q-B）**【该测试标识＝织网② 改写对象：旧四态断言 `test_precondition_four_states_reachable` 已退役、三态版**已织（三态版，2026-10-16）**——登记 `eng/04` 盲区 B2b（W4 对账批即时收口）】** | `tests/domains/test_v2_four_phase.py::test_precondition_three_states_reachable` |
 | 前置条件机零 LLM（AST＋import 双证扫描） | `tests/domains/test_v2_four_phase.py::test_precondition_and_parse_layers_are_zero_llm` |
 | caliber_key 三态（场景词/双口径并列/阈值反问） | `tests/domains/test_v2_four_phase.py::test_precondition_caliber_three_forms` |
 | 澄清合同收窄（窗可锚定＝禁 ask，直发分解零挂起） | `tests/domains/test_v2_four_phase.py::test_four_phase_anchorable_window_skips_ask_delivers_degrade` |
@@ -191,7 +191,7 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 | 引擎侧 ask 挂起→resume→批量续跑收口 | `tests/domains/test_v2_four_phase.py::test_four_phase_engine_ask_resume_batch_chain` |
 | 四相位端到端剧本（澄清→分解→过闸→批量→汇总收口） | `tests/domains/test_v2_four_phase.py::test_four_phase_end_to_end_scripted` |
 | 提问→事件流步序（understand→四相位→answer 次序） | `tests/api/test_v2_asks.py::test_loop_step_sequence` |
-| 每个模型调用 step 落 Manifest（来源/版本/token） | `tests/api/test_v2_asks.py::test_manifest_present_each_call` |
+| 每个模型调用 step 落 Manifest（来源/版本/token）**【**W4 登记（2026-10-16）**：材料面 Manifest 现挂答案面步（`call_model` 无 manifest 注入面）；若裁定改由 `call_model` 承接 → 回 W3 `bookkeeping` 或设计仓】** | `tests/api/test_v2_asks.py::test_manifest_present_each_call` |
 | run 内对话状态簿记（`dialogue`＋`process_notes` 双字段，第二轮调用携带首轮对话） | `tests/domains/test_v2_multi_turn_context.py::test_second_decision_context_carries_first_round_history` |
 | 追问续会话（前轮问答/执行台账随追问进上下文） | `tests/domains/test_v2_multi_turn_context.py::test_followup_context_carries_prior_qa_history` |
 | 闸拒拒因（负信息）在历史中可见不消失 | `tests/domains/test_v2_multi_turn_context.py::test_gate_refused_line_visible_across_followup` |
