@@ -2507,3 +2507,71 @@ async def test_four_phase_direct_answer_emits_text_frame() -> None:
     assert row is not None and row.status == "completed"
     assert row.answer == greeting  # runs 读口正文（原症状＝读口无答案正文）
     assert [record.step for record in v2_steps(run_id)] == ["decision", "answer"]
+
+
+async def test_four_phase_no_ledger_hit_report_chain_end_to_end() -> None:
+    """流水 66 端到端｜无台账行的**报告内容题**走 knowledge 链交付（真机 `run-18e5d273` 指控题）。
+
+    真机病灶＝「完井液在二开钻进段与三开完井段的密度各是多少？」是报告内容题（台账里**没有**
+    这一行），旧闸只认台账名录 → 模型三次诚实发 `完井液密度｜未绑定｜null~null` 三次被拒、
+    三轮预算烧光（`docs/runtime-refactor/ladder/L3/01-完井液在二开钻进段与三开-summary.md`）。
+    本测用新合法形（槽位段「无台账命中」）把同一题**跑完四相位**：澄清放行（零拒因／零回喂条）
+    → 工具匹配 knowledge／`doc_retrieve` → 前置放行 → 检索执行恰一次 → 作答收口交付；并核台账
+    名录面零改写（占位形原样随链，下游三块按形取值）。
+    """
+    dump = v2_ledger_dump()
+    registry_names = {
+        row.get(key)
+        for block, key in (("metrics", "slot"), ("objects", "obj"), ("relations", "rel"))
+        for row in dump.get(block) or []
+    }
+    assert "完井液密度" not in registry_names  # 真机自造名真不在名录（报告内容题）
+    no_hit_note = "无台账命中｜未绑定｜null~null"  # 真机 s1 原形（槽位段＝新合法形）
+    retrieval = _retrieval_with(
+        _fragment_obs("完井液密度：二开钻进段 1.05 g/cm³、三开完井段 1.15 g/cm³。", "frag-wjj-md")
+    )
+    wire_ledger_projection(V2LedgerPort(dump))
+    with freeze("2026-10-08T09:00:00"):
+        runtime, _completer = v2_runtime(
+            script={
+                "understand": [V2_UNDERSTAND],
+                "decision": v2_decision_turn(
+                    clarify=v2_decompose(
+                        subtask_id="s1",
+                        question="完井液在二开钻进段与三开完井段的密度各是多少？",
+                        ledger_notes=no_hit_note,
+                        chain="knowledge",
+                    ),
+                    toolmatch=v2_matches(
+                        v2_knowledge_match(subtask_id="s1", question="完井液密度 二开 三开")
+                    ),
+                ),
+                "answer": ["完井液密度：二开钻进段 1.05 g/cm³、三开完井段 1.15 g/cm³ [1]。"],
+            },
+            registry=v2_registry(retrieval=retrieval),
+        )
+        events = await v2_run(runtime, "完井液在二开钻进段与三开完井段的密度各是多少？")
+
+    # 四相位一路收口：零 ask（不挂起）、零拒因步（真机旧形此处三轮全拒）
+    assert events[-1].event == "blackbox"
+    assert events[-1].data["status"] == "completed"
+    assert v2_ask_frames(events) == []
+    run_id = events[-1].data["run_id"]
+    rejection_steps = [
+        row
+        for phase in ("clarify", "toolmatch")
+        for row in v2_steps(run_id, phase)
+        if row.payload.get("rejection")
+    ]
+    assert rejection_steps == []  # 澄清／匹配轮零被拒步（真机旧形此处三轮全拒）
+    assert not any(
+        event.data.get("type") == "budget_converged" for event in events if event.event == "notice"
+    )
+
+    # 台账注释形原样随链（零改写）＋知识链真执行恰一次
+    state = V2RunStore().load(run_id)
+    subtasks = state.question_group["subtasks"]
+    assert [item["ledger_notes"] for item in subtasks] == [no_hit_note]
+    assert [item["chain"] for item in state.tool_matches] == ["knowledge"]
+    assert retrieval.retrieve_calls == 1
+    assert "1.05" in (V2RunStore().run(run_id).answer or "")

@@ -96,7 +96,16 @@ _REWORK_LINE = "- [{id}] {question}——拒因：{reason}"
 _REROUTE_SUFFIX = "→改走 knowledge 链（tool=doc_retrieve）"
 _REROUTE_TRIGGERS: tuple[str, ...] = ("未绑定", "不在台账")
 _HINT_LINE = "用户已补充：{hint}——请把它落进本轮分解。"
-_REJECTION_LINE = "上次发射被拒：{reason}——修正后重新输出 JSON。"
+# 回喂壳两件（前缀／尾件）**本块单点**：拒因回喂行＝壳＋拒因＋壳尾。
+# **2026-10-16 补（流水 66·叠字病灶）**：槽位对账拒因载荷**自带整套壳体**（真源
+# `specs/clarification.md` 行为 8 与「接口定义」错误契约——头行「上次发射被拒：ledger_notes…」＋
+# 尾行「——修正后重新输出 JSON。」，流水 64 裁），再套一次即叠字（真机 run-18e5d273：
+# 「上次发射被拒：上次发射被拒：…」「——修正后重新输出 JSON。——修正后重新输出 JSON。」）。
+# 故回喂行对**已自带壳者原样透传**（`_rejection_feedback_line`）——回喂文本壳恰一遍，
+# 拒因载荷与模型所见同形（一本账）。
+_REJECTION_HEAD = "上次发射被拒："
+_REJECTION_TAIL = "——修正后重新输出 JSON。"
+_REJECTION_LINE = _REJECTION_HEAD + "{reason}" + _REJECTION_TAIL
 # 回炉条判据：**重跑面两档**（真源＝execution `subtask_results` 状态闭世界〔流水 59〕：
 # `ok／refused／bad_args／retryable`——「失败子集回炉」语义真源＝execution 三档失败分类
 # 〔`specs/execution.md:49／:62`〕＋澄清相位回炉行为）：`bad_args`（参数错——回炉「修参」）
@@ -114,9 +123,13 @@ _QUESTION_GROUP_HEAD = "问题组："
 # ── 分解发射样例（逐字迁移——orientation.py L199-228；运行时现造、**不进合同常量**）──
 # 头行**2026-10-16 补（L0/L2 三病灶修复批②）**：窗词锚定说明句补模糊时间词一档——
 # 真机实测首秀形于窗段无据可依（L2/r1 必拒）；合法形真源 `specs/clarification.md` 行为 8③。
+# **2026-10-16 补（流水 66）**：头行再补「无台账行＝槽位写「无台账命中」」一档——报告内容题
+# （如完井液密度）本就无台账行，旧教据只教「逐字转抄台账块」，模型无合法形可写、三拒烧光轮次
+# （真机 run-18e5d273）；合法形真源 `specs/clarification.md` 行为 8①。
 _DECOMPOSE_EXAMPLE_HEAD = (
     "填写样例（分解形——五键齐全，ledger_notes 逐字转抄台账全量块，窗为示意按窗词锚定表现算；"
-    "模糊时间词（最近/近期）＝窗写 null~null，由引擎缺参反问兜底三选一——不要自己锚窗）："
+    "模糊时间词（最近/近期）＝窗写 null~null，由引擎缺参反问兜底三选一——不要自己锚窗；"
+    "子问题无台账行（报告内容题）＝槽位写「无台账命中」，不硬凑名）："
 )
 _UNBOUND_BINDING = "未绑定"
 # 绑定态字面须 ∈ 澄清对账闭世界 `BINDING_STATES`（`已绑定`／`未绑定`）——样例教的即闸收的
@@ -173,7 +186,8 @@ def render_ledger_resident_block(state: RunState) -> str:
     """台账常驻块渲染（行为 7⑥／行为 8）——BEGIN＋字典说明行＋台账/别名/结构卡三块＋END。
 
     台词条目**逐字转抄**自 `state.ledger_dump` 投影（不改写、不摘要——`ledger_notes` **槽位段**
-    逐字可求得的前提：对账口径＝段一逐字 ∈ 台账名录，非整块逐字子串）；**恰一份**（装配不另拼
+    逐字可求得的前提：对账口径＝段一逐字 ∈ 台账名录 ∪「无台账命中」（无台账行的报告内容题 —
+    —自造名不算，`specs/clarification.md` 行为 8），非整块逐字子串）；**恰一份**（装配不另拼
     名录段——V2-59 三删纪律的装配面）。投影缺位／空投影（`None`
     或 `{}`）→ 返回**空串**（该段缺位、调用方跳过——行为 7「投影非空时」）。
     """
@@ -347,6 +361,18 @@ def _toolmatch_package(state: RunState, *, guide_text: str) -> str:
     return _with_resident_block(text, state)
 
 
+def _rejection_feedback_line(reason: str) -> str:
+    """拒因回喂行（行为 16④）：裸拒因套壳；**已自带整套壳体者原样透传**（壳恰一遍）。
+
+    已带壳＝串首即 `_REJECTION_HEAD`（形态处理面「逐字子串校」——机器面文本的闭世界前缀校，
+    先例 `_REROUTE_TRIGGERS` 同款；非语义词表）：槽位对账拒因载荷自带头／尾壳体
+    （`specs/clarification.md` 错误契约，流水 64），套壳即叠字（流水 66 修——真机 run-18e5d273）。
+    """
+    if reason[: len(_REJECTION_HEAD)] == _REJECTION_HEAD:
+        return reason
+    return _REJECTION_LINE.format(reason=reason)
+
+
 def _rework_line(row: Mapping[str, Any]) -> str:
     """回炉行逐条渲染（逐字迁移 V1 `_rework_line`——拒因词面→路由动词）。"""
     reason = str(row.get("reason") or "")
@@ -391,14 +417,14 @@ def assemble_decision_increment(
         if state.user_hint:
             parts.append(_HINT_LINE.format(hint=state.user_hint))
         if state.decision_error:
-            parts.append(_REJECTION_LINE.format(reason=state.decision_error))
+            parts.append(_rejection_feedback_line(state.decision_error))
         if done_text:
             parts.append(done_text)
         return "\n".join(parts)
     if phase == PHASE_TOOLMATCH:
         parts = []
         if state.decision_error:
-            parts.append(_REJECTION_LINE.format(reason=state.decision_error))
+            parts.append(_rejection_feedback_line(state.decision_error))
         if done_text:
             parts.append(done_text)
         return "\n".join(parts)

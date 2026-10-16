@@ -37,7 +37,9 @@ from appv2.runtimev2.clarification.constants import (
     GUIDANCE_FALLBACK,
     GUIDANCE_PRECONDITION,
     MAX_SUBTASKS,
+    NO_LEDGER_HIT_ROW_SHELL,
     NO_MATERIAL_SHELL,
+    NOTE_SLOT_NO_HIT,
     NOTICE_DECISION_NOTE,
     PAYLOAD_ASK_FRAME,
     PAYLOAD_CAPPED,
@@ -69,8 +71,10 @@ from appv2.runtimev2.parsing import (
     parse_question_group,
 )
 from appv2.runtimev2.prompts import (
+    PHASE_CLARIFY,
     RESIDENT_BLOCK_BEGIN,
     RESIDENT_BLOCK_END,
+    assemble_decision_increment,
     render_ledger_resident_block,
 )
 from appv2.runtimev2.state import (
@@ -1096,7 +1100,7 @@ def test_boundary_slot_reconciliation_rejections() -> None:
         assert f"【拒因】s1 的「{segment}」段" in reason, label
         assert cause in reason, label  # 拒因指明原因
         assert (
-            "【期望形】〈台账行首名〉｜已绑定|未绑定"
+            "【期望形】〈台账行首名｜或「无台账命中」〉｜已绑定|未绑定"
             "｜〈锚定窗形：2026-09-16~2026-10-16｜检索式无窗：窗未定或 null~null〉" in reason
         ), label
         assert "——修正后重新输出 JSON。" in reason, label
@@ -1147,6 +1151,100 @@ def test_boundary_slot_reconciliation_rejections() -> None:
         empty_outcome = clarify(empty)
     assert isinstance(empty_outcome, ClarifyRejection)
     assert "不在台账名录" in empty_outcome.reasons[0].reason
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# L3 阻塞修复批（流水 66）：无台账命中形入闭世界＋拒因回喂壳恰一遍
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+def test_ledger_notes_no_ledger_hit_form_legal() -> None:
+    """#21 补｜槽位段第二形「无台账命中」＝合法——`specs/clarification.md:129`。
+
+    L3 阻塞修复批·流水 66（真机 `run-18e5d273`）：knowledge 链报告题（如「完井液密度」）**本就
+    没有台账行**，旧判据只认名录 → 模型**没有任何合法形可写**、三写「不在名录」三拒烧光轮次
+    （证据 `docs/runtime-refactor/ladder/L3/01-完井液在二开钻进段与三开-summary.md`：`id=5／7／9`
+    三条「ledger_notes 槽位对账未过：s1」＋`budget_converged`）。空命中是**合法业务态**、非违约。
+    断言四面：①真机 s1 形（`无台账命中｜未绑定｜null~null`）与题面点名形（`…｜窗未定`）均放行；
+    ②无命中形**只免锚台账行**——绑定态／窗段照验，越界照拒且【台账相关行】示无命中行文；
+    ③自造名 ≠ 无命中（真机自造名「完井液密度」照拒，壳语明示——防「无命中」变垃圾桶）；
+    ④空投影（名录制空 fail-closed 面）下无命中形照放行（有无台账行与投影态无关）。
+    """
+    for note_text in (
+        f"{NOTE_SLOT_NO_HIT}｜未绑定｜窗未定",  # 题面点名形
+        f"{NOTE_SLOT_NO_HIT}｜未绑定｜null~null",  # 真机 run-18e5d273 的 s1 原形（改此形必过）
+        f"{NOTE_SLOT_NO_HIT}｜已绑定｜2026-09-16~2026-10-16",
+    ):
+        state = _state()
+        with _scripted(_decompose(_subtask(ledger_notes=note_text))):
+            outcome = clarify(state)
+        assert isinstance(outcome, ClarifyFinal), note_text
+        assert state.question_group["subtasks"][0]["ledger_notes"] == note_text
+        assert state.decision_error == ""  # 零拒因（放行即清回喂面）
+
+    # 只免锚台账行：②③段照验（段级拒因照旧指明段名与原因）
+    for note_text, segment, cause in (
+        (f"{NOTE_SLOT_NO_HIT}｜草案｜窗未定", "绑定态", "绑定态越界"),
+        (f"{NOTE_SLOT_NO_HIT}｜未绑定｜下个月", "窗", "窗形不合法"),
+    ):
+        state = _state()
+        with _scripted(_decompose(_subtask(ledger_notes=note_text))):
+            rejected = clarify(state)
+        assert isinstance(rejected, ClarifyRejection), note_text
+        reason = rejected.reasons[0].reason
+        assert f"【拒因】s1 的「{segment}」段" in reason, note_text
+        assert cause in reason, note_text
+        assert NO_LEDGER_HIT_ROW_SHELL in reason, note_text  # 无命中形照实示
+        assert "名录无此名" not in reason, note_text  # 不误套名录外自造名的行文
+
+    # 自造名 ≠ 无命中：真机自造名（完井液密度）照拒，壳语明示该界
+    coined_state = _state()
+    with _scripted(_decompose(_subtask(ledger_notes="完井液密度｜未绑定｜窗未定"))):
+        coined = clarify(coined_state)
+    assert isinstance(coined, ClarifyRejection)
+    coined_reason = coined.reasons[0].reason
+    assert "不在台账名录" in coined_reason
+    assert "自造名≠「无台账命中」" in coined_reason
+
+    # 空投影（名录制空＝fail-closed 面）下无命中形照放行：无台账行与投影态无关
+    empty = _state(ledger_dump={})
+    with _scripted(_decompose(_subtask(ledger_notes=f"{NOTE_SLOT_NO_HIT}｜未绑定｜窗未定"))):
+        empty_outcome = clarify(empty)
+    assert isinstance(empty_outcome, ClarifyFinal)
+
+    # 真机台账 × 真机形（判据不依赖 fixture——问数组台账态快照投影）：真投影下 s1 原形同过；
+    # 且真机自造名「完井液密度」**真不在**真名录（复现 run-18e5d273 被拒面——无命中形才是其合法出路）
+    real = _state(ledger_dump=_real_ledger_dump())
+    with _scripted(_decompose(_subtask(ledger_notes=f"{NOTE_SLOT_NO_HIT}｜未绑定｜null~null"))):
+        assert isinstance(clarify(real), ClarifyFinal)
+    coined_real = _state(ledger_dump=_real_ledger_dump())
+    with _scripted(_decompose(_subtask(ledger_notes="完井液密度｜未绑定｜null~null"))):
+        coined_outcome = clarify(coined_real)
+    assert isinstance(coined_outcome, ClarifyRejection)
+    assert "不在台账名录" in coined_outcome.reasons[0].reason
+
+
+def test_slot_mismatch_feedback_single_frame() -> None:
+    """#21 补｜槽位对账拒因回喂**壳恰一遍**（流水 66·叠字病灶，真机 `run-18e5d273`）。
+
+    真机回喂形＝「**上次发射被拒：上次发射被拒：**ledger_notes…」「——修正后重新输出 JSON。
+    ——修正后重新输出 JSON。」：拒因载荷**自带整套壳体**（流水 64 裁：头行带「上次发射被拒：」、
+    尾行「——修正后重新输出 JSON。」），增量条回喂行又套一次 → 壳两遍。
+    断言：载荷原文（拒因载荷形＝一本账）零改动恰一遍进回喂文本——壳两件各计 1（判据＝回喂文本
+    恰一遍），且载荷原文原样在场、零改写。
+    """
+    state = _state()
+    with _scripted(_decompose(_subtask(ledger_notes="采出程度｜未绑定｜2026-09-16~2026-10-16"))):
+        outcome = clarify(state)
+    assert isinstance(outcome, ClarifyRejection)
+    payload = state.decision_error
+    assert payload.startswith("上次发射被拒：ledger_notes 槽位对账未过：s1")
+    assert payload.endswith("——修正后重新输出 JSON。")
+
+    feedback = assemble_decision_increment(state, phase=PHASE_CLARIFY)
+    assert payload in feedback  # 拒因载荷原文原样在场（零改写）
+    assert feedback.count("上次发射被拒：") == 1  # 前缀恰一遍（旧形＝两遍）
+    assert feedback.count("——修正后重新输出 JSON。") == 1  # 尾件恰一遍（旧形＝两遍）
 
 
 def test_retention_no_ask_no_dependency() -> None:

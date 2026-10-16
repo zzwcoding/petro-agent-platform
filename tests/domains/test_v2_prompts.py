@@ -842,6 +842,39 @@ def test_decision_increment_lines_present() -> None:
     assert assemble_decision_increment(_decision_state(), phase=PHASE_TOOLMATCH) == ""
 
 
+def test_rejection_feedback_frame_single() -> None:
+    """行 11 补（流水 66·叠字病灶）：拒因回喂行**壳体恰一遍**——已自带壳者原样透传。
+
+    真机 `run-18e5d273` 回喂形＝「上次发射被拒：上次发射被拒：ledger_notes…」「——修正后重新
+    输出 JSON。——修正后重新输出 JSON。」：槽位对账拒因载荷自带整套壳体（`specs/clarification.md`
+    行为 8／「接口定义」错误契约，流水 64 裁），回喂行再套一次即叠字。断言两面：①已自带壳者
+    **原样透传**（不改写、不二次套壳——两相各计 1，且与载荷原文逐字相等）；②裸拒因照套壳一次
+    （旧形零回归：拒因回喂条逐字稿不变）。
+    """
+    framed = (
+        "上次发射被拒：ledger_notes 槽位对账未过：s1\n"
+        "【拒因】s1 的「槽位」段「完井液密度」不在台账名录\n"
+        "【期望形】〈台账行首名｜或「无台账命中」〉｜已绑定|未绑定｜〈锚定窗形：…〉\n"
+        "【台账相关行】（无命中形——本子问题不锚台账行）\n"
+        "——修正后重新输出 JSON。"
+    )
+    for phase in (PHASE_CLARIFY, PHASE_TOOLMATCH):
+        text = assemble_decision_increment(
+            _decision_state(decision_error=framed), phase=phase
+        )
+        assert text == framed  # 原样透传（首入轮／匹配轮均如此——增量条仅此一件在场）
+        assert text.count("上次发射被拒：") == 1
+        assert text.count("——修正后重新输出 JSON。") == 1
+
+    # 透传只认「已自带壳」这一形态面：裸拒因照套壳一次（逐字稿不变）
+    assert (
+        assemble_decision_increment(
+            _decision_state(decision_error="缺 subtasks 键"), phase=PHASE_CLARIFY
+        )
+        == "上次发射被拒：缺 subtasks 键——修正后重新输出 JSON。"
+    )
+
+
 def test_rework_line_status_world() -> None:
     """行 11 补：回炉条判据＝**重跑面两档**（`bad_args`／`retryable`——真源 execution
     `subtask_results` 状态闭世界〔流水 59〕）：两档渲染回炉条；`ok`（成品不重跑）／`refused`
@@ -1674,14 +1707,18 @@ def test_retention_normal_assembly_unchanged() -> None:
 
 
 def test_decompose_example_head_window_rule() -> None:
-    """分解样例头行的窗词锚定说明句在场（行为 10；2026-10-16 补（L0/L2 三病灶修复批②））。
+    """分解样例头行的窗词锚定说明句＋无台账行说明句在场（行为 10；2026-10-16 补（L0/L2 三病灶
+    修复批②／流水 66·L3 阻塞修复批））。
 
     真机形（`docs/runtime-refactor/ladder/L2/01` 的 `id=3`／`id=5` 两轮必拒「ledger_notes 槽位
     对账未过」）＝首秀形在窗段无据可依：样例头行只说「窗按窗词锚定表现算」，对模糊时间词（最近／
     近期）无片言，模型自造窗形即被三段槽位对账拒。合法形真源＝`specs/clarification.md` 行为 8③
-    （锚定窗／窗未定（同义「无时间窗」）／双 null 三形）。
-    断言：头行点名模糊时间词一档的出路（窗写 `null~null`、引擎缺参反问兜底三选一、不自行锚窗），
-    且该句随澄清轮首入包同现（装配面逐字在场，非只在常量里）；样例 JSON 与单行形零破。
+    （锚定窗／窗未定（同义「无时间窗」）／双 null 三形）。**流水 66 同类补**：报告内容题
+    （`docs/runtime-refactor/ladder/L3/01`：完井液密度无台账行）在旧教据下无合法槽位形可写 →
+    头行补「子问题无台账行＝槽位写「无台账命中」，不硬凑名」，合法形真源＝行为 8①。
+    断言：头行点名两档出路（模糊时间词写 `null~null`＋引擎缺参反问兜底三选一＋不自行锚窗／
+    无台账行写「无台账命中」不硬凑名），且该句随澄清轮首入包同现（装配面逐字在场，非只在常量里）；
+    样例 JSON 与单行形零破。
     """
     package = _clarify_package(_decision_state())
     line = _unique_line(package, "填写样例（分解形")  # 样例段恰一处（段行单点）
@@ -1689,11 +1726,12 @@ def test_decompose_example_head_window_rule() -> None:
         "模糊时间词（最近/近期）＝窗写 null~null",
         "由引擎缺参反问兜底三选一",
         "不要自己锚窗",
+        "子问题无台账行（报告内容题）＝槽位写「无台账命中」，不硬凑名",
     ):
         assert sentence in line
     # 头行仍为单行（段行单点判据不被换行破形）且样例旧形零删改（说明句只加在头行末尾）
     head_part, _, payload_json = line.partition('{"action"')
-    assert head_part.endswith("不要自己锚窗）：")
+    assert head_part.endswith("不硬凑名）：")
     assert "ledger_notes 逐字转抄台账全量块" in head_part
     json.loads('{"action"' + payload_json)
 

@@ -112,8 +112,9 @@ REJECT_FREE_STREAK: Final[int] = 2
 VOLATILE_KEYS: Final[tuple[str, ...]] = ("watermark", "freshness", "foundation", "new_rows")
 
 # ── `ledger_notes` 三段槽位对账（行为 8 的判据面；2026-10-16 改·流水 64，Owner 裁）────────
-# 判据真源＝`specs/clarification.md` 行为 8（三段对账：槽位逐字∈台账名录／绑定态∈闭世界／
-# 窗形合法）；合同 `ledger_notes` 形逐字＝`槽位｜绑定态｜窗`（分隔符全角「｜」、三段位次固定）。
+# 判据真源＝`specs/clarification.md` 行为 8（三段对账：槽位逐字∈台账名录 ∪「无台账命中」／
+# 绑定态∈闭世界／窗形合法）；合同 `ledger_notes` 形逐字＝`槽位｜绑定态｜窗`（分隔符全角「｜」、
+# 三段位次固定）。
 NOTE_SLOT_SEPARATOR: Final[str] = "｜"
 # 段名（拒因文案「{段名}」槽位——段位次固定名；段数非三时用「段数」承名）。
 NOTE_SEGMENT_SLOT: Final[str] = "槽位"
@@ -128,6 +129,12 @@ NOTE_SEGMENTS: Final[tuple[str, ...]] = (
 )
 # 绑定态闭世界（流水 64 裁：照台账行「（绑定态：…）」中文形两值；越界即拒）。
 BINDING_STATES: Final[frozenset[str]] = frozenset({"已绑定", "未绑定"})
+# 槽位段第二形「无台账命中」＝本子问题**无台账行可锚**（knowledge 链报告内容题常态——
+# 2026-10-16 补·流水 66：真机 run-18e5d273「完井液密度」无台账行，旧判据只认名录，
+# 模型**没有任何合法形可写**、三写「不在名录」三拒烧光轮次；空命中是合法业务态、非违约）。
+# 槽位段合法集＝台账名录 ∪ 本闭世界（判据 `core._note_slot_mismatch` 消费本表，不另立字面）。
+NOTE_SLOT_NO_HIT: Final[str] = "无台账命中"
+NOTE_SLOT_LITERALS: Final[frozenset[str]] = frozenset({NOTE_SLOT_NO_HIT})
 # 窗段合法形（除「ISO~ISO 锚定窗」外的字面形；窗形读法照 `appv2/tools/precondition.py`
 # 的 `date.fromisoformat(window_end[:10])`——截读长度即 ISO 日形串长，取自形串本身；
 # 本块不新造窗面判据）。
@@ -188,12 +195,14 @@ TEXT_NO_REDISCOVER: Final[str] = "台账命中且时间窗已定——禁再 dis
 # **2026-10-16 补（L0/L2 三病灶修复批②）**：窗段【期望形】给**具体示例**（锚定窗形 ＋ 检索式
 # 无窗形）——真机实测首秀形窗段写法无据可依（L2/r1 必拒），拒因壳语是回喂面唯一的教具；
 # 合法形真源＝`specs/clarification.md` 行为 8③（锚定窗／`窗未定`／`null~null` 三形）。
+# **2026-10-16 补（流水 66）**：槽段【期望形】补第二合法形「或「无台账命中」」（同上理由——
+# 无台账行的报告内容题旧判据无合法形可写，真机 run-18e5d273 三拒烧光轮次）。
 TEXT_SLOT_MISMATCH_HEAD: Final[str] = "上次发射被拒：ledger_notes 槽位对账未过：{ids}"
 # 步骤标题/过程档案用单行同义形（拒因正文多行，不宜作标题槽——头行去「上次发射被拒」前缀）。
 TEXT_SLOT_MISMATCH_TITLE: Final[str] = "ledger_notes 槽位对账未过：{ids}"
 TEXT_SLOT_MISMATCH_BLOCK: Final[str] = (
     "【拒因】{id} 的「{segment}」段「{value}」{cause}\n"
-    "【期望形】〈台账行首名〉｜已绑定|未绑定"
+    "【期望形】〈台账行首名｜或「无台账命中」〉｜已绑定|未绑定"
     "｜〈锚定窗形：2026-09-16~2026-10-16｜检索式无窗：窗未定或 null~null〉\n"
     "【台账相关行】{row}"
 )
@@ -205,8 +214,16 @@ CAUSE_BINDING_OUT_OF_WORLD: Final[str] = "绑定态越界"
 CAUSE_WINDOW_ILLEGAL: Final[str] = "窗形不合法"
 CAUSE_SEGMENT_COUNT: Final[str] = "段数非三（形＝槽位｜绑定态｜窗，位次固定）"
 # 槽位不在名录时的【台账相关行】行文（流水 64 裁逐字；名录四类＝指标/对象/关系/术语——
-# 2026-10-16 微批补「关系/术语」，与 `volatile._NAME_COLUMNS` 名录面同步）。
-NO_LEDGER_ROW_SHELL: Final[str] = "（名录无此名——只许用台账注入块内出现的指标/对象/关系/术语名）"
+# 2026-10-16 微批补「关系/术语」，与 `volatile._NAME_COLUMNS` 名录面同步）。**2026-10-16 补
+# （流水 66）**：尾附「自造名≠无命中」明示句——防「无台账命中」（＝本子问题不锚台账行）
+# 被当垃圾桶；名录外自造名照拒不误放。
+NO_LEDGER_ROW_SHELL: Final[str] = (
+    "（名录无此名——只许用台账注入块内出现的指标/对象/关系/术语名；"
+    "自造名≠「无台账命中」——无台账行时才写它）"
+)
+# 「无台账命中」形的【台账相关行】行文（流水 66 裁逐字）：槽位合法但绑定态／窗段不过时该段
+# 照实示「本子问题不锚台账行」（不空手、不套「名录无此名」——两形语义不同）。
+NO_LEDGER_HIT_ROW_SHELL: Final[str] = "（无命中形——本子问题不锚台账行）"
 
 # ── 步骤标题与过程档案（逐字迁移 V1 `clarify_node` 的标题形）──────────────────
 STEP_TITLE_PROMPT_CHARS: Final[int] = 24

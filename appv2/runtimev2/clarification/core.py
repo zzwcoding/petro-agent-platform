@@ -53,6 +53,7 @@ from appv2.runtimev2.clarification.constants import (
     GUIDANCE_JOIN,
     ISO_DAY_SHAPE,
     MATERIAL_ROW_PREFIX,
+    NO_LEDGER_HIT_ROW_SHELL,
     NO_LEDGER_ROW_SHELL,
     NO_MATERIAL_SHELL,
     NOTE_DIGEST_ASK,
@@ -66,6 +67,7 @@ from appv2.runtimev2.clarification.constants import (
     NOTE_SEGMENT_SLOT,
     NOTE_SEGMENT_WINDOW,
     NOTE_SEGMENTS,
+    NOTE_SLOT_LITERALS,
     NOTE_SLOT_SEPARATOR,
     NOTE_TITLE,
     NOTICE_CLARIFY_CAPPED,
@@ -477,7 +479,8 @@ def _on_decompose(state: RunState, emission: ClarifyEmission) -> ClarifyOutcome:
     """`decompose`：注释**第二层**机检（三段槽位对账）→ 定案 `ClarifyFinal`。
 
     `parsing` 只查注释非空；「注释各段合不合台账」在本块校（行为 8；2026-10-16 改·流水 64，
-    Owner 裁——判据由「注入块内逐字子串」改「三段槽位对账」）——**判违约不自动修补**：
+    Owner 裁——判据由「注入块内逐字子串」改「三段槽位对账」；槽位段合法集＝台账名录 ∪
+    「无台账命中」，流水 66 补）——**判违约不自动修补**：
     返结构化拒因（携段级诊断＋期望形＋台账相关行）由 `orchestration` 回喂重决策。通过则问题组
     落状态、旧前置判定作废（判定随组走）、占一轮、去向 `tool_matching`；发射注记非空时逐字出流
     为 `decision_note` 机读通知（行为 3「并注记」——默认窗等模型侧结论的原话承载）。
@@ -556,12 +559,15 @@ def _note_slot_mismatch(
     值＝原形）；否则逐段对账——
 
     ①**槽位**（段一）须**逐字** ∈ 台账名录（`registry` 的键集——指标/对象/关系/术语四类名；
-      exact membership，无语义匹配）——不在名录（含名录制空＝空投影的 fail-closed 面）即拒；
+      exact membership，无语义匹配）**∪ `NOTE_SLOT_LITERALS`**（「无台账命中」＝本子问题无台账行
+      可锚——knowledge 链报告内容题常态，空命中是**合法业务态**非违约，流水 66 补）；不在名录制
+      （含名录制空＝空投影的 fail-closed 面）**且非无命中形**即拒——**自造名 ≠ 无命中**（照拒）；
     ②**绑定态**（段二）须 ∈ `BINDING_STATES` 闭世界（照台账行「（绑定态：…）」中文形两值）；
     ③**窗**（段三）须为锚定窗（`date.fromisoformat(...[:10])`——窗形读法照
       `appv2/tools/precondition.py`，本块不新造窗面判据）或 `WINDOW_LITERALS` 字面之一
       （「窗未定」／同义形「无时间窗」——knowledge 链检索式问题无窗概念＝合法／双 null 发射形）。
 
+    无命中形**只免锚台账行**：②③照验（绑定态／窗越界照拒）；[台账相关行] 段照实写无命中行文。
     全过 → `None`；任一不过 → 返该段诊断（拒因文案据它指明「哪一段、哪个值、为什么」）。
     台账相关行＝槽位 exact-match 命中的投影行原文（从**注入块**内逐字取该行——模型所见同形）。
     """
@@ -574,15 +580,18 @@ def _note_slot_mismatch(
             row=NO_LEDGER_ROW_SHELL,
         )
     slot, binding, window = segments
-    row_text = registry.get(slot)
-    if row_text is None:
-        return _SlotMismatch(
-            segment=NOTE_SEGMENT_SLOT,
-            value=slot,
-            cause=CAUSE_SLOT_NOT_IN_LEDGER,
-            row=NO_LEDGER_ROW_SHELL,
-        )
-    row = _ledger_row_line(injection_block, row_text)
+    if slot in NOTE_SLOT_LITERALS:
+        row = NO_LEDGER_HIT_ROW_SHELL  # 无命中形：无台账行可锚（[台账相关行] 照实示）
+    else:
+        row_text = registry.get(slot)
+        if row_text is None:
+            return _SlotMismatch(
+                segment=NOTE_SEGMENT_SLOT,
+                value=slot,
+                cause=CAUSE_SLOT_NOT_IN_LEDGER,
+                row=NO_LEDGER_ROW_SHELL,
+            )
+        row = _ledger_row_line(injection_block, row_text)
     if binding not in BINDING_STATES:
         return _SlotMismatch(
             segment=NOTE_SEGMENT_BINDING,

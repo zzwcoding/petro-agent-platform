@@ -44,7 +44,7 @@
 
 **行为 1｜四相位循环。** 规格：每问新建 run，读题理解后进四相位——
 
-①**业务澄清（clarify）**：LLM 带 Skill 指南发射**四动作**闭世界 `discover｜decompose｜ask｜finalize`；`discover`＝钻取（semantic_query／doc_retrieve／table_schema）；`decompose` 产出**问题组**（子问题含 id／question／ledger_notes／chain，**已去掉 tool**——选工具归②匹配相位）；子问题上限 **≤4**；`ledger_notes` 必填——形＝「槽位｜绑定态｜窗」**三段槽位对账**（段一逐字∈台账名录、段二∈闭世界「已绑定/未绑定」、段三＝锚定窗或「窗未定」或同义形「无时间窗」或双 null 发射形）；`ask`＝反问挂起。
+①**业务澄清（clarify）**：LLM 带 Skill 指南发射**四动作**闭世界 `discover｜decompose｜ask｜finalize`；`discover`＝钻取（semantic_query／doc_retrieve／table_schema）；`decompose` 产出**问题组**（子问题含 id／question／ledger_notes／chain，**已去掉 tool**——选工具归②匹配相位）；子问题上限 **≤4**；`ledger_notes` 必填——形＝「槽位｜绑定态｜窗」**三段槽位对账**（段一逐字∈台账名录∪「无台账命中」（无台账行的报告内容题——自造名不算）、段二∈闭世界「已绑定/未绑定」、段三＝锚定窗或「窗未定」或同义形「无时间窗」或双 null 发射形）；`ask`＝反问挂起。
 
 ②**工具匹配（toolmatch）**：LLM 逐子问题提议工具／链（data→data_query、knowledge→doc_retrieve，data 链必带 plan、knowledge 链必带 retrieval_need），与问题组**闭世界对账**（组内每子问题恰一条匹配，缺／多／未知 id 均拒）。
 
