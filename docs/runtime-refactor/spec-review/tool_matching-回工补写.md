@@ -201,3 +201,22 @@
 ## 2026-10-16 P-05 单点归位（流水 55）
 
 - **2026-10-16 P-05 单点归位（流水 55）**：`mention_mode` 物理落 `parsing.models.SubtaskMatch`（P-05 载荷类形状单点——`specs/parsing.md` 行为 12），本块 `models.py` 类体删除、改**导入消费**（`from appv2.runtimev2.parsing import SubtaskMatch`，包根 21 成员公开面不动）；随本次归位，`specs/tool_matching.md` 接口定义节的消费面类体差异（`caliber_key: str | None`／`plan: QueryPlan | None`／`retrieval_need: RetrievalNeed | None`／类内 `__post_init__` 把守）**收敛为 `parsing` 形状**——`mention_mode` 的取值闭世界（缺／越界即拒）留在消费方对账面 `matching._violation_of`，`retrieval_need` 以映射承载、`caliber_key` 取空串形；`specs/tool_matching.md` 类体回改引用句＝主窗（`specs/parsing.md` 风险 7③ 登记件）。
+
+---
+
+## 2026-10-16 pin-31 断供修复（`mention_mode` 端到端投影）
+
+- **审计（本批定性）**：pin-31 的「提及 vs 执行」结论在**模型发射 → 消费面**之间**断供两处**——①`parse_tool_match` 装载 `SubtaskMatch` 时**不读**发射条目的 `mention_mode` 键（恒空串）；②同块 `SubtaskMatch.as_payload` 投影**不带**该键（即真值也进不了 `state.tool_matches`）。①②叠加 ⇒ `specs/preconditions.md` 判定序**位 1 机械分派**（`preconditions/core.py:186`）在**实链路**上零可达，此前只有测试内手工拼键在场。
+- **本批改动（3 个源码／测试文件＋本记录；未 git commit）**：
+  1. `appv2/runtimev2/parsing/parsers.py:262-271`（`parse_tool_match` 装载支）——发射条目带 `mention_mode` 键 → **原样载入**（值照抄、不 strip、不判语义；parsing 纯解析，闭世界把守归消费面 fail-closed）；**缺键＝空串缺省**；**带键而值非字符串形 → 拒**（fail-fast 于该支）；`parsers.py:281` 装载进 `SubtaskMatch`。
+  2. `appv2/runtimev2/parsing/models.py:131-132`（`SubtaskMatch.as_payload`）——`mention_mode` 真值才出键（同 `caliber_key` 面）；类／模块注记同步（`models.py:17-19`／`:110-111`）。
+  3. `tests/domains/test_v2_parsing.py:509`／`:545`——带键原样装载＋投影、非字符串拒两用例；`tests/domains/test_v2_preconditions.py:754`——端到端用例（发射文本 → `parse_tool_match` → `as_payload` → `state.tool_matches` → `gate_all` 位 1 分派，**零手工拼键**，断言只走既有公开出口）。
+- **拒因措辞取证（逐字）**：`matches {match_id} mention_mode 越界（executed/mentioned_only）：{值!r}`——照挂 `specs/tool_matching.md:84` 拒因六类表**「枚举越界」族**句式（同族既有形＝`matches {match_id} chain 越界（data/knowledge）：{chain!r}`），且与消费面对账面 `appv2/runtimev2/tool_matching/matching.py:217` **逐字同款**；**未新造措辞**。
+- **偏离登记（逐条交主窗核，本记录不代裁）**：
+  1. **改 `models.py`（`as_payload`）超出任务书逐列的改动文件面**（任务书只列 `parsers.py`）：理由＝验收要「经 `parse_tool_match` 真链路 → **state 投影** → `preconditions` 分派」的端到端用例，而投影面不带键则 `state.tool_matches` 仍拿不到结论、端到端不可达（任务书背景原文「不投影该键」即指该投影面）——已实跑反空转取证（见下）。
+  2. **投影口径选「真值才出键」**（空串键不出现——同 `caliber_key` 面；消费面 `payload.get(…) or ""` 空串读法等价），**未采「恒带键」**：理由＝本块投影规则原文「空值键不出现」＋既有断言面可**一字不改**（本批只增用例、零改形）。
+  3. **拒因措辞不含「只许」二字**：任务书示例作「只许 executed/mentioned_only」，而其指令同时要求「先查六类拒因表有无同族可挂，有则照挂不新造」——同族既有形（规格 `:84`／对账面 `matching.py:217`）均**无「只许」**，故照挂同款。
+  4. **`{"mention_mode": null}` 判拒**（带键即判形，值非字符串形）——**未按「视同缺键」**处理；`mention_mode` 键在场即受形判，取字面读法（更 fail-closed）。如需改判请裁。
+  5. **字符串越界值（如 `maybe`）本层照抄放行**、归消费面拒——parsing 判形不判语义（与 owner 裁「`mention_mode` 物理落 `parsing`＝`str=""` 纯装载」一致）。
+- **规格收尾一致（登记，不做——未授权动规格）**：`specs/parsing.md` 行为 11（`:112`）的 `SubtaskMatch` 字段表与投影规则**未列** `mention_mode`（同文接口节 `:71` 已列该字段并注 P-05 单点归位）——**规格内自相矛盾**，本批不改规格，请主窗随批收词；同理，本批新增的 3 条用例**不对应任何规格「验收测试」行**，是否补行（含 `tool_matching` 对账面族）请主窗裁。
+- **验证（改后实跑）**：①`pytest tests/domains/test_v2_parsing.py tests/domains/test_v2_preconditions.py tests/domains/test_v2_tool_matching.py -q` → **74 passed**（31／22／21；改前 29／21／21，增 2＋1）；②全量 `pytest tests -q` → **2148 passed, 108 skipped**；③`mypy app appv2` → **Success: no issues found in 237 source files**；④`ruff check`（改动面）→ **All checks passed**；⑤`lint-imports --config tools/importlinter_v2.toml` → **Contracts: 18 kept, 0 broken**；默认配置 → **6 kept, 0 broken**；⑥反空转取证（临时脚本、不入仓）：同一发射文本经 `as_payload` 投影 → 位 1 **allow**（仅提及）；手工去键（＝修复前形）→ **refuse**——两处改动皆承重。未 git commit（主窗统一提交）。

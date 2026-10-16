@@ -207,8 +207,9 @@ def parse_tool_match(content: str, group: QuestionGroup) -> tuple[SubtaskMatch, 
     逐支按序 fail-fast：支须对象／`id` 归一后非空／`id` 在问题组 id 集内／组内不重复／`chain`
     归一后 ∈ 闭世界／`tool` 非空且＝该链唯一工具／按链必填（`data`→`plan.metric_slot`、
     `knowledge`→`retrieval_need.question`）／`caliber_key` 经 `str().strip()` 归一后零值域校验
-    装载；组内存在未见 `id` → 覆盖缺口拒（拒文列缺失 id 全量）。返回顺序＝发射顺序
-    （真源 recon/L1b R-L1b-05…R-L1b-21）。
+    装载／`mention_mode` 带键**原样**载入（值照抄不判语义——parsing 纯解析，闭世界把守归消费面
+    `preconditions` fail-closed；缺键＝空串缺省，非字符串形＝拒）。组内存在未见 `id` → 覆盖缺口拒
+    （拒文列缺失 id 全量）。返回顺序＝发射顺序（真源 recon/L1b R-L1b-05…R-L1b-21）。
     """
     payload = extract_plan_json(content)
     if payload is None:
@@ -258,6 +259,16 @@ def parse_tool_match(content: str, group: QuestionGroup) -> tuple[SubtaskMatch, 
                 return f"matches {match_id} retrieval_need 缺 question（必填非空）"
             need = dict(raw_need)
         caliber_key = str(raw.get("caliber_key") or "").strip()
+        mention_mode = ""
+        if "mention_mode" in raw:
+            raw_mention = raw["mention_mode"]
+            if not isinstance(raw_mention, str):
+                # 枚举越界族句式（照挂 `tool_matching` 对账面同款，不新造）：只判形、不判语义
+                return (
+                    f"matches {match_id} mention_mode 越界"
+                    f"（executed/mentioned_only）：{raw_mention!r}"
+                )
+            mention_mode = raw_mention  # 原样载入（pin-31 结论的字段载体——值照抄不归一）
         seen.add(match_id)
         matches.append(
             SubtaskMatch(
@@ -267,6 +278,7 @@ def parse_tool_match(content: str, group: QuestionGroup) -> tuple[SubtaskMatch, 
                 plan=plan,
                 retrieval_need=need,
                 caliber_key=caliber_key,
+                mention_mode=mention_mode,
             )
         )
     missing = [group_id for group_id in group_ids if group_id not in seen]

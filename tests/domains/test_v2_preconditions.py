@@ -39,6 +39,7 @@
 from __future__ import annotations
 
 import ast
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import fields
 from datetime import date
@@ -50,6 +51,7 @@ import pytest
 
 import appv2.runtimev2.preconditions as preconditions
 from appv2.knowledge import InMemoryKnowledgeStore, question_array_snapshot
+from appv2.runtimev2.parsing import QuestionGroup, Subtask, parse_tool_match
 from appv2.runtimev2.preconditions import (
     ASK_KIND_CALIBER_CLARIFY,
     ASK_KIND_EXTERNAL_TABLE_APPROVAL,
@@ -747,6 +749,53 @@ def test_pin31_terminated_word_dispatch() -> None:
     assert verdicts["s1"].notes and any("仅提及" in note for note in verdicts["s1"].notes)
     assert verdicts["s2"].decision == DECISION_REFUSE
     assert verdicts["s2"].hit_rule == HIT_RULE_BAN
+
+
+def test_pin31_mention_mode_end_to_end_from_emission() -> None:
+    """pin-31 端到端｜「提及 vs 执行」结论走**真链路**：`parse_tool_match`（模型发射文本）→
+    `SubtaskMatch` 原件 → `as_payload` 投影 → `state.tool_matches` → 本块判定序位 1 机械分派。
+
+    上行断言只走既有公开出口（`parsing.parse_tool_match` ＋ 载荷投影），零手工拼键：发射带
+    `mentioned_only` → 放行（不按废弃口径出数）；带 `executed` → 照闸件判（禁用户语命中＝拒答）；
+    **缺键＝空串缺省**（不猜、不取默认——判序位 1 不命中、落位 1 闸件判＝fail-closed）。
+    """
+    question = "以前是不是把产液量叫老完成率"  # 词面命中禁用词（老完成率）
+    group = QuestionGroup(
+        subtasks=tuple(
+            Subtask(id=item, question=question, ledger_notes=f"注 {item}")
+            for item in ("s1", "s2", "s3")
+        )
+    )
+    bound_plan = {"metric_slot": "日产液量", "ranking": False, **WINDOW}
+    emission = json.dumps(
+        {
+            "matches": [
+                {"id": "s1", "chain": "data", "tool": DATA_QUERY, "plan": bound_plan,
+                 "mention_mode": MENTION_MENTIONED_ONLY},
+                {"id": "s2", "chain": "data", "tool": DATA_QUERY, "plan": bound_plan,
+                 "mention_mode": MENTION_EXECUTED},
+                {"id": "s3", "chain": "data", "tool": DATA_QUERY, "plan": bound_plan},
+            ]
+        },
+        ensure_ascii=False,
+    )
+    matches = parse_tool_match(emission, group)
+    assert isinstance(matches, tuple)
+
+    state = _state(
+        _subtask("s1", question),
+        _subtask("s2", question),
+        _subtask("s3", question),
+        matches=[match.as_payload() for match in matches],
+    )
+    verdicts = _by_id(gate_all(state))
+
+    assert verdicts["s1"].decision == DECISION_ALLOW  # 位 1：模型结论「仅提及」→ 机械放行
+    assert any("仅提及" in note for note in verdicts["s1"].notes)
+    assert verdicts["s2"].decision == DECISION_REFUSE
+    assert verdicts["s2"].hit_rule == HIT_RULE_BAN
+    assert verdicts["s3"].decision == DECISION_REFUSE  # 缺键＝空串 → 不按仅提及放行（fail-closed）
+    assert verdicts["s3"].hit_rule == HIT_RULE_BAN
 
 
 def test_pin14_fuzzy_window_ask_frame() -> None:

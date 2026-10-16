@@ -14,6 +14,9 @@
 - 投影规则（`as_payload`）逐字迁移（真源同上 L126-L136／L145-L146／L161-L176／L307-L315）：
   恒带键照抄、空值键不出现；`ask` 段以 `ask_prompt` 真假**单点**开闸（`ask_options` 单有值
   静默消失——V1 事实面 D-L1a-04）。全类 `frozen=True, slots=True`。
+- `SubtaskMatch.mention_mode` 的投影同 `caliber_key` 面＝**真值才出键**（空串＝未装载，键不出现
+  ——消费面 `preconditions` 以 `.get()` 空串缺省读法等价取用；**2026-10-16 增**：pin-31 断供
+  修复，使「提及 vs 执行」结论经 `as_payload` 投影到得了 `state.tool_matches`）。
 
 本模块零判定、零 IO：拒因与校验在 `parsers`，本处只定形状与投影。
 """
@@ -105,7 +108,8 @@ class SubtaskMatch:
 
     `mention_mode`＝「提及 vs 执行」结论的字段载体（闭世界 `executed`／`mentioned_only`——
     真源 `specs/tool_matching.md` 接口定义；**2026-10-16 增（流水 50 裁／P-05 单点归位）**）：
-    本类**纯装载**、不判取值——缺与越界由消费方（`tool_matching` 对账面）拒；空串＝未装载。
+    本类**纯装载**、不判取值——缺与越界由消费方（`tool_matching` 对账面）拒；空串＝未装载
+    （投影里空值键不出现——同 `caliber_key` 面）。
     """
 
     id: str
@@ -124,4 +128,6 @@ class SubtaskMatch:
             payload["retrieval_need"] = dict(self.retrieval_need)
         if self.caliber_key:
             payload["caliber_key"] = self.caliber_key
+        if self.mention_mode:
+            payload["mention_mode"] = self.mention_mode
         return payload

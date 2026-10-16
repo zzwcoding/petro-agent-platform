@@ -503,6 +503,63 @@ def test_matches_chain_tool_consistency() -> None:
     assert knowledge_ok[0].plan is None
 
 
+# ── pin-31 上游面：`mention_mode` 端到端投影（2026-10-16 断供修复）────────────────
+
+
+def test_matches_mention_mode_loaded_and_projected() -> None:
+    """pin-31 上游面｜发射条目带 `mention_mode` 键 → `SubtaskMatch` **原样载入**；缺键＝空串
+    缺省；投影（`as_payload`）真值才出键——「提及 vs 执行」结论到得了消费面（端到端上半段）。
+
+    值照抄不判语义、不做归一（parsing 纯解析——闭世界把守归消费面 `preconditions` fail-closed）。
+    """
+    group = _group("s1", "s2")
+    loaded = parse_tool_match(
+        _match_text(
+            _match("s1", mention_mode="mentioned_only"),
+            _match("s2", mention_mode="executed"),
+        ),
+        group,
+    )
+    assert isinstance(loaded, tuple)
+    assert [item.mention_mode for item in loaded] == ["mentioned_only", "executed"]
+    assert [item.as_payload()["mention_mode"] for item in loaded] == [
+        "mentioned_only",
+        "executed",
+    ]  # 投影面：带键（非空）照抄进 state.tool_matches
+
+    # 缺键＝空串缺省（不猜、不取默认——把守归消费面）；投影里空值键不出现
+    bare = parse_tool_match(_match_text(_match("s1"), _match("s2")), group)
+    assert isinstance(bare, tuple)
+    assert [item.mention_mode for item in bare] == ["", ""]
+    assert all("mention_mode" not in item.as_payload() for item in bare)
+
+    # 原样载入：值照抄不归一（前后留白照抄——越界值归消费面判，本层零语义）
+    padded = parse_tool_match(
+        _match_text(_match("s1", mention_mode=" mentioned_only "), _match("s2")), group
+    )
+    assert isinstance(padded, tuple)
+    assert padded[0].mention_mode == " mentioned_only "
+    assert padded[0].as_payload()["mention_mode"] == " mentioned_only "
+
+
+def test_matches_mention_mode_non_string_rejected() -> None:
+    """pin-31 上游面｜`mention_mode` 发射值非字符串形 → 拒因正文（枚举越界族句式，逐字照
+    `tool_matching` 对账面同款——`specs/tool_matching.md` 拒因六类表「枚举越界」族）。
+
+    只判形（`isinstance(…, str)`）、不判语义——字符串值一律原样装载（含越界值，归消费面拒）。
+    """
+    group = _group("s1")
+    for value in (42, ["executed"], {"mode": "mentioned_only"}, True, None):
+        assert parse_tool_match(_match_text(_match("s1", mention_mode=value)), group) == (
+            f"matches s1 mention_mode 越界（executed/mentioned_only）：{value!r}"
+        )
+
+    # 非字符串拒＝fail-fast 于该支（同支其余字段合规也拒——不静默降级成缺省空串）
+    off_world = parse_tool_match(_match_text(_match("s1", mention_mode="maybe")), group)
+    assert isinstance(off_world, tuple)
+    assert off_world[0].mention_mode == "maybe"  # 字符串越界值照抄（把守归消费面）
+
+
 # ── pin-06 器材面（规格表第 20／21 行：指纹四件）───────────────────────────────
 
 
