@@ -1,0 +1,451 @@
+id: -1
+event: session
+data: {"run_id": "run-97d8b2f8", "resume": false}
+
+id: 0
+event: text
+data: {"content": "理解：问①agg 库去年日产油量最高的井是哪口井、其日产油量合计多少；②躺井月报今年 8 月检泵周期最长的井是哪口、检泵周期多少天。", "kind": "understanding"}
+
+id: 1
+event: step
+data: {"step": "decision", "seq": 1, "title": "模型调用：understand"}
+
+id: 2
+event: step
+data: {"step": "decision", "seq": 2, "title": "模型调用：decision"}
+
+id: 3
+event: step
+data: {"step": "decision", "seq": 3, "title": "澄清 r1 被拒：ledger_notes 槽位对账未过：s1"}
+
+id: 4
+event: step
+data: {"step": "decision", "seq": 4, "title": "模型调用：decision"}
+
+id: 5
+event: step
+data: {"step": "decision", "seq": 5, "title": "澄清 r2：分解 2 子问题"}
+
+id: 6
+event: step
+data: {"step": "decision", "seq": 6, "title": "模型调用：decision"}
+
+id: 7
+event: step
+data: {"step": "decision", "seq": 7, "title": "前置条件机：s1=allow"}
+
+id: 8
+event: step
+data: {"step": "decision", "seq": 8, "title": "前置条件机：s2=allow"}
+
+id: 9
+event: tool
+data: {"tool": "data_query", "status": "ok", "seq": 9, "message": null}
+
+id: 10
+event: observation
+data: {"index": 1, "source": "agg.fct_daily_metering", "content": "井号=Z-16；区块=渤中；日产油量合计（吨）=5839.63", "trust": "authoritative"}
+
+id: 11
+event: observation
+data: {"index": 2, "source": "agg.fct_daily_metering", "content": "井号=X-25；区块=渤西；日产油量合计（吨）=5708.15", "trust": "authoritative"}
+
+id: 12
+event: observation
+data: {"index": 3, "source": "agg.fct_daily_metering", "content": "井号=N-15；区块=渤南；日产油量合计（吨）=5571.49", "trust": "authoritative"}
+
+id: 13
+event: observation
+data: {"index": 4, "source": "agg.fct_daily_metering", "content": "井号=Z-23；区块=渤中；日产油量合计（吨）=5557.84", "trust": "authoritative"}
+
+id: 14
+event: observation
+data: {"index": 5, "source": "agg.fct_daily_metering", "content": "井号=Z-34；区块=渤中；日产油量合计（吨）=5551.37", "trust": "authoritative"}
+
+id: 15
+event: observation
+data: {"index": 6, "source": "agg.fct_daily_metering", "content": "井号=N-23；区块=渤南；日产油量合计（吨）=5528.66", "trust": "authoritative"}
+
+id: 16
+event: observation
+data: {"index": 7, "source": "agg.fct_daily_metering", "content": "井号=X-24；区块=渤西；日产油量合计（吨）=5409.99", "trust": "authoritative"}
+
+id: 17
+event: observation
+data: {"index": 8, "source": "agg.fct_daily_metering", "content": "井号=X-22；区块=渤西；日产油量合计（吨）=5369.58", "trust": "authoritative"}
+
+id: 18
+event: observation
+data: {"index": 9, "source": "agg.fct_daily_metering", "content": "井号=N-20；区块=渤南；日产油量合计（吨）=5173.26", "trust": "authoritative"}
+
+id: 19
+event: observation
+data: {"index": 10, "source": "agg.fct_daily_metering", "content": "井号=X-05；区块=渤西；日产油量合计（吨）=5162.14", "trust": "authoritative"}
+
+id: 20
+event: observation
+data: {"index": 11, "source": "agg.fct_daily_metering", "content": "井号=N-11；区块=渤南；日产油量合计（吨）=5156.82", "trust": "authoritative"}
+
+id: 21
+event: observation
+data: {"index": 12, "source": "agg.fct_daily_metering", "content": "井号=N-05；区块=渤南；日产油量合计（吨）=5149.83", "trust": "authoritative"}
+
+id: 22
+event: observation
+data: {"index": 13, "source": "agg.fct_daily_metering", "content": "井号=Z-13；区块=渤中；日产油量合计（吨）=5024.50", "trust": "authoritative"}
+
+id: 23
+event: observation
+data: {"index": 14, "source": "agg.fct_daily_metering", "content": "井号=Z-09；区块=渤中；日产油量合计（吨）=4988.29", "trust": "authoritative"}
+
+id: 24
+event: observation
+data: {"index": 15, "source": "agg.fct_daily_metering", "content": "井号=N-06；区块=渤南；日产油量合计（吨）=4942.61", "trust": "authoritative"}
+
+id: 25
+event: observation
+data: {"index": 16, "source": "agg.fct_daily_metering", "content": "井号=X-07；区块=渤西；日产油量合计（吨）=4911.99", "trust": "authoritative"}
+
+id: 26
+event: observation
+data: {"index": 17, "source": "agg.fct_daily_metering", "content": "井号=Z-07；区块=渤中；日产油量合计（吨）=4904.74", "trust": "authoritative"}
+
+id: 27
+event: observation
+data: {"index": 18, "source": "agg.fct_daily_metering", "content": "井号=Z-31；区块=渤中；日产油量合计（吨）=4784.07", "trust": "authoritative"}
+
+id: 28
+event: observation
+data: {"index": 19, "source": "agg.fct_daily_metering", "content": "井号=Z-30；区块=渤中；日产油量合计（吨）=4783.90", "trust": "authoritative"}
+
+id: 29
+event: observation
+data: {"index": 20, "source": "agg.fct_daily_metering", "content": "井号=Z-10；区块=渤中；日产油量合计（吨）=4760.35", "trust": "authoritative"}
+
+id: 30
+event: observation
+data: {"index": 21, "source": "agg.fct_daily_metering", "content": "井号=Z-06；区块=渤中；日产油量合计（吨）=4656.37", "trust": "authoritative"}
+
+id: 31
+event: observation
+data: {"index": 22, "source": "agg.fct_daily_metering", "content": "井号=Z-04；区块=渤中；日产油量合计（吨）=4642.57", "trust": "authoritative"}
+
+id: 32
+event: observation
+data: {"index": 23, "source": "agg.fct_daily_metering", "content": "井号=Z-15；区块=渤中；日产油量合计（吨）=4598.22", "trust": "authoritative"}
+
+id: 33
+event: observation
+data: {"index": 24, "source": "agg.fct_daily_metering", "content": "井号=X-13；区块=渤西；日产油量合计（吨）=4546.07", "trust": "authoritative"}
+
+id: 34
+event: observation
+data: {"index": 25, "source": "agg.fct_daily_metering", "content": "井号=Z-18；区块=渤中；日产油量合计（吨）=4539.62", "trust": "authoritative"}
+
+id: 35
+event: observation
+data: {"index": 26, "source": "agg.fct_daily_metering", "content": "井号=Z-19；区块=渤中；日产油量合计（吨）=4495.77", "trust": "authoritative"}
+
+id: 36
+event: observation
+data: {"index": 27, "source": "agg.fct_daily_metering", "content": "井号=X-08；区块=渤西；日产油量合计（吨）=4489.74", "trust": "authoritative"}
+
+id: 37
+event: observation
+data: {"index": 28, "source": "agg.fct_daily_metering", "content": "井号=X-03；区块=渤西；日产油量合计（吨）=4467.52", "trust": "authoritative"}
+
+id: 38
+event: observation
+data: {"index": 29, "source": "agg.fct_daily_metering", "content": "井号=X-04；区块=渤西；日产油量合计（吨）=4421.85", "trust": "authoritative"}
+
+id: 39
+event: observation
+data: {"index": 30, "source": "agg.fct_daily_metering", "content": "井号=Z-05；区块=渤中；日产油量合计（吨）=4142.01", "trust": "authoritative"}
+
+id: 40
+event: observation
+data: {"index": 31, "source": "agg.fct_daily_metering", "content": "井号=Z-28；区块=渤中；日产油量合计（吨）=4135.63", "trust": "authoritative"}
+
+id: 41
+event: observation
+data: {"index": 32, "source": "agg.fct_daily_metering", "content": "井号=N-12；区块=渤南；日产油量合计（吨）=4134.27", "trust": "authoritative"}
+
+id: 42
+event: observation
+data: {"index": 33, "source": "agg.fct_daily_metering", "content": "井号=N-25；区块=渤南；日产油量合计（吨）=4124.66", "trust": "authoritative"}
+
+id: 43
+event: observation
+data: {"index": 34, "source": "agg.fct_daily_metering", "content": "井号=X-23；区块=渤西；日产油量合计（吨）=4094.66", "trust": "authoritative"}
+
+id: 44
+event: observation
+data: {"index": 35, "source": "agg.fct_daily_metering", "content": "井号=Z-08；区块=渤中；日产油量合计（吨）=4087.42", "trust": "authoritative"}
+
+id: 45
+event: observation
+data: {"index": 36, "source": "agg.fct_daily_metering", "content": "井号=X-18；区块=渤西；日产油量合计（吨）=3997.69", "trust": "authoritative"}
+
+id: 46
+event: observation
+data: {"index": 37, "source": "agg.fct_daily_metering", "content": "井号=Z-25；区块=渤中；日产油量合计（吨）=3991.42", "trust": "authoritative"}
+
+id: 47
+event: observation
+data: {"index": 38, "source": "agg.fct_daily_metering", "content": "井号=Z-24；区块=渤中；日产油量合计（吨）=3923.33", "trust": "authoritative"}
+
+id: 48
+event: observation
+data: {"index": 39, "source": "agg.fct_daily_metering", "content": "井号=Z-21；区块=渤中；日产油量合计（吨）=3856.83", "trust": "authoritative"}
+
+id: 49
+event: observation
+data: {"index": 40, "source": "agg.fct_daily_metering", "content": "井号=Z-27；区块=渤中；日产油量合计（吨）=3763.04", "trust": "authoritative"}
+
+id: 50
+event: observation
+data: {"index": 41, "source": "agg.fct_daily_metering", "content": "井号=N-02；区块=渤南；日产油量合计（吨）=3729.71", "trust": "authoritative"}
+
+id: 51
+event: observation
+data: {"index": 42, "source": "agg.fct_daily_metering", "content": "井号=Z-12；区块=渤中；日产油量合计（吨）=3597.88", "trust": "authoritative"}
+
+id: 52
+event: observation
+data: {"index": 43, "source": "agg.fct_daily_metering", "content": "井号=X-12；区块=渤西；日产油量合计（吨）=3580.58", "trust": "authoritative"}
+
+id: 53
+event: observation
+data: {"index": 44, "source": "agg.fct_daily_metering", "content": "井号=X-10；区块=渤西；日产油量合计（吨）=3579.05", "trust": "authoritative"}
+
+id: 54
+event: observation
+data: {"index": 45, "source": "agg.fct_daily_metering", "content": "井号=N-18；区块=渤南；日产油量合计（吨）=3418.63", "trust": "authoritative"}
+
+id: 55
+event: observation
+data: {"index": 46, "source": "agg.fct_daily_metering", "content": "井号=Z-26；区块=渤中；日产油量合计（吨）=3384.71", "trust": "authoritative"}
+
+id: 56
+event: observation
+data: {"index": 47, "source": "agg.fct_daily_metering", "content": "井号=N-03；区块=渤南；日产油量合计（吨）=3312.73", "trust": "authoritative"}
+
+id: 57
+event: observation
+data: {"index": 48, "source": "agg.fct_daily_metering", "content": "井号=X-11；区块=渤西；日产油量合计（吨）=3304.72", "trust": "authoritative"}
+
+id: 58
+event: observation
+data: {"index": 49, "source": "agg.fct_daily_metering", "content": "井号=N-21；区块=渤南；日产油量合计（吨）=3284.13", "trust": "authoritative"}
+
+id: 59
+event: observation
+data: {"index": 50, "source": "agg.fct_daily_metering", "content": "井号=N-24；区块=渤南；日产油量合计（吨）=3271.80", "trust": "authoritative"}
+
+id: 60
+event: observation
+data: {"index": 51, "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date", "content": "① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝laowang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 46 天 · 超期）\n⑤ 收口注记 LIMIT 50——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底", "trust": "authoritative"}
+
+id: 61
+event: tool
+data: {"tool": "doc_retrieve", "status": "ok", "seq": 10, "message": null}
+
+id: 62
+event: observation
+data: {"index": 52, "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》", "content": "三、检泵作业明细━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━本月实施检泵作业 5 井次、其他维护作业 2 井次，明细如下：　　井号　　作业类别　　　检泵周期(天)　作业周期(天)　作业费用(万元)\n　　W-21　　检泵（杆断）　512　　　　　 4.5　　　　　52.3\n　　W-22　　检泵（杆断）　521　　　　　 5.0　　　　　56.8\n　　W-24　　检泵（杆断）　295　　　　　 4.0　　　　　47.9\n　　W-23　　检泵（泵漏）　348　　　　　 3.5　　　　　39.6\n　　W-31　　检泵（泵漏）　466　　　　　 4.0　　　　　45.1\n　　W-32　　维护（换皮带）215　　　　　 0.5　　　　　2.1\n　　W-41　　维护（换密封盒）168　　　　 0.5　　　　　2.8说明：检泵周期＝本次检泵日 − 上次检泵日（口径与开发数据平台指标台账一致）；W-32、W-41 两口为地面维护作业，不动管柱，其\"检泵周期\"栏为上次检泵至今的在用周期，仅供参考。杆断 3 口井（W-21、W-22、W-24）平均检泵周期 443 天；5 口检泵井合计平均 428 天，较上月回升 12 天。检泵周期最短的 W-24 井（295 天）为去年 11 月补孔改层井，改层后泵挂加深、杆柱组合调整尚未优化，本次作业已同步优化（见 4.3 节）。━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "trust": "report"}
+
+id: 63
+event: observation
+data: {"index": 53, "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》", "content": "2026年8月，渤中34-5油田平均开井156口，躺井7井次，躺井率4.5%，同比下降1.3个百分点、环比上升0.7个百分点；杆断3井次占42.9%为首因，泵漏2井次，地面故障2井次。实施检泵5井次、地面维护2井次，平均检泵周期428天；维护费合计286.4万元，单井次检泵均费48.3万元。扶正器加密、加重杆推广、气锚加装等治理措施执行率107%。9月计划检泵4井次，躺井率目标控制在3.5%以内。", "trust": "report"}
+
+id: 64
+event: observation
+data: {"index": 54, "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》", "content": "七、9 月工作计划━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━（1）躺井率控制目标：9 月控制在 3.5% 以内（≤5.5 井次）；（2）计划检泵 4 口：W-35（预警：功图示供液不足）、W-36（杆柱复算超应力）、W-37（泵效低于 55% 连续两旬）、W-38（计划性整筒更换）；（3）扶正器加密滚动实施 6 口，气锚加装 2 口；（4）杆柱力学复算完成 20 口，输出杆柱组合调整建议清单；（5）对检泵周期低于 350 天的在用井（现 9 口）逐井建立\"一井一策\"档案。━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "trust": "report"}
+
+id: 65
+event: observation
+data: {"index": 55, "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》", "content": "〔节级摘要｜《B-渤中34-5油田躺井治理与检泵作业月报-202608》·章节 04 四、典型躺井案例剖析｜覆盖 4 支切片〕W-22井因1900～2100米井段狗腿度最大（4.2°/30m），杆柱居中不足导致抽油杆疲劳断脱与杆管偏磨，整改措施包括扶正器间距由8米加密至4米、加重杆下移中性点、冲次由4.2降至3.8次/分，预计检泵周期延长至650天以上。W-24井因改层后新旧杆混配、旧杆强度不足致检泵周期仅295天，整串更换D级杆并按新泵挂重新设计组合。W-23井为CO₂点蚀导致固定阀失效，更换泵并加注缓蚀棒；W-31井因沉砂导致泵筒磨大，洗井周期由90天缩短至60天。", "trust": "report"}
+
+id: 66
+event: observation
+data: {"index": 56, "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》", "content": "渤中 34-5 油田 2026 年 8 月躺井治理与检泵作业月报（拟造评测数据）\n编制单位：渤中 34-5 作业公司采油工艺所\n报表期：2026 年 8 月 1 日至 8 月 31 日\n签发：采油工艺所　2026 年 9 月 3 日━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "trust": "report"}
+
+id: 67
+event: observation
+data: {"index": 57, "source": "《渤中34-8油田躺井治理与检泵作业月报-202701》", "content": "〔节级摘要｜《渤中34-8油田躺井治理与检泵作业月报-202701》·章节 03 三、典型躺井案例剖析｜覆盖 3 支切片〕Y-21井抽油杆疲劳断裂（1975米处）：泵挂2280米、φ44泵、冲程5米、冲次4.0次/分；最大井斜21.8°、狗腿度3.8°/30m位于1950米附近。含砂0.04%超标、扶正器累计磨损超期失效（运行486天，超400天更换窗口），旧升级判据偏松。整改：偏磨段1850-2150米换滚轮扶正器加密至3米、加φ38加重杆、冲次降至3.5、力学复算，预计检泵周期延至700天以上；判据收紧为下冲程迟缓两旬即升级。Y-23井断点2140米，混配旧C级杆腐蚀疲劳致短周期402天，已整串换D级杆加密扶正器。Y-25井固定阀CO₂点蚀0.5mm漏失，整体换泵并加缓蚀棒12根，缓蚀剂周期由15天缩至10天。", "trust": "report"}
+
+id: 68
+event: observation
+data: {"index": 58, "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》", "content": "八、近三年同期躺井对比━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━　　年份（8 月）　躺井(井次)　躺井率　杆断占比　平均检泵周期(天)\n　　2024　　　　　13　　　　　8.3%　　46%　　　386\n　　2025　　　　　 9　　　　　5.8%　　44%　　　415\n　　2026　　　　　 7　　　　　4.5%　　43%　　　428三年同比看，躺井井次与杆断占比逐年下降，平均检泵周期三年延长 42 天，与扶正器加密、加重杆推广两项治理的累计覆盖面扩大正相关。2024 年 8 月为历史最差月（当年高温期地面故障叠加井况集中暴露），其治理台账底数不清是主因之一，这也是本年起建立\"一井一策\"档案的由来。━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "trust": "report"}
+
+id: 69
+event: observation
+data: {"index": 59, "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》", "content": "十、功图预警跟踪清单（月末结转）━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━　　井号　　预警类型　　　　　首次发现　当前状态\n　　W-35　　供液不足（沉没度低）7 月 22 日　已列 9 月检泵\n　　W-36　　杆柱应力超限（复算）8 月 9 日　 已列 9 月检泵\n　　W-44　　功图\"气锁\"特征　　　8 月 15 日　气锚加装排队（第 3 位）\n　　W-45　　泵效连续下滑　　　　8 月 21 日　加密功图监测（每旬）\n　　W-46　　光杆偏磨判别中　　　8 月 28 日　现场复核中清单按旬滚动更新，凡连续两旬恶化的井自动升入检泵计划。本月无新增杆断预警（上月结转 2 口均已处置）。附注：本报表井号、数值均为评测用拟造数据。报表口径如与开发数据平台不一致，以平台台账为准。", "trust": "report"}
+
+id: 70
+event: observation
+data: {"index": 60, "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》", "content": "4.2 W-24 井杆断（短周期案例）W-24 井检泵周期仅 295 天，为去年 11 月补孔改层井。断点 1650 米，检查发现为新旧杆混配段（新杆 D 级、旧杆 C 级混用），旧杆强度不足先断。教训：改层加深泵挂后未按新工况整体校核杆柱，混配段应力超出旧杆许用范围。本次作业已整串更换 D 级杆，并按加深后的泵挂重新设计杆柱组合（一级杆 18 毫米×520 米＋二级杆 22 毫米×840 米＋三级杆 19 毫米×840 米，待复算确认）。", "trust": "report"}
+
+id: 71
+event: observation
+data: {"index": 61, "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》", "content": "4.3 其他案例摘要W-23 井固定阀凡尔球点蚀（产出液 CO₂ 腐蚀，点蚀坑 0.6 毫米），更换整体泵并加注缓蚀棒；W-31 井泵筒磨大，检查发现沉砂口袋砂面上升 42 米，配套调整洗井周期由 90 天缩短至 60 天。━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "trust": "report"}
+
+id: 72
+event: observation
+data: {"index": 62, "source": "《C-渤中34-5油田三季度注水调整与生产运行分析》", "content": "产量完成率按主口径（开井日历折算）为 101.9%。检修剔除口径将 8～9 月检泵检修井的停产影响折算剔除（本季度躺井检修 5 井次、停产 22 井日，折算影响产量约 0.13 万吨），故高于主口径 1.6 个百分点。两个口径差异反映的是检修损失的产能贡献，不代表产量虚增。开发数据平台指标台账中，\"有效产量\"为两支口径指标，读数时须先选口径再对数。━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "trust": "report"}
+
+id: 73
+event: observation
+data: {"index": 63, "source": "《A-W11井完井工程报告》", "content": "6.1 完井液漏失及堵漏（插曲一）第三段射孔（2410～2418 米）起爆后循环时发生漏失，漏速由 2.1 m³/h 上升至最高 11.5 m³/h，累计漏失完井液 115 立方米，漏失层段判断为 2405～2412 米（第三射孔段主力渗滤带）。处理措施：配堵漏浆（果壳 3%＋随钻堵漏剂 2%＋纤维 0.5%），段塞式泵入漏层后静止 4 小时，循环压力恢复正常，后续漏速降至 0.3 m³/h 以下，满足继续作业条件。漏失期间未发生井控事件，液面监测与助喷制度全程执行。", "trust": "report"}
+
+id: 74
+event: observation
+data: {"index": 64, "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》", "content": "四、典型躺井案例剖析━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "trust": "report"}
+
+id: 75
+event: observation
+data: {"index": 65, "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》", "content": "4.1 W-22 井抽油杆断（典型案例）W-22 井基本参数：泵挂 2200 米，φ44 泵，冲程 5 米，冲次 4.2 次/分，最大井斜 23.6°（位于 1950 米），最大狗腿度 4.2°/30m（位于 2020 米附近）。作业起管检查：断点位于 1980 米处第 38 根抽油杆杆体（非接头），断口呈典型疲劳磨损特征；对应位置油管内壁有明显环状磨槽，深度 0.8～1.2 毫米。1900～2100 米井段抽油杆接箍普遍偏磨，最重处接箍单侧磨掉 2.1 毫米。原因分析：该井段处于狗腿度最大区域，杆柱中性点偏上，下冲程杆柱弯曲导致杆管偏磨集中；原杆柱设计扶正器间距 8 米，在 4.2°/30m 狗腿度下不足以保持杆柱居中。上月初该井功图已显示下冲程迟缓（供液不足与偏磨双重特征），但未列入当月检泵计划，属预测预警跟进不及时。整改措施：①扶正器间距由 8 米加密至 4 米（偏磨段 1900～2150 米范围全加）；②泵上 120 米范围下加重杆（φ38 毫米）使中性点下移；③该井纳入杆柱力学复算名单，按复算结果调整冲次由 4.2 降至 3.8 次/分。预计整改后检泵周期可延长至 650 天以上。", "trust": "report"}
+
+id: 76
+event: observation
+data: {"index": 66, "source": "《渤中34-8油田躺井治理与检泵作业月报-202701》", "content": "三、典型躺井案例剖析━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "trust": "report"}
+
+id: 77
+event: observation
+data: {"index": 67, "source": "《渤中34-8油田躺井治理与检泵作业月报-202701》", "content": "3.1 Y-21 井抽油杆断（典型案例）Y-21 井基本参数：泵挂 2280 米，φ44 泵，冲程 5 米，冲次 4.0 次/分，最大井斜 21.8°（位于 1810 米），最大狗腿度 3.8°/30m（位于 1950 米附近）。2027 年 1 月 9 日 6:40 井口无排量、光杆载荷骤降，判定杆断躺井，为当月第 1 井次。作业起管检查：断点位于 1975 米处第 41 根抽油杆杆体（非接头），断口呈典型疲劳断裂特征（疲劳弧线明显、45° 剪切唇）；对应位置油管内壁有环状磨槽，深度 0.6～1.0 毫米；1900～2100 米井段抽油杆接箍普遍偏磨，最重处接箍单侧磨掉 1.8 毫米。扶正器检查：该井段按 4 米间距在用扶正器 50 只，其中磨损超限（外径磨小 6 毫米以上）23 只、断裂缺失 4 只，居中能力已大面积失效。检测发现该井产出液含砂 0.04%，超过本油田 0.03% 的控制值，含砂井液加剧扶正器磨蚀是磨损速率超预期主因。原因分析：原 4 米扶正器间距设计在 3.8°/30m 狗腿度下本满足杆柱居中要求，本次失效性质为\"累计磨损超期失效\"而非\"间距不足\"——该井自上次检泵（2025 年 9 月 10 日完井）已连续运行 486 天，超出同类井扶正器 400 天左右的磨损更换窗口。另外，2026 年 12 月 8 日功图已显示轻度下冲程迟缓，按旧升级判据（连续三旬）未达升级条件，仅列观察，1 月 9 日突发杆断，属预警升级判据偏松、跟进不及时。整改措施：①偏磨段 1850～2150 米更换耐磨滚轮扶正器，间距 4 米加密至 3 米（100 只），同步换用内衬油管 32 根；②泵上 120 米范围下 φ38 毫米加重杆，使中性点下移；③冲次由 4.0 降至 3.5 次/分；④纳入杆柱力学复算名单。预计整改后检泵周期可延长至 700 天以上。管理整改：本月起升级判据收紧为\"下冲程迟缓连续两旬自动升级检泵计划\"（见第六章）。", "trust": "report"}
+
+id: 78
+event: observation
+data: {"index": 68, "source": "《渤中34-8油田躺井治理与检泵作业月报-202701》", "content": "3.2 其他案例摘要Y-23 井（杆断，检泵周期 402 天偏短）：断点 2140 米第 46 根杆体，该井最大井斜 19.4°（2020 米）、狗腿度 3.4°/30m；上次检泵新旧杆混配（旧 C 级杆残留），旧杆腐蚀疲劳先断，本次已整串更换 D 级杆并同步加密扶正器。Y-25 井（泵漏）：固定阀凡尔球面点蚀（CO₂ 腐蚀，点蚀坑 0.5 毫米），更换整体泵并泵下加缓蚀棒 12 根，全井缓蚀剂加注周期由 15 天缩短至 10 天。━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "trust": "report"}
+
+id: 79
+event: observation
+data: {"index": 69, "source": "检索供给窗声明（截断显式）", "content": "召回 38 支/送窗 17 支；已召回未送窗 21 支；矛盾来源同窗并立（各留代表支）：《B-渤中34-5油田躺井治理与检泵作业月报-202608》、《渤中34-8油田躺井治理与检泵作业月报-202701》、《C-渤中34-5油田三季度注水调整与生产运行分析》、《A-W11井完井工程报告》；缺位来源（预算未及）：《渤中34-8油田一季度注采调整与生产运行分析》、《Y-21井完井工程报告》；节级摘要展开节内切片 +5 支（摘要命中→节内补席）", "trust": "notice"}
+
+id: 80
+event: observation
+data: {"index": 70, "source": "检索供给窗声明（缺位名单）", "content": "检索窗注记：缺位来源（预算未及）：《渤中34-8油田一季度注采调整与生产运行分析》、《Y-21井完井工程报告》", "trust": "report"}
+
+id: 81
+event: step
+data: {"step": "execute", "seq": 9, "title": "data_query：ok（子问题 s1）"}
+
+id: 82
+event: step
+data: {"step": "execute", "seq": 10, "title": "doc_retrieve：ok（子问题 s2）"}
+
+id: 83
+event: text
+data: {"content": "① agg 库去年（2025 年）日产油量最高的井是 **Z-16**（区块：渤中），全年合计 **5839.63 吨** [1]。"}
+
+id: 84
+event: text
+data: {"content": "② 躺井月报今年 8 月检泵周期最长的是 **W-22** 井（检泵杆断），周期 **521 天** [52]。"}
+
+id: 85
+event: text
+data: {"content": "补充说明：\n- ①数据来自日产计量事实表 agg.fct_daily_metering（口径：日产油量·吨，窗口 2025-01-01 至 2025-12-31）[51]。\n- ②数据来自《B-渤中34-5油田躺井治理与检泵作业月报-202608》\"三、检泵作业明细\"表 [52]，报表口径与开发数据平台指标台账一致（检泵周期＝本次检泵日 − 上次检泵日）[52]。该月报已自注\"本报表井号、数值均为评测用拟造数据。报表口径如与开发数据平台不一致，以平台台账为准\"[59]，请按需核验。"}
+
+id: 86
+event: step
+data: {"step": "answer", "seq": 11, "title": "模型调用：answer"}
+
+id: 87
+event: step
+data: {"step": "answer", "seq": 12, "title": "起草答案"}
+
+id: 88
+event: verdict
+data: {"supported": 4, "rewritten": 0, "split": 0, "cited": [1, 5, 51, 52, 53, 54, 55, 56, 57, 59, 61, 62, 63, 65, 67, 68, 69, 70], "attribution": true, "subtype": "verify"}
+
+id: 89
+event: step
+data: {"step": "verify", "seq": 13, "title": "核验：支撑 4｜改写 0｜分源 否"}
+
+id: 90
+event: citation
+data: {"index": 1, "source": "agg.fct_daily_metering", "source_id": "Z-16", "trust": "authoritative"}
+
+id: 91
+event: citation
+data: {"index": 5, "source": "agg.fct_daily_metering", "source_id": "Z-34", "trust": "authoritative"}
+
+id: 92
+event: citation
+data: {"index": 51, "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date", "source_id": "lineage", "trust": "authoritative"}
+
+id: 93
+event: citation
+data: {"index": 52, "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》", "source_id": "f34", "trust": "report"}
+
+id: 94
+event: citation
+data: {"index": 53, "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》", "source_id": "f45", "trust": "report"}
+
+id: 95
+event: citation
+data: {"index": 54, "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》", "source_id": "f41", "trust": "report"}
+
+id: 96
+event: citation
+data: {"index": 55, "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》", "source_id": "ensum-58595cb89bae", "trust": "report"}
+
+id: 97
+event: citation
+data: {"index": 56, "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》", "source_id": "f31", "trust": "report"}
+
+id: 98
+event: citation
+data: {"index": 57, "source": "《渤中34-8油田躺井治理与检泵作业月报-202701》", "source_id": "ensum-e694c808d383", "trust": "report"}
+
+id: 99
+event: citation
+data: {"index": 59, "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》", "source_id": "f44", "trust": "report"}
+
+id: 100
+event: citation
+data: {"index": 61, "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》", "source_id": "f38", "trust": "report"}
+
+id: 101
+event: citation
+data: {"index": 62, "source": "《C-渤中34-5油田三季度注水调整与生产运行分析》", "source_id": "f51", "trust": "report"}
+
+id: 102
+event: citation
+data: {"index": 63, "source": "《A-W11井完井工程报告》", "source_id": "f19", "trust": "report"}
+
+id: 103
+event: citation
+data: {"index": 65, "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》", "source_id": "f36", "trust": "report"}
+
+id: 104
+event: citation
+data: {"index": 67, "source": "《渤中34-8油田躺井治理与检泵作业月报-202701》", "source_id": "f128", "trust": "report"}
+
+id: 105
+event: citation
+data: {"index": 68, "source": "《渤中34-8油田躺井治理与检泵作业月报-202701》", "source_id": "f129", "trust": "report"}
+
+id: 106
+event: citation
+data: {"index": 69, "source": "检索供给窗声明（截断显式）", "source_id": "window_note", "trust": "notice"}
+
+id: 107
+event: citation
+data: {"index": 70, "source": "检索供给窗声明（缺位名单）", "source_id": "window_miss", "trust": "report"}
+
+id: 108
+event: step
+data: {"step": "answer", "seq": 14, "title": "答案收口"}
+
+id: 109
+event: verdict
+data: {"status": "completed", "run_id": "run-97d8b2f8", "manifest_digest": "5711d723bfb14a2b", "subtype": "final"}
+
+id: 110
+event: blackbox
+data: {"run_id": "run-97d8b2f8", "question": "两件事一起看：①agg 库里去年日产油量最高的井是哪口、合计多少？②躺井月报今年 8 月检泵周期最长的是哪口井、多少天？", "status": "completed", "error": "", "stored": true, "bytes": 93575, "counts": {"messages": 11, "dialogue": 0, "process_notes": 7, "observations": 70, "steps": 14}}
+
+id: 110
+event: done
+data: {"run_id": "run-97d8b2f8"}

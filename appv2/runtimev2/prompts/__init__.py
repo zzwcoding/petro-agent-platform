@@ -59,8 +59,11 @@ from appv2.runtimev2.prompts.task_book import (
 # 签名（卡面两函数已落位；-04b 落族内其余成员，形状不再改——改形状＝回 -04a 或回设计仓）：
 #   相位闭世界值（`state.contracts_appended` 标记／相位头行）：`PHASE_CLARIFY`／`PHASE_TOOLMATCH`
 #   anchor_line(question, understanding) -> str
-#   assemble_decision_package(state, *, phase, guide_text="", today=None, max_subtasks=None) -> str
+#   assemble_decision_package(state, *, phase, guide_text="", today=None, max_subtasks=None,
+#                             shared_context=True) -> str
 #                                 # 澄清轮必供 max_subtasks（族②合同声明槽）；today＝水位日注入
+#                                 # shared_context＝run 级共享上下文（§A 指南段＋台账常驻块）
+#                                 # 本次是否注入——判定归编排（同 run 只注一次；2026-10-17 消重批）
 #   assemble_decision_increment(state, *, phase, done_text="") -> str
 #   render_ledger_resident_block(state) -> str
 #   render_decompose_example(metrics, *, today) -> str

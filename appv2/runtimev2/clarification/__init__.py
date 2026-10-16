@@ -3,9 +3,12 @@
 模块卡见 `specs/modules.md` 的 `## clarification` 一节；规格见 `specs/clarification.md`
 （行为与形状真源）。包根即公开面（卡「公开接口」节的 `clarify` ＋本块返回位形状）：
 
-- `clarify(state, *, guide_text="") -> ClarifyOutcome`——一次调用＝一次 LLM 决策周期：挂起恢复支 →
+- `clarify(state, *, guide_text="", shared_context=True) -> ClarifyOutcome`——一次调用＝一次 LLM
+  决策周期：挂起恢复支 →
   轮装配 → 经 `bookkeeping.call_model` 单点发起 → 四动作闭世界对账 → 单出口互斥返回位；
   `guide_text`＝§A 指南段文本注入参（流水 63——编排面按启动快照注入；缺省空串＝空段头）；
+  `shared_context`＝run 级共享上下文（§A 指南段＋台账常驻块）本次是否注入（判定归编排面——
+  同 run 只注一次，挂澄清轮首入包；本块只下传）；
 - 返回位形状：`ClarifyAsk`（反问卡 → 挂起）｜`ClarifyFinal`（定案 → 进下一相位）｜
   `ClarifyRejection`（结构化拒因 → 回喂重决策）；`discover` 与到顶截断**不占返回位**
   （路由意图经 `state.next_intent` 交出），实现形以 `None` 表达该「不占位」；

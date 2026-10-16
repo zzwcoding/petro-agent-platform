@@ -92,7 +92,13 @@ TASK_BOOK_OUTPUT_CONTRACT = (
 
 
 # ── 族②澄清发射合同（迁移照抄——V1 载体 appv2/runtime/guide.py `CLARIFY_CONTRACT`）──
-# 槽位 {max_subtasks}／{discover_used} 为调用方替换槽（消费方 clarification）；常量本体无逐轮变体。
+# 槽位 {max_subtasks} 为调用方替换槽（消费方 clarification）；常量本体无逐轮变体。
+# **2026-10-17 补（真机消重批·缺陷二）**：旧槽 `{discover_used}` 退场——静态合同块内的槽值只在
+# 相位首入替换一次（恒 0 起算），随追加链一路带到 answer 调用仍写「已用 0 次」，模型据此误判
+# 探查预算（真机 run-e1b6ff1e：8 次 decision、4 次 discover 全 no_hit，烧到 budget_converged）。
+# 真实已用数改由**每轮动态条**逐轮披露（`decision_round._BUDGET_LINE`／`specs/prompts.md`
+# 行为 16①——机计数权威披露面），静态合同只留上限「全 run ≤10 次」；上限数值真源＝
+# `state.MAX_DISCOVERS_PER_RUN`（10，R-K-75／`walk/裁决表.md` §06-A「发现≤10」——数值不动）。
 CLARIFY_EMISSION_CONTRACT = (
     "【相位①·业务澄清】只输出一个 JSON 对象（可围栏）。四动作：\n"
     "JSON 字符串值内需要引号时（引题干原文/术语等）：一律用中文引号「」（或单引号'），"
@@ -107,7 +113,7 @@ CLARIFY_EMISSION_CONTRACT = (
     "- 钻取：{\"action\": \"discover\", \"discovers\": [{\"tool\": \"semantic_query\"|\"table_sch"
     "ema\"|\"faq_lookup\", \"args\": {...}}]}——1~2 支。开局已给全台账，"
     "禁猜词敲门：只作口径/绑定细节钻取，不答「能不能出数」。\n"
-    "可用探查（discover，全 run ≤10 次，已用 {discover_used} 次）：\n"
+    "可用探查（discover，全 run ≤10 次）：\n"
     "- semantic_query：本体口径/绑定/届满细节钻取（开局台账已全量，仅细节用）\n"
     "- table_schema：表结构钻取（agg/sem/kb 分区）\n"
     "- faq_lookup：FAQ 现成问答库——问句有现成标准答案时加速/互证；\n"

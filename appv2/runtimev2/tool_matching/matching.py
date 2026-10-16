@@ -86,7 +86,9 @@ from appv2.runtimev2.tool_matching.models import (
 from appv2.tools import inject_retrieval_anchors
 
 
-def match(state: RunState, *, guide_text: str = "") -> ToolPlan | ToolMatchRejection:
+def match(
+    state: RunState, *, guide_text: str = "", shared_context: bool = True
+) -> ToolPlan | ToolMatchRejection:
     """工具匹配相位单入口（签名真源＝卡 `## tool_matching`）。
 
     返回**两态互斥**：`ToolPlan`（恰配一条全部合格）｜`ToolMatchRejection`（结构化拒因，非终局）。
@@ -95,9 +97,15 @@ def match(state: RunState, *, guide_text: str = "") -> ToolPlan | ToolMatchRejec
     `guide_text`＝§A 指南段**文本注入参**（流水 63——additive 注入，编排面按启动快照注入全文；
     缺省空串＝空段头，回归面同形）。装载面归 `api` 组合根（`OntologyGuideProvider`
     启动取一次快照，同 `watermark` 先例），本块只下传、不读文件。
+
+    `shared_context`＝**run 级共享上下文**（§A 指南段＋台账常驻块）本次是否注入（缺省 `True`＝
+    函数本体行为）：判定归 `orchestration`（同一 run 只注一次，挂澄清轮首入包——本相位是同一 run
+    的第二次决策装配，故编排面通常下传 `False`），本块只下传、不自行判定。
     """
     group = _question_group_of(state)
-    _append_round_instruction(state, guide_text=guide_text)
+    _append_round_instruction(
+        state, guide_text=guide_text, shared_context=shared_context
+    )
     content = call_model(state, MODEL_CALLER, list(state.messages))
     append_message(state, role=ROLE_ASSISTANT, content=content)
 
@@ -147,14 +155,20 @@ def _question_group_of(state: RunState) -> QuestionGroup:
 # ── 本轮指令装配（文本单点在 prompts；链尾追加与合同标记经唯一写口）────────────
 
 
-def _append_round_instruction(state: RunState, *, guide_text: str = "") -> None:
+def _append_round_instruction(
+    state: RunState, *, guide_text: str = "", shared_context: bool = True
+) -> None:
     """首入＝相位包（一次性，pin-24）／回炉＝增量条（拒因回喂行＋已做段）；链尾追加（pin-22）。
 
     `guide_text` 只对首入包有意义（增量条无 §A 段）——装载面归 `api` 组合根，本块只下传。
+    `shared_context`＝run 级共享上下文（§A 指南段＋台账常驻块）本次是否注入——判定归编排
+    （同一 run 只注一次），本块只下传（缺省 `True`＝函数本体行为）。
     """
     first_entry = PHASE not in state.contracts_appended
     instruction = (
-        assemble_decision_package(state, phase=PHASE, guide_text=guide_text)
+        assemble_decision_package(
+            state, phase=PHASE, guide_text=guide_text, shared_context=shared_context
+        )
         if first_entry
         else assemble_decision_increment(state, phase=PHASE)
     )

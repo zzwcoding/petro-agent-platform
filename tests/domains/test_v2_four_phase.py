@@ -11,7 +11,8 @@
   verify→收口；blocked_ask 真接 ASK 挂起帧；回炉不重跑（成功子问题执行指纹
   零重复）；3 轮失败子集回炉；discover≤10＋计数埋点落 step payload；
 - 词典层第 1 轮全量注入：决策上下文含台账全量块＋Manifest ledger_dump 族来源
-  行（非懒加载——零 discover 也注入）；常驻块不重复入史；
+  行（非懒加载——零 discover 也注入）；常驻块 run 内恰一次（2026-10-17 消重批——
+  与 §A 段同属 run 级共享上下文，只挂澄清轮首入包）；
 - caliber_key 三态：场景词确定性匹配／无场景词阈值判断形 ASK 反问／无场景词
   取数形双口径并列注记＋非法口径拒；
 - ToolContext 放行态：approved_tables 进 ctx（A2 裁决落点）；
@@ -1577,9 +1578,80 @@ async def test_four_phase_discover_budget_ten_and_taps() -> None:
     assert any("发现预算" in reason for reason in rejections)
 
 
+async def test_decision_prompt_discover_budget_shows_real_used_count() -> None:
+    """缺陷二回归（2026-10-17 消重批）：决策 prompt 的「已用 N 次」＝**真实已发 discover 次数**。
+
+    病根：静态相位合同块内曾嵌 `{discover_used}` 槽——槽值只在相位首入替换一次（首入时恒 0），
+    随追加链一路带到 answer 调用仍写着「已用 0 次」，模型看不见自己烧了几支（真机 run-e1b6ff1e：
+    8 次 decision、4 次 discover 全 no_hit，烧到 `budget_converged`）。现静态合同只留上限、不载
+    计数；真实已用数只由**每轮动态条**①「探查预算：全 run ≤{上限} 次，已用 {已用} 次。」披露
+    （行为 16①——机计数权威披露面）。本钉＝发 N 次 discover 后决策 prompt 显示已用 N 次。
+    """
+    def _double(prefix: str) -> str:
+        return json.dumps(
+            {
+                "action": "discover",
+                "discovers": [
+                    {"tool": "semantic_query", "args": {"question": f"{prefix}-1"}},
+                    {"tool": "semantic_query", "args": {"question": f"{prefix}-2"}},
+                ],
+            },
+            ensure_ascii=False,
+        )
+
+    dump = v2_ledger_dump()
+    note = v2_ledger_note(dump, "日产油量")
+    script = {
+        "understand": [V2_UNDERSTAND],
+        "decision": [
+            _double("轮1"),  # 两支 discover → 已用 2
+            _double("轮2"),  # 再两支 → 已用 4
+            v2_decompose(
+                subtask_id="s1",
+                question="2025-09-01 到 09-03 各井日产油量",
+                ledger_notes=note,
+                chain="data",
+            ),
+            v2_matches(
+                v2_data_match(
+                    subtask_id="s1", slot="日产油量", start="2025-09-01", end="2025-09-03"
+                )
+            ),
+        ],
+        "answer": ["s1：N-01 井 2025-09-01 日产油量 21.16 吨 [1]。"],
+    }
+    wire_ledger_projection(V2LedgerPort(dump))
+    with freeze("2026-10-08T09:00:00"):
+        runtime, completer = v2_runtime(
+            script=script, registry=v2_registry(engine=V2QueueEngine([_rows_outcome()]))
+        )
+        events = await v2_run(runtime, "2025 年 9 月 1 日到 3 日的日产油量")
+    assert events[-1].event == "blackbox" and events[-1].data["status"] == "completed"
+
+    run_id = events[-1].data["run_id"]
+    state = V2RunStore().load(run_id)
+    assert int(state.discover_used) == 4  # 真计数面：两轮各两支
+    cap = int(state.budget.discovers_per_run)
+
+    calls = completer.messages_of("decision")
+    # 第 2 轮决策：本轮动态条＝探查预算条，显示**真实**已用 2 次（非冻值 0）
+    assert calls[1][-1]["content"] == f"探查预算：全 run ≤{cap} 次，已用 2 次。"
+    # 第 3 轮决策：真实已用 4 次（每轮随链尾现披露）
+    assert calls[2][-1]["content"] == f"探查预算：全 run ≤{cap} 次，已用 4 次。"
+    # 静态合同只留上限、不载计数：整链零「已用 0 次」冻值（模型不再被陈旧读数误导）
+    chain = "\n".join(
+        str(message.get("content", "")) for message in calls[-1]
+    )
+    assert "已用 0 次" not in chain
+    assert f"可用探查（discover，全 run ≤{cap} 次）：" in chain
+    assert f"探查预算：全 run ≤{cap} 次，已用 2 次。" in chain
+    assert f"探查预算：全 run ≤{cap} 次，已用 4 次。" in chain
+
+
 async def test_four_phase_ledger_dump_round1_injection() -> None:
-    """词典层第 1 轮全量注入（拍板 a）：澄清／匹配相位包携台账全量块；
-    零 discover 也注入（非懒加载）；常驻块不重复入史；决策调用面互为前缀延伸（pin-22）。"""
+    """词典层第 1 轮全量注入（拍板 a）：澄清相位包携台账全量块；
+    零 discover 也注入（非懒加载）；**run 级共享上下文只注一次**（2026-10-17 消重批——匹配包不再
+    重注）；决策调用面互为前缀延伸（pin-22）。"""
     dump = v2_ledger_dump()
     note = v2_ledger_note(dump, "日产油量")
     script = {
@@ -1616,11 +1688,14 @@ async def test_four_phase_ledger_dump_round1_injection() -> None:
     assert "agg.fct_daily_metering" in package  # 结构卡
     assert any("→" in line for line in package.splitlines())  # 别名映射行
 
-    # 追加式链（pin-22）：第 2 次决策调用＝第 1 次的**前缀延长**
+    # 追加式链（pin-22）：第 2 次决策调用＝第 1 次的**前缀延长**（消重不动已有消息）
     second_call = completer.messages_of("decision")[1]
     assert second_call[: len(first_call)] == first_call
-    # 相位包一次性（pin-24）：台账全量恰两次（澄清包＋匹配包各一次，无逐轮重复）
-    assert sum("台账全量" in message.get("content", "") for message in second_call) == 2
+    # run 级共享上下文只注一次（2026-10-17 消重批·缺陷一）：台账全量块在整链恰一次——挂澄清轮
+    # 首入包；匹配包不再重注（末轮 answer 无重复 token）。第二链里台账块**逐字**＝第一链条内
+    # 那一块（字节级不变，只改出现次数）。
+    assert sum("台账全量" in message.get("content", "") for message in second_call) == 1
+    assert sum("台账全量" in message.get("content", "") for message in first_call) == 1
     # 非懒加载：本 run 零 discover，注入照常在场
     run_id = events[-1].data["run_id"]
     assert not [row for row in v2_steps(run_id) if row.step == "discover"]
@@ -2077,13 +2152,14 @@ async def test_four_phase_anchorable_window_skips_ask_delivers_degrade() -> None
     assert any(item.get("type") == "chain_switch_reentry" for item in notices)
     assert not any(item.get("type") == "unbound_degrade" for item in notices)
 
-    # 相位合同一次性（钉 `pin-24`）：回炉轮不重发合同包——标记记一次、链上台账全量块仍恰两块
-    # （澄清包 ＋ 匹配包），不随轮数增长。
+    # 相位合同一次性（钉 `pin-24`）：回炉轮不重发合同包——标记记一次、链上台账全量块恰一块
+    # （run 级共享上下文只注一次，挂澄清轮首入包——2026-10-17 消重批：匹配包不再重注），
+    # 不随轮数增长。
     state = V2RunStore().load(run_id)
     assert state.contracts_appended.count("clarify") == 1
     assert state.contracts_appended.count("toolmatch") == 1
     last_call = completer.messages_of("decision")[-1]
-    assert sum("台账全量" in message.get("content", "") for message in last_call) == 2
+    assert sum("台账全量" in message.get("content", "") for message in last_call) == 1
 
 
 async def test_four_phase_clarify_ask_threshold_form_still_suspends_and_resumes() -> None:
@@ -2493,7 +2569,8 @@ def test_plan_caliber_key_passes_through_match_not_query_plan() -> None:
 
 
 async def test_guide_text_injected_into_decision_phase_via_orchestration() -> None:
-    """§A 指南文本经编排注入决策相位（流水 63）：注入后消息面在场；缺省＝空段头（回归）。
+    """§A 指南文本经编排注入决策相位（流水 63）：注入后消息面在场；缺省＝空段头（回归）；
+    **落链恰一次**（2026-10-17 消重批·缺陷一——run 级共享上下文只挂第一次决策装配）。
 
     接线面：`RunExecutor(guide_text=…)` → 编排 `LoopDeps.guide_text` → 相位 `clarify`／`match`
     → `prompts.assemble_decision_package(guide_text=…)`。特征串「◆ **三链路由**」**只出自
@@ -2505,6 +2582,7 @@ async def test_guide_text_injected_into_decision_phase_via_orchestration() -> No
     guide_mark = "◆ **三链路由**"
     guide = OntologyGuideProvider(today=date(2026, 10, 8)).guide()
     assert guide_mark in guide  # 前置：特征串确实出自 §A 装载面
+    assert guide.count(guide_mark) == 1  # 计数判据前提：特征串在 §A 内唯一
 
     dump = v2_ledger_dump()
     note = v2_ledger_note(dump, "日产油量")
@@ -2545,12 +2623,102 @@ async def test_guide_text_injected_into_decision_phase_via_orchestration() -> No
         ]
 
     injected = await _decision_messages(guide)
-    assert injected and any(guide_mark in joined for joined in injected)  # §A 全文随注入面在场
+    assert injected and all(guide_mark in joined for joined in injected)  # §A 全文随注入面在场
+    # 落链恰一次（链为追加形：后一调用恒含前一调用全部消息，故计数不随调用序号增长）
+    assert all(joined.count(guide_mark) == 1 for joined in injected)
+    assert all(joined.count(GUIDE_REFERENCE_HEAD) == 1 for joined in injected)
 
     plain = await _decision_messages("")
     assert plain  # 决策相位照常发起模型调用
     assert all(guide_mark not in joined for joined in plain)  # 缺省空串＝空段头（回归）
-    assert all(GUIDE_REFERENCE_HEAD in joined for joined in plain)  # 段头仍在（空段头形）
+    # 空段头同属 run 级共享上下文：亦只挂第一次决策装配（后一调用零新增段头）
+    assert all(joined.count(GUIDE_REFERENCE_HEAD) == 1 for joined in plain)
+
+
+async def test_decision_shared_context_injected_once_per_run() -> None:
+    """缺陷一回归（2026-10-17 消重批）：同一 run 两次决策调用拼出的消息链中，§A 指南正文与台账
+    常驻块**各恰出现一次**（挂第一次决策调用=澄清轮首入包），后续决策调用零新增；链仍为
+    **前缀延伸**（pin-22／KV 加形纪律——消重不动已有消息），两段文本**字节级不变**（只改次数）。
+
+    真机病根（`docs/runtime-refactor/ladder/L3/07` run-919ed881）：末轮 answer prompt 19359
+    tokens 里 §A 全文 2310 chars＋台账全量块 4935 chars 各两遍（澄清包＋匹配包）——约 44% 是纯重复。
+    """
+    from appv2.runtimev2.prompts import (
+        GUIDE_REFERENCE_HEAD,
+        RESIDENT_BLOCK_BEGIN,
+        RESIDENT_BLOCK_END,
+    )
+    from appv2.runtimev2.state import RunState
+
+    dump = v2_ledger_dump()
+    note = v2_ledger_note(dump, "日产油量")
+    script = {
+        "understand": [V2_UNDERSTAND],
+        "decision": v2_decision_turn(
+            clarify=v2_decompose(
+                subtask_id="s1",
+                question="2025-09-01 到 09-03 各井日产油量",
+                ledger_notes=note,
+                chain="data",
+            ),
+            toolmatch=v2_matches(
+                v2_data_match(
+                    subtask_id="s1",
+                    slot="日产油量",
+                    start="2025-09-01",
+                    end="2025-09-03",
+                )
+            ),
+        ),
+        "answer": ["子任务 s1：N-01 井 2025-09-01 日产油量 21.16 吨 [1]。"],
+    }
+    wire_ledger_projection(V2LedgerPort(dump))
+    with freeze("2026-10-08T09:00:00"):
+        runtime, completer = v2_runtime(
+            script=script, registry=v2_registry(engine=V2QueueEngine([_rows_outcome()]))
+        )
+        events = await v2_run(runtime, "2025 年 9 月 1 日到 3 日的日产油量")
+    assert events[-1].event == "blackbox" and events[-1].data["status"] == "completed"
+
+    calls = completer.messages_of("decision")
+    assert len(calls) >= 2  # 澄清轮＋匹配轮两次决策调用
+
+    def _count(messages: list[dict[str, str]], needle: str) -> int:
+        return sum(str(message.get("content", "")).count(needle) for message in messages)
+
+    for messages in calls:
+        assert _count(messages, GUIDE_REFERENCE_HEAD) == 1
+        assert _count(messages, RESIDENT_BLOCK_BEGIN) == 1
+        assert _count(messages, RESIDENT_BLOCK_END) == 1
+
+    first, second = calls[0], calls[1]
+    assert second[: len(first)] == first  # 前链恒为后链前缀（KV 加形纪律不破）
+    # 共享上下文挂第一次决策调用（澄清轮首入包）；匹配轮新增消息里两段**零命中**
+    added = "\n".join(str(message.get("content", "")) for message in second[len(first) :])
+    assert GUIDE_REFERENCE_HEAD not in added
+    assert RESIDENT_BLOCK_BEGIN not in added and RESIDENT_BLOCK_END not in added
+    # 字节级不变（只改出现次数）：第二次调用链里那一块逐字＝第一次调用链里的同一块
+    block_from_first = _slice_block(first)
+    block_from_second = _slice_block(second)
+    assert block_from_first and block_from_first == block_from_second
+    assert RESIDENT_BLOCK_BEGIN + "\n" in block_from_first  # 包裹对完整（BEGIN＋…＋END）
+    # 装配面同源核（runs 外）：状态机里澄清相位标记已落（共享上下文唯一挂载点的判据面）
+    run_id = events[-1].data["run_id"]
+    state = V2RunStore().load(run_id)
+    assert isinstance(state, RunState)
+    assert state.contracts_appended == ["clarify", "toolmatch"]
+
+
+def _slice_block(messages: list[dict[str, str]]) -> str:
+    """消息链内常驻块整段切片（BEGIN 起 END 止；缺席＝空串）——字节比对件。"""
+    from appv2.runtimev2.prompts import RESIDENT_BLOCK_BEGIN, RESIDENT_BLOCK_END
+
+    text = "\n".join(str(message.get("content", "")) for message in messages)
+    if RESIDENT_BLOCK_BEGIN not in text or RESIDENT_BLOCK_END not in text:
+        return ""
+    return text[
+        text.index(RESIDENT_BLOCK_BEGIN) : text.index(RESIDENT_BLOCK_END) + len(RESIDENT_BLOCK_END)
+    ]
 
 
 # ---------- L0/L2 三病灶修复批③：直答旁路（route=direct）文本帧 ----------

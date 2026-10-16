@@ -158,6 +158,7 @@ def clarify(state: RunState) -> ClarifyOutcome: ...
 ```
 
 > **卡级微注（2026-10-16 裁·流水 63）**：`clarify` 签名补注入形参 `*, guide_text: str = ""`——§A 指南段**文本经编排注入**（装配面＝api 组合根启动快照，同 `watermark` 先例；本块只下传、不读文件）；缺省空串＝空段头（回归面同形）。规格接口节同批补注（`specs/clarification.md`）。
+> **卡级微注②（2026-10-17 补·真机消重批·缺陷一）**：签名补注入形参 `*, shared_context: bool = True`——**run 级共享上下文**（§A 指南段＋台账常驻块）本次是否注入；判定归 `orchestration`（同 run 只注一次），本块只下传。规格接口节同批补注（`specs/clarification.md`；口径真源 `specs/prompts.md` 行为 7 注）。
 
 ### 依赖
 - 模块: `prompts`、`parsing`、`bookkeeping`（模型调用发起面——经 call_model 单点发起）、`state`
@@ -185,6 +186,7 @@ def match(state: RunState) -> ToolPlan | ToolMatchRejection: ...
 ```
 
 > **卡级微注（2026-10-16 裁·流水 63）**：`match` 签名补注入形参 `*, guide_text: str = ""`——§A 指南段**文本经编排注入**（装配面＝api 组合根启动快照，同 `watermark` 先例；本块只下传、不读文件）；缺省空串＝空段头（回归面同形）。规格接口节同批补注（`specs/tool_matching.md`）。
+> **卡级微注②（2026-10-17 补·真机消重批·缺陷一）**：签名补注入形参 `*, shared_context: bool = True`——**run 级共享上下文**（§A 指南段＋台账常驻块）本次是否注入；判定归 `orchestration`（同 run 只注一次、挂澄清轮首入包，故本相位装配通常收 `False`），本块只下传。规格接口节同批补注（`specs/tool_matching.md`；口径真源 `specs/prompts.md` 行为 7 注）。
 
 > **卡级修正（2026-10-16，L0，拆票期——流水 50）**：`SubtaskMatch` 补 `mention_mode`（闭世界 `executed`／`mentioned_only`）＝「提及 vs 执行」结论的字段载体，`MatchReason` 补拒因枚举五类成员（逐字拒文清单见 `specs/tool_matching.md`「接口定义」）——**2026-10-16 补：pin-31/pin-14 消费面（流水 50）**；**卡与规格接口节同批改，不许脱节**。**随批补（2026-10-16，流水 51）**：`MatchReason` 拒因枚举**五类→六类**——原「未归类一条」（`matches` 支非对象的**支形状失败**，原规格「未归类一条」条）经主窗裁**增第六类** `malformed_matches`（**成员名照码面，2026-10-16 归位（流水 51）**；逐字拒文照码面 `appv2/runtime/subtask.py:332`）；**卡与规格接口节同批改，不许脱节**（本批同批：卡面本行 ＋ 规格「接口定义」节枚举与逐字拒文表）。**依赖行勘误（2026-10-16 拆票期收词）**：「### 依赖」的「- 模块」行原直列 `gateway_adapter` 为模块依赖，与 `specs/tool_matching.md`「触及的模块」表 :37 原文「gateway_adapter｜新增｜模型出口（唯一出口仍归它）；**本块不直引**——经 `bookkeeping.call_model` 发起」＋同规格「框架与依赖红线」条「本块不直引 `gateway_adapter`（import 落点＝`appv2.runtimev2.bookkeeping` 包根——R2 禁深层子模块）」**相抵**；**该模块名已从「- 模块」行删除**（勘误注见下「### 依赖」节），`eng/03` §一依赖图 `tool_matching → state` 同样不列该边——只删**读法上的直引名**，不动签名、不动依赖实质（唯一模型出口仍归 `gateway_adapter`，本块经 `bookkeeping.call_model` 桥间接到达；`check_specs` 依赖面无环、零 FAIL）。
 
@@ -338,9 +340,10 @@ class AgentRuntime:
 > **两处不经本包根出（防同一缝两名）**：**模型 completer 注入缝**（真源 `gateway_adapter` 包根——api 装配直取该包根）与
 > **检查点 saver**（`PgCheckpointer` **本块内构造、不出包根（框架零出口）**——R5b 红线，框架类型不得出现在公开面签名上）。
 > **卡级微注（2026-10-16 裁·流水 63）**：`RunExecutor` 构造补注入参 `guide_text`、`LoopDeps` 补字段 `guide_text: str = ""`——§A 指南段**文本经编排下传**给相位 `clarify`／`match`（装配面＝api 组合根启动快照，同 `watermark` 先例）；缺省空串＝空段头。本块只持有并下传，不读文件、不做语义判断。
+> **卡级微注②（2026-10-17 补·真机消重批·缺陷一）**：**run 级共享上下文的「只注一次」判定落本块**——本块按 `state.contracts_appended` 的澄清相位标记（引 `prompts.PHASE_CLARIFY`）判「本 run 是否已注」，经相位注入参 `shared_context: bool` 下传 `clarify`／`match`（相位与 `prompts` 只按标志拼／不拼文本，零判断）。同批：本块依赖行补 `prompts`（相位标记常量的引用面——R3 只锁 prompts→state 方向，本方向无闸）。
 
 ### 依赖
-- 模块: `state`、`bookkeeping`、`transport`、`persistence`、`infra`（身份缝与审计唯一写口，只经其公开面），以及七个业务相位
+- 模块: `state`、`bookkeeping`、`transport`、`persistence`、`prompts`（2026-10-17 补·真机消重批——相位标记常量的引用面）、`infra`（身份缝与审计唯一写口，只经其公开面），以及七个业务相位
 - 外部: **LangGraph**（ADR-0002 红线①：只许本块内使用；state schema 自有；框架类型不得外泄）
 
 ### Seam 与测试

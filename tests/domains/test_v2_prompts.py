@@ -367,8 +367,9 @@ def test_contract_constant_family_closed_world() -> None:
     for name in ASSEMBLY_FUNCTIONS:
         assert name.isidentifier()
 
-    # pin-24 本块承诺面＝合同常量逐字稳定（常量无逐轮变体）：槽位仅 CLARIFY 两枚声明槽，
-    # 且换状态装配后合同段逐字不变。
+    # pin-24 本块承诺面＝合同常量逐字稳定（常量无逐轮变体）：槽位仅 CLARIFY 一枚声明槽
+    # （`{discover_used}` 槽随「已用 N 次」冻值退场——2026-10-17 消重批·缺陷二：静态块内的槽值
+    # 只在相位首入替换一次、随链恒冻，真实已用数改由每轮动态条披露），且换状态装配后合同段逐字不变。
     # 槽位＝Python 格式化槽（标识符形占位字段）；JSON 花括号示例不计（形态处理豁免面）
     assert CLARIFY_EMISSION_CONTRACT.startswith("【相位①·业务澄清】")  # 相位合同头行
     assert TOOLMATCH_EMISSION_CONTRACT.startswith("【相位②·工具匹配】")
@@ -376,8 +377,11 @@ def test_contract_constant_family_closed_world() -> None:
         name: _format_slots(value) for name, value in _contract_constants().items()
     }
     assert {name: fields for name, fields in slots.items() if fields} == {
-        "CLARIFY_EMISSION_CONTRACT": {"max_subtasks", "discover_used"}
+        "CLARIFY_EMISSION_CONTRACT": {"max_subtasks"}
     }
+    # 静态合同零计数（缺陷二钉）：上限留静态块、已用数只在动态条——契约文本与限额单点同值
+    assert "已用 " not in CLARIFY_EMISSION_CONTRACT
+    assert f"全 run ≤{MAX_DISCOVERS_PER_RUN} 次" in CLARIFY_EMISSION_CONTRACT
     first = assemble_task_book(_ledger_state())
     second = assemble_task_book(_ledger_state(question="换个题", understanding="换个题意"))
     for constant in _SPEC_FAMILIES["task_book_skeleton"]:
@@ -705,6 +709,10 @@ def test_anchor_line_two_forms_first_line() -> None:
 def test_decision_package_four_elements() -> None:
     """行 10 首入包构成逐件在场（澄清／匹配轮各按其件）、常驻块包裹对恰一对；四要素按轮合看
     逐轮在场（行为 7；A-P4b-56／60）。
+
+    2026-10-17 补（真机消重批·缺陷一／二）：①run 级共享上下文（§A 指南段＋台账常驻块）随
+    `shared_context` 标志整段进出（编排判「本 run 是否已注」后下传——缺省 `True`＝函数本体行为）；
+    ②静态合同不再携「已用 N 次」冻值（真实已用数只在每轮动态条）。
     """
     state = _decision_state(discover_used=2)
     clarify = _clarify_package(state)
@@ -715,7 +723,8 @@ def test_decision_package_four_elements() -> None:
     assert CLARIFY_PHASE_HEAD in clarify
     assert "【相位①·业务澄清】只输出一个 JSON 对象（可围栏）。四动作：" in clarify
     assert "子问题 ≤4 个" in clarify  # 声明槽 {max_subtasks}＝调用方注入值
-    assert "已用 2 次）：" in clarify  # 声明槽 {discover_used}＝state 投影现取
+    assert "可用探查（discover，全 run ≤10 次）：" in clarify  # 静态合同只留上限、不载计数
+    assert "已用 " not in clarify.split("【业务规则参考", 1)[0]  # 合同段零「已用 N 次」冻值
     assert CLARIFY_FINALIZE_BOUNDARY in clarify
     # ③产出样例（澄清轮）＋④§A 指南段（文本经入参注入）
     assert "填写样例（分解形——五键齐全" in clarify
@@ -750,6 +759,25 @@ def test_decision_package_four_elements() -> None:
     # 各按其件（不互串）：澄清轮无问题组段、匹配轮无分解样例段
     assert "问题组：" not in clarify
     assert "填写样例（分解形" not in toolmatch
+
+    # 2026-10-17 补（缺陷一）：run 级共享上下文缺席形（编排判「本 run 已注」后下传
+    # `shared_context=False`）——§A 指南段与台账常驻块**两段整段缺席**，其余件照常在场
+    later = _toolmatch_package(state, shared_context=False)
+    assert GUIDE_REFERENCE_HEAD not in later and _GUIDE_TEXT not in later
+    assert RESIDENT_BLOCK_BEGIN not in later and RESIDENT_BLOCK_END not in later
+    assert TOOLMATCH_EMISSION_CONTRACT in later  # 相位合同不随之缺席（不属共享上下文）
+    assert '\n\n问题组：\n{"subtasks": [{"id": "s1"' in later
+    assert later.endswith(
+        "\n\n问题组：\n" + json.dumps(state.question_group, ensure_ascii=False)
+    )  # 尾段＝问题组 JSON（常驻块零尾附）
+    quiet = _clarify_package(state, shared_context=False)
+    assert GUIDE_REFERENCE_HEAD not in quiet and _GUIDE_TEXT not in quiet
+    assert RESIDENT_BLOCK_BEGIN not in quiet and RESIDENT_BLOCK_END not in quiet
+    assert CLARIFY_FINALIZE_BOUNDARY in quiet  # 边界句属相位合同件（不属共享上下文）
+    assert "填写样例（分解形" in quiet
+    assert quiet.endswith(CLARIFY_FINALIZE_BOUNDARY)
+    # 两段落链文本字节级不变（只改出现次数）：缺席形＝删段，逐字同源（不重排、不改写）
+    assert _GUIDE_TEXT in clarify and RESIDENT_BLOCK_BEGIN in clarify
 
     # 四要素按轮合看逐轮在场：任务动词（合同头）／题意锚（锚行）／产出样例／失败反馈（增量条回喂）
     rejected = _decision_state(discover_used=2, decision_error="缺 subtasks 键")

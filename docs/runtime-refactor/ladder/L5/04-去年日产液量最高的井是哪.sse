@@ -1,0 +1,423 @@
+id: -1
+event: session
+data: {"run_id": "run-7cfa7e87", "resume": false}
+
+id: 0
+event: text
+data: {"content": "理解：问去年（止于2026-08-31口径下）日产液量最高的井是哪口及其合计方数；以及完井报告中W-11井12mm油嘴下折算的日产油量。", "kind": "understanding"}
+
+id: 1
+event: step
+data: {"step": "decision", "seq": 1, "title": "模型调用：understand"}
+
+id: 2
+event: step
+data: {"step": "decision", "seq": 2, "title": "模型调用：decision"}
+
+id: 3
+event: step
+data: {"step": "decision", "seq": 3, "title": "澄清 r1：分解 2 子问题"}
+
+id: 4
+event: step
+data: {"step": "decision", "seq": 4, "title": "模型调用：decision"}
+
+id: 5
+event: step
+data: {"step": "decision", "seq": 5, "title": "前置条件机：s1=allow"}
+
+id: 6
+event: step
+data: {"step": "decision", "seq": 6, "title": "前置条件机：s2=allow"}
+
+id: 7
+event: tool
+data: {"tool": "data_query", "status": "ok", "seq": 7, "message": null}
+
+id: 8
+event: observation
+data: {"index": 1, "source": "agg.fct_daily_metering", "content": "井号=N-15；区块=渤南；日产液量合计（方）=8824.36", "trust": "authoritative"}
+
+id: 9
+event: observation
+data: {"index": 2, "source": "agg.fct_daily_metering", "content": "井号=Z-16；区块=渤中；日产液量合计（方）=8417.99", "trust": "authoritative"}
+
+id: 10
+event: observation
+data: {"index": 3, "source": "agg.fct_daily_metering", "content": "井号=Z-23；区块=渤中；日产液量合计（方）=8135.42", "trust": "authoritative"}
+
+id: 11
+event: observation
+data: {"index": 4, "source": "agg.fct_daily_metering", "content": "井号=N-05；区块=渤南；日产液量合计（方）=7910.69", "trust": "authoritative"}
+
+id: 12
+event: observation
+data: {"index": 5, "source": "agg.fct_daily_metering", "content": "井号=Z-34；区块=渤中；日产液量合计（方）=7568.59", "trust": "authoritative"}
+
+id: 13
+event: observation
+data: {"index": 6, "source": "agg.fct_daily_metering", "content": "井号=N-23；区块=渤南；日产液量合计（方）=7520.23", "trust": "authoritative"}
+
+id: 14
+event: observation
+data: {"index": 7, "source": "agg.fct_daily_metering", "content": "井号=N-11；区块=渤南；日产液量合计（方）=7519.94", "trust": "authoritative"}
+
+id: 15
+event: observation
+data: {"index": 8, "source": "agg.fct_daily_metering", "content": "井号=X-05；区块=渤西；日产液量合计（方）=7513.17", "trust": "authoritative"}
+
+id: 16
+event: observation
+data: {"index": 9, "source": "agg.fct_daily_metering", "content": "井号=N-20；区块=渤南；日产液量合计（方）=7468.36", "trust": "authoritative"}
+
+id: 17
+event: observation
+data: {"index": 10, "source": "agg.fct_daily_metering", "content": "井号=X-22；区块=渤西；日产液量合计（方）=7447.70", "trust": "authoritative"}
+
+id: 18
+event: observation
+data: {"index": 11, "source": "agg.fct_daily_metering", "content": "井号=X-24；区块=渤西；日产液量合计（方）=7376.45", "trust": "authoritative"}
+
+id: 19
+event: observation
+data: {"index": 12, "source": "agg.fct_daily_metering", "content": "井号=Z-10；区块=渤中；日产液量合计（方）=7338.77", "trust": "authoritative"}
+
+id: 20
+event: observation
+data: {"index": 13, "source": "agg.fct_daily_metering", "content": "井号=N-06；区块=渤南；日产液量合计（方）=7330.35", "trust": "authoritative"}
+
+id: 21
+event: observation
+data: {"index": 14, "source": "agg.fct_daily_metering", "content": "井号=Z-09；区块=渤中；日产液量合计（方）=7323.13", "trust": "authoritative"}
+
+id: 22
+event: observation
+data: {"index": 15, "source": "agg.fct_daily_metering", "content": "井号=X-25；区块=渤西；日产液量合计（方）=7304.44", "trust": "authoritative"}
+
+id: 23
+event: observation
+data: {"index": 16, "source": "agg.fct_daily_metering", "content": "井号=Z-31；区块=渤中；日产液量合计（方）=7179.71", "trust": "authoritative"}
+
+id: 24
+event: observation
+data: {"index": 17, "source": "agg.fct_daily_metering", "content": "井号=Z-13；区块=渤中；日产液量合计（方）=6718.86", "trust": "authoritative"}
+
+id: 25
+event: observation
+data: {"index": 18, "source": "agg.fct_daily_metering", "content": "井号=Z-07；区块=渤中；日产液量合计（方）=6551.01", "trust": "authoritative"}
+
+id: 26
+event: observation
+data: {"index": 19, "source": "agg.fct_daily_metering", "content": "井号=Z-30；区块=渤中；日产液量合计（方）=6539.70", "trust": "authoritative"}
+
+id: 27
+event: observation
+data: {"index": 20, "source": "agg.fct_daily_metering", "content": "井号=X-13；区块=渤西；日产液量合计（方）=6529.99", "trust": "authoritative"}
+
+id: 28
+event: observation
+data: {"index": 21, "source": "agg.fct_daily_metering", "content": "井号=Z-18；区块=渤中；日产液量合计（方）=6522.97", "trust": "authoritative"}
+
+id: 29
+event: observation
+data: {"index": 22, "source": "agg.fct_daily_metering", "content": "井号=X-07；区块=渤西；日产液量合计（方）=6508.45", "trust": "authoritative"}
+
+id: 30
+event: observation
+data: {"index": 23, "source": "agg.fct_daily_metering", "content": "井号=Z-19；区块=渤中；日产液量合计（方）=6495.61", "trust": "authoritative"}
+
+id: 31
+event: observation
+data: {"index": 24, "source": "agg.fct_daily_metering", "content": "井号=Z-04；区块=渤中；日产液量合计（方）=6373.84", "trust": "authoritative"}
+
+id: 32
+event: observation
+data: {"index": 25, "source": "agg.fct_daily_metering", "content": "井号=X-08；区块=渤西；日产液量合计（方）=6318.67", "trust": "authoritative"}
+
+id: 33
+event: observation
+data: {"index": 26, "source": "agg.fct_daily_metering", "content": "井号=Z-05；区块=渤中；日产液量合计（方）=6235.98", "trust": "authoritative"}
+
+id: 34
+event: observation
+data: {"index": 27, "source": "agg.fct_daily_metering", "content": "井号=Z-06；区块=渤中；日产液量合计（方）=6224.67", "trust": "authoritative"}
+
+id: 35
+event: observation
+data: {"index": 28, "source": "agg.fct_daily_metering", "content": "井号=Z-15；区块=渤中；日产液量合计（方）=6209.31", "trust": "authoritative"}
+
+id: 36
+event: observation
+data: {"index": 29, "source": "agg.fct_daily_metering", "content": "井号=N-12；区块=渤南；日产液量合计（方）=6155.14", "trust": "authoritative"}
+
+id: 37
+event: observation
+data: {"index": 30, "source": "agg.fct_daily_metering", "content": "井号=X-04；区块=渤西；日产液量合计（方）=6036.00", "trust": "authoritative"}
+
+id: 38
+event: observation
+data: {"index": 31, "source": "agg.fct_daily_metering", "content": "井号=X-03；区块=渤西；日产液量合计（方）=5919.96", "trust": "authoritative"}
+
+id: 39
+event: observation
+data: {"index": 32, "source": "agg.fct_daily_metering", "content": "井号=Z-08；区块=渤中；日产液量合计（方）=5877.03", "trust": "authoritative"}
+
+id: 40
+event: observation
+data: {"index": 33, "source": "agg.fct_daily_metering", "content": "井号=Z-28；区块=渤中；日产液量合计（方）=5851.03", "trust": "authoritative"}
+
+id: 41
+event: observation
+data: {"index": 34, "source": "agg.fct_daily_metering", "content": "井号=Z-27；区块=渤中；日产液量合计（方）=5837.78", "trust": "authoritative"}
+
+id: 42
+event: observation
+data: {"index": 35, "source": "agg.fct_daily_metering", "content": "井号=X-23；区块=渤西；日产液量合计（方）=5718.92", "trust": "authoritative"}
+
+id: 43
+event: observation
+data: {"index": 36, "source": "agg.fct_daily_metering", "content": "井号=N-25；区块=渤南；日产液量合计（方）=5624.17", "trust": "authoritative"}
+
+id: 44
+event: observation
+data: {"index": 37, "source": "agg.fct_daily_metering", "content": "井号=X-18；区块=渤西；日产液量合计（方）=5598.84", "trust": "authoritative"}
+
+id: 45
+event: observation
+data: {"index": 38, "source": "agg.fct_daily_metering", "content": "井号=Z-12；区块=渤中；日产液量合计（方）=5505.89", "trust": "authoritative"}
+
+id: 46
+event: observation
+data: {"index": 39, "source": "agg.fct_daily_metering", "content": "井号=Z-25；区块=渤中；日产液量合计（方）=5437.38", "trust": "authoritative"}
+
+id: 47
+event: observation
+data: {"index": 40, "source": "agg.fct_daily_metering", "content": "井号=Z-24；区块=渤中；日产液量合计（方）=5347.37", "trust": "authoritative"}
+
+id: 48
+event: observation
+data: {"index": 41, "source": "agg.fct_daily_metering", "content": "井号=N-02；区块=渤南；日产液量合计（方）=5257.90", "trust": "authoritative"}
+
+id: 49
+event: observation
+data: {"index": 42, "source": "agg.fct_daily_metering", "content": "井号=Z-26；区块=渤中；日产液量合计（方）=5196.06", "trust": "authoritative"}
+
+id: 50
+event: observation
+data: {"index": 43, "source": "agg.fct_daily_metering", "content": "井号=Z-21；区块=渤中；日产液量合计（方）=5187.68", "trust": "authoritative"}
+
+id: 51
+event: observation
+data: {"index": 44, "source": "agg.fct_daily_metering", "content": "井号=N-18；区块=渤南；日产液量合计（方）=5087.58", "trust": "authoritative"}
+
+id: 52
+event: observation
+data: {"index": 45, "source": "agg.fct_daily_metering", "content": "井号=N-10；区块=渤南；日产液量合计（方）=4955.78", "trust": "authoritative"}
+
+id: 53
+event: observation
+data: {"index": 46, "source": "agg.fct_daily_metering", "content": "井号=N-19；区块=渤南；日产液量合计（方）=4947.34", "trust": "authoritative"}
+
+id: 54
+event: observation
+data: {"index": 47, "source": "agg.fct_daily_metering", "content": "井号=N-24；区块=渤南；日产液量合计（方）=4870.92", "trust": "authoritative"}
+
+id: 55
+event: observation
+data: {"index": 48, "source": "agg.fct_daily_metering", "content": "井号=X-11；区块=渤西；日产液量合计（方）=4869.22", "trust": "authoritative"}
+
+id: 56
+event: observation
+data: {"index": 49, "source": "agg.fct_daily_metering", "content": "井号=N-21；区块=渤南；日产液量合计（方）=4844.85", "trust": "authoritative"}
+
+id: 57
+event: observation
+data: {"index": 50, "source": "agg.fct_daily_metering", "content": "井号=N-07；区块=渤南；日产液量合计（方）=4830.03", "trust": "authoritative"}
+
+id: 58
+event: observation
+data: {"index": 51, "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date", "content": "① 口径 日产液量（方）（单位：方）——指标台账注册声明：日产计量的日产液量——源 oil_production_daily.liquid_output（R5·A.2）；agg 读模型绑定列 agg.fct_daily_metering.liquid_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝laowang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 46 天 · 超期）\n⑤ 收口注记 LIMIT 50——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底", "trust": "authoritative"}
+
+id: 59
+event: tool
+data: {"tool": "doc_retrieve", "status": "ok", "seq": 8, "message": null}
+
+id: 60
+event: observation
+data: {"index": 52, "source": "《A-W11井完井工程报告》", "content": "第七章 诱导求产与初期产能━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━完井结束后自喷诱喷，油嘴序列逐级放大：　　油嘴　　　　折算日产油(m³/d)　油压(MPa)　气油比(m³/m³)　含水(%)\n　　8 mm　　　　96　　　　　　　　6.8　　　　72　　　　　　 0.3\n　　10 mm　　　　214　　　　　　　 6.1　　　　70　　　　　　 0.4\n　　12 mm　　　　386　　　　　　　 5.6　　　　68　　　　　　 0.512 mm 油嘴制度下折算日产油 386 m³/d（地面原油密度 0.865 t/m³，折算约 334 吨/日），生产压差 1.85 MPa，采油指数 208.6 m³/(d·MPa)，与邻井 W-09 井初期产能相当。表皮系数反演预计 −2.0～−1.0（射孔与防砂联合见效，未见明显污染）。含水 0.5%，属残余水携带。油田开发部意见：W-11 井按 12 mm 油嘴制度纳入三季度生产组织，两周后视含水与动液面复测结果再评估工作制度。━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "trust": "report"}
+
+id: 61
+event: observation
+data: {"index": 53, "source": "《A-W11井完井工程报告》", "content": "W-11井位于渤中34-5油田三号构造高部位,为常规定向生产井,完钻井深2541米,目的层为东营组二段,采用9-5/8\"生产套管固井合格段占比96.8%。完井段密度由设计1.10 g/cm³依据邻井压力复核下调至1.05 g/cm³,采用过滤海水+KCl体系完井液。射孔采用TCP加压延时起爆,分三段共28.0米、448发,发射率100%;防砂选用7\"精密冲缝筛管150微米精度适度防砂,未充填砾石。施工中第三射孔段漏失115立方米经堵漏浆处理后恢复,筛管下入2410米遇阻经顶驱循环旋转通过。12mm油嘴求产折算日产油386 m³/d,采油指数208.6,表皮系数预计-2.0~-1.0,完井质量综合94.2分,建议按12mm油嘴投产。", "trust": "report"}
+
+id: 62
+event: observation
+data: {"index": 54, "source": "《Y-21井完井工程报告》", "content": "〔节级摘要｜《Y-21井完井工程报告》·章节 07 第七章 酸化增效与诱喷求产｜覆盖 4 支切片〕酸化设计依据压力计复压与求产联解，表皮系数+3.2，采用三层合层酸化：12%盐酸前置液8.0m³＋土酸（8%盐酸＋2%氢氟酸）34.5m³＋活性水顶替5.5m³，酸液强度1.06m³/m，配缓蚀剂0.5%、铁稳剂1.0%。同8mm油嘴下，折算日产油由156m³/d升至194m³/d，增24.4%，采油指数由62.9升至119.8m³/(d·MPa)，提高90.5%，表皮系数降至−1.5。酸化2小时后自喷返排，残酸返排率85%，pH中性入污油水系统。油嘴逐级放大至12mm：日产液285m³、日产油278.4m³（约242.8t），油压5.5MPa，生产压差2.32MPa，含水2.3%，采油指数120m³/(d·MPa)。油田开发部确定按12mm油嘴投产，满月后复测液面含砂，视Y-16转注评估放大。", "trust": "report"}
+
+id: 63
+event: observation
+data: {"index": 55, "source": "《A-W11井完井工程报告》", "content": "2.1 各阶段钻井液性能（实际）　　阶段　　　　　　　密度(g/cm³)　漏斗粘度(s)　API失水(mL)　pH　含砂量(%)\n　　一开（0～322m）　 1.05　　　　 45～55　　　 －　　　　　 －　－\n　　二开钻进段　　　　 1.08　　　　 52　　　　　 4.6　　　　　9.5 0.2\n　　穿越明下段泥岩段　 1.12　　　　 58　　　　　 4.2　　　　　9.5 0.2\n　　三开完井段　　　　 1.05　　　　 48　　　　　 3.8　　　　　9.0 0.1二开钻进段密度 1.08 g/cm³；进入明下段大段泥岩后为稳定井壁提至 1.12 g/cm³；三开射孔前，井筒内钻井液全部置换为清洁盐水完井液，完井段密度 1.05 g/cm³（对应油层压力系数 0.92，保持液柱压力略高于地层压力 0.35 MPa，实现近平衡微正压）。", "trust": "report"}
+
+id: 64
+event: observation
+data: {"index": 56, "source": "《A-W11井完井工程报告》", "content": "第二章 钻井液与完井液━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "trust": "report"}
+
+id: 65
+event: observation
+data: {"index": 57, "source": "《C-渤中34-5油田三季度注水调整与生产运行分析》", "content": "〔节级摘要｜《C-渤中34-5油田三季度注水调整与生产运行分析》·一、三季度生产运行｜覆盖 2 支切片〕三季度生产运行：月开井61～63口，日均产油1036 m³/d（折算0.865 t/m³），日产液4794～4952 m³/d，综合含水由7月79.0%降至9月78.3%，近两年首次季度回落，受益于W-13、W-16井组周期注水调整（注20停10）。计划配产8.10万吨，主口径（开井日历折算）完成8.25万吨，完成率101.9%；检修剔除口径完成8.38万吨，完成率103.5%，差异源于5井次22井日检泵停产折算0.13万吨，非产量虚增。", "trust": "report"}
+
+id: 66
+event: observation
+data: {"index": 58, "source": "《A-W11井完井工程报告》", "content": "第十章 邻井完井情况对照━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━　　井号　　完井方式　　　射孔段厚(米)　孔密(孔/米)　初期日产油(m³/d)　投产地层\n　　W-07　　套管射孔＋筛管　22.0　　　　 13　　　　　 291　　　　　　　 2023-05\n　　W-09　　套管射孔　　　　31.5　　　　 16　　　　　 402　　　　　　　 2024-11\n　　W-11　　筛管适度防砂　　28.0　　　　 16　　　　　 386　　　　　　　 2026-07对照说明：W-09 井未下防砂筛管（地层评价结论当时偏乐观），生产两年余未见出砂，是本井敢于采用筛管适度防砂（而非砾石充填）的重要参照；W-07 井历史上曾发生筛管堵塞（2024 年 3 月，堵塞段集中于上段），处理方式为酸洗解堵，未影响筛管继续使用。W-07 井目前日产油已递减至 96 m³/d，含水 71.4%，处于双高阶段。━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━附录A 主要入井物资与用量━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━　　物资　　　　　　　　规格　　　　　　　数量\n　　精密冲缝筛管　　　　7″·150μm　　　　 41.0 米（三段跨装）\n　　油管　　　　　　　　4-1/2″·N80　　　 2486.5 米\n　　射孔枪　　　　　　　SYD-102　　　　　 3 支（合计弹 448 发）\n　　永久封隔器　　　　　7″·液压坐封　　　 1 套\n　　井下安全阀　　　　　SCSSV·液控　　　　1 套（液控管线 291.0 米）\n　　滑套　　　　　　　　7″·开关式　　　　 1 套　　扶正套　　　　　　　φ148　　　　　　 36 只　　完井液　　　　　　　过滤海水 KCl 体系 320 立方米（含损耗）注：液控管线到 SCSSV 悬挂点长度 291.0 米（285.3 米阀深＋地面余量），与第五章安全阀深 285.3 米为两个不同口径数值，引用时注意区分。（本报告为评测用拟造数据，井号、数值均非真实生产数据。）", "trust": "report"}
+
+id: 67
+event: observation
+data: {"index": 59, "source": "《A-W11井完井工程报告》", "content": "1.1 井位与井别W-11 井位于渤中 34-5 油田三号构造高部位，CEP-C 生产平台西侧井槽 8 号位。本井为生产井，井型为常规定向井，设计井深 2530 米（垂深 2360 米），完钻井深 2541 米，垂深 2368 米。目的层为东营组二段（Ed2）主力油层，油层中深 2399 米，属常规中高渗砂岩油藏，平均孔隙度 24.3%，平均渗透率 486 mD。同平台 W-111 井为观察井，不承担生产任务，主要用于油藏压力监测与注水推进观察，其压力计于 2026 年 6 月 30 日完成下放，基线压力 21.4 MPa。本报告涉及的地面流程与 W-111 井共用测试分离器，但井下作业互相独立。", "trust": "report"}
+
+id: 68
+event: observation
+data: {"index": 60, "source": "《A-W11井完井工程报告》", "content": "3.2 射孔参数射孔方式：油管输送射孔（TCP）＋加压点火，一次下井分段延时起爆。射孔枪型 SYD-102，孔密 16 孔/米，相位角 60°，射孔弹型 DP44HDX，孔径预估 12.4 毫米，穿深预估 786 毫米。全井射孔总厚度 28.0 米，按孔密 16 孔/米计算，设计总孔数 448 发，实发 448 发，发射率 100%。负压设计：射孔负压值 2.5 MPa。依据邻井 W-09 井试油资料反演的地层渗透率（486 mD）与地层压力（21.75 MPa），按岩层强度上限校核后取值，目的在于利用射孔瞬时负压清除孔眼压实带与滤饼。", "trust": "report"}
+
+id: 69
+event: observation
+data: {"index": 61, "source": "《A-W11井完井工程报告》", "content": "W-11 井完井工程报告油田：渤中 34-5 油田（拟造评测数据）平台：CEP-C 生产平台\n报告编号：BZ34-5-W11-COMP-2026-014\n报告版本：B 版（现场执行版，替代 A 版设计文件 BZ34-5-W11-COMP-2026-014A）\n编制：完井项目组　审核：工程管理部　日期：2026 年 7 月 18 日━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "trust": "report"}
+
+id: 70
+event: observation
+data: {"index": 62, "source": "《A-W11井完井工程报告》", "content": "〔节级摘要｜《A-W11井完井工程报告》·章节 02 第二章 钻井液与完井液｜覆盖 3 支切片〕A-W11井各阶段钻井液性能分段控制：一开密度1.05 g/cm³；二开钻进段1.08 g/cm³，穿明下段泥岩段提至1.12 g/cm³稳定井壁；三开完井段置换为清洁盐水完井液，密度1.05 g/cm³，对应油层压力系数0.92，保持微正压0.35 MPa近平衡。漏斗粘度45～58 s，API失水3.8～4.6 mL，pH 9.0～9.5，含砂≤0.2%。完井液配方为过滤海水+KCl 3%+缓蚀剂0.3%+防膨剂1.5%，含油量＜10 mg/L，固体粒径中值＜2 μm，整池置换后循环两周，每4小时检测密度与失水，性能稳定达标。", "trust": "report"}
+
+id: 71
+event: observation
+data: {"index": 63, "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》", "content": "〔节级摘要｜《B-渤中34-5油田躺井治理与检泵作业月报-202608》·章节 04 四、典型躺井案例剖析｜覆盖 4 支切片〕W-22井因1900～2100米井段狗腿度最大（4.2°/30m），杆柱居中不足导致抽油杆疲劳断脱与杆管偏磨，整改措施包括扶正器间距由8米加密至4米、加重杆下移中性点、冲次由4.2降至3.8次/分，预计检泵周期延长至650天以上。W-24井因改层后新旧杆混配、旧杆强度不足致检泵周期仅295天，整串更换D级杆并按新泵挂重新设计组合。W-23井为CO₂点蚀导致固定阀失效，更换泵并加注缓蚀棒；W-31井因沉砂导致泵筒磨大，洗井周期由90天缩短至60天。", "trust": "report"}
+
+id: 72
+event: observation
+data: {"index": 64, "source": "《Y-21井完井工程报告》", "content": "第七章 酸化增效与诱喷求产━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "trust": "report"}
+
+id: 73
+event: observation
+data: {"index": 65, "source": "《Y-21井完井工程报告》", "content": "7.1 酸化设计依据压力计复压与求产数据联解，酸化前表皮系数 +3.2，污染为钻井液滤饼与射孔压实带联合污染，酸化目的为解堵增产。采用三层合层酸化：前置液盐酸 12%（8.0 立方米）＋主体土酸（盐酸 8%＋氢氟酸 2%，34.5 立方米）＋顶替活性水 5.5 立方米，酸液强度 1.06 立方米/米，配套缓蚀剂 0.5%、铁离子稳定剂 1.0%。", "trust": "report"}
+
+id: 74
+event: observation
+data: {"index": 66, "source": "《Y-21井完井工程报告》", "content": "7.2 酸化前后产能对比　　制度　　　　　　折算日产油(m³/d)　油压(MPa)　生产压差(MPa)　采油指数(m³/(d·MPa))\n　　酸化前 8 mm　　 156　　　　　　　 5.2　　　　2.48　　　　　 62.9\n　　酸化后 8 mm　　 194　　　　　　　 6.0　　　　1.62　　　　　 119.8同一 8 mm 油嘴制度下，折算日产油由 156 m³/d 提高至 194 m³/d，增幅 24.4%；采油指数由 62.9 提高至 119.8 m³/(d·MPa)，提高 90.5%；表皮系数由 +3.2 降至 −1.5。", "trust": "report"}
+
+id: 75
+event: observation
+data: {"index": 67, "source": "《Y-21井完井工程报告》", "content": "7.3 诱导求产与工作制度确定酸化反应 2 小时后自喷返排，残酸返排率 85%，返排液 pH 中性后入平台污油水系统。油嘴序列逐级放大（酸化后）：　　油嘴　　　折算日产液(m³/d)　折算日产油(m³/d)　油压(MPa)　含水(%)\n　　8 mm　　　198　　　　　　　 194　　　　　　　 6.0　　　　2.0\n　　10 mm　　　242　　　　　　　 236.9　　　　　　 5.9　　　　2.1\n　　12 mm　　　285　　　　　　　 278.4　　　　　　 5.5　　　　2.312 mm 油嘴制度下日产液量 285 方，折算日产油 278.4 m³/d（地面原油密度 0.872 t/m³，折合日产油量 242.8 吨），生产压差 2.32 MPa，采油指数 120.0 m³/(d·MPa)，含水 2.3%，属残余水携带；油压随油嘴放大逐级下降，生产指示曲线平滑。油田开发部意见：Y-21 井按 12 mm 油嘴制度纳入四季度生产组织，投产满月后复测动液面与含砂，视 Y-16 井转注进度评估放大油嘴。━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "trust": "report"}
+
+id: 76
+event: observation
+data: {"index": 68, "source": "《C-渤中34-5油田三季度注水调整与生产运行分析》", "content": "一、三季度生产运行━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━1.1 主要生产指标（月度）\n　　项目　　　　　　　7 月　　8 月　　9 月\n　　月开井数（口）　　 62　　　61　　　63\n　　平均日产油(m³/d)　1040　　1026　　1043\n　　平均日产液(m³/d)　4952　　4794　　4806\n　　综合含水率(%)　　　79.0　　78.6　　78.3三季度综合含水率由 7 月的 79.0% 降至 9 月的 78.3%，环比累计下降 0.7 个百分点，为近两年首次季度性回落，初步分析得益于 6 月底完成的 W-13、W-16 两井组周期注水制度调整（注 20 天停 10 天）。日产油三季度均值 1036 m³/d，折算吨油密度 0.865 t/m³。1.2 产量完成情况（两种口径并行披露）三季度油田计划配产 8.10 万吨。实际完成按两支口径统计：　　口径　　　　　　　　　实际完成(万吨)　完成率\n　　开井日历折算（主口径）8.25　　　　　　101.9%\n　　检修剔除　　　　　　　8.38　　　　　　103.5%", "trust": "report"}
+
+id: 77
+event: observation
+data: {"index": 69, "source": "《C-渤中34-5油田三季度注水调整与生产运行分析》", "content": "产量完成率按主口径（开井日历折算）为 101.9%。检修剔除口径将 8～9 月检泵检修井的停产影响折算剔除（本季度躺井检修 5 井次、停产 22 井日，折算影响产量约 0.13 万吨），故高于主口径 1.6 个百分点。两个口径差异反映的是检修损失的产能贡献，不代表产量虚增。开发数据平台指标台账中，\"有效产量\"为两支口径指标，读数时须先选口径再对数。━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "trust": "report"}
+
+id: 78
+event: observation
+data: {"index": 70, "source": "《A-W11井完井工程报告》", "content": "2.2 完井液配方与维护完井液采用过滤海水＋氯化钾（KCl 浓度 3%）＋缓蚀剂 0.3%＋防膨剂 1.5% 体系，含油量检测小于 10 mg/L，悬浮固体颗粒粒径中值小于 2 微米。完井液整池置换后循环两周（循环周期 1.5 周），期间每 4 小时检测一次密度与失水，性能波动均在设计范围内。━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "trust": "report"}
+
+id: 79
+event: observation
+data: {"index": 71, "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》", "content": "四、典型躺井案例剖析━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "trust": "report"}
+
+id: 80
+event: observation
+data: {"index": 72, "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》", "content": "4.1 W-22 井抽油杆断（典型案例）W-22 井基本参数：泵挂 2200 米，φ44 泵，冲程 5 米，冲次 4.2 次/分，最大井斜 23.6°（位于 1950 米），最大狗腿度 4.2°/30m（位于 2020 米附近）。作业起管检查：断点位于 1980 米处第 38 根抽油杆杆体（非接头），断口呈典型疲劳磨损特征；对应位置油管内壁有明显环状磨槽，深度 0.8～1.2 毫米。1900～2100 米井段抽油杆接箍普遍偏磨，最重处接箍单侧磨掉 2.1 毫米。原因分析：该井段处于狗腿度最大区域，杆柱中性点偏上，下冲程杆柱弯曲导致杆管偏磨集中；原杆柱设计扶正器间距 8 米，在 4.2°/30m 狗腿度下不足以保持杆柱居中。上月初该井功图已显示下冲程迟缓（供液不足与偏磨双重特征），但未列入当月检泵计划，属预测预警跟进不及时。整改措施：①扶正器间距由 8 米加密至 4 米（偏磨段 1900～2150 米范围全加）；②泵上 120 米范围下加重杆（φ38 毫米）使中性点下移；③该井纳入杆柱力学复算名单，按复算结果调整冲次由 4.2 降至 3.8 次/分。预计整改后检泵周期可延长至 650 天以上。", "trust": "report"}
+
+id: 81
+event: observation
+data: {"index": 73, "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》", "content": "4.2 W-24 井杆断（短周期案例）W-24 井检泵周期仅 295 天，为去年 11 月补孔改层井。断点 1650 米，检查发现为新旧杆混配段（新杆 D 级、旧杆 C 级混用），旧杆强度不足先断。教训：改层加深泵挂后未按新工况整体校核杆柱，混配段应力超出旧杆许用范围。本次作业已整串更换 D 级杆，并按加深后的泵挂重新设计杆柱组合（一级杆 18 毫米×520 米＋二级杆 22 毫米×840 米＋三级杆 19 毫米×840 米，待复算确认）。", "trust": "report"}
+
+id: 82
+event: observation
+data: {"index": 74, "source": "《B-渤中34-5油田躺井治理与检泵作业月报-202608》", "content": "4.3 其他案例摘要W-23 井固定阀凡尔球点蚀（产出液 CO₂ 腐蚀，点蚀坑 0.6 毫米），更换整体泵并加注缓蚀棒；W-31 井泵筒磨大，检查发现沉砂口袋砂面上升 42 米，配套调整洗井周期由 90 天缩短至 60 天。━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "trust": "report"}
+
+id: 83
+event: observation
+data: {"index": 75, "source": "检索供给窗声明（截断显式）", "content": "召回 56 支/送窗 23 支；已召回未送窗 33 支；矛盾来源同窗并立（各留代表支）：《A-W11井完井工程报告》、《Y-21井完井工程报告》、《C-渤中34-5油田三季度注水调整与生产运行分析》、《B-渤中34-5油田躺井治理与检泵作业月报-202608》；缺位来源（预算未及）：《渤中34-8油田躺井治理与检泵作业月报-202701》、《渤中34-8油田一季度注采调整与生产运行分析》；节级摘要展开节内切片 +11 支（摘要命中→节内补席）", "trust": "notice"}
+
+id: 84
+event: observation
+data: {"index": 76, "source": "检索供给窗声明（缺位名单）", "content": "检索窗注记：缺位来源（预算未及）：《渤中34-8油田躺井治理与检泵作业月报-202701》、《渤中34-8油田一季度注采调整与生产运行分析》", "trust": "report"}
+
+id: 85
+event: step
+data: {"step": "execute", "seq": 7, "title": "data_query：ok（子问题 s1）"}
+
+id: 86
+event: step
+data: {"step": "execute", "seq": 8, "title": "doc_retrieve：ok（子问题 s2）"}
+
+id: 87
+event: text
+data: {"content": "**问题一：去年日产液量最高的井是哪口、合计多少方？**"}
+
+id: 88
+event: text
+data: {"content": "去年（2025-01-01 至 2025-12-31，按不含端 window_end＝2026-01-01）全井按日产液量合计降序排名，首位为 **N-15 井**（区块：渤南），**合计 8824.36 方**[1][51]。"}
+
+id: 89
+event: text
+data: {"content": "**问题二：完井报告里 W-11 井 12mm 油嘴的折算日产油是多少？**"}
+
+id: 90
+event: text
+data: {"content": "据《A-W11井完井工程报告》第七章诱导求产表，W-11 井在 **12mm 油嘴制度下的折算日产油为 386 m³/d**（油压 5.6 MPa、气油比 68 m³/m³、含水 0.5%），按地面原油密度 0.865 t/m³ 折算约 334 吨/日；该报告另在第十章邻井对照表中同样记载 W-11 井\"初期日产油 386 m³/d\"，建议按 12mm 油嘴投产 [52][53][58]。"}
+
+id: 91
+event: step
+data: {"step": "answer", "seq": 9, "title": "模型调用：answer"}
+
+id: 92
+event: step
+data: {"step": "answer", "seq": 10, "title": "起草答案"}
+
+id: 93
+event: notice
+data: {"type": "unsupported_claim", "gates": [], "content": "核验步改写无据断言 1 行（INV-1——禁止无据断言进答案）"}
+
+id: 94
+event: verdict
+data: {"supported": 2, "rewritten": 1, "split": 0, "cited": [1, 51, 52, 53, 58], "attribution": true, "subtype": "verify"}
+
+id: 95
+event: step
+data: {"step": "verify", "seq": 11, "title": "核验：支撑 2｜改写 1｜分源 否"}
+
+id: 96
+event: citation
+data: {"index": 1, "source": "agg.fct_daily_metering", "source_id": "N-15", "trust": "authoritative"}
+
+id: 97
+event: citation
+data: {"index": 51, "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date", "source_id": "lineage", "trust": "authoritative"}
+
+id: 98
+event: citation
+data: {"index": 52, "source": "《A-W11井完井工程报告》", "source_id": "f22", "trust": "report"}
+
+id: 99
+event: citation
+data: {"index": 53, "source": "《A-W11井完井工程报告》", "source_id": "f28", "trust": "report"}
+
+id: 100
+event: citation
+data: {"index": 58, "source": "《A-W11井完井工程报告》", "source_id": "f27", "trust": "report"}
+
+id: 101
+event: step
+data: {"step": "answer", "seq": 12, "title": "答案收口"}
+
+id: 102
+event: verdict
+data: {"status": "completed", "run_id": "run-7cfa7e87", "manifest_digest": "34c1175bcfd226f6", "subtype": "final"}
+
+id: 103
+event: blackbox
+data: {"run_id": "run-7cfa7e87", "question": "去年日产液量最高的井是哪口、合计多少方？另外完井报告里 W-11 井 12mm 油嘴的折算日产油是多少？", "status": "completed", "error": "", "stored": true, "bytes": 88305, "counts": {"messages": 9, "dialogue": 0, "process_notes": 6, "observations": 76, "steps": 12}}
+
+id: 103
+event: done
+data: {"run_id": "run-7cfa7e87"}

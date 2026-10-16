@@ -64,6 +64,7 @@ from appv2.runtimev2.preconditions import (
     SubtaskVerdict,
     gate_all,
 )
+from appv2.runtimev2.prompts import PHASE_CLARIFY
 from appv2.runtimev2.state import (
     INTENT_ANSWER,
     INTENT_BATCH,
@@ -149,7 +150,8 @@ class LoopDeps:
     watermark: date | None = None
     data_wells: Collection[str] | None = None
     # §A 指南段全文（流水 63）：相位侧 `clarify`／`match` 的文本注入参——装配面（启动快照）
-    # 归 api 组合根，本块只经 `deps` 下传（缺省空串＝空段头）。
+    # 归 api 组合根，本块只经 `deps` 下传（缺省空串＝空段头）。**落链次数归本块**（2026-10-17
+    # 补·真机消重批）：随 `_shared_context_pending` 的判定同 §A 段与台账常驻块一并只注一次。
     guide_text: str = ""
     max_observations: int = DEFAULT_MAX_OBSERVATIONS
     emitted_steps: int = field(default=0)
@@ -291,7 +293,11 @@ def _make_clarify(deps: LoopDeps) -> Any:
             _flush_notices(deps, state)
             _flush_steps(deps, state)
             return _updates_of(state)
-        outcome = clarify(state, guide_text=deps.guide_text)
+        outcome = clarify(
+            state,
+            guide_text=deps.guide_text,
+            shared_context=_shared_context_pending(state),
+        )
         if isinstance(outcome, ClarifyAsk):
             _suspend(
                 state,
@@ -326,6 +332,22 @@ def _consecutive_asks(state: RunState) -> int:
     return total
 
 
+def _shared_context_pending(state: RunState) -> bool:
+    """本 run 的**共享上下文**（§A 指南段＋台账常驻块）是否尚未注入——决策装配的下传判定。
+
+    判据＝**澄清相位首入包尚未落链**（`state.contracts_appended` 的相位标记，pin-24 记账面）：
+    澄清相位是四相位决策链的首站，其首入包即共享上下文在**本 run 的唯一挂载点**。已落 → 本次
+    不注（`shared_context=False`）：链为追加形（pin-22），模型从链首可见前文，语义零损失；重复
+    注入的两份＝纯重复 token（真机 `docs/runtime-refactor/ladder/L3/07` run-919ed881：末轮 answer
+    prompt 19359 tokens 里 §A 与台账全量块各两遍）。
+
+    **判定落在本块**（「只注一次」的判定／下传归编排；`prompts` 只按标志拼文本——装配面与注入
+    面的分工，`docs/runtime-refactor/eng/03-施工顺序与切换计划.md` §二 W5 行注）；消重**不动任何
+    已有消息**，两段文本字节级不变（只改出现次数）。
+    """
+    return PHASE_CLARIFY not in state.contracts_appended
+
+
 def _make_discover(deps: LoopDeps) -> Any:
     async def node(state: RunState) -> dict[str, Any]:
         outcome = execute(state, bus=deps.bus, registry=deps.registry, store=deps.store)
@@ -345,7 +367,13 @@ def _make_discover(deps: LoopDeps) -> Any:
 
 def _make_toolmatch(deps: LoopDeps) -> Any:
     async def node(state: RunState) -> dict[str, Any]:
-        outcome = match(state, guide_text=deps.guide_text)
+        # run 级共享上下文（§A 指南段＋台账常驻块）只注一次——本相位是同一 run 的第二次决策
+        # 装配，澄清轮首入包已注时本次整段缺席（判定＝`_shared_context_pending`）。
+        outcome = match(
+            state,
+            guide_text=deps.guide_text,
+            shared_context=_shared_context_pending(state),
+        )
         if isinstance(outcome, ToolMatchRejection):
             set_intent(state, INTENT_TOOLMATCH)  # 拒因回喂自环（`decision_error` 由相位写）
         else:

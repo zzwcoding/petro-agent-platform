@@ -70,6 +70,7 @@ class MatchReason:                         # 结构化拒因单条：kind 六类
 
 - `QueryPlan` 的真源是 `specs/query.md`（**真源以该文为准**；若该文缺 `aggregate` 字段则记「待回阶段 3 补」——本块只引不复述字段）。
 - **`guide_text` 注入注（2026-10-16 裁·流水 63）**：签名补注入形参 `*, guide_text: str = ""`——§A 指南文本经编排注入（快照）；缺省空串＝空段头（本块只下传、不读文件；装配面归 api 组合根）。
+- **`shared_context` 注入注（2026-10-17 补·真机消重批·缺陷一）**：签名补注入形参 `*, shared_context: bool = True`——**run 级共享上下文**（§A 指南段＋台账常驻块）本次是否注入；**判定归 `orchestration`**（同 run 只注一次、挂澄清轮首入包——本相位是同一 run 的第二次决策装配，故编排面通常下传 `False`），本块只下传（缺省 `True`＝本块行为不变）。口径真源＝`specs/prompts.md` 行为 7「共享上下文 run 级一次」注。
 - **`retrieval_need` 透传注（2026-10-17 补·L3-02 检索透传断点批）**：知识链定案面的 `retrieval_need` **整 dict 原样透传**（键名／键形零改写——`question`／`anchors`／`family_hints` 全键，键形照 `appv2/retrieval/domain.py` 的 `RetrievalNeed` 消费面），并接**确定性锚注入**（行为 12）——旧实现只重建 `question`／`anchors` 两键、模型发的 `family_hints` 被丢（族配额退化成每族 1 席、gold 章被裁）。
 - **`tool` 与 `chain` 都是闭世界**：`tool` ∈ 工具注册表名单；`chain` ∈ `data`｜`knowledge`。**越界值判失败**。
 - **错误契约**：**漏配／多配／编号对不上／必填缺／枚举越界** → 返回 `ToolMatchRejection`（**结构化拒因**），由 `orchestration` **回喂模型、回到本相位重配**（**不做自动修补**）。

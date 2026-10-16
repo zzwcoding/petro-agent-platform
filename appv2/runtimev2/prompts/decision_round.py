@@ -27,8 +27,17 @@
 （逐字稿合法形真源 `specs/clarification.md` 行为 8①③；真机证据 `docs/runtime-refactor/ladder/L3/06`
 run-b5b6b056：r1 段尾加解释→段数非三、r2 绑定态/窗段自造形越界，三轮烧光）。
 
-入参纪律：装配＝`state` 投影＋调用方注入文本（`guide_text`／`done_text`／`today`／`max_subtasks`）；
-输出恒为 `str`——缺位走**空串段**（调用方跳过）或**占位文案**，不降级、不截断、不编造、不静默。
+入参纪律：装配＝`state` 投影＋调用方注入文本（`guide_text`／`done_text`／`today`／`max_subtasks`
+／`shared_context`）；输出恒为 `str`——缺位走**空串段**（调用方跳过）或**占位文案**，不降级、
+不截断、不编造、不静默。
+
+**run 级共享上下文（§A 指南段＋台账常驻块）只注一次**（2026-10-17 补·真机消重批）：两段共享
+上下文在**同一 run 的决策链里共出现一次**——挂第一次决策装配（澄清相位首入包），后续决策调用
+（匹配轮首入包／回炉轮）不再重复注入：链是追加形（pin-22），模型从链首可见前文，语义零损失，
+重复的两份＝纯重复 token（真机 `docs/runtime-refactor/ladder/L3/07` run-919ed881：末轮 answer
+prompt 19359 tokens 里 §A 全文与台账全量块各两遍）。**注入与否的判定归编排**（`orchestration`
+按 `state.contracts_appended` 判「本 run 是否已注」后经 `shared_context` 下传）——本模块只按该
+标志拼／不拼两段文本，自身零判断（行为 15；「何时追加＝调用方义务」同款分工）。
 
 **何时追加增量条整条＝调用方义务**（编排面，`specs/prompts.md` 行为 16）：本模块只供条文本与
 条内自身条件（①仅非首入轮／②仅存在重跑档失败子问题〔`bad_args`／`retryable`〕／
@@ -66,6 +75,8 @@ CLARIFY_PHASE_HEAD = (
 TOOLMATCH_PHASE_HEAD = "【相位②·工具匹配——本相位唯一有效发射合同（只许输出 matches JSON）】"
 
 # ── §A 指南段消歧头（**两轮统一同一字面**——graph.py L2368-2370／L2703-2705 逐字；A-P4b-33）──
+# 字面单点不变（行为 9：两轮装配头行同字面）；**落链次数**＝run 内一次（2026-10-17 补·真机
+# 消重批——头行与其后 §A 正文同属 run 级共享上下文，随 `shared_context` 标志整段进出）。
 GUIDE_REFERENCE_HEAD = (
     "【业务规则参考（ontology 指南 §A——窗词锚定/单井红线/"
     "三链路由；动作类措辞以上方合同为准）】"
@@ -306,21 +317,26 @@ def _with_resident_block(text: str, state: RunState) -> str:
     return text + "\n\n" + block if block else text
 
 
-def _clarify_contract(state: RunState, max_subtasks: Any) -> str:
-    """澄清轮相位合同正文：族②常量替换两枚声明槽（`{max_subtasks}`／`{discover_used}`）。
+def _clarify_contract(max_subtasks: Any) -> str:
+    """澄清轮相位合同正文：族②常量替换声明槽 `{max_subtasks}`。
 
-    槽值来源（-04a 常量注）：`{max_subtasks}`＝调用方注入（子问题上限，数值单点不在本块）；
-    `{discover_used}`＝state 投影（`state.discover_used`）。槽缺值＝装配不可完成 → 参数错误
-    （fail-closed，不吞错、不留裸槽）。
+    槽值来源（-04a 常量注）：`{max_subtasks}`＝调用方注入（子问题上限，数值单点不在本块）。
+    槽缺值＝装配不可完成 → 参数错误（fail-closed，不吞错、不留裸槽）。
+
+    **2026-10-17 补（真机消重批·缺陷二）**：旧 `{discover_used}` 槽随「已用 N 次」冻值一并退场
+    ——静态合同块内的槽值只在**相位首入**替换一次（首入时 `discover_used` 恒 0），一路带到 answer
+    调用仍写「已用 0 次」，模型看不见自己烧了几支（真机 run-e1b6ff1e：8 次 decision、4 次
+    discover 全 no_hit，烧到 `budget_converged`）。真实已用数只由**每轮动态条**①「探查预算：
+    全 run ≤{上限} 次，已用 {已用} 次。」逐轮披露（行为 16①——机计数权威披露面；静态合同只留
+    上限、不载计数，KV 字节稳定亦不破）。上限数值真源＝`state.MAX_DISCOVERS_PER_RUN`
+    （R-K-75；增量条引该常量，本块不复述数值）。
     """
     if max_subtasks is None:
         raise ValueError(
             "澄清轮相位合同槽 {max_subtasks} 缺值（调用方必供——族②常量声明槽，"
             "specs/prompts.md 接口定义节）"
         )
-    return CLARIFY_EMISSION_CONTRACT.replace("{max_subtasks}", str(max_subtasks)).replace(
-        "{discover_used}", str(int(state.discover_used))
-    )
+    return CLARIFY_EMISSION_CONTRACT.replace("{max_subtasks}", str(max_subtasks))
 
 
 def assemble_decision_package(
@@ -330,6 +346,7 @@ def assemble_decision_package(
     guide_text: str = "",
     today: Any = None,
     max_subtasks: Any = None,
+    shared_context: bool = True,
 ) -> str:
     """决策轮**首入包**装配（行为 7）——相位一次性：回炉轮不重发（pin-24；追加编排归调用方）。
 
@@ -338,37 +355,64 @@ def assemble_decision_package(
     ＋③产出样例（澄清轮＝分解发射样例；匹配轮＝合同内嵌样例）＋④§A 指南段（**文本经入参注入**，
     装载面不归本块）＋⑤（匹配轮）问题组 JSON＋⑥（投影非空时）台账常驻块（包裹对恰一对）。
 
+    `shared_context`＝**run 级共享上下文**（④§A 指南段＋⑥台账常驻块）本次是否注入（缺省 `True`
+    ＝装配函数本体的行为 7 构成）：`True` 按上列注；`False`＝两段**整段缺席**（其余件照常——相位
+    合同、样例、问题组 JSON、finalize 边界句皆不属共享上下文）。**判定归编排**（同一 run 只注
+    一次，挂第一次决策装配；见模块头「run 级共享上下文」注）——本函数只按标志拼／不拼文本。
+
     纯函数：只读 `state` 投影与注入文本，零 IO／零模型／零时钟／零随机；输出恒为 `str`。
     """
     if phase == PHASE_CLARIFY:
         return _clarify_package(
-            state, guide_text=guide_text, today=today, max_subtasks=max_subtasks
+            state,
+            guide_text=guide_text,
+            today=today,
+            max_subtasks=max_subtasks,
+            shared_context=shared_context,
         )
     if phase == PHASE_TOOLMATCH:
-        return _toolmatch_package(state, guide_text=guide_text)
+        return _toolmatch_package(
+            state, guide_text=guide_text, shared_context=shared_context
+        )
     raise ValueError(f"决策轮相位越界（闭世界 DECISION_PHASES＝{_PHASES_TEXT}）：{phase!r}")
 
 
 def _clarify_package(
-    state: RunState, *, guide_text: str, today: Any, max_subtasks: Any
+    state: RunState,
+    *,
+    guide_text: str,
+    today: Any,
+    max_subtasks: Any,
+    shared_context: bool = True,
 ) -> str:
-    """澄清轮首入包（逐字迁移 graph.py L2354-2384）。"""
+    """澄清轮首入包（逐字迁移 graph.py L2354-2384）。
+
+    `shared_context=False` → §A 指南段与台账常驻块整段缺席（run 级一次性的下传面）；相位头行、
+    合同正文、分解样例、finalize 边界句照常（边界句属相位合同件、不属共享上下文）。
+    """
     parts = [
         anchor_line(state.question, state.understanding),
         CLARIFY_PHASE_HEAD,
-        _clarify_contract(state, max_subtasks),
+        _clarify_contract(max_subtasks),
     ]
     example = render_decompose_example(_projection(state).get("metrics"), today=today)
     if example:
         parts.append(example)
     text = "\n".join(parts)
-    text += "\n\n" + GUIDE_REFERENCE_HEAD + "\n" + guide_text
+    if shared_context:
+        text += "\n\n" + GUIDE_REFERENCE_HEAD + "\n" + guide_text
     text += "\n\n" + CLARIFY_FINALIZE_BOUNDARY
-    return _with_resident_block(text, state)
+    return _with_resident_block(text, state) if shared_context else text
 
 
-def _toolmatch_package(state: RunState, *, guide_text: str) -> str:
-    """工具匹配轮首入包（逐字迁移 graph.py L2698-2729）。"""
+def _toolmatch_package(
+    state: RunState, *, guide_text: str, shared_context: bool = True
+) -> str:
+    """工具匹配轮首入包（逐字迁移 graph.py L2698-2729）。
+
+    `shared_context=False` → §A 指南段与台账常驻块整段缺席（run 级一次性的下传面——匹配轮是同一
+    run 的第二次决策装配，共享上下文已挂澄清轮首入包）；相位头行、合同正文、问题组 JSON 照常。
+    """
     text = "\n".join(
         [
             anchor_line(state.question, state.understanding),
@@ -376,11 +420,12 @@ def _toolmatch_package(state: RunState, *, guide_text: str) -> str:
             TOOLMATCH_EMISSION_CONTRACT,
         ]
     )
-    text += "\n\n" + GUIDE_REFERENCE_HEAD + "\n" + guide_text
+    if shared_context:
+        text += "\n\n" + GUIDE_REFERENCE_HEAD + "\n" + guide_text
     group_json = _question_group_json(state)
     if group_json:
         text += "\n\n" + _QUESTION_GROUP_HEAD + "\n" + group_json
-    return _with_resident_block(text, state)
+    return _with_resident_block(text, state) if shared_context else text
 
 
 def _rejection_feedback_line(reason: str) -> str:
