@@ -282,46 +282,7 @@ def _names(frames: list[tuple[str, dict[str, Any]]]) -> list[str]:
 # ---------- 验收① loop_step_sequence：ReAct 周期步序 ----------
 
 
-def test_loop_step_sequence(env: Any) -> None:
-    """正常提问→事件流含 ReAct 周期步且按 understand(decision)→decision→execute→
-    observe→decision(finalize)→answer→verify→answer 次序（首帧 session 携
-    run_id；保留帧 done 收场）。"""
-    client, _db = env
-    frames = _post_ask(client)
-    assert frames[0][0] == FRAME_SESSION
-    run_id = frames[0][1]["run_id"]
-    assert run_id.startswith("run-")
-    assert frames[0][1]["resume"] is False
-    assert _step_kinds(frames) == HAPPY_STEP_KINDS
-    assert _names(frames)[-1] == FRAME_DONE  # 保留帧收场（V1 客户端干净收流判据）
-
-
 # ---------- 验收② manifest_present_each_call：步面 Manifest 形（80h 退役形） ----------
-
-
-def test_manifest_present_each_call(env: Any) -> None:
-    """GET /api/v2/chat/runs/{run_id} → {status, steps, manifest_digest,
-    pending_ask}；V2-80h：compile 退役——七字段合同 Manifest（INV-5）随之退役，
-    步面 manifest 恒 None（逐调用收发实录＝对话链＋网关 calllog 承载）；终局
-    verdict 仍携 manifest_digest（收口摘要面）。"""
-    client, _db = env
-    frames = _post_ask(client)
-    run_id = frames[0][1]["run_id"]
-    verdicts = [data for name, data in frames if name == "verdict"]
-    final = [v for v in verdicts if v.get("subtype") == "final"]
-    assert final and final[-1]["manifest_digest"]
-
-    resp = client.get(f"/api/v2/chat/runs/{run_id}", headers=ACTOR)
-    assert resp.status_code == 200
-    body = resp.json()
-    assert set(body) == {
-        "status", "steps", "manifest_digest", "pending_ask",
-    }  # 接口定义节合同形（V2-78 加 pending_ask——非挂起 run 恒 None）
-    assert body["pending_ask"] is None  # completed run 无挂起帧
-    assert body["status"] == "completed"
-    assert body["manifest_digest"] == final[-1]["manifest_digest"]
-    # Manifest 退役：步面 manifest 恒 None（键保留——接口合同形不破）。
-    assert body["steps"] and all(s["manifest"] is None for s in body["steps"])
 
 
 # ---------- 验收③ ask_suspend_resume：工具 ask 挂起→GET waiting_ask→resume ----------
@@ -598,39 +559,6 @@ def test_v1_wire_form_compatible(env: Any) -> None:
 # ---------- 验收⑦ 追问续会话（V2-38/ADR-0006）：followup_run_id 会话线程新轮 ----------
 
 
-def test_followup_asks_extend_session(env_followup: Any) -> None:
-    """追问＝会话线程新轮（asks 携 followup_run_id）：新 run 正常走流——V1 帧兼容
-    形不破（session 首帧携新 run_id＋resume=False、保留帧 done 收场、citation 在场）；
-    两个 run 行各自可查（会话线程承接＝新 run 行，run 状态机零改动）。"""
-    client, _db = env_followup
-    first = _post_ask(client)
-    run_id = first[0][1]["run_id"]
-
-    resp = client.post(
-        "/api/v2/chat/asks",
-        json={"question": "那 9 月 2 日呢？", "followup_run_id": run_id},
-        headers=ACTOR,
-    )
-    assert resp.status_code == 200
-    assert resp.headers["content-type"].startswith("text/event-stream")
-    frames = _parse_frames(resp.text)
-    # V1 帧兼容断言在场：session 首帧形不变（新 run_id＋resume=False）。
-    assert frames[0][0] == FRAME_SESSION
-    assert frames[0][1]["resume"] is False
-    new_run_id = frames[0][1]["run_id"]
-    assert new_run_id.startswith("run-") and new_run_id != run_id
-    assert _step_kinds(frames) == HAPPY_STEP_KINDS
-    assert _names(frames)[-1] == FRAME_DONE
-    assert any(name == "citation" for name, _ in frames)
-    # 追问 run 独立收口（completed）；原 run 行不受影响。
-    assert client.get(
-        f"/api/v2/chat/runs/{new_run_id}", headers=ACTOR
-    ).json()["status"] == "completed"
-    assert client.get(
-        f"/api/v2/chat/runs/{run_id}", headers=ACTOR
-    ).json()["status"] == "completed"
-
-
 def test_followup_requires_question(env_followup: Any) -> None:
     """追问缺 question＝400（提问必填与普通 ask 同闸）。"""
     client, _db = env_followup
@@ -724,3 +652,82 @@ def test_get_unknown_run_is_404(env: Any) -> None:
     resp = client.get("/api/v2/chat/runs/run-missing", headers=ACTOR)
     assert resp.status_code == 404
     assert resp.json()["code"] == "chat_run_not_found"
+
+
+# ---------- 编排面三钉（RT-W5-01a：行 17／18／29——直测 runtimev2 编排块，不经端点） ----------
+
+
+async def _v2_loop_run() -> tuple[Any, Any, str]:
+    """四相位 run（收口完成）——返回 (events, 剧本 completer, run_id)。"""
+    from tests.domains.test_v2_multi_turn_context import _v2_e2e_run
+
+    events, completer, run_id, _tables = await _v2_e2e_run(
+        question="2025 年 9 月 1 日到 3 日的日产油量"
+    )
+    return events, completer, run_id
+
+
+async def test_loop_step_sequence() -> None:
+    """行 17｜提问→事件流步序（understand→四相位→answer 次序）。"""
+    from appv2.runtimev2.persistence import RunStore
+
+    events, _completer, run_id = await _v2_loop_run()
+    assert events[-1].event == "blackbox"
+    assert events[-1].data["status"] == "completed"
+
+    steps = RunStore().steps(run_id)
+    kinds = [row.step for row in steps]
+    titles = [row.title for row in steps]
+    assert kinds[0] == "decision" and titles[0].startswith("模型调用：understand")  # ①读题
+    assert kinds[-1] == "answer"  # 收口
+    assert kinds.index("execute") < kinds.index("verify") <= len(kinds) - 1
+    # 四相位次序：澄清 → 前置条件机 → 批量执行 → 汇总／核验
+    assert any("澄清 r1" in title for title in titles)
+    assert any("前置条件机" in title for title in titles)
+    assert any("data_query" in title for title in titles)
+    assert any("起草答案" in title for title in titles)
+    phases = [(row.payload or {}).get("phase") for row in steps]
+    assert "clarify" in phases and "precondition" in phases and "execution" in phases
+
+
+async def test_manifest_present_each_call() -> None:
+    """行 18｜每个模型调用 step 落 Manifest（来源/版本/token——键集恒在场）。"""
+    from appv2.runtimev2.persistence import RunStore
+    from appv2.runtimev2.state import Manifest
+
+    _events, _completer, run_id = await _v2_loop_run()
+    calls = [
+        row for row in RunStore().steps(run_id) if row.title.startswith("模型调用：")
+    ]
+    assert len(calls) >= 3  # understand／decision ×2／answer
+    keys = set(Manifest().as_dict())
+    for row in calls:
+        assert isinstance(row.manifest, dict)  # 键恒在场、不省略
+        assert set(row.manifest) == keys
+        assert isinstance(row.manifest["token_count"], int)
+        assert isinstance(row.manifest["source_type"], list)
+        assert isinstance(row.manifest["version"], list)
+
+
+async def test_followup_asks_extend_session() -> None:
+    """行 29｜追问端点会话线程延展（新 run 播种前轮历史——钉 `pin-23` 的编排动作面）。"""
+    from appv2.runtimev2.persistence import RunStore
+    from tests.domains.test_v2_multi_turn_context import _v2_e2e_run
+
+    events1, _c1, run1, tables = await _v2_e2e_run(question="2025 年 9 月 1 日到 3 日的日产油量")
+    assert events1[-1].data["status"] == "completed"
+    chain1 = RunStore().load(run1).messages
+
+    events2, completer2, run2, _ = await _v2_e2e_run(
+        question="再补充一问：W-111 井呢？", followup_of=run1, tables=tables
+    )
+    assert events2[-1].data["status"] == "completed"
+    row2 = RunStore().run(run2)
+    assert row2 is not None and row2.followup_of == run1  # 追问链前轮落 run 行
+    chain2 = RunStore().load(run2).messages
+    assert chain2[: len(chain1)] == chain1  # 前轮整链承接（跨 run 前缀延伸）
+    assert chain2[len(chain1)]["content"] == "再补充一问：W-111 井呢？"  # 新问接在前链之后
+    seeded = "\n".join(
+        str(message.get("content", "")) for message in completer2.messages_of("decision")[0]
+    )
+    assert "2025 年 9 月 1 日到 3 日的日产油量" in seeded

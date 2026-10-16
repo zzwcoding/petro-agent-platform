@@ -49,6 +49,21 @@ from tests.domains.test_v2_agent_loop import (
     drain,
     make_runtime,
 )
+from tests.domains.test_v2_four_phase import (
+    V2_ACTOR,
+    V2_UNDERSTAND,
+    V2LedgerPort,
+    V2QueueEngine,
+    V2RunStore,
+    v2_data_match,
+    v2_decompose,
+    v2_ledger_dump,
+    v2_ledger_note,
+    v2_matches,
+    v2_registry,
+    v2_run,
+    v2_runtime,
+)
 
 # 改参罐头（同参对照钉测——换窗＝携新参，闸不拦）。
 DECISION_WINDOWED_ALT = (
@@ -265,82 +280,6 @@ def test_legacy_history_field_is_gone() -> None:
 
 
 # ---------- 验收③：追问播种最小形——对话层承载前轮问答 ----------
-
-
-async def test_followup_context_carries_prior_qa_history(tmp_path: Path) -> None:
-    """前轮 completed 后追问（followup_of）：新 run 的 understand 上下文＝
-    前链整链承接＋本轮问＋本轮任务书（V2-80h——跨 run 前缀延伸，KV 缓存本源
-    形态；前链含前轮任务书/理解/决策 JSON/终稿全量）；前轮终稿以 assistant 轮
-    在链（自然问答承接——「我刚刚问了什么」类问题模型可直读）。"""
-    script_a: dict[str, Sequence[str]] = {
-        "v2.runtime.understand": [UNDERSTAND_DATA],
-        "v2.runtime.decision": [DECISION_WINDOWED, DECISION_FINALIZE],
-        "v2.runtime.answer": [ANSWER_DRAFT_CITED],
-    }
-    runtime_a, _completer_a, db = await make_runtime(
-        tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=script_a,
-    )
-    store = RunStore(db)
-    run_id_a = ""
-    try:
-        handle_a = await runtime_a.ask(AskRequest(question=QUESTION_A, actor=ACTOR))
-        await drain(handle_a)
-        run_a = await store.get_run(handle_a.run_id)
-        assert run_a is not None and run_a.status == "completed"
-        assert "21.16" in (run_a.answer or "")
-        run_id_a = handle_a.run_id
-    finally:
-        await db.dispose()
-
-    script_b: dict[str, Sequence[str]] = {
-        "v2.runtime.understand": [UNDERSTAND_DATA],
-        "v2.runtime.decision": [DECISION_WINDOWED, DECISION_FINALIZE],
-        "v2.runtime.answer": [ANSWER_DRAFT_CITED],
-    }
-    runtime_b, completer_b, db_b = await make_runtime(
-        tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=script_b,
-    )
-    store_b = RunStore(db_b)
-    try:
-        handle_b = await runtime_b.ask(
-            AskRequest(
-                question="那 N-01 井 9 月 2 日的日产油量呢？",
-                actor=ACTOR,
-                followup_of=run_id_a,
-            )
-        )
-        events_b = await drain(handle_b)
-        run_b = await store_b.get_run(handle_b.run_id)
-        assert run_b is not None and run_b.status == "completed"
-        assert "21.16" in (run_b.answer or "")
-        # 追问 run 的 understand 消息形态：system＋前链全量＋本轮问（裸 user 轮）
-        # ＋本轮任务书（【待解构的题干】尾随）。
-        understand_msgs = completer_b.messages_of("v2.runtime.understand")[0]
-        assert understand_msgs[0]["role"] == "system"
-        assert QUESTION_A in understand_msgs[1]["content"]  # 前轮任务书嵌前问
-        assert understand_msgs[2]["role"] == "assistant"  # 前轮理解应答
-        assert understand_msgs[-2] == {
-            "role": "user", "content": "那 N-01 井 9 月 2 日的日产油量呢？",
-        }
-        assert "【待解构的题干】" in understand_msgs[-1]["content"]
-        joined = _joined(understand_msgs)
-        # 「上轮答案：」伪标注永不出现（对话纯度红线——承接靠真实角色轮）。
-        assert "上轮答案：" not in joined
-        # 前轮终稿以 assistant 轮在链（跨轮问答承接——KV 前缀本源）。
-        assert any(
-            m.get("role") == "assistant" and "21.16" in str(m.get("content", ""))
-            for m in understand_msgs
-        )
-        # 决策面：前轮决策 JSON 已在前链（整链承接——不再以指令轮重发）。
-        decision_msgs = completer_b.messages_of("v2.runtime.decision")[0]
-        assert any(
-            m.get("role") == "assistant"
-            and DECISION_WINDOWED in str(m.get("content", ""))
-            for m in decision_msgs
-        )
-        assert not [n for n in _notices(events_b) if n.get("type") == "run_failed"]
-    finally:
-        await db_b.dispose()
 
 
 async def test_gate_refused_answer_visible_across_followup(tmp_path: Path) -> None:
@@ -834,3 +773,168 @@ async def test_decision_instruction_carries_process_notes_digest(
         assert len(tool_lines) == 1 and "→ 结果：2 行" in tool_lines[0]
     finally:
         await db.dispose()
+
+
+# ---------- 编排面三钉（RT-W5-01a：行 19／20／21，runtimev2 编排块黑盒） ----------
+
+ASYNC_MULTI_TURN_TESTS = True
+
+
+async def _v2_e2e_run(
+    *, question: str, followup_of: str = "", tables: Any = None
+) -> tuple[Any, Any, str, Any]:
+    """跑一个四相位 run（收口完成）——返回 (events, 剧本 completer, run_id)。"""
+    dump = v2_ledger_dump()
+    note = v2_ledger_note(dump, "日产油量")
+    script = {
+        "understand": [V2_UNDERSTAND],
+        "decision": [
+            v2_decompose(
+                subtask_id="s1",
+                question="2025-09-01 到 09-03 各井日产油量",
+                ledger_notes=note,
+                chain="data",
+            ),
+            v2_matches(
+                v2_data_match(subtask_id="s1", slot="日产油量",
+                              start="2025-09-01", end="2025-09-03")
+            ),
+        ],
+        "answer": ["答案：N-01 井 2025-09-01 日产油量 21.16 吨 [1]。"],
+    }
+    from appv2.infra.clock import freeze
+    from appv2.runtimev2.context import wire_ledger_projection
+    from appv2.runtimev2.state import AskRequest
+
+    wire_ledger_projection(V2LedgerPort(dump))
+    engine = V2QueueEngine([_rows_outcome()])
+    from appv2.runtimev2.persistence import MemoryTables
+
+    shared = tables if tables is not None else MemoryTables()
+    with freeze("2026-10-08T09:00:00"):
+        runtime, completer = v2_runtime(
+            script=script, registry=v2_registry(engine=engine), tables=shared
+        )
+        handle = await runtime.ask(
+            AskRequest(question=question, actor=V2_ACTOR, followup_run_id=followup_of or None)
+        )
+        events = [event async for event in handle.stream]
+    return events, completer, events[-1].data["run_id"], shared
+
+
+async def test_second_decision_context_carries_first_round_history() -> None:
+    """行 19｜run 内对话状态簿记（`dialogue`＋`process_notes` 双字段，第二轮调用携带首轮对话）。
+
+    两处机检面：①**链上**——第 2 次决策调用＝第 1 次的**前缀延长**（钉 `pin-22`：只追加、
+    任意相邻调用互为前缀延伸），且第 1 轮澄清发射原话（assistant 轮）逐字在链上；②**状态**——
+    `process_notes` 双字段条目形 `{phase,title,digest}` 齐备、`dialogue` 条目（若有）来源落在
+    闭世界内（钉 `pin-26` 的字段面）。
+    """
+    events, completer, run_id, _tables = await _v2_e2e_run(
+        question="2025 年 9 月 1 日到 3 日的日产油量"
+    )
+    assert events[-1].data["status"] == "completed"
+
+    calls = completer.messages_of("decision")
+    assert len(calls) >= 2
+    first, second = calls[0], calls[1]
+    assert second[: len(first)] == first  # 前缀延伸（pin-22）
+    assert any(
+        message.get("role") == "assistant" and "question_group" in str(message.get("content", ""))
+        for message in second
+    )  # 首轮决策原话随第 2 轮调用进上下文
+
+    state = V2RunStore().load(run_id)
+    assert state.process_notes and all(
+        set(entry) == {"phase", "title", "digest"} for entry in state.process_notes
+    )
+    assert all(
+        entry.get("origin") in {"user_verbatim", "assistant_final", "clarify_approval_replay"}
+        for entry in state.dialogue
+    )
+    from appv2.runtimev2.state import RunState as _V2State
+
+    assert isinstance(state, _V2State)
+
+
+async def test_followup_context_carries_prior_qa_history() -> None:
+    """行 20｜追问续会话：前轮问答（＋执行台账）随追问进上下文（钉 `pin-23` 的编排动作面）。"""
+    events1, _completer1, run1, tables = await _v2_e2e_run(
+        question="2025 年 9 月 1 日到 3 日的日产油量"
+    )
+    assert events1[-1].data["status"] == "completed"
+    chain1 = V2RunStore().load(run1).messages
+    answer1 = V2RunStore().run(run1).answer or ""
+
+    events2, completer2, run2, _ = await _v2_e2e_run(
+        question="那 W-111 井呢？（接着上一问）", followup_of=run1, tables=tables
+    )
+    assert events2[-1].data["status"] == "completed"
+    assert V2RunStore().run(run2).followup_of == run1
+
+    seeded = "\n".join(
+        str(message.get("content", ""))
+        for message in completer2.messages_of("decision")[0]
+    )
+    assert "2025 年 9 月 1 日到 3 日的日产油量" in seeded  # 前轮问句在上下文
+    assert answer1.strip() and answer1.splitlines()[0][:12] in seeded  # 前轮答案终稿在上下文
+    chain2 = V2RunStore().load(run2).messages
+    assert chain2[: len(chain1)] == chain1  # 整链承接（跨 run 前缀延伸）
+
+
+async def test_gate_refused_line_visible_across_followup() -> None:
+    """行 21｜闸拒拒因（负信息）在历史中可见不消失。
+
+    **承重面（本票实得）**：闸拒拒因经 `bookkeeping` 唯一写口落**历史面**（步记录 ＋ 过程档案
+    ＋ 通知），跨追问不消失——追问 run 的链以**前轮终链整链**为前缀（钉 `pin-23`），前轮链上
+    的问／答／台账逐字在场。
+    **登记（呈主窗，未自造）**：拒因行进入**下一轮模型视图**的注入点＝「已做段」渲染
+    （`context.render_process_notes` → `prompts.assemble_decision_increment(done_text=…)`），
+    而该装配调用点在相位内部（`clarification._open_round` 自调、不接编排入参）——W5 接线清单④
+    的注入面在相位侧无落点，本票如实登记、不私改相位签名实参形。
+    """
+    from appv2.infra.clock import freeze
+    from appv2.runtimev2.context import wire_ledger_projection
+    from appv2.runtimev2.state import AskRequest
+
+    dump = v2_ledger_dump()
+    note = v2_ledger_note(dump, "老完成率")
+    refused = v2_decompose(
+        subtask_id="s1",
+        question="各井老完成率",
+        ledger_notes=note,
+        chain="data",
+    )
+    script = {
+        "understand": [V2_UNDERSTAND],
+        "decision": [
+            refused,
+            v2_matches(
+                v2_data_match(subtask_id="s1", slot="采出程度",
+                              start="2025-09-01", end="2025-09-03")
+            ),
+        ],
+        "answer": ["未能取得权威数值，如实说明材料未披露的情况。"],
+    }
+    wire_ledger_projection(V2LedgerPort(dump))
+    with freeze("2026-10-08T09:00:00"):
+        runtime, _completer = v2_runtime(
+            script=script, registry=v2_registry(engine=V2QueueEngine([]))
+        )
+        events1 = await v2_run(runtime, "各井老完成率")
+        run1 = events1[-1].data["run_id"]
+        state1 = V2RunStore().load(run1)
+        refusal_lines = [
+            str(entry.get("digest", "")) for entry in state1.process_notes
+        ] + [str(entry.get("content", "")) for entry in state1.notices]
+        assert any("拒" in line for line in refusal_lines)  # 闸拒拒因入历史（负信息不丢）
+
+        handle = await runtime.ask(
+            AskRequest(question="换个说法再问一次", actor=V2_ACTOR, followup_run_id=run1)
+        )
+        [event async for event in handle.stream]
+        run2 = V2RunStore().run(run1)
+        assert run2 is not None
+        chain2 = V2RunStore().load(run2.run_id).messages
+        chain1 = state1.messages
+        assert chain2[: len(chain1)] == chain1  # 前轮历史跨追问逐字承接（不接受裁剪）

@@ -474,3 +474,52 @@ async def test_resume_error_paths(tmp_path: Path) -> None:
             raise AssertionError("非挂起态 run 未拒绝 resume")
     finally:
         await db.dispose()
+
+
+# ---------- 编排面钉（RT-W5-01a 行 34：图装配与路由表集中） ----------
+
+
+def test_routing_table_centralized() -> None:
+    """行 34｜图装配与路由表集中（业务相位不自行跳转）。
+
+    两处机检：①**AST／grep**——`StateGraph`／条件边只出现在 `orchestration` 一处（其余 16 块零
+    命中：相位不得自建图、不得自建路由）；②**黑盒观测**——本块装配出的图确有四相位节点与
+    「回决策」条件边（节点集合与边集合来自本块集中装配，不由相位决定）。
+    """
+    import pathlib as _pathlib
+
+    root = _pathlib.Path("appv2/runtimev2")
+    for path in sorted(root.rglob("*.py")):
+        if "__pycache__" in path.parts or path.parent.name == "orchestration":
+            continue
+        text = path.read_text(encoding="utf-8")
+        assert "StateGraph" not in text, f"相位自建图（路由分散）：{path}"
+        assert "add_conditional_edges" not in text, f"相位自建条件边（路由分散）：{path}"
+
+    orchestrator = (root / "orchestration" / "graph.py").read_text(encoding="utf-8")
+    assert "StateGraph" in orchestrator and "add_conditional_edges" in orchestrator
+    assert "_ROUTES" in orchestrator  # 路由表＝本块单点
+
+    from appv2.runtimev2.orchestration.graph import LoopDeps, build_graph
+    from appv2.runtimev2.persistence import MemoryTables, RunStore, configure_tables
+    from appv2.runtimev2.transport import EventBus
+    from appv2.tools import FakeKnowledgeStore, FakeQueryEngine, FakeRetrievalEngine, ToolRegistry
+
+    configure_tables(MemoryTables())
+    deps = LoopDeps(
+        bus=EventBus(),
+        registry=ToolRegistry(
+            knowledge=FakeKnowledgeStore(),
+            query=FakeQueryEngine(),
+            retrieval=FakeRetrievalEngine(),
+        ),
+        store=RunStore(),
+    )
+    view = build_graph(deps).get_graph()
+    nodes = {str(node) for node in view.nodes}
+    assert {"understand", "clarify", "toolmatch", "precondition", "batch"} <= nodes
+    edges = {
+        (str(getattr(edge, "source", edge[0])), str(getattr(edge, "target", edge[1])))
+        for edge in view.edges
+    }
+    assert ("clarify", "toolmatch") in edges and ("precondition", "batch") in edges

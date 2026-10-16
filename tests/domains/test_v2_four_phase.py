@@ -29,6 +29,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from appv2.infra.clock import freeze
+from appv2.infra.security import Actor
 from appv2.knowledge import (
     InMemoryKnowledgeStore,
     question_array_snapshot,
@@ -46,6 +48,17 @@ from appv2.runtime.subtask import (
     parse_question_group,
     parse_tool_match,
 )
+from appv2.runtimev2.context import wire_ledger_projection
+from appv2.runtimev2.gateway_adapter import ScriptedCompleter, set_completer
+from appv2.runtimev2.orchestration import AgentRuntime, RunExecutor
+from appv2.runtimev2.persistence import (
+    MemoryTables,
+    configure_tables,
+)
+from appv2.runtimev2.persistence import (
+    RunStore as V2RunStore,
+)
+from appv2.runtimev2.state import AskRequest as V2AskRequest
 from appv2.tools import (
     FakeKnowledgeStore,
     FakeQueryEngine,
@@ -73,6 +86,160 @@ from tests.domains.test_v2_react_loop import (
     _retrieval_with,
     _rows_outcome,
 )
+
+# ---------- runtimev2 编排网（RT-W5-01a：四相位链路＝runtimev2 17 子包） ----------
+
+V2_TODAY = date(2026, 10, 8)
+V2_WATERMARK = date(2026, 8, 31)
+V2_ACTOR = Actor(user_id="dev-u1", display="开发用户")
+V2_UNDERSTAND = json.dumps(
+    {"route": "full", "text": "既要数值也要报告佐证。", "metric_candidates": ["日产油量"]},
+    ensure_ascii=False,
+)
+
+
+class V2QueueEngine(FakeQueryEngine):
+    """剧本化按次出列引擎（末位驻留——多轮剧本）。"""
+
+    def __init__(self, outcomes: Sequence[QueryOutcome]) -> None:
+        super().__init__()
+        self._queue = list(outcomes)
+        self.ledger_metric_slots = {"日产油量", "日产液量", "油压", "含水率", "配产量"}
+
+    def run(self, plan: Any, *, approved_tables: tuple[str, ...] = ()) -> QueryOutcome:
+        self.run_calls += 1
+        if len(self._queue) > 1:
+            return self._queue.pop(0)
+        return self._queue[0]
+
+
+class V2LedgerPort:
+    """台账投影端口（`context.wire_ledger_projection` 的注入件）。"""
+
+    def __init__(self, dump: dict[str, Any]) -> None:
+        self._dump = dump
+
+    async def fetch(self) -> dict[str, Any]:
+        return dict(self._dump)
+
+
+def v2_ledger_dump() -> dict[str, Any]:
+    store = InMemoryKnowledgeStore(question_array_snapshot(), today=V2_TODAY)
+    return dict(dump_from_store(store))
+
+
+def v2_ledger_note(dump: dict[str, Any], keyword: str) -> str:
+    """台账注释（**逐字**取自常驻注入块——相位侧在校「是否台账原话」）。"""
+    from appv2.runtimev2.prompts import render_ledger_resident_block
+    from appv2.runtimev2.state import RunState as V2RunState
+
+    block = render_ledger_resident_block(V2RunState(run_id="probe", ledger_dump=dict(dump)))
+    return next(line for line in block.splitlines() if keyword in line)
+
+
+def v2_registry(
+    *,
+    engine: Any = None,
+    retrieval: Any = None,
+    knowledge: Any = None,
+) -> ToolRegistry:
+    return ToolRegistry(
+        knowledge=knowledge if knowledge is not None else FakeKnowledgeStore(),
+        query=engine if engine is not None else FakeQueryEngine(),
+        retrieval=retrieval if retrieval is not None else FakeRetrievalEngine(),
+    )
+
+
+def v2_runtime(
+    *,
+    script: dict[str, Sequence[str]],
+    registry: ToolRegistry | None = None,
+    budget: Any = None,
+    watermark: Any = V2_WATERMARK,
+    completer: ScriptedCompleter | None = None,
+    tables: Any = None,
+) -> tuple[Any, ScriptedCompleter]:
+    """runtimev2 标准装配：剧本 completer＋内存簿记表＋四相位图（零 DB、零真实端口）。
+
+    `tables` 非空＝复用既有内存表件（跨 run 的追问／恢复面需要同一份表）。
+    """
+    configure_tables(tables if tables is not None else MemoryTables())
+    channel = completer if completer is not None else ScriptedCompleter(script)
+    set_completer(channel)
+    executor = RunExecutor(
+        registry=registry if registry is not None else v2_registry(),
+        store=V2RunStore(),
+        budget=budget,
+        watermark=watermark,
+    )
+    return AgentRuntime(executor), channel
+
+
+async def v2_run(runtime: Any, question: str) -> list[Any]:
+    handle = await runtime.ask(V2AskRequest(question=question, actor=V2_ACTOR))
+    return [event async for event in handle.stream]
+
+
+def v2_steps(run_id: str, phase: str | None = None) -> list[Any]:
+    rows = V2RunStore().steps(run_id)
+    if phase is None:
+        return rows
+    return [row for row in rows if (row.payload or {}).get("phase") == phase]
+
+
+def v2_decision_turn(*, clarify: str, toolmatch: str) -> list[str]:
+    """一轮决策剧本（澄清发射 ＋ 匹配发射）。"""
+    return [clarify, toolmatch]
+
+
+def v2_data_match(*, subtask_id: str, slot: str, start: str, end: str) -> dict[str, Any]:
+    return {
+        "id": subtask_id,
+        "chain": "data",
+        "tool": "data_query",
+        "mention_mode": "executed",
+        "plan": {
+            "metric_slot": slot,
+            "ranking": False,
+            "window_start": start,
+            "window_end": end,
+            "limit": 5,
+        },
+    }
+
+
+def v2_knowledge_match(*, subtask_id: str, question: str) -> dict[str, Any]:
+    return {
+        "id": subtask_id,
+        "chain": "knowledge",
+        "tool": "doc_retrieve",
+        "mention_mode": "executed",
+        "retrieval_need": {"question": question},
+    }
+
+
+def v2_decompose(*, subtask_id: str, question: str, ledger_notes: str, chain: str) -> str:
+    return json.dumps(
+        {
+            "action": "decompose",
+            "question_group": {
+                "subtasks": [
+                    {
+                        "id": subtask_id,
+                        "question": question,
+                        "ledger_notes": ledger_notes,
+                        "chain": chain,
+                    }
+                ]
+            },
+        },
+        ensure_ascii=False,
+    )
+
+
+def v2_matches(*items: dict[str, Any]) -> str:
+    return json.dumps({"matches": list(items)}, ensure_ascii=False)
+
 
 # ---------- 词典层注入底座（真源同产线一路：快照→读面→dump_from_store） ----------
 
@@ -179,34 +346,40 @@ async def _run_question(runtime: Any, question: str) -> list[Any]:
 
 
 def test_question_group_schema_happy_and_caps() -> None:
-    group = parse_question_group(CLARIFY_GROUP_DATA_KNOWLEDGE)
-    assert not isinstance(group, str)
-    assert group.kind == "decompose"
-    assert group.group is not None
-    subtasks = group.group.as_payload()["subtasks"]
+    """QuestionGroup schema（runtimev2 `parsing` 单点：上限／必填／动作闭世界）。"""
+    from appv2.runtimev2.parsing import parse_question_group
+
+    def _parse(text: str) -> Any:
+        return parse_question_group(text, max_discovers=2, max_subtasks=MAX_SUBTASKS_CONTRACT)
+
+    emission = _parse(CLARIFY_GROUP_DATA_KNOWLEDGE)
+    assert not isinstance(emission, str)
+    assert emission.kind == "decompose"
+    assert emission.group is not None
+    subtasks = emission.group.as_payload()["subtasks"]
     assert [st["id"] for st in subtasks] == ["s1", "s2"]
     assert all(st["ledger_notes"] for st in subtasks)  # 台账注释必带（R2）
-    assert subtasks[0]["chain"] == "data" and subtasks[0]["tool"] == "data_query"
+    assert subtasks[0]["chain"] == "data"
 
     # 子问题上限 ≤4（Owner 认可值）
     many = [
         {"id": f"s{i}", "question": "q", "ledger_notes": "n"}
         for i in range(MAX_SUBTASKS_CONTRACT + 1)
     ]
-    rejected = parse_question_group(
+    rejected = _parse(
         json.dumps({"action": "decompose", "question_group": {"subtasks": many}},
                    ensure_ascii=False)
     )
     assert isinstance(rejected, str) and "上限" in rejected
 
     # 台账注释缺失＝拒（分解缺 ledger_notes 不成组）
-    missing = parse_question_group(json.dumps(
+    missing = _parse(json.dumps(
         {"action": "decompose", "question_group": {"subtasks": [
             {"id": "s1", "question": "q"}]}}, ensure_ascii=False))
     assert isinstance(missing, str) and "ledger_notes" in missing
 
     # 非法动作越界
-    assert isinstance(parse_question_group('{"action": "fly"}'), str)
+    assert isinstance(_parse('{"action": "fly"}'), str)
 
 
 def test_clarify_discover_budget_gate() -> None:
@@ -241,9 +414,15 @@ def test_clarify_discover_budget_gate() -> None:
 
 
 def test_tool_match_closes_world_against_group() -> None:
-    group = parse_question_group(CLARIFY_GROUP_DATA_KNOWLEDGE)
-    assert not isinstance(group, str) and group.group is not None
-    matches = parse_tool_match(TOOLMATCH_TWO, group.group)
+    """工具匹配与问题组闭世界对账（runtimev2 `parsing` 收口单点：缺／多／未知 id 拒）。"""
+    from appv2.runtimev2.parsing import parse_question_group, parse_tool_match
+
+    emission = parse_question_group(
+        CLARIFY_GROUP_DATA_KNOWLEDGE, max_discovers=2, max_subtasks=MAX_SUBTASKS_CONTRACT
+    )
+    assert not isinstance(emission, str) and emission.group is not None
+    group = emission.group
+    matches = parse_tool_match(TOOLMATCH_TWO, group)
     assert not isinstance(matches, str)
     assert [(m.id, m.chain, m.tool) for m in matches] == [
         ("s1", "data", "data_query"), ("s2", "knowledge", "doc_retrieve"),
@@ -252,20 +431,20 @@ def test_tool_match_closes_world_against_group() -> None:
     # 未知 id＝拒（闭合世界）
     stray = parse_tool_match('{"matches": [{"id": "s9", "chain": "data", '
                              '"tool": "data_query", "plan": {"metric_slot": "日产油量", '
-                             '"ranking": false}}]}', group.group)
+                             '"ranking": false}}]}', group)
     assert isinstance(stray, str) and "s9" in stray
 
     # 覆盖缺口＝拒（组内每个子问题必须有匹配）
     partial = parse_tool_match('{"matches": [{"id": "s1", "chain": "data", '
                                '"tool": "data_query", "plan": {"metric_slot": "日产油量", '
-                               '"ranking": false}}]}', group.group)
+                               '"ranking": false}}]}', group)
     assert isinstance(partial, str) and "s2" in partial
 
     # data 链缺 plan／plan 缺 metric_slot＝拒（schema 收口）
     no_plan = parse_tool_match('{"matches": ['
                                '{"id": "s1", "chain": "data", "tool": "data_query"}, '
                                '{"id": "s2", "chain": "knowledge", "tool": "doc_retrieve", '
-                               '"retrieval_need": {"question": "q"}}]}', group.group)
+                               '"retrieval_need": {"question": "q"}}]}', group)
     assert isinstance(no_plan, str)
 
     # chain/tool 不一致＝拒
@@ -273,7 +452,7 @@ def test_tool_match_closes_world_against_group() -> None:
                                   '{"id": "s1", "chain": "data", "tool": "doc_retrieve", '
                                   '"plan": {"metric_slot": "日产油量", "ranking": false}}, '
                                   '{"id": "s2", "chain": "knowledge", "tool": "doc_retrieve", '
-                                  '"retrieval_need": {"question": "q"}}]}', group.group)
+                                  '"retrieval_need": {"question": "q"}}]}', group)
     assert isinstance(wrong_tool, str)
 
 
@@ -621,99 +800,89 @@ def test_precondition_and_parse_layers_are_zero_llm() -> None:
 
 
 def test_four_phase_routing_topology() -> None:
-    """LangGraph 路由图上四相位真节点/真边（程序闸骨架版判定面）。"""
-    from appv2.api.ontology_guide import OntologyGuideProvider
-    from appv2.runtime import EventBus
-    from appv2.runtime.graph import LoopDeps, build_graph
+    """四相位路由拓扑（runtimev2 编排块：四相位真节点入图、回决策边重定向）。"""
+    from appv2.runtimev2.orchestration.graph import LoopDeps, build_graph
+    from appv2.runtimev2.transport import EventBus
 
-    deps = LoopDeps(
-        registry=ToolRegistry(
-            knowledge=FakeKnowledgeStore(),
-            query=FakeQueryEngine(),
-            retrieval=FakeRetrievalEngine(),
-        ),
-        models={},
-        builder=object(),  # type: ignore[arg-type]
-        store=object(),  # type: ignore[arg-type]
-        bus=EventBus(),
-        guide=OntologyGuideProvider(today=date(2026, 10, 8)),
-    )
-    legacy = build_graph(deps)
-    four = build_graph(deps, four_phase=True)
-    legacy_nodes = set(legacy.get_graph().nodes)
-    four_nodes = set(four.get_graph().nodes)
-    assert {"clarify", "toolmatch", "precondition", "batch"} <= four_nodes
-    assert not {"clarify", "toolmatch", "precondition", "batch"} & legacy_nodes
-    edges = {(e[0], e[1]) for e in four.get_graph().edges}
+    deps = LoopDeps(bus=EventBus(), registry=v2_registry(), store=V2RunStore())
+    graph = build_graph(deps)
+    view = graph.get_graph()
+    nodes = {str(node) for node in view.nodes}
+    expected = {"understand", "clarify", "toolmatch", "precondition", "batch", "answer", "verify"}
+    assert expected <= nodes
+    edges = {
+        (str(getattr(edge, "source", edge[0])), str(getattr(edge, "target", edge[1])))
+        for edge in view.edges
+    }
+    assert ("understand", "clarify") in edges
     assert ("clarify", "toolmatch") in edges
     assert ("toolmatch", "precondition") in edges
     assert ("precondition", "batch") in edges
-    assert ("understand", "clarify") in edges
+    assert ("batch", "answer") in edges
+    assert ("answer", "verify") in edges
 
 
-async def test_four_phase_end_to_end_scripted(tmp_path: Path) -> None:
-    """骨架可跑：clarify→toolmatch→precondition→批量执行→汇总→verify→收口。"""
-    retrieval = _retrieval_with(_fragment_obs(
-        "W-111 井采用酸压完井，投产初期日产油 291 方。", "frag-w111-1"))
-    engine = QueueQueryEngine([_rows_outcome()])
-    runtime, completer, db = await make_runtime(
-        tmp_path,
-        engine=engine,
-        script=_FOUR_PHASE_E2E_SCRIPT,
-        four_phase=True,
-        ledger_dump=lambda: dict(LEDGER_DUMP),
-        retrieval=retrieval,
+async def test_four_phase_end_to_end_scripted() -> None:
+    """四相位端到端剧本（runtimev2 编排：澄清→分解→过闸→批量→汇总→核验→收口）。"""
+    dump = v2_ledger_dump()
+    note = v2_ledger_note(dump, "日产油量")
+    clarify = v2_decompose(
+        subtask_id="s1",
+        question="2025-09-01 到 09-03 各井日产油量",
+        ledger_notes=note,
+        chain="data",
     )
-    try:
-        events = await _run_question(runtime, _E2E_QUESTION)
-        assert [e.event for e in events][-1] == "blackbox"  # V2-54 黑匣子＝收口末事件
-        assert [e.event for e in events][-2] == "verdict"
-        final = events[-2].data
-        assert final["status"] == "completed"
+    script = {
+        "understand": [V2_UNDERSTAND],
+        "decision": v2_decision_turn(
+            clarify=clarify,
+            toolmatch=v2_matches(
+                v2_data_match(subtask_id="s1", slot="日产油量",
+                              start="2025-09-01", end="2025-09-03")
+            ),
+        ),
+        "answer": ["子任务 s1：N-01 井 2025-09-01 日产油量 21.16 吨 [1]。"],
+    }
+    wire_ledger_projection(V2LedgerPort(dump))
+    engine = V2QueueEngine([_rows_outcome()])
+    with freeze("2026-10-08T09:00:00"):
+        runtime, _completer = v2_runtime(script=script, registry=v2_registry(engine=engine))
+        events = await v2_run(runtime, "2025 年 9 月 1 日到 3 日的日产油量")
+        run_id = next(
+            event.data["run_id"] for event in reversed(events) if "run_id" in event.data
+        )
+    # 帧序：收口终形 verdict(final) 在 blackbox 之前（黑匣子＝业务帧意义上的流末帧）
+    assert [event.event for event in events][-1] == "blackbox"
+    assert [event.event for event in events][-2] == "verdict"
+    assert events[-2].data["status"] == "completed"
+    assert events[-2].data["subtype"] == "final"
+    # 核验裁决形（verify）与收口形（final）同批在场
+    verdicts = [event for event in events if event.event == "verdict"]
+    assert any(event.data.get("subtype") == "verify" for event in verdicts)
 
-        store = RunStore(db)
-        steps = await store.list_steps(final["run_id"])
-        clarify = _step_payloads(steps, "clarify")
-        assert clarify and "question_group" in clarify[0]["emission"]
-        subtasks = clarify[0]["emission"]["question_group"]["subtasks"]
-        assert [st["id"] for st in subtasks] == ["s1", "s2"]
-        assert all(st["ledger_notes"] for st in subtasks)  # 分解带台账注释（R2）
+    row = V2RunStore().run(run_id)
+    assert row is not None and row.status == "completed"
+    assert row.manifest_digest
+    assert "21.16" in (row.answer or "")
 
-        toolmatch = _step_payloads(steps, "toolmatch")
-        assert toolmatch and toolmatch[0]["emission"]["matches"][0]["id"] == "s1"
+    clarify_steps = v2_steps(run_id, "clarify")
+    assert clarify_steps and "question_group" in (clarify_steps[0].payload or {})["emission"]
+    subtasks = clarify_steps[0].payload["emission"]["question_group"]["subtasks"]
+    assert [item["id"] for item in subtasks] == ["s1"]
+    assert all(item["ledger_notes"] for item in subtasks)
 
-        precondition = _step_payloads(steps, "precondition")
-        assert precondition and precondition[0]["pure_code"] is True  # 零 LLM 相位
-        states = {v["subtask_id"]: v["state"] for v in precondition[0]["verdicts"]}
-        assert states == {"s1": "pass", "s2": "pass"}
+    # 工具匹配产物落状态（相位②返回位经编排投影——下游三块按 `state.tool_matches` 取支）
+    state = V2RunStore().load(run_id)
+    assert [item["id"] for item in state.tool_matches] == ["s1"]
+    assert state.tool_matches[0]["plan"]["metric_slot"] == "日产油量"
 
-        batch = [s for s in steps if s.step_type == "execute" and
-                 (s.payload or {}).get("subtask_id")]
-        assert [(s.payload["subtask_id"], s.payload["status"]) for s in batch] == [
-            ("s1", "ok"), ("s2", "ok"),
-        ]
-        assert engine.run_calls == 1 and retrieval.retrieve_calls == 1
+    precondition = v2_steps(run_id, "precondition")
+    assert precondition and precondition[0].payload["decision"] == "allow"
 
-        # 汇总相位：答案整合全组子结果（逐子问题引用）且核验收口
-        run_row = await store.get_run(final["run_id"])
-        assert run_row is not None and "s1" in (run_row.answer or "")
-        assert "s2" in (run_row.answer or "")
-        assert any(s.step_type == "verify" for s in steps)
-        # 对话链承载（V2-80h 追加式）：起草调用的链含任务书轮（user 原话在链）
-        # 与此前全部相位包/应答——只追加；链形断言见 test_v2_agent_loop。
-        answer_calls = completer.messages_of("v2.runtime.answer")
-        assert answer_calls, "汇总起草调用缺席"
-        chain = answer_calls[0]
-        assert chain[0]["role"] == "system"
-        assert any(
-            m.get("role") == "user" and _E2E_QUESTION in str(m.get("content", ""))
-            for m in chain
-        ), "起草链缺任务书 user 轮（原话承载断裂）"
-        assert any(
-            m.get("role") == "assistant" for m in chain[:-1]
-        ), "起草链缺既有应答轮（追加式断裂）"
-    finally:
-        await db.dispose()
+    executed = [row for row in v2_steps(run_id) if row.step == "execute"]
+    assert executed and executed[0].payload["subtask_id"] == "s1"
+    assert engine.run_calls == 1
+    assert [row.step for row in v2_steps(run_id)].count("verify") == 1
 
 
 async def test_four_phase_blocked_ask_suspends_and_resume_keeps_results(tmp_path: Path) -> None:
@@ -1027,56 +1196,53 @@ async def test_four_phase_discover_budget_ten_and_taps(tmp_path: Path) -> None:
         await db.dispose()
 
 
-async def test_four_phase_ledger_dump_round1_injection(tmp_path: Path) -> None:
-    """词典层第 1 轮全量注入（拍板 a）：决策上下文 Manifest 带 ledger_dump 族来源行；
-    零 discover 也注入（非懒加载）；常驻块不重复入史。"""
+async def test_four_phase_ledger_dump_round1_injection() -> None:
+    """词典层第 1 轮全量注入（拍板 a）：澄清／匹配相位包携台账全量块；
+    零 discover 也注入（非懒加载）；常驻块不重复入史；决策调用面互为前缀延伸（pin-22）。"""
+    dump = v2_ledger_dump()
+    note = v2_ledger_note(dump, "日产油量")
     script = {
-        "v2.runtime.understand": [UNDERSTAND_MULTI],
-        "v2.runtime.decision": [CLARIFY_GROUP_DATA_KNOWLEDGE, TOOLMATCH_TWO],
-        "v2.runtime.answer": [_SUMMARY_DRAFT],
+        "understand": [V2_UNDERSTAND],
+        "decision": v2_decision_turn(
+            clarify=v2_decompose(
+                subtask_id="s1",
+                question="2025-09-01 到 09-03 各井日产油量",
+                ledger_notes=note,
+                chain="data",
+            ),
+            toolmatch=v2_matches(
+                v2_data_match(subtask_id="s1", slot="日产油量",
+                              start="2025-09-01", end="2025-09-03")
+            ),
+        ),
+        "answer": ["s1：N-01 井 2025-09-01 日产油量 21.16 吨 [1]。"],
     }
-    runtime, completer, db = await make_runtime(
-        tmp_path, engine=QueueQueryEngine([_rows_outcome()]), script=script,
-        four_phase=True, ledger_dump=lambda: dict(LEDGER_DUMP),
-    )
-    try:
-        from appv2.runtime import EventBus
-        from appv2.runtime.graph import build_graph
+    wire_ledger_projection(V2LedgerPort(dump))
+    with freeze("2026-10-08T09:00:00"):
+        runtime, completer = v2_runtime(
+            script=script, registry=v2_registry(engine=V2QueueEngine([_rows_outcome()]))
+        )
+        events = await v2_run(runtime, "2025 年 9 月 1 日到 3 日的日产油量")
+    assert events[-1].event == "blackbox" and events[-1].data["status"] == "completed"
 
-        events = await _run_question(runtime, _E2E_QUESTION)
-        assert events[-1].data["status"] == "completed"
-        # 澄清相位包（V2-80h 首入一次性追加）带台账全量块（指标/术语/别名/结构卡逐字在场）
-        first_clarify_chain = completer.messages_of("v2.runtime.decision")[0]
-        package = next(
-            m["content"] for m in first_clarify_chain
-            if m.get("role") == "user" and "台账全量" in str(m.get("content", ""))
-        )
-        assert "日产油量" in package and "老完成率" in package
-        assert any("→" in line for line in package.splitlines())  # 别名映射行
-        assert "agg.fct_daily_metering" in package  # 结构卡
-        # V2-80h：注入来源记录在对话链相位包本身（compile 时代 manifest
-        # source_type 来源行退役）——持久化终态链载台账全量块恰一次（澄清包）。
-        store = RunStore(db)
-        steps = await store.list_steps(events[-1].data["run_id"])
-        graph_ref = build_graph(
-            runtime._executor._deps(EventBus(), run_id=events[-1].data["run_id"]),
-            checkpointer=runtime._executor._saver,
-        )
-        snap = await graph_ref.aget_state(
-            {"configurable": {"thread_id": events[-1].data["run_id"]}}
-        )
-        chain = snap.values["messages"]
-        assert sum("台账全量" in m.get("content", "") for m in chain) >= 1
-        # 非懒加载：本 run 零 discover，注入照常在场（注入不依赖未命中）
-        assert not [s for s in steps if s.step_type == "discover"]
-        # V2-80h 追加链：第 2 次决策调用（toolmatch）＝第 1 次（clarify）的
-        # 前缀延长（KV 缓存原生形——相邻调用共享前缀零重排零丢弃）。
-        second_call = completer.messages_of("v2.runtime.decision")[1]
-        assert second_call[: len(first_clarify_chain)] == first_clarify_chain
-        # 相位一次性：台账全量在链上恰两次（澄清包＋匹配包各一次，无逐轮重复）。
-        assert sum("台账全量" in m.get("content", "") for m in second_call) == 2
-    finally:
-        await db.dispose()
+    first_call = completer.messages_of("decision")[0]
+    package = next(
+        message["content"]
+        for message in first_call
+        if message.get("role") == "user" and "台账全量" in str(message.get("content", ""))
+    )
+    assert "日产油量" in package and "老完成率" in package  # 指标台账逐字在场
+    assert "agg.fct_daily_metering" in package  # 结构卡
+    assert any("→" in line for line in package.splitlines())  # 别名映射行
+
+    # 追加式链（pin-22）：第 2 次决策调用＝第 1 次的**前缀延长**
+    second_call = completer.messages_of("decision")[1]
+    assert second_call[: len(first_call)] == first_call
+    # 相位包一次性（pin-24）：台账全量恰两次（澄清包＋匹配包各一次，无逐轮重复）
+    assert sum("台账全量" in message.get("content", "") for message in second_call) == 2
+    # 非懒加载：本 run 零 discover，注入照常在场
+    run_id = events[-1].data["run_id"]
+    assert not [row for row in v2_steps(run_id) if row.step == "discover"]
 
 
 # ---------- S5 审批恢复全链钉（B1 修复面——两链全通：clarify 面＋legacy 面） ----------
@@ -1229,84 +1395,75 @@ def test_clarify_contract_narrows_ask_to_threshold_and_true_ambiguity() -> None:
     assert "默认近 30 天" in CLARIFY_CONTRACT  # 拍板⑥默认窗（无时间词）
 
 
-async def test_four_phase_anchorable_window_skips_ask_delivers_degrade(
-    tmp_path: Path,
-) -> None:
-    """P-033c 降2 剧本钉（窗可锚定场景——收窄后行为形状回归锁；V2-43 更新）。
-
-    问句带明确时间词（去年——窗词锚定表可解析）＋台账命中（配产量在册未绑定）
-    ＝窗可锚定：收窄后模型直发分解（不做窗/粒度反问），全链零 ask 帧零挂起；
-    V2-43 换链回炉闸：绑定闸拒（未绑定 agg）不再降级直答终局——携拒因＋hint
-    标记回炉①澄清相位，轮 2 换 knowledge 链 doc_retrieve 真执行（数据实载于
-    文档的题不再被未绑定面误杀），如实交付零冒充。"""
+async def test_four_phase_anchorable_window_skips_ask_delivers_degrade() -> None:
+    """窗可锚定＝禁 ask：带明确窗的题全链零 ask 帧零挂起；换链回炉闸
+    （在册未绑定 agg）携拒因回炉①澄清相位，轮 2 换 knowledge 链真执行、如实交付。"""
+    dump = v2_ledger_dump()
+    bound_note = v2_ledger_note(dump, "配产量")
+    knowledge_note = v2_ledger_note(dump, "老完成率")
+    clarify = v2_decompose(
+        subtask_id="s1",
+        question="去年各井配产量",
+        ledger_notes=bound_note,
+        chain="data",
+    )
+    toolmatch = v2_matches(
+        v2_data_match(subtask_id="s1", slot="配产量",
+                      start="2025-01-01", end="2026-01-01")
+    )
+    clarify_r2 = v2_decompose(
+        subtask_id="s1",
+        question="去年各井配产量（据拒因提示换检索链）",
+        ledger_notes=knowledge_note,
+        chain="knowledge",
+    )
+    toolmatch_r2 = v2_matches(
+        v2_knowledge_match(subtask_id="s1", question="去年各井配产量")
+    )
+    script = {
+        "understand": [V2_UNDERSTAND],
+        "decision": [clarify, toolmatch, clarify_r2, toolmatch_r2],
+        "answer": ["去年各井配产量：月度配产合计 21.4 万方 [1]（按文档所载交付）。"],
+    }
     retrieval = _retrieval_with(_fragment_obs(
         "配产量按月度计划分解下达：各井合计月度配产 21.4 万方（月报所载）。",
         "frag-peichan-1",
     ))
-    engine = FourPhaseEngine(
-        [], slots=frozenset({"日产油量", "日产液量", "油压", "含水率", "配产量"})
-    )
-    clarify = json.dumps({
-        "action": "decompose",
-        "question_group": {"subtasks": [
-            {"id": "s1", "question": "去年各井配产量",
-             "ledger_notes": "配产量｜在册未绑定｜窗 2025-01-01~2026-01-01",
-             "chain": "data"},
-        ]},
-    }, ensure_ascii=False)
-    toolmatch = json.dumps({"matches": [
-        {"id": "s1", "chain": "data", "tool": "data_query", "plan": {
-            "metric_slot": "配产量", "ranking": False,
-            "window_start": "2025-01-01", "window_end": "2026-01-01"}},
-    ]}, ensure_ascii=False)
-    clarify_r2 = json.dumps({
-        "action": "decompose",
-        "question_group": {"subtasks": [
-            {"id": "s1", "question": "去年各井配产量（据拒因提示换检索链）",
-             "ledger_notes": "文档所载——knowledge 链", "chain": "knowledge",
-             "tool": "doc_retrieve"},
-        ]},
-    }, ensure_ascii=False)
-    toolmatch_r2 = json.dumps({"matches": [
-        {"id": "s1", "chain": "knowledge", "tool": "doc_retrieve",
-         "retrieval_need": {"question": "去年各井配产量"}},
-    ]}, ensure_ascii=False)
-    script = {
-        "v2.runtime.understand": [UNDERSTAND_MULTI],
-        "v2.runtime.decision": [clarify, toolmatch, clarify_r2, toolmatch_r2],
-        "v2.runtime.answer": [
-            "去年各井配产量：月度配产合计 21.4 万方[1]（汇总层未绑定，按文档所载交付）。",
-        ],
-    }
-    runtime, completer, db = await make_runtime(
-        tmp_path, engine=engine, script=script, retrieval=retrieval,
-        four_phase=True, ledger_dump=lambda: dict(LEDGER_DUMP),
-    )
-    try:
-        events = await _run_question(runtime, "去年各井配产量是多少？")
-        final = events[-1].data
-        assert final["status"] == "completed"  # 窗可锚定零 ask——不挂起直收口
-        assert not [e for e in events if e.event == "ask"]  # 全链零 ask 帧（回炉非挂起）
-        # 收窄合同面随 clarify 相位包在场（runtime 消费缝装载到位——非死文本；
-        # V2-80h 包在链中段，链尾为已做段增量——全调用面搜索）。
-        first_decision = "\n".join(
-            m.get("content", "") for m in completer.messages_of("v2.runtime.decision")[0]
+    wire_ledger_projection(V2LedgerPort(dump))
+    engine = V2QueueEngine([])
+    with freeze("2026-10-08T09:00:00"):
+        runtime, completer = v2_runtime(
+            script=script, registry=v2_registry(engine=engine, retrieval=retrieval)
         )
-        assert "窗可锚定＝禁 ask" in first_decision
-        # V2-43 换链回炉面：绑定闸拒触发回炉①恰一次，轮 2 换链真执行交付
-        store = RunStore(db)
-        steps = await store.list_steps(final["run_id"])
-        preconds = _step_payloads(steps, "precondition")
-        assert preconds[0]["verdicts"][0]["chain_switch_trigger"] is True
-        assert preconds[0]["chain_switch_marks"]["s1"]  # 换链指纹簿记在场
-        assert preconds[1]["verdicts"][0]["state"] == "pass"  # 换 knowledge 链放行
-        assert engine.run_calls == 0  # data 引擎零执行（降级直答终局退役）
-        assert retrieval.retrieve_calls == 1
-        notices = [e.data for e in events if e.event == "notice"]
-        assert any(n.get("type") == "chain_switch_reentry" for n in notices)
-        assert not any(n.get("type") == "unbound_degrade" for n in notices)
-    finally:
-        await db.dispose()
+        events = await v2_run(runtime, "去年各井配产量是多少？")
+
+    assert events[-1].event == "blackbox"
+    assert events[-1].data["status"] == "completed"  # 窗可锚定零 ask——不挂起直收口
+    assert not [event for event in events if event.event == "ask"]  # 全链零 ask 帧
+
+    first_decision = "\n".join(
+        message.get("content", "") for message in completer.messages_of("decision")[0]
+    )
+    assert "窗可锚定＝禁 ask" in first_decision  # 收窄合同随相位包在场（非死文本）
+
+    run_id = events[-1].data["run_id"]
+    preconditions = v2_steps(run_id, "precondition")
+    assert preconditions[0].payload["chain_switch_reentry"] is True  # 换链回炉首次触发
+    assert preconditions[0].payload["decision"] == "allow"
+    assert preconditions[1].payload["decision"] == "allow"  # 换 knowledge 链放行
+    assert engine.run_calls == 0  # data 引擎零执行
+    assert retrieval.retrieve_calls == 1
+    notices = [event.data for event in events if event.event == "notice"]
+    assert any(item.get("type") == "chain_switch_reentry" for item in notices)
+    assert not any(item.get("type") == "unbound_degrade" for item in notices)
+
+    # 相位合同一次性（钉 `pin-24`）：回炉轮不重发合同包——标记记一次、链上台账全量块仍恰两块
+    # （澄清包 ＋ 匹配包），不随轮数增长。
+    state = V2RunStore().load(run_id)
+    assert state.contracts_appended.count("clarify") == 1
+    assert state.contracts_appended.count("toolmatch") == 1
+    last_call = completer.messages_of("decision")[-1]
+    assert sum("台账全量" in message.get("content", "") for message in last_call) == 2
 
 
 async def test_four_phase_clarify_ask_threshold_form_still_suspends_and_resumes(
