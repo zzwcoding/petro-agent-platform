@@ -48,7 +48,7 @@ from appv2.runtimev2.clarification.constants import (
     REASON_CODES,
     REASON_FINALIZE_ZERO_OBSERVATION,
     REASON_LEDGER_NOTES_EMPTY,
-    REASON_LEDGER_NOTES_NOT_VERBATIM,
+    REASON_LEDGER_NOTES_SLOT_MISMATCH,
     REASON_NO_REDISCOVER,
     REASON_REJECTION_GUIDANCE,
     REASON_SCHEMA_INVALID,
@@ -91,7 +91,7 @@ from appv2.runtimev2.state import (
 
 _CLARIFY_DIR = Path(clarification_constants.__file__).parent
 
-# 台账条目原文（ledger_notes 逐字求得的源面——注释必须能在注入块里一字不差地找到）
+# 台账条目原文（注入块渲染的源面——`ledger_notes` 段一「槽位」取自投影结构名的同源面）
 _METRIC_VALUE = "产液量：日井口产液量，单位立方米，属日度生产指标"
 _METRIC_ROW: dict[str, Any] = {
     "slot": "产液量",
@@ -111,6 +111,17 @@ _TERM_ROW: dict[str, Any] = {
     "source_id": "sem.term.日产液量",
 }
 _OBJECT_ROW: dict[str, Any] = {"obj": "A7 井", "value": "A7 井", "source_id": "sem.object.A7"}
+# 真机台账对象名（`appv2/knowledge/snapshot.py` 对象行 10 条含「油田」——探针已核；N-01
+# 真机形 `油田｜未绑定｜2026-09-16~2026-10-16` 的槽位面）
+_OILFIELD_ROW: dict[str, Any] = {
+    "obj": "油田",
+    "value": "油田（草案）：§5 未列属性",
+    "source_id": "sem.object.油田",
+}
+# 三段槽位对账合法形（形＝`槽位｜绑定态｜窗`；段一 ∈ 名录、段二 ∈ 闭世界、段三＝锚定窗）
+_NOTE_SLOT = "产液量"
+_NOTE = f"{_NOTE_SLOT}｜未绑定｜2026-09-16~2026-10-16"
+_NOTE_WINDOW_UNRESOLVED = f"{_NOTE_SLOT}｜已绑定｜窗未定"
 
 
 def _dump(
@@ -123,10 +134,15 @@ def _dump(
     metric_rows = (
         [dict(_METRIC_ROW)] if metrics is None else [dict(row) for row in metrics]
     )
+    object_rows = (
+        [dict(_OBJECT_ROW), dict(_OILFIELD_ROW)]
+        if objects is None
+        else [dict(row) for row in objects]
+    )
     return {
         "metrics": metric_rows,
         "terms": [dict(row) for row in (terms or [])],
-        "objects": [dict(row) for row in (objects or [])],
+        "objects": object_rows,
         "relations": [],
         "families": [],
         "aliases": {},
@@ -146,6 +162,14 @@ def _state(**overrides: Any) -> RunState:
     return RunState(**fields)
 
 
+def _real_ledger_dump() -> dict[str, Any]:
+    """真机台账投影（问数组台账态快照——同名录用例的机取源；非 fixture 自证面）。"""
+    from appv2.knowledge import InMemoryKnowledgeStore, question_array_snapshot
+    from appv2.tools.ledger import dump_from_store
+
+    return dict(dump_from_store(InMemoryKnowledgeStore(question_array_snapshot())))
+
+
 def _json(payload: Mapping[str, Any]) -> str:
     return json.dumps(payload, ensure_ascii=False)
 
@@ -153,7 +177,7 @@ def _json(payload: Mapping[str, Any]) -> str:
 def _subtask(
     sid: str = "s1",
     *,
-    ledger_notes: str = _METRIC_VALUE,
+    ledger_notes: str = _NOTE,
     chain: str = "data",
     question: str = "查 A7 井近三天产液量",
 ) -> dict[str, Any]:
@@ -522,24 +546,55 @@ def test_finalize_rejection_three_segment_guidance() -> None:
     assert bare_outcome.reasons[1].reason == GUIDANCE_FALLBACK
 
 
-def test_ledger_notes_verbatim_from_injection() -> None:
-    """#11｜台账注入块存在且注释可逐字求得——`specs/clarification.md:118`。"""
+def test_ledger_notes_slot_reconciliation() -> None:
+    """#11｜台账注入块在场且注释过**三段槽位对账**（真机 N-01 形必过）——`clarification.md:119`。
+
+    **改前改后对比（墙拆证明）**：旧判据＝「注释在注入块内逐字子串」（`note_text in block`）——
+    真机台账行是 `指标｜★产量完成率：…（绑定态：unbound）` 长句形，模型照合同样例拼的
+    `产量完成率｜未绑定｜2026-09-16~2026-10-16` **永远不是块内子串** → 旧判据必拒（真机 run
+    run-0d2e0274／run-1f5792d8 各烧 2–3 轮）；新判据＝三段槽位对账（段一逐字 ∈ 台账名录／段二 ∈
+    闭世界／段三＝合法窗形）→ 同一形必过、且台账行仍在**交付前**被对账（不放行杜撰名）。
+    段一取自投影结构名（`metrics[].slot`——剥法纯名，与合同样例教的形同源），非块内行首串
+    （行首是 `★产量完成率`，逐字取会连样例形一起拒——正是本改要拆的墙）；名录四类＝指标／对象／
+    关系／**术语**（术语条亦台账条目行——2026-10-16 微批随真机形补入）。
+    """
     state = _state()
     block = render_ledger_resident_block(state)
     assert block and RESIDENT_BLOCK_BEGIN in block and RESIDENT_BLOCK_END in block
     assert _METRIC_VALUE in block  # 台账条目逐字转抄（`specs/prompts.md` 行为 8）
+    note = "油田｜未绑定｜2026-09-16~2026-10-16"  # 真机 N-01 形（槽位＝台账对象名）
+    assert "油田（草案）：§5 未列属性" in block  # 槽位同名台账行在场（名录源面）
+    assert note not in block  # 旧判据必拒形（墙：逐字子串求不得）
 
-    with _scripted(_decompose(_subtask(ledger_notes=_METRIC_VALUE))):
+    with _scripted(_decompose(_subtask(ledger_notes=note))):
         outcome = clarify(state)
-    assert isinstance(outcome, ClarifyFinal)
-    # 注入块随相位首入包进链（模型面可见＝逐字可求得的前提）
+    assert isinstance(outcome, ClarifyFinal)  # 新判据放行（旧判据此处必拒）
+    # 注入块随相位首入包进链（模型面可见＝对账前提）
     package = state.messages[0]
     assert package["role"] == "user"
     assert RESIDENT_BLOCK_BEGIN in package["content"]
     assert isinstance(state.question_group, Mapping)
     notes = [subtask["ledger_notes"] for subtask in state.question_group["subtasks"]]
-    assert notes == [_METRIC_VALUE]
-    assert all(note in block for note in notes)
+    assert notes == [note]  # 逐字承接（程序零改写）
+    # 段一逐字 ∈ 名录面（指标 slot／对象名／术语名）：唯一化的名三种写法
+    for slot in (_NOTE_SLOT, "油田"):
+        single = _state()
+        with _scripted(_decompose(_subtask(ledger_notes=f"{slot}｜未绑定｜窗未定"))):
+            assert isinstance(clarify(single), ClarifyFinal), slot
+    # 术语名亦在名录（`_NAME_COLUMNS` 含 `terms[].term`——2026-10-16 微批）：块内 `术语｜…` 行
+    # 与名录同源，术语作段一必过（旧名录无术语 = 白烧轮；真机日志有该形）
+    term_name = str(_TERM_ROW["term"])
+    term_state = _state(ledger_dump=_dump(terms=[_TERM_ROW]))
+    assert f"术语｜{term_name}" in render_ledger_resident_block(term_state)
+    with _scripted(_decompose(_subtask(ledger_notes=f"{term_name}｜未绑定｜窗未定"))):
+        assert isinstance(clarify(term_state), ClarifyFinal)
+
+    # 真机 ledger × 真机形（判据不依赖 fixture）：问数组台账态快照投影下，N-01 形同过；
+    # 且「油田」真在真投影对象名录（2026-10-16 探针：`appv2/knowledge/snapshot.py` 对象行 4）
+    real = _state(ledger_dump=_real_ledger_dump())
+    assert "油田" in {row.get("obj") for row in real.ledger_dump["objects"]}
+    with _scripted(_decompose(_subtask(ledger_notes=note))):
+        assert isinstance(clarify(real), ClarifyFinal)
 
 
 def test_waiting_not_counted_resume_resets() -> None:
@@ -690,9 +745,9 @@ def test_clarify_signal_present() -> None:
     assert frame["detail"] is None
     assert _last_step_payload(state)[PAYLOAD_ASK_FRAME] == frame
 
-    # ② 拒因：step payload 拒因字段＋回喂面
+    # ② 拒因：step payload 拒因字段＋回喂面（槽位对账不过——段一不在名录形）
     rejected = _state()
-    with _scripted(_decompose(_subtask(ledger_notes="产液量大概就是每天的产水量"))):
+    with _scripted(_decompose(_subtask(ledger_notes="采出程度｜未绑定｜2026-09-16~2026-10-16"))):
         rejection = clarify(rejected)
     assert isinstance(rejection, ClarifyRejection)
     assert _last_step_payload(rejected)[PAYLOAD_REJECTION] == rejection.reasons[0].reason
@@ -997,43 +1052,98 @@ def test_coverage_self_proof_model_only() -> None:
         assert _wordface_calls(tree) == [], path.name
 
 
-def test_boundary_paraphrased_notes_rejected() -> None:
-    """#21｜【边界集】`ledger_notes` 语义改写（非逐字）→ 判违约——`specs/clarification.md:128`。
+def test_boundary_slot_reconciliation_rejections() -> None:
+    """#21｜【边界集】`ledger_notes` 三段槽位对账不过 → 判违约（**带段级拒因**）——`:129`。
 
-    判据＝在台账注入块内**逐字求得**（行为 8；**形态处理豁免面内**——逐字子串校，非语义词表／
-    正则）：语义等价但非逐字形（改写／摘要／改一字／自造）→ 判违约、拒因回喂、**不静默放行、
-    不自动修补**；逐字形（含台账原话的子串）→ 放行——同一判据无中间态。
+    判据＝三段槽位对账（行为 8；2026-10-16 改·流水 64；**形态处理豁免面内**——闭世界集合成员校
+    ＋日期形解析，非语义词表／正则）：任一不过 → 判违约、拒因回喂（**指明哪一段／哪个值／为什么**
+    ＋【期望形】＋【台账相关行】）、**不静默放行、不自动修补**。四类拒形逐条：
+    ①槽位不在名录（含语义改写／摘要／自造的段一形）；②绑定态越界（「草案」等台账行外值）；
+    ③窗形不合法（胡写）；④段数非三（缺段／多段——位次固定）。
     """
     block = render_ledger_resident_block(_state())
-    assert _METRIC_VALUE in block  # 逐字求得的源面在场
+    assert _METRIC_VALUE in block  # 台账行在场（【台账相关行】取值面）
 
-    paraphrases = {
-        "改写": _METRIC_VALUE.replace("日井口产液量", "每日从井口采出的液体总量"),
-        "摘要": "产液量（日度生产指标）",
-        "改一字": _METRIC_VALUE[:-1] + "度",
-        "自造": "产液量大概就是每天的产水量",
+    cases: dict[str, tuple[str, str, str]] = {
+        # label: (note 形, 拒段名, 拒因原因逐字)
+        "槽位不在名录": ("采出程度｜未绑定｜2026-09-16~2026-10-16", "槽位", "不在台账名录"),
+        "槽位非逐字改写": (
+            "产液量（日度生产指标）｜未绑定｜2026-09-16~2026-10-16", "槽位", "不在台账名录",
+        ),
+        "槽位自造": (
+            "产液量大概就是每天的产水量｜未绑定｜2026-09-16~2026-10-16",
+            "槽位",
+            "不在台账名录",
+        ),
+        "绑定态越界": ("产液量｜草案｜2026-09-16~2026-10-16", "绑定态", "绑定态越界"),
+        "绑定态英文形越界": ("产液量｜bound｜2026-09-16~2026-10-16", "绑定态", "绑定态越界"),
+        "窗形胡写": ("产液量｜未绑定｜下个月", "窗", "窗形不合法"),
+        "窗单端非法": ("产液量｜未绑定｜2026-09-16~下个月", "窗", "窗形不合法"),
+        "窗缺段": ("产液量｜未绑定｜", "窗", "窗形不合法"),
+        "段数缺": ("产液量｜未绑定", "段数", "段数非三"),
+        "段数多": ("产液量｜未绑定｜2026-09-16~2026-10-16｜备注", "段数", "段数非三"),
     }
-    for label, note_text in paraphrases.items():
-        assert note_text not in block, label  # 非逐字形（注入块内求不得）
+    for label, (note_text, segment, cause) in cases.items():
         state = _state()
         with _scripted(_decompose(_subtask(ledger_notes=note_text))) as completer:
             outcome = clarify(state)
         assert isinstance(outcome, ClarifyRejection), label
         assert [reason.code for reason in outcome.reasons] == [
-            REASON_LEDGER_NOTES_NOT_VERBATIM
+            REASON_LEDGER_NOTES_SLOT_MISMATCH
         ], label
+        reason = outcome.reasons[0].reason
+        assert reason.startswith("上次发射被拒：ledger_notes 槽位对账未过：s1"), label
+        assert f"【拒因】s1 的「{segment}」段" in reason, label
+        assert cause in reason, label  # 拒因指明原因
+        assert "【期望形】〈台账行首名〉｜已绑定|未绑定｜〈锚定窗或窗未定〉" in reason, label
+        assert "——修正后重新输出 JSON。" in reason, label
+        if segment in ("槽位", "段数"):
+            assert "【台账相关行】（名录无此名" in reason, label
+        else:
+            assert "【台账相关行】指标｜产液量：" in reason, label  # 整行原文（同注入块形）
         assert state.question_group is None  # 不静默放行、不自动修补
-        assert state.decision_error == outcome.reasons[0].reason  # 拒因回喂
-        assert _last_step_payload(state)[PAYLOAD_REJECTION] == outcome.reasons[0].reason
+        assert state.decision_error == reason  # 拒因回喂（增量条「上次发射被拒」行源）
+        assert _last_step_payload(state)[PAYLOAD_REJECTION] == reason
         assert len(completer.calls) == 1
 
-    # 边界另一面：逐字求得（含台账原话的子串）→ 放行
-    for note_text in (_METRIC_VALUE, "产液量"):
-        verbatim = _state()
+    # 多名越界同发：头行列全 offender、逐 id 一块（回喂面单段文本）
+    multi = _state()
+    rows = [
+        _subtask("s1", ledger_notes="采出程度｜未绑定｜2026-09-16~2026-10-16"),
+        _subtask("s2", ledger_notes="产液量｜草案｜2026-09-16~2026-10-16"),
+    ]
+    with _scripted(_decompose(*rows)):
+        multi_outcome = clarify(multi)
+    assert isinstance(multi_outcome, ClarifyRejection)
+    assert "槽位对账未过：s1、s2" in multi_outcome.reasons[0].reason
+    assert "【拒因】s1 的「槽位」段" in multi_outcome.reasons[0].reason
+    assert "【拒因】s2 的「绑定态」段" in multi_outcome.reasons[0].reason
+    assert multi_outcome.reasons[0].reason.count("【期望形】") == 2  # 逐 id 一块
+    # 步骤标题／过程档案用单行同义形（多行拒因正文不进标题槽）
+    assert any(
+        "槽位对账未过：s1、s2" in str(step.get("title", "")) for step in multi.steps
+    )
+
+    # 边界另一面：三段位次对齐、值皆合法 → 放行（同一判据无中间态）；段三「无时间窗」＝
+    # 「窗未定」同义形（knowledge 链检索式无窗概念，2026-10-16 微批收编——真机日志实测写法）
+    for note_text in (
+        _NOTE,
+        _NOTE_WINDOW_UNRESOLVED,
+        f"{_NOTE_SLOT}｜已绑定｜无时间窗",
+        f"{_NOTE_SLOT}｜已绑定｜null~null",
+    ):
+        allowed = _state()
         with _scripted(_decompose(_subtask(ledger_notes=note_text))):
-            verbatim_outcome = clarify(verbatim)
-        assert isinstance(verbatim_outcome, ClarifyFinal), note_text
-        assert verbatim.question_group["subtasks"][0]["ledger_notes"] == note_text
+            allowed_outcome = clarify(allowed)
+        assert isinstance(allowed_outcome, ClarifyFinal), note_text
+        assert allowed.question_group["subtasks"][0]["ledger_notes"] == note_text
+
+    # 空投影（注入块缺位）＝名录制空 → 判违约（fail-closed，不降级放行）
+    empty = _state(ledger_dump={})
+    with _scripted(_decompose(_subtask(ledger_notes=_NOTE))):
+        empty_outcome = clarify(empty)
+    assert isinstance(empty_outcome, ClarifyRejection)
+    assert "不在台账名录" in empty_outcome.reasons[0].reason
 
 
 def test_retention_no_ask_no_dependency() -> None:

@@ -48,7 +48,7 @@ def test_render_decompose_example_dynamic() -> None:  # T2 一补（运行时动
         today=date(2026, 8, 31),
     )
     assert '"chain": "data", "tool": "data_query"' in bound_only
-    assert "日产油量｜在册可出数" in bound_only
+    assert "日产油量｜在册可出数" in bound_only  # V1 `orientation` 样例（不涉 V2 闭世界）
     assert render_decompose_example([], today=date(2026, 8, 31)) == ""
 
 

@@ -990,7 +990,8 @@ def test_decompose_example_three_branches() -> None:
 
     data = render_decompose_example([bound], today=_DECISION_TODAY)  # 无未绑定 → 首条可出数
     assert "生产时长是多少？" in data
-    assert "生产时长｜在册可出数｜2026-07-25~2026-08-24" in data
+    # 段二字面＝澄清对账闭世界值（样例教的即闸收的；真源 `specs/clarification.md` 行为 8②）
+    assert "生产时长｜已绑定｜2026-07-25~2026-08-24" in data
     assert '"chain": "data", "tool": "data_query"' in data
 
     for empty_metrics in ([], None, {"slot": "x"}):  # 空投影／非列 → 空串（调用方跳过）
@@ -1022,7 +1023,7 @@ def test_decompose_example_valid_json() -> None:
     assert isinstance(subtasks, list) and len(subtasks) == 1  # subtasks 单条
     assert set(subtasks[0]) == {"id", "question", "ledger_notes", "chain", "tool"}  # 五键齐全
     assert subtasks[0]["id"] == "s1"
-    assert subtasks[0]["ledger_notes"] == "生产时长｜在册可出数｜2026-07-25~2026-08-24"
+    assert subtasks[0]["ledger_notes"] == "生产时长｜已绑定｜2026-07-25~2026-08-24"
 
     # 转义面：指标名含裸引号／反斜杠时，json.dumps 转义后仍合法（裸拼即非法）
     hostile = {"slot": '时率"高"\\', "binding_state": "bound", "value": "x"}

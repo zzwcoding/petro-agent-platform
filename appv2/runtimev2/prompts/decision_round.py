@@ -116,7 +116,9 @@ _DECOMPOSE_EXAMPLE_HEAD = (
     "填写样例（分解形——五键齐全，ledger_notes 逐字转抄台账全量块，窗为示意按窗词锚定表现算）："
 )
 _UNBOUND_BINDING = "未绑定"
-_BOUND_BINDING = "在册可出数"
+# 绑定态字面须 ∈ 澄清对账闭世界 `BINDING_STATES`（`已绑定`／`未绑定`）——样例教的即闸收的
+# （2026-10-16 微批对齐：旧字面 `在册可出数` 是台账 V1 绑定态形，过不了三段槽位对账的绑定态段）。
+_BOUND_BINDING = "已绑定"
 
 
 def anchor_line(question: str, understanding: str = "") -> str:
@@ -167,8 +169,9 @@ def _card_rows(dump: Mapping[str, Any]) -> str:
 def render_ledger_resident_block(state: RunState) -> str:
     """台账常驻块渲染（行为 7⑥／行为 8）——BEGIN＋字典说明行＋台账/别名/结构卡三块＋END。
 
-    台词条目**逐字转抄**自 `state.ledger_dump` 投影（不改写、不摘要——`ledger_notes` 逐字可求得
-    的前提）；**恰一份**（装配不另拼名录段——V2-59 三删纪律的装配面）。投影缺位／空投影（`None`
+    台词条目**逐字转抄**自 `state.ledger_dump` 投影（不改写、不摘要——`ledger_notes` **槽位段**
+    逐字可求得的前提：对账口径＝段一逐字 ∈ 台账名录，非整块逐字子串）；**恰一份**（装配不另拼
+    名录段——V2-59 三删纪律的装配面）。投影缺位／空投影（`None`
     或 `{}`）→ 返回**空串**（该段缺位、调用方跳过——行为 7「投影非空时」）。
     """
     dump = _projection(state)

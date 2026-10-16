@@ -139,13 +139,23 @@ def v2_ledger_dump() -> dict[str, Any]:
     return dict(dump_from_store(store))
 
 
-def v2_ledger_note(dump: dict[str, Any], keyword: str) -> str:
-    """台账注释（**逐字**取自常驻注入块——相位侧在校「是否台账原话」）。"""
-    from appv2.runtimev2.prompts import render_ledger_resident_block
-    from appv2.runtimev2.state import RunState as V2RunState
+# 台账注释窗段（锚定窗形——窗段合法形；测试面统一用同一窗，模型侧窗结论另经工具匹配载荷给）
+V2_NOTE_WINDOW = "2025-09-01~2025-09-03"
 
-    block = render_ledger_resident_block(V2RunState(run_id="probe", ledger_dump=dict(dump)))
-    return next(line for line in block.splitlines() if keyword in line)
+
+def v2_ledger_note(dump: dict[str, Any], keyword: str) -> str:
+    """台账注释（**三段槽位对账**形 `槽位｜绑定态｜窗`——相位侧判据面，流水 64）。
+
+    段一＝台账名录名（指标 slot／对象／关系名——`dump` 投影结构名；本件就地核 `keyword` 真在
+    名录，防测试面造假名）；段二＝闭世界「已绑定」；段三＝锚定窗形（`V2_NOTE_WINDOW`）。
+    """
+    registry = {
+        row.get(key)
+        for block, key in (("metrics", "slot"), ("objects", "obj"), ("relations", "rel"))
+        for row in dump.get(block) or []
+    }
+    assert keyword in registry, keyword  # 槽位须 ∈ 台账名录（假名不得进剧本）
+    return f"{keyword}｜已绑定｜{V2_NOTE_WINDOW}"
 
 
 def v2_registry(
@@ -1759,7 +1769,9 @@ async def test_boundary_suspend_interrupt_budget_rewire_bad_cite() -> None:
     # ——4 换链回炉：在册未绑定 agg → 回炉①澄清改链 ——
     dump_rewire = v2_ledger_dump()
     bound_note = v2_ledger_note(dump_rewire, "配产量")
-    knowledge_note = v2_ledger_note(dump_rewire, "老完成率")
+    # 换链轮子问题同问配产量 → 台账注释载同名录名（旧形曾抄术语行首名「老完成率」——流水 64
+    # 判据下段一须 ∈ 名录（指标/对象/关系名），术语名不在名录，登记项呈主窗）
+    knowledge_note = v2_ledger_note(dump_rewire, "配产量")
     wire_ledger_projection(V2LedgerPort(dump_rewire))
     retrieval = _retrieval_with(_fragment_obs(
         "配产量按月度计划分解下达：各井合计月度配产 21.4 万方（月报所载）。", "frag-peichan-b"
@@ -1915,7 +1927,7 @@ async def test_four_phase_anchorable_window_skips_ask_delivers_degrade() -> None
     （在册未绑定 agg）携拒因回炉①澄清相位，轮 2 换 knowledge 链真执行、如实交付。"""
     dump = v2_ledger_dump()
     bound_note = v2_ledger_note(dump, "配产量")
-    knowledge_note = v2_ledger_note(dump, "老完成率")
+    knowledge_note = v2_ledger_note(dump, "配产量")  # 同上：段一 ∈ 名录（术语名已不可作段一）
     clarify = v2_decompose(
         subtask_id="s1",
         question="去年各井配产量",

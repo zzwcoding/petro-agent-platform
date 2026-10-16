@@ -51,10 +51,10 @@ class ClarifyFinal:                                 # 定案 → 进下一相位
 class Subtask:
     id: str
     question: str
-    ledger_notes: str                               # 必填非空；从台账逐字转抄
+    ledger_notes: str                               # 必填非空；三段槽位对账形 `槽位｜绑定态｜窗`（行为 8；流水 64）
     chain: Literal["data", "knowledge"]             # 闭世界
 class ClarifyRejection:                             # 拒因回喂用（非终局）
-    reasons: list[ClarifyReason]                    # 结构化：动作越界／条数越界／注释为空／注释非逐字／chain 越界／零实质观察禁定稿
+    reasons: list[ClarifyReason]                    # 结构化：动作越界／条数越界／注释为空／注释槽位对账不过／chain 越界／零实质观察禁定稿
 class ClarifyReason:                                # 结构化拒因单条
     ...
 ```
@@ -63,7 +63,7 @@ class ClarifyReason:                                # 结构化拒因单条
 - **`guide_text` 注入注（2026-10-16 裁·流水 63）**：签名补注入形参 `*, guide_text: str = ""`——§A 指南文本经编排注入（快照）；缺省空串＝空段头（本块只下传、不读文件；装配面归 api 组合根）。
 - **`discover` 出口由 `orchestration` 承接（本块不返回）**：`discover` 不在本块内直调工具，而是**以 `next_intent="discover"` 的信道交出**、由 `orchestration` 路由到发现步执行，结果回到本相位（真源 `docs/runtime-refactor/recon/E1-澄清节点.md`「本段零工具直调」「discover→NODE_DISCOVER」）；故 `ClarifyOutcome` 的**本块返回位**＝`ClarifyAsk`｜`ClarifyFinal`｜`ClarifyRejection`（`discover` 不占返回位）。
 - **`chain` 闭世界**：合法值仅 `"data"`｜`"knowledge"`。
-- **错误契约**：发射不合 schema（动作越界／子问题条数越界／`ledger_notes` 为空／`ledger_notes` 非逐字（在台账注入块内求不得）／`chain` 越界）→ **返回 `ClarifyRejection`（结构化拒因）**，由 `orchestration` **回喂模型、回到本相位重决策**（**不做自动修补**）。
+- **错误契约**：发射不合 schema（动作越界／子问题条数越界／`ledger_notes` 为空／`ledger_notes` 槽位对账不过（槽位不在台账名录／绑定态越界／窗形不合法／段数非三）／`chain` 越界）→ **返回 `ClarifyRejection`（结构化拒因）**，由 `orchestration` **回喂模型、回到本相位重决策**（**不做自动修补**）。槽位对账不过的**拒因载荷形（逐字稿＝流水 64 裁，零模型调用）**：头行「上次发射被拒：ledger_notes 槽位对账未过：{id 列表}」＋逐子问题三行块（「【拒因】{id} 的「{段名}」段「{值}」{不过原因：不在台账名录／绑定态越界／窗形不合法}」＋「【期望形】〈台账行首名〉｜已绑定|未绑定｜〈锚定窗或窗未定〉」＋「【台账相关行】{槽位 exact-match 取到的台账整行原文；槽位不在名录＝（名录无此名——只许用台账注入块内出现的指标/对象/关系/术语名）}」）＋尾行「——修正后重新输出 JSON。」。
 - **`finalize` 合法性闸（前置合规，非 schema 违例）**：判「材料足够」定案前，**窗内必须有非 notice 实质观察**（faq 命中卡／台账条目卡／检索片段；空手探查——未命中 notice／工具失败／零观察——不算数）；窗内非 notice 观察数 ＝ 0 → **返回 `ClarifyRejection`（拒因形：零实质观察禁定稿）**，同样由 `orchestration` 回喂重决策、**不得判「材料足够」直答收口**。该闸＝**纯结构判定**（数窗内非 notice 观察数，非语义判断；计数属形态处理豁免面）；真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-01「finalize 合法 ⇔ 窗内已有实质观察」；钉 `pin-05`（P0）。
 - **挂起契约**：返回 `ClarifyAsk` 即进入挂起态（`pending_ask` 随检查点走）；恢复经 `orchestration` 的 `resume` 入口。
 - 真源：`specs/modules.md` `## clarification` 卡（签名以卡为准）。
@@ -83,7 +83,7 @@ class ClarifyReason:                                # 结构化拒因单条
 5. **先探后问为首选策略（属模型侧策略，不入程序验收面）**：模型先 `discover` 出候选，再带候选反问（真源 `walk/08` §七 Q-C）；**程序侧只做闭世界 schema 对账，不验收该策略**。
 6. **台账全量每轮注入**（词典层小、利于前缀缓存）；**词典层变大即转按需检索**：**阈值待定、暂以全量注入为唯一现行为**（真源 `walk/08` §七 Q-A 亦未给数值）。
 7. **封顶数值一律引限额真源双指**：子问题条数上限、连续反问次数上限（R-K-76）、发现次数上限（R-K-75）、返工轮次上限（R-K-72；§06-A 回炉一次）——**本规格不写字面值**（真源 `recon/K-上下文事件指南预算.md` R-K-72…R-K-78 逐键 ＋ `walk/裁决表.md` §06-A 循环上限五项；子问题条数上限两源均未单列，数值真源 `walk/09-澄清-分解问题.md` §七 Q-C）。
-8. **注释逐字抄台账**：`ledger_notes` 必填非空，内容须能在**台账注入块里逐字求得**（不做语义改写、不摘要）。
+8. **`ledger_notes` 三段槽位对账（2026-10-16 改·流水 64，Owner 裁）**：`ledger_notes` 必填非空，形＝`槽位｜绑定态｜窗`（分隔符全角「｜」、**段位次固定**——段缺／段数非三＝判违约）。三段判据：①**槽位**＝段一，须**逐字** ∈ **台账名录**（ledger 投影的指标 slot／对象 obj／关系 rel／术语 term 名——exact membership，无语义匹配；空投影＝名录制空、fail-closed 判违约；**术语条亦台账条目行**，2026-10-16 微批随真机形补入）；②**绑定态**＝段二，∈ 闭世界 `{"已绑定", "未绑定"}`（照台账行「（绑定态：…）」中文形）；③**窗**＝段三，合法形＝窗词锚定表现算（如 `2026-09-16~2026-10-16`）或「窗未定」／同义形「无时间窗」（knowledge 链检索式问题无窗概念＝合法；两写法同为模型自发形，2026-10-16 微批收编）或双 null 发射形（窗形读法照 `appv2/tools/precondition.py`，不新造）。任一不过＝判违约：拒因回喂**指明哪一段／哪个值／为什么**＋【期望形】＋【台账相关行】（载荷形见「接口定义」错误契约；台账名**逐字转抄**——不做语义改写、不摘要；**不自动修补**）。判据＝**形态处理豁免面**（闭世界集合成员校＋日期形解析，非语义词表／正则）。
 9. **覆盖校验交模型**：拆完后由**模型**自证「子问题合起来覆盖原题」；**程序只校格式，不拿词表猜覆盖**。
 10. **子问题无依赖**：`Subtask` 不含依赖字段，子问题**独立并行**。
 11. **反问卡合并**：同一轮里多处歧义 → **合并成一张卡**一次问清（反对逐条追问）。
@@ -116,17 +116,17 @@ class ClarifyReason:                                # 结构化拒因单条
 | 无时间词 → 默认近 30 天并带注记 | `tests/domains/test_v2_clarification.py::default_window_with_note` |
 | 口径歧义 → 反问（不给默认） | `tests/domains/test_v2_clarification.py::caliber_ambiguity_asks` |
 | 同轮多处歧义 → 合并成一张卡 | `tests/domains/test_v2_clarification.py::ask_card_merged` |
-| 台账注入块存在且注释可逐字求得 | `tests/domains/test_v2_clarification.py::ledger_notes_verbatim_from_injection` |
+| 台账注入块在场且注释过**三段槽位对账**（真机 N-01 形必过；旧「注入块内逐字求得」判据必拒形） | `tests/domains/test_v2_clarification.py::ledger_notes_slot_reconciliation` |
 | 挂起等待不计轮；`resume` 重置轮预算 | `tests/domains/test_v2_clarification.py::waiting_not_counted_resume_resets` |
 | 恢复时重取易变量（水位／新鲜度／地基） | `tests/domains/test_v2_clarification.py::resume_reloads_volatile` |
 | 到上限 → 截断＋带材料如实直答（不环） | `tests/domains/test_v2_clarification.py::ask_cap_truncate_with_material` |
 | 覆盖校验由模型自证；程序不判覆盖 | `tests/domains/test_v2_clarification.py::coverage_self_proof_model_only` |
-| 程序侧无词表／正则语义判断（AST 扫描本模块；**豁免面＝形态处理**——逐字子串校与集合成员判定不算语义词表／正则） | `tests/domains/test_v2_clarification.py::no_lexicon_or_regex_in_clarification` |
+| 程序侧无词表／正则语义判断（AST 扫描本模块；**豁免面＝形态处理**——闭世界集合成员校与日期形解析不算语义词表／正则） | `tests/domains/test_v2_clarification.py::no_lexicon_or_regex_in_clarification` |
 | 拒因／截断／挂起的机读信号在场（ask 帧／`pending_ask`／step payload 拒因字段／notice） | `tests/domains/test_v2_clarification.py::clarify_signal_present` |
 | `discover` 经 `orchestration` 路由出去执行（本块零工具直调、不返回） | `tests/domains/test_v2_clarification.py::discover_routed_not_direct_call` |
 | 台账命中且时间窗已定 → 禁再 `discover`（机械半句，断的是模型结论的分派形——「时间窗已定」判断在模型侧（`walk/裁决表.md` 项目级裁决 #13）；「两白场」属模型侧策略，程序不验收） | `tests/domains/test_v2_clarification.py::no_rediscover_when_window_set` |
 | 解析拒文（parsing `str`）→ `ClarifyRejection` 结构化转换归本块（消费方）：机械适配（str 逐字进 `reason` 字段＋映射拒因枚举）、零语义判断（行为 19） | `tests/domains/test_v2_clarification.py::parse_rejection_str_to_clarify_rejection_consumer_side` |
-| 【边界集】`ledger_notes` 语义改写（非逐字）→ 判违约 | `tests/domains/test_v2_clarification.py::boundary_paraphrased_notes_rejected` |
+| 【边界集】`ledger_notes` 三段槽位对账不过（槽位不在台账名录／绑定态越界／窗形不合法／段数非三）→ 判违约＋段级拒因 | `tests/domains/test_v2_clarification.py::boundary_slot_reconciliation_rejections` |
 | 【保留集】非歧义问句不产生 ask；子问题独立并行行为不变 | `tests/domains/test_v2_clarification.py::retention_no_ask_no_dependency` |
 
 ## 依赖与风险
@@ -134,7 +134,7 @@ class ClarifyReason:                                # 结构化拒因单条
 - 依赖：`prompts`／`parsing`（同批新增）、`bookkeeping`（模型调用发起面——`call_model` 单点发起）、`gateway_adapter`（模型出口——经 `call_model` 的内部唯一出口，本块不直引；真源 `specs/modules.md` `## gateway_adapter`）、`state`（状态形状）。
 - 风险与对策：
   1. **限额数值被复制进实现** → 漂移。对策：限额数值只从真源双指读（`recon/K-上下文事件指南预算.md` R-K-72…R-K-78 逐键 ＋ `walk/裁决表.md` §06-A 循环上限五项）；检测手段＝限额常量单点测试（`state` 卡）。
-  2. **覆盖校验滑成程序判** → 违总纪律。对策：判据只留在模型侧；检测手段＝AST 机检测试 `no_lexicon_or_regex_in_clarification`（**豁免面＝形态处理**：逐字子串校与集合成员判定不算语义词表／正则）。
+  2. **覆盖校验滑成程序判** → 违总纪律。对策：判据只留在模型侧；检测手段＝AST 机检测试 `no_lexicon_or_regex_in_clarification`（**豁免面＝形态处理**：闭世界集合成员校与日期形解析不算语义词表／正则）。
   3. **恢复重取漏项**（等待期环境失效）→ 交付用旧数据。对策：明确清单（水位／新鲜度／地基／落库新数据）；检测手段＝测试 `resume_reloads_volatile`。
 
 ## 与闸的挂钩表

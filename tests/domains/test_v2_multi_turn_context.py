@@ -898,7 +898,9 @@ async def test_gate_refused_line_visible_across_followup() -> None:
     from appv2.runtimev2.state import AskRequest
 
     dump = v2_ledger_dump()
-    note = v2_ledger_note(dump, "老完成率")
+    # 禁用词题（题面提「老完成率」）：台账注释载其**替代现行指标**名录名（旧形抄术语行首名——
+    # 流水 64 判据段一须 ∈ 名录＝指标/对象/关系名，术语名不在名录；登记项呈主窗）
+    note = v2_ledger_note(dump, "产量完成率")
     refused = v2_decompose(
         subtask_id="s1",
         question="各井老完成率",

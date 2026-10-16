@@ -90,7 +90,7 @@ def _group_payload(ids: Sequence[str]) -> dict[str, Any]:
             {
                 "id": subtask_id,
                 "question": f"{subtask_id} 子问题原句",
-                "ledger_notes": f"{subtask_id}｜在册可出数｜近 30 天",
+                "ledger_notes": f"{subtask_id}｜已绑定｜近 30 天",
                 "chain": DATA_CHAIN,
             }
             for subtask_id in ids

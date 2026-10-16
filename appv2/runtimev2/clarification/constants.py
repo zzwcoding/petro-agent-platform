@@ -53,8 +53,8 @@ VERDICT_REFUSAL_STATES: Final[frozenset[str]] = frozenset(
 )
 
 # ── 拒因码闭世界（`ClarifyReason.code`）────────────────────────────────────────
-# 规格枚举六值＝`specs/clarification.md` 接口定义节（动作越界／条数越界／注释为空／注释非逐字／
-# chain 越界／零实质观察禁定稿）；另三项为本块必需出口：
+# 规格枚举六值＝`specs/clarification.md` 接口定义节（动作越界／条数越界／注释为空／注释槽位对账
+# 不过／chain 越界／零实质观察禁定稿）；另三项为本块必需出口：
 # - `no_rediscover_when_window_set`＝行为 16 后半机械半句的回喂出口（驳回「再 discover」）；
 # - `rejection_guidance`＝行为 18 三段带路的承载位（拒因载荷必带——不做第二套返回形）；
 # - `schema_invalid`＝解析面其余 schema 违例（不可解析 JSON／discover 与 ask 形状／预算前缀）
@@ -63,7 +63,10 @@ VERDICT_REFUSAL_STATES: Final[frozenset[str]] = frozenset(
 REASON_ACTION_OUT_OF_WORLD: Final[str] = "action_out_of_world"
 REASON_SUBTASK_COUNT_OUT_OF_RANGE: Final[str] = "subtask_count_out_of_range"
 REASON_LEDGER_NOTES_EMPTY: Final[str] = "ledger_notes_empty"
-REASON_LEDGER_NOTES_NOT_VERBATIM: Final[str] = "ledger_notes_not_verbatim"
+# 注释非逐字 → 槽位对账不过（2026-10-16 改·流水 64，Owner 裁）：判据由「在台账注入块内逐字
+# 求得」改为「三段槽位对账」（行为 8）——承载位与枚举位次不变，码面随判据改名（枚举仍九值，
+# 未扩员）。
+REASON_LEDGER_NOTES_SLOT_MISMATCH: Final[str] = "ledger_notes_slot_mismatch"
 REASON_CHAIN_OUT_OF_WORLD: Final[str] = "chain_out_of_world"
 REASON_FINALIZE_ZERO_OBSERVATION: Final[str] = "finalize_without_substantive_observation"
 REASON_NO_REDISCOVER: Final[str] = "no_rediscover_when_window_set"
@@ -75,7 +78,7 @@ REASON_CODES: Final[frozenset[str]] = frozenset(
         REASON_ACTION_OUT_OF_WORLD,
         REASON_SUBTASK_COUNT_OUT_OF_RANGE,
         REASON_LEDGER_NOTES_EMPTY,
-        REASON_LEDGER_NOTES_NOT_VERBATIM,
+        REASON_LEDGER_NOTES_SLOT_MISMATCH,
         REASON_CHAIN_OUT_OF_WORLD,
         REASON_FINALIZE_ZERO_OBSERVATION,
         REASON_NO_REDISCOVER,
@@ -107,6 +110,41 @@ REJECT_FREE_STREAK: Final[int] = 2
 # ── 易变量清单（行为 13：恢复时重取一遍）──────────────────────────────────────
 # 清单原文＝`specs/clarification.md` 行为 13／风险 3：数据水位／新鲜度／地基／落库新数据。
 VOLATILE_KEYS: Final[tuple[str, ...]] = ("watermark", "freshness", "foundation", "new_rows")
+
+# ── `ledger_notes` 三段槽位对账（行为 8 的判据面；2026-10-16 改·流水 64，Owner 裁）────────
+# 判据真源＝`specs/clarification.md` 行为 8（三段对账：槽位逐字∈台账名录／绑定态∈闭世界／
+# 窗形合法）；合同 `ledger_notes` 形逐字＝`槽位｜绑定态｜窗`（分隔符全角「｜」、三段位次固定）。
+NOTE_SLOT_SEPARATOR: Final[str] = "｜"
+# 段名（拒因文案「{段名}」槽位——段位次固定名；段数非三时用「段数」承名）。
+NOTE_SEGMENT_SLOT: Final[str] = "槽位"
+NOTE_SEGMENT_BINDING: Final[str] = "绑定态"
+NOTE_SEGMENT_WINDOW: Final[str] = "窗"
+NOTE_SEGMENT_COUNT: Final[str] = "段数"
+# 段位次表（段数与段名同源一处——判据面引 `len(NOTE_SEGMENTS)`，不另立条数常量）。
+NOTE_SEGMENTS: Final[tuple[str, ...]] = (
+    NOTE_SEGMENT_SLOT,
+    NOTE_SEGMENT_BINDING,
+    NOTE_SEGMENT_WINDOW,
+)
+# 绑定态闭世界（流水 64 裁：照台账行「（绑定态：…）」中文形两值；越界即拒）。
+BINDING_STATES: Final[frozenset[str]] = frozenset({"已绑定", "未绑定"})
+# 窗段合法形（除「ISO~ISO 锚定窗」外的字面形；窗形读法照 `appv2/tools/precondition.py`
+# 的 `date.fromisoformat(window_end[:10])`——截读长度即 ISO 日形串长，取自形串本身；
+# 本块不新造窗面判据）。
+WINDOW_SEPARATOR: Final[str] = "~"
+WINDOW_SEGMENT_TOTAL: Final[int] = 2
+ISO_DAY_SHAPE: Final[str] = "2000-01-01"
+WINDOW_UNRESOLVED: Final[str] = "窗未定"
+# 「无时间窗」＝「窗未定」同义形（knowledge 链检索式问题无窗概念，模型自发写法两种；
+# 2026-10-16 微批收编——真机日志实测模型写「无时间窗」，旧判据必拒白烧轮）。
+WINDOW_UNTIMED: Final[str] = "无时间窗"
+WINDOW_NULL_PAIR: Final[str] = "null~null"
+# 非锚定窗合法字面（闭世界集合单点——判据 `core._window_legal` 消费本表，不另立字面）。
+WINDOW_LITERALS: Final[tuple[str, ...]] = (
+    WINDOW_UNRESOLVED,
+    WINDOW_UNTIMED,
+    WINDOW_NULL_PAIR,
+)
 
 # ── 文本常量族（逐字迁移自 `appv2/runtime/graph.py` `_shallow_probe_feedback`／
 #    `_clarify_capped_answer`／`_quote_repair_notice` 与 `appv2/runtime/budget.py`
@@ -141,12 +179,30 @@ QUOTE_REPAIR_NOTICE_CONTENT: Final[str] = (
     "发射 JSON 值内裸引号——程序确定性修复后受理（零模型零占轮；值内引号换中文引号）"
 )
 
-# ── 机器面拒因文本（本块产：行为 16 后半／行为 8 逐字校）──────────────────────
+# ── 机器面拒因文本（本块产：行为 16 后半／行为 8 槽位对账）────────────────────
 TEXT_ZERO_OBSERVATION: Final[str] = "零实质观察禁定稿"
 TEXT_NO_REDISCOVER: Final[str] = "台账命中且时间窗已定——禁再 discover（直发分解）"
-TEXT_NOT_VERBATIM_TEMPLATE: Final[str] = (
-    "ledger_notes 非逐字（在台账注入块内求不得）：{ids}——须从台账注入块逐字转抄（不改写、不摘要）"
+
+# 槽位对账拒因（**逐字稿载体＝流水 64 Owner 裁**——头行＋逐子问题三行块〔拒因／期望形／
+# 台账相关行〕＋尾行；`{…}` 为槽位，程序照填：id／段名／值／原因／台账整行原文）。
+TEXT_SLOT_MISMATCH_HEAD: Final[str] = "上次发射被拒：ledger_notes 槽位对账未过：{ids}"
+# 步骤标题/过程档案用单行同义形（拒因正文多行，不宜作标题槽——头行去「上次发射被拒」前缀）。
+TEXT_SLOT_MISMATCH_TITLE: Final[str] = "ledger_notes 槽位对账未过：{ids}"
+TEXT_SLOT_MISMATCH_BLOCK: Final[str] = (
+    "【拒因】{id} 的「{segment}」段「{value}」{cause}\n"
+    "【期望形】〈台账行首名〉｜已绑定|未绑定｜〈锚定窗或窗未定〉\n"
+    "【台账相关行】{row}"
 )
+TEXT_SLOT_MISMATCH_TAIL: Final[str] = "——修正后重新输出 JSON。"
+TEXT_JOIN: Final[str] = "\n"
+# 不过原因三值（段级诊断用词）＋段数越界原因（段名「段数」承名）。
+CAUSE_SLOT_NOT_IN_LEDGER: Final[str] = "不在台账名录"
+CAUSE_BINDING_OUT_OF_WORLD: Final[str] = "绑定态越界"
+CAUSE_WINDOW_ILLEGAL: Final[str] = "窗形不合法"
+CAUSE_SEGMENT_COUNT: Final[str] = "段数非三（形＝槽位｜绑定态｜窗，位次固定）"
+# 槽位不在名录时的【台账相关行】行文（流水 64 裁逐字；名录四类＝指标/对象/关系/术语——
+# 2026-10-16 微批补「关系/术语」，与 `volatile._NAME_COLUMNS` 名录面同步）。
+NO_LEDGER_ROW_SHELL: Final[str] = "（名录无此名——只许用台账注入块内出现的指标/对象/关系/术语名）"
 
 # ── 步骤标题与过程档案（逐字迁移 V1 `clarify_node` 的标题形）──────────────────
 STEP_TITLE_PROMPT_CHARS: Final[int] = 24

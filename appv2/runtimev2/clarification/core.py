@@ -7,7 +7,7 @@
 `discover` 与到顶截断**不占返回位**——路由意图经 `state.next_intent` 交出）。
 
 本块**零工具直调**（`discover` 只以 `next_intent="discover"` 交 `orchestration` 路由出去执行）、
-**零落盘**、**零语义判断**（程序只做闭世界 schema 对账与结构判定：动作／条数／注释逐字子串／
+**零落盘**、**零语义判断**（程序只做闭世界 schema 对账与结构判定：动作／条数／注释三段槽位对账／
 `chain` 成员／观察计数——豁免面＝形态处理，`specs/clarification.md` 行 16）。
 
 共享写面（`messages`／`steps`／`process_notes`／`notices`／`dialogue`／`next_intent`／
@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
@@ -38,14 +39,21 @@ from appv2.runtimev2.bookkeeping import (
 from appv2.runtimev2.clarification.constants import (
     ASK_FRAME_DETAIL_NONE,
     ASK_KIND_CLARIFY,
+    BINDING_STATES,
     CALLER_DECISION,
     CAPPED_ANSWER_HEADER,
     CAPPED_NOTE_DIGEST,
     CAPPED_NOTICE_TEMPLATE,
+    CAUSE_BINDING_OUT_OF_WORLD,
+    CAUSE_SEGMENT_COUNT,
+    CAUSE_SLOT_NOT_IN_LEDGER,
+    CAUSE_WINDOW_ILLEGAL,
     DIALOGUE_ORIGIN_CLARIFY_REPLAY,
     EMPTY_PROBES_JOIN,
     GUIDANCE_JOIN,
+    ISO_DAY_SHAPE,
     MATERIAL_ROW_PREFIX,
+    NO_LEDGER_ROW_SHELL,
     NO_MATERIAL_SHELL,
     NOTE_DIGEST_ASK,
     NOTE_DIGEST_DISCOVER,
@@ -53,6 +61,12 @@ from appv2.runtimev2.clarification.constants import (
     NOTE_DIGEST_REJECTED,
     NOTE_DIGEST_RESUME,
     NOTE_PHASE,
+    NOTE_SEGMENT_BINDING,
+    NOTE_SEGMENT_COUNT,
+    NOTE_SEGMENT_SLOT,
+    NOTE_SEGMENT_WINDOW,
+    NOTE_SEGMENTS,
+    NOTE_SLOT_SEPARATOR,
     NOTE_TITLE,
     NOTICE_CLARIFY_CAPPED,
     NOTICE_DECISION_NOTE,
@@ -67,7 +81,7 @@ from appv2.runtimev2.clarification.constants import (
     PAYLOAD_VOLATILE,
     QUOTE_REPAIR_NOTICE_CONTENT,
     REASON_FINALIZE_ZERO_OBSERVATION,
-    REASON_LEDGER_NOTES_NOT_VERBATIM,
+    REASON_LEDGER_NOTES_SLOT_MISMATCH,
     REASON_MARKERS,
     REASON_NO_REDISCOVER,
     REASON_REJECTION_GUIDANCE,
@@ -81,10 +95,17 @@ from appv2.runtimev2.clarification.constants import (
     STEP_TITLE_PROMPT_CHARS,
     STEP_TITLE_REJECTED,
     STEP_TITLE_RESUME,
+    TEXT_JOIN,
     TEXT_NO_REDISCOVER,
-    TEXT_NOT_VERBATIM_TEMPLATE,
+    TEXT_SLOT_MISMATCH_BLOCK,
+    TEXT_SLOT_MISMATCH_HEAD,
+    TEXT_SLOT_MISMATCH_TAIL,
+    TEXT_SLOT_MISMATCH_TITLE,
     TEXT_ZERO_OBSERVATION,
     TOOL_NAME_MISSING,
+    WINDOW_LITERALS,
+    WINDOW_SEGMENT_TOTAL,
+    WINDOW_SEPARATOR,
 )
 from appv2.runtimev2.clarification.guidance import rejection_guidance
 from appv2.runtimev2.clarification.models import (
@@ -94,7 +115,11 @@ from appv2.runtimev2.clarification.models import (
     ClarifyReason,
     ClarifyRejection,
 )
-from appv2.runtimev2.clarification.volatile import ledger_projection, read_volatile
+from appv2.runtimev2.clarification.volatile import (
+    ledger_name_rows,
+    ledger_projection,
+    read_volatile,
+)
 from appv2.runtimev2.parsing import (
     BUDGET_REJECT_MARK,
     CLARIFY_ASK,
@@ -449,29 +474,39 @@ def _tool_name_of(branch: Mapping[str, Any]) -> str:
 
 
 def _on_decompose(state: RunState, emission: ClarifyEmission) -> ClarifyOutcome:
-    """`decompose`：注释**第二层**机检（台账注入块内逐字求得）→ 定案 `ClarifyFinal`。
+    """`decompose`：注释**第二层**机检（三段槽位对账）→ 定案 `ClarifyFinal`。
 
-    `parsing` 只查注释非空；「是不是台账原话」在本块校（行为 8）——**判违约不自动修补**：
-    返结构化拒因由 `orchestration` 回喂重决策。通过则问题组落状态、旧前置判定作废
-    （判定随组走）、占一轮、去向 `tool_matching`；发射注记非空时逐字出流为 `decision_note`
-    机读通知（行为 3「并注记」——默认窗等模型侧结论的原话承载）。
+    `parsing` 只查注释非空；「注释各段合不合台账」在本块校（行为 8；2026-10-16 改·流水 64，
+    Owner 裁——判据由「注入块内逐字子串」改「三段槽位对账」）——**判违约不自动修补**：
+    返结构化拒因（携段级诊断＋期望形＋台账相关行）由 `orchestration` 回喂重决策。通过则问题组
+    落状态、旧前置判定作废（判定随组走）、占一轮、去向 `tool_matching`；发射注记非空时逐字出流
+    为 `decision_note` 机读通知（行为 3「并注记」——默认窗等模型侧结论的原话承载）。
     """
     group = emission.group
     emission_payload = emission.as_payload()
     if group is None:
         raise ValueError("decompose 发射缺问题组（parsing 已守——不可达分支，fail-closed）")
+    registry = ledger_name_rows(state)
     injection = render_ledger_resident_block(state)
     offenders = [
-        subtask.id
+        (subtask.id, diagnostic)
         for subtask in group.subtasks
-        if not _verbatim_note(subtask.ledger_notes, injection)
+        if (
+            diagnostic := _note_slot_mismatch(
+                subtask.ledger_notes, registry=registry, injection_block=injection
+            )
+        )
+        is not None
     ]
     if offenders:
-        reason = TEXT_NOT_VERBATIM_TEMPLATE.format(ids=EMPTY_PROBES_JOIN.join(offenders))
+        reason = _slot_mismatch_reason(offenders)
+        ids = EMPTY_PROBES_JOIN.join(subtask_id for subtask_id, _ in offenders)
         return _record_rejection(
             state,
-            reasons=[ClarifyReason(code=REASON_LEDGER_NOTES_NOT_VERBATIM, reason=reason)],
-            title_reason=reason,
+            reasons=[
+                ClarifyReason(code=REASON_LEDGER_NOTES_SLOT_MISMATCH, reason=reason)
+            ],
+            title_reason=TEXT_SLOT_MISMATCH_TITLE.format(ids=ids),
             error_text=reason,
             first_free=False,
             emission_payload=emission_payload,
@@ -498,13 +533,150 @@ def _on_decompose(state: RunState, emission: ClarifyEmission) -> ClarifyOutcome:
     return ClarifyFinal(subtasks=list(group.subtasks))
 
 
-def _verbatim_note(note_text: str, injection_block: str) -> bool:
-    """逐字求得校（形态处理豁免面：**逐字子串**，非语义词表／正则）。
+@dataclass(frozen=True, slots=True)
+class _SlotMismatch:
+    """槽位对账诊断单条（段名／段值／不过原因／台账相关行——拒因文案四槽）。"""
 
-    台账注入块缺位（空投影）＝无从求得 → 判违约（fail-closed，不降级放行）；本块不做
-    语义改写、不摘要、不自动修补。
+    segment: str
+    value: str
+    cause: str
+    row: str
+
+
+def _note_slot_mismatch(
+    note_text: str,
+    *,
+    registry: Mapping[str, str],
+    injection_block: str,
+) -> _SlotMismatch | None:
+    """三段槽位对账（行为 8 的判据面；**形态处理豁免面**——闭世界集合成员校＋日期形解析，
+    零语义词表、零正则、零语义改写）。
+
+    段位次固定「槽位｜绑定态｜窗」（分隔符全角「｜」）：**段数非三 → 拒**（段名「段数」，
+    值＝原形）；否则逐段对账——
+
+    ①**槽位**（段一）须**逐字** ∈ 台账名录（`registry` 的键集——指标/对象/关系/术语四类名；
+      exact membership，无语义匹配）——不在名录（含名录制空＝空投影的 fail-closed 面）即拒；
+    ②**绑定态**（段二）须 ∈ `BINDING_STATES` 闭世界（照台账行「（绑定态：…）」中文形两值）；
+    ③**窗**（段三）须为锚定窗（`date.fromisoformat(...[:10])`——窗形读法照
+      `appv2/tools/precondition.py`，本块不新造窗面判据）或 `WINDOW_LITERALS` 字面之一
+      （「窗未定」／同义形「无时间窗」——knowledge 链检索式问题无窗概念＝合法／双 null 发射形）。
+
+    全过 → `None`；任一不过 → 返该段诊断（拒因文案据它指明「哪一段、哪个值、为什么」）。
+    台账相关行＝槽位 exact-match 命中的投影行原文（从**注入块**内逐字取该行——模型所见同形）。
     """
-    return bool(note_text) and bool(injection_block) and note_text in injection_block
+    segments = _split_on(note_text, NOTE_SLOT_SEPARATOR)
+    if len(segments) != len(NOTE_SEGMENTS):
+        return _SlotMismatch(
+            segment=NOTE_SEGMENT_COUNT,
+            value=note_text,
+            cause=CAUSE_SEGMENT_COUNT,
+            row=NO_LEDGER_ROW_SHELL,
+        )
+    slot, binding, window = segments
+    row_text = registry.get(slot)
+    if row_text is None:
+        return _SlotMismatch(
+            segment=NOTE_SEGMENT_SLOT,
+            value=slot,
+            cause=CAUSE_SLOT_NOT_IN_LEDGER,
+            row=NO_LEDGER_ROW_SHELL,
+        )
+    row = _ledger_row_line(injection_block, row_text)
+    if binding not in BINDING_STATES:
+        return _SlotMismatch(
+            segment=NOTE_SEGMENT_BINDING,
+            value=binding,
+            cause=CAUSE_BINDING_OUT_OF_WORLD,
+            row=row,
+        )
+    if not _window_legal(window):
+        return _SlotMismatch(
+            segment=NOTE_SEGMENT_WINDOW,
+            value=window,
+            cause=CAUSE_WINDOW_ILLEGAL,
+            row=row,
+        )
+    return None
+
+
+def _slot_mismatch_reason(offenders: list[tuple[str, _SlotMismatch]]) -> str:
+    """槽位对账拒因文本（逐字稿＝流水 64 Owner 裁）：头行＋逐子问题三行块＋尾行。
+
+    头行列全部 offender id；每个 offender 一块（【拒因】／【期望形】／【台账相关行】——
+    程序已知事实说全、零模型调用）；尾行「——修正后重新输出 JSON。」恒在。
+    """
+    blocks = [
+        TEXT_SLOT_MISMATCH_BLOCK.format(
+            id=subtask_id,
+            segment=diagnostic.segment,
+            value=diagnostic.value,
+            cause=diagnostic.cause,
+            row=diagnostic.row,
+        )
+        for subtask_id, diagnostic in offenders
+    ]
+    return TEXT_JOIN.join(
+        [
+            TEXT_SLOT_MISMATCH_HEAD.format(
+                ids=EMPTY_PROBES_JOIN.join(subtask_id for subtask_id, _ in offenders)
+            ),
+            *blocks,
+            TEXT_SLOT_MISMATCH_TAIL,
+        ]
+    )
+
+
+def _split_on(text: str, separator: str) -> list[str]:
+    """按字面分隔符切段（`str.find` 手切——本块源码禁用 `split`／`partition` 族方法词面）。
+
+    无分隔符 → 单段原样；分隔符出现 n 次 → n+1 段（**不丢空段**：`a｜｜c`＝三段含空串段，
+    空段照判——段值与段数皆为拒因事实面）。
+    """
+    parts: list[str] = []
+    start = 0
+    while (index := text.find(separator, start)) >= 0:
+        parts.append(text[start:index])
+        start = index + len(separator)
+    parts.append(text[start:])
+    return parts
+
+
+def _ledger_row_line(injection_block: str, row_text: str) -> str:
+    """台账整行原文（注入块内**逐字**取行：以投影行 `value` 串为锚，扩到行界）。
+
+    投影行渲染进常驻块时值串直取零改写，故块内命中即模型所见原行；块缺位或块内求不得
+    （投影与块不同源等异常态）→ 退回行原文本身（不编造、不空手）。
+    """
+    if not injection_block or not row_text:
+        return row_text
+    start = injection_block.find(row_text)
+    if start < 0:
+        return row_text
+    head = injection_block.rfind(TEXT_JOIN, 0, start)
+    tail = injection_block.find(TEXT_JOIN, start)
+    return injection_block[head + 1 : tail if tail >= 0 else len(injection_block)]
+
+
+def _window_legal(window: str) -> bool:
+    """窗段合法形（锚定窗＋`WINDOW_LITERALS` 闭世界面：ISO~ISO 锚定窗／「窗未定」／
+    同义形「无时间窗」／双 null 发射形）。"""
+    if window in WINDOW_LITERALS:
+        return True
+    bounds = _split_on(window, WINDOW_SEPARATOR)
+    if len(bounds) != WINDOW_SEGMENT_TOTAL:
+        return False
+    return all(_is_iso_day(bound) for bound in bounds)
+
+
+def _is_iso_day(text: str) -> bool:
+    """ISO 日形判定（读法照 `appv2/tools/precondition.py` 的窗形：`[:10]` 截读＋
+    `date.fromisoformat`——非日期形串即假；本块不新造日期形判据）。"""
+    try:
+        date.fromisoformat(text[: len(ISO_DAY_SHAPE)])
+    except ValueError:
+        return False
+    return True
 
 
 def _on_finalize(state: RunState, emission: ClarifyEmission) -> ClarifyOutcome:

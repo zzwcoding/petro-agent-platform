@@ -12,6 +12,10 @@
 - `foundation`＝台账投影本体三块（对象／关系／族标注）的行数——「地基」的行数面；
 - `new_rows`＝已入栈观察（`state.observations`）条数——「落库新数据」的计数面。
 
+同模块另持**台账名录读面** `ledger_name_rows`（名→行原文，指标／对象／关系／术语四类）——三段
+槽位对账（行为 8，流水 64）的段一判据面与【台账相关行】取值面；与 `ledger_projection` 同源
+（与常驻注入块同一投影，不新造第二名录源）。
+
 **上游刷新义务不在本块**（本块只可及 `state` 投影）：真正向数据面重取水位／新鲜度并在恢复前
 写回投影的调用链归 `orchestration` 的 `resume` 入口（`specs/clarification.md` 挂起契约：
 「恢复经 `orchestration` 的 `resume` 入口」）——本块负责**重读**并把它落成机读信号
@@ -44,6 +48,36 @@ def _rows(collection: Any) -> list[Mapping[str, Any]]:
     if not isinstance(collection, list):
         return []
     return [row for row in collection if isinstance(row, Mapping)]
+
+
+# 名录名列（投影块 → 名键）：指标 slot／对象 obj／关系 rel／术语 term——三段槽位对账的段一
+# 判据面（流水 64 裁：指标/对象/关系名集合；**术语条亦台账条目行**——2026-10-16 微批补入，
+# 真机日志有术语名作段一的形；族标注名仍不在名录，登记项呈主窗）。
+_NAME_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("metrics", "slot"),
+    ("objects", "obj"),
+    ("relations", "rel"),
+    ("terms", "term"),
+)
+
+
+def ledger_name_rows(state: RunState) -> dict[str, str]:
+    """台账名录面：名 → 行原文（三段槽位对账的段一判据面＋【台账相关行】取值面）。
+
+    名取投影行结构列（`_NAME_COLUMNS`），行原文取同一行的 `value` 串（注入块渲染**逐字**用它
+    ——本函数与 `render_ledger_resident_block` **同源**：皆自本模块的 `ledger_projection` 单点
+    投影取数，**不新造第二名录源**）。缺列／非串／空串行如实跳过（不编造）；空投影＝空名录
+    （判据侧 fail-closed：一切槽位皆判「不在台账名录」）。
+    """
+    dump = ledger_projection(state)
+    rows: dict[str, str] = {}
+    for block, key in _NAME_COLUMNS:
+        for row in _rows(dump.get(block)):
+            name = row.get(key)
+            value = row.get("value")
+            if isinstance(name, str) and name and isinstance(value, str):
+                rows.setdefault(name, value)
+    return rows
 
 
 def _watermark_of(dump: Mapping[str, Any]) -> str:
