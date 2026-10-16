@@ -54,6 +54,15 @@
 ——本件行 5 以**同一组合格外输入**双面同判（`parse_understanding` 返 `None` → 本块抛
 `UnderstandingParseError`）对读该件（规格风险 4 检测手段；`specs/parsing.md` 接口⑤）。
 
+**2026-10-16 补（流水 67·L3 阻塞修复批）——本件新增行 17–20**（规格「验收测试」表同批补录）：schema
+拒回喂重试恰一次（行为 13）。四行判据面＝`::schema_reject_feedback_retry_once`（首拒→回喂→次读合规
+则正常走通，零 `failed`）／`::schema_reject_twice_raises_with_feedback_trace`（两读皆拒照抛＋拒因
+留痕，上限恰一次）／`::schema_feedback_three_segment_payload`（载荷三段带路形逐支）／
+`::schema_feedback_prefix_extension`（回喂＝追加形、前缀延伸逐字不破）。端到端两面在
+`tests/domains/test_v2_four_phase.py`（`::test_four_phase_understand_schema_feedback_retry_recovers`／
+`::test_four_phase_understand_schema_feedback_twice_fails`——`specs/agent-loop.md` 验收表同批挂）。
+**行 12 的步序面随本批改判**：解析失败案＝记账步 2（两读）＋报告步 1（回喂不另记步、不重复上报）。
+
 **逐字稿面**：三区文本、段序与题干段为 `prompts` 单点（`specs/prompts.md` 行为 3–5）；本件的
 活体面断言经**相位黑盒**观测（`interpret` 追加到链首的任务书），不另立第二份合同字面。
 **待裁登记（流水 54①，本票按现状落、不自行改写）**：输出契约区文案与样例集实仓词属 Owner 审定
@@ -210,13 +219,28 @@ def _interpret_all(
 
     剧本按调用序取条（同 caller 队列多轮 replay）——单回调用例传一条，重入用例传两条。
     """
-    previous = set_completer(ScriptedCompleter({_SPEC_CALLER: list(replies)}))
+    outs, bus, _completer = _interpret_all_with_calls(state, *replies, watermark=watermark)
+    return outs, bus
+
+
+def _interpret_all_with_calls(
+    state: RunState, *replies: str, runs: int | None = None, watermark: str = ""
+) -> tuple[list[Any], EventBus, ScriptedCompleter]:
+    """同 `_interpret_all`，另回**替身本体**（读 `completer.calls`＝逐次实发消息链——前缀延伸判据
+    面）。
+
+    `runs`＝`interpret` 的调用次数（缺省＝`len(replies)`，同 `_interpret_all` 重入形）；传 `1` 配
+    多条剧本＝**单次进入的多轮调用**（schema 拒回喂重试恰此形：一次 `interpret` 内两读）。
+    """
+    completer = ScriptedCompleter({_SPEC_CALLER: list(replies)})
+    previous = set_completer(completer)
     bus = EventBus()
+    total = len(replies) if runs is None else runs
     try:
-        outs = [interpret(state, bus=bus, watermark=watermark) for _ in replies]
+        outs = [interpret(state, bus=bus, watermark=watermark) for _ in range(total)]
     finally:
         set_completer(previous)
-    return outs, bus
+    return outs, bus, completer
 
 
 def _interpret(state: RunState, reply: str, *, watermark: str = "") -> tuple[Any, EventBus]:
@@ -752,7 +776,8 @@ def test_no_lexicon_or_regex_in_understanding() -> None:
     """#11｜程序侧无词表／正则语义判断（AST 扫描本模块；豁免面＝形态处理）——行为 4 的对策面。
 
     豁免面＝形态处理（**数字形判定与集合成员判定不算语义词表／正则**——规格验收行原文；本半面
-    实际出现＝名录**集合成员判定**，数字形判定归 -B）。扫描面＝本块七个源文件；探测非空转。
+    实际出现＝名录**集合成员判定**，数字形判定归 -B）。扫描面＝本块源码全树（`rglob`，计数下界断言
+    防空转）；探测非空转。
 
     〔给 -B 的前向注（不预设其实现）〕本扫描面只禁**语义词表字面**（非标识符形字符串集合）与
     词面判方法（前缀／后缀／大小写折叠／切分／计数）——**数字形判定**若以字符形函数（如
@@ -794,11 +819,11 @@ def test_reporting_signal_present() -> None:
     assert len(violation_state.steps) == 2  # 记账步 1 ＋ 报告步 1（不翻倍）
     assert len(_report_steps(violation_state)) == 1
 
-    # 案二：解析失败
+    # 案二：解析失败（2026-10-16 补·流水 67：schema 拒先回喂重试恰一次——步序＝记账步 2＋报告步 1）
     failure_state = _state()
     with pytest.raises(UnderstandingParseError):
         _interpret(failure_state, "两行式已退场：理解：x／指标候选：y")
-    assert len(failure_state.steps) == 2
+    assert len(failure_state.steps) == 3
     assert len(_report_steps(failure_state)) == 1
 
     # 常规路径（无上报面）：恰一条记账步、零报告步、零注记
@@ -980,8 +1005,154 @@ async def test_retention_non_direct_unchanged() -> None:
     assert state.notices[0]["content"]  # 退回通报在人读面可见（不静默）
 
 
-# ---------- 元面机检：模型调用无旁路 ＋ import 面闭合（R7／R6／R5b／R5／R1 的降维面） ----------
+# ---------- 17–20 schema 拒回喂重试恰一次（2026-10-16 补·流水 67） ----------
 
+# 真机 `run-60bc4aaa` 原形（旧的「两行式」被塞进 `text`、漏 `metric_candidates` 必填键）：
+# 候选取 fixture 名录内词（本组只测 schema 面——别名／名录外候选的违约上报归行 2，不在此重测）。
+_RETRY_BAD = json.dumps(
+    {"route": _SPEC_ROUTE_FULL, "text": "理解：问井的日产油量。\n指标候选：日产油量"},
+    ensure_ascii=False,
+)
+_RETRY_GOOD = _full_reply("问井的日产油量。", ["日产油量"])
+_RETRY_NOTE_TITLE = "读题回喂重试"
+_FEEDBACK_TAIL = (
+    "——只修正不合项，其余内容照旧，重新输出一个 JSON 对象（不要输出 JSON 之外的解释文字）。"
+)
+
+
+def _retry_notes(state: RunState) -> list[dict[str, Any]]:
+    """过程档案里的「读题回喂重试」注记（回喂面留痕；同标题多条＝重复计入即红）。"""
+    return [e for e in state.process_notes if e.get("title") == _RETRY_NOTE_TITLE]
+
+
+def _read_notes(state: RunState) -> list[dict[str, Any]]:
+    """过程档案里的「读题」注记（每次模型应答恰一条——两读＝两条）。"""
+    return [e for e in state.process_notes if e.get("title") == _READ_NOTE_TITLE]
+
+
+def test_schema_reject_feedback_retry_once() -> None:
+    """#17｜首读缺 `metric_candidates` → 回喂 → 次读合规 → 正常分派（零 failed；调用恰 2 次）。
+
+    行为 13 的**修参面**：回喂＝拒因载荷追加链尾后**同相位再读一次**（不判死、不补默认）；
+    两次调用各记一条步（`call_model` 单点）；回喂支**零副作用**（不发 notice、不记步、报告面零写）。
+    """
+    state = _state()
+    outs, _bus, completer = _interpret_all_with_calls(state, _RETRY_BAD, _RETRY_GOOD, runs=1)
+    out = outs[0]
+
+    # 次读合规 → 正常走 `full` 分派（双出口照旧；理解字段取**次读**结论）
+    assert isinstance(out, Understanding) and out.route == _SPEC_ROUTE_FULL
+    assert out.text == "问井的日产油量。" and out.metric_candidates == ["日产油量"]
+    assert state.understanding == "问井的日产油量。"
+    assert state.metric_candidates == ["日产油量"]
+    # 零 failed：无报告步、无 notice（回喂支零副作用——如实上报只在两读皆拒时出一份）
+    assert _report_steps(state) == [] and state.notices == []
+    # 调用恰 2 次（上限恰一次）；两次各记一条步（call_model 单点记账，本块不另记步）
+    assert [caller for caller, _messages in completer.calls] == [_SPEC_CALLER, _SPEC_CALLER]
+    assert len(state.steps) == 2
+    # 链形：任务书 → 首答（原话留痕）→ 回喂载荷（user）→ 次答（assistant）；追加式不重写
+    assert [m["role"] for m in state.messages] == ["user", "assistant", "user", "assistant"]
+    assert state.messages[1]["content"] == _RETRY_BAD
+    assert state.messages[3]["content"] == _RETRY_GOOD
+    # 过程档案：读题注记×2（两读各一条）＋回喂重试注记×1＋装配标记（pin-26 渲染面）
+    assert len(_read_notes(state)) == 2 and len(_retry_notes(state)) == 1
+    assert state.dialogue == []  # 回喂载荷入链、不入对话层（过程记录不混层）
+
+
+def test_schema_reject_twice_raises_with_feedback_trace() -> None:
+    """#18｜两读皆拒 → 抛 `UnderstandingParseError`＋拒因留痕；**上限恰一次**（第三次永不发生）。
+
+    回喂不改变终局口径（编排收 `failed` 照旧）：仍以唯一转译出口抛错、如实上报照出一份
+    （报告步＋notice——回喂支不重复上报）；拒因留痕三面在场：链上载荷 ＋ 过程档案注记 ＋ 报告步。
+    """
+    for raw in (_RETRY_BAD, json.dumps({"route": "partial", "text": "x"}), "不是 JSON"):
+        state = _state()
+        with pytest.raises(UnderstandingParseError) as excinfo:
+            _interpret_all_with_calls(state, raw, runs=1)
+        error = excinfo.value
+        assert error.raw == raw
+        assert error.excerpt and error.excerpt in str(error)
+        # 上限恰一次：两次调用、绝无第三次；步数＝2 记账步 ＋ 1 报告步
+        assert len(state.steps) == 3
+        # 拒因留痕（链上载荷 ＋ 过程档案注记）：回喂载荷在链上（首答之后）
+        assert [m["role"] for m in state.messages] == [
+            "user",
+            "assistant",
+            "user",
+            "assistant",
+        ]
+        assert state.messages[2]["content"].startswith("【拒因】")
+        assert len(_retry_notes(state)) == 1 and len(_read_notes(state)) == 2
+        # 如实上报照出一份（不因回喂翻倍）；不返回半成品
+        assert len(state.notices) == 1 and len(_report_steps(state)) == 1
+        assert state.understanding == "" and state.metric_candidates == []
+        assert state.draft == "" and state.draft_kind == "" and state.next_intent == ""
+        assert state.dialogue == []
+
+
+def test_schema_feedback_three_segment_payload() -> None:
+    """#19｜拒因载荷三段带路形（【拒因】指名不合项 ＋【期望形】＋ 尾行；自足、壳恰一遍）。
+
+    逐支（真机原形＝缺必填字段；类型不符；`route` 越界；非 JSON）：【拒因】段**指名哪一条**
+    （取 `parsing.understanding_schema_feedback` 的诊断出口——本块零 schema 重判）；
+    【期望形】段＝理解面输出契约两形＋无命中＝空数组；尾行＝修正指令；**壳恰一遍**（不叠字）。
+    """
+    cases: tuple[tuple[str, str], ...] = (
+        (_RETRY_BAD, "缺必填字段 `metric_candidates`"),
+        (
+            json.dumps({"route": _SPEC_ROUTE_FULL, "text": 3, "metric_candidates": []}),
+            "字段类型不符：`text` 须为字符串",
+        ),
+        (
+            json.dumps({"route": "partial", "text": "x"}),
+            "`route` 取值越界（闭世界仅「full」｜「direct」）",
+        ),
+        ("不是 JSON", "应答不是合法 JSON"),
+    )
+    for raw, reason in cases:
+        state = _state()
+        _interpret_all_with_calls(state, raw, _RETRY_GOOD, runs=1)
+        feedback = state.messages[2]["content"]
+        segments = feedback.split("\n")
+        # 段一【拒因】：具体不合项逐字在场（「哪一条」说清——不空转、不笼统）
+        assert segments[0] == f"【拒因】{reason}"
+        # 段二【期望形】：两形＋必填与空数组形（照合同与样例集）
+        assert segments[1].startswith("【期望形】")
+        assert '"route":"full"' in segments[1] and '"route":"direct"' in segments[1]
+        assert '"metric_candidates":["〈台账名录里的指标名〉"]' in segments[1]
+        assert "空数组 []" in segments[1]
+        # 段三尾行：修正指令（重发一个 JSON）
+        assert segments[2] == _FEEDBACK_TAIL
+        assert len(segments) == 3  # 恰三段（schema 面无「台账相关行」段）
+        # 壳恰一遍（载荷自足——链上直投，不二次套壳）
+        assert feedback.count("【拒因】") == 1 and feedback.count("【期望形】") == 1
+        assert feedback.count(_FEEDBACK_TAIL) == 1
+        # 过程档案注记携同一载荷（同一次拼装产物——不各自生成）
+        assert _retry_notes(state)[0]["digest"].startswith(f"【拒因】{reason}")
+
+
+def test_schema_feedback_prefix_extension() -> None:
+    """#20｜回喂＝**追加形**：第二次调用的消息链＝第一次的**前缀延伸**（前置内容逐字不动）。
+
+    「拒因追加链尾」的 KV 纪律面（`pin-22` 只追加）：逐字前缀延伸 ⇒ 常驻前缀可命中缓存；
+    首答（模型原话）与回喂载荷在两链间**原样在场**（不改写、不重排、不删除）。
+    """
+    state = _state()
+    outs, _bus, completer = _interpret_all_with_calls(state, _RETRY_BAD, _RETRY_GOOD, runs=1)
+    assert len(outs) == 1
+    first = completer.calls[0][1]
+    second = completer.calls[1][1]
+    assert second[: len(first)] == first  # 逐字前缀延伸（真源 KV 纪律）
+    assert len(second) == len(first) + 2
+    # 追加两件＝首答原话（assistant）＋回喂载荷（user）；任务书（链首）逐字未动
+    assert second[0] == first[0] and _DATA_ZONE_HEAD in str(second[0]["content"])
+    assert second[len(first) :] == [
+        {"role": "assistant", "content": _RETRY_BAD},
+        {"role": "user", "content": state.messages[2]["content"]},
+    ]
+
+
+# ---------- 元面机检：模型调用无旁路 ＋ import 面闭合（R7／R6／R5b／R5／R1 的降维面） ----------
 
 _ALLOWED_APPV2_IMPORTS = {
     "appv2.tools",

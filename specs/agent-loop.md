@@ -78,7 +78,10 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 ## 行为约定
 
 1. **四相位循环**（ADR-0005，生产装配 `four_phase=True`）：每问新建 run，
-   understand 理解后进四相位——
+   **understand 读题**（schema 拒＝**拒因回喂重试恰一次**：首读不合 schema → 向链尾追加拒因载荷
+   〔【拒因】具体不合项＋【期望形】＋尾行〕→ 同相位再读一次；**仍拒**才 fail-closed 收束 `failed`
+   ＋`run_failed` notice——真源 `specs/understanding.md` 行为 13；**不静默补默认**、上限恰一次），
+   理解后进四相位——
    ①**业务澄清（clarify）**：LLM 带 Skill 指南发射**四动作**闭世界 `discover｜decompose｜ask｜finalize`（Owner 2026-10-15 按 `walk/08` 同步）；
    discover＝钻取（semantic_query/doc_retrieve/table_schema），decompose 产出
    **QuestionGroup**（subtasks[{id/question/ledger_notes/chain}]——**已去 `tool`**（选工具归②匹配相位，`裁决表` 项目级裁决 #10）；子问题上限 ≤4（真源 `docs/runtime-refactor/walk/09-澄清-分解问题.md` §七 Q-C——本项目自定值、随限额参数表收口），
@@ -197,6 +200,8 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 | 四相位端到端剧本（澄清→分解→过闸→批量→汇总收口） | `tests/domains/test_v2_four_phase.py::test_four_phase_end_to_end_scripted` |
 | 直答旁路（`route="direct"`）收口后交付正文帧（恰一帧 `text`、content＝草稿、帧在 `verdict(final)` 前、不带 `kind`；起草路径帧面不变——行为 8 补条） | `tests/domains/test_v2_four_phase.py::test_four_phase_direct_answer_emits_text_frame` |
 | 提问→事件流步序（understand→四相位→answer 次序） | `tests/api/test_v2_asks.py::test_loop_step_sequence` |
+| 理解步 schema 首拒回喂一次后次读合规 → 四相位正常走通（run `completed`；模型调用恰 2 次、拒因载荷落链尾） | `tests/domains/test_v2_four_phase.py::test_four_phase_understand_schema_feedback_retry_recovers` |
+| 理解步两读皆拒 → fail-closed 收束 `failed`（上限恰一次，无第三次调用） | `tests/domains/test_v2_four_phase.py::test_four_phase_understand_schema_feedback_twice_fails` |
 | 每个模型调用 step 落 Manifest（来源/版本/token）**【**W4 登记（2026-10-16）**：材料面 Manifest 现挂答案面步（`call_model` 无 manifest 注入面）；若裁定改由 `call_model` 承接 → 回 W3 `bookkeeping` 或设计仓】** | `tests/api/test_v2_asks.py::test_manifest_present_each_call` |
 | run 内对话状态簿记（`dialogue`＋`process_notes` 双字段，第二轮调用携带首轮对话） | `tests/domains/test_v2_multi_turn_context.py::test_second_decision_context_carries_first_round_history` |
 | 追问续会话（前轮问答/执行台账随追问进上下文） | `tests/domains/test_v2_multi_turn_context.py::test_followup_context_carries_prior_qa_history` |

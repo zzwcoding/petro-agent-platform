@@ -25,3 +25,17 @@
   4. 风险 7⑦（:172）：登记条目「`args` 拒文待主窗过目——P-07」改「`args` 拒文已过目（流水 43②）：adopt graph.py:616 字面……——P-07 销项」（同批销项指针；清单其余条目未动）。
 - **未随批改面（登记交主窗）**：风险 7②（预算拒文内嵌数值与 `ask` 边界「2~4」插槽化与否）仍为待裁——流水 43 未涉，行为 7／16 的例外指针保持原状。
 - **验证**：`uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿（22 份规格）**。均 exit 0（改后实跑）。未 git commit（主窗统一提交）。
+
+---
+
+## 2026-10-16 流水 67 L3 阻塞修复（理解面 schema 拒因诊断面＝新增公开成员；additive）
+
+**依据（真机证据 `docs/runtime-refactor/ladder/L3/04-W-11井投产后预计躺井-summary.md`，run-60bc4aaa）**：题面「W-11 井投产后预计躺井率是多少？」——模型应答 `{"route":"full","text":"理解：问 W-11 井投产后预计的躺井率。\n指标候选：抽油机时率"}`（旧的「两行式」被塞进 `text`、**漏 `metric_candidates` 必填键**），解析返 `None` → `understanding` 抛 `UnderstandingParseError` → run 首步即 `failed`（同题 gold 期望「优雅走到检索再拒答」连第一步都进不去）。主窗 2026-10-16 裁：理解步 schema 拒**照澄清相位打回模式**加「拒因回喂重试恰一次」——回喂载荷的【拒因】段必须**指名哪一条**（缺必填字段／类型不符／`route` 越界），而原 `parse_understanding` 只产 `None`、说不到具体项。
+
+- **取法（本块面）**：**新增理解面拒因诊断面**（`understanding_schema_feedback(text) -> str`）——不合格 → 具体不合项一句；合格 → **空串**（无病形）。**与 `parse_understanding` 共用判定内核 `_understand_schema`**：两公开形读同一判据序，「`None` ↔ 拒因非空」恒等价 ⇒ **本块 schema 判定仍恰一处**（禁手写替代纪律不被绕——消费方 `understanding` 零 schema 重判）。
+- **落点**：`appv2/runtimev2/parsing/parsers.py`（`_understand_schema`／`understanding_schema_feedback`／`_field_reason`＋拒因字面 `_REASON_NOT_JSON`／`_REASON_NOT_OBJECT`／`_REASON_MISSING`／`_REASON_TYPE`／`_REASON_CANDIDATE_ITEM`／`_REASON_ROUTE_OUT_OF_WORLD`／`_TYPE_TEXT`／`_TYPE_CANDIDATES`；`parse_understanding` 瘦身为内核调用）＋包根导出（`parsing/__init__.py` 的 `__all__` 与模块注）。
+- **规格面（同批对账消费方规格）**：`specs/parsing.md` 接口定义⑤（成员入名单）／「返回三态闭世界」bullet（诊断面口径：不合格＝第②态拒因正文、合格＝无病形空串）／行为 1 末句（逐支拒因字面）／验收表新增一行（`::understanding_schema_feedback_reasons`）／文末审计块。
+- **零语义改动声明**：`parse_understanding` 的契约（不合格 → `None`）与既有验收行**逐字不变**——`::understanding_malformed_none_no_fallback`／`::understanding_two_line_retired` 零改动（族名单闭世界的「新增成员入名单＋同批对账」程序已走）。
+- **测试**：`tests/domains/test_v2_parsing.py::understanding_schema_feedback_reasons`（新增——逐支拒因字面／合格空串／「两形同判」闭世界对照／拒因恒非空）。消费方侧端到端两面在 `tests/domains/test_v2_understanding.py`（行 17–20）与 `tests/domains/test_v2_four_phase.py`，见 `understanding-回工补写.md` 同批节。
+- **验证**：`uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿（22 份规格）**；`pytest -q` 全量 **2179 passed, 108 skipped**；`ruff`／`mypy`／`lint-imports` 双配置（6 kept＋18 kept）均绿。未 git commit（主窗统一提交）。
+- **登记（交主窗）**：卡面 `specs/modules.md` `## parsing` 未逐件重抄族名单（其权威注已在卡内——「族名单权威注」句），故本批**不回提卡改**；如需卡面显式收录该成员，由主窗按单写者纪律落。

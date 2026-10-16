@@ -4,8 +4,10 @@
 架构图见 docs/architecture-v3.html。包根即公开面（R2：三个业务相位只许经 `appv2.runtimev2.parsing`
 消费，深层子模块私有）——**族名单闭世界**（`specs/parsing.md` 接口定义节 :39-:80）：
 
-- 三面解析器族：`parse_understanding`（统一 JSON 严格解析）／`parse_question_group`（四动作闭世界
-  ＋分派）／`parse_tool_match`（`matches` ↔ 问题组闭合世界对账）；
+- 三面解析器族：`parse_understanding`（统一 JSON 严格解析）／`understanding_schema_feedback`
+  （理解面 schema 拒因正文——诊断面，与前者共用判定内核；2026-10-16 补·流水 67）／
+  `parse_question_group`（四动作闭世界＋分派）／`parse_tool_match`（`matches` ↔ 问题组闭合世界
+  对账）；
 - 共用件族四件：`extract_plan_json`／`json_syntax_feedback`／`repair_inner_quotes`／
   `parse_with_quote_repair`（单点——相位块零字面副本）；
 - 载荷定型类：`Understanding`／`Direct`／`Subtask`／`QuestionGroup`／`ClarifyEmission`／
@@ -57,6 +59,7 @@ from appv2.runtimev2.parsing.parsers import (
     parse_question_group,
     parse_tool_match,
     parse_understanding,
+    understanding_schema_feedback,
 )
 
 __all__ = [
@@ -90,4 +93,5 @@ __all__ = [
     "parse_with_quote_repair",
     "payload_fingerprint",
     "repair_inner_quotes",
+    "understanding_schema_feedback",
 ]

@@ -52,6 +52,7 @@ from appv2.runtimev2.parsing import (
     parse_with_quote_repair,
     payload_fingerprint,
     repair_inner_quotes,
+    understanding_schema_feedback,
 )
 
 _MAX_DISCOVERS = 2
@@ -172,6 +173,65 @@ def test_understanding_two_line_retired() -> None:
     assert parse_understanding("直接回答：你好，我是采油助手") is None
     assert parse_understanding('先说明\n{"route": "direct", "text": "散文包裹产"}') is None
     assert parse_understanding('```json\n{"route": "direct", "text": "围栏产"}\n```') is None
+
+
+def test_understanding_schema_feedback_reasons() -> None:
+    """行 3 补（2026-10-16 补·流水 67）｜理解面拒因诊断面逐支落对＋与解析面同判（共用内核）。
+
+    逐支：非合法 JSON／顶层非对象／缺必填字段（`route`／`text`／`metric_candidates`）／类型不符
+    （`text`／`metric_candidates` 两形／候选元素）／`route` 越界（含大小写变形——闭世界严判）；
+    **合格 → 空串**（无病不产拒因）；**同判不漂移**：全样本上「`parse_understanding` 返 `None`
+    ↔ 拒因非空」恒等价（两形读同一判据序——禁手写替代纪律的机检面）。
+    """
+    # 逐支拒因（字面＝本块机器拒因原文；违规即红）
+    route_out_of_world = "`route` 取值越界（闭世界仅「full」｜「direct」）"
+    cases: tuple[tuple[str, str], ...] = (
+        ("不是 JSON", "应答不是合法 JSON"),
+        ("[1, 2]", "应答顶层不是 JSON 对象"),
+        (json.dumps({"text": "缺 route"}, ensure_ascii=False), "缺必填字段 `route`"),
+        (json.dumps({"route": "full", "text": "x"}), "缺必填字段 `metric_candidates`"),
+        (json.dumps({"route": "direct"}), "缺必填字段 `text`"),
+        (json.dumps({"route": "full", "text": 42, "metric_candidates": []}),
+         "字段类型不符：`text` 须为字符串"),
+        (json.dumps({"route": "full", "text": "x", "metric_candidates": "日产油量"}),
+         "字段类型不符：`metric_candidates` 须为字符串数组"),
+        (json.dumps({"route": "full", "text": "x", "metric_candidates": [1, 2]}),
+         "字段类型不符：`metric_candidates` 的元素须为字符串"),
+        (json.dumps({"route": "unset", "text": "x"}), route_out_of_world),
+        (json.dumps({"route": "FULL", "text": "x"}), route_out_of_world),
+        (json.dumps({"route": None, "text": "x"}), route_out_of_world),
+    )
+    for sample, expected in cases:
+        assert understanding_schema_feedback(sample) == expected, sample
+        assert parse_understanding(sample) is None, sample
+
+    # 合格形 → 空串（无病不产拒因）；两形互斥单出口照旧
+    for sample in (
+        json.dumps({"route": "full", "text": "问日产油量", "metric_candidates": ["日产油量"]},
+                   ensure_ascii=False),
+        json.dumps({"route": "full", "text": "判断题", "metric_candidates": []},
+                   ensure_ascii=False),
+        json.dumps({"route": "direct", "text": "不客气"}, ensure_ascii=False),
+    ):
+        assert understanding_schema_feedback(sample) == "", sample
+        assert parse_understanding(sample) is not None, sample
+
+    # 同判不漂移（共用判定内核）：全样本闭世界对照——两形必同一条判据序
+    samples = [*[sample for sample, _ in cases], *[
+        json.dumps({"route": "full", "text": "问", "metric_candidates": ["日产油量"]},
+                   ensure_ascii=False),
+        json.dumps({"route": "direct", "text": "谢谢"}),
+        "理解：两行式\n指标候选：日产油量",
+        "",
+    ]]
+    for sample in samples:
+        assert (parse_understanding(sample) is None) == bool(
+            understanding_schema_feedback(sample)
+        ), sample
+
+    # 拒因恒非空串（不合格形不说空话——回喂载荷的【拒因】段不得空转）
+    for sample, _expected in cases:
+        assert understanding_schema_feedback(sample)
 
 
 # ── 行 4–11：澄清面（四动作闭世界＋分派）────────────────────────────────────────

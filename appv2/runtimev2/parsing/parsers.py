@@ -2,7 +2,9 @@
 
 - **理解面** `parse_understanding`：统一 JSON 严格解析（V2 定案，Owner 直令）——合格 →
   `Understanding`（`route="full"`）｜`Direct`（`route="direct"`）两形互斥；不合格 → `None`。
-  两行式形与「直接回答：」行通道**不再受理**（旧降级提取零可达，差异点①）。
+  两行式形与「直接回答：」行通道**不再受理**（旧降级提取零可达，差异点①）。同面诊断件
+  `understanding_schema_feedback`（2026-10-16 补·流水 67）：不合格 → 具体不合项一句、合格 →
+  空串——与解析面**共用判定内核** `_understand_schema`（禁手写替代：判定仍恰一处）。
 - **澄清面** `parse_question_group`：四动作闭世界（`discover`／`decompose`／`ask`／`finalize`）
   ＋分派；不合格 → 拒因正文（`str`，回喂）。V2 定案签名＝卡面参数名（`text`）＋**注入制限额**
   （无裸默认值）：`max_discovers` ← `state`「轮内发现」键、`discover_budget_left` ←「全 run
@@ -47,6 +49,21 @@ from appv2.runtimev2.parsing.models import (
     Understanding,
 )
 
+# ── 理解面 schema 拒因正文（诊断面逐支一句；2026-10-16 补·流水 67）─────────────────
+# 面＝`understanding_schema_feedback` 的返回字面（本块机器拒因原文，同澄清面拒因正文体例）；
+# 消费方 `understanding` 取它组拒因回喂载荷的【拒因】段——**「哪一条」在此说清**（缺哪字段／
+# 哪个字段类型不符／`route` 越界），消费方不重判 schema（禁手写替代）。零语义词表：全结构判。
+_REASON_NOT_JSON = "应答不是合法 JSON"
+_REASON_NOT_OBJECT = "应答顶层不是 JSON 对象"
+_REASON_MISSING = "缺必填字段 `{name}`"
+_REASON_TYPE = "字段类型不符：`{name}` 须为{expected}"
+_REASON_CANDIDATE_ITEM = "字段类型不符：`metric_candidates` 的元素须为字符串"
+_REASON_ROUTE_OUT_OF_WORLD = (
+    f"`route` 取值越界（闭世界仅「{ROUTE_FULL}」｜「{ROUTE_DIRECT}」）"
+)
+_TYPE_TEXT = "字符串"
+_TYPE_CANDIDATES = "字符串数组"
+
 
 def parse_understanding(text: str) -> Understanding | Direct | None:
     """理解面＝统一 JSON 严格解析（`specs/parsing.md` 行为 1，V2 定案）。
@@ -54,30 +71,65 @@ def parse_understanding(text: str) -> Understanding | Direct | None:
     合格 → `Understanding`（`route="full"`：`text`／`metric_candidates`）｜`Direct`
     （`route="direct"`：`text`）两形互斥、单出口；`route` 越界／缺必填字段／类型不符 → `None`
     （不猜、不取默认、不做降级提取）。**不受理引号自修、不使用提取件**（接口⑤）。
+
+    判定本体＝`_understand_schema`（与拒因诊断面共用——单点，两形不各自判）。
+    """
+    return _understand_schema(text)[0]
+
+
+def understanding_schema_feedback(text: str) -> str:
+    """理解面 schema 拒因正文（「哪一条」说清）——2026-10-16 补·流水 67（`specs/parsing.md` 接口⑤）。
+
+    不合格 → **具体不合项一句**（缺必填字段／字段类型不符／`route` 越界闭世界——逐支落对）；**合格
+    → 空串**（无病不产拒因——不猜、不编）。本件＝消费方 `understanding` 组拒因回喂载荷的【拒因】段
+    唯一来源（其错误族只转译 `None`，说不到「哪一条」）；与 `parse_understanding` **共用判定内核
+    `_understand_schema`**（禁手写替代纪律：理解面 schema 判定在 runtimev2 面内仍恰一处）。零模型、
+    零 IO、纯结构判定（同行为 14／15）。
+    """
+    return _understand_schema(text)[1]
+
+
+def _understand_schema(text: str) -> tuple[Understanding | Direct | None, str]:
+    """理解面判定内核（单点）：返（定型载荷｜`None`，拒因正文——合格形为空串）。
+
+    判据序＝顶层对象 → `route` 闭世界 → 逐字段（两形各自字段集）：**首判即返**，故
+    「`parse_understanding` 返 `None` ↔ 拒因非空」恒等价（两公开形读同一序列，不漂移）。
+    拒因逐支一句、零词表（全结构判：存在性／类型／闭世界成员）。
     """
     try:
         payload = json.loads(text)
     except (TypeError, ValueError):
-        return None
+        return None, _REASON_NOT_JSON
     if not isinstance(payload, dict):
-        return None
+        return None, _REASON_NOT_OBJECT
     route = payload.get("route")
     if route == ROUTE_FULL:
         body = payload.get("text")
-        candidates = payload.get("metric_candidates")
         if not isinstance(body, str):
-            return None
-        if not isinstance(candidates, list) or not all(
-            isinstance(item, str) for item in candidates
-        ):
-            return None
-        return Understanding(text=body, metric_candidates=list(candidates), route=ROUTE_FULL)
+            return None, _field_reason(payload, "text", _TYPE_TEXT)
+        candidates = payload.get("metric_candidates")
+        if not isinstance(candidates, list):
+            return None, _field_reason(payload, "metric_candidates", _TYPE_CANDIDATES)
+        if not all(isinstance(item, str) for item in candidates):
+            return None, _REASON_CANDIDATE_ITEM
+        return Understanding(
+            text=body, metric_candidates=list(candidates), route=ROUTE_FULL
+        ), ""
     if route == ROUTE_DIRECT:
         body = payload.get("text")
         if not isinstance(body, str):
-            return None
-        return Direct(text=body, route=ROUTE_DIRECT)
-    return None
+            return None, _field_reason(payload, "text", _TYPE_TEXT)
+        return Direct(text=body, route=ROUTE_DIRECT), ""
+    if "route" in payload:
+        return None, _REASON_ROUTE_OUT_OF_WORLD
+    return None, _REASON_MISSING.format(name="route")
+
+
+def _field_reason(payload: dict[str, Any], name: str, expected: str) -> str:
+    """单字段拒因（缺键＝缺必填字段；在场类型不符＝字段类型不符——两形分说，不混一句）。"""
+    if name in payload:
+        return _REASON_TYPE.format(name=name, expected=expected)
+    return _REASON_MISSING.format(name=name)
 
 
 def _question_group_of(raw: Any, *, max_subtasks: int) -> QuestionGroup | str:

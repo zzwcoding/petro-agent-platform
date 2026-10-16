@@ -13,8 +13,12 @@ Direct`）与行为 1–12；`specs/modules.md` `## understanding` 卡（职责�
    `specs/agent-loop.md` 行为 2 的追加式；模型原话只进过程档案与链上留痕），**`dialogue` 零写入**
    （过程记录不混层；「模型原话不进对话层」的对话层＝`state.dialogue`——`specs/state.md` 行为 6）；
 4. **严格解析（行为 7）**：`parsing.parse_understanding(content)`；返 `None`（非合法 JSON／缺必填
-   字段／类型不符／`route` 越界）→ **抛 `UnderstandingParseError`**（携原始应答片段），**不静默
-   降级**、无两行式回退；
+   字段／类型不符／`route` 越界）→ **拒因回喂重试恰一次（行为 13）**：向链尾追加拒因载荷
+   （`_append_schema_feedback`——【拒因】取 `parsing.understanding_schema_feedback` 的具体不合项、
+   【期望形】＋尾行见 `feedback`）→ 同相位再读一次；**仍拒**才 **抛 `UnderstandingParseError`**
+   （携原始应答片段），**不静默降级**、无两行式回退。上限**恰一次**（结构化无环）；两次调用各记
+   一条步（`call_model` 单点）；回喂只入链与过程档案（`dialogue` 零写入）；**不补默认、不改写
+   原话**。
 5. **分派（行为 4／6／8／12）**：**只按 `route` 取值**（闭世界 `full`｜`direct`）——
    `full` → 理解字段双出口（`state.understanding`／`state.metric_candidates` ＋ `text` 事件
    `kind=understanding`）＋ 候选出自名录对账（违约即如实上报，不静默丢弃）；
@@ -37,7 +41,13 @@ fail-closed 抛错（同 `gateway_adapter._configured_completer` 先例——「
 from __future__ import annotations
 
 from appv2.runtimev2.bookkeeping import append_message, call_model, direct_answer, note
-from appv2.runtimev2.parsing import ROUTE_FULL, Direct, Understanding, parse_understanding
+from appv2.runtimev2.parsing import (
+    ROUTE_FULL,
+    Direct,
+    Understanding,
+    parse_understanding,
+    understanding_schema_feedback,
+)
 from appv2.runtimev2.state import RunState
 from appv2.runtimev2.transport import EventBus
 from appv2.runtimev2.understanding.assembly import ensure_task_book
@@ -47,11 +57,14 @@ from appv2.runtimev2.understanding.constants import (
     MODEL_CALLER,
     PHASE,
     READ_NOTE_TITLE,
+    RETRY_NOTE_TITLE,
     ROLE_ASSISTANT,
+    ROLE_USER,
     TEXT_EVENT,
     TEXT_EVENT_KIND,
 )
 from appv2.runtimev2.understanding.errors import UnderstandingParseError
+from appv2.runtimev2.understanding.feedback import schema_feedback
 from appv2.runtimev2.understanding.reporting import (
     report_candidate_violation,
     report_direct_rejected,
@@ -92,14 +105,19 @@ def interpret(
     之一；应答不合 schema／`route` 越界 → 抛 `UnderstandingParseError`（行为 7：不返回半成品）；
     直答文本命中闭世界（行为 5）→ **退回 `route="full"` 的 `Understanding`**（不抛错、不静默、
     不直答收口——退回归 `_reject_direct`）。
+    **schema 拒回喂重试恰一次（行为 13，2026-10-16 补·流水 67）**：首读不合 schema **不当场判死**
+    ——向链尾追加拒因载荷（`feedback.schema_feedback`：【拒因】＋【期望形】＋尾行；不合项取
+    `parsing.understanding_schema_feedback` 的唯一诊断出口）→ **同相位再读一次**；仍拒才抛
+    `UnderstandingParseError`（编排收 `failed` 不变）。**拒因回喂＝修参、非降级**：不补默认、不改写
+    模型原话、不降级提取；上限**恰一次**（结构化——无环，钉死）。
     过程态一律经 `bookkeeping` 唯一写口落（步／链／过程档案／通知／意图），本块零直写。
     """
     channel = _require_bus(bus)
     ensure_task_book(state, watermark=watermark)
-    raw = call_model(state, MODEL_CALLER, list(state.messages))
-    append_message(state, role=ROLE_ASSISTANT, content=raw)
-    note(state, phase=PHASE, title=READ_NOTE_TITLE, digest=raw)
-    parsed = parse_understanding(raw)
+    parsed, raw = _read_and_parse(state)
+    if parsed is None:
+        _append_schema_feedback(state, raw)
+        parsed, raw = _read_and_parse(state)
     if parsed is None:
         report_parse_failure(state, raw)
         raise UnderstandingParseError(_PARSE_FAILURE_REASON, raw=raw)
@@ -109,6 +127,34 @@ def interpret(
             return _reject_direct(state, parsed, hits, channel)
         return _dispatch_direct(state, parsed)
     return _dispatch_full(state, parsed, channel)
+
+
+def _read_and_parse(state: RunState) -> tuple[Understanding | Direct | None, str]:
+    """一次读题（模型调用单点发起 ＋ 链尾留痕 ＋ 过程档案留痕）→ 解析三态。
+
+    首读与重试**同形复用**（重试＝同相位再读一次，非另开路径）：整条链送模型（`pin-22` 只追加）、
+    应答追加链尾（`ROLE_ASSISTANT`）、模型原话入过程档案（行为 3／9）；调用记账归
+    `bookkeeping.call_model` 单点——**两次调用各记一条步**（本支不另记步）。
+    """
+    raw = call_model(state, MODEL_CALLER, list(state.messages))
+    append_message(state, role=ROLE_ASSISTANT, content=raw)
+    note(state, phase=PHASE, title=READ_NOTE_TITLE, digest=raw)
+    return parse_understanding(raw), raw
+
+
+def _append_schema_feedback(state: RunState, raw: str) -> None:
+    """schema 拒回喂载荷追加链尾（行为 13）：`messages` 追加一条 ＋ 过程档案一条注记。
+
+    载荷＝【拒因】（`parsing.understanding_schema_feedback`——schema 单点出的「哪一条」）＋【期望形】
+    ＋尾行；**追加形**（拒因落链尾、前置内容逐字不动）＝前缀延伸不破（`pin-22`）。角色取 `ROLE_USER`
+    （回喂＝系统侧给模型的指令条，同澄清面增量条体例）；**`dialogue` 零写入**（过程记录不混层——
+    行为 9／钉 `pin-26` 渲染面）。本支**不发 notice、不记步、不落任何判定字段**：回喂失败的如实
+    上报归 `report_parse_failure`、调用记账归 `call_model` 单点——副作用面**零增**（不重复上报、
+    不翻倍）。
+    """
+    payload = schema_feedback(understanding_schema_feedback(raw))
+    append_message(state, role=ROLE_USER, content=payload)
+    note(state, phase=PHASE, title=RETRY_NOTE_TITLE, digest=payload)
 
 
 def _reject_direct(

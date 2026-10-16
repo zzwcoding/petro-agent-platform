@@ -1,8 +1,8 @@
 """understanding 的接线常量与机读字段名（本块自有的唯一常量点；闭世界取值一律引真源）。
 
-真源＝`specs/understanding.md` 行为 1／2／9／12 与「不降级与静默禁令」节；`specs/modules.md`
+真源＝`specs/understanding.md` 行为 1／2／9／12／13 与「不降级与静默禁令」节；`specs/modules.md`
 `## understanding` 卡。本模块只落**接线面**常量（模型调用归因桶／过程档案标题／事件面取值／
-机读上报字段名）——**不复述任何闭世界族的取值**：
+机读上报字段名／schema 拒回喂载荷文案骨架）——**不复述任何闭世界族的取值**：
 
 - 步类型与步状态：引 `state.STEP_DECISION`（`STEP_KINDS` 的真源在 `state`）与 `persistence` 包根的
   `STEP_STATUS_FAILED`（`STEP_STATUS_KINDS` 的真源在 `persistence`——**引真源、不复述字面**；该
@@ -60,6 +60,22 @@ PAYLOAD_DIRECT_TEXT_KEY = "direct_text"
 PAYLOAD_CLOSURE_HITS_KEY = "closure_hits"
 PAYLOAD_HIT_KIND_KEY = "kind"
 PAYLOAD_HIT_TOKEN_KEY = "token"
+
+# ── schema 拒回喂面（行为 13；2026-10-16 补·流水 67——照澄清相位拒因载荷体例）──────────────
+# 回喂载荷＝链尾一条 user 消息（链上直投、无外层壳）＋过程档案一条注记；本块自有的唯一常量点。
+RETRY_NOTE_TITLE = "读题回喂重试"  # 过程档案注记条目标题（pin-26 渲染面：入档案、不入 dialogue）
+FEEDBACK_JOIN = "\n"  # 三段连接符（照澄清面块件「\n」连接体例）
+FEEDBACK_REASON = "【拒因】{reason}"  # 段一：具体不合项（取 parsing 的诊断出口——「哪一条」）
+FEEDBACK_EXPECTED = (  # 段二：期望形（照理解面输出契约与样例集——metric_candidates 无命中＝空数组）
+    '【期望形】{"route":"full","text":"理解：〈一句话题意〉",'
+    '"metric_candidates":["〈台账名录里的指标名〉"]}'
+    '（或 {"route":"direct","text":"〈回复内容〉"}）——route 只许这两个取值；'
+    "route=full 时 text 与 metric_candidates 均为必填，metric_candidates 是字符串数组、"
+    "无命中指标时给空数组 []；route=direct 时无 metric_candidates 键。"
+)
+FEEDBACK_TAIL = (
+    "——只修正不合项，其余内容照旧，重新输出一个 JSON 对象（不要输出 JSON 之外的解释文字）。"
+)
 
 # ── 原始应答片段留痕（`UnderstandingParseError` 携带；上限与可见标记口径同仓截断先例）──
 RAW_EXCERPT_LIMIT = 200

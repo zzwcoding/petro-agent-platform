@@ -898,6 +898,99 @@ def test_four_phase_routing_topology() -> None:
     assert ("answer", "verify") in edges
 
 
+async def test_four_phase_understand_schema_feedback_retry_recovers() -> None:
+    """理解步 schema 首拒 → 拒因回喂 → 次读合规 → 四相位正常走通（run `completed`）。
+
+    2026-10-16 补·流水 67（`specs/understanding.md` 行为 13／`specs/agent-loop.md` 行为 1 承条）——
+    真机病灶面（`run-60bc4aaa` 首拒即 `failed`）的端到端反证：首读剧本＝真机原形（旧两行式被塞进
+    `text`、漏 `metric_candidates`）→ 回喂载荷落链尾 → 次读合规 → 澄清→分解→过闸→批量→汇总→收口
+    全程照旧。判据：verdict(final) 非 failed；理解模型调用恰 2 次（上限恰一次）；回喂载荷在链上
+    （逐字前缀延伸）；回喂支零 notice（如实上报面零增）。
+    """
+    dump = v2_ledger_dump()
+    bad_understand = json.dumps(
+        {"route": "full", "text": "理解：问各井日产油量。\n指标候选：日产油量"},
+        ensure_ascii=False,
+    )
+    note = v2_ledger_note(dump, "日产油量")
+    clarify = v2_decompose(
+        subtask_id="s1",
+        question="2025-09-01 到 09-03 各井日产油量",
+        ledger_notes=note,
+        chain="data",
+    )
+    script = {
+        "understand": [bad_understand, V2_UNDERSTAND],
+        "decision": v2_decision_turn(
+            clarify=clarify,
+            toolmatch=v2_matches(
+                v2_data_match(subtask_id="s1", slot="日产油量",
+                              start="2025-09-01", end="2025-09-03")
+            ),
+        ),
+        "answer": ["子任务 s1：N-01 井 2025-09-01 日产油量 21.16 吨 [1]。"],
+    }
+    wire_ledger_projection(V2LedgerPort(dump))
+    engine = V2QueueEngine([_rows_outcome()])
+    with freeze("2026-10-08T09:00:00"):
+        runtime, completer = v2_runtime(script=script, registry=v2_registry(engine=engine))
+        events = await v2_run(runtime, "2025 年 9 月 1 日到 3 日的日产油量")
+        run_id = next(
+            event.data["run_id"] for event in reversed(events) if "run_id" in event.data
+        )
+    assert events[-2].data["status"] == "completed"  # 零 failed（真机病灶面的反证）
+    row = V2RunStore().run(run_id)
+    assert row is not None and row.status == "completed" and "21.16" in (row.answer or "")
+    # 上限恰一次：理解模型调用恰 2 次（首读＋回喂后次读），无第三次
+    understand_calls = [item for item in completer.calls if item[0] == "understand"]
+    assert len(understand_calls) == 2
+    # 回喂＝追加形：第二次调用的链＝第一次的逐字前缀延伸（末两件＝首答原话＋回喂载荷）
+    first, second = understand_calls[0][1], understand_calls[1][1]
+    assert second[: len(first)] == first
+    assert second[len(first)]["role"] == "assistant"
+    feedback = second[-1]
+    assert feedback["role"] == "user"
+    assert feedback["content"].startswith("【拒因】缺必填字段 `metric_candidates`")
+    assert "【期望形】" in feedback["content"]
+    # 落库面留痕：回喂载荷在链上、过程档案有回喂注记、理解步零 notice（回喂支零副作用）
+    state = V2RunStore().load(run_id)
+    assert any(m["content"] == feedback["content"] for m in state.messages)
+    titles = [entry["title"] for entry in state.process_notes]
+    assert titles.count("读题回喂重试") == 1 and titles.count("读题") == 2
+    assert [n for n in state.notices if n["type"] == "run_failed"] == []
+
+
+async def test_four_phase_understand_schema_feedback_twice_fails() -> None:
+    """理解步两读皆拒 → fail-closed 收束 `failed`（上限恰一次，无第三次调用）。
+
+    回喂不改变终局口径（`specs/understanding.md` 行为 13 末句）：双读皆不合 schema → 抛
+    `UnderstandingParseError` → 编排照旧收 `failed` ＋ `run_failed` notice；**修正回路只一轮**
+    （理解模型调用恰 2 次——第三次永不发生），拒因载荷留痕在链上（复读失败时可见）。
+    """
+    bad_understand = json.dumps(
+        {"route": "full", "text": "理解：问各井日产油量。\n指标候选：日产油量"},
+        ensure_ascii=False,
+    )
+    script = {"understand": [bad_understand]}
+    wire_ledger_projection(V2LedgerPort(v2_ledger_dump()))
+    runtime, completer = v2_runtime(script=script)
+    events = await v2_run(runtime, "2025 年 9 月 1 日到 3 日的日产油量")
+    run_id = next(
+        event.data["run_id"] for event in reversed(events) if "run_id" in event.data
+    )
+    assert events[-2].data["status"] == "failed"
+    failed = next(event for event in events if event.event == "notice")
+    assert failed.data["type"] == "run_failed"
+    # 上限恰一次：两读皆拒即收口，绝无第三次调用
+    assert len([call for call in completer.calls if call[0] == "understand"]) == 2
+    # 拒因留痕（链上载荷）；四相位未入场（理解步即终局）
+    state = V2RunStore().load(run_id)
+    assert state.messages[-1]["role"] == "assistant"
+    assert state.messages[-2]["role"] == "user"
+    assert state.messages[-2]["content"].startswith("【拒因】缺必填字段 `metric_candidates`")
+    assert [row for row in v2_steps(run_id, "clarify")] == []
+
+
 async def test_four_phase_end_to_end_scripted() -> None:
     """四相位端到端剧本（runtimev2 编排：澄清→分解→过闸→批量→汇总→核验→收口）。"""
     dump = v2_ledger_dump()
