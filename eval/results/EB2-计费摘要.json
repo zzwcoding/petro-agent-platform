@@ -1,0 +1,33 @@
+{
+ "tag": "EB2",
+ "base": "http://localhost:8001/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "2026-10-17T03:21:03.040865",
+ "questions": 1,
+ "spend_ok": 1,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 4,
+  "fallback_calls": 0,
+  "input_tokens": 40708,
+  "output_tokens": 1217,
+  "cost_yuan": 0.044359
+ },
+ "items": [
+  {
+   "qid": "NQ-M9",
+   "group": "新语料·月报",
+   "run_id": "run-87b96581",
+   "method": "run_id",
+   "calls": 4,
+   "cost_yuan": 0.044359,
+   "call_ids": [
+    "call-aa16c6c0",
+    "call-c2517037",
+    "call-feb10821",
+    "call-4f6dcdce"
+   ]
+  }
+ ],
+ "errors": []
+}

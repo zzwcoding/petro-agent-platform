@@ -1,0 +1,363 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-1ef3e45d",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：问去年各井的配产量。",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 6,
+   "event": "notice",
+   "data": {
+    "type": "chain_switch_reentry",
+    "gates": [],
+    "content": "前置条件机：子问题 s1 换链回炉提议——「配产量」在册未绑定——agg 汇总层无承载列，引擎将走降级解释链（零数值不冒充）——或改走 knowledge 链检索文档所载（本指标口径/数值可能载于文档）；换链回炉提议：本子问题命中软失败面（在册未绑定／题眼域错）——回炉①澄清相位改链重决策（一次为界；同支再触发＝如实拒答终局）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "前置条件机：s1=allow"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "澄清 r2 被拒：action 缺失或越界（ask/decompose/discover/finalize 四值）：None"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 9,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 10,
+    "title": "澄清 r3：分解 1 子问题"
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 11,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 13,
+   "event": "notice",
+   "data": {
+    "type": "subtask_refused",
+    "gates": [],
+    "content": "前置条件机：子问题 s1 拒答（判定位 chain_switch）——换链回炉已用尽（一次为界）：坚持 data 链同参（指纹 {\"plan\":{\"ag…在簿）——未绑定口径如实拒答，不代答"
+   }
+  },
+  {
+   "id": 14,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 12,
+    "title": "前置条件机：s1=refuse（chain_switch）"
+   }
+  },
+  {
+   "id": 15,
+   "event": "text",
+   "data": {
+    "content": "去年各井配产量未在材料中命中观察条目（无观察材料覆盖），本步无法作答——建议：确认台账是否落「配产量」列（台账卡载其绑定态为 unbound，agg 读模型未落该列），或指明查询口径（按区块/油田/单井、是否按月聚合）后重新检索。"
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 13,
+    "title": "模型调用：answer"
+   }
+  },
+  {
+   "id": 17,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 14,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 18,
+   "event": "verdict",
+   "data": {
+    "supported": 0,
+    "rewritten": 0,
+    "split": 0,
+    "cited": [],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  },
+  {
+   "id": 19,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 15,
+    "title": "核验：支撑 0｜改写 0｜分源 否"
+   }
+  },
+  {
+   "id": 20,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 16,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 21,
+   "event": "verdict",
+   "data": {
+    "status": "completed",
+    "run_id": "run-1ef3e45d",
+    "manifest_digest": "3f4289c35b30ddb4",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 22,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-1ef3e45d",
+    "question": "去年各井配产量是多少？",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 29432,
+    "counts": {
+     "messages": 16,
+     "dialogue": 0,
+     "process_notes": 8,
+     "observations": 0,
+     "steps": 16
+    }
+   }
+  },
+  {
+   "id": 22,
+   "event": "done",
+   "data": {
+    "run_id": "run-1ef3e45d"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "去年各井配产量未在材料中命中观察条目（无观察材料覆盖），本步无法作答——建议：确认台账是否落「配产量」列（台账卡载其绑定态为 unbound，agg 读模型未落该列），或指明查询口径（按区块/油田/单井、是否按月聚合）后重新检索。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "chain_switch_reentry",
+    "gates": [],
+    "content": "前置条件机：子问题 s1 换链回炉提议——「配产量」在册未绑定——agg 汇总层无承载列，引擎将走降级解释链（零数值不冒充）——或改走 knowledge 链检索文档所载（本指标口径/数值可能载于文档）；换链回炉提议：本子问题命中软失败面（在册未绑定／题眼域错）——回炉①澄清相位改链重决策（一次为界；同支再触发＝如实拒答终局）"
+   },
+   {
+    "type": "subtask_refused",
+    "gates": [],
+    "content": "前置条件机：子问题 s1 拒答（判定位 chain_switch）——换链回炉已用尽（一次为界）：坚持 data 链同参（指纹 {\"plan\":{\"ag…在簿）——未绑定口径如实拒答，不代答"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-1ef3e45d",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "前置条件机：s1=allow"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "澄清 r2 被拒：action 缺失或越界（ask/decompose/discover/finalize 四值）：None"
+   },
+   {
+    "step": "decision",
+    "seq": 9,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 10,
+    "title": "澄清 r3：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 11,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 12,
+    "title": "前置条件机：s1=refuse（chain_switch）"
+   },
+   {
+    "step": "answer",
+    "seq": 13,
+    "title": "模型调用：answer"
+   },
+   {
+    "step": "answer",
+    "seq": 14,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 15,
+    "title": "核验：支撑 0｜改写 0｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 16,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [
+   {
+    "supported": 0,
+    "rewritten": 0,
+    "split": 0,
+    "cited": [],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  ],
+  "final": {
+   "status": "completed",
+   "run_id": "run-1ef3e45d",
+   "manifest_digest": "3f4289c35b30ddb4",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：问去年各井的配产量。",
+   "去年各井配产量未在材料中命中观察条目（无观察材料覆盖），本步无法作答——建议：确认台账是否落「配产量」列（台账卡载其绑定态为 unbound，agg 读模型未落该列），或指明查询口径（按区块/油田/单井、是否按月聚合）后重新检索。"
+  ],
+  "duration_s": 11.6
+ }
+}

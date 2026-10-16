@@ -364,7 +364,10 @@ def build_fewshot_messages(
 async def ask_once(c: httpx.AsyncClient, question: str) -> dict[str, Any]:
     t0 = time.monotonic()
     async with c.stream(
-        "POST", f"{BASE}/api/chat/asks", json={"question": question}, headers=HEADERS
+        # URL 自适应（V2-12 同 rerun.py 惯例）：base 以 /api/v2 结尾 → V2 端点族（/chat/asks）；
+        # 否则 V1 缺省形（/api/chat/asks）。V2 帧形下 N7.1/N7.3 提取恒落人审列（人工判分）。
+        "POST", f"{BASE}/chat/asks" if BASE.rstrip("/").endswith("/api/v2") else f"{BASE}/api/chat/asks",
+        json={"question": question}, headers=HEADERS
     ) as resp:
         if resp.status_code != 200:
             body = (await resp.aread()).decode("utf-8", "replace")

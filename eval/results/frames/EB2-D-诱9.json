@@ -1,0 +1,1482 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-4c83211c",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：按台账口径，问①8月5口检泵井中检泵周期最长的是哪口井及其天数；②该最长周期与5口井中最短周期的差值（最短比最长短多少天）；③这5口井检泵作业费的合计金额（万元）。",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1：分解 2 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 5,
+   "event": "notice",
+   "data": {
+    "type": "chain_switch_reentry",
+    "gates": [],
+    "content": "前置条件机：子问题 s1 换链回炉提议——「检泵周期」在册未绑定——agg 汇总层无承载列，引擎将走降级解释链（零数值不冒充）——或改走 knowledge 链检索文档所载（本指标口径/数值可能载于文档）；窗上沿 2026-09-01 晚于汇总层水位 2026-08-31——引擎新鲜度闸将拦停/改绑并注记（照实判定）；换链回炉提议：本子问题命中软失败面（在册未绑定／题眼域错）——回炉①澄清相位改链重决策（一次为界；同支再触发＝如实拒答终局）"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "前置条件机：s1=allow"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "前置条件机：s2=allow"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "澄清 r2：分解 2 子问题"
+   }
+  },
+  {
+   "id": 10,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（malformed_matches）：工具匹配不可解析——只输出一个 JSON——输出中没有任何以左花括号起始的 JSON 对象（检查是否漏了 JSON 外壳、只输出了围栏或解释文字）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 9,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 10,
+    "title": "工具匹配被拒（malformed_matches）"
+   }
+  },
+  {
+   "id": 13,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（malformed_matches）：工具匹配不可解析——只输出一个 JSON——输出中没有任何以左花括号起始的 JSON 对象（检查是否漏了 JSON 外壳、只输出了围栏或解释文字）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 14,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 11,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 15,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 12,
+    "title": "工具匹配被拒（malformed_matches）"
+   }
+  },
+  {
+   "id": 16,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 17,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 13,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 18,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 14,
+    "title": "工具匹配被拒（缺配）"
+   }
+  },
+  {
+   "id": 19,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 20,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 15,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 21,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 16,
+    "title": "工具匹配被拒（缺配）"
+   }
+  },
+  {
+   "id": 22,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 23,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 17,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 24,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 18,
+    "title": "工具匹配被拒（缺配）"
+   }
+  },
+  {
+   "id": 25,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 26,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 19,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 27,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 20,
+    "title": "工具匹配被拒（缺配）"
+   }
+  },
+  {
+   "id": 28,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（malformed_matches）：工具匹配不可解析——只输出一个 JSON——JSON 语法错误：Expecting ',' delimiter（约第 651 字符）。常见原因：少写右括号或方括号、尾逗号、引号未闭合。你上次输出坏点附近原文：「y results: …\",\"pump_check_interval_days\":\"240`\"}, …]}」——只修正语法错误，结构与其余内容照旧，重新输出一个 JSON。——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 29,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 21,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 30,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 22,
+    "title": "工具匹配被拒（malformed_matches）"
+   }
+  },
+  {
+   "id": 31,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 32,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 23,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 33,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 24,
+    "title": "工具匹配被拒（缺配）"
+   }
+  },
+  {
+   "id": 34,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（malformed_matches）：工具匹配不可解析——只输出一个 JSON——输出中没有任何以左花括号起始的 JSON 对象（检查是否漏了 JSON 外壳、只输出了围栏或解释文字）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 35,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 25,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 36,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 26,
+    "title": "工具匹配被拒（malformed_matches）"
+   }
+  },
+  {
+   "id": 37,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 38,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 27,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 39,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 28,
+    "title": "工具匹配被拒（缺配）"
+   }
+  },
+  {
+   "id": 40,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 41,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 29,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 42,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 30,
+    "title": "工具匹配被拒（缺配）"
+   }
+  },
+  {
+   "id": 43,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（malformed_matches）：工具匹配不可解析——只输出一个 JSON——输出中没有任何以左花括号起始的 JSON 对象（检查是否漏了 JSON 外壳、只输出了围栏或解释文字）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 44,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 31,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 45,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 32,
+    "title": "工具匹配被拒（malformed_matches）"
+   }
+  },
+  {
+   "id": 46,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 47,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 33,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 48,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 34,
+    "title": "工具匹配被拒（缺配）"
+   }
+  },
+  {
+   "id": 49,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 50,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 35,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 51,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 36,
+    "title": "工具匹配被拒（缺配）"
+   }
+  },
+  {
+   "id": 52,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 53,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 37,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 54,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 38,
+    "title": "工具匹配被拒（缺配）"
+   }
+  },
+  {
+   "id": 55,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（malformed_matches）：工具匹配不可解析——只输出一个 JSON——输出中没有任何以左花括号起始的 JSON 对象（检查是否漏了 JSON 外壳、只输出了围栏或解释文字）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 56,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 39,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 57,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 40,
+    "title": "工具匹配被拒（malformed_matches）"
+   }
+  },
+  {
+   "id": 58,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（malformed_matches）：工具匹配不可解析——只输出一个 JSON——输出中没有任何以左花括号起始的 JSON 对象（检查是否漏了 JSON 外壳、只输出了围栏或解释文字）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 59,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 41,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 60,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 42,
+    "title": "工具匹配被拒（malformed_matches）"
+   }
+  },
+  {
+   "id": 61,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 62,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 43,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 63,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 44,
+    "title": "工具匹配被拒（缺配）"
+   }
+  },
+  {
+   "id": 64,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（malformed_matches）：工具匹配不可解析——只输出一个 JSON——输出中没有任何以左花括号起始的 JSON 对象（检查是否漏了 JSON 外壳、只输出了围栏或解释文字）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 65,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 45,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 66,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 46,
+    "title": "工具匹配被拒（malformed_matches）"
+   }
+  },
+  {
+   "id": 67,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 68,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 47,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 69,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 48,
+    "title": "工具匹配被拒（缺配）"
+   }
+  },
+  {
+   "id": 70,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 71,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 49,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 72,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 50,
+    "title": "工具匹配被拒（缺配）"
+   }
+  },
+  {
+   "id": 73,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 74,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 51,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 75,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 52,
+    "title": "工具匹配被拒（缺配）"
+   }
+  },
+  {
+   "id": 76,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（malformed_matches）：工具匹配不可解析——只输出一个 JSON——输出中没有任何以左花括号起始的 JSON 对象（检查是否漏了 JSON 外壳、只输出了围栏或解释文字）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 77,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 53,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 78,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 54,
+    "title": "工具匹配被拒（malformed_matches）"
+   }
+  },
+  {
+   "id": 79,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 80,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 55,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 81,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 56,
+    "title": "工具匹配被拒（缺配）"
+   }
+  },
+  {
+   "id": 82,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 83,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 57,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 84,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 58,
+    "title": "工具匹配被拒（缺配）"
+   }
+  },
+  {
+   "id": 85,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 86,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 59,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 87,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 60,
+    "title": "工具匹配被拒（缺配）"
+   }
+  },
+  {
+   "id": 88,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 89,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 61,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 90,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 62,
+    "title": "工具匹配被拒（缺配）"
+   }
+  },
+  {
+   "id": 91,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 92,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 63,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 93,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 64,
+    "title": "工具匹配被拒（缺配）"
+   }
+  },
+  {
+   "id": 94,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 95,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 65,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 96,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 66,
+    "title": "工具匹配被拒（缺配）"
+   }
+  },
+  {
+   "id": 97,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 98,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 67,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 99,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 68,
+    "title": "工具匹配被拒（缺配）"
+   }
+  },
+  {
+   "id": 100,
+   "event": "notice",
+   "data": {
+    "type": "run_failed",
+    "gates": [],
+    "content": "run 执行失败：Recursion limit of 35 reached without hitting a stop condition. You can increase the limit by setting the `recursion_limit` config key.\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langgraph/errors/GRAPH_RECURSION_LIMIT"
+   }
+  },
+  {
+   "id": 101,
+   "event": "verdict",
+   "data": {
+    "status": "failed",
+    "run_id": "run-4c83211c",
+    "manifest_digest": "28b240f5344b73c9",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 102,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-4c83211c",
+    "question": "按台账口径，8 月 5 口检泵井的检泵周期最长的是哪口井、多少天？最短的比它短多少天？这 5 口井的检泵作业费合计多少万元？",
+    "status": "failed",
+    "error": "Recursion limit of 35 reached without hitting a stop condition. You can increase the limit by setting the `recursion_limit` config key.\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langgraph/errors/GRAPH_RECURSION_LIMIT",
+    "stored": true,
+    "bytes": 68994,
+    "counts": {
+     "messages": 39,
+     "dialogue": 0,
+     "process_notes": 4,
+     "observations": 0,
+     "steps": 68
+    }
+   }
+  },
+  {
+   "id": 102,
+   "event": "done",
+   "data": {
+    "run_id": "run-4c83211c"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "理解：按台账口径，问①8月5口检泵井中检泵周期最长的是哪口井及其天数；②该最长周期与5口井中最短周期的差值（最短比最长短多少天）；③这5口井检泵作业费的合计金额（万元）。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "chain_switch_reentry",
+    "gates": [],
+    "content": "前置条件机：子问题 s1 换链回炉提议——「检泵周期」在册未绑定——agg 汇总层无承载列，引擎将走降级解释链（零数值不冒充）——或改走 knowledge 链检索文档所载（本指标口径/数值可能载于文档）；窗上沿 2026-09-01 晚于汇总层水位 2026-08-31——引擎新鲜度闸将拦停/改绑并注记（照实判定）；换链回炉提议：本子问题命中软失败面（在册未绑定／题眼域错）——回炉①澄清相位改链重决策（一次为界；同支再触发＝如实拒答终局）"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（malformed_matches）：工具匹配不可解析——只输出一个 JSON——输出中没有任何以左花括号起始的 JSON 对象（检查是否漏了 JSON 外壳、只输出了围栏或解释文字）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（malformed_matches）：工具匹配不可解析——只输出一个 JSON——输出中没有任何以左花括号起始的 JSON 对象（检查是否漏了 JSON 外壳、只输出了围栏或解释文字）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（malformed_matches）：工具匹配不可解析——只输出一个 JSON——JSON 语法错误：Expecting ',' delimiter（约第 651 字符）。常见原因：少写右括号或方括号、尾逗号、引号未闭合。你上次输出坏点附近原文：「y results: …\",\"pump_check_interval_days\":\"240`\"}, …]}」——只修正语法错误，结构与其余内容照旧，重新输出一个 JSON。——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（malformed_matches）：工具匹配不可解析——只输出一个 JSON——输出中没有任何以左花括号起始的 JSON 对象（检查是否漏了 JSON 外壳、只输出了围栏或解释文字）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（malformed_matches）：工具匹配不可解析——只输出一个 JSON——输出中没有任何以左花括号起始的 JSON 对象（检查是否漏了 JSON 外壳、只输出了围栏或解释文字）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（malformed_matches）：工具匹配不可解析——只输出一个 JSON——输出中没有任何以左花括号起始的 JSON 对象（检查是否漏了 JSON 外壳、只输出了围栏或解释文字）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（malformed_matches）：工具匹配不可解析——只输出一个 JSON——输出中没有任何以左花括号起始的 JSON 对象（检查是否漏了 JSON 外壳、只输出了围栏或解释文字）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（malformed_matches）：工具匹配不可解析——只输出一个 JSON——输出中没有任何以左花括号起始的 JSON 对象（检查是否漏了 JSON 外壳、只输出了围栏或解释文字）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（malformed_matches）：工具匹配不可解析——只输出一个 JSON——输出中没有任何以左花括号起始的 JSON 对象（检查是否漏了 JSON 外壳、只输出了围栏或解释文字）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "run_failed",
+    "gates": [],
+    "content": "run 执行失败：Recursion limit of 35 reached without hitting a stop condition. You can increase the limit by setting the `recursion_limit` config key.\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langgraph/errors/GRAPH_RECURSION_LIMIT"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-4c83211c",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1：分解 2 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "前置条件机：s1=allow"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "前置条件机：s2=allow"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "澄清 r2：分解 2 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 9,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 10,
+    "title": "工具匹配被拒（malformed_matches）"
+   },
+   {
+    "step": "decision",
+    "seq": 11,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 12,
+    "title": "工具匹配被拒（malformed_matches）"
+   },
+   {
+    "step": "decision",
+    "seq": 13,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 14,
+    "title": "工具匹配被拒（缺配）"
+   },
+   {
+    "step": "decision",
+    "seq": 15,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 16,
+    "title": "工具匹配被拒（缺配）"
+   },
+   {
+    "step": "decision",
+    "seq": 17,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 18,
+    "title": "工具匹配被拒（缺配）"
+   },
+   {
+    "step": "decision",
+    "seq": 19,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 20,
+    "title": "工具匹配被拒（缺配）"
+   },
+   {
+    "step": "decision",
+    "seq": 21,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 22,
+    "title": "工具匹配被拒（malformed_matches）"
+   },
+   {
+    "step": "decision",
+    "seq": 23,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 24,
+    "title": "工具匹配被拒（缺配）"
+   },
+   {
+    "step": "decision",
+    "seq": 25,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 26,
+    "title": "工具匹配被拒（malformed_matches）"
+   },
+   {
+    "step": "decision",
+    "seq": 27,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 28,
+    "title": "工具匹配被拒（缺配）"
+   },
+   {
+    "step": "decision",
+    "seq": 29,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 30,
+    "title": "工具匹配被拒（缺配）"
+   },
+   {
+    "step": "decision",
+    "seq": 31,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 32,
+    "title": "工具匹配被拒（malformed_matches）"
+   },
+   {
+    "step": "decision",
+    "seq": 33,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 34,
+    "title": "工具匹配被拒（缺配）"
+   },
+   {
+    "step": "decision",
+    "seq": 35,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 36,
+    "title": "工具匹配被拒（缺配）"
+   },
+   {
+    "step": "decision",
+    "seq": 37,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 38,
+    "title": "工具匹配被拒（缺配）"
+   },
+   {
+    "step": "decision",
+    "seq": 39,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 40,
+    "title": "工具匹配被拒（malformed_matches）"
+   },
+   {
+    "step": "decision",
+    "seq": 41,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 42,
+    "title": "工具匹配被拒（malformed_matches）"
+   },
+   {
+    "step": "decision",
+    "seq": 43,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 44,
+    "title": "工具匹配被拒（缺配）"
+   },
+   {
+    "step": "decision",
+    "seq": 45,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 46,
+    "title": "工具匹配被拒（malformed_matches）"
+   },
+   {
+    "step": "decision",
+    "seq": 47,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 48,
+    "title": "工具匹配被拒（缺配）"
+   },
+   {
+    "step": "decision",
+    "seq": 49,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 50,
+    "title": "工具匹配被拒（缺配）"
+   },
+   {
+    "step": "decision",
+    "seq": 51,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 52,
+    "title": "工具匹配被拒（缺配）"
+   },
+   {
+    "step": "decision",
+    "seq": 53,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 54,
+    "title": "工具匹配被拒（malformed_matches）"
+   },
+   {
+    "step": "decision",
+    "seq": 55,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 56,
+    "title": "工具匹配被拒（缺配）"
+   },
+   {
+    "step": "decision",
+    "seq": 57,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 58,
+    "title": "工具匹配被拒（缺配）"
+   },
+   {
+    "step": "decision",
+    "seq": 59,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 60,
+    "title": "工具匹配被拒（缺配）"
+   },
+   {
+    "step": "decision",
+    "seq": 61,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 62,
+    "title": "工具匹配被拒（缺配）"
+   },
+   {
+    "step": "decision",
+    "seq": 63,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 64,
+    "title": "工具匹配被拒（缺配）"
+   },
+   {
+    "step": "decision",
+    "seq": 65,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 66,
+    "title": "工具匹配被拒（缺配）"
+   },
+   {
+    "step": "decision",
+    "seq": 67,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 68,
+    "title": "工具匹配被拒（缺配）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "status": "failed",
+   "run_id": "run-4c83211c",
+   "manifest_digest": "28b240f5344b73c9",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：按台账口径，问①8月5口检泵井中检泵周期最长的是哪口井及其天数；②该最长周期与5口井中最短周期的差值（最短比最长短多少天）；③这5口井检泵作业费的合计金额（万元）。"
+  ],
+  "duration_s": 142.2
+ }
+}

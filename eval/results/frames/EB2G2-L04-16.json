@@ -1,0 +1,180 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-3f129975",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "您好！我是油田数据问答助手，可以帮您查询井的生产数据、产量指标、月报统计、区块动态、完井参数等内容。如果您有关于日产油、时率、含水率、递减、躺井、措施作业等方面的问题，随时告诉我～",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "直答结构核验不合格（命中 metric_name:含水率——直答里出现数据或事实断言）：退回完整流程（route=\"full\"），不直答收口。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "直答退回：文本命中闭世界 1 项"
+   }
+  },
+  {
+   "id": 5,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "您想了解产量相关的哪类信息呢？",
+     "options": [
+      "本月各区块／油田的日产油与产液完成情况",
+      "产量完成率／有效产量／商品量等产量指标的数值",
+      "躺井（停产待检泵）井的产量损失情况",
+      "我想直接描述具体问题"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-3f129975"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r1：反问（您想了解产量相关的哪类信息呢？）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "verdict",
+   "data": {
+    "status": "waiting_ask",
+    "run_id": "run-3f129975",
+    "manifest_digest": "721cf8de4aecfd4c",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 8,
+   "event": "done",
+   "data": {
+    "run_id": "run-3f129975"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "您好！我是油田数据问答助手，可以帮您查询井的生产数据、产量指标、月报统计、区块动态、完井参数等内容。如果您有关于日产油、时率、含水率、递减、躺井、措施作业等方面的问题，随时告诉我～",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "直答结构核验不合格（命中 metric_name:含水率——直答里出现数据或事实断言）：退回完整流程（route=\"full\"），不直答收口。"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-3f129975",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "直答退回：文本命中闭世界 1 项"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r1：反问（您想了解产量相关的哪类信息呢？）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "您想了解产量相关的哪类信息呢？",
+     "options": [
+      "本月各区块／油田的日产油与产液完成情况",
+      "产量完成率／有效产量／商品量等产量指标的数值",
+      "躺井（停产待检泵）井的产量损失情况",
+      "我想直接描述具体问题"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-3f129975"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "status": "waiting_ask",
+   "run_id": "run-3f129975",
+   "manifest_digest": "721cf8de4aecfd4c",
+   "subtype": "final"
+  },
+  "texts": [
+   "您好！我是油田数据问答助手，可以帮您查询井的生产数据、产量指标、月报统计、区块动态、完井参数等内容。如果您有关于日产油、时率、含水率、递减、躺井、措施作业等方面的问题，随时告诉我～"
+  ],
+  "duration_s": 5.2
+ }
+}
