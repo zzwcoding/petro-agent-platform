@@ -1,14 +1,14 @@
-"""transport 块验收（RT-W2-02a：骨架／接口／闭世界与游标主干）。
+"""transport 块验收（RT-W2-02a：骨架／接口／闭世界与游标主干；
+RT-W2-02b：收口／消费者／元／边界·保留集）。
 
-票面对象＝`specs/transport.md`「验收测试」表第 1–10 行（逐字，测试标识同规格列；`#` 保留
-规格表行序 1–10）。测试网钉＝pin-29（`::ask_frame_shape_and_done_after_ask`）／pin-09 与
-pin-04（共载 `::notice_three_keys_closed_world`——两钉断言面在该测内均可指认）。
+票面对象＝`specs/transport.md`「验收测试」表：-a 收第 1–10 行；**-b** 收第 11–18 行（逐字，
+测试标识同规格列；`#` 保留规格表行序、不重编）。测试网钉＝pin-29
+（`::ask_frame_shape_and_done_after_ask`）／pin-09 与 pin-04（共载
+`::notice_three_keys_closed_world`——两钉断言面在该测内均可指认）——三钉全在 -a，-b 零 pin 行。
 
 织网义务＝B5 golden 回放钉（`docs/runtime-refactor/eng/04-测试网设计.md` §三 B5 行）——
-落本件末节 `::b5_golden_frame_replay_protocol_timeline`（钉源载体 `eval/results/frames/`）。
-
-规格表第 11–18 行（收口／消费者／关闭语义／红线与元／边界·保留集）归
-`RT-W2-02b-transport.md`；本件不重复实现 -b 的行。
+落 `::b5_golden_frame_replay_protocol_timeline`（钉源载体 `eval/results/frames/`）；-b 的行 11／
+行 14 同用该载体读数（复用 `_parse_golden` 解析形，不另立第二套解析）。
 
 **解析形（B5 钉的载体读法，本件定义）**：`eval/results/frames/*.json` 为单对象 JSON，
 `frames` 数组＝帧序，元素 `{event: str, data: object, id?: int}`——`id`（在场时）＝跑批期
@@ -18,10 +18,15 @@ pin-04（共载 `::notice_three_keys_closed_world`——两钉断言面在该测
 
 from __future__ import annotations
 
+import ast
+import asyncio
 import collections
 import json
+import re
+from collections.abc import Callable, Sequence
 from datetime import date
 from decimal import Decimal
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -722,3 +727,875 @@ async def test_b5_golden_frame_replay_protocol_timeline() -> None:
     # freshness_block／same_param_replay／rebind／schema_not_allowed（另有旧码 `{level,text}` 形
     # 缺 `type`）——即真码面的 notice 取值面**大于**本规格 NOTICE_TYPES 二十二值；落行为 7
     # 「新增类型必须同批入列」（规格变更回设计仓裁定，本块不私加取值）。
+
+
+# ══════ RT-W2-02b：收口／消费者／元／边界·保留集（票面对象＝规格表第 11–18 行）══════
+
+_TRANSPORT_DIR = _REPO_ROOT / "appv2" / "runtimev2" / "transport"
+
+_HANG_TIMEOUT = 5.0  # 消费者收束的挂死探测（不靠一次性哨兵——挂住即超时红）；非 wall-clock 判据
+_HUGE_CHARS = 200_000  # 行 17 超长载荷面
+_SETTLE_SPINS = 2000  # 消费者推进的自旋上限（`sleep(0)` 确定性推进）
+
+# 瘦指针七键（形状真源 `synth/S6` §一；行为 10「全文入库不入帧」的键集面）
+_BLACKBOX_POINTER_KEYS = frozenset(
+    {"run_id", "question", "status", "error", "stored", "bytes", "counts"}
+)
+
+# 截断类**帧名**标记（行 14：wire 面无 `replay_truncated` 这类帧——截断披露走 `notice.type` 面）
+_TRUNCATION_FRAME_MARK = re.compile(r"truncat|截断|replay|cut_off|partial", re.IGNORECASE)
+
+# 行 15 的内部痕迹类（堆栈／模块路径／SQL 片段）逐类正则——机检面；内容级判定不在本块（零判断铁律）
+_LEAK_MARKS: tuple[tuple[str, str], ...] = (
+    ("堆栈", r"Traceback"),
+    ("文件行", r'File "[^"]+"|line \d+, in |\.py\b'),
+    ("内部路径", r"/appv2/|appv2\.runtimev2|site-packages|/\.venv/"),
+    ("SQL", r"\b(?:SELECT|INSERT INTO|UPDATE|DELETE FROM|DROP TABLE|ALTER TABLE)\b"),
+    ("驱动面", r"psycopg|asyncpg|sqlalchemy|SQLAlchemy"),
+)
+
+# 行 16 AST 判据面：禁引模块（正则／判断族＋模型出口族＋框架族＋落盘族）／禁止调用名／词表名面
+_FORBIDDEN_IMPORT_MODULES = (
+    "re",
+    "regex",
+    "litellm",
+    "openai",
+    "anthropic",
+    "langgraph",
+    "langchain",
+    "langchain_core",
+    "langchain_community",
+    "appv2.infra.llm_client",
+    "os",
+    "io",
+    "pathlib",
+    "shutil",
+    "tempfile",
+    "sqlite3",
+    "psycopg",
+    "sqlalchemy",
+)
+_REGEX_CALL_NAMES = (
+    "match",
+    "fullmatch",
+    "search",
+    "findall",
+    "finditer",
+    "compile",
+    "sub",
+    "split",
+)
+_MODEL_CALL_NAMES = (
+    "complete",
+    "acomplete",
+    "chat",
+    "responses",
+    "embed",
+    "embedding",
+    "embeddings",
+)
+_WRITE_CALL_NAMES = (
+    "open",
+    "write_text",
+    "write_bytes",
+    "unlink",
+    "rmdir",
+    "mkdir",
+    "makedirs",
+    "remove",
+    "rmtree",
+    "truncate",
+)
+_LEXICON_NAME_MARKS = ("lexicon", "wordlist", "keyword_table", "词表")
+_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
+# 边界红线①：本块只许引自身包与 `state`（＋非 appv2 的 stdlib；禁引面见上行禁引模块表）
+_ALLOWED_BLOCK_IMPORTS = ("appv2.runtimev2.transport", "appv2.runtimev2.state")
+
+# 行 18 保留集锚：常规多帧 run 的显式期望表（帧序＋一处编号的读数——不随实现漂移）
+_NORMAL_RUN: tuple[tuple[str, dict[str, Any]], ...] = (
+    ("session", {"run_id": _RUN_ID, "resume": False}),
+    ("step", {"step": "decision", "seq": 1, "title": "N1 读题与定型"}),
+    ("text", {"content": "先看子问题：某井去年配产量。", "kind": "understanding"}),
+    ("tool", {"tool": "data_query", "status": "ok", "seq": 2, "message": "命中 3 行"}),
+    (
+        "observation",
+        {"index": 1, "source": "报告", "content": "配产台账（区块级）", "trust": "high"},
+    ),
+    ("step", {"step": "observe", "seq": 3, "title": "N5 观察回流"}),
+    (
+        "verdict",
+        {
+            "cited": True,
+            "rewritten": False,
+            "split": [],
+            "supported": True,
+            "attribution": {"anchors": [], "cross": []},
+        },
+    ),
+    ("citation", {"index": 1, "source": "报告", "source_id": "f4", "trust": "high"}),
+    ("text", {"content": "某井 2026 年日产油量 12.5 吨。"}),
+    ("verdict", {"status": "completed", "run_id": _RUN_ID, "manifest_digest": "digest-1"}),
+    ("blackbox", _blackbox_pointer()),
+    ("done", {"run_id": _RUN_ID}),
+)
+_NORMAL_RUN_EXPECTED_IDS: tuple[tuple[int, str], ...] = (
+    (-1, "session"),
+    (0, "step"),
+    (1, "text"),
+    (2, "tool"),
+    (3, "observation"),
+    (4, "step"),
+    (5, "verdict"),
+    (6, "citation"),
+    (7, "text"),
+    (8, "verdict"),
+    (9, "blackbox"),
+    (9, "done"),
+)
+
+
+def _expected_data(name: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """行 18 的载荷期望（显式写出规格规则）：唯一改造＝`verdict` 注入 `subtype`，其余原样。"""
+    if name != "verdict":
+        return payload
+    return {**payload, "subtype": "final" if "status" in payload else "verify"}
+
+
+def _leak_findings(text: str) -> list[str]:
+    """文本里的内部痕迹命中（行 15 机检面；空＝无痕迹）。"""
+    return [
+        f"{label}：{match.group(0)}"
+        for label, pattern in _LEAK_MARKS
+        for match in (re.search(pattern, text),)
+        if match is not None
+    ]
+
+
+async def _drain_into(bus: EventBus, cursor: int, sink: list[SseEvent]) -> None:
+    """把总线的帧按游标读进 sink（多消费者面用）。"""
+    async for frame in bus.stream(cursor):
+        sink.append(frame)
+
+
+async def _spin_until(condition: Callable[[], bool], *, spins: int = _SETTLE_SPINS) -> None:
+    """自旋等待条件成立（`sleep(0)` 确定性推进，无 wall-clock）——消费者推进面用。"""
+    for _ in range(spins):
+        if condition():
+            return
+        await asyncio.sleep(0)
+    raise AssertionError("等待消费者推进超时")
+
+
+def _legs(events: Sequence[str]) -> list[list[str]]:
+    """按 `session` 帧切腿（跑批载体＝多腿拼一个 `frames` 数组，session 帧开新腿）。"""
+    legs: list[list[str]] = []
+    current: list[str] = []
+    for event in events:
+        if event == "session" and current:
+            legs.append(current)
+            current = []
+        current.append(event)
+    if current:
+        legs.append(current)
+    return legs
+
+
+@lru_cache(maxsize=1)
+def _golden_frame_sets() -> tuple[tuple[str, tuple[dict[str, Any], ...]], ...]:
+    """全部 golden 载体的帧序（行 11／行 14 的读数面；解析形复用 -a 的 `_parse_golden`）。"""
+    carriers = tuple(
+        (path.name, tuple(frames))
+        for path in _golden_frame_files()
+        for frames in (_parse_golden(path),)
+        if frames
+    )
+    if not carriers:
+        pytest.skip(f"B5 钉源载体不在场：{_FRAMES_DIR}")
+    return carriers
+
+
+def _transport_sources() -> list[tuple[str, ast.Module]]:
+    """本块源码（`appv2/runtimev2/transport/`）逐文件 AST——行 16 扫描域。"""
+    return [
+        (path.name, ast.parse(path.read_text(encoding="utf-8")))
+        for path in sorted(_TRANSPORT_DIR.rglob("*.py"))
+    ]
+
+
+def _is_forbidden_module(module: str) -> bool:
+    return module in _FORBIDDEN_IMPORT_MODULES or module.split(".")[0] in _FORBIDDEN_IMPORT_MODULES
+
+
+def _call_findings(node: ast.Call) -> list[str]:
+    """一次调用的判据命中——正则族根名的调用、模型面调用名、落盘调用名。"""
+    findings: list[str] = []
+    target = node.func
+    if isinstance(target, ast.Attribute):
+        root = target
+        while isinstance(root, ast.Attribute):
+            root = root.value
+        root_name = root.id if isinstance(root, ast.Name) else ""
+        if root_name in {"re", "regex"} and target.attr in _REGEX_CALL_NAMES:
+            findings.append(f"正则语义判定 {root_name}.{target.attr}")
+        if target.attr in _MODEL_CALL_NAMES:
+            findings.append(f"模型调用 .{target.attr}")
+        if target.attr in _WRITE_CALL_NAMES:
+            findings.append(f"落盘调用 .{target.attr}")
+    elif isinstance(target, ast.Name):
+        if target.id in _MODEL_CALL_NAMES:
+            findings.append(f"模型调用 {target.id}")
+        if target.id in _WRITE_CALL_NAMES:
+            findings.append(f"落盘调用 {target.id}")
+    return findings
+
+
+def _str_collections(tree: ast.Module) -> list[tuple[int, set[str]]]:
+    """字符串集合字面量／`set|frozenset(...)` 的元素集（疑似语义词表扫描用）。"""
+    found: list[tuple[int, set[str]]] = []
+    for node in ast.walk(tree):
+        elements: list[ast.expr] = []
+        if isinstance(node, (ast.Set, ast.Tuple, ast.List)):
+            elements = list(node.elts)
+        elif isinstance(node, ast.Dict):
+            elements = [key for key in node.keys if key is not None]
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id in {"set", "frozenset"}
+        ):
+            for argument in node.args:
+                if isinstance(argument, (ast.Set, ast.Tuple, ast.List)):
+                    elements.extend(argument.elts)
+        else:
+            continue
+        found.append(
+            (
+                node.lineno,
+                {
+                    element.value
+                    for element in elements
+                    if isinstance(element, ast.Constant) and isinstance(element.value, str)
+                },
+            )
+        )
+    return found
+
+
+def _judgement_or_model_findings(trees: Sequence[tuple[str, ast.Module]]) -> list[str]:
+    """行 16 的 AST 判据：词表／正则语义判定、模型调用、落盘在本块源码里的全部位点。"""
+    findings: list[str] = []
+    for name, tree in trees:
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if _is_forbidden_module(alias.name):
+                        findings.append(f"{name}:{node.lineno} 禁引模块 {alias.name}")
+            elif isinstance(node, ast.ImportFrom):
+                module = node.module or ""
+                if _is_forbidden_module(module):
+                    findings.append(f"{name}:{node.lineno} 禁引模块 {module}")
+            elif isinstance(node, ast.Call):
+                findings.extend(
+                    f"{name}:{node.lineno} {finding}" for finding in _call_findings(node)
+                )
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                if any(mark in node.name.lower() for mark in _LEXICON_NAME_MARKS):
+                    findings.append(f"{name}:{node.lineno} 词表名面 {node.name}")
+            elif isinstance(node, ast.Name):
+                if any(mark in node.id.lower() for mark in _LEXICON_NAME_MARKS):
+                    findings.append(f"{name}:{node.lineno} 词表名面 {node.id}")
+        for line, values in _str_collections(tree):
+            for value in sorted(values):
+                if not _IDENTIFIER.match(value):
+                    findings.append(f"{name}:{line} 疑似语义词表项 {value!r}")
+    return findings
+
+
+def _import_findings(trees: Sequence[tuple[str, ast.Module]]) -> list[str]:
+    """import 白名单（边界红线①的 AST 降维）：本块只许引自身包与 `state`。"""
+    findings: list[str] = []
+    for name, tree in trees:
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                modules = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                modules = [node.module or ""]
+            else:
+                continue
+            for module in modules:
+                if module.startswith("appv2.") and not module.startswith(_ALLOWED_BLOCK_IMPORTS):
+                    findings.append(f"{name}:{node.lineno} 越界引块 {module}")
+    return findings
+
+
+def _stack_text_findings(trees: Sequence[tuple[str, ast.Module]]) -> list[str]:
+    """行 15 的 AST 面：本块源码里堆栈／异常文本的构造位点。
+
+    判据面＝`traceback`／`sys` 引用、`repr(`／`str(` 调用、堆栈读取属性（`exc_info` 一族）
+    ——本块不构造内部痕迹文本（载荷内容纪律归发射方，本块只保三类定形载荷与零加键）。
+    """
+    findings: list[str] = []
+    for name, tree in trees:
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                findings.extend(
+                    f"{name}:{node.lineno} 禁引模块 {alias.name}"
+                    for alias in node.names
+                    if alias.name.split(".")[0] in {"traceback", "sys"}
+                )
+            elif isinstance(node, ast.ImportFrom):
+                if (node.module or "").split(".")[0] in {"traceback", "sys"}:
+                    findings.append(f"{name}:{node.lineno} 禁引模块 {node.module}")
+            elif (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id in {"repr", "str"}
+            ):
+                findings.append(f"{name}:{node.lineno} 字符串化调用 {node.func.id}")
+            elif isinstance(node, ast.Attribute) and node.attr in {
+                "exc_info",
+                "format_exc",
+                "print_exc",
+            }:
+                findings.append(f"{name}:{node.lineno} 堆栈读取面 .{node.attr}")
+    return findings
+
+
+def _docstring_nodes(tree: ast.Module) -> set[int]:
+    """本模块／类／函数 docstring 的 Constant 节点 id（说明面——不算法定组装位点）。"""
+    docstrings: set[int] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if not node.body:
+            continue
+        head = node.body[0]
+        if (
+            isinstance(head, ast.Expr)
+            and isinstance(head.value, ast.Constant)
+            and isinstance(head.value.value, str)
+        ):
+            docstrings.add(id(head.value))
+    return docstrings
+
+
+def _enclosing_function(tree: ast.Module, node: ast.AST) -> str:
+    """节点所在的最内层函数名（模块级＝`<module>`）。"""
+    best = "<module>"
+    best_span = -1
+    for candidate in ast.walk(tree):
+        if not isinstance(candidate, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        end = candidate.end_lineno or candidate.lineno
+        if not (candidate.lineno <= node.lineno <= end):
+            continue
+        span = end - candidate.lineno
+        if best_span == -1 or span < best_span:
+            best_span, best = span, candidate.name
+    return best
+
+
+def _envelope_assembly_sites(
+    trees: Sequence[tuple[str, ast.Module]],
+) -> list[tuple[str, str]]:
+    """信封字节形的组装位点：含三行标记＋尾空行的字符串字面量（docstring 除外）。
+
+    「禁手写第二套帧通路」的降维机检面（规格「框架与依赖红线」末条「信封实现单点断言」
+    登记待补）——本块恰一处，且在 `envelope` 内。
+    """
+    sites: list[tuple[str, str]] = []
+    for name, tree in trees:
+        docstrings = _docstring_nodes(tree)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.JoinedStr):
+                text = "".join(
+                    part.value
+                    for part in node.values
+                    if isinstance(part, ast.Constant) and isinstance(part.value, str)
+                )
+            elif (
+                isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+                and id(node) not in docstrings
+            ):
+                text = node.value
+            else:
+                continue
+            if all(mark in text for mark in ("id: ", "event: ", "data: ")) and "\n\n" in text:
+                sites.append((name, _enclosing_function(tree, node)))
+    return sites
+
+
+def _envelope_definitions(trees: Sequence[tuple[str, ast.Module]]) -> list[str]:
+    """定义 `envelope` 的文件清单（信封实现单点面）。"""
+    return [
+        name
+        for name, tree in trees
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "envelope"
+    ]
+
+
+def _frame_name_literals(trees: Sequence[tuple[str, ast.Module]]) -> list[tuple[str, str]]:
+    """`EVENT_KINDS`／`WIRE_FRAMES` 定义处的字符串元素（帧名闭世界的源头面——行 14 用）。"""
+    literals: list[tuple[str, str]] = []
+    for name, tree in trees:
+        for node in tree.body:
+            if isinstance(node, ast.Assign):
+                targets = list(node.targets)
+            elif isinstance(node, ast.AnnAssign):
+                targets = [node.target]
+            else:
+                continue
+            if not any(
+                isinstance(target, ast.Name) and target.id in {"EVENT_KINDS", "WIRE_FRAMES"}
+                for target in targets
+            ):
+                continue
+            if node.value is None:
+                continue
+            for element in ast.walk(node.value):
+                if isinstance(element, ast.Constant) and isinstance(element.value, str):
+                    literals.append((name, element.value))
+    return literals
+
+
+# ---------- 11 blackbox 帧恰一帧、在 done 之前、只出瘦指针（行为 10） ----------
+
+
+async def test_blackbox_pointer_frame_last() -> None:
+    """`blackbox` 帧恰一帧、在 `done` 之前、只出瘦指针。"""
+    # 收口段（行为 10）：业务帧 …→ blackbox（恒发一帧）→ done → close（「随后才 close()」）
+    bus = EventBus()
+    bus.emit("session", {"run_id": _RUN_ID, "resume": False})
+    for name in ("step", "text", "tool", "observation", "notice", "verdict", "citation"):
+        bus.emit(name, _payload_for(name))
+    pointer = _blackbox_pointer()
+    stored_full_text = "黑匣子全文（入库面）：答案正文与步记录原文——全文只入库、不入帧"
+    bus.emit("blackbox", pointer)
+    bus.emit("done", {"run_id": _RUN_ID})
+    bus.close()
+
+    frames = await _collect(bus, 0)
+    events = [frame.event for frame in frames]
+    assert events.count("blackbox") == 1  # 恰一帧
+    assert events.index("blackbox") < events.index("done")  # 在 done 之前
+    assert events[-1] == "done"  # 收口帧＝业务帧意义上的流末帧
+    assert all(event in WIRE_FRAMES for event in events[events.index("blackbox") + 1 :])
+
+    blackbox = frames[events.index("blackbox")]
+    assert set(blackbox.data) == _BLACKBOX_POINTER_KEYS  # 瘦指针恰七键
+    assert blackbox.data == pointer  # 逐键真源＝发射方（本块透传、不裁剪不加键）
+    assert blackbox.data["counts"] == pointer["counts"]
+    for full_text_key in ("answer", "messages", "dialogue", "process_notes", "steps"):
+        assert full_text_key not in blackbox.data  # 全文类键位不进帧
+    assert stored_full_text not in envelope(blackbox)  # 收口帧字节里没有全文
+
+    # 写库成败都在：以 `stored` 布尔区分（失败腿照发恰一帧、仍在 done 之前）
+    failed = EventBus()
+    failed.emit(
+        "notice", _notice("blackbox_write_failed", content="黑匣子入库失败——本腿按失败披露")
+    )
+    failed.emit("blackbox", {**_blackbox_pointer(), "stored": False, "error": "黑匣子入库失败"})
+    failed.emit("done", {"run_id": _RUN_ID})
+    failed.close()
+    failed_frames = await _collect(failed, 0)
+    boxes = [frame for frame in failed_frames if frame.event == "blackbox"]
+    assert len(boxes) == 1 and boxes[0].data["stored"] is False
+    assert failed_frames[-1].event == "done"
+
+    # 真帧流证据（载体 `eval/results/frames/`，按 session 帧切腿）：凡含 blackbox 的腿恰一帧、
+    # 在 `done` 之前、其后只剩 wire 帧（实测 2026-10-16：157 腿恰一帧、1913 腿未记收口帧）。
+    # 0 帧的腿＝载体未记收口帧的切面／挂起腿——不对其立判据（本块只钉「有则恰一帧且在 done
+    # 之前」＋驱动面恒发一帧）。
+    pointer_legs = 0
+    violations: list[str] = []
+    for name, golden in _golden_frame_sets():
+        for leg in _legs([frame["event"] for frame in golden]):
+            if "blackbox" not in leg:
+                continue
+            pointer_legs += 1
+            index = leg.index("blackbox")
+            if leg.count("blackbox") != 1 or "done" not in leg or leg.index("done") < index:
+                violations.append(f"{name}：{leg[:3]}…{leg[-3:]}")
+            elif not all(event in WIRE_FRAMES for event in leg[index + 1 :]):
+                violations.append(f"{name}：收口帧之后仍有业务帧 {leg[index + 1 :][:3]}")
+    assert violations == []
+    assert pointer_legs >= 100, f"真帧流里含收口帧的腿不在场（实得 {pointer_legs}）"
+
+
+# ---------- 12 多消费者各自独立游标与收束（行为 11） ----------
+
+
+async def test_multi_consumer_independent_cursor() -> None:
+    """多消费者各自独立游标与收束（不靠一次性哨兵）。"""
+    bus = EventBus()
+    primary: list[SseEvent] = []
+    resumed: list[SseEvent] = []
+    observer: list[SseEvent] = []
+
+    # 原响应（自 0 起）与断线重连（中途游标加入）在流进行中并行读——各自持游标，互不抢占
+    first = asyncio.create_task(_drain_into(bus, 0, primary))
+    bus.emit("session", {"run_id": _RUN_ID, "resume": False})
+    for index in range(3):
+        bus.emit("step", {"step": "decision", "seq": index, "title": f"第 {index} 步"})
+    await _spin_until(lambda: len(primary) == 3)
+    second = asyncio.create_task(_drain_into(bus, 2, resumed))
+    for index in range(3, 6):
+        bus.emit("text", {"content": f"增量 {index}"})
+    await _spin_until(lambda: len(primary) == 6 and len(resumed) == 4)
+    assert [frame.seq for frame in resumed] == [2, 3, 4, 5]  # 重连自断点起：不重不漏
+
+    bus.emit("blackbox", _blackbox_pointer())
+    bus.emit("done", {"run_id": _RUN_ID})
+    bus.close()  # 收束信号＝close（广播唤醒全部等待者——无一次性哨兵）
+    await asyncio.wait_for(asyncio.gather(first, second), timeout=_HANG_TIMEOUT)
+    assert [frame.seq for frame in primary] == [0, 1, 2, 3, 4, 5, 6, 6]
+    assert [frame.event for frame in primary[-2:]] == ["blackbox", "done"]
+    assert [frame.seq for frame in resumed] == [2, 3, 4, 5, 6, 6]
+    # 互不抢占：分区不重不漏（原响应前段 ＋ 重连后缀 ＝ 原响应全量，逐帧同一对象）
+    boundary = [frame for frame in primary if frame.seq < 2]
+    assert _triples([*boundary, *resumed]) == _triples(primary)
+
+    # 后连观察者（第三个消费者，close 之后加入）：仍拿到全量并立即收束——一次性哨兵
+    # （单发终止信号被首个消费者吃掉）在此处会永久等待：本测以超时即红守之
+    await asyncio.wait_for(_drain_into(bus, 0, observer), timeout=_HANG_TIMEOUT)
+    assert _triples(observer) == _triples(primary)
+
+    # 收束判定＝「已关闭且无新帧」：游标越过流末者亦立即收束（不等待不存在的帧）
+    tail: list[SseEvent] = []
+    await asyncio.wait_for(_drain_into(bus, primary[-1].seq + 1, tail), timeout=_HANG_TIMEOUT)
+    assert tail == []
+
+
+# ---------- 13 close 幂等＋关闭后拒发（行为 12） ----------
+
+
+async def test_close_idempotent_rejects_after() -> None:
+    """`close` 幂等；关闭后 `emit` 抛错。"""
+    bus = EventBus()
+    emitted = [
+        bus.emit("step", _payload_for("step")),
+        bus.emit("blackbox", _blackbox_pointer()),
+        bus.emit("done", {"run_id": _RUN_ID}),
+    ]
+    waiting: list[SseEvent] = []
+    pending = asyncio.create_task(_drain_into(bus, 0, waiting))
+    await _spin_until(lambda: len(waiting) == len(emitted))
+
+    # 三次 close：均无异常、不重复投递终止信号（消费者恰收束一次）、`closed` 恒真
+    bus.close()
+    bus.close()
+    bus.close()
+    assert bus.closed is True
+    await asyncio.wait_for(pending, timeout=_HANG_TIMEOUT)
+    assert _triples(waiting) == _triples(emitted)
+
+    # 关闭后 emit 一律抛错（不静默丢弃）：事件帧与 wire 帧同判；越界帧名亦抛错（closed 先判）
+    before = _triples(await _collect(bus, 0))
+    assert before == _triples(emitted)
+    for name in ("step", "blackbox", "done", "session", "error"):
+        with pytest.raises(RuntimeError):
+            bus.emit(name, _payload_for(name))
+    with pytest.raises(RuntimeError):
+        bus.emit("stage", {"state": "process"})
+
+    # 关闭后发射尝试零副作用：历史不动、已发帧不被 close 吞（重放不位移）
+    assert _triples(await _collect(bus, 0)) == before
+    assert _triples(await _collect(bus, 0)) == _triples(emitted)
+
+
+# ---------- 14 帧面无截断类帧名（行为 13） ----------
+
+
+async def test_no_truncation_frame() -> None:
+    """帧面无截断类帧名。"""
+    # ① 闭世界十二值内无截断类帧名（截断披露走 `notice.type` 面——见
+    # `::notice_three_keys_closed_world`）
+    assert [name for name in EVENT_KINDS | WIRE_FRAMES if _TRUNCATION_FRAME_MARK.search(name)] == []
+
+    # ② 候选截断类帧名：构造期与发射期一律拒、不留半帧（帧面不带截断信号；重连诚实拒归
+    # `api` 开流段）
+    bus = EventBus()
+    for bad in (
+        "replay_truncated",
+        "truncated",
+        "stream_truncated",
+        "partial_replay",
+        "replay",
+        "cut_off",
+        "截断重放",
+    ):
+        with pytest.raises(ValueError):
+            SseEvent(seq=0, event=bad, data={})
+        with pytest.raises(ValueError):
+            bus.emit(bad, {})
+    bus.close()
+    assert await _collect(bus, 0) == []
+
+    # ③ 帧名闭世界的源头无截断类成员（AST：`EVENT_KINDS`／`WIRE_FRAMES` 定义处的字符串元素）
+    sources = _transport_sources()
+    literals = _frame_name_literals(sources)
+    assert len(literals) == len(EVENT_KINDS | WIRE_FRAMES)  # 探测器失效即红
+    assert [value for _, value in literals if _TRUNCATION_FRAME_MARK.search(value)] == []
+    forged = [("probe", ast.parse('EVENT_KINDS = frozenset({"step", "replay_truncated"})'))]
+    assert [value for _, value in _frame_name_literals(forged)] == ["step", "replay_truncated"]
+
+    # ④ 真帧流全帧集合里不存在截断类帧名（两半族同扫：runtime 闭世界 ＋ 跑批 UI 壳自有帧名）
+    marked = sorted(
+        {
+            frame["event"]
+            for _, golden in _golden_frame_sets()
+            for frame in golden
+            if _TRUNCATION_FRAME_MARK.search(frame["event"])
+        }
+    )
+    assert marked == []
+
+
+# ---------- 15 任何帧不携带堆栈／路径／SQL 片段（行为 14） ----------
+
+
+async def test_no_internal_leak_in_frames() -> None:
+    """任何帧不携带堆栈／路径／SQL 片段。"""
+    raw_exception = (
+        "Traceback (most recent call last):\n"
+        '  File "/srv/appv2/runtime/graph.py", line 12, in run\n'
+        "    SELECT * FROM petro_well WHERE well_id = 'w-1'"
+    )
+
+    # ① 一条 run 全帧扫描：正常腿（含收口帧）＋失败腿（notice{run_failed}＋done）＋异常腿（error）
+    normal = EventBus()
+    normal.emit("session", {"run_id": _RUN_ID, "resume": False})
+    for name in ("step", "text", "tool", "observation", "citation", "verdict", "blackbox"):
+        normal.emit(name, _payload_for(name))
+    normal.emit("notice", _notice("run_failed", content="工具链异常——本腿按失败披露"))
+    normal.emit("done", {"run_id": _RUN_ID})
+    normal.close()
+    error_bus = EventBus()
+    error_bus.emit("step", _payload_for("step"))
+    error_bus.emit("error", {"code": "chat_stream_failed", "message": "流内异常——请重新提问"})
+    error_bus.close()
+    frames = [*await _collect(normal, 0), *await _collect(error_bus, 0)]
+    assert {frame.event for frame in frames} >= {"notice", "error", "blackbox", "text"}
+    for frame in frames:
+        byte_form = envelope(frame)
+        assert _leak_findings(byte_form) == [], f"{frame.event} 帧携带内部痕迹：{byte_form}"
+        assert _leak_findings(json.dumps(frame.data, ensure_ascii=False)) == []
+
+    # ② 键位面：三类定形载荷把守——原始异常文本没有可安放的键位（行为 7／8／9 的形状面）
+    bus = EventBus()
+    error_message = "流内异常——请重新提问"
+    for payload in (
+        {"code": "chat_stream_failed", "message": error_message, "detail": raw_exception},
+        {"code": "chat_stream_failed", "message": error_message, "traceback": raw_exception},
+    ):
+        with pytest.raises(ValueError):
+            bus.emit("error", dict(payload))
+    for payload in (
+        {"type": "run_failed", "gates": [], "content": "失败披露", "detail": raw_exception},
+        {"type": "run_failed", "gates": [], "content": "失败披露", "stack": raw_exception},
+    ):
+        with pytest.raises(ValueError):
+            bus.emit("notice", dict(payload))
+    with pytest.raises(ValueError):
+        bus.emit("ask", {**_ask_payload(), "stack": raw_exception})
+    with pytest.raises(ValueError):
+        ask_with_trace = _ask_payload()
+        ask_with_trace["frame"] = {**ask_with_trace["frame"], "trace": raw_exception}
+        bus.emit("ask", ask_with_trace)
+
+    # ③ 本块零加键：唯一注入＝`verdict.subtype`——本块自身不制造内部痕迹
+    for name, payload in _NORMAL_RUN:
+        frame = bus.emit(name, payload)
+        assert set(frame.data) == set(_expected_data(name, payload))
+
+    # ④ AST：本块源码无堆栈文本的构造面（`traceback`／`sys.exc_info`／`repr(`／`str(` 调用）
+    sources = _transport_sources()
+    assert _stack_text_findings(sources) == [], "本块出现堆栈／异常文本的构造位点"
+    assert (
+        _stack_text_findings(
+            [("probe", ast.parse("import traceback\nsys.exc_info()\nrepr(exc)\nstr(exc)"))]
+        )
+        != []
+    )
+
+    # ⑤ 探测器非空转：伪造痕迹文本逐类命中（含堆栈／文件行／内部路径／SQL／驱动面）
+    forged = _leak_findings(raw_exception)
+    assert {finding.split("：", 1)[0] for finding in forged} >= {
+        "堆栈",
+        "文件行",
+        "内部路径",
+        "SQL",
+    }
+    assert _leak_findings("黑匣子全文（入库面）：答案正文与步记录原文") == []
+    # 注（实测 2026-10-16）：`envelope` 的 `json.dumps(..., default=str)` 兜底是唯一的字符串化
+    # 支路——载荷内容纪律归发射方（行为 14 是跨块红线、规格「与闸的挂钩表」登记为人审面）；
+    # 本测钉「本块不制造内部痕迹＋三类定形载荷不留位」，不越界替发射方判内容。
+
+
+# ---------- 16 本块零判断零模型（行为 15 AST 扫描） ----------
+
+
+def test_no_judgement_or_model_in_transport() -> None:
+    """本块零判断零模型（AST 扫描）。"""
+    trees = _transport_sources()
+    assert trees, "未扫到本块源码（探测器失效）"
+    assert _judgement_or_model_findings(trees) == [], "本块出现词表／正则语义判定、模型调用或落盘面"
+    # 边界红线①的 AST 降维：本块只许引自身包与 `state`（引其它 runtimev2 块＝成环风险）
+    assert _import_findings(trees) == [], "本块引了包内其它块"
+    # 边界红线④的 AST 降维：禁手写第二套帧通路——信封字节形恰一处组装位点、在 `envelope` 内
+    assert _envelope_assembly_sites(trees) == [("frames.py", "envelope")]
+    assert _envelope_definitions(trees) == ["frames.py"]
+
+    # 探测器非空转：伪造源各形逐一命中
+    forged = [
+        ("probe", ast.parse("import re\nre.match('x', text)")),
+        ("probe", ast.parse("from appv2.runtimev2.bookkeeping import notice")),
+        ("probe", ast.parse("from appv2.infra.llm_client import embeddings")),
+        ("probe", ast.parse("import langgraph")),
+        ("probe", ast.parse("open('frames.txt', 'w')")),
+        ("probe", ast.parse("llm.complete('提示')")),
+        ("probe", ast.parse("LEXICON = {'关键词': '命中'}")),
+        ("probe", ast.parse('FRAME = f"id: {seq}\\nevent: {name}\\ndata: {data}\\n\\n"')),
+    ]
+    findings = _judgement_or_model_findings(forged)
+    assert any("禁引模块 re" in finding for finding in findings)
+    assert any("禁引模块 langgraph" in finding for finding in findings)
+    assert any("禁引模块 appv2.infra.llm_client" in finding for finding in findings)
+    assert any("落盘调用 open" in finding for finding in findings)
+    assert any("模型调用 .complete" in finding for finding in findings)
+    assert any("词表名面 LEXICON" in finding for finding in findings)
+    assert any("疑似语义词表项" in finding for finding in findings)
+    assert [finding for finding in _import_findings(forged) if "越界引块" in finding] == [
+        finding
+        for finding in _import_findings(forged)
+        if "appv2.runtimev2.bookkeeping" in finding or "appv2.infra.llm_client" in finding
+    ]
+    assert _envelope_assembly_sites(forged) == [("probe", "<module>")]
+
+
+# ---------- 17 【边界集】零事件／单帧／超长载荷／关闭后再发（行 17） ----------
+
+
+async def test_boundary_empty_single_huge_closed() -> None:
+    """【边界集】零事件 run／单帧 run／超长载荷／关闭后再发 → 各落对应分支。"""
+    # ① 零事件 run：只发 wire 帧（seq＝-1）与无帧 run——`stream(0)` 空、立即收束、不挂
+    wire_only = EventBus()
+    wire_only.emit("session", {"run_id": _RUN_ID, "resume": False})
+    wire_only.emit("done", {"run_id": _RUN_ID})
+    wire_only.close()
+    assert await _collect(wire_only, 0) == []  # 段首 wire 帧 seq＝-1 落在游标起点之前（-a 定死面）
+    assert await _collect(wire_only, 1) == []
+    empty = EventBus()
+    empty.close()
+    assert await asyncio.wait_for(_collect(empty, 0), timeout=_HANG_TIMEOUT) == []
+
+    # ② 单帧 run：恰一帧 → 读尽即收束；续推空；重放相等（重放不位移）
+    single = EventBus()
+    only = single.emit("text", {"content": "单帧 run"})
+    single.close()
+    first_read = await _collect(single, 0)
+    assert _triples(first_read) == [(only.seq, only.event, only.data)]
+    assert await _collect(single, only.seq + 1) == []
+    assert _triples(await _collect(single, 0)) == _triples(first_read)
+
+    # ③ 超长载荷：零裁剪透传（不插截断标记、不折行重组）＋信封可渲染且 JSON 往返相等
+    huge = "长" * _HUGE_CHARS
+    bus = EventBus()
+    oversized = bus.emit(
+        "observation",
+        {
+            "index": 1,
+            "source": "超长材料",
+            "content": huge,
+            "trust": "high",
+            "offsets": list(range(500)),
+            "nested": {"deep": [huge[:100]]},
+        },
+    )
+    assert oversized.data["content"] == huge
+    assert len(oversized.data["content"]) == _HUGE_CHARS
+    byte_form = envelope(oversized)
+    assert len(byte_form) > _HUGE_CHARS
+    assert byte_form.endswith("\n\n") and len(byte_form.split("\n")) == 5
+    assert json.loads(byte_form.split("\n")[2][len("data: ") :]) == oversized.data
+    assert "…" not in byte_form and "truncat" not in byte_form.lower()  # 本块未插截断标记
+
+    # ④ 关闭后再发：事件帧／wire 帧一律抛错（不静默丢弃）＋越界帧名在关闭前抛错且无半帧
+    fresh = EventBus()
+    kept = fresh.emit("step", _payload_for("step"))
+    with pytest.raises(ValueError):
+        fresh.emit("stage", {"state": "process"})
+    fresh.close()
+    read_back = await _collect(fresh, 0)
+    assert _triples(read_back) == [(kept.seq, kept.event, kept.data)]  # 越界发射不留半帧
+    for name in ("step", "blackbox", "done"):
+        with pytest.raises(RuntimeError):
+            fresh.emit(name, _payload_for(name))
+    assert _triples(await _collect(fresh, 0)) == _triples(read_back)  # 关闭后发射零副作用
+    with pytest.raises(ValueError):
+        fresh.stream(-1)  # 非法 cursor（错误契约）
+
+
+# ---------- 18 【保留集】常规多帧 run 的帧序与载荷行为不变（行 18） ----------
+
+
+async def test_retention_normal_stream_unchanged() -> None:
+    """【保留集】常规多帧 run 的帧序与载荷行为不变。"""
+    bus = EventBus()
+    emitted = [bus.emit(name, payload) for name, payload in _NORMAL_RUN]
+    bus.close()
+    frames = await _collect(bus, 0)
+
+    # ① 帧序保真（append-only、不重排、不吞帧）＋一处编号读数＝显式期望表
+    assert [frame.event for frame in emitted] == [name for name, _ in _NORMAL_RUN]
+    assert [(frame.seq, frame.event) for frame in emitted] == list(_NORMAL_RUN_EXPECTED_IDS)
+    # 读面＝发出序去掉段首 session 帧（其 seq＝-1 落在游标起点之前——-a 定死面）
+    assert [frame.event for frame in frames] == [name for name, _ in _NORMAL_RUN][1:]
+
+    # ② 载荷行为不变：逐帧显式期望（`verdict` 唯一改造＝注入 `subtype`；其余零裁剪零加键）
+    assert [frame.data for frame in emitted] == [
+        _expected_data(name, payload) for name, payload in _NORMAL_RUN
+    ]
+    assert [frame.data for frame in frames] == [
+        _expected_data(name, payload) for name, payload in _NORMAL_RUN
+    ][1:]
+    assert emitted[1].data == {"step": "decision", "seq": 1, "title": "N1 读题与定型"}
+    assert emitted[10].data == _blackbox_pointer()
+
+    # ③ 信封字节形恒定（恒三行＋空行；`id`＝`seq`；中文逐字不转义）
+    for frame in emitted:
+        lines = envelope(frame).split("\n")
+        assert len(lines) == 5 and lines[3] == "" and lines[4] == ""
+        assert lines[0] == f"id: {frame.seq}"
+        assert lines[1] == f"event: {frame.event}"
+        assert json.loads(lines[2][len("data: ") :]) == frame.data
+    assert "某井 2026 年日产油量 12.5 吨。" in envelope(emitted[8])
+    assert "\\u" not in envelope(emitted[8])
+
+    # ④ 游标：事件帧 0 起严格递增无跳号；wire 帧＝最后已消费事件 seq、不推进游标
+    last_event_seq = -1
+    for frame in emitted:
+        if frame.event in EVENT_KINDS:
+            assert frame.seq == last_event_seq + 1
+            last_event_seq = frame.seq
+        else:
+            assert frame.seq == last_event_seq
+
+    # ⑤ 断线续推不重不漏（后缀逐帧相等）＋重放不位移
+    for cursor in range(0, frames[-1].seq + 2):
+        assert _triples(await _collect(bus, cursor)) == _triples(
+            [frame for frame in frames if frame.seq >= cursor]
+        )
+    assert _triples(await _collect(bus, 0)) == _triples(frames)
+
+    # ⑥ 多消费者各自独立游标（保留面）：原响应全量、断线重连得后缀；恰一帧收口帧在 done 之前
+    primary: list[SseEvent] = []
+    resumed: list[SseEvent] = []
+    await asyncio.wait_for(_drain_into(bus, 0, primary), timeout=_HANG_TIMEOUT)
+    await asyncio.wait_for(_drain_into(bus, 3, resumed), timeout=_HANG_TIMEOUT)
+    assert _triples(primary) == _triples(frames)
+    assert _triples(resumed) == _triples([frame for frame in frames if frame.seq >= 3])
+    events = [frame.event for frame in frames]
+    assert events.count("blackbox") == 1 and events.index("blackbox") < events.index("done")
