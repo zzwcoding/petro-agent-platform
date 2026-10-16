@@ -46,6 +46,39 @@ SUBTASK_STATES: frozenset[str] = frozenset(
     {STATE_PASS, STATE_BLOCKED_ASK, STATE_BLOCKED_REFUSE, STATE_NOTE}
 )
 
+# ---------- hit_rule 闭世界（2026-10-16 补（流水 56）裁②——judge() 单点产） ----------
+# 命名以 specs/preconditions.md 判定序明文表位次为准逐字取名（八位）：
+#   位 1 闸1 禁用词 → ban；位 2 闸1b 时间窗门 → fuzzy_window；位 3 闸2 外表越集
+#   → ask；位 4 闸3 合法口径（＋前置台账闭世界）→ unregistered_metric；名归一闸
+#   （F7——闸3 前置键归一）→ normalized_slot；位 5 闸4 在册绑定态 ＋ 位 6 闸4b
+#   软失败域闸（同轨换链面）→ chain_switch；位 7 闸5 新鲜度窗 → freshness_window；
+#   位 8 闸6 单井支持 → single_well。
+# 非 allow 支（blocked_ask／blocked_refuse）必携闭世界一位——可解释性契约
+# （specs/preconditions.md 行为 8「任一非 allow 必带 hit_rule」）：供 preconditions
+# 单点取结构化判定位，不复制语义、不文案反推；allow 支（pass／note——注记并入
+# 放行）＝HIT_RULE_NONE 空串（fail-closed：拒支漏填即成空串，双向对账可检）。
+HIT_RULE_BAN = "ban"
+HIT_RULE_FUZZY_WINDOW = "fuzzy_window"
+HIT_RULE_ASK = "ask"
+HIT_RULE_UNREGISTERED_METRIC = "unregistered_metric"
+HIT_RULE_NORMALIZED_SLOT = "normalized_slot"
+HIT_RULE_CHAIN_SWITCH = "chain_switch"
+HIT_RULE_FRESHNESS_WINDOW = "freshness_window"
+HIT_RULE_SINGLE_WELL = "single_well"
+# allow 支形（pass／note——注记并入放行，无判定位命中）。
+HIT_RULE_NONE = ""
+# 八位闭世界（次序＝上列位次；非 allow 支的 hit_rule 必属本集）。
+HIT_RULES: tuple[str, ...] = (
+    HIT_RULE_BAN,
+    HIT_RULE_FUZZY_WINDOW,
+    HIT_RULE_ASK,
+    HIT_RULE_UNREGISTERED_METRIC,
+    HIT_RULE_NORMALIZED_SLOT,
+    HIT_RULE_CHAIN_SWITCH,
+    HIT_RULE_FRESHNESS_WINDOW,
+    HIT_RULE_SINGLE_WELL,
+)
+
 # ---------- 闸词表（业务事实零发明——词面来源见各闸注） ----------
 
 # 场景词（B5 裁决 2026-10-09：月报/正式/化验→确定性匹配口径支）。
@@ -100,6 +133,10 @@ class Verdict:
 
     subtask_id: str
     state: str  # STATE_* 四值闭世界
+    # 命中的判定位标识（HIT_RULES 八位闭世界——非 allow 支必携一位；allow 支
+    # ＝HIT_RULE_NONE 空串）。2026-10-16 补（流水 56）裁②：judge() 单点产，
+    # preconditions 直取结构化判定位（不复制语义、不文案反推）。
+    hit_rule: str
     reason: str = ""
     notes: tuple[str, ...] = ()
     ask: AskFrame | None = None
@@ -120,6 +157,7 @@ class Verdict:
         return {
             "subtask_id": self.subtask_id,
             "state": self.state,
+            "hit_rule": self.hit_rule,
             "reason": self.reason,
             "notes": list(self.notes),
             "ask": (
@@ -307,6 +345,7 @@ def judge(
         return Verdict(
             subtask_id=subtask.subtask_id,
             state=STATE_BLOCKED_REFUSE,
+            hit_rule=HIT_RULE_BAN,
             reason=(
                 f"禁用词「{item.term}」已废弃——如实拒答，不代答废弃口径"
                 f"（{replacement}）"
@@ -317,10 +356,13 @@ def judge(
         if notes:
             return Verdict(
                 subtask_id=subtask.subtask_id, state=STATE_NOTE,
+                hit_rule=HIT_RULE_NONE,
                 reason="；".join(notes), notes=tuple(notes),
             )
         # knowledge 链无取数闸面——检索链直接放行（检索引擎出处链与供给窗自守）。
-        return Verdict(subtask_id=subtask.subtask_id, state=STATE_PASS)
+        return Verdict(
+            subtask_id=subtask.subtask_id, state=STATE_PASS, hit_rule=HIT_RULE_NONE
+        )
 
     unbound_binding = False  # V2-43 换链回炉闸触发面（绑定闸在册未绑定置位）
     domain_mismatch = False  # V2-51 软失败域闸触发面（题眼井全外于井闭世界置位）
@@ -370,6 +412,7 @@ def judge(
         return Verdict(
             subtask_id=subtask.subtask_id,
             state=STATE_BLOCKED_ASK,
+            hit_rule=HIT_RULE_ASK,
             reason=(
                 f"计划引用外部表 {unapproved}——越集审批（模型与流程无权自批）"
                 + (
@@ -431,6 +474,7 @@ def judge(
             return Verdict(
                 subtask_id=subtask.subtask_id,
                 state=STATE_BLOCKED_REFUSE,
+                hit_rule=HIT_RULE_UNREGISTERED_METRIC,
                 reason=(
                     f"caliber_key {caliber_key!r} 不在指标「{metric_slot}」口径支"
                     f" {caliber_keys}——合法口径校验拒（非法口径不代答）"
@@ -452,6 +496,7 @@ def judge(
                     return Verdict(
                         subtask_id=subtask.subtask_id,
                         state=STATE_BLOCKED_REFUSE,
+                        hit_rule=HIT_RULE_UNREGISTERED_METRIC,
                         reason=(
                             f"场景词「{scene}」确定性匹配口径支 {matched_key}"
                             f"（{matched.get('name')}），与 caliber_key {caliber_key!r}"
@@ -473,6 +518,7 @@ def judge(
                 return Verdict(
                     subtask_id=subtask.subtask_id,
                     state=STATE_BLOCKED_ASK,
+                    hit_rule=HIT_RULE_ASK,
                     reason=(
                         f"「{metric_slot}」有 {'、'.join(caliber_keys)} 双口径支"
                         "且问句为阈值判断形——口径反问"
@@ -536,6 +582,7 @@ def judge(
         return Verdict(
             subtask_id=subtask.subtask_id,
             state=STATE_BLOCKED_REFUSE,
+            hit_rule=HIT_RULE_UNREGISTERED_METRIC,
             reason=(
                 f"指标 {metric_slot!r} 不在台账全量——确定性校验拒"
                 "（不在目录不代答；台账闭世界校验）" + CHAIN_SWITCH_HINT
@@ -571,6 +618,7 @@ def judge(
     if notes:
         return Verdict(
             subtask_id=subtask.subtask_id, state=STATE_NOTE,
+            hit_rule=HIT_RULE_NONE,
             reason="；".join(notes), notes=tuple(notes),
             normalized_slot=normalized_slot,
             chain_switch_trigger=unbound_binding or domain_mismatch,
@@ -582,7 +630,7 @@ def judge(
             fuzzy_window_rewrite=fuzzy_rewrite,
         )
     return Verdict(
-        subtask_id=subtask.subtask_id, state=STATE_PASS,
+        subtask_id=subtask.subtask_id, state=STATE_PASS, hit_rule=HIT_RULE_NONE,
         fuzzy_window_rewrite=fuzzy_rewrite,
     )
 

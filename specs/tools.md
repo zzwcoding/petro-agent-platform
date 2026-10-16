@@ -40,6 +40,8 @@ class ToolRegistry:
 `doc_retrieve`（args: question, anchors?, family_hints?）；
 `graph_query`（args: question, anchors?）。
 
+- **前置条件机闸件公开面注记**（`appv2/tools/precondition.py`）：`Verdict.hit_rule: str`——**命中的判定位标识**，闭世界八位——`ban`／`fuzzy_window`／`ask`／`unregistered_metric`／`normalized_slot`／`chain_switch`／`freshness_window`／`single_well`（命名以 `specs/preconditions.md` 判定序明文表位次为准逐字）；**非 `allow` 支必携一位**（可解释性——`preconditions` 单点取结构化判定位，不复制语义、不文案反推），`allow` 支（pass／note）＝空串（fail-closed：拒支漏填即成空串，双向对账可检）。**2026-10-16 补（流水 56）**；additive——既有判定行为零回归。
+
 ## 行为约定
 
 1. 全部工具 readonly=True 且不得产生任何写副作用（INV-2）；registry 拒绝注册 readonly!=True 的工具。

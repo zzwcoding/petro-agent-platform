@@ -430,6 +430,73 @@ def test_precondition_freshness_window_note_truthful() -> None:
     assert any("2026-08-31" in n for n in v.notes)
 
 
+def test_precondition_hit_rule_closed_world() -> None:
+    """Verdict.hit_rule（2026-10-16 补（流水 56）裁②——judge() 单点产）：非 allow
+    支必携判定位标识（八位闭世界，命名以 specs/preconditions.md 判定序明文表位次
+    为准逐字），allow 支（pass／note）＝空串——fail-closed 且对账可检（拒支漏填
+    即成空串）；wire 投影（as_payload）随行。"""
+    from appv2.tools.precondition import (
+        HIT_RULE_ASK,
+        HIT_RULE_BAN,
+        HIT_RULE_NONE,
+        HIT_RULE_UNREGISTERED_METRIC,
+        HIT_RULES,
+        Verdict,
+    )
+
+    assert len(HIT_RULES) == 8 and len(set(HIT_RULES)) == 8
+    assert HIT_RULE_NONE not in HIT_RULES
+
+    facts = ledger_facts(LEDGER_DUMP)
+    window = {"window_start": "2025-09-01", "window_end": "2025-09-03"}
+
+    # 位 1 禁用词／位 3 外表越集（ask）／位 4 台账闭世界——拒支如实填位
+    banned = judge(SubtaskInput(
+        "h1", "各井老完成率", "data",
+        plan={"metric_slot": "老完成率", "ranking": False, **window},
+    ), facts)
+    assert banned.state == STATE_BLOCKED_REFUSE
+    assert banned.hit_rule == HIT_RULE_BAN
+
+    external = judge(SubtaskInput(
+        "h2", "井位台账关联日产油量", "data",
+        plan={"metric_slot": "日产油量", "ranking": False,
+              "external_tables": ["erp_well_register"]},
+    ), facts)
+    assert external.state == STATE_BLOCKED_ASK
+    assert external.hit_rule == HIT_RULE_ASK
+
+    unknown = judge(SubtaskInput(
+        "h3", "各井采出程度", "data",
+        plan={"metric_slot": "采出程度", "ranking": False, **window},
+    ), facts)
+    assert unknown.state == STATE_BLOCKED_REFUSE
+    assert unknown.hit_rule == HIT_RULE_UNREGISTERED_METRIC
+
+    # allow 支（pass／note——注记并入放行）＝空串（note 侧结构化信号仍由既有
+    # 类型化标记承载：fuzzy_window_rewrite／normalized_slot／chain_switch_trigger）
+    allows = [
+        judge(SubtaskInput(
+            "h4", "各井日产油量", "data",
+            plan={"metric_slot": "日产油量", "ranking": False, **window},
+        ), facts),
+        judge(SubtaskInput(
+            "h5", "N-01 井 2025-09-01 日产油量", "data",
+            plan={"metric_slot": "日产油量", "ranking": False, **window},
+        ), facts),
+        judge(SubtaskInput(
+            "h6", "最近各井日产油量", "data",
+            plan={"metric_slot": "日产油量", "ranking": False, **window},
+        ), facts),
+        judge(SubtaskInput("h7", "W-111 井完井报告", "knowledge"), facts),
+    ]
+    assert {v.state for v in allows} <= {STATE_PASS, STATE_NOTE}
+    for verdict in allows:
+        assert isinstance(verdict, Verdict)
+        assert verdict.hit_rule == HIT_RULE_NONE
+        assert verdict.as_payload()["hit_rule"] == HIT_RULE_NONE
+
+
 def test_ctx_of_carries_approved_tables_from_state() -> None:
     """ToolContext 放行态接线（A2 裁决落点——batch/execute 的 ctx 随状态走）。"""
     from appv2.runtime.graph import _ctx_of

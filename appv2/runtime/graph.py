@@ -144,6 +144,7 @@ from appv2.tools import (
     DATA_QUERY,
     DOC_RETRIEVE,
     FAQ_LOOKUP,
+    HIT_RULE_CHAIN_SWITCH,
     SCHEMA_PROBE,
     SEMANTIC_QUERY,
     STATE_BLOCKED_ASK,
@@ -2909,9 +2910,11 @@ def _make_precondition(
                     if kind == CHAIN_SWITCH_KIND_UNBOUND
                     else "题眼井不在数据链井闭世界——域错如实拒答，不代答"
                 )
+                # 拒支必携判定位标识（八位闭世界——换链面；2026-10-16 流水 56）。
                 judged[index] = replace(
                     verdict,
                     state=STATE_BLOCKED_REFUSE,
+                    hit_rule=HIT_RULE_CHAIN_SWITCH,
                     reason=(
                         "换链回炉已用尽（一次为界）：坚持 data 链同参"
                         f"（指纹 {fingerprint[:12]}…在簿）——{terminal_tail}"

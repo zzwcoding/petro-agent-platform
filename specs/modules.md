@@ -201,8 +201,10 @@ def match(state: RunState) -> ToolPlan | ToolMatchRejection: ...
 
 ### 公开接口
 ```python
-def gate_all(state: RunState) -> list[SubtaskVerdict]: ...   # 逐子问题三态；与核验的 Verdict 区分（同名不同物）
+def gate_all(state: RunState, *, window_candidates=None) -> list[SubtaskVerdict]: ...   # 逐子问题三态；与核验的 Verdict 区分（同名不同物）
 ```
+
+> **卡级微注（2026-10-16 裁，流水 56）**：`gate_all` 签名补注入形参 `*, window_candidates=None`——**序 2 位时间窗结论＝结构判据**：模型发射载荷窗槽双 null＝不能确定（不写词面门，裁决 #13）；ask 支候选窗＝**注入参** `window_candidates`（producer＝orchestration，本块不直引 query）。
 
 ### 依赖
 - 模块: `state`；`tools`（前置条件机本体在 tools 侧，只经其公开面）；`bookkeeping`（**写口面**——落 step 记录/notice 经其唯一写口，只引函数、不引其内部）
