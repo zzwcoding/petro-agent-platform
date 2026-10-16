@@ -24,9 +24,17 @@ readonly!=True 的工具，公开面仅 register/descriptors/call；假引擎 ad
 - QueryFace/RetrievalFace 引擎缝（结构性 Protocol）＋build_tools 装配单点；
 - SEMANTIC_QUERY/DATA_QUERY/DOC_RETRIEVE/GRAPH_QUERY 工具名闭世界；
 - ArgsError（参数校验/装配失败）＋classify_exception（异常三分类单点）；
+- ASKBACK_TIME_QUESTION/ASKBACK_TIME_CHOICES（缺参反问时间窗候选常量——经本
+  包根转出供 runtimev2 消费）；
 - fake 三假引擎＋FakeUpstreamRejection（P-006 复用件）。
 """
 
+# askback 候选窗常量转出（真源＝appv2/query/domain.py:78-84，经本面包根供
+# runtimev2 消费——守 R6，2026-10-16 流水 58）。
+from appv2.query import (
+    ASKBACK_TIME_CHOICES,
+    ASKBACK_TIME_QUESTION,
+)
 from appv2.tools.anchors import (
     entity_anchor_tokens,
     inject_retrieval_anchors,
@@ -128,6 +136,8 @@ from appv2.tools.table_scan import (
 
 __all__ = [
     "ALL_SCHEMA_CARDS",
+    "ASKBACK_TIME_CHOICES",
+    "ASKBACK_TIME_QUESTION",
     "ASK_CLARIFY",
     "ASK_EXTERNAL_TABLE_APPROVAL",
     "ASK_KINDS",

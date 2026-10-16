@@ -41,6 +41,7 @@ class ToolRegistry:
 `graph_query`（args: question, anchors?）。
 
 - **前置条件机闸件公开面注记**（`appv2/tools/precondition.py`）：`Verdict.hit_rule: str`——**命中的判定位标识**，闭世界八位——`ban`／`fuzzy_window`／`ask`／`unregistered_metric`／`normalized_slot`／`chain_switch`／`freshness_window`／`single_well`（命名以 `specs/preconditions.md` 判定序明文表位次为准逐字）；**非 `allow` 支必携一位**（可解释性——`preconditions` 单点取结构化判定位，不复制语义、不文案反推），`allow` 支（pass／note）＝空串（fail-closed：拒支漏填即成空串，双向对账可检）。**2026-10-16 补（流水 56）**；additive——既有判定行为零回归。
+- **askback 候选窗常量公开面注记**（`appv2/tools/__init__.py` 经包根转出，真源 `appv2/query/domain.py` 第 78–84 行）：`ASKBACK_TIME_QUESTION`（缺参反问问句逐字）／`ASKBACK_TIME_CHOICES`（三候选「近 3 天／近 30 天／本月至今」，无默认项）——`runtimev2` 各块经 `appv2.tools` 包根消费，不直引引擎（守边界规则 R6：agent 与世界的唯一接触面＝工具注册表）。**2026-10-16 补（流水 58）**；additive——既有行为零回归。
 
 ## 行为约定
 
