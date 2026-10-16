@@ -1160,6 +1160,7 @@ def test_payload_types_field_tables() -> None:
         "plan",
         "retrieval_need",
         "caliber_key",
+        "mention_mode",
     )
     assert tuple(Understanding.__dataclass_fields__) == ("text", "metric_candidates", "route")
     assert tuple(Direct.__dataclass_fields__) == ("text", "route")
@@ -1246,7 +1247,15 @@ def test_understanding_payload_shape_single_source() -> None:
         "Direct": {"text", "route"},
         "Subtask": {"id", "question", "ledger_notes", "chain"},
         "QuestionGroup": {"subtasks"},
-        "SubtaskMatch": {"id", "chain", "tool", "plan", "retrieval_need", "caliber_key"},
+        "SubtaskMatch": {
+            "id",
+            "chain",
+            "tool",
+            "plan",
+            "retrieval_need",
+            "caliber_key",
+            "mention_mode",
+        },
     }
     for name, fields in shaped.items():
         assert set(getattr(parsing, name).__dataclass_fields__) == fields, name

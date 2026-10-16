@@ -8,6 +8,9 @@
 - `Subtask`／`QuestionGroup`／`ClarifyEmission`／`SubtaskMatch`：V1 字段表逐字迁移
   （真源 `appv2/runtime/subtask.py` L116-L176／L296-L315）——承载位换、字段名与形状不变；
   **`Subtask.tool` 退场**（Owner 裁决 #10：`tool` 归匹配相位产出）。
+- `SubtaskMatch.mention_mode`＝「提及 vs 执行」结论的字段载体（闭世界 `executed`／`mentioned_only`，
+  真源 `specs/tool_matching.md` 接口定义）——本类**纯装载**、不判取值：缺与越界由消费方
+  （`tool_matching` 对账面）拒；**2026-10-16 增（流水 50 裁／P-05 单点归位）**。
 - 投影规则（`as_payload`）逐字迁移（真源同上 L126-L136／L145-L146／L161-L176／L307-L315）：
   恒带键照抄、空值键不出现；`ask` 段以 `ask_prompt` 真假**单点**开闸（`ask_options` 单有值
   静默消失——V1 事实面 D-L1a-04）。全类 `frozen=True, slots=True`。
@@ -98,7 +101,12 @@ class ClarifyEmission:
 
 @dataclass(frozen=True, slots=True)
 class SubtaskMatch:
-    """子问题→工具链定案（相位②产物——下游前置条件块与批量执行的输入）。"""
+    """子问题→工具链定案（相位②产物——下游前置条件块与批量执行的输入）。
+
+    `mention_mode`＝「提及 vs 执行」结论的字段载体（闭世界 `executed`／`mentioned_only`——
+    真源 `specs/tool_matching.md` 接口定义；**2026-10-16 增（流水 50 裁／P-05 单点归位）**）：
+    本类**纯装载**、不判取值——缺与越界由消费方（`tool_matching` 对账面）拒；空串＝未装载。
+    """
 
     id: str
     chain: str
@@ -106,6 +114,7 @@ class SubtaskMatch:
     plan: dict[str, Any] | None = None
     retrieval_need: dict[str, Any] | None = None
     caliber_key: str = ""  # B5：场景词落定的口径支 key（可空）
+    mention_mode: str = ""  # 闭世界 executed／mentioned_only（取值真源 specs/tool_matching.md）
 
     def as_payload(self) -> dict[str, Any]:
         payload: dict[str, Any] = {"id": self.id, "chain": self.chain, "tool": self.tool}

@@ -68,6 +68,8 @@ def parse_tool_match(content: str, group: QuestionGroup) -> tuple[SubtaskMatch, 
 # ③ 载荷定型类（子任务与问题组载荷——字段表＝「行为约定」11）：
 #   Subtask／QuestionGroup／SubtaskMatch（＋V1 发射定形 ClarifyEmission）
 #       # 真源 docs/runtime-refactor/recon/L1a-子任务前半.md 与同报告 L1b（字段与投影逐条）
+#       # **`SubtaskMatch.mention_mode: str = ""`＝2026-10-16 增（流水 50 裁／P-05 单点归位）**——
+#       #   真源＝`specs/tool_matching.md` 接口定义（流水 50/55——形状单点在本块，语义面归 tool_matching）
 # ④ 「同参重投闸」的指纹器材（闸件本体指纹面归本块——真源 specs/tool_matching.md
 #    「不做什么」行＋风险 4；synth/S1 把 V2-37（指纹面）归 H4）：
 #   payload_fingerprint(payload) -> str              # 键序归一紧凑 JSON（R-A1-24；V1 私有 _payload_fingerprint 去下划线公开）

@@ -195,3 +195,9 @@
 - `.venv/bin/lint-imports --config tools/importlinter_v2.toml` → **Contracts: 18 kept, 0 broken**，exit 0；
 - `.venv/bin/lint-imports`（默认配置＝V1 面）→ **Contracts: 6 kept, 0 broken**，exit 0；
 - 本轮**零代码改动**（只改规格卡与设计文档），两闸随批复核未红；**未 git commit**（主窗统一提交）。
+
+---
+
+## 2026-10-16 P-05 单点归位（流水 55）
+
+- **2026-10-16 P-05 单点归位（流水 55）**：`mention_mode` 物理落 `parsing.models.SubtaskMatch`（P-05 载荷类形状单点——`specs/parsing.md` 行为 12），本块 `models.py` 类体删除、改**导入消费**（`from appv2.runtimev2.parsing import SubtaskMatch`，包根 21 成员公开面不动）；随本次归位，`specs/tool_matching.md` 接口定义节的消费面类体差异（`caliber_key: str | None`／`plan: QueryPlan | None`／`retrieval_need: RetrievalNeed | None`／类内 `__post_init__` 把守）**收敛为 `parsing` 形状**——`mention_mode` 的取值闭世界（缺／越界即拒）留在消费方对账面 `matching._violation_of`，`retrieval_need` 以映射承载、`caliber_key` 取空串形；`specs/tool_matching.md` 类体回改引用句＝主窗（`specs/parsing.md` 风险 7③ 登记件）。
