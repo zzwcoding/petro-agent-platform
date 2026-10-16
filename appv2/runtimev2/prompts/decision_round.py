@@ -112,8 +112,11 @@ _REWORK_STATUSES: frozenset[str] = frozenset(
 _QUESTION_GROUP_HEAD = "问题组："
 
 # ── 分解发射样例（逐字迁移——orientation.py L199-228；运行时现造、**不进合同常量**）──
+# 头行**2026-10-16 补（L0/L2 三病灶修复批②）**：窗词锚定说明句补模糊时间词一档——
+# 真机实测首秀形于窗段无据可依（L2/r1 必拒）；合法形真源 `specs/clarification.md` 行为 8③。
 _DECOMPOSE_EXAMPLE_HEAD = (
-    "填写样例（分解形——五键齐全，ledger_notes 逐字转抄台账全量块，窗为示意按窗词锚定表现算）："
+    "填写样例（分解形——五键齐全，ledger_notes 逐字转抄台账全量块，窗为示意按窗词锚定表现算；"
+    "模糊时间词（最近/近期）＝窗写 null~null，由引擎缺参反问兜底三选一——不要自己锚窗）："
 )
 _UNBOUND_BINDING = "未绑定"
 # 绑定态字面须 ∈ 澄清对账闭世界 `BINDING_STATES`（`已绑定`／`未绑定`）——样例教的即闸收的

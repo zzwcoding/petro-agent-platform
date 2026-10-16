@@ -2458,3 +2458,52 @@ async def test_guide_text_injected_into_decision_phase_via_orchestration() -> No
     assert plain  # 决策相位照常发起模型调用
     assert all(guide_mark not in joined for joined in plain)  # 缺省空串＝空段头（回归）
     assert all(GUIDE_REFERENCE_HEAD in joined for joined in plain)  # 段头仍在（空段头形）
+
+
+# ---------- L0/L2 三病灶修复批③：直答旁路（route=direct）文本帧 ----------
+
+
+async def test_four_phase_direct_answer_emits_text_frame() -> None:
+    """直答旁路收口后补发一帧交付正文（2026-10-16 补，L0/L2 三病灶修复批③）。
+
+    真机证据 `docs/runtime-refactor/ladder/L0/01`：`route="direct"` 一路六帧（session／step×2／
+    verdict／blackbox／done）**无任何 text 帧**、runs 读口无答案正文——免起草旁路（`direct_answer`
+    三键）的收口段只发 `citation` 帧，交付正文只落状态不上流，用户端读到空。断言：帧流含**恰一帧**
+    text、content＝直答草稿、帧在 `verdict(final)` 之前；帧形不带 kind（照 `answering` 起草段，
+    不新造 kind 值）；免起草免核验（零 ask／零 verify 帧、步序＝读题＋收口两拍）。
+    """
+    from appv2.infra.clock import freeze
+    from appv2.runtimev2.persistence import RunStore
+
+    greeting = "好的，不客气！有需要随时叫我。"
+    wire_ledger_projection(V2LedgerPort(v2_ledger_dump()))
+    with freeze("2026-10-08T09:00:00"):
+        runtime, _completer = v2_runtime(
+            script={
+                "understand": [
+                    json.dumps({"route": "direct", "text": greeting}, ensure_ascii=False)
+                ],
+            }
+        )
+        events = await v2_run(runtime, "谢谢")
+
+    names = [event.event for event in events]
+    direct_text = [
+        (index, event.data) for index, event in enumerate(events) if event.event == "text"
+    ]
+    assert len(direct_text) == 1  # 恰一帧（不重复推）
+    index, payload = direct_text[0]
+    assert payload == {"content": greeting}  # 帧形不带 kind（kind 值不新造）
+    assert index < names.index("verdict")  # 正文帧在收口 verdict 之前
+    assert events[names.index("verdict")].data["subtype"] == "final"
+    assert names[-1] == "blackbox"
+
+    # 免起草免核验：零 ask、零 verify 帧；步序＝读题（decision）＋收口（answer）两拍
+    assert v2_ask_frames(events) == []
+    verdicts = [event.data for event in events if event.event == "verdict"]
+    assert [data for data in verdicts if data["subtype"] == "verify"] == []
+    run_id = events[-1].data["run_id"]
+    row = RunStore().run(run_id)
+    assert row is not None and row.status == "completed"
+    assert row.answer == greeting  # runs 读口正文（原症状＝读口无答案正文）
+    assert [record.step for record in v2_steps(run_id)] == ["decision", "answer"]

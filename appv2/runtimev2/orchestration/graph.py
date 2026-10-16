@@ -35,9 +35,11 @@ from appv2.runtimev2.orchestration.constants import (
     ASK_KEY_KIND,
     ASK_KEY_OPTIONS,
     ASK_KEY_PROMPT,
+    DRAFT_KIND_DIRECT,
     EVENT_ASK,
     EVENT_NOTICE,
     EVENT_STEP,
+    EVENT_TEXT,
     NODE_ANSWER,
     NODE_BATCH,
     NODE_CLARIFY,
@@ -48,6 +50,7 @@ from appv2.runtimev2.orchestration.constants import (
     NODE_VERIFY,
     PAYLOAD_SEQ_KEY,
     PAYLOAD_STEP_KEY,
+    PAYLOAD_TEXT_CONTENT_KEY,
     PAYLOAD_TITLE_KEY,
     assert_frame_names,
 )
@@ -400,11 +403,36 @@ def _make_batch(deps: LoopDeps) -> Any:
 def _make_answer(deps: LoopDeps) -> Any:
     async def node(state: RunState) -> dict[str, Any]:
         answer(state, bus=deps.bus, max_observations=deps.max_observations)
+        _emit_direct_text(deps, state)
         _flush_notices(deps, state)
         _flush_steps(deps, state)
         return _updates_of(state)
 
     return node
+
+
+def _emit_direct_text(deps: LoopDeps, state: RunState) -> None:
+    """直答旁路收口后的交付正文帧（一帧）——免起草旁路的 text 帧面单点。
+
+    直答旁路（`route="direct"` 直答／拒答／闸拒／收敛转答——`bookkeeping.direct_answer` 与
+    `converge` 同落 `draft_kind="direct"`）**免起草**：本块下游 `answering` 的 text 帧只在**起草段**
+    发（一段一帧），收口段只发 `citation` 帧——故该旁路的交付正文在流上**零 text 帧**，用户端读到
+    空（真机证据 `docs/runtime-refactor/ladder/L0/01`：六帧无 text、runs 读口无答案正文）。
+
+    补发规则（本处＝编排面收口之后、`answer` 步各路径共用）：
+    - **判据只认 `draft_kind="direct"`**——起草路径（`draft_kind=""`）的帧面归 `answering` 起草段，
+      本处零动作（不重复推、顺序不变）；
+    - 一帧一正文，content＝交付正文（`state.draft`，收敛转答形回退 `state.answer`）；帧形照
+      `answering` 起草段＝`{content}` **不带 kind**（`kind="understanding"` 是理解步专名——本处
+      不新造第二值）；
+    - 正文为空（空稿收口）→ **不发空帧**（同 `answering` 行为 9「不推空答案」）。
+    """
+    if state.draft_kind != DRAFT_KIND_DIRECT:
+        return
+    text = str(state.draft or state.answer)
+    if not text.strip():
+        return
+    deps.bus.emit(EVENT_TEXT, {PAYLOAD_TEXT_CONTENT_KEY: text})
 
 
 def _make_verify(deps: LoopDeps) -> Any:

@@ -185,12 +185,16 @@ TEXT_NO_REDISCOVER: Final[str] = "台账命中且时间窗已定——禁再 dis
 
 # 槽位对账拒因（**逐字稿载体＝流水 64 Owner 裁**——头行＋逐子问题三行块〔拒因／期望形／
 # 台账相关行〕＋尾行；`{…}` 为槽位，程序照填：id／段名／值／原因／台账整行原文）。
+# **2026-10-16 补（L0/L2 三病灶修复批②）**：窗段【期望形】给**具体示例**（锚定窗形 ＋ 检索式
+# 无窗形）——真机实测首秀形窗段写法无据可依（L2/r1 必拒），拒因壳语是回喂面唯一的教具；
+# 合法形真源＝`specs/clarification.md` 行为 8③（锚定窗／`窗未定`／`null~null` 三形）。
 TEXT_SLOT_MISMATCH_HEAD: Final[str] = "上次发射被拒：ledger_notes 槽位对账未过：{ids}"
 # 步骤标题/过程档案用单行同义形（拒因正文多行，不宜作标题槽——头行去「上次发射被拒」前缀）。
 TEXT_SLOT_MISMATCH_TITLE: Final[str] = "ledger_notes 槽位对账未过：{ids}"
 TEXT_SLOT_MISMATCH_BLOCK: Final[str] = (
     "【拒因】{id} 的「{segment}」段「{value}」{cause}\n"
-    "【期望形】〈台账行首名〉｜已绑定|未绑定｜〈锚定窗或窗未定〉\n"
+    "【期望形】〈台账行首名〉｜已绑定|未绑定"
+    "｜〈锚定窗形：2026-09-16~2026-10-16｜检索式无窗：窗未定或 null~null〉\n"
     "【台账相关行】{row}"
 )
 TEXT_SLOT_MISMATCH_TAIL: Final[str] = "——修正后重新输出 JSON。"

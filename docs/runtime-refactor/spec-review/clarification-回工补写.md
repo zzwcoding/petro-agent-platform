@@ -140,3 +140,13 @@ $ uv run python tools/ref_resolvable.py check
 - **测试**：`tests/domains/test_v2_prompts.py:994/1026` 段二字面随闭世界改「已绑定」；`tests/domains/test_v2_tool_matching.py:93` 注释 fixture 同步；`tests/domains/test_v2_clarification.py` 正例新增**术语名作段一**（`_TERM_ROW` 面：块内 `术语｜…` 行在场＋段一必过）与**「无时间窗」放行形**（`::boundary_slot_reconciliation_rejections` 三合法形改四形）。
 - **验证（改后实跑，均 exit 0——CI `.github/workflows/ci.yml` 本仓步骤全量）**：`pytest -q` 全量 → **2165 passed, 108 skipped**（不回归，同上批基线）；`ruff check app appv2 tests migrations tools` → All checks passed；`mypy app appv2` → no issues（244 files）；`lint-imports`（默认配置：B16／B1）→ **6 kept, 0 broken**；`lint-imports --config tools/importlinter_v2.toml` → **18 kept, 0 broken**；`tools/contract_coverage.py check` → 绿（V1 173＋V2 4 条双向对账）；`tools/debt_markers.py check` → 绿；`tools/check_specs.py` → PASS（0 警告）；`tools/ref_resolvable.py check` → 绿（22 份规格）；`tools/prototype_guard.py check` → GREEN（web 未动）。未 git commit（主窗统一提交）。
 - **余留（仍开口）**：上节遗留 5（票面历史件引用过时）／6（名录机取面）／7（★☆ 括注名段一形）不变；**族标注名仍未进名录**（本微批只补术语，族标注同理加 `("families", …)` 待裁）；`prompts` 样例段头逐字「ledger_notes 逐字转抄台账全量块」（`_DECOMPOSE_EXAMPLE_HEAD`）未动——V1 迁移逐字字面，与新对账口径的字面差待措辞轮处理。
+
+---
+
+## 2026-10-16 L0/L2 三病灶修复批②（窗段教据面；Owner 批，前节 ③ 的「不改逐字稿」句被本批取代）
+
+**依据（真机证据 `docs/runtime-refactor/ladder/`）**：L2/01 与 L2/03 的决策轮拒因回喂实测——`id=3` 澄清 r1 被拒「ledger_notes 槽位对账未过：s1」，且 r1／r2 首秀形窗段写法无据可依（模型自造形）。上一微批只把「无时间窗」收进**闸的合法形集合**，而**教具面**（样例头行／【期望形】壳语）仍只给锚定窗一形 → 供给与判据不对齐。
+
+- ①**【期望形】窗段给具体示例**：`appv2/runtimev2/clarification/constants.py` `TEXT_SLOT_MISMATCH_BLOCK` 的「〈锚定窗或窗未定〉」→「〈锚定窗形：2026-09-16~2026-10-16｜检索式无窗：窗未定或 null~null〉」（照拒因逐字稿体例改壳语常量，命令式回喂面才教得动首秀形）；`specs/clarification.md` 错误契约（`:66`）与行为 8③（`:86`）两处同步＋审计块。**取代关系**：上一微批 ③ 行「【期望形】逐字稿仍书「锚定窗或窗未定」，不改 Owner 逐字稿」——该句记录的是**当时**的裁（只收编闸侧集合），本批经 Owner 批改壳语常量，该句自此作废。
+- ②**样例头行补窗词锚定说明句**：`appv2/runtimev2/prompts/decision_round.py` `_DECOMPOSE_EXAMPLE_HEAD` 补「模糊时间词（最近/近期）＝窗写 null~null，由引擎缺参反问兜底三选一——不要自己锚窗」；`specs/prompts.md` 行为 10 同步＋验收行登记。**仍留**（本批不动）：前节余留所述「ledger_notes 逐字转抄台账全量块」与三段槽位对账口径的字面差。
+- **测试**：`tests/domains/test_v2_clarification.py::boundary_slot_reconciliation_rejections` 壳语逐字断言改新形；`tests/domains/test_v2_prompts.py::decompose_example_head_window_rule` 新增（头行说明句＋装配面逐字在场）。

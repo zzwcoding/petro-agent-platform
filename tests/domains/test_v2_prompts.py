@@ -74,6 +74,7 @@ from appv2.runtimev2.prompts import (
 )
 from appv2.runtimev2.prompts import constants as constants_module
 from appv2.runtimev2.state import MAX_DISCOVERS_PER_RUN, RunState
+from appv2.runtimev2.tool_matching import MENTION_MODES
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _V2_DIR = _REPO_ROOT / "appv2" / "runtimev2"
@@ -1665,3 +1666,64 @@ def test_retention_normal_assembly_unchanged() -> None:
             if module.startswith("appv2.runtimev2")
         ]
         assert modules == [], f"旧码装配载体引了 V2 面：{relative} → {modules}"
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════
+# L0/L2 三病灶修复批（2026-10-16）：合同/样例教据面 ↔ 闸闭世界对账
+# ══════════════════════════════════════════════════════════════════════════════════════
+
+
+def test_decompose_example_head_window_rule() -> None:
+    """分解样例头行的窗词锚定说明句在场（行为 10；2026-10-16 补（L0/L2 三病灶修复批②））。
+
+    真机形（`docs/runtime-refactor/ladder/L2/01` 的 `id=3`／`id=5` 两轮必拒「ledger_notes 槽位
+    对账未过」）＝首秀形在窗段无据可依：样例头行只说「窗按窗词锚定表现算」，对模糊时间词（最近／
+    近期）无片言，模型自造窗形即被三段槽位对账拒。合法形真源＝`specs/clarification.md` 行为 8③
+    （锚定窗／窗未定（同义「无时间窗」）／双 null 三形）。
+    断言：头行点名模糊时间词一档的出路（窗写 `null~null`、引擎缺参反问兜底三选一、不自行锚窗），
+    且该句随澄清轮首入包同现（装配面逐字在场，非只在常量里）；样例 JSON 与单行形零破。
+    """
+    package = _clarify_package(_decision_state())
+    line = _unique_line(package, "填写样例（分解形")  # 样例段恰一处（段行单点）
+    for sentence in (
+        "模糊时间词（最近/近期）＝窗写 null~null",
+        "由引擎缺参反问兜底三选一",
+        "不要自己锚窗",
+    ):
+        assert sentence in line
+    # 头行仍为单行（段行单点判据不被换行破形）且样例旧形零删改（说明句只加在头行末尾）
+    head_part, _, payload_json = line.partition('{"action"')
+    assert head_part.endswith("不要自己锚窗）：")
+    assert "ledger_notes 逐字转抄台账全量块" in head_part
+    json.loads('{"action"' + payload_json)
+
+
+def test_toolmatch_contract_carries_mention_mode() -> None:
+    """工具匹配合同带必填结论字段 `mention_mode`（2026-10-16 补（L0/L2 三病灶修复批①））。
+
+    真机形（`docs/runtime-refactor/ladder/L2/03`：35 次模型调用、32 条 `decision_rejected`
+    notice 全为工具匹配拒，末条 notice＝recursion limit 35）＝闸把 `mention_mode` 当必填
+    （`appv2/runtimev2/tool_matching/matching.py` 加密集，逐字拒文「matches s1 缺 mention_mode」
+    ／「缺 matches」两形交替），而合同零提及该字段 → 模型无从遵守、必拒循环。断言：合同正文
+    （matches 形＋字段说明）与填写样例两处都带该键，取值对照**闸的闭世界**逐字。
+    """
+    schema_match = '"mention_mode": "executed"|"mentioned_only"'
+    assert schema_match in TOOLMATCH_EMISSION_CONTRACT
+    assert "缺该键＝参数校验拒" in TOOLMATCH_EMISSION_CONTRACT  # 必填面逐字
+    assert "不执行" in TOOLMATCH_EMISSION_CONTRACT  # 提及≠执行（防废弃口径误当执行）
+
+    # 填写样例的 matches 支带该键，取值 ∈ 闸的闭世界（教的就是闸收的）
+    sample_head = "填写样例（单匹配 knowledge 形）："
+    sample_line = _unique_line(TOOLMATCH_EMISSION_CONTRACT, sample_head)
+    sample = json.loads(sample_line[len(sample_head) :])
+    match = sample["matches"][0]
+    assert "mention_mode" in match
+    assert match["mention_mode"] == "executed"  # 样例取名＝闸闭世界成员（教的就是闸收的）
+    assert match["mention_mode"] in MENTION_MODES
+    assert MENTION_MODES == {"executed", "mentioned_only"}  # 对照面非空转
+    assert match["chain"] == "knowledge"  # 样例既有形零删改
+
+    # 装配面逐字在场（匹配轮首入包内同现——合同常量入包不脱节）
+    package = _toolmatch_package(_decision_state())
+    assert schema_match in package
+    assert sample_line in package

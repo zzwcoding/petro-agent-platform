@@ -45,6 +45,14 @@ EVENT_ASK = "ask"
 EVENT_VERDICT = "verdict"
 EVENT_BLACKBOX = "blackbox"
 EVENT_NOTICE = "notice"
+EVENT_TEXT = "text"  # 直答旁路收口后的交付正文帧（见 `PAYLOAD_TEXT_CONTENT_KEY` 注）
+# text 帧载荷键（真源 `synth/S6-事件与帧目录.md` §一 text 行＝`{content[, kind]}`；本处只取
+# `content`——答案正文帧**不带 kind**，与 `answering` 起草段的发射形一致（语义单点在那个键上）。
+PAYLOAD_TEXT_CONTENT_KEY = "content"
+# 直答旁路定型值指针（`state.draft_kind`）：真源＝`bookkeeping.constants.DRAFT_KIND_DIRECT`
+# （`specs/bookkeeping.md` 行为 12／14 逐字 `draft_kind="direct"`）——字面单点在该块，本模块只作
+# 取值指针、不复述语义（同 `NOTICE_*` 的引用法）。
+DRAFT_KIND_DIRECT = "direct"
 # ── 本块发射的通知类型（取值真源＝`transport.NOTICE_TYPES`，本模块只取名不扩闭世界）──
 NOTICE_RUN_FAILED = "run_failed"
 NOTICE_REFUSED = "refused"  # 拒答分型（V1 遗留值——V2 侧拒答收口判据取 NOTICE_SUBTASK_REFUSED）
@@ -72,7 +80,7 @@ MANIFEST_DIGEST_CHARS = 16  # 收口摘要面取哈希前 16 位（非闭世界�
 
 def assert_frame_names() -> None:
     """自守：本模块引用的帧名与通知类型字面必须落在 `transport` 闭世界内（防私扩）。"""
-    for name in (EVENT_STEP, EVENT_ASK, EVENT_VERDICT, EVENT_BLACKBOX, EVENT_NOTICE):
+    for name in (EVENT_STEP, EVENT_ASK, EVENT_VERDICT, EVENT_BLACKBOX, EVENT_NOTICE, EVENT_TEXT):
         if name not in EVENT_KINDS:
             raise ValueError(f"帧名越界（不在 transport.EVENT_KINDS 内）：{name!r}")
     if EVENT_NOTICE not in EVENT_KINDS or not WIRE_FRAMES:

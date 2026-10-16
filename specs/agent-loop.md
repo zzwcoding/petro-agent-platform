@@ -157,6 +157,7 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
    - **审计接线（H3）**：受理／三态收口／拒答收口／外表审批决定／禁用词豁免**五处留痕**都经 `security.audit` 唯一写口落责任账——**计数口径以「action 闭世界七值」为准**（真源 `docs/runtime-refactor/recon/J-存储留痕与网关缝.md` R-J-05；三态收口＝完成／失败两值、审批决定＝批准／驳回两值），**本处不写类数**（旧「四事件」说法已废——它漏了禁用词豁免）；action 恒 `agent_v2.*` 前缀，INV-5；
    - **身份缝（H3）**：请求身份经 `infra.security.resolve_actor` 解析（开发期身份桩；正式接 OAuth2.0 **只换该函数实现**，其余零改动）；
    - **组合图装配与路由表（H2）**：节点注册、条件边、路由表在本块**一处集中**——**业务相位不得自行决定跳转**。
+   - **直答旁路交付正文帧（2026-10-16 补（L0/L2 三病灶修复批③·审计））**：`route="direct"` 直答与拒答／闸拒／收敛转答共用 `bookkeeping.direct_answer`／`converge` 的 `draft_kind="direct"` 免起草旁路；该旁路在 `answering` 无起草段，其**交付正文恰一帧 `text` 由本块在收口后补发**（判据只认 `draft_kind="direct"`——起草路径的帧面归 `answering`，本块零动作；帧形不带 `kind`，同 `answering` 起草段）。**原缺口**＝该旁路收口段只发 `citation` 帧，用户端读到空（真机证据 `docs/runtime-refactor/ladder/L0/01`：六帧无 `text`、runs 读口无答案正文）。
 
 9. run 状态机：running→waiting_ask→（resume）→running→completed/failed；
    引擎事件外置持久化，断线凭游标续传，进程重启后可恢复 waiting_ask 态（resume
@@ -194,6 +195,7 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 | 越集审批挂起→批准→前置条件机重判→批量执行 | `tests/domains/test_v2_four_phase.py::test_four_phase_extable_approval_resume_precondition_chain` |
 | 引擎侧 ask 挂起→resume→批量续跑收口 | `tests/domains/test_v2_four_phase.py::test_four_phase_engine_ask_resume_batch_chain` |
 | 四相位端到端剧本（澄清→分解→过闸→批量→汇总收口） | `tests/domains/test_v2_four_phase.py::test_four_phase_end_to_end_scripted` |
+| 直答旁路（`route="direct"`）收口后交付正文帧（恰一帧 `text`、content＝草稿、帧在 `verdict(final)` 前、不带 `kind`；起草路径帧面不变——行为 8 补条） | `tests/domains/test_v2_four_phase.py::test_four_phase_direct_answer_emits_text_frame` |
 | 提问→事件流步序（understand→四相位→answer 次序） | `tests/api/test_v2_asks.py::test_loop_step_sequence` |
 | 每个模型调用 step 落 Manifest（来源/版本/token）**【**W4 登记（2026-10-16）**：材料面 Manifest 现挂答案面步（`call_model` 无 manifest 注入面）；若裁定改由 `call_model` 承接 → 回 W3 `bookkeeping` 或设计仓】** | `tests/api/test_v2_asks.py::test_manifest_present_each_call` |
 | run 内对话状态簿记（`dialogue`＋`process_notes` 双字段，第二轮调用携带首轮对话） | `tests/domains/test_v2_multi_turn_context.py::test_second_decision_context_carries_first_round_history` |

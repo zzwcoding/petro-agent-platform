@@ -1095,7 +1095,10 @@ def test_boundary_slot_reconciliation_rejections() -> None:
         assert reason.startswith("上次发射被拒：ledger_notes 槽位对账未过：s1"), label
         assert f"【拒因】s1 的「{segment}」段" in reason, label
         assert cause in reason, label  # 拒因指明原因
-        assert "【期望形】〈台账行首名〉｜已绑定|未绑定｜〈锚定窗或窗未定〉" in reason, label
+        assert (
+            "【期望形】〈台账行首名〉｜已绑定|未绑定"
+            "｜〈锚定窗形：2026-09-16~2026-10-16｜检索式无窗：窗未定或 null~null〉" in reason
+        ), label
         assert "——修正后重新输出 JSON。" in reason, label
         if segment in ("槽位", "段数"):
             assert "【台账相关行】（名录无此名" in reason, label

@@ -40,6 +40,12 @@
 #                                     #（真源 recon/E1 R-E1-05/06/07；消费方 clarification）
 # ③ 工具匹配发射合同——含相位合同头行＋合同内嵌定案样例
 #                                     #（真源 recon/E2 R-E2-04、arch/P4b A-P4b-60；消费方 tool_matching）
+#                                     #（**2026-10-16 补（L0/L2 三病灶修复批①）：合同正文（matches 形 ＋
+#                                     #  字段说明）与填写样例同批带**必填**结论字段 `mention_mode`
+#                                     #  （闭世界 `executed`／`mentioned_only`）——真源
+#                                     #  `specs/tool_matching.md`（`SubtaskMatch.mention_mode` 条
+#                                     #  ＋行为 5 枚举条，行号 :56／:75）；原合同零提及该字段而
+#                                     #  闸为必填＝提示资产缺失致工具匹配必拒循环（L2 实证 35 轮）**）
 # ④ 汇总合同                          # 答案轮中段
 # ⑤ 起草答案合同——构成（去重后形态，拼接序照现状）＝行集交付规矩段
 #   （arch/P4b A-P4b-49 票面附 C 本段不得增删字）＋台账卡边界句＋A-P6a-35 追加半句
@@ -88,7 +94,7 @@ def assemble_answer_prompt(state: RunState) -> str: ...
 7. **决策轮首入包构成固定、逐件可溯**（相位一次性——真源 `docs/runtime-refactor/arch/P6b-票堆V2-80系列后半.md` A-P6b-25）：澄清轮／工具匹配轮的首入装配＝①题意锚行（行为 6）＋②相位合同（合同头行＋合同正文；澄清轮另含 finalize 交付面边界句——构成真源 `docs/runtime-refactor/recon/E1-澄清节点.md` R-E1-05/06/07，字面随 A-P6b-24 迁移照抄）＋③（澄清轮）分解发射样例（行为 10）／（工具匹配轮）样例在合同内嵌（`docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-60）＋④§A 指南段（文本经入参注入——装载面 GuideProvider 实现不归本块，归属登记见风险 7⑦；措辞分工真源 `docs/runtime-refactor/recon/E2-工具匹配节点.md` R-E2-14「动作类措辞以合同为准、§A 仅作业务规则参考」）＋⑤（工具匹配轮）问题组 JSON 渲染（投影原形直转 JSON——顶层 `subtasks` 单键形，真源 R-E2-04／V1 字面 `appv2/runtime/graph.py` L2706-2708）＋⑥（投影非空时）台账常驻块包裹——常驻块形＝BEGIN＋字典说明行＋台账／别名／结构卡三块＋END（构造先例真源 `docs/runtime-refactor/recon/E2-工具匹配节点.md` 相位包首入段）。断言：给定 fixture 状态，首入包按上列构成逐件在场（澄清／匹配轮各按其件）、常驻块包裹对恰一对；**四要素按轮合看逐轮在场**（`docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-56「四要素制度…每条发模型的轮次四件齐」口径：任务动词＝合同头、题意锚＝锚行、产出样例＝澄清轮分解样例／匹配轮合同内嵌样例、失败反馈＝增量条拒因回喂——行为 16）。
 8. **台账常驻块逐字转抄、恰一份、三删不回流**：常驻块内台词条目**逐字转抄**自 state 投影（不改写、不摘要——`ledger_notes` **槽位段**逐字可求得的前提：对账口径＝段一逐字 ∈ 台账名录（指标/对象/关系/术语名），非整块逐字子串，`specs/clarification.md` 行为 8 的承接面）；台账/名录信息在决策轮装配输出中**恰出现一次**（只经常驻块一份，装配不另拼名录段——V2-59 三删纪律的装配面：与相位合同逐字重复的段、名录重复份、收口硬规则旧句不回流，真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-29/30）。断言：fixture 台账每条目在输出中恰出现一次；三删段名字面在澄清轮装配输出中缺席。
 9. **消歧头统一措辞**：澄清／工具匹配两轮装配的消歧头统一为「……窗词锚定/单井红线/三链路由；动作类措辞以上方合同为准」且不点名已删段（逐字稿真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-33）。断言：两轮装配输出含该逐字句；「发射判据」「指标名册」「收口硬规则」段名缺席。
-10. **分解发射样例＝运行时动态渲染、不进合同常量**：样例含台账真源词与当日日期，结构性进不了合同（「合同零业务名词」命名闸所迫，真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-32）；渲染规则：取**首条未绑定指标** → knowledge 链／doc_retrieve 形；无未绑定取首条可出数 → data 链／data_query 形；台账空投影 → 返回空串（调用方跳过）；样例窗＝「today−近 30 天 ~ today」示意（默认窗口径真源 `docs/runtime-refactor/walk/08-澄清-意图澄清.md` §七 Q-B）；payload 形＝`{"action": "decompose", "question_group": {"subtasks": [单条]}}`（两层嵌套，真源 `docs/runtime-refactor/recon/L2a-装配前半.md` R-L2a-15＋V1 字面 `appv2/runtime/orientation.py` L223-228），子问题条目五键齐全（id／question／ledger_notes／chain/tool）。**样例 `ledger_notes` 段二字面＝澄清对账闭世界值**（`已绑定`／`未绑定`——2026-10-16 微批对齐：样例教的即闸收的，真源 `specs/clarification.md` 行为 8②；旧字面「在册可出数」过不了该段对账）。断言：三分支各自落对；产出样例段为合法 JSON 且键形正确（顶层恰 `action`＋`question_group` 两键、`subtasks` 单条五键——V1 病灶「字符串拼接无转义产非法 JSON」不复现，真源 `docs/runtime-refactor/recon/L2a-装配前半.md` D-L2a-13）。
+10. **分解发射样例＝运行时动态渲染、不进合同常量**：样例含台账真源词与当日日期，结构性进不了合同（「合同零业务名词」命名闸所迫，真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-32）；渲染规则：取**首条未绑定指标** → knowledge 链／doc_retrieve 形；无未绑定取首条可出数 → data 链／data_query 形；台账空投影 → 返回空串（调用方跳过）；样例窗＝「today−近 30 天 ~ today」示意（默认窗口径真源 `docs/runtime-refactor/walk/08-澄清-意图澄清.md` §七 Q-B）；payload 形＝`{"action": "decompose", "question_group": {"subtasks": [单条]}}`（两层嵌套，真源 `docs/runtime-refactor/recon/L2a-装配前半.md` R-L2a-15＋V1 字面 `appv2/runtime/orientation.py` L223-228），子问题条目五键齐全（id／question／ledger_notes／chain/tool）。**样例 `ledger_notes` 段二字面＝澄清对账闭世界值**（`已绑定`／`未绑定`——2026-10-16 微批对齐：样例教的即闸收的，真源 `specs/clarification.md` 行为 8②；旧字面「在册可出数」过不了该段对账）。**样例头行的窗词锚定说明句（2026-10-16 补（L0/L2 三病灶修复批②））**：模糊时间词（最近/近期）＝窗写 `null~null`，由引擎缺参反问兜底三选一——不要自己锚窗（拒因壳语的【期望形】同批给窗段两形示例，真源 `specs/clarification.md` 行为 8③／接口定义错误契约）。断言：三分支各自落对；产出样例段为合法 JSON 且键形正确（顶层恰 `action`＋`question_group` 两键、`subtasks` 单条五键——V1 病灶「字符串拼接无转义产非法 JSON」不复现，真源 `docs/runtime-refactor/recon/L2a-装配前半.md` D-L2a-13）。
 11. **合同常量零业务名词**：合同常量文本不含台账真源指标名／别名／井号形／业务日期段字面（fixture 词集与水位日形扫描交集＝∅；真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-32 的命名闸记述——示例词纪律同款）。断言：合同常量族逐常量扫描交集为空（集合成员判定，属形态处理豁免面）。
 12. **答案轮段序固定、材料段零渗入**：装配输出段序＝三件套置顶（行 1「用户问题：{question}」→ 行 2 动词钉死句 → 行 3「【答案要求】」内嵌答案要求清单全文）→ 汇总合同 → 子问题结果清单 → 起草答案合同（收尾）；**材料段不在装配输出内**（由调用方按 `context` 渲染产物追加于尾——材料渲染归 context）。断言：段序逐段可定位；输出末段＝起草答案合同；装配输出不含任何观察行内容子串（真源：段序 `docs/runtime-refactor/recon/L2b-作答装配与回声.md` R-L2b-04/07；三件套先例同文件 `answer_turn_preamble` 节）。
 13. **答案轮禁令件在场（钉 `pin-13` 的合同侧）**：装配输出含动词钉死句「现在：写最终答案交付用户。本步是写答案步——不再做任何决策、不再发射任何动作指令（finalize/decompose 等动作出现即废品）。」与答案要求⑦（「理解：／指标候选：」及任何动作 JSON 是过程产物，出现在答案中即废品）两字面——**提示词侧不注入回声形指令**；回声的观测面（`echo_flag` 恒 0）落 `specs/answering.md` 行为 14，本块只承接合同侧禁令件（分工见挂钩表）。断言：两句逐字在场（真源 `docs/runtime-refactor/recon/L2b-作答装配与回声.md` R-L2b-02 第⑦条＋`appv2/runtime/orientation.py` `answer_turn_preamble`（L295-300）动词钉死句；钉 `pin-13`，P1）。
@@ -122,6 +128,8 @@ def assemble_answer_prompt(state: RunState) -> str: ...
 | 消歧头统一措辞逐字在场 | `tests/domains/test_v2_prompts.py::disambiguation_header_uniform` |
 | 分解样例三分支（未绑定→knowledge／可出数→data／空→空串） | `tests/domains/test_v2_prompts.py::decompose_example_three_branches` |
 | 分解样例产出为合法 JSON 且键形正确（顶层恰 action＋question_group 两键、subtasks 单条五键） | `tests/domains/test_v2_prompts.py::decompose_example_valid_json` |
+| 分解样例头行窗词锚定说明在场（模糊时间词＝窗写 `null~null`、引擎缺参反问兜底三选一、不自行锚窗） | `tests/domains/test_v2_prompts.py::decompose_example_head_window_rule` |
+| 工具匹配合同带必填结论字段 `mention_mode`（合同正文＋填写样例同批在场；两值闭世界引 `tool_matching`） | `tests/domains/test_v2_prompts.py::toolmatch_contract_carries_mention_mode` |
 | 合同常量零业务名词（fixture 词集与水位日形交集＝∅） | `tests/domains/test_v2_prompts.py::contract_constants_business_noun_free` |
 | 答案轮段序固定（三件套→汇总合同→子问题清单→起草合同）；材料段零渗入 | `tests/domains/test_v2_prompts.py::answer_round_segment_order_no_material` |
 | 答案轮禁令件在场（动词钉死句＋答案要求⑦；pin-13 合同侧） | `tests/domains/test_v2_prompts.py::answer_round_ban_lines_present` |
@@ -132,6 +140,8 @@ def assemble_answer_prompt(state: RunState) -> str: ...
 | 【保留集】常规投影装配输出不受空投影分支影响；四消费方既有验收断言不因本块改形回归 | `tests/domains/test_v2_prompts.py::retention_normal_assembly_unchanged` |
 
 > **测试文件归属**：本块验收测试绑**新建** `tests/domains/test_v2_prompts.py`（`prompts` 是阶段 2 新划的公共层块，与同层 `state` 规格同款归属；现状旧码装配测试在 `tests/domains/test_v2_v262_turn_selfsufficiency.py` 等，本批不改）。全部测试标识＝**待织网（阶段 5）**。
+
+> **2026-10-16 补（L0/L2 三病灶修复批·审计）**：①**族③合同带必填结论字段 `mention_mode`**——`matches` 形＋字段说明＋填写样例三处同批（闭世界 `executed`／`mentioned_only`，真源 `specs/tool_matching.md` `SubtaskMatch.mention_mode` 条＋行为 5 枚举条）；**原缺口**＝闸把该字段当必填而合同零提及，模型无从遵守 → 工具匹配必拒循环到 recursion limit（真机证据 `docs/runtime-refactor/ladder/L2/03`：35 轮 100 步全拒）。②**分解样例头行补窗词锚定说明句**（模糊时间词＝窗写 `null~null`、引擎缺参反问兜底三选一、不自行锚窗；真机证据 `docs/runtime-refactor/ladder/L2/01` r1／r2 窗段无据必拒）。机读面＝`::toolmatch_contract_carries_mention_mode`／`::decompose_example_head_window_rule` ＋ `tests/domains/test_v2_clarification.py::boundary_slot_reconciliation_rejections`（拒因壳语窗段新形）。
 
 ## 依赖与风险
 
