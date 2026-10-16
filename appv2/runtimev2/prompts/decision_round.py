@@ -21,7 +21,11 @@
 ①分解样例改 `json.dumps` 现造——V1 字符串拼接无转义（D-L2a-13 病灶）产出的非法 JSON 不复现；
 ②样例空串时不留悬空空行（V1 D-E1-11「连续空行占位」不迁移——空串＝该段缺位、调用方跳过）；
 ③时间量只经 `today` 入参注入（V1 读 `deps.watermark()`／`deps.today`——本块零时钟接触，B14）；
-④常驻块三块行渲染只读结构化投影值串（V1 `render_ledger_rows` 同款：零正则、零筛选、零改写）。
+④常驻块三块行渲染只读结构化投影值串（V1 `render_ledger_rows` 同款：零正则、零筛选、零改写）；
+⑤分解样例区补**无台账命中形全样例行**（2026-10-17 补·分解样例补行）——V1 样例只有锚定指标形一条、
+无命中形仅头行一句说明，模型知形而无整行可照抄；V2 追加第二条全样例行＋头行补句「三段照抄上形」
+（逐字稿合法形真源 `specs/clarification.md` 行为 8①③；真机证据 `docs/runtime-refactor/ladder/L3/06`
+run-b5b6b056：r1 段尾加解释→段数非三、r2 绑定态/窗段自造形越界，三轮烧光）。
 
 入参纪律：装配＝`state` 投影＋调用方注入文本（`guide_text`／`done_text`／`today`／`max_subtasks`）；
 输出恒为 `str`——缺位走**空串段**（调用方跳过）或**占位文案**，不降级、不截断、不编造、不静默。
@@ -129,7 +133,20 @@ _QUESTION_GROUP_HEAD = "问题组："
 _DECOMPOSE_EXAMPLE_HEAD = (
     "填写样例（分解形——五键齐全，ledger_notes 逐字转抄台账全量块，窗为示意按窗词锚定表现算；"
     "模糊时间词（最近/近期）＝窗写 null~null，由引擎缺参反问兜底三选一——不要自己锚窗；"
-    "子问题无台账行（报告内容题）＝槽位写「无台账命中」，不硬凑名）："
+    "子问题无台账行（报告内容题）＝槽位写「无台账命中」，不硬凑名"
+    "——三段照抄上形：无台账命中｜未绑定｜窗未定（不加解释、不改写））："
+)
+# ── 无台账命中形全样例行（**2026-10-17 补·L3 阻塞修复批·分解样例补行**，逐字）────────────
+# 病根：样例区只给了**锚定指标形**全样例行，无命中形仅头行一句说明、无整行可照抄——模型知形而凑不齐
+# 三个闭世界段。真机 `run-b5b6b056`（`docs/runtime-refactor/ladder/L3/06`）三轮全拒：r1
+# `无台账命中——完井液密度属于完井工程报告事实`（段尾加解释→段数非三）／r2
+# `无台账命中｜无绑定｜检索式无窗`（绑定态／窗段自造形越界）／r3
+# `无台账命中｜未绑定｜检索式无窗`（窗段自造形越界）。本行逐字＝闸收形的三段位（绑定态 ∈ 澄清对账
+# 闭世界 `BINDING_STATES`／窗 ∈ `WINDOW_LITERALS`；合法形真源 `specs/clarification.md` 行为 8①③）。
+_DECOMPOSE_EXAMPLE_NO_HIT = (
+    '{"action": "decompose", "question_group": {"subtasks": [{"id": "s1", '
+    '"question": "〈报告内容类问题〉", "ledger_notes": "无台账命中｜未绑定｜窗未定", '
+    '"chain": "knowledge", "tool": "doc_retrieve"}]}}'
 )
 _UNBOUND_BINDING = "未绑定"
 # 绑定态字面须 ∈ 澄清对账闭世界 `BINDING_STATES`（`已绑定`／`未绑定`）——样例教的即闸收的
@@ -234,6 +251,11 @@ def render_decompose_example(metrics: Any, *, today: Any) -> str:
     样例窗＝「today−近 30 天 ~ today」示意（默认窗口径真源 `walk/08` §七 Q-B）；payload 两层嵌套、
     子问题条目五键齐全（id／question／ledger_notes／chain／tool）——**合法 JSON**（`json.dumps`
     现造，V1 拼接无转义病灶 D-L2a-13 不复现）。
+
+    样例区**两条行**（2026-10-17 补·分解样例补行）：首行＝上述现造锚定指标形；次行＝
+    `_DECOMPOSE_EXAMPLE_NO_HIT` 无台账命中形全样例行（逐字、静态——报告内容题整行可照抄，防模型
+    只知形而凑不齐三段位；真机 `run-b5b6b056` 三轮全拒）。两行同属该段：投影空／时间量缺位 →
+    整段空串（两行同缺，调用方跳过——行为 7「投影非空时」）。
     """
     rows = _rows(metrics)
     if not rows:
@@ -264,7 +286,7 @@ def render_decompose_example(metrics: Any, *, today: Any) -> str:
         },
         ensure_ascii=False,
     )
-    return _DECOMPOSE_EXAMPLE_HEAD + payload
+    return _DECOMPOSE_EXAMPLE_HEAD + payload + "\n" + _DECOMPOSE_EXAMPLE_NO_HIT
 
 
 def _question_group_json(state: RunState) -> str:

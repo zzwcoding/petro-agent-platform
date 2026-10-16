@@ -41,6 +41,11 @@ from typing import Any, get_type_hints
 
 import pytest
 
+from appv2.runtimev2.clarification.constants import (
+    BINDING_STATES,
+    NOTE_SLOT_LITERALS,
+    WINDOW_LITERALS,
+)
 from appv2.runtimev2.prompts import (
     ANSWER_DRAFT_CONTRACT,
     ANSWER_REQUIREMENTS,
@@ -1044,12 +1049,15 @@ def test_decompose_example_three_branches() -> None:
 
 
 def test_decompose_example_valid_json() -> None:
-    """行 15 分解样例产出为合法 JSON 且键形正确（行为 10；D-L2a-13 病灶不复现）。"""
+    """行 15 分解样例产出为合法 JSON 且键形正确（行为 10；D-L2a-13 病灶不复现）。
+
+    样例区**两行**（2026-10-17 补·分解样例补行）：首行＝现造锚定指标形、次行＝无台账命中形全样例行；
+    两行各自为合法 JSON（本行断首行；无命中行形另见 `::decompose_example_no_hit_full_row`）。
+    """
     bound = {"slot": "生产时长", "binding_state": "bound", "value": "x"}
     example = render_decompose_example([bound], today=_DECISION_TODAY)
     assert example.endswith("}]}}")
-    payload = example[example.index("{") :]
-    obj = json.loads(payload)  # 合法 JSON（V1 字符串拼接无转义病灶不复现）
+    obj, _rest = json.JSONDecoder().raw_decode(example[example.index("{") :])
     assert set(obj) == {"action", "question_group"}  # 顶层恰两键
     assert obj["action"] == "decompose"
     assert set(obj["question_group"]) == {"subtasks"}  # 顶层 subtasks 单键形
@@ -1062,15 +1070,18 @@ def test_decompose_example_valid_json() -> None:
     # 转义面：指标名含裸引号／反斜杠时，json.dumps 转义后仍合法（裸拼即非法）
     hostile = {"slot": '时率"高"\\', "binding_state": "bound", "value": "x"}
     hostile_example = render_decompose_example([hostile], today=_DECISION_TODAY)
-    hostile_obj = json.loads(hostile_example[hostile_example.index("{") :])
+    hostile_obj, _rest = json.JSONDecoder().raw_decode(
+        hostile_example[hostile_example.index("{") :]
+    )
     assert hostile_obj["question_group"]["subtasks"][0]["question"] == '时率"高"\\是多少？'
 
-    # 澄清轮首入包内现造的同一条样例亦为合法 JSON（装配面无第二拼接路径）
+    # 澄清轮首入包内现造的同一条样例亦为合法 JSON（装配面无第二拼接路径）；两行同在且逐行合法
     state = _decision_state()
-    line = _unique_line(_clarify_package(state), "填写样例（分解形")
     assert isinstance(state.ledger_dump, dict)
-    assert line == render_decompose_example(state.ledger_dump["metrics"], today=_DECISION_TODAY)
-    json.loads(line[line.index("{") :])
+    example_full = render_decompose_example(state.ledger_dump["metrics"], today=_DECISION_TODAY)
+    assert example_full in _clarify_package(state)
+    for row in example_full.split("\n"):
+        json.loads(row[row.index("{") :])
 
 
 # ══════════════════════════════════════════════════════════════════════════════════════
@@ -1560,12 +1571,14 @@ def test_boundary_empty_projection_variants() -> None:
         _ledger_state(), watermark="2026-08-24"
     )
 
-    # ③ 零未绑定指标（全可出数）→ data 链形分支；指标名录空列 → 该段空串（不编造样例）
+    # ③ 零未绑定指标（全可出数）→ **首行**取 data 链形分支（次行＝无命中形恒 knowledge 链）；
+    # 指标名录空列 → 该段空串（不编造样例）
     all_bound = _decision_dump()
     all_bound["metrics"] = [m for m in all_bound["metrics"] if m["binding_state"] == "bound"]
     example = render_decompose_example(all_bound["metrics"], today=_DECISION_TODAY)
-    assert '"chain": "data", "tool": "data_query"' in example
-    assert '"chain": "knowledge"' not in example
+    first_row = example.split("\n", 1)[0]  # 锚定指标形行（现造）
+    assert '"chain": "data", "tool": "data_query"' in first_row
+    assert '"chain": "knowledge"' not in first_row
     assert '"chain": "data"' in _clarify_package(_decision_state(ledger_dump=all_bound))
     no_metrics = _decision_dump()
     no_metrics["metrics"] = []
@@ -1708,17 +1721,20 @@ def test_retention_normal_assembly_unchanged() -> None:
 
 def test_decompose_example_head_window_rule() -> None:
     """分解样例头行的窗词锚定说明句＋无台账行说明句在场（行为 10；2026-10-16 补（L0/L2 三病灶
-    修复批②／流水 66·L3 阻塞修复批））。
+    修复批②／流水 66·L3 阻塞修复批）；2026-10-17 补（L3 阻塞修复批·分解样例补行）再补半句）。
 
     真机形（`docs/runtime-refactor/ladder/L2/01` 的 `id=3`／`id=5` 两轮必拒「ledger_notes 槽位
     对账未过」）＝首秀形在窗段无据可依：样例头行只说「窗按窗词锚定表现算」，对模糊时间词（最近／
     近期）无片言，模型自造窗形即被三段槽位对账拒。合法形真源＝`specs/clarification.md` 行为 8③
     （锚定窗／窗未定（同义「无时间窗」）／双 null 三形）。**流水 66 同类补**：报告内容题
     （`docs/runtime-refactor/ladder/L3/01`：完井液密度无台账行）在旧教据下无合法槽位形可写 →
-    头行补「子问题无台账行＝槽位写「无台账命中」，不硬凑名」，合法形真源＝行为 8①。
+    头行补「子问题无台账行＝槽位写「无台账命中」，不硬凑名」，合法形真源＝行为 8①。**本批再补
+    半句**（真机 `run-b5b6b056` 两轮凑不齐三段：段尾加解释／绑定态窗段自造形）＝「——三段照抄上形：
+    无台账命中｜未绑定｜窗未定（不加解释、不改写）」，与次行无命中形全样例行（
+    `::decompose_example_no_hit_full_row`）配套。
     断言：头行点名两档出路（模糊时间词写 `null~null`＋引擎缺参反问兜底三选一＋不自行锚窗／
-    无台账行写「无台账命中」不硬凑名），且该句随澄清轮首入包同现（装配面逐字在场，非只在常量里）；
-    样例 JSON 与单行形零破。
+    无台账行写「无台账命中」不硬凑名＋三段照抄上形），且该句随澄清轮首入包同现（装配面逐字在场，
+    非只在常量里）；样例 JSON 与单行形零破。
     """
     package = _clarify_package(_decision_state())
     line = _unique_line(package, "填写样例（分解形")  # 样例段恰一处（段行单点）
@@ -1727,13 +1743,64 @@ def test_decompose_example_head_window_rule() -> None:
         "由引擎缺参反问兜底三选一",
         "不要自己锚窗",
         "子问题无台账行（报告内容题）＝槽位写「无台账命中」，不硬凑名",
+        "——三段照抄上形：无台账命中｜未绑定｜窗未定（不加解释、不改写）",
     ):
         assert sentence in line
-    # 头行仍为单行（段行单点判据不被换行破形）且样例旧形零删改（说明句只加在头行末尾）
+    # 头行仍为单行（段行单点判据不被换行破形）；样例旧形零删改（补句只插在无台账行说明句后）
     head_part, _, payload_json = line.partition('{"action"')
-    assert head_part.endswith("不硬凑名）：")
+    assert head_part.endswith("（不加解释、不改写））：")
     assert "ledger_notes 逐字转抄台账全量块" in head_part
     json.loads('{"action"' + payload_json)
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════
+# 分解样例补行（2026-10-17）：无台账命中形全样例行（样例面补全 ↔ 闸闭世界）
+# ══════════════════════════════════════════════════════════════════════════════════════
+
+# 无台账命中形全样例行逐字稿（照抄实现常量——逐字比对，防样例漂移）。
+_NO_HIT_ROW_VERBATIM = (
+    '{"action": "decompose", "question_group": {"subtasks": [{"id": "s1", '
+    '"question": "〈报告内容类问题〉", "ledger_notes": "无台账命中｜未绑定｜窗未定", '
+    '"chain": "knowledge", "tool": "doc_retrieve"}]}}'
+)
+
+
+def test_decompose_example_no_hit_full_row() -> None:
+    """样例区补无台账命中形全样例行（行为 10；2026-10-17 补·L3 阻塞修复批·分解样例补行）。
+
+    病根（真机 `run-b5b6b056`，`docs/runtime-refactor/ladder/L3/06`）：模型知道要写无命中形，但
+    两轮都没凑齐三个闭世界段——r1「无台账命中——完井液密度属于完井工程报告事实」（段尾加解释→
+    段数非三）、r2「无台账命中｜无绑定｜检索式无窗」（绑定态／窗段自造形越界）→ 三轮烧光（三条
+    「ledger_notes 槽位对账未过：s1」＋`budget_converged`）。病根＝样例区只给锚定指标形全样例行，
+    无命中形仅头行一句说明、没有三段位完整样例可照抄。
+    断言：①全样例行随样例区在场（次行，逐字）＋三段位逐字；②头行补句逐字在场；③该行＝合法 JSON
+    且五键齐全、三段位取值 ∈ 闸的闭世界（教的就是闸收的——闭世界成员面，防样例教越界形）。
+    """
+    package = _clarify_package(_decision_state())
+    head_line = _unique_line(package, "填写样例（分解形")  # 段行单点（头＋首行 JSON 同行）
+    # ①首行＝现造锚定指标形（旧形零删改）；次行＝无命中形全样例行（逐字、恰一条）
+    assert head_line[head_line.index("{") :].startswith('{"action": "decompose"')
+    assert head_line == render_decompose_example(
+        _decision_dump()["metrics"], today=_DECISION_TODAY
+    ).split("\n", 1)[0]
+    tail_rows = [
+        row for row in package.split("\n") if row.startswith('{"action": "decompose"')
+    ]
+    assert tail_rows == [_NO_HIT_ROW_VERBATIM]
+    # ②头行补句逐字在场（三段位闭世界值直陈——不加解释、不改写）
+    assert "——三段照抄上形：无台账命中｜未绑定｜窗未定（不加解释、不改写）" in head_line
+    # ③样例行＝合法 JSON、五键齐全、三段位 ∈ 闸闭世界（样例教的即闸收的）
+    obj = json.loads(_NO_HIT_ROW_VERBATIM)
+    assert set(obj) == {"action", "question_group"}  # 顶层恰两键
+    assert obj["action"] == "decompose"
+    assert set(obj["question_group"]) == {"subtasks"}
+    subtask = obj["question_group"]["subtasks"][0]
+    assert set(subtask) == {"id", "question", "ledger_notes", "chain", "tool"}  # 五键齐全
+    assert subtask["chain"] == "knowledge" and subtask["tool"] == "doc_retrieve"
+    slot, binding, window = subtask["ledger_notes"].split("｜")  # 三段位次固定
+    assert slot in NOTE_SLOT_LITERALS  # 无台账命中形 ∈ 槽位段合法集
+    assert binding in BINDING_STATES  # 绑定态 ∈ 对账闭世界
+    assert window in WINDOW_LITERALS  # 窗 ∈ 非锚定窗合法字面闭世界
 
 
 def test_toolmatch_contract_carries_mention_mode() -> None:

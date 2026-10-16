@@ -1263,6 +1263,55 @@ def test_ledger_notes_no_ledger_hit_form_legal() -> None:
     assert "不在台账名录" in coined_outcome.reasons[0].reason
 
 
+def test_no_ledger_hit_selfmade_forms_still_rejected() -> None:
+    """#21 补²｜真机失败形**照拒**（防「样例补全样例行」变松闸）——2026-10-17 补（L3 阻塞修复批·
+    分解样例补行）。
+
+    真机 `run-b5b6b056`（`docs/runtime-refactor/ladder/L3/06`）三轮全拒：r1＝槽位段尾加解释
+    （`无台账命中——…`→段数非三）、r2＝绑定态／窗段自造形（`无台账命中｜无绑定｜检索式无窗`）、
+    r3＝窗段自造形（`无台账命中｜未绑定｜检索式无窗`）。样例区补「无台账命中形全样例行」只教
+    合法形（逐字 `无台账命中｜未绑定｜窗未定`；机读面
+    `tests/domains/test_v2_prompts.py::decompose_example_no_hit_full_row`）、**不改闸**：三形照拒
+    不误放、拒因指明段名与原因（无命中形照实示【台账相关行】行文）。
+    """
+    cases: dict[str, tuple[str, str, str, str]] = {
+        # label: (真机形, 拒段名, 拒因原因逐字, [台账相关行]行文)
+        "r1 段尾加解释": (
+            "无台账命中——完井液密度属于完井工程报告事实",
+            "段数",
+            "段数非三",
+            "名录无此名",
+        ),
+        "r2 绑定态自造形": (
+            "无台账命中｜无绑定｜检索式无窗",
+            "绑定态",
+            "绑定态越界",
+            NO_LEDGER_HIT_ROW_SHELL,
+        ),
+        "r3 窗段自造形": (
+            "无台账命中｜未绑定｜检索式无窗",
+            "窗",
+            "窗形不合法",
+            NO_LEDGER_HIT_ROW_SHELL,
+        ),
+    }
+    for label, (note_text, segment, cause, row_shell) in cases.items():
+        state = _state()
+        with _scripted(_decompose(_subtask(ledger_notes=note_text))):
+            outcome = clarify(state)
+        assert isinstance(outcome, ClarifyRejection), label
+        assert [reason.code for reason in outcome.reasons] == [
+            REASON_LEDGER_NOTES_SLOT_MISMATCH
+        ], label
+        reason = outcome.reasons[0].reason
+        assert reason.startswith("上次发射被拒：ledger_notes 槽位对账未过：s1"), label
+        assert f"【拒因】s1 的「{segment}」段" in reason, label
+        assert cause in reason, label  # 拒因指明原因
+        assert row_shell in reason, label
+        assert state.question_group is None, label  # 不静默放行、不自动修补
+        assert state.decision_error == reason, label  # 拒因回喂面在场
+
+
 def test_slot_mismatch_feedback_single_frame() -> None:
     """#21 补｜槽位对账拒因回喂**壳恰一遍**（流水 66·叠字病灶，真机 `run-18e5d273`）。
 
