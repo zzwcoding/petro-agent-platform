@@ -140,6 +140,10 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
      不占轮，decompose 占轮；ASK 挂起等人工不计轮；澄清回收（resume）重置轮预算
      合法——rounds=0）；轮 2/3 只带失败/缺失子问题＋拒因回炉①，成功子问题结果
      保留不重跑（subtask_results 簿记）。
+   - **批次回炉判据＝重跑两档**（流水 59，2026-10-16）：批次回炉判据＝重跑两档（`bad_args`／
+     `retryable`；`refused` 终局不回炉、全 refused 批次直答交付）——真源
+     `appv2/runtimev2/orchestration/graph.py` `_route_after_batch` ＋
+     `appv2/runtimev2/prompts/decision_round.py`（两档取值字面各持一处，收单点归阶段 7）。
    - **发现预算**：全 run discover ≤10（真源 `docs/runtime-refactor/walk/裁决表.md` §06-A（循环上限五项）＋ `recon/K-上下文事件指南预算.md` R-K-72…R-K-78；Owner 拍板放宽原 3-4）；预算拒免轮例外
      只留首次——连续第 2 次起转占轮（自旋收敛闸；真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-06「首拒免轮、连续拒第 2 次起占轮」）。
    - **单段时限 300s**（真源 `docs/runtime-refactor/recon/K-上下文事件指南预算.md` R-K-74；挂起等人工不计时、不累计跨段——计步计时均按段）；

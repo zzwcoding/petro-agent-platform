@@ -106,3 +106,29 @@
 ### 四、闸记录（无探针态，全量实跑）
 
 - `uv run python tools/check_specs.py` → **PASS（0 警告）**；`uv run python tools/ref_resolvable.py check` → **绿（22 份规格）**；`uv run lint-imports --config tools/importlinter_v2.toml` → **18 kept, 0 broken**；`.venv/bin/lint-imports`（默认配置）→ **6 kept, 0 broken**；`.venv/bin/python -m pytest tests/infra/test_v2_infra.py tests/tools/ -q` → **100 passed**。均 exit 0（`.venv/bin/` 与 `uv run` 两路同值，实跑）。
+
+---
+
+## W5 对账批（2026-10-16）
+
+- **范围**：本批改 `specs/agent-loop.md` ＋ `specs/transport.md` ＋ `specs/modules.md` ＋ `docs/runtime-refactor/eng/03-施工顺序与切换计划.md`；本节详记本规格（`specs/agent-loop.md`）面，其余三件列「同批他件」。未 git commit（主窗统一提交）。
+- **修改点**（行号指改后文件；`specs/agent-loop.md` 241→245 行）：
+  1. 行为 7 补一条款项（`specs/agent-loop.md:143–146`，紧接「轮数」项后、在「发现预算」项前）——
+     「**批次回炉判据＝重跑两档**（流水 59，2026-10-16）：批次回炉判据＝重跑两档（`bad_args`／
+     `retryable`；`refused` 终局不回炉、全 refused 批次直答交付）——真源
+     `appv2/runtimev2/orchestration/graph.py` `_route_after_batch` ＋
+     `appv2/runtimev2/prompts/decision_round.py`（两档取值字面各持一处，收单点归阶段 7）」。
+- **依据**：`docs/runtime-refactor/00-决议与方法.md` 流水 59（回炉语义两档化：判据＝重跑面 `bad_args`／`retryable`，`refused` 终局不回炉）／流水 60（登记「agent-loop 行为 7 补『批次回炉判据＝重跑两档』条款（W5 对账批）」）。语义真源＝`specs/execution.md:49`（`Failure.category` 三档闭世界）／`:80`（行为 3 失败分类写明文：`refused`＝终局不回炉、只重跑 `retryable`）＋澄清相位回炉行为（`appv2/runtimev2/prompts/decision_round.py:30／:101–107／:352`）。
+- **理由（为何落行为 7）**：回炉是轮预算面的续跑判据——行为 7「轮数」项原文「轮 2/3 只带失败/缺失子问题＋拒因回炉①」定义了**携带什么**，本条款补定义**哪些失败子问题算「重跑档」**（旧判据「非 ok 即回炉」令全 `refused` 批次白烧一轮澄清——流水 59 死条修复）。
+- **同批他件（各有其审计链）**：
+  1. `specs/transport.md:62`——NOTICE_TYPES 表 `refused` 行加括注「**V1 遗留值、V2 无发射源（V2 拒答分型＝`subtask_refused`）——阶段 7 收词**」（依据流水 61；与本规格行为 8 审计五处留痕的「拒答收口」分型同源——V1 `refused` 值在 V2 由 `subtask_refused` 承载，真源 `appv2/runtimev2/orchestration/audit.py:212–217`）；
+  2. `specs/modules.md` `## orchestration` 卡「### 公开接口」节补「**公开面注②**」（流水 61 卡级回写，RT-W5-01c **偏差 6 拟注照落**）——包根 re-export 面逐名：受理三形状（`AskRequest`／`AskChoice`／`RunHandle`，真源 `state`）／错误族两件（`RunNotFoundError`／`RunNotSuspendedError`）／接缝两件（`RunCommand`／`RunEvent`）／`RunExecutor`（含 `saver` 注入参）／`Budget`（re-export，真源 `state`）＋「completer 注入缝取 `gateway_adapter` 包根」「`PgCheckpointer` 本块内构造、不出包根（框架零出口）」；
+  3. `docs/runtime-refactor/eng/03-施工顺序与切换计划.md`——§二 W5 行后补「装配注入面分工」注（流水 57-61：相位合同自装配／`window_candidates`＝orchestration 经 `tools` 包根／`watermark`＝orchestration date 形全链注入／`guide_text` 等缺位形＝相位自调用（编排不注入）／帧发射批次＝orchestration／`decision_error`＝execution 写闸拒面＋tool_matching 读回炉面）＋新增 §六「阶段 7 待办清单」（流水 57／59／60／61 挂账登记汇总，9 条）。
+- **闸记录**：见下节「本批闸复跑」（`check_specs`／`ref_resolvable`／`pytest` 实跑原文）。
+
+### 本批闸复跑（改后实跑，exit 0）
+
+- `uv run python tools/check_specs.py` → **spec gate: PASS（0 警告）**；
+- `uv run python tools/ref_resolvable.py check` → **绿：22 份规格的真源引用与边界规则编号均可解析**；
+- `.venv/bin/python -m pytest -q` → **2160 passed, 108 skipped**（改前基线同值：2160 passed, 108 skipped——**零回归**；本批只动 docs/specs 文本，无码面改动）。
+- 未 git commit（主窗统一提交）。`git status` 本批改动面＝`specs/agent-loop.md`／`specs/transport.md`／`specs/modules.md`／`docs/runtime-refactor/eng/03-施工顺序与切换计划.md`／本文件（5 件；另有两处未跟踪目录 `docs/runtime-refactor/scenario/`／`tickets/scenario/` 系他批次产物，不在本批）。
