@@ -36,6 +36,8 @@ from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 
+import pytest
+
 from appv2.knowledge import InMemoryKnowledgeStore, question_array_snapshot
 from appv2.query import (
     ASKBACK_TIME_CHOICES,
@@ -49,6 +51,7 @@ from appv2.query import (
     OUTCOME_REFUSE,
     OUTCOME_ROWS,
     OUTCOME_UNBOUND_DEGRADE,
+    WINDOW_TOTAL_SCOPE_NOTE,
     CsvSnapshotExecutor,
     PgQueryExecutor,
     QueryEngine,
@@ -62,8 +65,11 @@ from appv2.query import (
     resolve_askback_window,
 )
 from appv2.tools import (
+    CATEGORY_BAD_ARGS,
     CATEGORY_REFUSED,
     DATA_QUERY,
+    STATUS_FAILED,
+    STATUS_OK,
     FakeKnowledgeStore,
     FakeQueryEngine,
     FakeRetrievalEngine,
@@ -74,6 +80,9 @@ from appv2.tools import (
 # 执行日钉 2026-10-08（题册窗口锚定表执行月；水位 2026-08-31＝题册版本绑定）。
 TODAY = date(2026, 10, 8)
 WATERMARK = date(2026, 8, 31)
+
+# 批次水位钉（L5·02 真机日志同值——血缘④批次面与整窗合计行 handle 的判据源）。
+L502_BATCH = "b-a1a61db9f458"
 
 OIL_COL = "日产油量（吨）"
 OIL_TOTAL_COL = "日产油量合计（吨）"
@@ -473,7 +482,11 @@ class _V271AggregateSnapshotExecutor(CsvSnapshotExecutor):
         ]
         total = sum((value for value in values if value is not None), Decimal("0"))
         total_col = f"{plan.metric_slot}合计（{plan.unit}）"
-        return QueryResult(columns=((total_col, total_col),), rows=({total_col: total},))
+        return QueryResult(
+            columns=((total_col, total_col),),
+            rows=({total_col: total},),
+            batch_id=L502_BATCH,
+        )
 
 
 def _v271_sql_plan(*, ranking: bool, aggregate: bool) -> SqlPlan:
@@ -637,3 +650,172 @@ async def test_v271_data_query_whitelist_accepts_aggregate_draft() -> None:
     descriptor = next(d for d in registry.descriptors() if d.name == DATA_QUERY)
     plan_props = descriptor.args_schema["properties"]["plan_draft"]["properties"]
     assert plan_props["aggregate"]["type"] == "boolean"
+
+
+# ---------- L5·02 病灶修复批：aggregate∧ranking 互斥＋汇总分支诚实化 ----------
+# 病灶证据＝`docs/runtime-refactor/ladder/L5/01-02`（真机「去年日产液量最高的井是哪口、
+# 合计多少方」）：模型两键同真（ranking+aggregate）→ pg_executor 汇总早退先于 ranking
+# 命中 → 答案表只剩整窗 SUM 单行（无井号列），血缘⑤无条件写「LIMIT 50」（SQL 无 LIMIT）。
+
+
+def _l502_engine(executor: CsvSnapshotExecutor) -> QueryEngine:
+    """同底座引擎（执行缝随用例注入——汇总形替身观测面）。"""
+    return QueryEngine(
+        knowledge=InMemoryKnowledgeStore(question_array_snapshot(), today=TODAY),
+        executor=executor,
+        waterline=lambda: WatermarkFace(
+            data_date=WATERMARK, promise="T-1", tag="落后 38 天（超期）",
+        ),
+        today=lambda: TODAY,
+    )
+
+
+def _l502_l5_plan(*, ranking: bool, aggregate: bool) -> QueryPlan:
+    """L5·02 真题形计划（窗＝去年；「日产液量最高的井是哪口、合计多少方」）。"""
+    return QueryPlan(
+        metric_slot="日产液量",
+        window_start=date(2025, 1, 1),
+        window_end=date(2026, 1, 1),
+        limit=None,
+        ranking=ranking,
+        aggregate=aggregate,
+    )
+
+
+def _l502_registry(executor: CsvSnapshotExecutor) -> ToolRegistry:
+    """工具层底座（真 knowledge＋真引擎换执行缝——草案→引擎端到端）。"""
+    return ToolRegistry(
+        knowledge=InMemoryKnowledgeStore(question_array_snapshot(), today=TODAY),
+        query=_l502_engine(executor),
+        retrieval=FakeRetrievalEngine(),
+    )
+
+
+def _l502_draft(*, ranking: bool, aggregate: bool) -> dict[str, object]:
+    return {
+        "metric_slot": "日产液量",
+        "ranking": ranking,
+        "aggregate": aggregate,
+        "window_start": "2025-01-01",
+        "window_end": "2026-01-01",
+    }
+
+
+def _l502_ctx() -> ToolContext:
+    return ToolContext(actor="dev-u1", budget=4)
+
+
+def test_l502_plan_aggregate_ranking_mutually_exclusive() -> None:
+    """修 1①②：aggregate ∧ ranking 同真＝构造即拒（拒因逐字）；单形零漂移。
+
+    修前把守缺位（`domain.py` 仅注释自称「互斥由 validate 把守」）——`QueryPlan`
+    构造即拒，程序侧不猜不代选。
+    """
+    with pytest.raises(ValueError) as excinfo:
+        _l502_l5_plan(ranking=True, aggregate=True)
+    message = str(excinfo.value)
+    assert "aggregate 与 ranking 互斥" in message
+    assert "排名题合计在排名首行值里：aggregate=false" in message
+    # 三形照旧合法（互斥判不误伤既有形）：单 aggregate／单 ranking／纯明细。
+    aggregate_only = _l502_l5_plan(ranking=False, aggregate=True)
+    assert aggregate_only.aggregate is True and aggregate_only.ranking is False
+    ranking_only = _l502_l5_plan(ranking=True, aggregate=False)
+    assert ranking_only.ranking is True and ranking_only.aggregate is False
+    detail = _l502_l5_plan(ranking=False, aggregate=False)
+    assert detail.ranking is False and detail.aggregate is False
+
+
+def test_l502_aggregate_closing_line_honest() -> None:
+    """修 2③：汇总型血缘⑤＝「整窗 SUM·无行限量」（SQL 无 LIMIT 不冒充收口条）；两形零漂移。"""
+    outcome = _l502_engine(_V271AggregateSnapshotExecutor()).run(
+        _l502_l5_plan(ranking=False, aggregate=True)
+    )
+    assert outcome.kind == OUTCOME_ROWS
+    assert outcome.lineage is not None
+    closing = next(
+        line.value for line in outcome.lineage if line.key == LINEAGE_KEY_CLOSING
+    )
+    assert "整窗 SUM·无行限量" in closing
+    assert "LIMIT 50" not in closing  # 不声索没写过的收口条（口径值不在本分支）
+    # 与真 SQL 同源：汇总形 SQL 无 LIMIT（注记不声索没写过的收口条）。
+    assert "LIMIT" not in _v271_compiled_sql(_v271_sql_plan(ranking=False, aggregate=True))
+    # 回归：明细/排名两形⑤照旧「LIMIT 50」。
+    for question in ("去年各井每天的日产油量是多少？", "去年日产油量最高的井是哪口？"):
+        other = _engine().run(_plan("日产油量", question))
+        assert other.lineage is not None
+        line = next(x.value for x in other.lineage if x.key == LINEAGE_KEY_CLOSING)
+        assert "LIMIT 50" in line
+
+
+def test_l502_l5_question_ranking_only_row_carries_well() -> None:
+    """修 1③：真题形 ranking-only → 带井号排名行到场（早退分支不再吞 ranking）。"""
+    executor = _V271AggregateSnapshotExecutor()
+    outcome = _l502_engine(executor).run(_l502_l5_plan(ranking=True, aggregate=False))
+    assert outcome.kind == OUTCOME_ROWS
+    assert outcome.rows
+    assert executor.last_plan is not None
+    assert executor.last_plan.ranking is True and executor.last_plan.aggregate is False
+    assert all("well_id" in row for row in outcome.rows)  # 井号列在场（无井号行＝原病灶）
+    totals = [row[LIQ_TOTAL_COL] for row in outcome.rows]
+    assert totals == sorted(totals, reverse=True)  # 排名降序（合计口径）
+    assert outcome.rows[0][LIQ_TOTAL_COL] == max(totals)
+
+
+async def test_l502_data_query_draft_reject_then_ranking_only_rows() -> None:
+    """修 1③端到端：两键同真草案＝bad_args（引擎零触），改发 ranking-only → 带井号排名行。"""
+    executor = _V271AggregateSnapshotExecutor()
+    registry = _l502_registry(executor)
+    rejected = await registry.call(
+        DATA_QUERY, {"plan_draft": _l502_draft(ranking=True, aggregate=True)}, _l502_ctx()
+    )
+    assert rejected.status == STATUS_FAILED
+    assert rejected.error is not None
+    assert rejected.error.category == CATEGORY_BAD_ARGS
+    assert "aggregate 与 ranking 互斥" in rejected.error.message
+    assert executor.last_plan is None  # 装配层拒＝执行缝零触（不猜不代选）
+    # 「模型改发 ranking-only」腿：同一问句拿到带井号排名行。
+    accepted = await registry.call(
+        DATA_QUERY, {"plan_draft": _l502_draft(ranking=True, aggregate=False)}, _l502_ctx()
+    )
+    assert accepted.status == STATUS_OK
+    rows = [obs for obs in accepted.observations if obs.locator.get("kind") == "agg_row"]
+    assert rows
+    for obs in rows:
+        assert obs.locator["well_id"]  # 井位面机读在场
+        assert obs.source_id == obs.locator["well_id"]  # 排名行键＝井号（组内合计）
+    assert LIQ_TOTAL_COL in rows[0].content
+
+
+async def test_l502_window_sum_row_annotated_and_addressable() -> None:
+    """修 2①②：整窗合计行材料面写实标注＋可寻址 handle（不写空井位冒充单井行）。"""
+    result = await _l502_registry(_V271AggregateSnapshotExecutor()).call(
+        DATA_QUERY, {"plan_draft": _l502_draft(ranking=False, aggregate=True)}, _l502_ctx()
+    )
+    assert result.status == STATUS_OK
+    rows = [obs for obs in result.observations if obs.locator.get("kind") == "agg_row"]
+    assert len(rows) == 1
+    obs = rows[0]
+    # ①整窗合计·全井 口径标注（材料面写实——不写井位空段冒充单井行）。
+    assert obs.content.startswith(f"{WINDOW_TOTAL_SCOPE_NOTE}；")
+    expected = sum(
+        (
+            row.liquid_output
+            for row in CsvSnapshotExecutor().records()
+            if date(2025, 1, 1) <= row.prod_date < date(2026, 1, 1)
+            and row.liquid_output is not None
+        ),
+        Decimal("0"),
+    )
+    assert obs.content == f"{WINDOW_TOTAL_SCOPE_NOTE}；{LIQ_TOTAL_COL}={expected}"
+    # ②可寻址 handle（批次面）——井位键不设（零空串冒充）。
+    assert obs.source_id == f"agg_window_sum:{L502_BATCH}"
+    assert obs.locator["handle"] == obs.source_id
+    assert obs.locator["window_total"] == WINDOW_TOTAL_SCOPE_NOTE
+    assert "well_id" not in obs.locator
+    assert obs.scope == "agg"
+    # ③同批血缘⑤按分支如实＋④批次在位（handle 判据源）。
+    lineage = next(
+        o for o in result.observations if o.locator.get("kind") == "lineage"
+    )
+    assert "整窗 SUM·无行限量" in lineage.content
+    assert f"批次 {L502_BATCH}" in lineage.content

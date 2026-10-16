@@ -2,7 +2,7 @@
 
 状态: 已定稿
 来源: specs/modules.md `tools` 卡、docs/prd.md §③、ADR-0001
-变更: 2026-10-15 行为 6 由「一句话用途」扩为**三件套**（Owner 裁定「要」；真源 `walk/11` §七 Q-A；配套 `specs/tool_matching.md` 的工具描述三件套条）
+变更: 2026-10-15 行为 6 由「一句话用途」扩为**三件套**（Owner 裁定「要」；真源 `walk/11` §七 Q-A；配套 `specs/tool_matching.md` 的工具描述三件套条）；2026-10-17 接口定义节补 **`table_schema` 井号名录卡注记**（dim_well 卡携【井号名录】·discover 现读·非常驻；`well` 查值走 `RULE-PETRO-005` 归一比对）
 
 ## 目标
 
@@ -42,6 +42,7 @@ class ToolRegistry:
 
 - **前置条件机闸件公开面注记**（`appv2/tools/precondition.py`）：`Verdict.hit_rule: str`——**命中的判定位标识**，闭世界八位——`ban`／`fuzzy_window`／`ask`／`unregistered_metric`／`normalized_slot`／`chain_switch`／`freshness_window`／`single_well`（命名以 `specs/preconditions.md` 判定序明文表位次为准逐字）；**非 `allow` 支必携一位**（可解释性——`preconditions` 单点取结构化判定位，不复制语义、不文案反推），`allow` 支（pass／note）＝空串（fail-closed：拒支漏填即成空串，双向对账可检）。**2026-10-16 补（流水 56）**；additive——既有判定行为零回归。
 - **askback 候选窗常量公开面注记**（`appv2/tools/__init__.py` 经包根转出，真源 `appv2/query/domain.py` 第 78–84 行）：`ASKBACK_TIME_QUESTION`（缺参反问问句逐字）／`ASKBACK_TIME_CHOICES`（三候选「近 3 天／近 30 天／本月至今」，无默认项）——`runtimev2` 各块经 `appv2.tools` 包根消费，不直引引擎（守边界规则 R6：agent 与世界的唯一接触面＝工具注册表）。**2026-10-16 补（流水 58）**；additive——既有行为零回归。
+- **`table_schema` 井号名录卡注记**（`appv2/tools/handlers.py`＋`appv2/tools/well_ids.py`＋`appv2/query/pg_wells.py`）：**dim_well 卡携【井号名录】**——discover 响应里现读 `agg.dim_well`（按区块分组、全角分隔、注明「共 N 口·dim_well」；超限截断＋计数照报）；名录**只在 discover 响应**注入（**非常驻**——台账常驻块/结构卡集合真源 `tools.ALL_SCHEMA_CARDS` 逐字不动，常驻块零增重）。`table_schema` 参数面三形互斥：`area`／`table`（卡面）／`well`（井号查值）；`well` 查值走本体 `RULE-PETRO-005` 井号归一（真源 `ontology/petro/m3-rule-model.yaml`）后比对名录——变体形（去连字符／乱连字符／空白污染／大小写混写，如 `w-11`／`W011`）判同一口井；命中＝观察（`locator.kind=well_lookup`）、**不在册＝notice `no_hit`**（不猜最近井、不做近似匹配）；名录不可得（读缝未接线／现读失败）＝notice `well_roster_unavailable`（如实告知，不静默冒充空名录）；名录每次调用现读恰一次（卡面名录段与判据同源同一行集，零缓存）。**2026-10-17 补（流水 70·审计）**；additive——既有行为零回归（判据：`tests/domains/test_v2_well_roster_card.py`）。
 
 ## 行为约定
 
@@ -63,6 +64,8 @@ class ToolRegistry:
 | query 联合态四类映射正确（含 AskFrame 形态） | `tests/domains/test_v2_tools.py::query_outcome_mapping` |
 | Observation 来源链完整（fragment 到 library） | `tests/domains/test_v2_tools.py::observation_provenance` |
 | 每个工具 `description` 含「何时用／不能做什么／参数示例」三项 | `tests/domains/test_v2_tools.py::descriptor_covers_three_parts` |
+| dim_well 卡携井号名录（按区块分组＋共 N 口·dim_well；常驻面零增重） | `tests/domains/test_v2_well_roster_card.py::test_dim_well_card_carries_roster_grouped_by_block` |
+| 井号查值走 RULE-PETRO-005 归一（变体形命中；不在册如实 no_hit 不猜最近井） | `tests/domains/test_v2_well_roster_card.py::test_well_lookup_variant_forms_hit_canonical` |
 
 ## 依赖与风险
 

@@ -2668,3 +2668,72 @@ async def test_four_phase_no_ledger_hit_report_chain_end_to_end() -> None:
     assert [item["chain"] for item in state.tool_matches] == ["knowledge"]
     assert retrieval.retrieve_calls == 1
     assert "1.05" in (V2RunStore().run(run_id).answer or "")
+
+
+async def test_four_phase_knowledge_need_full_form_reaches_engine() -> None:
+    """L3-02 检索透传断点钉测（runtimev2 到达性）：族提示原样到达引擎 ＋ 题面实体确定性补锚。
+
+    证据源 `docs/runtime-refactor/ladder/L3/02-完井液在二开钻进段与三开-summary.md`：真机 02 号题
+    模型发 `retrieval_need={"question":…, "anchors":[…], "family_hints":["completion"]}`，引擎侧只剩
+    `{question, anchors}`（族提示被工具匹配相位重建时丢弃——族配额退化成每族 1 席、gold 章被裁）。
+    本测把同形（模型只给 `question`／`family_hints`）走完四相位：断言 `FakeRetrievalEngine` 捕获的
+    `RetrievalNeed` 族提示到场、题面实体（「渤中 34-5 油田」）由代码确定性补入 anchors，且注入项与
+    族提示随定案载荷留痕落 `state.tool_matches`（批量执行输入面同源）。
+    """
+    dump = v2_ledger_dump()
+    retrieval = _retrieval_with(
+        _fragment_obs(
+            "渤中 34-5 油田完井液密度：二开钻进段 1.05 g/cm³、三开完井段 1.15 g/cm³。",
+            "frag-bz345-md",
+        )
+    )
+    need_question = "渤中 34-5 油田完井液在二开钻进段与三开完井段的密度各是多少？"
+    wire_ledger_projection(V2LedgerPort(dump))
+    with freeze("2026-10-08T09:00:00"):
+        runtime, _completer = v2_runtime(
+            script={
+                "understand": [V2_UNDERSTAND],
+                "decision": v2_decision_turn(
+                    clarify=v2_decompose(
+                        subtask_id="s1",
+                        question=need_question,
+                        ledger_notes="无台账命中｜未绑定｜null~null",
+                        chain="knowledge",
+                    ),
+                    toolmatch=v2_matches(
+                        {
+                            "id": "s1",
+                            "chain": "knowledge",
+                            "tool": "doc_retrieve",
+                            "mention_mode": "executed",
+                            "retrieval_need": {
+                                "question": need_question,
+                                "family_hints": ["completion"],
+                            },
+                        }
+                    ),
+                ),
+                "answer": [
+                    "渤中 34-5 油田完井液密度：二开钻进段 1.05 g/cm³、"
+                    "三开完井段 1.15 g/cm³ [1]。"
+                ],
+            },
+            registry=v2_registry(retrieval=retrieval),
+        )
+        events = await v2_run(runtime, need_question)
+
+    assert events[-1].event == "blackbox"
+    assert events[-1].data["status"] == "completed"
+    assert retrieval.retrieve_calls == 1
+    need = retrieval.needs[0]
+    assert need.question == need_question
+    assert need.family_hints == ("completion",)  # 病灶 A：旧实现此处为空（族提示被丢）
+    assert need.anchors == ("渤中34-5油田", "34-5")  # 模型未填 anchors——代码确定性补锚到达引擎
+
+    # 留痕面：族提示与注入锚随定案载荷落状态（成功路径零补记步——返回值承载，同 `caliber_key` 口径）
+    state = V2RunStore().load(events[-1].data["run_id"])
+    assert state.tool_matches[0]["retrieval_need"] == {
+        "question": need_question,
+        "anchors": ["渤中34-5油田", "34-5"],
+        "family_hints": ["completion"],
+    }

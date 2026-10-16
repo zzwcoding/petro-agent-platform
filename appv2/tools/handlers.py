@@ -38,6 +38,7 @@ from typing import Any, Protocol
 from appv2.knowledge import Evidence, KnowledgeStore, SemanticQuery
 from appv2.query import (
     DIRECTION_DESC,
+    LINEAGE_KEY_WATERMARK,
     OUTCOME_EXTERNAL_TABLE_APPROVAL,
     OUTCOME_FRESHNESS_BLOCK,
     OUTCOME_NEED_CLARIFY,
@@ -45,6 +46,8 @@ from appv2.query import (
     OUTCOME_ROWS,
     OUTCOME_UNBOUND_DEGRADE,
     STAR_TABLES,
+    WATERMARK_BATCH_PREFIX,
+    WINDOW_TOTAL_SCOPE_NOTE,
     PlanCheck,
     QueryOutcome,
     QueryPlan,
@@ -71,6 +74,7 @@ from appv2.tools.schema import (
     ToolDescriptor,
     ToolResult,
 )
+from appv2.tools.well_ids import roster_entries, roster_lookup
 
 # ---------- 工具名闭世界（注册序＝specs/tools.md 接口定义节列序＋V2-31 发现工具） ----------
 
@@ -213,6 +217,12 @@ _SCHEMA_SCHEMA: dict[str, Any] = {
             "description": "表/账名（如 agg.fct_daily_metering／sem_metric）——"
                            "白名单外如实告知不开放",
         },
+        "well": {
+            "type": "string",
+            "minLength": 1,
+            "description": "井号查值（如 W-11／w-11——按 RULE-PETRO-005 归一后比对 "
+                           "agg.dim_well 名录；不在册如实回执，不猜最近井）",
+        },
     },
     "additionalProperties": False,
 }
@@ -276,11 +286,17 @@ _GRAPH_DESCRIPTION = (
 _SCHEMA_DESCRIPTION = (
     "表结构探查（发现工具）：查数据资产的结构卡——agg 三表（fct_daily_metering"
     " 日产计量事实表/dim_well 井维/dim_date 日期维）、sem 五账（指标/术语/对象/"
-    "关系/族标注台账）、kb 片段清单（检索库分族）。白名单外（raw/lake 湖表等）"
+    "关系/族标注台账）、kb 片段清单（检索库分族）。dim_well 卡随附【井号名录】"
+    "（agg.dim_well 现读·按区块分组·共 N 口）——数据井册看得见；井号查值走 well "
+    "参数（井号归一后比对名录，变体写法同判）。白名单外（raw/lake 湖表等）"
     "不在探查范围——如实告知不开放。只读，零 SQL。"
-    "\n何时用：先看舱面——不知道有哪些表/账/族、字段叫什么时。"
-    "\n不能做什么：零 SQL、不取数；白名单外（raw/lake 湖表等）不给探查卡，只如实告知不开放。"
-    "\n参数示例：{\"scope\": \"agg\"}；{\"table\": \"agg.fct_daily_metering\"}。"
+    "\n何时用：先看舱面——不知道有哪些表/账/族、字段叫什么时；或要核"
+    "「某井号在不在数据井册」（dim_well 卡看名录全量，well 参数取单元格查值）。"
+    "\n不能做什么：零 SQL、不取数（井号查值只答在不在册，不返回产量数值）；"
+    "白名单外（raw/lake 湖表等）不给探查卡，只如实告知不开放；名录查值不猜"
+    "最近井——不在册即如实回执。"
+    "\n参数示例：{\"scope\": \"agg\"}；{\"table\": \"agg.fct_daily_metering\"}；"
+    "{\"well\": \"W-11\"}。"
 )
 # V2-52 辅助模式（附 B）：faq 命中条目作辅助材料进上下文（locator.kind=faq_aux），
 # 不进血缘卡（非断言素材源）、不进任何闸的判面；sufficiency 由模型判。
@@ -301,6 +317,10 @@ FAQ_TOP_N = 3
 
 # 权威表行来源链（agg 星型读模型事实表——表名机读单点）。
 _AGG_SOURCE = STAR_TABLES[0]
+
+# 整窗合计行 handle 前缀（V2-71 汇总型无井位行——`agg_window_sum:{批次}` 形；
+# 见 `_window_sum_handle`）。
+WINDOW_SUM_HANDLE_PREFIX = "agg_window_sum"
 
 # ---------- 表结构白名单卡（拍板④范围真源——列值全部仓内合同值投影） ----------
 # agg 列值源＝query.pg_executor Core 轻声明（DDL 真源＝Alembic 0014）；计量列
@@ -359,8 +379,94 @@ def _card_names(card: str) -> tuple[str, ...]:
     return tuple(names)
 
 
-def _schema_cards(area: str | None, table: str | None) -> list[Observation]:
-    """白名单卡→观察列（kind=schema——发现面素材；白名单外如实告知不开放）。"""
+# ---------- dim_well 卡【井号名录】段（2026-10-17 流水 70——discover 现读，非常驻注入） ----------
+# 病灶（真机 run-e1b6ff1e）：dim_well 卡只给结构不给行值，120 口井号锁在软失败域闸
+# 内部（`appv2/query/pg_wells.py`），模型「主体在不在」只能猜/反问。改法：名录随
+# dim_well 卡在 **discover 响应**里现读（**非常驻**——台账常驻块的卡片段
+# `ledger.ALL_SCHEMA_CARDS` 取自静态 `_AGG_CARDS`，本段不落常驻，常驻块零增重）；
+# 井号查值走 `well` 参数（归一比对，见 `tools.well_ids`）。体量纪律：卡面超标即
+# 截断＋「共 N 口」计数随行（120 口量级 ≈1KB 实测装得下）。
+
+# 静态卡里 dim_well 那张（按名取——不靠元组下标，零漂移）。
+_DIM_WELL_CARD: str = next(
+    card for card in _AGG_CARDS if "dim_well" in _card_names(card)
+)
+_WELL_ROSTER_TABLE = "agg.dim_well"
+_WELL_ROSTER_HEAD = "【井号名录】共 {total} 口·dim_well（agg.dim_well 现读·按区块分组）："
+_WELL_ROSTER_EMPTY = "（现读为空——数据面无井档行）"
+_WELL_ROSTER_FAILED = "【井号名录】现读失败（{error}）——本次不给名录（如实告知，不猜）"
+_WELL_ROSTER_BLOCK_UNKNOWN = "未标区块"
+_WELL_ROSTER_WELL_SEP = "、"
+_WELL_ROSTER_GROUP_SEP = "；"
+_WELL_ROSTER_KV_SEP = "："
+_WELL_ROSTER_TRUNC = "…（名录超限，只列前 {limit} 口）"
+_WELL_ROSTER_MAX = 240
+
+
+class WellRosterFace(Protocol):
+    """井名录取值缝（Callable[[], Sequence[tuple[well_id, block_name]]] 形）。
+
+    生产注入＝`appv2.query.production_well_roster`（agg.dim_well 直读）；缺省
+    None＝未接线（卡面照静态形——零漂移）。**每次调用现读**（零缓存——井档随
+    数据面刷新即新；本缝不给装配期快照）。
+    """
+
+    def __call__(self) -> Sequence[tuple[str, str]]: ...
+
+
+def _well_roster_rows(
+    well_roster: WellRosterFace,
+) -> tuple[tuple[tuple[str, str], ...], str]:
+    """名录现读（→（行集, 失败说明））；读面异常原样承载（不静默吞、不冒充空名录）。"""
+    try:
+        return tuple(well_roster()), ""
+    except Exception as exc:  # 读面异常如实上报（零发明面）
+        return (), f"{exc}"
+
+
+def _well_roster_section_of(rows: tuple[tuple[str, str], ...]) -> str:
+    """名录段正文（按区块分组、全角分隔、计数随行；超限截断＋计数照报）。"""
+    entries = roster_entries(rows)
+    head = _WELL_ROSTER_HEAD.format(total=len(entries))
+    if not entries:
+        return head + _WELL_ROSTER_EMPTY
+    listed = entries[:_WELL_ROSTER_MAX]
+    groups: dict[str, list[str]] = {}
+    for well_id, block_name in listed:
+        groups.setdefault(block_name or _WELL_ROSTER_BLOCK_UNKNOWN, []).append(well_id)
+    body = _WELL_ROSTER_GROUP_SEP.join(
+        f"{block}{_WELL_ROSTER_KV_SEP}{_WELL_ROSTER_WELL_SEP.join(sorted(well_ids))}"
+        for block, well_ids in sorted(groups.items())
+    )
+    tail = (
+        ""
+        if len(listed) == len(entries)
+        else _WELL_ROSTER_TRUNC.format(limit=_WELL_ROSTER_MAX)
+    )
+    return f"{head}{body}{tail}"
+
+
+def _well_roster_section(well_roster: WellRosterFace) -> str:
+    """名录段正文（现读一次——读面异常如实承载，不冒充空名录）。"""
+    rows, error = _well_roster_rows(well_roster)
+    if error:
+        return _WELL_ROSTER_FAILED.format(error=error)
+    return _well_roster_section_of(rows)
+
+
+def _dim_well_card(well_roster: WellRosterFace | None) -> str:
+    """dim_well 卡（接线时随附【井号名录】段；未接线＝静态卡逐字零漂移）。"""
+    if well_roster is None:
+        return _DIM_WELL_CARD
+    return f"{_DIM_WELL_CARD}\n{_well_roster_section(well_roster)}"
+
+
+def _schema_cards(
+    area: str | None, table: str | None, *, well_roster: WellRosterFace | None = None
+) -> list[Observation]:
+    """白名单卡→观察列（kind=schema——发现面素材；白名单外如实告知不开放）。
+
+    dim_well 卡随附【井号名录】段（名录缝接线时现读——非常驻注入）。"""
     area_cards: dict[str, tuple[str, ...]] = {
         "agg": _AGG_CARDS,
         "sem": _SEM_CARDS,
@@ -370,6 +476,8 @@ def _schema_cards(area: str | None, table: str | None) -> list[Observation]:
         for group in area_cards.values():
             for card in group:
                 if table in _card_names(card):  # 全名/短名精确匹配（S1 修复）
+                    if card is _DIM_WELL_CARD:
+                        return [_schema_observation(_dim_well_card(well_roster))]
                     return [_schema_observation(card)]
         return [
             _notice_observation(
@@ -395,12 +503,95 @@ def _schema_cards(area: str | None, table: str | None) -> list[Observation]:
                     source="table_schema 白名单闸",
                 )
             ]
-        return [_schema_observation(card) for card in cards]
+        return [
+            _schema_observation(
+                _dim_well_card(well_roster) if card is _DIM_WELL_CARD else card
+            )
+            for card in cards
+        ]
     return [
-        _schema_observation(card)
+        _schema_observation(
+            _dim_well_card(well_roster) if card is _DIM_WELL_CARD else card
+        )
         for cards in area_cards.values()
         for card in cards
     ]
+
+
+def _well_lookup_observations(
+    name: str, well_roster: WellRosterFace | None
+) -> list[Observation]:
+    """井号查值（RULE-PETRO-005 归一后名录成员判定）：dim_well 卡＋在册/不在册如实。
+
+    命中＝观察（locator.kind=well_lookup，source_id＝归一井号——机读可对账）；
+    不在册＝notice no_hit（**不猜最近井**）；名录不可得（未接线/现读失败）＝
+    notice well_roster_unavailable（如实告知无法查证，不静默冒充空名录）。
+
+    名录**恰读一次**（卡面名录段与判据同源同一行集——同一响应内不自相矛盾）。
+    """
+    if well_roster is None:
+        return [
+            _schema_observation(_DIM_WELL_CARD),
+            _notice_observation(
+                content=f"井号名录读缝未接线：无法查证 {name} 在不在册（如实告知，不猜）",
+                notice_type="well_roster_unavailable",
+                source="table_schema 井号名录读面",
+                source_id="well_roster_unavailable",
+            ),
+        ]
+    rows, error = _well_roster_rows(well_roster)
+    if error:
+        return [
+            _schema_observation(_DIM_WELL_CARD),
+            _notice_observation(
+                content=(
+                    f"井号名录现读失败（{error}）——无法查证 {name} 在不在册"
+                    "（如实告知，不猜）"
+                ),
+                notice_type="well_roster_unavailable",
+                source="table_schema 井号名录读面",
+                source_id="well_roster_unavailable",
+            ),
+        ]
+    observations = [
+        _schema_observation(f"{_DIM_WELL_CARD}\n{_well_roster_section_of(rows)}")
+    ]
+    hit = roster_lookup(name, rows)
+    if hit is None:
+        observations.append(
+            _notice_observation(
+                content=(
+                    f"井号未命中名录：{name}（agg.dim_well 现读名录无此井——"
+                    "如实告知不在册，不猜最近井）"
+                ),
+                notice_type="no_hit",
+                source="table_schema 井号名录读面",
+                source_id="no_hit",
+            )
+        )
+        return observations
+    well_id, block_name = hit
+    observations.append(
+        Observation(
+            content=(
+                f"井号在册：{well_id}（区块 "
+                f"{block_name or _WELL_ROSTER_BLOCK_UNKNOWN}）——归一比对命中 "
+                f"agg.dim_well 名录（共 {len(roster_entries(rows))} 口）"
+            ),
+            source="table_schema 井号名录读面",
+            source_id=well_id,
+            version=None,  # 井档无版本承载——零发明
+            freshness="",  # 时效在数据面水位面——井册行级不重复标注
+            scope="schema",
+            locator={
+                "kind": "well_lookup",
+                "table": _WELL_ROSTER_TABLE,
+                "well_id": well_id,
+                "block_name": block_name,
+            },
+        )
+    )
+    return observations
 
 
 def _schema_observation(card: str) -> Observation:
@@ -424,11 +615,15 @@ def build_tools(
     query: QueryFace,
     retrieval: RetrievalFace,
     faq: FaqLookupFace | None = None,
+    well_roster: WellRosterFace | None = None,
 ) -> list[Tool]:
     """五工具装配（注册序＝specs/tools.md 列序＋V2-31 发现工具殿后；全部 readonly=True）。
 
     faq＝FAQ 现成问答库读缝（V2-52 辅助模式——提供时注册 faq_lookup 发现工具，
     缺省 None＝不在册：faq_* 缝未接线的装配零漂移）。
+    well_roster＝井名录取值缝（2026-10-17 流水 70——table_schema 的 dim_well 卡
+    名录段与 `well` 查值消费；缺省 None＝未接线：卡面照静态形、查值如实告知
+    不可得，零漂移）。
     """
     async def _semantic(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return await semantic_query(args, ctx, knowledge=knowledge)
@@ -443,7 +638,7 @@ def build_tools(
         return await graph_query(args, ctx, retrieval=retrieval)
 
     async def _schema(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-        return table_schema(args, ctx)
+        return table_schema(args, ctx, well_roster=well_roster)
 
     tools = [
         Tool(
@@ -665,23 +860,63 @@ def _outcome_to_result(outcome: QueryOutcome) -> ToolResult:
     raise ValueError(f"未知 QueryOutcome.kind：{outcome.kind!r}（六联合态闭世界外）")
 
 
+def _window_sum_handle(outcome: QueryOutcome) -> str:
+    """整窗合计行的可寻址 handle（形 `agg_window_sum:{批次}`——批次缺位如实留白）。
+
+    批次读面＝血缘④行前缀（`WATERMARK_BATCH_PREFIX` 单源——血线行非本块自写文本，
+    按同一常量读回）；水位未回写／批次未回填时 handle 只到前缀（不编批次号冒充
+    可寻址）。**汇总型专属**：井位行不走本径（行键＝井号）。
+    """
+    for line in outcome.lineage or ():
+        if line.key != LINEAGE_KEY_WATERMARK:
+            continue
+        tail = line.value.removeprefix(WATERMARK_BATCH_PREFIX)
+        if tail == line.value:  # 无批次前缀（水位未回写——如实缺行）
+            break
+        batch = tail.split(" · ", 1)[0].strip()
+        if batch:
+            return f"{WINDOW_SUM_HANDLE_PREFIX}:{batch}"
+        break
+    return WINDOW_SUM_HANDLE_PREFIX
+
+
 def _rows_observations(outcome: QueryOutcome) -> list[Observation]:
-    """权威表＋血缘卡→观察列（行级表名出处＋locator 机读行键；scope=agg）。"""
+    """权威表＋血缘卡→观察列（行级表名出处＋locator 机读行键；scope=agg）。
+
+    两种行形分派（V2-71 汇总型——L5·02 病灶修复②）：井位行＝既有 `{井号}@{日期}`
+    行键＋`well_id`/`prod_date` locator；整窗 SUM 单行（无井位键）＝**不写空井位列
+    冒充单井行**，行内容前置「整窗合计·全井」确定性口径标注（域层常量单源）＋行键
+    用行集 handle（`agg_window_sum:{批次}`——可寻址）。
+    """
     observations: list[Observation] = []
     columns = outcome.columns or ()
     keys = [data_index for data_index, _title in columns]
     titles = [title for _data_index, title in columns]
     for row in outcome.rows or ():
-        well_id = str(row.get("well_id", ""))
-        prod_date = row.get("prod_date")
-        locator = {"kind": "agg_row", "table": _AGG_SOURCE, "well_id": well_id}
-        source_id = well_id
-        if prod_date is not None:
-            locator["prod_date"] = str(prod_date)
-            source_id = f"{well_id}@{prod_date}"
         content = "；".join(
             f"{title}={_cell(row.get(key))}" for key, title in zip(keys, titles, strict=True)
         )
+        if "well_id" in row:
+            well_id = str(row.get("well_id", ""))
+            prod_date = row.get("prod_date")
+            locator = {"kind": "agg_row", "table": _AGG_SOURCE, "well_id": well_id}
+            source_id = well_id
+            if prod_date is not None:
+                locator["prod_date"] = str(prod_date)
+                source_id = f"{well_id}@{prod_date}"
+        else:
+            # 整窗合计行（汇总型——无井位键）：行键＝行集 handle（可寻址），
+            # locator 标口径面（不设 `well_id` 键——零空串冒充井位），行内容
+            # 前置口径标注（单行不是某口井的行，行面自明）。
+            handle = _window_sum_handle(outcome)
+            locator = {
+                "kind": "agg_row",
+                "table": _AGG_SOURCE,
+                "window_total": WINDOW_TOTAL_SCOPE_NOTE,
+                "handle": handle,
+            }
+            source_id = handle
+            content = f"{WINDOW_TOTAL_SCOPE_NOTE}；{content}"
         observations.append(
             Observation(
                 content=content,
@@ -773,15 +1008,30 @@ async def graph_query(
 # ---------- 工具五：table_schema（V2-31 发现工具——白名单⑥结构卡） ----------
 
 
-def table_schema(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-    """表结构探查（零 IO——白名单卡静态投影；拍板④：raw/lake 湖表不开放）。"""
+def table_schema(
+    args: dict[str, Any], ctx: ToolContext, *, well_roster: WellRosterFace | None = None
+) -> ToolResult:
+    """表结构探查（白名单卡静态投影＋dim_well 卡【井号名录】段现读；拍板④：raw/lake 不开放）。
+
+    三形互斥：`area`／`table`（卡面）与 `well`（井号查值——归一比对名录，
+    2026-10-17 流水 70）。查值形只看 dim_well 名录（结构卡随行），命中/不在册
+    一律如实（不猜最近井）。
+    """
     area = args.get("area")
     table = args.get("table")
+    well = args.get("well")
     if area is not None and table is not None:
         raise ArgsError("area 与 table 二选一（同给不收）")
+    if well is not None and (area is not None or table is not None):
+        raise ArgsError(
+            "well 与 area/table 二选一（井号查值只看 dim_well 名录——同给不收）"
+        )
+    if well is not None:
+        return ToolResult.ok(_well_lookup_observations(str(well), well_roster))
     return ToolResult.ok(_schema_cards(
         str(area) if area is not None else None,
         str(table).strip() if table is not None else None,
+        well_roster=well_roster,
     ))
 
 

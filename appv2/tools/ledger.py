@@ -16,6 +16,10 @@
   evidence 单点，格式被 tests/domains/test_v2_knowledge.py 钉死）；
 - terms: [{term, banned, freshness, value, source_id}]——banned＝届满展示串
   「—（已禁用）」（term_expiry 展示串族契约）；
+- watermark: str——**数据面水位**（组合根经 query.production_waterline 取
+  water_line 汇总层水位 ISO 日随 dump 携入；缺位＝如实空串）。消费面＝恢复时
+  易变量重取（clarification.read_volatile 四键之 `watermark`——挂起恢复的
+  「等待期环境是否失效」判据面之一）；
 - objects/relations/families: 值串投影；aliases: 别名→规范名；cards: 发现面
   白名单结构卡（handlers 同源——agg 三表＋sem 五账＋kb 片段清单）。
 
@@ -76,8 +80,17 @@ def _calibers_of(metric_value: str) -> tuple[dict[str, Any], ...]:
     return tuple(calibers)
 
 
-def dump_from_store(knowledge: KnowledgeStore) -> dict[str, Any]:
-    """KnowledgeStore 公开读面→词典层全量 dump（INV-2 只读——注入真源单点）。"""
+def dump_from_store(
+    knowledge: KnowledgeStore, *, watermark: str = ""
+) -> dict[str, Any]:
+    """KnowledgeStore 公开读面→词典层全量 dump（INV-2 只读——注入真源单点）。
+
+    `watermark`＝数据面水位（**数据面真源**：生产由组合根 `compose_production_
+    ledger_dump` 经 `query.production_waterline` 取 water_line 汇总层水位随 dump
+    携入；缺省空串＝**如实缺位**）。台账读面自不携水位（`LedgerSnapshot` 只有
+    台账行值，无批次/日期列），故水位不由本模块自造——由产 dump 的数据面缝注入。
+    消费面＝恢复时易变量重取（`clarification.read_volatile` 的 `watermark` 键）。
+    """
     by_kind: dict[str, list[Evidence]] = {
         KIND_METRIC: [],
         KIND_TERM: [],
@@ -123,6 +136,7 @@ def dump_from_store(knowledge: KnowledgeStore) -> dict[str, Any]:
     return {
         "metrics": metrics,
         "terms": terms,
+        "watermark": watermark,
         "objects": [
             {"obj": evidence.value.split("（", 1)[0].strip(), "value": evidence.value,
              "source_id": evidence.element_id}

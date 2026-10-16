@@ -69,6 +69,7 @@ from appv2.tools import (
     FakeKnowledgeStore,
     FakeQueryEngine,
     FakeRetrievalEngine,
+    ToolContext,
     ToolRegistry,
     ledger_facts,
     normalize_metric_name,
@@ -843,3 +844,110 @@ def test_no_direct_state_write_in_tool_matching() -> None:
                     and isinstance(target.value, ast.Name)
                     and target.value.id == "state"
                 ), f"{path.name}:{node.lineno} 直写状态"
+
+
+# ── 本批（L3-02 检索透传断点修复）：need 原样透传 ＋ 确定性锚注入 ─────────────────
+
+
+def _knowledge_plan(need: Mapping[str, Any]) -> ToolPlan:
+    return _plan(_run(_state(), _emission([_knowledge_match(retrieval_need=need)]))[0])
+
+
+def test_retrieval_need_passthrough_keeps_family_hints() -> None:
+    """病灶 A 主修：模型发的 `family_hints` 随定案载荷原样到达（旧实现只重建 question／
+    anchors 两键）。
+
+    证据源 `docs/runtime-refactor/ladder/L3/02-完井液在二开钻进段与三开-summary.md`：真机 02 号题
+    模型发三键，引擎侧只剩两键（族配额退化成每族 1 席、gold 章被裁）。
+    """
+    match = _knowledge_plan(
+        {
+            "question": "W-111 井完井报告记载的投产初期日产油",
+            "anchors": ["W-111"],
+            "family_hints": ["completion"],
+        }
+    ).matches[0]
+    assert match.retrieval_need == {
+        "question": "W-111 井完井报告记载的投产初期日产油",
+        "anchors": ["W-111"],
+        "family_hints": ["completion"],
+    }
+    # 下投影面同源零漂移（`as_payload` 即 `state.tool_matches` 载荷形状）
+    assert match.as_payload()["retrieval_need"] == match.retrieval_need
+
+
+async def test_retrieval_need_reaches_engine_with_family_hints() -> None:
+    """到达性（V2 侧·同 V1 `test_v2_react_loop.py:181` 断言形）：定案载荷逐字进 `doc_retrieve`
+    args → 引擎侧 `RetrievalNeed` 收到族提示（旧实现在此为空——断裂指纹）。"""
+    match = _knowledge_plan(
+        {"question": "W-111 井完井报告记载的投产初期日产油", "family_hints": ["completion"]}
+    ).matches[0]
+    retrieval = FakeRetrievalEngine()
+    registry = ToolRegistry(
+        knowledge=FakeKnowledgeStore(), query=FakeQueryEngine(), retrieval=retrieval
+    )
+    result = await registry.call(
+        DOC_RETRIEVE,
+        dict(match.retrieval_need or {}),
+        ToolContext(actor="dev-user", budget=4),
+    )
+    assert result.status == "ok"
+    assert retrieval.needs[0].family_hints == ("completion",)
+    assert retrieval.needs[0].anchors == ("W-111",)  # 题面实体锚同路到达
+
+
+def test_retrieval_need_anchors_only_legacy_form_unchanged() -> None:
+    """旧形回归（anchors-only）：缺 `family_hints` 照旧通过——不拒、不造键、不加键。"""
+    need = {"question": "报告所载内容问句（检索式）", "anchors": ["锚点词"]}
+    assert _knowledge_plan(need).matches[0].retrieval_need == need
+
+
+def test_deterministic_anchors_injected_and_never_overwritten() -> None:
+    """修 2①：题面实体确定性补锚（模型不填也填）＋模型自填锚不被覆盖（注入项在前、去重续后）。"""
+    filled = _knowledge_plan({"question": "渤中 34-5 油田三季度注采比是多少？"}).matches[0]
+    assert filled.retrieval_need == {
+        "question": "渤中 34-5 油田三季度注采比是多少？",
+        "anchors": ["渤中34-5油田", "34-5"],
+    }
+
+    merged = _knowledge_plan(
+        {"question": "W-11 井生产套管的尺寸与下深是多少？", "anchors": ["Y-21"]}
+    ).matches[0]
+    assert merged.retrieval_need["anchors"] == ["W-11", "Y-21"]
+
+    dedup = _knowledge_plan(
+        {"question": "W-11 井生产套管的尺寸与下深是多少？", "anchors": ["W-11"]}
+    ).matches[0]
+    assert dedup.retrieval_need["anchors"] == ["W-11"]
+
+
+def test_deterministic_anchors_silent_on_entity_free_question() -> None:
+    """修 2②：零实体题面零注入（不误伤半边）——模型锚原样在、无锚键＝空锚。"""
+    kept = _knowledge_plan(
+        {"question": "近 7 天各井日产液量是多少？", "anchors": ["日产液量"]}
+    ).matches[0]
+    assert kept.retrieval_need == {
+        "question": "近 7 天各井日产液量是多少？",
+        "anchors": ["日产液量"],
+    }
+    assert _knowledge_plan({"question": "完井液密度 二开 三开"}).matches[0].retrieval_need == {
+        "question": "完井液密度 二开 三开",
+        "anchors": [],
+    }
+
+
+def test_anchor_injection_trace_in_determination_payload() -> None:
+    """修 2③留痕：注入项随定案载荷承载（返回值 → `state.tool_matches` 执行输入面），模型原话零改写。
+
+    成功路径**零补记步**（规格「不降级与静默禁令」旁注：信号由返回值承载，同 `caliber_key`
+    口径）——注入留痕面＝定案载荷与模型原话可对照，不新增步／notice。
+    """
+    state = _state()
+    content = _emission(
+        [_knowledge_match(retrieval_need={"question": "W-11 井生产套管的尺寸与下深是多少？"})]
+    )
+    match = _plan(_run(state, content)[0]).matches[0]
+    assert match.retrieval_need["anchors"] == ["W-11"]  # 定案载荷载注入项
+    emitted = json.loads(state.messages[-1]["content"])["matches"][0]["retrieval_need"]
+    assert emitted == {"question": "W-11 井生产套管的尺寸与下深是多少？"}  # 原话零改写＝可对照
+    assert len(state.steps) == 1  # 唯一一条＝call_model 的模型调用步（零补记步）

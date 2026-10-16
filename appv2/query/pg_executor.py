@@ -102,7 +102,9 @@ def _measure_column(plan: SqlPlan) -> Any:
 def _result_columns(plan: SqlPlan) -> tuple[QueryResultColumn, ...]:
     """答案表卡列序（dataIndex, title——dim_well 区块列随行；排名型合计列）。"""
     if plan.aggregate:
-        # V2-71 汇总型答案表卡：单合计列（batch_id 剥离面随 _execute 统一）。
+        # V2-71 汇总型答案表卡：单合计列（batch_id 剥离面随 _execute 统一）；
+        # 「整窗合计·全井」口径标注在材料/行内容面（tools.handlers 单点——
+        # 本列名即 SQL 标签，行集口径不冒充井位列）。
         total = f"{plan.metric_slot}合计（{plan.unit}）"
         return ((total, total),)
     if plan.ranking:

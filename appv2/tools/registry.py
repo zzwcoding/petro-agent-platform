@@ -27,6 +27,7 @@ from appv2.tools.handlers import (
     FaqLookupFace,
     QueryFace,
     RetrievalFace,
+    WellRosterFace,
     build_tools,
 )
 from appv2.tools.schema import (
@@ -119,10 +120,15 @@ class ToolRegistry:
         query: QueryFace,
         retrieval: RetrievalFace,
         faq: FaqLookupFace | None = None,
+        well_roster: WellRosterFace | None = None,
     ) -> None:
         self._tools: dict[str, Tool] = {}
         for tool in build_tools(
-            knowledge=knowledge, query=query, retrieval=retrieval, faq=faq
+            knowledge=knowledge,
+            query=query,
+            retrieval=retrieval,
+            faq=faq,
+            well_roster=well_roster,
         ):
             self.register(tool)
 

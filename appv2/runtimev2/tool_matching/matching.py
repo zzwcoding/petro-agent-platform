@@ -21,11 +21,17 @@
    `_rejection_from_parse` **机械适配**（`str` 逐字进 `reason` ＋映射 `kind`；行为 11）；
    合格 → 追加密集级校验（`mention_mode` 闭世界／`metric_slot` 英文列名形／`ranking` 与
    `direction` 同现与取值／`anchors` 形态）；
-5. **失败**：落**机读信号**（step payload 拒因字段 ＋ notice——「不降级」节）后返回
+5. **定案**：`retrieval_need` **原样透传**（`question`／`anchors`／`family_hints` 全键——键形照
+   `RetrievalNeed` 消费面）＋按 V2-50 族 C ① 注入**确定性锚**（`tools.inject_retrieval_anchors`：
+   模型已填锚不被覆盖、缺锚按题面实体补）；注入随定案载荷承载（成功路径**零补记步**——
+   留痕面＝`ToolPlan.matches[].retrieval_need`，同 `caliber_key` 承载口径）；
+6. **失败**：落**机读信号**（step payload 拒因字段 ＋ notice——「不降级」节）后返回
    `ToolMatchRejection` 交 `orchestration` 回喂重配（**不自动修补**）。
 
 **合法降级路径＝无**；本块零状态直写（写面全经 `bookkeeping` 唯一写口）、零事件发射（发帧归
-`transport`／批次协调归 `orchestration`）、零引擎接触（只经 `tools` 公开面）。
+`transport`／批次协调归 `orchestration`）、零引擎接触（只经 `tools` 公开面——锚注入件
+`inject_retrieval_anchors` 即该公开面一件：锚解析单点在 `appv2/tools/anchors.py`，本块不自立
+第二套词面／正则）。
 
 **行为 9（熔断暂不加）**：拒因回喂自环靠**轮数闸**兜底——本块**不计数、不判轮、不写字面限额**；
 限额数值只引**真源双指** `docs/runtime-refactor/recon/K-上下文事件指南预算.md` R-K-72…R-K-78
@@ -77,6 +83,7 @@ from appv2.runtimev2.tool_matching.models import (
     ToolMatchRejection,
     ToolPlan,
 )
+from appv2.tools import inject_retrieval_anchors
 
 
 def match(state: RunState, *, guide_text: str = "") -> ToolPlan | ToolMatchRejection:
@@ -274,11 +281,20 @@ def _violation_of(item: ParsedMatch, raw: Mapping[str, Any]) -> MatchReason | No
 
 
 def _build_match(item: ParsedMatch, raw: Mapping[str, Any]) -> SubtaskMatch:
-    """按链定型（`plan` 逐字段原样透传——「出数只认现行口径」的结构约束落点）。
+    """按链定型：`plan` 与 `retrieval_need` **逐字段原样透传**（「出数只认现行口径」＋「检索参数
+    不缩水」的结构约束落点）。
 
     形态单点归位（P-05）：`SubtaskMatch` 形状＝`parsing`（`plan`／`retrieval_need` 以映射承载、
     `caliber_key` 空串形）；本处只把模型原话的两个结论（`mention_mode`／`caliber_key`）定型填入，
     闭世界把守见 `_violation_of`（消费面拒因面）。
+
+    `retrieval_need` 逐键原样透传（`question`／`anchors`／`family_hints`——键形照
+    `appv2/retrieval/domain.py` 的 `RetrievalNeed` 消费面，不改键名、不裁键）——**旧实现只重建
+    `question`／`anchors` 两键，模型发的 `family_hints` 被丢弃**（L3-02 病灶 A：族配额退化成每族
+    1 席、gold 章被裁；`docs/runtime-refactor/ladder/L3/02-完井液在二开钻进段与三开-*`）。透传后
+    并接 V2-50 族 C ① **确定性锚注入**（模型已填锚不覆盖、缺锚按题面实体补；注入项随定案载荷
+    承载——**成功路径零补记步**：留痕面＝返回值 `ToolPlan.matches[].retrieval_need`，落
+    `state.tool_matches` 后与批量执行输入面同源零漂移）。
     """
     mention = raw.get("mention_mode")
     plan: dict[str, Any] | None = None
@@ -286,12 +302,8 @@ def _build_match(item: ParsedMatch, raw: Mapping[str, Any]) -> SubtaskMatch:
     if item.chain == DATA_CHAIN:
         plan = dict(item.plan or {})
     else:
-        raw_need = item.retrieval_need or {}
-        anchors = raw_need.get("anchors")
-        need = {
-            "question": str(raw_need.get("question") or ""),
-            "anchors": list(anchors) if isinstance(anchors, list) else [],
-        }
+        # 原样透传（整 dict 副本，不改键名、不裁键）＋确定性锚注入（返回副本）。
+        need = inject_retrieval_anchors(dict(item.retrieval_need or {}))
     return SubtaskMatch(
         id=item.id,
         tool=item.tool,

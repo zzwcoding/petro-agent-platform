@@ -151,7 +151,10 @@ def compose_production_registry(
       embedder＝RemoteEmbedder——B6 embedding 唯一出口 infra.llm_client；
       图谱源未接线＝graph 面空集回退，Neo4j 适配器随落位批）；
     - faq＝PgFaqStore（V2-52 辅助模式——faq_lookup 发现工具读缝，faq_* 两表
-      直读零缓存逐调用现行行）。
+      直读零缓存逐调用现行行）；
+    - well_roster＝production_well_roster（井名录取值缝——table_schema 的
+      dim_well 卡【井号名录】段与 `well` 查值消费；**传 loader 不传值**：discover
+      每次调用现读 agg.dim_well，非装配期快照）。
 
     局部 import＝组合根例外（modules.md api 卡注记的延伸——本函数是 api 层
     唯一触引擎/tools 的位置；测试 fixture 组合不走此处，经 registry 注入）。
@@ -159,7 +162,12 @@ def compose_production_registry(
     from appv2.infra.config import load_chat_settings, load_database_specs
     from appv2.infra.llm_client import LlmClient
     from appv2.knowledge import PgFaqStore, PgKnowledgeStore
-    from appv2.query import PgQueryExecutor, QueryEngine, production_waterline
+    from appv2.query import (
+        PgQueryExecutor,
+        QueryEngine,
+        production_waterline,
+        production_well_roster,
+    )
     from appv2.retrieval import (
         EnrichedFragmentLibrary,
         PgEnrichStore,
@@ -197,6 +205,7 @@ def compose_production_registry(
         query=query,
         retrieval=retrieval,
         faq=PgFaqStore(resolved),
+        well_roster=production_well_roster(resolved),
     )
 
 
@@ -212,14 +221,28 @@ def compose_production_ledger_dump(
     与台账直读同纪律）。局部 import＝组合根例外（同 compose_production_registry
     注记——api 装配面消费 tools 公开接口）。**消费面**＝`context` 台账投影端口
     （create_app 经 `LedgerProjectionAdapter` 接线——每次装载逐调用现行态）。
+
+    **水位随 dump 携入**：dump 的 `watermark` 键＝数据面真源（water_line 汇总层
+    水位——`query.production_waterline` 同源读缝，与编排注入的 `watermark` 同
+    一天；台账读面自不携水位，不自造）。缺行（水位未回写）＝空串如实缺位。
     """
     from appv2.infra.config import load_database_specs
     from appv2.knowledge import PgKnowledgeStore
+    from appv2.query import production_waterline
     from appv2.tools import dump_from_store
 
     resolved = tuple(specs) if specs is not None else tuple(load_database_specs())
     store = PgKnowledgeStore(resolved, today=None if today is None else today())
-    return lambda: dump_from_store(store)
+    waterline = production_waterline(resolved, today=today)
+
+    def loader() -> Mapping[str, Any]:
+        face = waterline()
+        return dump_from_store(
+            store,
+            watermark="" if face is None else face.data_date.isoformat(),
+        )
+
+    return loader
 
 
 def compose_production_watermark(

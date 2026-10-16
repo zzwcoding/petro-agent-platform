@@ -38,6 +38,15 @@ DIRECTION_DESC = "desc"
 QUERY_DEFAULT_LIMIT = 50
 QUERY_LIMIT_CAP = 200
 
+# 汇总型（aggregate）整窗合计行的口径标注（V2-71 整窗 SUM 单行——L5·02 病灶修复②）：
+# 该行无井位列（答案表只有合计列），材料/行内容必须写实标注口径，不写井位空段冒充
+# 单井行（材料块空段跳过规则下会渲染成无井行）。行内容前缀与 locator 口径键同源于
+# 本常量（tools.handlers 单点消费——不各写一份）。
+WINDOW_TOTAL_SCOPE_NOTE = "整窗合计·全井"
+
+# 血缘④批次前缀（血线行格式单源——tools 侧读回该前缀取行集可寻址 handle 同源）。
+WATERMARK_BATCH_PREFIX = "批次 "
+
 # 钉入窗长上限（V1 R6-03 票内定案）：366 天＝快路确定性时间词函数可产出的最大窗
 # （「去年」全历年，闰年 366 天）——封野值，不触常规形。
 PLAN_WINDOW_MAX_DAYS = 366
@@ -306,7 +315,8 @@ class QueryPlan:
     全字段由确定性解析产出（零模型调用——派生字段 measure_column/unit/
     limit_effective 由引擎单源重推导，不进计划草案）。window 两槽同 None＝
     时间窗不可定（「最近」类模糊词——引擎 need_clarify）；两槽须同缺同在，
-    半开区间要求 start < end（构造即拒）。
+    半开区间要求 start < end（构造即拒）。aggregate ∧ ranking 同真＝计划形态
+    非法（构造即拒——排名题合计在排名首行值里，程序侧不猜不代选）。
     """
 
     metric_slot: str  # 剥法纯名（C1 台账槽位——注册指标声明）
@@ -339,6 +349,15 @@ class QueryPlan:
             )
         if self.limit is not None and self.limit < 1:
             raise ValueError(f"QueryPlan.limit 必须 ≥1 或 None（没写），得到 {self.limit!r}")
+        # V2-71 汇总型 ∧ 排名型互斥（L5·02 病灶修复：pg_executor 早退分支先于
+        # ranking 命中，「最高的井是哪口、合计多少」被整窗 SUM 单行答成无井号行）
+        # ——同真即拒，程序侧不猜不代选：排名题的合计在排名首行值里。
+        if self.aggregate and self.ranking:
+            raise ValueError(
+                "QueryPlan 计划形态非法：aggregate 与 ranking 互斥——"
+                "排名题合计在排名首行值里：aggregate=false"
+                "（整窗 SUM 单行无井位行，排名问句须 ranking-only 发射）"
+            )
 
     @property
     def window(self) -> TimeWindow | None:
@@ -475,7 +494,7 @@ class SqlPlan:
     limit_effective: int  # F14 收口后值（只封顶不抬底）
     ranking: bool
     direction: str  # asc/desc 白名单二值分派 ORDER BY，非字符串拼接
-    aggregate: bool = False  # V2-71 汇总型（渲染优先于 ranking；互斥由 validate 把守）
+    aggregate: bool = False  # V2-71 汇总型（整窗 SUM 单行；互斥由 QueryPlan 构造把守）
     actor: str = ""
 
 
@@ -605,12 +624,23 @@ def lineage_watermark_line(
         return "—（水位未回写——如实缺行，不造达标假象）"
     body = f"汇总层水位 {data_date.isoformat()}（承诺 {promise or 'T-1'} · {tag or '—'}）"
     if batch_id:
-        body = f"批次 {batch_id} · {body}"
+        body = f"{WATERMARK_BATCH_PREFIX}{batch_id} · {body}"
     return body
 
 
-def lineage_closing_line(*, limit_requested: int | None, limit_effective: int) -> str:
-    """血缘卡⑤收口注记（F14 LIMIT 收口——区分「没写默认」与「显式/超限截断」）。"""
+def lineage_closing_line(
+    *, limit_requested: int | None, limit_effective: int, aggregate: bool = False
+) -> str:
+    """血缘卡⑤收口注记（F14 LIMIT 收口——区分「没写默认」与「显式/超限截断」）。
+
+    汇总型分支如实（L5·02 病灶修复③）：整窗 SUM 库内算的 SQL 无 LIMIT，⑤注记
+    不得无条件写「LIMIT 50」（血缘与真 SQL 同源——注记不冒充没写过的收口条）。
+    """
+    if aggregate:
+        return (
+            "整窗 SUM·无行限量——汇总型在库内算合计单行返回，不套行数 LIMIT"
+            "（明细/排名形的没写补默认 50、超 200 截到 200 只封顶不抬底，与本分支无关）"
+        )
     line = (
         f"LIMIT {limit_effective}"
         "——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底"

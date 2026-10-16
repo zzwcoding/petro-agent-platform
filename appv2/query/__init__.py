@@ -42,6 +42,8 @@ from appv2.query.domain import (
     QUERY_DEFAULT_LIMIT,
     QUERY_LIMIT_CAP,
     STAR_TABLES,
+    WATERMARK_BATCH_PREFIX,
+    WINDOW_TOTAL_SCOPE_NOTE,
     LineageLine,
     PlanCheck,
     QueryOutcome,
@@ -71,7 +73,7 @@ from appv2.query.executor import (
 )
 from appv2.query.pg_executor import PgQueryExecutor
 from appv2.query.pg_waterline import freshness_judgment, production_waterline
-from appv2.query.pg_wells import production_data_wells
+from appv2.query.pg_wells import production_data_wells, production_well_roster
 
 __all__ = [
     "ASKBACK_TIME_CHOICES",
@@ -97,6 +99,8 @@ __all__ = [
     "QUERY_DEFAULT_LIMIT",
     "QUERY_LIMIT_CAP",
     "STAR_TABLES",
+    "WATERMARK_BATCH_PREFIX",
+    "WINDOW_TOTAL_SCOPE_NOTE",
     "AggRow",
     "CsvSnapshotExecutor",
     "LineageLine",
@@ -124,6 +128,7 @@ __all__ = [
     "parse_time_window",
     "production_data_wells",
     "production_waterline",
+    "production_well_roster",
     "render_plan_sql",
     "resolve_askback_window",
 ]

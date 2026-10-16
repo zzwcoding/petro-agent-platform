@@ -320,7 +320,9 @@ class QueryEngine:
             LineageLine(
                 key=LINEAGE_KEY_CLOSING,
                 value=lineage_closing_line(
-                    limit_requested=plan.limit, limit_effective=effective_limit(plan.limit),
+                    limit_requested=plan.limit,
+                    limit_effective=effective_limit(plan.limit),
+                    aggregate=plan.aggregate,
                 ),
             ),
         )

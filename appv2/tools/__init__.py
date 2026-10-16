@@ -26,6 +26,9 @@ readonly!=True 的工具，公开面仅 register/descriptors/call；假引擎 ad
 - ArgsError（参数校验/装配失败）＋classify_exception（异常三分类单点）；
 - ASKBACK_TIME_QUESTION/ASKBACK_TIME_CHOICES（缺参反问时间窗候选常量——经本
   包根转出供 runtimev2 消费）；
+- WellRosterFace（井名录取值缝，table_schema 的 dim_well 名录段/`well` 查值
+  消费）＋normalize_well_id/roster_entries/roster_lookup（RULE-PETRO-005 井号
+  归一与名录比对单点——2026-10-17 流水 70）；
 - fake 三假引擎＋FakeUpstreamRejection（P-006 复用件）。
 """
 
@@ -58,6 +61,7 @@ from appv2.tools.handlers import (
     FaqLookupFace,
     QueryFace,
     RetrievalFace,
+    WellRosterFace,
     build_tools,
     faq_lookup,
     recall_relevant,
@@ -133,6 +137,11 @@ from appv2.tools.table_scan import (
     extract_external_table_refs,
     scan_unapproved_tables,
 )
+from appv2.tools.well_ids import (
+    normalize_well_id,
+    roster_entries,
+    roster_lookup,
+)
 
 __all__ = [
     "ALL_SCHEMA_CARDS",
@@ -202,6 +211,7 @@ __all__ = [
     "ToolRegistry",
     "ToolResult",
     "Verdict",
+    "WellRosterFace",
     "ban_exempt_notice_text",
     "build_tools",
     "classify_exception",
@@ -215,11 +225,14 @@ __all__ = [
     "ledger_facts",
     "normalize_anchor_text",
     "normalize_metric_name",
+    "normalize_well_id",
     "recall_relevant",
     "render_aliases",
     "render_cards",
     "render_ledger_rows",
     "resolve_metric_slot",
     "resolve_send_budget",
+    "roster_entries",
+    "roster_lookup",
     "scan_unapproved_tables",
 ]

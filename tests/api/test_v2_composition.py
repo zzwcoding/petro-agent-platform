@@ -162,17 +162,20 @@ async def _seed(main_db: Path, agg_db: Path) -> None:
 
 
 def _ledger_note(specs: Sequence[DatabaseSpec]) -> str:
-    """台账注释（**逐字**取自生产读面的常驻注入块——相位侧在校「是否台账原话」）。
+    """台账注释（**三段槽位对账**形 `槽位｜绑定态｜窗`——相位侧判据面，流水 64）。
 
-    dump 源＝生产缝 `compose_production_ledger_dump`（本测与组合根同一读面）。
+    dump 源＝生产缝 `compose_production_ledger_dump`（本测与组合根同一读面）；段一就地核
+    「日产油量」真在生产投影的名录（指标 slot——判据面：段一须逐字 ∈ 台账名录）。
+    另核 dump 携数据面水位（水线真源＝water_line 汇总层——种子 '2026-08-31'）：
+    `clarification.read_volatile` 的 `watermark` 键真值面（顺带 bug 修复的装配证据）。
     """
     from appv2.api.app import compose_production_ledger_dump
-    from appv2.runtimev2.prompts import render_ledger_resident_block
-    from appv2.runtimev2.state import RunState
 
     dump = compose_production_ledger_dump(specs=specs, today=lambda: TODAY)()
-    block = render_ledger_resident_block(RunState(run_id="probe", ledger_dump=dict(dump)))
-    return next(line for line in block.splitlines() if "日产油量" in line)
+    slots = {row.get("slot") for row in dump.get("metrics") or []}
+    assert "日产油量" in slots  # 段一 ∈ 名录（生产投影自证）
+    assert dump.get("watermark") == "2026-08-31"  # 数据面水位随 dump（water_line 汇总层）
+    return "日产油量｜已绑定｜2025-09-01~2025-09-03"
 
 
 def _script(specs: Sequence[DatabaseSpec]) -> dict[str, Sequence[str]]:
@@ -292,3 +295,45 @@ def test_de16_disabled_zero_rows_refused(tmp_path: Path, agg_db: Path) -> None:
         run_id = frames[0][1]["run_id"]
         status = client.get(f"/api/v2/chat/runs/{run_id}", headers=ACTOR).json()
         assert status["status"] == "completed"
+
+
+# ---------- 井号名录卡（生产组合根缝——dim_well 卡名录段读真库；2026-10-17 流水 70） ----------
+
+
+def test_production_composition_dim_well_roster_and_lookup(
+    tmp_path: Path, agg_db: Path
+) -> None:
+    """生产组合根（`compose_production_registry`）真装配——dim_well 卡名录段读真库行值。
+
+    端到端走生产读面（ConnectionManager＋`agg.dim_well` schema 限定 SQL＋readonly
+    守卫），非替身：①discover dim_well → 卡附【井号名录】（共 1 口·dim_well·按区块
+    分组——种子 `N-01`／渤中）；②`well` 查值走 RULE-PETRO-005 归一——变体形 `n-1`
+    命中 `N-01`；不在册形如实 no_hit。
+    """
+    from appv2.api.app import compose_production_registry
+    from appv2.tools import SCHEMA_PROBE
+    from appv2.tools.schema import ToolContext
+
+    main_db = tmp_path / "main.db"
+    asyncio.run(_seed(main_db, agg_db))
+    registry = compose_production_registry(
+        specs=_specs(main_db),
+        chat_settings=ChatSettings(freshness_gate_enabled=True),
+        today=lambda: TODAY,
+    )
+    ctx = ToolContext(actor="aqiang", budget=6)
+
+    card = asyncio.run(registry.call(SCHEMA_PROBE, {"table": "dim_well"}, ctx))
+    content = "\n".join(obs.content for obs in card.observations)
+    assert "【井号名录】共 1 口·dim_well" in content
+    assert "渤中：N-01" in content
+
+    hit = asyncio.run(registry.call(SCHEMA_PROBE, {"well": "n-1"}, ctx))
+    hits = [obs for obs in hit.observations if obs.locator.get("kind") == "well_lookup"]
+    assert len(hits) == 1
+    assert hits[0].source_id == "N-01"
+    assert hits[0].locator["block_name"] == "渤中"
+
+    miss = asyncio.run(registry.call(SCHEMA_PROBE, {"well": "W-11"}, ctx))
+    assert [obs for obs in miss.observations if obs.locator.get("kind") == "well_lookup"] == []
+    assert miss.observations[-1].locator["notice_type"] == "no_hit"

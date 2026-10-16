@@ -7,7 +7,8 @@
 
 逐键读数面（皆**结构化**、零语义判断，读点单点在本模块）：
 
-- `watermark`＝台账投影自带的水位值（缺位**如实空串**，不编造）；
+- `watermark`＝台账投影自带的水位值（缺位**如实空串**，不编造）——投影侧真源＝数据面水位
+  （生产 dump 由组合根经 `query.production_waterline` 读 water_line 汇总层随 dump 注入）；
 - `freshness`＝台账投影各术语条的时效串集合（去重排序）；
 - `foundation`＝台账投影本体三块（对象／关系／族标注）的行数——「地基」的行数面；
 - `new_rows`＝已入栈观察（`state.observations`）条数——「落库新数据」的计数面。
@@ -19,8 +20,10 @@
 **上游刷新义务不在本块**（本块只可及 `state` 投影）：真正向数据面重取水位／新鲜度并在恢复前
 写回投影的调用链归 `orchestration` 的 `resume` 入口（`specs/clarification.md` 挂起契约：
 「恢复经 `orchestration` 的 `resume` 入口」）——本块负责**重读**并把它落成机读信号
-（步骤 payload 的 `volatile` 键），使「重取」可机检。登记项（呈主窗）：水位读写缝未落定
-（与 `context` 的台账装载同族待核定）。
+（步骤 payload 的 `volatile` 键），使「重取」可机检。登记项（呈主窗）：水位读写缝——**dump 侧
+已落**（`tools.dump_from_store` 的 `watermark` 键真源＝数据面 water_line 汇总层，组合根注入）；
+「恢复前向数据面重取并写回投影」的上游刷新链仍归 `orchestration` 的 `resume`（与 `context`
+的台账装载同族待核定）。
 """
 
 from __future__ import annotations

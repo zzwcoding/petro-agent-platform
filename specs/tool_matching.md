@@ -36,7 +36,7 @@
 | bookkeeping | 新增依赖 | 模型调用发起面：经 bookkeeping.call_model（单点发起），本块不直引 gateway_adapter |
 | gateway_adapter | 新增 | 模型出口（唯一出口仍归它）；本块不直引——经 bookkeeping.call_model 发起 |
 | state | 新增 | 匹配列等状态形状；本 spec 只消费 |
-| tools | 改实现 | **工具描述写全**（何时用／不能做什么／参数示例）——本块只消费其公开面 |
+| tools | 改实现 | **工具描述写全**（何时用／不能做什么／参数示例）——本块只消费其公开面（含锚解析／注入件 `inject_retrieval_anchors`，行为 12） |
 
 ## 接口定义
 
@@ -57,7 +57,8 @@ class SubtaskMatch:                        # **形状单点在 `parsing.models`�
 
 class RetrievalNeed:
     question: str                          # 必填；逐字转抄子问题原文
-    anchors: list[str]                     # 可选
+    anchors: list[str]                     # 可选（注入面见行为 12）
+    family_hints: list[str]                # 可选（族机器名——闭世界四族真源＝`specs/retrieval.md` 的 `RetrievalNeed`；驱动供给分池配额）
 
 class ToolMatchRejection:                  # 拒因回喂用（非终局）
     reasons: list[MatchReason]             # 结构化：缺配/多配/编号不符/必填缺/枚举越界/malformed_matches
@@ -69,6 +70,7 @@ class MatchReason:                         # 结构化拒因单条：kind 六类
 
 - `QueryPlan` 的真源是 `specs/query.md`（**真源以该文为准**；若该文缺 `aggregate` 字段则记「待回阶段 3 补」——本块只引不复述字段）。
 - **`guide_text` 注入注（2026-10-16 裁·流水 63）**：签名补注入形参 `*, guide_text: str = ""`——§A 指南文本经编排注入（快照）；缺省空串＝空段头（本块只下传、不读文件；装配面归 api 组合根）。
+- **`retrieval_need` 透传注（2026-10-17 补·L3-02 检索透传断点批）**：知识链定案面的 `retrieval_need` **整 dict 原样透传**（键名／键形零改写——`question`／`anchors`／`family_hints` 全键，键形照 `appv2/retrieval/domain.py` 的 `RetrievalNeed` 消费面），并接**确定性锚注入**（行为 12）——旧实现只重建 `question`／`anchors` 两键、模型发的 `family_hints` 被丢（族配额退化成每族 1 席、gold 章被裁）。
 - **`tool` 与 `chain` 都是闭世界**：`tool` ∈ 工具注册表名单；`chain` ∈ `data`｜`knowledge`。**越界值判失败**。
 - **错误契约**：**漏配／多配／编号对不上／必填缺／枚举越界** → 返回 `ToolMatchRejection`（**结构化拒因**），由 `orchestration` **回喂模型、回到本相位重配**（**不做自动修补**）。
 - **本块亦产出「提及 vs 执行」的结论**（废弃词闸的判断；Owner 裁决 #12）——**与 `caliber_key` 同批产出**，交 `preconditions` 判定序第 1 位做机械分派。
@@ -111,6 +113,7 @@ class MatchReason:                         # 结构化拒因单条：kind 六类
 9. **熔断暂不加**：拒因回喂自环**靠轮数闸兜底**；轮数等限额**引限额真源双指**（真源 `walk/裁决表.md` §06-A 循环上限五项 ＋ `recon/K-上下文事件指南预算.md` R-K-72…R-K-78 逐键——轮数＝R-K-72），**本规格不写字面值**。
 10. **名归一闸保留**：精确键未命中时按名归一扫描（真源 `walk/11-匹配-工具阀.md` §一）。
 11. **解析拒文→结构化拒因的转换归本块（消费方）**：解析拒文（parsing 产出的 `str` 拒文）→ `ToolMatchRejection` 的结构化转换归本块（消费方）：转换是机械适配（`str` 逐字进 `reason` 字段＋映射拒因枚举），零语义判断；parsing 不感知本块类型（R3）。（主窗流水 30① 裁决，2026-10-15——销 `docs/runtime-refactor/spec-review/parsing-评审.md` P-09「两头都不认」；解析本体与拒文产出归 `specs/parsing.md`，其风险 5 同步「已裁：转换在消费方」。）
+12. **定案面参数不缩水（原样透传＋确定性锚注入）**（2026-10-17 补·L3-02 检索透传断点批）：知识链 `retrieval_need` 由本块**整 dict 原样透传**——键名不改、键不裁（`question`／`anchors`／`family_hints` 全键；键形照 `appv2/retrieval/domain.py` 的 `RetrievalNeed` 消费面），旧实现只重建两键致 `family_hints` 被丢（L3-02 病灶 A，证据源 `docs/runtime-refactor/ladder/L3/02-完井液在二开钻进段与三开-summary.md`）；透传后按 **V2-50 族 C ①**（`tickets/v2/V2-50-族C归属校验治理.md`；锚解析单点＝`appv2/tools/anchors.py`）做**确定性锚注入**：**模型已填锚不覆盖**（注入项在前、模型锚去重续后）、**缺锚按题面实体确定性补**（井号／油田名／平台名／报告号数字核——本体对象闭世界匹配，无实体题零注入）。锚解析件只经 `tools` 公开面**复用**（本块不自立第二套词面／正则——行 10 扫描面照旧）；注入项随定案载荷承载（**成功路径零补记步**：留痕面＝返回值 `ToolPlan.matches[].retrieval_need`，落 `state.tool_matches` 后与批量执行输入面同源零漂移——同 `caliber_key` 承载口径）。
 
 ## 不降级与静默禁令
 
@@ -137,6 +140,11 @@ class MatchReason:                         # 结构化拒因单条：kind 六类
 | 【保留集】名归一闸行为不变（本块） | `tests/domains/test_v2_tool_matching.py::retention_normalize` |
 | 【保留集】聚合下推行为不变（归属 `execution`） | `tests/domains/test_v2_tool_matching.py::retention_pushdown` |
 | `SubtaskMatch.mention_mode` 取值闭世界（`executed`／`mentioned_only`）越界即拒 | `tests/domains/test_v2_tool_matching.py::mention_mode_closed_world` |
+| 【透传钉】知识链 `retrieval_need` 整 dict 原样透传（`family_hints` 不被丢）；旧形（anchors-only）不拒不造键 | `tests/domains/test_v2_tool_matching.py::test_retrieval_need_passthrough_keeps_family_hints` |
+| 【到达性钉】族提示随定案载荷到达引擎侧 `RetrievalNeed`（四相位端到端） | `tests/domains/test_v2_four_phase.py::test_four_phase_knowledge_need_full_form_reaches_engine` |
+| 【注入钉】题面实体确定性补锚（模型已填锚不覆盖）；零实体题零注入；注入随定案载荷留痕（行为 12） | `tests/domains/test_v2_tool_matching.py::test_deterministic_anchors_injected_and_never_overwritten` |
+
+> **增行＝2026-10-17 L3-02 检索透传断点批**（三行）：前两行为病灶 A（`family_hints` 被丢），第三行为行为 12 的锚注入三条（补锚／不覆盖／零注入＋留痕），落测文件＝`tests/domains/test_v2_tool_matching.py::test_retrieval_need_reaches_engine_with_family_hints`／`::test_deterministic_anchors_silent_on_entity_free_question`／`::test_anchor_injection_trace_in_determination_payload`（同批同面，不逐条增行）。
 
 > **增行＝流水 51 收尾一致**（2026-10-16，第 15 行）：随行为 5「枚举闭世界」补 `mention_mode` 成员（`2026-10-16 补（流水 51）`）同批增；字段载体见「接口定义」节 `SubtaskMatch.mention_mode` 条，越界取值或缺该字段 → 判失败（不猜、不取默认）。
 

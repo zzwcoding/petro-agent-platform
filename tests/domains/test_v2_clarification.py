@@ -659,6 +659,45 @@ def test_resume_reloads_volatile() -> None:
     assert dict(readings) != {"watermark": "", "freshness": [], "foundation": 0, "new_rows": 0}
 
 
+def test_resume_volatile_watermark_carried_by_dump() -> None:
+    """#13 补｜恢复路径水位非空＋roundtrip（dump 携数据面水位——顺带 bug 修复）。
+
+    病灶：`tools.ledger.dump_from_store` 不产 `watermark` 键，而 `read_volatile`
+    读 `dump["watermark"]` → 四易变量之一恒空串（「等待期环境是否失效」判据面失效）。
+    修后＝生产 dump 由组合根经 water_line 水位注入该键；本测核「dump 携值 → 恢复
+    路径读数逐字一致」＋「缺位仍如实空串」（旧检查点／未接线面不编造）。
+    """
+    from appv2.knowledge import InMemoryKnowledgeStore, question_array_snapshot
+    from appv2.runtimev2.clarification.volatile import read_volatile
+    from appv2.tools.ledger import dump_from_store
+
+    dump = dict(
+        dump_from_store(
+            InMemoryKnowledgeStore(question_array_snapshot()), watermark="2026-08-31"
+        )
+    )
+    assert dump["watermark"] == "2026-08-31"
+    # roundtrip：投影携值 → 读数逐字（不加工不裁剪）。
+    assert read_volatile(_state(ledger_dump=dump))["watermark"] == "2026-08-31"
+
+    # 恢复路径（挂起→resume）落步骤 payload 的读数＝同一投影值。
+    state = _state(ledger_dump=dump)
+    state.pending_ask = {
+        "kind": "clarify",
+        "prompt": "「正常」想跟哪个标准比？",
+        "options": ["对比计划产量", "对比上月同期"],
+        "detail": None,
+    }
+    state.resume_choices = [{"kind": "clarify", "choice": "对比计划产量"}]
+    with _scripted(_ask()):
+        assert isinstance(clarify(state), ClarifyAsk)
+    readings = _resume_readings(state)
+    assert readings["watermark"] == "2026-08-31"
+    assert readings["watermark"] == state.ledger_dump["watermark"]
+    # 缺位形态回归：投影未携水位 → 如实空串（不编造）。
+    assert read_volatile(_state(ledger_dump=_dump()))["watermark"] == ""
+
+
 def test_ask_cap_truncate_with_material() -> None:
     """#14｜到上限 → 截断＋带材料如实直答（不环）（**钉 `pin-15` 的到顶半面，P1**）——:121。"""
     state = _state(
