@@ -15,6 +15,9 @@
 - 机读面键名与文案：`PAYLOAD_*`（步 payload 记账字段与帧载荷键）／`NOTICE_*`（通知类型字面——
   取值真源 `transport.NOTICE_TYPES`，本块不私扩）／`EVENT_*`（本块发射的三类事件名）／
   `SAME_PARAM_REPLAY_REASON`／`MISSING_SOURCE_REASON`（拒因原文，逐字迁移）。
+- 机读信号三键（「不降级与静默禁令」节）：本块写的**每一步** payload 恒携 `row_count`／
+  `ref`（`handle`／`summary`／`row_count`）／`error`（`category`／`reason`）——单点在
+  `core._signal_payload`；落引用／失败／缺参三面由此可机检（缺参面另发 `ask` 帧＋`pending_ask`）。
 
 依赖面（规格「框架与依赖红线」）：`state`（形状）／`transport`（事件）／`persistence`（大结果
 引用载体）／`bookkeeping`（写口与结果归一投影）／`tools`（**只许走其公开面**——工具调用唯一
@@ -51,6 +54,9 @@ from appv2.runtimev2.execution.constants import (
     PAYLOAD_ATTEMPTS_KEY,
     PAYLOAD_CHAIN_KEY,
     PAYLOAD_CONSUMES_ROUND_KEY,
+    PAYLOAD_ERROR_CATEGORY_KEY,
+    PAYLOAD_ERROR_KEY,
+    PAYLOAD_ERROR_REASON_KEY,
     PAYLOAD_GATE_KEY,
     PAYLOAD_HANDLE_KEY,
     PAYLOAD_INDEX,
@@ -102,6 +108,9 @@ __all__ = [
     "PAYLOAD_ATTEMPTS_KEY",
     "PAYLOAD_CHAIN_KEY",
     "PAYLOAD_CONSUMES_ROUND_KEY",
+    "PAYLOAD_ERROR_CATEGORY_KEY",
+    "PAYLOAD_ERROR_KEY",
+    "PAYLOAD_ERROR_REASON_KEY",
     "PAYLOAD_GATE_KEY",
     "PAYLOAD_HANDLE_KEY",
     "PAYLOAD_INDEX",

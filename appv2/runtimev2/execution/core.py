@@ -25,6 +25,13 @@
 6. **观察回流**（行为 9）：逐条带出处落 `state.observations`（全局 `[n]` 序）并发射
    `observation` 帧；缺出处＝判失败（fail-closed，不猜不补）。
 
+**机读信号单点**（「不降级与静默禁令」节）：本块写的**每一步** payload 恒携三键
+`row_count`／`ref.handle`／`error.reason`（单点＝`_signal_payload`；**键恒在场、值诚实**——
+缺值≠缺键）。落引用＝`ref.handle` 可寻址（同一 handle 亦回落到 `state.observations` 行与子问题
+账）；失败＝`error.reason` 如实（`error` 与 `SubtaskExec.error` **同档语义**：缺参／发射级拒＝
+`None`，失败／闸拒＝`{category, reason}`）；缺参＝`ask` 帧＋`state.pending_ask`。`error.reason` 与
+记账面 `reject_reason` 出自**同一变量、同一写入点**——不构第二套语义。
+
 **接缝纪律（本块自立的调用面约定，登记见票面回报）**：`bus`（per-run 总线）／`registry`
 （`tools` 公开面——工具调用唯一入口）为**必给**注入面，未注入＝调用方断线，入口即 fail-closed
 抛错（同 `understanding.interpret` 的 `bus` 先例）；`store`（`persistence` 公开面＝大结果原文的
@@ -97,6 +104,9 @@ from appv2.runtimev2.execution.constants import (
     PAYLOAD_CHAIN_KEY,
     PAYLOAD_CONSUMES_ROUND_KEY,
     PAYLOAD_CONTENT,
+    PAYLOAD_ERROR_CATEGORY_KEY,
+    PAYLOAD_ERROR_KEY,
+    PAYLOAD_ERROR_REASON_KEY,
     PAYLOAD_FINGERPRINTS_KEY,
     PAYLOAD_FRAME,
     PAYLOAD_GATE_KEY,
@@ -198,6 +208,50 @@ def _require_registry(registry: ToolRegistry | None) -> ToolRegistry:
     if registry is None:
         raise RuntimeError(_REGISTRY_MISSING)
     return registry
+
+
+# ── 步 payload 的机读信号三键（规格「不降级与静默禁令」节单点）─────────────────────
+
+
+def _signal_payload(
+    *,
+    row_count: int | None = None,
+    ref: MaterialRef | None = None,
+    category: str | None = None,
+    reason: str | None = None,
+) -> dict[str, Any]:
+    """机读信号三键（规格 :96 逐字：`row_count`／`ref.handle`／`error.reason`）。
+
+    **键恒在场、值诚实**（缺值≠缺键——机检可判「本块写的每一步 payload 恒携三键」）：
+    `row_count`＝本次派遣回来的**观察行数**（行为 7 记账面）；`ref`＝大结果引用投影
+    （`ref.row_count` 是被落引用**原文**的行数——`MaterialRef.row_count` 原义，与观察行数两回事），
+    未落引用＝`None`；`error`＝**与 `SubtaskExec.error` 同档语义**（缺参／发射级拒＝`None`；
+    失败／闸拒＝`{category, reason}`），非失败档＝`None`。
+
+    单一变量面：`error.reason` 与记账面 `reject_reason` 出自**同一变量、同一写入点**——本函数
+    不引入第二套语义（行为 7 的拒因面与不降级节的机读信号面同源）；拒因文本缺失时两处同引
+    `_DEFAULT_FAILURE_REASON`（如实兜底、不编造分类）。
+    """
+    return {
+        PAYLOAD_ROW_COUNT_KEY: row_count,
+        PAYLOAD_REF_KEY: (
+            None
+            if ref is None
+            else {
+                PAYLOAD_HANDLE_KEY: ref.handle,
+                PAYLOAD_SUMMARY_KEY: ref.summary,
+                PAYLOAD_ROW_COUNT_KEY: ref.row_count,
+            }
+        ),
+        PAYLOAD_ERROR_KEY: (
+            None
+            if category is None
+            else {
+                PAYLOAD_ERROR_CATEGORY_KEY: category,
+                PAYLOAD_ERROR_REASON_KEY: reason or _DEFAULT_FAILURE_REASON,
+            }
+        ),
+    }
 
 
 # ── 派遣载荷（发现步／批量执行共用同一调用形）─────────────────────────────────────
@@ -313,7 +367,9 @@ def _reread_volatile_environment(state: RunState, context: ToolContext) -> None:
         kind=STEP_EXECUTE,
         title=TITLE_RESUME_GUARD,
         status=STEP_STATUS_OK,
-        payload={PAYLOAD_PHASE_KEY: PHASE, PAYLOAD_VOLATILE_KEY: readings},
+        # 统一字段面：本块写的每一步 payload 恒携机读信号三键
+        # （本步无落地结果／非失败档＝值诚实的 None）
+        payload={PAYLOAD_PHASE_KEY: PHASE, PAYLOAD_VOLATILE_KEY: readings, **_signal_payload()},
     )
 
 
@@ -434,9 +490,9 @@ def _record_retry_attempt(state: RunState, item: _Returned, *, kind: str) -> Non
         PAYLOAD_STATUS: _STATUS_FAILED,
         PAYLOAD_ARGS_KEY: dict(item.call.args),
         PAYLOAD_ARGS_FINGERPRINT_KEY: payload_fingerprint(item.call.args),
-        PAYLOAD_ROW_COUNT_KEY: None,
         PAYLOAD_REJECT_REASON_KEY: message,
         PAYLOAD_ATTEMPTS_KEY: 1,
+        **_signal_payload(category=_category, reason=message),
     }
     if item.call.subtask_id:
         payload[PAYLOAD_SUBTASK_ID_KEY] = item.call.subtask_id
@@ -683,8 +739,8 @@ def _record_admission_refusal(state: RunState, entry: _Entry) -> SubtaskExec:
             PAYLOAD_PHASE_KEY: PHASE,
             PAYLOAD_SUBTASK_ID_KEY: entry.subtask_id,
             PAYLOAD_STATUS: ERROR_REFUSED,
-            PAYLOAD_ROW_COUNT_KEY: None,
             PAYLOAD_REJECT_REASON_KEY: reason,
+            **_signal_payload(category=ERROR_REFUSED, reason=reason),
         },
     )
     notice(
@@ -718,8 +774,9 @@ def _record_admission_ask(state: RunState, entry: _Entry) -> SubtaskExec:
             PAYLOAD_PHASE_KEY: PHASE,
             PAYLOAD_SUBTASK_ID_KEY: entry.subtask_id,
             PAYLOAD_STATUS: EXEC_STATUS_NEED_INPUT,
-            PAYLOAD_ROW_COUNT_KEY: None,
             PAYLOAD_REJECT_REASON_KEY: reason,
+            # 挂起不是失败（`SubtaskExec.error` 同档语义）——`error` 留 None，缺参信号由 `ask` 帧承接
+            **_signal_payload(),
         },
     )
     return SubtaskExec(
@@ -811,8 +868,8 @@ def _terminal_forward(
             PAYLOAD_PHASE_KEY: PHASE,
             PAYLOAD_SUBTASK_ID_KEY: entry.subtask_id,
             PAYLOAD_STATUS: ERROR_REFUSED,
-            PAYLOAD_ROW_COUNT_KEY: None,
             PAYLOAD_REJECT_REASON_KEY: reason,
+            **_signal_payload(category=ERROR_REFUSED, reason=reason),
         },
     )
     return SubtaskExec(
@@ -901,9 +958,14 @@ def _reject_emission(
             PAYLOAD_GATE_KEY: gate,
             PAYLOAD_FINGERPRINTS_KEY: fingerprints,
             PAYLOAD_ARGS_FINGERPRINT_KEY: fingerprints[0] if fingerprints else "",
+            # 记账面参数：本次发射**各支参数逐字**（整发射拒的发射单元＝整批——行为 7 的「记参数」）
+            # （`args_fingerprint` 仍＝发射指纹——两闸语义照 -05a 原样，本票不改）
+            PAYLOAD_ARGS_KEY: [dict(call.args) for call in calls],
             PAYLOAD_CONSUMES_ROUND_KEY: consumes_round,
-            PAYLOAD_ROW_COUNT_KEY: None,
             PAYLOAD_REJECT_REASON_KEY: reason,
+            # 发射级拒＝**工具未执行**（非失败档——`error` 与 `SubtaskExec.error` 同档语义留 None）；
+            # 拒因经 `reject_reason` 机读在场；被拦子问题的结论档由 `_reject_replay` 落 `bad_args`
+            **_signal_payload(),
         },
     )
     notice(state, type=NOTICE_SAME_PARAM_REPLAY, content=content)
@@ -993,8 +1055,12 @@ def _consume(
         PAYLOAD_STATUS: status,
         PAYLOAD_ARGS_KEY: dict(call.args),
         PAYLOAD_ARGS_FINGERPRINT_KEY: payload_fingerprint(call.args),
-        PAYLOAD_ROW_COUNT_KEY: row_count,
         PAYLOAD_REJECT_REASON_KEY: message if status != _STATUS_OK else None,
+        # 机读信号三键（落引用／失败／缺参三面）：`category` 仅失败档非空（ok／ask 档＝None，
+        # 挂起不是失败）——`error.reason` 与上方 `reject_reason` 同变量、同写入点
+        **_signal_payload(
+            row_count=row_count, ref=ref, category=category, reason=message
+        ),
     }
     if call.subtask_id:
         payload[PAYLOAD_SUBTASK_ID_KEY] = call.subtask_id

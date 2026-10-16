@@ -92,6 +92,14 @@ PAYLOAD_HANDLE_KEY = "handle"
 PAYLOAD_VOLATILE_KEY = "volatile"
 PAYLOAD_REJECTED_KEY = "rejected"
 
+# ── 机读信号子键（规格「不降级与静默禁令」节逐字：落引用／失败／缺参必产机读信号——
+# step payload 的 `row_count`／`ref.handle`／`error.reason`）────────────────────────
+# `row_count`／`ref`（`handle`／`summary`／`row_count`）键名复用上方步 payload 键名；
+# 仅 `error` 子结构两键为本块新增（`error`＋`category`／`reason`——与 `SubtaskExec.error` 同档）。
+PAYLOAD_ERROR_KEY = "error"
+PAYLOAD_ERROR_CATEGORY_KEY = "category"
+PAYLOAD_ERROR_REASON_KEY = "reason"
+
 PHASE = "execution"  # 过程档案相位标记与步 payload 相位值（真源：本块名）
 LEDGER_NOTE_PHASE = "tool"  # 执行台账条目相位（迁移照抄：V1 `_note("tool", ...)`）
 
