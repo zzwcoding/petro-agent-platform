@@ -581,3 +581,567 @@ async def test_public_face_and_zero_model_import_contract() -> None:
         name.startswith("appv2.runtimev2.bookkeeping.") for name in modules
     ), sorted(modules)
     assert ATTRIBUTION_CARRIER_KINDS == {"fragment", "graph"}
+
+
+# ══════════ -B 票（RT-W4-07b-verification.md）：红线与健壮性簇＋边界·保留集 ══════════
+#
+# 票面对象＝`specs/verification.md`「验收测试」表第 10–14、17、18 行（`#` 行序与 -A 票共用、不重编；
+# 测试标识与规格列逐字一致）。三形状仍以 -A 落地的为唯一真源——本票只补行为断言，不改形状。
+#
+# - 行 10 `::deterministic_repeatable`：同输入两次运行 `Verdict` 五计数与 `ok` 完全一致；
+# - 行 11 `::rewrite_reason_closed_world`：`RewriteRecord.reason` 越界取值 → 判失败；
+# - 行 12 `::verifier_error_fail_closed`：核验器抛错 → fail-closed 取 `ok=False`（不静默放行）；
+# - 行 13 `::no_model_call_in_verification`：本模块零 LLM（AST＋import 双证）；
+#   验收写法＝AST 机检（先例 `test_v2_four_phase.py:446`）＋「无旁路」断言；
+# - 行 14 `::no_lexicon_or_regex_in_verification`：无词表／正则语义判断
+#   （豁免面＝形态处理／集合成员判定）；
+# - 行 17 `::boundary_single_zero_material_conflict_fullwidth`：【边界集】四形各落到对应分支；
+# - 行 18 `::retention_clean_answer_unchanged`：【保留集】无矛盾、有支撑的普通答案：各字段取值与
+#   `ok=True` 行为不变（与规格行为 9「`Verdict.ok=True` 时不得再改写」成对）。
+
+
+# ---------- 行 10：确定性（同输入两次运行 verdict 完全一致） ----------
+
+
+def _determinism_state() -> RunState:
+    """确定性 fixture（构造两次即「同一输入」两次运行——行为 1／2／4 混合面）。"""
+    observations = [
+        _obs(1, "ledger", content="日产油量 21.16 吨"),
+        _obs(2, "ledger", content="日产液量 8824.4 方"),
+        _obs(3, "ledger", content="日产油量：21 吨/日", source="口径卡A"),
+        _obs(4, "ledger", content="日产油量：8824.4 方/日", source="口径卡B"),
+    ]
+    draft = "\n".join(
+        [
+            "一、产量概况",
+            "渤中34-8 油田 2026 年日产油量 21.16 吨[1]。",
+            "渤中34-8 油田 2026 年日产液量 8824.4 方[2]。",
+            "该油田日产油量有 21 吨/日[3]、也有 8824.4 方/日[4]。",
+            "该井日产油量 99.9 吨[1]。",
+        ]
+    )
+    return _state(
+        question="渤中34-8 油田 2026 年日产油量与日产液量是多少？",
+        draft=draft,
+        observations=observations,
+    )
+
+
+async def test_deterministic_repeatable() -> None:
+    """行 10｜同输入两次运行 `Verdict` 五计数与 `ok` 完全一致（零随机、零模型——行为 6 面）。"""
+    first_state = _determinism_state()
+    first_bus = EventBus()
+    first = verify(first_state, bus=first_bus)
+    second_state = _determinism_state()
+    second_bus = EventBus()
+    second = verify(second_state, bus=second_bus)
+
+    counted = ("supported", "rewritten", "split", "cited", "attribution", "ok")
+    assert [getattr(first, name) for name in counted] == [
+        getattr(second, name) for name in counted
+    ]
+    # 五计数非全零空转（确定性断言非平凡：三个计数与引标集体在值）
+    assert (first.supported, first.rewritten, first.split) == (3, 1, 1)
+    assert first.cited == [1, 2, 3, 4]
+    assert first.attribution is True and first.ok is False
+
+    # 同输入两次运行：落地面亦逐字一致（答案面文本／判定卡投影／步 payload／帧流）
+    assert first_state.draft == second_state.draft
+    assert first_state.verdict == second_state.verdict
+    assert _step_payload(first_state) == _step_payload(second_state)
+    assert await _frames(first_bus) == await _frames(second_bus)
+
+
+# ---------- 行 11：`RewriteRecord.reason` 越界取值 → 判失败 ----------
+
+
+async def test_rewrite_reason_closed_world() -> None:
+    """行 11｜`RewriteRecord.reason` 闭世界两值；越界取值 → 判失败
+    （`specs/verification.md:54`）。
+    """
+    assert verification.REWRITE_REASONS == {REWRITE_NO_MATERIAL, REWRITE_CONFLICT}
+    assert verification.REWRITE_REASONS == {"no_material", "conflict"}
+    # 两值各合法
+    for reason in (REWRITE_NO_MATERIAL, REWRITE_CONFLICT):
+        assert RewriteRecord(line="该井日产油量 99.9 吨[1]。", reason=reason).reason == reason
+    # 越界值判失败（fail-closed——不静默归一、不落账）
+    for out_of_range in ("other", "", "NO_MATERIAL", "no_material ", "conflict_or_no_material"):
+        with pytest.raises(ValueError):
+            RewriteRecord(line="该井日产油量 99.9 吨[1]。", reason=out_of_range)  # type: ignore[arg-type]
+
+    # verifier 自产面同样只落闭世界两值（产出点即把守——改写留痕不静默）
+    state = _determinism_state()
+    verdict = verify(state, bus=EventBus())
+    reasons = {entry["reason"] for entry in _step_payload(state)[PAYLOAD_REWRITES_KEY]}
+    assert reasons == {REWRITE_NO_MATERIAL, REWRITE_CONFLICT}
+    assert reasons <= verification.REWRITE_REASONS
+    assert (verdict.rewritten, verdict.split) == (1, 1)
+
+
+# ---------- 行 12：核验器抛错 → fail-closed 取 `ok=False`（不静默放行） ----------
+
+
+async def test_verifier_error_fail_closed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """行 12｜核验器自身抛错 → **不判 `Verdict.ok=True`**（fail-closed）＋缺口（错误契约）。
+
+    `specs/verification.md:58`：转 `Verdict.ok=False` ＋缺口，由 `orchestration` 承接；合法降级
+    路径＝无（:85）——故「不静默放行」＝抛错必须落成 `ok=False` 的判定卡，不得返回放行卡、不得
+    吞错逸出。两路注入：① 规则单点抛错（monkeypatch，核验器自身抛错）；② 观察形态缺键（输入形）。
+    """
+    import appv2.runtimev2.verification.core as verification_core
+
+    observations = [_obs(1, "ledger", content="日产油量 21.16 吨")]
+    draft = "该井日产油量 21.16 吨[1]。"
+
+    # 对照跑：同形状输入正常收束 → ok=True（下行 fail-closed 由注入的抛错唯一牵出，非输入副作用）
+    control_state = _state(draft=draft, observations=observations)
+    control = verify(control_state, bus=EventBus())
+    assert control.ok is True and control.rewritten == 0
+
+    def _boom(*args: Any, **kwargs: Any) -> tuple[str, ...]:
+        raise RuntimeError("核验器自身抛错（测试注入）")
+
+    monkeypatch.setattr(verification_core, "question_anchors", _boom)  # 核验器内部首个调用面
+    state = _state(draft=draft, observations=observations)
+    verdict = verify(state, bus=EventBus())  # 不抛错逸出——错误契约把守在本块
+
+    assert verdict.ok is False  # 不静默放行
+    assert (verdict.supported, verdict.rewritten, verdict.split) == (0, 0, 0)
+    assert verdict.cited == [] and verdict.attribution is False
+    assert len(verdict.gaps) == 1 and verdict.gaps[0].kind == GAP_UNVERIFIED
+    assert "fail-closed" in verdict.gaps[0].reason
+    assert "RuntimeError" in verdict.gaps[0].reason  # 抛错如实留痕（不吞错）
+    assert isinstance(state.verdict, Mapping) and state.verdict.get("ok") is False
+
+    # 第二路（黑盒输入形）：观察缺 `index` → 核验器内部取键抛错，同走 fail-closed
+    monkeypatch.undo()
+    malformed = _state(
+        draft=draft,
+        observations=[{"locator": {"kind": "ledger"}, "content": "日产油量 21.16 吨"}],
+    )
+    malformed_verdict = verify(malformed, bus=EventBus())
+    assert malformed_verdict.ok is False
+    assert len(malformed_verdict.gaps) == 1
+    assert "KeyError" in malformed_verdict.gaps[0].reason
+
+
+# ---------- 行 13：本模块零 LLM（AST＋import 双证） ----------
+
+
+_MODEL_CALL_FORMS = frozenset(
+    {
+        "complete",
+        "acomplete",
+        "completion",
+        "create_completion",
+        "ainvoke",
+        "invoke",
+        "agenerate",
+        "generate",
+        "chat",
+        "embed",
+        "aembed",
+        "embeddings",
+    }
+)
+_MODEL_CHANNEL_MODULES = (
+    "appv2.runtimev2.gateway_adapter",  # R8（零 LLM 面：本块禁引）
+    "appv2.infra.llm_client",  # R7（天然满足：本块不直引该出口）
+)
+_MODEL_CHANNEL_PACKAGES = ("litellm", "openai", "langchain", "langgraph", "dashscope")
+_BYPASS_MODULES = ("importlib",)
+_BYPASS_CALLS = frozenset({"__import__", "eval", "exec", "compile", "import_module"})
+
+
+def _package_sources() -> list[Path]:
+    """本块全部源码（AST 扫描面——两条红线共用的非空转判据）。"""
+    sources = sorted(_VERIFICATION_DIR.glob("*.py"))
+    assert len(sources) >= 5, f"扫描面可疑（文件数 {len(sources)}）"
+    return sources
+
+
+def _tree_of(path: Path) -> ast.Module:
+    return ast.parse(path.read_text(encoding="utf-8"))
+
+
+def _call_names(tree: ast.Module) -> set[str]:
+    """调用名集（裸名＋属性调用形同收——`complete(...)` 与 `client.complete(...)` 都不漏）。"""
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            func = node.func
+            if isinstance(func, ast.Attribute):
+                names.add(func.attr)
+            elif isinstance(func, ast.Name):
+                names.add(func.id)
+    return names
+
+
+def _imported_modules(tree: ast.Module) -> set[str]:
+    modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            modules.add(node.module)
+    return modules
+
+
+def _bypass_forms(tree: ast.Module) -> set[str]:
+    """动态导入／执行旁路形（模型调用不得绕静态名字面走反射——「无旁路」断言）。"""
+    found: set[str] = set()
+    for name in _imported_modules(tree):
+        if name.split(".")[0] in _BYPASS_MODULES:
+            found.add(name.split(".")[0])
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name) and node.func.id in _BYPASS_CALLS:
+                found.add(node.func.id)
+            elif isinstance(node.func, ast.Attribute) and node.func.attr in _BYPASS_CALLS:
+                found.add(node.func.attr)
+    return found
+
+
+def test_no_model_call_in_verification() -> None:
+    """行 13｜本模块零 LLM（AST＋import 双证）。
+
+    本块**不调模型、不存在模型调用发起面**（`specs/verification.md:64`）——不引
+    `appv2.runtimev2.gateway_adapter`（**R8**）＋不直引 `appv2.infra.llm_client`（R7，天然满足）
+    ＋不引框架（R5b）。验收写法＝AST 机检（先例 `tests/domains/test_v2_four_phase.py:446`：裸名＋
+    属性调用形双查）＋「无旁路」断言（动态导入／反射形零出现——静态名字面已被双证封死）。
+    """
+    sources = _package_sources()
+    imported: set[str] = set()
+    for path in sources:
+        tree = _tree_of(path)
+        where = path.name
+        # 双证①（AST）：模型调用形零出现
+        calls = _call_names(tree)
+        assert not calls & _MODEL_CALL_FORMS, (
+            f"{where}: 出现模型调用形 {sorted(calls & _MODEL_CALL_FORMS)}"
+        )
+        # 双证②（import）：模型通道零直引（R8／R7／R5b 的源码面）
+        modules = _imported_modules(tree)
+        imported |= modules
+        for name in modules:
+            assert not name.startswith(_MODEL_CHANNEL_MODULES), f"{where}: 直引模型通道 {name}"
+            assert name.split(".")[0] not in _MODEL_CHANNEL_PACKAGES, (
+                f"{where}: 直引供应商 SDK {name}"
+            )
+        # 「无旁路」：动态导入／执行形零出现
+        assert not _bypass_forms(tree), f"{where}: 动态导入旁路 {sorted(_bypass_forms(tree))}"
+
+    # 扫描面非空转：本块确有自产面（写口面／帧面／题眼锚公开面在场）——零 LLM 非「空包」假绿
+    assert {"appv2.runtimev2.bookkeeping", "appv2.runtimev2.transport", "appv2.tools"} <= imported
+    # 探测器非空转：伪造树即被咬（裸名／属性调用形／直引通道／动态导入旁路）
+    assert _call_names(ast.parse("completer.complete(msgs)\n")) & _MODEL_CALL_FORMS
+    assert _call_names(ast.parse("complete(msgs)\n")) & _MODEL_CALL_FORMS
+    assert "appv2.infra.llm_client" in _imported_modules(
+        ast.parse("from appv2.infra.llm_client import embeddings\n")
+    )
+    assert _bypass_forms(
+        ast.parse("import importlib\nimportlib.import_module('appv2.infra.llm_client')\n")
+    )
+
+
+# ---------- 行 14：程序侧无词表／正则语义判断（AST 扫描；豁免面＝形态处理／集合成员判定） ------
+
+
+_CASE_FOLD_METHODS = frozenset({"lower", "upper", "casefold"})
+_WORD_FACE_METHODS = frozenset({"startswith", "endswith", "split", "partition", "count"})
+# 扫描面＝本块全部正则面（`re`）与**语义词表**两类；豁免面＝形态处理／集合成员判定
+# （规格行 14 原文）：闭世界取值／承载域／行集族／矛盾池排除面的**结构取值集成员判定**
+# 与 NFKC 归一、数值记号扫描、引标辖域切分、JSON 形判定等**形态处理**不算词表判。
+# 被咬四形＝①含汉字串的字面集合（语义词表形）；②非 ASCII 字面成员判定（拿中文词当判据）；
+# ③词面判方法（大小写折叠；「以中文词起止／切分／计数」）；④引入／使用正则面。
+
+
+def _has_cjk(text: str) -> bool:
+    return any("\u4e00" <= char <= "\u9fff" for char in text)
+
+
+def _has_cjk_argument(node: ast.Call) -> bool:
+    """调用是否以**汉字串字面**为参（词面判据的形态面——结构字符集参数不算）。"""
+    for arg in (*node.args, *(keyword.value for keyword in node.keywords)):
+        if isinstance(arg, ast.Constant) and isinstance(arg.value, str) and _has_cjk(arg.value):
+            return True
+        if isinstance(arg, (ast.Tuple, ast.List, ast.Set)):
+            if any(
+                isinstance(item, ast.Constant)
+                and isinstance(item.value, str)
+                and _has_cjk(item.value)
+                for item in arg.elts
+            ):
+                return True
+    return False
+
+
+def _lexicon_violations(tree: ast.Module) -> list[str]:
+    """词表／正则面探测（`re` 面＋含汉字串的字面集合＋非 ASCII 字面成员判定＋词面判方法）。"""
+    findings: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            names = [alias.name for alias in node.names]
+            if isinstance(node, ast.ImportFrom) and node.module:
+                names.append(node.module)
+            for name in names:
+                if name.split(".")[0] in {"re", "regex"}:
+                    findings.append(f"L{node.lineno} 引入正则面：{name}")
+        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+            if node.value.id in {"re", "regex"}:
+                findings.append(f"L{node.lineno} 使用正则面：{node.value.id}.{node.attr}")
+        if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+            for item in node.elts:
+                if (
+                    isinstance(item, ast.Constant)
+                    and isinstance(item.value, str)
+                    and _has_cjk(item.value)
+                ):
+                    findings.append(f"L{node.lineno} 字面集合含汉字串（语义词表形）")
+        if isinstance(node, ast.Compare):
+            for operator in node.ops:
+                if isinstance(operator, (ast.In, ast.NotIn)):
+                    for operand in (node.left, *node.comparators):
+                        if (
+                            isinstance(operand, ast.Constant)
+                            and isinstance(operand.value, str)
+                            and not operand.value.isascii()
+                        ):
+                            findings.append(
+                                f"L{node.lineno} 非结构字符集的成员判据：{operand.value!r}"
+                            )
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            attr = node.func.attr
+            if attr in _CASE_FOLD_METHODS:
+                findings.append(f"L{node.lineno} 词面判方法：{attr}")
+            elif attr in _WORD_FACE_METHODS and _has_cjk_argument(node):
+                findings.append(f"L{node.lineno} 词面判方法（中文词参）：{attr}")
+    return findings
+
+
+def _membership_sites(tree: ast.Module) -> list[int]:
+    """集合成员判定位点（豁免面的实际出现面——扫描面非空转的判据）。"""
+    return [
+        node.lineno
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Compare)
+        and any(isinstance(operator, (ast.In, ast.NotIn)) for operator in node.ops)
+    ]
+
+
+def _defines(sources: list[Path], name: str) -> bool:
+    """形态处理单点在场判据（归一／记号化／引标辖域切分等纯形态函数）。"""
+    return any(
+        isinstance(node, ast.FunctionDef) and node.name == name
+        for path in sources
+        for node in ast.walk(_tree_of(path))
+    )
+
+
+def test_no_lexicon_or_regex_in_verification() -> None:
+    """行 14｜程序侧**无词表／正则语义判断**（AST 扫描本模块；豁免面＝形态处理／集合成员判定）。
+
+    「这句话意思上能不能被材料支持」的**语义蕴含判定不做**（`specs/verification.md:19`「不做什么」
+    第三行）；本块只做**确定性断言级核验**。豁免面两半的实际出现＝集合成员判定（闭世界取值／承载域／
+    行集族／矛盾池排除面的形态值集判定）与形态处理（NFKC 归一、数值记号扫描、引标辖域切分、JSON 形
+    判定——**零正则实现**，见 `rules.py` 模块注）。
+    """
+    sources = _package_sources()
+    for path in sources:
+        tree = _tree_of(path)
+        where = path.name
+        modules = _imported_modules(tree)
+        assert "re" not in modules and "regex" not in modules, f"{where} 引入正则面"
+        assert not any(
+            isinstance(node, ast.Attribute)
+            and isinstance(node.value, ast.Name)
+            and node.value.id in {"re", "regex"}
+            for node in ast.walk(tree)
+        ), f"{where} 使用 re.*"
+        assert _lexicon_violations(tree) == [], f"{where}: {_lexicon_violations(tree)}"
+        # 豁免面二：形态处理——词面判方法零使用（本块连结构字符集面的起止判都不需要）
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                assert node.func.attr not in (_CASE_FOLD_METHODS | _WORD_FACE_METHODS), (
+                    f"{where}:{node.lineno} 词面判方法 {node.func.attr}"
+                )
+
+    # 闭世界取值面全 ASCII（结构取值集，非语义词表——形态值集／闭世界常量）
+    closed_world = (
+        CARRIER_KINDS
+        | ATTRIBUTION_CARRIER_KINDS
+        | ROWSET_OBSERVATION_KINDS
+        | GAP_KINDS
+        | verification.REWRITE_REASONS
+    )
+    assert all(value.isascii() for value in closed_world)
+    # 豁免面非空转：集合成员判定位点与形态处理单点真出现
+    assert [line for path in sources for line in _membership_sites(_tree_of(path))]
+    for name in (
+        "normalize_for_match",
+        "number_tokens",
+        "citation_chunks",
+        "without_markers",
+        "scope_usable",
+        "structural_line",
+    ):
+        assert _defines(sources, name), f"形态处理单点缺席：{name}"
+    # 探测器非空转：词表／正则／汉字串成员判／词面判方法四形各被咬
+    assert _lexicon_violations(ast.parse('WORDS = ["明细", "排名"]\n'))
+    assert _lexicon_violations(ast.parse('import re\nre.search("产量", text)\n'))
+    assert _lexicon_violations(ast.parse('if "谢谢" in text:\n    pass\n'))
+    assert _lexicon_violations(ast.parse('if text.lower() == "no_hit":\n    pass\n'))
+    assert _lexicon_violations(ast.parse('text.startswith("理解：")\n'))
+    assert _lexicon_violations(ast.parse('names.count("日产油量")\n'))
+    # 豁免不是漏网：形态切分／扫描与闭世界取值成员判不被咬
+    assert not _lexicon_violations(ast.parse('line.strip()\n'))
+    assert not _lexicon_violations(ast.parse('text.find("[")\n'))
+    assert not _lexicon_violations(ast.parse('kind in {"agg_row", "lineage"}\n'))
+
+
+# ---------- 行 17：【边界集】四形各落到对应分支 ----------
+
+
+async def test_boundary_single_zero_material_conflict_fullwidth() -> None:
+    """行 17｜【边界集】单句答案／零材料答案／双源矛盾／全角数字 → 各自落到对应分支。"""
+    observations = [_obs(1, "ledger", content="日产油量 21.16 吨")]
+
+    # ① 单句答案（仅一行、有据）→ 有支撑分支（逐句判定在单句面上不塌边）
+    single = "渤中34-8 油田 2026 年日产油量 21.16 吨[1]。"
+    single_state = _state(draft=single, observations=observations)
+    single_verdict = verify(single_state, bus=EventBus())
+    assert (
+        single_verdict.supported,
+        single_verdict.rewritten,
+        single_verdict.split,
+    ) == (1, 0, 0)
+    assert single_verdict.cited == [1] and single_verdict.ok is True
+    assert single_verdict.gaps == []
+    assert single_state.draft == single and single_state.notices == []
+
+    # ② 零材料答案（窗内零材料）→ 无据改写分支（零可解析引标即无据——不自动判过、不静默放行）
+    zero_material = _state(
+        draft="\n".join(
+            [
+                "该井日产油量 21.16 吨[1]。",
+                "该井日产油量 1520 吨。",
+            ]
+        ),
+        observations=[],
+    )
+    empty_verdict = verify(zero_material, bus=EventBus())
+    assert (
+        empty_verdict.supported,
+        empty_verdict.rewritten,
+        empty_verdict.split,
+    ) == (0, 2, 0)
+    assert empty_verdict.cited == [] and empty_verdict.ok is False
+    assert {gap.kind for gap in empty_verdict.gaps} == {GAP_UNVERIFIED}
+    assert all(
+        line.startswith(REWRITE_PREFIX) for line in zero_material.draft.splitlines()
+    )
+
+    # ③ 双源矛盾 → 分列分支（组数＋`conflict` 留痕＋通知；不强调和、不取其一）
+    conflict_state = _state(
+        draft="该油田日产油量有 21 吨/日[1]、也有 8824.4 方/日[2]。",
+        observations=[
+            _obs(1, "ledger", content="日产油量：21 吨/日", source="口径卡A"),
+            _obs(2, "ledger", content="日产油量：8824.4 方/日", source="口径卡B"),
+        ],
+    )
+    conflict_verdict = verify(conflict_state, bus=EventBus())
+    assert (
+        conflict_verdict.supported,
+        conflict_verdict.rewritten,
+        conflict_verdict.split,
+    ) == (1, 0, 1)
+    assert conflict_verdict.ok is True  # 分列不计无据改写数（两维度不强行映射）
+    assert NOTICE_CONTRADICTION_SPLIT in _notice_types(conflict_state)
+    assert {
+        entry["reason"] for entry in _step_payload(conflict_state)[PAYLOAD_REWRITES_KEY]
+    } == {REWRITE_CONFLICT}
+    assert "[1] 口径卡A：日产油量：21 吨/日" in conflict_state.draft
+    assert "[2] 口径卡B：日产油量：8824.4 方/日" in conflict_state.draft
+
+    # ④ 全角数字 → 判据面归一后落有据分支（输出面逐字保留原句）
+    fullwidth = "该井日产油量为２１．１６吨［１］。"
+    full_state = _state(draft=fullwidth, observations=observations)
+    full_verdict = verify(full_state, bus=EventBus())
+    assert (full_verdict.supported, full_verdict.rewritten, full_verdict.cited) == (
+        1,
+        0,
+        [1],
+    )
+    assert full_state.draft == fullwidth
+
+    # 四形各落各支（本行判据）——签名＝（有支撑句数／无据改写句数／分列组数／ok）
+    def _signature(card: Verdict) -> tuple[int, int, int, bool]:
+        return (card.supported, card.rewritten, card.split, card.ok)
+
+    signatures = {
+        "单句答案": _signature(single_verdict),
+        "零材料答案": _signature(empty_verdict),
+        "双源矛盾": _signature(conflict_verdict),
+        "全角数字": _signature(full_verdict),
+    }
+    assert signatures == {
+        "单句答案": (1, 0, 0, True),
+        "零材料答案": (0, 2, 0, False),
+        "双源矛盾": (1, 0, 1, True),
+        "全角数字": (1, 0, 0, True),
+    }
+
+
+# ---------- 行 18：【保留集】无矛盾、有支撑的普通答案：各字段取值与 `ok=True` 行为不变 ----------
+
+
+def _clean_answer_state() -> RunState:
+    """保留集 fixture（无矛盾、有支撑的普通答案——各字段取值与 `ok=True` 行为不变的基线）。"""
+    observations = [
+        _obs(1, "agg_row", content="井号=N-01；日期=2026-01-01；日产油量（吨）=21.16"),
+        _obs(2, "agg_row", content="井号=N-02；日期=2026-01-01；日产油量（吨）=18.4"),
+    ]
+    draft = "\n".join(
+        [
+            "一、产量概况",
+            "N-01 井 2026-01-01 日产油量 21.16 吨[1]。",
+            "N-02 井 2026-01-01 日产油量 18.4 吨[2]。",
+        ]
+    )
+    return _state(
+        question="各井 2026-01-01 日产油量是多少？",
+        draft=draft,
+        observations=observations,
+    )
+
+
+async def test_retention_clean_answer_unchanged() -> None:
+    """行 18｜【保留集】无矛盾、有支撑的普通答案：各字段取值与 `ok=True` 行为不变。"""
+    state = _clean_answer_state()
+    draft = state.draft
+    bus = EventBus()
+    verdict = verify(state, bus=bus)
+
+    # 各字段取值：无改写、无分列、引标落账、归属过、ok=True、无缺口、行集对账齐
+    assert (verdict.supported, verdict.rewritten, verdict.split) == (2, 0, 0)
+    assert verdict.cited == [1, 2]
+    assert verdict.attribution is True and verdict.ok is True and verdict.gaps == []
+    assert (verdict.delivered_rows, verdict.obs_rows) == (2, 2)
+    # `ok=True` 时不得再改写（行为 9）：答案面逐字不变
+    assert state.draft == draft
+    # 零额外信号：无通知、无改写留痕、无行集注记；步 payload 六计数键齐
+    assert state.notices == []
+    payload = _step_payload(state)
+    assert payload[PAYLOAD_REWRITES_KEY] == []
+    assert payload[PAYLOAD_ROW_NOTE_KEY] is None
+    assert payload[PAYLOAD_OK_KEY] is True
+    assert _SIGNAL_PAYLOAD_KEYS <= set(payload)
+    frames = await _frames(bus)
+    assert _of(frames, EVENT_VERDICT) and not _of(frames, EVENT_NOTICE)
+
+    # 行为不变：同输入重跑，判定卡与答案面逐字一致（保留集基线）
+    rerun_state = _clean_answer_state()
+    rerun = verify(rerun_state, bus=EventBus())
+    assert rerun.as_dict() == verdict.as_dict()
+    assert rerun_state.draft == draft
+    assert rerun_state.notices == []
