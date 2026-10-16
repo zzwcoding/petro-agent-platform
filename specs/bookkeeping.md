@@ -66,7 +66,12 @@ def set_intent(state, intent: str) -> None: ...           # next_intent 唯一�
 def append_contract(state, phase: str) -> None: ...       # contracts_appended 唯一写口（幂等；越界相位抛错——钉 pin-24 写入面，行为 8）
 
 # ── 触界收敛与完成收口 ───────────────────────────────────
-def converge(state) -> None: ...          # 落地写入（判定归 state.check_limits）；无回值
+def converge(state, *, elapsed_seconds: float | None = None,
+             consecutive_asks: int | None = None) -> None: ...
+                                          # 落地写入（判定归 state.check_limits）；无回值
+                                          # 两注入参＝**转交判定面**（`seconds`／`ask_cap` 用量不在
+                                          # 状态形状内——注入形真源 specs/state.md 行为 11；2026-10-16
+                                          # 裁·流水 61：轮闸入口把编排计时与连续反问计数交来）
 def direct_answer(state, text: str) -> None: ...
 
 # ── 调模型与工具面 ─────────────────────────────────────
@@ -104,7 +109,7 @@ def result_projection(result) -> dict[str, Any]: ...
 9. **对话层纯度**：`append_dialogue` 的 `origin` 越界即拒；**过程内容（任务书／指令／注记）不得经该入口**（要写过程内容走 `note`）。断言：注入含任务书的一轮后，`dialogue` 条目 `origin` 全落在三值内；越界调用抛错。
 10. **过程档案有界且只追加**：`note` 在**写入点**截断 `digest`（上限真源＝`synth/S5-RunState字段矩阵.md` 的 `process_notes` 条目口径，本规格不复述数字）；只追加、不改写既有条目。断言：超长 `digest` 落库后长度受控且截断可见；既有条目逐字不变。
 11. **通知恰三键＋分型闭世界**：`notice` 落 `{type, gates, content}` 恰三键；`type` ∈ `NOTICE_TYPES`、`gates` ⊆ 轮数／时长两项（**2026-10-16 裁（流水 52-B）**：闭世界以 `LimitHit.limit` 七限额键名为准（旧两限额世界措辞更新）；converge 注记 `gates` 取命中键名），越界即拒；**只追加**。断言：缺键／多键／越界各判失败；通知列只增不减。
-12. **触界收敛落地（幂等）**：`converge(state)` 先调 `state.check_limits`（判定归 `state`）；**命中** → 落地六键（`budget_hit` 追加命中项／通知追加如实注记／答案正文＝已取得材料逐条如实交付／`draft_kind="direct"`／`status="completed"`／`next_intent=answer`）；**未命中** → **零副作用**。**幂等**：已收敛（`budget_hit` 非空）再调 → **无操作**（不重复追加通知、不重复追加 gates、不覆盖答案与状态）。断言：二次调用后通知条数与 gates 长度不变（治现状「已收敛仍可二次收敛」的疑点）。
+12. **触界收敛落地（幂等）**：`converge(state, …)` 先调 `state.check_limits`（判定归 `state`）；**命中** → 落地六键（`budget_hit` 追加命中项／通知追加如实注记／答案正文＝已取得材料逐条如实交付／`draft_kind="direct"`／`status="completed"`／`next_intent=answer`）；**未命中** → **零副作用**。**幂等**：已收敛（`budget_hit` 非空）再调 → **无操作**（不重复追加通知、不重复追加 gates、不覆盖答案与状态）。断言：二次调用后通知条数与 gates 长度不变（治现状「已收敛仍可二次收敛」的疑点）。**注入形两参（2026-10-16 裁·流水 61）**：`elapsed_seconds`／`consecutive_asks` 可选关键词参——本口**原样转交**判定面（`seconds`／`ask_cap` 两键的用量不在 `RunState` 形状内，注入口＝编排侧轮闸入口；本口不自算、不兜底），缺省时判定面与无注入形逐字节等价。
 13. **收敛答案与通知材料面同源**：收敛交付的正文材料与通知里的未完成项清单**取自同一材料面**（不存在两处漂移：答案说交付了 X、通知说未完成 X）。断言：同一状态快照下两处的材料标识集合一致。
 14. **完成收口旁路单点**：`direct_answer(state, text)` 恒写三键（`draft=text`／`draft_kind="direct"`／`next_intent=answer`）——拒答、闸拒、收敛转答、直答共用**同一出口**（免起草免核验）。断言：三键齐备且取值固定。
 15. **调模型单点（桥接）**：`call_model(state, caller, messages)` 从状态取 `run_id` → 调 `gateway_adapter.complete` → **向节点只回 `content`**；**回执的用量与归因面（token／`cached_tokens`／`alias`／时长／`caller`／`run_id`）由本块记进步记录与 Manifest**——**禁裸文本吞掉记账面**（真源 `specs/gateway_adapter.md` 行为 1）。断言：一次调用后步记录/Manifest 里可读到用量与归因字段。

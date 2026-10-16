@@ -25,7 +25,7 @@ import ast
 import asyncio
 import json
 from collections.abc import Sequence
-from datetime import date
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -168,10 +168,12 @@ def v2_runtime(
     watermark: Any = V2_WATERMARK,
     completer: ScriptedCompleter | None = None,
     tables: Any = None,
+    clock: Any = None,
 ) -> tuple[Any, ScriptedCompleter]:
     """runtimev2 标准装配：剧本 completer＋内存簿记表＋四相位图（零 DB、零真实端口）。
 
-    `tables` 非空＝复用既有内存表件（跨 run 的追问／恢复面需要同一份表）。
+    `tables` 非空＝复用既有内存表件（跨 run 的追问／恢复面需要同一份表）；`clock` 非空＝注入计时
+    读数口替身（段时长闸的用量注入面——缺省走 `infra.clock`）。
 
     **审计写口装配点**（生产侧同物＝`security.audit` 桥，归 `api` 组合根 RT-W5-02）：审计唯一写口
     由装配点经 `persistence.configure_audit_sink` 注入——本处注入收集器（`v2_audit_records()`
@@ -188,6 +190,7 @@ def v2_runtime(
         store=V2RunStore(),
         budget=budget,
         watermark=watermark,
+        clock=clock,
     )
     return AgentRuntime(executor), channel
 
@@ -2140,6 +2143,95 @@ async def test_four_phase_clarify_budget_reject_spin_gate() -> None:
     assert converged and "rounds" in converged[0]["gates"]  # 轮数闸收敛（非时长闸）
     assert "未完成项" in converged[0]["content"]  # 触界不静默（未完成项明示）
     assert state.budget_hit  # 机读信号面（`budget_hit` 与注记同现）
+
+
+# ---------- 段时长闸接线（流水 61 裁：编排侧自计时——秒闸真跑） ----------
+
+
+class V2AdvancingClock:
+    """可推进的注入钟（`RunExecutor` 的计时读数口替身——`infra.clock` 语义：零参调用回时刻）。"""
+
+    def __init__(self, at: str) -> None:
+        self.at = datetime.fromisoformat(at)
+
+    def __call__(self) -> datetime:
+        return self.at
+
+
+async def test_four_phase_seconds_gate_overrun_converges_under_limit_clean() -> None:
+    """行 7｜段时长闸（`specs/agent-loop.md:149`「单段时限 300s」）＋流水 61 裁：编排侧自计时。
+
+    两半同判（用量注入面＝`RunExecutor` 的受理腿起点＋`infra.clock` 读数差，挂起等人工不计时、
+    跨段不累计）：
+
+    ① **跑过上限**：注入钟推过 `state.budget.seconds` → 轮闸入口（澄清相位入口）经
+       `state.check_limits(elapsed_seconds=…)` 判出 `seconds` 触界 → `bookkeeping.converge` 落地
+       ——`budget_hit` 含 `seconds`、收敛注记 `gates` 含 `seconds`（触界不静默，且不再发起模型
+       调用——免无界自旋）；
+    ② **未超上限**：同一注入钟不推进 → 零副作用（照常四相位收口：`budget_hit` 空、无
+       `budget_converged` 注记、答案如实交付）。
+    """
+    from appv2.runtimev2.state import TOTAL_SECONDS
+
+    dump = v2_ledger_dump()
+    note = v2_ledger_note(dump, "日产油量")
+    script = {
+        "understand": [V2_UNDERSTAND],
+        "decision": [
+            v2_decompose(
+                subtask_id="s1",
+                question="2025-09-01 到 09-03 各井日产油量",
+                ledger_notes=note,
+                chain="data",
+            ),
+            v2_matches(
+                v2_data_match(subtask_id="s1", slot="日产油量",
+                              start="2025-09-01", end="2025-09-03")
+            ),
+        ],
+        "answer": ["s1：N-01 井 2025-09-01 日产油量 21.16 吨 [1]。"],
+    }
+    wire_ledger_projection(V2LedgerPort(dump))
+
+    # —— ① 跑过时长上限：受理腿取起点（钟未推）→ 图起跑前把钟推过上限 ——
+    clock = V2AdvancingClock("2026-10-08T09:00:00")
+    runtime, completer = v2_runtime(
+        script=script, registry=v2_registry(engine=V2QueueEngine([_rows_outcome()])), clock=clock
+    )
+    handle = await runtime.ask(V2AskRequest(question="段时长闸题", actor=V2_ACTOR))
+    clock.at = clock.at + timedelta(seconds=TOTAL_SECONDS)  # 段内用时＝上限（判据「达上限即触界」）
+    events = [event async for event in handle.stream]
+
+    assert events[-1].event == "blackbox"
+    assert events[-1].data["status"] == "completed"
+    run_id = events[-1].data["run_id"]
+    state = V2RunStore().load(run_id)
+    assert "seconds" in state.budget_hit  # 机读信号面（行为 13：触界必留 budget_hit）
+    converged = [item for item in state.notices if item.get("type") == "budget_converged"]
+    assert converged and "seconds" in converged[0]["gates"]  # 收敛注记 gates 含 seconds（如实）
+    assert "seconds" in converged[0]["content"]
+    assert state.answer  # 收敛正文（有界终止，非降级）
+    assert completer.counts().get("decision", 0) == 0  # 入口收敛：零决策调用（免无界自旋）
+
+    # —— ② 未超时长零副作用：同一注入钟不推进（用时 0 < 上限）→ 照常四相位收口 ——
+    dump_clean = v2_ledger_dump()
+    wire_ledger_projection(V2LedgerPort(dump_clean))
+    runtime_clean, completer_clean = v2_runtime(
+        script=script,
+        registry=v2_registry(engine=V2QueueEngine([_rows_outcome()])),
+        clock=V2AdvancingClock("2026-10-08T09:00:00"),
+    )
+    clean_events = await v2_run(runtime_clean, "时长未到的日产油量题")
+
+    assert clean_events[-1].event == "blackbox"
+    assert clean_events[-1].data["status"] == "completed"
+    clean_state = V2RunStore().load(clean_events[-1].data["run_id"])
+    assert clean_state.budget_hit == []  # 未触界：零机读信号
+    assert not [
+        item for item in clean_state.notices if item.get("type") == "budget_converged"
+    ]  # 未触界恒无注记（行为 12）
+    assert "21.16" in (clean_state.answer or "")  # 照常交付（不误伤）
+    assert completer_clean.counts().get("decision", 0) == 2
 
 
 async def test_make_runtime_guide_contract_follows_four_phase(tmp_path: Path) -> None:

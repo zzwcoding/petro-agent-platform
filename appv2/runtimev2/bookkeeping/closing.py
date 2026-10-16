@@ -122,14 +122,23 @@ def _convergence_notice(
 # ── 触界收敛落地（行为 12／13）─────────────────────────────────────────────
 
 
-def converge(state: RunState) -> None:
+def converge(
+    state: RunState,
+    *,
+    elapsed_seconds: float | None = None,
+    consecutive_asks: int | None = None,
+) -> None:
     """触界收敛落地（行为 12／13）：判定归 `state.check_limits`，本函数只**落地**其结论。
 
     三步（顺序即契约）：① **幂等守卫**——`budget_hit` 非空＝已收敛 → 直接无操作（不重复追加通知、
-    不重复追加 gates、不覆盖答案与状态）；② **判定**——`state.check_limits(state)`（本块不复制其
+    不重复追加 gates、不覆盖答案与状态）；② **判定**——`state.check_limits(state, …)`（本块不复制其
     判据与数值）；③ **落地或零副作用**——命中 → 六键（`budget_hit`／`notices`／`answer`／
     `draft_kind`／`status`／`next_intent`，除这六项外**零字段改动**）；未命中 → 直接返回，状态
     深比较不变。
+
+    **注入形两参**（`seconds`／`ask_cap` 两键的用量不在 `RunState` 形状内，流水 52-A 裁）＝调用方
+    转交给判定面（轮闸入口把编排计时与连续反问计数交来）——本口不自算、不兜底；两参缺省时判定面
+    与无注入形逐字节等价（旧调用点零行为差）。
 
     正文材料与注记未完成项清单同源（`_material_clause` 同一函数）；状态取值引常量
     （`state.RUN_COMPLETED`／`INTENT_ANSWER`／本块 `DRAFT_KIND_DIRECT`），不落裸字面量。
@@ -138,7 +147,9 @@ def converge(state: RunState) -> None:
     """
     if state.budget_hit:  # 已收敛 → 无操作（多入口单点：连判定都免）
         return
-    convergence = check_limits(state)
+    convergence = check_limits(
+        state, elapsed_seconds=elapsed_seconds, consecutive_asks=consecutive_asks
+    )
     if not convergence.hit:  # 未命中 → 零副作用
         return
     limits = [hit.limit for hit in convergence.hit]

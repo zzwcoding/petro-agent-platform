@@ -6,7 +6,7 @@
 写口 `converge`（`specs/bookkeeping.md` 行为 12）——判定／落地分层、一物一处
 （`specs/modules.md` `## state` 卡注／流水 20①）。
 
-用量面只取自状态自身携带的字段（不发明字段、不做兜底字面量）：
+用量面＝状态自身携带的字段（不发明字段、不做兜底字面量）＋ 调用方注入的两键（见下）：
 
 - `rounds` ← `state.rounds`（`synth/S5`：M2 计轮／轮数闸读方）；
 - `discovers_per_run` ← `state.discover_used`（`synth/S5`：全 run 发现预算）；
@@ -14,10 +14,10 @@
   （轮界＝末条 `decision` 步之后；R-K-72「轮＝LLM 决策周期」；步记录形状＝`persistence.StepRecord`
   七字段、`step` ∈ `STEP_KINDS`）。
 
-余下三键（`seconds`／`tool_timeout`／`ask_cap`）的用量面**不在 `RunState` 形状内**：计时字段与
-连续反问计数字段已随「流水 49①」取消（`synth/S5` 已取消四字段），状态侧无载体——本函数不为其
-发明载体，故不作判定。**注入面已备**（2026-10-16 裁·流水 52-A）：`seconds`／`ask_cap` 两键改由
-调用方注入（`elapsed_seconds`／`consecutive_asks`，`None`＝该项不判定），判定逻辑随 W5 票落地；
+余下两键（`seconds`／`ask_cap`）的用量面**不在 `RunState` 形状内**：计时字段与连续反问计数字段已
+随「流水 49①」取消（`synth/S5` 已取消四字段），状态侧无载体——本函数不为其发明载体；**用量由调用
+方注入**（`elapsed_seconds`／`consecutive_asks`，`None`＝该项不判定）——注入形＝2026-10-16 裁·流水
+52-A，判定落地随流水 61 的轮闸接线（计时段内用时＝`seconds`；连续反问＝澄清相位既有口径）。
 `tool_timeout` 为单次调用时限、归执行侧实时面，不经本判定。
 """
 
@@ -78,6 +78,19 @@ def _limit_usage(state: RunState) -> dict[str, float]:
     }
 
 
+def _injected_usage(
+    elapsed_seconds: float | None, consecutive_asks: int | None
+) -> dict[str, float]:
+    """注入用量（键名同 `LimitHit.limit`）：`seconds` ← 调用方计的段内已用时；`ask_cap` ←
+    调用方按既定口径计的连续反问计数。`None`＝该键不判定（缺省注入＝两键皆不判定）。"""
+    injected: dict[str, float] = {}
+    if elapsed_seconds is not None:
+        injected["seconds"] = float(elapsed_seconds)
+    if consecutive_asks is not None:
+        injected["ask_cap"] = float(consecutive_asks)
+    return injected
+
+
 def _budget_cap(budget: Budget, limit: str) -> float:
     """限额上限：按名引 `Budget` 字段（「缺键取缺省」由 `Budget` 缺省面承担，不在此兜底字面量）。"""
     if not isinstance(budget, Budget):
@@ -111,13 +124,17 @@ def check_limits(
 ) -> Convergence:
     """触界判定（纯函数）：判据＝`used >= cap`（达上限即触界——真源 `recon/K` R-K-86）。
 
-    注入面（2026-10-16 裁·流水 52-A）**只接形状**：`elapsed_seconds`（`seconds` 键用量）与
-    `consecutive_asks`（`ask_cap` 键用量）由调用方注入，`None`＝该项不判定——注入值的判定逻辑
-    随 W5 票落地，本函数今日不消费其值。两参缺省时行为与注入面落地前**逐字节等价**（三键不判定、
-    四键判定不变）；返回形不因注入参在场而变，恒为 `Convergence`（未触界＝
+    用量面两源：状态自带四键（`_limit_usage`）＋ **调用方注入两键**（2026-10-16 裁·流水 52-A 的
+    注入形、流水 61 落地判定）——`elapsed_seconds`（`seconds` 键用量：调用方计的段内已用时，真源
+    `specs/agent-loop.md` 行为 7「单段时限」）与 `consecutive_asks`（`ask_cap` 键用量：调用方按澄清
+    相位既有口径计的连续反问计数），`None`＝该项不判定。两参缺省时行为与注入面落地前逐字节等价
+    （两键不判定、状态携带四键判定不变）；返回形不因注入参在场而变，恒为 `Convergence`（未触界＝
     `Convergence(hit=(), notice=None)`）。
     """
-    usage = _limit_usage(state)
+    usage = {
+        **_limit_usage(state),
+        **_injected_usage(elapsed_seconds, consecutive_asks),
+    }
     unknown = sorted(set(usage) - LIMIT_KINDS)
     if unknown:
         raise ValueError(f"用量键越界（闭世界 LIMIT_KINDS）：{unknown}")

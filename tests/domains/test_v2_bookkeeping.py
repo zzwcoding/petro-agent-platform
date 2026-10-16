@@ -798,7 +798,11 @@ _SPEC_FACE: dict[str, dict[str, Any]] = {
         "returns": "None",
     },
     "converge": {
-        "params": (("state", "RunState", _POSITIONAL, _EMPTY),),
+        "params": (
+            ("state", "RunState", _POSITIONAL, _EMPTY),
+            ("elapsed_seconds", "float | None", _KEYWORD_ONLY, None),
+            ("consecutive_asks", "int | None", _KEYWORD_ONLY, None),
+        ),
         "returns": "None",
     },
     "direct_answer": {

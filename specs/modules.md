@@ -295,7 +295,9 @@ class Convergence: ...       # 触界判定结果形状（hit／notice）
 class LimitHit: ...          # 触界命中项（limit 闭世界／used／cap）——Convergence.hit 的元素类型
 # 闭世界常量族：STEP_KINDS／RUN_STATUS_KINDS／INTENT（三族都取自 RunState 字段取值域）
 # 触界**判定**（纯函数——不改入参、不写状态）；数值真源＝recon/K R-K-72…R-K-78 ＋ walk/裁决表 §06-A
-def check_limits(state: RunState) -> Convergence: ...
+def check_limits(state: RunState, *, elapsed_seconds: float | None = None,
+                 consecutive_asks: int | None = None) -> Convergence: ...
+                             # 注入制两参（None＝该项不判定；seconds／ask_cap 用量不在 RunState 形状内——真源 specs/state.md 行为 11）
 ```
 
 > **`converge` 归属裁决（2026-10-15，L0）**：本卡与 `## bookkeeping` 卡原各列一个 `converge`——**判定**归本块（更名 `check_limits`，纯计算）｜**落地写入**（`budget_hit`／`notices`／`status`／`next_intent` 六键）归 `bookkeeping` 的唯一写口 `converge`（**无回值**）。一物一处，避免双写口漂移。
@@ -323,6 +325,14 @@ class AgentRuntime:
 ```
 
 > **公开面注（流水 51 卡级修正）**：受理三形状（AskRequest/AskChoice/RunHandle）与装配面经包根 re-export 供 api 消费（2026-10-16，流水 51）。
+> **公开面注②（流水 61 卡级回写——RT-W5-01c 偏差 6 拟注照落，2026-10-16）**：包根 re-export 面逐名——
+> **受理三形状**（AskRequest／AskChoice／RunHandle——**真源 state**，本块只 re-export、零第二定义）／
+> **错误族两件**（RunNotFoundError／RunNotSuspendedError——api 据此映射 404／409）／
+> **接缝两件**（RunCommand／RunEvent——`RunCommand → 执行器 → RunEvent` 显式接缝，将来换队列消费者接口不变）／
+> **RunExecutor**（构造／注入形——工具注册表＋存储口＋限额＋**saver 注入参**＋相位注入参＋**计时读数口**〔段时长闸用量注入面：`clock`，缺省 `infra.clock`——2026-10-16 裁·流水 61〕；缺省由本块内构造）／
+> **Budget**（**re-export，真源 state**——装配构造注入件用）。**真源块注（防一头两认）**：形状真源在 state 者只 re-export（受理三形状／`Budget`——零第二定义）；本块自有者＝`RunExecutor`／接缝两件／错误族两件。
+> **两处不经本包根出（防同一缝两名）**：**模型 completer 注入缝**（真源 `gateway_adapter` 包根——api 装配直取该包根）与
+> **检查点 saver**（`PgCheckpointer` **本块内构造、不出包根（框架零出口）**——R5b 红线，框架类型不得出现在公开面签名上）。
 
 ### 依赖
 - 模块: `state`、`bookkeeping`、`transport`、`persistence`、`infra`（身份缝与审计唯一写口，只经其公开面），以及七个业务相位
@@ -350,7 +360,9 @@ def notice(state, *, type, gates=(), content) -> None: ...   # 通知追加（ty
 def set_intent(state, intent: str) -> None: ...              # next_intent 唯一写口（闭世界越界即拒；路由决策仍在 orchestration）
 def append_contract(state, phase) -> None: ...                # contracts_appended 字段唯一写函数（幂等、越界相位抛错）
 # ── 触界收敛与完成收口 ────────────────────────────────────
-def converge(state) -> None: ...        # 落地写入（判定归 `state.check_limits`；无回值——写 budget_hit／notices／正文／draft_kind／status／next_intent）
+def converge(state, *, elapsed_seconds=None, consecutive_asks=None) -> None: ...
+                                         # 落地写入（判定归 `state.check_limits`；无回值——写 budget_hit／notices／正文／draft_kind／status／next_intent）
+                                         # 两注入参＝转交判定面（seconds／ask_cap 用量不在状态形状内；2026-10-16 裁·流水 61）
 def direct_answer(state, text) -> None: ...                  # 确定性直答标记（免起草免核验的收口旁路）
 # ── 调模型与工具面 ────────────────────────────────────────
 def call_model(state, caller: str, messages) -> str: ...   # 节点侧调模型单点：从 state 取 run_id → 调 gateway_adapter.complete → 向节点只回 content；回执的用量/归因面归本块记账

@@ -17,7 +17,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Collection, Hashable, Mapping, Sequence
+from collections.abc import Callable, Collection, Hashable, Mapping, Sequence
 from dataclasses import dataclass, field, fields
 from datetime import date
 from typing import Any
@@ -27,6 +27,7 @@ from langgraph.graph import END, START, StateGraph
 from appv2.runtimev2.answering import answer
 from appv2.runtimev2.bookkeeping import converge, set_intent
 from appv2.runtimev2.clarification import ClarifyAsk, ClarifyFinal, clarify
+from appv2.runtimev2.clarification.constants import PAYLOAD_ASK_FRAME
 from appv2.runtimev2.context import DEFAULT_MAX_OBSERVATIONS
 from appv2.runtimev2.execution import ERROR_BAD_ARGS, ERROR_RETRYABLE, execute
 from appv2.runtimev2.orchestration.constants import (
@@ -71,6 +72,7 @@ from appv2.runtimev2.state import (
     INTENT_VERIFY,
     RUN_WAITING_ASK,
     RunState,
+    check_limits,
 )
 from appv2.runtimev2.tool_matching import ToolMatchRejection, match
 from appv2.runtimev2.transport import EventBus
@@ -146,6 +148,9 @@ class LoopDeps:
     max_observations: int = DEFAULT_MAX_OBSERVATIONS
     emitted_steps: int = field(default=0)
     emitted_notices: int = field(default=0)
+    # 段内已用时读数（秒）：动作者＝组合根（受理腿取起点、`infra.clock` 读数差——B14 唯一时间出口；
+    # 挂起等人工不计时、跨段不累计，故由组合根按腿现算）。无注入＝`None`（该键不判定）。
+    elapsed_seconds: Callable[[], float] | None = None
 
 
 def _flush_steps(deps: LoopDeps, state: RunState) -> None:
@@ -256,13 +261,26 @@ def _make_understand(deps: LoopDeps) -> Any:
     return node
 
 
+# 预算闸入口的判定键集（行为 7）：轮数／段时长／连续反问三闸在本入口收敛。
+# 发现／执行两键（`discovers_per_round`／`executes_per_round`／`discovers_per_run`）的用量面属
+# **发射级拒因回喂**（相位侧报价拒＋回炉占轮——`clarification` 的发现预算闸与 `execution` 的空手
+# 探查闸），其用量到顶**不等于**本 run 该收敛（仍可回炉／换链／作答交付），故不进本入口收敛面。
+_ENTRY_LIMIT_KEYS: frozenset[str] = frozenset({"rounds", "seconds", "ask_cap"})
+
+
 def _make_clarify(deps: LoopDeps) -> Any:
     async def node(state: RunState) -> dict[str, Any]:
-        if _rounds_exhausted(state):
-            # 轮数闸（行为 7「轮数每用户输入周期 ≤3」＋行为 3「本块保留轮数闸／自旋收敛的
-            # 预算面层」）：到顶即**触界收敛**（材料如实交付＋ notice——行为 7／「触界不得静默」），
-            # 不再发起模型调用（免无界自旋；拒因回喂与失败子集回炉两路都经本入口收敛）。
-            converge(state)
+        # 预算闸入口（行为 7「触界即收敛」）：本入口判**三闸**——轮数／段时长／连续反问（时长与连续
+        # 反问的用量不在状态形状内，由组合根注入；判定归 `state.check_limits`，本块不复制其判据与
+        # 数值）。命中即**触界收敛**（材料如实交付＋ notice——行为 7／「触界不得静默」）：落地归
+        # `bookkeeping.converge`（含命中项分叉注记），不再发起模型调用（免无界自旋；拒因回喂与失败
+        # 子集回炉两路都经本入口收敛）。发现／执行两键的用量面由相位侧拒因回喂机理管（本入口不收敛，
+        # 见 `_ENTRY_LIMIT_KEYS`）。
+        elapsed = None if deps.elapsed_seconds is None else deps.elapsed_seconds()
+        asks = _consecutive_asks(state)
+        convergence = check_limits(state, elapsed_seconds=elapsed, consecutive_asks=asks)
+        if any(hit.limit in _ENTRY_LIMIT_KEYS for hit in convergence.hit):
+            converge(state, elapsed_seconds=elapsed, consecutive_asks=asks)
             set_intent(state, INTENT_ANSWER)
             _flush_notices(deps, state)
             _flush_steps(deps, state)
@@ -284,12 +302,22 @@ def _make_clarify(deps: LoopDeps) -> Any:
     return node
 
 
-def _rounds_exhausted(state: RunState) -> bool:
-    """轮数闸判据（纯数值比较，零语义判断）：本 run 已用轮数 ≥ 限额表轮数键。
+def _consecutive_asks(state: RunState) -> int:
+    """连续反问计数（`ask_cap` 键用量）：**口径照澄清相位既有实现**（`clarification._ask_count`
+    ——run 生命期内**已发射的 ask** 计步数，计数载体＝步记录 payload 携 ask 帧标记
+    `PAYLOAD_ASK_FRAME`；「run 生命期内计数、任何路径不清零」＝防环语义，真源 `recon/K` R-K-77）。
 
-    数值只引 `state.budget`（键集与缺省真源 `specs/state.md` 行为 10——本模块不写字面值）。
+    本处只按同一口径数数，**不新造计数载体**（`consecutive_asks` 状态字段已随流水 49① 取消，
+    键名与上限值归 `state.Budget`）。非映射行／缺 payload 行如实不计。
     """
-    return int(state.rounds) >= int(state.budget.rounds)
+    total = 0
+    for entry in state.steps:
+        if not isinstance(entry, dict):
+            continue
+        payload = entry.get("payload")
+        if isinstance(payload, Mapping) and payload.get(PAYLOAD_ASK_FRAME):
+            total += 1
+    return total
 
 
 def _make_discover(deps: LoopDeps) -> Any:

@@ -46,7 +46,7 @@ import hashlib
 import json
 from collections.abc import AsyncIterator, Collection, Mapping, Sequence
 from dataclasses import asdict
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 from appv2.infra import clock as infra_clock
@@ -190,6 +190,7 @@ class RunExecutor:
         data_wells: Collection[str] | None = None,
         max_observations: int = DEFAULT_MAX_OBSERVATIONS,
         load_ledger: bool = True,
+        clock: Any = None,
     ) -> None:
         self._registry = registry
         self._store = store if store is not None else RunStore()
@@ -202,6 +203,12 @@ class RunExecutor:
         self._data_wells = data_wells
         self._max_observations = max_observations
         self._load_ledger = load_ledger
+        # 段时长闸的计时面（行为 7「单段时限」）：**编排侧自计时**——组合根持有的时钟读数口
+        # （B14 唯一时间出口 `infra.clock`；可注入替身）＋逐段起点（受理腿取；挂起等人工不计时、
+        # 跨段不累计——按段取起点，故每腿受理时重取）。二者都是本类**实例字段、非状态字段**
+        # （`RunState` 形状不加计时位——流水 49① 已取消计时字段）。
+        self._clock = infra_clock.now if clock is None else clock
+        self._started: dict[str, datetime] = {}
         self._buses: dict[str, EventBus] = {}
         self._cursors: dict[str, int] = {}
         self._tasks: set[asyncio.Task[None]] = set()
@@ -230,6 +237,7 @@ class RunExecutor:
         run_id = new_run_id()
         bus = EventBus()
         self._buses[run_id] = bus
+        self._started[run_id] = self._clock()  # 本段计时起点（行为 7「单段时限」按段取）
         # 留痕①受理（`security.audit` 唯一写口）：who 槽＝入口点已解析的 `Actor` 全名（空身份经
         # `resolve_actor` 落缺省角色——身份解析只此一缝）。**解析先于建 run 行**：身份不可解析时
         # 不留半建的 run（fail-closed）。
@@ -265,11 +273,23 @@ class RunExecutor:
         state.status = RUN_RUNNING
         cursor = self._cursors.get(command.run_id, 0)
         bus = self._bus_of(command.run_id)
+        # 恢复腿计时起点重取（行为 7：挂起等人工不计时、不累计跨段——计步计时均按段）。
+        self._started[command.run_id] = self._clock()
         self._store.save(self._run_record(state, RUN_RUNNING))
         self._spawn(state, bus, command.run_id)
         # 恢复腿＝**同一条总线续编**（`specs/transport.md` 行为 3「跨段不重启、重放不位移」）：
         # 排他起点＝上一腿收口帧之后（`_cursors`），回执 `cursor` 与之一致（＝本腿下一帧 `seq`）。
         return handle_of(command.run_id, _leg_stream(bus, cursor), cursor=cursor)
+
+    def _elapsed_seconds(self, run_id: str) -> float:
+        """本段内已用时（秒）：本腿受理时取的起点 ← 钟读数差（B14 唯一时间出口，可注入替身）。
+
+        起点缺席（旧 run／未经本执行器受理）＝`0.0`——**不冒充用时**（判据处 `>=` 不因兜底假命中）。
+        """
+        started = self._started.get(run_id)
+        if started is None:
+            return 0.0
+        return float((self._clock() - started).total_seconds())
 
     def _bus_of(self, run_id: str) -> EventBus:
         """取 run 的活体总线（历史缓冲）；缺席／已封口（跨进程恢复面）→ 新起一条续编。"""
@@ -375,6 +395,9 @@ class RunExecutor:
                 # 按「新增逐条」语义发帧）。
                 emitted_steps=len(state.steps),
                 emitted_notices=len(state.notices),
+                # 段时长闸的用量读数（行为 7「单段时限」）：受理腿取的起点 ← 钟读数差——本腿现算
+                # （挂起等人工不计时、跨段不累计）。
+                elapsed_seconds=lambda: self._elapsed_seconds(run_id),
             )
             result = await build_graph(deps, checkpointer=self._saver).ainvoke(
                 state,
