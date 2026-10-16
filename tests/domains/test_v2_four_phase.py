@@ -52,6 +52,7 @@ from appv2.runtimev2.gateway_adapter import ScriptedCompleter, set_completer
 from appv2.runtimev2.orchestration import AgentRuntime, RunExecutor
 from appv2.runtimev2.persistence import (
     MemoryTables,
+    configure_audit_sink,
     configure_tables,
 )
 from appv2.runtimev2.persistence import (
@@ -123,6 +124,15 @@ class V2LedgerPort:
         return dict(self._dump)
 
 
+# 审计写口收集器（本测试装配点的注入件；生产同物＝`security.audit` 桥）。
+V2_AUDIT: list[Any] = []
+
+
+def v2_audit_records() -> list[Any]:
+    """本次装配以来落的审计记录（`persistence.AuditRecord` 序列——最近一次 `v2_runtime` 起算）。"""
+    return list(V2_AUDIT)
+
+
 def v2_ledger_dump() -> dict[str, Any]:
     store = InMemoryKnowledgeStore(question_array_snapshot(), today=V2_TODAY)
     return dict(dump_from_store(store))
@@ -162,8 +172,15 @@ def v2_runtime(
     """runtimev2 标准装配：剧本 completer＋内存簿记表＋四相位图（零 DB、零真实端口）。
 
     `tables` 非空＝复用既有内存表件（跨 run 的追问／恢复面需要同一份表）。
+
+    **审计写口装配点**（生产侧同物＝`security.audit` 桥，归 `api` 组合根 RT-W5-02）：审计唯一写口
+    由装配点经 `persistence.configure_audit_sink` 注入——本处注入收集器（`v2_audit_records()`
+    读面），使 `orchestration` 的五处留痕（受理／三态收口／拒答收口／外表审批决定／禁用词豁免）
+    真实落账，而非走「写口未装配」的缺口通道。
     """
     configure_tables(tables if tables is not None else MemoryTables())
+    V2_AUDIT.clear()
+    configure_audit_sink(V2_AUDIT.append)
     channel = completer if completer is not None else ScriptedCompleter(script)
     set_completer(channel)
     executor = RunExecutor(
@@ -730,30 +747,37 @@ def test_ctx_of_carries_approved_tables_from_state() -> None:
 
 
 def test_precondition_and_parse_layers_are_zero_llm() -> None:
-    """R1 双证补强（S4，P-033 中途审查）：直接面 AST（裸名＋属性调用形双查——
-    裸名 complete(...) 不再漏检）＋import 闭包递归扫描（「及其传递依赖」锁进
-    机器闸——闭包内任何 appv2 文件 import 模型判定通道即红）。
+    """行 5｜前置条件机零 LLM（AST＋import 双证扫描）——V2 两层 ＋ 编排侧同红线。
 
-    闭包扫描通道集＝模型判定面（appv2.runtime.llm／appv2.infra.gateway／
-    langchain/litellm/openai 供应商 SDK）；appv2.infra.llm_client（B6 embedding
-    唯一出口——供应商 SDK 接触的在册单点，其 litellm import 由 B6 纪律＋
-    import-linter 合同管辖，非判定面）显式放行不入闭包扫描。
+    规格原文（`specs/agent-loop.md:89`）：「**前置条件机（precondition）**：纯固定代码零 LLM（铁律
+    ——LLM 无权判定）」；本行双证扫 **V2 落地面**（`appv2/runtimev2/preconditions/` 与
+    `appv2/runtimev2/parsing/` 两包 ＋ 闸件本体 `appv2/tools/precondition.py`）：
+
+    ① **直接面 AST**（裸名＋属性调用形双查）——两包与闸件本体不出现模型调用形；
+    ② **import 闭包递归扫描**（「及其传递依赖」锁进机器闸）——闭包内任一 appv2 文件 import 模型
+       判定通道（供应商 SDK／V1 模型通道）即红；`appv2.infra.llm_client`（B6 embedding 唯一出口
+       ——供应商 SDK 接触的在册单点）显式放行不入闭包禁面。
+    另加**编排侧同红线**：本块（`orchestration`）不直引模型出口与供应商 SDK——模型调用发起面＝
+    `bookkeeping.call_model` 单点（规格 `specs/agent-loop.md:72`）；编排层不为这两层引入任何 LLM
+    判定面。
     """
     repo = Path(__file__).resolve().parents[2]
     seeds = {
         Path("appv2/tools/precondition.py"),
-        Path("appv2/tools/ledger.py"),
-        Path("appv2/runtime/subtask.py"),
+        *(
+            path.relative_to(repo)
+            for path in (repo / "appv2/runtimev2/preconditions").rglob("*.py")
+            if "__pycache__" not in path.parts
+        ),
+        *(
+            path.relative_to(repo)
+            for path in (repo / "appv2/runtimev2/parsing").rglob("*.py")
+            if "__pycache__" not in path.parts
+        ),
     }
     forbidden_calls = {"complete", "ainvoke", "invoke", "agenerate", "generate"}
     forbidden_modules = ("llm", "gateway", "litellm", "openai", "langchain")
-    closure_forbidden = (
-        "appv2.runtime.llm",
-        "appv2.infra.gateway",
-        "langchain",
-        "litellm",
-        "openai",
-    )
+    closure_forbidden = ("appv2.runtime.llm", "litellm", "openai", "langchain")
 
     def _module_file(module: str) -> Path | None:
         base = repo.joinpath(*module.split("."))
@@ -790,7 +814,7 @@ def test_precondition_and_parse_layers_are_zero_llm() -> None:
                 )
                 if rel in seeds and name in forbidden_calls:
                     raise AssertionError(
-                        f"{rel}: 前置条件机直接面出现模型调用形 {name}"
+                        f"{rel}: 前置条件机／解析层直接面出现模型调用形 {name}"
                     )
             if isinstance(node, (ast.Import, ast.ImportFrom)):
                 for name in _imported(node):
@@ -814,6 +838,21 @@ def test_precondition_and_parse_layers_are_zero_llm() -> None:
                             queue.append(resolved)
     # 扫描器空转防假绿：闭包须真到达传递依赖（三种子之外还有被扫文件）。
     assert len(visited) > len(seeds), f"import 闭包扫描未达传递依赖（扫了 {len(visited)} 文件）"
+    assert repo / "appv2/runtimev2/bookkeeping/ports.py" in visited  # 已知传递依赖（闭包真达面）
+    assert repo / "appv2/runtimev2/state/models.py" in visited
+
+    # 编排侧同红线：本块不直引模型出口／供应商 SDK（发起面＝bookkeeping.call_model 单点）
+    orchestration = repo / "appv2/runtimev2/orchestration"
+    for path in sorted(orchestration.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            for name in _imported(node):
+                assert name not in {
+                    "appv2.runtimev2.gateway_adapter",
+                    "appv2.infra.llm_client",
+                    "litellm",
+                    "openai",
+                }, f"{path.relative_to(repo)}: 编排层直引模型出口／供应商 SDK：{name}"
 
 
 # ---------- 四相位路由真跑（端到端剧本） ----------
@@ -1613,6 +1652,236 @@ async def test_four_phase_engine_ask_resume_batch_chain() -> None:
     assert [row.payload["status"] for row in executed] == ["ask", "ok"]  # 首挂起＋续跑
     assert v2_resume_steps(run_id, "volatile")  # 恢复守卫：重取易变环境量（执行面四项）
     assert "21.16" in (V2RunStore().run(run_id).answer or "")
+
+
+# ---------- 边界集／保留集（RT-W5-01c 行 35／36——收口簇的两端钉） ----------
+
+
+async def test_boundary_suspend_interrupt_budget_rewire_bad_cite() -> None:
+    """行 35｜【边界集】挂起／中断／预算触界／换链回炉／坏引标 → 各自落到对应分支。
+
+    五个边界形各跑一遍真链，逐形钉住**落到哪条分支**（不互串、不吞）：
+
+    1. **挂起**——工具侧 ask（引擎观察为等用户）→ `ask` 帧 ＋ run 转 `waiting_ask`（本腿收束、
+       run 未收口）；
+    2. **中断**——台账投影端口中断 → fail-closed 收束为 `failed`（**不产出半成品答案**）；
+    3. **预算触界**——轮预算到顶 → 收敛交付（`budget_converged` notice ＋ 终态 `completed`）；
+    4. **换链回炉**——在册未绑定 agg 触发换链闸 → 回炉①澄清（`chain_switch_reentry` notice、
+       数据链零执行、知识链真执行）；
+    5. **坏引标**——草稿引标越界（坏引标）→ 作答相位判失败，由本块 fail-closed 收束为 `failed`。
+    """
+    from appv2.infra.clock import freeze
+    from appv2.query import ASKBACK_TIME_CHOICES, ASKBACK_TIME_QUESTION, QueryOutcome
+    from appv2.runtimev2.state import Budget
+
+    dump = v2_ledger_dump()
+    note = v2_ledger_note(dump, "日产油量")
+
+    # ——1 挂起：工具侧 ask ——
+    wire_ledger_projection(V2LedgerPort(dump))
+    ask_engine = V2QueueEngine(
+        [
+            QueryOutcome.need_clarify(
+                question=ASKBACK_TIME_QUESTION, choices=ASKBACK_TIME_CHOICES
+            )
+        ]
+    )
+    with freeze("2026-10-08T09:00:00"):
+        runtime, _completer = v2_runtime(
+            script={
+                "understand": [V2_UNDERSTAND],
+                "decision": [
+                    v2_decompose(subtask_id="s1", question="最近的日产油量",
+                                 ledger_notes=note, chain="data"),
+                    v2_matches(v2_data_match(subtask_id="s1", slot="日产油量",
+                                             start="2025-09-01", end="2025-09-03")),
+                ],
+            },
+            registry=v2_registry(engine=ask_engine),
+        )
+        suspend_events = await v2_run(runtime, "最近的日产油量")
+    asks = v2_ask_frames(suspend_events)
+    assert asks and asks[-1]["frame"]["kind"] == "clarify"
+    assert suspend_events[-1].event == "verdict"
+    assert suspend_events[-1].data["status"] == "waiting_ask"
+    assert V2RunStore().run(asks[-1]["run_id"]).status == "waiting_ask"
+
+    # ——2 中断：台账装载中断 → fail-closed failed ——
+    class _BrokenLedger:
+        async def fetch(self) -> dict[str, Any]:
+            raise RuntimeError("台账投影端口中断")
+
+    wire_ledger_projection(_BrokenLedger())
+    with freeze("2026-10-08T09:00:00"):
+        runtime_i, _completer_i = v2_runtime(
+            script={"understand": [V2_UNDERSTAND]},
+            registry=v2_registry(),
+        )
+        interrupt_events = await v2_run(runtime_i, "中断题")
+    assert interrupt_events[-1].event == "blackbox"
+    assert interrupt_events[-1].data["status"] == "failed"
+    interrupt_row = V2RunStore().run(interrupt_events[-1].data["run_id"])
+    assert interrupt_row is not None and interrupt_row.status == "failed"
+    assert not (interrupt_row.answer or ""), "非法降级：失败不得产出半成品答案"
+    assert any(
+        event.data.get("type") == "run_failed"
+        for event in interrupt_events
+        if event.event == "notice"
+    )
+
+    # ——3 预算触界：轮预算 0 → 首相位入口收敛 ——
+    dump_budget = v2_ledger_dump()
+    wire_ledger_projection(V2LedgerPort(dump_budget))
+    with freeze("2026-10-08T09:00:00"):
+        runtime_b, _completer_b = v2_runtime(
+            script={"understand": [V2_UNDERSTAND], "decision": [], "answer": []},
+            registry=v2_registry(engine=V2QueueEngine([_rows_outcome()])),
+            budget=Budget(rounds=0),
+        )
+        budget_events = await v2_run(runtime_b, "预算触界题")
+    assert budget_events[-1].data["status"] == "completed"
+    budget_row = V2RunStore().run(budget_events[-1].data["run_id"])
+    assert budget_row is not None and budget_row.status == "completed"
+    assert budget_row.answer  # 触界收敛正文（有界终止，非降级）
+    assert any(
+        event.data.get("type") == "budget_converged"
+        for event in budget_events
+        if event.event == "notice"
+    )
+
+    # ——4 换链回炉：在册未绑定 agg → 回炉①澄清改链 ——
+    dump_rewire = v2_ledger_dump()
+    bound_note = v2_ledger_note(dump_rewire, "配产量")
+    knowledge_note = v2_ledger_note(dump_rewire, "老完成率")
+    wire_ledger_projection(V2LedgerPort(dump_rewire))
+    retrieval = _retrieval_with(_fragment_obs(
+        "配产量按月度计划分解下达：各井合计月度配产 21.4 万方（月报所载）。", "frag-peichan-b"
+    ))
+    data_engine = V2QueueEngine([])
+    with freeze("2026-10-08T09:00:00"):
+        runtime_r, _completer_r = v2_runtime(
+            script={
+                "understand": [V2_UNDERSTAND],
+                "decision": [
+                    v2_decompose(subtask_id="s1", question="去年各井配产量",
+                                 ledger_notes=bound_note, chain="data"),
+                    v2_matches(v2_data_match(subtask_id="s1", slot="配产量",
+                                             start="2025-01-01", end="2026-01-01")),
+                    v2_decompose(subtask_id="s1", question="去年各井配产量（换链）",
+                                 ledger_notes=knowledge_note, chain="knowledge"),
+                    v2_matches(v2_knowledge_match(subtask_id="s1", question="去年各井配产量")),
+                ],
+                "answer": ["去年各井配产量：月度配产合计 21.4 万方 [1]（按文档所载交付）。"],
+            },
+            registry=v2_registry(engine=data_engine, retrieval=retrieval),
+        )
+        rewire_events = await v2_run(runtime_r, "去年各井配产量是多少？")
+    assert rewire_events[-1].data["status"] == "completed"
+    assert not v2_ask_frames(rewire_events)  # 换链回炉不挂起（回炉①澄清改链）
+    assert any(
+        event.data.get("type") == "chain_switch_reentry"
+        for event in rewire_events
+        if event.event == "notice"
+    )
+    rewire_run_id = rewire_events[-1].data["run_id"]
+    rewire_steps = v2_steps(rewire_run_id, "precondition")
+    assert rewire_steps[0].payload["chain_switch_reentry"] is True  # 换链回炉首次触发
+    assert data_engine.run_calls == 0  # 数据链零执行（不直答不执行）
+    assert retrieval.retrieve_calls == 1  # 换知识链真执行
+
+    # ——5 坏引标：草稿引标越界 → 作答相位判失败 → fail-closed failed ——
+    dump_cite = v2_ledger_dump()
+    cite_note = v2_ledger_note(dump_cite, "日产油量")
+    wire_ledger_projection(V2LedgerPort(dump_cite))
+    with freeze("2026-10-08T09:00:00"):
+        runtime_c, _completer_c = v2_runtime(
+            script={
+                "understand": [V2_UNDERSTAND],
+                "decision": [
+                    v2_decompose(subtask_id="s1", question="2025-09-01 到 09-03 各井日产油量",
+                                 ledger_notes=cite_note, chain="data"),
+                    v2_matches(v2_data_match(subtask_id="s1", slot="日产油量",
+                                             start="2025-09-01", end="2025-09-03")),
+                ],
+                "answer": ["N-01 井 2025-09-01 日产油量 21.16 吨 [9]。"],  # 引标越界（坏引标）
+            },
+            registry=v2_registry(engine=V2QueueEngine([_rows_outcome()])),
+        )
+        cite_events = await v2_run(runtime_c, "坏引标题")
+    assert cite_events[-1].event == "blackbox"
+    assert cite_events[-1].data["status"] == "failed"
+    cite_row = V2RunStore().run(cite_events[-1].data["run_id"])
+    assert cite_row is not None and cite_row.status == "failed"
+    assert "引标" in (cite_row.error or "")  # 坏引标如实留痕
+    assert not (cite_row.answer or ""), "非法降级：坏引标不得产出半成品答案"
+
+
+async def test_retention_plain_four_phase_unchanged() -> None:
+    """行 36｜【保留集】普通提问四相位收口行为不变（无挂起、无触界、无回炉）。
+
+    保留集判据＝**普通提问的收口行为逐项不变**：一轮四相位走完直接收口——零 `ask` 帧（不挂起）、
+    零预算触界（`budget_hit` 空、无 `budget_converged`）、零换链回炉（无 `chain_switch_reentry`）、
+    零失败（无 `run_failed`）；步序与收口帧序（`verdict(final)` → `blackbox`）保持既有形状。
+    """
+    from appv2.infra.clock import freeze
+    from appv2.runtimev2.persistence import RunStore
+
+    dump = v2_ledger_dump()
+    note = v2_ledger_note(dump, "日产油量")
+    wire_ledger_projection(V2LedgerPort(dump))
+    engine = V2QueueEngine([_rows_outcome()])
+    with freeze("2026-10-08T09:00:00"):
+        runtime, completer = v2_runtime(
+            script={
+                "understand": [V2_UNDERSTAND],
+                "decision": [
+                    v2_decompose(subtask_id="s1", question="2025-09-01 到 09-03 各井日产油量",
+                                 ledger_notes=note, chain="data"),
+                    v2_matches(v2_data_match(subtask_id="s1", slot="日产油量",
+                                             start="2025-09-01", end="2025-09-03")),
+                ],
+                "answer": ["子任务 s1：N-01 井 2025-09-01 日产油量 21.16 吨 [1]。"],
+            },
+            registry=v2_registry(engine=engine),
+        )
+        events = await v2_run(runtime, "2025 年 9 月 1 日到 3 日的日产油量")
+
+    # 收口形状不变：末帧 blackbox、其前 verdict(final)、状态 completed
+    assert [event.event for event in events][-1] == "blackbox"
+    assert events[-2].event == "verdict"
+    assert events[-2].data["status"] == "completed"
+    assert events[-2].data["subtype"] == "final"
+    run_id = events[-1].data["run_id"]
+    row = RunStore().run(run_id)
+    assert row is not None and row.status == "completed"
+    assert row.answer and "21.16" in row.answer
+    assert row.manifest_digest
+
+    # 三类「异常分支」零命中：不挂起、不触界、不回炉、不失败
+    assert not [event for event in events if event.event == "ask"]
+    notices = [event.data for event in events if event.event == "notice"]
+    assert not [
+        item
+        for item in notices
+        if item.get("type") in {"budget_converged", "chain_switch_reentry", "run_failed"}
+    ]
+    state = RunStore().load(run_id)
+    assert state.budget_hit == []
+    assert state.pending_ask is None
+    assert int(state.rounds) == 1  # 一轮收口（普通提问不占二轮）
+    assert engine.run_calls == 1  # 单支恰执行一次
+
+    # 步序不变：决策×5（读题／澄清／匹配／过闸／收口路由）＋执行／作答两拍／核验各就位
+    kinds = [row.step for row in v2_steps(run_id)]
+    assert kinds == [
+        "decision", "decision", "decision", "decision", "decision",
+        "execute", "answer", "answer", "verify", "answer",
+    ]
+    phases = {
+        (row.payload or {}).get("phase") for row in v2_steps(run_id) if row.payload
+    }
+    assert {"clarify", "precondition", "execution", "draft", "verify", "finalize"} <= phases
+    assert completer.counts() == {"understand": 1, "decision": 2, "answer": 1}
 
 
 # ---------- P-033c 降2 收窄：CLARIFY_CONTRACT 反问收窄（窗可锚定＝禁 ask） ----------

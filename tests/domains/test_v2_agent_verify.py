@@ -24,6 +24,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from decimal import Decimal
 from pathlib import Path
@@ -113,79 +114,129 @@ def _notices(events: list[RunEvent]) -> list[dict[str, Any]]:
 
 
 async def test_unsupported_claim_rewritten(tmp_path: Path) -> None:
-    rows = _rows_outcome()
+    """行 23｜断言无 Observation 支撑→verify 改写为"未找到"＋notice（**收口侧**断言）。
+
+    本行落 `orchestration` 的收口面（`RT-W5-01c` 行 23）：四相位真链跑完（澄清→匹配→过闸→批量→
+    汇总→核验→收口），**「提交完成的是本块」**——`verify` 相位把无据断言改写为「未找到（材料未
+    披露）」并出 `notice`（其规格行为 3／INV-1），本块据 `Verdict` 收口：终态 run 行的 `answer`
+    就是**改写后**的答案，机读信号（`verdict` 帧改写计数＋`notice` 分型）同批在场。
+    """
+    from tests.domains import test_v2_four_phase as v2
+
+    dump = v2.v2_ledger_dump()
+    note = v2.v2_ledger_note(dump, "日产油量")
     draft = (
-        "N-01 井 2025-09-01 日产油量 21.16 吨[1]。\n"
+        "N-01 井 2025-09-01 日产油量 21.16 吨 [1]。\n"
         "全油田 86 口井昨日均超产 50 吨。"
     )
-    script: dict[str, Sequence[str]] = {
-        "v2.runtime.understand": ["理解：问日产油量。\n指标候选：日产油量"],
-        "v2.runtime.decision": [
-            '{"action": "execute", "task_type": "data", '
-            '"plan": {"metric_slot": "日产油量", "ranking": false, '
-            '"window_start": "2025-09-01", "window_end": "2025-09-03", "limit": 5}}',
-            DECISION_FINALIZE,
+    script = {
+        "understand": [v2.V2_UNDERSTAND],
+        "decision": [
+            v2.v2_decompose(
+                subtask_id="s1",
+                question="2025-09-01 到 09-03 各井日产油量",
+                ledger_notes=note,
+                chain="data",
+            ),
+            v2.v2_matches(
+                v2.v2_data_match(
+                    subtask_id="s1", slot="日产油量", start="2025-09-01", end="2025-09-03"
+                )
+            ),
         ],
-        "v2.runtime.answer": [draft],
+        "answer": [draft],
     }
-    runtime, _completer, db = await make_runtime(
-        tmp_path, engine=QueueQueryEngine([rows]), script=script
-    )
-    store = RunStore(db)
-    try:
-        handle = await runtime.ask(
-            AskRequest(question="2025 年 9 月 1 日到 3 日的日产油量", actor=ACTOR)
-        )
-        events = await drain(handle)
-        run = await store.get_run(handle.run_id)
-        assert run is not None and run.status == "completed"
-        answer = run.answer or ""
-        # 有据行保留（引标 [1] 在界—— Observation 支撑）。
-        assert "21.16 吨[1]" in answer
-        # 无据行改写为「未找到（材料未披露）」——禁止无据断言进答案（INV-1）。
-        assert "86 口井" in answer
-        assert "未找到（材料未披露）" in answer
-        # notice 出场（verify 步拦截的机读信号）。
-        notices = _notices(events)
-        assert any(n.get("type") == "unsupported_claim" for n in notices)
-        # verdict 事件载核验结论（改写计数在场）。
-        verdicts = [e.data for e in events if e.event == "verdict"]
-        assert verdicts and verdicts[0]["rewritten"] == 1
-    finally:
-        await db.dispose()
+    v2.wire_ledger_projection(v2.V2LedgerPort(dump))
+    engine = v2.V2QueueEngine([v2._rows_outcome()])
+    from appv2.infra.clock import freeze
+
+    with freeze("2026-10-08T09:00:00"):
+        runtime, _completer = v2.v2_runtime(script=script, registry=v2.v2_registry(engine=engine))
+        events = await v2.v2_run(runtime, "2025 年 9 月 1 日到 3 日的日产油量")
+    assert events[-1].event == "blackbox" and events[-1].data["status"] == "completed"
+    run_id = events[-1].data["run_id"]
+    row = v2.V2RunStore().run(run_id)
+    assert row is not None and row.status == "completed"
+    answer = row.answer or ""
+    # 有据行保留（引标 [1] 在界——Observation 支撑）＋无据行改写（INV-1：前缀只挂无据行）
+    assert "21.16" in answer
+    assert "86 口井" in answer and "未找到（材料未披露）" in answer
+    # 机读信号（verify 步拦截的 notice 分型 ＋ verdict(verify) 帧的改写计数）
+    notices = [event.data for event in events if event.event == "notice"]
+    assert any(item.get("type") == "unsupported_claim" for item in notices)
+    verify_frames = [
+        event.data
+        for event in events
+        if event.event == "verdict" and event.data.get("subtype") == "verify"
+    ]
+    assert verify_frames and verify_frames[0]["rewritten"] == 1
 
 
 # ---------- 验收⑤：矛盾两来源→答案分源列明各带 citation（INV-4） ----------
 
 
 async def test_contradiction_split_source(tmp_path: Path) -> None:
-    knowledge = FakeKnowledgeStore(evidence_hits=[_EVIDENCE_TON, _EVIDENCE_CUBIC])
-    draft = "日产油量口径为 21 吨/日[1]；另一口径卡记 8824.4 方/日[2]。"
-    runtime, _completer, db = await make_runtime(
-        tmp_path,
-        engine=FakeQueryEngineStub(),
-        script=_semantic_script(draft),
-        knowledge=knowledge,
+    """行 24｜矛盾两来源→答案分源列明各带 citation（INV-4）（**收口侧**断言）。
+
+    同 row 23 的落法（`RT-W5-01c` 行 24）：两口径卡（同 subject 两个值）经台账钻取进观察面，汇总
+    草稿两支并列；`verify` 相位把矛盾**分源列明**（逐支带 `[n]` 出处、禁止无出处调和），本块据
+    `Verdict` 收口——终态答案携分源列明块与两支出处，`contradiction_split` notice 同批在场。
+    """
+    from tests.domains import test_v2_four_phase as v2
+
+    dump = v2.v2_ledger_dump()
+    note = v2.v2_ledger_note(dump, "日产油量")
+    discover = json.dumps(
+        {
+            "action": "discover",
+            "discovers": [{"tool": "semantic_query", "args": {"element_name": "日产油量"}}],
+        },
+        ensure_ascii=False,
     )
-    store = RunStore(db)
-    try:
-        handle = await runtime.ask(AskRequest(question="日产油量的口径是什么", actor=ACTOR))
-        events = await drain(handle)
-        run = await store.get_run(handle.run_id)
-        assert run is not None and run.status == "completed"
-        answer = run.answer or ""
-        # 分源列明块出场（INV-4：各标出处，禁止无出处调和）。
-        assert "分源列明" in answer
-        assert "sem_metric#201" in answer and "sem_metric#301" in answer
-        assert "[1]" in answer and "[2]" in answer
-        # 矛盾 notice 出场（机读信号）。
-        notices = _notices(events)
-        assert any(n.get("type") == "contradiction_split" for n in notices)
-        # verdict 事件载 split 结论。
-        verdicts = [e.data for e in events if e.event == "verdict"]
-        assert verdicts and verdicts[0]["split"] is True
-    finally:
-        await db.dispose()
+    draft = "日产油量口径为 21 吨/日 [1]；另一口径卡记 8824.4 方/日 [2]。"
+    script = {
+        "understand": [v2.V2_UNDERSTAND],
+        "decision": [
+            discover,
+            v2.v2_decompose(
+                subtask_id="s1",
+                question="2025-09-01 到 09-03 各井日产油量",
+                ledger_notes=note,
+                chain="data",
+            ),
+            v2.v2_matches(
+                v2.v2_data_match(
+                    subtask_id="s1", slot="日产油量", start="2025-09-01", end="2025-09-03"
+                )
+            ),
+        ],
+        "answer": [draft],
+    }
+    v2.wire_ledger_projection(v2.V2LedgerPort(dump))
+    knowledge = FakeKnowledgeStore(evidence_hits=[_EVIDENCE_TON, _EVIDENCE_CUBIC])
+    engine = v2.V2QueueEngine([v2._rows_outcome()])
+    from appv2.infra.clock import freeze
+
+    with freeze("2026-10-08T09:00:00"):
+        runtime, _completer = v2.v2_runtime(
+            script=script, registry=v2.v2_registry(engine=engine, knowledge=knowledge)
+        )
+        events = await v2.v2_run(runtime, "日产油量的口径是什么")
+    assert events[-1].event == "blackbox" and events[-1].data["status"] == "completed"
+    run_id = events[-1].data["run_id"]
+    answer = v2.V2RunStore().run(run_id).answer or ""
+    # 分源列明块出场（INV-4：各标出处，禁止无出处调和）——两支逐支带 [n] 与来源
+    assert "分源列明" in answer
+    assert "sem_metric#201" in answer and "sem_metric#301" in answer
+    assert "[1]" in answer and "[2]" in answer
+    notices = [event.data for event in events if event.event == "notice"]
+    assert any(item.get("type") == "contradiction_split" for item in notices)
+    verify_frames = [
+        event.data
+        for event in events
+        if event.event == "verdict" and event.data.get("subtype") == "verify"
+    ]
+    assert verify_frames and verify_frames[0]["split"] == 1
 
 
 # ---------- 验收⑤补（R9 反例钉测）：引标贴无关行被改写/拒 ----------

@@ -23,7 +23,11 @@
    条款）、黑匣子瘦指针、`close`；相位自产的 `text`／`tool`／`observation`／`citation`／`notice`
    ／`verdict(verify)` 帧不经本模块转发（总线同一根，本块只发自己那几种）；
 5. **失败收束**：图执行器不可用／相位抛错 → fail-closed 收束为 `failed` ＋ `run_failed` notice
-   （**不产出半成品答案**——「不降级与静默禁令」节：合法降级路径＝无）。
+   （**不产出半成品答案**——「不降级与静默禁令」节：合法降级路径＝无）；
+6. **审计接线与检查点 saver 组合**（H3，-C 收口簇）：五处留痕经 `persistence.audit`（唯一写口＝
+   `security.audit`）落责任账（见 `audit` 模块）；检查点由本块 saver（`checkpointer.PgCheckpointer`
+   ——`BaseCheckpointSaver` 一族只活本模块）**组合 `persistence` 的框架无关行级口**落——收口快照行走
+   `encode_state`（`RunStore.load` 的恢复载体），saver 行走 serde 体（同表族、`kind` 列区分）。
 
 **单腿读口与跨腿续编**（`_leg_stream`）：run 的总线在 run 生命期内常驻（历史缓冲）；`ask`／`resume`
 两腿经单腿读口读到本腿收口帧为止（`ask` 帧之后的行为归 `api` 开流段——挂起铁律「`ask` 帧之后照发
@@ -47,6 +51,24 @@ from typing import Any
 
 from appv2.infra import clock as infra_clock
 from appv2.runtimev2.context import DEFAULT_MAX_OBSERVATIONS, load_ledger_dump
+from appv2.runtimev2.orchestration.audit import (
+    closeout as audit_closeout,
+)
+from appv2.runtimev2.orchestration.audit import (
+    exempts as audit_exempts,
+)
+from appv2.runtimev2.orchestration.audit import (
+    extable_decisions as audit_extable_decisions,
+)
+from appv2.runtimev2.orchestration.audit import (
+    refused_closeout,
+    who_of,
+    who_of_id,
+)
+from appv2.runtimev2.orchestration.audit import (
+    run_created as audit_run_created,
+)
+from appv2.runtimev2.orchestration.checkpointer import PgCheckpointer
 from appv2.runtimev2.orchestration.commands import (
     COMMAND_RESUME,
     RunCommand,
@@ -65,6 +87,9 @@ from appv2.runtimev2.orchestration.constants import (
     MANIFEST_DIGEST_CHARS,
     NODE_BATCH,
     NODES,
+    NOTICE_AUDIT_WRITE_FAILED,
+    NOTICE_BAN_EXEMPT,
+    NOTICE_BLACKBOX_WRITE_FAILED,
     NOTICE_RUN_FAILED,
     PAYLOAD_STATUS_KEY,
 )
@@ -159,6 +184,7 @@ class RunExecutor:
         registry: ToolRegistry,
         store: RunStore | None = None,
         budget: Budget | None = None,
+        saver: Any = None,
         window_candidates: Sequence[str] | None = ASKBACK_TIME_CHOICES,
         watermark: Any = None,
         data_wells: Collection[str] | None = None,
@@ -168,6 +194,9 @@ class RunExecutor:
         self._registry = registry
         self._store = store if store is not None else RunStore()
         self._budget = budget or Budget()
+        # 检查点 saver（本块专责的**组合件**）：缺省由本块内构造（框架类型不外泄——规格原文
+        # `specs/agent-loop.md:71`「LangGraph（含 `langchain*`）不得渗漏出本模块」）；可注入替身。
+        self._saver = saver if saver is not None else PgCheckpointer()
         self._window_candidates = window_candidates
         self._watermark = watermark
         self._data_wells = data_wells
@@ -176,6 +205,11 @@ class RunExecutor:
         self._buses: dict[str, EventBus] = {}
         self._cursors: dict[str, int] = {}
         self._tasks: set[asyncio.Task[None]] = set()
+        # 审计接线（H3）的三件随 run 走的读数：who 槽（受理腿已解析全名／恢复腿行级身份串）、
+        # 本腿留痕切片基线（决定行 `resume_choices` 起点 ＋ 豁免通知起点——跨腿不重放旧行）。
+        self._who: dict[str, str] = {}
+        self._identity_source: dict[str, str] = {}
+        self._audit_bases: dict[str, tuple[int, int]] = {}
 
     # ── 受理（H3）──────────────────────────────────────────────────────────
 
@@ -196,9 +230,16 @@ class RunExecutor:
         run_id = new_run_id()
         bus = EventBus()
         self._buses[run_id] = bus
+        # 留痕①受理（`security.audit` 唯一写口）：who 槽＝入口点已解析的 `Actor` 全名（空身份经
+        # `resolve_actor` 落缺省角色——身份解析只此一缝）。**解析先于建 run 行**：身份不可解析时
+        # 不留半建的 run（fail-closed）。
+        who = who_of(command.actor)
         seed = self._seed_messages(command.followup_of)
         state = self._initial_state(command, run_id, seed)
         self._store.save(self._run_record(state, RUN_RUNNING))
+        self._who[run_id] = who
+        self._audit_bases[run_id] = (0, 0)
+        audit_run_created(bus, run_id=run_id, who=who, question=command.question)
         self._spawn(state, bus, run_id)
         return handle_of(run_id, _leg_stream(bus))
 
@@ -215,6 +256,11 @@ class RunExecutor:
             )
         state = self._store.load(command.run_id)
         choice = command.choice or AskChoice(kind="clarify")
+        # 留痕切片基线先取（本腿只审**新增**决定／豁免——跨腿不重放旧行）；who＝run 簿记行的行级
+        # 身份串，收口时经唯一身份缝 `resolve_actor` 解析回全名（行 33 单一入口）。
+        self._audit_bases[command.run_id] = (len(state.resume_choices), _exempt_count(state))
+        self._identity_source[command.run_id] = run.actor
+        self._who.pop(command.run_id, None)
         self._apply_choice(state, choice)
         state.status = RUN_RUNNING
         cursor = self._cursors.get(command.run_id, 0)
@@ -330,8 +376,14 @@ class RunExecutor:
                 emitted_steps=len(state.steps),
                 emitted_notices=len(state.notices),
             )
-            result = await build_graph(deps).ainvoke(
-                state, {"recursion_limit": _recursion_limit(state)}
+            result = await build_graph(deps, checkpointer=self._saver).ainvoke(
+                state,
+                {
+                    "recursion_limit": _recursion_limit(state),
+                    # 线程＝run（一 run 一线程）：检查点 saver 按 `thread_id` 落／读
+                    # （挂起态跨进程恢复的物理载体——行 27）。
+                    "configurable": {"thread_id": run_id},
+                },
             )
             state = _state_of(result, fallback=state)
         except Exception as exc:  # 图执行器不可用／相位抛错 → fail-closed 收束为 failed
@@ -360,6 +412,9 @@ class RunExecutor:
         status = _terminal_status(state, error=error)
         state.status = status
         self._persist(state, bus, status=status, digest=digest)
+        # 审计接线（H3）：决定留痕（外表审批批准／驳回）＋豁免留痕（待产位）逐腿发；三态收口与
+        # 拒答收口只在 run 终态发（挂起收束不发终态行——该 run 还会被 resume 续推）。
+        self._audit_leg(state, bus, run_id, status=status, error=error)
         verdict = bus.emit(
             EVENT_VERDICT,
             {
@@ -382,13 +437,65 @@ class RunExecutor:
             bus.emit(
                 EVENT_NOTICE,
                 {
-                    "type": "blackbox_write_failed",
+                    "type": NOTICE_BLACKBOX_WRITE_FAILED,
                     "gates": [],
                     "content": f"黑匣子写口异常（过程档案缺口，run 终态不受影响）：{exc}",
                 },
             )
         bus.emit(EVENT_BLACKBOX, _blackbox_pointer(record, stored=stored, size=size))
         bus.close()
+
+    def _audit_leg(
+        self, state: RunState, bus: EventBus, run_id: str, *, status: str, error: str
+    ) -> None:
+        """本腿五处留痕（H3）：`security.audit` 唯一写口；切片基线防跨腿重放。
+
+        who 槽两源（受理腿＝入口点已解析的 `Actor` 全名；恢复腿＝run 簿记行的行级身份串经
+        `resolve_actor` 重解析）。身份解析失败与写口异常同归「留痕缺口」机读信号
+        （`audit_write_failed` 通知出流）——不静默丢审计、也不翻盘 run 终态（旧码同款守卫先例）。
+        """
+        choice_base, exempt_base = self._audit_bases.get(run_id, (0, 0))
+        try:
+            who = self._who_for(run_id)
+            audit_extable_decisions(
+                bus, run_id=run_id, who=who, choices=state.resume_choices[choice_base:]
+            )
+            audit_exempts(
+                bus,
+                run_id=run_id,
+                who=who,
+                notices=[
+                    entry
+                    for entry in _exempt_notices(state)[exempt_base:]
+                    if isinstance(entry, dict)
+                ],
+            )
+            audit_closeout(
+                bus,
+                run_id=run_id,
+                who=who,
+                status=status,
+                answer=state.answer or "",
+                error=error or (state.error or ""),
+                manifest_digest=state.manifest_digest,
+                refused=refused_closeout(state.notices),
+            )
+        except Exception as exc:  # 身份解析失败／写口异常 → 留痕缺口如实出流（不静默、不翻盘）
+            bus.emit(
+                EVENT_NOTICE,
+                {
+                    "type": NOTICE_AUDIT_WRITE_FAILED,
+                    "gates": [],
+                    "content": f"审计留痕缺口（责任账未落，过程态不受影响）：{exc}",
+                },
+            )
+
+    def _who_for(self, run_id: str) -> str:
+        """本腿 who 槽：受理腿已解析的全名优先；恢复腿经唯一身份缝解析行级身份串。"""
+        resolved = self._who.get(run_id)
+        if resolved is not None:
+            return resolved
+        return who_of_id(self._identity_source.get(run_id, ""))
 
     def _persist(self, state: RunState, bus: EventBus, *, status: str, digest: str) -> None:
         for entry in state.steps:
@@ -438,6 +545,20 @@ class RunExecutor:
 
 
 # ── 收口件（三态判定、摘要、黑匣子）────────────────────────────────────────────
+
+
+def _exempt_notices(state: RunState) -> list[dict[str, Any]]:
+    """本 run 的豁免通知序（留痕切片的定基数面；`type` 取值真源＝`transport.NOTICE_TYPES`）。"""
+    return [
+        entry
+        for entry in state.notices
+        if isinstance(entry, dict) and entry.get("type") == NOTICE_BAN_EXEMPT
+    ]
+
+
+def _exempt_count(state: RunState) -> int:
+    """豁免通知计数（本腿留痕切片的起点——恢复腿只审新增，跨腿不重放旧行）。"""
+    return len(_exempt_notices(state))
 
 
 def _terminal_status(state: RunState, *, error: str) -> str:

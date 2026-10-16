@@ -7,7 +7,7 @@
 取名字面只在此处出现一次（`EVENT_*`）。
 """
 
-from appv2.runtimev2.transport import EVENT_KINDS, WIRE_FRAMES
+from appv2.runtimev2.transport import EVENT_KINDS, NOTICE_TYPES, WIRE_FRAMES
 
 # ── 图节点名（八节点：读题一步＋四相位＋回炉发现步＋作答／核验两节点）──────────
 NODE_UNDERSTAND = "understand"
@@ -45,7 +45,13 @@ EVENT_ASK = "ask"
 EVENT_VERDICT = "verdict"
 EVENT_BLACKBOX = "blackbox"
 EVENT_NOTICE = "notice"
+# ── 本块发射的通知类型（取值真源＝`transport.NOTICE_TYPES`，本模块只取名不扩闭世界）──
 NOTICE_RUN_FAILED = "run_failed"
+NOTICE_REFUSED = "refused"  # 拒答分型（V1 遗留值——V2 侧拒答收口判据取 NOTICE_SUBTASK_REFUSED）
+NOTICE_SUBTASK_REFUSED = "subtask_refused"  # 子问题闸拒（V2 拒答机读分型面）
+NOTICE_BAN_EXEMPT = "ban_exempt"  # 禁用词豁免留痕位（V2 待产位——触发源归入口闸族）
+NOTICE_AUDIT_WRITE_FAILED = "audit_write_failed"  # 审计写口异常如实出流（不静默）
+NOTICE_BLACKBOX_WRITE_FAILED = "blackbox_write_failed"  # 黑匣子写口异常如实出流
 
 # ── 步帧载荷三键（真源 `synth/S6-事件与帧目录.md` §一 step 行；键集归发射方）──────
 PAYLOAD_STEP_KEY = "step"
@@ -65,9 +71,19 @@ MANIFEST_DIGEST_CHARS = 16  # 收口摘要面取哈希前 16 位（非闭世界�
 
 
 def assert_frame_names() -> None:
-    """自守：本模块引用的帧名字面必须落在 `transport` 闭世界内（防私扩帧名）。"""
+    """自守：本模块引用的帧名与通知类型字面必须落在 `transport` 闭世界内（防私扩）。"""
     for name in (EVENT_STEP, EVENT_ASK, EVENT_VERDICT, EVENT_BLACKBOX, EVENT_NOTICE):
         if name not in EVENT_KINDS:
             raise ValueError(f"帧名越界（不在 transport.EVENT_KINDS 内）：{name!r}")
     if EVENT_NOTICE not in EVENT_KINDS or not WIRE_FRAMES:
         raise ValueError("transport 帧族常量未就绪（闭世界引用面异常）")
+    for notice_type in (
+        NOTICE_RUN_FAILED,
+        NOTICE_REFUSED,
+        NOTICE_SUBTASK_REFUSED,
+        NOTICE_BAN_EXEMPT,
+        NOTICE_AUDIT_WRITE_FAILED,
+        NOTICE_BLACKBOX_WRITE_FAILED,
+    ):
+        if notice_type not in NOTICE_TYPES:
+            raise ValueError(f"通知类型越界（不在 transport.NOTICE_TYPES 内）：{notice_type!r}")
