@@ -1,0 +1,527 @@
+id: -1
+event: session
+data: {"run_id": "run-f866c567", "resume": false}
+
+id: 0
+event: text
+data: {"content": "理解：问今年各井的日产液量按天列出。\n指标候选：日产液量", "kind": "understanding"}
+
+id: 1
+event: step
+data: {"step": "decision", "seq": 1, "title": "模型调用：understand"}
+
+id: 2
+event: step
+data: {"step": "decision", "seq": 2, "title": "模型调用：decision"}
+
+id: 3
+event: step
+data: {"step": "decision", "seq": 3, "title": "澄清 r1 被拒：ledger_notes 槽位对账未过：s1"}
+
+id: 4
+event: step
+data: {"step": "decision", "seq": 4, "title": "模型调用：decision"}
+
+id: 5
+event: step
+data: {"step": "decision", "seq": 5, "title": "澄清 r2：分解 1 子问题"}
+
+id: 6
+event: step
+data: {"step": "decision", "seq": 6, "title": "模型调用：decision"}
+
+id: 7
+event: notice
+data: {"type": "decision_note", "gates": [], "content": "前置条件机：子问题 s1 放行（注记 1 条）——窗上沿 2026-10-16 晚于汇总层水位 2026-08-31——引擎新鲜度闸将拦停/改绑并注记（照实判定）"}
+
+id: 8
+event: step
+data: {"step": "decision", "seq": 7, "title": "前置条件机：s1=allow"}
+
+id: 9
+event: tool
+data: {"tool": "data_query", "status": "ok", "seq": 8, "message": null}
+
+id: 10
+event: observation
+data: {"index": 1, "source": "agg.fct_daily_metering", "content": "井号=N-01；区块=渤南；日期=2026-01-01；日产液量（方）=36.97", "trust": "authoritative"}
+
+id: 11
+event: observation
+data: {"index": 2, "source": "agg.fct_daily_metering", "content": "井号=N-02；区块=渤南；日期=2026-01-01；日产液量（方）=48.72", "trust": "authoritative"}
+
+id: 12
+event: observation
+data: {"index": 3, "source": "agg.fct_daily_metering", "content": "井号=N-03；区块=渤南；日期=2026-01-01；日产液量（方）=45.67", "trust": "authoritative"}
+
+id: 13
+event: observation
+data: {"index": 4, "source": "agg.fct_daily_metering", "content": "井号=N-04；区块=渤南；日期=2026-01-01；日产液量（方）=38.92", "trust": "authoritative"}
+
+id: 14
+event: observation
+data: {"index": 5, "source": "agg.fct_daily_metering", "content": "井号=N-05；区块=渤南；日期=2026-01-01；日产液量（方）=69.97", "trust": "authoritative"}
+
+id: 15
+event: observation
+data: {"index": 6, "source": "agg.fct_daily_metering", "content": "井号=N-06；区块=渤南；日期=2026-01-01；日产液量（方）=67.86", "trust": "authoritative"}
+
+id: 16
+event: observation
+data: {"index": 7, "source": "agg.fct_daily_metering", "content": "井号=N-07；区块=渤南；日期=2026-01-01；日产液量（方）=43.97", "trust": "authoritative"}
+
+id: 17
+event: observation
+data: {"index": 8, "source": "agg.fct_daily_metering", "content": "井号=N-08；区块=渤南；日期=2026-01-01；日产液量（方）=33.68", "trust": "authoritative"}
+
+id: 18
+event: observation
+data: {"index": 9, "source": "agg.fct_daily_metering", "content": "井号=N-09；区块=渤南；日期=2026-01-01；日产液量（方）=26.79", "trust": "authoritative"}
+
+id: 19
+event: observation
+data: {"index": 10, "source": "agg.fct_daily_metering", "content": "井号=N-10；区块=渤南；日期=2026-01-01；日产液量（方）=47.65", "trust": "authoritative"}
+
+id: 20
+event: observation
+data: {"index": 11, "source": "agg.fct_daily_metering", "content": "井号=N-11；区块=渤南；日期=2026-01-01；日产液量（方）=67.92", "trust": "authoritative"}
+
+id: 21
+event: observation
+data: {"index": 12, "source": "agg.fct_daily_metering", "content": "井号=N-12；区块=渤南；日期=2026-01-01；日产液量（方）=53.76", "trust": "authoritative"}
+
+id: 22
+event: observation
+data: {"index": 13, "source": "agg.fct_daily_metering", "content": "井号=N-13；区块=渤南；日期=2026-01-01；日产液量（方）=41.16", "trust": "authoritative"}
+
+id: 23
+event: observation
+data: {"index": 14, "source": "agg.fct_daily_metering", "content": "井号=N-14；区块=渤南；日期=2026-01-01；日产液量（方）=38.54", "trust": "authoritative"}
+
+id: 24
+event: observation
+data: {"index": 15, "source": "agg.fct_daily_metering", "content": "井号=N-15；区块=渤南；日期=2026-01-01；日产液量（方）=84.89", "trust": "authoritative"}
+
+id: 25
+event: observation
+data: {"index": 16, "source": "agg.fct_daily_metering", "content": "井号=N-16；区块=渤南；日期=2026-01-01；日产液量（方）=28.76", "trust": "authoritative"}
+
+id: 26
+event: observation
+data: {"index": 17, "source": "agg.fct_daily_metering", "content": "井号=N-17；区块=渤南；日期=2026-01-01；日产液量（方）=24.57", "trust": "authoritative"}
+
+id: 27
+event: observation
+data: {"index": 18, "source": "agg.fct_daily_metering", "content": "井号=N-18；区块=渤南；日期=2026-01-01；日产液量（方）=48.48", "trust": "authoritative"}
+
+id: 28
+event: observation
+data: {"index": 19, "source": "agg.fct_daily_metering", "content": "井号=N-19；区块=渤南；日期=2026-01-01；日产液量（方）=45.29", "trust": "authoritative"}
+
+id: 29
+event: observation
+data: {"index": 20, "source": "agg.fct_daily_metering", "content": "井号=N-20；区块=渤南；日期=2026-01-01；日产液量（方）=66.12", "trust": "authoritative"}
+
+id: 30
+event: observation
+data: {"index": 21, "source": "agg.fct_daily_metering", "content": "井号=N-21；区块=渤南；日期=2026-01-01；日产液量（方）=45.57", "trust": "authoritative"}
+
+id: 31
+event: observation
+data: {"index": 22, "source": "agg.fct_daily_metering", "content": "井号=N-22；区块=渤南；日期=2026-01-01；日产液量（方）=29.49", "trust": "authoritative"}
+
+id: 32
+event: observation
+data: {"index": 23, "source": "agg.fct_daily_metering", "content": "井号=N-23；区块=渤南；日期=2026-01-01；日产液量（方）=70.82", "trust": "authoritative"}
+
+id: 33
+event: observation
+data: {"index": 24, "source": "agg.fct_daily_metering", "content": "井号=N-24；区块=渤南；日期=2026-01-01；日产液量（方）=44.06", "trust": "authoritative"}
+
+id: 34
+event: observation
+data: {"index": 25, "source": "agg.fct_daily_metering", "content": "井号=N-25；区块=渤南；日期=2026-01-01；日产液量（方）=49.45", "trust": "authoritative"}
+
+id: 35
+event: observation
+data: {"index": 26, "source": "agg.fct_daily_metering", "content": "井号=N-26；区块=渤南；日期=2026-01-01；日产液量（方）=39.78", "trust": "authoritative"}
+
+id: 36
+event: observation
+data: {"index": 27, "source": "agg.fct_daily_metering", "content": "井号=N-27；区块=渤南；日期=2026-01-01；日产液量（方）=31.64", "trust": "authoritative"}
+
+id: 37
+event: observation
+data: {"index": 28, "source": "agg.fct_daily_metering", "content": "井号=X-01；区块=渤西；日期=2026-01-01；日产液量（方）=39.48", "trust": "authoritative"}
+
+id: 38
+event: observation
+data: {"index": 29, "source": "agg.fct_daily_metering", "content": "井号=X-02；区块=渤西；日期=2026-01-01；日产液量（方）=28.99", "trust": "authoritative"}
+
+id: 39
+event: observation
+data: {"index": 30, "source": "agg.fct_daily_metering", "content": "井号=X-03；区块=渤西；日期=2026-01-01；日产液量（方）=53.89", "trust": "authoritative"}
+
+id: 40
+event: observation
+data: {"index": 31, "source": "agg.fct_daily_metering", "content": "井号=X-04；区块=渤西；日期=2026-01-01；日产液量（方）=51.78", "trust": "authoritative"}
+
+id: 41
+event: observation
+data: {"index": 32, "source": "agg.fct_daily_metering", "content": "井号=X-05；区块=渤西；日期=2026-01-01；日产液量（方）=66.88", "trust": "authoritative"}
+
+id: 42
+event: observation
+data: {"index": 33, "source": "agg.fct_daily_metering", "content": "井号=X-06；区块=渤西；日期=2026-01-01；日产液量（方）=37.20", "trust": "authoritative"}
+
+id: 43
+event: observation
+data: {"index": 34, "source": "agg.fct_daily_metering", "content": "井号=X-07；区块=渤西；日期=2026-01-01；日产液量（方）=58.12", "trust": "authoritative"}
+
+id: 44
+event: observation
+data: {"index": 35, "source": "agg.fct_daily_metering", "content": "井号=X-08；区块=渤西；日期=2026-01-01；日产液量（方）=56.44", "trust": "authoritative"}
+
+id: 45
+event: observation
+data: {"index": 36, "source": "agg.fct_daily_metering", "content": "井号=X-09；区块=渤西；日期=2026-01-01；日产液量（方）=21.25", "trust": "authoritative"}
+
+id: 46
+event: observation
+data: {"index": 37, "source": "agg.fct_daily_metering", "content": "井号=X-10；区块=渤西；日期=2026-01-01；日产液量（方）=44.70", "trust": "authoritative"}
+
+id: 47
+event: observation
+data: {"index": 38, "source": "agg.fct_daily_metering", "content": "井号=X-11；区块=渤西；日期=2026-01-01；日产液量（方）=45.26", "trust": "authoritative"}
+
+id: 48
+event: observation
+data: {"index": 39, "source": "agg.fct_daily_metering", "content": "井号=X-12；区块=渤西；日期=2026-01-01；日产液量（方）=44.17", "trust": "authoritative"}
+
+id: 49
+event: observation
+data: {"index": 40, "source": "agg.fct_daily_metering", "content": "井号=X-13；区块=渤西；日期=2026-01-01；日产液量（方）=58.83", "trust": "authoritative"}
+
+id: 50
+event: observation
+data: {"index": 41, "source": "agg.fct_daily_metering", "content": "井号=X-14；区块=渤西；日期=2026-01-01；日产液量（方）=25.20", "trust": "authoritative"}
+
+id: 51
+event: observation
+data: {"index": 42, "source": "agg.fct_daily_metering", "content": "井号=X-15；区块=渤西；日期=2026-01-01；日产液量（方）=29.23", "trust": "authoritative"}
+
+id: 52
+event: observation
+data: {"index": 43, "source": "agg.fct_daily_metering", "content": "井号=X-16；区块=渤西；日期=2026-01-01；日产液量（方）=32.25", "trust": "authoritative"}
+
+id: 53
+event: observation
+data: {"index": 44, "source": "agg.fct_daily_metering", "content": "井号=X-17；区块=渤西；日期=2026-01-01；日产液量（方）=23.47", "trust": "authoritative"}
+
+id: 54
+event: observation
+data: {"index": 45, "source": "agg.fct_daily_metering", "content": "井号=X-18；区块=渤西；日期=2026-01-01；日产液量（方）=46.89", "trust": "authoritative"}
+
+id: 55
+event: observation
+data: {"index": 46, "source": "agg.fct_daily_metering", "content": "井号=X-19；区块=渤西；日期=2026-01-01；日产液量（方）=27.03", "trust": "authoritative"}
+
+id: 56
+event: observation
+data: {"index": 47, "source": "agg.fct_daily_metering", "content": "井号=X-20；区块=渤西；日期=2026-01-01；日产液量（方）=29.23", "trust": "authoritative"}
+
+id: 57
+event: observation
+data: {"index": 48, "source": "agg.fct_daily_metering", "content": "井号=X-21；区块=渤西；日期=2026-01-01；日产液量（方）=32.18", "trust": "authoritative"}
+
+id: 58
+event: observation
+data: {"index": 49, "source": "agg.fct_daily_metering", "content": "井号=X-22；区块=渤西；日期=2026-01-01；日产液量（方）=68.51", "trust": "authoritative"}
+
+id: 59
+event: observation
+data: {"index": 50, "source": "agg.fct_daily_metering", "content": "井号=X-23；区块=渤西；日期=2026-01-01；日产液量（方）=52.67", "trust": "authoritative"}
+
+id: 60
+event: observation
+data: {"index": 51, "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date", "content": "① 口径 日产液量（方）（单位：方）——指标台账注册声明：日产计量的日产液量——源 oil_production_daily.liquid_output（R5·A.2）；agg 读模型绑定列 agg.fct_daily_metering.liquid_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2026-01-01～2026-08-31 [2026-01-01, 2026-09-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝laowang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 45 天 · 超期）\n⑤ 收口注记 LIMIT 50——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底", "trust": "authoritative"}
+
+id: 61
+event: observation
+data: {"index": 52, "source": "汇总层水位读面", "content": "比对：数据水位 2026-08-31 早于查询窗上沿——已按最近可用日改绑出数（数据截至 2026-08-31，落后 45 天 · 超期；其后日期未出数，不冒充新数据）", "trust": "notice"}
+
+id: 62
+event: step
+data: {"step": "execute", "seq": 8, "title": "data_query：ok（子问题 s1）"}
+
+id: 63
+event: text
+data: {"content": "**子问题 s1：今年各井的日产液量按天列出**"}
+
+id: 64
+event: text
+data: {"content": "引擎按日产液量指标在窗口 [2026-01-01, 2026-09-01) 内执行取数，结果如下（指标定义与来源见 [51]）。**说明：行数超过限量上限 50，已截断；当前仅返回前 50 行**。"}
+
+id: 65
+event: text
+data: {"content": "区块＝渤南"}
+
+id: 66
+event: text
+data: {"content": "| 井号 | 日期 | 日产液量（方） |\n|---|---|---|\n| N-01 | 2026-01-01 | 36.97 [1] |\n| N-02 | 2026-01-01 | 48.72 [2] |\n| N-03 | 2026-01-01 | 45.67 [3] |\n| N-04 | 2026-01-01 | 38.92 [4] |\n| N-05 | 2026-01-01 | 69.97 [5] |\n| N-06 | 2026-01-01 | 67.86 [6] |\n| N-07 | 2026-01-01 | 43.97 [7] |\n| N-08 | 2026-01-01 | 33.68 [8] |\n| N-09 | 2026-01-01 | 26.79 [9] |\n| N-10 | 2026-01-01 | 47.65 [10] |\n| N-11 | 2026-01-01 | 67.92 [11] |\n| N-12 | 2026-01-01 | 53.76 [12] |\n| N-13 | 2026-01-01 | 41.16 [13] |\n| N-14 | 2026-01-01 | 38.54 [14] |\n| N-15 | 2026-01-01 | 84.89 [15] |\n| N-16 | 2026-01-01 | 28.76 [16] |\n| N-17 | 2026-01-01 | 24.57 [17] |\n| N-18 | 2026-01-01 | 48.48 [18] |\n| N-19 | 2026-01-01 | 45.29 [19] |\n| N-20 | 2026-01-01 | 66.12 [20] |\n| N-21 | 2026-01-01 | 45.57 [21] |\n| N-22 | 2026-01-01 | 29.49 [22] |\n| N-23 | 2026-01-01 | 70.82 [23] |\n| N-24 | 2026-01-01 | 44.06 [24] |\n| N-25 | 2026-01-01 | 49.45 [25] |\n| N-26 | 2026-01-01 | 39.78 [26] |\n| N-27 | 2026-01-01 | 31.64 [27] |"}
+
+id: 67
+event: text
+data: {"content": "区块＝渤西"}
+
+id: 68
+event: text
+data: {"content": "| 井号 | 日期 | 日产液量（方） |\n|---|---|---|\n| X-01 | 2026-01-01 | 39.48 [28] |\n| X-02 | 2026-01-01 | 28.99 [29] |\n| X-03 | 2026-01-01 | 53.89 [30] |\n| X-04 | 2026-01-01 | 51.78 [31] |\n| X-05 | 2026-01-01 | 66.88 [32] |\n| X-06 | 2026-01-01 | 37.20 [33] |\n| X-07 | 2026-01-01 | 58.12 [34] |\n| X-08 | 2026-01-01 | 56.44 [35] |\n| X-09 | 2026-01-01 | 21.25 [36] |\n| X-10 | 2026-01-01 | 44.70 [37] |\n| X-11 | 2026-01-01 | 45.26 [38] |\n| X-12 | 2026-01-01 | 44.17 [39] |\n| X-13 | 2026-01-01 | 58.83 [40] |\n| X-14 | 2026-01-01 | 25.20 [41] |\n| X-15 | 2026-01-01 | 29.23 [42] |\n| X-16 | 2026-01-01 | 32.25 [43] |\n| X-17 | 2026-01-01 | 23.47 [44] |\n| X-18 | 2026-01-01 | 46.89 [45] |\n| X-19 | 2026-01-01 | 27.03 [46] |\n| X-20 | 2026-01-01 | 29.23 [47] |\n| X-21 | 2026-01-01 | 32.18 [48] |\n| X-22 | 2026-01-01 | 68.51 [49] |\n| X-23 | 2026-01-01 | 52.67 [50] |"}
+
+id: 69
+event: text
+data: {"content": "**未覆盖说明**\n- 引擎按限量纪律强截到 50 行 [51]⑤：当前仅返回 2026-01-01 当天全部 50 口井的日产液量；2026-01-02 至 2026-08-31 其余日期 / 井次明细未在本次结果内返回。\n- 数据水位注记 [51]④：汇总层数据截至 2026-08-31，落后 45 天（超期），2026-08-31 之后的日期本系统暂未出数。\n- 仅有 N-01~N-27（渤南）与 X-01~X-23（渤西）两区块共 50 口井参与本次出数；如需其他区块、其他日期明细，请补充指明对象与日期范围再行检索。"}
+
+id: 70
+event: step
+data: {"step": "answer", "seq": 9, "title": "模型调用：answer"}
+
+id: 71
+event: step
+data: {"step": "answer", "seq": 10, "title": "起草答案"}
+
+id: 72
+event: notice
+data: {"type": "unsupported_claim", "gates": [], "content": "核验步改写无据断言 3 行（INV-1——禁止无据断言进答案）"}
+
+id: 73
+event: verdict
+data: {"supported": 52, "rewritten": 3, "split": 0, "cited": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52], "attribution": true, "subtype": "verify"}
+
+id: 74
+event: step
+data: {"step": "verify", "seq": 11, "title": "核验：支撑 52｜改写 3｜分源 否"}
+
+id: 75
+event: citation
+data: {"index": 1, "source": "agg.fct_daily_metering", "source_id": "N-01@2026-01-01", "trust": "authoritative"}
+
+id: 76
+event: citation
+data: {"index": 2, "source": "agg.fct_daily_metering", "source_id": "N-02@2026-01-01", "trust": "authoritative"}
+
+id: 77
+event: citation
+data: {"index": 3, "source": "agg.fct_daily_metering", "source_id": "N-03@2026-01-01", "trust": "authoritative"}
+
+id: 78
+event: citation
+data: {"index": 4, "source": "agg.fct_daily_metering", "source_id": "N-04@2026-01-01", "trust": "authoritative"}
+
+id: 79
+event: citation
+data: {"index": 5, "source": "agg.fct_daily_metering", "source_id": "N-05@2026-01-01", "trust": "authoritative"}
+
+id: 80
+event: citation
+data: {"index": 6, "source": "agg.fct_daily_metering", "source_id": "N-06@2026-01-01", "trust": "authoritative"}
+
+id: 81
+event: citation
+data: {"index": 7, "source": "agg.fct_daily_metering", "source_id": "N-07@2026-01-01", "trust": "authoritative"}
+
+id: 82
+event: citation
+data: {"index": 8, "source": "agg.fct_daily_metering", "source_id": "N-08@2026-01-01", "trust": "authoritative"}
+
+id: 83
+event: citation
+data: {"index": 9, "source": "agg.fct_daily_metering", "source_id": "N-09@2026-01-01", "trust": "authoritative"}
+
+id: 84
+event: citation
+data: {"index": 10, "source": "agg.fct_daily_metering", "source_id": "N-10@2026-01-01", "trust": "authoritative"}
+
+id: 85
+event: citation
+data: {"index": 11, "source": "agg.fct_daily_metering", "source_id": "N-11@2026-01-01", "trust": "authoritative"}
+
+id: 86
+event: citation
+data: {"index": 12, "source": "agg.fct_daily_metering", "source_id": "N-12@2026-01-01", "trust": "authoritative"}
+
+id: 87
+event: citation
+data: {"index": 13, "source": "agg.fct_daily_metering", "source_id": "N-13@2026-01-01", "trust": "authoritative"}
+
+id: 88
+event: citation
+data: {"index": 14, "source": "agg.fct_daily_metering", "source_id": "N-14@2026-01-01", "trust": "authoritative"}
+
+id: 89
+event: citation
+data: {"index": 15, "source": "agg.fct_daily_metering", "source_id": "N-15@2026-01-01", "trust": "authoritative"}
+
+id: 90
+event: citation
+data: {"index": 16, "source": "agg.fct_daily_metering", "source_id": "N-16@2026-01-01", "trust": "authoritative"}
+
+id: 91
+event: citation
+data: {"index": 17, "source": "agg.fct_daily_metering", "source_id": "N-17@2026-01-01", "trust": "authoritative"}
+
+id: 92
+event: citation
+data: {"index": 18, "source": "agg.fct_daily_metering", "source_id": "N-18@2026-01-01", "trust": "authoritative"}
+
+id: 93
+event: citation
+data: {"index": 19, "source": "agg.fct_daily_metering", "source_id": "N-19@2026-01-01", "trust": "authoritative"}
+
+id: 94
+event: citation
+data: {"index": 20, "source": "agg.fct_daily_metering", "source_id": "N-20@2026-01-01", "trust": "authoritative"}
+
+id: 95
+event: citation
+data: {"index": 21, "source": "agg.fct_daily_metering", "source_id": "N-21@2026-01-01", "trust": "authoritative"}
+
+id: 96
+event: citation
+data: {"index": 22, "source": "agg.fct_daily_metering", "source_id": "N-22@2026-01-01", "trust": "authoritative"}
+
+id: 97
+event: citation
+data: {"index": 23, "source": "agg.fct_daily_metering", "source_id": "N-23@2026-01-01", "trust": "authoritative"}
+
+id: 98
+event: citation
+data: {"index": 24, "source": "agg.fct_daily_metering", "source_id": "N-24@2026-01-01", "trust": "authoritative"}
+
+id: 99
+event: citation
+data: {"index": 25, "source": "agg.fct_daily_metering", "source_id": "N-25@2026-01-01", "trust": "authoritative"}
+
+id: 100
+event: citation
+data: {"index": 26, "source": "agg.fct_daily_metering", "source_id": "N-26@2026-01-01", "trust": "authoritative"}
+
+id: 101
+event: citation
+data: {"index": 27, "source": "agg.fct_daily_metering", "source_id": "N-27@2026-01-01", "trust": "authoritative"}
+
+id: 102
+event: citation
+data: {"index": 28, "source": "agg.fct_daily_metering", "source_id": "X-01@2026-01-01", "trust": "authoritative"}
+
+id: 103
+event: citation
+data: {"index": 29, "source": "agg.fct_daily_metering", "source_id": "X-02@2026-01-01", "trust": "authoritative"}
+
+id: 104
+event: citation
+data: {"index": 30, "source": "agg.fct_daily_metering", "source_id": "X-03@2026-01-01", "trust": "authoritative"}
+
+id: 105
+event: citation
+data: {"index": 31, "source": "agg.fct_daily_metering", "source_id": "X-04@2026-01-01", "trust": "authoritative"}
+
+id: 106
+event: citation
+data: {"index": 32, "source": "agg.fct_daily_metering", "source_id": "X-05@2026-01-01", "trust": "authoritative"}
+
+id: 107
+event: citation
+data: {"index": 33, "source": "agg.fct_daily_metering", "source_id": "X-06@2026-01-01", "trust": "authoritative"}
+
+id: 108
+event: citation
+data: {"index": 34, "source": "agg.fct_daily_metering", "source_id": "X-07@2026-01-01", "trust": "authoritative"}
+
+id: 109
+event: citation
+data: {"index": 35, "source": "agg.fct_daily_metering", "source_id": "X-08@2026-01-01", "trust": "authoritative"}
+
+id: 110
+event: citation
+data: {"index": 36, "source": "agg.fct_daily_metering", "source_id": "X-09@2026-01-01", "trust": "authoritative"}
+
+id: 111
+event: citation
+data: {"index": 37, "source": "agg.fct_daily_metering", "source_id": "X-10@2026-01-01", "trust": "authoritative"}
+
+id: 112
+event: citation
+data: {"index": 38, "source": "agg.fct_daily_metering", "source_id": "X-11@2026-01-01", "trust": "authoritative"}
+
+id: 113
+event: citation
+data: {"index": 39, "source": "agg.fct_daily_metering", "source_id": "X-12@2026-01-01", "trust": "authoritative"}
+
+id: 114
+event: citation
+data: {"index": 40, "source": "agg.fct_daily_metering", "source_id": "X-13@2026-01-01", "trust": "authoritative"}
+
+id: 115
+event: citation
+data: {"index": 41, "source": "agg.fct_daily_metering", "source_id": "X-14@2026-01-01", "trust": "authoritative"}
+
+id: 116
+event: citation
+data: {"index": 42, "source": "agg.fct_daily_metering", "source_id": "X-15@2026-01-01", "trust": "authoritative"}
+
+id: 117
+event: citation
+data: {"index": 43, "source": "agg.fct_daily_metering", "source_id": "X-16@2026-01-01", "trust": "authoritative"}
+
+id: 118
+event: citation
+data: {"index": 44, "source": "agg.fct_daily_metering", "source_id": "X-17@2026-01-01", "trust": "authoritative"}
+
+id: 119
+event: citation
+data: {"index": 45, "source": "agg.fct_daily_metering", "source_id": "X-18@2026-01-01", "trust": "authoritative"}
+
+id: 120
+event: citation
+data: {"index": 46, "source": "agg.fct_daily_metering", "source_id": "X-19@2026-01-01", "trust": "authoritative"}
+
+id: 121
+event: citation
+data: {"index": 47, "source": "agg.fct_daily_metering", "source_id": "X-20@2026-01-01", "trust": "authoritative"}
+
+id: 122
+event: citation
+data: {"index": 48, "source": "agg.fct_daily_metering", "source_id": "X-21@2026-01-01", "trust": "authoritative"}
+
+id: 123
+event: citation
+data: {"index": 49, "source": "agg.fct_daily_metering", "source_id": "X-22@2026-01-01", "trust": "authoritative"}
+
+id: 124
+event: citation
+data: {"index": 50, "source": "agg.fct_daily_metering", "source_id": "X-23@2026-01-01", "trust": "authoritative"}
+
+id: 125
+event: citation
+data: {"index": 51, "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date", "source_id": "lineage", "trust": "authoritative"}
+
+id: 126
+event: citation
+data: {"index": 52, "source": "汇总层水位读面", "source_id": "rebind", "trust": "notice"}
+
+id: 127
+event: step
+data: {"step": "answer", "seq": 12, "title": "答案收口"}
+
+id: 128
+event: verdict
+data: {"status": "completed", "run_id": "run-f866c567", "manifest_digest": "84209f78ffdc773b", "subtype": "final"}
+
+id: 129
+event: blackbox
+data: {"run_id": "run-f866c567", "question": "今年各井的日产液量按天列出来", "status": "completed", "error": "", "stored": true, "bytes": 83110, "counts": {"messages": 11, "dialogue": 0, "process_notes": 6, "observations": 52, "steps": 12}}
+
+id: 129
+event: done
+data: {"run_id": "run-f866c567"}
