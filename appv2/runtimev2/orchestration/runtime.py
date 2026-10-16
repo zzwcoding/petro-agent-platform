@@ -8,16 +8,27 @@
 
 1. **受理**（`ask`／`resume` 两态）：身份对象→行级字符串的转换点（`state.md`「依赖与风险」5）、
    run 号生成、追问播种（前 run 检查点**终链整链承接**——钉 `pin-23`）、断线重连复用活体总线；
+   **挂起恢复**＝选择回喂（`resume_choices` 留痕／澄清回收帧留场交相位消费／批准落 `approved_ids`
+   ＋`extable_rounds`）＋轮预算重置（行为 7「澄清回收重置轮预算合法」）；恢复腿**重取易变环境量**
+   （台账投影经 `load_ledger_dump` 重装载、工具调用环境由相位侧恢复守卫现取——行为 13）；
 2. **驱动**：`load_ledger_dump` 取一次装载（`context`；失败＝run 直接失败，fail-fast）→
-   `build_graph` → `ainvoke`（**状态就地改**，无 reducer）；
+   `build_graph` → `ainvoke`（**状态就地改**，无 reducer）；恢复腿的步／通知帧计数从**载入态既有
+   条数**起算（本腿只发本腿新产的帧）；
 3. **三态收口**（H3）：`completed`／`failed`／`waiting_ask` 写 run 行（`answer`／`manifest_digest`
    随三态落）；检查点行经 `persistence` 的**框架无关行级口**落（`encode_state`——saver 组合面，
-   不直连表）；
+   不直连表）；**挂起收束**＝腿收口帧（`verdict`，`status=waiting_ask`）落定即止——**不关总线**
+   （历史缓冲常驻、跨腿续编「不重启」）、**不发黑匣子帧**（`specs/transport.md` 行为 10：任一 run
+   恰一帧 `blackbox`——它是 run 收口段那一帧）；
 4. **帧面**：步帧（逐条）、收口 `verdict` 终形（**与核验 `verify` 形同批落定**——行为 11 承接
    条款）、黑匣子瘦指针、`close`；相位自产的 `text`／`tool`／`observation`／`citation`／`notice`
    ／`verdict(verify)` 帧不经本模块转发（总线同一根，本块只发自己那几种）；
 5. **失败收束**：图执行器不可用／相位抛错 → fail-closed 收束为 `failed` ＋ `run_failed` notice
    （**不产出半成品答案**——「不降级与静默禁令」节：合法降级路径＝无）。
+
+**单腿读口与跨腿续编**（`_leg_stream`）：run 的总线在 run 生命期内常驻（历史缓冲）；`ask`／`resume`
+两腿经单腿读口读到本腿收口帧为止（`ask` 帧之后的行为归 `api` 开流段——挂起铁律「`ask` 帧之后照发
+`done`」），断线重连（`resume_run_id`）读**该 run 全流**直至 run 收口。帧对象／信封／游标三件的
+唯一实现仍在 `transport`——本块只决定「本腿读到哪为止」，不产帧、不编号。
 
 **零旁路**：模型只经 `bookkeeping.call_model` 发起（相位侧已收敛）、工具只经 `tools` 公开面、
 帧只经 `transport` 包根（本模块 import 的是包根公开面）。
@@ -29,7 +40,7 @@ import asyncio
 import dataclasses
 import hashlib
 import json
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import AsyncIterator, Collection, Mapping, Sequence
 from dataclasses import asdict
 from datetime import date
 from typing import Any
@@ -91,13 +102,39 @@ from appv2.runtimev2.state import (
     RunHandle,
     RunState,
 )
-from appv2.runtimev2.transport import EventBus
+from appv2.runtimev2.transport import EventBus, SseEvent
 from appv2.tools import ASKBACK_TIME_CHOICES, ToolRegistry
 
 _APPROVED_KIND = "external_table_approval"
 _APPROVE = "approve"
 _APPROVAL_ID_KEY = "approval_id"
 _TABLES_KEY = "tables"
+
+
+async def _leg_stream(bus: EventBus, cursor: int = 0) -> AsyncIterator[SseEvent]:
+    """**单腿读口**：本块给受理面的「本腿读到哪为止」视图（命令受理侧的唯一出口包装）。
+
+    帧的来源仍然唯一——本视图**只从 `transport.EventBus.stream(cursor)` 取帧**：不产帧、不编号、
+    不拼信封（帧对象／信封／游标三件的唯一实现仍在 `transport`，本块不立第二套帧通路）；它只回答
+    「本次受理的这一腿（提问腿／恢复腿）到哪里为止」。
+
+    收束判据＝**本腿的收口帧**：
+
+    - `blackbox` 帧：run 终态收口——`specs/transport.md` 行为 10 明写它是「业务帧意义上的流末帧」，
+      其后恒 `close()`（本块终态路径同批关闭总线）；
+    - `verdict` 帧且 `status="waiting_ask"`：挂起收束——本腿以 ask 挂起结束（`ask` 帧之后的行为
+      归 `api` 开流段：挂起铁律「`ask` 帧之后照发 `done`」，见 `specs/transport.md` 行为 8）。
+
+    **跨腿续编**（`specs/transport.md` 行为 3「跨段不重启」）：挂起腿**不关闭**总线——run 的总线在
+    run 生命期内常驻（历史缓冲），恢复腿在同一条总线上按排他起点继续读（游标＝上一腿收口帧之后），
+    故 `seq` 跨腿严格递增、无重复。
+    """
+    async for frame in bus.stream(cursor):
+        yield frame
+        if frame.event == EVENT_BLACKBOX:
+            return
+        if frame.event == EVENT_VERDICT and frame.data.get(PAYLOAD_STATUS_KEY) == RUN_WAITING_ASK:
+            return
 
 
 class AgentRuntime:
@@ -137,6 +174,7 @@ class RunExecutor:
         self._max_observations = max_observations
         self._load_ledger = load_ledger
         self._buses: dict[str, EventBus] = {}
+        self._cursors: dict[str, int] = {}
         self._tasks: set[asyncio.Task[None]] = set()
 
     # ── 受理（H3）──────────────────────────────────────────────────────────
@@ -147,10 +185,13 @@ class RunExecutor:
         return await self._ask(command)
 
     async def _ask(self, command: RunCommand) -> RunHandle:
-        if command.run_id:  # 形态②：断线重连——复用既有 run 的活体总线，不新起 run
+        if command.run_id:  # 形态②：断线重连——复用既有 run 的活体总线（历史缓冲），不新起 run
             bus = self._buses.get(command.run_id)
             if bus is None:
                 raise RunNotFoundError(f"run 流不可达（无活体总线）：{command.run_id}")
+            # 重连读口＝**run 全流跟随**（从 0 起给全部历史与后续新帧，直至 run 收口）——断点过滤
+            # 归受理面（客户端回送 `id`，换算 `cursor = id + 1` 的排他起点语义真源
+            # `specs/transport.md` 行为 5）。
             return handle_of(command.run_id, bus.stream())
         run_id = new_run_id()
         bus = EventBus()
@@ -159,7 +200,7 @@ class RunExecutor:
         state = self._initial_state(command, run_id, seed)
         self._store.save(self._run_record(state, RUN_RUNNING))
         self._spawn(state, bus, run_id)
-        return handle_of(run_id, bus.stream())
+        return handle_of(run_id, _leg_stream(bus))
 
     async def _resume(self, command: RunCommand) -> RunHandle:
         try:
@@ -176,24 +217,42 @@ class RunExecutor:
         choice = command.choice or AskChoice(kind="clarify")
         self._apply_choice(state, choice)
         state.status = RUN_RUNNING
-        bus = EventBus()
-        self._buses[command.run_id] = bus
+        cursor = self._cursors.get(command.run_id, 0)
+        bus = self._bus_of(command.run_id)
         self._store.save(self._run_record(state, RUN_RUNNING))
         self._spawn(state, bus, command.run_id)
-        return handle_of(command.run_id, bus.stream())
+        # 恢复腿＝**同一条总线续编**（`specs/transport.md` 行为 3「跨段不重启、重放不位移」）：
+        # 排他起点＝上一腿收口帧之后（`_cursors`），回执 `cursor` 与之一致（＝本腿下一帧 `seq`）。
+        return handle_of(command.run_id, _leg_stream(bus, cursor), cursor=cursor)
+
+    def _bus_of(self, run_id: str) -> EventBus:
+        """取 run 的活体总线（历史缓冲）；缺席／已封口（跨进程恢复面）→ 新起一条续编。"""
+        bus = self._buses.get(run_id)
+        if bus is None or bus.closed:
+            bus = EventBus()
+            self._buses[run_id] = bus
+            self._cursors.setdefault(run_id, 0)
+        return bus
 
     def _apply_choice(self, state: RunState, choice: AskChoice) -> None:
-        """恢复选择回喂（`state.resume_choices` 追加 ＋ 审批态落 `approved_ids`）。
+        """恢复选择回喂（`state.resume_choices` 留痕 ＋ 逐形回喂）。
 
-        缓存 resume 面的两形（与相位侧读面同形）：澄清回收＝相位侧 `_consume_resume` 消费
-        `choice`；**外表越集审批**＝批准时把审批单号与其越集表集并入 `approved_ids`
-        （`bookkeeping.tool_context` 的放行名单面），回前置条件机重判。
+        两形（`AskChoice.kind` 闭世界，形状真源 `specs/state.md` 行为 14）：
+
+        - **澄清回收**（`kind="clarify"`）：选择经 `resume_choices` 交澄清相位消费——其契约
+          `_consume_resume` 以 `state.pending_ask.kind` 判形，故**帧留场**（由该相位消费时清除）；
+          同时重置轮预算（行为 7 原文「澄清回收（resume）重置轮预算合法——rounds=0」）；
+        - **外表越集审批**（`kind="external_table_approval"`）：批准时把审批单号与其越集表集并入
+          `approved_ids`（`bookkeeping.tool_context` 的放行名单面）＋`extable_rounds` 计点；帧即
+          消费完毕（清除），回前置条件机重判。
         """
         frame = state.pending_ask if isinstance(state.pending_ask, dict) else {}
         state.resume_choices.append(choice_payload(choice))
-        state.pending_ask = None
         state.rounds = 0
-        if choice.kind != _APPROVED_KIND or choice.decision != _APPROVE:
+        if choice.kind != _APPROVED_KIND:
+            return  # 澄清回收：帧留场交澄清相位消费（`clarification._consume_resume` 契约）
+        state.pending_ask = None
+        if choice.decision != _APPROVE:
             return
         detail = frame.get(ASK_KEY_DETAIL)
         detail = detail if isinstance(detail, dict) else {}
@@ -265,6 +324,11 @@ class RunExecutor:
                 watermark=self._watermark,
                 data_wells=self._data_wells,
                 max_observations=self._max_observations,
+                # 恢复腿重入（同 run 第二腿起）：已落状态的步／通知**不再重发帧**（本腿只发
+                # 本腿新产的帧）——计数起点＝载入态的既有条数（`_flush_steps`／`_flush_notices`
+                # 按「新增逐条」语义发帧）。
+                emitted_steps=len(state.steps),
+                emitted_notices=len(state.notices),
             )
             result = await build_graph(deps).ainvoke(
                 state, {"recursion_limit": _recursion_limit(state)}
@@ -281,16 +345,22 @@ class RunExecutor:
         finally:
             await self._close_out(state, bus, run_id, error=error)
 
-    async def _close_out(
-        self, state: RunState, bus: EventBus, run_id: str, *, error: str
-    ) -> None:
-        """三态收口：状态行 ＋ 步行 ＋ 检查点行 ＋ 收口 `verdict(final)` 帧 ＋ 黑匣子指针。"""
+    async def _close_out(self, state: RunState, bus: EventBus, run_id: str, *, error: str) -> None:
+        """收口（两态）：三态判定 ＋ 状态行／步行／检查点行 ＋ 收口 `verdict(final)` 帧。
+
+        - **挂起收束**（`waiting_ask`）：本腿以挂起结束——`verdict(final)` 帧落定后**腿即收束**
+          （受理面单腿读口据此收口，`ask` 帧之后的行为归 `api` 开流段），但 run 未收口：**不关总线**
+          （历史缓冲常驻、跨腿续编不重启）、**不发黑匣子帧**（`specs/transport.md` 行为 10：任一 run
+          的帧序列含**恰一帧** `blackbox`——它是 run 收口段那一帧，不是每腿一帧）；
+        - **run 终态收口**（`completed`／`failed`）：黑匣子帧（瘦指针，写库成败都在）＋`close()`。
+          「合法降级路径＝无」——失败同样如实收口，不产出半成品答案。
+        """
         digest = _manifest_digest(state)
         state.manifest_digest = digest
         status = _terminal_status(state, error=error)
         state.status = status
         self._persist(state, bus, status=status, digest=digest)
-        bus.emit(
+        verdict = bus.emit(
             EVENT_VERDICT,
             {
                 PAYLOAD_STATUS_KEY: status,
@@ -298,6 +368,10 @@ class RunExecutor:
                 "manifest_digest": digest,
             },
         )
+        # 下一腿的排他起点＝本腿收口帧之后（事件帧计数＋1）——恢复腿据此续编、游标诚实地交回受理面。
+        self._cursors[run_id] = verdict.seq + 1
+        if status == RUN_WAITING_ASK:
+            return
         record = _blackbox_record(state, error=error)
         stored, size = False, 0
         try:

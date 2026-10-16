@@ -10,6 +10,12 @@ R10 verdict subtype wire 定型断言＋P-006b 触界收敛事件流形态对齐
 runtime 侧全剧本件（ScriptedCompleter＋假引擎——tests/domains/test_v2_agent_loop.py
 同款装配），api 层真件＝三端点路由＋SSE 事件桥（wire schema）＋统一错误包。
 
+**编排面直测（RT-W5-01a／-01b 改写面）**：规格「验收测试」表里落本文件的六行
+（loop_step_sequence／manifest_present_each_call／followup_asks_extend_session＝-01a；
+ask_suspend_resume／sse_cursor_resume／resume_error_paths＝-01b）按主窗裁（流水 58 L0-4）
+改为**直测 runtimev2 编排块**（`AgentRuntime` 黑盒，不经端点——`api` 面归尾票 RT-W5-02）；
+本文件其余用例仍是端点级（旧运行时），待 RT-W5-02 改接后随其重排。
+
 V1 前端兼容判据（web/src/api/chat.js streamChat＋web/src/landing/A1.jsx applyFrame
 的机器可验面）：①帧信封 `id/event/data` 三行＋空行收束（00 §6.1 同形）；
 ②流以保留帧 done 收场（V1 客户端只在保留帧上干净收流——非保留帧收场按传输断
@@ -279,77 +285,206 @@ def _names(frames: list[tuple[str, dict[str, Any]]]) -> list[str]:
     return [name for name, _ in frames]
 
 
-# ---------- 验收① loop_step_sequence：ReAct 周期步序 ----------
+# ---------- 编排面装配（RT-W5-01b：行 22／26／28 直测 runtimev2 编排块，不经端点） ----------
+#
+# 主窗裁（流水 58 L0-4）已定：api 侧验收行改写为**直测 orchestration**（`AgentRuntime` 黑盒；
+# `api` 面归尾票 `RT-W5-02`）——故本段用 runtimev2 编排块的标准测试装配（剧本 completer＋内存
+# 簿记表＋假引擎），不引 `appv2/api/` 端点件。
 
 
-# ---------- 验收② manifest_present_each_call：步面 Manifest 形（80h 退役形） ----------
+def _v2_orchestration(
+    script: dict[str, list[str]],
+    *,
+    engine: Any = None,
+    budget: Any = None,
+) -> tuple[Any, Any, Any, Any]:
+    """runtimev2 装配（返回 runtime／剧本 completer／假引擎／台账投影端口）。
+
+    台账投影（`wire_ledger_projection`）与引擎剧本在装配点一次性接好——本段的三个用例都跑在
+    四相位真链上（澄清→匹配→前置条件机→批量执行→作答收口）。
+    """
+    from tests.domains import test_v2_four_phase as v2
+
+    dump = v2.v2_ledger_dump()
+    v2.wire_ledger_projection(v2.V2LedgerPort(dump))
+    engine = engine if engine is not None else v2.V2QueueEngine([v2._rows_outcome()])
+    runtime, completer = v2.v2_runtime(
+        script=script, registry=v2.v2_registry(engine=engine), budget=budget
+    )
+    return runtime, completer, engine, dump
+
+
+async def _v2_ask(runtime: Any, question: str) -> tuple[list[Any], Any]:
+    """受理形态①（提问）：返回（本腿事件流，回执）。"""
+    from appv2.runtimev2.state import AskRequest
+
+    handle = await runtime.ask(AskRequest(question=question, actor=_v2_actor()))
+    return [event async for event in handle.stream], handle
+
+
+def _v2_actor() -> Any:
+    from appv2.infra.security import Actor
+
+    return Actor(user_id="aqiang", display="阿强")
+
+
+def _v2_windowed_turns(note: str) -> tuple[str, str]:
+    """一轮四相位发射（澄清分解＋工具匹配——窗已定），供剧本复用。"""
+    from tests.domains import test_v2_four_phase as v2
+
+    return (
+        v2.v2_decompose(
+            subtask_id="s1",
+            question="2025-09-01 到 09-03 各井日产油量",
+            ledger_notes=note,
+            chain="data",
+        ),
+        v2.v2_matches(
+            v2.v2_data_match(
+                subtask_id="s1", slot="日产油量", start="2025-09-01", end="2025-09-03"
+            )
+        ),
+    )
+
+
+async def _v2_resume(runtime: Any, run_id: str, choice: Any) -> tuple[list[Any], Any]:
+    """受理形态（resume）：返回（本腿事件流，回执）。"""
+    handle = await runtime.resume(run_id, choice)
+    return [event async for event in handle.stream], handle
 
 
 # ---------- 验收③ ask_suspend_resume：工具 ask 挂起→GET waiting_ask→resume ----------
 
 
-def test_ask_suspend_resume(env_clarify: Any) -> None:
-    """工具返回 ask→run 挂起（ask 帧出流后 done 收束）→GET 状态 waiting_ask→
-    resume 带选择续跑出答案（citation 在场）。"""
-    client, _db = env_clarify
-    frames = _post_ask(client, "最近的日产油量")
-    run_id = frames[0][1]["run_id"]
-    ask_frames = [data for name, data in frames if name == "ask"]
-    assert ask_frames, "ASK 帧未出流"
-    frame = ask_frames[0]["frame"]
-    assert frame["kind"] == "clarify"
-    assert frame["options"] == list(ASKBACK_TIME_CHOICES)
-    assert _names(frames)[-1] == FRAME_DONE  # 挂起段正常收束（行为约定 4）
+async def test_ask_suspend_resume() -> None:
+    """行 22｜工具返回 ask→run 挂起→GET 状态 waiting_ask→resume 完成。
 
-    status = client.get(f"/api/v2/chat/runs/{run_id}", headers=ACTOR)
-    assert status.status_code == 200
-    assert status.json()["status"] == "waiting_ask"
-    # V2-78 挂起帧随行：pending_ask 与流内 ask 帧同形（刷新还原面）。
-    pending = status.json()["pending_ask"]
-    assert pending is not None and pending["kind"] == "clarify"
-    assert pending["prompt"] == frame["prompt"]
-    assert pending["options"] == list(ASKBACK_TIME_CHOICES)
+    工具侧（引擎）返回 `status=ask`（缺参反问）→run 转 `waiting_ask` 挂起（`ask` 帧出流后本腿
+    收束）→读面状态 `waiting_ask`（`pending_ask`＝挂起帧投影）→`resume` 带选择续跑至完成——
+    跨腿续编不重启游标（钉 `pin-29` 闭环面·工具侧形态）。
+    """
+    from appv2.infra.clock import freeze
+    from appv2.runtimev2.persistence import RunStore
+    from appv2.runtimev2.state import AskChoice
+    from tests.domains import test_v2_four_phase as v2
 
-    resumed = client.post(
-        f"/api/v2/chat/runs/{run_id}/resume",
-        json={"kind": "clarify", "choice": "近 3 天"},
-        headers=ACTOR,
+    engine = v2.V2QueueEngine(
+        [
+            QueryOutcome.need_clarify(
+                question=ASKBACK_TIME_QUESTION, choices=ASKBACK_TIME_CHOICES
+            ),
+            v2._rows_outcome(),
+        ]
     )
-    assert resumed.status_code == 200
-    second = _parse_frames(resumed.text)
-    assert second[0][0] == FRAME_SESSION and second[0][1]["resume"] is True
-    assert any(name == "citation" for name, _ in second)
-    assert _names(second)[-1] == FRAME_DONE
-    final = [data for name, data in second if name == "verdict" and data.get("subtype") == "final"]
-    assert final and final[-1]["status"] == "completed"
+    dump = v2.v2_ledger_dump()
+    note = v2.v2_ledger_note(dump, "日产油量")
+    first, second = _v2_windowed_turns(note)
+    script = {
+        "understand": [v2.V2_UNDERSTAND],
+        "decision": [first, second, first, second],
+        "answer": ["答案：N-01 井 2025-09-01 日产油量 21.16 吨 [1]。"],
+    }
+    runtime, _completer, _engine, _dump = _v2_orchestration(script, engine=engine)
 
-    done = client.get(f"/api/v2/chat/runs/{run_id}", headers=ACTOR)
-    assert done.json()["status"] == "completed"
+    with freeze("2026-10-08T09:00:00"):
+        events, _handle = await _v2_ask(runtime, "最近的日产油量")
+        asks = [event.data for event in events if event.event == "ask"]
+        assert asks, "ASK 帧未出流"
+        frame = asks[-1]["frame"]
+        assert frame["kind"] == "clarify"
+        assert frame["options"] == list(ASKBACK_TIME_CHOICES)
+        # 挂起收束：ask 帧之后的收口帧 status=waiting_ask（本腿止于此；`done` 归开流段）
+        assert events[-1].event == "verdict" and events[-1].data["status"] == "waiting_ask"
+
+        run_id = asks[-1]["run_id"]
+        row = RunStore().run(run_id)
+        assert row is not None and row.status == "waiting_ask"  # 读面状态（GET 投影真源）
+        assert RunStore().load(run_id).pending_ask == frame  # 挂起帧投影随状态在场
+
+        resumed, resumed_handle = await _v2_resume(
+            runtime, run_id, AskChoice(kind="clarify", choice="近 3 天")
+        )
+    assert resumed[-1].event == "blackbox" and resumed[-1].data["status"] == "completed"
+    assert RunStore().run(run_id).status == "completed"
+    assert "21.16" in (RunStore().run(run_id).answer or "")
+    # 同链续推＋跨腿续编：恢复腿从上一腿收口帧之后起（不重启游标、不重放已完成部分）
+    assert resumed_handle.cursor == events[-1].seq + 1
+    assert all(event.seq >= resumed_handle.cursor for event in resumed)
+    assert not [event for event in resumed if event.event == "ask"]
+    assert engine.run_calls == 2  # 首投挂起（引擎未出数）＋恢复后续跑恰一次
+    state = RunStore().load(run_id)
+    assert state.resume_choices[-1]["choice"] == "近 3 天"
+    assert state.pending_ask is None
 
 
 # ---------- 验收④ sse_cursor_resume：断线游标重连不重复不遗漏 ----------
 
 
-def test_sse_cursor_resume(env: Any) -> None:
-    """断线重连形态（asks 携 resume_run_id＋Last-Event-ID——V1 帧形兼容）：
-    重放流＝断点后事件序（不重复不遗漏）＋done 收场；重放流帧行首为
-    session(resume)（V1 重放同形）。"""
-    client, _db = env
-    first = _post_ask(client)
-    run_id = first[0][1]["run_id"]
-    events = [f for f in first if f[0] not in (FRAME_SESSION, FRAME_DONE)]
-    breakpoint = 2  # 断在帧 id 2（第三事件）——重放 seq>=2 尾部
-    assert len(events) > breakpoint
+async def test_sse_cursor_resume() -> None:
+    """行 26｜断线游标重连→事件不重复不遗漏。
 
-    replay_resp = client.post(
-        "/api/v2/chat/asks",
-        json={"resume_run_id": run_id},
-        headers={**ACTOR, "Last-Event-ID": str(breakpoint)},
-    )
-    assert replay_resp.status_code == 200
-    replay = _parse_frames(replay_resp.text)
-    assert replay[0][0] == FRAME_SESSION and replay[0][1]["resume"] is True
-    assert replay[1:] == [*events[breakpoint:], first[-1]]  # 尾部事件＋done 同形同值
+    受理形态②（`resume_run_id`＝断线重连）复用**同一 run 的活体总线**（历史缓冲——不新起 run、
+    不重跑相位）：重放流＝该 run 全流（同 `seq`／同 `event`／同 `data`，重放不位移）；客户端以任一
+    帧 `id` 回送时换算 `cursor = id + 1`（排他起点），续推即原流「`seq ≥ cursor`」后缀——不重复、
+    不遗漏（真源 `specs/transport.md` 行为 5；游标全流单调＝行为 3「跨段不重启」）。
+    """
+    from appv2.infra.clock import freeze
+    from appv2.runtimev2.state import AskRequest
+    from tests.domains import test_v2_four_phase as v2
+
+    dump = v2.v2_ledger_dump()
+    note = v2.v2_ledger_note(dump, "日产油量")
+    first, second = _v2_windowed_turns(note)
+    script = {
+        "understand": [v2.V2_UNDERSTAND],
+        "decision": [first, second],
+        "answer": ["答案：N-01 井 2025-09-01 日产油量 21.16 吨 [1]。"],
+    }
+    runtime, _completer, _engine, _dump = _v2_orchestration(script)
+    with freeze("2026-10-08T09:00:00"):
+        events, _handle = await _v2_ask(runtime, "2025 年 9 月 1 日到 3 日的日产油量")
+        run_id = events[-1].data["run_id"]
+        reconnected = await runtime.ask(AskRequest(resume_run_id=run_id, actor=_v2_actor()))
+        replay = [event async for event in reconnected.stream]
+        again = [
+            event
+            async for event in (
+                await runtime.ask(AskRequest(resume_run_id=run_id, actor=_v2_actor()))
+            ).stream
+        ]
+
+    # 全流单调：0 起、严格递增、无跳号无重复
+    assert [event.seq for event in replay] == list(range(len(replay)))
+    assert replay[0].seq == 0
+    # 重放不位移：两次重放逐帧同 seq／同 event／同 data
+    assert [(event.seq, event.event, event.data) for event in again] == [
+        (event.seq, event.event, event.data) for event in replay
+    ]
+    assert [(event.seq, event.event, event.data) for event in replay] == [
+        (event.seq, event.event, event.data) for event in events
+    ]
+    assert events[-1].event == "blackbox"
+
+    # 断点续推（不重复不遗漏）：以任一帧 `id` 换算 `cursor = id + 1`，得原流后缀逐帧相等
+    assert all(_envelope_id(event) == event.seq for event in events)  # 事件帧 `id`＝自身 `seq`
+    for cursor in (1, len(events) // 2, len(events) - 1):
+        last_event = next(event for event in events if event.seq == cursor - 1)
+        assert _envelope_id(last_event) + 1 == cursor  # 客户端算式（行为 5 排他起点）
+        suffix = [event for event in replay if event.seq >= cursor]
+        assert [event.seq for event in suffix] == list(range(cursor, len(events)))
+        assert suffix == [event for event in events if event.seq >= cursor]
+
+    # 重连不新起 run：同一 run 行、状态与答案不变
+    from appv2.runtimev2.persistence import RunStore
+
+    assert RunStore().run(run_id).status == "completed"
+
+
+def _envelope_id(frame: Any) -> int:
+    """信封 `id:` 行读数（信封字节形真源＝`transport.envelope`——本处只解析首行）。"""
+    from appv2.runtimev2.transport import envelope
+
+    return int(envelope(frame).splitlines()[0].removeprefix("id: "))
 
 
 def test_sse_replay_from_zero_replays_all_events(env: Any) -> None:
@@ -392,26 +527,80 @@ def test_invalid_last_event_id_returns_400(env: Any) -> None:
 # ---------- 验收⑤ resume_error_paths：404/409 ----------
 
 
-def test_resume_error_paths(env: Any) -> None:
-    """resume 到不存在 run→404；非挂起态（completed）run→409（错误码行）。"""
-    client, _db = env
-    missing = client.post(
-        "/api/v2/chat/runs/run-not-exist/resume",
-        json={"kind": "clarify", "choice": "近 3 天"},
-        headers=ACTOR,
-    )
-    assert missing.status_code == 404
-    assert missing.json()["code"] == "chat_run_not_found"
+async def test_resume_error_paths() -> None:
+    """行 28｜resume/追问错误路径（404／409／互斥 409）。
 
-    frames = _post_ask(client)  # 跑完一个 completed run
-    run_id = frames[0][1]["run_id"]
-    terminal = client.post(
-        f"/api/v2/chat/runs/{run_id}/resume",
-        json={"kind": "clarify", "choice": "近 3 天"},
-        headers=ACTOR,
+    四条路径各自落到**具名错误源**（`api` 侧的 404／409 映射据此单点——错误码行真源
+    `specs/agent-loop.md` 接口定义节：「404 run 不存在｜409 run 非挂起态不可 resume（重连/追问
+    互斥同 409）」）：
+
+    ① `resume` 到不存在的 run → 404 源异常；② `resume` 到非挂起态（completed）的 run → 409 源
+    异常；③ 重连（`resume_run_id`）到不存在／不可达的 run → 404 源异常；④ 追问（`followup_run_id`）
+    不存在 → 404 源异常、前轮未收口 → 409 源异常；⑤ 受理形态②③同在场 → 参数错误（互斥 409 面）。
+    """
+    from appv2.infra.clock import freeze
+    from appv2.runtimev2.orchestration import RunNotFoundError, RunNotSuspendedError
+    from appv2.runtimev2.state import AskChoice, AskRequest
+    from tests.domains import test_v2_four_phase as v2
+
+    dump = v2.v2_ledger_dump()
+    note = v2.v2_ledger_note(dump, "日产油量")
+    first, second = _v2_windowed_turns(note)
+    script = {
+        "understand": [v2.V2_UNDERSTAND],
+        "decision": [first, second],
+        "answer": ["答案：N-01 井 2025-09-01 日产油量 21.16 吨 [1]。"],
+    }
+    runtime, _completer, _engine, _dump = _v2_orchestration(script)
+    choice = AskChoice(kind="clarify", choice="近 3 天")
+
+    with freeze("2026-10-08T09:00:00"):
+        # ① resume 不存在的 run → 404 源
+        with pytest.raises(RunNotFoundError):
+            await runtime.resume("run-not-exist", choice)
+        # ③ 重连不存在的 run → 404 源（无该 run 的流缓冲）
+        with pytest.raises(RunNotFoundError):
+            await runtime.ask(AskRequest(resume_run_id="run-missing", actor=_v2_actor()))
+        # ④ 追问不存在的前轮 → 404 源
+        with pytest.raises(RunNotFoundError):
+            await runtime.ask(
+                AskRequest(question="那 9 月 2 日呢？", followup_run_id="run-missing",
+                           actor=_v2_actor())
+            )
+        # 走完一个 completed run
+        events, _handle = await _v2_ask(runtime, "2025 年 9 月 1 日到 3 日的日产油量")
+    run_id = events[-1].data["run_id"]
+    assert events[-1].data["status"] == "completed"
+
+    # ② resume 非挂起态 run → 409 源（不能静默重开）
+    with pytest.raises(RunNotSuspendedError):
+        await runtime.resume(run_id, choice)
+
+    # ⑤ 受理形态②③互斥（同在场）→ 参数错误（互斥 409 的源面）
+    with pytest.raises(ValueError):
+        AskRequest(
+            question="那 9 月 2 日呢？", resume_run_id=run_id, followup_run_id=run_id,
+            actor=_v2_actor(),
+        )
+    # ⑤′ 追问挂起中的前轮 → 409 源（在途轮走 resume，不可追问）
+    suspended = v2.V2QueueEngine(
+        [QueryOutcome.need_clarify(question=ASKBACK_TIME_QUESTION,
+                                   choices=ASKBACK_TIME_CHOICES)]
     )
-    assert terminal.status_code == 409
-    assert terminal.json()["code"] == "chat_run_state"
+    script_ask = {
+        "understand": [v2.V2_UNDERSTAND],
+        "decision": [first, second],
+        "answer": ["答案。"],
+    }
+    runtime2, _c2, _e2, _d2 = _v2_orchestration(script_ask, engine=suspended)
+    with freeze("2026-10-08T09:05:00"):
+        pending_events, _h2 = await _v2_ask(runtime2, "最近的日产油量")
+    pending_run = [event.data["run_id"] for event in pending_events if event.event == "ask"][-1]
+    with pytest.raises(RunNotSuspendedError):
+        await runtime2.ask(
+            AskRequest(question="那 9 月 2 日呢？", followup_run_id=pending_run,
+                       actor=_v2_actor())
+        )
 
 
 def test_resume_body_shape_guards(env_clarify: Any) -> None:

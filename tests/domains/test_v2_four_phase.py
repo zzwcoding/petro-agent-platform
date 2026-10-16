@@ -39,7 +39,6 @@ from appv2.query import QueryOutcome
 from appv2.runtime import (
     AskChoice,
     AskRequest,
-    Budget,
     RunStore,
     parse_decision,
 )
@@ -58,6 +57,7 @@ from appv2.runtimev2.persistence import (
 from appv2.runtimev2.persistence import (
     RunStore as V2RunStore,
 )
+from appv2.runtimev2.state import AskChoice as V2AskChoice
 from appv2.runtimev2.state import AskRequest as V2AskRequest
 from appv2.tools import (
     FakeKnowledgeStore,
@@ -178,6 +178,26 @@ def v2_runtime(
 async def v2_run(runtime: Any, question: str) -> list[Any]:
     handle = await runtime.ask(V2AskRequest(question=question, actor=V2_ACTOR))
     return [event async for event in handle.stream]
+
+
+async def v2_resume(runtime: Any, run_id: str, choice: Any) -> tuple[list[Any], Any]:
+    """恢复受理（runtimev2）：返回（本腿事件流，受理回执）——回执携本腿排他起点 `cursor`。"""
+    handle = await runtime.resume(run_id, choice)
+    return [event async for event in handle.stream], handle
+
+
+def v2_ask_frames(events: list[Any]) -> list[dict[str, Any]]:
+    """流内 `ask` 帧载荷序列（挂起信号面）。"""
+    return [event.data for event in events if event.event == "ask"]
+
+
+def v2_resume_steps(run_id: str, kind: str) -> list[Any]:
+    """恢复留痕步（澄清回收步 payload 携 `resume` 键／执行面恢复守卫步携 `volatile` 键）。"""
+    return [
+        row
+        for row in v2_steps(run_id)
+        if isinstance(row.payload, dict) and row.payload.get(kind) is not None
+    ]
 
 
 def v2_steps(run_id: str, phase: str | None = None) -> list[Any]:
@@ -993,207 +1013,269 @@ async def test_four_phase_blocked_ask_suspends_and_resume_keeps_results(tmp_path
         await db.dispose()
 
 
-async def test_four_phase_refurnace_carries_failed_subset_only(tmp_path: Path) -> None:
-    """轮语义：失败子集＋拒因回炉①澄清；成功子问题结果保留不重跑（R4）。
+async def test_four_phase_refurnace_carries_failed_subset_only() -> None:
+    """行 9｜失败子集回炉（成功子结果不重跑断言）。
 
-    s2 用「日产液量」（台账在册 bound——前置条件机放行；引擎剧本槽位集不含
-    ——引擎校验拒＝failed 回炉面。V2-43 后回炉测试面必须在册 bound 槽位：
-    在册未绑定槽位已改走换链回炉闸，引擎拒面只对 bound 槽位可达）。"""
-    engine = FourPhaseEngine(
-        [_rows_outcome(), _rows_outcome()], slots=frozenset({"日产油量", "油压"})
+    回炉轮①携**失败子集＋拒因**（增量条「回炉：」段只列 failed 子问题），成功子问题结果保留、
+    执行指纹零重复（`subtask_results` 簿记面命中即跳过——「不重放已完成部分」）。
+    """
+    dump = v2_ledger_dump()
+    note_oil = v2_ledger_note(dump, "日产油量")
+    note_liquid = v2_ledger_note(dump, "日产液量")
+    note_pressure = v2_ledger_note(dump, "油压")
+    engine = V2QueueEngine([_rows_outcome(), _rows_outcome()])
+    # 剧本槽位集不含「日产液量」——引擎校验拒＝failed 回炉面（在册 bound 槽位才可达此面）。
+    engine.ledger_metric_slots = {"日产油量", "油压"}
+    # 问句指标候选集含三槽（FX-13 候选集闸面照常）：失败面只由脚本槽位集造成。
+    understand = json.dumps(
+        {"route": "full", "text": "既要数值也要报告佐证。",
+         "metric_candidates": ["日产油量", "日产液量", "油压"]},
+        ensure_ascii=False,
     )
-    clarify_r1 = json.dumps({
-        "action": "decompose",
-        "question_group": {"subtasks": [
-            {"id": "s1", "question": "2025-09-01 到 09-03 各井日产油量",
-             "ledger_notes": "日产油量｜bound", "chain": "data"},
-            {"id": "s2", "question": "各井日产液量",
-             "ledger_notes": "日产液量｜bound", "chain": "data"},
-        ]},
-    }, ensure_ascii=False)
-    clarify_r2 = json.dumps({
-        "action": "decompose",
-        "question_group": {"subtasks": [
-            {"id": "s2", "question": "各井油压", "ledger_notes": "油压｜bound", "chain": "data"},
-        ]},
-    }, ensure_ascii=False)
-    toolmatch_r1 = json.dumps({"matches": [
-        {"id": "s1", "chain": "data", "tool": "data_query", "plan": {
-            "metric_slot": "日产油量", "ranking": False,
-            "window_start": "2025-09-01", "window_end": "2025-09-03"}},
-        {"id": "s2", "chain": "data", "tool": "data_query", "plan": {
-            "metric_slot": "日产液量", "ranking": False,
-            "window_start": "2025-09-01", "window_end": "2025-09-03"}},
-    ]}, ensure_ascii=False)
-    toolmatch_r2 = json.dumps({"matches": [
-        {"id": "s2", "chain": "data", "tool": "data_query", "plan": {
-            "metric_slot": "油压", "ranking": False,
-            "window_start": "2025-09-01", "window_end": "2025-09-03"}},
-    ]}, ensure_ascii=False)
     script = {
-        "v2.runtime.understand": [UNDERSTAND_MULTI],
-        "v2.runtime.decision": [clarify_r1, toolmatch_r1, clarify_r2, toolmatch_r2],
-        "v2.runtime.answer": [_SUMMARY_DRAFT],
-    }
-    runtime, completer, db = await make_runtime(
-        tmp_path, engine=engine, script=script,
-        four_phase=True, ledger_dump=lambda: dict(LEDGER_DUMP),
-    )
-    try:
-        events = await _run_question(runtime, "回炉不重跑综合题")
-        assert events[-1].data["status"] == "completed"
-        store = RunStore(db)
-        steps = await store.list_steps(events[-1].data["run_id"])
-        executed = [s for s in steps if s.step_type == "execute" and
-                    (s.payload or {}).get("subtask_id")]
-        # 成功子问题执行指纹零重复：s1 恰一次；s2 修正后补跑一次
-        ids = [s.payload["subtask_id"] for s in executed]
-        assert ids == ["s1", "s2", "s2"] or ids.count("s1") == 1
-        assert engine.run_calls == 2
-        # 回炉澄清轮携失败子集＋拒因（第 3 次 decision 调用＝轮 2 澄清）
-        clarify_calls = completer.messages_of("v2.runtime.decision")
-        round2_clarify = clarify_calls[2][-1]["content"]
-        assert "s2" in round2_clarify and "不在指标台账" in round2_clarify
-        assert "回炉：" in round2_clarify
-        # 成功子问题不再出现在回炉分解指令（回炉段只带失败子集＋拒因）
-        refurnace_tail = round2_clarify.split("回炉：")[-1]
-        assert "s2" in refurnace_tail and "日产液量" in refurnace_tail
-        assert "不在指标台账" in refurnace_tail
-        assert "s1" not in refurnace_tail
-    finally:
-        await db.dispose()
-
-
-async def test_four_phase_three_rounds_partial_answers(tmp_path: Path) -> None:
-    """3 轮部分续找：连续失败烧满轮预算后带部分结果如实收口。
-
-    s2 用「日产液量」（台账在册 bound——前置条件机放行；引擎剧本槽位集不含
-    ——每轮引擎校验拒＝failed，回炉三轮语义不变。V2-43 后回炉测试面必须在
-    册 bound 槽位：在册未绑定槽位已改走换链回炉闸）。"""
-    engine = FourPhaseEngine([_rows_outcome()], slots=frozenset({"日产油量"}))
-    clarify_ok = json.dumps({
-        "action": "decompose",
-        "question_group": {"subtasks": [
-            {"id": "s1", "question": "2025-09-01 到 09-03 各井日产油量",
-             "ledger_notes": "日产油量｜bound", "chain": "data"},
-            {"id": "s2", "question": "各井日产液量",
-             "ledger_notes": "日产液量｜bound", "chain": "data"},
-        ]},
-    }, ensure_ascii=False)
-    clarify_bad = json.dumps({
-        "action": "decompose",
-        "question_group": {"subtasks": [
-            {"id": "s2", "question": "各井日产液量（重试）", "ledger_notes": "日产液量｜bound",
-             "chain": "data"},
-        ]},
-    }, ensure_ascii=False)
-    toolmatch_s1 = json.dumps({"matches": [
-        {"id": "s1", "chain": "data", "tool": "data_query", "plan": {
-            "metric_slot": "日产油量", "ranking": False,
-            "window_start": "2025-09-01", "window_end": "2025-09-03"}},
-        {"id": "s2", "chain": "data", "tool": "data_query", "plan": {
-            "metric_slot": "日产液量", "ranking": False,
-            "window_start": "2025-09-01", "window_end": "2025-09-03"}},
-    ]}, ensure_ascii=False)
-    toolmatch_s2_bad = json.dumps({"matches": [
-        {"id": "s2", "chain": "data", "tool": "data_query", "plan": {
-            "metric_slot": "日产液量", "ranking": False,
-            "window_start": "2025-09-01", "window_end": "2025-09-03"}},
-    ]}, ensure_ascii=False)
-    script = {
-        "v2.runtime.understand": [UNDERSTAND_MULTI],
-        "v2.runtime.decision": [
-            clarify_ok, toolmatch_s1,
-            clarify_bad, toolmatch_s2_bad,
-            clarify_bad, toolmatch_s2_bad,
+        "understand": [understand],
+        "decision": [
+            json.dumps(
+                {
+                    "action": "decompose",
+                    "question_group": {
+                        "subtasks": [
+                            {
+                                "id": "s1",
+                                "question": "2025-09-01 到 09-03 各井日产油量",
+                                "ledger_notes": note_oil,
+                                "chain": "data",
+                            },
+                            {
+                                "id": "s2",
+                                "question": "各井日产液量",
+                                "ledger_notes": note_liquid,
+                                "chain": "data",
+                            },
+                        ]
+                    },
+                },
+                ensure_ascii=False,
+            ),
+            v2_matches(
+                v2_data_match(subtask_id="s1", slot="日产油量",
+                              start="2025-09-01", end="2025-09-03"),
+                v2_data_match(subtask_id="s2", slot="日产液量",
+                              start="2025-09-01", end="2025-09-03"),
+            ),
+            v2_decompose(
+                subtask_id="s2", question="各井油压", ledger_notes=note_pressure, chain="data"
+            ),
+            v2_matches(
+                v2_data_match(subtask_id="s2", slot="油压",
+                              start="2025-09-01", end="2025-09-03")
+            ),
         ],
-        "v2.runtime.answer": [_SUMMARY_DRAFT],
+        "answer": ["s1：N-01 井 2025-09-01 日产油量 21.16 吨 [1]；s2：油压见材料。"],
     }
-    runtime, completer, db = await make_runtime(
-        tmp_path, engine=engine, script=script,
-        four_phase=True, ledger_dump=lambda: dict(LEDGER_DUMP),
+    wire_ledger_projection(V2LedgerPort(dump))
+    with freeze("2026-10-08T09:00:00"):
+        runtime, completer = v2_runtime(script=script, registry=v2_registry(engine=engine))
+        events = await v2_run(runtime, "回炉不重跑综合题")
+    assert events[-1].event == "blackbox" and events[-1].data["status"] == "completed"
+    run_id = events[-1].data["run_id"]
+
+    executed = [row for row in v2_steps(run_id, "execution") if row.payload.get("subtask_id")]
+    ids = [row.payload["subtask_id"] for row in executed]
+    assert ids.count("s1") == 1 and ids.count("s2") == 2  # 成功子问题恰一次；失败支回炉补跑
+    assert engine.run_calls == 2  # s1 首轮出数、s2 修正后出数——引擎恰两次
+
+    # 回炉轮①的增量条：携失败子集的拒因（`decision_error` 回喂条——execution 的闸拒面单点）
+    calls = completer.messages_of("decision")
+    refurnace = str(calls[2][-1].get("content", ""))
+    assert "上次发射被拒" in refurnace and "不在指标台账" in refurnace
+    assert "日产液量" in refurnace and "日产油量" not in refurnace  # 只带失败子集
+    assert [item["id"] for item in V2RunStore().load(run_id).question_group["subtasks"]] == ["s2"]
+
+
+async def test_four_phase_three_rounds_partial_answers() -> None:
+    """行 10｜3 轮部分续找语义（轮 1 部分答案→轮 2/3 带失败子集）。
+
+    轮预算（`state.budget` 轮数键）用尽即收口：连续失败支在轮 2／3 只带失败子集＋拒因回炉，
+    成功子问题结果保留不重跑；到顶以**已取得材料＋未完成项**如实交付（触界不静默）。
+    """
+    dump = v2_ledger_dump()
+    note_oil = v2_ledger_note(dump, "日产油量")
+    note_liquid = v2_ledger_note(dump, "日产液量")
+    engine = V2QueueEngine([_rows_outcome()])
+    engine.ledger_metric_slots = {"日产油量"}  # 日产液量恒不在槽位集——三轮恒 failed
+
+    def decompose_liquid(marker: str) -> str:
+        return json.dumps(
+            {
+                "action": "decompose",
+                "question_group": {
+                    "subtasks": [
+                        {
+                            "id": "s2",
+                            "question": f"各井日产液量{marker}",
+                            "ledger_notes": note_liquid,
+                            "chain": "data",
+                        }
+                    ]
+                },
+            },
+            ensure_ascii=False,
+        )
+
+    def match_liquid(day: str) -> str:
+        return v2_matches(
+            v2_data_match(subtask_id="s2", slot="日产液量", start="2025-09-01", end=day)
+        )
+
+    understand = json.dumps(
+        {"route": "full", "text": "既要数值也要报告佐证。",
+         "metric_candidates": ["日产油量", "日产液量"]},
+        ensure_ascii=False,
     )
-    try:
-        events = await _run_question(runtime, "三轮部分续找题")
-        final = events[-1].data
-        assert final["status"] == "completed"
-        store = RunStore(db)
-        steps = await store.list_steps(final["run_id"])
-        clarify_calls = completer.messages_of("v2.runtime.decision")
-        assert len(clarify_calls) == 6  # 3 轮×（澄清＋匹配）
-        executed = [s for s in steps if s.step_type == "execute" and
-                    (s.payload or {}).get("subtask_id")]
-        ok_executed = [s for s in executed if s.payload["status"] == "ok"]
-        assert [s.payload["subtask_id"] for s in ok_executed] == ["s1"]  # s1 恰一次
-        # s2 三轮各试一次（failed）——3 轮失败子集回炉语义本体
-        assert [s.payload["subtask_id"] for s in executed].count("s2") == 3
-        run_row = await store.get_run(final["run_id"])
-        assert run_row is not None and "s1" in (run_row.answer or "")
-    finally:
-        await db.dispose()
-
-
-async def test_four_phase_discover_budget_ten_and_taps(tmp_path: Path) -> None:
-    """discover≤10 有界＋每次发现计数埋点落 step payload（次数/查询词/命中形态）。"""
-    no_hit_store = FakeKnowledgeStore()  # 浏览/查询全 no_hit——命中形态可断言
-    discover = json.dumps({
-        "action": "discover",
-        "discovers": [{"tool": "semantic_query", "args": {"question": "日产油量口径"}}],
-    }, ensure_ascii=False)
-    # V2-56 随动：同款空手探查拒重发（附 C2）生效后，打满预算闸的剧本罐头改
-    # 异参形（逐支 question 各异）——预算闸钉面与断言零改动，只换罐头参数。
-    doubles = [
-        json.dumps({
-            "action": "discover",
-            "discovers": [
-                {"tool": "semantic_query", "args": {"question": f"q{i}"}},
-                {"tool": "table_schema", "args": {}},
-            ],
-        }, ensure_ascii=False)
-        for i in range(1, 7)
-    ]
-    decision_script: list[str] = [
-        *doubles[:5], doubles[5], discover, discover,
-        CLARIFY_GROUP_DATA_KNOWLEDGE, TOOLMATCH_TWO,
-    ]
     script = {
-        "v2.runtime.understand": [UNDERSTAND_MULTI],
-        "v2.runtime.decision": decision_script,
-        "v2.runtime.answer": [_SUMMARY_DRAFT],
+        "understand": [understand],
+        "decision": [
+            json.dumps(
+                {
+                    "action": "decompose",
+                    "question_group": {
+                        "subtasks": [
+                            {
+                                "id": "s1",
+                                "question": "2025-09-01 到 09-03 各井日产油量",
+                                "ledger_notes": note_oil,
+                                "chain": "data",
+                            },
+                            {
+                                "id": "s2",
+                                "question": "各井日产液量",
+                                "ledger_notes": note_liquid,
+                                "chain": "data",
+                            },
+                        ]
+                    },
+                },
+                ensure_ascii=False,
+            ),
+            v2_matches(
+                v2_data_match(subtask_id="s1", slot="日产油量",
+                              start="2025-09-01", end="2025-09-03"),
+                v2_data_match(subtask_id="s2", slot="日产液量",
+                              start="2025-09-01", end="2025-09-03"),
+            ),
+            decompose_liquid("（轮 2 重试）"),
+            match_liquid("2025-09-04"),
+            decompose_liquid("（轮 3 重试）"),
+            match_liquid("2025-09-05"),
+        ],
+        "answer": ["s1：N-01 井 2025-09-01 日产油量 21.16 吨 [1]。"],
     }
-    runtime, _completer, db = await make_runtime(
-        tmp_path,
-        engine=QueueQueryEngine([_rows_outcome()]),
-        script=script,
-        four_phase=True,
-        ledger_dump=lambda: dict(LEDGER_DUMP),
-        knowledge=no_hit_store,
+    wire_ledger_projection(V2LedgerPort(dump))
+    with freeze("2026-10-08T09:00:00"):
+        runtime, completer = v2_runtime(script=script, registry=v2_registry(engine=engine))
+        events = await v2_run(runtime, "三轮部分续找题")
+    assert events[-1].event == "blackbox" and events[-1].data["status"] == "completed"
+    run_id = events[-1].data["run_id"]
+
+    state = V2RunStore().load(run_id)
+    assert int(state.rounds) == int(state.budget.rounds) == 3  # 轮预算用尽（三轮各占一轮）
+    assert int(state.discover_used) == 0
+    executed = [row for row in v2_steps(run_id, "execution") if row.payload.get("subtask_id")]
+    attempt_ids = [row.payload["subtask_id"] for row in executed]
+    assert attempt_ids.count("s1") == 1  # 成功子问题零重复执行
+    assert attempt_ids.count("s2") == 3  # 失败支三轮各试一次
+    assert engine.run_calls == 1  # 只有 s1 真出数（s2 三投皆配置拒）
+
+    # 轮 2／3 的增量条都只带失败子集的拒因（连续拒因回喂——轮 1 部分答案语义本体）
+    calls = completer.messages_of("decision")
+    for call in (calls[2], calls[4]):
+        text = str(call[-1].get("content", ""))
+        assert "上次发射被拒" in text and "不在指标台账" in text
+        assert "日产液量" in text and "日产油量" not in text
+    assert [item["id"] for item in V2RunStore().load(run_id).question_group["subtasks"]] == ["s2"]
+    assert "21.16" in (V2RunStore().run(run_id).answer or "")
+
+
+async def test_four_phase_discover_budget_ten_and_taps() -> None:
+    """行 11｜discover 全 run ≤10＋计数埋点落 payload。
+
+    钻取预算＝硬闸（数值只引 `state.budget` 全 run 发现键）：超预算的发射被确定性拦截（不是
+    「模型自律」），且每次钻取落 step payload 计数埋点（工具／查询词指纹／命中数／命中形态）
+    供跑批分析。
+    """
+    doubles = [
+        json.dumps(
+            {
+                "action": "discover",
+                "discovers": [
+                    {"tool": "semantic_query", "args": {"question": f"q{i}"}},
+                    {"tool": "table_schema", "args": {}},
+                ],
+            },
+            ensure_ascii=False,
+        )
+        for i in range(1, 6)
+    ]
+    overflow = json.dumps(
+        {
+            "action": "discover",
+            "discovers": [{"tool": "semantic_query", "args": {"question": "超预算支"}}],
+        },
+        ensure_ascii=False,
     )
-    try:
-        events = await _run_question(runtime, _E2E_QUESTION)
-        assert events[-1].data["status"] == "completed"
-        store = RunStore(db)
-        steps = await store.list_steps(events[-1].data["run_id"])
-        taps = [
-            s.payload["discover_tap"] for s in steps
-            if s.step_type == "discover" and (s.payload or {}).get("discover_tap")
-        ]
-        assert len(taps) == 10  # 全 run ≤10（合同闸，非软建议）
-        assert [t["index"] for t in taps] == list(range(1, 11))
-        assert all(t["query"] for t in taps)  # 查询词留档
-        assert all(t["shape"] for t in taps)  # 命中形态留档
-        assert any(t["shape"] == "no_hit" for t in taps)  # semantic_query no_hit 形态
-        assert any(str(t["shape"]).startswith("rows:") for t in taps)  # 结构卡命中形
-        # 第 11 支被预算闸拒（拒因回喂—— schema 层确定性拦截）
-        rejections = [
-            str((s.payload or {}).get("rejection", ""))
-            for s in steps
-            if s.step_type == "decision"
-            and "发现预算" in str((s.payload or {}).get("rejection", ""))
-        ]
-        assert rejections
-    finally:
-        await db.dispose()
+    dump = v2_ledger_dump()
+    note = v2_ledger_note(dump, "日产油量")
+    script = {
+        "understand": [V2_UNDERSTAND],
+        "decision": [
+            *doubles,
+            overflow,  # 第 11 支：预算闸确定性拦截（拒因回喂）
+            v2_decompose(
+                subtask_id="s1",
+                question="2025-09-01 到 09-03 各井日产油量",
+                ledger_notes=note,
+                chain="data",
+            ),
+            v2_matches(
+                v2_data_match(
+                    subtask_id="s1", slot="日产油量", start="2025-09-01", end="2025-09-03"
+                )
+            ),
+        ],
+        "answer": ["s1：N-01 井 2025-09-01 日产油量 21.16 吨 [1]。"],
+    }
+    wire_ledger_projection(V2LedgerPort(dump))
+    engine = V2QueueEngine([_rows_outcome()])
+    with freeze("2026-10-08T09:00:00"):
+        runtime, _completer = v2_runtime(script=script, registry=v2_registry(engine=engine))
+        events = await v2_run(runtime, "2025 年 9 月 1 日到 3 日的日产油量")
+    assert events[-1].event == "blackbox" and events[-1].data["status"] == "completed"
+    run_id = events[-1].data["run_id"]
+
+    state = V2RunStore().load(run_id)
+    cap = int(state.budget.discovers_per_run)
+    taps = [row for row in v2_steps(run_id) if row.step == "discover"]
+    assert len(taps) == cap == 10  # 全 run ≤10（合同闸，非软建议）
+    assert int(state.discover_used) == cap
+    # 计数埋点落 payload：查询词指纹／命中数／命中形态（`status`／`reject_reason` 同理可查）
+    assert all(str(row.payload.get("args_fingerprint") or "") for row in taps)
+    assert all(isinstance(row.payload.get("row_count"), int) for row in taps)
+    assert all(str(row.payload.get("status") or "") in {"ok", "failed", "ask"} for row in taps)
+    assert max(int(row.payload["row_count"]) for row in taps) > 0  # 结构卡命中（rows:N 形）
+    assert state.empty_probes  # 空手探查指纹（no_hit 形——no_hit 循环回归判定面）
+    assert len(state.empty_probes) == len(taps) // 2  # 半数为语义探查（逐支 question 各异）
+    no_hit_fingerprints = {
+        json.dumps(row.payload["args"], ensure_ascii=False, sort_keys=True) for row in taps
+        if row.payload["tool"] == "semantic_query"
+    }
+    assert no_hit_fingerprints  # 空手支的查询词如实留档
+    # 越预算发射被拦（拒因回喂面在场），run 照常续推（拦截不炸链）
+    rejections = [
+        str(row.payload.get("rejection") or "")
+        for row in v2_steps(run_id, "clarify")
+    ]
+    assert any("发现预算" in reason for reason in rejections)
 
 
 async def test_four_phase_ledger_dump_round1_injection() -> None:
@@ -1248,68 +1330,77 @@ async def test_four_phase_ledger_dump_round1_injection() -> None:
 # ---------- S5 审批恢复全链钉（B1 修复面——两链全通：clarify 面＋legacy 面） ----------
 
 
-async def test_four_phase_extable_approval_resume_precondition_chain(tmp_path: Path) -> None:
-    """S5 全链钉·clarify 面（前置条件机审批帧）：越集→审批挂起→批准→前置重判
-    （放行态）→批量续跑全通——routes[NODE_CLARIFY] 缺 INTENT_PRECONDITION 边
-    ＝KeyError（B1：修复前本钉红）。"""
-    engine = QueueQueryEngine([_rows_outcome()])
-    clarify = json.dumps({
-        "action": "decompose",
-        "question_group": {"subtasks": [
-            {"id": "s1", "question": "井位台账关联的日产油量",
-             "ledger_notes": "日产油量｜bound｜外表关联", "chain": "data"},
-        ]},
-    }, ensure_ascii=False)
-    toolmatch = json.dumps({"matches": [
-        {"id": "s1", "chain": "data", "tool": "data_query", "plan": {
-            "metric_slot": "日产油量", "ranking": False,
-            "window_start": "2025-09-01", "window_end": "2025-09-03",
-            "external_tables": ["erp_well_register"]}},
-    ]}, ensure_ascii=False)
-    script = {
-        "v2.runtime.understand": [UNDERSTAND_MULTI],
-        "v2.runtime.decision": [clarify, toolmatch],
-        "v2.runtime.answer": [_SUMMARY_DRAFT],
-    }
-    runtime, _completer, db = await make_runtime(
-        tmp_path, engine=engine, script=script,
-        four_phase=True, ledger_dump=lambda: dict(LEDGER_DUMP),
+async def test_four_phase_extable_approval_resume_precondition_chain() -> None:
+    """行 14｜越集审批挂起→批准→前置条件机重判→批量执行（钉 `pin-29` 闭环面·审批形态）。
+
+    两处形状面（-01b 承载）：① ask 帧 `detail` 承载位＝`precond-{subtask_id}` ＋
+    `plan.external_tables`（外集表名集随帧）；② 批准落 `approved_ids`（放行名单面）＋
+    `extable_rounds` 计点，回前置条件机**重判**（同一条链续推，不重起第二套形状）。
+    """
+    dump = v2_ledger_dump()
+    note = v2_ledger_note(dump, "日产油量")
+    clarify = v2_decompose(
+        subtask_id="s1",
+        question="井位台账关联的日产油量",
+        ledger_notes=note,
+        chain="data",
     )
-    try:
-        events = await _run_question(runtime, "外表越集审批恢复题")
-        asks = [e.data for e in events if e.event == "ask"]
+    match = v2_data_match(
+        subtask_id="s1", slot="日产油量", start="2025-09-01", end="2025-09-03"
+    )
+    match["plan"]["external_tables"] = ["erp_well_register"]
+    script = {
+        "understand": [V2_UNDERSTAND],
+        "decision": [clarify, v2_matches(match)],
+        "answer": ["s1：N-01 井 2025-09-01 日产油量 21.16 吨 [1]。"],
+    }
+    wire_ledger_projection(V2LedgerPort(dump))
+    engine = V2QueueEngine([_rows_outcome()])
+    with freeze("2026-10-08T09:00:00"):
+        runtime, _completer = v2_runtime(script=script, registry=v2_registry(engine=engine))
+        events = await v2_run(runtime, "外表越集审批恢复题")
+        asks = v2_ask_frames(events)
         assert asks and asks[-1]["frame"]["kind"] == "external_table_approval"
-        approval_id = asks[-1]["frame"]["detail"]["approval_id"]
-        store = RunStore(db)
-        run_row = await store.get_run(asks[-1]["run_id"])
-        assert run_row is not None and run_row.status == "waiting_ask"
+        frame = asks[-1]["frame"]
+        assert frame["detail"]["approval_id"] == "precond-s1"  # 承载位：precond-{subtask_id}
+        assert frame["detail"]["tables"] == ["erp_well_register"]  # plan.external_tables 原样取
+        run_id = asks[-1]["run_id"]
+        assert V2RunStore().run(run_id).status == "waiting_ask"
+        assert engine.run_calls == 0  # 未批准＝不执行（不静默放行）
 
-        # 批准 → INTENT_PRECONDITION 重判（放行态进 ToolContext）→ 批量续跑。
-        handle = await runtime.resume(
-            run_row.run_id, AskChoice(value="批准", approval_id=approval_id)
+        # 批准 → 前置条件机重判（放行态进 ToolContext）→ 批量续跑。
+        resumed, _handle = await v2_resume(
+            runtime,
+            run_id,
+            V2AskChoice(
+                kind="external_table_approval",
+                decision="approve",
+                approval_id=frame["detail"]["approval_id"],
+            ),
         )
-        events2 = await drain(handle)
-        assert events2[-1].data["status"] == "completed"
-        steps = await store.list_steps(run_row.run_id)
-        preconds = _step_payloads(steps, "precondition")
-        assert len(preconds) == 2  # 挂起前 blocked_ask＋批准后重判
-        assert preconds[0]["verdicts"][0]["state"] == "blocked_ask"
-        assert preconds[-1]["verdicts"][0]["state"] == "note"  # 放行后注记随行
-        assert any("放行" in n for n in preconds[-1]["verdicts"][0]["notes"])
-        executed = [
-            s for s in steps
-            if s.step_type == "execute" and (s.payload or {}).get("subtask_id")
-        ]
-        assert [s.payload["subtask_id"] for s in executed] == ["s1"]  # 恰执行一次
-        assert engine.run_calls == 1
-    finally:
-        await db.dispose()
+    assert resumed[-1].event == "blackbox" and resumed[-1].data["status"] == "completed"
+    assert not v2_ask_frames(resumed)  # 批准后不再挂起（放行名单生效）
+
+    state = V2RunStore().load(run_id)
+    assert "erp_well_register" in state.approved_ids  # 批准落放行名单
+    assert state.extable_rounds == 1  # 外表审批轮计点
+    assert state.approved_ids == [frame["detail"]["approval_id"], "erp_well_register"]
+    preconditions = v2_steps(run_id, "precondition")
+    assert len(preconditions) == 2  # 挂起前 ask ＋ 批准后重判
+    assert preconditions[0].payload["decision"] == "ask"
+    assert preconditions[-1].payload["decision"] == "allow"
+    executed = [row for row in v2_steps(run_id, "execution") if row.payload.get("subtask_id")]
+    assert [row.payload["subtask_id"] for row in executed] == ["s1"]  # 恰执行一次
+    assert engine.run_calls == 1
+    assert "21.16" in (V2RunStore().run(run_id).answer or "")
 
 
-async def test_four_phase_engine_ask_resume_batch_chain(tmp_path: Path) -> None:
-    """S5 全链钉·legacy 面（批量执行引擎侧审批帧）：批量遇审批挂起→批准→
-    前置重判→批量续跑全通（graph.py:2537 同经 clarify→_handle_choice——
-    修复前同 KeyError）。"""
+async def test_four_phase_engine_ask_resume_batch_chain() -> None:
+    """行 15｜引擎侧 ask 挂起→resume→批量续跑收口（钉 `pin-29` 闭环面·工具侧审批帧）。
+
+    引擎帧（`data_query` 越集审批 outcome）同走**挂起—恢复链**：挂起帧 kind 与前置条件机
+    形态同族 → 入口回**前置条件机重判** → 批量续跑（首投挂起未出数、批准后恰补跑一次）。
+    """
     ask_outcome = QueryOutcome.external_table_approval(
         tables=("erp_well_register",),
         ask={
@@ -1319,61 +1410,59 @@ async def test_four_phase_engine_ask_resume_batch_chain(tmp_path: Path) -> None:
             "audit_hint": "外表 erp_well_register",
         },
     )
-    engine = QueueQueryEngine([ask_outcome, _rows_outcome()])
-    clarify = json.dumps({
-        "action": "decompose",
-        "question_group": {"subtasks": [
-            {"id": "s1", "question": "2025-09-01 到 09-03 各井日产油量",
-             "ledger_notes": "日产油量｜bound", "chain": "data"},
-        ]},
-    }, ensure_ascii=False)
-    toolmatch = json.dumps({"matches": [
-        {"id": "s1", "chain": "data", "tool": "data_query", "plan": {
-            "metric_slot": "日产油量", "ranking": False,
-            "window_start": "2025-09-01", "window_end": "2025-09-03"}},
-    ]}, ensure_ascii=False)
+    dump = v2_ledger_dump()
+    note = v2_ledger_note(dump, "日产油量")
     script = {
-        "v2.runtime.understand": [UNDERSTAND_MULTI],
-        "v2.runtime.decision": [clarify, toolmatch],
-        "v2.runtime.answer": [_SUMMARY_DRAFT],
+        "understand": [V2_UNDERSTAND],
+        "decision": [
+            v2_decompose(
+                subtask_id="s1",
+                question="2025-09-01 到 09-03 各井日产油量",
+                ledger_notes=note,
+                chain="data",
+            ),
+            v2_matches(
+                v2_data_match(
+                    subtask_id="s1", slot="日产油量", start="2025-09-01", end="2025-09-03"
+                )
+            ),
+        ],
+        "answer": ["s1：N-01 井 2025-09-01 日产油量 21.16 吨 [1]。"],
     }
-    runtime, _completer, db = await make_runtime(
-        tmp_path, engine=engine, script=script,
-        four_phase=True, ledger_dump=lambda: dict(LEDGER_DUMP),
-    )
-    try:
-        events = await _run_question(runtime, "引擎侧审批恢复题")
-        asks = [e.data for e in events if e.event == "ask"]
+    wire_ledger_projection(V2LedgerPort(dump))
+    engine = V2QueueEngine([ask_outcome, _rows_outcome()])
+    with freeze("2026-10-08T09:00:00"):
+        runtime, _completer = v2_runtime(script=script, registry=v2_registry(engine=engine))
+        events = await v2_run(runtime, "引擎侧审批恢复题")
+        asks = v2_ask_frames(events)
         assert asks and asks[-1]["frame"]["kind"] == "external_table_approval"
-        approval_id = asks[-1]["frame"]["detail"]["approval_id"]
-        assert approval_id.startswith("run-")  # 引擎帧换 run 前缀种子（接线③）
-        store = RunStore(db)
-        run_row = await store.get_run(asks[-1]["run_id"])
-        assert run_row is not None and run_row.status == "waiting_ask"
+        frame = asks[-1]["frame"]
+        assert frame["detail"]["approval_id"] == "APP-1008-erp_well_register"  # 引擎卡素材透传
+        assert frame["detail"]["tables"] == ["erp_well_register"]  # 表名集随卡（放行名单回填面）
+        run_id = asks[-1]["run_id"]
+        assert V2RunStore().run(run_id).status == "waiting_ask"
+        assert engine.run_calls == 1  # 首投挂起（引擎未出数）
 
-        handle = await runtime.resume(
-            run_row.run_id, AskChoice(value="批准", approval_id=approval_id)
+        resumed, _handle = await v2_resume(
+            runtime,
+            run_id,
+            V2AskChoice(
+                kind="external_table_approval",
+                decision="approve",
+                approval_id=frame["detail"]["approval_id"],
+            ),
         )
-        events2 = await drain(handle)
-        assert events2[-1].data["status"] == "completed"
-        steps = await store.list_steps(run_row.run_id)
-        executed = [
-            s for s in steps
-            if s.step_type == "execute" and (s.payload or {}).get("subtask_id")
-        ]
-        # 首执行挂起（引擎未出数）＋批准重判后续跑恰一次——两支执行留痕。
-        assert [s.payload["status"] for s in executed] == ["ask", "ok"]
-        assert engine.run_calls == 2
-        # 前置重判步在场（批准→INTENT_PRECONDITION 路由真走通）。
-        assert len(_step_payloads(steps, "precondition")) == 2
-        run_row = await store.get_run(run_row.run_id)
-        assert run_row is not None and "21.16" in (run_row.answer or "")
-        resume_records = [
-            s for s in steps if (s.payload or {}).get("resume") is not None
-        ]
-        assert resume_records  # 审批回收留痕（接线①）
-    finally:
-        await db.dispose()
+    assert resumed[-1].event == "blackbox" and resumed[-1].data["status"] == "completed"
+    assert engine.run_calls == 2  # 批准后恰补跑一次
+
+    state = V2RunStore().load(run_id)
+    assert state.approved_ids == ["APP-1008-erp_well_register", "erp_well_register"]
+    assert state.extable_rounds == 1
+    assert len(v2_steps(run_id, "precondition")) == 2  # 批准→重判路由真走通
+    executed = [row for row in v2_steps(run_id, "execution") if row.payload.get("subtask_id")]
+    assert [row.payload["status"] for row in executed] == ["ask", "ok"]  # 首挂起＋续跑
+    assert v2_resume_steps(run_id, "volatile")  # 恢复守卫：重取易变环境量（执行面四项）
+    assert "21.16" in (V2RunStore().run(run_id).answer or "")
 
 
 # ---------- P-033c 降2 收窄：CLARIFY_CONTRACT 反问收窄（窗可锚定＝禁 ask） ----------
@@ -1466,132 +1555,172 @@ async def test_four_phase_anchorable_window_skips_ask_delivers_degrade() -> None
     assert sum("台账全量" in message.get("content", "") for message in last_call) == 2
 
 
-async def test_four_phase_clarify_ask_threshold_form_still_suspends_and_resumes(
-    tmp_path: Path,
-) -> None:
-    """P-033c 收窄钉（阈值判断形反问仍通）：ask 白场（无场景词阈值判断形——
-    口径支待用户选）在 clarify 相位照常发射→真挂起→resume 回喂→续跑收口。
-    收窄只禁窗可锚定下的不必要反问，不禁阈值判断形/真歧义白场（挂起不占轮）。
-    V2-43：resume 后口径已答仍触发绑定闸拒（含水率未绑定）——换链回炉①后
-    轮 3 换 knowledge 链交付（零 data 执行）。"""
-    retrieval = _retrieval_with(_fragment_obs(
-        "各井含水率按化验实测口径 2025-09 平均 21.4%（月报所载）。", "frag-hsl-1"))
-    engine = FourPhaseEngine([_rows_outcome()])
-    ask_first = json.dumps({
-        "action": "ask",
-        "ask": {"prompt": "含水率按哪支口径判断阈值？",
-                "options": ["A 月报口径", "B 化验实测"]},
-    }, ensure_ascii=False)
-    clarify_after = json.dumps({
-        "action": "decompose",
-        "question_group": {"subtasks": [
-            {"id": "s1", "question": "各井含水率按化验实测口径是否超过 30",
-             "ledger_notes": "含水率｜在册未绑定｜口径支 B（化验实测）",
-             "chain": "data"},
-        ]},
-    }, ensure_ascii=False)
-    toolmatch = json.dumps({"matches": [
-        {"id": "s1", "chain": "data", "tool": "data_query", "plan": {
-            "metric_slot": "含水率", "ranking": False, "caliber_key": "B",
-            "window_start": "2025-01-01", "window_end": "2026-01-01"}},
-    ]}, ensure_ascii=False)
-    clarify_r3 = json.dumps({
-        "action": "decompose",
-        "question_group": {"subtasks": [
-            {"id": "s1", "question": "各井含水率按化验实测口径是否超过 30"
-             "（据拒因提示换检索链）",
-             "ledger_notes": "文档所载——knowledge 链", "chain": "knowledge",
-             "tool": "doc_retrieve"},
-        ]},
-    }, ensure_ascii=False)
-    toolmatch_r3 = json.dumps({"matches": [
-        {"id": "s1", "chain": "knowledge", "tool": "doc_retrieve",
-         "retrieval_need": {"question": "各井含水率 化验实测 口径"}},
-    ]}, ensure_ascii=False)
-    script = {
-        "v2.runtime.understand": [UNDERSTAND_MULTI],
-        "v2.runtime.decision": [ask_first, clarify_after, toolmatch,
-                                clarify_r3, toolmatch_r3],
-        "v2.runtime.answer": ["各井含水率化验实测口径 21.4%[1]——未超过 30。"],
-    }
-    runtime, _completer, db = await make_runtime(
-        tmp_path, engine=engine, script=script, retrieval=retrieval,
-        four_phase=True, ledger_dump=lambda: dict(LEDGER_DUMP),
+async def test_four_phase_clarify_ask_threshold_form_still_suspends_and_resumes() -> None:
+    """行 8｜阈值判断形口径反问仍挂起→resume 回喂→续跑收口（钉 `pin-29` 闭环面·clarify 形态）。
+
+    收窄（行 7）只禁窗可锚定下的不必要反问，不禁阈值判断形／真歧义两白场：`ask` 支照发射→run
+    置 `waiting_ask` 挂起（挂起帧投影＝GET 读面 `pending_ask`，与流内 `ask` 帧同形）→`resume`
+    带 kind 判别字段回喂（`resume_choices` 留痕、用户原话进对话链、**恢复时重取易变环境量**读数
+    落步 payload）→**同链续推**到收口（链前缀延伸、跨腿 `seq` 不重启）。
+    """
+    dump = v2_ledger_dump()
+    note = v2_ledger_note(dump, "日产油量")
+    ask_first = json.dumps(
+        {
+            "action": "ask",
+            "ask": {
+                "prompt": "「日产油量」按哪一口径支判断阈值？",
+                "options": ["A 月报口径", "B 化验实测"],
+            },
+        },
+        ensure_ascii=False,
     )
-    try:
-        events = await _run_question(runtime, "各井含水率是否超过 30？")
-        asks = [e.data for e in events if e.event == "ask"]
+    script = {
+        "understand": [V2_UNDERSTAND],
+        "decision": [
+            ask_first,
+            v2_decompose(
+                subtask_id="s1",
+                question="2025-09-01 到 09-03 各井日产油量",
+                ledger_notes=note,
+                chain="data",
+            ),
+            v2_matches(
+                v2_data_match(
+                    subtask_id="s1", slot="日产油量", start="2025-09-01", end="2025-09-03"
+                )
+            ),
+        ],
+        "answer": ["答案：N-01 井 2025-09-01 日产油量 21.16 吨 [1]。"],
+    }
+    wire_ledger_projection(V2LedgerPort(dump))
+    engine = V2QueueEngine([_rows_outcome()])
+    with freeze("2026-10-08T09:00:00"):
+        runtime, completer = v2_runtime(script=script, registry=v2_registry(engine=engine))
+        events = await v2_run(runtime, "各井日产油量是否超过 30 吨？")
+        asks = v2_ask_frames(events)
         assert asks and asks[-1]["frame"]["kind"] == "clarify"  # 真挂起帧
         assert asks[-1]["frame"]["options"] == ["A 月报口径", "B 化验实测"]
-        store = RunStore(db)
-        run_row = await store.get_run(asks[-1]["run_id"])
-        assert run_row is not None and run_row.status == "waiting_ask"
-        # resume：用户选定口径支→回喂分解→（V2-43 绑定闸拒触发回炉①换链）→收口
-        handle = await runtime.resume(run_row.run_id, AskChoice(value="B 化验实测"))
-        events2 = await drain(handle)
-        assert events2[-1].data["status"] == "completed"
-        assert engine.run_calls == 0  # 含水率在册未绑定——换链回炉后零 data 执行
-        assert retrieval.retrieve_calls == 1  # 轮 3 换 knowledge 链真执行
-    finally:
-        await db.dispose()
+        # 挂起收束：本腿以收口帧 verdict(status=waiting_ask) 止（`ask` 帧之后的行为归 api 开流段
+        # ——挂起铁律「ask 帧之后照发 done」，`specs/transport.md` 行为 8）
+        assert events[-1].event == "verdict" and events[-1].data["status"] == "waiting_ask"
+        assert not [event for event in events if event.event == "blackbox"]
+        run_id = asks[-1]["run_id"]
+        row = V2RunStore().run(run_id)
+        assert row is not None and row.status == "waiting_ask"
+        suspended = V2RunStore().load(run_id)
+        assert suspended.pending_ask == asks[-1]["frame"]  # 挂起帧投影（GET 读面）
+        chain_before = list(suspended.messages)
+
+        # resume：用户选定口径支→回喂→（同链）续推到收口。
+        resumed, handle = await v2_resume(
+            runtime, run_id, V2AskChoice(kind="clarify", choice="B 化验实测")
+        )
+    assert resumed[-1].event == "blackbox" and resumed[-1].data["status"] == "completed"
+    assert V2RunStore().run(run_id).status == "completed"
+    assert "21.16" in (V2RunStore().run(run_id).answer or "")
+
+    # 恢复选择留痕（`resume_choices` 四键投影）＋挂起帧已消费（不再挂起）
+    state = V2RunStore().load(run_id)
+    assert state.resume_choices[-1] == {
+        "kind": "clarify",
+        "choice": "B 化验实测",
+        "decision": None,
+        "approval_id": None,
+    }
+    assert state.pending_ask is None
+
+    # 恢复时重取易变环境量（行为 13）：读数落步 payload（四项台账面读数＋用户原话），可机检
+    resumption = v2_resume_steps(run_id, "resume")
+    assert resumption and resumption[-1].payload["resume"] == "B 化验实测"
+    readings = resumption[-1].payload["volatile"]
+    assert set(readings) == {"watermark", "freshness", "foundation", "new_rows"}
+
+    # 用户原话进链（对话层来源闭世界 `clarify_approval_replay`）＋链前缀延伸（pin-22 跨腿同链）
+    assert [entry["origin"] for entry in state.dialogue] == ["clarify_approval_replay"]
+    assert state.messages[: len(chain_before)] == chain_before
+    assert any(
+        message.get("role") == "user" and message.get("content") == "B 化验实测"
+        for message in state.messages[len(chain_before) :]
+    )
+    calls = completer.messages_of("decision")
+    assert calls[1][: len(calls[0])] == calls[0]  # 恢复腿首次决策调用＝首腿链的前缀延长
+
+    # 跨腿续编（`specs/transport.md` 行为 3「跨段不重启」）：游标＝上一腿收口帧之后，本腿帧不重启
+    leg1_last = events[-1].seq
+    assert handle.cursor == leg1_last + 1  # 受理回执 cursor＝本腿下一帧 seq（排他起点）
+    assert all(event.seq >= handle.cursor for event in resumed)
+    assert engine.run_calls == 1
 
 
 # ---------- S2 落闸：clarify 预算拒例外不再开无界自旋洞 ----------
 
 
-async def test_four_phase_clarify_budget_reject_spin_gate(tmp_path: Path) -> None:
-    """S2（P-033 中途审查）：预算驱动的 discover 拒不占轮的例外，在顽投模型下
-    曾是零代价自环（唯一收敛面＝时长闸）——连续预算拒自第 2 次起转占轮，
-    轮数闸确定性收敛；发现预算 ≤10 本体不被绕过。"""
-    discover = json.dumps({
-        "action": "discover",
-        "discovers": [{"tool": "semantic_query", "args": {"question": "日产油量口径"}}],
-    }, ensure_ascii=False)
-    # V2-56 随动：同款空手探查拒重发（附 C2）生效后，打满预算闸的剧本罐头改
-    # 异参形（逐支 question 各异）——S2 自旋收敛钉面与断言零改动，只换罐头
-    # 参数（预算拒在 schema 层 parse 先于发射级拒重发，异参形仍测预算闸本体）。
-    doubles = [
-        json.dumps({
+async def test_four_phase_clarify_budget_reject_spin_gate() -> None:
+    """行 12｜预算拒免轮例外只留首次（连续第 2 次转占轮）。
+
+    预算驱动的发射拒（发现预算已尽）享有「首拒免轮」例外；在顽投模型下该例外**不得**变成零代价
+    自环——连续第 2 次起转占轮，由**轮数闸**确定性收敛（触界必带如实注记，不静默截断）；发现
+    预算 ≤10 本体不被绕过。
+    """
+    discover = json.dumps(
+        {
             "action": "discover",
             "discovers": [
-                {"tool": "semantic_query", "args": {"question": f"q{i}"}},
-                {"tool": "table_schema", "args": {}},
+                {"tool": "semantic_query", "args": {"question": "日产油量口径"}},
             ],
-        }, ensure_ascii=False)
+        },
+        ensure_ascii=False,
+    )
+    # 逐支 question 各异（同参空手重发由发射级拒另管）——本钉只测预算拒的轮语义。
+    doubles = [
+        json.dumps(
+            {
+                "action": "discover",
+                "discovers": [
+                    {"tool": "semantic_query", "args": {"question": f"q{i}"}},
+                    {"tool": "table_schema", "args": {}},
+                ],
+            },
+            ensure_ascii=False,
+        )
         for i in range(1, 6)
     ]
     script = {
-        "v2.runtime.understand": [UNDERSTAND_MULTI],
-        "v2.runtime.decision": [*doubles, discover],  # 末位驻留＝顽投 discover
-        "v2.runtime.answer": [_SUMMARY_DRAFT],
+        "understand": [V2_UNDERSTAND],
+        "decision": [*doubles, discover],  # 末位驻留＝顽投 discover（预算已尽，逢发必拒）
+        "answer": ["（预算触界前无草稿——本用例只测收敛面）"],
     }
-    runtime, completer, db = await make_runtime(
-        tmp_path,
-        engine=QueueQueryEngine([_rows_outcome()]),
-        script=script,
-        budget=Budget(total_seconds=3.0),  # 收窄时长闸——证明收敛走轮数闸非时长闸
-        four_phase=True,
-        ledger_dump=lambda: dict(LEDGER_DUMP),
-        knowledge=FakeKnowledgeStore(),
-    )
-    try:
-        events = await _run_question(runtime, _E2E_QUESTION)
-        final = events[-1].data
-        assert final["status"] == "completed"
-        store = RunStore(db)
-        steps = await store.list_steps(final["run_id"])
-        taps = [
-            s for s in steps
-            if s.step_type == "discover" and (s.payload or {}).get("discover_tap")
-        ]
-        assert len(taps) == 10  # 全 run ≤10 守恒（预算闸本体不被绕过）
-        # 决策调用有界＝5 支双发＋首拒免轮＋其后逐拒耗轮至入口收敛＝恰 9 次。
-        assert completer.counts()["v2.runtime.decision"] == 9
-        notices = [e.data for e in events if e.event == "notice"]
-        converged = [n for n in notices if n.get("type") == "budget_converged"]
-        assert converged and converged[0]["gates"] == ["max_rounds"]  # 轮数闸收敛
-    finally:
-        await db.dispose()
+    wire_ledger_projection(V2LedgerPort(v2_ledger_dump()))
+    with freeze("2026-10-08T09:00:00"):
+        runtime, completer = v2_runtime(
+            script=script, registry=v2_registry(engine=V2QueueEngine([_rows_outcome()]))
+        )
+        events = await v2_run(runtime, "2025 年 9 月 1 日到 3 日的日产油量")
+    assert events[-1].event == "blackbox" and events[-1].data["status"] == "completed"
+    run_id = events[-1].data["run_id"]
+
+    state = V2RunStore().load(run_id)
+    cap = int(state.budget.discovers_per_run)
+    taps = [row for row in v2_steps(run_id) if row.step == "discover"]
+    assert len(taps) == cap  # 发现预算 ≤10 本体不被绕过
+    assert int(state.discover_used) == cap
+
+    # 轮语义：首拒免轮（轮号不进）、其后逐拒占轮——轮号序列＝[0, 1, 2, 3]
+    rejections = [
+        row.title for row in v2_steps(run_id, "clarify") if "被拒" in row.title
+    ]
+    rounds_used = [int(title.split("澄清 r")[1].split(" ")[0]) for title in rejections]
+    assert rounds_used == list(range(len(rejections)))
+    assert rounds_used[0] == 0  # 首拒免轮（`rounds` 不动）
+    # 决策调用有界：5 支双发 ＋ 首拒免轮 ＋ 其后逐拒耗轮至入口收敛（收敛那一次不发模型）
+    assert completer.counts()["decision"] == len(doubles) + 1 + int(state.budget.rounds)
+    assert int(state.rounds) == int(state.budget.rounds)  # 轮数闸到顶即收敛
+
+    converged = [notice for notice in state.notices if notice.get("type") == "budget_converged"]
+    assert converged and "rounds" in converged[0]["gates"]  # 轮数闸收敛（非时长闸）
+    assert "未完成项" in converged[0]["content"]  # 触界不静默（未完成项明示）
+    assert state.budget_hit  # 机读信号面（`budget_hit` 与注记同现）
 
 
 async def test_make_runtime_guide_contract_follows_four_phase(tmp_path: Path) -> None:

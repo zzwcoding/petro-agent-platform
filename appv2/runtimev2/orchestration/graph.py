@@ -17,7 +17,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Collection, Hashable, Sequence
+from collections.abc import Collection, Hashable, Mapping, Sequence
 from dataclasses import dataclass, field, fields
 from datetime import date
 from typing import Any
@@ -25,7 +25,7 @@ from typing import Any
 from langgraph.graph import END, START, StateGraph
 
 from appv2.runtimev2.answering import answer
-from appv2.runtimev2.bookkeeping import set_intent
+from appv2.runtimev2.bookkeeping import converge, set_intent
 from appv2.runtimev2.clarification import ClarifyAsk, ClarifyFinal, clarify
 from appv2.runtimev2.context import DEFAULT_MAX_OBSERVATIONS
 from appv2.runtimev2.execution import execute
@@ -258,6 +258,15 @@ def _make_understand(deps: LoopDeps) -> Any:
 
 def _make_clarify(deps: LoopDeps) -> Any:
     async def node(state: RunState) -> dict[str, Any]:
+        if _rounds_exhausted(state):
+            # 轮数闸（行为 7「轮数每用户输入周期 ≤3」＋行为 3「本块保留轮数闸／自旋收敛的
+            # 预算面层」）：到顶即**触界收敛**（材料如实交付＋ notice——行为 7／「触界不得静默」），
+            # 不再发起模型调用（免无界自旋；拒因回喂与失败子集回炉两路都经本入口收敛）。
+            converge(state)
+            set_intent(state, INTENT_ANSWER)
+            _flush_notices(deps, state)
+            _flush_steps(deps, state)
+            return _updates_of(state)
         outcome = clarify(state)
         if isinstance(outcome, ClarifyAsk):
             _suspend(
@@ -273,6 +282,14 @@ def _make_clarify(deps: LoopDeps) -> Any:
         return _updates_of(state)
 
     return node
+
+
+def _rounds_exhausted(state: RunState) -> bool:
+    """轮数闸判据（纯数值比较，零语义判断）：本 run 已用轮数 ≥ 限额表轮数键。
+
+    数值只引 `state.budget`（键集与缺省真源 `specs/state.md` 行为 10——本模块不写字面值）。
+    """
+    return int(state.rounds) >= int(state.budget.rounds)
 
 
 def _make_discover(deps: LoopDeps) -> Any:
@@ -411,19 +428,32 @@ def _route(state: RunState) -> str:
 
 
 def _entry(state: RunState) -> str:
-    """入口判据（`START` 条件边）：挂起恢复按 `pending_ask.kind` 回原节点，新 run 进读题。"""
-    if state.resume_choices and not state.pending_ask:
-        frame = state.pending_ask if isinstance(state.pending_ask, dict) else {}
-        kind = str(frame.get(ASK_KEY_KIND) or "")
-        entry = RESUME_ENTRY_BY_ASK_KIND.get(kind)
-        if entry is not None:
-            return entry
-        pending_choice = state.resume_choices[-1] if state.resume_choices else {}
-        kind = str((pending_choice or {}).get(ASK_KEY_KIND) or "")
-        if kind in RESUME_ENTRY_BY_ASK_KIND:
-            return RESUME_ENTRY_BY_ASK_KIND[kind]
-        return NODE_BATCH
-    return NODE_UNDERSTAND
+    """入口判据（`START` 条件边）：挂起恢复按 ask 帧 `kind` 回原节点，新 run 进读题。
+
+    恢复面**不新起第二套形状**，只选入口（挂起帧 `kind` → 入口的映射表＝
+    `RESUME_ENTRY_BY_ASK_KIND`）。判形取值两处（帧在场优先，帧已被受理段消费时取
+    `resume_choices` 末条）：澄清回收帧由澄清相位自消费（故帧留场），越集审批帧在受理段即
+    消费完毕（`approved_ids` 落定）——两种情形都要能选对入口。
+    """
+    kind = _resume_ask_kind(state)
+    if kind is None:
+        return NODE_UNDERSTAND
+    entry = RESUME_ENTRY_BY_ASK_KIND.get(kind)
+    return NODE_BATCH if entry is None else entry
+
+
+def _resume_ask_kind(state: RunState) -> str | None:
+    """恢复面的 ask `kind`（无恢复选择＝新 run，返 `None`）。"""
+    if not state.resume_choices:
+        return None
+    frame = state.pending_ask if isinstance(state.pending_ask, dict) else {}
+    kind = str(frame.get(ASK_KEY_KIND) or "")
+    if kind:
+        return kind
+    pending_choice = state.resume_choices[-1]
+    if isinstance(pending_choice, Mapping):
+        return str(pending_choice.get(ASK_KEY_KIND) or "")
+    return None
 
 
 def _node_of(fn: Any) -> Any:
