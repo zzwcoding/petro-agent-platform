@@ -166,3 +166,32 @@
   - **同族留痕（不在本批范围，交主窗裁）**：`## understanding`／`## clarification`／`## answering` 三张卡的「- 模块」行仍直列 `gateway_adapter`（三块规格同写「本块不直引」）；是否同款勘误请主窗裁。
   - **仍开项（承上节「未随批改面」3）**：卡面「- 模块」行只记「模型调用发起面」，未记 `bookkeeping` **写口面**（规格「依赖与风险」依赖行 `specs/tool_matching.md:144` 已记）——两处是否须一致请主窗裁。
 - **验证**：`python3 tools/check_specs.py` → **PASS（0 警告）**，exit 0；`python3 tools/ref_resolvable.py check` → **绿（22 份规格）**，exit 0；`python3 tools/ticket_shape_check.py tickets/v2-refactor/*.md` → **GREEN**，exit 0；`uv run lint-imports --config tools/importlinter_v2.toml` → **Contracts: 18 kept, 0 broken**。均改后实跑；**未 git commit**（主窗统一提交）。
+
+---
+
+## 2026-10-16 卡依赖行收齐勘误（`understanding`／`clarification`／`answering` 三卡 ＋ `eng/03` 依赖图）
+
+- **依据**：Owner 批「卡依赖行收齐勘误」（照上一节 `tool_matching` 卡先例）；本批即处置上节 `:166`「同族留痕（不在本批范围，交主窗裁）」开项。三块规格同写「本块不直引 `gateway_adapter`」——`specs/understanding.md:63`／`specs/clarification.md:73`／`specs/answering.md:65`（各规格「框架与依赖红线」条，同款句式）；touched-module 表同向：`specs/understanding.md:35-36`／`specs/clarification.md:35-36`／`specs/answering.md:30-31`「本块不直引——经 bookkeeping.call_model 发起」。
+- **改动性质**：只删**读法上的直引名**（「- 模块」行）＋加同款勘误注；只删边、不动签名、不动依赖实质——唯一模型出口仍归 `gateway_adapter`，三块经 `bookkeeping.call_model` 桥间接到达。
+
+### 逐处改动（行号指改后文件）
+
+| # | 位置 | 改了什么 |
+|---|---|---|
+| 1 | `specs/modules.md:141` | `## understanding` 卡「- 模块」行删去「、`gateway_adapter`」；`:142` 加注「**2026-10-16 勘误：不直引 `gateway_adapter`——经 `bookkeeping` 桥（流水 51 收齐批，Owner 批）**」 |
+| 2 | `specs/modules.md:161` | `## clarification` 卡「- 模块」行同款删名；`:162` 加同款注 |
+| 3 | `specs/modules.md:250` | `## answering` 卡「- 模块」行同款删名；`:251` 加同款注 |
+| 4 | `docs/runtime-refactor/eng/03-施工顺序与切换计划.md:13-15` | §一依赖图 `answering`／`understanding`／`clarification` 三行删去「` + gateway_adapter`」边（改后：`answering → context + prompts + state`／`understanding → gate + prompts + parsing + state`／`clarification → prompts + parsing + state`）；`:31` 加注「**注（2026-10-16 收齐批）：不直引（规格红线），经 `bookkeeping` 桥**」并点名三行 |
+
+### 未随批改面（登记交主窗）
+
+1. `specs/modules.md:143`（`## understanding` 卡「- 外部」行「（无——模型调用经 `gateway_adapter`）」）**未动**——该括注是**解释性说明**（不在「- 模块」依赖列上），且与勘误注不抵；是否同删请主窗裁。
+2. 上节 `:166` 原开项「是否同款勘误请主窗裁」**就此销项**（本批即该勘误）；该行为当时留痕，按历史记录体例**不回改**。
+3. 三卡勘误集中记于本文件末节（任务指定），未另建三份回工补写文件。
+
+### 验证（改后实跑）
+
+- `python3 tools/check_specs.py` → **PASS（0 警告）**，exit 0；
+- `.venv/bin/lint-imports --config tools/importlinter_v2.toml` → **Contracts: 18 kept, 0 broken**，exit 0；
+- `.venv/bin/lint-imports`（默认配置＝V1 面）→ **Contracts: 6 kept, 0 broken**，exit 0；
+- 本轮**零代码改动**（只改规格卡与设计文档），两闸随批复核未红；**未 git commit**（主窗统一提交）。

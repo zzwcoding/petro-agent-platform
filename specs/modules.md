@@ -138,7 +138,8 @@ def interpret(state: RunState) -> Understanding | Direct: ...
 ```
 
 ### 依赖
-- 模块: `gate`、`prompts`、`parsing`、`bookkeeping`（模型调用发起面——经 call_model 单点发起）、`gateway_adapter`、`state`；`tools`（结构卡发现面——直答结构核验读它，只经其公开面）
+- 模块: `gate`、`prompts`、`parsing`、`bookkeeping`（模型调用发起面——经 call_model 单点发起）、`state`；`tools`（结构卡发现面——直答结构核验读它，只经其公开面）
+- 注: **2026-10-16 勘误：不直引 `gateway_adapter`——经 `bookkeeping` 桥（流水 51 收齐批，Owner 批）**
 - 外部: （无——模型调用经 `gateway_adapter`）
 
 ### Seam 与测试
@@ -157,7 +158,8 @@ def clarify(state: RunState) -> ClarifyOutcome: ...
 ```
 
 ### 依赖
-- 模块: `prompts`、`parsing`、`bookkeeping`（模型调用发起面——经 call_model 单点发起）、`gateway_adapter`、`state`
+- 模块: `prompts`、`parsing`、`bookkeeping`（模型调用发起面——经 call_model 单点发起）、`state`
+- 注: **2026-10-16 勘误：不直引 `gateway_adapter`——经 `bookkeeping` 桥（流水 51 收齐批，Owner 批）**
 - 外部: （无）
 
 ### Seam 与测试
@@ -245,7 +247,8 @@ def answer(state: RunState) -> AnswerDraft: ...
 ```
 
 ### 依赖
-- 模块: `context`、`prompts`、`bookkeeping`（模型调用发起面——经 call_model 单点发起）、`gateway_adapter`、`state`、`transport`（text 帧的增量发射，只经其公开面）
+- 模块: `context`、`prompts`、`bookkeeping`（模型调用发起面——经 call_model 单点发起）、`state`、`transport`（text 帧的增量发射，只经其公开面）
+- 注: **2026-10-16 勘误：不直引 `gateway_adapter`——经 `bookkeeping` 桥（流水 51 收齐批，Owner 批）**
 - 外部: （无）
 
 ### Seam 与测试
