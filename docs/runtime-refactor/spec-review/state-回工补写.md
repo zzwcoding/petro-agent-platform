@@ -25,3 +25,45 @@
 1. R-K-72…78 → R-K-72…76 的依据（亲读 `recon/K:458-464`）：R-K-72 轮数、R-K-73 轮内发现＋执行、R-K-74 段时长＋单工具超时、R-K-75 全 run 发现、R-K-76 连续 ask——七键恰在 72…76；R-K-77＝防环语义、R-K-78＝「合同值不因测试改动」注释纪律，均**非 Budget 键**。原文「72…78 逐键」按数差恰好凑 7，属巧合性误写。
 2. §06-A 五项（发现≤10／大循环≤3轮／回炉一次／连续澄清≤6／同参重投即拦）中，「回炉一次」「同参重投即拦」是回炉与重投的**行为机制**（承接在 `specs/agent-loop.md`／`specs/clarification.md` 行为面），不进 `Budget` 键集；其余三项与 R-K-75／R-K-72／R-K-76 同源。行为 10 是主落点，:21／:159 两处同款双指为同一 finding 的连带面、已对齐，防「行内两说」。
 3. pin-30 的延伸挂法注只补挂法声明，未改分工实质（回放面＝persistence 行为 12、compaction 半面待 context 规格均维持原文）。
+
+## W3 前规格微修正批：`check_limits` 签名注（2026-10-16，流水 52-A）
+
+- 依据：`docs/runtime-refactor/00-决议与方法.md` 流水 52「**裁定 A＝限额三键判定面采「注入制」**」＋流水 53「裁定 A **规格面落地**：`state.md` `check_limits` 签名补注注入参」。
+- 范围：只改 `specs/state.md`（接口定义新增 :90 签名注 bullet＋行为 11 :118 补句）＋本记录；**实现与测试未动**；未 git commit。
+
+### 改动
+
+| 落点 | 改后 |
+|---|---|
+| `specs/state.md:90`（接口定义节新增 bullet「**`check_limits` 签名注（2026-10-16 裁·流水 52-A）**」） | 「补注注入制签名——`check_limits(state, *, elapsed_seconds: float | None = None, consecutive_asks: int | None = None) -> Convergence | None`——注入制（流水 52-A）：None＝该项不判定；`tool_timeout` 为单次调用时限归执行侧实时面、不经本判定。」 |
+| `specs/state.md:118`（行为 11） | 句尾补：「**签名与用量面**：判定采**注入制**（`elapsed_seconds`／`consecutive_asks` 可选，None＝该项不判定；`tool_timeout` 为单次调用时限、归执行侧实时面）——签名逐字见接口定义注（2026-10-16 裁·流水 52-A）。」 |
+
+- **注落点判定（对派单「行为 10／接口定义」的落法说明）**：`check_limits` 的**判定行为**是行为 11（行为 10 是 `Budget` 键集闭世界、无 `check_limits` 面），故注落「接口定义 :87-90」＋「行为 11」，未在行为 10 落重复副本（一物一处）。:88 的原接口签名行本身**未改**——派单是「补注签名」，形状行的改写权不在本批。
+- **未动项**：`appv2/runtimev2/state/limits.py`（:104）、`tests/domains/test_v2_state.py`、`specs/modules.md` 卡面，均未动。
+
+### 上报项（L0：注文与「现实现／现测试」两处不齐，请主窗裁）
+
+1. **实现没有注入参**：现实现＝`def check_limits(state: RunState) -> Convergence`（`appv2/runtimev2/state/limits.py:104`），**不接受** `elapsed_seconds`／`consecutive_asks`；其 docstring 自述「余下三键（`seconds`／`tool_timeout`／`ask_cap`）的用量面不在 `RunState` 形状内…故不作判定（登记待裁）」（:16-19）。即「实现已兼容此形」只成立于**行为语义**（三键今日不判＝None 注入时的行为），**不成立于签名**（今日传注入参会 TypeError）。
+2. **`-> Convergence | None` 与现实现／现规格不符**：实现恒回 `Convergence`（未触界回 `Convergence(hit=(), notice=None)`）；行为 12／13 的断言模型（`hit`／`notice` 同现、未触界恒 `notice is None`）也无 None 分支。派单注文逐字含 `| None`，本批**照抄未改**（逐字稿纪律：偏离即停报）；是否改为 `-> Convergence`、或反向把 None 分支补进行为 12，请主窗裁。
+3. **W1 测试已钉「三键不判定」**：`tests/domains/test_v2_state.py:1009-1011` 钉「`seconds`／`tool_timeout`／`ask_cap` 用量面不在 `RunState` 形状内——上限归零也不生假命中」，与本注「None＝该项不判定」相容；若后续给实现加注入参，该处「登记待裁」注须同批更新。
+4. **卡面**：`specs/modules.md` `## state` 卡公开接口若载 `check_limits` 签名，须随本注同批（阶段 7 接口对账批或本批后续）——本批未动 `modules.md`。
+
+### 闸与验证（本批实跑）
+
+```
+$ uv run python tools/check_specs.py          → spec gate: PASS（0 警告）            exit 0
+$ uv run python tools/ref_resolvable.py check → 真源引用可解析闸绿：22 份规格可解析   exit 0
+$ uv run python -m pytest tests/domains/test_v2_state.py tests/domains/test_v2_transport.py -q
+                                              38 passed in 1.67s                    exit 0
+$ uv run python -m pytest -q（全量，排除 3 个 real smoke 文件）
+                                              1910 passed, 105 skipped in 77.78s    exit 0
+$ uv run lint-imports ／ uv run lint-imports --config tools/importlinter_v2.toml
+                                              6 kept,0 broken ／ 18 kept,0 broken   exit 0
+$ uv run mypy app appv2                       → Success（195 source files）         exit 0
+```
+
+### 微修正批二期收尾（2026-10-16，流水 52-A）：注入参落地
+
+- **审计一句**：上节「上报项」1／2／3 三条已按主窗裁定（签名面取裁定 A、返回形以现实现为准）一次收齐——`appv2/runtimev2/state/limits.py:106` 补注入面签名 `check_limits(state, *, elapsed_seconds: float | None = None, consecutive_asks: int | None = None) -> Convergence`（**只接形状**，注入值的判定逻辑随 W5 票落地；两参缺省时行为与落地前**逐字节等价**、四键判定不变）；`specs/state.md:90` 注的返回形由 `-> Convergence | None` 改 `-> Convergence`（恒回 `Convergence`，未触界回 `Convergence(hit=(), notice=None)`，无 `None` 分支）；`tests/domains/test_v2_state.py:1009` 的「（登记待裁）」注改「（注入形已备（流水 52-A），缺省调用三键不判定）」。
+- 未动项：`specs/state.md:88` 接口签名行本身、行为 11 注（指针式引用 :90，不重复副本）、`specs/modules.md` 卡面。
+- 闸：`pytest tests/domains/test_v2_state.py -q`＝19 passed；`tools/check_specs.py`＝PASS（0 警告）；`mypy appv2/runtimev2/state/`＝Success（4 source files）；未 git commit。

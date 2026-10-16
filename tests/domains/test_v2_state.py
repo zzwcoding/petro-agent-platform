@@ -631,8 +631,25 @@ def _guarding_literals(tree: ast.Module) -> list[tuple[int, str]]:
     return found
 
 
+def _is_three_family_copy(values: set[str], families: frozenset[str]) -> bool:
+    """该集合字面量是否为三族的**第二处自建集合**——元素**全落在**三族取值域内。
+
+    真面＝禁复制 `STEP_KINDS`／`RUN_STATUS_KINDS`／`INTENT` 三族的集合／元组字面（整族复制与
+    子集复制都算）；掺进族外取值即非族复制——与族取值**同名巧合**的合法集合（子问题状态三值、
+    步记录 status 三值）不受牵连（2026-10-16 收紧·W3 前微修正批：原「扫全 V2 树的集合形裸字面
+    × 三族取值**交集**」口径偏宽，误咬合法集合，见 `docs/runtime-refactor/00-决议与方法.md`
+    流水 53 登记）。
+    """
+    return bool(values) and values <= families
+
+
 def test_no_second_source_of_constants() -> None:
-    """常量单点消费：无第二处自建集合、无裸状态字面量把守。"""
+    """常量单点消费：无第二处自建集合、无裸状态字面量把守。
+
+    集合面口径（2026-10-16 收紧）：只钉「**三族常量的第二处自建集合**」——字面集合／元组的
+    字符串元素**全落在**三族取值域内才判失败（判据＝`_is_three_family_copy`）；裸字面量把守面
+    口径不变（参与把守的字面量恰为族取值才判失败）。
+    """
     # 包根 re-export 与定义处同一对象（不复制集合）
     from appv2.runtimev2.state import constants as constants_module
 
@@ -647,7 +664,7 @@ def test_no_second_source_of_constants() -> None:
         if path == _STATE_DIR / "constants.py":  # 单一真源处（族名与取值的唯一定义点）
             continue
         for line, values in _str_collections(tree):
-            if values & families:
+            if _is_three_family_copy(values, families):
                 self_built.setdefault(path.name, []).append(line)
         for line, literal in _guarding_literals(tree):
             if literal in families:
@@ -663,12 +680,36 @@ def test_no_second_source_of_constants() -> None:
         'if state.status in ("completed", "failed"):\n'
         "    pass\n"
     )
-    assert any(values & families for _, values in _str_collections(forged))
+    assert any(_is_three_family_copy(values, families) for _, values in _str_collections(forged))
     assert {literal for _, literal in _guarding_literals(forged)} == {
         "running",
         "completed",
         "failed",
     }
+
+    # 合法面回归（收紧后不咬「同名巧合的非族集合」——流水 53 登记的口径偏宽面）：
+    # ① 伪造源照现文形写出（prompts 子问题状态三值／persistence 步记录 status 三值／
+    #    prompts 决策轮中文触发词）——含与族同名的 `failed`，旧口径必咬、新口径放行；
+    coincidental = ast.parse(
+        '_SUBTASK_MARKS = {"ok": "完成", "refused": "已拒答", "failed": "失败"}\n'
+        '_STEP_STATUSES = ("ok", "failed", "refused")\n'
+        '_REROUTE_TRIGGERS = ("未绑定", "不在台账")\n'
+    )
+    assert any(  # 旧口径（元素与族有交集即咬）：同名巧合面必咬
+        values & families for _, values in _str_collections(coincidental)
+    )
+    assert not any(  # 新口径：放行（元素未全落在三族内＝非三族复制）
+        _is_three_family_copy(values, families) for _, values in _str_collections(coincidental)
+    )
+    # ② 现文（真文件）同断言：`prompts` 子树的字面集合无一被咬——`answer_round` `_SUBTASK_MARKS`
+    #    （子问题状态三值，`failed` 与族同名系巧合）／`decision_round` `_REROUTE_TRIGGERS` 皆在场。
+    prompts_dir = _V2_DIR / "prompts"
+    assert not [
+        f"{path.name}:{line}"
+        for path in sorted(prompts_dir.rglob("*.py"))
+        for line, values in _str_collections(ast.parse(path.read_text(encoding="utf-8")))
+        if _is_three_family_copy(values, families)
+    ]
 
 
 # ---------- 11 限额参数键集闭世界（行为 10） ----------
@@ -965,8 +1006,9 @@ def test_boundary_empty_overlimit_legacy_variants() -> None:
     # 判据＝「达上限即触界」（R-K-86）——各降一格即不触界
     under = _overlimit_state(rounds=2, discover_used=9, discovers=1, executes=1)
     assert check_limits(under).hit == ()
-    # 判定面覆盖边界（登记待裁）：`seconds`／`tool_timeout`／`ask_cap` 的用量面不在 `RunState`
-    # 形状内（流水 49① 取消计时与连续问计数字段）——上限归零也不生假命中，不冒充覆盖
+    # 判定面覆盖边界（注入形已备（流水 52-A），缺省调用三键不判定）：`seconds`／`tool_timeout`／
+    # `ask_cap` 的用量面不在 `RunState` 形状内（流水 49① 取消计时与连续问计数字段）——上限归零
+    # 也不生假命中，不冒充覆盖
     uncarried = RunState(run_id="run-3", budget=Budget(seconds=0.0, tool_timeout=0.0, ask_cap=0))
     assert check_limits(uncarried).hit == ()
 

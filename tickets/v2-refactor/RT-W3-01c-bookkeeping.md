@@ -49,7 +49,7 @@ Touches modules: `bookkeeping`（本票只填 bookkeeping 的装配与归一簇�
 | 锚 | 条目 | 一句话 |
 |---|---|---|
 | specs/bookkeeping.md:105 | 行为 10 过程档案有界且只追加 | `note` 在**写入点**截断 `digest`（上限真源＝`synth/S5-RunState字段矩阵.md` 的 `process_notes` 条目口径，本规格不复述数字）；只追加、不改写既有条目 |
-| specs/bookkeeping.md:106 | 行为 11 通知恰三键＋分型闭世界 | `notice` 落 `{type, gates, content}` 恰三键；`type` ∈ `NOTICE_TYPES`、`gates` ⊆ 轮数／时长两项，越界即拒；**只追加** |
+| specs/bookkeeping.md:106 | 行为 11 通知恰三键＋分型闭世界 | `notice` 落 `{type, gates, content}` 恰三键；`type` ∈ `NOTICE_TYPES`、`gates` ⊆ `LimitHit.limit` 七限额键名（流水 52-B），越界即拒；**只追加** |
 | specs/bookkeeping.md:111 | 行为 16 工具上下文装配 | `tool_context(state)` **身份只从状态取**（不接调用方传身份）；**外表放行态随上下文走**（不进工具参数、不重排计划）；送窗预算按**子问题数**取值（数值与公式真源＝`appv2/tools/schema.py` 的 `resolve_send_budget` 与其配套常量；`ToolContext` 的形状真源＝`specs/modules.md` `## tools` 卡——**本规格不复述数值**） |
 | specs/bookkeeping.md:112 | 行为 17 结果归一投影 | `result_projection(result)` 逐字段**原样投影**（无增删改名）；**空值语义统一**——「有该字段但为空」与「无该字段」**读回可区分**（禁真假值归一） |
 | specs/bookkeeping.md:113 | 行为 18 本块零判断 | 除 `call_model` 的转发与两侧闭世界分派外，无词表／正则语义判定。断言：AST 扫描本块源码 |

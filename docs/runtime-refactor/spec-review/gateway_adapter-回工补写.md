@@ -36,3 +36,34 @@ $ uv run python tools/ref_resolvable.py check
 ```
 
 （本批改后实跑均 exit 0；替身看守件 `tests/runtimev2/test_gateway_adapter_fake.py` 本批未动、未重跑——规格措辞调和不涉代码面。）
+
+## W3 前规格微修正批：:86 重试口径回改（2026-10-16，流水 53-D）
+
+- 依据：`docs/runtime-refactor/00-决议与方法.md` 流水 53「**裁定 D＝重试口径以行为 6 为准**」——原 `specs/gateway_adapter.md:86`（行为 7）「前两类可重试、后两类不可重试」与行为 6／接口注／B7b 前提（网络错可重试）三处相抵。
+- 范围：只改 `specs/gateway_adapter.md:86`（一句）＋本记录；**行为 6 与接口注未动**；未 git commit。
+
+### 改动
+
+| 落点 | 改前 → 改后 |
+|---|---|
+| `specs/gateway_adapter.md:86`（行为 7） | 「…；**前两类可重试、后两类不可重试**。」→「…；**可重试＝限流／超时／网络错／5xx（三类：`rate_limited`／`timeout`／`upstream_unavailable`）；不可重试＝`rejected` 等客户端拒绝（4xx 业务性拒绝）**——2026-10-16 回改（流水 53-D）：原「前两类可重试、后两类不可重试」与行为 6／接口注／B7b 前提（网络错可重试）相抵，按行为 6 落，本批只回改此句（行为 6／接口注未动）。」 |
+
+- 同行后段（「分层辨明」／现状锚／跨块待办／断言）逐字未动。**断言句未对齐**（「`rejected` 类一次即抛、`rate_limited`／`timeout` 类重试到上限」）——该句是示例枚举、与改后口径不冲突（可重试完整集以上文三类为准）。
+- 实现面**只读核对、未改**：`appv2/runtimev2/gateway_adapter/bridge.py:15-17／59-60` 已按「可重试＝前三类（`rate_limited`／`timeout`／`upstream_unavailable`）／`rejected` 一次即抛」落——本批把规格的**陈述**与实现对齐，无代码改动。
+
+### 闸与验证（本批实跑）
+
+```
+$ uv run python tools/check_specs.py          → spec gate: PASS（0 警告）            exit 0
+$ uv run python tools/ref_resolvable.py check → 真源引用可解析闸绿：22 份规格可解析   exit 0
+$ uv run python -m pytest -q（全量，排除 3 个 real smoke 文件）
+                                              1910 passed, 105 skipped in 77.78s   exit 0
+$ uv run lint-imports ／ uv run lint-imports --config tools/importlinter_v2.toml
+                                              6 kept,0 broken ／ 18 kept,0 broken  exit 0
+```
+
+### 上报项（非本批擅改，报主窗）
+
+1. **接口注（`:65`）的「前两类」标签**：该行括注已写「（429／超时／网络错／5xx）」（＝行为 6 同口径），但标签词「重试**只对前两类**」仍沿用旧「两类」计数（四类枚举里数不出两类）。本批按范围（不改接口注）原样保留；若要收净该标签，属下一批一字改，宜与派生视图同步同批。
+2. **派生视图待同步（讲释层，Owner 亲产面）**：`docs/runtime-refactor/explain/gateway_adapter-讲释.md:52` 逐字引用了被回改的旧句（「前两类可重试、后两类不可重试」＋「四类失败只有前两类够格重试」）——该层自声明「规格改，本文即废」，随派生视图节奏同步（本批未动讲释层）。
+3. **已收票历史引文**：`tickets/v2-refactor/RT-W2-03a-gateway_adapter.md:67`（W2 已收票）施工基准行照抄旧句；已收票面属历史记录，本批未回改（如需追溯更正由主窗裁）。

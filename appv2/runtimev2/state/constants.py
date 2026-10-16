@@ -70,7 +70,7 @@ MAX_DISCOVERS_PER_RUN = 10  # R-K-75 全 run 发现上限
 ASK_CAP = 6  # R-K-76 连续反问截断上限
 
 # 触界注记的 `type` 值（`Convergence.notice["type"]`）：真源＝`specs/transport.md` 的
-# `NOTICE_TYPES`（二十二值，含本值）。类型取值闭世界归 `transport`——本块只定义「注记恰三键」
+# `NOTICE_TYPES`（二十九值，含本值）。类型取值闭世界归 `transport`——本块只定义「注记恰三键」
 # 的形状、不复述取值集（`specs/modules.md` `## state` 卡注）；本块守 R4 不 import `transport`，
 # 故以值引用＋真源指针落此单点，不在别处再写一遍。
 _CONVERGENCE_NOTICE_TYPE = "budget_converged"

@@ -82,6 +82,14 @@ _SPEC_NOTICE_TYPES = {
     "subtask_refused",
     "audit_write_failed",
     "blackbox_write_failed",
+    # 2026-10-16 补全（流水 53-C）：B5 golden 回放实测越界 7 值（规格表同批增列）
+    "window_note",
+    "no_hit",
+    "unbound_degrade",
+    "freshness_block",
+    "same_param_replay",
+    "rebind",
+    "schema_not_allowed",
 }
 _SPEC_VERDICT_SUBTYPES = {"verify", "final"}
 _SPEC_ASK_FRAME_KINDS = {"clarify", "external_table_approval"}
@@ -449,15 +457,15 @@ def test_payload_passthrough_no_rewrite() -> None:
 
 
 async def test_notice_three_keys_closed_world() -> None:
-    """通知恰三键＋`NOTICE_TYPES` 二十二值闭世界（越界／缺键／多键／缺 `type` 判失败）。
+    """通知恰三键＋`NOTICE_TYPES` 二十九值闭世界（越界／缺键／多键／缺 `type` 判失败）。
 
     pin-09（P1）｜材料截断披露的**帧面**：`material_truncated` 帧必发且其 `type` 在闭世界内
     （披露行为面挂 `specs/answering.md`、字段面挂 `specs/state.md`）——断言见「pin-09」段。
     pin-04（P0）｜发射 JSON 不进答案面的**帧形面**：`emission_strip` 通知的帧形（`type` ∈
     `NOTICE_TYPES` 闭世界、载荷恰三键 `{type, gates, content}`）——断言见「pin-04」段。
     """
-    assert NOTICE_TYPES == _SPEC_NOTICE_TYPES  # 取值闭世界逐字（本规格自立·码面实测）
-    assert len(NOTICE_TYPES) == 22
+    assert NOTICE_TYPES == _SPEC_NOTICE_TYPES  # 取值闭世界逐字（本规格自立·实测全集）
+    assert len(NOTICE_TYPES) == 29
 
     bus = EventBus()
     for notice_type in sorted(_SPEC_NOTICE_TYPES):
@@ -722,11 +730,20 @@ async def test_b5_golden_frame_replay_protocol_timeline() -> None:
     assert accepted_total >= 10000, f"回放消费量不足（实得 {accepted_total} 帧）"
     # pin-09／pin-04 的真帧在场证据：截断披露帧与发射剥离帧在真帧流里实发且过闸
     assert {"material_truncated", "emission_strip"} <= accepted_notice_types
-    assert rejected_notice_types  # 越界 type 的真实样本在场（被 fail-closed 拒——见下注）
-    # 注（实测 2026-10-16）：被拒的真实 notice.type ＝ window_note／no_hit／unbound_degrade／
-    # freshness_block／same_param_replay／rebind／schema_not_allowed（另有旧码 `{level,text}` 形
-    # 缺 `type`）——即真码面的 notice 取值面**大于**本规格 NOTICE_TYPES 二十二值；落行为 7
-    # 「新增类型必须同批入列」（规格变更回设计仓裁定，本块不私加取值）。
+    # 2026-10-16 补全（流水 53-C）的 7 值：真帧流实发且过闸——补全前它们是被 fail-closed 拒的
+    # 越界样本（实测 1028 帧：window_note 828／no_hit 93／unbound_degrade 63／freshness_block 29／
+    # same_param_replay 8／rebind 6／schema_not_allowed 1），补全后真帧流与本规格闭世界对齐；
+    # 本回放零越界残留（越界 fail-closed 面由 `::notice_three_keys_closed_world` 的伪造样本覆盖）。
+    assert {
+        "window_note",
+        "no_hit",
+        "unbound_degrade",
+        "freshness_block",
+        "same_param_replay",
+        "rebind",
+        "schema_not_allowed",
+    } <= accepted_notice_types
+    assert not rejected_notice_types, f"闭世界已补全仍拒真帧：{rejected_notice_types}"
 
 
 # ══════ RT-W2-02b：收口／消费者／元／边界·保留集（票面对象＝规格表第 11–18 行）══════

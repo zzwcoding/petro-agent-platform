@@ -87,6 +87,7 @@ class Convergence:
 def check_limits(state: RunState) -> Convergence: ...   # 纯函数：不改入参、不写状态、无 IO
 ```
 
+- **`check_limits` 签名注（2026-10-16 裁·流水 52-A）**：补注注入制签名——`check_limits(state, *, elapsed_seconds: float | None = None, consecutive_asks: int | None = None) -> Convergence`——注入制（流水 52-A）：None＝该项不判定；**返回形以现实现为准**＝恒回 `Convergence`（未触界回 `Convergence(hit=(), notice=None)`，**无 `None` 分支**；2026-10-16 微修正批收尾——原注 `| None` 与实现／行为 12 断言模型不符）；`tool_timeout` 为单次调用时限归执行侧实时面、不经本判定。
 - **闭世界常量族**（本块导出、全体消费）：`STEP_KINDS`（step 类型六值）｜`RUN_STATUS_KINDS`（run 状态四值）｜`INTENT`（路由意图十值）——三族都是 **`RunState` 字段的取值域**。取值与条数真源＝`recon/I2a-状态常量与清单.md`（22 条常量实测）；本规格不复述取值。**通知类型（`notice.type`）的闭世界不属本块**——它是帧载荷面，归 `transport`（其规格定稿时须立该闭世界并落定取值真源）。
 - **三类不可变载荷的形态闭世界**：`AskRequest` 三形态——仅 `question`＝提问｜`resume_run_id`＝断线重连｜`question`＋`followup_run_id`＝追问续会话；`resume_run_id` 与 `followup_run_id` 同在场＝判失败。`AskChoice.kind`＝`clarify`｜`external_table_approval`；`AskChoice.decision`＝`approve`｜`reject`｜`None`。越界值一律判失败。
 - **`RunHandle.stream` 的元素类型是外部类型**：`SseEvent`（帧对象 `{seq, event, data}`）的**形状真源在 `transport`**；本块不 import 任何 runtimev2 块（R4），故以**字符串前向引用**标注（`AsyncIterator["SseEvent"]`）——**本块不定义它、也不得给它安第二套含义**（禁把 `SseEvent` 当成"载荷 dict 别名"）。
@@ -114,7 +115,7 @@ def check_limits(state: RunState) -> Convergence: ...   # 纯函数：不改入�
 8. **旧检查点如实读入**（钉 `pin-30` 的**状态字段面**）：v1／v2 旧检查点读入**不抛错**；`dialogue` 是兼容字段、本块对它**零业务写**（不得伪造或补写历史）；`schema_version` 真值真源＝`synth/S3-口径裁决清单.md` C-07。断言：读入 v1 fixture → 不抛错；`schema_version` 取读入态；`dialogue` 无本块写入点（AST＋行为双证）。（**分工**：「旧 run 的对话通道在**黑匣子回放**时如实空显」那一条断言归 `specs/persistence.md` 行为 12——同一钉的另一面，两处不各写一遍。）
 9. **三族常量为闭世界且单点消费**：`STEP_KINDS`／`RUN_STATUS_KINDS`／`INTENT` 只在本块定义；**任何写入口的取值必须 ∈ 对应族**，越界抛错；**每族必须有真实消费点**（禁「定义了没人用」）。断言：越界值抛错；全仓无第二处自建状态集合、无裸状态字面量参与把守（`grep`／AST）。
 10. **限额参数键集闭世界**：`Budget` 键＝轮数／轮内发现／轮内执行／段时长／单工具超时／全 run 发现／连续反问上限；**数值与缺省值只引真源**（`Budget` 键集唯 `recon/K-上下文事件指南预算.md` R-K-72…R-K-76 逐键承载七项；`docs/runtime-refactor/walk/裁决表.md` §06-A 五项中「回炉一次／同参重投即拦」两项为**行为机制、非 Budget 键**，其余三项数值与 R-K 同源），**常量定义与合同文本同源引用、不重复硬编码**。断言：`Budget` 键集合相等；缺键取缺省、禁散落的兜底字面量。
-11. **触界判定确定、纯、不改入参**：`check_limits` 同输入两次结果相等；调用前后入参深比较相等；无 IO、无模型、无随机。断言：两跑结果相等 ＋ `asdict` 深比较相等。
+11. **触界判定确定、纯、不改入参**：`check_limits` 同输入两次结果相等；调用前后入参深比较相等；无 IO、无模型、无随机。**签名与用量面**：判定采**注入制**（`elapsed_seconds`／`consecutive_asks` 可选，None＝该项不判定；`tool_timeout` 为单次调用时限、归执行侧实时面）——签名逐字见接口定义注（2026-10-16 裁·流水 52-A）。断言：两跑结果相等 ＋ `asdict` 深比较相等。
 12. **触界必带如实注记**：`hit` 非空 ⇔ `notice` 非 None（`notice` 恰三键 `type`／`gates`／`content`，形状真源＝`synth/S6-事件与帧目录.md` §一）；**未触界恒 `notice is None`**（不得凭空产注记）。断言：超限 fixture → `hit` 非空且注记三键在场；未超限 → `hit` 为空元组且 `notice is None`。
 13. **触界不静默**：触界时若未落 `budget_hit` 即判失败；「未完成项」明细由 `bookkeeping` 装配进注记（红线＝`arch/P7a-交接包与挂账清单.md` A-P7a-37「不许静默」）。断言：`Convergence` 与 `budget_hit` **同现**。
 14. **受理三形态互斥**（钉 `pin-29` 的**形状面**；闭环面挂 `specs/agent-loop.md`）：`resume_run_id` 与 `followup_run_id` 同在场 → 抛参数错误；`AskChoice.kind`／`decision` 越界 → 抛错。断言：非法组合抛错、合法三形态各自构造成功。

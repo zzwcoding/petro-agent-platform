@@ -75,7 +75,7 @@ def tool_context(state) -> ToolContext: ...
 def result_projection(result) -> dict[str, Any]: ...
 ```
 
-- **写口入参形状**：`StepRecord`（形状真源＝`specs/persistence.md` 接口定义）；`append_message` 的 `role` ∈ `user`｜`assistant`（同 `state.messages` 口径）；`append_dialogue` 的 `origin` ∈ `user_verbatim`｜`assistant_final`｜`clarify_approval_replay`（闭世界真源＝`specs/state.md` 行为 6）；`notice` 的 `type` ∈ `NOTICE_TYPES`（真源＝`specs/transport.md`）；`gates` 取值闭世界＝轮数／时长两项（取值真源＝`recon/B1-公共位与结果归一.md` R-B1-04「gates 取值闭世界＝max_rounds／total_seconds」；限额数值真源＝`walk/裁决表.md` §06-A 与 `recon/K-上下文事件指南预算.md` R-K-72…R-K-78）。
+- **写口入参形状**：`StepRecord`（形状真源＝`specs/persistence.md` 接口定义）；`append_message` 的 `role` ∈ `user`｜`assistant`（同 `state.messages` 口径）；`append_dialogue` 的 `origin` ∈ `user_verbatim`｜`assistant_final`｜`clarify_approval_replay`（闭世界真源＝`specs/state.md` 行为 6）；`notice` 的 `type` ∈ `NOTICE_TYPES`（真源＝`specs/transport.md`）；`gates` 取值闭世界＝`LimitHit.limit` 七限额键名（**2026-10-16 裁·流水 52-B**；原「轮数／时长两项」为旧两限额世界措辞，见行为 11 注；取值真源＝`recon/B1-公共位与结果归一.md` R-B1-04「gates 取值闭世界＝max_rounds／total_seconds」；限额数值真源＝`walk/裁决表.md` §06-A 与 `recon/K-上下文事件指南预算.md` R-K-72…R-K-78）。
 - **`append_contract` 的 `phase`** ∈ **合同追加相位闭世界**（`decision`｜`clarify`｜`toolmatch`——合同文本追加面的相位标记集；现状锚＝`appv2/runtime/graph.py` 三处 `contracts_appended` 标记写入，写手面真源＝`synth/S5-RunState字段矩阵.md` `contracts_appended` 行——写手 M1／M2／M3）；**越界相位抛错**（fail-closed，同本块错误契约）；**幂等**：已标记相位再标记＝无操作。**`contracts_appended` 的字段语义真源＝`specs/state.md` 行为 5**（本规格不复制其语义；本块只认领**唯一写入面**——复审⑦ V4 主窗裁「谁写口谁拥有」）。
 - **`record_step` 的 `kind`** ∈ `STEP_KINDS`（六值，真源 `specs/state.md`）；**`status` 是显式关键词参**（闭世界 `ok`｜`failed`｜`refused`，越界抛错；缺省 `ok`）——**由调用方如实给**（本块**不猜**、不从 payload 推断语义，守总纪律），**不得恒 `ok`**（现状恒 `ok` 是缺陷，见「依赖与风险」）。
 - **`payload` 原样保真**：不做假值归一（空 `{}` 与缺省是两件事）——契约与 `specs/persistence.md` 行为 8 同源。
@@ -103,7 +103,7 @@ def result_projection(result) -> dict[str, Any]: ...
 8. **相位合同一次性**（钉 `pin-24` 的**写入面**）：`contracts_appended` 的**唯一写函数＝本块 `append_contract(state, phase)`**——相位经它标记「合同已追加」；已标记相位再标记＝**幂等无操作**（不重复追加、不重复标记），`append_message` 的调用方据此不重发合同文本；**越界相位抛错**（闭世界见接口节）。断言：同相位二次进入后合同条数不变；`contracts_appended` 的写操作只出现在本块该函数（并入行为 1 的写口单点断言集）。
 9. **对话层纯度**：`append_dialogue` 的 `origin` 越界即拒；**过程内容（任务书／指令／注记）不得经该入口**（要写过程内容走 `note`）。断言：注入含任务书的一轮后，`dialogue` 条目 `origin` 全落在三值内；越界调用抛错。
 10. **过程档案有界且只追加**：`note` 在**写入点**截断 `digest`（上限真源＝`synth/S5-RunState字段矩阵.md` 的 `process_notes` 条目口径，本规格不复述数字）；只追加、不改写既有条目。断言：超长 `digest` 落库后长度受控且截断可见；既有条目逐字不变。
-11. **通知恰三键＋分型闭世界**：`notice` 落 `{type, gates, content}` 恰三键；`type` ∈ `NOTICE_TYPES`、`gates` ⊆ 轮数／时长两项，越界即拒；**只追加**。断言：缺键／多键／越界各判失败；通知列只增不减。
+11. **通知恰三键＋分型闭世界**：`notice` 落 `{type, gates, content}` 恰三键；`type` ∈ `NOTICE_TYPES`、`gates` ⊆ 轮数／时长两项（**2026-10-16 裁（流水 52-B）**：闭世界以 `LimitHit.limit` 七限额键名为准（旧两限额世界措辞更新）；converge 注记 `gates` 取命中键名），越界即拒；**只追加**。断言：缺键／多键／越界各判失败；通知列只增不减。
 12. **触界收敛落地（幂等）**：`converge(state)` 先调 `state.check_limits`（判定归 `state`）；**命中** → 落地六键（`budget_hit` 追加命中项／通知追加如实注记／答案正文＝已取得材料逐条如实交付／`draft_kind="direct"`／`status="completed"`／`next_intent=answer`）；**未命中** → **零副作用**。**幂等**：已收敛（`budget_hit` 非空）再调 → **无操作**（不重复追加通知、不重复追加 gates、不覆盖答案与状态）。断言：二次调用后通知条数与 gates 长度不变（治现状「已收敛仍可二次收敛」的疑点）。
 13. **收敛答案与通知材料面同源**：收敛交付的正文材料与通知里的未完成项清单**取自同一材料面**（不存在两处漂移：答案说交付了 X、通知说未完成 X）。断言：同一状态快照下两处的材料标识集合一致。
 14. **完成收口旁路单点**：`direct_answer(state, text)` 恒写三键（`draft=text`／`draft_kind="direct"`／`next_intent=answer`）——拒答、闸拒、收敛转答、直答共用**同一出口**（免起草免核验）。断言：三键齐备且取值固定。

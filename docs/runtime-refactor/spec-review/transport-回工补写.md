@@ -32,3 +32,41 @@
 1. **风险 1 的简写「一处编号＋`id`＝事件游标」保留未动**：该句是行为 3／4 对策的压缩引述（引号内为简写非逐字），事件帧 id＝自身 seq 在交付时点即游标值，语义仍真；未改以控制改动面。若主窗要求全篇换新口径，随下批一并改。
 2. **`stream(cursor)` 对 wire 帧的重放面**：行为 5「给出 `seq ≥ cursor` 的全部帧」中 wire 帧不占 `seq`、`session` 帧由 api 流首恒发（T-P9a1-07）——wire 帧重放语义（重连流是否重发 done/error）本规格未显名，归 `api` 开流段；本轮未扩写（超出本 finding 面）。
 3. pin-04 行为面的承接规格为 `specs/answering.md` 行为 11（发射剥离，泄漏=0）；本块只保帧形闭世界面，与该行不重复建钉。
+
+## W3 前规格微修正批：`NOTICE_TYPES` 补全实测 7 值（2026-10-16，流水 53-C）
+
+- 依据：`docs/runtime-refactor/00-决议与方法.md` 流水 53「**裁定 C＝`NOTICE_TYPES` 闭世界按实测全集补全**」——B5 golden 回放实测真帧流的 `notice.type` 取值面**大于**规格 22 值，越界 7 值（共 1028 帧，来源＝V1 `tools/query/gate` 通道），系现状真实语义、非编造。
+- 范围：`specs/transport.md`（:55／:62／:85／:113／:133／:156）＋`appv2/runtimev2/transport/constants.py`（常量族取值，:23-59）＋`appv2/runtimev2/transport/frames.py:50`（越界文案计数）＋`appv2/runtimev2/state/constants.py:73`（跨块引用注计数）＋`tests/domains/test_v2_transport.py`（期望面）＋本记录；未 git commit。
+
+### 改动
+
+1. **规格表补 7 值**（`specs/transport.md:62`）：`blackbox_write_failed` 后增列 `window_note`｜`no_hit`｜`unbound_degrade`｜`freshness_block`｜`same_param_replay`｜`rebind`｜`schema_not_allowed`，并按派单补注逐字：「**2026-10-16 补全（流水 53-C）：真源＝B5 golden 回放 54444 帧实测（1028 帧越界取值），来源＝V1 tools/query/gate 通道**——补全前 22 值之**来源＝现状码面实测**：…」（后半为原句逐字保留）。
+2. **条数口径 22 → 29**：规格六处（:55「29 值」、:62 表头「二十九值」、:85 行为 7 两处「二十九值」、:113 验收行、:133 风险 3、:156 挂钩表）；代码三处（`transport/constants.py:23` 块头注、`frames.py:50` 越界文案、`state/constants.py:73` 跨块引用注）。连带收词两处：:62「（码面实测）」→「（实测全集）」、:85「（本规格自立·码面实测）」→「（本规格自立·实测全集）」——原词只覆盖旧 22 值的来源，补全后应为实测全集。
+3. **常量同步补值**（`appv2/runtimev2/transport/constants.py:23-59`）：`NOTICE_TYPES` 由 22 值长到 29 值，取值**照规格逐字**、顺序同规格表（7 值列尾并以注记行标明来源）；模块内无第二处取值（「闭世界只有一个常量族」纪律维持），`_FRAME_EVENTS`／`VERDICT_SUBTYPES`／`ASK_FRAME_KINDS` 及其它四族未动。
+4. **测试期望同步**（`tests/domains/test_v2_transport.py`）：`_SPEC_NOTICE_TYPES`（:62-88）补 7 值；`::notice_three_keys_closed_world` 条数断言 `== 22` → `== 29`（:468，docstring :460 同步「二十九值」）；B5 golden 回放用例（:731-746）原「**越界真样本在场**」断言（`assert rejected_notice_types`）**失义**（补全后该回放再无被拒 notice），改写为正向断言「补全 7 值在真帧流实发且过闸」＋「零越界残留（`assert not rejected_notice_types`）」——即「照规格新表改测试期望」。
+
+### 实测（本批自跑，非引用）
+
+- `::test_b5_golden_frame_replay_protocol_timeline`：runtime 载体 **1031 件／55472 帧**。旧 22 值世界：**54444 帧过闸、1028 帧被拒**（明细：`window_note` 828／`no_hit` 93／`unbound_degrade` 63／`freshness_block` 29／`same_param_replay` 8／`rebind` 6／`schema_not_allowed` 1）——与流水 53 的「54444 帧／1028 帧越界」两数**逐字吻合**（54444＝旧世界过闸量）。
+- 补全后：**55472 帧全过闸、被拒计数为空**（真帧流与闭世界对齐，行为 7 无残余越界）；7 值在真帧流**实发**（`accepted_notice_types ⊇ {window_note, no_hit, unbound_degrade, freshness_block, same_param_replay, rebind, schema_not_allowed}`，回放用例已钉为断言）。
+
+### 闸与验证（本批实跑）
+
+```
+$ uv run python -m pytest tests/domains/test_v2_state.py tests/domains/test_v2_transport.py -q
+                                              38 passed in 1.67s                  exit 0
+$ uv run python -m pytest -q（全量，排除 3 个 real smoke 文件）
+                                              1910 passed, 105 skipped in 77.78s  exit 0
+$ uv run python tools/check_specs.py          → spec gate: PASS（0 警告）          exit 0
+$ uv run python tools/ref_resolvable.py check → 真源引用可解析闸绿：22 份规格可解析 exit 0
+$ uv run lint-imports ／ uv run lint-imports --config tools/importlinter_v2.toml
+                                              6 kept,0 broken ／ 18 kept,0 broken  exit 0
+$ uv run ruff check app appv2 tests migrations tools（本批涉及文件）  → All checks passed  exit 0
+$ uv run mypy app appv2                      → Success（195 source files）        exit 0
+```
+
+### 遗留与说明（非本批面）
+
+1. **派生视图待同步（讲释层，Owner 亲产面）**：`docs/runtime-refactor/explain/transport-讲释.md:56` 仍逐字列 22 值与「二十二个取值…二十二个合法值」——该层自声明「规格改，本文即废」，随派生视图节奏同步（本批未动讲释层）。
+2. **已收票历史引文**：`tickets/v2-refactor/RT-W2-02a-transport.md:38／65／86` 的施工基准行仍作「二十二值」（该票 W2 已收）；已收票面属历史记录，本批未回改。
+3. **`specs/modules.md` 卡面**：`## transport` 卡注释只以符号名引 `NOTICE_TYPES`、不带条数（:470），故本批无须改卡；条数口径只在规格表与常量注释处维持。

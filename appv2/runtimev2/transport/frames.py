@@ -47,7 +47,7 @@ def _check_notice(payload: dict[str, Any]) -> None:
     notice_type = payload["type"]
     if notice_type not in NOTICE_TYPES:
         raise ValueError(
-            "notice.type 越界（闭世界 NOTICE_TYPES 二十二值＝"
+            "notice.type 越界（闭世界 NOTICE_TYPES 二十九值＝"
             f"{_joined(NOTICE_TYPES)}；缺 type 即拒，无隐式兜底）：{notice_type!r}"
         )
 

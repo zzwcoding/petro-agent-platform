@@ -38,3 +38,36 @@ $ uv run python tools/ref_resolvable.py check
 ```
 
 （本批改后实跑均 exit 0；`::append_contract_sole_write_idempotent_closed_world`／`::no_direct_state_write_in_phases` 为阶段 5 承诺标识，spec 状态＝已定稿，闸不要求测试在场。）
+
+## W3 前规格微修正批：`gates` 闭世界补注（2026-10-16，流水 52-B）
+
+- 依据：`docs/runtime-refactor/00-决议与方法.md` 流水 52「**裁定 B＝`converge` 注记 `gates` 闭世界以七限额键名为准**」——本规格行为 11「`gates` ⊆ 轮数／时长两项」系**旧两限额世界措辞**，与 `LimitHit.limit` 七键闭世界（新单源）冲突。
+- 范围：只改 `specs/bookkeeping.md`（:78／:106 两处）＋本记录；其它文件未动；未 git commit（主窗统一收口）。
+
+### 改动（两处同一口径，不留第二说法）
+
+| 落点 | 改前 → 改后 |
+|---|---|
+| `specs/bookkeeping.md:78`（接口定义·「写口入参形状」bullet） | 「`gates` 取值闭世界＝轮数／时长两项（取值真源＝`recon/B1-公共位与结果归一.md` R-B1-04…；限额数值真源＝`walk/裁决表.md` §06-A 与 `recon/K` R-K-72…R-K-78）」→「`gates` 取值闭世界＝`LimitHit.limit` 七限额键名（**2026-10-16 裁·流水 52-B**；原「轮数／时长两项」为旧两限额世界措辞，见行为 11 注；取值真源＝R-B1-04…）」，三条真源引用逐字未动 |
+| `specs/bookkeeping.md:106`（行为 11） | 「`gates` ⊆ 轮数／时长两项」句后补注：「**2026-10-16 裁（流水 52-B）**：闭世界以 `LimitHit.limit` 七限额键名为准（旧两限额世界措辞更新）；converge 注记 `gates` 取命中键名」 |
+
+- :78 取「改写＋指针」而非只补注：该行是**接口层面**的唯一闭世界声明，留旧措辞即成「接口说两项、行为说七键」的同规格两说。:78 不复制七键清单（形状真源＝`specs/state.md` 接口定义 `LimitHit.limit` 的 `Literal` 七值），只改指称——一物一处。
+- R-B1-04 引文（「gates 取值闭世界＝max_rounds／total_seconds」）**保留未删**：那是旧世界取证原文，`recon/B1` 是取证件、不改写；本批以注记更正规格侧口径。
+
+### 闸与验证（本批实跑）
+
+```
+$ uv run python tools/check_specs.py          → spec gate: PASS（0 警告）            exit 0
+$ uv run python tools/ref_resolvable.py check → 真源引用可解析闸绿：22 份规格可解析   exit 0
+$ uv run python -m pytest -q（全量，排除 3 个 real smoke 文件）
+                                              1910 passed, 105 skipped in 77.78s   exit 0
+$ uv run lint-imports ／ uv run lint-imports --config tools/importlinter_v2.toml
+                                              6 kept,0 broken ／ 18 kept,0 broken  exit 0
+```
+
+（本批为文本层注记：`appv2/runtimev2/bookkeeping/` 未动、importlinter 两配置未改。行为 11 的验收标识 `::notice_three_keys_closed_world` 属 W3 承诺面，本批未补齐。）
+
+### 上报项（非本批擅改，报主窗）
+
+1. **W3 票面逐字稿待随本批同步（高）**：`tickets/v2-refactor/RT-W3-01c-bookkeeping.md:52` 的施工基准逐字稿仍照抄旧句「`gates` ⊆ 轮数／时长两项」（指 `specs/bookkeeping.md:106`）。W3 开工前该行须同步为补注后口径（`LimitHit.limit` 七键），否则子代理按票面逐字稿实现**旧两限额世界**（AGENTS 6b：票面即交接）。
+2. **键集真源落点**：`appv2/runtimev2/state/limits.py` 的 `LIMIT_KINDS`＝`get_args(LimitKind)`（与 `Budget` 字段名同集、同源派生）——W3 落地时 `gates` 的越界判据直接引该单点即可，无须另立第二张键表（与本注「以 `LimitHit.limit` 为准」一致）。

@@ -16,7 +16,9 @@
 
 余下三键（`seconds`／`tool_timeout`／`ask_cap`）的用量面**不在 `RunState` 形状内**：计时字段与
 连续反问计数字段已随「流水 49①」取消（`synth/S5` 已取消四字段），状态侧无载体——本函数不为其
-发明载体，故不作判定（登记待裁）。
+发明载体，故不作判定。**注入面已备**（2026-10-16 裁·流水 52-A）：`seconds`／`ask_cap` 两键改由
+调用方注入（`elapsed_seconds`／`consecutive_asks`，`None`＝该项不判定），判定逻辑随 W5 票落地；
+`tool_timeout` 为单次调用时限、归执行侧实时面，不经本判定。
 """
 
 from dataclasses import fields
@@ -101,8 +103,20 @@ def _convergence_notice(hits: tuple[LimitHit, ...]) -> dict[str, Any]:
     }
 
 
-def check_limits(state: RunState) -> Convergence:
-    """触界判定（纯函数）：判据＝`used >= cap`（达上限即触界——真源 `recon/K` R-K-86）。"""
+def check_limits(
+    state: RunState,
+    *,
+    elapsed_seconds: float | None = None,
+    consecutive_asks: int | None = None,
+) -> Convergence:
+    """触界判定（纯函数）：判据＝`used >= cap`（达上限即触界——真源 `recon/K` R-K-86）。
+
+    注入面（2026-10-16 裁·流水 52-A）**只接形状**：`elapsed_seconds`（`seconds` 键用量）与
+    `consecutive_asks`（`ask_cap` 键用量）由调用方注入，`None`＝该项不判定——注入值的判定逻辑
+    随 W5 票落地，本函数今日不消费其值。两参缺省时行为与注入面落地前**逐字节等价**（三键不判定、
+    四键判定不变）；返回形不因注入参在场而变，恒为 `Convergence`（未触界＝
+    `Convergence(hit=(), notice=None)`）。
+    """
     usage = _limit_usage(state)
     unknown = sorted(set(usage) - LIMIT_KINDS)
     if unknown:
