@@ -17,7 +17,8 @@ from fastapi import Depends, Header, Request
 
 from appv2.api.bridge import RunStreamRegistry
 from appv2.infra.security import Actor, resolve_actor
-from appv2.runtime import AgentRuntime, RunStore
+from appv2.runtimev2.orchestration import AgentRuntime
+from appv2.runtimev2.persistence import RunStore
 
 ACTOR_HEADER = "X-Dev-User"
 
@@ -33,7 +34,7 @@ CurrentActor = Annotated[Actor, Depends(current_actor)]
 
 
 def get_runtime(request: Request) -> AgentRuntime:
-    """runtime 服务定位（create_app 装配于 app.state）。"""
+    """runtime 服务定位（create_app 装配于 app.state——编排包根受理面）。"""
     return cast(AgentRuntime, request.app.state.agent_runtime)
 
 
@@ -43,7 +44,7 @@ def get_registry(request: Request) -> RunStreamRegistry:
 
 
 def get_run_store(request: Request) -> RunStore:
-    """run 簿记读面定位（create_app 装配于 app.state——GET runs 消费）。"""
+    """run 簿记读面定位（create_app 装配于 app.state——两读口消费）。"""
     return cast(RunStore, request.app.state.run_store)
 
 

@@ -2,10 +2,16 @@
 
 组合根语义：create_app 的 registry 缺省（None）＝生产组合——三引擎生产读面
 （PgKnowledgeStore／PgQueryExecutor／PgFragmentLibrary）真装配＋DE-16 翻板
-从 config 进组合根（gate_freshness(waterline, enabled=ChatSettings.
-freshness_gate_enabled)——V2-06 接线项②的消费点落位，生产主链新鲜度闸真生效）。
+从 config 进组合根（闸开＝供给水位读缝／闸关＝不供给——N7.4a「不拦停不改绑」；
+生产主链新鲜度闸真生效）。
 
-装配：sqlite 测试底座。主库承载 water_line（public 表）＋agent_v2/gateway
+**RT-W5-02 改接面**：组合根装配对象从旧运行时改为 runtimev2（`orchestration` 包根
+`RunExecutor`／`AgentRuntime`；`gateway_adapter.set_completer` 注入剧本替身；
+`persistence.configure_audit_sink` 注入 security.audit 桥；台账投影端口经
+`context.wire_ledger_projection` 接本层 dump 缝）——剧本 caller 键改运行时的短名
+（`understand`／`decision`）与四相位发射形（澄清 decompose→工具匹配 matches）。
+
+装配：sqlite 测试底座。主库承载 water_line（public 表）＋审计／gateway／富化
 lifespan 表＋sem_* 台账（PgKnowledgeStore 指标命中消费）；agg 星型三表经
 sqlite ATTACH '<file>' AS agg 出 schema 限定名（Core 渲染 agg.fct_daily_
 metering 原样解析——峰测在案）。生产读面逐调用新建会话管理器——ATTACH 钩子
@@ -34,36 +40,31 @@ from sqlalchemy import Engine, event, text
 from appv2.api import create_app
 from appv2.infra.config import ChatSettings
 from appv2.infra.db import ConnectionManager, DatabaseSpec
-from appv2.runtime import ScriptedCompleter
+from appv2.runtimev2.gateway_adapter import ScriptedCompleter
+from appv2.runtimev2.persistence import MemoryTables, configure_tables
 
 TODAY = date(2026, 10, 8)
 ACTOR = {"X-Dev-User": "aqiang"}  # 身份桩（五角色键——非键名 401）
 
-_UNDERSTAND = "理解：问 9 月上旬的日产油量。\n指标候选：日产油量"
-# P-033b 缺省翻转：create_app 生产缺省＝四相位装配——剧本随迁移改四相位发射形
-# （澄清 decompose→工具匹配 matches）；拒绝 legacy 直执行形。
-_CLARIFY = (
-    '{"action": "decompose", "question_group": {"subtasks": [{"id": "s1", '
-    '"question": "2026-09-01 到 09-15 各井日产油量", '
-    '"ledger_notes": "日产油量｜bound｜窗 2026-09-01~09-15", "chain": "data", '
-    '"tool": "data_query"}]}}'
+_UNDERSTAND = json.dumps(
+    {"route": "full", "text": "理解：问 9 月上旬的日产油量。", "metric_candidates": ["日产油量"]},
+    ensure_ascii=False,
 )
-_TOOLMATCH = (
-    '{"matches": [{"id": "s1", "chain": "data", "tool": "data_query", "plan": '
-    '{"metric_slot": "日产油量", "ranking": false, "window_start": "2026-09-01", '
-    '"window_end": "2026-09-15"}}]}'
-)
-_SCRIPT: dict[str, Sequence[str]] = {
-    "v2.runtime.understand": [_UNDERSTAND],
-    "v2.runtime.decision": [_CLARIFY, _TOOLMATCH],
+# 四相位发射形（RT-W5-02 改接：澄清分解＋工具匹配——相位合同形）。
+_CLARIFY_QUESTION = "2026-09-01 到 09-15 各井日产油量"
+_TOOLMATCH_PLAN = {
+    "metric_slot": "日产油量",
+    "ranking": False,
+    "window_start": "2026-09-01",
+    "window_end": "2026-09-15",
 }
 
-# 四相位步序（生产组合两向同形）：understand/clarify/toolmatch/precondition 四
-# decision 步→batch execute→批量汇聚 observe→（零实质材料——免起草）verify→
-# 收口 answer。新鲜度拦停（notice 观察）与 0 行闸拒都不进断言材料面。
+# 四相位步序（V2 形；生产组合两向同形）：理解／澄清／匹配／前置条件四相位的模型调用与
+# 留痕步（五 decision 步）→ 批量执行 → 零材料转答（起草 answer／核验 verify／收口 answer）。
+# 新鲜度拦停（观察素材）与 0 行闸拒都不进断言材料面。
 _FOUR_PHASE_STEP_KINDS = [
-    "decision", "decision", "decision", "decision", "execute", "observe",
-    "verify", "answer",
+    "decision", "decision", "decision", "decision", "decision",
+    "execute", "answer", "answer", "verify", "answer",
 ]
 
 _SEM_METRIC_DDL = (
@@ -160,14 +161,61 @@ async def _seed(main_db: Path, agg_db: Path) -> None:
         await db.dispose()
 
 
+def _ledger_note(specs: Sequence[DatabaseSpec]) -> str:
+    """台账注释（**逐字**取自生产读面的常驻注入块——相位侧在校「是否台账原话」）。
+
+    dump 源＝生产缝 `compose_production_ledger_dump`（本测与组合根同一读面）。
+    """
+    from appv2.api.app import compose_production_ledger_dump
+    from appv2.runtimev2.prompts import render_ledger_resident_block
+    from appv2.runtimev2.state import RunState
+
+    dump = compose_production_ledger_dump(specs=specs, today=lambda: TODAY)()
+    block = render_ledger_resident_block(RunState(run_id="probe", ledger_dump=dict(dump)))
+    return next(line for line in block.splitlines() if "日产油量" in line)
+
+
+def _script(specs: Sequence[DatabaseSpec]) -> dict[str, Sequence[str]]:
+    note = _ledger_note(specs)
+    clarify = json.dumps(
+        {
+            "action": "decompose",
+            "question_group": {
+                "subtasks": [
+                    {
+                        "id": "s1",
+                        "question": _CLARIFY_QUESTION,
+                        "ledger_notes": note,
+                        "chain": "data",
+                    }
+                ]
+            },
+        },
+        ensure_ascii=False,
+    )
+    toolmatch = json.dumps(
+        {"matches": [{"id": "s1", "chain": "data", "tool": "data_query",
+                      "mention_mode": "executed", "plan": _TOOLMATCH_PLAN}]},
+        ensure_ascii=False,
+    )
+    return {
+        "understand": [_UNDERSTAND],
+        "decision": [clarify, toolmatch],
+        # 转答草稿（零材料／拦停形态——如实说明不代答；闸拒与拦停两向同稿）。
+        "answer": ["本次取数未取得数据行（闸拒／拦停如实说明），不代答。"],
+    }
+
+
 def _composition_client(tmp_path: Path, agg_db: Path, *, enabled: bool) -> TestClient:
     """生产组合（registry=None）＋sqlite 底座——DE-16 开关两向的装配点。"""
     main_db = tmp_path / "main.db"
     asyncio.run(_seed(main_db, agg_db))
+    configure_tables(MemoryTables())  # 簿记表件（装配点注入——与生产载体的替换缝同形）
+    specs = _specs(main_db)
     app = create_app(
-        db=ConnectionManager(_specs(main_db)),
-        completer=ScriptedCompleter(_SCRIPT),
-        specs=_specs(main_db),
+        db=ConnectionManager(specs),
+        completer=ScriptedCompleter(_script(specs)),
+        specs=specs,
         chat_settings=ChatSettings(freshness_gate_enabled=enabled),
         today=lambda: TODAY,
     )
@@ -206,14 +254,17 @@ def test_de16_enabled_freshness_block_stops(tmp_path: Path, agg_db: Path) -> Non
     """闸开（缺省现状）：窗整体晚于水位——水位拦停在（零数值，不冒充出数）。"""
     with _composition_client(tmp_path, agg_db, enabled=True) as client:
         frames = _ask(client)
-        # 四相位周期走完（拦停不炸链——batch 执行 ok（notice 观察）→批量汇聚→
-        # verify 闸依据如实转答→收口）。
+        # 四相位周期走完（拦停不炸链——批量执行 ok（拦停素材观察）→零材料转答→收口）。
         assert [d["step"] for n, d in frames if n == "step"] == _FOUR_PHASE_STEP_KINDS
-        # 拦停 notice 在场：水位 2026-08-31＋窗标签——零数值行。
+        # 拦停素材观察在场（V2 面：工具层把 `freshness_block` 联合态落 **notice 素材观察**
+        # 帧——`trust="notice"`、`locator.kind=notice`；非 `notice` 帧——真源
+        # `appv2/tools/handlers.py` 六联合态→ToolResult 映射单点）：
+        # 水位 2026-08-31＋窗标签——零数值行。
         blocked = [
-            d for n, d in frames if n == "notice" and d.get("type") == "freshness_block"
+            d for n, d in frames
+            if n == "observation" and d.get("trust") == "notice"
         ]
-        assert blocked, "新鲜度闸拦停 notice 未发出"
+        assert blocked, "新鲜度闸拦停素材观察未出流"
         content = blocked[0]["content"]
         assert "新鲜度闸拦停" in content
         assert "2026-08-31" in content

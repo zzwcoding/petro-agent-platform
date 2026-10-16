@@ -6,6 +6,12 @@
 （specs/agent-loop.md 接口定义节错误行：400 参数非法｜401 身份缺失｜
 404 run 不存在｜409 run 非挂起态不可 resume）。
 
+**映射源错误族（两族同形兜底）**：404／409 两条的异常源＝`orchestration` 包根错误族
+（受理侧与追问播种侧上抛，`specs/modules.md` `## orchestration` 卡公开面注）——其
+**同形兜底**＝`persistence` 同族两件（读口 `RunStore.load` 缺行抛 `RunNotFoundError`、
+状态机把守抛 `StatusTransitionError`）：两族同语义同对外形（真源 `specs/persistence.md`
+「状态机把守」），故映射表各出一条，HTTP 形一致（不因异常源不同而漂移）。
+
 错误码值沿用 00 §3.3 `<域>_<语义>` 蛇形与 V1 已登记值（A1 错误码草案族——
 身份码 security_unauthenticated 为 00 §2.3 系统级值，run 族与 V1 chat 域
 同语义同值：前端错误处理面零改动可连）。V2 侧不新立码值；新立须登记票面
@@ -21,7 +27,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from appv2.infra.security import UnauthenticatedError
-from appv2.runtime import RunNotFoundError, RunNotSuspendedError
+from appv2.runtimev2.orchestration import RunNotFoundError, RunNotSuspendedError
+from appv2.runtimev2.persistence import RunNotFoundError as StoreRunNotFoundError
+from appv2.runtimev2.persistence import StatusTransitionError
 
 CODE_UNAUTHENTICATED = "security_unauthenticated"
 CODE_REQUEST_INVALID = "request_invalid"
@@ -79,14 +87,32 @@ def install_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RunNotFoundError)
     async def handle_run_not_found(request: Request, exc: RunNotFoundError) -> JSONResponse:
-        # 接口定义节错误行：404 run 不存在（runtime 异常源单点映射）。
+        # 接口定义节错误行：404 run 不存在（orchestration 包根错误族——受理侧异常源单点映射）。
         return JSONResponse(
             status_code=404, content=error_payload(CODE_RUN_NOT_FOUND, str(exc))
         )
 
     @app.exception_handler(RunNotSuspendedError)
     async def handle_run_not_suspended(request: Request, exc: RunNotSuspendedError) -> JSONResponse:
-        # 接口定义节错误行：409 run 非挂起态不可 resume（状态机约束）。
+        # 接口定义节错误行：409 run 非挂起态不可 resume（状态机约束源）。
+        return JSONResponse(
+            status_code=409, content=error_payload(CODE_RUN_STATE, str(exc))
+        )
+
+    @app.exception_handler(StoreRunNotFoundError)
+    async def handle_store_run_not_found(
+        request: Request, exc: StoreRunNotFoundError
+    ) -> JSONResponse:
+        # 同族兜底（persistence 侧）：读口缺行（`RunStore.load`）——404 对外形与上一条一致。
+        return JSONResponse(
+            status_code=404, content=error_payload(CODE_RUN_NOT_FOUND, str(exc))
+        )
+
+    @app.exception_handler(StatusTransitionError)
+    async def handle_status_transition(
+        request: Request, exc: StatusTransitionError
+    ) -> JSONResponse:
+        # 同族兜底（persistence 侧）：状态机把守拒（行为 2）——409 对外形与上一条一致。
         return JSONResponse(
             status_code=409, content=error_payload(CODE_RUN_STATE, str(exc))
         )

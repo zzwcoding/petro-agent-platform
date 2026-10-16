@@ -1,25 +1,36 @@
 """appv2.api.app —— appv2 自有 app 工厂（V2-07 票面红线：挂线路由注册进
 appv2 工厂，V1 app/main.py 路由零改动）。
 
-组合缝（modules.md 边界规则「api 只依赖 runtime 公开接口＋infra」的落法）：
-本工厂只 import appv2.runtime＋appv2.infra——引擎侧组合根（knowledge/query/
-retrieval → ToolRegistry）与 completer（生产＝GatewayService，测试＝剧本件）
-由调用方注入；**registry 缺省（None）＝生产组合**（V2-19 票面任务 4——三引擎
-生产读面真装配＋DE-16 消费点，compose_production_registry 局部 import 引擎与
-tools 包装配，属 modules.md api 卡注记的组合根例外延伸——create_app 装配
-真引擎替换 fixture 组合，对齐拍回写归属在案）。fixture 组合（测试）照旧经
-registry 参数显式注入。真实入口（演示/生产 main）点亮时在此工厂之上传入
-生产组合（V1 main.py 同位）。
+组合缝（modules.md 边界规则「api 业务面只许走 orchestration 公开接口」的落法）：
+本工厂只 import `appv2.runtimev2`（编排包根＝受理三形状＋装配面；persistence 装配缝；
+gateway_adapter 注入缝；transport 帧类型）＋`appv2.infra`——引擎侧组合根（knowledge/
+query/retrieval → ToolRegistry）与 completer（模型出口同面缝）由调用方注入；
+**registry 缺省（None）＝生产组合**（V2-19 票面任务 4——三引擎生产读面真装配＋DE-16
+消费点，`compose_production_registry` 局部 import 引擎与 tools 包装配，属 modules.md
+api 卡注记的组合根例外延伸）。fixture 组合（测试）照旧经 registry 参数显式注入。
 
-装配面：GraphRunExecutor（六步图＋PG checkpointer）→ AgentRuntime；
-RunStreamRegistry（SSE 事件桥缓冲）＋RunStore（run 簿记读面）入 app.state
-（deps 定位消费）；lifespan 幂等建表（agent_v2 五表＋gateway 三表——
-ensure 双轨约定，P0-08 先例）。
+装配面（RT-W5-02 改接后——runtimev2 面）：
+`RunExecutor`（orchestration 包根：受理／驱动／三态收口／检查点 saver 由其内部组合）
+→ `AgentRuntime`；模型出口经 `set_completer` 注入同面缝（生产＝`gateway_adapter.
+GatewayBridge`，测试＝`ScriptedCompleter`）；审计唯一写口经 `persistence.
+configure_audit_sink` 注入 `security.audit` 桥（B12）；台账投影端口经 `context.
+wire_ledger_projection` 注入本层 dump 缝；`RunStreamRegistry`（SSE 帧桥缓冲）＋
+`RunStore`（簿记两读口）入 `app.state`（deps 定位消费）；lifespan 幂等建表（簿记端口
+建表清单＋gateway 三表＋富化索引表——P0-08 先例同款）。
+
+**装配形状两处适配（如实登记，见 `tickets/v2-refactor/RT-W5-02-api-v2端点与SSE桥.md`
+偏差清单）**：① 编排块注入形是**值**（`watermark`＝水位日 date／`data_wells`＝井闭世界
+集合），本层生产缝是 **loader**（`Callable[[], …]`，旧「零缓存逐调用」语义）——本层在
+组合根**取一次**（启动快照），逐调用刷新语义有差；② 台账投影端口是**异步**口，本层
+dump 缝是同步缝——由 `LedgerProjectionAdapter` 单点适配（端口形状真源＝
+`appv2.runtimev2.context.ledger`）。
 """
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Callable, Sequence
+import asyncio
+import logging
+from collections.abc import AsyncIterator, Callable, Mapping, Sequence
 from contextlib import asynccontextmanager
 from datetime import date
 from typing import Any, cast
@@ -29,27 +40,89 @@ from fastapi import FastAPI
 from appv2.api.bridge import RunStreamRegistry
 from appv2.api.chat import router as chat_router
 from appv2.api.errors import install_error_handlers
-from appv2.api.ontology_guide import OntologyGuideProvider, load_object_digests
 from appv2.infra.config import ChatSettings
 from appv2.infra.db import ConnectionManager, DatabaseSpec
 from appv2.infra.gateway.store import ensure_gateway_tables
-from appv2.runtime import (
-    CALLER_PREFIX,
-    AgentRuntime,
-    Budget,
-    GatewayChatModel,
-    PgCheckpointer,
+from appv2.infra.security import AuditRow, SecurityService
+from appv2.runtimev2.context import wire_ledger_projection
+from appv2.runtimev2.gateway_adapter import set_completer
+from appv2.runtimev2.orchestration import AgentRuntime, Budget, RunExecutor
+from appv2.runtimev2.persistence import (
+    AuditRecord,
     RunStore,
-    ensure_agent_v2_tables,
-    gate_freshness,
+    configure_audit_sink,
 )
-from appv2.runtime.executor import GraphRunExecutor
-from appv2.runtime.llm import Completer
 
-# ReAct 图模型键闭世界（appv2.runtime.graph 装配契约——executor.models 字典键
-# ＝caller 去前缀短名；graph.py「模型 caller 桶闭世界」节同源。V2-31：三桶
-# 无 repair）。
-MODEL_KEYS: tuple[str, ...] = ("understand", "decision", "answer")
+_LOGGER = logging.getLogger(__name__)
+
+
+class LedgerProjectionAdapter:
+    """台账投影端口件（`context.LedgerProjectionPort` 形 ← 本层 dump 缝）。
+
+    端口形状真源＝`appv2.runtimev2.context.ledger`（`async def fetch() -> Mapping | None`；
+    「真实现形待核定」——本层按端口形状适配**本层既有**的 dump 缝：同步 dump 直接 await 化，
+    成功面／失败面不变（异常上抛 → `context.load_ledger_dump` 的 fail-fast 捕获面：
+    异常＝装载失败，返回 `None`＝工具面 failed 态）。
+    """
+
+    def __init__(self, dump: Callable[[], Mapping[str, Any]]) -> None:
+        self._dump = dump
+
+    async def fetch(self) -> Mapping[str, Any] | None:
+        return self._dump()
+
+
+class SecurityAuditSink:
+    """审计唯一写口桥（B12）：`persistence` 同步写面 → `security.audit` 异步写口。
+
+    装配点＝本层组合根（`persistence.configure_audit_sink` 的**唯一**替换缝）；真源
+    `specs/persistence.md` 接口定义节行原文「`def audit(record: AuditRecord) -> None   # 唯一写口＝
+    security.audit（B12）」——写面同步、`SecurityService.audit` 异步，故本桥把落库协程投递到
+    **当前事件环**（编排侧五处留痕都在请求／驱动任务内调用，恒有运行环）：
+
+    - 无运行环＝`RuntimeError` 上抛（不静默吞——编排侧发射守卫转 `audit_write_failed` 通知）；
+    - 投递后落库失败由任务回调**日志留痕**（`_LOGGER.error`）：同步写面拿不到异步结果，故落库
+      失败不进编排的 `audit_write_failed` 通道（该通道只覆盖「写口不可用」这一面——如实登记）。
+    """
+
+    def __init__(self, service: SecurityService) -> None:
+        self._service = service
+        self._tasks: set[asyncio.Task[None]] = set()
+
+    def __call__(self, record: AuditRecord) -> None:
+        loop = asyncio.get_running_loop()
+        task = loop.create_task(self._service.audit(_audit_row(record)))
+        self._tasks.add(task)
+        task.add_done_callback(self._settle)
+
+    def _settle(self, task: asyncio.Task[None]) -> None:
+        self._tasks.discard(task)
+        if task.cancelled():
+            return
+        error = task.exception()
+        if error is not None:  # 落库失败不静默（同步写面拿不到结果——日志留痕面）
+            _LOGGER.error("审计落库失败（责任账缺口）：%r", error)
+
+
+def _audit_row(record: AuditRecord) -> AuditRow:
+    """留痕记录 → `security.audit` 入参（四要素逐槽落位单点）。
+
+    - `who` → 操作者槽；`action` → 动作槽（取值已是 `agent_v2.*` 前缀闭世界）；
+    - `facts`（人话事实摘要）→ 内容槽（D3 读面只落 digest，正文不入读面）；
+    - `run_id`／`scope`（范围键）／`authorization`（授权依据＝审批单号）／`evidence`（结果面）
+      → `meta` 预留位（`AuditRow` 四槽不含这四件——槽形真源 `appv2.infra.security.AuditRow`）。
+    """
+    return AuditRow(
+        who=record.who,
+        action=record.action,
+        content=record.facts,
+        meta={
+            "run_id": record.run_id,
+            "scope": record.scope,
+            "authorization": record.authorization,
+            "evidence": record.evidence,
+        },
+    )
 
 
 def compose_production_registry(
@@ -64,10 +137,9 @@ def compose_production_registry(
     - knowledge＝PgKnowledgeStore（sem_* 直读——specs/knowledge.md「本期直读
       PG」的落位件）；
     - query＝QueryEngine（执行器＝PgQueryExecutor agg 星型真 SQL；水位读缝＝
-      production_waterline（water_line 汇总层直读＋T-1 判定随面）经
-      **gate_freshness 翻板**——enabled＝ChatSettings.freshness_gate_enabled
-      （config/database.yaml chat 段，DE-16），false＝不供给水位（N7.4a 关：
-      不拦停不改绑）；行级权限/外表审批零触碰）；
+      production_waterline（water_line 汇总层直读＋T-1 判定随面）经**翻板**——
+      enabled＝ChatSettings.freshness_gate_enabled（config/database.yaml chat 段，
+      DE-16），false＝不供给水位（N7.4a 关：不拦停不改绑）；行级权限/外表审批零触碰）；
     - retrieval＝RetrievalEngine（片段库＝PgFragmentLibrary kb_* 直读；
       embedder＝RemoteEmbedder——B6 embedding 唯一出口 infra.llm_client；
       图谱源未接线＝graph 面空集回退，Neo4j 适配器随落位批）；
@@ -93,15 +165,15 @@ def compose_production_registry(
     resolved = tuple(specs) if specs is not None else tuple(load_database_specs())
     settings = chat_settings if chat_settings is not None else load_chat_settings()
     knowledge = PgKnowledgeStore(resolved, today=None if today is None else today())
+    loader = production_waterline(resolved, today=today)
     query = QueryEngine(
         knowledge=knowledge,
         executor=PgQueryExecutor(resolved),
         # DE-16 消费点（V2-19 票面任务 4）：翻板从 config 进组合根——
-        # enabled=True 原样透传水位供给（现状拦停/改绑）；False＝不供给。
-        waterline=gate_freshness(
-            production_waterline(resolved, today=today),
-            enabled=settings.freshness_gate_enabled,
-        ),
+        # enabled=True 原样透传水位供给（现状拦停/改绑）；False＝不供给水位。
+        # 翻板语义单点（`loader if enabled else None`——N7.4a 关）随旧编排件退场，
+        # 本层按同一判据内联装配（不跨块复制取名）。
+        waterline=loader if settings.freshness_gate_enabled else None,
         today=today,
     )
     retrieval = RetrievalEngine(
@@ -125,13 +197,14 @@ def compose_production_ledger_dump(
     *,
     specs: Sequence[DatabaseSpec] | None = None,
     today: Callable[[], date] | None = None,
-) -> Any:
-    """词典层全量投影缝（V2-34 任务 6——拍板 a「第 1 轮全量注入」的生产装配）。
+) -> Callable[[], Mapping[str, Any]]:
+    """词典层全量投影源（V2-34 任务 6——拍板 a「第 1 轮全量注入」的生产装配）。
 
     PgKnowledgeStore 公开读面（evidence 浏览态＋aliases＋families——INV-2 只读）
     → tools.dump_from_store 全量 dump；运行期每次澄清取一次现行态（零缓存，
     与台账直读同纪律）。局部 import＝组合根例外（同 compose_production_registry
-    注记——api 装配面消费 tools 公开接口）。
+    注记——api 装配面消费 tools 公开接口）。**消费面**＝`context` 台账投影端口
+    （create_app 经 `LedgerProjectionAdapter` 接线——每次装载逐调用现行态）。
     """
     from appv2.infra.config import load_database_specs
     from appv2.knowledge import PgKnowledgeStore
@@ -147,9 +220,12 @@ def compose_production_watermark(
     specs: Sequence[DatabaseSpec] | None = None,
     today: Callable[[], date] | None = None,
 ) -> Any:
-    """水位读缝（V2-34 前置条件机新鲜度窗照实判定的生产装配——water_line
-    汇总层直读＋T-1 判定，与 QueryEngine 水位读缝同源单点）。局部 import＝
-    组合根例外（同上注记）。"""
+    """水位 loader（water_line 汇总层直读＋T-1 判定，与 QueryEngine 水位读缝同源单点）。
+
+    局部 import＝组合根例外（同上注记）。**返回 loader**（`Callable[[], WatermarkFace | None]`
+    ——missing 行＝None，不伪造）；编排块注入形是**水位日**（date），故 create_app 在生产路径
+    取一次并取 `data_date` 字段（装配形状适配，见模块 docstring）。
+    """
     from appv2.infra.config import load_database_specs
     from appv2.query import production_waterline
 
@@ -160,9 +236,12 @@ def compose_production_watermark(
 def compose_production_data_wells(
     *, specs: Sequence[DatabaseSpec] | None = None
 ) -> Any:
-    """数据链井闭世界读缝（V2-51 R4 软失败域闸的生产装配——agg.dim_well 井号
-    集直读，与问数执行缝的 dim_well 同源单点）。局部 import＝组合根例外（同上
-    注记）。"""
+    """数据链井闭世界 loader（agg.dim_well 井号集直读，与问数执行缝的 dim_well 同源单点）。
+
+    局部 import＝组合根例外（同上注记）。**返回 loader**（`Callable[[], frozenset[str]]`）；
+    编排块注入形是**集合**（`Collection[str]`——`specs/preconditions.md` 位 6 注入参），故
+    create_app 在生产路径取一次（装配形状适配，见模块 docstring）。
+    """
     from appv2.infra.config import load_database_specs
     from appv2.query import production_data_wells
 
@@ -170,37 +249,44 @@ def compose_production_data_wells(
     return production_data_wells(resolved)
 
 
+def _watermark_date(loader: Callable[[], Any]) -> date | None:
+    """水位 loader → 编排注入值（水位日 date；缺行＝None——不伪造、不编造）。
+
+    形态真源＝`specs/preconditions.md` 位 7（`watermark: date | str | None`）＋裁决 L0-3
+    （编排全链统一 date 形）；字段名真源＝`appv2.query.pg_waterline.WatermarkFace.data_date`。
+    """
+    face = loader()
+    return None if face is None else cast(date, face.data_date)
+
+
 def create_app(
     *,
     db: ConnectionManager,
-    completer: Completer,
+    completer: Any,
     registry: Any | None = None,
     budget: Budget | None = None,
     specs: Sequence[DatabaseSpec] | None = None,
     chat_settings: ChatSettings | None = None,
     today: Callable[[], date] | None = None,
     embedder: Any | None = None,
-    guide: Any | None = None,
-    four_phase: bool = True,
-    ledger_dump: Any | None = None,
+    ledger_dump: Callable[[], Mapping[str, Any]] | None = None,
     watermark: Any | None = None,
     data_wells: Any | None = None,
 ) -> FastAPI:
-    """构建 appv2 应用（三端点挂线＋runtime 生产装配——依赖注入面）。
+    """构建 appv2 应用（四端点挂线＋runtimev2 生产装配——依赖注入面）。
 
-    registry＝ToolRegistry 实例（组合根注入——类型真源在 appv2.tools，本层
-    按 modules.md api 卡边界「只依赖 runtime＋infra」不 import，经 runtime
-    executor 的签名面消费）；**None（缺省）＝生产组合**——compose_production_
-    registry 真装配三引擎＋faq_lookup 读缝（V2-19 票面任务 4；specs/chat_
-    settings/today/embedder 只在该路径生效）。
-    guide＝处理指南（V2-34 任务 10 真指南接线——None＝OntologyGuideProvider
-    缺省构造：ontology 资产 §A 装载切面＋DECISION_CONTRACT 拼接；占位
-    DefaultGuideProvider 已退役，不设双真源）。
-    four_phase＝V2-34 四相位装配开关（ADR-0005；缺省 True——P-033b 缺省翻转：
-    生产装配四相位真跑，既有 ReAct 七节点图经 four_phase=False 显式装配保留；
-    RUNTIME_SMOKE ②步序钉随四相位更新）。生产路径（registry 缺省）同时接词典层
-    全量投影缝、水位读缝与数据链井闭世界读缝（clarify 注入＋前置条件机新鲜度窗
-    ＋V2-51 软失败域闸）；faq_lookup 工具随生产组合根在册（V2-52 辅助模式）。
+    `completer`＝模型出口**同面缝**（签名与回执形状真源＝
+    `appv2.runtimev2.gateway_adapter`：生产＝`GatewayBridge(egress=GatewayService(db,
+    LlmClient()))`，测试＝`ScriptedCompleter`）——经 `set_completer` 注入（显式注入缝，
+    生产路径不读环境变量）。
+    `registry`＝ToolRegistry 实例（组合根注入——类型真源在 appv2.tools，本层按
+    modules.md api 卡边界不 import，经编排块 RunExecutor 的签名面消费）；**None（缺省）＝
+    生产组合**——compose_production_registry 真装配三引擎＋faq_lookup 读缝（V2-19 票面
+    任务 4；specs/chat_settings/today/embedder 只在该路径生效）。
+    `ledger_dump`＝台账投影源（`Callable[[], Mapping]`；None＋生产＝
+    compose_production_ledger_dump）——经 `context.wire_ledger_projection` 接端口；
+    `watermark`／`data_wells`＝编排注入值（date／集合；None＋生产＝生产 loader 取一次，
+    见模块 docstring 的装配形状两处适配）。
     """
     production = registry is None
     if production:
@@ -213,35 +299,23 @@ def create_app(
         if ledger_dump is None:
             ledger_dump = compose_production_ledger_dump(specs=specs, today=today)
         if watermark is None:
-            watermark = compose_production_watermark(specs=specs, today=today)
+            watermark = _watermark_date(
+                compose_production_watermark(specs=specs, today=today)
+            )
         if data_wells is None:
-            data_wells = compose_production_data_wells(specs=specs)
-    if guide is None:
-        guide = OntologyGuideProvider(
-            today=None if today is None else today(),
-            # 四相位装配：legacy 决策合同不进指南面（相位合同在 runtime 消费缝
-            # 前置——防双合同并存真模型跟随 legacy 四动作，P033SK1 实证）。
-            include_decision_contract=not four_phase,
-        )
-    models = {
-        key: GatewayChatModel(
-            completer=completer, caller=f"{CALLER_PREFIX}.{key}", alias=""
-        )
-        for key in MODEL_KEYS
-    }
-    executor = GraphRunExecutor(
+            data_wells = compose_production_data_wells(specs=specs)()
+    set_completer(completer)
+    configure_audit_sink(SecurityAuditSink(SecurityService(db)))
+    wire_ledger_projection(
+        None if ledger_dump is None else LedgerProjectionAdapter(ledger_dump)
+    )
+    store = RunStore()
+    executor = RunExecutor(
         registry=registry,  # type: ignore[arg-type]  # 组合根例外（生产缺省路径上非 None）
-        models=models,
-        db=db,
-        saver=PgCheckpointer(db),
+        store=store,
         budget=budget,
-        guide=guide,
-        four_phase=four_phase,
-        ledger_dump=ledger_dump,
         watermark=watermark,
         data_wells=data_wells,
-        # V2-58 理解步任务书本对象摘要缝（组合根缺省装配——api 读本体资产例外同 guide）
-        object_digests=load_object_digests,
     )
     app = FastAPI(title="Petro-Agent V2", version="2.0", lifespan=lifespan)
     install_error_handlers(app)
@@ -249,16 +323,20 @@ def create_app(
     app.state.db = db
     app.state.agent_runtime = AgentRuntime(executor)
     app.state.stream_registry = RunStreamRegistry()
-    app.state.run_store = RunStore(db)
+    app.state.run_store = store
     app.state.production_composition = production
     return app
 
 
 async def ensure_app_tables(db: ConnectionManager) -> None:
-    """幂等建表（lifespan 消费——agent_v2 五表＋gateway 三表＋富化索引表）。"""
+    """幂等建表（lifespan 消费——簿记端口建表清单＋审计责任账表＋gateway 三表＋富化索引表）。"""
+    from appv2.infra.security.store import ensure_audit_table
     from appv2.retrieval.pg_enrich import ensure_enrich_tables
 
-    await ensure_agent_v2_tables(db.engine())
+    RunStore().ensure_tables()  # 簿记表清单（真件由装配点注入；缺省内存件）
+    # 审计责任账表（B12 唯一写口落库面——`SecurityService.audit` 直写 `audit_log`；
+    # 空库首次写审计不 500 的 ensure 惯例＝V1 `app/main.py:150` 同款）。
+    await ensure_audit_table(db.engine())
     await ensure_gateway_tables(db.engine())
     await ensure_enrich_tables(db.engine())  # V2-47 R1b——检索富化索引（additive）
 

@@ -1,21 +1,25 @@
-"""api.ontology_guide —— ontology 指南资产装载件（V2-34 任务 10——create_app 真指南接线）。
+"""api.ontology_guide —— ontology 指南资产装载件（V2-34 任务 10）。
 
 GUIDE-PETRO-001（ontology/petro/skill-guides/——业务语义资产，与台账同治理）
-的 runtime 常驻装载点：manifest.loadingSeam 合同的落码面——
-「ontology 导出（本目录文件）→ runtime Context Builder 装载点＝GraphRunExecutor
-(guide=…) 构造参数（create_app 组合根传递）」。
+的装载点：manifest.loadingSeam 合同的落码面——「ontology 导出（本目录文件）→
+runtime Context Builder 装载点」。
 
 guide() 输出＝instructions.md §A 装载切面原文（{today}/{month_start}/{start30}/
-{max_rounds}/{max_discovers}/{max_executes} 占位符按执行日与预算合同填充）＋
-runtime 发射合同文本 DECISION_CONTRACT（appv2.runtime.guide——与
-graph.parse_decision schema 校验同源单点，本件不复制不设双真源）。
+{max_rounds}/{max_discovers}/{max_executes} 占位符按执行日与预算合同填充）。
 
-占位退役（V2-34）：runtime 侧 DefaultGuideProvider 五段内置文案由 §A 对应条款
-接管——生产唯一指南源＝本装载件（create_app 缺省构造）。
+**旧码决策合同的落点（RT-W5-02 G9 登记，本层不再引旧码）**：§A 装载时曾拼接
+`DECISION_CONTRACT`（决策发射合同正文——真源＝旧编排件 `appv2/runtime/guide.py`，
+与 `graph.parse_decision` schema 校验同源单点）。RT-W5-02 起本层（V2 api）**不再
+引旧码**（旧运行时包进口零命中——`appv2/api/*.py` 对旧包的 import 面清零）：该合同的
+服务对象＝**旧 runtime 装配面**（ReAct
+单相位决策面），随 eng/03 §三 废弃节奏与旧码一并退场；本层服务的四相位装配由相位
+合同（`appv2.runtimev2.prompts` 的澄清/匹配合同，相位侧前置）承载，从不请求该合同。
+`include_decision_contract` 形参保留＝**旧装配面构造兼容**（取值不再影响本层输出——
+合同正文不复制进本层、不设第二真源；受影响的旧面断言归 eng/04 §五 织网②改写面）。
 
-边界注记：本件在 api 装配面（modules.md「api 只依赖 runtime＋infra」的组合根
-例外延伸——与 compose_production_registry 同款局部性质：只读 repo 内 ontology
-资产文件，零引擎接触）。
+边界注记：本件在 api 装配面（modules.md「api 只依赖 orchestration＋transport/
+persistence/infra」的组合根例外延伸——与 compose_production_registry 同款局部性质：
+只读 repo 内 ontology 资产文件，零引擎接触）。
 """
 
 from __future__ import annotations
@@ -24,7 +28,6 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from appv2.infra import clock
-from appv2.runtime.guide import DECISION_CONTRACT
 
 # ontology 指南资产缺省路径（repo 相对——本文件 parents[2]＝仓根）。
 DEFAULT_GUIDE_PATH = (
@@ -81,7 +84,7 @@ def _extract_section_a(text: str) -> str:
 
 
 class OntologyGuideProvider:
-    """ontology 资产件装载器（GuideProvider 同形协议——LoopDeps.guide 注入面）。"""
+    """ontology 资产件装载器（§A 装载切面——旧 runtime `LoopDeps.guide` 注入面同形）。"""
 
     def __init__(
         self,
@@ -99,10 +102,9 @@ class OntologyGuideProvider:
         self._max_rounds = max_rounds
         self._max_discovers = max_discovers
         self._max_executes = max_executes
-        # 四相位装配（V2-34）置 False：legacy 决策发射合同不拼进指南面——相位
-        # 发射合同（CLARIFY/TOOLMATCH_CONTRACT）由 runtime 在消费缝前置。双合同
-        # 并存时真模型跟随 legacy 四动作（P033SK1 实证：MiniMax 逐字照抄
-        # execute/finalize——澄清相位三轮被拒收敛），故四相位只挂一份合同。
+        # 旧码决策合同的拼接已随旧 runtime 装配面退场（G9 落点登记，见模块 docstring）：
+        # 形参保留＝旧装配面构造兼容；取值不再影响本层输出——合同正文的真源在旧编排件
+        # （`appv2/runtime/guide.py` ↔ `graph.parse_decision`），本层不引旧码、不复制正文。
         self._include_decision_contract = include_decision_contract
 
     def guide(self) -> str:
@@ -111,7 +113,7 @@ class OntologyGuideProvider:
         today = self._today
         start30 = (today - timedelta(days=30)).isoformat()
         month_start = today.replace(day=1).isoformat()
-        section = (
+        return (
             section.replace("{today}", today.isoformat())
             .replace("{month_start}", month_start)
             .replace("{start30}", start30)
@@ -119,6 +121,3 @@ class OntologyGuideProvider:
             .replace("{max_discovers}", str(self._max_discovers))
             .replace("{max_executes}", str(self._max_executes))
         )
-        if not self._include_decision_contract:
-            return section
-        return f"{section}\n\n{DECISION_CONTRACT}"
