@@ -108,7 +108,12 @@ MATERIAL_TRUNCATED_CONTENT = (
 # ── 降级与引用簇（`RT-W4-06b`：行为 6／12／13／14／15／16／17——本块自有文案单点）─────────
 # 矛盾分源块（行为 6：分源列明、不强调和；「互不一致」标出——对应 `refuted_by` 取向）。
 # 逐支行形逐字迁移 V1 `graph.py` `_contradiction_members` 的列明形（recon/A2 R-A2-29）。
-CONTRADICTION_SECTION_HEAD = "\n\n互不一致——多来源分源列明（禁止无出处调和）："
+# 2026-10-17 EB2 D3（段头去工程腔）：旧「互不一致——多来源分源列明（禁止无出处调和）：」→
+# 友好话术；判定面语义零改（仍逐支原文照抄、不调和）。**「互不一致」标保留**——`specs/answering.md`
+# 行为 6 的「标出『互不一致』」面（其验收测试 `::contradiction_split_not_merged` 同钉），
+# 判据话术与 `verification.SPLIT_BLOCK_HEAD` 同句（两相位 R1 禁互引，故按字面同句落此——
+# 本常量＝本相位唯一落点，块头禁再出现第二处字面）。
+CONTRADICTION_SECTION_HEAD = "\n\n互不一致——各来源说法如下，按来源分别列出："
 CONTRADICTION_LINE = "[{seq}] {source} · {source_id}：{content}"
 # 分源列明归属块（行为 17：逐源归属配对——来源名↔数值／结论配对；「某区块」含糊形不得由本块产出）。
 SOURCE_SECTION_HEAD = "\n\n分源列明（逐源归属——来源名↔数值／结论配对）："

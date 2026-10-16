@@ -33,6 +33,11 @@
  *   轮走挂起卡批准/驳回续推。链根不在列表窗内＝该轮自成一对话行（分组窗界兜底，如实呈现）。
  * V1 专属面不设——DEBT(V2-00)：@资产（V1 端点 6）不在 V2 合同内；逐帧回放随会话面票补。
  * 挂起判定铁律：ask 帧在场＝等人工（ask 帧后照发 done——挂起看 ask 帧不看 done）。
+ *
+ * 答案面（EB2-D4 答案友好化）：模型答案是 Markdown（真机答案真形＝**粗体**当小标题＋
+ * `- ` 清单＋逐行引标 [n]），正文由 landing/AnswerView.jsx（marked lexer→React 元素）
+ * 渲染，不再 pre-wrap 显示记号；正文 [n] 点击＝开引用抽屉并高亮/滚动到对应 index 条目。
+ * 历史轮次（DB 行 answer）无引用数据可查，不传 onCite＝引标不切分（纯文本原样）。
  */
 import { useEffect, useRef, useState } from 'react'
 import {
@@ -47,6 +52,7 @@ import {
 } from '../api/chatV2.js'
 import { helpIcon, dim } from '../components/helpIcon.jsx'
 import DecisionTreeV2, { V2_SCENARIOS } from '../pages/DecisionTreeV2.jsx'
+import AnswerView from './AnswerView.jsx'
 import { newTurnV2, reduceV2Frame } from './a1v2Reducer.js'
 
 const TREE_BY_KEY = Object.fromEntries(V2_SCENARIOS.map(s => [s.key, s]))
@@ -146,6 +152,7 @@ export default function A1V2Landing() {
   const [process, setProcess] = useState(null) // 右栏历史过程 {runId,steps,stepsLoading,stepsError}（选中对话＝最新轮）
   const [askFrames, setAskFrames] = useState({}) // 挂起轮帧 {runId: AskFrame}——GET run pending_ask 还原（V2-78）
   const [citeTurn, setCiteTurn] = useState(null)
+  const [citeFocus, setCiteFocus] = useState(null) // 引标联动定位态 {index}（正文 [n] 点击——抽屉高亮/滚动；本体化让重复点同一条也重走滚动）
   const [treeOpen, setTreeOpen] = useState(false)
   const [active, setActive] = useState(null)
   const [followup, setFollowup] = useState(() => {
@@ -163,6 +170,14 @@ export default function A1V2Landing() {
       rootId: thread?.rootId ?? null, followup
     }))
   }, [thread, followup])
+
+  // 引标联动（EB2-D4）：正文 [n] 点击后抽屉已开——把对应条目滚进视野（高亮由 citeFocus 出态）。
+  // scrollIntoView 在 jsdom 缺实现（?.）——测试面不因环境桩缺失而炸。
+  useEffect(() => {
+    if (!citeTurn || !citeFocus) return
+    const el = document.getElementById(`cite-${citeFocus.index}`)
+    if (el?.scrollIntoView) el.scrollIntoView({ block: 'center' })
+  }, [citeTurn, citeFocus])
 
   const threads = buildThreads(runs)
   const openThreadObj = thread ? (threads.find(t => t.rootId === thread.rootId) ?? null) : null
@@ -400,6 +415,12 @@ export default function A1V2Landing() {
     ))
   }
 
+  /** 打开引用抽屉（EB2-D4）：index 传自正文 [n] 引标＝高亮并滚动到该条；无 index（「引用材料（n）」按钮）＝不高亮。 */
+  function openCitation(turn, index) {
+    setCiteTurn(turn)
+    setCiteFocus(index == null ? null : { index }) // 每次点击出新对象＝重复点同一条也重走滚动拍
+  }
+
   function renderTurn(turn) {
     const failing = turn.closed === 'error' || turn.closed === 'transport'
     // 引擎异常腿：run_failed notice 随行、流尾照发 done——run 已落库 failed，
@@ -444,12 +465,12 @@ export default function A1V2Landing() {
           </Card>
         )}
         {turn.answerText && (
-          <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.7 }}>{turn.answerText}</div>
+          <AnswerView content={turn.answerText} onCite={idx => openCitation(turn, idx)} />
         )}
         {!turn.answerText && !failing && turn.runStatus === 'running' && <Spin size="small" />}
         {turn.citations.length > 0 && (
           <Button size="small" type="link" style={{ paddingLeft: 0, marginTop: 6 }}
-            onClick={() => setCiteTurn(turn)}>
+            onClick={() => openCitation(turn, null)}>
             {`引用材料（${turn.citations.length}）`}
           </Button>
         )}
@@ -502,9 +523,7 @@ export default function A1V2Landing() {
           <div style={{ marginBottom: 6 }}>
             {statusTag(r.status)}<span style={dim}>{` · ${fmtTime(r.created_at)}`}</span>
           </div>
-          <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.7 }}>
-            {r.answer || (r.status === 'completed' ? '（无答案正文）' : '（未收口——无答案文本）')}
-          </div>
+          <AnswerView content={r.answer || (r.status === 'completed' ? '（无答案正文）' : '（未收口——无答案文本）')} />
           {r.status === 'waiting_ask' && renderSuspendCard(r)}
           {r.status === 'failed' && (
             <Alert type="error" showIcon message="该轮运行失败——过程步见右侧；可继续追问重试。"
@@ -649,14 +668,24 @@ export default function A1V2Landing() {
         </div>
       </Card>
 
-      {/* 引用抽屉 */}
-      <Drawer title="引用材料" width={480} open={Boolean(citeTurn)} onClose={() => setCiteTurn(null)}>
+      {/* 引用抽屉（EB2-D4：正文 [n] 引标点击＝开此抽屉＋高亮/滚动到对应 index 条目） */}
+      <Drawer title="引用材料" width={480} open={Boolean(citeTurn)}
+        onClose={() => { setCiteTurn(null); setCiteFocus(null) }}>
         {(citeTurn?.citations || []).map(c => {
           const mat = (citeTurn.materials || []).find(m => m.index === c.index)
+          const focused = citeFocus?.index === c.index // 正文引标联动定位的高亮态
           return (
-            <Card key={c.index} size="small" style={{ marginBottom: 8 }} title={(
-              <span>[{c.index}] {c.source}<Tag style={{ marginLeft: 6 }}>{c.trust}</Tag></span>
-            )}>
+            <Card key={c.index} id={`cite-${c.index}`} size="small"
+              style={{
+                marginBottom: 8,
+                ...(focused ? { borderColor: '#4a9dff', boxShadow: '0 0 0 2px rgba(74,157,255,0.25)' } : {})
+              }}
+              title={(
+                <span>
+                  [{c.index}] {c.source}<Tag style={{ marginLeft: 6 }}>{c.trust}</Tag>
+                  {focused && <Tag color="blue" style={{ marginLeft: 6 }}>已定位</Tag>}
+                </span>
+              )}>
               <div style={{ fontSize: 12, whiteSpace: 'pre-wrap' }}>
                 {mat?.content || '（材料未在回合内渲染）'}
               </div>

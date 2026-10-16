@@ -81,6 +81,11 @@ from appv2.tools import (
     DATA_QUERY,
     DOC_RETRIEVE,
     GRAPH_QUERY,
+    LINEAGE_LIMIT_HIT_KEY,
+    LINEAGE_LIMIT_KEY,
+    LINEAGE_LIMIT_ROWS_KEY,
+    LINEAGE_PAYLOAD_KEY,
+    LOCATOR_PAYLOAD_KEY,
     SCHEMA_PROBE,
     SEMANTIC_QUERY,
     STATUS_ASK,
@@ -603,6 +608,21 @@ async def test_observation_provenance() -> None:
     ):
         assert key in lineage_obs[0].content
     assert "dev-u1" in lineage_obs[0].content
+    # 结构化载荷（2026-10-17 EB2 D1）：五要素按合同键随观察走＋限量面触顶事实
+    # （本发射 plan.limit＝5、交付 5 行＝触顶）。
+    payload = lineage_obs[0].locator[LOCATOR_PAYLOAD_KEY]
+    assert set(payload[LINEAGE_PAYLOAD_KEY]) == {
+        LINEAGE_KEY_CALIBER,
+        LINEAGE_KEY_SOURCE,
+        LINEAGE_KEY_FILTER,
+        LINEAGE_KEY_PERMISSION,
+        LINEAGE_KEY_WATERMARK,
+        LINEAGE_KEY_CLOSING,
+    }
+    assert payload[LINEAGE_LIMIT_KEY] == {
+        LINEAGE_LIMIT_HIT_KEY: True,
+        LINEAGE_LIMIT_ROWS_KEY: 5,
+    }
 
     # —— 台账行：来源链＝sem_*#行 id＋element_id 机读 ——
     semantic = await registry.call(SEMANTIC_QUERY, {"element_name": "日产油量"}, CTX)

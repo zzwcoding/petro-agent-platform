@@ -574,3 +574,44 @@ it('挂起卡渲染：ask 帧后出反问卡＋选项按钮，页面不崩', asy
   expect(screen.getByText('近 3 天')).toBeTruthy()
   expect(screen.getByText('近 30 天')).toBeTruthy()
 })
+
+// ---------- 附钉：EB2-D4 答案友好化（答案正文 Markdown 渲染＋[n] 引标联动引用抽屉） ----------
+it('答案面：正文 Markdown 成元素、[n] 点击＝开引用抽屉＋高亮定位该 index 条目', async () => {
+  listRunsV2.mockResolvedValue([])
+  postAskV2.mockImplementation((body, handlers) => {
+    handlers.onFrame({ event: 'session', data: { run_id: 'run-eb2', resume: false } })
+    // 真机答案真形（eval/results/frames/EB1-数-明1.json）：粗体当小标题＋`- ` 清单＋逐行引标
+    handlers.onFrame({ event: 'text', data: { content: '**结论**\n- N-01：21.16 吨[1]\n' } })
+    handlers.onFrame({
+      event: 'observation',
+      data: { index: 1, source: '日产计量事实表', trust: 'db', content: 'N-01 2025-09-01 日产油量 21.16 吨。' }
+    })
+    handlers.onFrame({
+      event: 'citation',
+      data: { index: 1, source: '日产计量事实表', source_id: 'f51', trust: 'db' }
+    })
+    handlers.onDone()
+    return Promise.resolve({ lastEventId: '' })
+  })
+  const { container } = render(<A1V2Landing />)
+  fireEvent.change(await screen.findByPlaceholderText('输入问题（Enter 发送）'),
+    { target: { value: '9 月上旬各井日产油量' } })
+  fireEvent.click(screen.getByText('发送'))
+
+  // 记号成元素：**结论**→<strong>、`- ` 清单→<li>（不再是 pre-wrap 原文记号）
+  expect(await screen.findByText('结论')).toBeTruthy()
+  const answer = container.querySelector('[data-testid="answer-view"]')
+  expect(answer.querySelector('strong').textContent).toBe('结论')
+  expect(answer.querySelector('li').textContent).toBe('N-01：21.16 吨[1]')
+  expect(answer.textContent).not.toContain('**')
+
+  // 正文 [1]＝可点击锚点；点击开引用抽屉、高亮并定位到 index=1 条目（observation 配对内容）
+  const anchor = answer.querySelector('a[data-cite="1"]')
+  expect(anchor).toBeTruthy()
+  fireEvent.click(anchor)
+  await waitFor(() => expect(document.getElementById('cite-1')).toBeTruthy())
+  const entry = document.getElementById('cite-1')
+  expect(entry.textContent).toContain('日产计量事实表')
+  expect(entry.textContent).toContain('N-01 2025-09-01 日产油量 21.16 吨。')
+  expect(entry.textContent).toContain('已定位')
+})

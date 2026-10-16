@@ -21,6 +21,9 @@ readonly!=True 的工具，公开面仅 register/descriptors/call；假引擎 ad
 - ToolRegistry（register/descriptors/call）＋Tool（注册项）；
 - ToolDescriptor/ToolContext/ToolResult/AskFrame 四 schema（票面点名随本票
   定稿）＋ToolError/Observation 伴生件＋status/category/ask kind 闭世界常量；
+- locator 结构化载荷槽键（`LOCATOR_PAYLOAD_KEY` 族——血缘卡五要素机读面，
+  2026-10-17 EB2：`runtimev2.context` 合成口径行／`runtimev2.execution` 帧透传
+  同引本处名字）；
 - QueryFace/RetrievalFace 引擎缝（结构性 Protocol）＋build_tools 装配单点；
 - SEMANTIC_QUERY/DATA_QUERY/DOC_RETRIEVE/GRAPH_QUERY 工具名闭世界；
 - ArgsError（参数校验/装配失败）＋classify_exception（异常三分类单点）；
@@ -119,6 +122,11 @@ from appv2.tools.schema import (
     CATEGORY_BAD_ARGS,
     CATEGORY_REFUSED,
     CATEGORY_RETRYABLE,
+    LINEAGE_LIMIT_HIT_KEY,
+    LINEAGE_LIMIT_KEY,
+    LINEAGE_LIMIT_ROWS_KEY,
+    LINEAGE_PAYLOAD_KEY,
+    LOCATOR_PAYLOAD_KEY,
     STATUS_ALL,
     STATUS_ASK,
     STATUS_FAILED,
@@ -175,6 +183,11 @@ __all__ = [
     "HIT_RULE_NORMALIZED_SLOT",
     "HIT_RULE_SINGLE_WELL",
     "HIT_RULE_UNREGISTERED_METRIC",
+    "LINEAGE_LIMIT_HIT_KEY",
+    "LINEAGE_LIMIT_KEY",
+    "LINEAGE_LIMIT_ROWS_KEY",
+    "LINEAGE_PAYLOAD_KEY",
+    "LOCATOR_PAYLOAD_KEY",
     "META_QUESTION_MARKERS",
     "RESIDENT_BLOCK_BEGIN",
     "RESIDENT_BLOCK_END",

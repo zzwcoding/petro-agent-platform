@@ -37,6 +37,7 @@ from typing import Any
 
 import pytest
 
+from appv2.query import LINEAGE_KEY_CALIBER, LINEAGE_KEY_SOURCE
 from appv2.runtimev2.context import (
     DEFAULT_DIALOGUE_VIEW_TOKENS,
     DEFAULT_MAX_OBSERVATIONS,
@@ -55,6 +56,13 @@ from appv2.runtimev2.context import (
     wire_ledger_projection,
 )
 from appv2.runtimev2.state import DIALOGUE_ORIGINS, RunState
+from appv2.tools import (
+    LINEAGE_LIMIT_HIT_KEY,
+    LINEAGE_LIMIT_KEY,
+    LINEAGE_LIMIT_ROWS_KEY,
+    LINEAGE_PAYLOAD_KEY,
+    LOCATOR_PAYLOAD_KEY,
+)
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _CONTEXT_DIR = _REPO_ROOT / "appv2" / "runtimev2" / "context"
@@ -104,6 +112,47 @@ def _fragments(count: int, *, start: int = 1) -> list[dict[str, Any]]:
         _obs(start + i, "fragment", content=f"检索片段{i}", source="kb", source_id=f"kb-{i}")
         for i in range(count)
     ]
+
+
+def _lineage_obs(
+    index: int,
+    *,
+    caliber: str = "日产油量（单位：吨）——指标台账注册声明：日产油量（吨），口径随答案标注",
+    source_table: str = "agg.fct_daily_metering（agg 星型读模型 ⋈ 井维度 ⋈ 日期维度）",
+    limit_hit: bool = False,
+    limit_rows: int = 0,
+) -> dict[str, Any]:
+    """血缘卡观察 fixture（2026-10-17 EB2 D1：`locator.payload` 结构化载荷＋五要素正文）。"""
+    return {
+        "index": index,
+        "locator": {
+            "kind": "lineage",
+            "table": "agg.fct_daily_metering",
+            LOCATOR_PAYLOAD_KEY: {
+                LINEAGE_PAYLOAD_KEY: {
+                    "① 口径": caliber,
+                    "② 来源表": source_table,
+                    "③ 过滤条件": "时间＝近 30 天 [2026-08-01, 2026-09-01)（默认窗）",
+                    "　└（权限注入）": "数据域＝全量",
+                    "④ 数据截至批次": "批次 B20260831-T3 · 汇总层水位 2026-08-31（承诺 T-1）",
+                    "⑤ 收口注记": "LIMIT 50——强制限量纪律：没写补默认 50、超 200 截到 200",
+                },
+                LINEAGE_LIMIT_KEY: {
+                    LINEAGE_LIMIT_HIT_KEY: limit_hit,
+                    LINEAGE_LIMIT_ROWS_KEY: limit_rows,
+                },
+            },
+        },
+        "content": (
+            "① 口径 日产油量（单位：吨）——指标台账注册声明\n"
+            "② 来源表 agg.fct_daily_metering\n③ 过滤条件 时间＝近 30 天\n"
+            "④ 数据截至批次 批次 B20260831-T3\n⑤ 收口注记 LIMIT 50"
+        ),
+        "source": "agg.fct_daily_metering",
+        "well": "",
+        "source_id": "lineage",
+        "version": None,
+    }
 
 
 def _context_sources() -> list[tuple[Path, ast.Module]]:
@@ -178,6 +227,67 @@ def test_material_segment_verbatim_render() -> None:
         render_materials(
             [{"index": "缺形", "locator": {"kind": "term"}}], max_observations=24
         )
+
+
+# ---------- 1b 血缘卡＝口径行（2026-10-17 EB2 D1——材料面瘦身） ----------
+
+
+def test_lineage_lineage_renders_caliber_line_only() -> None:
+    """血缘卡不进五要素全文，原位渲染一行口径行（EB2 D1；原料＝结构化载荷）。
+
+    判据三条：①口径行逐字（①口径原文｜来源：②来源表原文）；②五要素全文零进窗
+    （材料面瘦身即此面）；③血缘 observation 帧仍全量下发（前端核验面不受损——
+    帧面判据落 `test_v2_execution`）。
+    """
+    text, meta = render_materials(
+        [_lineage_obs(2)], max_observations=DEFAULT_MAX_OBSERVATIONS
+    )
+    assert text == (
+        "\n观察材料：\n"
+        "[2]（authoritative｜agg.fct_daily_metering）"
+        "【口径】日产油量（单位：吨）——指标台账注册声明：日产油量（吨），口径随答案标注"
+        "｜来源：agg.fct_daily_metering（agg 星型读模型 ⋈ 井维度 ⋈ 日期维度）"
+    )
+    # 五要素全文与工程腔行标零进窗（③过滤／④批次／⑤收口＋权限注入行皆不在）
+    for owed in ("③ 过滤条件", "④ 数据截至批次", "⑤ 收口注记", "└（权限注入）", "LIMIT 50"):
+        assert owed not in text, owed
+    assert meta["material_rendered"] == 1 and meta["material_truncated"] is False
+
+
+def test_lineage_limit_hit_appends_cap_suffix() -> None:
+    """LIMIT 触顶（结构化载荷 `limit.hit`）→ 口径行尾缀「本次封顶前 N 行」（EB2 D1）。"""
+    hit, _ = render_materials(
+        [_lineage_obs(2, limit_hit=True, limit_rows=50)],
+        max_observations=DEFAULT_MAX_OBSERVATIONS,
+    )
+    assert hit.endswith("｜本次封顶前 50 行")
+    # 未触顶＝零尾缀（不报无关数）
+    miss, _ = render_materials(
+        [_lineage_obs(2, limit_hit=False, limit_rows=50)],
+        max_observations=DEFAULT_MAX_OBSERVATIONS,
+    )
+    assert "本次封顶前" not in miss
+
+
+def test_lineage_without_payload_renders_empty_not_fulltext() -> None:
+    """载荷缺位（旧形／形态违约）＝空串——不回落五要素全文、不解析正文文本串（EB2 D1）。"""
+    text, _ = render_materials(
+        [
+            _obs(
+                2,
+                "lineage",
+                content="① 口径 日产油量（单位：吨）\n② 来源表 agg.fct_daily_metering",
+                source="agg.fct_daily_metering",
+            )
+        ],
+        max_observations=DEFAULT_MAX_OBSERVATIONS,
+    )
+    assert text == "\n观察材料：\n[2]（authoritative｜agg.fct_daily_metering）"
+    assert "① 口径" not in text and "来源表" not in text
+    # 五要素合同键＝口径行取值指针真源（本块 R1 不能引 query，故以字面落此并在此钉同值）
+    obs = _lineage_obs(2)
+    lineage = obs["locator"][LOCATOR_PAYLOAD_KEY][LINEAGE_PAYLOAD_KEY]
+    assert LINEAGE_KEY_CALIBER in lineage and LINEAGE_KEY_SOURCE in lineage
 
 
 # ---------- 2 信任级映射闭世界＋notice 排除（行为 2） ----------

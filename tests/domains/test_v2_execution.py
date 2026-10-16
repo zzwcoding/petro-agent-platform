@@ -96,6 +96,11 @@ from appv2.tools import (
     CATEGORY_RETRYABLE,
     DATA_QUERY,
     DOC_RETRIEVE,
+    LINEAGE_LIMIT_HIT_KEY,
+    LINEAGE_LIMIT_KEY,
+    LINEAGE_LIMIT_ROWS_KEY,
+    LINEAGE_PAYLOAD_KEY,
+    LOCATOR_PAYLOAD_KEY,
     SEMANTIC_QUERY,
     AskFrame,
     ToolContext,
@@ -321,6 +326,48 @@ async def test_parallel_and_stable_seq() -> None:
     assert mirror.completions[-1] != registry.completions[-1]  # 完成序已换
     assert [item.content for item in mirrored.observations] == ["s1 行", "s2 片段", "s3 行"]
     assert [row["index"] for row in mirrored_state.observations] == [1, 2, 3]
+
+
+# ── 行 12a：observation 帧载荷透传结构化载荷（2026-10-17 EB2 D1）──────────────────
+
+
+async def test_observation_frame_carries_structured_payload() -> None:
+    """观察自带 `locator.payload` → 帧载荷原样透传（前端核验面）；无载荷＝零该键。
+
+    血缘卡五要素全文仍随 `content` 全量下发（材料面瘦身只作用于模型窗——本帧面判据
+    与 `specs/context.md` 血缘口径行同批，2026-10-17 EB2 D1）。
+    """
+    payload = {
+        LINEAGE_PAYLOAD_KEY: {
+            "① 口径": "日产油量（单位：吨）——指标台账注册声明",
+            "② 来源表": "agg.fct_daily_metering",
+        },
+        LINEAGE_LIMIT_KEY: {LINEAGE_LIMIT_HIT_KEY: True, LINEAGE_LIMIT_ROWS_KEY: 3},
+    }
+    lineage = ToolObservation(
+        content="① 口径 日产油量（单位：吨）\n② 来源表 agg.fct_daily_metering",
+        source="agg.fct_daily_metering",
+        source_id="lineage",
+        version=None,
+        freshness="",
+        scope="agg",
+        locator={
+            "kind": "lineage",
+            "table": "agg.fct_daily_metering",
+            LOCATOR_PAYLOAD_KEY: payload,
+        },
+    )
+    registry = _ScriptedRegistry(
+        {DATA_QUERY: [_Reply(result=_ok(_tool_obs("s1 行"), lineage))]}
+    )
+    _outcome, bus = _run(_state([_data_match("s1")]), registry)
+    frames = await _event_frames(bus, "observation")
+
+    # 血缘支＝携载荷支；行级支无载荷（加性键——不补键不删键）
+    with_payload = [frame for frame in frames if LOCATOR_PAYLOAD_KEY in frame]
+    assert len(with_payload) == 1
+    assert with_payload[0][LOCATOR_PAYLOAD_KEY] == payload  # 原样透传（零裁剪零改名）
+    assert "① 口径" in str(with_payload[0]["content"])  # 全文照旧随帧（前端核验面不受损）
 
 
 # ── 行 2：已成功子问题不重发工具调用（指纹命中）──────────────────────────────────

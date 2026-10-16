@@ -52,6 +52,7 @@ from typing import Any
 import pytest
 
 import appv2.runtimev2.verification as verification
+from appv2.runtimev2.answering import CONTRADICTION_SECTION_HEAD
 from appv2.runtimev2.state import RunState
 from appv2.runtimev2.transport import EventBus, SseEvent
 from appv2.runtimev2.verification import (
@@ -277,7 +278,10 @@ async def test_conflict_split_not_merged() -> None:
     # 两源逐支带出处（不强调和、不取其一）——原断言行不删、分列块追加
     assert verdict.split == 1
     assert draft in state.draft
-    assert "多来源不一致——分源列明（禁止无出处调和）：" in state.draft
+    assert "各来源说法如下，按来源分别列出：" in state.draft  # 2026-10-17 EB2 D3 段头去工程腔
+    # 收口段（answering）的「互不一致」分源块同话术（「互不一致」标＝`specs/answering.md`
+    # 行为 6 要求，保留在前——两相位 R1 禁互引，故两侧各落字面，此处钉同句不漂移）。
+    assert CONTRADICTION_SECTION_HEAD.strip().endswith("各来源说法如下，按来源分别列出：")
     assert "[1] 口径卡A：日产油量：21 吨/日" in state.draft
     assert "[2] 口径卡B：日产油量：8824.4 方/日" in state.draft
     assert NOTICE_CONTRADICTION_SPLIT in _notice_types(state)
@@ -327,7 +331,7 @@ async def test_attribution_mismatch() -> None:
     # 机读信号：notice ＋ 答案面分源列明块（两源各带出处）
     assert NOTICE_ATTRIBUTION_SPLIT in _notice_types(state)
     assert NOTICE_ATTRIBUTION_SPLIT in [frame["type"] for frame in _of(frames, EVENT_NOTICE)]
-    assert "跨源归属审——分源列明" in state.draft
+    assert "按来源归属如下（题眼：" in state.draft  # 2026-10-17 EB2 D3 段头去工程腔
     assert "《A-W11井完井工程报告》" in state.draft
     assert "《Y-21井完井工程报告》" in state.draft
 

@@ -52,7 +52,7 @@
 #   （逐字保留）；与 V1 的差异＝删句首重复句群（其 V1 字面句首的答案规则句群＝
 #   D-L2b-01 病灶副本，由族⑥单点承接去重——已裁（流水 43①，Owner 可否决）：
 #   句首 V1 字面答案规则句群去重、由族⑥单点承接；见风险 2）
-# ⑥ 答案要求清单（7 条——迁移照抄逐字稿见「行为约定」2）
+# ⑥ 答案要求清单（8 条——迁移照抄逐字稿见「行为约定」2；2026-10-17 EB2 D2 追加第八条）
 # ── 装配函数族（卡面两函数逐字照录；纯文本进出＝Seam；逐成员真源可溯）──────────────
 def assemble_task_book(state: RunState) -> str: ...
 def assemble_answer_prompt(state: RunState) -> str: ...
@@ -88,7 +88,7 @@ def assemble_answer_prompt(state: RunState) -> str: ...
 ## 行为约定
 
 1. **合同常量名单闭世界＋文本单点**：全仓合同文本定义点唯一（六族清单见接口定义；单点范围＝runtimev2 面——系统层 `SYSTEM_PROMPT` 的 V1 答案规则句残留副本不归本块销项，见「不做什么」与风险 7⑥）；消费方（四相位）只经包根引用常量，**任何相位块/编排块内不出现合同字面副本**。断言：答案要求清单文本在 runtimev2 面内恰一处定义；合同常量族集合与接口清单相等（集合比较）；六族各取首句特征子串在四相位块／编排块源码零命中（`::contract_constants_no_duplicate_literals`）。
-2. **答案要求清单＝7 条逐字在场、顺序固定、以「；」分隔**（条数真源＝`docs/runtime-refactor/recon/L2b-作答装配与回声.md` R-L2b-02，现 7 条；`specs/answering.md` 行为 10 以本合同为唯一真源、不复述）。七条为**迁移照抄**——逐字稿＝现行代码字面 `appv2/runtime/orientation.py` `_ANSWER_REQUIREMENTS`（L282-290，V2-64 拓宽形终稿；承载位换、文本不变——真源 `docs/runtime-refactor/arch/P6b-票堆V2-80系列后半.md` A-P6b-24「文本常量与渲染函数零变化、只换承载位」＋A-P6b-34 锁定逐字稿纪律；`R-L2b-02` 与票面摘录均为要点形摘要，不作逐字稿）。七条内容：①逐条事实断言带 [n] 引标（n＝观察材料序号）；②材料未覆盖的部分不得断言、如实说明未覆盖；③材料含多个来源（不同报告／油田／井）时逐个来源分别作答（不冲突也要分别列出，不以反问代替作答）；④作答后仍有未覆盖的来源或指代不明处，如实点名未覆盖来源（含检索窗注记的未进窗来源）并请用户补充检索或指明对象，不静默略过；⑤引擎的降级/未绑定/拦停注记必须如实转述进对应子问题条目（不得静默丢弃）；⑥引用观察材料请摘录必要短语并带引标，禁整段照搬原文充当回答；⑦「理解：／指标候选：」及任何动作 JSON 是过程产物，出现在答案中即废品。断言：七条逐字在场且顺序固定（施工以上引代码字面为逐字稿，照抄不改；偏离即停）。③的多来源分源交付面＝钉 `pin-03` 的合同侧承接（见挂钩表——本句为承接注记，不属合同文本）。
+2. **答案要求清单＝8 条逐字在场、顺序固定**（条数真源＝`docs/runtime-refactor/recon/L2b-作答装配与回声.md` R-L2b-02，现 8 条——**2026-10-17 EB2 D2 追加第八条**；`specs/answering.md` 行为 10 以本合同为唯一真源、不复述）。八条为**迁移照抄**——逐字稿＝现行代码字面 `appv2/runtimev2/prompts/constants.py` `ANSWER_REQUIREMENTS`（V1 承载位 `appv2/runtime/orientation.py` `_ANSWER_REQUIREMENTS` L282-290 为①–⑦原稿，V2-64 拓宽形终稿；承载位换、文本不变——真源 `docs/runtime-refactor/arch/P6b-票堆V2-80系列后半.md` A-P6b-24「文本常量与渲染函数零变化、只换承载位」＋A-P6b-34 锁定逐字稿纪律；`R-L2b-02` 与票面摘录均为要点形摘要，不作逐字稿；**EB2 D2 追加条**＝方案 `docs/runtime-refactor/proposals/EB2-答案面瘦身与友好化.md` D2 引文逐字）。八条内容：①逐条事实断言带 [n] 引标（n＝观察材料序号）；②材料未覆盖的部分不得断言、如实说明未覆盖；③材料含多个来源（不同报告／油田／井）时逐个来源分别作答（不冲突也要分别列出，不以反问代替作答）；④作答后仍有未覆盖的来源或指代不明处，如实点名未覆盖来源（含检索窗注记的未进窗来源）并请用户补充检索或指明对象，不静默略过；⑤引擎的降级/未绑定/拦停注记必须如实转述进对应子问题条目（不得静默丢弃）；⑥引用观察材料请摘录必要短语并带引标，禁整段照搬原文充当回答；⑦「理解：／指标候选：」及任何动作 JSON 是过程产物，出现在答案中即废品；⑧核验元数据（血缘卡五要素、来源表、数据批次）不写进答案正文——它们在界面『引用与口径』侧栏逐字展示；答案只在用户需要时带一句口径（如单位）。**条间分隔与条内标点两事**（2026-10-17 EB2 D2）：①–⑦文本零改，⑦尾「。」改「；」＝条间分隔符；⑧内文自带一「；」（逐字，不作分隔符）。断言：八条逐字在场且顺序固定（施工以上引代码字面为逐字稿，照抄不改；偏离即停）。③的多来源分源交付面＝钉 `pin-03` 的合同侧承接（见挂钩表——本句为承接注记，不属合同文本）。
 3. **任务书段序固定、题干置末**：三区序唯一依据＝`specs/understanding.md` 行为 1（V2 定案）——指令区→数据区→输出契约区；题干段置末、紧邻生成点（题干非三区之一；置末、段间「\n\n」连接、题干收束句的先例＝`docs/runtime-refactor/recon/L2a-装配前半.md` R-L2a-17/R-L2a-22；understanding 行为 1 明写输出契约区「末尾」且无「题干段」表述——题干段与契约区先后随枚举缺口同批澄清，登记见风险 7①）。指令区构成＝场景／任务／样例／红线四常量（样例归位＝保持 V1 相对序「任务→样例→红线」——R-L2a-17 段序中样例在任务后、红线前；`understanding.md` 行为 1 指令区枚举未列样例＝枚举缺口，登记见风险 7①）。**与 V1 段序（R-L2a-17）的两处设计变更显式声明**：红线由「环境段之后」移入指令区（依 understanding 行为 1）；输出契约区为 V2 新增（V1 无）。断言：给定 fixture 状态，装配输出按「指令区→数据区→输出契约区→题干段」逐段可定位、题干段为末段；指令区内四常量相对序＝场景→任务→样例→红线。
 4. **任务书样例区＝固定示例集**（多部分题／口语映射题／判断纠错题三则；真源 `docs/runtime-refactor/walk/04-理解-读题步.md` §一「三则样例」＋`docs/runtime-refactor/walk/裁决表.md` §04-C；`specs/understanding.md` 行为 10 同源）；**不加边界对照例**。断言：三则逐字在场、装配输出中样例区文本不随 state 变化（常量直引）。
 5. **数据区从活体投影现取且空投影走占位文案**：改 fixture 投影 → 输出文本随之变（来源标记面以 `specs/understanding.md` 行为 2 为准）；空投影走**逐字占位文案**——族「（暂无族标注）」、指标／术语／对象「（空）」、关系「关系：（空）」、水位「（水位未取得）」（逐字稿真源 `docs/runtime-refactor/recon/L2a-装配前半.md` R-L2a-19）。断言：空投影 fixture → 占位文案逐字在场；投影增删一行 → 输出同步增删。
@@ -116,7 +116,7 @@ def assemble_answer_prompt(state: RunState) -> str: ...
 | 验收标准 | 对应测试 |
 |---|---|
 | 合同常量族集合与接口清单相等（名单闭世界） | `tests/domains/test_v2_prompts.py::contract_constant_family_closed_world` |
-| 答案要求清单 7 条逐字在场、顺序固定、以「；」分隔 | `tests/domains/test_v2_prompts.py::answer_requirements_verbatim_seven` |
+| 答案要求清单 8 条逐字在场、顺序固定（2026-10-17 EB2 D2：7 条→8 条） | `tests/domains/test_v2_prompts.py::answer_requirements_verbatim` |
 | 答案要求清单 runtimev2 面内恰一处定义（消费方零字面副本；系统层不在范围） | `tests/domains/test_v2_prompts.py::answer_requirements_single_source` |
 | 合同常量六族字面副本零残留（六族首句特征子串在四相位块／编排块源码零命中；系统层不在范围） | `tests/domains/test_v2_prompts.py::contract_constants_no_duplicate_literals` |
 | 任务书段序固定、题干段置末紧邻生成点 | `tests/domains/test_v2_prompts.py::task_book_segment_order` |
@@ -178,7 +178,7 @@ def assemble_answer_prompt(state: RunState) -> str: ...
 | 不直引 `appv2.infra.llm_client` | 边界闸 **R7** | 已真跑 |
 | 零模型调用（连 `gateway_adapter` 都不 import） | 测试 `::assembly_pure_deterministic`（AST 零模型面） | 待实现（阶段 5）；R1–R8 无「禁引 gateway_adapter 于 prompts」专属闸（R8 只列零 LLM 三相位） |
 | 合同常量零业务名词（「合同零业务名词」命名闸的结构面） | 测试 `::contract_constants_business_noun_free` | 待实现（阶段 5） |
-| 答案要求清单 7 条单点、逐字在场（`specs/answering.md` 行为 10 的唯一真源指向闭环） | 测试 `::answer_requirements_verbatim_seven`／`::answer_requirements_single_source` ＋ **人审**（阶段 7 接口契约对账——`specs/answering.md` 风险 4 同款） | 待实现（阶段 5） |
+| 答案要求清单 8 条单点、逐字在场（`specs/answering.md` 行为 10 的唯一真源指向闭环；2026-10-17 EB2 D2：7 条→8 条） | 测试 `::answer_requirements_verbatim`／`::answer_requirements_single_source` ＋ **人审**（阶段 7 接口契约对账——`specs/answering.md` 风险 4 同款） | 待实现（阶段 5） |
 | 答案要求③多来源分源（跨油田题分源列明的合同侧承接；`specs/verification.md` 挂钩表登记「prompts 规格落盘后承接」） | 钉 **`pin-03`**（P0）——本块落点＝合同侧③逐字在场（行为 2）；交付行为面待 `specs/answering.md` 回提承接（其挂钩表现无 pin-03 行——跨规格债登记交主窗，风险 7②；`specs/verification.md` 挂钩表亦只登记备查） | 待织网（阶段 5） |
 | 起草回声＝0 的**提示词侧**（不注入回声形指令：动词钉死句＋答案要求⑦在场） | 钉 **`pin-13`**（P1）——**分工**：本块落点＝合同侧禁令件在场（行为 13、测试 `::answer_round_ban_lines_present`）；观测面（`echo_flag` 恒 0）落 `specs/answering.md` 行为 14（已定稿） | 待织网（阶段 5） |
 | 相位合同一次性（回炉轮不重发） | 钉 **`pin-24`**（P1）——**行为不归本块**：追加记账归 `specs/state.md` 行为 5（已定稿，测试 `contracts_appended_idempotent`）；消费侧重发判定待 `context`／`orchestration` 规格；本块只承诺合同常量逐字稳定（常量无逐轮变体，行为 1） | 待织网（阶段 5）——记账面已在 state 侧落，消费侧待 context/orchestration |

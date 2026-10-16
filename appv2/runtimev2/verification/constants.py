@@ -56,12 +56,16 @@ ROWSET_OBSERVATION_KINDS: frozenset[str] = frozenset({"agg_row"})
 # ── 文本单点（逻辑面一律引名字，零字面副本）──────────────────────────────────────
 
 REWRITE_PREFIX = "未找到（材料未披露）："   # INV-1 前缀（行为 3；只挂无据行——钉 pin-11）
-SPLIT_BLOCK_HEAD = "多来源不一致——分源列明（禁止无出处调和）："   # 行为 4（INV-4）
+# 2026-10-17 EB2 D3（段头去工程腔——逐字稿＝方案 D3）：旧「多来源不一致——分源列明
+# （禁止无出处调和）：」→ 友好话术（判据面语义零改：仍逐支带出处、零调和）。
+SPLIT_BLOCK_HEAD = "各来源说法如下，按来源分别列出："   # 行为 4（INV-4）
 SPLIT_LINE_TEMPLATE = "[{index}] {source}：{content}"            # 分列逐支带出处
 SUBJECT_SEPARATOR = "："                    # 矛盾分组 subject 切分符（真源 `recon/A2` R-A2-29）
 
 # 归属审块（行为 5 的答案面分源列明形；真源 `recon/A2` R-A2-27／R-A2-28）
-ATTRIBUTION_BLOCK_HEAD = "跨源归属审——分源列明（题眼锚：{anchors}；禁止无出处调和）："
+# 2026-10-17 EB2 D3（段头去工程腔）：旧「跨源归属审——分源列明（题眼锚：{anchors}；
+# 禁止无出处调和）：」→ 友好话术（{anchors} 占位保持）。
+ATTRIBUTION_BLOCK_HEAD = "按来源归属如下（题眼：{anchors}）："
 ATTRIBUTION_ALIGNED_HEAD = "对齐题眼锚："
 ATTRIBUTION_UNCITED_HEAD = "对齐题眼锚的材料（在窗未进答案引用——按出处核对）："
 ATTRIBUTION_UNCITED_MORE = "……另 {rest} 支对齐材料从略（按出处核对）。"

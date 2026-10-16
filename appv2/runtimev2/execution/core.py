@@ -164,6 +164,7 @@ from appv2.runtimev2.transport import EventBus
 from appv2.tools import (
     DATA_QUERY,
     DOC_RETRIEVE,
+    LOCATOR_PAYLOAD_KEY,
     ToolContext,
     ToolRegistry,
     ToolResult,
@@ -1082,19 +1083,23 @@ def _consume(
         },
     )
     for row, observation in materials:
-        bus.emit(
-            EVENT_OBSERVATION,
-            {
-                PAYLOAD_INDEX: observation.seq,
-                PAYLOAD_SOURCE: observation.source,
-                PAYLOAD_CONTENT: (
-                    observation.content
-                    if observation.content is not None
-                    else (observation.ref.summary if observation.ref is not None else "")
-                ),
-                PAYLOAD_TRUST: row[PAYLOAD_TRUST],
-            },
-        )
+        frame_payload: dict[str, Any] = {
+            PAYLOAD_INDEX: observation.seq,
+            PAYLOAD_SOURCE: observation.source,
+            PAYLOAD_CONTENT: (
+                observation.content
+                if observation.content is not None
+                else (observation.ref.summary if observation.ref is not None else "")
+            ),
+            PAYLOAD_TRUST: row[PAYLOAD_TRUST],
+        }
+        # 结构化载荷透传（2026-10-17 EB2）：观察自带 `locator.payload` 原样随帧下发
+        # （血缘卡五要素——材料面合成口径行后前端核验面仍逐字可见；键名单点＝
+        # `appv2.tools` 的 `LOCATOR_PAYLOAD_KEY`，本块不自立第二份字面）。
+        payload_slot = (row.get("locator") or {}).get(LOCATOR_PAYLOAD_KEY)
+        if isinstance(payload_slot, Mapping):
+            frame_payload[LOCATOR_PAYLOAD_KEY] = payload_slot
+        bus.emit(EVENT_OBSERVATION, frame_payload)
         if observation.ref is not None:
             notice(
                 state,

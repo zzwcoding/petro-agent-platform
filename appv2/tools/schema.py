@@ -23,6 +23,10 @@
   表名），locator 机读（kind 键分型：ledger 卡/agg_row/lineage/fragment/graph/
   notice）。knowledge Evidence 同形位映射＝content←value、source_id←
   element_id、locator←source（V2-02 票面留位，本票落定）。
+  **locator 结构化载荷槽**（2026-10-17 EB2）：血缘卡五要素以
+  `locator.payload` 结构化随观察走（键名单点见下方 `LOCATOR_PAYLOAD_KEY` 族）
+  ——消费面＝`runtimev2.context`（材料段合成口径行）与 `runtimev2.execution`
+  （`observation` 帧载荷透传前端）；两处只引本处名字。
 
 零 I/O、零第三方依赖（纯 stdlib dataclass）。
 """
@@ -54,6 +58,19 @@ CATEGORY_ALL: frozenset[str] = frozenset(
 ASK_CLARIFY = "clarify"  # 缺参反问（askback 时间窗三选一）
 ASK_EXTERNAL_TABLE_APPROVAL = "external_table_approval"  # 外表越集审批
 ASK_KINDS: frozenset[str] = frozenset({ASK_CLARIFY, ASK_EXTERNAL_TABLE_APPROVAL})
+
+
+# ---------- 观察 locator 结构化载荷槽（2026-10-17 EB2：血缘卡五要素） ----------
+# 键名单点：生产面＝本包 `handlers`（血缘观察装配），消费面＝`runtimev2.context`
+# （材料段合成一行口径行）与 `runtimev2.execution`（`observation` 帧载荷透传前端）。
+# 两侧只引本处名字（经本包包根转出）——禁第二份字面。五要素子键＝血缘卡合同键
+# 本身（取值真源 `appv2.query.domain` `LINEAGE_KEY_*`，生产面按契约键装配）。
+
+LOCATOR_PAYLOAD_KEY = "payload"      # locator 结构化载荷槽（嵌套映射）
+LINEAGE_PAYLOAD_KEY = "lineage"      # 血缘卡载荷（键＝五要素合同键、值＝该行原文）
+LINEAGE_LIMIT_KEY = "limit"          # 限量面（LIMIT 触顶事实——口径行尾缀的原料）
+LINEAGE_LIMIT_HIT_KEY = "hit"        # LIMIT 是否触顶（整窗 SUM／非行数限量型恒 False）
+LINEAGE_LIMIT_ROWS_KEY = "rows"      # 本次限量内交付行数（未触顶＝0）
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,6 +179,8 @@ class Observation:
     （source/locator.table＝表名）、检索支（fragment→report→library 三级）；
     locator 恒机读（kind 键分型＋定位键）；well＝切片本体标签（V2-64——检索支
     透传 kb_fragment.well；其余观察缺省 None，装配面按缺省省略）。
+    locator 取值面＝机读定位键（字符串）＋**结构化载荷槽** `payload`（嵌套映射——
+    血缘卡五要素，2026-10-17 EB2；消费面按槽名取，不解析观察正文文本串）。
     """
 
     content: str
@@ -170,7 +189,7 @@ class Observation:
     version: str | None
     freshness: str
     scope: str
-    locator: Mapping[str, str]
+    locator: Mapping[str, Any]
     well: str | None = None
 
 

@@ -110,16 +110,20 @@ _SPEC_FAMILIES: dict[str, tuple[str, ...]] = {
     "answer_requirements": ("ANSWER_REQUIREMENTS",),
 }
 
-# 答案要求七条逐字稿（迁移照抄——V1 `orientation.py` `_ANSWER_REQUIREMENTS`；顺序固定）。
+# 答案要求八条逐字稿（迁移照抄——V1 `orientation.py` `_ANSWER_REQUIREMENTS`；顺序固定；
+# 2026-10-17 EB2 D2 追加第八条〔核验元数据不进答案正文〕——①–⑦条文文本不变，⑦尾「。」改
+# 「；」＝条间分隔符；⑧内文自带一「；」（条文逐字，非分隔符——拼装表按字面连接断言）。
 _ANSWER_REQUIREMENTS_VERBATIM: tuple[str, ...] = (
-    "逐条事实断言带 [n] 引标（n＝观察材料序号）",
-    "材料未覆盖的部分不得断言、如实说明未覆盖",
-    "材料含多个来源（不同报告／油田／井）时逐个来源分别作答（不冲突也要分别列出，不以反问代替作答）",
+    "逐条事实断言带 [n] 引标（n＝观察材料序号）；",
+    "材料未覆盖的部分不得断言、如实说明未覆盖；",
+    "材料含多个来源（不同报告／油田／井）时逐个来源分别作答（不冲突也要分别列出，不以反问代替作答）；",
     "作答后仍有未覆盖的来源或指代不明处，如实点名未覆盖来源（含检索窗注记的未进窗来源）"
-    "并请用户补充检索或指明对象，不静默略过",
-    "引擎的降级/未绑定/拦停注记必须如实转述进对应子问题条目（不得静默丢弃）",
-    "引用观察材料请摘录必要短语并带引标，禁整段照搬原文充当回答",
-    "「理解：／指标候选：」及任何动作 JSON 是过程产物，出现在答案中即废品。",
+    "并请用户补充检索或指明对象，不静默略过；",
+    "引擎的降级/未绑定/拦停注记必须如实转述进对应子问题条目（不得静默丢弃）；",
+    "引用观察材料请摘录必要短语并带引标，禁整段照搬原文充当回答；",
+    "「理解：／指标候选：」及任何动作 JSON 是过程产物，出现在答案中即废品；",
+    "核验元数据（血缘卡五要素、来源表、数据批次）不写进答案正文——它们在界面"
+    "『引用与口径』侧栏逐字展示；答案只在用户需要时带一句口径（如单位）。",
 )
 
 # 动词钉死句逐字（V1 `answer_turn_preamble` 行 2——pin-13 合同侧之一）。
@@ -390,20 +394,26 @@ def test_contract_constant_family_closed_world() -> None:
     assert first.split(_DATA_ZONE_HEAD)[0] == second.split(_DATA_ZONE_HEAD)[0]  # 指令区逐字稳定
 
 
-# ---------- 2 答案要求清单 7 条逐字在场（pin-03 落点） ----------
+# ---------- 2 答案要求清单 8 条逐字在场（pin-03 落点） ----------
 
 
-def test_answer_requirements_verbatim_seven() -> None:
-    """答案要求 7 条逐字在场、顺序固定、以「；」分隔（pin-03：③多来源分源逐字在场）。"""
-    items = ANSWER_REQUIREMENTS.split("；")
-    assert len(items) == 7
-    assert tuple(items) == _ANSWER_REQUIREMENTS_VERBATIM
-    assert ANSWER_REQUIREMENTS.count("；") == 6
+def test_answer_requirements_verbatim() -> None:
+    """答案要求 8 条逐字在场、顺序固定（pin-03：③多来源分源逐字在场）。
+
+    拼装面逐字相等（①–⑦条文尾「；」、末条尾「。」）——⑧内文自带一「；」，故不以
+    `split("；")` 计数（分隔符与条文内文两事）。
+    """
+    assert ANSWER_REQUIREMENTS == "".join(_ANSWER_REQUIREMENTS_VERBATIM)
+    assert ANSWER_REQUIREMENTS.count("；") == 8  # ①–⑦条间分隔 7 ＋ ⑧内文 1
     assert not ANSWER_REQUIREMENTS.endswith("；")
     # pin-03 落点＝③多来源分源逐字在场（交付行为面待 `specs/answering.md` 回提承接）
     assert "材料含多个来源（不同报告／油田／井）时逐个来源分别作答" in ANSWER_REQUIREMENTS
     assert "不以反问代替作答" in ANSWER_REQUIREMENTS
-    # 合同侧经答案轮装配把七条全文送进模型面
+    # ⑧ 核验元数据不进答案正文（2026-10-17 EB2 D2——逐字稿尾条）
+    tail_item = _ANSWER_REQUIREMENTS_VERBATIM[7]
+    assert tail_item.startswith("核验元数据（血缘卡五要素、来源表、数据批次）")
+    assert "『引用与口径』侧栏逐字展示" in ANSWER_REQUIREMENTS
+    # 合同侧经答案轮装配把八条全文送进模型面
     assert f"【答案要求】{ANSWER_REQUIREMENTS}" in assemble_answer_prompt(_answer_state())
 
 

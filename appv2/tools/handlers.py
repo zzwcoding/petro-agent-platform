@@ -51,6 +51,7 @@ from appv2.query import (
     PlanCheck,
     QueryOutcome,
     QueryPlan,
+    effective_limit,
 )
 from appv2.retrieval import (
     FAMILY_ALL,
@@ -67,6 +68,11 @@ from appv2.tools.schema import (
     ASK_EXTERNAL_TABLE_APPROVAL,
     CATEGORY_BAD_ARGS,
     CATEGORY_REFUSED,
+    LINEAGE_LIMIT_HIT_KEY,
+    LINEAGE_LIMIT_KEY,
+    LINEAGE_LIMIT_ROWS_KEY,
+    LINEAGE_PAYLOAD_KEY,
+    LOCATOR_PAYLOAD_KEY,
     AskFrame,
     Observation,
     Tool,
@@ -767,7 +773,7 @@ async def data_query(
             check.reason or "计划校验未过",
             hint="按校验理由修 plan_draft 后重试（校验拒＝引擎未执行）",
         )
-    return _outcome_to_result(query.run(plan, approved_tables=ctx.approved_tables))
+    return _outcome_to_result(query.run(plan, approved_tables=ctx.approved_tables), plan=plan)
 
 
 def _plan_from_draft(draft: Mapping[str, Any], *, actor: str) -> QueryPlan:
@@ -794,10 +800,14 @@ def _plan_from_draft(draft: Mapping[str, Any], *, actor: str) -> QueryPlan:
         raise ArgsError(f"plan_draft 装配失败：{exc}") from exc
 
 
-def _outcome_to_result(outcome: QueryOutcome) -> ToolResult:
-    """六联合态→ToolResult 逐态映射（specs/tools.md 行为约定 4 单点）。"""
+def _outcome_to_result(outcome: QueryOutcome, *, plan: QueryPlan | None = None) -> ToolResult:
+    """六联合态→ToolResult 逐态映射（specs/tools.md 行为约定 4 单点）。
+
+    `plan`＝本发射的定案计划（可选；行联合态的限量面判据——血缘载荷的 LIMIT
+    触顶事实。缺位＝如实不判触顶，零猜测）。
+    """
     if outcome.kind == OUTCOME_ROWS:
-        return ToolResult.ok(_rows_observations(outcome))
+        return ToolResult.ok(_rows_observations(outcome, plan=plan))
     if outcome.kind == OUTCOME_FRESHNESS_BLOCK:
         return ToolResult.ok(
             (
@@ -880,13 +890,19 @@ def _window_sum_handle(outcome: QueryOutcome) -> str:
     return WINDOW_SUM_HANDLE_PREFIX
 
 
-def _rows_observations(outcome: QueryOutcome) -> list[Observation]:
+def _rows_observations(
+    outcome: QueryOutcome, *, plan: QueryPlan | None = None
+) -> list[Observation]:
     """权威表＋血缘卡→观察列（行级表名出处＋locator 机读行键；scope=agg）。
 
     两种行形分派（V2-71 汇总型——L5·02 病灶修复②）：井位行＝既有 `{井号}@{日期}`
     行键＋`well_id`/`prod_date` locator；整窗 SUM 单行（无井位键）＝**不写空井位列
     冒充单井行**，行内容前置「整窗合计·全井」确定性口径标注（域层常量单源）＋行键
     用行集 handle（`agg_window_sum:{批次}`——可寻址）。
+
+    血缘卡观察除正文（五要素逐行原文）外携**结构化载荷** `locator.payload`（2026-10-17
+    EB2：键名单点＝schema 的 `LOCATOR_PAYLOAD_KEY` 族；五要素子键＝血缘行合同键本身，
+    限量面按 `plan` 判触顶）——材料面据此合成口径行、帧面透传前端，两处都不解析正文文本串。
     """
     observations: list[Observation] = []
     columns = outcome.columns or ()
@@ -929,6 +945,7 @@ def _rows_observations(outcome: QueryOutcome) -> list[Observation]:
             )
         )
     if outcome.lineage:
+        limit_hit = _limit_hit(outcome, plan)
         observations.append(
             Observation(
                 content="\n".join(f"{line.key} {line.value}" for line in outcome.lineage),
@@ -937,7 +954,22 @@ def _rows_observations(outcome: QueryOutcome) -> list[Observation]:
                 version=None,
                 freshness="",
                 scope="agg",
-                locator={"kind": "lineage", "table": _AGG_SOURCE},
+                locator={
+                    "kind": "lineage",
+                    "table": _AGG_SOURCE,
+                    LOCATOR_PAYLOAD_KEY: {
+                        LINEAGE_PAYLOAD_KEY: {
+                            line.key: line.value for line in outcome.lineage
+                        },
+                        LINEAGE_LIMIT_KEY: {
+                            LINEAGE_LIMIT_HIT_KEY: limit_hit,
+                            # 未触顶＝零行数（不报无关数——消费面按触顶位判尾缀）
+                            LINEAGE_LIMIT_ROWS_KEY: (
+                                len(outcome.rows or ()) if limit_hit else 0
+                            ),
+                        },
+                    },
+                },
             )
         )
     if outcome.rebind_notice:
@@ -949,6 +981,17 @@ def _rows_observations(outcome: QueryOutcome) -> list[Observation]:
             )
         )
     return observations
+
+
+def _limit_hit(outcome: QueryOutcome, plan: QueryPlan | None) -> bool:
+    """血缘载荷的 LIMIT 触顶事实（明细/排名形交付行数触顶——整窗 SUM 型无行数 LIMIT 恒否）。
+
+    「触顶」＝本次交付行数达有效限量（`effective_limit(plan.limit)`——F14 收口值，
+    单点＝`appv2.query`）。`plan` 缺位（装配面未随行计划）＝如实 False（不猜触顶）。
+    """
+    if plan is None or plan.aggregate:
+        return False
+    return len(outcome.rows or ()) >= effective_limit(plan.limit)
 
 
 def _cell(value: Any) -> str:
