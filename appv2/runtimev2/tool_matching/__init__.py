@@ -4,7 +4,8 @@
 （形状与行为真源）；架构图见 docs/architecture-v3.html。包根即公开面（R2：消费方只经
 `appv2.runtimev2.tool_matching` 消费，深层子模块私有）——**族名单闭世界**（规格「接口定义」节）：
 
-- 相位单入口：`match`（返回两态互斥：`ToolPlan`｜`ToolMatchRejection`）；
+- 相位单入口：`match(state, *, guide_text="")`（返回两态互斥：`ToolPlan`｜`ToolMatchRejection`；
+  `guide_text`＝§A 指南段文本注入参——流水 63，编排面按启动快照注入，缺省空串＝空段头）；
 - 定型类五件：`ToolPlan`（matches 与子问题一一对应）／`SubtaskMatch`（含 `mention_mode`
   ——「提及 vs 执行」结论，pin-31 判断产出面）／`RetrievalNeed`／`ToolMatchRejection`／
   `MatchReason`（`kind` 六类闭世界＋逐字拒文）；

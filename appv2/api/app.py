@@ -24,6 +24,12 @@ wire_ledger_projection` 注入本层 dump 缝；`RunStreamRegistry`（SSE 帧桥
 组合根**取一次**（启动快照），逐调用刷新语义有差；② 台账投影端口是**异步**口，本层
 dump 缝是同步缝——由 `LedgerProjectionAdapter` 单点适配（端口形状真源＝
 `appv2.runtimev2.context.ledger`）。
+
+**§A 指南段注入（流水 63）**：`guide_text`＝编排块 `RunExecutor`／相位 `clarify`／`match`
+的**文本注入值**（str）——生产缺省＝启动取一次快照
+（`OntologyGuideProvider(...).guide()`，同 ①② 的「取一次」纪律；`{max_rounds}`／
+`{max_discovers}`／`{max_executes}` 三占位符取 `Budget` 三键——
+`rounds`／`discovers_per_round`／`executes_per_round`，非 provider 缺省值）。
 """
 
 from __future__ import annotations
@@ -40,6 +46,7 @@ from fastapi import FastAPI
 from appv2.api.bridge import RunStreamRegistry
 from appv2.api.chat import router as chat_router
 from appv2.api.errors import install_error_handlers
+from appv2.api.ontology_guide import OntologyGuideProvider
 from appv2.infra.config import ChatSettings
 from appv2.infra.db import ConnectionManager, DatabaseSpec
 from appv2.infra.gateway.store import ensure_gateway_tables
@@ -249,6 +256,30 @@ def compose_production_data_wells(
     return production_data_wells(resolved)
 
 
+def compose_production_guide_text(
+    *,
+    budget: Budget | None = None,
+    today: Callable[[], date] | None = None,
+) -> str:
+    """§A 指南段全文（生产装配——**启动取一次快照**，流水 63）。
+
+    §A 装载件（`OntologyGuideProvider`——同层 api 读本体资产，组合根例外）产出的文本，
+    经 `RunExecutor` → 编排 `LoopDeps` → 相位 `clarify`／`match` 注入。**取一次快照**纪律
+    同 `watermark`／`data_wells`（见模块 docstring 装配形状适配）；`{max_rounds}`／
+    `{max_discovers}`／`{max_executes}` 三占位符取 `Budget` 三键
+    （`rounds`／`discovers_per_round`／`executes_per_round`——真值来源＝装配注入的 budget，
+    缺省＝`Budget()` 默认，非 provider 自带缺省）。
+    """
+    effective = budget if budget is not None else Budget()
+    provider = OntologyGuideProvider(
+        today=today() if today is not None else None,
+        max_rounds=effective.rounds,
+        max_discovers=effective.discovers_per_round,
+        max_executes=effective.executes_per_round,
+    )
+    return provider.guide()
+
+
 def _watermark_date(loader: Callable[[], Any]) -> date | None:
     """水位 loader → 编排注入值（水位日 date；缺行＝None——不伪造、不编造）。
 
@@ -272,6 +303,7 @@ def create_app(
     ledger_dump: Callable[[], Mapping[str, Any]] | None = None,
     watermark: Any | None = None,
     data_wells: Any | None = None,
+    guide_text: str | None = None,
 ) -> FastAPI:
     """构建 appv2 应用（四端点挂线＋runtimev2 生产装配——依赖注入面）。
 
@@ -287,6 +319,8 @@ def create_app(
     compose_production_ledger_dump）——经 `context.wire_ledger_projection` 接端口；
     `watermark`／`data_wells`＝编排注入值（date／集合；None＋生产＝生产 loader 取一次，
     见模块 docstring 的装配形状两处适配）。
+    `guide_text`＝§A 指南段注入值（str——经 `RunExecutor` 下传 `clarify`／`match`；
+    None＋生产＝`compose_production_guide_text` 启动取一次快照；非生产路径 None＝空串）。
     """
     production = registry is None
     if production:
@@ -304,6 +338,8 @@ def create_app(
             )
         if data_wells is None:
             data_wells = compose_production_data_wells(specs=specs)()
+        if guide_text is None:
+            guide_text = compose_production_guide_text(budget=budget, today=today)
     set_completer(completer)
     configure_audit_sink(SecurityAuditSink(SecurityService(db)))
     wire_ledger_projection(
@@ -316,6 +352,7 @@ def create_app(
         budget=budget,
         watermark=watermark,
         data_wells=data_wells,
+        guide_text=guide_text or "",
     )
     app = FastAPI(title="Petro-Agent V2", version="2.0", lifespan=lifespan)
     install_error_handlers(app)

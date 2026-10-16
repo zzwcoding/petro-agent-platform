@@ -157,6 +157,8 @@ def interpret(state: RunState) -> Understanding | Direct: ...
 def clarify(state: RunState) -> ClarifyOutcome: ...
 ```
 
+> **卡级微注（2026-10-16 裁·流水 63）**：`clarify` 签名补注入形参 `*, guide_text: str = ""`——§A 指南段**文本经编排注入**（装配面＝api 组合根启动快照，同 `watermark` 先例；本块只下传、不读文件）；缺省空串＝空段头（回归面同形）。规格接口节同批补注（`specs/clarification.md`）。
+
 ### 依赖
 - 模块: `prompts`、`parsing`、`bookkeeping`（模型调用发起面——经 call_model 单点发起）、`state`
 - 注: **2026-10-16 勘误：不直引 `gateway_adapter`——经 `bookkeeping` 桥（流水 51 收齐批，Owner 批）**
@@ -181,6 +183,8 @@ def match(state: RunState) -> ToolPlan | ToolMatchRejection: ...
 #   —— mention_mode 闭世界：executed|mentioned_only（「提及 vs 执行」结论——pin-31 判断产出面）
 # MatchReason         = {kind: 缺配|多配|编号不符|必填缺|枚举越界|malformed_matches, reason: str}（kind 六类闭世界）
 ```
+
+> **卡级微注（2026-10-16 裁·流水 63）**：`match` 签名补注入形参 `*, guide_text: str = ""`——§A 指南段**文本经编排注入**（装配面＝api 组合根启动快照，同 `watermark` 先例；本块只下传、不读文件）；缺省空串＝空段头（回归面同形）。规格接口节同批补注（`specs/tool_matching.md`）。
 
 > **卡级修正（2026-10-16，L0，拆票期——流水 50）**：`SubtaskMatch` 补 `mention_mode`（闭世界 `executed`／`mentioned_only`）＝「提及 vs 执行」结论的字段载体，`MatchReason` 补拒因枚举五类成员（逐字拒文清单见 `specs/tool_matching.md`「接口定义」）——**2026-10-16 补：pin-31/pin-14 消费面（流水 50）**；**卡与规格接口节同批改，不许脱节**。**随批补（2026-10-16，流水 51）**：`MatchReason` 拒因枚举**五类→六类**——原「未归类一条」（`matches` 支非对象的**支形状失败**，原规格「未归类一条」条）经主窗裁**增第六类** `malformed_matches`（**成员名照码面，2026-10-16 归位（流水 51）**；逐字拒文照码面 `appv2/runtime/subtask.py:332`）；**卡与规格接口节同批改，不许脱节**（本批同批：卡面本行 ＋ 规格「接口定义」节枚举与逐字拒文表）。**依赖行勘误（2026-10-16 拆票期收词）**：「### 依赖」的「- 模块」行原直列 `gateway_adapter` 为模块依赖，与 `specs/tool_matching.md`「触及的模块」表 :37 原文「gateway_adapter｜新增｜模型出口（唯一出口仍归它）；**本块不直引**——经 `bookkeeping.call_model` 发起」＋同规格「框架与依赖红线」条「本块不直引 `gateway_adapter`（import 落点＝`appv2.runtimev2.bookkeeping` 包根——R2 禁深层子模块）」**相抵**；**该模块名已从「- 模块」行删除**（勘误注见下「### 依赖」节），`eng/03` §一依赖图 `tool_matching → state` 同样不列该边——只删**读法上的直引名**，不动签名、不动依赖实质（唯一模型出口仍归 `gateway_adapter`，本块经 `bookkeeping.call_model` 桥间接到达；`check_specs` 依赖面无环、零 FAIL）。
 
@@ -333,6 +337,7 @@ class AgentRuntime:
 > **Budget**（**re-export，真源 state**——装配构造注入件用）。**真源块注（防一头两认）**：形状真源在 state 者只 re-export（受理三形状／`Budget`——零第二定义）；本块自有者＝`RunExecutor`／接缝两件／错误族两件。
 > **两处不经本包根出（防同一缝两名）**：**模型 completer 注入缝**（真源 `gateway_adapter` 包根——api 装配直取该包根）与
 > **检查点 saver**（`PgCheckpointer` **本块内构造、不出包根（框架零出口）**——R5b 红线，框架类型不得出现在公开面签名上）。
+> **卡级微注（2026-10-16 裁·流水 63）**：`RunExecutor` 构造补注入参 `guide_text`、`LoopDeps` 补字段 `guide_text: str = ""`——§A 指南段**文本经编排下传**给相位 `clarify`／`match`（装配面＝api 组合根启动快照，同 `watermark` 先例）；缺省空串＝空段头。本块只持有并下传，不读文件、不做语义判断。
 
 ### 依赖
 - 模块: `state`、`bookkeeping`、`transport`、`persistence`、`infra`（身份缝与审计唯一写口，只经其公开面），以及七个业务相位

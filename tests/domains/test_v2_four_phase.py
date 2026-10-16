@@ -167,6 +167,7 @@ def v2_runtime(
     registry: ToolRegistry | None = None,
     budget: Any = None,
     watermark: Any = V2_WATERMARK,
+    guide_text: str = "",
     completer: ScriptedCompleter | None = None,
     tables: Any = None,
     clock: Any = None,
@@ -174,7 +175,8 @@ def v2_runtime(
     """runtimev2 标准装配：剧本 completer＋内存簿记表＋四相位图（零 DB、零真实端口）。
 
     `tables` 非空＝复用既有内存表件（跨 run 的追问／恢复面需要同一份表）；`clock` 非空＝注入计时
-    读数口替身（段时长闸的用量注入面——缺省走 `infra.clock`）。
+    读数口替身（段时长闸的用量注入面——缺省走 `infra.clock`）。`guide_text`＝§A 指南段文本注入值
+    （流水 63——经 `RunExecutor` 下传 `clarify`／`match`；缺省空串＝空段头）。
 
     **审计写口装配点**（生产侧同物＝`security.audit` 桥，归 `api` 组合根 RT-W5-02）：审计唯一写口
     由装配点经 `persistence.configure_audit_sink` 注入——本处注入收集器（`v2_audit_records()`
@@ -191,6 +193,7 @@ def v2_runtime(
         store=V2RunStore(),
         budget=budget,
         watermark=watermark,
+        guide_text=guide_text,
         clock=clock,
     )
     return AgentRuntime(executor), channel
@@ -2382,3 +2385,64 @@ def test_plan_caliber_key_passes_through_match_not_query_plan() -> None:
         "action": "execute", "task_type": "data",
         "plan": {"metric_slot": "含水率", "ranking": False}}))
     assert not isinstance(emission, str)
+
+
+async def test_guide_text_injected_into_decision_phase_via_orchestration() -> None:
+    """§A 指南文本经编排注入决策相位（流水 63）：注入后消息面在场；缺省＝空段头（回归）。
+
+    接线面：`RunExecutor(guide_text=…)` → 编排 `LoopDeps.guide_text` → 相位 `clarify`／`match`
+    → `prompts.assemble_decision_package(guide_text=…)`。特征串「◆ **三链路由**」**只出自
+    ontology 指南 §A**（不在任何相位合同常量内——agent-112 已取证）。
+    """
+    from appv2.api.ontology_guide import OntologyGuideProvider
+    from appv2.runtimev2.prompts import GUIDE_REFERENCE_HEAD
+
+    guide_mark = "◆ **三链路由**"
+    guide = OntologyGuideProvider(today=date(2026, 10, 8)).guide()
+    assert guide_mark in guide  # 前置：特征串确实出自 §A 装载面
+
+    dump = v2_ledger_dump()
+    note = v2_ledger_note(dump, "日产油量")
+    script = {
+        "understand": [V2_UNDERSTAND],
+        "decision": v2_decision_turn(
+            clarify=v2_decompose(
+                subtask_id="s1",
+                question="2025-09-01 到 09-03 各井日产油量",
+                ledger_notes=note,
+                chain="data",
+            ),
+            toolmatch=v2_matches(
+                v2_data_match(
+                    subtask_id="s1",
+                    slot="日产油量",
+                    start="2025-09-01",
+                    end="2025-09-03",
+                )
+            ),
+        ),
+        "answer": ["子任务 s1：N-01 井 2025-09-01 日产油量 21.16 吨 [1]。"],
+    }
+
+    async def _decision_messages(guide_text: str) -> list[str]:
+        wire_ledger_projection(V2LedgerPort(dump))
+        with freeze("2026-10-08T09:00:00"):
+            runtime, completer = v2_runtime(
+                script=script,
+                registry=v2_registry(engine=V2QueueEngine([_rows_outcome()])),
+                guide_text=guide_text,
+            )
+            await v2_run(runtime, "2025 年 9 月 1 日到 3 日的日产油量")
+        return [
+            "\n".join(str(message.get("content", "")) for message in messages)
+            for caller, messages in completer.calls
+            if caller == "decision"
+        ]
+
+    injected = await _decision_messages(guide)
+    assert injected and any(guide_mark in joined for joined in injected)  # §A 全文随注入面在场
+
+    plain = await _decision_messages("")
+    assert plain  # 决策相位照常发起模型调用
+    assert all(guide_mark not in joined for joined in plain)  # 缺省空串＝空段头（回归）
+    assert all(GUIDE_REFERENCE_HEAD in joined for joined in plain)  # 段头仍在（空段头形）

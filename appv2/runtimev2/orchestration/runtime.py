@@ -188,6 +188,7 @@ class RunExecutor:
         window_candidates: Sequence[str] | None = ASKBACK_TIME_CHOICES,
         watermark: Any = None,
         data_wells: Collection[str] | None = None,
+        guide_text: str = "",
         max_observations: int = DEFAULT_MAX_OBSERVATIONS,
         load_ledger: bool = True,
         clock: Any = None,
@@ -201,6 +202,9 @@ class RunExecutor:
         self._window_candidates = window_candidates
         self._watermark = watermark
         self._data_wells = data_wells
+        # §A 指南段全文（流水 63）：相位侧 `clarify`／`match` 的文本注入参——装配面（启动
+        # 快照）归 api 组合根，本块只持有并随 `LoopDeps` 下传（缺省空串＝空段头）。
+        self._guide_text = guide_text
         self._max_observations = max_observations
         self._load_ledger = load_ledger
         # 段时长闸的计时面（行为 7「单段时限」）：**编排侧自计时**——组合根持有的时钟读数口
@@ -389,6 +393,7 @@ class RunExecutor:
                 window_candidates=self._window_candidates,
                 watermark=self._watermark,
                 data_wells=self._data_wells,
+                guide_text=self._guide_text,
                 max_observations=self._max_observations,
                 # 恢复腿重入（同 run 第二腿起）：已落状态的步／通知**不再重发帧**（本腿只发
                 # 本腿新产的帧）——计数起点＝载入态的既有条数（`_flush_steps`／`_flush_notices`

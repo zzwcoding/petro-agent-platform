@@ -60,6 +60,7 @@ class ClarifyReason:                                # 结构化拒因单条
 ```
 
 - **四动作闭世界**：`discover`｜`decompose`｜`ask`｜`finalize`；**越界值判失败**（不猜、不取默认）。
+- **`guide_text` 注入注（2026-10-16 裁·流水 63）**：签名补注入形参 `*, guide_text: str = ""`——§A 指南文本经编排注入（快照）；缺省空串＝空段头（本块只下传、不读文件；装配面归 api 组合根）。
 - **`discover` 出口由 `orchestration` 承接（本块不返回）**：`discover` 不在本块内直调工具，而是**以 `next_intent="discover"` 的信道交出**、由 `orchestration` 路由到发现步执行，结果回到本相位（真源 `docs/runtime-refactor/recon/E1-澄清节点.md`「本段零工具直调」「discover→NODE_DISCOVER」）；故 `ClarifyOutcome` 的**本块返回位**＝`ClarifyAsk`｜`ClarifyFinal`｜`ClarifyRejection`（`discover` 不占返回位）。
 - **`chain` 闭世界**：合法值仅 `"data"`｜`"knowledge"`。
 - **错误契约**：发射不合 schema（动作越界／子问题条数越界／`ledger_notes` 为空／`ledger_notes` 非逐字（在台账注入块内求不得）／`chain` 越界）→ **返回 `ClarifyRejection`（结构化拒因）**，由 `orchestration` **回喂模型、回到本相位重决策**（**不做自动修补**）。

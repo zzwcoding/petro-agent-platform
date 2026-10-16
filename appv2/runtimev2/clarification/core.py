@@ -121,13 +121,18 @@ from appv2.runtimev2.state import (
 )
 
 
-def clarify(state: RunState) -> ClarifyOutcome:
-    """澄清相位入口（卡面签名逐字：`def clarify(state: RunState) -> ClarifyOutcome`）。
+def clarify(state: RunState, *, guide_text: str = "") -> ClarifyOutcome:
+    """澄清相位入口（卡面签名逐字：`def clarify(state: RunState) -> ClarifyOutcome`；
+    注入参 `guide_text` 见卡级微注——流水 63）。
 
     单出口互斥三返回位见 `models`；`None` 返＝本次调用不占返回位（`discover`／到顶截断）。
+
+    `guide_text`＝§A 指南段**文本注入参**（流水 63——additive 注入，编排面按启动快照注入全文；
+    缺省空串＝空段头，回归面同形）。装载面归 `api` 组合根（`OntologyGuideProvider`
+    启动取一次快照，同 `watermark` 先例），本块只下传、不读文件。
     """
     _consume_resume(state)
-    _open_round(state)
+    _open_round(state, guide_text=guide_text)
     content = call_model(state, CALLER_DECISION, state.messages)
     # 模型原话如实入链（追加式：包／增量／应答三形构成链上本节点簿记；`pin-22` 只追加）。
     append_message(state, role="assistant", content=content)
@@ -210,7 +215,7 @@ def _resume_choice(state: RunState) -> str:
 # ── 轮装配（首入包一次性＋每轮增量条）─────────────────────────────────────
 
 
-def _open_round(state: RunState) -> None:
+def _open_round(state: RunState, *, guide_text: str = "") -> None:
     """轮装配：首入包（`append_contract` 幂等标记护一次性）＋每轮增量条（非空才追加）。
 
     装配时序照 V1 `clarify_node`：先算「是否首入」→ 追加首入包（若首入）→ 追加增量条 →
@@ -219,8 +224,9 @@ def _open_round(state: RunState) -> None:
     两处**装配面入参**（登记项，呈主窗——本块依赖面＝`prompts`／`parsing`／`bookkeeping`／
     `state`，两装载面归 `context`／编排面）：
 
-    - `guide_text` 传空串：§A 指南段**文本经入参注入**（装载面归 `context`，与台账同形的一次
-      装载，流水 43⑥）——其装载器与 `state` 承载位未落定；
+    - `guide_text`＝§A 指南段**文本经入参注入**（装载面归 `api` 组合根——启动取一次快照，
+      流水 63，与 `watermark` 同款注入先例；编排面经 `clarify` 下传，本块不读文件）；
+      缺省空串＝空段头（回归面同形）；
     - 增量条的「已做段」（`done_text`）不传：其渲染归 `context.render_process_notes`，注入点
       归编排面（`specs/prompts.md` 行为 16「何时追加＝调用方义务」）。
     """
@@ -229,7 +235,7 @@ def _open_round(state: RunState) -> None:
         package = assemble_decision_package(
             state,
             phase=PHASE_CLARIFY,
-            guide_text="",
+            guide_text=guide_text,
             today=_today(),
             max_subtasks=clarification_constants.MAX_SUBTASKS,
         )

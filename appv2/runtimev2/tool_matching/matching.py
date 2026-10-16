@@ -79,14 +79,18 @@ from appv2.runtimev2.tool_matching.models import (
 )
 
 
-def match(state: RunState) -> ToolPlan | ToolMatchRejection:
+def match(state: RunState, *, guide_text: str = "") -> ToolPlan | ToolMatchRejection:
     """工具匹配相位单入口（签名真源＝卡 `## tool_matching`）。
 
     返回**两态互斥**：`ToolPlan`（恰配一条全部合格）｜`ToolMatchRejection`（结构化拒因，非终局）。
     无半成品、无「疑似」形；上游缺组等契约违例＝抛错（fail-closed），不返回哨兵。
+
+    `guide_text`＝§A 指南段**文本注入参**（流水 63——additive 注入，编排面按启动快照注入全文；
+    缺省空串＝空段头，回归面同形）。装载面归 `api` 组合根（`OntologyGuideProvider`
+    启动取一次快照，同 `watermark` 先例），本块只下传、不读文件。
     """
     group = _question_group_of(state)
-    _append_round_instruction(state)
+    _append_round_instruction(state, guide_text=guide_text)
     content = call_model(state, MODEL_CALLER, list(state.messages))
     append_message(state, role=ROLE_ASSISTANT, content=content)
 
@@ -136,11 +140,14 @@ def _question_group_of(state: RunState) -> QuestionGroup:
 # ── 本轮指令装配（文本单点在 prompts；链尾追加与合同标记经唯一写口）────────────
 
 
-def _append_round_instruction(state: RunState) -> None:
-    """首入＝相位包（一次性，pin-24）／回炉＝增量条（拒因回喂行＋已做段）；链尾追加（pin-22）。"""
+def _append_round_instruction(state: RunState, *, guide_text: str = "") -> None:
+    """首入＝相位包（一次性，pin-24）／回炉＝增量条（拒因回喂行＋已做段）；链尾追加（pin-22）。
+
+    `guide_text` 只对首入包有意义（增量条无 §A 段）——装载面归 `api` 组合根，本块只下传。
+    """
     first_entry = PHASE not in state.contracts_appended
     instruction = (
-        assemble_decision_package(state, phase=PHASE)
+        assemble_decision_package(state, phase=PHASE, guide_text=guide_text)
         if first_entry
         else assemble_decision_increment(state, phase=PHASE)
     )

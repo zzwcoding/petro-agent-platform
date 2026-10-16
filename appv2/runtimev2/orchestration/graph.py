@@ -145,6 +145,9 @@ class LoopDeps:
     window_candidates: Sequence[str] | None = None
     watermark: date | None = None
     data_wells: Collection[str] | None = None
+    # §A 指南段全文（流水 63）：相位侧 `clarify`／`match` 的文本注入参——装配面（启动快照）
+    # 归 api 组合根，本块只经 `deps` 下传（缺省空串＝空段头）。
+    guide_text: str = ""
     max_observations: int = DEFAULT_MAX_OBSERVATIONS
     emitted_steps: int = field(default=0)
     emitted_notices: int = field(default=0)
@@ -285,7 +288,7 @@ def _make_clarify(deps: LoopDeps) -> Any:
             _flush_notices(deps, state)
             _flush_steps(deps, state)
             return _updates_of(state)
-        outcome = clarify(state)
+        outcome = clarify(state, guide_text=deps.guide_text)
         if isinstance(outcome, ClarifyAsk):
             _suspend(
                 state,
@@ -339,7 +342,7 @@ def _make_discover(deps: LoopDeps) -> Any:
 
 def _make_toolmatch(deps: LoopDeps) -> Any:
     async def node(state: RunState) -> dict[str, Any]:
-        outcome = match(state)
+        outcome = match(state, guide_text=deps.guide_text)
         if isinstance(outcome, ToolMatchRejection):
             set_intent(state, INTENT_TOOLMATCH)  # 拒因回喂自环（`decision_error` 由相位写）
         else:
