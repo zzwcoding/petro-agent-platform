@@ -1,0 +1,34 @@
+{
+ "tag": "EB1F",
+ "base": "http://localhost:8001/api/v2",
+ "caller_prefix": "v2.runtime.",
+ "generated_at": "2026-10-17T02:06:50.047136",
+ "questions": 1,
+ "spend_ok": 1,
+ "spend_errors": 0,
+ "totals": {
+  "calls": 5,
+  "fallback_calls": 0,
+  "input_tokens": 42594,
+  "output_tokens": 915,
+  "cost_yuan": 0.045339
+ },
+ "items": [
+  {
+   "qid": "数-反1",
+   "group": "DATA",
+   "run_id": "run-d8422f6c",
+   "method": "run_id",
+   "calls": 5,
+   "cost_yuan": 0.045339,
+   "call_ids": [
+    "call-7cda760b",
+    "call-04c08e70",
+    "call-97f2511c",
+    "call-a708c5ef",
+    "call-e737641d"
+   ]
+  }
+ ],
+ "errors": []
+}

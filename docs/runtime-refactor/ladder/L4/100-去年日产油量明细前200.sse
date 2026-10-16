@@ -1,0 +1,1703 @@
+id: -1
+event: session
+data: {"run_id": "run-561d5d00", "resume": false}
+
+id: 0
+event: text
+data: {"content": "理解：问去年日产油量明细的前 200 行。", "kind": "understanding"}
+
+id: 1
+event: step
+data: {"step": "decision", "seq": 1, "title": "模型调用：understand"}
+
+id: 2
+event: step
+data: {"step": "decision", "seq": 2, "title": "模型调用：decision"}
+
+id: 3
+event: step
+data: {"step": "decision", "seq": 3, "title": "澄清 r1 被拒：ledger_notes 槽位对账未过：s1"}
+
+id: 4
+event: step
+data: {"step": "decision", "seq": 4, "title": "模型调用：decision"}
+
+id: 5
+event: step
+data: {"step": "decision", "seq": 5, "title": "澄清 r2：分解 1 子问题"}
+
+id: 6
+event: step
+data: {"step": "decision", "seq": 6, "title": "模型调用：decision"}
+
+id: 7
+event: step
+data: {"step": "decision", "seq": 7, "title": "前置条件机：s1=allow"}
+
+id: 8
+event: tool
+data: {"tool": "data_query", "status": "ok", "seq": 8, "message": null}
+
+id: 9
+event: observation
+data: {"index": 1, "source": "agg.fct_daily_metering", "content": "井号=N-01；区块=渤南；日期=2025-09-01；日产油量（吨）=21.16", "trust": "authoritative"}
+
+id: 10
+event: observation
+data: {"index": 2, "source": "agg.fct_daily_metering", "content": "井号=N-02；区块=渤南；日期=2025-09-01；日产油量（吨）=30.79", "trust": "authoritative"}
+
+id: 11
+event: observation
+data: {"index": 3, "source": "agg.fct_daily_metering", "content": "井号=N-03；区块=渤南；日期=2025-09-01；日产油量（吨）=28.10", "trust": "authoritative"}
+
+id: 12
+event: observation
+data: {"index": 4, "source": "agg.fct_daily_metering", "content": "井号=N-04；区块=渤南；日期=2025-09-01；日产油量（吨）=26.40", "trust": "authoritative"}
+
+id: 13
+event: observation
+data: {"index": 5, "source": "agg.fct_daily_metering", "content": "井号=N-05；区块=渤南；日期=2025-09-01；日产油量（吨）=42.33", "trust": "authoritative"}
+
+id: 14
+event: observation
+data: {"index": 6, "source": "agg.fct_daily_metering", "content": "井号=N-06；区块=渤南；日期=2025-09-01；日产油量（吨）=45.42", "trust": "authoritative"}
+
+id: 15
+event: observation
+data: {"index": 7, "source": "agg.fct_daily_metering", "content": "井号=N-07；区块=渤南；日期=2025-09-01；日产油量（吨）=25.87", "trust": "authoritative"}
+
+id: 16
+event: observation
+data: {"index": 8, "source": "agg.fct_daily_metering", "content": "井号=N-08；区块=渤南；日期=2025-09-01；日产油量（吨）=23.22", "trust": "authoritative"}
+
+id: 17
+event: observation
+data: {"index": 9, "source": "agg.fct_daily_metering", "content": "井号=N-09；区块=渤南；日期=2025-09-01；日产油量（吨）=15.88", "trust": "authoritative"}
+
+id: 18
+event: observation
+data: {"index": 10, "source": "agg.fct_daily_metering", "content": "井号=N-10；区块=渤南；日期=2025-09-01；日产油量（吨）=27.87", "trust": "authoritative"}
+
+id: 19
+event: observation
+data: {"index": 11, "source": "agg.fct_daily_metering", "content": "井号=N-11；区块=渤南；日期=2025-09-01；日产油量（吨）=43.81", "trust": "authoritative"}
+
+id: 20
+event: observation
+data: {"index": 12, "source": "agg.fct_daily_metering", "content": "井号=N-12；区块=渤南；日期=2025-09-01；日产油量（吨）=35.64", "trust": "authoritative"}
+
+id: 21
+event: observation
+data: {"index": 13, "source": "agg.fct_daily_metering", "content": "井号=N-13；区块=渤南；日期=2025-09-01；日产油量（吨）=25.29", "trust": "authoritative"}
+
+id: 22
+event: observation
+data: {"index": 14, "source": "agg.fct_daily_metering", "content": "井号=N-14；区块=渤南；日期=2025-09-01；日产油量（吨）=25.21", "trust": "authoritative"}
+
+id: 23
+event: observation
+data: {"index": 15, "source": "agg.fct_daily_metering", "content": "井号=N-15；区块=渤南；日期=2025-09-01；日产油量（吨）=46.07", "trust": "authoritative"}
+
+id: 24
+event: observation
+data: {"index": 16, "source": "agg.fct_daily_metering", "content": "井号=N-16；区块=渤南；日期=2025-09-01；日产油量（吨）=20.85", "trust": "authoritative"}
+
+id: 25
+event: observation
+data: {"index": 17, "source": "agg.fct_daily_metering", "content": "井号=N-17；区块=渤南；日期=2025-09-01；日产油量（吨）=16.03", "trust": "authoritative"}
+
+id: 26
+event: observation
+data: {"index": 18, "source": "agg.fct_daily_metering", "content": "井号=N-18；区块=渤南；日期=2025-09-01；日产油量（吨）=28.54", "trust": "authoritative"}
+
+id: 27
+event: observation
+data: {"index": 19, "source": "agg.fct_daily_metering", "content": "井号=N-19；区块=渤南；日期=2025-09-01；日产油量（吨）=27.46", "trust": "authoritative"}
+
+id: 28
+event: observation
+data: {"index": 20, "source": "agg.fct_daily_metering", "content": "井号=N-20；区块=渤南；日期=2025-09-01；日产油量（吨）=43.57", "trust": "authoritative"}
+
+id: 29
+event: observation
+data: {"index": 21, "source": "agg.fct_daily_metering", "content": "井号=N-21；区块=渤南；日期=2025-09-01；日产油量（吨）=26.59", "trust": "authoritative"}
+
+id: 30
+event: observation
+data: {"index": 22, "source": "agg.fct_daily_metering", "content": "井号=N-22；区块=渤南；日期=2025-09-01；日产油量（吨）=19.80", "trust": "authoritative"}
+
+id: 31
+event: observation
+data: {"index": 23, "source": "agg.fct_daily_metering", "content": "井号=N-23；区块=渤南；日期=2025-09-01；日产油量（吨）=49.24", "trust": "authoritative"}
+
+id: 32
+event: observation
+data: {"index": 24, "source": "agg.fct_daily_metering", "content": "井号=N-24；区块=渤南；日期=2025-09-01；日产油量（吨）=28.77", "trust": "authoritative"}
+
+id: 33
+event: observation
+data: {"index": 25, "source": "agg.fct_daily_metering", "content": "井号=N-25；区块=渤南；日期=2025-09-01；日产油量（吨）=37.66", "trust": "authoritative"}
+
+id: 34
+event: observation
+data: {"index": 26, "source": "agg.fct_daily_metering", "content": "井号=N-26；区块=渤南；日期=2025-09-01；日产油量（吨）=26.83", "trust": "authoritative"}
+
+id: 35
+event: observation
+data: {"index": 27, "source": "agg.fct_daily_metering", "content": "井号=N-27；区块=渤南；日期=2025-09-01；日产油量（吨）=21.57", "trust": "authoritative"}
+
+id: 36
+event: observation
+data: {"index": 28, "source": "agg.fct_daily_metering", "content": "井号=X-01；区块=渤西；日期=2025-09-01；日产油量（吨）=28.21", "trust": "authoritative"}
+
+id: 37
+event: observation
+data: {"index": 29, "source": "agg.fct_daily_metering", "content": "井号=X-02；区块=渤西；日期=2025-09-01；日产油量（吨）=0.00", "trust": "authoritative"}
+
+id: 38
+event: observation
+data: {"index": 30, "source": "agg.fct_daily_metering", "content": "井号=X-03；区块=渤西；日期=2025-09-01；日产油量（吨）=39.61", "trust": "authoritative"}
+
+id: 39
+event: observation
+data: {"index": 31, "source": "agg.fct_daily_metering", "content": "井号=X-04；区块=渤西；日期=2025-09-01；日产油量（吨）=38.27", "trust": "authoritative"}
+
+id: 40
+event: observation
+data: {"index": 32, "source": "agg.fct_daily_metering", "content": "井号=X-05；区块=渤西；日期=2025-09-01；日产油量（吨）=43.03", "trust": "authoritative"}
+
+id: 41
+event: observation
+data: {"index": 33, "source": "agg.fct_daily_metering", "content": "井号=X-06；区块=渤西；日期=2025-09-01；日产油量（吨）=24.01", "trust": "authoritative"}
+
+id: 42
+event: observation
+data: {"index": 34, "source": "agg.fct_daily_metering", "content": "井号=X-07；区块=渤西；日期=2025-09-01；日产油量（吨）=43.06", "trust": "authoritative"}
+
+id: 43
+event: observation
+data: {"index": 35, "source": "agg.fct_daily_metering", "content": "井号=X-08；区块=渤西；日期=2025-09-01；日产油量（吨）=39.45", "trust": "authoritative"}
+
+id: 44
+event: observation
+data: {"index": 36, "source": "agg.fct_daily_metering", "content": "井号=X-09；区块=渤西；日期=2025-09-01；日产油量（吨）=17.21", "trust": "authoritative"}
+
+id: 45
+event: observation
+data: {"index": 37, "source": "agg.fct_daily_metering", "content": "井号=X-10；区块=渤西；日期=2025-09-01；日产油量（吨）=30.73", "trust": "authoritative"}
+
+id: 46
+event: observation
+data: {"index": 38, "source": "agg.fct_daily_metering", "content": "井号=X-11；区块=渤西；日期=2025-09-01；日产油量（吨）=27.46", "trust": "authoritative"}
+
+id: 47
+event: observation
+data: {"index": 39, "source": "agg.fct_daily_metering", "content": "井号=X-12；区块=渤西；日期=2025-09-01；日产油量（吨）=30.95", "trust": "authoritative"}
+
+id: 48
+event: observation
+data: {"index": 40, "source": "agg.fct_daily_metering", "content": "井号=X-13；区块=渤西；日期=2025-09-01；日产油量（吨）=39.40", "trust": "authoritative"}
+
+id: 49
+event: observation
+data: {"index": 41, "source": "agg.fct_daily_metering", "content": "井号=X-14；区块=渤西；日期=2025-09-01；日产油量（吨）=14.96", "trust": "authoritative"}
+
+id: 50
+event: observation
+data: {"index": 42, "source": "agg.fct_daily_metering", "content": "井号=X-15；区块=渤西；日期=2025-09-01；日产油量（吨）=20.62", "trust": "authoritative"}
+
+id: 51
+event: observation
+data: {"index": 43, "source": "agg.fct_daily_metering", "content": "井号=X-16；区块=渤西；日期=2025-09-01；日产油量（吨）=23.29", "trust": "authoritative"}
+
+id: 52
+event: observation
+data: {"index": 44, "source": "agg.fct_daily_metering", "content": "井号=X-17；区块=渤西；日期=2025-09-01；日产油量（吨）=16.56", "trust": "authoritative"}
+
+id: 53
+event: observation
+data: {"index": 45, "source": "agg.fct_daily_metering", "content": "井号=X-18；区块=渤西；日期=2025-09-01；日产油量（吨）=33.32", "trust": "authoritative"}
+
+id: 54
+event: observation
+data: {"index": 46, "source": "agg.fct_daily_metering", "content": "井号=X-19；区块=渤西；日期=2025-09-01；日产油量（吨）=17.05", "trust": "authoritative"}
+
+id: 55
+event: observation
+data: {"index": 47, "source": "agg.fct_daily_metering", "content": "井号=X-20；区块=渤西；日期=2025-09-01；日产油量（吨）=22.58", "trust": "authoritative"}
+
+id: 56
+event: observation
+data: {"index": 48, "source": "agg.fct_daily_metering", "content": "井号=X-21；区块=渤西；日期=2025-09-01；日产油量（吨）=21.11", "trust": "authoritative"}
+
+id: 57
+event: observation
+data: {"index": 49, "source": "agg.fct_daily_metering", "content": "井号=X-22；区块=渤西；日期=2025-09-01；日产油量（吨）=45.14", "trust": "authoritative"}
+
+id: 58
+event: observation
+data: {"index": 50, "source": "agg.fct_daily_metering", "content": "井号=X-23；区块=渤西；日期=2025-09-01；日产油量（吨）=34.21", "trust": "authoritative"}
+
+id: 59
+event: observation
+data: {"index": 51, "source": "agg.fct_daily_metering", "content": "井号=X-24；区块=渤西；日期=2025-09-01；日产油量（吨）=48.97", "trust": "authoritative"}
+
+id: 60
+event: observation
+data: {"index": 52, "source": "agg.fct_daily_metering", "content": "井号=X-25；区块=渤西；日期=2025-09-01；日产油量（吨）=48.45", "trust": "authoritative"}
+
+id: 61
+event: observation
+data: {"index": 53, "source": "agg.fct_daily_metering", "content": "井号=Z-01；区块=渤中；日期=2025-09-01；日产油量（吨）=16.65", "trust": "authoritative"}
+
+id: 62
+event: observation
+data: {"index": 54, "source": "agg.fct_daily_metering", "content": "井号=Z-02；区块=渤中；日期=2025-09-01；日产油量（吨）=19.02", "trust": "authoritative"}
+
+id: 63
+event: observation
+data: {"index": 55, "source": "agg.fct_daily_metering", "content": "井号=Z-03；区块=渤中；日期=2025-09-01；日产油量（吨）=18.72", "trust": "authoritative"}
+
+id: 64
+event: observation
+data: {"index": 56, "source": "agg.fct_daily_metering", "content": "井号=Z-04；区块=渤中；日期=2025-09-01；日产油量（吨）=40.38", "trust": "authoritative"}
+
+id: 65
+event: observation
+data: {"index": 57, "source": "agg.fct_daily_metering", "content": "井号=Z-05；区块=渤中；日期=2025-09-01；日产油量（吨）=35.68", "trust": "authoritative"}
+
+id: 66
+event: observation
+data: {"index": 58, "source": "agg.fct_daily_metering", "content": "井号=Z-06；区块=渤中；日期=2025-09-01；日产油量（吨）=39.18", "trust": "authoritative"}
+
+id: 67
+event: observation
+data: {"index": 59, "source": "agg.fct_daily_metering", "content": "井号=Z-07；区块=渤中；日期=2025-09-01；日产油量（吨）=42.26", "trust": "authoritative"}
+
+id: 68
+event: observation
+data: {"index": 60, "source": "agg.fct_daily_metering", "content": "井号=Z-08；区块=渤中；日期=2025-09-01；日产油量（吨）=32.52", "trust": "authoritative"}
+
+id: 69
+event: observation
+data: {"index": 61, "source": "agg.fct_daily_metering", "content": "井号=Z-09；区块=渤中；日期=2025-09-01；日产油量（吨）=43.80", "trust": "authoritative"}
+
+id: 70
+event: observation
+data: {"index": 62, "source": "agg.fct_daily_metering", "content": "井号=Z-10；区块=渤中；日期=2025-09-01；日产油量（吨）=39.77", "trust": "authoritative"}
+
+id: 71
+event: observation
+data: {"index": 63, "source": "agg.fct_daily_metering", "content": "井号=Z-11；区块=渤中；日期=2025-09-01；日产油量（吨）=18.18", "trust": "authoritative"}
+
+id: 72
+event: observation
+data: {"index": 64, "source": "agg.fct_daily_metering", "content": "井号=Z-12；区块=渤中；日期=2025-09-01；日产油量（吨）=31.19", "trust": "authoritative"}
+
+id: 73
+event: observation
+data: {"index": 65, "source": "agg.fct_daily_metering", "content": "井号=Z-13；区块=渤中；日期=2025-09-01；日产油量（吨）=45.23", "trust": "authoritative"}
+
+id: 74
+event: observation
+data: {"index": 66, "source": "agg.fct_daily_metering", "content": "井号=Z-14；区块=渤中；日期=2025-09-01；日产油量（吨）=23.16", "trust": "authoritative"}
+
+id: 75
+event: observation
+data: {"index": 67, "source": "agg.fct_daily_metering", "content": "井号=Z-15；区块=渤中；日期=2025-09-01；日产油量（吨）=38.34", "trust": "authoritative"}
+
+id: 76
+event: observation
+data: {"index": 68, "source": "agg.fct_daily_metering", "content": "井号=Z-16；区块=渤中；日期=2025-09-01；日产油量（吨）=49.07", "trust": "authoritative"}
+
+id: 77
+event: observation
+data: {"index": 69, "source": "agg.fct_daily_metering", "content": "井号=Z-17；区块=渤中；日期=2025-09-01；日产油量（吨）=19.62", "trust": "authoritative"}
+
+id: 78
+event: observation
+data: {"index": 70, "source": "agg.fct_daily_metering", "content": "井号=Z-18；区块=渤中；日期=2025-09-01；日产油量（吨）=38.82", "trust": "authoritative"}
+
+id: 79
+event: observation
+data: {"index": 71, "source": "agg.fct_daily_metering", "content": "井号=Z-19；区块=渤中；日期=2025-09-01；日产油量（吨）=41.18", "trust": "authoritative"}
+
+id: 80
+event: observation
+data: {"index": 72, "source": "agg.fct_daily_metering", "content": "井号=Z-20；区块=渤中；日期=2025-09-01；日产油量（吨）=26.66", "trust": "authoritative"}
+
+id: 81
+event: observation
+data: {"index": 73, "source": "agg.fct_daily_metering", "content": "井号=Z-21；区块=渤中；日期=2025-09-01；日产油量（吨）=35.22", "trust": "authoritative"}
+
+id: 82
+event: observation
+data: {"index": 74, "source": "agg.fct_daily_metering", "content": "井号=Z-22；区块=渤中；日期=2025-09-01；日产油量（吨）=15.40", "trust": "authoritative"}
+
+id: 83
+event: observation
+data: {"index": 75, "source": "agg.fct_daily_metering", "content": "井号=Z-23；区块=渤中；日期=2025-09-01；日产油量（吨）=48.57", "trust": "authoritative"}
+
+id: 84
+event: observation
+data: {"index": 76, "source": "agg.fct_daily_metering", "content": "井号=Z-24；区块=渤中；日期=2025-09-01；日产油量（吨）=35.67", "trust": "authoritative"}
+
+id: 85
+event: observation
+data: {"index": 77, "source": "agg.fct_daily_metering", "content": "井号=Z-25；区块=渤中；日期=2025-09-01；日产油量（吨）=33.90", "trust": "authoritative"}
+
+id: 86
+event: observation
+data: {"index": 78, "source": "agg.fct_daily_metering", "content": "井号=Z-26；区块=渤中；日期=2025-09-01；日产油量（吨）=28.87", "trust": "authoritative"}
+
+id: 87
+event: observation
+data: {"index": 79, "source": "agg.fct_daily_metering", "content": "井号=Z-27；区块=渤中；日期=2025-09-01；日产油量（吨）=33.08", "trust": "authoritative"}
+
+id: 88
+event: observation
+data: {"index": 80, "source": "agg.fct_daily_metering", "content": "井号=Z-28；区块=渤中；日期=2025-09-01；日产油量（吨）=34.75", "trust": "authoritative"}
+
+id: 89
+event: observation
+data: {"index": 81, "source": "agg.fct_daily_metering", "content": "井号=Z-29；区块=渤中；日期=2025-09-01；日产油量（吨）=19.18", "trust": "authoritative"}
+
+id: 90
+event: observation
+data: {"index": 82, "source": "agg.fct_daily_metering", "content": "井号=Z-30；区块=渤中；日期=2025-09-01；日产油量（吨）=41.74", "trust": "authoritative"}
+
+id: 91
+event: observation
+data: {"index": 83, "source": "agg.fct_daily_metering", "content": "井号=Z-31；区块=渤中；日期=2025-09-01；日产油量（吨）=38.11", "trust": "authoritative"}
+
+id: 92
+event: observation
+data: {"index": 84, "source": "agg.fct_daily_metering", "content": "井号=Z-32；区块=渤中；日期=2025-09-01；日产油量（吨）=18.32", "trust": "authoritative"}
+
+id: 93
+event: observation
+data: {"index": 85, "source": "agg.fct_daily_metering", "content": "井号=Z-33；区块=渤中；日期=2025-09-01；日产油量（吨）=19.34", "trust": "authoritative"}
+
+id: 94
+event: observation
+data: {"index": 86, "source": "agg.fct_daily_metering", "content": "井号=Z-34；区块=渤中；日期=2025-09-01；日产油量（吨）=48.64", "trust": "authoritative"}
+
+id: 95
+event: observation
+data: {"index": 87, "source": "agg.fct_daily_metering", "content": "井号=N-01；区块=渤南；日期=2025-09-02；日产油量（吨）=21.29", "trust": "authoritative"}
+
+id: 96
+event: observation
+data: {"index": 88, "source": "agg.fct_daily_metering", "content": "井号=N-02；区块=渤南；日期=2025-09-02；日产油量（吨）=31.61", "trust": "authoritative"}
+
+id: 97
+event: observation
+data: {"index": 89, "source": "agg.fct_daily_metering", "content": "井号=N-03；区块=渤南；日期=2025-09-02；日产油量（吨）=27.17", "trust": "authoritative"}
+
+id: 98
+event: observation
+data: {"index": 90, "source": "agg.fct_daily_metering", "content": "井号=N-04；区块=渤南；日期=2025-09-02；日产油量（吨）=0.00", "trust": "authoritative"}
+
+id: 99
+event: observation
+data: {"index": 91, "source": "agg.fct_daily_metering", "content": "井号=N-05；区块=渤南；日期=2025-09-02；日产油量（吨）=45.44", "trust": "authoritative"}
+
+id: 100
+event: observation
+data: {"index": 92, "source": "agg.fct_daily_metering", "content": "井号=N-06；区块=渤南；日期=2025-09-02；日产油量（吨）=43.04", "trust": "authoritative"}
+
+id: 101
+event: observation
+data: {"index": 93, "source": "agg.fct_daily_metering", "content": "井号=N-07；区块=渤南；日期=2025-09-02；日产油量（吨）=26.97", "trust": "authoritative"}
+
+id: 102
+event: observation
+data: {"index": 94, "source": "agg.fct_daily_metering", "content": "井号=N-08；区块=渤南；日期=2025-09-02；日产油量（吨）=22.77", "trust": "authoritative"}
+
+id: 103
+event: observation
+data: {"index": 95, "source": "agg.fct_daily_metering", "content": "井号=N-09；区块=渤南；日期=2025-09-02；日产油量（吨）=16.49", "trust": "authoritative"}
+
+id: 104
+event: observation
+data: {"index": 96, "source": "agg.fct_daily_metering", "content": "井号=N-10；区块=渤南；日期=2025-09-02；日产油量（吨）=26.24", "trust": "authoritative"}
+
+id: 105
+event: observation
+data: {"index": 97, "source": "agg.fct_daily_metering", "content": "井号=N-11；区块=渤南；日期=2025-09-02；日产油量（吨）=42.40", "trust": "authoritative"}
+
+id: 106
+event: observation
+data: {"index": 98, "source": "agg.fct_daily_metering", "content": "井号=N-12；区块=渤南；日期=2025-09-02；日产油量（吨）=34.15", "trust": "authoritative"}
+
+id: 107
+event: observation
+data: {"index": 99, "source": "agg.fct_daily_metering", "content": "井号=N-13；区块=渤南；日期=2025-09-02；日产油量（吨）=24.58", "trust": "authoritative"}
+
+id: 108
+event: observation
+data: {"index": 100, "source": "agg.fct_daily_metering", "content": "井号=N-14；区块=渤南；日期=2025-09-02；日产油量（吨）=25.43", "trust": "authoritative"}
+
+id: 109
+event: observation
+data: {"index": 101, "source": "agg.fct_daily_metering", "content": "井号=N-15；区块=渤南；日期=2025-09-02；日产油量（吨）=45.10", "trust": "authoritative"}
+
+id: 110
+event: observation
+data: {"index": 102, "source": "agg.fct_daily_metering", "content": "井号=N-16；区块=渤南；日期=2025-09-02；日产油量（吨）=21.52", "trust": "authoritative"}
+
+id: 111
+event: observation
+data: {"index": 103, "source": "agg.fct_daily_metering", "content": "井号=N-17；区块=渤南；日期=2025-09-02；日产油量（吨）=16.21", "trust": "authoritative"}
+
+id: 112
+event: observation
+data: {"index": 104, "source": "agg.fct_daily_metering", "content": "井号=N-18；区块=渤南；日期=2025-09-02；日产油量（吨）=28.22", "trust": "authoritative"}
+
+id: 113
+event: observation
+data: {"index": 105, "source": "agg.fct_daily_metering", "content": "井号=N-19；区块=渤南；日期=2025-09-02；日产油量（吨）=27.86", "trust": "authoritative"}
+
+id: 114
+event: observation
+data: {"index": 106, "source": "agg.fct_daily_metering", "content": "井号=N-20；区块=渤南；日期=2025-09-02；日产油量（吨）=44.49", "trust": "authoritative"}
+
+id: 115
+event: observation
+data: {"index": 107, "source": "agg.fct_daily_metering", "content": "井号=N-21；区块=渤南；日期=2025-09-02；日产油量（吨）=28.08", "trust": "authoritative"}
+
+id: 116
+event: observation
+data: {"index": 108, "source": "agg.fct_daily_metering", "content": "井号=N-22；区块=渤南；日期=2025-09-02；日产油量（吨）=18.65", "trust": "authoritative"}
+
+id: 117
+event: observation
+data: {"index": 109, "source": "agg.fct_daily_metering", "content": "井号=N-23；区块=渤南；日期=2025-09-02；日产油量（吨）=51.56", "trust": "authoritative"}
+
+id: 118
+event: observation
+data: {"index": 110, "source": "agg.fct_daily_metering", "content": "井号=N-24；区块=渤南；日期=2025-09-02；日产油量（吨）=27.87", "trust": "authoritative"}
+
+id: 119
+event: observation
+data: {"index": 111, "source": "agg.fct_daily_metering", "content": "井号=N-25；区块=渤南；日期=2025-09-02；日产油量（吨）=33.60", "trust": "authoritative"}
+
+id: 120
+event: observation
+data: {"index": 112, "source": "agg.fct_daily_metering", "content": "井号=N-26；区块=渤南；日期=2025-09-02；日产油量（吨）=27.51", "trust": "authoritative"}
+
+id: 121
+event: observation
+data: {"index": 113, "source": "agg.fct_daily_metering", "content": "井号=N-27；区块=渤南；日期=2025-09-02；日产油量（吨）=21.09", "trust": "authoritative"}
+
+id: 122
+event: observation
+data: {"index": 114, "source": "agg.fct_daily_metering", "content": "井号=X-01；区块=渤西；日期=2025-09-02；日产油量（吨）=0.00", "trust": "authoritative"}
+
+id: 123
+event: observation
+data: {"index": 115, "source": "agg.fct_daily_metering", "content": "井号=X-02；区块=渤西；日期=2025-09-02；日产油量（吨）=20.27", "trust": "authoritative"}
+
+id: 124
+event: observation
+data: {"index": 116, "source": "agg.fct_daily_metering", "content": "井号=X-03；区块=渤西；日期=2025-09-02；日产油量（吨）=38.59", "trust": "authoritative"}
+
+id: 125
+event: observation
+data: {"index": 117, "source": "agg.fct_daily_metering", "content": "井号=X-04；区块=渤西；日期=2025-09-02；日产油量（吨）=38.68", "trust": "authoritative"}
+
+id: 126
+event: observation
+data: {"index": 118, "source": "agg.fct_daily_metering", "content": "井号=X-05；区块=渤西；日期=2025-09-02；日产油量（吨）=41.83", "trust": "authoritative"}
+
+id: 127
+event: observation
+data: {"index": 119, "source": "agg.fct_daily_metering", "content": "井号=X-06；区块=渤西；日期=2025-09-02；日产油量（吨）=24.64", "trust": "authoritative"}
+
+id: 128
+event: observation
+data: {"index": 120, "source": "agg.fct_daily_metering", "content": "井号=X-07；区块=渤西；日期=2025-09-02；日产油量（吨）=41.90", "trust": "authoritative"}
+
+id: 129
+event: observation
+data: {"index": 121, "source": "agg.fct_daily_metering", "content": "井号=X-08；区块=渤西；日期=2025-09-02；日产油量（吨）=37.19", "trust": "authoritative"}
+
+id: 130
+event: observation
+data: {"index": 122, "source": "agg.fct_daily_metering", "content": "井号=X-09；区块=渤西；日期=2025-09-02；日产油量（吨）=16.65", "trust": "authoritative"}
+
+id: 131
+event: observation
+data: {"index": 123, "source": "agg.fct_daily_metering", "content": "井号=X-10；区块=渤西；日期=2025-09-02；日产油量（吨）=32.80", "trust": "authoritative"}
+
+id: 132
+event: observation
+data: {"index": 124, "source": "agg.fct_daily_metering", "content": "井号=X-11；区块=渤西；日期=2025-09-02；日产油量（吨）=29.53", "trust": "authoritative"}
+
+id: 133
+event: observation
+data: {"index": 125, "source": "agg.fct_daily_metering", "content": "井号=X-12；区块=渤西；日期=2025-09-02；日产油量（吨）=29.23", "trust": "authoritative"}
+
+id: 134
+event: observation
+data: {"index": 126, "source": "agg.fct_daily_metering", "content": "井号=X-13；区块=渤西；日期=2025-09-02；日产油量（吨）=40.00", "trust": "authoritative"}
+
+id: 135
+event: observation
+data: {"index": 127, "source": "agg.fct_daily_metering", "content": "井号=X-14；区块=渤西；日期=2025-09-02；日产油量（吨）=15.48", "trust": "authoritative"}
+
+id: 136
+event: observation
+data: {"index": 128, "source": "agg.fct_daily_metering", "content": "井号=X-15；区块=渤西；日期=2025-09-02；日产油量（吨）=20.45", "trust": "authoritative"}
+
+id: 137
+event: observation
+data: {"index": 129, "source": "agg.fct_daily_metering", "content": "井号=X-16；区块=渤西；日期=2025-09-02；日产油量（吨）=24.29", "trust": "authoritative"}
+
+id: 138
+event: observation
+data: {"index": 130, "source": "agg.fct_daily_metering", "content": "井号=X-17；区块=渤西；日期=2025-09-02；日产油量（吨）=16.98", "trust": "authoritative"}
+
+id: 139
+event: observation
+data: {"index": 131, "source": "agg.fct_daily_metering", "content": "井号=X-18；区块=渤西；日期=2025-09-02；日产油量（吨）=34.71", "trust": "authoritative"}
+
+id: 140
+event: observation
+data: {"index": 132, "source": "agg.fct_daily_metering", "content": "井号=X-19；区块=渤西；日期=2025-09-02；日产油量（吨）=17.72", "trust": "authoritative"}
+
+id: 141
+event: observation
+data: {"index": 133, "source": "agg.fct_daily_metering", "content": "井号=X-20；区块=渤西；日期=2025-09-02；日产油量（吨）=19.95", "trust": "authoritative"}
+
+id: 142
+event: observation
+data: {"index": 134, "source": "agg.fct_daily_metering", "content": "井号=X-21；区块=渤西；日期=2025-09-02；日产油量（吨）=22.87", "trust": "authoritative"}
+
+id: 143
+event: observation
+data: {"index": 135, "source": "agg.fct_daily_metering", "content": "井号=X-22；区块=渤西；日期=2025-09-02；日产油量（吨）=45.61", "trust": "authoritative"}
+
+id: 144
+event: observation
+data: {"index": 136, "source": "agg.fct_daily_metering", "content": "井号=X-23；区块=渤西；日期=2025-09-02；日产油量（吨）=35.90", "trust": "authoritative"}
+
+id: 145
+event: observation
+data: {"index": 137, "source": "agg.fct_daily_metering", "content": "井号=X-24；区块=渤西；日期=2025-09-02；日产油量（吨）=46.05", "trust": "authoritative"}
+
+id: 146
+event: observation
+data: {"index": 138, "source": "agg.fct_daily_metering", "content": "井号=X-25；区块=渤西；日期=2025-09-02；日产油量（吨）=47.29", "trust": "authoritative"}
+
+id: 147
+event: observation
+data: {"index": 139, "source": "agg.fct_daily_metering", "content": "井号=Z-01；区块=渤中；日期=2025-09-02；日产油量（吨）=15.95", "trust": "authoritative"}
+
+id: 148
+event: observation
+data: {"index": 140, "source": "agg.fct_daily_metering", "content": "井号=Z-02；区块=渤中；日期=2025-09-02；日产油量（吨）=17.91", "trust": "authoritative"}
+
+id: 149
+event: observation
+data: {"index": 141, "source": "agg.fct_daily_metering", "content": "井号=Z-03；区块=渤中；日期=2025-09-02；日产油量（吨）=19.24", "trust": "authoritative"}
+
+id: 150
+event: observation
+data: {"index": 142, "source": "agg.fct_daily_metering", "content": "井号=Z-04；区块=渤中；日期=2025-09-02；日产油量（吨）=37.37", "trust": "authoritative"}
+
+id: 151
+event: observation
+data: {"index": 143, "source": "agg.fct_daily_metering", "content": "井号=Z-05；区块=渤中；日期=2025-09-02；日产油量（吨）=36.82", "trust": "authoritative"}
+
+id: 152
+event: observation
+data: {"index": 144, "source": "agg.fct_daily_metering", "content": "井号=Z-06；区块=渤中；日期=2025-09-02；日产油量（吨）=39.25", "trust": "authoritative"}
+
+id: 153
+event: observation
+data: {"index": 145, "source": "agg.fct_daily_metering", "content": "井号=Z-07；区块=渤中；日期=2025-09-02；日产油量（吨）=44.41", "trust": "authoritative"}
+
+id: 154
+event: observation
+data: {"index": 146, "source": "agg.fct_daily_metering", "content": "井号=Z-08；区块=渤中；日期=2025-09-02；日产油量（吨）=34.86", "trust": "authoritative"}
+
+id: 155
+event: observation
+data: {"index": 147, "source": "agg.fct_daily_metering", "content": "井号=Z-09；区块=渤中；日期=2025-09-02；日产油量（吨）=43.19", "trust": "authoritative"}
+
+id: 156
+event: observation
+data: {"index": 148, "source": "agg.fct_daily_metering", "content": "井号=Z-10；区块=渤中；日期=2025-09-02；日产油量（吨）=40.43", "trust": "authoritative"}
+
+id: 157
+event: observation
+data: {"index": 149, "source": "agg.fct_daily_metering", "content": "井号=Z-11；区块=渤中；日期=2025-09-02；日产油量（吨）=16.84", "trust": "authoritative"}
+
+id: 158
+event: observation
+data: {"index": 150, "source": "agg.fct_daily_metering", "content": "井号=Z-12；区块=渤中；日期=2025-09-02；日产油量（吨）=29.94", "trust": "authoritative"}
+
+id: 159
+event: observation
+data: {"index": 151, "source": "agg.fct_daily_metering", "content": "井号=Z-13；区块=渤中；日期=2025-09-02；日产油量（吨）=45.51", "trust": "authoritative"}
+
+id: 160
+event: observation
+data: {"index": 152, "source": "agg.fct_daily_metering", "content": "井号=Z-14；区块=渤中；日期=2025-09-02；日产油量（吨）=23.97", "trust": "authoritative"}
+
+id: 161
+event: observation
+data: {"index": 153, "source": "agg.fct_daily_metering", "content": "井号=Z-15；区块=渤中；日期=2025-09-02；日产油量（吨）=40.09", "trust": "authoritative"}
+
+id: 162
+event: observation
+data: {"index": 154, "source": "agg.fct_daily_metering", "content": "井号=Z-16；区块=渤中；日期=2025-09-02；日产油量（吨）=48.79", "trust": "authoritative"}
+
+id: 163
+event: observation
+data: {"index": 155, "source": "agg.fct_daily_metering", "content": "井号=Z-17；区块=渤中；日期=2025-09-02；日产油量（吨）=0.00", "trust": "authoritative"}
+
+id: 164
+event: observation
+data: {"index": 156, "source": "agg.fct_daily_metering", "content": "井号=Z-18；区块=渤中；日期=2025-09-02；日产油量（吨）=37.16", "trust": "authoritative"}
+
+id: 165
+event: observation
+data: {"index": 157, "source": "agg.fct_daily_metering", "content": "井号=Z-19；区块=渤中；日期=2025-09-02；日产油量（吨）=39.43", "trust": "authoritative"}
+
+id: 166
+event: observation
+data: {"index": 158, "source": "agg.fct_daily_metering", "content": "井号=Z-20；区块=渤中；日期=2025-09-02；日产油量（吨）=26.55", "trust": "authoritative"}
+
+id: 167
+event: observation
+data: {"index": 159, "source": "agg.fct_daily_metering", "content": "井号=Z-21；区块=渤中；日期=2025-09-02；日产油量（吨）=34.29", "trust": "authoritative"}
+
+id: 168
+event: observation
+data: {"index": 160, "source": "agg.fct_daily_metering", "content": "井号=Z-22；区块=渤中；日期=2025-09-02；日产油量（吨）=15.30", "trust": "authoritative"}
+
+id: 169
+event: observation
+data: {"index": 161, "source": "agg.fct_daily_metering", "content": "井号=Z-23；区块=渤中；日期=2025-09-02；日产油量（吨）=46.26", "trust": "authoritative"}
+
+id: 170
+event: observation
+data: {"index": 162, "source": "agg.fct_daily_metering", "content": "井号=Z-24；区块=渤中；日期=2025-09-02；日产油量（吨）=34.76", "trust": "authoritative"}
+
+id: 171
+event: observation
+data: {"index": 163, "source": "agg.fct_daily_metering", "content": "井号=Z-25；区块=渤中；日期=2025-09-02；日产油量（吨）=33.85", "trust": "authoritative"}
+
+id: 172
+event: observation
+data: {"index": 164, "source": "agg.fct_daily_metering", "content": "井号=Z-26；区块=渤中；日期=2025-09-02；日产油量（吨）=29.19", "trust": "authoritative"}
+
+id: 173
+event: observation
+data: {"index": 165, "source": "agg.fct_daily_metering", "content": "井号=Z-27；区块=渤中；日期=2025-09-02；日产油量（吨）=31.83", "trust": "authoritative"}
+
+id: 174
+event: observation
+data: {"index": 166, "source": "agg.fct_daily_metering", "content": "井号=Z-28；区块=渤中；日期=2025-09-02；日产油量（吨）=36.17", "trust": "authoritative"}
+
+id: 175
+event: observation
+data: {"index": 167, "source": "agg.fct_daily_metering", "content": "井号=Z-29；区块=渤中；日期=2025-09-02；日产油量（吨）=18.23", "trust": "authoritative"}
+
+id: 176
+event: observation
+data: {"index": 168, "source": "agg.fct_daily_metering", "content": "井号=Z-30；区块=渤中；日期=2025-09-02；日产油量（吨）=42.04", "trust": "authoritative"}
+
+id: 177
+event: observation
+data: {"index": 169, "source": "agg.fct_daily_metering", "content": "井号=Z-31；区块=渤中；日期=2025-09-02；日产油量（吨）=38.73", "trust": "authoritative"}
+
+id: 178
+event: observation
+data: {"index": 170, "source": "agg.fct_daily_metering", "content": "井号=Z-32；区块=渤中；日期=2025-09-02；日产油量（吨）=18.77", "trust": "authoritative"}
+
+id: 179
+event: observation
+data: {"index": 171, "source": "agg.fct_daily_metering", "content": "井号=Z-33；区块=渤中；日期=2025-09-02；日产油量（吨）=19.10", "trust": "authoritative"}
+
+id: 180
+event: observation
+data: {"index": 172, "source": "agg.fct_daily_metering", "content": "井号=Z-34；区块=渤中；日期=2025-09-02；日产油量（吨）=46.07", "trust": "authoritative"}
+
+id: 181
+event: observation
+data: {"index": 173, "source": "agg.fct_daily_metering", "content": "井号=N-01；区块=渤南；日期=2025-09-03；日产油量（吨）=21.87", "trust": "authoritative"}
+
+id: 182
+event: observation
+data: {"index": 174, "source": "agg.fct_daily_metering", "content": "井号=N-02；区块=渤南；日期=2025-09-03；日产油量（吨）=31.08", "trust": "authoritative"}
+
+id: 183
+event: observation
+data: {"index": 175, "source": "agg.fct_daily_metering", "content": "井号=N-03；区块=渤南；日期=2025-09-03；日产油量（吨）=29.84", "trust": "authoritative"}
+
+id: 184
+event: observation
+data: {"index": 176, "source": "agg.fct_daily_metering", "content": "井号=N-04；区块=渤南；日期=2025-09-03；日产油量（吨）=25.70", "trust": "authoritative"}
+
+id: 185
+event: observation
+data: {"index": 177, "source": "agg.fct_daily_metering", "content": "井号=N-05；区块=渤南；日期=2025-09-03；日产油量（吨）=43.28", "trust": "authoritative"}
+
+id: 186
+event: observation
+data: {"index": 178, "source": "agg.fct_daily_metering", "content": "井号=N-06；区块=渤南；日期=2025-09-03；日产油量（吨）=43.30", "trust": "authoritative"}
+
+id: 187
+event: observation
+data: {"index": 179, "source": "agg.fct_daily_metering", "content": "井号=N-07；区块=渤南；日期=2025-09-03；日产油量（吨）=26.47", "trust": "authoritative"}
+
+id: 188
+event: observation
+data: {"index": 180, "source": "agg.fct_daily_metering", "content": "井号=N-08；区块=渤南；日期=2025-09-03；日产油量（吨）=22.93", "trust": "authoritative"}
+
+id: 189
+event: observation
+data: {"index": 181, "source": "agg.fct_daily_metering", "content": "井号=N-09；区块=渤南；日期=2025-09-03；日产油量（吨）=16.96", "trust": "authoritative"}
+
+id: 190
+event: observation
+data: {"index": 182, "source": "agg.fct_daily_metering", "content": "井号=N-10；区块=渤南；日期=2025-09-03；日产油量（吨）=25.25", "trust": "authoritative"}
+
+id: 191
+event: observation
+data: {"index": 183, "source": "agg.fct_daily_metering", "content": "井号=N-11；区块=渤南；日期=2025-09-03；日产油量（吨）=44.85", "trust": "authoritative"}
+
+id: 192
+event: observation
+data: {"index": 184, "source": "agg.fct_daily_metering", "content": "井号=N-12；区块=渤南；日期=2025-09-03；日产油量（吨）=35.80", "trust": "authoritative"}
+
+id: 193
+event: observation
+data: {"index": 185, "source": "agg.fct_daily_metering", "content": "井号=N-13；区块=渤南；日期=2025-09-03；日产油量（吨）=25.94", "trust": "authoritative"}
+
+id: 194
+event: observation
+data: {"index": 186, "source": "agg.fct_daily_metering", "content": "井号=N-14；区块=渤南；日期=2025-09-03；日产油量（吨）=24.82", "trust": "authoritative"}
+
+id: 195
+event: observation
+data: {"index": 187, "source": "agg.fct_daily_metering", "content": "井号=N-15；区块=渤南；日期=2025-09-03；日产油量（吨）=46.23", "trust": "authoritative"}
+
+id: 196
+event: observation
+data: {"index": 188, "source": "agg.fct_daily_metering", "content": "井号=N-16；区块=渤南；日期=2025-09-03；日产油量（吨）=22.11", "trust": "authoritative"}
+
+id: 197
+event: observation
+data: {"index": 189, "source": "agg.fct_daily_metering", "content": "井号=N-17；区块=渤南；日期=2025-09-03；日产油量（吨）=17.30", "trust": "authoritative"}
+
+id: 198
+event: observation
+data: {"index": 190, "source": "agg.fct_daily_metering", "content": "井号=N-18；区块=渤南；日期=2025-09-03；日产油量（吨）=28.80", "trust": "authoritative"}
+
+id: 199
+event: observation
+data: {"index": 191, "source": "agg.fct_daily_metering", "content": "井号=N-19；区块=渤南；日期=2025-09-03；日产油量（吨）=0.00", "trust": "authoritative"}
+
+id: 200
+event: observation
+data: {"index": 192, "source": "agg.fct_daily_metering", "content": "井号=N-20；区块=渤南；日期=2025-09-03；日产油量（吨）=41.88", "trust": "authoritative"}
+
+id: 201
+event: observation
+data: {"index": 193, "source": "agg.fct_daily_metering", "content": "井号=N-21；区块=渤南；日期=2025-09-03；日产油量（吨）=27.81", "trust": "authoritative"}
+
+id: 202
+event: observation
+data: {"index": 194, "source": "agg.fct_daily_metering", "content": "井号=N-22；区块=渤南；日期=2025-09-03；日产油量（吨）=18.97", "trust": "authoritative"}
+
+id: 203
+event: observation
+data: {"index": 195, "source": "agg.fct_daily_metering", "content": "井号=N-23；区块=渤南；日期=2025-09-03；日产油量（吨）=49.30", "trust": "authoritative"}
+
+id: 204
+event: observation
+data: {"index": 196, "source": "agg.fct_daily_metering", "content": "井号=N-24；区块=渤南；日期=2025-09-03；日产油量（吨）=29.00", "trust": "authoritative"}
+
+id: 205
+event: observation
+data: {"index": 197, "source": "agg.fct_daily_metering", "content": "井号=N-25；区块=渤南；日期=2025-09-03；日产油量（吨）=34.80", "trust": "authoritative"}
+
+id: 206
+event: observation
+data: {"index": 198, "source": "agg.fct_daily_metering", "content": "井号=N-26；区块=渤南；日期=2025-09-03；日产油量（吨）=26.13", "trust": "authoritative"}
+
+id: 207
+event: observation
+data: {"index": 199, "source": "agg.fct_daily_metering", "content": "井号=N-27；区块=渤南；日期=2025-09-03；日产油量（吨）=21.58", "trust": "authoritative"}
+
+id: 208
+event: observation
+data: {"index": 200, "source": "agg.fct_daily_metering", "content": "井号=X-01；区块=渤西；日期=2025-09-03；日产油量（吨）=28.13", "trust": "authoritative"}
+
+id: 209
+event: observation
+data: {"index": 201, "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date", "content": "① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝laowang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 达标（承诺 T-1））\n⑤ 收口注记 LIMIT 200——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 200——只封顶不抬底）", "trust": "authoritative"}
+
+id: 210
+event: step
+data: {"step": "execute", "seq": 8, "title": "data_query：ok（子问题 s1）"}
+
+id: 211
+event: text
+data: {"content": "去年（2025-01-01 至 2025-12-31）日产油量明细前 200 行如下。窗口内数据按日期与井号升序排列，已截取前 200 行；如需后续行，请告知从哪一日或哪一口井起继续。"}
+
+id: 212
+event: text
+data: {"content": "**2025-09-01**\n| 井号 | 区块 | 日产油量（吨） |\n|---|---|---|\n| N-01 | 渤南 | 21.16 [1] |\n| N-02 | 渤南 | 30.79 [2] |\n| N-03 | 渤南 | 28.10 [3] |\n| N-04 | 渤南 | 26.40 [4] |\n| N-05 | 渤南 | 42.33 [5] |\n| N-06 | 渤南 | 45.42 [6] |\n| N-07 | 渤南 | 25.87 [7] |\n| N-08 | 渤南 | 23.22 [8] |\n| N-09 | 渤南 | 15.88 [9] |\n| N-10 | 渤南 | 27.87 [10] |\n| N-11 | 渤南 | 43.81 [11] |\n| N-12 | 渤南 | 35.64 [12] |\n| N-13 | 渤南 | 25.29 [13] |\n| N-14 | 渤南 | 25.21 [14] |\n| N-15 | 渤南 | 46.07 [15] |\n| N-16 | 渤南 | 20.85 [16] |\n| N-17 | 渤南 | 16.03 [17] |\n| N-18 | 渤南 | 28.54 [18] |\n| N-19 | 渤南 | 27.46 [19] |\n| N-20 | 渤南 | 43.57 [20] |\n| N-21 | 渤南 | 26.59 [21] |\n| N-22 | 渤南 | 19.80 [22] |\n| N-23 | 渤南 | 49.24 [23] |\n| N-24 | 渤南 | 28.77 [24] |\n| N-25 | 渤南 | 37.66 [25] |\n| N-26 | 渤南 | 26.83 [26] |\n| N-27 | 渤南 | 21.57 [27] |\n| X-01 | 渤西 | 28.21 [28] |\n| X-02 | 渤西 | 0.00 [29] |\n| X-03 | 渤西 | 39.61 [30] |\n| X-04 | 渤西 | 38.27 [31] |\n| X-05 | 渤西 | 43.03 [32] |\n| X-06 | 渤西 | 24.01 [33] |\n| X-07 | 渤西 | 43.06 [34] |\n| X-08 | 渤西 | 39.45 [35] |\n| X-09 | 渤西 | 17.21 [36] |\n| X-10 | 渤西 | 30.73 [37] |\n| X-11 | 渤西 | 27.46 [38] |\n| X-12 | 渤西 | 30.95 [39] |\n| X-13 | 渤西 | 39.40 [40] |\n| X-14 | 渤西 | 14.96 [41] |\n| X-15 | 渤西 | 20.62 [42] |\n| X-16 | 渤西 | 23.29 [43] |\n| X-17 | 渤西 | 16.56 [44] |\n| X-18 | 渤西 | 33.32 [45] |\n| X-19 | 渤西 | 17.05 [46] |\n| X-20 | 渤西 | 22.58 [47] |\n| X-21 | 渤西 | 21.11 [48] |\n| X-22 | 渤西 | 45.14 [49] |\n| X-23 | 渤西 | 34.21 [50] |\n| X-24 | 渤西 | 48.97 [51] |\n| X-25 | 渤西 | 48.45 [52] |\n| Z-01 | 渤中 | 16.65 [53] |\n| Z-02 | 渤中 | 19.02 [54] |\n| Z-03 | 渤中 | 18.72 [55] |\n| Z-04 | 渤中 | 40.38 [56] |\n| Z-05 | 渤中 | 35.68 [57] |\n| Z-06 | 渤中 | 39.18 [58] |\n| Z-07 | 渤中 | 42.26 [59] |\n| Z-08 | 渤中 | 32.52 [60] |\n| Z-09 | 渤中 | 43.80 [61] |\n| Z-10 | 渤中 | 39.77 [62] |\n| Z-11 | 渤中 | 18.18 [63] |\n| Z-12 | 渤中 | 31.19 [64] |\n| Z-13 | 渤中 | 45.23 [65] |\n| Z-14 | 渤中 | 23.16 [66] |\n| Z-15 | 渤中 | 38.34 [67] |\n| Z-16 | 渤中 | 49.07 [68] |\n| Z-17 | 渤中 | 19.62 [69] |\n| Z-18 | 渤中 | 38.82 [70] |\n| Z-19 | 渤中 | 41.18 [71] |\n| Z-20 | 渤中 | 26.66 [72] |\n| Z-21 | 渤中 | 35.22 [73] |\n| Z-22 | 渤中 | 15.40 [74] |\n| Z-23 | 渤中 | 48.57 [75] |\n| Z-24 | 渤中 | 35.67 [76] |\n| Z-25 | 渤中 | 33.90 [77] |\n| Z-26 | 渤中 | 28.87 [78] |\n| Z-27 | 渤中 | 33.08 [79] |\n| Z-28 | 渤中 | 34.75 [80] |\n| Z-29 | 渤中 | 19.18 [81] |\n| Z-30 | 渤中 | 41.74 [82] |\n| Z-31 | 渤中 | 38.11 [83] |\n| Z-32 | 渤中 | 18.32 [84] |\n| Z-33 | 渤中 | 19.34 [85] |\n| Z-34 | 渤中 | 48.64 [86] |"}
+
+id: 213
+event: text
+data: {"content": "**2025-09-02**\n| 井号 | 区块 | 日产油量（吨） |\n|---|---|---|\n| N-01 | 渤南 | 21.29 [87] |\n| N-02 | 渤南 | 31.61 [88] |\n| N-03 | 渤南 | 27.17 [89] |\n| N-04 | 渤南 | 0.00 [90] |\n| N-05 | 渤南 | 45.44 [91] |\n| N-06 | 渤南 | 43.04 [92] |\n| N-07 | 渤南 | 26.97 [93] |\n| N-08 | 渤南 | 22.77 [94] |\n| N-09 | 渤南 | 16.49 [95] |\n| N-10 | 渤南 | 26.24 [96] |\n| N-11 | 渤南 | 42.40 [97] |\n| N-12 | 渤南 | 34.15 [98] |\n| N-13 | 渤南 | 24.58 [99] |\n| N-14 | 渤南 | 25.43 [100] |\n| N-15 | 渤南 | 45.10 [101] |\n| N-16 | 渤南 | 21.52 [102] |\n| N-17 | 渤南 | 16.21 [103] |\n| N-18 | 渤南 | 28.22 [104] |\n| N-19 | 渤南 | 27.86 [105] |\n| N-20 | 渤南 | 44.49 [106] |\n| N-21 | 渤南 | 28.08 [107] |\n| N-22 | 渤南 | 18.65 [108] |\n| N-23 | 渤南 | 51.56 [109] |\n| N-24 | 渤南 | 27.87 [110] |\n| N-25 | 渤南 | 33.60 [111] |\n| N-26 | 渤南 | 27.51 [112] |\n| N-27 | 渤南 | 21.09 [113] |\n| X-01 | 渤西 | 0.00 [114] |\n| X-02 | 渤西 | 20.27 [115] |\n| X-03 | 渤西 | 38.59 [116] |\n| X-04 | 渤西 | 38.68 [117] |\n| X-05 | 渤西 | 41.83 [118] |\n| X-06 | 渤西 | 24.64 [119] |\n| X-07 | 渤西 | 41.90 [120] |\n| X-08 | 渤西 | 37.19 [121] |\n| X-09 | 渤西 | 16.65 [122] |\n| X-10 | 渤西 | 32.80 [123] |\n| X-11 | 渤西 | 29.53 [124] |\n| X-12 | 渤西 | 29.23 [125] |\n| X-13 | 渤西 | 40.00 [126] |\n| X-14 | 渤西 | 15.48 [127] |\n| X-15 | 渤西 | 20.45 [128] |\n| X-16 | 渤西 | 24.29 [129] |\n| X-17 | 渤西 | 16.98 [130] |\n| X-18 | 渤西 | 34.71 [131] |\n| X-19 | 渤西 | 17.72 [132] |\n| X-20 | 渤西 | 19.95 [133] |\n| X-21 | 渤西 | 22.87 [134] |\n| X-22 | 渤西 | 45.61 [135] |\n| X-23 | 渤西 | 35.90 [136] |\n| X-24 | 渤西 | 46.05 [137] |\n| X-25 | 渤西 | 47.29 [138] |\n| Z-01 | 渤中 | 15.95 [139] |\n| Z-02 | 渤中 | 17.91 [140] |\n| Z-03 | 渤中 | 19.24 [141] |\n| Z-04 | 渤中 | 37.37 [142] |\n| Z-05 | 渤中 | 36.82 [143] |\n| Z-06 | 渤中 | 39.25 [144] |\n| Z-07 | 渤中 | 44.41 [145] |\n| Z-08 | 渤中 | 34.86 [146] |\n| Z-09 | 渤中 | 43.19 [147] |\n| Z-10 | 渤中 | 40.43 [148] |\n| Z-11 | 渤中 | 16.84 [149] |\n| Z-12 | 渤中 | 29.94 [150] |\n| Z-13 | 渤中 | 45.51 [151] |\n| Z-14 | 渤中 | 23.97 [152] |\n| Z-15 | 渤中 | 40.09 [153] |\n| Z-16 | 渤中 | 48.79 [154] |\n| Z-17 | 渤中 | 0.00 [155] |\n| Z-18 | 渤中 | 37.16 [156] |\n| Z-19 | 渤中 | 39.43 [157] |\n| Z-20 | 渤中 | 26.55 [158] |\n| Z-21 | 渤中 | 34.29 [159] |\n| Z-22 | 渤中 | 15.30 [160] |\n| Z-23 | 渤中 | 46.26 [161] |\n| Z-24 | 渤中 | 34.76 [162] |\n| Z-25 | 渤中 | 33.85 [163] |\n| Z-26 | 渤中 | 29.19 [164] |\n| Z-27 | 渤中 | 31.83 [165] |\n| Z-28 | 渤中 | 36.17 [166] |\n| Z-29 | 渤中 | 18.23 [167] |\n| Z-30 | 渤中 | 42.04 [168] |\n| Z-31 | 渤中 | 38.73 [169] |\n| Z-32 | 渤中 | 18.77 [170] |\n| Z-33 | 渤中 | 19.10 [171] |\n| Z-34 | 渤中 | 46.07 [172] |"}
+
+id: 214
+event: text
+data: {"content": "**2025-09-03**\n| 井号 | 区块 | 日产油量（吨） |\n|---|---|---|\n| N-01 | 渤南 | 21.87 [173] |\n| N-02 | 渤南 | 31.08 [174] |\n| N-03 | 渤南 | 29.84 [175] |\n| N-04 | 渤南 | 25.70 [176] |\n| N-05 | 渤南 | 43.28 [177] |\n| N-06 | 渤南 | 43.30 [178] |\n| N-07 | 渤南 | 26.47 [179] |\n| N-08 | 渤南 | 22.93 [180] |\n| N-09 | 渤南 | 16.96 [181] |\n| N-10 | 渤南 | 25.25 [182] |\n| N-11 | 渤南 | 44.85 [183] |\n| N-12 | 渤南 | 35.80 [184] |\n| N-13 | 渤南 | 25.94 [185] |\n| N-14 | 渤南 | 24.82 [186] |\n| N-15 | 渤南 | 46.23 [187] |\n| N-16 | 渤南 | 22.11 [188] |\n| N-17 | 渤南 | 17.30 [189] |\n| N-18 | 渤南 | 28.80 [190] |\n| N-19 | 渤南 | 0.00 [191] |\n| N-20 | 渤南 | 41.88 [192] |\n| N-21 | 渤南 | 27.81 [193] |\n| N-22 | 渤南 | 18.97 [194] |\n| N-23 | 渤南 | 49.30 [195] |\n| N-24 | 渤南 | 29.00 [196] |\n| N-25 | 渤南 | 34.80 [197] |\n| N-26 | 渤南 | 26.13 [198] |\n| N-27 | 渤南 | 21.58 [199] |\n| X-01 | 渤西 | 28.13 [200] |"}
+
+id: 215
+event: text
+data: {"content": "注记：\n- 口径：日产计量的日产油量（吨），日口径＝同井同日各班合计（PROP-BOHAI-007=A），源 oil_production_daily.oil_output，agg 读模型绑定列 agg.fct_daily_metering.oil_output。\n- 窗口：2025-01-01 至 2025-12-31 [2026-01-01 不含端]。\n- 限量：问句显式前 200 行，本次仅封顶到第 200 行，未抬底。后续日期行未在 200 行之内，如需 2025-09-03 的渤西、渤中井行及之后所有日期行，请补充检索或指明起止日期。"}
+
+id: 216
+event: step
+data: {"step": "answer", "seq": 9, "title": "模型调用：answer"}
+
+id: 217
+event: step
+data: {"step": "answer", "seq": 10, "title": "起草答案"}
+
+id: 218
+event: notice
+data: {"type": "unsupported_claim", "gates": [], "content": "核验步改写无据断言 7 行（INV-1——禁止无据断言进答案）"}
+
+id: 219
+event: verdict
+data: {"supported": 200, "rewritten": 7, "split": 0, "cited": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200], "attribution": true, "subtype": "verify"}
+
+id: 220
+event: step
+data: {"step": "verify", "seq": 11, "title": "核验：支撑 200｜改写 7｜分源 否"}
+
+id: 221
+event: citation
+data: {"index": 1, "source": "agg.fct_daily_metering", "source_id": "N-01@2025-09-01", "trust": "authoritative"}
+
+id: 222
+event: citation
+data: {"index": 2, "source": "agg.fct_daily_metering", "source_id": "N-02@2025-09-01", "trust": "authoritative"}
+
+id: 223
+event: citation
+data: {"index": 3, "source": "agg.fct_daily_metering", "source_id": "N-03@2025-09-01", "trust": "authoritative"}
+
+id: 224
+event: citation
+data: {"index": 4, "source": "agg.fct_daily_metering", "source_id": "N-04@2025-09-01", "trust": "authoritative"}
+
+id: 225
+event: citation
+data: {"index": 5, "source": "agg.fct_daily_metering", "source_id": "N-05@2025-09-01", "trust": "authoritative"}
+
+id: 226
+event: citation
+data: {"index": 6, "source": "agg.fct_daily_metering", "source_id": "N-06@2025-09-01", "trust": "authoritative"}
+
+id: 227
+event: citation
+data: {"index": 7, "source": "agg.fct_daily_metering", "source_id": "N-07@2025-09-01", "trust": "authoritative"}
+
+id: 228
+event: citation
+data: {"index": 8, "source": "agg.fct_daily_metering", "source_id": "N-08@2025-09-01", "trust": "authoritative"}
+
+id: 229
+event: citation
+data: {"index": 9, "source": "agg.fct_daily_metering", "source_id": "N-09@2025-09-01", "trust": "authoritative"}
+
+id: 230
+event: citation
+data: {"index": 10, "source": "agg.fct_daily_metering", "source_id": "N-10@2025-09-01", "trust": "authoritative"}
+
+id: 231
+event: citation
+data: {"index": 11, "source": "agg.fct_daily_metering", "source_id": "N-11@2025-09-01", "trust": "authoritative"}
+
+id: 232
+event: citation
+data: {"index": 12, "source": "agg.fct_daily_metering", "source_id": "N-12@2025-09-01", "trust": "authoritative"}
+
+id: 233
+event: citation
+data: {"index": 13, "source": "agg.fct_daily_metering", "source_id": "N-13@2025-09-01", "trust": "authoritative"}
+
+id: 234
+event: citation
+data: {"index": 14, "source": "agg.fct_daily_metering", "source_id": "N-14@2025-09-01", "trust": "authoritative"}
+
+id: 235
+event: citation
+data: {"index": 15, "source": "agg.fct_daily_metering", "source_id": "N-15@2025-09-01", "trust": "authoritative"}
+
+id: 236
+event: citation
+data: {"index": 16, "source": "agg.fct_daily_metering", "source_id": "N-16@2025-09-01", "trust": "authoritative"}
+
+id: 237
+event: citation
+data: {"index": 17, "source": "agg.fct_daily_metering", "source_id": "N-17@2025-09-01", "trust": "authoritative"}
+
+id: 238
+event: citation
+data: {"index": 18, "source": "agg.fct_daily_metering", "source_id": "N-18@2025-09-01", "trust": "authoritative"}
+
+id: 239
+event: citation
+data: {"index": 19, "source": "agg.fct_daily_metering", "source_id": "N-19@2025-09-01", "trust": "authoritative"}
+
+id: 240
+event: citation
+data: {"index": 20, "source": "agg.fct_daily_metering", "source_id": "N-20@2025-09-01", "trust": "authoritative"}
+
+id: 241
+event: citation
+data: {"index": 21, "source": "agg.fct_daily_metering", "source_id": "N-21@2025-09-01", "trust": "authoritative"}
+
+id: 242
+event: citation
+data: {"index": 22, "source": "agg.fct_daily_metering", "source_id": "N-22@2025-09-01", "trust": "authoritative"}
+
+id: 243
+event: citation
+data: {"index": 23, "source": "agg.fct_daily_metering", "source_id": "N-23@2025-09-01", "trust": "authoritative"}
+
+id: 244
+event: citation
+data: {"index": 24, "source": "agg.fct_daily_metering", "source_id": "N-24@2025-09-01", "trust": "authoritative"}
+
+id: 245
+event: citation
+data: {"index": 25, "source": "agg.fct_daily_metering", "source_id": "N-25@2025-09-01", "trust": "authoritative"}
+
+id: 246
+event: citation
+data: {"index": 26, "source": "agg.fct_daily_metering", "source_id": "N-26@2025-09-01", "trust": "authoritative"}
+
+id: 247
+event: citation
+data: {"index": 27, "source": "agg.fct_daily_metering", "source_id": "N-27@2025-09-01", "trust": "authoritative"}
+
+id: 248
+event: citation
+data: {"index": 28, "source": "agg.fct_daily_metering", "source_id": "X-01@2025-09-01", "trust": "authoritative"}
+
+id: 249
+event: citation
+data: {"index": 29, "source": "agg.fct_daily_metering", "source_id": "X-02@2025-09-01", "trust": "authoritative"}
+
+id: 250
+event: citation
+data: {"index": 30, "source": "agg.fct_daily_metering", "source_id": "X-03@2025-09-01", "trust": "authoritative"}
+
+id: 251
+event: citation
+data: {"index": 31, "source": "agg.fct_daily_metering", "source_id": "X-04@2025-09-01", "trust": "authoritative"}
+
+id: 252
+event: citation
+data: {"index": 32, "source": "agg.fct_daily_metering", "source_id": "X-05@2025-09-01", "trust": "authoritative"}
+
+id: 253
+event: citation
+data: {"index": 33, "source": "agg.fct_daily_metering", "source_id": "X-06@2025-09-01", "trust": "authoritative"}
+
+id: 254
+event: citation
+data: {"index": 34, "source": "agg.fct_daily_metering", "source_id": "X-07@2025-09-01", "trust": "authoritative"}
+
+id: 255
+event: citation
+data: {"index": 35, "source": "agg.fct_daily_metering", "source_id": "X-08@2025-09-01", "trust": "authoritative"}
+
+id: 256
+event: citation
+data: {"index": 36, "source": "agg.fct_daily_metering", "source_id": "X-09@2025-09-01", "trust": "authoritative"}
+
+id: 257
+event: citation
+data: {"index": 37, "source": "agg.fct_daily_metering", "source_id": "X-10@2025-09-01", "trust": "authoritative"}
+
+id: 258
+event: citation
+data: {"index": 38, "source": "agg.fct_daily_metering", "source_id": "X-11@2025-09-01", "trust": "authoritative"}
+
+id: 259
+event: citation
+data: {"index": 39, "source": "agg.fct_daily_metering", "source_id": "X-12@2025-09-01", "trust": "authoritative"}
+
+id: 260
+event: citation
+data: {"index": 40, "source": "agg.fct_daily_metering", "source_id": "X-13@2025-09-01", "trust": "authoritative"}
+
+id: 261
+event: citation
+data: {"index": 41, "source": "agg.fct_daily_metering", "source_id": "X-14@2025-09-01", "trust": "authoritative"}
+
+id: 262
+event: citation
+data: {"index": 42, "source": "agg.fct_daily_metering", "source_id": "X-15@2025-09-01", "trust": "authoritative"}
+
+id: 263
+event: citation
+data: {"index": 43, "source": "agg.fct_daily_metering", "source_id": "X-16@2025-09-01", "trust": "authoritative"}
+
+id: 264
+event: citation
+data: {"index": 44, "source": "agg.fct_daily_metering", "source_id": "X-17@2025-09-01", "trust": "authoritative"}
+
+id: 265
+event: citation
+data: {"index": 45, "source": "agg.fct_daily_metering", "source_id": "X-18@2025-09-01", "trust": "authoritative"}
+
+id: 266
+event: citation
+data: {"index": 46, "source": "agg.fct_daily_metering", "source_id": "X-19@2025-09-01", "trust": "authoritative"}
+
+id: 267
+event: citation
+data: {"index": 47, "source": "agg.fct_daily_metering", "source_id": "X-20@2025-09-01", "trust": "authoritative"}
+
+id: 268
+event: citation
+data: {"index": 48, "source": "agg.fct_daily_metering", "source_id": "X-21@2025-09-01", "trust": "authoritative"}
+
+id: 269
+event: citation
+data: {"index": 49, "source": "agg.fct_daily_metering", "source_id": "X-22@2025-09-01", "trust": "authoritative"}
+
+id: 270
+event: citation
+data: {"index": 50, "source": "agg.fct_daily_metering", "source_id": "X-23@2025-09-01", "trust": "authoritative"}
+
+id: 271
+event: citation
+data: {"index": 51, "source": "agg.fct_daily_metering", "source_id": "X-24@2025-09-01", "trust": "authoritative"}
+
+id: 272
+event: citation
+data: {"index": 52, "source": "agg.fct_daily_metering", "source_id": "X-25@2025-09-01", "trust": "authoritative"}
+
+id: 273
+event: citation
+data: {"index": 53, "source": "agg.fct_daily_metering", "source_id": "Z-01@2025-09-01", "trust": "authoritative"}
+
+id: 274
+event: citation
+data: {"index": 54, "source": "agg.fct_daily_metering", "source_id": "Z-02@2025-09-01", "trust": "authoritative"}
+
+id: 275
+event: citation
+data: {"index": 55, "source": "agg.fct_daily_metering", "source_id": "Z-03@2025-09-01", "trust": "authoritative"}
+
+id: 276
+event: citation
+data: {"index": 56, "source": "agg.fct_daily_metering", "source_id": "Z-04@2025-09-01", "trust": "authoritative"}
+
+id: 277
+event: citation
+data: {"index": 57, "source": "agg.fct_daily_metering", "source_id": "Z-05@2025-09-01", "trust": "authoritative"}
+
+id: 278
+event: citation
+data: {"index": 58, "source": "agg.fct_daily_metering", "source_id": "Z-06@2025-09-01", "trust": "authoritative"}
+
+id: 279
+event: citation
+data: {"index": 59, "source": "agg.fct_daily_metering", "source_id": "Z-07@2025-09-01", "trust": "authoritative"}
+
+id: 280
+event: citation
+data: {"index": 60, "source": "agg.fct_daily_metering", "source_id": "Z-08@2025-09-01", "trust": "authoritative"}
+
+id: 281
+event: citation
+data: {"index": 61, "source": "agg.fct_daily_metering", "source_id": "Z-09@2025-09-01", "trust": "authoritative"}
+
+id: 282
+event: citation
+data: {"index": 62, "source": "agg.fct_daily_metering", "source_id": "Z-10@2025-09-01", "trust": "authoritative"}
+
+id: 283
+event: citation
+data: {"index": 63, "source": "agg.fct_daily_metering", "source_id": "Z-11@2025-09-01", "trust": "authoritative"}
+
+id: 284
+event: citation
+data: {"index": 64, "source": "agg.fct_daily_metering", "source_id": "Z-12@2025-09-01", "trust": "authoritative"}
+
+id: 285
+event: citation
+data: {"index": 65, "source": "agg.fct_daily_metering", "source_id": "Z-13@2025-09-01", "trust": "authoritative"}
+
+id: 286
+event: citation
+data: {"index": 66, "source": "agg.fct_daily_metering", "source_id": "Z-14@2025-09-01", "trust": "authoritative"}
+
+id: 287
+event: citation
+data: {"index": 67, "source": "agg.fct_daily_metering", "source_id": "Z-15@2025-09-01", "trust": "authoritative"}
+
+id: 288
+event: citation
+data: {"index": 68, "source": "agg.fct_daily_metering", "source_id": "Z-16@2025-09-01", "trust": "authoritative"}
+
+id: 289
+event: citation
+data: {"index": 69, "source": "agg.fct_daily_metering", "source_id": "Z-17@2025-09-01", "trust": "authoritative"}
+
+id: 290
+event: citation
+data: {"index": 70, "source": "agg.fct_daily_metering", "source_id": "Z-18@2025-09-01", "trust": "authoritative"}
+
+id: 291
+event: citation
+data: {"index": 71, "source": "agg.fct_daily_metering", "source_id": "Z-19@2025-09-01", "trust": "authoritative"}
+
+id: 292
+event: citation
+data: {"index": 72, "source": "agg.fct_daily_metering", "source_id": "Z-20@2025-09-01", "trust": "authoritative"}
+
+id: 293
+event: citation
+data: {"index": 73, "source": "agg.fct_daily_metering", "source_id": "Z-21@2025-09-01", "trust": "authoritative"}
+
+id: 294
+event: citation
+data: {"index": 74, "source": "agg.fct_daily_metering", "source_id": "Z-22@2025-09-01", "trust": "authoritative"}
+
+id: 295
+event: citation
+data: {"index": 75, "source": "agg.fct_daily_metering", "source_id": "Z-23@2025-09-01", "trust": "authoritative"}
+
+id: 296
+event: citation
+data: {"index": 76, "source": "agg.fct_daily_metering", "source_id": "Z-24@2025-09-01", "trust": "authoritative"}
+
+id: 297
+event: citation
+data: {"index": 77, "source": "agg.fct_daily_metering", "source_id": "Z-25@2025-09-01", "trust": "authoritative"}
+
+id: 298
+event: citation
+data: {"index": 78, "source": "agg.fct_daily_metering", "source_id": "Z-26@2025-09-01", "trust": "authoritative"}
+
+id: 299
+event: citation
+data: {"index": 79, "source": "agg.fct_daily_metering", "source_id": "Z-27@2025-09-01", "trust": "authoritative"}
+
+id: 300
+event: citation
+data: {"index": 80, "source": "agg.fct_daily_metering", "source_id": "Z-28@2025-09-01", "trust": "authoritative"}
+
+id: 301
+event: citation
+data: {"index": 81, "source": "agg.fct_daily_metering", "source_id": "Z-29@2025-09-01", "trust": "authoritative"}
+
+id: 302
+event: citation
+data: {"index": 82, "source": "agg.fct_daily_metering", "source_id": "Z-30@2025-09-01", "trust": "authoritative"}
+
+id: 303
+event: citation
+data: {"index": 83, "source": "agg.fct_daily_metering", "source_id": "Z-31@2025-09-01", "trust": "authoritative"}
+
+id: 304
+event: citation
+data: {"index": 84, "source": "agg.fct_daily_metering", "source_id": "Z-32@2025-09-01", "trust": "authoritative"}
+
+id: 305
+event: citation
+data: {"index": 85, "source": "agg.fct_daily_metering", "source_id": "Z-33@2025-09-01", "trust": "authoritative"}
+
+id: 306
+event: citation
+data: {"index": 86, "source": "agg.fct_daily_metering", "source_id": "Z-34@2025-09-01", "trust": "authoritative"}
+
+id: 307
+event: citation
+data: {"index": 87, "source": "agg.fct_daily_metering", "source_id": "N-01@2025-09-02", "trust": "authoritative"}
+
+id: 308
+event: citation
+data: {"index": 88, "source": "agg.fct_daily_metering", "source_id": "N-02@2025-09-02", "trust": "authoritative"}
+
+id: 309
+event: citation
+data: {"index": 89, "source": "agg.fct_daily_metering", "source_id": "N-03@2025-09-02", "trust": "authoritative"}
+
+id: 310
+event: citation
+data: {"index": 90, "source": "agg.fct_daily_metering", "source_id": "N-04@2025-09-02", "trust": "authoritative"}
+
+id: 311
+event: citation
+data: {"index": 91, "source": "agg.fct_daily_metering", "source_id": "N-05@2025-09-02", "trust": "authoritative"}
+
+id: 312
+event: citation
+data: {"index": 92, "source": "agg.fct_daily_metering", "source_id": "N-06@2025-09-02", "trust": "authoritative"}
+
+id: 313
+event: citation
+data: {"index": 93, "source": "agg.fct_daily_metering", "source_id": "N-07@2025-09-02", "trust": "authoritative"}
+
+id: 314
+event: citation
+data: {"index": 94, "source": "agg.fct_daily_metering", "source_id": "N-08@2025-09-02", "trust": "authoritative"}
+
+id: 315
+event: citation
+data: {"index": 95, "source": "agg.fct_daily_metering", "source_id": "N-09@2025-09-02", "trust": "authoritative"}
+
+id: 316
+event: citation
+data: {"index": 96, "source": "agg.fct_daily_metering", "source_id": "N-10@2025-09-02", "trust": "authoritative"}
+
+id: 317
+event: citation
+data: {"index": 97, "source": "agg.fct_daily_metering", "source_id": "N-11@2025-09-02", "trust": "authoritative"}
+
+id: 318
+event: citation
+data: {"index": 98, "source": "agg.fct_daily_metering", "source_id": "N-12@2025-09-02", "trust": "authoritative"}
+
+id: 319
+event: citation
+data: {"index": 99, "source": "agg.fct_daily_metering", "source_id": "N-13@2025-09-02", "trust": "authoritative"}
+
+id: 320
+event: citation
+data: {"index": 100, "source": "agg.fct_daily_metering", "source_id": "N-14@2025-09-02", "trust": "authoritative"}
+
+id: 321
+event: citation
+data: {"index": 101, "source": "agg.fct_daily_metering", "source_id": "N-15@2025-09-02", "trust": "authoritative"}
+
+id: 322
+event: citation
+data: {"index": 102, "source": "agg.fct_daily_metering", "source_id": "N-16@2025-09-02", "trust": "authoritative"}
+
+id: 323
+event: citation
+data: {"index": 103, "source": "agg.fct_daily_metering", "source_id": "N-17@2025-09-02", "trust": "authoritative"}
+
+id: 324
+event: citation
+data: {"index": 104, "source": "agg.fct_daily_metering", "source_id": "N-18@2025-09-02", "trust": "authoritative"}
+
+id: 325
+event: citation
+data: {"index": 105, "source": "agg.fct_daily_metering", "source_id": "N-19@2025-09-02", "trust": "authoritative"}
+
+id: 326
+event: citation
+data: {"index": 106, "source": "agg.fct_daily_metering", "source_id": "N-20@2025-09-02", "trust": "authoritative"}
+
+id: 327
+event: citation
+data: {"index": 107, "source": "agg.fct_daily_metering", "source_id": "N-21@2025-09-02", "trust": "authoritative"}
+
+id: 328
+event: citation
+data: {"index": 108, "source": "agg.fct_daily_metering", "source_id": "N-22@2025-09-02", "trust": "authoritative"}
+
+id: 329
+event: citation
+data: {"index": 109, "source": "agg.fct_daily_metering", "source_id": "N-23@2025-09-02", "trust": "authoritative"}
+
+id: 330
+event: citation
+data: {"index": 110, "source": "agg.fct_daily_metering", "source_id": "N-24@2025-09-02", "trust": "authoritative"}
+
+id: 331
+event: citation
+data: {"index": 111, "source": "agg.fct_daily_metering", "source_id": "N-25@2025-09-02", "trust": "authoritative"}
+
+id: 332
+event: citation
+data: {"index": 112, "source": "agg.fct_daily_metering", "source_id": "N-26@2025-09-02", "trust": "authoritative"}
+
+id: 333
+event: citation
+data: {"index": 113, "source": "agg.fct_daily_metering", "source_id": "N-27@2025-09-02", "trust": "authoritative"}
+
+id: 334
+event: citation
+data: {"index": 114, "source": "agg.fct_daily_metering", "source_id": "X-01@2025-09-02", "trust": "authoritative"}
+
+id: 335
+event: citation
+data: {"index": 115, "source": "agg.fct_daily_metering", "source_id": "X-02@2025-09-02", "trust": "authoritative"}
+
+id: 336
+event: citation
+data: {"index": 116, "source": "agg.fct_daily_metering", "source_id": "X-03@2025-09-02", "trust": "authoritative"}
+
+id: 337
+event: citation
+data: {"index": 117, "source": "agg.fct_daily_metering", "source_id": "X-04@2025-09-02", "trust": "authoritative"}
+
+id: 338
+event: citation
+data: {"index": 118, "source": "agg.fct_daily_metering", "source_id": "X-05@2025-09-02", "trust": "authoritative"}
+
+id: 339
+event: citation
+data: {"index": 119, "source": "agg.fct_daily_metering", "source_id": "X-06@2025-09-02", "trust": "authoritative"}
+
+id: 340
+event: citation
+data: {"index": 120, "source": "agg.fct_daily_metering", "source_id": "X-07@2025-09-02", "trust": "authoritative"}
+
+id: 341
+event: citation
+data: {"index": 121, "source": "agg.fct_daily_metering", "source_id": "X-08@2025-09-02", "trust": "authoritative"}
+
+id: 342
+event: citation
+data: {"index": 122, "source": "agg.fct_daily_metering", "source_id": "X-09@2025-09-02", "trust": "authoritative"}
+
+id: 343
+event: citation
+data: {"index": 123, "source": "agg.fct_daily_metering", "source_id": "X-10@2025-09-02", "trust": "authoritative"}
+
+id: 344
+event: citation
+data: {"index": 124, "source": "agg.fct_daily_metering", "source_id": "X-11@2025-09-02", "trust": "authoritative"}
+
+id: 345
+event: citation
+data: {"index": 125, "source": "agg.fct_daily_metering", "source_id": "X-12@2025-09-02", "trust": "authoritative"}
+
+id: 346
+event: citation
+data: {"index": 126, "source": "agg.fct_daily_metering", "source_id": "X-13@2025-09-02", "trust": "authoritative"}
+
+id: 347
+event: citation
+data: {"index": 127, "source": "agg.fct_daily_metering", "source_id": "X-14@2025-09-02", "trust": "authoritative"}
+
+id: 348
+event: citation
+data: {"index": 128, "source": "agg.fct_daily_metering", "source_id": "X-15@2025-09-02", "trust": "authoritative"}
+
+id: 349
+event: citation
+data: {"index": 129, "source": "agg.fct_daily_metering", "source_id": "X-16@2025-09-02", "trust": "authoritative"}
+
+id: 350
+event: citation
+data: {"index": 130, "source": "agg.fct_daily_metering", "source_id": "X-17@2025-09-02", "trust": "authoritative"}
+
+id: 351
+event: citation
+data: {"index": 131, "source": "agg.fct_daily_metering", "source_id": "X-18@2025-09-02", "trust": "authoritative"}
+
+id: 352
+event: citation
+data: {"index": 132, "source": "agg.fct_daily_metering", "source_id": "X-19@2025-09-02", "trust": "authoritative"}
+
+id: 353
+event: citation
+data: {"index": 133, "source": "agg.fct_daily_metering", "source_id": "X-20@2025-09-02", "trust": "authoritative"}
+
+id: 354
+event: citation
+data: {"index": 134, "source": "agg.fct_daily_metering", "source_id": "X-21@2025-09-02", "trust": "authoritative"}
+
+id: 355
+event: citation
+data: {"index": 135, "source": "agg.fct_daily_metering", "source_id": "X-22@2025-09-02", "trust": "authoritative"}
+
+id: 356
+event: citation
+data: {"index": 136, "source": "agg.fct_daily_metering", "source_id": "X-23@2025-09-02", "trust": "authoritative"}
+
+id: 357
+event: citation
+data: {"index": 137, "source": "agg.fct_daily_metering", "source_id": "X-24@2025-09-02", "trust": "authoritative"}
+
+id: 358
+event: citation
+data: {"index": 138, "source": "agg.fct_daily_metering", "source_id": "X-25@2025-09-02", "trust": "authoritative"}
+
+id: 359
+event: citation
+data: {"index": 139, "source": "agg.fct_daily_metering", "source_id": "Z-01@2025-09-02", "trust": "authoritative"}
+
+id: 360
+event: citation
+data: {"index": 140, "source": "agg.fct_daily_metering", "source_id": "Z-02@2025-09-02", "trust": "authoritative"}
+
+id: 361
+event: citation
+data: {"index": 141, "source": "agg.fct_daily_metering", "source_id": "Z-03@2025-09-02", "trust": "authoritative"}
+
+id: 362
+event: citation
+data: {"index": 142, "source": "agg.fct_daily_metering", "source_id": "Z-04@2025-09-02", "trust": "authoritative"}
+
+id: 363
+event: citation
+data: {"index": 143, "source": "agg.fct_daily_metering", "source_id": "Z-05@2025-09-02", "trust": "authoritative"}
+
+id: 364
+event: citation
+data: {"index": 144, "source": "agg.fct_daily_metering", "source_id": "Z-06@2025-09-02", "trust": "authoritative"}
+
+id: 365
+event: citation
+data: {"index": 145, "source": "agg.fct_daily_metering", "source_id": "Z-07@2025-09-02", "trust": "authoritative"}
+
+id: 366
+event: citation
+data: {"index": 146, "source": "agg.fct_daily_metering", "source_id": "Z-08@2025-09-02", "trust": "authoritative"}
+
+id: 367
+event: citation
+data: {"index": 147, "source": "agg.fct_daily_metering", "source_id": "Z-09@2025-09-02", "trust": "authoritative"}
+
+id: 368
+event: citation
+data: {"index": 148, "source": "agg.fct_daily_metering", "source_id": "Z-10@2025-09-02", "trust": "authoritative"}
+
+id: 369
+event: citation
+data: {"index": 149, "source": "agg.fct_daily_metering", "source_id": "Z-11@2025-09-02", "trust": "authoritative"}
+
+id: 370
+event: citation
+data: {"index": 150, "source": "agg.fct_daily_metering", "source_id": "Z-12@2025-09-02", "trust": "authoritative"}
+
+id: 371
+event: citation
+data: {"index": 151, "source": "agg.fct_daily_metering", "source_id": "Z-13@2025-09-02", "trust": "authoritative"}
+
+id: 372
+event: citation
+data: {"index": 152, "source": "agg.fct_daily_metering", "source_id": "Z-14@2025-09-02", "trust": "authoritative"}
+
+id: 373
+event: citation
+data: {"index": 153, "source": "agg.fct_daily_metering", "source_id": "Z-15@2025-09-02", "trust": "authoritative"}
+
+id: 374
+event: citation
+data: {"index": 154, "source": "agg.fct_daily_metering", "source_id": "Z-16@2025-09-02", "trust": "authoritative"}
+
+id: 375
+event: citation
+data: {"index": 155, "source": "agg.fct_daily_metering", "source_id": "Z-17@2025-09-02", "trust": "authoritative"}
+
+id: 376
+event: citation
+data: {"index": 156, "source": "agg.fct_daily_metering", "source_id": "Z-18@2025-09-02", "trust": "authoritative"}
+
+id: 377
+event: citation
+data: {"index": 157, "source": "agg.fct_daily_metering", "source_id": "Z-19@2025-09-02", "trust": "authoritative"}
+
+id: 378
+event: citation
+data: {"index": 158, "source": "agg.fct_daily_metering", "source_id": "Z-20@2025-09-02", "trust": "authoritative"}
+
+id: 379
+event: citation
+data: {"index": 159, "source": "agg.fct_daily_metering", "source_id": "Z-21@2025-09-02", "trust": "authoritative"}
+
+id: 380
+event: citation
+data: {"index": 160, "source": "agg.fct_daily_metering", "source_id": "Z-22@2025-09-02", "trust": "authoritative"}
+
+id: 381
+event: citation
+data: {"index": 161, "source": "agg.fct_daily_metering", "source_id": "Z-23@2025-09-02", "trust": "authoritative"}
+
+id: 382
+event: citation
+data: {"index": 162, "source": "agg.fct_daily_metering", "source_id": "Z-24@2025-09-02", "trust": "authoritative"}
+
+id: 383
+event: citation
+data: {"index": 163, "source": "agg.fct_daily_metering", "source_id": "Z-25@2025-09-02", "trust": "authoritative"}
+
+id: 384
+event: citation
+data: {"index": 164, "source": "agg.fct_daily_metering", "source_id": "Z-26@2025-09-02", "trust": "authoritative"}
+
+id: 385
+event: citation
+data: {"index": 165, "source": "agg.fct_daily_metering", "source_id": "Z-27@2025-09-02", "trust": "authoritative"}
+
+id: 386
+event: citation
+data: {"index": 166, "source": "agg.fct_daily_metering", "source_id": "Z-28@2025-09-02", "trust": "authoritative"}
+
+id: 387
+event: citation
+data: {"index": 167, "source": "agg.fct_daily_metering", "source_id": "Z-29@2025-09-02", "trust": "authoritative"}
+
+id: 388
+event: citation
+data: {"index": 168, "source": "agg.fct_daily_metering", "source_id": "Z-30@2025-09-02", "trust": "authoritative"}
+
+id: 389
+event: citation
+data: {"index": 169, "source": "agg.fct_daily_metering", "source_id": "Z-31@2025-09-02", "trust": "authoritative"}
+
+id: 390
+event: citation
+data: {"index": 170, "source": "agg.fct_daily_metering", "source_id": "Z-32@2025-09-02", "trust": "authoritative"}
+
+id: 391
+event: citation
+data: {"index": 171, "source": "agg.fct_daily_metering", "source_id": "Z-33@2025-09-02", "trust": "authoritative"}
+
+id: 392
+event: citation
+data: {"index": 172, "source": "agg.fct_daily_metering", "source_id": "Z-34@2025-09-02", "trust": "authoritative"}
+
+id: 393
+event: citation
+data: {"index": 173, "source": "agg.fct_daily_metering", "source_id": "N-01@2025-09-03", "trust": "authoritative"}
+
+id: 394
+event: citation
+data: {"index": 174, "source": "agg.fct_daily_metering", "source_id": "N-02@2025-09-03", "trust": "authoritative"}
+
+id: 395
+event: citation
+data: {"index": 175, "source": "agg.fct_daily_metering", "source_id": "N-03@2025-09-03", "trust": "authoritative"}
+
+id: 396
+event: citation
+data: {"index": 176, "source": "agg.fct_daily_metering", "source_id": "N-04@2025-09-03", "trust": "authoritative"}
+
+id: 397
+event: citation
+data: {"index": 177, "source": "agg.fct_daily_metering", "source_id": "N-05@2025-09-03", "trust": "authoritative"}
+
+id: 398
+event: citation
+data: {"index": 178, "source": "agg.fct_daily_metering", "source_id": "N-06@2025-09-03", "trust": "authoritative"}
+
+id: 399
+event: citation
+data: {"index": 179, "source": "agg.fct_daily_metering", "source_id": "N-07@2025-09-03", "trust": "authoritative"}
+
+id: 400
+event: citation
+data: {"index": 180, "source": "agg.fct_daily_metering", "source_id": "N-08@2025-09-03", "trust": "authoritative"}
+
+id: 401
+event: citation
+data: {"index": 181, "source": "agg.fct_daily_metering", "source_id": "N-09@2025-09-03", "trust": "authoritative"}
+
+id: 402
+event: citation
+data: {"index": 182, "source": "agg.fct_daily_metering", "source_id": "N-10@2025-09-03", "trust": "authoritative"}
+
+id: 403
+event: citation
+data: {"index": 183, "source": "agg.fct_daily_metering", "source_id": "N-11@2025-09-03", "trust": "authoritative"}
+
+id: 404
+event: citation
+data: {"index": 184, "source": "agg.fct_daily_metering", "source_id": "N-12@2025-09-03", "trust": "authoritative"}
+
+id: 405
+event: citation
+data: {"index": 185, "source": "agg.fct_daily_metering", "source_id": "N-13@2025-09-03", "trust": "authoritative"}
+
+id: 406
+event: citation
+data: {"index": 186, "source": "agg.fct_daily_metering", "source_id": "N-14@2025-09-03", "trust": "authoritative"}
+
+id: 407
+event: citation
+data: {"index": 187, "source": "agg.fct_daily_metering", "source_id": "N-15@2025-09-03", "trust": "authoritative"}
+
+id: 408
+event: citation
+data: {"index": 188, "source": "agg.fct_daily_metering", "source_id": "N-16@2025-09-03", "trust": "authoritative"}
+
+id: 409
+event: citation
+data: {"index": 189, "source": "agg.fct_daily_metering", "source_id": "N-17@2025-09-03", "trust": "authoritative"}
+
+id: 410
+event: citation
+data: {"index": 190, "source": "agg.fct_daily_metering", "source_id": "N-18@2025-09-03", "trust": "authoritative"}
+
+id: 411
+event: citation
+data: {"index": 191, "source": "agg.fct_daily_metering", "source_id": "N-19@2025-09-03", "trust": "authoritative"}
+
+id: 412
+event: citation
+data: {"index": 192, "source": "agg.fct_daily_metering", "source_id": "N-20@2025-09-03", "trust": "authoritative"}
+
+id: 413
+event: citation
+data: {"index": 193, "source": "agg.fct_daily_metering", "source_id": "N-21@2025-09-03", "trust": "authoritative"}
+
+id: 414
+event: citation
+data: {"index": 194, "source": "agg.fct_daily_metering", "source_id": "N-22@2025-09-03", "trust": "authoritative"}
+
+id: 415
+event: citation
+data: {"index": 195, "source": "agg.fct_daily_metering", "source_id": "N-23@2025-09-03", "trust": "authoritative"}
+
+id: 416
+event: citation
+data: {"index": 196, "source": "agg.fct_daily_metering", "source_id": "N-24@2025-09-03", "trust": "authoritative"}
+
+id: 417
+event: citation
+data: {"index": 197, "source": "agg.fct_daily_metering", "source_id": "N-25@2025-09-03", "trust": "authoritative"}
+
+id: 418
+event: citation
+data: {"index": 198, "source": "agg.fct_daily_metering", "source_id": "N-26@2025-09-03", "trust": "authoritative"}
+
+id: 419
+event: citation
+data: {"index": 199, "source": "agg.fct_daily_metering", "source_id": "N-27@2025-09-03", "trust": "authoritative"}
+
+id: 420
+event: citation
+data: {"index": 200, "source": "agg.fct_daily_metering", "source_id": "X-01@2025-09-03", "trust": "authoritative"}
+
+id: 421
+event: step
+data: {"step": "answer", "seq": 12, "title": "答案收口"}
+
+id: 422
+event: verdict
+data: {"status": "completed", "run_id": "run-561d5d00", "manifest_digest": "dc83d52d4919a278", "subtype": "final"}
+
+id: 423
+event: blackbox
+data: {"run_id": "run-561d5d00", "question": "去年日产油量明细前 200 行", "status": "completed", "error": "", "stored": true, "bytes": 172792, "counts": {"messages": 11, "dialogue": 0, "process_notes": 6, "observations": 201, "steps": 12}}
+
+id: 423
+event: done
+data: {"run_id": "run-561d5d00"}

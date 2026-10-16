@@ -1,0 +1,97 @@
+{
+ "golden_id": "eb1-golden",
+ "created": "2026-10-07",
+ "anchor_date": "2026-10-08",
+ "ticket": "tickets/phase3/L-04-golden首批与跑批脚本.md",
+ "purpose": "问数入口 QueryPlan 意图 golden 首批——回归闸（闸 B 硬闸载体）＋L-02 提示词构建器少样本源（拍板 5：轻量评测不可省）",
+ "semantics_source": "app/domains/chat/domain.py build_query_plan/MEASURE_COLUMNS/DATA_QUESTION_RE 现行确定性语义（本批钉快路可解与触发边界；LLM 路意图标准随 L-03 影子数据滚动补）",
+ "value_source": "标准答案要点数值全部实查 agg（2026-10-07，库＝fieldforge 86 井×365 天 2025-09-01~2026-08-31，水位 2026-08-31；b-8c8cd81fea34 增量批覆 N-01/N-02/Z-01/Z-02 2025-09-01~07 七日）；数值随库变化属预期，人审按「口径＋量级」判",
+ "window_anchor_rule": "相对窗按执行日重锚：anchor_scope=year 的题（去年窗）年内有效；anchor_scope=day 的题（今年/本月/默认窗——上沿或起点随执行日漂移）仅锚定日当日机器判，过期落人审并提示重锚",
+ "machine_judge_fields": [
+  "metric_slot",
+  "window.start",
+  "window.end",
+  "limit_effective",
+  "ranking",
+  "direction"
+ ],
+ "machine_judge_note": "与 L-01 compare_query_plans PLAN_COMPARE_FIELDS 同源口径；window.label/is_default 记注记不判分歧；解析失败落人审列不进机器判绿红；退出码只看机器判（全绿 0/有红 1），答案数值人审不进退出码",
+ "coverage_matrix": {
+  "三指标×快路": 6,
+  "慢路触发": 6,
+  "默认窗": 2,
+  "触发边界": 4,
+  "红例族": 6
+ },
+ "owner_signoff": {
+  "approved": false,
+  "signed_by": "",
+  "signed_at": null,
+  "note": "拍板 5：golden 清单须 Owner 审核签认才算数——签认记 tickets/phase3/reports/L-04.收尾.md"
+ },
+ "questions": [
+  {
+   "qid": "L04-07",
+   "family": "慢路触发",
+   "question": "哪几口井采得最狠？",
+   "source": "方案-LLM问数演进-20261005 §2.2 代表例（不命中 DATA_QUESTION_RE 词面亦无指标词）",
+   "expected_path": "慢路触发",
+   "anchor_scope": "day",
+   "expected_intent": null,
+   "answer_essentials": "现网形态（2026-10-07 探针 P1 实证）：检索问答链如实说明「采得最狠」含义不明且材料未披露——不编数；慢路生效后（L-02/L-05）预期 LLM#plan 填槽出计划，五槽位意图标准随 L-03 影子数据滚动补，本批不钉",
+   "tags": [
+    "词面缺件",
+    "慢路触发",
+    "慢路代表例",
+    "不编数"
+   ]
+  },
+  {
+   "qid": "L04-18",
+   "family": "触发边界",
+   "question": "去年日产油量明细前 200 行",
+   "source": "eval/answers/问数组-题目与答案.md 数-限1 原设计题面（C 族修正说明留档原句）",
+   "expected_path": "快路",
+   "anchor_scope": "year",
+   "expected_intent": {
+    "metric_slot": "日产油量",
+    "window": {
+     "rule": "去年",
+     "start": "2025-01-01",
+     "end": "2026-01-01",
+     "label": "去年",
+     "is_default": false
+    },
+    "limit_requested": 200,
+    "limit_effective": 200,
+    "ranking": true,
+    "direction": "desc"
+   },
+   "answer_essentials": "词面边缘判例：「前 200」∈ _RANKING_RE（前\\s*N）→走排名模板（GROUP BY 井合计降序）而非明细＋LIMIT——明细措辞落排名模板是确定性解析的注册行为（问数组册 C 族 Q3W2 实测登记，行为合规）；86 井＜200→返回 86 行全排名；期望意图照确定性解析语义钉（ranking=true·limit_effective=200）——若模板分派行为变化此处即红",
+   "tags": [
+    "触发边界",
+    "词面边缘",
+    "前N入排名",
+    "排名型",
+    "显式条数"
+   ]
+  },
+  {
+   "qid": "L04-19",
+   "family": "红例族",
+   "question": "今年产量完成率是多少？",
+   "source": "摘编改造——C-正1（产量完成率）×今年词面入链，题册未动",
+   "expected_path": "慢路触发",
+   "anchor_scope": "day",
+   "expected_intent": null,
+   "answer_essentials": "红例·降级解释链（2026-10-07 探针 P7 实证）：★产量完成率在册未绑定 agg 计量列（派生比值不走模板）→降级解释不冒充审定口径＋接续检索（C 册双口径完成率为报告库口径）——须带「非权威数值」标注；零权威数值",
+   "tags": [
+    "降级链",
+    "慢路触发",
+    "完成率",
+    "在册未绑定",
+    "红例"
+   ]
+  }
+ ]
+}
