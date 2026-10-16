@@ -12,6 +12,10 @@
 - **模型调用归因桶闭世界**（`call_model` 的 `caller` 取值域）＋**三桶→步型**分派表——桶真源＝
   `specs/gateway_adapter.md` 行为 5「`caller` 取值来自调用方（三桶族：理解／决策／作答）」；
   步型分派见下（六值闭世界无 understand 型）。
+- **过程档案 digest 写入点上限与截断可见标记**（`note` 的写入面）：上限真源＝
+  `synth/S5-RunState字段矩阵.md` 的 `process_notes` 条目口径（`digest≤200`，真源
+  `arch/P5b2` A-P5b2-03）；截断标记沿用同仓截断单点先例（`persistence.summary` 的
+  `TRUNCATION_MARK`——「截断恒留可见标记、不静默截断」，行为 10 断言「截断可见」）。
 
 不在此处复述的取值（一律引其真源单点）：步类型 `state.STEP_KINDS`、步状态
 `persistence.STEP_STATUS_KINDS`、路由意图 `state.INTENT`、对话层来源
@@ -63,3 +67,12 @@ CALLER_STEP_KINDS: Mapping[str, str] = {
 # `specs/answering.md`：`""`＝待核验草稿、`direct`＝确定性直答——`state` 侧只释义、未供该常量）。
 # 单点落此，不在多处再写一遍（`converge` 与 `direct_answer` 同引这一处）。
 DRAFT_KIND_DIRECT = "direct"
+
+# ── 过程档案 digest 写入点上限＋截断可见标记（行为 10；`note` 写入面）────────────
+# 上限真源＝`synth/S5-RunState字段矩阵.md` 的 `process_notes` 条目口径（`digest≤200`，真源
+# `arch/P5b2` A-P5b2-03）——上限「在写入点」生效：截断只发生在 `bookkeeping.note`，消费侧读到的
+# 已是受控长度。截断**恒留可见标记**（不静默截断），标记**计入上限**（输出 `len ≤ 上限`）——与同仓
+# 截断单点 `persistence.summary` 同口径（该处标注真源 `specs/persistence.md` 行为 13；本块复述其
+# **口径**、不复述其数值，也不引其行为面）。
+NOTE_DIGEST_LIMIT = 200
+TRUNCATION_MARK = "…"

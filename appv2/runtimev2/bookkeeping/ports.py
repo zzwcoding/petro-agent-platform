@@ -11,7 +11,8 @@
 闭世界取值一律**引真源、不复述**（越界一律抛错＝fail-closed，**合法降级路径＝无**）：步类型
 `state.STEP_KINDS`、步状态 `persistence.STEP_STATUS_KINDS`、路由意图 `state.INTENT`、对话层来源
 `state.DIALOGUE_ORIGINS`（＋来源↔角色不变量 `state.DIALOGUE_ORIGIN_ROLES`）、通知类型
-（`transport.NOTICE_TYPES`）、对话链角色与合同追加相位（本块自有，见 `constants`）。
+（`transport.NOTICE_TYPES`）、触界闸名（`state.LIMIT_KINDS`——`LimitHit.limit` 七限额键名）、
+对话链角色与合同追加相位与过程档案上限（本块自有，见 `constants`）。
 
 依赖面（规格「框架与依赖红线」）：本模块（写口面）**运行逻辑只依赖 `state`**；`persistence` 只借
 **类型与常量形状**（不落盘）——本模块不写库、不写文件、不发帧、不调模型、无词表判定。模型出口的
@@ -23,7 +24,12 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any, cast
 
-from appv2.runtimev2.bookkeeping.constants import CONTRACT_PHASES, MESSAGE_ROLES
+from appv2.runtimev2.bookkeeping.constants import (
+    CONTRACT_PHASES,
+    MESSAGE_ROLES,
+    NOTE_DIGEST_LIMIT,
+    TRUNCATION_MARK,
+)
 from appv2.runtimev2.persistence import (
     STEP_STATUS_DEFAULT,
     STEP_STATUS_KINDS,
@@ -33,10 +39,12 @@ from appv2.runtimev2.state import (
     DIALOGUE_ORIGIN_ROLES,
     DIALOGUE_ORIGINS,
     INTENT,
+    LIMIT_KINDS,
     STEP_KINDS,
     Manifest,
     RunState,
 )
+from appv2.runtimev2.transport import NOTICE_TYPES
 
 
 def _joined(values: frozenset[str]) -> str:
@@ -131,14 +139,31 @@ def append_dialogue(state: RunState, *, role: str, content: str, origin: str) ->
     state.dialogue.append({"role": role, "content": content, "origin": origin})
 
 
+def _bounded_digest(digest: str) -> str:
+    """写入点截断（行为 10）：≤ 上限原样；超长 → 切至「上限 − 标记长」＋可见标记。
+
+    **截断只在此处发生**（写入点是唯一边界），消费侧读到的 `digest` 恒 ≤ `NOTE_DIGEST_LIMIT`
+    且截断**可见**（末字为 `TRUNCATION_MARK`）——不静默硬切片（现状 `digest[:200]` 无标记，
+    `recon/B1` D-B1-16）。标记计入上限（输出 `len ≤ 上限`，同 `persistence.summary.clip` 口径）。
+    """
+    if len(digest) <= NOTE_DIGEST_LIMIT:
+        return digest
+    return digest[: NOTE_DIGEST_LIMIT - len(TRUNCATION_MARK)] + TRUNCATION_MARK
+
+
 def note(state: RunState, *, phase: str, title: str, digest: str) -> None:
     """过程档案（`process_notes`）续写唯一入口（行为 10：写入点截断 `digest` ＋只追加）。
 
-    行为体（截断上限引 `synth/S5-RunState字段矩阵.md` 的 `process_notes` 条目口径、既有条目逐字
-    不变）随 `RT-W3-01c-bookkeeping.md` 落地——本票只出签名与公开面；未落地前调用 fail-closed。
+    条目形＝`{phase, title, digest}` 恰三键（现状锚＝`recon/B1` R-B1-24 与 `arch/P5b2`
+    A-P5b2-03，旧码 `_note`）；`digest` 在**写入点**截断至 `NOTE_DIGEST_LIMIT`（上限真源＝
+    `synth/S5` 的 `process_notes` 条目口径，本模块不复述数字）且截断可见（见 `_bounded_digest`）。
+
+    **只追加、不改写既有条目**（同 `_notes_with` 纪律：旧列逐字不动、新条目链尾追加）——本函数
+    不重排、不去重、不按任何语义过滤；`phase` 无闭世界（过程面相位标记由调用方如实给，本块**不猜**、
+    不设词表——行为 18 零判断）。
     """
-    raise NotImplementedError(
-        "bookkeeping.note 的写入点行为随 RT-W3-01c-bookkeeping.md 落地（本票只出签名与公开面）"
+    state.process_notes.append(
+        {"phase": phase, "title": title, "digest": _bounded_digest(digest)}
     )
 
 
@@ -151,13 +176,21 @@ def notice(
 ) -> None:
     """通知（`notices`）追加唯一入口（行为 11：恰三键 `{type, gates, content}`＋只追加）。
 
-    行为体（`type` ∈ `transport.NOTICE_TYPES`、`gates` ⊆ `LimitHit.limit` 七限额键名，越界即拒；
-    缺键／多键判失败）随 `RT-W3-01c-bookkeeping.md` 落地——本票只出签名与公开面；未落地前调用
-    fail-closed。
+    闭世界面（越界一律抛错＝fail-closed，不吞错、不静默降级、不落哨兵）：
+    `type` ∈ `transport.NOTICE_TYPES`（二十九值——真源 `specs/transport.md`，本模块不复述取值）；
+    `gates` ⊆ `state.LIMIT_KINDS`（`LimitHit.limit` 七限额键名——流水 52-B 裁；**逐项**把守，
+    越界项全部列进报错文案）。**恰三键**由签名面即已闭合（`type`／`content` 必给、无第四参——
+    缺键／多键在调用期即拒）。
+
+    **只追加**：既有通知逐字不变；`gates` 落列时**拷贝**（调用方随后改自己的列表不影响已落条目）。
+    参数顺序与语义取自 `state.check_limits` 的 `Convergence.notice`（`converge` 内部落地同形）。
     """
-    raise NotImplementedError(
-        "bookkeeping.notice 的写入点行为随 RT-W3-01c-bookkeeping.md 落地（本票只出签名与公开面）"
-    )
+    if type not in NOTICE_TYPES:
+        raise _reject("通知类型（type）", type, NOTICE_TYPES)
+    outside = [gate for gate in gates if gate not in LIMIT_KINDS]
+    if outside:
+        raise _reject("触界闸名（gates）", outside, LIMIT_KINDS)
+    state.notices.append({"type": type, "gates": list(gates), "content": content})
 
 
 def set_intent(state: RunState, intent: str) -> None:

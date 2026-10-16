@@ -29,6 +29,23 @@
 | 16 | `::direct_answer_three_keys` | 直答旁路恒写三键 |
 | 17 | `::call_model_keeps_accounting` | 调模型单点：只回 `content`，用量/归因落记账 |
 
+`RT-W3-01c` 7 行：第 11、12、18、19、21–23 行（装配与归一＋元面＋【边界集】／【保留集】——本票
+零 pin 行，5 条 pin 行全在 -01a）——
+
+| # | 测试 | 验收标准（规格列原文） |
+|---|---|---|
+| 11 | `::note_bounded_append_only` | 过程档案 `note` 写入点截断且只追加 |
+| 12 | `::notice_three_keys_closed_world` | 通知恰三键＋`type`／`gates` 闭世界 |
+| 19 | `::result_projection_faithful` | 结果投影原样（空值与缺省可区分） |
+| 21 | `::no_judgement_in_bookkeeping` | 本块零判断（AST 扫描） |
+| 23 | `::retention_normal_three_steps` | 【保留集】常规三步流程的记录形状与顺序不变 |
+
+两行为长文（表格超行宽）另记（`#` 与测试标识逐字同规格表）：
+
+- 18｜`::tool_context_assembly`｜工具上下文：身份只从状态取、放行态随上下文、预算按子问题数
+- 22｜`::boundary_empty_huge_converged_enum`｜【边界集】空步列／超长 digest／已收敛再收敛／越界枚举
+  → 各落对应分支
+
 -01a 验收另加三条机检面（票面「验收」节逐条）：公开面 13 成员签名逐字
 （`::public_face_signatures`）、
 AST import 白名单＋无 DB／文件写路径（`::import_whitelist_and_no_disk_paths`）、织网义务 B1 的写口侧
@@ -37,17 +54,20 @@ AST import 白名单＋无 DB／文件写路径（`::import_whitelist_and_no_dis
 织网义务（eng/04 §三 B1 行，明写归本块）：钉法＝「经 checkpoint 快照／帧流钉『每步通道值归一形』」
 ——-01a 落地面＝已落地的写口通道（步记录／序号／对话链／对话层／合同标记／路由意图）；-01b 落地面
 ＝收口簇（`converge` 的六键与材料同源、`direct_answer` 三键、`call_model` 的记账步——收敛答案与
-通知的材料面同源＝B3「触顶收敛落地」半行的 L1 特征钉）；`note`／`notice` 两通道的写入点行为体随
-`RT-W3-01c-bookkeeping.md` 落地，其归一形由该票行 11／12 钉（本件不代钉、不冒充覆盖）。
+通知的材料面同源＝B3「触顶收敛落地」半行的 L1 特征钉）；-01c 落地面＝`note`／`notice` 两通道的
+写入点行为体与其归一形（行 11／12 钉）＋结果归一投影（行 19——B1 钉「结果归一」半边）与工具
+上下文装配（行 18）。
 """
 
 from __future__ import annotations
 
 import ast
 import inspect
+import json
 import sys
+from collections.abc import Mapping
 from copy import deepcopy
-from dataclasses import asdict
+from dataclasses import asdict, fields
 from pathlib import Path
 from typing import Any
 
@@ -61,8 +81,12 @@ from appv2.runtimev2.bookkeeping import (
     converge,
     direct_answer,
     next_seq,
+    note,
+    notice,
     record_step,
+    result_projection,
     set_intent,
+    tool_context,
 )
 from appv2.runtimev2.gateway_adapter import ModelReply, ScriptedCompleter, set_completer
 from appv2.runtimev2.persistence import STEP_STATUS_KINDS, decode_state, encode_state
@@ -79,6 +103,16 @@ from appv2.runtimev2.state import (
     RunState,
 )
 from appv2.runtimev2.transport import NOTICE_TYPES
+from appv2.tools import (
+    AskFrame,
+    Observation,
+    ToolContext,
+    ToolError,
+    ToolRegistry,
+    ToolResult,
+    resolve_send_budget,
+)
+from appv2.tools.fake import FakeKnowledgeStore, FakeQueryEngine, FakeRetrievalEngine
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _V2_DIR = _REPO_ROOT / "appv2" / "runtimev2"
@@ -196,8 +230,11 @@ _PHASE_PACKAGES = (
 # 边界红线（规格「框架与依赖红线」）：import 白名单＝运行逻辑两块＋类型/常量形状三块＋本块自身
 _RUNTIME_BLOCKS = ("appv2.runtimev2.state", "appv2.runtimev2.gateway_adapter")
 _OWN_BLOCK = "appv2.runtimev2.bookkeeping"
+# 三块「形状块」的允许名字：类型／常量面；`appv2.tools` 另含行为 16 点名的**送窗预算公式函数**
+# `resolve_send_budget`（数值与公式真源——规格「不复述数值」故本块只能引它、不能复算；它不是
+# 「工具行为面」：不调工具、不落盘、不发帧，纯算式）。名字集合即白名单（多引一个名字即 FAIL）。
 _SHAPE_BLOCK_NAMES: dict[str, frozenset[str]] = {
-    "appv2.tools": frozenset({"ToolContext", "ToolResult"}),
+    "appv2.tools": frozenset({"ToolContext", "ToolResult", "resolve_send_budget"}),
     "appv2.runtimev2.persistence": frozenset(
         {"StepRecord", "STEP_STATUS_DEFAULT", "STEP_STATUS_KINDS"}
     ),
@@ -825,8 +862,9 @@ def test_import_whitelist_and_no_disk_paths() -> None:
     """边界红线（规格「框架与依赖红线」）：import 只出现五块白名单＋无 DB／文件写路径。
 
     运行逻辑只依赖 `state`／`gateway_adapter`；类型与常量形状另引 `tools`／`persistence`／
-    `transport`（**只许引类型与常量**，不许引其行为）；不落盘（无 DB／文件写路径）。该面无专属闸
-    →降维 AST 断言（规格登记「人审＋AST 断言」）。
+    `transport`（引入名逐个在册，见 `_SHAPE_BLOCK_NAMES`——`tools` 面另含行为 16 点名的送窗预算
+    **公式函数** `resolve_send_budget`：只引不算、本块不复述数值）；不落盘（无 DB／文件写路径）。
+    该面无专属闸→降维 AST 断言（规格登记「人审＋AST 断言」）。
     """
     allowed_blocks = set(_RUNTIME_BLOCKS) | set(_SHAPE_BLOCK_NAMES) | {_OWN_BLOCK}
     modules: set[str] = set()
@@ -1171,3 +1209,653 @@ def test_call_model_keeps_accounting() -> None:
     with pytest.raises(ValueError):
         call_model(state, "summarize", messages)
     assert len(state.steps) == calls_before
+
+
+
+# ══════════ RT-W3-01c：装配与归一＋元面＋边界·保留集（规格表第 11、12、18、19、21–23 行）══════════
+# 本票零 pin 行（5 条 pin 行全在 -01a）——下列用例只填行为体，不改 -01a／-01b 落地的形状（写口九
+# 函数与收敛／收口签名）。
+
+# ── 规格逐字面（独立于实现书写——实现漂移即红）────────────────────────────────────
+# 过程档案条目形（`arch/P5b2` A-P5b2-03 逐字：{phase, title, digest}）；digest 上限真源＝同处
+# 「digest 在写入点截断 ≤200 字」＋ `synth/S5-RunState字段矩阵.md`:33「过程档案（digest≤200）」
+# ——规格「不复述数字」，故该值只钉在测试这一处真源面上。
+_SPEC_NOTE_KEYS = ("phase", "title", "digest")
+_SPEC_NOTE_DIGEST_LIMIT = 200
+# 截断可见标记（行为 10 断言「截断可见」；同仓截断单点先例＝`persistence.summary` 的
+# `TRUNCATION_MARK`「截断恒留可见标记、不静默截断」）。
+_SPEC_TRUNCATION_MARK = "…"
+# 通知恰三键（行为 11 逐字）
+_SPEC_NOTICE_KEYS = ("type", "gates", "content")
+# 工具上下文四字段（`specs/modules.md` `## tools` 卡逐字：actor／budget／metric_candidates／
+# approved_tables）
+_SPEC_TOOL_CONTEXT_FIELDS = ("actor", "budget", "metric_candidates", "approved_tables")
+# 结果投影键面（行为 17「无增删改名」——形状真源 `specs/modules.md` `## tools` 卡）
+_SPEC_RESULT_KEYS = ("status", "observations", "ask", "error")
+
+
+def _state_with_subtasks(count: int) -> RunState:
+    """问题组 fixture（`question_group` 投影形＝`parsing` 的 `QuestionGroup.as_payload()`）。"""
+    return _state(
+        question_group={"subtasks": [{"id": f"s{index}"} for index in range(1, count + 1)]}
+    )
+
+
+# ---------- 11 过程档案 note 写入点截断且只追加 ----------
+
+
+def test_note_bounded_append_only() -> None:
+    """#11 过程档案 `note` 写入点截断且只追加——行为 10（上限真源 `synth/S5`:33／`arch/P5b2`
+    A-P5b2-03，规格不复述数字）。
+
+    三面：① 短摘要逐字照写（条目恰 `{phase, title, digest}` 三键）；② 恰在上限内不截、超长在
+    **写入点**截断（长度受控且**截断可见**——不静默硬切片）；③ 只追加——既有条目逐字不变，快照
+    往返后长度仍受控（写入点是唯一边界，消费侧读到的即受控形）。
+    """
+    from appv2.runtimev2.bookkeeping import constants as block_constants
+
+    # 上限与标记单点（真源在别处、实现侧只许有一处）
+    assert block_constants.NOTE_DIGEST_LIMIT == _SPEC_NOTE_DIGEST_LIMIT
+    assert block_constants.TRUNCATION_MARK == _SPEC_TRUNCATION_MARK
+
+    state = _state()
+    note(state, phase="understand", title="读题", digest="三区装配：台账全量")
+    entry = state.process_notes[-1]
+    assert tuple(entry) == _SPEC_NOTE_KEYS
+    assert entry == {"phase": "understand", "title": "读题", "digest": "三区装配：台账全量"}
+    first = deepcopy(entry)
+
+    # 恰在上限内：原样（不截、无标记）
+    exact = "字" * _SPEC_NOTE_DIGEST_LIMIT
+    note(state, phase="tool", title="doc_retrieve：ok", digest=exact)
+    assert state.process_notes[-1]["digest"] == exact
+
+    # 超长：写入点截断——长度受控、截断可见、内容仍是原文前缀（零改写）
+    huge = "长" * (_SPEC_NOTE_DIGEST_LIMIT * 3)
+    note(state, phase="tool", title="doc_retrieve：ok", digest=huge)
+    recorded = state.process_notes[-1]["digest"]
+    assert len(recorded) <= _SPEC_NOTE_DIGEST_LIMIT < len(huge)
+    assert recorded.endswith(_SPEC_TRUNCATION_MARK)  # 截断可见（非静默硬切片）
+    assert recorded[: -len(_SPEC_TRUNCATION_MARK)] == huge[: len(recorded) - 1]  # 原文前缀
+    assert state.process_notes[0] == first  # 既有条目逐字不变
+
+    # 只追加：条目数＝调用次数、旧条目逐字
+    snapshot = deepcopy(state.process_notes)
+    for index in range(3):
+        note(state, phase="tool", title=f"台账 {index}", digest="一行")
+    assert len(state.process_notes) == len(snapshot) + 3
+    assert state.process_notes[: len(snapshot)] == snapshot
+    assert all(tuple(item) == _SPEC_NOTE_KEYS for item in state.process_notes)
+
+    # 快照往返：条目形与长度受控形逐字不变（写入点归一）
+    restored = decode_state(encode_state(state))
+    assert restored.process_notes == state.process_notes
+    assert len(restored.process_notes[-1]["digest"]) <= _SPEC_NOTE_DIGEST_LIMIT
+
+
+# ---------- 12 通知恰三键＋type／gates 闭世界 ----------
+
+
+def test_notice_three_keys_closed_world() -> None:
+    """#12 通知恰三键＋`type`／`gates` 闭世界——行为 11（`type` 真源 `transport.NOTICE_TYPES`；
+    `gates` 真源 `state.LIMIT_KINDS` 七限额键名——流水 52-B）。
+
+    四面：① 闭世界内取值（`type` 二十九值逐个、`gates` 七键子集）合法且落**恰三键**；② 缺键／多键
+    在调用期即拒（签名面闭合）；③ 越界即拒（`type`／`gates` 双闭世界，零落地）；④ 只追加——通知列
+    只增不减、既有条目逐字不变、`gates` 落列取拷贝（调用方改自己的列表不影响已落条目）。
+    """
+    # ① type 闭世界二十九值逐个（断言面＝`transport.NOTICE_TYPES` 本身，不复述取值清单）
+    assert set(LIMIT_KINDS) == _SPEC_LIMIT_KEYS
+    assert NOTICE_TYPES, "通知类型闭世界扫描面为空转"
+    for notice_type in sorted(NOTICE_TYPES):
+        state = _state()
+        notice(state, type=notice_type, content=f"{notice_type} 注记")
+        entry = state.notices[-1]
+        assert tuple(entry) == _SPEC_NOTICE_KEYS
+        assert entry == {"type": notice_type, "gates": [], "content": f"{notice_type} 注记"}
+
+    # gates 子集（默认空；给子集照写；缺省形＝空列）
+    state = _state()
+    gates = ["rounds", "ask_cap"]
+    notice(state, type="budget_converged", gates=gates, content="触界")
+    gates.append("seconds")  # 落列取拷贝——调用方后续改动不影响已落条目
+    note_entry = state.notices[-1]
+    assert note_entry["gates"] == ["rounds", "ask_cap"]
+    assert note_entry["gates"] is not gates
+    notice(state, type="decision_note", content="读题注记")
+    assert state.notices[-1]["gates"] == []
+    assert len(state.notices) == 2
+
+    # ② 恰三键：缺键／多键在调用期即拒（不落条目）
+    with pytest.raises(TypeError):
+        notice(state, type="run_failed")  # 缺 content
+    with pytest.raises(TypeError):
+        notice(state, content="缺 type")  # 缺 type
+    with pytest.raises(TypeError):
+        notice(state, type="run_failed", content="多键", extra="第四键")  # 多键
+
+    # ③ 越界即拒（fail-closed；不吞错、不落哨兵）
+    for bad_type in ("notice", "", "budget", "BUDGET_CONVERGED"):
+        with pytest.raises(ValueError):
+            notice(state, type=bad_type, content="越界类型")
+    for bad_gates in (
+        ("max_rounds",),
+        ("轮数",),
+        ("rounds", "total_seconds"),
+        ("rounds", "unknown"),
+    ):
+        with pytest.raises(ValueError):
+            notice(state, type="budget_converged", gates=bad_gates, content="越界闸名")
+    assert len(state.notices) == 2  # 越界与缺／多键都不落
+
+    # ④ 只追加：列只增不减、既有条目逐字不变；快照往返归一
+    snapshot = deepcopy(state.notices)
+    notice(state, type="run_failed", gates=("tool_timeout",), content="上游失败")
+    assert state.notices[: len(snapshot)] == snapshot
+    assert len(state.notices) == len(snapshot) + 1
+    assert all(tuple(item) == _SPEC_NOTICE_KEYS for item in state.notices)
+    restored = decode_state(encode_state(state))
+    assert restored.notices == state.notices
+
+
+# ---------- 18 工具上下文：身份只从状态取、放行态随上下文、预算按子问题数 ----------
+
+
+def test_tool_context_assembly() -> None:
+    """#18 工具上下文装配——行为 16（数值与公式真源＝`appv2.tools` 的 `resolve_send_budget`，
+    规格不复述数值）。
+
+    三面：① **身份只从状态取**（签名不接调用方传身份；换状态即换身份）；② **放行态随上下文走**
+    ——`approved_tables` 取自状态且**参数的 schema 里无放行字段**（工具调用面＝`call(name, args,
+    ctx)`，`args` 与 `ctx` 分离）；③ **预算按子问题数**——逐个与公式函数对表，且本块用的就是
+    `appv2.tools` 的**同一个函数**（只引不复述＝无本块副本、无本块算式）。
+    """
+    from appv2.runtimev2.bookkeeping import projection as projection_module
+
+    # 身份不接调用方传：签名只有 state（无身份入参）
+    assert tuple(inspect.signature(tool_context).parameters) == ("state",)
+    # 四字段＝卡面形状（字段序同卡）
+    assert [field.name for field in fields(ToolContext)] == list(_SPEC_TOOL_CONTEXT_FIELDS)
+
+    state = _state(
+        actor="laowang",
+        approved_ids=["agg.fct_daily_metering"],
+        metric_candidates=["日产油量"],
+        question_group={"subtasks": [{"id": "s1"}, {"id": "s2"}, {"id": "s3"}]},
+    )
+    context = tool_context(state)
+    assert context.actor == state.actor == "laowang"  # 身份只从状态取
+    assert context.approved_tables == tuple(state.approved_ids)  # 放行态随上下文走
+    assert context.metric_candidates == ("日产油量",)
+    assert context.budget == resolve_send_budget(3)  # 预算按子问题数（3 支）
+
+    # 换状态即换身份／放行集（不是调用方传的常量、也不吃上一份状态）
+    other = _state(actor="xiaoqi", approved_ids=["lake.raw_wells"], metric_candidates=[])
+    other_context = tool_context(other)
+    assert other_context.actor == "xiaoqi" != context.actor
+    assert other_context.approved_tables == ("lake.raw_wells",)
+    assert other_context.metric_candidates is None  # 空候选列＝未启用（现状形）
+
+    # ③ 预算随子问题数：逐个与公式函数对表（无组／残形按 1 支计——下限由该函数自身兜）
+    for count in (1, 2, 3, 6, 40):
+        assert tool_context(_state_with_subtasks(count)).budget == resolve_send_budget(count), count
+    no_group = tool_context(_state())
+    assert no_group.budget == resolve_send_budget(1)
+    assert no_group.actor == _state().actor and no_group.approved_tables == ()
+    ragged = _state(question_group={"subtasks": [{"id": "s1"}, "残形", 7]})
+    assert tool_context(ragged).budget == resolve_send_budget(1)  # 非 mapping 条目不计
+
+    # 只引不复述：本块引用的是 `appv2.tools` 的同一个函数（无本块副本、无本块算式）
+    assert projection_module.resolve_send_budget is resolve_send_budget
+
+    # ② 参数里无放行态：调用面 args 与 ctx 分离；工具参数 schema 无放行字段（放行态只在 ctx）
+    assert tuple(inspect.signature(ToolRegistry.call).parameters) == ("self", "name", "args", "ctx")
+    registry = ToolRegistry(
+        knowledge=FakeKnowledgeStore(),
+        query=FakeQueryEngine(),
+        retrieval=FakeRetrievalEngine(),
+    )
+    descriptors = registry.descriptors()
+    assert descriptors, "工具目录扫描面为空转"
+    for descriptor in descriptors:
+        leaking = sorted(
+            key for key in _schema_keys(descriptor.args_schema) if _looks_like_approval(key)
+        )
+        assert not leaking, f"{descriptor.name} 的 args_schema 出现放行态字段：{leaking}"
+
+
+_APPROVAL_HINTS = ("approved", "放行", "审批")
+
+
+def _looks_like_approval(key: str) -> bool:
+    """该键名是否像「放行态」（放行态只许活在 `ToolContext`，不许进工具参数）。"""
+    return any(hint in key for hint in _APPROVAL_HINTS)
+
+
+def _schema_keys(schema: Any) -> set[str]:
+    """schema 里出现过的全部键名（递归——嵌套 `properties` 一并扫）。"""
+    keys: set[str] = set()
+    if isinstance(schema, Mapping):
+        for key, value in schema.items():
+            keys.add(str(key))
+            keys |= _schema_keys(value)
+    elif isinstance(schema, (list, tuple)):
+        for item in schema:
+            keys |= _schema_keys(item)
+    return keys
+
+
+# ---------- 19 结果投影原样（空值与缺省可区分） ----------
+
+
+def test_result_projection_faithful() -> None:
+    """#19 结果投影原样（空值与缺省可区分）——行为 17（治现状 `detail or None` 假值归一，
+    `recon/B1` D-B1-13）。
+
+    三面：① 逐字段**原样投影**（键集合与字段集合逐字相等、键序同形状、值相等、无增删改名）；
+    ② 键集合固定（任意三态同键集——空态也带键）；③ **空值与缺省不等价**（`detail={}` 与
+    `detail=None` 两态投影后不同且读回仍可区分；`well=""` 与 `well=None`、`hint=""` 与
+    `hint=None` 同理），且投影是 JSON 原语形（入状态／快照往返无损）。
+    """
+    observation = Observation(
+        content="Y-21 井 2026 年产油量 12.5 t/d",
+        source="agg.fct_daily_metering#Y-21",
+        source_id="src-ledger-daily-oil",
+        version=None,
+        freshness="fresh",
+        scope="well:Y-21",
+        locator={"kind": "agg_row", "table": "agg.fct_daily_metering"},
+        well=None,
+    )
+    projected = result_projection(
+        ToolResult(status="ok", observations=(observation,), ask=None, error=None)
+    )
+    # ① 顶层四键与行键面＝形状字段（逐字、同序、无增删改名）
+    assert tuple(projected) == _SPEC_RESULT_KEYS
+    assert [field.name for field in fields(ToolResult)] == list(_SPEC_RESULT_KEYS)
+    row = projected["observations"][0]
+    assert tuple(row) == tuple(field.name for field in fields(Observation))
+    assert all(row[field.name] == getattr(observation, field.name) for field in fields(Observation))
+    assert row["locator"] == dict(observation.locator)
+    assert row["locator"] is not observation.locator  # 浅拷（投影非别名）
+    assert projected["ask"] is None and projected["error"] is None
+
+    ask_empty_detail = result_projection(
+        ToolResult(
+            status="ask",
+            observations=(),
+            ask=AskFrame(kind="clarify", prompt="问哪口井？", detail={}),
+            error=None,
+        )
+    )
+    ask_no_detail = result_projection(
+        ToolResult(
+            status="ask",
+            observations=(),
+            ask=AskFrame(kind="clarify", prompt="问哪口井？", detail=None),
+            error=None,
+        )
+    )
+    failed = result_projection(
+        ToolResult(
+            status="failed",
+            observations=(),
+            ask=None,
+            error=ToolError(category="retryable", message="上游抖动", hint=None),
+        )
+    )
+    # ② 键集合固定（三态同键集；嵌套行键面＝各自形状字段）
+    assert (
+        set(projected)
+        == set(ask_empty_detail)
+        == set(ask_no_detail)
+        == set(failed)
+        == set(_SPEC_RESULT_KEYS)
+    )
+    assert tuple(ask_empty_detail["ask"]) == tuple(field.name for field in fields(AskFrame))
+    assert tuple(failed["error"]) == tuple(field.name for field in fields(ToolError))
+    assert ask_empty_detail["observations"] == []  # 空列＝在场且为空（不归 None）
+
+    # ③ 空值与缺省不等价（禁真假值归一）
+    assert ask_empty_detail["ask"]["detail"] == {}
+    assert ask_no_detail["ask"]["detail"] is None
+    assert ask_empty_detail != ask_no_detail
+    empty_well = result_projection(
+        ToolResult(
+            status="ok",
+            observations=(_observation(well=""),),
+            ask=None,
+            error=None,
+        )
+    )
+    missing_well = result_projection(
+        ToolResult(
+            status="ok",
+            observations=(_observation(well=None),),
+            ask=None,
+            error=None,
+        )
+    )
+    assert empty_well["observations"][0]["well"] == ""
+    assert missing_well["observations"][0]["well"] is None
+    assert empty_well != missing_well
+    empty_hint = result_projection(
+        ToolResult(
+            status="failed",
+            observations=(),
+            ask=None,
+            error=ToolError(category="retryable", message="上游抖动", hint=""),
+        )
+    )
+    assert empty_hint["error"]["hint"] == "" and failed["error"]["hint"] is None
+    assert empty_hint != failed
+
+    # 投影是 JSON 原语形＋入状态读回可区分（承接面＝快照往返）
+    assert json.loads(json.dumps(projected, ensure_ascii=False)) == projected
+    state = _state()
+    state.last_result = projected
+    restored = decode_state(encode_state(state))
+    assert restored.last_result == projected
+    assert restored.last_result["observations"][0]["well"] is None
+    state.last_result = ask_empty_detail
+    restored = decode_state(encode_state(state))
+    assert restored.last_result["ask"]["detail"] == {}  # 「有该字段但为空」读回仍是空 dict
+    state.last_result = ask_no_detail
+    restored = decode_state(encode_state(state))
+    assert restored.last_result["ask"]["detail"] is None  # 「无该字段」读回仍是 None
+
+
+def _observation(*, well: str | None) -> Observation:
+    """观察行 fixture（只变 `well`——空串与缺省两态的对照件）。"""
+    return Observation(
+        content="Y-23 井 3.0 t/d",
+        source="agg.fct_daily_metering#Y-23",
+        source_id="src-exec-last",
+        version=None,
+        freshness="fresh",
+        scope="well:Y-23",
+        locator={"kind": "agg_row"},
+        well=well,
+    )
+
+
+# ---------- 21 本块零判断（AST 扫描） ----------
+
+
+# 行为 18 逐字「除 `call_model` 的转发与两侧闭世界分派外」的落地形——本块允许的跨块调用点：
+# 判定归 `state`（`check_limits`）＋状态形状构造（`Manifest`）、模型出口转发（`complete`）、
+# 送窗预算算式（`resolve_send_budget`）＋形状块类型构造（`ToolContext`）；`persistence`／
+# `transport` **只引类型与常量**（零调用）。
+_ALLOWED_CROSS_BLOCK_CALLS: dict[str, frozenset[str]] = {
+    "appv2.runtimev2.state": frozenset({"check_limits", "Manifest"}),
+    "appv2.runtimev2.gateway_adapter": frozenset({"complete"}),
+    "appv2.tools": frozenset({"ToolContext", "resolve_send_budget"}),
+    "appv2.runtimev2.persistence": frozenset(),
+    "appv2.runtimev2.transport": frozenset(),
+}
+# 正则／词表机械（语义判定的底座——本块禁）
+_JUDGEMENT_MODULES = frozenset({"re", "regex", "fnmatch", "difflib"})
+# 词面判定方法（子串／大小写／正则族方法——本块禁）
+_JUDGEMENT_METHODS = frozenset(
+    {
+        "match",
+        "search",
+        "fullmatch",
+        "findall",
+        "finditer",
+        "sub",
+        "subn",
+        "startswith",
+        "endswith",
+        "find",
+        "count",
+        "casefold",
+        "lower",
+        "upper",
+    }
+)
+
+
+def _module_bindings(tree: ast.Module) -> dict[str, tuple[str, str]]:
+    """模块级 import 绑定表：本地名 → (模块全名, 被引原名〔`import M` 形为空串〕)。"""
+    bindings: dict[str, tuple[str, str]] = {}
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom) and node.module:
+            for alias in node.names:
+                bindings[alias.asname or alias.name] = (node.module, alias.name)
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                bindings[alias.asname or alias.name.split(".")[0]] = (alias.name, "")
+    return bindings
+
+
+def _block_calls(tree: ast.Module) -> list[tuple[int, str, str]]:
+    """本模块对「五块」的调用点全列：`(行号, 模块全名, 被调名)`（经 import 绑定表解析本地名）。"""
+    bindings = _module_bindings(tree)
+    calls: list[tuple[int, str, str]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Name) and func.id in bindings:
+            module, original = bindings[func.id]
+            calls.append((node.lineno, module, original or func.id))
+        elif isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
+            module, original = bindings.get(func.value.id, ("", ""))
+            if module and not original:  # `import M as m; m.f(...)` 形
+                calls.append((node.lineno, module, func.attr))
+    return calls
+
+
+def _is_inline_word_list(node: ast.expr) -> bool:
+    """内联字面量「词表」判定：`x in ("a", "b")` 一类（闭世界取值必须来自在册常量，不许内联）。"""
+    if isinstance(node, ast.Constant):
+        return isinstance(node.value, str)
+    if isinstance(node, (ast.Set, ast.List, ast.Tuple)):
+        return bool(node.elts) and all(
+            isinstance(element, ast.Constant) and isinstance(element.value, str)
+            for element in node.elts
+        )
+    return False
+
+
+def _judgement_hits(tree: ast.Module) -> list[str]:
+    """零判断扫描命中项：词表／正则机械 import、词面判定方法、内联词表成员判定。"""
+    hits: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.split(".")[0] in _JUDGEMENT_MODULES:
+                    hits.append(f"词表/正则机械 import：{alias.name}")
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            if node.module.split(".")[0] in _JUDGEMENT_MODULES:
+                hits.append(f"词表/正则机械 import：{node.module}")
+        elif isinstance(node, ast.Attribute) and node.attr in _JUDGEMENT_METHODS:
+            hits.append(f"词面判定方法：.{node.attr}")
+        elif isinstance(node, ast.Compare) and any(
+            isinstance(op, (ast.In, ast.NotIn)) for op in node.ops
+        ):
+            for comparator in node.comparators:
+                if _is_inline_word_list(comparator):
+                    hits.append(f"内联词表判定：{ast.unparse(comparator)[:40]}")
+    return hits
+
+
+def test_no_judgement_in_bookkeeping() -> None:
+    """#21 本块零判断（AST 扫描）——行为 18：除 `call_model` 的转发与两侧闭世界分派外，无词表／
+    正则语义判定。
+
+    三面机检：① 词表／正则机械与词面判定方法零出现；② 成员判定不许内联字面量词表（闭世界取值
+    只许引在册常量）；③ 跨块调用点逐个在册（判定归 `state`、转发 `complete`、算式
+    `resolve_send_budget`、形状块类型构造 `ToolContext`——`persistence`／`transport` 零调用）。
+    """
+    scanned: list[str] = []
+    state_calls: set[str] = set()
+    gateway_calls: set[str] = set()
+    tools_calls: set[str] = set()
+    shape_calls: list[str] = []
+    for path in _bookkeeping_files():
+        scanned.append(path.name)
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        # ①② 零判断面
+        assert not _judgement_hits(tree), f"{path.name} 出现语义判定：{_judgement_hits(tree)}"
+        # ③ 跨块调用白名单
+        for line, module, name in _block_calls(tree):
+            if module == "appv2.runtimev2.state":
+                state_calls.add(name)
+            elif module == "appv2.runtimev2.gateway_adapter":
+                gateway_calls.add(name)
+            elif module == "appv2.tools":
+                tools_calls.add(name)
+            if module in _ALLOWED_CROSS_BLOCK_CALLS:
+                assert name in _ALLOWED_CROSS_BLOCK_CALLS[module], (
+                    f"{path.name}:{line} 越出跨块调用白名单：{module}.{name}"
+                )
+            if module in ("appv2.runtimev2.persistence", "appv2.runtimev2.transport"):
+                shape_calls.append(f"{path.name}:{line} {module}.{name}")
+
+    assert "ports.py" in scanned and "closing.py" in scanned and "projection.py" in scanned
+    # 非空转：三处真实调用点各在场（判定／转发／算式——白名单不是空名单）
+    assert "check_limits" in state_calls, state_calls
+    assert "complete" in gateway_calls, gateway_calls
+    assert "resolve_send_budget" in tools_calls, tools_calls
+    assert not shape_calls, f"形状块被引了行为面（调用）：{shape_calls}"
+
+    # 探测器非空转：伪造三条判定形必被咬（词表内联／正则机械／词面方法）
+    forged = ast.parse(
+        "import re\n"
+        "def classify(text):\n"
+        "    if re.search('注水', text):\n"
+        "        return 'water'\n"
+        "    if text in {'步骤', '指令'}:\n"
+        "        return 'task'\n"
+        "    return text.lower()\n"
+    )
+    forged_hits = _judgement_hits(forged)
+    assert any("内联词表判定" in hit for hit in forged_hits), forged_hits  # 内联词表
+    assert any(hit.startswith("词表/正则机械") for hit in forged_hits), forged_hits  # 正则机械
+    assert any(hit.endswith(".search") for hit in forged_hits), forged_hits  # 词面方法
+    assert any(hit.endswith(".lower") for hit in forged_hits), forged_hits
+    assert len(forged_hits) >= 4, forged_hits
+
+
+# ---------- 22 【边界集】空步列／超长 digest／已收敛再收敛／越界枚举 ----------
+
+
+def test_boundary_empty_huge_converged_enum() -> None:
+    """#22【边界集】空步列／超长 digest／已收敛再收敛／越界枚举 → 各落对应分支。
+
+    四形各落对应分支（分支本体在 -01a 行 3／4、-01b 行 14、-01a 行 9／10）：① 空步列＝首号 1、
+    空材料面工具面不炸链；② 超长 digest＝写入点截断且可见（行为 10）；③ 已收敛再收敛＝无操作
+    （行为 12 幂等，不重复追加／不覆盖）；④ 越界枚举＝双闭世界各拒且零落地（fail-closed）。
+    """
+    # ① 空步列
+    empty = _state()
+    assert empty.steps == [] and empty.notices == [] and empty.process_notes == []
+    assert next_seq(empty) == 1
+    first = record_step(empty, kind="decision", title="首步")
+    assert first["seq"] == 1 and len(empty.steps) == 1 and tuple(first) == _SPEC_STEP_KEYS
+    assert tool_context(empty).actor == empty.actor  # 空步列状态也能装配（不炸链）
+    assert result_projection(
+        ToolResult(status="ok", observations=(), ask=None, error=None)
+    )["observations"] == []
+
+    # ② 超长 digest（写入点截断：长度受控＋截断可见）
+    huge = "长" * (_SPEC_NOTE_DIGEST_LIMIT + 1)
+    note(empty, phase="tool", title="台账", digest=huge)
+    bounded = empty.process_notes[-1]["digest"]
+    assert len(bounded) <= _SPEC_NOTE_DIGEST_LIMIT
+    assert bounded.endswith(_SPEC_TRUNCATION_MARK)
+    assert bounded[:-1] == huge[: len(bounded) - 1]
+
+    # ③ 已收敛再收敛（幂等：无操作）
+    converged = _material_state()
+    converge(converged)
+    settled = asdict(converged)
+    notice_count = len(converged.notices)
+    converge(converged)
+    assert asdict(converged) == settled
+    assert len(converged.notices) == notice_count and converged.budget_hit == ["rounds"]
+
+    # ④ 越界枚举（四种形各拒；状态零落地）
+    enum_state = _state()
+    before = asdict(enum_state)
+    with pytest.raises(ValueError):
+        record_step(enum_state, kind="reflect", title="越界步类型")
+    with pytest.raises(ValueError):
+        record_step(enum_state, kind="decision", title="越界步状态", status="error")
+    with pytest.raises(ValueError):
+        append_contract(enum_state, "understand")
+    with pytest.raises(ValueError):
+        append_message(enum_state, role="system", content="越界角色")
+    with pytest.raises(ValueError):
+        append_dialogue(enum_state, role="user", content="越界来源", origin="task_book")
+    with pytest.raises(ValueError):
+        set_intent(enum_state, "route_home")
+    with pytest.raises(ValueError):
+        notice(enum_state, type="notice", content="越界通知类型")
+    with pytest.raises(ValueError):
+        notice(enum_state, type="budget_converged", gates=("max_rounds",), content="越界闸名")
+    assert asdict(enum_state) == before
+
+
+# ---------- 23 【保留集】常规三步流程的记录形状与顺序不变 ----------
+
+
+def test_retention_normal_three_steps() -> None:
+    """#23【保留集】常规三步流程的记录形状与顺序不变——-01a 落地的写口与 -01b 落地的收口面
+    不因本票改形。
+
+    常规三步（决策→发现→作答）走全部写口与读面后：步记录七字段同序、序号 1／2／3；过程档案／
+    通知／对话链／对话层条目形状与追加顺序不变；读面（`tool_context`／`result_projection`）
+    零副作用；快照往返后记录形状与顺序逐字不变。
+    """
+    state = _state(question_group={"subtasks": [{"id": "s1"}]})
+    append_message(state, role="user", content="任务书：……")
+    note(state, phase="understand", title="读题", digest="三区装配")
+    notice(state, type="decision_note", content="读题注记")
+    record_step(state, kind="decision", title="决策：读题")
+    set_intent(state, "discover")
+
+    append_message(state, role="user", content="相位合同：……")
+    note(state, phase="tool", title="doc_retrieve：ok", digest="参数：… → 结果：2 行")
+    record_step(state, kind="discover", title="发现：检索", payload={"probes": 2})
+    append_dialogue(state, role="user", content="这口井 2026 年日产油量？", origin="user_verbatim")
+
+    set_intent(state, "answer")
+    record_step(state, kind="answer", title="作答：收口", manifest=Manifest())
+    append_message(state, role="assistant", content="终稿")
+    append_dialogue(
+        state, role="assistant", content="日产油量 12.5 t/d。", origin="assistant_final"
+    )
+
+    # 步记录：七字段同序、序号与步型顺序不变
+    assert [step["seq"] for step in state.steps] == [1, 2, 3]
+    assert [step["step"] for step in state.steps] == ["decision", "discover", "answer"]
+    assert all(tuple(step) == _SPEC_STEP_KEYS for step in state.steps)
+    assert next_seq(state) == len(state.steps) + 1 == 4
+    # 过程档案／通知／对话链／对话层：条目形状与追加顺序不变
+    assert all(tuple(entry) == _SPEC_NOTE_KEYS for entry in state.process_notes)
+    assert [entry["phase"] for entry in state.process_notes] == ["understand", "tool"]
+    assert all(tuple(entry) == _SPEC_NOTICE_KEYS for entry in state.notices)
+    assert [entry["type"] for entry in state.notices] == ["decision_note"]
+    assert all(set(entry) == {"role", "content"} for entry in state.messages)
+    assert all(tuple(entry) == ("role", "content", "origin") for entry in state.dialogue)
+
+    # 读面零副作用（工具上下文装配与结果投影不改状态）
+    before = asdict(state)
+    tool_context(state)
+    result_projection(
+        ToolResult(status="ok", observations=(_observation(well=None),), ask=None, error=None)
+    )
+    assert asdict(state) == before
+
+    # 快照往返：记录形状与顺序逐字不变（归一形）
+    restored = decode_state(encode_state(state))
+    assert restored.steps == state.steps
+    assert restored.process_notes == state.process_notes
+    assert restored.notices == state.notices
+    assert restored.messages == state.messages
+    assert restored.dialogue == state.dialogue
+    assert restored.next_intent == state.next_intent
+    assert tuple(restored.steps[-1]) == _SPEC_STEP_KEYS

@@ -10,17 +10,19 @@
 - 调模型与工具面：`call_model`（`closing`）／`tool_context`／`result_projection`（`projection`）。
 
 依赖面（规格「框架与依赖红线」）：**运行逻辑只依赖两处**——`state`（形状／判定）与
-`gateway_adapter`（模型出口）；**类型与常量形状**另引三处——`tools`（`ToolContext`）／
-`persistence`（`StepRecord` 与步状态闭世界常量）／`transport`（`NOTICE_TYPES`），**只许引类型与
-常量、不许引其行为**（不调工具、不落盘、不发帧）；不引入框架（R5b）、不直引模型出口（R7）、
+`gateway_adapter`（模型出口）；**类型与常量形状**另引三处——`tools`（`ToolContext` 类型 ＋ 送窗
+预算**公式函数** `resolve_send_budget`——行为 16 点名的「数值与公式真源」，只引不算、本块不复述
+数值）／`persistence`（`StepRecord` 与步状态闭世界常量）／`transport`（`NOTICE_TYPES`），**只许引
+类型与常量、不许引其行为**（不调工具、不落盘、不发帧）；不引入框架（R5b）、不直引模型出口（R7）、
 不直引引擎（R6）、不落盘。机检＝`tests/domains/test_v2_bookkeeping.py`（写口无旁路双证 ＋ AST
 import 白名单 ＋ 每步通道值归一形）。
 
-本批（`RT-W3-01b`）落地面：触界收敛与收口簇（`closing` 的 `converge`／`direct_answer`／
-`call_model`）已落地——收敛六键／幂等与零副作用／正文与通知材料同源（单一材料面）、直答三键、
-调模型只回 `content` 而用量与归因面记步记录与 `Manifest`。余下未落地面：`note`／`notice` 的写入点
-行为随 `RT-W3-01c-bookkeeping.md`（`tool_context`／`result_projection` 同票）——未落地前一律
-fail-closed（`NotImplementedError`），不静默兜底、不假成功（合法降级路径＝无）。
+本批（`RT-W3-01c`）落地面：装配与归一簇（`ports` 的 `note`／`notice` 写入点行为；
+`projection` 的 `tool_context`／`result_projection`）——过程档案写入点截断且只追加（截断可见）、
+通知恰三键且 `type`／`gates` 双闭世界、工具上下文身份只从状态取／放行态随上下文／送窗预算按
+子问题数、结果投影逐字段原样而空值与缺省可区分。前批（`RT-W3-01a`／`-01b`）落地面：共享写口
+骨架与触界收敛、收口簇（写口九函数／`converge`／`direct_answer`／`call_model`）。本块公开面 13
+成员至此全部落地，无 fail-closed 占位。
 """
 
 from appv2.runtimev2.bookkeeping.closing import call_model, converge, direct_answer
