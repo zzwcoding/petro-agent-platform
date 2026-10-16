@@ -1,0 +1,55 @@
+id: -1
+event: session
+data: {"run_id": "run-6d2edaf6", "resume": false}
+
+id: 0
+event: text
+data: {"content": "理解：问最近各井的日产油量情况。\n指标候选：日产油量", "kind": "understanding"}
+
+id: 1
+event: step
+data: {"step": "decision", "seq": 1, "title": "模型调用：understand"}
+
+id: 2
+event: step
+data: {"step": "decision", "seq": 2, "title": "模型调用：decision"}
+
+id: 3
+event: step
+data: {"step": "decision", "seq": 3, "title": "澄清 r1 被拒：ledger_notes 槽位对账未过：s1"}
+
+id: 4
+event: step
+data: {"step": "decision", "seq": 4, "title": "模型调用：decision"}
+
+id: 5
+event: step
+data: {"step": "decision", "seq": 5, "title": "澄清 r2 被拒：ledger_notes 槽位对账未过：s1"}
+
+id: 6
+event: step
+data: {"step": "decision", "seq": 6, "title": "模型调用：decision"}
+
+id: 7
+event: step
+data: {"step": "decision", "seq": 7, "title": "澄清 r3 被拒：ledger_notes 槽位对账未过：s1"}
+
+id: 8
+event: notice
+data: {"type": "budget_converged", "gates": ["rounds"], "content": "预算触界收敛：rounds 已用 3／上限 3；未完成项：未取得可交付材料（材料清单：无）"}
+
+id: 9
+event: step
+data: {"step": "answer", "seq": 8, "title": "答案收口"}
+
+id: 10
+event: verdict
+data: {"status": "completed", "run_id": "run-6d2edaf6", "manifest_digest": "4d3d6004824694e3", "subtype": "final"}
+
+id: 11
+event: blackbox
+data: {"run_id": "run-6d2edaf6", "question": "最近各井日产油量怎么样？", "status": "completed", "error": "", "stored": true, "bytes": 21385, "counts": {"messages": 10, "dialogue": 0, "process_notes": 5, "observations": 0, "steps": 8}}
+
+id: 11
+event: done
+data: {"run_id": "run-6d2edaf6"}

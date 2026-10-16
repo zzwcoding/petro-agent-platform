@@ -1,0 +1,423 @@
+id: -1
+event: session
+data: {"run_id": "run-52db7a6c", "resume": false}
+
+id: 0
+event: text
+data: {"content": "理解：问最近各井的日产油量情况。\n指标候选：日产油量", "kind": "understanding"}
+
+id: 1
+event: step
+data: {"step": "decision", "seq": 1, "title": "模型调用：understand"}
+
+id: 2
+event: step
+data: {"step": "decision", "seq": 2, "title": "模型调用：decision"}
+
+id: 3
+event: step
+data: {"step": "decision", "seq": 3, "title": "澄清 r1 被拒：ledger_notes 槽位对账未过：s1"}
+
+id: 4
+event: step
+data: {"step": "decision", "seq": 4, "title": "模型调用：decision"}
+
+id: 5
+event: step
+data: {"step": "decision", "seq": 5, "title": "澄清 r2 被拒：ledger_notes 槽位对账未过：s1"}
+
+id: 6
+event: step
+data: {"step": "decision", "seq": 6, "title": "模型调用：decision"}
+
+id: 7
+event: step
+data: {"step": "decision", "seq": 7, "title": "澄清 r3：分解 1 子问题"}
+
+id: 8
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（必填缺）：matches s1 缺 mention_mode（「提及 vs 执行」结论——须给 executed／mentioned_only）——修正后重新输出 JSON。"}
+
+id: 9
+event: step
+data: {"step": "decision", "seq": 8, "title": "模型调用：decision"}
+
+id: 10
+event: step
+data: {"step": "decision", "seq": 9, "title": "工具匹配被拒（必填缺）"}
+
+id: 11
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"}
+
+id: 12
+event: step
+data: {"step": "decision", "seq": 10, "title": "模型调用：decision"}
+
+id: 13
+event: step
+data: {"step": "decision", "seq": 11, "title": "工具匹配被拒（缺配）"}
+
+id: 14
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"}
+
+id: 15
+event: step
+data: {"step": "decision", "seq": 12, "title": "模型调用：decision"}
+
+id: 16
+event: step
+data: {"step": "decision", "seq": 13, "title": "工具匹配被拒（缺配）"}
+
+id: 17
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（必填缺）：matches s1 缺 mention_mode（「提及 vs 执行」结论——须给 executed／mentioned_only）——修正后重新输出 JSON。"}
+
+id: 18
+event: step
+data: {"step": "decision", "seq": 14, "title": "模型调用：decision"}
+
+id: 19
+event: step
+data: {"step": "decision", "seq": 15, "title": "工具匹配被拒（必填缺）"}
+
+id: 20
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（必填缺）：matches s1 缺 mention_mode（「提及 vs 执行」结论——须给 executed／mentioned_only）——修正后重新输出 JSON。"}
+
+id: 21
+event: step
+data: {"step": "decision", "seq": 16, "title": "模型调用：decision"}
+
+id: 22
+event: step
+data: {"step": "decision", "seq": 17, "title": "工具匹配被拒（必填缺）"}
+
+id: 23
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（必填缺）：matches s1 缺 mention_mode（「提及 vs 执行」结论——须给 executed／mentioned_only）——修正后重新输出 JSON。"}
+
+id: 24
+event: step
+data: {"step": "decision", "seq": 18, "title": "模型调用：decision"}
+
+id: 25
+event: step
+data: {"step": "decision", "seq": 19, "title": "工具匹配被拒（必填缺）"}
+
+id: 26
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（必填缺）：matches s1 缺 mention_mode（「提及 vs 执行」结论——须给 executed／mentioned_only）——修正后重新输出 JSON。"}
+
+id: 27
+event: step
+data: {"step": "decision", "seq": 20, "title": "模型调用：decision"}
+
+id: 28
+event: step
+data: {"step": "decision", "seq": 21, "title": "工具匹配被拒（必填缺）"}
+
+id: 29
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"}
+
+id: 30
+event: step
+data: {"step": "decision", "seq": 22, "title": "模型调用：decision"}
+
+id: 31
+event: step
+data: {"step": "decision", "seq": 23, "title": "工具匹配被拒（缺配）"}
+
+id: 32
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"}
+
+id: 33
+event: step
+data: {"step": "decision", "seq": 24, "title": "模型调用：decision"}
+
+id: 34
+event: step
+data: {"step": "decision", "seq": 25, "title": "工具匹配被拒（缺配）"}
+
+id: 35
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（必填缺）：matches s1 缺 mention_mode（「提及 vs 执行」结论——须给 executed／mentioned_only）——修正后重新输出 JSON。"}
+
+id: 36
+event: step
+data: {"step": "decision", "seq": 26, "title": "模型调用：decision"}
+
+id: 37
+event: step
+data: {"step": "decision", "seq": 27, "title": "工具匹配被拒（必填缺）"}
+
+id: 38
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（必填缺）：matches s1 缺 mention_mode（「提及 vs 执行」结论——须给 executed／mentioned_only）——修正后重新输出 JSON。"}
+
+id: 39
+event: step
+data: {"step": "decision", "seq": 28, "title": "模型调用：decision"}
+
+id: 40
+event: step
+data: {"step": "decision", "seq": 29, "title": "工具匹配被拒（必填缺）"}
+
+id: 41
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"}
+
+id: 42
+event: step
+data: {"step": "decision", "seq": 30, "title": "模型调用：decision"}
+
+id: 43
+event: step
+data: {"step": "decision", "seq": 31, "title": "工具匹配被拒（缺配）"}
+
+id: 44
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（必填缺）：matches s1 缺 mention_mode（「提及 vs 执行」结论——须给 executed／mentioned_only）——修正后重新输出 JSON。"}
+
+id: 45
+event: step
+data: {"step": "decision", "seq": 32, "title": "模型调用：decision"}
+
+id: 46
+event: step
+data: {"step": "decision", "seq": 33, "title": "工具匹配被拒（必填缺）"}
+
+id: 47
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（必填缺）：matches s1 缺 mention_mode（「提及 vs 执行」结论——须给 executed／mentioned_only）——修正后重新输出 JSON。"}
+
+id: 48
+event: step
+data: {"step": "decision", "seq": 34, "title": "模型调用：decision"}
+
+id: 49
+event: step
+data: {"step": "decision", "seq": 35, "title": "工具匹配被拒（必填缺）"}
+
+id: 50
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"}
+
+id: 51
+event: step
+data: {"step": "decision", "seq": 36, "title": "模型调用：decision"}
+
+id: 52
+event: step
+data: {"step": "decision", "seq": 37, "title": "工具匹配被拒（缺配）"}
+
+id: 53
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（必填缺）：matches s1 缺 mention_mode（「提及 vs 执行」结论——须给 executed／mentioned_only）——修正后重新输出 JSON。"}
+
+id: 54
+event: step
+data: {"step": "decision", "seq": 38, "title": "模型调用：decision"}
+
+id: 55
+event: step
+data: {"step": "decision", "seq": 39, "title": "工具匹配被拒（必填缺）"}
+
+id: 56
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（必填缺）：matches s1 缺 mention_mode（「提及 vs 执行」结论——须给 executed／mentioned_only）——修正后重新输出 JSON。"}
+
+id: 57
+event: step
+data: {"step": "decision", "seq": 40, "title": "模型调用：decision"}
+
+id: 58
+event: step
+data: {"step": "decision", "seq": 41, "title": "工具匹配被拒（必填缺）"}
+
+id: 59
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（必填缺）：matches s1 缺 mention_mode（「提及 vs 执行」结论——须给 executed／mentioned_only）——修正后重新输出 JSON。"}
+
+id: 60
+event: step
+data: {"step": "decision", "seq": 42, "title": "模型调用：decision"}
+
+id: 61
+event: step
+data: {"step": "decision", "seq": 43, "title": "工具匹配被拒（必填缺）"}
+
+id: 62
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（必填缺）：matches s1 缺 mention_mode（「提及 vs 执行」结论——须给 executed／mentioned_only）——修正后重新输出 JSON。"}
+
+id: 63
+event: step
+data: {"step": "decision", "seq": 44, "title": "模型调用：decision"}
+
+id: 64
+event: step
+data: {"step": "decision", "seq": 45, "title": "工具匹配被拒（必填缺）"}
+
+id: 65
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（必填缺）：matches s1 缺 mention_mode（「提及 vs 执行」结论——须给 executed／mentioned_only）——修正后重新输出 JSON。"}
+
+id: 66
+event: step
+data: {"step": "decision", "seq": 46, "title": "模型调用：decision"}
+
+id: 67
+event: step
+data: {"step": "decision", "seq": 47, "title": "工具匹配被拒（必填缺）"}
+
+id: 68
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（必填缺）：matches s1 缺 mention_mode（「提及 vs 执行」结论——须给 executed／mentioned_only）——修正后重新输出 JSON。"}
+
+id: 69
+event: step
+data: {"step": "decision", "seq": 48, "title": "模型调用：decision"}
+
+id: 70
+event: step
+data: {"step": "decision", "seq": 49, "title": "工具匹配被拒（必填缺）"}
+
+id: 71
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（必填缺）：matches s1 缺 mention_mode（「提及 vs 执行」结论——须给 executed／mentioned_only）——修正后重新输出 JSON。"}
+
+id: 72
+event: step
+data: {"step": "decision", "seq": 50, "title": "模型调用：decision"}
+
+id: 73
+event: step
+data: {"step": "decision", "seq": 51, "title": "工具匹配被拒（必填缺）"}
+
+id: 74
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（必填缺）：matches s1 缺 mention_mode（「提及 vs 执行」结论——须给 executed／mentioned_only）——修正后重新输出 JSON。"}
+
+id: 75
+event: step
+data: {"step": "decision", "seq": 52, "title": "模型调用：decision"}
+
+id: 76
+event: step
+data: {"step": "decision", "seq": 53, "title": "工具匹配被拒（必填缺）"}
+
+id: 77
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（必填缺）：matches s1 缺 mention_mode（「提及 vs 执行」结论——须给 executed／mentioned_only）——修正后重新输出 JSON。"}
+
+id: 78
+event: step
+data: {"step": "decision", "seq": 54, "title": "模型调用：decision"}
+
+id: 79
+event: step
+data: {"step": "decision", "seq": 55, "title": "工具匹配被拒（必填缺）"}
+
+id: 80
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"}
+
+id: 81
+event: step
+data: {"step": "decision", "seq": 56, "title": "模型调用：decision"}
+
+id: 82
+event: step
+data: {"step": "decision", "seq": 57, "title": "工具匹配被拒（缺配）"}
+
+id: 83
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（必填缺）：matches s1 缺 mention_mode（「提及 vs 执行」结论——须给 executed／mentioned_only）——修正后重新输出 JSON。"}
+
+id: 84
+event: step
+data: {"step": "decision", "seq": 58, "title": "模型调用：decision"}
+
+id: 85
+event: step
+data: {"step": "decision", "seq": 59, "title": "工具匹配被拒（必填缺）"}
+
+id: 86
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"}
+
+id: 87
+event: step
+data: {"step": "decision", "seq": 60, "title": "模型调用：decision"}
+
+id: 88
+event: step
+data: {"step": "decision", "seq": 61, "title": "工具匹配被拒（缺配）"}
+
+id: 89
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（必填缺）：matches s1 缺 mention_mode（「提及 vs 执行」结论——须给 executed／mentioned_only）——修正后重新输出 JSON。"}
+
+id: 90
+event: step
+data: {"step": "decision", "seq": 62, "title": "模型调用：decision"}
+
+id: 91
+event: step
+data: {"step": "decision", "seq": 63, "title": "工具匹配被拒（必填缺）"}
+
+id: 92
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（必填缺）：matches s1 缺 mention_mode（「提及 vs 执行」结论——须给 executed／mentioned_only）——修正后重新输出 JSON。"}
+
+id: 93
+event: step
+data: {"step": "decision", "seq": 64, "title": "模型调用：decision"}
+
+id: 94
+event: step
+data: {"step": "decision", "seq": 65, "title": "工具匹配被拒（必填缺）"}
+
+id: 95
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（必填缺）：matches s1 缺 mention_mode（「提及 vs 执行」结论——须给 executed／mentioned_only）——修正后重新输出 JSON。"}
+
+id: 96
+event: step
+data: {"step": "decision", "seq": 66, "title": "模型调用：decision"}
+
+id: 97
+event: step
+data: {"step": "decision", "seq": 67, "title": "工具匹配被拒（必填缺）"}
+
+id: 98
+event: notice
+data: {"type": "decision_rejected", "gates": [], "content": "工具匹配发射被拒（必填缺）：matches s1 缺 mention_mode（「提及 vs 执行」结论——须给 executed／mentioned_only）——修正后重新输出 JSON。"}
+
+id: 99
+event: step
+data: {"step": "decision", "seq": 68, "title": "模型调用：decision"}
+
+id: 100
+event: step
+data: {"step": "decision", "seq": 69, "title": "工具匹配被拒（必填缺）"}
+
+id: 101
+event: notice
+data: {"type": "run_failed", "gates": [], "content": "run 执行失败：Recursion limit of 35 reached without hitting a stop condition. You can increase the limit by setting the `recursion_limit` config key.\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langgraph/errors/GRAPH_RECURSION_LIMIT"}
+
+id: 102
+event: verdict
+data: {"status": "failed", "run_id": "run-52db7a6c", "manifest_digest": "c4292fdcae3e97d4", "subtype": "final"}
+
+id: 103
+event: blackbox
+data: {"run_id": "run-52db7a6c", "question": "最近各井日产油量怎么样？", "status": "failed", "error": "Recursion limit of 35 reached without hitting a stop condition. You can increase the limit by setting the `recursion_limit` config key.\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langgraph/errors/GRAPH_RECURSION_LIMIT", "stored": true, "bytes": 73025, "counts": {"messages": 41, "dialogue": 0, "process_notes": 5, "observations": 0, "steps": 69}}
+
+id: 103
+event: done
+data: {"run_id": "run-52db7a6c"}

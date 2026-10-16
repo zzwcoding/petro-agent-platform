@@ -1,0 +1,23 @@
+id: -1
+event: session
+data: {"run_id": "run-0c241f75", "resume": false}
+
+id: 0
+event: step
+data: {"step": "decision", "seq": 1, "title": "模型调用：understand"}
+
+id: 1
+event: step
+data: {"step": "answer", "seq": 2, "title": "答案收口"}
+
+id: 2
+event: verdict
+data: {"status": "completed", "run_id": "run-0c241f75", "manifest_digest": "a4df397e7ee007df", "subtype": "final"}
+
+id: 3
+event: blackbox
+data: {"run_id": "run-0c241f75", "question": "asdkfjqwqe", "status": "completed", "error": "", "stored": true, "bytes": 5908, "counts": {"messages": 4, "dialogue": 0, "process_notes": 2, "observations": 0, "steps": 2}}
+
+id: 3
+event: done
+data: {"run_id": "run-0c241f75"}

@@ -1,0 +1,19 @@
+id: -1
+event: session
+data: {"run_id": "run-72926401", "resume": false}
+
+id: 0
+event: notice
+data: {"type": "run_failed", "gates": [], "content": "run 执行失败：读题应答不合 schema（非合法 JSON／缺必填字段／字段类型不符／route 越界闭世界 {\"full\",\"direct\"}）——不猜、不取默认、不降级（原始应答片段：{\"route\":\"full\",\"text\":\"理解：问最近各井的日产油量怎么样。\\n指标候选：日产油量\"}）"}
+
+id: 1
+event: verdict
+data: {"status": "failed", "run_id": "run-72926401", "manifest_digest": "a5c78cdf51d1b16d", "subtype": "final"}
+
+id: 2
+event: blackbox
+data: {"run_id": "run-72926401", "question": "最近各井日产油量怎么样？", "status": "failed", "error": "读题应答不合 schema（非合法 JSON／缺必填字段／字段类型不符／route 越界闭世界 {\"full\",\"direct\"}）——不猜、不取默认、不降级（原始应答片段：{\"route\":\"full\",\"text\":\"理解：问最近各井的日产油量怎么样。\\n指标候选：日产油量\"}）", "stored": true, "bytes": 5858, "counts": {"messages": 3, "dialogue": 0, "process_notes": 2, "observations": 0, "steps": 2}}
+
+id: 2
+event: done
+data: {"run_id": "run-72926401"}

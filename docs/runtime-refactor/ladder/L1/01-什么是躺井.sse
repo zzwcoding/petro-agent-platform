@@ -1,0 +1,79 @@
+id: -1
+event: session
+data: {"run_id": "run-9d749759", "resume": false}
+
+id: 0
+event: text
+data: {"content": "理解：问「躺井」这一油田术语的含义。\n指标候选：无", "kind": "understanding"}
+
+id: 1
+event: step
+data: {"step": "decision", "seq": 1, "title": "模型调用：understand"}
+
+id: 2
+event: step
+data: {"step": "decision", "seq": 2, "title": "模型调用：decision"}
+
+id: 3
+event: step
+data: {"step": "decision", "seq": 3, "title": "澄清钻取 ×1（semantic_query）"}
+
+id: 4
+event: tool
+data: {"tool": "semantic_query", "status": "ok", "seq": 4, "message": null}
+
+id: 5
+event: observation
+data: {"index": 1, "source": "sem_term#4", "content": "躺井（黑话 → 停产待检泵 · 有效（限作业区语境））：作业区口语", "trust": "ledger"}
+
+id: 6
+event: step
+data: {"step": "discover", "seq": 4, "title": "semantic_query：ok"}
+
+id: 7
+event: step
+data: {"step": "decision", "seq": 5, "title": "模型调用：decision"}
+
+id: 8
+event: step
+data: {"step": "decision", "seq": 6, "title": "澄清定稿：材料足够——直答收口"}
+
+id: 9
+event: text
+data: {"content": "躺井是作业区口语，对应的规范术语是\"停产待检泵\"，即油井因待检泵而停产的状态。该说法仅限于作业区语境使用 [1]。"}
+
+id: 10
+event: step
+data: {"step": "answer", "seq": 7, "title": "模型调用：answer"}
+
+id: 11
+event: step
+data: {"step": "answer", "seq": 8, "title": "起草答案"}
+
+id: 12
+event: verdict
+data: {"supported": 1, "rewritten": 0, "split": 0, "cited": [1], "attribution": true, "subtype": "verify"}
+
+id: 13
+event: step
+data: {"step": "verify", "seq": 9, "title": "核验：支撑 1｜改写 0｜分源 否"}
+
+id: 14
+event: citation
+data: {"index": 1, "source": "sem_term#4", "source_id": "4", "trust": "ledger"}
+
+id: 15
+event: step
+data: {"step": "answer", "seq": 10, "title": "答案收口"}
+
+id: 16
+event: verdict
+data: {"status": "completed", "run_id": "run-9d749759", "manifest_digest": "671fe66b93c96d25", "subtype": "final"}
+
+id: 17
+event: blackbox
+data: {"run_id": "run-9d749759", "question": "什么是躺井？", "status": "completed", "error": "", "stored": true, "bytes": 21313, "counts": {"messages": 9, "dialogue": 0, "process_notes": 6, "observations": 1, "steps": 10}}
+
+id: 17
+event: done
+data: {"run_id": "run-9d749759"}
