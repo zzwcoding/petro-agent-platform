@@ -10,6 +10,12 @@ env 覆写 GATEWAY_429_RETRIES / GATEWAY_429_BACKOFF）；非 429 异常原样�
 
 退避等待走模块缝 `_backoff_sleep`——测试注入即零真等；env 覆写经
 monkeypatch.setenv（调用时读取，非 import 时冻结）。
+
+**B7b 存量改写（eng/04 §三 B7b 行，落 RT-W2-03a）**：本件「非 429 不重试」钉原含
+「网络错一次即抛」断言，与新 `gateway_adapter` 规格行为 6「网络错可重试」语义相抵
+（复审⑦ V5）——该半面按新规格改写，可重试断言归新块验收件
+`tests/domains/test_v2_gateway_adapter.py::retry_only_on_retryable`；本件只看守旧码
+（`appv2/runtime/llm.py`）仍成立的「非 429 且非可切备类＝一次即抛」。
 """
 
 from __future__ import annotations
@@ -23,7 +29,7 @@ from langchain_core.messages import HumanMessage
 
 import appv2.runtime.llm as llm_module
 from appv2.infra.gateway import Completion
-from appv2.infra.llm_client import UpstreamRejected, UpstreamUnavailable
+from appv2.infra.llm_client import UpstreamRejected
 from appv2.runtime.llm import GatewayChatModel
 
 CALLER = "v2.runtime.understand"
@@ -124,14 +130,20 @@ async def test_persistent_429_exhausts_four_calls_original_exc_reraised(
 
 
 async def test_non_429_no_retry_single_call(sleeps: list[float]) -> None:
-    """非 429 异常不重试＝调用 1 次、原异常上抛、零退避等待。"""
-    failures = [ValueError("计划或参数错误"), UpstreamUnavailable("petro-main", "网络错")]
-    for failure in failures:
-        completer = _ScriptedFailureCompleter([failure])
-        with pytest.raises(type(failure)) as excinfo:
-            await _model(completer).ainvoke([HumanMessage(content="日产油量")])
-        assert completer.calls == 1, f"{type(failure).__name__} 不应重试"
-        assert excinfo.value is failure
+    """非 429 异常不重试＝调用 1 次、原异常上抛、零退避等待。
+
+    **B7b 存量改写（eng/04 §三 B7b 行，落 RT-W2-03a）**：本钉原断言含「网络错
+    （`UpstreamUnavailable`）一次即抛」——与新 `gateway_adapter` 规格行为 6
+    「网络错可重试」**语义相抵**（复审⑦ V5），故该半面按新规格改写：网络错／超时／
+    5xx 的**可重试断言**归 `tests/domains/test_v2_gateway_adapter.py::retry_only_on_retryable`
+    （新块唯一出口面管辖）；本件只留旧码确实不重试的类别（非 429 且非可切备类）。
+    """
+    failure = ValueError("计划或参数错误")
+    completer = _ScriptedFailureCompleter([failure])
+    with pytest.raises(ValueError) as excinfo:
+        await _model(completer).ainvoke([HumanMessage(content="日产油量")])
+    assert completer.calls == 1, "ValueError 不应重试"
+    assert excinfo.value is failure
     assert sleeps == [], "非 429 零退避等待"
 
 

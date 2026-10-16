@@ -6,6 +6,9 @@ messages 全量捕获——断言面）。等价能力承接旧 appv2/runtime/fa
 只读参考、不引）——存量离线测试改接线的地基件（eng/04-测试网设计.md §五步骤 1：
 gateway_adapter 测试替身＋leg 回放 harness 两件地基）。
 
+回执类型 `ModelReply` 的**块级单一定义**已随阶段 5（RT-W2-03a）迁至非替身模块
+`reply.py`——本件改为 import（禁两处各定义一套），替身与生产桥共用同一形状。
+
 接口面（2026-10-15 随阶段 3 规格回写，与 specs/modules.md 的 `## gateway_adapter`
 卡逐字对齐）：
 - `async def complete(messages, *, caller, run_id) -> ModelReply`——与生产桥**同面**；
@@ -22,23 +25,10 @@ gateway_adapter 测试替身＋leg 回放 harness 两件地基）。
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
 
+from appv2.runtimev2.gateway_adapter.reply import ModelReply
 
-@dataclass(frozen=True, slots=True)
-class ModelReply:
-    """一次模型调用的回执（形状真源＝规格接口定义；用量字段供调用记账）。"""
-
-    content: str
-    caller: str
-    run_id: str
-    alias: str = ""
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
-    cached_tokens: int = 0
-    usage_estimated: bool = True
-    duration_ms: int = 0
-    error: str | None = None
+__all__ = ["ModelReply", "ScriptedCompleter"]
 
 
 class ScriptedCompleter:
