@@ -28,7 +28,7 @@ from appv2.runtimev2.answering import answer
 from appv2.runtimev2.bookkeeping import converge, set_intent
 from appv2.runtimev2.clarification import ClarifyAsk, ClarifyFinal, clarify
 from appv2.runtimev2.context import DEFAULT_MAX_OBSERVATIONS
-from appv2.runtimev2.execution import execute
+from appv2.runtimev2.execution import ERROR_BAD_ARGS, ERROR_RETRYABLE, execute
 from appv2.runtimev2.orchestration.constants import (
     ASK_KEY_DETAIL,
     ASK_KEY_KIND,
@@ -403,13 +403,21 @@ def _route_after_precondition(state: RunState, *, reentry: bool) -> str:
 
 
 def _route_after_batch(state: RunState) -> str:
-    """批量执行之后：失败子集在轮预算内回炉①；轮预算用尽／全成功 → 作答收口。"""
-    failed = [
+    """批量执行之后：批次含**重跑档**失败支且在轮预算内 → 回炉①；轮预算用尽 → 作答收口（流水 59）。
+
+    回炉判据＝批次含 `bad_args`（参数错——修参回炉）／`retryable`（超时／上游抖动／限流——
+    只重跑此档）支（真源＝execution 失败分类闭世界 `ERROR_CATEGORIES`，字面经 `execution` 包根
+    引；与 `prompts.decision_round` 的回炉条判据同档，R1／R3 隔断其互引故两处各持字面）。全 `ok`
+    与**全 `refused`**（前置闸拒＝终局不回炉、回炉条为空）两形皆直落作答收口——`refused` 的拒因
+    面由 answering 降级簇如实交付；旧「非 ok 即回炉」判据令全 `refused` 批次白烧一轮澄清。
+    """
+    reworkable = [
         item
         for item in state.subtask_results
-        if isinstance(item, dict) and str(item.get("status") or "") != "ok"
+        if isinstance(item, dict)
+        and str(item.get("status") or "") in (ERROR_BAD_ARGS, ERROR_RETRYABLE)
     ]
-    if failed and int(state.rounds) < int(state.budget.rounds):
+    if reworkable and int(state.rounds) < int(state.budget.rounds):
         return INTENT_DECISION
     return INTENT_ANSWER
 

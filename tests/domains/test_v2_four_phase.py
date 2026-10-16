@@ -1093,6 +1093,156 @@ async def test_four_phase_refurnace_carries_failed_subset_only() -> None:
     assert [item["id"] for item in V2RunStore().load(run_id).question_group["subtasks"]] == ["s2"]
 
 
+async def test_four_phase_refurnace_route_two_tier_bad_args_and_all_refused() -> None:
+    """流水 59｜回炉路由两档化：批次含**重跑档**（`bad_args`／`retryable`）支才回炉①；全 `refused`
+    批次直落作答收口——终局档不再白烧一轮澄清。
+
+    支一（真 `bad_args` 批次）：轮 1 一支成功、一支引擎台账校验拒（`bad_args`）→ 轮 2 澄清指令携
+    回炉条（逐字头「回炉：只分解以下失败/缺失子问题（成功子问题结果已保留，禁止重复分解执行）：」
+    ＋逐行「- [id] question——拒因：…」只列失败支），成功子问题不重跑、修正支补跑（引擎恰两次
+    调用）。
+    支二（全 `refused` 批次）：单支引擎闸拒（`refused`＝终局）→ 零回炉轮（决策相位恰一轮调用）、
+    拒因经 answering 缺口面如实交付（`gaps` 条目 `kind="refused"`＋拒因原文，notices 同携拒因）。
+    """
+    rework_head = "回炉：只分解以下失败/缺失子问题（成功子问题结果已保留，禁止重复分解执行）："
+
+    # —— 支一：真 bad_args 批次 → 回炉轮 2 ——
+    dump = v2_ledger_dump()
+    note_oil = v2_ledger_note(dump, "日产油量")
+    note_liquid = v2_ledger_note(dump, "日产液量")
+    note_pressure = v2_ledger_note(dump, "油压")
+    engine = V2QueueEngine([_rows_outcome(), _rows_outcome()])
+    # 剧本槽位集不含「日产液量」——引擎台账校验拒＝bad_args 档（在册 bound 槽位才可达此面）。
+    engine.ledger_metric_slots = {"日产油量", "油压"}
+    understand = json.dumps(
+        {"route": "full", "text": "既要数值也要报告佐证。",
+         "metric_candidates": ["日产油量", "日产液量", "油压"]},
+        ensure_ascii=False,
+    )
+    script = {
+        "understand": [understand],
+        "decision": [
+            json.dumps(
+                {
+                    "action": "decompose",
+                    "question_group": {
+                        "subtasks": [
+                            {
+                                "id": "s1",
+                                "question": "2025-09-01 到 09-03 各井日产油量",
+                                "ledger_notes": note_oil,
+                                "chain": "data",
+                            },
+                            {
+                                "id": "s2",
+                                "question": "各井日产液量",
+                                "ledger_notes": note_liquid,
+                                "chain": "data",
+                            },
+                        ]
+                    },
+                },
+                ensure_ascii=False,
+            ),
+            v2_matches(
+                v2_data_match(subtask_id="s1", slot="日产油量",
+                              start="2025-09-01", end="2025-09-03"),
+                v2_data_match(subtask_id="s2", slot="日产液量",
+                              start="2025-09-01", end="2025-09-03"),
+            ),
+            v2_decompose(
+                subtask_id="s2", question="各井油压", ledger_notes=note_pressure, chain="data"
+            ),
+            v2_matches(
+                v2_data_match(subtask_id="s2", slot="油压",
+                              start="2025-09-01", end="2025-09-03")
+            ),
+        ],
+        "answer": ["s1：N-01 井 2025-09-01 日产油量 21.16 吨 [1]；s2：油压见材料。"],
+    }
+    wire_ledger_projection(V2LedgerPort(dump))
+    with freeze("2026-10-08T09:00:00"):
+        runtime, completer = v2_runtime(script=script, registry=v2_registry(engine=engine))
+        events = await v2_run(runtime, "回炉路由两档化综合题")
+    assert events[-1].event == "blackbox" and events[-1].data["status"] == "completed"
+    run_id = events[-1].data["run_id"]
+
+    decisions = completer.messages_of("decision")
+    assert len(decisions) == 4  # 轮 1（澄清＋匹配）＋轮 2（回炉澄清＋匹配）
+    round2 = str(decisions[2][-1].get("content", ""))
+    assert rework_head in round2
+    assert "- [s2] 各井日产液量——拒因：" in round2 and "不在指标台账" in round2
+    assert "- [s1]" not in round2  # 成功支不进回炉条
+    assert engine.run_calls == 2  # s1 首轮出数 ＋ s2 修正后出数（轮 1 的 s2 校验拒＝引擎零调用）
+    assert V2RunStore().load(run_id).rounds == 2
+    assert len(v2_steps(run_id, "clarify")) == 2
+
+    # —— 支二：全 refused 批次 → 零回炉轮（路由 answering，一轮收）——
+    dump_refused = v2_ledger_dump()
+    note_refused = v2_ledger_note(dump_refused, "日产油量")
+    refused_reason = "口径/数据闸拒：所问口径无据——不代答"
+    engine_refused = V2QueueEngine([QueryOutcome.refuse(reason=refused_reason)])
+    understand_refused = json.dumps(
+        {"route": "full", "text": "所问口径无据。", "metric_candidates": ["日产油量"]},
+        ensure_ascii=False,
+    )
+    script_refused = {
+        "understand": [understand_refused],
+        "decision": [
+            json.dumps(
+                {
+                    "action": "decompose",
+                    "question_group": {
+                        "subtasks": [
+                            {
+                                "id": "s1",
+                                "question": "2025-09-01 到 09-03 各井日产油量",
+                                "ledger_notes": note_refused,
+                                "chain": "data",
+                            }
+                        ]
+                    },
+                },
+                ensure_ascii=False,
+            ),
+            v2_matches(
+                v2_data_match(subtask_id="s1", slot="日产油量",
+                              start="2025-09-01", end="2025-09-03")
+            ),
+        ],
+        "answer": ["所问井日产油量的取数被闸拒，拒因见缺口面——不代答。"],
+    }
+    wire_ledger_projection(V2LedgerPort(dump_refused))
+    with freeze("2026-10-08T09:00:00"):
+        runtime_refused, completer_refused = v2_runtime(
+            script=script_refused, registry=v2_registry(engine=engine_refused)
+        )
+        events_refused = await v2_run(runtime_refused, "全拒批次题")
+    assert events_refused[-1].event == "blackbox"
+    assert events_refused[-1].data["status"] == "completed"
+    run_id_refused = events_refused[-1].data["run_id"]
+
+    decisions_refused = completer_refused.messages_of("decision")
+    assert len(decisions_refused) == 2  # 恰一轮决策（澄清＋匹配）——零回炉轮
+    assert all(
+        rework_head not in str(call[-1].get("content", "")) for call in decisions_refused
+    )
+    assert V2RunStore().load(run_id_refused).rounds == 1
+    assert len(v2_steps(run_id_refused, "clarify")) == 1
+    assert engine_refused.run_calls == 1  # 支已派遣（拒＝引擎侧闸拒，非零调用）
+    drafts = [
+        row.payload or {}
+        for row in v2_steps(run_id_refused)
+        if row.step == "answer" and (row.payload or {}).get("phase") == "draft"
+    ]
+    refused_gaps = [
+        gap for gap in (drafts[0].get("gaps") or []) if gap.get("kind") == "refused"
+    ]
+    assert refused_gaps and refused_reason in str(refused_gaps[0].get("reason"))
+    notices = [event.data for event in events_refused if event.event == "notice"]
+    assert any(refused_reason in str(item.get("content", "")) for item in notices)
+
+
 async def test_four_phase_three_rounds_partial_answers() -> None:
     """行 10｜3 轮部分续找语义（轮 1 部分答案→轮 2/3 带失败子集）。
 
