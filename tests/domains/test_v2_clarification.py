@@ -1,8 +1,13 @@
-"""clarification 块验收（`RT-W4-02a`：-A 半面 15 行 ＋ 本块三条 pin）。
+"""clarification 块验收（`RT-W4-02a`：-A 半面 15 行 ＋ 本块三条 pin；`RT-W4-02b`：-B 半面 7 行）。
 
 票面对象＝`specs/clarification.md`「验收测试」表逐行转抄（`#` 列保留规格表行序、不重编；测试
-标识与规格列逐字一致）。本票 15 行＝行序 1／2／3／4／5／6／11／12／13／14／16／17／18／19／20；
-余 7 行（行序 7／8／9／10／15／21／22）归 `RT-W4-02b`。
+标识与规格列逐字一致）。-A 票 15 行＝行序 1／2／3／4／5／6／11／12／13／14／16／17／18／19／20；
+-B 票 7 行＝行序 7／8／9／10／15／21／22（反问卡生产簇：时机分派形／默认窗注记／口径歧义／
+合并一卡；覆盖自证归模型；子问题无依赖；【边界集】【保留集】各一行）。
+
+-B 半面的验收面＝**分派形**与**机读信号**，不是判断本身：时机三条（「能否确定／是否需反问」）与
+覆盖自证均在模型侧产出（`walk/裁决表.md` 项目级裁决 #13），程序只按结论分派、只校格式——
+故本票用例断言「问句原文零读点」「零自造反问」「零依赖字段」，不断言程序判语义。
 
 测试网钉（本票 3 行，`specs/clarification.md` 挂钩表 :151–:153）：
 
@@ -33,14 +38,17 @@ from appv2.runtimev2.clarification.constants import (
     GUIDANCE_PRECONDITION,
     MAX_SUBTASKS,
     NO_MATERIAL_SHELL,
+    NOTICE_DECISION_NOTE,
     PAYLOAD_ASK_FRAME,
     PAYLOAD_CAPPED,
     PAYLOAD_REJECTION,
     PAYLOAD_RESUME,
     REASON_ACTION_OUT_OF_WORLD,
     REASON_CHAIN_OUT_OF_WORLD,
+    REASON_CODES,
     REASON_FINALIZE_ZERO_OBSERVATION,
     REASON_LEDGER_NOTES_EMPTY,
+    REASON_LEDGER_NOTES_NOT_VERBATIM,
     REASON_NO_REDISCOVER,
     REASON_REJECTION_GUIDANCE,
     REASON_SCHEMA_INVALID,
@@ -56,6 +64,7 @@ from appv2.runtimev2.clarification.models import (
 from appv2.runtimev2.gateway_adapter import ScriptedCompleter, set_completer
 from appv2.runtimev2.parsing import (
     ClarifyEmission,
+    Subtask,
     discover_fingerprint,
     parse_question_group,
 )
@@ -69,6 +78,7 @@ from appv2.runtimev2.state import (
     INTENT_ANSWER,
     INTENT_DECISION,
     INTENT_DISCOVER,
+    INTENT_TOOLMATCH,
     MAX_DISCOVERS_PER_RUN,
     MAX_ROUNDS,
     Budget,
@@ -782,3 +792,276 @@ def test_parse_rejection_str_to_clarify_rejection_consumer_side() -> None:
     assert outcome.reasons[0].code == REASON_SCHEMA_INVALID
     assert state.decision_error == raw
     assert outcome.reasons  # 恒非空（机读信号面）
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 票面对象 7 行（规格表行序 7／8／9／10／15／21／22）——RT-W4-02b（-B 半面）
+# ══════════════════════════════════════════════════════════════════════════════
+
+# 无时间词的默认窗注记（默认值＋注记同批产出——真源 `walk/08` §七 Q-B）
+_DEFAULT_WINDOW_NOTE = "未指明时间窗——已按近 30 天默认（2026-09-16~2026-10-16）"
+# 默认窗下的子问题原文（窗由模型侧结论给出、程序逐字承接——程序零自造窗）
+_DEFAULT_WINDOW_QUESTION = "查 A7 井 2026-09-16~2026-10-16 产液量"
+# 依赖／顺序类键（保留集判据面：`Subtask` 无依赖字段——行为 10「独立并行」）
+_DEPENDENCY_KEYS = frozenset(
+    {"depends_on", "dependencies", "deps", "after", "before", "parent_id", "order", "seq"}
+)
+
+
+def _decompose_with_note(note: str, *subtasks: Mapping[str, Any]) -> str:
+    """带注记的分解发射（注记＝模型侧结论的原话承载——行为 3「并注记」面）。"""
+    rows = [dict(subtask) for subtask in subtasks]
+    return _json({"action": "decompose", "question_group": {"subtasks": rows}, "note": note})
+
+
+def _finalize_with_note(note: str) -> str:
+    """带注记的定案发射（注记出流与动作无关，只随 `note` 在场）。"""
+    return _json({"action": "finalize", "note": note})
+
+
+def _notices_of(state: RunState, notice_type: str) -> list[Mapping[str, Any]]:
+    """按类型取通知条目（注记出流的机读信号面）。"""
+    return [item for item in state.notices if item.get("type") == notice_type]
+
+
+def _question_text_reads(tree: ast.Module) -> list[str]:
+    """问句原文读点探测（`state.question` 属性访问）——「程序不验收判断本身」的机检面。"""
+    found: list[str] = []
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Attribute)
+            and node.attr == "question"
+            and isinstance(node.value, ast.Name)
+            and node.value.id == "state"
+        ):
+            found.append(f"L{node.lineno}")
+    return found
+
+
+def test_no_ask_when_time_resolvable() -> None:
+    """#7｜时间可确定 → 不反问，直接定范围（**分派形**；判断本身不入程序验收面）——:114。
+
+    断的是模型结论的**分派形**：「能否从问句确定／是否需反问」的判断在模型侧产出
+    （`walk/裁决表.md` 项目级裁决 #13）——模型给非 ask 结论即直接定范围／定案，程序零自造反问、
+    零问句原文读点（不验收判断本身）。
+    """
+    windowed = _subtask(question="查 A7 井 2026-10-01~2026-10-03 产液量")
+    state = _state(question="A7 井 2026-10-01 到 2026-10-03 的产液量是多少？")
+    with _scripted(_decompose(windowed)) as completer:
+        outcome = clarify(state)
+
+    assert isinstance(outcome, ClarifyFinal)  # 模型结论＝时间可确定 → 直接定范围（分解形）
+    assert state.pending_ask is None  # 零挂起
+    assert not any(PAYLOAD_ASK_FRAME in payload for payload in _step_payloads(state))  # 零反问帧
+    assert state.question_group == {"subtasks": [dict(windowed)]}  # 窗原样（程序不改写）
+    assert state.next_intent == INTENT_TOOLMATCH
+    assert len(completer.calls) == 1
+
+    # 定案形同款分派（同一分派形：程序只按结论分派）
+    settled = _state(observations=[_material_observation()])
+    with _scripted(_finalize()):
+        assert clarify(settled) is None
+    assert settled.pending_ask is None
+    assert settled.next_intent == INTENT_ANSWER
+
+    # 「只验收分派形，不验收判断本身」：本块源码零问句原文读点
+    for path, tree in _clarification_sources():
+        assert _question_text_reads(tree) == [], f"{path.name} 读问句原文"
+    assert _question_text_reads(ast.parse("flag = state.question\n")) == ["L1"]  # 探测器非空转
+
+
+def test_default_window_with_note() -> None:
+    """#8｜无时间词 → 默认近 30 天并带注记——`specs/clarification.md:115`。
+
+    默认值＋**注记**同批产出（真源 `walk/08` §七 Q-B）：默认窗是模型侧结论（程序零日期算术、
+    零窗口字面），注记由本块**逐字转抄**为机读 `decision_note` 通知（恰三键）；缺位不产通知。
+    """
+    state = _state(question="A7 井的产液量是多少？")  # 无时间词
+    with _scripted(
+        _decompose_with_note(_DEFAULT_WINDOW_NOTE, _subtask(question=_DEFAULT_WINDOW_QUESTION))
+    ):
+        outcome = clarify(state)
+
+    assert isinstance(outcome, ClarifyFinal)
+    assert state.pending_ask is None  # 默认窗＝不反问
+    assert state.question_group["subtasks"][0]["question"] == _DEFAULT_WINDOW_QUESTION  # 逐字承接
+    notes = _notices_of(state, NOTICE_DECISION_NOTE)
+    assert len(notes) == 1  # 注记同批出流（恰一条）
+    assert set(notes[0]) == {"type", "gates", "content"}  # 通知恰三键
+    assert notes[0]["content"] == _DEFAULT_WINDOW_NOTE  # 逐字转抄（不改写、不摘要）
+    assert notes[0]["gates"] == []
+
+    # 定案形同款出流（注记只随 `note` 在场——不挑动作）
+    settled = _state(observations=[_material_observation()])
+    with _scripted(_finalize_with_note(_DEFAULT_WINDOW_NOTE)):
+        assert clarify(settled) is None
+    shipped = _notices_of(settled, NOTICE_DECISION_NOTE)
+    assert [item["content"] for item in shipped] == [_DEFAULT_WINDOW_NOTE]
+
+    # 缺位不产通知（不得凭空产注记）
+    bare = _state()
+    with _scripted(_decompose(_subtask())):
+        assert isinstance(clarify(bare), ClarifyFinal)
+    assert bare.notices == []
+
+    # 程序零自造默认窗：本块零日期算术（`timedelta` 零接触）、零窗口天数裸字面
+    for path, tree in _clarification_sources():
+        assert "timedelta" not in _imported_modules(tree), path.name
+        assert not any(
+            isinstance(node, ast.Attribute) and node.attr == "timedelta"
+            for node in ast.walk(tree)
+        ), path.name
+        assert _limit_literal_hits(tree, frozenset({30})) == {}, path.name
+
+
+def test_caliber_ambiguity_asks() -> None:
+    """#9｜口径歧义 → 反问（不给默认）——`specs/clarification.md:116`。
+
+    口径有歧义 → **反问**、不交模型猜（真源 `walk/08` §七 Q-B）：模型给 ask 结论即挂起出卡；
+    程序**零默认注入**——出卡选项＝模型原话逐字（不追加「默认」项、不替模型选口径、不落默认材料）。
+    """
+    prompt = "「正常产量」按哪个口径比？"
+    options = ("对比计划产量", "对比上月同期", "对比同类井平均")
+    state = _state(question="A7 井产量正常吗？")
+    with _scripted(_ask(prompt, options)) as completer:
+        outcome = clarify(state)
+
+    assert isinstance(outcome, ClarifyAsk)
+    assert outcome.prompt == prompt
+    assert outcome.options == list(options)  # 模型原话逐字：零默认项、零改写
+    frame = state.pending_ask
+    assert frame is not None
+    assert frame["options"] == list(options)
+    # 不给默认：程序不替模型选口径——零定案、零直答、零自造材料落场
+    assert state.question_group is None
+    assert state.draft == "" and state.draft_kind == "" and state.answer == ""
+    assert len(completer.calls) == 1
+
+
+def test_ask_card_merged() -> None:
+    """#10｜同轮多处歧义 → 合并成一张卡——`specs/clarification.md:117`。
+
+    同一轮里多处歧义 → **合并成一张卡**一次问清（反对逐条追问，行为 11）：本块对一次发射只出
+    一张卡（单返回位／单挂起帧／单 ask 步），卡内选项＝模型合并后的全量选项——零拆分、零二次追问。
+    """
+    prompt = "两处歧义一起问：查哪些井？「正常」按哪个口径比？"
+    options = ("A7 井", "全部井", "对比计划产量")
+    state = _state()
+    with _scripted(_ask(prompt, options)) as completer:
+        outcome = clarify(state)
+
+    assert isinstance(outcome, ClarifyAsk)
+    assert set(type(outcome).__dataclass_fields__) == {"kind", "prompt", "options"}  # 卡载荷三键
+    frame = state.pending_ask
+    assert frame is not None
+    assert set(frame) == {"kind", "prompt", "options", "detail"}
+    assert frame["options"] == list(options)  # 合并后的全量选项（不拆分）
+    assert len([p for p in _step_payloads(state) if PAYLOAD_ASK_FRAME in p]) == 1  # 恰一张卡
+    assert len(completer.calls) == 1  # 零逐条追问（不用第二次模型调用补问）
+
+    # 合并只改条数：歧义几处都只出一卡、选项原样出（个数闭世界由解析面守）
+    for merged in (("A7 井", "对比计划产量"), ("A7 井", "A8 井", "对比计划产量", "对比上月同期")):
+        merged_state = _state()
+        with _scripted(_ask(prompt, merged)):
+            merged_outcome = clarify(merged_state)
+        assert isinstance(merged_outcome, ClarifyAsk)
+        assert merged_outcome.options == list(merged)
+        assert len([p for p in _step_payloads(merged_state) if PAYLOAD_ASK_FRAME in p]) == 1
+
+
+def test_coverage_self_proof_model_only() -> None:
+    """#15｜覆盖校验由模型自证；程序不判覆盖——`specs/clarification.md:122`。
+
+    拆完后由**模型**自证「子问题合起来覆盖原题」；**程序只校格式，不拿词表猜覆盖**（行为 9；
+    风险 2）——程序侧只有 schema／前置合规两把闸：单子问题覆盖多诉求原题照收定案（零覆盖缺口
+    拒因），模型自证原文经注记逐字出流（零评价、零改写）。
+    """
+    proof = "覆盖自证：s1 覆盖「哪些井」与「哪个指标」两个诉求"
+    state = _state(question="A7 井和 A8 井的产液量分别是多少？")  # 多诉求原题
+    with _scripted(_decompose_with_note(proof, _subtask(question="查 A7 井产液量"))):
+        outcome = clarify(state)
+
+    # 程序不判覆盖：单子问题覆盖多诉求原题照收（不做覆盖缺口判定）
+    assert isinstance(outcome, ClarifyFinal)
+    assert isinstance(state.question_group, Mapping)
+    assert len(state.question_group["subtasks"]) == 1
+    # 自证在模型侧：原文经注记逐字出流（本块不评价、不修补）
+    assert [item["content"] for item in _notices_of(state, NOTICE_DECISION_NOTE)] == [proof]
+    # 拒因闭世界无覆盖缺口码（程序对账面＝动作／条数／注释／路线，无覆盖项）
+    assert not any(
+        word in code for code in REASON_CODES for word in ("coverage", "覆盖", "gap")
+    )
+    # 程序零覆盖判断：本块逻辑面无语义词表（AST 两探针复用 -A 已立的形态处理豁免面）
+    for path, tree in _clarification_sources():
+        assert _cjk_membership_judgements(tree) == [], path.name
+        assert _wordface_calls(tree) == [], path.name
+
+
+def test_boundary_paraphrased_notes_rejected() -> None:
+    """#21｜【边界集】`ledger_notes` 语义改写（非逐字）→ 判违约——`specs/clarification.md:128`。
+
+    判据＝在台账注入块内**逐字求得**（行为 8；**形态处理豁免面内**——逐字子串校，非语义词表／
+    正则）：语义等价但非逐字形（改写／摘要／改一字／自造）→ 判违约、拒因回喂、**不静默放行、
+    不自动修补**；逐字形（含台账原话的子串）→ 放行——同一判据无中间态。
+    """
+    block = render_ledger_resident_block(_state())
+    assert _METRIC_VALUE in block  # 逐字求得的源面在场
+
+    paraphrases = {
+        "改写": _METRIC_VALUE.replace("日井口产液量", "每日从井口采出的液体总量"),
+        "摘要": "产液量（日度生产指标）",
+        "改一字": _METRIC_VALUE[:-1] + "度",
+        "自造": "产液量大概就是每天的产水量",
+    }
+    for label, note_text in paraphrases.items():
+        assert note_text not in block, label  # 非逐字形（注入块内求不得）
+        state = _state()
+        with _scripted(_decompose(_subtask(ledger_notes=note_text))) as completer:
+            outcome = clarify(state)
+        assert isinstance(outcome, ClarifyRejection), label
+        assert [reason.code for reason in outcome.reasons] == [
+            REASON_LEDGER_NOTES_NOT_VERBATIM
+        ], label
+        assert state.question_group is None  # 不静默放行、不自动修补
+        assert state.decision_error == outcome.reasons[0].reason  # 拒因回喂
+        assert _last_step_payload(state)[PAYLOAD_REJECTION] == outcome.reasons[0].reason
+        assert len(completer.calls) == 1
+
+    # 边界另一面：逐字求得（含台账原话的子串）→ 放行
+    for note_text in (_METRIC_VALUE, "产液量"):
+        verbatim = _state()
+        with _scripted(_decompose(_subtask(ledger_notes=note_text))):
+            verbatim_outcome = clarify(verbatim)
+        assert isinstance(verbatim_outcome, ClarifyFinal), note_text
+        assert verbatim.question_group["subtasks"][0]["ledger_notes"] == note_text
+
+
+def test_retention_no_ask_no_dependency() -> None:
+    """#22｜【保留集】非歧义问句不产生 ask；子问题独立并行行为不变——`specs/clarification.md:129`。
+
+    行为 10：`Subtask` **不含依赖字段**，子问题**独立并行**（依赖声明与顺序执行＝**不做**）。
+    保留集＝这两个既有行为不因本块改形：非歧义问句走分解（零 ask）＋问题组条目键形恒四键
+    （无依赖／顺序／外键）、发射序原样。
+    """
+    rows = [_subtask("s1", question="查 A7 井产液量"), _subtask("s2", question="查 A8 井产液量")]
+    state = _state(question="A7 井和 A8 井的产液量分别是多少？")
+    with _scripted(_decompose(*rows)) as completer:
+        outcome = clarify(state)
+
+    assert isinstance(outcome, ClarifyFinal)  # 非歧义 → 零 ask（保留原行为）
+    assert state.pending_ask is None
+    assert not any(PAYLOAD_ASK_FRAME in payload for payload in _step_payloads(state))
+    assert len(completer.calls) == 1
+
+    # 子问题独立并行行为不变：条目键形恒四键、发射序原样（不回排）、零依赖字段
+    assert isinstance(state.question_group, Mapping)
+    subtasks = state.question_group["subtasks"]
+    assert [row["id"] for row in subtasks] == ["s1", "s2"]
+    assert [subtask.id for subtask in outcome.subtasks] == ["s1", "s2"]
+    for row in subtasks:
+        assert set(row) == {"id", "question", "ledger_notes", "chain"}
+        assert not set(row) & _DEPENDENCY_KEYS
+
+    # 「依赖声明与顺序执行＝不做」的承载位面：`Subtask` 不含依赖字段
+    assert set(Subtask.__dataclass_fields__) == {"id", "question", "ledger_notes", "chain"}
+    assert not set(Subtask.__dataclass_fields__) & _DEPENDENCY_KEYS

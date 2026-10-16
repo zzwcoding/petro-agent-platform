@@ -32,10 +32,15 @@ CALLER_DECISION: Final[str] = "decision"
 # `clarify`｜`external_table_approval`）；本块只生产 `clarify` 帧（审批帧归审批面）。
 ASK_KIND_CLARIFY: Final[str] = "clarify"
 ASK_KIND_EXTERNAL_TABLE_APPROVAL: Final[str] = "external_table_approval"
-# 通知类型：真源＝`specs/transport.md` 的 `NOTICE_TYPES`（二十九值，含本两值）；
+# 通知类型：真源＝`specs/transport.md` 的 `NOTICE_TYPES`（二十九值，含本三值）；
 # 落点校验由 `bookkeeping.notice` 写口把守（越界即拒）。
 NOTICE_CLARIFY_CAPPED: Final[str] = "clarify_capped"
 NOTICE_EMISSION_QUOTE_REPAIR: Final[str] = "emission_quote_repair"
+# 发射注记出流（行为 3「无时间词 → 默认「近 30 天」**并注记**」的机读承载位——
+# 默认值＋注记同批产出：默认窗是模型侧结论、注记经本值出流为机读信号）。
+# 逐字迁移 V1 `appv2/runtime/graph.py` `clarify_node` 两处 `"type": "decision_note"`
+# （L2501／L2616——承载位换、文本不变）。
+NOTICE_DECISION_NOTE: Final[str] = "decision_note"
 # 对话层来源：真源＝`specs/state.md` 行为 6「`clarify_approval_replay`（澄清与审批回收原文）」；
 # 落点校验由 `bookkeeping.append_dialogue` 写口把守。
 DIALOGUE_ORIGIN_CLARIFY_REPLAY: Final[str] = "clarify_approval_replay"

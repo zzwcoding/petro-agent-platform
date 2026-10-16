@@ -55,6 +55,7 @@ from appv2.runtimev2.clarification.constants import (
     NOTE_PHASE,
     NOTE_TITLE,
     NOTICE_CLARIFY_CAPPED,
+    NOTICE_DECISION_NOTE,
     NOTICE_EMISSION_QUOTE_REPAIR,
     NOTICE_LOCATOR_KIND,
     PAYLOAD_ASK_FRAME,
@@ -362,6 +363,20 @@ def _clear_retry_marks(state: RunState) -> None:
     state.budget_reject_streak = 0
 
 
+def _ship_decision_note(state: RunState, emission: ClarifyEmission) -> None:
+    """发射注记出流（行为 3「并注记」的机读信号面）：`note` 非空 → `decision_note` 通知。
+
+    默认值＋注记同批产出（真源 `walk/08` §七 Q-B）：默认窗是**模型侧结论**（本块不造、
+    不判——问句原文在程序侧零读点），注记由本块逐字转抄为机读信号。**缺位不产通知**
+    （不得凭空产注记，同 `state.Convergence` 的形态互斥纪律）；出流面归通知写口单一
+    （`bookkeeping.notice`——恰三键，`type` 值引 `transport.NOTICE_TYPES`）。
+    承载位换、文本不变（逐字稿载体＝V1 `appv2/runtime/graph.py` `clarify_node` 两处
+    `decision_note` 出流，L2501／L2616）。
+    """
+    if emission.note:
+        notice(state, type=NOTICE_DECISION_NOTE, content=emission.note)
+
+
 # ── 四动作分派（每支一处；去向只经 `set_intent` 给意图）────────────────────
 
 
@@ -432,7 +447,8 @@ def _on_decompose(state: RunState, emission: ClarifyEmission) -> ClarifyOutcome:
 
     `parsing` 只查注释非空；「是不是台账原话」在本块校（行为 8）——**判违约不自动修补**：
     返结构化拒因由 `orchestration` 回喂重决策。通过则问题组落状态、旧前置判定作废
-    （判定随组走）、占一轮、去向 `tool_matching`。
+    （判定随组走）、占一轮、去向 `tool_matching`；发射注记非空时逐字出流为 `decision_note`
+    机读通知（行为 3「并注记」——默认窗等模型侧结论的原话承载）。
     """
     group = emission.group
     emission_payload = emission.as_payload()
@@ -471,6 +487,7 @@ def _on_decompose(state: RunState, emission: ClarifyEmission) -> ClarifyOutcome:
         title=NOTE_TITLE,
         digest=STEP_TITLE_DECOMPOSE.format(round=int(state.rounds), count=len(group.subtasks)),
     )
+    _ship_decision_note(state, emission)
     set_intent(state, INTENT_TOOLMATCH)
     return ClarifyFinal(subtasks=list(group.subtasks))
 
@@ -489,7 +506,8 @@ def _on_finalize(state: RunState, emission: ClarifyEmission) -> ClarifyOutcome:
 
     窗内非 notice 实质观察数 ＝ 0 → 结构化拒因「零实质观察禁定稿」＋**三段带路**
     （行为 18：拒因载荷必带、零模型调用）回喂重决策、**不得直答收口**；合规 → 去向 `answer`
-    （起草归作答相位，本块零干预）。
+    （起草归作答相位，本块零干预）；发射注记非空时逐字出流为 `decision_note` 机读通知
+    （行为 3「并注记」同款——注记出流与发射动作无关，只随 `note` 在场）。
     """
     emission_payload = emission.as_payload()
     if not _has_substantive_observation(state):
@@ -514,6 +532,7 @@ def _on_finalize(state: RunState, emission: ClarifyEmission) -> ClarifyOutcome:
         payload={PAYLOAD_PHASE: PHASE_CLARIFY, PAYLOAD_EMISSION: emission_payload},
     )
     note(state, phase=NOTE_PHASE, title=NOTE_TITLE, digest=NOTE_DIGEST_FINALIZE)
+    _ship_decision_note(state, emission)
     set_intent(state, INTENT_ANSWER)
     return None
 
