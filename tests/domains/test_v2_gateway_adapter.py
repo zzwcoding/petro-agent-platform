@@ -1,18 +1,28 @@
-"""gateway_adapter 生产桥验收（RT-W2-03a：骨架＋接口＋生产桥主干＋全部 3 条 pin 行）。
+"""gateway_adapter 生产桥验收（RT-W2-03a：骨架＋接口＋生产桥主干＋全部 3 条 pin 行；
+RT-W2-03b：替身面指针＋元面＋【边界集】／【保留集】）。
 
-票面对象＝`specs/gateway_adapter.md`「验收测试」表第 1–10 行（逐字，测试标识同规格列：
-`::single_model_egress`／`::params_face_fixed`／`::reply_all_keys_and_cached_zero`／
+票面对象＝`specs/gateway_adapter.md`「验收测试」表第 1–10 行（RT-W2-03a 落，逐字，测试
+标识同规格列：`::single_model_egress`／`::params_face_fixed`／`::reply_all_keys_and_cached_zero`／
 `::complete_is_async`／`::attribution_per_call`／`::retry_only_on_retryable`／
 `::no_second_classification_source`／`::exhausted_fail_closed`／
-`::frozen_clock_four_branches`／`::usage_estimated_flagged`）。
+`::frozen_clock_four_branches`／`::usage_estimated_flagged`）＋第 14–16 行（RT-W2-03b 落：
+`::no_judgement_in_gateway_adapter`／`::boundary_empty_huge_ratelimit_clock`／
+`::retention_normal_call_unchanged`）。
 
-测试网钉（同规格「与闸的挂钩表」）：
+规格表第 11–13 行（替身同面／不静默兜底／观测面只读）绑**既有**织网地基件
+`tests/runtimev2/test_gateway_adapter_fake.py`（该件 14 测；`tests/runtimev2/` 合计 45 测
+——本件不转抄其断言，防两处真源漂移）。
+
+测试网钉（同规格「与闸的挂钩表」；3 条 pin 行全在 RT-W2-03a，RT-W2-03b 零 pin 行）：
 - `pin-25`（P1，回执面）→ `::reply_all_keys_and_cached_zero`（`cached_tokens` 未上报＝0；
   其「透传 calllog JSONL」的**落痕面归 infra**，本件不冒充覆盖）；
 - `pin-27`（P0，时钟面）→ `::frozen_clock_four_branches`（缺省冻结日＋`real` 须显式；
   「帧 `frozen_date`」半面不属本块）；
 - `pin-28`（P1，调用盖章面）→ `::attribution_per_call`（每次调用 `run_id` 盖章、
   计费可对账；落盘面挂 `specs/persistence.md`、全盖章面挂 `specs/agent-loop.md`）。
+
+形状真源＝RT-W2-03a 落地的面（`ModelReply` 十字段／`complete` 签名／冻结时钟四分支／
+`ScriptedCompleter` 签名）——RT-W2-03b 只加行为与元／边界·保留断言，不改形状。
 
 织网义务 B7b 落点＝`::retry_only_on_retryable`：按新规格行为 6 织**可重试断言**
 （限流／超时／网络错／5xx 可重试；4xx 业务性拒绝不重试）——旧钉
@@ -24,9 +34,11 @@ from __future__ import annotations
 import ast
 import inspect
 import logging
+import os
+import re
 from collections import Counter
-from collections.abc import Awaitable, Callable, Sequence
-from dataclasses import asdict, dataclass, fields
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import FrozenInstanceError, asdict, dataclass, fields
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -49,6 +61,8 @@ from appv2.runtimev2.gateway_adapter import (
     set_completer,
 )
 from appv2.runtimev2.gateway_adapter import bridge as bridge_module
+from appv2.runtimev2.gateway_adapter import fake as fake_module
+from appv2.runtimev2.gateway_adapter import reply as reply_module
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _V2_DIR = _REPO_ROOT / "appv2" / "runtimev2"
@@ -664,3 +678,390 @@ async def test_usage_estimated_flagged() -> None:
     # 两条路径取值不同（`usage_estimated` 不是恒定值——估算必须显式标注）
     assert measured.usage_estimated != estimated.usage_estimated
     assert measured.duration_ms >= 0 and estimated.duration_ms >= 0
+
+
+# ---------- 11–13 替身面（同面／不静默兜底／观测面只读）----------
+
+# 规格行 11–13 的测试标识绑**既有**织网地基件 `tests/runtimev2/test_gateway_adapter_fake.py`
+# （`TestCardFace::test_complete_signature_matches_card`／
+# `TestDefaultFallback::test_unscripted_without_default_fails_fast`／
+# `TestObservationFaces::test_script_injection_readonly`）——本件不转抄其断言（防两处真源
+# 漂移）；本件只在行 16 补跨面半面：替身与生产桥两条路径的回执键集相等（同一 `ModelReply`）。
+
+
+# ---------- 14 本块零判断（AST 扫描；行为 13）----------
+
+# 本块 import 白名单：stdlib 通用件（事件循环／日志／env／时间／数据类／类型）＋`infra` 三面
+# （B6 两条出口＋B14 时钟）＋本包子模块。白名单外一律判失败——语义词表与正则（`re`）、
+# 引擎与工具面、框架所需的 import 全在名单外。
+_ALLOWED_BLOCK_IMPORTS = {
+    "__future__",
+    "asyncio",
+    "collections.abc",
+    "dataclasses",
+    "datetime",
+    "logging",
+    "os",
+    "time",
+    "typing",
+    "appv2.infra.clock",
+    "appv2.infra.gateway",
+    "appv2.infra.llm_client",
+}
+_ALLOWED_BLOCK_IMPORT_PREFIXES = ("appv2.runtimev2.gateway_adapter.",)
+# 禁止调用面：文件／动态执行／事件发射／语义向量／正则判定（`complete` 不在禁列——本块
+# 自己就是模型出口；`embeddings` 面不属本块，只走 `complete`）
+_FORBIDDEN_BLOCK_CALLS = {
+    "open",
+    "print",
+    "eval",
+    "exec",
+    "compile",
+    "__import__",
+    "emit",
+    "embeddings",
+    "findall",
+    "sub",
+    "search",
+    "match",
+    "fullmatch",
+}
+# 「消息内容面」名：分支判据不得触（本块只有「可重试／不可重试」这类结构分派）
+_CONTENT_FACE_NAMES = {
+    "messages",
+    "message",
+    "content",
+    "prompt",
+    "question",
+    "intent",
+    "word",
+    "words",
+}
+# 分支判据里的中文明文白名单＝行为 7 的 B6 失败事实单源前缀（`classify_failure` 单点：
+# 「上游拒绝 429:」是**结构事实**、非业务词表）——下述断言另钉它在块内只许一处。
+_STRUCTURAL_FACT_LITERALS = ("上游拒绝 429:",)
+_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def _callee_names(tree: ast.Module) -> list[tuple[int, str]]:
+    """一切调用点的被调名（`Name`／`Attribute` 形——`x.foo()` 记 `foo`）。"""
+    found: list[tuple[int, str]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Name):
+            found.append((node.lineno, func.id))
+        elif isinstance(func, ast.Attribute):
+            found.append((node.lineno, func.attr))
+    return found
+
+
+def _str_collections(tree: ast.Module) -> list[tuple[int, set[str]]]:
+    """字符串集合字面量／`set|frozenset(...)` 的元素集（「自建词表」扫描用）。"""
+    found: list[tuple[int, set[str]]] = []
+    for node in ast.walk(tree):
+        elements: list[ast.expr] = []
+        if isinstance(node, (ast.Set, ast.Tuple, ast.List)):
+            elements = list(node.elts)
+        elif isinstance(node, ast.Dict):
+            elements = [key for key in node.keys if key is not None]
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id in {"set", "frozenset"}
+        ):
+            for argument in node.args:
+                if isinstance(argument, (ast.Set, ast.Tuple, ast.List)):
+                    elements.extend(argument.elts)
+        else:
+            continue
+        strings = {
+            element.value
+            for element in elements
+            if isinstance(element, ast.Constant) and isinstance(element.value, str)
+        }
+        if strings:
+            found.append((node.lineno, strings))
+    return found
+
+
+def _branch_tests(tree: ast.Module) -> list[tuple[int, ast.expr]]:
+    """一切分支判据（`if`／条件表达式／`while`／`match` 守卫）——「不做业务分支」的扫描面。"""
+    found: list[tuple[int, ast.expr]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.If, ast.IfExp, ast.While)):
+            found.append((node.lineno, node.test))
+        elif isinstance(node, ast.Match):
+            found.extend(
+                (case.guard.lineno, case.guard) for case in node.cases if case.guard is not None
+            )
+    return found
+
+
+def _referenced_names(node: ast.AST) -> set[str]:
+    """子树按名引用（`Name`／`Attribute`）到的标识符集。"""
+    names: set[str] = set()
+    for sub in ast.walk(node):
+        if isinstance(sub, ast.Name):
+            names.add(sub.id)
+        elif isinstance(sub, ast.Attribute):
+            names.add(sub.attr)
+    return names
+
+
+def _cjk_literals(node: ast.AST) -> list[str]:
+    """子树里的中文明文常量（按业务词面分派＝语义判断的机检代理）。"""
+    return [
+        sub.value
+        for sub in ast.walk(node)
+        if isinstance(sub, ast.Constant)
+        and isinstance(sub.value, str)
+        and any("\u4e00" <= char <= "\u9fff" for char in sub.value)
+    ]
+
+
+def _judgement_findings(tree: ast.Module) -> list[str]:
+    """零判断的机检面：白名单外 import／禁止调用／自建词表／触内容面或中文明文的分支判据。"""
+    findings: list[str] = []
+    for module in sorted(_imported_modules(tree)):
+        if module in _ALLOWED_BLOCK_IMPORTS or module.startswith(_ALLOWED_BLOCK_IMPORT_PREFIXES):
+            continue
+        findings.append(f"import {module}")
+    for line, name in _callee_names(tree):
+        if name in _FORBIDDEN_BLOCK_CALLS:
+            findings.append(f"L{line} 调用 {name}")
+    for line, values in _str_collections(tree):
+        for value in sorted(values):
+            if not _IDENTIFIER.fullmatch(value):
+                findings.append(f"L{line} 疑似词表项 {value!r}")
+    for line, test in _branch_tests(tree):
+        touched = _referenced_names(test) & _CONTENT_FACE_NAMES
+        if touched:
+            findings.append(f"L{line} 分支判据触消息内容面：{sorted(touched)}")
+        for value in _cjk_literals(test):
+            if value not in _STRUCTURAL_FACT_LITERALS:
+                findings.append(f"L{line} 分支判据疑似语义明文 {value!r}")
+    return findings
+
+
+def test_no_judgement_in_gateway_adapter() -> None:
+    """本块零判断（AST 扫描）。"""
+    for path, tree in _block_sources():
+        findings = _judgement_findings(tree)
+        assert findings == [], f"{path.name}：{findings}"
+
+    # 分支判据里唯一的中文明文＝B6 失败事实单源前缀（行为 7 的结构分派事实，非词表）
+    # ——且块内只许一处（单点，不另立第二张词面）
+    for literal in _STRUCTURAL_FACT_LITERALS:
+        sites = [
+            site
+            for _path, tree in _block_sources()
+            for site in _string_literal_sites(tree, literal)
+        ]
+        assert len(sites) == 1, f"结构性明文 {literal!r} 出现 {len(sites)} 处（应单点）"
+
+    # 探测器非空转（词表／正则／文件 IO／消息内容面分支／中文明文分支五类各命中）
+    forged = ast.parse(
+        "import re\n"
+        "WORDS = {'拒答', '无据'}\n"
+        "open('痕迹.txt')\n"
+        "if '是不是' in messages[0]['content']:\n"
+        "    pass\n"
+        "if kind == '拒答':\n"
+        "    pass\n"
+    )
+    findings = _judgement_findings(forged)
+    assert any(finding.startswith("import re") for finding in findings)
+    assert any("词表项" in finding for finding in findings)
+    assert any("调用 open" in finding for finding in findings)
+    assert any("触消息内容面" in finding for finding in findings)
+    assert any("疑似语义明文" in finding for finding in findings)
+
+
+# ---------- 15 【边界集】（空 messages／超长 messages／限流失败／非法时钟值）----------
+
+
+async def test_boundary_empty_huge_ratelimit_clock(monkeypatch: pytest.MonkeyPatch) -> None:
+    """【边界集】空 messages／超长 messages／限流失败／非法时钟值 → 各落对应分支。"""
+    # ① 空 messages：原样转发（不补默认消息、不因空而抛、不静默兜底）
+    empty = _ScriptedEgress([_answer("空问应答")])
+    empty_reply = await _bridge(empty).complete(
+        [], caller="v2.runtime.answer", run_id="run-15"
+    )
+    assert empty.calls[0].messages == []
+    assert (empty_reply.content, empty_reply.caller, empty_reply.run_id) == (
+        "空问应答",
+        "v2.runtime.answer",
+        "run-15",
+    )
+    assert empty_reply.error is None
+    # 替身面同边界：空 messages 照常分流、`run_id` 可缺省；未剧本化仍当场抛错（不静默）
+    stand_in = ScriptedCompleter({"m": ["甲"]})
+    assert (await stand_in.complete([], caller="m")).content == "甲"
+    assert (await stand_in.complete([], caller="m", run_id="run-15")).run_id == "run-15"
+    with pytest.raises(AssertionError, match="ghost"):
+        await stand_in.complete([], caller="ghost")
+
+    # ② 超长 messages：逐字透传（本块不截断、不省略——截断面在 prompts／context）
+    huge = "长" * 200_000
+    long_egress = _ScriptedEgress([_answer("长问应答")])
+    await _bridge(long_egress).complete(
+        _messages(huge), caller="v2.runtime.answer", run_id="run-15"
+    )
+    assert long_egress.calls[0].messages == [{"role": "user", "content": huge}]
+    many = _messages(*[f"第{n}问" for n in range(500)])
+    many_egress = _ScriptedEgress([_answer("多问应答")])
+    await _bridge(many_egress).complete(many, caller="v2.runtime.answer", run_id="run-15")
+    assert many_egress.calls[0].messages == many  # 条数与次序原样
+
+    # ③ 限流失败：可重试类落「退避重试」分支（零上限／到上限／空退避序列三边界）；
+    #    4xx 业务性拒绝落「一次即抛」分支
+    limiting = [
+        UpstreamRejected("petro-main", "上游拒绝 429: RateLimitError") for _ in range(3)
+    ]
+    zero_cap = _ScriptedEgress(limiting)
+    waits: list[float] = []
+    with pytest.raises(UpstreamRejected) as excinfo:
+        await _bridge(zero_cap, retries=0, backoff=(), waits=waits).complete(
+            _messages("问"), caller="v2.runtime.answer", run_id="run-15"
+        )
+    assert excinfo.value is limiting[0]
+    assert (len(zero_cap.calls), waits) == (1, [])  # 零上限＝不留第二次尝试、零等待
+    capped = _ScriptedEgress(limiting)
+    waits = []
+    with pytest.raises(UpstreamRejected) as excinfo:
+        await _bridge(capped, retries=2, backoff=(0.0,), waits=waits).complete(
+            _messages("问"), caller="v2.runtime.answer", run_id="run-15"
+        )
+    assert excinfo.value is limiting[-1]
+    assert (len(capped.calls), waits) == (3, [0.0, 0.0])  # 打满首调＋2 重试后原异常上抛
+    bare_backoff = _ScriptedEgress(limiting)
+    waits = []
+    with pytest.raises(UpstreamRejected):
+        await _bridge(bare_backoff, retries=1, backoff=(), waits=waits).complete(
+            _messages("问"), caller="v2.runtime.answer", run_id="run-15"
+        )
+    assert (len(bare_backoff.calls), waits) == (2, [0.0])  # 退避序列空＝零等待（不静默跳过重试）
+    refused = _ScriptedEgress(
+        [UpstreamRejected("petro-main", "上游拒绝 400: BadRequestError")]
+    )
+    refused_waits: list[float] = []
+    with pytest.raises(UpstreamRejected):
+        await _bridge(refused, retries=3, backoff=(0.0,), waits=refused_waits).complete(
+            _messages("问"), caller="v2.runtime.answer", run_id="run-15"
+        )
+    assert (len(refused.calls), refused_waits) == (1, [])  # 不可重试类一次即抛（不误伤）
+
+    # ④ 非法时钟值：fail-fast（不静默回落真实钟／缺省冻结日，也不改写输入）
+    for illegal in (
+        "2026-13-45",
+        "今天",
+        "08/31/2026",
+        "2026-8-31",
+        "2026-08-31 ",
+        "REAL",
+    ):
+        monkeypatch.setenv(EVAL_FROZEN_DATE_ENV, illegal)
+        with pytest.raises(ValueError, match=EVAL_FROZEN_DATE_ENV):
+            frozen_date()
+        assert os.environ[EVAL_FROZEN_DATE_ENV] == illegal
+    assert (EVAL_FROZEN_DATE_REAL, EVAL_FROZEN_DATE_DEFAULT) == ("real", date(2026, 8, 31))
+
+
+# ---------- 16 【保留集】（常规成功调用的回执字段与归因行为不变）----------
+
+
+class _ForwardingStub:
+    """出口缝存根：原样收回执（钉「薄转发」——不改形／不包装／不复制）。"""
+
+    def __init__(self, reply: ModelReply) -> None:
+        self._reply = reply
+        self.seen: list[tuple[Sequence[Mapping[str, str]], str, str]] = []
+
+    async def complete(
+        self, messages: Sequence[Mapping[str, str]], *, caller: str, run_id: str = ""
+    ) -> ModelReply:
+        self.seen.append((messages, caller, run_id))
+        return self._reply
+
+
+def _class_definitions(tree: ast.Module) -> set[str]:
+    """模块内一切类定义名（「禁双定义」扫描用）。"""
+    return {node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef)}
+
+
+async def test_retention_normal_call_unchanged() -> None:
+    """【保留集】常规成功调用的回执字段与归因行为不变。"""
+    # 回执形状保留：十字段键序照规格接口定义；缺省面不变；`frozen`＋`slots` 不变
+    assert [field.name for field in fields(ModelReply)] == [
+        "content",
+        "caller",
+        "run_id",
+        "alias",
+        "prompt_tokens",
+        "completion_tokens",
+        "cached_tokens",
+        "usage_estimated",
+        "duration_ms",
+        "error",
+    ]
+    blank = ModelReply(content="应答正文", caller="c", run_id="r")
+    assert asdict(blank) == {
+        "content": "应答正文",
+        "caller": "c",
+        "run_id": "r",
+        "alias": "",
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "cached_tokens": 0,
+        "usage_estimated": True,
+        "duration_ms": 0,
+        "error": None,
+    }
+    with pytest.raises(FrozenInstanceError):
+        blank.content = "改"  # type: ignore[misc]
+    assert not hasattr(blank, "__dict__")  # slots=True
+
+    # 单一定义保留：块级唯一实现在 `reply.py`，替身件不自留第二处（阶段 5 只改为 import）
+    assert ModelReply is reply_module.ModelReply is fake_module.ModelReply
+    assert "ModelReply" not in _class_definitions(_source(_BLOCK_DIR / "fake.py"))
+
+    # 常规成功调用：回执字段与归因面原样（内容与别名取路由实服、用量实测、失败面为 None）
+    egress = _ScriptedEgress([_answer("常规应答")])
+    reply = await _bridge(egress).complete(
+        _messages("问"), caller="v2.runtime.answer", run_id="run-16"
+    )
+    assert set(asdict(reply)) == {field.name for field in fields(ModelReply)}
+    assert (reply.content, reply.alias, reply.error) == ("常规应答", "petro-main", None)
+    assert (reply.prompt_tokens, reply.completion_tokens, reply.cached_tokens) == (12, 7, 0)
+    assert reply.usage_estimated is False and reply.duration_ms >= 0
+    # 归因面逐调用原样交出口：`(caller, run_id)` 齐备；别名不由调用方传（路由决定随回执返回）
+    assert [(call.caller, call.run_id) for call in egress.calls] == [
+        ("v2.runtime.answer", "run-16")
+    ]
+    assert egress.calls[0].alias == "" and egress.calls[0].messages == _messages("问")
+
+    # 跨面半面（同面·回执形状）：替身路径与生产桥路径的回执键集相等（同一 `ModelReply`）
+    stand_in = ScriptedCompleter({"v2.runtime.answer": ["替身应答"]})
+    stand_in_reply = await stand_in.complete(
+        _messages("问"), caller="v2.runtime.answer", run_id="run-16"
+    )
+    assert isinstance(stand_in_reply, ModelReply)
+    assert set(asdict(stand_in_reply)) == set(asdict(reply))
+    assert (stand_in_reply.content, stand_in_reply.caller, stand_in_reply.run_id) == (
+        "替身应答",
+        "v2.runtime.answer",
+        "run-16",
+    )
+
+    # 出口面＝薄转发：注入缝返回什么就回什么（不换形／不包装／不复制回执）
+    sentinel = ModelReply(content="哨兵应答", caller="v2.runtime.answer", run_id="run-16")
+    stub = _ForwardingStub(sentinel)
+    previous = set_completer(stub)
+    try:
+        forwarded = await complete(_messages("问"), caller="v2.runtime.answer", run_id="run-16")
+    finally:
+        set_completer(previous)
+    assert forwarded is sentinel
+    assert stub.seen == [(_messages("问"), "v2.runtime.answer", "run-16")]
