@@ -1,8 +1,12 @@
-"""context 块验收（RT-W3-02a：骨架＋六函数功能行为簇＋本块全部 4 条 pin 行）。
+"""context 块验收（RT-W3-02a：骨架＋六函数功能行为簇＋4 条 pin 行；RT-W3-02b：元面与边界簇）。
 
-票面对象＝`specs/context.md`「验收测试」表第 1–12、19 行（逐字，测试标识同规格列——
-`test_` 前缀为本仓 pytest 收集口径，其余逐字一致；`#` 保留规格表行序、不重编）；
-第 13–18、20、21 行归 `RT-W3-02b-context.md`（本件不写）。
+票面对象＝`specs/context.md`「验收测试」表全 21 行（逐字，测试标识同规格列——
+`test_` 前缀为本仓 pytest 收集口径，其余逐字一致；`#` 保留规格表行序、不重编）：
+第 1–12、19 行＝`RT-W3-02a-context.md`（骨架＋六函数功能行为簇＋4 条 pin 行）；
+第 13–18、20、21 行＝`RT-W3-02b-context.md`（元面与边界簇——渲染器族纯函数确定性／
+import 白名单与写面唯一·零帧／无词表正则／帽预算常量单点／渲染单点／零合同字面／
+【边界集】／【保留集】）。两票同包顺序施工：-02b 只加固 -02a 落地的形状，
+六函数签名与常量族以 -02a 为唯一真源（改形状＝回 -02a 或回设计仓）。
 测试网钉＝pin-09（渲染面三落点：行 5／6／19）／pin-08（渲染帽分形面，行 4）／
 pin-22（视图不改原史，行 9）／pin-30（compaction 半面，行 9）——四钉全在本票。
 「钉落点对读」两行（pin-24／pin-26 不落本块）＝核实在案（本块零合同、零标记、零追加时点；
@@ -23,8 +27,11 @@ tools 装载入口形＝「阶段 5 context 施工票前置核定」（流水 43
 from __future__ import annotations
 
 import ast
-from collections.abc import Iterator, Mapping
+import inspect
+import re
+from collections.abc import Callable, Iterator, Mapping
 from copy import deepcopy
+from importlib import import_module
 from pathlib import Path
 from typing import Any
 
@@ -89,8 +96,6 @@ def _obs(
 
 def _indices(text: str) -> list[int]:
     """渲染文本中的 `[n]` 引标序号列（块形 `[{index}]（` 抽取）。"""
-    import re
-
     return [int(m) for m in re.findall(r"\[(\d+)\]（", text)]
 
 
@@ -637,6 +642,850 @@ def test_truncation_signal_no_emit() -> None:
         for node in ast.walk(forged)
         if isinstance(node, ast.Attribute) and node.attr == "emit"
     ] == [1]
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# RT-W3-02b：元面与边界簇（规格表第 13–18、20、21 行）
+#   本票只加固 -02a 落地的形状（六函数签名＋常量族）——不改值、不改形；
+#   改形状＝回 -02a 或回设计仓。
+# ══════════════════════════════════════════════════════════════════════════════
+
+_V2_DIR = _REPO_ROOT / "appv2" / "runtimev2"
+
+# 渲染器族五件（纯函数面）——**唯一 IO 面＝`load_ledger_dump` 的 tools 调用**不在其内（行为 12）。
+_RENDERERS = (render_materials, render_process_notes, compile_manifest, compact_messages, trust_of)
+# 渲染器族载件（扫描面钉死——`ledger.py` 是唯一 IO 面、不在纯函数扫描面内）
+_RENDERER_FILES = ("compaction.py", "manifest.py", "materials.py", "process_notes.py")
+
+# 依赖白名单＝`state`＋`tools` 两块（禁引其余 runtimev2 块——红线④⑤）。
+_ALLOWED_DEPENDENCY_BLOCKS = ("state", "tools")
+# 共享写面零写（写口归 `bookkeeping`；全块唯一状态写入＝`ledger_dump` 取一次装载——红线⑥）。
+_SHARED_WRITE_FIELDS = (
+    "messages",
+    "steps",
+    "notices",
+    "process_notes",
+    "dialogue",
+    "next_intent",
+)
+_MUTATING_METHODS = (
+    "append",
+    "extend",
+    "insert",
+    "pop",
+    "remove",
+    "clear",
+    "update",
+    "setdefault",
+    "add",
+    "sort",
+    "reverse",
+)
+
+# 行 13 判据面：零 IO／模型／时钟／随机／emit（AST）。
+_FORBIDDEN_PURE_MODULES = (
+    "os",
+    "io",
+    "sys",
+    "pathlib",
+    "time",
+    "datetime",
+    "random",
+    "secrets",
+    "uuid",
+    "socket",
+    "subprocess",
+    "shutil",
+    "tempfile",
+    "logging",
+    "asyncio",
+    "threading",
+    "pickle",
+    "sqlite3",
+    "requests",
+    "httpx",
+    "urllib",
+)
+_FORBIDDEN_BARE_CALLS = ("open", "input", "eval", "exec", "__import__", "print")
+_FORBIDDEN_ATTR_CALLS = (
+    "now",
+    "utcnow",
+    "today",
+    "monotonic",
+    "perf_counter",
+    "time",
+    "sleep",
+    "choice",
+    "randint",
+    "shuffle",
+    "uuid4",
+    "emit",
+)
+_MODEL_CALL_NAMES = ("acomplete", "chat", "complete", "embed", "embedding", "embeddings")
+
+# 行 15 判据面：正则族＋词表名面＋非标识符形字符串集合（语义词表的机检代理）。
+_REGEX_MODULES = ("re", "regex")
+_LEXICON_NAME_MARKS = ("lexicon", "wordlist", "keyword_table", "词表")
+_IDENTIFIER_SHAPE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+# 行 15 判定清单（逐条可指真源条目——真源 `docs/runtime-refactor/walk/判断归责表.md`；
+# 全部落「闭世界查表／排序／计数／截断／字符串归一／字符截取」＝形态处理，零语义判断）。
+_JUDGEMENT_INVENTORY = (
+    ("materials.py", "_KIND_TRUST.get", "闭世界查表（真源 recon/K R-K-15…R-K-17）"),
+    ("materials.py", "_TRUST_RANK.get", "信任级排序键闭世界（真源 R-K-05）"),
+    ("materials.py", "sorted(", "稳定排序（同 rank 保持入栈序）"),
+    ("materials.py", "len(reports) > max_observations", "计数＋截断（帽只作用检索族）"),
+    ("materials.py", ".strip()", "字符串归一（空段判定——形态处理豁免面）"),
+    ("manifest.py", "RESIDENT_SOURCE_ROWS.items()", "三来源行闭世界映射"),
+    ("compaction.py", "in DIALOGUE_ORIGINS", "集合成员判定（形态处理豁免面）"),
+    ("compaction.py", "[:cap]", "字符截取（摘要行单行上限——形态处理豁免面）"),
+    ("process_notes.py", "total + len(line) + 1 > budget", "计数＋预算截断"),
+)
+
+# 行 17 渲染单点（runtimev2 面内各恰一处定义；`kind` ∈ `def`／`assign`）。
+_RENDERER_SINGLE_POINT = (
+    ("render_materials", "def", "materials.py", "材料段渲染"),
+    ("render_process_notes", "def", "process_notes.py", "过程档案渲染"),
+    ("trust_of", "def", "materials.py", "信任映射"),
+    ("_KIND_TRUST", "assign", "materials.py", "信任级闭世界映射表"),
+    ("_TRUST_RANK", "assign", "materials.py", "信任级排序映射"),
+    ("_carrier_split", "def", "materials.py", "分形帽分组单点"),
+    ("DEFAULT_MAX_OBSERVATIONS", "assign", "materials.py", "帽常量"),
+    ("RESIDENT_SOURCE_ROWS", "assign", "manifest.py", "三来源行映射"),
+    ("_PROCESS_NOTES_HEADER", "assign", "process_notes.py", "过程档案头注"),
+)
+
+# 模型面渲染文案锚（跨面唯一——消费方私存副本＝判失败。用户/审计面披露文案归发射方
+# `specs/answering.md`，不在本锚列——本扫描只钉模型面渲染产物）。
+_RENDER_TEXT_ANCHORS = ("观察材料：", "【本 run 已做（过程档案摘要——防重参考，不是作答材料）】")
+
+
+def _v2_sources() -> list[tuple[Path, ast.Module]]:
+    """V2 全块源码树（单点断言的扫描面——「runtimev2 面内恰一处定义」）。"""
+    return [
+        (path, ast.parse(path.read_text(encoding="utf-8")))
+        for path in sorted(_V2_DIR.rglob("*.py"))
+    ]
+
+
+def _renderer_sources() -> list[tuple[Path, ast.Module]]:
+    """渲染器族载件（扫描面由函数对象反查，清单漂移即红）。"""
+    files = set()
+    for func in _RENDERERS:
+        source = inspect.getsourcefile(func)
+        assert source is not None, f"{func.__name__} 源文件不可得"
+        files.add(Path(source))
+    assert sorted(path.name for path in files) == list(_RENDERER_FILES), sorted(files)
+    return [(path, ast.parse(path.read_text(encoding="utf-8"))) for path in sorted(files)]
+
+
+def _context_texts() -> dict[str, str]:
+    """本块源码文本（文本级扫描面——字面命中判定用）。"""
+    return {
+        path.name: path.read_text(encoding="utf-8")
+        for path in sorted(_CONTEXT_DIR.rglob("*.py"))
+    }
+
+
+def _imported_modules(tree: ast.Module) -> list[tuple[int, str]]:
+    """文件内 import 位点（`(行, 模块名)`；相对引以点号前缀记名）。"""
+    found: list[tuple[int, str]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            found.extend((node.lineno, alias.name) for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            found.append((node.lineno, "." * node.level + (node.module or "")))
+    return found
+
+
+def _call_sites(tree: ast.Module) -> list[tuple[int, str, str]]:
+    """调用位点（`(行, 形, 被调名)`；形 ∈ `bare`／`attr`）。"""
+    found: list[tuple[int, str, str]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if isinstance(node.func, ast.Name):
+            found.append((node.lineno, "bare", node.func.id))
+        elif isinstance(node.func, ast.Attribute):
+            found.append((node.lineno, "attr", node.func.attr))
+    return found
+
+
+def _dependency_block(module: str) -> str:
+    """`appv2.runtimev2.X[.…]` → `X`；其余 `appv2.…` 形 → 第二段（`infra`／`runtime` 等）。"""
+    parts = module.split(".")
+    if parts[:2] == ["appv2", "runtimev2"] and len(parts) >= 3:
+        return parts[2]
+    return parts[1] if len(parts) > 1 else module
+
+
+def _is_whitelisted_import(module: str) -> bool:
+    """`state`＋`tools`＋本包自身为白名单；其余 `appv2.*` 一律越界。"""
+    if not module.startswith("appv2"):
+        return True
+    block = _dependency_block(module)
+    return block == "context" or block in _ALLOWED_DEPENDENCY_BLOCKS
+
+
+def _emit_sites(tree: ast.Module) -> list[int]:
+    """帧发射位点（`emit` 名或属性——本块零帧，帧面归发射方）。"""
+    return [
+        node.lineno
+        for node in ast.walk(tree)
+        if (isinstance(node, ast.Attribute) and node.attr == "emit")
+        or (isinstance(node, ast.Name) and node.id == "emit")
+    ]
+
+
+def _purity_findings(sources: list[tuple[Path, ast.Module]]) -> list[str]:
+    """行 13 AST 判据面：零 IO／模型／时钟／随机／emit＋零越界引块。"""
+    findings: list[str] = []
+    for path, tree in sources:
+        for lineno, module in _imported_modules(tree):
+            root = module.split(".")[0]
+            if root in _FORBIDDEN_PURE_MODULES:
+                findings.append(f"{path.name}:{lineno} 禁引模块 {module}")
+            elif root == "appv2" and not _is_whitelisted_import(module):
+                findings.append(f"{path.name}:{lineno} 越界引块 {module}")
+        for lineno, kind, callee in _call_sites(tree):
+            if kind == "bare" and callee in _FORBIDDEN_BARE_CALLS:
+                findings.append(f"{path.name}:{lineno} 禁止调用 {callee}")
+            if kind == "attr" and callee in _FORBIDDEN_ATTR_CALLS:
+                findings.append(f"{path.name}:{lineno} IO／时钟／随机／帧面调用 .{callee}")
+            if callee in _MODEL_CALL_NAMES:
+                findings.append(f"{path.name}:{lineno} 模型调用 {callee}")
+        findings.extend(f"{path.name}:{lineno} 帧面 emit" for lineno in _emit_sites(tree))
+    return findings
+
+
+def _import_findings(sources: list[tuple[Path, ast.Module]]) -> list[str]:
+    """行 14 AST 判据面：import 白名单（只 `state`＋`tools`＋自身）。"""
+    return [
+        f"{path.name}:{lineno} 越界引块 {module}"
+        for path, tree in sources
+        for lineno, module in _imported_modules(tree)
+        if not _is_whitelisted_import(module)
+    ]
+
+
+def _state_field(node: ast.expr) -> str | None:
+    """`state.<字段>` 形（含其下标取值根）→ 字段名；其余 → None。"""
+    while isinstance(node, ast.Subscript):
+        node = node.value
+    if (
+        isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "state"
+    ):
+        return node.attr
+    return None
+
+
+def _state_field_write_sites(sources: list[tuple[Path, ast.Module]]) -> list[tuple[str, int, str]]:
+    """`state.<字段>` 写入位点（赋值／增广／下标存／`setattr`／原地变更方法＝写面扫描面）。"""
+    sites: list[tuple[str, int, str]] = []
+    for path, tree in sources:
+        for node in ast.walk(tree):
+            targets: list[ast.expr] = []
+            if isinstance(node, ast.Assign):
+                targets = list(node.targets)
+            elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
+                targets = [node.target]
+            for target in targets:
+                field = _state_field(target)
+                if field is not None:
+                    sites.append((path.name, node.lineno, field))
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            if isinstance(func, ast.Name) and func.id == "setattr" and node.args:
+                first = node.args[0]
+                if isinstance(first, ast.Name) and first.id == "state":
+                    sites.append((path.name, node.lineno, "setattr(state, …)"))
+            elif isinstance(func, ast.Attribute) and func.attr in _MUTATING_METHODS:
+                field = _state_field(func.value)
+                if field is not None:
+                    sites.append((path.name, node.lineno, f"{field}.{func.attr}()"))
+    return sites
+
+
+def _has_cjk(text: str) -> bool:
+    return any("\u4e00" <= char <= "\u9fff" for char in text)
+
+
+def _module_str_collections(tree: ast.Module) -> list[tuple[int, str, tuple[str, ...]]]:
+    """模块级字符串集合常量（元组／列表／集合字面量与 `set|frozenset(...)`，映射取键集）。
+
+    元素非标识符形即「自建语义词表」的机检代理（闭世界枚举取值与 `__all__` 名单都是标识符形）。
+    """
+    sites: list[tuple[int, str, tuple[str, ...]]] = []
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            target = node.targets[0]
+        elif isinstance(node, ast.AnnAssign):
+            target = node.target
+        else:
+            continue
+        if not isinstance(target, ast.Name):
+            continue
+        value = node.value
+        values: tuple[str, ...] = ()
+        if isinstance(value, (ast.Tuple, ast.List, ast.Set)):
+            values = tuple(
+                element.value
+                for element in value.elts
+                if isinstance(element, ast.Constant) and isinstance(element.value, str)
+            )
+        elif (
+            isinstance(value, ast.Call)
+            and isinstance(value.func, ast.Name)
+            and value.func.id in ("set", "frozenset")
+            and value.args
+            and isinstance(value.args[0], (ast.Tuple, ast.List, ast.Set))
+        ):
+            values = tuple(
+                element.value
+                for element in value.args[0].elts
+                if isinstance(element, ast.Constant) and isinstance(element.value, str)
+            )
+        elif isinstance(value, ast.Dict) and all(
+            isinstance(key, ast.Constant) and isinstance(key.value, str) for key in value.keys
+        ):
+            values = tuple(key.value for key in value.keys)
+        if values:
+            sites.append((node.lineno, target.id, values))
+    return sites
+
+
+def _lexicon_findings(sources: list[tuple[Path, ast.Module]]) -> list[str]:
+    """行 15 AST 判据面：正则语义判定＋自建语义词表＋词表名面＋汉字串集合／成员判据。
+
+    豁免面＝形态处理（集合成员判定／字符串归一／字符截取）：闭世界枚举取值恒标识符形、
+    不算语义词表；逐字披露文案只作拼接、不作判据（只在集合元素与 `in` 操作数两面被咬）。
+    """
+    findings: list[str] = []
+    for path, tree in sources:
+        for lineno, module in _imported_modules(tree):
+            if module.split(".")[0] in _REGEX_MODULES:
+                findings.append(f"{path.name}:{lineno} 禁引正则模块 {module}")
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Attribute)
+                and isinstance(node.value, ast.Name)
+                and node.value.id in _REGEX_MODULES
+            ):
+                findings.append(
+                    f"{path.name}:{node.lineno} 正则语义判定 {node.value.id}.{node.attr}"
+                )
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                if any(mark in node.name.lower() for mark in _LEXICON_NAME_MARKS):
+                    findings.append(f"{path.name}:{node.lineno} 词表名面 {node.name}")
+            elif isinstance(node, ast.Name):
+                if any(mark in node.id.lower() for mark in _LEXICON_NAME_MARKS):
+                    findings.append(f"{path.name}:{node.lineno} 词表名面 {node.id}")
+            if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+                for element in node.elts:
+                    if (
+                        isinstance(element, ast.Constant)
+                        and isinstance(element.value, str)
+                        and _has_cjk(element.value)
+                    ):
+                        findings.append(f"{path.name}:{node.lineno} 字面集合含汉字串（词表形）")
+            if isinstance(node, ast.Compare) and any(
+                isinstance(op, (ast.In, ast.NotIn)) for op in node.ops
+            ):
+                for operand in (node.left, *node.comparators):
+                    if (
+                        isinstance(operand, ast.Constant)
+                        and isinstance(operand.value, str)
+                        and _has_cjk(operand.value)
+                    ):
+                        findings.append(f"{path.name}:{node.lineno} 汉字串成员判据")
+        for lineno, target, values in _module_str_collections(tree):
+            for value in values:
+                if not _IDENTIFIER_SHAPE.fullmatch(value):
+                    findings.append(f"{path.name}:{lineno} 疑似语义词表项 {target} 含 {value!r}")
+    return findings
+
+
+def _constant_defs(
+    sources: list[tuple[Path, ast.Module]], name: str
+) -> list[tuple[str, int, Any]]:
+    """模块级常量定义位点（`(文件名, 行, 字面值)`；非字面值记 `None`）。"""
+    sites: list[tuple[str, int, Any]] = []
+    for path, tree in sources:
+        for node in tree.body:
+            if isinstance(node, ast.Assign):
+                target = node.targets[0] if len(node.targets) == 1 else None
+            elif isinstance(node, ast.AnnAssign):
+                target = node.target
+            else:
+                continue
+            if isinstance(target, ast.Name) and target.id == name:
+                literal = node.value.value if isinstance(node.value, ast.Constant) else None
+                sites.append((path.name, node.lineno, literal))
+    return sites
+
+
+def _bare_literal_sites(
+    sources: list[tuple[Path, ast.Module]], values: tuple[int, ...]
+) -> list[tuple[str, int, int]]:
+    """源码内裸数值字面量位点（判「无缺省裸字面」残留）。"""
+    return [
+        (path.name, node.lineno, node.value)
+        for path, tree in sources
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant) and node.value in values
+        and not isinstance(node.value, bool)
+    ]
+
+
+def _definition_sites(
+    sources: list[tuple[Path, ast.Module]], name: str, kind: str
+) -> list[tuple[str, int]]:
+    """定义位点（`kind` ∈ `def`／`assign`）。"""
+    sites: list[tuple[str, int]] = []
+    for path, tree in sources:
+        for node in ast.walk(tree):
+            if kind == "def" and isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if node.name == name:
+                    sites.append((path.name, node.lineno))
+            elif kind == "assign" and isinstance(node, ast.Assign):
+                if any(isinstance(t, ast.Name) and t.id == name for t in node.targets):
+                    sites.append((path.name, node.lineno))
+            elif kind == "assign" and isinstance(node, ast.AnnAssign):
+                if isinstance(node.target, ast.Name) and node.target.id == name:
+                    sites.append((path.name, node.lineno))
+    return sites
+
+
+def _signature_shape(func: Any) -> tuple[tuple[str, str, bool], ...]:
+    """签名形状（参数名／参形／「无缺省」标志——形状单点的观测面）。"""
+    return tuple(
+        (name, parameter.kind.name, parameter.default is inspect.Parameter.empty)
+        for name, parameter in inspect.signature(func).parameters.items()
+    )
+
+
+# ---------- 13 渲染器族纯函数确定性（两跑相等／入参深比较不变／AST 零 IO·模型·时钟·随机·emit）-----
+
+
+def test_renderers_pure_deterministic() -> None:
+    """行 13 渲染器族纯函数确定性（行为 12——唯一 IO 面＝`load_ledger_dump` 的 tools 调用）。"""
+    observations = [
+        _obs(3, "fragment", content="检索片段", source="kb", source_id="kb-3"),
+        _obs(1, "agg_row", content="合计 100", source_id="agg.fct_daily_metering"),
+        _obs(2, "metric", content="台账卡", source_id="metric-1"),
+    ]
+    dump: dict[str, Any] = {"metrics": [{"slot": "日产油量"}]}
+    state = _notes_state(6)
+    chain = _chain()
+    inputs = {
+        "observations": deepcopy(observations),
+        "state": deepcopy(state),
+        "chain": deepcopy(chain),
+        "observation": deepcopy(observations[0]),
+        "dump": deepcopy(dump),
+    }
+    calls: list[tuple[str, Callable[[], Any]]] = [
+        ("render_materials", lambda: render_materials(observations, max_observations=24)),
+        (
+            "render_process_notes",
+            lambda: render_process_notes(state, budget=PROCESS_NOTES_BUDGET),
+        ),
+        (
+            "compile_manifest",
+            lambda: compile_manifest(
+                observations, step="answer", max_observations=24, ledger_dump=dump
+            ),
+        ),
+        ("compact_messages", lambda: compact_messages(chain, dialogue_view_tokens=120)),
+        ("trust_of", lambda: trust_of(observations[2])),
+    ]
+    for label, call in calls:
+        first, second = call(), call()
+        assert first == second, f"{label} 两跑不相等（确定性被破）"
+        assert repr(first) == repr(second), f"{label} 两跑不逐字相等"
+    # 调用前后入参深比较相等（零写入）
+    assert observations == inputs["observations"]
+    assert state == inputs["state"]
+    assert chain == inputs["chain"]
+    assert observations[0] == inputs["observation"]
+    assert dump == inputs["dump"]
+    # 同输入异实例同结果（结果只由入参决定——无隐藏状态）
+    assert render_materials(deepcopy(observations), max_observations=24) == render_materials(
+        observations, max_observations=24
+    )
+
+    sources = _renderer_sources()
+    assert sources, "扫描面为空——看守失效"
+    assert _purity_findings(sources) == [], "渲染器族出现 IO／模型／时钟／随机／emit 位点"
+
+    # 探测器非空转（IO／时钟／随机／模型／帧面五面各命中）
+    probes: dict[str, str] = {
+        "IO": "import os\nopen('痕迹')\n",
+        "时钟": "from datetime import datetime\nnow = datetime.now()\n",
+        "随机": "import random\npick = random.choice([1])\n",
+        "模型": "async def go(egress):\n    await egress.complete([])\n",
+        "帧面": "bus.emit('notice', {})\n",
+    }
+    for label, source in probes.items():
+        assert _purity_findings([(Path("forged.py"), ast.parse(source))]), f"{label} 面探测器空转"
+
+
+# ---------- 14 import 白名单（只 state＋tools）＋写面唯一（ledger_dump）＋零帧（AST）----------
+
+
+def test_imports_and_write_ports_scan() -> None:
+    """行 14 import 白名单＋写面唯一＋零帧（AST 扫描——红线④⑤⑥⑦）。"""
+    sources = _context_sources()
+    assert sources, "扫描面为空——看守失效"
+
+    # ① import 白名单＝`state`＋`tools`＋本包自身（禁引其余 runtimev2 块／infra／旧码）
+    assert _import_findings(sources) == [], "本块 import 面越出「只 state＋tools」白名单"
+    blocks = {
+        _dependency_block(module)
+        for _name, tree in sources
+        for _lineno, module in _imported_modules(tree)
+        if module.startswith("appv2")
+    }
+    assert blocks <= {"context", "state", "tools"}, f"依赖白名单外块：{sorted(blocks)}"
+    # 零模型调用（连 `gateway_adapter` 都不 import——规格 :102 诚实声明面）
+    assert not any(
+        module.startswith(("appv2.runtimev2.gateway_adapter", "appv2.infra.llm_client"))
+        for _name, tree in sources
+        for _lineno, module in _imported_modules(tree)
+    )
+
+    # ② 写面唯一＝`ledger_dump` 取一次装载（恰一处，且不在共享写面）
+    writes = _state_field_write_sites(sources)
+    assert [(name, field) for name, _lineno, field in writes] == [("ledger.py", "ledger_dump")]
+    for field in _SHARED_WRITE_FIELDS:
+        assert not any(attr.startswith(field) for _n, _l, attr in writes), field
+
+    # ③ 零帧（本块零 emit——帧面归发射方）
+    assert [lineno for _path, tree in sources for lineno in _emit_sites(tree)] == []
+
+    # 探测器非空转：其余 15 块／infra／旧码／引擎逐一被咬；伪造写面与帧面被咬
+    for block in (
+        "understanding",
+        "clarification",
+        "tool_matching",
+        "preconditions",
+        "execution",
+        "answering",
+        "verification",
+        "orchestration",
+        "bookkeeping",
+        "prompts",
+        "parsing",
+        "transport",
+        "persistence",
+        "gateway_adapter",
+        "gate",
+    ):
+        forged = [(Path("forged.py"), ast.parse(f"from appv2.runtimev2.{block} import x\n"))]
+        assert _import_findings(forged), f"越界引块 {block} 未被咬"
+    for module in ("appv2.infra.llm_client", "appv2.runtime.context", "appv2.knowledge.kb"):
+        forged = [(Path("forged.py"), ast.parse(f"from {module} import x\n"))]
+        assert _import_findings(forged), f"越界引块 {module} 未被咬"
+    for forged_source in (
+        "def f(state):\n    state.messages = []\n",
+        "def f(state):\n    state.process_notes.append({})\n",
+        "def f(state):\n    state.notices[0] = {}\n",
+        "def f(state):\n    setattr(state, 'dialogue', [])\n",
+    ):
+        assert _state_field_write_sites([(Path("forged.py"), ast.parse(forged_source))])
+    assert _emit_sites(ast.parse("bus.emit('notice', {})\n")) == [1]
+
+
+# ---------- 15 程序侧无词表／正则语义判断（AST；豁免面＝形态处理） ----------
+
+
+def test_no_lexicon_or_regex_in_context() -> None:
+    """行 15 程序侧无词表／正则语义判断（AST；豁免面＝形态处理——行为 13）。"""
+    sources = _context_sources()
+    assert sources, "扫描面为空——看守失效"
+    assert _lexicon_findings(sources) == [], "本块出现正则／语义词表位点"
+
+    # 判定清单逐条可指真源条目（全部落形态处理——零语义判断）
+    texts = _context_texts()
+    for filename, marker, source in _JUDGEMENT_INVENTORY:
+        assert marker in texts[filename], f"判定清单条目缺失：{filename} 的 {marker}（{source}）"
+
+    # 探测器非空转（正则／词表名面／自建词表／汉字串集合／汉字串成员判据五类各命中）
+    probes: dict[str, str] = {
+        "正则": "import re\nhit = re.search('错', text)\n",
+        "词表名面": "LEXICON = {'没答上': 'no'}\n",
+        "自建词表": "WORDS: tuple[str, ...] = ('有用', '没用')\n",
+        "汉字串集合": "PAIRS = ['提及', '执行']\n",
+        "汉字串成员判据": "ok = word in '提及执行'\n",
+    }
+    for label, source in probes.items():
+        assert _lexicon_findings([(Path("forged.py"), ast.parse(source))]), f"{label} 面探测器空转"
+    # 豁免不是漏网：闭世界枚举取值与逐字披露文案不被咬（形态处理豁免面）
+    legit = (
+        "KINDS = {'agg_row': 1, 'fragment': 2}\n"
+        "HINT = '台账投影装载失败——本轮无法取得台账材料'\n"
+        "def use(kind):\n"
+        "    return kind in KINDS\n"
+    )
+    assert _lexicon_findings([(Path("forged.py"), ast.parse(legit))]) == []
+
+
+# ---------- 16 帽/预算常量单点（各一处、注入制无缺省裸字面） ----------
+
+
+def test_cap_constant_single_point() -> None:
+    """行 16 帽／预算常量各一处、注入制无缺省裸字面（行为 4／8——数值不落规格）。"""
+    sources = _v2_sources()
+    assert sources, "扫描面为空——看守失效"
+    definitions: dict[str, tuple[int, str]] = {
+        "DEFAULT_MAX_OBSERVATIONS": (24, "materials.py"),
+        "PROCESS_NOTES_BUDGET": (400, "process_notes.py"),
+    }
+    for name, (value, filename) in definitions.items():
+        sites = _constant_defs(sources, name)
+        assert [(site[0], site[2]) for site in sites] == [(filename, value)], (
+            f"常量 {name} 在 runtimev2 面内非恰一处定义：{sites}"
+        )
+    # 视窗数值单点（同款纪律——行为 9：触发参数注入制、无裸值）
+    window = _constant_defs(sources, "DEFAULT_DIALOGUE_VIEW_TOKENS")
+    assert [(site[0], site[2]) for site in window] == [("compaction.py", 8192)]
+
+    # 注入制、无缺省裸字面（帽／预算／视窗三参皆 kw-only 且无缺省）
+    for func, parameter in (
+        (render_materials, "max_observations"),
+        (compile_manifest, "max_observations"),
+        (render_process_notes, "budget"),
+        (compact_messages, "dialogue_view_tokens"),
+    ):
+        param = inspect.signature(func).parameters[parameter]
+        assert param.kind is inspect.Parameter.KEYWORD_ONLY, f"{func.__name__}.{parameter} 非注入制"
+        assert param.default is inspect.Parameter.empty, f"{func.__name__}.{parameter} 带缺省裸字面"
+
+    # 裸字面零残留：24／400 在本块源码内只出现在常量定义行
+    context_sources = _context_sources()
+    allowed = {
+        (path, lineno)
+        for name in definitions
+        for path, lineno, _value in _constant_defs(context_sources, name)
+    }
+    bare = _bare_literal_sites(context_sources, (24, 400))
+    assert {(site[0], site[1]) for site in bare} == allowed, f"帽／预算裸字面残留：{bare}"
+
+    # 探测器非空转
+    forged_const = [(Path("forged.py"), ast.parse("DEFAULT_MAX_OBSERVATIONS = 24\n"))]
+    assert _constant_defs(forged_const, "DEFAULT_MAX_OBSERVATIONS")
+    forged_default = [(Path("forged.py"), ast.parse("def f(*, cap=24):\n    return cap\n"))]
+    assert _bare_literal_sites(forged_default, (24,)) == [("forged.py", 1, 24)]
+
+
+# ---------- 17 渲染单点（材料/过程档/信任映射/帽/三来源行映射各恰一处定义） ----------
+
+
+def test_renderers_single_source() -> None:
+    """行 17 五组渲染件在 runtimev2 面内各恰一处定义、消费方零副本（红线「禁手写替代」）。"""
+    sources = _v2_sources()
+    assert sources, "扫描面为空——看守失效"
+    for name, kind, filename, label in _RENDERER_SINGLE_POINT:
+        sites = _definition_sites(sources, name, kind)
+        assert [site[0] for site in sites] == [filename], (
+            f"{label}（{name}）在 runtimev2 面内非恰一处定义：{sites}"
+        )
+
+    # 渲染文案跨面唯一（消费方私存副本＝判失败）
+    for anchor in _RENDER_TEXT_ANCHORS:
+        holders = sorted(
+            path.name for path, _tree in sources if anchor in path.read_text(encoding="utf-8")
+        )
+        assert len(holders) == 1, f"渲染文案「{anchor}」在 runtimev2 面内出现于多处：{holders}"
+        assert holders[0] in _RENDERER_FILES
+
+    # 消费面单点：包根 re-export 与定义处同一对象（消费方只经包根引用——R2）
+    root = import_module("appv2.runtimev2.context")
+    for func in _RENDERERS:
+        assert getattr(root, func.__name__) is func
+
+    # 探测器非空转：伪造第二定义点即被咬
+    forged = [
+        (Path("materials.py"), ast.parse("def trust_of(observation):\n    return 'report'\n")),
+        (Path("answering.py"), ast.parse("def trust_of(observation):\n    return 'report'\n")),
+    ]
+    assert len(_definition_sites(forged, "trust_of", "def")) == 2
+
+
+# ---------- 18 本块零合同字面（六族特征子串零命中） ----------
+
+
+def _contract_features() -> list[tuple[str, str, str]]:
+    """合同六族首句特征子串（定义点＝`prompts`——扫描范围对偶于 `specs/prompts.md` 行为 1）。"""
+    constants = import_module("appv2.runtimev2.prompts.constants")
+    features: list[tuple[str, str, str]] = []
+    for family, members in constants.CONTRACT_CONSTANT_FAMILIES.items():
+        for name in members:
+            value = getattr(constants, name)
+            feature = value.split("\n", 1)[0][:24]
+            assert len(feature) >= 12 and feature in value, f"{family}.{name} 特征子串失效"
+            features.append((family, name, feature))
+    return features
+
+
+def test_no_contract_literals_in_context() -> None:
+    """行 18 合同六族特征子串在本块源码零命中（行为 14——本块零合同、零指令）。"""
+    features = _contract_features()
+    assert len(features) >= 6, "六族特征子串面为空——看守失效"
+    texts = _context_texts()
+    for family, name, feature in features:
+        hits = sorted(filename for filename, text in texts.items() if feature in text)
+        assert hits == [], f"{family}.{name} 合同字面副本残留：{hits}"
+
+    # 探测器非空转：伪造本块源码，六族首句之一在场即被咬
+    forged = {"forged.py": f'CONTRACT = "{features[0][2]}"'}
+    hits = sorted(filename for filename, text in forged.items() if features[0][2] in text)
+    assert hits == ["forged.py"]
+
+
+# ---------- 20 【边界集】（空材料／全 notice／权威超帽／检索超帽／超长档案／超窗链） ----------
+
+
+def test_boundary_empty_overcap_overwindow() -> None:
+    """行 20【边界集】六形各落空段、全量、披露、摘要各分支（行为 1／4／5／8／9）。"""
+    cap = DEFAULT_MAX_OBSERVATIONS
+    zero = {"material_truncated": False, "material_rendered": 0, "material_total": 0}
+
+    # ① 空材料 → 空段「（无）」＋(0, 0, False)；零档案 → 零段（调用方跳过）
+    text, meta = render_materials([], max_observations=cap)
+    assert text == "\n观察材料：\n（无）"
+    assert meta == zero
+    empty_manifest = compile_manifest([], step="understand", max_observations=cap)
+    assert (
+        empty_manifest.material_total,
+        empty_manifest.material_rendered,
+        empty_manifest.material_truncated,
+    ) == (0, 0, False)
+    assert empty_manifest.source_type == empty_manifest.source_id == []
+    assert empty_manifest.version == empty_manifest.trust_level == []
+    assert render_process_notes(RunState(), budget=PROCESS_NOTES_BUDGET) == ""
+
+    # ② 全 notice → 材料段空段、零计数、零来源行（notice 不进模型面、不计任何计数）
+    notices = [_obs(index, "notice", content=f"窗口缺参反问 {index}") for index in range(1, 5)]
+    notice_text, notice_meta = render_materials(notices, max_observations=cap)
+    assert notice_text == "\n观察材料：\n（无）" and notice_meta == zero
+    assert "反问" not in notice_text
+    notice_manifest = compile_manifest(notices, step="answer", max_observations=cap)
+    assert notice_manifest.material_truncated is False
+    assert notice_manifest.source_type == [] and notice_manifest.source_id == []
+
+    # ③ 权威超帽 → 全量渲染、零披露、False（帽不作用权威族——pin-08 渲染分形面）
+    authority = [_obs(index + 1, "agg_row", content=f"行 {index + 1}") for index in range(40)]
+    authority_text, authority_meta = render_materials(authority, max_observations=cap)
+    assert len(_indices(authority_text)) == 40
+    assert _DISCLOSURE_HEAD not in authority_text
+    assert authority_meta == {"material_truncated": False, "material_rendered": 40,
+                              "material_total": 40}
+
+    # ④ 检索超帽 → 只渲帽内支＋披露行＋True（模型面披露行与机读字段同场）
+    cut_text, cut_meta = render_materials(_fragments(30), max_observations=cap)
+    assert len(_indices(cut_text)) == cap and _DISCLOSURE_HEAD in cut_text
+    assert cut_meta == {"material_truncated": True, "material_rendered": cap,
+                        "material_total": 30}
+    cut_manifest = compile_manifest(_fragments(30), step="answer", max_observations=cap)
+    assert cut_manifest.material_truncated is True
+    assert f"帽 {cap} 支截断（{cap}/30）" in cut_manifest.selected_reason
+
+    # ⑤ 超长档案 → 披露行逐字＋有界停止（n 与已渲行数一致）
+    long_notes = render_process_notes(_notes_state(30), budget=120)
+    rendered = long_notes.count("\n- [")
+    assert rendered < 30
+    assert _PROCESS_NOTES_DISCLOSURE.format(n=rendered, total=30) in long_notes
+
+    # ⑥ 超窗链 → 摘要置位＋披露账目在场＋原史零覆盖（`state.messages` 深比较不变）
+    chain = _chain()
+    before = deepcopy(chain)
+    view, account = compact_messages(chain, dialogue_view_tokens=120)
+    assert view[1]["role"] == "system" and view[1]["content"].startswith(_SUMMARY_HEAD)
+    assert view != chain and account != "" and chain == before
+    # 合成位：材料面 `selected_reason` 之后以「；」追加（本块只返账目串）
+    reason = compile_manifest([], step="answer", max_observations=cap).selected_reason
+    assert f"{reason}；{account}".endswith(account)
+
+
+# ---------- 21 【保留集】（常规渲染与常规档案逐字不变；[n] 序号与排序行为不回归） ----------
+
+
+def test_retention_normal_render_unchanged() -> None:
+    """行 21【保留集】常规材料渲染与常规档案（无截断、预算内）输出逐字不变；
+    既有 `[n]` 序号与排序行为不因本批改形回归（形状单点＝-02a 落地件，本票只加断言）。"""
+    observations = [
+        _obs(11, "metric", content="日产油量（吨）：21.16", source="台账·指标", well="K12-3"),
+        _obs(12, "agg_row", content="合计 100", source="agg.fct_daily_metering"),
+        _obs(13, "fragment", content="检索片段正文", source="kb"),
+        _obs(14, "fragment", content="第二片段", source="kb"),
+    ]
+    text, meta = render_materials(observations, max_observations=DEFAULT_MAX_OBSERVATIONS)
+    assert text == (
+        "\n观察材料：\n"
+        "[12]（authoritative｜agg.fct_daily_metering）合计 100\n"
+        "[11]（ledger｜台账·指标｜K12-3）日产油量（吨）：21.16\n"
+        "[13]（report｜kb）检索片段正文\n"
+        "[14]（report｜kb）第二片段"
+    )
+    # 序号＝观察自带全局序号（非渲染位次）；排序＝信任级稳定序（authoritative＜ledger＜report）
+    assert _indices(text) == [12, 11, 13, 14]
+    assert meta == {"material_truncated": False, "material_rendered": 4, "material_total": 4}
+    assert _DISCLOSURE_HEAD not in text and "（无）" not in text
+    # 同 rank 保持入栈序（稳定排序不抖动）：检索族两条换位 → 输出组内序随动
+    swapped = [observations[0], observations[1], observations[3], observations[2]]
+    assert _indices(render_materials(swapped, max_observations=DEFAULT_MAX_OBSERVATIONS)[0]) == [
+        12,
+        11,
+        14,
+        13,
+    ]
+
+    # 常规档案（预算内）逐字：头注＋条目行形；零披露行
+    notes = RunState(process_notes=[{"phase": "decision", "title": "第 0 步", "digest": "结果"}])
+    assert render_process_notes(notes, budget=PROCESS_NOTES_BUDGET) == (
+        "【本 run 已做（过程档案摘要——防重参考，不是作答材料）】\n- [decision] 第 0 步｜结果"
+    )
+
+    # 形状单点：六函数签名与常量族仍以 -02a 落地的为唯一真源（本票不改形状）
+    expected_shapes: dict[Any, tuple[tuple[str, str, bool], ...]] = {
+        render_materials: (
+            ("observations", "POSITIONAL_OR_KEYWORD", True),
+            ("max_observations", "KEYWORD_ONLY", True),
+        ),
+        render_process_notes: (
+            ("state", "POSITIONAL_OR_KEYWORD", True),
+            ("budget", "KEYWORD_ONLY", True),
+        ),
+        compile_manifest: (
+            ("observations", "POSITIONAL_OR_KEYWORD", True),
+            ("step", "KEYWORD_ONLY", True),
+            ("max_observations", "KEYWORD_ONLY", True),
+            ("ledger_dump", "KEYWORD_ONLY", False),
+            ("token_count", "KEYWORD_ONLY", False),
+        ),
+        compact_messages: (
+            ("messages", "POSITIONAL_OR_KEYWORD", True),
+            ("dialogue_view_tokens", "KEYWORD_ONLY", True),
+        ),
+        trust_of: (("observation", "POSITIONAL_OR_KEYWORD", True),),
+        load_ledger_dump: (("state", "POSITIONAL_OR_KEYWORD", True),),
+    }
+    for func, expected in expected_shapes.items():
+        assert _signature_shape(func) == expected, f"{func.__name__} 签名形状漂移"
+    assert inspect.iscoroutinefunction(load_ledger_dump)
+
+    # 常量族（六枚＋视窗单点）值面不改
+    assert (DEFAULT_MAX_OBSERVATIONS, PROCESS_NOTES_BUDGET) == (24, 400)
+    assert (TRUST_AGG, TRUST_LEDGER, TRUST_REPORT) == ("authoritative", "ledger", "report")
+    assert list(RESIDENT_SOURCE_ROWS.items()) == [
+        ("ledger_dump", "ledger_full_dump"),
+        ("alias_dump", "ledger_aliases"),
+        ("schema_card", "schema_cards"),
+    ]
 
 
 # ---------- 附：消费面指针（登记件——本票不实现） ----------
