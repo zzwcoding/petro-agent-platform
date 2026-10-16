@@ -1,7 +1,9 @@
-"""bookkeeping 块验收（RT-W3-01a：骨架＋共享可变写面核心＋全部 5 pin 行）。
+"""bookkeeping 块验收（RT-W3-01a：骨架＋共享可变写面核心＋5 pin 行；-01b：触界收敛与收口簇）。
 
-票面对象＝`specs/bookkeeping.md`「验收测试」表逐行（本票 11 行：第 1–10、20 行；`#` 列保留规格表
-行序、不重编；测试标识与规格列逐字一致）：
+票面对象＝`specs/bookkeeping.md`「验收测试」表逐行（`#` 列保留规格表行序、不重编；测试标识与规格
+列逐字一致）。三票（-01a／-01b／-01c）同落本件、各自收各行的行序。
+
+`RT-W3-01a` 11 行：第 1–10、20 行——
 
 | # | 测试 | 验收标准（规格列原文） |
 |---|---|---|
@@ -17,17 +19,26 @@
 | 10 | `::dialogue_port_purity` | 对话层纯度：`origin` 闭世界且过程内容不入层 |
 | 20 | `::set_intent_single_port_closed_world` | `next_intent` 唯一写口＋闭世界越界即拒 |
 
-测试网钉（规格「与闸的挂钩表」5 行逐行，全在本票）：pin-22 写入点单点面（行 1／2）｜pin-22 写入面
-（行 7）｜pin-24（行 8／9）｜pin-26（行 10）｜pin-12 承接面（行 5）。
+`RT-W3-01b` 5 行：第 13–17 行（触界收敛与收口簇——本票零 pin 行，5 条 pin 行全在 -01a）——
 
-本票验收另加三条机检面（票面「验收」节逐条）：公开面 13 成员签名逐字（`::public_face_signatures`）、
+| # | 测试 | 验收标准（规格列原文） |
+|---|---|---|
+| 13 | `::converge_lands_six_keys` | 触界收敛落地六键；未命中零副作用 |
+| 14 | `::converge_idempotent` | 收敛幂等（二次调用不重复追加／不覆盖） |
+| 15 | `::converge_material_same_source` | 收敛答案与通知材料面同源（不漂移） |
+| 16 | `::direct_answer_three_keys` | 直答旁路恒写三键 |
+| 17 | `::call_model_keeps_accounting` | 调模型单点：只回 `content`，用量/归因落记账 |
+
+-01a 验收另加三条机检面（票面「验收」节逐条）：公开面 13 成员签名逐字
+（`::public_face_signatures`）、
 AST import 白名单＋无 DB／文件写路径（`::import_whitelist_and_no_disk_paths`）、织网义务 B1 的写口侧
 观测面（`::write_port_channels_normalized_checkpoint_snapshot`）。
 
 织网义务（eng/04 §三 B1 行，明写归本块）：钉法＝「经 checkpoint 快照／帧流钉『每步通道值归一形』」
-——本票落地面＝**本票已落地的写口通道**（步记录／序号／对话链／对话层／合同标记／路由意图）；
-`note`／`notice` 两通道的写入点行为体随 `RT-W3-01c-bookkeeping.md` 落地，其归一形由该票行 11／12
-钉（本件不代钉、不冒充覆盖）。
+——-01a 落地面＝已落地的写口通道（步记录／序号／对话链／对话层／合同标记／路由意图）；-01b 落地面
+＝收口簇（`converge` 的六键与材料同源、`direct_answer` 三键、`call_model` 的记账步——收敛答案与
+通知的材料面同源＝B3「触顶收敛落地」半行的 L1 特征钉）；`note`／`notice` 两通道的写入点行为体随
+`RT-W3-01c-bookkeeping.md` 落地，其归一形由该票行 11／12 钉（本件不代钉、不冒充覆盖）。
 """
 
 from __future__ import annotations
@@ -36,6 +47,7 @@ import ast
 import inspect
 import sys
 from copy import deepcopy
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -45,19 +57,28 @@ from appv2.runtimev2.bookkeeping import (
     append_contract,
     append_dialogue,
     append_message,
+    call_model,
+    converge,
+    direct_answer,
     next_seq,
     record_step,
     set_intent,
 )
+from appv2.runtimev2.gateway_adapter import ModelReply, ScriptedCompleter, set_completer
 from appv2.runtimev2.persistence import STEP_STATUS_KINDS, decode_state, encode_state
 from appv2.runtimev2.state import (
     DIALOGUE_ORIGIN_ROLES,
     DIALOGUE_ORIGINS,
     INTENT,
+    LIMIT_KINDS,
+    MAX_DISCOVERS_PER_RUN,
+    MAX_ROUNDS,
+    RUN_RUNNING,
     STEP_KINDS,
     Manifest,
     RunState,
 )
+from appv2.runtimev2.transport import NOTICE_TYPES
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _V2_DIR = _REPO_ROOT / "appv2" / "runtimev2"
@@ -92,10 +113,42 @@ _SPEC_INTENT = {
     "precondition",
     "batch",
 }
+# 限额七键名闭世界（接口定义节「写口入参形状」；2026-10-16 裁·流水 52-B——`gates` 取值与
+# 触界命中项同名；真源＝`state.LimitHit.limit` 的 Literal 七值）
+_SPEC_LIMIT_KEYS = {
+    "rounds",
+    "discovers_per_round",
+    "executes_per_round",
+    "seconds",
+    "tool_timeout",
+    "discovers_per_run",
+    "ask_cap",
+}
+# 归因三桶族（`call_model` 的 `caller` 取值域；真源 specs/gateway_adapter.md 行为 5）
+_SPEC_CALLERS = {"understand", "decision", "answer"}
+
+# 已取得材料面 fixture（材料行＝观察投影形：`content` 正文＋`source_id` 标识）
+_SPEC_MATERIAL_ROWS: tuple[dict[str, str], ...] = (
+    {"content": "Y-21 井 2026 年产油量 12.5 t/d", "source_id": "src-ledger-daily-oil"},
+    {"content": "Y-22 井 2026 年产油量 4.0 t/d", "source_id": "src-ledger-daily-oil-2"},
+)
+# 收敛落地的六键（行为 12 逐字：budget_hit／通知／答案正文／draft_kind／status／next_intent）
+_SPEC_CONVERGENCE_KEYS = {
+    "budget_hit",
+    "notices",
+    "answer",
+    "draft_kind",
+    "status",
+    "next_intent",
+}
+# 直答旁路三键（行为 14 逐字：draft／draft_kind／next_intent）
+_SPEC_DIRECT_ANSWER_KEYS = {"draft", "draft_kind", "next_intent"}
+# 材料同源声明的机读标记（本块 `_material_clause` 单点产出——正文与注记两处同标记）
+_MATERIAL_MARKER = "材料清单："
 
 # ── 共享写面七字段（行为 1 的六字段＋行为 8 的合同标记字段——规格两处均「并入行为 1 的写口单点
 #    断言集」）与其唯一写口（写操作只许出现在下表函数里；`converge`／`direct_answer` 的本块内部写
-#    见行为 6／12——本票只出签名，行为体随 RT-W3-01b 落地）────────────────────────────
+#    见行为 6／12／14——行为体已随 RT-W3-01b 落地，本表口径不变）────────────────────────────
 _WRITE_FIELDS = (
     "messages",
     "steps",
@@ -848,3 +901,273 @@ def test_write_port_channels_normalized_checkpoint_snapshot() -> None:
     assert restored.contracts_appended == state.contracts_appended
     assert restored.next_intent == state.next_intent
     assert tuple(restored.steps[-1]) == _SPEC_STEP_KEYS
+
+
+# ══════════════════ RT-W3-01b：触界收敛与收口簇（规格表第 13–17 行）══════════════════
+# 本票零 pin 行（5 条 pin 行全在 -01a 逐字转抄）——下列用例不改 -01a 落地的形状（写口九函数与
+# 收敛／收口签名），只填行为体。
+
+
+def _material_state(**overrides: Any) -> RunState:
+    """已触界状态 fixture：轮数达上限（判定归 `state.check_limits`）＋已取得材料面。"""
+    state = _state(**{"rounds": MAX_ROUNDS, **overrides})
+    state.observations.extend(deepcopy(list(_SPEC_MATERIAL_ROWS)))
+    return state
+
+
+def _changed_fields(before: dict[str, Any], after: dict[str, Any]) -> set[str]:
+    """前后状态投影的字段差集（`RunState` 全字段——「落六键」＝差集恰为六键的机读形）。"""
+    assert set(before) == set(after)
+    return {key for key in before if before[key] != after[key]}
+
+
+def _material_ids_in(text: str) -> set[str]:
+    """按同源声明标记抽材料标识集合（两处同一标记——集合相等即「不漂移」的机读形）。"""
+    assert _MATERIAL_MARKER in text, f"缺少材料同源声明：{text!r}"
+    tail = text.split(_MATERIAL_MARKER, 1)[1]
+    for stop in ("）", "\n"):
+        tail = tail.split(stop, 1)[0]
+    return set() if tail in {"", "无"} else set(tail.split("、"))
+
+
+# ---------- 13 触界收敛落地六键；未命中零副作用 ----------
+
+
+def test_converge_lands_six_keys() -> None:
+    """#13 触界收敛落地六键；未命中零副作用——行为 12（判定归 `state.check_limits`，本块只落地）。
+
+    六键＝`budget_hit`（追加命中项）／`notices`（追加如实注记）／`answer`（正文＝已取得材料逐条
+    如实交付）／`draft_kind="direct"`／`status="completed"`／`next_intent=answer`；除这六项外
+    **零字段改动**（差集恰为六键）。未命中 → 状态深比较逐字段不变（零副作用）。
+    """
+    assert _SPEC_LIMIT_KEYS == set(LIMIT_KINDS)  # 七限额键名（流水 52-B：gates 取值域）
+    state = _material_state()
+    before = asdict(state)
+    converge(state)
+    assert _changed_fields(before, asdict(state)) == _SPEC_CONVERGENCE_KEYS
+
+    # ①② 命中项与如实注记（`gates` 取 `LimitHit.limit` 键名；通知恰三键、只追加）
+    assert state.budget_hit == ["rounds"]
+    assert len(state.notices) == 1
+    notice = state.notices[-1]
+    assert tuple(notice) == ("type", "gates", "content")
+    assert notice["type"] in NOTICE_TYPES
+    assert notice["gates"] == ["rounds"]
+    assert set(notice["gates"]) <= _SPEC_LIMIT_KEYS
+    assert "未完成项" in notice["content"]  # 触界不静默
+    # ③ 正文＝已取得材料逐条如实交付
+    assert [line for line in state.answer.splitlines() if line.startswith("- ")] == [
+        f"- {row['content']}" for row in _SPEC_MATERIAL_ROWS
+    ]
+    # ④⑤⑥ 收口三键
+    assert state.draft_kind == "direct"
+    assert state.status == "completed"
+    assert state.next_intent == "answer"
+
+    # 多命中：命中项逐条追加、不丢不重
+    multi = _state(rounds=MAX_ROUNDS, discover_used=MAX_DISCOVERS_PER_RUN)
+    converge(multi)
+    assert multi.budget_hit == ["rounds", "discovers_per_run"]
+    assert multi.notices[-1]["gates"] == ["rounds", "discovers_per_run"]
+
+    # 未命中 → 零副作用（rounds 未达上限）
+    fresh = _material_state(rounds=0)
+    untouched = asdict(fresh)
+    converge(fresh)
+    assert asdict(fresh) == untouched
+
+
+# ---------- 14 收敛幂等（二次调用不重复追加／不覆盖） ----------
+
+
+def test_converge_idempotent() -> None:
+    """#14 收敛幂等（二次调用不重复追加／不覆盖）——行为 12（治现状「已收敛仍可二次收敛」疑点）。
+
+    已收敛（`budget_hit` 非空）再调 → **无操作**：通知条数与 `gates` 长度不变、答案与状态
+    逐字段不变；幂等守卫在判定之前（已收敛态连判定都免——后继判定结果不再影响落地）。
+    """
+    state = _material_state()
+    converge(state)
+    once = asdict(state)
+    gates_len = len(state.notices[-1]["gates"])
+
+    converge(state)
+    assert asdict(state) == once  # 不重复追加、不覆盖答案与状态
+    assert len(state.notices) == 1
+    assert len(state.notices[-1]["gates"]) == gates_len
+    assert state.budget_hit == ["rounds"]
+
+    # 已收敛态即便后继「未命中」也不动（幂等判据＝budget_hit 非空，不是重新判定）
+    state.rounds = 0
+    converged = asdict(state)
+    converge(state)
+    assert asdict(state) == converged
+
+
+# ---------- 15 收敛答案与通知材料面同源（不漂移） ----------
+
+
+def test_converge_material_same_source() -> None:
+    """#15 收敛答案与通知材料面同源（不漂移）——行为 13（单一材料面，两处同一函数生成）。
+
+    同一状态快照下，`answer` 正文与通知「未完成项」清单的材料标识集合**一致**；正文逐条同序
+    如实交付；措辞由材料面决定（**不沿用旧码固定前缀「已取得材料未及核验」**——风险 6）。
+    """
+    state = _material_state()
+    converge(state)
+    answer = state.answer
+    notice_content = state.notices[-1]["content"]
+    assert [line[2:] for line in answer.splitlines() if line.startswith("- ")] == [
+        row["content"] for row in _SPEC_MATERIAL_ROWS
+    ]
+    assert _material_ids_in(answer) == _material_ids_in(notice_content) == {
+        row["source_id"] for row in _SPEC_MATERIAL_ROWS
+    }
+    assert "未及核验" not in answer  # 措辞随实际态（旧码前缀是缺陷，不承接）
+
+    # 材料面第二来源（末次工具结果自带观察——尚未入栈亦属「已取得」）同源交付
+    carried = _state(rounds=MAX_ROUNDS)
+    carried.last_result = {
+        "status": "ok",
+        "observations": [{"content": "Y-23 井 3.0 t/d", "source_id": "src-exec-last"}],
+        "ask": None,
+        "error": None,
+    }
+    converge(carried)
+    assert _material_ids_in(carried.answer) == _material_ids_in(carried.notices[-1]["content"])
+    assert _material_ids_in(carried.answer) == {"src-exec-last"}
+
+    # 零材料态：两处同口径（同一材料面为空——不冒充已交付）
+    empty = _state(rounds=MAX_ROUNDS)
+    converge(empty)
+    assert _material_ids_in(empty.answer) == _material_ids_in(empty.notices[-1]["content"]) == set()
+    assert "未取得可交付材料" in empty.answer
+    assert "未取得可交付材料" in empty.notices[-1]["content"]
+
+
+# ---------- 16 直答旁路恒写三键 ----------
+
+
+def test_direct_answer_three_keys() -> None:
+    """#16 直答旁路恒写三键——行为 14（拒答／闸拒／收敛转答／直答共用同一出口，免起草免核验）。
+
+    四路调用方走**同一个函数**：三键齐备且取值固定（`draft=text`／`draft_kind="direct"`／
+    `next_intent=answer`），三键之外零写（不动 `answer`／`verdict`／`status`）。
+    """
+    entries = (
+        ("拒答", "抱歉，这个问题我不能回答。"),
+        ("闸拒", "该请求涉及越集审批，已如实拒答。"),
+        ("收敛转答", "预算触界——按已取得材料收敛。"),
+        ("直答", "躺井：停产待检泵。"),
+    )
+    for label, text in entries:
+        state = _state()
+        before = asdict(state)
+        direct_answer(state, text)
+        assert state.draft == text, label
+        assert state.draft_kind == "direct", label
+        assert state.next_intent == "answer", label
+        assert _changed_fields(before, asdict(state)) == _SPEC_DIRECT_ANSWER_KEYS, label
+        assert state.answer == "" and state.verdict is None and state.status == RUN_RUNNING, label
+
+
+# ---------- 17 调模型单点：只回 content，用量/归因落记账 ----------
+
+
+class _SpyCompleter:
+    """注入缝的同面缝（生产桥／替身同面）：记 `caller`／`run_id`／`messages` 进面；回执定值。"""
+
+    def __init__(self, reply: ModelReply) -> None:
+        self.reply = reply
+        self.seen: list[tuple[str, str, list[dict[str, str]]]] = []
+
+    async def complete(
+        self, messages: Any, *, caller: str, run_id: str = ""
+    ) -> ModelReply:
+        self.seen.append((caller, run_id, [dict(message) for message in messages]))
+        return self.reply
+
+
+def test_call_model_keeps_accounting() -> None:
+    """#17 调模型单点：只回 `content`，用量/归因落记账——行为 15（**禁裸文本吞掉记账面**）。
+
+    从状态取 `run_id` → 调 `gateway_adapter.complete`（经 `set_completer` 注入的同面缝）→
+    向节点只回 `content`；回执**余键**（用量与归因面）逐键入步记录 `payload`，`prompt_tokens`
+    回填 `manifest.token_count`（每模型调用都有 Manifest）；失败尝试回执＝`status="failed"`。
+    """
+    messages = [{"role": "user", "content": "读题任务书：三区装配"}]
+    state = _state()
+    reply = ModelReply(
+        content="路由意图：answer",
+        caller="decision",
+        run_id=state.run_id,
+        alias="fake-model-a",
+        prompt_tokens=123,
+        completion_tokens=45,
+        cached_tokens=7,
+        usage_estimated=False,
+        duration_ms=678,
+    )
+    spy = _SpyCompleter(reply)
+    previous = set_completer(spy)
+    try:
+        content = call_model(state, "decision", messages)
+    finally:
+        set_completer(previous)
+
+    assert content == "路由意图：answer" and isinstance(content, str)  # 只回 content
+    assert spy.seen == [("decision", state.run_id, messages)]  # 从状态取 run_id 进面（逐调用盖章）
+    assert len(state.steps) == 1
+    step = state.steps[-1]
+    assert tuple(step) == _SPEC_STEP_KEYS
+    assert step["step"] == "decision"  # 三桶→步型（六值闭世界无 understand 型）
+    assert step["status"] == "ok"
+    assert step["seq"] == 1
+    assert step["payload"] == {
+        "caller": "decision",
+        "run_id": state.run_id,
+        "alias": "fake-model-a",
+        "prompt_tokens": 123,
+        "completion_tokens": 45,
+        "cached_tokens": 7,
+        "usage_estimated": False,
+        "duration_ms": 678,
+        "error": None,
+    }
+    assert "content" not in step["payload"]  # 裸文本不吞账、账不含文本
+    assert step["manifest"]["token_count"] == 123  # 记账面回填 `token_count`
+    assert set(step["manifest"]) == set(Manifest().as_dict())
+
+    # 逐调用留痕（不覆盖）：换桶再调 → 新步落地，首步逐字不变；替身（生产同面）经同一缝
+    first_step = deepcopy(step)
+    scripted = ScriptedCompleter({"answer": ["终稿"]}, alias="fake-alias")
+    previous = set_completer(scripted)
+    try:
+        second = call_model(state, "answer", [{"role": "user", "content": "作答任务书"}])
+    finally:
+        set_completer(previous)
+    assert second == "终稿" and isinstance(second, str)
+    assert scripted.calls == [("answer", [{"role": "user", "content": "作答任务书"}])]
+    assert state.steps[0] == first_step
+    assert [entry["seq"] for entry in state.steps] == [1, 2]
+    assert state.steps[-1]["step"] == "answer"
+    assert state.steps[-1]["payload"]["run_id"] == state.run_id
+
+    # 失败尝试回执（`error` 非 None）→ 步态如实 `failed`；content 照原样回（不吞、不兜）
+    failed = ModelReply(
+        content="", caller="answer", run_id=state.run_id, error="上游拒绝 429: 限流"
+    )
+    previous = set_completer(_SpyCompleter(failed))
+    try:
+        assert call_model(state, "answer", messages) == ""
+    finally:
+        set_completer(previous)
+    assert state.steps[-1]["status"] == "failed"
+    assert state.steps[-1]["payload"]["error"] == "上游拒绝 429: 限流"
+
+    # 归因桶闭世界（三桶族）：越界即拒（fail-closed，未发起调用）
+    assert _SPEC_CALLERS == {"understand", "decision", "answer"}
+    calls_before = len(state.steps)
+    with pytest.raises(ValueError):
+        call_model(state, "summarize", messages)
+    assert len(state.steps) == calls_before

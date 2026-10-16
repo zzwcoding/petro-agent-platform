@@ -16,10 +16,11 @@
 不直引引擎（R6）、不落盘。机检＝`tests/domains/test_v2_bookkeeping.py`（写口无旁路双证 ＋ AST
 import 白名单 ＋ 每步通道值归一形）。
 
-本批（`RT-W3-01a`）落地与未落地面的分界：共享可变写面核心（`ports` 的六个入口＋序号＋取号）
-已落地；`note`／`notice` 的写入点行为随 `RT-W3-01c-bookkeeping.md`、`converge`／`direct_answer`／
-`call_model` 的收口行为随 `RT-W3-01b-bookkeeping.md` 落地——未落地前一律 fail-closed
-（`NotImplementedError`），不静默兜底、不假成功（合法降级路径＝无）。
+本批（`RT-W3-01b`）落地面：触界收敛与收口簇（`closing` 的 `converge`／`direct_answer`／
+`call_model`）已落地——收敛六键／幂等与零副作用／正文与通知材料同源（单一材料面）、直答三键、
+调模型只回 `content` 而用量与归因面记步记录与 `Manifest`。余下未落地面：`note`／`notice` 的写入点
+行为随 `RT-W3-01c-bookkeeping.md`（`tool_context`／`result_projection` 同票）——未落地前一律
+fail-closed（`NotImplementedError`），不静默兜底、不假成功（合法降级路径＝无）。
 """
 
 from appv2.runtimev2.bookkeeping.closing import call_model, converge, direct_answer
