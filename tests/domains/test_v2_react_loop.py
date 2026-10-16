@@ -571,15 +571,21 @@ async def test_guide_provider_seam(tmp_path: Path) -> None:
         await db.dispose()
 
 
-def test_ontology_guide_contains_contract_and_anchors() -> None:
-    """生产指南源＝ontology 资产装载件（V2-34 占位退役对账钉——§A＋发射合同）。"""
+def test_ontology_guide_contains_anchors_not_legacy_contract() -> None:
+    """生产指南源＝ontology 资产装载件（V2-34 占位退役对账钉——§A 锚定面照旧在）。
+
+    RT-W5-02 偏差 2 收尾（eng/04 §五 织网②）：旧钉另断「决策发射合同（runtime 单点拼接）」——
+    该拼接随 api 组合根改 V2 装配退役（G9 登记：`DECISION_CONTRACT` 服务对象＝旧 runtime
+    装配面，V2 四相位由相位合同六族承载、从不请求）；§A 的窗词锚定与澄清分级原文不变。
+    """
     from appv2.api.ontology_guide import OntologyGuideProvider
+    from appv2.runtime.guide import DECISION_CONTRACT
 
     guide = OntologyGuideProvider(today=date(2026, 10, 8)).guide()
-    assert "action" in guide and "finalize" in guide  # 决策发射合同（runtime 单点拼接）
     assert "近 30 天" in guide and "2026-09-08" in guide  # 窗词锚定（today−30）
     assert "2026-10-08" in guide  # 今天锚点
     assert "ask" in guide and "审批" in guide  # 澄清分级②③（§A 澄清分级）
+    assert DECISION_CONTRACT not in guide  # 旧决策发射合同不落指南面（G9 退役面）
 
 
 # ---------- 决策发射 schema 校验单测（parse_decision——拒因回喂的闸单点） ----------

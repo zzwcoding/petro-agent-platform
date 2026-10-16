@@ -15,7 +15,8 @@
 - caliber_key 三态：场景词确定性匹配／无场景词阈值判断形 ASK 反问／无场景词
   取数形双口径并列注记＋非法口径拒；
 - ToolContext 放行态：approved_tables 进 ctx（A2 裁决落点）；
-- 生产装配接线：create_app 真指南（OntologyGuideProvider）＋four_phase 形参；
+- 生产装配接线：create_app＝V2 装配（runtimev2 受理面；旧指南件「OntologyGuideProvider
+  构造形参＋four_phase 开关」已退役——改接/退役断言见本文件末「装配面」节）；
   DefaultGuideProvider 退役。
 """
 
@@ -2234,55 +2235,77 @@ async def test_four_phase_seconds_gate_overrun_converges_under_limit_clean() -> 
     assert completer_clean.counts().get("decision", 0) == 2
 
 
-async def test_make_runtime_guide_contract_follows_four_phase(tmp_path: Path) -> None:
-    """C6（P-033 中途审查）：测试装配随 four_phase 切换指南合同面——四相位
-    装配不拼 legacy 决策合同（与生产接线同形，消 SK1 双合同隐患形态）；
-    legacy 装配照旧拼接（决策合同不缺席）。"""
-    from appv2.api.ontology_guide import OntologyGuideProvider
+def test_legacy_guide_contract_knob_retired() -> None:
+    """C6 收尾（RT-W5-02 偏差 2——eng/04 §五 织网②改写面）：旧指南合同切换面已退役。
 
-    runtime4, _completer, db4 = await make_runtime(
-        tmp_path,
-        engine=QueueQueryEngine([_rows_outcome()]),
-        script={"v2.runtime.understand": [UNDERSTAND_MULTI]},
-        four_phase=True,
-        ledger_dump=lambda: dict(LEDGER_DUMP),
-    )
-    try:
-        guide4 = runtime4._executor._guide
-        assert isinstance(guide4, OntologyGuideProvider)
-        assert guide4._include_decision_contract is False
-        assert "discover|execute|ask|finalize" not in guide4.guide()
-    finally:
-        await db4.dispose()
+    旧断言（`make_runtime(four_phase=…)` 切 `include_decision_contract` ＋
+    `GraphRunExecutor._guide`／`._four_phase` 两件）属**旧 runtime 装配面**（ReAct 单相位
+    决策面）：api 组合根改 V2 装配后该面退场——G9 登记，`DECISION_CONTRACT`（真源＝旧编排件
+    `appv2/runtime/guide.py`，与 `graph.parse_decision` schema 校验同源）服务对象＝旧装配面，
+    V2 四相位**从不请求**该合同（相位合同承载面见
+    `test_ontology_guide_provider_loads_section_a_and_v2_phase_contracts`）。
 
-    legacy_dir = tmp_path / "legacy"
-    legacy_dir.mkdir()
-    runtime_legacy, _completer_l, db_legacy = await make_runtime(
-        legacy_dir,
-        engine=QueueQueryEngine([_rows_outcome()]),
-        script={"v2.runtime.understand": [UNDERSTAND_MULTI]},
-    )
-    try:
-        guide_legacy = runtime_legacy._executor._guide
-        assert guide_legacy._include_decision_contract is True
-        assert "discover|execute|ask|finalize" in guide_legacy.guide()
-    finally:
-        await db_legacy.dispose()
-
-
-# ---------- 装配面：OntologyGuideProvider＋create_app 接线＋占位退役 ----------
-
-
-def test_ontology_guide_provider_loads_section_a_and_contract() -> None:
+    三向如实断言：① 旧形参在装载件保留＝构造兼容且**惰性**（两取值同文）；② 旧决策合同正文
+    不落指南面（本层零旧码进口、不复制正文）；③ V2 装配面（runtimev2 `RunExecutor`）不携带该
+    V1 件（`_guide`／`_four_phase` 两属性均无）。
+    """
     from appv2.api.ontology_guide import OntologyGuideProvider
     from appv2.runtime.guide import DECISION_CONTRACT
 
+    today = date(2026, 10, 8)
+    with_contract = OntologyGuideProvider(today=today, include_decision_contract=True).guide()
+    without = OntologyGuideProvider(today=today, include_decision_contract=False).guide()
+    assert with_contract == without  # 旧装配面构造兼容形参＝惰性（G9 登记）
+    assert DECISION_CONTRACT not in with_contract  # 合同正文不落指南面
+
+    runtime, _completer = v2_runtime(script={"understand": [V2_UNDERSTAND]})
+    assert not hasattr(runtime._executor, "_guide")
+    assert not hasattr(runtime._executor, "_four_phase")
+
+
+# ---------- 装配面：§A 装载件＋create_app V2 装配＋占位退役（RT-W5-02 改接面） ----------
+
+
+def test_ontology_guide_provider_loads_section_a_and_v2_phase_contracts() -> None:
+    """§A 装载面照旧在场；决策合同面**改接 V2 公开出口**（RT-W5-02 偏差 2 收尾）。
+
+    §A 装载与占位符填充不变（装载件本体零动）；旧面（§A 拼接旧编排件 `DECISION_CONTRACT`——
+    服务对象＝旧 runtime 装配面）随 api 改 V2 装配退役（G9 登记，本层不复制正文、不设第二真源）。
+    改接断言走 V2 出口两件：① 相位合同常量（`appv2.runtimev2.prompts` 六族——澄清/匹配两族）
+    声明**本相位动作闭世界**，旧四动作合同（`discover|execute|ask|finalize`）零命中（消 SK1
+    双合同隐患形态 / 相位合同唯一有效）；② §A 文本经 `assemble_decision_package` 的 `guide_text`
+    注入口**逐字**进决策轮首入包（两相位同口）。
+    """
+    from appv2.api.ontology_guide import OntologyGuideProvider
+    from appv2.runtime.guide import DECISION_CONTRACT
+    from appv2.runtimev2.prompts import (
+        GUIDE_REFERENCE_HEAD,
+        PHASE_CLARIFY,
+        PHASE_TOOLMATCH,
+        TOOLMATCH_EMISSION_CONTRACT,
+        assemble_decision_package,
+    )
+    from appv2.runtimev2.state import RunState
+
     guide = OntologyGuideProvider(today=date(2026, 10, 8)).guide()
     assert "发射判据" in guide  # §A 装载面（ontology 资产原文）
-    assert "discover|execute|ask|finalize" in guide  # runtime 发射合同拼接（单点）
-    assert "2026-10-08" in guide and "2026-09-08" in guide  # 占位符填充
+    assert "2026-10-08" in guide and "2026-09-08" in guide  # 占位符填充（today／start30）
     assert "2026-10-01" in guide  # month_start
-    assert DECISION_CONTRACT in guide
+    assert DECISION_CONTRACT not in guide  # 旧决策合同不落指南面（G9 退役面）
+
+    # V2 出口①：§A 文本经决策轮首入包注入口逐字进相位包（澄清／匹配两相位同口）
+    state = RunState(run_id="run-guide", actor="dev-u1", question="各井日产油量")
+    clarify = assemble_decision_package(
+        state, phase=PHASE_CLARIFY, guide_text=guide, today=date(2026, 10, 8), max_subtasks=4
+    )
+    assert GUIDE_REFERENCE_HEAD in clarify and "2026-09-08" in clarify  # §A 窗词锚定随注入面
+    # V2 出口②：本相位动作闭世界（V2 动词面 decompose）——旧四动作合同零命中
+    assert "discover|decompose|ask|finalize" in clarify
+    assert "discover|execute|ask|finalize" not in clarify
+
+    toolmatch = assemble_decision_package(state, phase=PHASE_TOOLMATCH, guide_text=guide)
+    assert TOOLMATCH_EMISSION_CONTRACT in toolmatch  # 匹配相位合同常量逐字入包
+    assert "discover|execute|ask|finalize" not in toolmatch
 
 
 def test_default_guide_provider_retired() -> None:
@@ -2295,48 +2318,47 @@ def test_default_guide_provider_retired() -> None:
     assert not hasattr(graph_mod, "DefaultGuideProvider")
 
 
-def test_create_app_wires_real_guide(tmp_path: Any) -> None:
-    """create_app 组合根真指南接线（任务 10）：缺省＝OntologyGuideProvider。"""
-    from appv2.api import create_app
-    from appv2.api.ontology_guide import OntologyGuideProvider
-    from appv2.infra.db import ConnectionManager, DatabaseSpec
-    from appv2.runtime import ScriptedCompleter, ensure_agent_v2_tables
-    from appv2.tools import FakeRetrievalEngine
+def test_create_app_wires_v2_runtime_not_legacy_guide(tmp_path: Any) -> None:
+    """create_app 组合根＝V2 装配（RT-W5-02 改接后）：受理面为 runtimev2，无旧指南件。
 
-    async def _make() -> tuple[Any, ToolRegistry]:
+    旧断言（`app.state.agent_runtime._executor._guide` 为 `OntologyGuideProvider` ＋
+    `._four_phase is True`）属**旧 runtime 装配面**（任务 10 的真指南接线）：V2 `RunExecutor`
+    无指南形参——「四相位」是编排面本体（无 V1 式开关），指南合同面由
+    `appv2.runtimev2.prompts` 六族承载（G9 登记：`DECISION_CONTRACT` 服务对象＝旧装配面，
+    V2 从不请求——见 `test_legacy_guide_contract_knob_retired`）。
+    """
+    from appv2.api import create_app
+    from appv2.infra.db import ConnectionManager, DatabaseSpec
+    from appv2.runtimev2.gateway_adapter import ScriptedCompleter
+    from appv2.runtimev2.orchestration import AgentRuntime, RunExecutor
+    from appv2.runtimev2.persistence import RunStore as V2RunStore
+
+    async def _main() -> None:
         spec = DatabaseSpec(
             name="primary", role="primary", driver="sqlite", host="", port=0,
             database=str(tmp_path / "guide-wiring.db"), user="", password="",
             pool_size=2, max_overflow=1,
         )
         db = ConnectionManager([spec])
-        await ensure_agent_v2_tables(db.engine())
         registry = ToolRegistry(
             knowledge=FakeKnowledgeStore(),
             query=FakeQueryEngine(),
             retrieval=FakeRetrievalEngine(),
         )
         app = create_app(db=db, registry=registry, completer=ScriptedCompleter({}))
-        return app, registry
-
-    async def _teardown(db: ConnectionManager) -> None:
-        await db.dispose()
-
-    holder: dict[str, Any] = {}
-
-    async def _main() -> None:
-        app, _registry = await _make()
-        holder["guide"] = app.state.agent_runtime._executor._guide
-        holder["four_phase"] = app.state.agent_runtime._executor._four_phase
-        holder["db"] = app.state.db
-        await _teardown(app.state.db)
+        try:
+            runtime = app.state.agent_runtime
+            assert isinstance(runtime, AgentRuntime)  # 受理面＝runtimev2 公开面
+            executor = runtime._executor
+            assert isinstance(executor, RunExecutor)
+            # 旧装配面两件不随 V2 装配出场（G9 退役面——四相位恒为编排面本体）
+            assert not hasattr(executor, "_guide")
+            assert not hasattr(executor, "_four_phase")
+            assert isinstance(app.state.run_store, V2RunStore)  # 簿记读口＝persistence 件
+        finally:
+            await db.dispose()
 
     asyncio.run(_main())
-    assert isinstance(holder["guide"], OntologyGuideProvider)
-    # 缺省翻转（P-033b——待细化①闭合）：生产缺省＝四相位装配；指南合同面
-    # 随之联动（include_decision_contract=False——相位合同在 runtime 消费缝前置）。
-    assert holder["four_phase"] is True
-    assert holder["guide"]._include_decision_contract is False
 
 
 def test_plan_caliber_key_passes_through_match_not_query_plan() -> None:
