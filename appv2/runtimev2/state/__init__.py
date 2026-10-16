@@ -1,10 +1,44 @@
-"""状态与限额：运行状态、Manifest、受理与回执载荷、限额参数与触界形状。
+"""状态与限额：运行状态、Manifest、受理与回执载荷、限额参数与触界形状／判定。
 
 模块卡见 specs/modules.md 的 `## state` 一节；规格见 specs/state.md（形状真源）。
-包根即公开面（`specs/modules.md` `## state` 卡「公开接口」节）：八类形状＋来源闭世界常量；
-限额数值真源＝`recon/K` R-K-72…R-K-76 ＋ `walk/裁决表.md` §06-A（数值不落本包卡面）。
+包根即公开面（`specs/modules.md` `## state` 卡「公开接口」节）：八类形状＋三族闭世界常量
+（`constants`）＋限额键闭世界与数值单点（`constants`／`limits`）＋触界判定 `check_limits`
+（`limits`，纯函数）；限额数值真源＝`recon/K` R-K-72…R-K-76（数值不落本包卡面）。
 """
 
+from appv2.runtimev2.state.constants import (
+    ASK_CAP,
+    INTENT,
+    INTENT_ANSWER,
+    INTENT_BATCH,
+    INTENT_DECISION,
+    INTENT_DISCOVER,
+    INTENT_END,
+    INTENT_EXECUTE,
+    INTENT_OBSERVE,
+    INTENT_PRECONDITION,
+    INTENT_TOOLMATCH,
+    INTENT_VERIFY,
+    MAX_DISCOVERS_PER_ROUND,
+    MAX_DISCOVERS_PER_RUN,
+    MAX_EXECUTES_PER_ROUND,
+    MAX_ROUNDS,
+    RUN_COMPLETED,
+    RUN_FAILED,
+    RUN_RUNNING,
+    RUN_STATUS_KINDS,
+    RUN_WAITING_ASK,
+    STEP_ANSWER,
+    STEP_DECISION,
+    STEP_DISCOVER,
+    STEP_EXECUTE,
+    STEP_KINDS,
+    STEP_OBSERVE,
+    STEP_VERIFY,
+    TOOL_TIMEOUT_SECONDS,
+    TOTAL_SECONDS,
+)
+from appv2.runtimev2.state.limits import LIMIT_KINDS, check_limits
 from appv2.runtimev2.state.models import (
     DIALOGUE_ORIGIN_ROLES,
     DIALOGUE_ORIGINS,
@@ -19,8 +53,39 @@ from appv2.runtimev2.state.models import (
 )
 
 __all__ = [
+    "ASK_CAP",
     "DIALOGUE_ORIGINS",
     "DIALOGUE_ORIGIN_ROLES",
+    "INTENT",
+    "INTENT_ANSWER",
+    "INTENT_BATCH",
+    "INTENT_DECISION",
+    "INTENT_DISCOVER",
+    "INTENT_END",
+    "INTENT_EXECUTE",
+    "INTENT_OBSERVE",
+    "INTENT_PRECONDITION",
+    "INTENT_TOOLMATCH",
+    "INTENT_VERIFY",
+    "LIMIT_KINDS",
+    "MAX_DISCOVERS_PER_ROUND",
+    "MAX_DISCOVERS_PER_RUN",
+    "MAX_EXECUTES_PER_ROUND",
+    "MAX_ROUNDS",
+    "RUN_COMPLETED",
+    "RUN_FAILED",
+    "RUN_RUNNING",
+    "RUN_STATUS_KINDS",
+    "RUN_WAITING_ASK",
+    "STEP_ANSWER",
+    "STEP_DECISION",
+    "STEP_DISCOVER",
+    "STEP_EXECUTE",
+    "STEP_KINDS",
+    "STEP_OBSERVE",
+    "STEP_VERIFY",
+    "TOOL_TIMEOUT_SECONDS",
+    "TOTAL_SECONDS",
     "AskChoice",
     "AskRequest",
     "Budget",
@@ -29,4 +94,5 @@ __all__ = [
     "Manifest",
     "RunHandle",
     "RunState",
+    "check_limits",
 ]

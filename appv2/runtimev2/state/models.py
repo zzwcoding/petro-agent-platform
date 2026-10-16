@@ -3,7 +3,8 @@
 形状真源＝`specs/state.md` 接口定义节（签名以 `specs/modules.md` `## state` 卡为准）；
 `RunState` 字段集真源＝`docs/runtime-refactor/synth/S5-RunState字段矩阵.md`（首列 50 字段）。
 本层纯形状：零行为分支、零模型调用、零落盘、零业务语义判断；写函数零供给——共享写口归
-`bookkeeping`（`specs/bookkeeping.md`）。
+`bookkeeping`（`specs/bookkeeping.md`）。常量单点在 `constants`（三族闭世界＋限额数值真源）、
+触界判定在 `limits`（纯函数 `check_limits`）。
 """
 
 from collections.abc import AsyncIterator, Mapping
@@ -11,6 +12,18 @@ from dataclasses import dataclass, field
 from typing import Any, Literal, get_args
 
 from appv2.infra.security import Actor
+from appv2.runtimev2.state.constants import (
+    ASK_CAP,
+    INTENT,
+    MAX_DISCOVERS_PER_ROUND,
+    MAX_DISCOVERS_PER_RUN,
+    MAX_EXECUTES_PER_ROUND,
+    MAX_ROUNDS,
+    RUN_RUNNING,
+    RUN_STATUS_KINDS,
+    TOOL_TIMEOUT_SECONDS,
+    TOTAL_SECONDS,
+)
 
 # ── 对话层来源闭世界（规格 行为 6 明列三值；新增第四值须走裁决/ADR）──────────────
 DialogueOrigin = Literal["user_verbatim", "assistant_final", "clarify_approval_replay"]
@@ -134,15 +147,19 @@ class RunHandle:
 
 @dataclass(frozen=True, slots=True)
 class Budget:
-    """限额参数表：键集闭世界七键，数值真源＝`recon/K` R-K-72…R-K-76（行为 10）。"""
+    """限额参数表：键集闭世界七键，数值真源＝`recon/K` R-K-72…R-K-76（行为 10）。
 
-    rounds: int = 3
-    discovers_per_round: int = 2
-    executes_per_round: int = 2
-    seconds: float = 300.0
-    tool_timeout: float = 30.0
-    discovers_per_run: int = 10
-    ask_cap: int = 6
+    缺省面逐键引 `constants` 的数值单点（禁散落字面量）；键名与 `LimitHit.limit` 闭世界同名
+    ——判定面按名取上限（`limits.check_limits`），不另立第二套键名。
+    """
+
+    rounds: int = MAX_ROUNDS
+    discovers_per_round: int = MAX_DISCOVERS_PER_ROUND
+    executes_per_round: int = MAX_EXECUTES_PER_ROUND
+    seconds: float = TOTAL_SECONDS
+    tool_timeout: float = TOOL_TIMEOUT_SECONDS
+    discovers_per_run: int = MAX_DISCOVERS_PER_RUN
+    ask_cap: int = ASK_CAP
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,6 +181,17 @@ class Convergence:
     hit: tuple[LimitHit, ...]
     notice: dict[str, Any] | None
 
+    def __post_init__(self) -> None:
+        # 行为 12 的形态互斥（fail-closed）：`hit` 非空 ⇔ `notice` 非 None——触界不得静默、
+        # 未触界不得凭空产注记。只判三键**形状**，不复述 `notice.type` 的取值集（归 `transport`）。
+        if bool(self.hit) != (self.notice is not None):
+            raise ValueError(
+                "Convergence 形态互斥：hit 非空 ⇔ notice 非 None（触界不得静默／未触界不得产注记）"
+            )
+        if self.notice is not None and set(self.notice) != {"type", "gates", "content"}:
+            keys = "／".join(sorted(self.notice))
+            raise ValueError(f"Convergence.notice 必须恰三键 type／gates／content（实为 {keys}）")
+
 
 # ── 运行状态（字段集＝synth/S5 矩阵全量，逐字段读写方见该表）───────────────────
 
@@ -177,7 +205,7 @@ class RunState:
     # 行级身份字符串投影（对象面在 `AskRequest.actor`）
     # 转换点唯一在 orchestration 受理段（规格「依赖与风险」5）
     actor: str = ""
-    status: str = "running"
+    status: str = RUN_RUNNING
     followup_of: str = ""
     empty_probes: list[str] = field(default_factory=list)
     understanding: str = ""
@@ -224,3 +252,20 @@ class RunState:
     budget_hit: list[str] = field(default_factory=list)
     next_intent: str = ""
     error: str | None = None
+
+    def __post_init__(self) -> None:
+        # 行为 9：状态字段取值必须 ∈ 对应闭世界，越界抛错（fail-closed，不吞错、不返回哨兵）。
+        # `next_intent == ""`＝未设态（字段缺省；旧码路由以「`current or INTENT_ANSWER`」兜底），
+        # 不在 INTENT 十值内但合法——故只在非空时把守。后续赋值面的把守归唯一写口
+        # `bookkeeping.set_intent`（`specs/bookkeeping.md` 行为 6）。
+        if self.status not in RUN_STATUS_KINDS:
+            values = "／".join(sorted(RUN_STATUS_KINDS))
+            raise ValueError(
+                f"RunState.status 越界（闭世界 RUN_STATUS_KINDS＝{values}）：{self.status!r}"
+            )
+        if self.next_intent and self.next_intent not in INTENT:
+            values = "／".join(sorted(INTENT))
+            raise ValueError(
+                f"RunState.next_intent 越界（闭世界 INTENT＝{values}，或未设空串）："
+                f"{self.next_intent!r}"
+            )

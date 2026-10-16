@@ -1,14 +1,17 @@
-"""state 块验收（RT-W1-01a）：骨架与公开面、形状与状态语义、受理与回执载荷面。
+"""state 块验收（RT-W1-01a 骨架／-01b 常量族与限额触界面）。
 
-票面对象＝`specs/state.md`「验收测试」表第 1–8、15、16 行（逐字，测试标识同规格列）；
+票面对象＝`specs/state.md`「验收测试」表第 1–8、15、16 行（-a 逐字，测试标识同规格列）；
 测试网钉＝pin-22（`::messages_append_only_prefix`）／pin-23（`::followup_seeds_full_chain`）／
 pin-24（`::contracts_appended_idempotent`）／pin-26（`::dialogue_layer_purity`）／
 pin-29 形状面（`::ask_payload_shape_closed_world`）／
 pin-30 状态字段面（`::legacy_checkpoint_read_honest`）。
 
+票面对象（RT-W1-01b）＝同表第 9、10、11、12、13、14、17、18、19 行（常量族与限额触界面／元／
+边界·保留集），行序与规格列逐字一致。
+
 字段集真源＝`docs/runtime-refactor/synth/S5-RunState字段矩阵.md`（本件**真读该文件解析**，
-不硬编码字段名——硬编码即失去防漂移意义）；规格表剩余 9 行（常量族／限额触界／元／边界·保留集）
-归 `RT-W1-01b-state.md`，同落本文件。
+不硬编码字段名——硬编码即失去防漂移意义）；限额数值真源＝`docs/runtime-refactor/recon/K-上下文
+事件指南预算.md` R-K-72…R-K-76（本件以期望值逐键钉住，代码侧单点在 `state.constants`）。
 """
 
 from __future__ import annotations
@@ -17,6 +20,7 @@ import ast
 import json
 import re
 from collections.abc import AsyncIterator, Mapping
+from copy import deepcopy
 from dataclasses import FrozenInstanceError, asdict, fields
 from pathlib import Path
 from typing import Any
@@ -25,8 +29,26 @@ import pytest
 
 from appv2.infra.security import Actor
 from appv2.runtimev2.state import (
+    ASK_CAP,
     DIALOGUE_ORIGIN_ROLES,
     DIALOGUE_ORIGINS,
+    INTENT,
+    INTENT_ANSWER,
+    LIMIT_KINDS,
+    MAX_DISCOVERS_PER_ROUND,
+    MAX_DISCOVERS_PER_RUN,
+    MAX_EXECUTES_PER_ROUND,
+    MAX_ROUNDS,
+    RUN_COMPLETED,
+    RUN_RUNNING,
+    RUN_STATUS_KINDS,
+    RUN_WAITING_ASK,
+    STEP_DECISION,
+    STEP_DISCOVER,
+    STEP_EXECUTE,
+    STEP_KINDS,
+    TOOL_TIMEOUT_SECONDS,
+    TOTAL_SECONDS,
     AskChoice,
     AskRequest,
     Budget,
@@ -35,11 +57,13 @@ from appv2.runtimev2.state import (
     Manifest,
     RunHandle,
     RunState,
+    check_limits,
 )
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _S5_MATRIX = _REPO_ROOT / "docs" / "runtime-refactor" / "synth" / "S5-RunState字段矩阵.md"
 _STATE_DIR = _REPO_ROOT / "appv2" / "runtimev2" / "state"
+_V2_DIR = _REPO_ROOT / "appv2" / "runtimev2"
 
 # 规格 行为 6 明列的来源闭世界三值（逐字：user_verbatim／assistant_final／clarify_approval_replay）
 _SPEC_DIALOGUE_ORIGINS = {"user_verbatim", "assistant_final", "clarify_approval_replay"}
@@ -492,3 +516,511 @@ def test_manifest_all_keys_and_copy() -> None:
         assert projected[name] is not getattr(manifest, name)  # 列表值返回拷贝
     projected["source_type"].append("伪造")
     assert manifest.source_type == ["kb"]  # 改返回值不改原对象
+
+
+# ---------- 9 三族常量闭世界（行为 9） ----------
+
+# 取值与条数真源＝`recon/I2a-状态常量与清单.md`（22 条常量实测：STEP×6＋STEP_KINDS｜
+# RUN×4＋RUN_STATUS_KINDS｜INTENT×10）——本件以期望值钉住，代码侧单点在 `state.constants`。
+_SPEC_STEP_KINDS = {"decision", "discover", "execute", "observe", "verify", "answer"}
+_SPEC_RUN_STATUS_KINDS = {"running", "waiting_ask", "completed", "failed"}
+_SPEC_INTENT = {
+    "decision",
+    "discover",
+    "execute",
+    "observe",
+    "verify",
+    "answer",
+    "end",
+    "toolmatch",
+    "precondition",
+    "batch",
+}
+
+
+def test_constant_families_closed_world() -> None:
+    """三族常量闭世界：越界取值抛错。"""
+    assert STEP_KINDS == _SPEC_STEP_KINDS
+    assert RUN_STATUS_KINDS == _SPEC_RUN_STATUS_KINDS
+    assert INTENT == _SPEC_INTENT
+    assert (len(STEP_KINDS), len(RUN_STATUS_KINDS), len(INTENT)) == (6, 4, 10)
+    for family in (STEP_KINDS, RUN_STATUS_KINDS, INTENT):
+        assert isinstance(family, frozenset)  # 闭世界不可变（运行期不可增删）
+
+    # 越界取值抛错（把守面＝状态字段构造期 ＋ 步记录计数面）
+    with pytest.raises(ValueError):
+        RunState(run_id="run-1", status="paused")
+    with pytest.raises(ValueError):
+        RunState(run_id="run-1", next_intent="clarify")
+    with pytest.raises(ValueError):
+        check_limits(RunState(run_id="run-1", steps=[{"seq": 1, "step": "reflect"}]))
+
+    # 族内取值不抛（含未设空串——`next_intent` 字段缺省）
+    for status in sorted(RUN_STATUS_KINDS):
+        assert RunState(run_id="run-1", status=status).status == status
+    for intent in sorted(INTENT):
+        assert RunState(run_id="run-1", next_intent=intent).next_intent == intent
+    assert RunState(run_id="run-1").next_intent == ""
+
+    # 每族必须有真实消费点（禁「定义了没人用」）：族名在本块常量定义处之外有引用位点
+    consumers = {
+        family: sum(
+            _name_uses(tree, family)
+            for path, tree in _state_sources()
+            if path.name != "constants.py"
+        )
+        for family in ("STEP_KINDS", "RUN_STATUS_KINDS", "INTENT")
+    }
+    assert all(count >= 1 for count in consumers.values()), consumers
+
+
+def _name_uses(tree: ast.Module, name: str) -> int:
+    """源码里按名引用某符号的位点数（消费点机检用）。"""
+    return sum(1 for node in ast.walk(tree) if isinstance(node, ast.Name) and node.id == name)
+
+
+# ---------- 10 常量单点消费（行为 9） ----------
+
+
+def _v2_sources() -> list[tuple[Path, ast.Module]]:
+    """全 V2 树源码（旧码 `appv2/runtime/` 是重构退役面、不在本批改动面——不入扫描域）。"""
+    return [
+        (path, ast.parse(path.read_text(encoding="utf-8")))
+        for path in sorted(_V2_DIR.rglob("*.py"))
+    ]
+
+
+def _str_collections(tree: ast.Module) -> list[tuple[int, set[str]]]:
+    """源码里一切字符串集合字面量／`set|frozenset(...)` 的元素集（「第二处自建集合」扫描用）。"""
+    found: list[tuple[int, set[str]]] = []
+    for node in ast.walk(tree):
+        elements: list[ast.expr] = []
+        if isinstance(node, (ast.Set, ast.Tuple, ast.List)):
+            elements = list(node.elts)
+        elif isinstance(node, ast.Dict):
+            elements = [key for key in node.keys if key is not None]
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id in {"set", "frozenset"}
+        ):
+            for argument in node.args:
+                if isinstance(argument, (ast.Set, ast.Tuple, ast.List)):
+                    elements.extend(argument.elts)
+        else:
+            continue
+        strings = {
+            element.value
+            for element in elements
+            if isinstance(element, ast.Constant) and isinstance(element.value, str)
+        }
+        if strings:
+            found.append((node.lineno, strings))
+    return found
+
+
+def _guarding_literals(tree: ast.Module) -> list[tuple[int, str]]:
+    """参与把守的裸字面量：比较（`==`／`!=`）与成员测试（`in`／`not in`）表达式里的字符串常量。"""
+    found: list[tuple[int, str]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Compare):
+            continue
+        for sub in ast.walk(node):
+            if isinstance(sub, ast.Constant) and isinstance(sub.value, str):
+                found.append((sub.lineno, sub.value))
+    return found
+
+
+def test_no_second_source_of_constants() -> None:
+    """常量单点消费：无第二处自建集合、无裸状态字面量把守。"""
+    # 包根 re-export 与定义处同一对象（不复制集合）
+    from appv2.runtimev2.state import constants as constants_module
+
+    assert STEP_KINDS is constants_module.STEP_KINDS
+    assert RUN_STATUS_KINDS is constants_module.RUN_STATUS_KINDS
+    assert INTENT is constants_module.INTENT
+
+    families = STEP_KINDS | RUN_STATUS_KINDS | INTENT
+    self_built: dict[str, list[int]] = {}
+    bare_guards: dict[str, list[str]] = {}
+    for path, tree in _v2_sources():
+        if path == _STATE_DIR / "constants.py":  # 单一真源处（族名与取值的唯一定义点）
+            continue
+        for line, values in _str_collections(tree):
+            if values & families:
+                self_built.setdefault(path.name, []).append(line)
+        for line, literal in _guarding_literals(tree):
+            if literal in families:
+                bare_guards.setdefault(path.name, []).append(f"{line}:{literal}")
+    assert not self_built, f"出现第二处自建状态集合：{self_built}"
+    assert not bare_guards, f"出现裸状态字面量把守：{bare_guards}"
+
+    # 探测器非空转（两类探测器各在伪造源上命中）
+    forged = ast.parse(
+        '_S = frozenset({"running", "failed"})\n'
+        'if state.status == "running":\n'
+        "    pass\n"
+        'if state.status in ("completed", "failed"):\n'
+        "    pass\n"
+    )
+    assert any(values & families for _, values in _str_collections(forged))
+    assert {literal for _, literal in _guarding_literals(forged)} == {
+        "running",
+        "completed",
+        "failed",
+    }
+
+
+# ---------- 11 限额参数键集闭世界（行为 10） ----------
+
+# `Budget` 键集与缺省值真源＝`recon/K-上下文事件指南预算.md` R-K-72…R-K-76（七键逐键承载）。
+_SPEC_BUDGET_KEYS = {
+    "rounds",
+    "discovers_per_round",
+    "executes_per_round",
+    "seconds",
+    "tool_timeout",
+    "discovers_per_run",
+    "ask_cap",
+}
+
+
+def test_budget_keys_closed_world() -> None:
+    """限额参数键集闭世界、缺键取缺省（无散落字面量）。"""
+    keys = {field.name for field in fields(Budget)}
+    assert keys == _SPEC_BUDGET_KEYS  # 键集闭世界（七键）
+    assert LIMIT_KINDS == keys  # 与 `LimitHit.limit` 闭世界同集（判定按名取上限）
+    assert set(Budget.__dataclass_fields__) == keys
+
+    # 缺键取缺省：缺省面逐键引 `constants` 单点，数值与真源一致（R-K-72…R-K-76）
+    assert Budget() == Budget(
+        rounds=MAX_ROUNDS,
+        discovers_per_round=MAX_DISCOVERS_PER_ROUND,
+        executes_per_round=MAX_EXECUTES_PER_ROUND,
+        seconds=TOTAL_SECONDS,
+        tool_timeout=TOOL_TIMEOUT_SECONDS,
+        discovers_per_run=MAX_DISCOVERS_PER_RUN,
+        ask_cap=ASK_CAP,
+    )
+    assert (MAX_ROUNDS, MAX_DISCOVERS_PER_ROUND, MAX_EXECUTES_PER_ROUND) == (3, 2, 2)
+    assert (TOTAL_SECONDS, TOOL_TIMEOUT_SECONDS) == (300.0, 30.0)
+    assert (MAX_DISCOVERS_PER_RUN, ASK_CAP) == (10, 6)
+    only_rounds = Budget(rounds=1)
+    assert only_rounds.rounds == 1 and only_rounds.ask_cap == ASK_CAP  # 缺键取缺省
+
+    # 无散落字面量：① `Budget` 类体的字段缺省表达式不含裸数值（引常量）；② 判定面无限额数值字面
+    sources = dict(_state_sources())
+    budget_class = _class_def(sources[_STATE_DIR / "models.py"], "Budget")
+    for statement in budget_class.body:
+        if isinstance(statement, ast.AnnAssign):
+            assert statement.value is not None
+            assert not any(
+                isinstance(node, ast.Constant) and isinstance(node.value, (int, float))
+                for node in ast.walk(statement.value)
+            ), f"Budget 缺省出现裸字面量：{ast.unparse(statement)}"
+    limit_numbers = {3, 2, 300.0, 30.0, 10, 6}
+    in_limits = {
+        node.value
+        for node in ast.walk(sources[_STATE_DIR / "limits.py"])
+        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float))
+    }
+    assert not (in_limits & limit_numbers), f"判定面出现限额字面量：{in_limits & limit_numbers}"
+
+
+def _class_def(tree: ast.Module, name: str) -> ast.ClassDef:
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef) and node.name == name:
+            return node
+    raise AssertionError(f"未找到类定义：{name}")
+
+
+# ---------- 12 触界判定确定、纯（行为 11） ----------
+
+
+def _overlimit_state(
+    *,
+    rounds: int = 3,
+    discover_used: int = 10,
+    discovers: int = 2,
+    executes: int = 2,
+) -> RunState:
+    """超限态 fixture：轮数／全 run 发现／当前轮发现／当前轮执行逐项到顶。
+
+    步记录＝`StepRecord` 七字段形（`step` ∈ `STEP_KINDS`）；轮界＝末条 `decision` 步。
+    """
+    steps: list[dict[str, Any]] = [{"seq": 1, "step": STEP_DECISION, "status": "ok"}]
+    steps += [
+        {"seq": 2 + index, "step": STEP_DISCOVER, "status": "ok"} for index in range(discovers)
+    ]
+    steps += [
+        {"seq": 2 + discovers + index, "step": STEP_EXECUTE, "status": "ok"}
+        for index in range(executes)
+    ]
+    return RunState(
+        run_id="run-over",
+        rounds=rounds,
+        discover_used=discover_used,
+        steps=steps,
+    )
+
+
+def test_check_limits_pure_and_deterministic() -> None:
+    """触界判定确定、纯、不改入参。"""
+    state = _overlimit_state()
+    before = asdict(state)
+    first = check_limits(state)
+    second = check_limits(state)
+
+    assert (first.hit, first.notice) == (second.hit, second.notice)  # 两跑结果相等
+    assert asdict(state) == before  # 调用前后入参深比较相等
+    assert deepcopy(state) == state  # 判定不含随机／无副作用
+    assert check_limits(_overlimit_state()).hit == first.hit  # 同输入异实例同结果（判定确定）
+    assert state.budget_hit == [] and state.notices == []  # 判定不落状态（落地归 bookkeeping）
+
+
+# ---------- 13 触界必带注记（行为 12） ----------
+
+
+def test_converge_requires_notice() -> None:
+    """触界必带注记（恰三键）；未触界恒无注记。"""
+    hit_result = check_limits(_overlimit_state())
+    assert hit_result.hit
+    assert hit_result.notice is not None
+    assert set(hit_result.notice) == {"type", "gates", "content"}  # 恰三键（不复述 type 取值）
+    assert hit_result.notice["gates"] == [hit.limit for hit in hit_result.hit]
+    content = hit_result.notice["content"]
+    assert isinstance(content, str) and content
+    assert all(hit.limit in content for hit in hit_result.hit)  # 如实：命中项照实入注记
+    assert isinstance(hit_result.hit, tuple)  # 空元组／元组——非列表
+
+    clear_result = check_limits(RunState(run_id="run-1"))
+    assert clear_result.hit == () and clear_result.notice is None  # 未触界恒无注记
+
+    # 形态互斥 fail-closed（行为 12：触界不得静默、未触界不得凭空产注记）
+    one_hit = LimitHit(limit="rounds", used=3.0, cap=3.0)
+    with pytest.raises(ValueError):
+        Convergence(hit=(one_hit,), notice=None)
+    with pytest.raises(ValueError):
+        Convergence(hit=(), notice={"type": "budget_converged", "gates": [], "content": "…"})
+    with pytest.raises(ValueError):  # 注记非恰三键
+        Convergence(hit=(one_hit,), notice={"type": "budget_converged", "gates": []})
+
+
+# ---------- 14 `budget_hit` 与注记同现（行为 13） ----------
+
+
+def _land_convergence(state: RunState, convergence: Convergence) -> None:
+    """触界收敛的**落地**写入（正身＝`bookkeeping.converge` 唯一写口；本件为消费侧模型）。
+
+    行为 12／13：命中 → 落 `budget_hit` ＋如实注记（＋终态）；未命中 → 零副作用。
+    """
+    if not convergence.hit:
+        return
+    state.budget_hit.extend(hit.limit for hit in convergence.hit)
+    if convergence.notice is not None:
+        state.notices.append(dict(convergence.notice))
+    state.status = RUN_COMPLETED
+    state.next_intent = INTENT_ANSWER
+
+
+def test_budget_hit_signal_present() -> None:
+    """`budget_hit` 与注记同现（触界不静默）。"""
+    state = _overlimit_state()
+    convergence = check_limits(state)
+    assert convergence.hit and convergence.notice is not None
+
+    _land_convergence(state, convergence)
+    assert state.budget_hit == [hit.limit for hit in convergence.hit]  # 状态字段机读信号（不静默）
+    assert state.notices and set(state.notices[-1]) == {"type", "gates", "content"}
+    assert (state.status, state.next_intent) == (RUN_COMPLETED, INTENT_ANSWER)
+
+    # 未触界：零副作用（不产注记、不落 budget_hit、不改状态）
+    clear = RunState(run_id="run-2")
+    _land_convergence(clear, check_limits(clear))
+    assert clear.budget_hit == [] and clear.notices == []
+    assert clear.status == RUN_RUNNING
+
+
+# ---------- 17 本块零判断零 IO（AST 扫描） ----------
+
+# 本块 import 白名单：只许 stdlib 三件（dataclasses／typing／collections.abc）＋`infra` 身份对象
+# 类型面（边界红线 ④）＋本包内模块（R4 由边界闸另咬）。白名单外一律判失败——模型出口、事件发射、
+# DB／文件读写、正则与语义处理所需的 import 全在名单外。
+_ALLOWED_IMPORTS = {
+    "__future__",
+    "collections.abc",
+    "dataclasses",
+    "typing",
+    "appv2.infra.security",
+}
+_ALLOWED_IMPORT_PREFIXES = ("appv2.runtimev2.state.",)
+_FORBIDDEN_CALLS = {
+    "open",
+    "print",
+    "eval",
+    "exec",
+    "compile",
+    "__import__",
+    "emit",
+    "complete",
+    "embeddings",
+    "connect",
+    "execute",
+    "fetchall",
+    "read_text",
+    "write_text",
+    "read_bytes",
+    "write_bytes",
+}
+_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def _imported_modules(tree: ast.Module) -> set[str]:
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            found.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            found.add(node.module)
+    return found
+
+
+def _callee_names(tree: ast.Module) -> list[tuple[int, str]]:
+    found: list[tuple[int, str]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Name):
+            found.append((node.lineno, func.id))
+        elif isinstance(func, ast.Attribute):
+            found.append((node.lineno, func.attr))
+    return found
+
+
+def _io_or_judgement_findings(tree: ast.Module) -> list[str]:
+    """零判断零 IO 的机检面：白名单外 import／禁止调用／疑似语义词表（非标识符形字符串集合）。
+
+    「语义词表」的机检代理＝字符串集合里出现非纯标识符项（含中文／空白／标点／正则元字符）——
+    语义词表与正则表必带此类项，而枚举闭世界的取值与 `__all__` 名单都是纯标识符形。
+    """
+    findings: list[str] = []
+    for module in sorted(_imported_modules(tree)):
+        if module in _ALLOWED_IMPORTS or module.startswith(_ALLOWED_IMPORT_PREFIXES):
+            continue
+        findings.append(f"import {module}")
+    for line, name in _callee_names(tree):
+        if name in _FORBIDDEN_CALLS:
+            findings.append(f"L{line} 调用 {name}")
+    for line, values in _str_collections(tree):
+        for value in sorted(values):
+            if not _IDENTIFIER.fullmatch(value):
+                findings.append(f"L{line} 疑似语义词表项 {value!r}")
+    return findings
+
+
+def test_no_judgement_or_io_in_state() -> None:
+    """本块零判断零 IO（AST 扫描）。"""
+    for path, tree in _state_sources():
+        findings = _io_or_judgement_findings(tree)
+        assert findings == [], f"{path.name}：{findings}"
+
+    # 探测器非空转（模型调用／事件发射／DB 文件读写／语义词表四类各命中）
+    forged = ast.parse(
+        "import sqlite3\n"
+        "import re\n"
+        "open('痕迹.txt')\n"
+        "bus.emit('notice', {})\n"
+        "model.complete([])\n"
+        'WORDS = {"拒答", "无据"}\n'
+    )
+    findings = _io_or_judgement_findings(forged)
+    assert any(finding.startswith("import sqlite3") for finding in findings)
+    assert any(finding.startswith("import re") for finding in findings)
+    assert any("调用 open" in finding for finding in findings)
+    assert any("调用 emit" in finding for finding in findings)
+    assert any("调用 complete" in finding for finding in findings)
+    assert any("语义词表" in finding for finding in findings)
+
+
+# ---------- 18 【边界集】（行为 9–13 四形） ----------
+
+
+def test_boundary_empty_overlimit_legacy_variants() -> None:
+    """【边界集】空状态／超限状态／v1 旧态／异参受理 → 各落对应分支。"""
+    # ① 空状态：零用量零步列 → 不触界、不抛错
+    empty = RunState(run_id="run-empty")
+    assert (empty.steps, empty.rounds, empty.discover_used) == ([], 0, 0)
+    empty_result = check_limits(empty)
+    assert empty_result.hit == () and empty_result.notice is None
+
+    # ② 超限状态：四类有状态载体的限额逐个触界（各落对应分支）
+    over_hits = {hit.limit: (hit.used, hit.cap) for hit in check_limits(_overlimit_state()).hit}
+    assert over_hits == {
+        "rounds": (3.0, 3.0),
+        "discovers_per_round": (2.0, 2.0),
+        "executes_per_round": (2.0, 2.0),
+        "discovers_per_run": (10.0, 10.0),
+    }
+    # 判据＝「达上限即触界」（R-K-86）——各降一格即不触界
+    under = _overlimit_state(rounds=2, discover_used=9, discovers=1, executes=1)
+    assert check_limits(under).hit == ()
+    # 判定面覆盖边界（登记待裁）：`seconds`／`tool_timeout`／`ask_cap` 的用量面不在 `RunState`
+    # 形状内（流水 49① 取消计时与连续问计数字段）——上限归零也不生假命中，不冒充覆盖
+    uncarried = RunState(run_id="run-3", budget=Budget(seconds=0.0, tool_timeout=0.0, ask_cap=0))
+    assert check_limits(uncarried).hit == ()
+
+    # ③ v1 旧态：如实读入后判定照常（旧形六键步记录无 `step` 键 → 不计，不抛错）
+    legacy = _read_v1_checkpoint(_V1_CHECKPOINT)
+    legacy_result = check_limits(legacy)
+    assert legacy_result.hit == () and legacy_result.notice is None
+    assert check_limits(RunState(steps=[{"seq": 1, "kind": "discover"}])).hit == ()
+
+    # ④ 异参受理：越界组合抛错（形状面，与行 15 同断言集）
+    with pytest.raises(ValueError):
+        AskRequest(resume_run_id="run-1", followup_run_id="run-0", actor=_actor())
+    with pytest.raises(ValueError):
+        AskChoice(kind="approval")
+    with pytest.raises(ValueError):
+        AskChoice(kind="clarify", decision="ok")
+
+    # ⑤ 形态越界 fail-closed（额外面）：限额表非 `Budget` 实例 → 判错不静默（不返回哨兵）
+    with pytest.raises(ValueError):
+        check_limits(RunState(budget={"rounds": 3}))  # type: ignore[arg-type]
+
+
+# ---------- 19 【保留集】（常规读写与未触界路径） ----------
+
+
+def test_retention_normal_state_unchanged() -> None:
+    """【保留集】常规状态读写与未触界路径行为不变。"""
+    state = RunState(run_id="run-1")
+    # 常规读写：状态机取值、对话链追加、步记录追加——取值全落闭世界内
+    state.status = RUN_WAITING_ASK
+    state.messages.append({"role": "user", "content": "问"})
+    state.steps.append({"seq": 1, "step": STEP_DECISION, "status": "ok"})
+    state.rounds = 1
+    state.discover_used = 1
+    state.next_intent = INTENT_ANSWER
+
+    before = asdict(state)
+    result = check_limits(state)  # 未触界路径
+    assert result.hit == () and result.notice is None
+    assert asdict(state) == before  # 判定零副作用：不改入参、不动 budget_hit／notices
+    assert state.budget_hit == [] and state.notices == []
+
+    state.status = RUN_COMPLETED  # 终态取值仍在闭世界内
+    assert (state.status, state.next_intent) == (RUN_COMPLETED, INTENT_ANSWER)
+
+    # 形状保留：字段集与 `synth/S5` 矩阵逐一相符；限额键集与缺省面不变
+    assert {field.name for field in fields(RunState)} == _matrix_fields()
+    assert {field.name for field in fields(Budget)} == _SPEC_BUDGET_KEYS
+    assert asdict(Budget()) == {
+        "rounds": MAX_ROUNDS,
+        "discovers_per_round": MAX_DISCOVERS_PER_ROUND,
+        "executes_per_round": MAX_EXECUTES_PER_ROUND,
+        "seconds": TOTAL_SECONDS,
+        "tool_timeout": TOOL_TIMEOUT_SECONDS,
+        "discovers_per_run": MAX_DISCOVERS_PER_RUN,
+        "ask_cap": ASK_CAP,
+    }
