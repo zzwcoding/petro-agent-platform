@@ -24,11 +24,17 @@ from appv2.runtimev2.persistence import STEP_STATUS_FAILED
 from appv2.runtimev2.state import RunState
 from appv2.runtimev2.understanding.constants import (
     NOTICE_CANDIDATE_VIOLATION,
+    NOTICE_DIRECT_REJECTED,
     NOTICE_PARSE_FAILURE,
     PAYLOAD_CANDIDATES_KEY,
+    PAYLOAD_CLOSURE_HITS_KEY,
+    PAYLOAD_DIRECT_TEXT_KEY,
     PAYLOAD_EVENT_CANDIDATE_VIOLATION,
+    PAYLOAD_EVENT_DIRECT_REJECTED,
     PAYLOAD_EVENT_KEY,
     PAYLOAD_EVENT_PARSE_FAILURE,
+    PAYLOAD_HIT_KIND_KEY,
+    PAYLOAD_HIT_TOKEN_KEY,
     PAYLOAD_OFFENDERS_KEY,
     PAYLOAD_PHASE_KEY,
     PAYLOAD_RAW_EXCERPT_KEY,
@@ -101,4 +107,32 @@ def report_parse_failure(state: RunState, raw: str) -> dict[str, Any]:
     )
 
 
-__all__ = ["report_candidate_violation", "report_parse_failure"]
+def report_direct_rejected(
+    state: RunState, direct_text: str, hits: Sequence[tuple[str, str]]
+) -> dict[str, Any]:
+    """直答退回如实上报（行为 5＋「不降级」节）：退回**不静默**——先落机读信号再走完整流程。
+
+    `payload.closure_hits`＝逐条命中项（`{kind, token}`——两轴判据点名，机读可复算）；
+    `payload.direct_text`＝被判不合格的直答文本片段（同 `excerpt` 截断口径，可见）；
+    `notice.content` 逐字点名命中项——两处同一次判定产物（同 `report_candidate_violation` 口径）。
+    """
+    names = "、".join(f"{kind}:{token}" for kind, token in hits)
+    return _report(
+        state,
+        event=PAYLOAD_EVENT_DIRECT_REJECTED,
+        notice_type=NOTICE_DIRECT_REJECTED,
+        title=f"直答退回：文本命中闭世界 {len(hits)} 项",
+        content=(
+            f"直答结构核验不合格（命中 {names}——直答里出现数据或事实断言）："
+            '退回完整流程（route="full"），不直答收口。'
+        ),
+        payload={
+            PAYLOAD_DIRECT_TEXT_KEY: excerpt(direct_text),
+            PAYLOAD_CLOSURE_HITS_KEY: [
+                {PAYLOAD_HIT_KIND_KEY: kind, PAYLOAD_HIT_TOKEN_KEY: token} for kind, token in hits
+            ],
+        },
+    )
+
+
+__all__ = ["report_candidate_violation", "report_direct_rejected", "report_parse_failure"]

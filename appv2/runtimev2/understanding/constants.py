@@ -51,6 +51,16 @@ PAYLOAD_CANDIDATES_KEY = "metric_candidates"
 PAYLOAD_OFFENDERS_KEY = "offenders"
 PAYLOAD_RAW_EXCERPT_KEY = "raw_excerpt"
 
+# ── 直答结构核验面（行为 5／11；退回口径与「直答退回」注记）───────────────────────
+# 注记条目标题（钉 pin-26 渲染面：过程记录入档案、不入 dialogue）
+DIRECT_REJECT_NOTE_TITLE = "直答退回"
+NOTICE_DIRECT_REJECTED = "unsupported_claim"  # 直答断言无台账依据（同候选违约取语义最近既有值）
+PAYLOAD_EVENT_DIRECT_REJECTED = "direct_rejected"
+PAYLOAD_DIRECT_TEXT_KEY = "direct_text"
+PAYLOAD_CLOSURE_HITS_KEY = "closure_hits"
+PAYLOAD_HIT_KIND_KEY = "kind"
+PAYLOAD_HIT_TOKEN_KEY = "token"
+
 # ── 原始应答片段留痕（`UnderstandingParseError` 携带；上限与可见标记口径同仓截断先例）──
 RAW_EXCERPT_LIMIT = 200
 TRUNCATION_MARK = "…"

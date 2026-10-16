@@ -1,12 +1,15 @@
-"""understanding 块验收（RT-W4-01a：-A 半面——装配／解析／`route` 闭世界／分派／事件／上报）。
+"""understanding 块验收（RT-W4-01a／-01b：装配／解析／路由闭世界／分派／事件／上报／直答核验）。
 
-票面对象＝`specs/understanding.md`「验收测试」表逐行（本票 11 行：规格表行序 1／2／5／6／7／8／
-9／10／11／12／13——`#` 列保留规格表行序、不重编；测试标识与规格列逐字一致）：
+票面对象＝`specs/understanding.md`「验收测试」表逐行（-A 票 11 行：规格表行序 1／2／5／6／7／8／
+9／10／11／12／13；-B 票 5 行：3／4／14／15／16——`#` 列保留规格表行序、不重编；测试标识与规格列
+逐字一致）：
 
 | # | 测试 | 验收标准（规格列原文） |
 |---|---|---|
 | 1 | `::full_route_candidates_in_roster` | route=full 时返回 Understanding，且候选全部出自名录 |
 | 2 | `::candidate_out_of_roster_violates` | 候选出现名录外名字 → 判违约（不静默丢弃） |
+| 3 | `::direct_on_greeting` | 寒暄句（道谢／道别）→ route=direct，文本不含数据或事实断言 |
+| 4 | `::direct_with_assertion_rejected` | route=direct 但文本命中闭世界 → 不合格，退回 full |
 | 5 | `::malformed_json_raises_no_fallback` | （长行另记，见下） |
 | 6 | `::route_enum_closed_world` | route 越界取值 → 判失败（不猜、不取默认） |
 | 7 | `::task_book_three_zones` | 任务书三区顺序正确、数据区标来源且置于末尾 |
@@ -16,16 +19,33 @@
 | 11 | `::no_lexicon_or_regex_in_understanding` | （长行另记，见下） |
 | 12 | `::reporting_signal_present` | 「如实上报」的机读信号在场（notice ＋ step payload 字段） |
 | 13 | `::understanding_text_event_emitted` | 理解文本发 `text` 事件（kind=understanding） |
+| 14 | `::route_defaults_fail_closed` | （长行另记，见下） |
+| 15 | `::direct_boundary_cases_rejected` | （长行另记，见下） |
+| 16 | `::retention_non_direct_unchanged` | （长行另记，见下） |
 
-两行超行宽者另记（`#` 与测试标识逐字同规格表、验收标准列逐字转抄）：
+五行超行宽者另记（`#` 与测试标识逐字同规格表、验收标准列逐字转抄）：
 
 - 5｜`::malformed_json_raises_no_fallback`｜应答 JSON 不合 schema → 抛 UnderstandingParseError，
   不静默降级
 - 11｜`::no_lexicon_or_regex_in_understanding`｜程序侧无词表／正则语义判断（AST 扫描本模块；
   **豁免面＝形态处理**——数字形判定与集合成员判定不算语义词表／正则）
+- 14｜`::route_defaults_fail_closed`｜路由默认 fail-closed：拿不准／可能有关 → 完整流程；灰区
+  （我能问什么／预测明年油价）→ 完整流程
+- 15｜`::direct_boundary_cases_rejected`｜【边界集】**名录内**指标名／**结构卡内**表名／全角数字
+  → 直答判不合格
+- 16｜`::retention_non_direct_unchanged`｜【保留集】寒暄仍走 direct；route=full 的既有候选校验
+  行为不变
 
-本票**不含** -B 半面 5 行（规格表行序 3／4／14／15／16——归 RT-W4-01b）：直答结构核验的闭世界
-判据、fail-closed 默认与样例集在本件**零断言**（防一头两认）；本件不预先落任何词面／形态判据。
+**-B 半面（行 3／4／14／15／16）的判据面**：直答结构核验（`closure.direct_assertion_hits`）——
+数值形（NFKC 归一后按 ASCII 数字位）／名录集合成员／结构卡集合成员，任一命中即判不合格 → 退回
+`route="full"` 的 `Understanding`＋过程档案一条「直答退回」注记＋如实上报两件套（不抛错、不静默、
+不直答收口）。**行 14 的判据面读法（如实登记）**：行为 11 的「默认倾向 fail-closed」按真源
+（`walk/05-理解-定路由.md` §七 第 3 条）是**给模型的判断原则**、非程序规则——本件两面落判据：
+①**原则在场**（装配进任务书的指令区例外条款与题干段收束句——模型唯一决策输入，经相位黑盒观测）；
+②**灰区不落直答口**（拿不准／可能有关／灰区句的直答认领，其应答必带数据／事实断言 → 结构核验
+命中 → 程序确定性退回完整流程）。**程序侧零词面判据**（不判「相关性」、不设灰区词表——行为 4）：
+灰区问句本身归完整流程靠模型按该原则判、程序按 `route` 分派（本件以「判 full → 走 full 分派」的
+同问句对照面同时断言）。
 
 **测试网钉**：pin-26（对话层纯度——落点行 9＝本块**渲染面**：模型原话经过程档案留痕、`dialogue`
 零写入；写入面挂 `specs/bookkeeping.md`、字段面挂 `specs/state.md`，三处各认一面不重复）。
@@ -68,6 +88,7 @@ from appv2.runtimev2.prompts import (
 from appv2.runtimev2.state import RunState
 from appv2.runtimev2.transport import EVENT_KINDS, NOTICE_TYPES, EventBus, SseEvent
 from appv2.runtimev2.understanding import UnderstandingParseError, interpret
+from appv2.runtimev2.understanding.closure import direct_assertion_hits, numeric_form_hit
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _UNDERSTANDING_DIR = _REPO_ROOT / "appv2" / "runtimev2" / "understanding"
@@ -93,8 +114,26 @@ _PAYLOAD_OFFENDERS_KEY = "offenders"
 _PAYLOAD_RAW_EXCERPT_KEY = "raw_excerpt"
 _EVENT_CANDIDATE_VIOLATION = "candidate_out_of_roster"
 _EVENT_PARSE_FAILURE = "parse_failure"
-# 过程档案条目（本块两标题：装配一次标记 ＋ 模型原话留痕）
+# 过程档案条目（本块三标题：装配一次标记 ＋ 模型原话留痕 ＋ -B 直答退回注记）
 _TASK_BOOK_NOTE_TITLE = "任务书装配"
+_READ_NOTE_TITLE = "读题"
+_DIRECT_REJECT_NOTE_TITLE = "直答退回"
+# -B 直答结构核验面（行为 5／11；机读上报的字段名与命中的两轴 kind 闭世界）
+_EVENT_DIRECT_REJECTED = "direct_rejected"
+_PAYLOAD_DIRECT_TEXT_KEY = "direct_text"
+_PAYLOAD_CLOSURE_HITS_KEY = "closure_hits"
+_PAYLOAD_HIT_KIND_KEY = "kind"
+_PAYLOAD_HIT_TOKEN_KEY = "token"
+_KIND_NUMERIC = "numeric_form"
+_KIND_METRIC = "metric_name"
+_KIND_TABLE = "table_name"
+# fail-closed 判断原则的在场片段（逐字取自 prompts 单点合同文本——本件只断言「原则在场」，
+# 不对整段措辞下断言；prompts 侧改述即红＝登记交主窗）
+_FAIL_CLOSED_CLAUSE = "只要可能有关"
+_HESITANT_CLAUSE = "哪怕你拿不准"
+_NARROW_EXIT_CLAUSE = "只有确定与业务毫无关系"
+_QUESTION_SEGMENT_HEAD = "先判与业务的相关性"
+_GREETING_ONLY_CLAUSE = "确定无关的寒暄闲聊＝直答"
 
 # ── fixture 投影（台账活体投影形——`tools.ledger_facts` 十入面：metrics／aliases／terms／…）──
 _METRIC_ROWS: tuple[dict[str, Any], ...] = (
@@ -109,6 +148,17 @@ _ROSTER: frozenset[str] = frozenset(
     | set(_ALIASES)
 )
 _OUT_OF_ROSTER = "库存总量"  # 名录外生词（fixture 词集外的名字）
+# 结构卡集合 fixture（卡头合同形「表/账/库 名（…」——真源 `tools` 的 `table_schema` 发现面清单；
+# 行 15 的判据基准。全名＋短名两形态均由卡头提取，同 `tools` 卡名口径）
+_SCHEMA_CARDS: tuple[str, ...] = (
+    "表 agg.fct_daily_metering（日产计量事实表·PK well_id+prod_date）：well_id（井号）、"
+    "prod_date（日期）、oil_output（日产油量·吨）——问数计划（data_query）唯一取数事实表",
+    "表 agg.dim_well（井维度·PK well_id）：well_id（井号）、block_name（区块）",
+    "账 sem_metric（指标台账）：id/原名/slot_name/定义/粒度/单位/状态",
+    "库 kb 片段清单（检索库·doc_retrieve 检索面）：报告级/片段级两级",
+)
+_CARD_FULL_NAME = "agg.dim_well"
+_CARD_SHORT_NAME = "dim_well"
 
 _QUESTION = "K12-3 井最近日产油量是多少？"
 _WATERMARK = "2026-08-24"
@@ -118,6 +168,7 @@ def _ledger_dump(
     *,
     metrics: Sequence[Mapping[str, Any]] = _METRIC_ROWS,
     aliases: Mapping[str, str] = _ALIASES,
+    cards: Sequence[str] = _SCHEMA_CARDS,
 ) -> dict[str, Any]:
     return {
         "metrics": [dict(row) for row in metrics],
@@ -126,6 +177,7 @@ def _ledger_dump(
         "objects": [{"value": "井"}],
         "relations": [{"value": "属于"}],
         "families_map": {"月报": ["monthly"]},
+        "cards": list(cards),
     }
 
 
@@ -196,6 +248,47 @@ def _report_steps(state: RunState) -> list[dict[str, Any]]:
     ]
 
 
+def _reject_notes(state: RunState) -> list[dict[str, Any]]:
+    """过程档案里的「直答退回」注记（-B 退回口径的留痕面；同标题多条＝重复计入即红）。"""
+    return [
+        entry for entry in state.process_notes if entry.get("title") == _DIRECT_REJECT_NOTE_TITLE
+    ]
+
+
+def _closure_hits_of(state: RunState) -> list[Any]:
+    """直答退回报告步的逐条命中项（恰一条报告步；缺席即红——退回面不许静默）。"""
+    reports = _report_steps(state)
+    assert len(reports) == 1, reports
+    hits = reports[0]["payload"][_PAYLOAD_CLOSURE_HITS_KEY]
+    assert isinstance(hits, list)
+    return hits
+
+
+def _assert_rejected_direct(state: RunState, text: str) -> None:
+    """退回面的公共断言（行 4／15 共用——不直答收口、注记恰一条、上报两件套齐、dialogue 零写）。"""
+    assert len(state.notices) == 1
+    notice = state.notices[0]
+    assert set(notice) == _SPEC_NOTICE_KEYS and notice["type"] in NOTICE_TYPES
+    report = _report_steps(state)[0]
+    payload = report["payload"]
+    assert payload[_PAYLOAD_PHASE_KEY] == _SPEC_CALLER
+    assert payload[_PAYLOAD_EVENT_KEY] == _EVENT_DIRECT_REJECTED
+    assert payload[_PAYLOAD_DIRECT_TEXT_KEY] == text  # 被判不合格的直答文本如实留痕
+    assert report["status"] == "failed"  # 如实态（不恒 ok）
+    assert _reject_notes(state) and len(_reject_notes(state)) == 1
+    assert set(_reject_notes(state)[0]) == _SPEC_PROCESS_NOTE_KEYS
+    hits = _closure_hits_of(state)
+    assert hits  # 命中项非空（判不合格必有判据点名——退回不许静默）
+    for hit in hits:
+        assert set(hit) == {_PAYLOAD_HIT_KIND_KEY, _PAYLOAD_HIT_TOKEN_KEY}
+        assert hit[_PAYLOAD_HIT_TOKEN_KEY] in text  # 命中 token 逐字出自被判文本
+    names = "、".join(
+        f"{hit[_PAYLOAD_HIT_KIND_KEY]}:{hit[_PAYLOAD_HIT_TOKEN_KEY]}" for hit in hits
+    )
+    assert names in notice["content"]  # 与 notice 同一次判定产物（不各自生成）
+    assert state.dialogue == []  # pin-26 渲染面：退回注记入过程档案、对话层零写入
+
+
 # ---------- 1 route=full：返回 Understanding 且候选全部出自名录 ----------
 
 
@@ -259,6 +352,84 @@ def test_candidate_out_of_roster_violates() -> None:
     assert set(notice) == _SPEC_NOTICE_KEYS
     assert notice["type"] in NOTICE_TYPES
     assert _OUT_OF_ROSTER in notice["content"] and notice["gates"] == []
+
+
+# ---------- 3 寒暄句 → route=direct，文本不含数据或事实断言 ----------
+
+
+_GREETING_LINES: tuple[str, ...] = (
+    "谢谢你，辛苦了。",
+    "好的，再见——有需要再叫我。",
+    "早上好，麻烦你了。",
+)
+
+
+async def test_direct_on_greeting() -> None:
+    """#3｜寒暄句（道谢／道别）→ route=direct，文本不含数据或事实断言——行为 5／11 的窄口。
+
+    「文本不含数据或事实断言」＝**结构面机读复核**（三闭世界零命中：数值形／名录名／结构卡名——
+    形态判定，不判语义）；窄口内直答仍免核验：收口三键落位、理解字段与事件面零写（单出口互斥）、
+    零退回面（无「直答退回」注记、无注记、无报告步）。
+    """
+    for text in _GREETING_LINES:
+        state = _state()
+        out, bus = _interpret(state, _direct_reply(text))
+
+        assert isinstance(out, Direct) and out.route == _SPEC_ROUTE_DIRECT
+        assert out.text == text
+        assert direct_assertion_hits(state, text) == ()  # 三闭世界零命中
+        assert numeric_form_hit(text) == ""  # 数值形面同判（含小数／百分号／千分位样态）
+        assert state.draft == text and state.draft_kind == _SPEC_DRAFT_KIND_DIRECT
+        assert state.next_intent == _SPEC_INTENT_ANSWER
+        assert state.understanding == "" and state.metric_candidates == []
+        assert _reject_notes(state) == [] and state.notices == [] and _report_steps(state) == []
+        assert [entry["title"] for entry in state.process_notes] == [
+            _TASK_BOOK_NOTE_TITLE,
+            _READ_NOTE_TITLE,
+        ]
+        assert state.dialogue == []
+        assert await _frames(bus) == []  # 直答零旁白（无理解文本事件）
+
+
+# ---------- 4 route=direct 但文本命中闭世界 → 不合格，退回 full ----------
+
+
+_REJECTED_DIRECT_CASES: tuple[tuple[str, str], ...] = (
+    ("K12-3 井上月的日产油量是 128 吨。", _KIND_NUMERIC),  # 数值形（≥1 位连续阿拉伯数字形）
+    ("台账里日产油量的口径是按日产计的。", _KIND_METRIC),  # 指标名录集合成员
+    ("这张表在 agg.dim_well 里能查到。", _KIND_TABLE),  # 结构卡集合成员
+)
+
+
+async def test_direct_with_assertion_rejected() -> None:
+    """#4｜route=direct 但文本命中闭世界 → 不合格，退回 full——行为 5 ＋接口「直答退回不抛错」。
+
+    退回口径**唯一**：`route="full"` 的 `Understanding`（不抛错、不静默、不直答收口）＋过程档案
+    一条「直答退回」注记（钉 `pin-26` 渲染面：入档案、`dialogue` 零写入）＋如实上报两件套；退回后
+    走 `full` 分派——理解文本双出口（状态字段 ＋ `text` 事件）随同一承接面出场。
+    """
+    for text, kind in _REJECTED_DIRECT_CASES:
+        state = _state()
+        out, bus = _interpret(state, _direct_reply(text))
+
+        # 退回形＝Understanding（不抛错、不返回半成品；候选不发明——直答应答本无候选）
+        assert isinstance(out, Understanding) and out.route == _SPEC_ROUTE_FULL
+        assert out.text == text and out.metric_candidates == []
+        # 不直答收口：收口三键零写
+        assert state.draft == "" and state.draft_kind == "" and state.next_intent == ""
+        # 过程档案注记 ＋ 如实上报两件套 ＋ dialogue 零写
+        _assert_rejected_direct(state, text)
+        assert kind in [hit[_PAYLOAD_HIT_KIND_KEY] for hit in _closure_hits_of(state)]
+        assert _closure_hits_of(state) == [
+            {_PAYLOAD_HIT_KIND_KEY: hit_kind, _PAYLOAD_HIT_TOKEN_KEY: token}
+            for hit_kind, token in direct_assertion_hits(state, text)
+        ]
+        # 退回面走 full 分派：理解文本双出口（状态字段与事件同源）
+        assert state.understanding == text
+        frames = await _frames(bus)
+        assert [frame.event for frame in frames] == [_SPEC_TEXT_EVENT]
+        assert frames[0].data == {"content": text, "kind": _SPEC_TEXT_EVENT_KIND}
+        assert len(state.steps) == 2  # 记账步 1 ＋ 报告步 1（不为同一调用重复记账）
 
 
 # ---------- 5 应答 JSON 不合 schema → 抛 UnderstandingParseError（不静默降级） ----------
@@ -611,9 +782,11 @@ def test_no_lexicon_or_regex_in_understanding() -> None:
 def test_reporting_signal_present() -> None:
     """#12｜「如实上报」的机读信号在场（notice ＋ step payload 字段）——「不降级与静默禁令」。
 
-    两案（-B 承接的「直答退回」案不在本件）：**候选违约**与**解析失败**——各两件套齐备
-    （notice 恰三键且 `type` ∈ `NOTICE_TYPES`；报告步 payload 携如实字段、状态 `failed`），
-    且**常规路径零补记步**（模型调用步由 `bookkeeping.call_model` 单点记账——步序不翻倍）。
+    两案：**候选违约**与**解析失败**——各两件套齐备（notice 恰三键且 `type` ∈ `NOTICE_TYPES`；
+    报告步 payload 携如实字段、状态 `failed`），且**常规路径零补记步**（模型调用步由
+    `bookkeeping.call_model` 单点记账——步序不翻倍）。第三类「直答退回」由 -B 的
+    `::direct_with_assertion_rejected`／`::direct_boundary_cases_rejected` 承接（三件套同形：
+    注记 ＋ notice ＋ 报告步——本件不重复计）。
     """
     # 案一：候选违约
     violation_state = _state()
@@ -669,6 +842,142 @@ async def test_understanding_text_event_emitted() -> None:
     assert frame.event in EVENT_KINDS
     assert frame.data == {"content": text, "kind": _SPEC_TEXT_EVENT_KIND}
     assert frame.data["content"] == state.understanding == out.text  # 双出口同源
+
+
+# ---------- 14 路由默认 fail-closed：拿不准／可能有关／灰区 → 完整流程 ----------
+
+
+_FAIL_CLOSED_CASES: tuple[tuple[str, str], ...] = (
+    # 灰区一：系统自身能力问句（真源 walk/05 §七 灰区归属——归完整流程）
+    ("我能问什么？", "你可以问我井的日产油量、含水率这类台账指标。"),
+    # 灰区二：预测类（同源）
+    ("帮我预测明年油价。", "明年油价预计 70 美元/桶左右。"),
+    # 拿不准／可能有关（V2-80a 判断原则的「哪怕一点关联」侧）
+    ("老王家那口井咋样了？", "K12-3 井昨天的日产油量是 128 吨。"),
+)
+
+
+async def test_route_defaults_fail_closed() -> None:
+    """#14｜路由默认 fail-closed：拿不准／可能有关 → 完整流程；灰区 → 完整流程——行为 11。
+
+    行为 11 按真源（`walk/05` §七 第 3 条）是**给模型的判断原则、非程序规则**——本件两面落判据：
+
+    ① **原则在场**：装配进任务书的指令区例外条款（可能有关／含糊／拿不准 → 完整流程；只有确定
+       无关才直答）与题干段收束句——任务书是模型唯一决策输入，经相位黑盒观测（链首消息）；
+    ② **fail-closed 一侧**：拿不准／可能有关／灰区句的直答认领，其应答必带数据／事实断言 → 直答
+       结构核验命中 → 程序**确定性退回** `route="full"`（不直答收口）；同一问句模型判 `full` 时走
+       完整流程（分派只由 `route` 决定——程序侧零词面判据，不设灰区词表：**行为 4**）。
+    """
+    # 案一：原则在模型唯一决策输入（任务书）里在场——黑盒观测面＝链首任务书
+    contract_state = _state()
+    _interpret(contract_state, _full_reply("问日产油量。", ["日产油量"]))
+    book = _task_book_of(contract_state)
+    assert TASK_BOOK_TASK in book  # 指令区例外条款整段在场（prompts 单点合同文本）
+    for clause in (_FAIL_CLOSED_CLAUSE, _HESITANT_CLAUSE, _NARROW_EXIT_CLAUSE):
+        assert clause in book  # 可能有关／拿不准 → 完整流程；只有确定无关 → 直答
+    for clause in (_QUESTION_SEGMENT_HEAD, _GREETING_ONLY_CLAUSE):
+        assert clause in book  # 题干段收束句同口径（先判相关性）
+
+    # 案二：灰区／拿不准句的直答认领 → 结构核验命中 → 退回完整流程（fail-closed 一侧）
+    for question, direct_text in _FAIL_CLOSED_CASES:
+        state = _state(question=question)
+        out, _bus = _interpret(state, _direct_reply(direct_text))
+        assert isinstance(out, Understanding) and out.route == _SPEC_ROUTE_FULL
+        assert state.draft == "" and state.draft_kind == "" and state.next_intent == ""
+        _assert_rejected_direct(state, direct_text)
+        assert _closure_hits_of(state)  # 命中判据点名（数值形／名录名至少其一）
+
+    # 案三：同一灰区句判 full → 走完整流程（分派只由 route 定；程序侧零词面判据）
+    for question, _direct_text in _FAIL_CLOSED_CASES:
+        state = _state(question=question)
+        out, bus = _interpret(state, _full_reply("问井的日产油量口径。", []))
+        assert isinstance(out, Understanding) and out.route == _SPEC_ROUTE_FULL
+        assert state.draft == "" and state.next_intent == ""  # 直答口未开
+        assert [frame.event for frame in await _frames(bus)] == [_SPEC_TEXT_EVENT]
+
+
+# ---------- 15 【边界集】闭世界内的三类命中 → 直答判不合格 ----------
+
+
+_BOUNDARY_IN_WORLD: tuple[tuple[str, str, str], ...] = (
+    ("含水率这个指标我看下。", _KIND_METRIC, "含水率"),  # 名录内指标名（slot）
+    ("产油量的口径是什么？", _KIND_METRIC, "产油量"),  # 名录内别名面
+    ("查一下 agg.dim_well。", _KIND_TABLE, _CARD_FULL_NAME),  # 结构卡内表名（全名）
+    ("dim_well 这张表里有啥？", _KIND_TABLE, _CARD_SHORT_NAME),  # 结构卡内表名（短名）
+    ("看一下２０２６年的数据。", _KIND_NUMERIC, "２"),  # 全角数字（NFKC 归一后同一判据）
+)
+_BOUNDARY_OUT_OF_WORLD: tuple[str, ...] = (
+    "库存总量是多少？",  # 名录外生词
+    "井口压力怎么样？",  # 三闭世界外（非名录、非结构卡、无数字形）
+)
+
+
+async def test_direct_boundary_cases_rejected() -> None:
+    """#15｜【边界集】**名录内**指标名／**结构卡内**表名／全角数字 → 直答判不合格——行为 5。
+
+    边界两侧同判：闭世界**内**三类各命中 → 退回 `route="full"`（逐条判据点名如实上报）；闭世界
+    **外**的生词不算命中（行为 5 末句：结构判据，不做语义猜测）→ 窄口内直答仍成立。
+    """
+    for text, kind, token in _BOUNDARY_IN_WORLD:
+        state = _state()
+        out, _bus = _interpret(state, _direct_reply(text))
+        assert isinstance(out, Understanding) and out.route == _SPEC_ROUTE_FULL
+        _assert_rejected_direct(state, text)
+        assert {_PAYLOAD_HIT_KIND_KEY: kind, _PAYLOAD_HIT_TOKEN_KEY: token} in _closure_hits_of(
+            state
+        )
+
+    # 边界外：生词零命中 → 仍走直答（不误伤——判据锁闭世界，非词表猜语义）
+    for text in _BOUNDARY_OUT_OF_WORLD:
+        state = _state()
+        out, _bus = _interpret(state, _direct_reply(text))
+        assert isinstance(out, Direct) and out.route == _SPEC_ROUTE_DIRECT
+        assert direct_assertion_hits(state, text) == ()
+        assert state.draft == text and _reject_notes(state) == [] and state.notices == []
+
+
+# ---------- 16 【保留集】寒暄仍走 direct；route=full 的既有候选校验不变 ----------
+
+
+async def test_retention_non_direct_unchanged() -> None:
+    """#16｜【保留集】寒暄仍走 direct；route=full 的既有候选校验行为不变——行为 5／8／11。
+
+    保留面三条：① 寒暄仍走直答收口（核验面只在**命中**时介入，未命中零改道）；② `route="full"` 的
+    候选出自名录校验**不变**（名录外候选判违约并如实上报——-A 行 2 行为不因本票回退）；③ 两判据面
+    互不串（直答退回的报告步事件名 ≠ 候选违约；退回不发明候选）。
+    """
+    # 保留一：寒暄仍走 direct
+    for text in ("不客气。", "再见。"):
+        state = _state()
+        out, bus = _interpret(state, _direct_reply(text))
+        assert isinstance(out, Direct) and out.route == _SPEC_ROUTE_DIRECT and out.text == text
+        assert state.draft == text and state.draft_kind == _SPEC_DRAFT_KIND_DIRECT
+        assert state.next_intent == _SPEC_INTENT_ANSWER
+        assert state.understanding == "" and state.metric_candidates == []
+        assert _reject_notes(state) == [] and state.notices == [] and _report_steps(state) == []
+        assert await _frames(bus) == []
+
+    # 保留二：route=full 的候选校验行为不变（名录外候选 → 违约上报，不静默丢弃）
+    state = _state()
+    out, _bus = _interpret(
+        state, _full_reply("问日产油量与库存总量。", ["日产油量", _OUT_OF_ROSTER])
+    )
+    assert isinstance(out, Understanding) and out.route == _SPEC_ROUTE_FULL
+    assert state.metric_candidates == ["日产油量", _OUT_OF_ROSTER]  # 候选原样保留
+    assert _reject_notes(state) == []  # full 路径不产退回注记（两判据面互不串）
+    reports = _report_steps(state)
+    assert len(reports) == 1
+    assert reports[0]["payload"][_PAYLOAD_EVENT_KEY] == _EVENT_CANDIDATE_VIOLATION
+    assert reports[0]["payload"][_PAYLOAD_OFFENDERS_KEY] == [_OUT_OF_ROSTER]
+
+    # 保留三：退回面不冒用候选违约面（候选零发明；事件名＝直答退回）
+    state = _state()
+    rejected_text = "日产油量是 1 吨。"
+    _interpret(state, _direct_reply(rejected_text))
+    assert state.metric_candidates == []
+    events = [step["payload"][_PAYLOAD_EVENT_KEY] for step in _report_steps(state)]
+    assert events == [_EVENT_DIRECT_REJECTED]
+    assert state.notices[0]["content"]  # 退回通报在人读面可见（不静默）
 
 
 # ---------- 元面机检：模型调用无旁路 ＋ import 面闭合（R7／R6／R5b／R5／R1 的降维面） ----------

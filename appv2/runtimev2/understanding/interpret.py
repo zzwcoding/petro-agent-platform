@@ -1,7 +1,7 @@
 """读题相位本体（`interpret`）：任务书装配 → 模型读题 → 严格解析 → 按 `route` 机械分派。
 
 真源＝`specs/understanding.md` 接口定义（卡面签名 `interpret(state: RunState) -> Understanding |
-Direct`）与行为 1–4／6–9／12；`specs/modules.md` `## understanding` 卡（职责：读题——装配任务书 →
+Direct`）与行为 1–12；`specs/modules.md` `## understanding` 卡（职责：读题——装配任务书 →
 模型读 → 解析；定路由）。**语义判断交模型，程序只按结论机械分派**：
 
 1. **装配（行为 1／2／9）**：任务书经 `assembly.ensure_task_book` **每 run 只装配一次**（三区文本
@@ -18,9 +18,14 @@ Direct`）与行为 1–4／6–9／12；`specs/modules.md` `## understanding` �
 5. **分派（行为 4／6／8／12）**：**只按 `route` 取值**（闭世界 `full`｜`direct`）——
    `full` → 理解字段双出口（`state.understanding`／`state.metric_candidates` ＋ `text` 事件
    `kind=understanding`）＋ 候选出自名录对账（违约即如实上报，不静默丢弃）；
-   `direct` → 直答收口旁路（`bookkeeping.direct_answer` 三键）。**单出口互斥**：一次调用只回两形
-   之一。**「去哪」的路由决策不归本块**（写字段≠做路由决策——`orchestration` 读 `next_intent` 定
-   跳转）。
+   `direct` → **先过直答结构核验（行为 5）**：命中闭世界（数值形／名录内指标名／结构卡内表名）
+   ＝判不合格 → **退回 `route="full"` 的 `Understanding`＋过程档案一条「直答退回」注记**（不抛错、
+   不静默、不直答收口）；未命中 → 直答收口旁路（`bookkeeping.direct_answer` 三键）。**单出口互斥**：
+   一次调用只回两形之一。**「去哪」的路由决策不归本块**（写字段≠做路由决策——`orchestration` 读
+   `next_intent` 定跳转）。**路由默认倾向 fail-closed（行为 11）是给模型的判断原则**（交付面＝
+   指令区合同与题干段收束句，随任务书装配；真源 `walk/05-理解-定路由.md` §七 第 3 条）——程序侧
+   不判相关性（零词面词表）：确定无关的寒暄直答由结构核验把口（命中即退回），拿不准／可能有关／
+   灰区归完整流程由模型按该原则判、程序按 `route` 分派。
 
 **接缝纪律（本块自立的调用面约定，登记见票面回报）**：`bus`（per-run 总线，编排块持有、注入各
 相位——`specs/modules.md` `## transport` 卡）为**必给**注入面：未注入＝调用方断线，入口即
@@ -32,11 +37,13 @@ fail-closed 抛错（同 `gateway_adapter._configured_completer` 先例——「
 from __future__ import annotations
 
 from appv2.runtimev2.bookkeeping import append_message, call_model, direct_answer, note
-from appv2.runtimev2.parsing import Direct, Understanding, parse_understanding
+from appv2.runtimev2.parsing import ROUTE_FULL, Direct, Understanding, parse_understanding
 from appv2.runtimev2.state import RunState
 from appv2.runtimev2.transport import EventBus
 from appv2.runtimev2.understanding.assembly import ensure_task_book
+from appv2.runtimev2.understanding.closure import direct_assertion_hits
 from appv2.runtimev2.understanding.constants import (
+    DIRECT_REJECT_NOTE_TITLE,
     MODEL_CALLER,
     PHASE,
     READ_NOTE_TITLE,
@@ -47,6 +54,7 @@ from appv2.runtimev2.understanding.constants import (
 from appv2.runtimev2.understanding.errors import UnderstandingParseError
 from appv2.runtimev2.understanding.reporting import (
     report_candidate_violation,
+    report_direct_rejected,
     report_parse_failure,
 )
 from appv2.runtimev2.understanding.roster import metric_roster
@@ -58,6 +66,10 @@ _PARSE_FAILURE_REASON = (
 _BUS_MISSING = (
     "理解相位总线未注入（per-run 总线由编排块持有并注入）——理解旁白事件无出口，"
     "fail-closed：不静默丢弃（行为 12）"
+)
+_DIRECT_REJECT_DIGEST = (
+    "直答文本命中闭世界（{hits}）——判不合格：退回 route=\"full\" 走完整流程"
+    "（不抛错、不静默、不直答收口）"
 )
 
 
@@ -77,7 +89,9 @@ def interpret(
     """读题一步：装配 → 模型读 → 严格解析 → 按 `route` 机械分派（返回值＝定型载荷）。
 
     单出口互斥（行为 6）：返回 `Understanding`（`route="full"`）或 `Direct`（`route="direct"`）
-    之一；应答不合 schema／`route` 越界 → 抛 `UnderstandingParseError`（行为 7：不返回半成品）。
+    之一；应答不合 schema／`route` 越界 → 抛 `UnderstandingParseError`（行为 7：不返回半成品）；
+    直答文本命中闭世界（行为 5）→ **退回 `route="full"` 的 `Understanding`**（不抛错、不静默、
+    不直答收口——退回归 `_reject_direct`）。
     过程态一律经 `bookkeeping` 唯一写口落（步／链／过程档案／通知／意图），本块零直写。
     """
     channel = _require_bus(bus)
@@ -90,8 +104,37 @@ def interpret(
         report_parse_failure(state, raw)
         raise UnderstandingParseError(_PARSE_FAILURE_REASON, raw=raw)
     if isinstance(parsed, Direct):
+        hits = direct_assertion_hits(state, parsed.text)
+        if hits:
+            return _reject_direct(state, parsed, hits, channel)
         return _dispatch_direct(state, parsed)
     return _dispatch_full(state, parsed, channel)
+
+
+def _reject_direct(
+    state: RunState, direct: Direct, hits: tuple[tuple[str, str], ...], bus: EventBus
+) -> Understanding:
+    """直答结构核验不合格 → 退回 `route="full"` 的 `Understanding`（行为 5；唯一合法回退口径）。
+
+    **不抛错（不借 `UnderstandingParseError` 表达）、不静默、不直答收口**——三步固定序：
+
+    1. **注记**：过程档案记一条「直答退回」（`bookkeeping.note`——钉 `pin-26` 渲染面：过程记录入
+       档案、`dialogue` 零写入；本块零直写）；
+    2. **如实上报**：机读信号两件套（报告步 payload 携逐条命中项 ＋ notice——「不降级与静默禁令」
+       节的「直答退回」类）；
+    3. **走 `full` 分派**：返回定型 `Understanding`（`text`＝模型原话如实，**候选不发明**——直答应答
+       本无候选，故 `metric_candidates` 为空）——理解双出口与 `text` 事件随 full 分派同形出场。
+    """
+    note(state, phase=PHASE, title=DIRECT_REJECT_NOTE_TITLE, digest=_reject_digest(hits))
+    report_direct_rejected(state, direct.text, hits)
+    escalated = Understanding(text=direct.text, metric_candidates=[], route=ROUTE_FULL)
+    return _dispatch_full(state, escalated, bus)
+
+
+def _reject_digest(hits: tuple[tuple[str, str], ...]) -> str:
+    """退回注记正文（命中的闭世界逐条点名——注记与上报同一次判定产物）。"""
+    names = "、".join(f"{kind}:{token}" for kind, token in hits)
+    return _DIRECT_REJECT_DIGEST.format(hits=names)
 
 
 def _dispatch_direct(state: RunState, direct: Direct) -> Direct:
@@ -100,9 +143,9 @@ def _dispatch_direct(state: RunState, direct: Direct) -> Direct:
     经 `bookkeeping.direct_answer` 落三键（`draft`／`draft_kind="direct"`／`next_intent="answer"`）
     ——免起草免核验的**同一出口**（收口旁路单点；本块不另写收口面）。
 
-    〔接缝注〕`specs/understanding.md` 行为 5 的**直答结构核验（闭世界判据）**与「不合格退回
-    `route="full"`」归 RT-W4-01b 承接：-B 在本函数**之前**插入核验面（命中 → 走 `full` 分派），
-    本半面不预先落任何词面／形态判据（行为 4：程序只按 `route` 分派）。
+    **入口把守（行为 5，RT-W4-01b 落地）**：本函数只接**已过直答结构核验**的直答（`interpret` 在
+    此处之前判 `direct_assertion_hits`——命中即改走 `_reject_direct` ＋ `full` 分派）；本函数自身
+    零判据（行为 4：程序只按 `route` 分派，不在此重判）。
     """
     direct_answer(state, direct.text)
     return direct
