@@ -1,0 +1,92 @@
+id: -1
+event: session
+data: {"run_id": "run-eb52402b", "resume": true}
+
+id: 11
+event: step
+data: {"step": "decision", "seq": 8, "title": "澄清回收：近 30 天"}
+
+id: 12
+event: step
+data: {"step": "decision", "seq": 9, "title": "模型调用：decision"}
+
+id: 13
+event: step
+data: {"step": "decision", "seq": 10, "title": "澄清 r1：分解 1 子问题"}
+
+id: 14
+event: step
+data: {"step": "decision", "seq": 11, "title": "模型调用：decision"}
+
+id: 15
+event: notice
+data: {"type": "decision_note", "gates": [], "content": "前置条件机：子问题 s1 放行（注记 1 条）——窗上沿 2026-10-16 晚于汇总层水位 2026-08-31——引擎新鲜度闸将拦停/改绑并注记（照实判定）"}
+
+id: 16
+event: step
+data: {"step": "decision", "seq": 12, "title": "前置条件机：s1=allow"}
+
+id: 17
+event: tool
+data: {"tool": "data_query", "status": "ok", "seq": 14, "message": null}
+
+id: 18
+event: observation
+data: {"index": 1, "source": "汇总层水位读面", "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 45 天 · 超期）——查询窗「2026-09-16～2026-10-15」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。", "trust": "notice"}
+
+id: 19
+event: step
+data: {"step": "execute", "seq": 13, "title": "恢复重取易变环境量"}
+
+id: 20
+event: step
+data: {"step": "execute", "seq": 14, "title": "data_query：ok（子问题 s1）"}
+
+id: 21
+event: text
+data: {"content": "最近各井的日产油量——未出数。"}
+
+id: 22
+event: text
+data: {"content": "所询时间窗为「2026-09-16～2026-10-16」（最近 30 天）[1]，但汇总层数据水位止于 2026-08-31，该窗段尚无已出数数据，系统已按新鲜度闸拦停，不返回空数冒充[1]。建议将时间窗收窄至 2026-08-31 及之前重发；如需 09 月以来的最新数据，请走「考核与质量 → 问题单」催办源表更新[1]。"}
+
+id: 23
+event: step
+data: {"step": "answer", "seq": 15, "title": "模型调用：answer"}
+
+id: 24
+event: step
+data: {"step": "answer", "seq": 16, "title": "起草答案"}
+
+id: 25
+event: notice
+data: {"type": "unsupported_claim", "gates": [], "content": "核验步改写无据断言 1 行（INV-1——禁止无据断言进答案）"}
+
+id: 26
+event: verdict
+data: {"supported": 0, "rewritten": 1, "split": 0, "cited": [], "attribution": true, "subtype": "verify"}
+
+id: 27
+event: step
+data: {"step": "verify", "seq": 17, "title": "核验：支撑 0｜改写 1｜分源 否"}
+
+id: 28
+event: citation
+data: {"index": 1, "source": "汇总层水位读面", "source_id": "freshness_block", "trust": "notice"}
+
+id: 29
+event: step
+data: {"step": "answer", "seq": 18, "title": "答案收口"}
+
+id: 30
+event: verdict
+data: {"status": "completed", "run_id": "run-eb52402b", "manifest_digest": "7e100b8ad1cde280", "subtype": "final"}
+
+id: 31
+event: blackbox
+data: {"run_id": "run-eb52402b", "question": "最近各井日产油量怎么样？", "status": "completed", "error": "", "stored": true, "bytes": 38938, "counts": {"messages": 15, "dialogue": 1, "process_notes": 8, "observations": 1, "steps": 18}}
+
+id: 31
+event: done
+data: {"run_id": "run-eb52402b"}
+

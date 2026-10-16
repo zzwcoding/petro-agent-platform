@@ -1,0 +1,79 @@
+id: -1
+event: session
+data: {"run_id": "run-e1b6ff1e", "resume": false}
+
+id: 0
+event: text
+data: {"content": "理解：问 W-11 井投产后预计的躺井率。\n指标候选：无", "kind": "understanding"}
+
+id: 1
+event: notice
+data: {"type": "unsupported_claim", "gates": [], "content": "理解步指标候选出现名录外名字（无）——判违约，如实上报，不静默丢弃。"}
+
+id: 2
+event: step
+data: {"step": "decision", "seq": 1, "title": "模型调用：understand"}
+
+id: 3
+event: step
+data: {"step": "decision", "seq": 2, "title": "理解候选违约：名录外 1 个"}
+
+id: 4
+event: step
+data: {"step": "decision", "seq": 3, "title": "模型调用：decision"}
+
+id: 5
+event: step
+data: {"step": "decision", "seq": 4, "title": "澄清钻取 ×1（semantic_query）"}
+
+id: 6
+event: tool
+data: {"tool": "semantic_query", "status": "ok", "seq": 5, "message": null}
+
+id: 7
+event: observation
+data: {"index": 1, "source": "sem_* 台账读面", "content": "台账未命中：W-11 井是否在井维表中？区块归属与投产日（精确名与别名归一均未命中——请核对要素名）", "trust": "notice"}
+
+id: 8
+event: step
+data: {"step": "discover", "seq": 5, "title": "semantic_query：ok"}
+
+id: 9
+event: step
+data: {"step": "decision", "seq": 6, "title": "模型调用：decision"}
+
+id: 10
+event: step
+data: {"step": "decision", "seq": 7, "title": "澄清钻取 ×1（faq_lookup）"}
+
+id: 11
+event: tool
+data: {"tool": "faq_lookup", "status": "ok", "seq": 8, "message": null}
+
+id: 12
+event: observation
+data: {"index": 2, "source": "faq_* 读面", "content": "FAQ 库无命中（W-11 井 投产后 预计躺井率）——现成问答库未收该问句，请按台账/检索继续", "trust": "notice"}
+
+id: 13
+event: step
+data: {"step": "discover", "seq": 8, "title": "faq_lookup：ok"}
+
+id: 14
+event: ask
+data: {"frame": {"kind": "clarify", "prompt": "W-11 井在系统井主数据中未命中。需要您确认或补充：", "options": ["W-11 实际是另一口井号（如 W-11H、W-11S、W-011 等），我确认后重查", "W-11 属于哪个油田/区块，我提供后系统按该区块查询", "W-11 是新井尚未投产，躺井率为投产方案/设计文档里的预测值——请告知报告名（如《XX 油田开发方案》）", "W-11 不在本系统数据范围内，撤回此问"], "detail": {}}, "run_id": "run-e1b6ff1e"}
+
+id: 15
+event: step
+data: {"step": "decision", "seq": 9, "title": "模型调用：decision"}
+
+id: 16
+event: step
+data: {"step": "decision", "seq": 10, "title": "澄清 r1：反问（W-11 井在系统井主数据中未命中。需要您确认或）"}
+
+id: 17
+event: verdict
+data: {"status": "waiting_ask", "run_id": "run-e1b6ff1e", "manifest_digest": "de6ea3af312256b1", "subtype": "final"}
+
+id: 17
+event: done
+data: {"run_id": "run-e1b6ff1e"}

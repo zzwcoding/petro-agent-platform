@@ -1,0 +1,67 @@
+id: -1
+event: session
+data: {"run_id": "run-18e5d273", "resume": false}
+
+id: 0
+event: text
+data: {"content": "理解：问完井液在二开钻进段与三开完井段的密度各是多少，以及各自与设计值的差值。", "kind": "understanding"}
+
+id: 1
+event: notice
+data: {"type": "unsupported_claim", "gates": [], "content": "理解步指标候选出现名录外名字（无）——判违约，如实上报，不静默丢弃。"}
+
+id: 2
+event: step
+data: {"step": "decision", "seq": 1, "title": "模型调用：understand"}
+
+id: 3
+event: step
+data: {"step": "decision", "seq": 2, "title": "理解候选违约：名录外 1 个"}
+
+id: 4
+event: step
+data: {"step": "decision", "seq": 3, "title": "模型调用：decision"}
+
+id: 5
+event: step
+data: {"step": "decision", "seq": 4, "title": "澄清 r1 被拒：ledger_notes 槽位对账未过：s1"}
+
+id: 6
+event: step
+data: {"step": "decision", "seq": 5, "title": "模型调用：decision"}
+
+id: 7
+event: step
+data: {"step": "decision", "seq": 6, "title": "澄清 r2 被拒：ledger_notes 槽位对账未过：s1"}
+
+id: 8
+event: step
+data: {"step": "decision", "seq": 7, "title": "模型调用：decision"}
+
+id: 9
+event: step
+data: {"step": "decision", "seq": 8, "title": "澄清 r3 被拒：ledger_notes 槽位对账未过：s1"}
+
+id: 10
+event: notice
+data: {"type": "budget_converged", "gates": ["rounds"], "content": "预算触界收敛：rounds 已用 3／上限 3；未完成项：未取得可交付材料（材料清单：无）"}
+
+id: 11
+event: text
+data: {"content": "（预算触界收敛——rounds；未取得可交付材料，如实说明；材料清单：无）"}
+
+id: 12
+event: step
+data: {"step": "answer", "seq": 9, "title": "答案收口"}
+
+id: 13
+event: verdict
+data: {"status": "completed", "run_id": "run-18e5d273", "manifest_digest": "6e526005787768a5", "subtype": "final"}
+
+id: 14
+event: blackbox
+data: {"run_id": "run-18e5d273", "question": "完井液在二开钻进段与三开完井段的密度各是多少？与设计值差多少？", "status": "completed", "error": "", "stored": true, "bytes": 21328, "counts": {"messages": 10, "dialogue": 0, "process_notes": 5, "observations": 0, "steps": 9}}
+
+id: 14
+event: done
+data: {"run_id": "run-18e5d273"}

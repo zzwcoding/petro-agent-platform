@@ -1,0 +1,104 @@
+id: -1
+event: session
+data: {"run_id": "run-e1b6ff1e", "resume": true}
+
+id: 18
+event: step
+data: {"step": "decision", "seq": 11, "title": "澄清回收：W-11 属于渤中 34-5 油田，请按该油田查询"}
+
+id: 19
+event: step
+data: {"step": "decision", "seq": 12, "title": "模型调用：decision"}
+
+id: 20
+event: step
+data: {"step": "decision", "seq": 13, "title": "澄清钻取 ×1（semantic_query）"}
+
+id: 21
+event: tool
+data: {"tool": "semantic_query", "status": "ok", "seq": 15, "message": null}
+
+id: 22
+event: observation
+data: {"index": 3, "source": "sem_* 台账读面", "content": "台账未命中：W-11 井 渤中34-5油田 井维表（精确名与别名归一均未命中——请核对要素名）", "trust": "notice"}
+
+id: 23
+event: step
+data: {"step": "execute", "seq": 14, "title": "恢复重取易变环境量"}
+
+id: 24
+event: step
+data: {"step": "discover", "seq": 15, "title": "semantic_query：ok"}
+
+id: 25
+event: step
+data: {"step": "decision", "seq": 16, "title": "模型调用：decision"}
+
+id: 26
+event: step
+data: {"step": "decision", "seq": 17, "title": "澄清钻取 ×1（semantic_query）"}
+
+id: 27
+event: tool
+data: {"tool": "semantic_query", "status": "ok", "seq": 19, "message": null}
+
+id: 28
+event: observation
+data: {"index": 4, "source": "sem_* 台账读面", "content": "台账未命中：躺井率 指标 定义 口径 计算方式（精确名与别名归一均未命中——请核对要素名）", "trust": "notice"}
+
+id: 29
+event: step
+data: {"step": "execute", "seq": 18, "title": "恢复重取易变环境量"}
+
+id: 30
+event: step
+data: {"step": "discover", "seq": 19, "title": "semantic_query：ok"}
+
+id: 31
+event: step
+data: {"step": "decision", "seq": 20, "title": "模型调用：decision"}
+
+id: 32
+event: step
+data: {"step": "decision", "seq": 21, "title": "澄清 r1 被拒：ledger_notes 槽位对账未过：s1"}
+
+id: 33
+event: step
+data: {"step": "decision", "seq": 22, "title": "模型调用：decision"}
+
+id: 34
+event: step
+data: {"step": "decision", "seq": 23, "title": "澄清 r2 被拒：ledger_notes 槽位对账未过：s1"}
+
+id: 35
+event: step
+data: {"step": "decision", "seq": 24, "title": "模型调用：decision"}
+
+id: 36
+event: step
+data: {"step": "decision", "seq": 25, "title": "澄清 r3 被拒：ledger_notes 槽位对账未过：s1"}
+
+id: 37
+event: notice
+data: {"type": "budget_converged", "gates": ["rounds"], "content": "预算触界收敛：rounds 已用 3／上限 3；未完成项：已取得材料 5 条尚未收口（材料清单：no_hit、no_hit、no_hit、no_hit、no_hit）"}
+
+id: 38
+event: text
+data: {"content": "（预算触界收敛——rounds；已取得材料 5 条逐条如实交付；材料清单：no_hit、no_hit、no_hit、no_hit、no_hit）\n- 台账未命中：W-11 井是否在井维表中？区块归属与投产日（精确名与别名归一均未命中——请核对要素名）\n- FAQ 库无命中（W-11 井 投产后 预计躺井率）——现成问答库未收该问句，请按台账/检索继续\n- 台账未命中：W-11 井 渤中34-5油田 井维表（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：躺井率 指标 定义 口径 计算方式（精确名与别名归一均未命中——请核对要素名）\n- 台账未命中：躺井率 指标 定义 口径 计算方式（精确名与别名归一均未命中——请核对要素名）"}
+
+id: 39
+event: step
+data: {"step": "answer", "seq": 26, "title": "答案收口"}
+
+id: 40
+event: verdict
+data: {"status": "completed", "run_id": "run-e1b6ff1e", "manifest_digest": "fb9cb1d878c8d7ea", "subtype": "final"}
+
+id: 41
+event: blackbox
+data: {"run_id": "run-e1b6ff1e", "question": "W-11 井投产后预计躺井率是多少？", "status": "completed", "error": "", "stored": true, "bytes": 32178, "counts": {"messages": 21, "dialogue": 1, "process_notes": 15, "observations": 4, "steps": 26}}
+
+id: 41
+event: done
+data: {"run_id": "run-e1b6ff1e"}
+

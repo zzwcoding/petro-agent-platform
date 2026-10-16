@@ -1,0 +1,19 @@
+id: -1
+event: session
+data: {"run_id": "run-60bc4aaa", "resume": false}
+
+id: 0
+event: notice
+data: {"type": "run_failed", "gates": [], "content": "run 执行失败：读题应答不合 schema（非合法 JSON／缺必填字段／字段类型不符／route 越界闭世界 {\"full\",\"direct\"}）——不猜、不取默认、不降级（原始应答片段：{\"route\":\"full\",\"text\":\"理解：问 W-11 井投产后预计的躺井率。\\n指标候选：抽油机时率\"}）"}
+
+id: 1
+event: verdict
+data: {"status": "failed", "run_id": "run-60bc4aaa", "manifest_digest": "1e44503fa631817e", "subtype": "final"}
+
+id: 2
+event: blackbox
+data: {"run_id": "run-60bc4aaa", "question": "W-11 井投产后预计躺井率是多少？", "status": "failed", "error": "读题应答不合 schema（非合法 JSON／缺必填字段／字段类型不符／route 越界闭世界 {\"full\",\"direct\"}）——不猜、不取默认、不降级（原始应答片段：{\"route\":\"full\",\"text\":\"理解：问 W-11 井投产后预计的躺井率。\\n指标候选：抽油机时率\"}）", "stored": true, "bytes": 5901, "counts": {"messages": 3, "dialogue": 0, "process_notes": 2, "observations": 0, "steps": 2}}
+
+id: 2
+event: done
+data: {"run_id": "run-60bc4aaa"}
