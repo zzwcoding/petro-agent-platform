@@ -3,6 +3,26 @@
 > 2026-10-17 · 归属变更（Owner 拍板）：**后端改动后续在本窗口自改**（不再走主窗收取）；P1-1 读口与 P1-3 定位面由本窗口后续开票施工。
 > 纪律：改动前后须过接口对账（见 `docs/runtime-refactor/frontend-redesign-接口对账.md`）；前端一律按现状数据面降级设计，不因缺字段阻塞。
 
+## P0 · 真机缺陷（2026-10-17 run-723b64c4 实机实证——问候「你好」零交付，根因报告全文见会话排查记录）
+
+> 证据源：logs/llm_calls/20261017.jsonl:1986/1988/1990/1991、`GET /api/v2/chat/runs/run-723b64c4` step seq=2/13、curl 列表读口（answer:null）、appv2 源码 file:line 全链。归属：**待 Owner 指派**（主窗 runtime 线或本窗口后续票——涉 prompts/understanding/answering 行为面）。
+
+**缺陷 1A · 直答被闭世界误退＋退回文本错走 understanding 通道（understanding 层）**
+- 现场：问候走 route=direct，文本自带示例枚举「抽油机时率」命中名录（`metric_roster`，`understanding/closure.py:70-87`）→ `_reject_direct`（`understanding/interpret.py:164-169`）退回 full。
+- 退回文本升格 `Understanding(text=direct.text)`（`interpret.py:277`）并以 `kind='understanding'` 发帧（`interpret.py:320`）——**直答文本永远进不了答案面**，前端只能当旁白渲染。
+- 自伤源：prompts 的直答示例本身列举名录指标名（自己命中自己）。
+- 修复方向（任选/组合）：① closure 判据收窄为「含断言（数值/具体查询对象）才退回」；② 直答示例不列举具体名录名；③ 退回文本不用 understanding kind 发（发无 kind 正文帧进答案面）。
+
+**缺陷 1B · 剥离误伤＋动作 JSON 回声链（answering 层）**
+- 现场：作答相位模型回吐 `{"action":"finalize","answer":"你好！…"}`——因**澄清相位把前几轮动作 JSON 原话 append 进送模型对话链**（`clarification/core.py:175-183`），模型照抄回声。
+- `strip_emission_fences` 按「整行裸 JSON」规则整行剥除（`answering/emission.py:93-98`，规则2/3 均咬中）——`answer` 字段里的正文一起删 → 空稿（step seq=13 failed「剥离后空稿」）→ 零 text 帧 → `state.answer=""` → 落库 `answer=NULL`（`orchestration/runtime.py:641`）。
+- notice「已自动去掉，答案不受影响」（`answering/constants.py:121-123`）与实际相反——答案恰被剥没。
+- 修复方向（组合）：① 剥离后空稿且原应答为 finalize 形时回退取 `answer` 字段；② 澄清相位不把动作 JSON 原话写进送模型链（只进过程档案）；③ 空稿收口文案改如实（不称「不受影响」）。
+
+**运维事实（同次排查实证，挂账待办）**
+- :8001 运行进程（PID 96998，15:28 起）载 BE-01 修复前代码 `fbe2e0b`——**重启即加载**（Owner 拍板暂缓，重启后内存历史行清空——进程用内存件，run 不落 PG）。
+- **PG alembic 停在 0025**：0026/0027 未应用（`agent_v2_run` 无 supplements 列）——接线真件前必须 `alembic upgrade head`，否则列缺省/写入路径全断。
+
 ## P1 · 影响展示形态（有 workaround，有则更优）
 
 > 2026-10-17 二次调研补强（刷新一致性专项）：**数据都已落库，缺的是 HTTP 读口，补读口＝暴露已有数据，非新增存储**。证据：`agent_v2_blackbox` 行含 20 白名单键（`observations`/`notices`/`answer`/`verdict`…，`appv2/runtimev2/persistence/models.py:58-87`）；`agent_v2_checkpoint` 含整个 RunState JSON（含 observations/notices，`persistence/checkpoint.py:57-59`）；`store.blackbox()` 读口已存在（`persistence/store.py:175-184`）只是无 API 挂。挂起态尚未写黑匣子（终态才写，`orchestration/runtime.py:470-486`），挂起还原走 `store.load().observations`。
