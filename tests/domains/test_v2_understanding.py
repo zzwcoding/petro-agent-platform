@@ -9,7 +9,7 @@
 | 1 | `::full_route_candidates_in_roster` | route=full 时返回 Understanding，且候选全部出自名录 |
 | 2 | `::candidate_out_of_roster_violates` | 候选出现名录外名字 → 判违约（不静默丢弃） |
 | 3 | `::direct_on_greeting` | 寒暄句（道谢／道别）→ route=direct，文本不含数据或事实断言 |
-| 4 | `::direct_with_assertion_rejected` | route=direct 但文本命中闭世界 → 不合格，退回 full |
+| 4 | `::direct_with_assertion_rejected` | route=direct 但文本含数值形 → 不合格，退回 full |
 | 5 | `::malformed_json_raises_no_fallback` | （长行另记，见下） |
 | 6 | `::route_enum_closed_world` | route 越界取值 → 判失败（不猜、不取默认） |
 | 7 | `::task_book_three_zones` | 任务书三区顺序正确、数据区标来源且置于末尾 |
@@ -37,12 +37,14 @@
   行为不变
 
 **-B 半面（行 3／4／14／15／16）的判据面**：直答结构核验（`closure.direct_assertion_hits`）——
-数值形（NFKC 归一后按 ASCII 数字位）／名录集合成员／结构卡集合成员，任一命中即判不合格 → 退回
-`route="full"` 的 `Understanding`＋过程档案一条「直答退回」注记＋如实上报两件套（不抛错、不静默、
-不直答收口）。**行 14 的判据面读法（如实登记）**：行为 11 的「默认倾向 fail-closed」按真源
-（`walk/05-理解-定路由.md` §七 第 3 条）是**给模型的判断原则**、非程序规则——本件两面落判据：
+**数值形**（NFKC 归一后按 ASCII 数字位）命中即判不合格 → 退回 `route="full"` 的 `Understanding`
+＋过程档案一条「直答退回」注记＋如实上报两件套（不抛错、不静默、不直答收口）。**2026-10-18
+V2-83 判据收窄**：指标名/表名单独出现不再命中（问候/能力介绍是介绍不是数据断言；真机
+`run-a11920fb` 误退根治）——见行 15 保留集。**行 14 的判据面读法（如实登记）**：行为 11 的
+「默认倾向 fail-closed」按真源（`walk/05-理解-定路由.md` §七 第 3 条）是**给模型的判断原则**、
+非程序规则——本件两面落判据：
 ①**原则在场**（装配进任务书的指令区例外条款与题干段收束句——模型唯一决策输入，经相位黑盒观测）；
-②**灰区不落直答口**（拿不准／可能有关／灰区句的直答认领，其应答必带数据／事实断言 → 结构核验
+②**灰区不落直答口**（拿不准／可能有关／灰区句的直答认领，其应答带数值断言 → 结构核验
 命中 → 程序确定性退回完整流程）。**程序侧零词面判据**（不判「相关性」、不设灰区词表——行为 4）：
 灰区问句本身归完整流程靠模型按该原则判、程序按 `route` 分派（本件以「判 full → 走 full 分派」的
 同问句对照面同时断言）。
@@ -163,8 +165,6 @@ _PAYLOAD_CLOSURE_HITS_KEY = "closure_hits"
 _PAYLOAD_HIT_KIND_KEY = "kind"
 _PAYLOAD_HIT_TOKEN_KEY = "token"
 _KIND_NUMERIC = "numeric_form"
-_KIND_METRIC = "metric_name"
-_KIND_TABLE = "table_name"
 # fail-closed 判断原则的在场片段（逐字取自 prompts 单点合同文本——本件只断言「原则在场」，
 # 不对整段措辞下断言；prompts 侧改述即红＝登记交主窗）
 _FAIL_CLOSED_CLAUSE = "只要可能有关"
@@ -195,8 +195,6 @@ _SCHEMA_CARDS: tuple[str, ...] = (
     "账 sem_metric（指标台账）：id/原名/slot_name/定义/粒度/单位/状态",
     "库 kb 片段清单（检索库·doc_retrieve 检索面）：报告级/片段级两级",
 )
-_CARD_FULL_NAME = "agg.dim_well"
-_CARD_SHORT_NAME = "dim_well"
 
 _QUESTION = "K12-3 井最近日产油量是多少？"
 _WATERMARK = "2026-08-24"
@@ -446,8 +444,8 @@ _GREETING_LINES: tuple[str, ...] = (
 async def test_direct_on_greeting() -> None:
     """#3｜寒暄句（道谢／道别）→ route=direct，文本不含数据或事实断言——行为 5／11 的窄口。
 
-    「文本不含数据或事实断言」＝**结构面机读复核**（三闭世界零命中：数值形／名录名／结构卡名——
-    形态判定，不判语义）；窄口内直答仍免核验：收口三键落位、理解字段与事件面零写（单出口互斥）、
+    「文本不含数据或事实断言」＝**结构面机读复核**（数值形零命中——形态判定，不判语义）；
+    窄口内直答仍免核验：收口三键落位、理解字段与事件面零写（单出口互斥）、
     零退回面（无「直答退回」注记、无注记、无报告步）。
     """
     for text in _GREETING_LINES:
@@ -456,7 +454,7 @@ async def test_direct_on_greeting() -> None:
 
         assert isinstance(out, Direct) and out.route == _SPEC_ROUTE_DIRECT
         assert out.text == text
-        assert direct_assertion_hits(state, text) == ()  # 三闭世界零命中
+        assert direct_assertion_hits(state, text) == ()  # 数值形零命中
         assert numeric_form_hit(text) == ""  # 数值形面同判（含小数／百分号／千分位样态）
         assert state.draft == text and state.draft_kind == _SPEC_DRAFT_KIND_DIRECT
         assert state.next_intent == _SPEC_INTENT_ANSWER
@@ -470,19 +468,21 @@ async def test_direct_on_greeting() -> None:
         assert await _frames(bus) == []  # 直答零旁白（无理解文本事件）
 
 
-# ---------- 4 route=direct 但文本命中闭世界 → 不合格，退回 full ----------
+# ---------- 4 route=direct 但文本含数值形 → 不合格，退回 full ----------
 
 
 _REJECTED_DIRECT_CASES: tuple[tuple[str, str], ...] = (
     ("K12-3 井上月的日产油量是 128 吨。", _KIND_NUMERIC),  # 数值形（≥1 位连续阿拉伯数字形）
-    ("台账里日产油量的口径是按日产计的。", _KIND_METRIC),  # 指标名录集合成员
-    ("这张表在 agg.dim_well 里能查到。", _KIND_TABLE),  # 结构卡集合成员
+    ("本月抽油机时率 95.5%。", _KIND_NUMERIC),  # 小数＋百分号（数值形组成）
+    ("全年产量 1,000 吨。", _KIND_NUMERIC),  # 千分位（数值形组成）
 )
 
 
 async def test_direct_with_assertion_rejected() -> None:
-    """#4｜route=direct 但文本命中闭世界 → 不合格，退回 full——行为 5 ＋接口「直答退回不抛错」。
+    """#4｜route=direct 但文本含数值形 → 不合格，退回 full——行为 5 ＋接口「直答退回不抛错」。
 
+    **2026-10-18 V2-83 判据收窄**：只认数值形（数据断言）；指标名/表名单独出现不再退回
+    （问候/能力介绍保留集见 `::direct_boundary_cases_rejected`）。
     退回口径**唯一**：`route="full"` 的 `Understanding`（不抛错、不静默、不直答收口）＋过程档案
     一条「直答退回」注记（钉 `pin-26` 渲染面：入档案、`dialogue` 零写入）＋如实上报两件套；退回后
     走 `full` 分派——理解文本双出口（状态字段 ＋ `text` 事件）随同一承接面出场。
@@ -1198,7 +1198,7 @@ async def test_understanding_text_event_emitted() -> None:
 
 _FAIL_CLOSED_CASES: tuple[tuple[str, str], ...] = (
     # 灰区一：系统自身能力问句（真源 walk/05 §七 灰区归属——归完整流程）
-    ("我能问什么？", "你可以问我井的日产油量、含水率这类台账指标。"),
+    ("我能问什么？", "你可以问我井的日产油量、含水率这类台账指标，也能看 2026 年的月报结论。"),
     # 灰区二：预测类（同源）
     ("帮我预测明年油价。", "明年油价预计 70 美元/桶左右。"),
     # 拿不准／可能有关（V2-80a 判断原则的「哪怕一点关联」侧）
@@ -1247,27 +1247,36 @@ async def test_route_defaults_fail_closed() -> None:
         assert [frame.event for frame in await _frames(bus)] == [_SPEC_TEXT_EVENT]
 
 
-# ---------- 15 【边界集】闭世界内的三类命中 → 直答判不合格 ----------
+# ---------- 15 【边界集】数值形 → 直答判不合格；指标名/表名单出现 → 不退回 ----------
 
 
 _BOUNDARY_IN_WORLD: tuple[tuple[str, str, str], ...] = (
-    ("含水率这个指标我看下。", _KIND_METRIC, "含水率"),  # 名录内指标名（slot）
-    ("产油量的口径是什么？", _KIND_METRIC, "产油量"),  # 名录内别名面
-    ("查一下 agg.dim_well。", _KIND_TABLE, _CARD_FULL_NAME),  # 结构卡内表名（全名）
-    ("dim_well 这张表里有啥？", _KIND_TABLE, _CARD_SHORT_NAME),  # 结构卡内表名（短名）
     ("看一下２０２６年的数据。", _KIND_NUMERIC, "２"),  # 全角数字（NFKC 归一后同一判据）
+    ("含水率 95.5%。", _KIND_NUMERIC, "9"),  # 小数＋百分号（数值形组成）
+    ("产量涨了 12.5%。", _KIND_NUMERIC, "1"),  # 数值断言（含指标名也只按数值形判）
+)
+# 2026-10-18 V2-83 判据收窄：指标名/表名单出现＝介绍/能力枚举，不是数据断言 → 保留直答
+_BOUNDARY_RETAINED: tuple[str, ...] = (
+    "含水率这个指标我看下。",  # 名录内指标名（slot）
+    "产油量的口径是什么？",  # 名录内别名面
+    "查一下 agg.dim_well。",  # 结构卡内表名（全名）
+    "dim_well 这张表里有啥？",  # 结构卡内表名（短名）
+    "你好！我是「问一问」——油田生产数据问答助手。可以直接问我生产数据或报告里的问题，"
+    "比如某口井的日产油量、区块的产量完成率、本月抽油机时率，或月报、完井报告结论。",
 )
 _BOUNDARY_OUT_OF_WORLD: tuple[str, ...] = (
     "库存总量是多少？",  # 名录外生词
-    "井口压力怎么样？",  # 三闭世界外（非名录、非结构卡、无数字形）
+    "井口压力怎么样？",  # 闭世界外（非名录、非结构卡、无数字形）
 )
 
 
 async def test_direct_boundary_cases_rejected() -> None:
-    """#15｜【边界集】**名录内**指标名／**结构卡内**表名／全角数字 → 直答判不合格——行为 5。
+    """#15｜【边界集】数值形 → 直答判不合格；指标名/表名单出现 → 不退回——行为 5（V2-83 收窄）。
 
-    边界两侧同判：闭世界**内**三类各命中 → 退回 `route="full"`（逐条判据点名如实上报）；闭世界
-    **外**的生词不算命中（行为 5 末句：结构判据，不做语义猜测）→ 窄口内直答仍成立。
+    边界两侧同判：数值形**内**三类各命中 → 退回 `route="full"`（逐条判据点名如实上报）；
+    指标名/表名单独出现（含真机问候原句）＝介绍不是断言 → **保留直答**（2026-10-18 V2-83，
+    真机 `run-a11920fb` 误退根治）；闭世界**外**的生词不算命中（行为 5 末句：结构判据，不做
+    语义猜测）→ 窄口内直答仍成立。
     """
     for text, kind, token in _BOUNDARY_IN_WORLD:
         state = _state()
@@ -1277,6 +1286,14 @@ async def test_direct_boundary_cases_rejected() -> None:
         assert {_PAYLOAD_HIT_KIND_KEY: kind, _PAYLOAD_HIT_TOKEN_KEY: token} in _closure_hits_of(
             state
         )
+
+    # 保留集：指标名/表名单出现不判不合格（能力介绍/术语询问/问候枚举）
+    for text in _BOUNDARY_RETAINED:
+        state = _state()
+        out, _bus = _interpret(state, _direct_reply(text))
+        assert isinstance(out, Direct) and out.route == _SPEC_ROUTE_DIRECT
+        assert direct_assertion_hits(state, text) == ()
+        assert state.draft == text and _reject_notes(state) == [] and state.notices == []
 
     # 边界外：生词零命中 → 仍走直答（不误伤——判据锁闭世界，非词表猜语义）
     for text in _BOUNDARY_OUT_OF_WORLD:

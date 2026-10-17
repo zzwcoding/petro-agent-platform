@@ -75,10 +75,9 @@ class Direct:                              # route 闭世界
 2. **数据区每轮从活体投影现取**，且**标来源、置于末尾**。断言：改 fixture 投影 → 输出文本随之变且带该来源标记。
 3. 输出契约＝**单个 JSON 对象**（含 `route` 与读题字段）；**不使用两行式**。
 4. **程序只按 `route` 分派**：给定任意 `route` 取值，程序行为只由该值决定，**不触发任何词面／正则判断**。
-5. **直答结构核验（闭世界判据）**：`route="direct"` 时，若 `text` 命中下列**任一闭世界** → 判不合格 → 退回 `route="full"`：
-   - **数值**：**≥1 位**连续阿拉伯数字形（含全角；**含小数、百分号、千分位分隔一并算命中**）；
-   - **指标名**：属于**指标名录集合**的名字（**经 `tools` 的 `semantic_query` 工具**取得的名录／别名面——与结构卡面同路，本块不直引引擎）；
-   - **表名**：属于**结构卡集合**的名字（真源：`tools` 的 `table_schema` 发现面）。
+5. **直答结构核验（闭世界判据）**：`route="direct"` 时，若 `text` 含**数值形** → 判不合格 → 退回 `route="full"`：
+   - **数值**：**≥1 位**连续阿拉伯数字形（含全角；**含小数、百分号、千分位分隔一并算命中**）。
+   **指标名／表名单独出现不算命中**（2026-10-18 V2-83 判据收窄：问候与能力介绍会自然点名指标名，那是介绍不是数据断言；真机 `run-a11920fb` 误退根治）；只有**数据断言（数值形）**才退回。
    **闭世界外的生词不算命中**——这是结构判据，不做语义猜测。
 6. **单出口互斥**：一次调用只返回 `Understanding` 或 `Direct` 之一，不存在两通道同时生效。
 7. **解析严格**：不合 schema → **先过确定性引号自修一次（2026-10-17 EB5a：格式层修复，值内裸引号换中文引号、修后须全文可解析才受理）；自修无效才回喂拒因重试恰一次；仍不合＝收敛拒答**（行为 13；不返回半成品、不静默降级——旧「抠第一个 `{...}` 降级提取」废弃；**不取默认路由**：程序不替模型选 `full`／`direct`）。
@@ -103,7 +102,7 @@ class Direct:                              # route 闭世界
 | route=full 时返回 Understanding，且候选全部出自名录 | `tests/domains/test_v2_understanding.py::full_route_candidates_in_roster` |
 | 候选出现名录外名字 → 判违约（不静默丢弃） | `tests/domains/test_v2_understanding.py::candidate_out_of_roster_violates` |
 | 寒暄句（道谢／道别）→ route=direct，文本不含数据或事实断言 | `tests/domains/test_v2_understanding.py::direct_on_greeting` |
-| route=direct 但文本命中闭世界 → 不合格，退回 full | `tests/domains/test_v2_understanding.py::direct_with_assertion_rejected` |
+| route=direct 但文本含数值形 → 不合格，退回 full | `tests/domains/test_v2_understanding.py::direct_with_assertion_rejected` |
 | 应答 JSON 不合 schema → 回喂恰一次后**收敛拒答**（不抛错、不静默降级；无默认路由；本组输入非引号病、自修零命中） | `tests/domains/test_v2_understanding.py::malformed_json_converges_to_refusal` |
 | route 越界取值 → 不合 schema（不猜、不取默认；收敛拒答口径） | `tests/domains/test_v2_understanding.py::route_enum_closed_world` |
 | 任务书三区顺序正确、数据区标来源且置于末尾 | `tests/domains/test_v2_understanding.py::task_book_three_zones` |
@@ -114,7 +113,7 @@ class Direct:                              # route 闭世界
 | 「如实上报」的机读信号在场（notice ＋ step payload 字段） | `tests/domains/test_v2_understanding.py::reporting_signal_present` |
 | 理解文本发 `text` 事件（kind=understanding） | `tests/domains/test_v2_understanding.py::understanding_text_event_emitted` |
 | 路由默认 fail-closed：拿不准／可能有关 → 完整流程；灰区（我能问什么／预测明年油价）→ 完整流程 | `tests/domains/test_v2_understanding.py::route_defaults_fail_closed` |
-| 【边界集】**名录内**指标名／**结构卡内**表名／全角数字 → 直答判不合格 | `tests/domains/test_v2_understanding.py::direct_boundary_cases_rejected` |
+| 【边界集】全角数字／小数／百分号 → 直答判不合格；名录内指标名／结构卡内表名单独出现 → 不退回（介绍保留） | `tests/domains/test_v2_understanding.py::direct_boundary_cases_rejected` |
 | 【保留集】寒暄仍走 direct；route=full 的既有候选校验行为不变 | `tests/domains/test_v2_understanding.py::retention_non_direct_unchanged` |
 | schema 拒回喂重试恰一次：首读缺 `metric_candidates` → 回喂 → 次读合规 → 正常分派（零 failed，模型调用恰 2 次、两次各记一条步） | `tests/domains/test_v2_understanding.py::schema_reject_feedback_retry_once` |
 | 两读皆拒 → **收敛拒答**＋拒因留痕（链上载荷＋过程档案注记＋报告步）；上限恰一次（无第三次调用）；run `completed` 零 `run_failed` | `tests/domains/test_v2_understanding.py::schema_reject_twice_converges_to_refusal` |
@@ -140,7 +139,7 @@ class Direct:                              # route 闭世界
 - 声明：**身份层单一来源**（`V2-80d`）——系统提示词（`SYSTEM_PROMPT`）全文本属他模块，本块**只声明身份层单一来源**（真源 `docs/runtime-refactor/proposals/M1-理解模块修订提案.md`）。
 - 风险与对策：
   1. **JSON 字段集变更牵连下游** → 对策：三消费面（**候选白名单闸／理解旁白灰条／直答通道**，真源 `walk/裁决表.md` §04-B）**同批改**；检测手段＝`understanding` 与 `parsing` 的契约测试。
-  2. **第 5 条滑成语义判断** → 对策：判据锁在闭世界（数值形／名录集合／结构卡集合）；检测手段＝AST 机检测试 `no_lexicon_or_regex_in_understanding`（**豁免面＝形态处理**：数字形判定与集合成员判定不算语义词表／正则；先例 `tests/domains/test_v2_four_phase.py:446`）。
+  2. **第 5 条滑成语义判断** → 对策：判据锁在闭世界（数值形）；检测手段＝AST 机检测试 `no_lexicon_or_regex_in_understanding`（**豁免面＝形态处理**：数字形判定不算语义词表／正则；先例 `tests/domains/test_v2_four_phase.py:446`）。
   3. **模型出口被绕过** → 对策：交付前跑边界闸；检测手段＝**R7**／R5b／B6 契约（CI 真跑）。
   4. **parsing 不合格信号的转译衔接（输入半面）**：parsing 解析不合格（`parse_understanding` 返 `None`）在场时由本块走**同一条修正回路**（先过确定性引号自修恰一次→自修无效才拒因回喂恰一次；皆不合＝**收敛拒答**——2026-10-17 EB3 D4.4 改判、EB5a 加首段，`UnderstandingParseError` 退出该支出口；真源 `specs/parsing.md` 接口⑤／本册接口定义错误契约）；**销项登记**＝`docs/runtime-refactor/spec-review/parsing-评审.md` 风险 7⑩（P-23「understanding 回认输入半面」）随本句销项（流水 43⑦）；检测手段＝与 `specs/parsing.md` 行为 1 对读＋`::understanding_malformed_none_no_fallback`。
 

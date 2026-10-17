@@ -599,6 +599,24 @@ def test_task_book_examples_fixed_set() -> None:
         assert TASK_BOOK_EXAMPLES not in assemble_task_book(state)
 
 
+# ---------- 6b 直答子句＝泛化介绍禁令（V2-83 挂账 A1 自伤修复） ----------
+
+
+def test_direct_answer_prompt_bans_closed_world_names() -> None:
+    """直答子句禁列闭世界名/数字（V2-83；挂账 A1 自伤源）。
+
+    真机 `run-a11920fb`：直答文本自列「日产油量、产量完成率、抽油机时率」→ `closure` 命中
+    metric_name → 退回 full。修法＝在任务书直答子句里明令泛化介绍（不点名指标名/表名、不给
+    数字），从源头断掉「prompt 自己教模型列出闭世界名」的自伤链；`closure` 判据不动。
+    """
+    clause = "直接回答只作泛化介绍——不得点名任何具体指标名、表名，也不得出现任何数字"
+    assert clause in TASK_BOOK_TASK
+    # 泛称引导在场（模型可照着说「生产数据、报告结论」）
+    assert "生产数据、报告结论" in TASK_BOOK_TASK
+    # 子句随规章段（system 位）进模型输入：体系合同逐字承载
+    assert clause in understand_system_contract()
+
+
 # ---------- 7 数据区活体投影现取 ----------
 
 
