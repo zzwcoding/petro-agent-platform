@@ -274,8 +274,11 @@ def _run_record_of(row: Mapping[str, Any]) -> RunRecord:
     )
 
 
-def _supplements_of(value: Any) -> list[dict[str, Any]]:
-    """增补面列的读回形（2026-10-17 EB3 D1）：只认映射条目；旧行缺列／非列表＝空列（如实读入）。"""
+def _supplements_of(value: Any) -> list[dict[str, Any]] | None:
+    """增补面列的读回形（EB3 D1＋BE-01 空列语义）：只认映射条目；缺列／null＝None（旧行判据
+    ——「空列如实出 []、null 仅旧行」，对账 D-4）；非列表越界形＝空列（如实读入）。"""
+    if value is None:
+        return None
     if not isinstance(value, (list, tuple)):
         return []
     return [dict(entry) for entry in value if isinstance(entry, Mapping)]

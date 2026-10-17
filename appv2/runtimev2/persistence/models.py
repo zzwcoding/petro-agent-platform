@@ -116,8 +116,9 @@ class RunRecord:
     """`agent_v2_run` 行的投影（列事实真源 `recon/J`：PK run_id／`followup_of` 空串＝链根）。
 
     `supplements`（2026-10-17 EB3 D1）＝增补面条目列（JSON 数组，同 `answer` 先例）——程序
-    追加内容（分源块／归属块／引用清单／血缘五要素）的落库形，条目 `{block, text}`；缺位＝
-    空列表（旧行如实读为空列，不回溯改写）。
+    追加内容（分源块／归属块／引用清单／血缘五要素）的落库形，条目 `{block, text}`；新行
+    默认空数组（BE-01 列默认——migration 0027 server_default '[]'）；`None`＝旧行判据位
+    （BE-01 空列语义——「空列如实出 []、null 仅旧行」，列 null 投影不折空列，对账 D-4）。
     """
 
     run_id: str
@@ -130,7 +131,7 @@ class RunRecord:
     followup_of: str
     created_at: datetime
     updated_at: datetime
-    supplements: list[dict[str, Any]] = field(default_factory=list)
+    supplements: list[dict[str, Any]] | None = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)

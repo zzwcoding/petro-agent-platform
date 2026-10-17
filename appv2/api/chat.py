@@ -215,7 +215,8 @@ async def list_runs(
             followup_of=row.followup_of,
             created_at=row.created_at.isoformat(),
             updated_at=row.updated_at.isoformat(),
-            supplements=[dict(entry) for entry in row.supplements] or None,
+            supplements=None if row.supplements is None
+            else [dict(entry) for entry in row.supplements],
         )
         for row in rows[:wanted]
     ]
