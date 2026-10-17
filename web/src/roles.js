@@ -12,9 +12,6 @@ export const MENU = [
   { group: '工作台', items: [
     { key: 'A1', label: '问一问V1' },
     { key: 'A1V2', label: '问一问V2' },
-    // 重设计 mock 静态页（临时路由 #/A1V2R——与现状页并排对比，不覆盖现状页）。
-    // DEBT(Owner)：去向 docs/runtime-refactor/frontend-redesign-设计.md §5 第 1 步。
-    { key: 'A1V2R', label: '问一问V2·新版(mock)' },
     { key: 'A2', label: '井档案' },
     { key: 'A3', label: '数据变动审批', roles: ['aqiang', 'zhuren'] }
   ]},
