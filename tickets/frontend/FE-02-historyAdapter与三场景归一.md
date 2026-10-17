@@ -1,6 +1,7 @@
 # FE-02 · historyAdapter 与三场景归一（deriveEvents 退役）
 
-状态: **待派工** ｜ 所属规格: `specs/frontend-redesign.md`（已定稿——前置满足）
+状态: done（2026-10-17 收票，验收全勾——见同目录收尾报告）
+Status: done
 Touches modules: `web`
 前置: **FE-01 收票**（TurnShape 含 events/supplements 键后方可归一）
 阻塞: `tickets/frontend/FE-01-归约层扩面.md` ｜ 被阻塞: FE-04／FE-05
