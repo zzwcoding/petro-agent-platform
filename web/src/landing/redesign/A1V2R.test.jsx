@@ -1,13 +1,14 @@
 /**
- * A1V2R 页面钉测（问一问V2 重设计 mock 静态版面页——临时路由）。
+ * A1V2R 页面钉测（串行链条 mock 静态版面页——临时路由）。
  *
  * 守什么（本页红线，机器可验）：
- * - **零请求**：全页数据来自 redesign/mockTurns.js——不接 SSE、不调 `/api/v2/*`
- *   （stub fetch 断言零次）；
- * - 四轮覆盖全形态：①加载中（「正在分析问题…」占位）②完整轮（notice 三级带/理解旁白/
- *   正文/血缘卡/追加面/核验行）③分列轮（长 split 限高）④旧版降级（灰字说明＋ [n] 死文本）；
- * - 引标联动：点正文 [n] ＝ 右栏面板切到该轮并「已定位」（重设计 §2 方案 A 的联动）；
- * - 旧版轮的 [n] 不可点（无 onCite/无悬停卡＝旧行为，正文单文本节点）；
+ * - **零请求**：全页数据来自 redesign/mockTurns.js——不接 SSE、不调 `/api/v2/*`（stub fetch 断言零次）；
+ * - **链条顺序**：每轮＝用户输入块 → 系统执行流水线块 → 系统回答块；回答块内＝A 级 notice Alert →
+ *   正文 → 血缘卡 → 追加面 → 核验/档案小字（DOM 序断言）；
+ * - 四轮覆盖：①运行中（流水线展开、回答块「正在作答…」占位）②完整轮（流水线收起、链条完整）
+ *   ③分列轮（长 split 限高）④旧版降级（无流水线、无引用、[n] 死文本）；
+ * - 引标联动：点正文 [n] ＝右栏面板切到该轮并「已定位」；
+ * - A 级 notice 在回答块顶部可见（折叠态流水线下也感知可信度），B/C 级只在流水线里；
  * - 右栏「决策树」入口在位（mock 点开说明 Modal）。
  */
 /** @vitest-environment jsdom */
@@ -37,42 +38,105 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe('A1V2R · mock 静态版面页', () => {
-  it('四轮全形态在位：加载占位／完整轮／分列轮／旧版降级；零请求（不接 SSE、不调接口）', () => {
+/** 容器内若干 testid 的 DOM 出现序（断言链条顺序用）。 */
+function orderOf(scope, testids) {
+  const nodes = [...scope.querySelectorAll('[data-testid]')]
+  return testids
+    .map(id => ({ id, at: nodes.findIndex(n => n.dataset.testid === id) }))
+    .sort((a, b) => a.at - b.at)
+    .map(x => x.id)
+}
+
+describe('A1V2R · 串行链条（完整轮）', () => {
+  it('链条顺序：问句块 → 流水线块 → 回答块 → 正文 → 血缘卡 → 追加面 → 小字行', () => {
     render(<A1V2R />)
-    for (const id of ['t-loading', 't-full', 't-split', 't-legacy']) {
+    const round = screen.getByTestId('round-t-full')
+    // 整轮块序：问句块 → 流水线块 → 回答块
+    expect(orderOf(round, ['block-question', 'pipeline-block', 'turn-t-full']))
+      .toEqual(['block-question', 'pipeline-block', 'turn-t-full'])
+    // 回答块内节点序：A 级 notice Alert → 正文 → 血缘卡 → 追加面 → 核验/档案小字
+    expect(orderOf(screen.getByTestId('turn-t-full'),
+      ['notice-alerts', 'answer-view', 'lineage-card', 'supplement-blocks', 'run-meta-line']))
+      .toEqual(['notice-alerts', 'answer-view', 'lineage-card', 'supplement-blocks', 'run-meta-line'])
+  })
+
+  it('完整轮（done）：流水线默认收起，摘要行在位；点开＝事件流全量可回看', () => {
+    render(<A1V2R />)
+    expect(screen.getAllByTestId('pipeline-body')).toHaveLength(1) // 只有运行中轮默认展开
+    const fullRound = screen.getByTestId('round-t-full')
+    expect(fullRound.querySelector('[data-testid="pipeline-body"]')).toBeNull()
+    const bar = fullRound.querySelector('[data-testid="pipeline-bar"]')
+    expect(bar.textContent).toContain('执行完成')
+    expect(bar.textContent).toContain('12 步')
+    expect(bar.textContent).toContain('51 份材料')
+    fireEvent.click(bar)
+    expect(fullRound.querySelectorAll('[data-testid^="ev-step-"]')).toHaveLength(12)
+    expect(fullRound.querySelector('[data-testid="ev-citation-51"]')).toBeTruthy()
+  })
+
+  it('A 级 notice 在回答块顶部；B/C 级不在回答块里（只在流水线）', () => {
+    render(<A1V2R />)
+    const answerBlock = screen.getByTestId('turn-t-full')
+    expect(within(answerBlock).getByTestId('notice-alerts').textContent)
+      .toContain('这次回答只用到检索到的 24/37 条材料')
+    expect(answerBlock.textContent).not.toContain('window_note') // B 级不在回答块
+    expect(answerBlock.textContent).not.toContain('unsupported_claim') // C 级不在回答块
+  })
+})
+
+describe('A1V2R · 运行中轮（流水线展开态）', () => {
+  it('流水线默认展开＝流式事件追加；回答块＝「正在作答…」占位（无正文、无核验小字）', () => {
+    render(<A1V2R />)
+    const round = screen.getByTestId('round-t-running')
+    const pipeline = round.querySelector('[data-testid="pipeline"]')
+    expect(pipeline).toBeTruthy()
+    expect(within(pipeline).getByTestId('pipeline-body')).toBeTruthy() // 展开态
+    expect(within(pipeline).getByTestId('ev-understanding').textContent).toContain('💭 理解为：')
+    expect(within(pipeline).getByTestId('ev-materials').textContent).toContain('16 份材料')
+    expect(within(pipeline).getByTestId('pipeline-tail').textContent).toContain('继续处理中…')
+
+    const answerBlock = screen.getByTestId('turn-t-running')
+    expect(within(answerBlock).getByTestId('answer-placeholder').textContent).toBe('正在作答…')
+    expect(within(answerBlock).queryByTestId('answer-view')).toBeNull()
+    expect(within(answerBlock).queryByTestId('run-meta-line')).toBeNull() // 未收口＝无核验/档案小字
+  })
+})
+
+describe('A1V2R · 其余三轮形态', () => {
+  it('四轮都在位；分列轮长 split 限高；旧版轮无流水线＋降级说明；全程零请求', () => {
+    render(<A1V2R />)
+    for (const id of ['t-running', 't-full', 't-split', 't-legacy']) {
       expect(screen.getByTestId(`turn-${id}`)).toBeTruthy()
     }
-    const full = within(screen.getByTestId('turn-t-full'))
-    expect(screen.getAllByText('正在分析问题…')).toHaveLength(1) // ① 加载态占位
-    expect(full.getByTestId('notice-band')).toBeTruthy() // ② complete 轮的 notice 三级带
-    expect(full.getByTestId('lineage-card')).toBeTruthy() // ② 血缘卡（右栏另有一份）
-    expect(full.getByTestId('run-meta-line').textContent).toContain('已核验：有据 51 条')
     const split = within(screen.getByTestId('turn-t-split'))
     fireEvent.click(split.getByText('各来源说法不一 · 点开对照'))
-    expect(split.getAllByText(/展开看全文/).length).toBeGreaterThan(0) // ③ 长 split 限高
-    expect(screen.getByTestId('legacy-note').textContent).toContain('本轮为旧版记录，无引用/口径明细')
+    expect(split.getAllByText(/展开看全文/).length).toBeGreaterThan(0) // 长条限高
+
+    const legacy = screen.getByTestId('turn-t-legacy')
+    expect(legacy.parentElement.querySelectorAll('[data-testid="pipeline"]')).toHaveLength(0) // 无流水线块
+    expect(within(legacy).getByTestId('legacy-note').textContent).toContain('本轮为旧版记录，无引用/口径明细')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('每条答案正文都渲染（旧版轮含内嵌旧式「引用：」块文本——原样，不解析）', () => {
     render(<A1V2R />)
-    expect(screen.getAllByTestId('answer-view')).toHaveLength(3)
+    expect(screen.getAllByTestId('answer-view')).toHaveLength(3) // 运行中轮无正文
     expect(screen.getByText(/引用：/)).toBeTruthy()
   })
 
   it('旧版轮 [n] 是死文本（无锚点、无悬停卡——旧轮无引用数据可查）', () => {
     render(<A1V2R />)
-    const legacyCard = screen.getByTestId('turn-t-legacy')
-    expect(legacyCard.querySelector('[data-cite]')).toBeNull()
-    expect(legacyCard.textContent).toContain('「躺井」是作业区口语')
-    expect(legacyCard.textContent).toContain('[1]') // 引标原样在正文里
+    const legacy = screen.getByTestId('turn-t-legacy')
+    expect(legacy.querySelector('[data-cite]')).toBeNull()
+    expect(legacy.textContent).toContain('「躺井」是作业区口语')
+    expect(legacy.textContent).toContain('[1]')
   })
+})
 
+describe('A1V2R · 右栏联动', () => {
   it('点正文 [n] ＝右栏切到该轮并定位（「已定位」＋该条材料原文）', () => {
     render(<A1V2R />)
-    const fullCard = screen.getByTestId('turn-t-full')
-    const cite = fullCard.querySelector('[data-cite="51"]')
+    const cite = screen.getByTestId('turn-t-full').querySelector('[data-cite="51"]')
     expect(cite).toBeTruthy()
     fireEvent.click(cite)
     const item = screen.getByTestId('cite-item-51')
@@ -83,15 +147,13 @@ describe('A1V2R · mock 静态版面页', () => {
   it('右栏默认＝完整轮（2 处来源）；点某轮「引用与口径」＝切到该轮（分列轮 5 处来源）', () => {
     render(<A1V2R />)
     expect(screen.getByText('共 51 支引用 · 来自 2 处来源')).toBeTruthy()
-    const splitCard = screen.getByTestId('turn-t-split')
-    fireEvent.click(splitCard.querySelector('button'))
+    fireEvent.click(within(screen.getByTestId('turn-t-split')).getByRole('button', { name: '引用与口径' }))
     expect(screen.getByText('共 16 支引用 · 来自 5 处来源')).toBeTruthy()
-    expect(screen.getByText('《Y-21井完井工程报告》')).toBeTruthy()
   })
 
   it('旧版轮无引用＝右栏空态「本回合无引用。」（切换后不残留上轮引用）', () => {
     render(<A1V2R />)
-    fireEvent.click(screen.getByTestId('turn-t-legacy').querySelector('button'))
+    fireEvent.click(within(screen.getByTestId('turn-t-legacy')).getByRole('button', { name: '引用与口径' }))
     expect(screen.getByText('本回合无引用。')).toBeTruthy()
   })
 
@@ -99,13 +161,5 @@ describe('A1V2R · mock 静态版面页', () => {
     render(<A1V2R />)
     fireEvent.click(screen.getByRole('button', { name: /决策树/ }))
     expect(screen.getByText('决策树（mock 占位）')).toBeTruthy()
-  })
-
-  it('中栏过程折叠条可展开（完整轮＝12 步树状时间线）', () => {
-    render(<A1V2R />)
-    const bar = screen.getAllByTestId('process-timeline-bar')[1] // ① 加载轮的条不可展开
-    expect(bar.textContent).toContain('引用了 2 篇文档')
-    fireEvent.click(bar)
-    expect(screen.getByTestId('process-timeline-body').textContent).toContain('分析问题')
   })
 })

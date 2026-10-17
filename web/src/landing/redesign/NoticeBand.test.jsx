@@ -1,13 +1,14 @@
 /**
- * NoticeBand 钉测（notice 三级带——设计稿 §3.6 ＋ 调研 §3 分级表）。
+ * NoticeRow / NoticeAlerts 钉测（notice 在串行链条模型下的两处落点）。
  *
  * 守什么：
- * - A 级（材料截断/拒答…）＝antd Alert，content 直接可见（不折叠）；
- * - B 级（窗口注记等过程说明）＝灰折叠条，默认收起、点开见原文；
- * - C 级（核验删改/分列/决策驳回…）＝默认收起，点开见原文；标签中性（**纯透传 content，
- *   前端不硬编码白话摘要**——Owner 拍板第 3 条）；
- * - 未知 type＝通用灰条兜底，原文照给（不静默丢弃）；
- * - 空态（无 notice）＝整带不渲染。
+ * - **流水线内小行**（`NoticeRow`）：A 级＝红/黄彩线小行（原文直给，不折叠）；
+ *   B 级＝灰折叠小行（默认收起、点开见原文）；C 级＝默认收起、点开见原文；
+ *   未登记 type＝通用灰条兜底（原文照给，不静默丢弃）；
+ * - **回答块顶部**（`NoticeAlerts`）：**只有 A 级**出 Alert（折叠态流水线下也能感知可信度），
+ *   B/C 级不在此处重复占位；
+ * - Owner 拍板：content **纯透传后端**，前端不硬编码白话摘要——标签中性、原文照给；
+ * - 空态：无 A 级＝Alert 带不渲染。
  *
  * 素材：真机帧 notice 原文（redesign/mockTurns.js 内已注明来源帧）。
  */
@@ -15,7 +16,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
-import NoticeBand, { noticeLevel } from './NoticeBand.jsx'
+import { NoticeAlerts, NoticeRow } from './NoticeBand.jsx'
 import { MOCK_TURNS } from './mockTurns.js'
 
 if (!window.matchMedia) {
@@ -32,58 +33,63 @@ if (!window.ResizeObserver) {
 afterEach(() => cleanup())
 
 const FULL = MOCK_TURNS.find(t => t.id === 't-full')
-const MT = FULL.notices.find(n => n.type === 'material_truncated')
-const WN = FULL.notices.find(n => n.type === 'window_note')
-const UC = FULL.notices.find(n => n.type === 'unsupported_claim')
+const MT = FULL.notices.find(n => n.type === 'material_truncated') // A 级
+const WN = FULL.notices.find(n => n.type === 'window_note') // B 级
+const UC = FULL.notices.find(n => n.type === 'unsupported_claim') // C 级
 
-describe('NoticeBand · 三级分级', () => {
-  it('分级表：A/B/C 三档各归其位，未登记 type＝unknown', () => {
-    expect(noticeLevel('material_truncated')).toBe('A')
-    expect(noticeLevel('refused')).toBe('A')
-    expect(noticeLevel('window_note')).toBe('B')
-    expect(noticeLevel('unsupported_claim')).toBe('C')
-    expect(noticeLevel('brand_new_type')).toBe('unknown')
+describe('NoticeRow · 流水线内小行', () => {
+  it('A 级＝彩线小行：原文直给（不折叠、不必点击）', () => {
+    render(<NoticeRow n={MT} />)
+    const row = screen.getByTestId('notice-row-a')
+    expect(row.textContent).toBe(MT.content)
+    expect(row.style.borderLeft).toContain('3px')
+    expect(document.querySelector('.ant-collapse')).toBeNull() // 不是折叠形
   })
 
-  it('A 级＝Alert 且 content 直接可见（真机材料截断原文）', () => {
-    render(<NoticeBand notices={[MT]} />)
-    expect(screen.getByText(MT.content)).toBeTruthy()
-    expect(document.querySelector('.ant-alert')).toBeTruthy()
-  })
-
-  it('B 级＝灰折叠条：标签可见、原文默认收起；点开见原文', () => {
-    render(<NoticeBand notices={[WN]} />)
+  it('B 级＝灰折叠小行：标签可见、原文默认收起、点开见原文', () => {
+    render(<NoticeRow n={WN} />)
     expect(screen.getByText('说明（window_note）')).toBeTruthy()
-    expect(screen.queryByText(WN.content)).toBeNull() // 默认收起
+    expect(screen.queryByText(WN.content)).toBeNull()
     fireEvent.click(screen.getByText('说明（window_note）'))
     expect(screen.getByText(WN.content)).toBeTruthy()
   })
 
-  it('C 级＝默认收起、点开见原文（前端不加白话摘要——只做中性标签）', () => {
-    render(<NoticeBand notices={[UC]} />)
+  it('C 级＝默认收起、点开见原文（中性标签，前端不自造白话摘要）', () => {
+    render(<NoticeRow n={UC} />)
     expect(screen.getByText('系统注记（unsupported_claim）· 点开看原文')).toBeTruthy()
     expect(screen.queryByText(UC.content)).toBeNull()
     fireEvent.click(screen.getByText('系统注记（unsupported_claim）· 点开看原文'))
     expect(screen.getByText(UC.content)).toBeTruthy()
   })
 
-  it('未知 type＝通用灰条兜底（原文照给，不静默丢弃）', () => {
-    const unknown = { type: 'brand_new_type', gates: [], content: '演示用未登记类型提示原文' }
-    render(<NoticeBand notices={[unknown]} />)
+  it('未登记 type＝通用灰条兜底（原文照给，不静默丢弃）', () => {
+    const unknown = { type: 'brand_new_type', gates: [], content: '未登记类型提示原文' }
+    render(<NoticeRow n={unknown} />)
     const label = screen.getByText('系统提示（brand_new_type）· 点开看原文')
     expect(label).toBeTruthy()
-    expect(screen.queryByText(unknown.content)).toBeNull()
     fireEvent.click(label)
     expect(screen.getByText(unknown.content)).toBeTruthy()
   })
+})
 
-  it('三条同级 notice 各出一条（同 type 不合并、不互相顶掉）', () => {
-    render(<NoticeBand notices={[UC, { ...UC, content: '第二条同型原文' }]} />)
-    expect(screen.getAllByText(/系统注记（unsupported_claim）/)).toHaveLength(2)
+describe('NoticeAlerts · 回答块顶部（仅 A 级）', () => {
+  it('A 级＝antd Alert 原文直给；B/C 级不在此处占位', () => {
+    render(<NoticeAlerts notices={[MT, WN, UC]} />)
+    expect(screen.getByText(MT.content)).toBeTruthy()
+    expect(document.querySelector('.ant-alert')).toBeTruthy()
+    expect(screen.queryByText(WN.content)).toBeNull()
+    expect(screen.queryByText(/unsupported_claim/)).toBeNull()
   })
 
-  it('空态（无 notice）＝整带不渲染', () => {
-    const { container } = render(<NoticeBand notices={[]} />)
+  it('refused/run_failed＝error 色（硬失败与软告警在色上可辨）', () => {
+    render(<NoticeAlerts notices={[{ type: 'refused', content: '这一问没法按清单作答。' }]} />)
+    expect(document.querySelector('.ant-alert-error')).toBeTruthy()
+  })
+
+  it('空态：无 A 级（或全空）＝Alert 带不渲染', () => {
+    const { container } = render(<NoticeAlerts notices={[WN, UC]} />)
     expect(container.firstChild).toBeNull()
+    const { container: empty } = render(<NoticeAlerts notices={[]} />)
+    expect(empty.firstChild).toBeNull()
   })
 })

@@ -69,7 +69,7 @@ describe('A1V2R 临时路由 · 注册与菜单接线', () => {
     window.history.replaceState(null, '', '/#/A1V2R')
     const { default: Shell } = await import('../../shell/Shell.jsx')
     render(<Shell />)
-    expect(await screen.findByText(/新版答案卡版面/)).toBeTruthy()
+    expect(await screen.findByText(/串行链条/)).toBeTruthy()
     expect(screen.getByTestId('turn-t-full')).toBeTruthy()
   })
 })

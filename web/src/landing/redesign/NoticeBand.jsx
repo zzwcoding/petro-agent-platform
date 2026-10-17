@@ -1,50 +1,29 @@
 /**
- * NoticeBand · notice 三级带（设计稿 §3.6 ＋ 调研 §3 分级表）。
+ * NoticeBand · notice 行渲染（Owner 2026-10-17 串行链条模型下的降级形态）。
+ *
+ * 旧形态「答案卡顶部一条 notice 带」已废：notice 现在按到达序长在**执行流水线**里，每条
+ * 一个**小行**（`NoticeRow`）；A 级另在**系统回答块顶部**留一条紧凑 Alert（`NoticeAlerts`），
+ * 让折叠态流水线下也能一眼看到可信度相关告警。
  *
  * 分级只按 `type`（`gates` 实测恒空，不能当判据）：
- * - **A 级（醒目）**：antd Alert——拒答/失败/截断/域外降级/写档失败这类影响答案可信的事。
- * - **B 级（灰）**：灰折叠条——过程说明（重绑/窗注记/无命中/批准留痕…），默认收起。
- * - **C 级（回喂面）**：默认收起，点开见原文——工序腔（决策驳回/同参重放/核验删改…）。
- * - **未知 type**：通用灰条兜底，**不静默丢弃**（闭世界会增补）。
+ * - **A 级**：拒答/失败/截断/域外降级/写档失败——流水线里红/黄小行，回答块顶部 antd Alert；
+ * - **B 级**：过程说明（重绑/窗注记/无命中/批准留痕…）——灰折叠小行，默认收起；
+ * - **C 级**：回喂面工序腔（决策驳回/同参重放/核验删改…）——默认收起，点开见原文；
+ * - **未登记 type**：通用灰条兜底，原文照给（闭世界会增补，不静默丢弃）。
  *
- * Owner 拍板（设计 §6 第 3 条）：content **纯透传后端**，前端不硬编码白话摘要模板——
- * 故 C 级不再出「核验时删去了 N 条没有依据的说法」类前端自造文案，只做展开/收起与
- * 中性标签；白话化归后端 EB5 文案批（`docs/runtime-refactor/research/最佳实践-3a-白话化与受众适配.md` §3.2）。
- * 空态：无 notice＝整带不渲染。
+ * Owner 拍板（设计 §6 第 3 条）：content **纯透传后端**——前端不硬编码白话摘要模板，
+ * 只做展开/收起与中性标签；白话化归后端 EB5 文案批（research/最佳实践-3a §3.2）。
+ * 空态：无 notice ＝ 两处都不渲染。
  */
 import { Alert, Collapse } from 'antd'
+import { CloseCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
 import { dim } from '../../components/helpIcon.jsx'
-
-/** A 级：醒目告警（Alert）。 */
-export const NOTICE_LEVEL_A = new Set([
-  'refused', 'run_failed', 'freshness_block', 'unbound_degrade', 'schema_not_allowed',
-  'material_truncated', 'emission_strip', 'blackbox_write_failed', 'audit_write_failed'
-])
-
-/** B 级：灰折叠条（过程说明）。 */
-export const NOTICE_LEVEL_B = new Set([
-  'rebind', 'window_note', 'no_hit', 'approval_recorded', 'ban_exempt',
-  'clarify_capped', 'budget_converged', 'window_miss_reentry'
-])
-
-/** C 级：默认收起（工序腔——点开见原文）。 */
-export const NOTICE_LEVEL_C = new Set([
-  'decision_rejected', 'same_param_replay', 'emission_quote_repair', 'decision_note',
-  'chain_switch_reentry', 'subtask_failed', 'subtask_refused', 'tool_unavailable',
-  'unsupported_claim', 'contradiction_split', 'attribution_split'
-])
+import { NOTICE_LEVEL_A, noticeLevel } from './events.js'
 
 /** A 级里按「硬失败」用 error 色（其余 A 级用 warning 色）。 */
 const A_ERROR = new Set(['refused', 'run_failed', 'blackbox_write_failed', 'audit_write_failed'])
 
-/** 单条 notice → 级别（未登记 type＝'unknown'，走通用灰条）。 */
-export function noticeLevel(type) {
-  if (NOTICE_LEVEL_A.has(type)) return 'A'
-  if (NOTICE_LEVEL_B.has(type)) return 'B'
-  if (NOTICE_LEVEL_C.has(type)) return 'C'
-  return 'unknown'
-}
-
+/** 折叠行（B/C/未登记共用——默认收起，点开见原文）。 */
 function foldItem(n, label, key) {
   return {
     key,
@@ -53,42 +32,55 @@ function foldItem(n, label, key) {
   }
 }
 
-function NoticeRow({ n, i }) {
-  const level = noticeLevel(n.type)
+/**
+ * 流水线内的单条 notice 小行。
+ * A 级＝红/黄小行（原文直给）；B/C/未登记＝灰折叠小行（默认收起）。
+ * @param n    notice 帧 {type, gates, content}
+ * @param seq  行内序号（同型多条不互相顶掉——key 用）
+ */
+export function NoticeRow({ n, seq = 0 }) {
+  const level = noticeLevel(n?.type)
+  const key = `${n?.type || 'unknown'}-${seq}`
   if (level === 'A') {
+    const color = A_ERROR.has(n.type) ? '#ff7875' : '#e8b339'
     return (
-      <Alert type={A_ERROR.has(n.type) ? 'error' : 'warning'} showIcon message={n.content}
-        style={{ margin: '6px 0' }} />
+      <div data-testid="notice-row-a" style={{
+        display: 'flex', gap: 6, alignItems: 'flex-start', fontSize: 12, lineHeight: 1.7,
+        padding: '3px 8px', margin: '2px 0', borderRadius: 4,
+        background: A_ERROR.has(n.type) ? 'rgba(255,120,117,0.12)' : 'rgba(232,179,57,0.14)',
+        borderLeft: `3px solid ${color}`
+      }}>
+        {A_ERROR.has(n.type)
+          ? <CloseCircleOutlined style={{ color, marginTop: 3 }} />
+          : <ExclamationCircleOutlined style={{ color, marginTop: 3 }} />}
+        <span>{n.content}</span>
+      </div>
     )
   }
-  const key = `${n.type || 'unknown'}-${i}`
-  if (level === 'B') {
-    return (
-      <Collapse size="small" style={{ margin: '6px 0', background: 'rgba(127,127,127,0.06)' }}
-        items={[foldItem(n, `说明（${n.type}）`, key)]} />
-    )
-  }
-  if (level === 'C') {
-    return (
-      <Collapse size="small" style={{ margin: '6px 0' }}
-        items={[foldItem(n, `系统注记（${n.type}）· 点开看原文`, key)]} />
-    )
-  }
-  // 未知 type：通用灰条（不静默丢弃——原文照给，标签点明未登记）
+  const label = level === 'B' ? `说明（${n.type}）`
+    : level === 'C' ? `系统注记（${n.type}）· 点开看原文`
+      : `系统提示（${n?.type || '未登记类型'}）· 点开看原文`
   return (
-    <Collapse size="small" style={{ margin: '6px 0', background: 'rgba(127,127,127,0.06)' }}
-      items={[foldItem(n, `系统提示（${n.type || '未登记类型'}）· 点开看原文`, key)]} />
+    <Collapse size="small" style={{ margin: '2px 0' }}
+      items={[foldItem(n, label, key)]} />
   )
 }
 
 /**
- * @param notices 归约器 notice 数组 [{type, gates, content}]（顺序＝到达序）
+ * 系统回答块顶部的 A 级 Alert 带（仅 A 级——B/C 级只留在流水线里，不重复占位）。
+ * @param notices notice 帧数组（本件自行筛 A 级）
  */
-export default function NoticeBand({ notices = [] }) {
-  if (notices.length === 0) return null
+export function NoticeAlerts({ notices = [] }) {
+  const alerts = notices.filter(n => NOTICE_LEVEL_A.has(n?.type))
+  if (alerts.length === 0) return null
   return (
-    <div data-testid="notice-band">
-      {notices.map((n, i) => <NoticeRow key={`${n.type || 'n'}-${i}`} n={n} i={i} />)}
+    <div data-testid="notice-alerts">
+      {alerts.map((n, i) => (
+        <Alert key={`${n.type}-${i}`} showIcon
+          type={A_ERROR.has(n.type) ? 'error' : 'warning'}
+          message={<span style={{ fontSize: 12 }}>{n.content}</span>}
+          style={{ margin: '6px 0', padding: '3px 10px' }} />
+      ))}
     </div>
   )
 }
