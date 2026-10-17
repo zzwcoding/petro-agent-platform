@@ -13,8 +13,8 @@
  * 3. **程序追加面**（SupplementBlocks——无块不出）。
  * 空态：无引用＝「本回合无引用」；无血缘/无追加面＝各自不出（不报错不伪造）。
  *
- * 决策树入口保留（Owner 拍板第 4 条）：本页是 mock 静态页，点开只出一个说明性 Modal，
- * 真决策树（`pages/DecisionTreeV2.jsx`）接线在接归约器那步（设计 §5 第 2/3 步）。
+ * 决策树入口保留（Owner 拍板第 4 条）：入口常在，点开只出一个说明性 Modal——
+ * 真决策树（`pages/DecisionTreeV2.jsx`）本体接回在后续版本（本票不动本入口）。
  */
 import { useEffect, useState } from 'react'
 import { Button, Card, Modal, Tag } from 'antd'
@@ -47,7 +47,7 @@ export default function CitationPanel({
     if (focusIndex != null) setPicked(focusIndex)
   }, [focusIndex, focusNonce])
 
-  // 定位后把该条滚进视野（jsdom 无 scrollIntoView 实现——`?.` 兜底，同 A1V2.jsx 惯例）
+  // 定位后把该条滚进视野（jsdom 无 scrollIntoView 实现——`?.` 兜底，同页面其余滚动位惯例）
   useEffect(() => {
     if (picked == null) return
     document.getElementById(`cite-${picked}`)?.scrollIntoView?.({ block: 'nearest' })
@@ -115,9 +115,9 @@ export default function CitationPanel({
       <LineageCard lineage={lineage} limit={limit} text={lineageText} />
       <SupplementBlocks split={splitText} attribution={attributionText} />
 
-      <Modal open={treeOpen} footer={null} onCancel={() => setTreeOpen(false)} title="决策树（mock 占位）">
+      <Modal open={treeOpen} footer={null} onCancel={() => setTreeOpen(false)} title="决策树（占位）">
         <div style={{ fontSize: 13, lineHeight: 1.9 }}>
-          本页是版面 mock——这里只展示入口位置。完整决策树（按问句点亮主链路径）在后续接线中接回。
+          完整决策树（按问句点亮主链路径）本体接回在后续版本——此处只展示入口位置。
         </div>
       </Modal>
     </Card>

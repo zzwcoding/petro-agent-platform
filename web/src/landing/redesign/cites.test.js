@@ -4,7 +4,7 @@
  * 守什么：
  * - 「引用了 N 篇文档」的 N＝**去重来源数**（同文档多支切片算 1 篇）——真机
  *   EB4-数-明2（51 支引用来自 2 处来源）与 EB3-数-降1（16 支来自 5 处）两形都钉
- *   （素材＝mockTurns 真帧夹具的归约输出——FE-02 后 MOCK_TURNS 条目＝{id, turn, durationS}）。
+ *   （素材＝__fixtures__/turns.js 真帧夹具的归约输出——FIXTURE_TURNS 条目＝{id, turn, durationS}）。
  * - trust 四值→白话徽标；未知值原样回显（不外推、不编）。
  * - 追加面文本切分：`[n]` 起头＝新条目；真机 split 的续行（含全角空格表格行）并入上一条；
  *   条目行「来源」抽取处理 `[n] {source}：{正文}` 与 `[n] 《报告》 · f15：{正文}` 两形。
@@ -13,10 +13,10 @@
 import { describe, expect, it } from 'vitest'
 
 import { citeSourceCount, groupCitations, parseSupplement, trustLabel } from './cites.js'
-import { MOCK_TURNS } from './mockTurns.js'
+import { FIXTURE_TURNS } from './__fixtures__/turns.js'
 
-const FULL = MOCK_TURNS.find(t => t.id === 't-full').turn
-const SPLIT = MOCK_TURNS.find(t => t.id === 't-split').turn
+const FULL = FIXTURE_TURNS.find(t => t.id === 't-full').turn
+const SPLIT = FIXTURE_TURNS.find(t => t.id === 't-split').turn
 
 describe('cites · 引用去重分组与 trust 白话', () => {
   it('按 source 去重分组：EB4-数-明2 的 51 支引用归 2 组（保首见序、组内保 index 序）', () => {

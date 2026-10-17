@@ -1,11 +1,11 @@
 /**
  * AnswerView 钉测（EB2-D4 前端答案友好化——答案正文渲染器）。
  *
- * 守什么（A1V2 中栏答案面——机器可验）：
+ * 守什么（中栏答案面——机器可验）：
  * - Markdown 记号成元素：**粗体**→<strong>、`- ` 列表→<ul>/<li>、### 标题→<h3>、
  *   围栏码→<pre><code>、行内码→<code>、表格→<table>/<th>/<td>；
  * - 引标 [n]→可点击锚点，点击上抛 onCite(index)；不传 onCite＝不切分（正文单文本节点——
- *   历史轮次无引用数据可查，A1V2.jsx renderRound 走此形）；
+ *   历史轮次无引用数据可查，页面不传 onCite 即此形）；
  * - html token 不落 DOM（`<script>`/`<div>`/`<img>` 一律忽略——天然免注入，无
  *   dangerouslySetInnerHTML）；
  * - 白名单外 token（blockquote/hr）降级纯文本原文照现（不静默吞内容）；

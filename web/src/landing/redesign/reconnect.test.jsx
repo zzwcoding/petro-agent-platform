@@ -147,7 +147,7 @@ describe('FE-03 重连接线（R1–R4）', () => {
     // 流水线块无事件不渲染（合成轮 events 空——空态纪律整块不出）
     const synthetic = screen.getByTestId('round-t-run-404')
     expect(synthetic.querySelector('[data-testid="pipeline"]')).toBeNull()
-    expect(screen.getAllByTestId(/^round-/)).toHaveLength(5) // mock 四轮＋合成轮
+    expect(screen.getAllByTestId(/^round-/)).toHaveLength(1) // 会话流只有合成轮（无夹具轮）
   })
 
   it('pending_ask_restore：waiting_ask 行＋pending_ask → 挂起卡渲染；选选项 → body.kind 正确；done 帧 → KEY 清', async () => {

@@ -10,14 +10,14 @@
  * - Owner 拍板：content **纯透传后端**，前端不硬编码白话摘要——标签中性、原文照给；
  * - 空态：无 A 级＝Alert 带不渲染。
  *
- * 素材：真机帧 notice 原文（来源帧注于 redesign/mockTurns.js 头注——借入帧随到达序入流）。
+ * 素材：真机帧 notice 原文（来源帧注于 __fixtures__/turns.js 头注——借入帧随到达序入流）。
  */
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 import { NoticeAlerts, NoticeRow } from './NoticeBand.jsx'
-import { MOCK_TURNS } from './mockTurns.js'
+import { FIXTURE_TURNS } from './__fixtures__/turns.js'
 
 if (!window.matchMedia) {
   window.matchMedia = query => ({
@@ -32,7 +32,7 @@ if (!window.ResizeObserver) {
 
 afterEach(() => cleanup())
 
-const FULL = MOCK_TURNS.find(t => t.id === 't-full').turn
+const FULL = FIXTURE_TURNS.find(t => t.id === 't-full').turn
 const MT = FULL.notices.find(n => n.type === 'material_truncated') // A 级
 const WN = FULL.notices.find(n => n.type === 'window_note') // B 级
 const UC = FULL.notices.find(n => n.type === 'unsupported_claim') // C 级

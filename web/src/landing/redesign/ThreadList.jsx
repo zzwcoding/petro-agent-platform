@@ -9,19 +9,19 @@
  * 与后端 clamp 一致）。`pageStep`/`maxRows` 默认值＝20/100，与后端夹取同形。
  *
  * 读口失败态（UI-14 同位纪律——**失败≠空库**）：`loadState` 分离——读口失败＝计数行（加载
- * 入口）撤下＋「暂无数据」失败空态（与现状 A1V2 同形文案，已有行不销毁）；读口如实返回
+ * 入口）撤下＋「暂无数据」失败空态（沿用词表文案，已有行不销毁）；读口如实返回
  * 空列＝「暂无历史对话」。加载中 Spin 只挂在「加载更早」按钮位（不整块遮罩）。
  *
  * 窗口回传（L3 拉链用）：每次成功拉取经 `onRuns` 把**当前窗口**（前 limit 条）交回页面——
- * A1V2R 据此 collectChain（followup_of 链分组，同 A1V2.jsx buildThreads 语义）。
+ * A1V2R 据此 collectChain（followup_of 逐跳上溯定根，按 created_at 升序成链）。
  *
- * 交互（mock 期行为不动——L2）：
+ * 交互（L2 行为不动）：
  * - 滚动到列表**顶部**触发加载更多（滚轮/触控板往上）＋顶部一枚「加载更早」按钮（同一 handler
  *   ——jsdom 里滚不动，测试直调按钮即等价的回调入口）；
  * - 到 100 条后顶部出「已到最早」小字，**不再出 Spin**（不假装还能加载）；
  * - 搜索框（antd Input）：对**当前已加载窗口**的问句做前端过滤（后端无搜索参数，零请求）；
  *   过滤中不再触发上拉加载（加载更多入口整体让位），无命中＝「无匹配对话」空态；
- * - 选中行高亮（与现状 A1V2 行高亮同形：蓝底 + data-selected）。
+ * - 选中行高亮（蓝底 + data-selected）。
  */
 import { useEffect, useState } from 'react'
 import { Button, Input, List } from 'antd'
@@ -29,10 +29,10 @@ import { SearchOutlined } from '@ant-design/icons'
 import { listRunsV2 } from '../../api/chatV2.js'
 import { dim } from '../../components/helpIcon.jsx'
 
-/** 状态文案（与 A1V2.jsx STATUS_TEXT 同词表——词表单源诉求见该文件头注）。 */
+/** 状态文案（与后端 status 闭世界同词表：running/waiting_ask/completed/failed）。 */
 const STATUS_TEXT = { running: '运行中', waiting_ask: '待确认', completed: '已完成', failed: '失败' }
 
-/** ISO/『YYYY-MM-DD HH:mm:ss』→「MM-DD HH:mm」（同 A1V2.jsx fmtTime 口径）。 */
+/** ISO/『YYYY-MM-DD HH:mm:ss』→「MM-DD HH:mm」（列表行时间口径）。 */
 function fmtTime(iso) {
   return (iso || '').replace('T', ' ').slice(5, 16)
 }

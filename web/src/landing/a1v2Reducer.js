@@ -20,7 +20,7 @@
  * 引擎异常腿（收束语义三分之三）：executor 落库 failed 后 bus 干净收束、桥面照发
  * done（appv2/runtime/executor.py:380-385 发 notice run_failed；api/bridge.py:149-156
  * stream.error 为空即 done）——done 无 ask 帧但 run_failed notice 在场 ⇒ runStatus
- * 'failed' 不判完局（页面锚推进同判据：A1V2.jsx handlers runFailed 旗标）。
+ * 'failed' 不判完局（页面同判据：run_failed notice 字面量——追问锚只认 runStatus==='completed' 轮）。
  */
 
 /** 空回合（一次提问/一次续推/一次重连＝一个 assistant 回合的帧容器）。 */

@@ -10,17 +10,17 @@
  *   runStatus 兜底分支按 FE-02 字面替换保留）；
  * - 空态：无事件（旧版降级轮）＝空数组。
  *
- * 素材：redesign/mockTurns.js（真帧夹具＋归约器输出——FE-02 后条目＝{id, turn, durationS}）。
+ * 素材：__fixtures__/turns.js 真帧夹具（归约器输出——条目＝{id, turn, durationS}）。
  */
 import { describe, expect, it } from 'vitest'
 
 import { noticeLevel, phaseText, summarizePipeline, toolText } from './events.js'
-import { MOCK_TURNS } from './mockTurns.js'
+import { FIXTURE_TURNS } from './__fixtures__/turns.js'
 
-const LIVE = MOCK_TURNS.find(e => e.id === 't-live').turn
-const FULL = MOCK_TURNS.find(e => e.id === 't-full').turn
-const SPLIT = MOCK_TURNS.find(e => e.id === 't-split').turn
-const LEGACY = MOCK_TURNS.find(e => e.id === 't-legacy').turn
+const LIVE = FIXTURE_TURNS.find(e => e.id === 't-live').turn
+const FULL = FIXTURE_TURNS.find(e => e.id === 't-full').turn
+const SPLIT = FIXTURE_TURNS.find(e => e.id === 't-split').turn
+const LEGACY = FIXTURE_TURNS.find(e => e.id === 't-legacy').turn
 
 describe('turn.events · 到达序（归约器直出——deriveEvents 退役后的事件断言）', () => {
   it('运行中轮（真机流式前缀）：理解打头 → 真机序 tool(seq7) 先于承载 step(seq7)；材料聚合单行 16', () => {
@@ -41,7 +41,7 @@ describe('turn.events · 到达序（归约器直出——deriveEvents 退役后
     expect(FULL.events[1]).toMatchObject({ type: 'notice', notice: { type: 'unsupported_claim' } })
     expect(FULL.events.filter(e => e.type === 'materials')).toHaveLength(1) // 聚合恒单行
     expect(FULL.events.find(e => e.type === 'materials').count).toBe(51)
-    // 借入四条 notice（拼接位＝各帧在原流中的同部位——见 mockTurns.js 头注）：到达序
+    // 借入四条 notice（拼接位＝各帧在原流中的同部位——见 __fixtures__/turns.js 头注）：到达序
     expect(FULL.events.filter(e => e.type === 'notice').map(e => e.notice.type))
       .toEqual(['unsupported_claim', 'window_note', 'material_truncated', 'contradiction_split'])
     // 真机序：verify verdict 帧先于其承载核验步（seq11）

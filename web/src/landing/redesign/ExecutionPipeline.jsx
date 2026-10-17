@@ -22,7 +22,7 @@
  * supplement 不单独出行（血缘卡/追加面是回答块下挂的链条节点）。
  *
  * 事件流＝归约器直出的 `turn.events`（按帧到达序追加，G4——本件不排序不派生；
- * FE-02 起 deriveEvents 退役，mock 四轮全部为 reducer/historyAdapter 产出、events 恒为数组，
+ * FE-02 起 deriveEvents 退役，各轮（真流/夹具/历史）皆为 reducer/historyAdapter 产出、events 恒为数组，
  * 过渡期 `?? []` 兜底按票面判定去除）。时长 `durationS` 由页面传入（本地计时，不入 turn）。
  * 空态：非运行中且无事件＝整块不渲染（旧版降级轮即此形）。
  */

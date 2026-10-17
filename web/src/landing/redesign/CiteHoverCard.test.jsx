@@ -17,7 +17,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 import AnswerView from '../AnswerView.jsx'
 import CiteHoverCard from './CiteHoverCard.jsx'
-import { MOCK_TURNS } from './mockTurns.js'
+import { FIXTURE_TURNS } from './__fixtures__/turns.js'
 
 if (!window.matchMedia) {
   window.matchMedia = query => ({
@@ -38,8 +38,8 @@ afterEach(() => {
   fetchMock.mockReset()
 })
 
-const FULL = MOCK_TURNS.find(t => t.id === 't-full').turn
-const SPLIT = MOCK_TURNS.find(t => t.id === 't-split').turn
+const FULL = FIXTURE_TURNS.find(t => t.id === 't-full').turn
+const SPLIT = FIXTURE_TURNS.find(t => t.id === 't-split').turn
 
 describe('CiteHoverCard · 卡片本体', () => {
   it('出处三行＋材料切片内容（零请求）', () => {

@@ -36,7 +36,7 @@ LEGAL_PRD_STATUS = {"粗稿", "逼问中", "已定稿"}
 SRC_EXTS = {
     ".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".go", ".java", ".kt", ".rs", ".rb", ".php"
 }
-SRC_DIRS = ("src", "lib", "app", "backend", "frontend/src", "tests", "test", "server")
+SRC_DIRS = ("src", "lib", "app", "backend", "frontend/src", "tests", "test", "server", "web/src")
 CORE_HEADING = re.compile(r"^##\s*语义核心\s*$", re.M)
 ARROW = re.compile(r"\s*(?:→|->|⇒)\s*")
 ITEM_SPLIT = re.compile(r"[,，、]")

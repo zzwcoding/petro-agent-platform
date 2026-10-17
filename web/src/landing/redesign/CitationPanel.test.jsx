@@ -9,15 +9,15 @@
  * - 面板内含血缘卡与追加面（该轮有就给）；决策树入口在位（mock 点开说明 Modal）；
  * - 空态＝「本回合无引用」；进行中＝「检索中…」。
  *
- * 素材：mockTurns 真帧夹具——EB3-数-降1（16 支引用 5 处来源，含一条 trust=notice）／
- * EB4-数-明2（含血缘与追加面）；FE-02 后 MOCK_TURNS 条目＝{id, turn, durationS}。
+ * 素材：__fixtures__/turns.js 真帧夹具——EB3-数-降1（16 支引用 5 处来源，含一条 trust=notice）／
+ * EB4-数-明2（含血缘与追加面）；FE-02 后 FIXTURE_TURNS 条目＝{id, turn, durationS}。
  */
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 import CitationPanel from './CitationPanel.jsx'
-import { MOCK_TURNS } from './mockTurns.js'
+import { FIXTURE_TURNS } from './__fixtures__/turns.js'
 
 if (!window.matchMedia) {
   window.matchMedia = query => ({
@@ -32,11 +32,11 @@ if (!window.ResizeObserver) {
 
 afterEach(() => cleanup())
 
-const FULL = MOCK_TURNS.find(t => t.id === 't-full').turn
+const FULL = FIXTURE_TURNS.find(t => t.id === 't-full').turn
 /** 血缘结构化源（对账 D-5）：materials[].payload（FE-02 起 lineage/limit 从此取）。 */
 const FULL_PAYLOAD = FULL.materials.find(m => m.payload?.lineage).payload
-const SPLIT = MOCK_TURNS.find(t => t.id === 't-split').turn
-const LEGACY = MOCK_TURNS.find(t => t.id === 't-legacy').turn
+const SPLIT = FIXTURE_TURNS.find(t => t.id === 't-split').turn
+const LEGACY = FIXTURE_TURNS.find(t => t.id === 't-legacy').turn
 
 describe('CitationPanel · 分组与 trust 白话徽标', () => {
   it('按 source 分组：组头＝来源＋支数＋trust 白话（报告/系统注记）', () => {
@@ -87,10 +87,10 @@ describe('CitationPanel · 分组与 trust 白话徽标', () => {
     expect(screen.getByText('各来源说法不一 · 点开对照')).toBeTruthy()
   })
 
-  it('决策树入口在位（mock 点开说明 Modal）', () => {
+  it('决策树入口在位（占位 Modal——真树本体接回在后续版本）', () => {
     render(<CitationPanel citations={[]} materials={[]} />)
     fireEvent.click(screen.getByRole('button', { name: /决策树/ }))
-    expect(screen.getByText('决策树（mock 占位）')).toBeTruthy()
+    expect(screen.getByText('决策树（占位）')).toBeTruthy()
   })
 })
 

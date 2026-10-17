@@ -1,36 +1,40 @@
 /**
- * A1V2R 页面钉测（串行链条版面页——临时路由；FE-04 历史列真接后左栏读口走 chatV2 桩）。
+ * A1V2R 真流页钉测（落地树 `#/A1V2`——FE-05 转正后：零夹具轮，中栏链条由真提问流／重连还原／
+ * 选中链三来源驱动）。
  *
- * 守什么（本页红线，机器可验）：
- * - **零真实网络**：mock 四轮来自 redesign/mockTurns.js（真帧夹具＋归约器输出）；左栏
- *   ThreadList 真接读口（listRunsV2/getRunV2——FE-04）以 vi.mock 注桩零网络，raw fetch 层
- *   断言零次调用（读口调用不触 fetch 层）；
- * - **链条顺序**：每轮＝用户输入块 → 系统执行流水线块 → 系统回答块；回答块内＝A 级 notice Alert →
- *   正文 → 血缘卡 → 追加面 → 核验/档案小字（DOM 序断言）；
- * - 四轮覆盖：①运行中（流水线展开、回答块「正在作答…」占位）②完整轮（流水线收起、链条完整）
- *   ③分列轮（长 split 限高）④旧版降级（无流水线、无引用、[n] 死文本）；
- * - **三场景归一**（H5 零分支）：同一 TurnChain 喂 live/replay（归约器）与 history
- *   （historyAdapter）三形状——DOM 结构快照一致，history 缺的展示位不渲染；
- * - 引标联动：点正文 [n] ＝右栏面板切到该轮并「已定位」；
- * - A 级 notice 在回答块顶部可见（折叠态流水线下也感知可信度），B/C 级只在流水线里；
- * - 右栏「决策树」入口在位（mock 点开说明 Modal）。
+ * 守什么（specs/frontend-redesign.md「验收测试」表第 9/16/17 行＋本票红线）：
+ * - **零真实网络**：chatV2 四函数 vi.mock 注桩（提问流帧由测试直喂 handlers）；raw fetch 层
+ *   断言零调用（读口与流全在桩面）；
+ * - **chain_order**（第 17 行）：真提问流驱动一轮——问句块→流水线块（running 展开）→首个正文帧
+ *   后流水线收起＋正文出现→收口后 notice-alerts→正文→血缘卡→追加面→核验/档案小字依次在场；
+ * - 发送接线：首问不带 followupRunId；前轮收口后追问带；流内 error 帧落 errorFrame（灰条）；
+ *   传输断＝closed='transport'（收口清 running run 键）；流开前 409＝输入区 Alert 透传 message；
+ * - 轮渲染（夹具轮 FIXTURE_TURNS——组件面）：链条节点序/流水线展开收起/A 级 notice 位/降级轮空态；
+ * - 三场景归一（第 9 行 one_shape_three_scenarios）：同一 TurnChain 喂 live/replay/history 三形状，
+ *   DOM 结构快照一致；history 缺的展示位＝整位不渲染；
+ * - 左栏真接 ThreadList（第 16 行 select_thread_renders_turns）：点行＝选中链→中栏切链轮；
+ * - 引标联动：点正文 [n] ＝右栏面板切到该轮并「已定位」；链内挂起轮＝续答真通（FE-04 遗留接通）。
  */
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
 vi.mock('../../api/chatV2.js', async importOriginal => ({
   ...await importOriginal(),
   listRunsV2: vi.fn(),
-  getRunV2: vi.fn()
+  getRunV2: vi.fn(),
+  postAskV2: vi.fn(),
+  postResumeV2: vi.fn()
 }))
 
 import { ApiError } from '../../api/client.js'
-import { getRunV2, listRunsV2 } from '../../api/chatV2.js'
+import { getRunV2, listRunsV2, postAskV2, postResumeV2 } from '../../api/chatV2.js'
 import { newTurnV2, reduceV2Frames } from '../a1v2Reducer.js'
+import { FIXTURE_RUNS } from './__fixtures__/runs.js'
+import { FIXTURE_TURNS, FULL_FRAMES } from './__fixtures__/turns.js'
 import A1V2R, { TurnChain } from './A1V2R.jsx'
 import { adaptHistoryTurn } from './historyAdapter.js'
-import { MOCK_RUNS } from './mockTurns.js'
+import { RUNNING_RUN_KEY } from './useRunningRun.js'
 
 if (!window.matchMedia) {
   window.matchMedia = query => ({
@@ -44,19 +48,27 @@ if (!window.ResizeObserver) {
 }
 
 const fetchMock = vi.fn()
+const RUN_VIEW = { status: 'completed', steps: [], manifest_digest: null, pending_ask: null }
+
 beforeEach(() => {
   vi.clearAllMocks()
+  sessionStorage.clear()
   vi.stubGlobal('fetch', fetchMock)
-  // ThreadList 真接读口默认桩（FE-04）：初载返回 MOCK_RUNS 夹具——页面级零真实网络
-  vi.mocked(listRunsV2).mockResolvedValue(MOCK_RUNS)
-  vi.mocked(getRunV2).mockResolvedValue({
-    status: 'completed', steps: [], manifest_digest: null, pending_ask: null
-  })
+  // ThreadList 真接读口默认桩（FE-04）：初载返回夹具行——页面级零真实网络
+  vi.mocked(listRunsV2).mockResolvedValue(FIXTURE_RUNS)
+  vi.mocked(getRunV2).mockResolvedValue(RUN_VIEW)
+  vi.mocked(postAskV2).mockResolvedValue({ lastEventId: '' })
+  vi.mocked(postResumeV2).mockResolvedValue({ lastEventId: '' })
 })
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
 })
+
+const FULL = FIXTURE_TURNS.find(t => t.id === 't-full').turn
+const LIVE = FIXTURE_TURNS.find(t => t.id === 't-live').turn
+const SPLIT = FIXTURE_TURNS.find(t => t.id === 't-split').turn
+const LEGACY = FIXTURE_TURNS.find(t => t.id === 't-legacy').turn
 
 /** 容器内若干 testid 的 DOM 出现序（断言链条顺序用）。 */
 function orderOf(scope, testids) {
@@ -67,49 +79,141 @@ function orderOf(scope, testids) {
     .map(x => x.id)
 }
 
-describe('A1V2R · 串行链条（完整轮）', () => {
-  it('链条顺序：问句块 → 流水线块 → 回答块 → 正文 → 血缘卡 → 追加面 → 小字行', () => {
+/** 发一问（填输入＋点发送），返回该发的 postAskV2 入参与 handlers 桩。 */
+async function sendAsk(question) {
+  const before = vi.mocked(postAskV2).mock.calls.length
+  const input = screen.getByPlaceholderText(/Enter 发送/)
+  fireEvent.change(input, { target: { value: question } })
+  fireEvent.click(screen.getByRole('button', { name: /发送/ }))
+  await waitFor(() => expect(vi.mocked(postAskV2).mock.calls.length).toBe(before + 1))
+  const [body, handlers] = vi.mocked(postAskV2).mock.calls.at(-1)
+  return { body, handlers }
+}
+
+/** 一轮收口腿（session→正文→done＋onDone）——喂给 sendAsk 返回的 handlers。 */
+function finishLeg(handlers, { runId, answer = '答案正文。', question = '' }) {
+  act(() => {
+    handlers.onFrame({ id: '-1', event: 'session', data: { run_id: runId, resume: false } })
+    handlers.onFrame({ id: 0, event: 'text', data: { content: question || answer } })
+    handlers.onFrame({ id: 1, event: 'done', data: { run_id: runId } })
+    handlers.onDone()
+  })
+}
+
+describe('A1V2R · 真流发送（FE-05——specs「验收测试」表第 17 行 chain_order）', () => {
+  it('chain_order：问句块→流水线块（running 展开）→首个正文帧后流水线收起＋正文→收口后 notice-alerts→正文→血缘→追加面→小字', async () => {
     render(<A1V2R />)
-    const round = screen.getByTestId('round-t-full')
+    expect(screen.getByTestId('flow-empty')).toBeTruthy() // 空态：无轮不出链条
+
+    const { body, handlers } = await sendAsk('今年各井的日产液量按天列出来')
+    expect(body).toEqual({ question: '今年各井的日产液量按天列出来' }) // 首问不带 followupRunId
     // 整轮块序：问句块 → 流水线块 → 回答块
-    expect(orderOf(round, ['block-question', 'pipeline-block', 'turn-t-full']))
-      .toEqual(['block-question', 'pipeline-block', 'turn-t-full'])
-    // 回答块内节点序：A 级 notice Alert → 正文 → 血缘卡 → 追加面 → 核验/档案小字
-    expect(orderOf(screen.getByTestId('turn-t-full'),
+    expect(orderOf(screen.getByTestId('round-ask-1'), ['block-question', 'pipeline-block', 'turn-ask-1']))
+      .toEqual(['block-question', 'pipeline-block', 'turn-ask-1'])
+
+    // 运行中（真机帧：session→理解→步→工具→材料）：流水线默认展开，回答块＝占位
+    const firstText = FULL_FRAMES.findIndex(f => f.event === 'text' && f.data?.kind !== 'understanding')
+    act(() => { FULL_FRAMES.slice(0, firstText).forEach(f => handlers.onFrame(f)) })
+    const round = () => screen.getByTestId('round-ask-1')
+    expect(round().querySelector('[data-testid="pipeline-body"]')).toBeTruthy() // running＝展开
+    expect(within(round()).getByTestId('answer-placeholder').textContent).toBe('正在作答…')
+
+    // 首个正文帧到达＝流水线让位（自动收起）＋正文出现
+    act(() => { handlers.onFrame(FULL_FRAMES[firstText]) })
+    expect(round().querySelector('[data-testid="pipeline-body"]')).toBeNull()
+    expect(within(round()).getByTestId('answer-view')).toBeTruthy()
+
+    // 收口（余下全帧＋done）：回答块内节点序＝A 级 notice Alert → 正文 → 血缘卡 → 追加面 → 小字
+    act(() => {
+      FULL_FRAMES.slice(firstText + 1).forEach(f => handlers.onFrame(f))
+      handlers.onDone()
+    })
+    expect(orderOf(within(round()).getByTestId('turn-ask-1'),
       ['notice-alerts', 'answer-view', 'lineage-card', 'supplement-blocks', 'run-meta-line']))
       .toEqual(['notice-alerts', 'answer-view', 'lineage-card', 'supplement-blocks', 'run-meta-line'])
+    expect(within(round()).getByTestId('run-meta-line').textContent).toContain('本地计时') // E5 本地计时标注
+    expect(fetchMock).not.toHaveBeenCalled() // 读口与流全在 chatV2 桩面——raw fetch 零调用
   })
 
-  it('完整轮（done）：流水线默认收起，摘要行在位；点开＝事件流全量可回看', () => {
+  it('追问：前轮已收口后发送带 followupRunId；流内 error 帧落 errorFrame 灰条（不静默）', async () => {
     render(<A1V2R />)
-    expect(screen.getAllByTestId('pipeline-body')).toHaveLength(1) // 只有运行中轮默认展开
-    const fullRound = screen.getByTestId('round-t-full')
-    expect(fullRound.querySelector('[data-testid="pipeline-body"]')).toBeNull()
-    const bar = fullRound.querySelector('[data-testid="pipeline-bar"]')
+    const first = await sendAsk('一轮问句')
+    finishLeg(first.handlers, { runId: 'run-one' })
+    expect(await screen.findByTestId('followup-hint')).toBeTruthy() // 已收口轮＝追问锚（输入区提示）
+
+    const second = await sendAsk('二轮追问')
+    expect(second.body).toEqual({ question: '二轮追问', followupRunId: 'run-one' })
+    // 流内 error 帧（chat.js 保留帧先过 onFrame，onError 只清键）→ errorFrame 灰条
+    act(() => {
+      second.handlers.onFrame({ id: '-1', event: 'session', data: { run_id: 'run-two', resume: false } })
+      second.handlers.onFrame({ id: 9, event: 'error', data: { code: 'engine_failed', message: '流内异常' } })
+      second.handlers.onError({ code: 'engine_failed', message: '流内异常' })
+    })
+    expect(within(screen.getByTestId('round-ask-2')).getByTestId('error-frame-alert').textContent)
+      .toContain('流内异常')
+  })
+
+  it('传输断＝closed=transport：R1 键收口清除、不落 errorFrame、轮按收口小字渲染', async () => {
+    render(<A1V2R />)
+    const { handlers } = await sendAsk('断线问句')
+    act(() => {
+      handlers.onFrame({ id: '-1', event: 'session', data: { run_id: 'run-drop', resume: false } })
+      handlers.onFrame({ id: 1, event: 'step', data: { step: 'decision', seq: 1, title: '模型调用：decision' } })
+    })
+    expect(JSON.parse(sessionStorage.getItem(RUNNING_RUN_KEY))?.runId).toBe('run-drop') // R1 受理写键
+    act(() => { handlers.onTransportError(new Error('connection reset')) })
+    expect(sessionStorage.getItem(RUNNING_RUN_KEY)).toBeNull() // 收口清键
+    const round = screen.getByTestId('round-ask-1')
+    expect(round.querySelector('[data-testid="error-frame-alert"]')).toBeNull() // 传输断≠闭环 error 帧
+    expect(round.querySelector('[data-testid="answer-placeholder"]')).toBeNull() // 已收口（不再「正在作答」）
+    expect(round.querySelector('[data-testid="run-meta-line"]')).toBeTruthy()
+  })
+
+  it('流开前 409（追问前轮未收口）→ 输入区 Alert 透传 message＋该轮落 errorFrame（不静默）', async () => {
+    render(<A1V2R />)
+    const first = await sendAsk('一轮问句')
+    finishLeg(first.handlers, { runId: 'run-one' })
+    await screen.findByTestId('followup-hint')
+
+    vi.mocked(postAskV2).mockRejectedValueOnce(new ApiError(
+      409, { code: 'run_not_completed', message: '前轮未收口，不可追问' }, '前轮未收口，不可追问'
+    ))
+    const second = await sendAsk('追问被拒')
+    expect(second.body).toEqual({ question: '追问被拒', followupRunId: 'run-one' })
+    const alert = await screen.findByTestId('ask-error-alert')
+    expect(alert.textContent).toContain('前轮未收口，不可追问')
+    expect(within(screen.getByTestId('round-ask-2')).getByTestId('error-frame-alert').textContent)
+      .toContain('前轮未收口，不可追问')
+  })
+})
+
+describe('A1V2R · 轮渲染（夹具轮——链条节点与空态纪律）', () => {
+  it('完整轮：流水线默认收起＋摘要行计数在位；点开＝事件流全量可回看', () => {
+    render(<TurnChain id="t-full" turn={FULL} />)
+    const round = screen.getByTestId('round-t-full')
+    expect(round.querySelector('[data-testid="pipeline-body"]')).toBeNull()
+    const bar = round.querySelector('[data-testid="pipeline-bar"]')
     expect(bar.textContent).toContain('执行完成')
     expect(bar.textContent).toContain('12 步')
     expect(bar.textContent).toContain('51 份材料')
     fireEvent.click(bar)
-    expect(fullRound.querySelectorAll('[data-testid^="ev-step-"]')).toHaveLength(12)
-    expect(fullRound.querySelector('[data-testid="ev-citation-51"]')).toBeTruthy()
+    expect(round.querySelectorAll('[data-testid^="ev-step-"]')).toHaveLength(12)
+    expect(round.querySelector('[data-testid="ev-citation-51"]')).toBeTruthy()
   })
 
   it('A 级 notice 在回答块顶部；B/C 级不在回答块里（只在流水线）', () => {
-    render(<A1V2R />)
+    render(<TurnChain id="t-full" turn={FULL} />)
     const answerBlock = screen.getByTestId('turn-t-full')
     expect(within(answerBlock).getByTestId('notice-alerts').textContent)
       .toContain('这次回答只用到检索到的 24/37 条材料')
     expect(answerBlock.textContent).not.toContain('window_note') // B 级不在回答块
     expect(answerBlock.textContent).not.toContain('unsupported_claim') // C 级不在回答块
   })
-})
 
-describe('A1V2R · 运行中轮（流水线展开态）', () => {
-  it('流水线默认展开＝流式事件追加；回答块＝「正在作答…」占位（无正文、无核验小字）', () => {
-    render(<A1V2R />)
+  it('运行中轮：流水线默认展开＝流式事件追加；回答块＝「正在作答…」占位（无正文、无核验小字）', () => {
+    render(<TurnChain id="t-live" turn={LIVE} />)
     const round = screen.getByTestId('round-t-live')
     const pipeline = round.querySelector('[data-testid="pipeline"]')
-    expect(pipeline).toBeTruthy()
     expect(within(pipeline).getByTestId('pipeline-body')).toBeTruthy() // 展开态
     expect(within(pipeline).getByTestId('ev-understanding').textContent).toContain('💭 理解为：')
     expect(within(pipeline).getByTestId('ev-materials').textContent).toContain('16 份材料')
@@ -120,99 +224,33 @@ describe('A1V2R · 运行中轮（流水线展开态）', () => {
     expect(within(answerBlock).queryByTestId('answer-view')).toBeNull()
     expect(within(answerBlock).queryByTestId('run-meta-line')).toBeNull() // 未收口＝无核验/档案小字
   })
-})
 
-describe('A1V2R · 其余三轮形态', () => {
-  it('四轮都在位；分列轮长 split 限高；旧版轮无流水线＋降级说明；全程零请求', () => {
-    render(<A1V2R />)
-    for (const id of ['t-live', 't-full', 't-split', 't-legacy']) {
-      expect(screen.getByTestId(`turn-${id}`)).toBeTruthy()
-    }
+  it('分列轮长 split 限高；旧版降级轮无流水线＋降级灰字；旧版轮 [n] 是死文本', () => {
+    render(<>
+      <TurnChain id="t-split" turn={SPLIT} />
+      <TurnChain id="t-legacy" turn={LEGACY} />
+    </>)
     const split = within(screen.getByTestId('turn-t-split'))
     fireEvent.click(split.getByText('各来源说法不一 · 点开对照'))
     expect(split.getAllByText(/展开看全文/).length).toBeGreaterThan(0) // 长条限高
 
     const legacy = screen.getByTestId('turn-t-legacy')
     expect(legacy.parentElement.querySelectorAll('[data-testid="pipeline"]')).toHaveLength(0) // 无流水线块
-    expect(within(legacy).getByTestId('legacy-note').textContent).toContain('本轮为旧版记录，无引用/口径明细')
-    expect(fetchMock).not.toHaveBeenCalled()
-  })
-
-  it('每条答案正文都渲染（旧版轮含内嵌旧式「引用：」块文本——原样，不解析）', () => {
-    render(<A1V2R />)
-    expect(screen.getAllByTestId('answer-view')).toHaveLength(3) // 运行中轮无正文
-    expect(screen.getByText(/引用：/)).toBeTruthy()
-  })
-
-  it('旧版轮 [n] 是死文本（无锚点、无悬停卡——旧轮无引用数据可查）', () => {
-    render(<A1V2R />)
-    const legacy = screen.getByTestId('turn-t-legacy')
-    expect(legacy.querySelector('[data-cite]')).toBeNull()
+    expect(within(legacy).getByTestId('legacy-note').textContent)
+      .toContain('本轮为旧版记录，无引用/口径明细')
+    expect(legacy.querySelector('[data-cite]')).toBeNull() // 旧轮无引用数据——[n] 不成锚点
     expect(legacy.textContent).toContain('「躺井」是作业区口语')
     expect(legacy.textContent).toContain('[1]')
   })
-})
 
-describe('A1V2R · 左侧历史对话（真接 ThreadList——FE-04）', () => {
-  it('左栏＝ThreadList 真接：初始拉 20 条、搜索框在位、加载入口在位；点行＝高亮切换＋中栏切链', async () => {
-    render(<A1V2R />)
-    const list = screen.getByTestId('thread-list')
-    await within(list).findByTestId(`thread-row-${MOCK_RUNS[0].run_id}`)
-    expect(within(list).getAllByTestId(/^thread-row-/)).toHaveLength(20)
-    expect(within(list).getByPlaceholderText('搜索对话')).toBeTruthy()
-    expect(within(list).getByTestId('load-more')).toBeTruthy()
-    expect(vi.mocked(listRunsV2)).toHaveBeenCalledWith(20) // 真接读口：初始 limit=20
-    // 点行＝高亮切换（真接后无预选中——选中态由点击驱动）＋中栏切该链
-    expect(within(list).getByTestId(`thread-row-${MOCK_RUNS[0].run_id}`).dataset.selected).toBe('false')
-    fireEvent.click(within(list).getByTestId(`thread-row-${MOCK_RUNS[3].run_id}`))
-    expect(within(list).getByTestId(`thread-row-${MOCK_RUNS[3].run_id}`).dataset.selected).toBe('true')
-    expect(within(list).getByTestId(`thread-row-${MOCK_RUNS[0].run_id}`).dataset.selected).toBe('false')
-    await screen.findByTestId(`round-${MOCK_RUNS[3].run_id}`) // 中栏切链（选中行拉链——单轮链）
-    expect(fetchMock).not.toHaveBeenCalled() // 读口走 chatV2 桩——raw fetch 层零调用
-  })
-
-  it('左栏搜索＝前端过滤（搜索期零新增请求——listRunsV2 调用次数不变）', async () => {
-    render(<A1V2R />)
-    await screen.findByTestId(`thread-row-${MOCK_RUNS[0].run_id}`)
-    fireEvent.change(screen.getByPlaceholderText('搜索对话'), { target: { value: '含水率' } })
-    const hit = MOCK_RUNS.slice(0, 20).filter(r => r.question.includes('含水率'))
-    expect(screen.getAllByTestId(/^thread-row-/)).toHaveLength(hit.length)
-    expect(vi.mocked(listRunsV2)).toHaveBeenCalledTimes(1) // 只有初载一次
-    expect(fetchMock).not.toHaveBeenCalled()
-  })
-})
-
-describe('A1V2R · 右栏联动', () => {
-  it('点正文 [n] ＝右栏切到该轮并定位（「已定位」＋该条材料原文）', () => {
-    render(<A1V2R />)
-    const cite = screen.getByTestId('turn-t-full').querySelector('[data-cite="51"]')
-    expect(cite).toBeTruthy()
-    fireEvent.click(cite)
-    const item = screen.getByTestId('cite-item-51')
-    expect(item.textContent).toContain('已定位')
-    expect(item.textContent).toContain('日产液量（方）')
-  })
-
-  it('点分列轮正文 [n] ＝右栏切到该轮（默认完整轮 2 处来源 → 分列轮 5 处来源）', () => {
-    render(<A1V2R />)
-    expect(screen.getByText('共 51 支引用 · 来自 2 处来源')).toBeTruthy()
-    const cite = screen.getByTestId('turn-t-split').querySelector('[data-cite="6"]')
-    expect(cite).toBeTruthy()
-    fireEvent.click(cite)
-    expect(screen.getByText('共 16 支引用 · 来自 5 处来源')).toBeTruthy()
-    expect(screen.getByTestId('cite-item-6').textContent).toContain('已定位')
-  })
-
-  it('回答块不再有「引用与口径」跳转入口（Owner 反馈 1：整条删掉）', () => {
-    render(<A1V2R />)
-    expect(screen.queryByRole('button', { name: '引用与口径' })).toBeNull()
-    expect(screen.queryByText('引用与口径', { selector: 'button' })).toBeNull()
-  })
-
-  it('右栏决策树入口在位（mock 点开说明 Modal——真树接线在后）', () => {
-    render(<A1V2R />)
-    fireEvent.click(screen.getByRole('button', { name: /决策树/ }))
-    expect(screen.getByText('决策树（mock 占位）')).toBeTruthy()
+  it('答案正文面：三条有正文的轮都渲染（旧版轮内嵌旧式「引用：」块——原样，不解析）', () => {
+    render(<>
+      <TurnChain id="t-full" turn={FULL} />
+      <TurnChain id="t-split" turn={SPLIT} />
+      <TurnChain id="t-legacy" turn={LEGACY} />
+    </>)
+    expect(screen.getAllByTestId('answer-view')).toHaveLength(3)
+    expect(screen.getByText(/引用：/)).toBeTruthy()
   })
 })
 
@@ -280,8 +318,89 @@ describe('A1V2R · 三场景归一（H5 零分支——specs「验收测试」�
   })
 })
 
+describe('A1V2R · 左侧历史对话（真接 ThreadList——FE-04）', () => {
+  it('左栏＝ThreadList 真接：初始拉 20 条、搜索框在位、加载入口在位；点行＝高亮切换＋中栏切链', async () => {
+    render(<A1V2R />)
+    const list = screen.getByTestId('thread-list')
+    await within(list).findByTestId(`thread-row-${FIXTURE_RUNS[0].run_id}`)
+    expect(within(list).getAllByTestId(/^thread-row-/)).toHaveLength(20)
+    expect(within(list).getByPlaceholderText('搜索对话')).toBeTruthy()
+    expect(within(list).getByTestId('load-more')).toBeTruthy()
+    expect(vi.mocked(listRunsV2)).toHaveBeenCalledWith(20) // 真接读口：初始 limit=20
+    // 点行＝高亮切换（真接后无预选中——选中态由点击驱动）＋中栏切该链
+    expect(within(list).getByTestId(`thread-row-${FIXTURE_RUNS[0].run_id}`).dataset.selected).toBe('false')
+    fireEvent.click(within(list).getByTestId(`thread-row-${FIXTURE_RUNS[3].run_id}`))
+    expect(within(list).getByTestId(`thread-row-${FIXTURE_RUNS[3].run_id}`).dataset.selected).toBe('true')
+    expect(within(list).getByTestId(`thread-row-${FIXTURE_RUNS[0].run_id}`).dataset.selected).toBe('false')
+    await screen.findByTestId(`round-${FIXTURE_RUNS[3].run_id}`) // 中栏切链（选中行拉链——单轮链）
+    expect(fetchMock).not.toHaveBeenCalled() // 读口走 chatV2 桩——raw fetch 层零调用
+  })
+
+  it('左栏搜索＝前端过滤（搜索期零新增请求——listRunsV2 调用次数不变）', async () => {
+    render(<A1V2R />)
+    await screen.findByTestId(`thread-row-${FIXTURE_RUNS[0].run_id}`)
+    fireEvent.change(screen.getByPlaceholderText('搜索对话'), { target: { value: '含水率' } })
+    const hit = FIXTURE_RUNS.slice(0, 20).filter(r => r.question.includes('含水率'))
+    expect(screen.getAllByTestId(/^thread-row-/)).toHaveLength(hit.length)
+    expect(vi.mocked(listRunsV2)).toHaveBeenCalledTimes(1) // 只有初载一次
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('A1V2R · 右栏联动', () => {
+  it('缺省＝最新轮；点正文 [n] ＝右栏切到该轮并定位（「已定位」＋该条材料原文）', async () => {
+    render(<A1V2R />)
+    const first = await sendAsk('一轮问句')
+    act(() => {
+      first.handlers.onFrame({ id: '-1', event: 'session', data: { run_id: 'run-a', resume: false } })
+      first.handlers.onFrame({ id: 0, event: 'text', data: { content: 'N-01 2025-09-01 日产油量 21.16 吨[1]。' } })
+      first.handlers.onFrame({ id: 1, event: 'observation', data: { index: 1, source: '源A', trust: 'db', content: 'N-01 2025-09-01 日产油量 21.16 吨。' } })
+      first.handlers.onFrame({ id: 2, event: 'citation', data: { index: 1, source: '源A', source_id: 'f51', trust: 'db' } })
+      first.handlers.onFrame({ id: 3, event: 'done', data: { run_id: 'run-a' } })
+      first.handlers.onDone()
+    })
+    const second = await sendAsk('二轮问句')
+    act(() => {
+      second.handlers.onFrame({ id: '-1', event: 'session', data: { run_id: 'run-b', resume: false } })
+      second.handlers.onFrame({ id: 0, event: 'text', data: { content: 'N-01 2025-09-02 日产油量 19.8 吨[2]。' } })
+      second.handlers.onFrame({ id: 1, event: 'observation', data: { index: 2, source: '源B', trust: 'db', content: 'N-01 2025-09-02 日产油量 19.8 吨。' } })
+      second.handlers.onFrame({ id: 2, event: 'citation', data: { index: 2, source: '源B', source_id: 'f52', trust: 'db' } })
+      second.handlers.onFrame({ id: 3, event: 'done', data: { run_id: 'run-b' } })
+      second.handlers.onDone()
+    })
+    expect(screen.getByTestId('citation-panel').textContent).toContain('源B') // 缺省＝最新轮
+    // 点一轮正文 [n]：面板切到该轮＋该条「已定位」
+    const cite = screen.getByTestId('turn-ask-1').querySelector('[data-cite="1"]')
+    expect(cite).toBeTruthy()
+    fireEvent.click(cite)
+    const panel = screen.getByTestId('citation-panel')
+    expect(panel.textContent).toContain('源A')
+    expect(screen.getByTestId('cite-item-1').textContent).toContain('已定位')
+    expect(screen.getByTestId('cite-item-1').textContent).toContain('N-01 2025-09-01 日产油量 21.16 吨。')
+  })
+
+  it('整轮无引用＝面板空态「本回合无引用」（不虚构）', async () => {
+    render(<A1V2R />)
+    const { handlers } = await sendAsk('无引用问句')
+    finishLeg(handlers, { runId: 'run-none', answer: '本回答没有引用任何材料。' })
+    expect(await screen.findByText('本回合无引用。')).toBeTruthy()
+  })
+
+  it('回答块不再有「引用与口径」跳转入口（Owner 反馈 1：整条删掉）', () => {
+    render(<A1V2R />)
+    expect(screen.queryByRole('button', { name: '引用与口径' })).toBeNull()
+    expect(screen.queryByText('引用与口径', { selector: 'button' })).toBeNull()
+  })
+
+  it('右栏决策树入口在位（占位 Modal——真树本体接回在后续版本）', () => {
+    render(<A1V2R />)
+    fireEvent.click(screen.getByRole('button', { name: /决策树/ }))
+    expect(screen.getByText('决策树（占位）')).toBeTruthy()
+  })
+})
+
 describe('A1V2R · 选中拉链（FE-04 L3——specs「验收测试」表第 16 行）', () => {
-  /** 窗口内造链（票面伪代码第 3 节：root＋第 2 轮 followup，followup_of 逐跳指向）＋无关单轮；
+  /** 窗口内造链（root＋第 2 轮 followup，followup_of 逐跳指向）＋无关单轮；
    *  listRunsV2 桩按 created_at 降序回窗（后端排序语义）。root＝旧版行（supplements=null→
    *  legacy 灰字）；followup 轮带 lineage 块——右栏默认联动链尾轮，以此分辨面板切到位。 */
   const CHAIN_WINDOW = [
@@ -312,7 +431,8 @@ describe('A1V2R · 选中拉链（FE-04 L3——specs「验收测试」表第 16
     await screen.findByTestId('round-run-root')
     expect(screen.getByTestId('round-run-next')).toBeTruthy()
     expect(screen.queryByTestId('round-run-other')).toBeNull()
-    expect(screen.queryByTestId('round-t-full')).toBeNull() // mock 轮让位（选中链显示链——并存最小实现）
+    expect(screen.getByText('对话 · 2 轮（选中链——created_at 升序）')).toBeTruthy() // 中栏在链视图
+    expect(screen.queryByTestId('flow-empty')).toBeNull() // 链视图下不出本会话流空态
     const order = [...document.querySelectorAll('[data-testid="round-run-root"], [data-testid="round-run-next"]')]
       .map(el => el.dataset.testid)
     expect(order).toEqual(['round-run-root', 'round-run-next'])
@@ -325,11 +445,10 @@ describe('A1V2R · 选中拉链（FE-04 L3——specs「验收测试」表第 16
       .toContain('本轮为旧版记录，无引用/口径明细')
     expect(within(screen.getByTestId('round-run-next')).queryByTestId('legacy-note')).toBeNull()
     // 右栏联动＝当前选中链最后一轮（followup 轮）：链轮无引用帧＋lineage 块落面板
-    // （根轮 legacy 无 supplements→无血缘卡；mock 完整轮有 51 支引用——已切走）
+    // （根轮 legacy 无 supplements→无血缘卡）
     const panel = screen.getByTestId('citation-panel')
     expect(panel.textContent).toContain('本回合无引用')
     expect(within(panel).getByTestId('lineage-card')).toBeTruthy()
-    expect(screen.queryByText('共 51 支引用 · 来自 2 处来源')).toBeNull()
   })
 
   it('select_thread_renders_turns · 404 轮降级：getRunV2 404 → adaptHistoryTurn(r,null)＋errorFrame 灰条，链内他轮照常', async () => {
@@ -347,5 +466,37 @@ describe('A1V2R · 选中拉链（FE-04 L3——specs「验收测试」表第 16
     expect(within(screen.getByTestId('round-run-root')).queryByTestId('error-frame-alert')).toBeNull()
     expect(within(screen.getByTestId('round-run-root')).getByTestId('answer-view')).toBeTruthy()
     expect(vi.mocked(getRunV2)).toHaveBeenCalledTimes(2) // 不重试（404 轮降级不重拉）
+  })
+
+  it('链内挂起轮续答接通（FE-04 遗留）：点选项 → postResumeV2 真通，本腿帧落回该链轮', async () => {
+    vi.mocked(listRunsV2).mockResolvedValue([{
+      run_id: 'run-wait', question: '挂起问句', status: 'waiting_ask', answer: null,
+      followup_of: '', created_at: '2026-10-17 11:00:00', updated_at: '2026-10-17 11:00:30',
+      supplements: []
+    }])
+    vi.mocked(getRunV2).mockResolvedValue({
+      status: 'waiting_ask', steps: [], manifest_digest: null,
+      pending_ask: { kind: 'clarify', prompt: '按哪个口径统计？', options: ['按自然日', '按生产日'], detail: null }
+    })
+    render(<A1V2R />)
+    await screen.findByTestId('thread-row-run-wait')
+    fireEvent.click(screen.getByTestId('thread-row-run-wait'))
+    const card = await screen.findByTestId('suspend-card') // 链轮挂起卡还原（askFrame 驱动）
+    expect(card.textContent).toContain('按哪个口径统计？')
+    fireEvent.click(within(card).getByRole('button', { name: '按自然日' }))
+    await waitFor(() => expect(vi.mocked(postResumeV2)).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(postResumeV2).mock.calls[0][0]).toBe('run-wait')
+    expect(vi.mocked(postResumeV2).mock.calls[0][1]).toEqual({ kind: 'clarify', choice: '按自然日' })
+    // 本腿新帧直进同一 reducer（同 runId 落回该链轮——不另开轮）
+    const handlers = vi.mocked(postResumeV2).mock.calls[0][2]
+    act(() => {
+      handlers.onFrame({ id: '-1', event: 'session', data: { run_id: 'run-wait', resume: true } })
+      handlers.onFrame({ id: 7, event: 'text', data: { content: '按生产日统计的续答正文。' } })
+      handlers.onFrame({ id: 8, event: 'done', data: { run_id: 'run-wait' } })
+      handlers.onDone()
+    })
+    expect(screen.getAllByTestId('round-run-wait')).toHaveLength(1)
+    expect(screen.getByTestId('round-run-wait').textContent).toContain('按生产日统计的续答正文。')
+    expect(vi.mocked(postAskV2)).not.toHaveBeenCalled() // 续答只消费本腿新帧（不重启不重放）
   })
 })

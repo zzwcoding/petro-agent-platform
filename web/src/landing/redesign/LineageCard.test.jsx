@@ -16,7 +16,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 import LineageCard from './LineageCard.jsx'
-import { MOCK_TURNS } from './mockTurns.js'
+import { FIXTURE_TURNS } from './__fixtures__/turns.js'
 
 if (!window.matchMedia) {
   window.matchMedia = query => ({
@@ -31,7 +31,7 @@ if (!window.ResizeObserver) {
 
 afterEach(() => cleanup())
 
-const FULL = MOCK_TURNS.find(t => t.id === 't-full').turn
+const FULL = FIXTURE_TURNS.find(t => t.id === 't-full').turn
 /** 血缘结构化源（对账 D-5）：materials[].payload（FE-02 起 lineage/limit 从此取）。 */
 const FULL_PAYLOAD = FULL.materials.find(m => m.payload?.lineage).payload
 

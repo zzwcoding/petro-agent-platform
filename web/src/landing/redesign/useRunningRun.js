@@ -20,6 +20,11 @@
  * done 帧收口时若本腿出现过 ask 帧＝挂起腿收束（run 非终态）——键保留等续答；
  * 否则（done/error/transport）清除。
  *
+ * 提问腿（FE-05 发送接线）：页面 send() 走同一套腿管道——`pushAskEntry(question)` 推空
+ * TurnShape 新问条，`legHandlers({ entryId, question }, onClosed)` 出流式 handlers 交
+ * postAskV2。提问腿按**条目 id** 归位（session 帧之前 runId 未定——重放/续答腿仍按 runId
+ * 归位）；收口回调 onClosed 供页面记本地计时（时长不入 TurnShape）。
+ *
  * 零真实网络可测：chatV2 四函数经 vi.mock 注入桩（reconnect.test.jsx）。
  */
 import { useCallback, useRef, useState } from 'react'
@@ -59,17 +64,19 @@ export function clearRunningRun() {
 }
 
 /**
- * 会话数组＋重连恢复（新页 A1V2R 的状态核）。
+ * 会话数组＋重连恢复＋提问腿（新页 A1V2R 的状态核）。
  *
- * @param initialEntries 初始会话条目（[{ id, turn, durationS }]——本票为 MOCK_TURNS，
- *                       restore 推入的条目排在其后；FE-05 去 mock）
- * @returns {{ entries, restoreRunning, resumeEntry }}
+ * @param initialEntries 初始会话条目（[{ id, turn, durationS }]；FE-05 起页面常态为空数组
+ *                       ——会话流由提问腿（pushAskEntry）与 restore 推入轮构成）
+ * @returns {{ entries, restoredRef, restoreRunning, resumeEntry, pushAskEntry,
+ *             dispatchEntryFrame, legHandlers }}
  */
-export function useRunningRun(initialEntries) {
+export function useRunningRun(initialEntries = []) {
   const [entries, setEntries] = useState(initialEntries)
   const restoredRef = useRef(false) // mount 一次护栏（页面 useEffect 调 restoreRunning 用）
+  const askSeqRef = useRef(0) // 提问腿条目序号（条目 id 稳定——session 帧前 runId 未定）
 
-  /** 追加会话条目（restore 推入——排在 mock 轮之后）。 */
+  /** 追加会话条目（restore 推入——排在本会话已有轮之后）。 */
   const pushEntry = useCallback(entry => {
     setEntries(prev => [...prev, entry])
   }, [])
@@ -85,7 +92,9 @@ export function useRunningRun(initialEntries) {
     })
   }, [])
 
-  /** 同 runId turn 原位更新（重放/续答帧落回同一轮——不另开新轮）。 */
+  /**
+   * 同 runId turn 原位更新（重放/续答帧落回同一轮——不另开新轮）。
+   */
   const upsertTurn = useCallback((runId, updater) => {
     setEntries(prev => {
       const at = prev.findIndex(e => e.turn?.runId === runId)
@@ -96,27 +105,57 @@ export function useRunningRun(initialEntries) {
     })
   }, [])
 
+  /** 按条目 id 归约单帧（提问腿用——session 帧之前 runId 未定，条目 id 恒稳定）。 */
+  const dispatchEntryFrame = useCallback((entryId, frame) => {
+    setEntries(prev => prev.map(e => (e.id === entryId ? { ...e, turn: reduceV2Frame(e.turn, frame) } : e)))
+  }, [])
+
+  /** 按条目 id 改 turn（branch 用——提问腿收口形同 upsertTurn）。 */
+  const updateEntryTurn = useCallback((entryId, updater) => {
+    setEntries(prev => prev.map(e => (e.id === entryId ? { ...e, turn: updater(e.turn) } : e)))
+  }, [])
+
+  /** 提问腿入口：推入空 TurnShape 新问条（返回条目 id——帧按 id 归位）。 */
+  const pushAskEntry = useCallback(question => {
+    askSeqRef.current += 1
+    const id = `ask-${askSeqRef.current}`
+    setEntries(prev => [...prev, { id, turn: newTurnV2('ask', question), durationS: null }])
+    return id
+  }, [])
+
   /**
    * 同一套流式 handlers（提问/重连重放/续答三腿共一管道——票面「一处接线，不分两路」）。
    * 帧（含保留帧 done/error——先过 onFrame）直进 reducer；session 帧＝受理写键（R1）；
    * 收口清键见头注判据。
+   *
+   * @param target { runId, question } 按 runId 归位（重放/续答腿）｜
+   *               { entryId, question } 按条目 id 归位（提问腿）
+   * @param onClosed 收口回调（done/error/transport 三腿同闸——提问腿记本地计时用；可选）
    */
-  const makeLegHandlers = useCallback((runId, question) => {
+  const legHandlers = useCallback((target, onClosed) => {
+    const question = target.question ?? ''
+    const apply = f => (target.entryId
+      ? dispatchEntryFrame(target.entryId, f)
+      : upsertTurn(target.runId, t => reduceV2Frame(t, f)))
+    const closeTurn = updater => (target.entryId
+      ? updateEntryTurn(target.entryId, updater)
+      : upsertTurn(target.runId, updater))
     let askSeen = false // 本腿挂起帧在场（done 收口清键的判据——挂起腿 done 非终态）
     return {
       onFrame: f => {
         if (f.event === 'session' && f.data?.run_id) persistRunningRun(f.data.run_id, question)
         if (f.event === 'ask') askSeen = true
-        upsertTurn(runId, t => reduceV2Frame(t, f))
+        apply(f)
       },
-      onDone: () => { if (!askSeen) clearRunningRun() },
-      onError: () => { clearRunningRun() }, // error 帧已过 onFrame（errorFrame/closed 落定）
+      onDone: () => { if (!askSeen) clearRunningRun(); onClosed?.() },
+      onError: () => { clearRunningRun(); onClosed?.() }, // error 帧已过 onFrame（errorFrame/closed 落定）
       onTransportError: () => {
-        upsertTurn(runId, t => (t.closed ? t : { ...t, closed: 'transport' }))
+        closeTurn(t => (t.closed ? t : { ...t, closed: 'transport' }))
         clearRunningRun()
+        onClosed?.()
       }
     }
-  }, [upsertTurn])
+  }, [dispatchEntryFrame, updateEntryTurn, upsertTurn])
 
   /**
    * R2/R3/R4 刷新发现与重连（页面 mount 调一次）。
@@ -144,7 +183,7 @@ export function useRunningRun(initialEntries) {
       pushEntry({ id: `t-${runId}`, turn, durationS: null })
       // 不带头（lastEventId ''）＝从头全量重放（chat.py:58-87 语义）；重放帧序与 live
       // 完全一致（transport.md 行为 13）→ 同一 reducer 归一出含 events 的完整形状
-      await postAskV2({ resumeRunId: runId }, makeLegHandlers(runId, question), { lastEventId: '' })
+      await postAskV2({ resumeRunId: runId }, legHandlers({ runId, question }), { lastEventId: '' })
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) {
         // R3：run 不在服务端缓冲——终态灰条，不悬挂不重试（V2 无 replay_truncated 帧）。
@@ -163,7 +202,7 @@ export function useRunningRun(initialEntries) {
         })
       } else { throw e } // 其他错误走页面既有错误出口，不在本 hook 吞
     }
-  }, [makeLegHandlers, putEntry, pushEntry])
+  }, [legHandlers, putEntry, pushEntry])
 
   /** R4 续答：挂起卡选项点击 → postResumeV2 本腿新帧直进同一 reducer（同 runId turn upsert）。 */
   const resumeEntry = useCallback((entry, chosen) => {
@@ -171,7 +210,7 @@ export function useRunningRun(initialEntries) {
     if (!turn?.askFrame || !turn.runId) return
     const body = resumeBodyFromAskFrame(turn.askFrame, chosen)
     upsertTurn(turn.runId, t => ({ ...t, askFrame: null })) // 卡让位——本腿帧接续同轮
-    Promise.resolve(postResumeV2(turn.runId, body, makeLegHandlers(turn.runId, turn.question)))
+    Promise.resolve(postResumeV2(turn.runId, body, legHandlers({ runId: turn.runId, question: turn.question })))
       .catch(err => {
         // 开流前错误（409 非挂起/400 形状等）——errorFrame 灰条如实呈现（不静默吞）
         upsertTurn(turn.runId, t => (t.closed ? t : {
@@ -184,7 +223,7 @@ export function useRunningRun(initialEntries) {
           }
         }))
       })
-  }, [makeLegHandlers, upsertTurn])
+  }, [legHandlers, upsertTurn])
 
-  return { entries, restoredRef, restoreRunning, resumeEntry }
+  return { entries, restoredRef, restoreRunning, resumeEntry, pushAskEntry, dispatchEntryFrame, legHandlers }
 }

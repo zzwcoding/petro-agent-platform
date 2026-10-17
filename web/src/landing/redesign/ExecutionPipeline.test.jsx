@@ -9,7 +9,7 @@
  *   核验／落账引标——事件流＝turn.events（归约器直出到达序，本件不排序）；
  * - 空态：运行中且无事件＝「正在分析问题…」占位；非运行中且无事件＝整块不渲染（旧版降级轮）。
  *
- * 素材：redesign/mockTurns.js（真帧夹具＋归约器输出——FE-02 后条目＝{id, turn, durationS}）。
+ * 素材：__fixtures__/turns.js 的 FIXTURE_TURNS（真帧夹具＋归约器输出——条目＝{id, turn, durationS}）。
  */
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -17,7 +17,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 import { newTurnV2 } from '../a1v2Reducer.js'
 import ExecutionPipeline from './ExecutionPipeline.jsx'
-import { MOCK_TURNS } from './mockTurns.js'
+import { FIXTURE_TURNS } from './__fixtures__/turns.js'
 
 if (!window.matchMedia) {
   window.matchMedia = query => ({
@@ -32,10 +32,10 @@ if (!window.ResizeObserver) {
 
 afterEach(() => cleanup())
 
-const LIVE = MOCK_TURNS.find(e => e.id === 't-live').turn
-const FULL = MOCK_TURNS.find(e => e.id === 't-full').turn
-const SPLIT = MOCK_TURNS.find(e => e.id === 't-split').turn
-const LEGACY = MOCK_TURNS.find(e => e.id === 't-legacy').turn
+const LIVE = FIXTURE_TURNS.find(e => e.id === 't-live').turn
+const FULL = FIXTURE_TURNS.find(e => e.id === 't-full').turn
+const SPLIT = FIXTURE_TURNS.find(e => e.id === 't-split').turn
+const LEGACY = FIXTURE_TURNS.find(e => e.id === 't-legacy').turn
 
 describe('ExecutionPipeline · running 态（默认展开）', () => {
   it('默认展开：摘要行「执行中…」＋事件流向下长（理解/步/工具/材料/提示）＋尾部续流 Spin', () => {

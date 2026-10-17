@@ -9,15 +9,15 @@
  * - 短条不限高（不出多余开关——不造交互）；
  * - 空态（两块都没有）＝整件不渲染。
  *
- * 素材：mockTurns 真帧夹具——EB4-数-明2（attribution 51 条同源）、EB4-A-正3（split 短条借入）、
- * EB3-数-降1（split 长条）；FE-02 后 MOCK_TURNS 条目＝{id, turn, durationS}。
+ * 素材：__fixtures__/turns.js 真帧夹具——EB4-数-明2（attribution 51 条同源）、EB4-A-正3（split 短条借入）、
+ * EB3-数-降1（split 长条）；FE-02 后 FIXTURE_TURNS 条目＝{id, turn, durationS}。
  */
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 import SupplementBlocks from './SupplementBlocks.jsx'
-import { MOCK_TURNS } from './mockTurns.js'
+import { FIXTURE_TURNS } from './__fixtures__/turns.js'
 
 if (!window.matchMedia) {
   window.matchMedia = query => ({
@@ -32,8 +32,8 @@ if (!window.ResizeObserver) {
 
 afterEach(() => cleanup())
 
-const FULL = MOCK_TURNS.find(t => t.id === 't-full').turn
-const SPLIT = MOCK_TURNS.find(t => t.id === 't-split').turn
+const FULL = FIXTURE_TURNS.find(t => t.id === 't-full').turn
+const SPLIT = FIXTURE_TURNS.find(t => t.id === 't-split').turn
 
 describe('SupplementBlocks · 两块默认收起', () => {
   it('两块标签在位、内容默认收起（次要位不抢正文）', () => {
