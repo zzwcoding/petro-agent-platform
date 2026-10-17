@@ -1734,11 +1734,12 @@ async def test_decision_prompt_discover_budget_shows_real_used_count() -> None:
     # 第 3 轮决策：真实已用 4 次（每轮随链尾现披露）
     assert calls[2][-1]["content"] == f"探查预算：全 run ≤{cap} 次，已用 4 次。"
     # 静态合同只留上限、不载计数：整链零「已用 0 次」冻值（模型不再被陈旧读数误导）
-    chain = "\n".join(
-        str(message.get("content", "")) for message in calls[-1]
-    )
+    # 2026-10-17 H 批：规章段随请求走 system 位（不在链上）——判据按**本次请求全域**（规章段＋链）；
+    # 澄清轮请求（`calls[2]`）的规章段＝相位①合同（载「可用探查…」），匹配轮规章段为相位②合同
+    chain = "\n".join(str(message.get("content", "")) for message in calls[2])
     assert "已用 0 次" not in chain
-    assert f"可用探查（discover，全 run ≤{cap} 次）：" in chain
+    assert calls[2][0]["role"] == "system"
+    assert f"可用探查（discover，全 run ≤{cap} 次）：" in chain  # 规章段（system 位）在场
     assert f"探查预算：全 run ≤{cap} 次，已用 2 次。" in chain
     assert f"探查预算：全 run ≤{cap} 次，已用 4 次。" in chain
 
@@ -1783,14 +1784,19 @@ async def test_four_phase_ledger_dump_round1_injection() -> None:
     assert "agg.fct_daily_metering" in package  # 结构卡
     assert any("→" in line for line in package.splitlines())  # 别名映射行
 
-    # 追加式链（pin-22）：第 2 次决策调用＝第 1 次的**前缀延长**（消重不动已有消息）
+    # 追加式链（pin-22）：第 2 次决策调用的**链本体**＝第 1 次的链本体前缀延长（消重不动已有消息）；
+    # 2026-10-17 H 批：请求首条＝本环节规章段（system 承载位，跨环节各异）——按链段比对
     second_call = completer.messages_of("decision")[1]
-    assert second_call[: len(first_call)] == first_call
-    # run 级共享上下文只注一次（2026-10-17 消重批·缺陷一）：台账全量块在整链恰一次——挂澄清轮
+    assert first_call[0]["role"] == "system" and second_call[0]["role"] == "system"
+    assert second_call[1 : len(first_call)] == first_call[1:]
+    # run 级共享上下文只注一次（2026-10-17 消重批·缺陷一）：台账常驻块在**链上**恰一次——挂澄清轮
     # 首入包；匹配包不再重注（末轮 answer 无重复 token）。第二链里台账块**逐字**＝第一链条内
     # 那一块（字节级不变，只改出现次数）。
-    assert sum("台账全量" in message.get("content", "") for message in second_call) == 1
-    assert sum("台账全量" in message.get("content", "") for message in first_call) == 1
+    # 2026-10-17 H 批：请求首条＝本环节规章段（system 位）——计数判据按**链段**（规章段不计入，
+    # 其文本内「台账全量」是合同措辞、不是注入块本体）。
+    first_chain, second_chain = first_call[1:], second_call[1:]
+    assert sum("台账全量" in message.get("content", "") for message in second_chain) == 1
+    assert sum("台账全量" in message.get("content", "") for message in first_chain) == 1
     # 非懒加载：本 run 零 discover，注入照常在场
     run_id = events[-1].data["run_id"]
     assert not [row for row in v2_steps(run_id) if row.step == "discover"]
@@ -2567,10 +2573,11 @@ def test_ontology_guide_provider_loads_section_a_and_v2_phase_contracts() -> Non
 
     §A 装载与占位符填充不变（装载件本体零动）；旧面（§A 拼接旧编排件 `DECISION_CONTRACT`——
     服务对象＝旧 runtime 装配面）随 api 改 V2 装配退役（G9 登记，本层不复制正文、不设第二真源）。
-    改接断言走 V2 出口两件：① 相位合同常量（`appv2.runtimev2.prompts` 六族——澄清/匹配两族）
+    改接断言走 V2 出口三件：① 相位合同常量（`appv2.runtimev2.prompts` 六族——澄清/匹配两族）
     声明**本相位动作闭世界**，旧四动作合同（`discover|execute|ask|finalize`）零命中（消 SK1
     双合同隐患形态 / 相位合同唯一有效）；② §A 文本经 `assemble_decision_package` 的 `guide_text`
-    注入口**逐字**进决策轮首入包（两相位同口）。
+    注入口**逐字**进决策轮首入包**动态段**（两相位同口）；③ **2026-10-17 H 批**：相位规章段
+    （头行＋合同）经 `clarify_system_contract`／`toolmatch_system_contract` 走调用级 system 承载位。
     """
     from appv2.api.ontology_guide import OntologyGuideProvider
     from appv2.runtime.guide import DECISION_CONTRACT
@@ -2580,6 +2587,8 @@ def test_ontology_guide_provider_loads_section_a_and_v2_phase_contracts() -> Non
         PHASE_TOOLMATCH,
         TOOLMATCH_EMISSION_CONTRACT,
         assemble_decision_package,
+        clarify_system_contract,
+        toolmatch_system_contract,
     )
     from appv2.runtimev2.state import RunState
 
@@ -2589,18 +2598,24 @@ def test_ontology_guide_provider_loads_section_a_and_v2_phase_contracts() -> Non
     assert "2026-10-01" in guide  # month_start
     assert DECISION_CONTRACT not in guide  # 旧决策合同不落指南面（G9 退役面）
 
-    # V2 出口①：§A 文本经决策轮首入包注入口逐字进相位包（澄清／匹配两相位同口）
+    # V2 出口①：§A 文本经决策轮首入包注入口逐字进相位包**动态段**（澄清／匹配两相位同口）
     state = RunState(run_id="run-guide", actor="dev-u1", question="各井日产油量")
     clarify = assemble_decision_package(
         state, phase=PHASE_CLARIFY, guide_text=guide, today=date(2026, 10, 8), max_subtasks=4
     )
     assert GUIDE_REFERENCE_HEAD in clarify and "2026-09-08" in clarify  # §A 窗词锚定随注入面
-    # V2 出口②：本相位动作闭世界（V2 动词面 decompose）——旧四动作合同零命中
-    assert "discover|decompose|ask|finalize" in clarify
+    # V2 出口②：本相位动作闭世界（V2 动词面 decompose）——旧四动作合同零命中（规章段）
+    clarify_contract = clarify_system_contract(4)
+    assert "discover|decompose|ask|finalize" in clarify_contract
+    assert "discover|execute|ask|finalize" not in clarify_contract
     assert "discover|execute|ask|finalize" not in clarify
 
     toolmatch = assemble_decision_package(state, phase=PHASE_TOOLMATCH, guide_text=guide)
-    assert TOOLMATCH_EMISSION_CONTRACT in toolmatch  # 匹配相位合同常量逐字入包
+    # V2 出口③（H 批）：匹配相位合同常量逐字在规章段（system 承载位）——与旧四动作零命中
+    toolmatch_contract = toolmatch_system_contract()
+    assert TOOLMATCH_EMISSION_CONTRACT in toolmatch_contract
+    assert "discover|execute|ask|finalize" not in toolmatch_contract
+    assert TOOLMATCH_EMISSION_CONTRACT not in toolmatch
     assert "discover|execute|ask|finalize" not in toolmatch
 
 
@@ -2804,7 +2819,9 @@ async def test_decision_shared_context_injected_once_per_run() -> None:
         assert _count(messages, RESIDENT_BLOCK_END) == 1
 
     first, second = calls[0], calls[1]
-    assert second[: len(first)] == first  # 前链恒为后链前缀（KV 加形纪律不破）
+    # 链本体恒为前缀延伸（2026-10-17 H 批：请求首条＝本环节规章段、跨环节各异——按链段比对）
+    assert first[0]["role"] == "system" and second[0]["role"] == "system"
+    assert second[1 : len(first)] == first[1:]
     # 共享上下文挂第一次决策调用（澄清轮首入包）；匹配轮新增消息里两段**零命中**
     added = "\n".join(str(message.get("content", "")) for message in second[len(first) :])
     assert GUIDE_REFERENCE_HEAD not in added
@@ -3017,3 +3034,99 @@ async def test_four_phase_knowledge_need_full_form_reaches_engine() -> None:
         "anchors": ["渤中34-5油田", "34-5"],
         "family_hints": ["completion"],
     }
+
+
+# ══════════════ H 批（2026-10-17）：system 承载位（角色分家）══════════════════════════
+
+
+async def test_system_slot_request_layout_end_to_end() -> None:
+    """H 批承载位端到端（角色分家）——四相位真跑，逐调用核**请求布局**与**链本体**：
+
+    ① **每环节请求首条＝system 规章段**（本环节规章头在场：读题＝【场景】＋【输出契约】／
+       相位①＝【相位①·业务澄清】／相位②＝【相位②·工具匹配】／作答＝【答案要求】）；
+    ② **链首背景块恒在请求内**（system 位、每链恰一条、逐字＝`SYSTEM_BACKGROUND`）；
+    ③ **链本体 role 只含 user／assistant／system**（system 恰一条＝背景块；环节规章不入链）；
+    ④ **规章件零入链**（相位合同／答案要求全文／起草合同在链上零命中——user 位只留动态段）。
+    """
+    from appv2.runtimev2.prompts import (
+        ANSWER_DRAFT_CONTRACT,
+        ANSWER_REQUIREMENTS,
+        CLARIFY_EMISSION_CONTRACT,
+        CLARIFY_FINALIZE_BOUNDARY,
+        CLARIFY_PHASE_HEAD,
+        SYSTEM_BACKGROUND,
+        TASK_BOOK_OUTPUT_CONTRACT,
+        TOOLMATCH_EMISSION_CONTRACT,
+        TOOLMATCH_PHASE_HEAD,
+    )
+
+    dump = v2_ledger_dump()
+    note = v2_ledger_note(dump, "日产油量")
+    wire_ledger_projection(V2LedgerPort(dump))
+    with freeze("2026-10-08T09:00:00"):
+        runtime, completer = v2_runtime(
+            script={
+                "understand": [V2_UNDERSTAND],
+                "decision": v2_decision_turn(
+                    clarify=v2_decompose(
+                        subtask_id="s1",
+                        question="2025-09-01 到 09-03 各井日产油量",
+                        ledger_notes=note,
+                        chain="data",
+                    ),
+                    toolmatch=v2_matches(
+                        v2_data_match(
+                            subtask_id="s1",
+                            slot="日产油量",
+                            start="2025-09-01",
+                            end="2025-09-03",
+                        )
+                    ),
+                ),
+                "answer": ["s1：N-01 井 2025-09-01 日产油量 21.16 吨 [1]。"],
+            },
+            registry=v2_registry(engine=V2QueueEngine([_rows_outcome()])),
+        )
+        events = await v2_run(runtime, "2025 年 9 月 1 日到 3 日的日产油量")
+    assert events[-1].event == "blackbox" and events[-1].data["status"] == "completed"
+
+    # ① 每调用请求首条＝system 规章段（按 caller＋规章头认相位）
+    heads = {
+        "understand": ("【场景】", TASK_BOOK_OUTPUT_CONTRACT),
+        "clarify": (CLARIFY_PHASE_HEAD, CLARIFY_FINALIZE_BOUNDARY),
+        "toolmatch": (TOOLMATCH_PHASE_HEAD, TOOLMATCH_EMISSION_CONTRACT),
+        "answer": ("【答案要求】", ANSWER_DRAFT_CONTRACT),
+    }
+    seen: set[str] = set()
+    for caller, messages in completer.calls:
+        first = messages[0]
+        assert first["role"] == "system", (caller, first)
+        if caller == "decision":
+            phase = "clarify" if CLARIFY_PHASE_HEAD in str(first["content"]) else "toolmatch"
+        else:
+            phase = str(caller)
+        assert phase in heads, phase
+        for marker in heads[phase]:
+            assert marker in str(first["content"]), (phase, marker)
+        seen.add(phase)
+        # ③ 链本体 role 闭世界（H 批三值）；system 恰一条＝背景块（链首）
+        roles = [str(message["role"]) for message in messages[1:]]
+        assert set(roles) <= {"user", "assistant", "system"}, roles
+        assert roles.count("system") == 1, roles
+        assert messages[1]["content"] == SYSTEM_BACKGROUND  # 链首背景块逐字在场（每链恰一条）
+    assert seen == {"understand", "clarify", "toolmatch", "answer"}  # 四环节都真跑到
+
+    # ④ 规章件零入链（链本体只留动态段）＋ 链上 system 恰一条（背景块）
+    state = V2RunStore().load(events[-1].data["run_id"])
+    chain = "\n".join(str(message["content"]) for message in state.messages)
+    for marker in (
+        CLARIFY_PHASE_HEAD,
+        CLARIFY_EMISSION_CONTRACT.split("\n", 1)[0],
+        TOOLMATCH_PHASE_HEAD,
+        TOOLMATCH_EMISSION_CONTRACT.split("\n", 1)[0],
+        f"【答案要求】{ANSWER_REQUIREMENTS}",
+        ANSWER_DRAFT_CONTRACT,
+    ):
+        assert marker not in chain, marker
+    assert [str(message["role"]) for message in state.messages].count("system") == 1
+    assert state.messages[0] == {"role": "system", "content": SYSTEM_BACKGROUND}

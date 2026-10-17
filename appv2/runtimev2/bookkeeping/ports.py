@@ -110,9 +110,10 @@ def record_step(
 def append_message(state: RunState, *, role: str, content: str) -> None:
     """对话链（`messages`）追加唯一入口（行为 7——钉 `pin-22` 的**写入面**）：只追加、不改写。
 
-    `role` ∈ `user`｜`assistant`（同 `state.messages` 口径，越界抛错）；**不替换、不重排、不删除
-    既有条目**（断言＝追加 N 条后前 N-1 条逐字不变，相邻两次调用互为前缀延伸）。条目形态＝
-    `{role, content}` 恰两键。
+    `role` ∈ `user`｜`assistant`｜`system`（同 `state.messages` 口径，越界抛错）；**不替换、不重排、
+    不删除既有条目**（断言＝追加 N 条后前 N-1 条逐字不变，相邻两次调用互为前缀延伸）。条目形态＝
+    `{role, content}` 恰两键。**`system` 位（2026-10-17 H 批）只承载链首背景块**（每链恰一条；
+    环节规章不入链——走 `call_model` 的 `system` 注入参）。
     """
     if role not in MESSAGE_ROLES:
         raise _reject("对话链角色（role）", role, MESSAGE_ROLES)

@@ -1,8 +1,14 @@
-"""任务书装配（指令区→数据区→输出契约区→题干段）——合同常量＋投影的确定性拼接。
+"""任务书装配（数据区→题干段）＋读题环节规章段（指令区＋输出契约区）——确定性拼接、零判断。
 
 段序真源＝`specs/understanding.md` 行为 1（三区序）＋`specs/prompts.md` 行为 3（题干段置末）；
 数据区真源＝`recon/L2a-装配前半.md`（V1 `assemble_understand_turn` 的环境段迁移）。本模块
 零判断：不判相关性、不判要不要问、不筛内容——只拼字（判断在模型，装配在程序）。
+
+**2026-10-17 H 批（角色分家·system 承载位）**：原一条 user 包（指令区→数据区→输出契约区→
+题干段）**拆两路**——**规章段**（指令区＋输出契约区）＝`understand_system_contract()`，经
+`bookkeeping.call_model(system=…)` **随本次请求走**（前置一条 system 条，不入链）；**动态段**
+（数据区＋题干段）＝`assemble_task_book()`，仍作 user 条入链。文本零改、段内相对序零改，
+**只换承载位**（真源 `specs/prompts.md` 2026-10-17 H 批注：「规章走 system、动态段留 user」）。
 
 入参纪律（`specs/prompts.md` 接口定义节）：只读 `state` 投影字段（`ledger_dump`）；
 **水位＝时间量，只经入参注入**（`watermark`），本块不读时钟（B14 在装配面的形态）。
@@ -144,22 +150,34 @@ def instruction_zone() -> str:
     return _PARA_SEP.join([TASK_BOOK_SCENE, TASK_BOOK_TASK, TASK_BOOK_EXAMPLES, TASK_BOOK_REDLINE])
 
 
+def understand_system_contract() -> str:
+    """读题环节**规章段**（system 承载位——2026-10-17 H 批）：指令区＋输出契约区。
+
+    文本零新写（指令区四常量＋输出契约区逐字，均为既有常量）；与动态段的分工＝
+    **规章＝system、材料与题面＝user**：数据区（活体投影现取）与题干段留 `assemble_task_book`。
+    纯文本进出、确定性（同入参两跑逐字相等）；`state` 零写入。
+    """
+    return _PARA_SEP.join([instruction_zone(), TASK_BOOK_OUTPUT_CONTRACT])
+
+
 def question_segment(question: str) -> str:
     """题干段（置末、紧邻生成点——题干非三区之一）。"""
     return _QUESTION_SEGMENT.format(question=question)
 
 
 def assemble_task_book(state: RunState, *, watermark: str = "") -> str:
-    """任务书装配（指令区→数据区→输出契约区→题干段；段间「\\n\\n」连接）。
+    """任务书**动态段**（数据区→题干段；段间「\\n\\n」连接）——user 承载位（2026-10-17 H 批）。
+
+    规章段（指令区＋输出契约区）经 `understand_system_contract` 走调用级 system 注入参、不入链
+    （真源 `specs/prompts.md` 2026-10-17 H 批注：「规章走 system、动态段留 user」）。本函数只出
+    动态段：数据区＝活体投影现取、题干段置末紧邻生成点（行为 2／3 的段内相对序不变）。
 
     纯函数：只读 `state` 投影与注入的水位文本，零 IO／零时钟／零随机（行为 14）；
     输出恒为 `str`（不抛业务错、不返回 `None`）。
     """
     return _PARA_SEP.join(
         [
-            instruction_zone(),
             render_data_zone(state, watermark=watermark),
-            TASK_BOOK_OUTPUT_CONTRACT,
             question_segment(state.question),
         ]
     )

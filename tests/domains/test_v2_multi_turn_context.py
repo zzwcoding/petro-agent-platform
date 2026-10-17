@@ -838,7 +838,13 @@ async def test_second_decision_context_carries_first_round_history() -> None:
     calls = completer.messages_of("decision")
     assert len(calls) >= 2
     first, second = calls[0], calls[1]
-    assert second[: len(first)] == first  # 前缀延伸（pin-22）
+    # 2026-10-17 H 批（角色分家）：请求首条＝**本环节规章段**（system 承载位）——跨环节前缀必然不同
+    # （澄清规章 → 匹配规章；真源 `specs/prompts.md` H 批注「KV 缓存代价明示接受：跨环节首调用
+    # 前缀重算一次」）；**链本体仍前缀延伸**（pin-22 的只追加面）——按链段比对
+    assert first[0]["role"] == "system" and second[0]["role"] == "system"
+    assert first[0]["content"] != second[0]["content"]  # 两环节规章各异（本环节规章随请求走）
+    first_chain, second_chain = first[1:], second[1:]
+    assert second_chain[: len(first_chain)] == first_chain  # 前缀延伸（pin-22）
     assert any(
         message.get("role") == "assistant" and "question_group" in str(message.get("content", ""))
         for message in second
@@ -880,6 +886,12 @@ async def test_followup_context_carries_prior_qa_history() -> None:
     assert answer1.strip() and answer1.splitlines()[0][:12] in seeded  # 前轮答案终稿在上下文
     chain2 = V2RunStore().load(run2).messages
     assert chain2[: len(chain1)] == chain1  # 整链承接（跨 run 前缀延伸）
+    # 2026-10-17 H 批：链首背景块**每链恰一条**（追问链承前轮链首，**不重挂**）
+    from appv2.runtimev2.prompts import SYSTEM_BACKGROUND
+
+    assert chain1[0] == {"role": "system", "content": SYSTEM_BACKGROUND}
+    assert [str(m["role"]) for m in chain2].count("system") == 1
+    assert chain2[0] == {"role": "system", "content": SYSTEM_BACKGROUND}
 
 
 async def test_gate_refused_line_visible_across_followup() -> None:

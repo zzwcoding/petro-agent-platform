@@ -7,6 +7,11 @@
 
 六族之外新增合同文本＝只许「新增常量入族＋同批改本清单」（规格接口定义节闭世界条）；
 消费方（四业务相位）私设第二合同源＝判失败（V1 病灶 D-L2b-01）。
+
+**2026-10-17 H 批（角色分家·system 承载位）**：新增第七族 `system_background`——成员
+`SYSTEM_BACKGROUND`（链首背景块，逐字稿＝H 批开票 §5）。各相位的**规章段**（读题合同／相位①②
+合同／答案要求等）改走**调用级 system 注入参**（`bookkeeping.call_model(system=…)`）——文本仍是
+本模块这些常量，**只换承载位、不换文本**；user 位只留动态段（材料／题面／锚行／增量条）。
 """
 
 from collections.abc import Mapping
@@ -258,7 +263,23 @@ JARGON_PLAIN_GLOSSARY = (
     "送窗＝用进答案的材料。"
 )
 
+# ── 族⑦系统背景块（**2026-10-17 H 批新增**——唯一新文本，逐字稿载体＝
+# `docs/runtime-refactor/proposals/H批-开票-system承载位.md` §5；文本逐字照抄、零改写）──
+# 承载位＝**链首 system 条恰一条**（每 run 恰一次，挂 understand 入口首次追加前——
+# `understanding.assembly.ensure_task_book`）；作用＝补「本系统作用／原理／机制／目的」的背景交代
+# （Owner 2026-10-17 令：提示词里从无此交代）。消费方经包根引用、零字面副本。
+SYSTEM_BACKGROUND = (
+    "【系统背景】你是\"问一问\"——油田生产数据问答助手。你的作用：帮业务人员用一句话"
+    "查到平台里的生产数据和报告结论，省去他们自己翻系统。你的原理：你不直接连库乱查——"
+    "每个问题经过读题→澄清→选链→检索/查数→起草→核验六道工序，每步都有专门程序和规则"
+    "约束，你只做规定环节的事。你的目的：每条答案有据，不确定就说不确定，宁可说没查到也"
+    "不编。平台数据分两类：数据库实时汇总（权威）、报告库各篇报告（人写口径，性质不同）。"
+)
+
+
 # ── 六族名单闭世界（族名→成员常量名；「族集合与接口清单相等」判据＝验收行 1）────────
+# **2026-10-17 H 批**：加第七族 `system_background`（成员＝`SYSTEM_BACKGROUND`）——「六族」口径
+# 随之改述为「合同常量族（含 H 批新增背景族）」，真源 `specs/prompts.md` 接口定义节同批注。
 CONTRACT_CONSTANT_FAMILIES: Mapping[str, tuple[str, ...]] = {
     "task_book_skeleton": (
         "TASK_BOOK_SCENE",
@@ -272,4 +293,5 @@ CONTRACT_CONSTANT_FAMILIES: Mapping[str, tuple[str, ...]] = {
     "summary": ("SUMMARY_CONTRACT",),
     "answer_draft": ("ANSWER_DRAFT_CONTRACT",),
     "answer_requirements": ("ANSWER_REQUIREMENTS", "JARGON_PLAIN_GLOSSARY"),
+    "system_background": ("SYSTEM_BACKGROUND",),
 }

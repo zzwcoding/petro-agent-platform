@@ -96,11 +96,13 @@ import pytest
 from appv2.runtimev2.gateway_adapter import ScriptedCompleter, set_completer
 from appv2.runtimev2.parsing import Direct, Understanding, parse_understanding, repair_inner_quotes
 from appv2.runtimev2.prompts import (
+    SYSTEM_BACKGROUND,
     TASK_BOOK_EXAMPLES,
     TASK_BOOK_OUTPUT_CONTRACT,
     TASK_BOOK_REDLINE,
     TASK_BOOK_SCENE,
     TASK_BOOK_TASK,
+    understand_system_contract,
 )
 from appv2.runtimev2.state import RunState
 from appv2.runtimev2.transport import EVENT_KINDS, NOTICE_TYPES, EventBus, SseEvent
@@ -135,6 +137,8 @@ _SPEC_INTENT_ANSWER = "answer"
 _SPEC_CALLER = "understand"  # 模型调用归因桶（真源 specs/gateway_adapter.md 行为 5 三桶族）
 # 数据区来源标记（标来源面——真源 specs/understanding.md 行为 2；字面同 prompts 渲染单点）
 _DATA_ZONE_HEAD = "【环境】（以下由系统按当前数据现状动态装配）"
+# 题干段头（prompts 行为 3「题干段置末」的行首标记；字面同 prompts 渲染单点）
+_QUESTION_HEAD = "【待解构的题干】"
 # 机读上报字段名（本块自立的机读面——行 12「step payload 字段」的字段名即此；改名即红）
 _PAYLOAD_PHASE_KEY = "phase"
 _PAYLOAD_EVENT_KEY = "event"
@@ -211,11 +215,18 @@ def _ledger_dump(
 
 
 def _state(**overrides: Any) -> RunState:
+    """读题相位单测夹具——**按生产链形**注入链首背景块（2026-10-17 H 批）。
+
+    生产链首由编排建链时落（`orchestration._initial_state`：背景块 system 条 → 题面 user 条 →
+    本相位任务书）：本夹具同构注入，使相位单测的链形与真机一致（`_task_book_of` 的「链首＝背景块」
+    判据面随之成立）；相位本体不产该条（挂点多在编排，本块零第二挂载点）。
+    """
     values: dict[str, Any] = {
         "run_id": "run-ut-01",
         "question": _QUESTION,
         "actor": "laowang",
         "ledger_dump": _ledger_dump(),
+        "messages": [{"role": "system", "content": SYSTEM_BACKGROUND}],
     }
     values.update(overrides)
     return RunState(**values)
@@ -268,6 +279,21 @@ def _interpret(state: RunState, reply: str, *, watermark: str = "") -> tuple[Any
     return outs[0], bus
 
 
+def _interpret_with_calls(
+    state: RunState, *replies: str, watermark: str = ""
+) -> ScriptedCompleter:
+    """跑读题并回**替身本体**（读 `completer.calls`＝逐次实发请求面——规章段观测面）。"""
+    _outs, _bus, completer = _interpret_all_with_calls(state, *replies, watermark=watermark)
+    return completer
+
+
+def _system_contract_of(completer: ScriptedCompleter, index: int) -> str:
+    """第 `index` 次调用的**规章段**（请求首条 system 条的内容——2026-10-17 H 批承载位判据）。"""
+    _caller, messages = completer.calls[index]
+    assert messages and messages[0]["role"] == "system", messages[:1]
+    return str(messages[0]["content"])
+
+
 async def _frames(bus: EventBus) -> list[SseEvent]:
     """读尽一条已收束总线的帧（先 `close`——未收束会等待新帧）。"""
     bus.close()
@@ -275,9 +301,13 @@ async def _frames(bus: EventBus) -> list[SseEvent]:
 
 
 def _task_book_of(state: RunState) -> str:
-    """链首任务书（本块装配的接入形：首条 user 消息）——黑盒观测面。"""
+    """链首任务书**动态段**（本块装配的接入形：链首背景块之后的首条 user 消息）。
+
+    2026-10-17 H 批：链首＝**背景块 system 条**（每链恰一条），任务书动态段紧随其后。
+    """
     assert state.messages, "链上空——任务书未装配"
-    first = state.messages[0]
+    assert state.messages[0]["role"] == "system", state.messages[0]
+    first = state.messages[1]
     assert first["role"] == "user", first
     return str(first["content"])
 
@@ -824,36 +854,40 @@ def test_route_enum_closed_world() -> None:
 
 
 def test_task_book_three_zones() -> None:
-    """#7｜任务书三区顺序正确、数据区标来源且置于末尾——行为 1／2（Δ 口径见件头「已登记张力」）。
+    """#7｜任务书两段序正确、数据区标来源且置于末——行为 1／2（Δ 口径见件头「已登记张力」）。
 
-    三区（指令区四常量→数据区→输出契约区）相对序唯一；数据区带**来源标记**；数据区为**活体数据
-    面的末位**（其后仅剩两块固定短段：输出契约区与题干段——活体台账词只在数据区出现）。
+    **2026-10-17 H 批（角色分家）**：三区拆两段——**规章段**（指令区四常量→输出契约区）＝system
+    承载位（准入＝调用请求首条 `{"role": "system"}` 的内容）；**动态段**（数据区→题干段）＝user 条
+    入链。判据：规章段内两件相对序唯一；动态段带**来源标记**恰一份、活体台账词只在数据区、题干段
+    为末段。
     """
     state = _state()
-    _interpret(state, _full_reply("用户问日产油量。", ["日产油量"]))
+    completer = _interpret_with_calls(state, _full_reply("用户问日产油量。", ["日产油量"]))
     book = _task_book_of(state)
+    contract = _system_contract_of(completer, 0)
 
     order = [
         TASK_BOOK_SCENE,
         TASK_BOOK_TASK,
         TASK_BOOK_EXAMPLES,
         TASK_BOOK_REDLINE,  # 指令区内四常量相对序：场景→任务→样例→红线
-        _DATA_ZONE_HEAD,
         TASK_BOOK_OUTPUT_CONTRACT,
     ]
-    positions = [book.index(marker) for marker in order]
+    positions = [contract.index(marker) for marker in order]
     assert positions == sorted(positions) and len(set(positions)) == len(positions)
 
-    # 数据区标来源（行为 2 的「标来源」面）：来源标记恰一份
+    # 数据区标来源（行为 2 的「标来源」面）：来源标记恰一份（在动态段）
     assert book.count(_DATA_ZONE_HEAD) == 1
     # 数据区置于（活体数据面的）末尾：活体台账词只在数据区、不在其后的固定短段
     data_zone_start = book.index(_DATA_ZONE_HEAD)
     metric_line = "日产油量｜可出数"
     assert book.index(metric_line) > data_zone_start
-    assert book.index(metric_line) < book.index(TASK_BOOK_OUTPUT_CONTRACT)
+    assert book.index(metric_line) < book.index(_QUESTION_HEAD)
     assert book.rstrip().endswith("现在输出。）")  # 题干段为装配尾段（prompts 行为 3 段序）
-    # 三区之外零活体数据段：装配体里只此一处来源标记
-    assert book.index(TASK_BOOK_REDLINE) < data_zone_start
+    # 三区之外零活体数据段：装配体里只此一处来源标记；规章件不入动态段
+    assert data_zone_start == 0
+    for marker in order:
+        assert marker not in book
 
 
 # ---------- 8 台账投影变化 → 数据区文本随之变 ----------
@@ -913,9 +947,16 @@ def test_assembled_once_raw_not_in_dialogue() -> None:
     assert len(outs) == 2
     book = _task_book_of(state)
     assert sum(1 for m in state.messages if m["content"] == book) == 1  # 每 run 只装配一次
-    assert [m["role"] for m in state.messages] == ["user", "assistant", "assistant"]
+    # 链首＝背景块 system 条恰一条（2026-10-17 H 批：每链恰一条、恒在链首）+ 任务书 + 两应答
+    assert [m["role"] for m in state.messages] == [
+        "system",
+        "user",
+        "assistant",
+        "assistant",
+    ]
+    assert state.messages[0]["content"] == SYSTEM_BACKGROUND
     # 模型原话＝链上留痕（应答追加链尾——agent-loop 行为 2 追加式）
-    assert [m["content"] for m in state.messages[1:]] == [first, second]
+    assert [m["content"] for m in state.messages[2:]] == [first, second]
 
     # 过程档案留痕（行为 9）：模型原话入 `process_notes`、装配标记恰一条
     digests = [entry["digest"] for entry in state.process_notes]
@@ -1166,18 +1207,20 @@ async def test_route_defaults_fail_closed() -> None:
     行为 11 按真源（`walk/05` §七 第 3 条）是**给模型的判断原则、非程序规则**——本件两面落判据：
 
     ① **原则在场**：装配进任务书的指令区例外条款（可能有关／含糊／拿不准 → 完整流程；只有确定
-       无关才直答）与题干段收束句——任务书是模型唯一决策输入，经相位黑盒观测（链首消息）；
+       无关才直答）与题干段收束句——任务书是模型唯一决策输入，经相位黑盒观测（**2026-10-17 H 批：
+       指令区在规章段＝调用请求首条 system 条**＋题干段在链上 user 条）；
     ② **fail-closed 一侧**：拿不准／可能有关／灰区句的直答认领，其应答必带数据／事实断言 → 直答
        结构核验命中 → 程序**确定性退回** `route="full"`（不直答收口）；同一问句模型判 `full` 时走
        完整流程（分派只由 `route` 决定——程序侧零词面判据，不设灰区词表：**行为 4**）。
     """
-    # 案一：原则在模型唯一决策输入（任务书）里在场——黑盒观测面＝链首任务书
+    # 案一：原则在模型唯一决策输入（任务书两段）里在场——规章段（system 请求首条）＋动态段（链上）
     contract_state = _state()
-    _interpret(contract_state, _full_reply("问日产油量。", ["日产油量"]))
+    completer = _interpret_with_calls(contract_state, _full_reply("问日产油量。", ["日产油量"]))
     book = _task_book_of(contract_state)
-    assert TASK_BOOK_TASK in book  # 指令区例外条款整段在场（prompts 单点合同文本）
+    contract = _system_contract_of(completer, 0)
+    assert TASK_BOOK_TASK in contract  # 指令区例外条款整段在场（prompts 单点合同文本）
     for clause in (_FAIL_CLOSED_CLAUSE, _HESITANT_CLAUSE, _NARROW_EXIT_CLAUSE):
-        assert clause in book  # 可能有关／拿不准 → 完整流程；只有确定无关 → 直答
+        assert clause in contract  # 可能有关／拿不准 → 完整流程；只有确定无关 → 直答
     for clause in (_QUESTION_SEGMENT_HEAD, _GREETING_ONLY_CLAUSE):
         assert clause in book  # 题干段收束句同口径（先判相关性）
 
@@ -1328,10 +1371,24 @@ def test_schema_reject_feedback_retry_once() -> None:
     # 调用恰 2 次（上限恰一次）；两次各记一条步（call_model 单点记账，本块不另记步）
     assert [caller for caller, _messages in completer.calls] == [_SPEC_CALLER, _SPEC_CALLER]
     assert len(state.steps) == 2
-    # 链形：任务书 → 首答（原话留痕）→ 回喂载荷（user）→ 次答（assistant）；追加式不重写
-    assert [m["role"] for m in state.messages] == ["user", "assistant", "user", "assistant"]
-    assert state.messages[1]["content"] == _RETRY_BAD
-    assert state.messages[3]["content"] == _RETRY_GOOD
+    # 链形：背景块（system）→ 任务书 → 首答（原话留痕）→ 回喂载荷（user）→ 次答（assistant）；
+    # 追加式不重写（2026-10-17 H 批：链首恒一条背景块）
+    assert [m["role"] for m in state.messages] == [
+        "system",
+        "user",
+        "assistant",
+        "user",
+        "assistant",
+    ]
+    assert state.messages[0]["content"] == SYSTEM_BACKGROUND
+    assert state.messages[2]["content"] == _RETRY_BAD
+    assert state.messages[4]["content"] == _RETRY_GOOD
+    # 两次请求首条＝system 规章段（读题合同），且**不含**已入链的内容（规章随请求、不入链）
+    for index in (0, 1):
+        contract = _system_contract_of(completer, index)
+        assert contract == understand_system_contract()
+        assert TASK_BOOK_SCENE in contract and TASK_BOOK_OUTPUT_CONTRACT in contract
+        assert contract not in [str(m["content"]) for m in state.messages]
     # 过程档案：读题注记×2（两读各一条）＋回喂重试注记×1＋装配标记（pin-26 渲染面）
     assert len(_read_notes(state)) == 2 and len(_retry_notes(state)) == 1
     assert state.dialogue == []  # 回喂载荷入链、不入对话层（过程记录不混层）
@@ -1358,12 +1415,13 @@ def test_schema_reject_twice_converges_to_refusal() -> None:
         assert len(state.steps) == 3
         # 拒因留痕（链上载荷 ＋ 过程档案注记）：回喂载荷在链上（首答之后）
         assert [m["role"] for m in state.messages] == [
+            "system",
             "user",
             "assistant",
             "user",
             "assistant",
         ]
-        assert state.messages[2]["content"].startswith("【拒因】")
+        assert state.messages[3]["content"].startswith("【拒因】")
         assert len(_retry_notes(state)) == 1 and len(_read_notes(state)) == 2
         # 收敛注记（过程档案）＋如实上报照出一份（不因回喂翻倍）；不返回半成品
         assert state.process_notes[-1]["title"] == _CONVERGE_NOTE_TITLE
@@ -1394,7 +1452,8 @@ def test_schema_feedback_three_segment_payload() -> None:
     for raw, reason in cases:
         state = _state()
         _interpret_all_with_calls(state, raw, _RETRY_GOOD, runs=1)
-        feedback = state.messages[2]["content"]
+        # 链＝[背景, 题面, 任务书, 首答, 回喂载荷]（H 批链首背景条）
+        feedback = state.messages[3]["content"]
         segments = feedback.split("\n")
         # 段一【拒因】：具体不合项逐字在场（「哪一条」说清——不空转、不笼统）
         assert segments[0] == f"【拒因】{reason}"
@@ -1426,11 +1485,14 @@ def test_schema_feedback_prefix_extension() -> None:
     second = completer.calls[1][1]
     assert second[: len(first)] == first  # 逐字前缀延伸（真源 KV 纪律）
     assert len(second) == len(first) + 2
-    # 追加两件＝首答原话（assistant）＋回喂载荷（user）；任务书（链首）逐字未动
-    assert second[0] == first[0] and _DATA_ZONE_HEAD in str(second[0]["content"])
+    # 追加两件＝首答原话（assistant）＋回喂载荷（user）；规章段与链首背景条逐字未动
+    assert second[0] == first[0] and second[0]["role"] == "system"
+    assert second[0]["content"] == _system_contract_of(completer, 0)
+    assert second[1]["content"] == SYSTEM_BACKGROUND  # 链首背景块（H 批）
+    assert _DATA_ZONE_HEAD in str(second[2]["content"])  # 任务书动态段（数据区）逐字未动
     assert second[len(first) :] == [
         {"role": "assistant", "content": _RETRY_BAD},
-        {"role": "user", "content": state.messages[2]["content"]},
+        {"role": "user", "content": state.messages[3]["content"]},
     ]
 
 
@@ -1524,6 +1586,8 @@ def test_bus_missing_fails_closed_before_any_side_effect() -> None:
     finally:
         set_completer(previous)
     # 零副作用（抛错在任何写口调用之前）：链／步／过程档案／通知／字段全空
-    assert state.messages == [] and state.steps == []
+    # （夹具自带链首背景块＝生产链形，非本相位写入——故「链」判据＝未增条）
+    assert state.messages == [{"role": "system", "content": SYSTEM_BACKGROUND}]
+    assert state.steps == []
     assert state.process_notes == [] and state.notices == []
     assert state.understanding == "" and state.metric_candidates == []

@@ -14,8 +14,9 @@
   （`specs/gateway_adapter.md` 行为 5「三桶族：理解／决策／作答」）——**本块不引其常量模块**
   （R2：业务相位只经公共层包根、禁深层子模块），故以字面指针落此，落点唯一。
 
-`ROLE_USER` 同款：对话链角色闭世界（`user`｜`assistant`）的真源在 `bookkeeping` 写口
-（`append_message` 自判、越界即抛），本块只作调用面字面。
+`ROLE_USER`／`ROLE_ASSISTANT` 同款：对话链角色闭世界（`user`｜`assistant`｜`system`）的真源在
+`bookkeeping` 写口（`append_message` 自判、越界即抛），本块只作调用面字面——本块**不写** `system`
+条（链首背景块归编排建链点落，2026-10-17 H 批）。
 """
 
 from appv2.runtimev2.state import STEP_DECISION

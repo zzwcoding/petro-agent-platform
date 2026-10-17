@@ -14,9 +14,19 @@
 -04a 落合同常量六族＋`assemble_task_book`＋`assemble_answer_prompt`；-04b 落
 `anchor_line`／决策轮首入包／决策轮增量条／台账常驻块渲染／分解发射样例渲染器
 （`ASSEMBLY_FUNCTIONS` 内其余成员）；-04c 收口元面与边界·保留断言。
+
+**2026-10-17 H 批（角色分家·system 承载位）**：新增四个**规章取件函数**（`ASSEMBLY_FUNCTIONS`
+内）——`understand_system_contract`／`clarify_system_contract`／`toolmatch_system_contract`／
+`answer_system_contract`：各环节的规章段（文本全部引既有常量、零新写）经
+`bookkeeping.call_model(system=…)` 前置进**本次请求**（不入链）；user 位只留动态段。常量族加第七族
+`system_background`（`SYSTEM_BACKGROUND`＝链首背景块逐字稿）。真源＝`specs/prompts.md`
+2026-10-17 H 批注。
 """
 
-from appv2.runtimev2.prompts.answer_round import assemble_answer_prompt
+from appv2.runtimev2.prompts.answer_round import (
+    answer_system_contract,
+    assemble_answer_prompt,
+)
 from appv2.runtimev2.prompts.constants import (
     ANSWER_DRAFT_CONTRACT,
     ANSWER_REQUIREMENTS,
@@ -24,6 +34,7 @@ from appv2.runtimev2.prompts.constants import (
     CONTRACT_CONSTANT_FAMILIES,
     JARGON_PLAIN_GLOSSARY,
     SUMMARY_CONTRACT,
+    SYSTEM_BACKGROUND,
     TASK_BOOK_EXAMPLES,
     TASK_BOOK_OUTPUT_CONTRACT,
     TASK_BOOK_REDLINE,
@@ -45,8 +56,10 @@ from appv2.runtimev2.prompts.decision_round import (
     anchor_line,
     assemble_decision_increment,
     assemble_decision_package,
+    clarify_system_contract,
     render_decompose_example,
     render_ledger_resident_block,
+    toolmatch_system_contract,
 )
 from appv2.runtimev2.prompts.task_book import (
     FAMILY_GLOSS,
@@ -54,6 +67,7 @@ from appv2.runtimev2.prompts.task_book import (
     instruction_zone,
     question_segment,
     render_data_zone,
+    understand_system_contract,
 )
 
 # ── 装配函数族名单闭世界（增删成员须同批对账四消费方规格——`specs/prompts.md` 接口定义节）──
@@ -68,6 +82,11 @@ from appv2.runtimev2.prompts.task_book import (
 #   assemble_decision_increment(state, *, phase, done_text="") -> str
 #   render_ledger_resident_block(state) -> str
 #   render_decompose_example(metrics, *, today) -> str
+#   ── H 批新增（2026-10-17·角色分家）规章取件函数族（system 承载位）──
+#   understand_system_contract() -> str          # 指令区＋输出契约区
+#   clarify_system_contract(max_subtasks) -> str # 相位①头行＋合同＋finalize 边界句
+#   toolmatch_system_contract() -> str           # 相位②头行＋合同
+#   answer_system_contract() -> str              # 动词钉死＋【答案要求】＋白话表＋汇总＋起草合同
 ASSEMBLY_FUNCTIONS: tuple[str, ...] = (
     "assemble_task_book",
     "assemble_answer_prompt",
@@ -76,6 +95,10 @@ ASSEMBLY_FUNCTIONS: tuple[str, ...] = (
     "assemble_decision_increment",
     "render_ledger_resident_block",
     "render_decompose_example",
+    "understand_system_contract",
+    "clarify_system_contract",
+    "toolmatch_system_contract",
+    "answer_system_contract",
 )
 
 __all__ = [
@@ -96,6 +119,7 @@ __all__ = [
     "RESIDENT_BLOCK_BEGIN",
     "RESIDENT_BLOCK_END",
     "SUMMARY_CONTRACT",
+    "SYSTEM_BACKGROUND",
     "TASK_BOOK_EXAMPLES",
     "TASK_BOOK_OUTPUT_CONTRACT",
     "TASK_BOOK_REDLINE",
@@ -104,13 +128,17 @@ __all__ = [
     "TOOLMATCH_EMISSION_CONTRACT",
     "TOOLMATCH_PHASE_HEAD",
     "anchor_line",
+    "answer_system_contract",
     "assemble_answer_prompt",
     "assemble_decision_increment",
     "assemble_decision_package",
     "assemble_task_book",
+    "clarify_system_contract",
     "instruction_zone",
     "question_segment",
     "render_data_zone",
     "render_decompose_example",
     "render_ledger_resident_block",
+    "toolmatch_system_contract",
+    "understand_system_contract",
 ]

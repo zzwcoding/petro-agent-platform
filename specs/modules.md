@@ -362,7 +362,7 @@ class AgentRuntime:
 # ── 共享写口（唯一入口；相位禁直写）────────────────────────
 def record_step(state, *, kind, title, status="ok", payload=None, manifest=None) -> StepRecord: ...  # status 闭世界 ok/failed/refused（由调用方如实给，本块不猜）
 def next_seq(state) -> int: ...
-def append_message(state, *, role, content) -> None: ...     # 对话链（messages）追加（只追加）
+def append_message(state, *, role, content) -> None: ...     # 对话链（messages）追加（只追加；role 闭世界 user/assistant/system——system 只承载链首背景块，2026-10-17 H 批）
 def append_dialogue(state, *, role, content, origin) -> None: ...  # 对话层（dialogue）追加（origin 闭世界）
 def note(state, *, phase, title, digest) -> None: ...        # 过程档案（process_notes）续写（digest 有界）
 def notice(state, *, type, gates=(), content) -> None: ...   # 通知追加（type 闭世界）
@@ -374,7 +374,8 @@ def converge(state, *, elapsed_seconds=None, consecutive_asks=None) -> None: ...
                                          # 两注入参＝转交判定面（seconds／ask_cap 用量不在状态形状内；2026-10-16 裁·流水 61）
 def direct_answer(state, text) -> None: ...                  # 确定性直答标记（免起草免核验的收口旁路）
 # ── 调模型与工具面 ────────────────────────────────────────
-def call_model(state, caller: str, messages) -> str: ...   # 节点侧调模型单点：从 state 取 run_id → 调 gateway_adapter.complete → 向节点只回 content；回执的用量/归因面归本块记账
+def call_model(state, caller: str, messages, *, system=None) -> str: ...   # 节点侧调模型单点：从 state 取 run_id → 调 gateway_adapter.complete → 向节点只回 content；回执的用量/归因面归本块记账
+                                         # `system`＝本环节规章段（2026-10-17 H 批·角色分家）：有值 → 请求首条前置 system 条；不入链／不进检查点／不用即散（承载位＝调用级注入参，不新增 RunState 字段）
 def tool_context(state) -> ToolContext: ...
 def result_projection(result) -> dict: ...
 ```
@@ -404,6 +405,8 @@ def assemble_answer_prompt(state: RunState) -> str: ...
 ```
 
 > **卡级补注（2026-10-15，P-07 联动注）**：台账常驻块交界定界＝**投影取得归 `context`（经 `tools` 公开面装载进 state）；常驻块包裹与逐字转抄渲染归本块**（Manifest 记账与不入史归 context/state 面——真源 `specs/prompts.md` 行为 7／8＋风险 3）。
+
+> **卡级补注（2026-10-17，H 批·角色分家）**：族名单**加第七族 `system_background`**（`SYSTEM_BACKGROUND`＝链首背景块逐字稿）＋**规章取件函数四件**（`understand_system_contract`／`clarify_system_contract`／`toolmatch_system_contract`／`answer_system_contract`）——族成员名单仍以 `specs/prompts.md` 接口定义为准（闭世界）。本块只出文本：规章段的**承载位**（前置进本次请求／链首背景块恰一条）归 `bookkeeping.call_model` 的 `system` 注入参与编排建链点，本块不发起调用、不写链（真源 `specs/prompts.md` 行为 1／3／7／12 的 H 批注）。
 
 ### 依赖
 - 模块: `state`

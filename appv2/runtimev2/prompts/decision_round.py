@@ -42,6 +42,17 @@ prompt 19359 tokens 里 §A 全文与台账全量块各两遍）。**注入与�
 **何时追加增量条整条＝调用方义务**（编排面，`specs/prompts.md` 行为 16）：本模块只供条文本与
 条内自身条件（①仅非首入轮／②仅存在重跑档失败子问题〔`bad_args`／`retryable`〕／
 ③user_hint 非空／④decision_error 非空／⑤调用方传入文本原样在场）。
+
+**2026-10-17 H 批（角色分家·system 承载位）**：决策轮原一条 user 包拆两路——**规章段**（相位头行＋
+相位合同正文＋〔澄清轮〕finalize 交付面边界句）＝`clarify_system_contract`／
+`toolmatch_system_contract`，
+经 `bookkeeping.call_model(system=…)` **随本次请求走**（前置一条 system 条、不入链、回炉轮亦在场）；
+**动态段**（锚行／分解样例／§A 指南段／台账常驻块／问题组 JSON）＝`assemble_decision_package`，
+仍作 user 条入链（相位一次性 `pin-24` 不变）。文本零改、矩阵内相对序零改。
+**共享上下文留链的判据**：§A 与台账常驻块是**run 级一次性**注入（2026-10-17 消重批"F1"）——其
+一次性语义的前提是「链为追加形、模型从链首可见前文」；若改随规章走 per-call system 前缀，
+则后续决策调用（§A 段与常驻块按判定整段缺席）将**再也看不见**这两段（语义净损失 + 每调用重付
+token），故两段**留在 user 链**（与开票 §4② 的取件清单有意不同——见票面「共享上下文」注）。
 """
 
 from __future__ import annotations
@@ -339,6 +350,32 @@ def _clarify_contract(max_subtasks: Any) -> str:
     return CLARIFY_EMISSION_CONTRACT.replace("{max_subtasks}", str(max_subtasks))
 
 
+def clarify_system_contract(max_subtasks: Any) -> str:
+    """澄清环节**规章段**（system 承载位——2026-10-17 H 批）：相位头行＋相位合同正文＋
+    finalize 交付面边界句。
+
+    文本零新写（头行／族②合同／边界句均为既有常量）；`{max_subtasks}` 槽由调用方注入
+    （单点仍在 `_clarify_contract`）。**不入链**——经 `bookkeeping.call_model(system=…)` 随本次
+    请求走（回炉轮亦每轮在场：规章随请求、链只追加首入包，`pin-24` 的链面一次性不变）。
+    """
+    return (
+        CLARIFY_PHASE_HEAD
+        + "\n"
+        + _clarify_contract(max_subtasks)
+        + "\n\n"
+        + CLARIFY_FINALIZE_BOUNDARY
+    )
+
+
+def toolmatch_system_contract() -> str:
+    """工具匹配环节**规章段**（system 承载位——2026-10-17 H 批）：相位头行＋相位合同正文（内含
+    合同内嵌定案样例）。
+
+    文本零新写；不入链——经 `bookkeeping.call_model(system=…)` 随本次请求走。
+    """
+    return TOOLMATCH_PHASE_HEAD + "\n" + TOOLMATCH_EMISSION_CONTRACT
+
+
 def assemble_decision_package(
     state: RunState,
     *,
@@ -348,17 +385,22 @@ def assemble_decision_package(
     max_subtasks: Any = None,
     shared_context: bool = True,
 ) -> str:
-    """决策轮**首入包**装配（行为 7）——相位一次性：回炉轮不重发（pin-24；追加编排归调用方）。
+    """决策轮**首入包动态段**装配（行为 7 的 user 半面——2026-10-17 H 批）——相位一次性：
+    回炉轮不重发（pin-24；追加编排归调用方）。
 
-    构成逐件（澄清轮／工具匹配轮各按其件）：
-    ①题意锚行（首行位，行为 6）＋②相位合同（头行＋正文；澄清轮另含 finalize 交付面边界句）
-    ＋③产出样例（澄清轮＝分解发射样例；匹配轮＝合同内嵌样例）＋④§A 指南段（**文本经入参注入**，
-    装载面不归本块）＋⑤（匹配轮）问题组 JSON＋⑥（投影非空时）台账常驻块（包裹对恰一对）。
+    构成逐件（澄清轮／工具匹配轮各按其件）：①题意锚行（首行位，行为 6）＋③产出样例（澄清轮＝
+    分解发射样例；匹配轮＝合同内嵌样例，随合同常量走）＋④§A 指南段（**文本经入参注入**，装载面
+    不归本块）＋⑤（匹配轮）问题组 JSON＋⑥（投影非空时）台账常驻块（包裹对恰一对）。
+    **规章件**（相位头行＋相位合同＋finalize 边界句）**不在本函数输出内**——走
+    `clarify_system_contract`／`toolmatch_system_contract` 的调用级 system 注入参、不入链
+    （真源 `specs/prompts.md` 2026-10-17 H 批注）。
 
     `shared_context`＝**run 级共享上下文**（④§A 指南段＋⑥台账常驻块）本次是否注入（缺省 `True`
-    ＝装配函数本体的行为 7 构成）：`True` 按上列注；`False`＝两段**整段缺席**（其余件照常——相位
-    合同、样例、问题组 JSON、finalize 边界句皆不属共享上下文）。**判定归编排**（同一 run 只注
-    一次，挂第一次决策装配；见模块头「run 级共享上下文」注）——本函数只按标志拼／不拼文本。
+    ＝装配函数本体的行为 7 构成）：`True` 按上列注；`False`＝两段**整段缺席**（其余件照常——锚行、
+    分解样例、问题组 JSON 皆不属共享上下文）。**判定归编排**（同一 run 只注一次，挂第一次决策
+    装配；见模块头「run 级共享上下文」注）——本函数只按标志拼／不拼文本。
+    **共享上下文留在 user 链**（不随规章改走 system）：run 级一次性的语义前提＝「链为追加形、
+    模型从链首可见前文」（2026-10-17 消重批）——移出链即断该前提（后续决策调用看不见）。
 
     纯函数：只读 `state` 投影与注入文本，零 IO／零模型／零时钟／零随机；输出恒为 `str`。
     """
@@ -385,41 +427,33 @@ def _clarify_package(
     max_subtasks: Any,
     shared_context: bool = True,
 ) -> str:
-    """澄清轮首入包（逐字迁移 graph.py L2354-2384）。
+    """澄清轮首入包**动态段**（逐字迁移 graph.py L2354-2384 的动态件）。
 
-    `shared_context=False` → §A 指南段与台账常驻块整段缺席（run 级一次性的下传面）；相位头行、
-    合同正文、分解样例、finalize 边界句照常（边界句属相位合同件、不属共享上下文）。
+    `shared_context=False` → §A 指南段与台账常驻块整段缺席（run 级一次性的下传面）；锚行与分解
+    样例照常（样例属相位装配件、不属共享上下文）。**规章件不在本段**（头行／合同／边界句走
+    `clarify_system_contract`——H 批）；`max_subtasks` 仍作入参（转交规章段单点取件，本段不用它，
+    保留签名以零改调用面）。
     """
-    parts = [
-        anchor_line(state.question, state.understanding),
-        CLARIFY_PHASE_HEAD,
-        _clarify_contract(max_subtasks),
-    ]
+    parts = [anchor_line(state.question, state.understanding)]
     example = render_decompose_example(_projection(state).get("metrics"), today=today)
     if example:
         parts.append(example)
-    text = "\n".join(parts)
+    text = "\n\n".join(parts)
     if shared_context:
         text += "\n\n" + GUIDE_REFERENCE_HEAD + "\n" + guide_text
-    text += "\n\n" + CLARIFY_FINALIZE_BOUNDARY
     return _with_resident_block(text, state) if shared_context else text
 
 
 def _toolmatch_package(
     state: RunState, *, guide_text: str, shared_context: bool = True
 ) -> str:
-    """工具匹配轮首入包（逐字迁移 graph.py L2698-2729）。
+    """工具匹配轮首入包**动态段**（逐字迁移 graph.py L2698-2729 的动态件）。
 
     `shared_context=False` → §A 指南段与台账常驻块整段缺席（run 级一次性的下传面——匹配轮是同一
-    run 的第二次决策装配，共享上下文已挂澄清轮首入包）；相位头行、合同正文、问题组 JSON 照常。
+    run 的第二次决策装配，共享上下文已挂澄清轮首入包）；锚行与问题组 JSON 照常。**规章件不在本段**
+    （头行／合同走 `toolmatch_system_contract`——H 批）。
     """
-    text = "\n".join(
-        [
-            anchor_line(state.question, state.understanding),
-            TOOLMATCH_PHASE_HEAD,
-            TOOLMATCH_EMISSION_CONTRACT,
-        ]
-    )
+    text = anchor_line(state.question, state.understanding)
     if shared_context:
         text += "\n\n" + GUIDE_REFERENCE_HEAD + "\n" + guide_text
     group_json = _question_group_json(state)

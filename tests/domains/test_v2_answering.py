@@ -94,6 +94,7 @@ from appv2.runtimev2.answering import (
 )
 from appv2.runtimev2.context import DEFAULT_MAX_OBSERVATIONS, render_materials
 from appv2.runtimev2.gateway_adapter import ScriptedCompleter, set_completer
+from appv2.runtimev2.prompts import answer_system_contract
 from appv2.runtimev2.state import INTENT_END, INTENT_VERIFY, RunState
 from appv2.runtimev2.transport import EventBus, SseEvent
 
@@ -794,12 +795,15 @@ async def test_model_call_goes_through_bookkeeping_single_point() -> None:
     assert payload["caller"] == MODEL_CALLER and payload["run_id"] == state.run_id
     assert calls[0]["seq"] == 1  # 首步＝模型调用步（本块答案面步在其后，序号续接）
     assert state.steps[1]["seq"] == 2
-    # 送进模型的是整条链（末条＝本块追加的作答轮 user 指令＋材料段）
+    # 送进模型的是整条链（末条＝本块追加的作答轮 user 指令动态段＋材料段）；
+    # 2026-10-17 H 批：请求首条＝**作答环节规章段**（system 承载位，只随本次请求走、不入链）
     messages = session.completer.messages_of(MODEL_CALLER)[0]
-    assert messages == state.messages[: len(messages)]
+    assert messages[0]["role"] == "system"
+    assert messages[0]["content"] == answer_system_contract()
+    assert messages[1:] == state.messages[: len(messages) - 1]
     assert messages[-1]["role"] == "user"
-    assert "【答案要求】" in messages[-1]["content"]
-    assert "观察材料：" in messages[-1]["content"]
+    assert "【答案要求】" in messages[0]["content"]  # 规章件随 system 位
+    assert "观察材料：" in messages[-1]["content"]  # 材料段随 user 动态段（调用方追加）
 
 # ══════════════ RT-W4-06b：降级与引用簇（规格表行 7、12–22）══════════════════
 

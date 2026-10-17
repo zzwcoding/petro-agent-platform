@@ -12,9 +12,12 @@
    输出内——调用方追加于尾）。截断态**必披露**：`material_truncated` notice 在场（未截断零通知）；
    **引擎注记段**（行为 15 的「不静默」面）：`locator.kind == notice` 的观察（台账 no_hit 等降级／
    拦停注记——`context` 材料段整体排除）由本块以**原文**追加于材料段之后（不得静默丢弃）；
-2. **起草**：作答指令＋材料段（＋引擎注记段）一条 user 消息追加链尾（`bookkeeping.append_message`）
-   → 经 `bookkeeping.call_model` **单点发起**模型调用（本块不直引 `gateway_adapter`、不直引
-   `appv2.infra.llm_client`、不自建模型客户端——R7 ＋「无旁路」行为断言）；
+2. **起草**：作答指令**动态段**（题面件＋子问题结果清单）＋材料段（＋引擎注记段）一条 user 消息
+   追加链尾（`bookkeeping.append_message`）→ 经 `bookkeeping.call_model` **单点发起**模型调用
+   （本块不直引 `gateway_adapter`、不直引 `appv2.infra.llm_client`、不自建模型客户端——R7 ＋
+   「无旁路」行为断言）；**2026-10-17 H 批（角色分家）**：作答**规章段**（动词钉死句／【答案要求】
+   ＋清单全文／术语白话表／汇总合同／起草答案合同）不入链——经 `prompts.answer_system_contract`
+   走 `call_model(system=…)` 的**调用级注入参**（只随本次请求走、不用即散）；
 3. **发射剥离与块剥除**（行为 11，钉 `pin-04`；行为 13）：应答先过 `strip_emission_fences`
    （`emission` 单点），发射 JSON 不进答案面（泄漏=0）；检出即发 `emission_strip` notice（机读面）；
    随后过 `strip_placeholders`（行为 13）：字面占位引标 `[n]` 整枚离场；再过**块剥除**
@@ -152,7 +155,7 @@ from appv2.runtimev2.context import (
     trust_of,
 )
 from appv2.runtimev2.persistence import STEP_STATUS_FAILED, STEP_STATUS_OK
-from appv2.runtimev2.prompts import assemble_answer_prompt
+from appv2.runtimev2.prompts import answer_system_contract, assemble_answer_prompt
 from appv2.runtimev2.state import INTENT_END, INTENT_VERIFY, Manifest, RunState
 from appv2.runtimev2.transport import (
     SUPPLEMENT_BLOCK_ATTRIBUTION,
@@ -268,7 +271,9 @@ def _draft(
             + engine_notes_block(engine_notes(state.observations))
         ),
     )
-    raw = call_model(state, MODEL_CALLER, list(state.messages))
+    raw = call_model(
+        state, MODEL_CALLER, list(state.messages), system=answer_system_contract()
+    )
     draft_text, leaked = strip_emission_fences(raw)
     if leaked:
         notice(state, type=NOTICE_EMISSION_STRIP, content=EMISSION_STRIP_CONTENT)

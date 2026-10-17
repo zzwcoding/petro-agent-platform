@@ -55,6 +55,10 @@ def ensure_task_book(state: RunState, *, watermark: str = "") -> str | None:
     追加走唯一写口 `bookkeeping.append_message`（钉 `pin-22` 的写入点单点面）；标记走
     `bookkeeping.note`。返回值＝本次装配的文本（未装配＝`None`）——调用方可据此断言
     「只装配一次」的机读面（`None` ＝ 本次未装配）。
+
+    **2026-10-17 H 批（角色分家）**：本函数只追加**动态段**（数据区＋题干段）；**链首背景块**
+    （`system` 条）不在此挂——真链首由编排建链时落（`orchestration` 的 run 播种面在题面 user 条
+    **之前**挂背景块，每链恰一条；本函数也能被追问链复用，此处再挂即重复）。
     """
     if task_book_assembled(state):
         return None

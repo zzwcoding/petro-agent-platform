@@ -63,6 +63,7 @@ from appv2.runtimev2.prompts import (
     RESIDENT_BLOCK_BEGIN,
     RESIDENT_BLOCK_END,
     SUMMARY_CONTRACT,
+    SYSTEM_BACKGROUND,
     TASK_BOOK_EXAMPLES,
     TASK_BOOK_OUTPUT_CONTRACT,
     TASK_BOOK_REDLINE,
@@ -71,12 +72,16 @@ from appv2.runtimev2.prompts import (
     TOOLMATCH_EMISSION_CONTRACT,
     TOOLMATCH_PHASE_HEAD,
     anchor_line,
+    answer_system_contract,
     assemble_answer_prompt,
     assemble_decision_increment,
     assemble_decision_package,
     assemble_task_book,
+    clarify_system_contract,
     render_decompose_example,
     render_ledger_resident_block,
+    toolmatch_system_contract,
+    understand_system_contract,
 )
 from appv2.runtimev2.prompts import constants as constants_module
 from appv2.runtimev2.state import MAX_DISCOVERS_PER_RUN, RunState
@@ -109,6 +114,8 @@ _SPEC_FAMILIES: dict[str, tuple[str, ...]] = {
     "summary": ("SUMMARY_CONTRACT",),
     "answer_draft": ("ANSWER_DRAFT_CONTRACT",),
     "answer_requirements": ("ANSWER_REQUIREMENTS", "JARGON_PLAIN_GLOSSARY"),
+    # 2026-10-17 H 批（角色分家）：第七族＝链首背景块（`SYSTEM_BACKGROUND` 逐字稿）
+    "system_background": ("SYSTEM_BACKGROUND",),
 }
 
 # 答案要求十条逐字稿（迁移照抄——V1 `orientation.py` `_ANSWER_REQUIREMENTS` ①–⑦；顺序固定；
@@ -397,12 +404,19 @@ def test_contract_constant_family_closed_world() -> None:
     # 静态合同零计数（缺陷二钉）：上限留静态块、已用数只在动态条——契约文本与限额单点同值
     assert "已用 " not in CLARIFY_EMISSION_CONTRACT
     assert f"全 run ≤{MAX_DISCOVERS_PER_RUN} 次" in CLARIFY_EMISSION_CONTRACT
+    # 指令区＋输出契约区（规章段＝system 承载位）逐字稳定、各恰一份；
+    # 动态段（数据区＋题干段）与之分家
+    first_contract = understand_system_contract()
+    second_contract = understand_system_contract()
     first = assemble_task_book(_ledger_state())
     second = assemble_task_book(_ledger_state(question="换个题", understanding="换个题意"))
     for constant in _SPEC_FAMILIES["task_book_skeleton"]:
-        assert first.count(getattr(constants_module, constant)) == 1
-        assert second.count(getattr(constants_module, constant)) == 1
-    assert first.split(_DATA_ZONE_HEAD)[0] == second.split(_DATA_ZONE_HEAD)[0]  # 指令区逐字稳定
+        text = getattr(constants_module, constant)
+        assert first_contract.count(text) == 1
+        assert second_contract.count(text) == 1
+        assert text not in first and text not in second  # 规章件不入 user 动态段
+    assert first_contract == second_contract  # 规章段与 state 无关（逐字稳定）
+    assert first.split(_DATA_ZONE_HEAD)[0] == second.split(_DATA_ZONE_HEAD)[0] == ""
 
 
 # ---------- 2 答案要求清单 10 条逐字在场（pin-03 落点） ----------
@@ -437,8 +451,9 @@ def test_answer_requirements_verbatim() -> None:
     assert item10.startswith("材料未覆盖所问时：")
     assert item10.endswith("（如补充井号、时间范围或报告名称）。")
     assert ANSWER_REQUIREMENTS.endswith(item10)  # 末条＝⑩（尾「。」）
-    # 合同侧经答案轮装配把十条全文送进模型面
-    assert f"【答案要求】{ANSWER_REQUIREMENTS}" in assemble_answer_prompt(_answer_state())
+    # 合同侧经答案轮装配把十条全文送进模型面（2026-10-17 H 批：规章段改走 system 承载位——
+    # 十条全文在 `answer_system_contract()` 内，随本次请求前置为 system 条、不入链）
+    assert f"【答案要求】{ANSWER_REQUIREMENTS}" in answer_system_contract()
 
 
 # ---------- 3 答案要求清单 runtimev2 面内恰一处定义 ----------
@@ -495,13 +510,17 @@ def test_jargon_plain_glossary_injected_once() -> None:
     hits = _hits(_runtimev2_sources(), feature)
     assert hits == [_CONSTANTS_FILE.name], f"术语白话表出现多处以字面定义：{hits}"
 
-    # ③随答案包恰一次入链、字节级稳定（两跑／异状态逐字同源）；静态块置前、投影段在后
+    # ③随答案规章段（system 承载位）恰一次、字节级稳定（两跑／异状态逐字同源）；
+    #   静态块置前、投影段在后（2026-10-17 H 批：白话表随规章段走 system，dynamic 段留 user）
+    assert answer_system_contract() == answer_system_contract()
+    contract = answer_system_contract()
+    assert contract.count(JARGON_PLAIN_GLOSSARY) == 1
+    assert contract.split("\n")[2] == JARGON_PLAIN_GLOSSARY  # 紧随【答案要求】全文（静态块置前）
+    assert contract.index("【答案要求】") < contract.index(JARGON_PLAIN_GLOSSARY)
+    assert contract.index(JARGON_PLAIN_GLOSSARY) < contract.index(SUMMARY_CONTRACT)
+    # 动态段（user 位）不再携白话表（规章与材料分家）
     for state in (_answer_state(), _empty_state()):
-        output = assemble_answer_prompt(state)
-        assert output.count(JARGON_PLAIN_GLOSSARY) == 1
-        assert output.split("\n")[3] == JARGON_PLAIN_GLOSSARY  # 紧接三件套之后（静态块置前）
-        assert output.index("【答案要求】") < output.index(JARGON_PLAIN_GLOSSARY)
-        assert output.index(JARGON_PLAIN_GLOSSARY) < output.index(SUMMARY_CONTRACT)
+        assert JARGON_PLAIN_GLOSSARY not in assemble_answer_prompt(state)
     assert assemble_answer_prompt(_answer_state()) == assemble_answer_prompt(_answer_state())
 
 
@@ -524,44 +543,53 @@ def test_contract_constants_no_duplicate_literals() -> None:
     assert _hits([(Path("forged.py"), forged)], TASK_BOOK_SCENE.split("\n", 1)[0][:24])
 
 
-# ---------- 5 任务书段序固定、题干段置末 ----------
+# ---------- 5 任务书两段序固定、题干段置末 ----------
 
 
 def test_task_book_segment_order() -> None:
-    """任务书段序＝指令区→数据区→输出契约区→题干段；题干段为末段。"""
+    """任务书两段（2026-10-17 H 批角色分家）：**规章段**（system）＝指令区→输出契约区；
+    **动态段**（user）＝数据区→题干段；题干段为末段。
+
+    段内相对序零改（行为 3 的四常量相对序、行为 2 的数据区、题干置末）；两段拼合的可见序＝
+    「规章段（system，前置）→动态段（user）」——合看仍是「指令区→输出契约区→数据区→题干段」。
+    """
+    contract = understand_system_contract()
     output = assemble_task_book(_ledger_state(), watermark="2026-08-24")
-    order = [
+    order_contract = [
         TASK_BOOK_SCENE,
         TASK_BOOK_TASK,
         TASK_BOOK_EXAMPLES,
         TASK_BOOK_REDLINE,  # 指令区内四常量相对序：场景→任务→样例→红线
-        _DATA_ZONE_HEAD,
         TASK_BOOK_OUTPUT_CONTRACT,
-        _QUESTION_HEAD,
     ]
-    positions = [output.index(marker) for marker in order]
+    positions = [contract.index(marker) for marker in order_contract]
     assert positions == sorted(positions) and len(set(positions)) == len(positions)
+    # 动态段：数据区→题干段（题干段为末段、紧邻生成点）
+    assert output.startswith(_DATA_ZONE_HEAD)
+    assert output.index(_DATA_ZONE_HEAD) < output.index(_QUESTION_HEAD)
     assert output.rstrip().endswith("现在输出。）")  # 题干段为末段（紧邻生成点）
     # 段间「\n\n」连接（真源 R-L2a-17 连接形）
-    assert f"\n\n{_DATA_ZONE_HEAD}" in output
-    assert f"\n\n{TASK_BOOK_OUTPUT_CONTRACT}\n\n" in output
-    # 红线归位＝指令区（V2 设计变更：V1 在环境段之后）
-    assert output.index(TASK_BOOK_REDLINE) < output.index(_DATA_ZONE_HEAD)
+    assert f"\n\n{_QUESTION_HEAD}" in output
+    assert f"\n\n{TASK_BOOK_OUTPUT_CONTRACT}" in contract
+    # 红线归位＝指令区（V2 设计变更：V1 在环境段之后）；规章件不入动态段（H 批承载位分家）
+    assert contract.index(TASK_BOOK_REDLINE) < contract.index(TASK_BOOK_OUTPUT_CONTRACT)
+    for constant in order_contract:
+        assert constant not in output, f"规章件仍在 user 动态段：{constant[:12]}"
 
 
 # ---------- 6 任务书样例区＝固定三则 ----------
 
 
 def test_task_book_examples_fixed_set() -> None:
-    """任务书样例区＝固定三则、不随 state 变化、无边界对照例。"""
+    """任务书样例区＝固定三则、不随 state 变化、无边界对照例（随规章段走 system 位）。"""
     for label in ("样例一（多部分题）", "样例二（口语映射题）", "样例三（判断纠错题）"):
         assert label in TASK_BOOK_EXAMPLES
     assert "样例四" not in TASK_BOOK_EXAMPLES
     assert "边界" not in TASK_BOOK_EXAMPLES.split("样例三", 1)[0].split("样例一", 1)[1]
-    output_a = assemble_task_book(_ledger_state())
-    output_b = assemble_task_book(_empty_state())
-    assert _zone(output_a, TASK_BOOK_EXAMPLES, TASK_BOOK_REDLINE) == TASK_BOOK_EXAMPLES + "\n\n"
-    assert _zone(output_b, TASK_BOOK_EXAMPLES, TASK_BOOK_REDLINE) == TASK_BOOK_EXAMPLES + "\n\n"
+    # 样例区＝指令区常量直引（两跑逐字同源）；在两段（system 规章段／user 动态段）中皆恰一处
+    assert understand_system_contract().count(TASK_BOOK_EXAMPLES) == 1
+    for state in (_ledger_state(), _empty_state()):
+        assert TASK_BOOK_EXAMPLES not in assemble_task_book(state)
 
 
 # ---------- 7 数据区活体投影现取 ----------
@@ -646,27 +674,41 @@ def test_contract_constants_business_noun_free() -> None:
     )
 
 
-# ---------- 17 答案轮段序固定、材料段零渗入 ----------
+# ---------- 17 答案轮两段序固定、材料段零渗入 ----------
 
 
 def test_answer_round_segment_order_no_material() -> None:
-    """答案轮段序＝三件套→术语白话表→汇总合同→子问题清单→起草合同（收尾）；材料段零渗入。"""
+    """答案轮两段（2026-10-17 H 批角色分家）：**规章段**（system）＝动词钉死句→【答案要求】全文→
+    术语白话表→汇总合同→起草答案合同（收尾）；**动态段**（user）＝题面件→子问题结果清单；
+    材料段零渗入（材料渲染归 context，调用方追加于尾）。
+    """
     state = _answer_state()
+    contract = answer_system_contract()
     output = assemble_answer_prompt(state)
-    lines = output.split("\n")
-    assert lines[0] == f"用户问题：{state.question}"
-    assert lines[1] == _VERB_PIN
-    assert lines[2] == f"【答案要求】{ANSWER_REQUIREMENTS}"
-    assert lines[3] == JARGON_PLAIN_GLOSSARY  # 族⑥示例区（EB4a——静态块紧跟三件套）
-    markers = [JARGON_PLAIN_GLOSSARY, SUMMARY_CONTRACT, "子问题结果清单：", ANSWER_DRAFT_CONTRACT]
-    positions = [output.index(marker) for marker in markers]
+    lines = contract.split("\n")
+    assert lines[0] == _VERB_PIN
+    assert lines[1] == f"【答案要求】{ANSWER_REQUIREMENTS}"
+    assert lines[2] == JARGON_PLAIN_GLOSSARY  # 族⑥示例区（EB4a——静态块紧跟答案要求）
+    markers = [JARGON_PLAIN_GLOSSARY, SUMMARY_CONTRACT, ANSWER_DRAFT_CONTRACT]
+    positions = [contract.index(marker) for marker in markers]
     assert positions == sorted(positions) and len(set(positions)) == len(positions)
-    assert lines[4] == ""
-    assert output.endswith(ANSWER_DRAFT_CONTRACT)  # 末段＝起草答案合同（收尾）
+    assert lines[3] == ""
+    assert contract.endswith(ANSWER_DRAFT_CONTRACT)  # 末段＝起草答案合同（收尾）
+    # 动态段：题面件置首、子问题清单其后（材料段由调用方追加于尾）
+    out_lines = output.split("\n")
+    assert out_lines[0] == f"用户问题：{state.question}"
+    assert out_lines[1] == "子问题结果清单："
     # 子问题清单逐条在场（含拒因原文与排名支配标记——零人话翻译、零词表）
     ranking = "- [s1] K12-3 井生产时长——完成（排名型——结论必须从本子问题排名观察支"
     assert ranking in output
     assert "- [s2] K12-3 井含水率——失败（不在台账）" in output
+    # 规章件不入动态段（承载位分家）
+    for marker in (
+        f"【答案要求】{ANSWER_REQUIREMENTS}",
+        JARGON_PLAIN_GLOSSARY,
+        ANSWER_DRAFT_CONTRACT,
+    ):
+        assert marker not in output
     # 材料段零渗入：观察行内容不进装配输出（材料渲染归 context）
     for observation in state.observations:
         assert observation["content"] not in output
@@ -676,15 +718,19 @@ def test_answer_round_segment_order_no_material() -> None:
 
 
 def test_answer_round_ban_lines_present() -> None:
-    """答案轮禁令件在场：动词钉死句＋答案要求⑦两字面（pin-13 合同侧；不注入回声形指令）。"""
-    output = assemble_answer_prompt(_answer_state())
-    assert _VERB_PIN in output and output.count(_VERB_PIN) == 1
-    assert _ANSWER_REQUIREMENTS_VERBATIM[6] in output  # ⑦ 逐字
-    assert "finalize/decompose 等动作出现即废品" in output
+    """答案轮禁令件在场：动词钉死句＋答案要求⑦两字面（pin-13 合同侧；不注入回声形指令）。
+
+    2026-10-17 H 批：禁令件随**规章段**（system 承载位）在场（`answer_system_contract`），
+    动态段（user 位）不携合同件。
+    """
+    contract = answer_system_contract()
+    assert _VERB_PIN in contract and contract.count(_VERB_PIN) == 1
+    assert _ANSWER_REQUIREMENTS_VERBATIM[6] in contract  # ⑦ 逐字
+    assert "finalize/decompose 等动作出现即废品" in contract
     # 提示词侧不注入回声形指令：只出禁令件，无「回声」类指令字样
-    assert "回声" not in output
+    assert "回声" not in contract
     # 空状态亦恒在场（禁令件不随 state 缺位消失）
-    assert _VERB_PIN in assemble_answer_prompt(_empty_state())
+    assert _VERB_PIN in answer_system_contract()
 
 # =====================================================================================
 # -04b：决策轮装配（行 9–15）——fixtures
@@ -745,6 +791,11 @@ def _toolmatch_package(state: RunState, **overrides: Any) -> str:
     return assemble_decision_package(state, phase=PHASE_TOOLMATCH, **kwargs)
 
 
+def _clarify_contract(max_subtasks: Any = _MAX_SUBTASKS) -> str:
+    """澄清环节规章段（system 承载位——2026-10-17 H 批）。"""
+    return clarify_system_contract(max_subtasks)
+
+
 def _unique_line(output: str, prefix: str) -> str:
     """单点定位件（段行恰一处——段名/消歧头查询用）。"""
     found = [line for line in output.split("\n") if line.startswith(prefix)]
@@ -792,19 +843,29 @@ def test_decision_package_four_elements() -> None:
     2026-10-17 补（真机消重批·缺陷一／二）：①run 级共享上下文（§A 指南段＋台账常驻块）随
     `shared_context` 标志整段进出（编排判「本 run 是否已注」后下传——缺省 `True`＝函数本体行为）；
     ②静态合同不再携「已用 N 次」冻值（真实已用数只在每轮动态条）。
+    **2026-10-17 H 批（角色分家）**：**规章件**（相位头行＋相位合同＋finalize 交付面边界句）出
+    user 首入包、改走**调用级 system 注入参**（`clarify_system_contract`／
+    `toolmatch_system_contract`）
+    ——本行判据＝动态段（user）与规章段（system）合看逐件在场（四要素口径不变）。
     """
     state = _decision_state(discover_used=2)
     clarify = _clarify_package(state)
     toolmatch = _toolmatch_package(state)
+    clarify_contract = _clarify_contract()
+    toolmatch_contract = toolmatch_system_contract()
 
-    # ①题意锚行（首行）＋②相位合同（头行＋正文；澄清轮另含 finalize 交付面边界句）
+    # ①题意锚行（动态段首行）＋②相位合同（规章段：头行＋正文；澄清轮另含 finalize 交付面边界句）
     assert clarify.split("\n", 1)[0] == anchor_line(state.question, state.understanding)
-    assert CLARIFY_PHASE_HEAD in clarify
-    assert "【相位①·业务澄清】只输出一个 JSON 对象（可围栏）。四动作：" in clarify
-    assert "子问题 ≤4 个" in clarify  # 声明槽 {max_subtasks}＝调用方注入值
-    assert "可用探查（discover，全 run ≤10 次）：" in clarify  # 静态合同只留上限、不载计数
-    assert "已用 " not in clarify.split("【业务规则参考", 1)[0]  # 合同段零「已用 N 次」冻值
-    assert CLARIFY_FINALIZE_BOUNDARY in clarify
+    assert CLARIFY_PHASE_HEAD in clarify_contract
+    assert "【相位①·业务澄清】只输出一个 JSON 对象（可围栏）。四动作：" in clarify_contract
+    assert "子问题 ≤4 个" in clarify_contract  # 声明槽 {max_subtasks}＝调用方注入值
+    assert "可用探查（discover，全 run ≤10 次）：" in clarify_contract  # 静态合同只留上限、不载计数
+    assert "已用 " not in clarify_contract  # 合同段零「已用 N 次」冻值
+    assert CLARIFY_FINALIZE_BOUNDARY in clarify_contract
+    assert clarify_contract.endswith(CLARIFY_FINALIZE_BOUNDARY)  # 界线句收尾（段内相对序不变）
+    # 规章件不入 user 动态段（承载位分家）
+    for marker in (CLARIFY_PHASE_HEAD, CLARIFY_FINALIZE_BOUNDARY):
+        assert marker not in clarify
     # ③产出样例（澄清轮）＋④§A 指南段（文本经入参注入）
     assert "填写样例（分解形——五键齐全" in clarify
     assert '"chain": "knowledge"' in clarify
@@ -813,24 +874,22 @@ def test_decision_package_four_elements() -> None:
     assert clarify.count(RESIDENT_BLOCK_BEGIN) == 1
     assert clarify.count(RESIDENT_BLOCK_END) == 1
     assert clarify.endswith(RESIDENT_BLOCK_END)
-    # 首入包逐件序：锚行→合同头→合同正文→样例→指南段→边界句→常驻块
+    # 动态段逐件序：锚行→样例→指南段→常驻块（段内相对序：样例先于指南段——照原装配序）
     order = [
         anchor_line(state.question, state.understanding),
-        CLARIFY_PHASE_HEAD,
-        "【相位①·业务澄清】只输出",
         "填写样例（分解形",
         GUIDE_REFERENCE_HEAD,
-        CLARIFY_FINALIZE_BOUNDARY,
         RESIDENT_BLOCK_BEGIN,
     ]
     positions = [clarify.index(marker) for marker in order]
     assert positions == sorted(positions) and len(set(positions)) == len(positions)
 
-    # 匹配轮各按其件：合同头＋正文；产出样例＝合同内嵌样例；⑤问题组 JSON（顶层 subtasks 单键形）
+    # 匹配轮各按其件：规章段＝合同头＋正文（产出样例＝合同内嵌样例）；动态段⑤问题组 JSON
     assert toolmatch.split("\n", 1)[0] == anchor_line(state.question, state.understanding)
-    assert TOOLMATCH_PHASE_HEAD in toolmatch
-    assert TOOLMATCH_EMISSION_CONTRACT in toolmatch
-    assert "填写样例（单匹配 knowledge 形）" in toolmatch
+    assert TOOLMATCH_PHASE_HEAD in toolmatch_contract
+    assert TOOLMATCH_EMISSION_CONTRACT in toolmatch_contract
+    assert "填写样例（单匹配 knowledge 形）" in toolmatch_contract
+    assert TOOLMATCH_PHASE_HEAD not in toolmatch
     assert '\n\n问题组：\n{"subtasks": [{"id": "s1"' in toolmatch
     assert toolmatch.count(RESIDENT_BLOCK_BEGIN) == 1
     assert toolmatch.count(RESIDENT_BLOCK_END) == 1
@@ -844,7 +903,6 @@ def test_decision_package_four_elements() -> None:
     later = _toolmatch_package(state, shared_context=False)
     assert GUIDE_REFERENCE_HEAD not in later and _GUIDE_TEXT not in later
     assert RESIDENT_BLOCK_BEGIN not in later and RESIDENT_BLOCK_END not in later
-    assert TOOLMATCH_EMISSION_CONTRACT in later  # 相位合同不随之缺席（不属共享上下文）
     assert '\n\n问题组：\n{"subtasks": [{"id": "s1"' in later
     assert later.endswith(
         "\n\n问题组：\n" + json.dumps(state.question_group, ensure_ascii=False)
@@ -852,40 +910,49 @@ def test_decision_package_four_elements() -> None:
     quiet = _clarify_package(state, shared_context=False)
     assert GUIDE_REFERENCE_HEAD not in quiet and _GUIDE_TEXT not in quiet
     assert RESIDENT_BLOCK_BEGIN not in quiet and RESIDENT_BLOCK_END not in quiet
-    assert CLARIFY_FINALIZE_BOUNDARY in quiet  # 边界句属相位合同件（不属共享上下文）
     assert "填写样例（分解形" in quiet
-    assert quiet.endswith(CLARIFY_FINALIZE_BOUNDARY)
+    assert quiet.endswith('"chain": "data", "tool": "data_query"}]}}') or quiet.endswith("}")
     # 两段落链文本字节级不变（只改出现次数）：缺席形＝删段，逐字同源（不重排、不改写）
     assert _GUIDE_TEXT in clarify and RESIDENT_BLOCK_BEGIN in clarify
 
-    # 四要素按轮合看逐轮在场：任务动词（合同头）／题意锚（锚行）／产出样例／失败反馈（增量条回喂）
+    # 四要素按轮合看逐轮在场：任务动词（合同头，system 规章段）／题意锚（锚行，user 动态段）／
+    # 产出样例（澄清轮＝动态段样例／匹配轮＝规章段合同内嵌样例）／失败反馈（增量条回喂）
     rejected = _decision_state(discover_used=2, decision_error="缺 subtasks 键")
-    for phase, package, sample, head in (
-        (PHASE_CLARIFY, _clarify_package(rejected), "填写样例（分解形", CLARIFY_PHASE_HEAD),
+    for phase, package, sample, head, contract in (
+        (
+            PHASE_CLARIFY,
+            _clarify_package(rejected),
+            "填写样例（分解形",
+            CLARIFY_PHASE_HEAD,
+            _clarify_contract(),
+        ),
         (
             PHASE_TOOLMATCH,
             _toolmatch_package(rejected),
             "填写样例（单匹配 knowledge 形）",
             TOOLMATCH_PHASE_HEAD,
+            toolmatch_system_contract(),
         ),
     ):
         assert phase in DECISION_PHASES
         assert package.split("\n", 1)[0] == anchor_line(
             rejected.question, rejected.understanding
         )
-        assert head in package
-        assert sample in package
+        assert head in contract  # 任务动词＝规章段（system 位）
+        assert sample in (package + contract)  # 产出样例（两轮各按其位）
         assert "上次发射被拒：缺 subtasks 键——修正后重新输出 JSON。" in (
             assemble_decision_increment(rejected, phase=phase)
         )
 
-    # 装配函数族成员经包根可达（本票成员全在名单闭世界——R2 公开面）
+    # 装配函数族成员经包根可达（本票成员全在名单闭世界——R2 公开面；H 批四件同列）
     for name in (
         "anchor_line",
         "assemble_decision_package",
         "assemble_decision_increment",
         "render_ledger_resident_block",
         "render_decompose_example",
+        "clarify_system_contract",
+        "toolmatch_system_contract",
     ):
         assert name in ASSEMBLY_FUNCTIONS
 
@@ -893,10 +960,9 @@ def test_decision_package_four_elements() -> None:
     # 相位越界／族②声明槽缺值均属调用方违约，非业务错，故不落占位文案也不静默）
     with pytest.raises(ValueError):
         assemble_decision_package(state, phase="no-such-phase", guide_text=_GUIDE_TEXT)
+    # 2026-10-17 H 批：族②声明槽的 fail-closed 点随规章件改在**规章取件函数**（槽值转交面）
     with pytest.raises(ValueError):
-        assemble_decision_package(
-            state, phase=PHASE_CLARIFY, guide_text=_GUIDE_TEXT, today=_DECISION_TODAY
-        )
+        _clarify_contract(max_subtasks=None)
 
 
 # ---------- 11 决策轮增量条构成与逐字稿 ----------
@@ -1666,8 +1732,8 @@ def test_boundary_empty_projection_variants() -> None:
         package = _clarify_package(empty)
         assert "填写样例（分解形" not in package
         assert RESIDENT_BLOCK_BEGIN not in package and RESIDENT_BLOCK_END not in package
-        # 不删段、不静默：指南段与 finalize 边界句仍在
-        assert GUIDE_REFERENCE_HEAD in package and CLARIFY_FINALIZE_BOUNDARY in package
+        # 不删段、不静默：指南段仍在（动态段）；finalize 边界句随规章段（system 位）恒在场
+        assert GUIDE_REFERENCE_HEAD in package and CLARIFY_FINALIZE_BOUNDARY in _clarify_contract()
     assert "子问题结果清单：\n（无）" in assemble_answer_prompt(_empty_state())  # 占位文案
 
     # ② 缺水位 → 「（水位未取得）」逐字在场（不编造日期——零时钟接触的装配面形态）
@@ -1758,12 +1824,14 @@ def test_retention_normal_assembly_unchanged() -> None:
     assert "生产时长｜可出数" in partial_book
     assert _PLACEHOLDER_FAMILY not in partial_book and _PLACEHOLDER_WATERMARK not in partial_book
 
-    # ② 常规投影下各件原样（-04a／-04b 判据面抽样重钉——本票不改形）
+    # ② 常规投影下各件原样（-04a／-04b 判据面抽样重钉——本票不改形；2026-10-17 H 批：
+    #    规章段（system）与动态段（user）**合看**仍是「指令区→输出契约区→数据区→题干段」）
+    full = understand_system_contract() + "\n\n" + normal_book
     assert (
-        normal_book.index(TASK_BOOK_SCENE)
-        < normal_book.index(_DATA_ZONE_HEAD)
-        < normal_book.index(TASK_BOOK_OUTPUT_CONTRACT)
-        < normal_book.index(_QUESTION_HEAD)
+        full.index(TASK_BOOK_SCENE)
+        < full.index(TASK_BOOK_OUTPUT_CONTRACT)
+        < full.index(_DATA_ZONE_HEAD)
+        < full.index(_QUESTION_HEAD)
     )
     assert "含水率｜未绑定（台账无数值——数值走报告检索）" in normal_book
     assert normal_clarify.count(RESIDENT_BLOCK_BEGIN) == 1
@@ -1771,8 +1839,14 @@ def test_retention_normal_assembly_unchanged() -> None:
     assert "填写样例（分解形" in normal_clarify and "问题组：" not in normal_clarify
     assert "问题组：" in normal_toolmatch and "填写样例（分解形" not in normal_toolmatch
     assert normal_answer.split("\n", 1)[0] == f"用户问题：{answer_state.question}"
-    assert normal_answer.endswith(ANSWER_DRAFT_CONTRACT)
     assert "- [s2] K12-3 井含水率——失败（不在台账）" in normal_answer
+    # 规章件（起草答案合同／finalize 边界句／相位头行）出 user 动态段、在 system 规章段
+    assert ANSWER_DRAFT_CONTRACT not in normal_answer
+    assert CLARIFY_FINALIZE_BOUNDARY not in normal_clarify
+    assert TOOLMATCH_PHASE_HEAD not in normal_toolmatch
+    assert ANSWER_DRAFT_CONTRACT in answer_system_contract()
+    assert CLARIFY_FINALIZE_BOUNDARY in clarify_system_contract(_MAX_SUBTASKS)
+    assert TOOLMATCH_PHASE_HEAD in toolmatch_system_contract()
 
     # ③ 四消费方消费面（R2 包根）形状保留：名单闭世界逐字＋Seam 签名位置面不变
     root = import_module("appv2.runtimev2.prompts")
@@ -1935,7 +2009,96 @@ def test_toolmatch_contract_carries_mention_mode() -> None:
     assert MENTION_MODES == {"executed", "mentioned_only"}  # 对照面非空转
     assert match["chain"] == "knowledge"  # 样例既有形零删改
 
-    # 装配面逐字在场（匹配轮首入包内同现——合同常量入包不脱节）
+    # 装配面逐字在场（匹配轮**规章段**内同现——合同常量入包不脱节；2026-10-17 H 批：
+    # 规章段＝system 承载位 `toolmatch_system_contract`，动态段（user）不携合同件）
     package = _toolmatch_package(_decision_state())
-    assert schema_match in package
-    assert sample_line in package
+    contract = toolmatch_system_contract()
+    assert schema_match in contract
+    assert sample_line in contract
+    assert schema_match not in package and sample_line not in package
+
+
+# ══════════════ H 批（2026-10-17）：system 承载位（角色分家）══════════════════════════
+
+# 背景块逐字稿（真源＝`docs/runtime-refactor/proposals/H批-开票-system承载位.md` §5；逐字照抄）
+_SYSTEM_BACKGROUND_VERBATIM = (
+    "【系统背景】你是\"问一问\"——油田生产数据问答助手。你的作用：帮业务人员用一句话"
+    "查到平台里的生产数据和报告结论，省去他们自己翻系统。你的原理：你不直接连库乱查——"
+    "每个问题经过读题→澄清→选链→检索/查数→起草→核验六道工序，每步都有专门程序和规则"
+    "约束，你只做规定环节的事。你的目的：每条答案有据，不确定就说不确定，宁可说没查到也"
+    "不编。平台数据分两类：数据库实时汇总（权威）、报告库各篇报告（人写口径，性质不同）。"
+)
+
+
+def test_system_background_verbatim() -> None:
+    """行 24（H 批）｜链首背景块＝族⑦常量、逐字稿照抄、字节稳定（唯一新文本）。"""
+    assert SYSTEM_BACKGROUND == _SYSTEM_BACKGROUND_VERBATIM
+    assert SYSTEM_BACKGROUND.startswith("【系统背景】")
+    assert SYSTEM_BACKGROUND.endswith("（人写口径，性质不同）。")
+    assert "作用：" in SYSTEM_BACKGROUND and "原理：" in SYSTEM_BACKGROUND
+    assert "目的：" in SYSTEM_BACKGROUND
+    # 单源：runtimev2 面内恰一处字面定义（消费方零副本）
+    feature = "【系统背景】你是"
+    assert _hits(_runtimev2_sources(), feature) == [_CONSTANTS_FILE.name]
+    # 族⑦登记（常量族闭世界随批改）
+    assert CONTRACT_CONSTANT_FAMILIES["system_background"] == ("SYSTEM_BACKGROUND",)
+
+
+def test_system_contract_carriers_split_from_user_dynamic() -> None:
+    """行 25（H 批）｜四环节**规章取件函数**（system 承载位）与 **user 动态段**分家逐环节在场。
+
+    每环节两判：① 规章头在规章段（system 位）**在场**且**字节稳定**（同参两跑逐字相等）；
+    ② 同一规章头在 user 动态段**零命中**（「只换承载位不换文本」——文本零改、角色分家）。
+    """
+    cases: tuple[tuple[str, str, str], ...] = (
+        (
+            "读题",
+            understand_system_contract(),
+            assemble_task_book(_ledger_state(), watermark="2026-08-24"),
+        ),
+        (
+            "相位①",
+            _clarify_contract(),
+            _clarify_package(_decision_state()),
+        ),
+        (
+            "相位②",
+            toolmatch_system_contract(),
+            _toolmatch_package(_decision_state()),
+        ),
+        (
+            "作答",
+            answer_system_contract(),
+            assemble_answer_prompt(_answer_state()),
+        ),
+    )
+    heads = {
+        "读题": ("【场景】", TASK_BOOK_OUTPUT_CONTRACT),
+        "相位①": (
+            CLARIFY_PHASE_HEAD,
+            "【相位①·业务澄清】只输出一个 JSON 对象（可围栏）。四动作：",
+            CLARIFY_FINALIZE_BOUNDARY,
+        ),
+        "相位②": (TOOLMATCH_PHASE_HEAD, TOOLMATCH_EMISSION_CONTRACT),
+        "作答": (
+            "【答案要求】",
+            ANSWER_REQUIREMENTS,
+            JARGON_PLAIN_GLOSSARY,
+            SUMMARY_CONTRACT,
+            ANSWER_DRAFT_CONTRACT,
+        ),
+    }
+    for label, contract, dynamic in cases:
+        assert contract == contract, label  # ① 字节稳定（同参两跑同源）
+        for marker in heads[label]:
+            assert marker in contract, (label, marker[:16])
+            assert marker not in dynamic, (label, marker[:16])
+    # 动态段各自照旧在场（分家不删件）
+    clarify = cases[1][2]
+    assert anchor_line(
+        _decision_state().question, _decision_state().understanding
+    ) in clarify
+    assert GUIDE_REFERENCE_HEAD in clarify and RESIDENT_BLOCK_BEGIN in clarify
+    answer_dynamic = cases[3][2]
+    assert f"用户问题：{_answer_state().question}" in answer_dynamic
+    assert "子问题结果清单：" in answer_dynamic

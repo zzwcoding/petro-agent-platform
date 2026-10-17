@@ -9,15 +9,17 @@
 1. **取问题组**（`state.question_group`——上游澄清相位产物）：缺组＝上游契约违例 → fail-closed 抛错
    （不猜、不静默跳过）；逐支 id 只作闭合世界比对面，`parse_tool_match` 只用 id。**让位形先于本步**
    （`budget_hit` 非空 → 零依赖直返让位形——行为 9）；
-2. **装配本轮指令**（文本单点在 `prompts`）：首入＝`assemble_decision_package`（相位包），
-   回炉＝`assemble_decision_increment`（拒因回喂行＋已做段）；经唯一写口 `append_message`
-   **链尾追加**（pin-22：只追加、不改写、相邻调用互为前缀延伸），首入并 `append_contract`
-   标记相位合同（pin-24：回炉轮不重发）。§A 指南段与常驻台账段的文本经 `prompts` 的**注入面**
-   传入——该注入面不在本块签名上（`match(state)`），本块按契约以**缺位形**装配（段缺位、
-   不降级），注入归属见本票回报登记；
-3. **调模型**：`bookkeeping.call_model(state, "decision", messages)`——**单点发起面**，本块不直引
-   `gateway_adapter`、不建客户端（「无旁路」）；模型调用步记录由 `call_model` **统一记账**，
-   本块不为同一调用重复记步；
+2. **装配本轮指令**（文本单点在 `prompts`）：首入＝`assemble_decision_package`（相位包**动态段**：
+   锚行／§A／台账常驻块／问题组 JSON），回炉＝`assemble_decision_increment`（拒因回喂行＋已做段）；
+   经唯一写口 `append_message` **链尾追加**（pin-22：只追加、不改写、相邻调用互为前缀延伸），
+   首入并 `append_contract` 标记相位合同（pin-24：回炉轮不重发）。§A 指南段与常驻台账段的文本经
+   `prompts` 的**注入面**传入——该注入面不在本块签名上（`match(state)`），本块按契约以**缺位形**
+   装配（段缺位、不降级），注入归属见本票回报登记；**规章段**（相位②头行＋族③合同）不入链——
+   经 `prompts.toolmatch_system_contract` 走第 3 步 `call_model(system=…)` 的调用级注入参
+   （2026-10-17 H 批·角色分家）；
+3. **调模型**：`bookkeeping.call_model(state, "decision", messages, system=…)`——**单点发起面**，
+   本块不直引 `gateway_adapter`、不建客户端（「无旁路」）；模型调用步记录由 `call_model`
+   **统一记账**，本块不为同一调用重复记步；
 4. **解析＋对账**：`parsing.parse_tool_match`（schema 收口单点）→ 不合格＝拒因正文（`str`）→
    `_rejection_from_parse` **机械适配**（`str` 逐字进 `reason` ＋映射 `kind`；行为 11）；
    合格 → 追加密集级校验（`mention_mode` 闭世界／`metric_slot` 英文列名形／`ranking` 与
@@ -69,7 +71,11 @@ from appv2.runtimev2.parsing import (
 )
 from appv2.runtimev2.parsing import SubtaskMatch as ParsedMatch
 from appv2.runtimev2.persistence import STEP_STATUS_FAILED
-from appv2.runtimev2.prompts import assemble_decision_increment, assemble_decision_package
+from appv2.runtimev2.prompts import (
+    assemble_decision_increment,
+    assemble_decision_package,
+    toolmatch_system_contract,
+)
 from appv2.runtimev2.state import STEP_DECISION, RunState
 from appv2.runtimev2.tool_matching.constants import (
     CONTENT_FUSE_CONVERGED_TEMPLATE,
@@ -130,7 +136,12 @@ def match(
     _append_round_instruction(
         state, guide_text=guide_text, shared_context=shared_context
     )
-    content = call_model(state, MODEL_CALLER, list(state.messages))
+    content = call_model(
+        state,
+        MODEL_CALLER,
+        list(state.messages),
+        system=toolmatch_system_contract(),
+    )
     append_message(state, role=ROLE_ASSISTANT, content=content)
 
     parsed = parse_tool_match(content, group)

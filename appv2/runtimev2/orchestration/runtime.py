@@ -116,6 +116,7 @@ from appv2.runtimev2.persistence import (
     encode_state,
     put_checkpoint_rows,
 )
+from appv2.runtimev2.prompts import SYSTEM_BACKGROUND
 from appv2.runtimev2.state import (
     RUN_COMPLETED,
     RUN_FAILED,
@@ -363,7 +364,12 @@ class RunExecutor:
     ) -> RunState:
         actor = command.actor
         who = "" if actor is None else str(getattr(actor, "user_id", "") or "")
-        messages = [*seed, {"role": "user", "content": command.question}]
+        # 链首背景块（2026-10-17 H 批·角色分家）：**真链首**在此落（题面 user 条之前）——系统作用／
+        # 原理／目的的背景交代（逐字稿＝`prompts.SYSTEM_BACKGROUND`），每链恰一条。追问 run 的链由
+        # 前轮终链整链承接（`seed` 非空、其链首已带背景），故只在新建链（`seed` 空）时挂——
+        # 「每链恰一条、恒在链首」；角色字面同下一行 `"user"`（真源＝`bookkeeping` 写口闭世界）。
+        background = [] if seed else [{"role": "system", "content": SYSTEM_BACKGROUND}]
+        messages = [*background, *seed, {"role": "user", "content": command.question}]
         return RunState(
             run_id=run_id,
             question=command.question,

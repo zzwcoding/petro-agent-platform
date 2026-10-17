@@ -5,10 +5,14 @@ Direct`）与行为 1–12；`specs/modules.md` `## understanding` 卡（职责�
 模型读 → 解析；定路由）。**语义判断交模型，程序只按结论机械分派**：
 
 1. **装配（行为 1／2／9）**：任务书经 `assembly.ensure_task_book` **每 run 只装配一次**（三区文本
-   单点在 `prompts`，数据区从活体投影现取）；
+   单点在 `prompts`，数据区从活体投影现取）；**2026-10-17 H 批（角色分家）**：任务书拆两路——读题
+   规章段（指令区＋输出契约区）经 `prompts.understand_system_contract` 走**调用级 system 注入参**
+   （`call_model(system=…)`，不入链）；动态段（数据区＋题干段）仍作 user 条入链，**链首先挂背景块
+   system 条**（每链恰一条，`assembly.ensure_task_book` 内、链为空时挂）；
 2. **模型读题（框架红线）**：经 `bookkeeping.call_model` **单点发起**（`caller`＝理解桶）——
    **本块不直引 `gateway_adapter`、不直引 `appv2.infra.llm_client`、不自建模型客户端**（R7 ＋
-   「无旁路」行为断言）；整条对话链送进模型（`state.messages` 只追加——钉 `pin-22`）；
+   「无旁路」行为断言）；整条对话链送进模型（`state.messages` 只追加——钉 `pin-22`）；首次读与
+   回喂重试**同形复用**（`_read_and_parse`），规章段两次同口注入；
 3. **留痕（行为 9／钉 `pin-26` 渲染面）**：模型应答以类型正确的消息**追加链尾**（对话链只追加——
    `specs/agent-loop.md` 行为 2 的追加式；模型原话只进过程档案与链上留痕），**`dialogue` 零写入**
    （过程记录不混层；「模型原话不进对话层」的对话层＝`state.dialogue`——`specs/state.md` 行为 6）；
@@ -64,6 +68,7 @@ from appv2.runtimev2.parsing import (
     parse_with_quote_repair,
     understanding_schema_feedback,
 )
+from appv2.runtimev2.prompts import understand_system_contract
 from appv2.runtimev2.state import RunState
 from appv2.runtimev2.transport import EventBus
 from appv2.runtimev2.understanding.assembly import ensure_task_book
@@ -198,7 +203,12 @@ def _read_and_parse(state: RunState) -> tuple[Understanding | Direct | None, str
     **不占回喂上限、不回喂、不占轮**——照澄清相位 `_dispatch` 同款体例）；修不好＝原样返回 `None`
     （交 `interpret` 走拒因回喂恰一次 → 仍拒＝收敛拒答）。
     """
-    raw = call_model(state, MODEL_CALLER, list(state.messages))
+    raw = call_model(
+        state,
+        MODEL_CALLER,
+        list(state.messages),
+        system=understand_system_contract(),
+    )
     append_message(state, role=ROLE_ASSISTANT, content=raw)
     note(state, phase=PHASE, title=READ_NOTE_TITLE, digest=raw)
     parsed, quote_repaired = parse_with_quote_repair(_parse_or_reason, raw)

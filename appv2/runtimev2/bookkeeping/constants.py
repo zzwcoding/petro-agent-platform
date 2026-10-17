@@ -7,8 +7,10 @@
   `toolmatch`——合同文本追加面的相位标记集（现状锚＝旧码 `appv2/runtime/graph.py` 三处
   `contracts_appended` 标记写入；写手面真源＝`synth/S5-RunState字段矩阵.md` 的
   `contracts_appended` 行）。越界相位抛错（fail-closed，行为 8）。
-- **对话链角色闭世界**（`append_message` 的 `role` 取值域）：`user`｜`assistant`——同
-  `state.messages` 口径（接口定义节「写口入参形状」）。
+- **对话链角色闭世界**（`append_message` 的 `role` 取值域）：`user`｜`assistant`｜`system`——
+  同 `state.messages` 口径（接口定义节「写口入参形状」）。**`system` 位（2026-10-17 H 批·角色
+  分家）**＝**链首背景块**唯一形态（每链恰一条，真源 `specs/prompts.md` 2026-10-17 H 批注）；
+  环节规章**不入链**——经 `call_model` 的 `system` 注入参随本次请求走（同批注）。
 - **模型调用归因桶闭世界**（`call_model` 的 `caller` 取值域）＋**三桶→步型**分派表——桶真源＝
   `specs/gateway_adapter.md` 行为 5「`caller` 取值来自调用方（三桶族：理解／决策／作答）」；
   步型分派见下（六值闭世界无 understand 型）。
@@ -37,10 +39,15 @@ CONTRACT_PHASES: frozenset[str] = frozenset(
 )
 
 # ── 对话链角色闭世界（真源 specs/bookkeeping.md 接口定义节「写口入参形状」）──────────
+# 2026-10-17 补（H 批·角色分家）：加第三值 `system`——**只承载链首背景块**（每链恰一条；
+# 环节规章一律不入链，走 `call_model` 的 `system` 注入参）；`user`／`assistant` 语义零改。
 MESSAGE_ROLE_USER = "user"
 MESSAGE_ROLE_ASSISTANT = "assistant"
+MESSAGE_ROLE_SYSTEM = "system"
 
-MESSAGE_ROLES: frozenset[str] = frozenset({MESSAGE_ROLE_USER, MESSAGE_ROLE_ASSISTANT})
+MESSAGE_ROLES: frozenset[str] = frozenset(
+    {MESSAGE_ROLE_USER, MESSAGE_ROLE_ASSISTANT, MESSAGE_ROLE_SYSTEM}
+)
 
 # ── 模型调用归因桶闭世界（`call_model` 的 `caller` 取值域）───────────────────────
 # 真源＝`specs/gateway_adapter.md` 行为 5（原文：「`caller` 取值来自调用方（三桶族：理解／决策／

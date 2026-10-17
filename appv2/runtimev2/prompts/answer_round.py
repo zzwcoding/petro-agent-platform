@@ -1,12 +1,17 @@
-"""答案轮装配（三件套置顶→术语白话表→汇总合同→子问题结果清单→起草答案合同）——纯文本、零判断。
+"""答案轮装配（题面件→子问题结果清单）＋答案环节规章段（动词钉死＋答案要求＋白话表＋汇总＋起草合同）。
 
 段序真源＝`specs/prompts.md` 行为 12（迁移照抄 V1 `assemble_answer_instruction`）；三件套与
 动词钉死句真源＝V1 `orientation.py` `answer_turn_preamble`（行为 13、钉 `pin-13` 合同侧：
 动词钉死句＋答案要求⑦两字面在场，提示词侧不注入回声形指令）。
 
-**术语白话表（族⑥示例区，2026-10-17 EB4a）**：`constants.JARGON_PLAIN_GLOSSARY` 静态块在
-答案装配包内**恰一次**入链（`assemble_answer_prompt`；静态文本置前、state 投影段在后，
-字节级稳定——KV 追加形纪律不破）；文本单点＝`constants`，消费方只引不复制。
+**2026-10-17 H 批（角色分家·system 承载位）**：原一条 user 包拆两路——**规章段**（动词钉死句＋
+【答案要求】＋清单全文＋术语白话表＋汇总合同＋起草答案合同）＝`answer_system_contract()`，经
+`bookkeeping.call_model(system=…)` 随本次请求走（不入链）；**动态段**（题面件＋子问题结果清单）＝
+`assemble_answer_prompt()`，仍作 user 条入链（材料段由调用方追加于尾）。文本零改、段内相对序零改。
+
+**术语白话表（族⑥示例区，2026-10-17 EB4a）**：`constants.JARGON_PLAIN_GLOSSARY` 静态块在规章段内
+**恰一次**（`answer_system_contract`；静态文本置前、投影段在后，字节级稳定——KV 追加形纪律不破）；
+文本单点＝`constants`，消费方只引不复制。
 
 **材料段不在装配输出内**（由调用方按 `context` 渲染产物追加于尾——材料渲染归 `context`）。
 
@@ -59,14 +64,37 @@ _NO_SUBTASK = "（无）"
 
 
 def answer_round_preamble(question: str) -> str:
-    """答案轮三件套置顶（恒三行拼接、以「\\n」收尾——迁移照抄 V1 同函数）。"""
+    """答案轮三件套的**题面件**（动态段·user 承载位——2026-10-17 H 批）。
+
+    三件套（V1 `answer_turn_preamble`：行 1 用户问题／行 2 动词钉死句／行 3 答案要求）随 H 批
+    拆两路：行 2／行 3 属**规章段**（`answer_system_contract`，system 位）；本函数只出**行 1**
+    题面件（`{question}` 随 run 变，属动态段）。
+    """
+    return _QUESTION_ANCHOR.format(question=question)
+
+
+def answer_system_contract() -> str:
+    """答案环节**规章段**（system 承载位——2026-10-17 H 批）：动词钉死句＋答案要求＋白话表＋
+    汇总合同＋起草答案合同。
+
+    构成件逐字引既有常量（零新写）；段内相对序照原装配序（动词钉死句→【答案要求】→术语白话表→
+    汇总合同→起草合同收尾）。与动态段的分工＝**规章＝system、题面与清单＝user**：用户问题行与
+    子问题结果清单留 `assemble_answer_prompt`（材料段由调用方追加——渲染归 `context`）。
+    纯文本进出、确定性；`state` 零写入。
+    """
     return (
-        _QUESTION_ANCHOR.format(question=question)
-        + _VERB_PIN
+        _VERB_PIN
         + "\n"
         + _REQUIREMENTS_HEAD
         + ANSWER_REQUIREMENTS
         + "\n"
+        + JARGON_PLAIN_GLOSSARY
+        + "\n"
+        + "\n"
+        + SUMMARY_CONTRACT
+        + "\n"
+        + "\n"
+        + ANSWER_DRAFT_CONTRACT
     )
 
 
@@ -104,23 +132,17 @@ def subtask_result_list(state: RunState) -> str:
 
 
 def assemble_answer_prompt(state: RunState) -> str:
-    """答案轮指令装配（段序：三件套→术语白话表→汇总合同→子问题结果清单→起草答案合同收尾）。
+    """答案轮**动态段**装配（题面件→子问题结果清单）——user 承载位（2026-10-17 H 批）。
+
+    段序照原装配序的**动态件**：用户问题行（三件套行 1）→ 子问题结果清单；**规章段**（动词钉死句／
+    【答案要求】内嵌清单全文／术语白话表／汇总合同／起草答案合同收尾）改走 `answer_system_contract`
+    的调用级 system 注入参、不入链（真源 `specs/prompts.md` 2026-10-17 H 批注）。
 
     纯函数：只读 `state` 投影，零 IO／零时钟／零随机；材料段不在输出内（调用方追加于尾）。
 
-    **术语白话表（族⑥示例区）**：`JARGON_PLAIN_GLOSSARY` 静态块随答案包恰一次入链（字节级稳定
-    ——两跑／异状态逐字同源；文本单点＝`constants`）；注入形＝前置静态块＋末附「\\n\\n」分隔。
+    **术语白话表（族⑥示例区）**：随规章段入 system 位（`JARGON_PLAIN_GLOSSARY` 静态块、字节级
+    稳定——两跑／异状态逐字同源；文本单点＝`constants`）。
     """
-    return (
-        answer_round_preamble(state.question)
-        + JARGON_PLAIN_GLOSSARY
-        + "\n"
-        + "\n"
-        + SUMMARY_CONTRACT
-        + "\n"
-        + _SUBTASK_LIST_HEAD
-        + "\n"
-        + subtask_result_list(state)
-        + "\n\n"
-        + ANSWER_DRAFT_CONTRACT
+    return answer_round_preamble(state.question) + _SUBTASK_LIST_HEAD + "\n" + subtask_result_list(
+        state
     )

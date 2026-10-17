@@ -14,6 +14,11 @@
 `contracts_appended`）**只经 `bookkeeping` 写口**（`specs/bookkeeping.md` 行为 1）；其余相位私有
 字段（`pending_ask`／`rounds`／`user_hint`／`decision_error`／`budget_reject_streak`／
 `question_group`／`precondition_verdicts`／`pending_discovers`）由本块如实落值（无写口者不设旁路）。
+
+**2026-10-17 H 批（角色分家·system 承载位）**：原一条 user 相位包拆两路——**规章段**（相位头行＋
+族②合同＋finalize 边界句）经 `prompts.clarify_system_contract` 走 `call_model(system=…)` 的
+**调用级注入参**（不入链、回炉轮亦在场）；**动态段**（锚行／分解样例／§A／台账常驻块／增量条）仍
+作 user 条入链（相位一次性 `pin-24` 不变）。
 """
 
 from __future__ import annotations
@@ -136,6 +141,7 @@ from appv2.runtimev2.prompts import (
     PHASE_CLARIFY,
     assemble_decision_increment,
     assemble_decision_package,
+    clarify_system_contract,
     render_ledger_resident_block,
 )
 from appv2.runtimev2.state import (
@@ -166,7 +172,12 @@ def clarify(
     """
     _consume_resume(state)
     _open_round(state, guide_text=guide_text, shared_context=shared_context)
-    content = call_model(state, CALLER_DECISION, state.messages)
+    content = call_model(
+        state,
+        CALLER_DECISION,
+        state.messages,
+        system=clarify_system_contract(clarification_constants.MAX_SUBTASKS),
+    )
     # 模型原话如实入链（追加式：包／增量／应答三形构成链上本节点簿记；`pin-22` 只追加）。
     append_message(state, role="assistant", content=content)
     return _dispatch(state, content)
@@ -255,6 +266,11 @@ def _open_round(
 
     装配时序照 V1 `clarify_node`：先算「是否首入」→ 追加首入包（若首入）→ 追加增量条 →
     最后落相位标记——**首入轮不带「探查预算」条**（该条仅非首入轮；V1 `contracts_flag` 语义）。
+
+    **2026-10-17 H 批（角色分家）**：本函数只装配**动态段**（锚行／分解样例／§A／台账常驻块）——
+    相位**规章段**（头行＋相位合同＋finalize 边界句）不入链，改经 `clarify()` 的
+    `call_model(system=clarify_system_contract(...))` **随本次请求走**（回炉轮亦每轮在场；
+    `pin-24` 的链面一次性不变——链上该相位首入包仍恰一份）。
 
     三处**装配面入参**（登记项，呈主窗——本块依赖面＝`prompts`／`parsing`／`bookkeeping`／
     `state`，三装载面归 `context`／编排面）：

@@ -123,8 +123,9 @@ _BOOKKEEPING_DIR = _V2_DIR / "bookkeeping"
 _SPEC_STEP_KEYS = ("run_id", "seq", "step", "status", "title", "manifest", "payload")
 # 步状态三值（接口定义节；真源 specs/persistence.md）
 _SPEC_STEP_STATUSES = {"ok", "failed", "refused"}
-# 对话链角色闭世界（接口定义节「写口入参形状」）
-_SPEC_MESSAGE_ROLES = {"user", "assistant"}
+# 对话链角色闭世界（接口定义节「写口入参形状」；2026-10-17 H 批加第三值 `system`——
+# 只承载链首背景块，每链恰一条；环节规章不入链、走 `call_model` 的 `system` 注入参）
+_SPEC_MESSAGE_ROLES = {"user", "assistant", "system"}
 # 对话层来源闭世界三值（接口定义节；真源 specs/state.md 行为 6）
 _SPEC_DIALOGUE_ORIGINS = {"user_verbatim", "assistant_final", "clarify_approval_replay"}
 _SPEC_DIALOGUE_ORIGIN_ROLES = {
@@ -553,10 +554,12 @@ def test_manifest_projected_or_empty() -> None:
 def test_messages_append_only() -> None:
     """#7 对话链只追加不改写——行为 7（钉 `pin-22` 的**写入面**，P0）。
 
-    追加 N 条后前 N-1 条逐字不变（不替换、不重排、不删除）；条目形态恰两键；`role` 闭世界。
+    追加 N 条后前 N-1 条逐字不变（不替换、不重排、不删除）；条目形态恰两键；`role` 闭世界
+    （2026-10-17 H 批三值：`user`／`assistant`／`system`——`system` 只承载链首背景块）。
     """
-    assert _SPEC_MESSAGE_ROLES == {"user", "assistant"}
+    assert _SPEC_MESSAGE_ROLES == {"user", "assistant", "system"}
     state = _state()
+    append_message(state, role="system", content="【系统背景】……（链首背景块，每链恰一条）")
     append_message(state, role="user", content="任务书：……（过程内容入链，不入对话层）")
     snapshot = deepcopy(state.messages)
     append_message(state, role="assistant", content="模型原话")
@@ -564,7 +567,7 @@ def test_messages_append_only() -> None:
     append_message(state, role="assistant", content="终稿")
 
     assert state.messages[: len(snapshot)] == snapshot  # 前 N-1 条逐字不变
-    assert [entry["content"] for entry in state.messages[1:]] == [
+    assert [entry["content"] for entry in state.messages[2:]] == [
         "模型原话",
         "追问：那 2025 年呢？",
         "终稿",
@@ -572,14 +575,15 @@ def test_messages_append_only() -> None:
     assert all(set(entry) == {"role", "content"} for entry in state.messages)
     # 相邻两次调用互为前缀延伸（只追加的机读形）
     assert state.messages[:-1] == [
+        {"role": "system", "content": "【系统背景】……（链首背景块，每链恰一条）"},
         {"role": "user", "content": "任务书：……（过程内容入链，不入对话层）"},
         {"role": "assistant", "content": "模型原话"},
         {"role": "user", "content": "追问：那 2025 年呢？"},
     ]
 
     with pytest.raises(ValueError):
-        append_message(state, role="system", content="越界角色")
-    assert len(state.messages) == 4  # 越界不落
+        append_message(state, role="tool", content="越界角色")
+    assert len(state.messages) == 5  # 越界不落
 
 
 # ---------- 8 相位合同一次性（回炉轮不重发） ----------
@@ -817,6 +821,9 @@ _SPEC_FACE: dict[str, dict[str, Any]] = {
             ("state", "RunState", _POSITIONAL, _EMPTY),
             ("caller", "str", _POSITIONAL, _EMPTY),
             ("messages", "Sequence[Mapping[str, str]]", _POSITIONAL, _EMPTY),
+            # 2026-10-17 H 批（角色分家·system 承载位）：本环节规章经该注入参前置进本次请求
+            # （不入链、不进检查点、不用即散）——真源 `specs/bookkeeping.md` 行为 15 的 H 批注。
+            ("system", "str | None", _KEYWORD_ONLY, None),
         ),
         "returns": "str",
     },
@@ -1213,6 +1220,36 @@ def test_call_model_keeps_accounting() -> None:
     with pytest.raises(ValueError):
         call_model(state, "summarize", messages)
     assert len(state.steps) == calls_before
+
+
+def test_call_model_system_injection_no_leak() -> None:
+    """行为 15 的 2026-10-17 H 批注（角色分家·承载位）：`system` 注入参只随本次请求走。
+
+    判据四面：① 有值 → **请求首条前置** `{"role": "system", …}`、其余逐字仍＝入参链；
+    ② **不入链**（`state.messages` 零写、注入文本不出现在链上）；③ **不用即散**——下一次不带
+    `system` 的调用请求＝入参链原样（**零泄漏到下一环节**）；④ 假值（`None`／空串）＝原链原样；
+    ⑤ 记账面不受注入影响（步／Manifest 照落——「裸文本不吞账」）。
+    """
+    contract = "【相位①·业务澄清】本环节规章段（system 承载位）"
+    chain = [{"role": "user", "content": "题面"}, {"role": "assistant", "content": "读题"}]
+    state = _state()
+    spy = _SpyCompleter(ModelReply(content="ok", caller="decision", run_id=state.run_id))
+    previous = set_completer(spy)
+    try:
+        call_model(state, "decision", chain, system=contract)  # ① 有值 → 前置
+        call_model(state, "decision", chain)  # ③ 不带 → 零残留
+        call_model(state, "decision", chain, system="")  # ④ 空串 ＝ 缺省形
+        call_model(state, "decision", chain, system=None)  # ④ None ＝ 缺省形
+    finally:
+        set_completer(previous)
+    first, second, third, fourth = [sent for _caller, _run_id, sent in spy.seen]
+    assert first == [{"role": "system", "content": contract}, *chain]
+    assert second == chain and third == chain and fourth == chain
+    # ② 不入链
+    assert state.messages == [] and contract not in repr(state.messages)
+    # ⑤ 记账面照落（四次调用四条步；`content` 不入账）
+    assert len(state.steps) == 4
+    assert all("content" not in step["payload"] for step in state.steps)
 
 
 
@@ -1791,7 +1828,7 @@ def test_boundary_empty_huge_converged_enum() -> None:
     with pytest.raises(ValueError):
         append_contract(enum_state, "understand")
     with pytest.raises(ValueError):
-        append_message(enum_state, role="system", content="越界角色")
+        append_message(enum_state, role="tool", content="越界角色")
     with pytest.raises(ValueError):
         append_dialogue(enum_state, role="user", content="越界来源", origin="task_book")
     with pytest.raises(ValueError):

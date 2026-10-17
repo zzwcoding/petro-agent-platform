@@ -18,6 +18,9 @@
   `content`**；回执的**余键**（用量与归因面：`caller`／`run_id`／token／`cached_tokens`／`alias`／
   时长／`usage_estimated`／`error`）由本块记进步记录 `payload`，`token_count` 回填进随步的
   `Manifest`（真源 `specs/context.md`：「`token_count` 由记账面回填」）——**禁裸文本吞掉记账面**。
+  **`system` 注入参（2026-10-17 H 批·角色分家·承载位）**：本环节规章经该注入参**前置**进本次请求
+  （`{"role": "system", …}` 一条）——不入链、不进检查点、不用即散；承载位＝调用级注入参、不新增
+  `RunState` 字段（真源 `specs/bookkeeping.md` 行为 15 的 2026-10-17 H 批注）。
 
 **同步缝**：规格 :73 的 `call_model` 是同步签名（`-> str`，`-01a` 已落地看守），而模型出口
 `complete` 是协程（`specs/gateway_adapter.md` 行为 4 硬要求）——接缝单点＝`_run_sync`
@@ -37,7 +40,11 @@ from dataclasses import asdict
 from typing import Any
 
 import appv2.runtimev2.persistence as persistence_module
-from appv2.runtimev2.bookkeeping.constants import CALLER_STEP_KINDS, DRAFT_KIND_DIRECT
+from appv2.runtimev2.bookkeeping.constants import (
+    CALLER_STEP_KINDS,
+    DRAFT_KIND_DIRECT,
+    MESSAGE_ROLE_SYSTEM,
+)
 from appv2.runtimev2.bookkeeping.ports import record_step, set_intent
 from appv2.runtimev2.gateway_adapter import ModelReply, complete
 from appv2.runtimev2.state import INTENT_ANSWER, RUN_COMPLETED, Manifest, RunState, check_limits
@@ -183,12 +190,24 @@ def direct_answer(state: RunState, text: str) -> None:
 # ── 调模型单点（行为 15）───────────────────────────────────────────────────
 
 
-def call_model(state: RunState, caller: str, messages: Sequence[Mapping[str, str]]) -> str:
+def call_model(
+    state: RunState,
+    caller: str,
+    messages: Sequence[Mapping[str, str]],
+    *,
+    system: str | None = None,
+) -> str:
     """节点侧调模型单点（行为 15）：从状态取 `run_id` → 调 `gateway_adapter.complete` →
     **向节点只回 `content`**；回执余键（用量与归因面）记进步记录与 `Manifest`。
 
     - **发起面**＝`gateway_adapter.complete`（模块级唯一出口；经 `set_completer` 注入的同面缝实作
       ——生产桥／测试替身同面），本块**不直引供应商、不自建客户端**；
+    - **`system` 注入参（2026-10-17 H 批·角色分家·承载位）**＝本环节规章文本，**只随本次请求走**
+      （有值＝请求首条前置一条 `{"role": "system", "content": system}`）——**不入链、不进
+      `state.messages`、不进检查点、不用即散**（无槽位可泄漏到下一环节；下一环节不带
+      `system` 即零残留）。**承载位＝调用级注入参、不新增 `RunState` 字段**（字段集断言
+      `::field_set_matches_matrix` 零改；「进了字段就会被 `encode_state` 全量落盘」＝与
+      「不进持久化」相抵——真源 `specs/bookkeeping.md` 行为 15 的 2026-10-17 H 批注）；
     - **只回 `content`**：返回值是纯字符串，记账面**不随返回值走**（裸文本吞账＝缺陷）；
     - **记账面**：`payload`＝回执余键九项（`caller`／`run_id`／`alias`／`prompt_tokens`／
       `completion_tokens`／`cached_tokens`／`usage_estimated`／`duration_ms`／`error`），
@@ -199,7 +218,9 @@ def call_model(state: RunState, caller: str, messages: Sequence[Mapping[str, str
       ——本块不 catch、不兜底、不返回哨兵。
     """
     step_kind = _caller_step_kind(caller)
-    reply = _run_sync(complete(messages, caller=caller, run_id=state.run_id))
+    reply = _run_sync(
+        complete(_request_of(messages, system), caller=caller, run_id=state.run_id)
+    )
     record_step(
         state,
         kind=step_kind,
@@ -209,6 +230,19 @@ def call_model(state: RunState, caller: str, messages: Sequence[Mapping[str, str
         manifest=Manifest(token_count=reply.prompt_tokens),
     )
     return reply.content
+
+
+def _request_of(
+    messages: Sequence[Mapping[str, str]], system: str | None
+) -> list[Mapping[str, str]]:
+    """本次请求的消息序（H 批承载位）：有规章即**前置** system 条，否则原链原样。
+
+    只改**本次请求**（新列表，链本体零触碰——`pin-22` 只追加）；`system` 为假值（`None`／空串）
+    ＝本环节无规章（原链原样，零残留）。
+    """
+    if not system:
+        return list(messages)
+    return [{"role": MESSAGE_ROLE_SYSTEM, "content": system}, *messages]
 
 
 def _caller_step_kind(caller: str) -> str:

@@ -92,6 +92,7 @@ def check_limits(state: RunState) -> Convergence: ...   # 纯函数：不改入�
 - **三类不可变载荷的形态闭世界**：`AskRequest` 三形态——仅 `question`＝提问｜`resume_run_id`＝断线重连｜`question`＋`followup_run_id`＝追问续会话；`resume_run_id` 与 `followup_run_id` 同在场＝判失败。`AskChoice.kind`＝`clarify`｜`external_table_approval`；`AskChoice.decision`＝`approve`｜`reject`｜`None`。越界值一律判失败。
 - **`RunHandle.stream` 的元素类型是外部类型**：`SseEvent`（帧对象 `{seq, event, data}`）的**形状真源在 `transport`**；本块不 import 任何 runtimev2 块（R4），故以**字符串前向引用**标注（`AsyncIterator["SseEvent"]`）——**本块不定义它、也不得给它安第二套含义**（禁把 `SseEvent` 当成"载荷 dict 别名"）。
 - **增补面不进 `RunState`（2026-10-17 EB3 D1／D2 — 交付面分层）**：程序追加内容（分源块／归属块／引用清单／血缘五要素）走**增补面通道**（`supplement` 帧，载荷 `{block, text}`），**不新增状态字段**——`RunState` 字段集保持 `synth/S5` 矩阵全量（行为 1 的集合相等断言零改）；条目由 `orchestration` 持有的收集列承载（相位经注入参追加），随 run 行落 `supplements` 列（真源 `specs/persistence.md` 列事实＋`specs/transport.md` 行为 16）。判据：字段集断言 `::field_set_matches_matrix` 仍绿（本批零字段增删）。
+- **`system` 承载位不进 `RunState`（2026-10-17 H 批 — 角色分家）**：各环节规章段的**「本次请求 system」槽**走**调用级注入参**（`bookkeeping.call_model(system=…)` 前置进本次请求，不用即散），**不新增状态字段**——本块字段集仍＝`synth/S5` 矩阵全量（行为 1 断言零改）。理由（H 批开票 §4④「不进 messages／不进持久化」）：本块全字段投影即检查点载荷本体（`persistence.checkpoint.encode_state` ＝ `asdict(state)`），落成字段即随检查点落盘，与「不进持久化」相抵。**链面**只有一条 `system` 条＝**链首背景块**（每链恰一条，挂编排建链点；`messages` 的 role 取值域随之三值，真源 `specs/bookkeeping.md` 接口定义节）——`messages` 仍是本块既有字段，本条零字段增删。判据：字段集断言 `::field_set_matches_matrix` 仍绿。
 - **错误契约**：形态／枚举越界 → **抛参数错误**（由 `api`／`orchestration` 映射成对外错误码，映射表不在本块）；本块**不吞错、不返回哨兵值**。
 - 真源：`specs/modules.md` `## state` 卡（签名以卡为准）。
 
