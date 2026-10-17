@@ -26,8 +26,10 @@
    `direction` 同现与取值／`anchors` 形态）；
 5. **定案**：`retrieval_need` **原样透传**（`question`／`anchors`／`family_hints` 全键——键形照
    `RetrievalNeed` 消费面）＋按 V2-50 族 C ① 注入**确定性锚**（`tools.inject_retrieval_anchors`：
-   模型已填锚不被覆盖、缺锚按题面实体补）；注入随定案载荷承载（成功路径**零补记步**——
-   留痕面＝`ToolPlan.matches[].retrieval_need`，同 `caliber_key` 承载口径）；
+   模型已填锚不被覆盖、缺锚按题面实体补；V2-82c 术语锚扩展——题面命中台账指标/术语名或其别名时
+   追加「规范名＋全部别名」，`state.ledger_dump` 经本块下传，dump 缺位＝零扩展）；注入随定案载荷
+   承载（成功路径**零补记步**——留痕面＝`ToolPlan.matches[].retrieval_need`，同 `caliber_key`
+   承载口径）；
 6. **失败**：落**机读信号**（step payload 拒因字段 ＋ notice——「不降级」节）后返回
    `ToolMatchRejection` 交 `orchestration` 回喂重配（**不自动修补**）。
 
@@ -148,7 +150,7 @@ def match(
     if isinstance(parsed, str):
         return _reject(state, _rejection_from_parse(parsed))
 
-    reconciled = _reconcile(content, parsed)
+    reconciled = _reconcile(content, parsed, state.ledger_dump)
     if isinstance(reconciled, ToolMatchRejection):
         return _reject(state, reconciled)
     return ToolPlan(matches=list(reconciled))
@@ -232,13 +234,17 @@ def _rejection_from_parse(reason: str) -> ToolMatchRejection:
 
 
 def _reconcile(
-    content: str, parsed: Sequence[ParsedMatch]
+    content: str,
+    parsed: Sequence[ParsedMatch],
+    dump: Mapping[str, Any] | None = None,
 ) -> tuple[SubtaskMatch, ...] | ToolMatchRejection:
     """解析面已受（逐支合格）后的**闭世界一致性判定**：按 id 逐支复核并定型。
 
     解析面管 schema 与支内必填；本处只补规格点名的加密集面（`mention_mode` 闭世界、
     `metric_slot` 英文列名形、`ranking`／`direction` 同现与取值、`anchors` 形态）——
     判据全是结构判定（存在性／类型／闭世界成员），**零词表零语义**。
+
+    `dump`＝`state.ledger_dump` 原样下传（术语锚扩展源——本块不读不判，只转手）。
     """
     payload = extract_plan_json(content)
     raw_matches = payload.get("matches") if isinstance(payload, Mapping) else None
@@ -257,7 +263,7 @@ def _reconcile(
         violation = _violation_of(item, raw)
         if violation is not None:
             return ToolMatchRejection(reasons=[violation])
-        matches.append(_build_match(item, raw))
+        matches.append(_build_match(item, raw, dump))
     return tuple(matches)
 
 
@@ -329,7 +335,11 @@ def _violation_of(item: ParsedMatch, raw: Mapping[str, Any]) -> MatchReason | No
     return None
 
 
-def _build_match(item: ParsedMatch, raw: Mapping[str, Any]) -> SubtaskMatch:
+def _build_match(
+    item: ParsedMatch,
+    raw: Mapping[str, Any],
+    dump: Mapping[str, Any] | None = None,
+) -> SubtaskMatch:
     """按链定型：`plan` 与 `retrieval_need` **逐字段原样透传**（「出数只认现行口径」＋「检索参数
     不缩水」的结构约束落点）。
 
@@ -341,9 +351,11 @@ def _build_match(item: ParsedMatch, raw: Mapping[str, Any]) -> SubtaskMatch:
     `appv2/retrieval/domain.py` 的 `RetrievalNeed` 消费面，不改键名、不裁键）——**旧实现只重建
     `question`／`anchors` 两键，模型发的 `family_hints` 被丢弃**（L3-02 病灶 A：族配额退化成每族
     1 席、gold 章被裁；`docs/runtime-refactor/ladder/L3/02-完井液在二开钻进段与三开-*`）。透传后
-    并接 V2-50 族 C ① **确定性锚注入**（模型已填锚不覆盖、缺锚按题面实体补；注入项随定案载荷
-    承载——**成功路径零补记步**：留痕面＝返回值 `ToolPlan.matches[].retrieval_need`，落
-    `state.tool_matches` 后与批量执行输入面同源零漂移）。
+    并接 V2-50 族 C ① **确定性锚注入**（模型已填锚不覆盖、缺锚按题面实体与台账术语补——V2-82c
+    术语锚扩展；注入项随定案载荷承载——**成功路径零补记步**：留痕面＝返回值
+    `ToolPlan.matches[].retrieval_need`，落 `state.tool_matches` 后与批量执行输入面同源零漂移）。
+
+    `dump`＝`state.ledger_dump`（台账投影——术语锚扩展源；缺位＝零扩展，零漂移）。
     """
     mention = raw.get("mention_mode")
     plan: dict[str, Any] | None = None
@@ -352,7 +364,7 @@ def _build_match(item: ParsedMatch, raw: Mapping[str, Any]) -> SubtaskMatch:
         plan = dict(item.plan or {})
     else:
         # 原样透传（整 dict 副本，不改键名、不裁键）＋确定性锚注入（返回副本）。
-        need = inject_retrieval_anchors(dict(item.retrieval_need or {}))
+        need = inject_retrieval_anchors(dict(item.retrieval_need or {}), dump=dump)
     return SubtaskMatch(
         id=item.id,
         tool=item.tool,

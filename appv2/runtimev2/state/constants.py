@@ -74,3 +74,13 @@ ASK_CAP = 6  # R-K-76 连续反问截断上限
 # 的形状、不复述取值集（`specs/modules.md` `## state` 卡注）；本块守 R4 不 import `transport`，
 # 故以值引用＋真源指针落此单点，不在别处再写一遍。
 _CONVERGENCE_NOTICE_TYPE = "budget_converged"
+
+# ── 对象歧义 ask 两侧闭世界字面（V2-82b 2026-10-17——票面逐字稿，禁散写）──────────
+# 两侧消费点＝`clarification.subject_ask`（发射：选项组末项）与 `orchestration.runtime`
+# （恢复：选中项 → `state.subjects` 映射）。两值都写进/出自 `RunState` 字段面（`subjects`
+# 的哨兵值），故真源落本块（票面「常量单点，tools 或 state 常量均可」）。
+# - `ALL_FIELDS_OPTION`＝ask 第 2~4 选项的逐字文案（用户可见）；
+ALL_FIELDS_OPTION = "都要（分源对比）"
+# - `ALL_FIELDS_SENTINEL`＝选「都要」后写入 `state.subjects` 的**哨兵值**：下游分源装配
+#   认这个值＝全油田（本票只落值，消费面后续批）。
+ALL_FIELDS_SENTINEL = "__all_fields__"

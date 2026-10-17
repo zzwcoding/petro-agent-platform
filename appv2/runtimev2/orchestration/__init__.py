@@ -9,7 +9,9 @@
   真源在 `state`，本块零第二定义）；
 - **装配面经包根 re-export 供 `api` 消费**（流水 51 卡级修正注；清单逐名见下）：`RunExecutor`
   （构造／注入形：工具注册表 ＋ 存储口 ＋ 限额 ＋ 检查点 saver ＋ 相位注入参
-  〔`watermark`／`data_wells`／`guide_text`——编排只持有并下传，装配面归
+  〔`watermark`／`data_wells`／`guide_text`／`field_instances`（V2-82b 油田实例读缝——
+  对象歧义门的两数据源之一；另一＝题面程序主体候选读面，由澄清节点从 `tools` 包根现绑、
+  不作注入参——V2-82 批 EB6 修 1）——编排只持有并下传，装配面归
   `api` 组合根〕）＋ `RunCommand`／
   `RunEvent`（`RunCommand → 执行器 → RunEvent` 显式接缝）＋错误族两件（`api` 据此映射 404／409）
   ＋ `Budget`（限额参数表——`api` 装配构造注入件用）。**真源块注（防一头两认）**：`AskRequest`／

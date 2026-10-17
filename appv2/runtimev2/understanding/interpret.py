@@ -32,8 +32,11 @@ Direct`）与行为 1–12；`specs/modules.md` `## understanding` 卡（职责�
    （`dialogue` 零写入）；**不补默认、不改写原话、不降级提取**（引号自修＝**格式层**确定性修复：
    只把字符串值内的裸引号换中文引号，修后须全文可解析才受理——值内容逐字不动，零语义）。
 5. **分派（行为 4／6／8／12）**：**只按 `route` 取值**（闭世界 `full`｜`direct`）——
-   `full` → 理解字段双出口（`state.understanding`／`state.metric_candidates` ＋ `text` 事件
-   `kind=understanding`）＋ 候选出自名录对账（违约即如实上报，不静默丢弃）；
+   `full` → 理解字段双出口（`state.understanding`／`state.metric_candidates` ＋ **V2-82a 的
+   `state.subjects`／`state.terms`**）＋ `text` 事件
+   `kind=understanding`）＋ 候选出自名录对账（违约即如实上报，不静默丢弃）；**2026-10-17
+   V2-82a**：模型给出的主体与程序预识别候选集合不一致时另记一条过程档案注记「主体识别分歧」
+   （**只留痕不改判**——判定仍归模型，同数据区推荐行的「以你的判断为准」口径）；
    `direct` → **先过直答结构核验（行为 5）**：命中闭世界（数值形／名录内指标名／结构卡内表名）
    ＝判不合格 → **退回 `route="full"` 的 `Understanding`＋过程档案一条「直答退回」注记**（不抛错、
    不静默、不直答收口）；未命中 → 直答收口旁路（`bookkeeping.direct_answer` 三键）。**单出口互斥**：
@@ -51,6 +54,8 @@ fail-closed 抛错（同 `gateway_adapter._configured_completer` 先例——「
 """
 
 from __future__ import annotations
+
+from collections.abc import Sequence
 
 from appv2.runtimev2.bookkeeping import (
     append_message,
@@ -71,7 +76,7 @@ from appv2.runtimev2.parsing import (
 from appv2.runtimev2.prompts import understand_system_contract
 from appv2.runtimev2.state import RunState
 from appv2.runtimev2.transport import EventBus
-from appv2.runtimev2.understanding.assembly import ensure_task_book
+from appv2.runtimev2.understanding.assembly import ensure_task_book, program_candidates
 from appv2.runtimev2.understanding.closure import direct_assertion_hits
 from appv2.runtimev2.understanding.constants import (
     CONVERGE_DRAFT_TEMPLATE,
@@ -80,14 +85,20 @@ from appv2.runtimev2.understanding.constants import (
     MODEL_CALLER,
     NOTICE_EMISSION_QUOTE_REPAIR,
     PHASE,
+    PROGRAM_CANDIDATE_EMPTY,
+    PROGRAM_CANDIDATE_SEP,
     QUOTE_REPAIR_NOTE_TITLE,
     QUOTE_REPAIR_NOTICE_CONTENT,
     READ_NOTE_TITLE,
     RETRY_NOTE_TITLE,
     ROLE_ASSISTANT,
     ROLE_USER,
+    SUBJECT_DIVERGENCE_DIGEST,
+    SUBJECT_DIVERGENCE_LIMIT,
+    SUBJECT_DIVERGENCE_NOTE_TITLE,
     TEXT_EVENT,
     TEXT_EVENT_KIND,
+    TRUNCATION_MARK,
 )
 from appv2.runtimev2.understanding.feedback import schema_feedback
 from appv2.runtimev2.understanding.reporting import (
@@ -292,13 +303,46 @@ def _dispatch_full(state: RunState, understanding: Understanding, bus: EventBus)
 
     候选**原样落状态**（如实，不静默丢弃）；名录外者经「如实上报」两件套（报告步 payload ＋
     notice）点名。事件载荷＝`{content, kind}`（真源 `synth/S6-事件与帧目录.md` §一 text 行）。
+
+    **2026-10-17 V2-82a**：额外落 `state.subjects`／`state.terms`（题面主体/术语的结构化槽
+    ——原样照抄模型给出，不归一、不清空）；模型给出的主体与**程序预识别候选集合**不一致时，
+    过程档案追加一条**有界一句**「主体识别分歧」（`_note_subject_divergence`——只留痕、不改写
+    模型判断：与数据区推荐行同一条「以你的判断为准」口径）。
     """
     offenders = [
         name for name in understanding.metric_candidates if name not in metric_roster(state)
     ]
     state.understanding = understanding.text
     state.metric_candidates = list(understanding.metric_candidates)
+    state.subjects = tuple(understanding.subjects)
+    state.terms = tuple(understanding.terms)
+    _note_subject_divergence(state, understanding)
     bus.emit(TEXT_EVENT, {"content": understanding.text, "kind": TEXT_EVENT_KIND})
     if offenders:
         report_candidate_violation(state, offenders, understanding.metric_candidates)
     return understanding
+
+
+def _divergence_listing(names: Sequence[str]) -> str:
+    """分歧留痕的候选展示形（顿号串；空＝「无」——与数据区推荐行同一展示体例）。"""
+    return PROGRAM_CANDIDATE_SEP.join(names) or PROGRAM_CANDIDATE_EMPTY
+
+
+def _note_subject_divergence(state: RunState, understanding: Understanding) -> None:
+    """主体识别分歧留痕（V2-82a）：程序候选集合 ≠ 模型给出集合 → 过程档案有界一句。
+
+    集合判（不看序——同一组主体换序不算分歧）；相等＝零留痕（**no-divergence run 的
+    `process_notes` 逐字不变**）。digest 预截 `SUBJECT_DIVERGENCE_LIMIT` 字并留可见标记
+    （`bookkeeping.note` 写入点另有 200 字上限，本截更严——票面「截断 ≤100 字」）；
+    只经唯一写口 `bookkeeping.note`（相位零直写），`dialogue` 零写入。
+    """
+    program_subjects, _program_terms = program_candidates(state)
+    if set(program_subjects) == set(understanding.subjects):
+        return
+    digest = SUBJECT_DIVERGENCE_DIGEST.format(
+        program=_divergence_listing(program_subjects),
+        model=_divergence_listing(understanding.subjects),
+    )
+    if len(digest) > SUBJECT_DIVERGENCE_LIMIT:
+        digest = digest[: SUBJECT_DIVERGENCE_LIMIT - len(TRUNCATION_MARK)] + TRUNCATION_MARK
+    note(state, phase=PHASE, title=SUBJECT_DIVERGENCE_NOTE_TITLE, digest=digest)

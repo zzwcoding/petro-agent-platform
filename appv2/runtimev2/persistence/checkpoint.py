@@ -46,6 +46,12 @@ CHECKPOINT_KIND_STATE = "state"  # 行类型标签：运行状态快照（本块
 
 CheckpointRowLike = CheckpointRow | CheckpointBlobRow | CheckpointWriteRow
 
+# 元组形状态字段（V2-82a 2026-10-17 追加 `subjects`／`terms`；V2-82b 追加
+# `pending_subject_options`）：JSON 无元组——快照往返会把
+# 声明形退化成 list，故读入时按声明形归位（同 `budget`／`dialogue` 的字段形归一先例——
+# 「读回与落盘快照逐字段相等」是恢复可重放的判据面，字段形不漂移）。
+_TUPLE_STATE_FIELDS: tuple[str, ...] = ("subjects", "terms", "pending_subject_options")
+
 
 def _tables(tables: Tables | None) -> Tables:
     return current_tables() if tables is None else tables
@@ -84,6 +90,10 @@ def decode_state(payload: bytes) -> RunState:
             for entry in entries
             if isinstance(entry, dict) and entry.get("origin") in DIALOGUE_ORIGINS
         ]
+    for name in _TUPLE_STATE_FIELDS:  # V2-82a：元组形字段按声明形归位（list → tuple）
+        value = kwargs.get(name)
+        if isinstance(value, list):
+            kwargs[name] = tuple(value)
     return RunState(**kwargs)
 
 

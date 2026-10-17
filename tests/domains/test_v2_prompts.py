@@ -148,9 +148,16 @@ _VERB_PIN = (
     "动作指令（finalize/decompose 等动作出现即废品）。"
 )
 
-# 数据区段头（来源标记——`specs/understanding.md` 行为 2 的标来源面）。
-_DATA_ZONE_HEAD = "【环境】（以下由系统按当前数据现状动态装配）"
+# 数据区段头（来源标记——`specs/understanding.md` 行为 2 的标来源面；2026-10-17 V2-82 换一行
+# 功能段头——原「【环境】」表头＋「【本系统】」四句介绍随删，逐字稿＝票面①）。
+_DATA_ZONE_HEAD = (
+    "【环境数据】（以下由系统按当前数据现状动态装配——业务相关性只看领域是否沾边；"
+    "数据止于下方水位日）"
+)
 _QUESTION_HEAD = "【待解构的题干】"
+# 数据区两节块头（名字级单行，逐字稿＝V2-82 票面②③；`{count}`＝实际条数，名字／映射串随投影）
+_METRIC_SECTION_HEAD = " - 台账指标名录（{count} 条——名字级清单；绑定态与定义见后续台账全量块）："
+_TERM_SECTION_HEAD = " - 术语表（{count} 条——口语/别名→正名；定义见后续台账全量块）："
 
 # 空投影占位文案逐字（真源 recon/L2a R-L2a-19；规格 行为 5）。
 _PLACEHOLDER_FAMILY = "（暂无族标注）"
@@ -596,11 +603,19 @@ def test_task_book_examples_fixed_set() -> None:
 
 
 def test_data_zone_live_projection() -> None:
-    """数据区活体投影现取：改投影 → 输出随之变（标来源；understanding 行为 2 面）。"""
+    """数据区活体投影现取：改投影 → 输出随之变（标来源；understanding 行为 2 面）。
+
+    2026-10-17 V2-82：指标名录／术语表＝名字级单行（块头逐字＝票面②③）——绑定态注解
+    （`名字｜状态`）与逐条注解退场（由常驻块全量承担），判据方向不变（投影改则文本改）。
+    """
     base = assemble_task_book(_ledger_state(), watermark="2026-08-24")
     assert _DATA_ZONE_HEAD in base
-    assert "生产时长｜可出数" in base
-    assert "含水率｜未绑定（台账无数值——数值走报告检索）" in base
+    # ① 原「【本系统】」介绍段随删（背景交代由链首背景块 `SYSTEM_BACKGROUND` 单点承担）
+    assert "【本系统】" not in base and "本系统是油田生产与管理数据的问答系统" not in base
+    # ②③ 两节名字级单行：块头行尾直连名字／映射串（不再逐条换行）
+    assert _METRIC_SECTION_HEAD.format(count=2) + "生产时长、含水率" in base
+    assert _TERM_SECTION_HEAD.format(count=1) + "井筒" in base
+    assert "｜可出数" not in base and "未绑定（台账无数值" not in base  # 绑定态注解零残留
     assert "抽油井（人工举升井）" in base
     assert "  关系：抽油井——位于——区块" in base
     assert "- 资料库族：completion（完井工程报告）、monthly（月报）——" in base
@@ -617,15 +632,15 @@ def test_data_zone_live_projection() -> None:
     )
     dump["terms"].append({"term": "井筒", "banned": True, "value": "旧称（替代：井筒）"})
     changed = assemble_task_book(_ledger_state(ledger_dump=dump), watermark="2026-08-25")
-    assert "井口压力｜可出数" in changed and "井口压力｜可出数" not in base
-    assert "禁用词！旧称（替代：井筒）" in changed
+    assert "井口压力" in changed and "井口压力" not in base
+    assert "井筒→井筒" in changed  # 新增词条（禁用词：替代名取作正名）并入术语行
     assert "- 数据水位：2026-08-25——" in changed
-    assert " - 台账指标名录（3 条——名字｜状态" in changed  # 块头计数随增删同步
+    assert _METRIC_SECTION_HEAD.format(count=3) in changed  # 块头计数随增删同步
     # 投影增删一行 → 输出同步增删（词条删除）
     dump["terms"] = []
     dropped = assemble_task_book(_ledger_state(ledger_dump=dump))
-    assert "旧称（替代：井筒）" not in dropped
-    assert " - 术语表（0 条——口语／别名 → 正名；纯定义型给一句式定义）：\n  （空）" in dropped
+    assert "井筒→井筒" not in dropped
+    assert _TERM_SECTION_HEAD.format(count=0) + "\n  （空）" in dropped
 
 
 # ---------- 8 空投影 → 占位文案逐字在场 ----------
@@ -641,7 +656,11 @@ def test_empty_projection_placeholder_verbatim() -> None:
         assert output.count("\n  " + _PLACEHOLDER_EMPTY) == 3  # 指标／术语／对象各一
         for header in (" - 台账指标名录（", " - 术语表（", " - 本体速览（", "  对象："):
             assert header in output  # 段不删、只落占位
-    assert " - 台账指标名录（0 条" in assemble_task_book(_empty_state_with_empty_dump())
+    empty_book = assemble_task_book(_empty_state_with_empty_dump())
+    assert _METRIC_SECTION_HEAD.format(count=0) in empty_book
+    # 空表保持既有「（空）」惯例（V2-82 票面③：占位文案不随名字级单行退场）
+    assert _METRIC_SECTION_HEAD.format(count=0) + "\n  （空）" in empty_book
+    assert _TERM_SECTION_HEAD.format(count=0) + "\n  （空）" in empty_book
 
 
 # ---------- 16 合同常量零业务名词 ----------
@@ -1821,7 +1840,7 @@ def test_retention_normal_assembly_unchanged() -> None:
     partial["terms"] = []
     partial_book = assemble_task_book(_ledger_state(ledger_dump=partial), watermark="2026-08-24")
     assert partial_book.count("\n  " + _PLACEHOLDER_EMPTY) == 1
-    assert "生产时长｜可出数" in partial_book
+    assert "生产时长、含水率" in partial_book  # 指标名录行照常（V2-82 名字级单行）
     assert _PLACEHOLDER_FAMILY not in partial_book and _PLACEHOLDER_WATERMARK not in partial_book
 
     # ② 常规投影下各件原样（-04a／-04b 判据面抽样重钉——本票不改形；2026-10-17 H 批：
@@ -1833,7 +1852,7 @@ def test_retention_normal_assembly_unchanged() -> None:
         < full.index(_DATA_ZONE_HEAD)
         < full.index(_QUESTION_HEAD)
     )
-    assert "含水率｜未绑定（台账无数值——数值走报告检索）" in normal_book
+    assert _METRIC_SECTION_HEAD.format(count=2) + "生产时长、含水率" in normal_book
     assert normal_clarify.count(RESIDENT_BLOCK_BEGIN) == 1
     assert normal_clarify.count(RESIDENT_BLOCK_END) == 1
     assert "填写样例（分解形" in normal_clarify and "问题组：" not in normal_clarify

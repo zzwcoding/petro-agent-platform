@@ -7,6 +7,8 @@
 """
 
 from appv2.runtimev2.state.constants import (
+    ALL_FIELDS_OPTION,
+    ALL_FIELDS_SENTINEL,
     ASK_CAP,
     INTENT,
     INTENT_ANSWER,
@@ -53,6 +55,8 @@ from appv2.runtimev2.state.models import (
 )
 
 __all__ = [
+    "ALL_FIELDS_OPTION",
+    "ALL_FIELDS_SENTINEL",
     "ASK_CAP",
     "DIALOGUE_ORIGINS",
     "DIALOGUE_ORIGIN_ROLES",

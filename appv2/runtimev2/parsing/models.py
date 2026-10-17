@@ -28,19 +28,31 @@ from typing import Any, Literal
 
 @dataclass(frozen=True, slots=True)
 class Understanding:
-    """读题结论（`route="full"`）——字段集真源 `specs/understanding.md` 接口定义。"""
+    """读题结论（`route="full"`）——字段集真源 `specs/understanding.md` 接口定义。
+
+    `subjects`／`terms`＝**2026-10-17 V2-82a additive**（题面主体／术语的结构化槽；
+    解析层宽松：缺省／类型不合＝空元组、不拒单；默认空＝零漂移）。
+    """
 
     text: str
     metric_candidates: list[str]
     route: Literal["full"]
+    subjects: tuple[str, ...] = ()
+    terms: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
 class Direct:
-    """无业务直答（`route="direct"`）——字段集真源 `specs/understanding.md` 接口定义。"""
+    """无业务直答（`route="direct"`）——字段集真源 `specs/understanding.md` 接口定义。
+
+    字段集与 `Understanding` **同步**（V2-82a）：两形同持 `subjects`／`terms` 槽（直答
+    形下恒空——直答无题面主体/术语；形状单点仍是本类）。
+    """
 
     text: str
     route: Literal["direct"]
+    subjects: tuple[str, ...] = ()
+    terms: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

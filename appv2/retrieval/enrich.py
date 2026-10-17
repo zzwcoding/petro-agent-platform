@@ -79,7 +79,7 @@ SUMMARY_USER_TEMPLATE = (
 )
 
 # 摘要节点文本头（确定性拼装单点——节路径＋覆盖支数随节点文本可检索）。
-SUMMARY_HEADER_TEMPLATE = "〔节级摘要｜{report}·{section}｜覆盖 {count} 支切片〕"
+SUMMARY_HEADER_TEMPLATE = "〔节级摘要｜{report}·{section}｜覆盖 {count} 条节内材料〕"
 
 
 # ---------- 记录形状（富化索引表行投影——store 缝与编排共用） ----------

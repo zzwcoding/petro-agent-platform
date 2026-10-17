@@ -7,8 +7,8 @@
   同 section 整组补席进窗、不计入单支配额（window 超出 budget——增量如实）；
 - 题眼锚保底：多来源竞争下「题眼锚命中的来源」至少 1 席位（消灭 Q14 族 B
   「目标报告零席位＝缺位来源」形——Q14D-NQ-D9 帧的确定性缩影）；
-- window_note 数字如实：扩席后「召回 N 支/送窗 M 支」照实按实走计数
-  （M＝实际送窗支数，含锚保底与整组增量），缺位来源不再列已保席来源。
+- window_note 数字如实：扩席后「共检索到 N 条材料，M 条用进了答案」照实按实走
+  计数（M＝实际在窗条数，含锚保底与整组增量），已保席来源不再列未纳入名单。
 
 红线钉：不动排序/召回——供给层只动席位分配；配额路径（族分池/余量补给/
 缺位枚举）无锚非扩席场景零漂移。
@@ -17,6 +17,10 @@ fixture 家族布点＝Q14 零席位形的成因缩影：C 报告（dynamic 族�
 独占配额，目标报告 34-8（monthly 族·被挤）在召回池内但零席位——与
 Q14D-NQ-D9 帧「缺位来源（预算未及）：《渤中34-8油田一季度注采调整…》」
 同形。全片段文本命中题眼锚「34-8」；表格支（5.2 配注调整表）含「Y-24」。
+
+V2-82d 追加（末节）：题眼锚保底的命中面从 `frag.text` 扩为
+text ∪ report ∪ well——题面点名的主体常只落在报告名（油田名）或本体标签
+（well 井号）里，text-only 判据下保底席配不上。
 """
 
 from __future__ import annotations
@@ -66,6 +70,7 @@ def _frag(
     rpt: tuple[str, str],
     section: str,
     text: str,
+    well: str | None = None,
 ) -> FragmentRecord:
     return FragmentRecord(
         fragment_id=fid,
@@ -76,6 +81,7 @@ def _frag(
         library=lib[1],
         family=lib[2],
         text=text,
+        well=well,
     )
 
 
@@ -226,8 +232,9 @@ async def test_retrieve_no_false_guarantee_for_non_anchor_sources() -> None:
         )
     )
     note = bundle.window_note
-    assert "题眼锚保底席位" not in note  # 34-8 命中的目标报告已获席——保底未触发
-    assert "缺位来源（预算未及）：C-渤中34-5油田三季度注水调整与生产运行分析" in note
+    # 34-8 命中的目标报告已获席——保底未触发（无扩席实录段）
+    assert "以下条目因直接命中提问关键词获得保留" not in note
+    assert "以下来源因数量限制未纳入：C-渤中34-5油田三季度注水调整与生产运行分析" in note
 
 
 # ---------- 钉四：表类整行集（目标表格片段整组进窗——不计入配额） ----------
@@ -291,7 +298,121 @@ async def test_retrieve_rowset_window_note_truthful() -> None:
     # 获非零分，召回池 5→6；窗构成不变——f-t1/f-t2/整组扩席同形）。
     # 追认登记（P-046b S5，2026-10-11）：该行为变化经 L0 显式追认
     # （P-046b 派工单 S4/S5 条「R1a 钉测 5→6 追认登记」——本注记即登记载体）。
-    assert note.startswith("召回 6 支/送窗 3 支；已召回未送窗 3 支")  # 实走计数
-    assert "表类整行集进窗 +1 支" in note
+    assert note.startswith(
+        "共检索到 6 条材料，3 条用进了答案；另有 3 条已找到但未用进答案（受送入答案的数量限制）"
+    )  # 实走计数
+    assert "目标表格的整组数据行已进窗（+1 条，不占送入答案的数量）" in note
     assert any("Y-24" in obs.text for obs in bundle.observations)  # 表格行真支在窗
-    assert "缺位来源" not in note  # 目标报告已获席——无缺位可列
+    assert "未纳入" not in note  # 目标报告已获席——无未纳入来源可列
+
+
+# ---------- 钉五（V2-82d）：题面主体保底席位（命中面 text ∪ report ∪ well） ----------
+
+# 语料布点＝B6 病灶确定性缩影：题面点名的主体只落在报告名（油田名）或 well
+# 本体标签（井号）里，切片正文一律不含锚词——text-only 判据下保底席配不上。
+_D_LIB_DYN = ("lib-d1", "渤中34-5动态分析库", "dynamic")
+_D_LIB_MON = ("lib-d2", "渤中34-5综合月报库", "monthly")
+_RPT_COMP = ("rpt-comp", "O-三季度注水情况专项分析")
+_RPT_OWN = ("rpt-own", "渤中34-5油田开发动态分析")
+_RPT_WELL = ("rpt-well", "杆断根因专项分析")
+_WELL_TAG = "W-22井·数值模拟平台"
+_OWN_NEEDLE = "34-5"
+_WELL_NEEDLE = "W-22"
+
+
+def _d_fragments() -> list[FragmentRecord]:
+    """四支片段：dynamic 族竞争报告两支（题面词面强命中）＋monthly 族主体承载支两支。
+
+    主体承载支的正文都不含锚词——油田名只在报告名、井号只在 well 标签
+    （f-po1/f-pw1 正文逐字无「34-5」/「W-22」）。
+    """
+    return [
+        _frag("f-pc1", _D_LIB_DYN, _RPT_COMP, "1.1 主要生产指标",
+              "三季度注水情况：月注采比 0.98 进入 0.95～1.05 区间，注水量 9.26 万m³。"),
+        _frag("f-pc2", _D_LIB_DYN, _RPT_COMP, "2.1 注水月度数据",
+              "注水情况说明：三季度注水量按月分配，计划完成率 102%。"),
+        _frag("f-po1", _D_LIB_MON, _RPT_OWN, "全文档摘要",
+              "本报告由地质所与工艺所联合编制，数据经三级审核后发布。"),
+        _frag("f-pw1", _D_LIB_MON, _RPT_WELL, "4.1 杆断根因",
+              "该井检泵周期 215 天，杆管偏磨为主要根因。", well=_WELL_TAG),
+    ]
+
+
+def _d_ranked_all() -> list[tuple[Hit, float]]:
+    """融合序替身（直接驱动 supply_window——seed 序给单调递减分）。"""
+    return [
+        (Hit(frag, 1.0 / (i + 1), "keyword"), 1.0 / (i + 1))
+        for i, frag in enumerate(_d_fragments())
+    ]
+
+
+def _d_engine() -> RetrievalEngine:
+    return RetrievalEngine(
+        library=InMemoryFragmentLibrary(_d_fragments()),
+        embedder=LocalHashEmbedder(),
+    )
+
+
+def test_supply_window_anchor_seat_hits_report_name() -> None:
+    """切片正文不含锚词、报告名含 → 该来源仍获保底席（V2-82d 三面命中面主钉）。"""
+    ranked = _d_ranked_all()
+    plain = supply_window(ranked, 2, ("dynamic",))
+    assert [p[0].fragment.fragment_id for p in plain.window] == ["f-pc1", "f-pc2"]
+    assert _RPT_OWN[1] in plain.missing_sources  # 前置：主体承载来源零席位形在场
+    # 前置：主体承载支正文不含锚词——报告名是唯一命中面（旧判据下必不保底）。
+    own = [f for f in _d_fragments() if f.report == _RPT_OWN[1]]
+    assert own and all(_OWN_NEEDLE not in f.text.casefold() for f in own)
+    assert all(f.well is None for f in own)
+
+    supply = supply_window(ranked, 2, ("dynamic",), anchors=(_OWN_NEEDLE,))
+    assert supply.anchor_seated == (_RPT_OWN[1],)  # 留痕记账面（引擎侧原样渲染）
+    assert _RPT_OWN[1] not in supply.missing_sources
+    # 保底支＝该来源融合序最优一支（f-po1 在 ranked 中先于 f-pw1）。
+    assert [p[0].fragment.fragment_id for p in supply.window][-1] == "f-po1"
+
+
+def test_supply_window_anchor_seat_hits_well_label() -> None:
+    """井号锚只落在 frag.well 本体标签里 → 该来源获保底席。"""
+    ranked = _d_ranked_all()
+    plain = supply_window(ranked, 2, ("dynamic",))
+    assert _RPT_WELL[1] in plain.missing_sources
+
+    well_frag = next(f for f in _d_fragments() if f.fragment_id == "f-pw1")
+    assert well_frag.well == _WELL_TAG
+    # 前置：正文与报告名都不含井号——well 标签是唯一命中面。
+    assert _WELL_NEEDLE not in well_frag.text.casefold()
+    assert _WELL_NEEDLE not in well_frag.report.casefold()
+
+    supply = supply_window(ranked, 2, ("dynamic",), anchors=(_WELL_NEEDLE,))
+    assert supply.anchor_seated == (_RPT_WELL[1],)
+    assert _RPT_WELL[1] not in supply.missing_sources
+    assert [p[0].fragment.fragment_id for p in supply.window][-1] == "f-pw1"
+
+
+def test_supply_window_anchor_seat_text_face_unchanged() -> None:
+    """命中面放宽是超集：正文词面命中照旧保底（旧判据零回归）。"""
+    supply = supply_window(_ranked_all(), 2, ("dynamic",), anchors=("Y-24",))
+    assert supply.anchor_seated == (_TARGET_REPORT,)
+    assert [p[0].fragment.fragment_id for p in supply.window][-1] == "f-t1"
+
+
+async def test_retrieve_numeric_core_anchor_hits_report_name_note_visible() -> None:
+    """引擎面端到端（B-正6 缩影）：题面点名油田→资产编号形锚命中报告名→保底进窗＋留痕可见。
+
+    锚「34-5」由题面词面确定性产出（问句资产编号形）；报告名含该数字编号即
+    视为命中——行为可解释：报告名是出处链一级键，题面点名的主体落在报告名上
+    就是该来源的题眼命中（切片正文不含该词——text-only 判据下此来源零席位）。
+    """
+    assert anchor_seat_tokens("渤中34-5油田三季度注水情况如何") == (_OWN_NEEDLE,)
+    bundle = await _d_engine().retrieve(
+        RetrievalNeed(
+            question="渤中34-5油田三季度注水情况如何",
+            family_hints=("dynamic",),
+            budget=2,
+        )
+    )
+    window_ids = [obs.fragment_id for obs in bundle.observations]
+    assert "f-po1" in window_ids  # 点名的油田月报切片保底进窗
+    # 扩席实录可见（锚保底段＝用户语逐字）
+    assert f"以下条目因直接命中提问关键词获得保留：{_RPT_OWN[1]}" in bundle.window_note
+    assert "未纳入" not in bundle.window_note  # 已保席来源不再入未纳入枚举

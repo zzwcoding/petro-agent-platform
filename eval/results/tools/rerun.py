@@ -23,10 +23,12 @@ steps 列（六步链序，chain 在 v2 流恒空）。--qid 只跑指定题（�
 --out-dir 重定位产物根目录（缺省 eval/results；frames 落
 out-dir/frames——干跑产物隔离用）。
 
---resume 挂起续跑（F3，V2-41/P-039 附 5 行为定义）：rerun 遇 run 挂起（帧含
-ask 且 done 前无终稿 verdict）时对挂起帧 POST 题册登记的合法选项续跑至收口
-——缺省选第一项（＝题册 expectedBehavior 指定项）；非挂起帧不受影响；判分
-照旧只看最终交付轮（合并帧重新归约，answer_head/citations 取续跑后终稿）。
+--resume 挂起续跑（F3，V2-41/P-039 附 5 行为定义）：rerun 遇 run 挂起时对挂起帧
+POST 题册登记的合法选项续跑至收口——缺省选第一项（＝题册 expectedBehavior 指定
+项）；非挂起帧不受影响；判分照旧只看最终交付轮（合并帧重新归约，answer_head/
+citations 取续跑后终稿）。挂起判据（V2-82 批 EB6 修 3）：帧含 ask 且终稿未交付
+——V2 终判帧（subtype=final, status=waiting_ask）即挂起腿照发之帧，按 status
+识别；V1 形（final verdict 缺席）照旧认挂起（`is_suspended` 两形兼容）。
 续跑流＝POST {base}/chat/runs/{run_id}/resume（ResumeBody 合同：clarify 挂起
 携 {"kind": "clarify", "choice": 选项原文}；审批挂起携 {"kind": "approval",
 "decision": "approve"}——第一选项「批准」），续跑帧并入同题帧存档；jsonl 行
@@ -90,6 +92,10 @@ from ask import asks_url, parse_frames, parse_sse_text
 
 HEADERS = {"X-Dev-User": "aqiang"}
 FRAMES_DIR = Path(__file__).parent.parent / "frames"
+
+# V2 挂起态字面（镜像 `appv2/runtimev2/state/constants.RUN_WAITING_ASK`——帧面值；
+# 本脚本零 appv2 运行时依赖，同 ask.py 的帧形镜像惯例）。
+RUN_STATUS_WAITING_ASK = "waiting_ask"
 
 # ---------- 计费归集（--spend；V2-30，V2-33 归集主路改 run_id 直查）----------
 
@@ -375,8 +381,23 @@ def resume_url(base: str, run_id: str) -> str:
 
 
 def is_suspended(parsed: Mapping[str, Any]) -> bool:
-    """挂起帧判定（附 5）：帧含 ask 且 done 前无终稿答案（final verdict 缺席）。"""
-    return bool(parsed.get("asks")) and parsed.get("final") is None
+    """挂起帧判定（附 5；V2-82 批 EB6 修 3——V2 终判帧形）。
+
+    V1：帧含 ask 且 done 前无终稿 verdict（`parsed["final"]` 缺席）＝挂起。
+    V2：终判 verdict 帧（`subtype=final`）**挂起腿照发**——其 `status="waiting_ask"`
+    即挂起态本体（`state.RUN_WAITING_ASK`；真机帧形见
+    `eval/results/frames/EB6-B-正6.json` id=4），故判据按 `status` 识别（旧
+    `final is None` 在 V2 形下恒 False → `--resume` 永不生效——本批病灶）。
+    两形兼容：final 缺席（V1）或 final.status=waiting_ask（V2）都算挂起；无 ask 帧＝非挂起。
+    """
+    if not parsed.get("asks"):
+        return False
+    final = parsed.get("final")
+    if final is None:
+        return True
+    if not isinstance(final, Mapping):
+        return False
+    return str(final.get("status") or "") == RUN_STATUS_WAITING_ASK
 
 
 async def resume_once(

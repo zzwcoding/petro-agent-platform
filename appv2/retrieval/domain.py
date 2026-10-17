@@ -7,8 +7,9 @@ V1 S4 双路召回＋精排＋生成窗供给移植为确定性引擎的纯语�
 虚答」与同型抢锚病灶的治理面）：
 - **矛盾来源同窗并立**：送窗预算内每来源（来源指纹＝报告）至少留代表支——
   supply_window 硬编码实现，不依赖 LLM 自觉；
-- **截断显式**：window_note 如实带「召回 N 支/送窗 M 支」数字——agent 据此
-  区分「没有」与「没送」；
+- **截断显式**：window_note 如实带「共检索到 N 条材料，M 条用进了答案」数字
+  ——agent 据此区分「没有」与「没送」（V2-82e 起措辞为出厂即用户语的
+  NOTE_* 常量——内部行话不进材料段）；
 - **出处链完整**：Observation 三级出处 fragment→report→library＋family 标注
   （库 biz_template 透传）＋locator 携 library/报告名（同型文档来源标注——
   锚错 A-W11 vs Y-21 可被核验步发现）。
@@ -59,6 +60,16 @@ CONTEXT_PREFIX_TEMPLATE = "〔本段节选自{report}·{section}〕"
 CONTEXT_PREFIX_NO_SECTION = "〔本段节选自{report}〕"
 
 SECTION_PATH_SEPARATOR = "＞"  # 章节路径层级分隔（kb 台账 section 原生形）
+
+# ---------- 引擎注记白话文案（V2-82e 方案 A：注记出厂即用户语） ----------
+# 病灶（流水 81／取证 agent-186）：注记原文＝内部行话，模型照抄进用户答案（EB5H
+# 违例）；本区常量＝注记各段逐字载体，数字经 format 槽参数化。计数同时落
+# RetrievalBundle.recalled/sent 结构化字段（additive）。段头
+# answering.constants.ENGINE_NOTES_HEAD 属冻结点，不动。
+NOTE_RECALLED_SENT = "共检索到 {recalled} 条材料，{sent} 条用进了答案"
+NOTE_RECALL_GAP = "另有 {gap} 条已找到但未用进答案（受送入答案的数量限制）"
+NOTE_CONFLICT_SOURCES = "以下材料来源说法不一，各保留了代表条目："
+NOTE_MISSING_SOURCES = "以下来源因数量限制未纳入："
 
 
 # ---------- 检索单元与向量（V1 kb.domain 移植——G-07/P1-11 同款） ----------
@@ -401,11 +412,15 @@ class RetrievalBundle:
     """检索供给窗（specs 接口定义节原形——observations＋window_note）。
 
     observations 每次调用现造（返回容器零共享——INV-2 副本纪律）；window_note
-    如实声明「召回 N 支/送窗 M 支/矛盾来源已同窗或已列缺位」。
+    如实声明「共检索到 N 条材料，M 条用进了答案／材料来源说法不一各留代表条目／
+    未纳入来源逐条点名」。recalled/sent＝计数结构化字段（V2-82e additive——
+    window_note 措辞面之外的机读面；缺省 0＝旧构造零漂移）。
     """
 
     observations: list[Observation]
     window_note: str
+    recalled: int = 0
+    sent: int = 0
 
 
 def build_window_note(
@@ -418,19 +433,21 @@ def build_window_note(
 ) -> str:
     """window_note 组装单点（截断显式＋同窗声明＋缺位枚举——specs 行为约定 2/3）。
 
-    - 召回/送窗数字恒在位（agent 据此区分「没有」与「没送」）；
-    - 已召回未送窗差额段：recalled > sent 时如实带数；
-    - 矛盾来源同窗并立段：窗内来源 ≥2 时点名各来源（各留代表支——供给层
+    - 检索/用进答案数字恒在位（agent 据此区分「没有」与「没送」）；
+    - 差额段：recalled > sent 时如实带数；
+    - 材料来源说法不一并立段：窗内来源 ≥2 时点名各来源（各留代表条目——供给层
       硬规则的声明面）；
-    - 缺位来源段：召回池有候选但未进窗的来源逐个点名（预算未及——不静默）。
+    - 未纳入来源段：召回池有候选但未进窗的来源逐个点名（数量限制未及——不静默）。
+
+    各段逐字＝本文件 NOTE_* 常量（措辞单点，V2-82e）；段间连接符「；」保持。
     """
-    note = f"召回 {recalled} 支/送窗 {sent} 支"
+    note = NOTE_RECALLED_SENT.format(recalled=recalled, sent=sent)
     if recalled > sent:
-        note += f"；已召回未送窗 {recalled - sent} 支"
+        note += "；" + NOTE_RECALL_GAP.format(gap=recalled - sent)
     if len(sources) >= 2:
-        note += "；矛盾来源同窗并立（各留代表支）：" + "、".join(sources)
+        note += "；" + NOTE_CONFLICT_SOURCES + "、".join(sources)
     if missing:
-        note += "；缺位来源（预算未及）：" + "、".join(missing)
+        note += "；" + NOTE_MISSING_SOURCES + "、".join(missing)
     if extra:
         note += "；" + extra
     return note
@@ -578,10 +595,11 @@ def supply_window(
        代表支）。
     3. 族配额用不满（该族候选少于配额）→余量按融合序补给未满预算的其他候选。
     4. 题眼锚保底（V2-45 R1a——多来源竞争下锚命中来源 ≥1 席位，消灭目标
-       报告零席位形）：逐锚找「片段文本命中该锚的来源」，未获席者取其融合序
-       最优一支追加进窗（追加席——不挤占既有族分池代表支；窗支数照实可超
-       预算，window_note 数字面如实）。锚集由调用方给（engine 侧
-       anchor_seat_tokens——显式锚＋问句资产编号）。
+       报告零席位形）：逐锚找「片段文本/报告名/本体标签命中该锚的来源」
+       （V2-82d 三面或任一——题面点名的主体常只在报告名或 well 标签出现），
+       未获席者取其融合序最优一支追加进窗（追加席——不挤占既有族分池代表
+       支；窗支数照实可超预算，window_note 数字面如实）。锚集由调用方给
+       （engine 侧 anchor_seat_tokens——显式锚＋问句资产编号）。
     5. 表类整行集（V2-45 R1a——明细/表格类整行集优先）：rowset_question
        解锁时，目标表格片段＝融合序最前的「表格承载＋锚命中（无锚不设锚
        条件）」支；其同报告同 section 的已召回候选整组补席（不计入单支配额，
@@ -647,8 +665,10 @@ def supply_window(
                 window.append(pair)
                 picked_ids.add(pair[0].fragment.fragment_id)
 
-    # 题眼锚保底（追加席——见 docstring 4）：逐锚扫全召回池，文本命中该锚的
-    # 每个来源未获席者各补 1 席（来源级去重；代表席＝该来源融合序最优命中支）。
+    # 题眼锚保底（追加席——见 docstring 4）：逐锚扫全召回池，命中该锚的每个
+    # 来源未获席者各补 1 席（来源级去重；代表席＝该来源融合序最优命中支）。
+    # 命中面＝text ∪ report ∪ well（V2-82d——油田名往往只落在报告名/本体标签
+    # 里，只看 text 会让题面点名的主体保不住席位）。
     anchor_seated: list[str] = []
     for token in anchors:
         needle = token.casefold()
@@ -656,7 +676,8 @@ def supply_window(
             continue
         for pair in ranked:
             frag = pair[0].fragment
-            if needle not in frag.text.casefold():
+            haystacks = (frag.text, frag.report or "", frag.well or "")
+            if not any(needle in h.casefold() for h in haystacks):
                 continue
             if any(p[0].fragment.report == frag.report for p in window):
                 continue  # 该来源已有席位——继续找同锚的其他命中来源

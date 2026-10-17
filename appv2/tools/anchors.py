@@ -14,6 +14,11 @@ r"""tools.anchors —— 问句实体锚解析与检索需求锚注入（V2-50 �
 - 报告号数字核（34-8 形）：问句数字-数字 token，被某闭世界实体名包含才注入
   （「34-8」⊂「渤中34-8油田」✓；「2025-11」⊄ ✗——日期噪声不注入）。
 
+V2-82c 补**术语锚扩展**（同注入出口、同管道）：题面命中台账指标/术语名或其
+别名时，把「规范名＋该词条全部别名」追加进 anchors（查询侧扩展——关键词腿
+术语加权；问「日产液」时切片里的「日产液量」不再靠 BM25 滑窗碰巧命中）。仅在
+命中时产出（无命中 run 的 anchors 集合零漂移），且只产输入面不触引擎。
+
 红线：检索排序/召回零改动——本模块只产 RetrievalNeed.anchors 输入面（检索引
 擎的保送/席位通道既有语义消费锚，本模块不触引擎）。
 """
@@ -21,6 +26,7 @@ r"""tools.anchors —— 问句实体锚解析与检索需求锚注入（V2-50 �
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -104,8 +110,72 @@ def entity_anchor_tokens(
     return tuple(anchors)
 
 
+def _normalize_term_text(text: str) -> str:
+    """术语匹配归一面（NFKC 全半角折叠＋casefold＋去空白——双侧同规）。
+
+    与 V2-82a `subject_terms.term_candidates` **同款 essence，两处各持一份就地内核**
+    （`subject_terms` 反向引本模块的实体锚件——不复用 import，避环；语义改动须两处同步）。
+    """
+    return "".join(unicodedata.normalize("NFKC", str(text)).casefold().split())
+
+
+def _ledger_term_names(dump: Mapping[str, Any]) -> tuple[str, ...]:
+    """台账术语面（指标 slot ＋ 术语名——保序去重，零发明）。"""
+    names: list[str] = []
+    for block, key in (("metrics", "slot"), ("terms", "term")):
+        for row in dump.get(block) or []:
+            if not isinstance(row, Mapping):
+                continue
+            name = str(row.get(key) or "").strip()
+            if name and name not in names:
+                names.append(name)
+    return tuple(names)
+
+
+def term_anchor_tokens(
+    question: str, dump: Mapping[str, Any] | None = None
+) -> tuple[str, ...]:
+    """术语锚扩展：题面命中台账指标/术语名或其别名时，产出该词条全部词面形。
+
+    输出＝「规范名（台账名）＋该词条全部别名」（保序去重——规范名在前，注入序
+    确定性）；命中判据＝归一化子串包含（`_normalize_term_text` 双侧同规，逐名
+    全扫不早停）。dump 缺位/无命中＝空集（**additive 零漂移**：no-hit run 的
+    anchors 集合与未扩展前逐字一致）。
+    """
+    text = str(question or "")
+    if not text.strip() or not isinstance(dump, Mapping):
+        return ()
+    needle = _normalize_term_text(text)
+    if not needle:
+        return ()
+    raw_aliases = dump.get("aliases")
+    aliases = dict(raw_aliases) if isinstance(raw_aliases, Mapping) else {}
+    anchors: list[str] = []
+    for name in _ledger_term_names(dump):
+        normalized_name = _normalize_term_text(name)
+        forms = [name] + [
+            str(alias)
+            for alias, canonical in aliases.items()
+            if normalized_name and _normalize_term_text(canonical) == normalized_name
+        ]
+        matched = False
+        for form in forms:
+            normalized_form = _normalize_term_text(form)
+            if normalized_form and normalized_form in needle:
+                matched = True
+                break
+        if not matched:
+            continue
+        for form in forms:
+            if form not in anchors:
+                anchors.append(form)
+    return tuple(anchors)
+
+
 def inject_retrieval_anchors(
-    need: Mapping[str, Any], aliases: Mapping[str, str] | None = None
+    need: Mapping[str, Any],
+    aliases: Mapping[str, str] | None = None,
+    dump: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """retrieval_need 锚确定性注入（模型可增补不可清空——V2-50 ①主语义）。
 
@@ -113,10 +183,17 @@ def inject_retrieval_anchors(
     被模型清空/覆盖（票面钉：模型不填也填／模型填错不覆盖注入项）。返回副本
     （入参零改——INV-2 同款纪律）；need.question 为唯一解析面（检索问句原文
     ＝子问题原文，合同逐字转抄语义）。
+
+    `dump`＝台账投影（`state.ledger_dump` 同形——V2-82c 术语锚扩展源）：命中
+    台账指标/术语名或其别名时，其全部词面形续在实体锚后（`term_anchor_tokens`
+    ——查询侧术语加权）。dump 缺位＝零扩展（未接线 run 与 no-hit run 逐字同形）。
     """
     payload = dict(need)
     question = str(payload.get("question") or "")
     injected = list(entity_anchor_tokens(question, aliases))
+    injected += [
+        token for token in term_anchor_tokens(question, dump) if token not in injected
+    ]
     model_raw = payload.get("anchors")
     model_items: Sequence[Any] = (
         model_raw

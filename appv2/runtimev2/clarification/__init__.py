@@ -12,7 +12,14 @@
 - 返回位形状：`ClarifyAsk`（反问卡 → 挂起）｜`ClarifyFinal`（定案 → 进下一相位）｜
   `ClarifyRejection`（结构化拒因 → 回喂重决策）；`discover` 与到顶截断**不占返回位**
   （路由意图经 `state.next_intent` 交出），实现形以 `None` 表达该「不占位」；
-- `ClarifyReason`——结构化拒因单条（`code` 闭世界 ＋ `reason` 机器面原文）。
+- `ClarifyReason`——结构化拒因单条（`code` 闭世界 ＋ `reason` 机器面原文）；
+- `object_ambiguity_ask(state, *, grain_requires_subject, subject_instances, program_subjects=None)
+  -> ClarifyAsk | None`——**对象歧义程序判定**（V2-82b 流水 88 裁决⑥；2026-10-17 V2-82 批 EB6
+  修 1 补程序候选回退）：判定序＝模型主体槽非空 → 不问｜空 ∧ 题面程序候选非空 → 回填
+  `state.subjects` ＋不问（题面抽得到主体＝对象已定）｜双空 → 原门（题面无主体 ∧ 术语/指标命中
+  ∧ 指标粒度要求主体 ∧ 油田实例≥2）⇒ 直接弹 ask（零模型调用）；命中写
+  `state.pending_subject_options` 供编排恢复腿映射 `state.subjects`（哨兵 `__all_fields__`＝都要）。
+  三件素材（grain 判据／实例名单／题面程序主体候选）由编排绑定注入。
 
 依赖面（规格「框架与依赖红线」）：`prompts`（轮装配）／`parsing`（发射解析与拒文产出）／
 `bookkeeping`（写口与模型调用发起面——单点发起；本块**不直引** `gateway_adapter`）／`state`
@@ -35,6 +42,7 @@ from appv2.runtimev2.clarification.models import (
     ClarifyReason,
     ClarifyRejection,
 )
+from appv2.runtimev2.clarification.subject_ask import object_ambiguity_ask
 
 __all__ = [
     "ClarifyAsk",
@@ -43,4 +51,5 @@ __all__ = [
     "ClarifyReason",
     "ClarifyRejection",
     "clarify",
+    "object_ambiguity_ask",
 ]

@@ -826,6 +826,7 @@ def test_discover_routed_not_direct_call() -> None:
         if any(module == prefix or module.startswith(f"{prefix}.") for prefix in forbidden)
     )
     # 依赖白名单（规格「框架与依赖红线」）：四个包根＋`infra.clock`（时间 B14）＋本包内部件
+    # （含 V2-82b 对象歧义门 `subject_ask`——纯判据＋注入素材，仍零工具面 import）
     assert sorted(module for module in imported if module.startswith("appv2.")) == [
         "appv2.infra.clock",
         "appv2.runtimev2.bookkeeping",
@@ -833,6 +834,7 @@ def test_discover_routed_not_direct_call() -> None:
         "appv2.runtimev2.clarification.core",
         "appv2.runtimev2.clarification.guidance",
         "appv2.runtimev2.clarification.models",
+        "appv2.runtimev2.clarification.subject_ask",
         "appv2.runtimev2.clarification.volatile",
         "appv2.runtimev2.parsing",
         "appv2.runtimev2.prompts",

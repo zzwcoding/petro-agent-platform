@@ -255,6 +255,20 @@ STEP_TITLE_FINALIZE: Final[str] = "澄清定稿：材料足够——直答收口
 STEP_TITLE_CAPPED: Final[str] = "澄清 r{round}：连续反问到顶——截断带材料直答"
 STEP_TITLE_REJECTED: Final[str] = "澄清 r{round} 被拒：{reason}"
 STEP_TITLE_RESUME: Final[str] = "澄清回收：{value}"
+# 对象歧义 ask 的提示模板（V2-82b——票面逐字稿；`{name}`＝题面命中的术语/指标名，取
+# 候选序首个）。`options` 逐字＝油田实例名单（≤3）＋`state.ALL_FIELDS_OPTION`「都要（分源对比）」。
+SUBJECT_ASK_PROMPT: Final[str] = (
+    "这道题问的是「{name}」——系统里有多个油田的数据。请确认要查哪一个："
+)
+# ── 主体程序回填的留痕字面（V2-82 批 EB6 修 1——A2 门误触；2026-10-17）──────────────
+# 模型槽空 ∧ 题面程序抽得到主体 ⇒ 门把程序候选回填 `state.subjects` 并不弹 ask（题面点名主体
+# ＝对象已定）——留痕机制同 V2-82a 主体识别分歧注记（`bookkeeping.note` 唯一写口、有界一句），
+# 但**标题/digest 本块自持**：理解侧那对字面在 `understanding.constants`，而本块零
+# `understanding` import（依赖白名单红线，AST 机检）——故作同机制的**另一对**字面（各自表述
+# 「模型未给主体」与「模型给出主体」两种情形；digest 上限由 `bookkeeping.note` 写入点把守）。
+SUBJECT_BACKFILL_NOTE_TITLE: Final[str] = "主体程序回填"
+SUBJECT_BACKFILL_DIGEST: Final[str] = "模型未给主体——程序候选{names}回填进 subjects"
+SUBJECT_BACKFILL_SEP: Final[str] = "、"
 TOOL_NAME_MISSING: Final[str] = "?"
 NOTE_PHASE: Final[str] = "clarify"
 NOTE_TITLE: Final[str] = "澄清"

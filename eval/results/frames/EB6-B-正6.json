@@ -1,0 +1,123 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-3a5e7dba",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：问近三年（即 2024 年 8 月、2025 年 8 月、2026 年 8 月）各月平均检泵周期的变化趋势。",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "这道题问的是「检泵周期」——系统里有多个油田的数据。请确认要查哪一个：",
+     "options": [
+      "渤中油田",
+      "渤南油田",
+      "渤西油田",
+      "都要（分源对比）"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-3a5e7dba"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（这道题问的是「检泵周期」——系统里有多个油田的数）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "verdict",
+   "data": {
+    "status": "waiting_ask",
+    "run_id": "run-3a5e7dba",
+    "manifest_digest": "000cc6955576d72f",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 4,
+   "event": "done",
+   "data": {
+    "run_id": "run-3a5e7dba"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "理解：问近三年（即 2024 年 8 月、2025 年 8 月、2026 年 8 月）各月平均检泵周期的变化趋势。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-3a5e7dba",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（这道题问的是「检泵周期」——系统里有多个油田的数）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "这道题问的是「检泵周期」——系统里有多个油田的数据。请确认要查哪一个：",
+     "options": [
+      "渤中油田",
+      "渤南油田",
+      "渤西油田",
+      "都要（分源对比）"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-3a5e7dba"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "status": "waiting_ask",
+   "run_id": "run-3a5e7dba",
+   "manifest_digest": "000cc6955576d72f",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：问近三年（即 2024 年 8 月、2025 年 8 月、2026 年 8 月）各月平均检泵周期的变化趋势。"
+  ],
+  "duration_s": 2.1
+ }
+}

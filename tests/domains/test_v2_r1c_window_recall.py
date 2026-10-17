@@ -1,8 +1,9 @@
 """V2-46 R1c 缺位回捞钉测（族 B 三层组合之「够得着」——P-045 开发拍）。
 
 票面任务三条逐条落测：
-- 缺位名单进模型面：送窗截断发生时（window_note 载「缺位来源」段——
-  build_window_note 单点措辞），缺位来源名单以**非 notice 类观察**
+- 缺位名单进模型面：送窗截断发生时（window_note 载未纳入来源段——V2-82e 起
+  措辞＝常量 `NOTE_MISSING_SOURCES`「以下来源因数量限制未纳入：」），缺位来源
+  名单以**非 notice 类观察**
   （locator.kind=window_miss——「检索窗注记」：未进窗名单＋原因）进上下文；
   notice 过滤机制本身零改动（window_note notice 通道原样、notice 类观察仍
   不进模型面）；历史轮随消息簿记收窄（ADR-0006 机制——无新增收窄面）。
@@ -62,14 +63,15 @@ def test_clarify_contract_recall_clause_verbatim() -> None:
 
 
 def test_bundle_to_result_emits_window_miss_observation() -> None:
-    """缺位名单在场→window_miss 观察进观察列（名单＋原因）；window_note notice 通道原样。"""
+    """未纳入名单在场→window_miss 观察进观察列（名单＋原因）；window_note notice 通道原样。"""
     result = _bundle_to_result(
         RetrievalBundle(
             observations=[_fragment_obs("邻近可得：W-22 检泵周期 215 天。", "frag-x")],
             window_note=(
-                "召回 2 支/送窗 1 支；已召回未送窗 1 支"
-                "；缺位来源（预算未及）：《Y-21井完井工程报告》"
-                "；题眼锚保底席位：《W-111 井完井报告》"
+                "共检索到 2 条材料，1 条用进了答案"
+                "；另有 1 条已找到但未用进答案（受送入答案的数量限制）"
+                "；以下来源因数量限制未纳入：《Y-21井完井工程报告》"
+                "；以下条目因直接命中提问关键词获得保留：《W-111 井完井报告》"
             ),
         )
     )
@@ -79,18 +81,18 @@ def test_bundle_to_result_emits_window_miss_observation() -> None:
     assert len(miss) == 1
     assert miss[0].content.startswith("检索窗注记：")
     # 名单＋原因段逐字在场（build_window_note 单点措辞）。
-    assert "缺位来源（预算未及）：《Y-21井完井工程报告》" in miss[0].content
-    # 名单段之外不携带：召回/送窗数字面仍走 notice 通道；扩席实录段不入注记。
-    assert "召回 2 支" not in miss[0].content
-    assert "题眼锚保底席位" not in miss[0].content
+    assert "以下来源因数量限制未纳入：《Y-21井完井工程报告》" in miss[0].content
+    # 名单段之外不携带：计数面仍走 notice 通道；扩席实录段不入注记。
+    assert "共检索到 2 条材料" not in miss[0].content
+    assert "以下条目因直接命中提问关键词获得保留" not in miss[0].content
 
 
 def test_bundle_to_result_without_missing_has_no_window_miss() -> None:
-    """无缺位段→零 window_miss 观察（旧观察列形零漂移）。"""
+    """无未纳入段→零 window_miss 观察（旧观察列形零漂移）。"""
     result = _bundle_to_result(
         RetrievalBundle(
             observations=[_fragment_obs("片段。", "frag-y")],
-            window_note="召回 1 支/送窗 1 支",
+            window_note="共检索到 1 条材料，1 条用进了答案",
         )
     )
     assert all(obs.locator["kind"] != "window_miss" for obs in result.observations)
@@ -104,21 +106,21 @@ def test_window_miss_reaches_model_face_and_notice_still_filtered() -> None:
     V2-80h——渲染位＝render_materials，compile 退役）。"""
     miss = {
         "index": 1,
-        "content": "检索窗注记：缺位来源（预算未及）：《Y-21井完井工程报告》",
+        "content": "检索窗注记：以下来源因数量限制未纳入：《Y-21井完井工程报告》",
         "source": "检索供给窗声明（缺位名单）",
         "source_id": "window_miss",
         "locator": {"kind": "window_miss"},
     }
     note = {
         "index": 2,
-        "content": "召回 2 支/送窗 1 支",
+        "content": "共检索到 2 条材料，1 条用进了答案",
         "source": "检索供给窗声明（截断显式）",
         "source_id": "window_note",
         "locator": {"kind": "notice", "notice_type": "window_note"},
     }
     text, meta = render_materials([miss, note], max_observations=24)
-    assert "缺位来源（预算未及）：《Y-21井完井工程报告》" in text  # 模型面可见
-    assert "召回 2 支/送窗 1 支" not in text  # notice 过滤面不动
+    assert "以下来源因数量限制未纳入：《Y-21井完井工程报告》" in text  # 模型面可见
+    assert "共检索到 2 条材料，1 条用进了答案" not in text  # notice 过滤面不动
     assert meta == {
         "material_truncated": False, "material_rendered": 1, "material_total": 1,
     }  # notice 不计材料（元数据面同源）
@@ -183,27 +185,27 @@ _NEED_R2_ANCHORED = {
 _BUNDLE_MISS = RetrievalBundle(
     observations=[_fragment_obs("邻近可得：W-22 检泵周期 215 天。", "frag-near")],
     window_note=(
-        "召回 2 支/送窗 1 支；已召回未送窗 1 支"
-        f"；缺位来源（预算未及）：《{_RECALL_TARGET}》"
+        "共检索到 2 条材料，1 条用进了答案；另有 1 条已找到但未用进答案（受送入答案的数量限制）"
+        f"；以下来源因数量限制未纳入：《{_RECALL_TARGET}》"
     ),
 )
 _BUNDLE_SEATED = RetrievalBundle(
     observations=[_fragment_obs("根因：杆管偏磨（4.1 节）。", "frag-target")],
-    window_note="召回 1 支/送窗 1 支",
+    window_note="共检索到 1 条材料，1 条用进了答案",
 )
 _BUNDLE_MISS_AGAIN = RetrievalBundle(
     observations=[_fragment_obs("邻近可得：W-22 检泵周期 215 天。", "frag-near-2")],
     window_note=(
-        "召回 1 支/送窗 1 支"
-        "；缺位来源（预算未及）：《渤中34-8油田一季度注采调整与生产运行分析》"
+        "共检索到 1 条材料，1 条用进了答案"
+        "；以下来源因数量限制未纳入：《渤中34-8油田一季度注采调整与生产运行分析》"
     ),
 )
 # 名单与题面无表面关联的缺位形（缺位报告不含题眼 token「W-22」——门不开反例）。
 _BUNDLE_MISS_IRRELEVANT = RetrievalBundle(
     observations=[_fragment_obs("邻近可得：W-22 检泵周期 215 天。", "frag-near-3")],
     window_note=(
-        "召回 2 支/送窗 1 支"
-        "；缺位来源（预算未及）：《Y-21井完井工程报告》"
+        "共检索到 2 条材料，1 条用进了答案"
+        "；以下来源因数量限制未纳入：《Y-21井完井工程报告》"
     ),
 )
 _SUMMARY_RECALL = "W-22 杆断根因：杆管偏磨 [2]。"
@@ -286,7 +288,7 @@ async def test_recall_end_to_end_target_seated(tmp_path: Path) -> None:
         payloads = _batch_execute_payloads(steps)
         assert [p["status"] for p in payloads] == ["ok", "ok"]
         # 首支缺位步携检索窗注记（step payload 证据面）。
-        assert "缺位来源（预算未及）" in str(payloads[0].get("window_miss", ""))
+        assert "以下来源因数量限制未纳入" in str(payloads[0].get("window_miss", ""))
         assert "window_miss" not in str(payloads[1].get("window_miss", ""))
         # 零挂起零 ask（回捞白场——不挂起不占 ask）。
         assert not [e for e in events if e.event == "ask"]
@@ -308,7 +310,7 @@ async def test_refurnace_instruction_carries_window_note(tmp_path: Path) -> None
         assert len(calls) == 4  # clar1→match1→clar2（回炉）→match2（带锚重发）
         furnace_context = "".join(str(m.get("content", "")) for m in calls[2])
         assert "回炉：只分解以下失败/缺失子问题" in furnace_context
-        assert f"缺位来源（预算未及）：《{_RECALL_TARGET}》" in furnace_context
+        assert f"以下来源因数量限制未纳入：《{_RECALL_TARGET}》" in furnace_context
         assert "缺位回捞白场" in furnace_context
     finally:
         await db.dispose()
@@ -383,11 +385,11 @@ async def test_irrelevant_missing_list_keeps_door_shut(tmp_path: Path) -> None:
         steps = await RunStore(db).list_steps(events[-2].data["run_id"])
         payloads = _batch_execute_payloads(steps)
         assert [p["status"] for p in payloads] == ["ok"]
-        assert "缺位来源" in str(payloads[0].get("window_miss", ""))  # 注记照常随行
+        assert "以下来源因数量限制未纳入" in str(payloads[0].get("window_miss", ""))  # 注记照常随行
         # 汇总材料面可见注记（模型面不受门影响）。
         answer_calls = completer.messages_of("v2.runtime.answer")
         assert answer_calls
         summary_context = "".join(str(m.get("content", "")) for m in answer_calls[0])
-        assert "缺位来源（预算未及）：《Y-21井完井工程报告》" in summary_context
+        assert "以下来源因数量限制未纳入：《Y-21井完井工程报告》" in summary_context
     finally:
         await db.dispose()

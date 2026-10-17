@@ -167,6 +167,58 @@ def test_understanding_malformed_none_no_fallback() -> None:
         assert parse_understanding(sample) is None, sample
 
 
+def test_understanding_subjects_terms_additive_lenient() -> None:
+    """行 1 补（2026-10-17 V2-82a）｜`subjects`／`terms` **additive 宽松读法**：合法列表照收
+    （round-trip）；缺省＝空；present 非 `list[str]` ＝**忽略该字段**（不拒单——拒因零新增）；
+    两形（Understanding／Direct）同持该字段集。
+    """
+    body = "问 W-11 井的日产油量"
+    full_text = json.dumps(
+        {
+            "route": "full",
+            "text": body,
+            "metric_candidates": ["日产油量"],
+            "subjects": ["W-11"],
+            "terms": ["日产油量"],
+        },
+        ensure_ascii=False,
+    )
+    full = parse_understanding(full_text)
+    assert isinstance(full, Understanding)
+    assert full.text == body and full.metric_candidates == ["日产油量"]
+    assert full.subjects == ("W-11",) and full.terms == ("日产油量",)
+    assert understanding_schema_feedback(full_text) == ""  # 合法 → 无拒因
+
+    # 缺省＝空元组（旧应答逐字兼容——零漂移）
+    bare = parse_understanding(
+        json.dumps({"route": "full", "text": body, "metric_candidates": []}, ensure_ascii=False)
+    )
+    assert isinstance(bare, Understanding)
+    assert bare.subjects == () and bare.terms == ()
+
+    # present 非 list[str]（字符串／混合元素／对象／None／数字）→ 忽略该字段（不拒单）
+    for bad in ("W-11", ["W-11", 1], {"W-11": 1}, None, 3):
+        sample = json.dumps(
+            {
+                "route": "full",
+                "text": body,
+                "metric_candidates": ["日产油量"],
+                "subjects": bad,
+                "terms": [],
+            },
+            ensure_ascii=False,
+        )
+        parsed = parse_understanding(sample)
+        assert isinstance(parsed, Understanding), sample
+        assert parsed.subjects == () and parsed.terms == ()
+        assert understanding_schema_feedback(sample) == ""  # 拒因零新增
+
+    # 直答形同步（字段集两形同一面；直答形缺省空）
+    direct = parse_understanding(json.dumps({"route": "direct", "text": "不客气"}, ensure_ascii=False))
+    assert isinstance(direct, Direct)
+    assert direct.subjects == () and direct.terms == ()
+
+
 def test_understanding_two_line_retired() -> None:
     """行 3｜两行式与「直接回答：」通道样本不再受理（旧降级提取零可达）。"""
     assert parse_understanding("理解：渤海油田日产油量\n指标候选：日产油量、含水率") is None
@@ -1281,8 +1333,15 @@ def test_payload_types_field_tables() -> None:
         "caliber_key",
         "mention_mode",
     )
-    assert tuple(Understanding.__dataclass_fields__) == ("text", "metric_candidates", "route")
-    assert tuple(Direct.__dataclass_fields__) == ("text", "route")
+    # V2-82a（2026-10-17）additive：两形同加 `subjects`／`terms`（默认空元组——排在必填项后）
+    assert tuple(Understanding.__dataclass_fields__) == (
+        "text",
+        "metric_candidates",
+        "route",
+        "subjects",
+        "terms",
+    )
+    assert tuple(Direct.__dataclass_fields__) == ("text", "route", "subjects", "terms")
     for cls in (Understanding, Direct, Subtask, QuestionGroup, ClarifyEmission, SubtaskMatch):
         assert cls.__dataclass_params__.frozen is True, cls.__name__  # 全 frozen
         assert cls.__slots__ == tuple(cls.__dataclass_fields__), cls.__name__  # 全 slots
@@ -1362,8 +1421,8 @@ def test_understanding_payload_shape_single_source() -> None:
     """行 19｜载荷类五类形状与行为 11（及 `understanding` 所列集合）相等；本块无第二处形状定义
     （AST／集合比较）。"""
     shaped = {
-        "Understanding": {"text", "metric_candidates", "route"},
-        "Direct": {"text", "route"},
+        "Understanding": {"text", "metric_candidates", "route", "subjects", "terms"},
+        "Direct": {"text", "route", "subjects", "terms"},
         "Subtask": {"id", "question", "ledger_notes", "chain"},
         "QuestionGroup": {"subtasks"},
         "SubtaskMatch": {

@@ -73,7 +73,11 @@ from appv2.query.executor import (
 )
 from appv2.query.pg_executor import PgQueryExecutor
 from appv2.query.pg_waterline import freshness_judgment, production_waterline
-from appv2.query.pg_wells import production_data_wells, production_well_roster
+from appv2.query.pg_wells import (
+    production_data_wells,
+    production_field_instances,
+    production_well_roster,
+)
 
 __all__ = [
     "ASKBACK_TIME_CHOICES",
@@ -127,6 +131,7 @@ __all__ = [
     "parse_row_limit",
     "parse_time_window",
     "production_data_wells",
+    "production_field_instances",
     "production_waterline",
     "production_well_roster",
     "render_plan_sql",

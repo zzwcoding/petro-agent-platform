@@ -18,11 +18,23 @@
 V1 的「两行式／直答」措辞，而 `specs/understanding.md` 行为 3 定「输出契约＝单个 JSON 对象；
 不使用两行式」；本块不自行改写 Owner 审定文案（无逐字稿），登记待主窗裁决。
 
+**2026-10-17 V2-82a（程序预识别推荐行）**：数据区块尾接一行「程序预识别」（逐字稿＝票面②，
+字面落点＝`RECOMMENDATION_TEMPLATE`）——主体／术语候选的顿号串由**装配方**（`understanding.
+assembly`，经 `tools` 包根调 `subject_terms`）拼好随 `recommendation` 注入，本块只渲字；
+空串＝不加行（既有调用逐字不变）。位置＝区块尾、题干段之前（题干段仍置末）。
+
+**2026-10-17 V2-82（环境块去重瘦身）**：段头＝一行功能段头（逐字稿见票面①）——原「【环境】」
+表头＋「【本系统】」四句介绍（与链首背景块 `SYSTEM_BACKGROUND` 语义全覆盖重复）随删；指标
+名录／术语表两节改名字级（下文①②）；追加链原则＝任何信息只在被需要的最早环节注入一次——
+环境块只服务理解环节三件事（相关性判断／指标提名／主体识别），绑定态与定义由后续「台账全量
+常驻块」（`prompts/decision_round.render_ledger_resident_block`）全量承担。
+
 与 V1 数据区的差异（显式声明——逐字稿 V1 环境段 L251-268 的迁移面）：
-①指标名录行形＝`名字｜状态`（V1 `名字｜单位｜状态`）——V1 的单位段靠正则从 `value` 提取，
-  本块禁正则（`specs/prompts.md` 行为 15），单位段随结构化投影退场，块头同步改述；
-②术语／对象／关系行＝台账投影值串逐字转抄（V1 的箭头映射／定义截取／「未列属性」探测
-  同为正则或子串判定，V2 不迁移）——逐字转抄不改写、不摘要（同常驻块纪律）。
+①指标名录行＝名字级顿号串（V1 `名字｜单位｜状态` 行形退场：单位段随结构化投影退场，本块
+  禁正则 `specs/prompts.md` 行为 15；绑定态注解由常驻块承接）；
+②术语行＝`口语／别名→正名`映射对（名字取 `term` 字段、正名取投影值串的箭头／替代名——
+  零正则；类型／时效／定义注记不渲染）；对象／关系行＝台账投影值串逐字转抄（V1 的「未列
+  属性」探测为正则或子串判定，V2 不迁移）——逐字转抄不改写、不摘要（同常驻块纪律）。
 其余静态文案（段头／清单指引／空块占位文案／缩进）＝V1 照抄（含占位文案逐字：
 「（暂无族标注）」「（空）」「关系：（空）」「（水位未取得）」）。
 """
@@ -56,9 +68,13 @@ FAMILY_GLOSS: Mapping[str, str] = {
     "dynamic": "生产动态",
 }
 
-# 指标绑定态两形文案（迁移照抄 V1 `render_metric_lines`——真源 R-L2a-02）。
-_BOUND = "可出数"
-_UNBOUND = "未绑定（台账无数值——数值走报告检索）"
+# 程序预识别推荐行（**2026-10-17 V2-82a 逐字稿**——票面②）：接在数据区块尾、题干段之前；
+# `{subjects}`／`{terms}`＝程序抽出的主体／术语候选顿号串（空＝调用方填「无」——拼装归
+# `understanding.assembly`，本块只落字面）。一行一件、非空才渲染（`recommendation` 空串＝不加行，
+# 直接调 `assemble_task_book` 的既有调用逐字不变）。
+RECOMMENDATION_TEMPLATE = (
+    " - 程序预识别（仅供参考——可能不准，以你的判断为准）：主体候选：{subjects}；术语候选：{terms}"
+)
 
 # 题干段（迁移照抄 V1 `assemble_understand_turn` 末段＋收束句——真源 R-L2a-22；
 # 题干非三区之一、置末紧邻生成点）。
@@ -94,13 +110,22 @@ def _family_line(dump: Mapping[str, Any]) -> str:
 
 
 def _metric_line(metric: Mapping[str, Any]) -> str:
-    binding = _BOUND if metric.get("binding_state") == "bound" else _UNBOUND
-    return f"{metric.get('slot', '')}｜{binding}"
+    """指标名录条目（名字级——绑定态与定义由后续台账全量常驻块承接）。"""
+    return str(metric.get("slot", ""))
 
 
 def _term_line(term: Mapping[str, Any]) -> str:
-    head = "禁用词！" if term.get("banned") else ""
-    return head + str(term.get("value") or term.get("term") or "")
+    """术语表条目（口语／别名→正名映射对；非映射词条＝裸名——不带类型／时效／定义注记）。
+
+    正名取投影值串里的箭头目标（`黑话 → X`／`别名 → X`；到「 · 」或「）」为止）；无箭头
+    时取禁用词替代名（`（替代：X）`——V1 称之为「正确名」）；两者皆无＝纯定义型词条，只报名。
+    """
+    value = str(term.get("value") or "")
+    target = value.partition("→")[2].split(" ·", 1)[0].split("）", 1)[0].strip()
+    if not target:
+        target = value.partition("替代：")[2].split("）", 1)[0].strip()
+    name = str(term.get("term") or "")
+    return f"{name}→{target}" if target else name
 
 
 def _object_line(obj: Mapping[str, Any]) -> str:
@@ -111,38 +136,43 @@ def _relation_line(relation: Mapping[str, Any]) -> str:
     return str(relation.get("value") or relation.get("rel") or "")
 
 
-def render_data_zone(state: RunState, *, watermark: str = "") -> str:
-    """数据区渲染（活体投影现取；标来源；空块走占位文案两形——零降级）。"""
+def render_data_zone(
+    state: RunState, *, watermark: str = "", recommendation: str = ""
+) -> str:
+    """数据区渲染（活体投影现取；标来源；空块走占位文案两形——零降级）。
+
+    段头＝一行功能段头（V2-82 逐字稿）；指标名录／术语表＝名字级单行（绑定态与定义由后续
+    台账全量常驻块承接）；对象／关系节照旧。
+
+    `recommendation`＝「程序预识别」推荐行全文（V2-82a：装配方按 `RECOMMENDATION_TEMPLATE`
+    填好传入）——**非空才渲染**，接在区块尾、题干段之前；空串＝既有调用逐字不变。
+    """
     dump = _projection(state)
     metrics = _rows(dump.get("metrics"))
     terms = _rows(dump.get("terms"))
     objects = _rows(dump.get("objects"))
     relations = _rows(dump.get("relations"))
-    metric_block = "\n".join("  " + _metric_line(m) for m in metrics) or "  " + _EMPTY
-    term_block = "\n".join("  " + _term_line(t) for t in terms) or "  " + _EMPTY
+    metric_block = "、".join(_metric_line(m) for m in metrics) or "\n  " + _EMPTY
+    term_block = "、".join(_term_line(t) for t in terms) or "\n  " + _EMPTY
     object_block = "\n".join("  " + _object_line(o) for o in objects) or "  " + _EMPTY
     relation_block = (
         "\n".join("  关系：" + _relation_line(r) for r in relations) or "  " + _EMPTY_RELATION
     )
-    return (
-        "【环境】（以下由系统按当前数据现状动态装配）\n"
-        "【本系统】（事实描述——业务相关性的判断依据）\n"
-        "本系统是油田生产与管理数据的问答系统：围绕油田、井、区块的生产与管理数据，"
-        "以及完井工程、生产动态、月报等报告中的事实，做查询、检索与解读。\n"
-        "台账指标、术语与本体对象的具体清单见下方——它们是后续环节取数的依据；"
-        "你判断相关性只看领域是否沾边。\n"
-        "数据止于下方水位日。\n"
+    zone = (
+        "【环境数据】（以下由系统按当前数据现状动态装配——业务相关性只看领域是否沾边；"
+        "数据止于下方水位日）\n"
         f"- 资料库族：{_family_line(dump)}——报告事实（完井参数／月报统计／生产动态／治理事件）"
         "都在这里。\n"
         f"- 数据水位：{watermark or _NO_WATERMARK}——题干中「本月／去年」等时间词以该日为锚。\n"
-        f" - 台账指标名录（{len(metrics)} 条——名字｜状态，可出数＝数值在台账；"
-        "未绑定＝有名字暂无数值）：\n"
+        f" - 台账指标名录（{len(metrics)} 条——名字级清单；绑定态与定义见后续台账全量块）："
         f"{metric_block}\n"
-        f" - 术语表（{len(terms)} 条——口语／别名 → 正名；纯定义型给一句式定义）：\n"
-        f"{term_block}\n"
+        f" - 术语表（{len(terms)} 条——口语/别名→正名；定义见后续台账全量块）：{term_block}\n"
         " - 本体速览（解构用户问题的依据——用户说的名词对到对象，动作对到关系，取数对到指标）：\n"
         f"  对象：\n{object_block}\n{relation_block}"
     )
+    if recommendation:
+        zone = zone + "\n" + recommendation
+    return zone
 
 
 def instruction_zone() -> str:
@@ -165,19 +195,24 @@ def question_segment(question: str) -> str:
     return _QUESTION_SEGMENT.format(question=question)
 
 
-def assemble_task_book(state: RunState, *, watermark: str = "") -> str:
+def assemble_task_book(
+    state: RunState, *, watermark: str = "", recommendation: str = ""
+) -> str:
     """任务书**动态段**（数据区→题干段；段间「\\n\\n」连接）——user 承载位（2026-10-17 H 批）。
 
     规章段（指令区＋输出契约区）经 `understand_system_contract` 走调用级 system 注入参、不入链
     （真源 `specs/prompts.md` 2026-10-17 H 批注：「规章走 system、动态段留 user」）。本函数只出
     动态段：数据区＝活体投影现取、题干段置末紧邻生成点（行为 2／3 的段内相对序不变）。
 
-    纯函数：只读 `state` 投影与注入的水位文本，零 IO／零时钟／零随机（行为 14）；
+    `recommendation`＝「程序预识别」推荐行（V2-82a）——随注入文本进数据区尾（空串＝不加行）；
+    本块不产该文本（拼装归 `understanding.assembly`，字面单点＝`RECOMMENDATION_TEMPLATE`）。
+
+    纯函数：只读 `state` 投影与注入的文本（水位／推荐行），零 IO／零时钟／零随机（行为 14）；
     输出恒为 `str`（不抛业务错、不返回 `None`）。
     """
     return _PARA_SEP.join(
         [
-            render_data_zone(state, watermark=watermark),
+            render_data_zone(state, watermark=watermark, recommendation=recommendation),
             question_segment(state.question),
         ]
     )

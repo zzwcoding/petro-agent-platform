@@ -186,12 +186,14 @@ def v2_runtime(
     completer: ScriptedCompleter | None = None,
     tables: Any = None,
     clock: Any = None,
+    field_instances: Any = None,
 ) -> tuple[Any, ScriptedCompleter]:
     """runtimev2 标准装配：剧本 completer＋内存簿记表＋四相位图（零 DB、零真实端口）。
 
     `tables` 非空＝复用既有内存表件（跨 run 的追问／恢复面需要同一份表）；`clock` 非空＝注入计时
     读数口替身（段时长闸的用量注入面——缺省走 `infra.clock`）。`guide_text`＝§A 指南段文本注入值
-    （流水 63——经 `RunExecutor` 下传 `clarify`／`match`；缺省空串＝空段头）。
+    （流水 63——经 `RunExecutor` 下传 `clarify`／`match`；缺省空串＝空段头）。`field_instances`
+    ＝油田实例读缝（V2-82b 对象歧义门数据源——缺省 None＝门不出声）。
 
     **审计写口装配点**（生产侧同物＝`security.audit` 桥，归 `api` 组合根 RT-W5-02）：审计唯一写口
     由装配点经 `persistence.configure_audit_sink` 注入——本处注入收集器（`v2_audit_records()`
@@ -210,6 +212,7 @@ def v2_runtime(
         watermark=watermark,
         guide_text=guide_text,
         clock=clock,
+        field_instances=field_instances,
     )
     return AgentRuntime(executor), channel
 
@@ -1748,6 +1751,8 @@ async def test_four_phase_ledger_dump_round1_injection() -> None:
     """词典层第 1 轮全量注入（拍板 a）：澄清相位包携台账全量块；
     零 discover 也注入（非懒加载）；**run 级共享上下文只注一次**（2026-10-17 消重批——匹配包不再
     重注）；决策调用面互为前缀延伸（pin-22）。"""
+    from appv2.runtimev2.prompts import RESIDENT_BLOCK_BEGIN
+
     dump = v2_ledger_dump()
     note = v2_ledger_note(dump, "日产油量")
     script = {
@@ -1775,10 +1780,12 @@ async def test_four_phase_ledger_dump_round1_injection() -> None:
     assert events[-1].event == "blackbox" and events[-1].data["status"] == "completed"
 
     first_call = completer.messages_of("decision")[0]
+    # 注入块本体按**常驻块标记**定位（2026-10-17 V2-82：环境块块头也带「台账全量块」措辞——
+    # 与合同措辞同词，「台账全量」不再是块本体的判据）
     package = next(
         message["content"]
         for message in first_call
-        if message.get("role") == "user" and "台账全量" in str(message.get("content", ""))
+        if message.get("role") == "user" and RESIDENT_BLOCK_BEGIN in str(message.get("content", ""))
     )
     assert "日产油量" in package and "老完成率" in package  # 指标台账逐字在场
     assert "agg.fct_daily_metering" in package  # 结构卡
@@ -1792,11 +1799,12 @@ async def test_four_phase_ledger_dump_round1_injection() -> None:
     # run 级共享上下文只注一次（2026-10-17 消重批·缺陷一）：台账常驻块在**链上**恰一次——挂澄清轮
     # 首入包；匹配包不再重注（末轮 answer 无重复 token）。第二链里台账块**逐字**＝第一链条内
     # 那一块（字节级不变，只改出现次数）。
-    # 2026-10-17 H 批：请求首条＝本环节规章段（system 位）——计数判据按**链段**（规章段不计入，
-    # 其文本内「台账全量」是合同措辞、不是注入块本体）。
+    # 2026-10-17 H 批：请求首条＝本环节规章段（system 位）——计数判据按**链段**（规章段不计入）；
+    # 2026-10-17 V2-82：计数按**常驻块标记**（块本体判据）——「台账全量」一词亦见于合同措辞
+    # 与环境块块头，不再是块本体的判据。
     first_chain, second_chain = first_call[1:], second_call[1:]
-    assert sum("台账全量" in message.get("content", "") for message in second_chain) == 1
-    assert sum("台账全量" in message.get("content", "") for message in first_chain) == 1
+    assert sum(RESIDENT_BLOCK_BEGIN in message.get("content", "") for message in second_chain) == 1
+    assert sum(RESIDENT_BLOCK_BEGIN in message.get("content", "") for message in first_chain) == 1
     # 非懒加载：本 run 零 discover，注入照常在场
     run_id = events[-1].data["run_id"]
     assert not [row for row in v2_steps(run_id) if row.step == "discover"]
@@ -2270,14 +2278,17 @@ async def test_four_phase_anchorable_window_skips_ask_delivers_degrade() -> None
     assert any(item.get("type") == "chain_switch_reentry" for item in notices)
     assert not any(item.get("type") == "unbound_degrade" for item in notices)
 
-    # 相位合同一次性（钉 `pin-24`）：回炉轮不重发合同包——标记记一次、链上台账全量块恰一块
+    # 相位合同一次性（钉 `pin-24`）：回炉轮不重发合同包——标记记一次、链上常驻块恰一块
     # （run 级共享上下文只注一次，挂澄清轮首入包——2026-10-17 消重批：匹配包不再重注），
-    # 不随轮数增长。
+    # 不随轮数增长；块本体按**常驻块标记**计数（2026-10-17 V2-82：「台账全量」一词亦见于
+    # 合同措辞与环境块块头）。
+    from appv2.runtimev2.prompts import RESIDENT_BLOCK_BEGIN
+
     state = V2RunStore().load(run_id)
     assert state.contracts_appended.count("clarify") == 1
     assert state.contracts_appended.count("toolmatch") == 1
     last_call = completer.messages_of("decision")[-1]
-    assert sum("台账全量" in message.get("content", "") for message in last_call) == 1
+    assert sum(RESIDENT_BLOCK_BEGIN in message.get("content", "") for message in last_call) == 1
 
 
 async def test_four_phase_clarify_ask_threshold_form_still_suspends_and_resumes() -> None:

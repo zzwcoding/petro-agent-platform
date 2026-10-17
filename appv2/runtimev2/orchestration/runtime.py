@@ -44,7 +44,7 @@ import asyncio
 import dataclasses
 import hashlib
 import json
-from collections.abc import AsyncIterator, Collection, Mapping, Sequence
+from collections.abc import AsyncIterator, Callable, Collection, Mapping, Sequence
 from dataclasses import asdict
 from datetime import date, datetime
 from typing import Any
@@ -118,6 +118,8 @@ from appv2.runtimev2.persistence import (
 )
 from appv2.runtimev2.prompts import SYSTEM_BACKGROUND
 from appv2.runtimev2.state import (
+    ALL_FIELDS_OPTION,
+    ALL_FIELDS_SENTINEL,
     RUN_COMPLETED,
     RUN_FAILED,
     RUN_RUNNING,
@@ -193,6 +195,7 @@ class RunExecutor:
         max_observations: int = DEFAULT_MAX_OBSERVATIONS,
         load_ledger: bool = True,
         clock: Any = None,
+        field_instances: Callable[[], Sequence[str]] | None = None,
     ) -> None:
         self._registry = registry
         self._store = store if store is not None else RunStore()
@@ -203,6 +206,9 @@ class RunExecutor:
         self._window_candidates = window_candidates
         self._watermark = watermark
         self._data_wells = data_wells
+        # 油田实例读缝（V2-82b）：对象歧义门的数据源——本块只持有并随 `LoopDeps` 下传
+        # （**loader 不现值**：门判定通过前不触读面；缺省 None＝门不出声）。
+        self._field_instances = field_instances
         # §A 指南段全文（流水 63）：相位侧 `clarify`／`match` 的文本注入参——装配面（启动
         # 快照）归 api 组合根，本块只持有并随 `LoopDeps` 下传（缺省空串＝空段头）。
         self._guide_text = guide_text
@@ -313,6 +319,8 @@ class RunExecutor:
         - **澄清回收**（`kind="clarify"`）：选择经 `resume_choices` 交澄清相位消费——其契约
           `_consume_resume` 以 `state.pending_ask.kind` 判形，故**帧留场**（由该相位消费时清除）；
           同时重置轮预算（行为 7 原文「澄清回收（resume）重置轮预算合法——rounds=0」）；
+          **对象歧义 ask 的选中项**（V2-82b）在此先映射进 `state.subjects`（见
+          `_apply_subject_choice`——澄清消费前的编排责任）；
         - **外表越集审批**（`kind="external_table_approval"`）：批准时把审批单号与其越集表集并入
           `approved_ids`（`bookkeeping.tool_context` 的放行名单面）＋`extable_rounds` 计点；帧即
           消费完毕（清除），回前置条件机重判。
@@ -321,6 +329,7 @@ class RunExecutor:
         state.resume_choices.append(choice_payload(choice))
         state.rounds = 0
         if choice.kind != _APPROVED_KIND:
+            self._apply_subject_choice(state, choice)
             return  # 澄清回收：帧留场交澄清相位消费（`clarification._consume_resume` 契约）
         state.pending_ask = None
         if choice.decision != _APPROVE:
@@ -331,6 +340,33 @@ class RunExecutor:
         tables = [str(name) for name in (detail.get(_TABLES_KEY) or ()) if str(name).strip()]
         state.approved_ids = [*state.approved_ids, approval_id, *tables]
         state.extable_rounds = int(state.extable_rounds) + 1
+
+    def _apply_subject_choice(self, state: RunState, choice: AskChoice) -> None:
+        """对象歧义 ask 的选项→主体映射（V2-82b——编排侧，澄清消费前），写后清候选。
+
+        发射面（`clarification.subject_ask.object_ambiguity_ask`）把当次实例候选名单落在
+        `state.pending_subject_options`；本处按**本 run 该问实际给过**的选项映射（不给过的不认，
+        零发明）：
+
+        - 选中项＝`ALL_FIELDS_OPTION`（逐字「都要（分源对比）」）⇒ `state.subjects`＝
+          `(ALL_FIELDS_SENTINEL,)`——哨兵形（字面单点在 `state.constants`；下游分源装配认它＝
+          全油田，消费面后续批）；
+        - 选中项 ∈ 实例候选 ⇒ `state.subjects`＝（该实例，）；
+        - 其余（自由文本／别的选项）⇒ `subjects` **不改写**（如实不猜主体——本题按原路继续，
+          下一次入口仍可再问，受连续反问预算约束）。
+
+        无论命中与否，候选名单**写后即清**（一问一答：下一个 ask 的候选不得沿用上一个）。
+        候选缺位（无对象歧义 ask 在场）⇒ 本处零动作（既有澄清回收路径逐字不变）。
+        """
+        options = state.pending_subject_options
+        if not options:
+            return
+        state.pending_subject_options = ()
+        picked = str(choice.choice or "").strip()
+        if picked == ALL_FIELDS_OPTION:
+            state.subjects = (ALL_FIELDS_SENTINEL,)
+        elif picked in options:
+            state.subjects = (picked,)
 
     # ── 播种与初态（钉 `pin-23` 的编排动作面）─────────────────────────────────
 
@@ -404,6 +440,7 @@ class RunExecutor:
                 data_wells=self._data_wells,
                 guide_text=self._guide_text,
                 max_observations=self._max_observations,
+                field_instances=self._field_instances,
                 # 恢复腿重入（同 run 第二腿起）：已落状态的步／通知**不再重发帧**（本腿只发
                 # 本腿新产的帧）——计数起点＝载入态的既有条数（`_flush_steps`／`_flush_notices`
                 # 按「新增逐条」语义发帧）。

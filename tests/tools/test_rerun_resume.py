@@ -7,6 +7,8 @@ tests/tools/test_rerun_spend.py 同款先例）。
 附 5 行为定义：rerun 遇 run 挂起（帧含 ask 且 done 前无终稿答案）→ --resume
 模式对挂起帧 POST 题册登记的合法选项（缺省第一项）续跑至收口；非挂起帧不受
 影响；判分照旧只看最终交付轮（合并帧重新归约——answer/verdict 取续跑后终稿）。
+挂起帧两形（V2-82 批 EB6 修 3）：V1＝终稿 verdict 缺席；V2＝终判帧
+（`subtype=final, status=waiting_ask`）在场（挂起腿照发）——`is_suspended` 两形兼容。
 """
 
 from __future__ import annotations
@@ -84,6 +86,59 @@ def test_is_suspended_ask_without_final_is_true() -> None:
 
     assert rerun.is_suspended({}) is False  # 无 ask 帧＝非挂起
     assert rerun.is_suspended({"asks": []}) is False
+
+
+def _v2_suspended_out_data(run_id: str = "run-ask-v2") -> dict:
+    """V2 真机挂起形（**终判帧在场**：`subtype=final, status=waiting_ask`）。
+
+    帧形镜像真机存档 `eval/results/frames/EB6-B-正6.json`（id=4 verdict 帧）；挂起腿的
+    `ask` 帧其后照发终判 verdict（`status=RUN_WAITING_ASK`）——旧判据（`final is None`）
+    在此形下恒 False（V2-82 批 EB6 修 3 的病灶）。
+    """
+    frames = [
+        {"event": "session", "data": {"run_id": run_id, "resume": False}},
+        {"event": "ask", "data": {
+            "frame": {"kind": "clarify",
+                      "prompt": "这道题问的是「检泵周期」——系统里有多个油田的数据。"
+                                "请确认要查哪一个：",
+                      "options": ["渤中油田", "渤南油田", "渤西油田", "都要（分源对比）"],
+                      "detail": {}},
+            "run_id": run_id}},
+        {"event": "verdict", "data": {"subtype": "final", "status": "waiting_ask",
+                                      "run_id": run_id, "manifest_digest": "0" * 16}},
+    ]
+    parsed = rerun.parse_frames(frames)
+    parsed["duration_s"] = 3.4
+    return {"frames": frames, "parsed": parsed}
+
+
+def test_is_suspended_v2_final_waiting_ask_frame_is_true() -> None:
+    """V2 终判帧形＝挂起（V2-82 批 EB6 修 3）：`status=waiting_ask` 即挂起态本体。
+
+    对照组＝续跑后的收口形（`status=completed`）仍判非挂起（判据方向不变）。
+    """
+    assert rerun.is_suspended(_v2_suspended_out_data()["parsed"]) is True
+
+    done = _v2_suspended_out_data()
+    done["frames"].extend(_resume_frames("run-ask-v2", "答案"))
+    done["parsed"] = rerun.parse_frames(done["frames"])
+    assert done["parsed"]["final"]["status"] == "completed"
+    assert rerun.is_suspended(done["parsed"]) is False
+
+
+def test_resume_fires_on_v2_waiting_ask_final_frame() -> None:
+    """机制面（附 5）：V2 真机帧形下 `--resume` 真发起续跑（病灶＝此处零调用、run 零交付）。"""
+    import asyncio
+
+    out_data = _v2_suspended_out_data()
+    calls: list[dict] = []
+    resumes = asyncio.run(_drive_resume(
+        V2_BASE, out_data, calls, _resume_frames("run-ask-v2", "按近 7 天出数。"),
+    ))
+    assert resumes == [{"run_id": "run-ask-v2", "choice": "渤中油田"}]
+    assert len(calls) == 1  # 挂起即续跑（旧判据下此处恒 0 次）
+    assert out_data["parsed"]["final"]["status"] == "completed"
+    assert not rerun.is_suspended(out_data["parsed"])
 
 
 # ---------- resume_suspended（附 5 行为定义主面——httpx MockTransport） ----------

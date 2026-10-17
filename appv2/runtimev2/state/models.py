@@ -1,7 +1,8 @@
 """state 的形状层：运行状态、模型调用 Manifest、受理与回执载荷、限额参数与触界形状。
 
 形状真源＝`specs/state.md` 接口定义节（签名以 `specs/modules.md` `## state` 卡为准）；
-`RunState` 字段集真源＝`docs/runtime-refactor/synth/S5-RunState字段矩阵.md`（首列 50 字段）。
+`RunState` 字段集真源＝`docs/runtime-refactor/synth/S5-RunState字段矩阵.md`（首列 53 字段——
+定稿 50 ＋ V2-82a 追加 `subjects`／`terms` 2 ＋ V2-82b 追加 `pending_subject_options` 1）。
 本层纯形状：零行为分支、零模型调用、零落盘、零业务语义判断；写函数零供给——共享写口归
 `bookkeeping`（`specs/bookkeeping.md`）。常量单点在 `constants`（三族闭世界＋限额数值真源）、
 触界判定在 `limits`（纯函数 `check_limits`）。
@@ -210,6 +211,9 @@ class RunState:
     empty_probes: list[str] = field(default_factory=list)
     understanding: str = ""
     metric_candidates: list[str] = field(default_factory=list)
+    # 题面主体/术语（V2-82a 2026-10-17 additive——理解相位写、后续相位读；默认空＝零漂移）
+    subjects: tuple[str, ...] = ()
+    terms: tuple[str, ...] = ()
     ledger_dump: dict[str, Any] | None = None
     question_group: dict[str, Any] | None = None
     tool_matches: list[dict[str, Any]] = field(default_factory=list)
@@ -238,6 +242,10 @@ class RunState:
     extable_rounds: int = 0
     last_result: dict[str, Any] | None = None
     pending_ask: dict[str, Any] | None = None
+    # 对象歧义 ask 的实例候选名单（V2-82b 2026-10-17 additive——发射时落、恢复时消费并清空；
+    # 默认空＝零漂移）。语义＝`pending_ask` 是「对象歧义」那一问时所给的**油田实例选项**，
+    # 恢复腿据此把选中项映射进 `state.subjects`（哨兵 `__all_fields__`＝都要）。
+    pending_subject_options: tuple[str, ...] = ()
     observations: list[dict[str, Any]] = field(default_factory=list)
     resume_choices: list[dict[str, Any]] = field(default_factory=list)
     approved_ids: list[str] = field(default_factory=list)

@@ -96,6 +96,7 @@ import pytest
 from appv2.runtimev2.gateway_adapter import ScriptedCompleter, set_completer
 from appv2.runtimev2.parsing import Direct, Understanding, parse_understanding, repair_inner_quotes
 from appv2.runtimev2.prompts import (
+    RECOMMENDATION_TEMPLATE,
     SYSTEM_BACKGROUND,
     TASK_BOOK_EXAMPLES,
     TASK_BOOK_OUTPUT_CONTRACT,
@@ -135,8 +136,12 @@ _SPEC_PROCESS_NOTE_KEYS = {"phase", "title", "digest"}
 _SPEC_DRAFT_KIND_DIRECT = "direct"
 _SPEC_INTENT_ANSWER = "answer"
 _SPEC_CALLER = "understand"  # 模型调用归因桶（真源 specs/gateway_adapter.md 行为 5 三桶族）
-# 数据区来源标记（标来源面——真源 specs/understanding.md 行为 2；字面同 prompts 渲染单点）
-_DATA_ZONE_HEAD = "【环境】（以下由系统按当前数据现状动态装配）"
+# 数据区来源标记（标来源面——真源 specs/understanding.md 行为 2；字面同 prompts 渲染单点；
+# 2026-10-17 V2-82 换一行功能段头——原「【环境】」表头＋「【本系统】」四句介绍随删）
+_DATA_ZONE_HEAD = (
+    "【环境数据】（以下由系统按当前数据现状动态装配——业务相关性只看领域是否沾边；"
+    "数据止于下方水位日）"
+)
 # 题干段头（prompts 行为 3「题干段置末」的行首标记；字面同 prompts 渲染单点）
 _QUESTION_HEAD = "【待解构的题干】"
 # 机读上报字段名（本块自立的机读面——行 12「step payload 字段」的字段名即此；改名即红）
@@ -880,7 +885,7 @@ def test_task_book_three_zones() -> None:
     assert book.count(_DATA_ZONE_HEAD) == 1
     # 数据区置于（活体数据面的）末尾：活体台账词只在数据区、不在其后的固定短段
     data_zone_start = book.index(_DATA_ZONE_HEAD)
-    metric_line = "日产油量｜可出数"
+    metric_line = "日产油量、含水率"  # 指标名录行＝名字级顿号串（2026-10-17 V2-82 换形）
     assert book.index(metric_line) > data_zone_start
     assert book.index(metric_line) < book.index(_QUESTION_HEAD)
     assert book.rstrip().endswith("现在输出。）")  # 题干段为装配尾段（prompts 行为 3 段序）
@@ -1591,3 +1596,110 @@ def test_bus_missing_fails_closed_before_any_side_effect() -> None:
     assert state.steps == []
     assert state.process_notes == [] and state.notices == []
     assert state.understanding == "" and state.metric_candidates == []
+    assert state.subjects == () and state.terms == ()  # V2-82a 字段面同判（零副作用的另两面）
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════
+# V2-82a（票②a-1，2026-10-17）：程序预识别推荐行 ＋ 主体/术语结构化槽 ＋ 分歧留痕
+# ══════════════════════════════════════════════════════════════════════════════════════
+
+_PG_QUESTION = "W-11 井的日产油量是多少？"  # 题面点名井号＋台账指标名（两候选面同时在场）
+_PG_SUBJECTS = "W-11"
+_PG_TERMS = "日产油量"
+# 分歧留痕条目标题（规格逐字面——实现漂移即红）
+_SPEC_SUBJECT_DIVERGENCE_TITLE = "主体识别分歧"
+
+
+def _full_reply_with_slots(
+    text: str,
+    candidates: Sequence[str],
+    *,
+    subjects: Sequence[str] | None = None,
+    terms: Sequence[str] | None = None,
+) -> str:
+    """理解应答 JSON（V2-82a：可携 `subjects`／`terms`；`None`＝键缺席——缺省＝空元）。"""
+    payload: dict[str, Any] = {
+        "route": _SPEC_ROUTE_FULL,
+        "text": text,
+        "metric_candidates": list(candidates),
+    }
+    if subjects is not None:
+        payload["subjects"] = list(subjects)
+    if terms is not None:
+        payload["terms"] = list(terms)
+    return json.dumps(payload, ensure_ascii=False)
+
+
+def test_program_recommendation_line_present_at_data_zone_tail() -> None:
+    """推荐行｜环境块尾注入「程序预识别」一行（逐字稿模板＋程序候选值）；位置＝数据区块尾、
+    题干段之前（题干段仍置末）。
+    """
+    state = _state(question=_PG_QUESTION)
+    _interpret(state, _full_reply("问 W-11 井日产油量。", [_PG_TERMS]))
+    book = _task_book_of(state)
+    line = RECOMMENDATION_TEMPLATE.format(subjects=_PG_SUBJECTS, terms=_PG_TERMS)
+    assert line in book
+    assert book.index(_DATA_ZONE_HEAD) < book.index(line) < book.index(_QUESTION_HEAD)
+    assert book.rstrip().endswith("现在输出。）")  # 题干段仍为末段
+
+
+def test_program_recommendation_line_renders_none_placeholder() -> None:
+    """推荐行｜空候选面＝「无」（逐字稿「空＝无」）；空 dump（未接线 run 同形）不崩——
+    井号面照常、术语面落「无」。
+    """
+    empty_terms = _state(question=_PG_QUESTION, ledger_dump={})
+    _interpret(empty_terms, _full_reply("问日产油量。", []))
+    assert RECOMMENDATION_TEMPLATE.format(subjects=_PG_SUBJECTS, terms="无") in _task_book_of(
+        empty_terms
+    )
+
+    no_subject = _state(question="这道题怎么看？")
+    _interpret(no_subject, _full_reply("此题无主体。", []))
+    assert RECOMMENDATION_TEMPLATE.format(subjects="无", terms="无") in _task_book_of(no_subject)
+
+
+def test_subject_terms_written_and_divergence_noted() -> None:
+    """分歧留痕｜模型给出的主体与程序候选集合不一致 → `state.subjects` 照抄落位 ＋
+    过程档案有界一句「主体识别分歧：程序推荐{…}/模型给出{…}」（有界 ≤100 字）。
+    """
+    state = _state(question=_PG_QUESTION)
+    _interpret(
+        state,
+        _full_reply_with_slots(
+            "问 Y-41 井日产油量。", [_PG_TERMS], subjects=["Y-41"], terms=[_PG_TERMS]
+        ),
+    )
+    assert state.subjects == ("Y-41",) and state.terms == (_PG_TERMS,)
+    notes = [
+        entry
+        for entry in state.process_notes
+        if entry["title"] == _SPEC_SUBJECT_DIVERGENCE_TITLE
+    ]
+    assert len(notes) == 1
+    assert notes[0]["phase"] == _SPEC_CALLER
+    assert notes[0]["digest"] == f"程序推荐{_PG_SUBJECTS}/模型给出Y-41"
+    assert len(notes[0]["digest"]) <= 100  # 有界（票面「截断 ≤100 字」）
+    assert state.dialogue == []  # 留痕入过程档案、不入对话层（pin-26）
+
+
+def test_subject_agreement_zero_note_and_slots_written() -> None:
+    """零漂移半边｜模型给出的主体与程序候选集合一致（含序不同）→ **零分歧注记**；
+    字段面照常落位（分歧留痕是注记、不是写入闸）。
+    """
+    state = _state(question=_PG_QUESTION)
+    _interpret(
+        state,
+        _full_reply_with_slots(
+            "问 W-11 井日产油量。", [_PG_TERMS], subjects=[_PG_SUBJECTS], terms=[_PG_TERMS]
+        ),
+    )
+    assert state.subjects == (_PG_SUBJECTS,) and state.terms == (_PG_TERMS,)
+    assert [
+        entry
+        for entry in state.process_notes
+        if entry["title"] == _SPEC_SUBJECT_DIVERGENCE_TITLE
+    ] == []
+    assert [entry["title"] for entry in state.process_notes] == [
+        _TASK_BOOK_NOTE_TITLE,
+        _READ_NOTE_TITLE,
+    ]

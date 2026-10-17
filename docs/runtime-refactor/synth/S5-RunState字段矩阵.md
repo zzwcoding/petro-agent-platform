@@ -4,11 +4,12 @@
 - 上游：`recon/I2a`（常量/Manifest）＋`recon/I2b`（RunState 全字段 53）＋各 graph 片「覆盖自检」的读/写声明＋`recon/I1b`（executor 播种）＋`arch/P5b1`（写手收敛主张）
 - 本文用途：把 RunState 字段的**写入方 / 读取方 / 持久化面**摊成一张表——重写时状态结构属 ADR-0002 红线③（schema 自有），必须先看清每个字段由谁写、谁读、怎么写盘，才能重构（尤其 P5b1 A-P5b1-06「写手收敛」）。
 - **字段数口径（定稿）**：**50 字段**＝旧码实测 53 − 取消 4（`consecutive_asks`／`manifests`／`started_monotonic`／`deadline_monotonic`，流水 49①）＋ 新增 1（`dialogue_view_tokens`，流水 49②）。
+- **字段数口径（现行）**：**53 字段**＝定稿 50 ＋ V2-82a 追加 2（`subjects`／`terms`，2026-10-17 流水 88——理解相位落题面主体/术语，默认空＝零漂移）＋ V2-82b 追加 1（`pending_subject_options`，2026-10-17 流水 88——对象歧义 ask 的实例候选名单，发射落/恢复清，默认空＝零漂移）。
 - 口径声明：写入/读取**未回填行**以**单元**粒度记旧码实测面（M1-M7/H1-H15，见 S1）；**写手收敛 9 行（§四【结构-1/2/4/6】对象）已按已定稿规格的目标态口径回填**（块级唯一写口），两类并存、各行自明。
 
 ---
 
-## 一、字段矩阵（定稿 50 字段）
+## 一、字段矩阵（定稿 50 字段 ＋ V2-82a 追加 2 ＋ V2-82b 追加 1＝现行 53 字段）
 
 | 字段 | 写入方 | 读取方 | 持久化/投影 | 备注 |
 | --- | --- | --- | --- | --- |
@@ -20,6 +21,8 @@
 | `empty_probes` | M5（discover） | M2（拒重发判定） | checkpoint | V2-56 空手探查指纹 |
 | `understanding` | M1 | M2/M4（收敛交付） | checkpoint | understand 产物 |
 | `metric_candidates` | M1、M3、**M4**（更正：recon F L49/L189 漏记） | M2/M4/M5（_ctx_of） | checkpoint | FX-13 候选集 |
+| `subjects` | **M1（V2-82a 2026-10-17 追加）** | 后续相位（V2-82b 对象歧义门等） | checkpoint | 题面主体（归一形；默认空＝零漂移） |
+| `terms` | **M1（V2-82a 2026-10-17 追加）** | 后续相位（V2-82b 粒度判据等） | checkpoint | 题面术语（台账指标/术语名；默认空） |
 | `ledger_dump` | 旧码实测＝M1 闸族（N0/N1 拒答路径）＋M2（E1 取一次）〔更正：闸族原误记 H6 名下〕；**目标态唯一写面＝context**（装载取一次写回，context.md 行为 10） | 旧码 M1/M2/M3/M4（闸）；**目标态＝prompts 常驻块渲染只读** | checkpoint | 词典层快照；三种旧持久化行为（D-C-04）**已统一**；gate 命中路径零台账 I/O |
 | `question_group` | M2（E1 相位①）、M3（就地补 tool/chain）、**M4**（重写步，更正：recon F L49） | M3/M4/M5/M6 | checkpoint | 四相位产物① |
 | `tool_matches` | M3、**M4**（更正：recon F L49 漏记） | M4/M5/M6 | checkpoint | 四相位产物② |
@@ -48,6 +51,7 @@
 | `extable_rounds` | M2（恢复） | M2/M4 | checkpoint | 外表审批重跑轮次 |
 | `last_result` | M5（execute） | M5（observe）、H/A2（material） | checkpoint | 末次工具结果 |
 | `pending_ask` | M2 | M2/M4/H3（挂起帧读） | checkpoint | 挂起帧投影 |
+| `pending_subject_options` | **H2（V2-82b 2026-10-17 追加，对象歧义门发射时落）** | **H3（恢复腿 `_apply_choice` 映射 `subjects` 后清空）** | checkpoint | 对象歧义 ask 的油田实例候选（一问一答，写后即清；默认空＝零漂移） |
 | `observations` | M5（observe） | M6/M7/M4（材料面） | checkpoint | 全局 [n] 序 |
 | `resume_choices` | M2（恢复） | H3（审计） | checkpoint | resume 留痕 |
 | `approved_ids` | M2（恢复） | M4/M5（放行态） | checkpoint | 已批准审批单号 |
@@ -74,8 +78,8 @@
 | 写入单元 | 写的字段（个数） |
 | --- | --- |
 | **H3 执行器**（仅播种/收口） | run_id／question／actor／status／followup_of／messages(seed)／budget／started_monotonic／deadline_monotonic／schema_version／error（新链只写这 11 个） |
-| **M1 理解** | understanding／metric_candidates／messages／process_notes／steps／next_intent／notices／draft／draft_kind |
-| **M2 澄清**（写手最多） | rounds／decision_error／user_hint／budget_reject_streak／ledger_dump／messages／contracts_appended／question_group／precondition_verdicts／pending_discovers／pending_plan／pending_retrieval／pending_ask／consecutive_asks／notices／process_notes／steps／next_intent／draft／draft_kind／resume_choices／approved_ids／extable_rounds／task_type |
+| **M1 理解** | understanding／metric_candidates／subjects／terms（后二者 V2-82a 追加）／messages／process_notes／steps／next_intent／notices／draft／draft_kind |
+| **M2 澄清**（写手最多） | rounds／decision_error／user_hint／budget_reject_streak／ledger_dump／messages／contracts_appended／question_group／precondition_verdicts／pending_discovers／pending_plan／pending_retrieval／pending_ask／consecutive_asks／notices／process_notes／steps／next_intent／draft／draft_kind／resume_choices／approved_ids／extable_rounds／task_type／pending_subject_options（V2-82b 追加） |
 | **M3 匹配** | rounds／decision_error／messages／contracts_appended／process_notes／steps／next_intent／question_group／tool_matches／metric_candidates |
 | **M4 前置** | precondition_verdicts／chain_switch_marks／notices／steps／next_intent（+ 收敛路 budget_hit/answer/draft_kind/status） |
 | **M5 批量** | subtask_results／observations／last_result／executed_payloads／tool_retries／window_miss_marks／empty_probes／discover_used／notices／steps／next_intent |
@@ -124,6 +128,6 @@
 
 ## 覆盖自检
 
-- 字段：定稿口径 **50**（旧码实测 53 − 取消 4 ＋ 新增 `dialogue_view_tokens` 1）＋3 载荷类（非状态）；持久化面 5 盘。
+- 字段：定稿口径 **50**（旧码实测 53 − 取消 4 ＋ 新增 `dialogue_view_tokens` 1）＋ V2-82a 追加 2（`subjects`／`terms`）＋ V2-82b 追加 1（`pending_subject_options`）＝**现行 53** ＋3 载荷类（非状态）；持久化面 5 盘。
 - 写手收敛 9 行已按已定稿规格口径回填（bookkeeping 单点写口／context 唯一写面／Budget 闭世界／dialogue 复活）；转录更正 6 处（metric_candidates／question_group／tool_matches 漏 M4、subtask_results 漏 M4 条件、ledger_dump 闸族归属、rounds 回写原值）；尾注 3 载荷类对齐 state.md。
 - §二／§三 为旧码实测面（保留原貌含已取消字段）；结构问题 8 条（4 条已裁收口）；待补 3 条清零。数据源＝recon 各片覆盖自检的读/写声明（非我推断）。

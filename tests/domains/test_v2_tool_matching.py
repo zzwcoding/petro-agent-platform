@@ -37,12 +37,14 @@ from __future__ import annotations
 import ast
 import json
 from collections.abc import Mapping, Sequence
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 import appv2.runtimev2.tool_matching as tool_matching
+from appv2.knowledge import InMemoryKnowledgeStore, question_array_snapshot
 from appv2.runtimev2.gateway_adapter import ScriptedCompleter, set_completer
 from appv2.runtimev2.parsing import QuestionGroup, Subtask, parse_tool_match
 from appv2.runtimev2.state import RunState
@@ -73,9 +75,15 @@ from appv2.tools import (
     FakeRetrievalEngine,
     ToolContext,
     ToolRegistry,
+    dump_from_store,
     ledger_facts,
     normalize_metric_name,
     resolve_metric_slot,
+)
+
+# 台账投影真源同产线一路（快照→读面→dump_from_store——V2-82c 术语锚扩展的 dump 源）。
+LEDGER_DUMP = dump_from_store(
+    InMemoryKnowledgeStore(question_array_snapshot(), today=date(2026, 10, 8))
 )
 
 _TOOL_MATCHING_DIR = Path(tool_matching.__file__).parent
@@ -1040,6 +1048,23 @@ def test_deterministic_anchors_silent_on_entity_free_question() -> None:
         "question": "完井液密度 二开 三开",
         "anchors": [],
     }
+
+
+def test_term_anchors_injected_from_ledger_dump() -> None:
+    """V2-82c：`state.ledger_dump` 由本块下传入锚注入——题面命中台账术语/指标名即术语锚入载荷。
+
+    同题两态对照：dump 缺位（未接线态）＝零扩展（既有语义逐字不变），dump 在场＝词条全部
+    词面形续在实体锚后（术语加权入 `_keyword_leg` 查询文本，引擎侧零改动）。"""
+    content = _emission(
+        [_knowledge_match(retrieval_need={"question": "Y-41 井的检泵周期是多少天？"})]
+    )
+    unwired = _plan(_run(_state(), content)[0]).matches[0]
+    assert unwired.retrieval_need["anchors"] == ["Y-41"]  # dump 缺位＝零扩展
+
+    wired_state = _state()
+    wired_state.ledger_dump = LEDGER_DUMP
+    wired = _plan(_run(wired_state, content)[0]).matches[0]
+    assert wired.retrieval_need["anchors"] == ["Y-41", "检泵周期"]
 
 
 def test_anchor_injection_trace_in_determination_payload() -> None:

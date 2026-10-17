@@ -8,6 +8,10 @@
 零段序重排；`specs/prompts.md` 框架红线「禁手写替代」的消费方半面）。水位等时间量只经入参注入
 （本块零时钟接触，B14 在装配面的形态）；数据区随 `state.ledger_dump` 活体投影现取（行为 2）。
 
+**2026-10-17 V2-82a（程序预识别推荐行）**：`task_book` 在数据区块尾并入一行「程序预识别」
+（主体/术语候选＝`program_candidates` 经 `tools` 包根取件；字面单点在 `prompts`）——推荐面
+只给模型参考，判定仍在模型（`state.subjects`／`terms` 的落点与分歧留痕归 `interpret`）。
+
 **幂等标记**：本块自立的「已装配」判据＝过程档案里的一条标记条目（`TASK_BOOK_NOTE_TITLE`）——
 任务书本身是不可再算的活体文本（投影变则文本变），故不能以文本相等作为判据；标记走唯一写口
 `bookkeeping.note`（相位禁直写 `process_notes`）。重复进入（同 run 回炉）＝**无操作**，不重复
@@ -16,25 +20,68 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
+from typing import Any
 
 from appv2.runtimev2.bookkeeping import append_message, note
-from appv2.runtimev2.prompts import assemble_task_book
+from appv2.runtimev2.prompts import RECOMMENDATION_TEMPLATE, assemble_task_book
 from appv2.runtimev2.state import RunState
 from appv2.runtimev2.understanding.constants import (
     PHASE,
+    PROGRAM_CANDIDATE_EMPTY,
+    PROGRAM_CANDIDATE_SEP,
     ROLE_USER,
     TASK_BOOK_NOTE_DIGEST,
     TASK_BOOK_NOTE_TITLE,
 )
+from appv2.tools import subject_candidates, term_candidates
+
+
+def _projection(state: RunState) -> Mapping[str, Any]:
+    """台账投影（缝缺省归一空投影——`None`／旧形按空投影计，同 `roster` 缝缺省口径）。"""
+    dump = state.ledger_dump
+    return dump if isinstance(dump, Mapping) else {}
+
+
+def _listing(names: Iterable[str]) -> str:
+    """候选展示形：顿号串；空＝「无」（票面逐字「空＝无」）。"""
+    return PROGRAM_CANDIDATE_SEP.join(names) or PROGRAM_CANDIDATE_EMPTY
+
+
+def program_candidates(state: RunState) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """程序预识别候选面（主体, 术语）——`tools` 包根取件（R6：本块不直引引擎）。
+
+    零模型、零 I/O 的确定性抽取（真源＝`tools.subject_terms`）；空投影＝两空元组（不崩、
+    不编造）。同一 state 两跑逐字相等（纯函数）。
+    """
+    dump = _projection(state)
+    return subject_candidates(state.question, dump), term_candidates(state.question, dump)
+
+
+def recommendation_line(state: RunState) -> str:
+    """环境块「程序预识别」推荐行（V2-82a 逐字稿模板 ＋ 程序候选值）。
+
+    文本字面单点在 `prompts`（`RECOMMENDATION_TEMPLATE`）、本块只填值；候选全空时渲染
+    「主体候选：无；术语候选：无」（**行仍在场**——「程序没识别到」本身是给模型的信
+    息，且模型与程序的分歧留痕以同一评价面为准）。
+    """
+    subjects, terms = program_candidates(state)
+    return RECOMMENDATION_TEMPLATE.format(
+        subjects=_listing(subjects), terms=_listing(terms)
+    )
 
 
 def task_book(state: RunState, *, watermark: str = "") -> str:
-    """任务书装配（三区＋题干段）——委托 `prompts.assemble_task_book` 单点（行为 1／2）。
+    """任务书装配（数据区〔含推荐行〕＋题干段）——委托 `prompts.assemble_task_book` 单点（行为 1／2）。
+
+    **2026-10-17 V2-82a**：数据区尾并入「程序预识别」推荐行（本块拼值——经 `tools` 包根调
+    `subject_candidates`／`term_candidates`，R6 合规：理解相位不直引 `anchors`）。
 
     纯文本进出、确定性：同 `state` 投影与同注入水位两次装配逐字相等；`state` 零写入。
     """
-    return assemble_task_book(state, watermark=watermark)
+    return assemble_task_book(
+        state, watermark=watermark, recommendation=recommendation_line(state)
+    )
 
 
 def task_book_assembled(state: RunState) -> bool:

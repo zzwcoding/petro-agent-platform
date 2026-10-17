@@ -10,6 +10,9 @@ production_waterline 同款读缝形状——create_app 组合根消费、runtim
 两读面同源（2026-10-17 流水 70 加）：井名录取值缝 `production_well_roster`
 （(well_id, block_name) 序对——tools 层 dim_well 结构卡的名录段消费），井闭世界
 `production_data_wells` 由同一次读取投影出井号集（单条 SQL 单点，零第二份读法）。
+**第三读面**（V2-82b 加）：`production_field_instances`＝同表 `field_name` 列现值集
+（对象歧义 ask 的油田实例名单——独立 SQL 单点：名录两读面按井号列投影，本读面按
+油田列 distinct 投影，两问两读、互不代读）。
 
 同步缝桥：复用 pg_waterline._run_sync 同款两态桥（无环本线程直跑；有环专用
 线程另起环）。会话获取唯一经 infra.db（B3），readonly() 只读守卫恒挂（INV-2）。
@@ -30,7 +33,11 @@ from appv2.query.pg_waterline import _run_sync
 # UndefinedTableError（P050CA8 首批实录：域闸静默）——schema 面修复） ----------
 
 _DIM_WELL = table(
-    "dim_well", column("well_id"), column("block_name"), schema="agg"
+    "dim_well",
+    column("well_id"),
+    column("block_name"),
+    column("field_name"),
+    schema="agg",
 )
 
 
@@ -59,6 +66,24 @@ def production_data_wells(specs: Sequence[DatabaseSpec]) -> Any:
     return loader
 
 
+def production_field_instances(specs: Sequence[DatabaseSpec]) -> Any:
+    """油田实例读缝（Callable[[], tuple[str, ...]] 形——V2-82b 对象歧义 ask 的数据源）。
+
+    读面＝`agg.dim_well.field_name` 列**现值集**（同表同源：dim_well 卡【井号名录】段
+    读的是本表的 `well_id`／`block_name`，本读缝取同一行的油田列）——**每次调用现读**
+    （零缓存，同两读面纪律）；`field_name` 为空（列 NULL／空串）的行照实归空串，归一
+    与去重归 tools 侧 `subject_terms.oilfield_instances`（读缝不加工业务名）。
+
+    消费点＝runtimev2 编排的对象歧义门（`clarification.subject_ask`）：题面无主体且指标
+    粒度要求主体时，本名单（归一后 ≥2 个）作 ask 选项来源；读缝缺省／异常由编排侧静默
+    不出声（同 `data_wells` 域闸的缺省纪律——**不误伤**、不发明实例）。
+    """
+    def loader() -> tuple[str, ...]:
+        return _run_sync(_load_field_instances(tuple(specs)))
+
+    return loader
+
+
 async def _load_roster(specs: tuple[DatabaseSpec, ...]) -> tuple[tuple[str, str], ...]:
     from appv2.infra.db import ConnectionManager
 
@@ -75,3 +100,27 @@ async def _load_roster(specs: tuple[DatabaseSpec, ...]) -> tuple[tuple[str, str]
     # 空区块归一为空串（区块列 NULL＝未标——展示面按「未标区块」如实承载，
     # 零发明：不猜区块名、不伪造归属）。
     return tuple((str(row.well_id), str(row.block_name or "")) for row in rows)
+
+
+async def _load_field_instances(specs: tuple[DatabaseSpec, ...]) -> tuple[str, ...]:
+    """油田实例现值集（`agg.dim_well.field_name` 列 distinct，保序＝库返回序）。
+
+    `order by field_name`＝读面自身定序（同一数据面两次调用同序——ask 选项序可复现；
+    「保序」指不重排读面容，排序归 SQL 单点）。空值（NULL／空串）行照实归空串（归一
+    与去重归 tools 侧——读缝不加工业务名、不丢行）。
+    """
+    from appv2.infra.db import ConnectionManager
+
+    db = ConnectionManager(specs)
+    try:
+        async with db.readonly() as session:
+            rows = (
+                await session.execute(
+                    select(_DIM_WELL.c.field_name)
+                    .distinct()
+                    .order_by(_DIM_WELL.c.field_name)
+                )
+            ).all()
+    finally:
+        await db.dispose()
+    return tuple(str(row.field_name or "") for row in rows)

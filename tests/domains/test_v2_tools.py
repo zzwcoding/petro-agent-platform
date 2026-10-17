@@ -650,7 +650,7 @@ async def test_observation_provenance() -> None:
         assert obs.locator["section"]
         assert obs.scope in FAMILY_ALL  # family 标注（库 biz_template 透传）
     notes = _by_kind(doc, "notice")
-    assert len(notes) == 1 and "召回" in notes[0].content and "送窗" in notes[0].content
+    assert len(notes) == 1 and "共检索到" in notes[0].content and "用进了答案" in notes[0].content
 
 
 # ---------- 对齐项①：跨 kind 歧义名＝术语卡优先＋可出数指标补取，双落并列 ----------

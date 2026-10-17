@@ -13,8 +13,10 @@ V1 S4 双路召回＋精排＋生成窗供给＋图谱链移植为确定性引�
    算、其余族每族保底 1 席（完井族题不挤占月报族配额）；族内同来源（报告）
    至多半额轮询（每来源至少留代表支——矛盾来源同窗并立）；预算 < 候选来源
    数→零席位来源逐个枚举进 window_note 缺位段。
-3. 截断显式：window_note 恒带「召回 N 支/送窗 M 支」（build_window_note 单
-   点）——agent 据此区分「没有」与「没送」（Q11 P0-2 病灶治理面）。
+3. 截断显式：window_note 恒带「共检索到 N 条材料，M 条用进了答案」
+   （build_window_note 单点）——agent 据此区分「没有」与「没送」；同批计数
+   落 `RetrievalBundle.recalled/sent` 结构化字段（V2-82e additive——注记措辞
+   面之外的机读面，Q11 P0-2 病灶治理面）。
 4. 同型文档来源标注：Observation.locator 携 library/报告名（出处链 fragment
    →report→library 三级）——锚错 A-W11 vs Y-21 可被核验步发现。
 5. 失败回退语义同 V1（回退不炸链）：embedding 失败向量腿按空腿、关键词腿兜
@@ -195,6 +197,8 @@ class RetrievalEngine:
                 missing=supply.missing_sources,
                 extra=extra,
             ),
+            recalled=recalled,
+            sent=len(observations),
         )
 
     # ---------- 图谱面（邻域遍历→fail-closed 锚校验→送窗） ----------
@@ -471,16 +475,21 @@ def _expand_summary_sections(
 def _supply_extra_note(supply: WindowSupply, *, summary_expanded: int = 0) -> str:
     """扩席实录段（window_note extra：锚保底/表类整组/摘要展开留痕）。
 
-    数字如实：送窗 M 已按实走支数计数（build_window_note 主段），本段只声明
-    扩席来源与增量——无扩席＝空串（旧注记形零漂移）。
+    数字如实：用进答案数 M 已按实走支数计数（build_window_note 主段），本段只
+    声明扩席来源与增量——无扩席＝空串（零漂移）。三段措辞＝用户语（V2-82e）：
+    内部行话（锚保底/整行集/展开补席）不上材料段，数字全部参数化。
     """
     segments: list[str] = []
     if supply.anchor_seated:
-        segments.append("题眼锚保底席位：" + "、".join(supply.anchor_seated))
+        segments.append(
+            "以下条目因直接命中提问关键词获得保留：" + "、".join(supply.anchor_seated)
+        )
     if supply.rowset_added:
-        segments.append(f"表类整行集进窗 +{supply.rowset_added} 支（不计入送窗配额）")
+        segments.append(
+            f"目标表格的整组数据行已进窗（+{supply.rowset_added} 条，不占送入答案的数量）"
+        )
     if summary_expanded:
-        segments.append(f"节级摘要展开节内切片 +{summary_expanded} 支（摘要命中→节内补席）")
+        segments.append(f"命中的章节摘要已展开为节内材料（+{summary_expanded} 条）")
     return "；".join(segments)
 
 

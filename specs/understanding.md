@@ -46,10 +46,14 @@ class Understanding:                       # route 闭世界
     text: str                              # 读题结论原文
     metric_candidates: list[str]           # 候选指标（须出自指标名录）
     route: Literal["full"]                 # 定型常量："full"（不设类定义默认值——缺必填字段即抛 UnderstandingParseError）
+    subjects: tuple[str, ...] = ()          # 题面点名主体（归一形；V2-82a additive——缺省/类型不合＝空，不拒单）
+    terms: tuple[str, ...] = ()             # 题面命中台账指标/术语名（V2-82a additive——同上）
 
 class Direct:                              # route 闭世界
     text: str
     route: Literal["direct"]               # 定型常量："direct"（不设类定义默认值——缺必填字段即抛 UnderstandingParseError）
+    subjects: tuple[str, ...] = ()          # 与 Understanding 同步（V2-82a 两形同字段集；直答形恒空）
+    terms: tuple[str, ...] = ()             # 同上一行
 ```
 
 - **`route` 是闭世界**：合法值仅 `"full"`｜`"direct"`；**越界值判失败**（不猜、不取默认）。

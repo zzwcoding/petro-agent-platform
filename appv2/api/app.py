@@ -279,6 +279,23 @@ def compose_production_data_wells(
     return production_data_wells(resolved)
 
 
+def compose_production_field_instances(
+    *, specs: Sequence[DatabaseSpec] | None = None
+) -> Any:
+    """油田实例 loader（agg.dim_well.field_name 现值集直读——V2-82b 对象歧义门的数据源）。
+
+    局部 import＝组合根例外（同上注记）。**返回 loader**（`Callable[[], tuple[str, ...]]`）
+    ——编排块注入形即 loader 本身（`LoopDeps.field_instances`，与 `data_wells` 的「注入值」
+    不同：本门**现读**每一次判定，不取启动快照——油田实例随数据面刷新即新，且门判定通过
+    之前不触读面；同井名录段的现读纪律）。
+    """
+    from appv2.infra.config import load_database_specs
+    from appv2.query import production_field_instances
+
+    resolved = tuple(specs) if specs is not None else tuple(load_database_specs())
+    return production_field_instances(resolved)
+
+
 def compose_production_guide_text(
     *,
     budget: Budget | None = None,
@@ -327,6 +344,7 @@ def create_app(
     watermark: Any | None = None,
     data_wells: Any | None = None,
     guide_text: str | None = None,
+    field_instances: Any | None = None,
 ) -> FastAPI:
     """构建 appv2 应用（四端点挂线＋runtimev2 生产装配——依赖注入面）。
 
@@ -342,6 +360,9 @@ def create_app(
     compose_production_ledger_dump）——经 `context.wire_ledger_projection` 接端口；
     `watermark`／`data_wells`＝编排注入值（date／集合；None＋生产＝生产 loader 取一次，
     见模块 docstring 的装配形状两处适配）。
+    `field_instances`＝油田实例 loader（V2-82b——对象歧义门数据源；None＋生产＝
+    `query.production_field_instances` 的 loader，**现读不取快照**；非生产路径 None＝
+    门不出声）。
     `guide_text`＝§A 指南段注入值（str——经 `RunExecutor` 下传 `clarify`／`match`；
     None＋生产＝`compose_production_guide_text` 启动取一次快照；非生产路径 None＝空串）。
     """
@@ -363,6 +384,8 @@ def create_app(
             data_wells = compose_production_data_wells(specs=specs)()
         if guide_text is None:
             guide_text = compose_production_guide_text(budget=budget, today=today)
+        if field_instances is None:
+            field_instances = compose_production_field_instances(specs=specs)
     set_completer(completer)
     configure_audit_sink(SecurityAuditSink(SecurityService(db)))
     wire_ledger_projection(
@@ -376,6 +399,7 @@ def create_app(
         watermark=watermark,
         data_wells=data_wells,
         guide_text=guide_text or "",
+        field_instances=field_instances,
     )
     app = FastAPI(title="Petro-Agent V2", version="2.0", lifespan=lifespan)
     install_error_handlers(app)

@@ -70,8 +70,9 @@ _TYPE_CANDIDATES = "字符串数组"
 def parse_understanding(text: str) -> Understanding | Direct | None:
     """理解面＝统一 JSON 严格解析（`specs/parsing.md` 行为 1，V2 定案）。
 
-    合格 → `Understanding`（`route="full"`：`text`／`metric_candidates`）｜`Direct`
-    （`route="direct"`：`text`）两形互斥、单出口；`route` 越界／缺必填字段／类型不符 → `None`
+    合格 → `Understanding`（`route="full"`：`text`／`metric_candidates`＋additive 的
+    `subjects`／`terms`）｜`Direct`（`route="direct"`：`text`）两形互斥、单出口；`route`
+    越界／缺必填字段／类型不符 → `None`
     （不猜、不取默认、不做降级提取）。**不受理引号自修、不使用提取件**（接口⑤）。
 
     判定本体＝`_understand_schema`（与拒因诊断面共用——单点，两形不各自判）。
@@ -97,6 +98,9 @@ def _understand_schema(text: str) -> tuple[Understanding | Direct | None, str]:
     判据序＝顶层对象 → `route` 闭世界 → 逐字段（两形各自字段集）：**首判即返**，故
     「`parse_understanding` 返 `None` ↔ 拒因非空」恒等价（两公开形读同一序列，不漂移）。
     拒因逐支一句、零词表（全结构判：存在性／类型／闭世界成员）。
+
+    `subjects`／`terms`（2026-10-17 V2-82a）**不进必填判据**：缺省＝空、present 非
+    `list[str]`＝忽略该字段（`_string_tuple`——宽松 additive，拒因零新增）。
     """
     try:
         payload = json.loads(text)
@@ -115,16 +119,36 @@ def _understand_schema(text: str) -> tuple[Understanding | Direct | None, str]:
         if not all(isinstance(item, str) for item in candidates):
             return None, _REASON_CANDIDATE_ITEM
         return Understanding(
-            text=body, metric_candidates=list(candidates), route=ROUTE_FULL
+            text=body,
+            metric_candidates=list(candidates),
+            route=ROUTE_FULL,
+            subjects=_string_tuple(payload.get("subjects")),
+            terms=_string_tuple(payload.get("terms")),
         ), ""
     if route == ROUTE_DIRECT:
         body = payload.get("text")
         if not isinstance(body, str):
             return None, _field_reason(payload, "text", _TYPE_TEXT)
-        return Direct(text=body, route=ROUTE_DIRECT), ""
+        return Direct(
+            text=body,
+            route=ROUTE_DIRECT,
+            subjects=_string_tuple(payload.get("subjects")),
+            terms=_string_tuple(payload.get("terms")),
+        ), ""
     if "route" in payload:
         return None, _REASON_ROUTE_OUT_OF_WORLD
     return None, _REASON_MISSING.format(name="route")
+
+
+def _string_tuple(raw: Any) -> tuple[str, ...]:
+    """`subjects`／`terms` 的**宽松 additive 读法**（V2-82a）：缺省＝空；present 非 `list[str]`
+    →**忽略该字段**（不拒单——宽松 dict 风格；其余键照旧静默忽略）。合法则收（原样，不归一）。
+    """
+    if not isinstance(raw, list):
+        return ()
+    if not all(isinstance(item, str) for item in raw):
+        return ()
+    return tuple(raw)
 
 
 def _field_reason(payload: dict[str, Any], name: str, expected: str) -> str:

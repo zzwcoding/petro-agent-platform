@@ -8,6 +8,8 @@
   同源单点）＋报告号数字核（被闭世界实体名包含才注入——日期噪声不注入）；
   两条执行路径（legacy decision 发射／四相位 toolmatch 定案）注入后 anchors
   到达 RetrievalNeed（FakeRetrievalEngine 捕获断言）。
+- 术语锚扩展钉（V2-82c 补）：题面命中台账指标/术语名或其别名→「规范名＋该词条
+  全部别名」续在实体锚后（`term_anchor_tokens`——dump 缺位/无命中＝空集，零漂移）。
 - 归属审钉：A-正1 形（双源同窗消费错源）→一致性审拦下→分源列明或如实说无
   （verify_draft 带 anchors 时对被引检索片段按「出处名＋内容↔题眼锚」二分，
   跨源→分源列明块；runtime 面 notice attribution_split＋verdict.attribution
@@ -31,6 +33,7 @@ from appv2.tools import (
     FakeRetrievalEngine,
     entity_anchor_tokens,
     inject_retrieval_anchors,
+    term_anchor_tokens,
 )
 from tests.domains.test_v2_agent_loop import (
     ACTOR,
@@ -79,6 +82,45 @@ def test_entity_anchor_multi_well_question() -> None:
     # 近名多井题（NQ-M8/W-41·Y-41 形）：两井号都注入——题眼锚全集。
     anchors = entity_anchor_tokens("Y-41 井本月断裂躺井了吗？W-41 是哪口井？")
     assert "Y-41" in anchors and "W-41" in anchors
+
+
+# ---------- V2-82c：术语锚扩展（台账指标/术语名或其别名命中→词条全词面形） ----------
+
+
+def test_term_anchor_alias_question_carries_canonical_and_all_aliases() -> None:
+    # 题面问别名「日产液」→规范名（台账指标槽位「日产液量」）＋该词条全部别名。
+    anchors = term_anchor_tokens("Y-41 井今天的日产液是多少？", LEDGER_DUMP)
+    assert anchors == ("日产液量", "日产液")  # 保序去重：规范名在前，别名续后
+
+
+def test_term_anchor_canonical_question_carries_self() -> None:
+    # 题面问正名「检泵周期」→含自身（该词条无别名）。
+    assert term_anchor_tokens("W-22 井的检泵周期是多少天？", LEDGER_DUMP) == ("检泵周期",)
+
+
+def test_term_anchor_ledger_miss_silent() -> None:
+    # 未命中台账名录（题面无指标/术语词）→空集。
+    assert term_anchor_tokens("W-11 井生产套管的尺寸与下深是多少？", LEDGER_DUMP) == ()
+
+
+def test_term_anchor_dump_missing_silent() -> None:
+    # dump 缺位（未接线 run）→空集（additive 零漂移的未接线半边）。
+    assert term_anchor_tokens("Y-41 井今天的日产液是多少？") == ()
+    assert term_anchor_tokens("Y-41 井今天的日产液是多少？", None) == ()
+
+
+def test_inject_anchors_carries_term_extension_after_entity() -> None:
+    # 注入出口携带术语锚（实体锚在前、术语锚续后——同一注入管道）。
+    merged = inject_retrieval_anchors(
+        {"question": "W-11 井的检泵周期是多少天？"}, dump=LEDGER_DUMP
+    )
+    assert merged["anchors"] == ["W-11", "检泵周期"]
+
+
+def test_inject_anchors_term_extension_zero_drift_on_miss() -> None:
+    # 无术语命中题：带不带 dump 产出逐字一致（零漂移——扩展只在命中时产出）。
+    need = {"question": "W-11 井生产套管的尺寸与下深是多少？", "anchors": ["Y-21"]}
+    assert inject_retrieval_anchors(need, dump=LEDGER_DUMP) == inject_retrieval_anchors(need)
 
 
 # ---------- ①注入钉：retrieval_need 合并（模型可增补不可清空） ----------

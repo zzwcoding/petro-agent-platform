@@ -186,7 +186,10 @@ def test_build_summary_text_contains_path_and_covers() -> None:
     clusters = {c.report_id: c for c in cluster_sections(_corpus())}
     cluster = next(c for c in clusters.values() if c.members == ("f-a1", "f-a2"))
     text = build_summary_text(cluster, "本节给出筛管防砂选型与精度论证。")
-    header = "〔节级摘要｜《A-W11井完井工程报告》·章节 04 第四章 防砂设计与实施｜覆盖 2 支切片〕"
+    header = (
+        "〔节级摘要｜《A-W11井完井工程报告》·章节 04 第四章 防砂设计与实施"
+        "｜覆盖 2 条节内材料〕"
+    )
     assert text.startswith(header)
     assert "筛管防砂选型" in text  # 要点正文拼接在位
 
@@ -518,7 +521,8 @@ async def test_engine_summary_hit_expands_section_slices() -> None:
     # S2 清钉（P-046b）真实谓词：每支展开切片的节根 ∈ 窗内摘要节节集——
     # 展开按簇取材，非摘要节切片不得借展开进窗（原「or o.fragment_id」恒真摘除）。
     assert all(section_root(o.section) in sections for o in expanded)
-    assert "节级摘要展开" in bundle.window_note  # 扩席实录如实（window_note extra 段）
+    # 扩席实录如实（window_note extra 段）
+    assert "命中的章节摘要已展开为节内材料" in bundle.window_note
     # S2 清钉（P-046b）真实谓词：展开池＝全节语料（含未召回支）——对照无富化
     # 引擎的同问基线窗，展开新席至少一支在基线窗外（词面零重叠切片不因自身
     # 弱被拒——原「or True」恒真摘除）。
@@ -560,8 +564,8 @@ async def test_engine_zero_drift_without_enrich() -> None:
     engine, _inner = await _engine_with_enrich(InMemoryEnrichStore())
     bundle = await engine.retrieve(RetrievalNeed(question="防砂方式与精度", budget=4))
     assert all(obs.fragment_id.startswith("f-") for obs in bundle.observations)
-    assert "节级摘要展开" not in bundle.window_note
-    assert bundle.window_note.startswith("召回 ") and "送窗" in bundle.window_note
+    assert "命中的章节摘要已展开为节内材料" not in bundle.window_note
+    assert bundle.window_note.startswith("共检索到 ") and "用进了答案" in bundle.window_note
 
 
 # ---------- 编排账本：全库富化数字如实 ----------

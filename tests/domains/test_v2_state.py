@@ -90,7 +90,8 @@ async def _frames(*items: dict[str, Any]) -> AsyncIterator[dict[str, Any]]:
 
 
 def _full_state() -> RunState:
-    """全字段 fixture：首列 50 字段逐字段落非缺省值（行为 3 用）。"""
+    """全字段 fixture：首列 53 字段逐字段落非缺省值（行为 3 用；V2-82a 追加 `subjects`／`terms`，
+    V2-82b 追加 `pending_subject_options`）。"""
     return RunState(
         run_id="run-1",
         question="渤海某井 2026 年日产油量？",
@@ -100,6 +101,8 @@ def _full_state() -> RunState:
         empty_probes=['{"tool": "discover", "args": {}}'],
         understanding="用户问某井产量。",
         metric_candidates=["oil_rate"],
+        subjects=("W-11",),
+        terms=("日产油量",),
         ledger_dump={"oil_rate": {"unit": "m3/d"}},
         question_group={"subtasks": [{"id": "s1", "question": "某井产量"}]},
         tool_matches=[{"id": "s1", "tool": "data_query", "chain": "data"}],
@@ -133,6 +136,7 @@ def _full_state() -> RunState:
         extable_rounds=1,
         last_result={"ok": True},
         pending_ask={"kind": "clarify", "options": ["①"]},
+        pending_subject_options=("渤中油田",),
         observations=[{"n": 1, "text": "某井日产 100 m3/d"}],
         resume_choices=[{"choice": "选窗①"}],
         approved_ids=["ap-1"],
@@ -217,7 +221,9 @@ def test_field_set_matches_matrix() -> None:
     """字段集与 `synth/S5` 矩阵一致（集合比较，不判顺序）。"""
     matrix = _matrix_fields()
     assert matrix, "S5 矩阵 §一 解析为空——解析式失效（非字段集失配）"
-    assert len(matrix) == 50, f"S5 矩阵 §一 字段数应为定稿 50，实为 {len(matrix)}"
+    # 定稿 50 ＋ V2-82a 追加 2（`subjects`／`terms`，2026-10-17）＋ V2-82b 追加 1
+    # （`pending_subject_options`，2026-10-17）＝现行 53
+    assert len(matrix) == 53, f"S5 矩阵 §一 字段数应为现行 53，实为 {len(matrix)}"
     assert {f.name for f in fields(RunState)} == matrix
 
 

@@ -13,17 +13,19 @@
 3. **回喂机面零改动栅**（A-P6b-05）：机器拒因原文／拒因回喂行／机读缺口面**逐字冻结**——
    本件逐常量钉死字面（对账面），任何一处改动即红，逼改动者显式回设计仓裁决。
 
-**扫描面与豁免面（如实登记）**：上屏清单＝EB4b 核实后的确认集（见 `_USER_FACE_TEXTS`）；
-**未入本件**的用户面文本分两类——①非上屏面（步帧标题／过程档案 digest／机读 payload：
-`TITLE_*`／`STEP_TITLE_*`／`NOTE_DIGEST_*`／`CAPPED_NOTE_DIGEST`，按票面上屏口径不属用户可见面）；
-②本人行话词表外、已是白话的样板（`NO_MATERIAL_SHELL`／`CITATION_BLOCK_HEAD`／
-`CONTRADICTION_SECTION_HEAD`）——已逐条核实、零改（记录见各 `constants.py` 的「两刀分类」注）。
+**扫描面与豁免面（如实登记）**：上屏清单＝EB4b 核实后的确认集＋V2-82e 引擎注记常量四条
+（见 `_USER_FACE_TEXTS`）；**未入本件**的用户面文本分两类——①非上屏面（步帧标题／过程档案
+digest／机读 payload：`TITLE_*`／`STEP_TITLE_*`／`NOTE_DIGEST_*`／`CAPPED_NOTE_DIGEST`，
+按票面上屏口径不属用户可见面）；②本人行话词表外、已是白话的样板（`NO_MATERIAL_SHELL`／
+`CITATION_BLOCK_HEAD`／`CONTRADICTION_SECTION_HEAD`）——已逐条核实、零改（记录见各
+`constants.py` 的「两刀分类」注）。
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
+from appv2.retrieval import domain as retrieval_domain
 from appv2.runtimev2.answering import constants as answering_constants
 from appv2.runtimev2.clarification import constants as clarification_constants
 from appv2.runtimev2.execution import constants as execution_constants
@@ -91,6 +93,13 @@ _USER_FACE_TEXTS: dict[str, str] = {
     "execution.CONTENT_PLAN_FACE_NOTICE_PREFIX": (
         execution_constants.CONTENT_PLAN_FACE_NOTICE_PREFIX
     ),
+    # retrieval：window_note 各段逐字常量（V2-82e 引擎注记白话批——notice 帧正文＋
+    # 模型面材料段；handlers 以 window_note 原文落 notice 观察）。L0 2026-10-17 裁决
+    # 改稿后四条同等待遇入册（逐字稿载体＝本件 ⑤ 同源断言）。
+    "retrieval.NOTE_RECALLED_SENT": retrieval_domain.NOTE_RECALLED_SENT,
+    "retrieval.NOTE_RECALL_GAP": retrieval_domain.NOTE_RECALL_GAP,
+    "retrieval.NOTE_CONFLICT_SOURCES": retrieval_domain.NOTE_CONFLICT_SOURCES,
+    "retrieval.NOTE_MISSING_SOURCES": retrieval_domain.NOTE_MISSING_SOURCES,
 }
 
 # ── ③ 回喂机面冻结点（A-P6b-05——拒因原文／拒因回喂行／机读缺口面；字面逐字＝本批改动前的仓内
@@ -296,3 +305,21 @@ def test_non_user_face_registry() -> None:
     assert execution_constants.TITLE_ADMISSION_REJECTED_TEMPLATE == (
         "子问题 {subtask} 前置闸拒（终局不回炉）"
     )
+
+
+# ---------- ⑤ V2-82e 引擎注记白话常量（window_note 各段逐字稿——L0 裁决改稿后转正） ----------
+
+
+def test_note_texts_free_of_bare_jargon_words() -> None:
+    """注记四条常量零「支/召回/送窗/口径」裸词（L0 裁决改稿逐字——grep 断言）。"""
+    for text in (
+        retrieval_domain.NOTE_RECALLED_SENT,
+        retrieval_domain.NOTE_RECALL_GAP,
+        retrieval_domain.NOTE_CONFLICT_SOURCES,
+        retrieval_domain.NOTE_MISSING_SOURCES,
+    ):
+        for term in ("支", "召回", "送窗", "口径"):
+            assert term not in text, f"{term} 裸词回退：{text!r}"
+        assert _unannotated(text) == []  # 既有裸行话闸同判（全词表面）
+    # 探测面非空转：老措辞字面必被咬（本条即「新文本不得回退到旧行话」的机检）。
+    assert _unannotated("召回 21 支/送窗 4 支") != []

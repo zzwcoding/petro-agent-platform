@@ -110,6 +110,18 @@ CONVERGE_DRAFT_TEMPLATE = (
     "请把问题再说得具体些（比如指明指标、时间范围、井号）后重问。"
 )
 
+# ── 程序预识别推荐行与主体识别分歧留痕（**2026-10-17 V2-82a 补**）──────────────────
+# 推荐行＝程序抽的主体/术语候选（`tools.subject_candidates`／`term_candidates`）拼进环境块尾
+# （字面单点＝`prompts.RECOMMENDATION_TEMPLATE`，本块只拼值）；分歧＝模型给出的主体与程序候选
+# 集合不一致 → 过程档案**有界一句**（`bookkeeping.note` 唯一写口；digest 再截到 ≤100 字并留
+# 可见标记——同仓截断先例，`TRUNCATION_MARK` 复用）。
+SUBJECT_DIVERGENCE_NOTE_TITLE = "主体识别分歧"
+SUBJECT_DIVERGENCE_DIGEST = "程序推荐{program}/模型给出{model}"
+SUBJECT_DIVERGENCE_LIMIT = 100
+# 程序候选的展示形（推荐行与分歧句共用）：顿号串、空＝「无」（票面逐字「空＝无」）。
+PROGRAM_CANDIDATE_SEP = "、"
+PROGRAM_CANDIDATE_EMPTY = "无"
+
 # ── 原始应答片段留痕（`UnderstandingParseError` 携带；上限与可见标记口径同仓截断先例）──
 RAW_EXCERPT_LIMIT = 200
 TRUNCATION_MARK = "…"

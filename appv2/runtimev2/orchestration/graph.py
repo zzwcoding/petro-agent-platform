@@ -26,7 +26,12 @@ from langgraph.graph import END, START, StateGraph
 
 from appv2.runtimev2.answering import answer
 from appv2.runtimev2.bookkeeping import converge, set_intent
-from appv2.runtimev2.clarification import ClarifyAsk, ClarifyFinal, clarify
+from appv2.runtimev2.clarification import (
+    ClarifyAsk,
+    ClarifyFinal,
+    clarify,
+    object_ambiguity_ask,
+)
 from appv2.runtimev2.clarification.constants import PAYLOAD_ASK_FRAME
 from appv2.runtimev2.context import DEFAULT_MAX_OBSERVATIONS
 from appv2.runtimev2.execution import ERROR_BAD_ARGS, ERROR_RETRYABLE, execute
@@ -84,7 +89,12 @@ from appv2.runtimev2.tool_matching import ToolMatchRejection, match
 from appv2.runtimev2.transport import EventBus
 from appv2.runtimev2.understanding import interpret
 from appv2.runtimev2.verification import verify
-from appv2.tools import ToolRegistry
+from appv2.tools import (
+    ToolRegistry,
+    metric_requires_subject,
+    oilfield_instances,
+    subject_candidates,
+)
 
 # ── 路由表（H2 的唯一真源）：当前节点 → {意图 → 下一节点} ────────────────────────
 _ROUTES: dict[str, dict[Hashable, str]] = {
@@ -166,6 +176,10 @@ class LoopDeps:
     # 段内已用时读数（秒）：动作者＝组合根（受理腿取起点、`infra.clock` 读数差——B14 唯一时间出口；
     # 挂起等人工不计时、跨段不累计，故由组合根按腿现算）。无注入＝`None`（该键不判定）。
     elapsed_seconds: Callable[[], float] | None = None
+    # 油田实例读缝（V2-82b——对象歧义门的数据源）：`Callable[[], Sequence[str]]`＝
+    # `agg.dim_well.field_name` 现值集（生产＝`query.production_field_instances` 的 loader）。
+    # 未注入＝门不出声（零漂移，同 `data_wells` 域闸的缺省纪律）；**现读**由读缝自身保证。
+    field_instances: Callable[[], Sequence[str]] | None = None
 
 
 def _flush_steps(deps: LoopDeps, state: RunState) -> None:
@@ -321,6 +335,28 @@ def _make_clarify(deps: LoopDeps) -> Any:
                 return _updates_of(state)
             # 兜底轮：本入口**不收敛**（零模型调用之余也零落地），落到下方澄清相位——带着
             # `decision_error` 的拒因回喂重决策恰一次；材料到手后回本入口即收敛（带材料直答）。
+        # 对象歧义门（V2-82b——流水 88 裁决⑥；V2-82 批 EB6 修 1 加程序候选回退）：**澄清 LLM 之前的
+        # 程序判定点**——题面无主体 ∧ 术语/指标命中 ∧ 指标粒度要求主体 ∧ 系统内油田实例≥2 ⇒ 直接弹
+        # ask（判据全归 `clarification.object_ambiguity_ask`，本块只做「调相位 → 挂起 → 收束」
+        # 三件事；三件纯素材由本块绑定：grain 判据＝tools 纯函数、实例读面＝读缝 + 归一、
+        # 程序候选读面＝tools 抽件 + 当场问句/投影〔问句读点在本块——门内零问句读点红线〕）。
+        subject_ask = object_ambiguity_ask(
+            state,
+            grain_requires_subject=metric_requires_subject,
+            subject_instances=_subject_instances(deps),
+            program_subjects=_program_subjects(state),
+        )
+        if subject_ask is not None:
+            _suspend(
+                state,
+                deps,
+                _ask_frame(
+                    subject_ask.kind, subject_ask.prompt, subject_ask.options, {}
+                ),
+            )
+            _flush_notices(deps, state)
+            _flush_steps(deps, state)
+            return _updates_of(state)
         outcome = clarify(
             state,
             guide_text=deps.guide_text,
@@ -340,6 +376,35 @@ def _make_clarify(deps: LoopDeps) -> Any:
         return _updates_of(state)
 
     return node
+
+
+def _subject_instances(deps: LoopDeps) -> Callable[[], Sequence[str]] | None:
+    """油田实例名单读面（V2-82b 对象歧义门的数据源）——读缝 ＋ tools 侧归一的绑定。
+
+    读缝（`deps.field_instances`——`agg.dim_well.field_name` 现值集）由组合根注入；归一
+    （去空／去重保序／封顶）归 tools 侧 `subject_terms.oilfield_instances`（**判据不复制**，
+    本块只按现有读口拼装）。读缝未接线＝`None` ⇒ 门不出声（同 `data_wells` 缺省纪律）。
+
+    **调用时机**＝门内判据通过之后（每次调用现读、零缓存）——本处只交读面，不预取。
+    """
+    if deps.field_instances is None:
+        return None
+    face = deps.field_instances
+    return lambda: oilfield_instances(face())
+
+
+def _program_subjects(state: RunState) -> Callable[[], Sequence[str]]:
+    """题面程序主体候选读面（V2-82 批 EB6 修 1 对象歧义门回退判据的数据源）。
+
+    生产引用＝tools 包根 `subject_candidates`（确定性形态抽取，零模型零 I/O），**问句原文与台账
+    投影的读点在本块**——澄清块（`clarification` 包）零问句读点与零工具面 import 两条红线都不破
+    （`tests/domains/test_v2_clarification.py::test_no_ask_when_time_resolvable`／
+    `::test_discover_routed_not_direct_call`）。
+
+    **调用时机**＝门内 `state.subjects` 为空时（每次调用现算、零缓存）；投影取 `state.ledger_dump`
+    现值（tools 侧对空／非法投影自归一，本块不预判）。
+    """
+    return lambda: subject_candidates(str(state.question or ""), state.ledger_dump or {})
 
 
 def _consecutive_asks(state: RunState) -> int:
@@ -468,7 +533,7 @@ def _make_toolmatch(deps: LoopDeps) -> Any:
 
 def _make_precondition(deps: LoopDeps) -> Any:
     async def node(state: RunState) -> dict[str, Any]:
-        marks_before = len(state.chain_switch_marks)
+        marks_before = frozenset(state.chain_switch_marks)
         verdicts = gate_all(
             state,
             window_candidates=deps.window_candidates,
@@ -477,13 +542,15 @@ def _make_precondition(deps: LoopDeps) -> Any:
         )
         # 换链回炉判定＝**计点是否新落**（相位侧「一次为界」的簿记面：首次触发落一笔
         # `chain_switch_marks`，第二次同参起相位侧自行转终局拒答——本块只按有无新计点路由）。
-        reentry = len(state.chain_switch_marks) > marks_before
+        # **触发支集**（V1 `chain_pending` 逐字复归）：本次新落计点的子问题——路由的「可执行支」
+        # 判据按支排除它们（见 `_route_after_precondition`），故此处交出**集合**而非布尔计数。
+        reentry = frozenset(state.chain_switch_marks) - marks_before
         for verdict in verdicts:
             if verdict.decision == DECISION_ASK:
                 _suspend(state, deps, _precondition_frame(state, verdict))
                 break
         else:
-            set_intent(state, _route_after_precondition(state, reentry=reentry))
+            set_intent(state, _route_after_precondition(state, reentry_ids=reentry))
         _flush_notices(deps, state)
         _flush_steps(deps, state)
         return _updates_of(state)
@@ -562,16 +629,33 @@ def _make_verify(deps: LoopDeps) -> Any:
 # ── 路由判据（两处「该不该回炉」的机械面——判据只读状态，不做语义判断）──────────
 
 
-def _route_after_precondition(state: RunState, *, reentry: bool) -> str:
-    """前置条件机之后：换链回炉待办 → 回①澄清（占一轮）；放行支非空 → 批量执行；全拒 → 收口。"""
-    if reentry:
-        return INTENT_DECISION
+def _route_after_precondition(state: RunState, *, reentry_ids: Collection[str]) -> str:
+    """前置条件机之后：可执行支非空 → 批量执行（部分结果先行）；纯换链触发组 → 回炉①；全拒 → 收口。
+
+    **可执行支判据**（V1 `chain_pending and not executable` 逐字复归；真源
+    `docs/runtime-refactor/recon/F-前置条件机.md` §11c／§11e＋R-F-15）：换链触发支**本轮不执行**
+    （其 verdict 仍是 `allow`＋回炉注记，**执行与否由本判据给）——可执行支＝`allow` 里排除本次新
+    触发者；只要可执行支非空即进批量，**唯「纯触发组」（无别的可执行子问题）才回炉①澄清改链**。
+
+    **真机病灶**（`run-3a5e7dba`／EB6 B-正6，V2-82b 程序 ask 恢复腿）：V2 移植把回炉判据写成
+    「本腿有新计点即回炉」，未按支排除触发支——s1（在册未绑定→换链触发）与 s2（knowledge 链
+    放行）同场时**整组**回炉①；而回炉轮的模型侧无回炉由头（增量条五件皆空）＋`discover` 被
+    `question_group` 在场禁掉＋零观察禁 `finalize` ⇒ 连烧轮预算收零材料空交付。V1 的混合组语义＝
+    **可执行支先进批量、触发支抛给后续回炉**（钉面
+    `tests/domains/test_v2_p040_chain_switch_refurnace.py::test_p040_mixed_group_executes_and_refurnaces`）。
+    """
     allowed = [
         item
         for item in state.precondition_verdicts
-        if isinstance(item, dict)
-        and item.get(PAYLOAD_DECISION_KEY) == DECISION_ALLOW
+        if isinstance(item, Mapping) and item.get(PAYLOAD_DECISION_KEY) == DECISION_ALLOW
     ]
+    if reentry_ids:
+        executable = [
+            item
+            for item in allowed
+            if str(item.get("subtask_id") or "") not in reentry_ids
+        ]
+        return INTENT_BATCH if executable else INTENT_DECISION
     return INTENT_BATCH if allowed else INTENT_ANSWER
 
 

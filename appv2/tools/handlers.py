@@ -55,6 +55,7 @@ from appv2.query import (
 )
 from appv2.retrieval import (
     FAMILY_ALL,
+    NOTE_MISSING_SOURCES,
     RetrievalBundle,
     RetrievalNeed,
     anchor_seat_tokens,
@@ -1128,13 +1129,14 @@ async def faq_lookup(
 
 
 def _missing_sources_segment(window_note: str) -> str:
-    """缺位段提取（V2-46 R1c——window_note 载缺位名单时的「检索窗注记」素材面）。
+    """未纳入来源段提取（V2-46 R1c——window_note 载未纳入名单时的「检索窗注记」素材面）。
 
-    build_window_note（retrieval.domain 组装单点）的缺位段措辞＝
-    「缺位来源（预算未及）：〈报告名列〉」，段界＝「；」或串尾（扩席实录等
-    extra 段在其后）。无缺位段＝空串（零注记——旧形零漂移）。
+    build_window_note（retrieval.domain 组装单点）的该段措辞＝本模块 import 的
+    单点常量 `NOTE_MISSING_SOURCES`（V2-82e 起措辞归用户语——「以下来源因数量
+    限制未纳入：〈来源名列〉」），段界＝「；」或串尾（扩席实录等 extra 段在其后）。
+    无该段＝空串（零注记——旧形零漂移）。
     """
-    marker = "缺位来源（预算未及）："
+    marker = NOTE_MISSING_SOURCES
     position = window_note.find(marker)
     if position < 0:
         return ""
@@ -1161,8 +1163,8 @@ def recall_relevant(question: str, missing_note: str) -> bool:
 def _bundle_to_result(bundle: RetrievalBundle) -> ToolResult:
     """供给窗→观察列（每支出处链逐支透传＋window_note 截断声明 notice）。
 
-    V2-46 R1c：缺位来源名单在场（window_note 载「缺位来源」段）时追加
-    **非 notice 类**「检索窗注记」观察（locator.kind=window_miss——未进窗
+    V2-46 R1c：未纳入来源名单在场（window_note 载 `NOTE_MISSING_SOURCES` 段）时
+    追加**非 notice 类**「检索窗注记」观察（locator.kind=window_miss——未进窗
     名单＋原因）：名单模型可见，回捞白场（CLARIFY_CONTRACT 追加段）的触发
     信号。notice 过滤机制零改动——window_miss 是新增观察类，不经 notice
     通道（notice 面照旧：window_note 截断声明仍走原通道）。

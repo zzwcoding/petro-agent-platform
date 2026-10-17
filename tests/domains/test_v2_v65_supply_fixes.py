@@ -95,7 +95,7 @@ async def test_question_block_never_enters_window() -> None:
     ids = {obs.fragment_id for obs in bundle.observations}
     assert "f-q" not in ids  # 问题块退赛——即便词面最贴也不进窗
     assert ids == {"f-a", "f-b"}  # 其余语料照常参赛
-    assert bundle.window_note.startswith("召回 2 支")  # 召回计数照实（不含退赛支）
+    assert bundle.window_note.startswith("共检索到 2 条材料")  # 计数照实（不含退赛支）
 
 
 # ---------- 附 B：代表席摘要优先（source_diversify 单点） ----------
@@ -147,7 +147,7 @@ async def test_summary_representative_seat_triggers_expansion() -> None:
     ids = {obs.fragment_id for obs in bundle.observations}
     assert "ensum-t" in ids  # 摘要支夺 monthly 族代表席
     assert {"f-t1", "f-t2"} <= ids  # 同节切片经 R1b 展开补席（追加席不计配额）
-    assert "节级摘要展开" in bundle.window_note  # 扩席实录如实
+    assert "命中的章节摘要已展开为节内材料" in bundle.window_note  # 扩席实录如实
 
 
 async def test_engine_without_summary_zero_drift() -> None:
@@ -170,4 +170,4 @@ async def test_engine_without_summary_zero_drift() -> None:
     ids = {obs.fragment_id for obs in bundle.observations}
     assert len(ids) == 2  # 两族各一席——无展开追加席
     assert ids <= {"f-c1", "f-t1", "f-t2"}  # 月度族代表席＝切片（融合序定，非摘要）
-    assert "节级摘要展开" not in bundle.window_note  # 旧形逐字（无展开段）
+    assert "命中的章节摘要已展开为节内材料" not in bundle.window_note  # 无展开段（零漂移）

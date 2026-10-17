@@ -620,7 +620,7 @@ def test_status_machine_guarded() -> None:
 
 
 def test_load_replayable_idempotent() -> None:
-    """两次 `load` 等价且无副作用。"""
+    """两次 `load` 等价且无副作用；元组形字段（V2-82a `subjects`／`terms`）往返不退化。"""
     store, tables = _store()
     store.ensure_tables()
     store.ensure_tables()  # 幂等建表：二跑不炸、表清单不变
@@ -633,6 +633,8 @@ def test_load_replayable_idempotent() -> None:
         messages=[{"role": "user", "content": "渤海某井 2026 年日产油量？"}],
         rounds=2,
         discover_used=1,
+        subjects=("W-11",),  # V2-82a：元组形字段（JSON 往返须按声明形归位）
+        terms=("日产油量",),
     )
     put_checkpoint_rows(
         [

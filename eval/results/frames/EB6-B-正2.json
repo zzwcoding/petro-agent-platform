@@ -1,0 +1,123 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-e1480350",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "问本月抽油杆断裂（躺井）的井号清单，以及这些井（或一般井）的平均检泵周期。",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "这道题问的是「检泵周期」——系统里有多个油田的数据。请确认要查哪一个：",
+     "options": [
+      "渤中油田",
+      "渤南油田",
+      "渤西油田",
+      "都要（分源对比）"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-e1480350"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（这道题问的是「检泵周期」——系统里有多个油田的数）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "verdict",
+   "data": {
+    "status": "waiting_ask",
+    "run_id": "run-e1480350",
+    "manifest_digest": "1db062782b42eaea",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 4,
+   "event": "done",
+   "data": {
+    "run_id": "run-e1480350"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "问本月抽油杆断裂（躺井）的井号清单，以及这些井（或一般井）的平均检泵周期。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-e1480350",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "澄清 r1：反问（这道题问的是「检泵周期」——系统里有多个油田的数）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "这道题问的是「检泵周期」——系统里有多个油田的数据。请确认要查哪一个：",
+     "options": [
+      "渤中油田",
+      "渤南油田",
+      "渤西油田",
+      "都要（分源对比）"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-e1480350"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "status": "waiting_ask",
+   "run_id": "run-e1480350",
+   "manifest_digest": "1db062782b42eaea",
+   "subtype": "final"
+  },
+  "texts": [
+   "问本月抽油杆断裂（躺井）的井号清单，以及这些井（或一般井）的平均检泵周期。"
+  ],
+  "duration_s": 1.9
+ }
+}

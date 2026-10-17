@@ -32,6 +32,11 @@ readonly!=True 的工具，公开面仅 register/descriptors/call；假引擎 ad
 - WellRosterFace（井名录取值缝，table_schema 的 dim_well 名录段/`well` 查值
   消费）＋normalize_well_id/roster_entries/roster_lookup（RULE-PETRO-005 井号
   归一与名录比对单点——2026-10-17 流水 70）；
+- subject_candidates/term_candidates（题面主体/术语候选的程序预识别——V2-82a 流水 88：
+  理解相位经包根调用拼「程序预识别」推荐行；零模型零 I/O，复用 anchors 实体锚件与
+  well_ids 归一单点）＋oilfield_instances/metric_requires_subject（对象歧义 ask 的两件
+  程序侧素材——V2-82b 流水 88：油田实例名单与「粒度要求主体」判定；判定门本体归
+  runtimev2 `clarification.subject_ask`，两侧字面真源归 runtimev2 `state.constants`）；
 - fake 三假引擎＋FakeUpstreamRejection（P-006 复用件）。
 """
 
@@ -45,6 +50,7 @@ from appv2.tools.anchors import (
     entity_anchor_tokens,
     inject_retrieval_anchors,
     normalize_anchor_text,
+    term_anchor_tokens,
 )
 from appv2.tools.argscheck import ArgsError
 from appv2.tools.fake import (
@@ -140,6 +146,13 @@ from appv2.tools.schema import (
     ToolResult,
     resolve_send_budget,
 )
+from appv2.tools.subject_terms import (
+    OILFIELD_INSTANCES_CAP,
+    metric_requires_subject,
+    oilfield_instances,
+    subject_candidates,
+    term_candidates,
+)
 from appv2.tools.table_scan import (
     TableScanFindings,
     extract_external_table_refs,
@@ -189,6 +202,7 @@ __all__ = [
     "LINEAGE_PAYLOAD_KEY",
     "LOCATOR_PAYLOAD_KEY",
     "META_QUESTION_MARKERS",
+    "OILFIELD_INSTANCES_CAP",
     "RESIDENT_BLOCK_BEGIN",
     "RESIDENT_BLOCK_END",
     "SCHEMA_PROBE",
@@ -236,9 +250,11 @@ __all__ = [
     "is_ban_exempt",
     "judge",
     "ledger_facts",
+    "metric_requires_subject",
     "normalize_anchor_text",
     "normalize_metric_name",
     "normalize_well_id",
+    "oilfield_instances",
     "recall_relevant",
     "render_aliases",
     "render_cards",
@@ -248,4 +264,7 @@ __all__ = [
     "roster_entries",
     "roster_lookup",
     "scan_unapproved_tables",
+    "subject_candidates",
+    "term_anchor_tokens",
+    "term_candidates",
 ]

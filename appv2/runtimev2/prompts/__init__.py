@@ -63,6 +63,7 @@ from appv2.runtimev2.prompts.decision_round import (
 )
 from appv2.runtimev2.prompts.task_book import (
     FAMILY_GLOSS,
+    RECOMMENDATION_TEMPLATE,
     assemble_task_book,
     instruction_zone,
     question_segment,
@@ -116,6 +117,7 @@ __all__ = [
     "LEDGER_DICT_NOTE",
     "PHASE_CLARIFY",
     "PHASE_TOOLMATCH",
+    "RECOMMENDATION_TEMPLATE",
     "RESIDENT_BLOCK_BEGIN",
     "RESIDENT_BLOCK_END",
     "SUMMARY_CONTRACT",

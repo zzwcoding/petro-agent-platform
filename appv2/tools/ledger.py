@@ -13,7 +13,9 @@
   default_caliber, value, source_id, version}]——slot＝台账原名剥法纯名（★☆
   前缀与括注尾缀剥离——snapshot「slot_name＝剥法纯名」同规则）；calibers 从
   Evidence.value 的「口径支：」段解析（渲染契约＝knowledge 读面 _metric_
-  evidence 单点，格式被 tests/domains/test_v2_knowledge.py 钉死）；
+  evidence 单点，格式被 tests/domains/test_v2_knowledge.py 钉死）；**grain**
+  （V2-82b 追加）＝统计粒度域，Evidence.scope 转写（sem_metric.grain 投影——
+  对象歧义门「粒度要求主体」判定面）；
 - terms: [{term, banned, freshness, value, source_id}]——banned＝届满展示串
   「—（已禁用）」（term_expiry 展示串族契约）；
 - watermark: str——**数据面水位**（组合根经 query.production_waterline 取
@@ -113,6 +115,11 @@ def dump_from_store(
                 "slot": _slot_of(value),
                 "name": value.split("：", 1)[0].strip(),
                 "binding_state": evidence.binding_state,
+                # 统计粒度域（V2-82b 追加）：`knowledge` 读面 `Evidence.scope`＝
+                # `sem_metric.grain` 的投影（`store._metric_evidence` 单点），本处只转写不
+                # 另立读法——消费面＝对象歧义门的「粒度要求主体」判定（grain 含
+                # 单井／区块／油田／平台 子串）。render 家族（台账行/常驻块）逐字不变。
+                "grain": str(evidence.scope or ""),
                 "calibers": [dict(c) for c in calibers],
                 "default_caliber": default,
                 "value": value,

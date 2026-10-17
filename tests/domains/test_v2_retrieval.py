@@ -8,8 +8,8 @@
   两报告参数互斥：150 微米/占船日 3.5 天 vs 175 微米/占船日 4.0 天）→两报告
   各≥1 支同窗并立，window_note 点名两来源——供给层硬规则（代码不依赖 LLM
   自觉，Q11 P0-2 同型抢锚病灶的治侧面）。
-- window_note_explicit：召回 21 支送窗 4 支→window_note 如实含「召回 21 支/
-  送窗 4 支」数字（截断显式——agent 据此区分「没有」与「没送」）。
+- window_note_explicit：检索 21 条材料用进答案 4 条→window_note 如实含「共检索到
+  21 条材料，4 条用进了答案」数字（截断显式——agent 据此区分「没有」与「没送」）。
 - provenance_chain：每支 Observation 出处链完整（fragment→report→library
   三级逐级在场）＋family 标注（库 biz_template 透传）＋locator 携 library/
   报告名（同型文档来源标注——锚错 A-W11 vs Y-21 可被核验步发现）。
@@ -32,10 +32,12 @@ from __future__ import annotations
 
 import os
 from dataclasses import replace
+from datetime import date
 from typing import Any
 
 import pytest
 
+from appv2.knowledge import InMemoryKnowledgeStore, question_array_snapshot
 from appv2.retrieval import (
     FAMILY_ALL,
     FragmentRecord,
@@ -45,6 +47,7 @@ from appv2.retrieval import (
     RetrievalEngine,
     RetrievalNeed,
 )
+from appv2.tools import dump_from_store, inject_retrieval_anchors
 
 # ---------- fixture：V1 片段库抽样（三报告真摘录，逐字取自 eval 报告文本） ----------
 
@@ -292,13 +295,13 @@ async def test_contradiction_same_window() -> None:
     window_text = "\n".join(obs.text for obs in bundle.observations)
     assert "150 微米" in window_text
     assert "175 微米" in window_text
-    # window_note 点名两来源同窗并立（如实声明——不靠生成端自觉）。
-    assert "同窗并立" in bundle.window_note
+    # window_note 点名两来源说法不一并立（如实声明——不靠生成端自觉）。
+    assert "以下材料来源说法不一，各保留了代表条目：" in bundle.window_note
     assert "A-W11井完井工程报告" in bundle.window_note
     assert "Y-21井完井工程报告" in bundle.window_note
 
 
-# ---------- 验收③：召回 21 送窗 4→window_note 如实含 N/M 数字 ----------
+# ---------- 验收③：检索 21 条用进答案 4 条→window_note 如实含 N/M 数字 ----------
 
 
 async def test_window_note_explicit() -> None:
@@ -312,12 +315,16 @@ async def test_window_note_explicit() -> None:
             budget=4,
         )
     )
-    assert len(bundle.observations) == 4  # 送窗 M＝预算 4
-    # 截断显式：召回/送窗数字如实并排（specs/retrieval.md 行为约定 3 原文口径）。
-    assert "召回 21 支/送窗 4 支" in bundle.window_note
-    assert "已召回未送窗 17 支" in bundle.window_note
-    # 三来源全部代表在窗（预算 4 ≥ 来源 3）——无缺位枚举。
-    assert "缺位" not in bundle.window_note
+    assert len(bundle.observations) == 4  # 用进答案数 M＝预算 4
+    # 截断显式：检索/用进答案数字如实并排（specs/retrieval.md 行为约定 3 口径；
+    # V2-82e 起措辞＝出厂即用户语）。
+    assert "共检索到 21 条材料，4 条用进了答案" in bundle.window_note
+    assert "另有 17 条已找到但未用进答案（受送入答案的数量限制）" in bundle.window_note
+    assert (bundle.recalled, bundle.sent) == (21, 4)  # 计数结构化字段（V2-82e additive）
+    # 三来源全部代表在窗（预算 4 ≥ 来源 3）——无未纳入枚举。
+    assert "未纳入" not in bundle.window_note
+    # 注记产文零旧行话字眼（V2-82e 验收 grep 断言——L0 改稿后「送窗/口径」亦清零）。
+    assert not any(term in bundle.window_note for term in ("支", "召回", "送窗", "口径"))
     reports = {obs.report for obs in bundle.observations}
     assert len(reports) == 3
 
@@ -410,7 +417,7 @@ async def test_graph_surface() -> None:
     assert obs.locator["report"] == obs.report
     assert obs.locator["fragment_id"] == "f-y4"
     assert "失锚" in bundle.window_note  # 拦截留痕（fail-closed 计数）
-    assert "召回 2 支/送窗 1 支" in bundle.window_note  # 截断显式同尺
+    assert "共检索到 2 条材料，1 条用进了答案" in bundle.window_note  # 截断显式同尺
 
     # （b）图谱源挂：空集回退不炸（零异常＋如实声明）。
     broken = RetrievalEngine(
@@ -429,6 +436,60 @@ async def test_graph_surface() -> None:
     )
     assert unwired.observations == []
     assert "空集回退" in unwired.window_note
+
+
+# ---------- V2-82c：术语锚扩展→关键词腿（问别名、切片存正名） ----------
+
+# 台账投影真源同产线一路（快照→读面→dump_from_store）——术语锚扩展的 dump 源。
+LEDGER_DUMP = dump_from_store(
+    InMemoryKnowledgeStore(question_array_snapshot(), today=date(2026, 10, 8))
+)
+
+# 切片种子用报告名（索引前缀进 BM25 词面——报告名不含问句单元，基线零命中可判）。
+_RPT_TERM = ("rpt-term", "B-渤中34-5油田躺井治理月报-202608")
+
+
+class _BoomEmbedder:
+    """embedder 桩：调用抛错（向量腿按空腿——隔离关键词腿的被测面，V2-82c）。"""
+
+    async def embed(self, texts: Any) -> Any:
+        raise RuntimeError("embedder 不可用")
+
+
+async def test_term_anchor_extension_recalls_canonical_fragment() -> None:
+    """问别名（停产待检泵）＋切片存正名（躺井）：术语锚扩展经既有注入管道入关键词腿召回。
+
+    基线与扩展同题对照——基线问句与切片零共享检索单元（关键词腿零命中），扩展后
+    「躺井」入锚（别名→规范名），关键词腿命中入窗（术语加权的最小可判面）。
+    """
+    seeds = [
+        _frag("f-t1", _LIB_M, _RPT_TERM, "一、月度躺井总体情况",
+              "一、月度躺井治理总体情况：本月新增躺井 3 井次，其中 2 井次为杆断。"),
+        _frag("f-a3", _LIB_A, _RPT_A, "第三章 3.2 射孔参数",
+              "全井射孔总厚度 28.0 米，按孔密 16 孔/米计算，设计总孔数 448 发。"),
+    ]
+    engine = RetrievalEngine(
+        library=InMemoryFragmentLibrary(seeds), embedder=_BoomEmbedder()
+    )
+    question = "W-41 井停产待检泵了吗？"
+
+    # （a）基线：无锚——问句与两切片零共享检索单元→关键词腿零召回、窗空。
+    base = await engine.retrieve(RetrievalNeed(question=question, budget=2))
+    assert base.observations == []
+    assert "共检索到 0 条材料" in base.window_note
+
+    # （b）术语锚扩展：台账别名「停产待检泵」命中→规范名「躺井」入锚（既有注入管道）。
+    merged = inject_retrieval_anchors({"question": question}, dump=LEDGER_DUMP)
+    assert "躺井" in merged["anchors"]
+
+    # （c）扩展后：关键词腿命中正名切片→入召回入窗（题面未出现「躺井」二字）。
+    anchored = await engine.retrieve(
+        RetrievalNeed(
+            question=question, budget=2, anchors=tuple(merged["anchors"])
+        )
+    )
+    assert [obs.fragment_id for obs in anchored.observations] == ["f-t1"]
+    assert anchored.window_note.startswith("共检索到 1 条材料，1 条用进了答案")
 
 
 # ---------- 真 MiniMax 冒烟（RETRIEVAL_SMOKE=1 门控——不进常规门禁） ----------
@@ -470,7 +531,8 @@ async def test_real_gateway_rerank_smoke(tmp_path: Any) -> None:
             RetrievalNeed(question="完井防砂方式与防砂精度", budget=4)
         )
         assert bundle.observations, "真网关精排后窗为空"
-        assert "召回" in bundle.window_note and "送窗" in bundle.window_note
+        assert "共检索到" in bundle.window_note and "用进了答案" in bundle.window_note
+        assert 0 < bundle.sent <= bundle.recalled  # 计数结构化字段随行（V2-82e additive）
         reports = {obs.report for obs in bundle.observations}
         assert "A-W11井完井工程报告" in reports and "Y-21井完井工程报告" in reports
     finally:
