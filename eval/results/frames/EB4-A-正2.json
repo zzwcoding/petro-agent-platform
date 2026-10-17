@@ -1,0 +1,133 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-3d2b665b",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：问本井的射孔总厚度、孔密、设计总孔数各是多少。",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "您问的「本井」是哪一口井？射孔参数来自完井工程报告（completion 族），请提供井号以便定位报告。",
+     "options": [
+      "告诉我具体井号（如 BZ34-5-P1、N-01 等）",
+      "查某区块/油田下所有井的射孔参数清单（请指定区块或油田名）"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-3d2b665b"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1：反问（您问的「本井」是哪一口井？射孔参数来自完井工程报）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "verdict",
+   "data": {
+    "status": "waiting_ask",
+    "run_id": "run-3d2b665b",
+    "manifest_digest": "d170ec5a88570071",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-3d2b665b"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "理解：问本井的射孔总厚度、孔密、设计总孔数各是多少。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-3d2b665b",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1：反问（您问的「本井」是哪一口井？射孔参数来自完井工程报）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "您问的「本井」是哪一口井？射孔参数来自完井工程报告（completion 族），请提供井号以便定位报告。",
+     "options": [
+      "告诉我具体井号（如 BZ34-5-P1、N-01 等）",
+      "查某区块/油田下所有井的射孔参数清单（请指定区块或油田名）"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-3d2b665b"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "status": "waiting_ask",
+   "run_id": "run-3d2b665b",
+   "manifest_digest": "d170ec5a88570071",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：问本井的射孔总厚度、孔密、设计总孔数各是多少。"
+  ],
+  "duration_s": 5.1
+ }
+}

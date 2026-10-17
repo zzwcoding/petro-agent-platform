@@ -16,6 +16,10 @@
  *   的粗体就挂在 text.tokens 里；不递归则记号原样漏出）。
  * - 文本节点里的引标 `[n]` → 可点击锚点，点击经 props `onCite(index)` 上抛；
  *   **不传 onCite＝不切分**（正文原样单文本节点——历史轮次无引用数据可查，见 A1V2.jsx）。
+ * - 引标悬停预览（重设计新增，**可选 prop**）：传 `citeHoverCard(index)` → 该引标外包
+ *   antd `Popover`（受控 hover），内容由调用方给（内容件在 landing/redesign/ 下，**零请求**：
+ *   直查内存材料）。不传＝引标行为与旧版逐字一致（V1 与现 A1V2 不受影响）；传了而不传
+ *   onCite 时引标仍切分（只悬停不点击）。
  *
  * 两处对逐字稿的最小让位（均有真机样本依据，改动一处即可回退）：
  * ① 内联代码 token 名是 `codespan`（marked v18 实测）而非 `code`——D4 写「code 用
@@ -25,7 +29,8 @@
  *    故纯文本叶子维持 pre-wrap（原文即所见），块结构仍全由渲染器出（D4「pre-wrap 去掉」
  *    指答案容器不再整块当预格式文本，此点已落）。
  */
-import { useMemo } from 'react'
+import { createContext, useContext, useMemo, useState } from 'react'
+import { Popover } from 'antd'
 import { marked } from 'marked'
 
 const ROOT = { fontSize: 13, lineHeight: 1.7 }
@@ -54,21 +59,44 @@ const CITE = { color: '#4a9dff', cursor: 'pointer' }
 const CITE_RE = /\[(\d+)\]/g
 
 /**
- * 文本 → React 子节点：`[n]` 切出可点击锚点，其余原样。
- * 无 onCite（历史轮次）＝整串原样返回——不切分，正文保持单一文本节点。
+ * 引标悬停上下文（可选注入面）：`citeHoverCard` 在场时，引标外包受控 Popover。
+ * 上下文而非逐层传参＝递归渲染器（children/tokenNode/tableNode）零改动，行为默认不变。
  */
-function textParts(text, onCite) {
+const CiteCtx = createContext(null)
+
+/** 单个引标：可点击锚点（onCite 在场）＋可选悬停卡（citeHoverCard 在场）。 */
+function CiteAnchor({ index }) {
+  const ctx = useContext(CiteCtx)
+  const anchor = (
+    <a data-cite={index} style={CITE} onClick={ctx?.onCite ? () => ctx.onCite(index) : undefined}>
+      {`[${index}]`}
+    </a>
+  )
+  const content = ctx?.citeHoverCard ? ctx.citeHoverCard(index) : null
+  if (!content) return anchor
+  return (
+    <Popover
+      content={content} placement="topLeft" trigger="hover"
+      open={ctx.hoverIndex === index}
+      onOpenChange={o => ctx.setHoverIndex(o ? index : null)}>
+      {anchor}
+    </Popover>
+  )
+}
+
+/**
+ * 文本 → React 子节点：`[n]` 切出可点击锚点，其余原样。
+ * 无 onCite 且无悬停卡（历史轮次）＝整串原样返回——不切分，正文保持单一文本节点。
+ */
+function textParts(text, onCite, hasHoverCard) {
   const s = String(text ?? '')
-  if (!onCite) return s
+  if (!onCite && !hasHoverCard) return s
   const out = []
   let last = 0
   for (const m of s.matchAll(CITE_RE)) {
     if (m.index > last) out.push(s.slice(last, m.index))
     const idx = Number(m[1])
-    out.push(
-      <a key={`cite-${idx}-${m.index}`} data-cite={idx} style={CITE}
-        onClick={() => onCite(idx)}>{`[${idx}]`}</a>
-    )
+    out.push(<CiteAnchor key={`cite-${idx}-${m.index}`} index={idx} />)
     last = m.index + m[0].length
   }
   if (last < s.length) out.push(s.slice(last))
@@ -77,7 +105,8 @@ function textParts(text, onCite) {
 
 /** 纯文本叶子（text token／白名单外降级／表格无 tokens 的格子）——统一 pre-wrap 保真。 */
 function PlainText({ text, onCite }) {
-  return <span style={PLAIN}>{textParts(text, onCite)}</span>
+  const ctx = useContext(CiteCtx)
+  return <span style={PLAIN}>{textParts(text, onCite, Boolean(ctx?.citeHoverCard))}</span>
 }
 
 /** 子 token 列表 → React 子节点（inline/block 同一递归）。 */
@@ -178,14 +207,23 @@ function tableNode(token, key, onCite) {
 
 /**
  * 答案正文（A1V2 中栏答案面用）。
- * @param content 答案文本（text 帧拼贴的 answerText；空串＝不渲染块）
- * @param onCite  引标点击回调 (index) => void；缺省＝引标不切分（历史轮次无引用数据）
+ * @param content       答案文本（text 帧拼贴的 answerText；空串＝不渲染块）
+ * @param onCite        引标点击回调 (index) => void；缺省＝引标不切分（历史轮次无引用数据）
+ * @param citeHoverCard 引标悬停卡内容回调 (index) => ReactNode|null；缺省＝无悬停卡
+ *                      （返回空＝该引标不弹——无对应材料时不弹，不空弹）
  */
-export default function AnswerView({ content, onCite }) {
+export default function AnswerView({ content, onCite, citeHoverCard }) {
   const tokens = useMemo(() => marked.lexer(String(content ?? '')), [content])
+  const [hoverIndex, setHoverIndex] = useState(null)
+  const ctx = useMemo(
+    () => (citeHoverCard ? { onCite, citeHoverCard, hoverIndex, setHoverIndex } : null),
+    [citeHoverCard, onCite, hoverIndex]
+  )
   return (
-    <div style={ROOT} data-testid="answer-view">
-      {tokens.map((tk, i) => tokenNode(tk, `tk${i}`, onCite))}
-    </div>
+    <CiteCtx.Provider value={ctx}>
+      <div style={ROOT} data-testid="answer-view">
+        {tokens.map((tk, i) => tokenNode(tk, `tk${i}`, onCite))}
+      </div>
+    </CiteCtx.Provider>
   )
 }

@@ -1,0 +1,137 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-692a04b9",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：产量相关的问题。\n指标候选：无",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「产量相关的问题」比较宽泛，您想了解哪一项产量的具体信息？",
+     "options": [
+      "本月油田产量完成率是多少？",
+      "本月日产油量与日产液量分别是多少？",
+      "上月躺井井次及对应井的日产油量与时率",
+      "直接补充说明具体诉求"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-692a04b9"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1：反问（「产量相关的问题」比较宽泛，您想了解哪一项产量的）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "verdict",
+   "data": {
+    "status": "waiting_ask",
+    "run_id": "run-692a04b9",
+    "manifest_digest": "20e6be503cc88a24",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-692a04b9"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "理解：产量相关的问题。\n指标候选：无",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-692a04b9",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1：反问（「产量相关的问题」比较宽泛，您想了解哪一项产量的）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「产量相关的问题」比较宽泛，您想了解哪一项产量的具体信息？",
+     "options": [
+      "本月油田产量完成率是多少？",
+      "本月日产油量与日产液量分别是多少？",
+      "上月躺井井次及对应井的日产油量与时率",
+      "直接补充说明具体诉求"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-692a04b9"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "status": "waiting_ask",
+   "run_id": "run-692a04b9",
+   "manifest_digest": "20e6be503cc88a24",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：产量相关的问题。\n指标候选：无"
+  ],
+  "duration_s": 3.2
+ }
+}

@@ -1,0 +1,1755 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-eeda8fe9",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：查询去年日产油量明细的前 200 行。",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1 被拒：ledger_notes 槽位对账未过：s1"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r2：分解 1 子问题"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "前置条件机：s1=allow"
+   }
+  },
+  {
+   "id": 8,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 8,
+    "message": null
+   }
+  },
+  {
+   "id": 9,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-16；区块=渤中；日产油量合计（吨）=5839.63",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 10,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-25；区块=渤西；日产油量合计（吨）=5708.15",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 11,
+   "event": "observation",
+   "data": {
+    "index": 3,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-15；区块=渤南；日产油量合计（吨）=5571.49",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 12,
+   "event": "observation",
+   "data": {
+    "index": 4,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-23；区块=渤中；日产油量合计（吨）=5557.84",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 13,
+   "event": "observation",
+   "data": {
+    "index": 5,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-34；区块=渤中；日产油量合计（吨）=5551.37",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 14,
+   "event": "observation",
+   "data": {
+    "index": 6,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-23；区块=渤南；日产油量合计（吨）=5528.66",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 15,
+   "event": "observation",
+   "data": {
+    "index": 7,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-24；区块=渤西；日产油量合计（吨）=5409.99",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 16,
+   "event": "observation",
+   "data": {
+    "index": 8,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-22；区块=渤西；日产油量合计（吨）=5369.58",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 17,
+   "event": "observation",
+   "data": {
+    "index": 9,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-20；区块=渤南；日产油量合计（吨）=5173.26",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 18,
+   "event": "observation",
+   "data": {
+    "index": 10,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-05；区块=渤西；日产油量合计（吨）=5162.14",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 19,
+   "event": "observation",
+   "data": {
+    "index": 11,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-11；区块=渤南；日产油量合计（吨）=5156.82",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 20,
+   "event": "observation",
+   "data": {
+    "index": 12,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-05；区块=渤南；日产油量合计（吨）=5149.83",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 21,
+   "event": "observation",
+   "data": {
+    "index": 13,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-13；区块=渤中；日产油量合计（吨）=5024.50",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 22,
+   "event": "observation",
+   "data": {
+    "index": 14,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-09；区块=渤中；日产油量合计（吨）=4988.29",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 23,
+   "event": "observation",
+   "data": {
+    "index": 15,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-06；区块=渤南；日产油量合计（吨）=4942.61",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 24,
+   "event": "observation",
+   "data": {
+    "index": 16,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-07；区块=渤西；日产油量合计（吨）=4911.99",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 25,
+   "event": "observation",
+   "data": {
+    "index": 17,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-07；区块=渤中；日产油量合计（吨）=4904.74",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 26,
+   "event": "observation",
+   "data": {
+    "index": 18,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-31；区块=渤中；日产油量合计（吨）=4784.07",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 27,
+   "event": "observation",
+   "data": {
+    "index": 19,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-30；区块=渤中；日产油量合计（吨）=4783.90",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 28,
+   "event": "observation",
+   "data": {
+    "index": 20,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-10；区块=渤中；日产油量合计（吨）=4760.35",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 29,
+   "event": "observation",
+   "data": {
+    "index": 21,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-06；区块=渤中；日产油量合计（吨）=4656.37",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 30,
+   "event": "observation",
+   "data": {
+    "index": 22,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-04；区块=渤中；日产油量合计（吨）=4642.57",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 31,
+   "event": "observation",
+   "data": {
+    "index": 23,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-15；区块=渤中；日产油量合计（吨）=4598.22",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 32,
+   "event": "observation",
+   "data": {
+    "index": 24,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-13；区块=渤西；日产油量合计（吨）=4546.07",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 33,
+   "event": "observation",
+   "data": {
+    "index": 25,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-18；区块=渤中；日产油量合计（吨）=4539.62",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 34,
+   "event": "observation",
+   "data": {
+    "index": 26,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-19；区块=渤中；日产油量合计（吨）=4495.77",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 35,
+   "event": "observation",
+   "data": {
+    "index": 27,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-08；区块=渤西；日产油量合计（吨）=4489.74",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 36,
+   "event": "observation",
+   "data": {
+    "index": 28,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-03；区块=渤西；日产油量合计（吨）=4467.52",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 37,
+   "event": "observation",
+   "data": {
+    "index": 29,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-04；区块=渤西；日产油量合计（吨）=4421.85",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 38,
+   "event": "observation",
+   "data": {
+    "index": 30,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-05；区块=渤中；日产油量合计（吨）=4142.01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 39,
+   "event": "observation",
+   "data": {
+    "index": 31,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-28；区块=渤中；日产油量合计（吨）=4135.63",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 40,
+   "event": "observation",
+   "data": {
+    "index": 32,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-12；区块=渤南；日产油量合计（吨）=4134.27",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 41,
+   "event": "observation",
+   "data": {
+    "index": 33,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-25；区块=渤南；日产油量合计（吨）=4124.66",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 42,
+   "event": "observation",
+   "data": {
+    "index": 34,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-23；区块=渤西；日产油量合计（吨）=4094.66",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 43,
+   "event": "observation",
+   "data": {
+    "index": 35,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-08；区块=渤中；日产油量合计（吨）=4087.42",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 44,
+   "event": "observation",
+   "data": {
+    "index": 36,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-18；区块=渤西；日产油量合计（吨）=3997.69",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 45,
+   "event": "observation",
+   "data": {
+    "index": 37,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-25；区块=渤中；日产油量合计（吨）=3991.42",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 46,
+   "event": "observation",
+   "data": {
+    "index": 38,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-24；区块=渤中；日产油量合计（吨）=3923.33",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 47,
+   "event": "observation",
+   "data": {
+    "index": 39,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-21；区块=渤中；日产油量合计（吨）=3856.83",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 48,
+   "event": "observation",
+   "data": {
+    "index": 40,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-27；区块=渤中；日产油量合计（吨）=3763.04",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 49,
+   "event": "observation",
+   "data": {
+    "index": 41,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-02；区块=渤南；日产油量合计（吨）=3729.71",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 50,
+   "event": "observation",
+   "data": {
+    "index": 42,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-12；区块=渤中；日产油量合计（吨）=3597.88",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 51,
+   "event": "observation",
+   "data": {
+    "index": 43,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-12；区块=渤西；日产油量合计（吨）=3580.58",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 52,
+   "event": "observation",
+   "data": {
+    "index": 44,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-10；区块=渤西；日产油量合计（吨）=3579.05",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 53,
+   "event": "observation",
+   "data": {
+    "index": 45,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-18；区块=渤南；日产油量合计（吨）=3418.63",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 54,
+   "event": "observation",
+   "data": {
+    "index": 46,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-26；区块=渤中；日产油量合计（吨）=3384.71",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 55,
+   "event": "observation",
+   "data": {
+    "index": 47,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-03；区块=渤南；日产油量合计（吨）=3312.73",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 56,
+   "event": "observation",
+   "data": {
+    "index": 48,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-11；区块=渤西；日产油量合计（吨）=3304.72",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 57,
+   "event": "observation",
+   "data": {
+    "index": 49,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-21；区块=渤南；日产油量合计（吨）=3284.13",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 58,
+   "event": "observation",
+   "data": {
+    "index": 50,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-24；区块=渤南；日产油量合计（吨）=3271.80",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 59,
+   "event": "observation",
+   "data": {
+    "index": 51,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-01；区块=渤西；日产油量合计（吨）=3181.31",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 60,
+   "event": "observation",
+   "data": {
+    "index": 52,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-19；区块=渤南；日产油量合计（吨）=3169.40",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 61,
+   "event": "observation",
+   "data": {
+    "index": 53,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-20；区块=渤中；日产油量合计（吨）=3147.69",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 62,
+   "event": "observation",
+   "data": {
+    "index": 54,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-10；区块=渤南；日产油量合计（吨）=3118.73",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 63,
+   "event": "observation",
+   "data": {
+    "index": 55,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-07；区块=渤南；日产油量合计（吨）=3018.74",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 64,
+   "event": "observation",
+   "data": {
+    "index": 56,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-14；区块=渤南；日产油量合计（吨）=3009.11",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 65,
+   "event": "observation",
+   "data": {
+    "index": 57,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-26；区块=渤南；日产油量合计（吨）=2998.96",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 66,
+   "event": "observation",
+   "data": {
+    "index": 58,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-13；区块=渤南；日产油量合计（吨）=2982.15",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 67,
+   "event": "observation",
+   "data": {
+    "index": 59,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-06；区块=渤西；日产油量合计（吨）=2914.50",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 68,
+   "event": "observation",
+   "data": {
+    "index": 60,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-04；区块=渤南；日产油量合计（吨）=2882.79",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 69,
+   "event": "observation",
+   "data": {
+    "index": 61,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-16；区块=渤西；日产油量合计（吨）=2763.42",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 70,
+   "event": "observation",
+   "data": {
+    "index": 62,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-14；区块=渤中；日产油量合计（吨）=2733.66",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 71,
+   "event": "observation",
+   "data": {
+    "index": 63,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-08；区块=渤南；日产油量合计（吨）=2636.53",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 72,
+   "event": "observation",
+   "data": {
+    "index": 64,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-21；区块=渤西；日产油量合计（吨）=2500.94",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 73,
+   "event": "observation",
+   "data": {
+    "index": 65,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-01；区块=渤南；日产油量合计（吨）=2495.45",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 74,
+   "event": "observation",
+   "data": {
+    "index": 66,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-15；区块=渤西；日产油量合计（吨）=2452.36",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 75,
+   "event": "observation",
+   "data": {
+    "index": 67,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-27；区块=渤南；日产油量合计（吨）=2438.35",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 76,
+   "event": "observation",
+   "data": {
+    "index": 68,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-16；区块=渤南；日产油量合计（吨）=2416.34",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 77,
+   "event": "observation",
+   "data": {
+    "index": 69,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-20；区块=渤西；日产油量合计（吨）=2312.13",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 78,
+   "event": "observation",
+   "data": {
+    "index": 70,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-02；区块=渤西；日产油量合计（吨）=2307.98",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 79,
+   "event": "observation",
+   "data": {
+    "index": 71,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-17；区块=渤中；日产油量合计（吨）=2255.54",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 80,
+   "event": "observation",
+   "data": {
+    "index": 72,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-32；区块=渤中；日产油量合计（吨）=2219.59",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 81,
+   "event": "observation",
+   "data": {
+    "index": 73,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-33；区块=渤中；日产油量合计（吨）=2193.88",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 82,
+   "event": "observation",
+   "data": {
+    "index": 74,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-22；区块=渤南；日产油量合计（吨）=2187.27",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 83,
+   "event": "observation",
+   "data": {
+    "index": 75,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-29；区块=渤中；日产油量合计（吨）=2167.61",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 84,
+   "event": "observation",
+   "data": {
+    "index": 76,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-03；区块=渤中；日产油量合计（吨）=2167.00",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 85,
+   "event": "observation",
+   "data": {
+    "index": 77,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-02；区块=渤中；日产油量合计（吨）=2112.27",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 86,
+   "event": "observation",
+   "data": {
+    "index": 78,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-11；区块=渤中；日产油量合计（吨）=2105.68",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 87,
+   "event": "observation",
+   "data": {
+    "index": 79,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-19；区块=渤西；日产油量合计（吨）=2043.44",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 88,
+   "event": "observation",
+   "data": {
+    "index": 80,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-09；区块=渤西；日产油量合计（吨）=1999.23",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 89,
+   "event": "observation",
+   "data": {
+    "index": 81,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-17；区块=渤西；日产油量合计（吨）=1959.38",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 90,
+   "event": "observation",
+   "data": {
+    "index": 82,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-01；区块=渤中；日产油量合计（吨）=1948.67",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 91,
+   "event": "observation",
+   "data": {
+    "index": 83,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-17；区块=渤南；日产油量合计（吨）=1898.57",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 92,
+   "event": "observation",
+   "data": {
+    "index": 84,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-14；区块=渤西；日产油量合计（吨）=1873.43",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 93,
+   "event": "observation",
+   "data": {
+    "index": 85,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-09；区块=渤南；日产油量合计（吨）=1851.55",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 94,
+   "event": "observation",
+   "data": {
+    "index": 86,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-22；区块=渤中；日产油量合计（吨）=1784.67",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 95,
+   "event": "observation",
+   "data": {
+    "index": 87,
+    "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date",
+    "content": "① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 37 天 · 超期）\n⑤ 收口注记 LIMIT 200——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 200——只封顶不抬底）",
+    "trust": "authoritative",
+    "payload": {
+     "lineage": {
+      "① 口径": "日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注",
+      "② 来源表": "agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）",
+      "③ 过滤条件": "时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)",
+      "　└（权限注入）": "数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）",
+      "④ 数据截至批次": "批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 37 天 · 超期）",
+      "⑤ 收口注记": "LIMIT 200——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 200——只封顶不抬底）"
+     },
+     "limit": {
+      "hit": false,
+      "rows": 0
+     }
+    }
+   }
+  },
+  {
+   "id": 96,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 8,
+    "title": "data_query：ok（子问题 s1）"
+   }
+  },
+  {
+   "id": 97,
+   "event": "text",
+   "data": {
+    "content": "去年（即 2025-01-01 至 2026-01-01）日产油量明细按各井全年累计降序排列，前 200 行如下（口径：日产计量·班次合计日口径，单位＝吨；行＝各井全年累计日产油量合计）："
+   }
+  },
+  {
+   "id": 98,
+   "event": "text",
+   "data": {
+    "content": "| 排名 | 井号 | 区块 | 全年日产油量合计（吨） |\n|---|---|---|---|\n| 1 | Z-16 | 渤中 | 5,839.63 |\n| 2 | X-25 | 渤西 | 5,708.15 |\n| 3 | N-15 | 渤南 | 5,571.49 |\n| 4 | Z-23 | 渤中 | 5,557.84 |\n| 5 | Z-34 | 渤中 | 5,551.37 |\n| 6 | N-23 | 渤南 | 5,528.66 |\n| 7 | X-24 | 渤西 | 5,409.99 |\n| 8 | X-22 | 渤西 | 5,369.58 |\n| 9 | N-20 | 渤南 | 5,173.26 |\n| 10 | X-05 | 渤西 | 5,162.14 |\n| 11 | N-11 | 渤南 | 5,156.82 |\n| 12 | N-05 | 渤南 | 5,149.83 |\n| 13 | Z-13 | 渤中 | 5,024.50 |\n| 14 | Z-09 | 渤中 | 4,988.29 |\n| 15 | N-06 | 渤南 | 4,942.61 |\n| 16 | X-07 | 渤西 | 4,911.99 |\n| 17 | Z-07 | 渤中 | 4,904.74 |\n| 18 | Z-31 | 渤中 | 4,784.07 |\n| 19 | Z-30 | 渤中 | 4,783.90 |\n| 20 | Z-10 | 渤中 | 4,760.35 |\n| 21 | Z-06 | 渤中 | 4,656.37 |\n| 22 | Z-04 | 渤中 | 4,642.57 |\n| 23 | Z-15 | 渤中 | 4,598.22 |\n| 24 | X-13 | 渤西 | 4,546.07 |\n| 25 | Z-18 | 渤中 | 4,539.62 |\n| 26 | Z-19 | 渤中 | 4,495.77 |\n| 27 | X-08 | 渤西 | 4,489.74 |\n| 28 | X-03 | 渤西 | 4,467.52 |\n| 29 | X-04 | 渤西 | 4,421.85 |\n| 30 | Z-05 | 渤中 | 4,142.01 |\n| 31 | Z-28 | 渤中 | 4,135.63 |\n| 32 | N-12 | 渤南 | 4,134.27 |\n| 33 | N-25 | 渤南 | 4,124.66 |\n| 34 | X-23 | 渤西 | 4,094.66 |\n| 35 | Z-08 | 渤中 | 4,087.42 |\n| 36 | X-18 | 渤西 | 3,997.69 |\n| 37 | Z-25 | 渤中 | 3,991.42 |\n| 38 | Z-24 | 渤中 | 3,923.33 |\n| 39 | Z-21 | 渤中 | 3,856.83 |\n| 40 | Z-27 | 渤中 | 3,763.04 |\n| 41 | N-02 | 渤南 | 3,729.71 |\n| 42 | Z-12 | 渤中 | 3,597.88 |\n| 43 | X-12 | 渤西 | 3,580.58 |\n| 44 | X-10 | 渤西 | 3,579.05 |\n| 45 | N-18 | 渤南 | 3,418.63 |\n| 46 | Z-26 | 渤中 | 3,384.71 |\n| 47 | N-03 | 渤南 | 3,312.73 |\n| 48 | X-11 | 渤西 | 3,304.72 |\n| 49 | N-21 | 渤南 | 3,284.13 |\n| 50 | N-24 | 渤南 | 3,271.80 |\n| 51 | X-01 | 渤西 | 3,181.31 |\n| 52 | N-19 | 渤南 | 3,169.40 |\n| 53 | Z-20 | 渤中 | 3,147.69 |\n| 54 | N-10 | 渤南 | 3,118.73 |\n| 55 | N-07 | 渤南 | 3,018.74 |\n| 56 | N-14 | 渤南 | 3,009.11 |\n| 57 | N-26 | 渤南 | 2,998.96 |\n| 58 | N-13 | 渤南 | 2,982.15 |\n| 59 | X-06 | 渤西 | 2,914.50 |\n| 60 | N-04 | 渤南 | 2,882.79 |\n| 61 | X-16 | 渤西 | 2,763.42 |\n| 62 | Z-14 | 渤中 | 2,733.66 |\n| 63 | N-08 | 渤南 | 2,636.53 |\n| 64 | X-21 | 渤西 | 2,500.94 |\n| 65 | N-01 | 渤南 | 2,495.45 |\n| 66 | X-15 | 渤西 | 2,452.36 |\n| 67 | N-27 | 渤南 | 2,438.35 |\n| 68 | N-16 | 渤南 | 2,416.34 |\n| 69 | X-20 | 渤西 | 2,312.13 |\n| 70 | X-02 | 渤西 | 2,307.98 |\n| 71 | Z-17 | 渤中 | 2,255.54 |\n| 72 | Z-32 | 渤中 | 2,219.59 |\n| 73 | Z-33 | 渤中 | 2,193.88 |\n| 74 | N-22 | 渤南 | 2,187.27 |\n| 75 | Z-29 | 渤中 | 2,167.61 |\n| 76 | Z-03 | 渤中 | 2,167.00 |\n| 77 | Z-02 | 渤中 | 2,112.27 |\n| 78 | Z-11 | 渤中 | 2,105.68 |\n| 79 | X-19 | 渤西 | 2,043.44 |\n| 80 | X-09 | 渤西 | 1,999.23 |\n| 81 | X-17 | 渤西 | 1,959.38 |\n| 82 | Z-01 | 渤中 | 1,948.67 |\n| 83 | N-17 | 渤南 | 1,898.57 |\n| 84 | X-14 | 渤西 | 1,873.43 |\n| 85 | N-09 | 渤南 | 1,851.55 |\n| 86 | Z-22 | 渤中 | 1,784.67 |"
+   }
+  },
+  {
+   "id": 99,
+   "event": "text",
+   "data": {
+    "content": "> 注：以上 86 行即为去年在册有日产油量计量的全部井只——平台上全年累计日产油量不为零的井共 86 口，按计划 limit=200 取满后未达到 200 行（86 口井全部穷尽）。如需把零产量井也列入，请告知，我可重发拉取全口径（含停产／未投产井）的版本。"
+   }
+  },
+  {
+   "id": 100,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 9,
+    "title": "模型调用：answer"
+   }
+  },
+  {
+   "id": 101,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 10,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 102,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 87 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  },
+  {
+   "id": 103,
+   "event": "verdict",
+   "data": {
+    "supported": 0,
+    "rewritten": 87,
+    "split": 0,
+    "cited": [],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  },
+  {
+   "id": 104,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 11,
+    "title": "核验：支撑 0｜改写 87｜分源 否"
+   }
+  },
+  {
+   "id": 105,
+   "event": "supplement",
+   "data": {
+    "block": "lineage",
+    "text": "① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 37 天 · 超期）\n⑤ 收口注记 LIMIT 200——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 200——只封顶不抬底）"
+   }
+  },
+  {
+   "id": 106,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 12,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 107,
+   "event": "verdict",
+   "data": {
+    "status": "completed",
+    "run_id": "run-eeda8fe9",
+    "manifest_digest": "d1ae0eca64d23544",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 108,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-eeda8fe9",
+    "question": "去年日产油量明细前 200 行",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 72047,
+    "counts": {
+     "messages": 11,
+     "dialogue": 0,
+     "process_notes": 7,
+     "observations": 87,
+     "steps": 12
+    }
+   }
+  },
+  {
+   "id": 108,
+   "event": "done",
+   "data": {
+    "run_id": "run-eeda8fe9"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "> 注：以上 86 行即为去年在册有日产油量计量的全部井只——平台上全年累计日产油量不为零的井共 86 口，按计划 limit=200 取满后未达到 200 行（86 口井全部穷尽）。如需把零产量井也列入，请告知，我可重发拉取全口径（含停产／未投产井）的版本。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 87 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-eeda8fe9",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1 被拒：ledger_notes 槽位对账未过：s1"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r2：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "前置条件机：s1=allow"
+   },
+   {
+    "step": "execute",
+    "seq": 8,
+    "title": "data_query：ok（子问题 s1）"
+   },
+   {
+    "step": "answer",
+    "seq": 9,
+    "title": "模型调用：answer"
+   },
+   {
+    "step": "answer",
+    "seq": 10,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 11,
+    "title": "核验：支撑 0｜改写 87｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 12,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 8,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-16；区块=渤中；日产油量合计（吨）=5839.63",
+    "trust": "authoritative"
+   },
+   {
+    "index": 2,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-25；区块=渤西；日产油量合计（吨）=5708.15",
+    "trust": "authoritative"
+   },
+   {
+    "index": 3,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-15；区块=渤南；日产油量合计（吨）=5571.49",
+    "trust": "authoritative"
+   },
+   {
+    "index": 4,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-23；区块=渤中；日产油量合计（吨）=5557.84",
+    "trust": "authoritative"
+   },
+   {
+    "index": 5,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-34；区块=渤中；日产油量合计（吨）=5551.37",
+    "trust": "authoritative"
+   },
+   {
+    "index": 6,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-23；区块=渤南；日产油量合计（吨）=5528.66",
+    "trust": "authoritative"
+   },
+   {
+    "index": 7,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-24；区块=渤西；日产油量合计（吨）=5409.99",
+    "trust": "authoritative"
+   },
+   {
+    "index": 8,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-22；区块=渤西；日产油量合计（吨）=5369.58",
+    "trust": "authoritative"
+   },
+   {
+    "index": 9,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-20；区块=渤南；日产油量合计（吨）=5173.26",
+    "trust": "authoritative"
+   },
+   {
+    "index": 10,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-05；区块=渤西；日产油量合计（吨）=5162.14",
+    "trust": "authoritative"
+   },
+   {
+    "index": 11,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-11；区块=渤南；日产油量合计（吨）=5156.82",
+    "trust": "authoritative"
+   },
+   {
+    "index": 12,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-05；区块=渤南；日产油量合计（吨）=5149.83",
+    "trust": "authoritative"
+   },
+   {
+    "index": 13,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-13；区块=渤中；日产油量合计（吨）=5024.50",
+    "trust": "authoritative"
+   },
+   {
+    "index": 14,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-09；区块=渤中；日产油量合计（吨）=4988.29",
+    "trust": "authoritative"
+   },
+   {
+    "index": 15,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-06；区块=渤南；日产油量合计（吨）=4942.61",
+    "trust": "authoritative"
+   },
+   {
+    "index": 16,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-07；区块=渤西；日产油量合计（吨）=4911.99",
+    "trust": "authoritative"
+   },
+   {
+    "index": 17,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-07；区块=渤中；日产油量合计（吨）=4904.74",
+    "trust": "authoritative"
+   },
+   {
+    "index": 18,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-31；区块=渤中；日产油量合计（吨）=4784.07",
+    "trust": "authoritative"
+   },
+   {
+    "index": 19,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-30；区块=渤中；日产油量合计（吨）=4783.90",
+    "trust": "authoritative"
+   },
+   {
+    "index": 20,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-10；区块=渤中；日产油量合计（吨）=4760.35",
+    "trust": "authoritative"
+   },
+   {
+    "index": 21,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-06；区块=渤中；日产油量合计（吨）=4656.37",
+    "trust": "authoritative"
+   },
+   {
+    "index": 22,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-04；区块=渤中；日产油量合计（吨）=4642.57",
+    "trust": "authoritative"
+   },
+   {
+    "index": 23,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-15；区块=渤中；日产油量合计（吨）=4598.22",
+    "trust": "authoritative"
+   },
+   {
+    "index": 24,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-13；区块=渤西；日产油量合计（吨）=4546.07",
+    "trust": "authoritative"
+   },
+   {
+    "index": 25,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-18；区块=渤中；日产油量合计（吨）=4539.62",
+    "trust": "authoritative"
+   },
+   {
+    "index": 26,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-19；区块=渤中；日产油量合计（吨）=4495.77",
+    "trust": "authoritative"
+   },
+   {
+    "index": 27,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-08；区块=渤西；日产油量合计（吨）=4489.74",
+    "trust": "authoritative"
+   },
+   {
+    "index": 28,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-03；区块=渤西；日产油量合计（吨）=4467.52",
+    "trust": "authoritative"
+   },
+   {
+    "index": 29,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-04；区块=渤西；日产油量合计（吨）=4421.85",
+    "trust": "authoritative"
+   },
+   {
+    "index": 30,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-05；区块=渤中；日产油量合计（吨）=4142.01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 31,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-28；区块=渤中；日产油量合计（吨）=4135.63",
+    "trust": "authoritative"
+   },
+   {
+    "index": 32,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-12；区块=渤南；日产油量合计（吨）=4134.27",
+    "trust": "authoritative"
+   },
+   {
+    "index": 33,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-25；区块=渤南；日产油量合计（吨）=4124.66",
+    "trust": "authoritative"
+   },
+   {
+    "index": 34,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-23；区块=渤西；日产油量合计（吨）=4094.66",
+    "trust": "authoritative"
+   },
+   {
+    "index": 35,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-08；区块=渤中；日产油量合计（吨）=4087.42",
+    "trust": "authoritative"
+   },
+   {
+    "index": 36,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-18；区块=渤西；日产油量合计（吨）=3997.69",
+    "trust": "authoritative"
+   },
+   {
+    "index": 37,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-25；区块=渤中；日产油量合计（吨）=3991.42",
+    "trust": "authoritative"
+   },
+   {
+    "index": 38,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-24；区块=渤中；日产油量合计（吨）=3923.33",
+    "trust": "authoritative"
+   },
+   {
+    "index": 39,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-21；区块=渤中；日产油量合计（吨）=3856.83",
+    "trust": "authoritative"
+   },
+   {
+    "index": 40,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-27；区块=渤中；日产油量合计（吨）=3763.04",
+    "trust": "authoritative"
+   },
+   {
+    "index": 41,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-02；区块=渤南；日产油量合计（吨）=3729.71",
+    "trust": "authoritative"
+   },
+   {
+    "index": 42,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-12；区块=渤中；日产油量合计（吨）=3597.88",
+    "trust": "authoritative"
+   },
+   {
+    "index": 43,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-12；区块=渤西；日产油量合计（吨）=3580.58",
+    "trust": "authoritative"
+   },
+   {
+    "index": 44,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-10；区块=渤西；日产油量合计（吨）=3579.05",
+    "trust": "authoritative"
+   },
+   {
+    "index": 45,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-18；区块=渤南；日产油量合计（吨）=3418.63",
+    "trust": "authoritative"
+   },
+   {
+    "index": 46,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-26；区块=渤中；日产油量合计（吨）=3384.71",
+    "trust": "authoritative"
+   },
+   {
+    "index": 47,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-03；区块=渤南；日产油量合计（吨）=3312.73",
+    "trust": "authoritative"
+   },
+   {
+    "index": 48,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-11；区块=渤西；日产油量合计（吨）=3304.72",
+    "trust": "authoritative"
+   },
+   {
+    "index": 49,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-21；区块=渤南；日产油量合计（吨）=3284.13",
+    "trust": "authoritative"
+   },
+   {
+    "index": 50,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-24；区块=渤南；日产油量合计（吨）=3271.80",
+    "trust": "authoritative"
+   },
+   {
+    "index": 51,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-01；区块=渤西；日产油量合计（吨）=3181.31",
+    "trust": "authoritative"
+   },
+   {
+    "index": 52,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-19；区块=渤南；日产油量合计（吨）=3169.40",
+    "trust": "authoritative"
+   },
+   {
+    "index": 53,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-20；区块=渤中；日产油量合计（吨）=3147.69",
+    "trust": "authoritative"
+   },
+   {
+    "index": 54,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-10；区块=渤南；日产油量合计（吨）=3118.73",
+    "trust": "authoritative"
+   },
+   {
+    "index": 55,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-07；区块=渤南；日产油量合计（吨）=3018.74",
+    "trust": "authoritative"
+   },
+   {
+    "index": 56,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-14；区块=渤南；日产油量合计（吨）=3009.11",
+    "trust": "authoritative"
+   },
+   {
+    "index": 57,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-26；区块=渤南；日产油量合计（吨）=2998.96",
+    "trust": "authoritative"
+   },
+   {
+    "index": 58,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-13；区块=渤南；日产油量合计（吨）=2982.15",
+    "trust": "authoritative"
+   },
+   {
+    "index": 59,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-06；区块=渤西；日产油量合计（吨）=2914.50",
+    "trust": "authoritative"
+   },
+   {
+    "index": 60,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-04；区块=渤南；日产油量合计（吨）=2882.79",
+    "trust": "authoritative"
+   },
+   {
+    "index": 61,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-16；区块=渤西；日产油量合计（吨）=2763.42",
+    "trust": "authoritative"
+   },
+   {
+    "index": 62,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-14；区块=渤中；日产油量合计（吨）=2733.66",
+    "trust": "authoritative"
+   },
+   {
+    "index": 63,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-08；区块=渤南；日产油量合计（吨）=2636.53",
+    "trust": "authoritative"
+   },
+   {
+    "index": 64,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-21；区块=渤西；日产油量合计（吨）=2500.94",
+    "trust": "authoritative"
+   },
+   {
+    "index": 65,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-01；区块=渤南；日产油量合计（吨）=2495.45",
+    "trust": "authoritative"
+   },
+   {
+    "index": 66,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-15；区块=渤西；日产油量合计（吨）=2452.36",
+    "trust": "authoritative"
+   },
+   {
+    "index": 67,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-27；区块=渤南；日产油量合计（吨）=2438.35",
+    "trust": "authoritative"
+   },
+   {
+    "index": 68,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-16；区块=渤南；日产油量合计（吨）=2416.34",
+    "trust": "authoritative"
+   },
+   {
+    "index": 69,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-20；区块=渤西；日产油量合计（吨）=2312.13",
+    "trust": "authoritative"
+   },
+   {
+    "index": 70,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-02；区块=渤西；日产油量合计（吨）=2307.98",
+    "trust": "authoritative"
+   },
+   {
+    "index": 71,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-17；区块=渤中；日产油量合计（吨）=2255.54",
+    "trust": "authoritative"
+   },
+   {
+    "index": 72,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-32；区块=渤中；日产油量合计（吨）=2219.59",
+    "trust": "authoritative"
+   },
+   {
+    "index": 73,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-33；区块=渤中；日产油量合计（吨）=2193.88",
+    "trust": "authoritative"
+   },
+   {
+    "index": 74,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-22；区块=渤南；日产油量合计（吨）=2187.27",
+    "trust": "authoritative"
+   },
+   {
+    "index": 75,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-29；区块=渤中；日产油量合计（吨）=2167.61",
+    "trust": "authoritative"
+   },
+   {
+    "index": 76,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-03；区块=渤中；日产油量合计（吨）=2167.00",
+    "trust": "authoritative"
+   },
+   {
+    "index": 77,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-02；区块=渤中；日产油量合计（吨）=2112.27",
+    "trust": "authoritative"
+   },
+   {
+    "index": 78,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-11；区块=渤中；日产油量合计（吨）=2105.68",
+    "trust": "authoritative"
+   },
+   {
+    "index": 79,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-19；区块=渤西；日产油量合计（吨）=2043.44",
+    "trust": "authoritative"
+   },
+   {
+    "index": 80,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-09；区块=渤西；日产油量合计（吨）=1999.23",
+    "trust": "authoritative"
+   },
+   {
+    "index": 81,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-17；区块=渤西；日产油量合计（吨）=1959.38",
+    "trust": "authoritative"
+   },
+   {
+    "index": 82,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-01；区块=渤中；日产油量合计（吨）=1948.67",
+    "trust": "authoritative"
+   },
+   {
+    "index": 83,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-17；区块=渤南；日产油量合计（吨）=1898.57",
+    "trust": "authoritative"
+   },
+   {
+    "index": 84,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-14；区块=渤西；日产油量合计（吨）=1873.43",
+    "trust": "authoritative"
+   },
+   {
+    "index": 85,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-09；区块=渤南；日产油量合计（吨）=1851.55",
+    "trust": "authoritative"
+   },
+   {
+    "index": 86,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=Z-22；区块=渤中；日产油量合计（吨）=1784.67",
+    "trust": "authoritative"
+   },
+   {
+    "index": 87,
+    "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date",
+    "content": "① 口径 日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 37 天 · 超期）\n⑤ 收口注记 LIMIT 200——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 200——只封顶不抬底）",
+    "trust": "authoritative",
+    "payload": {
+     "lineage": {
+      "① 口径": "日产油量（吨）（单位：吨）——指标台账注册声明：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12），口径随答案标注",
+      "② 来源表": "agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）",
+      "③ 过滤条件": "时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)",
+      "　└（权限注入）": "数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）",
+      "④ 数据截至批次": "批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 37 天 · 超期）",
+      "⑤ 收口注记": "LIMIT 200——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底（问句显式条数 200——只封顶不抬底）"
+     },
+     "limit": {
+      "hit": false,
+      "rows": 0
+     }
+    }
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "supported": 0,
+    "rewritten": 87,
+    "split": 0,
+    "cited": [],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  ],
+  "final": {
+   "status": "completed",
+   "run_id": "run-eeda8fe9",
+   "manifest_digest": "d1ae0eca64d23544",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：查询去年日产油量明细的前 200 行。",
+   "去年（即 2025-01-01 至 2026-01-01）日产油量明细按各井全年累计降序排列，前 200 行如下（口径：日产计量·班次合计日口径，单位＝吨；行＝各井全年累计日产油量合计）：",
+   "| 排名 | 井号 | 区块 | 全年日产油量合计（吨） |\n|---|---|---|---|\n| 1 | Z-16 | 渤中 | 5,839.63 |\n| 2 | X-25 | 渤西 | 5,708.15 |\n| 3 | N-15 | 渤南 | 5,571.49 |\n| 4 | Z-23 | 渤中 | 5,557.84 |\n| 5 | Z-34 | 渤中 | 5,551.37 |\n| 6 | N-23 | 渤南 | 5,528.66 |\n| 7 | X-24 | 渤西 | 5,409.99 |\n| 8 | X-22 | 渤西 | 5,369.58 |\n| 9 | N-20 | 渤南 | 5,173.26 |\n| 10 | X-05 | 渤西 | 5,162.14 |\n| 11 | N-11 | 渤南 | 5,156.82 |\n| 12 | N-05 | 渤南 | 5,149.83 |\n| 13 | Z-13 | 渤中 | 5,024.50 |\n| 14 | Z-09 | 渤中 | 4,988.29 |\n| 15 | N-06 | 渤南 | 4,942.61 |\n| 16 | X-07 | 渤西 | 4,911.99 |\n| 17 | Z-07 | 渤中 | 4,904.74 |\n| 18 | Z-31 | 渤中 | 4,784.07 |\n| 19 | Z-30 | 渤中 | 4,783.90 |\n| 20 | Z-10 | 渤中 | 4,760.35 |\n| 21 | Z-06 | 渤中 | 4,656.37 |\n| 22 | Z-04 | 渤中 | 4,642.57 |\n| 23 | Z-15 | 渤中 | 4,598.22 |\n| 24 | X-13 | 渤西 | 4,546.07 |\n| 25 | Z-18 | 渤中 | 4,539.62 |\n| 26 | Z-19 | 渤中 | 4,495.77 |\n| 27 | X-08 | 渤西 | 4,489.74 |\n| 28 | X-03 | 渤西 | 4,467.52 |\n| 29 | X-04 | 渤西 | 4,421.85 |\n| 30 | Z-05 | 渤中 | 4,142.01 |\n| 31 | Z-28 | 渤中 | 4,135.63 |\n| 32 | N-12 | 渤南 | 4,134.27 |\n| 33 | N-25 | 渤南 | 4,124.66 |\n| 34 | X-23 | 渤西 | 4,094.66 |\n| 35 | Z-08 | 渤中 | 4,087.42 |\n| 36 | X-18 | 渤西 | 3,997.69 |\n| 37 | Z-25 | 渤中 | 3,991.42 |\n| 38 | Z-24 | 渤中 | 3,923.33 |\n| 39 | Z-21 | 渤中 | 3,856.83 |\n| 40 | Z-27 | 渤中 | 3,763.04 |\n| 41 | N-02 | 渤南 | 3,729.71 |\n| 42 | Z-12 | 渤中 | 3,597.88 |\n| 43 | X-12 | 渤西 | 3,580.58 |\n| 44 | X-10 | 渤西 | 3,579.05 |\n| 45 | N-18 | 渤南 | 3,418.63 |\n| 46 | Z-26 | 渤中 | 3,384.71 |\n| 47 | N-03 | 渤南 | 3,312.73 |\n| 48 | X-11 | 渤西 | 3,304.72 |\n| 49 | N-21 | 渤南 | 3,284.13 |\n| 50 | N-24 | 渤南 | 3,271.80 |\n| 51 | X-01 | 渤西 | 3,181.31 |\n| 52 | N-19 | 渤南 | 3,169.40 |\n| 53 | Z-20 | 渤中 | 3,147.69 |\n| 54 | N-10 | 渤南 | 3,118.73 |\n| 55 | N-07 | 渤南 | 3,018.74 |\n| 56 | N-14 | 渤南 | 3,009.11 |\n| 57 | N-26 | 渤南 | 2,998.96 |\n| 58 | N-13 | 渤南 | 2,982.15 |\n| 59 | X-06 | 渤西 | 2,914.50 |\n| 60 | N-04 | 渤南 | 2,882.79 |\n| 61 | X-16 | 渤西 | 2,763.42 |\n| 62 | Z-14 | 渤中 | 2,733.66 |\n| 63 | N-08 | 渤南 | 2,636.53 |\n| 64 | X-21 | 渤西 | 2,500.94 |\n| 65 | N-01 | 渤南 | 2,495.45 |\n| 66 | X-15 | 渤西 | 2,452.36 |\n| 67 | N-27 | 渤南 | 2,438.35 |\n| 68 | N-16 | 渤南 | 2,416.34 |\n| 69 | X-20 | 渤西 | 2,312.13 |\n| 70 | X-02 | 渤西 | 2,307.98 |\n| 71 | Z-17 | 渤中 | 2,255.54 |\n| 72 | Z-32 | 渤中 | 2,219.59 |\n| 73 | Z-33 | 渤中 | 2,193.88 |\n| 74 | N-22 | 渤南 | 2,187.27 |\n| 75 | Z-29 | 渤中 | 2,167.61 |\n| 76 | Z-03 | 渤中 | 2,167.00 |\n| 77 | Z-02 | 渤中 | 2,112.27 |\n| 78 | Z-11 | 渤中 | 2,105.68 |\n| 79 | X-19 | 渤西 | 2,043.44 |\n| 80 | X-09 | 渤西 | 1,999.23 |\n| 81 | X-17 | 渤西 | 1,959.38 |\n| 82 | Z-01 | 渤中 | 1,948.67 |\n| 83 | N-17 | 渤南 | 1,898.57 |\n| 84 | X-14 | 渤西 | 1,873.43 |\n| 85 | N-09 | 渤南 | 1,851.55 |\n| 86 | Z-22 | 渤中 | 1,784.67 |",
+   "> 注：以上 86 行即为去年在册有日产油量计量的全部井只——平台上全年累计日产油量不为零的井共 86 口，按计划 limit=200 取满后未达到 200 行（86 口井全部穷尽）。如需把零产量井也列入，请告知，我可重发拉取全口径（含停产／未投产井）的版本。"
+  ],
+  "duration_s": 14.4
+ }
+}

@@ -1,0 +1,151 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-3f64cbed",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：用户给出的题干仅为占位提示语「产量相关的问题」，未包含具体可解析的子问题或取数要求，待后续环节与用户澄清具体题意后再做拆解。",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 3,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "您的题目仅写到「产量相关的问题」——尚未给出具体要查的内容。请补充要查询的产量类指标或具体诉求（可选如下方向或自行补充）：",
+     "options": [
+      "本月各井日产油量是多少",
+      "上月产量完成率是多少",
+      "本月有效产量与计划配产的对比",
+      "请说明产量相关的常见指标口径（产量完成率/有效产量/递减增油等）"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-3f64cbed"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清 r1：反问（您的题目仅写到「产量相关的问题」——尚未给出具体）"
+   }
+  },
+  {
+   "id": 6,
+   "event": "verdict",
+   "data": {
+    "status": "waiting_ask",
+    "run_id": "run-3f64cbed",
+    "manifest_digest": "538564f0cb160b55",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 6,
+   "event": "done",
+   "data": {
+    "run_id": "run-3f64cbed"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "理解：用户给出的题干仅为占位提示语「产量相关的问题」，未包含具体可解析的子问题或取数要求，待后续环节与用户澄清具体题意后再做拆解。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-3f64cbed",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清 r1：反问（您的题目仅写到「产量相关的问题」——尚未给出具体）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "您的题目仅写到「产量相关的问题」——尚未给出具体要查的内容。请补充要查询的产量类指标或具体诉求（可选如下方向或自行补充）：",
+     "options": [
+      "本月各井日产油量是多少",
+      "上月产量完成率是多少",
+      "本月有效产量与计划配产的对比",
+      "请说明产量相关的常见指标口径（产量完成率/有效产量/递减增油等）"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-3f64cbed"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "status": "waiting_ask",
+   "run_id": "run-3f64cbed",
+   "manifest_digest": "538564f0cb160b55",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：用户给出的题干仅为占位提示语「产量相关的问题」，未包含具体可解析的子问题或取数要求，待后续环节与用户澄清具体题意后再做拆解。"
+  ],
+  "duration_s": 5.5
+ }
+}

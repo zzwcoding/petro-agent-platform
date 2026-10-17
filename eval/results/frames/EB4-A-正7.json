@@ -1,0 +1,137 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-32c038d1",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：问 12 mm 油嘴下的折算日产油、折算生产压差、折算采油指数各是多少。\n指标候选：日产油量",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「12 mm 油嘴下折算日产油、生产压差、采油指数」这组折算参数需要明确归属，请问您问的是：",
+     "options": [
+      "某一具体井在 12 mm 油嘴工况下的折算日产油、生产压差、采油指数（请补充井号）",
+      "某一区块在 12 mm 油嘴工况下的折算日产油、生产压差、采油指数（请补充区块）",
+      "全油田在 12 mm 油嘴工况下的折算日产油、生产压差、采油指数",
+      "上述对象的报告（完井／月报／动态）里记载的折算值（不指定具体井/区块）"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-32c038d1"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1：反问（「12 mm 油嘴下折算日产油、生产压差、采油指）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "verdict",
+   "data": {
+    "status": "waiting_ask",
+    "run_id": "run-32c038d1",
+    "manifest_digest": "a1a0dfcf22e1aee3",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-32c038d1"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "理解：问 12 mm 油嘴下的折算日产油、折算生产压差、折算采油指数各是多少。\n指标候选：日产油量",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-32c038d1",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1：反问（「12 mm 油嘴下折算日产油、生产压差、采油指）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「12 mm 油嘴下折算日产油、生产压差、采油指数」这组折算参数需要明确归属，请问您问的是：",
+     "options": [
+      "某一具体井在 12 mm 油嘴工况下的折算日产油、生产压差、采油指数（请补充井号）",
+      "某一区块在 12 mm 油嘴工况下的折算日产油、生产压差、采油指数（请补充区块）",
+      "全油田在 12 mm 油嘴工况下的折算日产油、生产压差、采油指数",
+      "上述对象的报告（完井／月报／动态）里记载的折算值（不指定具体井/区块）"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-32c038d1"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "status": "waiting_ask",
+   "run_id": "run-32c038d1",
+   "manifest_digest": "a1a0dfcf22e1aee3",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：问 12 mm 油嘴下的折算日产油、折算生产压差、折算采油指数各是多少。\n指标候选：日产油量"
+  ],
+  "duration_s": 4.0
+ }
+}

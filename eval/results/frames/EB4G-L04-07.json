@@ -1,0 +1,423 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-9c034c80",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：问哪些井的开采程度最高（采得最狠）。\n指标候选：日产油量,日产液量,综合含水率",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清钻取 ×1（semantic_query）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 4,
+    "message": null
+   }
+  },
+  {
+   "id": 5,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#201",
+    "content": "日产油量（吨）：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12）｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 班次合计日口径（默认）｜争议注记：吨方混写脏值（D1——RULE-BOHAI-020 检出位已建）",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 4,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "澄清 r1 被拒：ledger_notes 槽位对账未过：s1"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "澄清 r2：分解 1 子问题"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 9,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 12,
+   "event": "notice",
+   "data": {
+    "type": "decision_note",
+    "gates": [],
+    "content": "这一问可以继续查：窗上沿 2026-10-08 晚于汇总层水位 2026-08-31——引擎新鲜度闸将拦停/改绑并注记（照实判定）（问题 s1／说明 1 条）"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 10,
+    "title": "前置条件机：s1=allow"
+   }
+  },
+  {
+   "id": 14,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 11,
+    "message": null
+   }
+  },
+  {
+   "id": 15,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "汇总层水位读面",
+    "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 37 天 · 超期）——查询窗「2026-09-08～2026-10-07」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 11,
+    "title": "data_query：ok（子问题 s1）"
+   }
+  },
+  {
+   "id": 17,
+   "event": "text",
+   "data": {
+    "content": "按日产油量降序查\"采得最狠\"的井——查询窗（2026-09-08 至 2026-10-07）被新鲜度闸拦停：汇总层数据水位只到 2026-08-31，落后 37 天、已超期，该窗内尚无已出数数据，系统不返回空数冒充答案。"
+   }
+  },
+  {
+   "id": 18,
+   "event": "text",
+   "data": {
+    "content": "建议：把时间窗拉回到 2026-08-31 及之前（例如近 30 天默认窗往前推，或直接指定 2026-08 月份）再查，可拿到排名结果。"
+   }
+  },
+  {
+   "id": 19,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 12,
+    "title": "模型调用：answer"
+   }
+  },
+  {
+   "id": 20,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 13,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 21,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 1 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  },
+  {
+   "id": 22,
+   "event": "verdict",
+   "data": {
+    "supported": 0,
+    "rewritten": 1,
+    "split": 0,
+    "cited": [],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  },
+  {
+   "id": 23,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 14,
+    "title": "核验：支撑 0｜改写 1｜分源 否"
+   }
+  },
+  {
+   "id": 24,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 15,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 25,
+   "event": "verdict",
+   "data": {
+    "status": "completed",
+    "run_id": "run-9c034c80",
+    "manifest_digest": "d632288578948296",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 26,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-9c034c80",
+    "question": "哪几口井采得最狠？",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 31111,
+    "counts": {
+     "messages": 13,
+     "dialogue": 0,
+     "process_notes": 8,
+     "observations": 2,
+     "steps": 15
+    }
+   }
+  },
+  {
+   "id": 26,
+   "event": "done",
+   "data": {
+    "run_id": "run-9c034c80"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "建议：把时间窗拉回到 2026-08-31 及之前（例如近 30 天默认窗往前推，或直接指定 2026-08 月份）再查，可拿到排名结果。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "decision_note",
+    "gates": [],
+    "content": "这一问可以继续查：窗上沿 2026-10-08 晚于汇总层水位 2026-08-31——引擎新鲜度闸将拦停/改绑并注记（照实判定）（问题 s1／说明 1 条）"
+   },
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 1 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-9c034c80",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清钻取 ×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 4,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "澄清 r1 被拒：ledger_notes 槽位对账未过：s1"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "澄清 r2：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 9,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 10,
+    "title": "前置条件机：s1=allow"
+   },
+   {
+    "step": "execute",
+    "seq": 11,
+    "title": "data_query：ok（子问题 s1）"
+   },
+   {
+    "step": "answer",
+    "seq": 12,
+    "title": "模型调用：answer"
+   },
+   {
+    "step": "answer",
+    "seq": 13,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 14,
+    "title": "核验：支撑 0｜改写 1｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 15,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 4,
+    "message": null
+   },
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 11,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_metric#201",
+    "content": "日产油量（吨）：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12）｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 班次合计日口径（默认）｜争议注记：吨方混写脏值（D1——RULE-BOHAI-020 检出位已建）",
+    "trust": "ledger"
+   },
+   {
+    "index": 2,
+    "source": "汇总层水位读面",
+    "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 37 天 · 超期）——查询窗「2026-09-08～2026-10-07」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "supported": 0,
+    "rewritten": 1,
+    "split": 0,
+    "cited": [],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  ],
+  "final": {
+   "status": "completed",
+   "run_id": "run-9c034c80",
+   "manifest_digest": "d632288578948296",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：问哪些井的开采程度最高（采得最狠）。\n指标候选：日产油量,日产液量,综合含水率",
+   "按日产油量降序查\"采得最狠\"的井——查询窗（2026-09-08 至 2026-10-07）被新鲜度闸拦停：汇总层数据水位只到 2026-08-31，落后 37 天、已超期，该窗内尚无已出数数据，系统不返回空数冒充答案。",
+   "建议：把时间窗拉回到 2026-08-31 及之前（例如近 30 天默认窗往前推，或直接指定 2026-08 月份）再查，可拿到排名结果。"
+  ],
+  "duration_s": 11.3
+ }
+}

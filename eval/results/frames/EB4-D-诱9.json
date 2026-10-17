@@ -1,0 +1,661 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-de7dc1c1",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：按台账口径，①问 8 月 5 口检泵井中检泵周期最长的是哪口井、多少天；②问这 5 口井中最短的检泵周期比最长者短多少天；③问这 5 口井的检泵作业费合计多少万元。",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1：分解 3 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 5,
+   "event": "notice",
+   "data": {
+    "type": "chain_switch_reentry",
+    "gates": [],
+    "content": "这一问的取数方式走不通，已请系统回头重选：「检泵周期」在册未绑定——agg 汇总层无承载列，引擎将走降级解释链（零数值不冒充）——或改走 knowledge 链检索文档所载（本指标口径/数值可能载于文档）；窗上沿 2026-09-01 晚于汇总层水位 2026-08-31——引擎新鲜度闸将拦停/改绑并注记（照实判定）；这一问的取数方式走不通（名册里没有它的数值，或问的井不在数据范围内）——已请系统回头重新选一次取数方式（只试一次；再走不通就如实说查不到）（问题 s1）"
+   }
+  },
+  {
+   "id": 6,
+   "event": "notice",
+   "data": {
+    "type": "decision_note",
+    "gates": [],
+    "content": "这一问可以继续查：这个词只是被提到、不是真要查它的数——按判断放行，不用这个已废弃的说法出数（系统按判定序第 1 位自动放行，不额外判断）（问题 s2／说明 1 条）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "notice",
+   "data": {
+    "type": "chain_switch_reentry",
+    "gates": [],
+    "content": "这一问的取数方式走不通，已请系统回头重选：「检泵周期」在册未绑定——agg 汇总层无承载列，引擎将走降级解释链（零数值不冒充）——或改走 knowledge 链检索文档所载（本指标口径/数值可能载于文档）；窗上沿 2026-09-01 晚于汇总层水位 2026-08-31——引擎新鲜度闸将拦停/改绑并注记（照实判定）；这一问的取数方式走不通（名册里没有它的数值，或问的井不在数据范围内）——已请系统回头重新选一次取数方式（只试一次；再走不通就如实说查不到）（问题 s3）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "前置条件机：s1=allow"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "前置条件机：s2=allow"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "前置条件机：s3=allow"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 9,
+    "title": "澄清 r1 被拒：台账命中且时间窗已定——禁再 discover（直发分解）"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 10,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 14,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 11,
+    "title": "澄清 r2：分解 3 子问题"
+   }
+  },
+  {
+   "id": 15,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（malformed_matches）：工具匹配不可解析——只输出一个 JSON——输出中没有任何以左花括号起始的 JSON 对象（检查是否漏了 JSON 外壳、只输出了围栏或解释文字）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 12,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 17,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 13,
+    "title": "工具匹配被拒（malformed_matches）"
+   }
+  },
+  {
+   "id": 18,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 14,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 19,
+   "event": "notice",
+   "data": {
+    "type": "subtask_refused",
+    "gates": [],
+    "content": "这一问没能给出结果：换链回炉已用尽（一次为界）：坚持 data 链同参（指纹 {\"plan\":{\"ag…在簿）——未绑定口径如实拒答，不代答（问题 s1／规则 chain_switch）"
+   }
+  },
+  {
+   "id": 20,
+   "event": "notice",
+   "data": {
+    "type": "decision_note",
+    "gates": [],
+    "content": "这一问可以继续查：这个词只是被提到、不是真要查它的数——按判断放行，不用这个已废弃的说法出数（系统按判定序第 1 位自动放行，不额外判断）（问题 s2／说明 1 条）"
+   }
+  },
+  {
+   "id": 21,
+   "event": "notice",
+   "data": {
+    "type": "subtask_refused",
+    "gates": [],
+    "content": "这一问没能给出结果：换链回炉已用尽（一次为界）：坚持 data 链同参（指纹 {\"plan\":{\"ag…在簿）——未绑定口径如实拒答，不代答（问题 s3／规则 chain_switch）"
+   }
+  },
+  {
+   "id": 22,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 15,
+    "title": "前置条件机：s1=refuse（chain_switch）"
+   }
+  },
+  {
+   "id": 23,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 16,
+    "title": "前置条件机：s2=allow"
+   }
+  },
+  {
+   "id": 24,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 17,
+    "title": "前置条件机：s3=refuse（chain_switch）"
+   }
+  },
+  {
+   "id": 25,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 20,
+    "message": null
+   }
+  },
+  {
+   "id": 26,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#13",
+    "content": "☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 27,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 28,
+   "event": "notice",
+   "data": {
+    "type": "subtask_refused",
+    "gates": [],
+    "content": "问题 s1 没能查到数据——换链回炉已用尽（一次为界）：坚持 data 链同参（指纹 {\"plan\":{\"ag…在簿）——未绑定口径如实拒答，不代答"
+   }
+  },
+  {
+   "id": 29,
+   "event": "notice",
+   "data": {
+    "type": "subtask_refused",
+    "gates": [],
+    "content": "问题 s3 没能查到数据——换链回炉已用尽（一次为界）：坚持 data 链同参（指纹 {\"plan\":{\"ag…在簿）——未绑定口径如实拒答，不代答"
+   }
+  },
+  {
+   "id": 30,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 18,
+    "title": "子问题 s1 前置闸拒（终局不回炉）"
+   }
+  },
+  {
+   "id": 31,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 19,
+    "title": "子问题 s3 前置闸拒（终局不回炉）"
+   }
+  },
+  {
+   "id": 32,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 20,
+    "title": "data_query：ok（子问题 s2）"
+   }
+  },
+  {
+   "id": 33,
+   "event": "text",
+   "data": {
+    "content": "按台账口径答这道题，平台拿不到具体井的明细："
+   }
+  },
+  {
+   "id": 34,
+   "event": "text",
+   "data": {
+    "content": "**①检泵周期最长井及其天数；②最短与最长之差**\n- 「检泵周期」是平台指标台账（平台里登记指标和术语的名册）里登记生效的指标，按口径（这个数是按什么规则算的）=「本次检泵日 − 上次检泵日」，粒度＝单井。\n- 但该指标**未绑定**到日产量值表（数据库里按指标事先砌好的统计列）的计量层——平台不会自由生成 SQL 去算每口井的差值，也不会代用户审定结果。因此 8 月这 5 口检泵井中哪口最长、最长多少天、最短比它短多少天，**本平台未能给出**，原因不在指标名——而在该指标在平台当时未绑定到汇总层。"
+   }
+  },
+  {
+   "id": 35,
+   "event": "text",
+   "data": {
+    "content": "**③这 5 口井的检泵作业费合计多少万元**\n- 「检泵作业费」指标在本平台台账中**未登记、未绑定**，且非仅有的 3 个绑定可出数指标（日产油量／日产液量／油压）之一，因此无法做合计——不静默代答。"
+   }
+  },
+  {
+   "id": 36,
+   "event": "text",
+   "data": {
+    "content": "**给您更易查到结果的建议**\n- 把这道题想清楚需要给「检泵周期」「检泵作业费」这两项**各自建好、绑到汇总层**（聚合表里那条事先砌好的统计列）。若平台未做绑定，可向数据治理组提绑定申请后再问。\n- 也可换问句角度：直接检索 8 月检泵作业井清单与单井「本次检泵日 / 上次检泵日」原始日期，由您按口径自行算差值与作业费合计——这样不依赖平台绑定层。"
+   }
+  },
+  {
+   "id": 37,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 21,
+    "title": "模型调用：answer"
+   }
+  },
+  {
+   "id": 38,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 22,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 39,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 5 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  },
+  {
+   "id": 40,
+   "event": "verdict",
+   "data": {
+    "supported": 0,
+    "rewritten": 5,
+    "split": 0,
+    "cited": [],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  },
+  {
+   "id": 41,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 23,
+    "title": "核验：支撑 0｜改写 5｜分源 否"
+   }
+  },
+  {
+   "id": 42,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 24,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 43,
+   "event": "verdict",
+   "data": {
+    "status": "completed",
+    "run_id": "run-de7dc1c1",
+    "manifest_digest": "1fa0f7dd3a5f0d83",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 44,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-de7dc1c1",
+    "question": "按台账口径，8 月 5 口检泵井的检泵周期最长的是哪口井、多少天？最短的比它短多少天？这 5 口井的检泵作业费合计多少万元？",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 41911,
+    "counts": {
+     "messages": 16,
+     "dialogue": 0,
+     "process_notes": 7,
+     "observations": 2,
+     "steps": 24
+    }
+   }
+  },
+  {
+   "id": 44,
+   "event": "done",
+   "data": {
+    "run_id": "run-de7dc1c1"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "**给您更易查到结果的建议**\n- 把这道题想清楚需要给「检泵周期」「检泵作业费」这两项**各自建好、绑到汇总层**（聚合表里那条事先砌好的统计列）。若平台未做绑定，可向数据治理组提绑定申请后再问。\n- 也可换问句角度：直接检索 8 月检泵作业井清单与单井「本次检泵日 / 上次检泵日」原始日期，由您按口径自行算差值与作业费合计——这样不依赖平台绑定层。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "chain_switch_reentry",
+    "gates": [],
+    "content": "这一问的取数方式走不通，已请系统回头重选：「检泵周期」在册未绑定——agg 汇总层无承载列，引擎将走降级解释链（零数值不冒充）——或改走 knowledge 链检索文档所载（本指标口径/数值可能载于文档）；窗上沿 2026-09-01 晚于汇总层水位 2026-08-31——引擎新鲜度闸将拦停/改绑并注记（照实判定）；这一问的取数方式走不通（名册里没有它的数值，或问的井不在数据范围内）——已请系统回头重新选一次取数方式（只试一次；再走不通就如实说查不到）（问题 s1）"
+   },
+   {
+    "type": "decision_note",
+    "gates": [],
+    "content": "这一问可以继续查：这个词只是被提到、不是真要查它的数——按判断放行，不用这个已废弃的说法出数（系统按判定序第 1 位自动放行，不额外判断）（问题 s2／说明 1 条）"
+   },
+   {
+    "type": "chain_switch_reentry",
+    "gates": [],
+    "content": "这一问的取数方式走不通，已请系统回头重选：「检泵周期」在册未绑定——agg 汇总层无承载列，引擎将走降级解释链（零数值不冒充）——或改走 knowledge 链检索文档所载（本指标口径/数值可能载于文档）；窗上沿 2026-09-01 晚于汇总层水位 2026-08-31——引擎新鲜度闸将拦停/改绑并注记（照实判定）；这一问的取数方式走不通（名册里没有它的数值，或问的井不在数据范围内）——已请系统回头重新选一次取数方式（只试一次；再走不通就如实说查不到）（问题 s3）"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（malformed_matches）：工具匹配不可解析——只输出一个 JSON——输出中没有任何以左花括号起始的 JSON 对象（检查是否漏了 JSON 外壳、只输出了围栏或解释文字）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "subtask_refused",
+    "gates": [],
+    "content": "这一问没能给出结果：换链回炉已用尽（一次为界）：坚持 data 链同参（指纹 {\"plan\":{\"ag…在簿）——未绑定口径如实拒答，不代答（问题 s1／规则 chain_switch）"
+   },
+   {
+    "type": "decision_note",
+    "gates": [],
+    "content": "这一问可以继续查：这个词只是被提到、不是真要查它的数——按判断放行，不用这个已废弃的说法出数（系统按判定序第 1 位自动放行，不额外判断）（问题 s2／说明 1 条）"
+   },
+   {
+    "type": "subtask_refused",
+    "gates": [],
+    "content": "这一问没能给出结果：换链回炉已用尽（一次为界）：坚持 data 链同参（指纹 {\"plan\":{\"ag…在簿）——未绑定口径如实拒答，不代答（问题 s3／规则 chain_switch）"
+   },
+   {
+    "type": "subtask_refused",
+    "gates": [],
+    "content": "问题 s1 没能查到数据——换链回炉已用尽（一次为界）：坚持 data 链同参（指纹 {\"plan\":{\"ag…在簿）——未绑定口径如实拒答，不代答"
+   },
+   {
+    "type": "subtask_refused",
+    "gates": [],
+    "content": "问题 s3 没能查到数据——换链回炉已用尽（一次为界）：坚持 data 链同参（指纹 {\"plan\":{\"ag…在簿）——未绑定口径如实拒答，不代答"
+   },
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 5 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-de7dc1c1",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1：分解 3 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "前置条件机：s1=allow"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "前置条件机：s2=allow"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "前置条件机：s3=allow"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 9,
+    "title": "澄清 r1 被拒：台账命中且时间窗已定——禁再 discover（直发分解）"
+   },
+   {
+    "step": "decision",
+    "seq": 10,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 11,
+    "title": "澄清 r2：分解 3 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 12,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 13,
+    "title": "工具匹配被拒（malformed_matches）"
+   },
+   {
+    "step": "decision",
+    "seq": 14,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 15,
+    "title": "前置条件机：s1=refuse（chain_switch）"
+   },
+   {
+    "step": "decision",
+    "seq": 16,
+    "title": "前置条件机：s2=allow"
+   },
+   {
+    "step": "decision",
+    "seq": 17,
+    "title": "前置条件机：s3=refuse（chain_switch）"
+   },
+   {
+    "step": "execute",
+    "seq": 18,
+    "title": "子问题 s1 前置闸拒（终局不回炉）"
+   },
+   {
+    "step": "execute",
+    "seq": 19,
+    "title": "子问题 s3 前置闸拒（终局不回炉）"
+   },
+   {
+    "step": "execute",
+    "seq": 20,
+    "title": "data_query：ok（子问题 s2）"
+   },
+   {
+    "step": "answer",
+    "seq": 21,
+    "title": "模型调用：answer"
+   },
+   {
+    "step": "answer",
+    "seq": 22,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 23,
+    "title": "核验：支撑 0｜改写 5｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 24,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 20,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_metric#13",
+    "content": "☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "ledger"
+   },
+   {
+    "index": 2,
+    "source": "query 引擎降级依据",
+    "content": "指标「☆检泵周期」在册但未绑定汇总层（agg）计量列——模板只认绑定 agg 计量列的指标，不自由生成 SQL（不冒充审定口径）、零数值。台账依据：☆检泵周期：本次检泵日 − 上次检泵日｜粒度 单井 · 单位 天｜状态 生效中｜争议注记：—",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "supported": 0,
+    "rewritten": 5,
+    "split": 0,
+    "cited": [],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  ],
+  "final": {
+   "status": "completed",
+   "run_id": "run-de7dc1c1",
+   "manifest_digest": "1fa0f7dd3a5f0d83",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：按台账口径，①问 8 月 5 口检泵井中检泵周期最长的是哪口井、多少天；②问这 5 口井中最短的检泵周期比最长者短多少天；③问这 5 口井的检泵作业费合计多少万元。",
+   "按台账口径答这道题，平台拿不到具体井的明细：",
+   "**①检泵周期最长井及其天数；②最短与最长之差**\n- 「检泵周期」是平台指标台账（平台里登记指标和术语的名册）里登记生效的指标，按口径（这个数是按什么规则算的）=「本次检泵日 − 上次检泵日」，粒度＝单井。\n- 但该指标**未绑定**到日产量值表（数据库里按指标事先砌好的统计列）的计量层——平台不会自由生成 SQL 去算每口井的差值，也不会代用户审定结果。因此 8 月这 5 口检泵井中哪口最长、最长多少天、最短比它短多少天，**本平台未能给出**，原因不在指标名——而在该指标在平台当时未绑定到汇总层。",
+   "**③这 5 口井的检泵作业费合计多少万元**\n- 「检泵作业费」指标在本平台台账中**未登记、未绑定**，且非仅有的 3 个绑定可出数指标（日产油量／日产液量／油压）之一，因此无法做合计——不静默代答。",
+   "**给您更易查到结果的建议**\n- 把这道题想清楚需要给「检泵周期」「检泵作业费」这两项**各自建好、绑到汇总层**（聚合表里那条事先砌好的统计列）。若平台未做绑定，可向数据治理组提绑定申请后再问。\n- 也可换问句角度：直接检索 8 月检泵作业井清单与单井「本次检泵日 / 上次检泵日」原始日期，由您按口径自行算差值与作业费合计——这样不依赖平台绑定层。"
+  ],
+  "duration_s": 30.0
+ }
+}

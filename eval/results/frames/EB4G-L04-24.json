@@ -1,0 +1,351 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-f35d9d19",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：问本月各井的日产油量。\n指标候选：日产油量",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1 被拒：ledger_notes 槽位对账未过：s1"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r2：分解 1 子问题"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 7,
+   "event": "notice",
+   "data": {
+    "type": "decision_note",
+    "gates": [],
+    "content": "这一问可以继续查：窗上沿 2026-10-08 晚于汇总层水位 2026-08-31——引擎新鲜度闸将拦停/改绑并注记（照实判定）（问题 s1／说明 1 条）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "前置条件机：s1=allow"
+   }
+  },
+  {
+   "id": 9,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 8,
+    "message": null
+   }
+  },
+  {
+   "id": 10,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "汇总层水位读面",
+    "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 37 天 · 超期）——查询窗「2026-10-01～2026-10-07」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 8,
+    "title": "data_query：ok（子问题 s1）"
+   }
+  },
+  {
+   "id": 12,
+   "event": "text",
+   "data": {
+    "content": "本月各井日产油量未查到可交付的数据。"
+   }
+  },
+  {
+   "id": 13,
+   "event": "text",
+   "data": {
+    "content": "按平台口径（这个数是按什么规则算的），该指标走日产计量事实表（oil_production_daily / agg.fct_daily_metering，行粒度＝班次、日口径＝同井同日各班合计，默认绑定）取数，应答窗口为 2026-10-01 至 2026-10-08（即本月，截至今日）。"
+   }
+  },
+  {
+   "id": 14,
+   "event": "text",
+   "data": {
+    "content": "引擎反馈的新鲜度拦停显示：汇总层数据目前水位（数据更新到的截止日）＝2026-08-31，落后 37 天已超期，本月窗口尚无已出数数据，因此本系统暂不返回数（避免空数冒充交付）。该状况已催办至「考核与质量 → 问题单」。"
+   }
+  },
+  {
+   "id": 15,
+   "event": "text",
+   "data": {
+    "content": "如本月数据已在外围口径（如月报、ERP 配产台等）出数，可指明报告名称或时间范围，我再行检索。"
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 9,
+    "title": "模型调用：answer"
+   }
+  },
+  {
+   "id": 17,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 10,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 18,
+   "event": "verdict",
+   "data": {
+    "supported": 0,
+    "rewritten": 0,
+    "split": 0,
+    "cited": [],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  },
+  {
+   "id": 19,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 11,
+    "title": "核验：支撑 0｜改写 0｜分源 否"
+   }
+  },
+  {
+   "id": 20,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 12,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 21,
+   "event": "verdict",
+   "data": {
+    "status": "completed",
+    "run_id": "run-f35d9d19",
+    "manifest_digest": "5397a53d8034b249",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 22,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-f35d9d19",
+    "question": "本月各井日产油量是多少？",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 28638,
+    "counts": {
+     "messages": 11,
+     "dialogue": 0,
+     "process_notes": 6,
+     "observations": 1,
+     "steps": 12
+    }
+   }
+  },
+  {
+   "id": 22,
+   "event": "done",
+   "data": {
+    "run_id": "run-f35d9d19"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "如本月数据已在外围口径（如月报、ERP 配产台等）出数，可指明报告名称或时间范围，我再行检索。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "decision_note",
+    "gates": [],
+    "content": "这一问可以继续查：窗上沿 2026-10-08 晚于汇总层水位 2026-08-31——引擎新鲜度闸将拦停/改绑并注记（照实判定）（问题 s1／说明 1 条）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-f35d9d19",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1 被拒：ledger_notes 槽位对账未过：s1"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r2：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "前置条件机：s1=allow"
+   },
+   {
+    "step": "execute",
+    "seq": 8,
+    "title": "data_query：ok（子问题 s1）"
+   },
+   {
+    "step": "answer",
+    "seq": 9,
+    "title": "模型调用：answer"
+   },
+   {
+    "step": "answer",
+    "seq": 10,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 11,
+    "title": "核验：支撑 0｜改写 0｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 12,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 8,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "汇总层水位读面",
+    "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 37 天 · 超期）——查询窗「2026-10-01～2026-10-07」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "supported": 0,
+    "rewritten": 0,
+    "split": 0,
+    "cited": [],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  ],
+  "final": {
+   "status": "completed",
+   "run_id": "run-f35d9d19",
+   "manifest_digest": "5397a53d8034b249",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：问本月各井的日产油量。\n指标候选：日产油量",
+   "本月各井日产油量未查到可交付的数据。",
+   "按平台口径（这个数是按什么规则算的），该指标走日产计量事实表（oil_production_daily / agg.fct_daily_metering，行粒度＝班次、日口径＝同井同日各班合计，默认绑定）取数，应答窗口为 2026-10-01 至 2026-10-08（即本月，截至今日）。",
+   "引擎反馈的新鲜度拦停显示：汇总层数据目前水位（数据更新到的截止日）＝2026-08-31，落后 37 天已超期，本月窗口尚无已出数数据，因此本系统暂不返回数（避免空数冒充交付）。该状况已催办至「考核与质量 → 问题单」。",
+   "如本月数据已在外围口径（如月报、ERP 配产台等）出数，可指明报告名称或时间范围，我再行检索。"
+  ],
+  "duration_s": 14.4
+ }
+}

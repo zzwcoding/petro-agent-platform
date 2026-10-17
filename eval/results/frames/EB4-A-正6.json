@@ -1,0 +1,137 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-ef5fa4bb",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：问 W-111 井是干什么用的，即该井的用途与定位。",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「W-111 井是干什么的」——W-111 井在系统台账（agg.dim_well）与报告库（completion/monthly/dynamic）中均未检索到命中。您想了解的是哪口井？请从下方候选中选一口，或直接补充井号／井名。",
+     "options": [
+      "W-11 井",
+      "W-101 井",
+      "W-111 井（请确认是否就是这个井号——系统内暂无此井的注册记录）",
+      "我直接补充井号／井名"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-ef5fa4bb"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1：反问（「W-111 井是干什么的」——W-111 井在）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "verdict",
+   "data": {
+    "status": "waiting_ask",
+    "run_id": "run-ef5fa4bb",
+    "manifest_digest": "d2e048b228dd51fd",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-ef5fa4bb"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "理解：问 W-111 井是干什么用的，即该井的用途与定位。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-ef5fa4bb",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1：反问（「W-111 井是干什么的」——W-111 井在）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "「W-111 井是干什么的」——W-111 井在系统台账（agg.dim_well）与报告库（completion/monthly/dynamic）中均未检索到命中。您想了解的是哪口井？请从下方候选中选一口，或直接补充井号／井名。",
+     "options": [
+      "W-11 井",
+      "W-101 井",
+      "W-111 井（请确认是否就是这个井号——系统内暂无此井的注册记录）",
+      "我直接补充井号／井名"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-ef5fa4bb"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "status": "waiting_ask",
+   "run_id": "run-ef5fa4bb",
+   "manifest_digest": "d2e048b228dd51fd",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：问 W-111 井是干什么用的，即该井的用途与定位。"
+  ],
+  "duration_s": 3.9
+ }
+}

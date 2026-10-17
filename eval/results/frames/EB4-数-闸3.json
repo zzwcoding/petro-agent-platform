@@ -1,0 +1,382 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-47952c05",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：对各井的日产油量进行排名。指标候选：日产油量",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 5,
+   "event": "notice",
+   "data": {
+    "type": "decision_note",
+    "gates": [],
+    "content": "这一问可以继续查：窗上沿 2026-10-08 晚于汇总层水位 2026-08-31——引擎新鲜度闸将拦停/改绑并注记（照实判定）（问题 s1／说明 1 条）"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "前置条件机：s1=allow"
+   }
+  },
+  {
+   "id": 7,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 6,
+    "message": null
+   }
+  },
+  {
+   "id": 8,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "汇总层水位读面",
+    "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 37 天 · 超期）——查询窗「2026-09-08～2026-10-07」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 6,
+    "title": "data_query：ok（子问题 s1）"
+   }
+  },
+  {
+   "id": 10,
+   "event": "text",
+   "data": {
+    "content": "**关于「各井日产油量排名」的说明**"
+   }
+  },
+  {
+   "id": 11,
+   "event": "text",
+   "data": {
+    "content": "您要查的是各井日产油量的排名，但当前查不到结果——原因如下："
+   }
+  },
+  {
+   "id": 12,
+   "event": "text",
+   "data": {
+    "content": "- **数据尚未出数，无法排名**：本系统的日产油量汇总数据当前更新到 2026-08-31，您问的时间段（最近 30 天，约 2026-09-08 至 2026-10-07）晚于最新数据日期，数据未到位，无法给出排名 [1]。\n- **数据延迟情况**：目前汇总层数据水位落后约 37 天，属于超期，尚未出新一批数据 [1]。"
+   }
+  },
+  {
+   "id": 13,
+   "event": "text",
+   "data": {
+    "content": "**建议**"
+   }
+  },
+  {
+   "id": 14,
+   "event": "text",
+   "data": {
+    "content": "如果您需要近期数据，建议补充以下信息再问：\n1. 明确的时间范围（如「2026 年 8 月」或「最近一个有数据的月份」）；\n2. 或者缩小到具体的区块/油田范围（便于在数据已覆盖的窗口内查排名）。"
+   }
+  },
+  {
+   "id": 15,
+   "event": "text",
+   "data": {
+    "content": "如需我按 2026-08 月的汇总数据查各井日产油量排名，请告知。"
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 7,
+    "title": "模型调用：answer"
+   }
+  },
+  {
+   "id": 17,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 8,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 18,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 4 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  },
+  {
+   "id": 19,
+   "event": "verdict",
+   "data": {
+    "supported": 1,
+    "rewritten": 4,
+    "split": 0,
+    "cited": [
+     1
+    ],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  },
+  {
+   "id": 20,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 9,
+    "title": "核验：支撑 1｜改写 4｜分源 否"
+   }
+  },
+  {
+   "id": 21,
+   "event": "citation",
+   "data": {
+    "index": 1,
+    "source": "汇总层水位读面",
+    "source_id": "freshness_block",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 22,
+   "event": "supplement",
+   "data": {
+    "block": "citations",
+    "text": "\n\n引用：\n[1] 汇总层水位读面 · freshness_block（notice）"
+   }
+  },
+  {
+   "id": 23,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 10,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 24,
+   "event": "verdict",
+   "data": {
+    "status": "completed",
+    "run_id": "run-47952c05",
+    "manifest_digest": "d2046c555450dd80",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 25,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-47952c05",
+    "question": "各井日产油量排名",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 26803,
+    "counts": {
+     "messages": 9,
+     "dialogue": 0,
+     "process_notes": 5,
+     "observations": 1,
+     "steps": 10
+    }
+   }
+  },
+  {
+   "id": 25,
+   "event": "done",
+   "data": {
+    "run_id": "run-47952c05"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "如需我按 2026-08 月的汇总数据查各井日产油量排名，请告知。",
+  "citations": [
+   {
+    "index": 1,
+    "source": "汇总层水位读面",
+    "source_id": "freshness_block",
+    "trust": "notice"
+   }
+  ],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "decision_note",
+    "gates": [],
+    "content": "这一问可以继续查：窗上沿 2026-10-08 晚于汇总层水位 2026-08-31——引擎新鲜度闸将拦停/改绑并注记（照实判定）（问题 s1／说明 1 条）"
+   },
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 4 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-47952c05",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "前置条件机：s1=allow"
+   },
+   {
+    "step": "execute",
+    "seq": 6,
+    "title": "data_query：ok（子问题 s1）"
+   },
+   {
+    "step": "answer",
+    "seq": 7,
+    "title": "模型调用：answer"
+   },
+   {
+    "step": "answer",
+    "seq": 8,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 9,
+    "title": "核验：支撑 1｜改写 4｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 10,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 6,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "汇总层水位读面",
+    "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 37 天 · 超期）——查询窗「2026-09-08～2026-10-07」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "supported": 1,
+    "rewritten": 4,
+    "split": 0,
+    "cited": [
+     1
+    ],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  ],
+  "final": {
+   "status": "completed",
+   "run_id": "run-47952c05",
+   "manifest_digest": "d2046c555450dd80",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：对各井的日产油量进行排名。指标候选：日产油量",
+   "**关于「各井日产油量排名」的说明**",
+   "您要查的是各井日产油量的排名，但当前查不到结果——原因如下：",
+   "- **数据尚未出数，无法排名**：本系统的日产油量汇总数据当前更新到 2026-08-31，您问的时间段（最近 30 天，约 2026-09-08 至 2026-10-07）晚于最新数据日期，数据未到位，无法给出排名 [1]。\n- **数据延迟情况**：目前汇总层数据水位落后约 37 天，属于超期，尚未出新一批数据 [1]。",
+   "**建议**",
+   "如果您需要近期数据，建议补充以下信息再问：\n1. 明确的时间范围（如「2026 年 8 月」或「最近一个有数据的月份」）；\n2. 或者缩小到具体的区块/油田范围（便于在数据已覆盖的窗口内查排名）。",
+   "如需我按 2026-08 月的汇总数据查各井日产油量排名，请告知。"
+  ],
+  "duration_s": 13.6
+ }
+}

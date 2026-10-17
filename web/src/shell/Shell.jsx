@@ -7,7 +7,7 @@ import TraceBar, { DEV } from './TraceBar.jsx'
 import A1Chat, { A1_TRACE } from '../pages/A1Chat.jsx'
 import Stub from '../pages/Stub.jsx'
 import NotLit from '../landing/NotLit.jsx'
-import { DEFAULT_LANDING_KEY, LANDING_LIT, loadLandingPage } from '../landing/registry.js'
+import { DEFAULT_LANDING_KEY, LANDING_LIT, REDESIGN_LIT, loadLandingPage, loadRedesignPage } from '../landing/registry.js'
 import { useAppStore, switchRole } from '../store/app.js'
 
 window.__roles = ROLES
@@ -25,6 +25,11 @@ for (const key of ['A2','A3','B1','B2','B3','B4','B5','C1','C2','C3',
 const LANDING_LAZY = {}
 for (const key of LANDING_LIT) {
   LANDING_LAZY[key] = lazy(() => loadLandingPage(key))
+}
+// 重设计 mock 静态页（临时路由 #/A1V2R——并入同一懒加载表，渲染分支零改动。
+// DEBT(Owner)：去向 docs/runtime-refactor/frontend-redesign-设计.md §5 第 1 步）。
+for (const key of REDESIGN_LIT) {
+  LANDING_LAZY[key] = lazy(() => loadRedesignPage(key))
 }
 
 /**

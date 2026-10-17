@@ -1,0 +1,151 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-e318723a",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "读题应答不合 schema（不静默降级）：```json\n{\"route\": \"full\", \"text\": \"理解：问本油田本月电潜泵生产井的躺井井次和检泵作业井次各是多少，要求从第一章和第二章分别给出；若报告中不存在该口径，则引用报告明示句子说明前提不成立，并说明本月躺井井次与检泵作业井次实际发生在什么井型上。\", \"metric_candidates\": []}\n```"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "理解解析失败：应答不合 schema"
+   }
+  },
+  {
+   "id": 4,
+   "event": "text",
+   "data": {
+    "content": "没能完全读懂这道题，请补充说明——模型两次给出的读法都不合格式（具体不合项：应答不是合法 JSON；已带着它回喂重试过一次仍未通过）。已获材料：无（检索尚未开始，没有可交付的材料，如实说明）。为不猜、不取默认值、不出低质答案，本次不继续作答——请把问题再说得具体些（比如指明指标、时间范围、井号）后重问。"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 4,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 6,
+   "event": "verdict",
+   "data": {
+    "status": "completed",
+    "run_id": "run-e318723a",
+    "manifest_digest": "207f3834e0865c7e",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 7,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-e318723a",
+    "question": "\"本油田本月电潜泵生产井的躺井井次和检泵作业井次分别是多少？请从第一章和第二章分别给出。\"若报告中不存在该口径，请引用报告明示的句子说明前提为什么不成立，并说明本月的躺井井次、检泵作业井次实际发生在什么井型上。",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 9021,
+    "counts": {
+     "messages": 6,
+     "dialogue": 0,
+     "process_notes": 5,
+     "observations": 0,
+     "steps": 4
+    }
+   }
+  },
+  {
+   "id": 7,
+   "event": "done",
+   "data": {
+    "run_id": "run-e318723a"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "没能完全读懂这道题，请补充说明——模型两次给出的读法都不合格式（具体不合项：应答不是合法 JSON；已带着它回喂重试过一次仍未通过）。已获材料：无（检索尚未开始，没有可交付的材料，如实说明）。为不猜、不取默认值、不出低质答案，本次不继续作答——请把问题再说得具体些（比如指明指标、时间范围、井号）后重问。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "读题应答不合 schema（不静默降级）：```json\n{\"route\": \"full\", \"text\": \"理解：问本油田本月电潜泵生产井的躺井井次和检泵作业井次各是多少，要求从第一章和第二章分别给出；若报告中不存在该口径，则引用报告明示句子说明前提不成立，并说明本月躺井井次与检泵作业井次实际发生在什么井型上。\", \"metric_candidates\": []}\n```"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-e318723a",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "理解解析失败：应答不合 schema"
+   },
+   {
+    "step": "answer",
+    "seq": 4,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "status": "completed",
+   "run_id": "run-e318723a",
+   "manifest_digest": "207f3834e0865c7e",
+   "subtype": "final"
+  },
+  "texts": [
+   "没能完全读懂这道题，请补充说明——模型两次给出的读法都不合格式（具体不合项：应答不是合法 JSON；已带着它回喂重试过一次仍未通过）。已获材料：无（检索尚未开始，没有可交付的材料，如实说明）。为不猜、不取默认值、不出低质答案，本次不继续作答——请把问题再说得具体些（比如指明指标、时间范围、井号）后重问。"
+  ],
+  "duration_s": 3.4
+ }
+}

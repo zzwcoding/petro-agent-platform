@@ -1,0 +1,220 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-b7df65f5",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：判断\"渤中34-5油田三季度自然递减率6.1%、综合递减率4.6%\"是否正确，并给出这两项的同比变化（百分点）及各自的原因。",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1 被拒：ledger_notes 槽位对账未过：s1、s2"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r2 被拒：subtasks 超出上限（≤4 个——Owner 认可值）"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "澄清 r3 被拒：subtasks 超出上限（≤4 个——Owner 认可值）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "notice",
+   "data": {
+    "type": "budget_converged",
+    "gates": [
+     "rounds"
+    ],
+    "content": "预算触界收敛：rounds 已用 3／上限 3；未完成项：未取得可交付材料（材料清单：无）"
+   }
+  },
+  {
+   "id": 9,
+   "event": "text",
+   "data": {
+    "content": "（预算触界收敛——rounds；未取得可交付材料，如实说明；材料清单：无）"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 8,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 11,
+   "event": "verdict",
+   "data": {
+    "status": "completed",
+    "run_id": "run-b7df65f5",
+    "manifest_digest": "e9b09e9d833ba0af",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 12,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-b7df65f5",
+    "question": "有人说渤中34-5 油田三季度自然递减率是 6.1%、综合递减率是 4.6%，对吗？这两项同比各变了多少个百分点？分别是什么原因？",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 23285,
+    "counts": {
+     "messages": 10,
+     "dialogue": 0,
+     "process_notes": 5,
+     "observations": 0,
+     "steps": 8
+    }
+   }
+  },
+  {
+   "id": 12,
+   "event": "done",
+   "data": {
+    "run_id": "run-b7df65f5"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（预算触界收敛——rounds；未取得可交付材料，如实说明；材料清单：无）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "budget_converged",
+    "gates": [
+     "rounds"
+    ],
+    "content": "预算触界收敛：rounds 已用 3／上限 3；未完成项：未取得可交付材料（材料清单：无）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-b7df65f5",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1 被拒：ledger_notes 槽位对账未过：s1、s2"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r2 被拒：subtasks 超出上限（≤4 个——Owner 认可值）"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "澄清 r3 被拒：subtasks 超出上限（≤4 个——Owner 认可值）"
+   },
+   {
+    "step": "answer",
+    "seq": 8,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "status": "completed",
+   "run_id": "run-b7df65f5",
+   "manifest_digest": "e9b09e9d833ba0af",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：判断\"渤中34-5油田三季度自然递减率6.1%、综合递减率4.6%\"是否正确，并给出这两项的同比变化（百分点）及各自的原因。",
+   "（预算触界收敛——rounds；未取得可交付材料，如实说明；材料清单：无）"
+  ],
+  "duration_s": 9.0
+ }
+}

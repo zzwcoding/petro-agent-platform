@@ -1,0 +1,325 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-4fcb2cbe",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：问产量完成率是多少。\n指标候选：产量完成率",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r0 被拒：零实质观察禁定稿"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 7,
+   "event": "notice",
+   "data": {
+    "type": "subtask_refused",
+    "gates": [],
+    "content": "这一问没能给出结果：禁用词「老完成率」已废弃——如实拒答，不代答废弃口径（替代：产量完成率）（问题 s1／规则 ban）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "前置条件机：s1=refuse（ban）"
+   }
+  },
+  {
+   "id": 9,
+   "event": "text",
+   "data": {
+    "content": "关于「老完成率」——这是 2024 年已废弃的旧口径说法，当前平台已不再采用。在台账（平台里登记指标和术语的名册）里，它对应的现行指标是「产量完成率」（口径：Σ实际产油 ÷ Σ计划配产 × 100%），按月、按区块或油田粒度（统计的最小颗粒度）统计，单位为 %。"
+   }
+  },
+  {
+   "id": 10,
+   "event": "text",
+   "data": {
+    "content": "由于您的提问未指明时间范围与统计对象（哪个油田／区块／月份），平台目前无法直接给出一个具体数值。如需查询，请补充以下任一信息："
+   }
+  },
+  {
+   "id": 11,
+   "event": "text",
+   "data": {
+    "content": "- 时间范围（例如：本月、去年、近 30 天）\n- 统计对象（例如：某油田、某区块、全部）\n- 是否指特定口径版本"
+   }
+  },
+  {
+   "id": 12,
+   "event": "text",
+   "data": {
+    "content": "补充任一信息后即可按现行「产量完成率」口径取数并交付。"
+   }
+  },
+  {
+   "id": 13,
+   "event": "text",
+   "data": {
+    "content": "据平台术语台账：「老完成率」为禁用词，2024 年废弃，替代为「产量完成率」。"
+   }
+  },
+  {
+   "id": 14,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 8,
+    "title": "模型调用：answer"
+   }
+  },
+  {
+   "id": 15,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 9,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 16,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 3 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  },
+  {
+   "id": 17,
+   "event": "verdict",
+   "data": {
+    "supported": 0,
+    "rewritten": 3,
+    "split": 0,
+    "cited": [],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  },
+  {
+   "id": 18,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 10,
+    "title": "核验：支撑 0｜改写 3｜分源 否"
+   }
+  },
+  {
+   "id": 19,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 11,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 20,
+   "event": "verdict",
+   "data": {
+    "status": "completed",
+    "run_id": "run-4fcb2cbe",
+    "manifest_digest": "d2247b66d9dca5f4",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 21,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-4fcb2cbe",
+    "question": "老完成率是多少？",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 26168,
+    "counts": {
+     "messages": 11,
+     "dialogue": 0,
+     "process_notes": 5,
+     "observations": 0,
+     "steps": 11
+    }
+   }
+  },
+  {
+   "id": 21,
+   "event": "done",
+   "data": {
+    "run_id": "run-4fcb2cbe"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "据平台术语台账：「老完成率」为禁用词，2024 年废弃，替代为「产量完成率」。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "subtask_refused",
+    "gates": [],
+    "content": "这一问没能给出结果：禁用词「老完成率」已废弃——如实拒答，不代答废弃口径（替代：产量完成率）（问题 s1／规则 ban）"
+   },
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 3 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-4fcb2cbe",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r0 被拒：零实质观察禁定稿"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "前置条件机：s1=refuse（ban）"
+   },
+   {
+    "step": "answer",
+    "seq": 8,
+    "title": "模型调用：answer"
+   },
+   {
+    "step": "answer",
+    "seq": 9,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 10,
+    "title": "核验：支撑 0｜改写 3｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 11,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [
+   {
+    "supported": 0,
+    "rewritten": 3,
+    "split": 0,
+    "cited": [],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  ],
+  "final": {
+   "status": "completed",
+   "run_id": "run-4fcb2cbe",
+   "manifest_digest": "d2247b66d9dca5f4",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：问产量完成率是多少。\n指标候选：产量完成率",
+   "关于「老完成率」——这是 2024 年已废弃的旧口径说法，当前平台已不再采用。在台账（平台里登记指标和术语的名册）里，它对应的现行指标是「产量完成率」（口径：Σ实际产油 ÷ Σ计划配产 × 100%），按月、按区块或油田粒度（统计的最小颗粒度）统计，单位为 %。",
+   "由于您的提问未指明时间范围与统计对象（哪个油田／区块／月份），平台目前无法直接给出一个具体数值。如需查询，请补充以下任一信息：",
+   "- 时间范围（例如：本月、去年、近 30 天）\n- 统计对象（例如：某油田、某区块、全部）\n- 是否指特定口径版本",
+   "补充任一信息后即可按现行「产量完成率」口径取数并交付。",
+   "据平台术语台账：「老完成率」为禁用词，2024 年废弃，替代为「产量完成率」。"
+  ],
+  "duration_s": 12.2
+ }
+}

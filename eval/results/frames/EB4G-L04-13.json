@@ -1,0 +1,388 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-2847922b",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：问各井日产油量的排名。\n指标候选：日产油量",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 6,
+   "event": "notice",
+   "data": {
+    "type": "decision_note",
+    "gates": [],
+    "content": "这一问可以继续查：窗上沿 2026-10-08 晚于汇总层水位 2026-08-31——引擎新鲜度闸将拦停/改绑并注记（照实判定）（问题 s1／说明 1 条）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "前置条件机：s1=allow"
+   }
+  },
+  {
+   "id": 8,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 7,
+    "message": null
+   }
+  },
+  {
+   "id": 9,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "汇总层水位读面",
+    "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 37 天 · 超期）——查询窗「2026-09-08～2026-10-07」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 7,
+    "title": "data_query：ok（子问题 s1）"
+   }
+  },
+  {
+   "id": 11,
+   "event": "text",
+   "data": {
+    "content": "各井日产油量排名——未出数。"
+   }
+  },
+  {
+   "id": 12,
+   "event": "text",
+   "data": {
+    "content": "新鲜度闸拦停：汇总层数据水位（平台里统计到的最新一天）止于 2026-08-31，距今已落后 37 天，超期；查询窗（即统计口径对应的实际取数时段）「2026-09-08～2026-10-07」内尚无已出数数据，本次按平台规则不返回空数冒充。[1]"
+   }
+  },
+  {
+   "id": 13,
+   "event": "text",
+   "data": {
+    "content": "各井日产油量窗口期内的排名数据当前拿不到。为便于下次直接出数，可任选其一推进查询："
+   }
+  },
+  {
+   "id": 14,
+   "event": "text",
+   "data": {
+    "content": "- 指明窗：把时间窗说具体一些（如「最近一天」「本周」「近 N 天」任选其一，平台当前最新可取到 2026-08-31 那天的明细）；\n- 指明井/区块：点单井号、井组名或区块名——单井读数不被整表过滤（单井过滤暂未支持），会带回该井一行供读图；\n- 等水位更新：源表催办走平台内「考核与质量 → 问题单」，水位日推进后可重查近 30 天排名。"
+   }
+  },
+  {
+   "id": 15,
+   "event": "text",
+   "data": {
+    "content": "> 口径说明：本查询以默认近 30 天（2026-09-08 起）为窗，按日产油量（吨）从高到低排名出全井；数据批次为平台 agg.fct_daily_metering 事实表。"
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 8,
+    "title": "模型调用：answer"
+   }
+  },
+  {
+   "id": 17,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 9,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 18,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 2 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  },
+  {
+   "id": 19,
+   "event": "verdict",
+   "data": {
+    "supported": 1,
+    "rewritten": 2,
+    "split": 0,
+    "cited": [
+     1
+    ],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  },
+  {
+   "id": 20,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 10,
+    "title": "核验：支撑 1｜改写 2｜分源 否"
+   }
+  },
+  {
+   "id": 21,
+   "event": "citation",
+   "data": {
+    "index": 1,
+    "source": "汇总层水位读面",
+    "source_id": "freshness_block",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 22,
+   "event": "supplement",
+   "data": {
+    "block": "citations",
+    "text": "\n\n引用：\n[1] 汇总层水位读面 · freshness_block（notice）"
+   }
+  },
+  {
+   "id": 23,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 11,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 24,
+   "event": "verdict",
+   "data": {
+    "status": "completed",
+    "run_id": "run-2847922b",
+    "manifest_digest": "be8f1767711b06a6",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 25,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-2847922b",
+    "question": "各井日产油量排名",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 28794,
+    "counts": {
+     "messages": 11,
+     "dialogue": 0,
+     "process_notes": 7,
+     "observations": 1,
+     "steps": 11
+    }
+   }
+  },
+  {
+   "id": 25,
+   "event": "done",
+   "data": {
+    "run_id": "run-2847922b"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "> 口径说明：本查询以默认近 30 天（2026-09-08 起）为窗，按日产油量（吨）从高到低排名出全井；数据批次为平台 agg.fct_daily_metering 事实表。",
+  "citations": [
+   {
+    "index": 1,
+    "source": "汇总层水位读面",
+    "source_id": "freshness_block",
+    "trust": "notice"
+   }
+  ],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "decision_note",
+    "gates": [],
+    "content": "这一问可以继续查：窗上沿 2026-10-08 晚于汇总层水位 2026-08-31——引擎新鲜度闸将拦停/改绑并注记（照实判定）（问题 s1／说明 1 条）"
+   },
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 2 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-2847922b",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "前置条件机：s1=allow"
+   },
+   {
+    "step": "execute",
+    "seq": 7,
+    "title": "data_query：ok（子问题 s1）"
+   },
+   {
+    "step": "answer",
+    "seq": 8,
+    "title": "模型调用：answer"
+   },
+   {
+    "step": "answer",
+    "seq": 9,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 10,
+    "title": "核验：支撑 1｜改写 2｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 11,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 7,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "汇总层水位读面",
+    "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 37 天 · 超期）——查询窗「2026-09-08～2026-10-07」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "supported": 1,
+    "rewritten": 2,
+    "split": 0,
+    "cited": [
+     1
+    ],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  ],
+  "final": {
+   "status": "completed",
+   "run_id": "run-2847922b",
+   "manifest_digest": "be8f1767711b06a6",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：问各井日产油量的排名。\n指标候选：日产油量",
+   "各井日产油量排名——未出数。",
+   "新鲜度闸拦停：汇总层数据水位（平台里统计到的最新一天）止于 2026-08-31，距今已落后 37 天，超期；查询窗（即统计口径对应的实际取数时段）「2026-09-08～2026-10-07」内尚无已出数数据，本次按平台规则不返回空数冒充。[1]",
+   "各井日产油量窗口期内的排名数据当前拿不到。为便于下次直接出数，可任选其一推进查询：",
+   "- 指明窗：把时间窗说具体一些（如「最近一天」「本周」「近 N 天」任选其一，平台当前最新可取到 2026-08-31 那天的明细）；\n- 指明井/区块：点单井号、井组名或区块名——单井读数不被整表过滤（单井过滤暂未支持），会带回该井一行供读图；\n- 等水位更新：源表催办走平台内「考核与质量 → 问题单」，水位日推进后可重查近 30 天排名。",
+   "> 口径说明：本查询以默认近 30 天（2026-09-08 起）为窗，按日产油量（吨）从高到低排名出全井；数据批次为平台 agg.fct_daily_metering 事实表。"
+  ],
+  "duration_s": 16.6
+ }
+}

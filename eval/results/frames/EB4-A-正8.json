@@ -1,0 +1,276 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-13c166e9",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：问邻井 W-07 井初期日产油量及当前日产油量。",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1 被拒：ledger_notes 槽位对账未过：s1、s2"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r2：分解 2 子问题"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 7,
+   "event": "notice",
+   "data": {
+    "type": "chain_switch_reentry",
+    "gates": [],
+    "content": "这一问的取数方式走不通，已请系统回头重选：模糊时间词＋计划窗非空——确定性改判窗双 null（引擎缺参反问三选一兜底；「最近」类不解析不默认——词面门）；题眼井 W-07 不在数据链井闭世界（120 口井域）——data 链成功出数也必不含题眼井（域错成功返回软失败面——软失败域闸）——或改走 knowledge 链检索文档所载（本指标口径/数值可能载于文档）；窗上沿 2026-10-08 晚于汇总层水位 2026-08-31——引擎新鲜度闸将拦停/改绑并注记（照实判定）；单井过滤未支持——照常发射全井计划，答案如实注记（读该井行），不作单井断言；这一问的取数方式走不通（名册里没有它的数值，或问的井不在数据范围内）——已请系统回头重新选一次取数方式（只试一次；再走不通就如实说查不到）（问题 s2）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "前置条件机：s1=allow"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "前置条件机：s2=allow"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 9,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 10,
+    "title": "澄清 r3 被拒：action 缺失或越界（ask/decompose/discover/finalize 四值）：None"
+   }
+  },
+  {
+   "id": 12,
+   "event": "notice",
+   "data": {
+    "type": "budget_converged",
+    "gates": [
+     "rounds"
+    ],
+    "content": "预算触界收敛：rounds 已用 3／上限 3；未完成项：未取得可交付材料（材料清单：无）"
+   }
+  },
+  {
+   "id": 13,
+   "event": "text",
+   "data": {
+    "content": "（预算触界收敛——rounds；未取得可交付材料，如实说明；材料清单：无）"
+   }
+  },
+  {
+   "id": 14,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 11,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 15,
+   "event": "verdict",
+   "data": {
+    "status": "completed",
+    "run_id": "run-13c166e9",
+    "manifest_digest": "e8bc179e6f741a0a",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 16,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-13c166e9",
+    "question": "邻井 W-07 井初期日产油多少？现在呢？",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 27559,
+    "counts": {
+     "messages": 12,
+     "dialogue": 0,
+     "process_notes": 5,
+     "observations": 0,
+     "steps": 11
+    }
+   }
+  },
+  {
+   "id": 16,
+   "event": "done",
+   "data": {
+    "run_id": "run-13c166e9"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "（预算触界收敛——rounds；未取得可交付材料，如实说明；材料清单：无）",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "chain_switch_reentry",
+    "gates": [],
+    "content": "这一问的取数方式走不通，已请系统回头重选：模糊时间词＋计划窗非空——确定性改判窗双 null（引擎缺参反问三选一兜底；「最近」类不解析不默认——词面门）；题眼井 W-07 不在数据链井闭世界（120 口井域）——data 链成功出数也必不含题眼井（域错成功返回软失败面——软失败域闸）——或改走 knowledge 链检索文档所载（本指标口径/数值可能载于文档）；窗上沿 2026-10-08 晚于汇总层水位 2026-08-31——引擎新鲜度闸将拦停/改绑并注记（照实判定）；单井过滤未支持——照常发射全井计划，答案如实注记（读该井行），不作单井断言；这一问的取数方式走不通（名册里没有它的数值，或问的井不在数据范围内）——已请系统回头重新选一次取数方式（只试一次；再走不通就如实说查不到）（问题 s2）"
+   },
+   {
+    "type": "budget_converged",
+    "gates": [
+     "rounds"
+    ],
+    "content": "预算触界收敛：rounds 已用 3／上限 3；未完成项：未取得可交付材料（材料清单：无）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-13c166e9",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1 被拒：ledger_notes 槽位对账未过：s1、s2"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r2：分解 2 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "前置条件机：s1=allow"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "前置条件机：s2=allow"
+   },
+   {
+    "step": "decision",
+    "seq": 9,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 10,
+    "title": "澄清 r3 被拒：action 缺失或越界（ask/decompose/discover/finalize 四值）：None"
+   },
+   {
+    "step": "answer",
+    "seq": 11,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "status": "completed",
+   "run_id": "run-13c166e9",
+   "manifest_digest": "e8bc179e6f741a0a",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：问邻井 W-07 井初期日产油量及当前日产油量。",
+   "（预算触界收敛——rounds；未取得可交付材料，如实说明；材料清单：无）"
+  ],
+  "duration_s": 21.2
+ }
+}

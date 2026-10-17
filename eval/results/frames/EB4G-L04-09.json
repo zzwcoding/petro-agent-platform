@@ -1,0 +1,399 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-a296e5d3",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：问去年（以 2026-08-31 为锚，即 2025 年）各井的配产量。",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 5,
+   "event": "notice",
+   "data": {
+    "type": "chain_switch_reentry",
+    "gates": [],
+    "content": "这一问的取数方式走不通，已请系统回头重选：「配产量」在册未绑定——agg 汇总层无承载列，引擎将走降级解释链（零数值不冒充）——或改走 knowledge 链检索文档所载（本指标口径/数值可能载于文档）；这一问的取数方式走不通（名册里没有它的数值，或问的井不在数据范围内）——已请系统回头重新选一次取数方式（只试一次；再走不通就如实说查不到）（问题 s1）"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "前置条件机：s1=allow"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "澄清 r1 被拒：零实质观察禁定稿"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 9,
+    "title": "澄清 r1 被拒：台账命中且时间窗已定——禁再 discover（直发分解）"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 10,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 11,
+    "title": "澄清 r2：分解 1 子问题"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 12,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 14,
+   "event": "notice",
+   "data": {
+    "type": "subtask_refused",
+    "gates": [],
+    "content": "这一问没能给出结果：换链回炉已用尽（一次为界）：坚持 data 链同参（指纹 {\"plan\":{\"ag…在簿）——未绑定口径如实拒答，不代答（问题 s1／规则 chain_switch）"
+   }
+  },
+  {
+   "id": 15,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 13,
+    "title": "前置条件机：s1=refuse（chain_switch）"
+   }
+  },
+  {
+   "id": 16,
+   "event": "text",
+   "data": {
+    "content": "去年各井的配产量，系统内暂无可引用的取数材料——配产量这一指标目前在台账里处于未绑定（unbound）状态，即指标虽有定义但数值未挂接到可查询的事实表，agg 读模型也未落该列，因此走 data 链取不到明细。"
+   }
+  },
+  {
+   "id": 17,
+   "event": "text",
+   "data": {
+    "content": "建议换一个更便于查到的提法试试：\n- 若你只想看某一两口井的配产（比如点名某井号），告诉我井号，可走完井工程报告或生产动态资料按报告事实取该井的配产版本记录；\n- 若你想看某一年的月度配产合计而非逐井明细，可告诉我具体月份（如「2025 年 3 月配产合计」），按月报检索；\n- 若你说的「去年」想按自然年 2025 取，请确认——系统当前数据水位为 2026-08-31，2025 全年配产按报告口径有据可查。"
+   }
+  },
+  {
+   "id": 18,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 14,
+    "title": "模型调用：answer"
+   }
+  },
+  {
+   "id": 19,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 15,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 20,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 2 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  },
+  {
+   "id": 21,
+   "event": "verdict",
+   "data": {
+    "supported": 0,
+    "rewritten": 2,
+    "split": 0,
+    "cited": [],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  },
+  {
+   "id": 22,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 16,
+    "title": "核验：支撑 0｜改写 2｜分源 否"
+   }
+  },
+  {
+   "id": 23,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 17,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 24,
+   "event": "verdict",
+   "data": {
+    "status": "completed",
+    "run_id": "run-a296e5d3",
+    "manifest_digest": "4e8b735adb78ae47",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 25,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-a296e5d3",
+    "question": "去年各井配产量是多少？",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 30739,
+    "counts": {
+     "messages": 16,
+     "dialogue": 0,
+     "process_notes": 7,
+     "observations": 0,
+     "steps": 17
+    }
+   }
+  },
+  {
+   "id": 25,
+   "event": "done",
+   "data": {
+    "run_id": "run-a296e5d3"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "建议换一个更便于查到的提法试试：\n- 若你只想看某一两口井的配产（比如点名某井号），告诉我井号，可走完井工程报告或生产动态资料按报告事实取该井的配产版本记录；\n- 若你想看某一年的月度配产合计而非逐井明细，可告诉我具体月份（如「2025 年 3 月配产合计」），按月报检索；\n- 若你说的「去年」想按自然年 2025 取，请确认——系统当前数据水位为 2026-08-31，2025 全年配产按报告口径有据可查。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "chain_switch_reentry",
+    "gates": [],
+    "content": "这一问的取数方式走不通，已请系统回头重选：「配产量」在册未绑定——agg 汇总层无承载列，引擎将走降级解释链（零数值不冒充）——或改走 knowledge 链检索文档所载（本指标口径/数值可能载于文档）；这一问的取数方式走不通（名册里没有它的数值，或问的井不在数据范围内）——已请系统回头重新选一次取数方式（只试一次；再走不通就如实说查不到）（问题 s1）"
+   },
+   {
+    "type": "subtask_refused",
+    "gates": [],
+    "content": "这一问没能给出结果：换链回炉已用尽（一次为界）：坚持 data 链同参（指纹 {\"plan\":{\"ag…在簿）——未绑定口径如实拒答，不代答（问题 s1／规则 chain_switch）"
+   },
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 2 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-a296e5d3",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "前置条件机：s1=allow"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "澄清 r1 被拒：零实质观察禁定稿"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 9,
+    "title": "澄清 r1 被拒：台账命中且时间窗已定——禁再 discover（直发分解）"
+   },
+   {
+    "step": "decision",
+    "seq": 10,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 11,
+    "title": "澄清 r2：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 12,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 13,
+    "title": "前置条件机：s1=refuse（chain_switch）"
+   },
+   {
+    "step": "answer",
+    "seq": 14,
+    "title": "模型调用：answer"
+   },
+   {
+    "step": "answer",
+    "seq": 15,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 16,
+    "title": "核验：支撑 0｜改写 2｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 17,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [
+   {
+    "supported": 0,
+    "rewritten": 2,
+    "split": 0,
+    "cited": [],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  ],
+  "final": {
+   "status": "completed",
+   "run_id": "run-a296e5d3",
+   "manifest_digest": "4e8b735adb78ae47",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：问去年（以 2026-08-31 为锚，即 2025 年）各井的配产量。",
+   "去年各井的配产量，系统内暂无可引用的取数材料——配产量这一指标目前在台账里处于未绑定（unbound）状态，即指标虽有定义但数值未挂接到可查询的事实表，agg 读模型也未落该列，因此走 data 链取不到明细。",
+   "建议换一个更便于查到的提法试试：\n- 若你只想看某一两口井的配产（比如点名某井号），告诉我井号，可走完井工程报告或生产动态资料按报告事实取该井的配产版本记录；\n- 若你想看某一年的月度配产合计而非逐井明细，可告诉我具体月份（如「2025 年 3 月配产合计」），按月报检索；\n- 若你说的「去年」想按自然年 2025 取，请确认——系统当前数据水位为 2026-08-31，2025 全年配产按报告口径有据可查。"
+  ],
+  "duration_s": 13.0
+ }
+}

@@ -1,0 +1,292 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-2552dc43",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：问\"躺井\"的定义。\n指标候选：无",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清钻取 ×1（semantic_query）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 4,
+    "message": null
+   }
+  },
+  {
+   "id": 5,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_term#4",
+    "content": "躺井（黑话 → 停产待检泵 · 有效（限作业区语境））：作业区口语",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 4,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "澄清定稿：材料足够——直答收口"
+   }
+  },
+  {
+   "id": 9,
+   "event": "text",
+   "data": {
+    "content": "「躺井」是油田作业区的口语，对应的规范术语叫「停产待检泵」（即停产、等待检泵的井），常用于日常沟通中指代那些因抽油泵或其他井下设备问题停产、准备安排检泵作业的井。这个词在生产报告里正式出现时，通常会写作「停产待检泵」。"
+   }
+  },
+  {
+   "id": 10,
+   "event": "text",
+   "data": {
+    "content": "如果您想进一步了解停产待检泵的判定标准、统计口径（如「停产待检泵井次」在不同月报里的计入方式）或具体某口井的当前状态，可以告诉我井号或所在油田，我帮您从报告里查到对应事实。"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 7,
+    "title": "模型调用：answer"
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 8,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 13,
+   "event": "verdict",
+   "data": {
+    "supported": 0,
+    "rewritten": 0,
+    "split": 0,
+    "cited": [],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  },
+  {
+   "id": 14,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 9,
+    "title": "核验：支撑 0｜改写 0｜分源 否"
+   }
+  },
+  {
+   "id": 15,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 10,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 16,
+   "event": "verdict",
+   "data": {
+    "status": "completed",
+    "run_id": "run-2552dc43",
+    "manifest_digest": "6f3b873fa236e0eb",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 17,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-2552dc43",
+    "question": "什么是躺井？",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 22536,
+    "counts": {
+     "messages": 9,
+     "dialogue": 0,
+     "process_notes": 6,
+     "observations": 1,
+     "steps": 10
+    }
+   }
+  },
+  {
+   "id": 17,
+   "event": "done",
+   "data": {
+    "run_id": "run-2552dc43"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "如果您想进一步了解停产待检泵的判定标准、统计口径（如「停产待检泵井次」在不同月报里的计入方式）或具体某口井的当前状态，可以告诉我井号或所在油田，我帮您从报告里查到对应事实。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-2552dc43",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清钻取 ×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 4,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "澄清定稿：材料足够——直答收口"
+   },
+   {
+    "step": "answer",
+    "seq": 7,
+    "title": "模型调用：answer"
+   },
+   {
+    "step": "answer",
+    "seq": 8,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 9,
+    "title": "核验：支撑 0｜改写 0｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 10,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 4,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_term#4",
+    "content": "躺井（黑话 → 停产待检泵 · 有效（限作业区语境））：作业区口语",
+    "trust": "ledger"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "supported": 0,
+    "rewritten": 0,
+    "split": 0,
+    "cited": [],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  ],
+  "final": {
+   "status": "completed",
+   "run_id": "run-2552dc43",
+   "manifest_digest": "6f3b873fa236e0eb",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：问\"躺井\"的定义。\n指标候选：无",
+   "「躺井」是油田作业区的口语，对应的规范术语叫「停产待检泵」（即停产、等待检泵的井），常用于日常沟通中指代那些因抽油泵或其他井下设备问题停产、准备安排检泵作业的井。这个词在生产报告里正式出现时，通常会写作「停产待检泵」。",
+   "如果您想进一步了解停产待检泵的判定标准、统计口径（如「停产待检泵井次」在不同月报里的计入方式）或具体某口井的当前状态，可以告诉我井号或所在油田，我帮您从报告里查到对应事实。"
+  ],
+  "duration_s": 10.6
+ }
+}
