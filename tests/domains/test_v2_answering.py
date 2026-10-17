@@ -100,6 +100,7 @@ from appv2.runtimev2.answering import (
     strip_emission_fences,
     strip_placeholders,
 )
+from appv2.runtimev2.answering import constants as answering_constants
 from appv2.runtimev2.context import DEFAULT_MAX_OBSERVATIONS, render_materials
 from appv2.runtimev2.gateway_adapter import ScriptedCompleter, set_completer
 from appv2.runtimev2.prompts import answer_system_contract
@@ -660,6 +661,37 @@ async def test_emission_strip_zero_leak() -> None:
     with _phase("结论一[1]。") as clean_session:
         clean_session.call(clean_state)
     assert clean_state.notices == []
+
+
+# ---------- 11a2 剥离空稿 notice 文案如实（V2-85／挂账 A2③） ----------
+
+
+async def test_emission_strip_notice_honest_on_empty_draft() -> None:
+    """剥离把草稿剥成空稿时，notice 不得再称「答案不受影响」（V2-85）。"""
+    state = _state(observations=[_obs(1, "agg_row")])
+    with _phase('{"action": "discover", "query": "古近系"}') as session:
+        draft = session.call(state)
+    frames = await _frames(session.bus)
+
+    notes = [note for note in state.notices if note["type"] == NOTICE_EMISSION_STRIP]
+    assert len(notes) == 1
+    assert notes[0]["content"] == answering_constants.EMISSION_STRIP_EMPTY_CONTENT
+    assert notes[0]["content"] != answering_constants.EMISSION_STRIP_CONTENT
+    assert draft.segments == [] and state.draft == ""
+    assert _of(frames, "text") == []
+
+
+async def test_emission_strip_notice_unchanged_when_draft_survives() -> None:
+    """剥后仍有正文 → 保留原文案（此时「答案不受影响」如实）。"""
+    state = _state(observations=[_obs(1, "agg_row")])
+    reply = '结论一：日产油量 10 吨[1]。\n\n{"action": "discover", "query": "x"}'
+    with _phase(reply) as session:
+        draft = session.call(state)
+
+    notes = [note for note in state.notices if note["type"] == NOTICE_EMISSION_STRIP]
+    assert len(notes) == 1
+    assert notes[0]["content"] == answering_constants.EMISSION_STRIP_CONTENT
+    assert draft.segments and state.draft.strip()
 
 
 # ---------- 11b 输入侧提取（V2-82g：整枚 finalize JSON → 交付字段作草稿） ----------

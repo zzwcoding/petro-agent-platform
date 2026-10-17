@@ -46,6 +46,9 @@ _USER_FACE_TEXTS: dict[str, str] = {
     # answering：notice 帧内容（web `NoticeRow` 渲染 content）
     "answering.MATERIAL_TRUNCATED_CONTENT": answering_constants.MATERIAL_TRUNCATED_CONTENT,
     "answering.EMISSION_STRIP_CONTENT": answering_constants.EMISSION_STRIP_CONTENT,
+    "answering.EMISSION_STRIP_EMPTY_CONTENT": (
+        answering_constants.EMISSION_STRIP_EMPTY_CONTENT
+    ),
     # answering：增补面（supplement 帧 text／run 行 supplements——交付面，
     # 评分面＝正文＋增补面合并判）
     "answering.CONTRADICTION_SECTION_HEAD": answering_constants.CONTRADICTION_SECTION_HEAD,

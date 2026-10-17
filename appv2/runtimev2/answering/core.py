@@ -85,6 +85,7 @@ from appv2.runtimev2.answering.constants import (
     DRAFT_STEP_KIND,
     DRAFT_STEP_TITLE,
     EMISSION_STRIP_CONTENT,
+    EMISSION_STRIP_EMPTY_CONTENT,
     EMPTY_DRAFT_REASON,
     FINALIZE_STEP_KIND,
     FINALIZE_STEP_TITLE,
@@ -287,8 +288,7 @@ def _draft(
     # 外壳零进答案面）；`note` 的 digest 仍留**模型原话**（含发射 JSON——行为 8 的可回溯面）。
     extracted = extract_finalize_answer(raw)
     draft_text, leaked = strip_emission_fences(raw if extracted is None else extracted)
-    if leaked or extracted is not None:
-        notice(state, type=NOTICE_EMISSION_STRIP, content=EMISSION_STRIP_CONTENT)
+    strip_hit = leaked or extracted is not None  # 剥离/提取命中（原判据不动；通知发点后移）
     # 占位符不进答案面（行为 13）：字面占位引标 `[n]` 整枚离场——剥离后才是答案面文本
     # （分段／发帧／落 `state.draft` 三者同源；剥后成空的行由空段跳过自然丢弃）。
     draft_text = strip_placeholders(draft_text)
@@ -306,6 +306,18 @@ def _draft(
     # 起草步 payload 机读键（`dangling_citation_seqs`——不静默）；**不再判失败**——材料照常交付，
     # 由核验面确定性处置（旧「坏引标抛错 → 编排收 run_failed」已销账）。
     draft_text, dangling = strip_dangling_citations(draft_text, tuple(by_index))
+    if strip_hit:
+        # V2-85（A2③）：notice 文案按**终稿态**分支——剥成空稿时不得再称「答案不受影响」
+        # （旧文案与实际相反：答案恰被剥没）。非空稿分支保留原文案（确实不影响答案）。
+        notice(
+            state,
+            type=NOTICE_EMISSION_STRIP,
+            content=(
+                EMISSION_STRIP_CONTENT
+                if draft_text.strip()
+                else EMISSION_STRIP_EMPTY_CONTENT
+            ),
+        )
     segments = _draft_segments(draft_text)
     gaps = _draft_gaps(state, manifest=manifest, draft_text=draft_text)
     record_step(
