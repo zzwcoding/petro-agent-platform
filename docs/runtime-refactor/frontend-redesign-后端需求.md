@@ -1,11 +1,11 @@
 # 前端答案展示重设计 · 后端需求登记
 
-> 2026-10-17 · 归属变更（Owner 拍板）：**后端改动后续在本窗口自改**（不再走主窗收取）；P1-1 读口与 P1-3 定位面由本窗口后续开票施工。
-> 纪律：改动前后须过接口对账（见 `docs/runtime-refactor/frontend-redesign-接口对账.md`）；前端一律按现状数据面降级设计，不因缺字段阻塞。
+> 2026-10-17 · 归属变更（Owner 拍板）：**未决后端条目全部挂账，归主窗 runtime 线解决**（登记真源＝`frontend-redesign-挂账清单.md` A1–A7，本文件为细节面）。
+> 纪律：改动前后须过接口对账（见 `frontend-redesign-接口对账.md`）；前端按现状数据面降级设计，不因缺字段阻塞。
 
-## P0 · 真机缺陷（2026-10-17 run-723b64c4 实机实证——问候「你好」零交付，根因报告全文见会话排查记录）
+## P0 · 真机缺陷（2026-10-17 run-723b64c4 实机实证——问候「你好」零交付；挂账 A1/A2，归属主窗 runtime 线）
 
-> 证据源：logs/llm_calls/20261017.jsonl:1986/1988/1990/1991、`GET /api/v2/chat/runs/run-723b64c4` step seq=2/13、curl 列表读口（answer:null）、appv2 源码 file:line 全链。归属：**待 Owner 指派**（主窗 runtime 线或本窗口后续票——涉 prompts/understanding/answering 行为面）。
+> 证据源：logs/llm_calls/20261017.jsonl:1986/1988/1990/1991、`GET /api/v2/chat/runs/run-723b64c4` step seq=2/13、curl 列表读口（answer:null）、appv2 源码 file:line 全链（挂账清单 A1/A2 互引）。
 
 **缺陷 1A · 直答被闭世界误退＋退回文本错走 understanding 通道（understanding 层）**
 - 现场：问候走 route=direct，文本自带示例枚举「抽油机时率」命中名录（`metric_roster`，`understanding/closure.py:70-87`）→ `_reject_direct`（`understanding/interpret.py:164-169`）退回 full。
