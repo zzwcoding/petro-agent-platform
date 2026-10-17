@@ -171,7 +171,8 @@ _FAIL_CLOSED_CLAUSE = "只要可能有关"
 _HESITANT_CLAUSE = "哪怕你拿不准"
 _NARROW_EXIT_CLAUSE = "只有确定与业务毫无关系"
 _QUESTION_SEGMENT_HEAD = "先判与业务的相关性"
-_GREETING_ONLY_CLAUSE = "确定无关的寒暄闲聊＝直答"
+# 2026-10-18 V2-87：题干段收束句随输出形统一改 JSON 两出口（V1「两行式／直答」措辞退役）
+_GREETING_ONLY_CLAUSE = "确定无关的寒暄闲聊＝输出 route=\"direct\" 的 JSON"
 
 # ── fixture 投影（台账活体投影形——`tools.ledger_facts` 十入面：metrics／aliases／terms／…）──
 _METRIC_ROWS: tuple[dict[str, Any], ...] = (

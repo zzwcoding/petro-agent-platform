@@ -599,6 +599,74 @@ def test_task_book_examples_fixed_set() -> None:
         assert TASK_BOOK_EXAMPLES not in assemble_task_book(state)
 
 
+# ---------- 6a 输出形统一：两行式残留退役 → 单 JSON（V2-87） ----------
+
+
+def test_task_book_output_form_single_json() -> None:
+    """任务书输出形＝单 JSON 契约（V2-87）：两行式措辞退役、模板列全消费面两键。
+
+    依据＝`specs/understanding.md` 行为 1／3／10（已裁单 JSON）＋EB7 `数-降2` 真机（模型两次
+    读题不合 JSON，收敛拒答）＋代码审计 M9（读题 system 内两行式与单 JSON 契约并存）＋M8
+    （`subjects`／`terms` 消费面已读、契约未列）。**判据语义零改**——读题字段含义、样例取舍要点、
+    直答例外条款（含 V2-83 泛化介绍禁令，另见 `::direct_answer_prompt_bans_closed_world_names`）
+    逐字保留。
+    """
+    # 两行式措辞退役（三个承载输出形的常量：任务／样例／红线）
+    retired = ("输出固定两行", "第一行「理解", "第二行「指标候选")
+    for label, text in (
+        ("TASK_BOOK_TASK", TASK_BOOK_TASK),
+        ("TASK_BOOK_EXAMPLES", TASK_BOOK_EXAMPLES),
+        ("TASK_BOOK_REDLINE", TASK_BOOK_REDLINE),
+    ):
+        for phrase in retired:
+            assert phrase not in text, f"{label} 两行式措辞残留：{phrase}"
+    # 输出契约模板补 `subjects`／`terms` 两键（审计 M8——解析层已读，契约必须列）
+    assert '"route": "full"' in TASK_BOOK_OUTPUT_CONTRACT
+    assert '"subjects"' in TASK_BOOK_OUTPUT_CONTRACT
+    assert '"terms"' in TASK_BOOK_OUTPUT_CONTRACT
+    assert "route 只许这两个取值" in TASK_BOOK_OUTPUT_CONTRACT  # 拒单条款零改
+    # 直答例外条款四判据逐字在场（V2-80a 路由原则／V2-83 泛化介绍禁令）
+    for clause in (
+        "唯一例外（纯寒暄直答）",
+        "你的判断只有一个",
+        "确定与业务毫无关系",
+        "以油田数据问答助手的身份",
+    ):
+        assert clause in TASK_BOOK_TASK
+
+
+# 题干段收束句逐字稿（2026-10-18 V2-87 主窗裁决：输出形统一下沉到题干段——原「可能有关＝
+# 两行式／确定无关＝直答」是模型可见的最后一处两行式残留）。
+_QUESTION_SEGMENT_TAIL = (
+    "（先判与业务的相关性：可能有关＝输出 route=\"full\" 的 JSON；"
+    "确定无关的寒暄闲聊＝输出 route=\"direct\" 的 JSON。现在输出。）"
+)
+
+
+def test_question_segment_single_json_tail() -> None:
+    """题干段收束句＝单 JSON 两出口逐字（V2-87 补）；题干段仍置末、以「现在输出。）」收尾。"""
+    book = assemble_task_book(_ledger_state(), watermark="2026-08-24")
+    assert book.rstrip().endswith(_QUESTION_SEGMENT_TAIL)
+    assert "两行式" not in book  # 模型可见面零两行式残留（验收意图面）
+    assert "两行式" not in understand_system_contract()
+    # 判据意图不变：题干段为末段、题干段头在收束句之前（紧邻生成点）
+    assert book.index(_QUESTION_HEAD) < book.index(_QUESTION_SEGMENT_TAIL)
+
+
+def test_task_book_examples_json_parseable() -> None:
+    """三则样例的 `输出：` 行＝合法 JSON 且键集含消费面四键（V2-87）。"""
+    lines = [line for line in TASK_BOOK_EXAMPLES.split("\n") if line.startswith("输出：")]
+    assert len(lines) == 3, "样例区应为固定三则、每则恰一条「输出：」行"
+    parsed = [json.loads(line.partition("输出：")[2]) for line in lines]
+    for payload in parsed:
+        assert payload["route"] == "full"
+        assert {"text", "metric_candidates", "subjects", "terms"} <= set(payload)
+    # 样例取舍要点零改（三则各自的候选行语义不变）
+    assert parsed[0]["metric_candidates"] == ["抽油机时率"]
+    assert parsed[1]["metric_candidates"] == ["日产油量", "抽油机时率"]
+    assert parsed[2]["metric_candidates"] == [] and parsed[2]["subjects"] == ["Y-41"]
+
+
 # ---------- 6b 直答子句＝泛化介绍禁令（V2-83 挂账 A1 自伤修复） ----------
 
 
@@ -1022,7 +1090,14 @@ def test_decision_increment_lines_present() -> None:
                 "status": "bad_args",
                 "reason": "未绑定（台账无数值）",
             },
-            {"id": "s3", "question": "井筒口径", "status": "bad_args", "reason": "不在台账"},
+            # V2-88：触发词对齐引擎原文（「不在指标台账——…」同族）——旧形「不在台账」子串校
+            # 永不命中真机拒文，故本 fixture 用引擎原文形
+            {
+                "id": "s3",
+                "question": "井筒口径",
+                "status": "bad_args",
+                "reason": "不在指标台账",
+            },
             {"id": "s4", "question": "生产时长", "status": "retryable", "reason": "参数缺失"},
         ],
     )
@@ -1033,7 +1108,7 @@ def test_decision_increment_lines_present() -> None:
         f"探查预算：全 run ≤{MAX_DISCOVERS_PER_RUN} 次，已用 3 次。",  # 上限＝state 限额单点
         "回炉：只分解以下失败/缺失子问题（成功子问题结果已保留，禁止重复分解执行）：",
         "- [s2] 含水率——拒因：未绑定（台账无数值）→改走 knowledge 链（tool=doc_retrieve）",
-        "- [s3] 井筒口径——拒因：不在台账→改走 knowledge 链（tool=doc_retrieve）",
+        "- [s3] 井筒口径——拒因：不在指标台账→改走 knowledge 链（tool=doc_retrieve）",
         "- [s4] 生产时长——拒因：参数缺失",  # 拒因词面未命中 → 零追加（闭世界子串校）
         "用户已补充：窗按上月——请把它落进本轮分解。",
         "上次发射被拒：缺 subtasks 键——修正后重新输出 JSON。",
@@ -1730,7 +1805,10 @@ def test_no_lexicon_or_regex_in_prompts() -> None:
         for _lineno, target, values in _str_collection_sites(tree)
         if any(not _IDENTIFIER_SHAPE.fullmatch(value) for value in values)
     ]
-    assert dict(non_identifier_sites) == {"_REROUTE_TRIGGERS": ("未绑定", "不在台账")}
+    # V2-88：触发词表对齐引擎拒因原文（「不在指标台账——…」同族）
+    assert dict(non_identifier_sites) == {
+        "_REROUTE_TRIGGERS": ("未绑定", "不在指标台账")
+    }
     assert tuple(dict(non_identifier_sites)) == _VERBATIM_CHECK_EXEMPT
 
     # 探测器非空转（正则／词表名面／自建词表／豁免面外使用／分支判据语义明文五类各命中）
