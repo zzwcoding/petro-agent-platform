@@ -1,0 +1,151 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-e15407fa",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "读题应答不合 schema（不静默降级）：{\"route\":\"full\",\"text\":\"判断并纠正关于 Y-26 井欠注类型与二季度治理措施的推断，要求：①给出 Y-26 的欠注类型判定；②给出判定证据两条（第三章一条，2.2 表一条）；③给出二季度对 Y-26 的实际治理措施和提配安排；④说明\"冻胶调剖封堵 I 层大孔道\"实际安排在哪口井。\",\"metric_candidates\":[]}"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "理解解析失败：应答不合 schema"
+   }
+  },
+  {
+   "id": 4,
+   "event": "text",
+   "data": {
+    "content": "抱歉，这次没能读懂您的问题：模型先后两次给出了不合输出契约的应答（已按不合项回喂重试一次仍不合，不合项：应答不是合法 JSON）。为不猜、不取默认值、不出低质答案，本次不继续作答——请把问题再说明白一些（比如指明指标、时间范围、井号）后重问。"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 4,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 6,
+   "event": "verdict",
+   "data": {
+    "status": "completed",
+    "run_id": "run-e15407fa",
+    "manifest_digest": "7e4b1206eca41f6f",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 7,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-e15407fa",
+    "question": "有人推断：\"Y-26 井 3 月 6 日分层测试三段吸水比例为 51%/34%/15%，各段相对均匀，可见 Y-26 的欠注属于层间矛盾型；所以二季度治理应当像 Y-24 一样，先在 4 月上旬实施冻胶调剖封堵 I 层大孔道，验证通过后再提配注。\"这个推断对不对？请依据报告逐点纠正：Y-26 的欠注类型判定是什么、判定证据有哪两条（提示：一条在第三章、一条在 2.2 表）、二季度对 Y-26 的实际治理措施和提配安排是什么？\"冻胶调剖封堵 I 层大孔道\"到底是给哪口井安排的？",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 9362,
+    "counts": {
+     "messages": 6,
+     "dialogue": 0,
+     "process_notes": 5,
+     "observations": 0,
+     "steps": 4
+    }
+   }
+  },
+  {
+   "id": 7,
+   "event": "done",
+   "data": {
+    "run_id": "run-e15407fa"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "抱歉，这次没能读懂您的问题：模型先后两次给出了不合输出契约的应答（已按不合项回喂重试一次仍不合，不合项：应答不是合法 JSON）。为不猜、不取默认值、不出低质答案，本次不继续作答——请把问题再说明白一些（比如指明指标、时间范围、井号）后重问。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "读题应答不合 schema（不静默降级）：{\"route\":\"full\",\"text\":\"判断并纠正关于 Y-26 井欠注类型与二季度治理措施的推断，要求：①给出 Y-26 的欠注类型判定；②给出判定证据两条（第三章一条，2.2 表一条）；③给出二季度对 Y-26 的实际治理措施和提配安排；④说明\"冻胶调剖封堵 I 层大孔道\"实际安排在哪口井。\",\"metric_candidates\":[]}"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-e15407fa",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "理解解析失败：应答不合 schema"
+   },
+   {
+    "step": "answer",
+    "seq": 4,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "status": "completed",
+   "run_id": "run-e15407fa",
+   "manifest_digest": "7e4b1206eca41f6f",
+   "subtype": "final"
+  },
+  "texts": [
+   "抱歉，这次没能读懂您的问题：模型先后两次给出了不合输出契约的应答（已按不合项回喂重试一次仍不合，不合项：应答不是合法 JSON）。为不猜、不取默认值、不出低质答案，本次不继续作答——请把问题再说明白一些（比如指明指标、时间范围、井号）后重问。"
+  ],
+  "duration_s": 4.9
+ }
+}

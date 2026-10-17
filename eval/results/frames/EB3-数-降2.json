@@ -1,0 +1,483 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-913ff244",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：问去年（以数据水位 2026-08-31 为锚，即 2025 年）各井的配产量。\n指标候选：配产量",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 5,
+   "event": "notice",
+   "data": {
+    "type": "chain_switch_reentry",
+    "gates": [],
+    "content": "前置条件机：子问题 s1 换链回炉提议——「配产量」在册未绑定——agg 汇总层无承载列，引擎将走降级解释链（零数值不冒充）——或改走 knowledge 链检索文档所载（本指标口径/数值可能载于文档）；换链回炉提议：本子问题命中软失败面（在册未绑定／题眼域错）——回炉①澄清相位改链重决策（一次为界；同支再触发＝如实拒答终局）"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "前置条件机：s1=allow"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "澄清 r1 被拒：零实质观察禁定稿"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 9,
+    "title": "澄清 r1 被拒：台账命中且时间窗已定——禁再 discover（直发分解）"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 10,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 11,
+    "title": "澄清 r2：分解 1 子问题"
+   }
+  },
+  {
+   "id": 13,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 14,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 12,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 15,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 13,
+    "title": "工具匹配被拒（缺配）"
+   }
+  },
+  {
+   "id": 16,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   }
+  },
+  {
+   "id": 17,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 14,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 18,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 15,
+    "title": "工具匹配被拒（缺配）"
+   }
+  },
+  {
+   "id": 19,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 16,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 20,
+   "event": "notice",
+   "data": {
+    "type": "subtask_refused",
+    "gates": [],
+    "content": "前置条件机：子问题 s1 拒答（判定位 chain_switch）——换链回炉已用尽（一次为界）：坚持 data 链同参（指纹 {\"plan\":{\"ag…在簿）——未绑定口径如实拒答，不代答"
+   }
+  },
+  {
+   "id": 21,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 17,
+    "title": "前置条件机：s1=refuse（chain_switch）"
+   }
+  },
+  {
+   "id": 22,
+   "event": "text",
+   "data": {
+    "content": "去年各井配产量是多少？"
+   }
+  },
+  {
+   "id": 23,
+   "event": "text",
+   "data": {
+    "content": "去年（2025 年）各井配产量暂无可交付的结果：当前未返回与该问题对应的观察材料，无法逐井给出配产量数值。如需继续获取，请补充检索或指明对象（具体井号／区块／油田）后再次提交。"
+   }
+  },
+  {
+   "id": 24,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 18,
+    "title": "模型调用：answer"
+   }
+  },
+  {
+   "id": 25,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 19,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 26,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 1 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  },
+  {
+   "id": 27,
+   "event": "verdict",
+   "data": {
+    "supported": 0,
+    "rewritten": 1,
+    "split": 0,
+    "cited": [],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  },
+  {
+   "id": 28,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 20,
+    "title": "核验：支撑 0｜改写 1｜分源 否"
+   }
+  },
+  {
+   "id": 29,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 21,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 30,
+   "event": "verdict",
+   "data": {
+    "status": "completed",
+    "run_id": "run-913ff244",
+    "manifest_digest": "95656e112e6688d5",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 31,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-913ff244",
+    "question": "去年各井配产量是多少？",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 32077,
+    "counts": {
+     "messages": 20,
+     "dialogue": 0,
+     "process_notes": 7,
+     "observations": 0,
+     "steps": 21
+    }
+   }
+  },
+  {
+   "id": 31,
+   "event": "done",
+   "data": {
+    "run_id": "run-913ff244"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "去年（2025 年）各井配产量暂无可交付的结果：当前未返回与该问题对应的观察材料，无法逐井给出配产量数值。如需继续获取，请补充检索或指明对象（具体井号／区块／油田）后再次提交。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "chain_switch_reentry",
+    "gates": [],
+    "content": "前置条件机：子问题 s1 换链回炉提议——「配产量」在册未绑定——agg 汇总层无承载列，引擎将走降级解释链（零数值不冒充）——或改走 knowledge 链检索文档所载（本指标口径/数值可能载于文档）；换链回炉提议：本子问题命中软失败面（在册未绑定／题眼域错）——回炉①澄清相位改链重决策（一次为界；同支再触发＝如实拒答终局）"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具匹配发射被拒（缺配）：缺 matches（非空数组——组内每个子问题恰一条）——修正后重新输出 JSON。"
+   },
+   {
+    "type": "subtask_refused",
+    "gates": [],
+    "content": "前置条件机：子问题 s1 拒答（判定位 chain_switch）——换链回炉已用尽（一次为界）：坚持 data 链同参（指纹 {\"plan\":{\"ag…在簿）——未绑定口径如实拒答，不代答"
+   },
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 1 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-913ff244",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "前置条件机：s1=allow"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "澄清 r1 被拒：零实质观察禁定稿"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 9,
+    "title": "澄清 r1 被拒：台账命中且时间窗已定——禁再 discover（直发分解）"
+   },
+   {
+    "step": "decision",
+    "seq": 10,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 11,
+    "title": "澄清 r2：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 12,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 13,
+    "title": "工具匹配被拒（缺配）"
+   },
+   {
+    "step": "decision",
+    "seq": 14,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 15,
+    "title": "工具匹配被拒（缺配）"
+   },
+   {
+    "step": "decision",
+    "seq": 16,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 17,
+    "title": "前置条件机：s1=refuse（chain_switch）"
+   },
+   {
+    "step": "answer",
+    "seq": 18,
+    "title": "模型调用：answer"
+   },
+   {
+    "step": "answer",
+    "seq": 19,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 20,
+    "title": "核验：支撑 0｜改写 1｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 21,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [
+   {
+    "supported": 0,
+    "rewritten": 1,
+    "split": 0,
+    "cited": [],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  ],
+  "final": {
+   "status": "completed",
+   "run_id": "run-913ff244",
+   "manifest_digest": "95656e112e6688d5",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：问去年（以数据水位 2026-08-31 为锚，即 2025 年）各井的配产量。\n指标候选：配产量",
+   "去年各井配产量是多少？",
+   "去年（2025 年）各井配产量暂无可交付的结果：当前未返回与该问题对应的观察材料，无法逐井给出配产量数值。如需继续获取，请补充检索或指明对象（具体井号／区块／油田）后再次提交。"
+  ],
+  "duration_s": 15.2
+ }
+}

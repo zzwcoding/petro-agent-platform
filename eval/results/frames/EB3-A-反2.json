@@ -1,0 +1,254 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-6bb19855",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：问邻井 W-12 井的初期日产油量是多少。指标候选：日产油量",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清钻取 ×1（semantic_query）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 4,
+    "message": null
+   }
+  },
+  {
+   "id": 5,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_metric#201",
+    "content": "日产油量（吨）：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12）｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 班次合计日口径（默认）｜争议注记：吨方混写脏值（D1——RULE-BOHAI-020 检出位已建）",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 4,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 10,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "子问题 s1 的时间范围未能确定（模型发射载荷窗槽双 null＝不能确定）——请先选定时间范围（模糊时间词不解析、不默认）",
+     "options": [
+      "近 3 天",
+      "近 30 天",
+      "本月至今"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-6bb19855"
+   }
+  },
+  {
+   "id": 11,
+   "event": "notice",
+   "data": {
+    "type": "decision_note",
+    "gates": [],
+    "content": "前置条件机：子问题 s1 等用户（caliber_clarify）——子问题 s1 的时间范围未能确定（模型发射载荷窗槽双 null＝不能确定）——请先选定时间范围（模糊时间词不解析、不默认）"
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "前置条件机：s1=ask（fuzzy_window）"
+   }
+  },
+  {
+   "id": 13,
+   "event": "verdict",
+   "data": {
+    "status": "waiting_ask",
+    "run_id": "run-6bb19855",
+    "manifest_digest": "da2e17b06c870979",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 13,
+   "event": "done",
+   "data": {
+    "run_id": "run-6bb19855"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "理解：问邻井 W-12 井的初期日产油量是多少。指标候选：日产油量",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "decision_note",
+    "gates": [],
+    "content": "前置条件机：子问题 s1 等用户（caliber_clarify）——子问题 s1 的时间范围未能确定（模型发射载荷窗槽双 null＝不能确定）——请先选定时间范围（模糊时间词不解析、不默认）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-6bb19855",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清钻取 ×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 4,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "前置条件机：s1=ask（fuzzy_window）"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 4,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_metric#201",
+    "content": "日产油量（吨）：日产计量的日产油量——源 oil_production_daily.oil_output（R5·A.2，行粒度＝班次、日口径＝同井同日各班合计，PROP-BOHAI-007=A）；agg 读模型绑定列 agg.fct_daily_metering.oil_output（99 §2.12）｜粒度 日/井 · 单位 吨｜状态 生效中｜口径支：A 班次合计日口径（默认）｜争议注记：吨方混写脏值（D1——RULE-BOHAI-020 检出位已建）",
+    "trust": "ledger"
+   }
+  ],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "子问题 s1 的时间范围未能确定（模型发射载荷窗槽双 null＝不能确定）——请先选定时间范围（模糊时间词不解析、不默认）",
+     "options": [
+      "近 3 天",
+      "近 30 天",
+      "本月至今"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-6bb19855"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "status": "waiting_ask",
+   "run_id": "run-6bb19855",
+   "manifest_digest": "da2e17b06c870979",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：问邻井 W-12 井的初期日产油量是多少。指标候选：日产油量"
+  ],
+  "duration_s": 9.7
+ }
+}

@@ -1,0 +1,220 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-ff786dcf",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：问最近各井日产油量怎么样。",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清 r1 被拒：ledger_notes 槽位对账未过：s1"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "澄清 r2：分解 1 子问题"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 8,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "子问题 s1 的时间范围未能确定（模型发射载荷窗槽双 null＝不能确定）——请先选定时间范围（模糊时间词不解析、不默认）",
+     "options": [
+      "近 3 天",
+      "近 30 天",
+      "本月至今"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-ff786dcf"
+   }
+  },
+  {
+   "id": 9,
+   "event": "notice",
+   "data": {
+    "type": "decision_note",
+    "gates": [],
+    "content": "前置条件机：子问题 s1 等用户（caliber_clarify）——子问题 s1 的时间范围未能确定（模型发射载荷窗槽双 null＝不能确定）——请先选定时间范围（模糊时间词不解析、不默认）"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "前置条件机：s1=ask（fuzzy_window）"
+   }
+  },
+  {
+   "id": 11,
+   "event": "verdict",
+   "data": {
+    "status": "waiting_ask",
+    "run_id": "run-ff786dcf",
+    "manifest_digest": "cece6c0835d30ab2",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 11,
+   "event": "done",
+   "data": {
+    "run_id": "run-ff786dcf"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "理解：问最近各井日产油量怎么样。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "decision_note",
+    "gates": [],
+    "content": "前置条件机：子问题 s1 等用户（caliber_clarify）——子问题 s1 的时间范围未能确定（模型发射载荷窗槽双 null＝不能确定）——请先选定时间范围（模糊时间词不解析、不默认）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-ff786dcf",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清 r1 被拒：ledger_notes 槽位对账未过：s1"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "澄清 r2：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "前置条件机：s1=ask（fuzzy_window）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "子问题 s1 的时间范围未能确定（模型发射载荷窗槽双 null＝不能确定）——请先选定时间范围（模糊时间词不解析、不默认）",
+     "options": [
+      "近 3 天",
+      "近 30 天",
+      "本月至今"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-ff786dcf"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "status": "waiting_ask",
+   "run_id": "run-ff786dcf",
+   "manifest_digest": "cece6c0835d30ab2",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：问最近各井日产油量怎么样。"
+  ],
+  "duration_s": 8.1
+ }
+}

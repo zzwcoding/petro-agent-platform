@@ -1,0 +1,414 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-04cc337e",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "您好！我是油田数据问答助手，专注于油田生产与管理数据的查询、解读与分析。您可以向我询问关于产量、注水、井况、措施效果、月报事实等方面的问题，例如：本月原油产量完成情况如何？某区块的自然递减率是多少？某口井的日产油与时率？某项措施的有效率与有效期？等等。请告诉我您想了解的油田数据问题吧。",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "直答结构核验不合格（命中 metric_name:自然递减率——直答里出现数据或事实断言）：退回完整流程（route=\"full\"），不直答收口。"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "直答退回：文本命中闭世界 1 项"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清钻取 ×1（faq_lookup）"
+   }
+  },
+  {
+   "id": 6,
+   "event": "tool",
+   "data": {
+    "tool": "faq_lookup",
+    "status": "failed",
+    "seq": 5,
+    "message": "未知参数键：['intent', 'scope']（args_schema additionalProperties=false）"
+   }
+  },
+  {
+   "id": 7,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具校验拒因回喂重决策：未知参数键：['intent', 'scope']（args_schema additionalProperties=false）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 5,
+    "title": "faq_lookup：failed"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "澄清钻取 ×1（faq_lookup）"
+   }
+  },
+  {
+   "id": 11,
+   "event": "tool",
+   "data": {
+    "tool": "faq_lookup",
+    "status": "failed",
+    "seq": 8,
+    "message": "未知参数键：['query']（args_schema additionalProperties=false）"
+   }
+  },
+  {
+   "id": 12,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具校验拒因回喂重决策：未知参数键：['query']（args_schema additionalProperties=false）"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 8,
+    "title": "faq_lookup：failed"
+   }
+  },
+  {
+   "id": 14,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 9,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 15,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 10,
+    "title": "澄清 r0 被拒：零实质观察禁定稿"
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 11,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 17,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 12,
+    "title": "澄清钻取 ×1（table_schema）"
+   }
+  },
+  {
+   "id": 18,
+   "event": "tool",
+   "data": {
+    "tool": "table_schema",
+    "status": "ok",
+    "seq": 13,
+    "message": null
+   }
+  },
+  {
+   "id": 19,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "table_schema 白名单闸",
+    "content": "表 kb 不在探查白名单（agg 三表＋sem 五账＋kb 片段清单；raw/lake 湖表不开放）——只可探查白名单内资产结构。",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 20,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 13,
+    "title": "table_schema：ok"
+   }
+  },
+  {
+   "id": 21,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "您想了解哪方面的产量数据？",
+     "options": [
+      "本月原油产量完成情况（产量完成率）",
+      "某区块的自然递减率",
+      "某口井的日产油与抽油机时率",
+      "某项措施的有效率与有效期"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-04cc337e"
+   }
+  },
+  {
+   "id": 22,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 14,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 23,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 15,
+    "title": "澄清 r1：反问（您想了解哪方面的产量数据？）"
+   }
+  },
+  {
+   "id": 24,
+   "event": "verdict",
+   "data": {
+    "status": "waiting_ask",
+    "run_id": "run-04cc337e",
+    "manifest_digest": "43304e6bb4a0b5be",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 24,
+   "event": "done",
+   "data": {
+    "run_id": "run-04cc337e"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "您好！我是油田数据问答助手，专注于油田生产与管理数据的查询、解读与分析。您可以向我询问关于产量、注水、井况、措施效果、月报事实等方面的问题，例如：本月原油产量完成情况如何？某区块的自然递减率是多少？某口井的日产油与时率？某项措施的有效率与有效期？等等。请告诉我您想了解的油田数据问题吧。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "直答结构核验不合格（命中 metric_name:自然递减率——直答里出现数据或事实断言）：退回完整流程（route=\"full\"），不直答收口。"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具校验拒因回喂重决策：未知参数键：['intent', 'scope']（args_schema additionalProperties=false）"
+   },
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具校验拒因回喂重决策：未知参数键：['query']（args_schema additionalProperties=false）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-04cc337e",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "直答退回：文本命中闭世界 1 项"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "澄清钻取 ×1（faq_lookup）"
+   },
+   {
+    "step": "discover",
+    "seq": 5,
+    "title": "faq_lookup：failed"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "澄清钻取 ×1（faq_lookup）"
+   },
+   {
+    "step": "discover",
+    "seq": 8,
+    "title": "faq_lookup：failed"
+   },
+   {
+    "step": "decision",
+    "seq": 9,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 10,
+    "title": "澄清 r0 被拒：零实质观察禁定稿"
+   },
+   {
+    "step": "decision",
+    "seq": 11,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 12,
+    "title": "澄清钻取 ×1（table_schema）"
+   },
+   {
+    "step": "discover",
+    "seq": 13,
+    "title": "table_schema：ok"
+   },
+   {
+    "step": "decision",
+    "seq": 14,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 15,
+    "title": "澄清 r1：反问（您想了解哪方面的产量数据？）"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "faq_lookup",
+    "status": "failed",
+    "seq": 5,
+    "message": "未知参数键：['intent', 'scope']（args_schema additionalProperties=false）"
+   },
+   {
+    "tool": "faq_lookup",
+    "status": "failed",
+    "seq": 8,
+    "message": "未知参数键：['query']（args_schema additionalProperties=false）"
+   },
+   {
+    "tool": "table_schema",
+    "status": "ok",
+    "seq": 13,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "table_schema 白名单闸",
+    "content": "表 kb 不在探查白名单（agg 三表＋sem 五账＋kb 片段清单；raw/lake 湖表不开放）——只可探查白名单内资产结构。",
+    "trust": "notice"
+   }
+  ],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "您想了解哪方面的产量数据？",
+     "options": [
+      "本月原油产量完成情况（产量完成率）",
+      "某区块的自然递减率",
+      "某口井的日产油与抽油机时率",
+      "某项措施的有效率与有效期"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-04cc337e"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "status": "waiting_ask",
+   "run_id": "run-04cc337e",
+   "manifest_digest": "43304e6bb4a0b5be",
+   "subtype": "final"
+  },
+  "texts": [
+   "您好！我是油田数据问答助手，专注于油田生产与管理数据的查询、解读与分析。您可以向我询问关于产量、注水、井况、措施效果、月报事实等方面的问题，例如：本月原油产量完成情况如何？某区块的自然递减率是多少？某口井的日产油与时率？某项措施的有效率与有效期？等等。请告诉我您想了解的油田数据问题吧。"
+  ],
+  "duration_s": 10.0
+ }
+}

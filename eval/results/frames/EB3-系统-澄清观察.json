@@ -1,0 +1,137 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-f76f520c",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：用户仅给出\"产量相关的问题\"这一句概述，未包含任何具体子问题或取数要求，无法从题干本身拆出确定的子问题；后续澄清环节应向用户追问具体问什么（例如：本月产量完成率？某区块日产油？某井日产液？产量环比变化？等）。\n指标候选：日产油量,日产液量,配产量,产量完成率,有效产量,商品量",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "您的问题「产量相关的问题」范围比较宽泛，请明确具体想知道哪一项？",
+     "options": [
+      "本月全油田产量完成率是多少？",
+      "某区块（或某井）本月日产油量是多少？",
+      "本月有效产量/商品量是多少？",
+      "产量环比或同比变化情况如何？"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-f76f520c"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1：反问（您的问题「产量相关的问题」范围比较宽泛，请明确具）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "verdict",
+   "data": {
+    "status": "waiting_ask",
+    "run_id": "run-f76f520c",
+    "manifest_digest": "5869178207f90862",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 5,
+   "event": "done",
+   "data": {
+    "run_id": "run-f76f520c"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "理解：用户仅给出\"产量相关的问题\"这一句概述，未包含任何具体子问题或取数要求，无法从题干本身拆出确定的子问题；后续澄清环节应向用户追问具体问什么（例如：本月产量完成率？某区块日产油？某井日产液？产量环比变化？等）。\n指标候选：日产油量,日产液量,配产量,产量完成率,有效产量,商品量",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [],
+  "nodes": [],
+  "run_id": "run-f76f520c",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1：反问（您的问题「产量相关的问题」范围比较宽泛，请明确具）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "您的问题「产量相关的问题」范围比较宽泛，请明确具体想知道哪一项？",
+     "options": [
+      "本月全油田产量完成率是多少？",
+      "某区块（或某井）本月日产油量是多少？",
+      "本月有效产量/商品量是多少？",
+      "产量环比或同比变化情况如何？"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-f76f520c"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "status": "waiting_ask",
+   "run_id": "run-f76f520c",
+   "manifest_digest": "5869178207f90862",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：用户仅给出\"产量相关的问题\"这一句概述，未包含任何具体子问题或取数要求，无法从题干本身拆出确定的子问题；后续澄清环节应向用户追问具体问什么（例如：本月产量完成率？某区块日产油？某井日产液？产量环比变化？等）。\n指标候选：日产油量,日产液量,配产量,产量完成率,有效产量,商品量"
+  ],
+  "duration_s": 4.3
+ }
+}

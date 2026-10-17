@@ -1,0 +1,611 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-dd677d93",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "W-57 井的吸水剖面各层占比是多少？",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清钻取 ×1（semantic_query）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 4,
+    "message": null
+   }
+  },
+  {
+   "id": 5,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：吸水剖面 各层占比 单井 注水井 测试（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 4,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "澄清钻取 ×1（semantic_query）"
+   }
+  },
+  {
+   "id": 9,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 7,
+    "message": null
+   }
+  },
+  {
+   "id": 10,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：吸水剖面 各层占比 注水井 测试报告 completion（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 7,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 9,
+    "title": "澄清钻取 ×1（semantic_query）"
+   }
+  },
+  {
+   "id": 14,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 10,
+    "message": null
+   }
+  },
+  {
+   "id": 15,
+   "event": "observation",
+   "data": {
+    "index": 3,
+    "source": "sem_object#1",
+    "content": "井（草案）：井号 / 井别 / 投产日 / 状态机",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 10,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 17,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 11,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 18,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 12,
+    "title": "澄清钻取 ×1（semantic_query）"
+   }
+  },
+  {
+   "id": 19,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 13,
+    "message": null
+   }
+  },
+  {
+   "id": 20,
+   "event": "observation",
+   "data": {
+    "index": 4,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：吸水剖面 各层占比 计量（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 21,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 13,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 22,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 14,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 23,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 15,
+    "title": "澄清钻取 ×1（semantic_query）"
+   }
+  },
+  {
+   "id": 24,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 16,
+    "message": null
+   }
+  },
+  {
+   "id": 25,
+   "event": "observation",
+   "data": {
+    "index": 5,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：吸水剖面 是否在指标台账或术语台账中（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 26,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 16,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 27,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 17,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 28,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 18,
+    "title": "澄清定稿：材料足够——直答收口"
+   }
+  },
+  {
+   "id": 29,
+   "event": "text",
+   "data": {
+    "content": "关于 W-57 井的吸水剖面各层占比，系统内未检索到可引用的观察材料："
+   }
+  },
+  {
+   "id": 30,
+   "event": "text",
+   "data": {
+    "content": "- 台账连续四次按精确名与别名归一搜索「吸水剖面」「各层占比」「注水井测试」等关键词均未命中（sem_object 中仅有井（草案）：井号 / 井别 / 投产日 / 状态机等基础属性，无吸水剖面对应定义）。\n- 数据资产结构卡中可出数事实表仅 agg.fct_daily_metering（日产油量、日产液量、油压）与对应维度表，无吸水剖面分层数据。\n- 完井报告族（completion）、生产动态族（dynamic）、月报族（monthly）三个报告库本次未返回与 W-57 井吸水剖面相关的检索条目。"
+   }
+  },
+  {
+   "id": 31,
+   "event": "text",
+   "data": {
+    "content": "结论：无法在本系统内给出 W-57 井的吸水剖面各层占比。如您手上有该井的吸水剖面测试报告（解释成果表或注入剖面测试数据），可补充报告名、所属油田/区块或测试日期等线索，便于定位报告库中的对应片段重新检索；也可直接粘贴各层吸水量的原始数据，由助手协助换算成各层占比。"
+   }
+  },
+  {
+   "id": 32,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 19,
+    "title": "模型调用：answer"
+   }
+  },
+  {
+   "id": 33,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 20,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 34,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 2 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  },
+  {
+   "id": 35,
+   "event": "verdict",
+   "data": {
+    "supported": 0,
+    "rewritten": 2,
+    "split": 0,
+    "cited": [],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  },
+  {
+   "id": 36,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 21,
+    "title": "核验：支撑 0｜改写 2｜分源 否"
+   }
+  },
+  {
+   "id": 37,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 22,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 38,
+   "event": "verdict",
+   "data": {
+    "status": "completed",
+    "run_id": "run-dd677d93",
+    "manifest_digest": "da8090c8a36cd50f",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 39,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-dd677d93",
+    "question": "W-57 井的吸水剖面各层占比是多少？",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 30850,
+    "counts": {
+     "messages": 17,
+     "dialogue": 0,
+     "process_notes": 14,
+     "observations": 5,
+     "steps": 22
+    }
+   }
+  },
+  {
+   "id": 39,
+   "event": "done",
+   "data": {
+    "run_id": "run-dd677d93"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "结论：无法在本系统内给出 W-57 井的吸水剖面各层占比。如您手上有该井的吸水剖面测试报告（解释成果表或注入剖面测试数据），可补充报告名、所属油田/区块或测试日期等线索，便于定位报告库中的对应片段重新检索；也可直接粘贴各层吸水量的原始数据，由助手协助换算成各层占比。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 2 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-dd677d93",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清钻取 ×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 4,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "澄清钻取 ×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 7,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 9,
+    "title": "澄清钻取 ×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 10,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "decision",
+    "seq": 11,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 12,
+    "title": "澄清钻取 ×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 13,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "decision",
+    "seq": 14,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 15,
+    "title": "澄清钻取 ×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 16,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "decision",
+    "seq": 17,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 18,
+    "title": "澄清定稿：材料足够——直答收口"
+   },
+   {
+    "step": "answer",
+    "seq": 19,
+    "title": "模型调用：answer"
+   },
+   {
+    "step": "answer",
+    "seq": 20,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 21,
+    "title": "核验：支撑 0｜改写 2｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 22,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 4,
+    "message": null
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 7,
+    "message": null
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 10,
+    "message": null
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 13,
+    "message": null
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 16,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：吸水剖面 各层占比 单井 注水井 测试（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   },
+   {
+    "index": 2,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：吸水剖面 各层占比 注水井 测试报告 completion（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   },
+   {
+    "index": 3,
+    "source": "sem_object#1",
+    "content": "井（草案）：井号 / 井别 / 投产日 / 状态机",
+    "trust": "ledger"
+   },
+   {
+    "index": 4,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：吸水剖面 各层占比 计量（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   },
+   {
+    "index": 5,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：吸水剖面 是否在指标台账或术语台账中（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "supported": 0,
+    "rewritten": 2,
+    "split": 0,
+    "cited": [],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  ],
+  "final": {
+   "status": "completed",
+   "run_id": "run-dd677d93",
+   "manifest_digest": "da8090c8a36cd50f",
+   "subtype": "final"
+  },
+  "texts": [
+   "W-57 井的吸水剖面各层占比是多少？",
+   "关于 W-57 井的吸水剖面各层占比，系统内未检索到可引用的观察材料：",
+   "- 台账连续四次按精确名与别名归一搜索「吸水剖面」「各层占比」「注水井测试」等关键词均未命中（sem_object 中仅有井（草案）：井号 / 井别 / 投产日 / 状态机等基础属性，无吸水剖面对应定义）。\n- 数据资产结构卡中可出数事实表仅 agg.fct_daily_metering（日产油量、日产液量、油压）与对应维度表，无吸水剖面分层数据。\n- 完井报告族（completion）、生产动态族（dynamic）、月报族（monthly）三个报告库本次未返回与 W-57 井吸水剖面相关的检索条目。",
+   "结论：无法在本系统内给出 W-57 井的吸水剖面各层占比。如您手上有该井的吸水剖面测试报告（解释成果表或注入剖面测试数据），可补充报告名、所属油田/区块或测试日期等线索，便于定位报告库中的对应片段重新检索；也可直接粘贴各层吸水量的原始数据，由助手协助换算成各层占比。"
+  ],
+  "duration_s": 19.8
+ }
+}

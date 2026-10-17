@@ -1,0 +1,2078 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-c1128d25",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：问去年各井每天的油压。\n指标候选：油压",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1：分解 1 子问题"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "前置条件机：s1=allow"
+   }
+  },
+  {
+   "id": 6,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 6,
+    "message": null
+   }
+  },
+  {
+   "id": 7,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-01；区块=渤南；日期=2025-09-01；油压（MPa）=7.56",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 8,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-02；区块=渤南；日期=2025-09-01；油压（MPa）=5.27",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 9,
+   "event": "observation",
+   "data": {
+    "index": 3,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-03；区块=渤南；日期=2025-09-01；油压（MPa）=3.95",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 10,
+   "event": "observation",
+   "data": {
+    "index": 4,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-04；区块=渤南；日期=2025-09-01；油压（MPa）=4.72",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 11,
+   "event": "observation",
+   "data": {
+    "index": 5,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-05；区块=渤南；日期=2025-09-01；油压（MPa）=5.18",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 12,
+   "event": "observation",
+   "data": {
+    "index": 6,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-06；区块=渤南；日期=2025-09-01；油压（MPa）=8.50",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 13,
+   "event": "observation",
+   "data": {
+    "index": 7,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-07；区块=渤南；日期=2025-09-01；油压（MPa）=6.02",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 14,
+   "event": "observation",
+   "data": {
+    "index": 8,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-08；区块=渤南；日期=2025-09-01；油压（MPa）=4.12",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 15,
+   "event": "observation",
+   "data": {
+    "index": 9,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-09；区块=渤南；日期=2025-09-01；油压（MPa）=3.86",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 16,
+   "event": "observation",
+   "data": {
+    "index": 10,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-10；区块=渤南；日期=2025-09-01；油压（MPa）=8.06",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 17,
+   "event": "observation",
+   "data": {
+    "index": 11,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-11；区块=渤南；日期=2025-09-01；油压（MPa）=4.20",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 18,
+   "event": "observation",
+   "data": {
+    "index": 12,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-12；区块=渤南；日期=2025-09-01；油压（MPa）=3.70",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 19,
+   "event": "observation",
+   "data": {
+    "index": 13,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-13；区块=渤南；日期=2025-09-01；油压（MPa）=8.55",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 20,
+   "event": "observation",
+   "data": {
+    "index": 14,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-14；区块=渤南；日期=2025-09-01；油压（MPa）=7.09",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 21,
+   "event": "observation",
+   "data": {
+    "index": 15,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-15；区块=渤南；日期=2025-09-01；油压（MPa）=8.47",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 22,
+   "event": "observation",
+   "data": {
+    "index": 16,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-16；区块=渤南；日期=2025-09-01；油压（MPa）=6.54",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 23,
+   "event": "observation",
+   "data": {
+    "index": 17,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-17；区块=渤南；日期=2025-09-01；油压（MPa）=6.33",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 24,
+   "event": "observation",
+   "data": {
+    "index": 18,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-18；区块=渤南；日期=2025-09-01；油压（MPa）=6.29",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 25,
+   "event": "observation",
+   "data": {
+    "index": 19,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-19；区块=渤南；日期=2025-09-01；油压（MPa）=7.46",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 26,
+   "event": "observation",
+   "data": {
+    "index": 20,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-20；区块=渤南；日期=2025-09-01；油压（MPa）=6.59",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 27,
+   "event": "observation",
+   "data": {
+    "index": 21,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-21；区块=渤南；日期=2025-09-01；油压（MPa）=8.87",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 28,
+   "event": "observation",
+   "data": {
+    "index": 22,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-22；区块=渤南；日期=2025-09-01；油压（MPa）=6.84",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 29,
+   "event": "observation",
+   "data": {
+    "index": 23,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-23；区块=渤南；日期=2025-09-01；油压（MPa）=4.72",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 30,
+   "event": "observation",
+   "data": {
+    "index": 24,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-24；区块=渤南；日期=2025-09-01；油压（MPa）=6.17",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 31,
+   "event": "observation",
+   "data": {
+    "index": 25,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-25；区块=渤南；日期=2025-09-01；油压（MPa）=6.05",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 32,
+   "event": "observation",
+   "data": {
+    "index": 26,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-26；区块=渤南；日期=2025-09-01；油压（MPa）=6.46",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 33,
+   "event": "observation",
+   "data": {
+    "index": 27,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-27；区块=渤南；日期=2025-09-01；油压（MPa）=3.88",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 34,
+   "event": "observation",
+   "data": {
+    "index": 28,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-01；区块=渤西；日期=2025-09-01；油压（MPa）=4.29",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 35,
+   "event": "observation",
+   "data": {
+    "index": 29,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-02；区块=渤西；日期=2025-09-01；油压（MPa）=0.00",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 36,
+   "event": "observation",
+   "data": {
+    "index": 30,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-03；区块=渤西；日期=2025-09-01；油压（MPa）=5.54",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 37,
+   "event": "observation",
+   "data": {
+    "index": 31,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-04；区块=渤西；日期=2025-09-01；油压（MPa）=3.32",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 38,
+   "event": "observation",
+   "data": {
+    "index": 32,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-05；区块=渤西；日期=2025-09-01；油压（MPa）=7.78",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 39,
+   "event": "observation",
+   "data": {
+    "index": 33,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-06；区块=渤西；日期=2025-09-01；油压（MPa）=3.11",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 40,
+   "event": "observation",
+   "data": {
+    "index": 34,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-07；区块=渤西；日期=2025-09-01；油压（MPa）=8.04",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 41,
+   "event": "observation",
+   "data": {
+    "index": 35,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-08；区块=渤西；日期=2025-09-01；油压（MPa）=5.42",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 42,
+   "event": "observation",
+   "data": {
+    "index": 36,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-09；区块=渤西；日期=2025-09-01；油压（MPa）=5.28",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 43,
+   "event": "observation",
+   "data": {
+    "index": 37,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-10；区块=渤西；日期=2025-09-01；油压（MPa）=4.09",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 44,
+   "event": "observation",
+   "data": {
+    "index": 38,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-11；区块=渤西；日期=2025-09-01；油压（MPa）=5.76",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 45,
+   "event": "observation",
+   "data": {
+    "index": 39,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-12；区块=渤西；日期=2025-09-01；油压（MPa）=5.68",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 46,
+   "event": "observation",
+   "data": {
+    "index": 40,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-13；区块=渤西；日期=2025-09-01；油压（MPa）=6.64",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 47,
+   "event": "observation",
+   "data": {
+    "index": 41,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-14；区块=渤西；日期=2025-09-01；油压（MPa）=5.59",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 48,
+   "event": "observation",
+   "data": {
+    "index": 42,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-15；区块=渤西；日期=2025-09-01；油压（MPa）=6.17",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 49,
+   "event": "observation",
+   "data": {
+    "index": 43,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-16；区块=渤西；日期=2025-09-01；油压（MPa）=8.32",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 50,
+   "event": "observation",
+   "data": {
+    "index": 44,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-17；区块=渤西；日期=2025-09-01；油压（MPa）=8.43",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 51,
+   "event": "observation",
+   "data": {
+    "index": 45,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-18；区块=渤西；日期=2025-09-01；油压（MPa）=4.07",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 52,
+   "event": "observation",
+   "data": {
+    "index": 46,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-19；区块=渤西；日期=2025-09-01；油压（MPa）=5.15",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 53,
+   "event": "observation",
+   "data": {
+    "index": 47,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-20；区块=渤西；日期=2025-09-01；油压（MPa）=8.02",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 54,
+   "event": "observation",
+   "data": {
+    "index": 48,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-21；区块=渤西；日期=2025-09-01；油压（MPa）=5.02",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 55,
+   "event": "observation",
+   "data": {
+    "index": 49,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-22；区块=渤西；日期=2025-09-01；油压（MPa）=4.44",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 56,
+   "event": "observation",
+   "data": {
+    "index": 50,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-23；区块=渤西；日期=2025-09-01；油压（MPa）=6.53",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 57,
+   "event": "observation",
+   "data": {
+    "index": 51,
+    "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date",
+    "content": "① 口径 油压（MPa）（单位：MPa）——指标台账注册声明：日产计量的油压——源 oil_production_daily.oil_pressure（R5·A.2）；agg 读模型绑定列 agg.fct_daily_metering.oil_pressure（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 37 天 · 超期）\n⑤ 收口注记 LIMIT 50——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底",
+    "trust": "authoritative",
+    "payload": {
+     "lineage": {
+      "① 口径": "油压（MPa）（单位：MPa）——指标台账注册声明：日产计量的油压——源 oil_production_daily.oil_pressure（R5·A.2）；agg 读模型绑定列 agg.fct_daily_metering.oil_pressure（99 §2.12），口径随答案标注",
+      "② 来源表": "agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）",
+      "③ 过滤条件": "时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)",
+      "　└（权限注入）": "数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）",
+      "④ 数据截至批次": "批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 37 天 · 超期）",
+      "⑤ 收口注记": "LIMIT 50——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底"
+     },
+     "limit": {
+      "hit": true,
+      "rows": 50
+     }
+    }
+   }
+  },
+  {
+   "id": 58,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 6,
+    "title": "data_query：ok（子问题 s1）"
+   }
+  },
+  {
+   "id": 59,
+   "event": "text",
+   "data": {
+    "content": "按去年每日产出做了油压取值，本次封顶前 50 行已逐行列示如下（单位 MPa，来源 agg.fct_daily_metering 日产计量事实表）。说明：题目问的是「去年各井每天」全年明细，本次只回前 50 行；如需完整全年明细，请告知是否继续拉取（去年全部井次规模较大）。"
+   }
+  },
+  {
+   "id": 60,
+   "event": "text",
+   "data": {
+    "content": "**渤南区块 · 2025-09-01**\n- N-01 油压 7.56 [1]\n- N-02 油压 5.27 [2]\n- N-03 油压 3.95 [3]\n- N-04 油压 4.72 [4]\n- N-05 油压 5.18 [5]\n- N-06 油压 8.50 [6]\n- N-07 油压 6.02 [7]\n- N-08 油压 4.12 [8]\n- N-09 油压 3.86 [9]\n- N-10 油压 8.06 [10]\n- N-11 油压 4.20 [11]\n- N-12 油压 3.70 [12]\n- N-13 油压 8.55 [13]\n- N-14 油压 7.09 [14]\n- N-15 油压 8.47 [15]\n- N-16 油压 6.54 [16]\n- N-17 油压 6.33 [17]\n- N-18 油压 6.29 [18]\n- N-19 油压 7.46 [19]\n- N-20 油压 6.59 [20]\n- N-21 油压 8.87 [21]\n- N-22 油压 6.84 [22]\n- N-23 油压 4.72 [23]\n- N-24 油压 6.17 [24]\n- N-25 油压 6.05 [25]\n- N-26 油压 6.46 [26]\n- N-27 油压 3.88 [27]"
+   }
+  },
+  {
+   "id": 61,
+   "event": "text",
+   "data": {
+    "content": "**渤西区块 · 2025-09-01**\n- X-01 油压 4.29 [28]\n- X-02 油压 0.00 [29]（计量值为 0，请排查该井当日油压表是否正常投运）\n- X-03 油压 5.54 [30]\n- X-04 油压 3.32 [31]\n- X-05 油压 7.78 [32]\n- X-06 油压 3.11 [33]\n- X-07 油压 8.04 [34]\n- X-08 油压 5.42 [35]\n- X-09 油压 5.28 [36]\n- X-10 油压 4.09 [37]\n- X-11 油压 5.76 [38]\n- X-12 油压 5.68 [39]\n- X-13 油压 6.64 [40]\n- X-14 油压 5.59 [41]\n- X-15 油压 6.17 [42]\n- X-16 油压 8.32 [43]\n- X-17 油压 8.43 [44]\n- X-18 油压 4.07 [45]\n- X-19 油压 5.15 [46]\n- X-20 油压 8.02 [47]\n- X-21 油压 5.02 [48]\n- X-22 油压 4.44 [49]\n- X-23 油压 6.53 [50]"
+   }
+  },
+  {
+   "id": 62,
+   "event": "text",
+   "data": {
+    "content": "口径备注：油压取自日产计量表 agg.fct_daily_metering.oil_pressure（绑定态＝已绑定，单位 MPa，口径＝计量直取日值）[51]。"
+   }
+  },
+  {
+   "id": 63,
+   "event": "text",
+   "data": {
+    "content": "**未覆盖说明**\n- 题目要求「去年（2025-01-01 至 2026-01-01 不含端）各井每天」的完整明细，本次仅返回引擎封顶前 50 行数据，覆盖 2025-09-01 当天 50 口井，其余日期与井号未在本次返回范围内。\n- 以上数据未做合计/排名/筛选处理，只是按窗口顺序取的前 50 行原始明细。"
+   }
+  },
+  {
+   "id": 64,
+   "event": "text",
+   "data": {
+    "content": "如需完整全年明细（单列/分片下载）或指定某口井、某段时间的油压，请告知后可继续拉取。"
+   }
+  },
+  {
+   "id": 65,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 7,
+    "title": "模型调用：answer"
+   }
+  },
+  {
+   "id": 66,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 8,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 67,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 5 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  },
+  {
+   "id": 68,
+   "event": "verdict",
+   "data": {
+    "supported": 50,
+    "rewritten": 5,
+    "split": 0,
+    "cited": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     11,
+     12,
+     13,
+     14,
+     15,
+     16,
+     17,
+     18,
+     19,
+     20,
+     21,
+     22,
+     23,
+     24,
+     25,
+     26,
+     27,
+     28,
+     29,
+     30,
+     31,
+     32,
+     33,
+     34,
+     35,
+     36,
+     37,
+     38,
+     39,
+     40,
+     41,
+     42,
+     43,
+     44,
+     45,
+     46,
+     47,
+     48,
+     49,
+     50
+    ],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  },
+  {
+   "id": 69,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 9,
+    "title": "核验：支撑 50｜改写 5｜分源 否"
+   }
+  },
+  {
+   "id": 70,
+   "event": "citation",
+   "data": {
+    "index": 1,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-01@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 71,
+   "event": "citation",
+   "data": {
+    "index": 2,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-02@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 72,
+   "event": "citation",
+   "data": {
+    "index": 3,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-03@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 73,
+   "event": "citation",
+   "data": {
+    "index": 4,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-04@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 74,
+   "event": "citation",
+   "data": {
+    "index": 5,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-05@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 75,
+   "event": "citation",
+   "data": {
+    "index": 6,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-06@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 76,
+   "event": "citation",
+   "data": {
+    "index": 7,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-07@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 77,
+   "event": "citation",
+   "data": {
+    "index": 8,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-08@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 78,
+   "event": "citation",
+   "data": {
+    "index": 9,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-09@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 79,
+   "event": "citation",
+   "data": {
+    "index": 10,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-10@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 80,
+   "event": "citation",
+   "data": {
+    "index": 11,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-11@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 81,
+   "event": "citation",
+   "data": {
+    "index": 12,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-12@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 82,
+   "event": "citation",
+   "data": {
+    "index": 13,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-13@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 83,
+   "event": "citation",
+   "data": {
+    "index": 14,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-14@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 84,
+   "event": "citation",
+   "data": {
+    "index": 15,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-15@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 85,
+   "event": "citation",
+   "data": {
+    "index": 16,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-16@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 86,
+   "event": "citation",
+   "data": {
+    "index": 17,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-17@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 87,
+   "event": "citation",
+   "data": {
+    "index": 18,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-18@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 88,
+   "event": "citation",
+   "data": {
+    "index": 19,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-19@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 89,
+   "event": "citation",
+   "data": {
+    "index": 20,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-20@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 90,
+   "event": "citation",
+   "data": {
+    "index": 21,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-21@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 91,
+   "event": "citation",
+   "data": {
+    "index": 22,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-22@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 92,
+   "event": "citation",
+   "data": {
+    "index": 23,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-23@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 93,
+   "event": "citation",
+   "data": {
+    "index": 24,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-24@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 94,
+   "event": "citation",
+   "data": {
+    "index": 25,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-25@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 95,
+   "event": "citation",
+   "data": {
+    "index": 26,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-26@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 96,
+   "event": "citation",
+   "data": {
+    "index": 27,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-27@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 97,
+   "event": "citation",
+   "data": {
+    "index": 28,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-01@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 98,
+   "event": "citation",
+   "data": {
+    "index": 29,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-02@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 99,
+   "event": "citation",
+   "data": {
+    "index": 30,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-03@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 100,
+   "event": "citation",
+   "data": {
+    "index": 31,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-04@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 101,
+   "event": "citation",
+   "data": {
+    "index": 32,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-05@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 102,
+   "event": "citation",
+   "data": {
+    "index": 33,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-06@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 103,
+   "event": "citation",
+   "data": {
+    "index": 34,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-07@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 104,
+   "event": "citation",
+   "data": {
+    "index": 35,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-08@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 105,
+   "event": "citation",
+   "data": {
+    "index": 36,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-09@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 106,
+   "event": "citation",
+   "data": {
+    "index": 37,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-10@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 107,
+   "event": "citation",
+   "data": {
+    "index": 38,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-11@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 108,
+   "event": "citation",
+   "data": {
+    "index": 39,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-12@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 109,
+   "event": "citation",
+   "data": {
+    "index": 40,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-13@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 110,
+   "event": "citation",
+   "data": {
+    "index": 41,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-14@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 111,
+   "event": "citation",
+   "data": {
+    "index": 42,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-15@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 112,
+   "event": "citation",
+   "data": {
+    "index": 43,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-16@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 113,
+   "event": "citation",
+   "data": {
+    "index": 44,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-17@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 114,
+   "event": "citation",
+   "data": {
+    "index": 45,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-18@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 115,
+   "event": "citation",
+   "data": {
+    "index": 46,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-19@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 116,
+   "event": "citation",
+   "data": {
+    "index": 47,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-20@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 117,
+   "event": "citation",
+   "data": {
+    "index": 48,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-21@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 118,
+   "event": "citation",
+   "data": {
+    "index": 49,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-22@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 119,
+   "event": "citation",
+   "data": {
+    "index": 50,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-23@2025-09-01",
+    "trust": "authoritative"
+   }
+  },
+  {
+   "id": 120,
+   "event": "supplement",
+   "data": {
+    "block": "citations",
+    "text": "\n\n引用：\n[1] agg.fct_daily_metering · N-01@2025-09-01（authoritative）\n[2] agg.fct_daily_metering · N-02@2025-09-01（authoritative）\n[3] agg.fct_daily_metering · N-03@2025-09-01（authoritative）\n[4] agg.fct_daily_metering · N-04@2025-09-01（authoritative）\n[5] agg.fct_daily_metering · N-05@2025-09-01（authoritative）\n[6] agg.fct_daily_metering · N-06@2025-09-01（authoritative）\n[7] agg.fct_daily_metering · N-07@2025-09-01（authoritative）\n[8] agg.fct_daily_metering · N-08@2025-09-01（authoritative）\n[9] agg.fct_daily_metering · N-09@2025-09-01（authoritative）\n[10] agg.fct_daily_metering · N-10@2025-09-01（authoritative）\n[11] agg.fct_daily_metering · N-11@2025-09-01（authoritative）\n[12] agg.fct_daily_metering · N-12@2025-09-01（authoritative）\n[13] agg.fct_daily_metering · N-13@2025-09-01（authoritative）\n[14] agg.fct_daily_metering · N-14@2025-09-01（authoritative）\n[15] agg.fct_daily_metering · N-15@2025-09-01（authoritative）\n[16] agg.fct_daily_metering · N-16@2025-09-01（authoritative）\n[17] agg.fct_daily_metering · N-17@2025-09-01（authoritative）\n[18] agg.fct_daily_metering · N-18@2025-09-01（authoritative）\n[19] agg.fct_daily_metering · N-19@2025-09-01（authoritative）\n[20] agg.fct_daily_metering · N-20@2025-09-01（authoritative）\n[21] agg.fct_daily_metering · N-21@2025-09-01（authoritative）\n[22] agg.fct_daily_metering · N-22@2025-09-01（authoritative）\n[23] agg.fct_daily_metering · N-23@2025-09-01（authoritative）\n[24] agg.fct_daily_metering · N-24@2025-09-01（authoritative）\n[25] agg.fct_daily_metering · N-25@2025-09-01（authoritative）\n[26] agg.fct_daily_metering · N-26@2025-09-01（authoritative）\n[27] agg.fct_daily_metering · N-27@2025-09-01（authoritative）\n[28] agg.fct_daily_metering · X-01@2025-09-01（authoritative）\n[29] agg.fct_daily_metering · X-02@2025-09-01（authoritative）\n[30] agg.fct_daily_metering · X-03@2025-09-01（authoritative）\n[31] agg.fct_daily_metering · X-04@2025-09-01（authoritative）\n[32] agg.fct_daily_metering · X-05@2025-09-01（authoritative）\n[33] agg.fct_daily_metering · X-06@2025-09-01（authoritative）\n[34] agg.fct_daily_metering · X-07@2025-09-01（authoritative）\n[35] agg.fct_daily_metering · X-08@2025-09-01（authoritative）\n[36] agg.fct_daily_metering · X-09@2025-09-01（authoritative）\n[37] agg.fct_daily_metering · X-10@2025-09-01（authoritative）\n[38] agg.fct_daily_metering · X-11@2025-09-01（authoritative）\n[39] agg.fct_daily_metering · X-12@2025-09-01（authoritative）\n[40] agg.fct_daily_metering · X-13@2025-09-01（authoritative）\n[41] agg.fct_daily_metering · X-14@2025-09-01（authoritative）\n[42] agg.fct_daily_metering · X-15@2025-09-01（authoritative）\n[43] agg.fct_daily_metering · X-16@2025-09-01（authoritative）\n[44] agg.fct_daily_metering · X-17@2025-09-01（authoritative）\n[45] agg.fct_daily_metering · X-18@2025-09-01（authoritative）\n[46] agg.fct_daily_metering · X-19@2025-09-01（authoritative）\n[47] agg.fct_daily_metering · X-20@2025-09-01（authoritative）\n[48] agg.fct_daily_metering · X-21@2025-09-01（authoritative）\n[49] agg.fct_daily_metering · X-22@2025-09-01（authoritative）\n[50] agg.fct_daily_metering · X-23@2025-09-01（authoritative）"
+   }
+  },
+  {
+   "id": 121,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 10,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 122,
+   "event": "verdict",
+   "data": {
+    "status": "completed",
+    "run_id": "run-c1128d25",
+    "manifest_digest": "791e777361991daa",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 123,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-c1128d25",
+    "question": "去年各井每天的油压是多少？",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 55398,
+    "counts": {
+     "messages": 9,
+     "dialogue": 0,
+     "process_notes": 5,
+     "observations": 51,
+     "steps": 10
+    }
+   }
+  },
+  {
+   "id": 123,
+   "event": "done",
+   "data": {
+    "run_id": "run-c1128d25"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "如需完整全年明细（单列/分片下载）或指定某口井、某段时间的油压，请告知后可继续拉取。",
+  "citations": [
+   {
+    "index": 1,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-01@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 2,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-02@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 3,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-03@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 4,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-04@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 5,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-05@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 6,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-06@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 7,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-07@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 8,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-08@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 9,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-09@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 10,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-10@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 11,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-11@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 12,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-12@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 13,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-13@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 14,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-14@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 15,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-15@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 16,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-16@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 17,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-17@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 18,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-18@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 19,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-19@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 20,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-20@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 21,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-21@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 22,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-22@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 23,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-23@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 24,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-24@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 25,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-25@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 26,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-26@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 27,
+    "source": "agg.fct_daily_metering",
+    "source_id": "N-27@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 28,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-01@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 29,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-02@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 30,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-03@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 31,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-04@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 32,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-05@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 33,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-06@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 34,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-07@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 35,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-08@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 36,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-09@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 37,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-10@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 38,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-11@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 39,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-12@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 40,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-13@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 41,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-14@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 42,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-15@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 43,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-16@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 44,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-17@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 45,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-18@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 46,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-19@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 47,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-20@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 48,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-21@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 49,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-22@2025-09-01",
+    "trust": "authoritative"
+   },
+   {
+    "index": 50,
+    "source": "agg.fct_daily_metering",
+    "source_id": "X-23@2025-09-01",
+    "trust": "authoritative"
+   }
+  ],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 5 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-c1128d25",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "前置条件机：s1=allow"
+   },
+   {
+    "step": "execute",
+    "seq": 6,
+    "title": "data_query：ok（子问题 s1）"
+   },
+   {
+    "step": "answer",
+    "seq": 7,
+    "title": "模型调用：answer"
+   },
+   {
+    "step": "answer",
+    "seq": 8,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 9,
+    "title": "核验：支撑 50｜改写 5｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 10,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 6,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-01；区块=渤南；日期=2025-09-01；油压（MPa）=7.56",
+    "trust": "authoritative"
+   },
+   {
+    "index": 2,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-02；区块=渤南；日期=2025-09-01；油压（MPa）=5.27",
+    "trust": "authoritative"
+   },
+   {
+    "index": 3,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-03；区块=渤南；日期=2025-09-01；油压（MPa）=3.95",
+    "trust": "authoritative"
+   },
+   {
+    "index": 4,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-04；区块=渤南；日期=2025-09-01；油压（MPa）=4.72",
+    "trust": "authoritative"
+   },
+   {
+    "index": 5,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-05；区块=渤南；日期=2025-09-01；油压（MPa）=5.18",
+    "trust": "authoritative"
+   },
+   {
+    "index": 6,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-06；区块=渤南；日期=2025-09-01；油压（MPa）=8.50",
+    "trust": "authoritative"
+   },
+   {
+    "index": 7,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-07；区块=渤南；日期=2025-09-01；油压（MPa）=6.02",
+    "trust": "authoritative"
+   },
+   {
+    "index": 8,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-08；区块=渤南；日期=2025-09-01；油压（MPa）=4.12",
+    "trust": "authoritative"
+   },
+   {
+    "index": 9,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-09；区块=渤南；日期=2025-09-01；油压（MPa）=3.86",
+    "trust": "authoritative"
+   },
+   {
+    "index": 10,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-10；区块=渤南；日期=2025-09-01；油压（MPa）=8.06",
+    "trust": "authoritative"
+   },
+   {
+    "index": 11,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-11；区块=渤南；日期=2025-09-01；油压（MPa）=4.20",
+    "trust": "authoritative"
+   },
+   {
+    "index": 12,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-12；区块=渤南；日期=2025-09-01；油压（MPa）=3.70",
+    "trust": "authoritative"
+   },
+   {
+    "index": 13,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-13；区块=渤南；日期=2025-09-01；油压（MPa）=8.55",
+    "trust": "authoritative"
+   },
+   {
+    "index": 14,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-14；区块=渤南；日期=2025-09-01；油压（MPa）=7.09",
+    "trust": "authoritative"
+   },
+   {
+    "index": 15,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-15；区块=渤南；日期=2025-09-01；油压（MPa）=8.47",
+    "trust": "authoritative"
+   },
+   {
+    "index": 16,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-16；区块=渤南；日期=2025-09-01；油压（MPa）=6.54",
+    "trust": "authoritative"
+   },
+   {
+    "index": 17,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-17；区块=渤南；日期=2025-09-01；油压（MPa）=6.33",
+    "trust": "authoritative"
+   },
+   {
+    "index": 18,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-18；区块=渤南；日期=2025-09-01；油压（MPa）=6.29",
+    "trust": "authoritative"
+   },
+   {
+    "index": 19,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-19；区块=渤南；日期=2025-09-01；油压（MPa）=7.46",
+    "trust": "authoritative"
+   },
+   {
+    "index": 20,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-20；区块=渤南；日期=2025-09-01；油压（MPa）=6.59",
+    "trust": "authoritative"
+   },
+   {
+    "index": 21,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-21；区块=渤南；日期=2025-09-01；油压（MPa）=8.87",
+    "trust": "authoritative"
+   },
+   {
+    "index": 22,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-22；区块=渤南；日期=2025-09-01；油压（MPa）=6.84",
+    "trust": "authoritative"
+   },
+   {
+    "index": 23,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-23；区块=渤南；日期=2025-09-01；油压（MPa）=4.72",
+    "trust": "authoritative"
+   },
+   {
+    "index": 24,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-24；区块=渤南；日期=2025-09-01；油压（MPa）=6.17",
+    "trust": "authoritative"
+   },
+   {
+    "index": 25,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-25；区块=渤南；日期=2025-09-01；油压（MPa）=6.05",
+    "trust": "authoritative"
+   },
+   {
+    "index": 26,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-26；区块=渤南；日期=2025-09-01；油压（MPa）=6.46",
+    "trust": "authoritative"
+   },
+   {
+    "index": 27,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=N-27；区块=渤南；日期=2025-09-01；油压（MPa）=3.88",
+    "trust": "authoritative"
+   },
+   {
+    "index": 28,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-01；区块=渤西；日期=2025-09-01；油压（MPa）=4.29",
+    "trust": "authoritative"
+   },
+   {
+    "index": 29,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-02；区块=渤西；日期=2025-09-01；油压（MPa）=0.00",
+    "trust": "authoritative"
+   },
+   {
+    "index": 30,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-03；区块=渤西；日期=2025-09-01；油压（MPa）=5.54",
+    "trust": "authoritative"
+   },
+   {
+    "index": 31,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-04；区块=渤西；日期=2025-09-01；油压（MPa）=3.32",
+    "trust": "authoritative"
+   },
+   {
+    "index": 32,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-05；区块=渤西；日期=2025-09-01；油压（MPa）=7.78",
+    "trust": "authoritative"
+   },
+   {
+    "index": 33,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-06；区块=渤西；日期=2025-09-01；油压（MPa）=3.11",
+    "trust": "authoritative"
+   },
+   {
+    "index": 34,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-07；区块=渤西；日期=2025-09-01；油压（MPa）=8.04",
+    "trust": "authoritative"
+   },
+   {
+    "index": 35,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-08；区块=渤西；日期=2025-09-01；油压（MPa）=5.42",
+    "trust": "authoritative"
+   },
+   {
+    "index": 36,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-09；区块=渤西；日期=2025-09-01；油压（MPa）=5.28",
+    "trust": "authoritative"
+   },
+   {
+    "index": 37,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-10；区块=渤西；日期=2025-09-01；油压（MPa）=4.09",
+    "trust": "authoritative"
+   },
+   {
+    "index": 38,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-11；区块=渤西；日期=2025-09-01；油压（MPa）=5.76",
+    "trust": "authoritative"
+   },
+   {
+    "index": 39,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-12；区块=渤西；日期=2025-09-01；油压（MPa）=5.68",
+    "trust": "authoritative"
+   },
+   {
+    "index": 40,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-13；区块=渤西；日期=2025-09-01；油压（MPa）=6.64",
+    "trust": "authoritative"
+   },
+   {
+    "index": 41,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-14；区块=渤西；日期=2025-09-01；油压（MPa）=5.59",
+    "trust": "authoritative"
+   },
+   {
+    "index": 42,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-15；区块=渤西；日期=2025-09-01；油压（MPa）=6.17",
+    "trust": "authoritative"
+   },
+   {
+    "index": 43,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-16；区块=渤西；日期=2025-09-01；油压（MPa）=8.32",
+    "trust": "authoritative"
+   },
+   {
+    "index": 44,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-17；区块=渤西；日期=2025-09-01；油压（MPa）=8.43",
+    "trust": "authoritative"
+   },
+   {
+    "index": 45,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-18；区块=渤西；日期=2025-09-01；油压（MPa）=4.07",
+    "trust": "authoritative"
+   },
+   {
+    "index": 46,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-19；区块=渤西；日期=2025-09-01；油压（MPa）=5.15",
+    "trust": "authoritative"
+   },
+   {
+    "index": 47,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-20；区块=渤西；日期=2025-09-01；油压（MPa）=8.02",
+    "trust": "authoritative"
+   },
+   {
+    "index": 48,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-21；区块=渤西；日期=2025-09-01；油压（MPa）=5.02",
+    "trust": "authoritative"
+   },
+   {
+    "index": 49,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-22；区块=渤西；日期=2025-09-01；油压（MPa）=4.44",
+    "trust": "authoritative"
+   },
+   {
+    "index": 50,
+    "source": "agg.fct_daily_metering",
+    "content": "井号=X-23；区块=渤西；日期=2025-09-01；油压（MPa）=6.53",
+    "trust": "authoritative"
+   },
+   {
+    "index": 51,
+    "source": "agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date",
+    "content": "① 口径 油压（MPa）（单位：MPa）——指标台账注册声明：日产计量的油压——源 oil_production_daily.oil_pressure（R5·A.2）；agg 读模型绑定列 agg.fct_daily_metering.oil_pressure（99 §2.12），口径随答案标注\n② 来源表 agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）\n③ 过滤条件 时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)\n　└（权限注入） 数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）\n④ 数据截至批次 批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 37 天 · 超期）\n⑤ 收口注记 LIMIT 50——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底",
+    "trust": "authoritative",
+    "payload": {
+     "lineage": {
+      "① 口径": "油压（MPa）（单位：MPa）——指标台账注册声明：日产计量的油压——源 oil_production_daily.oil_pressure（R5·A.2）；agg 读模型绑定列 agg.fct_daily_metering.oil_pressure（99 §2.12），口径随答案标注",
+      "② 来源表": "agg.fct_daily_metering（agg 星型读模型 · 即汇总层「日产计量表」——99 册 §2.12/D6 star_model，机器名＝A1 解释链②冻结）⋈ agg.dim_well（井维度·按井号）⋈ agg.dim_date（日期维度·按日期）",
+      "③ 过滤条件": "时间＝2025-01-01～2025-12-31 [2025-01-01, 2026-01-01)",
+      "　└（权限注入）": "数据域＝全量——行级注入经 M-01 两步缝拼入 WHERE，不靠模型自觉（预埋期谓词恒空＝恒真；真分权只换谓词生产实现，注入点形状冻结）（actor＝aqiang · 落点 agg.fct_daily_metering——谓词随执行并语句）",
+      "④ 数据截至批次": "批次 b-a1a61db9f458 · 汇总层水位 2026-08-31（承诺 T-1 · 落后 37 天 · 超期）",
+      "⑤ 收口注记": "LIMIT 50——强制限量纪律：没写补默认 50、超 200 截到 200，只封顶不抬底"
+     },
+     "limit": {
+      "hit": true,
+      "rows": 50
+     }
+    }
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "supported": 50,
+    "rewritten": 5,
+    "split": 0,
+    "cited": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     11,
+     12,
+     13,
+     14,
+     15,
+     16,
+     17,
+     18,
+     19,
+     20,
+     21,
+     22,
+     23,
+     24,
+     25,
+     26,
+     27,
+     28,
+     29,
+     30,
+     31,
+     32,
+     33,
+     34,
+     35,
+     36,
+     37,
+     38,
+     39,
+     40,
+     41,
+     42,
+     43,
+     44,
+     45,
+     46,
+     47,
+     48,
+     49,
+     50
+    ],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  ],
+  "final": {
+   "status": "completed",
+   "run_id": "run-c1128d25",
+   "manifest_digest": "791e777361991daa",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：问去年各井每天的油压。\n指标候选：油压",
+   "按去年每日产出做了油压取值，本次封顶前 50 行已逐行列示如下（单位 MPa，来源 agg.fct_daily_metering 日产计量事实表）。说明：题目问的是「去年各井每天」全年明细，本次只回前 50 行；如需完整全年明细，请告知是否继续拉取（去年全部井次规模较大）。",
+   "**渤南区块 · 2025-09-01**\n- N-01 油压 7.56 [1]\n- N-02 油压 5.27 [2]\n- N-03 油压 3.95 [3]\n- N-04 油压 4.72 [4]\n- N-05 油压 5.18 [5]\n- N-06 油压 8.50 [6]\n- N-07 油压 6.02 [7]\n- N-08 油压 4.12 [8]\n- N-09 油压 3.86 [9]\n- N-10 油压 8.06 [10]\n- N-11 油压 4.20 [11]\n- N-12 油压 3.70 [12]\n- N-13 油压 8.55 [13]\n- N-14 油压 7.09 [14]\n- N-15 油压 8.47 [15]\n- N-16 油压 6.54 [16]\n- N-17 油压 6.33 [17]\n- N-18 油压 6.29 [18]\n- N-19 油压 7.46 [19]\n- N-20 油压 6.59 [20]\n- N-21 油压 8.87 [21]\n- N-22 油压 6.84 [22]\n- N-23 油压 4.72 [23]\n- N-24 油压 6.17 [24]\n- N-25 油压 6.05 [25]\n- N-26 油压 6.46 [26]\n- N-27 油压 3.88 [27]",
+   "**渤西区块 · 2025-09-01**\n- X-01 油压 4.29 [28]\n- X-02 油压 0.00 [29]（计量值为 0，请排查该井当日油压表是否正常投运）\n- X-03 油压 5.54 [30]\n- X-04 油压 3.32 [31]\n- X-05 油压 7.78 [32]\n- X-06 油压 3.11 [33]\n- X-07 油压 8.04 [34]\n- X-08 油压 5.42 [35]\n- X-09 油压 5.28 [36]\n- X-10 油压 4.09 [37]\n- X-11 油压 5.76 [38]\n- X-12 油压 5.68 [39]\n- X-13 油压 6.64 [40]\n- X-14 油压 5.59 [41]\n- X-15 油压 6.17 [42]\n- X-16 油压 8.32 [43]\n- X-17 油压 8.43 [44]\n- X-18 油压 4.07 [45]\n- X-19 油压 5.15 [46]\n- X-20 油压 8.02 [47]\n- X-21 油压 5.02 [48]\n- X-22 油压 4.44 [49]\n- X-23 油压 6.53 [50]",
+   "口径备注：油压取自日产计量表 agg.fct_daily_metering.oil_pressure（绑定态＝已绑定，单位 MPa，口径＝计量直取日值）[51]。",
+   "**未覆盖说明**\n- 题目要求「去年（2025-01-01 至 2026-01-01 不含端）各井每天」的完整明细，本次仅返回引擎封顶前 50 行数据，覆盖 2025-09-01 当天 50 口井，其余日期与井号未在本次返回范围内。\n- 以上数据未做合计/排名/筛选处理，只是按窗口顺序取的前 50 行原始明细。",
+   "如需完整全年明细（单列/分片下载）或指定某口井、某段时间的油压，请告知后可继续拉取。"
+  ],
+  "duration_s": 18.0
+ }
+}

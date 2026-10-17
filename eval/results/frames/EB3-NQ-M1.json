@@ -1,0 +1,151 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-74dd2bb0",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "读题应答不合 schema（不静默降级）：{\"route\":\"full\",\"text\":\"理解：结合第一章、第二章、第七章回答五个子问：①本报告口径下 2027 年 1 月躺井 3 井次分别对应哪三口井；②其中属于杆断的是哪两口、这两口的平均检泵周期是多少天；③三口中属于\"泵漏\"的是哪口井、其检泵周期是多少天；④第七章 2027-01 行\"其中杆断\"一栏填的是几；⑤该行的\"检泵作业(井次)\"一栏填的是几。\",\"metric_candid…"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "理解解析失败：应答不合 schema"
+   }
+  },
+  {
+   "id": 4,
+   "event": "text",
+   "data": {
+    "content": "抱歉，这次没能读懂您的问题：模型先后两次给出了不合输出契约的应答（已按不合项回喂重试一次仍不合，不合项：应答不是合法 JSON）。为不猜、不取默认值、不出低质答案，本次不继续作答——请把问题再说明白一些（比如指明指标、时间范围、井号）后重问。"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 4,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 6,
+   "event": "verdict",
+   "data": {
+    "status": "completed",
+    "run_id": "run-74dd2bb0",
+    "manifest_digest": "e0433206d52a18df",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 7,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-74dd2bb0",
+    "question": "结合第一章、第二章、第七章回答五个子问：①本报告口径下 2027 年 1 月躺井 3 井次分别对应哪三口井？②其中属于杆断的是哪两口、这两口的平均检泵周期是多少天？③三口中属于\"泵漏\"的是哪口井、其检泵周期是多少天？④第七章 2027-01 行\"其中杆断\"一栏填的是几？⑤该行的\"检泵作业(井次)\"一栏填的是几？",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 9305,
+    "counts": {
+     "messages": 6,
+     "dialogue": 0,
+     "process_notes": 5,
+     "observations": 0,
+     "steps": 4
+    }
+   }
+  },
+  {
+   "id": 7,
+   "event": "done",
+   "data": {
+    "run_id": "run-74dd2bb0"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "抱歉，这次没能读懂您的问题：模型先后两次给出了不合输出契约的应答（已按不合项回喂重试一次仍不合，不合项：应答不是合法 JSON）。为不猜、不取默认值、不出低质答案，本次不继续作答——请把问题再说明白一些（比如指明指标、时间范围、井号）后重问。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "读题应答不合 schema（不静默降级）：{\"route\":\"full\",\"text\":\"理解：结合第一章、第二章、第七章回答五个子问：①本报告口径下 2027 年 1 月躺井 3 井次分别对应哪三口井；②其中属于杆断的是哪两口、这两口的平均检泵周期是多少天；③三口中属于\"泵漏\"的是哪口井、其检泵周期是多少天；④第七章 2027-01 行\"其中杆断\"一栏填的是几；⑤该行的\"检泵作业(井次)\"一栏填的是几。\",\"metric_candid…"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-74dd2bb0",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "理解解析失败：应答不合 schema"
+   },
+   {
+    "step": "answer",
+    "seq": 4,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "status": "completed",
+   "run_id": "run-74dd2bb0",
+   "manifest_digest": "e0433206d52a18df",
+   "subtype": "final"
+  },
+  "texts": [
+   "抱歉，这次没能读懂您的问题：模型先后两次给出了不合输出契约的应答（已按不合项回喂重试一次仍不合，不合项：应答不是合法 JSON）。为不猜、不取默认值、不出低质答案，本次不继续作答——请把问题再说明白一些（比如指明指标、时间范围、井号）后重问。"
+  ],
+  "duration_s": 4.5
+ }
+}

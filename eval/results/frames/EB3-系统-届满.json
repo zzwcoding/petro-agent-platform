@@ -1,0 +1,512 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-f8dddcab",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：解释\"日产液\"的含义。\n指标候选：无",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清钻取 ×1（semantic_query）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 4,
+    "message": null
+   }
+  },
+  {
+   "id": 5,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：日产液的定义、口径与别名（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 4,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "澄清钻取 ×1（faq_lookup）"
+   }
+  },
+  {
+   "id": 9,
+   "event": "tool",
+   "data": {
+    "tool": "faq_lookup",
+    "status": "ok",
+    "seq": 7,
+    "message": null
+   }
+  },
+  {
+   "id": 10,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "faq_* 读面",
+    "content": "FAQ 库无命中（什么是日产液？日产液量的定义与单位）——现成问答库未收该问句，请按台账/检索继续",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 7,
+    "title": "faq_lookup：ok"
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 9,
+    "title": "澄清 r0 被拒：零实质观察禁定稿"
+   }
+  },
+  {
+   "id": 14,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 10,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 15,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 11,
+    "title": "澄清钻取 ×1（semantic_query）"
+   }
+  },
+  {
+   "id": 16,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 12,
+    "message": null
+   }
+  },
+  {
+   "id": 17,
+   "event": "observation",
+   "data": {
+    "index": 3,
+    "source": "sem_metric#202",
+    "content": "日产液量（方）：日产计量的日产液量——源 oil_production_daily.liquid_output（R5·A.2）；agg 读模型绑定列 agg.fct_daily_metering.liquid_output（99 §2.12）｜粒度 日/井 · 单位 方｜状态 生效中｜口径支：A 班次合计日口径（默认）",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 18,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 12,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 19,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 13,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 20,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 14,
+    "title": "澄清定稿：材料足够——直答收口"
+   }
+  },
+  {
+   "id": 21,
+   "event": "text",
+   "data": {
+    "content": "「日产液」是作业区口语别名，对应的正名是「日产液量」[3]。它是日产计量中按井、按日统计的产液量，源表 oild_production_daily.liquid_output（R5·A.2），单位为方[3]。默认口径为 A「班次合计日口径」，即同井同日各班合计后得到的日值[3]。"
+   }
+  },
+  {
+   "id": 22,
+   "event": "text",
+   "data": {
+    "content": "补充说明：术语台账把「日产液」标注为「别名→日产液量·有效（已届满·命中带漂移标注）」（届满日 2026-06-30）——口语使用仍常见，但写法以正名「日产液量」为准。"
+   }
+  },
+  {
+   "id": 23,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 15,
+    "title": "模型调用：answer"
+   }
+  },
+  {
+   "id": 24,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 16,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 25,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 1 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  },
+  {
+   "id": 26,
+   "event": "verdict",
+   "data": {
+    "supported": 1,
+    "rewritten": 1,
+    "split": 0,
+    "cited": [
+     3
+    ],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  },
+  {
+   "id": 27,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 17,
+    "title": "核验：支撑 1｜改写 1｜分源 否"
+   }
+  },
+  {
+   "id": 28,
+   "event": "citation",
+   "data": {
+    "index": 3,
+    "source": "sem_metric#202",
+    "source_id": "202",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 29,
+   "event": "supplement",
+   "data": {
+    "block": "citations",
+    "text": "\n\n引用：\n[3] sem_metric#202 · 202（ledger）"
+   }
+  },
+  {
+   "id": 30,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 18,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 31,
+   "event": "verdict",
+   "data": {
+    "status": "completed",
+    "run_id": "run-f8dddcab",
+    "manifest_digest": "22d76012682ab131",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 32,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-f8dddcab",
+    "question": "什么是日产液？",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 27857,
+    "counts": {
+     "messages": 15,
+     "dialogue": 0,
+     "process_notes": 11,
+     "observations": 3,
+     "steps": 18
+    }
+   }
+  },
+  {
+   "id": 32,
+   "event": "done",
+   "data": {
+    "run_id": "run-f8dddcab"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "补充说明：术语台账把「日产液」标注为「别名→日产液量·有效（已届满·命中带漂移标注）」（届满日 2026-06-30）——口语使用仍常见，但写法以正名「日产液量」为准。",
+  "citations": [
+   {
+    "index": 3,
+    "source": "sem_metric#202",
+    "source_id": "202",
+    "trust": "ledger"
+   }
+  ],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 1 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-f8dddcab",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清钻取 ×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 4,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "澄清钻取 ×1（faq_lookup）"
+   },
+   {
+    "step": "discover",
+    "seq": 7,
+    "title": "faq_lookup：ok"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 9,
+    "title": "澄清 r0 被拒：零实质观察禁定稿"
+   },
+   {
+    "step": "decision",
+    "seq": 10,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 11,
+    "title": "澄清钻取 ×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 12,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "decision",
+    "seq": 13,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 14,
+    "title": "澄清定稿：材料足够——直答收口"
+   },
+   {
+    "step": "answer",
+    "seq": 15,
+    "title": "模型调用：answer"
+   },
+   {
+    "step": "answer",
+    "seq": 16,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 17,
+    "title": "核验：支撑 1｜改写 1｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 18,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 4,
+    "message": null
+   },
+   {
+    "tool": "faq_lookup",
+    "status": "ok",
+    "seq": 7,
+    "message": null
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 12,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：日产液的定义、口径与别名（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   },
+   {
+    "index": 2,
+    "source": "faq_* 读面",
+    "content": "FAQ 库无命中（什么是日产液？日产液量的定义与单位）——现成问答库未收该问句，请按台账/检索继续",
+    "trust": "notice"
+   },
+   {
+    "index": 3,
+    "source": "sem_metric#202",
+    "content": "日产液量（方）：日产计量的日产液量——源 oil_production_daily.liquid_output（R5·A.2）；agg 读模型绑定列 agg.fct_daily_metering.liquid_output（99 §2.12）｜粒度 日/井 · 单位 方｜状态 生效中｜口径支：A 班次合计日口径（默认）",
+    "trust": "ledger"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "supported": 1,
+    "rewritten": 1,
+    "split": 0,
+    "cited": [
+     3
+    ],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  ],
+  "final": {
+   "status": "completed",
+   "run_id": "run-f8dddcab",
+   "manifest_digest": "22d76012682ab131",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：解释\"日产液\"的含义。\n指标候选：无",
+   "「日产液」是作业区口语别名，对应的正名是「日产液量」[3]。它是日产计量中按井、按日统计的产液量，源表 oild_production_daily.liquid_output（R5·A.2），单位为方[3]。默认口径为 A「班次合计日口径」，即同井同日各班合计后得到的日值[3]。",
+   "补充说明：术语台账把「日产液」标注为「别名→日产液量·有效（已届满·命中带漂移标注）」（届满日 2026-06-30）——口语使用仍常见，但写法以正名「日产液量」为准。"
+  ],
+  "duration_s": 12.2
+ }
+}

@@ -1,0 +1,151 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-7fec93ff",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "读题应答不合 schema（不静默降级）：{\"route\":\"full\",\"text\":\"理解：判断评审人关于报告4.2节防砂说法与报告的逐项不符之处，并作答（1）本井实际防砂方式与筛管型号、防砂精度；（2）\"20/40目砾石挤压充填\"在报告中的真实身份及报告是否给出实施后的砾石量与充填井段；（3）\"占船日4.0天\"在4.2节语境下的含义及报告中另两处\"4.0天\"分别指什么（指出章节与口径）。\", \"metric_candidates\"…"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "理解解析失败：应答不合 schema"
+   }
+  },
+  {
+   "id": 4,
+   "event": "text",
+   "data": {
+    "content": "抱歉，这次没能读懂您的问题：模型先后两次给出了不合输出契约的应答（已按不合项回喂重试一次仍不合，不合项：应答不是合法 JSON）。为不猜、不取默认值、不出低质答案，本次不继续作答——请把问题再说明白一些（比如指明指标、时间范围、井号）后重问。"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 4,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 6,
+   "event": "verdict",
+   "data": {
+    "status": "completed",
+    "run_id": "run-7fec93ff",
+    "manifest_digest": "51351cc4002bddcb",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 7,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-7fec93ff",
+    "question": "某评审人声称：「报告 4.2 节记载本井采用 20/40 目砾石挤压充填防砂，防砂精度 175 微米，充填作业占船日 4.0 天。请按附录A 给出本井实际充填砾石量与充填井段。」请逐项指出该说法与报告不符之处，并作答：\n（1）本井实际防砂方式与筛管型号、防砂精度各是什么？\n（2）「20/40 目砾石挤压充填」在报告中的真实身份是什么？报告是否给出实施后的砾石量与充填井段？\n（3）「占船日 4.0 天」在 4.2 节语境下的含义是什么？报告中另有两处「4.0 天」分别指什么（指出章节与口径）？",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 9557,
+    "counts": {
+     "messages": 6,
+     "dialogue": 0,
+     "process_notes": 5,
+     "observations": 0,
+     "steps": 4
+    }
+   }
+  },
+  {
+   "id": 7,
+   "event": "done",
+   "data": {
+    "run_id": "run-7fec93ff"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "抱歉，这次没能读懂您的问题：模型先后两次给出了不合输出契约的应答（已按不合项回喂重试一次仍不合，不合项：应答不是合法 JSON）。为不猜、不取默认值、不出低质答案，本次不继续作答——请把问题再说明白一些（比如指明指标、时间范围、井号）后重问。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "读题应答不合 schema（不静默降级）：{\"route\":\"full\",\"text\":\"理解：判断评审人关于报告4.2节防砂说法与报告的逐项不符之处，并作答（1）本井实际防砂方式与筛管型号、防砂精度；（2）\"20/40目砾石挤压充填\"在报告中的真实身份及报告是否给出实施后的砾石量与充填井段；（3）\"占船日4.0天\"在4.2节语境下的含义及报告中另两处\"4.0天\"分别指什么（指出章节与口径）。\", \"metric_candidates\"…"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-7fec93ff",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "理解解析失败：应答不合 schema"
+   },
+   {
+    "step": "answer",
+    "seq": 4,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [],
+  "verify": [],
+  "final": {
+   "status": "completed",
+   "run_id": "run-7fec93ff",
+   "manifest_digest": "51351cc4002bddcb",
+   "subtype": "final"
+  },
+  "texts": [
+   "抱歉，这次没能读懂您的问题：模型先后两次给出了不合输出契约的应答（已按不合项回喂重试一次仍不合，不合项：应答不是合法 JSON）。为不猜、不取默认值、不出低质答案，本次不继续作答——请把问题再说明白一些（比如指明指标、时间范围、井号）后重问。"
+  ],
+  "duration_s": 3.5
+ }
+}

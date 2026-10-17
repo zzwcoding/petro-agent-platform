@@ -1,0 +1,214 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-cb36988a",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：问井位台账里日产油量最高的井是哪口。\n指标候选：日产油量",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1 被拒：ledger_notes 槽位对账未过：s1"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r2：分解 1 子问题"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 7,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "external_table_approval",
+     "prompt": "子问题 s1 的取数计划引用外部表 erp_well_register——是否批准越集查询？",
+     "options": [
+      "批准",
+      "驳回"
+     ],
+     "detail": {
+      "approval_id": "precond-s1",
+      "tables": [
+       "erp_well_register"
+      ]
+     }
+    },
+    "run_id": "run-cb36988a"
+   }
+  },
+  {
+   "id": 8,
+   "event": "notice",
+   "data": {
+    "type": "approval_gate_pending",
+    "gates": [],
+    "content": "前置条件机：子问题 s1 等用户（external_table_approval）——子问题 s1 的取数计划引用外部表 erp_well_register——是否批准越集查询？"
+   }
+  },
+  {
+   "id": 9,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "前置条件机：s1=ask（ask）"
+   }
+  },
+  {
+   "id": 10,
+   "event": "verdict",
+   "data": {
+    "status": "waiting_ask",
+    "run_id": "run-cb36988a",
+    "manifest_digest": "00e9fe9ed8635e2c",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 10,
+   "event": "done",
+   "data": {
+    "run_id": "run-cb36988a"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "理解：问井位台账里日产油量最高的井是哪口。\n指标候选：日产油量",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "approval_gate_pending",
+    "gates": [],
+    "content": "前置条件机：子问题 s1 等用户（external_table_approval）——子问题 s1 的取数计划引用外部表 erp_well_register——是否批准越集查询？"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-cb36988a",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1 被拒：ledger_notes 槽位对账未过：s1"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r2：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "前置条件机：s1=ask（ask）"
+   }
+  ],
+  "tools": [],
+  "observations": [],
+  "asks": [
+   {
+    "frame": {
+     "kind": "external_table_approval",
+     "prompt": "子问题 s1 的取数计划引用外部表 erp_well_register——是否批准越集查询？",
+     "options": [
+      "批准",
+      "驳回"
+     ],
+     "detail": {
+      "approval_id": "precond-s1",
+      "tables": [
+       "erp_well_register"
+      ]
+     }
+    },
+    "run_id": "run-cb36988a"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "status": "waiting_ask",
+   "run_id": "run-cb36988a",
+   "manifest_digest": "00e9fe9ed8635e2c",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：问井位台账里日产油量最高的井是哪口。\n指标候选：日产油量"
+  ],
+  "duration_s": 9.8
+ }
+}

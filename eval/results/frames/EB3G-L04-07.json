@@ -1,0 +1,357 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-5abf15e3",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：问哪几口井生产强度最高（\"采得最狠\"——口语，指向日产能力或产量排前）。\n指标候选：日产油量",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1 被拒：ledger_notes 槽位对账未过：s1"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r2：分解 1 子问题"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 7,
+   "event": "notice",
+   "data": {
+    "type": "decision_note",
+    "gates": [],
+    "content": "前置条件机：子问题 s1 放行（注记 1 条）——窗上沿 2026-10-08 晚于汇总层水位 2026-08-31——引擎新鲜度闸将拦停/改绑并注记（照实判定）"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 7,
+    "title": "前置条件机：s1=allow"
+   }
+  },
+  {
+   "id": 9,
+   "event": "tool",
+   "data": {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 8,
+    "message": null
+   }
+  },
+  {
+   "id": 10,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "汇总层水位读面",
+    "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 37 天 · 超期）——查询窗「2026-09-08～2026-10-07」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 8,
+    "title": "data_query：ok（子问题 s1）"
+   }
+  },
+  {
+   "id": 12,
+   "event": "text",
+   "data": {
+    "content": "未能取出排名数据，原因如下："
+   }
+  },
+  {
+   "id": 13,
+   "event": "text",
+   "data": {
+    "content": "数据新鲜度闸已拦停：汇总层数据水位停留在 2026-08-31，而所问时段（近 30 天，约 2026-09-08 至 2026-10-07）超出水位 37 天，系统不返回空数冒充有数。要拿到\"哪几口井采得最狠\"（日产油量排名）的结果，需要先把源表数据推进到当前时段——催办可走\"考核与质量 → 问题单\"。"
+   }
+  },
+  {
+   "id": 14,
+   "event": "text",
+   "data": {
+    "content": "在数据水位未更新前，本系统无法给出基于当前时段的井排名结论。"
+   }
+  },
+  {
+   "id": 15,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 9,
+    "title": "模型调用：answer"
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 10,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 17,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 1 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  },
+  {
+   "id": 18,
+   "event": "verdict",
+   "data": {
+    "supported": 0,
+    "rewritten": 1,
+    "split": 0,
+    "cited": [],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  },
+  {
+   "id": 19,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 11,
+    "title": "核验：支撑 0｜改写 1｜分源 否"
+   }
+  },
+  {
+   "id": 20,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 12,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 21,
+   "event": "verdict",
+   "data": {
+    "status": "completed",
+    "run_id": "run-5abf15e3",
+    "manifest_digest": "c7bbc35f153ccb1e",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 22,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-5abf15e3",
+    "question": "哪几口井采得最狠？",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 28209,
+    "counts": {
+     "messages": 11,
+     "dialogue": 0,
+     "process_notes": 6,
+     "observations": 1,
+     "steps": 12
+    }
+   }
+  },
+  {
+   "id": 22,
+   "event": "done",
+   "data": {
+    "run_id": "run-5abf15e3"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "在数据水位未更新前，本系统无法给出基于当前时段的井排名结论。",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "decision_note",
+    "gates": [],
+    "content": "前置条件机：子问题 s1 放行（注记 1 条）——窗上沿 2026-10-08 晚于汇总层水位 2026-08-31——引擎新鲜度闸将拦停/改绑并注记（照实判定）"
+   },
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 1 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-5abf15e3",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1 被拒：ledger_notes 槽位对账未过：s1"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清 r2：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 7,
+    "title": "前置条件机：s1=allow"
+   },
+   {
+    "step": "execute",
+    "seq": 8,
+    "title": "data_query：ok（子问题 s1）"
+   },
+   {
+    "step": "answer",
+    "seq": 9,
+    "title": "模型调用：answer"
+   },
+   {
+    "step": "answer",
+    "seq": 10,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 11,
+    "title": "核验：支撑 0｜改写 1｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 12,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "data_query",
+    "status": "ok",
+    "seq": 8,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "汇总层水位读面",
+    "content": "新鲜度闸拦停：汇总层数据水位＝2026-08-31（落后 37 天 · 超期）——查询窗「2026-09-08～2026-10-07」尚无已出数数据，不返回空数冒充。催办：源表催办走「考核与质量 → 问题单」。",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "supported": 0,
+    "rewritten": 1,
+    "split": 0,
+    "cited": [],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  ],
+  "final": {
+   "status": "completed",
+   "run_id": "run-5abf15e3",
+   "manifest_digest": "c7bbc35f153ccb1e",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：问哪几口井生产强度最高（\"采得最狠\"——口语，指向日产能力或产量排前）。\n指标候选：日产油量",
+   "未能取出排名数据，原因如下：",
+   "数据新鲜度闸已拦停：汇总层数据水位停留在 2026-08-31，而所问时段（近 30 天，约 2026-09-08 至 2026-10-07）超出水位 37 天，系统不返回空数冒充有数。要拿到\"哪几口井采得最狠\"（日产油量排名）的结果，需要先把源表数据推进到当前时段——催办可走\"考核与质量 → 问题单\"。",
+   "在数据水位未更新前，本系统无法给出基于当前时段的井排名结论。"
+  ],
+  "duration_s": 8.6
+ }
+}

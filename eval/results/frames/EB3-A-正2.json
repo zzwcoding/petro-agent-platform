@@ -1,0 +1,1074 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-8fadea53",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：问本井的射孔总厚度、孔密、设计总孔数各是多少。",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1 被拒：澄清发射不可解析——只输出一个 JSON"
+   }
+  },
+  {
+   "id": 4,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 5,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清钻取 ×2（semantic_query、semantic_query）"
+   }
+  },
+  {
+   "id": 6,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 6,
+    "message": null
+   }
+  },
+  {
+   "id": 7,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：射孔总厚度（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 8,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 7,
+    "message": null
+   }
+  },
+  {
+   "id": 9,
+   "event": "observation",
+   "data": {
+    "index": 2,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：孔密（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 10,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 6,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 7,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 9,
+    "title": "澄清钻取 ×2（semantic_query、table_schema）"
+   }
+  },
+  {
+   "id": 14,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 10,
+    "message": null
+   }
+  },
+  {
+   "id": 15,
+   "event": "observation",
+   "data": {
+    "index": 3,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：设计总孔数（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 16,
+   "event": "tool",
+   "data": {
+    "tool": "table_schema",
+    "status": "failed",
+    "seq": 11,
+    "message": "未知参数键：['target']（args_schema additionalProperties=false）"
+   }
+  },
+  {
+   "id": 17,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具校验拒因回喂重决策：未知参数键：['target']（args_schema additionalProperties=false）"
+   }
+  },
+  {
+   "id": 18,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 10,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 19,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 11,
+    "title": "table_schema：failed"
+   }
+  },
+  {
+   "id": 20,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 12,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 21,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 13,
+    "title": "澄清钻取 ×1（semantic_query）"
+   }
+  },
+  {
+   "id": 22,
+   "event": "notice",
+   "data": {
+    "type": "same_param_replay",
+    "gates": [],
+    "content": "同参空手重发机器闸：semantic_query 同参已空手（探查未命中）——禁原样重发；改用其他探查（换参视为新尝试），或 decompose 分解走 doc_retrieve。"
+   }
+  },
+  {
+   "id": 23,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 14,
+    "title": "semantic_query 同参已空手（发射级拒）"
+   }
+  },
+  {
+   "id": 24,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 15,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 25,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 16,
+    "title": "澄清钻取 ×1（table_schema）"
+   }
+  },
+  {
+   "id": 26,
+   "event": "tool",
+   "data": {
+    "tool": "table_schema",
+    "status": "ok",
+    "seq": 17,
+    "message": null
+   }
+  },
+  {
+   "id": 27,
+   "event": "observation",
+   "data": {
+    "index": 4,
+    "source": "table_schema 白名单闸",
+    "content": "表 completion 不在探查白名单（agg 三表＋sem 五账＋kb 片段清单；raw/lake 湖表不开放）——只可探查白名单内资产结构。",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 28,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 17,
+    "title": "table_schema：ok"
+   }
+  },
+  {
+   "id": 29,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 18,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 30,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 19,
+    "title": "澄清 r2：分解 1 子问题"
+   }
+  },
+  {
+   "id": 31,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 20,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 32,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 21,
+    "title": "前置条件机：s1=allow"
+   }
+  },
+  {
+   "id": 33,
+   "event": "tool",
+   "data": {
+    "tool": "doc_retrieve",
+    "status": "ok",
+    "seq": 22,
+    "message": null
+   }
+  },
+  {
+   "id": 34,
+   "event": "observation",
+   "data": {
+    "index": 5,
+    "source": "《A-W11井完井工程报告》",
+    "content": "3.1 射孔井段（实际执行）　　序号　　射孔井段（米）　　　　厚度(米)　层位解释\n　　第一段　2380.0 ～ 2392.0　　　12.0　　　油层\n　　第二段　2398.0 ～ 2406.0　　　 8.0　　　油层\n　　第三段　2410.0 ～ 2418.0　　　 8.0　　　油水同层　　合计　 28.0 米三段之间为 6.0 米与 4.0 米泥岩夹层，夹层遮挡性评价为中等，方案采用三层合采。",
+    "trust": "report"
+   }
+  },
+  {
+   "id": 35,
+   "event": "observation",
+   "data": {
+    "index": 6,
+    "source": "《A-W11井完井工程报告》",
+    "content": "3.2 射孔参数射孔方式：油管输送射孔（TCP）＋加压点火，一次下井分段延时起爆。射孔枪型 SYD-102，孔密 16 孔/米，相位角 60°，射孔弹型 DP44HDX，孔径预估 12.4 毫米，穿深预估 786 毫米。全井射孔总厚度 28.0 米，按孔密 16 孔/米计算，设计总孔数 448 发，实发 448 发，发射率 100%。负压设计：射孔负压值 2.5 MPa。依据邻井 W-09 井试油资料反演的地层渗透率（486 mD）与地层压力（21.75 MPa），按岩层强度上限校核后取值，目的在于利用射孔瞬时负压清除孔眼压实带与滤饼。",
+    "trust": "report"
+   }
+  },
+  {
+   "id": 36,
+   "event": "observation",
+   "data": {
+    "index": 7,
+    "source": "《A-W11井完井工程报告》",
+    "content": "第三章 射孔设计━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+    "trust": "report"
+   }
+  },
+  {
+   "id": 37,
+   "event": "observation",
+   "data": {
+    "index": 8,
+    "source": "《A-W11井完井工程报告》",
+    "content": "第十章 邻井完井情况对照━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━　　井号　　完井方式　　　射孔段厚(米)　孔密(孔/米)　初期日产油(m³/d)　投产地层\n　　W-07　　套管射孔＋筛管　22.0　　　　 13　　　　　 291　　　　　　　 2023-05\n　　W-09　　套管射孔　　　　31.5　　　　 16　　　　　 402　　　　　　　 2024-11\n　　W-11　　筛管适度防砂　　28.0　　　　 16　　　　　 386　　　　　　　 2026-07对照说明：W-09 井未下防砂筛管（地层评价结论当时偏乐观），生产两年余未见出砂，是本井敢于采用筛管适度防砂（而非砾石充填）的重要参照；W-07 井历史上曾发生筛管堵塞（2024 年 3 月，堵塞段集中于上段），处理方式为酸洗解堵，未影响筛管继续使用。W-07 井目前日产油已递减至 96 m³/d，含水 71.4%，处于双高阶段。━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━附录A 主要入井物资与用量━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━　　物资　　　　　　　　规格　　　　　　　数量\n　　精密冲缝筛管　　　　7″·150μm　　　　 41.0 米（三段跨装）\n　　油管　　　　　　　　4-1/2″·N80　　　 2486.5 米\n　　射孔枪　　　　　　　SYD-102　　　　　 3 支（合计弹 448 发）\n　　永久封隔器　　　　　7″·液压坐封　　　 1 套\n　　井下安全阀　　　　　SCSSV·液控　　　　1 套（液控管线 291.0 米）\n　　滑套　　　　　　　　7″·开关式　　　　 1 套　　扶正套　　　　　　　φ148　　　　　　 36 只　　完井液　　　　　　　过滤海水 KCl 体系 320 立方米（含损耗）注：液控管线到 SCSSV 悬挂点长度 291.0 米（285.3 米阀深＋地面余量），与第五章安全阀深 285.3 米为两个不同口径数值，引用时注意区分。（本报告为评测用拟造数据，井号、数值均非真实生产数据。）",
+    "trust": "report"
+   }
+  },
+  {
+   "id": 38,
+   "event": "observation",
+   "data": {
+    "index": 9,
+    "source": "《Y-21井完井工程报告》",
+    "content": "〔节级摘要｜《Y-21井完井工程报告》·章节 03 第三章 射孔设计与实施｜覆盖 4 支切片〕射孔井段三段：2762.0–2776.0m、2784.0–2796.0m、2804.0–2818.0m，总厚40.0m，泥岩夹层8.0m，第三段底留14.0m避水。TCP射孔，SYD-127枪、DP41RDX-1弹，孔密16孔/米、相位60°、孔径12.8mm、穿深812mm、负压3.0MPa，设计640发实发640发（发射率100%）。环空加压16.5MPa延时起爆，井口6分钟内升至7.4MPa并见油花。",
+    "trust": "report"
+   }
+  },
+  {
+   "id": 39,
+   "event": "observation",
+   "data": {
+    "index": 10,
+    "source": "《A-W11井完井工程报告》",
+    "content": "〔节级摘要｜《A-W11井完井工程报告》·章节 03 第三章 射孔设计｜覆盖 4 支切片〕射孔井段三段合计28.0米（2380.0-2392.0米、2398.0-2406.0米油层，2410.0-2418.0米油水同层），夹层6.0米与4.0米，三层合采。采用TCP油管输送加压点火、分段延时起爆，SYD-102枪、DP44HDX弹，孔密16孔/米、相位角60°、孔径12.4毫米、穿深786毫米，设计448发实发448发发射率100%。负压值2.5MPa，依据邻井W-09井反演地层渗透率486mD、地层压力21.75MPa校核。点火后8分钟井口压力升至6.2MPa，出口见油花，三段起爆信号正常。",
+    "trust": "report"
+   }
+  },
+  {
+   "id": 40,
+   "event": "observation",
+   "data": {
+    "index": 11,
+    "source": "《Y-21井完井工程报告》",
+    "content": "第三章 射孔设计与实施━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+    "trust": "report"
+   }
+  },
+  {
+   "id": 41,
+   "event": "observation",
+   "data": {
+    "index": 12,
+    "source": "《Y-21井完井工程报告》",
+    "content": "3.1 射孔井段（实际执行）　　序号　　射孔井段（米）　　　　厚度(米)　层位解释\n　　第一段　2762.0 ～ 2776.0　　　14.0　　　油层\n　　第二段　2784.0 ～ 2796.0　　　12.0　　　油层\n　　第三段　2804.0 ～ 2818.0　　　14.0　　　油水同层　　合计　　40.0 米三段间为 8.0 米与 8.0 米泥岩夹层，遮挡性中等偏好，采用三层合采；第三段底部留 14.0 米避水厚度（至底水界面 2832 米）。",
+    "trust": "report"
+   }
+  },
+  {
+   "id": 42,
+   "event": "observation",
+   "data": {
+    "index": 13,
+    "source": "《Y-21井完井工程报告》",
+    "content": "3.2 射孔参数（TCP）射孔方式：油管输送射孔（TCP）＋环空加压点火，一次下井分段延时起爆；管柱尾带存储式压力计 2 支（2820.0 米、2650.0 米）。　　项目　　　　　　　参数　　射孔枪型　　　　　SYD-127　　射孔弹型　　　　　DP41RDX-1　　孔密　　　　　　　16 孔/米　　相位角　　　　　　60°　　孔径预估　　　　　12.8 毫米　　穿深预估　　　　　812 毫米　　负压值　　　　　　3.0 MPa全井射孔总厚度 40.0 米，按孔密 16 孔/米计设计总孔数 640 发（三支枪 224、192、224 发），实发 640 发，发射率 100%。负压值按岩层强度上限校核取 3.0 MPa（依据 Y-19 井试油反演渗透率与地层压力 27.16 MPa），用于清除孔眼压实带与钻井液滤饼。",
+    "trust": "report"
+   }
+  },
+  {
+   "id": 43,
+   "event": "observation",
+   "data": {
+    "index": 14,
+    "source": "《Y-21井完井工程报告》",
+    "content": "3.3 起爆与后效环空加压 16.5 MPa 点火，三段按设计间隔（段间 15 分钟）延时起爆，信号与压力计曲线正常回收；井口压力 6 分钟内由 0 升至 7.4 MPa，出口见油花。━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+    "trust": "report"
+   }
+  },
+  {
+   "id": 44,
+   "event": "observation",
+   "data": {
+    "index": 15,
+    "source": "《A-W11井完井工程报告》",
+    "content": "3.3 射孔后效点火后井口压力 8 分钟内由 0 升至 6.2 MPa，出口流见油花，显示良好；延时起爆间隔（段间 15 分钟）与设计一致，三条射孔段起爆信号均正常回收。━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+    "trust": "report"
+   }
+  },
+  {
+   "id": 45,
+   "event": "observation",
+   "data": {
+    "index": 16,
+    "source": "检索供给窗声明（截断显式）",
+    "content": "召回 48 支/送窗 11 支；已召回未送窗 37 支；矛盾来源同窗并立（各留代表支）：《A-W11井完井工程报告》、《Y-21井完井工程报告》；节级摘要展开节内切片 +5 支（摘要命中→节内补席）",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 46,
+   "event": "step",
+   "data": {
+    "step": "execute",
+    "seq": 22,
+    "title": "doc_retrieve：ok（子问题 s1）"
+   }
+  },
+  {
+   "id": 47,
+   "event": "text",
+   "data": {
+    "content": "问「本井」的射孔总厚度、孔密、设计总孔数——**所问对象指代不明，本井未指明是哪口井**。"
+   }
+  },
+  {
+   "id": 48,
+   "event": "text",
+   "data": {
+    "content": "材料内出现了两口井的完井射孔数据，二者均明确写在各自的完井工程报告里。现分别列示供您认领："
+   }
+  },
+  {
+   "id": 49,
+   "event": "text",
+   "data": {
+    "content": "**A-W11 井**（《A-W11井完井工程报告》）[6][10]\n- 射孔总厚度：28.0 米（三段合计：2380.0–2392.0 米、2398.0–2406.0 米、2410.0–2418.0 米）[5][10]\n- 孔密：16 孔/米（SYD-102 枪、DP44HDX 弹、相位 60°）[6][10]\n- 设计总孔数：448 发（实发 448 发，发射率 100%）[6][10]"
+   }
+  },
+  {
+   "id": 50,
+   "event": "text",
+   "data": {
+    "content": "**Y-21 井**（《Y-21井完井工程报告》）[12][13]\n- 射孔总厚度：40.0 米（三段合计：2762.0–2776.0 米、2784.0–2796.0 米、2804.0–2818.0 米）[9][12]\n- 孔密：16 孔/米（SYD-127 枪、DP41RDX-1 弹、相位 60°）[9][13]\n- 设计总孔数：640 发（三支枪分别为 224、192、224 发；实发 640 发，发射率 100%）[9][13]"
+   }
+  },
+  {
+   "id": 51,
+   "event": "text",
+   "data": {
+    "content": "口径备注：「射孔总厚度／孔密／设计总孔数」均非台账指标，数值取自完井工程报告章节正文（completion 族）[6][10][13]。"
+   }
+  },
+  {
+   "id": 52,
+   "event": "text",
+   "data": {
+    "content": "请告知「本井」指 A-W11 还是 Y-21，或其他井号；若为其他井，请补充井号后再次发起。"
+   }
+  },
+  {
+   "id": 53,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 23,
+    "title": "模型调用：answer"
+   }
+  },
+  {
+   "id": 54,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 24,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 55,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 2 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  },
+  {
+   "id": 56,
+   "event": "verdict",
+   "data": {
+    "supported": 8,
+    "rewritten": 2,
+    "split": 0,
+    "cited": [
+     5,
+     6,
+     8,
+     9,
+     10,
+     12,
+     13,
+     16
+    ],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  },
+  {
+   "id": 57,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 25,
+    "title": "核验：支撑 8｜改写 2｜分源 否"
+   }
+  },
+  {
+   "id": 58,
+   "event": "citation",
+   "data": {
+    "index": 5,
+    "source": "《A-W11井完井工程报告》",
+    "source_id": "f10",
+    "trust": "report"
+   }
+  },
+  {
+   "id": 59,
+   "event": "citation",
+   "data": {
+    "index": 6,
+    "source": "《A-W11井完井工程报告》",
+    "source_id": "f11",
+    "trust": "report"
+   }
+  },
+  {
+   "id": 60,
+   "event": "citation",
+   "data": {
+    "index": 8,
+    "source": "《A-W11井完井工程报告》",
+    "source_id": "f27",
+    "trust": "report"
+   }
+  },
+  {
+   "id": 61,
+   "event": "citation",
+   "data": {
+    "index": 9,
+    "source": "《Y-21井完井工程报告》",
+    "source_id": "ensum-a775f2977f30",
+    "trust": "report"
+   }
+  },
+  {
+   "id": 62,
+   "event": "citation",
+   "data": {
+    "index": 10,
+    "source": "《A-W11井完井工程报告》",
+    "source_id": "ensum-c4da582e5b9a",
+    "trust": "report"
+   }
+  },
+  {
+   "id": 63,
+   "event": "citation",
+   "data": {
+    "index": 12,
+    "source": "《Y-21井完井工程报告》",
+    "source_id": "f80",
+    "trust": "report"
+   }
+  },
+  {
+   "id": 64,
+   "event": "citation",
+   "data": {
+    "index": 13,
+    "source": "《Y-21井完井工程报告》",
+    "source_id": "f81",
+    "trust": "report"
+   }
+  },
+  {
+   "id": 65,
+   "event": "citation",
+   "data": {
+    "index": 16,
+    "source": "检索供给窗声明（截断显式）",
+    "source_id": "window_note",
+    "trust": "notice"
+   }
+  },
+  {
+   "id": 66,
+   "event": "supplement",
+   "data": {
+    "block": "attribution",
+    "text": "\n\n分源列明（逐源归属——来源名↔数值／结论配对）：\n[5] 《A-W11井完井工程报告》：3.1 射孔井段（实际执行）　　序号　　射孔井段（米）　　　　厚度(米)　层位解释\n　　第一段　2380.0 ～ 2392.0　　　12.0　　　油层\n　　第二段　2398.0 ～ 2406.0　　　 8.0　　　油层\n　　第三段　2410.0 ～ 2418.0　　　 8.0　　　油水同层　　合计　 28.0 米三段之间为 6.0 米与 4.0 米泥岩夹层，夹层遮挡性评价为中等，方案采用三层合采。\n[6] 《A-W11井完井工程报告》：3.2 射孔参数射孔方式：油管输送射孔（TCP）＋加压点火，一次下井分段延时起爆。射孔枪型 SYD-102，孔密 16 孔/米，相位角 60°，射孔弹型 DP44HDX，孔径预估 12.4 毫米，穿深预估 786 毫米。全井射孔总厚度 28.0 米，按孔密 16 孔/米计算，设计总孔数 448 发，实发 448 发，发射率 100%。负压设计：射孔负压值 2.5 MPa。依据邻井 W-09 井试油资料反演的地层渗透率（486 mD）与地层压力（21.75 MPa），按岩层强度上限校核后取值，目的在于利用射孔瞬时负压清除孔眼压实带与滤饼。\n[8] 《A-W11井完井工程报告》：第十章 邻井完井情况对照━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━　　井号　　完井方式　　　射孔段厚(米)　孔密(孔/米)　初期日产油(m³/d)　投产地层\n　　W-07　　套管射孔＋筛管　22.0　　　　 13　　　　　 291　　　　　　　 2023-05\n　　W-09　　套管射孔　　　　31.5　　　　 16　　　　　 402　　　　　　　 2024-11\n　　W-11　　筛管适度防砂　　28.0　　　　 16　　　　　 386　　　　　　　 2026-07对照说明：W-09 井未下防砂筛管（地层评价结论当时偏乐观），生产两年余未见出砂，是本井敢于采用筛管适度防砂（而非砾石充填）的重要参照；W-07 井历史上曾发生筛管堵塞（2024 年 3 月，堵塞段集中于上段），处理方式为酸洗解堵，未影响筛管继续使用。W-07 井目前日产油已递减至 96 m³/d，含水 71.4%，处于双高阶段。━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━附录A 主要入井物资与用量━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━　　物资　　　　　　　　规格　　　　　　　数量\n　　精密冲缝筛管　　　　7″·150μm　　　　 41.0 米（三段跨装）\n　　油管　　　　　　　　4-1/2″·N80　　　 2486.5 米\n　　射孔枪　　　　　　　SYD-102　　　　　 3 支（合计弹 448 发）\n　　永久封隔器　　　　　7″·液压坐封　　　 1 套\n　　井下安全阀　　　　　SCSSV·液控　　　　1 套（液控管线 291.0 米）\n　　滑套　　　　　　　　7″·开关式　　　　 1 套　　扶正套　　　　　　　φ148　　　　　　 36 只　　完井液　　　　　　　过滤海水 KCl 体系 320 立方米（含损耗）注：液控管线到 SCSSV 悬挂点长度 291.0 米（285.3 米阀深＋地面余量），与第五章安全阀深 285.3 米为两个不同口径数值，引用时注意区分。（本报告为评测用拟造数据，井号、数值均非真实生产数据。）\n[9] 《Y-21井完井工程报告》：〔节级摘要｜《Y-21井完井工程报告》·章节 03 第三章 射孔设计与实施｜覆盖 4 支切片〕射孔井段三段：2762.0–2776.0m、2784.0–2796.0m、2804.0–2818.0m，总厚40.0m，泥岩夹层8.0m，第三段底留14.0m避水。TCP射孔，SYD-127枪、DP41RDX-1弹，孔密16孔/米、相位60°、孔径12.8mm、穿深812mm、负压3.0MPa，设计640发实发640发（发射率100%）。环空加压16.5MPa延时起爆，井口6分钟内升至7.4MPa并见油花。\n[10] 《A-W11井完井工程报告》：〔节级摘要｜《A-W11井完井工程报告》·章节 03 第三章 射孔设计｜覆盖 4 支切片〕射孔井段三段合计28.0米（2380.0-2392.0米、2398.0-2406.0米油层，2410.0-2418.0米油水同层），夹层6.0米与4.0米，三层合采。采用TCP油管输送加压点火、分段延时起爆，SYD-102枪、DP44HDX弹，孔密16孔/米、相位角60°、孔径12.4毫米、穿深786毫米，设计448发实发448发发射率100%。负压值2.5MPa，依据邻井W-09井反演地层渗透率486mD、地层压力21.75MPa校核。点火后8分钟井口压力升至6.2MPa，出口见油花，三段起爆信号正常。\n[12] 《Y-21井完井工程报告》：3.1 射孔井段（实际执行）　　序号　　射孔井段（米）　　　　厚度(米)　层位解释\n　　第一段　2762.0 ～ 2776.0　　　14.0　　　油层\n　　第二段　2784.0 ～ 2796.0　　　12.0　　　油层\n　　第三段　2804.0 ～ 2818.0　　　14.0　　　油水同层　　合计　　40.0 米三段间为 8.0 米与 8.0 米泥岩夹层，遮挡性中等偏好，采用三层合采；第三段底部留 14.0 米避水厚度（至底水界面 2832 米）。\n[13] 《Y-21井完井工程报告》：3.2 射孔参数（TCP）射孔方式：油管输送射孔（TCP）＋环空加压点火，一次下井分段延时起爆；管柱尾带存储式压力计 2 支（2820.0 米、2650.0 米）。　　项目　　　　　　　参数　　射孔枪型　　　　　SYD-127　　射孔弹型　　　　　DP41RDX-1　　孔密　　　　　　　16 孔/米　　相位角　　　　　　60°　　孔径预估　　　　　12.8 毫米　　穿深预估　　　　　812 毫米　　负压值　　　　　　3.0 MPa全井射孔总厚度 40.0 米，按孔密 16 孔/米计设计总孔数 640 发（三支枪 224、192、224 发），实发 640 发，发射率 100%。负压值按岩层强度上限校核取 3.0 MPa（依据 Y-19 井试油反演渗透率与地层压力 27.16 MPa），用于清除孔眼压实带与钻井液滤饼。\n[16] 检索供给窗声明（截断显式）：召回 48 支/送窗 11 支；已召回未送窗 37 支；矛盾来源同窗并立（各留代表支）：《A-W11井完井工程报告》、《Y-21井完井工程报告》；节级摘要展开节内切片 +5 支（摘要命中→节内补席）"
+   }
+  },
+  {
+   "id": 67,
+   "event": "supplement",
+   "data": {
+    "block": "citations",
+    "text": "\n\n引用：\n[5] 《A-W11井完井工程报告》 · f10（report）\n[6] 《A-W11井完井工程报告》 · f11（report）\n[8] 《A-W11井完井工程报告》 · f27（report）\n[9] 《Y-21井完井工程报告》 · ensum-a775f2977f30（report）\n[10] 《A-W11井完井工程报告》 · ensum-c4da582e5b9a（report）\n[12] 《Y-21井完井工程报告》 · f80（report）\n[13] 《Y-21井完井工程报告》 · f81（report）\n[16] 检索供给窗声明（截断显式） · window_note（notice）"
+   }
+  },
+  {
+   "id": 68,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 26,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 69,
+   "event": "verdict",
+   "data": {
+    "status": "completed",
+    "run_id": "run-8fadea53",
+    "manifest_digest": "b2f1657ca9129d62",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 70,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-8fadea53",
+    "question": "本井射孔总厚度、孔密、设计总孔数各是多少？",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 47984,
+    "counts": {
+     "messages": 19,
+     "dialogue": 0,
+     "process_notes": 15,
+     "observations": 16,
+     "steps": 26
+    }
+   }
+  },
+  {
+   "id": 70,
+   "event": "done",
+   "data": {
+    "run_id": "run-8fadea53"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "请告知「本井」指 A-W11 还是 Y-21，或其他井号；若为其他井，请补充井号后再次发起。",
+  "citations": [
+   {
+    "index": 5,
+    "source": "《A-W11井完井工程报告》",
+    "source_id": "f10",
+    "trust": "report"
+   },
+   {
+    "index": 6,
+    "source": "《A-W11井完井工程报告》",
+    "source_id": "f11",
+    "trust": "report"
+   },
+   {
+    "index": 8,
+    "source": "《A-W11井完井工程报告》",
+    "source_id": "f27",
+    "trust": "report"
+   },
+   {
+    "index": 9,
+    "source": "《Y-21井完井工程报告》",
+    "source_id": "ensum-a775f2977f30",
+    "trust": "report"
+   },
+   {
+    "index": 10,
+    "source": "《A-W11井完井工程报告》",
+    "source_id": "ensum-c4da582e5b9a",
+    "trust": "report"
+   },
+   {
+    "index": 12,
+    "source": "《Y-21井完井工程报告》",
+    "source_id": "f80",
+    "trust": "report"
+   },
+   {
+    "index": 13,
+    "source": "《Y-21井完井工程报告》",
+    "source_id": "f81",
+    "trust": "report"
+   },
+   {
+    "index": 16,
+    "source": "检索供给窗声明（截断显式）",
+    "source_id": "window_note",
+    "trust": "notice"
+   }
+  ],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具校验拒因回喂重决策：未知参数键：['target']（args_schema additionalProperties=false）"
+   },
+   {
+    "type": "same_param_replay",
+    "gates": [],
+    "content": "同参空手重发机器闸：semantic_query 同参已空手（探查未命中）——禁原样重发；改用其他探查（换参视为新尝试），或 decompose 分解走 doc_retrieve。"
+   },
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 2 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-8fadea53",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清 r1 被拒：澄清发射不可解析——只输出一个 JSON"
+   },
+   {
+    "step": "decision",
+    "seq": 4,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "澄清钻取 ×2（semantic_query、semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 6,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "discover",
+    "seq": 7,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 9,
+    "title": "澄清钻取 ×2（semantic_query、table_schema）"
+   },
+   {
+    "step": "discover",
+    "seq": 10,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "discover",
+    "seq": 11,
+    "title": "table_schema：failed"
+   },
+   {
+    "step": "decision",
+    "seq": 12,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 13,
+    "title": "澄清钻取 ×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 14,
+    "title": "semantic_query 同参已空手（发射级拒）"
+   },
+   {
+    "step": "decision",
+    "seq": 15,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 16,
+    "title": "澄清钻取 ×1（table_schema）"
+   },
+   {
+    "step": "discover",
+    "seq": 17,
+    "title": "table_schema：ok"
+   },
+   {
+    "step": "decision",
+    "seq": 18,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 19,
+    "title": "澄清 r2：分解 1 子问题"
+   },
+   {
+    "step": "decision",
+    "seq": 20,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 21,
+    "title": "前置条件机：s1=allow"
+   },
+   {
+    "step": "execute",
+    "seq": 22,
+    "title": "doc_retrieve：ok（子问题 s1）"
+   },
+   {
+    "step": "answer",
+    "seq": 23,
+    "title": "模型调用：answer"
+   },
+   {
+    "step": "answer",
+    "seq": 24,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 25,
+    "title": "核验：支撑 8｜改写 2｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 26,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 6,
+    "message": null
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 7,
+    "message": null
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 10,
+    "message": null
+   },
+   {
+    "tool": "table_schema",
+    "status": "failed",
+    "seq": 11,
+    "message": "未知参数键：['target']（args_schema additionalProperties=false）"
+   },
+   {
+    "tool": "table_schema",
+    "status": "ok",
+    "seq": 17,
+    "message": null
+   },
+   {
+    "tool": "doc_retrieve",
+    "status": "ok",
+    "seq": 22,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：射孔总厚度（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   },
+   {
+    "index": 2,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：孔密（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   },
+   {
+    "index": 3,
+    "source": "sem_* 台账读面",
+    "content": "台账未命中：设计总孔数（精确名与别名归一均未命中——请核对要素名）",
+    "trust": "notice"
+   },
+   {
+    "index": 4,
+    "source": "table_schema 白名单闸",
+    "content": "表 completion 不在探查白名单（agg 三表＋sem 五账＋kb 片段清单；raw/lake 湖表不开放）——只可探查白名单内资产结构。",
+    "trust": "notice"
+   },
+   {
+    "index": 5,
+    "source": "《A-W11井完井工程报告》",
+    "content": "3.1 射孔井段（实际执行）　　序号　　射孔井段（米）　　　　厚度(米)　层位解释\n　　第一段　2380.0 ～ 2392.0　　　12.0　　　油层\n　　第二段　2398.0 ～ 2406.0　　　 8.0　　　油层\n　　第三段　2410.0 ～ 2418.0　　　 8.0　　　油水同层　　合计　 28.0 米三段之间为 6.0 米与 4.0 米泥岩夹层，夹层遮挡性评价为中等，方案采用三层合采。",
+    "trust": "report"
+   },
+   {
+    "index": 6,
+    "source": "《A-W11井完井工程报告》",
+    "content": "3.2 射孔参数射孔方式：油管输送射孔（TCP）＋加压点火，一次下井分段延时起爆。射孔枪型 SYD-102，孔密 16 孔/米，相位角 60°，射孔弹型 DP44HDX，孔径预估 12.4 毫米，穿深预估 786 毫米。全井射孔总厚度 28.0 米，按孔密 16 孔/米计算，设计总孔数 448 发，实发 448 发，发射率 100%。负压设计：射孔负压值 2.5 MPa。依据邻井 W-09 井试油资料反演的地层渗透率（486 mD）与地层压力（21.75 MPa），按岩层强度上限校核后取值，目的在于利用射孔瞬时负压清除孔眼压实带与滤饼。",
+    "trust": "report"
+   },
+   {
+    "index": 7,
+    "source": "《A-W11井完井工程报告》",
+    "content": "第三章 射孔设计━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+    "trust": "report"
+   },
+   {
+    "index": 8,
+    "source": "《A-W11井完井工程报告》",
+    "content": "第十章 邻井完井情况对照━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━　　井号　　完井方式　　　射孔段厚(米)　孔密(孔/米)　初期日产油(m³/d)　投产地层\n　　W-07　　套管射孔＋筛管　22.0　　　　 13　　　　　 291　　　　　　　 2023-05\n　　W-09　　套管射孔　　　　31.5　　　　 16　　　　　 402　　　　　　　 2024-11\n　　W-11　　筛管适度防砂　　28.0　　　　 16　　　　　 386　　　　　　　 2026-07对照说明：W-09 井未下防砂筛管（地层评价结论当时偏乐观），生产两年余未见出砂，是本井敢于采用筛管适度防砂（而非砾石充填）的重要参照；W-07 井历史上曾发生筛管堵塞（2024 年 3 月，堵塞段集中于上段），处理方式为酸洗解堵，未影响筛管继续使用。W-07 井目前日产油已递减至 96 m³/d，含水 71.4%，处于双高阶段。━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━附录A 主要入井物资与用量━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━　　物资　　　　　　　　规格　　　　　　　数量\n　　精密冲缝筛管　　　　7″·150μm　　　　 41.0 米（三段跨装）\n　　油管　　　　　　　　4-1/2″·N80　　　 2486.5 米\n　　射孔枪　　　　　　　SYD-102　　　　　 3 支（合计弹 448 发）\n　　永久封隔器　　　　　7″·液压坐封　　　 1 套\n　　井下安全阀　　　　　SCSSV·液控　　　　1 套（液控管线 291.0 米）\n　　滑套　　　　　　　　7″·开关式　　　　 1 套　　扶正套　　　　　　　φ148　　　　　　 36 只　　完井液　　　　　　　过滤海水 KCl 体系 320 立方米（含损耗）注：液控管线到 SCSSV 悬挂点长度 291.0 米（285.3 米阀深＋地面余量），与第五章安全阀深 285.3 米为两个不同口径数值，引用时注意区分。（本报告为评测用拟造数据，井号、数值均非真实生产数据。）",
+    "trust": "report"
+   },
+   {
+    "index": 9,
+    "source": "《Y-21井完井工程报告》",
+    "content": "〔节级摘要｜《Y-21井完井工程报告》·章节 03 第三章 射孔设计与实施｜覆盖 4 支切片〕射孔井段三段：2762.0–2776.0m、2784.0–2796.0m、2804.0–2818.0m，总厚40.0m，泥岩夹层8.0m，第三段底留14.0m避水。TCP射孔，SYD-127枪、DP41RDX-1弹，孔密16孔/米、相位60°、孔径12.8mm、穿深812mm、负压3.0MPa，设计640发实发640发（发射率100%）。环空加压16.5MPa延时起爆，井口6分钟内升至7.4MPa并见油花。",
+    "trust": "report"
+   },
+   {
+    "index": 10,
+    "source": "《A-W11井完井工程报告》",
+    "content": "〔节级摘要｜《A-W11井完井工程报告》·章节 03 第三章 射孔设计｜覆盖 4 支切片〕射孔井段三段合计28.0米（2380.0-2392.0米、2398.0-2406.0米油层，2410.0-2418.0米油水同层），夹层6.0米与4.0米，三层合采。采用TCP油管输送加压点火、分段延时起爆，SYD-102枪、DP44HDX弹，孔密16孔/米、相位角60°、孔径12.4毫米、穿深786毫米，设计448发实发448发发射率100%。负压值2.5MPa，依据邻井W-09井反演地层渗透率486mD、地层压力21.75MPa校核。点火后8分钟井口压力升至6.2MPa，出口见油花，三段起爆信号正常。",
+    "trust": "report"
+   },
+   {
+    "index": 11,
+    "source": "《Y-21井完井工程报告》",
+    "content": "第三章 射孔设计与实施━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+    "trust": "report"
+   },
+   {
+    "index": 12,
+    "source": "《Y-21井完井工程报告》",
+    "content": "3.1 射孔井段（实际执行）　　序号　　射孔井段（米）　　　　厚度(米)　层位解释\n　　第一段　2762.0 ～ 2776.0　　　14.0　　　油层\n　　第二段　2784.0 ～ 2796.0　　　12.0　　　油层\n　　第三段　2804.0 ～ 2818.0　　　14.0　　　油水同层　　合计　　40.0 米三段间为 8.0 米与 8.0 米泥岩夹层，遮挡性中等偏好，采用三层合采；第三段底部留 14.0 米避水厚度（至底水界面 2832 米）。",
+    "trust": "report"
+   },
+   {
+    "index": 13,
+    "source": "《Y-21井完井工程报告》",
+    "content": "3.2 射孔参数（TCP）射孔方式：油管输送射孔（TCP）＋环空加压点火，一次下井分段延时起爆；管柱尾带存储式压力计 2 支（2820.0 米、2650.0 米）。　　项目　　　　　　　参数　　射孔枪型　　　　　SYD-127　　射孔弹型　　　　　DP41RDX-1　　孔密　　　　　　　16 孔/米　　相位角　　　　　　60°　　孔径预估　　　　　12.8 毫米　　穿深预估　　　　　812 毫米　　负压值　　　　　　3.0 MPa全井射孔总厚度 40.0 米，按孔密 16 孔/米计设计总孔数 640 发（三支枪 224、192、224 发），实发 640 发，发射率 100%。负压值按岩层强度上限校核取 3.0 MPa（依据 Y-19 井试油反演渗透率与地层压力 27.16 MPa），用于清除孔眼压实带与钻井液滤饼。",
+    "trust": "report"
+   },
+   {
+    "index": 14,
+    "source": "《Y-21井完井工程报告》",
+    "content": "3.3 起爆与后效环空加压 16.5 MPa 点火，三段按设计间隔（段间 15 分钟）延时起爆，信号与压力计曲线正常回收；井口压力 6 分钟内由 0 升至 7.4 MPa，出口见油花。━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+    "trust": "report"
+   },
+   {
+    "index": 15,
+    "source": "《A-W11井完井工程报告》",
+    "content": "3.3 射孔后效点火后井口压力 8 分钟内由 0 升至 6.2 MPa，出口流见油花，显示良好；延时起爆间隔（段间 15 分钟）与设计一致，三条射孔段起爆信号均正常回收。━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+    "trust": "report"
+   },
+   {
+    "index": 16,
+    "source": "检索供给窗声明（截断显式）",
+    "content": "召回 48 支/送窗 11 支；已召回未送窗 37 支；矛盾来源同窗并立（各留代表支）：《A-W11井完井工程报告》、《Y-21井完井工程报告》；节级摘要展开节内切片 +5 支（摘要命中→节内补席）",
+    "trust": "notice"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "supported": 8,
+    "rewritten": 2,
+    "split": 0,
+    "cited": [
+     5,
+     6,
+     8,
+     9,
+     10,
+     12,
+     13,
+     16
+    ],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  ],
+  "final": {
+   "status": "completed",
+   "run_id": "run-8fadea53",
+   "manifest_digest": "b2f1657ca9129d62",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：问本井的射孔总厚度、孔密、设计总孔数各是多少。",
+   "问「本井」的射孔总厚度、孔密、设计总孔数——**所问对象指代不明，本井未指明是哪口井**。",
+   "材料内出现了两口井的完井射孔数据，二者均明确写在各自的完井工程报告里。现分别列示供您认领：",
+   "**A-W11 井**（《A-W11井完井工程报告》）[6][10]\n- 射孔总厚度：28.0 米（三段合计：2380.0–2392.0 米、2398.0–2406.0 米、2410.0–2418.0 米）[5][10]\n- 孔密：16 孔/米（SYD-102 枪、DP44HDX 弹、相位 60°）[6][10]\n- 设计总孔数：448 发（实发 448 发，发射率 100%）[6][10]",
+   "**Y-21 井**（《Y-21井完井工程报告》）[12][13]\n- 射孔总厚度：40.0 米（三段合计：2762.0–2776.0 米、2784.0–2796.0 米、2804.0–2818.0 米）[9][12]\n- 孔密：16 孔/米（SYD-127 枪、DP41RDX-1 弹、相位 60°）[9][13]\n- 设计总孔数：640 发（三支枪分别为 224、192、224 发；实发 640 发，发射率 100%）[9][13]",
+   "口径备注：「射孔总厚度／孔密／设计总孔数」均非台账指标，数值取自完井工程报告章节正文（completion 族）[6][10][13]。",
+   "请告知「本井」指 A-W11 还是 Y-21，或其他井号；若为其他井，请补充井号后再次发起。"
+  ],
+  "duration_s": 26.3
+ }
+}

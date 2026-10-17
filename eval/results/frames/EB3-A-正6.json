@@ -1,0 +1,286 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-99d37f7b",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：问 W-111 井的用途（属于哪类井、起什么作用）。\n指标候选：无",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清钻取 ×1（semantic_query）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "failed",
+    "seq": 4,
+    "message": "question 与 element_name 须二选一（同给同缺均拒）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具校验拒因回喂重决策：question 与 element_name 须二选一（同给同缺均拒）"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 4,
+    "title": "semantic_query：failed"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "澄清钻取 ×1（semantic_query）"
+   }
+  },
+  {
+   "id": 9,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 7,
+    "message": null
+   }
+  },
+  {
+   "id": 10,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_object#1",
+    "content": "井（草案）：井号 / 井别 / 投产日 / 状态机",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 7,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 12,
+   "event": "ask",
+   "data": {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "W-111 井是干什么的？——要答这题需要您补一句话：井的「用途」指哪个面？",
+     "options": [
+      "井别与分类（采油井/注水井/采注合一等）——来自完井报告与井维度",
+      "井当前的生产状态与功能（开井/停产待检泵/停产等）——来自生产动态",
+      "井归属的区块与油田、隶属哪个平台——来自井维度",
+      "我想问的是别的——我在回复里说明"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-99d37f7b"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 14,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 9,
+    "title": "澄清 r1：反问（W-111 井是干什么的？——要答这题需要您补一）"
+   }
+  },
+  {
+   "id": 15,
+   "event": "verdict",
+   "data": {
+    "status": "waiting_ask",
+    "run_id": "run-99d37f7b",
+    "manifest_digest": "2c547d59010b0133",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 15,
+   "event": "done",
+   "data": {
+    "run_id": "run-99d37f7b"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "理解：问 W-111 井的用途（属于哪类井、起什么作用）。\n指标候选：无",
+  "citations": [],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具校验拒因回喂重决策：question 与 element_name 须二选一（同给同缺均拒）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-99d37f7b",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清钻取 ×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 4,
+    "title": "semantic_query：failed"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "澄清钻取 ×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 7,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 9,
+    "title": "澄清 r1：反问（W-111 井是干什么的？——要答这题需要您补一）"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "semantic_query",
+    "status": "failed",
+    "seq": 4,
+    "message": "question 与 element_name 须二选一（同给同缺均拒）"
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 7,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_object#1",
+    "content": "井（草案）：井号 / 井别 / 投产日 / 状态机",
+    "trust": "ledger"
+   }
+  ],
+  "asks": [
+   {
+    "frame": {
+     "kind": "clarify",
+     "prompt": "W-111 井是干什么的？——要答这题需要您补一句话：井的「用途」指哪个面？",
+     "options": [
+      "井别与分类（采油井/注水井/采注合一等）——来自完井报告与井维度",
+      "井当前的生产状态与功能（开井/停产待检泵/停产等）——来自生产动态",
+      "井归属的区块与油田、隶属哪个平台——来自井维度",
+      "我想问的是别的——我在回复里说明"
+     ],
+     "detail": {}
+    },
+    "run_id": "run-99d37f7b"
+   }
+  ],
+  "verify": [],
+  "final": {
+   "status": "waiting_ask",
+   "run_id": "run-99d37f7b",
+   "manifest_digest": "2c547d59010b0133",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：问 W-111 井的用途（属于哪类井、起什么作用）。\n指标候选：无"
+  ],
+  "duration_s": 7.0
+ }
+}

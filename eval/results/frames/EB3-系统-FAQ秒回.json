@@ -1,0 +1,408 @@
+{
+ "frames": [
+  {
+   "id": "-1",
+   "event": "session",
+   "data": {
+    "run_id": "run-d8d40b11",
+    "resume": false
+   }
+  },
+  {
+   "id": 0,
+   "event": "text",
+   "data": {
+    "content": "理解：问 N-02 井的投产日期。\n指标候选：无",
+    "kind": "understanding"
+   }
+  },
+  {
+   "id": 1,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   }
+  },
+  {
+   "id": 2,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 3,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清钻取 ×1（semantic_query）"
+   }
+  },
+  {
+   "id": 4,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "failed",
+    "seq": 4,
+    "message": "未知参数键：['aspect']（args_schema additionalProperties=false）"
+   }
+  },
+  {
+   "id": 5,
+   "event": "notice",
+   "data": {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具校验拒因回喂重决策：未知参数键：['aspect']（args_schema additionalProperties=false）"
+   }
+  },
+  {
+   "id": 6,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 4,
+    "title": "semantic_query：failed"
+   }
+  },
+  {
+   "id": 7,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 5,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 8,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 6,
+    "title": "澄清钻取 ×1（semantic_query）"
+   }
+  },
+  {
+   "id": 9,
+   "event": "tool",
+   "data": {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 7,
+    "message": null
+   }
+  },
+  {
+   "id": 10,
+   "event": "observation",
+   "data": {
+    "index": 1,
+    "source": "sem_object#1",
+    "content": "井（草案）：井号 / 井别 / 投产日 / 状态机",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 11,
+   "event": "step",
+   "data": {
+    "step": "discover",
+    "seq": 7,
+    "title": "semantic_query：ok"
+   }
+  },
+  {
+   "id": 12,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 8,
+    "title": "模型调用：decision"
+   }
+  },
+  {
+   "id": 13,
+   "event": "step",
+   "data": {
+    "step": "decision",
+    "seq": 9,
+    "title": "澄清定稿：材料足够——直答收口"
+   }
+  },
+  {
+   "id": 14,
+   "event": "text",
+   "data": {
+    "content": "N-02 井的投产日期在系统内未检索到——井对象的「投产日」属性 [1] 仅为定义项，无具体井号的投产日数据。"
+   }
+  },
+  {
+   "id": 15,
+   "event": "text",
+   "data": {
+    "content": "如需进一步定位，请提供 N-02 井所属油田/区块，或其完井工程报告（completion 族）的来源线索，我再行检索。"
+   }
+  },
+  {
+   "id": 16,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 10,
+    "title": "模型调用：answer"
+   }
+  },
+  {
+   "id": 17,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 11,
+    "title": "起草答案"
+   }
+  },
+  {
+   "id": 18,
+   "event": "notice",
+   "data": {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 1 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  },
+  {
+   "id": 19,
+   "event": "verdict",
+   "data": {
+    "supported": 1,
+    "rewritten": 1,
+    "split": 0,
+    "cited": [
+     1
+    ],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  },
+  {
+   "id": 20,
+   "event": "step",
+   "data": {
+    "step": "verify",
+    "seq": 12,
+    "title": "核验：支撑 1｜改写 1｜分源 否"
+   }
+  },
+  {
+   "id": 21,
+   "event": "citation",
+   "data": {
+    "index": 1,
+    "source": "sem_object#1",
+    "source_id": "1",
+    "trust": "ledger"
+   }
+  },
+  {
+   "id": 22,
+   "event": "supplement",
+   "data": {
+    "block": "citations",
+    "text": "\n\n引用：\n[1] sem_object#1 · 1（ledger）"
+   }
+  },
+  {
+   "id": 23,
+   "event": "step",
+   "data": {
+    "step": "answer",
+    "seq": 13,
+    "title": "答案收口"
+   }
+  },
+  {
+   "id": 24,
+   "event": "verdict",
+   "data": {
+    "status": "completed",
+    "run_id": "run-d8d40b11",
+    "manifest_digest": "7474e6811c1e63f1",
+    "subtype": "final"
+   }
+  },
+  {
+   "id": 25,
+   "event": "blackbox",
+   "data": {
+    "run_id": "run-d8d40b11",
+    "question": "N-02 井是什么时候投产的？",
+    "status": "completed",
+    "error": "",
+    "stored": true,
+    "bytes": 24295,
+    "counts": {
+     "messages": 11,
+     "dialogue": 0,
+     "process_notes": 8,
+     "observations": 1,
+     "steps": 13
+    }
+   }
+  },
+  {
+   "id": 25,
+   "event": "done",
+   "data": {
+    "run_id": "run-d8d40b11"
+   }
+  }
+ ],
+ "parsed": {
+  "answer_text": "如需进一步定位，请提供 N-02 井所属油田/区块，或其完井工程报告（completion 族）的来源线索，我再行检索。",
+  "citations": [
+   {
+    "index": 1,
+    "source": "sem_object#1",
+    "source_id": "1",
+    "trust": "ledger"
+   }
+  ],
+  "chain": null,
+  "clarify": null,
+  "notices": [
+   {
+    "type": "decision_rejected",
+    "gates": [],
+    "content": "工具校验拒因回喂重决策：未知参数键：['aspect']（args_schema additionalProperties=false）"
+   },
+   {
+    "type": "unsupported_claim",
+    "gates": [],
+    "content": "核验步删去无据断言 1 行（EB3 D3：真无据断言删句、不贴前缀——禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
+   }
+  ],
+  "nodes": [],
+  "run_id": "run-d8d40b11",
+  "steps": [
+   {
+    "step": "decision",
+    "seq": 1,
+    "title": "模型调用：understand"
+   },
+   {
+    "step": "decision",
+    "seq": 2,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 3,
+    "title": "澄清钻取 ×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 4,
+    "title": "semantic_query：failed"
+   },
+   {
+    "step": "decision",
+    "seq": 5,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 6,
+    "title": "澄清钻取 ×1（semantic_query）"
+   },
+   {
+    "step": "discover",
+    "seq": 7,
+    "title": "semantic_query：ok"
+   },
+   {
+    "step": "decision",
+    "seq": 8,
+    "title": "模型调用：decision"
+   },
+   {
+    "step": "decision",
+    "seq": 9,
+    "title": "澄清定稿：材料足够——直答收口"
+   },
+   {
+    "step": "answer",
+    "seq": 10,
+    "title": "模型调用：answer"
+   },
+   {
+    "step": "answer",
+    "seq": 11,
+    "title": "起草答案"
+   },
+   {
+    "step": "verify",
+    "seq": 12,
+    "title": "核验：支撑 1｜改写 1｜分源 否"
+   },
+   {
+    "step": "answer",
+    "seq": 13,
+    "title": "答案收口"
+   }
+  ],
+  "tools": [
+   {
+    "tool": "semantic_query",
+    "status": "failed",
+    "seq": 4,
+    "message": "未知参数键：['aspect']（args_schema additionalProperties=false）"
+   },
+   {
+    "tool": "semantic_query",
+    "status": "ok",
+    "seq": 7,
+    "message": null
+   }
+  ],
+  "observations": [
+   {
+    "index": 1,
+    "source": "sem_object#1",
+    "content": "井（草案）：井号 / 井别 / 投产日 / 状态机",
+    "trust": "ledger"
+   }
+  ],
+  "asks": [],
+  "verify": [
+   {
+    "supported": 1,
+    "rewritten": 1,
+    "split": 0,
+    "cited": [
+     1
+    ],
+    "attribution": true,
+    "subtype": "verify"
+   }
+  ],
+  "final": {
+   "status": "completed",
+   "run_id": "run-d8d40b11",
+   "manifest_digest": "7474e6811c1e63f1",
+   "subtype": "final"
+  },
+  "texts": [
+   "理解：问 N-02 井的投产日期。\n指标候选：无",
+   "N-02 井的投产日期在系统内未检索到——井对象的「投产日」属性 [1] 仅为定义项，无具体井号的投产日数据。",
+   "如需进一步定位，请提供 N-02 井所属油田/区块，或其完井工程报告（completion 族）的来源线索，我再行检索。"
+  ],
+  "duration_s": 8.0
+ }
+}
