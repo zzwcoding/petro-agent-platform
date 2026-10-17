@@ -5,16 +5,26 @@
 
 ## P1 · 影响展示形态（有 workaround，有则更优）
 
-1. **历史回读无 citations/materials**（`GET /api/v2/chat/runs`，`appv2/api/chat.py:142-160`）
-   - 现状：只有 `answer + supplements`。历史轮无法重建引用抽屉/引标交互。
-   - 前端 workaround：历史轮仅渲染正文 + supplements，灰字标注「无引用明细」。
-   - 期望（ Optional）：回读行带 `citations[]` 与 `materials[]`（或至少 citations），让历史轮引用可交互。
-2. **无权威耗时字段**（blackbox/verdict/step 均无时间戳）
-   - 现状：Kimi/WeKnora 式「思考 1m45s」只能前端本地计时，重连/续推段会漏。
+> 2026-10-17 二次调研补强（刷新一致性专项）：**数据都已落库，缺的是 HTTP 读口，补读口＝暴露已有数据，非新增存储**。证据：`agent_v2_blackbox` 行含 20 白名单键（`observations`/`notices`/`answer`/`verdict`…，`appv2/runtimev2/persistence/models.py:58-87`）；`agent_v2_checkpoint` 含整个 RunState JSON（含 observations/notices，`persistence/checkpoint.py:57-59`）；`store.blackbox()` 读口已存在（`persistence/store.py:175-184`）只是无 API 挂。挂起态尚未写黑匣子（终态才写，`orchestration/runtime.py:470-486`），挂起还原走 `store.load().observations`。
+
+1. **历史回读无 citations/materials 配对 + 无 notice 带 + 无 blackbox 统计行**（`appv2/api/chat.py:142-160,333-369`）
+   - 现状：`GET /runs` 只有 `answer + supplements`；`GET /runs/{id}` 只有 `steps[].payload`（citations 只是序号数组、manifest 是整批材料数组，配不出 per-citation 的 source/source_id/trust/content）。刷新后看已完成对话时：正文✅、血缘/追加面文本✅（新 run）、**引用面板❌、notice 带❌、统计行❌**。
+   - 前端 workaround：历史轮引用面板与 notice 带如实隐藏 + 灰字「历史记录无引用/提示明细」，统计行只出核验计数（verify 步 payload 有）。
+   - 期望（Optional，按成本从低到高）：①新增 `GET /runs/{id}/blackbox`（直挂 `store.blackbox()`）；或 ②`RunView` 增加 `observations[]`（从 `store.load()` 投影）——任选其一即能让历史轮引用面板/notice 带复活。挂起态取数注意黑匣子尚未写（见上）。
+2. **无权威耗时字段**（blackbox/verdict/step 均无时间戳；`runtime.py:288-296` 的 `_elapsed_seconds` 只内部用、不出帧）
+   - 现状：「思考 N 秒」只能前端本地计时，重连/续推段会漏。
    - 期望（Optional）：blackbox 帧或 verdict(final) 加 `duration_ms`（服务端计时）。
 3. **`citation.source_id` 无解析路径**（值形如 `f4`/`ensum-ec4b163075f1`）
-   - 现状：Wekenora 式「点引标打开原文全文并定位高亮」做不了，只能定位到抽屉内切片卡。
+   - 现状：Wekenora 式「点引标打开原文全文并定位高亮」做不了，只能定位到面板内切片卡。
    - 期望（Optional）：一个「source_id → 文档/切片详情」读口（哪怕只回切片原文+所在文档名），远期再谈位置锚点（source_locators 级）。
+4. **running 期间无 blackbox 帧**（只在 run 终态发一次）——非缺口，前端统计行在收口前不渲染即可，登记防误报。
+
+## 刷新一致性 · 已确认后端完备（前端欠账，勿报后端）
+
+- **进行中刷新**：`POST /asks` 带 `resume_run_id` 重连＝全流帧逐字节重放（13 型全含，含 observation.payload.lineage）+ `follow` 尾随正在跑的 run（`api/bridge.py:89-181`）。浏览器断开不打断执行（detached task，`runtime.py:379-382`）。
+- **无 `replay_truncated` 帧**：V2 永不发射（`specs/transport.md:103` 行为 13），那是 V1 遗产（`web/src/api/sse.js:31`）。重连失败＝开流前 HTTP 404（诚实拒），前端按「run 不可达/已过期」处理。
+- **挂起刷新**：`pending_ask` 还原完备（`chat.py:350-353`）；resume 只出本腿新帧（cursor 语义，`chat.py:305-330`）。
+- **前端欠账**：`web/src/api/chat.js:203-211` 的 `reconnectRun` 底座已备好，但 A1V2 页面未存 running run_id（sessionStorage 只存 rootId/followup，`A1V2.jsx:137,168-172`）、从未调用重连。重设计实施时必须接上：刷新后从 `GET /runs` 找 running run → 重连重放。
 
 ## P2 · 文案面（随 EB5/白话化批演进即可）
 
