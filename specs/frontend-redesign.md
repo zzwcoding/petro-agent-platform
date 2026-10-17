@@ -61,6 +61,7 @@ TurnShape {
   askFrame:    object | null     // { kind, prompt, options, detail }；在场即挂起
   runStatus:   'running' | 'waiting_ask' | 'completed' | 'failed'
   closed:      'done' | 'error' | 'transport' | null
+  ignoredCount: int              // 未知帧事件/未知 supplement block 计数（G6 机读信号——忽略不炸流）
   supplements: { split?: string, attribution?: string, citations?: string, lineage?: string }
                // supplement 帧按 block 分槽存 text（strip 后原文）；无该块＝键缺席
                // 血缘两源（对账 D-5 落定）：结构化源＝materials[].payload.lineage（优先）；
