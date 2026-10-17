@@ -1,0 +1,17 @@
+{
+ "qid": "NQ-C6",
+ "group": "新语料·完井",
+ "question": "报告正文出现多个相近的压力数值：16.5 MPa、12.5 MPa、20 MPa、32 MPa、34.5 MPa、25 MPa、24 MPa、9.8 MPa，以及验封的 0.3 与 0.5（单位 MPa/15min）。请把下列对象与数值一一配对并写出出处章节：\n①尾管固井碰压；②射孔环空加压点火压力；③7″ 永久式封隔器坐封压力；④SCSSV 液控开启压力；⑤防喷器组试压值；⑥酸化初期接近的地面管线限压，以及 6.2 节处置时实际采用的限压。\n另答：封隔器验封实测压力降与合格线各是多少？酸化停泵压力是多少？",
+ "source": "suites_q6",
+ "exit_code": 0,
+ "stderr": "",
+ "duration_s": 15.9,
+ "answer": "",
+ "answer_raw": "<think>The user is asking me to match specific pressure values from the Y-21 well completion report (the document d1) with their corresponding objects and section references, and also answer additional questions about the packer pressure test and acidizing shut-in pressure.\n\nLet me extract the relevant information:\n\n① 尾管固井碰压 (Liner cementing squeeze pressure) = 12.5 MPa\nLooking for this... c17 mentions \"尾管固井碰压 12.5 MPa\" - this is in 1.2 井身结构 (wellbore structure) section.\n\n② 射孔环空加压点火压力 (Perforation annulus pressurization ignition pressure) = 16.5 MPa\nc14 mentions \"环空加压 16.5 MPa 点火\" - this is in 3.3 起爆与后效 section.\n\n③ 7″ 永久式封隔器坐封压力 (7\" permanent packer setting pressure) = 20 MPa\nc1 mentions \"7″ 永久式封隔器（坐封于尾管回接密封筒内 2648.5 米，液压坐封，坐封压力 20 MPa，验封合格）\" - in 第五章 完井管柱\nAlso c4 mentions \"封隔器一次升压至 20 MPa 坐封成功\" - in 6.3 其他作业记录\n\n④ SCSSV 液控开启压力 (SCSSV hydraulic control opening pressure) = 32 MPa\nc4 mentions \"SCSSV 液控 32 MPa 开启\" - in 6.3 其他作业记录\n\n⑤ 防喷器组试压值 (BOP stack test pressure) = 34.5 MPa\nc20 mentions \"井控装置试压合格（防喷器组 34.5 MPa）\" - in 8.2 HSE 记录\n\n⑥ 酸化初期接近的地面管线限压 (Surface pipeline pressure limit approached at acidizing initial stage) = 25 MPa\nAnd 6.2 节处置时实际采用的限压 (the limit pressure actually used during 6.2 treatment) = 24 MPa\nc3 mentions \"井口油压由 12.4 MPa 快速升至 23.6 MPa，接近地面管线限压 25 MPa\" and \"排量降至 0.25 m³/min、限压 24 MPa 憋压 30 分钟\" - in 6.2 酸化施工泵压异常\n\nAdditional questions:\n- 封隔器验封实测压力降与合格线各是多少？\n  From c4: \"验封压力降 0.3 MPa/15min（合格线 0.5 MPa/15min）\" - in 6.3 其他作业记录\n  Measured: 0.3 MPa/15min, Standard: 0.5 MPa/15min\n\n- 酸化停泵压力是多少？\n  From c3: \"停泵压力 9.8 MPa\" - in 6.2 酸化施工泵压异常\n\nLet me structure the answer clearly. The question explicitly mentions \"本报告\" (this report) and the Y-21 well completion report, so I should focus on that document (d1).\n\nLet me organize this in a clean format. I'll use a table or list format for clarity. Since the user asked in Chinese, I should respond in Chinese.\n\nAlso, the source data has citations enabled. Let me cite the appropriate cN handles for each piece of information.\n\nLooking at the values:\n- 16.5 MPa - 射孔环空加压 (c14)\n- 12.5 MPa - 尾管固井碰压 (c17)\n- 20 MPa - 封隔器坐封 (c1, c4)\n- 32 MPa - SCSSV液控开启 (c4)\n- 34.5 MPa - 防喷器组试压 (c20)\n- 25 MPa - 地面管线限压 (c3)\n- 24 MPa - 6.2节实际采用限压 (c3)\n- 9.8 MPa - 酸化停泵压力 (c3)\n\nNote: c1 and c3 also both reference 20 MPa and 9.8 MPa respectively, so I have multiple citation options. Let me look more carefully:\n\nc1 (index 11): 第五章 mentions 7″ permanent packer at 2648.5 m with setting pressure 20 MPa\nc4 (index 14): 6.3 mentions \"封隔器一次升压至 20 MPa 坐封成功，验封压力降 0.3 MPa/15min（合格线 0.5 MPa/15min）；SCSSV 液控 32 MPa 开启\"\n\nSo for ③ (封隔器坐封压力): The first instance is in 第五章 完井管柱</think>\n\n",
+ "n_refs": 0,
+ "references": [],
+ "session_id": "75c822ef-1716-455c-af35-661441abca1b",
+ "stream_done": false,
+ "answer_head": "",
+ "ts": "2026-10-17T15:45:38+0800"
+}

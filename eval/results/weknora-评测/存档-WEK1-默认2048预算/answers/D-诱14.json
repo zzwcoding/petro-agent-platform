@@ -1,0 +1,17 @@
+{
+ "qid": "D-诱14",
+ "group": "D",
+ "question": "渤中34-5 油田三季度哪几口注水井欠注？每口的配注、实注、欠注率分别是多少？W-56 井 8 月停注 6 天，它算不算欠注？",
+ "source": "suites_q3.QA_SUITE",
+ "exit_code": 0,
+ "stderr": "",
+ "duration_s": 7.5,
+ "answer": "根据《C-渤中34-5油田三季度注水调整与生产运行分析.txt》，三季度该油田 14 口注水井中有 **2 口欠注**，明细如下：\n\n| 井号 | 配注 (m³/d) | 实注 (m³/d) | 欠注率 | 原因初判 |\n|------|------------|------------|--------|----------|\n| W-51 | 180 | 144 | 20% | 层间矛盾——吸水剖面严重不均 |\n| W-52 | 150 | 97.5 | 35% | 近井地带堵塞（注压升高 1.8 MPa） |\n\n**W-51 补充信息**：9 月 5 日吸水剖面测试显示三段严重不均——I 层吸水 62%、II 层 28%、III 层仅 10%（III 层基本不吸）。<kb doc=\"C-渤中34-5油田三季度注水调整与生产运行分析.txt\" chunk_id=\"335858b8-a444-4b3c-b9dc-fc644f063f65\" kb_id=\"3be3cd32-fac5-4369-9a21-74eac1c69137\" />\n\n**W-56 井的情况**：W-56 井 8 月 14～19 日因**吸水指示曲线测试**停注 6 天，测试后注水恢复正常，**不计入欠注**。<kb doc=\"C-渤中34-5油田三季度注水调整与生产运行分析.txt\" chunk_id=\"335858b8-a444-4b3c-b9dc-fc644f063f65\" kb_id=\"3be3cd32-fac5-4369-9a21-74eac1c69137\" /> 此外，W-56 测试停注对月注水量的影响已在 2.1 月度注水表中如实体现（8 月注水量 13.5 万方已包含该影响）。<kb doc=\"C-渤中34-5油田三季度注水调整与生产运行分析.txt\" chunk_id=\"af641e95-5f62-492a-919a-9447d8551749\" kb_id=\"3be3cd32-fac5-4369-9a21-74eac1c69137\" />\n\n**总结**：三季度欠注井仅有 W-51、W-52 两口；W-56 是测试性短期停注，不属于欠注范畴。",
+ "answer_raw": "<think>The user is asking about:\n1. Which water injection wells are under-injecting (欠注) in the third quarter of Bozhong 34-5 oilfield\n2. For each, what are the allocated injection (配注), actual injection (实注), and under-injection rate (欠注率)\n3. Whether W-56 well's 6-day shutdown in August counts as under-injection\n\nLet me look at the source materials. From chunk c5 (document d1, C-渤中34-5油田三季度注水调整与生产运行分析.txt):\n\n\"14 口注水井中 2 口欠注：\n　　井号　　配注(m³/d)　实注(m³/d)　欠注率　原因初判\n　　W-51　　180　　　　 144　　　　 20%　　 层间矛盾——吸水剖面严重不均\n　　W-52　　150　　　　 97.5　　　　35%　　 近井地带堵塞（注压升高 1.8 MPa）\n\n另：W-56 井于 8 月 14～19 日吸水指示曲线测试停注 6 天，测试后注水正常，不计入欠注。\"\n\nSo the answer is clear:\n- Two wells are under-injecting: W-51 and W-52\n- W-51: 配注 180 m³/d, 实注 144 m³/d, 欠注率 20%, 原因: layer间矛盾——吸水剖面严重不均\n- W-52: 配注 150 m³/d, 实注 97.5 m³/d, 欠注率 35%, 原因: 近井地带堵塞（注压升高 1.8 MPa）\n- W-56 does NOT count as under-injecting because it was for testing purposes (吸水指示曲线测试) and resumed normal injection after testing\n\nLet me format this clearly withcitations.</think>\n\n根据《C-渤中34-5油田三季度注水调整与生产运行分析.txt》，三季度该油田 14 口注水井中有 **2 口欠注**，明细如下：\n\n| 井号 | 配注 (m³/d) | 实注 (m³/d) | 欠注率 | 原因初判 |\n|------|------------|------------|--------|----------|\n| W-51 | 180 | 144 | 20% | 层间矛盾——吸水剖面严重不均 |\n| W-52 | 150 | 97.5 | 35% | 近井地带堵塞（注压升高 1.8 MPa） |\n\n**W-51 补充信息**：9 月 5 日吸水剖面测试显示三段严重不均——I 层吸水 62%、II 层 28%、III 层仅 10%（III 层基本不吸）。<kb doc=\"C-渤中34-5油田三季度注水调整与生产运行分析.txt\" chunk_id=\"335858b8-a444-4b3c-b9dc-fc644f063f65\" kb_id=\"3be3cd32-fac5-4369-9a21-74eac1c69137\" />\n\n**W-56 井的情况**：W-56 井 8 月 14～19 日因**吸水指示曲线测试**停注 6 天，测试后注水恢复正常，**不计入欠注**。<kb doc=\"C-渤中34-5油田三季度注水调整与生产运行分析.txt\" chunk_id=\"335858b8-a444-4b3c-b9dc-fc644f063f65\" kb_id=\"3be3cd32-fac5-4369-9a21-74eac1c69137\" /> 此外，W-56 测试停注对月注水量的影响已在 2.1 月度注水表中如实体现（8 月注水量 13.5 万方已包含该影响）。<kb doc=\"C-渤中34-5油田三季度注水调整与生产运行分析.txt\" chunk_id=\"af641e95-5f62-492a-919a-9447d8551749\" kb_id=\"3be3cd32-fac5-4369-9a21-74eac1c69137\" />\n\n**总结**：三季度欠注井仅有 W-51、W-52 两口；W-56 是测试性短期停注，不属于欠注范畴。",
+ "n_refs": 0,
+ "references": [],
+ "session_id": "80700520-75b6-4e3c-a42a-ab3e422f6fa8",
+ "stream_done": false,
+ "answer_head": "根据《C-渤中34-5油田三季度注水调整与生产运行分析.txt》，三季度该油田 14 口注水井中有 **2 口欠注**，明细如下：\n\n| 井号 | 配注 (m³/d) | 实注 (m³/d) | 欠注率 | 原因初判 |\n|------|-",
+ "ts": "2026-10-17T15:44:15+0800"
+}

@@ -1,0 +1,17 @@
+{
+ "qid": "NQ-M5",
+ "group": "新语料·月报",
+ "question": "3.1 节整改措施中把 Y-21 井扶正器间距从 4 米加密到 3 米，有人由此断言：\"这证明原 4 米间距设计在这口井的井身条件下本来就满足不了杆柱居中要求，杆断的根因是设计缺陷，不是磨损超期，也不是管理跟进问题。\"报告支持这个断言吗？请按报告原文说明：①该井扶正器间距设计的原始结论与本次失效性质的定性；②磨损速率超预期的主因（含量化数字）；③该井运行时长与更换窗口的关系；④报告承认的跟进层面问题；⑤加密措施在报告中的定位（是整改措施还是设计缺陷的证据）。",
+ "source": "suites_q6",
+ "exit_code": 0,
+ "stderr": "",
+ "duration_s": 6.8,
+ "answer": "",
+ "answer_raw": "<think>The user is asking about Y-21 well in the 渤中34-8油田 (BZ34-8 oilfield) monthly report from January 2027 (d3, specifically c19, c20, c21).\n\nLet me carefully read what's in the report about Y-21:\n\nFrom c19 and c20:\n- Y-21 井基本参数：泵挂 2280 米，φ44 泵，冲程 5 米，冲次 4.0 次/分，最大井斜 21.8°（位于 1810 米），最大狗腿度 3.8°/30m（位于 1950 米附近）\n- 2027 年 1 月 9 日 6:40 井口无排量、光杆载荷骤降，判定杆断躺井\n- 断点位于 1975 米处第 41 根抽油杆杆体（非接头），断口呈典型疲劳断裂特征\n- 对应位置油管内壁有环状磨槽，深度 0.6～1.0 毫米\n- 1900～2100 米井段抽油杆接箍普遍偏磨，最重处接箍单侧磨掉 1.8 毫米\n\nFrom c20:\n- 扶正器检查：该井段按 4 米间距在用扶正器 50 只，其中磨损超限（外径磨小 6 毫米以上）23 只、断裂缺失 4 只，居中能力已大面积失效\n- 检测发现该井产出液含砂 0.04%，超过本油田 0.03% 的控制值，含砂井液加剧扶正器磨蚀是磨损速率超预期主因\n- 原因分析：原 4 米扶正器间距设计在 3.8°/30m 狗腿度下本满足杆柱居中要求，本次失效性质为\"累计磨损超期失效\"而非\"间距不足\"\n- 该井自上次检泵（2025 年 9 月 10 日完井）已连续运行 486 天，超出同类井扶正器 400 天左右的磨损更换窗口\n- 2026 年 12 月 8 日功图已显示轻度下冲程迟缓，按旧升级判据（连续三旬）未达升级条件，仅列观察，1 月 9 日突发杆断，属预警升级判据偏松、跟进不及时\n\nFrom c21:\n- 整改措施：①偏磨段 1850～2150 米更换耐磨滚轮扶正器，间距 4 米加密至 3 米（100 只），同步换用内衬油管 32 根；②泵上 120 米范围下 φ38 毫米加重杆，使中性点下移；③冲次由 4.0 降至 3.5 次/分；④纳入杆柱力学复算名单。预计整改后检泵周期可延长至 700 天以上。\n- 管理整改：本月起升级判据收紧为\"下冲程迟缓连续两旬自动升级检泵计划\"（见第六章）。\n\nSo the report explicitly states:\n① The original 4-meter spacing design conclusion: \"原 4 米扶正器间距设计在 3.8°/30m 狗腿度下本满足杆柱居中要求\" — meaning the original design DID meet the rod-column centering requirement. The failure nature is \"累计磨损超期失效\" (cumulative wear beyond service life), NOT \"间距不足\" (insufficient spacing).\n\n② The main reason for wear rate beyond expectation: 含砂井液加剧扶正器磨蚀 — the produced fluid contains 0.04% sand, exceeding the 0.03% control value of the oilfield.\n\n③ Operating duration vs replacement window: 486 days since last workover (Sept 10, 2025), exceeding the ~400-day wear replacement window for similar wells.\n\n④ Follow-up/management issues acknowledged: \"2026 年 12 月 8 日功图已显示轻度下冲程迟缓，按旧升级判据（连续三旬）未达升级条件，仅列观察，1 月 9 日突发杆断，属预警升级判据偏松、跟进不及时\" — the issue is the warning escalation criteria was too loose. Also: \"管理整改：本月起升级判据收紧为'下冲程迟缓连续两旬自动升级检泵计划'\" — the report explicitly tightens the management criteria.\n\n⑤ The densification (4m→3m) is positioned as a rectification measure (整改措施), specifically tied to:\n- \"累计磨损超期失效\" — so the worn-down centralizers need to be replaced with wear-resistant roller-type ones\n- And the spacing reduction is part of the rectification, not evidence of original design defect\n- Actually, this is somewhat nuanced. The report says the original design met requirements, but the</think>\n\n",
+ "n_refs": 0,
+ "references": [],
+ "session_id": "2f397e7a-0fbd-45d8-a4dc-3a8409ed32f1",
+ "stream_done": false,
+ "answer_head": "",
+ "ts": "2026-10-17T15:49:45+0800"
+}

@@ -1,0 +1,16 @@
+{"qid": "数-明1", "group": "DATA", "question": "去年各井每天的日产油量是多少？", "source": "suites_q3.DATA_SUITE", "excluded_reason": "需数据库查询（Text-to-SQL），WeKnora 无此能力"}
+{"qid": "数-明2", "group": "DATA", "question": "今年各井的日产液量按天列出来", "source": "suites_q3.DATA_SUITE", "excluded_reason": "需数据库查询（Text-to-SQL），WeKnora 无此能力"}
+{"qid": "数-明3", "group": "DATA", "question": "去年各井每天的油压是多少？", "source": "suites_q3.DATA_SUITE", "excluded_reason": "需数据库查询（Text-to-SQL），WeKnora 无此能力"}
+{"qid": "数-排1", "group": "DATA", "question": "去年日产油量最高的井是哪口？", "source": "suites_q3.DATA_SUITE", "excluded_reason": "需数据库查询（Text-to-SQL），WeKnora 无此能力"}
+{"qid": "数-排2", "group": "DATA", "question": "去年日产油量最低的两口井是哪两口？", "source": "suites_q3.DATA_SUITE", "excluded_reason": "需数据库查询（Text-to-SQL），WeKnora 无此能力"}
+{"qid": "数-排3", "group": "DATA", "question": "去年日产液量最高的井是哪口？", "source": "suites_q3.DATA_SUITE", "excluded_reason": "需数据库查询（Text-to-SQL），WeKnora 无此能力"}
+{"qid": "数-限1", "group": "DATA", "question": "去年日产油量排名前 30", "source": "suites_q3.DATA_SUITE", "excluded_reason": "需数据库查询（Text-to-SQL），WeKnora 无此能力"}
+{"qid": "数-闸1", "group": "DATA", "question": "本月各井日产油量是多少？", "source": "suites_q3.DATA_SUITE", "excluded_reason": "需数据库查询（Text-to-SQL），WeKnora 无此能力"}
+{"qid": "数-闸2", "group": "DATA", "question": "近 7 天各井日产液量是多少？", "source": "suites_q3.DATA_SUITE", "excluded_reason": "需数据库查询（Text-to-SQL），WeKnora 无此能力"}
+{"qid": "数-闸3", "group": "DATA", "question": "各井日产油量排名", "source": "suites_q3.DATA_SUITE", "excluded_reason": "需数据库查询（Text-to-SQL），WeKnora 无此能力"}
+{"qid": "数-反1", "group": "DATA", "question": "最近各井日产油量怎么样？", "source": "suites_q3.DATA_SUITE", "excluded_reason": "需数据库查询（Text-to-SQL），WeKnora 无此能力"}
+{"qid": "数-降1", "group": "DATA", "question": "去年各井含水率是多少？", "source": "suites_q3.DATA_SUITE", "excluded_reason": "需数据库查询（Text-to-SQL），WeKnora 无此能力"}
+{"qid": "数-降2", "group": "DATA", "question": "去年各井配产量是多少？", "source": "suites_q3.DATA_SUITE", "excluded_reason": "需数据库查询（Text-to-SQL），WeKnora 无此能力"}
+{"qid": "数-察1", "group": "DATA", "question": "各井日产油量是多少？", "source": "suites_q3.DATA_SUITE", "excluded_reason": "需数据库查询（Text-to-SQL），WeKnora 无此能力"}
+{"qid": "数-察2", "group": "DATA", "question": "井位台账里日产油量最高的井是哪口？", "source": "suites_q3.DATA_SUITE", "excluded_reason": "需数据库查询（Text-to-SQL），WeKnora 无此能力"}
+{"qid": "数-界1", "group": "DATA", "question": "N-01 井去年的日产油量是多少？", "source": "suites_q3.DATA_SUITE", "excluded_reason": "需数据库查询（Text-to-SQL），WeKnora 无此能力"}

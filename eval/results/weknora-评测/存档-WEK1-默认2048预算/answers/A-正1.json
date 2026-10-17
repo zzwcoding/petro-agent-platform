@@ -1,0 +1,17 @@
+{
+ "qid": "A-正1",
+ "group": "A",
+ "question": "W-11 井生产套管的尺寸与下深是多少？",
+ "source": "suites_q3.QA_SUITE",
+ "exit_code": 0,
+ "stderr": "",
+ "duration_s": 6.0,
+ "answer": "W-11 井的生产套管尺寸为 **9-5/8″**，下深为 **2462.0 米**，水泥返高至地面。<kb doc=\"A-W11井完井工程报告.txt\" chunk_id=\"3eccc496-767f-4dd7-9d70-668e637fe746\" kb_id=\"3be3cd32-fac5-4369-9a21-74eac1c69137\" />\n\n补充说明（来自同一报告）：生产套管钢级为 N80、壁厚 10.03 毫米，固井质量测井评价合格段占比 96.8%，油层顶界（2380 米）以上 200 米内无明显窜槽。<kb doc=\"A-W11井完井工程报告.txt\" chunk_id=\"3eccc496-767f-4dd7-9d70-668e637fe746\" kb_id=\"3be3cd32-fac5-4369-9a21-74eac1c69137\" />",
+ "answer_raw": "<think>The user is asking about the W-11 well's production casing size and depth. Let me look at the reference materials.\n\nFrom chunk c3 (index 2) of d1:\n\"层次　　　　套管尺寸　　下深（米）　　　水泥返高\n　　隔水管　　　30″　　　　0 ～ 118.5　　　泥面\n　　表层套管　　20″　　　　322.4　　　　　 泥面\n　　技术套管　　13-3/8″　　1258.6　　　　　 地面\n　　生产套管　　9-5/8″　　 2462.0　　　　　 地面\"\n\nSo the production casing is 9-5/8″ with a depth of 2462.0 meters.\n\nI need to cite this with the appropriate reference handle. The chunk is c3.</think>\n\nW-11 井的生产套管尺寸为 **9-5/8″**，下深为 **2462.0 米**，水泥返高至地面。<kb doc=\"A-W11井完井工程报告.txt\" chunk_id=\"3eccc496-767f-4dd7-9d70-668e637fe746\" kb_id=\"3be3cd32-fac5-4369-9a21-74eac1c69137\" />\n\n补充说明（来自同一报告）：生产套管钢级为 N80、壁厚 10.03 毫米，固井质量测井评价合格段占比 96.8%，油层顶界（2380 米）以上 200 米内无明显窜槽。<kb doc=\"A-W11井完井工程报告.txt\" chunk_id=\"3eccc496-767f-4dd7-9d70-668e637fe746\" kb_id=\"3be3cd32-fac5-4369-9a21-74eac1c69137\" />",
+ "n_refs": 0,
+ "references": [],
+ "session_id": "14561a68-c2a6-43e3-bfc2-8d9bca8b0777",
+ "stream_done": false,
+ "answer_head": "W-11 井的生产套管尺寸为 **9-5/8″**，下深为 **2462.0 米**，水泥返高至地面。<kb doc=\"A-W11井完井工程报告.txt\" chunk_id=\"3eccc496-767f-4dd7-9d70-668e637f",
+ "ts": "2026-10-17T15:34:44+0800"
+}

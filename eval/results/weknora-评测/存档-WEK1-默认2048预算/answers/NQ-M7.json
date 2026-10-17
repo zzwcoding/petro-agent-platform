@@ -1,0 +1,17 @@
+{
+ "qid": "NQ-M7",
+ "group": "新语料·月报",
+ "question": "第八章 2 月计划检泵共列 4 口。请回答：①这 4 口井是哪些？②其中哪两口出现在第六章月末功图预警跟踪清单\"月末在册 5 口\"之中（并各引清单中该井的预警类型与当前状态）？③哪两口不在该清单中？④第六章清单为什么能判定\"不在\"——请引用其对在册成员的封闭枚举（上月结转与本月新增的完整名单）；⑤辨析：\"泵效\"相关的 Y-45 与 Y-49 分别是什么井、什么数值口径、什么处置，第六章清单里有没有 Y-42 的任何记录？",
+ "source": "suites_q6",
+ "exit_code": 0,
+ "stderr": "",
+ "duration_s": 14.3,
+ "answer": "",
+ "answer_raw": "<think>The user is asking a multi-part question about the February work plan (Chapter 8) and the power diagram warning tracking list (Chapter 6) from the 渤中34-8油田 report. Let me carefully parse each question.\n\nFirst, let me identify the source materials:\n- c5 (d1): Chapter 8 - February work plan\n- c31 (d1): Chapter 6 - Power diagram warning tracking list (end of month carry-over)\n- c32 (d1): Continuation of Chapter 6 list with description\n\nLet me extract the relevant information:\n\n**Chapter 8 (c5) - 2 月工作计划:**\n(1) 躺井率控制目标：2 月躺井控制在 2 井次以内（躺井率 ≤4.5%）；\n(2) 计划检泵 4 口：Y-36（预警：供液不足）、Y-47（杆柱复算超应力，整串换 D 级杆）、Y-42（计划性整筒更换）、Y-49（泵效低于 55% 连续两旬）；\n(3) 三项措施滚动实施：扶正器加密 2 口、加重杆 1 口、气锚加装 2 口（含 Y-41）；\n(4) 执行升级判据收紧：对 Y-52 按新判据 2 月上旬完成定级，达条件即升级入 3 月检泵计划；\n(5) 9→2 专项 2 月底到期，月底完成专项效果评估，剩余扶正器 3 口、加重杆 4 口滚动转入 3 月起常规措施池；\n(6) \"一井一策\"档案：对检泵周期低于 350 天的在用井（现 7 口）逐井建档，2 月补齐剩余 2 口（已建 5 口）。\n\nSo the 4 wells in February pump check plan are: Y-36, Y-47, Y-42, Y-49.\n\n**Chapter 6 (c31, c32) - 功图预警跟踪清单（月末结转）:**\n- Y-36: 供液不足（沉没度低）, 首次发现 2026-12-14, 已列 2 月检泵计划\n- Y-41: 功图\"气锁\"特征（套压高）, 首次发现 2027-01-06, 2 月上旬气锚加装（专项池第 1 位）\n- Y-45: 泵效连续两旬下滑（52%）, 首次发现 2027-01-11, 加密功图监测（每旬），2 月评估检泵\n- Y-47: 杆柱应力超限（复算 1.08）, 首次发现 2027-01-15, 已列 2 月检泵（整串换 D 级杆）\n- Y-52: 下冲程迟缓（偏磨特征初显）, 首次发现 2027-01-22, 现场复核中，按新判据 2 月上旬定级\n\n合计 5 口在册。\n\nThen c32 says: \"清单按旬滚动更新。上月结转 2 口中，Y-26 已检泵处置完毕（本月完井）、Y-36 仍在册；本月新增 4 口（Y-41、Y-45、Y-47、Y-52），月末在册 5 口。\"\n\nSo the closed enumeration:\n- 上月结转 2 口: Y-26 (已处置), Y-36 (仍在册)\n- 本月新增 4 口: Y-41, Y-45, Y-47, Y-52\n- 月末在册 5 口: Y-36, Y-41, Y-45, Y-47, Y-52\n\nNow let me answer each sub-question:\n\n① 这 4 口井是哪些？\nY-36, Y-47, Y-42, Y-49\n\n② 其中哪两口出现在第六章月末功图预警跟踪清单\"月末在册 5 口\"之中？\n- Y-36: 供液不足（沉没度低）, 已列 2 月检泵计划\n- Y-47: 杆柱应力超限（复算 1.08）, 已列 2 月检泵（整串换 D 级杆）\n\n③ 哪两口不在该清单中？\nY-42 和 Y-49 不在清单中。\n\n④ 第六章清单为什么能判定\"不在\"？\nBecause the Chapter 6 list explicitly enumerates all members:\n- 上月结转 2 口：Y-26（已处置）、Y-36（在册）\n- 本月新增 4 口：Y-41, Y-45, Y-47, Y-52\n- 月末在册 5 口</think>\n\n",
+ "n_refs": 0,
+ "references": [],
+ "session_id": "0fe9fe63-7aa8-402f-ad15-26c900856d19",
+ "stream_done": false,
+ "answer_head": "",
+ "ts": "2026-10-17T15:50:16+0800"
+}

@@ -1,0 +1,17 @@
+{
+ "qid": "系统-FAQ秒回",
+ "group": "SYS",
+ "question": "N-02 井是什么时候投产的？",
+ "source": "suites_q3.QA_SUITE",
+ "exit_code": 0,
+ "stderr": "",
+ "duration_s": 7.6,
+ "answer": "根据检索到的参考材料，**未提及 N-02 井**，无法回答其投产时间。\n\n检索范围覆盖的文件包括：\n- Y-21 井、A-W11 井完井工程报告\n- 渤中34-8 油田一季度注采调整与生产运行分析\n- 渤中34-5 油田三季度注水调整与生产运行分析\n- 渤中34-5 油田躺井治理与检泵作业月报\n\n涉及到的井号仅有 Y-XX（如 Y-21、Y-19、Y-23、Y-33、Y-59 等）、W-XX（如 W-11、W-07、W-09、W-51、W-52 等），未出现以 N- 开头编号的井。\n\n**建议下一步**：确认 N-02 井所属油田/区块，或提供该井的全名或所在报告线索（如\"渤中34-*\"或某作业月报），以便定位到对应文档后再行查证。",
+ "answer_raw": "<think>The user is asking about when N-02 well was put into production. Let me search through the retrieved documents to find any mention of N-02 well.\n\nLooking through the documents:\n- d1: Y-21 井完井工程报告 - talks about Y-21, Y-19, Y-23 wells\n- d2: A-W11井完井工程报告 - talks about W-11, W-07, W-09 wells\n- d3: 渤中34-8油田一季度注采调整与生产运行分析 - talks about Y-21, Y-22, Y-33, Y-37, Y-38, Y-59, Y-31 wells\n- d4: C-渤中34-5油田三季度注水调整与生产运行分析 - talks about W-51, W-52, W-33 wells\n- d5: B-渤中34-5油田躺井治理与检泵作业月报-202608 - talks about W-21, W-22, W-24, W-23, W-31, W-32, W-41 wells\n\nI don't see any mention of N-02 well in any of the retrieved documents. The documents cover wells named Y-XX, W-XX, but not N-XX.\n\nI should respond honestly that N-02 well is not mentioned in the retrieved materials.</think>\n\n根据检索到的参考材料，**未提及 N-02 井**，无法回答其投产时间。\n\n检索范围覆盖的文件包括：\n- Y-21 井、A-W11 井完井工程报告\n- 渤中34-8 油田一季度注采调整与生产运行分析\n- 渤中34-5 油田三季度注水调整与生产运行分析\n- 渤中34-5 油田躺井治理与检泵作业月报\n\n涉及到的井号仅有 Y-XX（如 Y-21、Y-19、Y-23、Y-33、Y-59 等）、W-XX（如 W-11、W-07、W-09、W-51、W-52 等），未出现以 N- 开头编号的井。\n\n**建议下一步**：确认 N-02 井所属油田/区块，或提供该井的全名或所在报告线索（如\"渤中34-*\"或某作业月报），以便定位到对应文档后再行查证。",
+ "n_refs": 0,
+ "references": [],
+ "session_id": "9f3f2413-f115-45b4-81d8-6ff6e9fbb509",
+ "stream_done": false,
+ "answer_head": "根据检索到的参考材料，**未提及 N-02 井**，无法回答其投产时间。\n\n检索范围覆盖的文件包括：\n- Y-21 井、A-W11 井完井工程报告\n- 渤中34-8 油田一季度注采调整与生产运行分析\n- 渤中34-5 油田三季度注水调整与生",
+ "ts": "2026-10-17T15:38:31+0800"
+}

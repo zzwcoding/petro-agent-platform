@@ -1,0 +1,17 @@
+{
+ "qid": "A-正8",
+ "group": "A",
+ "question": "邻井 W-07 井初期日产油多少？现在呢？",
+ "source": "suites_q3.QA_SUITE",
+ "exit_code": 0,
+ "stderr": "",
+ "duration_s": 10.2,
+ "answer": "根据 W-11 井完井工程报告第十章\"邻井完井情况对照\"中的信息：\n\n- **W-07 井初期日产油**：291 m³/d（投产时间 2023 年 5 月，完井方式为套管射孔＋筛管，射孔段厚 22.0 米，孔密 13 孔/米）<kb doc=\"A-W11井完井工程报告.txt\" chunk_id=\"f7e8ddf3-fbb3-4199-a8ff-aa10482dcd3e\" kb_id=\"3be3cd32-fac5-4369-9a21-74eac1c69137\" />\n- **W-07 井目前日产油**：已递减至 **96 m³/d**，综合含水 71.4%，处于\"双高\"阶段<kb doc=\"A-W11井完井工程报告.txt\" chunk_id=\"f7e8ddf3-fbb3-4199-a8ff-aa10482dcd3e\" kb_id=\"3be3cd32-fac5-4369-9a21-74eac1c69137\" />\n\n补充背景：该井 2024 年 3 月曾发生筛管堵塞（堵塞段集中于上段），经酸洗解堵后筛管继续使用；但含水与递减持续推进，目前产量与初期相比已下滑约 67%。",
+ "answer_raw": "<think>The user is asking about well W-07's initial daily oil production and current production. Let me search the reference materials for this information.\n\nLooking at chunk c4 (index 17) from document d1 (A-W11井完井工程报告.txt):\n\n\"W-07　　套管射孔＋筛管　　22.0　　　　 13　　　　　 291　　　　　　　 2023-05\"\n\nAnd later: \"W-07 井目前日产油已递减至 96 m³/d，含水 71.4%，处于双高阶段。\"\n\nSo:\n- Initial daily oil production: 291 m³/d\n- Current daily oil production: 96 m³/d (with water cut 71.4%)\n\nLet me also note the context: W-07 had screen pipe blockage in March 2024, treated with acid wash.\n\nI'll respond in Chinese as per the default language setting. The format should be concise factual answer. Let me cite the source appropriately.</think>\n\n根据 W-11 井完井工程报告第十章\"邻井完井情况对照\"中的信息：\n\n- **W-07 井初期日产油**：291 m³/d（投产时间 2023 年 5 月，完井方式为套管射孔＋筛管，射孔段厚 22.0 米，孔密 13 孔/米）<kb doc=\"A-W11井完井工程报告.txt\" chunk_id=\"f7e8ddf3-fbb3-4199-a8ff-aa10482dcd3e\" kb_id=\"3be3cd32-fac5-4369-9a21-74eac1c69137\" />\n- **W-07 井目前日产油**：已递减至 **96 m³/d**，综合含水 71.4%，处于\"双高\"阶段<kb doc=\"A-W11井完井工程报告.txt\" chunk_id=\"f7e8ddf3-fbb3-4199-a8ff-aa10482dcd3e\" kb_id=\"3be3cd32-fac5-4369-9a21-74eac1c69137\" />\n\n补充背景：该井 2024 年 3 月曾发生筛管堵塞（堵塞段集中于上段），经酸洗解堵后筛管继续使用；但含水与递减持续推进，目前产量与初期相比已下滑约 67%。",
+ "n_refs": 0,
+ "references": [],
+ "session_id": "495ef5b0-910f-4dc0-beab-bd6a4db09b91",
+ "stream_done": false,
+ "answer_head": "根据 W-11 井完井工程报告第十章\"邻井完井情况对照\"中的信息：\n\n- **W-07 井初期日产油**：291 m³/d（投产时间 2023 年 5 月，完井方式为套管射孔＋筛管，射孔段厚 22.0 米，孔密 13 孔/米）<kb doc",
+ "ts": "2026-10-17T15:37:10+0800"
+}

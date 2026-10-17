@@ -1,0 +1,17 @@
+{
+ "qid": "B-正6",
+ "group": "B",
+ "question": "近三年 8 月平均检泵周期的变化趋势？",
+ "source": "suites_q3.QA_SUITE",
+ "exit_code": 0,
+ "stderr": "",
+ "duration_s": 6.2,
+ "answer": "近三年（2024—2026 年）8 月平均检泵周期变化如下<r id=\"c2\"/>：\n\n| 年份（8 月） | 平均检泵周期（天） |\n|---|---|\n| 2024 年 | 386 |\n| 2025 年 | 415 |\n| 2026 年 | 428 |\n\n**变化趋势**：呈逐年延长态势。2025 年较 2024 年延长 29 天，2026 年较 2025 年再延长 13 天，三年累计延长 42 天。<r id=\"c1\"/>月报指出，该延长趋势与\"扶正器加密、加重杆推广\"两项治理措施累计覆盖面扩大正相关。",
+ "answer_raw": "<think>The user is asking about the trend of average pump inspection cycle (检泵周期) in August over the past three years.\n\nLooking at the source materials, I can find this information in document d1 (B-渤中34-5油田躺井治理与检泵作业月报-202608.txt), specifically in chunk c2 which contains a comparison table for August over three years:\n\nFrom c2:\n年份（8 月）　躺井(井次)　躺井率　杆断占比　平均检泵周期(天)\n2024　　　　　13　　　　　8.3%　　46%　　　386\n2025　　　　　 9　　　　　5.8%　　44%　　　415\n2026　　　　　 7　　　　　4.5%　　43%　　　428\n\nSo the trend shows:\n- 2024 August: 386 days\n- 2025 August: 415 days\n- 2026 August: 428 days\n\nThe trend is continuously increasing year over year, with a total increase of 42 days over three years.\n\nLet me also check the document summary in c1 which mentions: \"三年同比看，躺井井次与杆断占比逐年下降，平均检泵周期三年延长 42 天，与扶正器加密、加重杆推广两项治理的累计覆盖面扩大正相关。\"\n\nThis confirms the 42-day extension over three years.\n\nLet me provide a clear answer with citations.</think>\n\n近三年（2024—2026 年）8 月平均检泵周期变化如下<r id=\"c2\"/>：\n\n| 年份（8 月） | 平均检泵周期（天） |\n|---|---|\n| 2024 年 | 386 |\n| 2025 年 | 415 |\n| 2026 年 | 428 |\n\n**变化趋势**：呈逐年延长态势。2025 年较 2024 年延长 29 天，2026 年较 2025 年再延长 13 天，三年累计延长 42 天。<r id=\"c1\"/>月报指出，该延长趋势与\"扶正器加密、加重杆推广\"两项治理措施累计覆盖面扩大正相关。",
+ "n_refs": 0,
+ "references": [],
+ "session_id": "fafff345-29bf-452e-a33d-2fa71112a1e7",
+ "stream_done": false,
+ "answer_head": "近三年（2024—2026 年）8 月平均检泵周期变化如下<r id=\"c2\"/>：\n\n| 年份（8 月） | 平均检泵周期（天） |\n|---|---|\n| 2024 年 | 386 |\n| 2025 年 | 415 |\n| 2026 年",
+ "ts": "2026-10-17T15:39:47+0800"
+}

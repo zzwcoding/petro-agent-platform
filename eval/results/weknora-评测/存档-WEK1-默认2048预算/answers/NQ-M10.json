@@ -1,0 +1,17 @@
+{
+ "qid": "NQ-M10",
+ "group": "新语料·月报",
+ "question": "Y-21 与 Y-23 两口井同为杆断、数据相近，极易串行。请分井逐项写出两口的：断点深度与断杆根号（并注明 Y-21 断点的性质限定）、最大井斜及其位置、最大狗腿度、检泵周期、上次检泵完井日期（仅 Y-21 有载）。",
+ "source": "suites_q6",
+ "exit_code": 0,
+ "stderr": "",
+ "duration_s": 14.8,
+ "answer": "",
+ "answer_raw": "<think>The user is asking for a detailed comparison between Y-21 and Y-23 wells regarding their rod breakage incidents. Let me extract the information from the reference materials.\n\nFrom c23 (Y-21 well rod breakage case):\n- 断点位于 1975 米处\n- 第 41 根抽油杆杆体（非接头）\n- 断口呈典型疲劳断裂特征（疲劳弧线明显、45° 剪切唇）\n\nFor Y-21 well basic parameters:\n- 泵挂 2280 米\n- φ44 泵\n- 冲程 5 米\n- 冲次 4.0 次/分\n- 最大井斜 21.8°（位于 1810 米）\n- 最大狗腿度 3.8°/30m（位于 1950 米附近）\n\nFrom c22 (检泵周期):\n- \"杆断 2 口（Y-21、Y-23）平均 444 天\"\n- Need to find Y-21 individual period\n\nLet me look at c28 (近六月躺井与检泵周期对比) - this is overall monthly data, not individual well data.\n\nLooking at c24 (一季度注采调整与生产运行分析):\n\"Y-23 井本次检泵（1 月 9 日）距上次检泵（2025 年 11 月 22 日）检泵周期 413 天\"\n\nSo Y-23 last workover was 2025-11-22, current is 2027-01-09, period = 413 days.\n\nFor Y-21 individual period: c22 says \"杆断 2 口（Y-21、Y-23）平均 444 天\", so I need to find the individual period.\n\nWait, let me check more carefully. Looking at the materials, do I have Y-21's individual检泵周期?\n\nc22 mentions: \"杆断 2 口（Y-21、Y-23）平均 444 天\"\nBut individual periods for Y-21 are not explicitly stated in the visible chunks.\n\nHmm, let me re-check. The user is asking me to provide this data. If it's not in the materials, I should say what's missing.\n\nActually wait, I should look more carefully. The c22 chunk doesn't show individual Y-21 period. Let me check if there's any other source.\n\nLooking at c23 (3.1 Y-21 井抽油杆断):\n- The断点 at 1975 meters\n- 第 41 根抽油杆\n- \"对应位置油管内壁有环状磨槽，深度 0.6～1.0 毫米\"\n- \"1900～2100 米井段抽油杆接箍普遍偏磨，最重处接箍单侧磨掉 1.8 毫米\"\n\nLooking at d4 (B-渤中34-5油田 - this is different field):\nThis is W-22 in a different field BZ34-5, not Y-21. Not relevant to current question.\n\nSo for Y-23 data, I need to find another reference. Looking at d3 (一季度注采调整与生产运行分析):\nc24 mentions Y-23's检泵周期 413 days with last workover date 2025-11-22.\n\nBut I need Y-23's 断点深度 and 断杆根号. This is in d2 (躺井治理月报). Looking at available chunks from d2:\n- c22: general stat\n- c23: Y-21 case study only\n- c25: 费用统计\n- c26: 功图预警跟踪清单\n- c27: 同上\n- c28: 近六月统计\n\nHmm, I don't see a specific case study for Y-23 in the visible chunks. The user's question references both wells. But based on available materials, I only have full data for Y-21.\n\nWait, let me re-read the user's question: \"Y-21 与 Y-23 两口井同为杆断、数据相近，极易串行\"\n\nThe user notes these are similar. They want me to differentiate to avoid confusion. They acknowledge data is similar.\n\nThe materials show:\n- Y-21: Detailed case in c23\n- Y-23: Mentioned in c22 (rod break, average 444 days with Y-21), c24 (workover cycle 413 days, last workover 2025-11-22)\n\nBut I don't have detailed断点深度、断杆根号、最大井斜/位置、最大狗腿度 for Y-23 in the available chunks.\n\nActually, looking more carefully at d2, there's likely a case study for Y-23 but it's not in the chunks shown. Or maybe there's another document.\n\nLet me think about what data I actually have:\n\nY-21 (from d2):\n- 断点深度: 1975 米\n- 断杆根号</think>\n\n",
+ "n_refs": 0,
+ "references": [],
+ "session_id": "21542552-4925-4324-97bb-ed308d7e56bb",
+ "stream_done": false,
+ "answer_head": "",
+ "ts": "2026-10-17T15:50:58+0800"
+}

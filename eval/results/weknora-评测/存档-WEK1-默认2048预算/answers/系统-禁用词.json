@@ -1,0 +1,17 @@
+{
+ "qid": "系统-禁用词",
+ "group": "SYS",
+ "question": "老完成率是多少？",
+ "source": "suites_q3.QA_SUITE",
+ "exit_code": 0,
+ "stderr": "",
+ "duration_s": 4.9,
+ "answer": "老完成率已不再使用。根据资料，开发数据平台指标台账中，旧称\"老完成率\"对应的是 **v1 口径**，已于 **2024 年废弃**，目前报表中已停用该称谓。\n\n现行规范统一使用\"**产量完成率**\"称谓，并按两支口径并行披露：\n- **开井日历折算（主口径）**\n- **检修剔除（剔检支，又称净产量）**\n\n单说\"有效产量\"时须先选定口径再对数。<kb doc=\"渤中34-8油田一季度注采调整与生产运行分析.txt\" chunk_id=\"b3166af5-7fcd-41ee-b43c-69167d73cb6c\" kb_id=\"3be3cd32-fac5-4369-9a21-74eac1c69137\" />\n\n简言之，\"老完成率\"作为一个独立的现行指标已不存在；如需查询历史数据，应回到 v1 口径原始记录，但报表层面已被产量完成率（含主口径与剔检支）取代。",
+ "answer_raw": "<think>The user is asking about \"老完成率\" (old completion rate). Looking at the source materials, I need to find references to this term.\n\nIn chunk c27 (from document d1, 渤中34-8油田一季度注采调整与生产运行分析.txt), there's a passage that mentions:\n\n\"台账提示：开发数据平台指标台账中「有效产量」为两支口径指标（开井日历支/剔检支，剔检产量又称净产量），单说「有效产量」须先选口径再对数；完成率一律使用「产量完成率」称谓，旧称「老完成率」（v1 口径，2024 年废弃）已在报表中停用。\"\n\nThis tells me that \"老完成率\" was an old term that referred to the v1 standard (口径), which was abandoned in 2024 and is no longer used in reports. The current standard term is \"产量完成率\" (production completion rate).\n\nThe document explicitly states that \"老完成率\" (v1 口径) was废弃 (abolished) in 2024. So the answer is that 老完成率 is no longer in use - it was a v1 standard that has been废弃 since 2024.\n\nI should not cite specific document IDs in the user-visible output per the instructions. I can cite using <kb doc=\"渤中34-8油田一季度注采调整与生产运行分析.txt\" chunk_id=\"b3166af5-7fcd-41ee-b43c-69167d73cb6c\" kb_id=\"3be3cd32-fac5-4369-9a21-74eac1c69137\" /> for the knowledge chunk.\n\nWait, let me re-read the instructions: \"Source citations are enabled for this answer. Cite a knowledge chunk with exactly \" - so I should use citations.\n\nThe answer should explain:\n1. 老完成率 was the old v1 口径 (v1 standard)\n2. It was废弃 (abolished) in 2024\n3. Current term is 产量完成率\n\nLet me write a clear answerin Chinese.</think>\n\n老完成率已不再使用。根据资料，开发数据平台指标台账中，旧称\"老完成率\"对应的是 **v1 口径**，已于 **2024 年废弃**，目前报表中已停用该称谓。\n\n现行规范统一使用\"**产量完成率**\"称谓，并按两支口径并行披露：\n- **开井日历折算（主口径）**\n- **检修剔除（剔检支，又称净产量）**\n\n单说\"有效产量\"时须先选定口径再对数。<kb doc=\"渤中34-8油田一季度注采调整与生产运行分析.txt\" chunk_id=\"b3166af5-7fcd-41ee-b43c-69167d73cb6c\" kb_id=\"3be3cd32-fac5-4369-9a21-74eac1c69137\" />\n\n简言之，\"老完成率\"作为一个独立的现行指标已不存在；如需查询历史数据，应回到 v1 口径原始记录，但报表层面已被产量完成率（含主口径与剔检支）取代。",
+ "n_refs": 0,
+ "references": [],
+ "session_id": "884d61b2-89c4-436d-a0f6-e15fba31da29",
+ "stream_done": false,
+ "answer_head": "老完成率已不再使用。根据资料，开发数据平台指标台账中，旧称\"老完成率\"对应的是 **v1 口径**，已于 **2024 年废弃**，目前报表中已停用该称谓。\n\n现行规范统一使用\"**产量完成率**\"称谓，并按两支口径并行披露：\n- **开井",
+ "ts": "2026-10-17T15:37:53+0800"
+}
