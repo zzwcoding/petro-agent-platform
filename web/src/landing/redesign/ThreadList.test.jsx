@@ -1,22 +1,25 @@
 /**
- * ThreadList 钉测（左侧历史对话——FE-04 真接 listRunsV2＋上拉加载 + 搜索）。
+ * ThreadList 钉测（左侧历史对话——FE-04 真接 listRunsV2＋触底自动加载 + 搜索）。
  *
  * 守什么（specs/frontend-redesign.md「验收测试」表第 14/15 行＋行为约定 L1/L2；Owner 反馈
- * 打磨批：一链一行／滚到底加载）：
+ * 打磨批⑦：零按钮零提示、纯触底自动加载）：
  * - 真接形态（::live_limit_step_cap_100）：数据源＝内部态＋fetchRuns 注入（默认 listRunsV2，
- *   测试注桩零网络）——初始 limit=20；「加载更早」＝limit+20 重拉全量替换（后端无 offset——
- *   真源 appv2/api/chat.py list_runs，limit 夹 1..100），20→40→…→100 封顶；封顶后不再调
- *   读口、「已到最早」在场；桩返回 120 条时窗口只到 100（maxRows clamp）。
+ *   测试注桩零网络）——初始 limit=20；触底＝limit+20 重拉全量替换（后端无 offset——
+ *   真源 appv2/api/chat.py list_runs，limit 夹 1..100），20→40→…→100 封顶；封顶后不再调读口；
+ *   桩返回 120 条时窗口只到 100（maxRows clamp）。
+ * - **零按钮零提示**（打磨批⑦）：DOM 无「加载更早」按钮、无「已到最早」小字——加载靠触底
+ *   自动，到头静默；窗口数与库数不一致时也再没有「已载入 20 / 10」这类自相矛盾计数行。
+ * - **触底判定**（列表最新在上、更早在下）：离底 ≤40px 触发；离底远（顶滚）不触发；
+ *   搜索中/已 exhausted/到 maxRows 同样不触发。
+ * - **exhausted 判定**（拿到响应后）：新行数＝旧行数（没有新内容）或 行数<limit（库比窗口小）
+ *   → 此后不再 fetch。
  * - **一链一行**（显示粒度＝追问链）：链归属＝followup_of 逐跳上溯取根（根＝followup_of 空串
  *   或指向窗口外），链内 created_at 升序，行＝链内最早轮（title＝该轮问句）、副行＝
  *   `{最新轮状态} · {轮数} 轮 · {时间}`；链序按最新轮时间降序；分组**只作用于显示**——
  *   onRuns 回传的窗口仍是原始行。
- * - **滚到底加载**（列表最新在上、更早在下）：离底 ≤40px 触发 loadMore；离底远（顶滚）不触发；
- *   搜索中/封顶后同样不触发。
  * - 搜索（::search_client_side_no_fetch）：对当前已加载窗口前端过滤、零请求（命中任一链轮＝
- *   该链全部成员保留，链不因搜索残缺）；无命中出「无匹配对话」空态。
- * - 读口失败≠空库（UI-14 同位纪律）：失败＝加载入口撤下＋「暂无数据」失败空态；
- *   读口如实返回空列＝「暂无历史对话」。
+ *   该链全部成员保留，链不因搜索残缺）；无命中出「无匹配对话」空态；搜索中不触发加载。
+ * - 读口失败≠空库（UI-14 同位纪律）：失败＝「暂无数据」失败空态；读口如实返回空列＝「暂无历史对话」。
  *
  * 素材：__fixtures__/runs.js 的 FIXTURE_RUNS（120 条 RunListItem 形态——FE-04 起为测试夹具，
  * 页面已不直喂）；该夹具的 2 轮链中**最新轮＝链内较晚行**（见「夹具事实」注释下的断言）。
@@ -43,8 +46,11 @@ afterEach(() => cleanup())
 
 const rowsIn = () => screen.queryAllByTestId(/^thread-row-/)
 
-/** fetchRuns 桩：忽略 limit 返回全量 120 条（复刻 mock 期数据源形态——窗口裁剪归组件 slice）。 */
-const stubFullRuns = () => vi.fn(async () => FIXTURE_RUNS)
+/** fetchRuns 桩：按 limit 回窗口（后端语义——limit 夹取后按 created_at 降序回列）。 */
+const stubRuns = (rows = FIXTURE_RUNS) => vi.fn(async limit => rows.slice(0, limit))
+
+/** 无视 limit 的桩（行数不随窗口变——「没有新内容」的 exhausted 现场）。 */
+const stubSameAlways = (rows = FIXTURE_RUNS) => vi.fn(async () => rows)
 
 /**
  * 滚动桩（jsdom 无布局、无真滚动）：scrollHeight/clientHeight 桩化后派发 scroll——
@@ -64,12 +70,11 @@ describe('ThreadList · 数据源与初始窗口（真接）', () => {
     expect(FIXTURE_RUNS).toHaveLength(120)
     expect(Object.keys(FIXTURE_RUNS[0]).sort())
       .toEqual(['created_at', 'followup_of', 'question', 'run_id', 'status', 'updated_at'])
-    const fetchRuns = stubFullRuns()
+    const fetchRuns = stubRuns()
     const onRuns = vi.fn()
     render(<ThreadList fetchRuns={fetchRuns} onRuns={onRuns} />)
     await screen.findByTestId(`thread-row-${FIXTURE_RUNS[0].run_id}`)
     expect(rowsIn()).toHaveLength(14)      // 20 原始行 → 14 条链（6 条 followup 轮并入链行）
-    expect(screen.getByTestId('load-more').textContent).toContain('已载入 20 / 100')
     expect(fetchRuns).toHaveBeenCalledTimes(1)
     expect(fetchRuns).toHaveBeenCalledWith(20) // 初始 limit=20（规格第 14 行）
     // 分组只作用于显示：onRuns 回传的仍是**原始窗口**（前 20 条——页面拉链按原始行上溯）
@@ -83,7 +88,7 @@ describe('ThreadList · 数据源与初始窗口（真接）', () => {
   })
 
   it('夹具事实：2 轮链（FIXTURE_RUNS[1]/[2]）＝一行——行标签＝链内最早轮问句、副行＝最新轮状态·轮数·时间', async () => {
-    const fetchRuns = stubFullRuns()
+    const fetchRuns = stubRuns()
     render(<ThreadList fetchRuns={fetchRuns} />)
     // 行 testid＝链内 created_at 最早轮（旧页 buildThreads 的行标识口径）
     const row = await screen.findByTestId(`thread-row-${FIXTURE_RUNS[2].run_id}`)
@@ -135,31 +140,32 @@ describe('ThreadList · 一链一行（分组／点击／链成员高亮）', ()
   })
 })
 
-describe('ThreadList · 上拉加载（滚到底触发；limit 步进＝后端无 offset 的映射）', () => {
-  it('「加载更早」一次＝limit+20 重拉全量（20 → 40）；行数随窗口增长（14 → 27）', async () => {
-    const fetchRuns = stubFullRuns()
-    render(<ThreadList fetchRuns={fetchRuns} />)
+describe('ThreadList · 触底自动加载（零按钮零提示——打磨批⑦；scroll_auto_load_exhausted）', () => {
+  it('零按钮零提示：DOM 无「加载更早」按钮、无「已到最早」小字（未搜索时也不出「已载入 …」）', async () => {
+    render(<ThreadList fetchRuns={stubRuns()} />)
     await screen.findByTestId(`thread-row-${FIXTURE_RUNS[0].run_id}`)
-    fireEvent.click(screen.getByTestId('load-more'))
-    await screen.findByTestId(`thread-row-${FIXTURE_RUNS[39].run_id}`) // 新入窗链行（原窗口外的链根）
-    expect(screen.queryByTestId(`thread-row-${FIXTURE_RUNS[19].run_id}`)).toBeNull() // 原独立行并入新入窗 followup 链（行标识随链内最早轮改判）
-    expect(rowsIn()).toHaveLength(27)
-    expect(screen.getByTestId('load-more').textContent).toContain('已载入 40 / 100')
-    expect(fetchRuns).toHaveBeenLastCalledWith(40)
+    const box = screen.getByTestId('thread-list')
+    expect(screen.queryByTestId('load-more')).toBeNull()
+    expect(screen.queryByTestId('earliest-tip')).toBeNull()
+    expect(within(box).queryByRole('button')).toBeNull() // 加载入口整块没有按钮
+    expect(box.textContent).not.toContain('加载更早')
+    expect(box.textContent).not.toContain('已到最早')
+    expect(box.textContent).not.toContain('已载入')
   })
 
-  it('滚到列表底部＝同一 handler（离底 ≤40px 触发 +20 重拉）', async () => {
-    const fetchRuns = stubFullRuns()
+  it('滚到底＝limit+20 重拉全量替换（20 → 40）；行数随窗口增长（14 → 27）', async () => {
+    const fetchRuns = stubRuns()
     render(<ThreadList fetchRuns={fetchRuns} />)
     await screen.findByTestId(`thread-row-${FIXTURE_RUNS[0].run_id}`)
     scrollBottom()
-    await screen.findByTestId(`thread-row-${FIXTURE_RUNS[39].run_id}`)
+    await screen.findByTestId(`thread-row-${FIXTURE_RUNS[39].run_id}`) // 新入窗链行（原窗口外的链根）
+    expect(screen.queryByTestId(`thread-row-${FIXTURE_RUNS[19].run_id}`)).toBeNull() // 原独立行并入新入窗 followup 链（行标识随链内最早轮改判）
     expect(rowsIn()).toHaveLength(27)
     expect(fetchRuns).toHaveBeenLastCalledWith(40)
   })
 
   it('顶滚不触发（离底远超 40px）：窗口不扩、读口不再调', async () => {
-    const fetchRuns = stubFullRuns()
+    const fetchRuns = stubRuns()
     render(<ThreadList fetchRuns={fetchRuns} />)
     await screen.findByTestId(`thread-row-${FIXTURE_RUNS[0].run_id}`)
     scrollTop()
@@ -168,60 +174,108 @@ describe('ThreadList · 上拉加载（滚到底触发；limit 步进＝后端�
     expect(fetchRuns).toHaveBeenCalledTimes(1)
   })
 
-  it('上限可配（maxRows）——步进语义与后端 clamp 同形', async () => {
-    const fetchRuns = stubFullRuns()
+  it('scroll_auto_load_exhausted：无新内容（新行数＝旧行数）→ exhausted，此后触底不再 fetch（静默，无提示）', async () => {
+    const fetchRuns = stubSameAlways() // 行数不随窗口变（120 恒 120）
+    render(<ThreadList fetchRuns={fetchRuns} />)
+    await screen.findByTestId(`thread-row-${FIXTURE_RUNS[0].run_id}`)
+    scrollBottom()
+    await screen.findByTestId(`thread-row-${FIXTURE_RUNS[39].run_id}`) // 窗口扩到 40（行数没变＝没有新内容）
+    expect(fetchRuns).toHaveBeenCalledTimes(2) // 20 → 40 两次
+    scrollBottom()
+    scrollBottom()
+    await Promise.resolve()
+    expect(fetchRuns).toHaveBeenCalledTimes(2) // exhausted 后不再 fetch
+    expect(screen.getByTestId('thread-list').textContent).not.toContain('已到最早')
+  })
+
+  it('库比窗口小（runs.length < limit）→ exhausted，不再 fetch；窗口仍是全库', async () => {
+    const small = FIXTURE_RUNS.slice(0, 30)
+    const fetchRuns = stubRuns(small)
+    render(<ThreadList fetchRuns={fetchRuns} />)
+    await screen.findByTestId(`thread-row-${small[0].run_id}`)
+    expect(fetchRuns).toHaveBeenLastCalledWith(20)
+    scrollBottom() // limit 40 → 库只 30 条
+    await screen.findByTestId(`thread-row-${small[29].run_id}`) // 第 30 条行入窗（全库都在）
+    expect(fetchRuns).toHaveBeenLastCalledWith(40)
+    scrollBottom()
+    await Promise.resolve()
+    expect(fetchRuns).toHaveBeenCalledTimes(2) // 库比窗口小＝到头
+    expect(rowsIn().length).toBeGreaterThan(14) // 全库 30 条已在窗（比初载 20 条窗口多）
+  })
+
+  it('上限可配（maxRows）：步进到 maxRows 后触底不再 fetch（零提示，不假装还能加载）', async () => {
+    const fetchRuns = stubRuns()
     render(<ThreadList fetchRuns={fetchRuns} maxRows={40} pageStep={20} />)
     await screen.findByTestId(`thread-row-${FIXTURE_RUNS[0].run_id}`)
-    fireEvent.click(screen.getByTestId('load-more'))
+    scrollBottom()
     await screen.findByTestId(`thread-row-${FIXTURE_RUNS[39].run_id}`)
     expect(rowsIn()).toHaveLength(27)
-    expect(screen.getByTestId('earliest-tip')).toBeTruthy()
+    expect(fetchRuns).toHaveBeenLastCalledWith(40)
+    scrollBottom() // 到 maxRows＝40 → 不再拉
+    scrollBottom()
+    await Promise.resolve()
+    expect(fetchRuns).toHaveBeenCalledTimes(2)
+    expect(screen.queryByTestId('earliest-tip')).toBeNull()
+    expect(screen.queryByTestId('load-more')).toBeNull()
+  })
+
+  it('回归（Owner 截图怪相）：窗口数 > 库数时不再出「已载入 20 / 10」旧计数行', async () => {
+    const small = FIXTURE_RUNS.slice(0, 10) // 库比初始窗口小
+    const fetchRuns = stubRuns(small)
+    render(<ThreadList fetchRuns={fetchRuns} />)
+    await screen.findByTestId(`thread-row-${small[0].run_id}`)
+    const box = screen.getByTestId('thread-list')
+    expect(box.textContent).not.toMatch(/已载入\s*\d+\s*\/\s*\d+/) // 自相矛盾计数行随按钮删除消失
+    expect(screen.queryByTestId('load-more')).toBeNull()
+    expect(screen.queryByTestId('earliest-tip')).toBeNull()
   })
 })
 
 describe('ThreadList · 规格钉测（specs「验收测试」表第 14/15 行）', () => {
-  it('live_limit_step_cap_100：初始 20、步进 40…100 封顶「已到最早」；封顶后不再调读口；120 条只到 100', async () => {
-    const fetchRuns = stubFullRuns() // 桩记录每次 limit；返回 120 条——窗口裁剪归组件（maxRows clamp）
+  it('live_limit_step_cap_100：初始 20、步进 40…100 封顶；封顶后不再调读口；120 条只到 100', async () => {
+    const fetchRuns = stubRuns() // 桩按 limit 回窗口；返回行数随窗口增长（120 条库）
     render(<ThreadList fetchRuns={fetchRuns} />)
     await screen.findByTestId(`thread-row-${FIXTURE_RUNS[0].run_id}`)
     expect(fetchRuns).toHaveBeenCalledWith(20) // 初始 limit=20
     for (let want = 40; want <= 100; want += 20) {
-      fireEvent.click(screen.getByTestId('load-more'))
+      scrollBottom()
       await screen.findByTestId(`thread-row-${FIXTURE_RUNS[want - 1].run_id}`)
       expect(fetchRuns).toHaveBeenLastCalledWith(want)
     }
     expect(rowsIn()).toHaveLength(67) // 100 条窗口 → 67 条链行
     expect(fetchRuns).toHaveBeenCalledTimes(5) // 20/40/60/80/100——封顶后不再调读口
-    expect(screen.queryByTestId('load-more')).toBeNull()
-    expect(screen.getByTestId('earliest-tip').textContent).toBe('已到最早')
+    expect(screen.queryByTestId('load-more')).toBeNull() // 零按钮
+    expect(screen.queryByTestId('earliest-tip')).toBeNull() // 零提示（打磨批⑦）
     // 窗口止于第 100 条：第 100 条行在内、第 101 条行不在（120 条只到 100）
     expect(screen.getByTestId(`thread-row-${FIXTURE_RUNS[99].run_id}`)).toBeTruthy()
     expect(screen.queryByTestId(`thread-row-${FIXTURE_RUNS[100].run_id}`)).toBeNull()
-    // 第 6 次触发（滚到底／顶——按钮已让位）不越界、不调读口
+    // 第 6 次触发（滚到底／顶）不越界、不调读口
     scrollBottom()
     scrollTop()
     expect(fetchRuns).toHaveBeenCalledTimes(5)
     expect(rowsIn()).toHaveLength(67)
   })
 
-  it('search_client_side_no_fetch：搜索期触发 loadMore/滚动 → 读口调用次数不变；无匹配→「无匹配对话」', async () => {
-    const fetchRuns = stubFullRuns()
+  it('search_client_side_no_fetch：搜索期滚动 → 读口调用次数不变；无匹配→「无匹配对话」', async () => {
+    const fetchRuns = stubRuns()
     render(<ThreadList fetchRuns={fetchRuns} />)
     await screen.findByTestId(`thread-row-${FIXTURE_RUNS[0].run_id}`)
     fireEvent.change(screen.getByPlaceholderText('搜索对话'), { target: { value: 'zzz-不存在的问句' } })
     expect(rowsIn()).toHaveLength(0)
     expect(screen.getByText('无匹配对话')).toBeTruthy() // 无匹配空态
-    expect(screen.queryByTestId('load-more')).toBeNull() // 加载入口让位
     scrollBottom() // 滚动亦不加载
+    await Promise.resolve()
     expect(fetchRuns).toHaveBeenCalledTimes(1) // 读口只有初载一次——搜索零请求
     fireEvent.change(screen.getByPlaceholderText('搜索对话'), { target: { value: '' } })
-    expect(screen.getByTestId('load-more')).toBeTruthy() // 清空搜索＝回到加载语义
+    scrollBottom() // 清空搜索＝回到触底加载语义
+    await screen.findByTestId(`thread-row-${FIXTURE_RUNS[39].run_id}`)
+    expect(fetchRuns).toHaveBeenLastCalledWith(40)
   })
 })
 
 describe('ThreadList · 搜索（前端过滤已加载窗口；链不因搜索残缺）', () => {
   it('命中任一链轮＝该链全部成员保留（1 行 2 轮）；匹配口径如实说明', async () => {
-    const fetchRuns = stubFullRuns()
+    const fetchRuns = stubRuns()
     render(<ThreadList fetchRuns={fetchRuns} />)
     await screen.findByTestId(`thread-row-${FIXTURE_RUNS[0].run_id}`)
     fireEvent.change(screen.getByPlaceholderText('搜索对话'), { target: { value: '含水率' } })
@@ -233,7 +287,7 @@ describe('ThreadList · 搜索（前端过滤已加载窗口；链不因搜索�
   })
 
   it('无命中＝「无匹配对话」空态（不报错、不伪造行）', async () => {
-    const fetchRuns = stubFullRuns()
+    const fetchRuns = stubRuns()
     render(<ThreadList fetchRuns={fetchRuns} />)
     await screen.findByTestId(`thread-row-${FIXTURE_RUNS[0].run_id}`)
     fireEvent.change(screen.getByPlaceholderText('搜索对话'), { target: { value: 'zzz-不存在的问句' } })
@@ -241,36 +295,41 @@ describe('ThreadList · 搜索（前端过滤已加载窗口；链不因搜索�
     expect(screen.getByText('无匹配对话')).toBeTruthy()
   })
 
-  it('搜索中不触发上拉加载（入口让位；滚动亦不加载）', async () => {
-    const fetchRuns = stubFullRuns()
+  it('搜索中不触发触底加载（滚动亦不加载）', async () => {
+    const fetchRuns = stubRuns()
     render(<ThreadList fetchRuns={fetchRuns} />)
     await screen.findByTestId(`thread-row-${FIXTURE_RUNS[0].run_id}`)
     fireEvent.change(screen.getByPlaceholderText('搜索对话'), { target: { value: '井' } })
-    expect(screen.queryByTestId('load-more')).toBeNull()
     scrollBottom()
     await Promise.resolve() // 让微任务落地——确认无新请求进入
     expect(rowsIn().length).toBeLessThanOrEqual(14) // 窗口未扩大（≤ 初始 14 条链行）
     expect(fetchRuns).toHaveBeenCalledTimes(1) // 读口未再调
     // 清空搜索＝回到加载语义
     fireEvent.change(screen.getByPlaceholderText('搜索对话'), { target: { value: '' } })
-    expect(screen.getByTestId('load-more')).toBeTruthy()
+    scrollBottom()
+    await screen.findByTestId(`thread-row-${FIXTURE_RUNS[39].run_id}`)
+    expect(fetchRuns).toHaveBeenLastCalledWith(40)
   })
 })
 
 describe('ThreadList · 空态（含读口失败态分离）', () => {
-  it('读口返回空列＝「暂无历史对话」（空库态不报错；加载入口仍在）', async () => {
-    const fetchRuns = vi.fn(async () => [])
+  it('读口返回空列＝「暂无历史对话」（空库态不报错；零按钮零提示）', async () => {
+    const fetchRuns = stubRuns([])
     render(<ThreadList fetchRuns={fetchRuns} />)
     expect(await screen.findByText('暂无历史对话')).toBeTruthy()
-    expect(screen.getByTestId('load-more')).toBeTruthy() // 入口仍在（封顶前）
+    expect(screen.queryByTestId('load-more')).toBeNull()
+    expect(screen.queryByTestId('earliest-tip')).toBeNull()
+    scrollBottom() // 空库＝exhausted（响应 0 条＝与上次 0 条相同）——滚动也不再 fetch
+    await Promise.resolve()
+    expect(fetchRuns).toHaveBeenCalledTimes(1)
     expect(within(screen.getByTestId('thread-list')).queryAllByTestId(/^thread-row-/)).toHaveLength(0)
   })
 
-  it('读口失败≠空库：计数行撤下＋「暂无数据」失败空态（UI-14 同位纪律）', async () => {
+  it('读口失败≠空库：「暂无数据」失败空态（UI-14 同位纪律）', async () => {
     const fetchRuns = vi.fn(async () => { throw new Error('boom') })
     render(<ThreadList fetchRuns={fetchRuns} />)
     expect(await screen.findByText('暂无数据')).toBeTruthy() // 失败空态（≠空库文案）
-    expect(screen.queryByTestId('load-more')).toBeNull() // 计数行撤下
+    expect(screen.queryByTestId('load-more')).toBeNull()
     expect(screen.queryByTestId('earliest-tip')).toBeNull()
     expect(within(screen.getByTestId('thread-list')).queryAllByTestId(/^thread-row-/)).toHaveLength(0)
   })

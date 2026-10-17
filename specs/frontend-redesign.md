@@ -6,7 +6,7 @@
 
 ## 目标
 
-把问一问V2 的答案面从「纯正文＋机器腔右栏」重设计为**串行链条版面**：每轮＝用户输入→系统执行流水线（可折叠 typed 事件流）→系统回答（正文＋血缘卡＋追加面＋统计小字），让油田业务用户能看懂系统在干什么、数字从哪来。
+把问一问V2 的答案面从「纯正文＋机器腔右栏」重设计为**串行链条版面**：每轮＝用户输入→系统执行流水线（可折叠 typed 事件流）→系统回答（正文＋血缘卡＋统计小字；**追加面于 2026-10-17 打磨批②从中栏移除**——split 只留右栏），让油田业务用户能看懂系统在干什么、数字从哪来。
 
 ## 不做什么
 
@@ -91,6 +91,7 @@ TurnShape {
 - G4 `events` 按**帧到达序**（信封 id 升序）追加；工具事件先于其承载 step 的真机序原样保留（不补排序）。
 - G5 `runStatus` 三分：done 且 askFrame 在场→`waiting_ask`；notices 含 `run_failed`→`failed`；否则→`completed`。done 不作完局判据。
 - G6 未知帧事件类型：忽略 + 计数，reducer 不抛错（沿用现状容错）。
+- G7 **显示折叠**（`events.js::foldEvents`，纯函数；Owner 2026-10-17 打磨批④⑤⑥）：连续 citation 段→一条（计数＋去重来源数）、连续同（相位＋标题）step 段→一条（＋×N）、连续 materials 段→一条（逐次份数）；**只并连续段**（被别的事件隔开即断段，不跨事件类型）、单条不添标记、其余事件按到达序原样透传；不改 `turn.events` 真源、不改摘要行计数口径（摘要总数仍来自 turn 字段）。
 
 **三场景归一（H 组）**
 - H1 live 与 replay 走同一 reducer 同一形状（replay 帧序与原流逐字节相同——真源 `specs/transport.md` 行为 13 衔接面，此处只引用）。
@@ -102,9 +103,10 @@ TurnShape {
 **降级与空态（E 组）**
 - E1 引用面板：citation 无配对 observation→「材料未在回合内渲染」占位（不虚构）；整轮无引用→「本回合无引用」。
 - E2 血缘卡：`supplements.lineage` 与 materials[].payload.lineage 都无→不渲染（非数据题）。
-- E3 notice 未知 type→通用灰条兜底，不静默丢弃。
+- E3 notice 未知 type→兜底行照给，不静默丢弃；B/C/未登记三级的行形＝**灰纯文本紧凑行**（「⚙ 系统注记（type）· 点开看原文」，点开内联原文、再点收起；原 antd Collapse 边框盒按 Owner 2026-10-17 打磨批⑥退场），A 级仍是红/黄彩条行。
 - E4 history 轮：引用面板/notice 带/blackbox 小字无数据源→该展示位不渲染；legacy 形状保留（正文内嵌旧式「引用：」块原样渲染），**不再出旧版说明句**（原灰字〔「本轮为旧版记录，无引用/口径明细」〕按 Owner 2026-10-17 打磨批去行话撤下——形状留、话不说）。
 - E5 流水线摘要时长为本地计时，标注〔原文：「本地计时」〕。
+- E6 **隐藏型 notice 不出**（`NOTICE_LEVEL_HIDE`＝material_truncated/emission_strip，Owner 2026-10-17 打磨批⑧）：流水线不出行、回答块 A 级 Alert 带滤掉、摘要行「⚠ N 条提示」不计入；**只是前端展示口径**——`turn.notices` 原数据不动。
 
 **重连（R 组）**
 - R1 提问受理即把 running run_id 持久化（sessionStorage）；run 收口清除。
@@ -113,7 +115,7 @@ TurnShape {
 - R4 挂起态刷新：`GET /runs/{id}` 的 `pending_ask` 还原挂起卡；resume 只消费本腿新帧（不重启不重放）。
 
 **历史列（L 组）**
-- L1 初始 `GET /runs?limit=20`；上拉加载＝**滚到列表底部**（离底 ≤40px）触发、limit 步进 +20 重拉全量替换（后端无 offset——夹取 1..100，真源 `appv2/api/chat.py` list_runs）；加载入口与「已到最早」小字都置**列表底部**（最新在上、更早在下）。
+- L1 初始 `GET /runs?limit=20`；加载更多＝**滚到列表底部**（离底 ≤40px）触发、limit 步进 +20 重拉全量替换（后端无 offset——夹取 1..100，真源 `appv2/api/chat.py` list_runs）（最新在上、更早在下）。**零按钮零提示**（Owner 2026-10-17 打磨批⑦：原「加载更早」按钮与「已到最早」小字退场；窗口数>库数时的「已载入 N / M」旧计数行随按钮消失）；**exhausted 判据**（拿到响应后）＝新 runs 行数＝旧行数（没有新内容）**或** 行数 < limit（库比窗口小）→ 此后不再 fetch（静默）；limit ≥ maxRows 亦不再 fetch。
 - L2 搜索＝对已加载行前端过滤（后端无搜索参数），零请求。
 - L3 选中行→拉该链轮次（listItem.followup_of 链对齐现状 buildThreads 分组语义）渲染中栏。
 - L4 显示粒度＝**一链一行**（分组只作用于显示——加载与窗口回传仍按原始行）：链归属＝followup_of 逐跳上溯到根（根＝空串或指向窗口外，与 L3 拉链同一 `cites.js::chainRootId`），链序按最新轮 `created_at` 降序；行＝链内最早轮问句（18 字截断），副行＝`{最新轮状态} · {链轮数} 轮 · {MM-DD HH:mm}`；点行＝L3 拉链（回调链内最新轮），选中＝所在链整行高亮。
@@ -144,16 +146,19 @@ TurnShape {
 | 11 | 刷新后重连：GET /runs 发现 running→resume_run_id 重放全帧归一 | 重放后可尾随新帧 | — | `web/src/landing/redesign/reconnect.test.jsx::reconnect_replays_full_stream` |
 | 12 | 重连 404→终态灰条「本轮已结束或不可达」 | 不悬挂不重试循环 | — | `web/src/landing/redesign/reconnect.test.jsx::reconnect_404_terminal` |
 | 13 | 挂起态刷新 pending_ask 还原、resume 只消费本腿新帧 | — | — | `web/src/landing/redesign/reconnect.test.jsx::pending_ask_restore` |
-| 14 | ThreadList 真接：初始 limit=20、步进至 100 封顶「已到最早」 | limit 夹取边界（传 120 只到 100） | mock 期 10 条行为不回归 | `web/src/landing/redesign/ThreadList.test.jsx::live_limit_step_cap_100` |
+| 14 | ThreadList 真接：初始 limit=20、步进至 100 封顶（零按钮零提示，到头静默；exhausted 后不再 fetch） | limit 夹取边界（传 120 只到 100）；无新内容／库比窗口小 | mock 期 10 条行为不回归 | `web/src/landing/redesign/ThreadList.test.jsx::live_limit_step_cap_100`、`web/src/landing/redesign/ThreadList.test.jsx::scroll_auto_load_exhausted` |
 | 15 | 搜索前端过滤零请求、无匹配空态 | — | — | `web/src/landing/redesign/ThreadList.test.jsx::search_client_side_no_fetch` |
 | 16 | 选中行拉链渲染（followup_of 分组对齐 buildThreads） | 单轮链/多轮链 | — | `web/src/landing/redesign/A1V2R.test.jsx::select_thread_renders_turns` |
-| 17 | 版面链条顺序：问句→流水线→回答（notice-alerts→正文→血缘→追加面→小字） | 无血缘/无追加面轮缺位不渲染 | 既有 13 条页面测试不回归 | `web/src/landing/redesign/A1V2R.test.jsx::chain_order` |
+| 17 | 版面链条顺序：问句→流水线→回答（notice-alerts→正文→血缘→小字；中栏无追加面——打磨批②） | 无血缘轮缺位不渲染；隐藏型 notice 不进警示带 | 既有 13 条页面测试不回归 | `web/src/landing/redesign/A1V2R.test.jsx::chain_order` |
 | 18 | 旧 A1V2 下线：路由替换、旧页文件删、旧测试随票处置 | 菜单项名替换 | V1 A1 页与测试原样保留 | `web/src/landing/redesign/route.test.jsx::a1v2_replaced` |
 | 19 | mock/DEBT 清理：mockTurns/deriveEvents 删除或转固定夹具，债务短语零残留 | — | — | `tools/debt_markers.py` 全绿＋`web/src/landing/redesign/mockLeft.test.js::no_mock_left` |
-| 20 | 真机帧走查：eval/results/frames/ 抽样轮在真流页面人工核对（答案/抽屉/血缘/追加面）——机器面由真机帧夹具驱动全链路测试承载，Owner 目验记录另落 `docs/runtime-refactor/frontend-redesign-验证记录.md` | — | — | `web/src/landing/redesign/A1V2R.test.jsx` |
+| 20 | 真机帧走查：eval/results/frames/ 抽样轮在真流页面人工核对（答案/引用面板/血缘/各来源说法不一对照）——机器面由真机帧夹具驱动全链路测试承载，Owner 目验记录另落 `docs/runtime-refactor/frontend-redesign-验证记录.md` | — | — | `web/src/landing/redesign/A1V2R.test.jsx` |
 | 21 | 交付闸：npm run test/build/lint 三绿＋341 基线不红——三绿由 CI 门禁承载，终检集成面钉 route 测试 | — | — | `web/src/landing/redesign/route.test.jsx` |
 | 22 | 框架红线：package.json 运行时依赖键集合与 FE 线开工前一致（一个不多）——依赖与样式两红线的人审核对记录见验证记录第 6 节 | — | — | `web/src/landing/redesign/mockLeft.test.js::no_mock_left` |
 | 23 | 框架红线：web/src 无新增样式文件（index.css 唯一既有例外） | — | — | `web/src/index.css`（唯一样式文件存在性，人审 FE-05 核对） |
+| 24 | 引标悬停按**锚点实例**（同一 index 多处锚点只开悬停那一处；锚点键含 token 路径，平级叶子同 index 同偏移也不撞键） | 同 index 重复引标（同叶子／平级叶子） | 不传 citeHoverCard＝旧行为逐字一致（V1 与真流页不受影响） | `web/src/landing/redesign/CiteHoverCard.test.jsx::cite_hover_per_anchor` |
+| 25 | 去重：中栏回答块无追加面；右栏去「按来源列出」（attribution）留 split（右栏唯一出现处） | 有 split/attribution 的轮 | 正文/血缘卡/引用清单照常；引用清单＝正文 [n] 配对材料定位不变 | `web/src/landing/redesign/A1V2R.test.jsx::supplement_dedup_right_panel_only`、`web/src/landing/redesign/CitationPanel.test.jsx::split_only_right_panel` |
+| 26 | 流水线折叠四类：连续 citation／同（相位＋标题）step／连续 materials 段各折一行，B/C/未登记 notice 改灰纯文本行，隐藏型两处不出且摘要不计 | 连续段／单条段／不跨段 | 摘要计数口径（步/工具/材料/提示数来自 turn）不回归 | `web/src/landing/redesign/events.test.js::fold_events`、`web/src/landing/redesign/ExecutionPipeline.test.jsx::pipeline_fold_four_kinds`、`web/src/landing/redesign/ExecutionPipeline.test.jsx::pipeline_hidden_notice_absent` |
 
 ## 依赖与风险
 

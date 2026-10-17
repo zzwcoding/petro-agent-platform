@@ -13,17 +13,21 @@
  *
  * 行渲染映射（白话；映射表在 events.js，未登记值原样回显）：
  * - understanding → 💭「理解为：…」
- * - step → 相位白话（分析问题/检索资料/取数/查看材料/核验/作答）＋原标题小字
+ * - step 段 → 相位白话（分析问题/检索资料/取数/查看材料/核验/作答）＋原标题小字；
+ *   连续同（相位＋标题）的步折叠成一行并挂「×N」（真机实录「分析问题 · 模型调用：decision」连出 3-4 条）
  * - tool → 缩进行「查文档库/查指标台账/取数/查常见问题/查表结构」＋状态 ok✓/failed✗/ask⏸
- * - materials → 聚合行「📄 找到 N 份材料」（明细在右栏，不进流水线）
- * - notice → 三级小行（NoticeRow：A 红/黄、B 灰、C 默认收起；未登记＝灰兜底）
+ * - materials 段 → 聚合行「📄 检索到材料 51 份」（多次子检索＝「… 32 · 36 份（2 次子检索）」；
+ *   明细在右栏，不进流水线）
+ * - notice → 小行（NoticeRow：A 红/黄彩条、B/C/未登记＝灰纯文本行「⚙ 系统注记（type）· 点开看原文」）；
+ *   隐藏型（material_truncated/emission_strip——打磨批⑧）整行不出
  * - verify → 「✅ 核验完成：有据 N 条 · 改写 M 条（· 分列 K 条）」
- * - citation → 轻行「落账引标 [n] 《来源》」
- * supplement 不单独出行（血缘卡/追加面是回答块下挂的链条节点）。
+ * - citation 段 → 轻行「🔖 落账引标 N 条 · 来自 M 处来源」（M＝去重来源数；不跨别的事件类型）
+ * supplement 不单独出行（血缘卡是回答块下挂的链条节点）。
  *
- * 事件流＝归约器直出的 `turn.events`（按帧到达序追加，G4——本件不排序不派生；
- * FE-02 起 deriveEvents 退役，各轮（真流/夹具/历史）皆为 reducer/historyAdapter 产出、events 恒为数组，
- * 过渡期 `?? []` 兜底按票面判定去除）。时长 `durationS` 由页面传入（本地计时，不入 turn）。
+ * 事件流＝归约器直出的 `turn.events`（按帧到达序追加，G4——本件不排序不派生；显示折叠
+ * `foldEvents` 只并连续段，不改序）；FE-02 起 deriveEvents 退役，各轮（真流/夹具/历史）皆为
+ * reducer/historyAdapter 产出、events 恒为数组，过渡期 `?? []` 兜底按票面判定去除）。
+ * 时长 `durationS` 由页面传入（本地计时，不入 turn）。
  * 空态：非运行中且无事件＝整块不渲染（旧版降级轮即此形）。
  */
 import { useState } from 'react'
@@ -33,7 +37,7 @@ import {
 } from '@ant-design/icons'
 import { dim, helpIcon } from '../../components/helpIcon.jsx'
 import { NoticeRow } from './NoticeBand.jsx'
-import { phaseText, summarizePipeline, toolText } from './events.js'
+import { foldEvents, phaseText, summarizePipeline, toolText, noticeVisible } from './events.js'
 
 const TOOL_STATUS = { ok: '完成', failed: '失败', ask: '待确认' }
 
@@ -49,9 +53,10 @@ function Row({ testid, children }) {
   return <div data-testid={testid} style={{ fontSize: 12, lineHeight: 1.8, marginBottom: 2 }}>{children}</div>
 }
 
-/** 单事件 → 行。 */
-function EventRow({ ev, i }) {
-  switch (ev.type) {
+/** 单条显示项 → 行（项形状＝foldEvents 产出）。 */
+function EventRow({ item, i }) {
+  const ev = item.ev
+  switch (item.type) {
     case 'understanding':
       return (
         <Row testid="ev-understanding">
@@ -59,11 +64,12 @@ function EventRow({ ev, i }) {
           <span style={{ whiteSpace: 'pre-wrap' }}>{String(ev.text).replace(/^理解：/, '')}</span>
         </Row>
       )
-    case 'step':
+    case 'steps':
       return (
-        <Row testid={`ev-step-${ev.seq}`}>
-          <b>{phaseText(ev.phase)}</b>
-          {ev.title && <span style={dim}>{` · ${ev.title}`}</span>}
+        <Row testid={`ev-step-${item.seq}`}>
+          <b>{phaseText(item.phase)}</b>
+          {item.title && <span style={dim}>{` · ${item.title}`}</span>}
+          {item.count > 1 && <span style={dim}>{` ×${item.count}`}</span>}
         </Row>
       )
     case 'tool':
@@ -80,12 +86,13 @@ function EventRow({ ev, i }) {
     case 'materials':
       return (
         <Row testid="ev-materials">
-          {`📄 找到 ${ev.count} 份材料`}
+          {`📄 检索到材料 ${item.counts.join(' · ')} 份`}
+          {item.counts.length > 1 && <span style={dim}>{`（${item.counts.length} 次子检索）`}</span>}
           <span style={dim}>（材料明细在右侧「引用与口径」）</span>
         </Row>
       )
     case 'notice':
-      return <div data-testid={`ev-notice-${i}`}><NoticeRow n={ev.notice} seq={i} /></div>
+      return <div data-testid={`ev-notice-${i}`}><NoticeRow n={ev.notice} /></div>
     case 'verify':
       return (
         <Row testid="ev-verify">
@@ -93,10 +100,10 @@ function EventRow({ ev, i }) {
             + ((ev.verdict?.split ?? 0) > 0 ? ` · 分列 ${ev.verdict.split} 条` : '')}
         </Row>
       )
-    case 'citation':
+    case 'citations':
       return (
-        <Row testid={`ev-citation-${ev.cite?.index}`}>
-          <span style={dim}>{`落账引标 [${ev.cite?.index}] ${ev.cite?.source ?? ''}`}</span>
+        <Row testid="ev-citations">
+          <span style={dim}>{`🔖 落账引标 ${item.count} 条 · 来自 ${item.sources.length} 处来源`}</span>
         </Row>
       )
     default: // 未登记事件类型＝原样兜底（不静默丢）
@@ -117,6 +124,9 @@ export default function ExecutionPipeline({ turn, durationS = null }) {
 
   // 空态：非运行中且无事件＝整块不渲染（旧版降级轮即此形——不伪造流水线）
   if (events.length === 0 && !running) return null
+
+  // 显示项＝到达序折叠后的连续段，再滤掉隐藏型 notice 行（打磨批⑧——展示口径，原数据不动）
+  const items = foldEvents(events).filter(it => it.type !== 'notice' || noticeVisible(it.ev?.notice))
 
   const stateIcon = running ? <Spin size="small" /> : <CheckCircleOutlined style={{ color: '#52c41a' }} />
   const shownDuration = durationS ?? sum.durationS // 页面传入优先（时长不入 turn——页面临时面）
@@ -156,7 +166,7 @@ export default function ExecutionPipeline({ turn, durationS = null }) {
         <div style={{ padding: '4px 10px 6px' }} data-testid="pipeline-body">
           {events.length === 0
             ? <div style={dim} data-testid="pipeline-waiting"><Spin size="small" /> 正在分析问题…</div>
-            : events.map((ev, i) => <EventRow key={`${ev.type}-${i}`} ev={ev} i={i} />)}
+            : items.map((it, i) => <EventRow key={`${it.type}-${it.seq ?? i}`} item={it} i={i} />)}
           {running && events.length > 0 && (
             <div style={{ ...dim, marginTop: 4 }} data-testid="pipeline-tail">
               <Spin size="small" /> 继续处理中…

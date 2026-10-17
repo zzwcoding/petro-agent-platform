@@ -9,20 +9,64 @@
  *    trust 白话徽标（权威台账/台账/报告/系统注记）；点某条＝该条高亮＋「已定位」并出材料
  *    原文（无配对＝如实写「材料未在回合内渲染」，不虚构）；`trust=notice` 的按**程序声明**
  *    渲染，点明「系统生成的声明，不是文档原文」。
- * 2. **血缘／查询口径卡**（LineageCard——非数据题不出）。
- * 3. **程序追加面**（SupplementBlocks——无块不出）。
- * 空态：无引用＝「本回合无引用」；无血缘/无追加面＝各自不出（不报错不伪造）。
+ * 2. **各来源说法不一**（supplement{block:'split'}——**右栏唯一出现处**；打磨批③：
+ *    「按来源列出」（attribution）块按 Owner 拍板整块删掉——它与引用清单同源重复
+ *    （引用清单＝正文 [n] 配对材料逐条定位；按来源列出＝同一批 citation 帧的机械文本再生产）；
+ *    各来源说法不一＝有独立信息量的矛盾对照，保留）。
+ * 3. **血缘／查询口径卡**（LineageCard——非数据题不出）。
+ * 空态：无引用＝「本回合无引用」；无血缘/无 split＝各自不出（不报错不伪造）。
  *
  * 决策树入口保留（Owner 拍板第 4 条）：入口常在，点开只出一个说明性 Modal——
  * 真决策树（`pages/DecisionTreeV2.jsx`）本体接回在后续版本（本票不动本入口）。
  */
 import { useEffect, useState } from 'react'
-import { Button, Card, Modal, Tag } from 'antd'
-import { ApartmentOutlined } from '@ant-design/icons'
+import { Button, Card, Collapse, Modal, Tag } from 'antd'
+import { ApartmentOutlined, DownOutlined, UpOutlined } from '@ant-design/icons'
 import { dim, helpIcon } from '../../components/helpIcon.jsx'
-import { groupCitations, trustLabel } from './cites.js'
+import { groupCitations, parseSupplement, trustLabel } from './cites.js'
 import LineageCard from './LineageCard.jsx'
-import SupplementBlocks from './SupplementBlocks.jsx'
+
+const CLAMP_LINES = 6
+/** 限高判定：真行数超限，或单行折行后估计超限（≈6 行 × 40 字/行；jsdom 无排版量测）。 */
+const CLAMP_CHARS = 240
+
+/** 单条内容（限高 + 展开看全文——真机 split 单条可至 700+ 字含全角空格表格行）。 */
+function ClampedText({ text, testId }) {
+  const [open, setOpen] = useState(false)
+  const long = String(text ?? '').split('\n').length > CLAMP_LINES || String(text ?? '').length > CLAMP_CHARS
+  const clamped = long && !open
+  return (
+    <div>
+      <div data-testid={testId} data-clamped={clamped ? 'true' : 'false'}
+        style={{
+          fontSize: 12, lineHeight: 1.7, whiteSpace: 'pre-wrap',
+          ...(clamped
+            ? { display: '-webkit-box', WebkitLineClamp: CLAMP_LINES, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
+            : {})
+        }}>
+        {text}
+      </div>
+      {long && (
+        <Button size="small" type="link" style={{ padding: 0, height: 18 }} onClick={() => setOpen(o => !o)}>
+          {open ? <>收起 <UpOutlined style={{ fontSize: 10 }} /></> : <>展开看全文 <DownOutlined style={{ fontSize: 10 }} /></>}
+        </Button>
+      )}
+    </div>
+  )
+}
+
+/** split 单条（`[n]`＋来源＋原文——程序面不洗白）。 */
+function SplitItem({ it }) {
+  return (
+    <div style={{ marginBottom: 6 }}>
+      <div style={{ fontSize: 12 }}>
+        <Tag style={{ fontSize: 10 }}>{`[${it.index}]`}</Tag>
+        {it.source && <span>{it.source}</span>}
+      </div>
+      <ClampedText text={it.text} testId={`supp-item-${it.index}`} />
+    </div>
+  )
+}
 
 /**
  * @param citations      引用帧数组（按 index 升序）
@@ -30,14 +74,13 @@ import SupplementBlocks from './SupplementBlocks.jsx'
  * @param lineage/limit  observation.payload 的结构化血缘（无＝null）
  * @param lineageText    supplement{block:'lineage'}.text（纯文本兜底）
  * @param splitText      supplement{block:'split'}.text
- * @param attributionText supplement{block:'attribution'}.text
  * @param focusIndex     外部联动定位（正文引标点击传入的 index；null＝无）
  * @param focusNonce     外部定位拍号（同 index 重复点也重走一次定位/滚动）
  * @param running        回合进行中（空态文案换「检索中」）
  */
 export default function CitationPanel({
   citations = [], materials = [], lineage = null, limit = null, lineageText = '',
-  splitText = null, attributionText = null, focusIndex = null, focusNonce = 0, running = false
+  splitText = null, focusIndex = null, focusNonce = 0, running = false
 }) {
   const [picked, setPicked] = useState(null)
   const [treeOpen, setTreeOpen] = useState(false)
@@ -55,11 +98,12 @@ export default function CitationPanel({
 
   const groups = groupCitations(citations)
   const materialOf = idx => materials.find(m => m.index === idx)
+  const split = splitText ? parseSupplement(splitText) : null
 
   return (
     <Card
       size="small"
-      title={<span>引用与口径{helpIcon('这一栏回答「答案里的说法出自哪里」：按来源分组的引用清单、查询口径（这数哪来的）、程序追加的对照说明。点清单里一条＝定位到那支材料。')}</span>}
+      title={<span>引用与口径{helpIcon('这一栏回答「答案里的说法出自哪里」：按来源分组的引用清单、查询口径（这数哪来的）、各来源说法不一的对照说明。点清单里一条＝定位到那支材料。')}</span>}
       extra={(
         <Button size="small" icon={<ApartmentOutlined />} onClick={() => setTreeOpen(true)}>决策树</Button>
       )}
@@ -112,8 +156,22 @@ export default function CitationPanel({
         </>
       )}
 
+      {/* 各来源说法不一（split——右栏唯一出现处；无块不出。默认收起：次要位不抢引用清单） */}
+      {split && split.items.length > 0 && (
+        <Collapse size="small" style={{ margin: '6px 0' }} data-testid="supp-split-block"
+          items={[{
+            key: 'split',
+            label: <span style={dim}>各来源说法不一 · 点开对照</span>,
+            children: (
+              <div data-testid="supp-split">
+                {split.head && <div style={{ ...dim, marginBottom: 4 }}>{split.head}</div>}
+                {split.items.map(it => <SplitItem key={it.index} it={it} />)}
+              </div>
+            )
+          }]} />
+      )}
+
       <LineageCard lineage={lineage} limit={limit} text={lineageText} />
-      <SupplementBlocks split={splitText} attribution={attributionText} />
 
       <Modal open={treeOpen} footer={null} onCancel={() => setTreeOpen(false)} title="决策树（占位）">
         <div style={{ fontSize: 13, lineHeight: 1.9 }}>

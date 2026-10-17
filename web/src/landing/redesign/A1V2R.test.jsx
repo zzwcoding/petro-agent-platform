@@ -6,7 +6,8 @@
  * - **零真实网络**：chatV2 四函数 vi.mock 注桩（提问流帧由测试直喂 handlers）；raw fetch 层
  *   断言零调用（读口与流全在桩面）；
  * - **chain_order**（第 17 行）：真提问流驱动一轮——问句块→流水线块（running 展开）→首个正文帧
- *   后流水线收起＋正文出现→收口后 notice-alerts→正文→血缘卡→追加面→核验/档案小字依次在场；
+ *   后流水线收起＋正文出现→收口后 notice-alerts→正文→血缘卡→核验/档案小字依次在场
+ *   （打磨批②：追加面已从中栏整个移除）；
  * - 发送接线：首问不带 followupRunId；前轮收口后追问带；流内 error 帧落 errorFrame（灰条）；
  *   传输断＝closed='transport'（收口清 running run 键）；流开前 409＝输入区 Alert 透传 message；
  * - 轮渲染（夹具轮 FIXTURE_TURNS——组件面）：链条节点序/流水线展开收起/A 级 notice 位/降级轮空态；
@@ -106,7 +107,7 @@ function finishLeg(handlers, { runId, answer = '答案正文。', question = '' 
 }
 
 describe('A1V2R · 真流发送（FE-05——specs「验收测试」表第 17 行 chain_order）', () => {
-  it('chain_order：问句块→流水线块（running 展开）→首个正文帧后流水线收起＋正文→收口后 notice-alerts→正文→血缘→追加面→小字', async () => {
+  it('chain_order：问句块→流水线块（running 展开）→首个正文帧后流水线收起＋正文→收口后 notice-alerts→正文→血缘→小字', async () => {
     render(<A1V2R />)
     expect(screen.getByTestId('flow-empty')).toBeTruthy() // 空态：无轮不出链条
 
@@ -128,14 +129,20 @@ describe('A1V2R · 真流发送（FE-05——specs「验收测试」表第 17 �
     expect(round().querySelector('[data-testid="pipeline-body"]')).toBeNull()
     expect(within(round()).getByTestId('answer-view')).toBeTruthy()
 
-    // 收口（余下全帧＋done）：回答块内节点序＝A 级 notice Alert → 正文 → 血缘卡 → 追加面 → 小字
+    // 收口（余下全帧＋一条 A 级可见 notice＋done）：回答块内节点序＝A 级 notice Alert →
+    // 正文 → 血缘卡 → 小字（真机帧里唯一的 A 级 material_truncated 属隐藏型——打磨批⑧）
     act(() => {
       FULL_FRAMES.slice(firstText + 1).forEach(f => handlers.onFrame(f))
+      handlers.onFrame({ id: 999, event: 'notice', data: { type: 'refused', gates: [], content: '这一问没法按清单作答。' } })
       handlers.onDone()
     })
     expect(orderOf(within(round()).getByTestId('turn-ask-1'),
-      ['notice-alerts', 'answer-view', 'lineage-card', 'supplement-blocks', 'run-meta-line']))
-      .toEqual(['notice-alerts', 'answer-view', 'lineage-card', 'supplement-blocks', 'run-meta-line'])
+      ['notice-alerts', 'answer-view', 'lineage-card', 'run-meta-line']))
+      .toEqual(['notice-alerts', 'answer-view', 'lineage-card', 'run-meta-line'])
+    expect(within(round()).getByTestId('notice-alerts').textContent).toContain('这一问没法按清单作答。')
+    expect(within(round()).getByTestId('turn-ask-1').textContent)
+      .not.toContain('这次回答只用到检索到的 24/37 条材料') // 隐藏型不进回答块警示带
+    expect(within(round()).queryByTestId('supplement-blocks')).toBeNull() // 中栏无追加面（打磨批②）
     expect(within(round()).getByTestId('run-meta-line').textContent).toContain('本地计时') // E5 本地计时标注
     expect(fetchMock).not.toHaveBeenCalled() // 读口与流全在 chatV2 桩面——raw fetch 零调用
   })
@@ -204,14 +211,18 @@ describe('A1V2R · 轮渲染（夹具轮——链条节点与空态纪律）', (
     expect(bar.textContent).toContain('51 份材料')
     fireEvent.click(bar)
     expect(round.querySelectorAll('[data-testid^="ev-step-"]')).toHaveLength(12)
-    expect(round.querySelector('[data-testid="ev-citation-51"]')).toBeTruthy()
+    expect(round.querySelector('[data-testid="ev-citations"]').textContent)
+      .toBe('🔖 落账引标 51 条 · 来自 2 处来源') // 51 条连续引用折一行（打磨批④）
   })
 
-  it('A 级 notice 在回答块顶部；B/C 级不在回答块里（只在流水线）', () => {
-    render(<TurnChain id="t-full" turn={FULL} />)
+  it('A 级 notice 在回答块顶部（隐藏型滤掉——打磨批⑧）；B/C 级不在回答块里（只在流水线）', () => {
+    // 真机夹具里唯一的 A 级＝material_truncated（隐藏型）——补一条可见 A 级验警示带
+    const patched = { ...FULL, notices: [...FULL.notices, { type: 'refused', gates: [], content: '这一问没法按清单作答。' }] }
+    render(<TurnChain id="t-full" turn={patched} />)
     const answerBlock = screen.getByTestId('turn-t-full')
     expect(within(answerBlock).getByTestId('notice-alerts').textContent)
-      .toContain('这次回答只用到检索到的 24/37 条材料')
+      .toContain('这一问没法按清单作答。')
+    expect(answerBlock.textContent).not.toContain('这次回答只用到检索到的 24/37 条材料') // 隐藏型不出
     expect(answerBlock.textContent).not.toContain('window_note') // B 级不在回答块
     expect(answerBlock.textContent).not.toContain('unsupported_claim') // C 级不在回答块
   })
@@ -222,7 +233,7 @@ describe('A1V2R · 轮渲染（夹具轮——链条节点与空态纪律）', (
     const pipeline = round.querySelector('[data-testid="pipeline"]')
     expect(within(pipeline).getByTestId('pipeline-body')).toBeTruthy() // 展开态
     expect(within(pipeline).getByTestId('ev-understanding').textContent).toContain('💭 理解为：')
-    expect(within(pipeline).getByTestId('ev-materials').textContent).toContain('16 份材料')
+    expect(within(pipeline).getByTestId('ev-materials').textContent).toContain('检索到材料 16 份')
     expect(within(pipeline).getByTestId('pipeline-tail').textContent).toContain('继续处理中…')
 
     const answerBlock = screen.getByTestId('turn-t-live')
@@ -231,14 +242,17 @@ describe('A1V2R · 轮渲染（夹具轮——链条节点与空态纪律）', (
     expect(within(answerBlock).queryByTestId('run-meta-line')).toBeNull() // 未收口＝无核验/档案小字
   })
 
-  it('分列轮长 split 限高；旧版降级轮无流水线＋无旧版灰字说明（legacy 形状保留：正文「引用：」块原样）', () => {
+  it('中栏无追加面（打磨批②：split/attribution 都不在中栏）；旧版降级轮无流水线＋无旧版灰字说明（legacy 形状保留）', () => {
     render(<>
       <TurnChain id="t-split" turn={SPLIT} />
       <TurnChain id="t-legacy" turn={LEGACY} />
     </>)
     const split = within(screen.getByTestId('turn-t-split'))
-    fireEvent.click(split.getByText('各来源说法不一 · 点开对照'))
-    expect(split.getAllByText(/展开看全文/).length).toBeGreaterThan(0) // 长条限高
+    // 中栏整个不再渲染追加面（split 只留右栏「引用与口径」——打磨批②③）
+    expect(split.queryByText('各来源说法不一 · 点开对照')).toBeNull()
+    expect(split.queryByText('按来源列出（每条结论标明出处）')).toBeNull()
+    expect(split.queryByTestId('supplement-blocks')).toBeNull()
+    expect(split.queryByTestId('supp-split-block')).toBeNull()
 
     const legacy = screen.getByTestId('turn-t-legacy')
     expect(legacy.parentElement.querySelectorAll('[data-testid="pipeline"]')).toHaveLength(0) // 无流水线块
@@ -316,8 +330,8 @@ describe('A1V2R · 三场景归一（H5 零分支——specs「验收测试」�
     expect(container.querySelector('[data-testid="pipeline"]')).toBeNull() // events 恒空→流水线整块不出
     expect(container.querySelector('[data-testid="answer-placeholder"]')).toBeNull()
     expect(container.querySelector('[data-testid="legacy-note"]')).toBeNull() // 新行 supplements=[]→legacy=false
-    // 链条仍完整：正文/血缘卡/追加面照常渲染（同 live 的节点集）
-    for (const id of ['block-question', 'answer-view', 'lineage-card', 'supplement-blocks']) {
+    // 链条仍完整：正文/血缘卡照常渲染（同 live 的节点集；追加面已从中栏移除——打磨批②）
+    for (const id of ['block-question', 'answer-view', 'lineage-card']) {
       expect(container.querySelector(`[data-testid="${id}"]`)).toBeTruthy()
     }
     // 无核验帧/无档案帧/无本地计时＝小字行整行不出（run 号段删除后不再是「有内容的行」）
@@ -333,7 +347,7 @@ describe('A1V2R · 左侧历史对话（真接 ThreadList——FE-04；一链一
     await within(list).findByTestId(`thread-row-${FIXTURE_RUNS[0].run_id}`)
     expect(within(list).getAllByTestId(/^thread-row-/)).toHaveLength(14) // 20 原始行按链分组（6 条 followup 轮并入链行）
     expect(within(list).getByPlaceholderText('搜索对话')).toBeTruthy()
-    expect(within(list).getByTestId('load-more')).toBeTruthy()
+    expect(within(list).queryByTestId('load-more')).toBeNull() // 零按钮零提示（打磨批⑦）
     expect(vi.mocked(listRunsV2)).toHaveBeenCalledWith(20) // 真接读口：初始 limit=20
     // 点行＝高亮切换（真接后无预选中——选中态由点击驱动）＋中栏切该链
     expect(within(list).getByTestId(`thread-row-${FIXTURE_RUNS[0].run_id}`).dataset.selected).toBe('false')
@@ -420,6 +434,30 @@ describe('A1V2R · 右栏联动', () => {
     const { handlers } = await sendAsk('无引用问句')
     finishLeg(handlers, { runId: 'run-none', answer: '本回答没有引用任何材料。' })
     expect(await screen.findByText('本回合无引用。')).toBeTruthy()
+  })
+
+  it('supplement_dedup_right_panel_only：右栏出「各来源说法不一」split 块、无「按来源列出」attribution 块（中栏亦无——打磨批②③）', async () => {
+    render(<A1V2R />)
+    const { handlers } = await sendAsk('来源矛盾问句')
+    act(() => {
+      handlers.onFrame({ id: '-1', event: 'session', data: { run_id: 'run-split', resume: false } })
+      handlers.onFrame({ id: 0, event: 'text', data: { content: '两个来源给出的说法不同，对照见右栏。' } })
+      handlers.onFrame({ id: 1, event: 'supplement', data: { block: 'split', text: '互不一致——各来源说法如下，按来源分别列出：\n[1] 《源A》 · f1：说法一' } })
+      handlers.onFrame({ id: 2, event: 'supplement', data: { block: 'attribution', text: '按来源分别列出（每条结论标明出处）：\n[1] 《源A》：说法一' } })
+      handlers.onFrame({ id: 3, event: 'done', data: { run_id: 'run-split' } })
+      handlers.onDone()
+    })
+    const panel = screen.getByTestId('citation-panel')
+    expect(within(panel).getByTestId('supp-split-block')).toBeTruthy() // split＝右栏唯一出现处
+    fireEvent.click(within(panel).getByText('各来源说法不一 · 点开对照'))
+    expect(within(panel).getByTestId('supp-item-1').textContent).toContain('说法一')
+    expect(within(panel).queryByTestId('supp-attribution')).toBeNull() // attribution 块退场
+    expect(panel.textContent).not.toContain('按来源列出（每条结论标明出处）')
+    // 中栏同轮：追加面整个不在（打磨批②）
+    const round = screen.getByTestId('turn-ask-1')
+    expect(within(round).queryByTestId('supp-split-block')).toBeNull()
+    expect(round.textContent).not.toContain('点开对照')
+    expect(round.textContent).not.toContain('按来源列出')
   })
 
   it('回答块不再有「引用与口径」跳转入口（Owner 反馈 1：整条删掉）', () => {

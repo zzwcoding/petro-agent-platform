@@ -36,7 +36,8 @@
  * turn——由页面传 RunMetaLine/流水线摘要行）。
  *
  * 消费方＝redesign/ 各组件单测（ExecutionPipeline/CitationPanel/LineageCard/RunMetaLine/
- * SupplementBlocks/cites）——页面临时面已切真流（A1V2R），本件只喂测试，页面不引用。
+ * CiteHoverCard/cites/events）——页面临时面已切真流（A1V2R），本件只喂测试，页面不引用。
+ * （2026-10-17 打磨批②③：中栏追加面与右栏「按来源列出」块退场，split 改由 CitationPanel 内联渲染。）
  */
 import { newTurnV2, reduceV2Frames } from '../../a1v2Reducer.js'
 import { adaptHistoryTurn } from '../historyAdapter.js'

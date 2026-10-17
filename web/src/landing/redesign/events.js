@@ -2,8 +2,10 @@
  * events.js · 执行流水线纯逻辑（Owner 2026-10-17 串行链条模型）。
  *
  * 模型：每轮＝三段串行块——**用户输入块 → 系统执行流水线块（typed 事件流）→ 系统回答块**。
- * 本件只余两块纯面：**白话映射常量**（相位/工具/notice 三级——渲染件 ExecutionPipeline.jsx
- * 与 NoticeBand.jsx 消费）与**摘要行计数**（summarizePipeline）。零副作用、零请求——可直喂单测。
+ * 本件只余三块纯面：**白话映射常量**（相位/工具/notice 三级——渲染件 ExecutionPipeline.jsx
+ * 与 NoticeBand.jsx 消费）、**摘要行计数**（summarizePipeline）与**事件流显示折叠**
+ * （foldEvents——Owner 2026-10-17 打磨批④⑤⑥：落账引标并段/重复步并段/材料并段）。
+ * 零副作用、零请求——可直喂单测。
  *
  * 事件流真源＝归约器直出的 `turn.events`（按帧到达序追加，specs/frontend-redesign.md G4；
  * FE-02 起本件不再派生显示序——原 deriveEvents 已退役删除，其「显示口径」排序规则随
@@ -41,6 +43,18 @@ export const NOTICE_LEVEL_A = new Set([
   'refused', 'run_failed', 'freshness_block', 'unbound_degrade', 'schema_not_allowed',
   'material_truncated', 'emission_strip', 'blackbox_write_failed', 'audit_write_failed'
 ])
+
+/**
+ * 前端展示口径的隐藏型（Owner 2026-10-17 打磨批⑧：对业务用户无行动价值的噪音提示）：
+ * 流水线不出行、A 级 Alert 带滤掉、摘要行「⚠ N 条提示」不计入。
+ * **只是展示口径**——`turn.notices` 原数据不动（后端发射面与审计面照旧）。
+ */
+export const NOTICE_LEVEL_HIDE = new Set(['material_truncated', 'emission_strip'])
+
+/** notice 是否前台可见（隐藏型＝不可见；非 notice 一律可见）。 */
+export function noticeVisible(n) {
+  return !NOTICE_LEVEL_HIDE.has(n?.type)
+}
 
 /** B 级：过程说明（灰）。 */
 export const NOTICE_LEVEL_B = new Set([
@@ -84,6 +98,7 @@ export const NOTICE_PHASE = {
  *   state＝'running'|'answering'|'done'——渲染期 phaseOf(t) 派生（FE-02 按票面把原
  *   `t.phase ?? …` 字面替换为 `phaseOf(t)`；phaseOf 恒有值，turn 形下 runStatus 兜底分支
  *   不可达，仅按字面保留）。
+ *   notices＝**可见**提示数（隐藏型不计——Owner 打磨批⑧；总数字段 turn.notices 原数据不动）。
  */
 export function summarizePipeline(turn) {
   const t = turn || {}
@@ -95,7 +110,55 @@ export function summarizePipeline(turn) {
     steps: (t.steps || []).length,
     tools: (t.tools || []).length,
     materials: (t.materials || []).length,
-    notices: (t.notices || []).length,
+    notices: (t.notices || []).filter(noticeVisible).length,
     durationS: t.durationS ?? null
   }
+}
+
+/**
+ * 事件流显示折叠（Owner 2026-10-17 打磨批④⑤⑥——纯函数，可直喂单测）。
+ *
+ * 只折叠**连续段**（相邻即同型才算一段，被任何别的事件隔开就断段——不跨事件类型）；
+ * 其余事件按原序原样透传（到达序不动）。产物条目形状：
+ * - citation 段 → `{type:'citations', count, sources}`（sources＝去重来源，保首见序）
+ * - 同（phase,title）step 段 → `{type:'steps', count, phase, title, seq, ev}`（seq/ev＝段首事件）
+ * - materials 段 → `{type:'materials', counts}`（counts＝逐次子检索份数，保序）
+ * - 其余 → `{type, ev}`（原事件原样带着，渲染方自取）
+ *
+ * 单条段不折叠出额外标记（count=1／counts 长 1）——渲染方据此决定是否加「×N」「（N 次子检索）」。
+ * 隐藏型 notice 不在此过滤（本件只做流形折叠；展示口径的隐藏过滤在渲染方与摘要计数里）。
+ */
+export function foldEvents(events) {
+  const out = []
+  for (const ev of events || []) {
+    const last = out[out.length - 1]
+    switch (ev?.type) {
+      case 'citation': {
+        const source = ev.cite?.source ?? ''
+        if (last?.type === 'citations') {
+          last.count += 1
+          if (!last.sources.includes(source)) last.sources.push(source)
+        } else {
+          out.push({ type: 'citations', count: 1, sources: [source] })
+        }
+        break
+      }
+      case 'step': {
+        if (last?.type === 'steps' && last.phase === ev.phase && last.title === ev.title) {
+          last.count += 1
+        } else {
+          out.push({ type: 'steps', count: 1, phase: ev.phase, title: ev.title, seq: ev.seq, ev })
+        }
+        break
+      }
+      case 'materials': {
+        if (last?.type === 'materials') last.counts.push(ev.count)
+        else out.push({ type: 'materials', counts: [ev.count] })
+        break
+      }
+      default:
+        out.push({ type: ev?.type, ev })
+    }
+  }
+  return out
 }

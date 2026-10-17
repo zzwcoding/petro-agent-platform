@@ -73,7 +73,7 @@ describe('CiteHoverCard · 卡片本体', () => {
   })
 })
 
-describe('AnswerView · citeHoverCard 可选 prop 接线', () => {
+describe('AnswerView · citeHoverCard 可选 prop 接线（cite_hover_per_anchor）', () => {
   const CONTENT = '今年各井日产液量如下 [1]。'
 
   it('传 citeHoverCard＝引标切分并悬停出卡（内容＝该 index 材料切片，零请求）', async () => {
@@ -112,5 +112,29 @@ describe('AnswerView · citeHoverCard 可选 prop 接线', () => {
   it('只传 citeHoverCard 不传 onCite＝引标仍切分（只悬停不点击）', () => {
     render(<AnswerView content={CONTENT} citeHoverCard={() => <span>看这里</span>} />)
     expect(document.querySelector('[data-cite="1"]')).toBeTruthy()
+  })
+
+  it('cite_hover_per_anchor：同一 index 多锚点，悬停一处只开那一处（打磨批①修——原按 index 记＝同 index 全弹）', async () => {
+    render(<AnswerView content={'井 A 21.16 [1]；井 B 30.79 [1]。'}
+      citeHoverCard={index => <div data-testid="hover-body">{`切片 ${index}`}</div>} />)
+    const anchors = [...document.querySelectorAll('[data-cite="1"]')]
+    expect(anchors).toHaveLength(2) // 同 index 两处锚点（正文重复引同一材料）
+    expect(document.querySelectorAll('.ant-popover')).toHaveLength(0) // 未悬停＝都不弹
+    fireEvent.mouseEnter(anchors[0])
+    await screen.findByTestId('hover-body')
+    expect(document.querySelectorAll('.ant-popover')).toHaveLength(1) // 只开悬停的那一处
+    expect(screen.getAllByTestId('hover-body')).toHaveLength(1)
+  })
+
+  it('cite_hover_per_anchor：平级叶子里的同 index 同偏移引标互不串卡（锚点键含 token 路径）', async () => {
+    // 清单两行的 [9] 在各自叶子内偏移相同（都是 12）：键若只取 `index-偏移`，悬停一行会两行同弹
+    render(<AnswerView content={'- N-01：21.16 [9]\n- X-01：30.79 [9]\n'}
+      citeHoverCard={index => <div data-testid="hover-body">{`切片 ${index}`}</div>} />)
+    const anchors = [...document.querySelectorAll('[data-cite="9"]')]
+    expect(anchors).toHaveLength(2)
+    fireEvent.mouseEnter(anchors[1])
+    await screen.findByTestId('hover-body')
+    expect(document.querySelectorAll('.ant-popover')).toHaveLength(1)
+    expect(screen.getAllByTestId('hover-body')).toHaveLength(1)
   })
 })

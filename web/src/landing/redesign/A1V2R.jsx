@@ -6,7 +6,8 @@
  *   2) **系统执行流水线块**（ExecutionPipeline：typed 事件流，运行中默认展开、答案一开始流
  *      就自动收起成一行摘要，可点开回看全程）
  *   3) **系统回答块**（A 级 notice 紧凑 Alert → 正文流 AnswerView → 血缘卡 LineageCard →
- *      追加面 SupplementBlocks → 核验/档案小字 RunMetaLine）；运行中此块＝「正在作答…」占位
+ *      核验/档案小字 RunMetaLine）；运行中此块＝「正在作答…」占位
+ *      （打磨批②：追加面 SupplementBlocks 在中栏整个移除；split 只留右栏）
  *
  * 中栏三来源一统（FE-05 去夹具轮后）：**本会话提问流**（send→SSE→链条追加，含刷新重连推入轮）
  * ／**选中链**（左栏点行的历史链——FE-04 L3，选中即切换视图）。新提问＝退出链视图回本会话流。
@@ -56,7 +57,6 @@ import { adaptHistoryTurn } from './historyAdapter.js'
 import LineageCard from './LineageCard.jsx'
 import { NoticeAlerts } from './NoticeBand.jsx'
 import RunMetaLine from './RunMetaLine.jsx'
-import SupplementBlocks from './SupplementBlocks.jsx'
 import ThreadList from './ThreadList.jsx'
 import { useRunningRun } from './useRunningRun.js'
 
@@ -156,12 +156,11 @@ export function TurnChain({ id, turn, durationS = null, onCite = null, onResume 
               citeHoverCard={hoverCard} />
           )
           : (!answering && <div style={dim}>本次未产出答案正文。</div>)}
-        {/* 链条后续节点：血缘卡 → 追加面（空态各自不出）。
+        {/* 链条后续节点：血缘卡（空态自不出）。
             血缘两源（对账 D-5）：结构化源＝materials[].payload（优先）；文本兜底＝supplements.lineage */}
         <LineageCard lineage={lineagePayload?.lineage ?? null} limit={lineagePayload?.limit ?? null}
           text={turn.supplements?.lineage ?? ''} defaultOpen={defaultLineageOpen} />
-        <SupplementBlocks split={turn.supplements?.split ?? null}
-          attribution={turn.supplements?.attribution ?? null} />
+        {/* 打磨批②：追加面（SupplementBlocks）已从中栏整个移除——中栏只留正文＋血缘卡＋小字 */}
         {/* 旧版历史轮（legacy=true）：旧式「引用：」块随正文原样渲染；不作任何面向用户的旧版说明
             （Owner 反馈：灰字行去行话——形状保留、话不说） */}
         {/* ⑦ 核验徽标行 ＋ ⑧ 档案小字行（步数/材料数/档案 KB/本地计时）——
@@ -460,13 +459,13 @@ export default function A1V2RLanding() {
 
       {/* 右栏 · 引用与口径（人话面板——机器腔过程只留在流水线展开态里）。
           血缘两源（对账 D-5）同回答块：lineage/limit 从 materials[].payload 取，
-          文本兜底 lineageText/splitText/attributionText 读 turn.supplements.* */}
+          文本兜底 lineageText/splitText 读 turn.supplements.*（打磨批③：attributionText 已删——
+          「按来源列出」块与引用清单同源重复，整块退场） */}
       <CitationPanel
         citations={panelTurn.citations} materials={panelTurn.materials}
         lineage={panelLineage?.lineage ?? null} limit={panelLineage?.limit ?? null}
         lineageText={panelTurn.supplements?.lineage ?? ''}
         splitText={panelTurn.supplements?.split ?? null}
-        attributionText={panelTurn.supplements?.attribution ?? null}
         focusIndex={focus.index} focusNonce={focus.nonce}
         running={panelTurn.runStatus === 'running'} />
     </div>

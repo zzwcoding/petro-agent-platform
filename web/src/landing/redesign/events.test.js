@@ -6,15 +6,20 @@
  *   step(seq7) 的真机序原样保留——不补排序）→ 材料聚合单行 → verify 事件先于核验步 →
  *   引用逐条殿后；借入 notice 随拼接位入流；
  * - **类型映射**：相位/工具白话映射（未登记值原样回显，不吞）；
- * - **摘要计数**：步/工具/材料/提示 ＋ 状态词（running/answering/done——渲染期 phaseOf 派生，
- *   runStatus 兜底分支按 FE-02 字面替换保留）；
+ * - **摘要计数**：步/工具/材料/**可见提示**数（隐藏型不计——打磨批⑧）＋状态词（running/
+ *   answering/done——渲染期 phaseOf 派生，runStatus 兜底分支按 FE-02 字面替换保留）；
+ * - **显示折叠**（foldEvents——打磨批④⑤⑥）：连续 citation 段→一条（计数＋去重来源数）、
+ *   连续同（相位＋标题）step 段→一条（＋count）、连续 materials 段→一条（逐次份数）；
+ *   不跨段（被别的事件隔开就断）、单条不添标记、其余事件原序透传；
  * - 空态：无事件（旧版降级轮）＝空数组。
  *
  * 素材：__fixtures__/turns.js 真帧夹具（归约器输出——条目＝{id, turn, durationS}）。
  */
 import { describe, expect, it } from 'vitest'
 
-import { noticeLevel, phaseText, summarizePipeline, toolText } from './events.js'
+import {
+  foldEvents, NOTICE_LEVEL_HIDE, noticeLevel, noticeVisible, phaseText, summarizePipeline, toolText
+} from './events.js'
 import { FIXTURE_TURNS } from './__fixtures__/turns.js'
 
 const LIVE = FIXTURE_TURNS.find(e => e.id === 't-live').turn
@@ -96,10 +101,13 @@ describe('events · 白话映射（未登记值原样回显）', () => {
 })
 
 describe('summarizePipeline · 折叠摘要计数', () => {
-  it('完整轮：执行完成 · 12 步 · 1 次工具 · 51 份材料 · 4 条提示；时长不入 turn（null）', () => {
+  it('完整轮：执行完成 · 12 步 · 1 次工具 · 51 份材料 · 3 条可见提示（隐藏型不计）；时长不入 turn（null）', () => {
     expect(summarizePipeline(FULL)).toEqual({
-      state: 'done', stateWord: '执行完成', steps: 12, tools: 1, materials: 51, notices: 4, durationS: null
+      state: 'done', stateWord: '执行完成', steps: 12, tools: 1, materials: 51, notices: 3, durationS: null
     })
+    // 原数据不动（4 条）——隐藏只是展示口径（打磨批⑧）
+    expect(FULL.notices).toHaveLength(4)
+    expect(FULL.notices.filter(n => n.type === 'material_truncated')).toHaveLength(1)
   })
 
   it('运行中：状态词「执行中」；作答中（首字已到未收口——phaseOf 派生）：状态词「作答中」', () => {
@@ -112,5 +120,113 @@ describe('summarizePipeline · 折叠摘要计数', () => {
     expect(summarizePipeline({ closed: 'done' })).toMatchObject({ state: 'done' })
     expect(summarizePipeline({})).toMatchObject({ state: 'running' }) // 无 closed 无正文＝在跑形
     expect(summarizePipeline(LEGACY).durationS).toBeNull()
+  })
+})
+
+describe('NOTICE_LEVEL_HIDE · 展示口径隐藏型（打磨批⑧）', () => {
+  it('material_truncated／emission_strip 不可见；其余型可见（分级表不动）', () => {
+    expect([...NOTICE_LEVEL_HIDE].sort()).toEqual(['emission_strip', 'material_truncated'])
+    expect(noticeVisible({ type: 'material_truncated' })).toBe(false)
+    expect(noticeVisible({ type: 'emission_strip' })).toBe(false)
+    expect(noticeVisible({ type: 'window_note' })).toBe(true)
+    expect(noticeVisible({ type: 'brand_new_type' })).toBe(true) // 未登记型照旧兜底出（不静默丢）
+    expect(noticeVisible(null)).toBe(true)
+    // 分级仍是「A 级」（隐藏只作用在展示面，分类不变）
+    expect(noticeLevel('material_truncated')).toBe('A')
+    expect(noticeLevel('emission_strip')).toBe('A')
+  })
+})
+
+describe('fold_events · 事件流显示折叠（打磨批④⑤⑥——纯函数）', () => {
+  const step = (seq, phase, title) => ({ type: 'step', seq, phase, title })
+  const cite = (index, source) => ({ type: 'citation', cite: { index, source } })
+
+  it('连续 citation 段折成一条：计数＝段长、来源＝去重（保首见序）', () => {
+    const folded = foldEvents([
+      cite(1, '甲'), cite(2, '甲'), cite(3, '乙'), cite(4, '甲'), cite(5, '丙')
+    ])
+    expect(folded).toEqual([{ type: 'citations', count: 5, sources: ['甲', '乙', '丙'] }])
+  })
+
+  it('不跨段：被别的事件隔开的两段 citation 各折各的一行', () => {
+    const folded = foldEvents([
+      cite(1, '甲'), cite(2, '甲'),
+      step(9, 'verify', '核验：支撑 2｜改写 0｜分源 否'),
+      cite(3, '乙')
+    ])
+    expect(folded.map(x => x.type)).toEqual(['citations', 'steps', 'citations'])
+    expect(folded[0]).toMatchObject({ count: 2, sources: ['甲'] })
+    expect(folded[2]).toMatchObject({ count: 1, sources: ['乙'] })
+  })
+
+  it('连续同（相位＋标题）的步折成一条 ＋count；单条不添标记（count=1）', () => {
+    const folded = foldEvents([
+      step(1, 'decision', '模型调用：decision'),
+      step(2, 'decision', '模型调用：decision'),
+      step(3, 'decision', '模型调用：decision'),
+      step(4, 'decision', '模型调用：understand'),
+      step(5, 'execute', '模型调用：decision') // 标题同、相位不同＝另一条
+    ])
+    expect(folded.map(x => [x.phase, x.title, x.count]))
+      .toEqual([
+        ['decision', '模型调用：decision', 3],
+        ['decision', '模型调用：understand', 1],
+        ['execute', '模型调用：decision', 1]
+      ])
+    expect(folded[0].seq).toBe(1) // seq/ev＝段首事件（其余段内事件不再出行）
+    expect(folded[0].ev.seq).toBe(1)
+  })
+
+  it('单条步/单次材料不折出多余标记；连续 materials 段记逐次份数（保序）', () => {
+    const folded = foldEvents([
+      step(1, 'decision', 't'),
+      { type: 'materials', count: 16 }
+    ])
+    expect(folded).toEqual([
+      { type: 'steps', count: 1, phase: 'decision', title: 't', seq: 1, ev: step(1, 'decision', 't') },
+      { type: 'materials', counts: [16] }
+    ])
+    expect(foldEvents([
+      { type: 'materials', count: 32 }, { type: 'materials', count: 36 },
+      { type: 'materials', count: 38 }, { type: 'materials', count: 32 }
+    ])).toEqual([{ type: 'materials', counts: [32, 36, 38, 32] }])
+    // 不跨段：材料段被步隔开＝两条
+    expect(foldEvents([
+      { type: 'materials', count: 32 }, step(1, 'execute', 't'), { type: 'materials', count: 36 }
+    ]).map(x => x.type)).toEqual(['materials', 'steps', 'materials'])
+  })
+
+  it('其余事件原序透传（未登记型也带着原事件走，不静默丢）；空流＝空数组', () => {
+    const evs = [
+      { type: 'understanding', text: '理解：x' },
+      { type: 'tool', seq: 7, tool: 'doc_retrieve', status: 'ok' },
+      { type: 'verify', verdict: { supported: 1 } },
+      { type: 'weird_type', a: 1 },
+      null
+    ]
+    expect(foldEvents(evs)).toEqual([
+      { type: 'understanding', ev: evs[0] },
+      { type: 'tool', ev: evs[1] },
+      { type: 'verify', ev: evs[2] },
+      { type: 'weird_type', ev: evs[3] },
+      { type: undefined, ev: null }
+    ])
+    expect(foldEvents([])).toEqual([])
+    expect(foldEvents(undefined)).toEqual([])
+  })
+
+  it('真机完整轮：51 条连续引用折一行（2 处来源）；步/材料/notice 原序不折（12 步各不相同）', () => {
+    const folded = foldEvents(FULL.events)
+    expect(folded.filter(x => x.type === 'citations')).toEqual([
+      { type: 'citations', count: 51, sources: ['agg.fct_daily_metering', 'agg.fct_daily_metering ⋈ agg.dim_well ⋈ agg.dim_date'] }
+    ])
+    expect(folded.filter(x => x.type === 'steps')).toHaveLength(12) // 标题各不相同＝零折叠
+    // 引用段紧跟 verify（真机序：verify 步之后 51 条引用连发）
+    expect(folded[folded.findIndex(x => x.type === 'citations') - 1].type).toBe('steps')
+  })
+
+  it('隐藏型 notice 不在本件过滤（流形折叠与展示口径两件事）——notice 事件恒独占一条', () => {
+    const folded = foldEvents([{ type: 'notice', notice: { type: 'material_truncated', content: 'c' } }])
+    expect(folded).toEqual([{ type: 'notice', ev: { type: 'notice', notice: { type: 'material_truncated', content: 'c' } } }])
   })
 })

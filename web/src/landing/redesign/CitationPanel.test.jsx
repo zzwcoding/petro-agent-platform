@@ -6,11 +6,14 @@
  * - 点某条＝该条高亮＋「已定位」并出材料原文；`trust=notice` 的按**程序声明**渲染
  *   （点明不是文档原文）；无配对材料＝如实写「材料未在回合内渲染」；
  * - 外部联动（正文引标点击传 focusIndex）＝面板自动定位该条；
- * - 面板内含血缘卡与追加面（该轮有就给）；决策树入口在位（mock 点开说明 Modal）；
+ * - 面板内含血缘卡与**各来源说法不一**（split）块——**打磨批③**：「按来源列出」（attribution）
+ *   块整块退场（与引用清单同源重复），split 是右栏唯一出现处（原先在中栏的追加面整个移除）；
+ * - split 块默认收起、单条限高（真机长条 >6 行/240 字）、短条不出开关、前导说明照录；
+ * - 决策树入口在位（mock 点开说明 Modal）；
  * - 空态＝「本回合无引用」；进行中＝「检索中…」。
  *
- * 素材：__fixtures__/turns.js 真帧夹具——EB3-数-降1（16 支引用 5 处来源，含一条 trust=notice）／
- * EB4-数-明2（含血缘与追加面）；FE-02 后 FIXTURE_TURNS 条目＝{id, turn, durationS}。
+ * 素材：__fixtures__/turns.js 真帧夹具——EB3-数-降1（16 支引用 5 处来源，含一条 trust=notice／
+ * 长 split 条）／EB4-数-明2（含血缘与追加面）；FE-02 后 FIXTURE_TURNS 条目＝{id, turn, durationS}。
  */
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -61,7 +64,7 @@ describe('CitationPanel · 分组与 trust 白话徽标', () => {
     fireEvent.click(screen.getByTestId('cite-item-17'))
     const item = screen.getByTestId('cite-item-17')
     expect(item.textContent).toContain('系统生成的声明，不是文档原文')
-    expect(item.textContent).toContain('矛盾来源同窗并立') // 该条材料＝检索供给窗声明原文
+    expect(item.textContent).toContain('以下材料来源说法不一，各保留了代表条目：') // 该条材料＝检索供给窗声明原文
     expect(screen.getByText('系统注记')).toBeTruthy() // 组头 trust 白话徽标
   })
 
@@ -77,14 +80,47 @@ describe('CitationPanel · 分组与 trust 白话徽标', () => {
     expect(screen.getByTestId('cite-item-51').textContent).toContain('已定位')
   })
 
-  it('面板内含血缘卡与追加面（该轮有就给——非数据题/无块时各组件自不出）', () => {
+  it('split_only_right_panel：面板内含血缘卡与各来源说法不一（split）块；「按来源列出」已整块退场', () => {
     render(<CitationPanel citations={FULL.citations} materials={FULL.materials}
       lineage={FULL_PAYLOAD.lineage} limit={FULL_PAYLOAD.limit}
-      lineageText={FULL.supplements.lineage} splitText={FULL.supplements.split}
-      attributionText={FULL.supplements.attribution} />)
+      lineageText={FULL.supplements.lineage} splitText={FULL.supplements.split} />)
     expect(screen.getByTestId('lineage-card')).toBeTruthy()
-    expect(screen.getByText('按来源列出（每条结论标明出处）')).toBeTruthy()
+    expect(screen.getByTestId('supp-split-block')).toBeTruthy() // 各来源说法不一＝右栏唯一出现处
     expect(screen.getByText('各来源说法不一 · 点开对照')).toBeTruthy()
+    // 「按来源列出」（attribution）块已整块退场（打磨批③——与引用清单同源重复）
+    expect(screen.queryByText('按来源列出（每条结论标明出处）')).toBeNull()
+    expect(screen.queryByTestId('supp-attribution')).toBeNull()
+    expect(screen.queryByTestId('supplement-blocks')).toBeNull()
+  })
+
+  it('split 块默认收起；展开＝逐条 [n]＋来源＋原文（前导说明照录）', () => {
+    render(<CitationPanel citations={FULL.citations} materials={FULL.materials}
+      splitText={FULL.supplements.split} />)
+    expect(screen.queryByTestId('supp-split')).toBeNull() // 默认收起（次要位不抢引用清单）
+    fireEvent.click(screen.getByText('各来源说法不一 · 点开对照'))
+    const box = screen.getByTestId('supp-split')
+    expect(box.textContent).toContain('互不一致——各来源说法如下，按来源分别列出：') // 前导说明照录
+    expect(screen.getByTestId('supp-item-22').dataset.clamped).toBe('false') // 短条不限高
+    expect(screen.queryByText(/展开看全文/)).toBeNull() // 短条不出多余开关
+  })
+
+  it('split 长条（真机 340 字）＝限高态（-webkit-line-clamp 6）＋「展开看全文」（只影响该条）', () => {
+    render(<CitationPanel citations={SPLIT.citations} materials={SPLIT.materials}
+      splitText={SPLIT.supplements.split} />)
+    fireEvent.click(screen.getByText('各来源说法不一 · 点开对照'))
+    const item = screen.getByTestId('supp-item-9')
+    expect(item.dataset.clamped).toBe('true')
+    expect(item.style.webkitLineClamp).toBe('6')
+    expect(item.textContent).toContain('4.2 防砂方式与参数')
+    expect(screen.getByTestId('supp-split').textContent).toContain('《A-W11井完井工程报告》') // 条目带来源名
+    fireEvent.click(screen.getAllByText(/展开看全文/)[0])
+    expect(screen.getByTestId('supp-item-9').dataset.clamped).toBe('false')
+    expect(screen.getByTestId('supp-item-13').dataset.clamped).toBe('true') // 不越权展开别的条
+  })
+
+  it('无 split 文本＝该块不出（不报错不伪造）', () => {
+    render(<CitationPanel citations={FULL.citations} materials={FULL.materials} />)
+    expect(screen.queryByTestId('supp-split-block')).toBeNull()
   })
 
   it('决策树入口在位（占位 Modal——真树本体接回在后续版本）', () => {

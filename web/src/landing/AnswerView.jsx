@@ -19,7 +19,9 @@
  * - 引标悬停预览（重设计新增，**可选 prop**）：传 `citeHoverCard(index)` → 该引标外包
  *   antd `Popover`（受控 hover），内容由调用方给（内容件在 landing/redesign/ 下，**零请求**：
  *   直查内存材料）。不传＝引标行为与旧版逐字一致（V1 与真流页不受影响）；传了而不传
- *   onCite 时引标仍切分（只悬停不点击）。
+ *   onCite 时引标仍切分（只悬停不点击）。悬停态按**锚点实例**记（token 键路径＋叶子内偏移
+ *   合成唯一键）——同一 index 在正文出现 N 次时，悬停一处只开该处的卡（打磨批①修：
+ *   原按 index 记＝同 index 的全部锚点一起弹，满屏散卡）。
  *
  * 两处对逐字稿的最小让位（均有真机样本依据，改动一处即可回退）：
  * ① 内联代码 token 名是 `codespan`（marked v18 实测）而非 `code`——D4 写「code 用
@@ -60,12 +62,16 @@ const CITE_RE = /\[(\d+)\]/g
 
 /**
  * 引标悬停上下文（可选注入面）：`citeHoverCard` 在场时，引标外包受控 Popover。
- * 上下文而非逐层传参＝递归渲染器（children/tokenNode/tableNode）零改动，行为默认不变。
+ * 上下文而非逐层传参＝递归渲染器（children/tokenNode/tableNode→CiteAnchor）零改动，
+ * 行为默认不变；`hoverKey` 是**锚点实例键**（非 index，见 CiteAnchor）。`kp` 作为 props
+ * 只在 PlainText 一条线上传（textParts 造键要用）。
  */
 const CiteCtx = createContext(null)
 
-/** 单个引标：可点击锚点（onCite 在场）＋可选悬停卡（citeHoverCard 在场）。 */
-function CiteAnchor({ index, onCite }) {
+/** 单个引标：可点击锚点（onCite 在场）＋可选悬停卡（citeHoverCard 在场）。
+ *  悬停态按**锚点实例**（anchorKey）不按 index——同一 index 在正文出现 N 次时，
+ *  一处的悬停只开该处的卡（按 index 会把同 index 的全部锚点一起弹开）。 */
+function CiteAnchor({ index, anchorKey, onCite }) {
   const ctx = useContext(CiteCtx)
   const anchor = (
     <a data-cite={index} style={CITE} onClick={onCite ? () => onCite(index) : undefined}>
@@ -77,8 +83,8 @@ function CiteAnchor({ index, onCite }) {
   return (
     <Popover
       content={content} placement="topLeft" trigger="hover"
-      open={ctx.hoverIndex === index}
-      onOpenChange={o => ctx.setHoverIndex(o ? index : null)}>
+      open={ctx.hoverKey === anchorKey}
+      onOpenChange={o => ctx.setHoverKey(o ? anchorKey : null)}>
       {anchor}
     </Popover>
   )
@@ -87,8 +93,10 @@ function CiteAnchor({ index, onCite }) {
 /**
  * 文本 → React 子节点：`[n]` 切出可点击锚点，其余原样。
  * 无 onCite 且无悬停卡（历史轮次）＝整串原样返回——不切分，正文保持单一文本节点。
+ * `kp`＝本叶子的 token 键路径（`tk0.1.2` 形）：与叶子内偏移合成**全局唯一**的锚点键
+ * （两个平级叶子在相同偏移各有一个 [n] 时也互不串卡）；缺省空串＝仍按叶子内偏移唯一。
  */
-function textParts(text, onCite, hasHoverCard) {
+function textParts(text, onCite, hasHoverCard, kp = '') {
   const s = String(text ?? '')
   if (!onCite && !hasHoverCard) return s
   const out = []
@@ -96,7 +104,8 @@ function textParts(text, onCite, hasHoverCard) {
   for (const m of s.matchAll(CITE_RE)) {
     if (m.index > last) out.push(s.slice(last, m.index))
     const idx = Number(m[1])
-    out.push(<CiteAnchor key={`cite-${idx}-${m.index}`} index={idx} onCite={onCite} />)
+    const anchorKey = `${kp}-${idx}-${m.index}`
+    out.push(<CiteAnchor key={`cite-${anchorKey}`} index={idx} anchorKey={anchorKey} onCite={onCite} />)
     last = m.index + m[0].length
   }
   if (last < s.length) out.push(s.slice(last))
@@ -104,9 +113,9 @@ function textParts(text, onCite, hasHoverCard) {
 }
 
 /** 纯文本叶子（text token／白名单外降级／表格无 tokens 的格子）——统一 pre-wrap 保真。 */
-function PlainText({ text, onCite }) {
+function PlainText({ text, onCite, kp = '' }) {
   const ctx = useContext(CiteCtx)
-  return <span style={PLAIN}>{textParts(text, onCite, Boolean(ctx?.citeHoverCard))}</span>
+  return <span style={PLAIN}>{textParts(text, onCite, Boolean(ctx?.citeHoverCard), kp)}</span>
 }
 
 /** 子 token 列表 → React 子节点（inline/block 同一递归）。 */
@@ -123,7 +132,7 @@ function tokenNode(token, key, onCite) {
   if (!token || typeof token !== 'object') return null
   switch (token.type) {
     case 'paragraph':
-      return <p key={key} style={P}>{children(token.tokens, key, onCite) ?? <PlainText text={token.text} onCite={onCite} />}</p>
+      return <p key={key} style={P}>{children(token.tokens, key, onCite) ?? <PlainText text={token.text} onCite={onCite} kp={key} />}</p>
     case 'heading': {
       const depth = Math.min(Math.max(Number(token.depth) || 1, 1), 6)
       const Tag = `h${depth}`
@@ -142,7 +151,7 @@ function tokenNode(token, key, onCite) {
       // marked 自身 TextRenderer 同语义（有 tokens 走 parseInline，无则出 text）。
       return Array.isArray(token.tokens) && token.tokens.length > 0
         ? <span key={key} style={PLAIN}>{children(token.tokens, key, onCite)}</span>
-        : <PlainText key={key} text={token.text} onCite={onCite} />
+        : <PlainText key={key} text={token.text} onCite={onCite} kp={key} />
     case 'code': // 块态：``` 围栏
       return (
         <pre key={key} style={PRE}>
@@ -157,7 +166,7 @@ function tokenNode(token, key, onCite) {
       return <Tag key={key} style={LIST} {...props}>{children(token.items, key, onCite)}</Tag>
     }
     case 'list_item':
-      return <li key={key} style={ITEM}>{children(token.tokens, key, onCite) ?? <PlainText text={token.text} onCite={onCite} />}</li>
+      return <li key={key} style={ITEM}>{children(token.tokens, key, onCite) ?? <PlainText text={token.text} onCite={onCite} kp={key} />}</li>
     case 'table':
       return tableNode(token, key, onCite)
     case 'tablecell': // v18 实测表格格子无 type（见 tableNode），此形兼容旧 token 面
@@ -171,14 +180,14 @@ function tokenNode(token, key, onCite) {
     default:
       // 未识别 token（link/blockquote/hr/br 等）→ 纯文本降级：原文照现（raw 含记号，
       // 不丢 URL/marker）；无 raw 用 text。
-      return <PlainText key={key} text={token.raw ?? token.text ?? ''} onCite={onCite} />
+      return <PlainText key={key} text={token.raw ?? token.text ?? ''} onCite={onCite} kp={key} />
   }
 }
 
 /** 表格格子子节点：v18 实测格子＝{text,tokens,header,align}（无 type 字段）。 */
 function cellNodes(cell, keyPrefix, onCite) {
   if (Array.isArray(cell?.tokens) && cell.tokens.length > 0) return children(cell.tokens, keyPrefix, onCite)
-  return <PlainText text={cell?.text ?? cell?.raw ?? ''} onCite={onCite} />
+  return <PlainText text={cell?.text ?? cell?.raw ?? ''} onCite={onCite} kp={keyPrefix} />
 }
 
 /** 表格：header（有表头行）＋ rows 两段结构（marked v18 token 形）。 */
@@ -214,10 +223,11 @@ function tableNode(token, key, onCite) {
  */
 export default function AnswerView({ content, onCite, citeHoverCard }) {
   const tokens = useMemo(() => marked.lexer(String(content ?? '')), [content])
-  const [hoverIndex, setHoverIndex] = useState(null)
+  // 悬停态＝锚点实例键（Owner 打磨批①：同一 index 多处锚点各开各的，不一起弹）
+  const [hoverKey, setHoverKey] = useState(null)
   const ctx = useMemo(
-    () => (citeHoverCard ? { citeHoverCard, hoverIndex, setHoverIndex } : null),
-    [citeHoverCard, hoverIndex]
+    () => (citeHoverCard ? { citeHoverCard, hoverKey, setHoverKey } : null),
+    [citeHoverCard, hoverKey]
   )
   return (
     <CiteCtx.Provider value={ctx}>
