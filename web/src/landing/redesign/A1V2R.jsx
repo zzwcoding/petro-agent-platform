@@ -33,6 +33,12 @@
  * 边界（未变部分）：右栏 CitationPanel（人话面板）与右栏宽度 360、决策树入口均不动
  * （Owner 2026-10-17 拍板「4 宽度你看着办, 决策树留着」）。
  * 空态纪律：各项无数据＝该位不渲染（组件内实现，本页只透传）。
+ *
+ * Owner 反馈回归（旧页 608267b A1V2.jsx 对照）：
+ * - **＋新会话**（左栏 Card extra，旧页 :548/:311-317 同义）＝唯一显式退出对话入口：清对话选中
+ *   ＋本会话流（clearEntries）＋输入＋流开前错误；不涉 sessionStorage running run 键。
+ * - **中栏贴底跟随**（旧页 :226-237 每帧 scrollBottom 的柔和版）：发送置 stickRef；滚动离底
+ *   ≥80px 即解除跟随（上翻阅读不被拽回）；entries/chain 变化时贴底态才滚到底。
  */
 import { useEffect, useRef, useState } from 'react'
 import { Alert, Button, Card, Input, Space } from 'antd'
@@ -203,10 +209,15 @@ export default function A1V2RLanding() {
   // 会话流（FE-05：初值空数组——提问腿 pushAskEntry 追加；重连/挂起还原推入的轮排其后）。
   // 本会话流＝中栏「未选中链」时渲染的轮次（真流页的主面）。
   const {
-    entries, restoredRef, restoreRunning, resumeEntry, pushAskEntry, dispatchEntryFrame, legHandlers
+    entries, restoredRef, restoreRunning, resumeEntry, pushAskEntry, dispatchEntryFrame, legHandlers,
+    clearEntries
   } = useRunningRun()
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
+  // 中栏滚动容器（chain/entries 两分支共挂同一个 ref——同时只渲染一个）＋贴底跟随开关：
+  // 发送时置 true；用户上翻（离底 > 80px）置 false——流式期间不强拽回底
+  const convRef = useRef(null)
+  const stickRef = useRef(true)
   // 流开前错误（追问锚 409／形状 400 等）——输入区 Alert 透传后端 message（不静默吞）
   const [askError, setAskError] = useState('')
   // 页面临时面：runId → 本地计时秒数（收口时算；TurnShape 无此键——Owner 拍板无权威耗时）
@@ -239,6 +250,12 @@ export default function A1V2RLanding() {
     setFocus(f => ({ index, nonce: f.nonce + 1 }))
   }
 
+  /** 贴底判定（中栏滚动容器 onScroll）：离底 < 80px 视作跟随态；上翻阅读＝解除跟随。 */
+  const onConvScroll = e => {
+    const el = e.currentTarget
+    stickRef.current = (el.scrollHeight - el.scrollTop - el.clientHeight) < 80
+  }
+
   /** 收口记本地计时（durationByRun[runId]——RunMetaLine/流水线摘要行按 runId 取）。 */
   const recordDuration = runId => {
     if (askStartRef.current == null) return
@@ -265,6 +282,7 @@ export default function A1V2RLanding() {
     streamRunIdRef.current = ''
     setSelectedRunId('')
     setChain(null) // 新提问＝退出选中链视图（三来源一统：提问/重连/选中链同处一条链条流）
+    stickRef.current = true // 自己发的问＝回到贴底跟随（上翻阅读态让位新内容）
     const anchor = followupAnchor
     const entryId = pushAskEntry(question)
     const leg = legHandlers({ entryId, question }, () => recordDuration(streamRunIdRef.current))
@@ -344,6 +362,31 @@ export default function A1V2RLanding() {
     setChain({ runId: row.run_id, turns })
   }
 
+  /**
+   * ＋新会话（唯一显式退出对话入口——旧页 608267b A1V2.jsx :311-317 同义）：清对话选中
+   * （chain/selectedRunId）、本会话流（clearEntries）、输入与流开前错误；followupAnchor/
+   * panelTurn 皆派生值随两态自动复位。sessionStorage 的 running run 键不动（旧页亦不
+   * 清——服务端 run 照跑，退出的只是本页这段对话）。
+   */
+  const startNewSession = () => {
+    setChain(null)
+    setSelectedRunId('')
+    clearEntries()
+    setInput('')
+    setAskError('')
+  }
+
+  // 中栏贴底跟随（旧页 608267b A1V2.jsx :226-237 每帧 scrollBottom 的回归，较旧页柔和：
+  // 只有 stickRef 为真（贴近底部／自己刚发送）才滚，用户上翻阅读时不被拽回）
+  useEffect(() => {
+    if (!stickRef.current) return
+    const el = convRef.current
+    if (!el) return
+    // jsdom 无 Element.scrollTo——回退直接置 scrollTop（两条路径语义等价）
+    if (typeof el.scrollTo === 'function') el.scrollTo({ top: el.scrollHeight })
+    else el.scrollTop = el.scrollHeight
+  }, [entries, chain])
+
   // FE-03 R2/R3/R4：mount 调 restoreRunning() 一次（票面伪代码：useEffect 空依赖；
   // restoredRef 护栏——组件实例内只跑一遍，重连/还原推入的轮不重复）
   useEffect(() => {
@@ -358,8 +401,12 @@ export default function A1V2RLanding() {
       {/* 左栏 · 历史对话（FE-04 真接：ThreadList 内部态拉 listRunsV2——上拉加载 + 搜索；
           真接口形态见 ThreadList.jsx 头注；当前窗口经 onRuns 回传供拉链分组） */}
       <Card size="small" title={<span>对话{helpIcon('左侧是历史对话：往下滑看更早的，或在上方搜索框里找问过的题。一次最多回看最近 100 个对话。')}</span>}
+        extra={(
+          <Button size="small" type="text" data-testid="new-session" disabled={sending}
+            onClick={startNewSession}>＋新会话</Button>
+        )}
         style={{ width: 250, flexShrink: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
-        styles={{ body: { flex: 1, minHeight: 0, overflow: 'hidden' } }}>
+        styles={{ body: { flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' } }}>
         <ThreadList selectedId={selectedRunId} onSelect={onSelect} onRuns={setRuns} />
       </Card>
 
@@ -373,7 +420,8 @@ export default function A1V2RLanding() {
             <div style={{ ...dim, marginBottom: 8 }}>
               {`对话 · ${chain.turns.length} 轮（选中链——created_at 升序）`}
             </div>
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
+            <div ref={convRef} onScroll={onConvScroll} data-testid="conv-scroll"
+              style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
               <div style={{ borderLeft: '2px solid rgba(127,127,127,0.22)', paddingLeft: 14 }}>
                 {chain.turns.map(t => (
                   <TurnChain key={t.runId} id={t.runId} turn={t} durationS={durationByRun[t.runId] ?? null}
@@ -389,7 +437,8 @@ export default function A1V2RLanding() {
                 输入问题开始（挂起后在本栏确认；左侧点历史对话可回看该链）
               </div>
             )}
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
+            <div ref={convRef} onScroll={onConvScroll} data-testid="conv-scroll"
+              style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
               <div style={{ borderLeft: '2px solid rgba(127,127,127,0.22)', paddingLeft: 14 }}>
                 {entries.map(entry => (
                   <TurnChain key={entry.id} id={entry.id} turn={entry.turn}

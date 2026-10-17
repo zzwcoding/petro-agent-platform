@@ -69,7 +69,7 @@ export function clearRunningRun() {
  * @param initialEntries 初始会话条目（[{ id, turn, durationS }]；FE-05 起页面常态为空数组
  *                       ——会话流由提问腿（pushAskEntry）与 restore 推入轮构成）
  * @returns {{ entries, restoredRef, restoreRunning, resumeEntry, pushAskEntry,
- *             dispatchEntryFrame, legHandlers }}
+ *             dispatchEntryFrame, legHandlers, clearEntries }}
  */
 export function useRunningRun(initialEntries = []) {
   const [entries, setEntries] = useState(initialEntries)
@@ -103,6 +103,12 @@ export function useRunningRun(initialEntries = []) {
       next[at] = { ...next[at], turn: updater(next[at].turn) }
       return next
     })
+  }, [])
+
+  /** 本会话流清空（页面「＋新会话」用——退出当前对话；sessionStorage 的 running run 键不动，
+   *  服务端 run 照跑——本页只是回到空会话）。 */
+  const clearEntries = useCallback(() => {
+    setEntries([])
   }, [])
 
   /** 按条目 id 归约单帧（提问腿用——session 帧之前 runId 未定，条目 id 恒稳定）。 */
@@ -225,5 +231,8 @@ export function useRunningRun(initialEntries = []) {
       })
   }, [legHandlers, upsertTurn])
 
-  return { entries, restoredRef, restoreRunning, resumeEntry, pushAskEntry, dispatchEntryFrame, legHandlers }
+  return {
+    entries, restoredRef, restoreRunning, resumeEntry, pushAskEntry, dispatchEntryFrame, legHandlers,
+    clearEntries
+  }
 }

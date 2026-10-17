@@ -101,7 +101,7 @@ export default function ThreadList({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%' }}
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
       data-testid="thread-list">
       <Input size="small" allowClear prefix={<SearchOutlined style={{ color: '#8a94a3' }} />}
         placeholder="搜索对话" value={query} onChange={e => setQuery(e.target.value)}

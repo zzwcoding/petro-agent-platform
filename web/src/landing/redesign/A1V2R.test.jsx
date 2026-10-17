@@ -13,7 +13,10 @@
  * - 三场景归一（第 9 行 one_shape_three_scenarios）：同一 TurnChain 喂 live/replay/history 三形状，
  *   DOM 结构快照一致；history 缺的展示位＝整位不渲染；
  * - 左栏真接 ThreadList（第 16 行 select_thread_renders_turns）：点行＝选中链→中栏切链轮；
- * - 引标联动：点正文 [n] ＝右栏面板切到该轮并「已定位」；链内挂起轮＝续答真通（FE-04 遗留接通）。
+ * - 引标联动：点正文 [n] ＝右栏面板切到该轮并「已定位」；链内挂起轮＝续答真通（FE-04 遗留接通）；
+ * - Owner 反馈回归（旧页 608267b 对照）：＋新会话＝退出链视图回本会话流＋输入/选中清空；
+ *   中栏贴底跟随＝贴底态滚到底、上翻阅读不被拽回（jsdom 桩化 scrollHeight/clientHeight，
+ *   页面无 Element.scrollTo＝回退置 scrollTop，即被测路径）。
  */
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -498,5 +501,68 @@ describe('A1V2R · 选中拉链（FE-04 L3——specs「验收测试」表第 16
     expect(screen.getAllByTestId('round-run-wait')).toHaveLength(1)
     expect(screen.getByTestId('round-run-wait').textContent).toContain('按生产日统计的续答正文。')
     expect(vi.mocked(postAskV2)).not.toHaveBeenCalled() // 续答只消费本腿新帧（不重启不重放）
+  })
+})
+
+describe('A1V2R · Owner 反馈回归（＋新会话退出对话／中栏贴底跟随）', () => {
+  it('＋新会话：左栏 Card extra 在位；选中链状态下点击＝退出链视图回本会话流＋输入与选中清空', async () => {
+    render(<A1V2R />)
+    const btn = screen.getByTestId('new-session')
+    expect(btn.textContent).toBe('＋新会话')
+    expect(btn.disabled).toBe(false) // 非发送中＝可点（旧页 busy 同义才 disabled）
+
+    // 进链视图：点单轮链行（run-78dde6c6——窗口内无同根行）
+    await screen.findByTestId('thread-row-run-78dde6c6')
+    fireEvent.click(screen.getByTestId('thread-row-run-78dde6c6'))
+    await screen.findByTestId('round-run-78dde6c6')
+    expect(screen.getByText(/选中链——created_at 升序/)).toBeTruthy() // 中栏在链视图
+    expect(screen.getByTestId('thread-row-run-78dde6c6').dataset.selected).toBe('true')
+
+    const input = screen.getByPlaceholderText(/Enter 发送/)
+    fireEvent.change(input, { target: { value: '打了一半的字' } })
+    fireEvent.click(screen.getByTestId('new-session'))
+
+    // 中栏回本会话流视图（链头/链轮退场；本会话流空＝空态）
+    expect(screen.queryByText(/选中链——created_at 升序/)).toBeNull()
+    expect(screen.queryByTestId('round-run-78dde6c6')).toBeNull()
+    expect(screen.getByTestId('flow-empty')).toBeTruthy()
+    expect(screen.getByTestId('new-session')).toBeTruthy() // 退回本会话流仍在本栏
+    expect(input.value).toBe('') // 输入清空
+    expect(screen.getByTestId('thread-row-run-78dde6c6').dataset.selected).toBe('false') // 对话选中清
+    expect(fetchMock).not.toHaveBeenCalled() // 零真实网络
+  })
+
+  it('中栏贴底跟随：贴底态下内容变化滚到底；上翻阅读（离底 ≥80px）＝不强拽回底', async () => {
+    render(<A1V2R />)
+    const el = screen.getByTestId('conv-scroll')
+    // jsdom 无布局：scrollHeight/clientHeight 桩化（scrollTop 可读可写）
+    Object.defineProperty(el, 'scrollHeight', { configurable: true, value: 1000 })
+    Object.defineProperty(el, 'clientHeight', { configurable: true, value: 100 })
+
+    // 用户滚到底（离底 0 < 80px）＝跟随态；随后 scrollTop 桩回 0（模拟新内容到达前的滚动位置）
+    el.scrollTop = 900
+    fireEvent.scroll(el)
+    el.scrollTop = 0
+    const { handlers } = await sendAsk('贴底问句')
+    expect(el.scrollTop).toBe(1000) // 贴底态：滚到 scrollHeight（jsdom 无 scrollTo＝回退置 scrollTop）
+
+    // 用户上翻阅读（离底 900 ≥ 80px）＝解除跟随——新内容到达也不拽回
+    el.scrollTop = 0
+    fireEvent.scroll(el)
+    act(() => {
+      handlers.onFrame({ id: '-1', event: 'session', data: { run_id: 'run-stick', resume: false } })
+      handlers.onFrame({ id: 0, event: 'text', data: { content: '继续追加的正文。' } })
+    })
+    expect(el.scrollTop).toBe(0)
+    expect(screen.getByTestId('round-ask-1').textContent).toContain('继续追加的正文。') // 内容照常追加
+  })
+
+  it('中栏滚动容器链视图内同挂 conv-scroll（同一 ref——同时只渲染一个）', async () => {
+    render(<A1V2R />)
+    expect(screen.getAllByTestId('conv-scroll')).toHaveLength(1) // 本会话流分支
+    await screen.findByTestId('thread-row-run-78dde6c6')
+    fireEvent.click(screen.getByTestId('thread-row-run-78dde6c6'))
+    await screen.findByTestId('round-run-78dde6c6')
+    expect(screen.getAllByTestId('conv-scroll')).toHaveLength(1) // 链视图分支（本会话流分支已退场）
   })
 })
