@@ -33,6 +33,7 @@ from appv2.runtimev2.clarification import (
     object_ambiguity_ask,
 )
 from appv2.runtimev2.clarification.constants import PAYLOAD_ASK_FRAME
+from appv2.runtimev2.clarification.guidance import rejection_guidance
 from appv2.runtimev2.context import DEFAULT_MAX_OBSERVATIONS
 from appv2.runtimev2.execution import ERROR_BAD_ARGS, ERROR_RETRYABLE, execute
 from appv2.runtimev2.orchestration.constants import (
@@ -655,7 +656,15 @@ def _route_after_precondition(state: RunState, *, reentry_ids: Collection[str]) 
             for item in allowed
             if str(item.get("subtask_id") or "") not in reentry_ids
         ]
-        return INTENT_BATCH if executable else INTENT_DECISION
+        if executable:
+            return INTENT_BATCH
+        # 回炉澄清**之前**把「为什么回炉」写进现有拒因回喂通道（行为 16④——V2-88／A14）：
+        # 该通道是模型窗可见的唯一由头面（`state.precondition_verdicts`／notice 进不了决策链）；
+        # 空串不写（不发明空由头）。行为 18 的判据与文案全归 `clarification.guidance`，本处零改写。
+        guidance = rejection_guidance(state)
+        if guidance:
+            state.decision_error = guidance
+        return INTENT_DECISION
     return INTENT_BATCH if allowed else INTENT_ANSWER
 
 

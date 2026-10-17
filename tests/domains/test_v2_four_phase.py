@@ -49,6 +49,7 @@ from appv2.runtime.subtask import (
     parse_question_group,
     parse_tool_match,
 )
+from appv2.runtimev2.clarification.constants import GUIDANCE_PRECONDITION
 from appv2.runtimev2.context import wire_ledger_projection
 from appv2.runtimev2.gateway_adapter import ScriptedCompleter, set_completer
 from appv2.runtimev2.orchestration import AgentRuntime, RunExecutor
@@ -2289,6 +2290,150 @@ async def test_four_phase_anchorable_window_skips_ask_delivers_degrade() -> None
     assert state.contracts_appended.count("toolmatch") == 1
     last_call = completer.messages_of("decision")[-1]
     assert sum(RESIDENT_BLOCK_BEGIN in message.get("content", "") for message in last_call) == 1
+
+
+async def test_precondition_reroute_cause_reaches_clarify_increment() -> None:
+    """V2-88｜换链回炉由头进链（A14 断链修复）：回炉轮 user 增量条必带由头段。
+
+    形＝混合组（B-正6 族的真实可执行形）：s1 data 链指标**不在台账**（`unregistered_metric`
+    拒）＋s2 **在册未绑定**（换链首次触发＝`allow`＋换链重入注记＋新计点）。可执行支为空 ⇒
+    路由回炉①澄清。修前该轮增量条只有预算行与回炉条空串（执行档无失败行）——模型拿不到
+    「为什么回炉、该走哪条链」（EB6/EB7 B-正6 空交付根链）。修后：
+    ①`state.decision_error = rejection_guidance(state)`（编排回炉分支写入）⇒ 增量条④拒因回喂条
+      携 `GUIDANCE_PRECONDITION` 段；②前置由头行进回炉条（s1 refuse 行＋s2 allow＋注记行）。
+    """
+    dump = v2_ledger_dump()
+    unbound_note = v2_ledger_note(dump, "配产量")
+    no_hit_note = "无台账命中｜未绑定｜null~null"
+    understand = json.dumps(
+        {"route": "full", "text": "既要数值也要台账外口径。",
+         "metric_candidates": ["采出程度", "配产量"]},
+        ensure_ascii=False,
+    )
+    clarify_r1 = json.dumps(
+        {
+            "action": "decompose",
+            "question_group": {
+                "subtasks": [
+                    {
+                        "id": "s1",
+                        "question": "各井采出程度",
+                        "ledger_notes": no_hit_note,
+                        "chain": "data",
+                    },
+                    {
+                        "id": "s2",
+                        "question": "去年各井配产量",
+                        "ledger_notes": unbound_note,
+                        "chain": "data",
+                    },
+                ]
+            },
+        },
+        ensure_ascii=False,
+    )
+    toolmatch_r1 = v2_matches(
+        v2_data_match(
+            subtask_id="s1", slot="采出程度", start="2025-01-01", end="2026-01-01"
+        ),
+        v2_data_match(
+            subtask_id="s2", slot="配产量", start="2025-01-01", end="2026-01-01"
+        ),
+    )
+    clarify_r2 = v2_decompose(
+        subtask_id="s2",
+        question="去年各井配产量（据拒因提示换检索链）",
+        ledger_notes=unbound_note,
+        chain="knowledge",
+    )
+    toolmatch_r2 = v2_matches(
+        v2_knowledge_match(subtask_id="s2", question="去年各井配产量")
+    )
+    retrieval = _retrieval_with(_fragment_obs(
+        "配产量按月度计划分解下达：各井合计月度配产 21.4 万方（月报所载）。", "frag-peichan-88"
+    ))
+    wire_ledger_projection(V2LedgerPort(dump))
+    with freeze("2026-10-08T09:00:00"):
+        runtime, completer = v2_runtime(
+            script={
+                "understand": [understand],
+                "decision": [clarify_r1, toolmatch_r1, clarify_r2, toolmatch_r2],
+                "answer": ["去年各井配产量：月度配产合计 21.4 万方 [1]（按文档所载交付）。"],
+            },
+            registry=v2_registry(retrieval=retrieval),
+        )
+        events = await v2_run(runtime, "采出程度与配产量混合题")
+    assert events[-1].event == "blackbox" and events[-1].data["status"] == "completed"
+    assert not v2_ask_frames(events)  # 回炉非挂起
+
+    run_id = events[-1].data["run_id"]
+    preconditions = v2_steps(run_id, "precondition")
+    assert [item.payload["decision"] for item in preconditions] == [
+        "refuse",
+        "allow",
+        "allow",
+    ]  # 轮 1 两支判定 ＋ 轮 2（换链后 s2 放行）
+    assert preconditions[0].payload["chain_switch_reentry"] is False
+    assert preconditions[1].payload["chain_switch_reentry"] is True  # 换链首次触发
+
+    # 回炉轮（第 3 次决策调用）user 增量条：由头段＋前置由头行都在场
+    refurnace = str(completer.messages_of("decision")[2][-1].get("content", ""))
+    assert "上次发射被拒" in refurnace
+    assert GUIDANCE_PRECONDITION in refurnace  # ①（编排回炉分支写入 decision_error）
+    assert "回炉：" in refurnace  # ②（前置由头行进回炉条）
+    assert "- [s1] unregistered_metric——拒因：" in refurnace
+    assert "- [s2] chain_switch——拒因：" in refurnace
+    assert "在册未绑定" in refurnace
+
+    # —— 纯换链回炉（B-正6 真实路径）：单支在册未绑定 → allow＋重入注记＋新计点 → 回炉① ——
+    # 该形零拒、零执行结果，修前增量条只有预算行（A14 空交付根链）；修后由头段必在场。
+    pure_note = v2_ledger_note(dump, "配产量")
+    raw_retrieval = _retrieval_with(_fragment_obs(
+        "配产量按月度计划分解下达：各井合计月度配产 21.4 万方（月报所载）。", "frag-peichan-88b"
+    ))
+    wire_ledger_projection(V2LedgerPort(dump))
+    with freeze("2026-10-08T09:00:00"):
+        pure_runtime, pure_completer = v2_runtime(
+            script={
+                "understand": [V2_UNDERSTAND],
+                "decision": [
+                    v2_decompose(
+                        subtask_id="s1",
+                        question="去年各井配产量",
+                        ledger_notes=pure_note,
+                        chain="data",
+                    ),
+                    v2_matches(
+                        v2_data_match(
+                            subtask_id="s1", slot="配产量",
+                            start="2025-01-01", end="2026-01-01",
+                        )
+                    ),
+                    v2_decompose(
+                        subtask_id="s1",
+                        question="去年各井配产量（据拒因提示换检索链）",
+                        ledger_notes=pure_note,
+                        chain="knowledge",
+                    ),
+                    v2_matches(
+                        v2_knowledge_match(subtask_id="s1", question="去年各井配产量")
+                    ),
+                ],
+                "answer": [
+                    "去年各井配产量：月度配产合计 21.4 万方 [1]（按文档所载交付）。"
+                ],
+            },
+            registry=v2_registry(engine=V2QueueEngine([]), retrieval=raw_retrieval),
+        )
+        pure_events = await v2_run(pure_runtime, "去年各井配产量是多少？")
+    assert pure_events[-1].event == "blackbox"
+    assert pure_events[-1].data["status"] == "completed"
+    pure_refurnace = str(pure_completer.messages_of("decision")[2][-1].get("content", ""))
+    assert "上次发射被拒" in pure_refurnace
+    assert GUIDANCE_PRECONDITION in pure_refurnace  # allow×重入注记 ⇒ ①段在场
+    assert "- [s1] chain_switch——拒因：" in pure_refurnace  # ②前置由头行（零执行结果亦在场）
+    assert "在册未绑定" in pure_refurnace
+    assert raw_retrieval.retrieve_calls == 1  # 换链后真执行（由头指向的链）
 
 
 async def test_four_phase_clarify_ask_threshold_form_still_suspends_and_resumes() -> None:

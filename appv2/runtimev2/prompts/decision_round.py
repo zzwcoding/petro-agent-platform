@@ -120,7 +120,23 @@ _REWORK_LINE = "- [{id}] {question}——拒因：{reason}"
 # 改道后缀（V2-56 回炉行路由动词——触发＝机器拒因原文的**闭世界子串校**（`arch/P6b` A-P6b-05：
 # 机器拒因面零改动），属行为 15 豁免面「逐字子串校」，非语义词表）。
 _REROUTE_SUFFIX = "→改走 knowledge 链（tool=doc_retrieve）"
-_REROUTE_TRIGGERS: tuple[str, ...] = ("未绑定", "不在台账")
+# **V2-88 对齐引擎原文**：旧触发词 `("未绑定", "不在台账")` 与引擎拒因原文「…不在指标台账——…」
+# 不同族 ⇒ 子串校永不命中；本表逐字取引擎原文族（`appv2/tools/fake.py` 的台账校验拒文）。
+_REROUTE_TRIGGERS: tuple[str, ...] = ("未绑定", "不在指标台账")
+# 前置换链由头行判据（V2-88／A14）：结构化闭世界——与 `clarification.guidance` ① 同判据
+# （`refuse`×换链/未绑定 rule_id，或 `allow`×换链重入注记）。R3 禁引其它相位 ⇒ 按值引用
+# （真源＝`appv2/tools/precondition.py` 的 `HIT_RULE_CHAIN_SWITCH`／`HIT_RULE_UNREGISTERED_METRIC`
+# ＋`preconditions/constants.py` 的 `NOTE_CHAIN_SWITCH_REENTRY`；漂移由
+# `test_v2_clarification::test_guidance_triggers_on_structured_rule_id` 对锚真源咬住）。
+_REROUTE_RULE_IDS: tuple[str, ...] = ("chain_switch", "unregistered_metric")
+_NOTE_CHAIN_SWITCH_REENTRY = (
+    "这一问的取数方式走不通（名册里没有它的数值，或问的井不在数据范围内）——已请系统回头"
+    "重新选一次取数方式（只试一次；再走不通就如实说查不到）"
+)
+# 由头行 reason 槽截长（票面口径：`reason.human_text` 前 80 字——有界一行，不整段转抄）。
+_PRECONDITION_REASON_CHARS = 80
+_DECISION_REFUSE = "refuse"
+_DECISION_ALLOW = "allow"
 _HINT_LINE = "用户已补充：{hint}——请把它落进本轮分解。"
 # 回喂壳两件（前缀／尾件）**本块单点**：拒因回喂行＝壳＋拒因＋壳尾。
 # **2026-10-16 补（流水 66·叠字病灶）**：槽位对账拒因载荷**自带整套壳体**（真源
@@ -482,16 +498,82 @@ def _rework_line(row: Mapping[str, Any]) -> str:
 
 
 def _rework_block(state: RunState) -> str:
-    """回炉条（仅当存在**重跑档**失败子问题——`bad_args`／`retryable` 两档；成功结果保留、
-    禁重复分解执行；`refused` 终局不回炉）。"""
+    """回炉条（V2-88 两源合流）：
+
+    - **执行失败档**（既有语义零改）：存在**重跑档**失败子问题——`bad_args`／`retryable` 两档；
+      成功结果保留、禁重复分解执行；`refused` 终局不回炉；
+    - **前置换链由头行**（V2-88 追加）：`state.precondition_verdicts` 里换链/未绑定判据命中的子问题
+      （`refuse`×rule_id 或 `allow`×换链重入注记），且其 `subtask_id` 不在重跑档行里——一行一子
+      问题并入回炉条（行形复用 `_REWORK_LINE`，不新造用户文案）。换链回炉轮多半**零执行**（前置
+      阶段就被拦下），故本行是那一轮唯一的「为什么回炉／该往哪条链改」由头。
+    """
     rework_rows = [
         row
         for row in state.subtask_results
         if isinstance(row, Mapping) and row.get("status") in _REWORK_STATUSES
     ]
-    if not rework_rows:
+    caused = _precondition_reroute_rows(
+        state,
+        excluded_ids={
+            str(row.get("id") or "")
+            for row in rework_rows
+            if isinstance(row.get("id"), str)
+        },
+    )
+    if not rework_rows and not caused:
         return ""
-    return _REWORK_HEAD + "\n" + "\n".join(_rework_line(row) for row in rework_rows)
+    lines = [_rework_line(row) for row in rework_rows] + caused
+    return _REWORK_HEAD + "\n" + "\n".join(lines)
+
+
+def _precondition_reroute_rows(state: RunState, *, excluded_ids: set[str]) -> list[str]:
+    """前置换链由头行（结构化判据；与 `clarification.guidance` ① 同源判据）。
+
+    行＝`_REWORK_LINE`（`- [<subtask_id>] <rule_id>——拒因：<原因前 80 字>`）：`refuse` 支取
+    `reason.rule_id`／`reason.human_text`；`allow` 支（换链首次触发）取换链 rule_id 值引用＋该判定
+    的第一条非重入注记（＝闸件给出的换链理由原文，不新造文案）。
+    """
+    rows: list[str] = []
+    for verdict in state.precondition_verdicts:
+        if not isinstance(verdict, Mapping):
+            continue
+        subtask_id = str(verdict.get("subtask_id") or "")
+        if not subtask_id or subtask_id in excluded_ids:
+            continue
+        decision = verdict.get("decision")
+        rule_id = ""
+        reason_text = ""
+        if decision == _DECISION_REFUSE:
+            reason = verdict.get("reason")
+            if not isinstance(reason, Mapping):
+                continue
+            rule_id = str(reason.get("rule_id") or "")
+            if rule_id not in _REROUTE_RULE_IDS:
+                continue
+            reason_text = str(reason.get("human_text") or "")
+        elif decision == _DECISION_ALLOW:
+            notes = verdict.get("notes")
+            if not isinstance(notes, (list, tuple)) or _NOTE_CHAIN_SWITCH_REENTRY not in notes:
+                continue
+            rule_id = _REROUTE_RULE_IDS[0]  # 换链触发面（值引用，不新造字面）
+            reason_text = next(
+                (
+                    str(note)
+                    for note in notes
+                    if isinstance(note, str) and note != _NOTE_CHAIN_SWITCH_REENTRY
+                ),
+                _NOTE_CHAIN_SWITCH_REENTRY,
+            )
+        else:
+            continue
+        rows.append(
+            _REWORK_LINE.format(
+                id=subtask_id,
+                question=rule_id,
+                reason=reason_text[:_PRECONDITION_REASON_CHARS],
+            )
+        )
+    return rows
 
 
 def assemble_decision_increment(

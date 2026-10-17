@@ -44,12 +44,26 @@ NOTICE_DECISION_NOTE: Final[str] = "decision_note"
 # 对话层来源：真源＝`specs/state.md` 行为 6「`clarify_approval_replay`（澄清与审批回收原文）」；
 # 落点校验由 `bookkeeping.append_dialogue` 写口把守。
 DIALOGUE_ORIGIN_CLARIFY_REPLAY: Final[str] = "clarify_approval_replay"
-# 前置判定 state 值（三段带路①的触发面）：真源＝`appv2/tools/schema.py` 的 `STATE_NOTE`（note）／
-# `STATE_BLOCKED_REFUSE`（blocked_refuse）——本块零工具面 import（票面边界红线②），故值引用。
+# 前置判定 state 值（**已退役**——V2-88）：旧三段带路①的触发面曾读 `verdict["state"]`，而生产投影
+# （`preconditions.SubtaskVerdict.as_payload()`）**无 `state` 键** ⇒ 判据恒假（死判据，A14）。
+# 现判据＝结构化投影（`decision`＋`reason.rule_id`／`notes`，见 `REROUTE_RULE_IDS` 与 guidance）。
+# 两常量保留仅为历史值可溯；**`guidance` 已零消费**，新增代码不得再引
+# （真源＝`appv2/tools/schema.py` 的 `STATE_NOTE`／`STATE_BLOCKED_REFUSE`）。
 VERDICT_STATE_NOTE: Final[str] = "note"
 VERDICT_STATE_BLOCKED_REFUSE: Final[str] = "blocked_refuse"
 VERDICT_REFUSAL_STATES: Final[frozenset[str]] = frozenset(
     {VERDICT_STATE_NOTE, VERDICT_STATE_BLOCKED_REFUSE}
+)
+# 换链/未绑定闭世界 rule_id（V2-88 结构化判据）：真源＝`appv2/tools/precondition.py` 的
+# `HIT_RULE_CHAIN_SWITCH`／`HIT_RULE_UNREGISTERED_METRIC`（经 `preconditions.constants.RULE_ORDER`
+# 同源持有）——本块零工具面 import（红线②）且不 import 其它相位（R1），故**值引用**；改真源须回对账。
+REROUTE_RULE_IDS: Final[frozenset[str]] = frozenset({"chain_switch", "unregistered_metric"})
+# 换链重入注记（换链**首次触发**的机读面：`allow`＋本注记＋新计点——B-正6 纯换链回炉的真实路径）。
+# 真源＝`preconditions/constants.py` 的 `NOTE_CHAIN_SWITCH_REENTRY`（R1 禁相位互 import ⇒ 值引用；
+# 测试 `::test_guidance_triggers_on_structured_rule_id` 对锚真源防漂移）。只作判据取值、不上屏。
+NOTE_CHAIN_SWITCH_REENTRY: Final[str] = (
+    "这一问的取数方式走不通（名册里没有它的数值，或问的井不在数据范围内）——已请系统回头"
+    "重新选一次取数方式（只试一次；再走不通就如实说查不到）"
 )
 
 # ── 拒因码闭世界（`ClarifyReason.code`）────────────────────────────────────────

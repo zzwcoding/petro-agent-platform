@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import Any
 
 import appv2.runtimev2.clarification.constants as clarification_constants
+import appv2.runtimev2.prompts.decision_round as decision_round
 from appv2.runtimev2.clarification import clarify
 from appv2.runtimev2.clarification.constants import (
     GUIDANCE_FALLBACK,
@@ -58,6 +59,7 @@ from appv2.runtimev2.clarification.constants import (
     VOLATILE_KEYS,
 )
 from appv2.runtimev2.clarification.core import code_of_rejection
+from appv2.runtimev2.clarification.guidance import rejection_guidance
 from appv2.runtimev2.clarification.models import (
     ClarifyAsk,
     ClarifyFinal,
@@ -69,6 +71,9 @@ from appv2.runtimev2.parsing import (
     Subtask,
     discover_fingerprint,
     parse_question_group,
+)
+from appv2.runtimev2.preconditions.constants import (
+    NOTE_CHAIN_SWITCH_REENTRY as ENGINE_REENTRY_NOTE,
 )
 from appv2.runtimev2.prompts import (
     PHASE_CLARIFY,
@@ -88,6 +93,7 @@ from appv2.runtimev2.state import (
     Budget,
     RunState,
 )
+from appv2.tools import HIT_RULE_CHAIN_SWITCH, HIT_RULE_UNREGISTERED_METRIC
 
 # ══════════════════════════════════════════════════════════════════════════════
 # fixture 与探测器（状态投影／发射文本／剧本化 completer／源码扫描）
@@ -512,12 +518,30 @@ def test_finalize_requires_substantive_observation() -> None:
 
 
 def test_finalize_rejection_three_segment_guidance() -> None:
-    """#6｜`finalize` 被拒 → 拒因载荷带三段带路（**钉 `pin-07`，P1**）——:113。"""
+    """#6｜`finalize` 被拒 → 拒因载荷带三段带路（**钉 `pin-07`，P1**）——:113。
+
+    **V2-88 改判（A14）**：前置判定的投影形＝`preconditions.SubtaskVerdict.as_payload()` 五键
+    （`subtask_id`／`decision`／`hit_rule`／`notes`／`reason`，**无 `state` 键**）；旧载荷
+    `{"state": "blocked_refuse"}` 是生产中不存在的形状（死判据 ⇒ ①段恒缺席）。本测改真形：
+    ①段判据＝`decision="refuse"` ∧ `reason.rule_id` ∈ 换链/未绑定闭世界。
+    """
     fingerprint = discover_fingerprint("data_query", {"metric_slot": "产液量"})
     assert json.loads(fingerprint)["tool"] == "data_query"
     state = _state(
         observations=[_notice_observation()],
-        precondition_verdicts=[{"subtask_id": "s1", "state": "blocked_refuse"}],
+        precondition_verdicts=[
+            {
+                "subtask_id": "s1",
+                "decision": "refuse",
+                "hit_rule": HIT_RULE_CHAIN_SWITCH,
+                "notes": [],
+                "reason": {
+                    "rule_id": HIT_RULE_CHAIN_SWITCH,
+                    "human_text": "未绑定口径——agg 汇总层无承载列，不代答",
+                    "alternatives": [],
+                },
+            }
+        ],
         empty_probes=[fingerprint],
     )
     with _scripted(_finalize()) as completer:
@@ -548,6 +572,113 @@ def test_finalize_rejection_three_segment_guidance() -> None:
         bare_outcome = clarify(bare)
     assert isinstance(bare_outcome, ClarifyRejection)
     assert bare_outcome.reasons[1].reason == GUIDANCE_FALLBACK
+
+
+def test_guidance_triggers_on_structured_rule_id() -> None:
+    """V2-88｜①段判据＝**结构化投影**（`decision`＋`reason.rule_id`），零文案子串。
+
+    两面（主窗 2026-10-18 授权合流）：
+    - `refuse` × 换链/未绑定闭世界两值（`chain_switch`／`unregistered_metric`）→ ①段在场；
+    - `allow` × `notes` 含换链重入注记（换链**首次触发**＝放行＋注记＋新计点——B-正6 纯换链
+      回炉的真实路径）→ ①段在场；
+    - `allow` 无注记／`refuse` 其它 rule_id → 不在场（不误亮）。
+    另钉验收 3 的源码面：`guidance.py` 不再消费生产中不存在的 `{"state":…}` 键。
+    """
+    def _verdict(
+        decision: str,
+        *,
+        rule_id: str = "",
+        notes: Sequence[str] = (),
+        subtask_id: str = "s1",
+    ) -> dict[str, Any]:
+        return {
+            "subtask_id": subtask_id,
+            "decision": decision,
+            "hit_rule": rule_id,
+            "notes": list(notes),
+            "reason": None
+            if decision == "allow"
+            else {
+                "rule_id": rule_id,
+                "human_text": "数据链无承载——如实拒",
+                "alternatives": [],
+            },
+        }
+
+    for rule_id in (HIT_RULE_CHAIN_SWITCH, HIT_RULE_UNREGISTERED_METRIC):
+        state = _state(precondition_verdicts=[_verdict("refuse", rule_id=rule_id)])
+        assert GUIDANCE_PRECONDITION in rejection_guidance(state)
+
+    switched = _state(
+        precondition_verdicts=[
+            _verdict(
+                "allow",
+                notes=(
+                    "「配产量」在册未绑定——agg 汇总层无承载列",
+                    ENGINE_REENTRY_NOTE,
+                ),
+            )
+        ]
+    )
+    assert GUIDANCE_PRECONDITION in rejection_guidance(switched)
+
+    plain_allow = _state(
+        precondition_verdicts=[_verdict("allow", notes=("单井过滤未支持——照常发射全井计划",))]
+    )
+    assert GUIDANCE_PRECONDITION not in rejection_guidance(plain_allow)
+
+    other_rule = _state(precondition_verdicts=[_verdict("refuse", rule_id="ban")])
+    assert GUIDANCE_PRECONDITION not in rejection_guidance(other_rule)
+
+    # 值引用对账（R1 禁相位互 import ⇒ 两处各持值）：闭世界与注记以**真源**为锚，漂移即红
+    assert clarification_constants.REROUTE_RULE_IDS == frozenset(
+        {HIT_RULE_CHAIN_SWITCH, HIT_RULE_UNREGISTERED_METRIC}
+    )
+    assert clarification_constants.NOTE_CHAIN_SWITCH_REENTRY == ENGINE_REENTRY_NOTE
+    assert frozenset(decision_round._REROUTE_RULE_IDS) == clarification_constants.REROUTE_RULE_IDS
+    assert decision_round._NOTE_CHAIN_SWITCH_REENTRY == ENGINE_REENTRY_NOTE
+
+    # 验收 3｜源码面：不再读 {"state":…} 键（结构化判据＝decision+reason.rule_id/notes）
+    source = (_CLARIFY_DIR / "guidance.py").read_text(encoding="utf-8")
+    assert '"state"' not in source and "'state'" not in source
+
+
+def test_rework_line_matches_engine_reason() -> None:
+    """V2-88｜词面触发兜底**对齐引擎原文**：拒因含「不在指标台账」→ 回炉行追加改道后缀。
+
+    旧触发词 `("未绑定", "不在台账")` 与引擎拒因原文「…不在指标台账——…」不同族 ⇒ 子串校永不
+    命中，回炉轮少了「该换 knowledge 链」这句路由动词。
+    """
+    state = _state(
+        subtask_results=[
+            {
+                "id": "s2",
+                "question": "各井日产液量",
+                "status": "bad_args",
+                "reason": (
+                    "指标 '日产液量' 不在指标台账——确定性校验拒"
+                    "（不在目录不代答；台账闭世界校验）"
+                ),
+            }
+        ]
+    )
+    increment = assemble_decision_increment(state, phase=PHASE_CLARIFY)
+    assert "- [s2] 各井日产液量——拒因：" in increment
+    assert decision_round._REROUTE_SUFFIX in increment
+
+    # 非同族词面 → 不追加（词面触发面不越界扩张）
+    quiet = _state(
+        subtask_results=[
+            {
+                "id": "s2",
+                "question": "各井日产液量",
+                "status": "retryable",
+                "reason": "上游超时——可重试",
+            }
+        ]
+    )
+    quiet_increment = assemble_decision_increment(quiet, phase=PHASE_CLARIFY)
+    assert decision_round._REROUTE_SUFFIX not in quiet_increment
 
 
 def test_ledger_notes_slot_reconciliation() -> None:
