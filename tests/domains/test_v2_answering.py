@@ -79,11 +79,15 @@ from appv2.runtimev2.answering import (
     PAYLOAD_RANKING_SEQS_KEY,
     ROWSET_OBSERVATION_KINDS,
     SOURCE_SECTION_HEAD,
+    TAIL_CLOSE_BARE_HEADING,
+    TAIL_CLOSE_LEAD_IN,
+    TAIL_CLOSE_TABLE_HEADER,
     AnswerDraft,
     AnswerSegment,
     Citation,
     Gap,
     answer,
+    dangling_tail_closing,
     echo_flag,
     strip_emission_fences,
     strip_placeholders,
@@ -1496,3 +1500,67 @@ async def test_supplements_carry_blocks_out_of_body() -> None:
         assert entry["text"].strip()
     split_text = _supplement_text(session.supplements, "split")
     assert "互不一致" in split_text  # 行为 6 的「互不一致」标随块走（不入正文）
+
+
+# ══════════ 2026-10-17 F1 件三：残尾护栏（定稿前悬空结构 → 诚实收口）══════════════
+#
+# 真机证据＝`eval/results/frames/EB4-D-诱12.json`（run-c6fd52c7）：删句误伤后交付答案断在裸标题
+# 「**两口井教训的差异**」（其下段落整段被删）。护栏是**兜底**（误伤本体已由 verification 侧 F1
+# 件一／件二修掉）——命中即程序补一句诚实收口（白话、具名常量），正文其余字面零改、零拦截。
+
+
+async def test_dangling_tail_guard_closes_honestly() -> None:
+    """F1 件三｜悬空结构三形（悬空引导句／光表头／裸标题）命中 → 定稿补诚实收口短句
+    （`degradation.dangling_tail_closing` 判据单点；正文其余字面零改、不拦不重试）。"""
+    observations = [_obs(1, "fragment", content="W-22 井检泵周期 295 天", source="报告A")]
+    body = "W-22 井检泵周期 295 天[1]。"
+
+    # ① 悬空引导句（末行以全角「：」收尾）
+    lead_in = _state(
+        observations=observations,
+        draft=body + "\n\n两井教训差异如下：",
+        verdict={"cited": [1], "ok": True},
+    )
+    with _phase() as session:
+        session.call(lead_in)
+    assert lead_in.answer == body + "\n\n两井教训差异如下：\n\n" + TAIL_CLOSE_LEAD_IN
+    assert lead_in.answer[: len(body)] == body  # 正文其余字面零改
+    assert lead_in.messages[-1] == {"role": "assistant", "content": lead_in.answer}
+
+    # ② 光表头（markdown 表头行后无数据行）
+    table_head = _state(
+        observations=observations,
+        draft=body + "\n\n| 井号 | 船日 |\n|---|---|",
+        verdict={"cited": [1], "ok": True},
+    )
+    with _phase() as session:
+        session.call(table_head)
+    assert table_head.answer.endswith(TAIL_CLOSE_TABLE_HEADER)
+
+    # ③ 裸标题：真机帧形（整行加粗）＋独立短行
+    for tail in ("**两口井教训的差异**", "两口井教训的差异"):
+        bare = _state(
+            observations=observations,
+            draft=body + "\n\n" + tail,
+            verdict={"cited": [1], "ok": True},
+        )
+        with _phase() as session:
+            session.call(bare)
+        assert bare.answer == body + "\n\n" + tail + "\n\n" + TAIL_CLOSE_BARE_HEADING
+
+    # 重入幂等：同一收口再跑一次，收口短句只在场一份（正文不重复落）
+    with _phase() as session:
+        session.call(bare)
+    assert bare.answer.count(TAIL_CLOSE_BARE_HEADING) == 1
+
+    # 【保留集】完整正文（句读收尾／完整表／单行短答）零追加——护栏不误伤
+    for draft in (
+        body,
+        body + "\n\n| 井号 | 船日 |\n|---|---|\n| W-22 | 5.0 |",
+        "该井日产油量 21.16 吨",
+    ):
+        intact = _state(observations=observations, draft=draft, verdict={"cited": [1], "ok": True})
+        with _phase() as session:
+            session.call(intact)
+        assert intact.answer == draft
+        assert dangling_tail_closing(draft) == ""

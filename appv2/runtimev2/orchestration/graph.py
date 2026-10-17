@@ -76,6 +76,7 @@ from appv2.runtimev2.state import (
     INTENT_TOOLMATCH,
     INTENT_VERIFY,
     RUN_WAITING_ASK,
+    Convergence,
     RunState,
     check_limits,
 )
@@ -292,7 +293,10 @@ def _make_understand(deps: LoopDeps) -> Any:
 # 发现／执行两键（`discovers_per_round`／`executes_per_round`／`discovers_per_run`）的用量面属
 # **发射级拒因回喂**（相位侧报价拒＋回炉占轮——`clarification` 的发现预算闸与 `execution` 的空手
 # 探查闸），其用量到顶**不等于**本 run 该收敛（仍可回炉／换链／作答交付），故不进本入口收敛面。
-_ENTRY_LIMIT_KEYS: frozenset[str] = frozenset({"rounds", "seconds", "ask_cap"})
+# 轮数键名（`LimitHit.limit` 闭世界成员——真源 `state.LimitKind`；本处只作比较，不复述语义）——
+# **零材料兜底轮**判据（2026-10-17 F2）按名取它，不另立第二套键名。
+_LIMIT_ROUNDS = "rounds"
+_ENTRY_LIMIT_KEYS: frozenset[str] = frozenset({_LIMIT_ROUNDS, "seconds", "ask_cap"})
 
 
 def _make_clarify(deps: LoopDeps) -> Any:
@@ -303,15 +307,20 @@ def _make_clarify(deps: LoopDeps) -> Any:
         # `bookkeeping.converge`（含命中项分叉注记），不再发起模型调用（免无界自旋；拒因回喂与失败
         # 子集回炉两路都经本入口收敛）。发现／执行两键的用量面由相位侧拒因回喂机理管（本入口不收敛，
         # 见 `_ENTRY_LIMIT_KEYS`）。
+        # **零材料兜底轮**（2026-10-17 F2，判据见 `_material_round_due`）：到顶那一次若收敛只能出
+        # 「未取得可交付材料」纯话术（本 run 零材料），则让位恰一轮——见该函数 docstring 的真机病灶。
         elapsed = None if deps.elapsed_seconds is None else deps.elapsed_seconds()
         asks = _consecutive_asks(state)
         convergence = check_limits(state, elapsed_seconds=elapsed, consecutive_asks=asks)
         if any(hit.limit in _ENTRY_LIMIT_KEYS for hit in convergence.hit):
-            converge(state, elapsed_seconds=elapsed, consecutive_asks=asks)
-            set_intent(state, INTENT_ANSWER)
-            _flush_notices(deps, state)
-            _flush_steps(deps, state)
-            return _updates_of(state)
+            if not _material_round_due(state, convergence):
+                converge(state, elapsed_seconds=elapsed, consecutive_asks=asks)
+                set_intent(state, INTENT_ANSWER)
+                _flush_notices(deps, state)
+                _flush_steps(deps, state)
+                return _updates_of(state)
+            # 兜底轮：本入口**不收敛**（零模型调用之余也零落地），落到下方澄清相位——带着
+            # `decision_error` 的拒因回喂重决策恰一次；材料到手后回本入口即收敛（带材料直答）。
         outcome = clarify(
             state,
             guide_text=deps.guide_text,
@@ -349,6 +358,56 @@ def _consecutive_asks(state: RunState) -> int:
         if isinstance(payload, Mapping) and payload.get(PAYLOAD_ASK_FRAME):
             total += 1
     return total
+
+
+def _material_round_due(state: RunState, convergence: Convergence) -> bool:
+    """零材料触界的**兜底轮**判据（行为 7 细化·2026-10-17 F2）——到顶那一次是否让位恰一轮。
+
+    **真机病灶**（`eval/results/frames/EB4-A-正8.json`＝`run-13c166e9`／`EB4-D-诱10.json`
+    ＝`run-b7df65f5`）：澄清相位的**拒因回炉**每次照耗轮，三发连拒即吃满轮预算（`Budget.rounds`
+    ＝3），而 run 尚未执行任何工具——轮闸在**入口**到顶即收敛，材料面为零 ⇒ 交付只剩纯收敛话术
+    （「…未取得可交付材料…材料清单：无」），整题空答（同题在 EB3 有交付＝同一 `converge` 在有材料
+    时逐条如实交付）。**「预算触界必须带材料直答」** ⇒ 到顶这**一次**不砍当前这一轮。
+
+    四判据（**全中**才让位；任一不中＝照旧收敛）：
+
+    ①**拒因回炉入口**——`state.decision_error` 非空（上一发被拒、回喂文在场）＝这一轮确有可重决策
+      的由头；成功发射后该字段由相位清回（`clarification._clear_retry_marks`），故非回炉入口恒不中；
+    ②**零材料**——有材料时收敛正文本身即「带材料直答」（票面正面形），不让位；
+    ③**上一发是照耗轮的非免轮拒**——`state.budget_reject_streak == 0`：免轮拒（澄清的「首拒免轮」
+      三类）本就没占轮，不欠它一轮；此条同时**钉死「恰一轮」**——让位轮的结局只有三种，任一都不再
+      触发本判据（再拒＝non-free ⇒ `rounds` 超顶 `used > cap`；免轮拒 ⇒ `streak != 0`；成功 ⇒
+      `decision_error` 清空），故触界让位在单点 run 内至多发生一次（防环上界不破）；
+    ④**仅轮数键命中且恰好到顶**——段时长／连续反问同命中＝时钟面／人机交互面硬闸，不让位；
+      `used > cap`＝本兜底机会已用过，照旧收敛。
+    """
+    if not state.decision_error:  # ① 非拒因回炉入口
+        return False
+    if _material_present(state):  # ② 有材料 → 就地收敛（带材料直答）
+        return False
+    if int(state.budget_reject_streak) != 0:  # ③ 免轮拒不欠轮（兼钉「恰一轮」上界）
+        return False
+    if len(convergence.hit) != 1:  # ④ 硬闸同命中 → 不让位
+        return False
+    hit = convergence.hit[0]
+    return hit.limit == _LIMIT_ROUNDS and hit.used <= hit.cap
+
+
+def _material_present(state: RunState) -> bool:
+    """本 run 是否已有可交付材料——**口径同** `bookkeeping` 的材料面（已入栈观察 ＋ 末次工具结果自
+    带观察；真源＝`bookkeeping.closing._material_rows`）。
+
+    本处只问「有／无」这一是非（收敛正文与注记的材料清单渲染仍**单一真源**在 `bookkeeping`——两处
+    不漂移由断言 `::f2_material_face_co_sourced` 钉住）；非映射行（旧检查点残形）如实不计。
+    """
+    if state.observations:
+        return True
+    last_result = state.last_result
+    if isinstance(last_result, Mapping):
+        carried = last_result.get("observations")
+        if isinstance(carried, list):
+            return any(isinstance(row, Mapping) for row in carried)
+    return False
 
 
 def _shared_context_pending(state: RunState) -> bool:

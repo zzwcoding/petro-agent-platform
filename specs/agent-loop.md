@@ -142,11 +142,21 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
    无场景词＋取数形→双口径并列（血缘卡两支同载）；无场景词＋阈值判断形→ASK 反问
    （用户已答才代选）。plan 带 caliber_key 做合法口径校验，QueryPlan 域面零改动。
 7. 预算闸（触界即收敛——交付已取得观察材料（未核实的直排标注"未及核验"，非断言
-   不违反 INV-1）＋notice 明示未完成项，不得静默截断）：
+   不违反 INV-1）＋notice 明示未完成项，不得静默截断；**零材料触界＝先让位恰一轮取材料**
+   （见下「零材料兜底轮」），有材料才就地收敛＝带材料直答）：
    - **轮数**：每用户输入周期 ≤3 轮（真源 `docs/runtime-refactor/walk/裁决表.md` §06-A（循环上限五项）＋ `recon/K-上下文事件指南预算.md` R-K-72…R-K-78；轮＝LLM 决策周期；clarify 发射 discover 钻取
      不占轮，decompose 占轮；ASK 挂起等人工不计轮；澄清回收（resume）重置轮预算
      合法——rounds=0）；轮 2/3 只带失败/缺失子问题＋拒因回炉①，成功子问题结果
      保留不重跑（subtask_results 簿记）。
+   - **零材料兜底轮**（2026-10-17 F2）：澄清入口轮闸到顶那**一次**，若收敛只会产出「未取得可交付
+     材料」纯话术（上一发被拒＝`decision_error` 在场、本 run **零材料**、上一发照耗轮
+     `budget_reject_streak=0`、仅轮数键命中且恰好到顶），本入口**让位恰一轮**——这一轮回给澄清相位
+     做拒因回喂后的重决策，材料到手后回入口即收敛（**带材料直答**）；材料在场时照旧就地收敛（收敛
+     正文逐条交付已取得材料——材料面与注记同源，真源 `specs/bookkeeping.md` 行为 13）。让位轮的结局
+     三选一皆不再触发本判据（再拒＝`rounds` 超顶／免轮拒＝`streak≠0`／成功＝回喂面清空）⇒ **恰一轮**、
+     防环上界不破；段时长／连续反问硬闸同命中不让位。**真机动因**＝`eval/results/frames/EB4-A-正8.json`
+     （`run-13c166e9`）／`EB4-D-诱10.json`（`run-b7df65f5`）：澄清三发连拒照耗轮吃满轮预算、run 尚未
+     执行任何工具 → 就地收敛零材料 → 整题空答（同题 EB3 有交付）。
    - **批次回炉判据＝重跑两档**（流水 59，2026-10-16）：批次回炉判据＝重跑两档（`bad_args`／
      `retryable`；`refused` 终局不回炉、全 refused 批次直答交付）——真源
      `appv2/runtimev2/orchestration/graph.py` `_route_after_batch` ＋
@@ -207,6 +217,9 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 | 理解步 schema 首拒回喂一次后次读合规 → 四相位正常走通（run `completed`；模型调用恰 2 次、拒因载荷落链尾） | `tests/domains/test_v2_four_phase.py::test_four_phase_understand_schema_feedback_retry_recovers` |
 | 理解步两读皆拒（**非引号病**——确定性引号自修零命中）→ **收敛拒答**收口 `completed`（上限恰一次，无第三次调用） | `tests/domains/test_v2_four_phase.py::test_four_phase_understand_schema_feedback_twice_converges_to_refusal` |
 | 【EB5a】理解步引号病形（`text` 值内裸引号未转义）→ **确定性引号自修受理**（`emission_quote_repair` notice、模型调用恰 1 次）→ 四相位照常走通、run `completed` 携**真答案** | `tests/domains/test_v2_four_phase.py::test_four_phase_understand_quote_repair_delivers_answer` |
+| 【F2】澄清三发连拒吃满轮预算（零材料）→ **零材料兜底轮**让位恰一轮 → 工具取到材料、run `completed` **有正文带材料**（零 `budget_converged`） | `tests/domains/test_v2_f2_convergence.py::test_f2_a8_shape_cap_grace_round_delivers_material` |
+| 【F2】兜底轮仍拒 → `rounds` 超顶即收敛（零材料＝纯收敛话术；让位**恰一轮**上界）＋ 四判据面（材料在场不让位／免轮拒不让位／硬闸同命中不让位／非回炉入口不让位）＋ 材料面同源（判据「有／无」↔ 收敛正文材料清单同判） | `tests/domains/test_v2_f2_convergence.py::test_f2_grace_round_granted_once_then_converges_with_pure_wording` ／ `::test_f2_material_round_judgement_four_criteria` ／ `::test_f2_material_face_co_sourced` |
+| 【F2】理解步两读皆**围栏包裹**形（引号自修族零覆盖）→ 收敛拒答**有正文**（`completed`、零 `run_failed`、交付正文帧在场） | `tests/domains/test_v2_f2_convergence.py::test_f2_nq_m3_fenced_reply_run_completes_with_text` ／ `tests/domains/test_v2_understanding.py::test_f2_nq_m3_frame_fenced_reply_converges_with_text` |
 | 每个模型调用 step 落 Manifest（来源/版本/token）**【**W4 登记（2026-10-16）**：材料面 Manifest 现挂答案面步（`call_model` 无 manifest 注入面）；若裁定改由 `call_model` 承接 → 回 W3 `bookkeeping` 或设计仓】** | `tests/api/test_v2_asks.py::test_manifest_present_each_call` |
 | run 内对话状态簿记（`dialogue`＋`process_notes` 双字段，第二轮调用携带首轮对话） | `tests/domains/test_v2_multi_turn_context.py::test_second_decision_context_carries_first_round_history` |
 | 追问续会话（前轮问答/执行台账随追问进上下文） | `tests/domains/test_v2_multi_turn_context.py::test_followup_context_carries_prior_qa_history` |
@@ -257,3 +270,6 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 | 「不做什么」的纯范围排除（不做记忆／不做写操作等） | **人审** | 接不上闸的原因：纯范围排除没有形状／存在性／退出码判据；能降维的部分已由边界闸 R2／R5b／R6／R7 覆盖 |
 
 > **2026-10-17 补（EB5a·理解步引号自修受理·审计）**：**行为 1 的「读题 schema 拒」回路改述**（行为 1 首段／验收表三行／「不做什么」表 incident 行／行为 3 末句；**编排层零代码改动**——本规格只承条）。**病灶**：EB3 全量复跑 `NQ-C3`／`NQ-D3`／`NQ-M1` 三题**整题零交付**，定位＝理解步两次读题应答皆不合 schema、同一形（**题干引号被照搬进 `text` 值不转义**）；旧文「仍拒才 fail-closed 收束 `failed` ＋`run_failed` notice」为 D4.4 前的措辞（D4.4 已改判收敛拒答，本批一并勘正）。**改法**：不合 schema 的读题应答**先过确定性引号自修一次**（受理编排单点 `parsing.parse_with_quote_repair`／零模型零占轮／不占回喂上限；修好＝受理＋`emission_quote_repair` notice）→ 自修无效才回喂恰一次 → 皆不合才收敛拒答（`completed`＋拒答正文）。**本层（orchestration）零改动**：受理与收敛都在理解相位内完成，`_make_understand` 收 `Understanding` 后照旧 `set_intent(INTENT_DECISION)` 续跑四相位——三题由此**真交付**。落点：`specs/understanding.md`（行为 7／13／接口错误契约／禁令／验收表／审计节——真源）、`specs/parsing.md`（接口⑤／行为 1／10 消费点勘正）、本规格（行为 1／行为 3／验收表两行改述＋一行新增／「不做什么」表 incident 行注记）。**登记（交主窗）**：①「全局收敛闸」（跨相位例外网）**本轮未铺**——定位证据显示三题同死一处且该处已有回喂回路、缺的只是确定性自修这一段，故按票面授权「就相位补回路」取最小修法；其余相位拒修正回路覆盖面（`clarify`／`toolmatch`＝回喂＋同形熔断触界收敛＋到顶截断；`answering` 起草面无 schema 闸，但其坏引标抛 `DanglingCitationError` 由本层收 `failed`）另表呈报，未动；**2026-10-17 EB5b 销项**：该残余零交付面（`answering` 起草面坏引标）**已清**——界外引标号改由 `strip_dangling_citations` 整枚剥除（不判失败、不收 `run_failed`），剥除列落 `dangling_citation_seqs` 机读留痕、材料照常交付 `completed`（口径与验收行见 `specs/answering.md` 行为 13／接口定义「`citation_seqs` 里的每个序号必须真实存在于观察序列」条）。②行为 3 末句「引号病形走格式层确定性自修受理」为澄清面既有行为的补记（非新行为）。
+
+> **2026-10-17 补（F2·预算触界带材料直答＋NQ-M3 围栏形·审计）**：本批两件（真源证据＝`eval/results/EB4-终判.md`「新病灶 2／3」）。
+> **①预算触界带材料直答**（行为 7「零材料兜底轮」＋验收表两行；**本层改动＝`appv2/runtimev2/orchestration/graph.py` 的澄清入口闸**）。**病灶**：EB4 两帧 `A-正8`／`D-诱10` 均**整题空答**——澄清 r1／r2／r3 三发连拒（每次拒因照耗轮）顶满轮预算，而 run 尚未执行任何工具 ⇒ 入口触界收敛 → 材料面为零 → 交付只剩「（预算触界收敛——rounds；未取得可交付材料，如实说明；材料清单：无）」（同题 EB3 有交付）。**定位更正（对票面措辞的技术性修正）**：票面「对齐熔断形：收敛时 draft 带已获观察材料如实直答」的**渲染面本已同形**——澄清入口与 tool_matching 熔断**同调** `bookkeeping.converge`，有材料时逐条如实交付（真源＝该块材料面单点；V1 期真机帧 `P024BW-数-*` 即此形）；两形之别在**收敛发生的时刻**：熔断在工具匹配相位之后触界（材料已在手），澄清入口在取数之前触界（零材料）。故本批修**时机**而非渲染面。**改法**：到顶那一次让位**恰一轮**（判据四中全中，见行为 7；让位轮结局三选一无再触发本判据 ⇒ 上界＝恰一轮）。**②NQ-M3 围栏形定位**（真源＝`specs/understanding.md` 行为 13 审计节）：该帧畸形＝**整答被 markdown 围栏包裹**（` ```json … ``` `）——**非字符级畸形**（围栏内 JSON 本体合法完整，不合 schema 只因包围层），**不在引号自修族覆盖内**（`repair_inner_quotes` 无病不修 → `None`，机器证据见本批测试）；两次读题同形 → 收敛拒答**已给正文**（EB5a 形：统一收敛句＋材料面如实、`completed` 非零交付），本批以题面原句＋真机应答原话落帧回归。**登记（交主窗／Owner 裁）**：**围栏剥离**是否在理解面受理——技术上可确定性实现（整答恰一围栏块 → 取内文，零语义），但其件归属 `parsing` 自修族（本批允许目录之外）且与理解面 V2 定案「统一 JSON 严格解析、不使用提取件、不降级提取」（Owner 直令；行为 7）直接张力，故本批按「只能收敛不能自修」处理、不动族面，若 Owner 裁「受理」则修法＝族内新增确定性围栏剥离件＋受理编排按序试修（本批已备好定位证据与回归）。

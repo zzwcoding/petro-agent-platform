@@ -15,10 +15,12 @@
   `ATTRIBUTION_CARRIER_KINDS`（归属审辖域）／`ROWSET_OBSERVATION_KINDS`（行集对账面）；
   **改写前缀退役**（2026-10-17 EB3 D3：真无据断言删句、不贴前缀——留痕＝`RewriteRecord` ＋
   `verdict.rewritten` 计数 ＋ `notice`）；核验豁免两类的形态字面（引擎披露行／组头行）与血缘
-  五要素段特征字面同为单点常量；
+  五要素段特征字面同为单点常量；**2026-10-17 F1 核验面三件**：`VALUE_UNITS`（数值断言的**计量
+  单位**族——标识符／日期不算数值断言，件一）／`FIELD_NAME_NOUN`（油田名名录面过滤位——油田归属
+  对账，件四；机读键 `PAYLOAD_FIELD_MISMATCH_KEY`）；
 - 帧面（只经 `transport` 公开面）：`EVENT_VERDICT`（核验裁决帧——**批次落定归 `orchestration`
   协调**，本块只保证自产部分就位，行为 10）＋ `EVENT_NOTICE`（通知帧，恰三键）；
-- 步 payload 键名（六计数键 ＋ 行集对账两字段，行为 6／11）。
+- 步 payload 键名（六计数键 ＋ 行集对账两字段 ＋ 油田归属维度键，行为 6／11／13）。
 
 一句话：答案交付前**逐句核对有没有材料撑着**——**纯程序、零模型**（防编造的机器底线）；没支撑的
 话**改写掉**，两来源对不上就**分开列**。**它交出的判定卡 `Verdict` 是对外判定、不是答案侧文本。**
@@ -77,6 +79,7 @@ from appv2.runtimev2.verification.constants import (
     PAYLOAD_ATTRIBUTION_KEY,
     PAYLOAD_CITED_KEY,
     PAYLOAD_DELIVERED_ROWS_KEY,
+    PAYLOAD_FIELD_MISMATCH_KEY,
     PAYLOAD_GAPS_KEY,
     PAYLOAD_OBS_ROWS_KEY,
     PAYLOAD_OK_KEY,
@@ -122,6 +125,7 @@ __all__ = [
     "PAYLOAD_ATTRIBUTION_KEY",
     "PAYLOAD_CITED_KEY",
     "PAYLOAD_DELIVERED_ROWS_KEY",
+    "PAYLOAD_FIELD_MISMATCH_KEY",
     "PAYLOAD_GAPS_KEY",
     "PAYLOAD_OBS_ROWS_KEY",
     "PAYLOAD_OK_KEY",

@@ -73,7 +73,7 @@ class Gap:                               # 复用 answering 的 Gap 口径（字
 
 1. **逐行断言级核验**：先把答案剥掉结构性残留（JSON／引标记号），再**逐行**判定；**不是整段判**。
 2. **数值须复述（承载豁免）**：被引观察里的**数值须在断言文本里复述**才算有支撑——只凭"引用了一个数"不算；**但 `agg_row`（表格行）／`lineage`（血缘卡）／`fragment` 承载形式下豁免「全数值复述」**——任一数值重叠即支撑、零重叠照改（零重叠不回退；真源 `docs/runtime-refactor/recon/A2-核验规则与归属审.md` R-A2-11——carrier 字面以真源为准）。
-3. **无据 → 删句**（2026-10-17 EB3 D3 修正）：没有支撑的句子**整行离场**（**删句，不贴前缀**——旧「改写成「未找到／材料未披露」＋`REWRITE_PREFIX`」前缀形**退役**），留痕三处不得静默：`RewriteRecord.reason="no_material"`（原句＋原因）、`Verdict.rewritten` **如实计数**、`notice`（`unsupported_claim`）——**verdict 计数如实＝不静默**（审计走 verdict 帧 supported／rewritten 计数＋过程档案，禁静默）。真源：`specs/answering.md` 行为 3（「无据的话不写进答案」）；逐字稿＝`docs/runtime-refactor/proposals/EB3-交付面分层与缺陷修复.md` D3。
+3. **无据 → 删句**（2026-10-17 EB3 D3 修正）：没有支撑的句子**整行离场**（**删句，不贴前缀**——旧「改写成「未找到／材料未披露」＋`REWRITE_PREFIX`」前缀形**退役**），留痕三处不得静默：`RewriteRecord.reason="no_material"`（原句＋原因）、`Verdict.rewritten` **如实计数**、`notice`（`unsupported_claim`）——**verdict 计数如实＝不静默**（审计走 verdict 帧 supported／rewritten 计数＋过程档案，禁静默）。真源：`specs/answering.md` 行为 3（「无据的话不写进答案」）；逐字稿＝`docs/runtime-refactor/proposals/EB3-交付面分层与缺陷修复.md` D3。**2026-10-17 F1 件一（删句判据修精度）**：「有数值」的判据面收窄为**计量数值**（带单位／小数／千分位形——判据单点＝`rules.number_tokens`／`line_numbers_are_asserted`）——**标识符**（井号 `W-22`／修井机编号 `渤海 302`）与**日期**（`2026 年 11 月 1 日`）**不算数值断言**（行内只有标识符／日期＝结构承载，原样保留且不计有支撑数）；真机证据＝`eval/results/frames/EB4-D-诱12.json`（run-c6fd52c7：草稿「W-22 井教训侧重…／W-24 井教训侧重…」两行被整段删，交付答案断在裸标题）。**同年同日 F1 件二（跨行支撑比对）**：**无引标**行先与**同 draft 已 cited 的观察内容集**比对（判据单点＝`rules.aligned_indices`，与带引标行的窗内对齐分支同款），命中即保留并计有支撑——综述句重组**已引事实**不得删；比对域为空（draft 零已引观察）＝照删，钉 `pin-10`「不得 `cited=[]` 且数字在场」不放宽。
 4. **矛盾 → 分列**：两个来源给的数对不上时**分开列、各带出处**（`reason="conflict"`），**不强调和**、不取其一。（2026-10-17 EB2 D3：分列块**段头去工程腔**——旧「多来源不一致——分源列明（禁止无出处调和）：」→「各来源说法如下，按来源分别列出：」；段头话术仍归本块常量单点，具体文本不落规格。）
 5. **归属审**：引用的材料与问句点名的对象对不上号 → `attribution=False`，并把该情形写进缺口。（2026-10-17 EB2 D3：归属审块**段头去工程腔**——旧「跨源归属审——分源列明（题眼锚：{anchors}；禁止无出处调和）：」→「按来源归属如下（题眼：{anchors}）：」，`{anchors}` 占位保持；段内对齐／跨源两面子段头不动。）
 6. **给出核对结果卡**：`Verdict` **各字段齐备**（五计数 supported／rewritten／split／cited／attribution ＋ `ok`／`gaps` ＋ 行集对账 `delivered_rows`／`obs_rows`）——**缺键＝判失败**。
@@ -89,6 +89,7 @@ class Gap:                               # 复用 answering 的 Gap 口径（字
     - **血缘统一走增补面（2026-10-17 EB5c）**：**数据链题血缘在场（`locator.kind="lineage"` 观察在场）⇒ 增补面必有 `lineage` 块**——不以「模型是否把五要素写进草稿」为断（EB2 D1 起材料面只渲染一行口径行，模型多数不再复写全文；EB3 实态＝supplement 携血缘仅 6/97 题、其余只在 `observation` 帧）；模型稿无该段时**原文照抄**观察自带五要素全文入列（入栈序、空行连接、零二次创作）——前端旁路取数统一从增补面取，不必回读观察帧；
     - **分源块／归属块不入 `state.draft`**（D2）：按产出序入编排块持有的增补面收集列（`supplements`）——帧由 `orchestration` 的增补面发射点发（`block="split"`／`"attribution"`）。
     断言：引擎披露行与组头行原样在场（不贴前缀、不被删）且 `rewritten` 不计它们；真无据行离场且 `rewritten` 如实计一；血缘整段入增补面（正文零五要素）＋口径说明留在正文；`state.draft` 不含分源／归属块头。
+13. **油田归属对账（2026-10-17 F1 件四——核验增一维，**行级拒收**）**：支撑判定通过的行再过一道**行级归属闸**——被引材料**自带油田名**（名录面闭世界取词：`appv2.tools` 的实体锚解析单点 `entity_anchor_tokens` ＋ `FIELD_NAME_NOUN` 形态过滤；归一与闭世界匹配**引名录面单点、零新造词表字面**）却**全不属题眼所辖油田**、**且该油田名未在本行写明**（＝无分源说明）→ **该行拒收**（按行为 3 的删句族处置：`RewriteRecord.reason="no_material"` ＋ `rewritten` 如实计数 ＋ `unsupported_claim` notice——`RewriteRecord.reason` 闭世界两值不动），并把归属对不上的被引序号列落 step payload 机读键 `field_attribution_mismatch`（**升序去重**；判据单点＝`rules.field_attribution_mismatch`）。**题眼所辖油田**（`rules.aligned_field_names`）＝①题眼锚里自带的油田名（题眼点名油田）∪ ②窗内**非元信息**材料里承载题眼锚的油田名（题眼是井号时，正确油田的材料片段会把井号写在正文里）。四条收窄面（防误伤；均以真机帧取证）：①`field_scope` 空（无题眼锚或点不出油田）＝**审静默**（同行为 5）；②行内写明该油田名＝**分源说明**（`specs/answering.md` 行为 17 的分源列明）→ 不拒收；③本行被引里**只要有一支**落在题眼所辖油田＝**混引不拒**（`eval/results/frames/EB4-D-诱14.json`：一条口径补充行同引 34-5 与 34-8 两油田材料）——拒收只对「整行材料全来自另一油田且没写明」成立；④**元信息／披露类**观察（`lineage`／`notice`——血缘卡、引擎注记、检索窗声明）不入辖域（它们并列多油田名只是记账：`EB4-C-正5.json` 的「缺位名单」形）。真机证据＝`eval/results/frames/Q14M-NQ-M4.json`（NQ-M4：题眼井号体系为 Y 系〔渤中34-8〕，交付行却全引 `《B-渤中34-5油田躺井治理与检泵作业月报-202608》` 的 302／305／22.5 天——跨油田张冠李戴；`eval/results/EB4-终判.md`「新病灶」第 5 条；同期 49 帧真机抽检中本闸仅咬该形 3 行）。
 
 ## 不降级与静默禁令
 
@@ -125,12 +126,15 @@ class Gap:                               # 复用 answering 的 Gap 口径（字
 | 行集对账扩面（2026-10-17 EB5c）：`rowset_missing`（缺行序号列）／`rowset_aligned`（引标序对齐）两键恒落账——自述声明不改其在场；正文零改、不拦截、不产通知 | `tests/domains/test_v2_verification.py::rowset_audit_l0422_offset_caught` |
 | 【边界集】单句答案／零材料答案／双源矛盾／全角数字 → 各自落到对应分支 | `tests/domains/test_v2_verification.py::boundary_single_zero_material_conflict_fullwidth` |
 | 【保留集】无矛盾、有支撑的普通答案：各字段取值与 `ok=True` 行为不变 | `tests/domains/test_v2_verification.py::retention_clean_answer_unchanged` |
+| 数值断言只认**计量数值**：标识符（井号／修井机编号）与日期不算数值断言（行原样保留）；量值行照删（2026-10-17 F1 件一） | `tests/domains/test_v2_verification.py::identifier_and_date_not_numeric_assertion` |
+| 无引标行 × 同 draft 已 cited 观察集比对：命中即保留并计有支撑；零已引观察照删（2026-10-17 F1 件二） | `tests/domains/test_v2_verification.py::uncited_line_reconciled_with_draft_cited` |
+| 油田归属对账：整行材料全属另一油田且无分源说明 → 行拒收＋机读键 `field_attribution_mismatch`；分源说明／同油田／混引／无题眼锚 → 不拒收（2026-10-17 F1 件四） | `tests/domains/test_v2_verification.py::cross_field_line_rejected_without_split_note` |
 
 > **测试文件归属（与既有 `tests/domains/test_v2_agent_verify.py` 的关系）**：本块验收测试绑**新建**的 `tests/domains/test_v2_verification.py`——`verification` 是 V2 十七块的新模块（`appv2/runtimev2/verification/`，公开接口 `verify(...) -> Verdict`），与既有 `test_v2_agent_verify.py`（现状 agent-loop 核验步：`verify_draft` 直测／表格·血缘卡·fragment 承载豁免现状行为）所测形状不同；故本块落新文件，既有文件继续覆盖现状核验步、本批不改。
 
 ## 依赖与风险
 
-- 依赖：`state`（状态形状）、`transport`（`verdict`／`notice` 帧）、`tools`（**只引 `entity_anchor_tokens` 公开面**——行为 5 题眼锚，流水 56-W4 登记；W4 对账批 2026-10-16 回填）。
+- 依赖：`state`（状态形状）、`transport`（`verdict`／`notice` 帧）、`tools`（**只引 `entity_anchor_tokens`／`normalize_anchor_text` 公开面**——行为 5 题眼锚，流水 56-W4 登记；**行为 13 的油田名取词同一单点**＋`FIELD_NAME_NOUN` 形态过滤，2026-10-17 F1 件四）。
 - 风险与对策：
   1. **召回／误杀从未与人工标注度量过**（本块最大空白，Owner 裁决 Q-B「要补」）→ 对策：**用人工标注样本算核验的精确率／召回率**（拦错的 vs 放过的），**进测试网**（不是本块实现的运行时能力）；检测手段＝测试网的人工标注对照。
   2. **子串假阳／假阴**（历史病例：`52` 命中 `1520`；全角「：」切分错）→ 对策：边界记号化 ＋ 全角归一；检测手段＝`token_boundary_no_substring_false_positive`／`fullwidth_normalized_before_split`。
@@ -158,5 +162,5 @@ class Gap:                               # 复用 answering 的 Gap 口径（字
 | verify 对账机读字段（delivered_rows／obs_rows）入 step payload | 钉 **`pin-12`**（落点＝接口 `Verdict` 两字段 ＋ 行为 11 行集对账；真源 `arch/P7a-交接包与挂账清单.md` A-P7a-38） | 待织网（阶段 5） |
 | 对账缺行／错位两面机读落账（`rowset_missing`／`rowset_aligned`，2026-10-17 EB5c） | 测试 `::rowset_audit_l0422_offset_caught`（L04-22 真机帧形） | 已实现 |
 | 血缘统一走增补面（数据链题血缘在场 ⇒ `lineage` 块必在场；2026-10-17 EB5c） | 测试 `::test_unsupported_claim_rewritten`／`::test_contradiction_split_source` | 已实现 |
-| 跨油田题交付分源列明油田归属（C-正6 形禁现） | 钉 **`pin-03`**（本块无独立落点——verify 侧仅行为 5 归属审触发面；答案交付面的分源列明属 prompts 合同「7 条③引用链承接」，prompts 规格落盘后承接，登记备查不落本块验收） | 待织网（阶段 5） |
+| 跨油田题交付分源列明油田归属（C-正6 形禁现） | 钉 **`pin-03`**（**2026-10-17 F1 件四起本块有独立落点**：行为 13 油田归属对账——被引材料归属另一油田且行内无分源说明 ⇒ 行拒收＋机读键 `field_attribution_mismatch`，测试 `::cross_field_line_rejected_without_split_note`；答案交付面的分源列明仍属 prompts 合同「7 条③引用链承接」，两处互补） | 部分织网（核验侧已实现；答案面合同侧随 prompts 规格） |
 | 「不做什么」的纯范围排除（不起草／不执行查询等） | **人审** | 接不上闸的原因：纯范围排除没有形状／存在性／退出码判据；能降维的部分（相位互不 import、零 LLM 面）已由边界闸 R1／R8 覆盖 |

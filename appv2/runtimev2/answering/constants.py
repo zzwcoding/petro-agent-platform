@@ -182,3 +182,30 @@ CONTRADICTION_EXEMPT_KINDS: frozenset[str] = frozenset({"agg_row", "lineage", "n
 # 判据本体（泄漏=0 的已根治态）随 V1 字面迁移、不新造；V2 侧相位①动作族另见 `parsing`
 # （本块不引其深层子模块，R2），两处非同族第二定义（登记见票面回报）。
 EMISSION_ACTIONS = frozenset({"discover", "execute", "ask", "finalize"})
+
+# ── 残尾护栏（2026-10-17 F1 件三——定稿前的悬空结构检测与诚实收口）────────────────
+# 病灶（真机证据＝`eval/results/frames/EB4-D-诱12.json`，run-c6fd52c7）：删句误伤后交付答案断在
+# 裸标题「**两口井教训的差异**」（其下段落被整段删）。护栏是**兜底**（误伤本体已由 verification 侧
+# F1 件一／件二修掉），命中即程序补一句**诚实收口**（白话、具名常量）——正文其余字面零改、零改写。
+# 触发三形（纯形态判据，零语义）：
+#  ①**悬空引导句**：末行以全角「：」收尾（引导语后无条目）；
+#  ②**光表头**：末段连续表格行（含表格列记号 `|`）≤ `TAIL_TABLE_MAX_HEADER_LINES` 行（表头行后
+#    无数据行）；
+#  ③**裸标题**：末段整行加粗（`**…**`），或独立短行（≤ `TAIL_HEADING_MAX_CHARS` 字、无引标、
+#    无 ASCII 数字、无句读收尾）且正文 ≥ `TAIL_MIN_BODY_LINES` 行。
+BOLD_MARK = "**"
+TABLE_COLUMN_MARK = "|"
+SENTENCE_END_FULLSTOP = "。"
+SENTENCE_END_QUESTION = "？"
+SENTENCE_END_EXCLAMATION = "！"
+SENTENCE_END_SEMICOLON = "；"
+TAIL_HEADING_MAX_CHARS = 24
+TAIL_TABLE_MAX_HEADER_LINES = 2
+TAIL_MIN_BODY_LINES = 2
+TAIL_CLOSE_LEAD_IN = "（这一句后面没有逐条依据，就不展开了——如需细节，请指明报告名或章节。）"
+TAIL_CLOSE_TABLE_HEADER = (
+    "（这张表没有列出数据行——逐条依据不足，故不补数值；如需请指明报告名或章节。）"
+)
+TAIL_CLOSE_BARE_HEADING = (
+    "（这一节只有标题、没有逐条依据，因此未展开——如需细节，请指明报告名或章节。）"
+)

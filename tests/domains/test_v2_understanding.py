@@ -94,7 +94,7 @@ from typing import Any
 import pytest
 
 from appv2.runtimev2.gateway_adapter import ScriptedCompleter, set_completer
-from appv2.runtimev2.parsing import Direct, Understanding, parse_understanding
+from appv2.runtimev2.parsing import Direct, Understanding, parse_understanding, repair_inner_quotes
 from appv2.runtimev2.prompts import (
     TASK_BOOK_EXAMPLES,
     TASK_BOOK_OUTPUT_CONTRACT,
@@ -725,6 +725,65 @@ def _raw_text_field(raw: str) -> str:
     open_quote = raw.index(":", raw.index('"text"')) + 1
     start = raw.index('"', open_quote) + 1
     return raw[start : raw.rindex(",", 0, raw.index('"metric_candidates"')) - 1]
+
+
+# ---------- 5d NQ-M3 帧回归（围栏包裹形；2026-10-17 F2）----------
+# 题面原句（逐字取自 `eval/results/frames/EB4-NQ-M3.json` blackbox；真机 run＝`run-e318723a`）
+_NQ_M3_QUESTION = (
+    '"本油田本月电潜泵生产井的躺井井次和检泵作业井次分别是多少？请从第一章和第二章分别给出。"'
+    "若报告中不存在该口径，请引用报告明示的句子说明前提为什么不成立，并说明本月的躺井井次、"
+    "检泵作业井次实际发生在什么井型上。"
+)
+# 真机应答原话（`logs/llm_calls/20261017.jsonl` run-e318723a 的两条 understand 记录**逐字同形**——
+# 整答被 markdown 围栏包裹：围栏内的 JSON 本体合法且完整，不合 schema 只因**包围层**）
+_NQ_M3_RAW = (
+    "```json\n"
+    '{"route": "full", "text": "理解：问本油田本月电潜泵生产井的躺井井次和检泵作业井次各是多少，'
+    "要求从第一章和第二章分别给出；若报告中不存在该口径，则引用报告明示句子说明前提不成立，"
+    '并说明本月躺井井次与检泵作业井次实际发生在什么井型上。", "metric_candidates": []}\n'
+    "```"
+)
+
+
+def test_f2_nq_m3_frame_fenced_reply_converges_with_text() -> None:
+    """#5d｜NQ-M3 帧回归：**围栏包裹形**不在引号自修族覆盖内 → 收敛拒答**有正文**（非零交付）。
+
+    该帧（`EB4-NQ-M3.json`；EB4 终判「新病灶 3：零交付未根除」）的畸形＝**markdown 围栏包裹**
+    （` ```json … ``` `）——围栏内 JSON 本体合法、不合 schema 只因包围层；**非引号形**，故 EB5a 的
+    引号自修受理不覆盖（下判据 ②）。两次读题同形 → 回喂恰一次仍拒 → 收敛拒答。
+
+    判据：①严格面返 `None`；②**该形只能收敛不能自修**（`repair_inner_quotes` 无病不修 → `None`——
+    引号族零覆盖的机器证据）；③收敛拒答落直答旁路三键（`draft`／`draft_kind="direct"`／
+    `next_intent="answer"`）——run 收口 `completed`、**不判 `failed`、不零交付**；④拒答正文＝程序
+    确定性文案（统一收敛句「没能完全读懂这道题，请补充说明」＋材料面如实——本相位结构上零材料），
+    **不刷原始应答片段**；⑤模型调用恰 2 次（回喂恰一次，绝无第三次）；⑥原文只进机读面（报告步
+    payload ＋ notice）。
+    """
+    state = _state(question=_NQ_M3_QUESTION)
+    outs, _bus, completer = _interpret_all_with_calls(state, _NQ_M3_RAW, runs=1)
+    out = outs[0]
+    # ① 严格面同判（真机形确为不合 schema）
+    assert parse_understanding(_NQ_M3_RAW) is None
+    # ② 判定依据的机器证据：围栏形在手＝非引号病形（自修族无病不修）
+    assert repair_inner_quotes(_NQ_M3_RAW) is None
+    # ③ 收敛拒答：返回拒答 `Direct`＋直答旁路三键（非抛错、非零交付）
+    assert isinstance(out, Direct)
+    assert _REFUSAL_MARK in out.text
+    assert state.draft == out.text and state.draft_kind == _SPEC_DRAFT_KIND_DIRECT
+    assert state.next_intent == _SPEC_INTENT_ANSWER
+    # ④ 正文＝确定性文案（统一收敛句＋材料面如实），原始应答片段不刷进正文
+    assert "没能完全读懂这道题，请补充说明" in out.text
+    assert "已获材料：无" in out.text
+    assert "```json" not in out.text and "metric_candidates" not in out.text
+    assert state.process_notes[-1]["title"] == _CONVERGE_NOTE_TITLE
+    # ⑤ 上限恰一次：两次调用（首读＋回喂一次），绝无第三次
+    assert len(completer.calls) == 2
+    assert len(state.steps) == 3  # 记账步 2 ＋ 报告步 1
+    # ⑥ 原文只进机读面（报告步 payload 携片段＋如实上报 notice 一份）
+    assert len(_report_steps(state)) == 1
+    assert len(state.notices) == 1 and set(state.notices[0]) == _SPEC_NOTICE_KEYS
+    assert state.understanding == "" and state.metric_candidates == []
+    assert state.dialogue == []
 
 
 # ---------- 6 route 越界取值 → 判失败（不猜、不取默认） ----------

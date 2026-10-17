@@ -15,7 +15,12 @@
    （行为 7），引标切辖域、数值取**边界记号**比对；被引观察的数值须在断言文本里复述，承载形式
    （`agg_row`／`lineage`／`fragment`）豁免「全数值复述」（任一数值重叠即支撑、零重叠照改）；
    空壳辖域整行重判（修一）；整行重判仍不过时**窗内对齐放行**（行为 8：零数值断言不放行——仍须
-   有可解析引标支撑）；
+   有可解析引标支撑）。**2026-10-17 F1 件一**：数值断言的记号面**只收计量数值**（带单位／小数／
+   千分位形）——标识符（`W-22`）与日期（`2026 年 11 月 1 日`）不算数值断言；**件二**：无引标行
+   先与**同 draft 已 cited 的观察内容集**比对（`aligned_indices` 同款判据单点），命中即保留且计
+   有支撑（综述句重组已引事实不得删）；**件四**：支撑过的行再过**行级油田归属闸**——被引材料自带
+   油田名却**全不属题眼所辖油田**且行内无分源说明者**拒收**（同删句族留痕），机读面落 step payload
+   `field_attribution_mismatch` 键；
 3. **无据 → 删句**（行为 3；2026-10-17 EB3 D3）：没支撑的句子**整行离场**（不贴「未找到」前缀，
    不留残句）＋ `RewriteRecord`（`reason="no_material"`）＋发 `notice`（`verdict.rewritten` 如实
    计数＝不静默）；**豁免两类线**原样保留（引擎披露行／组头行——只豁免删句，不改写、不放行支撑判）；
@@ -50,7 +55,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from typing import Any
 
 from appv2.runtimev2.bookkeeping import notice, record_step, set_intent
@@ -78,6 +83,7 @@ from appv2.runtimev2.verification.constants import (
     PAYLOAD_ATTRIBUTION_KEY,
     PAYLOAD_CITED_KEY,
     PAYLOAD_DELIVERED_ROWS_KEY,
+    PAYLOAD_FIELD_MISMATCH_KEY,
     PAYLOAD_GAP_KIND_KEY,
     PAYLOAD_GAP_REASON_KEY,
     PAYLOAD_GAP_SUBTASK_KEY,
@@ -108,12 +114,14 @@ from appv2.runtimev2.verification.constants import (
 )
 from appv2.runtimev2.verification.models import GAP_UNVERIFIED, Gap, RewriteRecord, Verdict
 from appv2.runtimev2.verification.rules import (
+    aligned_field_names,
     aligned_indices,
     attribution_block,
     attribution_split,
     citation_chunks,
     contradiction_groups,
     engine_disclosure_line,
+    field_attribution_mismatch,
     group_header_line,
     line_numbers_are_asserted,
     lineage_observation_text,
@@ -191,6 +199,8 @@ def _verify(state: RunState, bus: EventBus, supplements: list[dict[str, Any]]) -
     anchors = question_anchors(state.question)
     observations = list(state.observations)
     by_index = {int(obs["index"]): obs for obs in observations}
+    # 题眼所辖油田名集（2026-10-17 F1 件四——油田归属对账的比对面；空集＝审静默）
+    field_scope = aligned_field_names(anchors, observations)
 
     # 块剥除（2026-10-17 EB3 D2 血缘五要素整段；2026-10-17 EB5c 扩块头模式族——引用清单段同拍
     # 离场，分源／归属族只作在场判据不剥）：血缘族段整段入 `lineage` 增补面，单行口径说明留正文。
@@ -204,8 +214,8 @@ def _verify(state: RunState, bus: EventBus, supplements: list[dict[str, Any]]) -
     if lineage_text:
         _supplement(supplements, SUPPLEMENT_BLOCK_LINEAGE, lineage_text)
 
-    out_lines, rewrites, cited, cited_lines, supported = _verify_lines(
-        kept_lines, observations, by_index
+    out_lines, rewrites, cited, cited_lines, supported, field_mismatched = _verify_lines(
+        kept_lines, observations, by_index, field_scope
     )
     text = "\n".join(out_lines)
 
@@ -298,7 +308,16 @@ def _verify(state: RunState, bus: EventBus, supplements: list[dict[str, Any]]) -
     )
 
     _emit_signals(
-        state, bus, verdict, rewrites, anchors, crossed, row_note, rows_missing, rows_aligned
+        state,
+        bus,
+        verdict,
+        rewrites,
+        anchors,
+        crossed,
+        row_note,
+        rows_missing,
+        rows_aligned,
+        field_mismatched,
     )
     state.draft = text
     state.verdict = verdict.as_dict()
@@ -335,18 +354,43 @@ def _verify_lines(
     lines: Sequence[str],
     observations: Sequence[Mapping[str, Any]],
     by_index: Mapping[int, Mapping[str, Any]],
-) -> tuple[list[str], list[RewriteRecord], set[int], list[tuple[str, tuple[int, ...]]], int]:
+    field_scope: Collection[str] = frozenset(),
+) -> tuple[
+    list[str],
+    list[RewriteRecord],
+    set[int],
+    list[tuple[str, tuple[int, ...]]],
+    int,
+    tuple[int, ...],
+]:
     """逐行断言级核验（行为 1／2／3／7／8；EB3 D3：真无据断言**删句**＋豁免两类线）。
 
-    返回（保留行，改写留痕，被引序号集，有据行面，有支撑句数）。逐行判定、**不是整段判**；
-    无据行**整行离场**（删句，不贴前缀）；豁免两类线（引擎披露行／组头行）原样保留且不计改写。
+    返回（保留行，改写留痕，被引序号集，有据行面，有支撑句数，**油田归属对不上**的被引序号列）。
+    逐行判定、**不是整段判**；无据行**整行离场**（删句，不贴前缀）；豁免两类线（引擎披露行／组头
+    行）原样保留且不计改写。**2026-10-17 F1**两处精度面：
+
+    - **件一（删句判据修精度）**：无引标数字行的判据面＝**计量数值**（`line_numbers_are_asserted`
+      ——标识符／日期不算数值断言），井号代码行不再被误判删句；
+    - **件二（跨行支撑比对）**：无引标行先与**同 draft 已 cited 的观察内容集**比对
+      （`aligned_indices`——与带引标行的 matched 分支同一判据单点），命中即保留且计有支撑
+      （综述句重组已引事实不得删）；
+    - **件四（油田归属对账）**：支撑判定通过的行再过**行级归属闸**——被引材料自带油田名却全不属
+      题眼所辖油田、且行内无分源说明者**拒收**（按既有删句族处置，判据单点＝
+      `rules.field_attribution_mismatch`；题眼所辖面与四条收窄面见该件注）。
     """
     out_lines: list[str] = []
     rewrites: list[RewriteRecord] = []
     cited: set[int] = set()
     cited_lines: list[tuple[str, tuple[int, ...]]] = []
     supported = 0
+    field_mismatched: list[int] = []
     total = len(lines)
+    # 件二比对域：同 draft **已 cited 的观察内容集**（预扫一遍满足「引标支撑」的行——与主扫描同一
+    # 判据单点 `_kept_citations`，故零第二份判据）；预扫同拍过件四归属闸，被拒行的引标不入域。
+    draft_cited = _draft_cited_seqs(lines, observations, by_index, field_scope)
+    cited_observations = [
+        obs for obs in observations if int(obs["index"]) in draft_cited
+    ]
     for index, line in enumerate(lines):
         stripped = line.strip()
         if not stripped:
@@ -357,28 +401,22 @@ def _verify_lines(
         next_line = lines[index + 1] if index + 1 < total else None
         normalized = normalize_for_match(line)
         chunks = citation_chunks(normalized)
-        if chunks and _chunks_supported(chunks, by_index):
-            cited.update(seq for seq, _ in chunks)
-            cited_lines.append((line, tuple(seq for seq, _ in chunks)))
+        kept = _kept_citations(chunks, normalized, by_index, observations)
+        if kept is not None:
+            seqs, record_line = kept
+            mismatch = field_attribution_mismatch(line, seqs, by_index, field_scope)
+            if mismatch:
+                # 件四：行数据归属另一油田且无分源说明 → 该行拒收（同删句族留痕＋如实计数）
+                field_mismatched.extend(mismatch)
+                rewrites.append(RewriteRecord(line=line, reason=REWRITE_NO_MATERIAL))
+                continue
+            cited.update(seqs)
+            if record_line:
+                cited_lines.append((line, seqs))
             supported += 1
             out_lines.append(line)
             continue
         if chunks:
-            bare = without_markers(normalized)
-            if any(not scope_usable(chunk) for _, chunk in chunks) and _whole_supported(
-                chunks, bare, by_index
-            ):
-                cited.update(seq for seq, _ in chunks)
-                cited_lines.append((line, tuple(seq for seq, _ in chunks)))
-                supported += 1
-                out_lines.append(line)
-                continue
-            matched = aligned_indices(number_tokens(bare), observations)
-            if matched:
-                cited.update(matched)
-                supported += 1
-                out_lines.append(line)
-                continue
             if _rewrite_exempt(line, next_line, observations):
                 # 豁免两类线（EB3 D3）：引擎披露行／组头行原样保留（不贴前缀、不删句）
                 out_lines.append(line)
@@ -386,14 +424,77 @@ def _verify_lines(
             rewrites.append(RewriteRecord(line=line, reason=REWRITE_NO_MATERIAL))
             continue
         if line_numbers_are_asserted(normalized):
-            # 无引标但有数值＝无据断言（行为 8 后半；钉 pin-10：不得 cited=[] 且数字在场）
+            # 无引标但有**计量数值**＝无据断言（行为 8 后半；钉 pin-10：不得 `cited=[]` 且数字在场）
+            matched = aligned_indices(
+                number_tokens(without_markers(normalized)), cited_observations
+            )
+            if matched:  # 件二：与同 draft 已 cited 的观察内容集比对——命中即保留（跨行支撑）
+                cited.update(matched)
+                supported += 1
+                out_lines.append(line)
+                continue
             if _rewrite_exempt(line, next_line, observations):
                 out_lines.append(line)
                 continue
             rewrites.append(RewriteRecord(line=line, reason=REWRITE_NO_MATERIAL))
             continue
         out_lines.append(line)  # 结构承载（标题／表头／分隔线）——不计有支撑数
-    return out_lines, rewrites, cited, cited_lines, supported
+    return out_lines, rewrites, cited, cited_lines, supported, tuple(field_mismatched)
+
+
+def _kept_citations(
+    chunks: Sequence[tuple[int, str]],
+    normalized: str,
+    by_index: Mapping[int, Mapping[str, Any]],
+    observations: Sequence[Mapping[str, Any]],
+) -> tuple[tuple[int, ...], bool] | None:
+    """带的引标行支撑判定（返回（被引序号列，是否入「有据行面」）；判不过＝`None`）。
+
+    三分支同既有语义（逐辖域支撑 → 空壳辖域整行重判 → 窗内对齐放行）；`record_line`＝前两分支
+    真（其行面供矛盾分列回填改写留痕），第三分支（对齐放行）不入行面——同既有行为。
+    """
+    if not chunks:
+        return None
+    seqs = tuple(seq for seq, _ in chunks)
+    if _chunks_supported(chunks, by_index):
+        return seqs, True
+    bare = without_markers(normalized)
+    if any(not scope_usable(chunk) for _, chunk in chunks) and _whole_supported(
+        chunks, bare, by_index
+    ):
+        return seqs, True
+    matched = aligned_indices(number_tokens(bare), observations)
+    if matched:
+        return matched, False
+    return None
+
+
+def _draft_cited_seqs(
+    lines: Sequence[str],
+    observations: Sequence[Mapping[str, Any]],
+    by_index: Mapping[int, Mapping[str, Any]],
+    field_scope: Collection[str],
+) -> frozenset[int]:
+    """同 draft 已 cited 的观察内容集（2026-10-17 F1 件二的比对域——预扫，零第二份判据）。
+
+    预扫只收**有据行面**的引标（`_kept_citations` 的 `record_line` 支，与主扫描同单点），且同拍
+    过件四归属闸（被拒行的引标不入域——否则综述句会借被拒行的引标复活）。
+    """
+    seqs: set[int] = set()
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or structural_line(stripped):
+            continue
+        normalized = normalize_for_match(line)
+        kept = _kept_citations(
+            citation_chunks(normalized), normalized, by_index, observations
+        )
+        if kept is None or not kept[1]:
+            continue
+        if field_attribution_mismatch(line, kept[0], by_index, field_scope):
+            continue
+        seqs.update(kept[0])
+    return frozenset(seqs)
 
 
 def _rewrite_exempt(
@@ -433,12 +534,15 @@ def _emit_signals(
     row_note: str | None,
     rowset_missing: Sequence[int],
     rowset_aligned: bool,
+    field_mismatched: Sequence[int] = (),
 ) -> None:
     """机读信号（「不降级与静默禁令」节）：step payload ＋ `notice`／`verdict` 帧 ＋ 通知落账。
 
     三类事件的帧面与状态落账同批：改写／分列／归属失败**都必产信号**（不许静默），step payload
     携六计数键与行集对账两字段（行为 6／11）；`verdict` 帧的**批次落定**由 `orchestration` 协调，
-    本块只保证自产部分就位（行为 10）。
+    本块只保证自产部分就位（行为 10）。**2026-10-17 F1 件四**：油田归属对账的机读面＝step payload
+    键 `field_attribution_mismatch`（拒收行的被引序号列）——拒收本身走既有删句族信号（`rewritten`
+    计数 ＋ `rewrites` 留痕 ＋ `unsupported_claim` notice），维度面另有本键可复算。
     """
     title = STEP_TITLE_TEMPLATE.format(
         supported=verdict.supported,
@@ -450,7 +554,7 @@ def _emit_signals(
         kind=STEP_VERIFY,
         title=title,
         payload=_step_payload(
-            verdict, rewrites, row_note, rowset_missing, rowset_aligned
+            verdict, rewrites, row_note, rowset_missing, rowset_aligned, field_mismatched
         ),
     )
     if verdict.rewritten:
@@ -499,12 +603,14 @@ def _step_payload(
     row_note: str | None,
     rowset_missing: Sequence[int] = (),
     rowset_aligned: bool = True,
+    field_mismatched: Sequence[int] = (),
 ) -> dict[str, Any]:
-    """步 payload（六计数键 ＋ 行集对账四字段 ＋ 改写／缺口留痕 ＋ 行集注记）。
+    """步 payload（六计数键 ＋ 行集对账四字段 ＋ 改写／缺口留痕 ＋ 行集注记 ＋ 油田归属维度键）。
 
     行集对账四字段（2026-10-17 EB5c）：`delivered_rows`／`obs_rows` 两计数 ＋ `rowset_missing`
     （缺行序号列）／`rowset_aligned`（引标序对齐）两判据——同一事实的机读面与注记面（`row_note`）
-    同批落账（判据单点＝`rules.rowset_audit`，本件只投影）。
+    同批落账（判据单点＝`rules.rowset_audit`，本件只投影）。**2026-10-17 F1 件四**：`field_mismatch`
+    键＝油田归属对账拒收行的被引序号列（**升序去重**——判据单点＝`rules.field_attribution_mismatch`）。
     """
     return {
         PAYLOAD_PHASE_KEY: PHASE,
@@ -516,6 +622,7 @@ def _step_payload(
         PAYLOAD_OBS_ROWS_KEY: verdict.obs_rows,
         PAYLOAD_ROWSET_MISSING_KEY: list(rowset_missing),
         PAYLOAD_ROWSET_ALIGNED_KEY: rowset_aligned,
+        PAYLOAD_FIELD_MISMATCH_KEY: sorted(set(field_mismatched)),
         PAYLOAD_ATTRIBUTION_KEY: verdict.attribution,
         PAYLOAD_OK_KEY: verdict.ok,
         PAYLOAD_REWRITES_KEY: [

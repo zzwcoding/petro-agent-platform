@@ -74,6 +74,7 @@ from appv2.runtimev2.verification import (
     PAYLOAD_ATTRIBUTION_KEY,
     PAYLOAD_CITED_KEY,
     PAYLOAD_DELIVERED_ROWS_KEY,
+    PAYLOAD_FIELD_MISMATCH_KEY,
     PAYLOAD_GAPS_KEY,
     PAYLOAD_OBS_ROWS_KEY,
     PAYLOAD_OK_KEY,
@@ -219,14 +220,24 @@ async def test_per_line_check() -> None:
 
 
 async def test_cited_value_must_be_restated() -> None:
-    """行 2｜数值未在断言里复述 → 判无据并**删句**（行为 2；钉 pin-02 落点；EB3 D3）。"""
+    """行 2｜数值未在断言里复述 → 判无据并**删句**（行为 2；钉 pin-02 落点；EB3 D3）。
+
+    **2026-10-17 F1 件一注记**：本用例 fixture 随「数值断言只认计量数值」判据同批修正——旧 fixture
+    的承载豁免行「N-01 井有产量记录[2]。」是靠**标识符／日期数字**（`N-01`→`01` 命中观察里
+    `2026-01-01` 的 `01`）偶然重叠放行的，正是件一（`rules.number_tokens`）要修的假阳；现改以真量值
+    重叠（`21.16 吨`）判承载豁免——判据面语义（承载任一数值重叠即支撑）零改。
+    """
     observations = [
         _obs(1, "ledger", content="日产油量 21.16 吨"),
-        _obs(2, "agg_row", content="井号=N-01；日期=2026-01-01；日产油量（吨）=21.16"),
+        _obs(
+            2,
+            "agg_row",
+            content="井号=N-01；日期=2026-01-01；日产油量（吨）=21.16；日产液量（方）=8824.4",
+        ),
     ]
     not_restated = "该井日产油量见材料[1]。"            # 引了一个数、断言里零复述 → 无据
     restated = "N-01 井 2026-01-01 日产油量 21.16 吨[2]。"
-    carrier_exempt = "N-01 井有产量记录[2]。"            # 承载豁免：任一数值重叠即支撑
+    carrier_exempt = "N-01 井有 21.16 吨的产量记录[2]。"  # 承载豁免：任一数值重叠即支撑
     state = _state(
         draft="\n".join([not_restated, restated, carrier_exempt]),
         observations=observations,
@@ -1391,3 +1402,203 @@ async def test_lineage_paragraph_stripped_to_supplement() -> None:
     verify(other, bus=EventBus(), supplements=other_supplements)
     assert other.draft == ""
     assert _supplement_texts(other_supplements, SUPPLEMENT_BLOCK_LINEAGE) == [long_note]
+
+# ══════════ 2026-10-17 F1 修复批（核验面四件之件一／件二／件四）══════════════
+#
+# 真机证据：`eval/results/frames/EB4-D-诱12.json`（run-c6fd52c7——删句误伤使交付答案断在裸标题
+# 「**两口井教训的差异**」）与 `eval/results/frames/Q14M-NQ-M4.json`（NQ-M4——题眼井号体系为 Y 系
+# 〔渤中34-8〕而交付行引 `《B-渤中34-5油田躺井治理与检泵作业月报-202608》` 的 302／305／22.5 天）。
+
+
+# ---------- F1 件一：数值断言只认计量数值（标识符／日期不算） ----------
+
+
+async def test_identifier_and_date_not_numeric_assertion() -> None:
+    """F1 件一｜**计量数值**判据：标识符（井号代码）与日期不算数值断言（`rules.number_tokens`）。
+
+    真机证据＝run-c6fd52c7：草稿「W-22 井教训侧重…／W-24 井教训侧重…」两行（无引标、无别的问题）
+    被旧判据（任意数字串＝数值断言）整段删，交付答案断在裸标题。修后：标识符／日期行＝结构承载
+    （原样保留、不计有支撑数）；**量值**行（带单位／小数／千分位形）照删（钉 pin-10 不放宽）。
+    """
+    observations = [_obs(1, "ledger", content="检泵周期 295 天")]
+    identifier_lines = [
+        "**两口井教训的差异**",
+        "W-22 井教训侧重于定向井段大狗腿度部位的偏磨防控；"
+        "W-24 井教训侧重于改层作业后的杆柱组合整体校核。",
+        "该井为去年 11 月补孔改层井（2026 年 11 月 1 日投产）。",
+        "渤海 302 修井机承担 W-21、W-22、W-24 三口井。",
+    ]
+    quantity_lines = [
+        "该井检泵周期 295 天。",   # 带单位＝量值断言
+        "该井累计产油 1,000 吨。",  # 千分位形＝量值断言
+        "该井日产油量 21.16。",     # 小数形＝量值断言
+    ]
+    state = _state(
+        question="W-22 与 W-24 两口井的教训有什么不同？",
+        draft="\n".join([*identifier_lines, *quantity_lines]),
+        observations=observations,
+    )
+    bus = EventBus()
+    verdict = verify(state, bus=bus)
+
+    # 标识符／日期行逐字保留（不再被当无据断言删）；量值行照删
+    assert state.draft.splitlines() == identifier_lines
+    assert verdict.rewritten == len(quantity_lines)
+    assert verdict.supported == 0  # 标识符行＝结构承载，不计有支撑数（行为 8 不放宽）
+    assert verdict.ok is False
+    assert NOTICE_UNSUPPORTED_CLAIM in _notice_types(state)
+    rewrites = _step_payload(state)[PAYLOAD_REWRITES_KEY]
+    assert {entry["line"] for entry in rewrites} == set(quantity_lines)
+
+
+# ---------- F1 件二：无引标行 × 同 draft 已 cited 观察集 ----------
+
+
+async def test_uncited_line_reconciled_with_draft_cited() -> None:
+    """F1 件二｜无引标行先与**同 draft 已 cited 的观察内容集**比对（`aligned_indices` 同款判据），
+    命中即保留且计有支撑——综述句重组已引事实不得删；零已引观察＝照删（pin-10 不破）。"""
+    observations = [
+        _obs(
+            1,
+            "fragment",
+            content="W-22 井检泵周期 295 天",
+            source="《B-渤中34-5油田躺井治理与检泵作业月报-202608》",
+        ),
+        _obs(
+            2,
+            "fragment",
+            content="W-24 井检泵周期 650 天",
+            source="《B-渤中34-5油田躺井治理与检泵作业月报-202608》",
+        ),
+    ]
+    detail = "W-22 井检泵周期 295 天[1]。"
+    other_detail = "W-24 井检泵周期 650 天[2]。"
+    summary = "综述：两口井检泵周期分别为 295 天与 650 天。"          # 无引标但重组已引事实
+    unsupported = "该井日产油量 99.5 吨。"                            # 无引标且窗内无对应值 → 照删
+    state = _state(
+        question="W-22 与 W-24 两口井的检泵周期分别是多少天？",
+        draft="\n".join([detail, other_detail, summary, unsupported]),
+        observations=observations,
+    )
+    verdict = verify(state, bus=EventBus())
+
+    assert state.draft.splitlines() == [detail, other_detail, summary]
+    assert verdict.supported == 3          # 综述句计有支撑（重组已引事实）
+    assert verdict.rewritten == 1
+    assert verdict.cited == [1, 2]
+
+    # 零已引观察（引标支撑面为空）→ 同一综述句照删（pin-10：不得 cited=[] 且数字在场）
+    alone = _state(
+        question="W-22 与 W-24 两口井的检泵周期分别是多少天？",
+        draft=summary,
+        observations=observations,
+    )
+    alone_verdict = verify(alone, bus=EventBus())
+    assert alone.draft == ""
+    assert alone_verdict.rewritten == 1 and alone_verdict.cited == []
+
+
+# ---------- F1 件四：油田归属对账（另一油田数据且无分源说明 → 行拒收） ----------
+
+
+async def test_cross_field_line_rejected_without_split_note() -> None:
+    """F1 件四｜油田归属对账：被引材料**自带油田名**却不属**题眼所辖油田**、且行内无分源说明 →
+    该行拒收（同删句族：留痕＋如实计数）＋机读键 `field_attribution_mismatch`。
+
+    三条收窄面同测（真机帧取证）：①**分源说明**（行内写明该油田名）→ 保留；②**同油田不误伤**
+    （题眼井号所在油田的材料片段承载题眼 ⇒ 该油田入题眼所辖面，`EB4-D-诱6.json` 形）；③**混引不
+    误伤**（本行另有题眼所辖油田的引标 ⇒ 不拒收，`EB4-D-诱14.json` 形，口径补充行）；④无题眼锚
+    ＝审静默。真机证据＝`eval/results/frames/Q14M-NQ-M4.json`（NQ-M4：34-8 题答 34-5 的
+    302／305／22.5 天）。
+    """
+    observations = [
+        # 窗内**题眼所辖油田**的材料（题眼井号 Y-21 落在此油田的报告里——NQ-M4 真机帧 obs[1] 形）
+        _obs(
+            1,
+            "fragment",
+            content="Y-21 井杆断的直接原因与深层管理原因；本月躺井 3 井次",
+            source="《渤中34-8油田躺井治理与检泵作业月报-202701》",
+        ),
+        # 另一油田的材料（张冠李戴的来源）
+        _obs(
+            2,
+            "fragment",
+            content="W-21、W-22、W-24 三口井由渤海 302 修井机承担，月度船日合计 22.5 天",
+            source="《B-渤中34-5油田躺井治理与检泵作业月报-202608》",
+        ),
+    ]
+    question = "第五章 1 月修井船日里 Y-21、Y-25 由哪支修井机承担、月度船日合计多少天？"
+    heading = "一、修井机与船日"
+    cross_field = "- 修井机归属：渤海 302 承担 W-21、W-22、W-24，月度船日合计 22.5 天 [2]。"
+    with_split_note = "- 另注（材料为渤中34-5油田月报）：其月度船日合计 22.5 天，非本题油田。[2]"
+
+    state = _state(
+        question=question,
+        draft="\n".join([heading, cross_field]),
+        observations=observations,
+    )
+    bus = EventBus()
+    verdict = verify(state, bus=bus)
+    frames = await _frames(bus)
+
+    # 该行拒收（删句族处置）——标题行原样、被拒行离场；计数据实＝不静默
+    assert state.draft == heading
+    assert cross_field not in state.draft
+    assert verdict.rewritten == 1
+    assert NOTICE_UNSUPPORTED_CLAIM in _notice_types(state)
+    rewrites = _step_payload(state)[PAYLOAD_REWRITES_KEY]
+    assert {entry["line"] for entry in rewrites} == {cross_field}
+    assert {entry["reason"] for entry in rewrites} == {REWRITE_NO_MATERIAL}
+    # 机读维度面：归属另一油田的被引序号列（升序去重）
+    assert _step_payload(state)[PAYLOAD_FIELD_MISMATCH_KEY] == [2]
+    assert _of(frames, EVENT_VERDICT)[0][PAYLOAD_REWRITTEN_KEY] == 1
+
+    # ①分源说明（行内写明该油田名，行为 17 的分源列明）→ 不拒收、机读键空
+    noted = _state(
+        question=question, draft="\n".join([heading, with_split_note]), observations=observations
+    )
+    noted_verdict = verify(noted, bus=EventBus())
+    assert noted.draft.splitlines() == [heading, with_split_note]
+    assert noted_verdict.rewritten == 0
+    assert _step_payload(noted)[PAYLOAD_FIELD_MISMATCH_KEY] == []
+
+    # ②同油田不误伤（`EB4-D-诱6.json` 形）：题眼井号所在油田的材料片段承载题眼 ⇒ 该油田入所辖面
+    same_field = [
+        _obs(
+            1,
+            "fragment",
+            content="W-31 井泵筒磨大，沉砂口袋砂面上升 42 米；对检泵周期低于 350 天的在用井建档",
+            source="《B-渤中34-5油田躺井治理与检泵作业月报-202608》",
+        )
+    ]
+    aliased = _state(
+        question="8 月检泵作业里 W-31 井的检泵周期是多少天？",
+        draft="W-31 井相关记录：沉砂口袋砂面上升 42 米 [1]。",
+        observations=same_field,
+    )
+    aliased_verdict = verify(aliased, bus=EventBus())
+    assert aliased.draft.splitlines() == ["W-31 井相关记录：沉砂口袋砂面上升 42 米 [1]。"]
+    assert aliased_verdict.rewritten == 0
+    assert _step_payload(aliased)[PAYLOAD_FIELD_MISMATCH_KEY] == []
+
+    # ③无题眼锚＝审静默：同一行不拒收（不误伤）
+    silent = _state(
+        question="修井机与船日的情况如何？",
+        draft="\n".join([heading, cross_field]),
+        observations=observations,
+    )
+    silent_verdict = verify(silent, bus=EventBus())
+    assert silent_verdict.rewritten == 0
+    assert _step_payload(silent)[PAYLOAD_FIELD_MISMATCH_KEY] == []
+
+    # ④混引不误伤（`EB4-D-诱14.json` 形）：本行另有题眼所辖油田的引标 ⇒ 不拒收
+    mixed_line = "- 合计：Y-21 井船日 5.0 天 [1]；另注 34-5 侧合计 22.5 天 [2]。"
+    mixed = _state(
+        question=question,
+        draft="\n".join([heading, mixed_line]),
+        observations=observations,
+    )
+    mixed_verdict = verify(mixed, bus=EventBus())
+    assert mixed.draft.splitlines() == [heading, mixed_line]
+    assert mixed_verdict.rewritten == 0
+    assert _step_payload(mixed)[PAYLOAD_FIELD_MISMATCH_KEY] == []

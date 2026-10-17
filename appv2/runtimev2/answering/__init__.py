@@ -19,7 +19,9 @@
   ——矛盾分源／占位符剥离／回声签名／引擎注记／行集交付对账／排名支序；**零语义判断**，豁免面＝
   形态处理／集合成员判定）＋其机读面七键（`PAYLOAD_ECHO_FLAG_KEY`／`PAYLOAD_ENGINE_NOTES_KEY`／
   `PAYLOAD_CONTRADICTION_SEQS_KEY`／`PAYLOAD_ENGINE_ROWS_KEY`／`PAYLOAD_DELIVERED_ROWS_KEY`／
-  `PAYLOAD_RANKING_SEQS_KEY`／`PAYLOAD_RANKING_ORDER_OK_KEY`）；
+  `PAYLOAD_RANKING_SEQS_KEY`／`PAYLOAD_RANKING_ORDER_OK_KEY`）；**残尾护栏**（2026-10-17 F1 件三＝
+  行为 19）：`dangling_tail_closing`＋三处收口短句常量（`TAIL_CLOSE_*`——定稿前悬空结构检测，
+  命中即补一句诚实收口，正文其余字面零改）；
 - 接线与机读面常量：`MODEL_CALLER`／`PHASE`／`TEXT_EVENT`／`CITATION_EVENT`／`PAYLOAD_*` 键名
   （真源逐条注在 `constants`）。
 
@@ -60,9 +62,13 @@ from appv2.runtimev2.answering.constants import (
     PAYLOAD_RANKING_SEQS_KEY,
     ROWSET_OBSERVATION_KINDS,
     SOURCE_SECTION_HEAD,
+    TAIL_CLOSE_BARE_HEADING,
+    TAIL_CLOSE_LEAD_IN,
+    TAIL_CLOSE_TABLE_HEADER,
 )
 from appv2.runtimev2.answering.core import answer
 from appv2.runtimev2.answering.degradation import (
+    dangling_tail_closing,
     echo_flag,
     strip_dangling_citations,
     strip_placeholders,
@@ -106,11 +112,15 @@ __all__ = [
     "PAYLOAD_RANKING_SEQS_KEY",
     "ROWSET_OBSERVATION_KINDS",
     "SOURCE_SECTION_HEAD",
+    "TAIL_CLOSE_BARE_HEADING",
+    "TAIL_CLOSE_LEAD_IN",
+    "TAIL_CLOSE_TABLE_HEADER",
     "AnswerDraft",
     "AnswerSegment",
     "Citation",
     "Gap",
     "answer",
+    "dangling_tail_closing",
     "echo_flag",
     "strip_dangling_citations",
     "strip_emission_fences",

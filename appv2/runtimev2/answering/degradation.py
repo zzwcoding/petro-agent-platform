@@ -1,8 +1,9 @@
-"""降级与引用簇（`RT-W4-06b`）——行为 6／12／13／14／15／16／17 的**确定性形态层**单点。
+"""降级与引用簇（`RT-W4-06b`）——行为 6／12／13／14／15／16／17／19 的**确定性形态层**单点。
 
 真源＝`specs/answering.md` 行为约定节（行为 6 多来源矛盾分开列／行为 12 行集题交付与落引用界线／
 行为 13 占位符不进答案面／行为 14 起草回声＝0／行为 15 台账 no_hit 降级三段形／行为 16 排名型子问题
-强制消费排名观察支／行为 17 跨油田题分源列明油田归属）。形态逐字迁移面＝`docs/runtime-refactor/
+强制消费排名观察支／行为 17 跨油田题分源列明油田归属／行为 19 残尾护栏——定稿前悬空结构检测与
+诚实收口，2026-10-17 F1 件三）。形态逐字迁移面＝`docs/runtime-refactor/
 recon/A2-核验规则与归属审.md`（R-A2-29／R-A2-30 矛盾池分组形态、R-A2-23 分源列明、R-A2-27 归属块
 行形）＋`recon/L2b-作答装配与回声.md`（草稿分段与假阳面）。
 
@@ -36,6 +37,7 @@ from typing import Any
 from appv2.runtimev2.answering.constants import (
     ASCII_DIGITS,
     ASCII_LETTERS,
+    BOLD_MARK,
     CONTRADICTION_EXEMPT_KINDS,
     CONTRADICTION_LINE,
     CONTRADICTION_SECTION_HEAD,
@@ -48,8 +50,19 @@ from appv2.runtimev2.answering.constants import (
     PAYLOAD_DELIVERED_ROWS_KEY,
     PAYLOAD_ENGINE_ROWS_KEY,
     ROWSET_OBSERVATION_KINDS,
+    SENTENCE_END_EXCLAMATION,
+    SENTENCE_END_FULLSTOP,
+    SENTENCE_END_QUESTION,
+    SENTENCE_END_SEMICOLON,
     SOURCE_LINE,
     SOURCE_SECTION_HEAD,
+    TABLE_COLUMN_MARK,
+    TAIL_CLOSE_BARE_HEADING,
+    TAIL_CLOSE_LEAD_IN,
+    TAIL_CLOSE_TABLE_HEADER,
+    TAIL_HEADING_MAX_CHARS,
+    TAIL_MIN_BODY_LINES,
+    TAIL_TABLE_MAX_HEADER_LINES,
 )
 from appv2.runtimev2.transport import (
     SUPPLEMENT_BLOCK_ATTRIBUTION,
@@ -59,6 +72,14 @@ from appv2.runtimev2.transport import (
 
 _OPEN = "["
 _CLOSE = "]"
+# 句读收尾字符集（残尾护栏的短行判据面——不以句读收尾者才可能是裸标题）。
+_SENTENCE_ENDINGS = (
+    SENTENCE_END_FULLSTOP,
+    SENTENCE_END_QUESTION,
+    SENTENCE_END_EXCLAMATION,
+    SENTENCE_END_SEMICOLON,
+    FULLWIDTH_COLON,
+)
 
 
 def bracket_tokens(text: str) -> list[tuple[int, int, str]]:
@@ -148,6 +169,55 @@ def echo_flag(text: str) -> bool:
     if first_line[: len(ECHO_HEAD)] == ECHO_HEAD:
         return True
     return text[:ECHO_WINDOW].find(ECHO_CANDIDATE_MARK) >= 0
+
+
+def dangling_tail_closing(text: str) -> str:
+    """残尾护栏（2026-10-17 F1 件三）：定稿前检测**悬空结构**——命中即返回诚实收口短句
+    （未命中＝空串）。
+
+    触发三形（判据全为**形态面**，零语义、零词表，见常量族注）：
+
+    ① 末行以全角「：」收尾（悬空引导句）；② 末段连续表格行（含表格列记号）≤ 表头行上限（有表头
+    无数据行）；③ 末段为**裸标题**——整行加粗，或独立短行（短、无引标、无 ASCII 数字、无句读收尾）。
+
+    返回的短句由调用方（收口段）追加为末段：**只补一句诚实收口**，正文其余字面零改、零改写（不改
+    数值断言、不重试、不拦截）；重入幂等判据＝该短句已在场（调用方把守）。真机证据＝run-c6fd52c7
+    （删句误伤后交付答案断在裸标题「**两口井教训的差异**」，`eval/results/frames/EB4-D-诱12.json`）。
+    """
+    lines = [line for line in text.splitlines() if line.strip()]
+    if not lines:
+        return ""
+    tail = lines[-1].strip()
+    if tail[-len(FULLWIDTH_COLON) :] == FULLWIDTH_COLON:
+        return TAIL_CLOSE_LEAD_IN
+    if _table_header_tail(lines):
+        return TAIL_CLOSE_TABLE_HEADER
+    if _bare_heading_tail(lines, tail):
+        return TAIL_CLOSE_BARE_HEADING
+    return ""
+
+
+def _table_header_tail(lines: Sequence[str]) -> bool:
+    """末段表格行数判据（连续含表格列记号的行——只表头／表头＋分隔行＝有表头无数据行）。"""
+    count = 0
+    for line in reversed(list(lines)):
+        if TABLE_COLUMN_MARK not in line:
+            break
+        count += 1
+    return 0 < count <= TAIL_TABLE_MAX_HEADER_LINES
+
+
+def _bare_heading_tail(lines: Sequence[str], tail: str) -> bool:
+    """裸标题判据（整行加粗 或 独立短行——形态面；短行须无引标、无 ASCII 数字、无句读收尾）。"""
+    if len(lines) < TAIL_MIN_BODY_LINES:
+        return False
+    if tail[: len(BOLD_MARK)] == BOLD_MARK and tail[-len(BOLD_MARK) :] == BOLD_MARK:
+        return True
+    if len(tail) > TAIL_HEADING_MAX_CHARS or citation_seqs(tail):
+        return False
+    if any(char in ASCII_DIGITS for char in tail):
+        return False
+    return tail[-1:] not in _SENTENCE_ENDINGS
 
 
 def observation_kind(observation: Mapping[str, Any]) -> str:

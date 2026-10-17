@@ -41,20 +41,27 @@ from appv2.runtimev2.verification.constants import (
     ATTRIBUTION_UNCITED_MORE,
     CARRIER_KINDS,
     CONTRADICTION_EXCLUDED_KINDS,
+    DECIMAL_POINT,
     DISCLOSURE_MARKS,
     DISCLOSURE_OBSERVATION_KINDS,
+    FIELD_NAME_NOUN,
     GROUP_HEAD_SUFFIX,
     ISO_DATE_LENGTH,
     ISO_DATE_SEPARATOR,
     LINEAGE_OBSERVATION_KIND,
+    MEASURE_GAP,
     SPLIT_BLOCK_HEAD,
     SPLIT_LINE_TEMPLATE,
     SUBJECT_SEPARATOR,
     TABLE_COLUMN_MARK,
+    THOUSANDS_SEPARATOR,
+    VALUE_UNITS,
 )
 from appv2.tools import entity_anchor_tokens, normalize_anchor_text
 
 _ASCII_DIGITS = "0123456789"
+# 量值记号内的连接符（小数点「.」与千分位「,」——形态字符面）。
+_MEASURE_JOINERS = frozenset({DECIMAL_POINT, THOUSANDS_SEPARATOR})
 
 Observation = Mapping[str, Any]
 
@@ -73,37 +80,70 @@ def normalize_for_match(text: str) -> str:
 
 
 def number_tokens(text: str) -> tuple[str, ...]:
-    """数值记号列（**边界记号化**的记号面——行为 7）：纯字符扫描，零正则。
+    """**计量数值**记号列（数值断言的记号面——行为 7 边界记号化的记号面）：纯字符扫描，零正则。
 
-    记号＝连续数字（同记号内的第一个 `.` 且其后仍是数字时并入，如 `2462.0`）；`52` 与 `1520`
-    是**不同记号**（比对取记号相等，非子串包含——病例 `52` 命中 `1520`，`specs/verification.md:119`
-    风险 2）。判定前文本宜先过 `normalize_for_match`。
+    记号＝**量值**：连续数字（段内首个 `.` 且其后仍是数字时并入，如 `2462.0`；千分位 `,`＋数字
+    并入，如 `8,824.4`→规范形 `8824.4`）；**只有下列三形入列**（2026-10-17 F1 件一修精度）：
+
+    - **小数形**（记号内含 `.`）；
+    - **千分位形**（记号内含 `,`）；
+    - **带单位**（记号后紧邻 `VALUE_UNITS` 之一，其间至多隔空白）。
+
+    故**标识符**（`W-22`／`Y-24`／`渤海 302`）与**日期**（`2026 年 11 月 1 日`／`2026-08-01`）的
+    数字串**不算数值断言**（真机证据＝run-c6fd52c7 删句误伤）。`52` 与 `1520` 仍是**不同记号**
+    （比对取记号相等，非子串包含——病例 `52` 命中 `1520`，`specs/verification.md:119` 风险 2）。
+    判定前文本宜先过 `normalize_for_match`（全角数字／标点先归一，故单位字面也在归一面取）。
     """
     tokens: list[str] = []
-    current: list[str] = []
     length = len(text)
-    for position, char in enumerate(text):
-        if char.isdigit():
-            current.append(char)
+    position = 0
+    while position < length:
+        if text[position] not in _ASCII_DIGITS:
+            position += 1
             continue
-        if (
-            char == "."
-            and current
-            and position + 1 < length
-            and text[position + 1].isdigit()
-        ):
-            current.append(char)
-            continue
-        if current:
-            tokens.append("".join(current))
-            current = []
-    if current:
-        tokens.append("".join(current))
+        start = position
+        position = _scan_digits(text, start)
+        raw = text[start:position]
+        if _is_measure(raw, text, position):
+            tokens.append(raw.replace(THOUSANDS_SEPARATOR, ""))
     return tuple(tokens)
 
 
+def _scan_digits(text: str, start: int) -> int:
+    """自 `start` 扫量值记号（数字／千分位 `,`＋数字／小数点 `.`＋数字）——返回终点。"""
+    length = len(text)
+    position = start
+    while position < length:
+        char = text[position]
+        if char in _ASCII_DIGITS:
+            position += 1
+            continue
+        if (
+            char in _MEASURE_JOINERS
+            and position + 1 < length
+            and text[position + 1] in _ASCII_DIGITS
+        ):
+            position += 1
+            continue
+        break
+    return position
+
+
+def _is_measure(raw: str, text: str, end: int) -> bool:
+    """量值三形判定：小数形／千分位形／记号后紧邻单位（`VALUE_UNITS`）。"""
+    if DECIMAL_POINT in raw or THOUSANDS_SEPARATOR in raw:
+        return True
+    position = end
+    while position < len(text) and text[position] == MEASURE_GAP:
+        position += 1
+    for unit in VALUE_UNITS:
+        if text[position : position + len(unit)] == unit:
+            return True
+    return False
+
+
 def observation_tokens(obs: Observation) -> tuple[str, ...]:
-    """观察 `content` 的数值记号列（归一形上取）。"""
+    """观察 `content` 的**计量数值**记号列（归一形上取——同 `number_tokens` 判据）。"""
     return number_tokens(normalize_for_match(str(obs.get("content", ""))))
 
 
@@ -242,7 +282,13 @@ def aligned_indices(
 
 
 def line_numbers_are_asserted(line: str) -> bool:
-    """行内是否有数值记号（无引标数字行＝无据断言行——行为 8 后半；真源 `recon/A2` D-A2-21）。"""
+    """行内是否有**计量数值**（无引标数字行＝无据断言行——行为 8 后半；真源 `recon/A2` D-A2-21）。
+
+    **2026-10-17 F1 件一修精度**：判据面＝`number_tokens` 的**量值**面（带单位／小数／千分位形）
+    ——行内只有**标识符**（`W-22`／`Y-24`）或**日期**（`2026 年 11 月 1 日`）数字串者**不算**数值
+    断言（真机证据＝run-c6fd52c7：井号代码行被误判无据断言整段删）；行内计量数值在场＝照删
+    （钉 pin-10「不得 `cited=[]` 且数字在场」的落点不变，只把「数字」收窄到「量值」）。
+    """
     return bool(number_tokens(normalize_for_match(line)))
 
 
@@ -467,16 +513,136 @@ def attribution_needles(anchors: Sequence[str]) -> tuple[str, ...]:
     return tuple(needles)
 
 
+def observation_haystack(obs: Observation) -> str:
+    """观察的归属匹配面（出处名＋报告名＋内容——归属审与油田归属对账共用一处，禁第二份）。"""
+    locator = obs.get("locator")
+    report = locator.get("report", "") if isinstance(locator, Mapping) else ""
+    return (
+        str(obs.get("source", "")) + " " + str(report) + " " + str(obs.get("content", ""))
+    )
+
+
 def observation_aligns(obs: Observation, needles: Sequence[str]) -> bool:
     """观察与题眼锚对齐：任一锚规范形出现在（出处名＋报告名＋内容）规范形中（R-A2-25）。"""
-    haystack = normalize_anchor_text(
-        str(obs.get("source", ""))
-        + " "
-        + str((obs.get("locator") or {}).get("report", ""))
-        + " "
-        + str(obs.get("content", ""))
-    )
+    haystack = normalize_anchor_text(observation_haystack(obs))
     return any(needle in haystack for needle in needles)
+
+
+def field_names_in(text: str) -> tuple[str, ...]:
+    """文本内的**油田名**列（名录面取词——出现序去重，规范名形）。
+
+    取词单点＝`appv2.tools.anchors` 的闭世界实体锚解析（规范名／别名／闭世界数字核同源），再以
+    `FIELD_NAME_NOUN` 作**形态过滤**只留油田族；**本模块不另立第二份名录／词表**（禁新造词表
+    字面——闭世界与跨形归一都引名录面单点）。
+    """
+    names: list[str] = []
+    for token in entity_anchor_tokens(str(text or "")):
+        if FIELD_NAME_NOUN not in str(token):
+            continue
+        if token not in names:
+            names.append(str(token))
+    return tuple(names)
+
+
+def observation_field_names(obs: Observation) -> tuple[str, ...]:
+    """观察的**归属油田名**列（出处名／报告名／内容三处的油田名并集——与归属审同 haystack）。"""
+    return field_names_in(observation_haystack(obs))
+
+
+def question_field_names(anchors: Sequence[str]) -> tuple[str, ...]:
+    """题眼锚里的**油田名**列（题眼点名油田——如「渤中34-8」命中的规范名「渤中34-8油田」）。"""
+    return tuple(
+        str(anchor) for anchor in anchors if FIELD_NAME_NOUN in str(anchor)
+    )
+
+
+def aligned_field_names(
+    anchors: Sequence[str], observations: Sequence[Observation]
+) -> frozenset[str]:
+    """**题眼所辖油田名**集（规范形——油田归属对账的比对面；空集＝审静默）。
+
+    两半并集（全为形态面，零语义）：
+
+    - **题眼点名油田**：锚里自带油田名者（`question_field_names`）；
+    - **窗内对齐材料自带油田名**：该观察的 haystack 里出现油田名**且**该观察与题眼锚对齐
+      （`observation_aligns`）——即「窗内材料把题眼锚承载在这个油田上」（同类题：题眼是井号时，
+      正确油田的材料片段会把井号写在正文里）。**元信息／披露类**观察（`locator.kind ∈
+      DISCLOSURE_OBSERVATION_KINDS`——血缘卡／引擎注记／检索窗声明）**不入面**：它们并列列出多个
+      油田名只是记账（真机帧 `EB4-D-诱14.json` 的检索窗声明即此形——不排会把 34-8 也划进 34-5 题
+      的所辖面、把跨油田行放行）。
+
+    为什么要有第二半（2026-10-17 F1 件四的**收窄面**）：只按「材料油田名是否与题眼锚字面共现」判，
+    会把**同油田**但引文片段未复述井号的正常行误拒（真机帧 `EB4-D-诱6.json`：题眼井号 W-31／W-42
+    与材料 `《B-渤中34-5油田…》` 同油田，而该片段正文只写 W-24）——故拒收面收窄到**跨油田竞争**
+    成立时：窗内另有承载题眼的油田（或题眼直接点名油田）而该行引的是别的油田。
+    """
+    needles = attribution_needles(anchors)
+    if not needles:
+        return frozenset()
+    names = {normalize_anchor_text(name) for name in question_field_names(anchors)}
+    for obs in observations:
+        if locator_kind(obs) in DISCLOSURE_OBSERVATION_KINDS:
+            continue
+        obs_names = observation_field_names(obs)
+        if not obs_names:
+            continue
+        if observation_aligns(obs, needles):
+            names.update(normalize_anchor_text(name) for name in obs_names)
+    return frozenset(name for name in names if name)
+
+
+def field_attribution_mismatch(
+    line: str,
+    citations: Sequence[int],
+    by_index: Mapping[int, Observation],
+    field_scope: Collection[str],
+) -> tuple[int, ...]:
+    """油田归属对账（2026-10-17 F1 件四）：被引材料**自带油田名**却**全不属题眼所辖油田**、
+    且该油田名未在本行写明（＝无分源说明）→ 返回这些被引观察序号列（非空＝该行按既有删句族
+    **拒收**）。
+
+    - `field_scope` 空（无题眼锚，或题眼与窗内材料都点不出油田）→ 空列（**审静默**——不误伤，
+      同归属审 R-A2-26）；
+    - 判据全为**形态面**：油田名＝名录面闭世界取词（`observation_field_names`）、所辖面＝
+      `aligned_field_names`、行内写明＝规范形子串在场；零语义判定；
+    - **元信息／披露类**观察（`locator.kind ∈ DISCLOSURE_OBSERVATION_KINDS`——血缘卡／引擎注记／
+      检索窗声明）**不入辖域**：它们列举多个油田名只是记账，不构成数据归属（真机帧 `EB4-C-正5.json`
+      的「缺位名单」即此形）；
+    - **收窄面（防误伤）**：本行被引里**只要有**一支落在题眼所辖油田（或该行写明了那个别的油田名）
+      → 不拒收——拒收只对「整行材料全来自另一油田、且没写明」成立（真机帧 `EB4-D-诱14.json`：一条
+      口径补充行同时引 34-5 与 34-8 两油田材料，属混引不拒）。
+
+    真机证据＝`eval/results/frames/Q14M-NQ-M4.json`（NQ-M4：题眼井号体系为 Y 系〔渤中34-8〕，
+    交付行却全引 `《B-渤中34-5油田躺井治理与检泵作业月报-202608》` 的 302／305／22.5 天）。
+    """
+    scope = set(field_scope)
+    if not scope:
+        return ()
+    normalized_line = normalize_anchor_text(line)
+    named: list[tuple[int, tuple[str, ...]]] = []
+    for seq in citations:
+        obs = by_index.get(seq)
+        if obs is None:
+            continue
+        if locator_kind(obs) in DISCLOSURE_OBSERVATION_KINDS:
+            continue
+        names = observation_field_names(obs)
+        if names:
+            named.append((int(seq), names))
+    if not named:
+        return ()
+    if any(
+        normalize_anchor_text(name) in scope for _, names in named for name in names
+    ):
+        return ()  # 本行有题眼所辖油田的材料支撑 → 不拒（混引不误伤）
+    mismatched = [
+        seq
+        for seq, names in named
+        if not any(
+            normalize_anchor_text(name) in normalized_line for name in names
+        )
+    ]
+    return tuple(sorted(set(mismatched)))
 
 
 def attribution_split(

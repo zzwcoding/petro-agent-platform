@@ -103,8 +103,9 @@ def test_list_contains_completed_run(env: Any) -> None:
     assert item["question"] == HAPPY_QUESTION  # question 逐字
     assert item["status"] == "completed"
     assert item["answer"] and item["answer"].strip()  # answer 非空（全文随行）
-    # 增补面随行（EB3 D1＋EB5c①）：正文只留模型稿；血缘在场⇒lineage 块必在场（保底），引用清单走 citations
-    assert [entry["block"] for entry in item["supplements"]] == ["lineage", "citations"]
+    # 增补面随行（EB3 D1＋EB5c①）：血缘在场⇒lineage 块保底，引用清单走 citations
+    blocks = [entry["block"] for entry in item["supplements"]]
+    assert blocks == ["lineage", "citations"]
     assert "引用：" in item["supplements"][1]["text"]
     assert "引用：" not in item["answer"]
     assert item["followup_of"] == ""  # 独立新问＝链根（空串）

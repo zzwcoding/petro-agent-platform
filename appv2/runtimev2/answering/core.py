@@ -114,6 +114,7 @@ from appv2.runtimev2.answering.degradation import (
     citation_seqs,
     contradiction_groups,
     contradiction_section,
+    dangling_tail_closing,
     delivery_accounting,
     echo_flag,
     engine_notes,
@@ -336,6 +337,10 @@ def _finalize(
     **交付面分层（2026-10-17 EB3 D2）**：正文之后依次接的三块（分源块／归属块／引用块）**不再进
     正文**——按原序（split → attribution → citations）入 `supplements` 增补面，`state.answer` 与
     链尾只留模型稿（`docs/runtime-refactor/proposals/EB3-交付面分层与缺陷修复.md` D2）。
+
+    **残尾护栏（2026-10-17 F1 件三）**：正文进终稿前先过**悬空结构**检测（悬空引导句／光表头／
+    裸标题——`degradation.dangling_tail_closing`），命中即补一句诚实收口短句（白话、具名常量）；
+    这是兜底（删句误伤已由 `verification` 侧 F1 件一／件二修掉），正文其余字面零改、零拦截。
     """
     by_index = _observation_index(state)
     text = state.draft or state.answer
@@ -350,6 +355,12 @@ def _finalize(
         )
         set_intent(state, INTENT_END)
         return AnswerDraft(segments=[], citations=[], gaps=gaps)
+    # 残尾护栏（2026-10-17 F1 件三）：定稿前检测**悬空结构**（悬空引导句／光表头／裸标题）——命中
+    # 即程序补一句诚实收口（白话、具名常量，判据单点＝`degradation.dangling_tail_closing`）；正文
+    # 其余字面零改。重入幂等：该短句已在场时零追加（同收口段三块的幂等口径）。
+    closing = dangling_tail_closing(text)
+    if closing and closing not in text:
+        text = text + "\n\n" + closing
     segments = _final_segments(text, by_index)
     cited = _cited_seqs(state, text, by_index)
     citations = [Citation(seq=seq, locator=_locator_of(by_index[seq])) for seq in cited]

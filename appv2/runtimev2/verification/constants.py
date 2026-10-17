@@ -65,6 +65,49 @@ ROWSET_OBSERVATION_KINDS: frozenset[str] = frozenset({"agg_row"})
 # `rules.lineage_observation_text`）。
 LINEAGE_OBSERVATION_KIND = "lineage"
 
+# ── 计量数值断言判据（2026-10-17 F1 件一）────────────────────────────────────────
+# 数值断言＝**计量数值**（带单位／小数形／千分位形的量值）；**标识符**（井号 `W-22`、修井机编号
+# `渤海 302`）与**日期**（`2026 年 11 月 1 日`）不算数值断言（真机证据＝`eval/results/frames/
+# EB4-D-诱12.json`，run-c6fd52c7：草稿「W-22 井教训侧重…W-24 井教训侧重…」被误判无据断言整段删，
+# 交付答案断在裸标题）。下列单位族是**闭世界取值**（各值单值常量——判据＝记号后紧邻字面在场，
+# 非语义词表：不含「年／月／日」日期单位）。单位面可扩可收＝Owner 裁量；本批按票面列举面落值。
+VALUE_UNIT_TON = "吨"
+VALUE_UNIT_CUBIC_METER = "方"
+VALUE_UNIT_METER = "米"
+VALUE_UNIT_MILLIMETER = "毫米"
+VALUE_UNIT_DAY = "天"
+VALUE_UNIT_HOUR = "小时"
+VALUE_UNIT_MINUTE = "分钟"
+VALUE_UNIT_PERCENT = "%"
+VALUE_UNIT_MEGAPASCAL = "MPa"
+VALUE_UNIT_CUBIC = "m³"
+VALUE_UNIT_DENSITY = "克每立方厘米"
+VALUE_UNITS: tuple[str, ...] = (
+    VALUE_UNIT_TON,
+    VALUE_UNIT_CUBIC_METER,
+    VALUE_UNIT_METER,
+    VALUE_UNIT_MILLIMETER,
+    VALUE_UNIT_DAY,
+    VALUE_UNIT_HOUR,
+    VALUE_UNIT_MINUTE,
+    VALUE_UNIT_PERCENT,
+    VALUE_UNIT_MEGAPASCAL,
+    VALUE_UNIT_CUBIC,
+    VALUE_UNIT_DENSITY,
+)
+# 量值形两记号（小数点／千分位分隔符——形态记号，非词表）。
+DECIMAL_POINT = "."
+THOUSANDS_SEPARATOR = ","
+# 记号与单位之间的空白（全角空白经 NFKC 归一为半角空格——`normalize_for_match`）。
+MEASURE_GAP = " "
+
+# ── 油田归属对账（2026-10-17 F1 件四）──────────────────────────────────────────
+# 名录面（`appv2.tools.anchors`）实体专名族的**油田**过滤位——闭世界取值的成员取用面（本块不另
+# 立第二份名录／词表：归一与闭世界匹配单点＝`appv2.tools.anchors`）。真机证据＝`eval/results/
+# frames/Q14M-NQ-M4.json`（NQ-M4：题眼井号体系 Y 系〔渤中34-8〕而交付行引 `《B-渤中34-5油田躺井
+# 治理与检泵作业月报-202608》` 的 302／305／22.5 天数据——跨油田张冠李戴）。
+FIELD_NAME_NOUN = "油田"
+
 # ── 文本单点（逻辑面一律引名字，零字面副本）──────────────────────────────────────
 
 # 2026-10-17 EB3 D3：改写前缀「未找到（材料未披露）：」**退役**——真无据断言按
@@ -203,3 +246,7 @@ PAYLOAD_ROW_NOTE_KEY = "row_note"
 # `rules.rowset_audit`（与 `row_note` 同批落账——注记给人读、两键给机读，同一事实两面）。
 PAYLOAD_ROWSET_MISSING_KEY = "rowset_missing"
 PAYLOAD_ROWSET_ALIGNED_KEY = "rowset_aligned"
+# 油田归属对账机读面（2026-10-17 F1 件四）：归属另一油田（与题眼锚对不上且行内无分源说明）的
+# 被引观察序号列——该行按既有删句族拒收，本键是其**机读维度面**（拒因复用删句族闭世界常量
+# `REWRITE_NO_MATERIAL`，闭世界两值不动）。
+PAYLOAD_FIELD_MISMATCH_KEY = "field_attribution_mismatch"
