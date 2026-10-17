@@ -15,16 +15,22 @@
  * 轮渲染件——live/replay（归约器输出）与 history（historyAdapter 输出）同 props 路径，
  * 不判 kind；phase 渲染期 phaseOf(turn) 派生（FE-01 导出，turn 不携带 phase 字段）。
  *
- * 边界（未变）：**不接后端**（零 SSE、零 `/api/v2/*`）／不覆盖现状页 A1V2.jsx／左栏静态假列表／
+ * 重连接线（FE-03——specs/frontend-redesign.md 行为约定 R1–R4，落码见 useRunningRun.js）：
+ * 会话数组＝useState（初值 MOCK_TURNS，restore 推入的轮排在 mock 轮之后）；mount 调一次
+ * restoreRunning()——持久化 running run 的全帧重放重连／404 终态灰条／waiting_ask 挂起还原；
+ * 挂起卡选项点击＝resumeEntry 续答通路（本腿新帧直进同一 reducer）。输入区「发送」仍禁用
+ * （真提问接线归 FE-05）。
+ *
+ * 边界（未变部分）：左栏 ThreadList 仍 mock 数据（FE-05 真接）／不覆盖现状页 A1V2.jsx／
  * 右栏 CitationPanel（人话面板）与右栏宽度、决策树入口均不动。
  * 空态纪律：各项无数据＝该位不渲染（组件内实现，本页只透传）。
  *
- * DEBT(docs/runtime-refactor/frontend-redesign-设计.md)：整页连同 redesign/ 与临时路由
- * （registry.REDESIGN_MODULES／roles.js 菜单项／Shell.jsx 懒加载项）只服务施工顺序第 1 步
- * 「mock 静态页对版面」；第 2 步接归约器后本页删除（或按 Owner 裁决替换现状页）。
+ * DEBT(docs/runtime-refactor/frontend-redesign-设计.md)：redesign/ 与临时路由
+ * （registry.REDESIGN_MODULES／roles.js 菜单项／Shell.jsx 懒加载项）服务「mock 静态页
+ * 对版面 → 重连接线」施工段；FE-05 真流接线后本页按 Owner 裁决替换现状页并去 mock。
  */
-import { useState } from 'react'
-import { Button, Card, Input, Space, Tag } from 'antd'
+import { useEffect, useState } from 'react'
+import { Alert, Button, Card, Input, Space, Tag } from 'antd'
 import { SendOutlined } from '@ant-design/icons'
 import { dim, helpIcon } from '../../components/helpIcon.jsx'
 import { phaseOf } from '../a1v2Reducer.js'
@@ -38,6 +44,7 @@ import RunMetaLine from './RunMetaLine.jsx'
 import SupplementBlocks from './SupplementBlocks.jsx'
 import ThreadList from './ThreadList.jsx'
 import { MOCK_RUNS, MOCK_TURNS } from './mockTurns.js'
+import { useRunningRun } from './useRunningRun.js'
 
 /** 链条节点（时间轴视觉——左侧竖线＋圆点，把三轮三块串成一条）。 */
 function ChainBlock({ testid, dot = '#4a9dff', children }) {
@@ -65,11 +72,14 @@ export function lineagePayloadOf(turn) {
  * @param turn               TurnShape（live/replay＝归约器输出，history＝historyAdapter 输出）
  * @param durationS          本地计时秒数（页面临时面——不入 turn，传流水线摘要行与 RunMetaLine）
  * @param onCite             正文引标点击回调 (index) => void（右栏切轮定位；null＝不切）
+ * @param onResume           挂起卡选项点击回调 (chosen) => void（FE-03 R4 续答通路；
+ *                           null＝不渲染卡——turn.askFrame 在场才出卡，数据驱动非场景分支）
  * @param defaultLineageOpen 血缘卡初态是否展开（页面给完整轮开的版面糖）
  */
-export function TurnChain({ id, turn, durationS = null, onCite = null, defaultLineageOpen = false }) {
+export function TurnChain({ id, turn, durationS = null, onCite = null, onResume = null, defaultLineageOpen = false }) {
   const phase = phaseOf(turn)
-  const answering = phase === 'running' && !turn.answerText
+  // 挂起轮（askFrame 在场）＝等人工——不出「正在作答…」占位（挂起看 ask 帧不看 done）
+  const answering = phase === 'running' && !turn.answerText && !turn.askFrame
   const lineagePayload = lineagePayloadOf(turn)
   // 旧版历史轮（legacy=true）：正文内嵌旧式「引用：」块——原样渲染不解析，无引用数据可查
   // ＝不切锚点、不弹悬停卡（新 history 行 legacy=false，引标行为与 live 同路——无引用帧不弹）。
@@ -96,6 +106,26 @@ export function TurnChain({ id, turn, durationS = null, onCite = null, defaultLi
       {/* ③ 系统回答块 */}
       <ChainBlock testid={`turn-${id}`} dot="#52c41a">
         <Card size="small">
+          {/* errorFrame 渲染位（FE-03 R3——对账 D-2 闭环错误契约的安放位；A 级 notice Alert 之前） */}
+          {turn.errorFrame && (
+            <Alert type="error" data-testid="error-frame-alert"
+              message={turn.errorFrame.message} style={{ margin: '6px 0' }} />
+          )}
+          {/* 挂起卡（FE-03 R4——askFrame 在场＝等人工；选项点击＝onResume 续答通路） */}
+          {turn.askFrame && turn.runStatus === 'waiting_ask' && onResume && (
+            <Card size="small" data-testid="suspend-card" style={{ margin: '8px 0', borderColor: '#4a9dff' }}
+              title={<span>{turn.askFrame.kind === 'external_table_approval' ? '越集审批' : '系统反问'}</span>}>
+              <div style={{ marginBottom: 8 }}>{turn.askFrame.prompt}</div>
+              {turn.askFrame.kind === 'external_table_approval' && turn.askFrame.detail?.tables && (
+                <div style={dim}>外部表：{turn.askFrame.detail.tables.join('、')}</div>
+              )}
+              <Space wrap>
+                {(turn.askFrame.options || []).map(op => (
+                  <Button key={op} size="small" type="primary" ghost onClick={() => onResume(op)}>{op}</Button>
+                ))}
+              </Space>
+            </Card>
+          )}
           {/* A 级 notice 留一条紧凑 Alert（折叠态流水线下也能感知可信度；B/C 只在流水线里） */}
           <NoticeAlerts notices={turn.notices} />
           {answering && <div style={dim} data-testid="answer-placeholder">正在作答…</div>}
@@ -134,11 +164,13 @@ export function TurnChain({ id, turn, durationS = null, onCite = null, defaultLi
 }
 
 export default function A1V2RLanding() {
+  // 会话数组（FE-03：固定 MOCK_TURNS → useState——restore 推入的轮排在 mock 轮之后，FE-05 去 mock）
+  const { entries, restoredRef, restoreRunning, resumeEntry } = useRunningRun(MOCK_TURNS)
   // 右栏联动轮次（mock：默认＝完整轮；正文引标一点即切到该轮并定位）
   const [panelTurnId, setPanelTurnId] = useState('t-full')
   const [focus, setFocus] = useState({ index: null, nonce: 0 })
   const [selectedRunId, setSelectedRunId] = useState(MOCK_RUNS[0]?.run_id ?? '')
-  const panelEntry = MOCK_TURNS.find(e => e.id === panelTurnId) ?? MOCK_TURNS[0]
+  const panelEntry = entries.find(e => e.id === panelTurnId) ?? entries[0]
   const panelTurn = panelEntry.turn
   const panelLineage = lineagePayloadOf(panelTurn)
 
@@ -146,6 +178,15 @@ export default function A1V2RLanding() {
     setPanelTurnId(id)
     setFocus(f => ({ index, nonce: f.nonce + 1 }))
   }
+
+  // FE-03 R2/R3/R4：mount 调 restoreRunning() 一次（票面伪代码：useEffect 空依赖；
+  // restoredRef 护栏——组件实例内只跑一遍，重连/还原推入的轮不重复）
+  useEffect(() => {
+    if (restoredRef.current) return
+    restoredRef.current = true
+    restoreRunning()
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- mount 一次（restoreRunning 身份稳定）
+  }, [])
 
   return (
     <div style={{ display: 'flex', gap: 16, alignItems: 'stretch', height: '100%' }}>
@@ -161,13 +202,14 @@ export default function A1V2RLanding() {
         styles={{ body: { flex: 1, minHeight: 320, display: 'flex', flexDirection: 'column' } }}>
         <div style={{ ...dim, marginBottom: 8 }}>
           <Tag color="orange">mock 数据 · 静态版面</Tag>
-          串行链条（真机帧假数据，未接后端）：①运行中 ②完整轮 ③分列轮 ④旧版降级。
+          串行链条（真机帧假数据）：①运行中 ②完整轮 ③分列轮 ④旧版降级；重连恢复（R1–R4）已接线，真提问发送归 FE-05。
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
           <div style={{ borderLeft: '2px solid rgba(127,127,127,0.22)', paddingLeft: 14 }}>
-            {MOCK_TURNS.map(entry => (
+            {entries.map(entry => (
               <TurnChain key={entry.id} id={entry.id} turn={entry.turn} durationS={entry.durationS}
-                onCite={openCite(entry.id)} defaultLineageOpen={entry.id === 't-full'} />
+                onCite={openCite(entry.id)} onResume={chosen => resumeEntry(entry, chosen)}
+                defaultLineageOpen={entry.id === 't-full'} />
             ))}
           </div>
         </div>
