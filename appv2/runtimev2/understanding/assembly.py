@@ -72,7 +72,8 @@ def recommendation_line(state: RunState) -> str:
 
 
 def task_book(state: RunState, *, watermark: str = "") -> str:
-    """任务书装配（数据区〔含推荐行〕＋题干段）——委托 `prompts.assemble_task_book` 单点（行为 1／2）。
+    """任务书装配（数据区〔含推荐行〕＋题干段）——委托 `prompts.assemble_task_book` 单点
+    （行为 1／2）。
 
     **2026-10-17 V2-82a**：数据区尾并入「程序预识别」推荐行（本块拼值——经 `tools` 包根调
     `subject_candidates`／`term_candidates`，R6 合规：理解相位不直引 `anchors`）。

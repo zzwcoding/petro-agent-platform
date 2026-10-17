@@ -214,7 +214,9 @@ def test_understanding_subjects_terms_additive_lenient() -> None:
         assert understanding_schema_feedback(sample) == ""  # 拒因零新增
 
     # 直答形同步（字段集两形同一面；直答形缺省空）
-    direct = parse_understanding(json.dumps({"route": "direct", "text": "不客气"}, ensure_ascii=False))
+    direct = parse_understanding(
+        json.dumps({"route": "direct", "text": "不客气"}, ensure_ascii=False)
+    )
     assert isinstance(direct, Direct)
     assert direct.subjects == () and direct.terms == ()
 
