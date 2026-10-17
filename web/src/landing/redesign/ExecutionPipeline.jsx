@@ -130,7 +130,7 @@ export default function ExecutionPipeline({ turn, durationS = null }) {
   ].filter(Boolean)
 
   return (
-    <div style={{ border: '1px solid #e0e4e8', borderRadius: 6, marginBottom: 8, background: 'rgba(127,127,127,0.05)' }}
+    <div style={{ borderRadius: 6, marginBottom: 8, background: 'rgba(127,127,127,0.05)' }}
       data-testid="pipeline">
       <div
         role="button" tabIndex={0} aria-expanded={open} data-testid="pipeline-bar"

@@ -103,7 +103,7 @@ TurnShape {
 - E1 引用面板：citation 无配对 observation→「材料未在回合内渲染」占位（不虚构）；整轮无引用→「本回合无引用」。
 - E2 血缘卡：`supplements.lineage` 与 materials[].payload.lineage 都无→不渲染（非数据题）。
 - E3 notice 未知 type→通用灰条兜底，不静默丢弃。
-- E4 history 轮：引用面板/notice 带/blackbox 小字无数据源→该展示位不渲染；灰字提示语〔原文：「本轮为旧版记录，无引用/口径明细」〕（legacy=true 时）。
+- E4 history 轮：引用面板/notice 带/blackbox 小字无数据源→该展示位不渲染；legacy 形状保留（正文内嵌旧式「引用：」块原样渲染），**不再出旧版说明句**（原灰字〔「本轮为旧版记录，无引用/口径明细」〕按 Owner 2026-10-17 打磨批去行话撤下——形状留、话不说）。
 - E5 流水线摘要时长为本地计时，标注〔原文：「本地计时」〕。
 
 **重连（R 组）**
@@ -113,9 +113,10 @@ TurnShape {
 - R4 挂起态刷新：`GET /runs/{id}` 的 `pending_ask` 还原挂起卡；resume 只消费本腿新帧（不重启不重放）。
 
 **历史列（L 组）**
-- L1 初始 `GET /runs?limit=20`；上拉加载＝limit 步进 +20 重拉全量替换（后端无 offset——夹取 1..100，真源 `appv2/api/chat.py` list_runs）；到 100 封顶显「已到最早」。
+- L1 初始 `GET /runs?limit=20`；上拉加载＝**滚到列表底部**（离底 ≤40px）触发、limit 步进 +20 重拉全量替换（后端无 offset——夹取 1..100，真源 `appv2/api/chat.py` list_runs）；加载入口与「已到最早」小字都置**列表底部**（最新在上、更早在下）。
 - L2 搜索＝对已加载行前端过滤（后端无搜索参数），零请求。
 - L3 选中行→拉该链轮次（listItem.followup_of 链对齐现状 buildThreads 分组语义）渲染中栏。
+- L4 显示粒度＝**一链一行**（分组只作用于显示——加载与窗口回传仍按原始行）：链归属＝followup_of 逐跳上溯到根（根＝空串或指向窗口外，与 L3 拉链同一 `cites.js::chainRootId`），链序按最新轮 `created_at` 降序；行＝链内最早轮问句（18 字截断），副行＝`{最新轮状态} · {链轮数} 轮 · {MM-DD HH:mm}`；点行＝L3 拉链（回调链内最新轮），选中＝所在链整行高亮。
 
 ## 不降级与静默禁令
 
@@ -124,7 +125,7 @@ TurnShape {
 | 不静默丢帧/丢事件 | 未知类型进忽略计数（G6）；未知 notice type 出兜底灰条（E3） | reducer 忽略计数断言（`::unknown_event_counted`）；灰条渲染断言 |
 | 不伪造数据 | 引用无配对出占位文案（E1）；无血缘不渲染（E2） | 占位文案渲染断言 |
 | 不悬挂 | 重连 404→终态灰条（R3）；running 无 blackbox→统计行缺项不渲染 | 灰条/缺项断言 |
-| history 不假装有明细 | legacy 灰字〔原文：「本轮为旧版记录，无引用/口径明细」〕 | `legacy` 字段在场＋灰字渲染断言 |
+| history 不假装有明细 | legacy 轮明细位不渲染，且不出旧版说明句（legacy 形状保留，正文旧块原样） | `legacy` 字段在场＋明细位不渲染断言 |
 
 ## 验收测试
 

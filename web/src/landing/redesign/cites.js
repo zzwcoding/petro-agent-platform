@@ -12,6 +12,8 @@
  * - 条目行内「来源」抽取：取首个 `：` 之前的片段，若片段含 ` · `（真机 split 形
  *   `《报告》 · f15：正文`）再取最后一个 ` · ` 之前的来源名——取不到来源＝空串
  *   （渲染方归「来源未标注」，不伪造）。
+ * - **追问链归属**（followup_of 上溯取根／按根成链）也放本件——左栏 ThreadList 的「一链一行」
+ *   分组与真流页 A1V2R 的选中拉链（collectChain）共用同一根语义，单点真源不各写一份。
  */
 
 /** trust 四值 → 白话徽标（调研 §4：前端不再原样显示英文 trust）。 */
@@ -55,6 +57,54 @@ function sourceOf(body) {
   const dot = prefix.lastIndexOf(' · ')
   const name = (dot >= 0 ? prefix.slice(0, dot) : prefix).trim()
   return { source: name, rest: body.slice(colon + 1).trim() }
+}
+
+/**
+ * 追问链归属：沿 `followup_of` 逐跳上溯取根——根＝`followup_of` 空串／指向**窗口外**
+ * （窗口界兜底：窗内最老成员自成一链，如实呈现，不虚构归属；与旧页 608267b buildThreads
+ * 的分组语义同源）。`byId`＝窗口 id→行表；`cache`（可选）＝行 id→根 id，调用方跨行复用时传。
+ * 带环护栏（seen）：脏数据成环不死循环，停在环上第一节点＝该链根。
+ */
+export function chainRootId(row, byId, cache = null) {
+  if (cache?.has(row.run_id)) return cache.get(row.run_id)
+  const seen = new Set()
+  let cur = row
+  while (cur.followup_of && byId.has(cur.followup_of) && !seen.has(cur.run_id)) {
+    seen.add(cur.run_id)
+    cur = byId.get(cur.followup_of)
+  }
+  cache?.set(row.run_id, cur.run_id)
+  return cur.run_id
+}
+
+/**
+ * 行集 → 追问链分组（左栏「一链一行」的数据面）：按**分组键**（followup_of 上溯根）归链；
+ * 链内按 `created_at` 升序（轮次顺序），`latest`＝最新轮（升序末位——副行状态/轮数/时间取它），
+ * 链序按 `latest.created_at` 降序（与后端行序同向——最新对话在最上）。
+ * `rootId`/`title` 取链内**created_at 最早**的成员（旧页 608267b buildThreads 的行标识与行标签
+ * 口径——正常数据下即链根问句；夹具里 followup 行早于其父时才与分组键不同名）。
+ * 返回 [{ rootId, title（链内最早轮问句）, rounds, latest }]。
+ */
+export function groupRunsIntoChains(runs) {
+  const byId = new Map(runs.map(r => [r.run_id, r]))
+  const cache = new Map()
+  const groups = new Map()
+  for (const r of runs) {
+    const root = chainRootId(r, byId, cache)
+    if (!groups.has(root)) groups.set(root, [])
+    groups.get(root).push(r)
+  }
+  const chains = [...groups.values()].map(rs => {
+    const rounds = [...rs].sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
+    return {
+      rootId: rounds[0].run_id,
+      title: rounds[0].question || '（无问句）',
+      rounds,
+      latest: rounds[rounds.length - 1]
+    }
+  })
+  chains.sort((a, b) => (a.latest.created_at < b.latest.created_at ? 1 : -1))
+  return chains
 }
 
 /**

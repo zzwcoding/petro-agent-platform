@@ -8,11 +8,14 @@
  * - trust 四值→白话徽标；未知值原样回显（不外推、不编）。
  * - 追加面文本切分：`[n]` 起头＝新条目；真机 split 的续行（含全角空格表格行）并入上一条；
  *   条目行「来源」抽取处理 `[n] {source}：{正文}` 与 `[n] 《报告》 · f15：{正文}` 两形。
+ * - 追问链归属：followup_of 逐跳上溯取根（空串/窗口外＝到顶）、成环不死循环、分组口径
+ *   （链内升序＋latest＝最新轮、链序按最新轮降序）——左栏一链一行与页面拉链的同一真源。
  */
 /** @vitest-environment jsdom */
 import { describe, expect, it } from 'vitest'
 
-import { citeSourceCount, groupCitations, parseSupplement, trustLabel } from './cites.js'
+import { chainRootId, citeSourceCount, groupCitations, groupRunsIntoChains, parseSupplement, trustLabel } from './cites.js'
+import { FIXTURE_RUNS } from './__fixtures__/runs.js'
 import { FIXTURE_TURNS } from './__fixtures__/turns.js'
 
 const FULL = FIXTURE_TURNS.find(t => t.id === 't-full').turn
@@ -78,5 +81,38 @@ describe('cites · 程序追加面文本切分（禁硬匹配块头，只按行�
   it('空文本＝空 head 空 items（空态不造数据）', () => {
     expect(parseSupplement(null)).toEqual({ head: '', items: [] })
     expect(parseSupplement('')).toEqual({ head: '', items: [] })
+  })
+})
+
+describe('cites · 追问链归属（左栏一链一行／页面拉链的同一真源）', () => {
+  const row = (run_id, followup_of, created_at, question = run_id) =>
+    ({ run_id, followup_of, created_at, question, status: 'completed', updated_at: created_at })
+
+  it('followup_of 逐跳上溯取根：空串／指向窗口外＝到顶（窗内最老成员自成一链）', () => {
+    const rows = [row('b', 'a', '2026-10-17 10:10'), row('a', '', '2026-10-17 10:00'),
+      row('d', 'c-outside', '2026-10-17 09:10'), row('e', 'd', '2026-10-17 09:00')]
+    const byId = new Map(rows.map(r => [r.run_id, r]))
+    expect(chainRootId(byId.get('b'), byId)).toBe('a')       // 随 followup_of 到顶
+    expect(chainRootId(byId.get('a'), byId)).toBe('a')
+    expect(chainRootId(byId.get('e'), byId)).toBe('d')       // 父在窗口外＝窗内最老成员 d 成链根
+  })
+
+  it('成环脏数据不死循环（环上各自停在自身节点——分组退化不虚构、不挂死）', () => {
+    const rows = [row('x', 'y', '2026-10-17 10:00'), row('y', 'x', '2026-10-17 09:00')]
+    const byId = new Map(rows.map(r => [r.run_id, r]))
+    expect(chainRootId(byId.get('x'), byId)).toBe('x')
+    expect(chainRootId(byId.get('y'), byId)).toBe('y')
+  })
+
+  it('分组：同根归一条链（created_at 升序、latest＝最新轮）、标题＝链内最早轮问句、链序按最新轮降序', () => {
+    const chains = groupRunsIntoChains([FIXTURE_RUNS[0], FIXTURE_RUNS[1], FIXTURE_RUNS[2], FIXTURE_RUNS[3]])
+    expect(chains.map(c => [c.rootId, c.rounds.length, c.latest.run_id]))
+      .toEqual([['run-9e3779b1', 1, 'run-9e3779b1'], ['run-daa66d14', 2, 'run-3c6ef363'], ['run-78dde6c6', 1, 'run-78dde6c6']])
+    expect(chains[0].title).toBe('W-11 井生产套管的尺寸与下深是多少？') // 链接回传原始行不裁剪（截断是渲染面）
+    expect(chains[1].title).toBe('去年各井含水率是多少？')
+  })
+
+  it('空输入＝空链列（不造数据）', () => {
+    expect(groupRunsIntoChains([])).toEqual([])
   })
 })

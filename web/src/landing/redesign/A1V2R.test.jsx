@@ -16,7 +16,9 @@
  * - 引标联动：点正文 [n] ＝右栏面板切到该轮并「已定位」；链内挂起轮＝续答真通（FE-04 遗留接通）；
  * - Owner 反馈回归（旧页 608267b 对照）：＋新会话＝退出链视图回本会话流＋输入/选中清空；
  *   中栏贴底跟随＝贴底态滚到底、上翻阅读不被拽回（jsdom 桩化 scrollHeight/clientHeight，
- *   页面无 Element.scrollTo＝回退置 scrollTop，即被测路径）。
+ *   页面无 Element.scrollTo＝回退置 scrollTop，即被测路径）；
+ * - Owner 反馈打磨批（左栏一链一行／滚到底加载／去行话／去中栏框框）：链行一行展示、点行拉全链、
+ *   输入区追问提示不带 run 号、旧版灰字说明退场（legacy 形状保留）、页面文本不露内部 run 号。
  */
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -142,7 +144,8 @@ describe('A1V2R · 真流发送（FE-05——specs「验收测试」表第 17 �
     render(<A1V2R />)
     const first = await sendAsk('一轮问句')
     finishLeg(first.handlers, { runId: 'run-one' })
-    expect(await screen.findByTestId('followup-hint')).toBeTruthy() // 已收口轮＝追问锚（输入区提示）
+    const hint = await screen.findByTestId('followup-hint') // 已收口轮＝追问锚（输入区提示）
+    expect(hint.textContent).toBe('继续本会话（追问上下文自动继承）') // 不带 run 号（系统内部号不外露）
 
     const second = await sendAsk('二轮追问')
     expect(second.body).toEqual({ question: '二轮追问', followupRunId: 'run-one' })
@@ -228,7 +231,7 @@ describe('A1V2R · 轮渲染（夹具轮——链条节点与空态纪律）', (
     expect(within(answerBlock).queryByTestId('run-meta-line')).toBeNull() // 未收口＝无核验/档案小字
   })
 
-  it('分列轮长 split 限高；旧版降级轮无流水线＋降级灰字；旧版轮 [n] 是死文本', () => {
+  it('分列轮长 split 限高；旧版降级轮无流水线＋无旧版灰字说明（legacy 形状保留：正文「引用：」块原样）', () => {
     render(<>
       <TurnChain id="t-split" turn={SPLIT} />
       <TurnChain id="t-legacy" turn={LEGACY} />
@@ -239,8 +242,8 @@ describe('A1V2R · 轮渲染（夹具轮——链条节点与空态纪律）', (
 
     const legacy = screen.getByTestId('turn-t-legacy')
     expect(legacy.parentElement.querySelectorAll('[data-testid="pipeline"]')).toHaveLength(0) // 无流水线块
-    expect(within(legacy).getByTestId('legacy-note').textContent)
-      .toContain('本轮为旧版记录，无引用/口径明细')
+    expect(within(legacy).queryByTestId('legacy-note')).toBeNull() // 旧版灰字行已整块退场
+    expect(legacy.textContent).not.toContain('本轮为旧版记录') // 也不以别的形式露同句行话
     expect(legacy.querySelector('[data-cite]')).toBeNull() // 旧轮无引用数据——[n] 不成锚点
     expect(legacy.textContent).toContain('「躺井」是作业区口语')
     expect(legacy.textContent).toContain('[1]')
@@ -313,20 +316,22 @@ describe('A1V2R · 三场景归一（H5 零分支——specs「验收测试」�
     expect(container.querySelector('[data-testid="pipeline"]')).toBeNull() // events 恒空→流水线整块不出
     expect(container.querySelector('[data-testid="answer-placeholder"]')).toBeNull()
     expect(container.querySelector('[data-testid="legacy-note"]')).toBeNull() // 新行 supplements=[]→legacy=false
-    // 链条仍完整：正文/血缘卡/追加面/核验小字照常渲染（同 live 的节点集）
-    for (const id of ['block-question', 'answer-view', 'lineage-card', 'supplement-blocks', 'run-meta-line']) {
+    // 链条仍完整：正文/血缘卡/追加面照常渲染（同 live 的节点集）
+    for (const id of ['block-question', 'answer-view', 'lineage-card', 'supplement-blocks']) {
       expect(container.querySelector(`[data-testid="${id}"]`)).toBeTruthy()
     }
-    expect(container.querySelector('[data-testid="run-meta-line"]').textContent).toBe('run-one-shape')
+    // 无核验帧/无档案帧/无本地计时＝小字行整行不出（run 号段删除后不再是「有内容的行」）
+    expect(container.querySelector('[data-testid="run-meta-line"]')).toBeNull()
+    expect(container.textContent).not.toContain('run-')
   })
 })
 
-describe('A1V2R · 左侧历史对话（真接 ThreadList——FE-04）', () => {
-  it('左栏＝ThreadList 真接：初始拉 20 条、搜索框在位、加载入口在位；点行＝高亮切换＋中栏切链', async () => {
+describe('A1V2R · 左侧历史对话（真接 ThreadList——FE-04；一链一行）', () => {
+  it('左栏＝ThreadList 真接：初始拉 20 条＝14 条链行、搜索框在位、加载入口在位；点行＝高亮切换＋中栏切链', async () => {
     render(<A1V2R />)
     const list = screen.getByTestId('thread-list')
     await within(list).findByTestId(`thread-row-${FIXTURE_RUNS[0].run_id}`)
-    expect(within(list).getAllByTestId(/^thread-row-/)).toHaveLength(20)
+    expect(within(list).getAllByTestId(/^thread-row-/)).toHaveLength(14) // 20 原始行按链分组（6 条 followup 轮并入链行）
     expect(within(list).getByPlaceholderText('搜索对话')).toBeTruthy()
     expect(within(list).getByTestId('load-more')).toBeTruthy()
     expect(vi.mocked(listRunsV2)).toHaveBeenCalledWith(20) // 真接读口：初始 limit=20
@@ -339,14 +344,42 @@ describe('A1V2R · 左侧历史对话（真接 ThreadList——FE-04）', () => 
     expect(fetchMock).not.toHaveBeenCalled() // 读口走 chatV2 桩——raw fetch 层零调用
   })
 
+  it('左栏一链一行：点 2 轮链行 → 中栏该链两轮（行内不带 run 号，页面文本不露内部号）', async () => {
+    render(<A1V2R />)
+    const list = screen.getByTestId('thread-list')
+    // FIXTURE_RUNS[1]/[2] 同链（followup_of 指向）：只出一行（行标识＝链内最早轮 = run-daa66d14）
+    const row = await within(list).findByTestId(`thread-row-${FIXTURE_RUNS[2].run_id}`)
+    expect(within(list).queryByTestId(`thread-row-${FIXTURE_RUNS[1].run_id}`)).toBeNull()
+    expect(row.textContent).toContain('已完成 · 2 轮 · 10-17 09:12') // 副行＝最新轮状态·轮数·时间
+    fireEvent.click(row) // 行点＝链内最新轮（页面 collectChain 从任意成员拉全链）
+    await screen.findByTestId(`round-${FIXTURE_RUNS[1].run_id}`)
+    expect(screen.getByTestId(`round-${FIXTURE_RUNS[2].run_id}`)).toBeTruthy() // 两轮都在中栏
+    expect(within(list).getByTestId(`thread-row-${FIXTURE_RUNS[2].run_id}`).dataset.selected).toBe('true')
+    expect(screen.getByText('对话 · 2 轮')).toBeTruthy() // 链视图头部（不带系统口径尾注）
+    expect(list.textContent).not.toMatch(/run-[0-9a-f]{6,}/) // 左栏不露内部 run 号
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('左栏搜索＝前端过滤（搜索期零新增请求——listRunsV2 调用次数不变）', async () => {
     render(<A1V2R />)
     await screen.findByTestId(`thread-row-${FIXTURE_RUNS[0].run_id}`)
     fireEvent.change(screen.getByPlaceholderText('搜索对话'), { target: { value: '含水率' } })
-    const hit = FIXTURE_RUNS.slice(0, 20).filter(r => r.question.includes('含水率'))
-    expect(screen.getAllByTestId(/^thread-row-/)).toHaveLength(hit.length)
+    // 命中 1 条原始行（FIXTURE_RUNS[2]）→ 其链整行保留（一行 2 轮）
+    expect(screen.getAllByTestId(/^thread-row-/)).toHaveLength(1)
+    expect(screen.getByTestId(`thread-row-${FIXTURE_RUNS[2].run_id}`).textContent).toContain('2 轮')
     expect(vi.mocked(listRunsV2)).toHaveBeenCalledTimes(1) // 只有初载一次
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('页面文本不露内部 run 号：小字行/追问提示/流水线展开态/右栏全页文本面无 run- 前缀号', async () => {
+    render(<A1V2R />)
+    await screen.findByTestId(`thread-row-${FIXTURE_RUNS[0].run_id}`)
+    const { handlers } = await sendAsk('内部号不外露问句')
+    finishLeg(handlers, { runId: 'run-8a1b2c3d', answer: '答案正文。' })
+    const hint = await screen.findByTestId('followup-hint') // 已收口＝追问提示在场
+    expect(hint.textContent).toBe('继续本会话（追问上下文自动继承）')
+    expect(document.body.textContent).not.toMatch(/run-[0-9a-f]{6,}/) // 全页文本面（含右栏/流水线）
+    expect(document.body.textContent).not.toContain('run-8a1b2c3d')
   })
 })
 
@@ -424,17 +457,20 @@ describe('A1V2R · 选中拉链（FE-04 L3——specs「验收测试」表第 16
     pending_ask: null
   })
 
-  it('select_thread_renders_turns：点链根行 → 逐轮 getRunV2 → 中栏两轮 created_at 升序；supplements=null 轮灰字在场', async () => {
+  it('select_thread_renders_turns：点链行 → 逐轮 getRunV2 → 中栏两轮 created_at 升序；旧版轮（supplements=null）不再出灰字', async () => {
     vi.mocked(listRunsV2).mockResolvedValue(CHAIN_WINDOW)
     vi.mocked(getRunV2).mockImplementation(runId => Promise.resolve(runViewOf(runId)))
     render(<A1V2R />)
-    await screen.findByTestId('thread-row-run-root')
-    fireEvent.click(screen.getByTestId('thread-row-run-root')) // 点链根行
+    // 一链一行：root/next 同链只出一行（行标识＝链内最早轮＝run-root）
+    const row = await screen.findByTestId('thread-row-run-root')
+    expect(screen.queryByTestId('thread-row-run-next')).toBeNull()
+    expect(row.textContent).toContain('已完成 · 2 轮 · 10-17 10:05') // 副行＝最新轮（run-next）状态/轮数/时间
+    fireEvent.click(row) // 点链行
     // 中栏＝该链两轮（无关单轮不入链），DOM 序＝created_at 升序（root→next）
     await screen.findByTestId('round-run-root')
     expect(screen.getByTestId('round-run-next')).toBeTruthy()
     expect(screen.queryByTestId('round-run-other')).toBeNull()
-    expect(screen.getByText('对话 · 2 轮（选中链——created_at 升序）')).toBeTruthy() // 中栏在链视图
+    expect(screen.getByText('对话 · 2 轮')).toBeTruthy() // 中栏在链视图（头部不带系统口径尾注）
     expect(screen.queryByTestId('flow-empty')).toBeNull() // 链视图下不出本会话流空态
     const order = [...document.querySelectorAll('[data-testid="round-run-root"], [data-testid="round-run-next"]')]
       .map(el => el.dataset.testid)
@@ -443,9 +479,10 @@ describe('A1V2R · 选中拉链（FE-04 L3——specs「验收测试」表第 16
     expect(vi.mocked(getRunV2)).toHaveBeenCalledTimes(2)
     expect(vi.mocked(getRunV2)).toHaveBeenNthCalledWith(1, 'run-root')
     expect(vi.mocked(getRunV2)).toHaveBeenNthCalledWith(2, 'run-next')
-    // supplements=null 旧轮 → 灰字在场（E4 降级——adaptHistoryTurn legacy 形）；新轮无灰字
-    expect(within(screen.getByTestId('round-run-root')).getByTestId('legacy-note').textContent)
-      .toContain('本轮为旧版记录，无引用/口径明细')
+    // 旧版轮（supplements=null → legacy 形状保留）＝不出灰字说明；新轮本就无
+    const rootRound = screen.getByTestId('round-run-root')
+    expect(within(rootRound).queryByTestId('legacy-note')).toBeNull()
+    expect(rootRound.textContent).not.toContain('本轮为旧版记录')
     expect(within(screen.getByTestId('round-run-next')).queryByTestId('legacy-note')).toBeNull()
     // 右栏联动＝当前选中链最后一轮（followup 轮）：链轮无引用帧＋lineage 块落面板
     // （根轮 legacy 无 supplements→无血缘卡）
@@ -511,11 +548,11 @@ describe('A1V2R · Owner 反馈回归（＋新会话退出对话／中栏贴底�
     expect(btn.textContent).toBe('＋新会话')
     expect(btn.disabled).toBe(false) // 非发送中＝可点（旧页 busy 同义才 disabled）
 
-    // 进链视图：点单轮链行（run-78dde6c6——窗口内无同根行）
+    // 进链视图：点单轮链行（run-78dde6c6——窗口内无同链行）
     await screen.findByTestId('thread-row-run-78dde6c6')
     fireEvent.click(screen.getByTestId('thread-row-run-78dde6c6'))
     await screen.findByTestId('round-run-78dde6c6')
-    expect(screen.getByText(/选中链——created_at 升序/)).toBeTruthy() // 中栏在链视图
+    expect(screen.getByText('对话 · 1 轮')).toBeTruthy() // 中栏在链视图
     expect(screen.getByTestId('thread-row-run-78dde6c6').dataset.selected).toBe('true')
 
     const input = screen.getByPlaceholderText(/Enter 发送/)
@@ -523,7 +560,7 @@ describe('A1V2R · Owner 反馈回归（＋新会话退出对话／中栏贴底�
     fireEvent.click(screen.getByTestId('new-session'))
 
     // 中栏回本会话流视图（链头/链轮退场；本会话流空＝空态）
-    expect(screen.queryByText(/选中链——created_at 升序/)).toBeNull()
+    expect(screen.queryByText('对话 · 1 轮')).toBeNull()
     expect(screen.queryByTestId('round-run-78dde6c6')).toBeNull()
     expect(screen.getByTestId('flow-empty')).toBeTruthy()
     expect(screen.getByTestId('new-session')).toBeTruthy() // 退回本会话流仍在本栏

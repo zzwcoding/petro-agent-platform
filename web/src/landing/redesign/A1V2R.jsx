@@ -50,6 +50,7 @@ import { newTurnV2, phaseOf, reduceV2Frame } from '../a1v2Reducer.js'
 import AnswerView from '../AnswerView.jsx'
 import CitationPanel from './CitationPanel.jsx'
 import CiteHoverCard from './CiteHoverCard.jsx'
+import { chainRootId } from './cites.js'
 import ExecutionPipeline from './ExecutionPipeline.jsx'
 import { adaptHistoryTurn } from './historyAdapter.js'
 import LineageCard from './LineageCard.jsx'
@@ -107,11 +108,11 @@ export function TurnChain({ id, turn, durationS = null, onCite = null, onResume 
   })
   return (
     <div data-testid={`round-${id}`} style={{ marginBottom: 18 }}>
-      {/* ① 用户输入块 */}
+      {/* ① 用户输入块（无边框圆角底块——Owner 反馈：去 Card 框，保留蓝底与内边距） */}
       <ChainBlock testid="block-question" dot="#1677ff">
-        <Card size="small" style={{ background: 'rgba(22,119,255,0.12)' }}>
+        <div style={{ background: 'rgba(22,119,255,0.12)', borderRadius: 6, padding: '6px 10px' }}>
           <b>我：</b>{turn.question}
-        </Card>
+        </div>
       </ChainBlock>
 
       {/* ② 系统执行流水线块（typed 事件流——归约器直出到达序） */}
@@ -119,89 +120,75 @@ export function TurnChain({ id, turn, durationS = null, onCite = null, onResume 
         <ExecutionPipeline turn={turn} durationS={durationS} />
       </ChainBlock>
 
-      {/* ③ 系统回答块 */}
+      {/* ③ 系统回答块（无外层框——各展示位直接在链条节点里，空态纪律在展示件内） */}
       <ChainBlock testid={`turn-${id}`} dot="#52c41a">
-        <Card size="small">
-          {/* errorFrame 渲染位（FE-03 R3——对账 D-2 闭环错误契约的安放位；A 级 notice Alert 之前） */}
-          {turn.errorFrame && (
-            <Alert type="error" data-testid="error-frame-alert"
-              message={turn.errorFrame.message} style={{ margin: '6px 0' }} />
-          )}
-          {/* 挂起卡（FE-03 R4——askFrame 在场＝等人工；选项点击＝onResume 续答通路） */}
-          {turn.askFrame && turn.runStatus === 'waiting_ask' && onResume && (
-            <Card size="small" data-testid="suspend-card" style={{ margin: '8px 0', borderColor: '#4a9dff' }}
-              title={<span>{turn.askFrame.kind === 'external_table_approval' ? '越集审批' : '系统反问'}</span>}>
-              <div style={{ marginBottom: 8 }}>{turn.askFrame.prompt}</div>
-              {turn.askFrame.kind === 'external_table_approval' && turn.askFrame.detail?.tables && (
-                <div style={dim}>外部表：{turn.askFrame.detail.tables.join('、')}</div>
-              )}
-              <Space wrap>
-                {(turn.askFrame.options || []).map(op => (
-                  <Button key={op} size="small" type="primary" ghost onClick={() => onResume(op)}>{op}</Button>
-                ))}
-              </Space>
-            </Card>
-          )}
-          {/* A 级 notice 留一条紧凑 Alert（折叠态流水线下也能感知可信度；B/C 只在流水线里） */}
-          <NoticeAlerts notices={turn.notices} />
-          {answering && <div style={dim} data-testid="answer-placeholder">正在作答…</div>}
-          {turn.answerText
-            ? (
-              <AnswerView
-                content={turn.answerText}
-                onCite={citeClick}
-                citeHoverCard={hoverCard} />
-            )
-            : (!answering && <div style={dim}>本次未产出答案正文。</div>)}
-          {/* 链条后续节点：血缘卡 → 追加面（空态各自不出）。
-              血缘两源（对账 D-5）：结构化源＝materials[].payload（优先）；文本兜底＝supplements.lineage */}
-          <LineageCard lineage={lineagePayload?.lineage ?? null} limit={lineagePayload?.limit ?? null}
-            text={turn.supplements?.lineage ?? ''} defaultOpen={defaultLineageOpen} />
-          <SupplementBlocks split={turn.supplements?.split ?? null}
-            attribution={turn.supplements?.attribution ?? null} />
-          {/* 旧版历史轮降级说明（supplements=null 的旧轮——如实说不清，不假装有明细） */}
-          {turn.legacy && (
-            <div style={{ ...dim, marginTop: 6 }} data-testid="legacy-note">
-              本轮为旧版记录，无引用/口径明细。
+        {/* errorFrame 渲染位（FE-03 R3——对账 D-2 闭环错误契约的安放位；A 级 notice Alert 之前） */}
+        {turn.errorFrame && (
+          <Alert type="error" data-testid="error-frame-alert"
+            message={turn.errorFrame.message} style={{ margin: '6px 0' }} />
+        )}
+        {/* 挂起卡（FE-03 R4——askFrame 在场＝等人工；选项点击＝onResume 续答通路）——淡蓝底无框 */}
+        {turn.askFrame && turn.runStatus === 'waiting_ask' && onResume && (
+          <div data-testid="suspend-card"
+            style={{ margin: '8px 0', background: 'rgba(22,119,255,0.10)', borderRadius: 6, padding: '8px 12px' }}>
+            <div style={{ marginBottom: 6 }}>
+              {turn.askFrame.kind === 'external_table_approval' ? '越集审批' : '系统反问'}
             </div>
-          )}
-          {/* ⑦ 核验徽标行 ＋ ⑧ 档案小字行（run 号/步数/材料数/档案 KB/本地计时）——
-              运行中未收口＝无核验无档案，时长已在流水线摘要行，此处不重复出。
-              verdict 仍取 verify 形（verdicts[0]——verify 帧先于 final 帧到达且本字段只消费
-              verify 形计数）；verdictFinal 的消费在 FE-05 接真流时补「收口 manifest_digest」位 */}
-          {phase !== 'running' && (
-            <RunMetaLine runId={turn.runId} verdict={turn.verdicts[0] ?? null} blackbox={turn.blackbox}
-              durationS={durationS} />
-          )}
-        </Card>
+            <div style={{ marginBottom: 8 }}>{turn.askFrame.prompt}</div>
+            {turn.askFrame.kind === 'external_table_approval' && turn.askFrame.detail?.tables && (
+              <div style={dim}>外部表：{turn.askFrame.detail.tables.join('、')}</div>
+            )}
+            <Space wrap>
+              {(turn.askFrame.options || []).map(op => (
+                <Button key={op} size="small" type="primary" ghost onClick={() => onResume(op)}>{op}</Button>
+              ))}
+            </Space>
+          </div>
+        )}
+        {/* A 级 notice 留一条紧凑 Alert（折叠态流水线下也能感知可信度；B/C 只在流水线里） */}
+        <NoticeAlerts notices={turn.notices} />
+        {answering && <div style={dim} data-testid="answer-placeholder">正在作答…</div>}
+        {turn.answerText
+          ? (
+            <AnswerView
+              content={turn.answerText}
+              onCite={citeClick}
+              citeHoverCard={hoverCard} />
+          )
+          : (!answering && <div style={dim}>本次未产出答案正文。</div>)}
+        {/* 链条后续节点：血缘卡 → 追加面（空态各自不出）。
+            血缘两源（对账 D-5）：结构化源＝materials[].payload（优先）；文本兜底＝supplements.lineage */}
+        <LineageCard lineage={lineagePayload?.lineage ?? null} limit={lineagePayload?.limit ?? null}
+          text={turn.supplements?.lineage ?? ''} defaultOpen={defaultLineageOpen} />
+        <SupplementBlocks split={turn.supplements?.split ?? null}
+          attribution={turn.supplements?.attribution ?? null} />
+        {/* 旧版历史轮（legacy=true）：旧式「引用：」块随正文原样渲染；不作任何面向用户的旧版说明
+            （Owner 反馈：灰字行去行话——形状保留、话不说） */}
+        {/* ⑦ 核验徽标行 ＋ ⑧ 档案小字行（步数/材料数/档案 KB/本地计时）——
+            运行中未收口＝无核验无档案，时长已在流水线摘要行，此处不重复出。
+            verdict 仍取 verify 形（verdicts[0]——verify 帧先于 final 帧到达且本字段只消费
+            verify 形计数）；verdictFinal 的消费在 FE-05 接真流时补「收口 manifest_digest」位 */}
+        {phase !== 'running' && (
+          <RunMetaLine verdict={turn.verdicts[0] ?? null} blackbox={turn.blackbox}
+            durationS={durationS} />
+        )}
       </ChainBlock>
     </div>
   )
 }
 
 /**
- * 选中行拉链（FE-04 L3）——链收集（分组语义与原现状页 buildThreads 同源）：
- * rootOf 沿 followup_of 上溯，followup_of 空串或指向窗口外＝到顶（链根不在列表窗内＝最老
+ * 选中行拉链（FE-04 L3）——链收集（根语义＝旧页 buildThreads／左栏分组的同一真源
+ * `cites.js::chainRootId`）：followup_of 空串或指向窗口外＝到顶（链根不在列表窗内＝最老
  * 窗内成员自成一链——分组窗界兜底，如实呈现不虚构归属）；链成员＝窗口内与选中行同根的行
  * （followup_of 逐跳可达），按 created_at 升序（轮次顺序）。
  */
 function collectChain(row, runs) {
   const byId = new Map(runs.map(r => [r.run_id, r]))
-  const rootCache = new Map()
-  const rootOf = r => {
-    if (rootCache.has(r.run_id)) return rootCache.get(r.run_id)
-    const seen = new Set()
-    let cur = r
-    while (cur.followup_of && byId.has(cur.followup_of) && !seen.has(cur.run_id)) {
-      seen.add(cur.run_id)
-      cur = byId.get(cur.followup_of)
-    }
-    rootCache.set(r.run_id, cur.run_id)
-    return cur.run_id
-  }
-  const rootId = rootOf(row)
+  const cache = new Map()
+  const rootId = chainRootId(row, byId, cache)
   return runs
-    .filter(r => rootOf(r) === rootId)
+    .filter(r => chainRootId(r, byId, cache) === rootId)
     .sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
 }
 
@@ -418,7 +405,7 @@ export default function A1V2RLanding() {
         {chain ? (
           <>
             <div style={{ ...dim, marginBottom: 8 }}>
-              {`对话 · ${chain.turns.length} 轮（选中链——created_at 升序）`}
+              {`对话 · ${chain.turns.length} 轮`}
             </div>
             <div ref={convRef} onScroll={onConvScroll} data-testid="conv-scroll"
               style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
@@ -457,7 +444,7 @@ export default function A1V2RLanding() {
           )}
           {followupAnchor && (
             <div style={{ ...dim, marginBottom: 6 }} data-testid="followup-hint">
-              {`继续本会话（追问 ${followupAnchor}）`}
+              继续本会话（追问上下文自动继承）
             </div>
           )}
           <Space.Compact style={{ width: '100%' }}>
