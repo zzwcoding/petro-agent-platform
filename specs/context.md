@@ -53,9 +53,13 @@ async def load_ledger_dump(state: RunState) -> dict[str, Any]: ...
 #   ＋ docs/runtime-refactor/synth/S5-RunState字段矩阵.md ledger_dump 行（写手 H6／M2——
 #   统一后唯一写手＝H6））
 def render_materials(observations: list[dict[str, Any]], *,
-                     max_observations: int) -> tuple[str, dict[str, Any]]: ...
+                     max_observations: int,
+                     anchors: Sequence[str] = ()) -> tuple[str, dict[str, Any]]: ...
 #   【迁移】材料段 [n] 渲染＋截断元数据（逐字迁移——现状载体 appv2/runtime/context.py；
 #   真源 docs/runtime-refactor/recon/K-上下文事件指南预算.md R-K-18…R-K-26；行为 1–6）
+#   ＋**V2-86 additive 可选参 `anchors`**（缺省 `()`＝与 V2-86 前行为逐字一致）：检索族席位
+#   选择的锚点串（来源／内容的包含判定即锚席位判据）；由调用方注入——answering 调用点传
+#   `state.subjects`＋`state.terms`＋题面数字串（纯字符扫描、去重保序；禁 `re`）。
 def render_process_notes(state: RunState, *, budget: int) -> str: ...
 #   【迁移＋显式改动】过程档案有界摘要段（逐字迁移——现状载体 appv2/runtime/graph.py
 #   `_render_process_notes`；显式改动＝下划线去前缀、budget 转显式注入参〔无缺省裸字面——
@@ -63,12 +67,16 @@ def render_process_notes(state: RunState, *, budget: int) -> str: ...
 #   R-B2-01…R-B2-04；行为 8）
 def compile_manifest(observations: list[dict[str, Any]], *, step: str,
                      max_observations: int,
+                     anchors: Sequence[str] = (),
                      ledger_dump: dict[str, Any] | None = None,
                      token_count: int = 0) -> "Manifest": ...
 #   【重建】材料面 Manifest 编译（V1 生产面已退役、本块重建靠 specs/answering.md 行为 4 承接；
 #   `step`＝本调用步名（V1 为相位名字面；取值面随步记录面登记）；`ledger_dump` 非 None＝
 #   本调用投入常驻块（→附三来源行）、None＝无；字段形状真源 specs/state.md 接口定义；
 #   selected_reason 逐字稿真源 tickets/v2/V2-61-材料承载分形渲染.md 附 A；行为 6／7）
+#   ＋**V2-86 additive 可选参 `anchors`**（缺省 `()`＝与 V2-86 前行为逐字一致）：与
+#   `render_materials` **同一组**锚点串——来源四列按 `_select_reports` 实投席位逐支记账
+#   （两出口同源同序；行为 7）。
 def compact_messages(messages: Sequence[Mapping[str, str]], *,
                      dialogue_view_tokens: int) -> tuple[list[dict[str, str]], str]: ...
 #   【重建（依票面重落——无现状载体：compaction 族已随 V2-80h 退役）】超窗 compaction
@@ -81,6 +89,8 @@ def trust_of(observation: dict[str, Any]) -> str: ...
 #     （其 assemble_task_book）——不在本名单。
 # ── 常量族（名单闭世界；数值不落本规格）──
 # DEFAULT_MAX_OBSERVATIONS（检索片段帽单点——数值真源 recon/K R-K-07；行为 4／12）
+# MAX_REPORT_SEATS_PER_SOURCE（单来源席位上界单点——数值不落本规格；行为 4／V2-86）
+# ANCHOR_SEATS（锚席位数上界单点——数值不落本规格；行为 4／V2-86 锚共现打分取前 N）
 # PROCESS_NOTES_BUDGET（过程档案预算单点——数值真源 recon/B2 `_PROCESS_NOTES_BUDGET`；行为 8）
 # TRUST_AGG／TRUST_LEDGER／TRUST_REPORT（三档信任级字符串＋排序映射——真源 R-K-01…R-K-06）
 # RESIDENT_SOURCE_ROWS（三来源行三元组映射：`ledger_dump`→`ledger_full_dump`／`alias_dump`→
@@ -110,9 +120,10 @@ def trust_of(observation: dict[str, Any]) -> str: ...
 2. **信任级映射闭世界＋notice 排除**：`trust_of` 判定路径唯一（只读 `locator.kind`，`str()` 归一后查表；缺 `locator`／缺 `kind`／未知 kind 统一落 `report`——不抛错）；映射闭世界＝十 kind 三族（权威：`agg_row`／`lineage`；台账：`metric`／`term`／`object`／`relation`／`family_annotation`；检索：`fragment`／`graph`；`notice` 名义入表但材料段整体排除——不进模型面、不计任何计数）（真源 R-K-03／R-K-15…R-K-17）。断言：十 kind 各落对；三种异常输入落 `report`；notice 条目不在渲染文本、不计计数。
 3. **排序＝信任级稳定序**：`authoritative`＜`ledger`＜`report`（rank 0／1／2，同 rank 保持入栈序、稳定排序）；两跑逐字相等（确定性不抖动——真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-48〔V2-61 事实面〕；R-K-05 排序键面；未登记信任级排序兜底〔现状不可达——notice 已前置排除〕迁移照抄、无行为面）。断言：乱序入栈 fixture → 输出按档聚簇且组内原序；两跑逐字相等。
 4. **分承载体预算（分形帽）**：权威/台账族（信任级非 `report`）**恒全量渲染、不设支数帽**（引擎侧已封顶、装配不重复封顶——真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-44）；检索族（`report`）超帽才截断（**帽只作用检索族**）；帽值经注入参数（`render_materials` 的 `max_observations`），**数值单点＝本块常量 `DEFAULT_MAX_OBSERVATIONS`**（真源 `docs/runtime-refactor/recon/K-上下文事件指南预算.md` R-K-07；具体值不落本规格）。**与 walk §13-B／§14-B 的分工**：单支超阈「落引用」归 `execution`（`specs/execution.md` 行为 4 已收口）；本块检索族支数帽＝token 安全面存续（V2-61 设计），与「渲染帽裁剪」不同物。断言：权威族超帽 fixture → 全渲染、零披露、`material_truncated=False`；检索族超帽 → 只渲染帽内支、披露在场。
+   **V2-86 检索族席位选择（材料供给席次）**：检索族（`report`）的「取哪几支」不是朴素前缀截断，而是本块确定性席位选择（`_select_reports`——本块私有件，不扩公开面），判据四条：①**锚席位（锚共现打分取前 N）**——对每条检索片段计「不同锚串命中个数」（内容或来源含锚、大小写敏感原样比、空串不计、重复锚串只计一次），取分 >0 者按 `(-分, index)` 排序取前 **`ANCHOR_SEATS`** 条占锚席位（题眼片段保底、多处共现者优先；仍受总帽与单来源上限约束；同分按 index 升序）；②**来源保底席**——每个已检索来源（分源键＝观察 `source`，经 `.strip()` 归一；来源序＝首次出现序）首个未选片段各占一席（每个来源至少进窗一支）；③**来源轮转补席**——按来源轮转取未选片段直到帽（单一来源不吃满席位；席位穷尽即止、不补空席）；④**单来源上限**——任一来源席位数恒 ≤ **本块常量 `MAX_REPORT_SEATS_PER_SOURCE`**（数值不落本规格、数值单点＝本块常量定义行；**席位上限 ≠ 帽**，两点并列互不替代）。**不变量（席位选择只换「选谁」）**：总席恒 ≤ 帽（`max_observations` 注入面与数值单点不动、不提高总帽）；权威/台账族全量渲染不变；披露行逐字与 `material_truncated`／`material_rendered`／`material_total` 三字段口径不变；`selected_reason` 文本不变；`[n]` 引标恒取观察自带 `index`（席位键＝`index`，重复 `index` 只占一席）；**输出块顺序不变**（权威/台账族原序在前、检索族按信任级稳定序的子序——行为 3 排序面零改）。**席位选择不判语义**：锚席位判据＝字符串包含、分源键＝字符串归一、席位取舍＝计数与集合成员（行为 13 形态处理豁免面）。**口径登记**：单来源触发席位上限（③④）时 `material_truncated` 仍按「检索族支数 > 帽」判，故 `material_rendered` 可小于 `material_total` 而 `material_truncated=False`（模型面披露行不发、机读面以两计数差异如实呈现）——登记件＝`tickets/v2/V2-86-材料供给席次.md`。断言：三来源 fixture（A×8／B×2／C×2、帽 6）→ 三来源各至少一席且总席 ≤6；锚点独在 C 来源第 7 支（帽 6）→ 该支入选、无锚点同 fixture 该支不入（对照）；同来源两片段一含 1 锚一含 2 锚（帽 1）→ 含 2 锚者胜出（共现分）、同分按 index 取小；单来源 10 支（帽 24）→ 该来源 ≤ `MAX_REPORT_SEATS_PER_SOURCE` 席。
 5. **截断必披露（模型面披露行逐字）**：检索族截断时材料段尾接披露行——逐字稿载体＝现状 `appv2/runtime/context.py`（「（材料披露：检索片段共 {检索支数} 支，本轮渲染前 {实渲支数} 支——未渲染片段不在本轮视野，不得对其断言；权威行集与台账卡已全量渲染。）」；行为真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-45／A-P4b-46）；未截断样本零披露行（零残留）。断言：两态各落对、披露行逐字（两个计数与元数据一致）；未截断输出对披露特征子串零命中。
 6. **Manifest 三机检字段与 `selected_reason`**：`material_truncated` ⇔ 检索族截断（未截断恒 False）；`material_rendered`＝权威/台账族支数＋实渲检索支数；`material_total`＝排除 notice 后材料总数；**零材料步＝(0, 0, False)**（真源 A-P4b-47）；`selected_reason` 按逐字形拼装——逐字稿载体＝`tickets/v2/V2-61-材料承载分形渲染.md` 附 A（带材料两形：「步骤 {step}：信任级降序稳定排序；权威 {A} 支全量；」＋截断形「检索片段帽 {帽} 支截断（{M}/{R}）」／未截断形「检索片段 {R} 支全量」＋「（合计入选 {K}/{总}）」；**零材料步形**＝「步骤 {step}：理解步零材料渲染」（迁移照抄）——`{step}` 为**步号槽**、文案恒为「理解步」（**零材料步仅生于理解步**）（2026-10-16 收词）；**槽位归一表**：{A}＝权威/台账支数、{R}＝检索支数、{M}＝实渲检索支数（＝min(检索支数, 帽)）、{帽}、{K}＝合计数、{总}＝材料总数——附 A 载体系代码表达式，本规格归一为槽名〔转写声明见风险 8〕；常驻注入后缀（V1「；词典层常驻注入 {n} 块（ledger_dump 族——第 1 轮全量，非懒加载：注入不依赖未命中）」）的 V2 适配〔相位一次性口头〕＝登记〔风险 8 扩面〕）。断言：四态 fixture（零材料／全量／检索截断／权威超帽）三字段逐条对；`selected_reason` 逐字比对（**无 compaction 态逐字**——超窗态按行为 9 合成规则〔追加〕比对）。
-7. **每次模型调用都有 Manifest 且材料标来源**：材料面 Manifest 由本块编译、随步落地（缺位＝判失败——`specs/answering.md` 行为 4 的同源要求）；`source_type`／`source_id`／`version`／`trust_level` 四列表**逐条对应同一来源序列（等长）**——来源序列＝**本调用实投材料逐支（实渲支）**＋**当轮投入常驻块时**其三块来源行（decision／clarify／toolmatch 首入恰 3 行、answer 轮零常驻行；notice 不计；三元组映射唯一落点＝本块常量 `RESIDENT_SOURCE_ROWS`，对字真源 `docs/runtime-refactor/recon/B2-档案渲染与安全闸族.md` R-B2-05；现状无消费者〔D-B2-09〕——本块重建该记账面）；`transform` 取形状缺省（真源 `specs/state.md` 接口定义）。断言：常规 fixture → 四列表等长、每条材料 `source_id` 与观察 `source_id` 逐字对应（**空串如实**——图谱无锚边形 V1 事实面）、按呼叫分型（decision／clarify／toolmatch 首入**且投影非空时**恰 3 常驻来源行、answer 轮零常驻行）；**零材料步 → 三机检字段 0/0/False**；**台账空投影 → 零台账来源行且材料字段不受影响**；**截断态 → 来源行只含实渲支**；`as_dict` 全键恒出（十键）。
+7. **每次模型调用都有 Manifest 且材料标来源**：材料面 Manifest 由本块编译、随步落地（缺位＝判失败——`specs/answering.md` 行为 4 的同源要求）；`source_type`／`source_id`／`version`／`trust_level` 四列表**逐条对应同一来源序列（等长）**——来源序列＝**本调用实投材料逐支（实渲支）**——**V2-86 补丁：检索族取支与 `render_materials` 同源，即同一 `_select_reports(reports, 帽, anchors)` 的实投逐支（席位集合与序＝材料段 `[n]` 同源同序；三字段与 `selected_reason` 文本零改；`anchors` 为 additive 可选参、缺省 `()`）**＋**当轮投入常驻块时**其三块来源行（decision／clarify／toolmatch 首入恰 3 行、answer 轮零常驻行；notice 不计；三元组映射唯一落点＝本块常量 `RESIDENT_SOURCE_ROWS`，对字真源 `docs/runtime-refactor/recon/B2-档案渲染与安全闸族.md` R-B2-05；现状无消费者〔D-B2-09〕——本块重建该记账面）；`transform` 取形状缺省（真源 `specs/state.md` 接口定义）。断言：常规 fixture → 四列表等长、每条材料 `source_id` 与观察 `source_id` 逐字对应（**空串如实**——图谱无锚边形 V1 事实面）、按呼叫分型（decision／clarify／toolmatch 首入**且投影非空时**恰 3 常驻来源行、answer 轮零常驻行）；**零材料步 → 三机检字段 0/0/False**；**台账空投影 → 零台账来源行且材料字段不受影响**；**截断态 → 来源行只含实渲支**；`as_dict` 全键恒出（十键）。
 8. **过程档案摘要段有界（逐字迁移）**：零档案＝零段（返回空串——调用方跳过，首轮零噪声）；头注逐字「【本 run 已做（过程档案摘要——防重参考，不是作答材料）】」；条目行形 `- [{phase}] {title}｜{digest}`（`phase` 缺失＝`?`、`title`／`digest` 缺失＝空串——现状缺省回落，迁移照抄）；预算含头注起算、逐条累加、超即止（有界值＝**注入参数 `budget`〔无缺省〕、数值单点＝常量 `PROCESS_NOTES_BUDGET`**——真源 `docs/runtime-refactor/recon/B2-档案渲染与安全闸族.md` `_PROCESS_NOTES_BUDGET`／`_PROCESS_NOTES_HEADER`；具体值不落本规格）；超预算追加披露行（条数前后账——逐字「-（过程档案摘要有界截断——已渲染 {n}/{N} 条）」）并停止（披露行免预算复检——现状固有，源疑点 D-B2-07 如实登记）；**段永不作对话轮**（只作当前指令的材料片段，由调用方拼接；`specs/prompts.md` 行为 16⑤ 只接其渲染产物入参）。断言：零档案 → `""`；超长 fixture → 披露行逐字、n 与已渲行数一致；完整 fixture → 全行、零披露行；两跑逐字相等。
 9. **超窗 compaction＝模型视图压缩（`pin-30` 半面；依票面重落——无现状载体：compaction 族已随 V2-80h 退役）**：messages 总量超视窗（触发参数 `dialogue_view_tokens` **注入制、无裸值**；数值已裁 8k 档（流水 43④——风险 4）＋承载位已定＝`RunState` 独立字段 `dialogue_view_tokens`（流水 46①／49，S5 定稿字段行——风险 4 销）→ 自尾向前保留近期轮（**保留窗保证三条**（2026-10-16 收词：原文「三语」系笔误——该条列三条保证，与语言无关）：保留窗自尾向前累积、**至少 1 轮——最新轮恒在场，哪怕单轮超预算**；**单轮独占预算（巨轮）＝原样放行零压缩**——真源 `docs/runtime-refactor/arch/P5b3-票堆V2-79c至79d.md` A-P5b3-14／A-P5b3-19）；最旧「对话轮对」（user＋assistant）摘要化（**摘要＝system 消息、置于角色红线 system 之后、近期轮之前**——真源 A-P5b3-15）；**合同与相位包永不摘除**（识别面＝**结构化**——标记随 `messages` 条目字段携带（**键名已定＝`origin`**——与 `dialogue` 条目 `{role, content, origin}` 同词表，流水 49③），或由调用方以链位贡献表随调用传入；**参形随风险 4 落点裁定后入签名**〔登记〕；本块不采内容子串识别）；**压缩唯一调用点＝调用方（编排面）**——`bookkeeping.call_model` 无此面、各相位不得自压缩；摘要形逐字（**依票面重落**——逐字稿载体 `tickets/v2/V2-79d-compaction摘要化.md` §1.1/§1.2：摘要头逐字「（前情摘要——旧轮原文已压缩，完整原史在会话档案可查）」＋「问：{问句原文截 120}」「答：{答首行截 120}」行——截数 120 有真源 A-P5b3-13）；**只作用于模型视图——`state.messages` 零覆盖**（只压不删、原史全量在 checkpoint 可查——真源 A-P5b3-12）；**compaction 触发＝前缀延伸／缓存命中的显式例外**（真源 `docs/runtime-refactor/arch/P6b-票堆V2-80系列后半.md` A-P6b-29「触发即断缓存」；留痕前缀断言按此豁免——对账 `specs/agent-loop.md` 断言面）；披露账目（轮数前后账＋原史可查注记）**追加于材料面 `selected_reason` 之后（分隔「；」）——由调用方（编排面）在合成最终 Manifest 时执行（同 `token_count` 回填先例；本块 `compact_messages` 只返回账目串）**（合成规则——真源 A-P5b3-17 追加形态；预算槽随数值裁定收口）；预算内**原样返回、披露为空**（零漂移）。断言：超窗 fixture → 视图＝system 摘要（置位对）＋保留近轮逐字、**最新轮单轮超预算仍恒在场**、**单巨轮视图＝入参逐字**、合同/相位包条全数保留、`state.messages` 深比较不变、披露账目在场（合成位对）；预算内 → 视图与入参逐字相等、披露为空串；无 compaction 态 → 行为 6 逐字比对不涉合成。
 10. **台账投影取得：经 `tools` 公开面、取一次**：取得路径唯一（经 `tools` 公开面只读——R6；不得直引引擎、不得直连 DB）；「取一次」＝`state.ledger_dump` **非 None 即原样复用**（含空投影 `{}`＝已取之空态、不再取；`None`＝未取得→取；快照随 checkpoint 走、后继轮复用——取一次语义真源 `docs/runtime-refactor/recon/I2b-RunState全字段.md` `ledger_dump` 字段注「第 1 次澄清入口从 ledger_dump 缝取一次」＋`docs/runtime-refactor/synth/S5-RunState字段矩阵.md`）；空→取得并写回 `state.ledger_dump`（**本块唯一状态写入面**）；返回为副本（改返回值不改 state）；消费面（`prompts` 常驻块渲染）只读 `state` 投影渲染（真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-34「台账全量块（下方注入）」措辞面〔A-P4b-33 系消歧头随动条〕＋`docs/runtime-refactor/synth/S5-RunState字段矩阵.md` §四【结构-1】：三种持久化行为重写须统一〔**统一形「取一次装载」＝本规格定**〕；S5 行载 H6／M2 两写手——统一后唯一写手＝H6）。断言：state 已有 dump → 零工具调用、原样返回；空 state → 恰一次取得＋写回；改写返回值 → state 深比较不变。
@@ -136,9 +147,15 @@ def trust_of(observation: dict[str, Any]) -> str: ...
 | 信任级映射闭世界（十 kind 三族；异常输入落 `report`；notice 排除） | `tests/domains/test_v2_context.py::trust_mapping_closed_world` |
 | 排序＝信任级稳定序（同 rank 保持入栈序；两跑同序） | `tests/domains/test_v2_context.py::trust_order_stable` |
 | 分承载体预算：权威/台账族全量无帽、检索族超帽才截断 | `tests/domains/test_v2_context.py::carrier_fractal_budget` |
+| 检索族席位选择：每来源至少一席、来源轮转补席、总席不越帽 | `tests/domains/test_v2_context.py::reports_every_source_gets_a_seat` |
+| 检索族席位选择：锚席位优先于来源序（锚点独在第 7 支仍入选） | `tests/domains/test_v2_context.py::reports_anchor_seat_wins_over_source_order` |
+| 检索族席位选择：锚共现打分（含 2 锚者胜含 1 锚者；同分按 index） | `tests/domains/test_v2_context.py::anchor_cooccurrence_prefers_multi_anchor_fragment` |
+| 检索族席位选择：单来源席位不超 `MAX_REPORT_SEATS_PER_SOURCE` | `tests/domains/test_v2_context.py::reports_per_source_cap` |
+| 题面数字串锚点（纯字符扫描、小数/千分位保形、去重保序、至多 8 个） | `tests/domains/test_v2_context.py::numeric_anchor_tokens_shape_only` |
 | 截断披露行逐字在场（两计数正确）；未截断零残留 | `tests/domains/test_v2_context.py::truncation_disclosure_line_verbatim` |
 | Manifest 三机检字段（四态）＋`selected_reason` 逐字形 | `tests/domains/test_v2_context.py::manifest_material_fields_and_reason` |
 | 每次调用 Manifest 在场（零材料亦在）且材料标来源（四列表同长；常驻来源行按呼叫分型） | `tests/domains/test_v2_context.py::manifest_present_source_rows` |
+| Manifest 来源四列＝`_select_reports` 实投席位逐支（多来源超帽 fixture 逐支同源同序） | `tests/domains/test_v2_context.py::manifest_sources_match_rendered_seats` |
 | 过程档案摘要段：零档案零段／有界／披露行逐字／全入预算无披露 | `tests/domains/test_v2_context.py::process_notes_bounded_summary` |
 | compaction：超窗视图（system 摘要置位＋最新轮恒在场＋单巨轮零压缩＋合同/相位包不摘＋原史零覆盖＋披露账目追加合成） | `tests/domains/test_v2_context.py::compaction_overwindow_model_view` |
 | compaction：预算内原样返回、披露为空（零漂移） | `tests/domains/test_v2_context.py::compaction_within_budget_no_drift` |

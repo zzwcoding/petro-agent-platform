@@ -7,7 +7,8 @@
 「V2 定案签名」——**族名单闭世界**）：六函数 `load_ledger_dump`／`render_materials`／
 `render_process_notes`／`compile_manifest`／`compact_messages`／`trust_of` ＋常量族
 `DEFAULT_MAX_OBSERVATIONS`／`PROCESS_NOTES_BUDGET`／`TRUST_AGG`／`TRUST_LEDGER`／
-`TRUST_REPORT`／`RESIDENT_SOURCE_ROWS`；另携装载端口件（`LedgerProjectionPort` 端口／
+`TRUST_REPORT`／`RESIDENT_SOURCE_ROWS`／`MAX_REPORT_SEATS_PER_SOURCE`／`ANCHOR_SEATS`；
+另携装载端口件（`LedgerProjectionPort` 端口／
 `wire_ledger_projection` 注入缝／`LedgerLoadError`——真实现形待核定，规格风险 5）与
 视窗数值单点 `DEFAULT_DIALOGUE_VIEW_TOKENS`（规格风险 4「数值已裁 8k 档，常量阶段 5 落 8192」）。
 
@@ -30,7 +31,9 @@ from appv2.runtimev2.context.ledger import (
 )
 from appv2.runtimev2.context.manifest import RESIDENT_SOURCE_ROWS, compile_manifest
 from appv2.runtimev2.context.materials import (
+    ANCHOR_SEATS,
     DEFAULT_MAX_OBSERVATIONS,
+    MAX_REPORT_SEATS_PER_SOURCE,
     TRUST_AGG,
     TRUST_LEDGER,
     TRUST_REPORT,
@@ -43,8 +46,10 @@ from appv2.runtimev2.context.process_notes import (
 )
 
 __all__ = [
+    "ANCHOR_SEATS",
     "DEFAULT_DIALOGUE_VIEW_TOKENS",
     "DEFAULT_MAX_OBSERVATIONS",
+    "MAX_REPORT_SEATS_PER_SOURCE",
     "PROCESS_NOTES_BUDGET",
     "RESIDENT_SOURCE_ROWS",
     "TRUST_AGG",

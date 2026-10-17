@@ -13,7 +13,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections import Counter, OrderedDict
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from appv2.tools import (
@@ -59,6 +60,19 @@ _TRUST_RANK: dict[str, int] = {TRUST_AGG: 0, TRUST_LEDGER: 1, TRUST_REPORT: 2}
 
 # 检索片段帽单点（数值真源 recon/K R-K-07——数值不落规格，行为 4／12）。
 DEFAULT_MAX_OBSERVATIONS = 24
+
+# 单来源席位上界（V2-86 材料供给席次——来源份额不被单一来源吃满；数值不落规格，行为 4）。
+# 与总帽 `DEFAULT_MAX_OBSERVATIONS` 并列两点：席位上限管「一个来源最多几席」、总帽管「检索族
+# 一共几支」——两值互不替代（席位数恒不越总帽）。
+MAX_REPORT_SEATS_PER_SOURCE = 6
+
+# 锚席位数上界（V2-86 锚共现打分保底——按共现分取前 N 条作锚席位；数值不落规格，行为 4）。
+# 与单来源席位上界同处定义：两者是不同判据的两个数值（锚席位保题眼、单来源席位保来源均衡）。
+ANCHOR_SEATS = 6
+
+# 观察 `index` 形态违约的收口文案（材料条目缺 `index`／非整数形——规格「错误契约」差异声明；
+# 席位选择与渲染两处同源同文，避免两套错误面）。
+_INDEX_SHAPE_ERROR = "观察面形态违约：材料条目缺 `index` 或非整数形（规格「错误契约」）"
 
 
 def trust_of(observation: dict[str, Any]) -> str:
@@ -128,8 +142,116 @@ def _carrier_split(
     return material, authority, reports
 
 
+def _source_of(observation: Mapping[str, Any]) -> str:
+    """观察的来源段（席位选择的分源键——`source` 经 `.strip()` 归一；缺位＝空串）。"""
+    return str(observation.get("source") or "").strip()
+
+
+def _index_key(observation: Mapping[str, Any]) -> int:
+    """观察自带全局序号（`[n]` 引标键；形态违约 → 抛参数错误）。
+
+    席位选择与渲染两处共用本取法（单点），故 `index` 缺失／非整数形的收口在两处同形同文
+    （规格「错误契约」：抛参数错误，不吞错）。
+    """
+    try:
+        return int(observation["index"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(_INDEX_SHAPE_ERROR) from exc
+
+
+def _anchor_score(observation: Mapping[str, Any], anchors: Sequence[str]) -> int:
+    """锚共现分（命中**不同锚串**的个数——内容或来源含锚、大小写敏感原样比、空串不计）。
+
+    同一锚串重复出现只计一次（不虚增分数）；本函数纯字符包含判定，零语义判断。
+    """
+    content = str(observation.get("content") or "")
+    origin = _source_of(observation)
+    counted: set[str] = set()
+    score = 0
+    for anchor in anchors:
+        if not anchor or anchor in counted:
+            continue
+        counted.add(anchor)
+        if anchor in content or anchor in origin:
+            score += 1
+    return score
+
+
+def _select_reports(
+    reports: list[dict[str, Any]],
+    cap: int,
+    anchors: Sequence[str],
+) -> list[dict[str, Any]]:
+    """检索族席位选择（行为 4——V2-86：锚席位＋来源保底席＋来源轮转＋单来源上限）。
+
+    确定性席位选择（**只换「选谁」、不换「选多少」**：总席恒 ≤ `cap`；「排序」亦不动——返回序
+    ＝入参信任级稳定序的子序）：
+
+    ① **锚席位（锚共现打分保底）**：对每条检索片段计「不同锚串命中个数」（内容或来源含锚、
+       大小写敏感原样比、空串不计、重复锚串只计一次），取分 >0 者按 `(-分, index)` 排序取前
+       `ANCHOR_SEATS` 条占锚席位（题眼片段保底，且多处共现者优先；仍受总帽与单来源上限约束）；
+    ② **来源保底席**：每个来源首个未选片段各占一席（来源序＝首次出现序）——每个已检索来源
+       至少进窗一支；
+    ③ **来源轮转补席**：按来源轮转取未选片段直到 `cap`（单一来源不吃满席位）；
+    ④ **单来源上限**：任一来源席位数恒 ≤ `MAX_REPORT_SEATS_PER_SOURCE`（三相位同源同判）。
+
+    席位键＝观察自带 `index`（重复 `index` 只占一席——`[n]` 引标唯一）；`cap` 内取不满＝席位
+    穷尽，正常返回（不抛错、不补空席）。本函数零 IO、零语义判断（纯计数／成员判定／字符包含）。
+    """
+    by_source: OrderedDict[str, list[dict[str, Any]]] = OrderedDict()
+    for obs in reports:
+        by_source.setdefault(_source_of(obs), []).append(obs)
+    chosen_keys: set[int] = set()
+    source_count: Counter[str] = Counter()
+
+    def _take(obs: dict[str, Any]) -> bool:
+        key = _index_key(obs)
+        origin = _source_of(obs)
+        if key in chosen_keys or len(chosen_keys) >= cap:
+            return False
+        if source_count[origin] >= MAX_REPORT_SEATS_PER_SOURCE:
+            return False
+        chosen_keys.add(key)
+        source_count[origin] += 1
+        return True
+
+    # ① 锚席位（**锚共现打分保底**：不同锚串命中个数为分，取前 `ANCHOR_SEATS` 条；
+    #    同分按原 index 升序——题眼片段保底，且「题眼多处共现」的片段优先于「只沾一个字面」者）
+    scored = [
+        (_anchor_score(obs, anchors), _index_key(obs), obs) for obs in reports
+    ]
+    scored = [row for row in scored if row[0] > 0]
+    scored.sort(key=lambda row: (-row[0], row[1]))
+    for _score, _key, obs in scored[:ANCHOR_SEATS]:
+        _take(obs)
+    # ② 来源保底席（每个已检索来源至少一席）
+    for rows in by_source.values():
+        for obs in rows:
+            if _index_key(obs) not in chosen_keys:
+                _take(obs)
+                break
+    # ③ 来源轮转补席（来源之间轮转，直到 cap）
+    cursor = {origin: 0 for origin in by_source}
+    while len(chosen_keys) < cap:
+        progressed = False
+        for origin, rows in by_source.items():
+            while cursor[origin] < len(rows):
+                obs = rows[cursor[origin]]
+                cursor[origin] += 1
+                if _take(obs):
+                    progressed = True
+                    break
+        if not progressed:
+            break
+    # 输出序＝入参信任级稳定序的子序（行为 3 排序面零改：席位选择只决定入选集合）
+    return [obs for obs in reports if _index_key(obs) in chosen_keys]
+
+
 def render_materials(
-    observations: list[dict[str, Any]], *, max_observations: int
+    observations: list[dict[str, Any]],
+    *,
+    max_observations: int,
+    anchors: Sequence[str] = (),
 ) -> tuple[str, dict[str, Any]]:
     """观察材料→（`[n]` 引标视图文本，截断元数据）——行为 1／4／5。
 
@@ -141,6 +263,13 @@ def render_materials(
     形态违约（材料条目缺 `index` 或非整数形）→ 抛参数错误（V1 裸 `KeyError` 收口——
     规格「错误契约」差异声明）。
 
+    **检索族＝确定性席位选择**（V2-86 材料供给席次——行为 4）：检索族（`report`）不再按信任级
+    排序后原序取前 N 支，改由 `_select_reports` 做席位选择（锚席位／来源保底席／来源轮转／
+    单来源上限 `MAX_REPORT_SEATS_PER_SOURCE`）——**总帽不变**（席位恒 ≤ `max_observations`）、
+    权威/台账族全量不变、披露行与三机检字段口径不变；**输出序不因席位选择改形**（行为 3：
+    权威/台账族原序在前，检索族按信任级稳定序的子序）。`anchors`＝**additive 可选参**（题面
+    锚点串：来源／内容的包含判定即锚席位判据；缺省空元组＝缺省行为与本批前一致）。
+
     **血缘卡＝口径行**（2026-10-17 EB2 D1——材料面瘦身）：`locator.kind == "lineage"` 的
     条目不渲染五要素全文，原位渲染一行 `_lineage_caliber_line` 合成文本（原料＝
     `locator.payload` 结构化载荷，**不解析五要素文本串**）；载荷缺位＝空串（不回落全文）。
@@ -148,15 +277,10 @@ def render_materials(
     """
     material, authority, reports = _carrier_split(observations)
     truncated = len(reports) > max_observations
-    ordered = authority + reports[:max_observations]
+    ordered = authority + _select_reports(reports, max_observations, anchors)
     blocks: list[str] = []
     for obs in ordered:
-        try:
-            index = int(obs["index"])
-        except (KeyError, TypeError, ValueError) as exc:
-            raise ValueError(
-                "观察面形态违约：材料条目缺 `index` 或非整数形（规格「错误契约」）"
-            ) from exc
+        index = _index_key(obs)
         trust = trust_of(obs)
         origin = str(obs.get("source") or "").strip()
         well = str(obs.get("well") or "").strip()

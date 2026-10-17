@@ -12,12 +12,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from appv2.runtimev2.context.materials import (
     TRUST_LEDGER,
     _carrier_split,
+    _select_reports,
     trust_of,
 )
 from appv2.runtimev2.state import Manifest
@@ -35,6 +36,7 @@ RESIDENT_SOURCE_ROWS: Mapping[str, str] = {
 def compile_manifest(
     observations: list[dict[str, Any]], *, step: str,
     max_observations: int,
+    anchors: Sequence[str] = (),
     ledger_dump: dict[str, Any] | None = None,
     token_count: int = 0,
 ) -> Manifest:
@@ -55,7 +57,10 @@ def compile_manifest(
     """
     material, authority, reports = _carrier_split(observations)
     truncated = len(reports) > max_observations
-    rendered = authority + reports[:max_observations]
+    # 来源序列＝**本调用实投材料逐支**（V2-86 补丁）：与 `render_materials` 同一席位选择
+    # （同函数、同 `anchors`、同出参序）——Manifest 的来源四列必须与模型窗里实际渲染的
+    # `[n]` 逐支同源，否则来源账记的是「前缀支」而窗里是「席位支」（行为 7 要求）。
+    rendered = authority + _select_reports(reports, max_observations, anchors)
     source_type: list[str] = []
     source_id: list[str] = []
     version: list[str | None] = []

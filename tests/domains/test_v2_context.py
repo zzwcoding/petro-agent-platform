@@ -38,6 +38,7 @@ from typing import Any
 import pytest
 
 from appv2.query import LINEAGE_KEY_CALIBER, LINEAGE_KEY_SOURCE
+from appv2.runtimev2.answering.core import _numeric_anchor_tokens
 from appv2.runtimev2.context import (
     DEFAULT_DIALOGUE_VIEW_TOKENS,
     DEFAULT_MAX_OBSERVATIONS,
@@ -55,6 +56,7 @@ from appv2.runtimev2.context import (
     trust_of,
     wire_ledger_projection,
 )
+from appv2.runtimev2.context.materials import MAX_REPORT_SEATS_PER_SOURCE
 from appv2.runtimev2.state import DIALOGUE_ORIGINS, RunState
 from appv2.tools import (
     LINEAGE_LIMIT_HIT_KEY,
@@ -107,9 +109,18 @@ def _indices(text: str) -> list[int]:
     return [int(m) for m in re.findall(r"\[(\d+)\]（", text)]
 
 
-def _fragments(count: int, *, start: int = 1) -> list[dict[str, Any]]:
+def _fragments(count: int, *, start: int = 1, source_count: int = 5) -> list[dict[str, Any]]:
+    """检索片段 fixture（按 `source_count` 轮转分源——V2-86 起单来源有席位上限
+    `MAX_REPORT_SEATS_PER_SOURCE`，故帽面 fixture 不得落在单一来源，否则「检索族帽」与
+    「单来源席位上限」两个数值在本 fixture 上不可分辨；分源后 `source_id` 仍逐支唯一）。"""
     return [
-        _obs(start + i, "fragment", content=f"检索片段{i}", source="kb", source_id=f"kb-{i}")
+        _obs(
+            start + i,
+            "fragment",
+            content=f"检索片段{i}",
+            source=f"kb-{i % source_count}",
+            source_id=f"kb-{i}",
+        )
         for i in range(count)
     ]
 
@@ -368,6 +379,124 @@ def test_carrier_fractal_budget() -> None:
     assert meta == {"material_truncated": True, "material_rendered": 24, "material_total": 30}
 
 
+# ---------- 4b 检索族席位选择：来源轮转＋锚席位＋单来源上限（行为 4——V2-86） ----------
+
+
+def _source_obs(index: int, source: str, *, content: str = "") -> dict[str, Any]:
+    """检索片段 fixture（来源段可辨——席位选择按 `source` 分源）。"""
+    return _obs(
+        index,
+        "fragment",
+        content=content or f"{source} 片段 {index}",
+        source=source,
+        source_id=f"{source}-{index}",
+    )
+
+
+def test_reports_every_source_gets_a_seat() -> None:
+    """行 4b-1 来源保底席＋来源轮转：每来源至少一席、总席不越帽（行为 4——V2-86）。
+
+    朴素前缀截断下 B／C 两来源零席（A×8 吃满 6 席）——本判据正是 EB7「已检索到但被帽裁掉」的
+    供给窗口选择面。
+    """
+    reports = [
+        *[_source_obs(1 + i, "A") for i in range(8)],
+        *[_source_obs(21 + i, "B") for i in range(2)],
+        *[_source_obs(31 + i, "C") for i in range(2)],
+    ]
+    text, meta = render_materials(reports, max_observations=6)
+    seats = _indices(text)
+    # 总帽不变：席位不越帽（三字段口径亦不变——检索族超帽＝截断）
+    assert len(seats) == 6
+    assert meta["material_rendered"] == 6
+    assert meta["material_total"] == 12
+    assert meta["material_truncated"] is True
+    # 三来源各至少一席（判据面＝块标签的来源段）
+    for source in ("A", "B", "C"):
+        assert f"（report｜{source}）" in text, f"来源 {source} 零席"
+
+
+def test_reports_anchor_seat_wins_over_source_order() -> None:
+    """行 4b-2 锚席位优先于朴素轮转：锚点只在 C 来源第 7 支 → 该支入选（行为 4——V2-86）。
+
+    cap=6 且 A／B／C 三来源各至少一席 → 轮转补席只走到 A2／B2；锚席位先占，故 C 的第 7 支
+    （唯含题面数值「16.5」者）进窗；无锚点同 fixture 该支不进窗（对照面）。
+    """
+    reports = [
+        *[_source_obs(1 + i, "A") for i in range(3)],
+        *[_source_obs(11 + i, "B") for i in range(3)],
+        *[_source_obs(21 + i, "C") for i in range(6)],
+        _source_obs(99, "C", content="酸化后日产 16.5 吨"),
+    ]
+    text, meta = render_materials(reports, max_observations=6, anchors=("16.5",))
+    seats = _indices(text)
+    assert 99 in seats  # 锚席位保底：题眼片段进窗
+    assert len(seats) == 6 and meta["material_rendered"] == 6
+    # 对照面：同 fixture 无锚点 → 该支被席位轮转挤掉（选择确实变了「选谁」）
+    naive, _ = render_materials(reports, max_observations=6)
+    assert 99 not in _indices(naive)
+    # 空锚点＝零变化（additive 参：缺省行为与本批前一致）
+    assert naive == render_materials(reports, max_observations=6, anchors=())[0]
+
+
+def test_anchor_cooccurrence_prefers_multi_anchor_fragment() -> None:
+    """行 4b-5 锚共现打分保底：同来源两片段、一含 1 锚一含 2 锚 → 先选含 2 锚者。
+
+    判据＝「不同锚串命中个数」为分（content 或来源含锚、大小写敏感原样比），取分 >0 者按
+    `(-分, index)` 排序取前 `ANCHOR_SEATS` 条。cap=1 使两片段只能进一条：单锚前缀命中者
+    （先入栈、index 更小）在旧「首个命中」判据下会吃掉唯一席位；共现打分下让位给双锚者。
+    """
+    one_anchor = _source_obs(5, "报告C", content="酸化后日产 16.5 吨")
+    two_anchors = _source_obs(9, "报告C", content="W-33 井酸化后日产 16.5 吨")
+    text, _ = render_materials(
+        [one_anchor, two_anchors], max_observations=1, anchors=("16.5", "W-33")
+    )
+    assert _indices(text) == [9]  # 双锚者胜出（共现数 2 > 1）
+    # 同分按原 index 升序（确定性平手面）
+    tie_a = _source_obs(7, "报告D", content="W-33 井 16.5 吨")
+    tie_b = _source_obs(3, "报告D", content="W-33 井 16.5 吨")
+    tie_text, _ = render_materials(
+        [tie_a, tie_b], max_observations=1, anchors=("16.5", "W-33")
+    )
+    assert _indices(tie_text) == [3]
+    # 空锚串不计、重复锚串只计一次（同一锚串不虚增分数）
+    dup_text, _ = render_materials(
+        [one_anchor, two_anchors],
+        max_observations=1,
+        anchors=("", "16.5", "16.5"),
+    )
+    assert _indices(dup_text) == [5]  # 两片段同分（各 1）→ 同分按 index 取小
+
+
+def test_reports_per_source_cap() -> None:
+    """行 4b-3 单来源席位上界：单一来源 10 支、cap=24 → 至多 `MAX_REPORT_SEATS_PER_SOURCE` 席。"""
+    text, meta = render_materials(
+        [_source_obs(1 + i, "A") for i in range(10)], max_observations=24
+    )
+    seats = _indices(text)
+    assert len(seats) == MAX_REPORT_SEATS_PER_SOURCE
+    assert len(seats) <= MAX_REPORT_SEATS_PER_SOURCE
+    assert MAX_REPORT_SEATS_PER_SOURCE < 24  # 两个数值各一点：席位上限 ≠ 检索片段帽
+    assert meta["material_rendered"] == MAX_REPORT_SEATS_PER_SOURCE
+    assert meta["material_total"] == 10
+
+
+def test_numeric_anchor_tokens_shape_only() -> None:
+    """行 4b-4 题面数字串锚点：纯字符扫描（禁 `re`）取连续数字串、去重保序、至多 8 个。
+
+    小数／千分位**保形**取原文（`12.5`／`1,000`）；百分号作形态分隔符（不并入数字串——锚点取
+    数字字面，写法差异不丢召回）；汉字数字不取（无阿拉伯数字位即零 token）。
+    """
+    assert _numeric_anchor_tokens("12.5/16.5 MPa、1,000 吨") == ("12.5", "16.5", "1,000")
+    assert _numeric_anchor_tokens("十二点五吨") == ()
+    assert _numeric_anchor_tokens("2026 年 2026 月 34-8 井") == ("2026", "34", "8")
+    assert _numeric_anchor_tokens("、。；：") == ()
+    assert _numeric_anchor_tokens("产量 12.5%，1,000 吨") == ("12.5", "1,000")
+    # 去重保序＋至多 8 个（上限＝形态面常量，不随题面数字个数膨胀）
+    assert len(_numeric_anchor_tokens(" ".join(str(number) for number in range(1, 12)))) == 8
+    assert _numeric_anchor_tokens("2026 与 2026 与 2026") == ("2026",)
+
+
 # ---------- 5 截断披露行逐字在场、未截断零残留（行为 5——pin-09 之一） ----------
 
 
@@ -500,6 +629,55 @@ def test_manifest_present_source_rows() -> None:
         "material_rendered",
         "material_truncated",
     }
+
+
+# ---------- 7b Manifest 来源行＝席位实投逐支（V2-86 补丁——行为 7） ----------
+
+
+def test_manifest_sources_match_rendered_seats() -> None:
+    """行 7b 多来源超帽 fixture → Manifest 来源四列＝`_select_reports` 实投席位的逐支序。
+
+    判据：`manifest.source_id` 与材料段 `[n]` 序逐支对应（同源同序）；且**不等于**朴素前缀
+    截断的取支序（否则本判据不可区分）；三字段与 `selected_reason` 文本零改（帽账仍按支数）。
+    """
+    reports = [
+        *[_source_obs(1 + i, "A") for i in range(8)],
+        *[_source_obs(21 + i, "B") for i in range(2)],
+        *[_source_obs(31 + i, "C") for i in range(2)],
+    ]
+    anchors = ("C 片段 32",)
+    text, meta = render_materials(reports, max_observations=6, anchors=anchors)
+    manifest = compile_manifest(
+        reports, step="answer", max_observations=6, anchors=anchors
+    )
+    by_index = {int(obs["index"]): str(obs["source_id"]) for obs in reports}
+    # 逐支同源同序（Manifest 来源列＝实投席位的逐支账）
+    assert manifest.source_id == [by_index[index] for index in _indices(text)]
+    assert manifest.source_type == ["fragment"] * 6
+    assert len(manifest.source_id) == len(manifest.source_type) == 6
+    assert manifest.material_rendered == meta["material_rendered"] == 6
+    assert manifest.material_truncated is meta["material_truncated"] is True
+    # 非朴素前缀截断（选择确实换了「选谁」——该判据才可区分两实现）
+    assert manifest.source_id != [str(obs["source_id"]) for obs in reports[:6]]
+    # 三字段与 `selected_reason` 文本零改（帽账仍按「支数 > 帽」）
+    assert manifest.selected_reason == (
+        "步骤 answer：信任级降序稳定排序；权威 0 支全量；"
+        "检索片段帽 6 支截断（6/12）（合计入选 6/12）"
+    )
+    # 权威/台账族恒全量在前（与 render 同形）
+    with_authority = [
+        _obs(90, "agg_row", content="合计", source_id="agg.fct_daily_metering"),
+        *reports,
+    ]
+    mixed_text, _ = render_materials(with_authority, max_observations=6, anchors=anchors)
+    mixed_manifest = compile_manifest(
+        with_authority, step="answer", max_observations=6, anchors=anchors
+    )
+    mixed_by_index = {int(obs["index"]): str(obs["source_id"]) for obs in with_authority}
+    assert mixed_manifest.source_id == [
+        mixed_by_index[index] for index in _indices(mixed_text)
+    ]
+    assert mixed_manifest.source_id[0] == "agg.fct_daily_metering"
 
 
 # ---------- 8 过程档案摘要段有界（行为 8） ----------
@@ -1565,6 +1743,7 @@ def test_retention_normal_render_unchanged() -> None:
         render_materials: (
             ("observations", "POSITIONAL_OR_KEYWORD", True),
             ("max_observations", "KEYWORD_ONLY", True),
+            ("anchors", "KEYWORD_ONLY", False),  # V2-86 additive 可选参（缺省空元组）
         ),
         render_process_notes: (
             ("state", "POSITIONAL_OR_KEYWORD", True),
@@ -1574,6 +1753,7 @@ def test_retention_normal_render_unchanged() -> None:
             ("observations", "POSITIONAL_OR_KEYWORD", True),
             ("step", "KEYWORD_ONLY", True),
             ("max_observations", "KEYWORD_ONLY", True),
+            ("anchors", "KEYWORD_ONLY", False),  # V2-86 补丁 additive 可选参（与 render 同一组）
             ("ledger_dump", "KEYWORD_ONLY", False),
             ("token_count", "KEYWORD_ONLY", False),
         ),

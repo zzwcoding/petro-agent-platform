@@ -70,6 +70,7 @@
 
 from __future__ import annotations
 
+import unicodedata
 from collections.abc import Mapping
 from typing import Any
 
@@ -230,6 +231,52 @@ def _supplement(supplements: list[dict[str, Any]], block: str, text: str) -> Non
     )
 
 
+# 题面数字串锚点的形态字符集（纯字符扫描——非语义词表；
+# 先例 `understanding.closure.numeric_form_hit`）。
+_ASCII_DIGITS = "0123456789"
+_NUMERIC_JOINERS = ".,"  # 小数位／千分位连接符（**仅当其后接数字**才留串内）
+_ANCHOR_TOKEN_LIMIT = 8  # 锚席位预算上界（题面数字再多也不膨胀）
+
+
+def _numeric_anchor_tokens(text: str) -> tuple[str, ...]:
+    """题面数字串锚点（`render_materials` 的 `anchors` 来源之一——V2-86 行为 4）。
+
+    **纯字符扫描**（禁 `re`——形态处理，先例 `understanding.closure.numeric_form_hit`）：
+    取连续阿拉伯数字串，小数位／千分位**保形**留在串内（`12.5`／`1,000`，全角数字经 NFKC
+    归一后取 ASCII 字）；百分号作形态分隔符（数字字面即锚——`12.5%` 与 `12.5` 的写法差异
+    不丢召回）；汉字数字不取（无阿拉伯数字位即零 token）。去重保序、至多 `_ANCHOR_TOKEN_LIMIT`
+    个。本函数零语义判断：只做字符集判定与字符拼接（规格行为 13 形态处理豁免面）。
+    """
+    tokens: list[str] = []
+    seen: set[str] = set()
+    buffer: list[str] = []
+
+    def _flush() -> None:
+        if not buffer:
+            return
+        token = "".join(buffer)
+        buffer.clear()
+        if token not in seen and len(tokens) < _ANCHOR_TOKEN_LIMIT:
+            seen.add(token)
+            tokens.append(token)
+
+    for position, char in enumerate(text):
+        folded = unicodedata.normalize("NFKC", char)
+        if folded in _ASCII_DIGITS:
+            buffer.append(folded)
+        elif (
+            buffer
+            and folded in _NUMERIC_JOINERS
+            and position + 1 < len(text)
+            and unicodedata.normalize("NFKC", text[position + 1]) in _ASCII_DIGITS
+        ):
+            buffer.append(folded)
+        else:
+            _flush()
+    _flush()
+    return tuple(tokens)
+
+
 def _drafted(state: RunState) -> bool:
     """起草是否已发生（本块自立的机读判据）：直答态／`verdict` 在场／过程档案起草标记在场。
 
@@ -255,11 +302,23 @@ def _draft(
     supplements: list[dict[str, Any]],
 ) -> AnswerDraft:
     """起草段：材料面显式 → 单点发起模型调用 → 剥离 → 块剥除 → 分段引标 → 逐段推帧。"""
+    # V2-86 锚席位来源（**同一组**喂给 Manifest 与材料段——两出口必须同源同序）：题名对象／
+    # 术语 ＋ 题面数字串（纯字符扫描、去重保序）；additive 参，缺省空元组即本批前行为。
+    anchors = (
+        tuple(state.subjects)
+        + tuple(state.terms)
+        + _numeric_anchor_tokens(str(state.question or ""))
+    )
     manifest = compile_manifest(
-        state.observations, step=PHASE, max_observations=max_observations
+        state.observations,
+        step=PHASE,
+        max_observations=max_observations,
+        anchors=anchors,
     )
     materials_text, meta = render_materials(
-        state.observations, max_observations=max_observations
+        state.observations,
+        max_observations=max_observations,
+        anchors=anchors,
     )
     if meta[MATERIAL_TRUNCATED_KEY]:
         notice(
