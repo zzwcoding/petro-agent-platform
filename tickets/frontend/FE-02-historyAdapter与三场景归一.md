@@ -28,6 +28,76 @@ Touches modules: `web`
 | 8 | history 轮 citations/materials/notices/events 恒空+legacy 标记 | `web/src/landing/redesign/historyAdapter.test.js::history_legacy_flag` |
 | 9 | 同一组件渲染 live/replay/history 三形状零分支（结构快照一致） | `web/src/landing/redesign/A1V2R.test.jsx::one_shape_three_scenarios` |
 
+## 伪代码（施工基准——L0 亲研，照抄实现，偏离即停报）
+
+**1. `historyAdapter.js`**：
+```
+export function adaptHistoryTurn(listItem, runView = null) {
+  return {
+    kind: 'history',
+    question: listItem.question,
+    runId: listItem.run_id,
+    resumed: false,
+    steps: (runView?.steps ?? []).map(s => ({ seq: s.seq, station: s.step ?? '', title: s.title ?? '' })),
+    tools: [], materials: [], notices: [], citations: [],
+    understanding: '', answerText: listItem.answer ?? '',
+    events: [],                       // H2：读口无此面，恒空（流水线块走空态纪律整块不渲染）
+    verdicts: [], verdictFinal: null, blackbox: null,
+    askFrame: runView?.pending_ask ?? null,
+    runStatus: listItem.status,
+    closed: ['completed','failed'].includes(listItem.status) ? 'done' : null,
+    errorFrame: null,
+    supplements: listItem.supplements == null ? {}
+      : Object.fromEntries(listItem.supplements.map(b => [b.block, String(b.text ?? '').trim()])),
+                                      // 按 block 分槽；BE-01 修复后：null=旧行、[]=无块新轮
+    legacy: listItem.supplements == null,
+    ignoredCount: 0,
+  }
+}
+// phase 渲染期 phaseOf(turn) 派生（FE-01 导出）：closed='done' → 'done'
+```
+
+**2. deriveEvents 退役 + 组件换源**：
+- `events.js`：删 `deriveEvents`（含其头注 DEBT）；**保留** PHASE_TEXT/TOOL_TEXT/phaseText/toolText/NOTICE_LEVEL_*/noticeLevel/NOTICE_PHASE（NoticeBand 与 ExecutionPipeline 的消费不动）与 `summarizePipeline`（改内部 `t.phase ?? …` 为 `phaseOf(t)`，从 '../a1v2Reducer.js' 导入）。
+- `ExecutionPipeline.jsx:109`：`useMemo(() => deriveEvents(turn), [turn])` → `turn.events ?? []`（mock 过渡期兜底空数组；本票收尾时 mockTurns 已改造为 reducer 输出，兜底可去——判定：改造后 `?? []` 去留以 mockTurns 是否还有非 reducer 来源为准，随票注明）。
+
+**3. mockTurns 改造为「真帧夹具 + reducer 输出」**（替换手写 turn 对象）：
+```
+__fixtures__/EB4-A-正1-prefix.json   // 信封 id≤25 帧数组（jq 抽取，头注来源）
+__fixtures__/EB4-数-明2.json          // 全帧（问句/正文/51 引/51 材料/payload/四块/verdict/blackbox）
+__fixtures__/EB3-数-降1.json          // 分列轮全帧
+__fixtures__/legacy-run-307959ec.json // logs/old-runs-backup 的旧轮（answer 内嵌旧式块——喂 adaptHistoryTurn 的 listItem 形，不走 reducer）
+export const MOCK_TURNS = [
+  { id:'t-live',  turn: reduceV2Frames(newTurnV2('ask', q1), prefixFrames), durationS: 6.2 },
+  { id:'t-full',  turn: reduceV2Frames(newTurnV2('ask', q2), fullFrames2),  durationS: 18.5 },
+  { id:'t-split', turn: reduceV2Frames(newTurnV2('ask', q3), fullFrames3),  durationS: 10.5 },
+  { id:'t-legacy',turn: adaptHistoryTurn(legacyListItem, null),             durationS: null },
+]
+// durationS 不入 turn——页面临时面，保持现状由页面传 RunMetaLine/摘要行。
+```
+**注**：轮 2 的跨帧借入（A/B/C 级 notice、split 块来自 EB4-A-正3 等）以**帧序列拼接**实现（夹具头注标明借入帧来源），不再手改 turn 字段——这是 FE-01 events 到达序的真实数据源。
+
+**4. A1V2R 回答块接线对齐 TurnShape**（现 mock 吃 `turn.supplement` 单数/顶层 `turn.lineage`——D-5 处置）：
+```
+const lineagePayload = turn.materials.find(m => m.payload?.lineage)?.payload ?? null
+<LineageCard lineage={lineagePayload?.lineage ?? null}
+            limit={lineagePayload?.limit ?? null}
+            text={turn.supplements?.lineage ?? ''} ... />
+<SupplementBlocks split={turn.supplements?.split ?? null}
+                   attribution={turn.supplements?.attribution ?? null} />
+<RunMetaLine verdict={turn.verdictFinal ? /* 核验计数在 verify 形 */ turn.verdicts[0] ?? null : turn.verdicts[0] ?? null}
+              blackbox={turn.blackbox} ... />
+// 注：RunMetaLine 的 verdict 入参仍取 verify 形（verdicts[0]——verify 帧先于 final 帧到达且本字段只消费 verify 形计数）；
+// verdictFinal 的消费在 FE-05 接真流时补「收口 manifest_digest」位，本票只需保证分区落码、RunMetaLine 行为不回归。
+```
+- `turn.phase` 全部调用点改 `phaseOf(turn)`（renderTurn 的 answering 判定、ExecutionPipeline summarizePipeline）。
+- 右栏 CitationPanel 接线：`lineage/limit` 同上从 materials[].payload 取；`lineageText/splitText/attributionText` 改读 `turn.supplements.*`。
+
+**5. 测试草稿**（3 用例）：
+- `list_item_to_turn`：RunListItem（含 supplements 四块）+ RunView(steps 3 条) → 投影断言逐键；answer→answerText、steps→station/title。
+- `history_legacy_flag`：supplements=null→legacy=true、citations/materials/notices/events 恒空；supplements=[]→legacy=false（BE-01 目标契约——前端先行）。
+- `one_shape_three_scenarios`：同一 renderTurn 输出分别喂「reducer 活的 turn」与「adaptHistoryTurn 产物」（materials/notices 留空），DOM 快照一致（history 缺的展示位不渲染）。
+
 ## 施工要点
 
 - H5 零分支的测试形态：同一 ExecutionPipeline（及答案块）分别喂 live 形 reducer 输出与 historyAdapter 输出，DOM 结构快照一致（history 缺的展示位是「不渲染」，不是「渲染占位」——E 组空态纪律在展示件内，不在适配器内造数据）。
