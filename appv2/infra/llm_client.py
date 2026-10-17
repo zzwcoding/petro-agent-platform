@@ -146,6 +146,9 @@ class LlmClient:
         - 记账口径不变：usage 优先取末帧（include_usage），缺失 chars/4 估算；
         - 空闲超时/护栏抛 UpstreamUnavailable（可切备——复用网关 fallback/重试/
           熔断面）；litellm 异常仍走 classify_upstream_failure 同一分类面。
+        - **空正文守卫（V2-84）**：流收完后正文去空白为空 → UpstreamUnavailable
+          （可切备）——推理类模型把预算烧在 reasoning_content 上时 content 恒空，
+          不得当成功交业务层（真机 petro-lite：4096 token 全推理、正文零字）。
         """
         entry = _entry(alias)
         stream_cfg = get_models_config().stream
@@ -204,6 +207,15 @@ class LlmClient:
         content = "".join(parts)
         prompt = int(usage.get("prompt_tokens") or 0)
         completion = int(usage.get("completion_tokens") or 0)
+        # 空正文守卫（V2-84）：推理类模型可能把预算全烧在 reasoning_content 上、content 恒空
+        # （真机 petro-lite：completion_tokens=4096、正文零字）。空正文不得当成功交业务层——
+        # 判上游异常（可切备/可重试，同网络错族），让网关既有循环重试/切备/最终 NoAvailableRoute。
+        # 判据只认「去空白后为空」：纯空白同判；非空正文逐字不动（只判不改）。
+        if not content.strip():
+            raise UpstreamUnavailable(
+                alias,
+                f"空正文应答（completion_tokens={completion}）——判上游异常可切备",
+            )
         # 前缀缓存命中（供应商字段名对照：litellm 归一 prompt_tokens_details.
         # cached_tokens；DeepSeek 原生 prompt_cache_hit_tokens）。
         cached = _cached_tokens_of(usage)
