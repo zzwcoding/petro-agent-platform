@@ -648,7 +648,9 @@ tools/run_replay／RunStore.get_blackbox 读库，取证面；**supplement＝202
 - Adapter: FastAPI TestClient
 - 测试计划: 端点契约/SSE 帧形/断线游标续传/错误码
 
-## web（2026-10-17 答案展示重设计补卡）
+## web
+
+> 2026-10-17 答案展示重设计补卡（阶段 2 最小修正——新增前端模块）。
 
 职责: 问一问V2 答案展示页面——把 `api` 的 SSE 帧流与读回行归一成轮次形状并按串行链条版面展示（本仓 web/ 为 teach 原型快照，阶段开始时一次性同步——AGENTS.md 第 0 条）
 目录: `web/src/`
