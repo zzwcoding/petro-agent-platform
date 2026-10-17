@@ -117,8 +117,7 @@ export default function CitationPanel({
 
       <Modal open={treeOpen} footer={null} onCancel={() => setTreeOpen(false)} title="决策树（mock 占位）">
         <div style={{ fontSize: 13, lineHeight: 1.9 }}>
-          本页是版面 mock：这里展示的入口位置。真决策树（按问句点亮主链路径）在接归约器
-          那步接回现状实现（`pages/DecisionTreeV2.jsx`）。
+          本页是版面 mock——这里只展示入口位置。完整决策树（按问句点亮主链路径）在后续接线中接回。
         </div>
       </Modal>
     </Card>

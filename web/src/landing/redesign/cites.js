@@ -47,13 +47,14 @@ export function citeSourceCount(citations) {
   return groupCitations(citations).length
 }
 
-/** 条目正文里抽来源名（首 `：` 前，含 ` · ` 时取最后一段的来源名）。 */
+/** 条目正文里抽来源名（首 `：` 前，含 ` · ` 时取最后一段的来源名；无 `：`＝来源空串）。 */
 function sourceOf(body) {
   const colon = body.indexOf('：')
-  const prefix = colon >= 0 ? body.slice(0, colon) : body
+  if (colon < 0) return { source: '', rest: body.trim() }
+  const prefix = body.slice(0, colon)
   const dot = prefix.lastIndexOf(' · ')
   const name = (dot >= 0 ? prefix.slice(0, dot) : prefix).trim()
-  return { source: name, rest: colon >= 0 ? body.slice(colon + 1).trim() : body.trim() }
+  return { source: name, rest: body.slice(colon + 1).trim() }
 }
 
 /**

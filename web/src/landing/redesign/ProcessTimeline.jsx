@@ -20,9 +20,9 @@
  * 期显示口径，接归约器（施工顺序第 2 步）后应改为直读帧字段。
  */
 import { useState } from 'react'
-import { Spin, Timeline, Tooltip } from 'antd'
+import { Spin, Timeline } from 'antd'
 import { CheckCircleOutlined, CloseCircleOutlined, DownOutlined, SearchOutlined, UpOutlined } from '@ant-design/icons'
-import { dim } from '../../components/helpIcon.jsx'
+import { dim, helpIcon } from '../../components/helpIcon.jsx'
 import { citeSourceCount } from './cites.js'
 
 /** 六相位 → 白话（设计稿 §3.1 映射表；未登记相位原样回显）。 */
@@ -127,12 +127,13 @@ export default function ProcessTimeline({
           <>
             <SearchOutlined style={{ color: '#8a94a3' }} />
             <span>{summary.join(' · ')}</span>
-            <Tooltip title={<div style={{ fontSize: 12, lineHeight: 1.8 }}>检索出的候选材料条数（同一份文档的多支切片按 1 篇计）</div>}>
-              <span style={{ ...dim, borderBottom: '1px dotted #8a94a3', cursor: 'help' }}>篇数口径</span>
-            </Tooltip>
-            <Tooltip title={<div style={{ fontSize: 12, lineHeight: 1.8 }}>时长是本地计时（后端不提供耗时字段）——只作参考，不是权威耗时</div>}>
-              <span style={{ ...dim, borderBottom: '1px dotted #8a94a3', cursor: 'help' }}>时长</span>
-            </Tooltip>
+            {helpIcon((
+              <>
+                「篇数」＝检索到的候选文档篇数（同一份文档的多支切片按 1 篇计）。
+                <br />
+                时长是本地计时（后端不提供耗时字段）——只作参考，不是权威耗时。
+              </>
+            ))}
             <span style={{ marginLeft: 'auto', ...dim }}>
               {open ? <>收起 <UpOutlined style={{ fontSize: 10 }} /></> : <>展开过程 <DownOutlined style={{ fontSize: 10 }} /></>}
             </span>

@@ -50,7 +50,8 @@ function rowsFromText(text) {
     const line = raw.replace(/[ \t]+$/, '')
     if (!line.trim()) continue
     if (ELEMENT_RE.test(line.trim())) {
-      rows.push({ label: line.trim().split(/\s+/)[0], value: line.trim(), sub: false })
+      const [label, ...rest] = line.trim().split(/\s+/)
+      rows.push({ label, value: rest.join(' '), sub: false })
       continue
     }
     if (rows.length === 0) { rows.push({ label: '', value: line.trim(), sub: false }); continue }
@@ -86,7 +87,7 @@ export default function LineageCard({ lineage = null, limit = null, text = '', d
       {open && (
         <div style={{ padding: '0 10px 8px' }} data-testid="lineage-body">
           {rows.map((r, i) => {
-            const isBatch = r.label.includes('数据截至批次') || r.value.startsWith('④ 数据截至批次')
+            const isBatch = `${r.label} ${r.value}`.includes('数据截至批次')
             return (
               <div key={i} data-testid={isBatch ? 'lineage-batch-row' : undefined}
                 style={{
@@ -97,6 +98,7 @@ export default function LineageCard({ lineage = null, limit = null, text = '', d
                     : {})
                 }}>
                 {isBatch && <Tag color="gold" style={{ fontSize: 10, marginRight: 6 }}>更新到哪天</Tag>}
+                {r.label && <b style={{ marginRight: 6 }}>{`${r.label} `}</b>}
                 {r.value}
               </div>
             )

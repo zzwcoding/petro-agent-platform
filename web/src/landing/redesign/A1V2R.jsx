@@ -55,7 +55,14 @@ export default function A1V2RLanding() {
         <Card size="small" style={{ background: 'rgba(22,119,255,0.12)', marginBottom: 8 }}>
           <b>我：</b>{turn.question}
         </Card>
-        <Card size="small" style={{ marginBottom: 12 }} data-testid={`turn-${turn.id}`}>
+        <Card size="small" style={{ marginBottom: 12 }} data-testid={`turn-${turn.id}`}
+          extra={(
+            // 版面联动入口：把右栏切到本轮（真接线＝当前实时轮自动联动，见设计稿 §2）
+            <Button size="small" type="link" style={{ padding: 0 }}
+              onClick={() => { setPanelTurnId(turn.id); setFocus({ index: null, nonce: 0 }) }}>
+              引用与口径
+            </Button>
+          )}>
           {/* ① 过程折叠条（进行中＝「正在分析问题…」占位；完成＝一行摘要，可展开树状时间线） */}
           <ProcessTimeline
             steps={turn.steps} tools={turn.tools} notices={turn.notices} citations={turn.citations}
@@ -124,7 +131,7 @@ export default function A1V2RLanding() {
         styles={{ body: { flex: 1, minHeight: 320, display: 'flex', flexDirection: 'column' } }}>
         <div style={{ ...dim, marginBottom: 8 }}>
           <Tag color="orange">mock 数据 · 静态版面</Tag>
-          新版答案卡版面演示（真机帧假数据，不接后端）：①加载中 ②完整轮 ③分列轮 ④旧版降级。
+          新版答案卡版面（真机帧假数据，未接后端）：①加载中 ②完整轮 ③分列轮 ④旧版降级。
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
           {MOCK_TURNS.map(renderTurn)}

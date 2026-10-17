@@ -65,10 +65,10 @@ const CITE_RE = /\[(\d+)\]/g
 const CiteCtx = createContext(null)
 
 /** 单个引标：可点击锚点（onCite 在场）＋可选悬停卡（citeHoverCard 在场）。 */
-function CiteAnchor({ index }) {
+function CiteAnchor({ index, onCite }) {
   const ctx = useContext(CiteCtx)
   const anchor = (
-    <a data-cite={index} style={CITE} onClick={ctx?.onCite ? () => ctx.onCite(index) : undefined}>
+    <a data-cite={index} style={CITE} onClick={onCite ? () => onCite(index) : undefined}>
       {`[${index}]`}
     </a>
   )
@@ -96,7 +96,7 @@ function textParts(text, onCite, hasHoverCard) {
   for (const m of s.matchAll(CITE_RE)) {
     if (m.index > last) out.push(s.slice(last, m.index))
     const idx = Number(m[1])
-    out.push(<CiteAnchor key={`cite-${idx}-${m.index}`} index={idx} />)
+    out.push(<CiteAnchor key={`cite-${idx}-${m.index}`} index={idx} onCite={onCite} />)
     last = m.index + m[0].length
   }
   if (last < s.length) out.push(s.slice(last))
@@ -216,8 +216,8 @@ export default function AnswerView({ content, onCite, citeHoverCard }) {
   const tokens = useMemo(() => marked.lexer(String(content ?? '')), [content])
   const [hoverIndex, setHoverIndex] = useState(null)
   const ctx = useMemo(
-    () => (citeHoverCard ? { onCite, citeHoverCard, hoverIndex, setHoverIndex } : null),
-    [citeHoverCard, onCite, hoverIndex]
+    () => (citeHoverCard ? { citeHoverCard, hoverIndex, setHoverIndex } : null),
+    [citeHoverCard, hoverIndex]
   )
   return (
     <CiteCtx.Provider value={ctx}>
