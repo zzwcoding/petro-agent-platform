@@ -38,8 +38,8 @@ afterEach(() => {
   fetchMock.mockReset()
 })
 
-const FULL = MOCK_TURNS.find(t => t.id === 't-full')
-const SPLIT = MOCK_TURNS.find(t => t.id === 't-split')
+const FULL = MOCK_TURNS.find(t => t.id === 't-full').turn
+const SPLIT = MOCK_TURNS.find(t => t.id === 't-split').turn
 
 describe('CiteHoverCard · 卡片本体', () => {
   it('出处三行＋材料切片内容（零请求）', () => {

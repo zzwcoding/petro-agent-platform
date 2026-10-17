@@ -17,13 +17,13 @@ import { MOCK_TURNS } from './mockTurns.js'
 
 afterEach(() => cleanup())
 
-const FULL = MOCK_TURNS.find(t => t.id === 't-full')
-const LEGACY = MOCK_TURNS.find(t => t.id === 't-legacy')
+const FULL = MOCK_TURNS.find(e => e.id === 't-full').turn
+const LEGACY = MOCK_TURNS.find(e => e.id === 't-legacy').turn
 
 describe('RunMetaLine · 三段小字', () => {
   it('核验计数＋档案小字＋run 号＋本地计时（EB4-数-明2 真机值）', () => {
     render(<RunMetaLine runId={FULL.runId} verdict={FULL.verdicts[0]} blackbox={FULL.blackbox}
-      durationS={FULL.durationS} />)
+      durationS={MOCK_TURNS.find(e => e.id === 't-full').durationS} />)
     const line = screen.getByTestId('run-meta-line').textContent
     expect(line).toContain('已核验：有据 51 条 · 改写 0 条 · 分列 0 条')
     expect(line).toContain('12 步 · 51 材料 · 58 KB') // 58959 B → 58 KB
@@ -32,8 +32,8 @@ describe('RunMetaLine · 三段小字', () => {
   })
 
   it('改写/分列非零时照样出（EB3-数-降1：有据 4 · 改写 2 · 分列 0）', () => {
-    const SPLIT = MOCK_TURNS.find(t => t.id === 't-split')
-    render(<RunMetaLine runId={SPLIT.runId} verdict={SPLIT.verdicts[0]} blackbox={SPLIT.blackbox}
+    const SPLIT = MOCK_TURNS.find(e => e.id === 't-split')
+    render(<RunMetaLine runId={SPLIT.turn.runId} verdict={SPLIT.turn.verdicts[0]} blackbox={SPLIT.turn.blackbox}
       durationS={SPLIT.durationS} />)
     expect(screen.getByTestId('runmeta-verify').textContent)
       .toBe('已核验：有据 4 条 · 改写 2 条 · 分列 0 条')

@@ -2,29 +2,14 @@
  * events.js · 执行流水线纯逻辑（Owner 2026-10-17 串行链条模型）。
  *
  * 模型：每轮＝三段串行块——**用户输入块 → 系统执行流水线块（typed 事件流）→ 系统回答块**。
- * 本件只管流水线块的数据面：把单轮 turn 的归约结果**派生成有序事件流**（渲染序＝真机到达序
- * 的显示口径），以及摘要行的计数。零副作用、零请求——可直喂单测。
+ * 本件只余两块纯面：**白话映射常量**（相位/工具/notice 三级——渲染件 ExecutionPipeline.jsx
+ * 与 NoticeBand.jsx 消费）与**摘要行计数**（summarizePipeline）。零副作用、零请求——可直喂单测。
  *
- * 事件类型 → 行渲染（渲染件在 ExecutionPipeline.jsx）：
- *   understanding｜step｜tool｜materials（聚合行）｜notice｜verify｜citation
- *
- * ⚠ 排序口径（真机**信封 id 跨类型序**在归约后的 turn 里不可得——turn 只有分类型的数组；
- * 真接 SSE 后事件流由归约器按到达序直接产出，本件即退役。当前规则逐条写死可测）：
- *   ① 步按 `seq` 升序（真机实录 tool(seq7) 先于其承载 step(seq7) 到达——归组后不体现，
- *      横幅「工具挂到同 seq 步下」按设计稿 §3.1 归组纪律）；
- *   ② 材料聚合行插在**材料相位末步之后**（相位优先级 execute > discover/observe > decision）；
- *   ③ A/B 级与「相位归属未登记」的 notice ＝材料面提示，紧随材料聚合行（未取到材料＝排理解旁白之后）；
- *   ④ C 级 notice 挂其相位末步之后（NOTICE_PHASE）；**该相位无步在场**（如运行中前缀未到核验步）
- *      → 退材料面提示位——不静默丢；
- *   ⑤ verify 事件在全部步与 notice 之后、citation 之前；
- *   ⑥ citation 逐条按 index 升序。
- *
- * ⚠ 材料明细不进流水线（只记聚合「找到 N 份材料」——明细在右栏「引用与口径」）。
+ * 事件流真源＝归约器直出的 `turn.events`（按帧到达序追加，specs/frontend-redesign.md G4；
+ * FE-02 起本件不再派生显示序——原 deriveEvents 已退役删除，其「显示口径」排序规则随
+ * reducer events 到达序取而代之，事件元素形状消费真源＝ExecutionPipeline.jsx）。
  */
-
-/** 引用按 index 升序（真机 citation 帧即按 index 发出；兜底排序防乱序输入）。 */
-const byIndex = (a, b) => (a.index ?? 0) - (b.index ?? 0)
-const bySeq = (a, b) => (a.seq ?? 0) - (b.seq ?? 0)
+import { phaseOf } from '../a1v2Reducer.js'
 
 /** 六相位 → 白话（设计稿 §3.1 映射表；未登记相位原样回显）。 */
 export const PHASE_TEXT = {
@@ -78,7 +63,7 @@ export function noticeLevel(type) {
   return 'unknown'
 }
 
-/** C 级 notice type → 归属相位（③④ 规则用；未登记＝无相位归属）。 */
+/** C 级 notice type → 归属相位（未登记＝无相位归属）。 */
 export const NOTICE_PHASE = {
   decision_rejected: 'decision',
   same_param_replay: 'decision',
@@ -93,81 +78,16 @@ export const NOTICE_PHASE = {
   emission_quote_repair: 'verify'
 }
 
-/** 材料相位优先级（② 规则）：取末个命中相位的步作为材料聚合行插入点。 */
-const MATERIAL_PHASES = ['execute', 'discover', 'observe', 'decision']
-
-/**
- * 材料聚合行插入点＝第几个 step 之后（-1＝无步，退理解旁白之后）。
- * 规则：MATERIAL_PHASES 里优先级最高的、在步表里**最后出现**的那步。
- */
-function materialBoundary(steps) {
-  for (const ph of MATERIAL_PHASES) {
-    const idx = steps.map((s, i) => (s.station === ph ? i : -1)).filter(i => i >= 0).pop()
-    if (idx !== undefined) return idx
-  }
-  return -1
-}
-
-/**
- * turn → 有序事件流（渲染序）。
- * @param turn 归约器 turn 形状（steps/tools/materials/notices/citations/verdicts/understanding）
- * @returns 事件数组：{type:'understanding'|'step'|'tool'|'materials'|'notice'|'verify'|'citation'}
- */
-export function deriveEvents(turn) {
-  const t = turn || {}
-  const steps = [...(t.steps || [])].sort(bySeq)
-  const tools = [...(t.tools || [])].sort(bySeq)
-  const citations = [...(t.citations || [])].sort(byIndex)
-  const events = []
-
-  // notice 分派（③④）：有相位归属且该相位有步在场＝挂相位；否则＝材料面提示
-  const phaseNotices = {}
-  const materialNotices = []
-  for (const n of t.notices || []) {
-    const ph = NOTICE_PHASE[n?.type]
-    if (ph && steps.some(s => s.station === ph)) {
-      phaseNotices[ph] = [...(phaseNotices[ph] || []), n]
-    } else {
-      materialNotices.push(n)
-    }
-  }
-  const pushNotice = (n, into) => into.push({ type: 'notice', level: noticeLevel(n?.type), notice: n })
-
-  if (t.understanding) events.push({ type: 'understanding', text: t.understanding })
-
-  const boundary = materialBoundary(steps)
-  const pushMaterials = () => {
-    if ((t.materials || []).length > 0) events.push({ type: 'materials', count: t.materials.length })
-    materialNotices.forEach(n => pushNotice(n, events))
-  }
-
-  const lastOfPhase = ph => steps.map((s, i) => (s.station === ph ? i : -1)).filter(i => i >= 0).pop()
-  steps.forEach((s, i) => {
-    events.push({ type: 'step', seq: s.seq, phase: s.station, title: s.title || '' })
-    tools.filter(x => x.seq === s.seq).forEach(x => events.push({
-      type: 'tool', seq: s.seq, tool: x.tool, status: x.status || '', message: x.message || ''
-    }))
-    if (i === boundary) pushMaterials()
-    if (i === lastOfPhase(s.station)) (phaseNotices[s.station] || []).forEach(n => pushNotice(n, events))
-  })
-  // 无步兜底（② 无步＝材料聚合排理解旁白之后）＋未排出者一律补位（不静默丢）
-  if (steps.length === 0 || boundary < 0) pushMaterials()
-  else if (materialNotices.length > 0 && !events.some(e => e.type === 'materials')) pushMaterials()
-
-  const v = (t.verdicts || [])[0]
-  if (v) events.push({ type: 'verify', verdict: v })
-  citations.forEach(c => events.push({ type: 'citation', cite: c }))
-  return events
-}
-
 /**
  * 流水线摘要行计数（折叠态一行）。
  * @returns {state, stateWord, steps, tools, materials, notices, durationS}
- *   state＝'running'|'answering'|'done'（缺省按 turn.runStatus 推：running→running，其余 done）
+ *   state＝'running'|'answering'|'done'——渲染期 phaseOf(t) 派生（FE-02 按票面把原
+ *   `t.phase ?? …` 字面替换为 `phaseOf(t)`；phaseOf 恒有值，turn 形下 runStatus 兜底分支
+ *   不可达，仅按字面保留）。
  */
 export function summarizePipeline(turn) {
   const t = turn || {}
-  const state = t.phase ?? (t.runStatus === 'running' ? 'running' : 'done')
+  const state = phaseOf(t) ?? (t.runStatus === 'running' ? 'running' : 'done')
   const stateWord = state === 'running' ? '执行中' : state === 'answering' ? '作答中' : '执行完成'
   return {
     state,

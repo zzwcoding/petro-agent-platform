@@ -9,7 +9,8 @@
  * - 短条不限高（不出多余开关——不造交互）；
  * - 空态（两块都没有）＝整件不渲染。
  *
- * 素材：EB4-数-明2（attribution 51 条同源）、EB4-A-正3（split 短条）、EB3-数-降1（split 长条）。
+ * 素材：mockTurns 真帧夹具——EB4-数-明2（attribution 51 条同源）、EB4-A-正3（split 短条借入）、
+ * EB3-数-降1（split 长条）；FE-02 后 MOCK_TURNS 条目＝{id, turn, durationS}。
  */
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -31,12 +32,12 @@ if (!window.ResizeObserver) {
 
 afterEach(() => cleanup())
 
-const FULL = MOCK_TURNS.find(t => t.id === 't-full')
-const SPLIT = MOCK_TURNS.find(t => t.id === 't-split')
+const FULL = MOCK_TURNS.find(t => t.id === 't-full').turn
+const SPLIT = MOCK_TURNS.find(t => t.id === 't-split').turn
 
 describe('SupplementBlocks · 两块默认收起', () => {
   it('两块标签在位、内容默认收起（次要位不抢正文）', () => {
-    render(<SupplementBlocks split={FULL.supplement.split} attribution={FULL.supplement.attribution} />)
+    render(<SupplementBlocks split={FULL.supplements.split} attribution={FULL.supplements.attribution} />)
     expect(screen.getByText('按来源列出（每条结论标明出处）')).toBeTruthy()
     expect(screen.getByText('各来源说法不一 · 点开对照')).toBeTruthy()
     expect(screen.queryByTestId('supp-attribution')).toBeNull()
@@ -46,7 +47,7 @@ describe('SupplementBlocks · 两块默认收起', () => {
 
 describe('SupplementBlocks · attribution 按来源列出', () => {
   it('展开＝按来源分组（组头＝来源＋条数）＋逐条 [n] 内容', () => {
-    render(<SupplementBlocks attribution={FULL.supplement.attribution} />)
+    render(<SupplementBlocks attribution={FULL.supplements.attribution} />)
     fireEvent.click(screen.getByText('按来源列出（每条结论标明出处）'))
     const box = screen.getByTestId('supp-attribution')
     expect(box.textContent).toContain('agg.fct_daily_metering（50 条）')
@@ -57,7 +58,7 @@ describe('SupplementBlocks · attribution 按来源列出', () => {
 
 describe('SupplementBlocks · split 限高', () => {
   it('真机长条（340 字）＝限高态（-webkit-line-clamp 6）＋「展开看全文」', () => {
-    render(<SupplementBlocks split={SPLIT.supplement.split} />)
+    render(<SupplementBlocks split={SPLIT.supplements.split} />)
     fireEvent.click(screen.getByText('各来源说法不一 · 点开对照'))
     const item = screen.getByTestId('supp-item-9')
     expect(item.dataset.clamped).toBe('true')
@@ -70,7 +71,7 @@ describe('SupplementBlocks · split 限高', () => {
   })
 
   it('条目带来源名（真机形 `[n] 《报告》 · f15：…`＝取 ` · ` 前报告名）', () => {
-    render(<SupplementBlocks split={SPLIT.supplement.split} />)
+    render(<SupplementBlocks split={SPLIT.supplements.split} />)
     fireEvent.click(screen.getByText('各来源说法不一 · 点开对照'))
     const box = screen.getByTestId('supp-split')
     expect(box.textContent).toContain('《A-W11井完井工程报告》')
@@ -79,7 +80,7 @@ describe('SupplementBlocks · split 限高', () => {
   })
 
   it('短条（EB4-A-正3 split）＝不限高、不出「展开看全文」', () => {
-    render(<SupplementBlocks split={FULL.supplement.split} />)
+    render(<SupplementBlocks split={FULL.supplements.split} />)
     fireEvent.click(screen.getByText('各来源说法不一 · 点开对照'))
     const item = screen.getByTestId('supp-item-22')
     expect(item.dataset.clamped).toBe('false')

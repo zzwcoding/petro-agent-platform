@@ -3,7 +3,8 @@
  *
  * 守什么：
  * - 「引用了 N 篇文档」的 N＝**去重来源数**（同文档多支切片算 1 篇）——真机
- *   EB4-数-明2（51 支引用来自 2 处来源）与 EB3-数-降1（16 支来自 5 处）两形都钉。
+ *   EB4-数-明2（51 支引用来自 2 处来源）与 EB3-数-降1（16 支来自 5 处）两形都钉
+ *   （素材＝mockTurns 真帧夹具的归约输出——FE-02 后 MOCK_TURNS 条目＝{id, turn, durationS}）。
  * - trust 四值→白话徽标；未知值原样回显（不外推、不编）。
  * - 追加面文本切分：`[n]` 起头＝新条目；真机 split 的续行（含全角空格表格行）并入上一条；
  *   条目行「来源」抽取处理 `[n] {source}：{正文}` 与 `[n] 《报告》 · f15：{正文}` 两形。
@@ -14,8 +15,8 @@ import { describe, expect, it } from 'vitest'
 import { citeSourceCount, groupCitations, parseSupplement, trustLabel } from './cites.js'
 import { MOCK_TURNS } from './mockTurns.js'
 
-const FULL = MOCK_TURNS.find(t => t.id === 't-full')
-const SPLIT = MOCK_TURNS.find(t => t.id === 't-split')
+const FULL = MOCK_TURNS.find(t => t.id === 't-full').turn
+const SPLIT = MOCK_TURNS.find(t => t.id === 't-split').turn
 
 describe('cites · 引用去重分组与 trust 白话', () => {
   it('按 source 去重分组：EB4-数-明2 的 51 支引用归 2 组（保首见序、组内保 index 序）', () => {
@@ -46,7 +47,7 @@ describe('cites · 引用去重分组与 trust 白话', () => {
 
 describe('cites · 程序追加面文本切分（禁硬匹配块头，只按行形）', () => {
   it('真机 attribution 形（[n] source：内容）：51 条逐条切出、来源＝首冒号前片段、前导说明进 head', () => {
-    const { head, items } = parseSupplement(FULL.supplement.attribution)
+    const { head, items } = parseSupplement(FULL.supplements.attribution)
     expect(head).toBe('按来源分别列出（每条结论都标出它来自哪个来源）：')
     expect(items).toHaveLength(51)
     expect(items[0]).toEqual({
@@ -57,7 +58,7 @@ describe('cites · 程序追加面文本切分（禁硬匹配块头，只按行�
   })
 
   it('真机 split 形（[n] 《报告》 · f15：正文）：来源取 ` · ` 前的报告名；续行（表格/分隔行）并入上一条', () => {
-    const { head, items } = parseSupplement(SPLIT.supplement.split)
+    const { head, items } = parseSupplement(SPLIT.supplements.split)
     expect(head).toBe('互不一致——各来源说法如下，按来源分别列出：')
     expect(items.map(i => i.index)).toEqual([9, 13, 10, 14])
     expect(items[0].source).toBe('《A-W11井完井工程报告》')

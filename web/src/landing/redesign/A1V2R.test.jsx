@@ -2,11 +2,14 @@
  * A1V2R 页面钉测（串行链条 mock 静态版面页——临时路由）。
  *
  * 守什么（本页红线，机器可验）：
- * - **零请求**：全页数据来自 redesign/mockTurns.js——不接 SSE、不调 `/api/v2/*`（stub fetch 断言零次）；
+ * - **零请求**：全页数据来自 redesign/mockTurns.js（真帧夹具＋归约器输出）——不接 SSE、
+ *   不调 `/api/v2/*`（stub fetch 断言零次）；
  * - **链条顺序**：每轮＝用户输入块 → 系统执行流水线块 → 系统回答块；回答块内＝A 级 notice Alert →
  *   正文 → 血缘卡 → 追加面 → 核验/档案小字（DOM 序断言）；
  * - 四轮覆盖：①运行中（流水线展开、回答块「正在作答…」占位）②完整轮（流水线收起、链条完整）
  *   ③分列轮（长 split 限高）④旧版降级（无流水线、无引用、[n] 死文本）；
+ * - **三场景归一**（H5 零分支）：同一 TurnChain 喂 live/replay（归约器）与 history
+ *   （historyAdapter）三形状——DOM 结构快照一致，history 缺的展示位不渲染；
  * - 引标联动：点正文 [n] ＝右栏面板切到该轮并「已定位」；
  * - A 级 notice 在回答块顶部可见（折叠态流水线下也感知可信度），B/C 级只在流水线里；
  * - 右栏「决策树」入口在位（mock 点开说明 Modal）。
@@ -15,7 +18,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 
-import A1V2R from './A1V2R.jsx'
+import { newTurnV2, reduceV2Frames } from '../a1v2Reducer.js'
+import A1V2R, { TurnChain } from './A1V2R.jsx'
+import { adaptHistoryTurn } from './historyAdapter.js'
 import { MOCK_RUNS } from './mockTurns.js'
 
 if (!window.matchMedia) {
@@ -88,7 +93,7 @@ describe('A1V2R · 串行链条（完整轮）', () => {
 describe('A1V2R · 运行中轮（流水线展开态）', () => {
   it('流水线默认展开＝流式事件追加；回答块＝「正在作答…」占位（无正文、无核验小字）', () => {
     render(<A1V2R />)
-    const round = screen.getByTestId('round-t-running')
+    const round = screen.getByTestId('round-t-live')
     const pipeline = round.querySelector('[data-testid="pipeline"]')
     expect(pipeline).toBeTruthy()
     expect(within(pipeline).getByTestId('pipeline-body')).toBeTruthy() // 展开态
@@ -96,7 +101,7 @@ describe('A1V2R · 运行中轮（流水线展开态）', () => {
     expect(within(pipeline).getByTestId('ev-materials').textContent).toContain('16 份材料')
     expect(within(pipeline).getByTestId('pipeline-tail').textContent).toContain('继续处理中…')
 
-    const answerBlock = screen.getByTestId('turn-t-running')
+    const answerBlock = screen.getByTestId('turn-t-live')
     expect(within(answerBlock).getByTestId('answer-placeholder').textContent).toBe('正在作答…')
     expect(within(answerBlock).queryByTestId('answer-view')).toBeNull()
     expect(within(answerBlock).queryByTestId('run-meta-line')).toBeNull() // 未收口＝无核验/档案小字
@@ -106,7 +111,7 @@ describe('A1V2R · 运行中轮（流水线展开态）', () => {
 describe('A1V2R · 其余三轮形态', () => {
   it('四轮都在位；分列轮长 split 限高；旧版轮无流水线＋降级说明；全程零请求', () => {
     render(<A1V2R />)
-    for (const id of ['t-running', 't-full', 't-split', 't-legacy']) {
+    for (const id of ['t-live', 't-full', 't-split', 't-legacy']) {
       expect(screen.getByTestId(`turn-${id}`)).toBeTruthy()
     }
     const split = within(screen.getByTestId('turn-t-split'))
@@ -190,5 +195,69 @@ describe('A1V2R · 右栏联动', () => {
     render(<A1V2R />)
     fireEvent.click(screen.getByRole('button', { name: /决策树/ }))
     expect(screen.getByText('决策树（mock 占位）')).toBeTruthy()
+  })
+})
+
+describe('A1V2R · 三场景归一（H5 零分支——specs「验收测试」表第 9 行）', () => {
+  /** 同一轮内容的两种来源：live/replay＝归约器帧归约（H1——replay 帧序与原流逐字相同，
+   *  输出与 live 同形，仅 kind 不同）；history＝adaptHistoryTurn 投影。
+   *  materials/notices 留空（history 读口无此面）——同一内容喂同一 TurnChain。 */
+  const ONE_SHAPE_FRAMES = [
+    { id: '-1', event: 'session', data: { run_id: 'run-one-shape', resume: false } },
+    { id: 0, event: 'text', data: { content: '答案正文一段。' } },
+    { id: 1, event: 'supplement', data: { block: 'lineage', text: '① 口径 日产液量（方）' } },
+    { id: 2, event: 'supplement', data: { block: 'split', text: '互不一致——各来源说法如下，按来源分别列出：\n[1] 《源A》：说法一' } },
+    { id: 3, event: 'supplement', data: { block: 'attribution', text: '按来源分别列出（每条结论标明出处）：\n[1] 《源A》：说法一' } },
+    { id: 4, event: 'done', data: { run_id: 'run-one-shape' } }
+  ]
+  const ONE_SHAPE_LIST_ITEM = {
+    run_id: 'run-one-shape',
+    question: '问句一',
+    status: 'completed',
+    answer: '答案正文一段。',
+    followup_of: '',
+    created_at: '2026-10-17 09:12:41',
+    updated_at: '2026-10-17 09:13:00',
+    supplements: [
+      { block: 'lineage', text: '① 口径 日产液量（方）' },
+      { block: 'split', text: '互不一致——各来源说法如下，按来源分别列出：\n[1] 《源A》：说法一' },
+      { block: 'attribution', text: '按来源分别列出（每条结论标明出处）：\n[1] 《源A》：说法一' }
+    ]
+  }
+  const live = reduceV2Frames(newTurnV2('ask', '问句一'), ONE_SHAPE_FRAMES)
+  const replay = reduceV2Frames(newTurnV2('replay', '问句一'), ONE_SHAPE_FRAMES)
+  const history = adaptHistoryTurn(ONE_SHAPE_LIST_ITEM, null)
+
+  /** 结构快照签名：标签＋data-testid＋直属文本＋子结构（剥类名/style/aria 等 SDK 实现细节
+   *  ——antd 折叠件内部 id 非稳态，不进签名；testid 面与文本面与层级面即「结构」）。 */
+  function signature(el) {
+    const ownText = [...el.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('')
+    return JSON.stringify([
+      el.tagName,
+      el.getAttribute?.('data-testid') ?? null,
+      ownText,
+      [...el.children].map(child => signature(child))
+    ])
+  }
+
+  it('one_shape_three_scenarios：live/replay/history 三形状喂同一 TurnChain——DOM 结构快照一致', () => {
+    const a = render(<TurnChain id="t-x" turn={live} />)
+    const b = render(<TurnChain id="t-x" turn={replay} />)
+    const c = render(<TurnChain id="t-x" turn={history} />)
+    const liveSig = signature(a.container.firstElementChild)
+    expect(signature(b.container.firstElementChild)).toBe(liveSig) // replay 与 live 同归约器——kind 不落 DOM
+    expect(signature(c.container.firstElementChild)).toBe(liveSig) // history 投影同形——零场景分支
+  })
+
+  it('history 缺的展示位＝整位不渲染（不是渲染占位——空态纪律在展示件内）', () => {
+    const { container } = render(<TurnChain id="t-x" turn={history} />)
+    expect(container.querySelector('[data-testid="pipeline"]')).toBeNull() // events 恒空→流水线整块不出
+    expect(container.querySelector('[data-testid="answer-placeholder"]')).toBeNull()
+    expect(container.querySelector('[data-testid="legacy-note"]')).toBeNull() // 新行 supplements=[]→legacy=false
+    // 链条仍完整：正文/血缘卡/追加面/核验小字照常渲染（同 live 的节点集）
+    for (const id of ['block-question', 'answer-view', 'lineage-card', 'supplement-blocks', 'run-meta-line']) {
+      expect(container.querySelector(`[data-testid="${id}"]`)).toBeTruthy()
+    }
+    expect(container.querySelector('[data-testid="run-meta-line"]').textContent).toBe('run-one-shape')
   })
 })

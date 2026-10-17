@@ -9,7 +9,8 @@
  * - 面板内含血缘卡与追加面（该轮有就给）；决策树入口在位（mock 点开说明 Modal）；
  * - 空态＝「本回合无引用」；进行中＝「检索中…」。
  *
- * 素材：EB3-数-降1（16 支引用 5 处来源，含一条 trust=notice）／EB4-数-明2（含血缘与追加面）。
+ * 素材：mockTurns 真帧夹具——EB3-数-降1（16 支引用 5 处来源，含一条 trust=notice）／
+ * EB4-数-明2（含血缘与追加面）；FE-02 后 MOCK_TURNS 条目＝{id, turn, durationS}。
  */
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -31,9 +32,11 @@ if (!window.ResizeObserver) {
 
 afterEach(() => cleanup())
 
-const FULL = MOCK_TURNS.find(t => t.id === 't-full')
-const SPLIT = MOCK_TURNS.find(t => t.id === 't-split')
-const LEGACY = MOCK_TURNS.find(t => t.id === 't-legacy')
+const FULL = MOCK_TURNS.find(t => t.id === 't-full').turn
+/** 血缘结构化源（对账 D-5）：materials[].payload（FE-02 起 lineage/limit 从此取）。 */
+const FULL_PAYLOAD = FULL.materials.find(m => m.payload?.lineage).payload
+const SPLIT = MOCK_TURNS.find(t => t.id === 't-split').turn
+const LEGACY = MOCK_TURNS.find(t => t.id === 't-legacy').turn
 
 describe('CitationPanel · 分组与 trust 白话徽标', () => {
   it('按 source 分组：组头＝来源＋支数＋trust 白话（报告/系统注记）', () => {
@@ -75,9 +78,10 @@ describe('CitationPanel · 分组与 trust 白话徽标', () => {
   })
 
   it('面板内含血缘卡与追加面（该轮有就给——非数据题/无块时各组件自不出）', () => {
-    render(<CitationPanel citations={FULL.citations} materials={FULL.materials} lineage={FULL.lineage}
-      limit={FULL.limit} lineageText={FULL.supplement.lineage} splitText={FULL.supplement.split}
-      attributionText={FULL.supplement.attribution} />)
+    render(<CitationPanel citations={FULL.citations} materials={FULL.materials}
+      lineage={FULL_PAYLOAD.lineage} limit={FULL_PAYLOAD.limit}
+      lineageText={FULL.supplements.lineage} splitText={FULL.supplements.split}
+      attributionText={FULL.supplements.attribution} />)
     expect(screen.getByTestId('lineage-card')).toBeTruthy()
     expect(screen.getByText('按来源列出（每条结论标明出处）')).toBeTruthy()
     expect(screen.getByText('各来源说法不一 · 点开对照')).toBeTruthy()

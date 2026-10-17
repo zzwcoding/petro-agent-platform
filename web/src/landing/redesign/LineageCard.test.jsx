@@ -31,11 +31,13 @@ if (!window.ResizeObserver) {
 
 afterEach(() => cleanup())
 
-const FULL = MOCK_TURNS.find(t => t.id === 't-full')
+const FULL = MOCK_TURNS.find(t => t.id === 't-full').turn
+/** 血缘结构化源（对账 D-5）：materials[].payload（FE-02 起 lineage/limit 从此取）。 */
+const FULL_PAYLOAD = FULL.materials.find(m => m.payload?.lineage).payload
 
 describe('LineageCard · 结构化 lineage（首选源）', () => {
   it('默认收起→展开出五要素（口径/来源表/过滤条件/数据截至批次/收口注记）', () => {
-    render(<LineageCard lineage={FULL.lineage} limit={FULL.limit} />)
+    render(<LineageCard lineage={FULL_PAYLOAD.lineage} limit={FULL_PAYLOAD.limit} />)
     expect(screen.queryByTestId('lineage-body')).toBeNull() // 默认收起
     fireEvent.click(screen.getByTestId('lineage-toggle'))
     const body = screen.getByTestId('lineage-body')
@@ -46,7 +48,7 @@ describe('LineageCard · 结构化 lineage（首选源）', () => {
   })
 
   it('「数据截至批次」要素高亮（结构位＋「更新到哪天」标）', () => {
-    render(<LineageCard lineage={FULL.lineage} limit={FULL.limit} defaultOpen />)
+    render(<LineageCard lineage={FULL_PAYLOAD.lineage} limit={FULL_PAYLOAD.limit} defaultOpen />)
     const row = screen.getByTestId('lineage-batch-row')
     expect(row.textContent).toContain('批次 b-a1a61db9f458')
     expect(row.textContent).toContain('更新到哪天')
@@ -54,19 +56,19 @@ describe('LineageCard · 结构化 lineage（首选源）', () => {
   })
 
   it('payload.limit.hit ＝补一行截断披露（只取了前 50 条）', () => {
-    render(<LineageCard lineage={FULL.lineage} limit={FULL.limit} defaultOpen />)
+    render(<LineageCard lineage={FULL_PAYLOAD.lineage} limit={FULL_PAYLOAD.limit} defaultOpen />)
     expect(screen.getByTestId('lineage-body').textContent).toContain('只取了前 50 条')
   })
 
   it('limit 未命中＝不出截断行（不伪造截断）', () => {
-    render(<LineageCard lineage={FULL.lineage} limit={{ hit: false, rows: 50 }} defaultOpen />)
+    render(<LineageCard lineage={FULL_PAYLOAD.lineage} limit={{ hit: false, rows: 50 }} defaultOpen />)
     expect(screen.getByTestId('lineage-body').textContent).not.toContain('只取了前')
   })
 })
 
 describe('LineageCard · 纯文本兜底与空态', () => {
   it('无结构化 lineage＝按 supplement 文本兜底切五要素（含子行）', () => {
-    render(<LineageCard lineage={null} text={FULL.supplement.lineage} defaultOpen />)
+    render(<LineageCard lineage={null} text={FULL.supplements.lineage} defaultOpen />)
     const body = screen.getByTestId('lineage-body')
     expect(body.textContent).toContain('① 口径')
     expect(body.textContent).toContain('⑤ 收口注记')

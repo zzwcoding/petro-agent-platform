@@ -5,7 +5,7 @@
  * 有自己的行渲染器（图标＋白话文案＋状态）；**折叠态＝一行摘要**（状态词 · 步数 · 工具数 ·
  * 材料数 · ⚠提示数 · 本地计时）。
  *
- * 状态机（props `turn.phase` 驱动）：
+ * 状态机（渲染期 `phaseOf(turn)` 派生驱动——FE-01 导出，turn 不携带 phase 字段）：
  * - `running`：**默认展开**（流在长），尾部一颗 Spin「继续处理中…」；无事件时出「正在分析问题…」占位；
  * - `answering`：**自动收起**（首条答案正文到达＝流水线让位给正文）；
  * - `done`：链条完整，默认收起，点摘要行可再展开回看全程。
@@ -21,17 +21,19 @@
  * - citation → 轻行「落账引标 [n] 《来源》」
  * supplement 不单独出行（血缘卡/追加面是回答块下挂的链条节点）。
  *
- * 排序口径与空态见 events.js 头注（真机跨类型到达序在归约后不可得时的显示规则）。
+ * 事件流＝归约器直出的 `turn.events`（按帧到达序追加，G4——本件不排序不派生；
+ * FE-02 起 deriveEvents 退役，mock 四轮全部为 reducer/historyAdapter 产出、events 恒为数组，
+ * 过渡期 `?? []` 兜底按票面判定去除）。时长 `durationS` 由页面传入（本地计时，不入 turn）。
  * 空态：非运行中且无事件＝整块不渲染（旧版降级轮即此形）。
  */
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Spin } from 'antd'
 import {
   CheckCircleOutlined, CloseCircleOutlined, DownOutlined, PauseCircleOutlined, UpOutlined
 } from '@ant-design/icons'
 import { dim, helpIcon } from '../../components/helpIcon.jsx'
 import { NoticeRow } from './NoticeBand.jsx'
-import { deriveEvents, phaseText, summarizePipeline, toolText } from './events.js'
+import { phaseText, summarizePipeline, toolText } from './events.js'
 
 const TOOL_STATUS = { ok: '完成', failed: '失败', ask: '待确认' }
 
@@ -103,10 +105,11 @@ function EventRow({ ev, i }) {
 }
 
 /**
- * @param turn 单轮（归约器形状＋`phase`；见 mockTurns.js 头注）
+ * @param turn      单轮（TurnShape——events 为归约器直出的到达序事件流）
+ * @param durationS 本地计时秒数（页面临时面传入，不入 turn；null＝摘要行不出时长）
  */
-export default function ExecutionPipeline({ turn }) {
-  const events = useMemo(() => deriveEvents(turn), [turn])
+export default function ExecutionPipeline({ turn, durationS = null }) {
+  const events = turn.events
   const sum = summarizePipeline(turn)
   const [userOpen, setUserOpen] = useState(null) // null＝跟随状态机；true/false＝用户定态
   const running = sum.state === 'running'
@@ -116,13 +119,14 @@ export default function ExecutionPipeline({ turn }) {
   if (events.length === 0 && !running) return null
 
   const stateIcon = running ? <Spin size="small" /> : <CheckCircleOutlined style={{ color: '#52c41a' }} />
+  const shownDuration = durationS ?? sum.durationS // 页面传入优先（时长不入 turn——页面临时面）
   const summary = [
     sum.stateWord,
     `${sum.steps} 步`,
     `${sum.tools} 次工具`,
     `${sum.materials} 份材料`,
     `⚠ ${sum.notices} 条提示`,
-    sum.durationS == null ? null : `${sum.durationS}s`
+    shownDuration == null ? null : `${shownDuration}s`
   ].filter(Boolean)
 
   return (
