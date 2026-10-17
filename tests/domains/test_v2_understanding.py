@@ -63,6 +63,14 @@
 `::test_four_phase_understand_schema_feedback_twice_fails`——`specs/agent-loop.md` 验收表同批挂）。
 **行 12 的步序面随本批改判**：解析失败案＝记账步 2（两读）＋报告步 1（回喂不另记步、不重复上报）。
 
+**2026-10-17 补（EB5a·schema 零交付三题定位修复）——本件新增行 5c**：EB3 全量复跑里 NQ-C3／NQ-D3／
+NQ-M1 三题**整题零交付**，定位＝理解步严格解析两次皆拒、同一形（**题干引号被照搬进 `text` 值且不
+转义**）；旧形「回喂恰一次 → 收敛拒答」只给拒答正文（判分记 ❌）。修法＝**引号自修受理**（行为 13
+首段）：严格解析不合格 → 过确定性引号自修一次（既有共用件 `parsing.parse_with_quote_repair`，零模型
+零占轮，修好＝受理 ＋ `emission_quote_repair` notice）→ 修不好才回喂 → 仍拒才收敛拒答。本件行 5c
+＝三题**题面原句＋真机应答原话**重演（失败形 → 受理 → 真交付）；行 5b（NQ-D2 帧回归）随本批由
+「收敛拒答」改判「引号自修受理」——同一真机形在新行为下**不再是拒答**。
+
 **逐字稿面**：三区文本、段序与题干段为 `prompts` 单点（`specs/prompts.md` 行为 3–5）；本件的
 活体面断言经**相位黑盒**观测（`interpret` 追加到链首的任务书），不另立第二份合同字面。
 **待裁登记（流水 54①，本票按现状落、不自行改写）**：输出契约区文案与样例集实仓词属 Owner 审定
@@ -110,6 +118,9 @@ _UNDERSTANDING_DIR = _REPO_ROOT / "appv2" / "runtimev2" / "understanding"
 # 收敛拒答正文的稳定头部（模板首段——文案本体真源＝`understanding.constants`；本件只判「是拒答」）
 _REFUSAL_MARK = CONVERGE_DRAFT_TEMPLATE.split("{", 1)[0]
 _CONVERGE_NOTE_TITLE = CONVERGE_NOTE_TITLE
+# 引号自修受理面（行为 13 首段；2026-10-17 EB5a）——notice 取值与注记标题的规格逐字面
+_QUOTE_REPAIR_NOTICE = "emission_quote_repair"
+_QUOTE_REPAIR_NOTE_TITLE = "读题引号自修"
 
 # ── 规格逐字面（独立于实现书写——实现漂移即红；真源 specs/understanding.md）──────────────
 _SPEC_ROUTE_FULL = "full"
@@ -487,7 +498,9 @@ def test_malformed_json_converges_to_refusal() -> None:
     字符串里带未转义引号 → 旧「抛 `UnderstandingParseError` → 编排收 `failed`」整 run 零交付）
     ——两读皆拒改为 `bookkeeping.direct_answer` 落拒答正文（直答旁路三键）＋返回该 `Direct`：
     **不判 `failed`、不零交付**；仍**不返回半成品**（理解双通道字段零写入）、**不取默认路由**、
-    不静默（如实上报两件套照出一份）。
+    不静默（如实上报两件套照出一份）。**2026-10-17 EB5a 补**：拒前先过**确定性引号自修**一次——
+    本件这组输入**都不是引号病**（两行式／非 JSON／类型不符／route 越界），自修零命中，
+    故仍走「回喂恰一次 → 收敛拒答」；引号病形的改判见下 5b／5c 两节。
 
     **跨文件对读**（转译输入半面）：同一组合格外输入在 `parse_understanding` 侧返 `None`。
     """
@@ -524,9 +537,7 @@ def test_malformed_json_converges_to_refusal() -> None:
     assert _report_steps(state)[0]["payload"][_PAYLOAD_RAW_EXCERPT_KEY].endswith("…")
 
 
-# ---------- 5b EB2-NQ-D2 帧回归（题面原句＋真机应答原话；2026-10-17 EB3 D4.4）----------
-
-
+# ---------- 5b EB2-NQ-D2 帧回归（题面原句＋真机应答原话）----------
 # 题面原句（逐字取自 `eval/results/frames/EB2-NQ-D2.json` 的 blackbox 记录）
 _NQ_D2_QUESTION = (
     '报告 1.2 节对一季度产量完成情况"两种口径并行披露"。请完整回答：(a) 一季度计划配产多少万吨？'
@@ -544,23 +555,176 @@ _NQ_D2_RAW = (
     '差异对应的检修影响量；(d) 台账提示里"有效产量"指标对数前必须先做的事，以及旧称"老完成率"'
     '当前所处状态。","metric_candidates":["配产量","有效产量","产量完成率"]}'
 )
+# 引号自修后的 `text` 值（真机原话**逐字不动**、只把值内裸引号换成中文引号——本件判据面；
+# 由 `parsing.repair_inner_quotes` 的确定性规则算出，非人工誊写）
+_NQ_D2_RAW_TEXT_REPAIRED = (
+    "理解：报表 1.2 节一季度产量完成情况按两种口径并行披露，要求完整回答：(a) 一季度计划配产量"
+    "（万吨）；(b) 两支口径各自的名称、实际完成量（万吨）、完成率，并指出按哪支口径判定"
+    "「未完成计划」；(c) 两支口径相差几个百分点、报告如何定性该差异（是否构成产量虚增）、"
+    "差异对应的检修影响量；(d) 台账提示里「有效产量」指标对数前必须先做的事，以及旧称"
+    "「老完成率」当前所处状态。"
+)
 
 
-def test_nq_d2_frame_question_converges_to_refusal() -> None:
-    """#5b｜EB2-NQ-D2 帧回归：题面原句＋真机应答原话 → **收敛拒答**（不抛错、不零交付）。
+def test_nq_d2_frame_question_quote_repair_admits() -> None:
+    """#5b｜EB2-NQ-D2 帧回归：题面原句＋真机应答原话 → **引号自修受理**（真交付，非拒答）。
 
-    该帧的失败形＝**JSON 字符串内未转义引号**（`"未完成计划"`）——两读皆不合 schema；旧形整 run
-    `failed` 且 `answer_text` 空（判分记「run 级零交付 ❌」）。新行为＝回喂恰一次后收敛拒答：
-    直答旁路三键落定、run 走收口；理解双通道字段零写入（不返回半成品、不取默认路由）。
+    该帧的失败形＝**JSON 字符串内未转义引号**（`按哪支口径判定"未完成计划"`）——严格解析不合格；
+    旧形整 run `failed` 且 `answer_text` 空（判分记「run 级零交付 ❌」）；EB3 D4.4 改判「收敛拒答」
+    （仍是零交付），**EB5a 起改判为受理**：确定性引号自修（`parsing.parse_with_quote_repair`，零模型
+    零占轮）→ 全文可解析 → 正常分派 `route="full"` → run 续跑四相位**真作答**。
+
+    判据：返回 `Understanding`（不是拒答 `Direct`）／值内裸引号换中文引号、**文本其余逐字不动**／
+    `emission_quote_repair` notice ＋「读题引号自修」注记在场／模型调用**恰 1 次**（不占回喂上限、
+    不触发第二次读）／零报告步（不成拒）／理解双通道照常写入。
     """
     state = _state(question=_NQ_D2_QUESTION)
-    out, _bus = _interpret(state, _NQ_D2_RAW)
-    assert isinstance(out, Direct) and state.draft == out.text
-    assert state.draft_kind == "direct" and state.next_intent == "answer"
-    assert "没能读懂您的问题" in out.text and "应答不是合法 JSON" in out.text
-    assert parse_understanding(_NQ_D2_RAW) is None  # 与 parsing 面同判（真机形确为不合 schema）
-    assert state.understanding == "" and state.metric_candidates == []
-    assert len(state.notices) == 1 and len(_report_steps(state)) == 1
+    outs, _bus, completer = _interpret_all_with_calls(state, _NQ_D2_RAW, runs=1)
+    out = outs[0]
+    assert isinstance(out, Understanding) and out.route == _SPEC_ROUTE_FULL
+    assert out.text == _NQ_D2_RAW_TEXT_REPAIRED
+    assert out.metric_candidates == ["配产量", "有效产量", "产量完成率"]
+    assert parse_understanding(_NQ_D2_RAW) is None  # 严格面同判（真机形确为不合 schema）
+    assert len(completer.calls) == 1  # 自修不占回喂上限：绝不触发第二次读
+    assert set(state.notices[0]) == _SPEC_NOTICE_KEYS
+    assert state.notices[0]["type"] == _QUOTE_REPAIR_NOTICE
+    titles = [entry["title"] for entry in state.process_notes]
+    assert titles.count(_QUOTE_REPAIR_NOTE_TITLE) == 1 and titles.count(_READ_NOTE_TITLE) == 1
+    parse_failures = [
+        step
+        for step in _report_steps(state)
+        if step["payload"].get(_PAYLOAD_EVENT_KEY) == _EVENT_PARSE_FAILURE
+    ]
+    assert parse_failures == []  # 受理非拒：零解析失败报告步
+    assert state.understanding == out.text and state.metric_candidates == out.metric_candidates
+    assert state.dialogue == []
+
+
+# ---------- 5c EB5a 三题帧回归（题面原句＋真机应答原话；2026-10-17 EB5a）----------
+# 三题＝EB3 全量复跑里「整题零交付」那三题（`eval/results/frames/EB3-NQ-C3.json` ／
+# `EB3-NQ-D3.json`／`EB3-NQ-M1.json`；真机 run_id 依次 run-7fec93ff／run-e15407fa／run-74dd2bb0）。
+# 三题同形：**题面里的成对引号被照搬进 `text` 值且不转义**（C3 更甚——题面用全角「」、模型回话
+# 却把它归一成半角 `"` 再照抄；D3／M1 题面本来就是半角引号）。两次读题同形 → 严格解析两次皆拒。
+# 题面原句逐字取自各帧 blackbox 记录；应答原话逐字取自 `logs/llm_calls/20261017.jsonl`（首读形）。
+_NQ_C3_QUESTION = (
+    "某评审人声称：「报告 4.2 节记载本井采用 20/40 目砾石挤压充填防砂，防砂精度 175 微米，"
+    "充填作业占船日 4.0 天。请按附录A 给出本井实际充填砾石量与充填井段。」请逐项指出该说法与报告"
+    "不符之处，并作答：\n（1）本井实际防砂方式与筛管型号、防砂精度各是什么？\n"
+    "（2）「20/40 目砾石挤压充填」在报告中的真实身份是什么？报告是否给出砾石量与充填井段？\n"
+    "（3）「占船日 4.0 天」在 4.2 节语境下的含义是什么？报告中另有两处「4.0 天」分别指什么"
+    "（指出章节与口径）？"
+)
+_NQ_C3_RAW = (
+    '{"route": "full", "text": "理解：判断评审人关于报告4.2节防砂说法与报告的逐项不符之处，并作答'
+    '（1）本井实际防砂方式与筛管型号、防砂精度；（2）"20/40目砾石挤压充填"在报告中的真实身份及'
+    '报告是否给出实施后的砾石量与充填井段；（3）"占船日4.0天"在4.2节语境下的含义及报告中另两处'
+    '"4.0天"分别指什么（指出章节与口径）。", "metric_candidates": []}'
+)
+_NQ_D3_QUESTION = (
+    '有人推断："Y-26 井 3 月 6 日分层测试三段吸水比例为 51%/34%/15%，各段相对均匀，可见 Y-26 的'
+    '欠注属于层间矛盾型；所以二季度治理应当像 Y-24 一样，先在 4 月上旬实施冻胶调剖封堵 I 层大孔道，'
+    '验证通过后再提配注。"这个推断对不对？请依据报告逐点纠正：Y-26 的欠注类型判定是什么、判定证据'
+    '有哪两条（提示：一条在第三章、一条在 2.2 表）、二季度对 Y-26 的实际治理措施和提配安排是什么？'
+    '"冻胶调剖封堵 I 层大孔道"到底是给哪口井安排的？'
+)
+_NQ_D3_RAW = (
+    '{"route":"full","text":"判断并纠正关于 Y-26 井欠注类型与二季度治理措施的推断，要求：①给出 '
+    'Y-26 的欠注类型判定；②给出判定证据两条（第三章一条，2.2 表一条）；③给出二季度对 Y-26 的实际'
+    '治理措施和提配安排；④说明"冻胶调剖封堵 I 层大孔道"实际安排在哪口井。","metric_candidates":[]}'
+)
+_NQ_M1_QUESTION = (
+    "结合第一章、第二章、第七章回答五个子问：①本报告口径下 2027 年 1 月躺井 3 井次是哪三口井？"
+    '②其中属于杆断的是哪两口、这两口的平均检泵周期是多少天？③三口中属于"泵漏"的是哪口井、'
+    '其检泵周期是多少天？④第七章 2027-01 行"其中杆断"一栏填的是几？'
+    '⑤该行的"检泵作业(井次)"一栏填的是几？'
+)
+_NQ_M1_RAW = (
+    '{"route":"full","text":"结合第一章、第二章、第七章回答五个子问：①本报告口径下 2027 年 1 月躺井'
+    ' 3 井次分别对应哪三口井；②其中属于杆断的是哪两口、这两口的平均检泵周期是多少天；③三口中属于'
+    '"泵漏"的是哪口井、其检泵周期是多少天；④第七章 2027-01 行"其中杆断"一栏填的是几；'
+    '⑤该行的"检泵作业(井次)"一栏填的是几。","metric_candidates":["检泵周期"]}'
+)
+_EB5A_CASES: tuple[tuple[str, str, str, str], ...] = (
+    (
+        "NQ-C3",
+        _NQ_C3_QUESTION,
+        _NQ_C3_RAW,
+        "理解：判断评审人关于报告4.2节防砂说法与报告的逐项不符之处，并作答（1）本井实际防砂方式与"
+        "筛管型号、防砂精度；（2）「20/40目砾石挤压充填」在报告中的真实身份及报告是否给出实施后的"
+        "砾石量与充填井段；（3）「占船日4.0天」在4.2节语境下的含义及报告中另两处「4.0天」分别指"
+        "什么（指出章节与口径）。",
+    ),
+    (
+        "NQ-D3",
+        _NQ_D3_QUESTION,
+        _NQ_D3_RAW,
+        "判断并纠正关于 Y-26 井欠注类型与二季度治理措施的推断，要求：①给出 Y-26 的欠注类型判定；"
+        "②给出判定证据两条（第三章一条，2.2 表一条）；③给出二季度对 Y-26 的实际治理措施和提配"
+        "安排；④说明「冻胶调剖封堵 I 层大孔道」实际安排在哪口井。",
+    ),
+    (
+        "NQ-M1",
+        _NQ_M1_QUESTION,
+        _NQ_M1_RAW,
+        "结合第一章、第二章、第七章回答五个子问：①本报告口径下 2027 年 1 月躺井 3 井次分别对应哪"
+        "三口井；②其中属于杆断的是哪两口、这两口的平均检泵周期是多少天；③三口中属于「泵漏」的是"
+        "哪口井、其检泵周期是多少天；④第七章 2027-01 行「其中杆断」一栏填的是几；"
+        "⑤该行的「检泵作业(井次)」一栏填的是几。",
+    ),
+)
+
+
+@pytest.mark.parametrize(("qid", "question", "raw", "text_repaired"), _EB5A_CASES)
+def test_eb5a_zero_delivery_three_questions_quote_repair_admits(
+    qid: str, question: str, raw: str, text_repaired: str
+) -> None:
+    """#5c｜EB5a 三题帧回归：失败形重演 → **引号自修受理**（`completed` 有正文，不再整题零交付）。
+
+    三题（`qid`）在 EB3 全量复跑里死在**同一处把守**：理解步严格解析两次皆拒（同一形：题干引号被
+    照搬进 `text` 值不转义）→ 旧形走「回喂恰一次 → 收敛拒答」→ 用户只拿到「没能读懂」的拒答正文，
+    判分记「整题零交付 ❌」。EB5a 起：**首读即过确定性引号自修受理**（零模型零占轮）→ 返回
+    `route="full"` 的 `Understanding` → 编排续跑四相位真作答。
+
+    判据（逐题）：返回 `Understanding` 非拒答／`text` 值内引号换中文引号、其余逐字同真机原话
+    （期望文本另以逐字稿落 `_EB5A_CASES` 第 4 项）／候选原样保留／模型调用**恰 1 次**（自修不占
+    回喂上限）／`emission_quote_repair` notice ＋「读题引号自修」注记在场／零解析失败报告步
+    （不成拒）／未走直答旁路。
+    """
+    state = _state(question=question)
+    outs, _bus, completer = _interpret_all_with_calls(state, raw, runs=1)
+    out = outs[0]
+    assert parse_understanding(raw) is None, qid  # 真机形确为不合 schema（严格面同判）
+    assert isinstance(out, Understanding) and out.route == _SPEC_ROUTE_FULL, qid
+    assert len(completer.calls) == 1, qid  # 引号自修不占回喂上限
+    assert out.text == text_repaired, qid
+    assert state.notices[0]["type"] == _QUOTE_REPAIR_NOTICE, qid
+    assert [entry["title"] for entry in state.process_notes].count(
+        _QUOTE_REPAIR_NOTE_TITLE
+    ) == 1, qid
+    parse_failures = [
+        step
+        for step in _report_steps(state)
+        if step["payload"].get(_PAYLOAD_EVENT_KEY) == _EVENT_PARSE_FAILURE
+    ]
+    assert parse_failures == [], qid
+    assert state.next_intent != _SPEC_INTENT_ANSWER, qid
+    assert state.understanding == out.text, qid
+    assert state.draft == "" and state.draft_kind == "", qid  # 未走直答旁路（真交付路径）
+    assert state.dialogue == [], qid
+    # 修复只动引号层：去引号后与真机原话的 `text` 值同形（值内容零改写、零截断）
+    raw_text = _raw_text_field(raw)
+    repaired_text = text_repaired
+    for mark in ('"', "「", "」"):
+        raw_text = raw_text.replace(mark, "")
+        repaired_text = repaired_text.replace(mark, "")
+    assert repaired_text == raw_text, qid
+
+
+def _raw_text_field(raw: str) -> str:
+    """真机应答原文里 `text` 值的**逐字切面**（未转义引号形的纯字符切片——本件比对基准）。"""
+    open_quote = raw.index(":", raw.index('"text"')) + 1
+    start = raw.index('"', open_quote) + 1
+    return raw[start : raw.rindex(",", 0, raw.index('"metric_candidates"')) - 1]
 
 
 # ---------- 6 route 越界取值 → 判失败（不猜、不取默认） ----------

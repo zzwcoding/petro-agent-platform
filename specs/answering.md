@@ -96,6 +96,7 @@ class Gap:
 - **合法降级路径：无**（本模块不自降级；起草原话不完整时走结构化缺口，不改写事实）。
 - 流式增量、缺口、截断披露、收口都必须产生机读信号：本块自产的 `text`／`citation` 事件（类型取自 `synth/S6-事件与帧目录.md`）＋ 材料截断的 `material_truncated` notice（真源 `tickets/v2/V2-61-材料承载分形渲染.md` 附 D）＋ step payload 的 `citations`／`gaps` 字段；`verdict` 事件为**消费方信号**——其批次落定由 `orchestration` 协调（见行为 7），本块只保证自产帧。
 - 红线原文：`arch/P7a-交接包与挂账清单.md`（A-P7a-37）「**不许静默**——若任何相位仍发生截断，模型面必须随材料段带明示……收口注记面同步披露」。
+- **用户可见文案白话化（2026-10-17 EB4b）**：notice 内容（`MATERIAL_TRUNCATED_CONTENT`／`EMISSION_STRIP_CONTENT`）与增补面段头（`CONTRADICTION_SECTION_HEAD`／`SOURCE_SECTION_HEAD`／`CITATION_BLOCK_HEAD`——增补面属交付面，评分面＝正文＋增补面合并判）白话化（依据＝`docs/runtime-refactor/research/最佳实践-3a-白话化与受众适配.md` 第三节 3.2）；**判定面语义零改**（披露义务、逐支原文照抄、逐源配对判据不变）；**回喂／机读面零改动**——`ENGINE_NOTES_HEAD`（进模型窗的材料段头）与四条 `*_REASON`（`Gap.reason` 机读缺口面）逐字不动（A-P6b-05）。
 
 ## 验收测试
 
@@ -113,7 +114,7 @@ class Gap:
 | 模型原话不进对话层 | `tests/domains/test_v2_answering.py::raw_not_in_dialogue` |
 | 发射 JSON 不进答案面（发射围栏／JSON 形确定性剥离，泄漏=0） | `tests/domains/test_v2_answering.py::emission_strip_zero_leak` |
 | 明细行集题交付行数＝引擎返回行数（50 行全交付，丢行=0） | `tests/domains/test_v2_answering.py::rowset_full_delivery` |
-| 材料截断必披露：`material_truncated` notice＋「未渲染部分不作答」声明在场（未截断零 notice） | `tests/domains/test_v2_answering.py::truncation_disclosed` |
+| 材料截断必披露：`material_truncated` notice＋「没用上的部分不作答」声明在场（未截断零 notice；逐字＝2026-10-17 EB4b 白话化后文案，旧「未渲染部分不作答」） | `tests/domains/test_v2_answering.py::truncation_disclosed` |
 | 答案面无字面占位符 `[n]`（含 `[n]` 行不以占位符交付） | `tests/domains/test_v2_answering.py::placeholder_marker_not_in_answer` |
 | 起草回声=0：首行不以「理解：」开头／前 100 字不含「指标候选」（echo_flag 恒 0） | `tests/domains/test_v2_answering.py::echo_flag_zero` |
 | 台账 no_hit → 降级交付三段形（油田级邻近可得引用＋逐井「未找到」明示＋指路）且零逐井数值冒充 | `tests/domains/test_v2_answering.py::no_hit_degraded_delivery_three_part` |
@@ -150,7 +151,7 @@ class Gap:
 | 程序不判语义 | 测试 `::no_lexicon_or_regex_in_answering` | 待实现 |
 | 发射 JSON 不进答案面（确定性剥离，泄漏=0） | 钉 **`pin-04`**（P0） | 待织网（阶段 5） |
 | 明细行集题全量交付（交付行数＝引擎返回行数，丢行=0；与 execution 行为 4 同一界线） | 钉 **`pin-08`**（P0） | 待织网（阶段 5） |
-| 材料截断必披露（`material_truncated` notice＋「未渲染部分不作答」声明） | 钉 **`pin-09`**（P1） | 待织网（阶段 5） |
+| 材料截断必披露（`material_truncated` notice＋「没用上的部分不作答」声明；逐字＝2026-10-17 EB4b 白话化后文案） | 钉 **`pin-09`**（P1） | 待织网（阶段 5） |
 | 起草回声=0（`echo_flag` 恒 0） | 钉 **`pin-13`**（P1） | 待织网（阶段 5） |
 | 台账 no_hit 降级交付三段形（油田级邻近可得引用＋逐井「未找到」明示＋指路，零逐井数值冒充——轴④封尺满分形）——落点＝行为 15 | 钉 **`pin-20`**（P1） | 待织网（阶段 5） |
 | 排名型子问题强制消费排名观察支（排名序对与排名支序信息一致，不弃支他拼）——落点＝行为 16 | 钉 **`pin-19`**（P1） | 待织网（阶段 5） |

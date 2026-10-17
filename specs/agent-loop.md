@@ -26,7 +26,7 @@ LLM 判断孤岛。
 | 写操作（本平台全程只读） | `tools`（只读工具面，INV-2） | `specs/modules.md` `## tools` |
 | V1 端点的任何改动 | 本块只落 `/api/v2/chat/*`；V1 走旧端点不动 | `specs/modules.md` `## api`；ADR-0007 |
 | 替代引擎侧 citation 校验（本块核验叠加、不替代） | 引擎侧确定性 Middleware（平台引擎面，非本规格落点） | `specs/modules.md` `## retrieval` |
-| schema 校验失败自动 repair | `parsing`（拒因回喂 LLM 重发射；**不做自动修补**） | `specs/modules.md` `## parsing`；ADR-0004 拍板 2 |
+| schema 校验失败自动 repair | `parsing`（拒因回喂 LLM 重发射；**不做自动修补**——**唯例外＝格式层确定性引号自修受理**〔`parse_with_quote_repair`，V2-60 ③层；只换值内裸引号字符、修后须全文可解析才受理，值内容逐字不动〕，2026-10-17 EB5a 登记） | `specs/modules.md` `## parsing`；ADR-0004 拍板 2；`specs/parsing.md` 行为 10 |
 
 ## 触及的模块
 
@@ -78,9 +78,12 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 ## 行为约定
 
 1. **四相位循环**（ADR-0005，生产装配 `four_phase=True`）：每问新建 run，
-   **understand 读题**（schema 拒＝**拒因回喂重试恰一次**：首读不合 schema → 向链尾追加拒因载荷
-   〔【拒因】具体不合项＋【期望形】＋尾行〕→ 同相位再读一次；**仍拒**才 fail-closed 收束 `failed`
-   ＋`run_failed` notice——真源 `specs/understanding.md` 行为 13；**不静默补默认**、上限恰一次），
+   **understand 读题**（schema 拒＝**先确定性引号自修恰一次**〔2026-10-17 EB5a；修好＝受理、
+   `emission_quote_repair` notice、零模型零占轮〕，**自修无效才拒因回喂重试恰一次**：首读不合
+   schema → 向链尾追加拒因载荷
+   〔【拒因】具体不合项＋【期望形】＋尾行〕→ 同相位再读一次；**两读皆不合** ⇒ **收敛拒答**
+   〔`completed`、拒答正文、`run_failed` 零出——2026-10-17 EB3 D4.4 改判；旧「fail-closed 收束
+   `failed`」退役〕——真源 `specs/understanding.md` 行为 13；**不静默补默认**、上限恰一次），
    理解后进四相位——
    ①**业务澄清（clarify）**：LLM 带 Skill 指南发射**四动作**闭世界 `discover｜decompose｜ask｜finalize`（Owner 2026-10-15 按 `walk/08` 同步）；
    discover＝钻取（semantic_query/doc_retrieve/table_schema），decompose 产出
@@ -123,7 +126,8 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
    时间词按窗词锚定表可解析即锚定发射，无时间词→默认近 30 天＋注记；台账命中＋窗
    已定＝禁再 discover（直发分解）；ask 仅限两种白场——无场景词＋阈值判断形的口径
    反问、目标/对象/口径真歧义（澄清合同收窄）；越集→审批。schema 校验失败＝拒因
-   回喂重发射，**无 repair**；同参重投闸落 execution（dispatch 统一出口，流水 30②），
+   回喂重发射；**引号病形另走格式层确定性自修受理**（`parse_with_quote_repair`，V2-60 ③层——
+   澄清面既有、理解面 2026-10-17 EB5a 增；**不做 schema 层自动修补**）；同参重投闸落 execution（dispatch 统一出口，流水 30②），
    本块保留轮数闸／自旋收敛的预算面层；定位降为确定性兜底
    （主力是过程摘要渲染——V2-79c；V2-79a 三层分离后原「消息历史簿记」承载面
    退役）。
@@ -201,7 +205,8 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 | 直答旁路（`route="direct"`）收口后交付正文帧（恰一帧 `text`、content＝草稿、帧在 `verdict(final)` 前、不带 `kind`；起草路径帧面不变——行为 8 补条） | `tests/domains/test_v2_four_phase.py::test_four_phase_direct_answer_emits_text_frame` |
 | 提问→事件流步序（understand→四相位→answer 次序） | `tests/api/test_v2_asks.py::test_loop_step_sequence` |
 | 理解步 schema 首拒回喂一次后次读合规 → 四相位正常走通（run `completed`；模型调用恰 2 次、拒因载荷落链尾） | `tests/domains/test_v2_four_phase.py::test_four_phase_understand_schema_feedback_retry_recovers` |
-| 理解步两读皆拒 → fail-closed 收束 `failed`（上限恰一次，无第三次调用） | `tests/domains/test_v2_four_phase.py::test_four_phase_understand_schema_feedback_twice_fails` |
+| 理解步两读皆拒（**非引号病**——确定性引号自修零命中）→ **收敛拒答**收口 `completed`（上限恰一次，无第三次调用） | `tests/domains/test_v2_four_phase.py::test_four_phase_understand_schema_feedback_twice_converges_to_refusal` |
+| 【EB5a】理解步引号病形（`text` 值内裸引号未转义）→ **确定性引号自修受理**（`emission_quote_repair` notice、模型调用恰 1 次）→ 四相位照常走通、run `completed` 携**真答案** | `tests/domains/test_v2_four_phase.py::test_four_phase_understand_quote_repair_delivers_answer` |
 | 每个模型调用 step 落 Manifest（来源/版本/token）**【**W4 登记（2026-10-16）**：材料面 Manifest 现挂答案面步（`call_model` 无 manifest 注入面）；若裁定改由 `call_model` 承接 → 回 W3 `bookkeeping` 或设计仓】** | `tests/api/test_v2_asks.py::test_manifest_present_each_call` |
 | run 内对话状态簿记（`dialogue`＋`process_notes` 双字段，第二轮调用携带首轮对话） | `tests/domains/test_v2_multi_turn_context.py::test_second_decision_context_carries_first_round_history` |
 | 追问续会话（前轮问答/执行台账随追问进上下文） | `tests/domains/test_v2_multi_turn_context.py::test_followup_context_carries_prior_qa_history` |
@@ -250,3 +255,5 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 | 挂起→resume 闭环（clarify 选项／越集审批两形态 ask 帧） | 钉 **`pin-29`**（P0） | 待织网 |
 | run_id 全盖章（计费可对账） | 钉 **`pin-28`**（P1） | 待织网 |
 | 「不做什么」的纯范围排除（不做记忆／不做写操作等） | **人审** | 接不上闸的原因：纯范围排除没有形状／存在性／退出码判据；能降维的部分已由边界闸 R2／R5b／R6／R7 覆盖 |
+
+> **2026-10-17 补（EB5a·理解步引号自修受理·审计）**：**行为 1 的「读题 schema 拒」回路改述**（行为 1 首段／验收表三行／「不做什么」表 incident 行／行为 3 末句；**编排层零代码改动**——本规格只承条）。**病灶**：EB3 全量复跑 `NQ-C3`／`NQ-D3`／`NQ-M1` 三题**整题零交付**，定位＝理解步两次读题应答皆不合 schema、同一形（**题干引号被照搬进 `text` 值不转义**）；旧文「仍拒才 fail-closed 收束 `failed` ＋`run_failed` notice」为 D4.4 前的措辞（D4.4 已改判收敛拒答，本批一并勘正）。**改法**：不合 schema 的读题应答**先过确定性引号自修一次**（受理编排单点 `parsing.parse_with_quote_repair`／零模型零占轮／不占回喂上限；修好＝受理＋`emission_quote_repair` notice）→ 自修无效才回喂恰一次 → 皆不合才收敛拒答（`completed`＋拒答正文）。**本层（orchestration）零改动**：受理与收敛都在理解相位内完成，`_make_understand` 收 `Understanding` 后照旧 `set_intent(INTENT_DECISION)` 续跑四相位——三题由此**真交付**。落点：`specs/understanding.md`（行为 7／13／接口错误契约／禁令／验收表／审计节——真源）、`specs/parsing.md`（接口⑤／行为 1／10 消费点勘正）、本规格（行为 1／行为 3／验收表两行改述＋一行新增／「不做什么」表 incident 行注记）。**登记（交主窗）**：①「全局收敛闸」（跨相位例外网）**本轮未铺**——定位证据显示三题同死一处且该处已有回喂回路、缺的只是确定性自修这一段，故按票面授权「就相位补回路」取最小修法；其余相位拒修正回路覆盖面（`clarify`／`toolmatch`＝回喂＋同形熔断触界收敛＋到顶截断；`answering` 起草面无 schema 闸，但其坏引标抛 `DanglingCitationError` 由本层收 `failed`）另表呈报，未动；②行为 3 末句「引号病形走格式层确定性自修受理」为澄清面既有行为的补记（非新行为）。

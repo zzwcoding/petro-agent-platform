@@ -1232,7 +1232,9 @@ def test_quote_repair_four_forms() -> None:
     assert first == _emit_text(unfixable)  # 首拒因保留（既有 V2-57 定位回喂零改动）
     assert first == _CLARIFY_UNPARSABLE
 
-    # 理解面不受理自修、不使用提取件（接口⑤——V1 事实面零调用点）
+    # 解析件本体不使用提取件／自修件（接口⑤）：统一 JSON 严格解析直落 None——
+    # 引号自修的**受理编排归消费方相位**（2026-10-17 EB5a：理解相位 `_read_and_parse` 经
+    # `parse_with_quote_repair` 受理，与本件同族单点；`parse_understanding` 本体仍不调）
     parsers_path = _PARSING_DIR / "parsers.py"
     parsers_text = parsers_path.read_text(encoding="utf-8")
     parsers_tree = next(tree for path, tree in _parsing_sources() if path == parsers_path)

@@ -156,6 +156,16 @@ WINDOW_LITERALS: Final[tuple[str, ...]] = (
 # ── 文本常量族（逐字迁移自 `appv2/runtime/graph.py` `_shallow_probe_feedback`／
 #    `_clarify_capped_answer`／`_quote_repair_notice` 与 `appv2/runtime/budget.py`
 #    `NO_MATERIAL_SHELL`——承载位换、文本不变）─────────────────────────────────
+# **两刀分类（2026-10-17 EB4b 白话化；票面口径：上屏路径＝正文／supplement／notice／ask 帧）**：
+# - **上屏面**（本批白话化）：`CAPPED_ANSWER_HEADER`（进正文首行＝text 帧）／
+#   `CAPPED_NOTICE_TEMPLATE`（notice `clarify_capped`）／`QUOTE_REPAIR_NOTICE_CONTENT`
+#   （notice `emission_quote_repair`）；
+# - **非上屏面**（零改）：`CAPPED_NOTE_DIGEST`／`STEP_TITLE_*`／`NOTE_DIGEST_*`（过程档案与步帧
+#   标题）、`MATERIAL_ROW_PREFIX`（正文行前缀，形态记号）；
+# - **回喂机面（A-P6b-05 零改动）**：`GUIDANCE_*`／`TEXT_SLOT_MISMATCH_*`／`TEXT_ZERO_OBSERVATION`／
+#   `TEXT_NO_REDISCOVER`／`CAUSE_*`／`NO_LEDGER_*_SHELL`——它们是解析拒因回喂面（文本进模型窗），
+#   一字不动；
+# - **已是白话的样板**：`NO_MATERIAL_SHELL`（V2-80d 人话壳，EB4b 样板）——零改。
 # 三段带路（行为 18：零模型调用、段缺则跳、「；」连接成单段；段③兜底句恒在）。
 GUIDANCE_PRECONDITION: Final[str] = (
     "数据链已被前置判定拒（在册未绑定/台账外）——该指标材料走报告检索："
@@ -169,11 +179,19 @@ GUIDANCE_JOIN: Final[str] = "；"
 EMPTY_PROBES_JOIN: Final[str] = "、"
 
 # 到顶截断（行为 15：带已取得材料如实直答、明示未完成项、不环）。
-CAPPED_ANSWER_HEADER: Final[str] = "（连续澄清截断——已取得材料如实交付，不再挂起）"
-# 上限值以槽位插值（V1 把「≥6」写死在文案里——数值单点纪律下不复现）。
-CAPPED_NOTICE_TEMPLATE: Final[str] = (
-    "连续澄清已达上限（连续 ask ≥{cap}）——不再挂起，带已取得材料如实直答。"
+# 2026-10-17 EB4b：旧「（连续澄清截断——已取得材料如实交付，不再挂起）」——「澄清截断／挂起」
+# 是内部工序说法，业务用户读不到；本行进**正文首行**（text 帧）＝上屏面，故白话化；
+# 到顶判据（`ask_cap` 计数）与「带材料直答」行为零改（判定面语义零改）。
+CAPPED_ANSWER_HEADER: Final[str] = (
+    "（追问次数已到上限——先把已经查到的材料如实交给你，不再继续追问）"
 )
+# 上限值以槽位插值（V1 把「≥6」写死在文案里——数值单点纪律下不复现）。
+# 2026-10-17 EB4b：旧「连续澄清已达上限（连续 ask ≥{cap}）——不再挂起，带已取得材料如实直答。」
+# → 白话（notice `clarify_capped` 内容＝上屏面）；`{cap}` 槽与截断判据零改。
+CAPPED_NOTICE_TEMPLATE: Final[str] = (
+    "连续追问已到上限（{cap} 次）——不再继续追问，先把已经查到的材料如实交给你。"
+)
+# 过程档案 digest（非上屏面——步帧／过程档案行，EB4b 零改）。
 CAPPED_NOTE_DIGEST: Final[str] = "连续澄清达上限（≥{cap}）——带材料直答"
 NO_MATERIAL_SHELL: Final[str] = (
     "没能查到能回答这个问题的材料——可以换个问法，或告诉我更多背景"
@@ -182,8 +200,11 @@ NO_MATERIAL_SHELL: Final[str] = (
 MATERIAL_ROW_PREFIX: Final[str] = "- "
 
 # 引号自修受理 notice（解析侧「受理编排」的调用方义务——`specs/parsing.md` 行为 10）。
+# 2026-10-17 EB4b：旧「发射 JSON 值内裸引号——程序确定性修复后受理（零模型零占轮；值内引号换
+# 中文引号）」——「发射 JSON／零模型零占轮」是工程腔，业务用户读不到；notice
+# `emission_quote_repair` 内容＝上屏面，故白话化（修号行为与判据零改）。
 QUOTE_REPAIR_NOTICE_CONTENT: Final[str] = (
-    "发射 JSON 值内裸引号——程序确定性修复后受理（零模型零占轮；值内引号换中文引号）"
+    "这次的指令里引号写法不对——已经自动改正后继续（没有多花模型调用，也没有多占一轮）。"
 )
 
 # ── 机器面拒因文本（本块产：行为 16 后半／行为 8 槽位对账）────────────────────

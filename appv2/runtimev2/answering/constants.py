@@ -85,9 +85,17 @@ SUBTASK_STATUS_REFUSED = "refused"  # 前置闸拒／闸拒（终局）——非
 DRAFT_KIND_DIRECT = "direct"
 
 # ── 引用块（迁移照抄 V1 `_finalize` 的引用块形）────────────────────────────────
+# **两刀分类（2026-10-17 EB4b）**：引用块走增补面（`block="citations"`，`core._citation_block`），
+# 属**用户可见面**；本字面（「引用：」）已是白话、零行话词，EB4b 核实后零改（不是回喂面，
+# 是「无需改的白话面」——记录以免下一轮重复核查）。
 CITATION_BLOCK_HEAD = "\n\n引用：\n"
 
 # ── 收口话术（本块自有文案——空白/缺失与披露面）───────────────────────────────
+# **两刀分类（2026-10-17 EB4b）**：四个 `*_REASON` 是**机读缺口面**——`Gap.reason` 只进答案面步
+# payload（`gaps` 三键），无上屏路径（`web/src/landing/*` 不渲染 `gaps`），属**审计消费面**，
+# 照 A-P6b-05 零改动；`EMISSION_STRIP_CONTENT`／`MATERIAL_TRUNCATED_CONTENT` 是 notice 帧内容
+# （`material_truncated`／`emission_strip`），web 侧 `NoticeRow` 逐条渲染 content＝**用户可见面**，
+# 故白话化。判定面语义零改（只改话术不动判据——照 EB2 D3「段头去工程腔」先例）。
 ZERO_MATERIAL_REASON = (
     "零实质材料（观察面无非 notice 条目）——本轮回答无材料可核，未及核验"
 )
@@ -96,13 +104,18 @@ EMPTY_DRAFT_REASON = (
 )
 MISSING_DRAFT_REASON = "起草未产出可交付答案——按结构化缺口如实收口"
 SUBTASK_MISSING_REASON = "执行未取得材料（失败／重试耗尽）"
+# 2026-10-17 EB4b（程序文案白话化）：旧「起草面检出 JSON 通道残留（发射围栏／裸 JSON 段）——
+# 确定性剥离，不进答案面（V2-48：…）」→ 白话；剥离判据（`strip_emission_fences`／
+# `EMISSION_ACTIONS` 闭世界）与帧型（`NOTICE_EMISSION_STRIP`）零改，只改上屏话术。
 EMISSION_STRIP_CONTENT = (
-    "起草面检出 JSON 通道残留（发射围栏／裸 JSON 段）——确定性剥离，不进答案面"
-    "（V2-48：发射围栏确定性剥离＋通道隔离）"
+    "这次模型回复里混进了程序用的格式内容——已自动去掉，答案不受影响。"
 )
+# 2026-10-17 EB4b：旧「答案视野检索片段仅渲染 {rendered}/{total} 支（权威行集与台账卡已全量）
+# ——未渲染部分不作答（V2-61）」→ 白话（去「视野／渲染／行集／台账卡」工程腔与票据号，内部计数
+# 单位「支」改「条」）；披露判据与两槽位（`rendered`／`total`）零改；规格验收行 13 的声明逐字
+# 随本批同步（`specs/answering.md`）。
 MATERIAL_TRUNCATED_CONTENT = (
-    "答案视野检索片段仅渲染 {rendered}/{total} 支（权威行集与台账卡已全量）"
-    "——未渲染部分不作答（V2-61）。"
+    "这次回答只用到检索到的 {rendered}/{total} 条材料——没用上的部分不作答。"
 )
 
 # ── 降级与引用簇（`RT-W4-06b`：行为 6／12／13／14／15／16／17——本块自有文案单点）─────────
@@ -116,10 +129,17 @@ MATERIAL_TRUNCATED_CONTENT = (
 CONTRADICTION_SECTION_HEAD = "\n\n互不一致——各来源说法如下，按来源分别列出："
 CONTRADICTION_LINE = "[{seq}] {source} · {source_id}：{content}"
 # 分源列明归属块（行为 17：逐源归属配对——来源名↔数值／结论配对；「某区块」含糊形不得由本块产出）。
-SOURCE_SECTION_HEAD = "\n\n分源列明（逐源归属——来源名↔数值／结论配对）："
+# 2026-10-17 EB4b（段头去工程腔续 EB2 D3）：旧「分源列明（逐源归属——来源名↔数值／结论配对）：」
+# ——「分源列明」「逐源归属」是内部工序说法，业务用户读不到；判定面语义零改（仍逐支原文照抄、
+# 仍逐源配对，配对判据在 `degradation.source_section`，零改）。增补面属**交付面**（评分面＝
+# 正文＋增补面合并判——Owner 2026-10-17 裁决），故与正文同列**用户可见面**。
+SOURCE_SECTION_HEAD = "\n\n按来源分别列出（每条结论都标出它来自哪个来源）："
 SOURCE_LINE = "[{seq}] {source}：{content}"
 # 引擎注记段（行为 15 的「不静默」面：台账 no_hit 等引擎注记在 `context.render_materials` 里
 # 整体排除（`specs/context.md` 行为 2），故本块另以其原文送入窗口——「不得静默丢弃」）。
+# **两刀分类（2026-10-17 EB4b）**：本常量**不是上屏文案**——`engine_notes_block` 的唯一消费点是
+# `core._draft` 里追加给**模型**的材料段（`append_message`，见 `core.py:264`），属**回喂机面**
+# （材料/指令文本），照 EB2 D1「引擎注记保留进窗（模型如实转述所必需）」与 A-P6b-05 零改动。
 ENGINE_NOTES_HEAD = "\n引擎注记（引擎降级／拦停／未绑定注记——如实转述，不得静默丢弃）：\n"
 # 起草回声签名判据（行为 14；字面逐字＝A-P4b-61）。两字面是规格给定的**形态签名**：
 # 只记签名、零拦截、零改写（「观测字段只记不拦」——不是语义词表，见 `degradation` 模块注）。

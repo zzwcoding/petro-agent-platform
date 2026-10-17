@@ -101,6 +101,7 @@ class Observation:
 - **合法降级路径：无**（本模块不自降级）。
 - 大结果落引用、失败、缺参**都必须产生机读信号**：`observation`／`tool` 事件 ＋ step payload 的 `row_count`／`ref.handle`／`error.reason` 字段。
 - 被落引用的原文**不得静默丢弃**：引用必须可寻址（`handle` 可读回）；红线原文 `arch/P7a-交接包与挂账清单.md`（A-P7a-37）「不许静默」。
+- **用户可见文案白话化（2026-10-17 EB4b）**：notice 内容六件（`CONTENT_REPLAY_NOTICE_PREFIX`／`CONTENT_EMPTY_PROBE_NOTICE_PREFIX`／`CONTENT_REF_DISCLOSURE_TEMPLATE`／`CONTENT_SUBTASK_REFUSED_TEMPLATE`／`CONTENT_SUBTASK_FAILED_TEMPLATE`／`CONTENT_TOOL_UNAVAILABLE_TEMPLATE`／`CONTENT_DECISION_REJECTED_TEMPLATE`）白话化（依据＝`docs/runtime-refactor/research/最佳实践-3a-白话化与受众适配.md` 第三节 3.2）；**只改外围壳，`{reason}` 槽逐字不动**；**回喂机面零改动**——`PLAN_FACE_REASON_*`／`EMPTY_PROBE_FEEDBACK_TEMPLATE`／`SAME_PARAM_REPLAY_REASON`／`MISSING_SOURCE_REASON`（拒因回喂行／计划面闸拒原文）与步帧标题（`TITLE_*`）逐字不动（A-P6b-05）。
 
 ## 验收测试
 

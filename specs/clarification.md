@@ -102,6 +102,7 @@ class ClarifyReason:                                # 结构化拒因单条
 - **合法降级路径：无**（本模块不自降级）。
 - 截断、挂起、拒因回喂**都必须产生机读信号**：ask 帧／`pending_ask`／step payload 的拒因字段／notice（类型取自 `synth/S6-事件与帧目录.md`）。
 - 到顶截断**不得静默**：必须带已取得材料交付并明示未完成项（红线原文 `arch/P7a-交接包与挂账清单.md` A-P7a-37）。
+- **用户可见文案白话化（2026-10-17 EB4b）**：到顶截断的正文首行（`CAPPED_ANSWER_HEADER`）与 notice 内容（`CAPPED_NOTICE_TEMPLATE`）＋ 引号自修 notice（`QUOTE_REPAIR_NOTICE_CONTENT`）白话化（依据＝`docs/runtime-refactor/research/最佳实践-3a-白话化与受众适配.md` 第三节 3.2）；**判定面语义零改**（到顶计数、带材料直答行为不变），**回喂机面零改动**——`GUIDANCE_*`／`TEXT_SLOT_MISMATCH_*`／`TEXT_ZERO_OBSERVATION`／`TEXT_NO_REDISCOVER`／`CAUSE_*`／`NO_LEDGER_*_SHELL`（解析拒因回喂面）逐字不动（A-P6b-05）。
 
 ## 验收测试
 

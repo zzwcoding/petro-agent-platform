@@ -19,8 +19,8 @@
 
 - 行 7 `::contradiction_split_not_merged`：矛盾来源分列且标「互不一致」，不调和；
 - 行 12 `::rowset_full_delivery`：明细行集题交付行数＝引擎返回行数（50 行全交付，丢行=0）；
-- 行 13 `::truncation_disclosed`：材料截断必披露（`material_truncated` notice＋「未渲染部分不作答」
-  声明在场；未截断零 notice）；
+- 行 13 `::truncation_disclosed`：材料截断必披露（`material_truncated` notice＋
+  「没用上的部分不作答」声明在场——逐字＝2026-10-17 EB4b 白话化后文案；未截断零 notice）；
 - 行 14 `::placeholder_marker_not_in_answer`：答案面无字面占位符 `[n]`；
 - 行 15 `::echo_flag_zero`：起草回声=0（`echo_flag` 恒 0——观测字段只记不拦）；
 - 行 16 `::no_hit_degraded_delivery_three_part`：台账 no_hit → 降级交付三段形且零逐井数值冒充；
@@ -911,7 +911,7 @@ async def test_rowset_full_delivery() -> None:
 
 
 async def test_truncation_disclosed() -> None:
-    """行 13｜材料截断**必披露**：`material_truncated` notice＋「未渲染部分不作答」声明在场。
+    """行 13｜材料截断**必披露**：`material_truncated` notice＋「没用上的部分不作答」声明在场。
 
     钉 **`pin-09`**（P1）；真源＝`tickets/v2/V2-61-材料承载分形渲染.md` 附 D。截断只可能落
     检索族（权威行集与台账卡恒全量渲染——`specs/context.md` 行为 4）。
@@ -928,7 +928,7 @@ async def test_truncation_disclosed() -> None:
     assert len(truncated) == 1
     assert set(truncated[0]) == {"type", "gates", "content"}
     assert "2/5" in truncated[0]["content"]  # 渲染支数／候选支数两计数
-    assert "未渲染部分不作答" in truncated[0]["content"]  # 不作答声明在场
+    assert "没用上的部分不作答" in truncated[0]["content"]  # 不作答声明在场（EB4b 白话化逐字）
 
     # 未截断 → 零 notice（零残留）
     clean = _state(observations=[_obs(1, "agg_row")])
@@ -1345,7 +1345,7 @@ async def test_answering_signal_present() -> None:
     assert len(_of(frames, "text")) == 2  # 流式增量机读信号（多段帧）
     assert [body["index"] for body in _of(frames, CITATION_EVENT)] == [1, 2]  # 引标落账信号
     truncated = [note for note in state.notices if note["type"] == "material_truncated"]
-    assert len(truncated) == 1 and "未渲染部分不作答" in truncated[0]["content"]  # 截断披露信号
+    assert len(truncated) == 1 and "没用上的部分不作答" in truncated[0]["content"]  # 截断披露信号
     draft_payload = _payloads(state, _PAYLOAD_PHASE_DRAFT)[0]
     assert draft_payload[_PAYLOAD_CITATIONS_KEY] == [1, 2]
     assert [entry["kind"] for entry in draft_payload[_PAYLOAD_GAPS_KEY]] == ["refused"]  # 缺口信号

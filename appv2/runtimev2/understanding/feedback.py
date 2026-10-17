@@ -2,8 +2,10 @@
 流水 67）。
 
 体例照澄清相位拒因载荷（`specs/clarification.md` 接口定义「错误契约」的【拒因】／【期望形】／
-尾行）：读题 schema 拒 **不直接判死**——先向链尾追加本载荷、同相位再读一次（上限**恰一次**，钉死
-防环）；仍拒方抛 `UnderstandingParseError`（编排收 `failed` 不变）。
+尾行）：读题 schema 拒 **不直接判死**——先过**确定性引号自修一次**（受理编排单点在
+`parsing.parse_with_quote_repair`，修好＝受理；见 `interpret`），仍不合格才向链尾追加本载荷、
+同相位再读一次（上限**恰一次**，钉死防环）；仍拒方走**收敛拒答**（`interpret._converge_refusal`——
+2026-10-17 EB3 D4.4 起不再抛 `UnderstandingParseError`）。
 
 三段（「\\n」连接成单段文本，段文本全在 `constants`）：
 

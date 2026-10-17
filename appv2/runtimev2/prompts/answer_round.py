@@ -1,8 +1,12 @@
-"""答案轮装配（三件套置顶→汇总合同→子问题结果清单→起草答案合同）——纯文本、零判断。
+"""答案轮装配（三件套置顶→术语白话表→汇总合同→子问题结果清单→起草答案合同）——纯文本、零判断。
 
 段序真源＝`specs/prompts.md` 行为 12（迁移照抄 V1 `assemble_answer_instruction`）；三件套与
 动词钉死句真源＝V1 `orientation.py` `answer_turn_preamble`（行为 13、钉 `pin-13` 合同侧：
 动词钉死句＋答案要求⑦两字面在场，提示词侧不注入回声形指令）。
+
+**术语白话表（族⑥示例区，2026-10-17 EB4a）**：`constants.JARGON_PLAIN_GLOSSARY` 静态块在
+答案装配包内**恰一次**入链（`assemble_answer_prompt`；静态文本置前、state 投影段在后，
+字节级稳定——KV 追加形纪律不破）；文本单点＝`constants`，消费方只引不复制。
 
 **材料段不在装配输出内**（由调用方按 `context` 渲染产物追加于尾——材料渲染归 `context`）。
 
@@ -20,6 +24,7 @@ from typing import Any
 from appv2.runtimev2.prompts.constants import (
     ANSWER_DRAFT_CONTRACT,
     ANSWER_REQUIREMENTS,
+    JARGON_PLAIN_GLOSSARY,
     SUMMARY_CONTRACT,
 )
 from appv2.runtimev2.state import RunState
@@ -99,12 +104,17 @@ def subtask_result_list(state: RunState) -> str:
 
 
 def assemble_answer_prompt(state: RunState) -> str:
-    """答案轮指令装配（段序：三件套→汇总合同→子问题结果清单→起草答案合同收尾）。
+    """答案轮指令装配（段序：三件套→术语白话表→汇总合同→子问题结果清单→起草答案合同收尾）。
 
     纯函数：只读 `state` 投影，零 IO／零时钟／零随机；材料段不在输出内（调用方追加于尾）。
+
+    **术语白话表（族⑥示例区）**：`JARGON_PLAIN_GLOSSARY` 静态块随答案包恰一次入链（字节级稳定
+    ——两跑／异状态逐字同源；文本单点＝`constants`）；注入形＝前置静态块＋末附「\\n\\n」分隔。
     """
     return (
         answer_round_preamble(state.question)
+        + JARGON_PLAIN_GLOSSARY
+        + "\n"
         + "\n"
         + SUMMARY_CONTRACT
         + "\n"

@@ -5,6 +5,10 @@
 ② **路由意图十值的真源在 `state.constants`**，本模块只做「意图 → 节点」的映射（路由表在
 `graph._ROUTES` 一处集中）；③ **帧名不私有**——本模块发的是 `transport` 闭世界内的既有名，
 取名字面只在此处出现一次（`EVENT_*`）。
+
+**EB4b 白话化核实（2026-10-17）**：本模块**零用户可见文案**——全部取值为节点名／命令态／帧名／
+payload 键名（闭世界符号与机读键），上屏文本归各相位 `constants.py`。故 EB4b 对 orchestration
+**零改**（记录以免下一轮重复核查）。
 """
 
 from appv2.runtimev2.transport import EVENT_KINDS, NOTICE_TYPES, WIRE_FRAMES

@@ -249,11 +249,15 @@ async def test_contradiction_split_source(tmp_path: Path) -> None:
         frame["block"] for frame in supplement_frames
     ]  # 帧面与落库面同序同源
     face = "\n".join(entry["text"] for entry in row.supplements)
-    assert "分源列明" in face  # 归属块段头（行为 17 分源列明）
+    # 2026-10-17 EB4b：归属块段头白话化（旧「分源列明（逐源归属——…）」→「按来源分别列出
+    # （每条结论都标出它来自哪个来源）：」）——取本块段头独有子串（「各来源说法如下，按来源分别
+    # 列出」是 verify 侧 split 块头，不作本块判据）。
+    assert "每条结论都标出它来自哪个来源" in face  # 归属块段头（行为 17 分源列明）
     assert "互不一致" in face  # 行为 6 的「互不一致」标
     assert "[1] sem_metric#201 · 201：日产油量：21 吨/日" in face
     assert "[2] sem_metric#301 · 301：日产油量：8824.4 方/日" in face
-    assert "分源列明" not in answer and "sem_metric#201" not in answer  # 正文零程序块
+    assert "每条结论都标出它来自哪个来源" not in answer  # 正文零程序块
+    assert "sem_metric#201" not in answer
     notices = [event.data for event in events if event.event == "notice"]
     assert any(item.get("type") == "contradiction_split" for item in notices)
     verify_frames = [

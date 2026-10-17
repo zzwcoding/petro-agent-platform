@@ -59,6 +59,10 @@ GATE_PLAN_FACE_METRIC = "plan_face_metric"  # 行为 15：问句指标接地闸�
 PLAN_DIRECTION_ASC = "asc"
 PLAN_DIRECTION_DESC = "desc"
 # 计划面判定两态（pass 携归一后草案；refuse 两类＝问句无注册面／注册面不符）——行为 15。
+# **两刀分类（2026-10-17 EB4b）**：下方两 `PLAN_FACE_REASON_*_TEMPLATE` 是**计划面闸拒原文**
+# （回喂机面，票面点名禁改面）——一字不动；`TITLE_PLAN_FACE_REJECTED_TEMPLATE` 是步帧标题
+# （非上屏面）、`CONTENT_PLAN_FACE_NOTICE_PREFIX` 是 notice 内容（上屏面：已是白话前缀，零行话词
+# ——核查后零改，记录以免下一轮重复核查）。
 PLAN_FACE_PASS = "pass"
 PLAN_FACE_REFUSE_UNGROUNDED = "ungrounded_metric"
 PLAN_FACE_REFUSE_MISMATCH = "metric_out_of_question"
@@ -135,6 +139,9 @@ PHASE = "execution"  # 过程档案相位标记与步 payload 相位值（真源
 LEDGER_NOTE_PHASE = "tool"  # 执行台账条目相位（迁移照抄：V1 `_note("tool", ...)`）
 
 # ── 拒因文本（机器拒因原文——逐字迁移；承载位换、文本不变）───────────────────────
+# **两刀分类（2026-10-17 EB4b）**：本节三条＋上方 `PLAN_FACE_REASON_*` 两模板是**回喂机面**
+# （拒因回喂行／计划面闸拒原文——进模型窗与审计对账），照 A-P6b-05 **一字不动**；
+# 其 notice 侧壳（`CONTENT_*_NOTICE_PREFIX`／`CONTENT_*_TEMPLATE`）才是上屏面，本批已白话化。
 # 空手闸拒因（真源 `appv2/runtime/graph.py` 的 clarify discover 拒回文，本块换承载位）。
 EMPTY_PROBE_FEEDBACK_TEMPLATE = (
     "{tool} 同参已空手（探查未命中）——禁原样重发；"
@@ -152,21 +159,30 @@ MISSING_SOURCE_REASON = (
 )
 
 # ── 步／通知的固定文案（承载位换、文本不变——真源同 V1 同族节点）───────────────────
+# **两刀分类（2026-10-17 EB4b 白话化；票面口径：上屏路径＝正文／supplement／notice／ask 帧）**：
+# - **上屏面**（本批白话化）＝`CONTENT_*` 六件 notice 帧内容（web `NoticeRow` 逐条渲染 `content`）；
+#   其中嵌 `{reason}` 者**只改外围壳**，`{reason}` 槽＝拒因原文逐字不动；
+# - **非上屏面**（零改）＝`TITLE_*` 步帧标题（进 step 帧标题／过程档案）；
+# - **回喂机面（A-P6b-05 零改动）**＝`EMPTY_PROBE_FEEDBACK_TEMPLATE`／`SAME_PARAM_REPLAY_REASON`／
+#   `MISSING_SOURCE_REASON` 与本文件上方 `PLAN_FACE_REASON_*` 两模板——它们是拒因回喂行／
+#   计划面闸拒原文（文本进模型窗与审计对账），一字不动。
 TITLE_RESUME_GUARD = "恢复重取易变环境量"
 TITLE_EXECUTE_TEMPLATE = "{tool}：{status}（子问题 {subtask}）"
 TITLE_DISCOVER_TEMPLATE = "{tool}：{status}"
 TITLE_REPLAY_REJECTED_TEMPLATE = "{tool} 同参重投被拦（发射级拒）"
 TITLE_EMPTY_PROBE_REJECTED_TEMPLATE = "{tool} 同参已空手（发射级拒）"
 TITLE_ADMISSION_REJECTED_TEMPLATE = "子问题 {subtask} 前置闸拒（终局不回炉）"
-CONTENT_REPLAY_NOTICE_PREFIX = "同参重投机器闸："
-CONTENT_EMPTY_PROBE_NOTICE_PREFIX = "同参空手重发机器闸："
+# 2026-10-17 EB4b：两前缀是 notice 内容（`... + reason`）＝上屏面，去「机器闸／同参重投／空手重发」
+# 工程腔；其后紧跟的 `reason`（拒因原文）零改——故本批只改前缀，不动回喂面。
+CONTENT_REPLAY_NOTICE_PREFIX = "同样的查询没有再执行一遍："
+CONTENT_EMPTY_PROBE_NOTICE_PREFIX = "同样的探查已经空手过一次："
 CONTENT_REF_DISCLOSURE_TEMPLATE = (
-    "材料超阈落引用（窗口只留摘要＋引用＋行数，不留全文）：出处 {source}，"
-    "原文 {row_count} 行已落引用 {handle}——可寻址读回，未静默丢弃。"
+    "这份材料太长，答案里只放摘要和出处，全文另存（共 {row_count} 行）"
+    "——出处 {source}，编号 {handle}，随时可以按编号调出来看，没有丢。"
 )
-CONTENT_SUBTASK_REFUSED_TEMPLATE = "子问题 {subtask} 闸拒（如实转答）：{reason}"
-CONTENT_SUBTASK_FAILED_TEMPLATE = "子问题 {subtask} 执行失败（回炉面）：{reason}"
+CONTENT_SUBTASK_REFUSED_TEMPLATE = "问题 {subtask} 没能查到数据——{reason}"
+CONTENT_SUBTASK_FAILED_TEMPLATE = "问题 {subtask} 执行失败（稍后会再试一次）——{reason}"
 CONTENT_TOOL_UNAVAILABLE_TEMPLATE = (
-    "工具 {tool} 重试后仍不可用——如实收敛。（{reason}）"
+    "取数工具 {tool} 重试后仍不可用——先把已经查到的内容如实给你。（{reason}）"
 )
-CONTENT_DECISION_REJECTED_TEMPLATE = "工具校验拒因回喂重决策：{reason}"
+CONTENT_DECISION_REJECTED_TEMPLATE = "取数参数没通过检查，已把原因交回系统重新决策：{reason}"

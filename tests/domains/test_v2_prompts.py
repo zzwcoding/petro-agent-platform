@@ -56,6 +56,7 @@ from appv2.runtimev2.prompts import (
     CONTRACT_CONSTANT_FAMILIES,
     DECISION_PHASES,
     GUIDE_REFERENCE_HEAD,
+    JARGON_PLAIN_GLOSSARY,
     LEDGER_DICT_NOTE,
     PHASE_CLARIFY,
     PHASE_TOOLMATCH,
@@ -107,12 +108,14 @@ _SPEC_FAMILIES: dict[str, tuple[str, ...]] = {
     "toolmatch_emission": ("TOOLMATCH_EMISSION_CONTRACT",),
     "summary": ("SUMMARY_CONTRACT",),
     "answer_draft": ("ANSWER_DRAFT_CONTRACT",),
-    "answer_requirements": ("ANSWER_REQUIREMENTS",),
+    "answer_requirements": ("ANSWER_REQUIREMENTS", "JARGON_PLAIN_GLOSSARY"),
 }
 
-# 答案要求八条逐字稿（迁移照抄——V1 `orientation.py` `_ANSWER_REQUIREMENTS`；顺序固定；
+# 答案要求十条逐字稿（迁移照抄——V1 `orientation.py` `_ANSWER_REQUIREMENTS` ①–⑦；顺序固定；
 # 2026-10-17 EB2 D2 追加第八条〔核验元数据不进答案正文〕——①–⑦条文文本不变，⑦尾「。」改
-# 「；」＝条间分隔符；⑧内文自带一「；」（条文逐字，非分隔符——拼装表按字面连接断言）。
+# 「；」＝条间分隔符；⑧内文自带一「；」（条文逐字，非分隔符——拼装表按字面连接断言）；
+# 2026-10-17 EB4a 追加第九／第十条〔白话化条款〕——⑧尾「。」改「；」＝条间分隔符（条文文本
+# 零改，体例同 EB2 D2：非末条尾字＝「；」、末条尾「。」）；⑨内文自带一「；」＝条内标点）。
 _ANSWER_REQUIREMENTS_VERBATIM: tuple[str, ...] = (
     "逐条事实断言带 [n] 引标（n＝观察材料序号）；",
     "材料未覆盖的部分不得断言、如实说明未覆盖；",
@@ -123,7 +126,13 @@ _ANSWER_REQUIREMENTS_VERBATIM: tuple[str, ...] = (
     "引用观察材料请摘录必要短语并带引标，禁整段照搬原文充当回答；",
     "「理解：／指标候选：」及任何动作 JSON 是过程产物，出现在答案中即废品；",
     "核验元数据（血缘卡五要素、来源表、数据批次）不写进答案正文——它们在界面"
-    "『引用与口径』侧栏逐字展示；答案只在用户需要时带一句口径（如单位）。",
+    "『引用与口径』侧栏逐字展示；答案只在用户需要时带一句口径（如单位）；",
+    "面向油田业务用户作答：系统内部词首次出现时紧跟一句括号里的白话解释——如"
+    "『口径（这个数是按什么规则算的）』『台账（平台里登记指标和术语的名册）』；同一词后文"
+    "可直接使用。不要把内部说法整句甩给用户（『召回 51 支/送窗 12 支』应写成"
+    "『检索到 51 条材料，其中 12 条用进了答案』）；",
+    "材料未覆盖所问时：先从已给材料中答出可能与问题相关的内容，再给用户一句更容易查到结果的"
+    "提问建议（如补充井号、时间范围或报告名称）。",
 )
 
 # 动词钉死句逐字（V1 `answer_turn_preamble` 行 2——pin-13 合同侧之一）。
@@ -338,6 +347,7 @@ def test_contract_constant_family_closed_world() -> None:
         "ANSWER_DRAFT_CONTRACT",
         "ANSWER_REQUIREMENTS",
         "CLARIFY_EMISSION_CONTRACT",
+        "JARGON_PLAIN_GLOSSARY",
         "SUMMARY_CONTRACT",
         "TASK_BOOK_EXAMPLES",
         "TASK_BOOK_OUTPUT_CONTRACT",
@@ -354,6 +364,7 @@ def test_contract_constant_family_closed_world() -> None:
         "ANSWER_DRAFT_CONTRACT",
         "ANSWER_REQUIREMENTS",
         "CLARIFY_EMISSION_CONTRACT",
+        "JARGON_PLAIN_GLOSSARY",
         "SUMMARY_CONTRACT",
         "TASK_BOOK_EXAMPLES",
         "TASK_BOOK_OUTPUT_CONTRACT",
@@ -394,26 +405,39 @@ def test_contract_constant_family_closed_world() -> None:
     assert first.split(_DATA_ZONE_HEAD)[0] == second.split(_DATA_ZONE_HEAD)[0]  # 指令区逐字稳定
 
 
-# ---------- 2 答案要求清单 8 条逐字在场（pin-03 落点） ----------
+# ---------- 2 答案要求清单 10 条逐字在场（pin-03 落点） ----------
 
 
 def test_answer_requirements_verbatim() -> None:
-    """答案要求 8 条逐字在场、顺序固定（pin-03：③多来源分源逐字在场）。
+    """答案要求 10 条逐字在场、顺序固定（pin-03：③多来源分源逐字在场）。
 
-    拼装面逐字相等（①–⑦条文尾「；」、末条尾「。」）——⑧内文自带一「；」，故不以
+    拼装面逐字相等（①–⑨条文尾「；」、末条尾「。」）——⑧／⑨内文各自带一「；」，故不以
     `split("；")` 计数（分隔符与条文内文两事）。
     """
     assert ANSWER_REQUIREMENTS == "".join(_ANSWER_REQUIREMENTS_VERBATIM)
-    assert ANSWER_REQUIREMENTS.count("；") == 8  # ①–⑦条间分隔 7 ＋ ⑧内文 1
+    assert ANSWER_REQUIREMENTS.count("；") == 11  # ①–⑨条间分隔 9 ＋ ⑧内文 1 ＋ ⑨内文 1
     assert not ANSWER_REQUIREMENTS.endswith("；")
     # pin-03 落点＝③多来源分源逐字在场（交付行为面待 `specs/answering.md` 回提承接）
     assert "材料含多个来源（不同报告／油田／井）时逐个来源分别作答" in ANSWER_REQUIREMENTS
     assert "不以反问代替作答" in ANSWER_REQUIREMENTS
-    # ⑧ 核验元数据不进答案正文（2026-10-17 EB2 D2——逐字稿尾条）
-    tail_item = _ANSWER_REQUIREMENTS_VERBATIM[7]
-    assert tail_item.startswith("核验元数据（血缘卡五要素、来源表、数据批次）")
+    # ⑧ 核验元数据不进答案正文（2026-10-17 EB2 D2 尾条——EB4a 后成条间条，尾字＝分隔符「；」）
+    item8 = _ANSWER_REQUIREMENTS_VERBATIM[7]
+    assert item8.startswith("核验元数据（血缘卡五要素、来源表、数据批次）")
     assert "『引用与口径』侧栏逐字展示" in ANSWER_REQUIREMENTS
-    # 合同侧经答案轮装配把八条全文送进模型面
+    # ⑨ 术语注解条款（2026-10-17 EB4a）：两个白话注解示例＋系统腔句改写示例逐字在场
+    item9 = _ANSWER_REQUIREMENTS_VERBATIM[8]
+    assert item9.startswith("面向油田业务用户作答：")
+    assert "『口径（这个数是按什么规则算的）』『台账（平台里登记指标和术语的名册）』" in (
+        ANSWER_REQUIREMENTS
+    )
+    assert "不要把内部说法整句甩给用户（『召回 51 支/送窗 12 支』应写成" in ANSWER_REQUIREMENTS
+    assert "『检索到 51 条材料，其中 12 条用进了答案』）" in ANSWER_REQUIREMENTS
+    # ⑩ 材料未覆盖→先答相关＋给提问建议（2026-10-17 EB4a；Owner 当日裁决＝召回问题提示词侧缓解）
+    item10 = _ANSWER_REQUIREMENTS_VERBATIM[9]
+    assert item10.startswith("材料未覆盖所问时：")
+    assert item10.endswith("（如补充井号、时间范围或报告名称）。")
+    assert ANSWER_REQUIREMENTS.endswith(item10)  # 末条＝⑩（尾「。」）
+    # 合同侧经答案轮装配把十条全文送进模型面
     assert f"【答案要求】{ANSWER_REQUIREMENTS}" in assemble_answer_prompt(_answer_state())
 
 
@@ -435,6 +459,50 @@ def test_answer_requirements_single_source() -> None:
     assert half in ANSWER_DRAFT_CONTRACT
     assert "行集型子问题（问句要求明细/排名/列举全行集时）" in ANSWER_DRAFT_CONTRACT
     assert "台账卡（指标/术语定义面）只承载口径与定义" in ANSWER_DRAFT_CONTRACT
+
+
+# ---------- 3b 术语白话表（族⑥示例区）＝单源＋随答案包恰一次、字节级稳定 ----------
+
+
+def test_jargon_plain_glossary_injected_once() -> None:
+    """术语白话表＝族⑥示例区单源常量、随答案装配包恰一次入链、字节级稳定（2026-10-17 EB4a）。
+
+    病根（EB3 全量首测）：系统行话「口径／台账／召回／送窗／水位」首现无白话注解。
+    对策＝术语表注入（静态块：确定性、零幻觉、缓存友好；真源
+    `docs/runtime-refactor/research/最佳实践-3a-白话化与受众适配.md` 第三节 3.1 A）：文本单点＝
+    `constants.py`、注入点＝`answer_round.assemble_answer_prompt`（`state.Message` 面零副本）。
+    """
+    # ①文本逐条（七条映射、条目序固定；首尾逐字）
+    assert JARGON_PLAIN_GLOSSARY.startswith("【术语白话表】口径＝这个数是按什么规则算的；")
+    assert JARGON_PLAIN_GLOSSARY.endswith("送窗＝用进答案的材料。")
+    for entry in (
+        "口径＝这个数是按什么规则算的",
+        "台账＝平台里登记指标和术语的名册",
+        "水位＝数据目前更新到哪一天",
+        "窗＝统计的时间段",
+        "绑定＝登记关联",
+        "召回＝检索到的材料",
+        "送窗＝用进答案的材料",
+    ):
+        assert entry in JARGON_PLAIN_GLOSSARY
+    # 与条款⑨的两处示例同一白话（术语全文一致——不各说各话）
+    assert "『口径（这个数是按什么规则算的）』" in ANSWER_REQUIREMENTS
+    assert "『台账（平台里登记指标和术语的名册）』" in ANSWER_REQUIREMENTS
+
+    # ②单源：runtimev2 面内恰一处字面定义（消费方零字面副本）
+    feature = "【术语白话表】口径＝这个数是按什么规则算的"
+    assert feature in JARGON_PLAIN_GLOSSARY
+    hits = _hits(_runtimev2_sources(), feature)
+    assert hits == [_CONSTANTS_FILE.name], f"术语白话表出现多处以字面定义：{hits}"
+
+    # ③随答案包恰一次入链、字节级稳定（两跑／异状态逐字同源）；静态块置前、投影段在后
+    for state in (_answer_state(), _empty_state()):
+        output = assemble_answer_prompt(state)
+        assert output.count(JARGON_PLAIN_GLOSSARY) == 1
+        assert output.split("\n")[3] == JARGON_PLAIN_GLOSSARY  # 紧接三件套之后（静态块置前）
+        assert output.index("【答案要求】") < output.index(JARGON_PLAIN_GLOSSARY)
+        assert output.index(JARGON_PLAIN_GLOSSARY) < output.index(SUMMARY_CONTRACT)
+    assert assemble_answer_prompt(_answer_state()) == assemble_answer_prompt(_answer_state())
 
 
 # ---------- 4 合同常量六族字面副本零残留 ----------
@@ -582,17 +650,18 @@ def test_contract_constants_business_noun_free() -> None:
 
 
 def test_answer_round_segment_order_no_material() -> None:
-    """答案轮段序＝三件套→汇总合同→子问题清单→起草合同（收尾）；材料段零渗入。"""
+    """答案轮段序＝三件套→术语白话表→汇总合同→子问题清单→起草合同（收尾）；材料段零渗入。"""
     state = _answer_state()
     output = assemble_answer_prompt(state)
     lines = output.split("\n")
     assert lines[0] == f"用户问题：{state.question}"
     assert lines[1] == _VERB_PIN
     assert lines[2] == f"【答案要求】{ANSWER_REQUIREMENTS}"
-    markers = [SUMMARY_CONTRACT, "子问题结果清单：", ANSWER_DRAFT_CONTRACT]
+    assert lines[3] == JARGON_PLAIN_GLOSSARY  # 族⑥示例区（EB4a——静态块紧跟三件套）
+    markers = [JARGON_PLAIN_GLOSSARY, SUMMARY_CONTRACT, "子问题结果清单：", ANSWER_DRAFT_CONTRACT]
     positions = [output.index(marker) for marker in markers]
     assert positions == sorted(positions) and len(set(positions)) == len(positions)
-    assert lines[3] == ""
+    assert lines[4] == ""
     assert output.endswith(ANSWER_DRAFT_CONTRACT)  # 末段＝起草答案合同（收尾）
     # 子问题清单逐条在场（含拒因原文与排名支配标记——零人话翻译、零词表）
     ranking = "- [s1] K12-3 井生产时长——完成（排名型——结论必须从本子问题排名观察支"

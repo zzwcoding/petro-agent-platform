@@ -101,6 +101,7 @@ SUPPLEMENT_BLOCKS: frozenset[str]    # supplement 帧块型（2026-10-17 EB3 D1 
 - **不得静默**：`seq` 无跳号／无重启（行为 3）、缺帧不吞（行为 5）、通知分型越界即拒（行为 7）、`close` 后发射抛错（行为 12）——四条都配断言。
 - **失败披露一律走帧**：引擎／网关异常 → `notice{type:"run_failed"}` ＋ 正常 `done`（**不触发 `error` 帧**——真源 `synth/S6-事件与帧目录.md` §六 边界-2 ＋ `docs/runtime-refactor/iface/P9a1-端点与帧通路.md` T-P9a1-27）；帧通路自身异常才发 `error`。
 - **脱敏是硬要求**：对外帧只带稳定话术（行为 9／14）；原始异常文本归内部留痕（`specs/persistence.md`）。
+- **用户可见文案白话化核实（2026-10-17 EB4b）**：本块**零用户可见文案**——全部取值为帧名／块型／通知类型／信封取值（闭世界符号），上屏文本一律落在发射方各相位 `constants.py`（本块只保帧形与闭世界）；故 EB4b 对 `transport/constants.py` 零改（同批核实 `orchestration/constants.py` 同为零上屏文案）。
 
 ## 验收测试
 

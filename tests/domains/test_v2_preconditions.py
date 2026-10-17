@@ -78,6 +78,12 @@ from appv2.runtimev2.preconditions import (
     SubtaskVerdict,
     gate_all,
 )
+
+# 本块文案常量（非包根公开面——测试直达常量模块取白话化后的注记逐字；2026-10-17 EB4b）
+from appv2.runtimev2.preconditions.constants import (
+    NOTE_CHAIN_SWITCH_REENTRY,
+    NOTE_MENTION_ONLY,
+)
 from appv2.runtimev2.state import LIMIT_KINDS, RunState
 from appv2.runtimev2.transport import ASK_FRAME_KINDS, NOTICE_TYPES
 from appv2.tools import (
@@ -378,7 +384,7 @@ def test_rewire_once_then_refuse() -> None:
     first = _by_id(gate_all(state))["s1"]
 
     assert first.decision == DECISION_ALLOW
-    assert first.notes and any("换链" in note for note in first.notes)
+    assert first.notes and NOTE_CHAIN_SWITCH_REENTRY in first.notes  # 回炉提议注记在场
     assert first.subtask_id in state.chain_switch_marks  # 一次为界：标记在册
     assert any(item["type"] == "chain_switch_reentry" for item in state.notices)
 
@@ -647,7 +653,9 @@ def test_verdict_signal_present() -> None:
     assert all(set(item["gates"]) <= LIMIT_KINDS for item in state.notices)
     # 非 allow（s2 拒答／s3 等用户）与带注记的 allow（s4）各有 notice；普通放行（s1）零通知
     assert len(state.notices) == 3
-    assert all(item["content"].startswith("前置条件机：") for item in state.notices)
+    # 三条 notice 同族白话壳（2026-10-17 EB4b：旧统一前缀「前置条件机：子问题 …」→「这一问…」，
+    # 机读分型仍由 `type` 键把守——上一行已验）
+    assert all(item["content"].startswith("这一问") for item in state.notices)
 
 
 # ── 行 13：【边界集】各自命中对应判定位 ─────────────────────────────────────────
@@ -746,7 +754,7 @@ def test_pin31_terminated_word_dispatch() -> None:
     verdicts = _by_id(gate_all(state))
 
     assert verdicts["s1"].decision == DECISION_ALLOW
-    assert verdicts["s1"].notes and any("仅提及" in note for note in verdicts["s1"].notes)
+    assert verdicts["s1"].notes and NOTE_MENTION_ONLY in verdicts["s1"].notes  # 仅提及注记在场
     assert verdicts["s2"].decision == DECISION_REFUSE
     assert verdicts["s2"].hit_rule == HIT_RULE_BAN
 
@@ -791,7 +799,7 @@ def test_pin31_mention_mode_end_to_end_from_emission() -> None:
     verdicts = _by_id(gate_all(state))
 
     assert verdicts["s1"].decision == DECISION_ALLOW  # 位 1：模型结论「仅提及」→ 机械放行
-    assert any("仅提及" in note for note in verdicts["s1"].notes)
+    assert any(NOTE_MENTION_ONLY == note for note in verdicts["s1"].notes)
     assert verdicts["s2"].decision == DECISION_REFUSE
     assert verdicts["s2"].hit_rule == HIT_RULE_BAN
     assert verdicts["s3"].decision == DECISION_REFUSE  # 缺键＝空串 → 不按仅提及放行（fail-closed）

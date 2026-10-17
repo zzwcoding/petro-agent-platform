@@ -89,6 +89,9 @@ HIT_RULE_NONE = ""
 # ── fail-closed 判定位（错误契约：判定器抛错 → 不着 allow，转 refuse 并带拒因，规格 :58）──
 # 本标识**不是判定位**（八位闭世界不增），是「闸件不可用」的结构化错误标记——非 allow 必携
 # `hit_rule`（行为 8）与拒因 `rule_id` 在该路径上的唯一可诚实填写值（错误发生在闸内、位次不可知）。
+# **两刀分类（2026-10-17 EB4b）**：下方 `GATE_UNAVAILABLE_TEXT` 是**回喂机面**（`human_text` →
+# `subtask_results[].reason` → 答案轮模型窗 ＋ 审计对账），照 A-P6b-05 **零改动**——只改承载它的
+# notice 壳（`NOTICE_REFUSED_TEMPLATE`），本字面一字不动。
 RULE_GATE_UNAVAILABLE = "gate_unavailable"
 GATE_UNAVAILABLE_TEXT = "前置条件机闸件不可用（判定器抛错）——按 fail-closed 如实拒答，不静默放行"
 
@@ -110,20 +113,38 @@ NOTICE_VERDICT_NOTE = "decision_note"
 NOTICE_CHAIN_SWITCH = "chain_switch_reentry"
 
 # ── 本块文案（确定性：模板单点，调用点只填空；文案不含语义判据）──────────────────────
+# **两刀分类（2026-10-17 EB4b 程序文案白话化）**：
+# - **上屏面**（本批白话化）＝notice 帧内容（`NOTICE_*_TEMPLATE` 四壳；web `NoticeRow` 逐条渲染
+#   `content`）＋ ask 帧 `prompt`（`WINDOW_ASK_PROMPT_TEMPLATE`——web 反问卡正文）＋ 经 notice
+#   digest 带入的两条 NOTE（`NOTE_MENTION_ONLY`／`NOTE_CHAIN_SWITCH_REENTRY`）；
+# - **非上屏面**（票面口径：上屏路径＝正文／supplement／notice／ask 帧）＝步帧标题
+#   （`TITLE_TEMPLATE`／`TITLE_RULE_TEMPLATE`，进 step 帧标题／过程档案）——本批**零改**；
+# - **回喂机面（A-P6b-05 零改动）**＝`GATE_UNAVAILABLE_TEXT`／`CHAIN_SWITCH_TERMINAL_*`：二者是
+#   `RefusalReason.human_text`，既嵌 notice 壳又经 `execution._refusal_text` →
+#   `subtask_results[].reason` → 答案轮「子问题结果清单」进**模型窗**（`prompts.answer_round`），
+#   是对账面。故本批只改其外围 notice 壳，`{human}` 槽逐字不动。
 TITLE_TEMPLATE = "前置条件机：{subtask}={decision}"
 TITLE_RULE_TEMPLATE = "前置条件机：{subtask}={decision}（{rule}）"
 
+# 2026-10-17 EB4b：两条 NOTE 经 `{digest}` 进 notice（＝上屏面），去「该废弃口径／在册未绑定／
+# 题眼域错／回炉改链」工程腔；放行与回炉触发判据在 `core._allow_of`／闸件 `judge`，与本话术无关
+# （判定面语义零改）。上屏文本去票据号（`pin-31` 留本注与 `specs` 真源——业务用户读不到）。
 NOTE_MENTION_ONLY = (
-    "禁用词结论「仅提及（mentioned_only）」——按模型结论放行，不按该废弃口径出数"
-    "（判定序位 1 机械分派，pin-31）"
+    "这个词只是被提到、不是真要查它的数——按判断放行，不用这个已废弃的说法出数"
+    "（系统按判定序第 1 位自动放行，不额外判断）"
 )
 NOTE_CHAIN_SWITCH_REENTRY = (
-    "换链回炉提议：本子问题命中软失败面（在册未绑定／题眼域错）——回炉①澄清相位改链"
-    "重决策（一次为界；同支再触发＝如实拒答终局）"
+    "这一问的取数方式走不通（名册里没有它的数值，或问的井不在数据范围内）——已请系统回头"
+    "重新选一次取数方式（只试一次；再走不通就如实说查不到）"
 )
+# ask 帧 prompt（用户看到的反问卡正文）。2026-10-17 EB4b：旧「子问题 {subtask} 的时间范围未能确定
+# （模型发射载荷窗槽双 null＝不能确定）——请先选定时间范围（模糊时间词不解析、不默认）」——
+# 「载荷窗槽双 null」是机器判据原文、`{subtask}` 是内部代号，业务用户都读不到，故一并去；
+# 判据面零改（位 2 结构判据＝`core._window_undetermined` 读载荷窗槽，读的是 state 不是本话术）；
+# 调用点 `.format(subtask=…)` 的多余键对 `str.format` 无害（模板已无该槽）。
 WINDOW_ASK_PROMPT_TEMPLATE = (
-    "子问题 {subtask} 的时间范围未能确定（模型发射载荷窗槽双 null＝不能确定）"
-    "——请先选定时间范围（模糊时间词不解析、不默认）"
+    "这个问题没说清要看哪段时间——请先选一个时间范围"
+    "（含糊的说法我不会自己猜，也不会默认取最近一段时间）"
 )
 CHAIN_SWITCH_TERMINAL_TEXT_TEMPLATE = (
     "换链回炉已用尽（一次为界）：坚持 data 链同参（指纹 {fingerprint}…在簿）——{tail}"
@@ -131,7 +152,14 @@ CHAIN_SWITCH_TERMINAL_TEXT_TEMPLATE = (
 CHAIN_SWITCH_TERMINAL_TAIL_UNBOUND = "未绑定口径如实拒答，不代答"
 CHAIN_SWITCH_TERMINAL_TAIL_DOMAIN = "题眼井不在数据链井闭世界——域错如实拒答，不代答"
 
-NOTICE_REFUSED_TEMPLATE = "前置条件机：子问题 {subtask} 拒答（判定位 {rule}）——{human}"
-NOTICE_ASK_TEMPLATE = "前置条件机：子问题 {subtask} 等用户（{kind}）——{prompt}"
-NOTICE_NOTE_TEMPLATE = "前置条件机：子问题 {subtask} 放行（注记 {count} 条）——{digest}"
-NOTICE_CHAIN_SWITCH_TEMPLATE = "前置条件机：子问题 {subtask} 换链回炉提议——{digest}"
+# notice 四壳（notice 帧内容＝上屏面）。2026-10-17 EB4b：旧统一前缀
+# 「前置条件机：子问题 {subtask} …」——「前置条件机」是内部工序名、「子问题」是内部说法，
+# 业务用户读不到；改白话壳，机器槽位（`{subtask}`／`{rule}`／`{kind}`／`{count}`／`{human}`／
+# `{prompt}`／`{digest}`）逐个保留，对账可查：机读真源是步 payload（`hit_rule`／`decision`／
+# `notes`），本节只改人读壳。
+NOTICE_REFUSED_TEMPLATE = "这一问没能给出结果：{human}（问题 {subtask}／规则 {rule}）"
+NOTICE_ASK_TEMPLATE = "这一问在等你确认：{prompt}（问题 {subtask}／{kind}）"
+NOTICE_NOTE_TEMPLATE = "这一问可以继续查：{digest}（问题 {subtask}／说明 {count} 条）"
+NOTICE_CHAIN_SWITCH_TEMPLATE = (
+    "这一问的取数方式走不通，已请系统回头重选：{digest}（问题 {subtask}）"
+)

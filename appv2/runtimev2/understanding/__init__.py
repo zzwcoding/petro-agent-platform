@@ -16,11 +16,14 @@
 统一 JSON 严格解析（不降级）／`route` 闭世界定型／程序只按 `route` 机械分派／单出口互斥／候选
 出自名录对账／理解文本 `text` 事件（`kind=understanding`）／如实上报机读信号（notice ＋
 step payload）、模型原话只为过程档案与链上留痕（钉 `pin-26` 渲染面）。
-**schema 拒回喂重试恰一次（行为 13，2026-10-16 补·流水 67；2026-10-17 EB3 D4.4 改尾）**：首读不合
-schema → 向链尾追加拒因载荷（`feedback.schema_feedback`——【拒因】取 `parsing.
-understanding_schema_feedback` 的诊断出口、【期望形】＋尾行）→ 同相位再读一次 → **仍拒＝收敛拒答**
-（`bookkeeping.direct_answer` 落拒答正文 ＋ 返回该 `Direct`——run 收口 `completed`，**不判 `failed`、
-不零交付**；真机证据 `eval/results/frames/EB2-NQ-D2.json`）。上限恰一次；不补默认、不取默认路由。
+**schema 拒回喂重试恰一次（行为 13，2026-10-16 补·流水 67；2026-10-17 EB3 D4.4 改尾、EB5a 加
+首段）**：
+首读不合 schema → **先过确定性引号自修一次**（`parsing.parse_with_quote_repair`——既有共用件，
+零模型零占轮；修好＝受理 ＋`emission_quote_repair` notice，2026-10-17 EB5a 补）→ 仍不合才向链尾
+追加拒因载荷（`feedback.schema_feedback`——【拒因】取 `parsing.understanding_schema_feedback` 的
+诊断出口、【期望形】＋尾行）→ 同相位再读一次 → **仍拒＝收敛拒答**（`bookkeeping.direct_answer` 落
+拒答正文 ＋ 返回该 `Direct`——run 收口 `completed`，**不判 `failed`、不零交付**；真机证据
+`eval/results/frames/EB2-NQ-D2.json`）。上限恰一次；不补默认、不取默认路由。
 
 -B 半面（RT-W4-01b）落地行为簇：**直答结构核验的闭世界判据**（数值形／名录内指标名／结构卡内
 表名——`closure.direct_assertion_hits`，形态处理零语义）→ 命中即**退回 `route="full"` 的

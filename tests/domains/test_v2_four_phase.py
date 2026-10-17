@@ -973,6 +973,10 @@ async def test_four_phase_understand_schema_feedback_twice_converges_to_refusal(
     双读皆不合 schema → `bookkeeping.direct_answer` 落拒答正文 ＋ `next_intent=answer` → run 走
     收口（`completed`），有正文帧、有留痕，**不判 `failed`、不零交付**；**修正回路只一轮**
     （理解模型调用恰 2 次——第三次永不发生），拒因载荷留痕在链上。
+
+    **2026-10-17 EB5a 补**：本件剧本＝**非引号病**形（旧两行式塞进 `text` ＋ 合法 JSON 缺必填字段）
+    ——确定性引号自修零命中，故仍走「回喂恰一次 → 收敛拒答」（拒答文案随 EB5a 改）。引号病形
+    （EB3 三题同形）的端到端面＝`::test_four_phase_understand_quote_repair_delivers_answer`。
     """
     bad_understand = json.dumps(
         {"route": "full", "text": "理解：问各井日产油量。\n指标候选：日产油量"},
@@ -1005,6 +1009,82 @@ async def test_four_phase_understand_schema_feedback_twice_converges_to_refusal(
     assert state.messages[-3]["role"] == "user"
     assert state.messages[-3]["content"].startswith("【拒因】缺必填字段 `metric_candidates`")
     assert [row for row in v2_steps(run_id, "clarify")] == []
+
+
+# EB3 三题（NQ-C3／NQ-D3／NQ-M1）的真机失败形之一（逐字取自 `logs/llm_calls/20261017.jsonl`
+# run-7fec93ff 首读——**`text` 值内的成对引号未转义**；题面原句见 `eval/results/frames/
+# EB3-NQ-C3.json` 的 blackbox 记录）。三题同形，本件取一题作端到端代表（逐题面在
+# `tests/domains/test_v2_understanding.py::` 同题逐题面用例
+# `test_eb5a_zero_delivery_three_questions_quote_repair_admits`）。
+_EB5A_RAW_UNDERSTAND = (
+    '{"route": "full", "text": "理解：判断评审人关于报告4.2节防砂说法与报告的逐项不符之处，并作答'
+    '（1）本井实际防砂方式与筛管型号、防砂精度；（2）"20/40目砾石挤压充填"在报告中的真实身份及'
+    '报告是否给出实施后的砾石量与充填井段；（3）"占船日4.0天"在4.2节语境下的含义及报告中另两处'
+    '"4.0天"分别指什么（指出章节与口径）。", "metric_candidates": []}'
+)
+_EB5A_RAW_UNDERSTAND_TEXT = (
+    "理解：判断评审人关于报告4.2节防砂说法与报告的逐项不符之处，并作答（1）本井实际防砂方式与"
+    "筛管型号、防砂精度；（2）「20/40目砾石挤压充填」在报告中的真实身份及报告是否给出实施后的"
+    "砾石量与充填井段；（3）「占船日4.0天」在4.2节语境下的含义及报告中另两处「4.0天」分别指"
+    "什么（指出章节与口径）。"
+)
+
+
+async def test_four_phase_understand_quote_repair_delivers_answer() -> None:
+    """理解步**引号自修受理** → 四相位照常走通、答案真交付（2026-10-17 EB5a：整题零交付三题同形）。
+
+    病灶（`eval/results/frames/EB3-{NQ-C3,NQ-D3,NQ-M1}.json`）：理解步严格解析两次皆拒（同一形＝
+    题干引号被照搬进 `text` 值不转义）→ 旧形「回喂恰一次 → 收敛拒答」，用户只拿到拒答正文，判分
+    记「整题零交付 ❌」。新行为：**首读即受理**（`parsing.parse_with_quote_repair`，零模型零占轮）
+    → `route="full"` 分派 → 澄清→分解→过闸→批量→汇总→收口全程照旧 → run `completed` 携**真答案**。
+
+    判据：解析失败**零报告步**（不成拒）／理解模型调用**恰 1 次**（自修不占回喂上限）／
+    理解字段非空且＝真机原话＋引号中文形／`emission_quote_repair` notice 在流上／终态 `completed`
+    且答案行携真数值（非拒答正文）。
+    """
+    dump = v2_ledger_dump()
+    note = v2_ledger_note(dump, "日产油量")
+    clarify = v2_decompose(
+        subtask_id="s1",
+        question="2025-09-01 到 09-03 各井日产油量",
+        ledger_notes=note,
+        chain="data",
+    )
+    script = {
+        "understand": [_EB5A_RAW_UNDERSTAND],
+        "decision": v2_decision_turn(
+            clarify=clarify,
+            toolmatch=v2_matches(
+                v2_data_match(subtask_id="s1", slot="日产油量",
+                              start="2025-09-01", end="2025-09-03")
+            ),
+        ),
+        "answer": ["子任务 s1：N-01 井 2025-09-01 日产油量 21.16 吨 [1]。"],
+    }
+    wire_ledger_projection(V2LedgerPort(dump))
+    engine = V2QueueEngine([_rows_outcome()])
+    with freeze("2026-10-08T09:00:00"):
+        runtime, completer = v2_runtime(script=script, registry=v2_registry(engine=engine))
+        events = await v2_run(runtime, "2025 年 9 月 1 日到 3 日的日产油量")
+        run_id = next(
+            event.data["run_id"] for event in reversed(events) if "run_id" in event.data
+        )
+    assert events[-2].data["status"] == "completed"  # 不判 failed
+    assert [event for event in events if event.event == "notice"
+            and event.data["type"] == "run_failed"] == []
+    row = V2RunStore().run(run_id)
+    assert row is not None and row.status == "completed"
+    assert "21.16" in (row.answer or "")  # **真交付**（不是拒答正文）
+    assert _REFUSAL_MARK not in (row.answer or "")
+    # 引号自修受理：notice 在流上、理解调用恰 1 次（不占回喂上限）、解析失败报告步零条
+    assert [event.data["type"] for event in events if event.event == "notice"] == [
+        "emission_quote_repair"
+    ]
+    assert len([call for call in completer.calls if call[0] == "understand"]) == 1
+    state = V2RunStore().load(run_id)
+    assert state.understanding == _EB5A_RAW_UNDERSTAND_TEXT
+    assert [row for row in v2_steps(run_id, "understand")] == []
+    assert [row for row in v2_steps(run_id, "clarify")]  # 四相位真入场（非理解步即收口）
 
 
 async def test_four_phase_end_to_end_scripted() -> None:

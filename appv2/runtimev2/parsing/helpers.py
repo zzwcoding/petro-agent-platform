@@ -10,8 +10,12 @@
 单点纪律（`specs/parsing.md` 框架与依赖红线「禁手写替代」）：提取件／拒因带定位件／引号自修件／
 受理编排件在 runtimev2 面内**各恰一处定义**，相位块内出现同形字面副本＝判失败。
 
-**理解面不使用本族**（`specs/parsing.md` 接口定义⑤）：`parse_understanding` 走统一 JSON 严格
-解析、不合格直落 `None`——不受理引号自修、不走提取件（V1 降级提取已随 V2 定案退场）。
+**消费面两处（2026-10-17 EB5a 改）**：澄清面（`clarification._dispatch`）与理解面
+（`understanding._read_and_parse`）各经 `parse_with_quote_repair` 受理引号自修；匹配面
+（`parse_tool_match`）经提取件走拒因回喂。`parse_understanding` 本体仍走统一 JSON 严格解析、
+不合格直落 `None`（**本件不改解析面语义**——自修受理编排归消费方相位，V1 理解节点
+`_parse_with_quote_repair` 同款；真源 `specs/parsing.md` 行为 10／
+`specs/understanding.md` 行为 13）。
 受理 notice（`emission_quote_repair`）由调用方发、归其事件面——本块零事件。
 """
 

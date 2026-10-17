@@ -98,6 +98,7 @@ class AskReason:
 
 - **合法降级路径：无**（本模块不降级；闸件不可用时按 fail-closed 转 `refuse`，不静默放行）。
 - 任何非 `allow` 与任何带注记的 `allow` **必须产生机读信号**：step payload 的 `hit_rule`／`decision`／`notes` 字段 ＋ notice（类型取自 `synth/S6-事件与帧目录.md`）。
+- **用户可见文案白话化（2026-10-17 EB4b）**：notice 四壳（`NOTICE_*_TEMPLATE`）与 ask 帧 `prompt`（`WINDOW_ASK_PROMPT_TEMPLATE`）＋ 经 `{digest}` 上屏的两条注记（`NOTE_MENTION_ONLY`／`NOTE_CHAIN_SWITCH_REENTRY`）白话化（依据＝`docs/runtime-refactor/research/最佳实践-3a-白话化与受众适配.md` 第三节 3.2）；**机读槽位与判定面语义零改**，**拒因原文面零改动**——`GATE_UNAVAILABLE_TEXT`／`CHAIN_SWITCH_TERMINAL_*` 是 `RefusalReason.human_text`（既进 notice 又经 `subtask_results[].reason` 进模型窗），逐字不动（A-P6b-05）。
 - 红线原文：`arch/P7a-交接包与挂账清单.md`（A-P7a-37）「**不许静默**——若任何相位仍发生截断，模型面必须随材料段带明示……收口注记面同步披露」。
 
 ## 验收测试

@@ -13,15 +13,20 @@ Direct`）与行为 1–12；`specs/modules.md` `## understanding` 卡（职责�
    `specs/agent-loop.md` 行为 2 的追加式；模型原话只进过程档案与链上留痕），**`dialogue` 零写入**
    （过程记录不混层；「模型原话不进对话层」的对话层＝`state.dialogue`——`specs/state.md` 行为 6）；
 4. **严格解析（行为 7）**：`parsing.parse_understanding(content)`；返 `None`（非合法 JSON／缺必填
-   字段／类型不符／`route` 越界）→ **拒因回喂重试恰一次（行为 13）**：向链尾追加拒因载荷
-   （`_append_schema_feedback`——【拒因】取 `parsing.understanding_schema_feedback` 的具体不合项、
-   【期望形】＋尾行见 `feedback`）→ 同相位再读一次；**仍拒** → **收敛拒答**（行为 13 尾，2026-10-17
-   EB3 D4.4 补）：如实上报两件套（notice ＋ 报告步——`report_parse_failure` 原样）＋ `direct_answer`
-   落一条拒答正文（直答旁路三键）＋ 返回该 `Direct`——**run 不判 `failed`、不零交付**（旧「抛
-   `UnderstandingParseError` → 编排收 `failed`」随本批退役：真机证据 `eval/results/frames/
-   EB2-NQ-D2.json`——模型两次都在 JSON 字符串里带未转义引号，整 run 零交付）。上限**恰一次**
+   字段／类型不符／`route` 越界）→ **先过确定性引号自修一次（行为 13 首段，2026-10-17 EB5a 补）**：
+   `parsing.parse_with_quote_repair`（既有共用件，零模型零占轮）——修好＝受理（`emission_quote_repair`
+   notice ＋「读题引号自修」注记），修不好才算拒；**仍拒** → **拒因回喂重试恰一次（行为 13）**：
+   向链尾追加拒因载荷（`_append_schema_feedback`——【拒因】取
+   `parsing.understanding_schema_feedback` 的具体不合项、【期望形】＋尾行见 `feedback`）→ 同相位
+   再读一次（同样过引号自修受理）；**仍拒** → **收敛拒答**（行为 13 尾，2026-10-17 EB3 D4.4 补、
+   文案随 EB5a 改）：如实上报两件套（notice ＋ 报告步——`report_parse_failure` 原样）＋
+   `direct_answer` 落一条拒答正文（直答旁路三键）＋ 返回该 `Direct`——**run 不判 `failed`、
+   不零交付**（旧「抛 `UnderstandingParseError` → 编排收 `failed`」随 D4.4 退役：真机证据
+   `eval/results/frames/EB2-NQ-D2.json`——模型两次都在 JSON 字符串里带未转义引号，整 run 零交付；
+   EB5a 起该形改由引号自修受理**真交付**，收敛支只承接自修也修不好的残形）。上限**恰一次**
    （结构化无环）；两次调用各记一条步（`call_model` 单点）；回喂只入链与过程档案
-   （`dialogue` 零写入）；**不补默认、不改写原话**。
+   （`dialogue` 零写入）；**不补默认、不改写原话、不降级提取**（引号自修＝**格式层**确定性修复：
+   只把字符串值内的裸引号换中文引号，修后须全文可解析才受理——值内容逐字不动，零语义）。
 5. **分派（行为 4／6／8／12）**：**只按 `route` 取值**（闭世界 `full`｜`direct`）——
    `full` → 理解字段双出口（`state.understanding`／`state.metric_candidates` ＋ `text` 事件
    `kind=understanding`）＋ 候选出自名录对账（违约即如实上报，不静默丢弃）；
@@ -43,13 +48,20 @@ fail-closed 抛错（同 `gateway_adapter._configured_completer` 先例——「
 
 from __future__ import annotations
 
-from appv2.runtimev2.bookkeeping import append_message, call_model, direct_answer, note
+from appv2.runtimev2.bookkeeping import (
+    append_message,
+    call_model,
+    direct_answer,
+    note,
+    notice,
+)
 from appv2.runtimev2.parsing import (
     ROUTE_DIRECT,
     ROUTE_FULL,
     Direct,
     Understanding,
     parse_understanding,
+    parse_with_quote_repair,
     understanding_schema_feedback,
 )
 from appv2.runtimev2.state import RunState
@@ -61,7 +73,10 @@ from appv2.runtimev2.understanding.constants import (
     CONVERGE_NOTE_TITLE,
     DIRECT_REJECT_NOTE_TITLE,
     MODEL_CALLER,
+    NOTICE_EMISSION_QUOTE_REPAIR,
     PHASE,
+    QUOTE_REPAIR_NOTE_TITLE,
+    QUOTE_REPAIR_NOTICE_CONTENT,
     READ_NOTE_TITLE,
     RETRY_NOTE_TITLE,
     ROLE_ASSISTANT,
@@ -112,10 +127,12 @@ def interpret(
     直答文本命中闭世界（行为 5）→ **退回 `route="full"` 的 `Understanding`**（不抛错、不静默、
     不直答收口——退回归 `_reject_direct`）。
     **schema 拒回喂重试恰一次（行为 13，2026-10-16 补·流水 67）**：首读不合 schema **不当场判死**
-    ——向链尾追加拒因载荷（`feedback.schema_feedback`：【拒因】＋【期望形】＋尾行；不合项取
+    ——**先过确定性引号自修一次**（`parsing.parse_with_quote_repair`，2026-10-17 EB5a 补：修好＝受理
+    ＋`emission_quote_repair` notice，零模型零占轮）→ 仍不合格才向链尾追加拒因载荷
+    （`feedback.schema_feedback`：【拒因】＋【期望形】＋尾行；不合项取
     `parsing.understanding_schema_feedback` 的唯一诊断出口）→ **同相位再读一次**；仍拒 →
-    **收敛拒答**（2026-10-17 EB3 D4.4 改判：拒答正文经 `bookkeeping.direct_answer` 落直答旁路三键
-    ＋ 原样返回该 `Direct`——run 不判 `failed`、不零交付；真机证据
+    **收敛拒答**（2026-10-17 EB3 D4.4 改判、EB5a 改文案：拒答正文经 `bookkeeping.direct_answer`
+    落直答旁路三键 ＋ 原样返回该 `Direct`——run 不判 `failed`、不零交付；真机证据
     `eval/results/frames/EB2-NQ-D2.json`——模型两次都在 JSON 字符串里带未转义引号，旧形整 run
     零交付）。**拒因回喂＝修参、非降级**：不补默认、不改写模型原话、不降级提取；上限**恰一次**（结构化无环，
     钉死）。过程态一律经 `bookkeeping` 唯一写口落（步／链／过程档案／通知／意图），本块零直写。
@@ -151,7 +168,9 @@ def _converge_refusal(state: RunState, raw: str) -> Direct:
 
     拒答正文＝**程序生成的确定性文案**（不合项取同一诊断出口 `understanding_schema_feedback`——
     两处同一次判定产物，不各自生成）：**不猜、不取默认、不降级提取**；原始应答片段只进报告步与
-    notice（机读面），不刷进用户正文。
+    notice（机读面），不刷进用户正文。文案按 **2026-10-17 EB5a** 改：收敛句统一为「没能完全读懂
+    这道题，请补充说明」＋**材料面如实**（本相位结构上零材料——检索尚未开始；照 `bookkeeping`
+    触界收敛正文的零材料形）。
     """
     reason = understanding_schema_feedback(raw)
     report_parse_failure(state, raw)
@@ -172,11 +191,35 @@ def _read_and_parse(state: RunState) -> tuple[Understanding | Direct | None, str
     首读与重试**同形复用**（重试＝同相位再读一次，非另开路径）：整条链送模型（`pin-22` 只追加）、
     应答追加链尾（`ROLE_ASSISTANT`）、模型原话入过程档案（行为 3／9）；调用记账归
     `bookkeeping.call_model` 单点——**两次调用各记一条步**（本支不另记步）。
+
+    **引号自修受理（行为 13 首段，2026-10-17 EB5a 补）**：严格解析不合格时**先过确定性引号自修
+    一次**（既有共用件 `parsing.parse_with_quote_repair`——解析拒→自修→重解析，只重试一次、只做
+    引号层修复，零模型零语义）——修好即**受理**（`emission_quote_repair` notice ＋ 过程档案注记；
+    **不占回喂上限、不回喂、不占轮**——照澄清相位 `_dispatch` 同款体例）；修不好＝原样返回 `None`
+    （交 `interpret` 走拒因回喂恰一次 → 仍拒＝收敛拒答）。
     """
     raw = call_model(state, MODEL_CALLER, list(state.messages))
     append_message(state, role=ROLE_ASSISTANT, content=raw)
     note(state, phase=PHASE, title=READ_NOTE_TITLE, digest=raw)
-    return parse_understanding(raw), raw
+    parsed, quote_repaired = parse_with_quote_repair(_parse_or_reason, raw)
+    if quote_repaired:
+        notice(
+            state,
+            type=NOTICE_EMISSION_QUOTE_REPAIR,
+            content=QUOTE_REPAIR_NOTICE_CONTENT,
+        )
+        note(state, phase=PHASE, title=QUOTE_REPAIR_NOTE_TITLE, digest=raw)
+    return (None if isinstance(parsed, str) else parsed), raw
+
+
+def _parse_or_reason(content: str) -> Understanding | Direct | str:
+    """引号自修受理编排的解析入参注入面（返载荷｜**拒因正文**）——零 schema 重判。
+
+    受理编排件（`parsing.parse_with_quote_repair`）以「返 `str` ＝不合格」为约定；理解面不合格形的
+    诊断正文取同一出口 `understanding_schema_feedback`（本块零第二份判定——禁用手写替代）。
+    """
+    parsed = parse_understanding(content)
+    return parsed if parsed is not None else understanding_schema_feedback(content)
 
 
 def _append_schema_feedback(state: RunState, raw: str) -> None:

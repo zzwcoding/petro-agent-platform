@@ -715,7 +715,9 @@ def test_ask_cap_truncate_with_material() -> None:
     assert state.pending_ask is None  # 不环：不再挂起
     assert state.next_intent == INTENT_ANSWER
     assert state.draft_kind == "direct"
-    assert state.draft.startswith("（连续澄清截断——已取得材料如实交付，不再挂起）")
+    assert state.draft.startswith(
+        "（追问次数已到上限——先把已经查到的材料如实交给你，不再继续追问）"
+    )  # 2026-10-17 EB4b 白话化逐字（旧「（连续澄清截断——已取得材料如实交付，不再挂起）」）
     assert "- A7 井 2026-10-14 产液量 120 立方米" in state.draft  # 带已取得材料如实直答
     notices = [item for item in state.notices if item["type"] == "clarify_capped"]
     assert len(notices) == 1
