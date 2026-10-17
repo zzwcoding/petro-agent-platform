@@ -20,7 +20,7 @@
  * 「mock 静态页对版面」；第 2 步接归约器后本页删除（或按 Owner 裁决替换现状页）。
  */
 import { useState } from 'react'
-import { Button, Card, Input, List, Space, Tag } from 'antd'
+import { Button, Card, Input, Space, Tag } from 'antd'
 import { SendOutlined } from '@ant-design/icons'
 import { dim, helpIcon } from '../../components/helpIcon.jsx'
 import AnswerView from '../AnswerView.jsx'
@@ -31,7 +31,8 @@ import LineageCard from './LineageCard.jsx'
 import { NoticeAlerts } from './NoticeBand.jsx'
 import RunMetaLine from './RunMetaLine.jsx'
 import SupplementBlocks from './SupplementBlocks.jsx'
-import { MOCK_THREADS, MOCK_TURNS } from './mockTurns.js'
+import ThreadList from './ThreadList.jsx'
+import { MOCK_RUNS, MOCK_TURNS } from './mockTurns.js'
 
 /** 链条节点（时间轴视觉——左侧竖线＋圆点，把三轮三块串成一条）。 */
 function ChainBlock({ testid, dot = '#4a9dff', children }) {
@@ -50,6 +51,7 @@ export default function A1V2RLanding() {
   // 右栏联动轮次（mock：默认＝完整轮；正文引标一点即切到该轮并定位）
   const [panelTurnId, setPanelTurnId] = useState('t-full')
   const [focus, setFocus] = useState({ index: null, nonce: 0 })
+  const [selectedRunId, setSelectedRunId] = useState(MOCK_RUNS[0]?.run_id ?? '')
   const panelTurn = MOCK_TURNS.find(t => t.id === panelTurnId) ?? MOCK_TURNS[0]
 
   const openCite = turn => index => {
@@ -82,14 +84,7 @@ export default function A1V2RLanding() {
 
         {/* ③ 系统回答块 */}
         <ChainBlock testid={`turn-${turn.id}`} dot="#52c41a">
-          <Card size="small"
-            extra={(
-              // 版面联动入口：把右栏切到本轮（真接线＝当前实时轮自动联动，见设计稿 §2）
-              <Button size="small" type="link" style={{ padding: 0 }}
-                onClick={() => { setPanelTurnId(turn.id); setFocus({ index: null, nonce: 0 }) }}>
-                引用与口径
-              </Button>
-            )}>
+          <Card size="small">
             {/* A 级 notice 留一条紧凑 Alert（折叠态流水线下也能感知可信度；B/C 只在流水线里） */}
             <NoticeAlerts notices={turn.notices} />
             {answering && <div style={dim} data-testid="answer-placeholder">正在作答…</div>}
@@ -125,24 +120,11 @@ export default function A1V2RLanding() {
 
   return (
     <div style={{ display: 'flex', gap: 16, alignItems: 'stretch', height: '100%' }}>
-      {/* 左栏 · 静态对话列表（mock 占位——真列表走 A1V2.jsx 的 listRunsV2 分组） */}
-      <Card size="small" title={<span>对话{helpIcon('本页是版面 mock：左栏是静态假列表（真对话分组逻辑在「问一问V2」现状页）。')}</span>}
+      {/* 左栏 · 历史对话（上拉加载 + 搜索——真接口形态见 ThreadList.jsx 头注；mock 数据 120 条） */}
+      <Card size="small" title={<span>对话{helpIcon('左侧是历史对话：往下滑看更早的，或在上方搜索框里找问过的题。一次最多回看最近 100 个对话。')}</span>}
         style={{ width: 250, flexShrink: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
-        styles={{ body: { flex: 1, minHeight: 0, overflowY: 'auto' } }}>
-        <div style={{ ...dim, marginBottom: 4 }}>{`共 ${MOCK_THREADS.length} 个对话`}</div>
-        <List size="small" dataSource={MOCK_THREADS}
-          renderItem={t => (
-            <List.Item data-selected={t.selected ? 'true' : 'false'}
-              style={{
-                padding: '4px 6px', borderRadius: 6,
-                background: t.selected ? 'rgba(22,119,255,0.18)' : 'transparent'
-              }}>
-              <div>
-                <div style={{ fontSize: 13 }}>{(t.title || '').slice(0, 18)}</div>
-                <div style={dim}>{t.meta}</div>
-              </div>
-            </List.Item>
-          )} />
+        styles={{ body: { flex: 1, minHeight: 0, overflow: 'hidden' } }}>
+        <ThreadList runs={MOCK_RUNS} selectedId={selectedRunId} onSelect={r => setSelectedRunId(r.run_id)} />
       </Card>
 
       {/* 中栏 · 串行链条（垂直时间线：每轮＝问句块→流水线块→回答块） */}

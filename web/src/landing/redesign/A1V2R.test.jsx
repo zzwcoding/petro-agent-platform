@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 
 import A1V2R from './A1V2R.jsx'
+import { MOCK_RUNS } from './mockTurns.js'
 
 if (!window.matchMedia) {
   window.matchMedia = query => ({
@@ -133,6 +134,31 @@ describe('A1V2R · 其余三轮形态', () => {
   })
 })
 
+describe('A1V2R · 左侧历史对话（上拉加载＋搜索）', () => {
+  it('左栏＝ThreadList：初始 20 条、搜索框在位、加载入口在位；点行＝高亮切换', () => {
+    render(<A1V2R />)
+    const list = screen.getByTestId('thread-list')
+    expect(within(list).getAllByTestId(/^thread-row-/)).toHaveLength(20)
+    expect(within(list).getByPlaceholderText('搜索对话')).toBeTruthy()
+    expect(within(list).getByTestId('load-more')).toBeTruthy()
+    // 首页行＝运行中轮的问句（选中）
+    const first = within(list).getByTestId(`thread-row-${MOCK_RUNS[0].run_id}`)
+    expect(first.dataset.selected).toBe('true')
+    fireEvent.click(within(list).getByTestId(`thread-row-${MOCK_RUNS[3].run_id}`))
+    expect(within(list).getByTestId(`thread-row-${MOCK_RUNS[3].run_id}`).dataset.selected).toBe('true')
+    expect(within(list).getByTestId(`thread-row-${MOCK_RUNS[0].run_id}`).dataset.selected).toBe('false')
+    expect(fetchMock).not.toHaveBeenCalled() // 全假数据——不真拉列表
+  })
+
+  it('左栏搜索＝前端过滤（不发请求）', () => {
+    render(<A1V2R />)
+    fireEvent.change(screen.getByPlaceholderText('搜索对话'), { target: { value: '含水率' } })
+    const hit = MOCK_RUNS.slice(0, 20).filter(r => r.question.includes('含水率'))
+    expect(screen.getAllByTestId(/^thread-row-/)).toHaveLength(hit.length)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
 describe('A1V2R · 右栏联动', () => {
   it('点正文 [n] ＝右栏切到该轮并定位（「已定位」＋该条材料原文）', () => {
     render(<A1V2R />)
@@ -144,17 +170,20 @@ describe('A1V2R · 右栏联动', () => {
     expect(item.textContent).toContain('日产液量（方）')
   })
 
-  it('右栏默认＝完整轮（2 处来源）；点某轮「引用与口径」＝切到该轮（分列轮 5 处来源）', () => {
+  it('点分列轮正文 [n] ＝右栏切到该轮（默认完整轮 2 处来源 → 分列轮 5 处来源）', () => {
     render(<A1V2R />)
     expect(screen.getByText('共 51 支引用 · 来自 2 处来源')).toBeTruthy()
-    fireEvent.click(within(screen.getByTestId('turn-t-split')).getByRole('button', { name: '引用与口径' }))
+    const cite = screen.getByTestId('turn-t-split').querySelector('[data-cite="6"]')
+    expect(cite).toBeTruthy()
+    fireEvent.click(cite)
     expect(screen.getByText('共 16 支引用 · 来自 5 处来源')).toBeTruthy()
+    expect(screen.getByTestId('cite-item-6').textContent).toContain('已定位')
   })
 
-  it('旧版轮无引用＝右栏空态「本回合无引用。」（切换后不残留上轮引用）', () => {
+  it('回答块不再有「引用与口径」跳转入口（Owner 反馈 1：整条删掉）', () => {
     render(<A1V2R />)
-    fireEvent.click(within(screen.getByTestId('turn-t-legacy')).getByRole('button', { name: '引用与口径' }))
-    expect(screen.getByText('本回合无引用。')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '引用与口径' })).toBeNull()
+    expect(screen.queryByText('引用与口径', { selector: 'button' })).toBeNull()
   })
 
   it('右栏决策树入口在位（mock 点开说明 Modal——真树接线在后）', () => {
