@@ -35,8 +35,9 @@
  * historyAdapter.adaptHistoryTurn 的输出；id／durationS 是页面临时面（durationS 不入
  * turn——由页面传 RunMetaLine/流水线摘要行）。
  *
- * 左栏行：`MOCK_RUNS`（120 条 RunListItem 形态——供 ThreadList 的上拉加载/搜索；不受
- * 本票归一改造影响，原样保留）。
+ * 左栏行：`MOCK_RUNS`（120 条 RunListItem 形态——FE-04 起 A1V2R 不再直喂 ThreadList
+ * （真接 listRunsV2，读口可注入），本列转**测试夹具**：ThreadList.test.jsx 的 fetchRuns 桩
+ * 返回值、A1V2R.test.jsx 的 listRunsV2 桩返回值；数据原样保留）。
  *
  * DEBT(docs/runtime-refactor/frontend-redesign-设计.md)：本文件只服务「mock 静态页对版面」
  * 施工段（数据已改真帧夹具＋归约器输出）；真流页面（FE-05）接线后本文件随 mock 页一并

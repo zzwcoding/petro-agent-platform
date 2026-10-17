@@ -1,9 +1,10 @@
 /**
- * A1V2R 页面钉测（串行链条 mock 静态版面页——临时路由）。
+ * A1V2R 页面钉测（串行链条版面页——临时路由；FE-04 历史列真接后左栏读口走 chatV2 桩）。
  *
  * 守什么（本页红线，机器可验）：
- * - **零请求**：全页数据来自 redesign/mockTurns.js（真帧夹具＋归约器输出）——不接 SSE、
- *   不调 `/api/v2/*`（stub fetch 断言零次）；
+ * - **零真实网络**：mock 四轮来自 redesign/mockTurns.js（真帧夹具＋归约器输出）；左栏
+ *   ThreadList 真接读口（listRunsV2/getRunV2——FE-04）以 vi.mock 注桩零网络，raw fetch 层
+ *   断言零次调用（读口调用不触 fetch 层）；
  * - **链条顺序**：每轮＝用户输入块 → 系统执行流水线块 → 系统回答块；回答块内＝A 级 notice Alert →
  *   正文 → 血缘卡 → 追加面 → 核验/档案小字（DOM 序断言）；
  * - 四轮覆盖：①运行中（流水线展开、回答块「正在作答…」占位）②完整轮（流水线收起、链条完整）
@@ -18,6 +19,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 
+vi.mock('../../api/chatV2.js', async importOriginal => ({
+  ...await importOriginal(),
+  listRunsV2: vi.fn(),
+  getRunV2: vi.fn()
+}))
+
+import { ApiError } from '../../api/client.js'
+import { getRunV2, listRunsV2 } from '../../api/chatV2.js'
 import { newTurnV2, reduceV2Frames } from '../a1v2Reducer.js'
 import A1V2R, { TurnChain } from './A1V2R.jsx'
 import { adaptHistoryTurn } from './historyAdapter.js'
@@ -36,8 +45,13 @@ if (!window.ResizeObserver) {
 
 const fetchMock = vi.fn()
 beforeEach(() => {
-  fetchMock.mockReset()
+  vi.clearAllMocks()
   vi.stubGlobal('fetch', fetchMock)
+  // ThreadList 真接读口默认桩（FE-04）：初载返回 MOCK_RUNS 夹具——页面级零真实网络
+  vi.mocked(listRunsV2).mockResolvedValue(MOCK_RUNS)
+  vi.mocked(getRunV2).mockResolvedValue({
+    status: 'completed', steps: [], manifest_digest: null, pending_ask: null
+  })
 })
 afterEach(() => {
   cleanup()
@@ -139,27 +153,31 @@ describe('A1V2R · 其余三轮形态', () => {
   })
 })
 
-describe('A1V2R · 左侧历史对话（上拉加载＋搜索）', () => {
-  it('左栏＝ThreadList：初始 20 条、搜索框在位、加载入口在位；点行＝高亮切换', () => {
+describe('A1V2R · 左侧历史对话（真接 ThreadList——FE-04）', () => {
+  it('左栏＝ThreadList 真接：初始拉 20 条、搜索框在位、加载入口在位；点行＝高亮切换＋中栏切链', async () => {
     render(<A1V2R />)
     const list = screen.getByTestId('thread-list')
+    await within(list).findByTestId(`thread-row-${MOCK_RUNS[0].run_id}`)
     expect(within(list).getAllByTestId(/^thread-row-/)).toHaveLength(20)
     expect(within(list).getByPlaceholderText('搜索对话')).toBeTruthy()
     expect(within(list).getByTestId('load-more')).toBeTruthy()
-    // 首页行＝运行中轮的问句（选中）
-    const first = within(list).getByTestId(`thread-row-${MOCK_RUNS[0].run_id}`)
-    expect(first.dataset.selected).toBe('true')
+    expect(vi.mocked(listRunsV2)).toHaveBeenCalledWith(20) // 真接读口：初始 limit=20
+    // 点行＝高亮切换（真接后无预选中——选中态由点击驱动）＋中栏切该链
+    expect(within(list).getByTestId(`thread-row-${MOCK_RUNS[0].run_id}`).dataset.selected).toBe('false')
     fireEvent.click(within(list).getByTestId(`thread-row-${MOCK_RUNS[3].run_id}`))
     expect(within(list).getByTestId(`thread-row-${MOCK_RUNS[3].run_id}`).dataset.selected).toBe('true')
     expect(within(list).getByTestId(`thread-row-${MOCK_RUNS[0].run_id}`).dataset.selected).toBe('false')
-    expect(fetchMock).not.toHaveBeenCalled() // 全假数据——不真拉列表
+    await screen.findByTestId(`round-${MOCK_RUNS[3].run_id}`) // 中栏切链（选中行拉链——单轮链）
+    expect(fetchMock).not.toHaveBeenCalled() // 读口走 chatV2 桩——raw fetch 层零调用
   })
 
-  it('左栏搜索＝前端过滤（不发请求）', () => {
+  it('左栏搜索＝前端过滤（搜索期零新增请求——listRunsV2 调用次数不变）', async () => {
     render(<A1V2R />)
+    await screen.findByTestId(`thread-row-${MOCK_RUNS[0].run_id}`)
     fireEvent.change(screen.getByPlaceholderText('搜索对话'), { target: { value: '含水率' } })
     const hit = MOCK_RUNS.slice(0, 20).filter(r => r.question.includes('含水率'))
     expect(screen.getAllByTestId(/^thread-row-/)).toHaveLength(hit.length)
+    expect(vi.mocked(listRunsV2)).toHaveBeenCalledTimes(1) // 只有初载一次
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })
@@ -259,5 +277,75 @@ describe('A1V2R · 三场景归一（H5 零分支——specs「验收测试」�
       expect(container.querySelector(`[data-testid="${id}"]`)).toBeTruthy()
     }
     expect(container.querySelector('[data-testid="run-meta-line"]').textContent).toBe('run-one-shape')
+  })
+})
+
+describe('A1V2R · 选中拉链（FE-04 L3——specs「验收测试」表第 16 行）', () => {
+  /** 窗口内造链（票面伪代码第 3 节：root＋第 2 轮 followup，followup_of 逐跳指向）＋无关单轮；
+   *  listRunsV2 桩按 created_at 降序回窗（后端排序语义）。root＝旧版行（supplements=null→
+   *  legacy 灰字）；followup 轮带 lineage 块——右栏默认联动链尾轮，以此分辨面板切到位。 */
+  const CHAIN_WINDOW = [
+    { run_id: 'run-next', question: '追问问句', status: 'completed', answer: '追问轮答案正文。',
+      followup_of: 'run-root', created_at: '2026-10-17 10:05:00', updated_at: '2026-10-17 10:05:30',
+      supplements: [{ block: 'lineage', text: '追问轮口径：含水率按生产日' }] },
+    { run_id: 'run-root', question: '链根问句', status: 'completed', answer: '根轮答案正文。',
+      followup_of: '', created_at: '2026-10-17 10:00:00', updated_at: '2026-10-17 10:00:30',
+      supplements: null },
+    { run_id: 'run-other', question: '无关问句', status: 'completed', answer: '无关轮答案正文。',
+      followup_of: '', created_at: '2026-10-17 09:00:00', updated_at: '2026-10-17 09:00:30',
+      supplements: [] }
+  ]
+  const runViewOf = runId => ({
+    status: 'completed',
+    steps: [{ seq: 1, step: 'understand', status: 'ok', title: `理解问题（${runId}）` }],
+    manifest_digest: `digest-${runId}`,
+    pending_ask: null
+  })
+
+  it('select_thread_renders_turns：点链根行 → 逐轮 getRunV2 → 中栏两轮 created_at 升序；supplements=null 轮灰字在场', async () => {
+    vi.mocked(listRunsV2).mockResolvedValue(CHAIN_WINDOW)
+    vi.mocked(getRunV2).mockImplementation(runId => Promise.resolve(runViewOf(runId)))
+    render(<A1V2R />)
+    await screen.findByTestId('thread-row-run-root')
+    fireEvent.click(screen.getByTestId('thread-row-run-root')) // 点链根行
+    // 中栏＝该链两轮（无关单轮不入链），DOM 序＝created_at 升序（root→next）
+    await screen.findByTestId('round-run-root')
+    expect(screen.getByTestId('round-run-next')).toBeTruthy()
+    expect(screen.queryByTestId('round-run-other')).toBeNull()
+    expect(screen.queryByTestId('round-t-full')).toBeNull() // mock 轮让位（选中链显示链——并存最小实现）
+    const order = [...document.querySelectorAll('[data-testid="round-run-root"], [data-testid="round-run-next"]')]
+      .map(el => el.dataset.testid)
+    expect(order).toEqual(['round-run-root', 'round-run-next'])
+    // 每轮 getRunV2（仅链内两轮——逐轮归一）
+    expect(vi.mocked(getRunV2)).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(getRunV2)).toHaveBeenNthCalledWith(1, 'run-root')
+    expect(vi.mocked(getRunV2)).toHaveBeenNthCalledWith(2, 'run-next')
+    // supplements=null 旧轮 → 灰字在场（E4 降级——adaptHistoryTurn legacy 形）；新轮无灰字
+    expect(within(screen.getByTestId('round-run-root')).getByTestId('legacy-note').textContent)
+      .toContain('本轮为旧版记录，无引用/口径明细')
+    expect(within(screen.getByTestId('round-run-next')).queryByTestId('legacy-note')).toBeNull()
+    // 右栏联动＝当前选中链最后一轮（followup 轮）：链轮无引用帧＋lineage 块落面板
+    // （根轮 legacy 无 supplements→无血缘卡；mock 完整轮有 51 支引用——已切走）
+    const panel = screen.getByTestId('citation-panel')
+    expect(panel.textContent).toContain('本回合无引用')
+    expect(within(panel).getByTestId('lineage-card')).toBeTruthy()
+    expect(screen.queryByText('共 51 支引用 · 来自 2 处来源')).toBeNull()
+  })
+
+  it('select_thread_renders_turns · 404 轮降级：getRunV2 404 → adaptHistoryTurn(r,null)＋errorFrame 灰条，链内他轮照常', async () => {
+    vi.mocked(listRunsV2).mockResolvedValue(CHAIN_WINDOW)
+    vi.mocked(getRunV2).mockImplementation(runId => (runId === 'run-next'
+      ? Promise.reject(new ApiError(404, { code: 'chat_run_not_found', message: 'run 不存在' }, 'run 不存在'))
+      : Promise.resolve(runViewOf(runId))))
+    render(<A1V2R />)
+    await screen.findByTestId('thread-row-run-root')
+    fireEvent.click(screen.getByTestId('thread-row-run-root'))
+    // 404 轮仍渲染（降级形）：errorFrame 灰条「本轮已结束或不可达」；根轮正常无灰条
+    await screen.findByTestId('round-run-next')
+    expect(within(screen.getByTestId('round-run-next')).getByTestId('error-frame-alert').textContent)
+      .toContain('本轮已结束或不可达')
+    expect(within(screen.getByTestId('round-run-root')).queryByTestId('error-frame-alert')).toBeNull()
+    expect(within(screen.getByTestId('round-run-root')).getByTestId('answer-view')).toBeTruthy()
+    expect(vi.mocked(getRunV2)).toHaveBeenCalledTimes(2) // 不重试（404 轮降级不重拉）
   })
 })

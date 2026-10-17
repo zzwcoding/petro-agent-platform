@@ -21,29 +21,41 @@
  * 挂起卡选项点击＝resumeEntry 续答通路（本腿新帧直进同一 reducer）。输入区「发送」仍禁用
  * （真提问接线归 FE-05）。
  *
- * 边界（未变部分）：左栏 ThreadList 仍 mock 数据（FE-05 真接）／不覆盖现状页 A1V2.jsx／
- * 右栏 CitationPanel（人话面板）与右栏宽度、决策树入口均不动。
+ * 历史列真接与选中拉链（FE-04——specs/frontend-redesign.md 行为约定 L1–L3）：左栏
+ * ThreadList 数据源切内部态＋listRunsV2（读口注入，真源 appv2/api/chat.py list_runs——
+ * 无 offset，上拉＝扩大 limit 重拉全量）；选中行＝collectChain 拉链（同 A1V2.jsx
+ * buildThreads 分组语义：root＝followup_of 空或指向窗口外、成员＝窗口内逐跳可达、
+ * created_at 升序）→ 每轮 getRunV2 → adaptHistoryTurn 归一（404 轮降级
+ * adaptHistoryTurn(r, null)＋errorFrame{run_unreachable}，文案与 R3 合成轮同词）→ 中栏切换
+ * 为该链轮次（未选中＝mock 轮——mock 与真链并存的最小实现，展示切换随 FE-05 去 mock 重排）；
+ * 右栏 panelTurn＝当前选中链最后一轮（点正文 [n] 切轮定位机制不变）。
+ *
+ * 边界（未变部分）：不覆盖现状页 A1V2.jsx／右栏 CitationPanel（人话面板）与右栏宽度、
+ * 决策树入口均不动。
  * 空态纪律：各项无数据＝该位不渲染（组件内实现，本页只透传）。
  *
  * DEBT(docs/runtime-refactor/frontend-redesign-设计.md)：redesign/ 与临时路由
  * （registry.REDESIGN_MODULES／roles.js 菜单项／Shell.jsx 懒加载项）服务「mock 静态页
- * 对版面 → 重连接线」施工段；FE-05 真流接线后本页按 Owner 裁决替换现状页并去 mock。
+ * 对版面 → 重连接线 → 历史列真接」施工段；FE-05 真流接线后本页按 Owner 裁决替换现状页并去 mock。
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Alert, Button, Card, Input, Space, Tag } from 'antd'
 import { SendOutlined } from '@ant-design/icons'
+import { ApiError, errText } from '../../api/client.js'
+import { getRunV2 } from '../../api/chatV2.js'
 import { dim, helpIcon } from '../../components/helpIcon.jsx'
 import { phaseOf } from '../a1v2Reducer.js'
 import AnswerView from '../AnswerView.jsx'
 import CitationPanel from './CitationPanel.jsx'
 import CiteHoverCard from './CiteHoverCard.jsx'
 import ExecutionPipeline from './ExecutionPipeline.jsx'
+import { adaptHistoryTurn } from './historyAdapter.js'
 import LineageCard from './LineageCard.jsx'
 import { NoticeAlerts } from './NoticeBand.jsx'
 import RunMetaLine from './RunMetaLine.jsx'
 import SupplementBlocks from './SupplementBlocks.jsx'
 import ThreadList from './ThreadList.jsx'
-import { MOCK_RUNS, MOCK_TURNS } from './mockTurns.js'
+import { MOCK_TURNS } from './mockTurns.js'
 import { useRunningRun } from './useRunningRun.js'
 
 /** 链条节点（时间轴视觉——左侧竖线＋圆点，把三轮三块串成一条）。 */
@@ -163,20 +175,81 @@ export function TurnChain({ id, turn, durationS = null, onCite = null, onResume 
   )
 }
 
+/**
+ * 选中行拉链（FE-04 L3）——与 A1V2.jsx buildThreads 同语义的链收集（该文件只读对齐，不改）：
+ * rootOf 沿 followup_of 上溯，followup_of 空串或指向窗口外＝到顶（链根不在列表窗内＝最老
+ * 窗内成员自成一链——分组窗界兜底，如实呈现不虚构归属）；链成员＝窗口内与选中行同根的行
+ * （followup_of 逐跳可达），按 created_at 升序（轮次顺序）。
+ */
+function collectChain(row, runs) {
+  const byId = new Map(runs.map(r => [r.run_id, r]))
+  const rootCache = new Map()
+  const rootOf = r => {
+    if (rootCache.has(r.run_id)) return rootCache.get(r.run_id)
+    const seen = new Set()
+    let cur = r
+    while (cur.followup_of && byId.has(cur.followup_of) && !seen.has(cur.run_id)) {
+      seen.add(cur.run_id)
+      cur = byId.get(cur.followup_of)
+    }
+    rootCache.set(r.run_id, cur.run_id)
+    return cur.run_id
+  }
+  const rootId = rootOf(row)
+  return runs
+    .filter(r => rootOf(r) === rootId)
+    .sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
+}
+
 export default function A1V2RLanding() {
   // 会话数组（FE-03：固定 MOCK_TURNS → useState——restore 推入的轮排在 mock 轮之后，FE-05 去 mock）
   const { entries, restoredRef, restoreRunning, resumeEntry } = useRunningRun(MOCK_TURNS)
   // 右栏联动轮次（mock：默认＝完整轮；正文引标一点即切到该轮并定位）
   const [panelTurnId, setPanelTurnId] = useState('t-full')
   const [focus, setFocus] = useState({ index: null, nonce: 0 })
-  const [selectedRunId, setSelectedRunId] = useState(MOCK_RUNS[0]?.run_id ?? '')
+  // FE-04 历史列真接：runs＝ThreadList 回传的当前窗口（onRuns——collectChain 拉链分组用）；
+  // chain＝选中链 { runId, turns }（turns＝created_at 升序 TurnShape[]；null＝未选中——中栏 mock 轮）
+  const [selectedRunId, setSelectedRunId] = useState('')
+  const [runs, setRuns] = useState([])
+  const [chain, setChain] = useState(null)
+  const selectSeqRef = useRef(0) // 选中竞窗护栏（异步拉链期间再点他行——旧响应丢弃不覆盖新选择）
   const panelEntry = entries.find(e => e.id === panelTurnId) ?? entries[0]
-  const panelTurn = panelEntry.turn
+  // 右栏联动（FE-04 L3）：选中链＝链内选中轮（点正文 [n] 切轮定位机制不变；缺省＝当前选中链
+  // 的最后一轮——与 mock 的完整轮默认联动同位）；未选链＝mock 期机制（entries 按 panelTurnId）
+  const panelTurn = chain
+    ? (chain.turns.find(t => t.runId === panelTurnId) ?? chain.turns.at(-1))
+    : panelEntry.turn
   const panelLineage = lineagePayloadOf(panelTurn)
 
   const openCite = id => index => {
     setPanelTurnId(id)
     setFocus(f => ({ index, nonce: f.nonce + 1 }))
+  }
+
+  /** 左栏行点击（FE-04 L3 选中拉链）：collectChain 取窗内同链行 → 每轮 getRunV2（顺序）→
+   *  adaptHistoryTurn 归一 → 中栏切该链。404（进程重启丢行）轮降级：adaptHistoryTurn(r, null)
+   *  ＋errorFrame{run_unreachable}（文案与 useRunningRun R3 合成轮同词）；其他读口错误同形
+   *  降级——单轮缺明细不炸整链。 */
+  const onSelect = async row => {
+    setSelectedRunId(row.run_id)
+    selectSeqRef.current += 1
+    const seq = selectSeqRef.current
+    const chainRows = collectChain(row, runs)
+    const turns = []
+    for (const r of chainRows) {
+      try {
+        turns.push(adaptHistoryTurn(r, await getRunV2(r.run_id)))
+      } catch (err) {
+        turns.push({
+          ...adaptHistoryTurn(r, null),
+          errorFrame: err instanceof ApiError && err.status === 404
+            ? { code: 'run_unreachable', message: '本轮已结束或不可达' }
+            : { code: err instanceof ApiError ? err.code : 'run_unreachable', message: errText(err) }
+        })
+      }
+    }
+    if (seq !== selectSeqRef.current) return // 竞窗：已有更新的选择在途——旧响应丢弃
+    setChain({ runId: row.run_id, turns })
   }
 
   // FE-03 R2/R3/R4：mount 调 restoreRunning() 一次（票面伪代码：useEffect 空依赖；
@@ -190,29 +263,49 @@ export default function A1V2RLanding() {
 
   return (
     <div style={{ display: 'flex', gap: 16, alignItems: 'stretch', height: '100%' }}>
-      {/* 左栏 · 历史对话（上拉加载 + 搜索——真接口形态见 ThreadList.jsx 头注；mock 数据 120 条） */}
+      {/* 左栏 · 历史对话（FE-04 真接：ThreadList 内部态拉 listRunsV2——上拉加载 + 搜索；
+          真接口形态见 ThreadList.jsx 头注；当前窗口经 onRuns 回传供拉链分组） */}
       <Card size="small" title={<span>对话{helpIcon('左侧是历史对话：往下滑看更早的，或在上方搜索框里找问过的题。一次最多回看最近 100 个对话。')}</span>}
         style={{ width: 250, flexShrink: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
         styles={{ body: { flex: 1, minHeight: 0, overflow: 'hidden' } }}>
-        <ThreadList runs={MOCK_RUNS} selectedId={selectedRunId} onSelect={r => setSelectedRunId(r.run_id)} />
+        <ThreadList selectedId={selectedRunId} onSelect={onSelect} onRuns={setRuns} />
       </Card>
 
-      {/* 中栏 · 串行链条（垂直时间线：每轮＝问句块→流水线块→回答块） */}
+      {/* 中栏 · 串行链条（垂直时间线：每轮＝问句块→流水线块→回答块）。
+          选中链（FE-04 L3）＝真链轮次（adaptHistoryTurn 归一，升序）；未选中＝mock 四轮（FE-05 去 mock） */}
       <Card size="small" style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
         styles={{ body: { flex: 1, minHeight: 320, display: 'flex', flexDirection: 'column' } }}>
-        <div style={{ ...dim, marginBottom: 8 }}>
-          <Tag color="orange">mock 数据 · 静态版面</Tag>
-          串行链条（真机帧假数据）：①运行中 ②完整轮 ③分列轮 ④旧版降级；重连恢复（R1–R4）已接线，真提问发送归 FE-05。
-        </div>
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
-          <div style={{ borderLeft: '2px solid rgba(127,127,127,0.22)', paddingLeft: 14 }}>
-            {entries.map(entry => (
-              <TurnChain key={entry.id} id={entry.id} turn={entry.turn} durationS={entry.durationS}
-                onCite={openCite(entry.id)} onResume={chosen => resumeEntry(entry, chosen)}
-                defaultLineageOpen={entry.id === 't-full'} />
-            ))}
-          </div>
-        </div>
+        {chain ? (
+          <>
+            <div style={{ ...dim, marginBottom: 8 }}>
+              {`对话 · ${chain.turns.length} 轮（选中链——created_at 升序）`}
+            </div>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
+              <div style={{ borderLeft: '2px solid rgba(127,127,127,0.22)', paddingLeft: 14 }}>
+                {chain.turns.map(t => (
+                  <TurnChain key={t.runId} id={t.runId} turn={t} durationS={null}
+                    onCite={openCite(t.runId)} defaultLineageOpen={false} />
+                ))}
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ ...dim, marginBottom: 8 }}>
+              <Tag color="orange">mock 数据 · 静态版面</Tag>
+              串行链条（真机帧假数据）：①运行中 ②完整轮 ③分列轮 ④旧版降级；重连恢复（R1–R4）已接线，真提问发送归 FE-05。
+            </div>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
+              <div style={{ borderLeft: '2px solid rgba(127,127,127,0.22)', paddingLeft: 14 }}>
+                {entries.map(entry => (
+                  <TurnChain key={entry.id} id={entry.id} turn={entry.turn} durationS={entry.durationS}
+                    onCite={openCite(entry.id)} onResume={chosen => resumeEntry(entry, chosen)}
+                    defaultLineageOpen={entry.id === 't-full'} />
+                ))}
+              </div>
+            </div>
+          </>
+        )}
         {/* 输入区（版面位——mock 页不接线发送，按钮如实禁用） */}
         <div style={{ marginTop: 10 }}>
           <Space.Compact style={{ width: '100%' }}>
