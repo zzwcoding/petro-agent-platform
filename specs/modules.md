@@ -493,6 +493,11 @@ def envelope(frame: SseEvent) -> str: ...      # 帧信封字节形："id: …\n
 #   WIRE_FRAMES（session/done/error）／NOTICE_TYPES（通知类型，取值真源＝本卡所指规格）／
 #   VERDICT_SUBTYPES（verify/final）／ASK_FRAME_KINDS（clarify/external_table_approval）／
 #   SUPPLEMENT_BLOCKS（增补面块型四值 split/attribution/citations/lineage——EB3 D1 增）
+# 块头模式族与块剥除单点（2026-10-17 EB5c——块型闭世界的**文本面**，随块闭世界同落本块）：
+def block_head_kind(line: str) -> str | None: ...   # 行→块型（族头条判据：三族整行恰为记号／血缘族行内含）
+def undecorated_head(line: str) -> str: ...          # 块头行装饰归一（`**引用**` 变体→族形）
+def split_block_sections(text: str) -> tuple[str, str]: ...  # 去程序块段后正文 / 血缘族段文本
+def same_family_head_in(text: str, block: str) -> bool: ...  # 同族块头在场判据（收口幂等面）
 ```
 
 > **卡级修正（2026-10-15，L0，随 transport 规格起草）**：原「`def emit(state, name, payload)`」是**现状形状的草稿**——`RunState` 必须保持 JSON 原语可投影（见 `specs/state.md` 行为 3），**总线不能挂在状态上**；故公开面收正为 **per-run `EventBus`**（编排块持有，与现状 `deps.bus.emit` 同形），`SseEvent` 由「载荷别名」收正为**帧对象**（`{seq, event, data}`）。

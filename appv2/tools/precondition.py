@@ -307,6 +307,7 @@ def judge(
     watermark: date | None = None,
     window_resolved: bool = False,
     data_wells: Collection[str] | None = None,
+    entry_question: str = "",
 ) -> Verdict:
     """逐子问题过闸判四态（纯函数——零 LLM、零 I/O）。
 
@@ -319,6 +320,13 @@ def judge(
       门静默（用户答案锚定的窗不机械改判，零误伤）；
     - data_wells＝数据链井闭世界（agg.dim_well 井号集，调用方接线供给）——缺省
       None/空集＝域闸静默（不发明域语义）。
+
+    2026-10-17 EB5b 新增面：
+    - `entry_question`＝**入口问句原文**（`state.question`）——位 1 禁用词闸的
+      旧叫法面**看题干原件**（子问题问句是模型产出、旧名归一在内：真机 EB3
+      `run-d1de7df7` 把「老完成率是多少？」的子问题问句归一成「产量完成率是
+      多少？」，词面命中面随之消失、拦停未触发）。缺省空串＝只看子问题问句
+      与计划指标槽（既有行为零漂移）。
     """
     question = subtask.question
     plan = subtask.plan or {}
@@ -329,13 +337,16 @@ def judge(
     # 元问/引用形命中降级放行（注记随行照常执行；豁免 audit 行由 understand
     # 入口闸统一落账——本判定面零 I/O）。一次裸写/跨句拼接形照旧拦停；计划
     # 指标槽命中（非问句词面）不豁免。
+    # 2026-10-17 EB5b：命中面＝子问题问句 ∪ 计划指标槽 ∪ **入口问句原文**（三面任一
+    # 命中即判）；豁免面同片适用（命中哪一面就按哪一面判元问/引用形）。
     for item in facts.banned:
-        if not (
-            item.term
-            and (item.term in question or item.term == str(plan.get("metric_slot") or ""))
-        ):
+        if not item.term:
             continue
-        if item.term in question and is_ban_exempt(question, item.term):
+        hit_faces = [text for text in (question, entry_question) if item.term in text]
+        if not hit_faces and item.term != str(plan.get("metric_slot") or ""):
+            continue
+        excused = [text for text in hit_faces if is_ban_exempt(text, item.term)]
+        if hit_faces and len(excused) == len(hit_faces):
             notes.append(
                 f"禁用词「{item.term}」命中但元问/引用形豁免放行——照常执行"
                 f"（现行口径：{item.replacement or '见台账'}；豁免留痕见 run 审计）"

@@ -16,6 +16,13 @@ from __future__ import annotations
 
 from typing import Literal
 
+from appv2.runtimev2.transport import (
+    SUPPLEMENT_HEAD_MARK_LINEAGE_CLOSING,
+    SUPPLEMENT_HEAD_MARK_LINEAGE_SOURCE,
+    SUPPLEMENT_HEAD_MARK_SPLIT_VERIFY,
+    SUPPLEMENT_LINEAGE_KEEP_MAX_LINES,
+)
+
 # ── 相位标记与步面 ─────────────────────────────────────────────────────────────
 
 PHASE = "verify"  # 本块相位标记（步 payload 的 `phase` 值）
@@ -52,6 +59,11 @@ CONTRADICTION_EXCLUDED_KINDS: frozenset[str] = frozenset({"agg_row", "lineage", 
 #    真源 `appv2/tools/handlers.py` 的权威表行观察）──────────────────────────────
 
 ROWSET_OBSERVATION_KINDS: frozenset[str] = frozenset({"agg_row"})
+# 血缘卡观察分型（2026-10-17 EB5c——血缘统一走增补面的取值指针）。
+# 取值真源＝`appv2/tools` 血缘观察装配面与 `context` 材料面分型表同字面（本块 R6 禁引引擎，
+# 故以取值指针落此、落点唯一）；血缘在场 ⇒ 增补面必有 `lineage` 块（单点见
+# `rules.lineage_observation_text`）。
+LINEAGE_OBSERVATION_KIND = "lineage"
 
 # ── 文本单点（逻辑面一律引名字，零字面副本）──────────────────────────────────────
 
@@ -60,13 +72,15 @@ ROWSET_OBSERVATION_KINDS: frozenset[str] = frozenset({"agg_row"})
 # `RewriteRecord`（原句＋原因）＋ `verdict.rewritten` 如实计数＋ `notice` 三处（不静默）。
 # 2026-10-17 EB2 D3（段头去工程腔——逐字稿＝方案 D3）：旧「多来源不一致——分源列明
 # （禁止无出处调和）：」→ 友好话术（判据面语义零改：仍逐支带出处、零调和）。
-SPLIT_BLOCK_HEAD = "各来源说法如下，按来源分别列出："   # 行为 4（INV-4）
+SPLIT_BLOCK_HEAD = SUPPLEMENT_HEAD_MARK_SPLIT_VERIFY   # 行为 4（INV-4）
 SPLIT_LINE_TEMPLATE = "[{index}] {source}：{content}"            # 分列逐支带出处
 SUBJECT_SEPARATOR = "："                    # 矛盾分组 subject 切分符（真源 `recon/A2` R-A2-29）
 
 # 归属审块（行为 5 的答案面分源列明形；真源 `recon/A2` R-A2-27／R-A2-28）
 # 2026-10-17 EB2 D3（段头去工程腔）：旧「跨源归属审——分源列明（题眼锚：{anchors}；
 # 禁止无出处调和）：」→ 友好话术（{anchors} 占位保持）。
+# **2026-10-17 EB5c 登记**：本块头**不入块头模式族**（携 `{anchors}` 占位符＝不可静态匹配的
+# 模板形；见 `specs/transport.md` 行为 17 的族外登记）——族成员只收静态记号。
 ATTRIBUTION_BLOCK_HEAD = "按来源归属如下（题眼：{anchors}）："
 ATTRIBUTION_ALIGNED_HEAD = "对齐题眼锚："
 ATTRIBUTION_UNCITED_HEAD = "对齐题眼锚的材料（在窗未进答案引用——按出处核对）："
@@ -108,11 +122,12 @@ TABLE_COLUMN_MARK = "|"
 # ── 血缘五要素整段的形态判据字面（2026-10-17 EB3 D2；逐字稿＝方案 D2 的特征面）────────
 # 特征 ②来源表／⑤收口注记：血缘五要素合同键逐字（`② 来源表`／`⑤ 收口注记`——**取值指针**，
 # 真源 `appv2/query/domain.py` `LINEAGE_KEY_SOURCE`／`LINEAGE_KEY_CLOSING`；核验块 R6 禁引引擎，
-# 故按字面落此、落点唯一）。整段剥入 `lineage` 增补面；**单行口径说明（≤2 行、带 `[n]` 引标）
-# 保留在正文**——口径说明不是血缘卡。
-LINEAGE_MARK_SOURCE_TABLE = "② 来源表"
-LINEAGE_MARK_CLOSING = "⑤ 收口注记"
-LINEAGE_KEEP_MAX_LINES = 2   # 口径说明保留上限（≤2 行——方案 D2 逐字）
+# 故落点唯一者＝块头模式族（`transport.SUPPLEMENT_HEAD_MARK_LINEAGE_*`，2026-10-17 EB5c——
+# 与 answering 相位共用同一族、同一剥除单点 `transport.split_block_sections`）。整段剥入
+# `lineage` 增补面；**单行口径说明（≤2 行、带 `[n]` 引标）保留在正文**——口径说明不是血缘卡。
+LINEAGE_MARK_SOURCE_TABLE = SUPPLEMENT_HEAD_MARK_LINEAGE_SOURCE
+LINEAGE_MARK_CLOSING = SUPPLEMENT_HEAD_MARK_LINEAGE_CLOSING
+LINEAGE_KEEP_MAX_LINES = SUPPLEMENT_LINEAGE_KEEP_MAX_LINES   # 上限（≤2 行——方案 D2 逐字）
 
 # ── 通知分型（字面指针；取值真源＝`transport.NOTICE_TYPES`——本模块不复述取值集）──
 
@@ -149,9 +164,14 @@ GAP_FAIL_CLOSED_REASON = (
     "核验器自身抛错（fail-closed）：{error}——不判 Verdict.ok=True，由编排承接"
 )
 ROW_NOTE_TEMPLATE = (
-    "在窗数据行 {obs_rows} 行、答案交付 {delivered_rows} 行（差额 {delta} 行）"
-    "且答案面无行集声明——补如实注记（不改写数值断言、不重试、不拦截）"
+    "在窗数据行 {obs_rows} 行、答案交付 {delivered_rows} 行（差额 {delta} 行）；"
+    "缺行序号 {missing}；引标序{order}——补如实注记（不改写数值断言、不重试、不拦截）"
 )
+# 引标序对齐标记的两字面（注记文本用——真值取自 `rules.rowset_audit` 的对齐标记）。
+ROW_NOTE_ORDER_ALIGNED = "对齐（按引擎行号连续取行）"
+ROW_NOTE_ORDER_MISALIGNED = "错位（跳号／整体偏移——渲染行号与引擎行号不一致）"
+# 缺行序号列空值字面（零缺行＝无序号可列）。
+ROW_NOTE_MISSING_NONE = "无"
 
 # ── 帧名（帧面上界真源＝`transport`；此处只作发射点字面）──────────────────────────
 
@@ -177,3 +197,9 @@ PAYLOAD_GAP_KIND_KEY = "kind"
 PAYLOAD_GAP_SUBTASK_KEY = "subtask_id"
 PAYLOAD_GAP_REASON_KEY = "reason"
 PAYLOAD_ROW_NOTE_KEY = "row_note"
+# 行集对账扩面两键（2026-10-17 EB5c——「渲染行数＝引擎行数 ＋ 引标连续」两判据的**机读面**）：
+# `rowset_missing`＝引擎行号未被交付的序号列（升序，缺行越空越短）；`rowset_aligned`＝交付的
+# 引擎行号列是否恰为引擎行号序的前 L 项（跳号／整体偏移＝错位即 False）。判据单点＝
+# `rules.rowset_audit`（与 `row_note` 同批落账——注记给人读、两键给机读，同一事实两面）。
+PAYLOAD_ROWSET_MISSING_KEY = "rowset_missing"
+PAYLOAD_ROWSET_ALIGNED_KEY = "rowset_aligned"

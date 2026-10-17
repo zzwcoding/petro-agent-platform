@@ -56,6 +56,16 @@ NOTICE_TYPES: frozenset[str]         # 通知类型（29 值——本规格自�
 VERDICT_SUBTYPES: frozenset[str]     # verdict 两形（verify/final）
 ASK_FRAME_KINDS: frozenset[str]      # ask 帧 kind（clarify/external_table_approval）
 SUPPLEMENT_BLOCKS: frozenset[str]    # supplement 帧块型（2026-10-17 EB3 D1 增；取值：split/attribution/citations/lineage）
+SUPPLEMENT_BLOCK_HEAD_MARKS: Mapping[str, tuple[str, ...]]   # 块头模式族（2026-10-17 EB5c 增——块型闭世界的「文本面」；键＝SUPPLEMENT_BLOCKS 成员）
+SUPPLEMENT_HEAD_MARK_*: str          # 族中记号（引用/引用裸形/互不一致/核验分列/按来源分别列出/血缘②⑤两要素键，见行为 17）
+SUPPLEMENT_HEAD_DECORATIONS: str     # 块头行装饰记号集（加粗/标题归一——`**引用**` 变体同族）
+SUPPLEMENT_STRIPPABLE_BLOCKS: frozenset[str]  # 剥除面子集（引用清单/血缘五要素——程序机械再生产物）
+SUPPLEMENT_LINEAGE_HEAD_MARKS: tuple[str, ...]  # 血缘族子集（行内判据那一族）
+SUPPLEMENT_LINEAGE_KEEP_MAX_LINES: int          # 作风说明例外上限（≤2 行且带 [n] 引标＝留正文）
+block_head_kind(line) -> str | None             # 行→块型（族头条判据——行为 17）
+undecorated_head(line) -> str                   # 块头行装饰归一（变体→族形）
+split_block_sections(text) -> (str, str)        # 块剥除单点（去程序块段后正文, 血缘族段文本）
+same_family_head_in(text, block) -> bool        # 同族块头在场判据（收口幂等面）
 ```
 
 - **`EVENT_KINDS`（十值）**：`step`｜`text`｜`tool`｜`observation`｜`ask`｜`verdict`｜`citation`｜`notice`｜`blackbox`｜`supplement`（前九值真源 `synth/S6-事件与帧目录.md` §一；九类口径真源 `synth/S3-口径裁决清单.md` C-05——「八类」为陈旧注记；**`supplement` 系 2026-10-17 EB3 D1 增第十类**——交付面分层：程序追加内容不进正文，走结构化增补面）。**`blackbox` 必须与其他八类同列导出面**（现状缺漏见 `synth/S3-口径裁决清单.md` C-10；本块收正）。
@@ -94,6 +104,7 @@ SUPPLEMENT_BLOCKS: frozenset[str]    # supplement 帧块型（2026-10-17 EB3 D1 
 14. **帧内不出现原始异常与内部路径**：`error` 帧的 `message` 为稳定话术；**任何帧都不得携带内部堆栈、模块路径、SQL 文本**。断言：异常路径全帧扫描——无堆栈／路径／SQL 片段（红线＝Owner 裁决 `walk/裁决表.md` §01-D「error 帧不给原始异常文本」；**无对应钉**，登记为人审面）。
 15. **本块零判断零模型**：无词表／正则语义判定、无模型调用、无落盘。断言：AST 扫描本块源码。
 16. **`supplement` 帧定形载荷（2026-10-17 EB3 D1）**：载荷**恰二键** `{block, text}`；`block` ∈ `SUPPLEMENT_BLOCKS`（四值：`split`／`attribution`／`citations`／`lineage`），越界／缺键／多键各判失败。**交付面分层铁律的帧形**：程序追加内容（分源块／跨源归属块／引用清单／血缘五要素）**不进正文**，只经本帧出结构化增补面（评分面＝正文＋增补面合并判）。断言：四值各合法构造；缺 `block`／多键／越界 `block` 各抛错。
+17. **块头模式族与块剥除单点（2026-10-17 EB5c；`transport/blocks.py`）**：四类增补面块在**正文文本**里的块头形态族＋段剥离**同源一处**（块型闭世界的**文本面**随块闭世界同落本块；两相位互不 import〔R1〕，故兑现各一份的判据在 `answering` 起草面与 `verification` 剥除拍两处调用本单点）。**族判据两条**：引用／分源／归属三族＝「装饰归一后**整行恰为**族中记号」（防正文散文误伤）；血缘族＝「行内**含**记号」（五要素段可整段内嵌）。**装饰归一**＝去 markdown 强调／标题记号与首尾空白（`SUPPLEMENT_HEAD_DECORATIONS`）——故 `**引用**` 等**加粗变体（去 markdown 强调与标题记号 `*#` 后）与族中记号同形、不另立字面**（真机帧形 `eval/results/frames/EB3-NQ-M7.json` 的 text 帧末段）。**段剥离**（`split_block_sections`）：段界＝空行界；血缘族段整段离场（原文照抄交调用方入 `lineage` 增补面；**例外**＝行数 ≤ `SUPPLEMENT_LINEAGE_KEEP_MAX_LINES` 且携 `[n]` 引标的单行口径说明→留正文）；`SUPPLEMENT_STRIPPABLE_BLOCKS`（引用清单／血缘）子集段整段离场（程序机械再生产物，正文零留存）；**分源／归属两族不剥**（可能承载模型逐源作答正文——只作在场判据）。**同族块头在场判据**（`same_family_head_in`，`answering` 收口幂等面）：三族按「整行恰为记号」、血缘族按「行内含记号」，加粗变体同族；块型越界抛错。**占位形块头**（`verification.ATTRIBUTION_BLOCK_HEAD` 携「题眼」占位符）**不入族**（不可静态匹配的模板形——族外登记）。**零语义零 IO**：本件只做装饰归一／记号命中／段界切分（无正则、无词表、不判业务语义、不发帧、不落盘）。断言（`tests/domains/test_v2_transport.py`）：`::block_head_family_closed_world_and_predicate`（族成员⊆块世界、四族判据、变体同族、散文零误伤）／`::block_strip_single_point_segments`（血缘段整段离场＋口径说明例外留正文＋引用段零留存＋分源族不剥＋剥后不动点）／`::same_family_head_in_and_closed_world`（在场判据＋越界抛错）／`::eb5c_nq_m7_reference_variant_block_stripped`（真机帧形回归：`**引用**` 变体段整段离场、正文其余段逐字保留）。
 
 ## 不降级与静默禁令
 
@@ -125,6 +136,8 @@ SUPPLEMENT_BLOCKS: frozenset[str]    # supplement 帧块型（2026-10-17 EB3 D1 
 | 本块零判断零模型（AST 扫描） | `tests/domains/test_v2_transport.py::no_judgement_or_model_in_transport` |
 | `supplement` 帧定形恰二键＋`block` ∈ `SUPPLEMENT_BLOCKS` 四值闭世界（2026-10-17 EB3 D1；越界／缺键／多键判失败） | `tests/domains/test_v2_transport.py::supplement_frame_closed_world` |
 | 【边界集】零事件 run／单帧 run／超长载荷／关闭后再发 → 各落对应分支 | `tests/domains/test_v2_transport.py::boundary_empty_single_huge_closed` |
+| 块头模式族与块剥除单点（四族判据／变体同族／段剥离归属／同族在场判据；2026-10-17 EB5c） | `tests/domains/test_v2_transport.py::block_head_family_closed_world_and_predicate`／`::block_strip_single_point_segments`／`::same_family_head_in_and_closed_world` |
+| 真机帧形回归：`**引用**` 变体段整段离场（NQ-M7 帧；2026-10-17 EB5c） | `tests/domains/test_v2_transport.py::eb5c_nq_m7_reference_variant_block_stripped` |
 | 【保留集】常规多帧 run 的帧序与载荷行为不变 | `tests/domains/test_v2_transport.py::retention_normal_stream_unchanged` |
 
 > **测试文件归属**：本块验收测试绑**新建** `tests/domains/test_v2_transport.py`（本块是阶段 2 新划的公共层块 `appv2/runtimev2/transport/`，与现状 `appv2/runtime/events.py` 的旧码测试形状不同）；旧码测试本批不改。
@@ -159,6 +172,7 @@ SUPPLEMENT_BLOCKS: frozenset[str]    # supplement 帧块型（2026-10-17 EB3 D1 
 | 禁手写第二套帧通路 | **无专属闸 → 人审**（降维：信封实现单点断言） | 登记待补 |
 | 事件名闭世界（十 runtime ＋ 三 wire ＝十三值；`blackbox`／`supplement` 同列导出面） | 测试 `::event_kinds_closed_world`／`::blackbox_kind_exported`；九类口径真源 `synth/S3` C-05／C-10 | 待实现 |
 | `supplement` 帧定形恰二键＋`block` ∈ `SUPPLEMENT_BLOCKS` 四值（2026-10-17 EB3 D1） | 测试 `::supplement_frame_closed_world` | 待实现 |
+| 块头模式族与块剥除单点（行为 17；族判据‑变体同族‑零语义零 IO；2026-10-17 EB5c） | 测试 `::block_head_family_closed_world_and_predicate`／`::block_strip_single_point_segments`／`::same_family_head_in_and_closed_world`＋`::eb5c_nq_m7_reference_variant_block_stripped` | 待实现 |
 | 通知分型闭世界（二十九值）＋恰三键＋无隐式兜底 | 测试 `::notice_three_keys_closed_world`（本规格自立的取值真源） | 待实现 |
 | 游标全流单调；事件帧 `id`＝自身 `seq`、wire 帧 `id`＝最后已消费事件 `seq`（不推进游标） | 测试 `::cursor_monotonic_global`／`::frame_id_equals_cursor` | 待实现 |
 | 挂起→resume 的**帧面**（`ask` 帧 kind 闭世界＋挂起后照发 `done`） | 钉 **`pin-29`**（P0；**闭环面挂 `specs/agent-loop.md`**）；测试 `::ask_frame_shape_and_done_after_ask` | 待织网（阶段 5） |

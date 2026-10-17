@@ -15,13 +15,18 @@
 2. **起草**：作答指令＋材料段（＋引擎注记段）一条 user 消息追加链尾（`bookkeeping.append_message`）
    → 经 `bookkeeping.call_model` **单点发起**模型调用（本块不直引 `gateway_adapter`、不直引
    `appv2.infra.llm_client`、不自建模型客户端——R7 ＋「无旁路」行为断言）；
-3. **发射剥离**（行为 11，钉 `pin-04`）：应答先过 `strip_emission_fences`（`emission` 单点），
-   发射 JSON 不进答案面（泄漏=0）；检出即发 `emission_strip` notice（机读面）；随后过
-   `strip_placeholders`（行为 13）：字面占位引标 `[n]` 整枚离场——剥离后才是
+3. **发射剥离与块剥除**（行为 11，钉 `pin-04`；行为 13）：应答先过 `strip_emission_fences`
+   （`emission` 单点），发射 JSON 不进答案面（泄漏=0）；检出即发 `emission_strip` notice（机读面）；
+   随后过 `strip_placeholders`（行为 13）：字面占位引标 `[n]` 整枚离场；再过**块剥除**
+   （2026-10-17 EB5c，单点＝`transport.split_block_sections`）：模型自把程序块写进草稿者按
+   **块头模式族**整段离场（加粗变体同族——真机帧形 `**引用**`），血缘族段原文入 `lineage` 增补面、
+   其余剥除面块段原文零留存（程序机械再生）——**text 帧发出前**正文即已干净；剥离后才是
    答案面文本（分段／发帧／落 `state.draft` 三者同源）；
 4. **分段与引标**（行为 1／2／3）：草稿按空行分**段**，逐段取本段 `citation_seqs`（`[n]` 序）；
-   **引标必须真实存在于观察序列**——出现不存在的引标号即抛 `DanglingCitationError`（判失败，
-   fail-closed），**且校验先于发帧**（坏引标不得上帧面）；
+   **引标必须真实存在于观察序列**——界外引标号由 `strip_dangling_citations` 在**分段之前**整枚
+   剥除（2026-10-17 EB5b：剥除族第二形，同行为 13 占位符剥除；剥除列落起草步 payload 机读键
+   `dangling_citation_seqs`，不静默），**不判失败**——该行失去引标即由 `verification` 按
+   「无据断言」既有处置收口（删句／结构行原样），材料照常带引标交付（`completed`）；
 5. **真流式推出**（行为 1）：逐段发 `text` 帧（一段一帧）——**不是收口时一次性推全量**；模型原话
    **只进过程档案**（`bookkeeping.note` 留痕——行为 8：模型原话不进对话层），草稿另落
    `state.draft` 供核验消费；答案面步落 `payload` 的 `citations`／`gaps` 机读字段（「不降级与
@@ -35,7 +40,9 @@
 7. **收口**（行为 7，核验后重入面）：`verdict` 在场／直答态／已有起草标记＝**收口段**——引用块
    生成、`citation` 帧逐支发射、终稿一条 assistant 消息追加链尾，**同批落定**；正文与引用块之间
    依次接**「互不一致」分源块**（行为 6）与**分源列明归属块**（行为 17）——两块由 `degradation`
-   以形态判据确定性装配（不靠模型自觉、逐支原文照抄、单源／无矛盾零追加、重入幂等）。`verdict`
+   以形态判据确定性装配（不靠模型自觉、逐支原文照抄、单源／无矛盾零追加、重入幂等；重入幂等判据
+   2026-10-17 EB5c 起＝**同族块头在场**〔块头模式族单点 `transport.same_family_head_in`〕，
+   加粗变体同族）。`verdict`
    帧本体是**消费方信号**（批次落定归 `orchestration`，行为 7 明写），本块不产。**交付面分层
    （2026-10-17 EB3 D2）**：上述三块（分源／归属／引用）**不进正文**——按原序入 `supplements`
    增补面，`state.answer` 与链尾只留模型稿（块帧由编排层发射）。
@@ -81,6 +88,7 @@ from appv2.runtimev2.answering.constants import (
     NOTICE_MATERIAL_TRUNCATED,
     PAYLOAD_CITATIONS_KEY,
     PAYLOAD_CONTRADICTION_SEQS_KEY,
+    PAYLOAD_DANGLING_SEQS_KEY,
     PAYLOAD_ECHO_FLAG_KEY,
     PAYLOAD_ENGINE_NOTES_KEY,
     PAYLOAD_GAP_KIND_KEY,
@@ -115,6 +123,7 @@ from appv2.runtimev2.answering.degradation import (
     source_id_of,
     source_of,
     source_section,
+    strip_dangling_citations,
     strip_placeholders,
 )
 from appv2.runtimev2.answering.emission import strip_emission_fences
@@ -147,10 +156,12 @@ from appv2.runtimev2.state import INTENT_END, INTENT_VERIFY, Manifest, RunState
 from appv2.runtimev2.transport import (
     SUPPLEMENT_BLOCK_ATTRIBUTION,
     SUPPLEMENT_BLOCK_CITATIONS,
+    SUPPLEMENT_BLOCK_LINEAGE,
     SUPPLEMENT_BLOCK_SPLIT,
     SUPPLEMENT_PAYLOAD_BLOCK_KEY,
     SUPPLEMENT_PAYLOAD_TEXT_KEY,
     EventBus,
+    split_block_sections,
 )
 
 _BUS_MISSING = (
@@ -158,22 +169,6 @@ _BUS_MISSING = (
     "fail-closed：不静默丢弃（行为 1／2）"
 )
 _CITATION_BLOCK_LINE = "[{seq}] {source} · {source_id}（{trust}）"
-
-
-class DanglingCitationError(ValueError):
-    """坏引标（引标号不存在于观察序列）——接口定义节「引标必须真实存在」＋验收行 3 的判失败出口。
-
-    引标与增量必须同步（行为 2）：悬空引标＝答案面指向不存在的观察，**不猜、不补、不静默丢弃**；
-    抛出即「不返回半成品」（规格「接口定义」错误契约），由 `orchestration` 承接收口。
-    """
-
-    def __init__(self, dangling: tuple[int, ...]) -> None:
-        self.dangling = dangling
-        names = "、".join(str(seq) for seq in dangling)
-        super().__init__(
-            f"坏引标：引标号 {names} 不存在于观察序列（引标编号＝观察序号，行为 2／验收行 3）"
-            "——判失败，不返回半成品"
-        )
 
 
 def answer(
@@ -199,7 +194,9 @@ def answer(
     collected: list[dict[str, Any]] = [] if supplements is None else supplements
     if _drafted(state):
         return _finalize(state, channel, collected)
-    return _draft(state, channel, max_observations=max_observations)
+    return _draft(
+        state, channel, max_observations=max_observations, supplements=collected
+    )
 
 
 def _require_bus(bus: EventBus | None) -> EventBus:
@@ -239,8 +236,14 @@ def _drafted(state: RunState) -> bool:
 # ── 起草段（行为 1／2／3／4／5／8／9／11）─────────────────────────────────────
 
 
-def _draft(state: RunState, bus: EventBus, *, max_observations: int) -> AnswerDraft:
-    """起草段：材料面显式 → 单点发起模型调用 → 剥离 → 分段引标 → 逐段推帧。"""
+def _draft(
+    state: RunState,
+    bus: EventBus,
+    *,
+    max_observations: int,
+    supplements: list[dict[str, Any]],
+) -> AnswerDraft:
+    """起草段：材料面显式 → 单点发起模型调用 → 剥离 → 块剥除 → 分段引标 → 逐段推帧。"""
     manifest = compile_manifest(
         state.observations, step=PHASE, max_observations=max_observations
     )
@@ -271,10 +274,21 @@ def _draft(state: RunState, bus: EventBus, *, max_observations: int) -> AnswerDr
     # 占位符不进答案面（行为 13）：字面占位引标 `[n]` 整枚离场——剥离后才是答案面文本
     # （分段／发帧／落 `state.draft` 三者同源；剥后成空的行由空段跳过自然丢弃）。
     draft_text = strip_placeholders(draft_text)
+    # 块剥除（2026-10-17 EB5c——行为 13 的块面）：模型自把程序块写进草稿（真机帧形＝引用清单的
+    # markdown 加粗变体 `**引用**`，`eval/results/frames/EB3-NQ-M7.json`）按**块头模式族**整段
+    # 离场，故 **text 帧发出前**正文即已干净（收口剥除不再是唯一防线）；血缘族段原文入 `lineage`
+    # 增补面（整段照抄——血缘在场必在增补面可达），其余剥除面块段原文零留存（程序机械再生）。
+    draft_text, draft_lineage = split_block_sections(draft_text)
+    _supplement(supplements, SUPPLEMENT_BLOCK_LINEAGE, draft_lineage)
     # 模型原话只进过程档案与留痕（行为 8；对话层零写入）——本条同时是「已起草」机读标记。
     note(state, phase=PHASE, title=DRAFT_NOTE_TITLE, digest=raw)
     by_index = _observation_index(state)
-    segments = _draft_segments(draft_text, by_index)
+    # 坏引标剥除（2026-10-17 EB5b——行为 13 剥除族第二形）：界外引标号整枚离场，正文其余字面
+    # 零改；剥后该行失去引标＝按核验面「无据断言」既有处置收口（删句／结构行原样）。剥除列落
+    # 起草步 payload 机读键（`dangling_citation_seqs`——不静默）；**不再判失败**——材料照常交付，
+    # 由核验面确定性处置（旧「坏引标抛错 → 编排收 run_failed」已销账）。
+    draft_text, dangling = strip_dangling_citations(draft_text, tuple(by_index))
+    segments = _draft_segments(draft_text)
     gaps = _draft_gaps(state, manifest=manifest, draft_text=draft_text)
     record_step(
         state,
@@ -284,6 +298,7 @@ def _draft(state: RunState, bus: EventBus, *, max_observations: int) -> AnswerDr
         payload={
             **_citations_gaps_payload(PAYLOAD_PHASE_DRAFT, segments, gaps),
             **_delivery_face(state, by_index, segments, draft_text),
+            PAYLOAD_DANGLING_SEQS_KEY: list(dangling),
         },
         manifest=manifest,
     )
@@ -384,16 +399,13 @@ def _citation_seqs(text: str) -> list[int]:
     return citation_seqs(text)
 
 
-def _draft_segments(text: str, by_index: Mapping[int, Mapping[str, Any]]) -> list[AnswerSegment]:
-    """起草段分段：逐段取 `citation_seqs` 并**校验引标可解析**（悬空即抛错——判失败）。"""
-    segments: list[AnswerSegment] = []
-    for part in _split_segments(text):
-        seqs = _citation_seqs(part)
-        dangling = tuple(seq for seq in dict.fromkeys(seqs) if seq not in by_index)
-        if dangling:
-            raise DanglingCitationError(dangling)
-        segments.append(AnswerSegment(text=part, citation_seqs=seqs))
-    return segments
+def _draft_segments(text: str) -> list[AnswerSegment]:
+    """起草段分段：逐段取 `citation_seqs`（剥离后的草稿——引标已全在界：坏引标由
+    `strip_dangling_citations` 在分段前剥除，故此处零判定）。"""
+    return [
+        AnswerSegment(text=part, citation_seqs=_citation_seqs(part))
+        for part in _split_segments(text)
+    ]
 
 
 def _final_segments(text: str, by_index: Mapping[int, Mapping[str, Any]]) -> list[AnswerSegment]:

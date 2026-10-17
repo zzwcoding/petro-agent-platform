@@ -81,11 +81,12 @@ class Gap:                               # 复用 answering 的 Gap 口径（字
 8. **零数值断言不恒过**：断言里**没有任何数值**时，**不得自动判过**——仍须有可解析引标支撑，否则计入无据。
 9. **`Verdict.ok=False` 才回炉**：只要仍存在无据断言残留，`Verdict.ok=False`（供 `orchestration` 决定回炉）；`Verdict.ok=True` 时不得再改写。
 10. **`verdict` 帧的批次落定由 `orchestration` 协调**；本块只保证自产部分（`Verdict`／`notice`）就位。
-11. **行集对账（记账面、非拦截阀门）**：verify 面确定性对账**在窗数据行数 vs 答案交付行数**——`Verdict` 产出 `obs_rows`（在窗数据行数）／`delivered_rows`（答案交付行数）两机读字段并随 step payload 落账；**差额>0 且答案面无行集声明 → 补如实注记**；**不改写数值断言、不重试、不拦截**（真源 `docs/runtime-refactor/arch/P7a-交接包与挂账清单.md` A-P7a-38；钉 `pin-12`）。
+11. **行集对账（记账面、非拦截阀门）**：verify 面确定性对账**在窗数据行数 vs 答案交付行数**——`Verdict` 产出 `obs_rows`（在窗数据行数）／`delivered_rows`（答案交付行数）两机读字段并随 step payload 落账；**差额>0 且答案面无行集声明 → 补如实注记**；**不改写数值断言、不重试、不拦截**（真源 `docs/runtime-refactor/arch/P7a-交接包与挂账清单.md` A-P7a-38；钉 `pin-12`）。**2026-10-17 EB5c 扩面（缺行 ＋ 引标错位两面入机读对账）**：step payload 增 `rowset_missing`（缺行序号列——引擎行号未被交付者，升序）与 `rowset_aligned`（引标序对齐——交付的引擎行号列是否恰为引擎行号序前 L 项；跳号／整体偏移＝off-by-one 错位）两键，**与注记面三态解耦、恒定落账**（判据单点＝`rules.rowset_audit`，纯计数零语义）。**理由（真机帧 `eval/results/frames/EB3G-L04-22.json`，run-0fb0b64b）**：答案自述「以上共 86 口井已返回」而实际交付 84 行（缺第 24／46 号行）且引标整体错位一格——自述声明的真伪只能由对账事实判，故机读两面不因「答案面有声明」而缺位（注记面〔人读〕三态不变：无声明→注记、有声明→零注记）。注记文案同批携缺行序号列与引标序标记（同一事实的注记面与机读面同源）。**装配面已核实无病**：该 run 的答案面材料 87/87 全渲染（`material_truncated=false`——agg 行属权威族、不承检索帽），即**缺行与错位都在答案面**（模型自编行号 84 行、自述 86 行），不在装配帽／引擎出口面——故本条按 Owner 裁决②取**记账面扩面**（不新增阀门）；「答案面渲染行数＝引擎行数」的行为面仍由合同侧（`prompts` 的行集交付规矩句）与核验侧删句／如实注记共同把守。
 12. **核验豁免两类线＋增补面（2026-10-17 EB3 D2／D3）**：
     - **豁免两类线（D3；只豁免「删句」一拍，不改写、不放行支撑判）**：(a) **引擎披露行**——行内含窗 ISO 区间或含披露标记（`封顶`／`截断`／`LIMIT`／`未覆盖`——闭世界四值，单点在 `constants`），**且与材料披露行事实一致**（行内数值记号皆出自血缘卡载荷／引擎注记观察的数值记号集）；(b) **组头行**——行尾落格「：」，或数据表头（含表格列记号 `|`）且**后邻行带引标**；
     - **真无据断言删句**（行为 3）——豁免之外的没支撑句仍整行离场；
-    - **血缘五要素整段剥除**（D2）：含 `② 来源表`／`⑤ 收口注记` 的**整段**（空行界段落）剥出正文入增补面 `lineage`；**例外**＝该段 ≤2 行且带 `[n]` 引标（单行口径说明）保留在正文；
+    - **块头模式族段剥除**（D2 血缘五要素整段；**2026-10-17 EB5c 扩为族判据**）：判据与段剥离**单点＝`transport.split_block_sections`**（族取值／块头条判据／段界切分同源一处——块型闭世界的文本面随块闭世界落 `transport`；两相位同族同语义）——血缘族段（行内含 `② 来源表`／`⑤ 收口注记`）**整段**（空行界段落）剥出正文入增补面 `lineage`；**例外**＝该段 ≤2 行且带 `[n]` 引标（单行口径说明）保留在正文；**剥除面块型**（引用清单——`SUPPLEMENT_STRIPPABLE_BLOCKS` 成员）段同拍整段离场（程序机械再生产物，正文零留存）；**分源／归属族段不剥**（可能承载模型逐源作答正文；只作在场判据）；
+    - **血缘统一走增补面（2026-10-17 EB5c）**：**数据链题血缘在场（`locator.kind="lineage"` 观察在场）⇒ 增补面必有 `lineage` 块**——不以「模型是否把五要素写进草稿」为断（EB2 D1 起材料面只渲染一行口径行，模型多数不再复写全文；EB3 实态＝supplement 携血缘仅 6/97 题、其余只在 `observation` 帧）；模型稿无该段时**原文照抄**观察自带五要素全文入列（入栈序、空行连接、零二次创作）——前端旁路取数统一从增补面取，不必回读观察帧；
     - **分源块／归属块不入 `state.draft`**（D2）：按产出序入编排块持有的增补面收集列（`supplements`）——帧由 `orchestration` 的增补面发射点发（`block="split"`／`"attribution"`）。
     断言：引擎披露行与组头行原样在场（不贴前缀、不被删）且 `rewritten` 不计它们；真无据行离场且 `rewritten` 如实计一；血缘整段入增补面（正文零五要素）＋口径说明留在正文；`state.draft` 不含分源／归属块头。
 
@@ -106,6 +107,7 @@ class Gap:                               # 复用 answering 的 Gap 口径（字
 | 真无据句被删且 verdict 计数在位（不静默） | `tests/domains/test_v2_verification.py::unsupported_deleted_with_verdict_count` |
 | 组引标不被改（组头行组引标 `[m]–[n]` 原样在场） | `tests/domains/test_v2_verification.py::group_citation_marker_untouched` |
 | 血缘五要素整段入增补面（正文零五要素；口径说明例外保留） | `tests/domains/test_v2_verification.py::lineage_paragraph_stripped_to_supplement` |
+| 血缘统一走增补面：数据链题血缘在场 ⇒ 增补面必有 `lineage` 块（模型稿无该段时原文照抄观察全文；2026-10-17 EB5c） | `tests/domains/test_v2_agent_verify.py::test_unsupported_claim_rewritten`／`::test_contradiction_split_source` |
 | 分源块／归属块不入 `state.draft`（入增补面，正文＝模型稿） | `tests/domains/test_v2_verification.py::conflict_split_not_merged`／`::attribution_mismatch` |
 | 矛盾来源分列、各带出处、不调和 | `tests/domains/test_v2_verification.py::conflict_split_not_merged` |
 | 归属对不上 → `attribution=False` ＋ 缺口 | `tests/domains/test_v2_verification.py::attribution_mismatch` |
@@ -120,6 +122,7 @@ class Gap:                               # 复用 answering 的 Gap 口径（字
 | 程序侧无词表／正则语义判断（AST 扫描；豁免面＝形态处理／集合成员判定） | `tests/domains/test_v2_verification.py::no_lexicon_or_regex_in_verification` |
 | 机读信号在场（verdict／notice ＋ step payload） | `tests/domains/test_v2_verification.py::verification_signal_present` |
 | 行集对账：`delivered_rows`／`obs_rows` 入 `Verdict` 与 step payload；差额>0 且答案面无行集声明 → 补如实注记（不改写、不拦截） | `tests/domains/test_v2_verification.py::row_reconciliation_bookkeeping` |
+| 行集对账扩面（2026-10-17 EB5c）：`rowset_missing`（缺行序号列）／`rowset_aligned`（引标序对齐）两键恒落账——自述声明不改其在场；正文零改、不拦截、不产通知 | `tests/domains/test_v2_verification.py::rowset_audit_l0422_offset_caught` |
 | 【边界集】单句答案／零材料答案／双源矛盾／全角数字 → 各自落到对应分支 | `tests/domains/test_v2_verification.py::boundary_single_zero_material_conflict_fullwidth` |
 | 【保留集】无矛盾、有支撑的普通答案：各字段取值与 `ok=True` 行为不变 | `tests/domains/test_v2_verification.py::retention_clean_answer_unchanged` |
 
@@ -153,5 +156,7 @@ class Gap:                               # 复用 answering 的 Gap 口径（字
 | citation 落账（引标对应窗内切片；不得 `cited=[]` 且数字在场） | 钉 **`pin-10`**（落点＝行为 8 零数值断言不恒过 ＋ `Verdict.cited`） | 待织网（阶段 5） |
 | INV-1 前缀规则（「未找到（材料未披露）：」只挂无据行，行内有引标/观察对齐即放行，理想残余=0）——**2026-10-17 EB3 D3 已退役**：无据断言改**删句**（前缀不再落正文），留痕面＝`RewriteRecord`＋`Verdict.rewritten` 计数＋`notice`；豁免两类线见行为 12 | 钉 **`pin-11`**（**判据平移**：行为 3 的删句与如实计数即其落点；真源 `eval/results/Q16-对账报告.md` §五 第 3 条（:59）＋ `tickets/v2/V2-54-核验辖域治理.md` 修法三层） | 待织网（阶段 5） |
 | verify 对账机读字段（delivered_rows／obs_rows）入 step payload | 钉 **`pin-12`**（落点＝接口 `Verdict` 两字段 ＋ 行为 11 行集对账；真源 `arch/P7a-交接包与挂账清单.md` A-P7a-38） | 待织网（阶段 5） |
+| 对账缺行／错位两面机读落账（`rowset_missing`／`rowset_aligned`，2026-10-17 EB5c） | 测试 `::rowset_audit_l0422_offset_caught`（L04-22 真机帧形） | 已实现 |
+| 血缘统一走增补面（数据链题血缘在场 ⇒ `lineage` 块必在场；2026-10-17 EB5c） | 测试 `::test_unsupported_claim_rewritten`／`::test_contradiction_split_source` | 已实现 |
 | 跨油田题交付分源列明油田归属（C-正6 形禁现） | 钉 **`pin-03`**（本块无独立落点——verify 侧仅行为 5 归属审触发面；答案交付面的分源列明属 prompts 合同「7 条③引用链承接」，prompts 规格落盘后承接，登记备查不落本块验收） | 待织网（阶段 5） |
 | 「不做什么」的纯范围排除（不起草／不执行查询等） | **人审** | 接不上闸的原因：纯范围排除没有形状／存在性／退出码判据；能降维的部分（相位互不 import、零 LLM 面）已由边界闸 R1／R8 覆盖 |

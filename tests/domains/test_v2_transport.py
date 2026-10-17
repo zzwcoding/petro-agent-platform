@@ -1652,3 +1652,127 @@ async def test_retention_normal_stream_unchanged() -> None:
     assert _triples(resumed) == _triples([frame for frame in frames if frame.seq >= 3])
     events = [frame.event for frame in frames]
     assert events.count("blackbox") == 1 and events.index("blackbox") < events.index("done")
+
+
+# ══════════ 2026-10-17 EB5c：块头模式族与块剥除单点（行为 17；`transport/blocks.py`）══════════
+
+
+def _draft_from_frame(name: str) -> str:
+    """真机帧形草稿（帧文件 `parsed.texts` 逐段拼接——起草面 text 帧的草稿原文）。"""
+    document = json.loads((_FRAMES_DIR / name).read_text(encoding="utf-8"))
+    return "\n\n".join(document["parsed"]["texts"])
+
+
+def test_block_head_family_closed_world_and_predicate() -> None:
+    """行为 17｜块头模式族：四族判据（三族「整行恰为记号」＋血缘族「行内含记号」）与变体同族。
+
+    加粗变体（`**引用**`／`## 引用：`）经装饰归一与族中记号同形——**不另立字面**；行内续写的
+    散文（「引用《月报》的数据…」）零命中（防正文误伤）；血缘族取行内判据（五要素段可整段内嵌）。
+    """
+    from appv2.runtimev2.transport import (
+        SUPPLEMENT_BLOCK_HEAD_MARKS,
+        SUPPLEMENT_BLOCKS,
+        block_head_kind,
+        undecorated_head,
+    )
+
+    # 族成员＝块型闭世界（零新增块型：闭世界不经裁决不许长胖）
+    assert set(SUPPLEMENT_BLOCK_HEAD_MARKS) <= SUPPLEMENT_BLOCKS
+
+    # 装饰归一面
+    assert undecorated_head("**引用**") == "引用"
+    assert undecorated_head("## 引用：") == "引用："
+    assert undecorated_head("  互不一致  ") == "互不一致"
+
+    # 三族：整行恰为记号（含加粗变体）
+    assert block_head_kind("引用：") == "citations"
+    assert block_head_kind("**引用**") == "citations"
+    assert block_head_kind("**互不一致——各来源说法如下，按来源分别列出：**") == "split"
+    assert block_head_kind("各来源说法如下，按来源分别列出：") == "split"
+    assert block_head_kind(
+        "按来源分别列出（每条结论都标出它来自哪个来源）："
+    ) == "attribution"
+    # 血缘族：行内判据
+    assert block_head_kind("② 来源表 agg.fct_daily_metering（…）") == "lineage"
+    assert block_head_kind("⑤ 收口注记 LIMIT 200——强制限量纪律") == "lineage"
+    # 零误伤：散文行／其它行不属于任何族
+    assert block_head_kind("引用《月报》的数据说明如下：") is None
+    assert block_head_kind("占位形按来源归属如下（题眼：X-11）：") is None  # 模板形不入族
+    assert block_head_kind("") is None
+
+
+def test_block_strip_single_point_segments() -> None:
+    """行为 17｜块剥除单点：段界＝空行界——血缘族段整段离场（口径说明例外留正文）、剥除面块型
+    （引用清单）段整段离场（原文零留存）、分源／归属族段**不剥**（可能承载模型逐源作答正文）。
+    """
+    from appv2.runtimev2.transport import split_block_sections
+
+    draft = "\n".join(
+        [
+            "结论一：日产油量 21.16 吨[1]。",
+            "",
+            "② 来源表 agg.fct_daily_metering（agg 星型读模型）",
+            "⑤ 收口注记 LIMIT 200——只封顶不抬底",
+            "",
+            "口径说明：单位为吨，口径见台账[2]。",
+            "",
+            "引用：",
+            "[1] 《月报》｜f50（report）",
+            "",
+            "互不一致——各来源说法如下，按来源分别列出：",
+            "[1] 《月报》· f50：21.16 吨",
+            "",
+            "尾行保留。",
+        ]
+    )
+    kept, lineage = split_block_sections(draft)
+
+    # 血缘族段整段离场（原文照抄入第二返回值——调用方按 `lineage` 增补面发射）
+    assert "② 来源表" in lineage and "⑤ 收口注记" in lineage
+    assert "② 来源表" not in kept and "⑤ 收口注记" not in kept
+    # 引用清单段整段离场且原文**零留存**（程序机械再生产物）
+    assert "《月报》｜f50" not in kept and "《月报》｜f50" not in lineage
+    # 口径说明例外（≤2 行且带 [n] 引标）保留在正文
+    assert "口径说明：单位为吨，口径见台账[2]。" in kept
+    # 分源／归属族**不剥**（只作在场判据）
+    assert "互不一致——各来源说法如下，按来源分别列出：" in kept
+    assert "尾行保留。" in kept
+    # 幂等：剥后文本是不动点（重入零追加——无段可再剥）
+    assert split_block_sections(kept) == (kept, "")
+
+
+def test_same_family_head_in_and_closed_world() -> None:
+    """行为 17｜同族块头在场判据（answering 收口幂等面）：加粗变体同族；越界块型抛错。"""
+    from appv2.runtimev2.transport import same_family_head_in
+
+    assert same_family_head_in("正文…", "split") is False
+    assert same_family_head_in("正文…\n互不一致——各来源说法如下，按来源分别列出：", "split")
+    assert same_family_head_in("正文…\n各来源说法如下，按来源分别列出：", "split")  # 核验侧变体同族
+    assert same_family_head_in("正文…\n**引用**", "citations")
+    assert same_family_head_in("正文…\n② 来源表 agg.x", "lineage")
+    assert same_family_head_in("正文…\n引用《月报》的数据", "citations") is False
+    with pytest.raises(ValueError):
+        same_family_head_in("正文…", "未注册块型")
+
+
+def test_eb5c_nq_m7_reference_variant_block_stripped() -> None:
+    """2026-10-17 EB5c｜真机帧形回归（NQ-M7）：模型自写的 `**引用**` 变体段整段离场。
+
+    病灶帧＝`eval/results/frames/EB3-NQ-M7.json`（text 帧末段 `**引用**`＋逐条 `[n] 出处`）：
+    起草面固定字面剥除漏网、块随正文交付（EB3 唯一泄漏题）。修后按**块头模式族**整段离场——
+    正文不再携该段，引用清单由收口段程序机械再生（用户面经 `supplements` 增补面）。
+    """
+    from appv2.runtimev2.transport import split_block_sections
+
+    draft = _draft_from_frame("EB3-NQ-M7.json")
+    assert "**引用**" in draft  # 载体非空转：真机草稿确携变体块头
+
+    kept, lineage = split_block_sections(draft)
+    assert "**引用**" not in kept
+    assert "第七章 9 月工作计划" not in kept  # 块内逐条出处行同段离场
+    assert lineage == ""  # 非血缘族段——不进血缘增补面
+    # 正文其余段逐字保留（剥离不改写正文）
+    for segment in draft.split("\n\n"):
+        if segment.startswith("**引用**"):
+            continue
+        assert segment in kept

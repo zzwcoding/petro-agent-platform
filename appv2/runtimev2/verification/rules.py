@@ -19,9 +19,16 @@ from __future__ import annotations
 
 import json
 import unicodedata
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from typing import Any
 
+from appv2.runtimev2.transport import (
+    SUPPLEMENT_BLOCK_LINEAGE,
+    block_head_kind,
+)
+from appv2.runtimev2.transport import (
+    split_block_sections as transport_split_block_sections,
+)
 from appv2.runtimev2.verification.constants import (
     ATTRIBUTION_ALIGNED_HEAD,
     ATTRIBUTION_BLOCK_HEAD,
@@ -39,9 +46,7 @@ from appv2.runtimev2.verification.constants import (
     GROUP_HEAD_SUFFIX,
     ISO_DATE_LENGTH,
     ISO_DATE_SEPARATOR,
-    LINEAGE_KEEP_MAX_LINES,
-    LINEAGE_MARK_CLOSING,
-    LINEAGE_MARK_SOURCE_TABLE,
+    LINEAGE_OBSERVATION_KIND,
     SPLIT_BLOCK_HEAD,
     SPLIT_LINE_TEMPLATE,
     SUBJECT_SEPARATOR,
@@ -318,47 +323,66 @@ def group_header_line(line: str, next_line: str | None) -> bool:
     return False
 
 
-# ── 血缘五要素整段剥除（2026-10-17 EB3 D2——逐字稿＝方案 D2）────────────────────
+# ── 块剥除（2026-10-17 EB3 D2 血缘五要素整段／2026-10-17 EB5c 扩块头模式族）────────
+
+
+def lineage_observation_text(observations: Sequence[Mapping[str, Any]]) -> str:
+    """血缘卡观察原文（`locator.kind == LINEAGE_OBSERVATION_KIND` 条目的 `content`，入栈序）。
+
+    **2026-10-17 EB5c（血缘统一走增补面）**：材料面自 EB2 D1 起只渲染血缘卡的一行口径行，模型
+    多数不再把五要素写进草稿——故「正文剥除」单路不足以保证增补面在场。本件给**原文照抄**面
+    （零二次创作、零语义：只按分型取 `content` 以空行连接），由核验剥除拍在正文无血缘段时兜底。
+    """
+    return "\n\n".join(
+        str(obs.get("content") or "")
+        for obs in observations
+        if locator_kind(obs) == LINEAGE_OBSERVATION_KIND
+    )
+
+
+def rowset_audit(
+    engine_seqs: Sequence[int], delivered_seqs: Collection[int]
+) -> tuple[tuple[int, ...], bool]:
+    """行集对账判据（行为 11；**2026-10-17 EB5c 扩面**——缺行 ＋ 引标错位两面）。
+
+    返回（缺行序号列，对齐标记）——两数同出**一次形态扫描**（同一个引擎行号序）：
+
+    - **缺行**＝引擎行号不在交付引标集（按引擎行号升序）——`delivered_rows` 只给计数，本件
+      给**逐号可复算面**（L04-22 形缺的是第 24／46 号行）；
+    - **对齐**＝交付的引擎行号列**恰为引擎行号序的前 L 项**（L＝已交付支数）——按引擎序
+      连续取行、无跳号、无错位（`False` 即 L04-22 形的「标签 25 引 [24]」off-by-one：模型
+      自编行号，跳号并整体错位一格）。
+
+    判据纯计数（不读正文文本、不判数值语义、零模型）；**只出对账面**——补注记归调用方（本件
+    不改写、不重试、不拦截，Owner 裁决②「行数对账只作诚实记账面」）。
+    """
+    in_scope = set(delivered_seqs)
+    delivered = [seq for seq in engine_seqs if seq in in_scope]
+    missing = tuple(seq for seq in engine_seqs if seq not in in_scope)
+    return missing, delivered == list(engine_seqs[: len(delivered)])
 
 
 def lineage_line(line: str) -> bool:
-    """血缘五要素行的形态判据：行内含 `② 来源表` 或 `⑤ 收口注记`（方案 D2 逐字特征面）。"""
-    return LINEAGE_MARK_SOURCE_TABLE in line or LINEAGE_MARK_CLOSING in line
+    """血缘五要素行的形态判据：行内含 `② 来源表` 或 `⑤ 收口注记`（方案 D2 逐字特征面）。
 
-
-def split_lineage(lines: Sequence[str]) -> tuple[list[str], str]:
-    """正文分段：血缘五要素**整段**剥出（返回（保留行，剥出段文本）——2026-10-17 EB3 D2）。
-
-    段界＝空行界（连续非空行为一段）；命中 `lineage_line` 的段**整段离场**入增补面。
-    **例外**＝该段行数 ≤ `LINEAGE_KEEP_MAX_LINES` 且携 `[n]` 引标（单行口径说明——口径说明
-    不是血缘卡）→ 保留在正文。剥出段之间以空行连接（原文照抄，零二次创作）。
+    **2026-10-17 EB5c**：判据面改引块头模式族的血缘族（`transport.block_head_kind`）——与
+    answering 起草面共用同一族／同一剥除单点；本函数只作核验侧的可读别名。
     """
-    keep: list[str] = []
-    stripped: list[str] = []
-    index = 0
-    total = len(lines)
-    while index < total:
-        if not lines[index].strip():
-            keep.append(lines[index])
-            index += 1
-            continue
-        end = index
-        while end < total and lines[end].strip():
-            end += 1
-        paragraph = list(lines[index:end])
-        if any(lineage_line(line) for line in paragraph) and not _caliber_note(paragraph):
-            stripped.append("\n".join(paragraph))
-        else:
-            keep.extend(paragraph)
-        index = end
-    return keep, "\n\n".join(stripped)
+    return block_head_kind(line) == SUPPLEMENT_BLOCK_LINEAGE
 
 
-def _caliber_note(paragraph: Sequence[str]) -> bool:
-    """单行口径说明例外（≤ `LINEAGE_KEEP_MAX_LINES` 行且带 `[n]` 引标）→ 保留正文。"""
-    if len(paragraph) > LINEAGE_KEEP_MAX_LINES:
-        return False
-    return any(citation_chunks(normalize_for_match(line)) for line in paragraph)
+def split_block_sections(text: str) -> tuple[list[str], str]:
+    """正文块剥除（返回（保留行，血缘族剥出段文本）——EB3 D2 逐字 ＋ 2026-10-17 EB5c 扩族）。
+
+    段界＝空行界（连续非空行为一段）；判据与归属**引块头模式族单点**
+    （`transport.split_block_sections`——两相位同族同语义）：血缘族段（行内含要素键，且非单行
+    口径说明例外）整段离场入 `lineage` 增补面；剥除面块型（引用清单）段整段离场（程序块由交付面
+    机械再生）；其余段落原样保留（含分源／归属族段——可能承载模型逐源作答正文）。
+    **例外**＝血缘族段行数 ≤ `LINEAGE_KEEP_MAX_LINES`（2026-10-17 EB5c：取值引族单点）且携 `[n]`
+    引标（单行口径说明——口径说明不是血缘卡）→ 保留在正文。剥出段之间以空行连接（原文照抄）。
+    """
+    kept_text, lineage_text = transport_split_block_sections(text)
+    return kept_text.splitlines(), lineage_text
 
 
 # ── 矛盾分列（行为 4；真源 `recon/A2` R-A2-29／R-A2-30）──────────────────────────

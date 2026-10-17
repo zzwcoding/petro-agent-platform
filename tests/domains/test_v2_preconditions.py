@@ -83,6 +83,7 @@ from appv2.runtimev2.preconditions import (
 from appv2.runtimev2.preconditions.constants import (
     NOTE_CHAIN_SWITCH_REENTRY,
     NOTE_MENTION_ONLY,
+    NOTICE_SUBTASK_REFUSED,
 )
 from appv2.runtimev2.state import LIMIT_KINDS, RunState
 from appv2.runtimev2.transport import ASK_FRAME_KINDS, NOTICE_TYPES
@@ -804,6 +805,71 @@ def test_pin31_mention_mode_end_to_end_from_emission() -> None:
     assert verdicts["s2"].hit_rule == HIT_RULE_BAN
     assert verdicts["s3"].decision == DECISION_REFUSE  # 缺键＝空串 → 不按仅提及放行（fail-closed）
     assert verdicts["s3"].hit_rule == HIT_RULE_BAN
+
+
+def test_pin31_entry_question_faces_banned_term() -> None:
+    """2026-10-17 EB5b｜位 1 禁用词闸的**入口问句原件面**：旧叫法在题干上、子问题问句已被归一。
+
+    真机病灶（`eval/results/frames/EB3-系统-禁用词.json`，run-d1de7df7）：题面「老完成率是多少？」
+    的子问题问句被模型归一成「产量完成率是多少？」→ 词面命中面消失、拦停未触发。修后判据＝
+    **子问题问句 ∪ 计划指标槽 ∪ 入口问句原文**三面任一命中即判（旧名归一不改题面原件面）；
+    照常出口＝拒答＋替代词出路（拦截话术）＋`hit_rule=ban`（留痕）。
+    """
+    entry = "老完成率是多少？"
+    normalized = "产量完成率是多少？"
+    # ① 入口问句命中、子问题问句已归一 → 拦停＋替代词出路（拦截话术在场）
+    state = _state(
+        _subtask("s1", normalized),
+        matches=(_match("s1", plan={"metric_slot": "产量完成率", "ranking": False, **WINDOW}),),
+        question=entry,
+    )
+    verdicts = _by_id(gate_all(state))
+    assert verdicts["s1"].decision == DECISION_REFUSE
+    assert verdicts["s1"].hit_rule == HIT_RULE_BAN
+    assert "老完成率" in verdicts["s1"].reason.human_text  # 拦截话术（点名废弃词）
+    assert "产量完成率" in verdicts["s1"].reason.human_text  # 出路指引（替代词）
+    assert "产量完成率" in "".join(verdicts["s1"].reason.alternatives or ())
+    # 留痕：步 payload 携判定位（N1 终止留痕）
+    payloads = [p for p in _payloads(state) if p.get(PAYLOAD_PHASE_KEY) == PHASE]
+    assert payloads and payloads[0][PAYLOAD_HIT_RULE_KEY] == HIT_RULE_BAN
+    # 拒答分型＝`subtask_refused`（拒答收口审计留痕的触发面）
+    assert any(note.get("type") == NOTICE_SUBTASK_REFUSED for note in state.notices)
+
+    # ② 模型结论「仅提及」→ 照旧放行（机械分派先于词面判；零误伤）
+    mention = _state(
+        _subtask("s1", normalized),
+        matches=(
+            _match(
+                "s1",
+                plan={"metric_slot": "产量完成率", "ranking": False, **WINDOW},
+                mention_mode=MENTION_MENTIONED_ONLY,
+            ),
+        ),
+        question=entry,
+    )
+    verdicts_m = _by_id(gate_all(mention))
+    assert verdicts_m["s1"].decision == DECISION_ALLOW
+    assert NOTE_MENTION_ONLY in verdicts_m["s1"].notes
+
+    # ③ 元问/引用形豁免对**入口问句面**同样适用（命中哪一面就按哪一面判豁免）
+    exempt = _state(
+        _subtask("s1", normalized),
+        matches=(_match("s1", plan={"metric_slot": "产量完成率", "ranking": False, **WINDOW}),),
+        question="以前叫老完成率的那个指标，现在叫什么？",
+    )
+    verdicts_e = _by_id(gate_all(exempt))
+    assert verdicts_e["s1"].decision == DECISION_ALLOW
+    assert any("豁免放行" in note for note in verdicts_e["s1"].notes)
+
+    # ④ 三面皆不命中 → 零误伤（普通问句照常放行）
+    clean = _state(
+        _subtask("s1", normalized),
+        matches=(_match("s1", plan={"metric_slot": "产量完成率", "ranking": False, **WINDOW}),),
+        question="产量完成率是多少？",
+    )
+    verdicts_c = _by_id(gate_all(clean))
+    assert verdicts_c["s1"].decision == DECISION_ALLOW
+    assert not any("禁用词" in note for note in verdicts_c["s1"].notes)
 
 
 def test_pin14_fuzzy_window_ask_frame() -> None:

@@ -202,6 +202,9 @@ _FAQ_SEED = [
     # faq-7：标准问归一后同形命中（另一条目——相似问优先序的第二比对面）。
     ("faq-7", "躺井啥意思", "faq-7 标准问直配。", "serve"),
     ("faq-8", "「老完成率」是什么口径？", "已禁用——现行口径为产量完成率。", "disabled"),
+    # faq-9：负例条目（`status='negative'`／`is_negative`）——与 disabled 同族剔除，
+    # 「不该答的问题」永不参与命中（pin-21 禁用词剔除的负例面，2026-10-17 EB5b）。
+    ("faq-9", "帮我预测明年油价", "（负例：不回答。库里登记为「不该答的问题」）", "negative"),
 ]
 
 
@@ -255,6 +258,48 @@ async def test_pg_faq_similar_priority_and_serve_only(tmp_path: Path) -> None:
         assert store.similar("随便问一句", top=3) == []
         # top 上限收口（命中面不超过 top）。
         assert len(store.similar("躺井啥意思？", top=1)) == 1
+    finally:
+        await db.dispose()
+
+
+# ---------- 单测：faq_lookup 五站链四形（pin-21 专属钉：归一／相似问优先／剔除／直答） ----------
+
+
+async def test_pin21_faq_five_station_chain_four_forms(tmp_path: Path) -> None:
+    """pin-21（faq 五站链，`docs/runtime-refactor/eng/04a-应钉行为清单.md` 行 21）四形归口钉。
+
+    行为在 tools 存量面（`FaqLookupFace`：`PgFaqStore.similar` ＋ `handlers.faq_lookup`），
+    runtimev2 零落点是已裁定状态（eng/04a 归属注记）——本件把四形收在一处（既有两件为本面的
+    明细钉：`::test_normalize_faq_question_v1_equivalent`＝①、`::test_pg_faq_similar_priority_and_serve_only`
+    ＝①②③ 明细、`::test_station_faq_aux_finalize_direct`＝④ 端到端）：
+
+    ① **NFKC 归一**（全半角／标点变体同判）；② **相似问优先**（相似问条目先于标准问）；
+    ③ **禁用词剔除**（`disabled` 与 **负例** `negative` 两面都不入命中集）；④ **命中直答**：命中
+    条目作辅助材料观察（`locator.kind=faq_aux`／`source_id=faq_entry:<id>`），答案面可据此直答
+    ——`秒回零模型`形已随 P-051b 拆除、按 A-P4b-63「FAQ 命中直答或检索路径均可」判）。
+    判据零 LLM 纯固定代码。
+    """
+    db = await _faq_db(tmp_path)
+    try:
+        store = PgFaqStore.from_specs(_spec_of(tmp_path))
+        # ① NFKC 归一：全半角＋标点变体与标准问同判
+        assert [h.entry_id for h in store.similar("Ｎ－０２井，是什么时候投产的？")] == ["faq-4"]
+        # ② 相似问优先：相似问命中条目先于标准问命中条目
+        assert [h.entry_id for h in store.similar("躺井啥意思？")] == ["faq-3", "faq-7"]
+        # ③ 禁用词剔除：disabled（老完成率）与 negative（不该答的问题）两面皆不入命中集
+        assert store.similar("「老完成率」是什么口径？") == []
+        assert store.similar("帮我预测明年油价") == []
+        # ④ 命中直答：命中条目作辅助材料观察（答案面可直答所问）
+        face = _FaqFace(
+            [_faq_hit("faq-4", "N-02 井是什么时候投产的？", "2019-06-15 投产。")]
+        )
+        result = await faq_lookup_handler(
+            {"question": "N-02 井是什么时候投产的？"}, _ctx(), faq=face
+        )
+        assert result.status == "ok"
+        (obs,) = result.observations
+        assert obs.locator["kind"] == "faq_aux" and obs.source_id == "faq_entry:faq-4"
+        assert "A：2019-06-15 投产。" in obs.content
     finally:
         await db.dispose()
 

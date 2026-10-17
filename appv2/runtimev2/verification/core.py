@@ -7,9 +7,10 @@
 一次调用的固定序（行为 1–11；语义真源＝`recon/A2` R-A2-16…R-A2-28，承载位在 V2）：
 
 1. **剥结构性残留**（行为 1）：整行即 JSON 对象／数组＝结构性残片，剥除且**不计改写**（发射围栏／
-   裸发射令牌的剥离单点归 `answering`——答案面归属，进核验的草稿已过那道剥离）；**血缘五要素整段**
-   （特征 `② 来源表`／`⑤ 收口注记`）同拍离场——整段入 `lineage` 增补面，单行口径说明（≤2 行、
-   带 `[n]` 引标）保留在正文（2026-10-17 EB3 D2）；
+   裸发射令牌的剥离单点归 `answering`——答案面归属，进核验的草稿已过那道剥离）；**块头模式族段**
+   同拍离场（2026-10-17 EB3 D2 起血缘五要素整段；2026-10-17 EB5c 扩为族判据：血缘族段整段入
+   `lineage` 增补面、剥除面块型〔引用清单〕段整段离场——判据与段剥离单点＝`transport.blocks`，
+   两相位同族同语义；单行口径说明（≤2 行、带 `[n]` 引标）保留在正文）；
 2. **逐行断言级核验**（行为 1／2／7／8）：逐行判定（**不是整段判**）；判定面文本先过全角归一
    （行为 7），引标切辖域、数值取**边界记号**比对；被引观察的数值须在断言文本里复述，承载形式
    （`agg_row`／`lineage`／`fragment`）豁免「全数值复述」（任一数值重叠即支撑、零重叠照改）；
@@ -89,11 +90,16 @@ from appv2.runtimev2.verification.constants import (
     PAYLOAD_REWRITES_KEY,
     PAYLOAD_REWRITTEN_KEY,
     PAYLOAD_ROW_NOTE_KEY,
+    PAYLOAD_ROWSET_ALIGNED_KEY,
+    PAYLOAD_ROWSET_MISSING_KEY,
     PAYLOAD_SPLIT_KEY,
     PAYLOAD_SUPPORTED_KEY,
     PHASE,
     REWRITE_CONFLICT,
     REWRITE_NO_MATERIAL,
+    ROW_NOTE_MISSING_NONE,
+    ROW_NOTE_ORDER_ALIGNED,
+    ROW_NOTE_ORDER_MISALIGNED,
     ROW_NOTE_TEMPLATE,
     ROWSET_OBSERVATION_KINDS,
     SPLIT_NO,
@@ -110,15 +116,17 @@ from appv2.runtimev2.verification.rules import (
     engine_disclosure_line,
     group_header_line,
     line_numbers_are_asserted,
+    lineage_observation_text,
     locator_kind,
     normalize_for_match,
     number_tokens,
     observation_supported,
     question_anchors,
     resolvable,
+    rowset_audit,
     scope_usable,
     split_block,
-    split_lineage,
+    split_block_sections,
     structural_line,
     uncited_aligned,
     without_markers,
@@ -161,11 +169,6 @@ def _require_bus(bus: EventBus | None) -> EventBus:
     return bus
 
 
-def _draft_lines(draft: str) -> list[str]:
-    """答案面逐行（**逐行判定**的切分面——行为 1：不是整段判）。"""
-    return str(draft or "").splitlines()
-
-
 def _fail_closed(state: RunState, exc: BaseException) -> Verdict:
     """fail-closed 判定卡：`ok=False` ＋缺口（行为 9／错误契约）——不静默放行、不返回哨兵。"""
     reason = GAP_FAIL_CLOSED_REASON.format(error=f"{type(exc).__name__}: {exc}")
@@ -189,8 +192,15 @@ def _verify(state: RunState, bus: EventBus, supplements: list[dict[str, Any]]) -
     observations = list(state.observations)
     by_index = {int(obs["index"]): obs for obs in observations}
 
-    # 血缘五要素整段先离场（2026-10-17 EB3 D2）：整段入 `lineage` 增补面，单行口径说明保留正文。
-    kept_lines, lineage_text = split_lineage(_draft_lines(state.draft))
+    # 块剥除（2026-10-17 EB3 D2 血缘五要素整段；2026-10-17 EB5c 扩块头模式族——引用清单段同拍
+    # 离场，分源／归属族只作在场判据不剥）：血缘族段整段入 `lineage` 增补面，单行口径说明留正文。
+    kept_lines, lineage_text = split_block_sections(str(state.draft or ""))
+    # 血缘统一走增补面（2026-10-17 EB5c）：**数据链题血缘在场（`locator.kind="lineage"` 观察）⇒
+    # 增补面必有 `lineage` 块**——不以「模型是否把五要素写进草稿」为断（EB2 D1 起材料面只渲染
+    # 一行口径行，模型多数不再复写全文，EB3 实态＝supplement 携血缘仅 6/97 题、其余只在
+    # `observation` 帧）；模型稿无该段时**原文照抄**观察自带五要素全文（入栈序、空行连接、
+    # 零二次创作）——前端旁路取数统一从增补面取，不必回读观察帧。
+    lineage_text = lineage_text or lineage_observation_text(observations)
     if lineage_text:
         _supplement(supplements, SUPPLEMENT_BLOCK_LINEAGE, lineage_text)
 
@@ -229,21 +239,28 @@ def _verify(state: RunState, bus: EventBus, supplements: list[dict[str, Any]]) -
             attribution_block(anchors, aligned, pending, crossed),
         )
 
-    obs_rows = sum(
-        1 for obs in observations if locator_kind(obs) in ROWSET_OBSERVATION_KINDS
-    )
-    delivered_rows = sum(
-        1
-        for obs in observations
-        if locator_kind(obs) in ROWSET_OBSERVATION_KINDS
-        and int(obs["index"]) in cited
-    )
+    engine_row_seqs = [
+        int(obs["index"]) for obs in observations if locator_kind(obs) in ROWSET_OBSERVATION_KINDS
+    ]
+    obs_rows = len(engine_row_seqs)
+    delivered_rows = sum(1 for seq in engine_row_seqs if seq in cited)
     delta = obs_rows - delivered_rows
+    # 行数对账（行为 11；2026-10-17 EB5c 扩面）：**机读面恒在场**——`rowset_missing`（缺行序号列：
+    # 渲染行数≠引擎行数的逐号面）＋ `rowset_aligned`（引标序对齐：交付的引擎行号列是否恰为引擎
+    # 行号序前 L 项——跳号／整体偏移即 off-by-one 错位）。两键**不受「答案面有无声明」影响**：
+    # L04-22 实态＝自述「以上共 86 口井已返回」而实际交付 84 行（缺第 24／46 号）＋引标整体错位
+    # 一格——自述声明的真伪只能由对账事实判，故机读面恒落账（对账面可复算）。
+    # 注记面（`row_note`，人读）三态不变（附 D 钉：无声明→注记、有声明→零注记）；**不改写数值
+    # 断言、不重试、不拦截**（Owner 裁决②：对账只作诚实记账面）。
+    rows_missing, rows_aligned = rowset_audit(engine_row_seqs, cited)
     row_note: str | None = None
     if delta > 0 and delivered_rows == 0:
-        # 行为 11：差额>0 且答案面无行集声明 → 补如实注记（不改写、不重试、不拦截）
         row_note = ROW_NOTE_TEMPLATE.format(
-            obs_rows=obs_rows, delivered_rows=delivered_rows, delta=delta
+            obs_rows=obs_rows,
+            delivered_rows=delivered_rows,
+            delta=delta,
+            missing=(_index_text(list(rows_missing)) if rows_missing else ROW_NOTE_MISSING_NONE),
+            order=ROW_NOTE_ORDER_ALIGNED if rows_aligned else ROW_NOTE_ORDER_MISALIGNED,
         )
 
     # `rewritten`＝**无据**被改写的句子数（分列改写不计——`split` 另计组数；两维度不强行映射）
@@ -280,7 +297,9 @@ def _verify(state: RunState, bus: EventBus, supplements: list[dict[str, Any]]) -
         gaps=gaps,
     )
 
-    _emit_signals(state, bus, verdict, rewrites, anchors, crossed, row_note)
+    _emit_signals(
+        state, bus, verdict, rewrites, anchors, crossed, row_note, rows_missing, rows_aligned
+    )
     state.draft = text
     state.verdict = verdict.as_dict()
     set_intent(state, INTENT_ANSWER)
@@ -412,6 +431,8 @@ def _emit_signals(
     anchors: Sequence[str],
     crossed: Sequence[Any],
     row_note: str | None,
+    rowset_missing: Sequence[int],
+    rowset_aligned: bool,
 ) -> None:
     """机读信号（「不降级与静默禁令」节）：step payload ＋ `notice`／`verdict` 帧 ＋ 通知落账。
 
@@ -428,7 +449,9 @@ def _emit_signals(
         state,
         kind=STEP_VERIFY,
         title=title,
-        payload=_step_payload(verdict, rewrites, row_note),
+        payload=_step_payload(
+            verdict, rewrites, row_note, rowset_missing, rowset_aligned
+        ),
     )
     if verdict.rewritten:
         _notify(
@@ -471,9 +494,18 @@ def _notify(state: RunState, bus: EventBus, notice_type: str, content: str) -> N
 
 
 def _step_payload(
-    verdict: Verdict, rewrites: Sequence[RewriteRecord], row_note: str | None
+    verdict: Verdict,
+    rewrites: Sequence[RewriteRecord],
+    row_note: str | None,
+    rowset_missing: Sequence[int] = (),
+    rowset_aligned: bool = True,
 ) -> dict[str, Any]:
-    """步 payload（六计数键 ＋ 行集对账两字段 ＋ 改写／缺口留痕 ＋ 行集注记）。"""
+    """步 payload（六计数键 ＋ 行集对账四字段 ＋ 改写／缺口留痕 ＋ 行集注记）。
+
+    行集对账四字段（2026-10-17 EB5c）：`delivered_rows`／`obs_rows` 两计数 ＋ `rowset_missing`
+    （缺行序号列）／`rowset_aligned`（引标序对齐）两判据——同一事实的机读面与注记面（`row_note`）
+    同批落账（判据单点＝`rules.rowset_audit`，本件只投影）。
+    """
     return {
         PAYLOAD_PHASE_KEY: PHASE,
         PAYLOAD_SUPPORTED_KEY: verdict.supported,
@@ -482,6 +514,8 @@ def _step_payload(
         PAYLOAD_CITED_KEY: list(verdict.cited),
         PAYLOAD_DELIVERED_ROWS_KEY: verdict.delivered_rows,
         PAYLOAD_OBS_ROWS_KEY: verdict.obs_rows,
+        PAYLOAD_ROWSET_MISSING_KEY: list(rowset_missing),
+        PAYLOAD_ROWSET_ALIGNED_KEY: rowset_aligned,
         PAYLOAD_ATTRIBUTION_KEY: verdict.attribution,
         PAYLOAD_OK_KEY: verdict.ok,
         PAYLOAD_REWRITES_KEY: [

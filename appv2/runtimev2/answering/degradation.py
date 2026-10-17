@@ -51,6 +51,11 @@ from appv2.runtimev2.answering.constants import (
     SOURCE_LINE,
     SOURCE_SECTION_HEAD,
 )
+from appv2.runtimev2.transport import (
+    SUPPLEMENT_BLOCK_ATTRIBUTION,
+    SUPPLEMENT_BLOCK_SPLIT,
+    same_family_head_in,
+)
 
 _OPEN = "["
 _CLOSE = "]"
@@ -101,6 +106,36 @@ def strip_placeholders(text: str) -> str:
         return text
     out.append(text[cursor:])
     return "".join(out)
+
+
+def strip_dangling_citations(
+    text: str, known: frozenset[int] | set[int] | tuple[int, ...] | list[int]
+) -> tuple[str, tuple[int, ...]]:
+    """剥除**观察序列外**的引标记号（坏引标——行为 13 剥除族的第二形，2026-10-17 EB5b）。
+
+    体全 ASCII 数字且序号不在 `known`（在界引标号集）内的方括号记号**整枚离场**——不猜、不补、
+    不改写正文其余字面；返回（剥后文本，被剥序号列——出现序去重）。**判据纯形态**（同上方的
+    占位符剥除：同一方括号扫描面，禁第二份）。剥后该行失去引标＝由核验面按「无据断言」既有处置
+    收口（删句／结构行原样）——本层不做核验判定。
+    """
+    in_scope = set(known)
+    out: list[str] = []
+    removed: list[int] = []
+    cursor = 0
+    for start, end, body in bracket_tokens(text):
+        if not body or not all(char in ASCII_DIGITS for char in body):
+            continue
+        seq = int(body)
+        if seq in in_scope:
+            continue
+        out.append(text[cursor:start])
+        cursor = end
+        if seq not in removed:
+            removed.append(seq)
+    if not removed:
+        return text, ()
+    out.append(text[cursor:])
+    return "".join(out), tuple(removed)
 
 
 def echo_flag(text: str) -> bool:
@@ -186,9 +221,11 @@ def contradiction_section(
 ) -> str:
     """「互不一致」分源列明块（行为 6：分源列明、不强调和——逐支原文照抄，零二次创作）。
 
-    收口重入面幂等：`text` 已携同块头＝零追加（不重复落块）。
+    收口重入面幂等：`text` 已携**同族块头行**＝零追加（不重复落块）——判据面＝块头模式族
+    （2026-10-17 EB5c：由「固定字面在场」改为「同族块头在场」，加粗变体同族；单点＝
+    `transport.same_family_head_in`）。
     """
-    if not groups or text.find(CONTRADICTION_SECTION_HEAD) >= 0:
+    if not groups or same_family_head_in(text, SUPPLEMENT_BLOCK_SPLIT):
         return ""
     lines = [CONTRADICTION_SECTION_HEAD]
     for seqs in groups:
@@ -230,7 +267,9 @@ def source_section(
     含糊归属形（「某区块／小范围结算序列」等不认列来源的框架）不由本块产出，无据归属不进
     答案面（本块只照抄窗口材料自带出处，零发明）。收口重入面幂等。
     """
-    if len(source_names(cited, by_index)) < 2 or text.find(SOURCE_SECTION_HEAD) >= 0:
+    if len(source_names(cited, by_index)) < 2 or same_family_head_in(
+        text, SUPPLEMENT_BLOCK_ATTRIBUTION
+    ):
         return ""
     lines = [SOURCE_SECTION_HEAD]
     for seq in cited:

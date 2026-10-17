@@ -162,12 +162,17 @@ async def test_unsupported_claim_rewritten(tmp_path: Path) -> None:
     assert "21.16" in answer
     assert "86 口井" not in answer
     assert "未找到（材料未披露）" not in answer
-    # 增补面随行（EB3 D1）：本 run 无矛盾无跨源 → 恰引用清单一条（正文零程序块）
-    assert [entry["block"] for entry in row.supplements] == ["citations"]
-    assert "引用：" in row.supplements[0]["text"]
+    # 增补面随行（EB3 D1）：本 run 无矛盾无跨源 → 血缘块 ＋ 引用清单一条（正文零程序块）
+    # 2026-10-17 EB5c（血缘统一走增补面）：数据链题血缘在场 ⇒ 增补面必有 `lineage` 块——本 run
+    # 血缘卡在窗而模型稿未复写五要素（EB2 D1 起材料面只渲染口径行），故由核验剥除拍**原文照抄**
+    # 观察自带五要素全文入列（模型稿无该段时才兜底）。
+    assert [entry["block"] for entry in row.supplements] == ["lineage", "citations"]
+    assert "① 口径" in row.supplements[0]["text"]  # 原文照抄（血缘合同键在场）
+    assert "引用：" in row.supplements[1]["text"]
     assert "引用：" not in answer
+    assert "② 来源表" not in answer  # 程序块不进正文
     supplement_frames = [event for event in events if event.event == "supplement"]
-    assert [frame.data["block"] for frame in supplement_frames] == ["citations"]
+    assert [frame.data["block"] for frame in supplement_frames] == ["lineage", "citations"]
     # 机读信号（verify 步拦截的 notice 分型 ＋ verdict(verify) 帧的改写计数）
     notices = [event.data for event in events if event.event == "notice"]
     assert any(item.get("type") == "unsupported_claim" for item in notices)
@@ -239,7 +244,10 @@ async def test_contradiction_split_source(tmp_path: Path) -> None:
     # 本 run 两块同现：verify 侧分源块（`各来源说法如下…`）＋ answering 收口侧「互不一致」分源块
     # ＋ 分源列明归属块（两出处）＋ 引用清单——按产出序入列（EB3 D2 原序）。
     supplement_frames = [event.data for event in events if event.event == "supplement"]
+    # 2026-10-17 EB5c（血缘统一走增补面）：血缘在场 ⇒ 首条＝`lineage` 块（原文照抄观察五要素全文；
+    # 本 run 模型稿未复写血缘段，故走兜底面）。
     assert [frame["block"] for frame in supplement_frames] == [
+        "lineage",
         "split",
         "split",
         "attribution",

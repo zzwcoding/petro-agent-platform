@@ -11,7 +11,10 @@
 
 1. **位 1 闸1 禁用词**：**结构分派（消费模型结论）**——`SubtaskMatch.mention_mode`（「提及 vs
    执行」，判断在 `tool_matching`／Owner 裁决 #12）＝`mentioned_only` → 放行（不按废弃口径出数）；
-   其余照闸件判（禁用户语命中 → 拒答，`hit_rule=ban`）。
+   其余照闸件判（禁用户语命中 → 拒答，`hit_rule=ban`）。**命中面三片**（2026-10-17 EB5b）：子问题
+   问句 ∪ 计划指标槽 ∪ **入口问句原文**（`state.question`——旧叫法在题干原件上，模型把旧名归一进
+   子问题问句时词面命中面不丢；真机病灶 `eval/results/frames/EB3-系统-禁用词.json`：题面「老完成率
+   是多少？」的子问题问句被归一成「产量完成率是多少？」→ 拦停未触发）。
 2. **位 2 闸1b 模糊时间词门**：**结构判据**＝模型发射载荷窗槽双 null＝不能确定（**不写词面门**，
    裁决 #13＝流水 56 裁①）→ `ask`（`caliber_clarify` → 帧 `clarify`；候选窗＝注入参
    `window_candidates`，producer＝`orchestration`，本块不直引 query）；位 1 命中则不进位 2。
@@ -150,6 +153,7 @@ def gate_all(
                 wells=wells,
                 candidates=candidates,
                 marks=marks,
+                entry_question=str(state.question or ""),
             )
         except Exception:  # 闸件抛错／闸内契约违例 → fail-closed（不静默放行、不炸整批）
             verdict, reentry = _unavailable(subtask_id), False
@@ -178,8 +182,13 @@ def _one(
     wells: tuple[str, ...] | None,
     candidates: tuple[str, ...],
     marks: dict[str, str],
+    entry_question: str,
 ) -> tuple[SubtaskVerdict, bool]:
-    """单子问题判定（返回结论 ＋ 「换链回炉提议首次触发」标记）。"""
+    """单子问题判定（返回结论 ＋ 「换链回炉提议首次触发」标记）。
+
+    `entry_question`＝入口问句原文（`state.question`）——位 1 禁用词闸的旧叫法面
+    （2026-10-17 EB5b：模型把旧名归一进子问题问句时词面命中面不丢）。
+    """
     if facts is None:
         raise ValueError("台账面不可用（闸件判定输入缺失）——fail-closed，不静默放行")
     payload = match or {}
@@ -207,6 +216,7 @@ def _one(
         watermark=moment,
         window_resolved=resolved,
         data_wells=wells,
+        entry_question=entry_question,
     )
 
     if gate.hit_rule == HIT_RULE_BAN:

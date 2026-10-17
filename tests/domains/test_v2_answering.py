@@ -6,7 +6,8 @@
 
 - 行 1 `::streaming_segments`：答案一段段推（多段 `text` 帧），非一次性推全量；
 - 行 2 `::segment_citations_resolve`：每段自带 `citation_seqs`，且序号真实存在于观察序列；
-- 行 3 `::dangling_citation_rejected`：出现不存在的引标号 → 判失败（坏引标）；
+- 行 3 `::dangling_citation_rejected`：出现不存在的引标号 → **剥除**该记号（坏引标——2026-10-17
+  EB5b 改判：剥除族第二形，不判失败；留痕＝起草步 payload `dangling_citation_seqs`）；
 - 行 4 `::manifest_and_ref_only`：每次模型调用都有 Manifest；大结果只以引用进窗口；
 - 行 5 `::structured_gaps_all_kinds`：被拒／缺失／未及核验 → 产出结构化 `Gap`（三档闭世界）；
 - 行 6 `::gap_kind_closed_world`：`Gap.kind` 越界取值 → 判失败；
@@ -81,7 +82,6 @@ from appv2.runtimev2.answering import (
     AnswerDraft,
     AnswerSegment,
     Citation,
-    DanglingCitationError,
     Gap,
     answer,
     echo_flag,
@@ -329,28 +329,41 @@ async def test_segment_citations_resolve() -> None:
     ]
 
 
-# ---------- 3 出现不存在的引标号 → 判失败（坏引标） ----------
+# ---------- 3 出现不存在的引标号 → 剥除该记号（坏引标——不判失败） ----------
 
 
 async def test_dangling_citation_rejected() -> None:
-    """行 3｜出现不存在的引标号 → 判失败（坏引标）——不猜、不补、不静默丢弃（行为 2／4）。"""
+    """行 3｜出现不存在的引标号 → **剥除**（2026-10-17 EB5b 改判）。
+
+    剥除族第二形（同行为 13 占位符剥除）：界外引标号整枚离场、正文其余字面零改、材料照常
+    带引标交付（`completed`，不判失败、不 run_failed）；留痕＝起草步 payload 的
+    `dangling_citation_seqs`（不静默）；该行失去引标即由 `verification` 按无据断言既有处置收口。
+    """
+    from appv2.runtimev2.answering import PAYLOAD_DANGLING_SEQS_KEY
+
     state = _state(observations=[_obs(1, "agg_row")])
-    reply = "结论成立[9]。"
-    with _phase(reply) as session:
-        with pytest.raises(DanglingCitationError) as excinfo:
-            session.call(state)
-    assert excinfo.value.dangling == (9,)
-    assert "9" in str(excinfo.value)
-    # 判失败先于发帧：坏引标不上帧面（零半成品）
+    with _phase("结论成立[9]。域内结论另有其数[1]。") as session:
+        draft = session.call(state)
+    # 界外记号离场、正文其余字面零改：段文本里「[9]」已不在（域内 [1] 原样）
+    assert [segment.text for segment in draft.segments] == ["结论成立。域内结论另有其数[1]。"]
+    assert [segment.citation_seqs for segment in draft.segments] == [[1]]
+    assert [citation.seq for citation in draft.citations] == [1]
+    # 草稿落状态＝带材料直答（无半成品问题：交付面完整）
+    assert state.draft == "结论成立。域内结论另有其数[1]。"
+    # 留痕：起草步 payload 的坏引标序号列（不静默）
+    payload = _payloads(state, _PAYLOAD_PHASE_DRAFT)[0]
+    assert payload[PAYLOAD_DANGLING_SEQS_KEY] == [9]
+    # 帧面：剥除后文本照常逐段出流（一段一帧）
     frames = await _frames(session.bus)
-    assert _of(frames, "text") == []
-    assert state.draft == ""  # 不返回半成品（草稿不落状态）
-    assert state.answer == ""
-    # 反向：域内引标不触发（判据只在界外）
+    assert [str(item["content"]) for item in _of(frames, "text")] == [
+        segment.text for segment in draft.segments
+    ]
+    # 反向：域内引标不触发（零剥除——判据只在界外）
     in_scope = _state(observations=[_obs(1, "agg_row")])
     with _phase("结论成立[1]。") as session:
         draft = session.call(in_scope)
     assert [segment.citation_seqs for segment in draft.segments] == [[1]]
+    assert _payloads(in_scope, _PAYLOAD_PHASE_DRAFT)[0][PAYLOAD_DANGLING_SEQS_KEY] == []
 
 
 # ---------- 4 每次模型调用都有 Manifest；大结果只以引用进窗口 ----------
@@ -1391,14 +1404,13 @@ async def test_boundary_single_seg_zero_material_conflict_bad_cite() -> None:
     assert "互不一致" in _supplement_text(session3.supplements, "split")
     assert "互不一致" not in conflict.answer
 
-    # ④ 坏引标：判失败（不返回半成品、坏引标不上帧面）
+    # ④ 坏引标：剥除（2026-10-17 EB5b——界外记号离场、材料照常交付，不判失败）
     bad = _state(observations=[_obs(1, "agg_row")])
-    with _phase("结论成立[9]。") as session4:
-        with pytest.raises(DanglingCitationError) as excinfo:
-            session4.call(bad)
-    assert excinfo.value.dangling == (9,)
-    assert _of(await _frames(session4.bus), "text") == []
-    assert bad.draft == ""
+    with _phase("结论成立[9]。[1]") as session4:
+        bad_draft = session4.call(bad)
+    assert [segment.text for segment in bad_draft.segments] == ["结论成立。[1]"]
+    assert bad.draft == "结论成立。[1]"
+    assert _payloads(bad, _PAYLOAD_PHASE_DRAFT)[0]["dangling_citation_seqs"] == [9]
 
 
 # ---------- 22 【保留集】无矛盾、无缺口的普通答案：引标与分源行为不变 ----------

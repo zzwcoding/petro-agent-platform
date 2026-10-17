@@ -57,7 +57,7 @@ class Gap:
 ```
 
 - **`Gap.kind` 是闭世界**（`refused`｜`missing`｜`unverified`）；越界值判失败。
-- **`citation_seqs` 里的每个序号必须真实存在于观察序列**；不存在的引标＝判失败（对应「坏引标」病灶）。
+- **`citation_seqs` 里的每个序号必须真实存在于观察序列**；**界外引标号由 `strip_dangling_citations` 在分段之前整枚剥除**（2026-10-17 EB5b 改判：剥除族第二形，同行为 13 占位符剥除——**不判失败、不收 `run_failed`**；剥除序号列落起草步 payload 机读键 `dangling_citation_seqs`〔不静默〕，该行失去引标即由 `verification` 按无据断言既有处置收口〔删句／结构行原样〕，材料照常带引标交付、run 终态 `completed`）。
 - **大结果引用经 `seq → observation.ref`（`MaterialRef`）可达**：`Citation` 不另设 `handle` 字段，与 `specs/execution.md` 的字段口径显式对齐（真源 `walk/裁决表.md` §14-B）。
 - 错误契约：起草失败（模型不可用／空稿超限）→ **不返回半成品**；由 `orchestration` 承接（挂起或如实收口），**不静默推空答案**。
 - 真源：`specs/modules.md` `## answering` 卡（签名以卡为准）。
@@ -84,7 +84,7 @@ class Gap:
 10. **答案要求以 `prompts` 的合同文本为唯一真源**：本规格不复制该清单（避免两处漂移）；条数现状真源＝`docs/runtime-refactor/recon/L2b-作答装配与回声.md`（`_ANSWER_REQUIREMENTS`，现 **8 条**——2026-10-17 EB2 D2 追加第八条「核验元数据不进答案正文」，条数真源随本合同走），**V2 条数以 `prompts` 合同定稿为准**。
 11. **发射剥离**：模型应答在进答案面（`AnswerDraft` 片段与其 `text` 帧增量）之前经**发射围栏／JSON 形确定性剥离**——发射 JSON 不得进答案面（泄漏=0）。真源：`eval/results/Q15-对账报告.md`（:38——Q14 6 题→0，V2-48 发射围栏确定性剥离＋通道隔离兑现）；旧码真源 `docs/runtime-refactor/recon/L2b-作答装配与回声.md`（:58 `strip_emission_fences`／:101 剥离后草稿才进答案装配）。
 12. **行集题交付与落引用界线**（与 `specs/execution.md` 行为 4 同一规则、逐字一致）：行集题（明细行集类：问句要求明细／排名／列举全行集）全量交付为默认——引擎返回的全部数据行逐行交付、丢行＝0；非行集大结果超阈才落引用（窗口只留摘要＋稳定引用＋行数），截断与落引用必披露。阈值数值阶段 5 待定（随真机数据定），行为归属与披露义务即此定死：行集题不得因落引用而丢行。真源：`tickets/v2/V2-61-材料承载分形渲染.md`（:5——24 支一刀切截断废除、改分承载体渲染）。**2026-10-17 EB3 D2**：行集交付的**程序追加面**（分源块／归属块／引用清单）同走增补面——**块入增补面＝交付完成**，正文只留模型稿（数据行逐行交付的义务落在正文，判据面不变）。
-13. **占位符不进答案面**：答案面不得出现字面占位引标 `[n]`（确无可引序号时一个引用记号都不写）；含 `[n]` 字面的行不得以占位符形式交付。真源：`eval/results/Q16-判分报告-G3.md`（:56——数字在场而 cited=[] 的 D-诱15 形）；`tickets/v2/V2-69-坏引标修复.md`（占位符串台根因＋「禁止占位符 [n] 进答案」指令纪律）。
+13. **占位符与界外引标不进答案面**：答案面不得出现字面占位引标 `[n]`（确无可引序号时一个引用记号都不写）；含 `[n]` 字面的行不得以占位符形式交付。**2026-10-17 EB5b（剥除族第二形）**：**界外引标号**（引标号不存在于观察序列）同族整枚剥除——`strip_dangling_citations` 在**分段之前**离场（正文其余字面零改），剥除序号列落起草步 payload `dangling_citation_seqs`（不静默）；**不判失败、不收 `run_failed`**——剥后该行失去引标即由核验面按无据断言既有处置收口，材料照常带引标交付（`completed`）。**2026-10-17 EB5c（块剥除）**：模型自把**程序块**写进草稿者按**块头模式族**整段离场（判据与段剥离单点＝`transport.split_block_sections`，族与变体同族判据见 `specs/transport.md` 行为 17）——血缘族段原文入 `lineage` 增补面、其余剥除面块型（引用清单）段原文零留存（程序机械再生），**text 帧发出前**正文即已干净（收口剥除不再是唯一防线）。真源：`eval/results/Q16-判分报告-G3.md`（:56——数字在场而 cited=[] 的 D-诱15 形）；`tickets/v2/V2-69-坏引标修复.md`（占位符串台根因＋「禁止占位符 [n] 进答案」指令纪律）。
 14. **起草回声＝0**：草稿首行不得以「理解：」开头、草稿前 100 字不得含「指标候选」（`echo_flag` 恒 0——观测字段只记不拦）。真源：`docs/runtime-refactor/arch/P4b-票堆V2-56至65.md`（A-P4b-61——`echo_flag` 形态判据定义）；`eval/results/Q16-对账报告.md`（:61——echo_flag 全批 0，回声形态自 V2-62 后零再现）。
 15. **台账 no_hit 降级交付三段形**：台账 no_hit（agg 未落列 notice 在场）时的降级交付必须**三段齐**——①油田级邻近可得量**带引用**交付；②逐井明细**逐井「未找到」明示**；③**指路**（替代出路指引）；且**零逐井数值冒充**（无逐井数据不得以油田级值充当逐井值）。真源：`eval/results/Q16-判分报告-G1.md`（:39 数-降2 判语——「油田级 8.10 万吨邻近可得引用＋逐井明细未找到明示＋指路，零逐井数值——轴第 4 条满分形」）；`eval/README.md`（「判分轴统一登记」第 4 条——引擎降级解释＋如实标注＝✅ 满分，诚实转述也是正确交付，数-降1/数-降2 跷跷板就此封尺）。
 16. **排名型子问题强制消费排名观察支**：排名型子问题（问句求排名／排序序）的答案必须从**排名观察支**取值——交付的排名序对（对象↔名次／值）须与排名观察支的序信息一致，**不得弃排名支、以他支拼排名**（数-排2 形——帧证 obs[52]/[53] 曾弃即病形）。真源：`docs/runtime-refactor/arch/P4a2-票堆V2-51至55.md`（A-P4a2-04——「排名型子问题答案强制消费排名观察支（数-排2 形，帧证 obs[52]/[53] 曾弃）」）。
@@ -104,7 +104,7 @@ class Gap:
 |---|---|
 | 答案**一段段推**（多段 `text` 帧），非一次性推全量 | `tests/domains/test_v2_answering.py::streaming_segments` |
 | 每段自带 `citation_seqs`，且序号**真实存在于观察序列** | `tests/domains/test_v2_answering.py::segment_citations_resolve` |
-| 出现不存在的引标号 → 判失败（坏引标） | `tests/domains/test_v2_answering.py::dangling_citation_rejected` |
+| 出现不存在的引标号 → **剥除该记号**（坏引标；2026-10-17 EB5b 改判：不判失败、留痕 `dangling_citation_seqs`） | `tests/domains/test_v2_answering.py::dangling_citation_rejected` |
 | 每次模型调用都有 Manifest；大结果只以引用进窗口 | `tests/domains/test_v2_answering.py::manifest_and_ref_only` |
 | 被拒／缺失／未及核验 → 产出结构化 `Gap`（三档闭世界） | `tests/domains/test_v2_answering.py::structured_gaps_all_kinds` |
 | `Gap.kind` 越界取值 → 判失败 | `tests/domains/test_v2_answering.py::gap_kind_closed_world` |
@@ -123,6 +123,7 @@ class Gap:
 | 交付面分层：四类块不进正文（正文＝模型稿）＋条目按产出序入增补面（`block` 闭世界四值） | `tests/domains/test_v2_answering.py::supplements_carry_blocks_out_of_body` |
 | 程序侧无词表／正则语义判断（AST 扫描；豁免面＝形态处理／集合成员判定） | `tests/domains/test_v2_answering.py::no_lexicon_or_regex_in_answering` |
 | 流式、缺口、截断披露的机读信号在场（text／citation 帧＋material_truncated notice＋step payload；verdict 为消费方信号，批次落定归 orchestration） | `tests/domains/test_v2_answering.py::answering_signal_present` |
+| 起草面块剥除：模型自写程序块（`**引用**` 等族变体）段整段离场、text 帧发出前正文即已干净（2026-10-17 EB5c） | `tests/domains/test_v2_answering.py::supplements_carry_blocks_out_of_body`＋`tests/domains/test_v2_transport.py::eb5c_nq_m7_reference_variant_block_stripped` |
 | 【边界集】单段答案／零材料／矛盾双源／坏引标 → 各自落到对应分支 | `tests/domains/test_v2_answering.py::boundary_single_seg_zero_material_conflict_bad_cite` |
 | 【保留集】无矛盾、无缺口的普通答案：引标与分源行为不变 | `tests/domains/test_v2_answering.py::retention_plain_answer_unchanged` |
 

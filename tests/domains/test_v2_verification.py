@@ -80,6 +80,8 @@ from appv2.runtimev2.verification import (
     PAYLOAD_REWRITES_KEY,
     PAYLOAD_REWRITTEN_KEY,
     PAYLOAD_ROW_NOTE_KEY,
+    PAYLOAD_ROWSET_ALIGNED_KEY,
+    PAYLOAD_ROWSET_MISSING_KEY,
     PAYLOAD_SPLIT_KEY,
     PAYLOAD_SUPPORTED_KEY,
     PHASE,
@@ -535,6 +537,9 @@ async def test_row_reconciliation_bookkeeping() -> None:
     assert payload[PAYLOAD_OBS_ROWS_KEY] == 2
     assert payload[PAYLOAD_DELIVERED_ROWS_KEY] == 1
     assert payload[PAYLOAD_ROW_NOTE_KEY] is None
+    # 2026-10-17 EB5c 扩面：机读对账两面**恒在场**（与注记面的三态解耦）
+    assert payload[PAYLOAD_ROWSET_MISSING_KEY] == [2]
+    assert payload[PAYLOAD_ROWSET_ALIGNED_KEY] is True
 
     # ② 一行在窗数据行都没交付（答案面无行集声明）→ 补如实注记；不改写、不拦截
     answer = "检索片段记载日产油量 21.16 吨[3]。"
@@ -547,6 +552,55 @@ async def test_row_reconciliation_bookkeeping() -> None:
     assert silent.draft == answer
     note = _step_payload(silent)[PAYLOAD_ROW_NOTE_KEY]
     assert isinstance(note, str) and "2" in note and "0" in note
+    # 注记携两面（缺行序号列 ＋ 引标序对齐）——一条事实的注记面与机读面同源
+    assert "[1]、[2]" in note and "对齐" in note
+    silent_payload = _step_payload(silent)
+    assert silent_payload[PAYLOAD_ROWSET_MISSING_KEY] == [1, 2]
+    assert silent_payload[PAYLOAD_ROWSET_ALIGNED_KEY] is True
+
+
+async def test_rowset_audit_l0422_offset_caught() -> None:
+    """2026-10-17 EB5c｜L04-22 形行数对账：自述声明盖不住的两面——缺行 ＋ 引标 off-by-one。
+
+    真机病灶（`eval/results/frames/EB3G-L04-22.json`，run-0fb0b64b）：引擎 86 行齐在窗（无截断
+    披露），答案自述「以上共 86 口井已返回」却只渲染 84 行——第 24／46 号行未交付，且模型自编
+    行号整体错位一格（标签 25 引 `[24]`）。自述声明为真为假只能由对账事实判：故**机读对账两面
+    恒落账**（`rowset_missing`＝缺行序号列、`rowset_aligned`＝引标序对齐），注记面三态不变
+    （有声明→零注记），**正文逐字不变、不拦截、不产通知**（Owner 裁决②：对账只作诚实记账面）。
+    """
+    obs = [
+        _obs(index, "agg_row", content=f"井号=井{index}；日产油量（吨）=1.{index}")
+        for index in range(1, 8)
+    ]
+    # 引擎 7 行；答案交付第 1、2、4、5、6、7 号（缺第 3 号）且引标跳号——模型自编行号「3.」引 [4]
+    draft = "\n".join(
+        [
+            "以上共 7 口井已返回（自述声明在场）：",
+            "1. 井1 —— 1.1 [1]",
+            "2. 井2 —— 1.2 [2]",
+            "3. 井4 —— 1.4 [4]",
+            "4. 井5 —— 1.5 [5]",
+            "5. 井6 —— 1.6 [6]",
+            "6. 井7 —— 1.7 [7]",
+        ]
+    )
+    state = _state(question="去年日产油量排名前 7 的井是哪些？", draft=draft, observations=obs)
+    bus = EventBus()
+    verdict = verify(state, bus=bus)
+
+    assert (verdict.obs_rows, verdict.delivered_rows) == (7, 6)  # 差额 1 行
+    assert verdict.ok is True  # 不拦截（记账面）
+    assert state.draft == draft  # 正文逐字不变（不改写、不重试）
+    payload = _step_payload(state)
+    # 缺行逐号可复算（渲染行数≠引擎行数的面）
+    assert payload[PAYLOAD_ROWSET_MISSING_KEY] == [3]
+    # 引标序错位（跳号＝off-by-one：模型自编行号与引擎行号不一致）
+    assert payload[PAYLOAD_ROWSET_ALIGNED_KEY] is False
+    # 答案自述声明在场 → 注记面三态：零注记（附 D 钉；对账事实仍由机读两面落账）
+    assert payload[PAYLOAD_ROW_NOTE_KEY] is None
+    frames = await _frames(bus)
+    assert not _of(frames, EVENT_NOTICE)  # 不产通知（不降级为拦截面）
+    assert _of(frames, EVENT_VERDICT)
 
 
 # ---------- 本票自有面一：卡面签名与三形状齐 ----------

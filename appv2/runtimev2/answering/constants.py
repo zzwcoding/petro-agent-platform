@@ -14,6 +14,11 @@
 """
 
 from appv2.runtimev2.state import STEP_ANSWER
+from appv2.runtimev2.transport import (
+    SUPPLEMENT_HEAD_MARK_ATTRIBUTION,
+    SUPPLEMENT_HEAD_MARK_CITATIONS,
+    SUPPLEMENT_HEAD_MARK_SPLIT,
+)
 
 # ── 模型调用归因（`bookkeeping.call_model` 的 `caller`）──────────────────────────
 # 真源＝`bookkeeping` 归因桶闭世界「understand／decision／answer」（`specs/gateway_adapter.md`
@@ -68,6 +73,9 @@ PAYLOAD_RANKING_ORDER_OK_KEY = "ranking_order_ok"
 PAYLOAD_PHASE_KEY = "phase"
 PAYLOAD_CITATIONS_KEY = "citations"
 PAYLOAD_GAPS_KEY = "gaps"
+# 坏引标剥除留痕（2026-10-17 EB5b）：起草段剥除的**界外引标序号列**（出现序去重）——机读面，
+# 判据＝`degradation.strip_dangling_citations`；无剥除＝空列表（键恒在场，对账面可复算）。
+PAYLOAD_DANGLING_SEQS_KEY = "dangling_citation_seqs"
 PAYLOAD_GAP_KIND_KEY = "kind"
 PAYLOAD_GAP_SUBTASK_KEY = "subtask_id"
 PAYLOAD_GAP_REASON_KEY = "reason"
@@ -88,7 +96,10 @@ DRAFT_KIND_DIRECT = "direct"
 # **两刀分类（2026-10-17 EB4b）**：引用块走增补面（`block="citations"`，`core._citation_block`），
 # 属**用户可见面**；本字面（「引用：」）已是白话、零行话词，EB4b 核实后零改（不是回喂面，
 # 是「无需改的白话面」——记录以免下一轮重复核查）。
-CITATION_BLOCK_HEAD = "\n\n引用：\n"
+# **文本单点（2026-10-17 EB5c）**：块头字面改**引块头模式族**（`transport` 的
+# `SUPPLEMENT_HEAD_MARK_*`——三块头与核验分列块头、血缘族同族一处定义），本行只做
+# 「`"\n\n"` 前缀 ＋ 换行」的行形装配；字面本身全仓唯一位于 `transport/constants.py`。
+CITATION_BLOCK_HEAD = "\n\n" + SUPPLEMENT_HEAD_MARK_CITATIONS + "\n"
 
 # ── 收口话术（本块自有文案——空白/缺失与披露面）───────────────────────────────
 # **两刀分类（2026-10-17 EB4b）**：四个 `*_REASON` 是**机读缺口面**——`Gap.reason` 只进答案面步
@@ -125,15 +136,17 @@ MATERIAL_TRUNCATED_CONTENT = (
 # 友好话术；判定面语义零改（仍逐支原文照抄、不调和）。**「互不一致」标保留**——`specs/answering.md`
 # 行为 6 的「标出『互不一致』」面（其验收测试 `::contradiction_split_not_merged` 同钉），
 # 判据话术与 `verification.SPLIT_BLOCK_HEAD` 同句（两相位 R1 禁互引，故按字面同句落此——
-# 本常量＝本相位唯一落点，块头禁再出现第二处字面）。
-CONTRADICTION_SECTION_HEAD = "\n\n互不一致——各来源说法如下，按来源分别列出："
+# 本常量＝本相位唯一落点，块头禁再出现第二处字面）。**2026-10-17 EB5c 收正**：两相位的分源块头
+# 同句现已**同为块头模式族成员**（`transport.SUPPLEMENT_HEAD_MARK_SPLIT`／`..._SPLIT_VERIFY`
+# ——「同一句字面全仓一处」由此成立，本行只做 `"\n\n"` 前缀装配）。
+CONTRADICTION_SECTION_HEAD = "\n\n" + SUPPLEMENT_HEAD_MARK_SPLIT
 CONTRADICTION_LINE = "[{seq}] {source} · {source_id}：{content}"
 # 分源列明归属块（行为 17：逐源归属配对——来源名↔数值／结论配对；「某区块」含糊形不得由本块产出）。
 # 2026-10-17 EB4b（段头去工程腔续 EB2 D3）：旧「分源列明（逐源归属——来源名↔数值／结论配对）：」
 # ——「分源列明」「逐源归属」是内部工序说法，业务用户读不到；判定面语义零改（仍逐支原文照抄、
 # 仍逐源配对，配对判据在 `degradation.source_section`，零改）。增补面属**交付面**（评分面＝
 # 正文＋增补面合并判——Owner 2026-10-17 裁决），故与正文同列**用户可见面**。
-SOURCE_SECTION_HEAD = "\n\n按来源分别列出（每条结论都标出它来自哪个来源）："
+SOURCE_SECTION_HEAD = "\n\n" + SUPPLEMENT_HEAD_MARK_ATTRIBUTION
 SOURCE_LINE = "[{seq}] {source}：{content}"
 # 引擎注记段（行为 15 的「不静默」面：台账 no_hit 等引擎注记在 `context.render_materials` 里
 # 整体排除（`specs/context.md` 行为 2），故本块另以其原文送入窗口——「不得静默丢弃」）。

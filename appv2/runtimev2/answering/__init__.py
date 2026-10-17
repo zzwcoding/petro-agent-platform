@@ -11,7 +11,8 @@
 - 五形状（规格接口定义节 :37–:60 逐字）：`AnswerDraft`／`AnswerSegment`／`Citation`／`Gap`
   （形状单点在 `models`）＋缺口三档闭世界常量 `GAP_KINDS`（`GAP_REFUSED`／`GAP_MISSING`／
   `GAP_UNVERIFIED`）；
-- 判失败单点：`DanglingCitationError`（坏引标——引标号不存在于观察序列）；
+- 坏引标剥除单点（2026-10-17 EB5b）：`strip_dangling_citations`（界外引标号整枚离场——同
+  `strip_placeholders` 一族；**不判失败**，该行失去引标即由 `verification` 按无据断言处置）；
 - 发射剥离单点：`strip_emission_fences`（钉 `pin-04`，P0；`specs/parsing.md` :24 的答案面归属）＋
   发射动作闭世界 `EMISSION_ACTIONS`；
 - 降级与引用簇单点（`RT-W4-06b`）：`degradation` 模块（行为 6／12／13／14／15／16／17 的形态层
@@ -50,6 +51,7 @@ from appv2.runtimev2.answering.constants import (
     NOTICE_EMISSION_STRIP,
     NOTICE_MATERIAL_TRUNCATED,
     PAYLOAD_CONTRADICTION_SEQS_KEY,
+    PAYLOAD_DANGLING_SEQS_KEY,
     PAYLOAD_DELIVERED_ROWS_KEY,
     PAYLOAD_ECHO_FLAG_KEY,
     PAYLOAD_ENGINE_NOTES_KEY,
@@ -59,8 +61,12 @@ from appv2.runtimev2.answering.constants import (
     ROWSET_OBSERVATION_KINDS,
     SOURCE_SECTION_HEAD,
 )
-from appv2.runtimev2.answering.core import DanglingCitationError, answer
-from appv2.runtimev2.answering.degradation import echo_flag, strip_placeholders
+from appv2.runtimev2.answering.core import answer
+from appv2.runtimev2.answering.degradation import (
+    echo_flag,
+    strip_dangling_citations,
+    strip_placeholders,
+)
 from appv2.runtimev2.answering.emission import strip_emission_fences
 from appv2.runtimev2.answering.models import (
     GAP_KINDS,
@@ -91,6 +97,7 @@ __all__ = [
     "NOTICE_EMISSION_STRIP",
     "NOTICE_MATERIAL_TRUNCATED",
     "PAYLOAD_CONTRADICTION_SEQS_KEY",
+    "PAYLOAD_DANGLING_SEQS_KEY",
     "PAYLOAD_DELIVERED_ROWS_KEY",
     "PAYLOAD_ECHO_FLAG_KEY",
     "PAYLOAD_ENGINE_NOTES_KEY",
@@ -102,10 +109,10 @@ __all__ = [
     "AnswerDraft",
     "AnswerSegment",
     "Citation",
-    "DanglingCitationError",
     "Gap",
     "answer",
     "echo_flag",
+    "strip_dangling_citations",
     "strip_emission_fences",
     "strip_placeholders",
 ]

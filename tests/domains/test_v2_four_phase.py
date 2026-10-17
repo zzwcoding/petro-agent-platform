@@ -1948,7 +1948,8 @@ async def test_boundary_suspend_interrupt_budget_rewire_bad_cite() -> None:
     3. **预算触界**——轮预算到顶 → 收敛交付（`budget_converged` notice ＋ 终态 `completed`）；
     4. **换链回炉**——在册未绑定 agg 触发换链闸 → 回炉①澄清（`chain_switch_reentry` notice、
        数据链零执行、知识链真执行）；
-    5. **坏引标**——草稿引标越界（坏引标）→ 作答相位判失败，由本块 fail-closed 收束为 `failed`。
+    5. **坏引标**——草稿引标越界（坏引标）→ 作答相位**剥除该记号**（2026-10-17 EB5b 改判：
+       不判失败），材料照常带引标交付 → 终态 `completed`、无 `run_failed`。
     """
     from appv2.infra.clock import freeze
     from appv2.query import ASKBACK_TIME_CHOICES, ASKBACK_TIME_QUESTION, QueryOutcome
@@ -2071,7 +2072,7 @@ async def test_boundary_suspend_interrupt_budget_rewire_bad_cite() -> None:
     assert data_engine.run_calls == 0  # 数据链零执行（不直答不执行）
     assert retrieval.retrieve_calls == 1  # 换知识链真执行
 
-    # ——5 坏引标：草稿引标越界 → 作答相位判失败 → fail-closed failed ——
+    # ——5 坏引标：草稿引标越界 → 剥除后带材料直答 → completed（2026-10-17 EB5b 改判） ——
     dump_cite = v2_ledger_dump()
     cite_note = v2_ledger_note(dump_cite, "日产油量")
     wire_ledger_projection(V2LedgerPort(dump_cite))
@@ -2091,11 +2092,27 @@ async def test_boundary_suspend_interrupt_budget_rewire_bad_cite() -> None:
         )
         cite_events = await v2_run(runtime_c, "坏引标题")
     assert cite_events[-1].event == "blackbox"
-    assert cite_events[-1].data["status"] == "failed"
+    assert cite_events[-1].data["status"] == "completed"
     cite_row = V2RunStore().run(cite_events[-1].data["run_id"])
-    assert cite_row is not None and cite_row.status == "failed"
-    assert "引标" in (cite_row.error or "")  # 坏引标如实留痕
-    assert not (cite_row.answer or ""), "非法降级：坏引标不得产出半成品答案"
+    assert cite_row is not None and cite_row.status == "completed"
+    assert cite_row.error is None
+    cite_run_id = cite_events[-1].data["run_id"]
+    # 界外记号离场（正文其余字面零改）、留痕在起草步 payload——不判失败、不 run_failed
+    assert "[9]" not in (cite_row.answer or "")
+    cite_steps = v2_steps(cite_run_id, "draft")
+    assert cite_steps and cite_steps[0].payload["dangling_citation_seqs"] == [9]
+    # 剥除后该行失去引标 → 按核验面**既有处置**收口（无据断言删句＋`unsupported_claim` 留痕）：
+    # 本形唯一断言即坏引标行 → 删句后空稿不推（行为 9），如实缺口收口、终态 completed
+    assert any(
+        event.data.get("type") == "unsupported_claim"
+        for event in cite_events
+        if event.event == "notice"
+    )
+    assert not any(
+        event.data.get("type") == "run_failed"
+        for event in cite_events
+        if event.event == "notice"
+    )
 
 
 async def test_retention_plain_four_phase_unchanged() -> None:

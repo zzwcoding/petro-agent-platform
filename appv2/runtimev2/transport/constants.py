@@ -1,4 +1,4 @@
-"""transport 的五个闭世界常量族（取值真源逐族标注——见各族注记）。
+"""transport 的七个闭世界常量族（取值真源逐族标注——见各族注记）。
 
 真源＝`specs/transport.md` 接口定义节「闭世界常量族」段（签名以 `specs/modules.md`
 `## transport` 卡为准）。本模块只落取值、不落行为：同一族在别处再建第二份＝缺陷
@@ -6,7 +6,9 @@
 
 **EB4b 白话化核实（2026-10-17）**：本模块**零用户可见文案**——全部取值为帧名／块型／通知类型／
 信封取值（闭世界符号），上屏文本一律落在发射方各相位的 `constants.py`（本模块只保帧形与闭世界）。
-故 EB4b 对 transport **零改**（记录以免下一轮重复核查）。
+故 EB4b 对 transport **零改**（记录以免下一轮重复核查）。**2026-10-17 EB5c 补注**：块头模式族
+（末族）的字面同样是**匹配模式**（程序自产块头的文本面，上屏文本仍归发射方相位）——本模块
+不新增上屏文案，EB4b 核实结论不变。
 """
 
 # ── runtime 十类事件名（取值真源 `synth/S6-事件与帧目录.md` §一；九类口径真源
@@ -109,3 +111,59 @@ VERDICT_SUBTYPES: frozenset[str] = frozenset({_VERDICT_VERIFY, _VERDICT_FINAL})
 # ── ask 帧 kind 二值（行为 8；`AskReason.kind` → 本闭世界的映射表在
 # `specs/preconditions.md` 接口定义）─────────────────────────────────────────
 ASK_FRAME_KINDS: frozenset[str] = frozenset({"clarify", "external_table_approval"})
+
+# ── 块头模式族（2026-10-17 EB5c；真源＝`specs/transport.md` 行为 17）──────────────
+# 四类增补面块（`SUPPLEMENT_BLOCKS`）在**正文文本**里的块头形态族——块剥除（answering 起草面
+# 与 verification 剥除拍）与「同族块头在场」判据（answering 收口幂等）**共用本族单点**：
+# 两相位互不 import（R1），故单点落本块（块型闭世界的**文本面**随块型闭世界落同一处）。
+#
+# **加粗变体子集**：块头行经「装饰归一」（去 markdown 强调／标题记号与首尾空白，见
+# `SUPPLEMENT_HEAD_DECORATIONS`）后与族中记号同形——`**引用**`／`**互不一致**` 等变体**不另
+# 立字面**（同一记号即同一族；真机帧证据 `eval/results/frames/EB3-NQ-M7.json` 的 text 帧）。
+# **判据两条**（`blocks.block_head_kind`）：引用／分源／归属三族取「归一后整行**恰为**记号」
+# （防正文散文误伤——「引用《月报》的数据…」不作块头条）；血缘族取「行内**含**记号」
+# （2026-10-17 EB3 D2 逐字判据——五要素段可在段内整段内嵌）。
+#
+# 取值真源＝两相位现行块头字面（`answering.constants` 的引用块／分源块／归属块头与
+# `verification.constants` 的核验分列块头／血缘五要素合同键）——**相位侧改为引本族名字**
+# （文本单点：同一句字面全仓只在编译面出现一次）。占位形块头（`verification.ATTRIBUTION_BLOCK_HEAD`
+# 携「题眼」占位符）**不入族**（占位符不可静态匹配——登记于行为 17）。
+SUPPLEMENT_HEAD_MARK_CITATIONS = "引用："          # 程序引用块头（`CITATION_BLOCK_HEAD` 的行形）
+SUPPLEMENT_HEAD_MARK_CITATIONS_BARE = "引用"       # 模型变体（`**引用**` 归一后形——NQ-M7 帧形）
+SUPPLEMENT_HEAD_MARK_SPLIT = "互不一致——各来源说法如下，按来源分别列出："   # answering 分源块头
+SUPPLEMENT_HEAD_MARK_SPLIT_VERIFY = "各来源说法如下，按来源分别列出："      # verification 分列块头
+SUPPLEMENT_HEAD_MARK_ATTRIBUTION = "按来源分别列出（每条结论都标出它来自哪个来源）："
+SUPPLEMENT_HEAD_MARK_LINEAGE_SOURCE = "② 来源表"    # 血缘要素键（行内判据）
+SUPPLEMENT_HEAD_MARK_LINEAGE_CLOSING = "⑤ 收口注记"  # 血缘要素键（行内判据）
+
+# 块型 → 块头记号族（块型取值＝`SUPPLEMENT_BLOCKS` 成员；血缘族两记号＝要素键）。
+SUPPLEMENT_BLOCK_HEAD_MARKS: dict[str, tuple[str, ...]] = {
+    SUPPLEMENT_BLOCK_SPLIT: (
+        SUPPLEMENT_HEAD_MARK_SPLIT,
+        SUPPLEMENT_HEAD_MARK_SPLIT_VERIFY,
+    ),
+    SUPPLEMENT_BLOCK_ATTRIBUTION: (SUPPLEMENT_HEAD_MARK_ATTRIBUTION,),
+    SUPPLEMENT_BLOCK_CITATIONS: (
+        SUPPLEMENT_HEAD_MARK_CITATIONS,
+        SUPPLEMENT_HEAD_MARK_CITATIONS_BARE,
+    ),
+    SUPPLEMENT_BLOCK_LINEAGE: (
+        SUPPLEMENT_HEAD_MARK_LINEAGE_SOURCE,
+        SUPPLEMENT_HEAD_MARK_LINEAGE_CLOSING,
+    ),
+}
+# 血缘族子集（行内判据那一族——`blocks.split_block_sections` 的剥出段归属面）。
+SUPPLEMENT_LINEAGE_HEAD_MARKS: tuple[str, ...] = SUPPLEMENT_BLOCK_HEAD_MARKS[
+    SUPPLEMENT_BLOCK_LINEAGE
+]
+# **剥除面**子集（块剥除只对这两类动手）：两类的正文面都是**程序机械再生产物**——引用清单由
+# 被引集确定性生成（`answering._citation_block`）、血缘五要素随观察帧全量在场（`lineage` 增补面
+# 由执行面发射与核验面剥出两路承接），故正文里的同族段可整段离场且零信息损失；分源／归属两族
+# **不剥**（可能承载模型逐源作答正文——只作在场判据；2026-10-17 EB5c 判断）。
+SUPPLEMENT_STRIPPABLE_BLOCKS: frozenset[str] = frozenset(
+    {SUPPLEMENT_BLOCK_CITATIONS, SUPPLEMENT_BLOCK_LINEAGE}
+)
+# 块头行装饰记号（markdown 强调／标题记号——加粗变体的归一面；`str.strip` 参数字符集）。
+SUPPLEMENT_HEAD_DECORATIONS = "*#"
+# 血缘族口径说明例外上限（≤2 行且携 `[n]` 引标＝单行口径说明，保留正文——EB3 D2 逐字）。
+SUPPLEMENT_LINEAGE_KEEP_MAX_LINES = 2

@@ -39,7 +39,13 @@
 2. **行集对账注记的载体**（行为 11「补如实注记」）：注记落 **step payload 的 `row_note` 键**（行为
    11 是**记账面、非拦截阀门**——不改写答案面、不重试、不拦截）；「答案面无行集声明」的判据＝
    **`delivered_rows == 0`**（答案面一行在窗数据行都没交付＝无声明）；「在窗数据行数」的面＝
-   `state.observations` 中 `locator.kind ∈ ROWSET_OBSERVATION_KINDS` 的支数；
+   `state.observations` 中 `locator.kind ∈ ROWSET_OBSERVATION_KINDS` 的支数。
+   **2026-10-17 EB5c 扩面（机读两面恒在场）**：`rowset_missing`（缺行序号列——渲染行数≠引擎行
+   数的逐号可复算面）＋ `rowset_aligned`（引标序对齐——交付的引擎行号列是否恰为引擎行号序前
+   L 项；跳号／整体偏移＝off-by-one 错位）**与注记面三态解耦**：答案自述声明为真为假只能由对账
+   事实判（L04-22 实态＝自述「共 86 口井已返回」而交付 84 行、缺第 24／46 号且引标错位一格），
+   故两面**恒落账**；注记面（`row_note`，人读）三态不变（无声明→注记、有声明→零注记）。
+   判据单点＝`rules.rowset_audit`（纯计数零语义）；**不改写、不重试、不拦截**不变；
 3. **`Verdict.gaps` 的产出面**：改写>0 产一条聚合缺口、归属失败产一条缺口（均 `kind="unverified"`、
    `subtask_id=None`——核验侧无子问题归属面）；
 4. **行为 8 的判据落定**：断言行＝**有引标行**——引标须可解析（不得自动判过：引标越界即无据）；
@@ -49,9 +55,10 @@
    （窗 ISO 区间或披露标记四字面，且与材料披露行事实一致）与组头行（行尾「：」或后邻行带引标的
    数据表头）；
 5. **行为 1 的剥除面**：发射围栏／裸发射令牌的剥离单点归 `answering`（答案面归属；相位互不 import
-   ——R1），本包只做「整行即 JSON 对象／数组」的形态剥除（剥除不计改写）；**血缘五要素整段**
-   （特征 `② 来源表`／`⑤ 收口注记`）同样在剥除拍离场——整段入 `lineage` 增补面，单行口径说明
-   （≤2 行、带 `[n]` 引标）保留在正文（2026-10-17 EB3 D2）。
+   ——R1），本包只做「整行即 JSON 对象／数组」的形态剥除（剥除不计改写）；**块头模式族段**
+   （2026-10-17 EB3 D2 起血缘五要素整段、2026-10-17 EB5c 扩为族判据）同样在剥除拍离场——判据与
+   段剥离单点＝`transport.blocks`（血缘族段入 `lineage` 增补面、剥除面块型〔引用清单〕段离场；
+   单行口径说明（≤2 行、带 `[n]` 引标）保留在正文）。
 
 **合法降级路径＝无**：闭世界越界一律 fail-closed 抛错；核验器自身抛错**不判 `ok=True`**——转
 `Verdict.ok=False` ＋缺口（由 `orchestration` 承接），不静默放行。
@@ -63,6 +70,7 @@ from appv2.runtimev2.verification.constants import (
     EVENT_NOTICE,
     EVENT_VERDICT,
     GAP_UNVERIFIED,
+    LINEAGE_OBSERVATION_KIND,
     NOTICE_ATTRIBUTION_SPLIT,
     NOTICE_CONTRADICTION_SPLIT,
     NOTICE_UNSUPPORTED_CLAIM,
@@ -76,6 +84,8 @@ from appv2.runtimev2.verification.constants import (
     PAYLOAD_REWRITES_KEY,
     PAYLOAD_REWRITTEN_KEY,
     PAYLOAD_ROW_NOTE_KEY,
+    PAYLOAD_ROWSET_ALIGNED_KEY,
+    PAYLOAD_ROWSET_MISSING_KEY,
     PAYLOAD_SPLIT_KEY,
     PAYLOAD_SUPPORTED_KEY,
     PHASE,
@@ -105,6 +115,7 @@ __all__ = [
     "GAP_MISSING",
     "GAP_REFUSED",
     "GAP_UNVERIFIED",
+    "LINEAGE_OBSERVATION_KIND",
     "NOTICE_ATTRIBUTION_SPLIT",
     "NOTICE_CONTRADICTION_SPLIT",
     "NOTICE_UNSUPPORTED_CLAIM",
@@ -117,6 +128,8 @@ __all__ = [
     "PAYLOAD_PHASE_KEY",
     "PAYLOAD_REWRITES_KEY",
     "PAYLOAD_REWRITTEN_KEY",
+    "PAYLOAD_ROWSET_ALIGNED_KEY",
+    "PAYLOAD_ROWSET_MISSING_KEY",
     "PAYLOAD_ROW_NOTE_KEY",
     "PAYLOAD_SPLIT_KEY",
     "PAYLOAD_SUPPORTED_KEY",
