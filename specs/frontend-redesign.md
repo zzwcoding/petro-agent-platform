@@ -151,7 +151,7 @@ TurnShape {
 | 19 | mock/DEBT 清理：mockTurns/deriveEvents 删除或转固定夹具，债务短语零残留 | — | — | `tools/debt_markers.py` 全绿＋`web/src/landing/redesign/mockLeft.test.js::no_mock_left` |
 | 20 | 真机帧走查：eval/results/frames/ 抽样轮在真流页面人工核对（答案/抽屉/血缘/追加面）——机器面由真机帧夹具驱动全链路测试承载，Owner 目验记录另落 `docs/runtime-refactor/frontend-redesign-验证记录.md` | — | — | `web/src/landing/redesign/A1V2R.test.jsx` |
 | 21 | 交付闸：npm run test/build/lint 三绿＋341 基线不红——三绿由 CI 门禁承载，终检集成面钉 route 测试 | — | — | `web/src/landing/redesign/route.test.jsx` |
-| 22 | 框架红线：package.json 运行时依赖键集合与 FE 线开工前一致（一个不多） | — | — | 人审＋`npm run build`（FE-05 核对项） |
+| 22 | 框架红线：package.json 运行时依赖键集合与 FE 线开工前一致（一个不多）——依赖与样式两红线的人审核对记录见验证记录第 6 节 | — | — | `web/src/landing/redesign/mockLeft.test.js::no_mock_left` |
 | 23 | 框架红线：web/src 无新增样式文件（index.css 唯一既有例外） | — | — | `web/src/index.css`（唯一样式文件存在性，人审 FE-05 核对） |
 
 ## 依赖与风险
