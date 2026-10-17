@@ -1,7 +1,7 @@
 # 前端答案展示重设计 · 后端需求登记
 
-> 2026-10-17 · 前端独立施工窗口登记，主窗口（runtime 重写线）定期收取。
-> 纪律：只登记不代修；前端一律按现状数据面降级设计，不因缺字段阻塞。
+> 2026-10-17 · 归属变更（Owner 拍板）：**后端改动后续在本窗口自改**（不再走主窗收取）；P1-1 读口与 P1-3 定位面由本窗口后续开票施工。
+> 纪律：改动前后须过接口对账（见 `docs/runtime-refactor/frontend-redesign-接口对账.md`）；前端一律按现状数据面降级设计，不因缺字段阻塞。
 
 ## P1 · 影响展示形态（有 workaround，有则更优）
 
@@ -11,9 +11,7 @@
    - 现状：`GET /runs` 只有 `answer + supplements`；`GET /runs/{id}` 只有 `steps[].payload`（citations 只是序号数组、manifest 是整批材料数组，配不出 per-citation 的 source/source_id/trust/content）。刷新后看已完成对话时：正文✅、血缘/追加面文本✅（新 run）、**引用面板❌、notice 带❌、统计行❌**。
    - 前端 workaround：历史轮引用面板与 notice 带如实隐藏 + 灰字「历史记录无引用/提示明细」，统计行只出核验计数（verify 步 payload 有）。
    - 期望（Optional，按成本从低到高）：①新增 `GET /runs/{id}/blackbox`（直挂 `store.blackbox()`）；或 ②`RunView` 增加 `observations[]`（从 `store.load()` 投影）——任选其一即能让历史轮引用面板/notice 带复活。挂起态取数注意黑匣子尚未写（见上）。
-2. **无权威耗时字段**（blackbox/verdict/step 均无时间戳；`runtime.py:288-296` 的 `_elapsed_seconds` 只内部用、不出帧）
-   - 现状：「思考 N 秒」只能前端本地计时，重连/续推段会漏。
-   - 期望（Optional）：blackbox 帧或 verdict(final) 加 `duration_ms`（服务端计时）。
+2. ~~无权威耗时字段~~ **已砍**（2026-10-17 Owner 拍板「耗时不需要」）：折叠条时长维持前端本地计时＋标注，后端不加 `duration_ms`。登记防复活。
 3. **`citation.source_id` 无解析路径**（值形如 `f4`/`ensum-ec4b163075f1`）
    - 现状：Wekenora 式「点引标打开原文全文并定位高亮」做不了，只能定位到面板内切片卡。
    - 期望（Optional）：一个「source_id → 文档/切片详情」读口（哪怕只回切片原文+所在文档名），远期再谈位置锚点（source_locators 级）。
@@ -28,7 +26,7 @@
 
 ## P2 · 文案面（随 EB5/白话化批演进即可）
 
-4. **notice 29 型 content 面混杂**：部分型仍是工序腔（`unsupported_claim`/`chain_switch_reentry` 等）。前端计划按 type 做白话摘要模板 + 原文收起；若后端白话化全量覆盖，前端可退化为纯透传。需 Owner 裁决「前端硬编码映射表 vs 等后端覆盖」（见设计稿 §6-3）。
+4. **notice 29 型 content 面混杂**：部分型仍是工序腔（`unsupported_claim`/`chain_switch_reentry` 等）。Owner 已拍板「等后端」——前端纯透传＋C 级默认收起，不硬编码白话摘要（设计稿 §6-3 已决）；全量白话化归主窗 EB5 批演进。
 5. **supplement.lineage 块含工程腔**（`M-01 两步缝`/`actor=aqiang`/`D6 star_model`）：前端血缘卡先折叠兜底；长期希望补一版面向业务用户的白话五要素（或 payload 增补机读键）。
 
 ## P3 · 已确认非缺口（登记防误报）
