@@ -648,11 +648,41 @@ tools/run_replay／RunStore.get_blackbox 读库，取证面；**supplement＝202
 - Adapter: FastAPI TestClient
 - 测试计划: 端点契约/SSE 帧形/断线游标续传/错误码
 
+## web（2026-10-17 答案展示重设计补卡）
+
+职责: 问一问V2 答案展示页面——把 `api` 的 SSE 帧流与读回行归一成轮次形状并按串行链条版面展示（本仓 web/ 为 teach 原型快照，阶段开始时一次性同步——AGENTS.md 第 0 条）
+目录: `web/src/`
+
+### 公开接口
+无后端接口；只消费 `api` 模块 HTTP 面（边界规则已禁 appv2 内部直引）：
+```
+POST /api/v2/chat/asks                  → SSE（提问／resume_run_id 重连／追问三形态）
+POST /api/v2/chat/runs/{run_id}/resume  → 澄清/审批续答
+GET  /api/v2/chat/runs?limit=N          → 最近任务列表（limit 夹取 1..100，无 offset）
+GET  /api/v2/chat/runs/{run_id}         → run 状态＋steps（含 payload）＋pending_ask
+```
+前端内部接缝（本卡为唯一事实源）：
+- 帧归约层 `web/src/landing/a1v2Reducer.js`：SSE 帧 → 轮次形状；三场景归一＝live 与
+  replay 帧流归出同一形状，history 读回行经适配器归一（形状契约＝`specs/frontend-redesign.md` 接口契约节）
+- 展示组件 `web/src/landing/redesign/`：只吃归约后形状，**不直接认帧、不发请求**
+
+### 依赖
+- 模块: `api`（只走 /api/v2 HTTP）
+- 外部: antd@5／react@18／zustand@5／dayjs／marked（web/package.json 锁定；**禁新增运行时依赖**）
+
+### Seam 与测试
+- Seam: 归约纯函数（帧序列 → 轮次形状）＋ UI 组件 props
+- Adapter: 真机帧序列转录（`eval/results/frames/`）作 reducer 输入；组件测试零 fetch（jsdom 无 scrollIntoView 用 `?.` 兜底——现仓惯例）
+- 测试计划: reducer 钉帧形状（逐帧 upsert/三态/空态）；事件流钉到达序；组件钉展示位与降级；三场景一致性钉归一形状
+
 ## 页面映射
 
 | 页面 | 数据需求 | 提供接口(模块) |
 |---|---|---|
-| A1 问一问 | 提问→SSE 事件流（loop 步视图＋答案＋引用） | `api` POST /api/v2/chat/asks |
+| A1V2 问一问V2 | 提问→SSE 事件流（13 帧全消费：答案/流水线/引用/血缘/追加面） | `api` POST /api/v2/chat/asks |
+| A1V2 问一问V2 | 进行中刷新重连重放（resume_run_id＋Last-Event-ID） | `api` POST /api/v2/chat/asks（resume 形） |
+| A1V2 问一问V2 | 澄清/审批选择后续答 | `api` POST /api/v2/chat/runs/{run_id}/resume |
+| A1V2 问一问V2 | 历史对话列表（limit 步进 20→100）＋选中 run 步详情回看 | `api` GET /api/v2/chat/runs · GET /api/v2/chat/runs/{run_id} |
 | A1 问一问 | 澄清/审批选择后续跑 | `api` POST /api/v2/chat/runs/{run_id}/resume |
 | A1 问一问 | run 历史/步详情回看 | `api` GET /api/v2/chat/runs/{run_id} |
 | B 系管理面 | （无变化——继续走 V1 端点） | — |
