@@ -10,7 +10,7 @@
 1. **历史回读无 citations/materials 配对 + 无 notice 带 + 无 blackbox 统计行**（`appv2/api/chat.py:142-160,333-369`）
    - 现状：`GET /runs` 只有 `answer + supplements`；`GET /runs/{id}` 只有 `steps[].payload`（citations 只是序号数组、manifest 是整批材料数组，配不出 per-citation 的 source/source_id/trust/content）。刷新后看已完成对话时：正文✅、血缘/追加面文本✅（新 run）、**引用面板❌、notice 带❌、统计行❌**。
    - 前端 workaround：历史轮引用面板与 notice 带如实隐藏 + 灰字「历史记录无引用/提示明细」，统计行只出核验计数（verify 步 payload 有）。
-   - 期望（Optional，按成本从低到高）：①新增 `GET /runs/{id}/blackbox`（直挂 `store.blackbox()`）；或 ②`RunView` 增加 `observations[]`（从 `store.load()` 投影）——任选其一即能让历史轮引用面板/notice 带复活。挂起态取数注意黑匣子尚未写（见上）。
+   - 期望（本窗口后续施工——Owner 2026-10-17 拍板后端改动归本窗口；目标契约对账 D-4）：**读口区分旧行与无块新轮**——空列如实出 `[]`、`null` 仅旧行（`chat.py:218` 的 `[...] or None` 改为按列存在性判），或 `RunListItem` 加机读位。误标实证：真机 `eval/results/frames/EB3-NQ-C3.json`（completed／0 observation／无 supplement 帧的新 run）现状会被误标 legacy=true。施工排序：后端修复票（BE-01）须收在 FE-04 真接之前；前端 FE-02 按目标契约实现（null→legacy），不等待。挂起态取数注意黑匣子尚未写（见上）。
 2. ~~无权威耗时字段~~ **已砍**（2026-10-17 Owner 拍板「耗时不需要」）：折叠条时长维持前端本地计时＋标注，后端不加 `duration_ms`。登记防复活。
 3. **`citation.source_id` 无解析路径**（值形如 `f4`/`ensum-ec4b163075f1`）
    - 现状：Wekenora 式「点引标打开原文全文并定位高亮」做不了，只能定位到面板内切片卡。

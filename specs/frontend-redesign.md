@@ -45,18 +45,28 @@ TurnShape {
   notices:     { type: string（29 值闭世界——真源 transport/constants.py，此处不复述）,
                gates: string[], content: string }[]
   citations:   { index: int, source: string, source_id: string, trust: string }[]
+  errorFrame:  { code: string, message: string } | null   // error 帧载荷原样；无则 null
+                                                          //（对账 D-2：闭环错误契约的安放位）
   understanding: string          // text 帧 kind='understanding' 拼接
   answerText:  string            // 其余 text 帧拼接（纯模型回复 Markdown）
-  events:      { type: string, ... }[]   // 按帧到达序追加的 typed 事件流——展示组件不自行排序
-  verdicts:    object[]          // verify 形（帧原样）
+  events:      // 按帧到达序追加的 typed 事件流——展示组件不自行排序。
+               // 元素形状（对账 D-3 落定）：{ type: 'understanding'|'step'|'tool'|
+               //   'materials'|'notice'|'verify'|'citation', ...payload }，
+               // payload 键集＝phase/step/tool/status/count/cite/verdict/notice/text，
+               // 消费真源＝web/src/landing/redesign/ExecutionPipeline.jsx
+  verdicts:    object[]          // verify 形（帧原样）——verdict 帧按 subtype 分区
+                                // （verify→verdicts；final→verdictFinal。对账 D-6）
   verdictFinal: object | null    // final 形
   blackbox:    object | null     // 收口帧载荷原样；挂起腿/收口前 = null
   askFrame:    object | null     // { kind, prompt, options, detail }；在场即挂起
   runStatus:   'running' | 'waiting_ask' | 'completed' | 'failed'
   closed:      'done' | 'error' | 'transport' | null
   supplements: { split?: string, attribution?: string, citations?: string, lineage?: string }
-               // supplement 帧按 block 分槽存 text（strip 后原文）；无该块 = 键缺席
-  legacy:      boolean           // history 降级形标记（见行为约定 H4）
+               // supplement 帧按 block 分槽存 text（strip 后原文）；无该块＝键缺席
+               // 血缘两源（对账 D-5 落定）：结构化源＝materials[].payload.lineage（优先）；
+               // 文本兜底源＝supplements.lineage
+  legacy:      boolean           // history 降级形标记：supplements===null→true（仅旧行——
+               // 目标契约：后端空列如实出 []、null 仅旧行；对账 D-4，后端修复票排 FE-04 前）
 }
 ```
 
