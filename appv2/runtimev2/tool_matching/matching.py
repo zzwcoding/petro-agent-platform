@@ -7,7 +7,8 @@
 一次 `match` 的固定序（与 V1 节点同构，承载位换、语义不变）：
 
 1. **取问题组**（`state.question_group`——上游澄清相位产物）：缺组＝上游契约违例 → fail-closed 抛错
-   （不猜、不静默跳过）；逐支 id 只作闭合世界比对面，`parse_tool_match` 只用 id；
+   （不猜、不静默跳过）；逐支 id 只作闭合世界比对面，`parse_tool_match` 只用 id。**让位形先于本步**
+   （`budget_hit` 非空 → 零依赖直返让位形——行为 9）；
 2. **装配本轮指令**（文本单点在 `prompts`）：首入＝`assemble_decision_package`（相位包），
    回炉＝`assemble_decision_increment`（拒因回喂行＋已做段）；经唯一写口 `append_message`
    **链尾追加**（pin-22：只追加、不改写、相邻调用互为前缀延伸），首入并 `append_contract`
@@ -33,9 +34,17 @@
 `inject_retrieval_anchors` 即该公开面一件：锚解析单点在 `appv2/tools/anchors.py`，本块不自立
 第二套词面／正则）。
 
-**行为 9（熔断暂不加）**：拒因回喂自环靠**轮数闸**兜底——本块**不计数、不判轮、不写字面限额**；
-限额数值只引**真源双指** `docs/runtime-refactor/recon/K-上下文事件指南预算.md` R-K-72…R-K-78
-＋`docs/runtime-refactor/walk/裁决表.md` §06-A（判定与计数归 `state`／`orchestration`）。
+**行为 9（同形拒因熔断；2026-10-17 EB3 D4.3 改判——原「熔断暂不加」退役）**：拒因回喂自环
+**不再只靠轮数闸**——自环（`NODE_TOOLMATCH → NODE_TOOLMATCH`）不经澄清入口，轮数闸在该路上到不了
+（真机 `eval/results/frames/EB2-D-诱9.json`：同形拒因连发 → 撞框架递归上限 35 → `run_failed`
+零交付）。本块自持**同形拒因熔断**：每次拒因**占一轮**（照澄清相位占轮纪律）＋拒因回喂
+`state.decision_error`（增量条渲染面）＋同形拒因（`kind`＋逐字拒文）既有次数 ≥ 熔断参数
+（`constants.RETRY_CAP_SAME_REJECTION`——本块自有、非轮预算）时 **触界收敛**（显式把 `state.rounds`
+顶到 `Budget.rounds` → `bookkeeping.converge` 落
+`budget_converged` 注记＋已获材料直答＋`status=completed`）；收敛后的下一次入口返**收敛让位形**
+（零模型调用）。**限额数值**仍只引**真源双指** `docs/runtime-refactor/recon/K-上下文事件指南预算.md`
+R-K-72…R-K-78 ＋`docs/runtime-refactor/walk/裁决表.md` §06-A（轮上限值归 `state.Budget`；本块只含
+**同形重试次数上限** `RETRY_CAP_SAME_REJECTION`——自有的熔断参数，非轮预算）。
 """
 
 from __future__ import annotations
@@ -47,6 +56,8 @@ from appv2.runtimev2.bookkeeping import (
     append_contract,
     append_message,
     call_model,
+    converge,
+    note,
     notice,
     record_step,
 )
@@ -61,12 +72,15 @@ from appv2.runtimev2.persistence import STEP_STATUS_FAILED
 from appv2.runtimev2.prompts import assemble_decision_increment, assemble_decision_package
 from appv2.runtimev2.state import STEP_DECISION, RunState
 from appv2.runtimev2.tool_matching.constants import (
+    CONTENT_FUSE_CONVERGED_TEMPLATE,
     DATA_CHAIN,
     DIRECTIONS,
     KIND_ENUM_OUT_OF_RANGE,
     KIND_MISSING_REQUIRED,
     MENTION_MODES,
     MODEL_CALLER,
+    NOTE_DIGEST_FUSE_CONVERGED_TEMPLATE,
+    NOTE_TITLE_FUSE_CONVERGED,
     NOTICE_DECISION_REJECTED,
     PAYLOAD_KIND_KEY,
     PAYLOAD_PHASE_KEY,
@@ -74,8 +88,10 @@ from appv2.runtimev2.tool_matching.constants import (
     PAYLOAD_REJECTION_KEY,
     PHASE,
     REJECTION_KIND_BY_MARK,
+    RETRY_CAP_SAME_REJECTION,
     ROLE_ASSISTANT,
     ROLE_USER,
+    TITLE_FUSE_CONVERGED_TEMPLATE,
 )
 from appv2.runtimev2.tool_matching.models import (
     MatchReason,
@@ -91,7 +107,9 @@ def match(
 ) -> ToolPlan | ToolMatchRejection:
     """工具匹配相位单入口（签名真源＝卡 `## tool_matching`）。
 
-    返回**两态互斥**：`ToolPlan`（恰配一条全部合格）｜`ToolMatchRejection`（结构化拒因，非终局）。
+    返回**三形互斥**：`ToolPlan`（恰配一条全部合格）｜`ToolPlan(matches=[], converged=True)`
+    （**收敛让位形**：本 run 已触界收敛 → 零模型调用、零定案，交下游既有「无支可执行 → 作答收口」
+    路由落答——行为 9，2026-10-17 EB3 D4.3 补）｜`ToolMatchRejection`（结构化拒因，非终局）。
     无半成品、无「疑似」形；上游缺组等契约违例＝抛错（fail-closed），不返回哨兵。
 
     `guide_text`＝§A 指南段**文本注入参**（流水 63——additive 注入，编排面按启动快照注入全文；
@@ -102,6 +120,12 @@ def match(
     函数本体行为）：判定归 `orchestration`（同一 run 只注一次，挂澄清轮首入包——本相位是同一 run
     的第二次决策装配，故编排面通常下传 `False`），本块只下传、不自行判定。
     """
+    if state.budget_hit:
+        # 已触界收敛（本相位熔断／他处触界）→ **让位收口**：零模型调用、零定案（行为 9 让位形）。
+        # 本支是「熔断后回喂自环的下一跳」的出口——不再呼模型，交下游既有「无支可执行 → 作答
+        # 收口」路由落答（材料直答已由 `bookkeeping.converge` 落 `draft`）。**本支先于取问题组**：
+        # 让位形不消费任何上游产物（零依赖），故上游缺组也不影响收口。
+        return ToolPlan(matches=[], converged=True)
     group = _question_group_of(state)
     _append_round_instruction(
         state, guide_text=guide_text, shared_context=shared_context
@@ -352,8 +376,20 @@ def _is_ascii_identifier_form(value: str) -> bool:
 
 
 def _reject(state: RunState, rejection: ToolMatchRejection) -> ToolMatchRejection:
-    """失败落地机读信号后原样返回拒因（非终局——回喂重配归 `orchestration`）。"""
+    """失败落地机读信号后原样返回拒因（非终局——回喂重配归 `orchestration`）。
+
+    **三步**（2026-10-17 EB3 D4.3 补·同形熔断）：①**占轮**——每次拒因回炉占一轮（照澄清相位
+    `_record_rejection` 的占轮纪律，轮数闸在回炉路径上保有兜底力）；②**拒因回喂**——逐字拒文落
+    `state.decision_error`（增量条④「上次发射被拒」行的渲染面；真源＝本相位拒因，非空才渲染）；
+    ③**同形熔断**——该**同形拒因**（`kind` ＋ 逐字拒文）既有次数 ≥ `RETRY_CAP_SAME_REJECTION`
+    → **触界收敛**（`state.rounds` 顶到轮上限 → `bookkeeping.converge` 落 `budget_converged`
+    注记 ＋ 已获材料直答 ＋ `status=completed`）：本相位不再回喂重试；下一次入口见 `budget_hit`
+    即返收敛让位形（零模型调用）。
+    """
     for reason in rejection.reasons:
+        streak = _same_shape_streak(state, reason)
+        state.rounds = int(state.rounds) + 1  # ① 占轮（拒因回炉照耗轮）
+        state.decision_error = reason.reason  # ② 拒因回喂（增量条渲染面）
         record_step(
             state,
             kind=STEP_DECISION,
@@ -372,4 +408,67 @@ def _reject(state: RunState, rejection: ToolMatchRejection) -> ToolMatchRejectio
             type=NOTICE_DECISION_REJECTED,
             content=f"工具匹配发射被拒（{reason.kind}）：{reason.reason}——修正后重新输出 JSON。",
         )
+        if streak >= RETRY_CAP_SAME_REJECTION:
+            _converge_on_cap(state, reason, count=streak + 1)
     return rejection
+
+
+def _same_shape_streak(state: RunState, reason: MatchReason) -> int:
+    """该**同形拒因**的既有次数（只读本块步记录——判定键与 `record_step` 落账字段同源）。
+
+    同形＝`kind` ＋ **逐字拒文**相等（拒文里带模型坏点片段 ⇒ 内容变即不同形——即设计逐字
+    「同一 malformed 内容」的机读承载面；只读本块步记录，**不新增状态字段**——手法同
+    `execution._rejection_streak`）。
+    """
+    count = 0
+    for entry in state.steps:
+        payload = entry.get("payload") if isinstance(entry, Mapping) else None
+        if not isinstance(payload, Mapping):
+            continue
+        recorded = payload.get(PAYLOAD_REJECTION_KEY)
+        if not isinstance(recorded, Mapping):
+            continue
+        if (
+            recorded.get(PAYLOAD_KIND_KEY) == reason.kind
+            and recorded.get(PAYLOAD_REASON_KEY) == reason.reason
+        ):
+            count += 1
+    return count
+
+
+def _converge_on_cap(state: RunState, reason: MatchReason, *, count: int) -> None:
+    """同形拒因超限 → **触界收敛**（fail-closed，不 run_failed）：显式触界 ＋ 收敛落地 ＋ 熔断留痕。
+
+    显式触界（`state.rounds` 顶到 `Budget.rounds`）＝**补齐轮数闸在该自环上的既有缺口**（自环不经
+    澄清入口，轮跑到不了闸）——使 `state.check_limits` 的 rounds 键必命中，`converge` 才有落地
+    （其幂等护栏自带：已收敛再调无操作）。落地面＝`budget_converged` 注记 ＋ 材料直答 ＋
+    `draft_kind="direct"` ＋ `next_intent="answer"` ＋ `status=completed`（六键全归簿记写口）。
+    """
+    state.rounds = max(int(state.rounds), int(state.budget.rounds))
+    converge(state)
+    record_step(
+        state,
+        kind=STEP_DECISION,
+        title=TITLE_FUSE_CONVERGED_TEMPLATE.format(count=count),
+        status=STEP_STATUS_FAILED,
+        payload={
+            PAYLOAD_PHASE_KEY: PHASE,
+            PAYLOAD_REJECTION_KEY: {
+                PAYLOAD_KIND_KEY: reason.kind,
+                PAYLOAD_REASON_KEY: reason.reason,
+            },
+        },
+    )
+    notice(
+        state,
+        type=NOTICE_DECISION_REJECTED,
+        content=CONTENT_FUSE_CONVERGED_TEMPLATE.format(count=count),
+    )
+    note(
+        state,
+        phase=PHASE,
+        title=NOTE_TITLE_FUSE_CONVERGED,
+        digest=NOTE_DIGEST_FUSE_CONVERGED_TEMPLATE.format(
+            kind=reason.kind, count=count, reason=reason.reason
+        ),
+    )

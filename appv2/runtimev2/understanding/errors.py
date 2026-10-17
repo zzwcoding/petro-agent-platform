@@ -1,13 +1,14 @@
-"""understanding 的错误族：解析不合格的唯一转译出口（`UnderstandingParseError`）。
+"""understanding 的错误族：解析不合格的错误形状（`UnderstandingParseError`）＋片段截断单点。
 
-真源＝`specs/understanding.md` 接口定义「错误契约」行＋行为 7（解析严格）：「应答不是合法
-JSON／缺必填字段／字段类型不符 → 抛 `UnderstandingParseError`（携带原始应答片段供留痕）。
-**不返回半成品**」；`route` 越界（闭世界仅 `full`｜`direct`）同判失败（不猜、不取默认）。
-parsing 解析不合格（`parse_understanding` 返 `None`）在场时由本块**转译**抛同类错——唯一转译
-出口（真源 `specs/parsing.md` 行为 1／接口⑤：本块不抛业务异常、不合格走三态返回）。
+真源＝`specs/understanding.md` 接口定义「错误契约」行＋行为 7／13：应答不是合法 JSON／缺必填
+字段／字段类型不符／`route` 越界 → 先**回喂拒因重试恰一次**；仍不合 ⇒ **收敛拒答**（2026-10-17
+EB3 D4.4 改判：`direct_answer` 落拒答正文，run 收口、**不判 `failed`、不零交付**——旧形「抛
+`UnderstandingParseError` → 编排收 `failed`」退役，真机证据 `eval/results/frames/EB2-NQ-D2.json`）。
 
-**合法降级路径＝无**：本块无「抽第一个 `{...}`」「冒号回退」「两行式」一类降级提取（旧形随
-`specs/parsing.md` 行为 1 退场）——不合格恒以本异常收口，不静默、不半成品。
+**本类型自 2026-10-17 EB3 D4.4 起退出本块出口**（保留作错误族形状与消费面兼容——`excerpt` 片段面
+仍由「如实上报」两件套消费，两处同源）。**合法降级路径＝无**：本块无「抽第一个 `{...}`」「冒号
+回退」「两行式」一类降级提取（旧形随 `specs/parsing.md` 行为 1 退场）；收敛拒答＝确定性拒答正文，
+不是降级提取、不猜不补默认（`specs/understanding.md` 行为 13 尾）。
 """
 
 from __future__ import annotations

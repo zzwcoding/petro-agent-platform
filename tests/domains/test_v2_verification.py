@@ -54,7 +54,13 @@ import pytest
 import appv2.runtimev2.verification as verification
 from appv2.runtimev2.answering import CONTRADICTION_SECTION_HEAD
 from appv2.runtimev2.state import RunState
-from appv2.runtimev2.transport import EventBus, SseEvent
+from appv2.runtimev2.transport import (
+    SUPPLEMENT_BLOCK_ATTRIBUTION,
+    SUPPLEMENT_BLOCK_LINEAGE,
+    SUPPLEMENT_BLOCK_SPLIT,
+    EventBus,
+    SseEvent,
+)
 from appv2.runtimev2.verification import (
     ATTRIBUTION_CARRIER_KINDS,
     CARRIER_KINDS,
@@ -79,7 +85,6 @@ from appv2.runtimev2.verification import (
     PHASE,
     REWRITE_CONFLICT,
     REWRITE_NO_MATERIAL,
-    REWRITE_PREFIX,
     ROWSET_OBSERVATION_KINDS,
     Gap,
     RewriteRecord,
@@ -168,6 +173,15 @@ def _notice_types(state: RunState) -> list[str]:
     return [str(entry.get("type")) for entry in state.notices]
 
 
+def _supplement_texts(supplements: list[dict[str, Any]], block: str) -> list[str]:
+    """增补面条目文本列（按块型筛——`{block, text}` 载荷形，2026-10-17 EB3 D2）。"""
+    return [
+        str(entry.get("text", ""))
+        for entry in supplements
+        if entry.get("block") == block
+    ]
+
+
 # ---------- 行 1：逐行核验（多句答案逐句判定，非整段判） ----------
 
 
@@ -193,10 +207,9 @@ async def test_per_line_check() -> None:
     assert verdict.rewritten == 1
     assert verdict.cited == [1, 2]
     lines = state.draft.splitlines()
-    assert lines[0] == "一、产量概况"  # 结构承载行原样
-    assert lines[1] == supported_line  # 有据行逐字不变（未盖前缀）
-    assert lines[2] == REWRITE_PREFIX + unsupported_line  # 无据行：整行盖章
-    assert lines[3] == other_supported
+    # 无据行**整行离场**（2026-10-17 EB3 D3：删句不贴前缀）——有据行与结构行逐字不变
+    assert lines == ["一、产量概况", supported_line, other_supported]
+    assert unsupported_line not in state.draft
     assert _of(frames, EVENT_VERDICT)[0][PAYLOAD_SUPPORTED_KEY] == 2
 
 
@@ -204,7 +217,7 @@ async def test_per_line_check() -> None:
 
 
 async def test_cited_value_must_be_restated() -> None:
-    """行 2｜数值未在断言里复述 → 判无据并改写（行为 2；钉 pin-02 落点）。"""
+    """行 2｜数值未在断言里复述 → 判无据并**删句**（行为 2；钉 pin-02 落点；EB3 D3）。"""
     observations = [
         _obs(1, "ledger", content="日产油量 21.16 吨"),
         _obs(2, "agg_row", content="井号=N-01；日期=2026-01-01；日产油量（吨）=21.16"),
@@ -221,9 +234,8 @@ async def test_cited_value_must_be_restated() -> None:
     assert verdict.rewritten == 1
     assert verdict.supported == 2
     lines = state.draft.splitlines()
-    assert lines[0] == REWRITE_PREFIX + not_restated  # 未复述 → 改写
-    assert lines[1] == restated
-    assert lines[2] == carrier_exempt  # `agg_row` 承载豁免（任一数值重叠即支撑）
+    assert lines == [restated, carrier_exempt]  # 无据行整行离场（不贴前缀）
+    assert not_restated not in state.draft
     assert CARRIER_KINDS == {"agg_row", "lineage", "fragment"}  # 承载豁免域（真源 R-A2-11）
 
 
@@ -231,7 +243,7 @@ async def test_cited_value_must_be_restated() -> None:
 
 
 async def test_unsupported_rewritten_with_notice() -> None:
-    """行 3｜无据句改写成「未找到」＋ notice 在场（行为 3；钉 pin-02／pin-11 落点）。"""
+    """行 3｜无据句**删句**＋ notice 在场（行为 3；钉 pin-02 落点；EB3 D3）。"""
     observations = [_obs(1, "ledger", content="日产油量 21.16 吨")]
     supported_line = "该井日产油量为 21.16 吨[1]。"
     unsupported_line = "该井日产油量为 99.5 吨[1]。"
@@ -241,10 +253,10 @@ async def test_unsupported_rewritten_with_notice() -> None:
     frames = await _frames(bus)
 
     lines = state.draft.splitlines()
-    # INV-1（钉 pin-11）：前缀只挂无据行——有据行不粘前缀
-    assert lines[0] == supported_line
-    assert lines[1] == REWRITE_PREFIX + unsupported_line
-    assert supported_line not in lines[1]
+    # EB3 D3：真无据断言删句（不贴前缀、不留残句）——有据行逐字不变
+    assert lines == [supported_line]
+    assert unsupported_line not in state.draft
+    assert "未找到（材料未披露）" not in state.draft
 
     # notice 在场（状态写口 ＋ `notice` 帧恰三键）
     assert NOTICE_UNSUPPORTED_CLAIM in _notice_types(state)
@@ -253,10 +265,12 @@ async def test_unsupported_rewritten_with_notice() -> None:
     assert all(set(frame) == _NOTICE_FRAME_KEYS for frame in notice_frames)
     assert NOTICE_UNSUPPORTED_CLAIM in [frame["type"] for frame in notice_frames]
 
-    # 改写不得静默：原句与原因留痕（`RewriteRecord` → step payload）
+    # 改写不得静默：原句与原因留痕（`RewriteRecord` → step payload）＋ verdict 计数如实
     rewrites = _step_payload(state)[PAYLOAD_REWRITES_KEY]
     assert {entry["line"] for entry in rewrites} == {unsupported_line}
     assert {entry["reason"] for entry in rewrites} == {REWRITE_NO_MATERIAL}
+    assert verdict.rewritten == 1
+    assert _of(frames, EVENT_VERDICT)[0][PAYLOAD_REWRITTEN_KEY] == 1
     assert verdict.ok is False  # 仍有「无据断言」残留 → 回炉位（行为 9）
 
 
@@ -264,7 +278,7 @@ async def test_unsupported_rewritten_with_notice() -> None:
 
 
 async def test_conflict_split_not_merged() -> None:
-    """行 4｜矛盾来源分列、各带出处、不调和（行为 4）。"""
+    """行 4｜矛盾来源分列、各带出处、不调和（行为 4；EB3 D2：块入增补面不进正文）。"""
     observations = [
         _obs(1, "ledger", content="日产油量：21 吨/日", source="口径卡A"),
         _obs(2, "ledger", content="日产油量：8824.4 方/日", source="口径卡B"),
@@ -272,18 +286,22 @@ async def test_conflict_split_not_merged() -> None:
     draft = "该油田日产油量有 21 吨/日[1]、也有 8824.4 方/日[2]。"
     state = _state(draft=draft, observations=observations)
     bus = EventBus()
-    verdict = verify(state, bus=bus)
+    supplements: list[dict[str, Any]] = []
+    verdict = verify(state, bus=bus, supplements=supplements)
     frames = await _frames(bus)
 
-    # 两源逐支带出处（不强调和、不取其一）——原断言行不删、分列块追加
+    # 两源逐支带出处（不强调和、不取其一）——原断言行保留、分列块**入增补面不进正文**
     assert verdict.split == 1
-    assert draft in state.draft
-    assert "各来源说法如下，按来源分别列出：" in state.draft  # 2026-10-17 EB2 D3 段头去工程腔
+    assert state.draft == draft  # 正文＝模型稿逐字（分列块不再写进 draft）
+    texts = _supplement_texts(supplements, SUPPLEMENT_BLOCK_SPLIT)
+    assert len(texts) == 1
+    block = texts[0]
+    assert "各来源说法如下，按来源分别列出：" in block  # 2026-10-17 EB2 D3 段头去工程腔
     # 收口段（answering）的「互不一致」分源块同话术（「互不一致」标＝`specs/answering.md`
     # 行为 6 要求，保留在前——两相位 R1 禁互引，故两侧各落字面，此处钉同句不漂移）。
     assert CONTRADICTION_SECTION_HEAD.strip().endswith("各来源说法如下，按来源分别列出：")
-    assert "[1] 口径卡A：日产油量：21 吨/日" in state.draft
-    assert "[2] 口径卡B：日产油量：8824.4 方/日" in state.draft
+    assert "[1] 口径卡A：日产油量：21 吨/日" in block
+    assert "[2] 口径卡B：日产油量：8824.4 方/日" in block
     assert NOTICE_CONTRADICTION_SPLIT in _notice_types(state)
     assert NOTICE_CONTRADICTION_SPLIT in [frame["type"] for frame in _of(frames, EVENT_NOTICE)]
     # 矛盾改写也留痕（reason＝`conflict`——闭世界另一值）
@@ -299,7 +317,7 @@ async def test_conflict_split_not_merged() -> None:
 
 
 async def test_attribution_mismatch() -> None:
-    """行 5｜归属对不上 → `attribution=False` ＋ 缺口（行为 5；钉 pin-01 落点）。"""
+    """行 5｜归属对不上 → `attribution=False` ＋ 缺口（行为 5；钉 pin-01 落点；块入增补面）。"""
     observations = [
         _obs(
             1,
@@ -319,7 +337,8 @@ async def test_attribution_mismatch() -> None:
     draft = "W-11 井生产套管下深 2680.4 米[2]。"  # 题干点名 W-11、消费的是 Y-21 的源
     state = _state(question=_WELL_QUESTION, draft=draft, observations=observations)
     bus = EventBus()
-    verdict = verify(state, bus=bus)
+    supplements: list[dict[str, Any]] = []
+    verdict = verify(state, bus=bus, supplements=supplements)
     frames = await _frames(bus)
 
     assert verdict.attribution is False
@@ -328,12 +347,16 @@ async def test_attribution_mismatch() -> None:
     assert verdict.gaps
     assert {gap.kind for gap in verdict.gaps} == {GAP_UNVERIFIED}
     assert gap_reason_of(state).strip()
-    # 机读信号：notice ＋ 答案面分源列明块（两源各带出处）
+    # 机读信号：notice ＋ 增补面归属块（两源各带出处）
     assert NOTICE_ATTRIBUTION_SPLIT in _notice_types(state)
     assert NOTICE_ATTRIBUTION_SPLIT in [frame["type"] for frame in _of(frames, EVENT_NOTICE)]
-    assert "按来源归属如下（题眼：" in state.draft  # 2026-10-17 EB2 D3 段头去工程腔
-    assert "《A-W11井完井工程报告》" in state.draft
-    assert "《Y-21井完井工程报告》" in state.draft
+    texts = _supplement_texts(supplements, SUPPLEMENT_BLOCK_ATTRIBUTION)
+    assert len(texts) == 1
+    block = texts[0]
+    assert "按来源归属如下（题眼：" in block  # 2026-10-17 EB2 D3 段头去工程腔
+    assert "《A-W11井完井工程报告》" in block
+    assert "《Y-21井完井工程报告》" in block
+    assert state.draft == draft  # 归属块不进正文（EB3 D2）
 
 
 def gap_reason_of(state: RunState) -> str:
@@ -397,7 +420,7 @@ async def test_token_boundary_no_substring_false_positive() -> None:
     state = _state(draft=false_positive, observations=observations)
     verdict = verify(state, bus=EventBus())
     assert verdict.rewritten == 1
-    assert state.draft == REWRITE_PREFIX + false_positive
+    assert state.draft == ""  # 无据整行离场（EB3 D3 删句）
 
     true_positive = "该井日产油量 52 吨[1]。"
     other = _state(draft=true_positive, observations=observations)
@@ -441,24 +464,21 @@ async def test_no_number_assertion_not_auto_pass() -> None:
     )
     verdict = verify(state, bus=EventBus())
 
-    # 零数值断言不恒过：被引观察的数值未复述 → 计入无据；结构行不得自动判过（不计有支撑数）
+    # 零数值断言不恒过：被引观察的数值未复述 → 计入无据（删句）；结构行不得自动判过（不计有支撑数）
     assert verdict.supported == 1
     assert verdict.rewritten == 1
     assert verdict.cited == [2]
     lines = state.draft.splitlines()
-    assert lines[0] == structural_line
-    assert lines[1] == REWRITE_PREFIX + zero_number_unsupported
-    assert lines[2] == zero_number_supported
+    assert lines == [structural_line, zero_number_supported]  # 无据行离场、其余逐字不变
+    assert zero_number_unsupported not in state.draft
 
-    # pin-10：不得 `cited=[]` 且数字在场——无引标数字行不得以断言形放行
+    # pin-10：不得 `cited=[]` 且数字在场——无引标数字行不得以断言形放行（照删）
     numeric_no_cite = "该井日产油量 1520 吨。"
     other = _state(draft=numeric_no_cite, observations=observations)
     other_verdict = verify(other, bus=EventBus())
     assert other_verdict.rewritten == 1
     assert other_verdict.cited == []
-    for line in other.draft.splitlines():
-        if any(char.isdigit() for char in line):
-            assert line.startswith(REWRITE_PREFIX)  # 数字在场必为盖章行，不作断言
+    assert other.draft == ""  # 数字在场的无据行整行离场（不留残句）
 
 
 # ---------- 行 15：机读信号在场（verdict／notice ＋ step payload） ----------
@@ -536,9 +556,12 @@ async def test_card_signature_and_three_shapes() -> None:
     """骨架与公开面按卡面签名（`verify(state) -> Verdict`）＋三形状齐（规格 :32–:51）。"""
     signature = inspect.signature(verify)
     parameters = list(signature.parameters.values())
-    assert [parameter.name for parameter in parameters] == ["state", "bus"]
+    # EB3 D2：增补面收集列表 `supplements` 为选给注入面（第三参，kw-only）
+    assert [parameter.name for parameter in parameters] == ["state", "bus", "supplements"]
     assert parameters[0].kind is inspect.Parameter.POSITIONAL_OR_KEYWORD
-    assert parameters[1].kind is inspect.Parameter.KEYWORD_ONLY
+    assert all(
+        parameter.kind is inspect.Parameter.KEYWORD_ONLY for parameter in parameters[1:]
+    )
     assert signature.return_annotation in (Verdict, "Verdict")
 
     assert len(verification.__all__) == len(set(verification.__all__))  # 公开面无重复
@@ -1041,11 +1064,10 @@ async def test_boundary_single_zero_material_conflict_fullwidth() -> None:
     ) == (0, 2, 0)
     assert empty_verdict.cited == [] and empty_verdict.ok is False
     assert {gap.kind for gap in empty_verdict.gaps} == {GAP_UNVERIFIED}
-    assert all(
-        line.startswith(REWRITE_PREFIX) for line in zero_material.draft.splitlines()
-    )
+    assert zero_material.draft == ""  # 两行皆无据：整行离场（不留前缀残句）
 
-    # ③ 双源矛盾 → 分列分支（组数＋`conflict` 留痕＋通知；不强调和、不取其一）
+    # ③ 双源矛盾 → 分列分支（组数＋`conflict` 留痕＋通知；不强调和、不取其一；块入增补面）
+    conflict_supplements: list[dict[str, Any]] = []
     conflict_state = _state(
         draft="该油田日产油量有 21 吨/日[1]、也有 8824.4 方/日[2]。",
         observations=[
@@ -1053,7 +1075,9 @@ async def test_boundary_single_zero_material_conflict_fullwidth() -> None:
             _obs(2, "ledger", content="日产油量：8824.4 方/日", source="口径卡B"),
         ],
     )
-    conflict_verdict = verify(conflict_state, bus=EventBus())
+    conflict_verdict = verify(
+        conflict_state, bus=EventBus(), supplements=conflict_supplements
+    )
     assert (
         conflict_verdict.supported,
         conflict_verdict.rewritten,
@@ -1064,8 +1088,10 @@ async def test_boundary_single_zero_material_conflict_fullwidth() -> None:
     assert {
         entry["reason"] for entry in _step_payload(conflict_state)[PAYLOAD_REWRITES_KEY]
     } == {REWRITE_CONFLICT}
-    assert "[1] 口径卡A：日产油量：21 吨/日" in conflict_state.draft
-    assert "[2] 口径卡B：日产油量：8824.4 方/日" in conflict_state.draft
+    conflict_block = _supplement_texts(conflict_supplements, SUPPLEMENT_BLOCK_SPLIT)[0]
+    assert "[1] 口径卡A：日产油量：21 吨/日" in conflict_block
+    assert "[2] 口径卡B：日产油量：8824.4 方/日" in conflict_block
+    assert conflict_state.draft == "该油田日产油量有 21 吨/日[1]、也有 8824.4 方/日[2]。"
 
     # ④ 全角数字 → 判据面归一后落有据分支（输出面逐字保留原句）
     fullwidth = "该井日产油量为２１．１６吨［１］。"
@@ -1149,3 +1175,165 @@ async def test_retention_clean_answer_unchanged() -> None:
     assert rerun.as_dict() == verdict.as_dict()
     assert rerun_state.draft == draft
     assert rerun_state.notices == []
+
+
+# ══════════ EB3 批（2026-10-17）：D2 增补面 ＋ D3 核验前缀三件套 ══════════
+#
+# 防回归四件（方案 `docs/runtime-refactor/proposals/EB3-交付面分层与缺陷修复.md` D2／D3）：
+# - `::rewrite_exempt_disclosure_and_group_head`：豁免两类线不被贴前缀（D3-1）；
+# - `::unsupported_deleted_with_verdict_count`：真无据句被删且 verdict 计数在位（D3-2）；
+# - `::group_citation_marker_untouched`：组引标不被改（D3-3 的核验侧）；
+# - `::lineage_paragraph_stripped_to_supplement`：血缘五要素整段入增补面（D2）。
+
+
+_DISCLOSURE_OBS = {
+    "index": 1,
+    "locator": {"kind": "lineage"},
+    "content": (
+        "② 来源表：台账A · 2025-09-01 ③ 过滤条件：无 ④ 数据截至批次：2025-09-30 "
+        "⑤ 收口注记：本窗 LIMIT 50 行封顶，窗 2025-09-01 至 2025-09-30"
+    ),
+    "source": "台账",
+    "source_id": "obs-1",
+}
+_ROW_OBS = {
+    "index": 2,
+    "locator": {"kind": "agg_row"},
+    "content": "井号=N-01；日期=2025-09-01；日产油量（吨）=21.16",
+    "source": "台账",
+    "source_id": "obs-2",
+}
+
+
+async def test_rewrite_exempt_disclosure_and_group_head() -> None:
+    """EB3 D3-1｜豁免两类线（引擎披露行／组头行）**不被删句、不贴前缀**——原样保留在正文。
+
+    判据（方案 D3 逐字）：(a) 引擎披露行＝行内含窗 ISO 区间或披露标记（封顶／截断／LIMIT／
+    未覆盖）且与材料披露行事实一致；(b) 组头行＝行尾「：」或后邻行带引标的数据表头。
+    **豁免面只作用于删句一拍**：真无据行仍整行离场（对照在测内）。
+    """
+    observations = [_DISCLOSURE_OBS, _ROW_OBS]
+    disclosure_line = (
+        "数据为 2025-09-01 至 2025-09-30 窗内数据（引擎按 LIMIT 50 行封顶，未覆盖部分不作答）。"
+    )
+    group_head = "各组明细如下："
+    unsupported = "全油田 86 口井昨日均超产 50 吨。"
+    state = _state(
+        draft="\n".join([disclosure_line, group_head, unsupported]),
+        observations=observations,
+    )
+    bus = EventBus()
+    verdict = verify(state, bus=bus)
+
+    lines = state.draft.splitlines()
+    assert lines == [disclosure_line, group_head]  # 豁免两行原样保留；真无据行离场
+    assert "未找到（材料未披露）" not in state.draft  # 前缀不进正文（EB3 D3）
+    assert unsupported not in state.draft
+    # 豁免不计改写（`rewritten` 只数真无据句）；留痕只留真无据那一句
+    assert verdict.rewritten == 1
+    assert {entry["line"] for entry in _step_payload(state)[PAYLOAD_REWRITES_KEY]} == {
+        unsupported
+    }
+
+    # 对照（判据边界）：无 ISO／无披露标记的同样数字句 → 照删（豁免不松闸）
+    plain = "全油田 86 口井昨日均超产 50 吨。"
+    control = _state(draft=plain, observations=observations)
+    control_verdict = verify(control, bus=EventBus())
+    assert control_verdict.rewritten == 1
+    assert control.draft == ""
+
+    # 对照二：数据表头（含表格列记号）＋后邻行带引标 → 豁免；后邻行零引标 → 照删
+    header = "| 序号 | 日产油量 | [1]–[3] |"
+    cited_row = "| 1 | 21.16 吨 [2] |"
+    with_citation = _state(
+        draft="\n".join([header, cited_row]), observations=observations
+    )
+    verify(with_citation, bus=EventBus())
+    assert with_citation.draft.splitlines()[0] == header  # 组头行原样（组引标不被改）
+    without_citation = _state(
+        draft="\n".join([header, "| 1 | 无引标行 |"]), observations=observations
+    )
+    verify(without_citation, bus=EventBus())
+    assert header not in without_citation.draft  # 后邻行零引标＝非组头 → 照删
+
+
+async def test_unsupported_deleted_with_verdict_count() -> None:
+    """EB3 D3-2｜真无据断言**删句**（不贴前缀）且 `verdict.rewritten` 如实计数在位（不静默）。"""
+    observations = [_obs(1, "ledger", content="日产油量 21.16 吨")]
+    supported = "该井日产油量 21.16 吨[1]。"
+    bad_one = "该井日产油量 99.5 吨[1]。"
+    bad_two = "该井昨日产液 888 方。"
+    state = _state(
+        draft="\n".join([supported, bad_one, bad_two]),
+        observations=observations,
+    )
+    bus = EventBus()
+    verdict = verify(state, bus=bus)
+    frames = await _frames(bus)
+
+    assert state.draft == supported  # 两无据行整行离场、有据行逐字不变
+    assert verdict.rewritten == 2  # 计数如实＝不静默
+    assert verdict.ok is False  # 仍有「无据断言」被删 → 回炉位（行为 9）
+    assert NOTICE_UNSUPPORTED_CLAIM in _notice_types(state)
+    rewrites = _step_payload(state)[PAYLOAD_REWRITES_KEY]
+    assert {entry["line"] for entry in rewrites} == {bad_one, bad_two}
+    assert {entry["reason"] for entry in rewrites} == {REWRITE_NO_MATERIAL}
+    assert _of(frames, EVENT_VERDICT)[0][PAYLOAD_REWRITTEN_KEY] == 2
+
+
+async def test_group_citation_marker_untouched() -> None:
+    """EB3 D3-3｜组引标不被改：组头行的 `[m]–[n]` 组引标原样在场（数据行仍逐行 `[n]`）。"""
+    observations = [_DISCLOSURE_OBS, _ROW_OBS]
+    group_head = "各组数据如下（[1]–[3]）："
+    state = _state(
+        draft="\n".join([group_head, "N-01 井 2025-09-01 日产油量 21.16 吨[2]。"]),
+        observations=observations,
+    )
+    verdict = verify(state, bus=EventBus())
+
+    lines = state.draft.splitlines()
+    assert lines[0] == group_head  # 组引标 `[1]–[3]` 一字未动（不删、不改写、不贴前缀）
+    assert "[1]–[3]" in state.draft
+    assert lines[1] == "N-01 井 2025-09-01 日产油量 21.16 吨[2]。"  # 数据行仍逐行 [n]
+    assert verdict.rewritten == 0 and verdict.ok is True
+
+
+async def test_lineage_paragraph_stripped_to_supplement() -> None:
+    """EB3 D2｜血缘五要素**整段**入增补面（`lineage`）；单行口径说明（≤2 行、带 `[n]`）留在正文。"""
+    observations = [_DISCLOSURE_OBS, _ROW_OBS]
+    card = "\n".join(
+        [
+            "① 口径：开井日历折算",
+            "② 来源表：台账A",
+            "③ 过滤条件：无",
+            "④ 数据截至批次：2025-09-30",
+            "⑤ 收口注记：本窗仅台账A",
+        ]
+    )
+    caliber_note = "口径说明：本窗仅台账A、21.16 吨口径开井日历折算（② 来源表：台账A）[2]。"
+    body = "N-01 井 2025-09-01 日产油量 21.16 吨[2]。"
+    state = _state(
+        draft="\n".join([body, "", card, "", caliber_note]),
+        observations=observations,
+    )
+    supplements: list[dict[str, Any]] = []
+    bus = EventBus()
+    verdict = verify(state, bus=bus, supplements=supplements)
+
+    # 整段剥出正文（五要素连续段不入答案面）；口径说明例外留在正文
+    assert card not in state.draft  # 五要素连续段整段离场
+    assert "① 口径：" not in state.draft
+    assert "⑤ 收口注记：" not in state.draft
+    assert caliber_note in state.draft
+    assert body in state.draft
+    texts = _supplement_texts(supplements, SUPPLEMENT_BLOCK_LINEAGE)
+    assert texts == [card]  # 原样照抄（零二次创作）
+    assert verdict.supported == 2  # 剥除不计改写、不改支撑面（body ＋ 口径说明两句在）
+
+    # 对照：三行以上血缘卡（>2 行）不适用口径说明例外 → 整段剥（例外不看引标）
+    long_note = "口径说明：本窗仅台账A[2]。\n（② 来源表：台账A）\n（补充：单位吨）"
+    other = _state(draft=long_note, observations=observations)
+    other_supplements: list[dict[str, Any]] = []
+    verify(other, bus=EventBus(), supplements=other_supplements)
+    assert other.draft == ""
+    assert _supplement_texts(other_supplements, SUPPLEMENT_BLOCK_LINEAGE) == [long_note]

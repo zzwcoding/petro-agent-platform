@@ -77,8 +77,9 @@ def parse_tool_match(content: str, group: QuestionGroup) -> tuple[SubtaskMatch, 
 #   emission_fingerprints(plan, retrieval_need) -> tuple[str, ...]   # 按支拆算（R-A1-26）
 #   is_same_param_replay(fingerprints, executed) -> bool             # 同参判定（R-A1-27/28；形参由 V1 emission 拆解）
 # ⑤ 理解面（签名＝卡面两函数之第一式逐字；V2 定案＝统一 JSON 严格解析，见行为 1）：
-#   合格 → Understanding｜Direct；不合格 → None（唯一转译出口＝调用方 understanding 抛
-#   UnderstandingParseError——真源 specs/understanding.md 行为 7）；**不受理引号自修、不使用提取件**（V1 事实面零调用点）
+#   合格 → Understanding｜Direct；不合格 → None（消费方 understanding 走「拒因回喂恰一次 → 仍拒＝
+#   收敛拒答」修正回路；UnderstandingParseError 随 EB3 D4.4 退出该支出口、类型保留作错误族形状——
+#   真源 specs/understanding.md 行为 7／错误契约）；**不受理引号自修、不使用提取件**（V1 事实面零调用点）
 #   ＋理解面拒因诊断面（2026-10-16 补·流水 67，见行为 1 末句）：
 #   understanding_schema_feedback(text) -> str    # 不合格 → 具体不合项一句（缺必填字段／字段类型
 #       # 不符／route 越界）；合格 → 空串；与 parse_understanding **共用判定内核**
@@ -87,7 +88,7 @@ def parse_tool_match(content: str, group: QuestionGroup) -> tuple[SubtaskMatch, 
 
 - **族名单是闭世界**：上列成员之外新增公开成员＝只许以「新增成员入名单＋同批对账消费方规格」方式进块；消费方在相位块内私建解析副本（自写提取循环／引号扫描／schema 校验）＝判失败。
 - **返回三态闭世界（全体解析成员统一口径）**：①**定型载荷**（合格）；②**拒因正文**（`str`——发射面不合格的回喂形；机器拒因原文）；③**`None`**（不合格的无回喂形——理解面不合格／提取与自修的无病或失败形）。**越界行为**：任何不在这三态内的返回形态（半成品载荷、部分字段、哨兵值、裸抛业务异常）＝判失败。**理解面诊断面的口径（2026-10-16 补·流水 67）**：`understanding_schema_feedback` 恒返 `str`——不合格＝**拒因正文**（第②态，同澄清面体例）；合格＝**空串**（**无病形**：无病不做声，同 `repair_inner_quotes` 无病不修的体例；不承载任何业务值，调用方只在解析面返 `None` 之后取用）。
-- **错误契约**：本块不抛业务异常、不吞错——不合格一律走三态返回；**异常出口唯一**＝`understanding` 对 `None` 转 `UnderstandingParseError`（真源 `specs/understanding.md` 错误契约）。
+- **错误契约**：本块不抛业务异常、不吞错——不合格一律走三态返回；**理解面不合格的收口面归消费方**＝`understanding` 对 `None` 走「拒因回喂恰一次；仍拒＝**收敛拒答**」（`UnderstandingParseError` 随 EB3 D4.4 退出该支出口、类型保留作错误族形状——真源 `specs/understanding.md` 行为 7／错误契约）。
 - **入参纪律**：纯文本进出（外部文本 → 定型载荷）＋调用方注入的限额参数（`max_discovers`／`discover_budget_left`／`max_subtasks`）——**上限数值单点**（行为 16：`max_discovers` 侧取 `state`；`max_subtasks` 侧数值真源＝`walk/09` §七 Q-C／`eng/00` F-14、`state` 承载待落定），本块源码不写裸值。
 - 真源：`specs/modules.md` `## parsing` 卡（**参数名以卡为准；返回形与限额参数以本块「V2 定案签名」为准**——卡面与 V2 定案差异见风险 7①，卡级登记件）。
 
@@ -175,7 +176,7 @@ def parse_tool_match(content: str, group: QuestionGroup) -> tuple[SubtaskMatch, 
   3. **载荷定型类物理定义点宣告（本块）与两份已定稿消费方类体差异**：`specs/clarification.md` `Subtask`（chain 必填形）与 `specs/tool_matching.md` `SubtaskMatch`（`caliber_key: str|None`／`plan: QueryPlan|None`）同物不同形——本块宣告「消费面形状以本规格行为 11 为准」，两份已定稿类体待主窗回改为引用句；若主窗裁定另置＝须回阶段 2 改卡。检测手段＝**人审**（阶段 7 接口契约对账；风险 7③）。
   4. **同参重投闸的触发面与拦截落点**：**已裁：触发/拦截/回喂归 execution（流水 30②），本块只产指纹纯函数**（原评审判「两头都不认」——`docs/runtime-refactor/spec-review/parsing-评审.md` P-10 随裁决销项；落点＝`specs/execution.md` 行为 14）。注：`specs/execution.md` 行为 13 系**空手探查闸（另一件闸，勿混）**——同参重投闸落其行为 14。检测手段＝**人审**（与 `specs/execution.md` 行为 14／`specs/tool_matching.md` 风险 4／`specs/agent-loop.md` 行为 3 对账；风险 7⑧ 销项）。
   5. **拒因正文（`str`）与消费方结构化拒因**（`clarification` 的 `ClarifyRejection`／`tool_matching` 的 `ToolMatchRejection`）转换点：**已裁：转换在消费方（流水 30①），本块只产 `str` 拒文**（原评审判「两头都不认」——P-09 随裁决销项；落点＝两消费方规格行为约定）。检测手段＝**人审**（阶段 7 接口契约对账；风险 7④ 销项）。
-  6. **理解面异常面分工**：本块只产 `None`、`UnderstandingParseError` 由 `understanding` 抛——两规格分工须对读一致；**回提登记**：`specs/understanding.md` 补「parsing 不合格（None）在场时抛」输入半面（风险 7⑩）。检测手段＝`specs/understanding.md` 行为 7／错误契约＋本规格行为 1 对读＋`::understanding_malformed_none_no_fallback`。
+  6. **理解面异常面分工**：本块只产 `None`；消费方 `understanding` 对 `None` 走「拒因回喂恰一次 → 仍拒＝**收敛拒答**」（2026-10-17 EB3 D4.4 改判——`UnderstandingParseError` 退出该支出口、类型保留作错误族形状）——两规格分工须对读一致；**回提登记已销**（`specs/understanding.md` 输入半面在场，风险 7⑩）。检测手段＝`specs/understanding.md` 行为 7／错误契约＋本规格行为 1 对读＋`::understanding_malformed_none_no_fallback`。
   7. **跨规格债与卡级登记清单（本批只登记、不代办——单写者纪律，交主窗统一回提）**：①`specs/modules.md` `## parsing` 卡：**指纹器材四件＋V2 定案公开成员补录＋返回形勘正（L0——`docs/runtime-refactor/spec-review/parsing-评审.md` P-01；卡补录＝L0 清零动作）**＋族名单注记（建议补「族名单以 parsing 规格接口定义为准（闭世界）」）；②预算拒因内嵌数值与 `ask` 边界「2~4」待裁（两解择一后行为 7／16 随批同步——P-06）；③载荷类消费面两处类体回改（`specs/clarification.md`／`specs/tool_matching.md`——P-05）；④拒因转换点归属三选一定案（P-09）；⑤`max_subtasks` 承载位落定（数值真源已定＝`walk/09` §七 Q-C＋`eng/00` F-14；`state` 键面待落定——P-03）；⑥JSON 重复键形裁定（卡面测试计划「不静默覆盖」剩余面——P-18）；⑦V1 裸抛收口差异点字面（`args` 拒文已过目（流水 43②）：adopt graph.py:616 字面「发现工具 {tool} 的 args 须为对象」——P-07 销项；D-L1a-09／D-L1a-10）；⑧同参重投闸触发/拦截/回喂落点裁定＋`specs/agent-loop.md` 行为 3 表述回提（P-10）；⑨plan／`ranking` 归属与 `specs/tool_matching.md` 行为 4 对账（P-11）；⑩`specs/understanding.md` 回认输入半面（P-23）。检测手段＝**人审**（主窗回提＋阶段 7 接口契约对账）。
 
 ## 与闸的挂钩表
@@ -197,9 +198,11 @@ def parse_tool_match(content: str, group: QuestionGroup) -> tuple[SubtaskMatch, 
 | 共用件单点（消费方零字面副本） | 测试 `::shared_helpers_single_source` | 待实现（阶段 5） |
 | 数字单点（注入制：`max_discovers`｜`discover_budget_left` 侧引 `state` 限额键；`max_subtasks` 承载待落定——风险 7⑤） | 测试 `::limits_from_state_constants` ＋ `state` 侧常量单点测试 | 待实现（阶段 5） |
 | 程序不判语义（无词表／正则） | 测试 `::no_lexicon_or_regex_in_parsing` | 待实现（阶段 5） |
-| 理解面不合格信号唯一转译出口（`None`→`UnderstandingParseError`） | 测试 `::understanding_malformed_none_no_fallback` ＋ **人审**（与 `specs/understanding.md` 对读，风险 6） | 待实现（阶段 5） |
+| 理解面不合格信号由消费方 `understanding` 走「拒因回喂恰一次；仍拒＝收敛拒答」（`UnderstandingParseError` 退出该支出口——2026-10-17 EB3 D4.4） | 测试 `::understanding_malformed_none_no_fallback` ＋ **人审**（与 `specs/understanding.md` 对读，风险 6） | 待实现（阶段 5） |
 | pin-04／pin-13 经逐条核实**不落本块**（防一头两认） | 钉落点对读：`pin-04`（发射 JSON 不进答案面）已落 `specs/answering.md` 行为 11＋其挂钩表；`pin-13`（起草回声=0）已落 `specs/prompts.md` 行为 13（合同侧）＋`specs/answering.md` 行为 14（观测面）——parsing 无第三面缺口 | 已核实（本批起草时逐条对读） |
 | 真源引用可解析（本规格全部引用行） | 真源引用闸（`tools/ref_resolvable.py` 的 check 子命令） | 交稿前本地实跑 |
 | 「不做什么」的纯范围排除（不调模型／不判语义／不回喂等） | **人审** | 接不上闸的原因：纯范围排除没有形状／存在性／退出码判据；能降维的部分（只引 `state`、零模型、零引擎）已由 R3／R6／R7＋AST 测试覆盖 |
 
 > **2026-10-16 补（流水 67·L3 阻塞修复批·审计）**：**理解面拒因诊断面＝新增公开成员**（接口定义⑤＋行为 1 末句＋验收表同批补录）。**动因**：理解步 schema 拒需「拒因回喂一次重试」（真源 `specs/understanding.md` 行为 13——真机 `run-60bc4aaa` 首拒即死），而回喂载荷的【拒因】段必须**指名「哪一条」**（缺必填字段／类型不符／`route` 越界），原 `parse_understanding` 只产 `None`、说不到具体项。**取法**：诊断面与解析面**共用判定内核 `_understand_schema`**（本块 schema 判定仍恰一处——禁手写替代纪律不被绕；两公开形读同一判据序，「`None` ↔ 拒因非空」恒等价）；**additive、零语义改动**：`parse_understanding` 契约（不合格 → `None`）与既有验收行**逐字不变**（`::understanding_malformed_none_no_fallback`／`::understanding_two_line_retired` 零改动），三态闭世界第三态 `None` 仍是本块的理解面信号。落点：`appv2/runtimev2/parsing/parsers.py`（`understanding_schema_feedback`／`_understand_schema`／`_field_reason`＋拒因字面）＋包根导出。**登记（交主窗）**：族名单由本句与接口定义⑤两处同批补记（卡面 `specs/modules.md` `## parsing` 未逐件重抄，权威注已在卡内——故不回提卡改）。
+
+> **2026-10-17 补（EB3 D4.4／D4.3·措辞勘正·审计）**：**理解面不合格的收口面措辞随行为改判同步**（接口⑤／接口定义「错误契约」条／风险 6／挂钩表末行；**纯措辞勘正、零行为改动**）。**动因**：理解面「两读皆拒」路径已改判为**收敛拒答**（`UnderstandingParseError` 退出该支出口，真源 `specs/understanding.md` 行为 13 尾／错误契约，2026-10-17 EB3 D4.4），而本规格数处仍写「唯一异常出口＝消费方 understanding 对 `None` 转 `UnderstandingParseError`」——与真源自相矛盾（该登记件＝`specs/understanding.md` 审计节登记①）。**改法**：四处措辞改为「消费方 `understanding` 走『拒因回喂恰一次；仍拒＝收敛拒答』；`UnderstandingParseError` 退出该支出口、类型保留作错误族形状」；**本块侧语义一字未动**（仍只产三态：定型载荷／拒因正文／`None`；仍不抛业务异常）。**落点**：`specs/parsing.md`（四处）＋`appv2/runtimev2/parsing/models.py`／`appv2/runtimev2/parsing/parsers.py` 模块注（纯文档）。

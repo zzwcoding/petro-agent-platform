@@ -42,13 +42,27 @@ class RetrievalNeed:
 
 @dataclass(frozen=True, slots=True)
 class ToolPlan:
-    """本相位定案：`matches` 与子问题**一一对应**（条数＝子问题条数）——空数组不成立。"""
+    """本相位定案：`matches` 与子问题**一一对应**（条数＝子问题条数）——空数组不成立。
+
+    **收敛让位形**（2026-10-17 EB3 D4.3 补；真源 `specs/tool_matching.md` 行为 9）：`converged=True`
+    ＋ `matches=[]`——**非定案**，语义＝「本 run 已触界收敛（同形拒因超限熔断／他处触界），本相位
+    不再产定案」：本形只作**让位收口**（下游按既有「无支可执行 → 作答收口」路由落答，材料直答已在
+    `bookkeeping.converge` 落 `draft`）。两形互斥（定案非空／让位必空＋标记真）由本类把守。
+    """
 
     matches: list[SubtaskMatch]
+    converged: bool = False
 
     def __post_init__(self) -> None:
-        if not self.matches:
-            raise ValueError("ToolPlan.matches 空（每子问题恰一条匹配——空数组不成立）")
+        if self.converged and self.matches:
+            raise ValueError(
+                "ToolPlan 收敛让位形不得携 matches（converged=True ⇒ matches=[]——本形非定案）"
+            )
+        if not self.matches and not self.converged:
+            raise ValueError(
+                "ToolPlan.matches 空（每子问题恰一条匹配——空数组不成立；"
+                "收敛让位形须显式 converged=True）"
+            )
 
 
 @dataclass(frozen=True, slots=True)

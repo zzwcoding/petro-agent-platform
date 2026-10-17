@@ -5,20 +5,56 @@
 （「闭世界只有一个常量族」——`specs/transport.md` 风险 2 的对策；文案随集合生成，不写死条数）。
 """
 
-# ── runtime 九类事件名（取值真源 `synth/S6-事件与帧目录.md` §一；九类口径真源
-# `synth/S3-口径裁决清单.md` C-05——「八类」为 `EVENT_BLACKBOX` 入列前的陈旧注记）──
+# ── runtime 十类事件名（取值真源 `synth/S6-事件与帧目录.md` §一；九类口径真源
+# `synth/S3-口径裁决清单.md` C-05——「八类」为 `EVENT_BLACKBOX` 入列前的陈旧注记；
+# 2026-10-17 EB3 D1 增第十类 `supplement`）──
 # `blackbox` **必须与其他八类同列导出面**（现状 `appv2/runtime/__init__.py` 缺该符号＝
 # S3 C-10／D-P9a1-09；本块收正）。
 EVENT_KINDS: frozenset[str] = frozenset(
-    {"step", "text", "tool", "observation", "ask", "verdict", "citation", "notice", "blackbox"}
+    {
+        "step",
+        "text",
+        "tool",
+        "observation",
+        "ask",
+        "verdict",
+        "citation",
+        "notice",
+        "blackbox",
+        # 2026-10-17 EB3 D1（交付面分层）：程序追加内容（分源块／归属块／引用块／血缘五要素）
+        # 不进正文——走结构化增补面，本帧即该面的出帧形（逐字稿＝
+        # `docs/runtime-refactor/proposals/EB3-交付面分层与缺陷修复.md` D1）。
+        "supplement",
+    }
 )
 
 # ── wire 三帧（取值真源 `synth/S6-事件与帧目录.md` §二；发射时机与载荷归 `api` 开流段，
 # 本块只保帧名在闭世界内与信封形状）────────────────────────────────────────────
 WIRE_FRAMES: frozenset[str] = frozenset({"session", "done", "error"})
 
-# ── 事件名的十二值全集（＝`EVENT_KINDS ∪ WIRE_FRAMES`，行为 1 的构造期判据面）──────
+# ── 事件名的十三值全集（＝`EVENT_KINDS ∪ WIRE_FRAMES`，行为 1 的构造期判据面）──────
 _FRAME_EVENTS: frozenset[str] = EVENT_KINDS | WIRE_FRAMES
+
+# ── supplement 帧块型闭世界四值（2026-10-17 EB3 D1；取值真源＝
+# `docs/runtime-refactor/proposals/EB3-交付面分层与缺陷修复.md` D1 逐字）──────────────
+# 载荷恰二键 `{block, text}`：`split`＝多来源分源列明｜`attribution`＝跨源归属｜
+# `citations`＝引用清单｜`lineage`＝血缘五要素全文。**「四类块不进正文」的机器面**：
+# 块型取值越界＝构造期即拒（闭世界不经裁决不许长胖）。
+SUPPLEMENT_BLOCK_SPLIT = "split"
+SUPPLEMENT_BLOCK_ATTRIBUTION = "attribution"
+SUPPLEMENT_BLOCK_CITATIONS = "citations"
+SUPPLEMENT_BLOCK_LINEAGE = "lineage"
+SUPPLEMENT_BLOCKS: frozenset[str] = frozenset(
+    {
+        SUPPLEMENT_BLOCK_SPLIT,
+        SUPPLEMENT_BLOCK_ATTRIBUTION,
+        SUPPLEMENT_BLOCK_CITATIONS,
+        SUPPLEMENT_BLOCK_LINEAGE,
+    }
+)
+# 本帧载荷两键名（本块自有的定形键——发射方按名填：`{"block": …/…, "text": …}`）。
+SUPPLEMENT_PAYLOAD_BLOCK_KEY = "block"
+SUPPLEMENT_PAYLOAD_TEXT_KEY = "text"
 
 # ── 通知类型二十九值（取值真源＝本规格自立·实测全集——`specs/transport.md` 接口定义节
 # 逐字列全；2026-10-16 补全（流水 53-C）：B5 golden 回放 54444 帧实测越界 7 值入列）──────

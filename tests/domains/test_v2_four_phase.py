@@ -62,6 +62,7 @@ from appv2.runtimev2.persistence import (
 )
 from appv2.runtimev2.state import AskChoice as V2AskChoice
 from appv2.runtimev2.state import AskRequest as V2AskRequest
+from appv2.runtimev2.understanding.constants import CONVERGE_DRAFT_TEMPLATE
 from appv2.tools import (
     FakeKnowledgeStore,
     FakeQueryEngine,
@@ -89,6 +90,9 @@ from tests.domains.test_v2_react_loop import (
     _retrieval_with,
     _rows_outcome,
 )
+
+# 收敛拒答正文的稳定头部（模板首段——文案本体真源＝`understanding.constants`；本件只判「是拒答」）
+_REFUSAL_MARK = CONVERGE_DRAFT_TEMPLATE.split("{", 1)[0]
 
 # ---------- runtimev2 编排网（RT-W5-01a：四相位链路＝runtimev2 17 子包） ----------
 
@@ -961,12 +965,14 @@ async def test_four_phase_understand_schema_feedback_retry_recovers() -> None:
     assert [n for n in state.notices if n["type"] == "run_failed"] == []
 
 
-async def test_four_phase_understand_schema_feedback_twice_fails() -> None:
-    """理解步两读皆拒 → fail-closed 收束 `failed`（上限恰一次，无第三次调用）。
+async def test_four_phase_understand_schema_feedback_twice_converges_to_refusal() -> None:
+    """理解步两读皆拒 → **收敛拒答**收口 `completed`（上限恰一次，无第三次调用）。
 
-    回喂不改变终局口径（`specs/understanding.md` 行为 13 末句）：双读皆不合 schema → 抛
-    `UnderstandingParseError` → 编排照旧收 `failed` ＋ `run_failed` notice；**修正回路只一轮**
-    （理解模型调用恰 2 次——第三次永不发生），拒因载荷留痕在链上（复读失败时可见）。
+    **2026-10-17 EB3 D4.4 改判**（真机 `eval/results/frames/EB2-NQ-D2.json`：模型两次都在 JSON
+    字符串里带未转义引号 → 旧形「抛 `UnderstandingParseError` → 编排收 `failed`」整 run 零交付）：
+    双读皆不合 schema → `bookkeeping.direct_answer` 落拒答正文 ＋ `next_intent=answer` → run 走
+    收口（`completed`），有正文帧、有留痕，**不判 `failed`、不零交付**；**修正回路只一轮**
+    （理解模型调用恰 2 次——第三次永不发生），拒因载荷留痕在链上。
     """
     bad_understand = json.dumps(
         {"route": "full", "text": "理解：问各井日产油量。\n指标候选：日产油量"},
@@ -979,16 +985,25 @@ async def test_four_phase_understand_schema_feedback_twice_fails() -> None:
     run_id = next(
         event.data["run_id"] for event in reversed(events) if "run_id" in event.data
     )
-    assert events[-2].data["status"] == "failed"
-    failed = next(event for event in events if event.event == "notice")
-    assert failed.data["type"] == "run_failed"
+    assert events[-2].data["status"] == "completed"  # 不判 failed（不零交付）
+    failed_notices = [
+        event
+        for event in events
+        if event.event == "notice" and event.data["type"] == "run_failed"
+    ]
+    assert failed_notices == []
+    # 拒绝零交付：拒答正文在流上（直答旁路 text 帧）＋落库答案
+    texts = [event.data["content"] for event in events if event.event == "text"]
+    assert texts and _REFUSAL_MARK in texts[-1]
+    row = V2RunStore().run(run_id)
+    assert row is not None and row.status == "completed" and _REFUSAL_MARK in (row.answer or "")
     # 上限恰一次：两读皆拒即收口，绝无第三次调用
     assert len([call for call in completer.calls if call[0] == "understand"]) == 2
-    # 拒因留痕（链上载荷）；四相位未入场（理解步即终局）
+    # 拒因留痕（链上载荷）；四相位未入场（理解步即收敛收口）
     state = V2RunStore().load(run_id)
-    assert state.messages[-1]["role"] == "assistant"
-    assert state.messages[-2]["role"] == "user"
-    assert state.messages[-2]["content"].startswith("【拒因】缺必填字段 `metric_candidates`")
+    assert state.messages[-2]["role"] == "assistant"  # 次读原话（照旧追加链尾）
+    assert state.messages[-3]["role"] == "user"
+    assert state.messages[-3]["content"].startswith("【拒因】缺必填字段 `metric_candidates`")
     assert [row for row in v2_steps(run_id, "clarify")] == []
 
 

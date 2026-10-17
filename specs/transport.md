@@ -6,7 +6,7 @@
 
 ## 目标
 
-页面能看到的**唯一出口**：runtime 九类事件与 wire 三帧的闭世界、帧信封字节形、**全流单调游标**、断线续推与载荷透传——事件的本体在各发射方，**本块只管「出去的那一帧长什么样、怎么编号、怎么续」**。
+页面能看到的**唯一出口**：runtime 十类事件与 wire 三帧的闭世界、帧信封字节形、**全流单调游标**、断线续推与载荷透传——事件的本体在各发射方，**本块只管「出去的那一帧长什么样、怎么编号、怎么续」**。
 
 ## 不做什么
 
@@ -37,7 +37,7 @@
 @dataclass(frozen=True, slots=True)
 class SseEvent:                      # 帧（wire 面单元）
     seq: int                         # 全流单调游标（跨段不重启、重放不位移）——与载荷内步序号 `seq` 同名不同义（后者＝步记录序号，真源 `specs/persistence.md` `StepRecord.seq`；本字段真源＝本块行为 3）
-    event: str                       # 闭世界＝EVENT_KINDS ∪ WIRE_FRAMES（合十二值）
+    event: str                       # 闭世界＝EVENT_KINDS ∪ WIRE_FRAMES（合十三值）
     data: dict[str, Any]             # 载荷（透传；唯一改造＝verdict 注入 subtype）
 
 class EventBus:                      # per-run 总线（编排块持有、注入各相位）
@@ -50,14 +50,16 @@ class EventBus:                      # per-run 总线（编排块持有、注入
 def envelope(frame: SseEvent) -> str: ...        # 帧信封字节形
 
 # ── 闭世界常量族（取值真源逐族标注，见各行注记）─────────────
-EVENT_KINDS: frozenset[str]          # runtime 九类（取值真源 synth/S6 §一；取值：step/text/tool/observation/ask/verdict/citation/notice/blackbox）
+EVENT_KINDS: frozenset[str]          # runtime 十类（取值真源 synth/S6 §一；取值：step/text/tool/observation/ask/verdict/citation/notice/blackbox/supplement）
 WIRE_FRAMES: frozenset[str]          # wire 三帧（取值真源 synth/S6 §二；取值：session/done/error）
 NOTICE_TYPES: frozenset[str]         # 通知类型（29 值——本规格自立：实测全集逐字列全，见下）
 VERDICT_SUBTYPES: frozenset[str]     # verdict 两形（verify/final）
 ASK_FRAME_KINDS: frozenset[str]      # ask 帧 kind（clarify/external_table_approval）
+SUPPLEMENT_BLOCKS: frozenset[str]    # supplement 帧块型（2026-10-17 EB3 D1 增；取值：split/attribution/citations/lineage）
 ```
 
-- **`EVENT_KINDS`（九值）**：`step`｜`text`｜`tool`｜`observation`｜`ask`｜`verdict`｜`citation`｜`notice`｜`blackbox`（真源 `synth/S6-事件与帧目录.md` §一；九类口径真源 `synth/S3-口径裁决清单.md` C-05——「八类」为陈旧注记）。**`blackbox` 必须与其他八类同列导出面**（现状缺漏见 `synth/S3-口径裁决清单.md` C-10；本块收正）。
+- **`EVENT_KINDS`（十值）**：`step`｜`text`｜`tool`｜`observation`｜`ask`｜`verdict`｜`citation`｜`notice`｜`blackbox`｜`supplement`（前九值真源 `synth/S6-事件与帧目录.md` §一；九类口径真源 `synth/S3-口径裁决清单.md` C-05——「八类」为陈旧注记；**`supplement` 系 2026-10-17 EB3 D1 增第十类**——交付面分层：程序追加内容不进正文，走结构化增补面）。**`blackbox` 必须与其他八类同列导出面**（现状缺漏见 `synth/S3-口径裁决清单.md` C-10；本块收正）。
+- **`SUPPLEMENT_BLOCKS`（四值，2026-10-17 EB3 D1）**：`split`｜`attribution`｜`citations`｜`lineage`——增补面块型闭世界（逐字稿＝`docs/runtime-refactor/proposals/EB3-交付面分层与缺陷修复.md` D1）；取值越界即拒，闭世界不经裁决不许长胖。
 - **`WIRE_FRAMES`（三值）**：`session`｜`done`｜`error`（真源 `synth/S6-事件与帧目录.md` §二）。
 - **`NOTICE_TYPES`（二十九值，逐字列全）**：`refused`（**V1 遗留值、V2 无发射源（V2 拒答分型＝`subtask_refused`）——阶段 7 收词**）｜`run_failed`｜`ban_exempt`｜`budget_converged`｜`clarify_capped`｜`emission_strip`｜`emission_quote_repair`｜`material_truncated`｜`unsupported_claim`｜`contradiction_split`｜`attribution_split`｜`decision_note`｜`decision_rejected`｜`chain_switch_reentry`｜`window_miss_reentry`｜`approval_gate_pending`｜`approval_recorded`｜`tool_unavailable`｜`subtask_failed`（条件字面，旧码 `appv2/runtime/graph.py`（:3483））｜`subtask_refused`｜`audit_write_failed`｜`blackbox_write_failed`｜`window_note`｜`no_hit`｜`unbound_degrade`｜`freshness_block`｜`same_param_replay`｜`rebind`｜`schema_not_allowed`（**2026-10-16 补全（流水 53-C）：真源＝B5 golden 回放 54444 帧实测（1028 帧越界取值），来源＝V1 tools/query/gate 通道**——补全前 22 值之**来源＝现状码面实测**：`appv2/runtime/` 下 `graph.py`／`executor.py`／`budget.py`／`context.py` 的 `"type":` 发射点全量；`recon/K-上下文事件指南预算.md` 的疑点 D-K-48／D-K-56 只记「该值集合无闭世界常量」，未列全——**本规格自立为该族取值真源（实测全集）**，新增类型必须同批入列，见行为 7——2026-10-16 收词：`subtask_failed` 行的行号引用体例收齐为本仓体例（路径在反引号内、行号在反引号外））。
 - **`VERDICT_SUBTYPES`（二值）**：`verify`｜`final`。
@@ -76,7 +78,7 @@ ASK_FRAME_KINDS: frozenset[str]      # ask 帧 kind（clarify/external_table_app
 
 ## 行为约定
 
-1. **事件名闭世界十二值**：`SseEvent.event` ∈ `EVENT_KINDS ∪ WIRE_FRAMES`；越界**构造期即抛错**（fail-closed，不静默丢弃、不降级为默认类）。断言：越界名构造抛错；十二个合法值各构造成功。
+1. **事件名闭世界十三值**：`SseEvent.event` ∈ `EVENT_KINDS ∪ WIRE_FRAMES`；越界**构造期即抛错**（fail-closed，不静默丢弃、不降级为默认类）。断言：越界名构造抛错；十三个合法值各构造成功。
 2. **帧信封字节形恒定**：`envelope(frame)` 恒为「`id: <int>` ＋ 换行 ＋ `event: <str>` ＋ 换行 ＋ `data: <json>` ＋ 换行 ＋ 空行」三行＋空行；JSON 以 `ensure_ascii=False` 序列化（中文不转义），非 JSON 原语值兜底为字符串而**不炸流**。断言：任一帧的信封恒三行＋空行；中文逐字不被转义；含 `Decimal`／`date` 的载荷能渲染。
 3. **游标＝全流单调 `seq`（一处编号）**（Owner 裁决 `walk/裁决表.md` §01-A「游标全流单调——跨段不重启、重放不位移」）：`seq` 由总线历史长度唯一决定、0 起、严格递增、无跳号；**跨段（提问段→resume 段）不重启、重放不位移**；**响应内不再另起计数器**（治现状「首段／resume 段／重放流三套编号互不同源」的历史缺陷）。断言：两段拼接后 `seq` 严格递增且无重复；对同一帧重放两次得同一 `seq`。
 4. **信封 `id:` 行＝「最后已消费事件 seq」（两类帧同语义）**：事件帧的 `id` ＝ 该帧自身 `seq`（交付即消费，故亦＝此刻最后已消费事件 `seq`）；**wire 三帧（session／done／error）不推进事件游标**——其 `id` 写作**最后已消费事件 `seq`**（尚未消费任何事件时＝**-1**；故 wire 帧 `id` 可与前帧相同、且不改动续传位置）。客户端以任一帧的 `id` 回送 `Last-Event-ID` 即可**无位移续传**。断言：连续事件帧的 `id` 严格递增；wire 帧的 `id` ＝ 最后已消费事件 `seq`（尚未消费任何事件时＝-1）且不改变游标。
@@ -91,6 +93,7 @@ ASK_FRAME_KINDS: frozenset[str]      # ask 帧 kind（clarify/external_table_app
 13. **无「截断重放」帧**：wire 面无 `replay_truncated` 这类帧；重连时缓冲内无该 run → **由 `api` 在开流前拒（诚实拒）**，帧面**不带截断信号**（真源 `docs/runtime-refactor/iface/P9a1-端点与帧通路.md` T-P9a1-33）。断言：全帧集合里不存在截断类帧名。
 14. **帧内不出现原始异常与内部路径**：`error` 帧的 `message` 为稳定话术；**任何帧都不得携带内部堆栈、模块路径、SQL 文本**。断言：异常路径全帧扫描——无堆栈／路径／SQL 片段（红线＝Owner 裁决 `walk/裁决表.md` §01-D「error 帧不给原始异常文本」；**无对应钉**，登记为人审面）。
 15. **本块零判断零模型**：无词表／正则语义判定、无模型调用、无落盘。断言：AST 扫描本块源码。
+16. **`supplement` 帧定形载荷（2026-10-17 EB3 D1）**：载荷**恰二键** `{block, text}`；`block` ∈ `SUPPLEMENT_BLOCKS`（四值：`split`／`attribution`／`citations`／`lineage`），越界／缺键／多键各判失败。**交付面分层铁律的帧形**：程序追加内容（分源块／跨源归属块／引用清单／血缘五要素）**不进正文**，只经本帧出结构化增补面（评分面＝正文＋增补面合并判）。断言：四值各合法构造；缺 `block`／多键／越界 `block` 各抛错。
 
 ## 不降级与静默禁令
 
@@ -103,8 +106,8 @@ ASK_FRAME_KINDS: frozenset[str]      # ask 帧 kind（clarify/external_table_app
 
 | 验收标准 | 对应测试 |
 |---|---|
-| 事件名闭世界（九 runtime ＋ 三 wire ＝十二值）；越界构造抛错 | `tests/domains/test_v2_transport.py::event_kinds_closed_world` |
-| `EVENT_KINDS` 九类全列导出面（含 `blackbox`） | `tests/domains/test_v2_transport.py::blackbox_kind_exported` |
+| 事件名闭世界（十 runtime ＋ 三 wire ＝十三值）；越界构造抛错 | `tests/domains/test_v2_transport.py::event_kinds_closed_world` |
+| `EVENT_KINDS` 十类全列导出面（含 `blackbox`／`supplement`） | `tests/domains/test_v2_transport.py::blackbox_kind_exported` |
 | 帧信封恒三行＋空行；中文不转义；非原语不炸流 | `tests/domains/test_v2_transport.py::envelope_bytes_stable` |
 | 游标全流单调：跨段不重启、重放不位移 | `tests/domains/test_v2_transport.py::cursor_monotonic_global` |
 | 信封 `id`：事件帧＝自身 `seq`、wire 帧＝最后已消费事件 `seq`（尚未消费任何事件时＝-1；不推进游标） | `tests/domains/test_v2_transport.py::frame_id_equals_cursor` |
@@ -119,6 +122,7 @@ ASK_FRAME_KINDS: frozenset[str]      # ask 帧 kind（clarify/external_table_app
 | 帧面无截断类帧名 | `tests/domains/test_v2_transport.py::no_truncation_frame` |
 | 任何帧不携带堆栈／路径／SQL 片段 | `tests/domains/test_v2_transport.py::no_internal_leak_in_frames` |
 | 本块零判断零模型（AST 扫描） | `tests/domains/test_v2_transport.py::no_judgement_or_model_in_transport` |
+| `supplement` 帧定形恰二键＋`block` ∈ `SUPPLEMENT_BLOCKS` 四值闭世界（2026-10-17 EB3 D1；越界／缺键／多键判失败） | `tests/domains/test_v2_transport.py::supplement_frame_closed_world` |
 | 【边界集】零事件 run／单帧 run／超长载荷／关闭后再发 → 各落对应分支 | `tests/domains/test_v2_transport.py::boundary_empty_single_huge_closed` |
 | 【保留集】常规多帧 run 的帧序与载荷行为不变 | `tests/domains/test_v2_transport.py::retention_normal_stream_unchanged` |
 
@@ -129,7 +133,7 @@ ASK_FRAME_KINDS: frozenset[str]      # ask 帧 kind（clarify/external_table_app
 - 依赖：`state`（`RunHandle.stream` 的元素类型以**字符串前向引用**指本块的帧类型）｜`synth/S6` 的事件与帧目录（本块立闭世界后它退为**现状证据**）｜`iface/P9a1` 的帧通路事实（现状锚）。
 - 风险与对策（每条带检测手段）：
   1. **三种编号并存的历史缺陷**（首段／resume 段／重放流各一套帧号）→ 对策＝行为 3／4「一处编号＋`id`＝事件游标」。检测＝`::cursor_monotonic_global`／`::frame_id_equals_cursor`。
-  2. **「八类事件」文案残留**（现状注释与上报文案写八类，实为九类）→ 对策＝闭世界只有一个常量族、文案随集合生成。检测＝`::event_kinds_closed_world`（九元）＋ 人审（文案）。
+  2. **「八类事件」文案残留**（现状注释与上报文案写八类，实为九类；**2026-10-17 EB3 D1 起为十类**）→ 对策＝闭世界只有一个常量族、文案随集合生成。检测＝`::event_kinds_closed_world`（十元）＋ 人审（文案）。
   3. **`notice.type` 无闭世界的旧状** → 对策＝行为 7 立闭世界并把**二十九值逐字入规格**＋**取消隐式兜底**。检测＝`::notice_three_keys_closed_world`。**风险**：告警类值（`audit_write_failed`／`blackbox_write_failed` 等）可能在重写后改名或合并——**变更是规格变更**（须同批改本表与测试），不许散落。
   4. **多消费者挂死**（现状一次性哨兵）→ 对策＝行为 11。检测＝`::multi_consumer_independent_cursor`。
   5. **缓冲无上限／无淘汰**（现状事实：per-run 缓冲全量常驻，无 TTL）→ 本批**不新增淘汰机制**（Owner 已把该现状缺陷登记为现状证据、不设「收债」环节）；登记为**阶段 5 可选项**，检测＝**人审**。
@@ -152,7 +156,8 @@ ASK_FRAME_KINDS: frozenset[str]      # ask 帧 kind（clarify/external_table_app
 | 不直引引擎 | 边界闸 **R6** | 已真跑 |
 | 不引包内其它块（本块只依赖 `state` 的类型名） | **无专属闸 → 人审**（降维 AST 断言登记待补） | 原因：R1–R8 无 transport 边界条 |
 | 禁手写第二套帧通路 | **无专属闸 → 人审**（降维：信封实现单点断言） | 登记待补 |
-| 事件名闭世界（九 runtime ＋ 三 wire ＝十二值；`blackbox` 同列导出面） | 测试 `::event_kinds_closed_world`／`::blackbox_kind_exported`；九类口径真源 `synth/S3` C-05／C-10 | 待实现 |
+| 事件名闭世界（十 runtime ＋ 三 wire ＝十三值；`blackbox`／`supplement` 同列导出面） | 测试 `::event_kinds_closed_world`／`::blackbox_kind_exported`；九类口径真源 `synth/S3` C-05／C-10 | 待实现 |
+| `supplement` 帧定形恰二键＋`block` ∈ `SUPPLEMENT_BLOCKS` 四值（2026-10-17 EB3 D1） | 测试 `::supplement_frame_closed_world` | 待实现 |
 | 通知分型闭世界（二十九值）＋恰三键＋无隐式兜底 | 测试 `::notice_three_keys_closed_world`（本规格自立的取值真源） | 待实现 |
 | 游标全流单调；事件帧 `id`＝自身 `seq`、wire 帧 `id`＝最后已消费事件 `seq`（不推进游标） | 测试 `::cursor_monotonic_global`／`::frame_id_equals_cursor` | 待实现 |
 | 挂起→resume 的**帧面**（`ask` 帧 kind 闭世界＋挂起后照发 `done`） | 钉 **`pin-29`**（P0；**闭环面挂 `specs/agent-loop.md`**）；测试 `::ask_frame_shape_and_done_after_ask` | 待织网（阶段 5） |

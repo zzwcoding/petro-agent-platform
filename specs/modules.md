@@ -262,7 +262,7 @@ def answer(state: RunState) -> AnswerDraft: ...
 ### Seam 与测试
 - Seam: 起草出口（增量文本 → 事件帧）
 - Adapter: 剧本化 completer
-- 测试计划: 每句带出处；一段段推（真流式）；结构化缺口；被拒／缺失如实列
+- 测试计划: 每句带出处；一段段推（真流式）；结构化缺口；被拒／缺失如实列；**四类块不入正文、按产出序入增补面**（2026-10-17 EB3 D2）
 
 ## verification
 
@@ -277,12 +277,12 @@ def verify(state: RunState) -> Verdict: ...
 ### 依赖
 - 模块: `state`、`transport`（verdict/notice 帧的发射，只经其公开面）；`bookkeeping`（**写口面**——落 step 记录/notice 经其唯一写口，只引函数、不引其内部）；`tools`（只引 entity_anchor_tokens 公开面——行为 5 题眼锚，流水 56-W4 登记；W4 对账批 2026-10-16 回填）
 - 外部: （无）
-- 注: 零 LLM 面（R8），无发起面（**写口面不引入发起面**——`bookkeeping` 发起面在本块作用面外，本块不调模型）
+- 注: 零 LLM 面（R8），无发起面（**写口面不引入发起面**——`bookkeeping` 发起面在本块作用面外，本块不调模型）。**增补面收集列（2026-10-17 EB3 D2）**：`verify` 增选给注入参 `supplements`（编排块持有；本块只追加条目，帧由编排层发）。
 
 ### Seam 与测试
 - Seam: 核验接缝（草稿＋观察 → verdict）
 - Adapter: fixture 草稿与观察
-- 测试计划: 无据句改写；矛盾分列；子串假阳／假阴（数值边界、全角标点）；精确率／召回率（人工标注）
+- 测试计划: 无据句**删句**（2026-10-17 EB3 D3——删句不贴前缀，留痕＝RewriteRecord＋verdict 计数＋notice）；矛盾分列（块入增补面、不入正文——EB3 D2）；豁免两类线（引擎披露行／组头行）；血缘五要素整段剥除；子串假阳／假阴（数值边界、全角标点）；精确率／召回率（人工标注）
 
 ## state
 
@@ -341,6 +341,7 @@ class AgentRuntime:
 > **检查点 saver**（`PgCheckpointer` **本块内构造、不出包根（框架零出口）**——R5b 红线，框架类型不得出现在公开面签名上）。
 > **卡级微注（2026-10-16 裁·流水 63）**：`RunExecutor` 构造补注入参 `guide_text`、`LoopDeps` 补字段 `guide_text: str = ""`——§A 指南段**文本经编排下传**给相位 `clarify`／`match`（装配面＝api 组合根启动快照，同 `watermark` 先例）；缺省空串＝空段头。本块只持有并下传，不读文件、不做语义判断。
 > **卡级微注②（2026-10-17 补·真机消重批·缺陷一）**：**run 级共享上下文的「只注一次」判定落本块**——本块按 `state.contracts_appended` 的澄清相位标记（引 `prompts.PHASE_CLARIFY`）判「本 run 是否已注」，经相位注入参 `shared_context: bool` 下传 `clarify`／`match`（相位与 `prompts` 只按标志拼／不拼文本，零判断）。同批：本块依赖行补 `prompts`（相位标记常量的引用面——R3 只锁 prompts→state 方向，本方向无闸）。
+> **卡级微注③（2026-10-17 补·EB3 D1／D2 交付面分层）**：**增补面的收集与发射归本块**——`LoopDeps` 补字段 `supplements: list[dict]`（相位经注入参追加：`verify`／`answer` 的 `supplements` 关键词面）＋`emitted_supplements` 计数（跨腿不重发）；**唯一发射点＝作答收口节点**（`graph._flush_supplements`——核验改写后的 draft 定稿后逐条发 `supplement` 帧，载荷透传由 `transport` 定形把守）；执行器收口时把该列随 run 行落 `supplements` 列（`RunRecord.supplements`——persistence 面）。判据：四类块（分源／归属／引用／血缘）在帧面与 run 行在场、正文零程序块。
 
 ### 依赖
 - 模块: `state`、`bookkeeping`、`transport`、`persistence`、`prompts`（2026-10-17 补·真机消重批——相位标记常量的引用面）、`infra`（身份缝与审计唯一写口，只经其公开面），以及七个业务相位
@@ -475,7 +476,7 @@ def compile(state: RunState) -> CompiledContext: ...
 
 ## transport
 
-职责: 事件通路——事件名闭世界（9 类）、**帧载荷分型闭世界（含 `notice.type`）**、事件总线、帧通路与断线续推
+职责: 事件通路——事件名闭世界（10 类）、**帧载荷分型闭世界（含 `notice.type`）**、事件总线、帧通路与断线续推
 目录: `appv2/runtimev2/transport/`
 
 ### 公开接口
@@ -488,8 +489,10 @@ class EventBus:                  # per-run 总线（编排块持有、注入各�
     @property
     def closed(self) -> bool: ...
 def envelope(frame: SseEvent) -> str: ...      # 帧信封字节形："id: …\nevent: …\ndata: …\n\n"
-# 闭世界常量族：EVENT_KINDS（runtime 九类）／WIRE_FRAMES（session/done/error）／
-#   NOTICE_TYPES（通知类型，取值真源＝本卡所指规格）／VERDICT_SUBTYPES（verify/final）／ASK_FRAME_KINDS（clarify/external_table_approval）
+# 闭世界常量族：EVENT_KINDS（runtime 十类——2026-10-17 EB3 D1 增第十类 supplement）／
+#   WIRE_FRAMES（session/done/error）／NOTICE_TYPES（通知类型，取值真源＝本卡所指规格）／
+#   VERDICT_SUBTYPES（verify/final）／ASK_FRAME_KINDS（clarify/external_table_approval）／
+#   SUPPLEMENT_BLOCKS（增补面块型四值 split/attribution/citations/lineage——EB3 D1 增）
 ```
 
 > **卡级修正（2026-10-15，L0，随 transport 规格起草）**：原「`def emit(state, name, payload)`」是**现状形状的草稿**——`RunState` 必须保持 JSON 原语可投影（见 `specs/state.md` 行为 3），**总线不能挂在状态上**；故公开面收正为 **per-run `EventBus`**（编排块持有，与现状 `deps.bus.emit` 同形），`SseEvent` 由「载荷别名」收正为**帧对象**（`{seq, event, data}`）。
@@ -502,9 +505,10 @@ def envelope(frame: SseEvent) -> str: ...      # 帧信封字节形："id: …\n
 ### Seam 与测试
 - Seam: 帧出口（事件 → wire 帧）
 - Adapter: 内存帧收集器
-- 测试计划: 九类闭世界；**帧载荷分型闭世界（含通知类型；`state` 侧只定义「触界注记恰三键」的形状，不承载取值）**；游标全流单调；重放不位移
+- 测试计划: 十类闭世界；**帧载荷分型闭世界（含通知类型与增补面块型；`state` 侧只定义「触界注记恰三键」的形状，不承载取值）**；游标全流单调；重放不位移
 
 > **归位登记（2026-10-15，L0）**：`notice.type` 的**取值闭世界在本卡**（现状该值散落各处、无闭世界常量，属历史缺陷）——`transport` 规格定稿时须立该闭世界并**落定取值真源**；`state` 卡只定义「触界注记恰三键」的形状，不复述取值。
+> **卡级补注（2026-10-17，EB3 D1 交付面分层）**：增补面帧 `supplement`（`EVENT_KINDS` 第十类）与块型闭世界 `SUPPLEMENT_BLOCKS`（`split`／`attribution`／`citations`／`lineage`）在本卡所指规格的接口定义节与行为 16；载荷定形恰二键 `{block, text}`。**发射点归 `orchestration`**（收口处一地发），`transport` 只保帧形与闭世界；落库形＝run 行 `supplements` 列（见 `## persistence`）。
 
 ## persistence
 
@@ -516,7 +520,7 @@ def envelope(frame: SseEvent) -> str: ...      # 帧信封字节形："id: …\n
 class RunStore:
     def save(record) -> None: ...          # 统一落盘入口（run 行／步记录／黑匣子；只追加面见卡注）
     def load(run_id: str) -> RunState: ...          # 检查点恢复（跨进程重放）
-    def run(run_id: str) -> RunRecord | None: ...
+    def run(run_id: str) -> RunRecord | None: ...   # RunRecord 列含 supplements（2026-10-17 EB3 D1：run 行增补面列，JSON 数组——同 answer 先例；迁移 0026）
     def steps(run_id: str) -> list[StepRecord]: ... # seq 升序
     def blackbox(run_id: str) -> BlackBox | None: ...
     def put_ref(blob: bytes) -> BlobRef: ...        # 大结果原文的引用载体（可寻址 handle）
@@ -621,11 +625,14 @@ POST /api/v2/chat/asks            → SSE 事件流（入参三形态：question
 POST /api/v2/chat/runs/{run_id}/resume   → 澄清/审批选择后续跑
 GET  /api/v2/chat/runs/{run_id}          → run 状态＋steps（含 payload：相位标注/discover
                                     计数埋点/Manifest）＋Manifest 摘要
+GET  /api/v2/chat/runs                   → 最近任务列表（answer 全文＋supplements 增补面随行
+                                    ——2026-10-17 EB3 D1；V2-73／V2-74 行投影面）
 ```
-事件九类闭世界：step/text/tool/observation/ask/verdict/citation/notice/blackbox（V1 wire 形兼容＋
+事件十类闭世界：step/text/tool/observation/ask/verdict/citation/notice/blackbox/supplement（V1 wire 形兼容＋
 loop 步/观察新形态——V2-36 终态口径，ADR-0004 拍板 5 演进位；blackbox＝V2-54 黑匣子
 收口指针——V2-55 起蒸馏全文入库 agent_v2_blackbox，帧只收录瘦指针；完整面经
-tools/run_replay／RunStore.get_blackbox 读库，取证面）。
+tools/run_replay／RunStore.get_blackbox 读库，取证面；**supplement＝2026-10-17 EB3 D1 增补面
+帧**——四类程序块〔分源／归属／引用／血缘〕不进正文，帧载荷 `{block, text}`）。
 
 ### 依赖
 - 模块: `orchestration`（业务面只许走其公开接口；**受理三形状 AskRequest／AskChoice／RunHandle 与组合根装配面经其包根 re-export**；组合根 create_app 例外——装配执行器/检查点/网关模型，V2-07 按组合缝采纳）、`transport`、`persistence`（**帧类型与读口行投影面**——SseEvent 帧类型、两读口（run 行／步记录）行投影；**类型/常量面只引形状**，不许引其行为：不自建帧通路、不落盘）、`infra`

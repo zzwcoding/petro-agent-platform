@@ -4,8 +4,13 @@
 `execute(state) -> ExecutionOutcome`）。一句话：把过闸后的子问题**真去执行**（查数／搜报告），
 把结果收成**带出处的观察**——**只读并行、成功不重跑、失败只重做失败的**。
 
-一次 `execute` 的固定序（行为 1–14；承载位换、语义不变）：
+一次 `execute` 的固定序（行为 1–15；承载位换、语义不变）：
 
+0. **计划面确定性规则**（行为 15，2026-10-17 EB3 D4 补）：data 链计划在派遣前过两条确定性规则
+   ——①**问句指标接地闸**（计划的 `metric_slot` 不落问句台账注册面＝回落相近列 → **拒投**：不执行
+   工具、零 SQL，拒因回喂换链；落地＝`_reject_plan_face`）；②**「前 N」→排名归一**（归一后草案即
+   派遣载荷与指纹面）。规则本体＝`plan_face`（纯函数）；本块的台账可见面取自 `state.ledger_dump`
+   经 `tools.ledger_facts`（与 `understanding` 名录面同源，非第二份词表）；
 1. **恢复守卫**（行为 6 的恢复半面）：挂起后重入（`state.resume_choices` 在场）→ **重取易变
    环境量**——逐项从活体状态现取（`bookkeeping.tool_context`，本块零缓存），重取读数落机读
    信号（步 payload 的 `volatile` 键）；**不重放已完成部分**（已完成子问题不二次执行）；
@@ -73,6 +78,7 @@ from appv2.runtimev2.execution.constants import (
     BIG_RESULT_THRESHOLD_CHARS,
     CONTENT_DECISION_REJECTED_TEMPLATE,
     CONTENT_EMPTY_PROBE_NOTICE_PREFIX,
+    CONTENT_PLAN_FACE_NOTICE_PREFIX,
     CONTENT_REF_DISCLOSURE_TEMPLATE,
     CONTENT_REPLAY_NOTICE_PREFIX,
     CONTENT_SUBTASK_FAILED_TEMPLATE,
@@ -89,9 +95,12 @@ from appv2.runtimev2.execution.constants import (
     EXEC_STATUS_NEED_INPUT,
     EXEC_STATUS_OK,
     GATE_EMPTY_PROBE,
+    GATE_PLAN_FACE_METRIC,
     GATE_SAME_PARAM_REPLAY,
     LEDGER_NOTE_PHASE,
     MISSING_SOURCE_REASON,
+    NOTE_DIGEST_PLAN_NORMALIZED_TEMPLATE,
+    NOTE_TITLE_PLAN_NORMALIZED,
     NOTICE_DECISION_REJECTED,
     NOTICE_MATERIAL_TRUNCATED,
     NOTICE_SAME_PARAM_REPLAY,
@@ -134,6 +143,7 @@ from appv2.runtimev2.execution.constants import (
     TITLE_DISCOVER_TEMPLATE,
     TITLE_EMPTY_PROBE_REJECTED_TEMPLATE,
     TITLE_EXECUTE_TEMPLATE,
+    TITLE_PLAN_FACE_REJECTED_TEMPLATE,
     TITLE_REPLAY_REJECTED_TEMPLATE,
     TITLE_RESUME_GUARD,
 )
@@ -144,6 +154,7 @@ from appv2.runtimev2.execution.models import (
     Observation,
     SubtaskExec,
 )
+from appv2.runtimev2.execution.plan_face import plan_face_rules
 from appv2.runtimev2.parsing import (
     CHAIN_DATA,
     CHAIN_KINDS,
@@ -169,6 +180,7 @@ from appv2.tools import (
     ToolRegistry,
     ToolResult,
     classify_exception,
+    ledger_facts,
 )
 
 # 前置判定三态闭世界（真源 `specs/preconditions.md` 接口定义：allow｜refuse｜ask）。
@@ -306,6 +318,12 @@ class _Entry:
     verdict: Mapping[str, Any]
     fingerprints: tuple[str, ...] = ()
     call: _Call | None = None
+    # 计划面闸拒因（行为 15；非空＝该支**不派遣**——拒因回喂模型换链／如实拒答，
+    # 见 `_reject_plan_face`。判定点＝`_entry_of`，落地与账目归 `_run_batch`）。
+    plan_face_reason: str = ""
+    # 「前 N」→排名归一的留痕摘要（非空＝该支计划被确定性归一；注记在派遣点记，
+    # 见 `_run_batch`——未真派遣的分支不留归一注记）。
+    plan_normalized: str = ""
 
 
 # ── 相位入口（卡面签名 `execute(state)` ＋ 三处关键词注入面）───────────────────────
@@ -322,10 +340,16 @@ def execute(
 
     单出口：恒回 `ExecutionOutcome`（观察序列 ＋ 逐子问题账）；结构违约（缺问题组／过闸却缺
     匹配／闭世界越界／观察缺出处）＝ fail-closed 抛错，**不返回半成品、不静默降级**
-    （「不降级与静默禁令」节：合法降级路径＝无）。
+    （「不降级与静默禁令」节：合法降级路径＝无）。**收敛态零派遣**（2026-10-17 EB3 D4.3 补）：
+    `state.budget_hit` 非空（触界收敛在途）→ 零派遣、零工具调用，直接回空结果（材料直答收口
+    由作答面走直答通道）。
     """
     channel = _require_bus(bus)
     tools = _require_registry(registry)
+    if state.budget_hit:
+        # 已触界收敛（2026-10-17 EB3 D4.3 补）→ **零派遣**：材料直答已在途（`bookkeeping.converge`
+        # 落 `draft`），本相位不再执行任何工具（收敛态新支必不派遣——「让位收口」的收口半边）。
+        return ExecutionOutcome(observations=[], subtasks=[])
     context = tool_context(state)
     if state.resume_choices:
         _reread_volatile_environment(state, context)
@@ -584,6 +608,9 @@ def _run_batch(
         if terminal is not None:
             settled.append(terminal)
             continue
+        if entry.plan_face_reason:  # 行为 15：计划面闸拒（不派遣、无 SQL——拒因回喂换链）
+            settled.append(_reject_plan_face(state, entry))
+            continue
         if is_same_param_replay(
             entry.fingerprints, state.executed_payloads
         ) or _same_param_failed(entry, prior):
@@ -591,6 +618,13 @@ def _run_batch(
             continue
         if entry.call is None:  # 结构违约（构造面已保证）——fail-closed，不静默跳支
             raise ValueError(f"执行辖域支缺派遣载荷（内部失序）：{entry.subtask_id!r}")
+        if entry.plan_normalized:  # 「前 N」→排名归一的如实留痕（人读面；args 即机读面）
+            note(
+                state,
+                phase=LEDGER_NOTE_PHASE,
+                title=NOTE_TITLE_PLAN_NORMALIZED,
+                digest=entry.plan_normalized,
+            )
         calls.append(entry.call)
         settled.append(None)
 
@@ -626,11 +660,20 @@ def _entry_for_call(scope: Sequence[_Entry], call: _Call) -> _Entry:
 
 
 def _execution_scope(state: RunState) -> list[_Entry]:
-    """执行辖域＝问题组 × 工具匹配 × 前置判定（**过闸后的子问题**才真去执行）。"""
+    """执行辖域＝问题组 × 工具匹配 × 前置判定（**过闸后的子问题**才真去执行）。
+
+    台账可见面（`tools.ledger_facts` 的键映射：slot ∪ 名 ∪ 别名——与 `understanding` 名录面
+    同源）在辖域装配时**取一次**，供计划面确定性规则（行为 15）逐支判定；`ledger_dump` 缺位／
+    旧形＝空投影（规则闸静默——同 `preconditions` 空台账不硬拒全量先例）。
+    """
     group = state.question_group
     raw_subtasks = group.get("subtasks") if isinstance(group, Mapping) else None
     if not isinstance(raw_subtasks, list) or not raw_subtasks:
         return []  # 无问题组＝不在批量辖域（上游未产组——本块不猜、不补、不静默造支）
+    dump = state.ledger_dump if isinstance(state.ledger_dump, Mapping) else {}
+    facts = ledger_facts(dump)
+    ledger_keys: Mapping[str, str] = facts.keys
+    registered_slots = frozenset(facts.metrics)
     matches: dict[str, Mapping[str, Any]] = {
         str(item.get("id") or ""): item
         for item in state.tool_matches
@@ -674,7 +717,16 @@ def _execution_scope(state: RunState) -> list[_Entry]:
                 )
             )
             continue
-        entries.append(_entry_of(subtask_id, question, match, verdict))
+        entries.append(
+            _entry_of(
+                subtask_id,
+                question,
+                match,
+                verdict,
+                ledger_keys=ledger_keys,
+                registered_slots=registered_slots,
+            )
+        )
     return entries
 
 
@@ -683,8 +735,18 @@ def _entry_of(
     question: str,
     match: Mapping[str, Any],
     verdict: Mapping[str, Any],
+    *,
+    ledger_keys: Mapping[str, str],
+    registered_slots: frozenset[str],
 ) -> _Entry:
-    """匹配支 → 派遣载荷（按链取工具与参数——链闭世界，越界 fail-closed）。"""
+    """匹配支 → 派遣载荷（按链取工具与参数——链闭世界，越界 fail-closed）。
+
+    **计划面确定性规则先过**（行为 15，2026-10-17 EB3 D4）：data 链计划先经
+    `plan_face.plan_face_rules`——①问句指标接地闸（问句无台账注册面／注册面不符＝回落相近列
+    → 拒投，`plan_face_reason` 非空、本支不派遣）；②「前 N」→排名归一（显式「前 N」且指标
+    已注册 → `ranking=true`／方向按 V1 词面／`limit=N`）。归一后的草案才是**派遣载荷与指纹面**
+    （同参重投闸比对面随之对齐；载荷即留痕面——args 逐字在步 payload 里）。
+    """
     chain = str(match.get("chain") or "").strip()
     if chain not in CHAIN_KINDS:
         values = "／".join(sorted(CHAIN_KINDS))
@@ -701,6 +763,23 @@ def _entry_of(
         else None
     )
     retrieval_need = dict(raw_need) if isinstance(raw_need, Mapping) else None
+    plan_face_reason = ""
+    plan_normalized = ""
+    if chain == CHAIN_DATA:
+        applied = plan_face_rules(
+            question=question,
+            plan=plan or {},
+            ledger_keys=ledger_keys,
+            metric_registered=str((plan or {}).get("metric_slot") or "") in registered_slots,
+        )
+        if applied.rejected:
+            plan_face_reason = applied.reason
+        elif dict(applied.plan) != (plan or {}):
+            plan = dict(applied.plan)  # 「前 N」→排名归一（V1 合同值——行为 15）
+            plan_normalized = NOTE_DIGEST_PLAN_NORMALIZED_TEMPLATE.format(
+                limit=plan.get("limit"),
+                direction=plan.get("direction"),
+            )
     if chain == CHAIN_DATA:
         tool = DATA_QUERY
         args: dict[str, Any] = {"plan_draft": dict(plan or {})}
@@ -722,6 +801,8 @@ def _entry_of(
             chain=chain,
             question=question,
         ),
+        plan_face_reason=plan_face_reason,
+        plan_normalized=plan_normalized,
     )
 
 
@@ -984,6 +1065,60 @@ def _rejection_streak(state: RunState, gate: str, fingerprints: Sequence[str]) -
         if isinstance(recorded, list) and list(recorded) == wanted:
             count += 1
     return count
+
+
+def _reject_plan_face(state: RunState, entry: _Entry) -> SubtaskExec:
+    """计划面闸拒（行为 15，2026-10-17 EB3 D4.1）：问句指标未接地 → **不派遣**（零 SQL）。
+
+    三步固定序（照同参重投闸同族体例）：
+
+    1. **机读留痕**：步记录（`gate="plan_face_metric"`＋拒因＋本次计划草案逐字参数——行为 7
+       「每次记账记参数／...／被拒原因」）＋ notice（`decision_rejected` 族既有值——本块不私扩
+       `transport.NOTICE_TYPES` 闭世界）；
+    2. **拒因回喂**：`state.decision_error` 落同一拒因文本（既有回喂通道——模型据此改链；
+       `bad_args` 属**回炉修参档**：换链＝改参，「检索问答链如实说明」即该档的合法出口）；
+    3. **账目**：`subtask_results` 落 `bad_args`（回炉面）。轮预算闸与回炉次数仍归既有面
+       （`orchestration._route_after_batch`＋轮数闸）——本函数不动 `rounds`、不造第二套计数。
+    """
+    reason = entry.plan_face_reason
+    call = entry.call
+    payload: dict[str, Any] = {
+        PAYLOAD_PHASE_KEY: PHASE,
+        PAYLOAD_STATUS: "rejected",
+        PAYLOAD_REJECTED_KEY: True,
+        PAYLOAD_GATE_KEY: GATE_PLAN_FACE_METRIC,
+        PAYLOAD_SUBTASK_ID_KEY: entry.subtask_id,
+        PAYLOAD_REJECT_REASON_KEY: reason,
+        PAYLOAD_ARGS_KEY: dict(call.args) if call is not None else None,
+        PAYLOAD_FINGERPRINTS_KEY: list(entry.fingerprints),
+        # 计划面闸拒＝工具**未执行**（`error` 与 `SubtaskExec.error` 同档语义留 None——
+        # 拒因经 `reject_reason` 机读在场；结论档由本函数落 `bad_args`）
+        **_signal_payload(),
+    }
+    record_step(
+        state,
+        kind=STEP_EXECUTE,
+        title=TITLE_PLAN_FACE_REJECTED_TEMPLATE.format(subtask=entry.subtask_id),
+        status=STEP_STATUS_REFUSED,
+        payload=payload,
+    )
+    notice(
+        state,
+        type=NOTICE_DECISION_REJECTED,
+        content=CONTENT_PLAN_FACE_NOTICE_PREFIX + reason,
+    )
+    state.decision_error = reason
+    _store_subtask_result(
+        state, entry, status=ERROR_BAD_ARGS, reason=reason, obs_count=0, ref=None
+    )
+    return SubtaskExec(
+        subtask_id=entry.subtask_id,
+        exec_status=EXEC_STATUS_FAILED,
+        answered=False,
+        error=ErrorClass(category=ERROR_BAD_ARGS, reason=reason),
+        row_count=None,
+        ref=None,
+    )
 
 
 def _reject_replay(state: RunState, entry: _Entry) -> SubtaskExec:

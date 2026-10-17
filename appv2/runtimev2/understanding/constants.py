@@ -77,6 +77,16 @@ FEEDBACK_TAIL = (
     "——只修正不合项，其余内容照旧，重新输出一个 JSON 对象（不要输出 JSON 之外的解释文字）。"
 )
 
+# ── schema 两读皆拒的收敛拒答（行为 13 尾；2026-10-17 EB3 D4.4 补）──────────────────
+# 拒答＝**直答旁路**一条确定性正文（`bookkeeping.direct_answer` 三键）——run 走收口、
+# **不判 failed、不零交付**；不合项取同一诊断出口（`parsing.understanding_schema_feedback`）。
+CONVERGE_NOTE_TITLE = "读题收敛拒答"  # 过程档案注记条目标题（pin-26 渲染面：入档案、不入 dialogue）
+CONVERGE_DRAFT_TEMPLATE = (
+    "抱歉，这次没能读懂您的问题：模型先后两次给出了不合输出契约的应答"
+    "（已按不合项回喂重试一次仍不合，不合项：{reason}）。为不猜、不取默认值、"
+    "不出低质答案，本次不继续作答——请把问题再说明白一些（比如指明指标、时间范围、井号）后重问。"
+)
+
 # ── 原始应答片段留痕（`UnderstandingParseError` 携带；上限与可见标记口径同仓截断先例）──
 RAW_EXCERPT_LIMIT = 200
 TRUNCATION_MARK = "…"

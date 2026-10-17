@@ -97,11 +97,16 @@ def test_list_contains_completed_run(env: Any) -> None:
     item = items[0]
     assert set(item) == {
         "run_id", "question", "status", "answer", "followup_of", "created_at", "updated_at",
-    }  # RunListItem 合同形（接口定义节——V2-74 加 followup_of 追问链列）
+        "supplements",
+    }  # RunListItem 合同形（接口定义节——V2-74 加 followup_of 追问链列；EB3 D1 加增补面列）
     assert item["run_id"] == run_id
     assert item["question"] == HAPPY_QUESTION  # question 逐字
     assert item["status"] == "completed"
     assert item["answer"] and item["answer"].strip()  # answer 非空（全文随行）
+    # 增补面随行（EB3 D1）：正文只留模型稿，引用清单走 `supplements`（本 happy path 恰一条）
+    assert [entry["block"] for entry in item["supplements"]] == ["citations"]
+    assert "引用：" in item["supplements"][0]["text"]
+    assert "引用：" not in item["answer"]
     assert item["followup_of"] == ""  # 独立新问＝链根（空串）
     for stamp in (item["created_at"], item["updated_at"]):
         assert isinstance(stamp, str)

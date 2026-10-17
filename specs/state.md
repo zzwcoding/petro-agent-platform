@@ -91,6 +91,7 @@ def check_limits(state: RunState) -> Convergence: ...   # 纯函数：不改入�
 - **闭世界常量族**（本块导出、全体消费）：`STEP_KINDS`（step 类型六值）｜`RUN_STATUS_KINDS`（run 状态四值）｜`INTENT`（路由意图十值）——三族都是 **`RunState` 字段的取值域**。取值与条数真源＝`recon/I2a-状态常量与清单.md`（22 条常量实测）；本规格不复述取值。**通知类型（`notice.type`）的闭世界不属本块**——它是帧载荷面，归 `transport`（其规格定稿时须立该闭世界并落定取值真源）。
 - **三类不可变载荷的形态闭世界**：`AskRequest` 三形态——仅 `question`＝提问｜`resume_run_id`＝断线重连｜`question`＋`followup_run_id`＝追问续会话；`resume_run_id` 与 `followup_run_id` 同在场＝判失败。`AskChoice.kind`＝`clarify`｜`external_table_approval`；`AskChoice.decision`＝`approve`｜`reject`｜`None`。越界值一律判失败。
 - **`RunHandle.stream` 的元素类型是外部类型**：`SseEvent`（帧对象 `{seq, event, data}`）的**形状真源在 `transport`**；本块不 import 任何 runtimev2 块（R4），故以**字符串前向引用**标注（`AsyncIterator["SseEvent"]`）——**本块不定义它、也不得给它安第二套含义**（禁把 `SseEvent` 当成"载荷 dict 别名"）。
+- **增补面不进 `RunState`（2026-10-17 EB3 D1／D2 — 交付面分层）**：程序追加内容（分源块／归属块／引用清单／血缘五要素）走**增补面通道**（`supplement` 帧，载荷 `{block, text}`），**不新增状态字段**——`RunState` 字段集保持 `synth/S5` 矩阵全量（行为 1 的集合相等断言零改）；条目由 `orchestration` 持有的收集列承载（相位经注入参追加），随 run 行落 `supplements` 列（真源 `specs/persistence.md` 列事实＋`specs/transport.md` 行为 16）。判据：字段集断言 `::field_set_matches_matrix` 仍绿（本批零字段增删）。
 - **错误契约**：形态／枚举越界 → **抛参数错误**（由 `api`／`orchestration` 映射成对外错误码，映射表不在本块）；本块**不吞错、不返回哨兵值**。
 - 真源：`specs/modules.md` `## state` 卡（签名以卡为准）。
 

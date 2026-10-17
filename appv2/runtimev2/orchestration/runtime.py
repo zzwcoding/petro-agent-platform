@@ -383,6 +383,9 @@ class RunExecutor:
 
     async def _drive(self, state: RunState, bus: EventBus, run_id: str) -> None:
         error = ""
+        # 增补面收集列表（2026-10-17 EB3 D2）：本腿相位把程序追加块入列，作答收口处出帧
+        # （`graph._flush_supplements`）；收口时随 run 行落库（`supplements` 列，D1）。
+        supplements: list[dict[str, Any]] = []
         try:
             if self._load_ledger:
                 await load_ledger_dump(state)
@@ -400,6 +403,7 @@ class RunExecutor:
                 # 按「新增逐条」语义发帧）。
                 emitted_steps=len(state.steps),
                 emitted_notices=len(state.notices),
+                supplements=supplements,
                 # 段时长闸的用量读数（行为 7「单段时限」）：受理腿取的起点 ← 钟读数差——本腿现算
                 # （挂起等人工不计时、跨段不累计）。
                 elapsed_seconds=lambda: self._elapsed_seconds(run_id),
@@ -423,9 +427,17 @@ class RunExecutor:
                 {"type": NOTICE_RUN_FAILED, "gates": [], "content": f"run 执行失败：{exc}"},
             )
         finally:
-            await self._close_out(state, bus, run_id, error=error)
+            await self._close_out(state, bus, run_id, error=error, supplements=supplements)
 
-    async def _close_out(self, state: RunState, bus: EventBus, run_id: str, *, error: str) -> None:
+    async def _close_out(
+        self,
+        state: RunState,
+        bus: EventBus,
+        run_id: str,
+        *,
+        error: str,
+        supplements: Sequence[dict[str, Any]] = (),
+    ) -> None:
         """收口（两态）：三态判定 ＋ 状态行／步行／检查点行 ＋ 收口 `verdict(final)` 帧。
 
         - **挂起收束**（`waiting_ask`）：本腿以挂起结束——`verdict(final)` 帧落定后**腿即收束**
@@ -439,7 +451,7 @@ class RunExecutor:
         state.manifest_digest = digest
         status = _terminal_status(state, error=error)
         state.status = status
-        self._persist(state, bus, status=status, digest=digest)
+        self._persist(state, bus, status=status, digest=digest, supplements=supplements)
         # 审计接线（H3）：决定留痕（外表审批批准／驳回）＋豁免留痕（待产位）逐腿发；三态收口与
         # 拒答收口只在 run 终态发（挂起收束不发终态行——该 run 还会被 resume 续推）。
         self._audit_leg(state, bus, run_id, status=status, error=error)
@@ -525,7 +537,15 @@ class RunExecutor:
             return resolved
         return who_of_id(self._identity_source.get(run_id, ""))
 
-    def _persist(self, state: RunState, bus: EventBus, *, status: str, digest: str) -> None:
+    def _persist(
+        self,
+        state: RunState,
+        bus: EventBus,
+        *,
+        status: str,
+        digest: str,
+        supplements: Sequence[dict[str, Any]] = (),
+    ) -> None:
         for entry in state.steps:
             if not isinstance(entry, dict):
                 continue
@@ -541,7 +561,9 @@ class RunExecutor:
                     created_at=infra_clock.now(),
                 )
             )
-        self._store.save(self._run_record(state, status, digest=digest))
+        self._store.save(
+            self._run_record(state, status, digest=digest, supplements=supplements)
+        )
         put_checkpoint_rows(
             [
                 CheckpointRow(
@@ -556,7 +578,14 @@ class RunExecutor:
             ]
         )
 
-    def _run_record(self, state: RunState, status: str, *, digest: str = "") -> RunRecord:
+    def _run_record(
+        self,
+        state: RunState,
+        status: str,
+        *,
+        digest: str = "",
+        supplements: Sequence[dict[str, Any]] = (),
+    ) -> RunRecord:
         now = infra_clock.now()
         return RunRecord(
             run_id=state.run_id,
@@ -569,6 +598,7 @@ class RunExecutor:
             followup_of=state.followup_of,
             created_at=now,
             updated_at=now,
+            supplements=[dict(entry) for entry in supplements],
         )
 
 

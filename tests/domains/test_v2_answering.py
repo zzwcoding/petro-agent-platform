@@ -51,9 +51,9 @@ from __future__ import annotations
 import ast
 import dataclasses
 import inspect
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -147,14 +147,23 @@ def _state(**overrides: Any) -> RunState:
 
 @dataclass
 class _Session:
-    """一次相位会话（注入剧本化 completer ＋ per-run 总线；逐次 `call` 走 `answer`）。"""
+    """一次相位会话（注入剧本化 completer ＋ per-run 总线；逐次 `call` 走 `answer`）。
+
+    `supplements`＝增补面收集列表（2026-10-17 EB3 D2——收口三块不进正文，入该列由编排层发帧）。
+    """
 
     bus: EventBus
     completer: ScriptedCompleter
     max_observations: int = DEFAULT_MAX_OBSERVATIONS
+    supplements: list[dict[str, Any]] = field(default_factory=list)
 
     def call(self, state: RunState) -> AnswerDraft:
-        return answer(state, bus=self.bus, max_observations=self.max_observations)
+        return answer(
+            state,
+            bus=self.bus,
+            max_observations=self.max_observations,
+            supplements=self.supplements,
+        )
 
 
 @contextmanager
@@ -186,6 +195,22 @@ def _payloads(state: RunState, phase: str) -> list[dict[str, Any]]:
         if isinstance(payload, Mapping) and payload.get(_PAYLOAD_PHASE_KEY) == phase:
             found.append(dict(payload))
     return found
+
+
+def _supplement_text(supplements: Sequence[Mapping[str, Any]], block: str) -> str:
+    """增补面条目文本（按块型取——EB3 D2 载荷形 `{block, text}`；缺位即判失败）。"""
+    texts = [
+        str(entry.get("text", ""))
+        for entry in supplements
+        if entry.get("block") == block
+    ]
+    assert len(texts) == 1, f"增补面条目不唯一／缺席：block={block!r} texts={texts!r}"
+    return texts[0]
+
+
+def _supplement_blocks(supplements: Sequence[Mapping[str, Any]]) -> list[str]:
+    """增补面条目块型序（按产出序——「按原序」判据面）。"""
+    return [str(entry.get("block", "")) for entry in supplements]
 
 
 def _answer_face(draft: AnswerDraft, frames: list[SseEvent]) -> str:
@@ -466,12 +491,16 @@ async def test_finalize_atomic() -> None:
     for body in bodies:
         assert set(body) == _CITATION_FRAME_KEYS  # 帧载荷形（S6 §一 citation 行）
         assert body["source"] and body["trust"]
-    # 引用块（答案面）＋链尾（同批：一次调用内）
-    assert state.answer.endswith(
-        "\n\n引用：\n[1] 台账 · metric-1（authoritative）\n[2] 报告 · report-1（report）"
-    )
+    # 正文＝模型稿（引用块不入正文——EB3 D2）；引用块入增补面按「引用：」块形
+    draft = "结论一：日产油量 10 吨[1]。\n\n结论二：报告佐证[2]。"
+    assert state.answer == draft
     assert state.messages[-1] == {"role": "assistant", "content": state.answer}
     assert [citation.seq for citation in final.citations] == [1, 2]
+    citation_block = _supplement_text(session.supplements, "citations")
+    assert citation_block.endswith(
+        "引用：\n[1] 台账 · metric-1（authoritative）\n[2] 报告 · report-1（report）"
+    )
+    assert "引用：" not in state.answer  # 正文零程序块
     # 收口不再推全量（增量早在起草段发过）；`verdict` 帧不由本块产（消费方信号）
     assert _of(frames, "text") == []
     assert _of(frames, "verdict") == []
@@ -613,9 +642,10 @@ async def test_emission_strip_zero_leak() -> None:
 def test_card_signature_and_five_shapes() -> None:
     """骨架与公开面按卡面签名（`answer(state) -> AnswerDraft`）＋五形状齐（规格 :37–:60）。"""
     signature = inspect.signature(answer)
-    assert list(signature.parameters) == ["state", "bus", "max_observations"]
+    # EB3 D2：增补面收集列表 `supplements` 为第三处 kw-only 注入面
+    assert list(signature.parameters) == ["state", "bus", "max_observations", "supplements"]
     assert signature.parameters["state"].kind is inspect.Parameter.POSITIONAL_OR_KEYWORD
-    for name in ("bus", "max_observations"):
+    for name in ("bus", "max_observations", "supplements"):
         assert signature.parameters[name].kind is inspect.Parameter.KEYWORD_ONLY
     assert (
         signature.return_annotation == "AnswerDraft"
@@ -761,32 +791,35 @@ async def test_model_call_goes_through_bookkeeping_single_point() -> None:
 
 
 async def test_contradiction_split_not_merged() -> None:
-    """行 7｜矛盾数据**分源列明、不强调和**，并在引用块面标出「互不一致」（行为 6）。
+    """行 7｜矛盾数据**分源列明、不强调和**（行为 6；EB3 D2：块入增补面不进正文）。
 
     形态逐字迁移真源＝`recon/A2-核验规则与归属审.md` R-A2-29／R-A2-30（同 subject 异值 ≥2 支
-    → 全组成员列明；行级事实与元信息不入池）。本块在收口段**确定性装配**（不靠模型自觉）。
+    → 全组成员列明；行级事实与元信息不入池）。本块在收口段**确定性装配**（不靠模型自觉），
+    装配结果进增补面（正文只留模型稿）。
     """
     observations = [
         _obs(1, "fragment", content="日产油量：10 吨", source="报告A", source_id="A-1"),
         _obs(2, "fragment", content="日产油量：12 吨", source="报告B", source_id="B-1"),
         _obs(3, "fragment", content="日产液量：30 吨", source="报告A", source_id="A-2"),
     ]
+    draft = "结论：日产油量两来源互有出入[1][2]。\n\n补充：日产液量另计[3]。"
     state = _state(
         observations=observations,
-        draft="结论：日产油量两来源互有出入[1][2]。\n\n补充：日产液量另计[3]。",
+        draft=draft,
         verdict={"cited": [1, 2, 3], "ok": True},
     )
     with _phase() as session:
         final = session.call(state)
     await _frames(session.bus)
-    face = state.answer
 
+    face = _supplement_text(session.supplements, "split")
     assert "互不一致" in face and CONTRADICTION_SECTION_HEAD.strip() in face  # 标出「互不一致」
     # 分源列明：逐支原文照抄、各带出处（不调和＝无合并值、无取其一）
     assert "[1] 报告A · A-1：日产油量：10 吨" in face
     assert "[2] 报告B · B-1：日产油量：12 吨" in face
     assert "11 吨" not in face  # 零调和（不取中值）
     assert "[3] 报告A · A-2：日产液量：30 吨" not in face  # 县成组才列明（同 subject 才入池）
+    assert state.answer == draft  # 正文零程序块（EB3 D2）
     assert [citation.seq for citation in final.citations] == [1, 2, 3]
     # 机读面同源（收口步 payload 的 `contradiction_seqs`）
     finalize = _payloads(state, _PAYLOAD_PHASE_FINALIZE)[0]
@@ -803,7 +836,7 @@ async def test_contradiction_split_not_merged() -> None:
     )
     with _phase() as session2:
         session2.call(same)
-    assert "互不一致" not in same.answer
+    assert "split" not in _supplement_blocks(session2.supplements)
 
 
 # ---------- 12 明细行集题交付行数＝引擎返回行数（丢行=0） ----------
@@ -1125,9 +1158,9 @@ async def test_cross_oilfield_attribution_paired() -> None:
     )
     with _phase() as session:
         session.call(state)
-    face = state.answer
+    face = _supplement_text(session.supplements, "attribution")
 
-    assert SOURCE_SECTION_HEAD.strip() in face  # 分源列明块在场
+    assert SOURCE_SECTION_HEAD.strip() in face  # 分源列明块在场（增补面）
     assert "[1] 《渤中34-8油田季报》：渤中34-8 油田累积亏空 −42.6 万吨" in face
     assert "[2] 《渤中34-5油田注水分析》：渤中34-5 油田累积亏空 −128.6 万吨" in face
     attribution = face.split(SOURCE_SECTION_HEAD.strip())[1]  # 归属块面（逐源配对行）
@@ -1138,6 +1171,7 @@ async def test_cross_oilfield_attribution_paired() -> None:
             assert "渤中34-5" in line
     assert "某区块" not in face  # 含糊归属形零命中（C-正6 形禁现）
     assert "小范围结算序列" not in face
+    assert state.answer == "累积亏空分别约 −42.6 与 −128.6 万吨，口径见来源[1][2]。"  # 正文零程序块
 
     # 单出处（普通答案）＝零分源块（保留集：分源行为不变）
     plain = _state(
@@ -1147,8 +1181,8 @@ async def test_cross_oilfield_attribution_paired() -> None:
     )
     with _phase() as session2:
         session2.call(plain)
-    assert SOURCE_SECTION_HEAD.strip() not in plain.answer
-    assert "互不一致" not in plain.answer
+    assert "attribution" not in _supplement_blocks(session2.supplements)
+    assert "split" not in _supplement_blocks(session2.supplements)
 
 
 # ---------- 19 程序侧无词表／正则语义判断（AST 扫描） ----------
@@ -1343,7 +1377,7 @@ async def test_boundary_single_seg_zero_material_conflict_bad_cite() -> None:
     assert "观察材料：\n（无）" in str(empty.messages[-1]["content"])
     assert _payloads(empty, _PAYLOAD_PHASE_DRAFT)[0][PAYLOAD_ENGINE_ROWS_KEY] == 0
 
-    # ③ 矛盾双源：分源列明＋「互不一致」在场（不调和）
+    # ③ 矛盾双源：分源列明＋「互不一致」进增补面（不调和；正文零程序块）
     conflict = _state(
         observations=[
             _obs(1, "fragment", content="日产油量：10 吨", source="报告A"),
@@ -1354,7 +1388,8 @@ async def test_boundary_single_seg_zero_material_conflict_bad_cite() -> None:
     )
     with _phase() as session3:
         session3.call(conflict)
-    assert "互不一致" in conflict.answer
+    assert "互不一致" in _supplement_text(session3.supplements, "split")
+    assert "互不一致" not in conflict.answer
 
     # ④ 坏引标：判失败（不返回半成品、坏引标不上帧面）
     bad = _state(observations=[_obs(1, "agg_row")])
@@ -1404,8 +1439,48 @@ async def test_retention_plain_answer_unchanged() -> None:
     assert [segment.citation_seqs for segment in final.segments] == [[1]]
     assert [citation.seq for citation in final.citations] == [1]
     assert [body["index"] for body in _of(frames, CITATION_EVENT)] == [1]
-    assert state.answer.endswith("\n\n引用：\n[1] 台账 · metric-1（ledger）")
-    assert "互不一致" not in state.answer
-    assert SOURCE_SECTION_HEAD.strip() not in state.answer  # 单出处＝零分源块
+    # 正文＝模型稿；引用块入增补面（EB3 D2）；单出处＝零分源／归属块
+    assert state.answer == "口径为开井日历折算[1]。"
+    assert "引用：" not in state.answer
+    assert _supplement_text(session2.supplements, "citations").endswith(
+        "引用：\n[1] 台账 · metric-1（ledger）"
+    )
+    assert _supplement_blocks(session2.supplements) == ["citations"]  # 单出处：零分源／归属块
     assert _of(frames, "verdict") == []
     assert state.answer == state.messages[-1]["content"]
+
+
+# ---------- 23 【EB3 D2】四类块不在正文、按产出序入增补面 ----------
+
+
+async def test_supplements_carry_blocks_out_of_body() -> None:
+    """EB3 D2｜四类块**不进正文**：正文＝模型稿；分源／归属／引用三块按产出序入增补面。
+
+    真源方案 `docs/runtime-refactor/proposals/EB3-交付面分层与缺陷修复.md` D2（answering 收口段）：
+    「互不一致——各来源说法如下…」块 → `split`；分源归属块 → `attribution`；「引用：」块 →
+    `citations`；剥除后 `state.answer`／链尾不再含这些块。条目为 `{block, text}`（块型闭世界
+    四值由 `transport` 把守——本件另钉条目的键形）。
+    """
+    observations = [
+        _obs(1, "fragment", content="日产油量：10 吨", source="报告A", source_id="A-1"),
+        _obs(2, "fragment", content="日产油量：12 吨", source="报告B", source_id="B-1"),
+    ]
+    draft = "结论：日产油量两来源互有出入[1][2]。"
+    state = _state(
+        observations=observations, draft=draft, verdict={"cited": [1, 2], "ok": True}
+    )
+    with _phase() as session:
+        session.call(state)
+    await _frames(session.bus)
+
+    assert state.answer == draft  # 正文＝模型稿（零程序块）
+    for mark in ("互不一致", SOURCE_SECTION_HEAD.strip(), "引用："):
+        assert mark not in state.answer
+    assert state.messages[-1] == {"role": "assistant", "content": draft}  # 链尾同源
+    # 按产出序入增补面：分源 → 归属 → 引用（块型闭世界四值之内）
+    assert _supplement_blocks(session.supplements) == ["split", "attribution", "citations"]
+    for entry in session.supplements:
+        assert set(entry) == {"block", "text"}  # 载荷形恰二键（空文本零入列）
+        assert entry["text"].strip()
+    split_text = _supplement_text(session.supplements, "split")
+    assert "互不一致" in split_text  # 行为 6 的「互不一致」标随块走（不入正文）

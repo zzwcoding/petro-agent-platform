@@ -53,9 +53,9 @@ class Direct:                              # route 闭世界
 ```
 
 - **`route` 是闭世界**：合法值仅 `"full"`｜`"direct"`；**越界值判失败**（不猜、不取默认）。
-- **错误契约**：应答不是合法 JSON／缺必填字段／字段类型不符 → **抛 `UnderstandingParseError`**（携带原始应答片段供留痕）。**不返回半成品**。parsing 解析不合格（`parse_understanding` 返 `None`）在场时由本块转译抛 `UnderstandingParseError`（唯一转译出口；真源 `specs/parsing.md` 行为 1／接口⑤——流水 43⑦ 补落输入半面）。
+- **错误契约**：应答不是合法 JSON／缺必填字段／字段类型不符 → **回喂拒因重试恰一次（见下行）；仍不合 ⇒ 收敛拒答**（`direct_answer` 落拒答正文 ＋ 返回该 `Direct`——**run 收口、不判 `failed`、不零交付**；2026-10-17 EB3 D4.4 改判）。**不返回半成品**。parsing 解析不合格（`parse_understanding` 返 `None`）在场时由本块走同一条修正回路（诊断面取 `parsing.understanding_schema_feedback`——流水 43⑦ 补落输入半面；`UnderstandingParseError` 随本批**退出本支出口**，类型保留作错误族形状）。
 - **直答退回不抛错**：结构核验不合格（见「行为约定」第 5 条）→ 返回 `route="full"` 的 `Understanding`，并在过程档案记一条「直答退回」。
-- **schema 拒回喂重试恰一次（行为 13，2026-10-16 补·流水 67）**：首读不合 schema（`UnderstandingParseError` 路径）**不当场判死**——向链尾追加**拒因载荷**（【拒因】〈具体不合项〉＋【期望形】＋尾行；不合项取 `parsing.understanding_schema_feedback` 的**唯一诊断出口**——本块不重判 schema）→ **同相位再读一次**；**仍拒**方抛 `UnderstandingParseError`（编排收 `failed` 不变）。上限**恰一次**（结构化无环）；**不静默补默认**（回喂＝修参、非降级）；两次调用各记一条步（`bookkeeping.call_model` 单点）。
+- **schema 拒回喂重试恰一次（行为 13，2026-10-16 补·流水 67；2026-10-17 EB3 D4.4 改尾）**：首读不合 schema（`parse_understanding` 返 `None` 的本块侧路径）**不当场判死**——向链尾追加**拒因载荷**（【拒因】〈具体不合项〉＋【期望形】＋尾行；不合项取 `parsing.understanding_schema_feedback` 的**唯一诊断出口**——本块不重判 schema）→ **同相位再读一次**；**仍拒** → **收敛拒答**（2026-10-17 EB3 D4.4：`bookkeeping.direct_answer` 落拒答正文三键 ＋ 返回该 `Direct`——**run 不判 `failed`、不零交付**；旧「抛 `UnderstandingParseError` → 编排收 `failed`」退役，真机证据 `eval/results/frames/EB2-NQ-D2.json`）。上限**恰一次**（结构化无环）；**不静默补默认**（回喂＝修参、非降级）；两次调用各记一条步（`bookkeeping.call_model` 单点）。
 - 真源：`specs/modules.md` `## understanding` 卡（签名以卡为准）。
 
 ## 框架与依赖红线
@@ -77,18 +77,18 @@ class Direct:                              # route 闭世界
    - **表名**：属于**结构卡集合**的名字（真源：`tools` 的 `table_schema` 发现面）。
    **闭世界外的生词不算命中**——这是结构判据，不做语义猜测。
 6. **单出口互斥**：一次调用只返回 `Understanding` 或 `Direct` 之一，不存在两通道同时生效。
-7. **解析严格**：不合 schema → 抛 `UnderstandingParseError`；**不静默降级**（旧「抠第一个 `{...}` 降级提取」废弃）。
+7. **解析严格**：不合 schema → **回喂拒因重试恰一次；仍不合＝收敛拒答**（行为 13；不返回半成品、不静默降级——旧「抠第一个 `{...}` 降级提取」废弃；**不取默认路由**：程序不替模型选 `full`／`direct`）。
 8. **候选须出自名录**：`metric_candidates` 出现名录外名字 → 判**违约**并如实上报（红线）。
 9. 任务书**每 run 只装配一次**；**模型原话不进对话层**（只进过程档案与留痕）。
 10. 样例＝**固定示例集**（多部分题／口语映射题／判断纠错题三则；真源：`walk/04-理解-读题步.md` §一「三则样例」＋`walk/裁决表.md` §04-C）；**不加边界对照例**。
 11. **默认倾向 fail-closed**：理解判「可能有关／含糊／拿不准」→ 走**完整流程**；只有**确定无关**（寒暄／道谢／道别）才直答。**灰区归属**：「系统自身能力问句（我能问什么）」「预测类（明年油价）」→ 归**完整流程**（真源：`walk/05-理解-定路由.md` §七 第 3 条与灰区归属）。
 12. **理解文本发 `text` 事件**（`kind=understanding`）：理解文本与指标候选**双出口**（`state` 字段 ＋ `text` 事件）；发射单元 M1（真源 `synth/S6-事件与帧目录.md` §一）。
-13. **schema 拒回喂重试恰一次（2026-10-16 补·流水 67——L3 阻塞修复，真机 `run-60bc4aaa`）**：读题应答不合 schema（非合法 JSON／缺必填字段／字段类型不符／`route` 越界）→ **不直接失败**：向链尾**追加**拒因载荷 → **同相位再调模型一次**；**仍不合 schema** 才抛 `UnderstandingParseError`（编排收 `failed` 照旧）。载荷三段（体例照澄清相位拒因载荷，`specs/clarification.md` 接口定义「错误契约」）：①【拒因】＝**具体不合项**（`缺必填字段 \`metric_candidates\``／`字段类型不符：…`／`\`route\` 取值越界（闭世界仅「full」｜「direct」）`——取 `parsing.understanding_schema_feedback` 诊断出口，**本块不重判 schema**）；②【期望形】＝`{"route":"full","text":"理解：〈一句话题意〉","metric_candidates":["〈台账名录里的指标名〉"]}`（或 `{"route":"direct","text":"〈回复内容〉"}`）＋「route 只许这两个取值／`route=full` 时 `text` 与 `metric_candidates` 均为必填、无命中指标给空数组 `[]`／`route=direct` 无 `metric_candidates` 键」；③尾行「只修正不合项，其余内容照旧，重新输出一个 JSON 对象（不要输出 JSON 之外的解释文字）。」。纪律：**上限恰一次**（第二次后不再回喂——钉死防环）；**追加形**（载荷落链尾、前置内容逐字不动——`pin-22`，第二次调用的消息链＝第一次的**前缀延伸**）；载荷**自足**（链上直投、无外层壳）；角色＝`user`（系统侧指令条，同澄清面增量条体例）；只入 `messages` 与过程档案（`dialogue` 零写入——行为 9）；**回喂面零副作用**（不发 notice、不记步、不落判定字段——如实上报仍只在两读皆拒时由 `report_parse_failure` 出一份；调用记账仍归 `call_model` 单点，两次各一条）。**不静默补默认、不改写模型原话、不降级提取**。断言：①首读缺 `metric_candidates` → 回喂 → 次读合规 → 正常分派（零 `failed`）；②两读皆拒 → 抛 `UnderstandingParseError` ＋拒因留痕（链上载荷＋过程档案注记＋报告步）；③上限恰一次（模型调用恰 2 次，绝无第三次）；④载荷三段形逐字在场（【拒因】指名不合项）；⑤第二次调用的消息链前缀延伸（开门即包含第一次全链）。
+13. **schema 拒回喂重试恰一次（2026-10-16 补·流水 67——L3 阻塞修复，真机 `run-60bc4aaa`；2026-10-17 EB3 D4.4 改尾：仍拒＝收敛拒答）**：读题应答不合 schema（非合法 JSON／缺必填字段／字段类型不符／`route` 越界）→ **不直接失败**：向链尾**追加**拒因载荷 → **同相位再调模型一次**；**仍不合 schema** ⇒ **收敛拒答**（`bookkeeping.direct_answer` 落拒答正文三键 ＋ 返回该 `Direct`——run 走收口 `completed`，**不判 `failed`、不零交付**；旧「抛 `UnderstandingParseError`（编排收 `failed`）」退役，2026-10-17 EB3 D4.4——真机证据 `eval/results/frames/EB2-NQ-D2.json`：模型两次都在 JSON 字符串里带未转义引号，旧形整 run 零交付）。载荷三段（体例照澄清相位拒因载荷，`specs/clarification.md` 接口定义「错误契约」）：①【拒因】＝**具体不合项**（`缺必填字段 \`metric_candidates\``／`字段类型不符：…`／`\`route\` 取值越界（闭世界仅「full」｜「direct」）`——取 `parsing.understanding_schema_feedback` 诊断出口，**本块不重判 schema**）；②【期望形】＝`{"route":"full","text":"理解：〈一句话题意〉","metric_candidates":["〈台账名录里的指标名〉"]}`（或 `{"route":"direct","text":"〈回复内容〉"}`）＋「route 只许这两个取值／`route=full` 时 `text` 与 `metric_candidates` 均为必填、无命中指标给空数组 `[]`／`route=direct` 无 `metric_candidates` 键」；③尾行「只修正不合项，其余内容照旧，重新输出一个 JSON 对象（不要输出 JSON 之外的解释文字）。」。纪律：**上限恰一次**（第二次后不再回喂——钉死防环）；**追加形**（载荷落链尾、前置内容逐字不动——`pin-22`，第二次调用的消息链＝第一次的**前缀延伸**）；载荷**自足**（链上直投、无外层壳）；角色＝`user`（系统侧指令条，同澄清面增量条体例）；只入 `messages` 与过程档案（`dialogue` 零写入——行为 9）；**回喂面零副作用**（不发 notice、不记步、不落判定字段——如实上报仍只在两读皆拒时由 `report_parse_failure` 出一份；调用记账仍归 `call_model` 单点，两次各一条）。**收敛拒答**＝程序生成的确定性正文（不合项同源；正文**不刷原始应答片段**——片段只进报告步与 notice 的机读面）＋过程档案一条「读题收敛拒答」注记。**不静默补默认、不改写模型原话、不降级提取**。断言：①首读缺 `metric_candidates` → 回喂 → 次读合规 → 正常分派（零 `failed`）；②两读皆拒 → **收敛拒答**（`draft_kind="direct"`／`next_intent="answer"`／正文在场）＋拒因留痕（链上载荷＋过程档案注记＋报告步），**run `completed`、零 `run_failed`**；③上限恰一次（模型调用恰 2 次，绝无第三次）；④载荷三段形逐字在场（【拒因】指名不合项）；⑤第二次调用的消息链前缀延伸（开门即包含第一次全链）。
 
 ## 不降级与静默禁令
 
 - **合法降级路径：无**。本模块不做任何降级；模型不可用由 `orchestration` 统一处置，不在此处自降级。
-- **拒因回喂＝修参、非降级**（行为 13）：schema 拒先回喂拒因再读一次，程序**不补默认、不改写模型原话、不降级提取**；上限恰一次，仍拒恒以 `UnderstandingParseError` 收口（不返回半成品）。
+- **拒因回喂＝修参、非降级**（行为 13）：schema 拒先回喂拒因再读一次，程序**不补默认、不改写模型原话、不降级提取**；上限恰一次，仍拒＝**收敛拒答**（2026-10-17 EB3 D4.4：直答旁路出确定性拒答正文——**不返回半成品、不零交付**、不判 `failed`）。
 - 任何「如实上报」（候选违约／解析失败／直答退回）**必须产生机读信号**：step payload 字段 ＋ notice（类型取自事件闭世界 `synth/S6-事件与帧目录.md`）。
 - 红线原文：`arch/P7a-交接包与挂账清单.md`（A-P7a-37）「**不许静默**——若任何相位仍发生截断，模型面必须随材料段带明示……收口注记面同步披露」。
 
@@ -100,8 +100,8 @@ class Direct:                              # route 闭世界
 | 候选出现名录外名字 → 判违约（不静默丢弃） | `tests/domains/test_v2_understanding.py::candidate_out_of_roster_violates` |
 | 寒暄句（道谢／道别）→ route=direct，文本不含数据或事实断言 | `tests/domains/test_v2_understanding.py::direct_on_greeting` |
 | route=direct 但文本命中闭世界 → 不合格，退回 full | `tests/domains/test_v2_understanding.py::direct_with_assertion_rejected` |
-| 应答 JSON 不合 schema → 抛 UnderstandingParseError，不静默降级 | `tests/domains/test_v2_understanding.py::malformed_json_raises_no_fallback` |
-| route 越界取值 → 判失败（不猜、不取默认） | `tests/domains/test_v2_understanding.py::route_enum_closed_world` |
+| 应答 JSON 不合 schema → 回喂恰一次后**收敛拒答**（不抛错、不零交付、不静默降级；无默认路由） | `tests/domains/test_v2_understanding.py::malformed_json_converges_to_refusal` |
+| route 越界取值 → 判失败（不猜、不取默认；收敛拒答口径） | `tests/domains/test_v2_understanding.py::route_enum_closed_world` |
 | 任务书三区顺序正确、数据区标来源且置于末尾 | `tests/domains/test_v2_understanding.py::task_book_three_zones` |
 | 台账投影变化 → 数据区文本随之变 | `tests/domains/test_v2_understanding.py::data_zone_from_live_projection` |
 | 任务书每 run 只装配一次；模型原话不进对话层 | `tests/domains/test_v2_understanding.py::assembled_once_raw_not_in_dialogue` |
@@ -113,12 +113,16 @@ class Direct:                              # route 闭世界
 | 【边界集】**名录内**指标名／**结构卡内**表名／全角数字 → 直答判不合格 | `tests/domains/test_v2_understanding.py::direct_boundary_cases_rejected` |
 | 【保留集】寒暄仍走 direct；route=full 的既有候选校验行为不变 | `tests/domains/test_v2_understanding.py::retention_non_direct_unchanged` |
 | schema 拒回喂重试恰一次：首读缺 `metric_candidates` → 回喂 → 次读合规 → 正常分派（零 failed，模型调用恰 2 次、两次各记一条步） | `tests/domains/test_v2_understanding.py::schema_reject_feedback_retry_once` |
-| 两读皆拒 → 抛 `UnderstandingParseError`＋拒因留痕（链上载荷＋过程档案注记＋报告步）；上限恰一次（无第三次调用） | `tests/domains/test_v2_understanding.py::schema_reject_twice_raises_with_feedback_trace` |
+| 两读皆拒 → **收敛拒答**＋拒因留痕（链上载荷＋过程档案注记＋报告步）；上限恰一次（无第三次调用）；run `completed` 零 `run_failed` | `tests/domains/test_v2_understanding.py::schema_reject_twice_converges_to_refusal` |
 | 拒因载荷三段带路形（【拒因】指名不合项〔缺必填字段／类型不符／route 越界〕＋【期望形】＋尾行；自足无外层壳） | `tests/domains/test_v2_understanding.py::schema_feedback_three_segment_payload` |
 | 回喂＝追加形：第二次调用消息链＝第一次的**前缀延伸**（前置内容逐字不动） | `tests/domains/test_v2_understanding.py::schema_feedback_prefix_extension` |
-| 端到端：理解步首拒回喂后次读合规 → 四相位正常走通（run `completed`）；两读皆拒 → run `failed` | `tests/domains/test_v2_four_phase.py::test_four_phase_understand_schema_feedback_retry_recovers` |
+| 端到端：理解步首拒回喂后次读合规 → 四相位正常走通（run `completed`）；两读皆拒 → **收敛拒答**（run `completed` 有正文、零 `run_failed`） | `tests/domains/test_v2_four_phase.py::test_four_phase_understand_schema_feedback_retry_recovers` ＋ `tests/domains/test_v2_four_phase.py::test_four_phase_understand_schema_feedback_twice_converges_to_refusal` |
+| 【EB3 D4.4 回归】真机题面原句重演：两读皆拒（JSON 字符串内未转义引号形）→ 收敛拒答，run `completed`、有正文帧、零 `run_failed` | `tests/domains/test_v2_four_phase.py::test_four_phase_understand_schema_feedback_twice_converges_to_refusal` |
+| 【EB2-NQ-D2 帧回归】题面原句＋真机应答原话（JSON 字符串内未转义引号）→ 收敛拒答（直答旁路三键、理解双通道零写入、如实上报恰一份） | `tests/domains/test_v2_understanding.py::test_nq_d2_frame_question_converges_to_refusal` |
 
 > **2026-10-16 补（流水 67·L3 阻塞修复·审计）**：**schema 拒回喂重试恰一次**（行为 13／接口定义「schema 拒回喂重试恰一次」条／「不降级与静默禁令」节第二句）。**病灶**：理解步 schema 拒**无任何修正回路**——整 run 直接 `failed`；真机证据 `docs/runtime-refactor/ladder/L3/04-W-11井投产后预计躺井-summary.md`（`run-60bc4aaa`：模型漏 `metric_candidates` 必填、把旧两行式塞进 `text`，首拒即死，同题 gold 期望的「优雅走到检索再拒答」连第一步都进不去），而同仓澄清相位早有打回带教面（`specs/clarification.md` 行为 17／18 拒因回喂＋三段带路）。**改法**（照澄清相位打回模式，**不静默补默认**——回喂是修参、非降级）：解析/schema 拒 → 向链尾追加**拒因载荷**（【拒因】具体不合项＋【期望形】＋尾行；具体不合项的**唯一诊断出口**＝`parsing.understanding_schema_feedback`，2026-10-16 同批新增——理解面 schema 判定仍恰一处、**本块零 schema 重判**）→ 同相位再读一次 → 仍拒才抛 `UnderstandingParseError`（编排收 `failed` 不变）；上限**恰一次**（结构化无环）；两次调用各记一条步（`call_model` 单点）；**前缀延伸不破**（载荷落链尾＝追加形，`pin-22`）；**零副作用面**（直答核验／候选名录对账／`report_parse_failure` 既有行为不变；回喂支不发 notice、不记步）。落点：`appv2/runtimev2/understanding/interpret.py`（`interpret` 重试支＋`_read_and_parse`／`_append_schema_feedback`）、`appv2/runtimev2/understanding/feedback.py`（载荷三段拼装，新增）、`appv2/runtimev2/understanding/constants.py`（载荷文案与注记标题）、`appv2/runtimev2/parsing/parsers.py`（诊断面 `understanding_schema_feedback`，与 `parse_understanding` 共用判定内核 `_understand_schema`）。**登记（交主窗）**：①`specs/parsing.md` 接口定义⑤／行为 1／验收表同批补录该新增公开成员（跨块 additive，非语义改动）；②**同一真机的旁证病灶**——任务书指令区与样例集仍是 V1「两行式」措辞（`appv2/runtimev2/prompts/constants.py` 的 `TASK_BOOK_TASK`／样例／红线），与 `【输出契约】` 的 JSON 契约**自相矛盾**（模型正是照指令区两行式答的）；该文案属 Owner 审定面、本批**无逐字稿、不动**（登记件真源＝`appv2/runtimev2/prompts/task_book.py` 模块注的既有登记），建议主窗随批裁一处统一措辞。
+
+> **2026-10-17 补（EB3 D4.4·收敛拒答·审计）**：**两读皆拒＝收敛拒答**（行为 13 尾／接口定义「schema 拒回喂重试恰一次」条／「不降级与静默禁令」节第二句；本批**改尾**，前段（回喂恰一次＋三段带路）不变）。**病灶**：理解步 schema 两次皆拒 → 抛 `UnderstandingParseError` → 编排收 `failed` → **整 run 零交付**；真机证据 `eval/results/frames/EB2-NQ-D2.json`＝`run-679ec537`（模型两次都在 JSON 字符串里带**未转义引号**——`{"route":"full","text":"…判定"未完成计划"…"}`——首次回喂后仍同形，旧形 4.8s 内整 run `failed`、`answer_text` 空；判分件 EB2 终判把该题记为 `run` 级零交付）。**改法**：仍不合 schema → `bookkeeping.direct_answer`（直答旁路三键）落**程序生成的确定性拒答正文**（不合项取 `parsing.understanding_schema_feedback` 同一诊断出口；原始应答片段只进报告步与 notice 的机读面、不刷进用户正文）＋ `next_intent="answer"` ＋ 过程档案一条「读题收敛拒答」注记；返回值＝该 `Direct`（单出口互斥的 direct 支）→ run 走收口（`completed`）。**纪律不变**：上限恰一次、回喂面零副作用、不补默认、不改写原话、不降级提取、`dialogue` 零写入；`UnderstandingParseError` **退出本支出口**（类型保留作错误族形状）；「route 越界走同一修正回路」（首读即回喂三段带路——`parsing.understanding_schema_feedback` 的 `_REASON_ROUTE_OUT_OF_WORLD` 子句）不变。落点：`appv2/runtimev2/understanding/interpret.py`（`_converge_refusal`＋`converge_draft`）、`appv2/runtimev2/understanding/constants.py`（`CONVERGE_DRAFT_TEMPLATE`／`CONVERGE_NOTE_TITLE`）。**登记（交主窗）**：①`specs/parsing.md` 接口⑤／行为 1 与 `parsing/*` 模块注的「唯一异常出口＝消费方 understanding 对 `None` 转 `UnderstandingParseError`」措辞**须同批改**（跨规格、本票范围外——本行即登记件）——**2026-10-17 EB3 D4.3 已办**（`specs/parsing.md` 四处措辞勘正＋`parsing/models.py`／`parsing/parsers.py` 模块注，见该规格文末审计节；登记项①**销项**）；②`understanding/errors.py` 的 `UnderstandingParseError` 与 `__init__` 导出**保留**（错误族形状位，删改归公共面批次）；③判分口径影响：该类题不再计「零交付 ❌」，转按「如实拒答」判（判分规程见 EB3 D5）。
 
 ## 依赖与风险
 
@@ -128,7 +132,7 @@ class Direct:                              # route 闭世界
   1. **JSON 字段集变更牵连下游** → 对策：三消费面（**候选白名单闸／理解旁白灰条／直答通道**，真源 `walk/裁决表.md` §04-B）**同批改**；检测手段＝`understanding` 与 `parsing` 的契约测试。
   2. **第 5 条滑成语义判断** → 对策：判据锁在闭世界（数值形／名录集合／结构卡集合）；检测手段＝AST 机检测试 `no_lexicon_or_regex_in_understanding`（**豁免面＝形态处理**：数字形判定与集合成员判定不算语义词表／正则；先例 `tests/domains/test_v2_four_phase.py:446`）。
   3. **模型出口被绕过** → 对策：交付前跑边界闸；检测手段＝**R7**／R5b／B6 契约（CI 真跑）。
-  4. **parsing 不合格信号的转译衔接（输入半面）**：parsing 解析不合格（`parse_understanding` 返 `None`）在场时由本块转译抛 `UnderstandingParseError`（唯一转译出口——真源 `specs/parsing.md` 行为 1／接口⑤；落笔见接口定义错误契约）；**销项登记**＝`docs/runtime-refactor/spec-review/parsing-评审.md` 风险 7⑩（P-23「understanding 回认输入半面」）随本句销项（流水 43⑦）；检测手段＝与 `specs/parsing.md` 行为 1 对读＋`::understanding_malformed_none_no_fallback`。
+  4. **parsing 不合格信号的转译衔接（输入半面）**：parsing 解析不合格（`parse_understanding` 返 `None`）在场时由本块走**同一条修正回路**（拒因回喂恰一次；仍拒＝**收敛拒答**——2026-10-17 EB3 D4.4 改判，`UnderstandingParseError` 退出该支出口；真源 `specs/parsing.md` 接口⑤／本册接口定义错误契约）；**销项登记**＝`docs/runtime-refactor/spec-review/parsing-评审.md` 风险 7⑩（P-23「understanding 回认输入半面」）随本句销项（流水 43⑦）；检测手段＝与 `specs/parsing.md` 行为 1 对读＋`::understanding_malformed_none_no_fallback`。
 
 ## 与闸的挂钩表
 

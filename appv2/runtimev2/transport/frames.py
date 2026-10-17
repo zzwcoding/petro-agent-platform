@@ -2,16 +2,18 @@
 
 三层语义各自单点：
 
-- **帧名闭世界**（行为 1）：`SseEvent.event` ∈ `EVENT_KINDS ∪ WIRE_FRAMES`（十二值），越界
+- **帧名闭世界**（行为 1）：`SseEvent.event` ∈ `EVENT_KINDS ∪ WIRE_FRAMES`（十三值），越界
   **构造期即抛错**（fail-closed，不静默丢弃、不降级为默认类）。
 - **载荷透传**（行为 6）：`data` ＝发射方 payload 原样（零裁剪零改名）；**唯一改造＝`verdict`
   帧注入 `subtype`**（判据单点：含 `status` 键 → `final`，否则 → `verify`；键集越出契约时判
   `verify` 且原键如实透传）。`step`／`text`／`tool`／`observation`／`citation` 的键集归发射方，
   本块不校键、不补键、不删键。
-- **三类定形载荷把守**（行为 7／8／9，越界即拒）：`notice` 恰三键 `{type, gates, content}` 且
+- **四类定形载荷把守**（行为 7／8／9／16，越界即拒）：`notice` 恰三键 `{type, gates, content}` 且
   `type` ∈ `NOTICE_TYPES`（**缺 `type` 即拒**——取消旧码隐式兜底）；`ask` 恰
   `{frame: {kind, prompt, options, detail}, run_id}` 且 `kind` ∈ `ASK_FRAME_KINDS`；`error`
-  恰二键 `{code, message}`（稳定话术面：原始异常文本只进内部留痕，键集定形使它无安放之处）。
+  恰二键 `{code, message}`（稳定话术面：原始异常文本只进内部留痕，键集定形使它无安放之处）；
+  `supplement` 恰二键 `{block, text}` 且 `block` ∈ `SUPPLEMENT_BLOCKS`（2026-10-17 EB3 D1——
+  增补面块型闭世界）。
 
 信封字节形（行为 2）：恒「`id: <int>` ＋换行＋ `event: <str>` ＋换行＋ `data: <json>` ＋换行
 ＋空行」三行＋空行；`json.dumps(ensure_ascii=False, default=str)`——中文不转义，非 JSON 原语
@@ -29,6 +31,7 @@ from appv2.runtimev2.transport.constants import (
     _VERDICT_VERIFY,
     ASK_FRAME_KINDS,
     NOTICE_TYPES,
+    SUPPLEMENT_BLOCKS,
 )
 
 
@@ -83,13 +86,32 @@ def _check_error(payload: dict[str, Any]) -> None:
         )
 
 
+def _check_supplement(payload: dict[str, Any]) -> None:
+    """行为 16（2026-10-17 EB3 D1）：`supplement` 载荷定形恰二键 `{block, text}` ＋块型闭世界。
+
+    增补面是「程序追加内容不进正文」的唯一结构化出口（逐字稿＝方案 D1）；块型越界＝
+    构造期即拒（fail-closed，不静默丢弃、不降级为默认块型）。
+    """
+    if set(payload) != {"block", "text"}:
+        keys = _joined(frozenset(payload)) or "（无键）"
+        raise ValueError(
+            f"supplement 载荷必须恰二键 block／text（行为 16；实为 {keys}）"
+        )
+    block = payload["block"]
+    if block not in SUPPLEMENT_BLOCKS:
+        raise ValueError(
+            "supplement.block 越界（闭世界 SUPPLEMENT_BLOCKS 四值＝"
+            f"{_joined(SUPPLEMENT_BLOCKS)}）：{block!r}"
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class SseEvent:
     """帧（wire 面单元）：`{seq, event, data}`。
 
     `seq`＝全流单调游标（跨段不重启、重放不位移）——与载荷内步序号 `seq` **同名不同义**
     （后者＝步记录序号，真源 `specs/persistence.md` `StepRecord.seq`；本字段真源＝行为 3）。
-    `event` ∈ 十二值闭世界（行为 1）。`data`＝载荷（透传；唯一改造＝`verdict` 注入 `subtype`）。
+    `event` ∈ 十三值闭世界（行为 1）。`data`＝载荷（透传；唯一改造＝`verdict` 注入 `subtype`）。
     """
 
     seq: int
@@ -99,7 +121,7 @@ class SseEvent:
     def __post_init__(self) -> None:
         if self.event not in _FRAME_EVENTS:
             raise ValueError(
-                "SseEvent.event 越界（闭世界＝EVENT_KINDS ∪ WIRE_FRAMES 十二值＝"
+                "SseEvent.event 越界（闭世界＝EVENT_KINDS ∪ WIRE_FRAMES 十三值＝"
                 f"{_joined(_FRAME_EVENTS)}；越界构造期即抛错，行为 1）：{self.event!r}"
             )
         raw: object = self.data  # 运行期把守（调用方可绕过注解传非映射——载荷面 fail-closed）
@@ -114,6 +136,8 @@ class SseEvent:
             _check_ask(payload)
         elif self.event == "error":
             _check_error(payload)
+        elif self.event == "supplement":
+            _check_supplement(payload)
         elif self.event == "verdict":
             # 唯一允许的载荷改造（行为 6）：判据单点＝载荷含 `status` 键 → `final`，否则 → `verify`
             # （键集越出契约时同样判 `verify`，原键如实透传）。

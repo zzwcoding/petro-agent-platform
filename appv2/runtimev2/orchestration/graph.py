@@ -39,6 +39,7 @@ from appv2.runtimev2.orchestration.constants import (
     EVENT_ASK,
     EVENT_NOTICE,
     EVENT_STEP,
+    EVENT_SUPPLEMENT,
     EVENT_TEXT,
     NODE_ANSWER,
     NODE_BATCH,
@@ -156,6 +157,11 @@ class LoopDeps:
     max_observations: int = DEFAULT_MAX_OBSERVATIONS
     emitted_steps: int = field(default=0)
     emitted_notices: int = field(default=0)
+    # 增补面收集列表（2026-10-17 EB3 D2）：相位（`verification`／`answering`）把程序追加块
+    # （分源／归属／引用／血缘）按产出序入列，**帧由本块收口处发射**（EB3 D1 的发射点）。列表
+    # 由本块持有（执行器逐腿建；相位侧只追加、不读状态、不发帧）。
+    supplements: list[dict[str, Any]] = field(default_factory=list)
+    emitted_supplements: int = field(default=0)
     # 段内已用时读数（秒）：动作者＝组合根（受理腿取起点、`infra.clock` 读数差——B14 唯一时间出口；
     # 挂起等人工不计时、跨段不累计，故由组合根按腿现算）。无注入＝`None`（该键不判定）。
     elapsed_seconds: Callable[[], float] | None = None
@@ -200,6 +206,19 @@ def _flush_notices(deps: LoopDeps, state: RunState) -> None:
             continue
         deps.bus.emit(EVENT_NOTICE, dict(entry))
     deps.emitted_notices = len(state.notices)
+
+
+def _flush_supplements(deps: LoopDeps) -> None:
+    """增补面帧发射（2026-10-17 EB3 D1／D2——**编排收口处一处发**）。
+
+    相位侧只把程序追加块（`{block, text}`）按产出序入 `deps.supplements`；帧面归本块，
+    在作答收口（`verification` 改写后的 draft 定稿）之后逐条发 `supplement`。跨腿只发本腿
+    新增（`emitted_supplements` 计数——恢复腿重入不重发旧条目）。载荷定形与块型闭世界由
+    `transport` 构造期把守（**越界即抛错、不静默丢弃**——故本处不做条目形态过滤，缺陷照实爆）。
+    """
+    for entry in deps.supplements[deps.emitted_supplements :]:
+        deps.bus.emit(EVENT_SUPPLEMENT, dict(entry))
+    deps.emitted_supplements = len(deps.supplements)
 
 
 def _ask_frame(
@@ -430,8 +449,16 @@ def _make_batch(deps: LoopDeps) -> Any:
 
 def _make_answer(deps: LoopDeps) -> Any:
     async def node(state: RunState) -> dict[str, Any]:
-        answer(state, bus=deps.bus, max_observations=deps.max_observations)
+        answer(
+            state,
+            bus=deps.bus,
+            max_observations=deps.max_observations,
+            supplements=deps.supplements,
+        )
         _emit_direct_text(deps, state)
+        # 增补面收口发射（EB3 D1／D2）：作答收口后（核验改写后的 draft 已定稿）逐条发帧——
+        # 本 run 全部四类块在此处一次出流（verification 与 answering 的产出同列按原序）。
+        _flush_supplements(deps)
         _flush_notices(deps, state)
         _flush_steps(deps, state)
         return _updates_of(state)
@@ -465,7 +492,7 @@ def _emit_direct_text(deps: LoopDeps, state: RunState) -> None:
 
 def _make_verify(deps: LoopDeps) -> Any:
     async def node(state: RunState) -> dict[str, Any]:
-        verify(state, bus=deps.bus)
+        verify(state, bus=deps.bus, supplements=deps.supplements)
         deps.emitted_notices = len(state.notices)  # 本相位自产 notice 帧（不重复出帧）
         _flush_steps(deps, state)
         return _updates_of(state)

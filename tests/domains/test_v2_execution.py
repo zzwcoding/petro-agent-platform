@@ -1591,3 +1591,32 @@ def test_execution_step_channel_normalized_form() -> None:
             assert ref is None and error is None
             assert payload[PAYLOAD_ROW_COUNT_KEY] is None
             assert payload[PAYLOAD_REJECT_REASON_KEY]
+
+
+# ── 行为 16：收敛态零派遣（2026-10-17 EB3 D4.3）──────────────────────────────────
+
+
+async def test_budget_hit_zero_dispatch() -> None:
+    """行为 16｜收敛态零派遣：`budget_hit` 非空 → 零派遣、零工具调用、零步、零 `tool` 帧。
+
+    收敛让位形（`specs/tool_matching.md` 接口定义「收敛让位形」）经编排既有路由会走到本相位
+    （知识链支过闸为空却可能落「放行」）——本闸即兜该口：材料直答已在途（`bookkeeping.converge`
+    落 `draft`），收敛态新支必不派遣（`specs/execution.md` 行为 16）。
+    """
+    matches = [_data_match("s1"), _knowledge_match("s2")]
+    registry = _ScriptedRegistry({DATA_QUERY: [_Reply(result=_ok(_tool_obs("行")))]})
+    state = _state(
+        matches,
+        pending_discovers=[{"tool": SEMANTIC_QUERY, "args": {"question": "空手形"}}],
+    )
+    state.budget_hit = ["rounds"]  # 触界收敛在途（同形拒因熔断落地形）
+    steps_before = list(state.steps)
+
+    bus = EventBus()
+    outcome = execute(state, bus=bus, registry=registry)
+
+    assert outcome.observations == [] and outcome.subtasks == []
+    assert registry.calls == [], "收敛态仍派遣了工具"
+    assert state.steps == steps_before, "收敛态零派遣须零步（收敛留痕归 bookkeeping.converge）"
+    assert state.observations == []
+    assert await _event_frames(bus, "tool") == [], "收敛态发 tool 帧（零动作面被破）"

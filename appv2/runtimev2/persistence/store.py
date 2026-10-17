@@ -270,7 +270,15 @@ def _run_record_of(row: Mapping[str, Any]) -> RunRecord:
         followup_of=str(row["followup_of"]),
         created_at=_as_datetime(row["created_at"]),
         updated_at=_as_datetime(row["updated_at"]),
+        supplements=_supplements_of(row.get("supplements")),
     )
+
+
+def _supplements_of(value: Any) -> list[dict[str, Any]]:
+    """增补面列的读回形（2026-10-17 EB3 D1）：只认映射条目；旧行缺列／非列表＝空列（如实读入）。"""
+    if not isinstance(value, (list, tuple)):
+        return []
+    return [dict(entry) for entry in value if isinstance(entry, Mapping)]
 
 
 def _step_record_of(row: Mapping[str, Any]) -> StepRecord:

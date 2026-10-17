@@ -1,6 +1,6 @@
 """execution 的常量单点：两处闭世界 ＋ 发射／载荷键名 ＋ 阈值与分型（逐条注真源）。
 
-真源＝`specs/execution.md`（接口定义节 :35–:60 两处闭世界、行为 4／13／14、验收测试表）；
+真源＝`specs/execution.md`（接口定义节 :35–:60 两处闭世界、行为 4／13／14／15、验收测试表）；
 形状取值**引真源不复述**处一律注明（如 `notify`／`gates` 的取值集归 `transport.NOTICE_TYPES`）。
 
 - 两处闭世界：`EXEC_STATUS_KINDS`（`ok`／`failed`／`need_input`）与 `ERROR_CATEGORIES`
@@ -9,8 +9,11 @@
   `locator.kind` 集合成员判定，属规格行为 9 的豁免面「形态处理／集合成员判定」）；
 - 阈值：`BIG_RESULT_THRESHOLD_CHARS`（行为 4——**数值阶段 5 待定（随真机数据定）**，本票取
   占位值并登记呈主窗；本模块内以此单点为唯一数值面，调用点与测试皆引名字、不写裸值）；
-- 两闸门名（行为 13／14「闸族」互引，两闸勿混）与通知类型（字面指针，取值真源＝
-  `transport.NOTICE_TYPES` 二十九值，本模块**不私扩闭世界**）；
+- 两闸门名（行为 13／14「闸族」互引，两闸勿混）＋计划面闸门名（行为 15，2026-10-17 EB3 D4）
+  与通知类型（字面指针，取值真源＝`transport.NOTICE_TYPES` 二十九值，本模块**不私扩闭世界**）；
+- 计划面确定性规则的字面面（行为 15）：排名方向二值（真源 `appv2.query.domain.DIRECTION_*`——
+  R6 隔断下持同值字面，漂移由对读件看守）、计划面两态与拒因文案、「前 N」→排名归一的过程档案
+  注记标题／摘要模板；
 - 事件名与载荷键名：`tool`／`observation` 帧键集（真源 `docs/runtime-refactor/synth/
   S6-事件与帧目录.md` §一）＋步 payload 的记账面键名（参数／行数／拒因——规格「不降级与
   静默禁令」节点名字段）。
@@ -48,6 +51,34 @@ BIG_RESULT_THRESHOLD_CHARS = 4000
 # ── 闸门名（发射级拒的机读标记；两闸互引勿混——行为 13／14）───────────────────────
 GATE_EMPTY_PROBE = "empty_probe"  # 行为 13：同参空手重发（记 discover_fingerprint）
 GATE_SAME_PARAM_REPLAY = "same_param_replay"  # 行为 14：同参重投（查发射支载荷指纹）
+GATE_PLAN_FACE_METRIC = "plan_face_metric"  # 行为 15：问句指标接地闸（2026-10-17 EB3 D4.1）
+
+# ── 计划面确定性规则（行为 15；2026-10-17 EB3 D4 补）────────────────────────────
+# 排名方向二值（字面真源＝`appv2.query.domain.DIRECTION_ASC/DIRECTION_DESC`——R6 隔断不可直引，
+# 本块持同值字面；漂移由 `tests/domains/test_v2_eb3_d4_defects.py` 的对读件看守）。
+PLAN_DIRECTION_ASC = "asc"
+PLAN_DIRECTION_DESC = "desc"
+# 计划面判定两态（pass 携归一后草案；refuse 两类＝问句无注册面／注册面不符）——行为 15。
+PLAN_FACE_PASS = "pass"
+PLAN_FACE_REFUSE_UNGROUNDED = "ungrounded_metric"
+PLAN_FACE_REFUSE_MISMATCH = "metric_out_of_question"
+PLAN_FACE_REASON_UNGROUNDED_TEMPLATE = (
+    "计划面闸拒（问句指标在册无绑定／未注册）：计划指标「{slot}」无问句注册面支撑——"
+    "禁止回落相近列出数（不给差不多）；改链（检索问答链如实说明）或如实拒答"
+)
+PLAN_FACE_REASON_MISMATCH_TEMPLATE = (
+    "计划面闸拒（回落相近列）：问句注册面＝{slots}，计划指标「{slot}」不在其列——"
+    "禁止把问句问及的指标换成相近代用品出数（不给差不多）；改链或如实拒答"
+)
+TITLE_PLAN_FACE_REJECTED_TEMPLATE = "子问题 {subtask} 计划面闸拒（问句指标未接地）"
+CONTENT_PLAN_FACE_NOTICE_PREFIX = "计划面闸拒（问句指标未接地）："
+# 「前 N」→排名归一的留痕（过程档案一条注记——计划草案的 args 载荷已是机读留痕面，
+# 本注记补人读面；不加通知类型：`transport.NOTICE_TYPES` 闭世界无专属值，本块不私扩）。
+NOTE_TITLE_PLAN_NORMALIZED = "计划面归一（前 N→排名）"
+NOTE_DIGEST_PLAN_NORMALIZED_TEMPLATE = (
+    "问句显式「前 {limit}」：计划归一为 ranking=true／direction={direction}／limit={limit}"
+    "（V1 build_query_plan 同语义——照行为不照代码）"
+)
 
 # ── 通知类型（字面指针；取值真源＝`transport.NOTICE_TYPES`——本模块不复述取值集）────
 NOTICE_SAME_PARAM_REPLAY = "same_param_replay"  # 两闸拒的 notice（同族既有值）

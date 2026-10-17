@@ -4,7 +4,8 @@
 
 - `Understanding`／`Direct`：字段集以 `specs/understanding.md` 接口定义为准
   （`text`／`metric_candidates`／`route`）——`route` 是定型常量，**不设类定义默认值**
-  （缺必填字段即由消费方 `understanding` 抛 `UnderstandingParseError`）。
+  （缺必填字段即由消费方 `understanding` 走「拒因回喂恰一次；仍拒＝收敛拒答」修正回路——
+  2026-10-17 EB3 D4.4 改判，`UnderstandingParseError` 退出该支出口）。
 - `Subtask`／`QuestionGroup`／`ClarifyEmission`／`SubtaskMatch`：V1 字段表逐字迁移
   （真源 `appv2/runtime/subtask.py` L116-L176／L296-L315）——承载位换、字段名与形状不变；
   **`Subtask.tool` 退场**（Owner 裁决 #10：`tool` 归匹配相位产出）。

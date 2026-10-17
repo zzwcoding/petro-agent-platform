@@ -15,8 +15,10 @@
 
 返回三态闭世界（`specs/parsing.md` 接口定义节）：**定型载荷**｜**拒因正文**（`str`）｜**`None`**。
 本块**不抛业务异常、不吞错**（差异点②：V1 两处裸抛收口——`args` 非对象＝拒（拒文＝
-`appv2/runtime/graph.py` L616 字面）；`action` 不可哈希形＝拒）；唯一异常出口＝消费方
-`understanding` 对 `None` 转 `UnderstandingParseError`。
+`appv2/runtime/graph.py` L616 字面）；`action` 不可哈希形＝拒）；理解面不合格（`None`）的收口面
+归消费方 `understanding`＝「拒因回喂恰一次；仍拒＝**收敛拒答**」（2026-10-17 EB3 D4.4 改判；
+`UnderstandingParseError` 退出该支出口、类型保留作错误族形状——真源 `specs/understanding.md`
+行为 7／错误契约）。
 
 判据全是结构判定（存在性／类型／闭世界成员／计数／字符串归一）——零词表零正则语义判定
 （行为 14）。拒因文本逐字迁移（行为 7），承载位换、文本不变；逐字稿载体＝

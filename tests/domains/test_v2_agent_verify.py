@@ -110,16 +110,16 @@ def _notices(events: list[RunEvent]) -> list[dict[str, Any]]:
     return [e.data for e in events if e.event == "notice"]
 
 
-# ---------- 验收④：无据断言改写「未找到」＋notice（INV-1） ----------
+# ---------- 验收④：无据断言删句＋notice（INV-1；EB3 D3） ----------
 
 
 async def test_unsupported_claim_rewritten(tmp_path: Path) -> None:
-    """行 23｜断言无 Observation 支撑→verify 改写为"未找到"＋notice（**收口侧**断言）。
+    """行 23｜断言无 Observation 支撑→verify **删句**＋notice（**收口侧**断言）。
 
     本行落 `orchestration` 的收口面（`RT-W5-01c` 行 23）：四相位真链跑完（澄清→匹配→过闸→批量→
-    汇总→核验→收口），**「提交完成的是本块」**——`verify` 相位把无据断言改写为「未找到（材料未
-    披露）」并出 `notice`（其规格行为 3／INV-1），本块据 `Verdict` 收口：终态 run 行的 `answer`
-    就是**改写后**的答案，机读信号（`verdict` 帧改写计数＋`notice` 分型）同批在场。
+    汇总→核验→收口），**「提交完成的是本块」**——`verify` 相位把无据断言删去（2026-10-17 EB3 D3：
+    删句、不贴前缀）并出 `notice`（其规格行为 3），本块据 `Verdict` 收口：终态 run 行的 `answer`
+    是**删改后**的答案，机读信号（`verdict` 帧改写计数＋`notice` 分型）同批在场。
     """
     from tests.domains import test_v2_four_phase as v2
 
@@ -158,9 +158,16 @@ async def test_unsupported_claim_rewritten(tmp_path: Path) -> None:
     row = v2.V2RunStore().run(run_id)
     assert row is not None and row.status == "completed"
     answer = row.answer or ""
-    # 有据行保留（引标 [1] 在界——Observation 支撑）＋无据行改写（INV-1：前缀只挂无据行）
+    # 有据行保留（引标 [1] 在界——Observation 支撑）＋无据行**整行离场**（EB3 D3：删句不留残句）
     assert "21.16" in answer
-    assert "86 口井" in answer and "未找到（材料未披露）" in answer
+    assert "86 口井" not in answer
+    assert "未找到（材料未披露）" not in answer
+    # 增补面随行（EB3 D1）：本 run 无矛盾无跨源 → 恰引用清单一条（正文零程序块）
+    assert [entry["block"] for entry in row.supplements] == ["citations"]
+    assert "引用：" in row.supplements[0]["text"]
+    assert "引用：" not in answer
+    supplement_frames = [event for event in events if event.event == "supplement"]
+    assert [frame.data["block"] for frame in supplement_frames] == ["citations"]
     # 机读信号（verify 步拦截的 notice 分型 ＋ verdict(verify) 帧的改写计数）
     notices = [event.data for event in events if event.event == "notice"]
     assert any(item.get("type") == "unsupported_claim" for item in notices)
@@ -224,11 +231,29 @@ async def test_contradiction_split_source(tmp_path: Path) -> None:
         events = await v2.v2_run(runtime, "日产油量的口径是什么")
     assert events[-1].event == "blackbox" and events[-1].data["status"] == "completed"
     run_id = events[-1].data["run_id"]
-    answer = v2.V2RunStore().run(run_id).answer or ""
-    # 分源列明块出场（INV-4：各标出处，禁止无出处调和）——两支逐支带 [n] 与来源
-    assert "分源列明" in answer
-    assert "sem_metric#201" in answer and "sem_metric#301" in answer
-    assert "[1]" in answer and "[2]" in answer
+    row = v2.V2RunStore().run(run_id)
+    assert row is not None
+    answer = row.answer or ""
+    # 分源列明块出场（INV-4：各标出处，禁止无出处调和）——两支逐支带 [n] 与来源；
+    # EB3 D2：块入**增补面**（正文只留模型稿），故块文本随 `row.supplements`／`supplement` 帧在场。
+    # 本 run 两块同现：verify 侧分源块（`各来源说法如下…`）＋ answering 收口侧「互不一致」分源块
+    # ＋ 分源列明归属块（两出处）＋ 引用清单——按产出序入列（EB3 D2 原序）。
+    supplement_frames = [event.data for event in events if event.event == "supplement"]
+    assert [frame["block"] for frame in supplement_frames] == [
+        "split",
+        "split",
+        "attribution",
+        "citations",
+    ]
+    assert [entry["block"] for entry in row.supplements] == [
+        frame["block"] for frame in supplement_frames
+    ]  # 帧面与落库面同序同源
+    face = "\n".join(entry["text"] for entry in row.supplements)
+    assert "分源列明" in face  # 归属块段头（行为 17 分源列明）
+    assert "互不一致" in face  # 行为 6 的「互不一致」标
+    assert "[1] sem_metric#201 · 201：日产油量：21 吨/日" in face
+    assert "[2] sem_metric#301 · 301：日产油量：8824.4 方/日" in face
+    assert "分源列明" not in answer and "sem_metric#201" not in answer  # 正文零程序块
     notices = [event.data for event in events if event.event == "notice"]
     assert any(item.get("type") == "contradiction_split" for item in notices)
     verify_frames = [

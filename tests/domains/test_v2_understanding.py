@@ -96,11 +96,20 @@ from appv2.runtimev2.prompts import (
 )
 from appv2.runtimev2.state import RunState
 from appv2.runtimev2.transport import EVENT_KINDS, NOTICE_TYPES, EventBus, SseEvent
-from appv2.runtimev2.understanding import UnderstandingParseError, interpret
+from appv2.runtimev2.understanding import interpret
 from appv2.runtimev2.understanding.closure import direct_assertion_hits, numeric_form_hit
+from appv2.runtimev2.understanding.constants import (
+    CONVERGE_DRAFT_TEMPLATE,
+    CONVERGE_NOTE_TITLE,
+)
+from appv2.runtimev2.understanding.errors import excerpt
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _UNDERSTANDING_DIR = _REPO_ROOT / "appv2" / "runtimev2" / "understanding"
+
+# 收敛拒答正文的稳定头部（模板首段——文案本体真源＝`understanding.constants`；本件只判「是拒答」）
+_REFUSAL_MARK = CONVERGE_DRAFT_TEMPLATE.split("{", 1)[0]
+_CONVERGE_NOTE_TITLE = CONVERGE_NOTE_TITLE
 
 # ── 规格逐字面（独立于实现书写——实现漂移即红；真源 specs/understanding.md）──────────────
 _SPEC_ROUTE_FULL = "full"
@@ -471,25 +480,29 @@ _MALFORMED_REPLIES: tuple[str, ...] = (
 )
 
 
-def test_malformed_json_raises_no_fallback() -> None:
-    """#5｜应答 JSON 不合 schema → 抛 UnderstandingParseError，不静默降级——行为 7。
+def test_malformed_json_converges_to_refusal() -> None:
+    """#5｜应答 JSON 不合 schema → 回喂重试恰一次后**收敛拒答**——行为 7／13 尾。
 
-    **跨文件对读**（转译输入半面）：同一组合格外输入在 `parse_understanding` 侧返 `None`（对读件
-    `tests/domains/test_v2_parsing.py::understanding_malformed_none_no_fallback`），本块以唯一
-    转译出口抛同类错；**不返回半成品**（状态字段零写入）＋如实上报（notice ＋ step payload）。
+    **2026-10-17 EB3 D4.4 改判**：真机证据 `eval/results/frames/EB2-NQ-D2.json`（模型两次都在 JSON
+    字符串里带未转义引号 → 旧「抛 `UnderstandingParseError` → 编排收 `failed`」整 run 零交付）
+    ——两读皆拒改为 `bookkeeping.direct_answer` 落拒答正文（直答旁路三键）＋返回该 `Direct`：
+    **不判 `failed`、不零交付**；仍**不返回半成品**（理解双通道字段零写入）、**不取默认路由**、
+    不静默（如实上报两件套照出一份）。
+
+    **跨文件对读**（转译输入半面）：同一组合格外输入在 `parse_understanding` 侧返 `None`。
     """
     for raw in _MALFORMED_REPLIES:
         state = _state()
-        with pytest.raises(UnderstandingParseError) as excinfo:
-            _interpret(state, raw)
-        error = excinfo.value
-        assert error.raw == raw
-        assert error.excerpt and error.excerpt in str(error)
+        out, _bus = _interpret(state, raw)
+        # 收敛拒答形（非抛错）：拒答正文经直答旁路三键落定，与返回值同源
+        assert isinstance(out, Direct) and out.route == _SPEC_ROUTE_DIRECT
+        assert state.draft == out.text and state.draft_kind == "direct"
+        assert state.next_intent == "answer"
+        assert _REFUSAL_MARK in out.text
         # 唯一转译出口的输入半面：同一输入 parsing 侧返 None（不降级、不返回半成品）
         assert parse_understanding(raw) is None
-        # 不返回半成品：两通道字段均零写入
+        # 不返回半成品／不取默认路由：理解双通道字段零写入
         assert state.understanding == "" and state.metric_candidates == []
-        assert state.draft == "" and state.draft_kind == ""
         # 如实上报（不许静默）：notice ＋ 报告步 payload 字段
         assert len(state.notices) == 1
         assert set(state.notices[0]) == _SPEC_NOTICE_KEYS
@@ -497,16 +510,57 @@ def test_malformed_json_raises_no_fallback() -> None:
         reports = _report_steps(state)
         assert len(reports) == 1
         assert reports[0]["payload"][_PAYLOAD_EVENT_KEY] == _EVENT_PARSE_FAILURE
-        assert reports[0]["payload"][_PAYLOAD_RAW_EXCERPT_KEY] == error.excerpt
+        assert reports[0]["payload"][_PAYLOAD_RAW_EXCERPT_KEY] == excerpt(raw)
         assert reports[0]["status"] == "failed"
+        # 收敛留痕（过程档案一条；pin-26 渲染面：入档案、不入 dialogue）
+        assert [entry["title"] for entry in state.process_notes].count(_CONVERGE_NOTE_TITLE) == 1
+        assert state.dialogue == []
 
     # 超长应答：片段截断**可见**（截断标记在场，不静默硬切）
     state = _state()
     long_raw = "不是 JSON" + "。" * 500
-    with pytest.raises(UnderstandingParseError) as excinfo:
-        _interpret(state, long_raw)
-    assert excinfo.value.raw == long_raw
-    assert excinfo.value.excerpt.endswith("…") and len(excinfo.value.excerpt) <= 200
+    out, _bus = _interpret(state, long_raw)
+    assert isinstance(out, Direct)
+    assert _report_steps(state)[0]["payload"][_PAYLOAD_RAW_EXCERPT_KEY].endswith("…")
+
+
+# ---------- 5b EB2-NQ-D2 帧回归（题面原句＋真机应答原话；2026-10-17 EB3 D4.4）----------
+
+
+# 题面原句（逐字取自 `eval/results/frames/EB2-NQ-D2.json` 的 blackbox 记录）
+_NQ_D2_QUESTION = (
+    '报告 1.2 节对一季度产量完成情况"两种口径并行披露"。请完整回答：(a) 一季度计划配产多少万吨？'
+    '(b) 两支口径各自的名称、实际完成（万吨）与完成率分别是多少？按哪支口径判定"未完成计划"？'
+    '(c) 两支口径相差几个百分点、报告如何定性这个差异（是不是产量虚增）？差异对应的检修影响量'
+    '是多少？(d) 台账提示里「有效产量」这个指标对数前必须先做什么？'
+    '旧称「老完成率」现在处于什么状态？'
+)
+# 真机应答原话（`logs/llm_calls/20261017.jsonl` run-679ec537 首读——**JSON 字符串内未转义引号**：
+# `按哪支口径判定"未完成计划"`；首读回喂后同形，旧形 4.8s 内整 run `failed`、`answer_text` 空）
+_NQ_D2_RAW = (
+    '{"route":"full","text":"理解：报表 1.2 节一季度产量完成情况按两种口径并行披露，要求完整回答：'
+    '(a) 一季度计划配产量（万吨）；(b) 两支口径各自的名称、实际完成量（万吨）、完成率，并指出按哪支'
+    '口径判定"未完成计划"；(c) 两支口径相差几个百分点、报告如何定性该差异（是否构成产量虚增）、'
+    '差异对应的检修影响量；(d) 台账提示里"有效产量"指标对数前必须先做的事，以及旧称"老完成率"'
+    '当前所处状态。","metric_candidates":["配产量","有效产量","产量完成率"]}'
+)
+
+
+def test_nq_d2_frame_question_converges_to_refusal() -> None:
+    """#5b｜EB2-NQ-D2 帧回归：题面原句＋真机应答原话 → **收敛拒答**（不抛错、不零交付）。
+
+    该帧的失败形＝**JSON 字符串内未转义引号**（`"未完成计划"`）——两读皆不合 schema；旧形整 run
+    `failed` 且 `answer_text` 空（判分记「run 级零交付 ❌」）。新行为＝回喂恰一次后收敛拒答：
+    直答旁路三键落定、run 走收口；理解双通道字段零写入（不返回半成品、不取默认路由）。
+    """
+    state = _state(question=_NQ_D2_QUESTION)
+    out, _bus = _interpret(state, _NQ_D2_RAW)
+    assert isinstance(out, Direct) and state.draft == out.text
+    assert state.draft_kind == "direct" and state.next_intent == "answer"
+    assert "没能读懂您的问题" in out.text and "应答不是合法 JSON" in out.text
+    assert parse_understanding(_NQ_D2_RAW) is None  # 与 parsing 面同判（真机形确为不合 schema）
+    assert state.understanding == "" and state.metric_candidates == []
+    assert len(state.notices) == 1 and len(_report_steps(state)) == 1
 
 
 # ---------- 6 route 越界取值 → 判失败（不猜、不取默认） ----------
@@ -515,9 +569,9 @@ def test_malformed_json_raises_no_fallback() -> None:
 def test_route_enum_closed_world() -> None:
     """#6｜route 越界取值 → 判失败（不猜、不取默认）——接口定义「`route` 是闭世界」。
 
-    闭世界仅 `full`｜`direct`；越界（含大小写变形／缺键／`null`／空表）一律
-    `UnderstandingParseError`，
-    **无默认路由**：两通道字段均零写入。
+    闭世界仅 `full`｜`direct`；越界（含大小写变形／缺键／`null`／空表）一律**不合 schema** →
+    回喂重试恰一次仍不合 → **收敛拒答**（2026-10-17 EB3 D4.4：不再抛错、不再零交付），
+    **无默认路由**：理解双通道字段均零写入（程序不替模型选 `full`／`direct`）。
     """
     cases: tuple[str, ...] = (
         json.dumps({"route": "partial", "text": "x"}),
@@ -530,10 +584,11 @@ def test_route_enum_closed_world() -> None:
     )
     for raw in cases:
         state = _state()
-        with pytest.raises(UnderstandingParseError):
-            _interpret(state, raw)
+        out, _bus = _interpret(state, raw)
+        assert isinstance(out, Direct) and state.draft_kind == "direct"
+        assert _REFUSAL_MARK in out.text
         assert state.understanding == "" and state.metric_candidates == []
-        assert state.draft == "" and state.draft_kind == "" and state.next_intent == ""
+        assert state.next_intent == "answer"  # 收口旁路——非「默认路由到某相位」
         assert parse_understanding(raw) is None  # 与 parsing 面同判（无默认通道）
 
     # 两形互斥的合法面：同一次调用只回一支（行 6 的对照面——合法值恒落对）
@@ -819,10 +874,10 @@ def test_reporting_signal_present() -> None:
     assert len(violation_state.steps) == 2  # 记账步 1 ＋ 报告步 1（不翻倍）
     assert len(_report_steps(violation_state)) == 1
 
-    # 案二：解析失败（2026-10-16 补·流水 67：schema 拒先回喂重试恰一次——步序＝记账步 2＋报告步 1）
+    # 案二：解析失败（2026-10-16 补·流水 67：schema 拒先回喂重试恰一次——步序＝记账步 2＋报告步 1；
+    # 2026-10-17 EB3 D4.4：两读皆拒＝收敛拒答——本件只判上报面，拒答口径在行 5／18）
     failure_state = _state()
-    with pytest.raises(UnderstandingParseError):
-        _interpret(failure_state, "两行式已退场：理解：x／指标候选：y")
+    _interpret(failure_state, "两行式已退场：理解：x／指标候选：y")
     assert len(failure_state.steps) == 3
     assert len(_report_steps(failure_state)) == 1
 
@@ -1059,19 +1114,23 @@ def test_schema_reject_feedback_retry_once() -> None:
     assert state.dialogue == []  # 回喂载荷入链、不入对话层（过程记录不混层）
 
 
-def test_schema_reject_twice_raises_with_feedback_trace() -> None:
-    """#18｜两读皆拒 → 抛 `UnderstandingParseError`＋拒因留痕；**上限恰一次**（第三次永不发生）。
+def test_schema_reject_twice_converges_to_refusal() -> None:
+    """#18｜两读皆拒 → **收敛拒答**＋拒因留痕；**上限恰一次**（第三次永不发生）。
 
-    回喂不改变终局口径（编排收 `failed` 照旧）：仍以唯一转译出口抛错、如实上报照出一份
-    （报告步＋notice——回喂支不重复上报）；拒因留痕三面在场：链上载荷 ＋ 过程档案注记 ＋ 报告步。
+    2026-10-17 EB3 D4.4 改判（原「抛 `UnderstandingParseError` → 编排收 `failed`」退役——真机
+    `eval/results/frames/EB2-NQ-D2.json` 整 run 零交付）：仍不合 schema → `direct_answer` 落拒答
+    正文（`draft`／`draft_kind="direct"`／`next_intent="answer"`）＋返回该 `Direct`；如实上报照出
+    一份（报告步＋notice——回喂支不重复上报）；拒因留痕三面在场：链上载荷 ＋ 过程档案注记 ＋ 报告步。
     """
     for raw in (_RETRY_BAD, json.dumps({"route": "partial", "text": "x"}), "不是 JSON"):
         state = _state()
-        with pytest.raises(UnderstandingParseError) as excinfo:
-            _interpret_all_with_calls(state, raw, runs=1)
-        error = excinfo.value
-        assert error.raw == raw
-        assert error.excerpt and error.excerpt in str(error)
+        outs, _bus, _completer = _interpret_all_with_calls(state, raw, runs=1)
+        out = outs[0]
+        assert isinstance(out, Direct)
+        # 收敛拒答（非抛错、非零交付）：拒答正文落直答旁路三键，与返回值同源
+        assert _REFUSAL_MARK in out.text
+        assert state.draft == out.text and state.draft_kind == "direct"
+        assert state.next_intent == "answer"
         # 上限恰一次：两次调用、绝无第三次；步数＝2 记账步 ＋ 1 报告步
         assert len(state.steps) == 3
         # 拒因留痕（链上载荷 ＋ 过程档案注记）：回喂载荷在链上（首答之后）
@@ -1083,10 +1142,10 @@ def test_schema_reject_twice_raises_with_feedback_trace() -> None:
         ]
         assert state.messages[2]["content"].startswith("【拒因】")
         assert len(_retry_notes(state)) == 1 and len(_read_notes(state)) == 2
-        # 如实上报照出一份（不因回喂翻倍）；不返回半成品
+        # 收敛注记（过程档案）＋如实上报照出一份（不因回喂翻倍）；不返回半成品
+        assert state.process_notes[-1]["title"] == _CONVERGE_NOTE_TITLE
         assert len(state.notices) == 1 and len(_report_steps(state)) == 1
         assert state.understanding == "" and state.metric_candidates == []
-        assert state.draft == "" and state.draft_kind == "" and state.next_intent == ""
         assert state.dialogue == []
 
 

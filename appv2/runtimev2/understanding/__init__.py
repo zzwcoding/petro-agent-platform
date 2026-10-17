@@ -7,9 +7,8 @@
 - `interpret(state, *, bus, watermark="")`——读题一步（卡面签名 `def interpret(state: RunState) ->
   Understanding | Direct`；两个关键词注入面见 `interpret` 模块注：`bus`＝编排块持有的 per-run
   总线、`watermark`＝水位文本注入〔B14 零时钟接触〕）；
-- `UnderstandingParseError`——应答不合 schema／`route` 越界的唯一错误出口（携原始应答片段；
-  同时是 `parsing.parse_understanding` 返 `None` 的**唯一转译出口**——真源 `specs/parsing.md`
-  接口⑤）；
+- `UnderstandingParseError`——错误族形状位（携原始应答片段；**2026-10-17 EB3 D4.4 起退出本支
+  出口**：两读皆不合 schema 改走**收敛拒答**——类型保留供消费面兼容，本块不再抛它）；
 - `Understanding`／`Direct`——返回值定型载荷（**形状单点在 `parsing`**，此处只作签名面再导出，
   本块零第二定义——`specs/parsing.md` 行为 12）。
 
@@ -17,9 +16,11 @@
 统一 JSON 严格解析（不降级）／`route` 闭世界定型／程序只按 `route` 机械分派／单出口互斥／候选
 出自名录对账／理解文本 `text` 事件（`kind=understanding`）／如实上报机读信号（notice ＋
 step payload）、模型原话只为过程档案与链上留痕（钉 `pin-26` 渲染面）。
-**schema 拒回喂重试恰一次（行为 13，2026-10-16 补·流水 67）**：首读不合 schema → 向链尾追加拒因
-载荷（`feedback.schema_feedback`——【拒因】取 `parsing.understanding_schema_feedback` 的诊断出口、
-【期望形】＋尾行）→ 同相位再读一次 → 仍拒才抛 `UnderstandingParseError`（上限恰一次；不补默认）。
+**schema 拒回喂重试恰一次（行为 13，2026-10-16 补·流水 67；2026-10-17 EB3 D4.4 改尾）**：首读不合
+schema → 向链尾追加拒因载荷（`feedback.schema_feedback`——【拒因】取 `parsing.
+understanding_schema_feedback` 的诊断出口、【期望形】＋尾行）→ 同相位再读一次 → **仍拒＝收敛拒答**
+（`bookkeeping.direct_answer` 落拒答正文 ＋ 返回该 `Direct`——run 收口 `completed`，**不判 `failed`、
+不零交付**；真机证据 `eval/results/frames/EB2-NQ-D2.json`）。上限恰一次；不补默认、不取默认路由。
 
 -B 半面（RT-W4-01b）落地行为簇：**直答结构核验的闭世界判据**（数值形／名录内指标名／结构卡内
 表名——`closure.direct_assertion_hits`，形态处理零语义）→ 命中即**退回 `route="full"` 的

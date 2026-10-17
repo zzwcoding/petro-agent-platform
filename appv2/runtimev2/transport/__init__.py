@@ -1,8 +1,8 @@
-"""事件通路：事件名闭世界（9 类）、事件总线、帧通路与断线续推
+"""事件通路：事件名闭世界（10 类）、事件总线、帧通路与断线续推
 
 模块卡见 specs/modules.md 的 `## transport` 一节；规格见 `specs/transport.md`（形状真源）。
 包根即公开面（`specs/modules.md` `## transport` 卡「公开接口」节）：帧对象 `SseEvent`／
-per-run 总线 `EventBus`（`emit`／`stream`／`close`／`closed`）／信封 `envelope` ＋ 五个闭世界
+per-run 总线 `EventBus`（`emit`／`stream`／`close`／`closed`）／信封 `envelope` ＋ 六个闭世界
 常量族（`constants`，取值真源逐族注在该模块）。
 
 本块只出「出去的那一帧长什么样、怎么编号、怎么续」——事件的本体与发帧时机在各发射方；
@@ -15,6 +15,13 @@ from appv2.runtimev2.transport.constants import (
     ASK_FRAME_KINDS,
     EVENT_KINDS,
     NOTICE_TYPES,
+    SUPPLEMENT_BLOCK_ATTRIBUTION,
+    SUPPLEMENT_BLOCK_CITATIONS,
+    SUPPLEMENT_BLOCK_LINEAGE,
+    SUPPLEMENT_BLOCK_SPLIT,
+    SUPPLEMENT_BLOCKS,
+    SUPPLEMENT_PAYLOAD_BLOCK_KEY,
+    SUPPLEMENT_PAYLOAD_TEXT_KEY,
     VERDICT_SUBTYPES,
     WIRE_FRAMES,
 )
@@ -24,6 +31,13 @@ __all__ = [
     "ASK_FRAME_KINDS",
     "EVENT_KINDS",
     "NOTICE_TYPES",
+    "SUPPLEMENT_BLOCKS",
+    "SUPPLEMENT_BLOCK_ATTRIBUTION",
+    "SUPPLEMENT_BLOCK_CITATIONS",
+    "SUPPLEMENT_BLOCK_LINEAGE",
+    "SUPPLEMENT_BLOCK_SPLIT",
+    "SUPPLEMENT_PAYLOAD_BLOCK_KEY",
+    "SUPPLEMENT_PAYLOAD_TEXT_KEY",
     "VERDICT_SUBTYPES",
     "WIRE_FRAMES",
     "EventBus",

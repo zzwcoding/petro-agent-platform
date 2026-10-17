@@ -4,8 +4,10 @@
 架构图见 docs/architecture-v3.html。包根即公开面（R2：消费方只经 `appv2.runtimev2.answering` 消费，
 深层子模块私有）：
 
-- 相位单入口：`answer(state, *, bus, max_observations=…)`（卡面签名 `answer(state) -> AnswerDraft`；
-  两处关键词注入面见 `core` 模块注：`bus`＝编排块持有的 per-run 总线、`max_observations`＝材料帽）；
+- 相位单入口：`answer(state, *, bus, max_observations=…, supplements=None)`（卡面签名
+  `answer(state) -> AnswerDraft`；三处关键词注入面见 `core` 模块注：`bus`＝编排块持有的 per-run
+  总线、`max_observations`＝材料帽、`supplements`＝增补面收集列表〔2026-10-17 EB3 D2：收口三块
+  不进正文，按原序入该列表由编排层发射〕）；
 - 五形状（规格接口定义节 :37–:60 逐字）：`AnswerDraft`／`AnswerSegment`／`Citation`／`Gap`
   （形状单点在 `models`）＋缺口三档闭世界常量 `GAP_KINDS`（`GAP_REFUSED`／`GAP_MISSING`／
   `GAP_UNVERIFIED`）；

@@ -15,10 +15,13 @@ Direct`）与行为 1–12；`specs/modules.md` `## understanding` 卡（职责�
 4. **严格解析（行为 7）**：`parsing.parse_understanding(content)`；返 `None`（非合法 JSON／缺必填
    字段／类型不符／`route` 越界）→ **拒因回喂重试恰一次（行为 13）**：向链尾追加拒因载荷
    （`_append_schema_feedback`——【拒因】取 `parsing.understanding_schema_feedback` 的具体不合项、
-   【期望形】＋尾行见 `feedback`）→ 同相位再读一次；**仍拒**才 **抛 `UnderstandingParseError`**
-   （携原始应答片段），**不静默降级**、无两行式回退。上限**恰一次**（结构化无环）；两次调用各记
-   一条步（`call_model` 单点）；回喂只入链与过程档案（`dialogue` 零写入）；**不补默认、不改写
-   原话**。
+   【期望形】＋尾行见 `feedback`）→ 同相位再读一次；**仍拒** → **收敛拒答**（行为 13 尾，2026-10-17
+   EB3 D4.4 补）：如实上报两件套（notice ＋ 报告步——`report_parse_failure` 原样）＋ `direct_answer`
+   落一条拒答正文（直答旁路三键）＋ 返回该 `Direct`——**run 不判 `failed`、不零交付**（旧「抛
+   `UnderstandingParseError` → 编排收 `failed`」随本批退役：真机证据 `eval/results/frames/
+   EB2-NQ-D2.json`——模型两次都在 JSON 字符串里带未转义引号，整 run 零交付）。上限**恰一次**
+   （结构化无环）；两次调用各记一条步（`call_model` 单点）；回喂只入链与过程档案
+   （`dialogue` 零写入）；**不补默认、不改写原话**。
 5. **分派（行为 4／6／8／12）**：**只按 `route` 取值**（闭世界 `full`｜`direct`）——
    `full` → 理解字段双出口（`state.understanding`／`state.metric_candidates` ＋ `text` 事件
    `kind=understanding`）＋ 候选出自名录对账（违约即如实上报，不静默丢弃）；
@@ -42,6 +45,7 @@ from __future__ import annotations
 
 from appv2.runtimev2.bookkeeping import append_message, call_model, direct_answer, note
 from appv2.runtimev2.parsing import (
+    ROUTE_DIRECT,
     ROUTE_FULL,
     Direct,
     Understanding,
@@ -53,6 +57,8 @@ from appv2.runtimev2.transport import EventBus
 from appv2.runtimev2.understanding.assembly import ensure_task_book
 from appv2.runtimev2.understanding.closure import direct_assertion_hits
 from appv2.runtimev2.understanding.constants import (
+    CONVERGE_DRAFT_TEMPLATE,
+    CONVERGE_NOTE_TITLE,
     DIRECT_REJECT_NOTE_TITLE,
     MODEL_CALLER,
     PHASE,
@@ -63,7 +69,6 @@ from appv2.runtimev2.understanding.constants import (
     TEXT_EVENT,
     TEXT_EVENT_KIND,
 )
-from appv2.runtimev2.understanding.errors import UnderstandingParseError
 from appv2.runtimev2.understanding.feedback import schema_feedback
 from appv2.runtimev2.understanding.reporting import (
     report_candidate_violation,
@@ -102,15 +107,18 @@ def interpret(
     """读题一步：装配 → 模型读 → 严格解析 → 按 `route` 机械分派（返回值＝定型载荷）。
 
     单出口互斥（行为 6）：返回 `Understanding`（`route="full"`）或 `Direct`（`route="direct"`）
-    之一；应答不合 schema／`route` 越界 → 抛 `UnderstandingParseError`（行为 7：不返回半成品）；
+    之一；应答不合 schema／`route` 越界 → **回喂拒因重试恰一次，仍拒＝收敛拒答**（行为 13；
+    返回 `Direct`——拒答正文，不抛错、不零交付）；
     直答文本命中闭世界（行为 5）→ **退回 `route="full"` 的 `Understanding`**（不抛错、不静默、
     不直答收口——退回归 `_reject_direct`）。
     **schema 拒回喂重试恰一次（行为 13，2026-10-16 补·流水 67）**：首读不合 schema **不当场判死**
     ——向链尾追加拒因载荷（`feedback.schema_feedback`：【拒因】＋【期望形】＋尾行；不合项取
-    `parsing.understanding_schema_feedback` 的唯一诊断出口）→ **同相位再读一次**；仍拒才抛
-    `UnderstandingParseError`（编排收 `failed` 不变）。**拒因回喂＝修参、非降级**：不补默认、不改写
-    模型原话、不降级提取；上限**恰一次**（结构化——无环，钉死）。
-    过程态一律经 `bookkeeping` 唯一写口落（步／链／过程档案／通知／意图），本块零直写。
+    `parsing.understanding_schema_feedback` 的唯一诊断出口）→ **同相位再读一次**；仍拒 →
+    **收敛拒答**（2026-10-17 EB3 D4.4 改判：拒答正文经 `bookkeeping.direct_answer` 落直答旁路三键
+    ＋ 原样返回该 `Direct`——run 不判 `failed`、不零交付；真机证据
+    `eval/results/frames/EB2-NQ-D2.json`——模型两次都在 JSON 字符串里带未转义引号，旧形整 run
+    零交付）。**拒因回喂＝修参、非降级**：不补默认、不改写模型原话、不降级提取；上限**恰一次**（结构化无环，
+    钉死）。过程态一律经 `bookkeeping` 唯一写口落（步／链／过程档案／通知／意图），本块零直写。
     """
     channel = _require_bus(bus)
     ensure_task_book(state, watermark=watermark)
@@ -119,14 +127,43 @@ def interpret(
         _append_schema_feedback(state, raw)
         parsed, raw = _read_and_parse(state)
     if parsed is None:
-        report_parse_failure(state, raw)
-        raise UnderstandingParseError(_PARSE_FAILURE_REASON, raw=raw)
+        return _converge_refusal(state, raw)
     if isinstance(parsed, Direct):
         hits = direct_assertion_hits(state, parsed.text)
         if hits:
             return _reject_direct(state, parsed, hits, channel)
         return _dispatch_direct(state, parsed)
     return _dispatch_full(state, parsed, channel)
+
+
+def _converge_refusal(state: RunState, raw: str) -> Direct:
+    """两读皆不合 schema → **收敛拒答**（行为 13 尾，2026-10-17 EB3 D4.4 补）。
+
+    三步固定序（照直答旁路与「如实上报」两件套的既有体例）：
+
+    1. **如实上报**（既有面，原样）＝`report_parse_failure`：报告步（payload 携原始应答片段）
+       ＋ notice（`decision_rejected` 族既有值）——**不静默**；
+    2. **过程档案注记**＝一条「读题收敛拒答」（`pin-26` 渲染面：过程记录入档案、
+       `dialogue` 零写入）；
+    3. **直答旁路三键**＝`bookkeeping.direct_answer`（`draft`／`draft_kind="direct"`／
+       `next_intent="answer"`）——run 走收口（`completed`），**不判 `failed`、不零交付**；返回值＝
+       该 `Direct`（单出口互斥形的 direct 支）。
+
+    拒答正文＝**程序生成的确定性文案**（不合项取同一诊断出口 `understanding_schema_feedback`——
+    两处同一次判定产物，不各自生成）：**不猜、不取默认、不降级提取**；原始应答片段只进报告步与
+    notice（机读面），不刷进用户正文。
+    """
+    reason = understanding_schema_feedback(raw)
+    report_parse_failure(state, raw)
+    refusal = Direct(text=converge_draft(reason), route=ROUTE_DIRECT)
+    note(state, phase=PHASE, title=CONVERGE_NOTE_TITLE, digest=refusal.text)
+    direct_answer(state, refusal.text)
+    return refusal
+
+
+def converge_draft(reason: str) -> str:
+    """收敛拒答正文（同一文案单点：`_converge_refusal` 与测试同源，不各写一份）。"""
+    return CONVERGE_DRAFT_TEMPLATE.format(reason=reason or _PARSE_FAILURE_REASON)
 
 
 def _read_and_parse(state: RunState) -> tuple[Understanding | Direct | None, str]:

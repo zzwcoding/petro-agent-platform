@@ -57,6 +57,8 @@ _SPEC_EVENT_KINDS = {
     "citation",
     "notice",
     "blackbox",
+    # 2026-10-17 EB3 D1（交付面分层）：第十类——程序追加内容的增补面帧
+    "supplement",
 }
 _SPEC_WIRE_FRAMES = {"session", "done", "error"}
 _SPEC_NOTICE_TYPES = {
@@ -93,16 +95,19 @@ _SPEC_NOTICE_TYPES = {
 }
 _SPEC_VERDICT_SUBTYPES = {"verify", "final"}
 _SPEC_ASK_FRAME_KINDS = {"clarify", "external_table_approval"}
-# 五族常量族的导出面（卡面公开接口节；常量族之外还须有帧对象／总线／信封）
+# supplement 帧块型闭世界四值（2026-10-17 EB3 D1；真源同 specs/transport.md 接口定义节）
+_SPEC_SUPPLEMENT_BLOCKS = {"split", "attribution", "citations", "lineage"}
+# 六族常量族的导出面（卡面公开接口节；常量族之外还须有帧对象／总线／信封）
 _FAMILY_EXPORTS = {
     "EVENT_KINDS",
     "WIRE_FRAMES",
     "NOTICE_TYPES",
     "VERDICT_SUBTYPES",
     "ASK_FRAME_KINDS",
+    "SUPPLEMENT_BLOCKS",
 }
 
-# 跑批 UI 壳（V1 会话壳）自有帧名——不在本块十二值闭世界内；golden 载体的这半族不属本块消费面
+# 跑批 UI 壳（V1 会话壳）自有帧名——不在本块十三值闭世界内；golden 载体的这半族不属本块消费面
 _LEGACY_UI_EVENTS = frozenset(
     {
         "stage",
@@ -163,7 +168,7 @@ def _blackbox_pointer() -> dict[str, Any]:
 
 
 def _payload_for(name: str) -> dict[str, Any]:
-    """十二值各一的合法载荷（行为 6 键集归发射方；三类定形载荷按行为 7／8／9）。"""
+    """十三值各一的合法载荷（行为 6 键集归发射方；四类定形载荷按行为 7／8／9／16）。"""
     passthrough: dict[str, dict[str, Any]] = {
         "step": {"step": "decision", "seq": 1, "title": "决策"},
         "text": {"content": "某井日产油量 12.5 吨"},
@@ -179,6 +184,7 @@ def _payload_for(name: str) -> dict[str, Any]:
         "notice": _notice(),
         "ask": _ask_payload(),
         "blackbox": _blackbox_pointer(),
+        "supplement": {"block": "citations", "text": "引用：\n[1] 报告 · f4（high）"},
         "session": {"run_id": _RUN_ID, "resume": False},
         "done": {"run_id": _RUN_ID},
         "error": {"code": "chat_stream_failed", "message": "流内异常——请重新提问"},
@@ -210,14 +216,14 @@ async def _collect(bus: EventBus, cursor: int = 0) -> list[SseEvent]:
 
 
 async def test_event_kinds_closed_world() -> None:
-    """事件名闭世界（九 runtime ＋ 三 wire ＝十二值）；越界构造抛错。"""
-    assert EVENT_KINDS == _SPEC_EVENT_KINDS  # 闭世界不经裁决不许长胖（九类口径＝S3 C-05）
+    """事件名闭世界（十 runtime ＋ 三 wire ＝十三值）；越界构造抛错。"""
+    assert EVENT_KINDS == _SPEC_EVENT_KINDS  # 闭世界不经裁决不许长胖（九类口径＝S3 C-05；EB3 D1）
     assert WIRE_FRAMES == _SPEC_WIRE_FRAMES
-    assert len(EVENT_KINDS | WIRE_FRAMES) == 12
+    assert len(EVENT_KINDS | WIRE_FRAMES) == 13
 
     bus = EventBus()
     for name in sorted(_SPEC_EVENT_KINDS | _SPEC_WIRE_FRAMES):
-        frame = bus.emit(name, _payload_for(name))  # 十二个合法值各构造成功
+        frame = bus.emit(name, _payload_for(name))  # 十三个合法值各构造成功
         assert frame.event == name
 
     # 越界名构造期即抛错（fail-closed，不静默丢弃、不降级为默认类）：构造面与发射面同判
@@ -239,17 +245,18 @@ async def test_event_kinds_closed_world() -> None:
 
 
 def test_blackbox_kind_exported() -> None:
-    """`EVENT_KINDS` 九类全列导出面（含 `blackbox`）。"""
+    """`EVENT_KINDS` 十类全列导出面（含 `blackbox`／`supplement`）。"""
     import appv2.runtimev2.transport as transport
 
-    # 骨架与公开面齐备（卡面签名：帧对象／总线／信封＋五族常量）
+    # 骨架与公开面齐备（卡面签名：帧对象／总线／信封＋六族常量）
     assert {"SseEvent", "EventBus", "envelope"} <= set(transport.__all__)
     assert _FAMILY_EXPORTS <= set(transport.__all__)
     assert transport.EVENT_KINDS is EVENT_KINDS  # 导出面＝同一族（不另立第二套集合）
 
     assert EVENT_KINDS == _SPEC_EVENT_KINDS
-    assert len(EVENT_KINDS) == 9  # 「八类」为陈旧注记（S3 C-05）
+    assert len(EVENT_KINDS) == 10  # 「八类」为陈旧注记（S3 C-05）；EB3 D1 起十类
     assert "blackbox" in EVENT_KINDS  # 现状缺漏＝S3 C-10／D-P9a1-09；本块收正
+    assert "supplement" in EVENT_KINDS  # 2026-10-17 EB3 D1 增第十类
     assert sorted(_SPEC_EVENT_KINDS - EVENT_KINDS) == []
 
     frame = EventBus().emit("blackbox", _blackbox_pointer())
@@ -257,6 +264,35 @@ def test_blackbox_kind_exported() -> None:
     assert NOTICE_TYPES == _SPEC_NOTICE_TYPES
     assert VERDICT_SUBTYPES == _SPEC_VERDICT_SUBTYPES
     assert ASK_FRAME_KINDS == _SPEC_ASK_FRAME_KINDS
+    assert transport.SUPPLEMENT_BLOCKS == _SPEC_SUPPLEMENT_BLOCKS
+
+
+# ---------- 2b supplement 帧定形载荷（行为 16；2026-10-17 EB3 D1） ----------
+
+
+def test_supplement_frame_closed_world() -> None:
+    """`supplement` 帧定形恰二键 `{block, text}`＋块型闭世界四值（EB3 D1）。
+
+    增补面＝程序追加内容（分源块／归属块／引用清单／血缘五要素）的唯一结构化出口：
+    块型越界／缺键／多键一律构造期抛错（fail-closed，不静默丢弃、不降级为默认块型）。
+    """
+    bus = EventBus()
+    for block in sorted(_SPEC_SUPPLEMENT_BLOCKS):
+        frame = bus.emit("supplement", {"block": block, "text": f"{block} 全文"})
+        assert frame.event == "supplement"
+        assert set(frame.data) == {"block", "text"}  # 恰二键（行为 16）
+        assert frame.data["block"] == block
+
+    for bad in (
+        {"block": "summary", "text": "越界块型"},  # 四值之外（不经裁决不许长胖）
+        {"block": "split"},  # 缺 text
+        {"text": "缺 block"},  # 缺 block
+        {"block": "split", "text": "多键", "extra": 1},  # 多键
+    ):
+        with pytest.raises(ValueError):
+            SseEvent(seq=0, event="supplement", data=bad)
+        with pytest.raises(ValueError):
+            EventBus().emit("supplement", dict(bad))
 
 
 # ---------- 3 帧信封字节形（行为 2） ----------
@@ -648,7 +684,7 @@ async def test_b5_golden_frame_replay_protocol_timeline() -> None:
 
     钉法（`docs/runtime-refactor/eng/04-测试网设计.md` §三 B5 行）：「从
     `eval/results/frames/` 真帧流转离线 golden 回放钉」。载体＝跑批真帧流（`frames` 数组，
-    解析形见模块 docstring）；消费面＝帧名落本块十二值闭世界的那半族（跑批 UI 壳自有帧名
+    解析形见模块 docstring）；消费面＝帧名落本块十三值闭世界的那半族（跑批 UI 壳自有帧名
     `_LEGACY_UI_EVENTS` 不属本块）。
 
     断言面＝帧序保真＋载荷零改写＋一处编号（事件帧 0 起严格递增、wire 帧不占号位）＋信封
@@ -1327,7 +1363,7 @@ async def test_close_idempotent_rejects_after() -> None:
 
 async def test_no_truncation_frame() -> None:
     """帧面无截断类帧名。"""
-    # ① 闭世界十二值内无截断类帧名（截断披露走 `notice.type` 面——见
+    # ① 闭世界十三值内无截断类帧名（截断披露走 `notice.type` 面——见
     # `::notice_three_keys_closed_world`）
     assert [name for name in EVENT_KINDS | WIRE_FRAMES if _TRUNCATION_FRAME_MARK.search(name)] == []
 

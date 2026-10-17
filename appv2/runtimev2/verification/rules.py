@@ -34,9 +34,18 @@ from appv2.runtimev2.verification.constants import (
     ATTRIBUTION_UNCITED_MORE,
     CARRIER_KINDS,
     CONTRADICTION_EXCLUDED_KINDS,
+    DISCLOSURE_MARKS,
+    DISCLOSURE_OBSERVATION_KINDS,
+    GROUP_HEAD_SUFFIX,
+    ISO_DATE_LENGTH,
+    ISO_DATE_SEPARATOR,
+    LINEAGE_KEEP_MAX_LINES,
+    LINEAGE_MARK_CLOSING,
+    LINEAGE_MARK_SOURCE_TABLE,
     SPLIT_BLOCK_HEAD,
     SPLIT_LINE_TEMPLATE,
     SUBJECT_SEPARATOR,
+    TABLE_COLUMN_MARK,
 )
 from appv2.tools import entity_anchor_tokens, normalize_anchor_text
 
@@ -230,6 +239,126 @@ def aligned_indices(
 def line_numbers_are_asserted(line: str) -> bool:
     """行内是否有数值记号（无引标数字行＝无据断言行——行为 8 后半；真源 `recon/A2` D-A2-21）。"""
     return bool(number_tokens(normalize_for_match(line)))
+
+
+# ── 豁免两类的形态判据（2026-10-17 EB3 D3——逐字稿＝方案 D3）────────────────────
+# 判据只做**形态字面在场判定**（闭世界取值 ＋ ISO 日期形 ＋ 数值记号集比对），零语义蕴含判定；
+# 豁免面只作用于「贴前缀／删句」一拍（支撑判定与留痕不受影响）。
+
+
+def _is_iso_date(window: str) -> bool:
+    """`YYYY-MM-DD` 十字形判定（分隔位两处「-」、其余位皆数字——零正则）。"""
+    if len(window) != ISO_DATE_LENGTH:
+        return False
+    if window[4] != ISO_DATE_SEPARATOR or window[7] != ISO_DATE_SEPARATOR:
+        return False
+    return all(
+        char.isdigit() for position, char in enumerate(window) if position not in (4, 7)
+    )
+
+
+def iso_date_tokens(text: str) -> tuple[str, ...]:
+    """文本内 ISO 日期记号列（`YYYY-MM-DD` 形——形态扫描，零正则）。"""
+    found: list[str] = []
+    for start in range(len(text) - ISO_DATE_LENGTH + 1):
+        window = text[start : start + ISO_DATE_LENGTH]
+        if _is_iso_date(window):
+            found.append(window)
+    return tuple(found)
+
+
+def disclosure_text(observations: Sequence[Observation]) -> str:
+    """材料披露行文本（血缘卡载荷 ＋ 引擎注记观察正文——「与材料披露行事实一致」的比对源）。
+
+    辖域＝`locator.kind ∈ DISCLOSURE_OBSERVATION_KINDS`（`lineage`／`notice`——引擎自己的
+    事实披露面）；正文与 `locator.payload`（结构化载荷）一并入比对源（原文照取，零改写）。
+    """
+    parts: list[str] = []
+    for obs in observations:
+        if locator_kind(obs) not in DISCLOSURE_OBSERVATION_KINDS:
+            continue
+        parts.append(str(obs.get("content", "")))
+        locator = obs.get("locator")
+        payload = locator.get("payload") if isinstance(locator, Mapping) else None
+        if isinstance(payload, Mapping):
+            parts.append(json.dumps(payload, ensure_ascii=False, default=str))
+    return "\n".join(parts)
+
+
+def engine_disclosure_line(line: str, observations: Sequence[Observation]) -> bool:
+    """引擎披露行（EB3 D3-a）：形（窗 ISO 区间 或 披露标记四字面）＋ 与材料披露行事实一致。
+
+    形＝行内出现 ISO 日期记号（「窗 ISO 区间」的形态面）或出现 `DISCLOSURE_MARKS` 之一
+    （`封顶`／`截断`／`LIMIT`／`未覆盖`——方案 D3 逐字四值）；一致＝本行全部数值记号皆出自
+    材料披露行（`disclosure_text`）的数值记号集（零数值的披露句恒一致——无自证面）。
+    零语义判定：只做字面在场与记号集包含两判。
+    """
+    if not (iso_date_tokens(line) or _has_disclosure_mark(line)):
+        return False
+    disclosed = number_tokens(normalize_for_match(disclosure_text(observations)))
+    return all(token in disclosed for token in number_tokens(normalize_for_match(line)))
+
+
+def _has_disclosure_mark(line: str) -> bool:
+    """披露标记四字面在场判定（闭世界取值成员判定——非语义词表）。"""
+    return any(mark in line for mark in DISCLOSURE_MARKS)
+
+
+def group_header_line(line: str, next_line: str | None) -> bool:
+    """组头行（EB3 D3-b）：行尾落格「：」；或数据表头（含表格列记号 `|`）且**后邻行带引标**。
+
+    「后邻行带引标」＝下一行有可切出的引标辖域（`citation_chunks` 非空，形态切分）；行尾判取
+    切片相等（零正则、不用词面判方法）。两种形态都不改行文本——只是「不删句」的豁免面。
+    """
+    text = line.rstrip()
+    if text[-len(GROUP_HEAD_SUFFIX) :] == GROUP_HEAD_SUFFIX:
+        return True
+    if TABLE_COLUMN_MARK in line and next_line is not None:
+        return bool(citation_chunks(normalize_for_match(next_line)))
+    return False
+
+
+# ── 血缘五要素整段剥除（2026-10-17 EB3 D2——逐字稿＝方案 D2）────────────────────
+
+
+def lineage_line(line: str) -> bool:
+    """血缘五要素行的形态判据：行内含 `② 来源表` 或 `⑤ 收口注记`（方案 D2 逐字特征面）。"""
+    return LINEAGE_MARK_SOURCE_TABLE in line or LINEAGE_MARK_CLOSING in line
+
+
+def split_lineage(lines: Sequence[str]) -> tuple[list[str], str]:
+    """正文分段：血缘五要素**整段**剥出（返回（保留行，剥出段文本）——2026-10-17 EB3 D2）。
+
+    段界＝空行界（连续非空行为一段）；命中 `lineage_line` 的段**整段离场**入增补面。
+    **例外**＝该段行数 ≤ `LINEAGE_KEEP_MAX_LINES` 且携 `[n]` 引标（单行口径说明——口径说明
+    不是血缘卡）→ 保留在正文。剥出段之间以空行连接（原文照抄，零二次创作）。
+    """
+    keep: list[str] = []
+    stripped: list[str] = []
+    index = 0
+    total = len(lines)
+    while index < total:
+        if not lines[index].strip():
+            keep.append(lines[index])
+            index += 1
+            continue
+        end = index
+        while end < total and lines[end].strip():
+            end += 1
+        paragraph = list(lines[index:end])
+        if any(lineage_line(line) for line in paragraph) and not _caliber_note(paragraph):
+            stripped.append("\n".join(paragraph))
+        else:
+            keep.extend(paragraph)
+        index = end
+    return keep, "\n\n".join(stripped)
+
+
+def _caliber_note(paragraph: Sequence[str]) -> bool:
+    """单行口径说明例外（≤ `LINEAGE_KEEP_MAX_LINES` 行且带 `[n]` 引标）→ 保留正文。"""
+    if len(paragraph) > LINEAGE_KEEP_MAX_LINES:
+        return False
+    return any(citation_chunks(normalize_for_match(line)) for line in paragraph)
 
 
 # ── 矛盾分列（行为 4；真源 `recon/A2` R-A2-29／R-A2-30）──────────────────────────

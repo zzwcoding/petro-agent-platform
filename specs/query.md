@@ -42,6 +42,10 @@ class QueryEngine:
 
 1. validate 纯确定性：指标槽 ∈ 计划候选集（FX-13 封堵换指标）；窗界 end≤today＋366；
    条数/排名词面消歧按 V1 domain.py 合同值（明细排序 ORDER BY prod_date, well_id 等原样）。
+   （**2026-10-17 EB3 D4 注**：上句「条数/排名词面消歧」的**运行时消费面**＝`execution` 计划面——
+   `specs/execution.md` 行为 15「计划面确定性规则」：问句指标接地闸＋「前 N」→排名归一；本模块的
+   `build_query_plan`／`parse_row_limit`／`is_ranking_question`／`parse_ranking_direction` 仍是
+   该合同值的**真源件与漂移对读基准**，其 V2 链上调用面为零调用（真源件保持只读基准位）。）
 2. 新鲜度闸：窗上沿晚于水位→拦停（不返回空数冒充）＋水位/窗标签/默认窗标注（is_default）如实携带。
 3. 在册未绑定指标→unbound_degrade，Evidence 依据经 knowledge 取（query→knowledge 为 modules.md 登记的唯一互引例外）。
 4. 缺参（模糊时间如"最近"）→need_clarify 三选一候选窗；外表越集→external_table_approval（V1 N7.4c 语义；

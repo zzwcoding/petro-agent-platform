@@ -36,7 +36,9 @@
    生成、`citation` 帧逐支发射、终稿一条 assistant 消息追加链尾，**同批落定**；正文与引用块之间
    依次接**「互不一致」分源块**（行为 6）与**分源列明归属块**（行为 17）——两块由 `degradation`
    以形态判据确定性装配（不靠模型自觉、逐支原文照抄、单源／无矛盾零追加、重入幂等）。`verdict`
-   帧本体是**消费方信号**（批次落定归 `orchestration`，行为 7 明写），本块不产。
+   帧本体是**消费方信号**（批次落定归 `orchestration`，行为 7 明写），本块不产。**交付面分层
+   （2026-10-17 EB3 D2）**：上述三块（分源／归属／引用）**不进正文**——按原序入 `supplements`
+   增补面，`state.answer` 与链尾只留模型稿（块帧由编排层发射）。
 
 **步面接缝（登记呈主窗）**：模型调用步由 `bookkeeping.call_model` **单点记账**（用量与归因面＋
 `token_count`），本块**不为同一调用再记模型调用步**；本块的答案面步（`起草答案`／`答案收口`）
@@ -47,7 +49,8 @@
 
 **接缝纪律**：`bus`（per-run 总线，编排块持有、注入各相位）为**必给**注入面——未注入＝调用方断线，
 入口即 fail-closed 抛错（同 `understanding.interpret` 先例）；`max_observations`（材料帽）为注入
-参数（缺省引 `context.DEFAULT_MAX_OBSERVATIONS` 单点、无裸字面）。
+参数（缺省引 `context.DEFAULT_MAX_OBSERVATIONS` 单点、无裸字面）；`supplements`（增补面收集列表）
+为**选给**注入面（缺省＝本块自持一份丢弃——正文剥离面与列表无关）。
 
 **合法降级路径＝无**：闭世界越界即抛错；起草原话不完整时走结构化缺口，**不改写事实**。
 """
@@ -141,7 +144,14 @@ from appv2.runtimev2.context import (
 from appv2.runtimev2.persistence import STEP_STATUS_FAILED, STEP_STATUS_OK
 from appv2.runtimev2.prompts import assemble_answer_prompt
 from appv2.runtimev2.state import INTENT_END, INTENT_VERIFY, Manifest, RunState
-from appv2.runtimev2.transport import EventBus
+from appv2.runtimev2.transport import (
+    SUPPLEMENT_BLOCK_ATTRIBUTION,
+    SUPPLEMENT_BLOCK_CITATIONS,
+    SUPPLEMENT_BLOCK_SPLIT,
+    SUPPLEMENT_PAYLOAD_BLOCK_KEY,
+    SUPPLEMENT_PAYLOAD_TEXT_KEY,
+    EventBus,
+)
 
 _BUS_MISSING = (
     "作答相位总线未注入（per-run 总线由编排块持有并注入）——增量文本事件无出口，"
@@ -171,6 +181,7 @@ def answer(
     *,
     bus: EventBus | None = None,
     max_observations: int = DEFAULT_MAX_OBSERVATIONS,
+    supplements: list[dict[str, Any]] | None = None,
 ) -> AnswerDraft:
     """作答一步：起草（真流式逐段推）或收口（引用块＋citation 帧＋链尾同批）。
 
@@ -179,10 +190,15 @@ def answer(
     直答态／起草标记在场）→ 收口段（引用块＋`citation` 帧＋终稿链尾，意图收 `end`）。
     灌进模型的是整条对话链（`state.messages` 只追加——钉 `pin-22`）；过程态一律经 `bookkeeping`
     唯一写口落（步／链／过程档案／通知／意图），本块零直写共享写面字段。
+
+    `supplements`（2026-10-17 EB3 D2）＝编排块持有的**增补面收集列表**——收口段的引用块／
+    「互不一致」分源块／分源归属块**不再写进正文**（`state.answer` 只留模型稿），改按原序入该
+    列表（帧由编排层发射）；未注入＝本块自持一份丢弃（正文剥离面与列表无关）。
     """
     channel = _require_bus(bus)
+    collected: list[dict[str, Any]] = [] if supplements is None else supplements
     if _drafted(state):
-        return _finalize(state, channel)
+        return _finalize(state, channel, collected)
     return _draft(state, channel, max_observations=max_observations)
 
 
@@ -191,6 +207,19 @@ def _require_bus(bus: EventBus | None) -> EventBus:
     if bus is None:
         raise RuntimeError(_BUS_MISSING)
     return bus
+
+
+def _supplement(supplements: list[dict[str, Any]], block: str, text: str) -> None:
+    """增补面条目入列（载荷形＝`{block, text}`——键名与块型闭世界真源均在 `transport`）。
+
+    条目按**产出序**入列（＝原正文序：分源块 → 归属块 → 引用块）——帧由编排层按列发；
+    空文本零入列（不产空块）。**块文本原样**（字面零改——正文剥离面同一份文本）。
+    """
+    if not text:
+        return
+    supplements.append(
+        {SUPPLEMENT_PAYLOAD_BLOCK_KEY: block, SUPPLEMENT_PAYLOAD_TEXT_KEY: str(text)}
+    )
 
 
 def _drafted(state: RunState) -> bool:
@@ -274,7 +303,9 @@ def _draft(state: RunState, bus: EventBus, *, max_observations: int) -> AnswerDr
 # ── 收口段（行为 7）─────────────────────────────────────────────────────────
 
 
-def _finalize(state: RunState, bus: EventBus) -> AnswerDraft:
+def _finalize(
+    state: RunState, bus: EventBus, supplements: list[dict[str, Any]]
+) -> AnswerDraft:
     """收口段：引用块＋`citation` 帧＋终稿链尾**同批落定**（`verdict` 帧归编排协调，本块不产）。
 
     终稿文本＝核验后的草稿（`state.draft`）或直答/收敛正文（`state.answer`）；引用块与 `citation`
@@ -282,10 +313,14 @@ def _finalize(state: RunState, bus: EventBus) -> AnswerDraft:
     无稿可收口（空稿路径重入／直答空文本）→ **不推空答案**，按结构化缺口如实收口（行为 9）。
 
     **降级与引用簇**（`RT-W4-06b`，收口段两处确定性装配——**不靠模型自觉**，逐支原文照抄、
-    零二次创作、零语义裁决）：正文之后、引用块之前依次接「互不一致」分源块（行为 6——被引支
-    同 subject 异值即分源列明，标「互不一致」，不调和）与分源列明归属块（行为 17——被引集跨
-    ≥2 出处即逐源配对「来源名↔数值／结论」）。两块的触发都是**形态判据**（见 `degradation`），
-    单源／无矛盾＝零追加（保留集：普通答案的分源行为不变），收口重入面幂等（同块头在场＝不重复落）。
+    零二次创作、零语义裁决）：「互不一致」分源块（行为 6——被引支同 subject 异值即分源列明，
+    标「互不一致」，不调和）与分源列明归属块（行为 17——被引集跨 ≥2 出处即逐源配对「来源名↔
+    数值／结论」）。两块的触发都是**形态判据**（见 `degradation`），单源／无矛盾＝零追加（保留集：
+    普通答案的分源行为不变），收口重入面幂等（同块头在场＝不重复落）。
+
+    **交付面分层（2026-10-17 EB3 D2）**：正文之后依次接的三块（分源块／归属块／引用块）**不再进
+    正文**——按原序（split → attribution → citations）入 `supplements` 增补面，`state.answer` 与
+    链尾只留模型稿（`docs/runtime-refactor/proposals/EB3-交付面分层与缺陷修复.md` D2）。
     """
     by_index = _observation_index(state)
     text = state.draft or state.answer
@@ -304,12 +339,16 @@ def _finalize(state: RunState, bus: EventBus) -> AnswerDraft:
     cited = _cited_seqs(state, text, by_index)
     citations = [Citation(seq=seq, locator=_locator_of(by_index[seq])) for seq in cited]
     groups = contradiction_groups(cited, by_index)
-    final_text = (
-        text
-        + contradiction_section(groups, by_index, text)
-        + source_section(cited, by_index, text)
-        + _citation_block(cited, by_index)
+    _supplement(
+        supplements, SUPPLEMENT_BLOCK_SPLIT, contradiction_section(groups, by_index, text)
     )
+    _supplement(
+        supplements, SUPPLEMENT_BLOCK_ATTRIBUTION, source_section(cited, by_index, text)
+    )
+    _supplement(
+        supplements, SUPPLEMENT_BLOCK_CITATIONS, _citation_block(cited, by_index)
+    )
+    final_text = text  # 正文只留模型稿（四类块走增补面——EB3 D2）
     for seq in cited:
         bus.emit(CITATION_EVENT, _citation_payload(seq, by_index[seq]))
     append_message(state, role=ROLE_ASSISTANT, content=final_text)  # 链尾（同批）

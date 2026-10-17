@@ -152,6 +152,8 @@ def assemble_answer_prompt(state: RunState) -> str: ...
 
 > **2026-10-17 补（L3 阻塞修复批·分解样例补行·审计）**：**分解样例区补无台账命中形全样例行**（次行逐字 `{"action": "decompose", "question_group": {"subtasks": [{"id": "s1", "question": "〈报告内容类问题〉", "ledger_notes": "无台账命中｜未绑定｜窗未定", "chain": "knowledge", "tool": "doc_retrieve"}]}}`）＋**头行补半句**「——三段照抄上形：无台账命中｜未绑定｜窗未定（不加解释、不改写）」。真机证据 `docs/runtime-refactor/ladder/L3/06`（run-b5b6b056）：模型知道要写无命中形，但两轮都没凑齐三个闭世界段（r1 段尾加解释 → 段数非三；r2 绑定态／窗段自造形越界）→ 3 轮烧光（三条「ledger_notes 槽位对账未过：s1」＋`budget_converged`）；病根＝样例区只给锚定指标形全样例行，无命中形只有一句话说明、没有三段位完整样例可照抄。机读面＝`::decompose_example_no_hit_full_row`（样例行逐字＋三段位 ∈ 对账闭世界）／`::no_ledger_hit_selfmade_forms_still_rejected`（真机失败形照拒——样例补行不改闸，防样例变松闸）＋`::decompose_example_head_window_rule`（补句逐字）／`::decompose_example_valid_json`（两行各自合法 JSON）。
 
+> **2026-10-17 补（EB3 D3·组引标放开·审计）**：族⑤起草答案合同**行集交付段内一句逐字置换**——旧「禁汇总引标（如「[1]–[24]」写在表尾注里）」→ **「数据行禁汇总引标；组头允许 `[m]–[n]` 组引标」**（段内其余字面零改；数据行仍逐行 `[n]`，组头行的组引标不再被判违规）。逐字稿＝`docs/runtime-refactor/proposals/EB3-交付面分层与缺陷修复.md` D3；落点＝`appv2/runtimev2/prompts/constants.py` `ANSWER_DRAFT_CONTRACT`（本模块单点，相位块零字面副本纪律不变）。机读面＝`::answer_round_segment_order_no_material`／`::contract_constants_no_duplicate_literals`（段序与单点面）+ 核验侧豁免钉 `tests/domains/test_v2_verification.py::group_citation_marker_untouched`（组引标不被改）与 `::rewrite_exempt_disclosure_and_group_head`（组头行不删句）。**注**：V1 旧码 `appv2/runtime/graph.py` 的对应句不随本批改（V1 只作备份，ADR-0005）。
+
 ## 依赖与风险
 
 - 依赖：`state`（唯一模块依赖——R3；只读投影）；消费方＝四业务相位（经 R2 包根）；真源＝`specs/modules.md` `## prompts` 卡。

@@ -40,6 +40,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 import appv2.runtimev2.tool_matching as tool_matching
 from appv2.runtimev2.gateway_adapter import ScriptedCompleter, set_completer
 from appv2.runtimev2.parsing import QuestionGroup, Subtask, parse_tool_match
@@ -803,22 +805,40 @@ def test_round_chain_append_only_and_contract_once() -> None:
     assert "上次拒因" in state.messages[2]["content"]  # 增量条携拒因回喂行
 
 
-def test_no_limit_literals_only_sources_cited() -> None:
-    """限额数值零字面量（「与闸的挂钩表」限额行）：只引真源双指，本块不自立上限。
+# 本块自有的**唯一**上限类常量（`constants.RETRY_CAP_SAME_REJECTION`＝同形拒因熔断参数，行为 9，
+# 2026-10-17 EB3 D4.3）。它不是轮上限：**轮上限值只归 `state.Budget`**（真源双指），本参数只判
+# 「同形重试几次即熔断」——名单就此一项，多一个即 FAIL（防上限面悄悄再立第二套）。
+_OWN_CAP_CONSTANTS = {"RETRY_CAP_SAME_REJECTION"}
 
-    行为 9 的取舍＝熔断暂不加（靠轮数闸兜底）——判定与计数归 `state`／`orchestration`，本块
-    **不计数、不判轮**；源码零上限常量、零「与整数比较」的裸上限形，且真源双指在场。
+
+def test_no_limit_literals_only_sources_cited() -> None:
+    """限额数值零字面量（「与闸的挂钩表」限额行）：只引真源双指，本块不自立**轮**上限。
+
+    行为 9（2026-10-17 EB3 D4.3 改判）：**轮**上限仍只引真源双指、本块零字面量；熔断是本块自持的
+    **一个自有参数**（同形重试次数），故断言面＝「自有上限常量**恰** `_OWN_CAP_CONSTANTS`」＋
+    「真源双指在场」＋「零『与整数比较』的裸限额形」。
     """
     source = _source_text()
     assert "R-K-72" in source and "§06-A" in source, "限额真源双指指针不在场"
+    assert "非轮预算" in source, "自有熔断参数未与轮预算划界（行为 9 的口径说明不在场）"
+
+    own_caps = {
+        node.targets[0].id
+        for _, tree in _trees()
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign)
+        and isinstance(node.targets[0], ast.Name)
+        and any(
+            key in node.targets[0].id.upper()
+            for key in ("MAX", "MIN", "CAP", "LIMIT", "ROUNDS", "BUDGET")
+        )
+    }
+    assert own_caps == _OWN_CAP_CONSTANTS, (
+        f"本块自有的上限类常量面漂移（期望恰 {sorted(_OWN_CAP_CONSTANTS)}）：{sorted(own_caps)}"
+    )
 
     for path, tree in _trees():
         for node in ast.walk(tree):
-            if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name):
-                assert not any(
-                    key in node.targets[0].id.upper()
-                    for key in ("MAX", "MIN", "CAP", "LIMIT", "ROUNDS", "BUDGET")
-                ), f"{path.name}:{node.lineno} 自立上限常量 {node.targets[0].id}"
             if isinstance(node, ast.Compare):
                 for operand in (node.left, *node.comparators):
                     is_number = (
@@ -829,21 +849,107 @@ def test_no_limit_literals_only_sources_cited() -> None:
                     assert not is_number, f"{path.name}:{node.lineno} 裸限额字面比较"
 
 
+# 共享写面七字段（真源＝`bookkeeping` 行为 1 的六字段＋行为 8 的合同标记字段；全局闸
+# `test_v2_bookkeeping.py::no_direct_state_write_in_phases` 的扫描面即此七项）——本块**零写**。
+_SHARED_WRITE_FIELDS = frozenset(
+    {
+        "messages",
+        "steps",
+        "process_notes",
+        "notices",
+        "dialogue",
+        "next_intent",
+        "contracts_appended",
+    }
+)
+# 本块登记的直写例外（拒因回炉的轮计数与回喂面）——`bookkeeping` 包根**无**这两字段的写口，
+# 同款直写先例＝澄清相位（`clarification/core.py::_record_rejection`）与执行相位
+# （`execution/core.py` 的拒因回喂点）。例外须在 `specs/tool_matching.md` 审计节登记。
+_STATE_WRITE_EXCEPTIONS = frozenset({"rounds", "decision_error"})
+# 就地改列表的方法（写操作——`state.steps.append(...)` 形；同全局闸口径）。
+_MUTATING_METHODS = frozenset(
+    {
+        "append",
+        "extend",
+        "insert",
+        "remove",
+        "pop",
+        "clear",
+        "sort",
+        "reverse",
+        "update",
+        "setdefault",
+    }
+)
+
+
+def _state_field_of(node: ast.expr) -> str | None:
+    """该表达式是否直指 `state.<字段>`（取下标形 `state.notices[0]` 的基座也算）。"""
+    if isinstance(node, ast.Subscript):
+        return _state_field_of(node.value)
+    if (
+        isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "state"
+    ):
+        return node.attr
+    return None
+
+
+def _state_write_targets(tree: ast.Module) -> list[tuple[int, str]]:
+    """`state.<字段>` 写点（赋值三形＋`del`＋就地改列表调用＋下标写——同全局闸 `_write_sites`
+    的写点形状面）。"""
+    sites: list[tuple[int, str]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            targets = list(node.targets)
+        elif isinstance(node, (ast.AugAssign, ast.AnnAssign)):
+            targets = [node.target]
+        elif isinstance(node, ast.Delete):
+            targets = list(node.targets)
+        else:
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr in _MUTATING_METHODS
+            ):
+                field = _state_field_of(node.func.value)
+                if field is not None:
+                    sites.append((node.lineno, field))
+            continue
+        for target in targets:
+            field = _state_field_of(target)
+            if field is not None:
+                sites.append((node.lineno, field))
+    return sites
+
+
 def test_no_direct_state_write_in_tool_matching() -> None:
-    """相位不直写状态（唯一写口归 `bookkeeping`）：本块源码零 `state.<字段>` 赋值。"""
+    """相位不直写**共享写面七字段**（唯一写口归 `bookkeeping`）；两字段例外须逐条登记。
+
+    口径（2026-10-17 EB3 D4.3）：本块零写七共享字段；**登记例外**＝`rounds`／`decision_error`
+    ——拒因回炉的轮计数与回喂面，`bookkeeping` 包根无其写口，同款直写先例在澄清／执行两相位；
+    全局闸的扫描面即七字段，两字段本不在其内。例外之外**任何** `state.<字段>` 直写即 FAIL。
+    """
+    seen: set[str] = set()
     for path, tree in _trees():
-        for node in ast.walk(tree):
-            targets: list[ast.expr] = []
-            if isinstance(node, ast.Assign):
-                targets = list(node.targets)
-            elif isinstance(node, (ast.AugAssign, ast.AnnAssign)):
-                targets = [node.target]
-            for target in targets:
-                assert not (
-                    isinstance(target, ast.Attribute)
-                    and isinstance(target.value, ast.Name)
-                    and target.value.id == "state"
-                ), f"{path.name}:{node.lineno} 直写状态"
+        for line, field in _state_write_targets(tree):
+            seen.add(field)
+            assert field in _STATE_WRITE_EXCEPTIONS, (
+                f"{path.name}:{line} 直写状态字段 {field}（未登记例外——共享写面归簿记写口）"
+            )
+    assert seen.isdisjoint(_SHARED_WRITE_FIELDS), (
+        f"直写共享写面七字段：{sorted(seen & _SHARED_WRITE_FIELDS)}"
+    )
+
+    # 探测器非空转：共享写面字段的直写必被咬（伪造写点）
+    forged = ast.parse(
+        "def _x(state):\n"
+        "    state.notices.append({'type': 't'})\n"
+        "    state.next_intent = 'answer'\n"
+    )
+    assert {field for _, field in _state_write_targets(forged)} == {"notices", "next_intent"}
+    assert not {field for _, field in _state_write_targets(forged)} <= _STATE_WRITE_EXCEPTIONS
 
 
 # ── 本批（L3-02 检索透传断点修复）：need 原样透传 ＋ 确定性锚注入 ─────────────────
@@ -951,3 +1057,159 @@ def test_anchor_injection_trace_in_determination_payload() -> None:
     emitted = json.loads(state.messages[-1]["content"])["matches"][0]["retrieval_need"]
     assert emitted == {"question": "W-11 井生产套管的尺寸与下深是多少？"}  # 原话零改写＝可对照
     assert len(state.steps) == 1  # 唯一一条＝call_model 的模型调用步（零补记步）
+
+
+# ── 行为 9（2026-10-17 EB3 D4.3）：同形拒因熔断 → 触界收敛 → 收敛让位形 ─────────────
+
+
+_MALFORMED_EMISSION = "这不是 JSON 对象（无左花括号——只有解释文字）"
+
+
+def _repeat(state: RunState, contents: Sequence[str]) -> tuple[list[Any], ScriptedCompleter]:
+    """同面替身注入 → 逐轮调 `match`（每轮换一条剧本应答）→ 复位；返回（结果列，替身）。"""
+    scripted = ScriptedCompleter({"decision": list(contents)})
+    previous = set_completer(scripted)
+    try:
+        results = [match(state) for _ in contents]
+    finally:
+        set_completer(previous)
+    return results, scripted
+
+
+def _notice_types(state: RunState) -> list[str]:
+    return [str(entry.get("type")) for entry in state.notices if isinstance(entry, Mapping)]
+
+
+def test_same_shape_rejection_fuses_to_convergence_within_three_calls() -> None:
+    """行为 9｜同形 malformed 连发 → 第 3 次熔断：模型调用恰 3、显式触界、收敛落地、非 failed。
+
+    熔断判据＝同形拒因（`kind` ＋ 逐字拒文）既有次数 ≥ 2（`RETRY_CAP_SAME_REJECTION`）——
+    故三次**逐字相同**的拒因即熔断；触界＝显式把 `rounds` 顶到 `Budget.rounds`（自环不经澄清
+    入口，轮数闸原本到不了），落地六键全归 `bookkeeping.converge`。
+    """
+    state = _state()
+    results, scripted = _repeat(state, [_MALFORMED_EMISSION] * 3)
+
+    assert scripted.counts() == {"decision": 3}, "熔断前模型调用数须恰 3（第 3 次同形即熔断）"
+    assert all(isinstance(result, ToolMatchRejection) for result in results)
+    kinds = [result.reasons[0].kind for result in results]
+    assert kinds == [KIND_MALFORMED] * 3, kinds
+
+    # 显式触界：rounds 顶到预算，check_limits 的 rounds 键必命中
+    assert state.rounds >= state.budget.rounds
+    assert state.budget_hit == ["rounds"]  # 显式触界：唯一命中项＝轮数键
+    assert state.status == "completed"  # 非 failed：收敛收口，不零交付
+    assert state.next_intent == "answer"
+    assert "budget_converged" in _notice_types(state)
+    # 收敛注记的 gates 如实（命中项名＝state 侧七限额键名）
+    converged = [
+        entry for entry in state.notices if isinstance(entry, Mapping)
+        and entry.get("type") == "budget_converged"
+    ][-1]
+    assert converged["gates"] == ["rounds"]
+    # 熔断留痕：一条过程档案注记 ＋ 一条熔断步（拒因同源）
+    assert any(
+        isinstance(entry, Mapping) and "熔断" in str(entry.get("title"))
+        for entry in state.process_notes
+    )
+    fuse_steps = [
+        step
+        for step in state.steps
+        if isinstance(step, Mapping) and "熔断" in str(step.get("title"))
+    ]
+    assert len(fuse_steps) == 1
+    assert fuse_steps[0]["status"] == "failed"
+    assert fuse_steps[0]["payload"]["rejection"]["kind"] == KIND_MALFORMED
+
+
+def test_converged_entry_yields_letgo_plan_without_model_call() -> None:
+    """行为 9｜收敛让位形：触界后入口零模型调用、零定案（交下游「无支可执行 → 作答收口」）。"""
+    state = _state()
+    _repeat(state, [_MALFORMED_EMISSION] * 3)
+    calls_before = len(state.steps)
+
+    scripted = ScriptedCompleter({"decision": [_MALFORMED_EMISSION]})
+    previous = set_completer(scripted)
+    try:
+        outcome = match(state)
+    finally:
+        set_completer(previous)
+
+    assert isinstance(outcome, ToolPlan)
+    assert outcome.converged is True
+    assert outcome.matches == []
+    assert scripted.calls == [], "收敛让位形不得再调模型"
+    assert len(state.steps) == calls_before, "收敛让位形零补记步"
+    assert all(step.get("title") != "工具匹配发射被拒" for step in state.steps)
+
+    # 零依赖：让位形先于「取问题组」——上游缺组也不影响收口（fail-closed 只守正常路径）
+    state.question_group = None
+    assert match(state) == ToolPlan(matches=[], converged=True)
+    assert scripted.calls == []
+
+
+def test_rejection_history_feeds_decision_error_verbatim() -> None:
+    """行为 9① ②｜占轮 ＋ 拒因回喂：逐字拒文落 `decision_error`（增量条渲染面）且逐轮回喂。"""
+    state = _state()
+    first = _rejection(_run(state, _emission([_data_match("s9")]))[0])
+    assert state.rounds == 1, "拒因回炉须占一轮"
+    assert state.decision_error == first.reasons[0].reason
+
+    # 回炉轮：增量条携拒因回喂行（前缀延伸、不改写前文）
+    head = list(state.messages)
+    second = _rejection(_run(state, _MALFORMED_EMISSION)[0])
+    assert state.rounds == 2, "两次拒因＝两轮"
+    assert state.decision_error == second.reasons[0].reason  # 回喂面随轮更新
+    assert state.messages[: len(head)] == head
+    instruction = state.messages[-2]  # 本轮增量条（user）在模型应答（assistant）之前
+    assert instruction["role"] == "user"
+    assert first.reasons[0].reason in instruction["content"], "上一轮拒因未逐字回喂"
+
+
+def test_distinct_shapes_do_not_fuse_before_cap() -> None:
+    """行为 9｜异形拒因不提前熔断：两种形各一次＝未触界（首形再来一次才到阈值）。"""
+    state = _state()
+    results = [_rejection(_run(state, _emission([_data_match("s9")]))[0])]
+    results.append(_rejection(_run(state, _MALFORMED_EMISSION)[0]))
+    kinds = [item.reasons[0].kind for item in results]
+    assert kinds == [KIND_UNKNOWN_ID, KIND_MALFORMED], kinds
+    assert state.budget_hit == [], "异形两次未到同形阈值，不得提前熔断"
+    assert state.status == "running"
+    assert state.rounds == 2
+
+
+def test_convergence_answer_carries_materials_and_zero_type_notice() -> None:
+    """行为 9｜带材料收敛：已获材料逐条入收敛正文（同 `bookkeeping.converge` 单一材料面）。"""
+    state = _state()
+    state.observations = [
+        {"seq": 1, "content": "井 A 检泵周期 412 天", "source_id": "material-1"},
+        {"seq": 2, "content": "井 B 检泵周期 298 天", "source_id": "material-2"},
+    ]
+    _repeat(state, [_MALFORMED_EMISSION] * 3)
+    assert state.answer.startswith("（预算触界收敛——rounds")
+    assert "已取得材料 2 条" in state.answer
+    assert "material-1" in state.answer and "material-2" in state.answer
+    assert "井 A 检泵周期 412 天" in state.answer
+    assert state.draft_kind == "direct"
+
+
+def test_tool_plan_two_shapes_mutually_exclusive() -> None:
+    """行为 9｜`ToolPlan` 两形互斥：定案非空／让位必空＋标记真（越界构造即拒）。"""
+    assert ToolPlan(matches=[], converged=True).converged is True
+    with pytest.raises(ValueError):
+        ToolPlan(matches=[])
+    with pytest.raises(ValueError):
+        ToolPlan(
+            matches=[
+                SubtaskMatch(
+                    id="s1",
+                    tool="data_query",
+                    chain=DATA_CHAIN,
+                    plan={"metric_slot": "日产油量", "ranking": False},
+                    retrieval_need=None,
+                    caliber_key="",
+                    mention_mode=MENTION_EXECUTED,
+                )
+            ],
+            converged=True,
+        )

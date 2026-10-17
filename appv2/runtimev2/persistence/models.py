@@ -15,7 +15,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
@@ -113,7 +113,12 @@ AUDIT_ACTIONS: frozenset[str] = frozenset(
 
 @dataclass(frozen=True, slots=True)
 class RunRecord:
-    """`agent_v2_run` 行的投影（列事实真源 `recon/J`：PK run_id／`followup_of` 空串＝链根）。"""
+    """`agent_v2_run` 行的投影（列事实真源 `recon/J`：PK run_id／`followup_of` 空串＝链根）。
+
+    `supplements`（2026-10-17 EB3 D1）＝增补面条目列（JSON 数组，同 `answer` 先例）——程序
+    追加内容（分源块／归属块／引用清单／血缘五要素）的落库形，条目 `{block, text}`；缺位＝
+    空列表（旧行如实读为空列，不回溯改写）。
+    """
 
     run_id: str
     question: str
@@ -125,6 +130,7 @@ class RunRecord:
     followup_of: str
     created_at: datetime
     updated_at: datetime
+    supplements: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)

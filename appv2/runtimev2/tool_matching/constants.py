@@ -75,6 +75,22 @@ PAYLOAD_REJECTION_KEY = "rejection"
 PAYLOAD_KIND_KEY = "kind"
 PAYLOAD_REASON_KEY = "reason"
 
+# ── 同形拒因熔断（行为 9；2026-10-17 EB3 D4.3 补）────────────────────────────────
+# 判据＝**同形拒因**：`kind` ＋ 逐字拒文（拒文里带模型坏点片段 ⇒ 内容变即不同形——即设计逐字
+# 「同一 malformed 内容」的机读承载面）。容许的**既有同形次数**上限＝2（第 3 次同形拒因即熔断）。
+RETRY_CAP_SAME_REJECTION = 2
+# 熔断步标题／通知文案前缀（触界收敛的机读信号面；收敛注记本体仍由 `state.check_limits` 出）。
+TITLE_FUSE_CONVERGED_TEMPLATE = "工具匹配熔断（同形拒因第 {count} 次）：触界收敛"
+CONTENT_FUSE_CONVERGED_TEMPLATE = (
+    "工具匹配发射连续被拒（同形拒因第 {count} 次）——熔断触界收敛："
+    "不再回喂重试，转如实收口（预算触界收敛，带已获材料直答）。"
+)
+# 熔断过程档案注记（pin-26 渲染面：入档案、不入 dialogue）。
+NOTE_TITLE_FUSE_CONVERGED = "决策发射熔断（同形拒因超限）"
+NOTE_DIGEST_FUSE_CONVERGED_TEMPLATE = (
+    "同形拒因（{kind}）第 {count} 次——触界收敛：{reason}"
+)
+
 # ── 拒因映射表：解析面逐字拒文 → 拒因枚举（行为 11 机械适配；键为逐字拒文子串）────
 # 序＝先窄后宽（多词键在前），首命中即断；键全部取自逐字稿载体（本处禁自撰）。
 REJECTION_KIND_BY_MARK: Mapping[str, str] = {

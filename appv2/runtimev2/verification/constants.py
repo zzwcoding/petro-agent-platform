@@ -55,7 +55,9 @@ ROWSET_OBSERVATION_KINDS: frozenset[str] = frozenset({"agg_row"})
 
 # ── 文本单点（逻辑面一律引名字，零字面副本）──────────────────────────────────────
 
-REWRITE_PREFIX = "未找到（材料未披露）："   # INV-1 前缀（行为 3；只挂无据行——钉 pin-11）
+# 2026-10-17 EB3 D3：改写前缀「未找到（材料未披露）：」**退役**——真无据断言按
+# `specs/answering.md` 行为 3 **删句**（无据的话不写进答案），不留前缀残句；改写留痕＝
+# `RewriteRecord`（原句＋原因）＋ `verdict.rewritten` 如实计数＋ `notice` 三处（不静默）。
 # 2026-10-17 EB2 D3（段头去工程腔——逐字稿＝方案 D3）：旧「多来源不一致——分源列明
 # （禁止无出处调和）：」→ 友好话术（判据面语义零改：仍逐支带出处、零调和）。
 SPLIT_BLOCK_HEAD = "各来源说法如下，按来源分别列出："   # 行为 4（INV-4）
@@ -78,13 +80,48 @@ ATTRIBUTION_CROSSED_HEAD = (
 )
 ATTRIBUTION_LINE_TEMPLATE = "[{index}] {source}：{content}"
 
+# ── D3 核验豁免两类的形态判据字面（2026-10-17 EB3 D3；逐字稿＝方案 D3）────────────
+# 豁免面（只豁免「贴前缀／删句」，不改写、不一并判支撑）：两类线留在正文原样。
+#
+# (a) 引擎披露行：行内含窗 ISO 区间 **或** 含本块披露标记之一 —— 且与材料披露行事实一致。
+#     披露标记四值逐字（方案 D3 逐字「封顶/截断/LIMIT/未覆盖」）——**单值常量**逐个落此
+#     （本族是**闭世界取值**，非语义词表：判据面＝行内字面在场；四值不经裁决不许长胖）。
+DISCLOSURE_MARK_CEILING = "封顶"
+DISCLOSURE_MARK_TRUNCATED = "截断"
+DISCLOSURE_MARK_LIMIT = "LIMIT"
+DISCLOSURE_MARK_UNCOVERED = "未覆盖"
+DISCLOSURE_MARKS: tuple[str, ...] = (
+    DISCLOSURE_MARK_CEILING,
+    DISCLOSURE_MARK_TRUNCATED,
+    DISCLOSURE_MARK_LIMIT,
+    DISCLOSURE_MARK_UNCOVERED,
+)
+# 窗形（「窗 ISO 区间」）＝行内出现 ISO 日期记号（`YYYY-MM-DD` 十个字符形——形态扫描，
+# 零正则）；披露事实一致面＝比对材料披露行（血缘卡载荷／引擎注记观察）的数值记号集。
+ISO_DATE_LENGTH = 10
+ISO_DATE_SEPARATOR = "-"
+DISCLOSURE_OBSERVATION_KINDS: frozenset[str] = frozenset({"lineage", "notice"})
+# (b) 组头行：行尾落格（全角「：」）或**后邻行带引标**的数据表头（含表格列记号「|」者）。
+GROUP_HEAD_SUFFIX = "："
+TABLE_COLUMN_MARK = "|"
+
+# ── 血缘五要素整段的形态判据字面（2026-10-17 EB3 D2；逐字稿＝方案 D2 的特征面）────────
+# 特征 ②来源表／⑤收口注记：血缘五要素合同键逐字（`② 来源表`／`⑤ 收口注记`——**取值指针**，
+# 真源 `appv2/query/domain.py` `LINEAGE_KEY_SOURCE`／`LINEAGE_KEY_CLOSING`；核验块 R6 禁引引擎，
+# 故按字面落此、落点唯一）。整段剥入 `lineage` 增补面；**单行口径说明（≤2 行、带 `[n]` 引标）
+# 保留在正文**——口径说明不是血缘卡。
+LINEAGE_MARK_SOURCE_TABLE = "② 来源表"
+LINEAGE_MARK_CLOSING = "⑤ 收口注记"
+LINEAGE_KEEP_MAX_LINES = 2   # 口径说明保留上限（≤2 行——方案 D2 逐字）
+
 # ── 通知分型（字面指针；取值真源＝`transport.NOTICE_TYPES`——本模块不复述取值集）──
 
-NOTICE_UNSUPPORTED_CLAIM = "unsupported_claim"      # 无据断言改写（行为 3／钉 pin-02）
+NOTICE_UNSUPPORTED_CLAIM = "unsupported_claim"      # 无据断言删除（行为 3／钉 pin-02）
 NOTICE_CONTRADICTION_SPLIT = "contradiction_split"  # 矛盾分列（行为 4）
 NOTICE_ATTRIBUTION_SPLIT = "attribution_split"      # 归属失败（行为 5／钉 pin-01）
 NOTICE_UNSUPPORTED_CONTENT = (
-    "核验步改写无据断言 {rewritten} 行（INV-1——禁止无据断言进答案）"
+    "核验步删去无据断言 {rewritten} 行（EB3 D3：真无据断言删句、不贴前缀——"
+    "禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
 )
 NOTICE_CONTRADICTION_CONTENT = (
     "多来源不一致——答案分源列明（INV-4——禁止无出处调和）"
@@ -101,7 +138,7 @@ SPLIT_YES = "是"
 SPLIT_NO = "否"
 
 GAP_REWRITE_REASON = (
-    "核验改写 {rewritten} 行无据断言（改写成「未找到（材料未披露）」）——"
+    "核验删去 {rewritten} 行无据断言（EB3 D3：删句不贴前缀，无据的话不写进答案）——"
     "核验侧无据残留（行为 9：ok=False 才回炉）"
 )
 GAP_ATTRIBUTION_REASON = (

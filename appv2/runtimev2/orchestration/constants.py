@@ -46,6 +46,9 @@ EVENT_VERDICT = "verdict"
 EVENT_BLACKBOX = "blackbox"
 EVENT_NOTICE = "notice"
 EVENT_TEXT = "text"  # 直答旁路收口后的交付正文帧（见 `PAYLOAD_TEXT_CONTENT_KEY` 注）
+# 增补面帧（2026-10-17 EB3 D1——程序追加内容不进正文，走结构化增补面）；载荷形与块型闭世界
+# 归 `transport`（恰二键 `{block, text}`＋`SUPPLEMENT_BLOCKS` 四值），本处只作帧名字面单点。
+EVENT_SUPPLEMENT = "supplement"
 # text 帧载荷键（真源 `synth/S6-事件与帧目录.md` §一 text 行＝`{content[, kind]}`；本处只取
 # `content`——答案正文帧**不带 kind**，与 `answering` 起草段的发射形一致（语义单点在那个键上）。
 PAYLOAD_TEXT_CONTENT_KEY = "content"
@@ -80,7 +83,15 @@ MANIFEST_DIGEST_CHARS = 16  # 收口摘要面取哈希前 16 位（非闭世界�
 
 def assert_frame_names() -> None:
     """自守：本模块引用的帧名与通知类型字面必须落在 `transport` 闭世界内（防私扩）。"""
-    for name in (EVENT_STEP, EVENT_ASK, EVENT_VERDICT, EVENT_BLACKBOX, EVENT_NOTICE, EVENT_TEXT):
+    for name in (
+        EVENT_STEP,
+        EVENT_ASK,
+        EVENT_VERDICT,
+        EVENT_BLACKBOX,
+        EVENT_NOTICE,
+        EVENT_TEXT,
+        EVENT_SUPPLEMENT,
+    ):
         if name not in EVENT_KINDS:
             raise ValueError(f"帧名越界（不在 transport.EVENT_KINDS 内）：{name!r}")
     if EVENT_NOTICE not in EVENT_KINDS or not WIRE_FRAMES:

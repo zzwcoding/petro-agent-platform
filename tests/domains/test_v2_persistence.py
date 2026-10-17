@@ -664,6 +664,46 @@ def test_load_replayable_idempotent() -> None:
         store.load("run-unknown")
 
 
+# ---------- 4b 增补面列（EB3 D1：run 行 `supplements`） ----------
+
+
+def test_run_supplements_roundtrip_and_legacy_read() -> None:
+    """`supplements` 列随 run 行落盘／读回；旧行缺列＝空列（如实读入，不回溯改写）。
+
+    真源：`docs/runtime-refactor/proposals/EB3-交付面分层与缺陷修复.md` D1（run 行增 `supplements`
+    列，JSON 数组，同 `answer` 先例）；列名＝`RunRecord` 字段名（投影不改名）。
+    """
+    store, tables = _store()
+    store.ensure_tables()
+    supplements = [
+        {"block": "split", "text": "各来源说法如下，按来源分别列出：\n[1] 台账A：10 吨"},
+        {"block": "citations", "text": "\n\n引用：\n[1] 台账 · metric-1（ledger）"},
+    ]
+    store.save(_run("run-a", status="completed", supplements=list(supplements)))
+    row = store.run("run-a")
+    assert row is not None
+    assert row.supplements == supplements  # 原样读回（含条目序）
+    assert asdict(row)["supplements"] == supplements  # 列名＝字段名（不改名）
+
+    # 旧行（无该列）＝空列：不抛错、不伪造；非映射条目与非列表值一律如实作空列
+    legacy = asdict(_run("run-old", status="completed"))
+    legacy.pop("supplements")
+    tables.write([RowOp(TABLE_RUN, ("run-old",), legacy, "put")])
+    old_row = store.run("run-old")
+    assert old_row is not None and old_row.supplements == []
+    forged = asdict(_run("run-forged", status="completed"))
+    forged["supplements"] = ["不是映射的条目", {"block": "citations", "text": "块"}]
+    tables.write([RowOp(TABLE_RUN, ("run-forged",), forged, "put")])
+    forged_row = store.run("run-forged")
+    assert forged_row is not None
+    assert forged_row.supplements == [{"block": "citations", "text": "块"}]  # 只认映射条目
+    scalar = asdict(_run("run-scalar", status="completed"))
+    scalar["supplements"] = "越界形"
+    tables.write([RowOp(TABLE_RUN, ("run-scalar",), scalar, "put")])
+    scalar_row = store.run("run-scalar")
+    assert scalar_row is not None and scalar_row.supplements == []
+
+
 # ---------- 5 黑匣子首写为准（行为 4） ----------
 
 

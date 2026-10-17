@@ -144,6 +144,10 @@ class RunListItem(BaseModel):
 
     followup_of（V2-74 对话任务面）：追问链前轮 run_id——空串＝独立新对话（链根），
     非空＝追问轮；前端按链分组呈现「一个对话任务一行」。
+
+    supplements（2026-10-17 EB3 D1 交付面分层）：增补面条目列（`[{block, text}]`——
+    split／attribution／citations／lineage 四类块）随行回读；正文（answer）不再含这些块，
+    旁路展示随前端重设计落地（本轮只备通道）。
     """
 
     run_id: str
@@ -153,6 +157,7 @@ class RunListItem(BaseModel):
     followup_of: str
     created_at: str
     updated_at: str
+    supplements: list[dict[str, Any]] | None = None
 
 
 def _choice_of(body: ResumeBody) -> AskChoice:
@@ -210,6 +215,7 @@ async def list_runs(
             followup_of=row.followup_of,
             created_at=row.created_at.isoformat(),
             updated_at=row.updated_at.isoformat(),
+            supplements=[dict(entry) for entry in row.supplements] or None,
         )
         for row in rows[:wanted]
     ]
