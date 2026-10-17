@@ -18,7 +18,10 @@
    「无旁路」行为断言）；**2026-10-17 H 批（角色分家）**：作答**规章段**（动词钉死句／【答案要求】
    ＋清单全文／术语白话表／汇总合同／起草答案合同）不入链——经 `prompts.answer_system_contract`
    走 `call_model(system=…)` 的**调用级注入参**（只随本次请求走、不用即散）；
-3. **发射剥离与块剥除**（行为 11，钉 `pin-04`；行为 13）：应答先过 `strip_emission_fences`
+3. **发射剥离与块剥除**（行为 11，钉 `pin-04`；行为 13）：应答**先过输入侧提取**
+   （2026-10-17 V2-82g 热修：整应答恰一枚 `{"action":"finalize","answer":…}` 发射 JSON 时，
+   `emission.extract_finalize_answer` 取回交付字段作草稿原文——程序接管输入侧、合同零新增；
+   提取属「恢复」非「放行」），再过 `strip_emission_fences`
    （`emission` 单点），发射 JSON 不进答案面（泄漏=0）；检出即发 `emission_strip` notice（机读面）；
    随后过 `strip_placeholders`（行为 13）：字面占位引标 `[n]` 整枚离场；再过**块剥除**
    （2026-10-17 EB5c，单点＝`transport.split_block_sections`）：模型自把程序块写进草稿者按
@@ -130,7 +133,10 @@ from appv2.runtimev2.answering.degradation import (
     strip_dangling_citations,
     strip_placeholders,
 )
-from appv2.runtimev2.answering.emission import strip_emission_fences
+from appv2.runtimev2.answering.emission import (
+    extract_finalize_answer,
+    strip_emission_fences,
+)
 from appv2.runtimev2.answering.models import (
     GAP_MISSING,
     GAP_REFUSED,
@@ -274,8 +280,14 @@ def _draft(
     raw = call_model(
         state, MODEL_CALLER, list(state.messages), system=answer_system_contract()
     )
-    draft_text, leaked = strip_emission_fences(raw)
-    if leaked:
+    # 输入侧提取（2026-10-17 V2-82g 热修，真机 run-9d1c5267）：模型沿袭澄清相位发射形、整应答恰
+    # 一枚 `{"action":"finalize","answer":…}` 时，先取回交付字段作草稿原文（程序接管输入侧），
+    # 再走整条剥除管线；非整枚 finalize JSON／交付字段空 → 零提取，照旧走剥离。提取属「恢复」非
+    # 「放行」：`state.draft` 落提取后文本，机读痕迹走同一条 `emission_strip` notice（发射 JSON
+    # 外壳零进答案面）；`note` 的 digest 仍留**模型原话**（含发射 JSON——行为 8 的可回溯面）。
+    extracted = extract_finalize_answer(raw)
+    draft_text, leaked = strip_emission_fences(raw if extracted is None else extracted)
+    if leaked or extracted is not None:
         notice(state, type=NOTICE_EMISSION_STRIP, content=EMISSION_STRIP_CONTENT)
     # 占位符不进答案面（行为 13）：字面占位引标 `[n]` 整枚离场——剥离后才是答案面文本
     # （分段／发帧／落 `state.draft` 三者同源；剥后成空的行由空段跳过自然丢弃）。

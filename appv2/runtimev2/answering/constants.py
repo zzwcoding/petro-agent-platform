@@ -181,7 +181,16 @@ CONTRADICTION_EXEMPT_KINDS: frozenset[str] = frozenset({"agg_row", "lineage", "n
 # 逐字迁移面；R-A2-06「域外 JSON 零误伤」由此闭世界定界）。**本族不是本块新立的闭世界**：
 # 判据本体（泄漏=0 的已根治态）随 V1 字面迁移、不新造；V2 侧相位①动作族另见 `parsing`
 # （本块不引其深层子模块，R2），两处非同族第二定义（登记见票面回报）。
-EMISSION_ACTIONS = frozenset({"discover", "execute", "ask", "finalize"})
+EMISSION_ACTION_FINALIZE = "finalize"  # 交付动作（提取面判据引本值——族内字面单点）
+EMISSION_ACTIONS = frozenset({"discover", "execute", "ask", EMISSION_ACTION_FINALIZE})
+
+# ── 输入侧提取面（2026-10-17 V2-82g 热修：整应答恰为一枚发射 JSON 时取回交付字段）──────
+# 病灶（真机 `run-9d1c5267`，`logs/llm_calls/20261017.jsonl` caller=answer 逐字）：答案相位沿袭
+# 澄清相位的发射形（整应答恰一枚 `{"action":"finalize","answer":"…"}`）→ 整枚被
+# `strip_emission_fences` 剥除 → 空稿 → 「不推空答案」。键名单点于此，消费唯一
+# ＝`emission.extract_finalize_answer`（判据与键名一处定义，禁第二份字面）。
+EMISSION_ACTION_KEY = "action"
+EMISSION_ANSWER_KEY = "answer"
 
 # ── 残尾护栏（2026-10-17 F1 件三——定稿前的悬空结构检测与诚实收口）────────────────
 # 病灶（真机证据＝`eval/results/frames/EB4-D-诱12.json`，run-c6fd52c7）：删句误伤后交付答案断在

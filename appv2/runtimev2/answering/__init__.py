@@ -14,7 +14,9 @@
 - 坏引标剥除单点（2026-10-17 EB5b）：`strip_dangling_citations`（界外引标号整枚离场——同
   `strip_placeholders` 一族；**不判失败**，该行失去引标即由 `verification` 按无据断言处置）；
 - 发射剥离单点：`strip_emission_fences`（钉 `pin-04`，P0；`specs/parsing.md` :24 的答案面归属）＋
-  发射动作闭世界 `EMISSION_ACTIONS`；
+  发射动作闭世界 `EMISSION_ACTIONS`；**输入侧提取**（2026-10-17 V2-82g 热修）＝
+  `extract_finalize_answer`（整应答恰一枚 finalize 发射 JSON 时取回交付字段作草稿原文——
+  剥离之前跑，提取属「恢复」非「放行」，合同零新增）；
 - 降级与引用簇单点（`RT-W4-06b`）：`degradation` 模块（行为 6／12／13／14／15／16／17 的形态层
   ——矛盾分源／占位符剥离／回声签名／引擎注记／行集交付对账／排名支序；**零语义判断**，豁免面＝
   形态处理／集合成员判定）＋其机读面七键（`PAYLOAD_ECHO_FLAG_KEY`／`PAYLOAD_ENGINE_NOTES_KEY`／
@@ -73,7 +75,7 @@ from appv2.runtimev2.answering.degradation import (
     strip_dangling_citations,
     strip_placeholders,
 )
-from appv2.runtimev2.answering.emission import strip_emission_fences
+from appv2.runtimev2.answering.emission import extract_finalize_answer, strip_emission_fences
 from appv2.runtimev2.answering.models import (
     GAP_KINDS,
     GAP_MISSING,
@@ -122,6 +124,7 @@ __all__ = [
     "answer",
     "dangling_tail_closing",
     "echo_flag",
+    "extract_finalize_answer",
     "strip_dangling_citations",
     "strip_emission_fences",
     "strip_placeholders",

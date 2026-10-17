@@ -42,6 +42,12 @@
 `::material_face_explicit_on_truncation`；-B 零自有面（12 行逐行落网——形态层两单点的直测
 并入行 14／15 两例）。
 
+**V2-82g 热修面（2026-10-17，非规格表行）**：`::extract_finalize_answer_whole_object_only`／
+`::finalize_json_answer_recovered`／`::non_finalize_json_not_recovered`／
+`::finalize_json_blank_answer_not_recovered`——整枚 finalize 发射 JSON 的**输入侧提取**
+（真机 `run-9d1c5267` 空答案热修：剥离前取回交付字段；机读痕迹复用 `emission_strip` 通知，
+闭世界零扩、合同零新增）。
+
 接缝（`core` 模块注）：`bus`（`transport.EventBus`——本块自产 `text`／`citation` 帧的唯一出口）
 与 `max_observations`（材料帽）两处关键词注入面；Seam＝起草出口（增量文本 → 事件帧），
 Adapter＝剧本化 completer。对逐字稿任何一行偏离即停报 L0——本件照抄、未改一字。
@@ -52,6 +58,7 @@ from __future__ import annotations
 import ast
 import dataclasses
 import inspect
+import json
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -89,6 +96,7 @@ from appv2.runtimev2.answering import (
     answer,
     dangling_tail_closing,
     echo_flag,
+    extract_finalize_answer,
     strip_emission_fences,
     strip_placeholders,
 )
@@ -652,6 +660,96 @@ async def test_emission_strip_zero_leak() -> None:
     with _phase("结论一[1]。") as clean_session:
         clean_session.call(clean_state)
     assert clean_state.notices == []
+
+
+# ---------- 11b 输入侧提取（V2-82g：整枚 finalize JSON → 交付字段作草稿） ----------
+
+
+_RECOVERED_ANSWER = "你好！我是「问一问」助手。\n\n请说出你想看的井号或区块。"
+
+
+def _finalize_reply(answer: Any) -> str:
+    """整枚 finalize 发射 JSON（真机 `run-9d1c5267` 形：`{"action":"finalize","answer":…}`）。"""
+    return json.dumps({"action": "finalize", "answer": answer}, ensure_ascii=False)
+
+
+def test_extract_finalize_answer_whole_object_only() -> None:
+    """单点判据（V2-82g）：只认**整应答恰一枚** finalize 对象——散文包裹／数组／标量不作数。"""
+    reply = _finalize_reply(_RECOVERED_ANSWER)
+    assert extract_finalize_answer(reply) == _RECOVERED_ANSWER
+    assert extract_finalize_answer("```json\n" + reply + "\n```") == _RECOVERED_ANSWER  # 围栏形
+    assert extract_finalize_answer("  \n" + reply + "\n  ") == _RECOVERED_ANSWER  # 两侧空白
+    assert extract_finalize_answer("前言 " + reply) is None  # 散文包裹不作数
+    assert extract_finalize_answer(reply + " 尾巴") is None
+    assert extract_finalize_answer("[" + reply + "]") is None  # JSON 数组不作数
+    assert extract_finalize_answer('"你好"') is None  # JSON 标量不作数
+    assert extract_finalize_answer("你好") is None
+    assert extract_finalize_answer("") is None
+    assert extract_finalize_answer("```json\n" + reply) is None  # 无闭合围栏（单行退化形）不作数
+
+
+async def test_finalize_json_answer_recovered() -> None:
+    """V2-82g（真机 `run-9d1c5267`）｜整枚 finalize 发射 JSON → 提取交付字段作草稿并真交付。
+
+    提取属**恢复非放行**：发射 JSON 外壳零进答案面（泄漏=0 判据不翻方向），提取后文本走既有
+    剥除管线与分段发帧，`state.draft` 落提取后文本、机读痕迹走 `emission_strip` notice。
+    """
+    for reply in (
+        _finalize_reply(_RECOVERED_ANSWER),
+        "```json\n" + _finalize_reply(_RECOVERED_ANSWER) + "\n```",  # 围栏形同辖
+    ):
+        state = _state(observations=[_obs(1, "agg_row")])
+        with _phase(reply) as session:
+            draft = session.call(state)
+        frames = await _frames(session.bus)
+
+        assert draft.segments, "零片段——提取未生效（空稿热修未落地）"
+        assert [segment.text for segment in draft.segments] == _RECOVERED_ANSWER.split("\n\n")
+        assert state.draft == _RECOVERED_ANSWER  # 落 draft 的是提取后文本
+        assert [item["content"] for item in _of(frames, "text")] == [
+            segment.text for segment in draft.segments
+        ]  # 分段发帧照旧（帧面与片段面同源）
+        face = _answer_face(draft, frames)
+        assert '"action"' not in face and "```" not in face  # 发射 JSON 外壳零进答案面
+        assert draft.gaps == []  # 非空交付：零「未产出草稿」缺口
+        assert [note["type"] for note in state.notices] == [NOTICE_EMISSION_STRIP]  # 机读留痕
+        # 模型原话仍进过程档案（行为 8 可回溯面——digest 留原应答，含发射 JSON 原文）
+        digests = [str(entry.get("digest", "")) for entry in state.process_notes]
+        assert any('"action"' in digest for digest in digests)
+
+
+async def test_non_finalize_json_not_recovered() -> None:
+    """V2-82g｜非交付动作的整枚发射 JSON（decompose／discover／ask）→ 零提取，照旧空稿不推。"""
+    for action in ("decompose", "discover", "ask"):
+        reply = json.dumps({"action": action, "answer": "不该当草稿"}, ensure_ascii=False)
+        state = _state(observations=[_obs(1, "agg_row")])
+        with _phase(reply) as session:
+            draft = session.call(state)
+        frames = await _frames(session.bus)
+
+        assert draft.segments == [] and state.draft == ""  # 零提取（照旧空稿）
+        assert _of(frames, "text") == []  # 不推空答案（零 text 帧）
+        assert [gap.kind for gap in draft.gaps] == ["missing"]  # 按缺口如实收口
+        assert [note["type"] for note in state.notices] == [NOTICE_EMISSION_STRIP]  # 照旧剥离留痕
+
+
+async def test_finalize_json_blank_answer_not_recovered() -> None:
+    """V2-82g｜finalize 但交付字段空串／空白／缺失／非字符串 → 不提取（照旧空稿不推）。"""
+    for payload in (
+        {"action": "finalize", "answer": "   "},
+        {"action": "finalize", "answer": ""},
+        {"action": "finalize"},
+        {"action": "finalize", "answer": 3},
+    ):
+        reply = json.dumps(payload, ensure_ascii=False)
+        state = _state(observations=[_obs(1, "agg_row")])
+        with _phase(reply) as session:
+            draft = session.call(state)
+        frames = await _frames(session.bus)
+
+        assert draft.segments == [] and state.draft == ""
+        assert _of(frames, "text") == []
+        assert [gap.kind for gap in draft.gaps] == ["missing"]
 
 
 # ---------- 自有面一：卡面签名与五形状 ----------

@@ -1,10 +1,16 @@
-"""发射通道确定性剥离（`strip_emission_fences`）——钉 `pin-04`（P0）的行为单点。
+"""发射通道确定性剥离（`strip_emission_fences`）＋输入侧交付字段提取（`extract_finalize_answer`）
+——钉 `pin-04`（P0）的行为单点。
 
 真源＝`specs/answering.md` 行为 11（模型应答在进答案面——`AnswerDraft` 片段与其 `text` 帧增量
 ——之前经**发射围栏／JSON 形确定性剥离**，发射 JSON 不得进答案面，泄漏=0）＋迁移逐字稿
 `docs/runtime-refactor/recon/A2-核验规则与归属审.md`（R-A2-03…R-A2-07 五条规则、
 `appv2/runtime/graph.py` L697-L736 的承载位形）＋旧码真源 `docs/runtime-refactor/recon/
 L2b-作答装配与回声.md`（:58 `strip_emission_fences`／:101 剥离后草稿才进答案装配）。
+
+**输入侧提取（2026-10-17 V2-82g 热修，`extract_finalize_answer`）**：整应答恰为一枚发射 JSON
+且动作为交付（`finalize`）时，程序取回其交付字段作草稿原文——**在剥离之前**跑（提取属「恢复」
+非「放行」：提取后文本照走剥除管线，发射 JSON 外壳自身照旧不进答案面）。真机病灶
+＝答案相位整枚返回 `{"action":"finalize","answer":"…"}` 被整枚剥除成空稿。
 
 剥离四条（逐字迁移、语义零漂移）：
 
@@ -17,8 +23,8 @@ L2b-作答装配与回声.md`（:58 `strip_emission_fences`／:101 剥离后草�
 4. **域外 JSON 零误伤**：动作值在闭世界外、且整行非纯 JSON 的行**原样保留**（R-A2-06）。
 
 返回（剥离后文本, 是否检出 JSON 通道残留）——**纯格式隔离零语义判定**：不计数、不进改写统计
-（协议残片非断言）。本函数是 runtimev2 面内的**唯一定义点**（消费方零第二套副本——
-`specs/parsing.md` :24 的答案面归属注）。
+（协议残片非断言）。剥离件与提取件（`extract_finalize_answer`）各是 runtimev2 面内的**唯一
+定义点**（消费方零第二套副本——`specs/parsing.md` :24 的答案面归属注）。
 
 **实现面差异声明（不引 `re`）**：判据以纯字符串扫描实现（等价于 V1 的三条正则字面
 `_FENCE_RE`／`_EMISSION_TOKEN_RE`／`_parses_as_json`），以守本块的「程序侧无词表／正则语义判断」
@@ -31,10 +37,15 @@ from __future__ import annotations
 
 import json
 
-from appv2.runtimev2.answering.constants import EMISSION_ACTIONS
+from appv2.runtimev2.answering.constants import (
+    EMISSION_ACTION_FINALIZE,
+    EMISSION_ACTION_KEY,
+    EMISSION_ACTIONS,
+    EMISSION_ANSWER_KEY,
+)
 
 _FENCE = "```"
-_ACTION_KEY = '"action"'
+_ACTION_KEY = '"' + EMISSION_ACTION_KEY + '"'
 
 
 def _parses_as_json(text: str) -> bool:
@@ -54,6 +65,56 @@ def _fence_is_json(body: str) -> bool:
     start = candidate.find("{")
     end = candidate.rfind("}")
     return start != -1 and end > start and _parses_as_json(candidate[start : end + 1])
+
+
+# ── 输入侧提取（V2-82g）：整应答恰为一枚发射 JSON 时取回交付字段 ──────────────────
+
+
+def _fence_shell_stripped(text: str) -> str:
+    """围栏整体包裹形解壳（```` ```json\\n…\\n``` ````）——非包裹形原样（两侧 `strip`）。
+
+    只解**整体包裹**（首尾皆围栏）：首行余留（语言标记行）离场；解壳不成即原样返回，
+    由调用方的整段 JSON 形判定继续把关（单行围栏等退化形不作数——同 `strip_emission_fences`
+    的围栏把握宽窄）。
+    """
+    stripped = text.strip()
+    if len(stripped) < 2 * len(_FENCE):
+        return stripped
+    if not stripped.startswith(_FENCE) or not stripped.endswith(_FENCE):
+        return stripped
+    body = stripped[len(_FENCE) : -len(_FENCE)]
+    line_end = body.find("\n")
+    if line_end >= 0:
+        body = body[line_end + 1 :]
+    return body.strip()
+
+
+def extract_finalize_answer(text: str) -> str | None:
+    """整应答恰为一枚发射 JSON（动作为交付）时提取其交付字段——输入侧接管的唯一定义点。
+
+    病灶（真机 `run-9d1c5267`）：答案相位沿袭澄清相位的发射形，整应答恰一枚
+    `{"action":"finalize","answer":"…"}` → `strip_emission_fences` 整枚剥除 → 空稿 →
+    「不推空答案」。本件在剥离**之前**取回交付正文（程序接管输入侧，合同零新增）；提取后
+    文本照走整条剥除管线，发射 JSON 外壳自身照旧不进答案面。
+
+    三条件齐才提取（余者返 `None`，调用方照旧走剥离）：
+    ① 整应答（去围栏壳、去两侧空白）恰为一个 JSON 对象——JSON 标量／数组／散文包裹者不作数；
+    ② 动作键取值恰为交付动作（`discover`／`decompose`／`ask` 不提取）；
+    ③ 交付字段为字符串且去空白后非空。
+    """
+    candidate = _fence_shell_stripped(text)
+    try:
+        payload = json.loads(candidate)
+    except ValueError:
+        return None
+    if not isinstance(payload, dict):  # JSON 标量／数组不作数（同 `_parses_as_json` 口径）
+        return None
+    if payload.get(EMISSION_ACTION_KEY) != EMISSION_ACTION_FINALIZE:
+        return None
+    answer = payload.get(EMISSION_ANSWER_KEY)
+    if not isinstance(answer, str) or not answer.strip():
+        return None
+    return answer
 
 
 def _line_has_emission_token(line: str) -> bool:
