@@ -193,6 +193,13 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
     - **硬停止**：第 2 轮仍出 `explore` → 本块追加「只能如实作答」指令并交回程序确定性缺口正文（正文含「已试 N 次检索（列出）、仍缺 X」）；模型仍出 explore 形＝以该正文交付（**不判 failed**）；
     - **留痕**：每轮一条 step（`kind=observe`）payload 携 `explore` 面（requests 原文／executed／rejected／hits／appended／token）；`doc_retrieve` 的 `retrieval_calls` 行由工具面既有单点落（本块不重复记账）。
 
+13. **核验回炉的路由、预算与硬停止（V2-115；真源 `tickets/v2/V2-115-核验失败动作回炉修复.md`）**：核验相位标红（`verification.detect_intended`，**零 LLM**）且 `VERIFY_ACTION=repair` 时出 `repair` 意图（`next_intent="repair"`），路由表把 `verify` 自环回 `verify` 节点——入口先执行回炉（`orchestration.repair.run_repair`）、再重入核验：
+
+    - **执行**：把标红行＋命中材料交模型**只重写这些行**（改引标／改写成「本轮材料未覆盖」／删行）；应用后**程序复检**（同 `_verify_lines` 单点）；
+    - **预算**：`state.repair_rounds ≤ MAX_REPAIR_ROUNDS(=2)`（独立计数，不占澄清轮与再探轮）；
+    - **硬停止**：到顶仍标红 → 模型出缺位说明；说明脏／空 → 置空交核验程序零交付兜底（正文含「已试 N 轮／仍缺」；**不判 failed**）；
+    - **留痕**：回炉步 payload 四键 `repair_rounds`／`repair_request`（逐行原句）／`repair_response`／`recheck`；`RewriteRecord.reason` 闭世界仍两值；verification 不引 LLM（R8 零 LLM 红线）。
+
 ## 不降级与静默禁令
 
 - **合法降级路径：无**（编排层不自降级；图执行器不可用时按 fail-closed 收束为 `failed`，**不产出半成品答案**）。
@@ -251,7 +258,7 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 | 再探指纹拒重（同参第二轮零派遣、零新观察、拒因回喂增量在场）（V2-96 D5） | `tests/domains/test_v2_v296_explore.py::test_explore_fingerprint_rejects_repeat` |
 | `fetch_*` 只许已见来源（未见来源零派遣、拒因含「已见」、L2 零该来源）（V2-96 D5） | `tests/domains/test_v2_v296_explore.py::test_fetch_section_unknown_report_rejected` |
 | 端到端再探链：作答说不够→`doc_retrieve` 补到八章→新观察入 L2（序号续排、`observation` 帧复用）→再作答出 386/415/428；增量头部「补充检索（第 1/2 次，还剩 1 次）」＋requests 原文在场（V2-96 D5，B-正6 形） | `tests/domains/test_v2_v296_explore.py::test_explore_end_to_end_doc_retrieve_new_recall` |
-| 再探预算独立不破（≤2 轮、每轮 ≤2 请求；总时长 300s 不变；`Budget` 七键不扩；`INTENT` 十一值）（V2-96 D5） | `tests/domains/test_v2_v296_explore.py::test_explore_budget_and_seconds_unbroken` |
+| 再探预算独立不破（≤2 轮、每轮 ≤2 请求；总时长 300s 不变；`Budget` 七键不扩；`INTENT` 十二值）（V2-96 D5） | `tests/domains/test_v2_v296_explore.py::test_explore_budget_and_seconds_unbroken` |
 
 ## 依赖与风险
 
@@ -286,3 +293,9 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 
 > **2026-10-17 补（F2·预算触界带材料直答＋NQ-M3 围栏形·审计）**：本批两件（真源证据＝`eval/results/EB4-终判.md`「新病灶 2／3」）。
 > **①预算触界带材料直答**（行为 7「零材料兜底轮」＋验收表两行；**本层改动＝`appv2/runtimev2/orchestration/graph.py` 的澄清入口闸**）。**病灶**：EB4 两帧 `A-正8`／`D-诱10` 均**整题空答**——澄清 r1／r2／r3 三发连拒（每次拒因照耗轮）顶满轮预算，而 run 尚未执行任何工具 ⇒ 入口触界收敛 → 材料面为零 → 交付只剩「（预算触界收敛——rounds；未取得可交付材料，如实说明；材料清单：无）」（同题 EB3 有交付）。**定位更正（对票面措辞的技术性修正）**：票面「对齐熔断形：收敛时 draft 带已获观察材料如实直答」的**渲染面本已同形**——澄清入口与 tool_matching 熔断**同调** `bookkeeping.converge`，有材料时逐条如实交付（真源＝该块材料面单点；V1 期真机帧 `P024BW-数-*` 即此形）；两形之别在**收敛发生的时刻**：熔断在工具匹配相位之后触界（材料已在手），澄清入口在取数之前触界（零材料）。故本批修**时机**而非渲染面。**改法**：到顶那一次让位**恰一轮**（判据四中全中，见行为 7；让位轮结局三选一无再触发本判据 ⇒ 上界＝恰一轮）。**②NQ-M3 围栏形定位**（真源＝`specs/understanding.md` 行为 13 审计节）：该帧畸形＝**整答被 markdown 围栏包裹**（` ```json … ``` `）——**非字符级畸形**（围栏内 JSON 本体合法完整，不合 schema 只因包围层），**不在引号自修族覆盖内**（`repair_inner_quotes` 无病不修 → `None`，机器证据见本批测试）；两次读题同形 → 收敛拒答**已给正文**（EB5a 形：统一收敛句＋材料面如实、`completed` 非零交付），本批以题面原句＋真机应答原话落帧回归。**登记（交主窗／Owner 裁）**：**围栏剥离**是否在理解面受理——技术上可确定性实现（整答恰一围栏块 → 取内文，零语义），但其件归属 `parsing` 自修族（本批允许目录之外）且与理解面 V2 定案「统一 JSON 严格解析、不使用提取件、不降级提取」（Owner 直令；行为 7）直接张力，故本批按「只能收敛不能自修」处理、不动族面，若 Owner 裁「受理」则修法＝族内新增确定性围栏剥离件＋受理编排按序试修（本批已备好定位证据与回归）。
+| 回炉引标可修正形：标红行改引标后复检通过、交付携正确引标（V2-115） | `tests/domains/test_v2_v2115_repair.py::test_repair_citation_fixable_rewrites_citation` |
+| 回炉真无据形：改写为缺位说明（V2-115） | `tests/domains/test_v2_v2115_repair.py::test_repair_truly_unsupported_rewritten_as_gap` |
+| 回炉零交付形：程序诚实说明（V2-115） | `tests/domains/test_v2_v2115_repair.py::test_repair_zero_delivery_forces_honest_statement` |
+| 回炉反编造：窗内无该数值不得保留（V2-115） | `tests/domains/test_v2_v2115_repair.py::test_repair_anti_fabrication_number_not_kept` |
+| 回炉轮数到顶仍标红 → 缺位说明／兜底、不判 failed（V2-115） | `tests/domains/test_v2_v2115_repair.py::test_repair_end_to_end_graph_zero_delivery_fallback` |
+| 回炉确定性：同输入同交付（V2-115） | `tests/domains/test_v2_v2115_repair.py::test_repair_deterministic_same_input_same_draft` |

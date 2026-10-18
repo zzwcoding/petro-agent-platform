@@ -52,11 +52,19 @@
 **动作档位（2026-10-18 V2-116——配置单点 `VERIFY_ACTION`，真源 `specs/verification.md` 行为 14）**：
 `off`／`observe`／`repair`／`delete` 四档，**缺省档＝`delete`**（保既有行为）；`off` 完全跳过
 逐行核验（不检测、不改写）；`observe` 照常检测（判定逻辑零改）但**不删任何行**；`repair` 接
-V2-115 回炉口（未落地时等同 `observe` 并记 `verify_mode="repair-fallback"`）。非 `delete` 档
-交付面**逐字等于草稿**（零加工）；检出项入 step payload `intended_rewrites`（每条含原句 `line`
-与 `reason`）＋ `verify_mode`（additive 键——`Verdict` 九键不动）；`rewrites` 计数＝**检出条数**
-（非 `delete` 档下检出 ≠ 离场，故 notice／gap 文案按档诚实，不称「删去」）。档位闭世界越界＝
-fail-fast（转 fail-closed，不静默回落）。
+V2-115 回炉口（**已落地**——检出即 `set_intent(INTENT_REPAIR)` 交编排侧回炉环，复检重入本块；
+回炉面不可用时等同 `observe` 并记 `verify_mode="repair-fallback"`）。非 `delete` 档
+交付面**逐字等于草稿**（零加工；`repair` 档辖域＝回炉前——回炉改写归编排）；检出项入 step payload
+`intended_rewrites`（每条含原句 `line` 与 `reason`）＋ `verify_mode`（additive 键——`Verdict`
+九键不动）；`rewrites` 计数＝**检出条数**（非 `delete` 档下检出 ≠ 离场，故 notice／gap 文案按档
+诚实，不称「删去」）。档位闭世界越界＝ fail-fast（转 fail-closed，不静默回落）。
+
+**回炉接缝与零交付兜底（2026-10-18 V2-115——程序只检测、模型改写，真源 `specs/verification.md`
+行为 15）**：本块**只检测与标红**（零 LLM 红线 R8 不破）；公开检测口 `detect_intended` 复用
+`_verify_lines`（回炉请求装配与复检同一判据单点），`forced_gap_statement` 出程序确定性诚实说明。
+回炉后**最终无内容**（无实质行）时，在收口 `text="\n".join(out_lines)` **之前**追加该说明（同
+V2-106 插入点）＋ `unsupported_claim` notice ＋ payload additive 键
+`repair_zero_delivery_fallback`。
 
 **写面纪律**：共享写面（步／通知／路由意图）一律经 `bookkeeping` 唯一写口（相位禁直写）；本块自有
 字段（`state.draft`＝核验后答案面、`state.verdict`＝判定卡投影）直接落地——`answering` 收口以
@@ -78,7 +86,12 @@ from collections.abc import Collection, Mapping, Sequence
 from typing import Any
 
 from appv2.runtimev2.bookkeeping import notice, record_step, set_intent
-from appv2.runtimev2.state import INTENT_ANSWER, STEP_VERIFY, RunState
+from appv2.runtimev2.state import (
+    INTENT_ANSWER,
+    INTENT_REPAIR,
+    STEP_VERIFY,
+    RunState,
+)
 from appv2.runtimev2.transport import (
     SUPPLEMENT_BLOCK_ATTRIBUTION,
     SUPPLEMENT_BLOCK_LINEAGE,
@@ -114,6 +127,7 @@ from appv2.runtimev2.verification.constants import (
     PAYLOAD_OBS_ROWS_KEY,
     PAYLOAD_OK_KEY,
     PAYLOAD_PHASE_KEY,
+    PAYLOAD_REPAIR_ZERO_DELIVERY_KEY,
     PAYLOAD_REWRITE_LINE_KEY,
     PAYLOAD_REWRITE_REASON_KEY,
     PAYLOAD_REWRITES_KEY,
@@ -126,6 +140,8 @@ from appv2.runtimev2.verification.constants import (
     PAYLOAD_VERIFY_MODE_KEY,
     PAYLOAD_ZERO_DELIVERY_KEY,
     PHASE,
+    REPAIR_ZERO_DELIVERY_FALLBACK,
+    REPAIR_ZERO_DELIVERY_NOTICE,
     REWRITE_CONFLICT,
     REWRITE_NO_MATERIAL,
     ROW_NOTE_MISSING_NONE,
@@ -189,10 +205,12 @@ _INDEX_SEPARATOR = "、"
 # `specs/verification.md`，故键字面落本块 core 单点，不扩 `constants.py`；additive 键）。
 PAYLOAD_QUALITATIVE_KEPT_KEY = "qualitative_kept"
 # V2-115 回炉口落地标志（2026-10-18 V2-116 `repair` 档的前置）：V2-115（编排侧 `orchestration/
-# repair.py` ＋ `INTENT_REPAIR`，见其票面「Kimi 评审修正」1——回炉归编排，本块零 LLM 不动）
-# **未落地** ⇒ `repair` 档等同 `observe` 并记 `verify_mode="repair-fallback"`。V2-115 落地时
-# 改此单点即可（本块不预建回炉面——「合法降级路径＝无」不变）。
-_REPAIR_PORT_LANDED = False
+# `repair.py` ＋ `INTENT_REPAIR`，见其票面「Kimi 评审修正」1——回炉归编排，本块零 LLM 不动）
+# **已落地** ⇒ `repair` 档＝检出即标红 ＋ 交编排回炉（`set_intent(INTENT_REPAIR)`）。
+# 置 `False`＝如实降级回 `observe`（`verify_mode="repair-fallback"`）——回炉面不可用时的**如实
+# 降级标注**（V2-116 语义，测试可临时回置以覆盖该支；本块不预建回炉面——「合法降级路径＝无」
+# 指闭世界越界，非本缝）。
+_REPAIR_PORT_LANDED = True
 
 
 def _verify_mode() -> str:
@@ -331,6 +349,23 @@ def _verify(state: RunState, bus: EventBus, supplements: list[dict[str, Any]]) -
                 tried=_tried_text(field_mismatched, by_index),
             )
         )
+
+    # ── 回炉零交付兜底（2026-10-18 V2-115）─────────────────────────────────────
+    # 回炉（编排侧 LLM 改写）后**最终无内容**（`out_lines` 无实质行——只剩结构承载行／全空）⇒
+    # 强制产出「已试什么＋仍缺什么」**诚实说明**（程序确定性、零模型）——**不落空答**。插入点与
+    # V2-106 同点：本块收口 `text="\n".join(out_lines)` **之前**（Kimi 评审修正 3）。判据＝
+    # ①`repair` 档且回炉口已落地（本支只在回炉环内可达）；②回炉确已发生（`state.repair_rounds`
+    # 非零——首轮核验的空稿归 `answering` 的空稿收口，不属本兜底）；③无实质行（`_substantive_lines`
+    # 零命中——纯形态判据，零第二份语义）。**只追加、不替换**；`repair` 档交付面不再「逐字等于
+    # 草稿」的辖域＝回炉后零内容一形（V2-116 红线辖域＝未回炉时）。
+    repair_zero_delivery = bool(
+        mode == VERIFY_MODE_REPAIR
+        and _REPAIR_PORT_LANDED
+        and state.repair_rounds > 0
+        and not _substantive_lines(out_lines)
+    )
+    if repair_zero_delivery:
+        out_lines.append(forced_gap_statement(state, anchors=anchors))
     text = "\n".join(out_lines)
 
     ordered_cited = sorted(cited)
@@ -441,11 +476,54 @@ def _verify(state: RunState, bus: EventBus, supplements: list[dict[str, Any]]) -
         qualitative_kept,
         verify_mode,
         zero_delivery,
+        repair_zero_delivery,
     )
     state.draft = text
     state.verdict = verdict.as_dict()
-    set_intent(state, INTENT_ANSWER)
+    # 回炉口（2026-10-18 V2-115，Kimi 评审修正 1）：`repair` 档且检出未清 ⇒ **只标红**并交编排侧
+    # 回炉环（`INTENT_REPAIR` → `orchestration.repair` → 复检重入本节点）；其余档／已清 ⇒ 作答收口。
+    # 回炉轮数上限的落地在回炉节点（`MAX_REPAIR_ROUNDS`——到顶转模型缺位说明后仍回本节点，因
+    # 缺位说明保证无标红，本节点自然收 `answer`——零第二份终止判据）。
+    if (
+        mode == VERIFY_MODE_REPAIR
+        and _REPAIR_PORT_LANDED
+        and not verdict.ok
+    ):
+        set_intent(state, INTENT_REPAIR)
+    else:
+        set_intent(state, INTENT_ANSWER)
     return verdict
+
+
+def detect_intended(state: RunState) -> list[RewriteRecord]:
+    """回炉口**程序检测**（2026-10-18 V2-115）——回炉环的检测／复检**同一单点**（`_verify_lines`）。
+
+    零 LLM、零写面（不动 `state.draft`／`state.steps`／意图）：按核验既有判据（引标可解析、数值
+    记号全等、归属闸）标出**无据问题行**，返回 `RewriteRecord` 列（`reason` 闭世界两值——本条恒
+    `no_material`）。消费方＝`orchestration.repair` 的回炉请求装配与复检；**禁第二份判据**
+    （票面「复检判据＝同一 `_verify_lines`」）。
+    """
+    anchors = question_anchors(state.question)
+    observations = list(state.observations)
+    by_index = {int(obs["index"]): obs for obs in observations}
+    field_scope = aligned_field_names(anchors, observations)
+    kept_lines, _lineage = split_block_sections(str(state.draft or ""))
+    detected = _verify_lines(kept_lines, observations, by_index, field_scope)
+    return [record for record in detected[1] if record.reason == REWRITE_NO_MATERIAL]
+
+
+def forced_gap_statement(
+    state: RunState, *, anchors: Sequence[str] | None = None
+) -> str:
+    """回炉零交付兜底的**程序确定性诚实说明**（V2-115 任务 4——「已试什么＋仍缺什么」）。
+
+    零模型、零词表：两占位全为状态投影（`{rounds}`＝`state.repair_rounds`；`{anchors}`＝题眼锚）。
+    `anchors` 可注入（`_verify` 内已有读数，免二次解析）；缺省现算（回炉节点侧单点复用）。
+    """
+    anchor_values = question_anchors(state.question) if anchors is None else list(anchors)
+    return REPAIR_ZERO_DELIVERY_FALLBACK.format(
+        rounds=state.repair_rounds, anchors=_anchor_text(anchor_values)
+    )
 
 
 def _chunks_supported(
@@ -475,6 +553,17 @@ def _chunks_supported(
         if not observation_supported(obs, chunk):
             return False
     return carrier_supported if has_carrier else True
+
+
+def _substantive_lines(lines: Sequence[str]) -> list[str]:
+    """实质行面（V2-115 回炉零交付判据）：非空且非结构性残片（`structural_line` 单点）。
+
+    纯形态判据（零语义、零词表）——标题／表头／分隔线／JSON 残片不算实质内容；判据与
+    `_verify_lines` 的结构性残片剥除同源（同一 `rules.structural_line`）。
+    """
+    return [
+        line for line in lines if line.strip() and not structural_line(line.strip())
+    ]
 
 
 def _supplement(
@@ -741,6 +830,7 @@ def _emit_signals(
     qualitative_kept: int = 0,
     verify_mode: str = VERIFY_MODE_DELETE,
     zero_delivery: bool = False,
+    repair_zero_delivery: bool = False,
 ) -> None:
     """机读信号（「不降级与静默禁令」节）：step payload ＋ `notice`／`verdict` 帧 ＋ 通知落账。
 
@@ -775,11 +865,15 @@ def _emit_signals(
             qualitative_kept,
             verify_mode,
             zero_delivery,
+            repair_zero_delivery,
         ),
     )
     if zero_delivery:
         # 零交付兜底不静默（件四全行拒收 ⇒ 正证据声明已进正文）：状态写口 ＋ `notice` 帧。
         _notify(state, bus, NOTICE_UNSUPPORTED_CLAIM, ZERO_DELIVERY_NOTICE)
+    if repair_zero_delivery:
+        # 回炉零交付兜底不静默（回炉后正文空 ⇒ 诚实说明已进正文）：状态写口 ＋ `notice` 帧。
+        _notify(state, bus, NOTICE_UNSUPPORTED_CLAIM, REPAIR_ZERO_DELIVERY_NOTICE)
     if verdict.rewritten:
         _notify(
             state,
@@ -836,6 +930,7 @@ def _step_payload(
     qualitative_kept: int = 0,
     verify_mode: str = VERIFY_MODE_DELETE,
     zero_delivery: bool = False,
+    repair_zero_delivery: bool = False,
 ) -> dict[str, Any]:
     """步 payload（六计数键 ＋ 行集对账四字段 ＋ 改写／缺口留痕 ＋ 行集注记 ＋ 油田归属维度键）。
 
@@ -863,6 +958,7 @@ def _step_payload(
         PAYLOAD_ROWSET_ALIGNED_KEY: rowset_aligned,
         PAYLOAD_FIELD_MISMATCH_KEY: sorted(set(field_mismatched)),
         PAYLOAD_ZERO_DELIVERY_KEY: zero_delivery,
+        PAYLOAD_REPAIR_ZERO_DELIVERY_KEY: repair_zero_delivery,
         PAYLOAD_QUALITATIVE_KEPT_KEY: qualitative_kept,
         PAYLOAD_ATTRIBUTION_KEY: verdict.attribution,
         PAYLOAD_OK_KEY: verdict.ok,

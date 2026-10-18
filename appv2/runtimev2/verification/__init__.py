@@ -29,6 +29,12 @@
   进**正文**（`state.draft`，非增补面）＋ `ZERO_DELIVERY_NOTICE`（`unsupported_claim` 分型）＋
   step payload additive 布尔键 `PAYLOAD_ZERO_DELIVERY_KEY`；只在 `delete` 档（其余档检出项不
   离场）；**不放松件四判据本身**（跨油田混写照拒）。真源＝`specs/verification.md` 行为 13；
+- **回炉接缝与零交付兜底（2026-10-18 V2-115）**：公开面另增两件（零 LLM、零写面）——
+  `detect_intended(state)`（回炉请求装配与复检的**程序检测单点**，复用 `_verify_lines`）与
+  `forced_gap_statement(state)`（回炉后正文空的**程序确定性诚实说明**，插入点同 V2-106——收口
+  `join` 之前）；`repair` 档检出即 `set_intent(INTENT_REPAIR)` 交编排侧回炉环（`orchestration/
+  repair.py`——LLM 改写＋复检＋四键留痕；**本块零 LLM 红线不破**）；step payload additive 键
+  `repair_zero_delivery_fallback`（回炉零交付兜底已生效）。真源＝`specs/verification.md` 行为 15；
 - 帧面（只经 `transport` 公开面）：`EVENT_VERDICT`（核验裁决帧——**批次落定归 `orchestration`
   协调**，本块只保证自产部分就位，行为 10）＋ `EVENT_NOTICE`（通知帧，恰三键）；
 - 步 payload 键名（六计数键 ＋ 行集对账两字段 ＋ 油田归属维度键，行为 6／11／13）。
@@ -97,6 +103,7 @@ from appv2.runtimev2.verification.constants import (
     PAYLOAD_OBS_ROWS_KEY,
     PAYLOAD_OK_KEY,
     PAYLOAD_PHASE_KEY,
+    PAYLOAD_REPAIR_ZERO_DELIVERY_KEY,
     PAYLOAD_REWRITES_KEY,
     PAYLOAD_REWRITTEN_KEY,
     PAYLOAD_ROW_NOTE_KEY,
@@ -107,6 +114,8 @@ from appv2.runtimev2.verification.constants import (
     PAYLOAD_VERIFY_MODE_KEY,
     PAYLOAD_ZERO_DELIVERY_KEY,
     PHASE,
+    REPAIR_ZERO_DELIVERY_FALLBACK,
+    REPAIR_ZERO_DELIVERY_NOTICE,
     REWRITE_CONFLICT,
     REWRITE_NO_MATERIAL,
     REWRITE_REASONS,
@@ -123,7 +132,11 @@ from appv2.runtimev2.verification.constants import (
     ZERO_DELIVERY_NOTICE,
     ZERO_DELIVERY_TRIED_TEMPLATE,
 )
-from appv2.runtimev2.verification.core import verify
+from appv2.runtimev2.verification.core import (
+    detect_intended,
+    forced_gap_statement,
+    verify,
+)
 from appv2.runtimev2.verification.models import (
     GAP_KINDS,
     GAP_MISSING,
@@ -158,6 +171,7 @@ __all__ = [
     "PAYLOAD_OBS_ROWS_KEY",
     "PAYLOAD_OK_KEY",
     "PAYLOAD_PHASE_KEY",
+    "PAYLOAD_REPAIR_ZERO_DELIVERY_KEY",
     "PAYLOAD_REWRITES_KEY",
     "PAYLOAD_REWRITTEN_KEY",
     "PAYLOAD_ROWSET_ALIGNED_KEY",
@@ -168,6 +182,8 @@ __all__ = [
     "PAYLOAD_VERIFY_MODE_KEY",
     "PAYLOAD_ZERO_DELIVERY_KEY",
     "PHASE",
+    "REPAIR_ZERO_DELIVERY_FALLBACK",
+    "REPAIR_ZERO_DELIVERY_NOTICE",
     "REWRITE_CONFLICT",
     "REWRITE_NO_MATERIAL",
     "REWRITE_REASONS",
@@ -188,5 +204,7 @@ __all__ = [
     "RewriteReason",
     "RewriteRecord",
     "Verdict",
+    "detect_intended",
+    "forced_gap_statement",
     "verify",
 ]

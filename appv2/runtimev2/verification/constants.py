@@ -184,6 +184,23 @@ ZERO_DELIVERY_NOTICE = (
     "（兜底文本进正文、非增补面）——不静默落空答"
 )
 
+# ── 回炉零交付兜底（2026-10-18 V2-115）──────────────────────────────────────────
+# 回炉（编排侧 LLM 改写）后**最终无内容**时，强制一段**诚实说明**（程序确定性、零模型）——
+# 不落空答。真源＝`tickets/v2/V2-115-核验失败动作回炉修复.md` 任务 4（逐字：「零交付兜底：若
+# 最终无内容，强制一段诚实说明（已试什么、仍缺什么）」）＋其「Kimi 评审修正」3（插入点须在
+# `verification/core.py` 的 `text="\n".join(out_lines)` **之前**——与 V2-106 同点）。兜底文本进
+# **正文**（`state.draft`，非增补面）＋ `unsupported_claim` notice；两占位全为程序确定性输入：
+# - `{rounds}`＝已执行回炉改写轮数（`state.repair_rounds`——「已试什么」的如实面）；
+# - `{anchors}`＝题眼锚（`rules.question_anchors` 的确定性投影——「仍缺什么」的题眼面）。
+REPAIR_ZERO_DELIVERY_FALLBACK = (
+    "本轮回炉未产出可交付正文（已试 {rounds} 轮按标红行重写；题眼：{anchors}）——"
+    "已试什么：逐行重写核验标红行 {rounds} 轮；仍缺：本轮窗内材料未覆盖标红断言。"
+)
+REPAIR_ZERO_DELIVERY_NOTICE = (
+    "核验回炉后正文为空：已按「已试什么＋仍缺什么」正证据兜底（兜底文本进正文、非增补面）"
+    "——不静默落空答"
+)
+
 # ── 文本单点（逻辑面一律引名字，零字面副本）──────────────────────────────────────
 
 # 2026-10-17 EB3 D3：改写前缀「未找到（材料未披露）：」**退役**——真无据断言按
@@ -349,3 +366,7 @@ PAYLOAD_FIELD_MISMATCH_KEY = "field_attribution_mismatch"
 # `docs/runtime-refactor/design/统筹方案-核验澄清评测.md` §2.6「payload additive：
 # `zero_delivery_fallback`」）。
 PAYLOAD_ZERO_DELIVERY_KEY = "zero_delivery_fallback"
+# 回炉零交付兜底面（2026-10-18 V2-115）：回炉后正文为空 ⇒ 程序诚实说明已进正文（`state.draft`）
+# ——additive 布尔键（`Verdict` 九键不动）。与 V2-106 的 `zero_delivery_fallback` 分列（两种
+# 零交付不同因：件四全拒 vs 回炉后无内容）。
+PAYLOAD_REPAIR_ZERO_DELIVERY_KEY = "repair_zero_delivery_fallback"

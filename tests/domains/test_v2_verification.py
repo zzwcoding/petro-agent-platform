@@ -54,7 +54,7 @@ import pytest
 
 import appv2.runtimev2.verification as verification
 from appv2.runtimev2.answering import CONTRADICTION_SECTION_HEAD
-from appv2.runtimev2.state import RunState
+from appv2.runtimev2.state import INTENT_ANSWER, INTENT_REPAIR, RunState
 from appv2.runtimev2.transport import (
     SUPPLEMENT_BLOCK_ATTRIBUTION,
     SUPPLEMENT_BLOCK_LINEAGE,
@@ -2448,8 +2448,10 @@ async def test_verify_mode_off_skips_check_delivery_verbatim(
 async def test_verify_mode_repair_fallback_equals_observe(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """V2-116-6｜`repair`：V2-115 未落地 → 等同 `observe` 并记 `verify_mode="repair-fallback"`。"""
+    """V2-116-6｜`repair` 且回炉口**未落地**（V2-115 面不可用）→ 等同 `observe` 并记
+    `verify_mode="repair-fallback"`。V2-115 落地后本支由回置单点覆盖（如实降级标注面）。"""
     monkeypatch.setenv(VERIFY_ACTION_ENV, VERIFY_MODE_REPAIR)
+    monkeypatch.setattr(verification.core, "_REPAIR_PORT_LANDED", False)
     observations, draft = _mode_case()
     state = _state(draft=draft, observations=observations)
     verdict = verify(state, bus=EventBus())
@@ -2461,6 +2463,27 @@ async def test_verify_mode_repair_fallback_equals_observe(
         {"line": _MODE_UNSUPPORTED_LINE, "reason": REWRITE_NO_MATERIAL}
     ]
     assert verdict.rewritten == 1
+    assert state.next_intent == INTENT_ANSWER  # 未落地＝不回炉
+
+
+async def test_verify_mode_repair_landed_flags_and_routes_repair(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """V2-116-6b／V2-115 接缝｜`repair` 且回炉口**已落地**：检出即标红（交付面＝草稿逐字）＋
+    `verify_mode="repair"` ＋ `next_intent="repair"`（回炉自环入口；`repair-fallback` 不出现）。"""
+    monkeypatch.setenv(VERIFY_ACTION_ENV, VERIFY_MODE_REPAIR)
+    observations, draft = _mode_case()
+    state = _state(draft=draft, observations=observations)
+    verdict = verify(state, bus=EventBus())
+
+    assert state.draft == draft  # 只检测与标红，不删
+    payload = _step_payload(state)
+    assert payload[PAYLOAD_VERIFY_MODE_KEY] == VERIFY_MODE_REPAIR
+    assert payload[PAYLOAD_INTENDED_REWRITES_KEY] == [
+        {"line": _MODE_UNSUPPORTED_LINE, "reason": REWRITE_NO_MATERIAL}
+    ]
+    assert verdict.rewritten == 1
+    assert state.next_intent == INTENT_REPAIR
 
 
 async def test_verify_mode_invalid_value_fail_closed(

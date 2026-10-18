@@ -96,6 +96,8 @@ class Gap:
 19. **残尾护栏（2026-10-17 F1 件三——定稿前的悬空结构检测与诚实收口）**：正文进终稿前先过**悬空结构**检测（判据单点＝`degradation.dangling_tail_closing`，纯形态、零语义）：①末行以全角「：」收尾（悬空引导句）；②末段连续表格行（含表格列记号 `|`）≤ 表头行上限（有表头无数据行）；③末段为**裸标题**（整行加粗，或独立短行——≤ 24 字、无引标、无 ASCII 数字、无句读收尾，且正文 ≥2 行）。命中即程序**补一句诚实收口短句**（白话、具名常量：`TAIL_CLOSE_LEAD_IN`／`TAIL_CLOSE_TABLE_HEADER`／`TAIL_CLOSE_BARE_HEADING`，随收口段追加为末段），**正文其余字面零改**——不改写、不重试、不拦截；重入幂等（该短句已在场＝零追加）。这是**兜底**：删句误伤本体由 `verification` 侧 F1 件一／件二修掉（真机证据＝`eval/results/frames/EB4-D-诱12.json`，run-c6fd52c7：交付答案断在裸标题「**两口井教训的差异**」）。
 20. **作答第二出口 `explore`（V2-96 D5——材料不足时的有界再探意图）**：起草段模型应答整枚为 `{"action":"explore","reason":…,"requests":[…]}` 且合闭世界（`tool ∈ {doc_retrieve,fetch_section,fetch_report}`；`requests` 1..2 条；`reason` 非空；`doc_retrieve.query` 非空；`fetch_*` 的 `report_id` 非空——判据单点＝`parsing.parse_explore`）时：**不落答案、零 `text` 帧、零草稿标记**，落 `state.pending_explore`（意图投影：`reason`／`requests`／`raw`）＋ `next_intent="explore"`（路由交编排执行，见 `specs/agent-loop.md` 行为 12），起草步 payload 携 `explore` 面（requests 原文）。**拒因回喂恰一次**：explore 尝试但不合 schema（`parsing.explore_schema_feedback` 非空）→ 向链尾追加拒因载荷（`EXPLORE_FEEDBACK_TEMPLATE`）→ 同相位再读一次；**仍不合＝强制作答**（`EXPLORE_REJECT_BODY` 程序确定性缺口正文，**不判 failed**、不收 `run_failed`）。**硬停止兜底**：编排块轮数到顶后交来 `forced_text` 时，模型仍发射 explore 形＝以该正文交付（含「已试 N 次检索、仍缺 X」）。非 explore 形（正常答案／散文／非 JSON）＝零影响，照现有剥离／起草／核验管线（行为 11／13 不变）。真源：`docs/runtime-refactor/接手-召回全链路最终决议与运行流程-20261018.md` §五·5.1／5.2／5.3。
 
+21. **核验失败回炉后的作答收口（2026-10-18 V2-115）**：`repair` 档下核验只标红不删（`specs/verification.md` 行为 14／15），回炉环（`appv2/runtimev2/orchestration/repair.py`）由模型**只重写标红行**后**复检重入核验**；本块**收口段**消费的 `state.draft` 即回炉后的定稿（`_finalize` 取 `state.draft or state.answer`——本块零改：回炉不新增作答相位调用面、不改收口判据）。回炉请求／模型返回／复检结果三面留痕落**回炉步** payload（`kind=verify`，标题「核验回炉」——四键 `repair_rounds`／`repair_request`／`repair_response`／`recheck`），**帧面零新增**（`text` 帧仍只在起草段发：回炉改写不改「一段一帧」的真流式判据，回炉后交付面以收口终稿为准）。回炉零交付兜底（正文空 ⇒ 程序诚实说明）由 `verification` 落 `state.draft`，本块照常收口（非空稿即交付）。真源＝`tickets/v2/V2-115-核验失败动作回炉修复.md`（含末尾「Kimi 评审修正」）。
+
 ## 不降级与静默禁令
 
 - **合法降级路径：无**（本模块不自降级；起草原话不完整时走结构化缺口，不改写事实）。
@@ -135,6 +137,7 @@ class Gap:
 | 作答第二出口：命中 `explore` → 不落答案、零 `text` 帧、`next_intent="explore"`＋`pending_explore` 在场（V2-96 D5——落点＝行为 20） | `tests/domains/test_v2_v296_explore.py::test_answer_explore_does_not_emit_draft` |
 | 第二出口解析闭世界（`tool` 三值／每轮 1..2 条／必填／越界即拒＋拒因面非空；非 explore 形零拒因）（V2-96 D5） | `tests/domains/test_v2_v296_explore.py::test_parse_explore_valid_and_invalid` |
 | explore 尝试不合 schema → 回喂拒因恰一次（恰 2 次模型调用）；仍不合 → 强制作答正文落草稿（不判 failed）（V2-96 D5） | `tests/domains/test_v2_v296_explore.py::test_explore_schema_feedback_retry_once_then_force` |
+| 核验失败回炉后的作答收口：回炉定稿进收口（`state.draft` 被回炉改写后照常 finalize；四键留痕落回炉步、帧面零新增）（2026-10-18 V2-115） | `tests/domains/test_v2_v2115_repair.py::test_repair_end_to_end_graph_rewrites_unsupported_line`／`::test_repair_end_to_end_graph_zero_delivery_fallback` |
 
 ## 依赖与风险
 

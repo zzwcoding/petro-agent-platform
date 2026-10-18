@@ -59,6 +59,7 @@ class Gap:                               # 复用 answering 的 Gap 口径（字
 - **两个维度、不强行映射**：`RewriteRecord.reason`（`no_material`｜`conflict`）回答「**为什么改写这句**」，`Gap` 回答「**哪个子问题有缺口**」——两者是不同维度，不做一一映射。
 - **确定性**：同一输入两次运行，`Verdict` 的五个计数与 `ok` **完全一致**（零随机、零模型）。
 - **动作档位与机读留痕（2026-10-18 V2-116）**：`verify` 的动作档位经环境变量 `VERIFY_ACTION` 配置（闭世界四值 `off`／`observe`／`repair`／`delete` ＋ **缺省 `delete`**，见行为 14）；step payload 增 **additive** 两键 `verify_mode`（如实档位）／`intended_rewrites`（检出项逐条含原句 `line` 与 `reason`）——`Verdict` 九键不动、`RewriteRecord.reason` 闭世界两值不动。
+- **回炉接缝与兜底（2026-10-18 V2-115）**：公开面另增两件（零 LLM、零写面）——`detect_intended(state) -> list[RewriteRecord]`（回炉请求装配与复检的**程序检测单点**，复用 `_verify_lines`）与 `forced_gap_statement(state) -> str`（回炉零交付兜底的**程序确定性诚实说明**，同 V2-106 插入点）；step payload 另增 additive 布尔键 `repair_zero_delivery_fallback`（回炉后正文空 ⇒ 兜底已生效）。回炉环（LLM 改写＋复检＋留痕四键）归 `orchestration`（见行为 15；本块零 LLM 红线 R8 不破）。
 - 错误契约：核验器自身抛错 → **不判 `Verdict.ok=True`**（fail-closed），转 `Verdict.ok=False` ＋ 缺口，由 `orchestration` 承接。
 - 真源：`specs/modules.md` `## verification` 卡（签名以卡为准）。
 
@@ -94,14 +95,21 @@ class Gap:                               # 复用 answering 的 Gap 口径（字
 14. **动作档位可配（2026-10-18 V2-116——配置单点，环境变量 `VERIFY_ACTION`）**：核验动作**四档**，取值闭世界＝`off`／`observe`／`repair`／`delete`（常量单点＝`constants.VERIFY_MODES`／`VERIFY_ACTION_ENV`；**缺省档＝`delete`**——保既有行为，`observe` 档用例显式指定 env）：
     - **`off`**：**完全跳过逐行核验**（不检测、不改写）——`Verdict.supported`／`rewritten`／`cited` 皆空值，交付面＝草稿逐字；
     - **`observe`**：**照常检测（判定逻辑零改）但不删任何行**——检出项入 verify step payload 的 `intended_rewrites`（**每条含原句 `line` 与 `reason`**）＋ `verify_mode`；交付面**逐字等于草稿**；
-    - **`repair`**：接 V2-115 回炉口；V2-115 未落地时等同 `observe`，并记 `verify_mode="repair-fallback"`（如实标注降级档位）；
+    - **`repair`**：接 V2-115 回炉口（**已落地**）——检出即**只标红不删**（交付面＝草稿逐字），意图转 `INTENT_REPAIR` 交编排侧回炉环；回炉改写后**复检重入本块**（见行为 15）。回炉面不可用时（如单点回置）等同 `observe`，并记 `verify_mode="repair-fallback"`（如实标注降级档位）；
     - **`delete`**：保留旧行为（无据断言整行离场——行为 3 的删句族），**仅供既有单测显式指定**（缺省保既有行为）。
     计数语义随档标注：step payload 增 `verify_mode`（如实档位）与 `intended_rewrites`（**检出条数**面——非 `delete` 档下检出项**不离场**）；`Verdict.rewritten`／`rewrites` 计数＝**检出条数**（非 `delete` 档下检出 ≠ 离场，故 `unsupported_claim` notice 与 `gaps` 文案按档诚实，不称「删去」）。`Verdict` 九键与 `RewriteRecord.reason` 闭世界（两值）**不变**。档位取值闭世界越界＝**fail-fast 抛错**（不静默回落；经错误契约转 `Verdict.ok=False`＋缺口）。真源＝`tickets/v2/V2-116-校对员三档开关.md`（含末尾「Kimi 评审修正」：默认档 `delete`、conftest env-pin 新建、回归敞口 ~34 例）。
+
+15. **核验失败动作＝回炉修复（2026-10-18 V2-115——程序只检测、模型改写）**：核验的失败动作不再只有「删句」——`repair` 档下，程序**只标红**（沿用行为 1／2／8／13 既有判据：引标可解析、数值记号全等、油田归属闸），把问题行交**编排侧回炉环**（`appv2/runtimev2/orchestration/repair.py`＋`INTENT_REPAIR`，镜像 V2-96 explore 环）由**模型重写**该行（改引标／改写成「本轮材料未覆盖」／删除该行），复检**重入本块**——判据单点仍是 `_verify_lines`（**禁第二份判据**）。四段：
+    - **检测（程序，零语义）**：本块新增公开检测口 `detect_intended(state) -> list[RewriteRecord]`（零 LLM、零写面；复用 `_verify_lines`），供回炉请求装配与复检两处消费；
+    - **回炉（LLM，语义）**：归编排侧（**本块零 LLM 红线 R8 不破**——本块不调模型、不引 `gateway_adapter`）；回炉请求＝问题行逐条原句 ＋ 本轮窗内材料，应答只许重写这些行、不得新增窗内无据的数值；
+    - **复检（程序）**：回炉应用后重入本块核验（同一 `_verify_lines`）；改写轮数到顶（`state.repair_rounds` ≥ `MAX_REPAIR_ROUNDS`）仍不过 ⇒ 编排侧令模型输出**缺位说明**（**不许程序删成空白**）；
+    - **零交付兜底（同 V2-106 形）**：回炉后**最终无内容**（无实质行）⇒ 本块在收口 `text="\n".join(out_lines)` **之前**强制追加「已试什么＋仍缺什么」**诚实说明**（程序确定性、零模型——`forced_gap_statement`／`REPAIR_ZERO_DELIVERY_FALLBACK`，占位＝`state.repair_rounds` ＋ 题眼锚）＋ `unsupported_claim` notice ＋ step payload **additive** 布尔键 `repair_zero_delivery_fallback`；判据＝`repair` 档 ∧ 回炉口落地 ∧ 回炉已发生（`repair_rounds > 0`）∧ 无实质行（`_substantive_lines` 零命中，纯形态）。
+    **留痕（机读面）**：回炉请求／模型返回／复检结果全落**回炉步** payload（`kind=verify`，标题「核验回炉」——**帧面零新增**：SSE step 帧恰三键不动）四 additive 键 `repair_rounds`／`repair_request`（`{mode, lines, prompt}`——`lines`＝标红原句逐条）／`repair_response`（`{raw, parsed, applied}`——模型原话）／`recheck`（应用后剩余标红行逐条 `{line, reason}`）；本块核验步 payload 的 `verify_mode`／`intended_rewrites`（行为 14）不变。**反编造红线保留**：数值记号全等检测不变（窗内无该数值 ⇒ 模型改写仍保留该数值者复检照咬、不得进交付面）。`RewriteRecord.reason` 闭世界**仍两值**（回炉不新增第 4 值——标红与复检复用既有 `no_material`）。真源＝`tickets/v2/V2-115-核验失败动作回炉修复.md`（含末尾「Kimi 评审修正」）＋`docs/runtime-refactor/design/统筹方案-核验澄清评测.md` §2.2。
 
 ## 不降级与静默禁令
 
 - **合法降级路径：无**（本模块不降级；核验器不可用时按 fail-closed 取 `ok=False`）。
-- 改写、分列、归属失败**都必须产生机读信号**：`verdict`／`notice` 事件（类型取自 `synth/S6-事件与帧目录.md`）＋ step payload 的 `supported`／`rewritten`／`split`／`cited`／`delivered_rows`／`obs_rows` 字段。**2026-10-17 EB3 D3**：无据断言的处置由「改写」改「**删句**」——**如实计数即不静默**（`verdict.rewritten` ＋ `RewriteRecord` 原句＋ `notice` 三处齐）；正文不再出现前缀残句。**2026-10-18 V2-116**：非 `delete` 档（`observe`／`repair-fallback`）下**未删行**——信号三处齐不变，但 `notice`／`gaps` 文案按档诚实（称「检出／只记录不删」，不称「删去」；检出项逐条落 step payload `intended_rewrites`）。
+- 改写、分列、归属失败**都必须产生机读信号**：`verdict`／`notice` 事件（类型取自 `synth/S6-事件与帧目录.md`）＋ step payload 的 `supported`／`rewritten`／`split`／`cited`／`delivered_rows`／`obs_rows` 字段。**2026-10-17 EB3 D3**：无据断言的处置由「改写」改「**删句**」——**如实计数即不静默**（`verdict.rewritten` ＋ `RewriteRecord` 原句＋ `notice` 三处齐）；正文不再出现前缀残句。**2026-10-18 V2-116**：非 `delete` 档（`observe`／`repair-fallback`）下**未删行**——信号三处齐不变，但 `notice`／`gaps` 文案按档诚实（称「检出／只记录不删」，不称「删去」；检出项逐条落 step payload `intended_rewrites`）。**2026-10-18 V2-115**：`repair` 档的回炉步留痕四键（`repair_rounds`／`repair_request`／`repair_response`／`recheck`）＋ 回炉零交付兜底 notice（`unsupported_claim`）＋ payload `repair_zero_delivery_fallback`——回炉请求／模型返回／复检结果三面齐，不静默。
 - 改写**不得静默**：被改写的原句与原因必须留痕（`RewriteRecord`）；红线原文 `arch/P7a-交接包与挂账清单.md`（A-P7a-37）「不许静默」。
 
 ## 验收测试
@@ -159,6 +167,14 @@ class Gap:                               # 复用 answering 的 Gap 口径（字
 | `repair`：V2-115 未落地 → 等同 `observe` 并记 `verify_mode="repair-fallback"`（2026-10-18 V2-116） | `tests/domains/test_v2_verification.py::verify_mode_repair_fallback_equals_observe` |
 | 档位闭世界越界 → fail-fast（转 `ok=False`＋缺口，不静默回落；2026-10-18 V2-116） | `tests/domains/test_v2_verification.py::verify_mode_invalid_value_fail_closed` |
 | `observe` 辖域＝逐行核验输入：块剥除照常、仅「无据删句」停（2026-10-18 V2-116） | `tests/domains/test_v2_verification.py::verify_mode_observe_block_strip_still_applies` |
+| 回炉检测口＝程序单点（复用 `_verify_lines`）：只报标红行、零写面（2026-10-18 V2-115） | `tests/domains/test_v2_v2115_repair.py::test_detect_intended_is_program_detection_single_point` |
+| `repair` 档落地：检出即标红（不删）＋ `verify_mode="repair"` ＋ `next_intent="repair"`（2026-10-18 V2-115） | `tests/domains/test_v2_verification.py::test_verify_mode_repair_landed_flags_and_routes_repair` |
+| `repair` 且回炉口不可用 → `repair-fallback` 等同 `observe`（如实降级标注；2026-10-18 V2-115／V2-116） | `tests/domains/test_v2_verification.py::test_verify_mode_repair_fallback_equals_observe` |
+| 回炉四形：①引标可修正（改引标）／②真无据（改写成缺位）／③零交付（强制诚实说明）／④反编造（窗内无该数值不得保留）（2026-10-18 V2-115） | `tests/domains/test_v2_v2115_repair.py::test_repair_citation_fixable_rewrites_citation`／`::test_repair_truly_unsupported_rewritten_as_gap`／`::test_repair_zero_delivery_forces_honest_statement`／`::test_repair_anti_fabrication_number_not_kept` |
+| 缺位说明自身仍无据 ⇒ 交程序确定性诚实说明（防「模型缺位说明」成新编造面）（2026-10-18 V2-115） | `tests/domains/test_v2_v2115_repair.py::test_repair_gap_statement_dirty_falls_back_to_program_statement` |
+| 回炉留痕：回炉请求／模型返回／复检结果全落回炉步 payload（含逐行原句）（2026-10-18 V2-115） | `tests/domains/test_v2_v2115_repair.py::test_repair_citation_fixable_rewrites_citation` |
+| 端到端（脚本化 completer）：`数-排1` 形不再零交付；`D-诱1` 形 415 不再被删（2026-10-18 V2-115） | `tests/domains/test_v2_v2115_repair.py::test_repair_mode_shupai1_shape_no_zero_delivery`／`::test_repair_mode_dy1_shape_415_kept` |
+| 端到端（四相位图＋脚本化 completer）：编造行回炉重写 → 交付携正确数值、编造数值零残留（2026-10-18 V2-115） | `tests/domains/test_v2_v2115_repair.py::test_repair_end_to_end_graph_rewrites_unsupported_line`／`::test_repair_end_to_end_graph_zero_delivery_fallback` |
 
 > **测试文件归属（与既有 `tests/domains/test_v2_agent_verify.py` 的关系）**：本块验收测试绑**新建**的 `tests/domains/test_v2_verification.py`——`verification` 是 V2 十七块的新模块（`appv2/runtimev2/verification/`，公开接口 `verify(...) -> Verdict`），与既有 `test_v2_agent_verify.py`（现状 agent-loop 核验步：`verify_draft` 直测／表格·血缘卡·fragment 承载豁免现状行为）所测形状不同；故本块落新文件，既有文件继续覆盖现状核验步、本批不改。
 

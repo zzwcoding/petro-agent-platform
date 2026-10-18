@@ -31,9 +31,10 @@ RUN_STATUS_KINDS: frozenset[str] = frozenset(
     {RUN_RUNNING, RUN_WAITING_ASK, RUN_COMPLETED, RUN_FAILED}
 )
 
-# ── 路由意图十一值闭世界（真源 recon/I2a R-I2a-03／R-I2a-04；条件边唯一判据）──────
+# ── 路由意图十二值闭世界（真源 recon/I2a R-I2a-03／R-I2a-04；条件边唯一判据）──────
 # 四相位不新增 clarify 意图——沿用 INTENT_DECISION 承载（R-I2a-04）；toolmatch／
-# precondition／batch 三相位值随 V2-34 入闭世界；explore 随 V2-96（D5 作答第二出口）入闭世界。
+# precondition／batch 三相位值随 V2-34 入闭世界；explore 随 V2-96（D5 作答第二出口）入闭世界；
+# repair 随 V2-115（核验失败＝编排侧回炉修复环——镜像 explore 环）入闭世界。
 INTENT_DECISION = "decision"
 INTENT_DISCOVER = "discover"
 INTENT_EXECUTE = "execute"
@@ -45,6 +46,7 @@ INTENT_TOOLMATCH = "toolmatch"
 INTENT_PRECONDITION = "precondition"
 INTENT_BATCH = "batch"
 INTENT_EXPLORE = "explore"
+INTENT_REPAIR = "repair"
 
 INTENT: frozenset[str] = frozenset(
     {
@@ -59,6 +61,7 @@ INTENT: frozenset[str] = frozenset(
         INTENT_PRECONDITION,
         INTENT_BATCH,
         INTENT_EXPLORE,
+        INTENT_REPAIR,
     }
 )
 
@@ -74,6 +77,13 @@ ASK_CAP = 6  # R-K-76 连续反问截断上限
 # 再探轮数上限（V2-96 D5——独立计数 `explore_rounds`，不占澄清轮、不动 discover 预算；
 # 真源 §五·5.3「再探轮数 ≤2」。非 `Budget` 键——七键闭世界不扩）。
 MAX_EXPLORE_ROUNDS = 2
+
+# 回炉改写轮数上限（V2-115 2026-10-18——独立计数 `repair_rounds`，不占澄清轮、不动 discover
+# 预算；真源＝`docs/runtime-refactor/design/统筹方案-核验澄清评测.md` §2.2「上限
+# MAX_REPAIR_ROUNDS」＋`tickets/v2/V2-115-核验失败动作回炉修复.md` 施工基准「复检」。到顶后
+# 回炉环转「模型缺位说明」并交核验收口——非 `Budget` 键（七键闭世界不扩），先例
+# `MAX_EXPLORE_ROUNDS`）。
+MAX_REPAIR_ROUNDS = 2
 
 # 触界注记的 `type` 值（`Convergence.notice["type"]`）：真源＝`specs/transport.md` 的
 # `NOTICE_TYPES`（二十九值，含本值）。类型取值闭世界归 `transport`——本块只定义「注记恰三键」

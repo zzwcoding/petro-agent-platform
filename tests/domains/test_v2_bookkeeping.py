@@ -135,7 +135,8 @@ _SPEC_DIALOGUE_ORIGIN_ROLES = {
 }
 # 合同追加相位闭世界三值（接口定义节：合同文本追加面的相位标记集）
 _SPEC_CONTRACT_PHASES = {"decision", "clarify", "toolmatch"}
-# 路由意图闭世界十一值（接口定义节；真源 specs/state.md 行为 9；V2-96 追加 explore）
+# 路由意图闭世界十二值（接口定义节；真源 specs/state.md 行为 9；V2-96 追加 explore、
+# V2-115 追加 repair）
 _SPEC_INTENT = {
     "decision",
     "discover",
@@ -148,6 +149,7 @@ _SPEC_INTENT = {
     "precondition",
     "batch",
     "explore",  # V2-96 D5：作答第二出口路由意图
+    "repair",  # V2-115：核验失败回炉路由意图（编排侧回炉自环）
 }
 # 限额七键名闭世界（接口定义节「写口入参形状」；2026-10-16 裁·流水 52-B——`gates` 取值与
 # 触界命中项同名；真源＝`state.LimitHit.limit` 的 Literal 七值）
@@ -702,7 +704,7 @@ def test_dialogue_port_purity() -> None:
 def test_set_intent_single_port_closed_world() -> None:
     """#20 `next_intent` 唯一写口＋闭世界越界即拒——行为 6。
 
-    取值 ∈ `INTENT`（十一值）全数可写；越界（含未设态空串）即拒；全 V2 树里 `next_intent` 的写点只
+    取值 ∈ `INTENT`（十二值）全数可写；越界（含未设态空串）即拒；全 V2 树里 `next_intent` 的写点只
     在本块（`set_intent`／`converge`／`direct_answer`——后两者为本块内部写，行为 6／12／14）。
     """
     assert INTENT == _SPEC_INTENT

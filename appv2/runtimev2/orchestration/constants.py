@@ -2,7 +2,7 @@
 
 三条纪律：① **闭世界取值一律不复述**——帧名、事件名、意图、状态取值全部引真源常量
 （`state.INTENT*`／`transport` 帧族／`state.RUN_*`），本模块只落「本块自有的名字」；
-② **路由意图十值的真源在 `state.constants`**，本模块只做「意图 → 节点」的映射（路由表在
+② **路由意图十二值的真源在 `state.constants`**，本模块只做「意图 → 节点」的映射（路由表在
 `graph._ROUTES` 一处集中）；③ **帧名不私有**——本模块发的是 `transport` 闭世界内的既有名，
 取名字面只在此处出现一次（`EVENT_*`）。
 
@@ -74,6 +74,21 @@ PAYLOAD_SEQ_KEY = "seq"
 PAYLOAD_TITLE_KEY = "title"
 # 收口 `verdict` 帧的判形键（`transport` 行为 6：含 `status` 键 → `final` 形）
 PAYLOAD_STATUS_KEY = "status"
+
+# ── 回炉留痕键（2026-10-18 V2-115——`orchestration.repair` 步 payload 的 additive 键）────
+# 真源＝`docs/runtime-refactor/design/统筹方案-核验澄清评测.md` §2.2「payload additive：
+# `repair_rounds`／`repair_request`／`repair_response`／`recheck`」＋票面任务 5（「回炉请求、
+# 模型返回、复检结果全落 step payload（含逐行原句）」）。四键同落**回炉步**（`kind=verify`，
+# 标题「核验回炉」——帧面零新增，Kimi 评审修正 2）：
+# - `repair_rounds`＝本次回炉时的已执行改写轮数（`state.repair_rounds` 现值）；
+# - `repair_request`＝回炉请求面（`{mode, lines, prompt}`——`lines`＝标红原句逐条、`prompt` 原文）；
+# - `repair_response`＝模型返回面（`{raw, parsed, applied}`——原话零改）；
+# - `recheck`＝复检结果面（应用后程序检测的剩余标红行逐条 `{line, reason}`——判据单点＝
+#   `verification.detect_intended`，禁第二份判据）。
+PAYLOAD_REPAIR_ROUNDS_KEY = "repair_rounds"
+PAYLOAD_REPAIR_REQUEST_KEY = "repair_request"
+PAYLOAD_REPAIR_RESPONSE_KEY = "repair_response"
+PAYLOAD_REPAIR_RECHECK_KEY = "recheck"
 
 # ── 挂起帧投影键（`state.pending_ask`；形状真源 `synth/S6` §一 ask 行）──────────
 ASK_KEY_KIND = "kind"

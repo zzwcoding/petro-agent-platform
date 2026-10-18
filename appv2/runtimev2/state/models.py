@@ -256,6 +256,10 @@ class RunState:
     explore_rounds: int = 0
     explore_fingerprints: list[str] = field(default_factory=list)
     pending_explore: dict[str, Any] | None = None
+    # 核验失败＝回炉修复（V2-115 2026-10-18 additive——独立计数，默认零值＝零漂移）：
+    # `repair_rounds`＝已执行的**回炉改写**轮数（≤`MAX_REPAIR_ROUNDS`；到顶后回炉环转模型缺位
+    # 说明，不再改写）。不占澄清轮／不动 discover 预算（先例 `explore_rounds`）。
+    repair_rounds: int = 0
     draft: str = ""
     draft_kind: str = ""  # ""=待核验草稿；"direct"=确定性直答（释义真源 specs/answering.md）
     answer: str = ""

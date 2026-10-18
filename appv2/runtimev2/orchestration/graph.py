@@ -62,6 +62,7 @@ from appv2.runtimev2.orchestration.constants import (
     assert_frame_names,
 )
 from appv2.runtimev2.orchestration.explore import hard_stop, run_explore
+from appv2.runtimev2.orchestration.repair import run_repair
 from appv2.runtimev2.parsing import Understanding
 from appv2.runtimev2.preconditions import (
     DECISION_ALLOW,
@@ -81,6 +82,7 @@ from appv2.runtimev2.state import (
     INTENT_END,
     INTENT_EXPLORE,
     INTENT_PRECONDITION,
+    INTENT_REPAIR,
     INTENT_TOOLMATCH,
     INTENT_VERIFY,
     MAX_EXPLORE_ROUNDS,
@@ -140,6 +142,9 @@ _ROUTES: dict[str, dict[Hashable, str]] = {
     },
     NODE_VERIFY: {
         INTENT_ANSWER: NODE_ANSWER,  # 核验后回作答相位收口
+        # 回炉自环（V2-115——镜像 V2-96 explore 环）：核验标红 ⇒ 本节点入口先执行回炉
+        # （`_make_verify` 入口的 `INTENT_REPAIR` 支）再复检重入核验。
+        INTENT_REPAIR: NODE_VERIFY,
         INTENT_END: END,
     },
     NODE_ANSWER: {
@@ -641,6 +646,13 @@ def _emit_direct_text(deps: LoopDeps, state: RunState) -> None:
 
 def _make_verify(deps: LoopDeps) -> Any:
     async def node(state: RunState) -> dict[str, Any]:
+        # 回炉环入口（V2-115——镜像 V2-96 explore 环的 `_make_answer` 入口支）：本节点被以
+        # `INTENT_REPAIR` 重入时，先执行回炉一步（LLM 只重写标红行＋程序复检＋留痕），再落到
+        # 下方 `verify` 复检（判据单点复用）；回炉步意图一律回 `verify`（见 `repair.run_repair`）。
+        if state.next_intent == INTENT_REPAIR:
+            run_repair(state, max_observations=deps.max_observations)
+            _flush_notices(deps, state)
+            _flush_steps(deps, state)
         verify(state, bus=deps.bus, supplements=deps.supplements)
         deps.emitted_notices = len(state.notices)  # 本相位自产 notice 帧（不重复出帧）
         _flush_steps(deps, state)

@@ -523,7 +523,7 @@ def test_explore_budget_and_seconds_unbroken() -> None:
     assert TOTAL_SECONDS == 300.0
     assert Budget().seconds == 300.0
     assert len(fields(Budget)) == 7  # 七键闭世界不扩
-    assert INTENT_EXPLORE in INTENT and len(INTENT) == 11
+    assert INTENT_EXPLORE in INTENT and len(INTENT) == 12
     # 越界条数照拒（3 条＝越界）
     three = _explore(
         {"tool": "doc_retrieve", "query": "a"},

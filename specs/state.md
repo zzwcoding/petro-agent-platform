@@ -90,7 +90,7 @@ def check_limits(state: RunState) -> Convergence: ...   # 纯函数：不改入�
 ```
 
 - **`check_limits` 签名注（2026-10-16 裁·流水 52-A）**：补注注入制签名——`check_limits(state, *, elapsed_seconds: float | None = None, consecutive_asks: int | None = None) -> Convergence`——注入制（流水 52-A）：None＝该项不判定；**返回形以现实现为准**＝恒回 `Convergence`（未触界回 `Convergence(hit=(), notice=None)`，**无 `None` 分支**；2026-10-16 微修正批收尾——原注 `| None` 与实现／行为 12 断言模型不符）；`tool_timeout` 为单次调用时限归执行侧实时面、不经本判定。
-- **闭世界常量族**（本块导出、全体消费）：`STEP_KINDS`（step 类型六值）｜`RUN_STATUS_KINDS`（run 状态四值）｜`INTENT`（路由意图**十一值**——V2-96 D5 追加 `explore`：作答第二出口路由意图）——三族都是 **`RunState` 字段的取值域**。取值与条数真源＝`recon/I2a-状态常量与清单.md`（22 条常量实测）＋V2-96 追加 1；本规格不复述取值。**通知类型（`notice.type`）的闭世界不属本块**——它是帧载荷面，归 `transport`（其规格定稿时须立该闭世界并落定取值真源）。
+- **闭世界常量族**（本块导出、全体消费）：`STEP_KINDS`（step 类型六值）｜`RUN_STATUS_KINDS`（run 状态四值）｜`INTENT`（路由意图**十二值**——V2-96 D5 追加 `explore`（作答第二出口）、V2-115 追加 `repair`（核验回炉）；真源＝本块 constants）——三族都是 **`RunState` 字段的取值域**。取值与条数真源＝`recon/I2a-状态常量与清单.md`（22 条常量实测）＋V2-96 追加 1；本规格不复述取值。**通知类型（`notice.type`）的闭世界不属本块**——它是帧载荷面，归 `transport`（其规格定稿时须立该闭世界并落定取值真源）。
 - **再探三字段与轮数上限（V2-96 D5 additive——真源 §五·5.3）**：`RunState` 追加 `explore_rounds`（已执行再探轮数，默认 0）／`explore_fingerprints`（已处理请求指纹列，默认空）／`pending_explore`（待执行 explore 意图投影，默认 None）——**默认零值＝零漂移**；数值单点 `MAX_EXPLORE_ROUNDS`（＝2）落本块常量（**非 `Budget` 键**——七键闭世界不扩；不占澄清轮、不动 discover 预算）。
 - **三类不可变载荷的形态闭世界**：`AskRequest` 三形态——仅 `question`＝提问｜`resume_run_id`＝断线重连｜`question`＋`followup_run_id`＝追问续会话；`resume_run_id` 与 `followup_run_id` 同在场＝判失败。`AskChoice.kind`＝`clarify`｜`external_table_approval`；`AskChoice.decision`＝`approve`｜`reject`｜`None`。越界值一律判失败。
 - **`RunHandle.stream` 的元素类型是外部类型**：`SseEvent`（帧对象 `{seq, event, data}`）的**形状真源在 `transport`**；本块不 import 任何 runtimev2 块（R4），故以**字符串前向引用**标注（`AsyncIterator["SseEvent"]`）——**本块不定义它、也不得给它安第二套含义**（禁把 `SseEvent` 当成"载荷 dict 别名"）。
@@ -147,7 +147,7 @@ def check_limits(state: RunState) -> Convergence: ...   # 纯函数：不改入�
 | 追问播种＝前轮终链整链承接（跨 run 前缀延伸） | `tests/domains/test_v2_state.py::followup_seeds_full_chain` |
 | 旧检查点如实读入（不抛错、对话通道空显、`schema_version` 如实） | `tests/domains/test_v2_state.py::legacy_checkpoint_read_honest` |
 | 三族常量闭世界：越界取值抛错 | `tests/domains/test_v2_state.py::constant_families_closed_world` |
-| 再探预算面：`INTENT` 十一值含 `explore`、`MAX_EXPLORE_ROUNDS==2`、总时长 300s 不变、`Budget` 七键不扩（V2-96 D5） | `tests/domains/test_v2_v296_explore.py::test_explore_budget_and_seconds_unbroken` |
+| 再探预算面：`INTENT` 十二值含 `explore`／`repair`、`MAX_EXPLORE_ROUNDS==2`、总时长 300s 不变、`Budget` 七键不扩（V2-96 D5） | `tests/domains/test_v2_v296_explore.py::test_explore_budget_and_seconds_unbroken` |
 | 常量单点消费：无第二处自建集合、无裸状态字面量把守 | `tests/domains/test_v2_state.py::no_second_source_of_constants` |
 | 限额参数键集闭世界、缺键取缺省（无散落字面量） | `tests/domains/test_v2_state.py::budget_keys_closed_world` |
 | 触界判定确定、纯、不改入参 | `tests/domains/test_v2_state.py::check_limits_pure_and_deterministic` |
