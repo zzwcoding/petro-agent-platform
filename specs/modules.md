@@ -108,11 +108,14 @@ class ToolRegistry:
     def descriptors(self) -> list[ToolDescriptor]: ...      # 渐进披露：名称/描述/参数schema/只读声明
     async def call(self, name: str, args: dict, ctx: ToolContext) -> ToolResult: ...
 ```
-四工具：`semantic_query(question|element)` → knowledge；
+在册工具（V2-96 后六工具；`faq_lookup` 由读缝提供时殿后为第七件）：
+`semantic_query(question|element)` → knowledge；
 `data_query(plan_draft)` → query（draft 先经 validate）；
 `doc_retrieve(question, anchors?, family_hints?)` → retrieval；
 `table_schema(table?)` → 结构卡发现面（agg 三表＋sem 五账＋kb 片段清单——白名单外
-raw/lake 湖表不开放，只读零 SQL；V2-31 新增发现工具）。
+raw/lake 湖表不开放，只读零 SQL；V2-31 新增发现工具）；
+`fetch_section(report_id, section?)` → retrieval 按来源取节（V2-96 作答侧再探用，只读）；
+`fetch_report(report_id, max_chars?)` → retrieval 取母报告（截断＋披露，V2-96）。
 `graph_query(question, anchors?)` → retrieval 图谱面：**已从注册面摘除**（V2-97／D7——
 生产装配无 `graph=`，恒返空集回退；handler/常量/GraphSource/compound 精排件全部保留，
 恢复条件见 `specs/tools.md` 摘除注记）。

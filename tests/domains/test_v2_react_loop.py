@@ -663,7 +663,8 @@ def test_table_schema_discovery_tool() -> None:
     )
     names = [d.name for d in registry.descriptors()]
     assert names == [
-        "semantic_query", "data_query", "doc_retrieve", "table_schema",
+        "semantic_query", "data_query", "doc_retrieve",
+        "fetch_section", "fetch_report", "table_schema",
     ]
     ctx = ToolContext(actor="dev-u1", budget=4)
     cards = asyncio.run(registry.call(SCHEMA_PROBE, {}, ctx))

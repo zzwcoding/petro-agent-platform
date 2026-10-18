@@ -230,6 +230,26 @@ ANSWER_DRAFT_CONTRACT = (
 )
 
 
+# ── 族⑤b 作答第二出口合同（**V2-96 新增**——正向条款＋1 示例；不堆条款）─────────────
+# 真源＝`docs/runtime-refactor/接手-召回全链路最终决议与运行流程-20261018.md` §五·5.1（作答相位
+# 第二出口合同）＋`tickets/v2/V2-96-作答侧有界再探.md`（预算行「再探 ≤2 次、每轮 ≤2 请求」）。
+# 承载位＝答案环节**规章段**（`answer_system_contract`，system 位）——插在汇总合同与起草答案
+# 合同之间（末段＝起草答案合同收尾的既有判据不破）。
+ANSWER_EXPLORE_CONTRACT = (
+    "【材料不够时的第二出口】材料不足以回答时，除了直接作答，还可以申请补充检索："
+    "只输出一个 JSON 对象 "
+    '{"action":"explore","reason":"缺什么（必填）","requests":['
+    '{"tool":"doc_retrieve","query":"检索问句"}]}——'
+    "tool 只许三值：doc_retrieve（新召回）、fetch_section（取某篇已见报告的某节，"
+    "带 report_id 与 section）、fetch_report（取某篇已见报告的整篇，最后手段）；"
+    "requests 1~2 条；fetch_* 的 report_id 只许用材料里出现过的来源名。"
+    "再探 ≤2 次、每轮 ≤2 请求；预算用尽后只能如实作答（写明已试几次、仍缺什么）。\n"
+    "示例（材料缺某篇报告的某节细节）："
+    '{"action":"explore","reason":"缺三、检泵作业明细","requests":['
+    '{"tool":"doc_retrieve","query":"W-24 井 抽油杆 断点 米数"}]}'
+)
+
+
 # ── 族⑥答案要求清单（迁移照抄——V1 `_ANSWER_REQUIREMENTS`；十条逐字、顺序固定、「；」分隔）──
 # 2026-10-17 EB2 D2：①–⑦文本不变（⑦尾「。」改「；」＝分隔符，条文零改；其内文无「；」），
 # 末尾追加第八条（逐字稿＝EB2 方案 D2 引文）。
@@ -296,7 +316,7 @@ CONTRACT_CONSTANT_FAMILIES: Mapping[str, tuple[str, ...]] = {
     "clarify_emission": ("CLARIFY_EMISSION_CONTRACT",),
     "toolmatch_emission": ("TOOLMATCH_EMISSION_CONTRACT",),
     "summary": ("SUMMARY_CONTRACT",),
-    "answer_draft": ("ANSWER_DRAFT_CONTRACT",),
+    "answer_draft": ("ANSWER_DRAFT_CONTRACT", "ANSWER_EXPLORE_CONTRACT"),
     "answer_requirements": ("ANSWER_REQUIREMENTS", "JARGON_PLAIN_GLOSSARY"),
     "system_background": ("SYSTEM_BACKGROUND",),
 }

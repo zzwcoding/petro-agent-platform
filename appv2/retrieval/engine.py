@@ -40,7 +40,12 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 from appv2.retrieval.domain import (
+    FETCH_TRUNCATION_MARK,
     NODE_SLICE,
+    NOTE_FETCH_REPORT_SENT,
+    NOTE_FETCH_SECTION_MISSING,
+    NOTE_FETCH_SECTION_SENT,
+    NOTE_FETCH_TRUNCATED,
     QUESTION_BLOCK_TYPE,
     SNIPPET_CHARS,
     FragmentRecord,
@@ -101,6 +106,44 @@ DOC_CONF_USER_TEMPLATE = (
 DOC_CONF_SAMPLE_WIDTH = 90  # 来源置信度摘录窗宽（V1 同值）
 DOC_CONF_SAMPLES = 3  # 每来源出示摘录条数（V1——单样例打分有采样偏）
 GRAPH_SECTION = "关系图谱"  # 图谱边出处 section 槽（V1 图谱链同值）
+LEG_KB = "kb"  # 直读取料腿标记（V2-96 fetch_*——非召回腿；消费面只读 kind/locator，leg 不参与）
+
+
+def _representative_section(fragments: list[FragmentRecord]) -> str:
+    """报告代表节（V2-96 fetch_section 的 `section` 空形）：表格承载优先、否则原序首片段的节。"""
+    for frag in fragments:
+        if _is_table_bearing(frag.text):
+            return frag.section or ""
+    return fragments[0].section or ""
+
+
+def _take_fragments(
+    fragments: list[FragmentRecord], cap_chars: int
+) -> tuple[list[tuple[FragmentRecord, str]], int, int, bool]:
+    """按上界取片段（V2-96 fetch_* 的截断单点）：返（逐片段文本，原文总字数，交付字数，是否截断）。
+
+    逐片段原序累加；单片超剩余额度＝截到额度＋**可见截断标记**；额度尽＝停取（截断显式）。
+    """
+    kept: list[tuple[FragmentRecord, str]] = []
+    total = sum(len(frag.text) for frag in fragments)
+    sent = 0
+    truncated = False
+    remaining = max(0, int(cap_chars))
+    for frag in fragments:
+        if remaining <= 0:
+            truncated = True
+            break
+        text = frag.text
+        if len(text) > remaining:
+            text = text[:remaining] + FETCH_TRUNCATION_MARK
+            sent += remaining
+            remaining = 0
+            truncated = True
+        else:
+            sent += len(text)
+            remaining -= len(text)
+        kept.append((frag, text))
+    return kept, total, sent, truncated
 
 
 class CompletionView(Protocol):
@@ -252,6 +295,90 @@ class RetrievalEngine:
             window_note=build_window_note(len(matched), len(observations), extra=extra),
         )
 
+    # ---------- 按来源取节／取篇（V2-96 D5——KB 只读读面，非召回腿） ----------
+
+    async def fetch_section(
+        self, report: str, section: str | None = None, *, cap_chars: int
+    ) -> RetrievalBundle:
+        """取一篇**已见报告**的某一节片段（V2-96 D5；真源 §五·5.4）。
+
+        `section` 空＝按 `_is_table_bearing`／原序取该报告**代表节**；受 `cap_chars` 上界
+        （截断显式＋披露）；无该报告／无该节＝空集＋如实 window_note（不代取他节）。
+        直读取料（非召回腿）——`leg="kb"`，出处链照旧 fragment→report→library。
+        """
+        fragments = [
+            frag
+            for frag in await self._library.fragments()
+            if frag.frag_type != QUESTION_BLOCK_TYPE and frag.report == report
+        ]
+        if not fragments:
+            return RetrievalBundle(
+                observations=[],
+                window_note=NOTE_FETCH_SECTION_MISSING.format(
+                    report=report, section=section or ""
+                ),
+            )
+        if section:
+            picked = [frag for frag in fragments if (frag.section or "") == section]
+            if not picked:
+                return RetrievalBundle(
+                    observations=[],
+                    window_note=NOTE_FETCH_SECTION_MISSING.format(
+                        report=report, section=section
+                    ),
+                )
+        else:
+            picked = [
+                frag
+                for frag in fragments
+                if (frag.section or "") == _representative_section(fragments)
+            ]
+        kept, total, sent, truncated = _take_fragments(picked, cap_chars)
+        note = NOTE_FETCH_SECTION_SENT.format(recalled=len(picked), sent=len(kept))
+        if truncated:
+            note += "；" + NOTE_FETCH_TRUNCATED.format(total=total, kept=sent)
+        observations = [
+            self._report_observation(frag, text) for frag, text in kept
+        ]
+        return RetrievalBundle(
+            observations=observations,
+            window_note=note,
+            recalled=len(picked),
+            sent=len(observations),
+        )
+
+    async def fetch_report(self, report: str, *, cap_chars: int) -> RetrievalBundle:
+        """取一篇**已见报告**的整篇（片段有序拼接；V2-96 D5；真源 §五·5.4）。
+
+        **最后手段**：全文超 `cap_chars` 必截断＋披露（正文尾截断标记，window_note 带
+        「全文 N 字，交付前 M 字」）；无该报告＝空集＋如实 window_note。
+        """
+        fragments = [
+            frag
+            for frag in await self._library.fragments()
+            if frag.frag_type != QUESTION_BLOCK_TYPE and frag.report == report
+        ]
+        if not fragments:
+            return RetrievalBundle(
+                observations=[],
+                window_note=NOTE_FETCH_SECTION_MISSING.format(report=report, section=""),
+            )
+        kept, total, sent, truncated = _take_fragments(fragments, cap_chars)
+        note = (
+            NOTE_FETCH_TRUNCATED.format(total=total, kept=sent)
+            if truncated
+            else NOTE_FETCH_REPORT_SENT.format(total=total, kept=sent)
+        )
+        observations = [
+            self._report_observation(frag, text) for frag, text in kept
+        ]
+        return RetrievalBundle(
+            observations=observations,
+            window_note=note,
+            recalled=len(fragments),
+            sent=len(observations),
+        )
+
     # ---------- 双路召回腿（V1 kb.index_search_dual 同款两腿） ----------
 
     async def _vector_leg(self, question: str, fragments: list[FragmentRecord]) -> list[Hit]:
@@ -391,7 +518,15 @@ class RetrievalEngine:
     # ---------- 行投影（Hit/GraphEdgeRecord→Observation——出处链单点） ----------
 
     def _fragment_observation(self, hit: Hit) -> Observation:
-        frag = hit.fragment
+        return self._observation_of(hit.fragment, hit.fragment.text, hit.leg, hit.score)
+
+    def _report_observation(self, frag: FragmentRecord, text: str) -> Observation:
+        """直读取料观察（V2-96 fetch_* 用——`leg="kb"`＝KB 直读、非召回腿；出处链同形）。"""
+        return self._observation_of(frag, text, LEG_KB, 1.0)
+
+    def _observation_of(
+        self, frag: FragmentRecord, text: str, leg: str, score: float
+    ) -> Observation:
         locator: dict[str, Any] = {
             "library": frag.library,
             "report": frag.report,
@@ -401,16 +536,16 @@ class RetrievalEngine:
         if frag.node_kind != NODE_SLICE:
             # 摘要节点机读位（V2-47 R1b——切片 locator 不带此键，旧形零漂移）。
             locator["node_kind"] = frag.node_kind
-        if _is_table_bearing(frag.text):
+        if _is_table_bearing(text):
             # 表格承载机读位（V2-93——L3 表格保底席判据；判据单点＝`domain._is_table_bearing`，
             # 本处只打标记、不另立第二份判定；非表格支不带此键，旧形零漂移）。
             locator["table_bearing"] = True
         return Observation(
             kind="fragment",
-            text=frag.text,
-            snippet=frag.text[:SNIPPET_CHARS],
-            score=hit.score,  # 恒原始腿分——精排只重排不改分（V1 同尺）
-            leg=hit.leg,
+            text=text,
+            snippet=text[:SNIPPET_CHARS],
+            score=score,  # 恒原始腿分——精排只重排不改分（V1 同尺）
+            leg=leg,
             family=frag.family,
             fragment_id=frag.fragment_id,
             report_id=frag.report_id,

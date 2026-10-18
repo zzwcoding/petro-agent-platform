@@ -1,8 +1,8 @@
-"""tools.handlers —— 五工具实现（engines 只读包装；specs/tools.md「四工具」行
-＋V2-31 发现工具扩展 table_schema）。
+"""tools.handlers —— 七工具实现（engines 只读包装；specs/tools.md「四工具」行
+＋V2-31 发现工具扩展 table_schema ＋V2-96 作答侧两新工具）。
 
-五工具＝三引擎公开接口的包装＋白名单结构卡（零引擎逻辑——specs/tools.md「不做
-什么」）：
+七工具＝三引擎公开接口的包装＋白名单结构卡＋按来源取节/取篇（零引擎逻辑——
+specs/tools.md「不做什么」）：
 - semantic_query（question｜element_name）→ knowledge.evidence＋metric_by_name
   ——跨 kind 歧义名（「日产液」类）双落并列：evidence() 结果优先（术语卡一等
   材料语义，在前）＋metric_by_name 补取可出数指标（别名归一落点，element_id
@@ -15,6 +15,10 @@
 - doc_retrieve（question, anchors?, family_hints?）→ retrieval.retrieve——
   anchors/family_hints/ctx.budget 逐字进 RetrievalNeed（P-003 已定实现＝并入
   关键词腿检索单元＋编号保送——V2-04 挂账对齐项②的参数契约面）；
+- fetch_section（report_id, section?）／fetch_report（report_id, max_chars?）
+  （V2-96 D5——作答侧有界再探的按来源取节/取篇；KB 只读，`report_id`＝已见
+  来源标识（报告名），超 `FETCH_CAP_CHARS` 必截断＋披露；「只许已见来源」的
+  判据在编排侧，工具面只做「来源不存在/无该节」的如实空集）；
 - graph_query（question, anchors?）→ retrieval.graph——anchors 并入实体匹配
   问针（锚定语义的图谱侧投影；引擎 face 按 question 子串匹配实体，锚名只在
   anchors 提名时可达，测试端到端钉死）。**V2-97（D7）摘除注册面**：生产装配
@@ -75,6 +79,7 @@ from appv2.tools.schema import (
     ASK_EXTERNAL_TABLE_APPROVAL,
     CATEGORY_BAD_ARGS,
     CATEGORY_REFUSED,
+    FETCH_CAP_CHARS,
     LINEAGE_LIMIT_HIT_KEY,
     LINEAGE_LIMIT_KEY,
     LINEAGE_LIMIT_ROWS_KEY,
@@ -103,6 +108,9 @@ DOC_RETRIEVE = "doc_retrieve"
 GRAPH_QUERY = "graph_query"
 SCHEMA_PROBE = "table_schema"
 FAQ_LOOKUP = "faq_lookup"
+# V2-96（D5）：按来源取节／取篇两新工具（只读；`report_id`＝已见来源标识＝报告名）。
+FETCH_SECTION = "fetch_section"
+FETCH_REPORT = "fetch_report"
 
 # ---------- faq_lookup 辅助读面缝（V2-52 辅助模式——结构性 Protocol） ----------
 
@@ -128,11 +136,21 @@ class QueryFace(Protocol):
 
 
 class RetrievalFace(Protocol):
-    """检索引擎面（RetrievalEngine retrieve＋graph——specs/modules.md retrieval 卡）。"""
+    """检索引擎面（RetrievalEngine retrieve＋graph——specs/modules.md retrieval 卡）。
+
+    V2-96（D5）additive：`fetch_section`／`fetch_report`＝按来源取节／取篇（KB 只读读面，
+    非召回腿）——`report`＝已见来源标识（报告名），`cap_chars`＝字符上界（截断＋披露归引擎）。
+    """
 
     async def retrieve(self, need: RetrievalNeed) -> RetrievalBundle: ...
 
     async def graph(self, need: RetrievalNeed) -> RetrievalBundle: ...
+
+    async def fetch_section(
+        self, report: str, section: str | None, *, cap_chars: int
+    ) -> RetrievalBundle: ...
+
+    async def fetch_report(self, report: str, *, cap_chars: int) -> RetrievalBundle: ...
 
 
 # ---------- args_schema（参数契约——数据面 schema 真源在各自引擎卡，工具层只引用） ----------
@@ -205,6 +223,41 @@ _DOC_SCHEMA: dict[str, Any] = {
         },
     },
     "required": ["question"],
+    "additionalProperties": False,
+}
+
+_FETCH_SECTION_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "report_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "来源标识（＝已见来源的报告名，逐字取材料里的出处名）",
+        },
+        "section": {
+            "type": "string",
+            "description": "节名（可空——空＝该报告代表节）",
+        },
+    },
+    "required": ["report_id"],
+    "additionalProperties": False,
+}
+
+_FETCH_REPORT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "report_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "来源标识（＝已见来源的报告名，逐字取材料里的出处名）",
+        },
+        "max_chars": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "字符上界（可空——缺省取 fetch_cap；超界必截断＋披露）",
+        },
+    },
+    "required": ["report_id"],
     "additionalProperties": False,
 }
 
@@ -326,6 +379,26 @@ _FAQ_DESCRIPTION = (
     "\n何时用：问句像现成问答（有标准问/相似问条目）时，先取辅助材料。"
     "\n不能做什么：命中条目只作辅助材料——不进血缘卡、不作权威数值断言、不阻断主链。"
     "\n参数示例：{\"question\": \"日产液量怎么算\"}。"
+)
+# V2-96（D5）两新工具（作答侧有界再探——只许对**已见来源**要更多；只读；截断＋披露）。
+_FETCH_SECTION_DESCRIPTION = (
+    "取一篇已见报告的某一节原文（作答侧补充检索用）：按 report_id（来源标识＝报告名）"
+    "取该节片段，section 空＝该报告代表节；观察带 fragment→report→library 出处链与"
+    "截断显式 window_note。只读。"
+    "\n何时用：作答时发现材料缺某篇**已在材料里出现过**的报告的某节细节。"
+    "\n不能做什么：只许对已见来源要更多——未见来源与越权库一律拒；不检索新报告、不跨库、"
+    "不改写原文；节不存在＝如实回执，不代取他节。"
+    "\n参数示例：{\"report_id\": \"《B-渤中34-5油田躺井治理与检泵作业月报-202608》\", "
+    "\"section\": \"三、检泵作业明细\"}。"
+)
+_FETCH_REPORT_DESCRIPTION = (
+    "取一篇已见报告的整篇原文（作答侧补充检索的**最后手段**）：按 report_id 取该报告"
+    "全部片段有序拼接，超上限必截断并在 window_note 逐字披露。只读。"
+    "\n何时用：节级取料仍不够、确需通读该篇**已在材料里出现过**的报告时。"
+    "\n不能做什么：只许对已见来源要更多——未见来源与越权库一律拒；全文超上限必截断披露，"
+    "不假装全文；不改写原文。"
+    "\n参数示例：{\"report_id\": \"《B-渤中34-5油田躺井治理与检泵作业月报-202608》\", "
+    "\"max_chars\": 6000}。"
 )
 
 # 阈值常量钉死（附 B——THRESHOLD：score ≥ 阈值才消费；读面精确命中恒满分，
@@ -636,11 +709,12 @@ def build_tools(
     faq: FaqLookupFace | None = None,
     well_roster: WellRosterFace | None = None,
 ) -> list[Tool]:
-    """四工具装配（注册序＝specs/tools.md 列序＋V2-31 发现工具殿后；全部 readonly=True）。
+    """工具装配（注册序＝specs/tools.md 列序＋V2-31 发现工具殿后；全部 readonly=True）。
 
     V2-97（D7）：`graph_query` 已摘除注册面（代码保留——见 graph_query handler 与
-    specs/tools.md「graph_query 摘除注记」），故在册基础名单＝semantic_query／
-    data_query／doc_retrieve／table_schema 四件。
+    specs/tools.md「graph_query 摘除注记」）；V2-96（D5）：新增 fetch_section／
+    fetch_report 两件（按来源取节/取篇，只读），故在册基础名单＝semantic_query／
+    data_query／doc_retrieve／fetch_section／fetch_report／table_schema 六件。
 
     faq＝FAQ 现成问答库读缝（V2-52 辅助模式——提供时注册 faq_lookup 发现工具，
     缺省 None＝不在册：faq_* 缝未接线的装配零漂移）。
@@ -656,6 +730,12 @@ def build_tools(
 
     async def _doc(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return await doc_retrieve(args, ctx, retrieval=retrieval)
+
+    async def _fetch_section(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+        return await fetch_section(args, ctx, retrieval=retrieval)
+
+    async def _fetch_report(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+        return await fetch_report(args, ctx, retrieval=retrieval)
 
     # V2-97（D7）：graph_query 注册项已摘除（handler 保留——直调面见
     # appv2.tools.handlers.graph_query；不在 build_tools 在册名单）。 DEBT(V2-97)
@@ -687,6 +767,22 @@ def build_tools(
                 args_schema=_DOC_SCHEMA,
             ),
             handler=_doc,
+        ),
+        Tool(
+            descriptor=ToolDescriptor(
+                name=FETCH_SECTION,
+                description=_FETCH_SECTION_DESCRIPTION,
+                args_schema=_FETCH_SECTION_SCHEMA,
+            ),
+            handler=_fetch_section,
+        ),
+        Tool(
+            descriptor=ToolDescriptor(
+                name=FETCH_REPORT,
+                description=_FETCH_REPORT_DESCRIPTION,
+                args_schema=_FETCH_REPORT_SCHEMA,
+            ),
+            handler=_fetch_report,
         ),
         Tool(
             descriptor=ToolDescriptor(
@@ -1091,8 +1187,40 @@ async def graph_query(
     return _bundle_to_result(await retrieval.graph(need))
 
 
-# ---------- 工具五：table_schema（V2-31 发现工具——白名单⑥结构卡） ----------
+# ---------- 工具六/七：fetch_section 与 fetch_report（V2-96 D5——按来源取节/取篇，只读） ----
 
+
+async def fetch_section(
+    args: dict[str, Any], ctx: ToolContext, *, retrieval: RetrievalFace
+) -> ToolResult:
+    """取一篇已见报告的某节片段（V2-96 D5；真源 §五·5.4）。
+
+    `report_id`＝来源标识（报告名——模型只许对 L2/L3 窗口里出现过的来源要更多；**该判据在
+    编排侧**，本工具面只做「该来源不存在／无该节＝如实空集＋window_note」，不静默冒充）。
+    受 `FETCH_CAP_CHARS` 上界（截断＋披露归引擎）；只读（INV-2）。
+    """
+    report = str(args["report_id"]).strip()
+    section = str(args.get("section") or "").strip() or None
+    bundle = await retrieval.fetch_section(report, section, cap_chars=FETCH_CAP_CHARS)
+    return _bundle_to_result(bundle)
+
+
+async def fetch_report(
+    args: dict[str, Any], ctx: ToolContext, *, retrieval: RetrievalFace
+) -> ToolResult:
+    """取一篇已见报告的整篇（V2-96 D5；**最后手段**）。
+
+    `max_chars` 空＝`FETCH_CAP_CHARS`；超界必截断＋披露（引擎侧 `NOTE_FETCH_TRUNCATED`／
+    正文尾截断标记）；只读（INV-2）。
+    """
+    report = str(args["report_id"]).strip()
+    raw_cap = args.get("max_chars")
+    cap = FETCH_CAP_CHARS if raw_cap is None else int(raw_cap)
+    bundle = await retrieval.fetch_report(report, cap_chars=cap)
+    return _bundle_to_result(bundle)
+
+
+# ---------- 工具五：table_schema（V2-31 发现工具——白名单⑥结构卡） ----------
 
 def table_schema(
     args: dict[str, Any], ctx: ToolContext, *, well_roster: WellRosterFace | None = None

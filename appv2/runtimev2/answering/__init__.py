@@ -51,6 +51,8 @@ from appv2.runtimev2.answering.constants import (
     ECHO_HEAD,
     EMISSION_ACTIONS,
     EMPTY_DRAFT_REASON,
+    EXPLORE_REJECT_BODY,
+    EXPLORE_STEP_TITLE,
     MODEL_CALLER,
     NOTICE_EMISSION_STRIP,
     NOTICE_MATERIAL_TRUNCATED,
@@ -60,6 +62,7 @@ from appv2.runtimev2.answering.constants import (
     PAYLOAD_ECHO_FLAG_KEY,
     PAYLOAD_ENGINE_NOTES_KEY,
     PAYLOAD_ENGINE_ROWS_KEY,
+    PAYLOAD_EXPLORE_KEY,
     PAYLOAD_RANKING_ORDER_OK_KEY,
     PAYLOAD_RANKING_SEQS_KEY,
     ROWSET_OBSERVATION_KINDS,
@@ -68,7 +71,7 @@ from appv2.runtimev2.answering.constants import (
     TAIL_CLOSE_LEAD_IN,
     TAIL_CLOSE_TABLE_HEADER,
 )
-from appv2.runtimev2.answering.core import answer
+from appv2.runtimev2.answering.core import answer, answer_anchors
 from appv2.runtimev2.answering.degradation import (
     dangling_tail_closing,
     echo_flag,
@@ -97,6 +100,8 @@ __all__ = [
     "ECHO_HEAD",
     "EMISSION_ACTIONS",
     "EMPTY_DRAFT_REASON",
+    "EXPLORE_REJECT_BODY",
+    "EXPLORE_STEP_TITLE",
     "GAP_KINDS",
     "GAP_MISSING",
     "GAP_REFUSED",
@@ -110,6 +115,7 @@ __all__ = [
     "PAYLOAD_ECHO_FLAG_KEY",
     "PAYLOAD_ENGINE_NOTES_KEY",
     "PAYLOAD_ENGINE_ROWS_KEY",
+    "PAYLOAD_EXPLORE_KEY",
     "PAYLOAD_RANKING_ORDER_OK_KEY",
     "PAYLOAD_RANKING_SEQS_KEY",
     "ROWSET_OBSERVATION_KINDS",
@@ -122,6 +128,7 @@ __all__ = [
     "Citation",
     "Gap",
     "answer",
+    "answer_anchors",
     "dangling_tail_closing",
     "echo_flag",
     "extract_finalize_answer",

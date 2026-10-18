@@ -249,6 +249,13 @@ class RunState:
     observations: list[dict[str, Any]] = field(default_factory=list)
     resume_choices: list[dict[str, Any]] = field(default_factory=list)
     approved_ids: list[str] = field(default_factory=list)
+    # 作答侧有界再探（V2-96 D5 2026-10-18 additive——独立计数，默认零值＝零漂移）：
+    # `explore_rounds`＝已执行的再探轮数（≤`MAX_EXPLORE_ROUNDS`，不占澄清轮／不动 discover 预算）；
+    # `explore_fingerprints`＝已处理请求指纹列（`tool|query` 或 `tool|report_id|section`——拒重）；
+    # `pending_explore`＝作答相位落的待执行 explore 意图投影（编排消费后清）。
+    explore_rounds: int = 0
+    explore_fingerprints: list[str] = field(default_factory=list)
+    pending_explore: dict[str, Any] | None = None
     draft: str = ""
     draft_kind: str = ""  # ""=待核验草稿；"direct"=确定性直答（释义真源 specs/answering.md）
     answer: str = ""

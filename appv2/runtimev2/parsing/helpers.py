@@ -153,3 +153,38 @@ def parse_with_quote_repair(parse: Callable[[str], Any], content: str) -> tuple[
     if isinstance(second, str):
         return result, False
     return second, True
+
+
+def whole_json_object(text: str) -> dict[str, Any] | None:
+    """整枚 JSON 对象判定（V2-96——作答第二出口的「整应答恰一枚 JSON」判据）。
+
+    与 `extract_plan_json` 的**子串**提取不同：本件只认**整应答**（可去整围栏壳、去两侧空白）
+    恰为一个 JSON 对象——散文包裹／JSON 标量／数组一律不作数。纯字符扫描＋`json.loads`，
+    零语义零模型零 IO（同族先例＝`answering.emission.extract_finalize_answer` 的三条件判定；
+    本件归 parsing 侧自修族，因 R3 禁 parsing 引业务相位）。
+    """
+    stripped = _fence_shell_stripped(text)
+    try:
+        payload = json.loads(stripped)
+    except ValueError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _fence_shell_stripped(text: str) -> str:
+    """整围栏壳解壳（```` ```json\\n…\\n``` ````）——非包裹形原样（两侧 `strip`）。
+
+    只解**整体包裹**（首尾皆三反引号）：首行语言标记行离场；解壳不成即原样返回。
+    """
+    fence = "```"
+    stripped = text.strip()
+    if len(stripped) < 2 * len(fence):
+        return stripped
+    # 纯字符扫描（禁 `startswith`／`endswith`——parsing 面词面判方法零使用红线）。
+    if stripped[: len(fence)] != fence or stripped[-len(fence) :] != fence:
+        return stripped
+    body = stripped[len(fence) : -len(fence)]
+    line_end = body.find("\n")
+    if line_end >= 0:
+        body = body[line_end + 1 :]
+    return body.strip()

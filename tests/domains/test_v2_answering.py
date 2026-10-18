@@ -790,10 +790,17 @@ async def test_finalize_json_blank_answer_not_recovered() -> None:
 def test_card_signature_and_five_shapes() -> None:
     """骨架与公开面按卡面签名（`answer(state) -> AnswerDraft`）＋五形状齐（规格 :37–:60）。"""
     signature = inspect.signature(answer)
-    # EB3 D2：增补面收集列表 `supplements` 为第三处 kw-only 注入面
-    assert list(signature.parameters) == ["state", "bus", "max_observations", "supplements"]
+    # EB3 D2：增补面收集列表 `supplements` 为第三处 kw-only 注入面；
+    # V2-96 D5：硬停止兜底正文 `forced_text` 为第四处 kw-only 注入面（缺省空串＝旧行为零漂移）。
+    assert list(signature.parameters) == [
+        "state",
+        "bus",
+        "max_observations",
+        "supplements",
+        "forced_text",
+    ]
     assert signature.parameters["state"].kind is inspect.Parameter.POSITIONAL_OR_KEYWORD
-    for name in ("bus", "max_observations", "supplements"):
+    for name in ("bus", "max_observations", "supplements", "forced_text"):
         assert signature.parameters[name].kind is inspect.Parameter.KEYWORD_ONLY
     assert (
         signature.return_annotation == "AnswerDraft"

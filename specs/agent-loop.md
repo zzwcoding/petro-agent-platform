@@ -186,6 +186,13 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 
 11. **`verdict` 帧两形的批次落定（承接条款）**：`verdict` 帧有 `verify`（核验裁决）与 `final`（收口）两形（形状真源 `docs/runtime-refactor/synth/S6-事件与帧目录.md` §二 verdict 拆形）；**两形的发帧时机与批次由本块协调**——`verification`（`verify` 形）与 `answering`（`final` 形：引用块＋`citation` 帧＋链尾）各自**只保证自产部分就位**（真源 `specs/verification.md` 行为 10／`specs/answering.md` 行为 7），**由本块把它们与链尾收口按同一批落定**；两形缺任一同批判失败。
 
+12. **作答侧有界再探的路由、预算与硬停止（V2-96 D5；真源 `docs/runtime-refactor/接手-召回全链路最终决议与运行流程-20261018.md` §五）**：作答相位出 `explore` 意图（`next_intent="explore"`，`state.pending_explore` 在场）时，路由表把 `answer` 自环回 `answer` 节点——节点入口先执行再探、再重入起草：
+
+    - **执行**（`orchestration.explore.run_explore`）：逐请求过闸（**指纹拒重**＝`tool|query` 或 `tool|report_id|section` 命中 `state.explore_fingerprints` 即拒；**`fetch_*` 只许已见来源**＝`report_id` 须落在 L2 观察的 `source`／`locator.report` 集内，越界即拒并回喂拒因）→ 经 `tools` 公开面派遣（`doc_retrieve` 走 L0→L1 新召回；`fetch_section`／`fetch_report` 走 KB 只读）→ 新观察并入 L2（`fragment_id` 去重、`[n]` 序号续排、复用既有 `observation` 帧——**帧型零新增**）→ 追加一条 user 增量（头部逐字「补充检索（第 k/2 次，还剩 m 次）」＋模型上一轮 requests 原文＋新入选材料经 L3 选席）→ `state.explore_rounds += 1` → 意图回 `answer`；
+    - **预算**：再探轮数 ≤2（独立计数 `explore_rounds`——**不占澄清 3 轮、不动 discover ≤10、不扩 `Budget` 七键**）；每轮 `requests` 1..2 条（解析面把守）；总时长仍受单段 300s 约束（既有预算收敛面零改）；
+    - **硬停止**：第 2 轮仍出 `explore` → 本块追加「只能如实作答」指令并交回程序确定性缺口正文（正文含「已试 N 次检索（列出）、仍缺 X」）；模型仍出 explore 形＝以该正文交付（**不判 failed**）；
+    - **留痕**：每轮一条 step（`kind=observe`）payload 携 `explore` 面（requests 原文／executed／rejected／hits／appended／token）；`doc_retrieve` 的 `retrieval_calls` 行由工具面既有单点落（本块不重复记账）。
+
 ## 不降级与静默禁令
 
 - **合法降级路径：无**（编排层不自降级；图执行器不可用时按 fail-closed 收束为 `failed`，**不产出半成品答案**）。
@@ -240,6 +247,11 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 | 图装配与路由表集中（业务相位不自行跳转） | `tests/domains/test_v2_agent_loop.py::test_routing_table_centralized` |
 | 【边界集】挂起／中断／预算触界／换链回炉／坏引标 → 各自落到对应分支 | `tests/domains/test_v2_four_phase.py::boundary_suspend_interrupt_budget_rewire_bad_cite` |
 | 【保留集】普通提问四相位收口行为不变（无挂起、无触界、无回炉） | `tests/domains/test_v2_four_phase.py::retention_plain_four_phase_unchanged` |
+| 再探轮数到顶（2）仍出 `explore` → 强制作答（正文含「已试 N 次检索、仍缺 X」；`explore_rounds==2`、轮步恰 2 条）（V2-96 D5——落点＝行为 12） | `tests/domains/test_v2_v296_explore.py::test_explore_round_cap_and_force_answer` |
+| 再探指纹拒重（同参第二轮零派遣、零新观察、拒因回喂增量在场）（V2-96 D5） | `tests/domains/test_v2_v296_explore.py::test_explore_fingerprint_rejects_repeat` |
+| `fetch_*` 只许已见来源（未见来源零派遣、拒因含「已见」、L2 零该来源）（V2-96 D5） | `tests/domains/test_v2_v296_explore.py::test_fetch_section_unknown_report_rejected` |
+| 端到端再探链：作答说不够→`doc_retrieve` 补到八章→新观察入 L2（序号续排、`observation` 帧复用）→再作答出 386/415/428；增量头部「补充检索（第 1/2 次，还剩 1 次）」＋requests 原文在场（V2-96 D5，B-正6 形） | `tests/domains/test_v2_v296_explore.py::test_explore_end_to_end_doc_retrieve_new_recall` |
+| 再探预算独立不破（≤2 轮、每轮 ≤2 请求；总时长 300s 不变；`Budget` 七键不扩；`INTENT` 十一值）（V2-96 D5） | `tests/domains/test_v2_v296_explore.py::test_explore_budget_and_seconds_unbroken` |
 
 ## 依赖与风险
 

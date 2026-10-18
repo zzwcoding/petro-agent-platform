@@ -1,6 +1,6 @@
 """载荷定型类（三面解析的产物形状）——本块为五类形状的**物理定义点**（`specs/parsing.md` 行为 12：
 `Understanding`／`Direct`／`Subtask`／`QuestionGroup`／`SubtaskMatch`）＋V1 发射定形
-`ClarifyEmission`（行为 11）。
+`ClarifyEmission`（行为 11）＋V2-96 作答第二出口定形 `Explore`（§五·5.1）。
 
 - `Understanding`／`Direct`：字段集以 `specs/understanding.md` 接口定义为准
   （`text`／`metric_candidates`／`route`）——`route` 是定型常量，**不设类定义默认值**
@@ -113,6 +113,30 @@ class ClarifyEmission:
                 "options": list(self.ask_options),
             }
         return payload
+
+
+@dataclass(frozen=True, slots=True)
+class Explore:
+    """作答第二出口定型载荷（V2-96 D5——`{"action":"explore","reason":…,"requests":[…]}`）。
+
+    字段集真源＝`docs/runtime-refactor/接手-召回全链路最终决议与运行流程-20261018.md` §五·5.1：
+    `reason`（非空——材料不足的说明）＋`requests`（1..2 条，逐条 `tool` 闭世界三值＋工具必填参）。
+    `raw`＝模型整枚 JSON 原文（**照抄面**——增量消息「模型上一轮 requests 原文」的载体；
+    空串＝测试直造形，消费方回落 `requests` 的 JSON 序列化）。本类**纯装载**、不判取值：
+    闭世界与必填由 `parsers.parse_explore` 拒，本处只定形状与投影。
+    """
+
+    reason: str
+    requests: tuple[dict[str, Any], ...] = ()
+    raw: str = ""
+
+    def as_payload(self) -> dict[str, Any]:
+        """状态／步 payload 投影（键恒在场；`requests` 逐条浅拷——返回容器零共享）。"""
+        return {
+            "reason": self.reason,
+            "requests": [dict(item) for item in self.requests],
+            "raw": self.raw,
+        }
 
 
 @dataclass(frozen=True, slots=True)

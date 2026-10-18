@@ -34,10 +34,12 @@ def test_doc_no_five_tools_residue() -> None:
                 )
 
 
-def test_doc_keeps_four_tool_face() -> None:
-    """承诺面改四工具（不是删登记）：两文件都写明在册名单＝四工具。"""
+def test_doc_keeps_registered_tool_face() -> None:
+    """承诺面跟随注册面（不是删登记）：两文件写明在册名单＝六工具（V2-96 后）。"""
     for rel in DOCS:
-        assert "四工具" in _text(rel), f"{rel} 未写明四工具在册名单"
+        text = _text(rel)
+        assert "六工具" in text, f"{rel} 未写明六工具在册名单"
+        assert "fetch_section" in text and "fetch_report" in text, f"{rel} 未登记两新读面"
 
 
 def test_tools_package_docstring_synced() -> None:

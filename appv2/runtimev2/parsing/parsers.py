@@ -38,13 +38,25 @@ from appv2.runtimev2.parsing.constants import (
     CLARIFY_DECOMPOSE,
     CLARIFY_DISCOVER,
     CLARIFY_FINALIZE,
+    EXPLORE_ACTION,
+    EXPLORE_REQUEST_MAX,
+    EXPLORE_REQUEST_MIN,
+    EXPLORE_TOOL_DOC_RETRIEVE,
+    EXPLORE_TOOL_FETCH_REPORT,
+    EXPLORE_TOOL_FETCH_SECTION,
+    EXPLORE_TOOLS,
     ROUTE_DIRECT,
     ROUTE_FULL,
 )
-from appv2.runtimev2.parsing.helpers import extract_plan_json, json_syntax_feedback
+from appv2.runtimev2.parsing.helpers import (
+    extract_plan_json,
+    json_syntax_feedback,
+    whole_json_object,
+)
 from appv2.runtimev2.parsing.models import (
     ClarifyEmission,
     Direct,
+    Explore,
     QuestionGroup,
     Subtask,
     SubtaskMatch,
@@ -363,3 +375,70 @@ def parse_tool_match(content: str, group: QuestionGroup) -> tuple[SubtaskMatch, 
     if missing:
         return f"matches 覆盖缺口（组内子问题缺匹配：{missing}）——每子问题恰一条"
     return tuple(matches)
+
+
+# ── 作答第二出口 `explore`（V2-96 D5；真源 §五·5.1）─────────────────────────────
+# 拒因正文（回喂用——与理解面 schema 拒因同体例：逐支一句、零词表、全结构判）。
+_REASON_EXPLORE_REASON = "explore 缺 reason（材料不足说明必填非空）"
+_REASON_EXPLORE_REQUESTS = (
+    f"explore 的 requests 须为 {EXPLORE_REQUEST_MIN}~{EXPLORE_REQUEST_MAX} 条数组"
+)
+_REASON_EXPLORE_REQUEST_SHAPE = "explore 的 requests 支须为对象（{tool/query/report_id/section}）"
+_REASON_EXPLORE_TOOL = (
+    "explore 请求的 tool 取值越界（闭世界 "
+    + "／".join(sorted(EXPLORE_TOOLS))
+    + "）：{tool!r}"
+)
+_REASON_EXPLORE_QUERY = f"explore {EXPLORE_TOOL_DOC_RETRIEVE} 缺 query（检索问句必填非空）"
+_REASON_EXPLORE_REPORT = "explore {tool} 缺 report_id（来源标识必填非空）"
+
+
+def parse_explore(text: str) -> Explore | None:
+    """作答第二出口解析（`{"action":"explore","reason":…,"requests":[…]}`）——合格定型、余者 `None`。
+
+    闭世界（真源 §五·5.1）：`tool ∈ {doc_retrieve,fetch_section,fetch_report}`；每轮 `requests`
+    `1..2`；`reason` 非空；`doc_retrieve.query` 非空；`fetch_*` 的 `report_id` 非空。
+    **非 explore 形（正常答案／散文／非 JSON）＝`None` 且零拒因**（不误伤答案面）；
+    explore 尝试但不合 schema＝`None` 且拒因非空（消费方回喂恰一次）。
+    判定本体＝`_explore_schema`（与 `explore_schema_feedback` 共用——单点，两形不各自判）。
+    """
+    return _explore_schema(text)[0]
+
+
+def explore_schema_feedback(text: str) -> str:
+    """explore schema 拒因正文（回喂用）——explore 尝试不合 → 一句；其余（含正常答案）→ 空串。
+
+    与 `parse_explore` **共用判定内核** `_explore_schema`（禁手写替代：两公开形读同一序列，
+    「返 None ↔ 拒因非空（限 explore 尝试）」不漂移）。零模型、零 IO、纯结构判定。
+    """
+    return _explore_schema(text)[1]
+
+
+def _explore_schema(text: str) -> tuple[Explore | None, str]:
+    """explore 判定内核（单点）：返（定型载荷｜`None`，拒因正文——非 explore 形为空串）。"""
+    payload = whole_json_object(text)
+    if payload is None or payload.get("action") != EXPLORE_ACTION:
+        return None, ""
+    reason = str(payload.get("reason") or "").strip()
+    if not reason:
+        return None, _REASON_EXPLORE_REASON
+    raw_requests = payload.get("requests")
+    if not isinstance(raw_requests, list) or not (
+        EXPLORE_REQUEST_MIN <= len(raw_requests) <= EXPLORE_REQUEST_MAX
+    ):
+        return None, _REASON_EXPLORE_REQUESTS
+    requests: list[dict[str, Any]] = []
+    for raw in raw_requests:
+        if not isinstance(raw, dict):
+            return None, _REASON_EXPLORE_REQUEST_SHAPE
+        tool = raw.get("tool")
+        if tool not in EXPLORE_TOOLS:
+            return None, _REASON_EXPLORE_TOOL.format(tool=tool)
+        if tool == EXPLORE_TOOL_DOC_RETRIEVE:
+            if not str(raw.get("query") or "").strip():
+                return None, _REASON_EXPLORE_QUERY
+        elif tool in (EXPLORE_TOOL_FETCH_SECTION, EXPLORE_TOOL_FETCH_REPORT):
+            if not str(raw.get("report_id") or "").strip():
+                return None, _REASON_EXPLORE_REPORT.format(tool=tool)
+        requests.append(dict(raw))
+    return Explore(reason=reason, requests=tuple(requests), raw=text.strip()), ""

@@ -83,6 +83,28 @@ PAYLOAD_GAP_REASON_KEY = "reason"
 PAYLOAD_PHASE_DRAFT = "draft"
 PAYLOAD_PHASE_FINALIZE = "finalize"
 
+# ── 作答第二出口 `explore`（V2-96 D5——本块与编排块共用的机读键单点）────────────────
+# 步 payload 的 explore 面键：作答相位落「意图」（reason／requests／raw）；编排块的再探轮步
+# 落「执行面」（round／executed／hits／appended／token 等）——同键两处、形状互补。
+PAYLOAD_EXPLORE_KEY = "explore"
+EXPLORE_STEP_TITLE = "再探意图"  # 作答相位命中 explore 的步标题
+EXPLORE_REJECT_TITLE = "再探意图不合合同"
+# 回喂模板（explore 尝试不合 schema 时向链尾追加恰一次——真源 §五·5.1「回喂拒因恰一次」）。
+EXPLORE_FEEDBACK_TEMPLATE = (
+    "【拒因】{reason}\n"
+    "【期望形】只输出一个 JSON 对象："
+    '{{"action":"explore","reason":"材料不足说明","requests":['
+    '{{"tool":"doc_retrieve","query":"检索问句"}} 或 '
+    '{{"tool":"fetch_section","report_id":"已见来源名","section":"节名（可空）"}} 或 '
+    '{{"tool":"fetch_report","report_id":"已见来源名"}}]}}——'
+    "requests 1~2 条；不合此形只能如实作答，不得再发射 explore。"
+)
+# 拒因回喂恰一次仍不合 → 强制作答（程序确定性缺口正文——不判 failed；真源 §五·5.1 末条）。
+EXPLORE_REJECT_BODY = (
+    "检索意图不合合同（已回喂拒因恰一次仍不合，拒因：{reason}）——停止再探，只能如实作答；"
+    "仍缺：材料不足说明不可用，请按现有材料作答或说明未覆盖。"
+)
+
 # ── 子问题结果态面（`state.subtask_results` 取值域——真源 `execution`；此处只作分派指针）──
 SUBTASK_STATUS_OK = "ok"  # 执行块成功实录
 SUBTASK_STATUS_REFUSED = "refused"  # 前置闸拒／闸拒（终局）——非 ok 非拒者落「缺失」

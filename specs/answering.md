@@ -24,13 +24,14 @@
 
 | 模块 | 改动类型 | 说明 |
 |---|---|---|
-| answering | 新增 | 起草 ＋ 真流式推出 ＋ 引用落账 ＋ 结构化缺口 |
+| answering | 新增 | 起草 ＋ 真流式推出 ＋ 引用落账 ＋ 结构化缺口 ＋ **作答第二出口 `explore`**（V2-96 D5：材料不足时出检索意图，不落答案、零 text 帧） |
+| parsing | 新增依赖 | 第二出口解析单点（`parse_explore`／`explore_schema_feedback`——闭世界/条数/必填，拒因回喂；V2-96 D5） |
 | context | 新增 | 材料段与 Manifest（本块只消费其编译出口） |
-| prompts | 新增 | 答案轮指令装配文本（只出文本；材料段不在装配输出内——材料渲染归 `context`，本块材料渲染＝消费 `context` 编译产物、零自取，与 `specs/context.md` 定界互认） |
+| prompts | 新增 | 答案轮指令装配文本（只出文本；材料段不在装配输出内——材料渲染归 `context`，本块材料渲染＝消费 `context` 编译产物、零自取，与 `specs/context.md` 定界互认）；**第二出口合同＋1 示例＋再探预算行**（V2-96 D5） |
 | bookkeeping | 新增依赖 | 模型调用发起面：经 bookkeeping.call_model（单点发起），本块不直引 gateway_adapter |
 | gateway_adapter | 新增 | 模型出口（唯一出口仍归它）；本块不直引——经 bookkeeping.call_model 发起 |
-| state | 新增 | 草稿／引用块／缺口的状态形状（本块只消费） |
-| transport | 新增 | **`text` 帧的增量发射**（本块只经其公开面）；`citation` 帧同经其公开面；**增补面帧（`supplement`）的发射归 `orchestration`**（2026-10-17 EB3 D1／D2——本块只往收集列追加条目） |
+| state | 新增 | 草稿／引用块／缺口的状态形状（本块只消费）；**再探独立计数与待执行意图三字段＋`INTENT_EXPLORE`**（V2-96 D5） |
+| transport | 新增 | **`text` 帧的增量发射**（本块只经其公开面）；`citation` 帧同经其公开面；**增补面帧（`supplement`）的发射归 `orchestration`**（2026-10-17 EB3 D1／D2——本块只往收集列追加条目）；**再探新观察复用 `observation` 帧**（帧型零新增，V2-96 D5） |
 
 ## 接口定义
 
@@ -39,6 +40,8 @@ def answer(state: RunState) -> AnswerDraft: ...
 # 注入面（签名以卡为准的展开；关键词注入面）：answer(state, *, bus, max_observations=…)——
 # 2026-10-17 EB3 D2 增第三处选给注入面 `supplements`（编排块持有的增补面收集列表）：
 # 收口段三块（分源／归属／引用）按原序入该列表，帧由 `orchestration` 的增补面发射点发。
+# V2-96 D5 增第四处选给注入面 `forced_text`（缺省空串）：编排块硬停止（再探轮数到顶）时交来的
+# 程序确定性缺口正文——模型仍发射 `explore` 形时以本正文兜底交付（不判 failed）。
 
 class AnswerDraft:
     segments: list[AnswerSegment]     # **增量片段**（流式逐段；顺序即呈现顺序）
@@ -91,6 +94,7 @@ class Gap:
 17. **跨油田题分源列明油田归属**：交付面涉**多油田**（或跨区块／跨层系）的题，答案必须**分源列明每条结论的归属**（油田名↔数值／结论配对），**不得框成「某区块／小范围结算序列」等含糊归属**（C-正6 形禁现）；**无据归属不得进答案面**（与行为 3「无据的话不写进答案」同族；`eng/04a` 族面＝pin-02「无据差值/无据口径框架」）。合同侧承接＝`prompts` 答案要求③（多来源逐个来源分别作答，不冲突也要分别列出）。可写成 assert：多油田 fixture 下答案面归属配对在场＋「某区块」形零命中。真源：`eval/results/Q16-判分报告-G3.md`（:32——C-正6 判语逐字：「34-8 侧 −42.6 被无据框成"某区块/小范围结算序列"、不认列渤中34-8 油田归属——跨套混写不分油田档＋无据调和」）；`eval/results/Q15-对账报告.md`（:167——族 C 跨报告归属校验：attribution_split 分源列明块帧证）；`docs/runtime-refactor/eng/04a-应钉行为清单.md`（pin-03——「跨油田题交付必须分源列明油田归属，不得框成『某区块』不认归属」，golden，P0）。**2026-10-17 EB3 D2**：归属块同样**不进正文**——入增补面（`block="attribution"`）；「归属配对在场」的判据面＝增补面（帧／run 行 `supplements`），正文只留模型稿。
 18. **交付面分层：四类块不进正文（2026-10-17 EB3 D1／D2）**：程序追加内容（分源块／跨源归属块／引用清单／血缘五要素全文）**不进正文**——正文＝LLM回复原文（模型稿）；四类块经**增补面**（`supplement` 帧，载荷 `{block, text}`，`block` ∈ `split`／`attribution`／`citations`／`lineage`）交付，并由编排块随 run 行落库（`supplements` 列）；**评分面＝正文＋增补面合并判**（Owner 2026-10-17 裁决）。断言：收口后 `state.answer` 与链尾不含四类块的任何段头；增补面条目按产出序在场（原序）。
 19. **残尾护栏（2026-10-17 F1 件三——定稿前的悬空结构检测与诚实收口）**：正文进终稿前先过**悬空结构**检测（判据单点＝`degradation.dangling_tail_closing`，纯形态、零语义）：①末行以全角「：」收尾（悬空引导句）；②末段连续表格行（含表格列记号 `|`）≤ 表头行上限（有表头无数据行）；③末段为**裸标题**（整行加粗，或独立短行——≤ 24 字、无引标、无 ASCII 数字、无句读收尾，且正文 ≥2 行）。命中即程序**补一句诚实收口短句**（白话、具名常量：`TAIL_CLOSE_LEAD_IN`／`TAIL_CLOSE_TABLE_HEADER`／`TAIL_CLOSE_BARE_HEADING`，随收口段追加为末段），**正文其余字面零改**——不改写、不重试、不拦截；重入幂等（该短句已在场＝零追加）。这是**兜底**：删句误伤本体由 `verification` 侧 F1 件一／件二修掉（真机证据＝`eval/results/frames/EB4-D-诱12.json`，run-c6fd52c7：交付答案断在裸标题「**两口井教训的差异**」）。
+20. **作答第二出口 `explore`（V2-96 D5——材料不足时的有界再探意图）**：起草段模型应答整枚为 `{"action":"explore","reason":…,"requests":[…]}` 且合闭世界（`tool ∈ {doc_retrieve,fetch_section,fetch_report}`；`requests` 1..2 条；`reason` 非空；`doc_retrieve.query` 非空；`fetch_*` 的 `report_id` 非空——判据单点＝`parsing.parse_explore`）时：**不落答案、零 `text` 帧、零草稿标记**，落 `state.pending_explore`（意图投影：`reason`／`requests`／`raw`）＋ `next_intent="explore"`（路由交编排执行，见 `specs/agent-loop.md` 行为 12），起草步 payload 携 `explore` 面（requests 原文）。**拒因回喂恰一次**：explore 尝试但不合 schema（`parsing.explore_schema_feedback` 非空）→ 向链尾追加拒因载荷（`EXPLORE_FEEDBACK_TEMPLATE`）→ 同相位再读一次；**仍不合＝强制作答**（`EXPLORE_REJECT_BODY` 程序确定性缺口正文，**不判 failed**、不收 `run_failed`）。**硬停止兜底**：编排块轮数到顶后交来 `forced_text` 时，模型仍发射 explore 形＝以该正文交付（含「已试 N 次检索、仍缺 X」）。非 explore 形（正常答案／散文／非 JSON）＝零影响，照现有剥离／起草／核验管线（行为 11／13 不变）。真源：`docs/runtime-refactor/接手-召回全链路最终决议与运行流程-20261018.md` §五·5.1／5.2／5.3。
 
 ## 不降级与静默禁令
 
@@ -128,6 +132,9 @@ class Gap:
 | 【边界集】单段答案／零材料／矛盾双源／坏引标 → 各自落到对应分支 | `tests/domains/test_v2_answering.py::boundary_single_seg_zero_material_conflict_bad_cite` |
 | 【保留集】无矛盾、无缺口的普通答案：引标与分源行为不变 | `tests/domains/test_v2_answering.py::retention_plain_answer_unchanged` |
 | 残尾护栏：悬空引导句／光表头／裸标题三形命中 → 定稿补诚实收口短句（正文其余字面零改、重入幂等）；完整正文字零追加（2026-10-17 F1 件三） | `tests/domains/test_v2_answering.py::dangling_tail_guard_closes_honestly` |
+| 作答第二出口：命中 `explore` → 不落答案、零 `text` 帧、`next_intent="explore"`＋`pending_explore` 在场（V2-96 D5——落点＝行为 20） | `tests/domains/test_v2_v296_explore.py::test_answer_explore_does_not_emit_draft` |
+| 第二出口解析闭世界（`tool` 三值／每轮 1..2 条／必填／越界即拒＋拒因面非空；非 explore 形零拒因）（V2-96 D5） | `tests/domains/test_v2_v296_explore.py::test_parse_explore_valid_and_invalid` |
+| explore 尝试不合 schema → 回喂拒因恰一次（恰 2 次模型调用）；仍不合 → 强制作答正文落草稿（不判 failed）（V2-96 D5） | `tests/domains/test_v2_v296_explore.py::test_explore_schema_feedback_retry_once_then_force` |
 
 ## 依赖与风险
 

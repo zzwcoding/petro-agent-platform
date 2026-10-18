@@ -28,6 +28,7 @@ from typing import Any
 
 from appv2.runtimev2.prompts.constants import (
     ANSWER_DRAFT_CONTRACT,
+    ANSWER_EXPLORE_CONTRACT,
     ANSWER_REQUIREMENTS,
     JARGON_PLAIN_GLOSSARY,
     SUMMARY_CONTRACT,
@@ -92,6 +93,9 @@ def answer_system_contract() -> str:
         + "\n"
         + "\n"
         + SUMMARY_CONTRACT
+        + "\n"
+        + "\n"
+        + ANSWER_EXPLORE_CONTRACT
         + "\n"
         + "\n"
         + ANSWER_DRAFT_CONTRACT

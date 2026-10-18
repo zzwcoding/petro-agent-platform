@@ -61,6 +61,7 @@ from appv2.runtimev2.orchestration.constants import (
     PAYLOAD_TITLE_KEY,
     assert_frame_names,
 )
+from appv2.runtimev2.orchestration.explore import hard_stop, run_explore
 from appv2.runtimev2.parsing import Understanding
 from appv2.runtimev2.preconditions import (
     DECISION_ALLOW,
@@ -78,9 +79,11 @@ from appv2.runtimev2.state import (
     INTENT_DECISION,
     INTENT_DISCOVER,
     INTENT_END,
+    INTENT_EXPLORE,
     INTENT_PRECONDITION,
     INTENT_TOOLMATCH,
     INTENT_VERIFY,
+    MAX_EXPLORE_ROUNDS,
     RUN_WAITING_ASK,
     Convergence,
     RunState,
@@ -142,6 +145,7 @@ _ROUTES: dict[str, dict[Hashable, str]] = {
     NODE_ANSWER: {
         INTENT_VERIFY: NODE_VERIFY,  # 起草后交核验
         INTENT_ANSWER: NODE_ANSWER,
+        INTENT_EXPLORE: NODE_ANSWER,  # 作答第二出口（V2-96 D5）：再探自环——执行后重入作答
         INTENT_END: END,  # 收口（引用块＋citation 帧＋链尾同批）
     },
 }
@@ -576,11 +580,29 @@ def _make_batch(deps: LoopDeps) -> Any:
 
 def _make_answer(deps: LoopDeps) -> Any:
     async def node(state: RunState) -> dict[str, Any]:
+        # 作答第二出口（V2-96 D5）：本节点入口若带 `explore` 意图，先执行再探（或硬停止），
+        # 再重入起草——「answer→explore→执行→追加→重入作答」环（真源 §五·5.2／5.3）。
+        forced_text = ""
+        if state.next_intent == INTENT_EXPLORE:
+            if int(state.explore_rounds) < MAX_EXPLORE_ROUNDS:
+                await run_explore(
+                    state,
+                    bus=deps.bus,
+                    registry=deps.registry,
+                    max_observations=deps.max_observations,
+                )
+            else:
+                # 硬停止：轮数到顶仍出 explore → 追加「只能如实作答」指令＋程序确定性缺口正文
+                # （模型正常作答则本参不用；仍出 explore 时由作答相位以该正文兜底交付）。
+                forced_text = hard_stop(state)
+                state.pending_explore = None
+                set_intent(state, INTENT_ANSWER)
         answer(
             state,
             bus=deps.bus,
             max_observations=deps.max_observations,
             supplements=deps.supplements,
+            forced_text=forced_text,
         )
         _emit_direct_text(deps, state)
         # 增补面收口发射（EB3 D1／D2）：作答收口后（核验改写后的 draft 已定稿）逐条发帧——

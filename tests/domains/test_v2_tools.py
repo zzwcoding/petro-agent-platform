@@ -90,6 +90,8 @@ from appv2.tools import (
     CATEGORY_RETRYABLE,
     DATA_QUERY,
     DOC_RETRIEVE,
+    FETCH_REPORT,
+    FETCH_SECTION,
     GRAPH_QUERY,
     LINEAGE_LIMIT_HIT_KEY,
     LINEAGE_LIMIT_KEY,
@@ -160,12 +162,14 @@ def _by_kind(result: ToolResult, kind: str) -> list[Any]:
 async def test_descriptors_readonly() -> None:
     registry, _kb, _q, _r = _registry()
     descriptors = registry.descriptors()
-    # 四工具齐、注册序＝spec 顺序（specs/tools.md 接口定义节列序＋V2-31 发现
-    # 工具 table_schema 殿后）。V2-97（D7）：graph_query 已摘除注册面（不在册）。
+    # 六工具齐、注册序＝spec 顺序（specs/tools.md 接口定义节列序＋V2-96 两新工具
+    # ＋V2-31 发现工具 table_schema 殿后）。V2-97（D7）：graph_query 已摘除注册面（不在册）。
     assert [d.name for d in descriptors] == [
         SEMANTIC_QUERY,
         DATA_QUERY,
         DOC_RETRIEVE,
+        FETCH_SECTION,
+        FETCH_REPORT,
         SCHEMA_PROBE,
     ]
     # 全 readonly=True（INV-2）＋渐进披露恰四字段（名称/描述/参数 schema/只读声明）。
@@ -261,7 +265,14 @@ async def test_graph_query_not_registered() -> None:
     """
     registry, _kb, _q, r = _registry()
     names = [descriptor.name for descriptor in registry.descriptors()]
-    assert names == [SEMANTIC_QUERY, DATA_QUERY, DOC_RETRIEVE, SCHEMA_PROBE]
+    assert names == [
+        SEMANTIC_QUERY,
+        DATA_QUERY,
+        DOC_RETRIEVE,
+        FETCH_SECTION,
+        FETCH_REPORT,
+        SCHEMA_PROBE,
+    ]
     assert GRAPH_QUERY not in names
     result = await registry.call(GRAPH_QUERY, {"question": "受效关系如何"}, CTX)
     assert result.status == STATUS_FAILED

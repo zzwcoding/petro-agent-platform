@@ -88,6 +88,9 @@ from appv2.runtimev2.answering.constants import (
     EMISSION_STRIP_CONTENT,
     EMISSION_STRIP_EMPTY_CONTENT,
     EMPTY_DRAFT_REASON,
+    EXPLORE_FEEDBACK_TEMPLATE,
+    EXPLORE_REJECT_BODY,
+    EXPLORE_STEP_TITLE,
     FINALIZE_STEP_KIND,
     FINALIZE_STEP_TITLE,
     MATERIAL_TRUNCATED_CONTENT,
@@ -99,6 +102,7 @@ from appv2.runtimev2.answering.constants import (
     PAYLOAD_DANGLING_SEQS_KEY,
     PAYLOAD_ECHO_FLAG_KEY,
     PAYLOAD_ENGINE_NOTES_KEY,
+    PAYLOAD_EXPLORE_KEY,
     PAYLOAD_GAP_KIND_KEY,
     PAYLOAD_GAP_REASON_KEY,
     PAYLOAD_GAP_SUBTASK_KEY,
@@ -162,9 +166,16 @@ from appv2.runtimev2.context import (
     render_materials,
     trust_of,
 )
+from appv2.runtimev2.parsing import Explore, explore_schema_feedback, parse_explore
 from appv2.runtimev2.persistence import STEP_STATUS_FAILED, STEP_STATUS_OK
 from appv2.runtimev2.prompts import answer_system_contract, assemble_answer_prompt
-from appv2.runtimev2.state import INTENT_END, INTENT_VERIFY, Manifest, RunState
+from appv2.runtimev2.state import (
+    INTENT_END,
+    INTENT_EXPLORE,
+    INTENT_VERIFY,
+    Manifest,
+    RunState,
+)
 from appv2.runtimev2.transport import (
     SUPPLEMENT_BLOCK_ATTRIBUTION,
     SUPPLEMENT_BLOCK_CITATIONS,
@@ -189,6 +200,7 @@ def answer(
     bus: EventBus | None = None,
     max_observations: int = DEFAULT_MAX_OBSERVATIONS,
     supplements: list[dict[str, Any]] | None = None,
+    forced_text: str = "",
 ) -> AnswerDraft:
     """作答一步：起草（真流式逐段推）或收口（引用块＋citation 帧＋链尾同批）。
 
@@ -201,13 +213,26 @@ def answer(
     `supplements`（2026-10-17 EB3 D2）＝编排块持有的**增补面收集列表**——收口段的引用块／
     「互不一致」分源块／分源归属块**不再写进正文**（`state.answer` 只留模型稿），改按原序入该
     列表（帧由编排层发射）；未注入＝本块自持一份丢弃（正文剥离面与列表无关）。
+
+    `forced_text`（V2-96 D5）＝编排块在**硬停止**（再探轮数到顶）时交来的程序确定性缺口正文：
+    模型若仍发射 `explore` 形，以本正文兜底交付（不判 failed）；模型正常作答则本参不用。
+    缺省空串＝无硬停止（本批前行为零漂移）。
+
+    **作答第二出口 `explore`**（V2-96 D5，真源 §五·5.1）：起草应答整枚为
+    `{"action":"explore","reason":…,"requests":[…]}` 且合闭世界时，**不落答案、零 text 帧**，
+    落 `state.pending_explore` ＋ `next_intent="explore"` 交编排执行；不合 schema 的 explore
+    尝试回喂拒因恰一次，仍不合＝强制作答（`EXPLORE_REJECT_BODY`，不判 failed）。
     """
     channel = _require_bus(bus)
     collected: list[dict[str, Any]] = [] if supplements is None else supplements
     if _drafted(state):
         return _finalize(state, channel, collected)
     return _draft(
-        state, channel, max_observations=max_observations, supplements=collected
+        state,
+        channel,
+        max_observations=max_observations,
+        supplements=collected,
+        forced_text=forced_text,
     )
 
 
@@ -277,6 +302,22 @@ def _numeric_anchor_tokens(text: str) -> tuple[str, ...]:
     return tuple(tokens)
 
 
+def answer_anchors(state: RunState) -> tuple[tuple[str, str], ...]:
+    """本轮材料面的锚席位来源（V2-90 单点）——**同一组**喂给 Manifest 与材料段两出口。
+
+    题名对象（强锚）／术语（弱锚）＋题面数字串（数字锚，纯字符扫描、去重保序）；锚＝
+    `(kind, text)` 分层对。V2-96：编排块的再探增量渲染（L3 选席）同引本件——**禁第二份锚装配**。
+    """
+    return (
+        tuple(("subject", subject) for subject in state.subjects)
+        + tuple(("term", term) for term in state.terms)
+        + tuple(
+            ("number", number)
+            for number in _numeric_anchor_tokens(str(state.question or ""))
+        )
+    )
+
+
 def _drafted(state: RunState) -> bool:
     """起草是否已发生（本块自立的机读判据）：直答态／`verdict` 在场／过程档案起草标记在场。
 
@@ -300,19 +341,14 @@ def _draft(
     *,
     max_observations: int,
     supplements: list[dict[str, Any]],
+    forced_text: str = "",
 ) -> AnswerDraft:
     """起草段：材料面显式 → 单点发起模型调用 → 剥离 → 块剥除 → 分段引标 → 逐段推帧。"""
     # V2-90 锚席位来源（**同一组**喂给 Manifest 与材料段——两出口必须同源同序）：题名对象
     # （强锚）／术语（弱锚）＋ 题面数字串（数字锚，纯字符扫描、去重保序）；锚＝`(kind, text)`
     # 分层对——席位选择按「强锚→弱锚→数字锚」逐锚各保一席；additive 参，缺省空元组即本批前行为。
-    anchors = (
-        tuple(("subject", subject) for subject in state.subjects)
-        + tuple(("term", term) for term in state.terms)
-        + tuple(
-            ("number", number)
-            for number in _numeric_anchor_tokens(str(state.question or ""))
-        )
-    )
+    # V2-96：装配单点抽为 `answer_anchors`（编排块再探增量渲染同引本件）。
+    anchors = answer_anchors(state)
     manifest = compile_manifest(
         state.observations,
         step=PHASE,
@@ -347,13 +383,68 @@ def _draft(
     raw = call_model(
         state, MODEL_CALLER, list(state.messages), system=answer_system_contract()
     )
-    # 输入侧提取（2026-10-17 V2-82g 热修，真机 run-9d1c5267）：模型沿袭澄清相位发射形、整应答恰
-    # 一枚 `{"action":"finalize","answer":…}` 时，先取回交付字段作草稿原文（程序接管输入侧），
-    # 再走整条剥除管线；非整枚 finalize JSON／交付字段空 → 零提取，照旧走剥离。提取属「恢复」非
-    # 「放行」：`state.draft` 落提取后文本，机读痕迹走同一条 `emission_strip` notice（发射 JSON
-    # 外壳零进答案面）；`note` 的 digest 仍留**模型原话**（含发射 JSON——行为 8 的可回溯面）。
-    extracted = extract_finalize_answer(raw)
-    draft_text, leaked = strip_emission_fences(raw if extracted is None else extracted)
+    # V2-96 D5：作答第二出口 `explore`（真源 §五·5.1）——整枚 explore JSON 且合闭世界 ⇒
+    # **不落答案、零 text 帧**，落 `pending_explore` ＋ 意图 `explore` 交编排执行；不合 schema 的
+    # explore 尝试回喂拒因恰一次，仍不合＝强制作答（程序确定性缺口正文，不判 failed）。
+    # 硬停止轮（`forced_text` 非空，编排交来）：模型仍出 explore 形 ⇒ 以兜底正文交付。
+    exp: Explore | None = None
+    extracted: str | None = None
+    source_text = raw
+    use_forced = False
+    if forced_text:
+        extracted = extract_finalize_answer(raw)
+        probe = raw if extracted is None else extracted
+        source_text = probe
+        use_forced = parse_explore(probe) is not None
+    else:
+        # 输入侧提取（2026-10-17 V2-82g 热修，真机 run-9d1c5267）：模型沿袭澄清相位发射形、整应答恰
+        # 一枚 `{"action":"finalize","answer":…}` 时，先取回交付字段作草稿原文（程序接管输入侧），
+        # 再走整条剥除管线；非整枚 finalize JSON／交付字段空 → 零提取，照旧走剥离。提取属「恢复」非
+        # 「放行」：`state.draft` 落提取后文本，机读痕迹走同一条 `emission_strip` notice（发射 JSON
+        # 外壳零进答案面）；`note` 的 digest 仍留**模型原话**（含发射 JSON——行为 8 的可回溯面）。
+        extracted = extract_finalize_answer(raw)
+        probe = raw if extracted is None else extracted
+        exp = parse_explore(probe)
+        if exp is None:
+            feedback = explore_schema_feedback(probe)
+            if feedback:
+                # 回喂拒因恰一次（真源 §五·5.1）：追加拒因载荷 → 同相位再读一次。
+                append_message(
+                    state,
+                    role=ROLE_USER,
+                    content=EXPLORE_FEEDBACK_TEMPLATE.format(reason=feedback),
+                )
+                raw = call_model(
+                    state,
+                    MODEL_CALLER,
+                    list(state.messages),
+                    system=answer_system_contract(),
+                )
+                extracted = extract_finalize_answer(raw)
+                probe = raw if extracted is None else extracted
+                exp = parse_explore(probe)
+                if exp is None:
+                    # 仍不合 ⇒ 强制作答（不判 failed）——程序确定性缺口正文。
+                    forced_text = EXPLORE_REJECT_BODY.format(reason=feedback)
+                    use_forced = True
+        if exp is not None:
+            state.pending_explore = exp.as_payload()
+            record_step(
+                state,
+                kind=DRAFT_STEP_KIND,
+                title=EXPLORE_STEP_TITLE,
+                payload={
+                    **_citations_gaps_payload(PAYLOAD_PHASE_DRAFT, [], []),
+                    PAYLOAD_EXPLORE_KEY: exp.as_payload(),
+                },
+            )
+            set_intent(state, INTENT_EXPLORE)
+            return AnswerDraft(segments=[], citations=[], gaps=[])
+        source_text = raw if extracted is None else extracted
+    if use_forced:
+        draft_text, leaked = forced_text, False
+    else:
+        draft_text, leaked = strip_emission_fences(source_text)
     strip_hit = leaked or extracted is not None  # 剥离/提取命中（原判据不动；通知发点后移）
     # 占位符不进答案面（行为 13）：字面占位引标 `[n]` 整枚离场——剥离后才是答案面文本
     # （分段／发帧／落 `state.draft` 三者同源；剥后成空的行由空段跳过自然丢弃）。

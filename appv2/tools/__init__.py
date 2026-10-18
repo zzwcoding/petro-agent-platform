@@ -1,9 +1,10 @@
 """appv2.tools —— 工具层（V2-05；specs/tools.md、specs/modules.md tools 卡）。
 
 ToolRegistry＝agent 与世界的唯一接触面（受控行动链工具侧落位）——knowledge/
-query/retrieval 三引擎包装成三个只读工具（semantic_query/data_query/
+query/retrieval 三引擎包装成只读工具（semantic_query/data_query/
 doc_retrieve）＋V2-31 发现工具 table_schema（白名单⑥结构卡）＋
-V2-52 辅助模式发现工具 faq_lookup（faq_* 读缝注入时在册）；
+V2-52 辅助模式发现工具 faq_lookup（faq_* 读缝注入时在册）＋V2-96 作答侧两新工具
+fetch_section/fetch_report（按来源取节/取篇，只读；截断＋披露）；
 `graph_query` handler 与 GraphSource/compound 件保留，但已从注册面摘除
 （V2-97／D7——恒返空集回退，恢复条件见 `specs/tools.md` 摘除注记）：
 统一 Observation 出处链（INV-1 输入）、错误三分类
@@ -66,6 +67,8 @@ from appv2.tools.handlers import (
     DOC_RETRIEVE,
     FAQ_AUX_THRESHOLD,
     FAQ_LOOKUP,
+    FETCH_REPORT,
+    FETCH_SECTION,
     GRAPH_QUERY,
     SCHEMA_PROBE,
     SEMANTIC_QUERY,
@@ -75,6 +78,8 @@ from appv2.tools.handlers import (
     WellRosterFace,
     build_tools,
     faq_lookup,
+    fetch_report,
+    fetch_section,
     recall_relevant,
 )
 from appv2.tools.ledger import (
@@ -186,6 +191,8 @@ __all__ = [
     "DOC_RETRIEVE",
     "FAQ_AUX_THRESHOLD",
     "FAQ_LOOKUP",
+    "FETCH_REPORT",
+    "FETCH_SECTION",
     "FUZZY_TIME_MARKERS",
     "GRAPH_QUERY",
     "HIT_RULES",
@@ -248,6 +255,8 @@ __all__ = [
     "entity_anchor_tokens",
     "extract_external_table_refs",
     "faq_lookup",
+    "fetch_report",
+    "fetch_section",
     "inject_retrieval_anchors",
     "is_ban_exempt",
     "judge",

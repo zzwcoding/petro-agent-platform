@@ -128,6 +128,11 @@ class ToolContext:
 SEND_BUDGET_PER_SUBTASK = 6
 SEND_BUDGET_CAP = 24
 
+# 按来源取节／取篇的字符上界（V2-96 D5 `fetch_cap`——数值单点；真源 §五·5.4
+# 「受 `fetch_cap` 与截断披露」）。`fetch_report` 的 `max_chars` 缺省取本值；
+# 超界必截断＋披露（判据与话术在 `retrieval.domain`／`retrieval.engine`）。
+FETCH_CAP_CHARS = 6000
+
 
 def resolve_send_budget(subtask_count: int) -> int:
     """送窗预算动态化（每次 doc_retrieve/graph_query 调用的送窗预算 M）。

@@ -41,3 +41,22 @@ BUDGET_REJECT_MARK = "发现预算"
 # ── 理解面 route 闭世界（两形互斥；真源 `specs/understanding.md` 接口定义）──────
 ROUTE_FULL: Literal["full"] = "full"
 ROUTE_DIRECT: Literal["direct"] = "direct"
+
+# ── 作答第二出口 `explore` 闭世界（V2-96 D5；真源 §五·5.1）────────────────────
+# 动作名＝模型发射 JSON 的 `action` 取值（本块自有字面；与路由意图 `state.INTENT_EXPLORE`
+# 同字面属**同名巧合**——一处是发射合同、一处是路由意图，两处各自单点、互不引用）。
+EXPLORE_ACTION = "explore"
+# 工具闭世界三值（作答侧只读检索三件；越界即拒）。
+EXPLORE_TOOL_DOC_RETRIEVE = "doc_retrieve"
+EXPLORE_TOOL_FETCH_SECTION = "fetch_section"
+EXPLORE_TOOL_FETCH_REPORT = "fetch_report"
+EXPLORE_TOOLS: frozenset[str] = frozenset(
+    {
+        EXPLORE_TOOL_DOC_RETRIEVE,
+        EXPLORE_TOOL_FETCH_SECTION,
+        EXPLORE_TOOL_FETCH_REPORT,
+    }
+)
+# 每轮请求条数闭世界（1..2——真源 §五·5.1「每轮 requests 1..2」）。
+EXPLORE_REQUEST_MIN = 1
+EXPLORE_REQUEST_MAX = 2

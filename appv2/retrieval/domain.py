@@ -71,6 +71,16 @@ NOTE_RECALL_GAP = "另有 {gap} 条已找到但未用进答案（受送入答案
 NOTE_CONFLICT_SOURCES = "以下材料来源说法不一，各保留了代表条目："
 NOTE_MISSING_SOURCES = "以下来源因数量限制未纳入："
 
+# ── 按来源取节／取篇（V2-96 D5——KB 只读读面的披露话术单点）────────────────────
+# 真源＝`docs/runtime-refactor/接手-召回全链路最终决议与运行流程-20261018.md` §五·5.4：
+# `fetch_section`／`fetch_report` **必须截断+披露**（截断显式、不假装全文）。
+NOTE_FETCH_REPORT_SENT = "母报告全文 {total} 字，本次交付 {kept} 字"
+NOTE_FETCH_TRUNCATED = "母报告全文 {total} 字，本次交付前 {kept} 字（截断显式）"
+NOTE_FETCH_SECTION_SENT = "本报告本节共 {recalled} 条片段，本次交付 {sent} 条"
+NOTE_FETCH_SECTION_MISSING = "该报告无此节：{report}·{section}（如实告知，不代取他节）"
+# 正文尾截断标记（截断**可见**——不静默硬切）。
+FETCH_TRUNCATION_MARK = "……（母报告全文未完，已按上限截断）"
+
 
 # ---------- 检索单元与向量（V1 kb.domain 移植——G-07/P1-11 同款） ----------
 

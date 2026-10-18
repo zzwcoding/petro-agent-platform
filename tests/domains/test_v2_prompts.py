@@ -112,7 +112,7 @@ _SPEC_FAMILIES: dict[str, tuple[str, ...]] = {
     "clarify_emission": ("CLARIFY_EMISSION_CONTRACT",),
     "toolmatch_emission": ("TOOLMATCH_EMISSION_CONTRACT",),
     "summary": ("SUMMARY_CONTRACT",),
-    "answer_draft": ("ANSWER_DRAFT_CONTRACT",),
+    "answer_draft": ("ANSWER_DRAFT_CONTRACT", "ANSWER_EXPLORE_CONTRACT"),
     "answer_requirements": ("ANSWER_REQUIREMENTS", "JARGON_PLAIN_GLOSSARY"),
     # 2026-10-17 H 批（角色分家）：第七族＝链首背景块（`SYSTEM_BACKGROUND` 逐字稿）
     "system_background": ("SYSTEM_BACKGROUND",),

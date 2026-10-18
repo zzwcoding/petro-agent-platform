@@ -222,8 +222,9 @@ def test_field_set_matches_matrix() -> None:
     matrix = _matrix_fields()
     assert matrix, "S5 矩阵 §一 解析为空——解析式失效（非字段集失配）"
     # 定稿 50 ＋ V2-82a 追加 2（`subjects`／`terms`，2026-10-17）＋ V2-82b 追加 1
-    # （`pending_subject_options`，2026-10-17）＝现行 53
-    assert len(matrix) == 53, f"S5 矩阵 §一 字段数应为现行 53，实为 {len(matrix)}"
+    # （`pending_subject_options`，2026-10-17）＋ V2-96 追加 3（`explore_rounds`／
+    # `explore_fingerprints`／`pending_explore`，2026-10-18）＝现行 56
+    assert len(matrix) == 56, f"S5 矩阵 §一 字段数应为现行 56，实为 {len(matrix)}"
     assert {f.name for f in fields(RunState)} == matrix
 
 
@@ -527,7 +528,8 @@ def test_manifest_all_keys_and_copy() -> None:
 # ---------- 9 三族常量闭世界（行为 9） ----------
 
 # 取值与条数真源＝`recon/I2a-状态常量与清单.md`（22 条常量实测：STEP×6＋STEP_KINDS｜
-# RUN×4＋RUN_STATUS_KINDS｜INTENT×10）——本件以期望值钉住，代码侧单点在 `state.constants`。
+# RUN×4＋RUN_STATUS_KINDS｜INTENT×10）＋V2-96 追加 `explore`（作答第二出口路由意图）＝11——
+# 本件以期望值钉住，代码侧单点在 `state.constants`。
 _SPEC_STEP_KINDS = {"decision", "discover", "execute", "observe", "verify", "answer"}
 _SPEC_RUN_STATUS_KINDS = {"running", "waiting_ask", "completed", "failed"}
 _SPEC_INTENT = {
@@ -541,6 +543,7 @@ _SPEC_INTENT = {
     "toolmatch",
     "precondition",
     "batch",
+    "explore",
 }
 
 
@@ -549,7 +552,7 @@ def test_constant_families_closed_world() -> None:
     assert STEP_KINDS == _SPEC_STEP_KINDS
     assert RUN_STATUS_KINDS == _SPEC_RUN_STATUS_KINDS
     assert INTENT == _SPEC_INTENT
-    assert (len(STEP_KINDS), len(RUN_STATUS_KINDS), len(INTENT)) == (6, 4, 10)
+    assert (len(STEP_KINDS), len(RUN_STATUS_KINDS), len(INTENT)) == (6, 4, 11)
     for family in (STEP_KINDS, RUN_STATUS_KINDS, INTENT):
         assert isinstance(family, frozenset)  # 闭世界不可变（运行期不可增删）
 
