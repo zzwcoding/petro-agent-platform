@@ -254,6 +254,9 @@ def test_report_period_single_source_and_signature() -> None:
         ("max_observations", "KEYWORD_ONLY", True),
         ("anchors", "KEYWORD_ONLY", False),
         ("execution_date", "KEYWORD_ONLY", False),  # V2-123 additive 可选参（缺省空串）
+        # V2-122 追加（签名 4→5 参，列名改判）：分源分栏开关（缺省 True＝多来源分栏；
+        # False＝逐字回分栏前形——零改证明面）。
+        ("source_columns", "KEYWORD_ONLY", False),
     )
 
 

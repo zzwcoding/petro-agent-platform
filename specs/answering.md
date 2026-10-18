@@ -107,6 +107,20 @@ class Gap:
 
 23. **子问题覆盖信号（2026-10-18 V2-119——程序确定性检测 → 作答上下文显式提示）**：起草段在**渲染材料段之后、模型调用之前**逐子问题核「其锚／术语／数值记号是否在**渲染窗**（本轮材料段产物）内出现」（判据单点＝`subtask_coverage`——三 kind 分层形态判据：`subject`／`term`／`number`，同 `answer_anchors` 的装配序；**首个非空 kind 定论**：强锚在场时只认强锚——`NQ-M8` 形的数字 `41` 在错源窗 `W-41` 上全等命中，若「任一层命中即算支撑」则误判「有支撑」；零记号可判〔题面既无主体／术语命中又无数字串〕＝**有支撑**——零误报面）。零支撑子问题经 `prompts.assemble_answer_prompt(coverage=…)` 在 **user 动态段**追加提示行（`prompts.answer_round.ANSWER_COVERAGE_LINE` 逐字模板——落「子问题结果清单」之后、材料段之前；全有支撑＝整段零追加），覆盖表落起草步／再探意图步 payload 机读键 `subtask_coverage`（additive：`{子问题 id: 有支撑}`）。**只做检测与提示**：不替模型决定是否 `explore`、不自动改材料（票面任务 4）；模型自决面——零支撑在场时模型给正常作答仍走 `verify`、给 `explore` 形照既有第二出口（行为 20）走。判据面单点：锚面＝`appv2.text_tokens.boundary_hit`（边界优先）＋`appv2.tools.normalize_anchor_text`（跨形包含——核验归属审同规），术语面＝跨形包含，数字面＝`appv2.text_tokens.num_token_hit`（V2-100 D-a 判据单点，依赖自由）；题面数字串取词单点＝`_numeric_anchor_tokens`（既有锚席单点 V2-86／V2-90——本票**不新造第二份记号化**）。**与 `verification.rules.number_tokens` 的关系（Kimi 评审修正 2 的单点结论）**：核验面 `number_tokens` 是**材料侧量值记号**（小数／千分位／带单位／表格行裸数字——判「断言数值是否被材料复述」）；本票数值面＝**题面数字串锚点取词**（`_numeric_anchor_tokens`）＋**全等判定**（`text_tokens.num_token_hit`）——两者非同物、互不替换，本票**不新增任何记号化实现**（取词与判定全引既有单点，无第二真源）。**过渡期与收口条件**：本票登记为「带票号过渡（V2-119）」；若后续票把「题面数字串取词」下沉为共享单点（`appv2/text_tokens` 增件），本票 `_subtask_anchors` 改为直引该新单点即收口（调用面唯一、一处改动），在此之前 `verification` 面零改。真源＝`tickets/v2/V2-119-子问题覆盖信号.md`（含「Kimi 评审修正」节）。
 
+24. **注记计数机读键 `window_note_counts`（2026-10-18 V2-122——并键登记、禁第三真源）**：起草段
+    交付面机读字段在七键之外追加 `window_note_counts: {"recalled": N, "sent": M}`——注记
+    「检索到 N 条／用进 M 条」两数的**只读投影**，供判分复算（`EB11` 三处不实：`A-正6` 51 vs 45、
+    `Q41` 51 vs 63、`A-正2` 12 vs 6——不实源于模型转写，机读键使判分不再依赖模型转述）。
+    **值源单点**＝`RetrievalBundle.recalled/sent`（与 `retrieval.domain.build_window_note` 注记
+    产文**同一单点**）；`tools.handlers._bundle_to_result` 把该两数透传至 window_note notice 的
+    locator（键名字面单点＝`tools.handlers.WINDOW_NOTE_COUNTS_KEY`），本块经
+    `degradation.window_note_counts(state.observations)` 只读取值（**读面单点**——多轮检索取末条
+    window_note notice；无 window_note notice＝空字典，如实无注记、不造 0 值）。
+    **并键登记（禁第三真源）**：与 `window_materials` 的 `rendered`／`total`（**窗面**材料计数）及
+    `Verdict.delivered_rows/obs_rows`（**行集交付**计数）并列——三者各表不同物（池/窗/交付行），
+    非同一量的三份副本；本键**不新增计数真源**。真源＝`tickets/v2/V2-122-材料范围限定与计数如实.md`
+    （含「Kimi 评审修正」节 1）／`specs/retrieval.md` 行为 3 V2-122 补记。
+
 ## 不降级与静默禁令
 
 - **合法降级路径：无**（本模块不自降级；起草原话不完整时走结构化缺口，不改写事实）。
@@ -152,6 +166,8 @@ class Gap:
 | 日期标注单点真源＝`TimeWindow.label`：血缘③行读回往返相等＋载荷键 `LINEAGE_WINDOW_LABEL_KEY` 全仓恰一处定义／装配／读取＋标注模板 runtimev2 面内恰一处定义与消费（2026-10-18 V2-107） | `tests/domains/test_v2_v107_window_label.py::test_lineage_filter_label_round_trip`／`::test_window_label_payload_key_additive_single_write`／`::test_window_annotation_single_point` |
 | 日期标注零改面（不猜）：标注词＝实际窗标签／无用户原词／无实际窗／多窗不可归属／异族词／括注非纯日期表达式 ⇒ 原样交付；时间解析算法零改（2026-10-18 V2-107） | `tests/domains/test_v2_v107_window_label.py::test_no_rewrite_when_label_equals_user_word`／`::test_no_rewrite_without_user_time_word_or_label`／`::test_no_rewrite_for_other_window_words`／`::test_no_rewrite_when_paren_is_not_a_window`／`::test_multiple_distinct_labels_not_attributed`／`::test_parse_time_window_algorithm_unchanged` |
 | 子问题覆盖信号（2026-10-18 V2-119——落点＝行为 23）：零支撑子问题在作答上下文出现提示行＋作答步 payload 有 `subtask_coverage`（`B-正6`／`NQ-M8` 形离线复现）；材料充分题零提示（零误报）；提示行不改材料、不改 explore 决策（模型自决）；分层判据（强锚在场时数字记号不顶替）；覆盖信号随窗重算（非冻结）＋additive 键恒在场 | `tests/domains/test_v2_v119_subtask_coverage.py::test_subtask_coverage_nq_m8_shape_zero_support`／`::test_subtask_coverage_b_zheng6_shape_zero_support`／`::test_answer_nq_m8_shape_prompt_line_and_payload`／`::test_answer_b_zheng6_shape_prompt_line_and_payload`／`::test_answer_sufficient_material_no_line`／`::test_answer_coverage_section_placement_before_materials`／`::test_answer_coverage_does_not_change_materials_or_explore_decision`／`::test_answer_coverage_recomputed_after_window_grows`／`::test_answer_coverage_payload_present_without_subtasks`／`::test_answer_coverage_payload_key_single_source` |
+| 注记计数机读键 `window_note_counts`（2026-10-18 V2-122——落点＝行为 24）：`A-正6`（45/6）／`Q41`（63/6）／`A-正2`（48/6）三形——注记数字＝实际＋起草步 payload 键值同源（池/窗两数）；键名字面单点、读面单点、并键登记（非第三真源） | `tests/domains/test_v2_v122_material_scope_counts.py::test_count_truthful_a_zheng6_shape`／`::test_count_truthful_q41_shape`／`::test_count_truthful_a_zheng2_shape`／`::test_window_note_counts_single_source_registration` |
+| 库级否定消除（2026-10-18 V2-122——注记尾接范围指令）：`A-正6`／`Q41` 形交付「本次材料未覆盖」、零「没有任何一条材料提及」；旧注记对照仍出库级否定（红→绿由注记文本唯一决定） | `tests/domains/test_v2_v122_material_scope_counts.py::test_a_zheng6_shape_library_negation_eliminated`／`::test_q41_shape_library_negation_eliminated`／`::test_library_negation_control_when_directive_absent` |
 
 ## 依赖与风险
 

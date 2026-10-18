@@ -56,7 +56,8 @@ async def load_ledger_dump(state: RunState) -> dict[str, Any]: ...
 def render_materials(observations: list[dict[str, Any]], *,
                      max_observations: int,
                      anchors: Sequence[tuple[str, str]] = (),
-                     execution_date: str = "") -> tuple[str, dict[str, Any]]: ...
+                     execution_date: str = "",
+                     source_columns: bool = True) -> tuple[str, dict[str, Any]]: ...
 #   【迁移】材料段 [n] 渲染＋截断元数据（逐字迁移——现状载体 appv2/runtime/context.py；
 #   真源 docs/runtime-refactor/recon/K-上下文事件指南预算.md R-K-18…R-K-26；行为 1–6）
 #   ＋**V2-90 additive 可选参 `anchors`**（缺省 `()`＝与 V2-90 前行为逐字一致）：检索族席位
@@ -73,6 +74,12 @@ def render_materials(observations: list[dict[str, Any]], *,
 #   （缺期＝该段跳过、如实缺行）与「执行日：{execution_date}」（缺省＝该段跳过）；材料报表期晚于
 #   执行日时该材料块尾接期错位注记（逐字 `PERIOD_MISMATCH_NOTE`，行为 1）＋**元数据 additive 键
 #   `material_periods`**（逐支 `{index: 期}`；缺期材料不入键）。
+#   ＋**V2-122 additive 可选参 `source_columns`**（缺省 True＝多来源分栏；签名 4→5 参）：检索族
+#   （`report`）来源数 ≥2 时按来源分块——每来源首支前插一行块头 `SOURCE_COLUMN_HEAD_TEMPLATE`
+#   （`【来源分栏】{source}{period}`；期段＝`_SOURCE_COLUMN_PERIOD_TEMPLATE`，缺期＝空串），
+#   组序＝来源首见序、块内支序＝既有信任级稳定序的子序（**只分组、不改组内序**）；单来源／零
+#   检索族＝零块头（逐字零漂移）；`source_columns=False`＝输出逐字回分栏前形（零改证明面）。
+#   分栏只插块头行——披露行、三机检字段、`window_materials`、`material_periods` 逐字零改。
 def report_period(source: str) -> str: ...
 #   【新增（V2-123）】报告名尾**报表期**解析单点：出处名（观察 `source`）尾段形如 `-YYYYMM`／
 #   `-YYYYMMDD`（可选书名号包裹剥除）者取期形 `YYYY-MM`／`YYYY-MM-DD`；其余＝空串（**缺期如实
@@ -142,6 +149,17 @@ def trust_of(observation: dict[str, Any]) -> str: ...
    （`【材料期】该材料报表期晚于执行日——只能作为「该期资料」引用。`——**不静默**、不改写材料本体、
    不删段；期错位＝确定性比对非语义判断）。断言：未来期 fixture（`-202701` vs 执行日 `2026-10-08`）
    → 材料头两段逐字＋注记恰一条；缺期／缺执行日／早于或同月／执行日非日期形 → 零注记。
+   **V2-122 分源分栏（additive 可选参 `source_columns`，缺省 True——S9）**：检索族（`report`）
+   **来源数 ≥2** 时按来源分块——每来源首支之前插**一行块头**（逐字模板 `SOURCE_COLUMN_HEAD_TEMPLATE`
+   ＝`【来源分栏】{source}{period}`；期段＝`_SOURCE_COLUMN_PERIOD_TEMPLATE`＝`｜报表期：{period}`，
+   缺期＝期段槽空串——同材料头「缺期如实缺行」纪律）；**组序＝来源首见序**（`_source_of` 归一后
+   作键）、**块内支序＝既有信任级稳定序的子序**（只分组、不改组内序）；**单来源／零检索族＝零
+   块头**（逐字零漂移）；`source_columns=False`＝输出逐字回分栏前形（零改证明面）。**分栏只插
+   块头行**——披露行（行为 5）、三机检字段与 `selected_reason`（行为 6）、`window_materials` 与
+   `material_periods` 元数据键、`[n]` 引标（恒取观察自带 `index`）逐字零改；**总帽不变**（席位恒
+   ≤ `max_observations`）。断言：四支两来源 fixture（A1／B1／A2／B2）→ 两块头在场、`[n]` 序＝
+   分组序（组内原序）；单来源 fixture → 零块头；`source_columns=False` 多来源 → 逐字回分栏前形；
+   截断 fixture → 披露行逐字与三字段零改。
 2. **信任级映射闭世界＋notice 排除**：`trust_of` 判定路径唯一（只读 `locator.kind`，`str()` 归一后查表；缺 `locator`／缺 `kind`／未知 kind 统一落 `report`——不抛错）；映射闭世界＝十 kind 三族（权威：`agg_row`／`lineage`；台账：`metric`／`term`／`object`／`relation`／`family`；检索：`fragment`／`graph`；`notice` 名义入表但材料段整体排除——不进模型面、不计任何计数）（真源 R-K-03／R-K-15…R-K-17）。**2026-10-18 V2-105**：台账族第五键＝生产实点 `locator.kind="family"`（真源 `appv2/knowledge/domain.py`（:28-32 `KIND_ALL`））——旧键 `family_annotation` 与生产永不匹配（族标注卡信任级落默认 `report`＝活缺陷，本票修）。断言：十 kind 各落对；三种异常输入落 `report`；notice 条目不在渲染文本、不计计数。
 3. **排序＝信任级稳定序**：`authoritative`＜`ledger`＜`report`（rank 0／1／2，同 rank 保持入栈序、稳定排序）；两跑逐字相等（确定性不抖动——真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-48〔V2-61 事实面〕；R-K-05 排序键面；未登记信任级排序兜底〔现状不可达——notice 已前置排除〕迁移照抄、无行为面）。断言：乱序入栈 fixture → 输出按档聚簇且组内原序；两跑逐字相等。
 4. **分承载体预算（分形帽）**：权威/台账族（信任级非 `report`）**恒全量渲染、不设支数帽**（引擎侧已封顶、装配不重复封顶——真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-44）；检索族（`report`）超帽才截断（**帽只作用检索族**）；帽值经注入参数（`render_materials` 的 `max_observations`），**数值单点＝本块常量 `DEFAULT_MAX_OBSERVATIONS`**（真源 `docs/runtime-refactor/recon/K-上下文事件指南预算.md` R-K-07；具体值不落本规格）。**与 walk §13-B／§14-B 的分工**：单支超阈「落引用」归 `execution`（`specs/execution.md` 行为 4 已收口）；本块检索族支数帽＝token 安全面存续（V2-61 设计），与「渲染帽裁剪」不同物。断言：权威族超帽 fixture → 全渲染、零披露、`material_truncated=False`；检索族超帽 → 只渲染帽内支、披露在场。
@@ -198,6 +216,7 @@ def trust_of(observation: dict[str, Any]) -> str: ...
 | 帽单一真源（`DEFAULT_MAX_OBSERVATIONS == SEND_BUDGET_CAP`＋别名派生） | `tests/domains/test_v2_context.py::cap_single_source` |
 | 渲染窗选席实录键 `window_materials` 随答案步 payload 落地（消费方 `answering`——四键） | `tests/domains/test_v2_answering.py::window_materials_payload_shape` |
 | 截断披露行逐字在场（两计数正确）；未截断零残留 | `tests/domains/test_v2_context.py::truncation_disclosure_line_verbatim` |
+| 分源分栏（V2-122 S9）：多来源检索族按来源分块（块头行在场、组序＝首见序、块内原序）；单来源零块头；`source_columns=False` 逐字回分栏前形；披露行/三机检字段零改 | `tests/domains/test_v2_v122_material_scope_counts.py::test_source_columns_present_for_multi_source`／`::test_source_columns_absent_for_single_source_zero_drift`／`::test_source_columns_toggle_off_is_verbatim_pre_change`／`::test_source_columns_do_not_change_disclosure_or_machine_fields`／`::test_source_columns_do_not_change_coverage_signal` |
 | Manifest 三机检字段（四态）＋`selected_reason` 逐字形 | `tests/domains/test_v2_context.py::manifest_material_fields_and_reason` |
 | 每次调用 Manifest 在场（零材料亦在）且材料标来源（四列表同长；常驻来源行按呼叫分型） | `tests/domains/test_v2_context.py::manifest_present_source_rows` |
 | Manifest 来源四列＝`_select_reports` 实投席位逐支（多来源超帽 fixture 逐支同源同序） | `tests/domains/test_v2_context.py::manifest_sources_match_rendered_seats` |

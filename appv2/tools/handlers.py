@@ -100,6 +100,14 @@ from appv2.tools.well_ids import roster_entries, roster_lookup
 # 缺位名单审计机读面出口（V2-91——名单停发后不再进 state.observations，只落日志）。
 _LOGGER = logging.getLogger(__name__)
 
+# `window_note_counts` 机读键（V2-122——**并键登记、禁第三真源**）：值源＝
+# `RetrievalBundle.recalled/sent`（与 `domain.build_window_note` 注记产文**同一单点**），
+# 经 window_note notice 的 locator 只读透传，答案步 payload 同名落键（键名单点在本行；
+# 消费方 `answering.core` 只引本常量，零第二份字面）。与既有两面（`window_materials.rendered/total`
+# ＝**窗面**材料计数、`Verdict.delivered_rows/obs_rows` ＝**行集交付**计数）并列登记：三者
+# 各表不同物（池/窗/交付行），非同一量的三份副本。
+WINDOW_NOTE_COUNTS_KEY = "window_note_counts"
+
 # ---------- 工具名闭世界（注册序＝specs/tools.md 接口定义节列序＋V2-31 发现工具） ----------
 # V2-97（D7）：GRAPH_QUERY 常量与 graph_query handler 保留（代码保留面），但已不在
 # `build_tools` 注册面——注册面在册名单＝SEMANTIC_QUERY/DATA_QUERY/DOC_RETRIEVE/
@@ -1401,7 +1409,15 @@ def _bundle_to_result(bundle: RetrievalBundle) -> ToolResult:
             source="检索供给窗声明（截断显式）",
             # V2-93 D4：身份声明支机读标记——L3 检索族候选排除（渲染走 note／引擎注记通道，
             # 材料段与三机检字段零改）。
-            extra={"declaration": True},
+            # V2-122：注记计数机读位（与注记产文同一值源 `bundle.recalled/sent`——并键登记、
+            # 禁第三真源；答案步 payload 由消费方只读落同名键）。
+            extra={
+                "declaration": True,
+                WINDOW_NOTE_COUNTS_KEY: {
+                    "recalled": int(bundle.recalled),
+                    "sent": int(bundle.sent),
+                },
+            },
         )
     )
     return ToolResult.ok(observations)

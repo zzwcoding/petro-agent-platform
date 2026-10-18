@@ -148,6 +148,7 @@ from appv2.runtimev2.answering.degradation import (
     source_section,
     strip_dangling_citations,
     strip_placeholders,
+    window_note_counts,
 )
 from appv2.runtimev2.answering.emission import (
     extract_finalize_answer,
@@ -198,6 +199,7 @@ from appv2.runtimev2.transport import (
 )
 from appv2.text_tokens import boundary_hit, num_token_hit
 from appv2.tools import LINEAGE_WINDOW_LABEL_KEY, LOCATOR_PAYLOAD_KEY, normalize_anchor_text
+from appv2.tools.handlers import WINDOW_NOTE_COUNTS_KEY
 
 _BUS_MISSING = (
     "作答相位总线未注入（per-run 总线由编排块持有并注入）——增量文本事件无出口，"
@@ -873,6 +875,9 @@ def _delivery_face(
       的机检形——**只记账、不拦截**（拦截／如实注记归 `verification` 行为 11，同一界线）；
     - `ranking_seqs`／`ranking_order_ok`（行为 16）：排名观察支序号（有排名型子问题才在册）＋
       交付序与支序一致性（**序信息**面；数值复述面归 `verification`）。
+    - `window_note_counts`（V2-122——并键登记、禁第三真源）：注记池/窗两数只读投影
+      （值源＝`RetrievalBundle.recalled/sent`，与注记产文同一单点；读面单点＝
+      `degradation.window_note_counts`）。零检索＝空字典（如实无注记，不造 0 值）。
 
     **判据代理登记（呈主窗对账）**：状态面**无「子问题 → 观察」归属链**（`RunState.subtask_results`
     只记 `obs_count`／`ref`，观察行不带子问题号），故「排名观察支」以**窗口行集族行**为形态代理
@@ -891,6 +896,9 @@ def _delivery_face(
         **delivery_accounting(by_index, cited),
         PAYLOAD_RANKING_SEQS_KEY: branch if ranking else [],
         PAYLOAD_RANKING_ORDER_OK_KEY: (not ranking) or ranking_order_ok(draft_text, branch),
+        # V2-122：注记池/窗计数（键名与定义单点＝`tools/handlers.WINDOW_NOTE_COUNTS_KEY`——
+        # 与注记产文同一值源 `RetrievalBundle.recalled/sent`，本键只作机读出口，非第三真源）。
+        WINDOW_NOTE_COUNTS_KEY: window_note_counts(state.observations),
     }
 
 

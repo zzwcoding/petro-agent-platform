@@ -84,6 +84,26 @@ class RetrievalEngine:
    - 判据单点（D-a）：锚命中判定＝`appv2.text_tokens.boundary_hit`／`num_token_hit`（L1 直引，
      `_anchor_text_hit` 只做「纯数字→全等／其余→边界」形分派，边界/全等本体零副本）。
 3. 截断显式：召回>送窗时 window_note 写"召回 N/送窗 M"——agent 据此如实区分"没有"与"没送"。
+   **V2-122 补记（注记改写为对作答面的范围指令＋计数如实，S2＋S5）**：`domain.build_window_note`
+   在既有各段（主段／差额段／同窗段／缺位段／extra——逐字零改）**串尾按序尾接**两条指令
+   （逐字稿＝`tickets/v2/V2-122-材料范围限定与计数如实.md` §逐字稿；措辞单点＝本文件
+   `NOTE_SCOPE_DIRECTIVE`／`NOTE_COUNT_TRUTHFUL`，段间仍以「；」连接）：
+   `NOTE_SCOPE_DIRECTIVE`＝**断言/否定只锚已见材料**（不得因「未见」断言材料中不存在；说
+   「本次材料未覆盖」，不得升格「报告/资料库未载」）——治 `A-正6`／`Q41` 池级否定（`EB11`
+   交付面「没有任何一条材料提及」）；`NOTE_COUNT_TRUTHFUL`＝注记「检索到 N 条／用进 M 条」
+   必须与实际一致。计数**值源单点不变**（`RetrievalBundle.recalled/sent`——注记产文与
+   机读键同源）；`tools.handlers._bundle_to_result` 把该两数透传至 window_note notice 的
+   locator 键 `window_note_counts`（**并键登记、禁第三真源**：与 `window_materials.rendered/
+   total`〔窗面〕、`Verdict.delivered_rows/obs_rows`〔行集交付面〕并列，三者各表不同物），
+   答案步 payload 同名落键（消费方 `answering`——见 `specs/answering.md` 行为 24）。
+   **L1 `budget` vs L3 帽同源裁定**（设计 §六-7 悬空项，本票登记）：两值**同源单点**
+   ＝`appv2/tools/schema.py`，但**非同物**——L1 `ToolContext.budget`＝per-call 送窗预算
+   `resolve_send_budget(count)`＝`min(SEND_BUDGET_CAP, SEND_BUDGET_PER_SUBTASK × count)`
+   （单支＝6、上限即帽 24）；L3 帽 `context.DEFAULT_MAX_OBSERVATIONS`＝`SEND_BUDGET_CAP`
+   的**导入别名**（V2-93 D2）。故登记为「**同源单点＋两值不同物**」：L1 预算的**上界**＝
+   L3 帽值，但单支题 L1 预算（6）≠ L3 帽（24）；两值各一处定义、无第三副本。
+   断言＝`tests/domains/test_v2_v122_material_scope_counts.py::
+   test_l1_l3_budget_same_source_two_values_registered`。
    **V2-91 注（缺位名单停发）**：行为 2 末句的未纳入来源枚举**按单轮检索算**，与实际
    「多子问题并集＋材料选择」后的送窗不一致——`doc_retrieve` **不再**把该段作为独立观察
    （`locator.kind=window_miss` 的「检索窗注记（缺位名单）」）送入 `state.observations`／
@@ -119,6 +139,10 @@ class RetrievalEngine:
 | V2-100 可观测链：`WindowSupply.quota_dropped` → `RetrievalBundle` → `retrieval_calls` 行键（真引擎端到端透传，两丢席族行上各自可判） | `tests/domains/test_v2_retrieval_calllog.py::test_retrieval_calllog_quota_dropped_end_to_end` |
 | V2-100 余量补给步保留（题眼先占后仍不满预算→按融合序补齐） | `tests/domains/test_v2_retrieval.py::test_supply_window_remainder_supply_still_fills_budget` |
 | D-诱12 不回退（L1 面）：`W-11≠W-111`／`22≠2200` 边界/全等判据（V2-100 D-a 单点） | `tests/domains/test_v2_retrieval.py::test_supply_window_l1_anchor_boundary_no_substring` |
+| V2-122 注记尾接两条范围指令（逐字照抄；旧段逐字零改；与 V2-101 首句互斥不重复） | `tests/domains/test_v2_v122_material_scope_counts.py::test_note_scope_and_count_directives_verbatim_tail`／`::test_note_legacy_segments_verbatim_before_tail`／`::test_note_directives_single_source_in_domain`／`::test_v122_texts_mutually_exclusive_with_v101` |
+| V2-122 计数如实：`A-正6`（45/6）／`Q41`（63/6）／`A-正2`（48/6）三形——注记数字＝实际＋答案步 payload `window_note_counts` 同源 | `tests/domains/test_v2_v122_material_scope_counts.py::test_count_truthful_a_zheng6_shape`／`::test_count_truthful_q41_shape`／`::test_count_truthful_a_zheng2_shape`／`::test_window_note_counts_single_source_registration` |
+| V2-122 库级否定消除：`A-正6`／`Q41` 形交付「本次材料未覆盖」、零「没有任何一条材料提及」；旧注记对照仍出库级否定（红→绿由注记文本唯一决定） | `tests/domains/test_v2_v122_material_scope_counts.py::test_a_zheng6_shape_library_negation_eliminated`／`::test_q41_shape_library_negation_eliminated`／`::test_library_negation_control_when_directive_absent` |
+| V2-122 L1 `budget`(6) vs L3 帽(24)：同源单点＋两值不同物登记 | `tests/domains/test_v2_v122_material_scope_counts.py::test_l1_l3_budget_same_source_two_values_registered` |
 
 ## 依赖与风险
 

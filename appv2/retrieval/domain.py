@@ -74,6 +74,20 @@ NOTE_RECALL_GAP = "另有 {gap} 条已找到但未用进答案（受送入答案
 NOTE_CONFLICT_SOURCES = "以下材料来源说法不一，各保留了代表条目："
 NOTE_MISSING_SOURCES = "以下来源因数量限制未纳入："
 
+# ── V2-122 注记尾接两条范围指令（S2＋S5——注记改写为「对作答面的范围指令」）─────────
+# 病根（`eval/suite-147/results/EB11-臆造上下文归因.md` §三反向证据）：注记**如实披露**了
+# 「另有 N 条未用进答案」，却**无一条指令**把断言/否定的适用域限定在已见材料内——于是
+# `NQ-M8` 明知 47/48 条未见仍下报告级否定、`A-正6` 以「没有任何一条材料提及」下池级否定
+# （池计数 51≠45）。两条逐字稿＝`tickets/v2/V2-122-材料范围限定与计数如实.md` §逐字稿
+# （照抄、零改写；与 V2-101 首句措辞互斥不重复——本票管范围与计数、落注记尾）。
+NOTE_SCOPE_DIRECTIVE = (
+    "【范围限定】你的断言与否定只对已见材料成立：不得因「未见」而断言材料中不存在；"
+    "需说明「本次材料未覆盖」，不得升格为「报告/资料库未载」。"
+)
+NOTE_COUNT_TRUTHFUL = (
+    "【计数如实】注记中的「检索到 N 条／用进 M 条」为本次真实计数，必须与实际一致。"
+)
+
 # ── 按来源取节／取篇（V2-96 D5——KB 只读读面的披露话术单点）────────────────────
 # 真源＝`docs/runtime-refactor/接手-召回全链路最终决议与运行流程-20261018.md` §五·5.4：
 # `fetch_section`／`fetch_report` **必须截断+披露**（截断显式、不假装全文）。
@@ -470,6 +484,9 @@ def build_window_note(
     - 未纳入来源段：召回池有候选但未进窗的来源逐个点名（数量限制未及——不静默）。
 
     各段逐字＝本文件 NOTE_* 常量（措辞单点，V2-82e）；段间连接符「；」保持。
+    **V2-122 尾接两条范围指令**（S2＋S5）：旧段（主段／差额段／同窗段／缺位段／extra）
+    逐字零改，串尾按序接 `NOTE_SCOPE_DIRECTIVE`＋`NOTE_COUNT_TRUTHFUL`（同一「；」连接符）
+    ——把「注记」改写成**对作答面的范围指令**：断言/否定只锚已见材料、计数必须与实际一致。
     """
     note = NOTE_RECALLED_SENT.format(recalled=recalled, sent=sent)
     if recalled > sent:
@@ -480,7 +497,7 @@ def build_window_note(
         note += "；" + NOTE_MISSING_SOURCES + "、".join(missing)
     if extra:
         note += "；" + extra
-    return note
+    return note + "；" + NOTE_SCOPE_DIRECTIVE + "；" + NOTE_COUNT_TRUTHFUL
 
 
 # ---------- 供给分池（同窗规则硬编码层——不依赖 LLM 自觉） ----------

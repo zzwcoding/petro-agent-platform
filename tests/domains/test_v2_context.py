@@ -2124,7 +2124,8 @@ def test_retention_normal_render_unchanged() -> None:
         "【本 run 已做（过程档案摘要——防重参考，不是作答材料）】\n- [decision] 第 0 步｜结果"
     )
 
-    # 形状单点：六函数签名与常量族仍以 -02a 落地的为唯一真源（本票不改形状）
+    # 形状单点：六函数签名与常量族仍以 -02a 落地的为唯一真源（V2-122 追加 `source_columns`
+    # 一枚 additive 可选参＝列名改判；其余五函数签名与常量族零改）
     expected_shapes: dict[Any, tuple[tuple[str, str, bool], ...]] = {
         render_materials: (
             ("observations", "POSITIONAL_OR_KEYWORD", True),
@@ -2132,6 +2133,9 @@ def test_retention_normal_render_unchanged() -> None:
             ("anchors", "KEYWORD_ONLY", False),  # V2-86 additive 可选参（缺省空元组）
             # V2-123 additive 可选参（执行日注入——缺省空串＝本批前逐字零漂移）
             ("execution_date", "KEYWORD_ONLY", False),
+            # V2-122 追加（签名 4→5 参，列名改判）：分源分栏开关（缺省 True＝多来源分栏；
+            # False＝逐字回分栏前形——零改证明面；单来源/零检索族恒零块头）。
+            ("source_columns", "KEYWORD_ONLY", False),
         ),
         render_process_notes: (
             ("state", "POSITIONAL_OR_KEYWORD", True),

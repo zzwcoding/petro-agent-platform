@@ -73,6 +73,11 @@ from appv2.runtimev2.transport import (
 )
 from appv2.tools import RECENT_TIME_WORDS, RELATIVE_TIME_WORDS
 
+# V2-122：注记计数机读键（定义单点在 `tools/handlers.py`——本块只读引用，零第二份字面；
+# 与既有两面并键登记：`window_materials.rendered/total`＝窗面、`Verdict.delivered_rows/obs_rows`
+# ＝行集交付面，本键＝池/窗注记面，三者各表不同物）。
+from appv2.tools.handlers import WINDOW_NOTE_COUNTS_KEY
+
 _OPEN = "["
 _CLOSE = "]"
 # 句读收尾字符集（残尾护栏的短行判据面——不以句读收尾者才可能是裸标题）。
@@ -379,6 +384,32 @@ def engine_notes_block(notes: Sequence[str]) -> str:
     if not notes:
         return ""
     return ENGINE_NOTES_HEAD + "\n".join(notes)
+
+
+def window_note_counts(observations: Sequence[Any]) -> dict[str, int]:
+    """注记计数机读面（V2-122——**并键登记、禁第三真源**）：池/窗两数只读投影。
+
+    值源＝`tools.handlers._bundle_to_result` 在 window_note notice 的 locator 上透传的
+    `RetrievalBundle.recalled/sent`（与 `retrieval.domain.build_window_note` 注记产文**同一单点**
+    ——故本键不是第三份计数真源，而是同一值的第二个只读出口）。多轮检索时取**末条** window_note
+    notice（最近一轮检索——单轮场景即唯一值）；无 window_note notice（零检索）＝空字典（如实
+    无注记，不造 0 值）。零语义、零二次创作（只读 locator 上的整数字段）。
+    """
+    latest: dict[str, int] = {}
+    for observation in observations:
+        if not isinstance(observation, Mapping):
+            continue
+        locator = observation.get("locator")
+        if not isinstance(locator, Mapping):
+            continue
+        counts = locator.get(WINDOW_NOTE_COUNTS_KEY)
+        if not isinstance(counts, Mapping):
+            continue
+        recalled = counts.get("recalled")
+        sent = counts.get("sent")
+        if isinstance(recalled, int) and isinstance(sent, int):
+            latest = {"recalled": recalled, "sent": sent}
+    return latest
 
 
 def rowset_seqs(by_index: Mapping[int, Mapping[str, Any]]) -> list[int]:

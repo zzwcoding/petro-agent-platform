@@ -125,6 +125,15 @@ _PERIOD_LENGTHS = (6, 8)
 # 缺期材料不入键＝如实缺行；答案步 payload 由此键原样取用——`specs/context.md` 行为 5／6）。
 _MATERIAL_PERIODS_KEY = "material_periods"
 
+# ── V2-122 分源分栏（S9——多来源题检索族按来源分块；只插块头行）────────────────────
+# 病根（`EB11-臆想上下文归因.md` §四 S6／S9）：多来源题材料段各源支交错，错源表在窗内独占
+# 字段位（`NQ-M8` 形）⇒ 题面索要字段与来源无法对齐。分栏＝**检索族按来源分块**（块头带
+# 来源名＋报表期——期次原料＝`report_period` 单点，与材料头同源），块内保持既有信任级稳定序
+# （只分组、不改组内序），**单来源／零检索族＝零块头**（逐字零漂移面）。
+# 块头逐字（源名槽＋期段槽；缺期＝期段槽空串——同材料头「缺期如实缺行」纪律）。
+SOURCE_COLUMN_HEAD_TEMPLATE = "【来源分栏】{source}{period}"
+_SOURCE_COLUMN_PERIOD_TEMPLATE = "｜报表期：{period}"
+
 
 def trust_of(observation: dict[str, Any]) -> str:
     """观察信任级（`locator.kind` 确定性映射单点——行为 2）。
@@ -534,12 +543,30 @@ def _select_reports(
     return [obs for obs, _reason in _select_seats(reports, cap, anchors)]
 
 
+def _source_columns(
+    rows: list[dict[str, Any]],
+) -> OrderedDict[str, list[dict[str, Any]]] | None:
+    """检索族按来源分块（V2-122 S9——分栏唯一分组点；单来源＝None 即零块头）。
+
+    组序＝来源**首见序**（`_source_of` 归一后作键）、块内支序＝入参稳定序的子序（只分组、
+    不改组内序）；**不同来源数 < 2 ＝ None**（单来源/零来源不分栏——逐字零漂移面）。
+    零语义：只做来源段字符串相等分组（行为 13 形态处理豁免面）。
+    """
+    columns: OrderedDict[str, list[dict[str, Any]]] = OrderedDict()
+    for obs in rows:
+        columns.setdefault(_source_of(obs), []).append(obs)
+    if len(columns) < 2:
+        return None
+    return columns
+
+
 def render_materials(
     observations: list[dict[str, Any]],
     *,
     max_observations: int,
     anchors: Sequence[tuple[str, str]] = (),
     execution_date: str = "",
+    source_columns: bool = True,
 ) -> tuple[str, dict[str, Any]]:
     """观察材料→（`[n]` 引标视图文本，截断元数据）——行为 1／4／5。
 
@@ -578,6 +605,13 @@ def render_materials(
     无执行日锚时报表期段仍按名尾取、期错位比对不成立故零注记）。材料报表期**晚于**执行日（纯数字串字典序，零日期解析）时，
     该材料块尾接一行 `PERIOD_MISMATCH_NOTE`（逐字——不静默、不改写材料本体）。
     元数据 additive 键 `material_periods`＝逐支报表期实录 `{index: 期}`（缺期不入键）。
+
+    **分源分栏（V2-122 S9——additive 可选参 `source_columns`，缺省 True）**：检索族
+    （`report`）来源数 ≥2 时按来源分块渲染——每来源首支之前插一行块头
+    `SOURCE_COLUMN_HEAD_TEMPLATE`（源名＋报表期；缺期＝期段槽空串），组序＝来源首见序、
+    块内支序＝既有信任级稳定序的子序（**只分组、不改组内序**）；单来源／零检索族＝零块头
+    （逐字零漂移面）；`source_columns=False`＝输出逐字回分栏前形（零改证明面）。分栏只插
+    块头行——披露行、三机检字段、`window_materials` 与 `material_periods` 逐字零改。
     """
     material, authority, reports = _carrier_split(observations)
     truncated = len(reports) > max_observations
@@ -586,7 +620,10 @@ def render_materials(
     exec_text = str(execution_date or "").strip()
     blocks: list[str] = []
     periods: dict[str, str] = {}
-    for obs in ordered:
+    # V2-122 分源分栏（S9）：检索族多来源时按来源分块（块头行）；单来源/关参＝零块头。
+    columns = _source_columns([obs for obs, _reason in seats]) if source_columns else None
+
+    def _block_of(obs: dict[str, Any]) -> str:
         index = _index_key(obs)
         trust = trust_of(obs)
         origin = str(obs.get("source") or "").strip()
@@ -615,7 +652,28 @@ def render_materials(
         block = f"[{index}]（{label}）{content}"
         if _period_is_future(period, exec_text):
             block += "\n" + PERIOD_MISMATCH_NOTE
-        blocks.append(block)
+        return block
+
+    for obs in authority:
+        blocks.append(_block_of(obs))
+    if columns is None:
+        for obs, _reason in seats:
+            blocks.append(_block_of(obs))
+    else:
+        for source, rows in columns.items():
+            period = report_period(source)
+            blocks.append(
+                SOURCE_COLUMN_HEAD_TEMPLATE.format(
+                    source=source,
+                    period=(
+                        _SOURCE_COLUMN_PERIOD_TEMPLATE.format(period=period)
+                        if period
+                        else ""
+                    ),
+                )
+            )
+            for obs in rows:
+                blocks.append(_block_of(obs))
     text = (
         "\n观察材料：\n" + ("\n".join(blocks) if blocks else "（无）")
         + (
