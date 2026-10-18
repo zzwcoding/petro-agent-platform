@@ -2116,9 +2116,11 @@ async def test_boundary_suspend_interrupt_budget_rewire_bad_cite() -> None:
     assert "[9]" not in (cite_row.answer or "")
     cite_steps = v2_steps(cite_run_id, "draft")
     assert cite_steps and cite_steps[0].payload["dangling_citation_seqs"] == [9]
-    # 剥除后该行失去引标 → 按核验面**既有处置**收口（无据断言删句＋`unsupported_claim` 留痕）：
-    # 本形唯一断言即坏引标行 → 删句后空稿不推（行为 9），如实缺口收口、终态 completed
-    assert any(
+    # 剥除后该行失去引标 → 按核验面处置：**V2-103 扩域后窗内命中（`21.16` 在窗）⇒ 行保留**
+    # （旧判据比对域＝「同 draft 已 cited 观察集」为空 ⇒ 删句＋`unsupported_claim`；新判据域＝
+    # 本轮窗内全观测，判据单点 `rules.aligned_indices`——2026-10-18 V2-103）
+    assert cite_row.answer is not None and "21.16" in cite_row.answer
+    assert not any(
         event.data.get("type") == "unsupported_claim"
         for event in cite_events
         if event.event == "notice"

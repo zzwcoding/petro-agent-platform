@@ -16,9 +16,10 @@
    （`agg_row`／`lineage`／`fragment`）豁免「全数值复述」（任一数值重叠即支撑、零重叠照改）；
    空壳辖域整行重判（修一）；整行重判仍不过时**窗内对齐放行**（行为 8：零数值断言不放行——仍须
    有可解析引标支撑）。**2026-10-17 F1 件一**：数值断言的记号面**只收计量数值**（带单位／小数／
-   千分位形）——标识符（`W-22`）与日期（`2026 年 11 月 1 日`）不算数值断言；**件二**：无引标行
-   先与**同 draft 已 cited 的观察内容集**比对（`aligned_indices` 同款判据单点），命中即保留且计
-   有支撑（综述句重组已引事实不得删）；**件四**：支撑过的行再过**行级油田归属闸**——被引材料自带
+   千分位形）——标识符（`W-22`）与日期（`2026 年 11 月 1 日`）不算数值断言；**件二**：无引标数字行
+   与**本轮窗内全观测**比对（`aligned_indices` 同款判据单点，2026-10-18 V2-103 由「同 draft 已
+   cited 观察集」扩窗），命中即保留、按命中支回填 `cited` 且计有支撑（综述句重组已引事实不得删；
+   窗内零命中＝真无据照删——数值记号全等不变）；**件四**：支撑过的行再过**行级油田归属闸**——被引材料自带
    油田名却**全不属题眼所辖油田**且行内无分源说明者**拒收**（同删句族留痕），机读面落 step payload
    `field_attribution_mismatch` 键；**2026-10-18 V2-94（定性句放行）**：承载片段断言辖域**零计量
    数值记号**时引标可解析即保留（step payload additive 键 `qualitative_kept` 如实计数），**有计量
@@ -480,9 +481,11 @@ def _verify_lines(
 
     - **件一（删句判据修精度）**：无引标数字行的判据面＝**计量数值**（`line_numbers_are_asserted`
       ——标识符／日期不算数值断言），井号代码行不再被误判删句；
-    - **件二（跨行支撑比对）**：无引标行先与**同 draft 已 cited 的观察内容集**比对
-      （`aligned_indices`——与带引标行的 matched 分支同一判据单点），命中即保留且计有支撑
-      （综述句重组已引事实不得删）；
+    - **件二（跨行支撑比对）× V2-103（比对域扩窗）**：无引标数字行与**本轮窗内全观测**比对
+      （`aligned_indices`——与带引标行的 matched 分支同一判据单点，零第二份判据），命中即保留、
+      按命中支回填 `cited` 且计有支撑（综述句重组已引事实不得删）；**窗内零命中＝真无据照删**
+      （数值记号全等要求不变——防蒙混）。旧域「同 draft 已 cited 观察集」在单句草稿下必空 ⇒
+      权威观测在位仍被删致零交付（真机证据＝EB11 `数-排1`），故扩为全窗观测；
     - **件四（油田归属对账）**：支撑判定通过的行再过**行级归属闸**——被引材料自带油田名却全不属
       题眼所辖油田、且行内无分源说明者**拒收**（按既有删句族处置，判据单点＝
       `rules.field_attribution_mismatch`；题眼所辖面与四条收窄面见该件注）。
@@ -495,12 +498,6 @@ def _verify_lines(
     qualitative_kept = 0
     field_mismatched: list[int] = []
     total = len(lines)
-    # 件二比对域：同 draft **已 cited 的观察内容集**（预扫一遍满足「引标支撑」的行——与主扫描同一
-    # 判据单点 `_kept_citations`，故零第二份判据）；预扫同拍过件四归属闸，被拒行的引标不入域。
-    draft_cited = _draft_cited_seqs(lines, observations, by_index, field_scope)
-    cited_observations = [
-        obs for obs in observations if int(obs["index"]) in draft_cited
-    ]
     for index, line in enumerate(lines):
         stripped = line.strip()
         if not stripped:
@@ -537,10 +534,14 @@ def _verify_lines(
             continue
         if line_numbers_are_asserted(normalized):
             # 无引标但有**计量数值**＝无据断言（行为 8 后半；钉 pin-10：不得 `cited=[]` 且数字在场）
+            # 比对域＝**本轮窗内全观测**（2026-10-18 V2-103——旧域「同 draft 已 cited 观察集」在单句
+            # 草稿下必空 ⇒ 权威观测在位仍被删致零交付；判据单点 `aligned_indices` 零改，只换域）；
+            # 命中即保留并按命中支回填 `cited`（pin-10 落账面）、**文本零改（不插引标）**；数值记号
+            # 全等要求不变（窗内零命中＝真无据照删——防蒙混）。
             matched = aligned_indices(
-                number_tokens(without_markers(normalized)), cited_observations
+                number_tokens(without_markers(normalized)), observations
             )
-            if matched:  # 件二：与同 draft 已 cited 的观察内容集比对——命中即保留（跨行支撑）
+            if matched:  # V2-103：与**窗内全观测**比对——命中即保留（跨行支撑）
                 cited.update(matched)
                 supported += 1
                 out_lines.append(line)
@@ -609,34 +610,6 @@ def _qualitative_release(
         resolvable(seq, by_index) and qualitative_release(by_index[seq], chunk)
         for seq, chunk in chunks
     )
-
-
-def _draft_cited_seqs(
-    lines: Sequence[str],
-    observations: Sequence[Mapping[str, Any]],
-    by_index: Mapping[int, Mapping[str, Any]],
-    field_scope: Collection[str],
-) -> frozenset[int]:
-    """同 draft 已 cited 的观察内容集（2026-10-17 F1 件二的比对域——预扫，零第二份判据）。
-
-    预扫只收**有据行面**的引标（`_kept_citations` 的 `record_line` 支，与主扫描同单点），且同拍
-    过件四归属闸（被拒行的引标不入域——否则综述句会借被拒行的引标复活）。
-    """
-    seqs: set[int] = set()
-    for line in lines:
-        stripped = line.strip()
-        if not stripped or structural_line(stripped):
-            continue
-        normalized = normalize_for_match(line)
-        kept = _kept_citations(
-            citation_chunks(normalized), normalized, by_index, observations
-        )
-        if kept is None or not kept[1]:
-            continue
-        if field_attribution_mismatch(line, kept[0], by_index, field_scope):
-            continue
-        seqs.update(kept[0])
-    return frozenset(seqs)
 
 
 def _rewrite_exempt(

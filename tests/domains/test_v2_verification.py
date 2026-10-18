@@ -1427,11 +1427,15 @@ async def test_lineage_paragraph_stripped_to_supplement() -> None:
 
 
 async def test_identifier_and_date_not_numeric_assertion() -> None:
-    """F1 件一｜**计量数值**判据：标识符（井号代码）与日期不算数值断言（`rules.number_tokens`）。
+    """F1 件一 × V2-103｜**计量数值**判据：标识符（井号）与日期不算数值断言（`number_tokens`）。
 
     真机证据＝run-c6fd52c7：草稿「W-22 井教训侧重…／W-24 井教训侧重…」两行（无引标、无别的问题）
     被旧判据（任意数字串＝数值断言）整段删，交付答案断在裸标题。修后：标识符／日期行＝结构承载
     （原样保留、不计有支撑数）；**量值**行（带单位／小数／千分位形）照删（钉 pin-10 不放宽）。
+
+    2026-10-18 V2-103 改判：删句判据面不变（量值行仍入断言面），但**无引标量值行**先过窗内对齐域
+    ——窗内含该记号者保留并回填 `cited`（`该井检泵周期 295 天。` 命中窗内 `检泵周期 295 天`）；
+    窗内**零命中**者照删（`1,000 吨`／`21.16` 窗内无该记号）。
     """
     observations = [_obs(1, "ledger", content="检泵周期 295 天")]
     identifier_lines = [
@@ -1441,35 +1445,42 @@ async def test_identifier_and_date_not_numeric_assertion() -> None:
         "该井为去年 11 月补孔改层井（2026 年 11 月 1 日投产）。",
         "渤海 302 修井机承担 W-21、W-22、W-24 三口井。",
     ]
-    quantity_lines = [
-        "该井检泵周期 295 天。",   # 带单位＝量值断言
-        "该井累计产油 1,000 吨。",  # 千分位形＝量值断言
-        "该井日产油量 21.16。",     # 小数形＝量值断言
+    window_backed = "该井检泵周期 295 天。"     # 带单位＝量值断言；窗内有该记号 ⇒ 保留
+    window_absent = [
+        "该井累计产油 1,000 吨。",  # 千分位形＝量值断言；窗内零命中 ⇒ 照删
+        "该井日产油量 21.16。",     # 小数形＝量值断言；窗内零命中 ⇒ 照删
     ]
     state = _state(
         question="W-22 与 W-24 两口井的教训有什么不同？",
-        draft="\n".join([*identifier_lines, *quantity_lines]),
+        draft="\n".join([*identifier_lines, window_backed, *window_absent]),
         observations=observations,
     )
     bus = EventBus()
     verdict = verify(state, bus=bus)
 
-    # 标识符／日期行逐字保留（不再被当无据断言删）；量值行照删
-    assert state.draft.splitlines() == identifier_lines
-    assert verdict.rewritten == len(quantity_lines)
-    assert verdict.supported == 0  # 标识符行＝结构承载，不计有支撑数（行为 8 不放宽）
+    # 标识符／日期行逐字保留（不再被当无据断言删）；窗内命中量值行保留、零命中量值行照删
+    assert state.draft.splitlines() == [*identifier_lines, window_backed]
+    assert verdict.rewritten == len(window_absent)
+    assert verdict.supported == 1  # 标识符行＝结构承载不计；窗内命中量值行计一
+    assert verdict.cited == [1]    # 命中支回填（pin-10：不得 cited=[] 且数字在场）
     assert verdict.ok is False
     assert NOTICE_UNSUPPORTED_CLAIM in _notice_types(state)
     rewrites = _step_payload(state)[PAYLOAD_REWRITES_KEY]
-    assert {entry["line"] for entry in rewrites} == set(quantity_lines)
+    assert {entry["line"] for entry in rewrites} == set(window_absent)
 
 
-# ---------- F1 件二：无引标行 × 同 draft 已 cited 观察集 ----------
+# ---------- F1 件二 × V2-103：无引标行窗内比对（比对域＝全窗观测） ----------
 
 
 async def test_uncited_line_reconciled_with_draft_cited() -> None:
-    """F1 件二｜无引标行先与**同 draft 已 cited 的观察内容集**比对（`aligned_indices` 同款判据），
-    命中即保留且计有支撑——综述句重组已引事实不得删；零已引观察＝照删（pin-10 不破）。"""
+    """F1 件二 × V2-103｜无引标行与**窗内观测**比对（判据单点＝`aligned_indices`），命中即保留且
+    计有支撑——综述句重组已引事实不得删；**窗内零命中**＝照删（pin-10「不得 `cited=[]` 且数字在
+    场」不放宽）。
+
+    2026-10-18 V2-103 改判（票面 `tickets/v2/V2-103-无引标数字行比对域扩窗.md`；设计
+    `docs/runtime-refactor/design/统筹方案-核验澄清评测.md` §2.3）：比对域由「同 draft 已 cited
+    观察集」扩为**本轮窗内全观测**——故旧断言「零已引观察＝照删」改为「**窗内零命中**＝照删」。
+    """
     observations = [
         _obs(
             1,
@@ -1500,15 +1511,118 @@ async def test_uncited_line_reconciled_with_draft_cited() -> None:
     assert verdict.rewritten == 1
     assert verdict.cited == [1, 2]
 
-    # 零已引观察（引标支撑面为空）→ 同一综述句照删（pin-10：不得 cited=[] 且数字在场）
-    alone = _state(
+    # V2-103 扩域：窗内含该记号（draft 零引标）⇒ 同一综述句保留、按命中支回填 cited
+    window_backed = _state(
         question="W-22 与 W-24 两口井的检泵周期分别是多少天？",
         draft=summary,
         observations=observations,
     )
+    window_verdict = verify(window_backed, bus=EventBus())
+    assert window_backed.draft == summary
+    assert window_verdict.supported == 1 and window_verdict.rewritten == 0
+    assert window_verdict.cited == [1, 2]
+
+    # 窗内零命中（窗内有观察但无该记号）⇒ 同一综述句照删（pin-10 不放宽）
+    alone = _state(
+        question="W-22 与 W-24 两口井的检泵周期分别是多少天？",
+        draft=summary,
+        observations=[_obs(1, "fragment", content="W-22 井检泵周期 880 天")],
+    )
     alone_verdict = verify(alone, bus=EventBus())
     assert alone.draft == ""
     assert alone_verdict.rewritten == 1 and alone_verdict.cited == []
+
+
+# ---------- V2-103 验收：无引标数字行比对域扩到全窗（`数-排1` 形＋真无据仍删） ----------
+
+
+async def test_uncited_numeric_line_aligned_with_window_observation() -> None:
+    """V2-103 验收 1｜`数-排1` 形离线复现：权威观测在窗 ⇒ **不再零交付**。
+
+    真机证据＝EB11 `数-排1`（`eval/suite-147/results/EB11-删句原句.jsonl`：run-098e7ab2，
+    `supported` 0／`rewritten` 1；被删原句＝本测 `line`；窗内观察＝`agg.fct_daily_metering` 的
+    权威排名行，`井号=Z-16；区块=渤中；日产油量合计（吨）=5839.63`）。旧判据比对域＝「同 draft 已
+    cited 观察集」——单句草稿零引标 ⇒ 域空 ⇒ 必删 ⇒ **零交付**；修后域＝全窗观测：命中即保留、按
+    命中支回填 `cited`（pin-10「不得 `cited=[]` 且数字在场」不破），**文本零改（不插引标）**。
+    """
+    line = (
+        "去年（2025-01-01 至 2026-01-01）日产油量最高的是 **Z-16 井**（属渤中区块），"
+        "合计 5839.63 吨。"
+    )
+    observations = [
+        _obs(
+            1,
+            "agg_row",
+            content="井号=Z-16；区块=渤中；日产油量合计（吨）=5839.63",
+            source="agg.fct_daily_metering",
+        ),
+        _obs(
+            2,
+            "agg_row",
+            content="井号=X-25；区块=渤西；日产油量合计（吨）=5708.15",
+            source="agg.fct_daily_metering",
+        ),
+        _obs(
+            3,
+            "agg_row",
+            content="井号=N-15；区块=渤南；日产油量合计（吨）=5571.49",
+            source="agg.fct_daily_metering",
+        ),
+    ]
+    state = _state(
+        question="去年日产油量最高的井是哪口？",
+        draft=line,
+        observations=observations,
+    )
+    bus = EventBus()
+    verdict = verify(state, bus=bus)
+
+    # 不再零交付：行逐字保留、计有支撑、命中支回填 cited；文本不插引标（回填只在 `cited` 落账面）
+    assert state.draft == line
+    assert verdict.supported == 1
+    assert verdict.rewritten == 0
+    assert verdict.cited == [1]
+    assert verdict.ok is True
+    assert verdict.gaps == []
+    assert state.notices == []
+    assert _step_payload(state)[PAYLOAD_REWRITES_KEY] == []
+    assert _of(await _frames(bus), EVENT_VERDICT)[0][PAYLOAD_CITED_KEY] == [1]
+
+
+async def test_uncited_numeric_line_without_window_hit_still_deleted() -> None:
+    """V2-103 验收 2｜真无据形仍删（防蒙混）：窗内确无该记号 ⇒ 照删；数值记号**全等**不放宽
+    （`52` 不命中 `1520`——非子串包含，行为 7 边界记号化）。
+    """
+    observations = [
+        _obs(
+            1,
+            "agg_row",
+            content="井号=Z-16；日产油量合计（吨）=5839.63",
+            source="agg.fct_daily_metering",
+        ),
+        _obs(
+            2,
+            "agg_row",
+            content="井号=X-25；日产油量合计（吨）=1520.0",
+            source="agg.fct_daily_metering",
+        ),
+    ]
+    fabricated = "该井日产油量 99.5 吨。"   # 窗内无该记号 → 照删
+    boundary = "该井日产油量 52 吨。"      # 记号全等：`52` 不得命中 `1520.0`
+    state = _state(
+        question="去年日产油量最高的井是哪口？",
+        draft="\n".join([fabricated, boundary]),
+        observations=observations,
+    )
+    verdict = verify(state, bus=EventBus())
+
+    assert state.draft == ""                # 两行皆真无据：整行离场（不留残句）
+    assert verdict.supported == 0
+    assert verdict.rewritten == 2
+    assert verdict.cited == []
+    assert verdict.ok is False
+    rewrites = _step_payload(state)[PAYLOAD_REWRITES_KEY]
+    assert {entry["line"] for entry in rewrites} == {fabricated, boundary}
 
 
 # ---------- F1 件四：油田归属对账（另一油田数据且无分源说明 → 行拒收） ----------
