@@ -31,6 +31,7 @@ runtime 传 fake.adapter 假引擎）；knowledge 直接用 KnowledgeStore 抽�
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import date
 from typing import Any, Protocol
@@ -64,6 +65,7 @@ from appv2.retrieval import (
     Observation as RetrievalObservation,
 )
 from appv2.tools.argscheck import ArgsError
+from appv2.tools.retrieval_calllog import record_retrieval_call
 from appv2.tools.schema import (
     ASK_CLARIFY,
     ASK_EXTERNAL_TABLE_APPROVAL,
@@ -82,6 +84,9 @@ from appv2.tools.schema import (
     ToolResult,
 )
 from appv2.tools.well_ids import roster_entries, roster_lookup
+
+# 缺位名单审计机读面出口（V2-91——名单停发后不再进 state.observations，只落日志）。
+_LOGGER = logging.getLogger(__name__)
 
 # ---------- 工具名闭世界（注册序＝specs/tools.md 接口定义节列序＋V2-31 发现工具） ----------
 
@@ -1028,14 +1033,31 @@ def _notice_observation(
 async def doc_retrieve(
     args: dict[str, Any], ctx: ToolContext, *, retrieval: RetrievalFace
 ) -> ToolResult:
-    """文档检索（anchors/family_hints/ctx.budget 逐字进 RetrievalNeed——对齐项②契约）。"""
+    """文档检索（anchors/family_hints/ctx.budget 逐字进 RetrievalNeed——对齐项②契约）。
+
+    V2-89 旁路留痕：**成功返回前**（含空集）记一行 `logs/retrieval_calls/`（入参＋
+    入窗候选逐条——`record_retrieval_call` 单点）；异常分支不记（retrieve 抛出＝
+    留痕零写），留痕故障只告警——工具返回结构与文案零改。
+    """
     need = RetrievalNeed(
         question=str(args["question"]),
         anchors=tuple(args.get("anchors") or ()),
         family_hints=tuple(args.get("family_hints") or ()),
         budget=ctx.budget,
     )
-    return _bundle_to_result(await retrieval.retrieve(need))
+    bundle = await retrieval.retrieve(need)
+    record_retrieval_call(
+        # 身份面从 ctx 读（ToolContext 现形无此两字段＝如实留白；接线在 runtimev2 侧，
+        # 本票边界外——字段键恒在场，零发明）。
+        sub_question_id=str(getattr(ctx, "sub_question_id", "") or ""),
+        need=need,
+        top_k=need.budget,
+        hits=bundle.observations,
+        returned=len(bundle.observations),
+        run_id=str(getattr(ctx, "run_id", "") or ""),
+        recalled=bundle.recalled,
+    )
+    return _bundle_to_result(bundle)
 
 
 async def graph_query(
@@ -1129,12 +1151,16 @@ async def faq_lookup(
 
 
 def _missing_sources_segment(window_note: str) -> str:
-    """未纳入来源段提取（V2-46 R1c——window_note 载未纳入名单时的「检索窗注记」素材面）。
+    """未纳入来源段提取（V2-91——缺位名单的审计机读面素材提取单点）。
 
     build_window_note（retrieval.domain 组装单点）的该段措辞＝本模块 import 的
     单点常量 `NOTE_MISSING_SOURCES`（V2-82e 起措辞归用户语——「以下来源因数量
     限制未纳入：〈来源名列〉」），段界＝「；」或串尾（扩席实录等 extra 段在其后）。
     无该段＝空串（零注记——旧形零漂移）。
+
+    V2-91 停发后本段**不再**作为独立观察进 `state.observations`（该名单按单轮
+    检索算，与实际多子问题并集＋材料选择后的送窗不一致）；名单只经本提取落
+    审计日志（`_bundle_to_result`）。
     """
     marker = NOTE_MISSING_SOURCES
     position = window_note.find(marker)
@@ -1145,6 +1171,26 @@ def _missing_sources_segment(window_note: str) -> str:
     return rest if cut < 0 else rest[:cut]
 
 
+def _strip_missing_sources(window_note: str, missing: str) -> str:
+    """摘除缺位名单段（V2-91——notice 正文不再载未纳入来源名）。
+
+    段界与 `_missing_sources_segment` 同源（「；」或串尾）；摘除时连同其前导
+    连接符「；」（段在串首则改摘尾随「；」）——其余段逐字零改。无该段／段不
+    在场＝原样返回（旧形零漂移）。本函数只动 notice 正文的段组成，不新造话术。
+    """
+    if not missing:
+        return window_note
+    position = window_note.find(missing)
+    if position < 0:
+        return window_note
+    end = position + len(missing)
+    if position > 0 and window_note[position - 1] == "；":
+        return window_note[: position - 1] + window_note[end:]
+    if end < len(window_note) and window_note[end] == "；":
+        return window_note[:position] + window_note[end + 1 :]
+    return window_note[:position] + window_note[end:]
+
+
 def recall_relevant(question: str, missing_note: str) -> bool:
     """缺位回捞相关面（V2-46 R1c——回捞白场合同条件「本问题组相关报告/章节
     在列」的确定性机读；零模型词面判定，anchor_seat_tokens 同款先例）。
@@ -1153,6 +1199,10 @@ def recall_relevant(question: str, missing_note: str) -> bool:
     泛化）任一命中缺位注记文本＝相关在列；问句无资产 token 或零命中＝名单
     与题面无表面关联（机器不为噪声名单开回炉轮——保守面：名单可见性不受
     影响，模型面照常）。零 LLM、零 IO。
+
+    V2-91 注：名单已停发（不进 `state.observations`／模型材料／引擎注记），
+    本判据当前无在场调用者（runtime 侧消费点不再拿到 window_miss 观察）；
+    函数体保留为后续「按实投窗重算缺位名单」能力的既有接线面，零删改。
     """
     content = missing_note.casefold()
     return any(
@@ -1163,33 +1213,30 @@ def recall_relevant(question: str, missing_note: str) -> bool:
 def _bundle_to_result(bundle: RetrievalBundle) -> ToolResult:
     """供给窗→观察列（每支出处链逐支透传＋window_note 截断声明 notice）。
 
-    V2-46 R1c：未纳入来源名单在场（window_note 载 `NOTE_MISSING_SOURCES` 段）时
-    追加**非 notice 类**「检索窗注记」观察（locator.kind=window_miss——未进窗
-    名单＋原因）：名单模型可见，回捞白场（CLARIFY_CONTRACT 追加段）的触发
-    信号。notice 过滤机制零改动——window_miss 是新增观察类，不经 notice
-    通道（notice 面照旧：window_note 截断声明仍走原通道）。
+    V2-91（停发 per-round 缺位名单）：未纳入来源名单按**单轮检索**算，与实际
+    多子问题并集＋材料选择后的送窗不一致（模型会照它说「某来源未纳入」而该
+    来源实已在窗）——故**不再**追加 `locator.kind=window_miss` 的「检索窗注记
+    （缺位名单）」独立观察进 `state.observations`。保留面：①window_note 主段
+    （recalled/sent 计数＋差额＋同窗声明＋扩席实录）逐字照旧走 notice 通道；
+    ②材料渲染披露行（`context/materials.py`，按实投窗算）零改；③审计机读面
+    ——名单原文只落本模块日志（不进模型材料、不进引擎注记）。「按实投窗重算
+    的缺位名单」为后续能力（不在本票恢复）。无缺位段＝原形零漂移。
     """
+    missing = _missing_sources_segment(bundle.window_note)
+    if missing:
+        _LOGGER.info(
+            "doc_retrieve 缺位名单（单轮检索口径；审计机读面——不进模型材料／"
+            "引擎注记）：%s",
+            missing,
+        )
     observations = [_retrieval_observation(obs) for obs in bundle.observations]
     observations.append(
         _notice_observation(
-            content=bundle.window_note,
+            content=_strip_missing_sources(bundle.window_note, missing),
             notice_type="window_note",
             source="检索供给窗声明（截断显式）",
         )
     )
-    missing = _missing_sources_segment(bundle.window_note)
-    if missing:
-        observations.append(
-            Observation(
-                content=f"检索窗注记：{missing}",
-                source="检索供给窗声明（缺位名单）",
-                source_id="window_miss",
-                version=None,
-                freshness="",
-                scope="",
-                locator={"kind": "window_miss"},
-            )
-        )
     return ToolResult.ok(observations)
 
 
