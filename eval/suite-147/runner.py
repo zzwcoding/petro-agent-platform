@@ -34,8 +34,17 @@ HEADERS = {"X-Dev-User": "laowang"}
 MAX_RESUMES = 3
 
 
-def _load_manifest(only: str | None) -> list[dict[str, Any]]:
+def _load_manifest(
+    only: str | None, qid_file: str | None, book: str | None, offset: int, limit: int | None
+) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
+    wanted: set[str] | None = None
+    if qid_file:
+        wanted = {
+            ln.strip()
+            for ln in Path(qid_file).read_text(encoding="utf-8").splitlines()
+            if ln.strip()
+        }
     for line in MANIFEST.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line:
@@ -43,7 +52,15 @@ def _load_manifest(only: str | None) -> list[dict[str, Any]]:
         row = json.loads(line)
         if only and row.get("qid") != only:
             continue
+        if wanted is not None and row.get("qid") not in wanted:
+            continue
+        if book and book not in str(row.get("book") or ""):
+            continue
         rows.append(row)
+    if offset:
+        rows = rows[offset:]
+    if limit is not None:
+        rows = rows[:limit]
     return rows
 
 
@@ -70,11 +87,14 @@ def _run_id(frames: list[dict[str, Any]]) -> str:
     return ""
 
 
-def _first_ask(frames: list[dict[str, Any]]) -> dict[str, Any] | None:
-    for f in frames:
-        if f["event"] == "ask":
-            return f["data"] or {}
-    return None
+def _asks(frames: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [f["data"] or {} for f in frames if f["event"] == "ask"]
+
+
+def _ask_frame(ask: dict[str, Any]) -> dict[str, Any]:
+    """ask 事件载荷形＝{"frame": {kind,prompt,options,detail}, "run_id": …}。"""
+    frame = ask.get("frame")
+    return frame if isinstance(frame, dict) else {}
 
 
 def _steps(frames: list[dict[str, Any]]) -> list[str]:
@@ -91,27 +111,27 @@ async def _ask_once(c: httpx.AsyncClient, base: str, body: dict[str, Any], timeo
     return r.text
 
 
-async def _resume(c: httpx.AsyncClient, base: str, run_id: str, choice: str, timeout: int) -> str:
+async def _resume(
+    c: httpx.AsyncClient, base: str, run_id: str, body: dict[str, Any], timeout: int
+) -> str:
     r = await c.post(
-        f"{base}/chat/runs/{run_id}/resume",
-        json={"kind": "clarify", "choice": choice},
-        headers=HEADERS,
-        timeout=timeout,
+        f"{base}/chat/runs/{run_id}/resume", json=body, headers=HEADERS, timeout=timeout
     )
     r.raise_for_status()
     return r.text
 
 
-async def _delivered_answer(c: httpx.AsyncClient, base: str, run_id: str) -> str:
+async def _delivered(c: httpx.AsyncClient, base: str, run_id: str) -> tuple[str, str]:
+    """返回（交付面 answer, 服务端 status）——取证失败不炸批。"""
     try:
-        r = await c.get(f"{base}/chat/runs", params={"limit": 100}, headers=HEADERS, timeout=30)
+        r = await c.get(f"{base}/chat/runs", params={"limit": 200}, headers=HEADERS, timeout=30)
         r.raise_for_status()
         for row in r.json():
             if row.get("run_id") == run_id:
-                return str(row.get("answer") or "")
-    except Exception:  # noqa: BLE001 —— 取证失败不炸批（answer 落空串）
-        return ""
-    return ""
+                return str(row.get("answer") or ""), str(row.get("status") or "")
+    except Exception:  # noqa: BLE001
+        return "", ""
+    return "", ""
 
 
 async def run_one(
@@ -123,19 +143,33 @@ async def run_one(
     resumes: list[dict[str, str]] = []
     if resume:
         for _ in range(MAX_RESUMES):
-            ask = _first_ask(frames)
-            options = list((ask or {}).get("options") or [])
-            if not ask or not options:
+            asks = _asks(frames)
+            if not asks:
                 break
-            choice = options[0]
+            ask = asks[-1]
+            frame = _ask_frame(ask)
+            kind = str(frame.get("kind") or "clarify")
+            options = [str(o) for o in (frame.get("options") or [])]
             rid = _run_id(frames)
-            extra = _parse_sse(await _resume(c, base, rid, choice, timeout))
-            resumes.append({"run_id": rid, "choice": choice})
+            if kind == "clarify":
+                if not options:
+                    break
+                body: dict[str, Any] = {"kind": "clarify", "choice": options[0]}
+                resumes.append({"run_id": rid, "kind": kind, "choice": options[0]})
+            else:  # external_table_approval（外表越集审批）
+                body = {
+                    "kind": "approval",
+                    "decision": "approve",
+                    "approval_id": frame.get("approval_id") or ask.get("approval_id"),
+                }
+                resumes.append({"run_id": rid, "kind": kind, "decision": "approve"})
+            before = len(asks)
+            extra = _parse_sse(await _resume(c, base, rid, body, timeout))
             frames = frames + extra
-            if not _first_ask(extra):
+            if len(_asks(frames)) <= before:
                 break
     rid = _run_id(frames)
-    answer = await _delivered_answer(c, base, rid)
+    answer, server_status = await _delivered(c, base, rid)
     duration = round(time.monotonic() - started, 1)
     FRAMES.mkdir(parents=True, exist_ok=True)
     (FRAMES / f"{tag}-{qid}.json").write_text(
@@ -147,13 +181,18 @@ async def run_one(
         "set": row.get("set"),
         "book": row.get("book"),
         "run_id": rid,
-        "status": "completed" if answer.strip() else "empty",
+        "status": (
+            "completed"
+            if answer.strip()
+            else ("waiting_ask" if _asks(frames) else (server_status or "empty"))
+        ),
         "answer": answer,
         "answer_len": len(answer),
         "resumes": resumes,
         "steps": _steps(frames),
         "duration_s": duration,
-        "asked": bool(_first_ask(frames)),
+        "asked": bool(_asks(frames)),
+        "server_status": server_status,
     }
 
 
@@ -162,13 +201,17 @@ async def main() -> int:
     ap.add_argument("--tag", required=True)
     ap.add_argument("--base", default="http://127.0.0.1:8011/api/v2")
     ap.add_argument("--qid", default=None, help="只跑指定 qid")
+    ap.add_argument("--qid-file", default=None, help="qid 清单文件（一行一个）")
+    ap.add_argument("--book", default=None, help="只跑 book 名含该子串的题")
+    ap.add_argument("--offset", type=int, default=0)
+    ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--sleep", type=float, default=2.0)
     ap.add_argument("--timeout", type=int, default=300)
     ap.add_argument("--no-resume", action="store_true")
     ap.add_argument("--dry-run", action="store_true", help="只打印题号不跑")
     args = ap.parse_args()
 
-    rows = _load_manifest(args.qid)
+    rows = _load_manifest(args.qid, args.qid_file, args.book, args.offset, args.limit)
     if not rows:
         print(f"[suite-147] manifest 无匹配题（{MANIFEST}）")
         return 2
