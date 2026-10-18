@@ -24,6 +24,11 @@
   行为）＋ `VERIFY_MODE_REPAIR_FALLBACK`（`repair` 且 V2-115 未落地的如实降级标注）；步 payload
   additive 两键 `PAYLOAD_VERIFY_MODE_KEY`／`PAYLOAD_INTENDED_REWRITES_KEY`（检出项逐条原句＋
   原因；非 `delete` 档下**不删行**、交付面＝草稿逐字，真源 `specs/verification.md` 行为 14）；
+- **件四零交付兜底（2026-10-18 V2-106）**：件四（跨油田归属）**全行拒收**致零交付时，强制产出
+  「本主体未覆盖＋已试什么」**正证据声明**——`ZERO_DELIVERY_FALLBACK`（程序确定性渲染，零模型）
+  进**正文**（`state.draft`，非增补面）＋ `ZERO_DELIVERY_NOTICE`（`unsupported_claim` 分型）＋
+  step payload additive 布尔键 `PAYLOAD_ZERO_DELIVERY_KEY`；只在 `delete` 档（其余档检出项不
+  离场）；**不放松件四判据本身**（跨油田混写照拒）。真源＝`specs/verification.md` 行为 13；
 - 帧面（只经 `transport` 公开面）：`EVENT_VERDICT`（核验裁决帧——**批次落定归 `orchestration`
   协调**，本块只保证自产部分就位，行为 10）＋ `EVENT_NOTICE`（通知帧，恰三键）；
 - 步 payload 键名（六计数键 ＋ 行集对账两字段 ＋ 油田归属维度键，行为 6／11／13）。
@@ -100,6 +105,7 @@ from appv2.runtimev2.verification.constants import (
     PAYLOAD_SPLIT_KEY,
     PAYLOAD_SUPPORTED_KEY,
     PAYLOAD_VERIFY_MODE_KEY,
+    PAYLOAD_ZERO_DELIVERY_KEY,
     PHASE,
     REWRITE_CONFLICT,
     REWRITE_NO_MATERIAL,
@@ -113,6 +119,9 @@ from appv2.runtimev2.verification.constants import (
     VERIFY_MODE_REPAIR,
     VERIFY_MODE_REPAIR_FALLBACK,
     VERIFY_MODES,
+    ZERO_DELIVERY_FALLBACK,
+    ZERO_DELIVERY_NOTICE,
+    ZERO_DELIVERY_TRIED_TEMPLATE,
 )
 from appv2.runtimev2.verification.core import verify
 from appv2.runtimev2.verification.models import (
@@ -157,6 +166,7 @@ __all__ = [
     "PAYLOAD_SPLIT_KEY",
     "PAYLOAD_SUPPORTED_KEY",
     "PAYLOAD_VERIFY_MODE_KEY",
+    "PAYLOAD_ZERO_DELIVERY_KEY",
     "PHASE",
     "REWRITE_CONFLICT",
     "REWRITE_NO_MATERIAL",
@@ -170,6 +180,9 @@ __all__ = [
     "VERIFY_MODE_OFF",
     "VERIFY_MODE_REPAIR",
     "VERIFY_MODE_REPAIR_FALLBACK",
+    "ZERO_DELIVERY_FALLBACK",
+    "ZERO_DELIVERY_NOTICE",
+    "ZERO_DELIVERY_TRIED_TEMPLATE",
     "Gap",
     "GapKind",
     "RewriteReason",

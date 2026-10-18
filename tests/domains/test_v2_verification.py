@@ -89,6 +89,7 @@ from appv2.runtimev2.verification import (
     PAYLOAD_SPLIT_KEY,
     PAYLOAD_SUPPORTED_KEY,
     PAYLOAD_VERIFY_MODE_KEY,
+    PAYLOAD_ZERO_DELIVERY_KEY,
     PHASE,
     REWRITE_CONFLICT,
     REWRITE_NO_MATERIAL,
@@ -101,6 +102,7 @@ from appv2.runtimev2.verification import (
     VERIFY_MODE_REPAIR,
     VERIFY_MODE_REPAIR_FALLBACK,
     VERIFY_MODES,
+    ZERO_DELIVERY_NOTICE,
     Gap,
     RewriteRecord,
     Verdict,
@@ -1670,8 +1672,11 @@ async def test_cross_field_line_rejected_without_split_note() -> None:
     frames = await _frames(bus)
 
     # 该行拒收（删句族处置）——标题行原样、被拒行离场；计数据实＝不静默
-    assert state.draft == heading
+    # 2026-10-18 V2-106：全行拒收**不再零交付**——正文追加「本主体未覆盖＋已试什么」正证据
+    # （兜底为追加、不吞标题；`state.draft` 非空断言见 `test_zero_delivery_field_mismatch_*`）。
+    assert state.draft.splitlines()[0] == heading
     assert cross_field not in state.draft
+    assert "本主体未覆盖" in state.draft
     assert verdict.rewritten == 1
     assert NOTICE_UNSUPPORTED_CLAIM in _notice_types(state)
     rewrites = _step_payload(state)[PAYLOAD_REWRITES_KEY]
@@ -1730,6 +1735,172 @@ async def test_cross_field_line_rejected_without_split_note() -> None:
     assert mixed.draft.splitlines() == [heading, mixed_line]
     assert mixed_verdict.rewritten == 0
     assert _step_payload(mixed)[PAYLOAD_FIELD_MISMATCH_KEY] == []
+
+
+# ══════════ 2026-10-18 V2-106（件四零交付兜底——全行拒收产正证据声明）══════════════
+#
+# 票面＝`tickets/v2/V2-106-件四零交付兜底.md`（依据＝`design/统筹方案-核验澄清评测.md` §2.6）。
+# 现状：件四（跨油田归属）**全行拒收**后 `out_lines` 只剩标题 ⇒ 实质零交付（真机形＝
+# `eval/results/frames/Q14M-NQ-M4.json`）。修法：在 `_verify` 收口 `text="\n".join(out_lines)`
+# **之前**加零交付兜底闸——件四拒收发生（`field_attribution_mismatch` 非空）且**零有支撑句**
+# ⇒ 强制产出「本主体未覆盖＋已试什么」正证据声明（程序确定性、零模型），兜底文本进**正文**
+# （`state.draft`，非增补面）＋ `notice`；**不放松** `field_attribution_mismatch` 本身（跨油田
+# 混写照拒）。兜底只在 `delete` 档（`off` 不检测、`observe`／`repair` 不离场＝交付面草稿逐字，
+# V2-116 红线）；`RewriteRecord.reason` 闭世界两值不动。step payload additive 键
+# `zero_delivery_fallback`（兜底已生效）——`Verdict` 九键不动。
+
+
+async def test_zero_delivery_field_mismatch_fallback_positive_evidence() -> None:
+    """V2-106 验收 1／3｜NQ-M4 形离线复现：件四**全行拒收**不再零交付——正文含「本主体未覆盖
+    ＋已试什么」正证据声明（进 `state.draft`、非增补面）＋ `notice` 在场；标题行原样留存、
+    被拒行本体离场、机读面如实（`field_attribution_mismatch` ＋ `zero_delivery_fallback`）。
+    """
+    observations = [
+        # 窗内**题眼所辖油田**的材料（题眼井号 Y-21 落在此油田的报告里——NQ-M4 真机帧 obs[1] 形）
+        _obs(
+            1,
+            "fragment",
+            content="Y-21 井杆断的直接原因与深层管理原因；本月躺井 3 井次",
+            source="《渤中34-8油田躺井治理与检泵作业月报-202701》",
+        ),
+        # 另一油田的材料（张冠李戴的来源）
+        _obs(
+            2,
+            "fragment",
+            content="W-21、W-22、W-24 三口井由渤海 302 修井机承担，月度船日合计 22.5 天",
+            source="《B-渤中34-5油田躺井治理与检泵作业月报-202608》",
+        ),
+    ]
+    question = "第五章 1 月修井船日里 Y-21、Y-25 由哪支修井机承担、月度船日合计多少天？"
+    heading = "一、修井机与船日"
+    cross_field = "- 修井机归属：渤海 302 承担 W-21、W-22、W-24，月度船日合计 22.5 天 [2]。"
+    draft = "\n".join([heading, cross_field])
+    state = _state(question=question, draft=draft, observations=observations)
+    bus = EventBus()
+    verdict = verify(state, bus=bus)
+    frames = await _frames(bus)
+
+    # 验收 1／3：不再零交付——正文非空且携「本主体未覆盖＋已试什么」正证据（题眼所辖主体面
+    # ＋已试材料清单），标题行原样留存（兜底为**追加**、不吞正文）
+    assert state.draft.strip()
+    assert state.draft.splitlines()[0] == heading
+    assert "本主体未覆盖" in state.draft
+    assert "已试什么" in state.draft
+    assert "渤中34-8油田" in state.draft                       # 题眼所辖油田（未见其材料）
+    assert "《B-渤中34-5油田躺井治理与检泵作业月报-202608》" in state.draft  # 已试材料出处
+    assert cross_field not in state.draft                     # 被拒行本体离场（删句族处置不变）
+
+    # notice 在场（状态写口 ＋ `notice` 帧恰三键）——不静默
+    assert NOTICE_UNSUPPORTED_CLAIM in _notice_types(state)
+    notice_frames = _of(frames, EVENT_NOTICE)
+    assert ZERO_DELIVERY_NOTICE in [frame["content"] for frame in notice_frames]
+    assert all(set(frame) == _NOTICE_FRAME_KEYS for frame in notice_frames)
+
+    # 机读面：件四拒收序号列 ＋ 零交付兜底已生效（additive 键）；计数语义不变（如实计改写、
+    # 零有支撑、`ok=False` 回炉位、`reason` 闭世界两值）
+    payload = _step_payload(state)
+    assert payload[PAYLOAD_FIELD_MISMATCH_KEY] == [2]
+    assert payload[PAYLOAD_ZERO_DELIVERY_KEY] is True
+    assert verdict.rewritten == 1
+    assert verdict.supported == 0
+    assert verdict.ok is False
+    assert {entry["line"] for entry in payload[PAYLOAD_REWRITES_KEY]} == {cross_field}
+    assert {entry["reason"] for entry in payload[PAYLOAD_REWRITES_KEY]} == {REWRITE_NO_MATERIAL}
+
+    # 确定性：同输入两次运行正文逐字一致（题眼所辖面为集合——排序单点在渲染面）
+    again = _state(question=question, draft=draft, observations=observations)
+    assert verify(again, bus=EventBus()).ok is False
+    assert again.draft == state.draft
+
+
+async def test_zero_delivery_fallback_requires_field_mismatch_and_empty_support() -> None:
+    """V2-106 验收 2｜红线不回退＋不误伤：①跨油田混写行（整行材料全来自另一油田且无分源说明）
+    **仍被拒**；②本 draft 另有题眼所辖油田的支撑行（`supported>0`）⇒ **不触发**兜底（有交付面）；
+    ③非件四的零交付（无 `field_attribution_mismatch`）⇒ **不触发**兜底（兜底只对件四全拒成立）。
+    """
+    observations = [
+        _obs(
+            1,
+            "fragment",
+            content="Y-21 井杆断的直接原因与深层管理原因；本月躺井 3 井次",
+            source="《渤中34-8油田躺井治理与检泵作业月报-202701》",
+        ),
+        _obs(
+            2,
+            "fragment",
+            content="W-21、W-22、W-24 三口井由渤海 302 修井机承担，月度船日合计 22.5 天",
+            source="《B-渤中34-5油田躺井治理与检泵作业月报-202608》",
+        ),
+    ]
+    question = "第五章 1 月修井船日里 Y-21、Y-25 由哪支修井机承担、月度船日合计多少天？"
+    cross_field = "- 修井机归属：渤海 302 承担 W-21、W-22、W-24，月度船日合计 22.5 天 [2]。"
+    supported_line = "Y-21 井杆断的直接原因与深层管理原因 [1]。"
+
+    # ①＋②：混写行仍拒（红线）＋同 draft 有支撑行 ⇒ 不兜底（不误伤有交付面）
+    mixed = _state(
+        question=question,
+        draft="\n".join([supported_line, cross_field]),
+        observations=observations,
+    )
+    mixed_verdict = verify(mixed, bus=EventBus())
+    assert cross_field not in mixed.draft                  # 跨油田混写行仍被拒
+    assert supported_line in mixed.draft
+    assert mixed_verdict.supported == 1
+    assert mixed_verdict.rewritten == 1
+    assert _step_payload(mixed)[PAYLOAD_FIELD_MISMATCH_KEY] == [2]
+    assert _step_payload(mixed)[PAYLOAD_ZERO_DELIVERY_KEY] is False
+
+    # ③：非件四零交付（无引标数字行窗内零命中）⇒ 兜底不触发（该形归 V2-103 的删句面）
+    no_field = _state(
+        question="去年日产油量最高的井是哪口？",
+        draft="该井日产油量 99.5 吨。",
+        observations=[
+            _obs(1, "agg_row", content="井号=Z-16；日产油量合计（吨）=5839.63"),
+        ],
+    )
+    no_field_verdict = verify(no_field, bus=EventBus())
+    assert no_field.draft == ""
+    assert no_field_verdict.rewritten == 1
+    assert _step_payload(no_field)[PAYLOAD_FIELD_MISMATCH_KEY] == []
+    assert _step_payload(no_field)[PAYLOAD_ZERO_DELIVERY_KEY] is False
+
+
+async def test_zero_delivery_fallback_not_in_observe_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """V2-106｜档位红线（V2-116）：`observe` 档下件四检出项**不离场**——交付面逐字等于草稿，
+    零交付兜底**不得**触发（否则破「非 `delete` 档交付＝草稿逐字」红线）；机读键如实为 False。
+    """
+    monkeypatch.setenv(VERIFY_ACTION_ENV, VERIFY_MODE_OBSERVE)
+    observations = [
+        _obs(
+            1,
+            "fragment",
+            content="Y-21 井杆断的直接原因与深层管理原因；本月躺井 3 井次",
+            source="《渤中34-8油田躺井治理与检泵作业月报-202701》",
+        ),
+        _obs(
+            2,
+            "fragment",
+            content="W-21、W-22、W-24 三口井由渤海 302 修井机承担，月度船日合计 22.5 天",
+            source="《B-渤中34-5油田躺井治理与检泵作业月报-202608》",
+        ),
+    ]
+    heading = "一、修井机与船日"
+    cross_field = "- 修井机归属：渤海 302 承担 W-21、W-22、W-24，月度船日合计 22.5 天 [2]。"
+    draft = "\n".join([heading, cross_field])
+    state = _state(
+        question="第五章 1 月修井船日里 Y-21、Y-25 由哪支修井机承担、月度船日合计多少天？",
+        draft=draft,
+        observations=observations,
+    )
+    verdict = verify(state, bus=EventBus())
+
+    assert state.draft == draft                            # 交付＝草稿逐字（零加工）
+    assert "本主体未覆盖" not in state.draft
+    assert verdict.rewritten == 1                          # 检出如实计数（不离场）
+    assert _step_payload(state)[PAYLOAD_FIELD_MISMATCH_KEY] == [2]
+    assert _step_payload(state)[PAYLOAD_ZERO_DELIVERY_KEY] is False
 
 
 # ══════════ 2026-10-18 V2-94（核验定性句放行——承载片段断言无量值记号）══════════════

@@ -21,7 +21,11 @@
    cited 观察集」扩窗），命中即保留、按命中支回填 `cited` 且计有支撑（综述句重组已引事实不得删；
    窗内零命中＝真无据照删——数值记号全等不变）；**件四**：支撑过的行再过**行级油田归属闸**——被引材料自带
    油田名却**全不属题眼所辖油田**且行内无分源说明者**拒收**（同删句族留痕），机读面落 step payload
-   `field_attribution_mismatch` 键；**2026-10-18 V2-94（定性句放行）**：承载片段断言辖域**零计量
+   `field_attribution_mismatch` 键；**2026-10-18 V2-106（件四零交付兜底）**：件四**全行拒收**致实质
+    零交付时，强制产出「本主体未覆盖＋已试什么」正证据声明**进正文**（`state.draft`，非增补面；
+    插入点在收口 `text="\n".join(out_lines)` 之前）＋ `unsupported_claim` notice（不落空答），机读面
+    落 step payload additive 键 `zero_delivery_fallback`——**不放松件四判据本身**（跨油田混写照拒）；
+    **2026-10-18 V2-94（定性句放行）**：承载片段断言辖域**零计量
    数值记号**时引标可解析即保留（step payload additive 键 `qualitative_kept` 如实计数），**有计量
    数值仍照旧记号比对、对不上照删**（防编造红线不动）；一行多引标时承载片段**任一支撑即保留**
    （引标须全可解析——行为 8；非承载辖域全须复述不变）；`rewrites`／`ok=False` 语义与
@@ -120,6 +124,7 @@ from appv2.runtimev2.verification.constants import (
     PAYLOAD_SPLIT_KEY,
     PAYLOAD_SUPPORTED_KEY,
     PAYLOAD_VERIFY_MODE_KEY,
+    PAYLOAD_ZERO_DELIVERY_KEY,
     PHASE,
     REWRITE_CONFLICT,
     REWRITE_NO_MATERIAL,
@@ -139,6 +144,9 @@ from appv2.runtimev2.verification.constants import (
     VERIFY_MODE_REPAIR,
     VERIFY_MODE_REPAIR_FALLBACK,
     VERIFY_MODES,
+    ZERO_DELIVERY_FALLBACK,
+    ZERO_DELIVERY_NOTICE,
+    ZERO_DELIVERY_TRIED_TEMPLATE,
 )
 from appv2.runtimev2.verification.models import GAP_UNVERIFIED, Gap, RewriteRecord, Verdict
 from appv2.runtimev2.verification.rules import (
@@ -156,9 +164,11 @@ from appv2.runtimev2.verification.rules import (
     locator_kind,
     normalize_for_match,
     number_tokens,
+    observation_field_names,
     observation_supported,
     qualitative_release,
     question_anchors,
+    question_field_names,
     resolvable,
     rowset_audit,
     scope_usable,
@@ -168,6 +178,7 @@ from appv2.runtimev2.verification.rules import (
     uncited_aligned,
     without_markers,
 )
+from appv2.tools import normalize_anchor_text
 
 _BUS_MISSING = (
     "核验相位总线未注入（per-run 总线由编排块持有并注入）——裁决／通知事件无出口，"
@@ -299,6 +310,27 @@ def _verify(state: RunState, bus: EventBus, supplements: list[dict[str, Any]]) -
             out_lines = list(kept_lines)
         else:
             out_lines = detected_lines  # `delete`：旧行为（无据断言整行离场）
+
+    # ── 件四零交付兜底（2026-10-18 V2-106）─────────────────────────────────────
+    # 件四（跨油田归属）**全行拒收** ⇒ 实质零交付（`out_lines` 只剩标题）：强制产出「本主体未
+    # 覆盖＋已试什么」**正证据声明**（程序确定性、零模型）——**不落空答**。插入点必须在本块收口
+    # `text="\n".join(out_lines)` **之前**（否则兜底进不了 `state.draft`）。判据两半（全为既有
+    # 事实面，零第二份判据）：①件四拒收发生（`field_mismatched` 非空——`rules.field_attribution_
+    # mismatch` 单点）；②零有支撑句（`supported == 0`）＝无任何材料支撑的交付面。**只对 `delete`
+    # 档**：`off` 不检测、`observe`／`repair` 检出项不离场（交付面＝草稿逐字，V2-116 红线），故
+    # 无「因拒收致零交付」可言。**不放松件四判据本身**（跨油田混写照拒——红线不回退）。
+    zero_delivery = bool(
+        mode == VERIFY_MODE_DELETE and field_mismatched and supported == 0
+    )
+    if zero_delivery:
+        # 兜底文本进**正文**（非增补面）：追加而非替换——留存的结构承载行（标题等）原样不吞。
+        out_lines.append(
+            ZERO_DELIVERY_FALLBACK.format(
+                scope=_scope_text(field_scope, anchors, observations),
+                other=_other_field_text(field_mismatched, by_index),
+                tried=_tried_text(field_mismatched, by_index),
+            )
+        )
     text = "\n".join(out_lines)
 
     ordered_cited = sorted(cited)
@@ -408,6 +440,7 @@ def _verify(state: RunState, bus: EventBus, supplements: list[dict[str, Any]]) -
         field_mismatched,
         qualitative_kept,
         verify_mode,
+        zero_delivery,
     )
     state.draft = text
     state.verdict = verdict.as_dict()
@@ -635,6 +668,61 @@ def _index_text(indices: Sequence[int]) -> str:
     return _INDEX_SEPARATOR.join(f"[{index}]" for index in indices)
 
 
+def _scope_text(
+    field_scope: Collection[str],
+    anchors: Sequence[str],
+    observations: Sequence[Mapping[str, Any]],
+) -> str:
+    """题眼所辖油田名**显示形**（确定性排序——集合面无序，禁不确定文本）。
+
+    `field_scope` 是**规范形**（`rules.aligned_field_names` 的比对面——`normalize_anchor_text`
+    剥标点）；显示面按**同一取词单点**（`rules.question_field_names`／`rules.observation_field_names`
+    ——名录面规范名形）回投影：归一后落在 `field_scope` 者取显示形，取不到时回落规范形本身
+    （**判据面零改**——只影响显示，不新造词表字面）。
+    """
+    scope = set(field_scope)
+    candidates = list(question_field_names(anchors)) + [
+        name for obs in observations for name in observation_field_names(obs)
+    ]
+    display: list[str] = []
+    for name in candidates:
+        if normalize_anchor_text(name) in scope and name not in display:
+            display.append(name)
+    if not display:  # 回落：规范形本身（判据面零改——只影响显示）
+        display = sorted(str(name) for name in scope)
+    return _INDEX_SEPARATOR.join(display)
+
+
+def _other_field_text(
+    mismatched: Sequence[int], by_index: Mapping[int, Mapping[str, Any]]
+) -> str:
+    """被拒材料自带**油田名**列（出现序去重——取词单点＝`rules.observation_field_names`）。
+
+    件四判据只在「被拒材料自带油田名」时返回非空列，故本列恒非空（零第二份判据／零新造词表）。
+    """
+    names: list[str] = []
+    for seq in mismatched:
+        obs = by_index.get(int(seq))
+        if obs is None:
+            continue
+        for name in observation_field_names(obs):
+            if name not in names:
+                names.append(name)
+    return _INDEX_SEPARATOR.join(names)
+
+
+def _tried_text(
+    mismatched: Sequence[int], by_index: Mapping[int, Mapping[str, Any]]
+) -> str:
+    """「已试什么」清单（被拒行的被引序号＋出处名——升序去重，确定性）。"""
+    entries: list[str] = []
+    for seq in sorted({int(seq) for seq in mismatched}):
+        obs = by_index.get(seq)
+        source = str(obs.get("source", "")) if obs is not None else ""
+        entries.append(ZERO_DELIVERY_TRIED_TEMPLATE.format(index=seq, source=source))
+    return _INDEX_SEPARATOR.join(entries)
+
+
 def _anchor_text(anchors: Sequence[str]) -> str:
     return _INDEX_SEPARATOR.join(str(anchor) for anchor in anchors)
 
@@ -652,6 +740,7 @@ def _emit_signals(
     field_mismatched: Sequence[int] = (),
     qualitative_kept: int = 0,
     verify_mode: str = VERIFY_MODE_DELETE,
+    zero_delivery: bool = False,
 ) -> None:
     """机读信号（「不降级与静默禁令」节）：step payload ＋ `notice`／`verdict` 帧 ＋ 通知落账。
 
@@ -663,6 +752,9 @@ def _emit_signals(
     **2026-10-18 V2-94**：定性句放行计数键 `qualitative_kept`（additive——`Verdict` 九键不动）。
     **2026-10-18 V2-116**：`verify_mode`＝如实档位标注（payload 键）；非 `delete` 档下**未删行**，
     故 `unsupported_claim` notice 取**档位诚实**文案（「只记录不删」——检出 ≠ 离场）。
+    **2026-10-18 V2-106**：`zero_delivery`＝件四全行拒收兜底已生效——payload additive 键
+    `zero_delivery_fallback` 落账 ＋ **兜底通知**（`unsupported_claim` 分型，本块唯一通知出口
+    `_notify`）在场（兜底文本本身已进正文——见 `_verify` 收口前）。
     """
     title = STEP_TITLE_TEMPLATE.format(
         supported=verdict.supported,
@@ -682,8 +774,12 @@ def _emit_signals(
             field_mismatched,
             qualitative_kept,
             verify_mode,
+            zero_delivery,
         ),
     )
+    if zero_delivery:
+        # 零交付兜底不静默（件四全行拒收 ⇒ 正证据声明已进正文）：状态写口 ＋ `notice` 帧。
+        _notify(state, bus, NOTICE_UNSUPPORTED_CLAIM, ZERO_DELIVERY_NOTICE)
     if verdict.rewritten:
         _notify(
             state,
@@ -739,6 +835,7 @@ def _step_payload(
     field_mismatched: Sequence[int] = (),
     qualitative_kept: int = 0,
     verify_mode: str = VERIFY_MODE_DELETE,
+    zero_delivery: bool = False,
 ) -> dict[str, Any]:
     """步 payload（六计数键 ＋ 行集对账四字段 ＋ 改写／缺口留痕 ＋ 行集注记 ＋ 油田归属维度键）。
 
@@ -750,6 +847,8 @@ def _step_payload(
     additive 键——`Verdict` 九键不动，计数判据单点＝`_qualitative_release`）。
     **2026-10-18 V2-116**：`verify_mode`（如实档位）＋ `intended_rewrites`（检出项逐条原句＋原因）
     两 additive 键——非 `delete` 档下检出项**不离场**，交付面＝草稿逐字。
+    **2026-10-18 V2-106**：`zero_delivery_fallback`（additive 布尔键）＝件四全行拒收兜底已生效
+    （兜底正证据已进 `state.draft`；判据＝`_verify` 收口前的两半事实，本件只投影）。
     """
     return {
         PAYLOAD_PHASE_KEY: PHASE,
@@ -763,6 +862,7 @@ def _step_payload(
         PAYLOAD_ROWSET_MISSING_KEY: list(rowset_missing),
         PAYLOAD_ROWSET_ALIGNED_KEY: rowset_aligned,
         PAYLOAD_FIELD_MISMATCH_KEY: sorted(set(field_mismatched)),
+        PAYLOAD_ZERO_DELIVERY_KEY: zero_delivery,
         PAYLOAD_QUALITATIVE_KEPT_KEY: qualitative_kept,
         PAYLOAD_ATTRIBUTION_KEY: verdict.attribution,
         PAYLOAD_OK_KEY: verdict.ok,

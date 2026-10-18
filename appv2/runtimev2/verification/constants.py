@@ -161,6 +161,29 @@ LINE_BREAK = "\n"  # 行结构记号（零正则切行面）
 # 治理与检泵作业月报-202608》` 的 302／305／22.5 天数据——跨油田张冠李戴）。
 FIELD_NAME_NOUN = "油田"
 
+# ── 件四零交付兜底（2026-10-18 V2-106）────────────────────────────────────────
+# 件四（跨油田归属）**全行拒收**致零交付时，强制产出「本主体未覆盖＋已试什么」**正证据声明**
+# （程序确定性、零模型、零词表）——不落空答。真源＝`tickets/v2/V2-106-件四零交付兜底.md`（任务段
+# 逐字：「强制产出「本主体未覆盖」正证据声明，不落空答」「兜底文本进正文（非增补面），并记
+# notice」）＋`docs/runtime-refactor/design/统筹方案-核验澄清评测.md` §2.6（文本形：「本轮窗内材料
+# 均属〈其他油田〉，未见〈题眼油田〉材料——本油田未覆盖」）。兜底文本进**正文**（`state.draft`，
+# 非增补面；插入点必须在 `text="\n".join(out_lines)` **之前**，否则进不了 draft）＋ notice。
+# 三个占位（全为程序确定性输入，零二次创作）：
+# - `{scope}`＝题眼所辖油田名（`rules.aligned_field_names`——题眼点名的 ∪ 窗内承载题眼的）；
+# - `{other}`＝被拒材料自带油田名（`rules.observation_field_names`——同一取词单点）；
+# - `{tried}`＝已试材料清单（被拒行的被引序号＋出处名，升序——`ZERO_DELIVERY_TRIED_TEMPLATE`）。
+ZERO_DELIVERY_FALLBACK = (
+    "本主体未覆盖（题眼所辖：{scope}）——本轮窗内材料均属{other}，未见{scope}材料。"
+    "已试什么：{tried}（均因跨油田归属对不上被拒收）。"
+)
+# 已试材料逐条形（序号＋出处名——与引标面同形；多条以 `_INDEX_SEPARATOR` 连接）。
+ZERO_DELIVERY_TRIED_TEMPLATE = "[{index}] {source}"
+# 兜底通知正文（`notice` 帧／状态写口同文——`unsupported_claim` 分型：拒收致零交付不静默）。
+ZERO_DELIVERY_NOTICE = (
+    "件四归属闸全行拒收致零交付：已按「本主体未覆盖＋已试什么」正证据兜底"
+    "（兜底文本进正文、非增补面）——不静默落空答"
+)
+
 # ── 文本单点（逻辑面一律引名字，零字面副本）──────────────────────────────────────
 
 # 2026-10-17 EB3 D3：改写前缀「未找到（材料未披露）：」**退役**——真无据断言按
@@ -321,3 +344,8 @@ PAYLOAD_ROWSET_ALIGNED_KEY = "rowset_aligned"
 # 被引观察序号列——该行按既有删句族拒收，本键是其**机读维度面**（拒因复用删句族闭世界常量
 # `REWRITE_NO_MATERIAL`，闭世界两值不动）。
 PAYLOAD_FIELD_MISMATCH_KEY = "field_attribution_mismatch"
+# 件四零交付兜底面（2026-10-18 V2-106）：件四全行拒收且零有支撑句 ⇒ 兜底正证据声明已进正文
+# （`state.draft`）——additive 布尔键（`Verdict` 九键不动；真源＝
+# `docs/runtime-refactor/design/统筹方案-核验澄清评测.md` §2.6「payload additive：
+# `zero_delivery_fallback`」）。
+PAYLOAD_ZERO_DELIVERY_KEY = "zero_delivery_fallback"
