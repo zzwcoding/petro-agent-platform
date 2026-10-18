@@ -27,7 +27,9 @@ class RetrievalEngine:
     def graph(self, need: RetrievalNeed) -> RetrievalBundle: ...   # 图谱面
 
 # RetrievalNeed = {question, anchors?, family_hints?, budget}
-# RetrievalBundle = {observations: list[Observation], window_note: str}
+# RetrievalBundle = {observations: list[Observation], window_note: str,
+#                    recalled, sent, over_budget, anchor_seated, rowset_added,
+#                    summary_expanded}   # 后四键＝V2-89b additive 归因机读面
 # Observation 带出处链 fragment→report→library＋family 标注；
 # window_note = "召回 N 支/送窗 M 支"＋矛盾来源同窗声明或缺位枚举
 ```
@@ -37,6 +39,15 @@ class RetrievalEngine:
 1. 双路召回（向量＋关键词）→融合→精排（LLM 批量序＋来源置信度，失败回退 V1 确定性配额，不炸链）。
 2. 供给分池按 family_hints/来源指纹：同主题矛盾来源（同型报告/跨油田同指标）必须同窗并立；
    送窗预算内每来源至少留代表支，缺位在 window_note 枚举。
+   **V2-89b 补记（L1 预算真封顶，D3）**：锚保底／表类整行集／节内展开三通道的追加席
+   **计入 `budget`**——超预算不再追加，`WindowSupply.window` 支数恒 ≤ `budget`（旧行为
+   「追加席不计配额」实测 17/17 行 `returned > budget`，席次不可归因）。追加席候选因预算
+   被丢时落机读位 `RetrievalBundle.over_budget = True`（**不是**「召回池大于预算」的普通
+   截断——后者由 `recalled > sent`／window_note 差额段表达）；节内展开通道另守总补席上界
+   `appv2/retrieval/domain.py::SECTION_EXPAND_CAP`（每摘要席展开同节切片，一次检索补席总数
+   ≤ 该值且 ≤ 剩余预算——RC18「按节全量追加→窗支数翻倍」的治理面）。三通道实际入窗席数落
+   `anchor_seated`／`rowset_added`／`summary_expanded` 三个 additive 计数（`retrieval_calls`
+   留痕行同名字段的值源，见 `specs/tools.md`）。
 3. 截断显式：召回>送窗时 window_note 写"召回 N/送窗 M"——agent 据此如实区分"没有"与"没送"。
    **V2-91 注（缺位名单停发）**：行为 2 末句的未纳入来源枚举**按单轮检索算**，与实际
    「多子问题并集＋材料选择」后的送窗不一致——`doc_retrieve` **不再**把该段作为独立观察
@@ -62,6 +73,9 @@ class RetrievalEngine:
 | Observation 出处链完整（fragment→report→library）＋family 标注 | `tests/domains/test_v2_retrieval.py::provenance_chain` |
 | family_hints 驱动供给（完井族题不挤占月报族配额） | `tests/domains/test_v2_retrieval.py::family_supply` |
 | 图谱面：邻域边证据带出处，失败回退空集不炸 | `tests/domains/test_v2_retrieval.py::graph_surface` |
+| L1 预算真封顶：扩席三通道候选齐备 → 窗支数恒 ≤ budget | `tests/domains/test_v2_retrieval.py::test_supply_window_never_exceeds_budget` |
+| 追加席被预算丢 → `over_budget=True`（预算有余 → False） | `tests/domains/test_v2_retrieval.py::test_over_budget_flag_true_when_dropped` |
+| 节内展开加上界（≤ `SECTION_EXPAND_CAP` 且 ≤ 剩余预算） | `tests/domains/test_v2_retrieval.py::test_section_expansion_capped_by_budget_and_upper_bound` |
 
 ## 依赖与风险
 

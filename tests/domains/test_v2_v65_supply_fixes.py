@@ -123,7 +123,12 @@ def test_source_diversify_no_summary_zero_drift() -> None:
 
 
 async def test_summary_representative_seat_triggers_expansion() -> None:
-    """引擎级：摘要支夺代表席后 R1b 节内展开随席触发（1 席撬一节）。"""
+    """引擎级：摘要支夺代表席后 R1b 节内展开随席触发（1 席撬一节）。
+
+    V2-89b 改判（D3 真封顶）：原预算 2 下窗支数超预算（摘要支＋展开支追加）；
+    现改预算 5（两族各 2 席→余 1 席给展开）——同节切片仍经展开补席，且窗支数
+    恒 ≤ 预算、展开计数入 `RetrievalBundle.summary_expanded`。
+    """
     frags = [
         _frag("f-c1", "章节 01 概述", "完井液密度实测：二开 1.08、三开 1.05。"),
         _frag(
@@ -143,10 +148,12 @@ async def test_summary_representative_seat_triggers_expansion() -> None:
     engine = RetrievalEngine(
         library=InMemoryFragmentLibrary(frags), embedder=LocalHashEmbedder()
     )
-    bundle = await engine.retrieve(RetrievalNeed(question="完井液密度与注采比", budget=2))
+    bundle = await engine.retrieve(RetrievalNeed(question="完井液密度与注采比", budget=5))
     ids = {obs.fragment_id for obs in bundle.observations}
+    assert len(ids) <= 5  # V2-89b 真封顶（含展开追加席）
     assert "ensum-t" in ids  # 摘要支夺 monthly 族代表席
-    assert {"f-t1", "f-t2"} <= ids  # 同节切片经 R1b 展开补席（追加席不计配额）
+    assert {"f-t1", "f-t2"} <= ids  # 同节切片经 R1b 展开补席（追加席计入预算）
+    assert bundle.summary_expanded == 1  # 展开计数机读（V2-89b additive）
     assert "命中的章节摘要已展开为节内材料" in bundle.window_note  # 扩席实录如实
 
 

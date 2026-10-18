@@ -45,6 +45,8 @@ class ToolRegistry:
 - **`table_schema` 井号名录卡注记**（`appv2/tools/handlers.py`＋`appv2/tools/well_ids.py`＋`appv2/query/pg_wells.py`）：**dim_well 卡携【井号名录】**——discover 响应里现读 `agg.dim_well`（按区块分组、全角分隔、注明「共 N 口·dim_well」；超限截断＋计数照报）；名录**只在 discover 响应**注入（**非常驻**——台账常驻块/结构卡集合真源 `tools.ALL_SCHEMA_CARDS` 逐字不动，常驻块零增重）。`table_schema` 参数面三形互斥：`area`／`table`（卡面）／`well`（井号查值）；`well` 查值走本体 `RULE-PETRO-005` 井号归一（真源 `ontology/petro/m3-rule-model.yaml`）后比对名录——变体形（去连字符／乱连字符／空白污染／大小写混写，如 `w-11`／`W011`）判同一口井；命中＝观察（`locator.kind=well_lookup`）、**不在册＝notice `no_hit`**（不猜最近井、不做近似匹配）；名录不可得（读缝未接线／现读失败）＝notice `well_roster_unavailable`（如实告知，不静默冒充空名录）；名录每次调用现读恰一次（卡面名录段与判据同源同一行集，零缓存）。**2026-10-17 补（流水 70·审计）**；additive——既有行为零回归（判据：`tests/domains/test_v2_well_roster_card.py`）。
 - **`doc_retrieve` 缺位名单停发注记**（`appv2/tools/handlers.py`——`_missing_sources_segment`／`_strip_missing_sources`／`_bundle_to_result`）：未纳入来源段（window_note 载 `NOTE_MISSING_SOURCES`）**不再**作为独立观察（原 V2-46 的 `locator.kind=window_miss`「检索窗注记（缺位名单）」）追加进 `state.observations`——**停发理由**：该名单按**单轮检索**算，与实际「多子问题并集＋材料选择」后的送窗不一致（模型会照它说「某来源未纳入」而该来源实已在窗）。保留面：①window_note 主段（recalled/sent 计数＋差额＋同窗声明＋扩席实录）逐字照旧走 notice 通道；②材料渲染披露行（`context/materials.py`，按实投窗算）零改；③审计机读面——名单原文只落 `tools.handlers` 模块日志（**不进模型材料、不进引擎注记**）。**「按实投窗重算的缺位名单」登记为后续能力**（不在本票恢复；V2-46 缺位回捞白场随名单停发而无在场信号）。**2026-10-18 补（流水 V2-91）**；判据：`tests/domains/test_v2_v291_missing_sources_stop.py`。
 
+- **`doc_retrieve` 留痕身份与扩席归因注记**（V2-89b；真源 `appv2/tools/schema.py` `ToolContext`＋`appv2/tools/retrieval_calllog.py`）：`ToolContext` 补 `run_id`／`sub_question_id` 两字段（**只从状态取**——`runtimev2.bookkeeping.projection.tool_context` 注入，签名仍只有 `state`；`run_id`＝`state.run_id`，`sub_question_id`＝恰一支问题组时其子问题 id，多支/无组**如实空串**，不发明归属；缺省空串＝旧构造零漂移）。`retrieval_calls` 行键闭世界补七键：`snippet`（首支入窗候选正文前 **40** 字，`SNIPPET_CHARS`——其余候选仍只留字符数、全文/密钥不落）／`anchor_seated`／`rowset_added`／`summary_expanded`（三通道实际入窗席数，值源＝`RetrievalBundle` 同名 additive 计数）／`budget`（送窗预算 M）／`sent`（实走支数）／`over_budget`（追加席候选因预算被丢——D3 真封顶机读位；语义真源 `specs/retrieval.md` 行为 2 补记）。**2026-10-18 补（V2-89b）**；additive——既有键零改（判据：`tests/domains/test_v2_retrieval_calllog.py`）。
+
 ## 行为约定
 
 1. 全部工具 readonly=True 且不得产生任何写副作用（INV-2）；registry 拒绝注册 readonly!=True 的工具。
@@ -67,6 +69,8 @@ class ToolRegistry:
 | 每个工具 `description` 含「何时用／不能做什么／参数示例」三项 | `tests/domains/test_v2_tools.py::descriptor_covers_three_parts` |
 | dim_well 卡携井号名录（按区块分组＋共 N 口·dim_well；常驻面零增重） | `tests/domains/test_v2_well_roster_card.py::test_dim_well_card_carries_roster_grouped_by_block` |
 | 井号查值走 RULE-PETRO-005 归一（变体形命中；不在册如实 no_hit 不猜最近井） | `tests/domains/test_v2_well_roster_card.py::test_well_lookup_variant_forms_hit_canonical` |
+| 留痕行携身份两键（run_id/sub_question_id）与扩席计数/预算面 | `tests/domains/test_v2_retrieval_calllog.py::test_retrieval_calllog_carries_run_id_and_counts` |
+| 留痕 `snippet`＝首支前 40 字（≤40 且不落全文） | `tests/domains/test_v2_retrieval_calllog.py::test_snippet_40_chars_no_full_text` |
 
 ## 依赖与风险
 

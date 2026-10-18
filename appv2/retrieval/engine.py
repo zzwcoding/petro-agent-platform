@@ -12,7 +12,9 @@ V1 S4 双路召回＋精排＋生成窗供给＋图谱链移植为确定性引�
 2. 供给分池（supply_window，domain 硬编码）：family_hints 命中族共享 3/4 预
    算、其余族每族保底 1 席（完井族题不挤占月报族配额）；族内同来源（报告）
    至多半额轮询（每来源至少留代表支——矛盾来源同窗并立）；预算 < 候选来源
-   数→零席位来源逐个枚举进 window_note 缺位段。
+   数→零席位来源逐个枚举进 window_note 缺位段。**V2-89b D3 真封顶**：锚保底／
+   表类整行集／节内展开三通道追加席**计入 budget**（超预算即丢并落
+   `over_budget`），节内展开另守 `SECTION_EXPAND_CAP` 上界——窗支数恒 ≤ budget。
 3. 截断显式：window_note 恒带「共检索到 N 条材料，M 条用进了答案」
    （build_window_note 单点）——agent 据此区分「没有」与「没送」；同批计数
    落 `RetrievalBundle.recalled/sent` 结构化字段（V2-82e additive——注记措辞
@@ -33,7 +35,6 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 from appv2.retrieval.domain import (
-    NODE_SECTION_SUMMARY,
     NODE_SLICE,
     QUESTION_BLOCK_TYPE,
     SNIPPET_CHARS,
@@ -57,7 +58,6 @@ from appv2.retrieval.domain import (
     parse_rank_order,
     promote_entity_hits,
     rrf_merge,
-    section_root,
     snippet_window,
     supply_window,
 )
@@ -167,28 +167,26 @@ class RetrievalEngine:
         fused = rrf_merge(vector_hits, keyword_hits)
         recalled = len(fused)
         ordered = await self._llm_rerank(need.question, fused)
-        # 送窗席位分配（V2-45 R1a）：题眼锚集与表类解锁由题面词面判定
-        # （确定性零模型）——锚保底与表类整行集在供给层追加席位（不挤占
-        # 族分池配额），扩席实录随 window_note 留痕。
+        # 送窗席位分配（V2-45 R1a＋V2-47 R1b＋V2-89b D3）：题眼锚集与表类解锁由
+        # 题面词面判定（确定性零模型）——锚保底/表类整行集/节内展开三通道追加席
+        # **计入 budget**（超预算即丢并落 over_budget 机读位；节内展开另守
+        # SECTION_EXPAND_CAP 上界）。扩席实录随 window_note 留痕。
         supply = supply_window(
             ordered,
             need.budget,
             need.family_hints,
             anchors=anchor_seat_tokens(need.question, need.anchors),
             rowset_question=is_table_rowset_question(need.question),
+            corpus=fragments,
         )
-        # 节级摘要展开（V2-47 R1b——摘要命中→节内切片补席）：摘要节点进窗后
-        # 其节内切片（全节语料，含未召回支——R1b 索引期治本面）按追加席补入，
-        # 实录进 window_note extra（扩席如实，窗支数照实可超预算——R1a 同尺）。
-        expanded = _expand_summary_sections(supply.window, fragments)
         observations = [
-            self._fragment_observation(hit) for hit, _fused in [*supply.window, *expanded]
+            self._fragment_observation(hit) for hit, _fused in supply.window
         ]
         sources: list[str] = []
         for obs in observations:
             if obs.report not in sources:
                 sources.append(obs.report)
-        extra = _supply_extra_note(supply, summary_expanded=len(expanded))
+        extra = _supply_extra_note(supply)
         return RetrievalBundle(
             observations=observations,
             window_note=build_window_note(
@@ -200,6 +198,10 @@ class RetrievalEngine:
             ),
             recalled=recalled,
             sent=len(observations),
+            over_budget=supply.over_budget,
+            anchor_seated=len(supply.anchor_seated),
+            rowset_added=supply.rowset_added,
+            summary_expanded=supply.summary_expanded,
         )
 
     # ---------- 图谱面（邻域遍历→fail-closed 锚校验→送窗） ----------
@@ -444,45 +446,13 @@ def _candidate_place(frag: FragmentRecord) -> str:
     return f"{frag.report} · {frag.section}" if frag.section else frag.report
 
 
-def _expand_summary_sections(
-    window: list[tuple[Hit, float]], corpus: list[FragmentRecord]
-) -> list[tuple[Hit, float]]:
-    """节级摘要展开（V2-47 R1b——窗内摘要节点→其节内切片补席，追加席不挤占）。
-
-    - 成员判据＝（report_id, section_root(section)）同簇（簇键与富化批聚类
-      同一单点 domain.section_root）；
-    - 取材＝全节语料（含未召回支——R1b 索引期治本面：摘要命中即节相关信号，
-      节内切片不该因自身词面弱而被拒；R1a 送窗层「零新召回」红线不约束本面
-      ——票面任务 2/4 原文「展开其节内切片」）；
-    - 追加席：窗内已有支不重补；序＝窗内摘要序×语料序（确定性）；融合分槽
-      记 0.0（非召回产物——只作窗成员，不参与供给序）。
-    """
-    expanded: list[tuple[Hit, float]] = []
-    seated = {pair[0].fragment.fragment_id for pair in window}
-    for pair in window:
-        frag = pair[0].fragment
-        if frag.node_kind != NODE_SECTION_SUMMARY:
-            continue
-        for cand in corpus:
-            if cand.node_kind != NODE_SLICE:
-                continue
-            if cand.report_id != frag.report_id:
-                continue
-            if section_root(cand.section) != frag.section:
-                continue
-            if cand.fragment_id in seated:
-                continue
-            seated.add(cand.fragment_id)
-            expanded.append((Hit(cand, pair[0].score, pair[0].leg), 0.0))
-    return expanded
-
-
-def _supply_extra_note(supply: WindowSupply, *, summary_expanded: int = 0) -> str:
+def _supply_extra_note(supply: WindowSupply) -> str:
     """扩席实录段（window_note extra：锚保底/表类整组/摘要展开留痕）。
 
     数字如实：用进答案数 M 已按实走支数计数（build_window_note 主段），本段只
     声明扩席来源与增量——无扩席＝空串（零漂移）。三段措辞＝用户语（V2-82e）：
-    内部行话（锚保底/整行集/展开补席）不上材料段，数字全部参数化。
+    内部行话（锚保底/整行集/展开补席）不上材料段，数字全部参数化。V2-89b 起
+    补席计入 budget（真封顶）——本段是「实际入窗」的实录，非「曾尝试追加」。
     """
     segments: list[str] = []
     if supply.anchor_seated:
@@ -493,8 +463,8 @@ def _supply_extra_note(supply: WindowSupply, *, summary_expanded: int = 0) -> st
         segments.append(
             f"目标表格的整组数据行已进窗（+{supply.rowset_added} 条，不占送入答案的数量）"
         )
-    if summary_expanded:
-        segments.append(f"命中的章节摘要已展开为节内材料（+{summary_expanded} 条）")
+    if supply.summary_expanded:
+        segments.append(f"命中的章节摘要已展开为节内材料（+{supply.summary_expanded} 条）")
     return "；".join(segments)
 
 

@@ -37,7 +37,9 @@ from appv2.tools import (
     retrieval_calllog,
 )
 
-# 留痕记录键闭世界（票面「施工基准」字段表逐字＋V2-92 additive `origin`）。
+# 留痕记录键闭世界（票面「施工基准」字段表逐字＋V2-92 additive `origin`
+# ＋V2-89b additive 七键：`snippet`／`anchor_seated`／`rowset_added`／
+# `summary_expanded`／`budget`／`sent`／`over_budget`）。
 _RECORD_KEYS = {
     "ts",
     "run_id",
@@ -48,10 +50,21 @@ _RECORD_KEYS = {
     "returned",
     "truncated",
     "origin",
+    "snippet",
+    "anchor_seated",
+    "rowset_added",
+    "summary_expanded",
+    "budget",
+    "sent",
+    "over_budget",
 }
 _HIT_KEYS = {"id", "source", "score", "chars", "has_section"}
 
 CTX = ToolContext(actor="dev-u1", budget=7)
+# V2-89b 身份面桩：编排投影注入的两键（run_id 恒非空／sub_question_id 逐支）。
+CTX_IDENTIFIED = ToolContext(
+    actor="dev-u1", budget=7, run_id="run-v289b", sub_question_id="s2"
+)
 QUESTION = "W-111 井是干什么的？"
 
 
@@ -85,12 +98,24 @@ def _obs(
     )
 
 
-def _bundle(*, hits: list[RetrievalObservation], recalled: int = 0) -> RetrievalBundle:
+def _bundle(
+    *,
+    hits: list[RetrievalObservation],
+    recalled: int = 0,
+    over_budget: bool = False,
+    anchor_seated: int = 0,
+    rowset_added: int = 0,
+    summary_expanded: int = 0,
+) -> RetrievalBundle:
     return RetrievalBundle(
         observations=list(hits),
         window_note=f"共检索到 {recalled} 条材料，{len(hits)} 条用进了答案",
         recalled=recalled,
         sent=len(hits),
+        over_budget=over_budget,
+        anchor_seated=anchor_seated,
+        rowset_added=rowset_added,
+        summary_expanded=summary_expanded,
     )
 
 
@@ -111,8 +136,8 @@ def _jsonl_files(directory: Path) -> list[Path]:
     return sorted(directory.glob("*.jsonl"))
 
 
-async def _call(registry: ToolRegistry) -> Any:
-    return await registry.call(DOC_RETRIEVE, {"question": QUESTION}, CTX)
+async def _call(registry: ToolRegistry, ctx: ToolContext = CTX) -> Any:
+    return await registry.call(DOC_RETRIEVE, {"question": QUESTION}, ctx)
 
 
 async def test_retrieval_calllog_written(tmp_path: Path, monkeypatch) -> None:
@@ -165,9 +190,13 @@ async def test_retrieval_calllog_written(tmp_path: Path, monkeypatch) -> None:
     assert record["truncated"] is True
     # V2-92：origin 键 additive 由 autouse 夹具注入（测试语境＝test，运行语境＝runtime）。
     assert record["origin"] == "test"
-    # 不落全文：片段正文一字不进留痕件（只字符数）。
+    # V2-89b 改判（原「片段正文一字不进留痕件」）：留痕新增首支前 40 字 `snippet`
+    # ——首支正文以 40 字上限进留痕；**其余候选正文仍只留字符数**（第 2 支的
+    # 「套管尺寸」不得出现）；`chars` 仍＝全文长度（长面只留数不留文）。
     raw = path.read_text(encoding="utf-8")
-    assert "观察井" not in raw and "套管尺寸" not in raw
+    assert "套管尺寸" not in raw  # 非首支正文一字不进
+    assert record["snippet"] == "同平台 W-111 井为观察井，不承担生产任务。"[:40]
+    assert record["hits"][0]["chars"] == len("同平台 W-111 井为观察井，不承担生产任务。")
 
 
 async def test_retrieval_calllog_off_env(tmp_path: Path, monkeypatch) -> None:
@@ -249,3 +278,71 @@ async def test_retrieval_calllog_origin_runtime_branch(
     recs = _read(_jsonl_files(tmp_path / "runtime")[0])
     assert recs[0]["origin"] == "runtime"
     assert set(recs[0]) == _RECORD_KEYS  # 键闭世界（origin 在场、无多键无缺键）
+
+
+# ---------- V2-89b：留痕身份与扩席归因 ----------
+
+
+async def test_retrieval_calllog_carries_run_id_and_counts(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """V2-89b：桩 ctx → 行含两身份键（run_id/sub_question_id）与扩席计数/预算面。
+
+    身份面＝`ToolContext` 两新字段逐字进留痕（编排投影注入面）；计数面＝
+    `anchor_seated`/`rowset_added`/`summary_expanded`（`RetrievalBundle`
+    additive 计数）+`budget`/`sent`/`over_budget`——一行可复算「席次归因」。
+    """
+    monkeypatch.setattr(retrieval_calllog, "_LOG_DIR", tmp_path)
+    monkeypatch.delenv("RETRIEVAL_CALL_LOG", raising=False)
+    bundle = _bundle(
+        hits=[
+            _obs("f-1", report="A-W11井完井工程报告", score=2.0,
+                 text="同平台 W-111 井为观察井。", section="1.1 井位与井别"),
+            _obs("f-2", report="Y-21井完井工程报告", score=1.0,
+                 text="Y-21 井位于渤中 34-8 油田。", section=None),
+        ],
+        recalled=9,
+        over_budget=True,
+        anchor_seated=1,
+        rowset_added=2,
+        summary_expanded=3,
+    )
+    result = await _call(_registry(bundle), CTX_IDENTIFIED)
+    assert result.status == STATUS_OK
+
+    record = _read(_jsonl_files(tmp_path)[0])[0]
+    assert set(record) == _RECORD_KEYS  # 键闭世界（七新键在场、无多键无缺键）
+    assert record["run_id"] == "run-v289b"  # 身份键非空（编排投影注入）
+    assert record["sub_question_id"] == "s2"
+    assert record["anchor_seated"] == 1
+    assert record["rowset_added"] == 2
+    assert record["summary_expanded"] == 3
+    assert record["budget"] == 7  # 送窗预算 M（ctx.budget 逐字）
+    assert record["sent"] == 2  # 实走支数
+    assert record["over_budget"] is True  # 超预算机读位（D3）
+
+
+async def test_snippet_40_chars_no_full_text(tmp_path: Path, monkeypatch) -> None:
+    """V2-89b：`snippet`＝首支前 40 字（≤40 且不落全文——40 字之后一字不进）。"""
+    monkeypatch.setattr(retrieval_calllog, "_LOG_DIR", tmp_path)
+    monkeypatch.delenv("RETRIEVAL_CALL_LOG", raising=False)
+    long_text = (
+        "检泵作业明细表：443 井 2026-08-01 检泵，444 井 2026-08-02 检泵，"
+        "两行执行日期极易对调，核对以配注调整表为准，其余 7 口维持不变。"
+    )
+    assert len(long_text) > 40
+    bundle = _bundle(
+        hits=[_obs("f-1", report="A-W11井完井工程报告", score=2.0,
+                   text=long_text, section="三、检泵作业明细")],
+        recalled=1,
+    )
+    result = await _call(_registry(bundle))
+    assert result.status == STATUS_OK
+
+    record = _read(_jsonl_files(tmp_path)[0])[0]
+    assert record["snippet"] == long_text[:40]
+    assert len(record["snippet"]) == 40  # 首 40 字（≤40）
+    raw = (_jsonl_files(tmp_path)[0]).read_text(encoding="utf-8")
+    assert long_text not in raw  # 全文不落
+    assert long_text[40:] not in raw  # 40 字之后一字不进（首支亦只留 40 字）
+    assert record["hits"][0]["chars"] == len(long_text)  # 长面只留字符数

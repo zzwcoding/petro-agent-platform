@@ -1051,15 +1051,24 @@ async def doc_retrieve(
     )
     bundle = await retrieval.retrieve(need)
     record_retrieval_call(
-        # 身份面从 ctx 读（ToolContext 现形无此两字段＝如实留白；接线在 runtimev2 侧，
-        # 本票边界外——字段键恒在场，零发明）。
-        sub_question_id=str(getattr(ctx, "sub_question_id", "") or ""),
+        # 身份面从 ctx 读（V2-89b：ToolContext 两字段由编排投影注入；缺省空串＝
+        # 如实留白，字段键恒在场，零发明）。
+        sub_question_id=ctx.sub_question_id,
         need=need,
         top_k=need.budget,
         hits=bundle.observations,
         returned=len(bundle.observations),
-        run_id=str(getattr(ctx, "run_id", "") or ""),
+        run_id=ctx.run_id,
         recalled=bundle.recalled,
+        # V2-89b 扩席归因面（bundle additive 计数——席次可复算）：snippet＝首支
+        # 正文前 40 字（长面只留 40 字，其余候选只留字符数）。
+        snippet=(bundle.observations[0].text if bundle.observations else ""),
+        anchor_seated=bundle.anchor_seated,
+        rowset_added=bundle.rowset_added,
+        summary_expanded=bundle.summary_expanded,
+        budget=need.budget,
+        sent=len(bundle.observations),
+        over_budget=bundle.over_budget,
     )
     return _bundle_to_result(bundle)
 

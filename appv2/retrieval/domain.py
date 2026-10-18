@@ -415,12 +415,24 @@ class RetrievalBundle:
     如实声明「共检索到 N 条材料，M 条用进了答案／材料来源说法不一各留代表条目／
     未纳入来源逐条点名」。recalled/sent＝计数结构化字段（V2-82e additive——
     window_note 措辞面之外的机读面；缺省 0＝旧构造零漂移）。
+
+    V2-89b additive 四字段（D3 归因机读面——`retrieval_calls` 留痕行的值源；
+    缺省零值＝旧构造零漂移）：
+    - `over_budget`＝本轮有**追加席候选**（锚保底/表类行集/节内展开）因预算
+      不足被丢（真封顶判据——不是「召回池大于预算」的普通截断，后者由
+      `recalled > sent` 表达）；
+    - `anchor_seated`/`rowset_added`/`summary_expanded`＝三通道**实际入窗席数**
+      （`WindowSupply` 同名字段的计数投影——只数不列名）。
     """
 
     observations: list[Observation]
     window_note: str
     recalled: int = 0
     sent: int = 0
+    over_budget: bool = False
+    anchor_seated: int = 0
+    rowset_added: int = 0
+    summary_expanded: int = 0
 
 
 def build_window_note(
@@ -454,6 +466,12 @@ def build_window_note(
 
 
 # ---------- 供给分池（同窗规则硬编码层——不依赖 LLM 自觉） ----------
+
+# 节内展开通道总补席上界（V2-89b D3「节内展开加上界」）：窗内摘要支触发同节
+# 切片补席时，一次检索的展开补席总数恒 ≤ 本值（且同时守 budget——双上界）。
+# 数值取既有席位帽族同量级（`context/materials.MAX_REPORT_SEATS_PER_SOURCE`＝6／
+# `ANCHOR_SEATS`＝6），治 RC18「按节全量追加→窗支数翻倍」。
+SECTION_EXPAND_CAP = 6
 
 
 def source_diversify(members: list[tuple[Hit, float]], cap: int) -> list[tuple[Hit, float]]:
@@ -519,14 +537,21 @@ class WindowSupply:
     """供给窗构成结果（window＝入选候选；missing＝缺位来源报告名）。
 
     anchor_seated（V2-45 R1a）＝题眼锚保底新增席位的来源报告名（保底实录——
-    进 window_note 留痕）；rowset_added＝表类整行集扩窗支数（不计入配额的
-    增量实录）。两者缺省空——旧配额路径零漂移。
+    进 window_note 留痕）；rowset_added＝表类整行集扩窗支数。两者缺省空——
+    旧配额路径零漂移。
+
+    V2-89b additive 两字段（D3）：
+    - `summary_expanded`＝节级摘要展开实际补席数（V2-47 R1b 通道计数）；
+    - `over_budget`＝本轮有追加席候选（锚保底/行集/节内展开）因预算不足被丢
+      ——**真封顶**机读位（`window` 支数恒 ≤ budget）。
     """
 
     window: list[tuple[Hit, float]]
     missing_sources: list[str]
     anchor_seated: tuple[str, ...] = ()
     rowset_added: int = 0
+    summary_expanded: int = 0
+    over_budget: bool = False
 
 
 # ---------- 题面词面判定（V2-45 R1a——表类解锁与题眼锚集，确定性零模型） ----------
@@ -584,6 +609,8 @@ def supply_window(
     family_hints: Sequence[str] = (),
     anchors: Sequence[str] = (),
     rowset_question: bool = False,
+    *,
+    corpus: Sequence[FragmentRecord] = (),
 ) -> WindowSupply:
     """生成窗供给（specs 行为约定 2——同窗规则在供给层硬编码实现）。
 
@@ -593,22 +620,29 @@ def supply_window(
        （每族 ≥1）。
     2. 族内来源多样性：source_diversify（同报告至多半额——每来源至少留
        代表支）。
-    3. 族配额用不满（该族候选少于配额）→余量按融合序补给未满预算的其他候选。
-    4. 题眼锚保底（V2-45 R1a——多来源竞争下锚命中来源 ≥1 席位，消灭目标
-       报告零席位形）：逐锚找「片段文本/报告名/本体标签命中该锚的来源」
-       （V2-82d 三面或任一——题面点名的主体常只在报告名或 well 标签出现），
-       未获席者取其融合序最优一支追加进窗（追加席——不挤占既有族分池代表
-       支；窗支数照实可超预算，window_note 数字面如实）。锚集由调用方给
-       （engine 侧 anchor_seat_tokens——显式锚＋问句资产编号）。
-    5. 表类整行集（V2-45 R1a——明细/表格类整行集优先）：rowset_question
-       解锁时，目标表格片段＝融合序最前的「表格承载＋锚命中（无锚不设锚
-       条件）」支；其同报告同 section 的已召回候选整组补席（不计入单支配额，
-       只从召回池取——零新召回）。
-    6. 预算 < 候选来源数→部分来源零席位＝缺位，报告名逐个枚举（调用方进
-       window_note）——锚保底/整组已保席的来源不再入缺位。
+    3. **追加席（锚保底→表类整行集→节内展开）按序竞争剩余预算**（V2-89b
+       D3 真封顶——追加席**计入 budget**，超预算即丢并落 `over_budget`）：
+       - 题眼锚保底（V2-45 R1a——多来源竞争下锚命中来源 ≥1 席位，消灭目标
+         报告零席位形）：逐锚找「片段文本/报告名/本体标签命中该锚的来源」
+         （V2-82d 三面或任一），未获席者取其融合序最优一支追加进窗；锚集由
+         调用方给（engine 侧 anchor_seat_tokens——显式锚＋问句资产编号）；
+       - 表类整行集（V2-45 R1a——明细/表格类整行集优先）：rowset_question
+         解锁时，目标表格片段＝融合序最前的「表格承载＋锚命中（无锚不设锚
+         条件）」支；其同报告同 section 的已召回候选整组补席（零新召回）；
+       - 节内展开（V2-47 R1b——窗内摘要支→其节内切片补席）：取材＝全节语料
+         （含未召回支）；通道总补席 ≤ `SECTION_EXPAND_CAP`（V2-89b 加上界）。
+    4. 余量补给：以上席位仍不满预算→按融合序补未获席候选（追加席优先于
+       通用余量补给占剩余预算）。
+    5. 预算 < 候选来源数→部分来源零席位＝缺位，报告名逐个枚举（调用方进
+       window_note）——锚保底/整组/展开已保席的来源不再入缺位。
 
-    送窗序列保持融合序（只丢不重排——V1 分池纪律同尺）。hints 不改族遍历序
-    （族序＝融合序首现），只改各族配额。
+    送窗序列保持融合序（只丢不重排——V1 分池纪律同尺；节内展开支非召回产物
+    ——接在融合序席之后，序＝窗内摘要序×语料序）。hints 不改族遍历序（族序＝
+    融合序首现），只改各族配额。
+
+    `over_budget`＝本轮有**追加席候选**因预算不足被丢（锚/行集/展开三通道任一；
+    节内展开触 `SECTION_EXPAND_CAP` 上界不算——那是设计上界，不是预算不足）。
+    `corpus` 缺省空＝不启用节内展开（旧直接构造面零漂移）。
     """
     if budget <= 0 or not ranked:
         return WindowSupply(window=[], missing_sources=[])
@@ -656,20 +690,13 @@ def supply_window(
             window.append(pair)
             picked_ids.add(pair[0].fragment.fragment_id)
 
-    # 余量补给：族配额用不满（候选少于配额）时按融合序补齐预算。
-    if len(window) < budget:
-        for pair in ranked:
-            if len(window) >= budget:
-                break
-            if pair[0].fragment.fragment_id not in picked_ids:
-                window.append(pair)
-                picked_ids.add(pair[0].fragment.fragment_id)
-
-    # 题眼锚保底（追加席——见 docstring 4）：逐锚扫全召回池，命中该锚的每个
-    # 来源未获席者各补 1 席（来源级去重；代表席＝该来源融合序最优命中支）。
-    # 命中面＝text ∪ report ∪ well（V2-82d——油田名往往只落在报告名/本体标签
-    # 里，只看 text 会让题面点名的主体保不住席位）。
+    # 题眼锚保底（追加席——计入 budget，超则丢并记 over_budget）：逐锚扫全召回
+    # 池，命中该锚的每个来源未获席者各补 1 席（来源级去重；代表席＝该来源融合序
+    # 最优命中支）。命中面＝text ∪ report ∪ well（V2-82d——油田名往往只落在报告
+    # 名/本体标签里，只看 text 会让题面点名的主体保不住席位）。
     anchor_seated: list[str] = []
+    anchor_dropped = False
+    seated_reports = {pair[0].fragment.report for pair in window}
     for token in anchors:
         needle = token.casefold()
         if not needle:
@@ -679,14 +706,19 @@ def supply_window(
             haystacks = (frag.text, frag.report or "", frag.well or "")
             if not any(needle in h.casefold() for h in haystacks):
                 continue
-            if any(p[0].fragment.report == frag.report for p in window):
+            if frag.report in seated_reports:
                 continue  # 该来源已有席位——继续找同锚的其他命中来源
+            if len(window) >= budget:
+                anchor_dropped = True  # 真封顶：预算尽→不再追加（归因机读位）
+                continue
             window.append(pair)
             picked_ids.add(frag.fragment_id)
+            seated_reports.add(frag.report)
             anchor_seated.append(frag.report)
 
-    # 表类整行集（追加席——见 docstring 5）：目标表格片段同组整补。
+    # 表类整行集（追加席——计入 budget，超则丢）：目标表格片段同组整补。
     rowset_added = 0
+    rowset_dropped = False
     if rowset_question:
         anchor_set = {token.casefold() for token in anchors}
         target_key: tuple[str, str | None] | None = None
@@ -707,28 +739,96 @@ def supply_window(
                     continue
                 if frag.fragment_id in picked_ids:
                     continue
+                if len(window) >= budget:
+                    rowset_dropped = True  # 真封顶：预算尽→不再追加
+                    continue
                 window.append(pair)
                 picked_ids.add(frag.fragment_id)
                 rowset_added += 1
 
+    # 节内展开（追加席——计入 budget；通道总上界 SECTION_EXPAND_CAP）。
+    expanded, expand_dropped = _expand_summary_seats(
+        window, picked_ids, corpus, budget
+    )
+
+    # 余量补给：以上席位仍不满预算时按融合序补齐（追加席优先于通用余量；
+    # 计数含节内展开支——总席恒 ≤ budget）。
+    if len(window) + len(expanded) < budget:
+        for pair in ranked:
+            if len(window) + len(expanded) >= budget:
+                break
+            if pair[0].fragment.fragment_id not in picked_ids:
+                window.append(pair)
+                picked_ids.add(pair[0].fragment.fragment_id)
+
     # 缺位来源：召回池有候选但零席位（预算 < 来源数）——报告名枚举不静默
-    # （锚保底/整组已保席的来源不在此列——扩席如实先于缺位判定）。
-    seated_reports = {pair[0].fragment.report for pair in window}
+    # （锚保底/整组/展开已保席的来源不在此列——扩席如实先于缺位判定）。
+    seated_reports = {pair[0].fragment.report for pair in [*window, *expanded]}
     missing: list[str] = []
     for pair in ranked:
         report = pair[0].fragment.report
         if report not in seated_reports and report not in missing:
             missing.append(report)
 
-    # 保持融合序（只丢不重排）。
+    # 保持融合序（只丢不重排）；节内展开支非召回产物——接在融合序席之后。
     order = {id(pair[0]): i for i, pair in enumerate(ranked)}
     window.sort(key=lambda pair: order[id(pair[0])])
+    window.extend(expanded)
     return WindowSupply(
         window=window,
         missing_sources=missing,
         anchor_seated=tuple(anchor_seated),
         rowset_added=rowset_added,
+        summary_expanded=len(expanded),
+        over_budget=anchor_dropped or rowset_dropped or expand_dropped,
     )
+
+
+def _expand_summary_seats(
+    window: list[tuple[Hit, float]],
+    picked_ids: set[str],
+    corpus: Sequence[FragmentRecord],
+    budget: int,
+    *,
+    cap: int = SECTION_EXPAND_CAP,
+) -> tuple[list[tuple[Hit, float]], bool]:
+    """节级摘要展开（V2-47 R1b——窗内摘要节点→其节内切片补席，计入预算）。
+
+    - 成员判据＝（report_id, section_root(section)）同簇（簇键与富化批聚类
+      同一单点 domain.section_root）；
+    - 取材＝全节语料（含未召回支——R1b 索引期治本面：摘要命中即节相关信号，
+      节内切片不该因自身词面弱而被拒）；
+    - 追加席：窗内已有支不重补；序＝窗内摘要序×语料序（确定性）；融合分槽
+      记 0.0（非召回产物——只作窗成员，不参与供给序）；
+    - **双上界（V2-89b D3）**：补席总数 ≤ `cap`（SECTION_EXPAND_CAP）且
+      `len(window) + 补席数 ≤ budget`——超预算丢席并回 `True`（over_budget
+      值源；触 `cap` 上界不回 True——那是设计上界，非预算不足）。
+    """
+    expanded: list[tuple[Hit, float]] = []
+    dropped = False
+    if not corpus or cap <= 0:
+        return expanded, dropped
+    for pair in window:
+        frag = pair[0].fragment
+        if frag.node_kind != NODE_SECTION_SUMMARY:
+            continue
+        for cand in corpus:
+            if cand.node_kind != NODE_SLICE:
+                continue
+            if cand.report_id != frag.report_id:
+                continue
+            if section_root(cand.section) != frag.section:
+                continue
+            if cand.fragment_id in picked_ids:
+                continue
+            if len(window) + len(expanded) >= budget:
+                dropped = True  # 预算尽——不再追加
+                continue
+            if len(expanded) >= cap:
+                continue  # 通道上界（设计上界，不记 over_budget）
+            picked_ids.add(cand.fragment_id)
+            expanded.append((Hit(cand, pair[0].score, pair[0].leg), 0.0))
+    return expanded, dropped
 
 
 # ---------- LLM 精排解析面（批量排序＋来源置信度——失败回退由 engine 兜） ----------

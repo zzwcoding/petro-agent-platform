@@ -4,11 +4,13 @@
 - ToolDescriptor＝{name, description, args_schema(jsonschema), readonly: True}
   ——渐进披露发现面（书 5.5 三层披露之发现层：只暴露名称/一句话用途/参数
   schema/只读声明）；
-- ToolContext＝{actor, budget, metric_candidates}——逐调用上下文：actor＝行级
-  注入身份（data_query→plan.actor；身份只从 ctx 进、不从 args 进——伪造面
-  收口），budget＝检索送窗预算（doc_retrieve/graph_query→RetrievalNeed.budget），
-  metric_candidates＝问句指标候选集（FX-13 一致性闸素材，runtime 规划步供给，
-  data_query 逐字转发 query.validate）；
+- ToolContext＝{actor, budget, metric_candidates, approved_tables, run_id,
+  sub_question_id}——逐调用上下文：actor＝行级注入身份（data_query→plan.actor；
+  身份只从 ctx 进、不从 args 进——伪造面收口），budget＝检索送窗预算
+  （doc_retrieve/graph_query→RetrievalNeed.budget），metric_candidates＝问句指标
+  候选集（FX-13 一致性闸素材，runtime 规划步供给，data_query 逐字转发
+  query.validate），run_id/sub_question_id＝留痕身份两键（V2-89b——编排投影注入，
+  `retrieval_calls` 行的身份值源）；
 - ToolResult＝{status: ok|failed|ask, observations, ask: AskFrame|None,
   error: ToolError|None}——三态构造即定型不变式：ok 无 ask/error、failed 必有
   error、ask 必有 ask（C1 slots domain 同款纪律）；
@@ -97,12 +99,19 @@ class ToolContext:
     →RetrievalNeed.budget）——runtime 侧经 resolve_send_budget 按调用上下文赋值
     （问题组子问题数×基线 6、上限 24）；本 schema 缺省 4 保留给直接构造面
     （测试/旧调用形），生产运行面不再落硬编码。
+
+    run_id／sub_question_id（V2-89b 留痕身份——`retrieval_calls` 行的两身份键
+    值源，`tools.retrieval_calllog` 消费）：由编排投影（`runtimev2.bookkeeping
+    .projection.tool_context`）从**状态**注入，不从 args 进（伪造面收口同
+    actor）。缺省空串＝旧构造面零漂移（如实留白，不发明身份）。
     """
 
     actor: str = ""  # 行级注入身份（data_query→plan.actor；两步缝第一步）
     budget: int = 4  # 检索送窗预算 M（RetrievalNeed.budget——截断显式的 M）
     metric_candidates: tuple[str, ...] | None = None  # FX-13 候选集（None＝不启用）
     approved_tables: tuple[str, ...] = ()  # 外表放行态（A2 裁决——批准过的表名集）
+    run_id: str = ""  # 运行身份（V2-89b——编排投影注入；留痕行 run_id 值源）
+    sub_question_id: str = ""  # 子问题身份（V2-89b——编排投影注入；逐支归因）
 
     def __post_init__(self) -> None:
         if isinstance(self.budget, bool) or not isinstance(self.budget, int):

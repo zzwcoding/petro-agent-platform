@@ -1268,9 +1268,12 @@ _SPEC_NOTE_DIGEST_LIMIT = 200
 _SPEC_TRUNCATION_MARK = "…"
 # 通知恰三键（行为 11 逐字）
 _SPEC_NOTICE_KEYS = ("type", "gates", "content")
-# 工具上下文四字段（`specs/modules.md` `## tools` 卡逐字：actor／budget／metric_candidates／
-# approved_tables）
-_SPEC_TOOL_CONTEXT_FIELDS = ("actor", "budget", "metric_candidates", "approved_tables")
+# 工具上下文六字段（`specs/modules.md` `## tools` 卡逐字：actor／budget／metric_candidates／
+# approved_tables＋V2-89b additive 留痕身份两键 run_id／sub_question_id）
+_SPEC_TOOL_CONTEXT_FIELDS = (
+    "actor", "budget", "metric_candidates", "approved_tables",
+    "run_id", "sub_question_id",
+)
 # 结果投影键面（行为 17「无增删改名」——形状真源 `specs/modules.md` `## tools` 卡）
 _SPEC_RESULT_KEYS = ("status", "observations", "ask", "error")
 
@@ -1415,7 +1418,7 @@ def test_tool_context_assembly() -> None:
 
     # 身份不接调用方传：签名只有 state（无身份入参）
     assert tuple(inspect.signature(tool_context).parameters) == ("state",)
-    # 四字段＝卡面形状（字段序同卡）
+    # 六字段＝卡面形状（字段序同卡；V2-89b 补留痕身份两键）
     assert [field.name for field in fields(ToolContext)] == list(_SPEC_TOOL_CONTEXT_FIELDS)
 
     state = _state(
@@ -1429,6 +1432,15 @@ def test_tool_context_assembly() -> None:
     assert context.approved_tables == tuple(state.approved_ids)  # 放行态随上下文走
     assert context.metric_candidates == ("日产油量",)
     assert context.budget == resolve_send_budget(3)  # 预算按子问题数（3 支）
+    # V2-89b 留痕身份两键：run_id 恒从状态取；多支组拿不到「当前支」——如实留白
+    # （逐支派遣载荷不在本块可及面，不发明归属）。
+    assert context.run_id == state.run_id == "run-bk-01"
+    assert context.sub_question_id == ""
+    # 恰一支问题组＝可归属（子问题 id 逐字注入）。
+    single = tool_context(
+        _state(run_id="run-bk-09", question_group={"subtasks": [{"id": "s7"}]})
+    )
+    assert single.run_id == "run-bk-09" and single.sub_question_id == "s7"
 
     # 换状态即换身份／放行集（不是调用方传的常量、也不吃上一份状态）
     other = _state(actor="xiaoqi", approved_ids=["lake.raw_wells"], metric_candidates=[])

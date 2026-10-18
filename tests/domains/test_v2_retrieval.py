@@ -40,6 +40,8 @@ import pytest
 from appv2.knowledge import InMemoryKnowledgeStore, question_array_snapshot
 from appv2.retrieval import (
     FAMILY_ALL,
+    NODE_SECTION_SUMMARY,
+    NODE_SLICE,
     FragmentRecord,
     GraphEdgeRecord,
     Hit,
@@ -47,7 +49,9 @@ from appv2.retrieval import (
     LocalHashEmbedder,
     RetrievalEngine,
     RetrievalNeed,
+    supply_window,
 )
+from appv2.retrieval.domain import SECTION_EXPAND_CAP
 from appv2.tools import dump_from_store, inject_retrieval_anchors
 
 # ---------- fixture：V1 片段库抽样（三报告真摘录，逐字取自 eval 报告文本） ----------
@@ -68,6 +72,7 @@ def _frag(
     rpt: tuple[str, str],
     section: str,
     text: str,
+    node_kind: str = NODE_SLICE,
 ) -> FragmentRecord:
     return FragmentRecord(
         fragment_id=fid,
@@ -78,6 +83,7 @@ def _frag(
         library=lib[1],
         family=lib[2],
         text=text,
+        node_kind=node_kind,
     )
 
 
@@ -510,6 +516,138 @@ async def test_term_anchor_extension_recalls_canonical_fragment() -> None:
     )
     assert [obs.fragment_id for obs in anchored.observations] == ["f-t1"]
     assert anchored.window_note.startswith("共检索到 1 条材料，1 条用进了答案")
+
+
+# ---------- V2-89b：L1 预算真封顶＋`over_budget` 归因 ----------
+
+# 扩席三通道齐备语料（锚保底/表类整行集/节级摘要展开都有候选）：C 报告（dynamic
+# 族·hints 命中位）三支＋34-8 目标组（monthly 族）摘要支＋表格支＋同节解读支。
+_BUD_LIB_C = ("lib-bud-c", "渤中34-5动态分析库", "dynamic")
+_BUD_LIB_T = ("lib-bud-t", "渤中34-8动态分析库", "monthly")
+_BUD_RPT_C = ("rpt-bud-c", "C-渤中34-5油田三季度注水调整与生产运行分析")
+_BUD_RPT_T = ("rpt-bud-t", "渤中34-8油田一季度注采调整与生产运行分析")
+_BUD_SECTION = "5.2 四月配注调整与计划注水量"
+_BUD_TABLE_TEXT = (
+    "5.2 四月配注调整与计划注水量\n"
+    "　　井号　　　原配注(m³/d)　新配注(m³/d)　执行日期\n"
+    "　　Y-24　　　320　　　　　 380　　　　　 4 月 12 日\n"
+    "　　Y-26　　　260　　　　　 320　　　　　 4 月 20 日\n"
+)
+_BUD_QUESTION = "渤中34-8 油田 5.2 配注调整表中 Y-24 与 Y-26 的执行日期"
+
+
+def _budget_corpus() -> list[FragmentRecord]:
+    """扩席三通道候选齐备的六支语料（R1a 同形——锚/行集/展开都够候选）。"""
+    return [
+        _frag("f-bc1", _BUD_LIB_C, _BUD_RPT_C, "1.1 主要生产指标",
+              "三季度综合含水率 79.0% 降至 78.3%。"),
+        _frag("f-bc2", _BUD_LIB_C, _BUD_RPT_C, "2.1 注水月度数据",
+              "月注采比 0.98，注水量 9.26 万m³。"),
+        _frag("f-bc3", _BUD_LIB_C, _BUD_RPT_C, "4.1 累积亏空",
+              "渤中34-5 油田累积亏空 −41.3 万方。"),
+        _frag("ensum-bt", _BUD_LIB_T, _BUD_RPT_T, _BUD_SECTION,
+              "节级摘要：四月配注调整与计划注水量要点汇总。",
+              node_kind=NODE_SECTION_SUMMARY),
+        _frag("f-bt1", _BUD_LIB_T, _BUD_RPT_T, _BUD_SECTION, _BUD_TABLE_TEXT),
+        _frag("f-bt2", _BUD_LIB_T, _BUD_RPT_T, _BUD_SECTION,
+              "环比解读：Y-24 与 Y-26 两行执行日期极易对调。"),
+    ]
+
+
+def _budget_ranked() -> list[tuple[Hit, float]]:
+    """融合序替身（seed 序给单调递减分——直接驱动 supply_window）。"""
+    return [
+        (Hit(frag, 1.0 / (i + 1), "keyword"), 1.0 / (i + 1))
+        for i, frag in enumerate(_budget_corpus())
+    ]
+
+
+async def _budget_engine() -> RetrievalEngine:
+    embedder = LocalHashEmbedder()
+    seeds = _budget_corpus()
+    vectors = await embedder.embed([seed.text for seed in seeds])
+    frags = [
+        replace(seed, embedding=vector)
+        for seed, vector in zip(seeds, vectors, strict=True)
+    ]
+    return RetrievalEngine(
+        library=InMemoryFragmentLibrary(frags), embedder=LocalHashEmbedder()
+    )
+
+
+async def test_supply_window_never_exceeds_budget() -> None:
+    """V2-89b D3 真封顶：扩席三通道候选齐备 → 窗支数恒 ≤ budget（engine 端到端）。
+
+    构造＝题面同时解锁锚保底（34-8/Y-24/Y-26 资产编号）、表类整行集（「表中」
+    词面）与节级摘要展开（窗内摘要支），三通道都有候选要追加；旧行为下窗支数
+    超预算（锚保底/行集/展开各追加、实录「不占送入答案的数量」）——本钉以
+    `len(observations) <= budget` 机检真封顶。
+    """
+    engine = await _budget_engine()
+    budget = 2
+    bundle = await engine.retrieve(
+        RetrievalNeed(
+            question=_BUD_QUESTION, family_hints=("dynamic",), budget=budget
+        )
+    )
+    assert len(bundle.observations) <= budget  # 真封顶（含全部追加席）
+    assert bundle.sent == len(bundle.observations)  # 计数结构化字段同实走
+    assert bundle.over_budget is True  # 有追加席候选因预算被丢（归因机读位）
+
+
+def test_over_budget_flag_true_when_dropped() -> None:
+    """V2-89b：有追加席候选被预算丢 → `over_budget=True`；预算有余 → `False`。
+
+    - 丢席形：hints=dynamic 使族配额吃满预算（2）——锚/行集/展开候选全部被丢；
+    - 对照形：同语料同锚、预算 3 无 hints（两族各 1 席）→ 余量补给填满，无追加
+      席候选被丢 → `over_budget=False`（标记不虚报）。
+    """
+    ranked = _budget_ranked()
+    dropped = supply_window(
+        ranked, 2, ("dynamic",),
+        anchors=("34-8", "Y-24"), rowset_question=True, corpus=_budget_corpus(),
+    )
+    assert len(dropped.window) == 2  # 配额吃满预算
+    assert dropped.over_budget is True
+    assert dropped.rowset_added == 0  # 行集候选被丢（超预算不再追加）
+
+    roomy = supply_window(ranked, 3, (), anchors=("34-8",))
+    assert len(roomy.window) == 3
+    assert roomy.over_budget is False
+
+
+def test_section_expansion_capped_by_budget_and_upper_bound() -> None:
+    """V2-89b：节内展开加上界——展开补席 ≤ 剩余预算且 ≤ `SECTION_EXPAND_CAP`。
+
+    单族语料：召回池只含概况支＋节级摘要支（摘要支进窗），同节 10 支切片**未
+    召回**（只在全语料 corpus 里）——展开通道从全语料取材，补席总数恒守
+    `SECTION_EXPAND_CAP`（6）与预算双上界。
+    """
+    section = "第九章 检泵作业明细"
+    slices = [
+        _frag(f"f-x{i}", _BUD_LIB_T, _BUD_RPT_T, f"{section} ＞ {i} 支",
+              f"第 {i} 支检泵明细：周期 {500 + i} 天。")
+        for i in range(1, 11)
+    ]
+    summary = _frag("ensum-s", _BUD_LIB_T, _BUD_RPT_T, section,
+                    "节级摘要：检泵明细要点。", node_kind=NODE_SECTION_SUMMARY)
+    profile = _frag("f-s1", _BUD_LIB_T, _BUD_RPT_T, "第一章 概况", "概况：开井 156 口。")
+    corpus = [profile, summary, *slices]
+    ranked = [
+        (Hit(frag, 1.0 / (i + 1), "keyword"), 1.0 / (i + 1))
+        for i, frag in enumerate([profile, summary])
+    ]
+    supply = supply_window(ranked, 24, ("monthly",), corpus=corpus)
+    assert len(supply.window) <= 24  # 预算真封顶
+    assert supply.summary_expanded == SECTION_EXPAND_CAP  # 展开通道上界（10 支候选取 6）
+    expanded_ids = {
+        pair[0].fragment.fragment_id for pair in supply.window
+    } - {"f-s1", "ensum-s"}
+    assert len(expanded_ids) == SECTION_EXPAND_CAP  # 未召回节内切片按上界补席
+    # 小预算：展开同时守剩余预算（补席数 ≤ budget - 已占席）。
+    tight = supply_window(ranked, 4, ("monthly",), corpus=corpus)
+    assert len(tight.window) <= 4
+    assert tight.summary_expanded <= 2  # 4 - 2 已占席
 
 
 # ---------- 真 MiniMax 冒烟（RETRIEVAL_SMOKE=1 门控——不进常规门禁） ----------

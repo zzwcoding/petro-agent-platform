@@ -491,7 +491,12 @@ async def test_engine_prefix_only_match_reaches_slice() -> None:
 
 
 async def test_engine_summary_hit_expands_section_slices() -> None:
-    """摘要命中→节内展开：摘要节点进窗后其节内切片补席（含未召回支——找得准）。"""
+    """摘要命中→节内展开：摘要节点进窗后其节内切片补席（含未召回支——找得准）。
+
+    V2-89b 改判（D3 真封顶）：原预算 2 下窗支数超预算（配额吃满后展开仍追加）；
+    现改预算 4＋`family_hints=("completion",)`（单族配额 3 席→余 1 席给展开），
+    展开补席计入 budget——窗支数恒 ≤ 预算，展开通道照常「1 席撬一节」。
+    """
     store = InMemoryEnrichStore()
     completer = _ScriptCompleter({
         "章节 04 第四章 防砂设计与实施": "螺杆泵举升参数论证要点。",
@@ -505,8 +510,11 @@ async def test_engine_summary_hit_expands_section_slices() -> None:
     engine, inner = await _engine_with_enrich(store)
     # 问针「螺杆泵举升参数」只出现在摘要正文（切片正文零词面重叠）——摘要腿命中。
     bundle = await engine.retrieve(
-        RetrievalNeed(question="螺杆泵举升参数论证", budget=2)
+        RetrievalNeed(
+            question="螺杆泵举升参数论证", budget=4, family_hints=("completion",)
+        )
     )
+    assert len(bundle.observations) <= 4  # V2-89b 真封顶（含展开追加席）
     kinds = [
         "summary" if obs.fragment_id.startswith("ensum-") else "slice"
         for obs in bundle.observations
@@ -521,14 +529,19 @@ async def test_engine_summary_hit_expands_section_slices() -> None:
     # S2 清钉（P-046b）真实谓词：每支展开切片的节根 ∈ 窗内摘要节节集——
     # 展开按簇取材，非摘要节切片不得借展开进窗（原「or o.fragment_id」恒真摘除）。
     assert all(section_root(o.section) in sections for o in expanded)
-    # 扩席实录如实（window_note extra 段）
+    # 扩席实录如实（window_note extra 段）＋展开计数机读（V2-89b additive）
     assert "命中的章节摘要已展开为节内材料" in bundle.window_note
+    assert bundle.summary_expanded == 1
     # S2 清钉（P-046b）真实谓词：展开池＝全节语料（含未召回支）——对照无富化
-    # 引擎的同问基线窗，展开新席至少一支在基线窗外（词面零重叠切片不因自身
-    # 弱被拒——原「or True」恒真摘除）。
+    # 引擎的同问基线窗（同预算同族提示），展开新席至少一支在基线窗外（词面零
+    # 重叠切片不因自身弱被拒——原「or True」恒真摘除）。
     baseline = await RetrievalEngine(
         library=inner, embedder=LocalHashEmbedder()
-    ).retrieve(RetrievalNeed(question="螺杆泵举升参数论证", budget=2))
+    ).retrieve(
+        RetrievalNeed(
+            question="螺杆泵举升参数论证", budget=4, family_hints=("completion",)
+        )
+    )
     baseline_ids = {obs.fragment_id for obs in baseline.observations}
     expanded_ids = {obs.fragment_id for obs in expanded}
     assert expanded_ids - baseline_ids, "展开池应含召回未及的节内切片（未召回支）"

@@ -5,7 +5,8 @@
 
 - `tool_context`：**身份只从状态取**（不接调用方传身份）；**外表放行态随上下文走**（不进工具
   参数、不重排计划）；送窗预算按**子问题数**取值（数值与公式真源＝`appv2/tools/schema.py` 的
-  `resolve_send_budget` 与其配套常量——本块只**引该函数**，不复述数值与公式）。
+  `resolve_send_budget` 与其配套常量——本块只**引该函数**，不复述数值与公式）；**留痕身份两键
+  （V2-89b）**＝`run_id`（状态运行身份）＋`sub_question_id`（恰一支问题组时可归属，否则空串）。
 - `result_projection`：逐字段**原样投影**（无增删改名）；**空值语义统一**——「有该字段但为空」与
   「无该字段」读回可区分（禁真假值归一；旧码 `_result_dict` 的 `detail or None` 归一是缺陷，
   `recon/B1` D-B1-13）。
@@ -42,12 +43,20 @@ def tool_context(state: RunState) -> ToolContext:
 
     参数里无放行态是**结构性质**：放行态只在本上下文字段里，工具调用面＝`ToolRegistry.call(name,
     args, ctx)`——`args` 逐工具 schema 面，`ctx` 才是本函数产物。
+
+    **留痕身份两键（V2-89b additive）**同样只从状态取（签名仍只有 `state`——不接调用方传身份，
+    与行为 16 同纪律）：`run_id`＝`state.run_id`（运行身份，恒在场）；`sub_question_id`＝
+    单支问题组的子问题 id（多支组下本块拿不到「当前支」——逐支派遣载荷在 `execution` 块，
+    不在本块可及面——故按「恰一支时可归属、多支/无组如实留白」取值，**不发明**：空串＝
+    无法归属的诚实面，留痕行仍可归到 run 级）。
     """
     return ToolContext(
         actor=state.actor,
         budget=resolve_send_budget(_group_subtask_count(state)),
         metric_candidates=tuple(state.metric_candidates) or None,
         approved_tables=tuple(state.approved_ids),
+        run_id=state.run_id,
+        sub_question_id=_single_subtask_id(state),
     )
 
 
@@ -60,6 +69,29 @@ def _group_subtask_count(state: RunState) -> int:
     if not isinstance(subtasks, Sequence):
         return 0
     return sum(1 for subtask in subtasks if isinstance(subtask, Mapping))
+
+
+def _single_subtask_id(state: RunState) -> str:
+    """单支问题组的子问题 id（V2-89b 留痕身份——多支/无组如实空串，不发明归属）。
+
+    与 `_group_subtask_count` 同一投影面（`question_group["subtasks"]` mapping 条目）；
+    恰一支且 id 非空＝可归属；其余形（零支/多支/残形）＝空串（诚实留白——逐支派遣
+    载荷在 `execution` 块，本块签名只有 `state`，不越面取值）。
+    """
+    group = state.question_group
+    if not isinstance(group, Mapping):
+        return ""
+    subtasks = group.get("subtasks")
+    if not isinstance(subtasks, Sequence):
+        return ""
+    ids = [
+        str(subtask.get("id") or "")
+        for subtask in subtasks
+        if isinstance(subtask, Mapping)
+    ]
+    if len(ids) == 1 and ids[0]:
+        return ids[0]
+    return ""
 
 
 def _observation_projection(observation: Any) -> dict[str, Any]:
