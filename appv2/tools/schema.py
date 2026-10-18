@@ -73,6 +73,10 @@ LINEAGE_PAYLOAD_KEY = "lineage"      # 血缘卡载荷（键＝五要素合同�
 LINEAGE_LIMIT_KEY = "limit"          # 限量面（LIMIT 触顶事实——口径行尾缀的原料）
 LINEAGE_LIMIT_HIT_KEY = "hit"        # LIMIT 是否触顶（整窗 SUM／非行数限量型恒 False）
 LINEAGE_LIMIT_ROWS_KEY = "rows"      # 本次限量内交付行数（未触顶＝0）
+# 实际取数窗标签（2026-10-18 V2-107 additive：载荷兄弟键）——答案面日期标注的**唯一**
+# 只读取值口；值＝`query.domain.TimeWindow.label`（生产单点＝血缘③行、读回单点＝
+# `query.lineage_filter_window_label`——**不另算窗**）。缺位／空串＝无实际窗可标（不猜）。
+LINEAGE_WINDOW_LABEL_KEY = "window_label"
 
 
 @dataclass(frozen=True, slots=True)

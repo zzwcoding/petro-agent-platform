@@ -123,6 +123,7 @@ from appv2.runtimev2.answering.constants import (
     ZERO_MATERIAL_REASON,
 )
 from appv2.runtimev2.answering.degradation import (
+    annotate_window_label,
     citation_seqs,
     contradiction_groups,
     contradiction_section,
@@ -186,6 +187,7 @@ from appv2.runtimev2.transport import (
     EventBus,
     split_block_sections,
 )
+from appv2.tools import LINEAGE_WINDOW_LABEL_KEY, LOCATOR_PAYLOAD_KEY
 
 _BUS_MISSING = (
     "作答相位总线未注入（per-run 总线由编排块持有并注入）——增量文本事件无出口，"
@@ -316,6 +318,27 @@ def answer_anchors(state: RunState) -> tuple[tuple[str, str], ...]:
             for number in _numeric_anchor_tokens(str(state.question or ""))
         )
     )
+
+
+def _answer_window_label(observations: list[dict[str, Any]]) -> str:
+    """本轮**实际取数窗**标签（V2-107 只读取值口——`TimeWindow.label` 原文）。
+
+    取值＝血缘观察载荷 `LINEAGE_WINDOW_LABEL_KEY`（生产单点＝`query.lineage_filter_line`，
+    读回单点＝`query.lineage_filter_window_label`——本块**不另算窗、不解析正文文本串**）。
+    多窗不可归属（不同标签 ≥2 种）／缺位／空串 ⇒ 空串（如实不标注——不猜哪一窗是这一句的）。
+    """
+    labels: list[str] = []
+    for observation in observations:
+        locator = observation.get("locator")
+        if not isinstance(locator, Mapping):
+            continue
+        payload = locator.get(LOCATOR_PAYLOAD_KEY)
+        if not isinstance(payload, Mapping):
+            continue
+        label = payload.get(LINEAGE_WINDOW_LABEL_KEY)
+        if isinstance(label, str) and label and label not in labels:
+            labels.append(label)
+    return labels[0] if len(labels) == 1 else ""
 
 
 def _drafted(state: RunState) -> bool:
@@ -463,6 +486,15 @@ def _draft(
     # 起草步 payload 机读键（`dangling_citation_seqs`——不静默）；**不再判失败**——材料照常交付，
     # 由核验面确定性处置（旧「坏引标抛错 → 编排收 run_failed」已销账）。
     draft_text, dangling = strip_dangling_citations(draft_text, tuple(by_index))
+    # 实际取数窗标注（2026-10-18 V2-107 降级版）：答案里的日期标注必须＝实际取数窗
+    # （单点真源 `TimeWindow.label`——经血缘载荷只读引用），不许沿用用户原词
+    # （「昨天（2026-08-30）」式）；用户原词作对照说明保留。零语义、零正则形态替换——
+    # 在**分段之前**跑，故 `state.draft`／text 帧／片段三者同源（交付面零旧形）。
+    draft_text = annotate_window_label(
+        draft_text,
+        label=_answer_window_label(state.observations),
+        question=str(state.question or ""),
+    )
     if strip_hit:
         # V2-85（A2③）：notice 文案按**终稿态**分支——剥成空稿时不得再称「答案不受影响」
         # （旧文案与实际相反：答案恰被剥没）。非空稿分支保留原文案（确实不影响答案）。

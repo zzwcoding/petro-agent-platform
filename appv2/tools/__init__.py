@@ -44,10 +44,13 @@ readonly!=True 的工具，公开面仅 register/descriptors/call；假引擎 ad
 """
 
 # askback 候选窗常量转出（真源＝appv2/query/domain.py:78-84，经本面包根供
-# runtimev2 消费——守 R6，2026-10-16 流水 58）。
+# runtimev2 消费——守 R6，2026-10-16 流水 58）＋相对时间词闭世界两表（真源＝
+# appv2/query/domain.py「相对时间词闭世界」节，V2-107——同款桥接）。
 from appv2.query import (
     ASKBACK_TIME_CHOICES,
     ASKBACK_TIME_QUESTION,
+    RECENT_TIME_WORDS,
+    RELATIVE_TIME_WORDS,
 )
 from appv2.tools.anchors import (
     entity_anchor_tokens,
@@ -139,6 +142,7 @@ from appv2.tools.schema import (
     LINEAGE_LIMIT_KEY,
     LINEAGE_LIMIT_ROWS_KEY,
     LINEAGE_PAYLOAD_KEY,
+    LINEAGE_WINDOW_LABEL_KEY,
     LOCATOR_PAYLOAD_KEY,
     STATUS_ALL,
     STATUS_ASK,
@@ -209,9 +213,12 @@ __all__ = [
     "LINEAGE_LIMIT_KEY",
     "LINEAGE_LIMIT_ROWS_KEY",
     "LINEAGE_PAYLOAD_KEY",
+    "LINEAGE_WINDOW_LABEL_KEY",
     "LOCATOR_PAYLOAD_KEY",
     "META_QUESTION_MARKERS",
     "OILFIELD_INSTANCES_CAP",
+    "RECENT_TIME_WORDS",
+    "RELATIVE_TIME_WORDS",
     "RESIDENT_BLOCK_BEGIN",
     "RESIDENT_BLOCK_END",
     "SCHEMA_PROBE",

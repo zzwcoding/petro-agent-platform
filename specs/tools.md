@@ -80,6 +80,7 @@ class ToolRegistry:
 | 图谱腿/compound 精排代码保留（GraphSource＋精排件 AST 存在性）＋模块注携 `DEBT(V2-97)` | `tests/domains/test_v2_tools.py::graph_leg_code_kept` |
 | 两新工具在册（`fetch_section`／`fetch_report` 只读、args schema 齐、描述含三件套） | `tests/domains/test_v2_tools.py::descriptors_readonly` |
 | `fetch_report` 截断＋披露逐字（受 `fetch_cap`；Observation 形带 report/section/fragment_id；空节如实空集） | `tests/domains/test_v2_v296_explore.py::test_fetch_report_truncates_and_discloses` |
+| 血缘观察载荷 additive 键 `window_label`＝实际取数窗标签（值只来自血缘③行 label 位；五要素子键面零漂移）（2026-10-18 V2-107） | `tests/domains/test_v2_v107_window_label.py::test_window_label_payload_key_additive_single_write` |
 
 ## 依赖与风险
 

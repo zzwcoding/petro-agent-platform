@@ -32,6 +32,8 @@
 | gateway_adapter | 新增 | 模型出口（唯一出口仍归它）；本块不直引——经 bookkeeping.call_model 发起 |
 | state | 新增 | 草稿／引用块／缺口的状态形状（本块只消费）；**再探独立计数与待执行意图三字段＋`INTENT_EXPLORE`**（V2-96 D5） |
 | transport | 新增 | **`text` 帧的增量发射**（本块只经其公开面）；`citation` 帧同经其公开面；**增补面帧（`supplement`）的发射归 `orchestration`**（2026-10-17 EB3 D1／D2——本块只往收集列追加条目）；**再探新观察复用 `observation` 帧**（帧型零新增，V2-96 D5） |
+| tools | 改动（additive 载荷键＋闭世界词表转出） | 血缘观察载荷兄弟键 `LINEAGE_WINDOW_LABEL_KEY`（V2-107——答案面日期标注的**唯一**只读取值口，值＝实际取数窗标签）；相对时间词两表 R6 桥接转出（真源 `query`） |
+| query | 改动（additive 只读件） | 血缘③行读回单点 `lineage_filter_window_label`（V2-107——`TimeWindow.label` 的只读出口，与生产单点 `lineage_filter_line` 同文件同源）＋相对时间词闭世界两表（只识别不解析；解析算法零改） |
 
 ## 接口定义
 
@@ -98,6 +100,8 @@ class Gap:
 
 21. **核验失败回炉后的作答收口（2026-10-18 V2-115）**：`repair` 档下核验只标红不删（`specs/verification.md` 行为 14／15），回炉环（`appv2/runtimev2/orchestration/repair.py`）由模型**只重写标红行**后**复检重入核验**；本块**收口段**消费的 `state.draft` 即回炉后的定稿（`_finalize` 取 `state.draft or state.answer`——本块零改：回炉不新增作答相位调用面、不改收口判据）。回炉请求／模型返回／复检结果三面留痕落**回炉步** payload（`kind=verify`，标题「核验回炉」——四键 `repair_rounds`／`repair_request`／`repair_response`／`recheck`），**帧面零新增**（`text` 帧仍只在起草段发：回炉改写不改「一段一帧」的真流式判据，回炉后交付面以收口终稿为准）。回炉零交付兜底（正文空 ⇒ 程序诚实说明）由 `verification` 落 `state.draft`，本块照常收口（非空稿即交付）。真源＝`tickets/v2/V2-115-核验失败动作回炉修复.md`（含末尾「Kimi 评审修正」）。
 
+22. **答案日期标注＝实际取数窗（2026-10-18 V2-107 降级版——只落一条不变量）**：答案里出现的**日期标注**必须＝**实际取数窗**，**不许沿用用户原词**（形如「昨天（2026-08-30）」＝把改绑日标成用户词，EB11 `Q10`／`Q14` 病灶）。单点真源＝`appv2/query/domain.py` 的 `TimeWindow.label`——本块**只读引用**（经血缘观察载荷键 `LINEAGE_WINDOW_LABEL_KEY` 取值，**不另算窗、不解析观察正文文本串**；该键的生产单点＝`tools` 血缘装配，读回单点＝`query.lineage_filter_window_label`）。起草段在**分段之前**做一次确定性形态归一（判据单点＝`degradation.annotate_window_label`，零语义、零正则）：定位「相对时间词［尾缀 ≤2 字符］（纯日期表达式）」形，且该词与问句内用户原词**同族**（族判据＝闭世界词表 `RELATIVE_TIME_WORDS`／`RECENT_TIME_WORDS`——真源在 `appv2/query/domain.py` 的「相对时间词闭世界」节，经 `appv2/tools/__init__.py` 包根只读转出（R6 桥接），本块零第二份字面；「近N天」形由形态扫描归近族），整枚替换为 `ANSWER_WINDOW_ANNOTATION_TEMPLATE`（＝`实际取数窗：{实际窗标签}（你问的「{原词}」）`——**保留原问法作对照说明**），**正文其余字面零改**；替换在分段前跑，故 `state.draft`／`text` 帧／片段三者同源（交付面零旧形）。**零改面（不猜）**：无用户原词／实际窗标签缺位或空串／两者相等／多窗不可归属（不同标签 ≥2 种）／异族词／括注非纯日期表达式（含量值或说明）⇒ 原样交付。**不做**冻结日/水位机制（《逻辑层清单》§三 L1 已裁「略过」——归测试环境）；**不改**时间解析算法（`parse_time_window` 逐字不动）。真源＝`tickets/v2/V2-107-相对窗标注即实际窗.md`、`docs/runtime-refactor/design/统筹方案-供给窗口.md`（§二 V2-107 节）。
+
 ## 不降级与静默禁令
 
 - **合法降级路径：无**（本模块不自降级；起草原话不完整时走结构化缺口，不改写事实）。
@@ -138,6 +142,9 @@ class Gap:
 | 第二出口解析闭世界（`tool` 三值／每轮 1..2 条／必填／越界即拒＋拒因面非空；非 explore 形零拒因）（V2-96 D5） | `tests/domains/test_v2_v296_explore.py::test_parse_explore_valid_and_invalid` |
 | explore 尝试不合 schema → 回喂拒因恰一次（恰 2 次模型调用）；仍不合 → 强制作答正文落草稿（不判 failed）（V2-96 D5） | `tests/domains/test_v2_v296_explore.py::test_explore_schema_feedback_retry_once_then_force` |
 | 核验失败回炉后的作答收口：回炉定稿进收口（`state.draft` 被回炉改写后照常 finalize；四键留痕落回炉步、帧面零新增）（2026-10-18 V2-115） | `tests/domains/test_v2_v2115_repair.py::test_repair_end_to_end_graph_rewrites_unsupported_line`／`::test_repair_end_to_end_graph_zero_delivery_fallback` |
+| 答案日期标注＝实际取数窗：`Q10`／`Q14` 形正文零「用户词（日期）」形（`昨天（2026-08-30）`）、改为 `实际取数窗：{TimeWindow.label}`＋原问法对照；起草面即改写（`state.draft` 与片段同源）且改写行过核验不删（2026-10-18 V2-107） | `tests/domains/test_v2_v107_window_label.py::test_q10_shape_no_user_word_date_form`／`::test_q14_shape_window_tail_is_exclusive_end`／`::test_draft_face_rewritten_end_to_end`／`::test_rewritten_annotation_survives_verification` |
+| 日期标注单点真源＝`TimeWindow.label`：血缘③行读回往返相等＋载荷键 `LINEAGE_WINDOW_LABEL_KEY` 全仓恰一处定义／装配／读取＋标注模板 runtimev2 面内恰一处定义与消费（2026-10-18 V2-107） | `tests/domains/test_v2_v107_window_label.py::test_lineage_filter_label_round_trip`／`::test_window_label_payload_key_additive_single_write`／`::test_window_annotation_single_point` |
+| 日期标注零改面（不猜）：标注词＝实际窗标签／无用户原词／无实际窗／多窗不可归属／异族词／括注非纯日期表达式 ⇒ 原样交付；时间解析算法零改（2026-10-18 V2-107） | `tests/domains/test_v2_v107_window_label.py::test_no_rewrite_when_label_equals_user_word`／`::test_no_rewrite_without_user_time_word_or_label`／`::test_no_rewrite_for_other_window_words`／`::test_no_rewrite_when_paren_is_not_a_window`／`::test_multiple_distinct_labels_not_attributed`／`::test_parse_time_window_algorithm_unchanged` |
 
 ## 依赖与风险
 

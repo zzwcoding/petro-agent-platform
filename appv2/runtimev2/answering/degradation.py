@@ -35,6 +35,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from appv2.runtimev2.answering.constants import (
+    ANSWER_WINDOW_ANNOTATION_TEMPLATE,
     ASCII_DIGITS,
     ASCII_LETTERS,
     BOLD_MARK,
@@ -49,6 +50,7 @@ from appv2.runtimev2.answering.constants import (
     KIND_NOTICE,
     PAYLOAD_DELIVERED_ROWS_KEY,
     PAYLOAD_ENGINE_ROWS_KEY,
+    RECENT_TIME_GROUP,
     ROWSET_OBSERVATION_KINDS,
     SENTENCE_END_EXCLAMATION,
     SENTENCE_END_FULLSTOP,
@@ -69,6 +71,7 @@ from appv2.runtimev2.transport import (
     SUPPLEMENT_BLOCK_SPLIT,
     same_family_head_in,
 )
+from appv2.tools import RECENT_TIME_WORDS, RELATIVE_TIME_WORDS
 
 _OPEN = "["
 _CLOSE = "]"
@@ -424,3 +427,215 @@ def delivery_accounting(
         PAYLOAD_ENGINE_ROWS_KEY: len(branch),
         PAYLOAD_DELIVERED_ROWS_KEY: len([seq for seq in branch if seq in set(delivered_seqs)]),
     }
+
+
+# ── 实际取数窗标注（2026-10-18 V2-107 降级版）────────────────────────────────────
+# 不变量：答案里出现的日期标注必须＝**实际取数窗**（`TimeWindow.label`——经血缘载荷
+# `LINEAGE_WINDOW_LABEL_KEY` 只读引用），**不许沿用用户原词**（「昨天（2026-08-30）」式＝
+# 把改绑日标成用户词）。本段是**形态处理**（零语义、零正则、零 IO）：定位「相对时间词
+# ［尾缀］（纯日期表达式）」形并整枚替换为实际窗标注；词表＝闭世界常量
+# （`RELATIVE_TIME_WORDS`——解析单点在 `query`，本表只读镜像）。**不做**冻结日/水位机制。
+
+_ISO_DATE_LENGTH = 10
+_ISO_DATE_SEPARATOR = "-"
+# 窗口括注开／闭记号与区间连接符（**结构字符集**——同「（」族形态面，非语义词表）。
+_WINDOW_OPEN_MARKS = "（("
+_WINDOW_CLOSE_MARKS = "）)"
+_WINDOW_RANGE_JOINERS = "～~至"
+# 近N天形三件（纯形态串——前缀两形长优先、单位两形长优先）。
+_RECENT_PREFIX = "近"
+_RECENT_PREFIX_LONG = "最近"
+_RECENT_UNIT_DAY = "天"
+_RECENT_UNIT_MONTH = "个月"
+# 时间词与开括号之间允许的尾缀长度（「近 3 天**窗**（…）」形——至多两字符）。
+_ANNOTATION_TAIL_ALLOWANCE = 2
+# 词表按长优先（同位多命中取长者——「上个月」先于「上月」、「最近」先于「近」）。
+_WORDS_BY_LENGTH = tuple(sorted(RELATIVE_TIME_WORDS, key=len, reverse=True))
+
+
+def _is_iso_date_at(text: str, start: int) -> bool:
+    """`YYYY-MM-DD` 十字形判定（分隔位两处「-」、其余位皆数字——零正则）。"""
+    chunk = text[start : start + _ISO_DATE_LENGTH]
+    if len(chunk) != _ISO_DATE_LENGTH:
+        return False
+    if chunk[4] != _ISO_DATE_SEPARATOR or chunk[7] != _ISO_DATE_SEPARATOR:
+        return False
+    return all(
+        char.isdigit() for position, char in enumerate(chunk) if position not in (4, 7)
+    )
+
+
+def _recent_prefix_start(head: str, cursor: int) -> int:
+    """「近N天」形前缀起点（`最近`／`近` 两形、长优先；未命中＝-1）。"""
+    if head[cursor - len(_RECENT_PREFIX_LONG) : cursor] == _RECENT_PREFIX_LONG:
+        return cursor - len(_RECENT_PREFIX_LONG)
+    if head[cursor - len(_RECENT_PREFIX) : cursor] == _RECENT_PREFIX:
+        return cursor - len(_RECENT_PREFIX)
+    return -1
+
+
+def _recent_n_word_from(text: str, position: int) -> int:
+    """`近`／`最近` 起点的「近N天／近N个月」形匹配（返回词尾位；未命中＝-1）。
+
+    只认 `近`／`最近` ＋ 空格 ＋ 数字（1–3 位）＋ 空格 ＋ `天`／`个月` 的形态串；
+    零语义——数字只作字符成员判定（与 `query` 解析词表同形，本函数不解析成数）。
+    """
+    if text[position : position + len(_RECENT_PREFIX_LONG)] == _RECENT_PREFIX_LONG:
+        cursor = position + len(_RECENT_PREFIX_LONG)
+    elif text[position : position + len(_RECENT_PREFIX)] == _RECENT_PREFIX:
+        cursor = position + len(_RECENT_PREFIX)
+    else:
+        return -1
+    while cursor < len(text) and text[cursor] == " ":
+        cursor += 1
+    digits_start = cursor
+    while cursor < len(text) and text[cursor].isdigit():
+        cursor += 1
+    if cursor == digits_start or cursor - digits_start > 3:
+        return -1
+    while cursor < len(text) and text[cursor] == " ":
+        cursor += 1
+    if text[cursor : cursor + len(_RECENT_UNIT_MONTH)] == _RECENT_UNIT_MONTH:
+        return cursor + len(_RECENT_UNIT_MONTH)
+    if text[cursor : cursor + len(_RECENT_UNIT_DAY)] == _RECENT_UNIT_DAY:
+        return cursor + len(_RECENT_UNIT_DAY)
+    return -1
+
+
+def _recent_n_word_at(head: str) -> tuple[str, int]:
+    """`head` 内**最靠右**的「近N天」形（`(词, 起点)`；未命中＝`("", -1)`）。
+
+    允许词尾距 `head` 末端 ≤ `_ANNOTATION_TAIL_ALLOWANCE`（容「近 3 天**窗**」类尾缀）。
+    """
+    units = (_RECENT_UNIT_MONTH, _RECENT_UNIT_DAY)
+    for tail in range(_ANNOTATION_TAIL_ALLOWANCE + 1):
+        end = len(head) - tail
+        for unit in units:
+            if end < len(unit) or head[end - len(unit) : end] != unit:
+                continue
+            cursor = end - len(unit)
+            stop = cursor
+            while cursor > 0 and (head[cursor - 1].isdigit() or head[cursor - 1] == " "):
+                cursor -= 1
+            digits = head[cursor:stop].strip()
+            if not digits or not digits.isdigit():
+                continue
+            while cursor > 0 and head[cursor - 1] == " ":
+                cursor -= 1
+            start = _recent_prefix_start(head, cursor)
+            if start >= 0:
+                return head[start:end], start
+    return "", -1
+
+
+def relative_time_word(text: str) -> str:
+    """文本内**首个**相对时间词（用户原词识别——只识别不解析；未命中＝空串）。
+
+    闭世界词（`RELATIVE_TIME_WORDS`，长优先）或「近N天」形；解析单点仍是
+    `appv2.query.domain::parse_time_window`（本函数零解析、零换算）。
+    """
+    for position in range(len(text)):
+        for word in _WORDS_BY_LENGTH:
+            if text.startswith(word, position):
+                return word
+        end = _recent_n_word_from(text, position)
+        if end >= 0:
+            return text[position:end]
+    return ""
+
+
+def _word_group(word: str) -> str:
+    """相对时间词的**近义族**（「最近／近期／近日／近N天」同族；余者自成一族）。
+
+    同族才替换——问「昨天」不得把「上月（…）」标注也改绑成本窗（跨窗标注零改）。
+    """
+    if word in RECENT_TIME_WORDS or _recent_n_word_from(word, 0) == len(word):
+        return RECENT_TIME_GROUP
+    return word
+
+
+def _annotation_word(text: str, open_pos: int) -> tuple[str, int]:
+    """括注前紧邻的相对时间词（`(词, 起点)`；未命中＝`("", -1)`）。
+
+    判据：闭世界词或「近N天」形，其**词尾**距开括号 ≤ `_ANNOTATION_TAIL_ALLOWANCE`
+    （容尾缀）；多命中取最靠右（紧贴括注者胜）。
+    """
+    head = text[:open_pos]
+    word, start = "", -1
+    for candidate in _WORDS_BY_LENGTH:
+        position = head.rfind(candidate)
+        if position > start:
+            word, start = candidate, position
+    recent, recent_start = _recent_n_word_at(head)
+    if recent_start > start:
+        word, start = recent, recent_start
+    if start < 0 or open_pos - (start + len(word)) > _ANNOTATION_TAIL_ALLOWANCE:
+        return "", -1
+    return word, start
+
+
+def _window_close(text: str, start: int) -> int:
+    """括注体为**纯日期表达式**时的闭括号位（否则 -1——量值/说明括注＝不是日期标注）。"""
+    if not _is_iso_date_at(text, start):
+        return -1
+    probe = start + _ISO_DATE_LENGTH
+    while probe < len(text) and text[probe] == " ":
+        probe += 1
+    for joiner in _WINDOW_RANGE_JOINERS:
+        if not text.startswith(joiner, probe):
+            continue
+        probe += len(joiner)
+        while probe < len(text) and text[probe] == " ":
+            probe += 1
+        if not _is_iso_date_at(text, probe):
+            return -1
+        probe += _ISO_DATE_LENGTH
+        break
+    if probe < len(text) and text[probe] in _WINDOW_CLOSE_MARKS:
+        return probe
+    return -1
+
+
+def annotate_window_label(text: str, *, label: str, question: str) -> str:
+    """答案面日期标注归一（V2-107 降级版）：用户原词标注 → 实际取数窗标注。
+
+    `label`＝实际取数窗人话标签（`TimeWindow.label` 只读引用——本函数不另算窗）；
+    `question`＝本轮问句（取用户原词作对照说明）。判据（形态处理，零语义、零正则）：
+
+    - 用户原词＝问句内首个相对时间词；空串／`label` 空串／两者相等 ⇒ 零改
+      （无原词可换／本就用实际窗——不重复标注）；
+    - 逐处定位「相对时间词［尾缀 ≤2 字符］（纯日期表达式）」形，且该词与用户原词**同族**
+      （异族零改——跨窗标注不误伤）；
+    - 整枚（词＋尾缀＋括注）替换为 `ANSWER_WINDOW_ANNOTATION_TEMPLATE`；正文其余字面零改。
+    """
+    user_word = relative_time_word(question)
+    if not label or not user_word or label == user_word:
+        return text
+    group = _word_group(user_word)
+    pieces: list[str] = []
+    cursor = 0
+    position = 0
+    while position < len(text):
+        if text[position] not in _WINDOW_OPEN_MARKS or not _is_iso_date_at(
+            text, position + 1
+        ):
+            position += 1
+            continue
+        word, start = _annotation_word(text, position)
+        if not word or _word_group(word) != group:
+            position += 1
+            continue
+        close = _window_close(text, position + 1)
+        if close < 0:
+            position += 1
+            continue
+        pieces.append(text[cursor:start])
+        pieces.append(
+            ANSWER_WINDOW_ANNOTATION_TEMPLATE.format(label=label, word=user_word)
+        )
+        cursor = close + 1
+        position = cursor
+    if not pieces:
+        return text
+    pieces.append(text[cursor:])
+    return "".join(pieces)

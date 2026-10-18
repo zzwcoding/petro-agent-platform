@@ -47,6 +47,7 @@ from typing import Any, Protocol
 from appv2.knowledge import Evidence, KnowledgeStore, SemanticQuery
 from appv2.query import (
     DIRECTION_DESC,
+    LINEAGE_KEY_FILTER,
     LINEAGE_KEY_WATERMARK,
     OUTCOME_EXTERNAL_TABLE_APPROVAL,
     OUTCOME_FRESHNESS_BLOCK,
@@ -61,6 +62,7 @@ from appv2.query import (
     QueryOutcome,
     QueryPlan,
     effective_limit,
+    lineage_filter_window_label,
 )
 from appv2.retrieval import (
     FAMILY_ALL,
@@ -84,6 +86,7 @@ from appv2.tools.schema import (
     LINEAGE_LIMIT_KEY,
     LINEAGE_LIMIT_ROWS_KEY,
     LINEAGE_PAYLOAD_KEY,
+    LINEAGE_WINDOW_LABEL_KEY,
     LOCATOR_PAYLOAD_KEY,
     AskFrame,
     Observation,
@@ -1051,6 +1054,16 @@ def _rows_observations(
         )
     if outcome.lineage:
         limit_hit = _limit_hit(outcome, plan)
+        # V2-107 additive：实际取数窗标签（答案面日期标注的唯一只读取值口）——
+        # 只读反解血缘③行（生产单点＝`lineage_filter_line`），不另算窗、不猜词面。
+        window_label = next(
+            (
+                lineage_filter_window_label(line.value)
+                for line in outcome.lineage
+                if line.key == LINEAGE_KEY_FILTER
+            ),
+            "",
+        )
         observations.append(
             Observation(
                 content="\n".join(f"{line.key} {line.value}" for line in outcome.lineage),
@@ -1073,6 +1086,7 @@ def _rows_observations(
                                 len(outcome.rows or ()) if limit_hit else 0
                             ),
                         },
+                        LINEAGE_WINDOW_LABEL_KEY: window_label,
                     },
                 },
             )

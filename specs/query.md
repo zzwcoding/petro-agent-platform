@@ -56,6 +56,13 @@ class QueryEngine:
 4. 缺参（模糊时间如"最近"）→need_clarify 三选一候选窗；外表越集→external_table_approval（V1 N7.4c 语义；
    别名解析修复＝本模块内的 ticket 事项，治 Q11"interrupt 不可达"病灶）。
 5. 执行只读账号＋白名单 Schema（INV-2/INV-3）；血缘卡随结果必出（INV-5 的口径依据）。
+6. **实际取数窗标签只读出口（2026-10-18 V2-107 additive）**：血缘③过滤条件行由 `lineage_filter_line`
+   按 `时间＝{TimeWindow.label} [{start}, {end})` 定形产出；读回单点 `lineage_filter_window_label`
+   同文件同源，按同一定形串**只读反解** label 原文（零改写、零换算、不另算窗；形不符＝空串）。
+   下游（`tools` 血缘装配→答案面日期标注）据此取实际取数窗标签——**单点真源＝`TimeWindow.label`**。
+   同批 additive：**相对时间词闭世界两表** `RELATIVE_TIME_WORDS`／`RECENT_TIME_WORDS`（只识别不解析
+   ——答案面标注归一用；经 `appv2.tools` 包根转出供 runtimev2 消费，先例＝`ASKBACK_TIME_CHOICES`）。
+   **本票不改时间解析算法**（`parse_time_window` 逐字不动；两表是识别词集的只读镜像）。
 
 ## 验收测试
 
@@ -71,6 +78,9 @@ class QueryEngine:
 | "井位台账"→external_table_approval（ASK 素材齐） | `tests/domains/test_v2_query.py::external_table_ask` |
 | 换指标出数被 FX-13 一致性闸拦（validate 拒） | `tests/domains/test_v2_query.py::metric_switch_blocked` |
 | 只读断言：执行后库表零变化（INV-2） | `tests/domains/test_v2_query.py::readonly_inv2` |
+| 血缘③行读回＝`TimeWindow.label` 原文（读回与生产同源；形不符＝空串）（2026-10-18 V2-107） | `tests/domains/test_v2_v107_window_label.py::test_lineage_filter_label_round_trip` |
+| 时间解析算法零改（各时间词 label／半开区间逐字不变）（2026-10-18 V2-107） | `tests/domains/test_v2_v107_window_label.py::test_parse_time_window_algorithm_unchanged` |
+| 相对时间词闭世界两表＝解析面识别词集的只读镜像（两表同集；经 tools 包根转出）（2026-10-18 V2-107） | `tests/domains/test_v2_v107_window_label.py::test_relative_words_mirror_parser` |
 
 ## 依赖与风险
 

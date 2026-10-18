@@ -73,8 +73,10 @@ from appv2.runtimev2.answering.constants import (
 )
 from appv2.runtimev2.answering.core import answer, answer_anchors
 from appv2.runtimev2.answering.degradation import (
+    annotate_window_label,
     dangling_tail_closing,
     echo_flag,
+    relative_time_word,
     strip_dangling_citations,
     strip_placeholders,
 )
@@ -127,11 +129,13 @@ __all__ = [
     "AnswerSegment",
     "Citation",
     "Gap",
+    "annotate_window_label",
     "answer",
     "answer_anchors",
     "dangling_tail_closing",
     "echo_flag",
     "extract_finalize_answer",
+    "relative_time_word",
     "strip_dangling_citations",
     "strip_emission_fences",
     "strip_placeholders",

@@ -202,6 +202,20 @@ KIND_NOTICE = "notice"
 # 元信息 `notice` 不入池——recon/A2 R-A2-30）。
 CONTRADICTION_EXEMPT_KINDS: frozenset[str] = frozenset({"agg_row", "lineage", "notice"})
 
+# ── 实际取数窗标注（2026-10-18 V2-107 降级版：答案日期标注＝实际取数窗）─────────────
+# 不变量一条：答案里出现的日期标注必须＝**实际取数窗**（单点真源
+# `appv2.query.domain::TimeWindow.label`——经血缘载荷 `LINEAGE_WINDOW_LABEL_KEY` 只读引用），
+# **不许沿用用户原词**（「昨天（2026-08-30）」式＝把改绑日标成用户词）。
+# 逐字稿＝票面 `tickets/v2/V2-107-相对窗标注即实际窗.md` 施工基准的 `annotate(...)` 文案；
+# **收窄一处**（已回报）：括号内不写「不在数据水位内」——本票不做冻结日/水位机制，
+# 该断言无程序事实可依（AGENTS.md 7 业务事实零发明）；改留**原问法对照**（事实面，零断言）。
+ANSWER_WINDOW_ANNOTATION_TEMPLATE = "实际取数窗：{label}（你问的「{word}」）"
+# 相对时间词闭世界**不在本块**（本块行 19 禁语义词表）：真源＝`appv2.query.domain`
+# 「相对时间词闭世界」节（`RELATIVE_TIME_WORDS`／`RECENT_TIME_WORDS`），经 `appv2.tools`
+# 包根只读转出（R6 桥接）——`degradation` 直引该两表，本处不复述字面。
+# 近义族标记（「最近／近期／近日／近N天」同族——同族才替换，异族零改）。
+RECENT_TIME_GROUP = "recent"
+
 # ── 发射动作闭世界（`strip_emission_fences` 的域内判据）─────────────────────────
 # 真源＝旧码 `appv2/runtime/graph.py` L180 `ACTION_KINDS` 四值（`docs/runtime-refactor/recon/
 # A2-核验规则与归属审.md` R-A2-04「行内含裸发射令牌（action ∈ 四值闭世界）」——发射剥离的

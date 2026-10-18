@@ -151,6 +151,19 @@ _LIMIT_MOUTH_RE = re.compile(r"([0-9]+|[一二两三四五六七八九十]+)\s*�
 _RANKING_RE = re.compile(r"最高|最低|最大|最小|排名|TOP|top|前\s*[0-9一二两三四五六七八九十]")
 _ASC_RANKING_RE = re.compile(r"最低|最小|最少")
 
+# ---------- 相对时间词闭世界（V2-107 只读出口——**只识别不解析**） ----------
+# 与 `parse_time_window` 的识别词集同集（该函数词表**逐字不动**——V2-107 不改时间解析算法）；
+# 本表是答案面日期标注归一（`answering.degradation.annotate_window_label`）的**只读**词面来源，
+# 经 `appv2.tools` 包根转出供 runtimev2 消费（R6 桥接，先例＝`ASKBACK_TIME_CHOICES`）——
+# 禁第二份字面。断言：两表同集（`tests/domains/test_v2_v107_window_label.py::
+# test_relative_words_mirror_parser`）。「近N天」族由形态扫描判（N 无界，不入本表）。
+RELATIVE_TIME_WORDS: tuple[str, ...] = (
+    "昨天", "前天", "今天", "本月", "这个月", "上个月", "上月", "今年", "去年",
+    "最近", "近期", "近日",
+)
+# 近义族（「最近／近期／近日」——「近N天」形由形态扫描归同族；同族才替换，异族零改）。
+RECENT_TIME_WORDS: tuple[str, ...] = ("最近", "近期", "近日")
+
 
 def _cn_int(raw: str) -> int | None:
     raw = raw.strip()
@@ -606,15 +619,38 @@ def lineage_source_line() -> str:
     return STAR_SOURCE_NOTE
 
 
+# 血缘③过滤条件行的定形前后缀（V2-107）：生产单点＝`lineage_filter_line`（下一函数），
+# 读回单点＝`lineage_filter_window_label`（紧随其后）——同文件同源，禁第二份字面。
+LINEAGE_FILTER_TIME_PREFIX = "时间＝"
+LINEAGE_FILTER_RANGE_MARK = " ["
+
+
 def lineage_filter_line(window: TimeWindow) -> str:
     """血缘卡③过滤条件主体（只声明真实下推的过滤——时间窗；区块过滤随行级权限批）。"""
     line = (
-        f"时间＝{window.label} "
-        f"[{window.start.isoformat()}, {window.end.isoformat()})"
+        f"{LINEAGE_FILTER_TIME_PREFIX}{window.label}"
+        f"{LINEAGE_FILTER_RANGE_MARK}{window.start.isoformat()}, {window.end.isoformat()})"
     )
     if window.is_default:
         line += "（默认窗——问句无显式时间，已标注）"
     return line
+
+
+def lineage_filter_window_label(filter_line: str) -> str:
+    """血缘③过滤条件行→实际取数窗人话标签（V2-107 只读引用；单点真源＝`TimeWindow.label`）。
+
+    生产单点＝本文件 `lineage_filter_line`（`时间＝{label} [{start}, {end})`＋默认窗尾注）；
+    本函数按同一函数产出的**定形串**只读反解前缀与区间标记之间的 `label` **原文**——
+    零改写、零换算、不另算窗（答案面日期标注的唯一取值口）。形不符（缺前缀／区间标记
+    不在前缀之后）＝空串——如实不标注、不猜。
+    """
+    if not filter_line.startswith(LINEAGE_FILTER_TIME_PREFIX):
+        return ""
+    rest = filter_line[len(LINEAGE_FILTER_TIME_PREFIX) :]
+    position = rest.find(LINEAGE_FILTER_RANGE_MARK)
+    if position <= 0:
+        return ""
+    return rest[:position]
 
 
 def lineage_permission_line(actor: str) -> str:
