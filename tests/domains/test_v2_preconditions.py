@@ -99,6 +99,7 @@ from appv2.tools import (
     HIT_RULE_UNREGISTERED_METRIC,
     dump_from_store,
 )
+from appv2.tools.anchors import WELL_TOKEN_RE
 
 # ── 底座（真源同产线一路：快照→读面→dump_from_store——词典层判定输入）────────────────
 
@@ -608,6 +609,128 @@ def test_no_lexicon_or_regex_in_preconditions() -> None:
     # 探测器非空转
     assert _lexicon_violations(ast.parse('WORDS = ["最近", "近期"]\n')) != []
     assert _lexicon_violations(ast.parse('if mode in ("提及", "执行"):\n    pass\n')) != []
+
+
+# ── V2-112：井 token 单点（中文旁边界）＋单井维度静默禁止 ────────────────────────
+
+
+def test_well_token_single_point_chinese_boundary() -> None:
+    """V2-112｜井号识别单点＝`tools.anchors`（`\\b` 形中文旁失配已修——边界用例表）。
+
+    边界用例（逐字，含票面点名两形）：
+
+    | 问句 | `\\b` 形（旧） | 单点（新，并集） |
+    |---|---|---|
+    | `N-01和Z-16比，上个月谁更能打？` | `[]`（中文旁失配——Q40 病灶） | `['N-01', 'Z-16']` |
+    | `W-11-2` | `['W-11']` | `['W-11-2']`（`-` 边界并集语义） |
+    | `W-11-2井` | `['W-11']` | `['W-11-2']` |
+    | `N-01号井` | `[]` | `['N-01']` |
+    | `各井日产油量` | `[]` | `[]`（无井号——不误伤） |
+    | `2025-11` | `[]` | `[]`（纯数字核不作井号） |
+    | `A12H` | `[]` | `[]`（无连字符形） |
+    | `xW-11` | `[]` | `[]`（前缀旁不切井号） |
+    """
+    assert WELL_TOKEN_RE.findall("N-01和Z-16比，上个月谁更能打？") == ["N-01", "Z-16"]
+    assert WELL_TOKEN_RE.findall("W-11-2") == ["W-11-2"]
+    assert WELL_TOKEN_RE.findall("W-11-2井") == ["W-11-2"]
+    assert WELL_TOKEN_RE.findall("N-01号井") == ["N-01"]
+    assert WELL_TOKEN_RE.findall("各井日产油量") == []
+    assert WELL_TOKEN_RE.findall("2025-11") == []
+    assert WELL_TOKEN_RE.findall("A12H") == []
+    assert WELL_TOKEN_RE.findall("xW-11") == []
+    # 收敛证据：闸件模块内无第二份井号正则（单点＝tools.anchors）——AST 级
+    # 断言（注释里对旧形的**引用**不算第二份词面）。
+    tree = ast.parse(
+        (_REPO / "appv2" / "tools" / "precondition.py").read_text(encoding="utf-8")
+    )
+    assigned = {
+        target.id
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign)
+        for target in node.targets
+        if isinstance(target, ast.Name)
+    }
+    assert "_WELL_RE" not in assigned
+    assert any(
+        isinstance(node, ast.ImportFrom) and node.module == "appv2.tools.anchors"
+        for node in ast.walk(tree)
+    )
+
+
+def test_single_well_note_not_silent() -> None:
+    """V2-112｜单井维度无法下推时**必发**「单井过滤未支持」注记（静默禁止——Q40 形）。
+
+    Q40 病灶：`N-01和Z-16比，…` 的子问题问句经模型归一后井号可能被剥除——闸 6
+    命中面扩到入口问句原文（`entry_question`），两条路径都必须发注记、不得静默。
+    """
+    cases = (
+        ("N-01和Z-16比，上个月谁更能打？", "N-01和Z-16比，上个月谁更能打？"),
+        ("上个月谁更能打？", "N-01和Z-16比，上个月谁更能打？"),  # 井号只在入口问句
+    )
+    for question, entry in cases:
+        state = _state(
+            _subtask("s1", question),
+            matches=(_match("s1", plan=BOUND_PLAN),),
+            question=entry,
+        )
+        verdict = _by_id(gate_all(state))["s1"]
+        assert verdict.decision == DECISION_ALLOW
+        well_notes = [note for note in verdict.notes if "单井过滤未支持" in note]
+        assert len(well_notes) == 1, (question, entry, verdict.notes)
+        assert verdict.hit_rule == HIT_RULE_NONE
+        # 静默禁止的机读面：带注记 allow 必有 notice（`_record` 单点）。
+        assert any("单井过滤未支持" in item["content"] for item in state.notices)
+
+
+def test_single_well_note_when_plan_lacks_slot() -> None:
+    """V2-112｜计划已携 `well_slot`（单井维度已下推）＝不重发注记（零误伤面）。"""
+    state = _state(
+        _subtask("s1", "N-01和Z-16比，上个月谁更能打？"),
+        matches=(_match("s1", plan={**BOUND_PLAN, "well_slot": ("N-01", "Z-16")}),),
+    )
+    verdict = _by_id(gate_all(state))["s1"]
+    assert [note for note in verdict.notes if "单井过滤未支持" in note] == []
+    assert state.notices == []
+
+
+def test_single_well_note_is_additive_on_other_gates() -> None:
+    """V2-112｜既有注记零回退（Q10/Q14/Q24 正例）＋域错换链面注记不被顶掉。
+
+    入口问句＝问题组级命中面：多子问题组里入口问句含井号时**整组**带注记
+    （静默禁止宁可多报）；入口问句无井号时逐子问题按自身问句判（零误伤）。
+    """
+    # 入口问句含井号 → s1（自身点名）与 s2（仅入口命中）各恰一条注记。
+    state = _state(
+        _subtask("s1", "N-01 井 2025-09-01 日产油量"),
+        _subtask("s2", "各井日产油量"),
+        matches=(
+            _match("s1", plan=BOUND_PLAN),
+            _match("s2", plan=BOUND_PLAN),
+        ),
+        question="N-01 井 2025-09-01 日产油量",
+    )
+    verdicts = _by_id(gate_all(state, data_wells=("N-01", "Z-16")))
+    for subtask_id in ("s1", "s2"):
+        assert len([n for n in verdicts[subtask_id].notes if "单井过滤未支持" in n]) == 1
+
+    # 入口问句无井号 → 无井子问题零注记（零误伤面）。
+    clean = _state(
+        _subtask("s1", "各井日产油量"),
+        matches=(_match("s1", plan=BOUND_PLAN),),
+        question="各井日产油量",
+    )
+    assert _by_id(gate_all(clean))["s1"].notes == ()
+
+    # 域错换链面（题眼井全外于数据链井闭世界）：单井注记仍在（不顶掉换链触发）。
+    state2 = _state(
+        _subtask("s1", "N-01和Z-16比，上个月谁更能打？"),
+        matches=(_match("s1", plan=BOUND_PLAN),),
+        question="N-01和Z-16比，上个月谁更能打？",
+    )
+    verdict2 = _by_id(gate_all(state2, data_wells=("W-111",)))["s1"]
+    assert verdict2.decision == DECISION_ALLOW
+    assert any("单井过滤未支持" in note for note in verdict2.notes)
+    assert any("不在数据链井闭世界" in note for note in verdict2.notes)
 
 
 # ── 行 12：判定结果的机读信号在场 ───────────────────────────────────────────────

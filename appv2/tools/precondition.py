@@ -33,6 +33,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
+from appv2.tools.anchors import well_tokens
 from appv2.tools.schema import ASK_CLARIFY, ASK_EXTERNAL_TABLE_APPROVAL, AskFrame
 from appv2.tools.table_scan import scan_unapproved_tables
 
@@ -89,8 +90,9 @@ _SCENE_SYNONYMS: dict[str, tuple[str, ...]] = {"月报": ("月度",)}
 THRESHOLD_MARKERS: tuple[str, ...] = (
     "是否", "超过", "超出", "达标", "达到", "高于", "低于", "大于", "小于", "突破",
 )
-# 单井点名词面（井号族 N-01/Z-16/W-111——题册井号形）。
-_WELL_RE = re.compile(r"\b[A-Z]{1,3}-\d{1,4}\b")
+# 单井点名词面（井号族 N-01/Z-16/W-111——题册井号形）＝**单点件** `tools.anchors.well_tokens`
+# （V2-112：删除本模块旧 `\b` 形 `_WELL_RE`——Python 视 CJK 为 `\w`，中文旁失配致闸 6
+# 静默；并集语义与词面真源见 `appv2/tools/anchors.py::WELL_TOKEN_RE` 注，零第二份正则）。
 # 禁用词替代提示（term value「禁用（替代：产量完成率）」段——替代词提取）。
 _REPLACEMENT_RE = re.compile(r"替代：([^）]+)")
 
@@ -152,6 +154,10 @@ class Verdict:
     # ——runtime 前置条件节点据此把 plan 窗双槽确定性改写为 None（引擎缺参
     # 反问兜底）；判定四态语义不变（仍是 note/pass——改写只在 runtime 消费）。
     fuzzy_window_rewrite: bool = False
+    # V2-112 单井槽位检测面（additive）：非空＝闸 6 点名单井（单点 `well_tokens`
+    # 检出、保序去重）而计划未携 `well_slot` 键（单井维度未下推）——随注记同行；
+    # 是否接 SQL 过滤＝本票回报取舍（当前**只检测不过滤**，零改 SQL 模板）。
+    well_slot: tuple[str, ...] = ()
 
     def as_payload(self) -> dict[str, Any]:
         return {
@@ -171,6 +177,7 @@ class Verdict:
                 else None
             ),
             "normalized_slot": self.normalized_slot,
+            "well_slot": list(self.well_slot),
             "chain_switch_trigger": self.chain_switch_trigger,
             "chain_switch_kind": self.chain_switch_kind,
             "fuzzy_window_rewrite": self.fuzzy_window_rewrite,
@@ -378,6 +385,7 @@ def judge(
     unbound_binding = False  # V2-43 换链回炉闸触发面（绑定闸在册未绑定置位）
     domain_mismatch = False  # V2-51 软失败域闸触发面（题眼井全外于井闭世界置位）
     fuzzy_rewrite = False  # V2-51 词面门改判标记（模糊时间词＋非空窗置位）
+    well_slot: tuple[str, ...] = ()  # V2-112 单井槽位检测面（闸 6 命中时置——additive）
     metric_slot = str(plan.get("metric_slot") or "")
 
     # —— 闸 1b：模糊时间词词面门（数-反1 形——合同「窗双 null 发射」的确定性
@@ -567,7 +575,9 @@ def judge(
         # 为界）。零误伤面：单源域对（题眼井在册——数-界1 形）/混合域（部分在
         # 册）/无题眼井/闭世界未接线（None/空集）＝闸静默。V2-43 触发面已点亮时
         # 本闸不重复注记（同支同轨——触发布尔或聚，分型以先命中闸为准）。
-        named_wells = sorted(set(_WELL_RE.findall(question)))
+        named_wells = sorted(
+            set(well_tokens(question)) | set(well_tokens(entry_question))
+        )
         if (
             not unbound_binding
             and data_wells
@@ -620,7 +630,15 @@ def judge(
             )
 
     # —— 闸 6：单井支持性（QueryPlan 暂无井槽位——照常发射全井＋注记） ——
-    if _WELL_RE.search(question):
+    # V2-112（静默禁止）：井号识别收敛到单点 `tools.anchors.well_tokens`（并集语义；
+    # 旧 `\b` 形中文旁失配＝Q40 静默塌缩病灶），命中面扩到**入口问句原文**
+    # （`entry_question`——子问题问句经模型归一后井号可能被剥除，Q40 帧形）；
+    # 计划已携 `well_slot` 键（单井维度已下推）＝不重发注记（零误伤）。
+    # 井槽位检测面落 `Verdict.well_slot`（**不写回 plan**：plan dict 参与换链回炉
+    # 指纹计算，直写会改指纹语义；是否接 SQL 过滤＝本票回报取舍，另报）。
+    named_in_question = well_tokens(question) or well_tokens(entry_question)
+    if named_in_question and not plan.get("well_slot"):
+        well_slot = tuple(named_in_question)
         notes.append(
             "单井过滤未支持——照常发射全井计划，答案如实注记（读该井行），"
             "不作单井断言"
@@ -632,6 +650,7 @@ def judge(
             hit_rule=HIT_RULE_NONE,
             reason="；".join(notes), notes=tuple(notes),
             normalized_slot=normalized_slot,
+            well_slot=well_slot,
             chain_switch_trigger=unbound_binding or domain_mismatch,
             chain_switch_kind=(
                 CHAIN_SWITCH_KIND_DOMAIN

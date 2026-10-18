@@ -90,9 +90,11 @@ class AskReason:
 | 5 | 闸4 在册绑定态 | 指标绑没绑汇总表 | 结构 |
 | 6 | 闸4b 软失败域闸 | 题眼域↔链路域一致 | 结构 |
 | 7 | 闸5 新鲜度窗 | 时间范围 vs 数据水位 | 结构 |
-| 8 | 闸6 单井支持 | 单井查得了吗 | 结构 |
+| 8 | 闸6 单井支持 | 单井查得了吗（井号识别单点＝`appv2/tools/anchors.py` 的 `WELL_TOKEN_RE`／`well_tokens`——V2-112 起；命中面＝子问题问句 ∪ 入口问句原文） | 结构 |
 
 > **序 2 位输入口径注**：**结构判据**＝模型发射载荷窗槽双 null＝不能确定（不写词面门，裁决 #13）；ask 支候选窗＝**注入参** `window_candidates`（producer＝orchestration，本块不直引 query）——2026-10-16 裁（流水 56）。
+
+> **序 8 位单井支持注（2026-10-18 V2-112）**：**井号识别单点收敛**——位 8（闸 6）与位 6（闸 4b 软失败域闸）的井号识别统一改引 `appv2/tools/anchors.py` 的 `WELL_TOKEN_RE`／`well_tokens`（删除 `appv2/tools/precondition.py` 旧 `\b[A-Z]{1,3}-\d{1,4}\b` 形）。**病灶（Q40 帧）**：Python 视 CJK 为 `\w`，`findall("N-01和Z-16比，上个月谁更能打？")==[]` → 闸 6 静默、单井查询塌缩为「整窗合计·全井」且无 `decision_note`（对照 Q10/Q24/Q47 均有「单井过滤未支持」注记）。**修后语义**：①中文旁命中（两向否定环视）；②并集语义——`W-11-2` 整 token 命中（旧 `\b` 形只命中前缀 `W-11`）；③**命中面扩到入口问句原文**（`entry_question`——子问题问句经模型归一后井号可能被剥除）；④计划已携 `well_slot` 键（单井维度已下推）＝不重发注记。**静默禁止**：单井维度无法下推时必发「单井过滤未支持——照常发射全井计划，答案如实注记（读该井行），不作单井断言」注记（`notes`＋notice 双落——行为 10）。**检测面**：`Verdict.well_slot`（additive，保序去重）随注记同行；**不写回 `plan`**（plan dict 参与换链回炉指纹计算，直写会改指纹语义）；**不接 SQL 过滤**（过滤落点＝SQL 模板/引擎，不在 V2-112 边界红线内，取舍另报）。断言：`tests/domains/test_v2_preconditions.py::test_well_token_single_point_chinese_boundary`／`::test_single_well_note_not_silent`／`::test_single_well_note_when_plan_lacks_slot`／`::test_single_well_note_is_additive_on_other_gates`；`tests/domains/test_v2_query.py::test_query_plan_well_slot_additive_detection`。
 
 > **序 1 位命中面注（2026-10-17 EB5b）**：位 1 禁用词闸的**词面命中面＝三片**——①子问题问句（`Subtask.question`）②计划指标槽（`plan.metric_slot`）③**入口问句原文**（`state.question`，注入参 `entry_question`）。**动因（真机帧 `eval/results/frames/EB3-系统-禁用词.json`，run-d1de7df7）**：题面「老完成率是多少？」的**子问题问句被模型归一成「产量完成率是多少？」**（旧名只留在题干原件上）→ 原两片命中面皆空、拦停未触发、弃置口径照常出数。修后三片任一命中即判（旧名归一不改题面原件面）；**豁免面同片适用**（元问／引用形豁免按「命中哪一面就用哪一面判」——入口问句面命中时不因另一片不豁免而失豁免）；「仅提及」（`mention_mode=mentioned_only`）的机械分派**先于**词面判（零误伤不变）。断言：`tests/domains/test_v2_preconditions.py::test_pin31_entry_question_faces_banned_term`（入口面命中→拒答＋拦截话术＋替代词出路＋`hit_rule=ban`＋拒答分型留痕；仅提及→放行；入口面元问豁免→放行；三面皆不命中→零误伤）。
 
@@ -120,6 +122,11 @@ class AskReason:
 | 程序侧无词表／正则语义判断（AST 扫描本模块；**豁免面＝形态处理／集合成员判定**——不算语义词表／正则） | `tests/domains/test_v2_preconditions.py::no_lexicon_or_regex_in_preconditions` |
 | 判定结果的机读信号在场（step payload ＋ notice） | `tests/domains/test_v2_preconditions.py::verdict_signal_present` |
 | 【边界集】空窗／越界水位／未绑定指标／单井不支持 → 各自命中对应判定位 | `tests/domains/test_v2_preconditions.py::boundary_each_rule_hits` |
+| V2-112 井号识别单点（中文旁命中／`W-11-2` 并集语义／无井不误伤） | `tests/domains/test_v2_preconditions.py::test_well_token_single_point_chinese_boundary` |
+| V2-112 单井维度无法下推必发注记（**静默禁止**——含入口问句命中面） | `tests/domains/test_v2_preconditions.py::test_single_well_note_not_silent` |
+| V2-112 计划已携井槽位＝不重发注记（零误伤） | `tests/domains/test_v2_preconditions.py::test_single_well_note_when_plan_lacks_slot` |
+| V2-112 单井注记 additive（既有注记零回退／域错换链面不顶掉） | `tests/domains/test_v2_preconditions.py::test_single_well_note_is_additive_on_other_gates` |
+| V2-112 `QueryPlan.well_slot` additive 检测面（缺省空／点名井在场） | `tests/domains/test_v2_query.py::test_query_plan_well_slot_additive_detection` |
 | 【保留集】`allow` 的普通子问题行为不变（无注记、无额外信号） | `tests/domains/test_v2_preconditions.py::retention_plain_allow_unchanged` |
 
 ## 依赖与风险

@@ -28,6 +28,7 @@ from datetime import date, timedelta
 from typing import Any
 
 from appv2.knowledge import Evidence
+from appv2.tools.anchors import well_tokens  # V2-112：井号识别单点（零第二份词面）
 
 # ---------- 排名方向（V1 R1——白名单二值，执行侧按二值分派 ORDER BY） ----------
 
@@ -330,6 +331,12 @@ class QueryPlan:
     is_default: bool = False  # 无显式时间词的默认窗（答案与血缘卡必须标注「默认」）
     external_tables: tuple[str, ...] = ()  # 选表命中集之外的外表（N7.4c 越集比对触发源）
     actor: str = ""  # 行级注入身份（两步缝第一步——执行缝消费）
+    # V2-112 additive 单井槽位（**检测面**）：问句点名单井（井号识别单点＝
+    # `appv2.tools.anchors.well_tokens`——并集语义见 `WELL_TOKEN_RE` 注）时的井号集
+    # （保序去重）；空＝无单井题（既有构造/既有 run 零漂移）。**只检测不下推**：
+    # 不接 SQL 过滤（过滤落点＝SQL 模板/引擎，超出 V2-112 边界红线）——下游须发
+    # 「单井过滤未支持」注记，不得静默按整窗口径作答（静默塌缩＝Q40 病灶）。
+    well_slot: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if (self.window_start is None) != (self.window_end is None):
@@ -523,6 +530,8 @@ def build_query_plan(
         is_default=parsed.is_default if parsed is not None else False,
         external_tables=detect_external_tables(question),
         actor=actor,
+        # V2-112 additive 检测面（井号识别单点复用——零第二份词面/正则）。
+        well_slot=well_tokens(question),
     )
 
 

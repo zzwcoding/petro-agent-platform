@@ -29,6 +29,11 @@ class QueryEngine:
 # QueryPlan 十字段（五源槽位＋方向二值＋V2-03 采纳项回写：展示注记/默认窗标注/越集外表集/行级身份）：
 # QueryPlan = {metric_slot, window_start, window_end, limit, ranking, direction,
 #              window_label, is_default, external_tables, actor}
+# ＋ **V2-112 additive** `well_slot: tuple[str, ...] = ()`（**检测面**——问句点名单井时的
+#   井号集，保序去重；井号识别单点＝`appv2/tools/anchors.py` 的 `WELL_TOKEN_RE`／`well_tokens`
+#   （`\b` 形中文旁失配已修＋`W-11-2` 并集语义）。**只检测不下推**：不接 SQL 过滤
+#   （过滤落点＝SQL 模板/引擎，不在 V2-112 边界红线内）；下游须发「单井过滤未支持」注记，
+#   不得静默按整窗口径作答。缺省空＝既有构造/run 零漂移。）
 # QueryOutcome 六联合态：
 #   rows+lineage(血缘五要素:口径/来源表/过滤/数据截至批次/收口注记)
 # | freshness_block(水位日期,窗标签,is_default)

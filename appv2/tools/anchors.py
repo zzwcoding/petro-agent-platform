@@ -32,9 +32,34 @@ from typing import Any
 
 from appv2.knowledge import glossary_aliases
 
-# 井号词面（对象「井」井号形——precondition._WELL_RE 同款：题册井号族
+# 井号词面（对象「井」井号形——**V2-112 起为井号识别唯一单点**，题册井号族
 # N-01/Z-16/W-111 形；纯字母前缀＋连字号＋数字，纯数字/纯字母词不作井号）。
-WELL_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9])[A-Z]{1,3}-\d{1,4}(?![0-9])")
+#
+# 2026-10-18 V2-112 并集语义（票面点名——两处历史形对 `-` 边界语义不同）：
+# - `\b` 形（旧 `precondition._WELL_RE`）在中文旁失配（Python 视 CJK 为 `\w`：
+#   `findall("N-01和Z-16比…") == []` → 闸 6 静默塌缩，Q40 病灶）；
+# - 本形两向否定环视（前后非字母数字）修中文旁失配，且数字后续面 `(?![0-9])`
+#   不把更长 token 截成前缀；
+# - **并集**：旧 `\b` 形对 `W-11-2` 只命中前缀 `W-11`（`2` 前无词边界）、本形
+#   原样不命中——两义取并＝**整 token 命中 `W-11-2`**（`(?:-\d{1,4})*` 段吸收
+#   多段井号形；实测语料同族形 `C-34-5`/`B-34-5`/`W-1-11`/`Y-41-1` 均为井号，
+#   报告号 `BZ34-8-JB-2027-001` 属报告号数字核面不在此列）。
+# 消费面：`well_tokens`（本模块单点件）／`entity_anchor_tokens`（锚注入）／
+# `precondition` 闸 6 与软失败域闸（`tools` 层内引用，零第二份词面）。
+WELL_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9])[A-Z]{1,3}-\d{1,4}(?:-\d{1,4})*(?![0-9])")
+
+
+def well_tokens(text: str) -> tuple[str, ...]:
+    """文本井号 token 集（保序去重——井号识别唯一单点件，零模型零 I/O）。
+
+    词面＝`WELL_TOKEN_RE`（并集语义见该常量注）；空/空白文本＝空集。
+    """
+    seen: list[str] = []
+    for token in WELL_TOKEN_RE.findall(str(text or "")):
+        if token not in seen:
+            seen.append(token)
+    return tuple(seen)
+
 
 # 报告号数字核词面（34-8/2025-11 形——数字-数字；是否注入由闭世界包含门裁定）。
 _NUMERIC_CORE_RE = re.compile(r"(?<![A-Za-z0-9])\d{1,4}-\d{1,4}(?![0-9])")

@@ -399,6 +399,31 @@ def test_lineage_filter_label_filled_for_bare_drafts() -> None:
     assert "2026-09-08～2026-10-07" in blocked.message
 
 
+# ---------- V2-112：QueryPlan 单井槽位（additive 检测面） ----------
+
+
+def test_query_plan_well_slot_additive_detection() -> None:
+    """V2-112｜`QueryPlan.well_slot` additive 检测面（缺省空＝零漂移；问句点名单井时在场）。
+
+    检测面语义（本票取舍）：只报「计划携单井槽位」这一事实——**不接 SQL 过滤**
+    （过滤落点＝SQL 模板/引擎，超出本票边界红线，另报）。井号识别复用单点
+    `tools.anchors.WELL_TOKEN_RE`（`\\b` 形中文旁失配已修；`W-11-2` 并集语义）。
+    """
+    bare = QueryPlan(
+        metric_slot="日产油量",
+        window_start=date(2025, 9, 1),
+        window_end=date(2025, 9, 3),
+        limit=None,
+        ranking=False,
+    )
+    assert bare.well_slot == ()  # additive 缺省＝空（既有构造零改动）
+
+    assert _plan("日产油量", "N-01和Z-16比，上个月谁更能打？").well_slot == ("N-01", "Z-16")
+    assert _plan("日产油量", "W-11 井的日产油量是多少？").well_slot == ("W-11",)
+    assert _plan("日产油量", "W-11-2 井的日产油量是多少？").well_slot == ("W-11-2",)
+    assert _plan("日产油量", "去年各井日产油量是多少？").well_slot == ()
+
+
 # ---------- 验收⑨：换指标出数被 FX-13 一致性闸拦（validate 拒） ----------
 
 
