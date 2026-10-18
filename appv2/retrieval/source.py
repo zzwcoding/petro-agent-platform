@@ -8,6 +8,10 @@ specs/modules.md retrieval 卡测试计划点名的 adapter）。
 
 行形状（FragmentRecord/GraphEdgeRecord）与纯语义在 domain.py——本模块只立
 seam 与内存适配器，全程只读（INV-2：返回容器一律副本、注入后不改）。
+
+V2-97（D7）：生产装配无 `GraphSource` 实现、`RetrievalEngine` 构造无 `graph=`——
+图谱腿整条**保留未接线** DEBT(V2-97)：本文件（GraphSource 协议／空集回退）不删，
+接线另立决策票。
 """
 
 from __future__ import annotations

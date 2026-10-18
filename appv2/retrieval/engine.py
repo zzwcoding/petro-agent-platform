@@ -28,6 +28,11 @@ V1 S4 双路召回＋精排＋生成窗供给＋图谱链移植为确定性引�
 llm_client.embeddings——B6 embedding 唯一出口）；LLM 调用只经注入 completer
 （生产装配＝infra GatewayService.complete——B6 complete 唯一出口，caller 归
 agent_v2.retrieval.*）；不 import app.**／knowledge/query（引擎互禁）。
+
+V2-97（D7）：compound 精排（`_llm_rerank`／`_batch_order`／`_doc_confidence`＋
+提示词常量）**保留未接线** DEBT(V2-97)——生产装配 `RetrievalEngine` 构造无
+`completer=`，恒走确定性融合序放行；本件不删，接线另立决策票（specs/retrieval.md
+已登记在案）。
 """
 
 from __future__ import annotations

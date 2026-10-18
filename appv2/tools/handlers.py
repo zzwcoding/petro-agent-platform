@@ -17,7 +17,11 @@
   关键词腿检索单元＋编号保送——V2-04 挂账对齐项②的参数契约面）；
 - graph_query（question, anchors?）→ retrieval.graph——anchors 并入实体匹配
   问针（锚定语义的图谱侧投影；引擎 face 按 question 子串匹配实体，锚名只在
-  anchors 提名时可达，测试端到端钉死）。
+  anchors 提名时可达，测试端到端钉死）。**V2-97（D7）摘除注册面**：生产装配
+  无 `graph=`，该工具恒返空集回退，模型白耗一次匹配/执行
+  ——已从 `build_tools` 注册面摘除；handler／`_GRAPH_DESCRIPTION`／
+  `_GRAPH_SCHEMA` 与 GraphSource／compound 精排实现**保留未接线** DEBT(V2-97)
+  （去向＝接线决策票；恢复条件见 specs/tools.md「graph_query 摘除注记」）。
 
 观察装配单点：_evidence_observation（台账卡）、_rows_observations（权威表行
 scope=agg＋血缘卡＋改绑 notice）、_bundle_to_result（检索支出处链＋window_note
@@ -89,6 +93,9 @@ from appv2.tools.well_ids import roster_entries, roster_lookup
 _LOGGER = logging.getLogger(__name__)
 
 # ---------- 工具名闭世界（注册序＝specs/tools.md 接口定义节列序＋V2-31 发现工具） ----------
+# V2-97（D7）：GRAPH_QUERY 常量与 graph_query handler 保留（代码保留面），但已不在
+# `build_tools` 注册面——注册面在册名单＝SEMANTIC_QUERY/DATA_QUERY/DOC_RETRIEVE/
+# SCHEMA_PROBE（＋faq 提供时 FAQ_LOOKUP）。 DEBT(V2-97)
 
 SEMANTIC_QUERY = "semantic_query"
 DATA_QUERY = "data_query"
@@ -629,7 +636,11 @@ def build_tools(
     faq: FaqLookupFace | None = None,
     well_roster: WellRosterFace | None = None,
 ) -> list[Tool]:
-    """五工具装配（注册序＝specs/tools.md 列序＋V2-31 发现工具殿后；全部 readonly=True）。
+    """四工具装配（注册序＝specs/tools.md 列序＋V2-31 发现工具殿后；全部 readonly=True）。
+
+    V2-97（D7）：`graph_query` 已摘除注册面（代码保留——见 graph_query handler 与
+    specs/tools.md「graph_query 摘除注记」），故在册基础名单＝semantic_query／
+    data_query／doc_retrieve／table_schema 四件。
 
     faq＝FAQ 现成问答库读缝（V2-52 辅助模式——提供时注册 faq_lookup 发现工具，
     缺省 None＝不在册：faq_* 缝未接线的装配零漂移）。
@@ -646,8 +657,8 @@ def build_tools(
     async def _doc(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return await doc_retrieve(args, ctx, retrieval=retrieval)
 
-    async def _graph(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-        return await graph_query(args, ctx, retrieval=retrieval)
+    # V2-97（D7）：graph_query 注册项已摘除（handler 保留——直调面见
+    # appv2.tools.handlers.graph_query；不在 build_tools 在册名单）。 DEBT(V2-97)
 
     async def _schema(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return table_schema(args, ctx, well_roster=well_roster)
@@ -676,14 +687,6 @@ def build_tools(
                 args_schema=_DOC_SCHEMA,
             ),
             handler=_doc,
-        ),
-        Tool(
-            descriptor=ToolDescriptor(
-                name=GRAPH_QUERY,
-                description=_GRAPH_DESCRIPTION,
-                args_schema=_GRAPH_SCHEMA,
-            ),
-            handler=_graph,
         ),
         Tool(
             descriptor=ToolDescriptor(
@@ -1076,7 +1079,11 @@ async def doc_retrieve(
 async def graph_query(
     args: dict[str, Any], ctx: ToolContext, *, retrieval: RetrievalFace
 ) -> ToolResult:
-    """图谱查询（anchors 并入实体匹配问针——引擎 face 按问针子串匹配实体名）。"""
+    """图谱查询（anchors 并入实体匹配问针——引擎 face 按问针子串匹配实体名）。
+
+    V2-97（D7）：已摘除注册面（不在 `build_tools` 在册名单）——本 handler 保留
+    未接线，仅供直调面/接线决策票复用。 DEBT(V2-97)
+    """
     question = str(args["question"])
     anchors = tuple(args.get("anchors") or ())
     needle = question if not anchors else f"{question} {' '.join(anchors)}"

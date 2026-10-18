@@ -2,7 +2,7 @@
 
 状态: 已定稿
 来源: specs/modules.md `tools` 卡、docs/prd.md §③、ADR-0001
-变更: 2026-10-15 行为 6 由「一句话用途」扩为**三件套**（Owner 裁定「要」；真源 `walk/11` §七 Q-A；配套 `specs/tool_matching.md` 的工具描述三件套条）；2026-10-17 接口定义节补 **`table_schema` 井号名录卡注记**（dim_well 卡携【井号名录】·discover 现读·非常驻；`well` 查值走 `RULE-PETRO-005` 归一比对）
+变更: 2026-10-15 行为 6 由「一句话用途」扩为**三件套**（Owner 裁定「要」；真源 `walk/11` §七 Q-A；配套 `specs/tool_matching.md` 的工具描述三件套条）；2026-10-17 接口定义节补 **`table_schema` 井号名录卡注记**（dim_well 卡携【井号名录】·discover 现读·非常驻；`well` 查值走 `RULE-PETRO-005` 归一比对）；2026-10-18 接口定义节补 **`graph_query` 摘除注记**（V2-97／D7——注册面摘除、代码保留、恢复条件在案）
 
 ## 目标
 
@@ -35,10 +35,12 @@ class ToolRegistry:
 # Observation = {content, source, source_id, version, freshness, scope, locator}
 ```
 
-四工具：`semantic_query`（args: question 或 element_name）；
+四工具（在册注册面）：`semantic_query`（args: question 或 element_name）；
 `data_query`（args: plan_draft）——内部先调 query.validate，不过则返 failed(bad_args, 校验理由)；
 `doc_retrieve`（args: question, anchors?, family_hints?）；
-`graph_query`（args: question, anchors?）。
+`table_schema`（args: area 或 table 或 well——V2-31 发现工具）。
+
+- **`graph_query` 摘除注记**（V2-97／D7；真源 `docs/runtime-refactor/接手-召回全链路最终决议与运行流程-20261018.md` §二 D7）：`graph_query`（args: question, anchors?）**已从工具注册面摘除**——生产装配 `RetrievalEngine` 构造无 `graph=`（`appv2/api/app.py`），该工具恒返「图谱缝空集回退」，在册只令模型白耗一次匹配/执行。**摘除范围＝注册面**：`appv2/tools/handlers.py` 的 `build_tools` 在册名单＝`semantic_query`／`data_query`／`doc_retrieve`／`table_schema`（＋faq 读缝提供时的 `faq_lookup`）；`GRAPH_QUERY` 常量、`graph_query` handler、`_GRAPH_DESCRIPTION`／`_GRAPH_SCHEMA`、`GraphSource` 协议与 compound 精排件（`appv2/retrieval/engine.py`）**全部保留**，模块注携 `DEBT(V2-97)`（去向＝接线决策票）。**恢复条件**（两条同时满足才可重新在册）：①接线决策票落定并实施——生产装配给出 `GraphSource` 实现（Neo4j 邻域适配器或等价只读读面）且 `RetrievalEngine` 构造注入 `graph=`；②该装配面有端到端判据（图谱面非空集可达，如现有 `tests/domains/test_v2_tools.py::anchors_contract` 的真引擎锚名可达支在生产同形装配下可复现）。**恢复动作**＝`build_tools` 重挂 `graph_query` 注册项＋本注记撤除＋注册面名单测试同步；**2026-10-18 补（V2-97）**——additive 摘除面零改代码（判据：`tests/domains/test_v2_tools.py::graph_query_not_registered`／`::graph_leg_code_kept`）。
 
 - **前置条件机闸件公开面注记**（`appv2/tools/precondition.py`）：`Verdict.hit_rule: str`——**命中的判定位标识**，闭世界八位——`ban`／`fuzzy_window`／`ask`／`unregistered_metric`／`normalized_slot`／`chain_switch`／`freshness_window`／`single_well`（命名以 `specs/preconditions.md` 判定序明文表位次为准逐字）；**非 `allow` 支必携一位**（可解释性——`preconditions` 单点取结构化判定位，不复制语义、不文案反推），`allow` 支（pass／note）＝空串（fail-closed：拒支漏填即成空串，双向对账可检）。**2026-10-16 补（流水 56）**；additive——既有判定行为零回归。
 - **askback 候选窗常量公开面注记**（`appv2/tools/__init__.py` 经包根转出，真源 `appv2/query/domain.py` 第 78–84 行）：`ASKBACK_TIME_QUESTION`（缺参反问问句逐字）／`ASKBACK_TIME_CHOICES`（三候选「近 3 天／近 30 天／本月至今」，无默认项）——`runtimev2` 各块经 `appv2.tools` 包根消费，不直引引擎（守边界规则 R6：agent 与世界的唯一接触面＝工具注册表）。**2026-10-16 补（流水 58）**；additive——既有行为零回归。
@@ -71,6 +73,8 @@ class ToolRegistry:
 | 井号查值走 RULE-PETRO-005 归一（变体形命中；不在册如实 no_hit 不猜最近井） | `tests/domains/test_v2_well_roster_card.py::test_well_lookup_variant_forms_hit_canonical` |
 | 留痕行携身份两键（run_id/sub_question_id）与扩席计数/预算面 | `tests/domains/test_v2_retrieval_calllog.py::test_retrieval_calllog_carries_run_id_and_counts` |
 | 留痕 `snippet`＝首支前 40 字（≤40 且不落全文） | `tests/domains/test_v2_retrieval_calllog.py::test_snippet_40_chars_no_full_text` |
+| `graph_query` 不在工具注册面（descriptors 零该名；调用判未知工具 bad_args、图谱引擎零调用） | `tests/domains/test_v2_tools.py::graph_query_not_registered` |
+| 图谱腿/compound 精排代码保留（GraphSource＋精排件 AST 存在性）＋模块注携 `DEBT(V2-97)` | `tests/domains/test_v2_tools.py::graph_leg_code_kept` |
 
 ## 依赖与风险
 

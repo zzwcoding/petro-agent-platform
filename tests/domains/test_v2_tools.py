@@ -33,7 +33,15 @@
   family_hints/budget 逐字进 RetrievalNeed（P-003 已定实现＝并入关键词腿检索
   单元＋编号保送——工具层参数契约与之一致）；graph_query 的 anchors 并入实体
   匹配问针（锚定语义的图谱侧投影，真引擎端到端：锚名只在 anchors 提名时边
-  可达）。
+  可达）——V2-97（D7）注册面摘除后改直调 handler 面钉契约（代码保留、引擎
+  零改）。
+
+V2-97（D7）两条（图谱腿/compound 精排摘暴露面）：
+- graph_query_not_registered：`graph_query` 不在工具注册面（descriptors 名单
+  零该名；registry.call 判「未知工具」bad_args、图谱引擎零调用）。
+- graph_leg_code_kept：GraphSource 协议／compound 精排件（`_llm_rerank`／
+  `_batch_order`／`_doc_confidence`＋提示词常量）仍在册（AST 存在性），模块注
+  携 `DEBT(V2-97)` 标记（去向＝接线决策票）。
 
 fixture＝问数组台账态快照（appv2.knowledge 公开接口）＋题册绑定 CSV 快照
 （CsvSnapshotExecutor）＋V2-04 同源真报告片段抽样（三支，出处链逐字）；时钟
@@ -44,9 +52,11 @@ runtime 票复用件。本票零 LLM 调用（工具层纯转发——精排/嵌
 
 from __future__ import annotations
 
+import ast
 import dataclasses
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 from appv2.infra.llm_client import UpstreamRejected, UpstreamUnavailable
@@ -101,6 +111,7 @@ from appv2.tools import (
     ToolRegistry,
     ToolResult,
 )
+from appv2.tools.handlers import graph_query as graph_query_handler
 
 # 执行日钉 2026-10-08、水位 2026-08-31（V2-03/V2-04 验收底座同款——不吃墙上时钟）。
 TODAY = date(2026, 10, 8)
@@ -149,13 +160,12 @@ def _by_kind(result: ToolResult, kind: str) -> list[Any]:
 async def test_descriptors_readonly() -> None:
     registry, _kb, _q, _r = _registry()
     descriptors = registry.descriptors()
-    # 五工具齐、注册序＝spec 顺序（specs/tools.md 接口定义节列序＋V2-31 发现
-    # 工具 table_schema 殿后）。
+    # 四工具齐、注册序＝spec 顺序（specs/tools.md 接口定义节列序＋V2-31 发现
+    # 工具 table_schema 殿后）。V2-97（D7）：graph_query 已摘除注册面（不在册）。
     assert [d.name for d in descriptors] == [
         SEMANTIC_QUERY,
         DATA_QUERY,
         DOC_RETRIEVE,
-        GRAPH_QUERY,
         SCHEMA_PROBE,
     ]
     # 全 readonly=True（INV-2）＋渐进披露恰四字段（名称/描述/参数 schema/只读声明）。
@@ -168,7 +178,9 @@ async def test_descriptors_readonly() -> None:
             "readonly",
         }
     schema_of = {d.name: d.args_schema for d in descriptors}
-    # 参数 schema 逐工具契约（与 specs/tools.md「四工具」行一致）。
+    # 参数 schema 逐工具契约（与 specs/tools.md「四工具」行一致——V2-97 后
+    # graph_query 不在注册面，其 schema 契约面归 handler 保留件，见
+    # graph_leg_code_kept／anchors_contract）。
     assert set(schema_of[SEMANTIC_QUERY]["properties"]) == {"question", "element_name"}
     assert set(schema_of[DATA_QUERY]["properties"]) == {"plan_draft"}
     assert set(schema_of[DOC_RETRIEVE]["properties"]) == {
@@ -176,7 +188,6 @@ async def test_descriptors_readonly() -> None:
         "anchors",
         "family_hints",
     }
-    assert set(schema_of[GRAPH_QUERY]["properties"]) == {"question", "anchors"}
     # plan_draft 形状＝QueryPlan 草案（schema 真源在 query 卡——工具层只引用不另造）。
     plan_props = schema_of[DATA_QUERY]["properties"]["plan_draft"]["properties"]
     assert set(plan_props) == {
@@ -239,6 +250,81 @@ async def _noop(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     return ToolResult.ok(())
 
 
+# ---------- V2-97（D7）：图谱腿/compound 精排摘暴露面（注册面摘除、代码保留） ----------
+
+
+async def test_graph_query_not_registered() -> None:
+    """V2-97（D7）｜`graph_query` 从工具注册面摘除——模型不再白耗一次匹配/执行。
+
+    闭世界断言：`descriptors()` 名单零 `graph_query`；registry.call 该名判
+    「未知工具」bad_args（不是 schema 拒）；图谱引擎零调用（摘除＝路径不在）。
+    """
+    registry, _kb, _q, r = _registry()
+    names = [descriptor.name for descriptor in registry.descriptors()]
+    assert names == [SEMANTIC_QUERY, DATA_QUERY, DOC_RETRIEVE, SCHEMA_PROBE]
+    assert GRAPH_QUERY not in names
+    result = await registry.call(GRAPH_QUERY, {"question": "受效关系如何"}, CTX)
+    assert result.status == STATUS_FAILED
+    assert result.error is not None
+    assert result.error.category == CATEGORY_BAD_ARGS
+    assert "未知工具" in result.error.message
+    assert result.observations == ()
+    assert r.graph_calls == 0  # 注册面外——图谱面零触（模型不再白耗）
+
+
+def test_graph_leg_code_kept() -> None:
+    """V2-97（D7）｜图谱腿/compound 精排实现代码保留＋模块注携 `DEBT(V2-97)`。
+
+    AST 存在性（不删代码）：`GraphSource` 协议在 `retrieval/source.py`；
+    compound 精排编排件（`_llm_rerank`／`_batch_order`／`_doc_confidence`）与
+    提示词常量在 `retrieval/engine.py`；`graph_query` handler 在 tools/handlers.py。
+    DEBT 标记（去向＝接线决策票）在三个保留件的模块注里在案——摘除只摘暴露面。
+    """
+    root = Path(__file__).resolve().parents[2]
+    source_path = root / "appv2" / "retrieval" / "source.py"
+    engine_path = root / "appv2" / "retrieval" / "engine.py"
+    handlers_path = root / "appv2" / "tools" / "handlers.py"
+
+    source_tree = ast.parse(source_path.read_text(encoding="utf-8"))
+    assert any(
+        isinstance(node, ast.ClassDef) and node.name == "GraphSource"
+        for node in ast.walk(source_tree)
+    ), "GraphSource 协议被删（V2-97 明令代码保留）"
+
+    engine_tree = ast.parse(engine_path.read_text(encoding="utf-8"))
+    functions = {
+        node.name
+        for node in ast.walk(engine_tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    assert {"_llm_rerank", "_batch_order", "_doc_confidence"} <= functions, (
+        "compound 精排编排件被删（V2-97 明令代码保留）"
+    )
+    assigned = {
+        target.id
+        for node in ast.walk(engine_tree)
+        if isinstance(node, ast.Assign)
+        for target in node.targets
+        if isinstance(target, ast.Name)
+    }
+    assert {"BATCH_RERANK_SYSTEM_PROMPT", "DOC_CONF_SYSTEM_PROMPT"} <= assigned, (
+        "精排提示词常量被删（V2-97 明令代码保留）"
+    )
+
+    handlers_tree = ast.parse(handlers_path.read_text(encoding="utf-8"))
+    assert any(
+        isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == "graph_query"
+        for node in ast.walk(handlers_tree)
+    ), "graph_query handler 被删（V2-97 明令代码保留）"
+
+    # 模块注 DEBT 标记在案（标签形态可被 tools/debt_markers.py 的 DEBT_TAG 解析）。
+    for path in (source_path, engine_path, handlers_path):
+        assert "DEBT(V2-97)" in path.read_text(encoding="utf-8"), (
+            f"{path.name} 缺 DEBT(V2-97) 标记（去向＝接线决策票）"
+        )
+
+
 # ---------- 验收②：schema 拒＝引擎零调用（bad_args 不触引擎） ----------
 
 
@@ -264,7 +350,8 @@ async def test_bad_args_notouch_engine() -> None:
         ),
         (DOC_RETRIEVE, {"anchors": ["W-09"]}),  # 缺 question
         (DOC_RETRIEVE, {"question": "x", "family_hints": ["nope"]}),  # 族越界（enum 拒）
-        (GRAPH_QUERY, {"question": ""}),  # 空白问句（minLength 拒）
+        # V2-97：graph_query 已摘除注册面——不在本表（工具不在册＝未知工具，
+        # 判据归 test_graph_query_not_registered）。
     ]
     for name, args in cases:
         result = await registry.call(name, args, CTX)
@@ -703,8 +790,11 @@ async def test_anchors_contract() -> None:
     assert need.anchors == ("W-09",)
     assert need.family_hints == ("completion",)
     assert need.budget == 7  # 送窗预算从 ctx 进（不从 args——调度策略归调用方）
-    # graph_query 同契约：anchors 逐字进 RetrievalNeed.anchors。
-    await registry.call(GRAPH_QUERY, {"question": "转注受效", "anchors": ["Y-16"]}, CTX)
+    # graph_query 同契约（V2-97 后不在注册面——直调保留 handler 钉契约）：
+    # anchors 逐字进 RetrievalNeed.anchors。
+    await graph_query_handler(
+        {"question": "转注受效", "anchors": ["Y-16"]}, CTX, retrieval=fake_ret
+    )
     assert fake_ret.needs[-1].anchors == ("Y-16",)
     assert fake_ret.graph_calls == 1
 
@@ -728,17 +818,15 @@ async def test_anchors_contract() -> None:
             )
         ],
     )
-    real_registry = ToolRegistry(
-        knowledge=FakeKnowledgeStore(),
-        query=FakeQueryEngine(),
-        retrieval=RetrievalEngine(
-            library=library, embedder=LocalHashEmbedder(), graph=library
-        ),  # 内存库双面一对象（V2-04 同款——片段语料＋图谱源）
+    real_engine = RetrievalEngine(
+        library=library, embedder=LocalHashEmbedder(), graph=library
+    )  # 内存库双面一对象（V2-04 同款——片段语料＋图谱源）
+    without = await graph_query_handler(
+        {"question": "受效关系如何"}, CTX, retrieval=real_engine
     )
-    without = await real_registry.call(GRAPH_QUERY, {"question": "受效关系如何"}, CTX)
     assert _by_kind(without, "graph") == []  # 问针无实体名——零边
-    with_anchor = await real_registry.call(
-        GRAPH_QUERY, {"question": "受效关系如何", "anchors": ["Y-16"]}, CTX
+    with_anchor = await graph_query_handler(
+        {"question": "受效关系如何", "anchors": ["Y-16"]}, CTX, retrieval=real_engine
     )
     edges = _by_kind(with_anchor, "graph")
     assert len(edges) == 1  # 锚名进问针——边可达

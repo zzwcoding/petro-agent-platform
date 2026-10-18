@@ -654,7 +654,8 @@ def test_parse_decision_rejections() -> None:
 
 
 def test_table_schema_discovery_tool() -> None:
-    """发现工具 table_schema：白名单⑥卡＋湖表不开放（拍板④）；registry 五工具。"""
+    """发现工具 table_schema：白名单⑥卡＋湖表不开放（拍板④）；registry 四工具
+    （V2-97：graph_query 摘除注册面——不在册）。"""
     registry = ToolRegistry(
         knowledge=FakeKnowledgeStore(),
         query=FakeQueryEngine(),
@@ -662,7 +663,7 @@ def test_table_schema_discovery_tool() -> None:
     )
     names = [d.name for d in registry.descriptors()]
     assert names == [
-        "semantic_query", "data_query", "doc_retrieve", "graph_query", "table_schema",
+        "semantic_query", "data_query", "doc_retrieve", "table_schema",
     ]
     ctx = ToolContext(actor="dev-u1", budget=4)
     cards = asyncio.run(registry.call(SCHEMA_PROBE, {}, ctx))
