@@ -20,7 +20,11 @@
    先与**同 draft 已 cited 的观察内容集**比对（`aligned_indices` 同款判据单点），命中即保留且计
    有支撑（综述句重组已引事实不得删）；**件四**：支撑过的行再过**行级油田归属闸**——被引材料自带
    油田名却**全不属题眼所辖油田**且行内无分源说明者**拒收**（同删句族留痕），机读面落 step payload
-   `field_attribution_mismatch` 键；
+   `field_attribution_mismatch` 键；**2026-10-18 V2-94（定性句放行）**：承载片段断言辖域**零计量
+   数值记号**时引标可解析即保留（step payload additive 键 `qualitative_kept` 如实计数），**有计量
+   数值仍照旧记号比对、对不上照删**（防编造红线不动）；一行多引标时承载片段**任一支撑即保留**
+   （引标须全可解析——行为 8；非承载辖域全须复述不变）；`rewrites`／`ok=False` 语义与
+   `RewriteRecord.reason` 闭世界（两值）不变；
 3. **无据 → 删句**（行为 3；2026-10-17 EB3 D3）：没支撑的句子**整行离场**（不贴「未找到」前缀，
    不留残句）＋ `RewriteRecord`（`reason="no_material"`）＋发 `notice`（`verdict.rewritten` 如实
    计数＝不静默）；**豁免两类线**原样保留（引擎披露行／组头行——只豁免删句，不改写、不放行支撑判）；
@@ -69,6 +73,7 @@ from appv2.runtimev2.transport import (
     EventBus,
 )
 from appv2.runtimev2.verification.constants import (
+    CARRIER_KINDS,
     EVENT_NOTICE,
     EVENT_VERDICT,
     GAP_ATTRIBUTION_REASON,
@@ -129,6 +134,7 @@ from appv2.runtimev2.verification.rules import (
     normalize_for_match,
     number_tokens,
     observation_supported,
+    qualitative_release,
     question_anchors,
     resolvable,
     rowset_audit,
@@ -145,6 +151,9 @@ _BUS_MISSING = (
     "fail-closed：不静默丢弃（行为 6／10）"
 )
 _INDEX_SEPARATOR = "、"
+# 定性句放行计数键（2026-10-18 V2-94——票面边界红线只许动 `rules.py`／`core.py`／本块测试／
+# `specs/verification.md`，故键字面落本块 core 单点，不扩 `constants.py`；additive 键）。
+PAYLOAD_QUALITATIVE_KEPT_KEY = "qualitative_kept"
 
 
 def verify(
@@ -214,9 +223,15 @@ def _verify(state: RunState, bus: EventBus, supplements: list[dict[str, Any]]) -
     if lineage_text:
         _supplement(supplements, SUPPLEMENT_BLOCK_LINEAGE, lineage_text)
 
-    out_lines, rewrites, cited, cited_lines, supported, field_mismatched = _verify_lines(
-        kept_lines, observations, by_index, field_scope
-    )
+    (
+        out_lines,
+        rewrites,
+        cited,
+        cited_lines,
+        supported,
+        field_mismatched,
+        qualitative_kept,
+    ) = _verify_lines(kept_lines, observations, by_index, field_scope)
     text = "\n".join(out_lines)
 
     ordered_cited = sorted(cited)
@@ -318,6 +333,7 @@ def _verify(state: RunState, bus: EventBus, supplements: list[dict[str, Any]]) -
         rows_missing,
         rows_aligned,
         field_mismatched,
+        qualitative_kept,
     )
     state.draft = text
     state.verdict = verdict.as_dict()
@@ -328,11 +344,30 @@ def _verify(state: RunState, bus: EventBus, supplements: list[dict[str, Any]]) -
 def _chunks_supported(
     chunks: Sequence[tuple[int, str]], by_index: Mapping[int, Mapping[str, Any]]
 ) -> bool:
-    """逐引标辖域支撑判定（引标须可解析——行为 8「仍须有可解析引标支撑」）。"""
-    return all(
-        resolvable(seq, by_index) and observation_supported(by_index[seq], chunk)
-        for seq, chunk in chunks
-    )
+    """逐引标辖域支撑判定（引标须可解析——行为 8「仍须有可解析引标支撑」）。
+
+    **2026-10-18 V2-94**（票面任务段逐字：「一行引多来源时，**承载片段**按「任一支撑即保留」」；
+    「非承载：全须复述（不变）」）：
+
+    - **引标须全可解析**：任一引标不可解析 → 本分支不过（行为 8；落回空壳重判／窗内对齐两支）；
+    - **承载片段**（`fragment`／`agg_row`／`lineage`）辖域：**任一**支撑即过（V2-94 放宽面；
+      定性句放行分支见 `rules.observation_supported`／`rules.qualitative_release`）；
+    - **非承载**辖域：**全须复述**（逐辖域 `observation_supported`——语义零改；防编造红线不动）。
+    """
+    carrier_supported = False
+    has_carrier = False
+    for seq, chunk in chunks:
+        if not resolvable(seq, by_index):
+            return False
+        obs = by_index[seq]
+        if locator_kind(obs) in CARRIER_KINDS:
+            has_carrier = True
+            if observation_supported(obs, chunk):
+                carrier_supported = True
+            continue
+        if not observation_supported(obs, chunk):
+            return False
+    return carrier_supported if has_carrier else True
 
 
 def _supplement(
@@ -362,12 +397,13 @@ def _verify_lines(
     list[tuple[str, tuple[int, ...]]],
     int,
     tuple[int, ...],
+    int,
 ]:
     """逐行断言级核验（行为 1／2／3／7／8；EB3 D3：真无据断言**删句**＋豁免两类线）。
 
-    返回（保留行，改写留痕，被引序号集，有据行面，有支撑句数，**油田归属对不上**的被引序号列）。
-    逐行判定、**不是整段判**；无据行**整行离场**（删句，不贴前缀）；豁免两类线（引擎披露行／组头
-    行）原样保留且不计改写。**2026-10-17 F1**两处精度面：
+    返回（保留行，改写留痕，被引序号集，有据行面，有支撑句数，**油田归属对不上**的被引序号列，
+    **定性句放行行数**）。逐行判定、**不是整段判**；无据行**整行离场**（删句，不贴前缀）；豁免
+    两类线（引擎披露行／组头行）原样保留且不计改写。**2026-10-17 F1**两处精度面：
 
     - **件一（删句判据修精度）**：无引标数字行的判据面＝**计量数值**（`line_numbers_are_asserted`
       ——标识符／日期不算数值断言），井号代码行不再被误判删句；
@@ -383,6 +419,7 @@ def _verify_lines(
     cited: set[int] = set()
     cited_lines: list[tuple[str, tuple[int, ...]]] = []
     supported = 0
+    qualitative_kept = 0
     field_mismatched: list[int] = []
     total = len(lines)
     # 件二比对域：同 draft **已 cited 的观察内容集**（预扫一遍满足「引标支撑」的行——与主扫描同一
@@ -403,7 +440,7 @@ def _verify_lines(
         chunks = citation_chunks(normalized)
         kept = _kept_citations(chunks, normalized, by_index, observations)
         if kept is not None:
-            seqs, record_line = kept
+            seqs, record_line, qualitative = kept
             mismatch = field_attribution_mismatch(line, seqs, by_index, field_scope)
             if mismatch:
                 # 件四：行数据归属另一油田且无分源说明 → 该行拒收（同删句族留痕＋如实计数）
@@ -414,6 +451,8 @@ def _verify_lines(
             if record_line:
                 cited_lines.append((line, seqs))
             supported += 1
+            if qualitative:  # V2-94：定性句放行计数（保留面，additive）
+                qualitative_kept += 1
             out_lines.append(line)
             continue
         if chunks:
@@ -439,7 +478,15 @@ def _verify_lines(
             rewrites.append(RewriteRecord(line=line, reason=REWRITE_NO_MATERIAL))
             continue
         out_lines.append(line)  # 结构承载（标题／表头／分隔线）——不计有支撑数
-    return out_lines, rewrites, cited, cited_lines, supported, tuple(field_mismatched)
+    return (
+        out_lines,
+        rewrites,
+        cited,
+        cited_lines,
+        supported,
+        tuple(field_mismatched),
+        qualitative_kept,
+    )
 
 
 def _kept_citations(
@@ -447,26 +494,48 @@ def _kept_citations(
     normalized: str,
     by_index: Mapping[int, Mapping[str, Any]],
     observations: Sequence[Mapping[str, Any]],
-) -> tuple[tuple[int, ...], bool] | None:
-    """带的引标行支撑判定（返回（被引序号列，是否入「有据行面」）；判不过＝`None`）。
+) -> tuple[tuple[int, ...], bool, bool] | None:
+    """带的引标行支撑判定（返回（被引序号列，是否入「有据行面」，是否定性句放行）；判不过＝`None`）。
 
     三分支同既有语义（逐辖域支撑 → 空壳辖域整行重判 → 窗内对齐放行）；`record_line`＝前两分支
-    真（其行面供矛盾分列回填改写留痕），第三分支（对齐放行）不入行面——同既有行为。
+    真（其行面供矛盾分列回填改写留痕），第三分支（对齐放行）不入行面——同既有行为。**2026-10-18
+    V2-94**：第三返回值＝本行是否靠**定性句放行**保留（判据单点＝`_qualitative_release`，供
+    `_verify_lines` 累计 `qualitative_kept`）。
     """
     if not chunks:
         return None
     seqs = tuple(seq for seq, _ in chunks)
-    if _chunks_supported(chunks, by_index):
-        return seqs, True
     bare = without_markers(normalized)
+    qualitative = _qualitative_release(chunks, bare, by_index)
+    if _chunks_supported(chunks, by_index):
+        return seqs, True, qualitative
     if any(not scope_usable(chunk) for _, chunk in chunks) and _whole_supported(
         chunks, bare, by_index
     ):
-        return seqs, True
+        return seqs, True, qualitative
     matched = aligned_indices(number_tokens(bare), observations)
     if matched:
-        return matched, False
+        return matched, False, False
     return None
+
+
+def _qualitative_release(
+    chunks: Sequence[tuple[int, str]],
+    bare: str,
+    by_index: Mapping[int, Mapping[str, Any]],
+) -> bool:
+    """本行是否靠「定性句放行」保留（2026-10-18 V2-94——`qualitative_kept` 的计数判据面）。
+
+    行级判据＝**断言面零计量数值记号**（`bare`＝剥引标后整行，`number_tokens` 空）且**至少一支
+    可解析承载片段有量值**（判据单点＝`rules.qualitative_release`）。断言面有量值者走记号比对
+    （修前照删面）——不入本计数（票面「有数字照旧记号比对」的计数面）。
+    """
+    if number_tokens(bare):
+        return False
+    return any(
+        resolvable(seq, by_index) and qualitative_release(by_index[seq], chunk)
+        for seq, chunk in chunks
+    )
 
 
 def _draft_cited_seqs(
@@ -535,6 +604,7 @@ def _emit_signals(
     rowset_missing: Sequence[int],
     rowset_aligned: bool,
     field_mismatched: Sequence[int] = (),
+    qualitative_kept: int = 0,
 ) -> None:
     """机读信号（「不降级与静默禁令」节）：step payload ＋ `notice`／`verdict` 帧 ＋ 通知落账。
 
@@ -543,6 +613,7 @@ def _emit_signals(
     本块只保证自产部分就位（行为 10）。**2026-10-17 F1 件四**：油田归属对账的机读面＝step payload
     键 `field_attribution_mismatch`（拒收行的被引序号列）——拒收本身走既有删句族信号（`rewritten`
     计数 ＋ `rewrites` 留痕 ＋ `unsupported_claim` notice），维度面另有本键可复算。
+    **2026-10-18 V2-94**：定性句放行计数键 `qualitative_kept`（additive——`Verdict` 九键不动）。
     """
     title = STEP_TITLE_TEMPLATE.format(
         supported=verdict.supported,
@@ -554,7 +625,13 @@ def _emit_signals(
         kind=STEP_VERIFY,
         title=title,
         payload=_step_payload(
-            verdict, rewrites, row_note, rowset_missing, rowset_aligned, field_mismatched
+            verdict,
+            rewrites,
+            row_note,
+            rowset_missing,
+            rowset_aligned,
+            field_mismatched,
+            qualitative_kept,
         ),
     )
     if verdict.rewritten:
@@ -604,6 +681,7 @@ def _step_payload(
     rowset_missing: Sequence[int] = (),
     rowset_aligned: bool = True,
     field_mismatched: Sequence[int] = (),
+    qualitative_kept: int = 0,
 ) -> dict[str, Any]:
     """步 payload（六计数键 ＋ 行集对账四字段 ＋ 改写／缺口留痕 ＋ 行集注记 ＋ 油田归属维度键）。
 
@@ -611,6 +689,8 @@ def _step_payload(
     （缺行序号列）／`rowset_aligned`（引标序对齐）两判据——同一事实的机读面与注记面（`row_note`）
     同批落账（判据单点＝`rules.rowset_audit`，本件只投影）。**2026-10-17 F1 件四**：`field_mismatch`
     键＝油田归属对账拒收行的被引序号列（**升序去重**——判据单点＝`rules.field_attribution_mismatch`）。
+    **2026-10-18 V2-94**：`qualitative_kept` 键＝定性句放行行数（承载片段断言零量值记号即保留；
+    additive 键——`Verdict` 九键不动，计数判据单点＝`_qualitative_release`）。
     """
     return {
         PAYLOAD_PHASE_KEY: PHASE,
@@ -623,6 +703,7 @@ def _step_payload(
         PAYLOAD_ROWSET_MISSING_KEY: list(rowset_missing),
         PAYLOAD_ROWSET_ALIGNED_KEY: rowset_aligned,
         PAYLOAD_FIELD_MISMATCH_KEY: sorted(set(field_mismatched)),
+        PAYLOAD_QUALITATIVE_KEPT_KEY: qualitative_kept,
         PAYLOAD_ATTRIBUTION_KEY: verdict.attribution,
         PAYLOAD_OK_KEY: verdict.ok,
         PAYLOAD_REWRITES_KEY: [

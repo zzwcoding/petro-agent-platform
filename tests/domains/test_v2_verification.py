@@ -1602,3 +1602,223 @@ async def test_cross_field_line_rejected_without_split_note() -> None:
     assert mixed.draft.splitlines() == [heading, mixed_line]
     assert mixed_verdict.rewritten == 0
     assert _step_payload(mixed)[PAYLOAD_FIELD_MISMATCH_KEY] == []
+
+
+# ══════════ 2026-10-18 V2-94（核验定性句放行——承载片段断言无量值记号）══════════════
+#
+# 票面＝`tickets/v2/V2-94-核验定性句放行.md`。真机实证＝`eval/results/EB9-判分.md` D-诱12
+# step13：`rewrites` 4 行全 `no_material`（含 W-24 定性断口检查句）——**28 个核验测无覆盖**。
+# 修法：承载片段（`fragment`／`agg_row`／`lineage`）的支撑判据放宽一处——**断言辖域无计量数值
+# 记号时，引标可解析即保留**（step payload additive 键 `qualitative_kept`）；**有计量数值仍照旧
+# 记号比对、对不上照删**（防编造红线不动）；一行多引标按「任一支撑即过」。`rewrites`／
+# `Verdict.ok=False` 语义与 `RewriteRecord.reason` 闭世界（两值）不变。
+
+# EB9 D-诱12 真机帧（`eval/results/frames/EB9-D-诱12.json`）窗内两支承载片段原文（逐字照抄）
+_EB9_D12_W22_FRAGMENT = (
+    "4.1 W-22 井抽油杆断（典型案例）W-22 井基本参数：泵挂 2200 米，φ44 泵，冲程 5 米，"
+    "冲次 4.2 次/分，最大井斜 23.6°（位于 1950 米），最大狗腿度 4.2°/30m（位于 2020 米附近）。"
+    "作业起管检查：断点位于 1980 米处第 38 根抽油杆杆体（非接头），断口呈典型疲劳磨损特征；"
+    "对应位置油管内壁有明显环状磨槽，深度 0.8～1.2 毫米。1900～2100 米井段抽油杆接箍普遍偏磨，"
+    "最重处接箍单侧磨掉 2.1 毫米。原因分析：该井段处于狗腿度最大区域，杆柱中性点偏上，下冲程"
+    "杆柱弯曲导致杆管偏磨集中；原杆柱设计扶正器间距 8 米，在 4.2°/30m 狗腿度下不足以保持杆柱"
+    "居中。上月初该井功图已显示下冲程迟缓（供液不足与偏磨双重特征），但未列入当月检泵计划，"
+    "属预测预警跟进不及时。整改措施：①扶正器间距由 8 米加密至 4 米；②泵上 120 米范围下加重杆"
+    "（φ38 毫米）使中性点下移；③调整冲次由 4.2 降至 3.8 次/分，预计检泵周期可延长至 650 天以上。"
+)
+_EB9_D12_W24_FRAGMENT = (
+    "4.2 W-24 井杆断（短周期案例）W-24 井检泵周期仅 295 天，为去年 11 月补孔改层井。"
+    "断点 1650 米，检查发现为新旧杆混配段（新杆 D 级、旧杆 C 级混用），旧杆强度不足先断。"
+    "教训：改层加深泵挂后未按新工况整体校核杆柱，混配段应力超出旧杆许用范围。本次作业已整串"
+    "更换 D 级杆，并按加深后的泵挂重新设计杆柱组合（一级杆 18 毫米×520 米＋二级杆 22 毫米×840 米"
+    "＋三级杆 19 毫米×840 米，待复算确认）。"
+)
+_EB9_D12_ROWS_FRAGMENT = (
+    "二、躺井原因分类统计　　杆断 3 井次 W-21、W-22、W-24 占 42.9%；泵漏 2 井次 W-23、W-31 占 "
+    "28.6%；其他 2 井次占 28.6%；合计 7 井次占 100%。3 口杆断井均发生在井斜大于 18° 的定向井段，"
+    "与管杆偏磨历史规律一致。"
+)
+_EB9_D12_SOURCE = "《B-渤中34-5油田躺井治理与检泵作业月报-202608》"
+_EB9_D12_QUESTION = (
+    "W-22 和 W-24 两口杆断井的断点分别在多少米？断口检查和根因分析分别怎么说？"
+    "两口井的教训有什么不同？"
+)
+
+
+async def test_qualitative_fragment_claim_kept() -> None:
+    """V2-94-1｜无数字句引 fragment（有数字的观察）→ 保留 ＋ `qualitative_kept=1`。
+
+    承载片段（`fragment`）的断言辖域**零计量数值记号**时，引标可解析即保留（V2-94 放宽面）；
+    该行仍计有支撑数、引标落账，`rewrites` 不产留痕（非无据）。
+    """
+    observations = [
+        _obs(42, "fragment", content=_EB9_D12_W24_FRAGMENT, source=_EB9_D12_SOURCE)
+    ]
+    heading = "**W-24 井（断口检查）**"
+    qualitative_line = (
+        "- 断口检查：断点位于新旧杆混配段（新杆 D 级、旧杆 C 级混用），旧杆强度不足先断 [42]。"
+    )
+    state = _state(
+        question="W-24 井断口检查结论是什么？",
+        draft="\n".join([heading, qualitative_line]),
+        observations=observations,
+    )
+    bus = EventBus()
+    verdict = verify(state, bus=bus)
+
+    assert state.draft.splitlines() == [heading, qualitative_line]  # 定性句保留（不删）
+    assert verdict.rewritten == 0
+    assert verdict.ok is True
+    assert verdict.supported == 1  # 放行行计有支撑数（不是结构承载）
+    assert verdict.cited == [42]
+    payload = _step_payload(state)
+    assert payload["qualitative_kept"] == 1  # 定性句放行计数（additive 键）
+    assert payload[PAYLOAD_REWRITES_KEY] == []
+
+
+async def test_numeric_claim_still_deleted() -> None:
+    """V2-94-2｜句含数字、观察无该记号 → 照删（防编造红线不动）。
+
+    承载片段面**有计量数值**时仍照旧记号比对（`2500 米` 不在观察的 `1650 米` 记号集里）——
+    零重叠照改、整行离场；`qualitative_kept` 不计。
+    """
+    observations = [
+        _obs(
+            42,
+            "fragment",
+            content="W-24 井检泵周期仅 295 天。断点 1650 米，旧杆强度不足先断。",
+            source=_EB9_D12_SOURCE,
+        )
+    ]
+    heading = "**W-24 井（断点）**"
+    fabricated = "- 断点深度：2500 米，第 40 根抽油杆杆体断裂 [42]。"
+    state = _state(
+        question="W-24 井断点深度是多少米？",
+        draft="\n".join([heading, fabricated]),
+        observations=observations,
+    )
+    bus = EventBus()
+    verdict = verify(state, bus=bus)
+
+    assert state.draft == heading  # 无据行整行离场（不贴前缀、不留残句）
+    assert fabricated not in state.draft
+    assert verdict.rewritten == 1
+    assert verdict.ok is False
+    assert _step_payload(state)["qualitative_kept"] == 0
+    rewrites = _step_payload(state)[PAYLOAD_REWRITES_KEY]
+    assert {entry["line"] for entry in rewrites} == {fabricated}
+    assert {entry["reason"] for entry in rewrites} == {REWRITE_NO_MATERIAL}
+
+
+async def test_multi_citation_any_support() -> None:
+    """V2-94-3｜一行引 [7][42]，仅 [7] 支撑 → 保留（任一支撑即过）。
+
+    修前该行三支全不过（`all` 语义 ＋ 窗内对齐因 `300 天` 无命中而落空）→ 整行删；修后承载
+    片段任一支撑即过。有数字的辖域仍逐记号比对（本行无 `qualitative_kept`——断言面有量值）。
+    """
+    observations = [
+        _obs(7, "fragment", content=_EB9_D12_W22_FRAGMENT, source=_EB9_D12_SOURCE),
+        _obs(42, "fragment", content=_EB9_D12_W24_FRAGMENT, source=_EB9_D12_SOURCE),
+    ]
+    heading = "**两口井对比**"
+    mixed_line = "- 断点深度：1980 米 [7]；检泵周期 300 天 [42]。"
+    state = _state(
+        question="W-22 与 W-24 两口井的断点深度是多少米？",
+        draft="\n".join([heading, mixed_line]),
+        observations=observations,
+    )
+    bus = EventBus()
+    verdict = verify(state, bus=bus)
+
+    assert state.draft.splitlines() == [heading, mixed_line]  # [7] 支撑即过（[42] 不支撑不连坐）
+    assert verdict.rewritten == 0
+    assert verdict.ok is True
+    assert verdict.cited == [7, 42]  # 两引标皆落账（本行在场）
+    assert _step_payload(state)["qualitative_kept"] == 0  # 断言面有量值：不属定性句放行
+
+
+async def test_deleted_line_leaves_no_residue() -> None:
+    """V2-94-4｜删行后正文无半句残渣（整行离场，不贴前缀、不留半句）。"""
+    observations = [
+        _obs(
+            42,
+            "fragment",
+            content="W-24 井检泵周期仅 295 天。断点 1650 米，旧杆强度不足先断。",
+            source=_EB9_D12_SOURCE,
+        )
+    ]
+    heading = "**W-24 井（断点）**"
+    good = "- 断点深度：1650 米 [42]。"
+    bad = "- 断点深度：2500 米，第 40 根抽油杆杆体断裂 [42]。"
+    state = _state(
+        question="W-24 井断点深度是多少米？",
+        draft="\n".join([heading, good, bad]),
+        observations=observations,
+    )
+    verdict = verify(state, bus=EventBus())
+
+    assert state.draft.splitlines() == [heading, good]
+    assert verdict.rewritten == 1
+    # 半句残渣零留存（前缀／断句／后半句皆不在正文）
+    for residue in ("2500", "第 40 根", "杆体断裂", "断点深度：2500", "未找到"):
+        assert residue not in state.draft
+
+
+async def test_eb9_d12_shape_qualitative_line_kept() -> None:
+    """V2-94-5｜EB9 D-诱12 形复现：4 行不再全删（至少 W-24 定性断口检查句保留）。
+
+    真机帧（`eval/results/frames/EB9-D-诱12.json`，run-5e2e642e）step13 签名＝
+    **supported 6／rewritten 4**（四条 `no_material`：W-24 断口检查句／W-24 教训句／共同点句／
+    区别要点句，后三句辖域亦零量值记号）。本测按该帧的两支承载片段（4.1／4.2 正文）＋答案稿
+    逐字复现该形：修前 4 行全删（含 W-24 定性句）；修后四条定性句放行（`qualitative_kept=4`）。
+    """
+    observations = [
+        _obs(7, "fragment", content=_EB9_D12_W22_FRAGMENT, source=_EB9_D12_SOURCE),
+        _obs(8, "fragment", content=_EB9_D12_ROWS_FRAGMENT, source=_EB9_D12_SOURCE),
+        _obs(42, "fragment", content=_EB9_D12_W24_FRAGMENT, source=_EB9_D12_SOURCE),
+    ]
+    draft_lines = [
+        "**W-22 井（断点 / 断口检查 / 根因）**",
+        "- 断点深度：1980 米，第 38 根抽油杆杆体（非接头）位置断裂 [7]。",
+        "- 断口检查：呈典型疲劳磨损特征；同位油管内壁可见深度 0.8～1.2 毫米的环状磨槽；"
+        "1900～2100 米井段抽油杆接箍普遍偏磨，最重处接箍单侧磨掉 2.1 毫米 [7]。",
+        "- 根因分析：断点位于狗腿度最大区域（最大狗腿度 4.2°/30m，2020 米附近），杆柱中性点偏上，"
+        "下冲程弯曲引发杆管偏磨集中；原扶正器 8 米间距在 4.2°/30m 狗腿度下不足以保持杆柱居中 [7]。"
+        "上月功图已显示下冲程迟缓（供液不足与偏磨双重特征）但未列入检泵计划，属预测预警跟进"
+        "不及时 [7]。",
+        "**W-24 井（断点 / 断口检查 / 根因）**",
+        "- 断点深度：1650 米 [42]。",
+        "- 断口检查：断点位于新旧杆混配段（新杆 D 级、旧杆 C 级混用），旧杆强度不足先断 [42]。",
+        "- 根因分析：该井为去年 11 月补孔改层井（检泵周期仅 295 天），改层加深泵挂后未按新工况"
+        "整体校核杆柱，混配段应力超出旧杆许用范围 [42]。",
+        "**两口井教训的不同**",
+        '- W-22 属"设计参数与井斜狗腿度不匹配"——教训指向杆柱与井筒轨迹的匹配：在 4.2°/30m '
+        "强狗腿度井段，原 8 米扶正器间距不够，需将间距加密至 4 米并下加重杆下移中性点、冲次由 "
+        "4.2 降至 3.8 次/分，预计检泵周期延至 650 天以上 [7]。",
+        '- W-24 属"工况变更后未做整体校核"——教训指向改层加深泵挂这类工况变化的管理：旧杆柱'
+        "直接延用、新旧杆混配使局部应力超限，须整串更换 D 级杆并按加深后的泵挂重新设计杆柱"
+        "组合 [42]。",
+        "- 共同点：两口井均属定向井段杆断（井斜大于 18°），与管杆偏磨历史规律一致 [8]；"
+        "整改后均纳入杆柱力学复算名单 [7][42]。",
+        "- 区别要点：W-22 是杆柱居中能力（扶正器间距/中性点）不足以应对强狗腿度，W-24 是工况"
+        "变化（补孔改层、加深泵挂）后杆柱组合未同步重做 [7][42]。",
+    ]
+    state = _state(
+        question=_EB9_D12_QUESTION,
+        draft="\n".join(draft_lines),
+        observations=observations,
+    )
+    bus = EventBus()
+    verdict = verify(state, bus=bus)
+
+    assert verdict.rewritten == 0  # 修前 4（四条全删）→ 修后 0（不再全删）
+    assert verdict.ok is True
+    assert verdict.supported == 10  # 修前 6（四条定性句不计支撑）→ 修后 10（四条放行计支撑）
+    payload = _step_payload(state)
+    assert payload["qualitative_kept"] == 4  # 四条定性句放行
+    # 至少 W-24 定性断口检查句保留（票面点名的实证行）
+    qualitative_lines = draft_lines[6:7] + draft_lines[10:11] + draft_lines[11:13]
+    assert all(line in state.draft for line in qualitative_lines)
+    assert "断口检查：断点位于新旧杆混配段" in state.draft
+    # 有数字的行照旧逐记号比对（未被定性放行牵连）
+    assert "- 断点深度：1980 米，第 38 根抽油杆杆体（非接头）位置断裂 [7]。" in state.draft
+    assert 7 in verdict.cited and 42 in verdict.cited

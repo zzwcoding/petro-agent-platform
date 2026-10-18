@@ -235,6 +235,9 @@ def observation_supported(obs: Observation, assertion: str) -> bool:
 
     - 承载豁免（`agg_row`／`lineage`／`fragment`）：**任一**数值记号重叠即支撑、零重叠照改
       （零重叠不回退——R-A2-11）；观察零数值＝纯文本卡恒支撑；
+    - **定性句放行（2026-10-18 V2-94）**：承载片段且观察**有**量值、而断言辖域**零计量数值记号**
+      时，**引标可解析即保留**（`qualitative_release`——真机实证＝`eval/results/EB9-判分.md`
+      D-诱12 step13：W-24 定性断口检查句被旧判据整行删）；
     - 非承载：观察全部数值记号均须复述；观察零数值时按「零数值断言」判——支撑面只剩
       「引标可解析」（可解析性由调用方以 `by_index` 查表把守，行为 8：**不自动判过**）；
     - 比对取**记号相等**（行为 7 的边界记号化——非子串包含）。
@@ -243,10 +246,27 @@ def observation_supported(obs: Observation, assertion: str) -> bool:
     if locator_kind(obs) in CARRIER_KINDS:
         if not tokens:
             return True
+        if qualitative_release(obs, assertion):
+            return True
         assertion_tokens = number_tokens(assertion)
         return any(token in assertion_tokens for token in tokens)
     assertion_tokens = number_tokens(assertion)
     return all(token in assertion_tokens for token in tokens)
+
+
+def qualitative_release(obs: Observation, assertion: str) -> bool:
+    """**定性句放行**判据（2026-10-18 V2-94——承载片段面唯一放宽处）。
+
+    成立三条件（全形态面，零语义判定）：①观察为承载片段（`locator.kind ∈ CARRIER_KINDS`）；
+    ②观察**有**计量数值记号（观察零量值＝纯文本卡恒支撑，不属本放宽面）；③断言辖域**零**计量
+    数值记号（有量值仍走 `observation_supported` 的记号比对——**对不上照删**，防编造红线不动）。
+    引标可解析性由调用方以 `by_index` 把守（`observation_supported` 同款）。
+    """
+    if locator_kind(obs) not in CARRIER_KINDS:
+        return False
+    if not observation_tokens(obs):
+        return False
+    return not number_tokens(assertion)
 
 
 def resolvable(citation: int, by_index: Mapping[int, Observation]) -> bool:
