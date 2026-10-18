@@ -10,6 +10,10 @@
 底座＝`FakeRetrievalEngine` 剧本化应答（`appv2.tools.fake`——工具层纯转发）＋
 `tmp_path` 重指留痕目录（同 `tests/infra/test_gateway_calllog.py` 范式）；本票
 零 LLM 调用、零真实检索。
+
+V2-92 追加（`tests/conftest.py` autouse 夹具）：本文件两测钉夹具注入面——
+`retrieval_calllog._LOG_DIR` 已隔离到 tmp_path（绝不落生产 `logs/retrieval_calls/`）、
+`_ORIGIN` 注入 `test`，记录 `origin` 键 additive（既有键零改）。
 """
 
 from __future__ import annotations
@@ -33,7 +37,7 @@ from appv2.tools import (
     retrieval_calllog,
 )
 
-# 留痕记录键闭世界（票面「施工基准」字段表逐字）。
+# 留痕记录键闭世界（票面「施工基准」字段表逐字＋V2-92 additive `origin`）。
 _RECORD_KEYS = {
     "ts",
     "run_id",
@@ -43,6 +47,7 @@ _RECORD_KEYS = {
     "hits",
     "returned",
     "truncated",
+    "origin",
 }
 _HIT_KEYS = {"id", "source", "score", "chars", "has_section"}
 
@@ -158,6 +163,8 @@ async def test_retrieval_calllog_written(tmp_path: Path, monkeypatch) -> None:
     assert record["hits"][2]["has_section"] is False  # section 标记如实
     # 召回池 11 > 入窗 3 → 发生截断（供给窗裁掉候选）。
     assert record["truncated"] is True
+    # V2-92：origin 键 additive 由 autouse 夹具注入（测试语境＝test，运行语境＝runtime）。
+    assert record["origin"] == "test"
     # 不落全文：片段正文一字不进留痕件（只字符数）。
     raw = path.read_text(encoding="utf-8")
     assert "观察井" not in raw and "套管尺寸" not in raw
@@ -220,3 +227,25 @@ async def test_retrieval_calllog_empty_hits(tmp_path: Path, monkeypatch) -> None
     assert recs[0]["returned"] == 0
     assert recs[0]["hits"] == []
     assert recs[0]["truncated"] is False  # 召回 0／入窗 0＝不判截断（零猜测）
+
+
+def test_retrieval_calllog_autouse_isolation(tmp_path: Path) -> None:
+    """V2-92：autouse 夹具隔离留痕目录（tmp_path 内）＋注入 origin=test。"""
+    production = Path("logs/retrieval_calls").resolve()
+    isolated = retrieval_calllog._LOG_DIR.resolve()
+    assert isolated != production  # 绝不落生产留痕目录
+    assert isolated.is_relative_to(tmp_path.resolve())  # 落在本测 tmp_path 内
+    assert retrieval_calllog._ORIGIN == "test"  # 夹具注入面（记录 origin 的值源）
+
+
+async def test_retrieval_calllog_origin_runtime_branch(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """V2-92：origin 如实（夹具 test／显式复位 runtime）——additive 不改既有键。"""
+    monkeypatch.setattr(retrieval_calllog, "_ORIGIN", "runtime")
+    monkeypatch.setattr(retrieval_calllog, "_LOG_DIR", tmp_path / "runtime")
+    result = await _call(_registry(_bundle(hits=[])))
+    assert result.status == STATUS_OK
+    recs = _read(_jsonl_files(tmp_path / "runtime")[0])
+    assert recs[0]["origin"] == "runtime"
+    assert set(recs[0]) == _RECORD_KEYS  # 键闭世界（origin 在场、无多键无缺键）

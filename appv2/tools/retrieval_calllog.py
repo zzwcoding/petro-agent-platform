@@ -6,12 +6,14 @@
 （`接手-EB7vsEB8送窗差异` 取不到③：入参 need/budget/family_hints 与候选命中
 此前不在任何留痕面）。
 
-记录键闭世界（票面字段表逐字）：
+记录键闭世界（票面字段表逐字＋V2-92 additive `origin`）：
 `{"ts", "run_id", "sub_question_id", "need", "top_k", "hits": [{"id", "source",
-"score", "chars", "has_section"}], "returned", "truncated"}`
+"score", "chars", "has_section"}], "returned", "truncated", "origin"}`
 ——`need`＝RetrievalNeed 四字段投影（question/anchors/family_hints/budget，
 入参可查）；`hits`＝入窗候选逐条（片段 id／report 级来源／原始腿分／长面字符数／
-section 标记），**零片段正文、零密钥**（不落全文——只字符数）。
+section 标记），**零片段正文、零密钥**（不落全文——只字符数）；`origin`＝记录
+来源（`runtime` 缺省／`test`——V2-92 由 `tests/conftest.py` autouse 夹具注入，
+additive 不改既有键，便于把夹具行与真实运行行分开）。
 
 开关 `RETRIEVAL_CALL_LOG`（缺省 on；`off`＝零写）；留痕故障只 `LOGGER.warning`，
 绝不向调用方冒泡（旁路观测纪律——与 `infra.gateway.calllog` 同范式）。
@@ -35,6 +37,10 @@ LOGGER = logging.getLogger(__name__)
 _LOG_DIR = Path("logs/retrieval_calls")
 
 _ENV_SWITCH = "RETRIEVAL_CALL_LOG"
+
+# 记录来源（V2-92 additive `origin` 键的值源）：运行语境缺省 `runtime`；
+# 测试语境由 `tests/conftest.py` autouse 夹具 monkeypatch 为 `test`。
+_ORIGIN = "runtime"
 
 
 def _enabled() -> bool:
@@ -88,6 +94,8 @@ def record_retrieval_call(
     - `truncated`＝`recalled > returned`（召回池大于入窗＝候选被供给窗裁掉——
       window_note 主段「共检索到 N 条材料，M 条用进了答案」同判据）；`recalled`
       缺位（旧构造/桩＝0）＝不判截断（False，零猜测）；
+    - `origin`＝`_ORIGIN`（缺省 `runtime`；测试语境 `test`——V2-92 夹具注入，
+      additive 不改既有键）；
     - 任何异常降级 `LOGGER.warning`——留痕故障不影响工具返回。
     """
     if not _enabled():
@@ -103,6 +111,7 @@ def record_retrieval_call(
             "hits": [_hit_record(observation) for observation in hits],
             "returned": int(returned),
             "truncated": bool(recalled > returned),
+            "origin": str(_ORIGIN or "runtime"),
         }
         _LOG_DIR.mkdir(parents=True, exist_ok=True)
         path = _LOG_DIR / f"{at:%Y%m%d}.jsonl"
