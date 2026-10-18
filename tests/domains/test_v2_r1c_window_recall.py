@@ -1,19 +1,21 @@
 """V2-46 R1c 缺位回捞钉测（族 B 三层组合之「够得着」——P-045 开发拍）。
 
-票面任务三条逐条落测：
-- 缺位名单进模型面：送窗截断发生时（window_note 载未纳入来源段——V2-82e 起
-  措辞＝常量 `NOTE_MISSING_SOURCES`「以下来源因数量限制未纳入：」），缺位来源
-  名单以**非 notice 类观察**
-  （locator.kind=window_miss——「检索窗注记」：未进窗名单＋原因）进上下文；
-  notice 过滤机制本身零改动（window_note notice 通道原样、notice 类观察仍
-  不进模型面）；历史轮随消息簿记收窄（ADR-0006 机制——无新增收窄面）。
-- 合同补回捞白场（CLARIFY_CONTRACT 追加段逐字稿 char 相等——施工基准）。
-- 每子问题限一次：批量相位缺位首遇＝开回捞门（子问题转回炉面 failed——拒因
-  携检索窗注记，clarify 回炉重发带 anchors 的 knowledge 链检索）；回捞已用尽
-  （同 id 或同参指纹在簿——V2-37 簿记同向）＝直答如实终局（不环）。
+**V2-91 改判登记（2026-10-18）**：per-round 缺位名单**停发**——该名单按单轮
+检索算，与实际「多子问题并集＋材料选择」后的送窗不一致（模型会照它说「某来源
+未纳入」而该来源实已在窗）。`doc_retrieve` 不再产出 `locator.kind=window_miss`
+的「检索窗注记（缺位名单）」独立观察；名单不进模型材料、不进引擎注记，只落
+审计机读面（handlers 模块日志）。本文件按新行为改判：
 
-红线钉：无缺位段零漂移（零 window_miss 观察）；轮预算无余门不开（ok 原形）；
-notice 过滤面与消息历史簿记主干零改动。
+- 观察面：带缺位段的 window_note → **零** window_miss 独立观察；window_note
+  主段（计数＋差额段）逐字照旧走 notice 通道；notice 过滤面零改动。
+- 模型面：缺位名单不进模型材料（render_materials）与引擎注记段
+  （`answering.degradation.engine_notes`）。
+- 回捞端到端：名单停发后 runtime 侧消费点（`graph.py` 的 `miss_obs` 取法——
+  本票边界红线外，未删代码）恒取不到信号 → 回捞门**恒不开**：恰一次检索、
+  零回炉轮、零 `window_miss_reentry` notice、step payload 无 `window_miss` 键。
+  （V2-46 R1c 回捞机制随观察停发而失效＝本票的既知后果，登记在票面回报。）
+
+合同面（CLARIFY_CONTRACT 回捞白场追加段）本票零改，逐字稿钉照旧。
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ from appv2.retrieval import RetrievalBundle, RetrievalNeed
 from appv2.runtime import Budget, RunStore
 from appv2.runtime.context import render_materials
 from appv2.runtime.guide import CLARIFY_CONTRACT
+from appv2.runtimev2.answering.degradation import engine_notes
 from appv2.tools.handlers import _bundle_to_result
 from tests.domains.test_v2_agent_loop import (
     QueueQueryEngine,
@@ -59,11 +62,15 @@ def test_clarify_contract_recall_clause_verbatim() -> None:
     assert CLARIFY_CONTRACT.index(_P039_TAIL) < CLARIFY_CONTRACT.index(RECALL_CLAUSE)
 
 
-# ---------- 钉二：观察面（window_miss 非 notice 观察——handlers 单点） ----------
+# ---------- 钉二：观察面（V2-91 停发 window_miss 独立观察——handlers 单点） ----------
 
 
-def test_bundle_to_result_emits_window_miss_observation() -> None:
-    """未纳入名单在场→window_miss 观察进观察列（名单＋原因）；window_note notice 通道原样。"""
+def test_bundle_to_result_stops_window_miss_observation() -> None:
+    """未纳入名单在场→**零** window_miss 独立观察；window_note 主段 notice 通道原样。
+
+    V2-91：缺位名单不再作为独立观察进观察列（原 V2-46 R1c 形停发）；主段（计数
+    ＋差额段＋保席段）逐字照旧走 notice 通道，仅缺位名单段不随 notice 进模型面。
+    """
     result = _bundle_to_result(
         RetrievalBundle(
             observations=[_fragment_obs("邻近可得：W-22 检泵周期 215 天。", "frag-x")],
@@ -77,18 +84,24 @@ def test_bundle_to_result_emits_window_miss_observation() -> None:
     )
     kinds = [obs.locator["kind"] for obs in result.observations]
     assert kinds.count("notice") == 1  # window_note notice 通道原样（机制零改动）
-    miss = [obs for obs in result.observations if obs.locator["kind"] == "window_miss"]
-    assert len(miss) == 1
-    assert miss[0].content.startswith("检索窗注记：")
-    # 名单＋原因段逐字在场（build_window_note 单点措辞）。
-    assert "以下来源因数量限制未纳入：《Y-21井完井工程报告》" in miss[0].content
-    # 名单段之外不携带：计数面仍走 notice 通道；扩席实录段不入注记。
-    assert "共检索到 2 条材料" not in miss[0].content
-    assert "以下条目因直接命中提问关键词获得保留" not in miss[0].content
+    assert all(kind != "window_miss" for kind in kinds)  # 停发：零缺位独立观察
+    assert not [
+        obs for obs in result.observations if obs.content.startswith("检索窗注记")
+    ]
+    notice = next(
+        obs for obs in result.observations if obs.locator["kind"] == "notice"
+    )
+    # 主段逐字（含差额段）＋保席段在场；缺位名单段不入 notice 正文。
+    assert notice.content == (
+        "共检索到 2 条材料，1 条用进了答案"
+        "；另有 1 条已找到但未用进答案（受送入答案的数量限制）"
+        "；以下条目因直接命中提问关键词获得保留：《W-111 井完井报告》"
+    )
+    assert "以下来源因数量限制未纳入" not in notice.content
 
 
 def test_bundle_to_result_without_missing_has_no_window_miss() -> None:
-    """无未纳入段→零 window_miss 观察（旧观察列形零漂移）。"""
+    """无未纳入段→观察列形零漂移（零 window_miss；notice 正文＝window_note 原文）。"""
     result = _bundle_to_result(
         RetrievalBundle(
             observations=[_fragment_obs("片段。", "frag-y")],
@@ -96,40 +109,42 @@ def test_bundle_to_result_without_missing_has_no_window_miss() -> None:
         )
     )
     assert all(obs.locator["kind"] != "window_miss" for obs in result.observations)
+    notice = next(
+        obs for obs in result.observations if obs.locator["kind"] == "notice"
+    )
+    assert notice.content == "共检索到 1 条材料，1 条用进了答案"
 
 
-# ---------- 钉三：模型面可见（render_materials——window_miss 进材料、notice 仍滤） ----------
+# ---------- 钉三：模型面（V2-91——缺位名单不进材料／引擎注记；notice 仍滤） ----------
 
 
-def test_window_miss_reaches_model_face_and_notice_still_filtered() -> None:
-    """window_miss 观察进模型面材料；notice 类观察照旧被滤（过滤面零改动；
-    V2-80h——渲染位＝render_materials，compile 退役）。"""
-    miss = {
-        "index": 1,
-        "content": "检索窗注记：以下来源因数量限制未纳入：《Y-21井完井工程报告》",
-        "source": "检索供给窗声明（缺位名单）",
-        "source_id": "window_miss",
-        "locator": {"kind": "window_miss"},
-    }
+def test_missing_list_absent_from_model_face_and_notice_still_filtered() -> None:
+    """缺位名单不进模型材料、不进引擎注记；notice 类观察照旧被滤（过滤面零改动）。
+
+    V2-91 改判：原「window_miss 观察进模型面材料」形停发——名单停发后模型面
+    只剩 window_note 主段（计数），经引擎注记段照常入窗（如实区分「没有」与
+    「没送」）；未纳入来源名不出现在任何模型面。
+    """
     note = {
-        "index": 2,
+        "index": 1,
         "content": "共检索到 2 条材料，1 条用进了答案",
         "source": "检索供给窗声明（截断显式）",
         "source_id": "window_note",
         "locator": {"kind": "notice", "notice_type": "window_note"},
     }
-    text, meta = render_materials([miss, note], max_observations=24)
-    assert "以下来源因数量限制未纳入：《Y-21井完井工程报告》" in text  # 模型面可见
+    text, meta = render_materials([note], max_observations=24)
     assert "共检索到 2 条材料，1 条用进了答案" not in text  # notice 过滤面不动
     assert meta == {
-        "material_truncated": False, "material_rendered": 1, "material_total": 1,
+        "material_truncated": False, "material_rendered": 0, "material_total": 0,
     }  # notice 不计材料（元数据面同源）
+    assert engine_notes([note]) == ["共检索到 2 条材料，1 条用进了答案"]  # 主段照常入窗
+    assert "以下来源因数量限制未纳入" not in "\n".join(engine_notes([note]))
 
 
-# ---------- 钉四/五：回捞端到端（四相位真跑——回炉→anchors 重检→进窗／不环） ----------
+# ---------- 钉四/五：端到端（四相位真跑——V2-91 停发后门恒不开／零回炉） ----------
 
-# 缺位目标报告名带题眼 token（W-22）——通过 recall_relevant 相关面（合同条件
-# 「本问题组相关报告/章节在列」的确定性机读）；反例见「名单无关门不开」钉。
+# 原 V2-46 R1c 缺位目标报告名（带题眼 token W-22——`recall_relevant` 相关面样本）；
+# V2-91 停发后该词面门无在场调用者，剧本留用为「名单在场也不开门」的回归样本。
 _RECALL_TARGET = "W-22井检泵作业与杆断分析月报"
 
 
@@ -261,8 +276,8 @@ def _reentry_notices(events: list[Any]) -> list[dict[str, Any]]:
     ]
 
 
-async def test_recall_end_to_end_target_seated(tmp_path: Path) -> None:
-    """缺位含目标→回炉→anchors 重检→目标进窗出数（回捞白场端到端钉）。"""
+async def test_missing_list_no_reentry_end_to_end(tmp_path: Path) -> None:
+    """V2-91 停发后：缺位名单无信号→回捞门恒不开（恰一次检索、零回炉、零门帧）。"""
     events, _completer, db, retrieval = await _run_recall_case(
         tmp_path,
         bundles=[_BUNDLE_MISS, _BUNDLE_SEATED],
@@ -273,31 +288,22 @@ async def test_recall_end_to_end_target_seated(tmp_path: Path) -> None:
         assert events[-1].event == "blackbox"  # V2-54 黑匣子＝收口末事件
         assert events[-2].event == "verdict"
         assert events[-2].data["status"] == "completed"
-        # 回捞门机读帧在场（window_miss_reentry notice——触发帧证据面）。
-        reentry = _reentry_notices(events)
-        assert len(reentry) == 1
-        assert "s1" in reentry[0]["content"]
-        # 恰两次检索：首支缺位→回炉→带 anchors 重检（目标进窗）。
-        assert retrieval.retrieve_calls == 2
-        # V2-50 ①anchors 确定性注入：首支模型未填锚——问句实体词 W-22 代码注入
-        # （注入钉行为变化：旧形断言 anchors == ()，随 V2-50 注入面语义更新）。
+        assert not _reentry_notices(events)  # 停发：零 window_miss_reentry 门帧
+        assert retrieval.retrieve_calls == 1  # 恰一次检索（零回捞轮）
+        # V2-50 ①anchors 确定性注入：模型未填锚——问句实体词 W-22 代码注入。
         assert retrieval.needs[0].anchors == ("W-22",)
-        # 注入项在前不可清空，模型锚增补续后（模型可增补不可清空钉）。
-        assert retrieval.needs[1].anchors == ("W-22", _RECALL_TARGET, "4.1")
         steps = await RunStore(db).list_steps(events[-2].data["run_id"])
         payloads = _batch_execute_payloads(steps)
-        assert [p["status"] for p in payloads] == ["ok", "ok"]
-        # 首支缺位步携检索窗注记（step payload 证据面）。
-        assert "以下来源因数量限制未纳入" in str(payloads[0].get("window_miss", ""))
-        assert "window_miss" not in str(payloads[1].get("window_miss", ""))
-        # 零挂起零 ask（回捞白场——不挂起不占 ask）。
+        assert [p["status"] for p in payloads] == ["ok"]
+        assert "window_miss" not in payloads[0]  # step payload 无缺位注记键（停发）
+        # 零挂起零 ask。
         assert not [e for e in events if e.event == "ask"]
     finally:
         await db.dispose()
 
 
-async def test_refurnace_instruction_carries_window_note(tmp_path: Path) -> None:
-    """回炉面拒因携检索窗注记原文＋白场 hint——clarify 回炉指令可见（模型面接线）。"""
+async def test_no_refurnace_instruction_without_missing_signal(tmp_path: Path) -> None:
+    """V2-91 停发后：零回炉轮——决策恰 2 次（clar1→match1），无回炉指令面。"""
     events, completer, db, _retrieval = await _run_recall_case(
         tmp_path,
         bundles=[_BUNDLE_MISS, _BUNDLE_SEATED],
@@ -307,43 +313,44 @@ async def test_refurnace_instruction_carries_window_note(tmp_path: Path) -> None
     try:
         assert events[-2].data["status"] == "completed"
         calls = completer.messages_of("v2.runtime.decision")
-        assert len(calls) == 4  # clar1→match1→clar2（回炉）→match2（带锚重发）
-        furnace_context = "".join(str(m.get("content", "")) for m in calls[2])
-        assert "回炉：只分解以下失败/缺失子问题" in furnace_context
-        assert f"以下来源因数量限制未纳入：《{_RECALL_TARGET}》" in furnace_context
-        assert "缺位回捞白场" in furnace_context
+        assert len(calls) == 2  # clar1→match1（无回炉轮）
+        decision_context = "".join(
+            str(m.get("content", "")) for call in calls for m in call
+        )
+        assert "回炉：只分解以下失败/缺失子问题" not in decision_context
+        assert "以下来源因数量限制未纳入" not in decision_context
     finally:
         await db.dispose()
 
 
 async def test_second_miss_answers_honestly_without_loop(tmp_path: Path) -> None:
-    """回捞重发同参再次缺位→直答如实终局（不环——恰两次检索、门只开一次）。"""
+    """V2-91 停发后：二次缺位形同判——恰一次检索、零门帧、零「回捞已用尽」标记。"""
     events, completer, db, retrieval = await _run_recall_case(
         tmp_path,
         bundles=[_BUNDLE_MISS, _BUNDLE_MISS_AGAIN],
-        second_need=dict(_NEED_R1),  # 同参重发（同指纹——V2-37 簿记同向）
+        second_need=dict(_NEED_R1),  # 同参重发形（原回捞簿记同向面——停发后无门）
         summary=_SUMMARY_HONEST,
     )
     try:
         assert events[-1].event == "blackbox"  # V2-54 黑匣子＝收口末事件
         assert events[-2].event == "verdict"
         assert events[-2].data["status"] == "completed"
-        assert retrieval.retrieve_calls == 2  # 恰两次——不环
-        assert len(_reentry_notices(events)) == 1  # 门只开一次
+        assert retrieval.retrieve_calls == 1  # 恰一次——无回捞环
+        assert not _reentry_notices(events)
         steps = await RunStore(db).list_steps(events[-2].data["run_id"])
         payloads = _batch_execute_payloads(steps)
-        assert [p["status"] for p in payloads] == ["ok", "ok"]
-        # 汇总合同消费终局注记：子问题结果清单带「回捞已用尽」直答标记。
+        assert [p["status"] for p in payloads] == ["ok"]
+        # 汇总合同消费面：回捞轮不存在——终局注记不带「回捞已用尽」标记。
         answer_calls = completer.messages_of("v2.runtime.answer")
         assert answer_calls
         summary_context = "".join(str(m.get("content", "")) for m in answer_calls[0])
-        assert "缺位回捞已用尽" in summary_context
+        assert "缺位回捞已用尽" not in summary_context
     finally:
         await db.dispose()
 
 
 async def test_no_round_budget_left_keeps_plain_ok(tmp_path: Path) -> None:
-    """轮预算无余（回炉轮无处安放）＝门不开：ok 原形、零回炉、零 window_miss 门帧。"""
+    """V2-91 停发后：门恒不开（与轮预算无关）——ok 原形、恰一次检索、零门帧。"""
     events, _completer, db, retrieval = await _run_recall_case(
         tmp_path,
         bundles=[_BUNDLE_MISS],
@@ -365,11 +372,12 @@ async def test_no_round_budget_left_keeps_plain_ok(tmp_path: Path) -> None:
 
 
 async def test_irrelevant_missing_list_keeps_door_shut(tmp_path: Path) -> None:
-    """名单与题面无表面关联（缺位报告不含题眼 token）＝门不开：ok 原形零回炉。
+    """V2-91 停发后：名单无关形与相关形同判——门恒不开；名单不进模型面。
 
-    合同条件「本问题组相关报告/章节在列」的确定性机读（recall_relevant）——
-    机器不为噪声名单消耗回炉轮（注记可见性不受影响：window_miss 观察照常进
-    模型面材料）。"""
+    原 V2-46 R1c 的 `recall_relevant` 词面门（合同条件「本问题组相关报告/章节
+    在列」的确定性机读）随名单停发而无在场调用者；本钉改为回归停发行为——
+    名单既不进 step payload 也不进模型面（审计面＝handlers 模块日志留痕）。
+    """
     events, completer, db, retrieval = await _run_recall_case(
         tmp_path,
         bundles=[_BUNDLE_MISS_IRRELEVANT],
@@ -385,11 +393,11 @@ async def test_irrelevant_missing_list_keeps_door_shut(tmp_path: Path) -> None:
         steps = await RunStore(db).list_steps(events[-2].data["run_id"])
         payloads = _batch_execute_payloads(steps)
         assert [p["status"] for p in payloads] == ["ok"]
-        assert "以下来源因数量限制未纳入" in str(payloads[0].get("window_miss", ""))  # 注记照常随行
-        # 汇总材料面可见注记（模型面不受门影响）。
+        assert "window_miss" not in payloads[0]  # 停发：step payload 无缺位注记键
+        # 模型面零缺位名单（材料面＋引擎注记面同判——审计面照留）。
         answer_calls = completer.messages_of("v2.runtime.answer")
         assert answer_calls
         summary_context = "".join(str(m.get("content", "")) for m in answer_calls[0])
-        assert "以下来源因数量限制未纳入：《Y-21井完井工程报告》" in summary_context
+        assert "以下来源因数量限制未纳入" not in summary_context
     finally:
         await db.dispose()
