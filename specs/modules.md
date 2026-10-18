@@ -80,7 +80,7 @@ class QueryEngine:
 ```python
 class RetrievalEngine:
     def retrieve(self, need: RetrievalNeed) -> RetrievalBundle: ...
-    def graph(self, need: RetrievalNeed) -> RetrievalBundle: ...   # 图谱面（graph_query 工具消费；失败回退空集不炸链）
+    def graph(self, need: RetrievalNeed) -> RetrievalBundle: ...   # 图谱面（handler 消费；V2-97 后 graph_query 已从注册面摘除、本缝生产未接线——失败回退空集不炸链）
 ```
 `RetrievalNeed = {question, anchors, family_hints, budget}`；
 `RetrievalBundle = {observations: list[Observation], window_note: str}`——
@@ -108,12 +108,14 @@ class ToolRegistry:
     def descriptors(self) -> list[ToolDescriptor]: ...      # 渐进披露：名称/描述/参数schema/只读声明
     async def call(self, name: str, args: dict, ctx: ToolContext) -> ToolResult: ...
 ```
-五工具：`semantic_query(question|element)` → knowledge；
+四工具：`semantic_query(question|element)` → knowledge；
 `data_query(plan_draft)` → query（draft 先经 validate）；
 `doc_retrieve(question, anchors?, family_hints?)` → retrieval；
-`graph_query(question, anchors?)` → retrieval 图谱面；
 `table_schema(table?)` → 结构卡发现面（agg 三表＋sem 五账＋kb 片段清单——白名单外
 raw/lake 湖表不开放，只读零 SQL；V2-31 新增发现工具）。
+`graph_query(question, anchors?)` → retrieval 图谱面：**已从注册面摘除**（V2-97／D7——
+生产装配无 `graph=`，恒返空集回退；handler/常量/GraphSource/compound 精排件全部保留，
+恢复条件见 `specs/tools.md` 摘除注记）。
 `ToolContext = {actor, budget, metric_candidates, approved_tables}`（逐调用上下文——
 外表放行态落 approved_tables，A2 裁决：不走引擎 approved_tables、不重排计划）。
 `ToolResult = {observations, status: ok|failed|ask, ask?: AskFrame}`，全部只读（INV-2）。

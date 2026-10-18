@@ -1,9 +1,11 @@
 """appv2.tools —— 工具层（V2-05；specs/tools.md、specs/modules.md tools 卡）。
 
 ToolRegistry＝agent 与世界的唯一接触面（受控行动链工具侧落位）——knowledge/
-query/retrieval 三引擎包装成四个只读工具（semantic_query/data_query/
-doc_retrieve/graph_query）＋V2-31 发现工具 table_schema（白名单⑥结构卡）＋
-V2-52 辅助模式发现工具 faq_lookup（faq_* 读缝注入时在册）：
+query/retrieval 三引擎包装成三个只读工具（semantic_query/data_query/
+doc_retrieve）＋V2-31 发现工具 table_schema（白名单⑥结构卡）＋
+V2-52 辅助模式发现工具 faq_lookup（faq_* 读缝注入时在册）；
+`graph_query` handler 与 GraphSource/compound 件保留，但已从注册面摘除
+（V2-97／D7——恒返空集回退，恢复条件见 `specs/tools.md` 摘除注记）：
 统一 Observation 出处链（INV-1 输入）、错误三分类
 （retryable|bad_args|refused）、ASK 帧形态（clarify|external_table_approval）；
 data_query 内部先经 query.validate（不过＝failed(bad_args, 校验理由)，引擎零

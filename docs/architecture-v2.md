@@ -32,7 +32,7 @@ flowchart TB
             ST[("run / step 状态<br/>外置可恢复")]
         end
         subgraph L2["tools（受控行动唯一接触面·全只读）"]
-            TR["ToolRegistry 五工具<br/>semantic_query · data_query<br/>doc_retrieve · graph_query<br/>table_schema（发现面）<br/>ToolContext（含外表放行态）"]
+            TR["ToolRegistry 四工具<br/>semantic_query · data_query<br/>doc_retrieve · table_schema（发现面）<br/>graph_query 摘除（V2-97）<br/>ToolContext（含外表放行态）"]
             PC["前置条件机（precondition.py）<br/>禁用词/新鲜度窗/绑定态/越集/<br/>单井支持性/合法口径<br/>纯固定代码·LLM 无权判定"]
         end
         subgraph L1["engines（确定性能力）"]
@@ -101,9 +101,12 @@ flowchart TB
    问题消费——**铁律：LLM 出语义（澄清/分解/提议），代码出判定（前置条件机零 LLM）**。
    四态：pass｜blocked_ask→ASK 挂起（外表审批/口径反问）｜blocked_refuse→子问题如实
    拒答｜note 注记随行。外表放行态落 ToolContext.approved_tables（A2 裁决）。
-5. **tools**：agent 与世界的唯一接触面（书 6.1 受控行动链的工具侧）：五工具——四个
-   能力工具＋table_schema 结构卡发现面（agg 三表＋sem 五账＋kb 片段清单，白名单外
-   湖表不开放）；参数 schema 校验、只读声明、错误三分类、ASK 帧。INV-2 在此机器化。
+5. **tools**：agent 与世界的唯一接触面（书 6.1 受控行动链的工具侧）：四工具——三个
+   能力工具（semantic_query/data_query/doc_retrieve）＋table_schema 结构卡发现面（agg 三表
+   ＋sem 五账＋kb 片段清单，白名单外湖表不开放）；`graph_query` 已从注册面摘除
+   （V2-97／D7——生产装配无 `graph=`，handler/常量/GraphSource/compound 件保留，恢复
+   条件见 `specs/tools.md` 摘除注记）；参数 schema 校验、只读声明、错误三分类、ASK 帧。
+   INV-2 在此机器化。
    discover 全 run ≤10＋每次计数埋点（次数/查询词/命中形态）落 step payload 供分析。
 6. **knowledge**：本体利用率的主战场——sem_* 台账读成 Evidence（含绑定状态/届满），
    别名投影、族标注全要素进 agent 语境；词典层第 1 轮即全量进上下文（注入胜检索，

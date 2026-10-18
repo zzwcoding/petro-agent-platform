@@ -7,7 +7,8 @@
 - **strict（web 源码，违规即红）**：``web/src`` 非测试文件中，凡命中债务
   短语（挂后续批/挂账/未接线/留后续票/随其票/接线预留/产品化批族）的行，
   必须携 ``DEBT(去向)`` 标签（同行或上方 2 行内），且去向**可解析**——
-  票号（``P\\d-…``，须在 tickets/ 票面真实存在）/ ``阶段\\d`` 标注 / Owner。
+  票号（``P\\d-…`` / ``V2-\\d+[a-z]?``，须在 ``tickets/**/*.md`` 票面真实存在）/
+  ``阶段\\d`` 标注 / Owner。
   测试文件豁免（断言会合法引用 UI 文案原文）。
 - **inventory（app/tests，报告不红）**：裸短语进盘点清单（``report`` 命令），
   供阶段收官的全量对齐工序 triage（回收/转票/Owner 砍）——docstring 交叉
@@ -32,7 +33,7 @@ DEBT_PHRASES = re.compile(
     r"挂后续批|挂账|未接线|留后续票|随其票|随其端点票|接线预留|产品化批"
 )
 DEBT_TAG = re.compile(r"DEBT\(([^)]+)\)")
-TICKET_ID = re.compile(r"^P\d+-\S+$")
+TICKET_ID = re.compile(r"^(?:P\d+-\S+|V2-\d+[a-z]?)$")
 PHASE_REF = re.compile(r"^阶段\d")
 
 # strict 面：web 源码（非测试——测试断言合法引用 UI 文案原文）
@@ -52,19 +53,24 @@ def _iter_files(repo: Path, globs: tuple[str, ...]) -> list[Path]:
     ]
 
 
-def _load_tickets_text(repo: Path) -> str:
+def _load_tickets_text(repo: Path = REPO_ROOT) -> str:
+    """票面全量文本（`tickets/**/*.md`——票号在场性判据的唯一真源）。"""
     return "\n".join(
-        p.read_text(encoding="utf-8") for p in sorted(repo.glob("tickets/**/README.md"))
+        p.read_text(encoding="utf-8") for p in sorted(repo.glob("tickets/**/*.md"))
     )
 
 
-def resolve_target(target: str, tickets_text: str) -> bool:
-    """DEBT 去向可解析判定：票号须在票面真实存在 / 阶段标注 / Owner。"""
+def resolve_target(target: str, tickets_text: str | None = None) -> bool:
+    """DEBT 去向可解析判定：票号须在票面真实存在 / 阶段标注 / Owner。
+
+    `tickets_text` 省略时读当前仓票面全量（`tickets/**/*.md`）；测试可注入。
+    """
     target = target.strip()
     if PHASE_REF.match(target) or target == "Owner":
         return True
     if TICKET_ID.match(target):
-        return target in tickets_text
+        tickets = tickets_text if tickets_text is not None else _load_tickets_text()
+        return target in tickets
     return False
 
 

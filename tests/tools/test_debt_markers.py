@@ -87,3 +87,24 @@ def test_inventory_collects_app_without_violation(tmp_path: Path) -> None:
 def test_gate_green_on_current_repo() -> None:
     """闸绿实判：当前仓 web 源码债务短语全部携可解析标签（P1-13 治理后）。"""
     assert _load().check() == []
+
+
+def test_debt_target_v2_ticket_resolvable() -> None:
+    """V2 系票号可解析（V2-98 扩面）：`resolve_target("V2-97") is True`。
+
+    判据含票面在场性——`_load_tickets_text` 读 `tickets/**/*.md`（V2-97 票面非
+    README，旧实现只读 README 时此处即红）；不存在的 V2 票号仍 False。
+    """
+    cc = _load()
+    assert cc.resolve_target("V2-97") is True
+    assert cc.resolve_target("V2-98") is True
+    assert cc.resolve_target("V2-9999") is False
+
+
+def test_debt_target_p_series_unchanged() -> None:
+    """P 系票号语义不变（扩面 additive）：在场 True／不在场 False；自由文本仍红。"""
+    cc = _load()
+    assert cc.resolve_target("P1-12", "票面含 P1-12") is True
+    assert cc.resolve_target("P1-12", "票面没有") is False
+    assert cc.resolve_target("V2-97", "票面没有") is False
+    assert cc.resolve_target("以后再说", "票面含 P1-12") is False
