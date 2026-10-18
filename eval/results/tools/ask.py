@@ -95,8 +95,10 @@ def parse_frames(frames: list[dict]) -> dict:
     observation→observations；ask→asks（挂起帧 {frame,run_id} 原样）；
     verdict 按 subtype 拆形（verify→verify 列表，final→final 单数；V1
     verdict 无 subtype 键照走 chain——双形判别不串门）；text→texts（全量
-    留痕，answer_text 兜底取流尾末条——v2 答案收口在流尾发射）；v2 citation
-    （index 形）逐条全归约进 citations——与 V1 ref 形按键分流，V1 兜底门不动。
+    留痕，answer_text 兜底＝各 text 帧**按序拼接**——V2-95 起不再取流尾末条：
+    末条只是交付末段，真交付答案由 rerun.py 单题收口后经 `GET {base}/chat/runs`
+    的 answer 回填）；v2 citation（index 形）逐条全归约进 citations——与 V1
+    ref 形按键分流，V1 兜底门不动。
     """
     answer_text = ""
     citations: list[dict] = []
@@ -165,7 +167,9 @@ def parse_frames(frames: list[dict]) -> dict:
     if not answer_text and tokens:
         answer_text = "".join(tokens)
     if not answer_text and texts:
-        answer_text = texts[-1]  # v2 答案收口＝流尾末条 text（answer_node 发射序）
+        # v2 答案兜底＝各 text 帧按序拼接（V2-95：旧口径取流尾末条＝只覆盖交付末段，
+        # D-诱12 实证末段 392 字 vs 真交付 581 字）。真交付面由 rerun.py 收口后回填。
+        answer_text = "".join(texts)
     return {
         "answer_text": answer_text,
         "citations": citations,

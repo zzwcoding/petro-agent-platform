@@ -61,6 +61,14 @@ appv2.runtime.eval_clock（服务侧 :801x 组合根启动器同源同值——�
 today 缝与跑批存档永不两套「今天」）。每行 jsonl 增 frozen_date 字段
 （冻结态＝ISO 日期串；real 态＝null——评测可溯源：本批评分对应的「今天」；
 真实时钟态的墙钟已在 ask_started_at/ask_ended_at 在场）。
+
+真交付答案回填（V2-95）：单题收口后（写 jsonl 之前）查
+`GET {base}/chat/runs?limit=50`，按 run_id 取该行 `answer` 作 `answer_text`
+（`answer_source="runs.answer"`）；取不到（V1 base 无此读口／run 不在列表／
+answer 空）退回「各 text 帧按序拼接」（`answer_source="texts.concat"`）。
+`answer_head` 随之取真交付前 120 字（旧口径＝流尾末条 text＝只覆盖交付末段）。
+帧存档先落、口径回填后落 jsonl（帧全量留痕不变）；`answer_source` additive，
+V1 行零此键（同 `steps` 惯例），V1 缺省行为不变。
 """
 
 from __future__ import annotations
@@ -86,9 +94,9 @@ sys.path.insert(0, str(Path(__file__).parent))
 # 禁第二份 env 字面量/缺省值）。parents[3]＝仓根（DOTENV_PATH 同源）。
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from appv2.runtime.eval_clock import resolve_eval_frozen_date
+from ask import V2_API_SUFFIX, asks_url, parse_frames, parse_sse_text
 
-from ask import asks_url, parse_frames, parse_sse_text
+from appv2.runtime.eval_clock import resolve_eval_frozen_date
 
 HEADERS = {"X-Dev-User": "aqiang"}
 FRAMES_DIR = Path(__file__).parent.parent / "frames"
@@ -96,6 +104,15 @@ FRAMES_DIR = Path(__file__).parent.parent / "frames"
 # V2 挂起态字面（镜像 `appv2/runtimev2/state/constants.RUN_WAITING_ASK`——帧面值；
 # 本脚本零 appv2 运行时依赖，同 ask.py 的帧形镜像惯例）。
 RUN_STATUS_WAITING_ASK = "waiting_ask"
+
+# ---------- 真交付答案回填（V2-95）----------
+
+# runs 读口 limit（票面施工基准逐字：GET {base}/chat/runs?limit=50——本进程
+# 服务过的 run 数上限内取该行；answer 全文随行＝真交付面）。
+RUNS_LIMIT = 50
+
+# answer_head 截断字数（V2-95：head 取真交付前 120 字——与旧口径同长，只换源）。
+ANSWER_HEAD_CHARS = 120
 
 # ---------- 计费归集（--spend；V2-30，V2-33 归集主路改 run_id 直查）----------
 
@@ -491,6 +508,70 @@ async def ask_once(c: httpx.AsyncClient, base: str, question: str) -> dict:
     return {"frames": frames, "parsed": parsed}
 
 
+def runs_url(base: str) -> str | None:
+    """base → runs 读口 URL（V2 端点族专用；V1 base 无此读口＝None——兼容不报错）。
+
+    真源＝`appv2/api/chat.py` `GET /api/v2/chat/runs?limit=N`（RunListItem 合同形，
+    answer 全文随行）。V1 面只有 `POST /api/chat/runs/{id}/resume`、无列表读口
+    （票面「兼容 V1 base（无 /api/v2）」）——故 V1 base 直接判无、零请求。
+    """
+    base = base.rstrip("/")
+    if base.endswith(V2_API_SUFFIX):
+        return f"{base}/chat/runs?limit={RUNS_LIMIT}"
+    return None
+
+
+async def fetch_runs(c: httpx.AsyncClient, base: str) -> list[dict[str, Any]]:
+    """GET runs 读口 → 最近任务行集（V1 base／非 200／网络异常／非列表体 → []）。
+
+    只读零副作用；取不到不报错（票面：退回拼接、不中断跑批）。
+    """
+    url = runs_url(base)
+    if url is None:
+        return []
+    try:
+        resp = await c.get(url, headers=HEADERS)
+        if resp.status_code != 200:
+            return []
+        rows = resp.json()
+    except (httpx.HTTPError, ValueError):
+        return []
+    if not isinstance(rows, list):
+        return []
+    return [row for row in rows if isinstance(row, dict)]
+
+
+def apply_delivered_answer(
+    parsed: dict[str, Any], rows: Iterable[Mapping[str, Any]]
+) -> None:
+    """单题收口后回填真交付答案（V2-95 施工基准逐字：runs.answer 优先，兜底按序拼接）。
+
+    按 `parsed["run_id"]` 在 rows 里取该行 `answer`；非空白即作 `answer_text`
+    （`answer_source="runs.answer"`）；否则退回「各 text 帧按序拼接」
+    （`answer_source="texts.concat"`）。拼接为空（V1 流无 text 帧）＝answer_text
+    保持原样（answer 帧／token 兜底面）且不标来源——V1 缺省行为不变。
+    `texts` 全量留痕不变；`answer_source` additive。
+    """
+    run_id = str(parsed.get("run_id") or "")
+    row: Mapping[str, Any] | None = None
+    if run_id:
+        row = next((r for r in rows if str(r.get("run_id") or "") == run_id), None)
+    answer = str((row or {}).get("answer") or "")
+    if answer.strip():
+        parsed["answer_text"] = answer
+        parsed["answer_source"] = "runs.answer"
+        return
+    concat = "".join(str(t) for t in (parsed.get("texts") or []))
+    if concat.strip():
+        parsed["answer_text"] = concat
+        parsed["answer_source"] = "texts.concat"
+
+
+def answer_head(parsed: Mapping[str, Any]) -> str:
+    """真交付答案前 120 字（V2-95：旧口径＝流尾末条 text，只覆盖交付末段）。"""
+    return str(parsed.get("answer_text") or "")[:ANSWER_HEAD_CHARS]
+
+
 async def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--module", default="suites_q3", help="题单模块名（suites_q3 / suites_q6）")
@@ -567,14 +648,19 @@ async def main() -> int:
                 p = out_data.get("parsed") or {}
                 if p.get("run_id"):
                     row["run_id"] = p["run_id"]
+                # V2-95 真交付答案回填：单题收口后（帧存档已落、写 jsonl 之前）查
+                # runs 读口按 run_id 取 answer；取不到退回 text 帧按序拼接并标来源。
+                apply_delivered_answer(p, await fetch_runs(c, args.base))
                 row.update({
                     "chain": p.get("chain"),
-                    "answer_head": (p.get("answer_text") or "")[:120],
+                    "answer_head": answer_head(p),
                     "citations": len(p.get("citations") or []),
                     "duration_s": p.get("duration_s"),
                     "frame_file": frame_path.name,
                     "error": out_data.get("error"),
                 })
+                if p.get("answer_source"):  # V1 行零此键（同 steps 惯例）
+                    row["answer_source"] = p["answer_source"]
                 steps = p.get("steps") or []
                 if steps:  # v2 行增六步链序列（V1 行零此键——判分辅助表 V1 照旧）
                     row["steps"] = "→".join(str(s.get("step")) for s in steps)

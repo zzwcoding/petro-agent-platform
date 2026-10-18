@@ -17,7 +17,7 @@ wire 形真源＝appv2/api/wire.py（runtime 八类事件＋session/done/error �
 - citation（v2 形）{index,source,source_id,trust}
 
 三路测试：V1 八类归约逐字段不丢（含 citation 兜底门原样钉）／v2 帧全归约
-（六类 step＋ask＋subtype 拆形＋text→答案收口）／asks_url 形参化（V1 缺省
+（六类 step＋ask＋subtype 拆形＋text→答案按序拼接）／asks_url 形参化（V1 缺省
 路径不变，/api/v2 后缀切 v2 端点族）。
 """
 
@@ -166,11 +166,13 @@ class TestV2Reduction:
             {"index": 2, "source": "agg", "source_id": "r2", "trust": "台账"},
         ]
 
-    def test_text_frames_last_is_answer(self) -> None:
-        """v2 理解/答案都走 text 帧——texts 全量留痕，答案收口＝流尾末条。"""
+    def test_text_frames_concat_is_answer(self) -> None:
+        """v2 理解/答案都走 text 帧——texts 全量留痕，答案兜底＝各帧按序拼接
+        （V2-95 改口径：旧「流尾末条」只覆盖交付末段）。"""
         p = ask.parse_frames(_v2_frames())
         assert len(p["texts"]) == 2
-        assert p["answer_text"].startswith("答案：去年日产油明细")
+        assert p["answer_text"] == "".join(p["texts"])
+        assert p["answer_text"].endswith("答案：去年日产油明细……\n\n引用：\n[1] agg · r1")
 
     def test_ask_frame_reduced_as_is(self) -> None:
         ask_frame = _f(6, "ask", {"frame": {"kind": "clarify", "question": "哪个时间窗？",
@@ -194,7 +196,8 @@ class TestV2Reduction:
         assert p["run_id"] == "run-v2-1"
         assert len(p["steps"]) == 6
         assert p["final"] is not None and p["final"]["status"] == "completed"
-        assert p["answer_text"].startswith("答案：")
+        assert "答案：" in p["answer_text"]  # 按序拼接（理解帧在前，答案帧在内）
+        assert p["answer_text"] == "".join(p["texts"])
 
 
 # ---------- asks_url 形参化（--base 单点——rerun.py 同消费） ----------
