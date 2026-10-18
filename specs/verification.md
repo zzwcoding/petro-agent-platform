@@ -58,6 +58,7 @@ class Gap:                               # 复用 answering 的 Gap 口径（字
 - **`Gap` 复用 `answering` 的口径**（真源 `specs/answering.md`）：字段＝`kind`／`subtask_id`／`reason`，闭世界＝`refused`｜`missing`｜`unverified`；**核验侧产出的缺口 `kind="unverified"`**，越界值判失败。
 - **两个维度、不强行映射**：`RewriteRecord.reason`（`no_material`｜`conflict`）回答「**为什么改写这句**」，`Gap` 回答「**哪个子问题有缺口**」——两者是不同维度，不做一一映射。
 - **确定性**：同一输入两次运行，`Verdict` 的五个计数与 `ok` **完全一致**（零随机、零模型）。
+- **动作档位与机读留痕（2026-10-18 V2-116）**：`verify` 的动作档位经环境变量 `VERIFY_ACTION` 配置（闭世界四值 `off`／`observe`／`repair`／`delete` ＋ **缺省 `delete`**，见行为 14）；step payload 增 **additive** 两键 `verify_mode`（如实档位）／`intended_rewrites`（检出项逐条含原句 `line` 与 `reason`）——`Verdict` 九键不动、`RewriteRecord.reason` 闭世界两值不动。
 - 错误契约：核验器自身抛错 → **不判 `Verdict.ok=True`**（fail-closed），转 `Verdict.ok=False` ＋ 缺口，由 `orchestration` 承接。
 - 真源：`specs/modules.md` `## verification` 卡（签名以卡为准）。
 
@@ -73,7 +74,7 @@ class Gap:                               # 复用 answering 的 Gap 口径（字
 
 1. **逐行断言级核验**：先把答案剥掉结构性残留（JSON／引标记号），再**逐行**判定；**不是整段判**。
 2. **数值须复述（承载豁免）**：被引观察里的**数值须在断言文本里复述**才算有支撑——只凭"引用了一个数"不算；**但 `agg_row`（表格行）／`lineage`（血缘卡）／`fragment` 承载形式下豁免「全数值复述」**——任一数值重叠即支撑、零重叠照改（零重叠不回退；真源 `docs/runtime-refactor/recon/A2-核验规则与归属审.md` R-A2-11——carrier 字面以真源为准）。
-3. **无据 → 删句**（2026-10-17 EB3 D3 修正）：没有支撑的句子**整行离场**（**删句，不贴前缀**——旧「改写成「未找到／材料未披露」＋`REWRITE_PREFIX`」前缀形**退役**），留痕三处不得静默：`RewriteRecord.reason="no_material"`（原句＋原因）、`Verdict.rewritten` **如实计数**、`notice`（`unsupported_claim`）——**verdict 计数如实＝不静默**（审计走 verdict 帧 supported／rewritten 计数＋过程档案，禁静默）。真源：`specs/answering.md` 行为 3（「无据的话不写进答案」）；逐字稿＝`docs/runtime-refactor/proposals/EB3-交付面分层与缺陷修复.md` D3。**2026-10-17 F1 件一（删句判据修精度）**：「有数值」的判据面收窄为**计量数值**（带单位／小数／千分位形——判据单点＝`rules.number_tokens`／`line_numbers_are_asserted`）——**标识符**（井号 `W-22`／修井机编号 `渤海 302`）与**日期**（`2026 年 11 月 1 日`）**不算数值断言**（行内只有标识符／日期＝结构承载，原样保留且不计有支撑数）；真机证据＝`eval/results/frames/EB4-D-诱12.json`（run-c6fd52c7：草稿「W-22 井教训侧重…／W-24 井教训侧重…」两行被整段删，交付答案断在裸标题）。**同年同日 F1 件二（跨行支撑比对）**：**无引标**行先与**同 draft 已 cited 的观察内容集**比对（判据单点＝`rules.aligned_indices`，与带引标行的窗内对齐分支同款），命中即保留并计有支撑——综述句重组**已引事实**不得删；比对域为空（draft 零已引观察）＝照删，钉 `pin-10`「不得 `cited=[]` 且数字在场」不放宽。**2026-10-18 V2-94（核验定性句放行）**：承载片段（`agg_row`／`lineage`／`fragment`）的支撑判据放宽一处——**断言辖域无计量数值记号时，引标可解析即保留**（step payload additive 键 `qualitative_kept` 如实计数）；**有计量数值仍照旧记号比对、对不上照删**（防编造红线不动）；一行引多来源时**承载片段任一支撑即保留**（引标须全可解析——行为 8；**非承载**辖域全须复述不变）。`rewrites`／`Verdict.ok=False` 语义与 `RewriteRecord.reason` 闭世界（两值）**不变**。真机证据＝`eval/results/EB9-判分.md` D-诱12 step13（`rewrites` 4 行全 `no_material`，含 W-24 定性断口检查句；帧 `eval/results/frames/EB9-D-诱12.json`）。
+3. **无据 → 删句**（2026-10-17 EB3 D3 修正）：没有支撑的句子**整行离场**（**删句，不贴前缀**——旧「改写成「未找到／材料未披露」＋`REWRITE_PREFIX`」前缀形**退役**），留痕三处不得静默：`RewriteRecord.reason="no_material"`（原句＋原因）、`Verdict.rewritten` **如实计数**、`notice`（`unsupported_claim`）——**verdict 计数如实＝不静默**（审计走 verdict 帧 supported／rewritten 计数＋过程档案，禁静默）。真源：`specs/answering.md` 行为 3（「无据的话不写进答案」）；逐字稿＝`docs/runtime-refactor/proposals/EB3-交付面分层与缺陷修复.md` D3。**2026-10-17 F1 件一（删句判据修精度）**：「有数值」的判据面收窄为**计量数值**（带单位／小数／千分位形——判据单点＝`rules.number_tokens`／`line_numbers_are_asserted`）——**标识符**（井号 `W-22`／修井机编号 `渤海 302`）与**日期**（`2026 年 11 月 1 日`）**不算数值断言**（行内只有标识符／日期＝结构承载，原样保留且不计有支撑数）；真机证据＝`eval/results/frames/EB4-D-诱12.json`（run-c6fd52c7：草稿「W-22 井教训侧重…／W-24 井教训侧重…」两行被整段删，交付答案断在裸标题）。**同年同日 F1 件二（跨行支撑比对）**：**无引标**行先与**同 draft 已 cited 的观察内容集**比对（判据单点＝`rules.aligned_indices`，与带引标行的窗内对齐分支同款），命中即保留并计有支撑——综述句重组**已引事实**不得删；比对域为空（draft 零已引观察）＝照删，钉 `pin-10`「不得 `cited=[]` 且数字在场」不放宽。**2026-10-18 V2-94（核验定性句放行）**：承载片段（`agg_row`／`lineage`／`fragment`）的支撑判据放宽一处——**断言辖域无计量数值记号时，引标可解析即保留**（step payload additive 键 `qualitative_kept` 如实计数）；**有计量数值仍照旧记号比对、对不上照删**（防编造红线不动）；一行引多来源时**承载片段任一支撑即保留**（引标须全可解析——行为 8；**非承载**辖域全须复述不变）。`rewrites`／`Verdict.ok=False` 语义与 `RewriteRecord.reason` 闭世界（两值）**不变**。真机证据＝`eval/results/EB9-判分.md` D-诱12 step13（`rewrites` 4 行全 `no_material`，含 W-24 定性断口检查句；帧 `eval/results/frames/EB9-D-诱12.json`）。**2026-10-18 V2-116**：本条的**删句**处置**只在 `delete` 档**成立——档位可配见行为 14（`off` 不检测、`observe`／`repair-fallback` 下检出项**不离场**、交付面＝草稿逐字）。
 4. **矛盾 → 分列**：两个来源给的数对不上时**分开列、各带出处**（`reason="conflict"`），**不强调和**、不取其一。（2026-10-17 EB2 D3：分列块**段头去工程腔**——旧「多来源不一致——分源列明（禁止无出处调和）：」→「各来源说法如下，按来源分别列出：」；段头话术仍归本块常量单点，具体文本不落规格。）
 5. **归属审**：引用的材料与问句点名的对象对不上号 → `attribution=False`，并把该情形写进缺口。（2026-10-17 EB2 D3：归属审块**段头去工程腔**——旧「跨源归属审——分源列明（题眼锚：{anchors}；禁止无出处调和）：」→「按来源归属如下（题眼：{anchors}）：」，`{anchors}` 占位保持；段内对齐／跨源两面子段头不动。）
 6. **给出核对结果卡**：`Verdict` **各字段齐备**（五计数 supported／rewritten／split／cited／attribution ＋ `ok`／`gaps` ＋ 行集对账 `delivered_rows`／`obs_rows`）——**缺键＝判失败**。
@@ -90,11 +91,17 @@ class Gap:                               # 复用 answering 的 Gap 口径（字
     - **分源块／归属块不入 `state.draft`**（D2）：按产出序入编排块持有的增补面收集列（`supplements`）——帧由 `orchestration` 的增补面发射点发（`block="split"`／`"attribution"`）。
     断言：引擎披露行与组头行原样在场（不贴前缀、不被删）且 `rewritten` 不计它们；真无据行离场且 `rewritten` 如实计一；血缘整段入增补面（正文零五要素）＋口径说明留在正文；`state.draft` 不含分源／归属块头。
 13. **油田归属对账（2026-10-17 F1 件四——核验增一维，**行级拒收**）**：支撑判定通过的行再过一道**行级归属闸**——被引材料**自带油田名**（名录面闭世界取词：`appv2.tools` 的实体锚解析单点 `entity_anchor_tokens` ＋ `FIELD_NAME_NOUN` 形态过滤；归一与闭世界匹配**引名录面单点、零新造词表字面**）却**全不属题眼所辖油田**、**且该油田名未在本行写明**（＝无分源说明）→ **该行拒收**（按行为 3 的删句族处置：`RewriteRecord.reason="no_material"` ＋ `rewritten` 如实计数 ＋ `unsupported_claim` notice——`RewriteRecord.reason` 闭世界两值不动），并把归属对不上的被引序号列落 step payload 机读键 `field_attribution_mismatch`（**升序去重**；判据单点＝`rules.field_attribution_mismatch`）。**题眼所辖油田**（`rules.aligned_field_names`）＝①题眼锚里自带的油田名（题眼点名油田）∪ ②窗内**非元信息**材料里承载题眼锚的油田名（题眼是井号时，正确油田的材料片段会把井号写在正文里）。四条收窄面（防误伤；均以真机帧取证）：①`field_scope` 空（无题眼锚或点不出油田）＝**审静默**（同行为 5）；②行内写明该油田名＝**分源说明**（`specs/answering.md` 行为 17 的分源列明）→ 不拒收；③本行被引里**只要有一支**落在题眼所辖油田＝**混引不拒**（`eval/results/frames/EB4-D-诱14.json`：一条口径补充行同引 34-5 与 34-8 两油田材料）——拒收只对「整行材料全来自另一油田且没写明」成立；④**元信息／披露类**观察（`lineage`／`notice`——血缘卡、引擎注记、检索窗声明）不入辖域（它们并列多油田名只是记账：`EB4-C-正5.json` 的「缺位名单」形）。真机证据＝`eval/results/frames/Q14M-NQ-M4.json`（NQ-M4：题眼井号体系为 Y 系〔渤中34-8〕，交付行却全引 `《B-渤中34-5油田躺井治理与检泵作业月报-202608》` 的 302／305／22.5 天——跨油田张冠李戴；`eval/results/EB4-终判.md`「新病灶」第 5 条；同期 49 帧真机抽检中本闸仅咬该形 3 行）。
+14. **动作档位可配（2026-10-18 V2-116——配置单点，环境变量 `VERIFY_ACTION`）**：核验动作**四档**，取值闭世界＝`off`／`observe`／`repair`／`delete`（常量单点＝`constants.VERIFY_MODES`／`VERIFY_ACTION_ENV`；**缺省档＝`delete`**——保既有行为，`observe` 档用例显式指定 env）：
+    - **`off`**：**完全跳过逐行核验**（不检测、不改写）——`Verdict.supported`／`rewritten`／`cited` 皆空值，交付面＝草稿逐字；
+    - **`observe`**：**照常检测（判定逻辑零改）但不删任何行**——检出项入 verify step payload 的 `intended_rewrites`（**每条含原句 `line` 与 `reason`**）＋ `verify_mode`；交付面**逐字等于草稿**；
+    - **`repair`**：接 V2-115 回炉口；V2-115 未落地时等同 `observe`，并记 `verify_mode="repair-fallback"`（如实标注降级档位）；
+    - **`delete`**：保留旧行为（无据断言整行离场——行为 3 的删句族），**仅供既有单测显式指定**（缺省保既有行为）。
+    计数语义随档标注：step payload 增 `verify_mode`（如实档位）与 `intended_rewrites`（**检出条数**面——非 `delete` 档下检出项**不离场**）；`Verdict.rewritten`／`rewrites` 计数＝**检出条数**（非 `delete` 档下检出 ≠ 离场，故 `unsupported_claim` notice 与 `gaps` 文案按档诚实，不称「删去」）。`Verdict` 九键与 `RewriteRecord.reason` 闭世界（两值）**不变**。档位取值闭世界越界＝**fail-fast 抛错**（不静默回落；经错误契约转 `Verdict.ok=False`＋缺口）。真源＝`tickets/v2/V2-116-校对员三档开关.md`（含末尾「Kimi 评审修正」：默认档 `delete`、conftest env-pin 新建、回归敞口 ~34 例）。
 
 ## 不降级与静默禁令
 
 - **合法降级路径：无**（本模块不降级；核验器不可用时按 fail-closed 取 `ok=False`）。
-- 改写、分列、归属失败**都必须产生机读信号**：`verdict`／`notice` 事件（类型取自 `synth/S6-事件与帧目录.md`）＋ step payload 的 `supported`／`rewritten`／`split`／`cited`／`delivered_rows`／`obs_rows` 字段。**2026-10-17 EB3 D3**：无据断言的处置由「改写」改「**删句**」——**如实计数即不静默**（`verdict.rewritten` ＋ `RewriteRecord` 原句＋ `notice` 三处齐）；正文不再出现前缀残句。
+- 改写、分列、归属失败**都必须产生机读信号**：`verdict`／`notice` 事件（类型取自 `synth/S6-事件与帧目录.md`）＋ step payload 的 `supported`／`rewritten`／`split`／`cited`／`delivered_rows`／`obs_rows` 字段。**2026-10-17 EB3 D3**：无据断言的处置由「改写」改「**删句**」——**如实计数即不静默**（`verdict.rewritten` ＋ `RewriteRecord` 原句＋ `notice` 三处齐）；正文不再出现前缀残句。**2026-10-18 V2-116**：非 `delete` 档（`observe`／`repair-fallback`）下**未删行**——信号三处齐不变，但 `notice`／`gaps` 文案按档诚实（称「检出／只记录不删」，不称「删去」；检出项逐条落 step payload `intended_rewrites`）。
 - 改写**不得静默**：被改写的原句与原因必须留痕（`RewriteRecord`）；红线原文 `arch/P7a-交接包与挂账清单.md`（A-P7a-37）「不许静默」。
 
 ## 验收测试
@@ -134,6 +141,15 @@ class Gap:                               # 复用 answering 的 Gap 口径（字
 | 一行多引标：承载片段任一支撑即保留（引标须全可解析；2026-10-18 V2-94） | `tests/domains/test_v2_verification.py::multi_citation_any_support` |
 | 删行后正文无半句残渣（整行离场、不贴前缀；2026-10-18 V2-94） | `tests/domains/test_v2_verification.py::deleted_line_leaves_no_residue` |
 | EB9 D-诱12 形复现：4 行不再全删（至少 W-24 定性断口检查句保留；2026-10-18 V2-94） | `tests/domains/test_v2_verification.py::eb9_d12_shape_qualitative_line_kept` |
+| 动作档位缺省＝`delete` 且 env-pin 机制在场（conftest autouse 夹具；2026-10-18 V2-116） | `tests/domains/test_v2_verification.py::verify_action_env_pinned_delete_by_conftest` |
+| 缺省档（env 未设）＝`delete`：删句＋留痕＋`verify_mode` 标注（2026-10-18 V2-116） | `tests/domains/test_v2_verification.py::verify_mode_default_delete_when_env_unset` |
+| `delete` 显式档行为与现 HEAD 一致（2026-10-18 V2-116） | `tests/domains/test_v2_verification.py::verify_mode_delete_explicit_matches_head` |
+| `observe`：交付＝草稿逐字＋检出项入 `intended_rewrites`（原句＋reason）＋`verify_mode`（2026-10-18 V2-116） | `tests/domains/test_v2_verification.py::verify_mode_observe_delivery_verbatim_and_records` |
+| `observe` 下矛盾检出只记不删（`reason="conflict"` 原句入 `intended_rewrites`；2026-10-18 V2-116） | `tests/domains/test_v2_verification.py::verify_mode_observe_conflict_detected_not_deleted` |
+| `off`：完全跳过逐行核验——交付＝草稿逐字、零检出（2026-10-18 V2-116） | `tests/domains/test_v2_verification.py::verify_mode_off_skips_check_delivery_verbatim` |
+| `repair`：V2-115 未落地 → 等同 `observe` 并记 `verify_mode="repair-fallback"`（2026-10-18 V2-116） | `tests/domains/test_v2_verification.py::verify_mode_repair_fallback_equals_observe` |
+| 档位闭世界越界 → fail-fast（转 `ok=False`＋缺口，不静默回落；2026-10-18 V2-116） | `tests/domains/test_v2_verification.py::verify_mode_invalid_value_fail_closed` |
+| `observe` 辖域＝逐行核验输入：块剥除照常、仅「无据删句」停（2026-10-18 V2-116） | `tests/domains/test_v2_verification.py::verify_mode_observe_block_strip_still_applies` |
 
 > **测试文件归属（与既有 `tests/domains/test_v2_agent_verify.py` 的关系）**：本块验收测试绑**新建**的 `tests/domains/test_v2_verification.py`——`verification` 是 V2 十七块的新模块（`appv2/runtimev2/verification/`，公开接口 `verify(...) -> Verdict`），与既有 `test_v2_agent_verify.py`（现状 agent-loop 核验步：`verify_draft` 直测／表格·血缘卡·fragment 承载豁免现状行为）所测形状不同；故本块落新文件，既有文件继续覆盖现状核验步、本批不改。
 

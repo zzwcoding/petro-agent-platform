@@ -45,6 +45,7 @@ from __future__ import annotations
 import ast
 import dataclasses
 import inspect
+import os
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -76,6 +77,7 @@ from appv2.runtimev2.verification import (
     PAYLOAD_DELIVERED_ROWS_KEY,
     PAYLOAD_FIELD_MISMATCH_KEY,
     PAYLOAD_GAPS_KEY,
+    PAYLOAD_INTENDED_REWRITES_KEY,
     PAYLOAD_OBS_ROWS_KEY,
     PAYLOAD_OK_KEY,
     PAYLOAD_REWRITES_KEY,
@@ -85,10 +87,19 @@ from appv2.runtimev2.verification import (
     PAYLOAD_ROWSET_MISSING_KEY,
     PAYLOAD_SPLIT_KEY,
     PAYLOAD_SUPPORTED_KEY,
+    PAYLOAD_VERIFY_MODE_KEY,
     PHASE,
     REWRITE_CONFLICT,
     REWRITE_NO_MATERIAL,
     ROWSET_OBSERVATION_KINDS,
+    VERIFY_ACTION_ENV,
+    VERIFY_MODE_DEFAULT,
+    VERIFY_MODE_DELETE,
+    VERIFY_MODE_OBSERVE,
+    VERIFY_MODE_OFF,
+    VERIFY_MODE_REPAIR,
+    VERIFY_MODE_REPAIR_FALLBACK,
+    VERIFY_MODES,
     Gap,
     RewriteRecord,
     Verdict,
@@ -1822,3 +1833,215 @@ async def test_eb9_d12_shape_qualitative_line_kept() -> None:
     # 有数字的行照旧逐记号比对（未被定性放行牵连）
     assert "- 断点深度：1980 米，第 38 根抽油杆杆体（非接头）位置断裂 [7]。" in state.draft
     assert 7 in verdict.cited and 42 in verdict.cited
+
+
+# ---------- V2-116：核验动作四档（off／observe／repair／delete）----------
+# 票面＝`tickets/v2/V2-116-校对员三档开关.md`（含末尾「Kimi 评审修正」）：配置单点＝环境变量
+# `VERIFY_ACTION`；**缺省档＝`delete`**（保既有行为；评审修正 1）；`observe` 另立新测。
+# env-pin 机制＝`tests/conftest.py::_pin_verify_action`（评审修正 2）；本节的非 delete 档用例
+# 在本例内 `monkeypatch.setenv` 显式覆盖。
+
+_MODE_SUPPORTED_LINE = "该井日产油量为 21.16 吨[1]。"
+_MODE_UNSUPPORTED_LINE = "该井日产油量为 99.5 吨[1]。"
+
+
+def _mode_case() -> tuple[list[dict[str, Any]], str]:
+    """四档共用用例：一行有据 ＋ 一行无据（检出恰 1 条 `no_material`）。"""
+    observations = [_obs(1, "ledger", content="该井日产油量 21.16 吨")]
+    return observations, "\n".join([_MODE_SUPPORTED_LINE, _MODE_UNSUPPORTED_LINE])
+
+
+def test_verify_action_env_pinned_delete_by_conftest() -> None:
+    """V2-116-0｜conftest env-pin 机制在场（评审修正 2）：全测试树缺省钉 `VERIFY_ACTION=delete`。
+
+    本测**不设** env——读到的值只能来自 `tests/conftest.py` 的 autouse 夹具
+    （新建机制，非「加一行」）。
+    """
+    assert os.environ[VERIFY_ACTION_ENV] == VERIFY_MODE_DELETE
+    assert VERIFY_MODE_DEFAULT == VERIFY_MODE_DELETE
+    assert VERIFY_MODES == {
+        VERIFY_MODE_OFF,
+        VERIFY_MODE_OBSERVE,
+        VERIFY_MODE_REPAIR,
+        VERIFY_MODE_DELETE,
+    }
+
+
+async def test_verify_mode_default_delete_when_env_unset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """V2-116-1｜缺省档＝`delete`：env 未设时行为与现 HEAD 一致（删句＋留痕＋mode 标注）。"""
+    monkeypatch.delenv(VERIFY_ACTION_ENV)
+    observations, draft = _mode_case()
+    state = _state(draft=draft, observations=observations)
+    verdict = verify(state, bus=EventBus())
+
+    assert state.draft.splitlines() == [_MODE_SUPPORTED_LINE]  # 无据行整行离场（旧行为）
+    assert _MODE_UNSUPPORTED_LINE not in state.draft
+    assert verdict.rewritten == 1 and verdict.ok is False
+    payload = _step_payload(state)
+    assert payload[PAYLOAD_VERIFY_MODE_KEY] == VERIFY_MODE_DELETE
+    assert payload[PAYLOAD_INTENDED_REWRITES_KEY] == [
+        {"line": _MODE_UNSUPPORTED_LINE, "reason": REWRITE_NO_MATERIAL}
+    ]
+
+
+async def test_verify_mode_delete_explicit_matches_head(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """V2-116-2｜`delete` 显式档：行为与现 HEAD 一致（删句＋notice＋计数）＋ mode 标注。"""
+    monkeypatch.setenv(VERIFY_ACTION_ENV, VERIFY_MODE_DELETE)
+    observations, draft = _mode_case()
+    state = _state(draft=draft, observations=observations)
+    bus = EventBus()
+    verdict = verify(state, bus=bus)
+
+    assert state.draft.splitlines() == [_MODE_SUPPORTED_LINE]
+    assert NOTICE_UNSUPPORTED_CLAIM in _notice_types(state)
+    assert _step_payload(state)[PAYLOAD_VERIFY_MODE_KEY] == VERIFY_MODE_DELETE
+    assert verdict.rewritten == 1
+
+
+async def test_verify_mode_observe_delivery_verbatim_and_records(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """V2-116-3｜`observe`：照常检测但不删任何行——交付＝草稿逐字；检出项入 `intended_rewrites`
+    （每条含原句 `line` 与 `reason`）＋ `verify_mode`；计数＝检出条数（不静默）。"""
+    monkeypatch.setenv(VERIFY_ACTION_ENV, VERIFY_MODE_OBSERVE)
+    observations, draft = _mode_case()
+    state = _state(draft=draft, observations=observations)
+    bus = EventBus()
+    verdict = verify(state, bus=bus)
+
+    assert state.draft == draft  # 交付面零加工：逐字等于草稿
+    assert _MODE_UNSUPPORTED_LINE in state.draft
+    payload = _step_payload(state)
+    assert payload[PAYLOAD_VERIFY_MODE_KEY] == VERIFY_MODE_OBSERVE
+    assert payload[PAYLOAD_INTENDED_REWRITES_KEY] == [
+        {"line": _MODE_UNSUPPORTED_LINE, "reason": REWRITE_NO_MATERIAL}
+    ]
+    # 计数语义随档标注：`rewritten`＝**检出条数**（非离场数——行仍在）
+    assert verdict.rewritten == 1
+    assert payload[PAYLOAD_REWRITTEN_KEY] == 1
+    assert verdict.ok is False  # 检出即「无据断言残留」在位（行为 9；不静默）
+    # 检出不得静默：`unsupported_claim` notice 在场（类型闭世界不变）
+    assert NOTICE_UNSUPPORTED_CLAIM in _notice_types(state)
+    notices = [entry for entry in state.notices if entry.get("type") == NOTICE_UNSUPPORTED_CLAIM]
+    # 档位诚实：observe 下未删任何行——文案不得称「删去」（只记录不删）
+    assert notices and "只记录不删" in str(notices[0].get("content"))
+
+
+async def test_verify_mode_observe_conflict_detected_not_deleted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """V2-116-4｜`observe` 下矛盾检出同样只记不删：`intended_rewrites` 含 `conflict` 原句。"""
+    monkeypatch.setenv(VERIFY_ACTION_ENV, VERIFY_MODE_OBSERVE)
+    observations = [
+        _obs(1, "ledger", content="日产油量：21 吨/日", source="口径卡A"),
+        _obs(2, "ledger", content="日产油量：8824.4 方/日", source="口径卡B"),
+    ]
+    draft = "该油田日产油量有 21 吨/日[1]、也有 8824.4 方/日[2]。"
+    state = _state(draft=draft, observations=observations)
+    supplements: list[dict[str, Any]] = []
+    verdict = verify(state, bus=EventBus(), supplements=supplements)
+
+    assert state.draft == draft  # 交付＝草稿逐字
+    assert verdict.split == 1
+    payload = _step_payload(state)
+    assert payload[PAYLOAD_VERIFY_MODE_KEY] == VERIFY_MODE_OBSERVE
+    assert {entry["reason"] for entry in payload[PAYLOAD_INTENDED_REWRITES_KEY]} == {
+        REWRITE_CONFLICT
+    }
+    assert payload[PAYLOAD_INTENDED_REWRITES_KEY][0]["line"] == draft
+
+
+async def test_verify_mode_off_skips_check_delivery_verbatim(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """V2-116-5｜`off`：完全跳过逐行核验（不检测、不改写）——交付＝草稿逐字、零检出。"""
+    monkeypatch.setenv(VERIFY_ACTION_ENV, VERIFY_MODE_OFF)
+    observations, draft = _mode_case()
+    state = _state(draft=draft, observations=observations)
+    verdict = verify(state, bus=EventBus())
+
+    assert state.draft == draft
+    payload = _step_payload(state)
+    assert payload[PAYLOAD_VERIFY_MODE_KEY] == VERIFY_MODE_OFF
+    assert payload[PAYLOAD_INTENDED_REWRITES_KEY] == []
+    assert payload[PAYLOAD_REWRITES_KEY] == []
+    assert (verdict.supported, verdict.rewritten, verdict.cited) == (0, 0, [])
+    assert verdict.ok is True
+    assert NOTICE_UNSUPPORTED_CLAIM not in _notice_types(state)
+
+
+async def test_verify_mode_repair_fallback_equals_observe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """V2-116-6｜`repair`：V2-115 未落地 → 等同 `observe` 并记 `verify_mode="repair-fallback"`。"""
+    monkeypatch.setenv(VERIFY_ACTION_ENV, VERIFY_MODE_REPAIR)
+    observations, draft = _mode_case()
+    state = _state(draft=draft, observations=observations)
+    verdict = verify(state, bus=EventBus())
+
+    assert state.draft == draft  # 等同 observe：交付＝草稿逐字
+    payload = _step_payload(state)
+    assert payload[PAYLOAD_VERIFY_MODE_KEY] == VERIFY_MODE_REPAIR_FALLBACK
+    assert payload[PAYLOAD_INTENDED_REWRITES_KEY] == [
+        {"line": _MODE_UNSUPPORTED_LINE, "reason": REWRITE_NO_MATERIAL}
+    ]
+    assert verdict.rewritten == 1
+
+
+async def test_verify_mode_invalid_value_fail_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """V2-116-7｜档位闭世界越界 → fail-fast（不静默回落），核验器错误契约转 `ok=False`＋缺口。"""
+    monkeypatch.setenv(VERIFY_ACTION_ENV, "rewrite")  # 闭世界外
+    observations, draft = _mode_case()
+    state = _state(draft=draft, observations=observations)
+    verdict = verify(state, bus=EventBus())
+
+    assert verdict.ok is False
+    assert len(verdict.gaps) == 1
+    assert VERIFY_ACTION_ENV in verdict.gaps[0].reason
+    assert "非法值" in verdict.gaps[0].reason
+    assert state.draft == draft  # 抛错前交付面零加工
+
+
+async def test_verify_mode_observe_block_strip_still_applies(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """V2-116-8｜「交付＝草稿逐字」辖域＝**逐行核验输入**（块剥除后）：档位只停「无据删句」，
+    行为 12 的块头模式族段剥除**照常**（真源＝
+    `docs/runtime-refactor/design/统筹方案-核验澄清评测.md` §2.1「块剥除仍做」；
+    本票边界＝不碰 `transport` 段剥离单点）。"""
+    monkeypatch.setenv(VERIFY_ACTION_ENV, VERIFY_MODE_OBSERVE)
+    observations = [
+        _obs(1, "ledger", content="N-01 井 2025-09-01 日产油量 21.16 吨"),
+        _obs(2, "lineage", content="② 来源表：台账A"),
+    ]
+    card = "\n".join(
+        [
+            "① 口径：开井日历折算",
+            "② 来源表：台账A",
+            "③ 过滤条件：无",
+            "④ 数据截至批次：2025-09-30",
+            "⑤ 收口注记：本窗仅台账A",
+        ]
+    )
+    body = "N-01 井 2025-09-01 日产油量 21.16 吨[1]。"
+    unsupported = "N-01 井 2025-09-01 日产油量 30 吨[1]。"
+    state = _state(
+        draft="\n".join([body, unsupported, "", card]),
+        observations=observations,
+    )
+    supplements: list[dict[str, Any]] = []
+    verdict = verify(state, bus=EventBus(), supplements=supplements)
+
+    # 块剥除照常（五要素整段入增补面，零二次创作）
+    assert card not in state.draft
+    assert _supplement_texts(supplements, SUPPLEMENT_BLOCK_LINEAGE) == [card]
+    # 档位停的是「无据删句」——检出句不离场（行为 3 的删句处置只在 `delete` 档）
+    assert body in state.draft and unsupported in state.draft
+    assert verdict.rewritten == 1
+

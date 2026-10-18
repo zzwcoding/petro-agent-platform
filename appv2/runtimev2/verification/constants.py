@@ -27,6 +27,30 @@ from appv2.runtimev2.transport import (
 
 PHASE = "verify"  # 本块相位标记（步 payload 的 `phase` 值）
 
+# ── 核验动作档位（2026-10-18 V2-116——配置单点，环境变量 `VERIFY_ACTION`）───────────────
+# 真源＝`tickets/v2/V2-116-校对员三档开关.md`（含末尾「Kimi 评审修正」）＋`specs/verification.md`
+# 行为 14。四档语义：
+# - `off`：完全跳过逐行核验（不检测、不改写）——交付＝草稿逐字；
+# - `observe`：照常检测（判定逻辑零改）但**不删任何行**——检出项入 step payload
+#   `intended_rewrites`（每条含原句 `line` 与 `reason`）＋ `verify_mode`；
+# - `repair`：接 V2-115 回炉口；V2-115 未落地时等同 `observe` 并记 `verify_mode="repair-fallback"`；
+# - `delete`：旧行为（无据断言整行离场——仅供既有单测显式指定／缺省保既有行为）。
+# **缺省档＝`delete`**（评审修正 1：保既有 ~34 例零回退；`observe` 另立新测）。env 读点唯一
+# （`core._verify_mode`，先例 `gateway_adapter.eval_clock.frozen_date`）；未设／空串＝缺省档，
+# 闭世界外取值＝fail-fast 抛错（不静默回落）。
+VERIFY_ACTION_ENV = "VERIFY_ACTION"
+VERIFY_MODE_OFF = "off"
+VERIFY_MODE_OBSERVE = "observe"
+VERIFY_MODE_REPAIR = "repair"
+VERIFY_MODE_DELETE = "delete"
+VERIFY_MODES: frozenset[str] = frozenset(
+    {VERIFY_MODE_OFF, VERIFY_MODE_OBSERVE, VERIFY_MODE_REPAIR, VERIFY_MODE_DELETE}
+)
+VERIFY_MODE_DEFAULT = VERIFY_MODE_DELETE
+# `repair` 档的前置未落地时的标注值（V2-115 未落地 ⇒ 等同 observe；本值只作 `verify_mode` 标注，
+# 不入 `VERIFY_MODES` 闭世界——它不是可选档，是 `repair` 档的如实降级标注）。
+VERIFY_MODE_REPAIR_FALLBACK = "repair-fallback"
+
 # ── 改写原因闭世界（`specs/verification.md:47／:54` 逐字两值——越界即判失败）────────
 
 RewriteReason = Literal["no_material", "conflict"]
@@ -181,6 +205,12 @@ NOTICE_UNSUPPORTED_CONTENT = (
     "核验步删去无据断言 {rewritten} 行（EB3 D3：真无据断言删句、不贴前缀——"
     "禁止无据断言进答案；留痕＝rewrites 逐行原句 ＋ 本计数）"
 )
+# 2026-10-18 V2-116：非 `delete` 档（`observe`／`repair-fallback`）下**未删任何行**——文案不得称
+# 「删去」（档位诚实：检出 ≠ 离场；交付面＝草稿逐字）。`{mode}` 填如实档位标注值。
+NOTICE_UNSUPPORTED_CONTENT_RECORD_ONLY = (
+    "核验检出无据断言 {rewritten} 行（{mode} 档：只记录不删——交付面＝草稿逐字；"
+    "留痕＝intended_rewrites 逐行原句 ＋ 本计数）"
+)
 NOTICE_CONTRADICTION_CONTENT = (
     "多来源不一致——答案分源列明（INV-4——禁止无出处调和）"
 )
@@ -197,6 +227,11 @@ SPLIT_NO = "否"
 
 GAP_REWRITE_REASON = (
     "核验删去 {rewritten} 行无据断言（EB3 D3：删句不贴前缀，无据的话不写进答案）——"
+    "核验侧无据残留（行为 9：ok=False 才回炉）"
+)
+# 2026-10-18 V2-116：非 `delete` 档下**未删行**——缺口文案同样按档诚实（检出 ≠ 离场）。
+GAP_REWRITE_REASON_RECORD_ONLY = (
+    "核验检出 {rewritten} 行无据断言（{mode} 档：只记录不删——交付面＝草稿逐字）——"
     "核验侧无据残留（行为 9：ok=False 才回炉）"
 )
 GAP_ATTRIBUTION_REASON = (
@@ -235,6 +270,13 @@ PAYLOAD_OK_KEY = "ok"
 PAYLOAD_REWRITES_KEY = "rewrites"
 PAYLOAD_REWRITE_LINE_KEY = "line"
 PAYLOAD_REWRITE_REASON_KEY = "reason"
+# 2026-10-18 V2-116：核验动作档位标注键 ＋ 检出项（本应改写／删除行）清单键。
+# `verify_mode`＝如实档位（`off`／`observe`／`repair`／`delete`／`repair-fallback`）；
+# `intended_rewrites`＝**检出条数**面（每条含原句 `line` 与 `reason`——非 `delete` 档下这些行
+# **不离场**，故与 `rewrites` 分列：前者是「本应处置」的意图面，后者是既有改写留痕面）。
+# 两键均 additive（`Verdict` 九键不动）。
+PAYLOAD_VERIFY_MODE_KEY = "verify_mode"
+PAYLOAD_INTENDED_REWRITES_KEY = "intended_rewrites"
 PAYLOAD_GAPS_KEY = "gaps"
 PAYLOAD_GAP_KIND_KEY = "kind"
 PAYLOAD_GAP_SUBTASK_KEY = "subtask_id"

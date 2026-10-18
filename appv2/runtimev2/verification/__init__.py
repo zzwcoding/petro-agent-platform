@@ -18,6 +18,11 @@
   五要素段特征字面同为单点常量；**2026-10-17 F1 核验面三件**：`VALUE_UNITS`（数值断言的**计量
   单位**族——标识符／日期不算数值断言，件一）／`FIELD_NAME_NOUN`（油田名名录面过滤位——油田归属
   对账，件四；机读键 `PAYLOAD_FIELD_MISMATCH_KEY`）；
+- **动作档位（2026-10-18 V2-116）**：`VERIFY_ACTION_ENV`（`VERIFY_ACTION`）＋ `VERIFY_MODES`
+  （`off`／`observe`／`repair`／`delete` 闭世界）＋ `VERIFY_MODE_DEFAULT`（＝`delete`，保既有
+  行为）＋ `VERIFY_MODE_REPAIR_FALLBACK`（`repair` 且 V2-115 未落地的如实降级标注）；步 payload
+  additive 两键 `PAYLOAD_VERIFY_MODE_KEY`／`PAYLOAD_INTENDED_REWRITES_KEY`（检出项逐条原句＋
+  原因；非 `delete` 档下**不删行**、交付面＝草稿逐字，真源 `specs/verification.md` 行为 14）；
 - 帧面（只经 `transport` 公开面）：`EVENT_VERDICT`（核验裁决帧——**批次落定归 `orchestration`
   协调**，本块只保证自产部分就位，行为 10）＋ `EVENT_NOTICE`（通知帧，恰三键）；
 - 步 payload 键名（六计数键 ＋ 行集对账两字段 ＋ 油田归属维度键，行为 6／11／13）。
@@ -81,6 +86,7 @@ from appv2.runtimev2.verification.constants import (
     PAYLOAD_DELIVERED_ROWS_KEY,
     PAYLOAD_FIELD_MISMATCH_KEY,
     PAYLOAD_GAPS_KEY,
+    PAYLOAD_INTENDED_REWRITES_KEY,
     PAYLOAD_OBS_ROWS_KEY,
     PAYLOAD_OK_KEY,
     PAYLOAD_PHASE_KEY,
@@ -91,11 +97,20 @@ from appv2.runtimev2.verification.constants import (
     PAYLOAD_ROWSET_MISSING_KEY,
     PAYLOAD_SPLIT_KEY,
     PAYLOAD_SUPPORTED_KEY,
+    PAYLOAD_VERIFY_MODE_KEY,
     PHASE,
     REWRITE_CONFLICT,
     REWRITE_NO_MATERIAL,
     REWRITE_REASONS,
     ROWSET_OBSERVATION_KINDS,
+    VERIFY_ACTION_ENV,
+    VERIFY_MODE_DEFAULT,
+    VERIFY_MODE_DELETE,
+    VERIFY_MODE_OBSERVE,
+    VERIFY_MODE_OFF,
+    VERIFY_MODE_REPAIR,
+    VERIFY_MODE_REPAIR_FALLBACK,
+    VERIFY_MODES,
 )
 from appv2.runtimev2.verification.core import verify
 from appv2.runtimev2.verification.models import (
@@ -127,6 +142,7 @@ __all__ = [
     "PAYLOAD_DELIVERED_ROWS_KEY",
     "PAYLOAD_FIELD_MISMATCH_KEY",
     "PAYLOAD_GAPS_KEY",
+    "PAYLOAD_INTENDED_REWRITES_KEY",
     "PAYLOAD_OBS_ROWS_KEY",
     "PAYLOAD_OK_KEY",
     "PAYLOAD_PHASE_KEY",
@@ -137,11 +153,20 @@ __all__ = [
     "PAYLOAD_ROW_NOTE_KEY",
     "PAYLOAD_SPLIT_KEY",
     "PAYLOAD_SUPPORTED_KEY",
+    "PAYLOAD_VERIFY_MODE_KEY",
     "PHASE",
     "REWRITE_CONFLICT",
     "REWRITE_NO_MATERIAL",
     "REWRITE_REASONS",
     "ROWSET_OBSERVATION_KINDS",
+    "VERIFY_ACTION_ENV",
+    "VERIFY_MODES",
+    "VERIFY_MODE_DEFAULT",
+    "VERIFY_MODE_DELETE",
+    "VERIFY_MODE_OBSERVE",
+    "VERIFY_MODE_OFF",
+    "VERIFY_MODE_REPAIR",
+    "VERIFY_MODE_REPAIR_FALLBACK",
     "Gap",
     "GapKind",
     "RewriteReason",

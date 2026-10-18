@@ -44,6 +44,15 @@
    `orchestration` 协调**，本块只保证自产部分就位）；行集对账差额>0 且答案面无行集声明 → 补如实
    注记（**不删改数值断言、不重试、不拦截**）。
 
+**动作档位（2026-10-18 V2-116——配置单点 `VERIFY_ACTION`，真源 `specs/verification.md` 行为 14）**：
+`off`／`observe`／`repair`／`delete` 四档，**缺省档＝`delete`**（保既有行为）；`off` 完全跳过
+逐行核验（不检测、不改写）；`observe` 照常检测（判定逻辑零改）但**不删任何行**；`repair` 接
+V2-115 回炉口（未落地时等同 `observe` 并记 `verify_mode="repair-fallback"`）。非 `delete` 档
+交付面**逐字等于草稿**（零加工）；检出项入 step payload `intended_rewrites`（每条含原句 `line`
+与 `reason`）＋ `verify_mode`（additive 键——`Verdict` 九键不动）；`rewrites` 计数＝**检出条数**
+（非 `delete` 档下检出 ≠ 离场，故 notice／gap 文案按档诚实，不称「删去」）。档位闭世界越界＝
+fail-fast（转 fail-closed，不静默回落）。
+
 **写面纪律**：共享写面（步／通知／路由意图）一律经 `bookkeeping` 唯一写口（相位禁直写）；本块自有
 字段（`state.draft`＝核验后答案面、`state.verdict`＝判定卡投影）直接落地——`answering` 收口以
 `state.draft`／`state.verdict` 为消费面（真源 `specs/answering.md` 行为 7）。**增补面**（分源块／
@@ -59,6 +68,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Collection, Mapping, Sequence
 from typing import Any
 
@@ -79,12 +89,14 @@ from appv2.runtimev2.verification.constants import (
     GAP_ATTRIBUTION_REASON,
     GAP_FAIL_CLOSED_REASON,
     GAP_REWRITE_REASON,
+    GAP_REWRITE_REASON_RECORD_ONLY,
     NOTICE_ATTRIBUTION_CONTENT,
     NOTICE_ATTRIBUTION_SPLIT,
     NOTICE_CONTRADICTION_CONTENT,
     NOTICE_CONTRADICTION_SPLIT,
     NOTICE_UNSUPPORTED_CLAIM,
     NOTICE_UNSUPPORTED_CONTENT,
+    NOTICE_UNSUPPORTED_CONTENT_RECORD_ONLY,
     PAYLOAD_ATTRIBUTION_KEY,
     PAYLOAD_CITED_KEY,
     PAYLOAD_DELIVERED_ROWS_KEY,
@@ -93,6 +105,7 @@ from appv2.runtimev2.verification.constants import (
     PAYLOAD_GAP_REASON_KEY,
     PAYLOAD_GAP_SUBTASK_KEY,
     PAYLOAD_GAPS_KEY,
+    PAYLOAD_INTENDED_REWRITES_KEY,
     PAYLOAD_OBS_ROWS_KEY,
     PAYLOAD_OK_KEY,
     PAYLOAD_PHASE_KEY,
@@ -105,6 +118,7 @@ from appv2.runtimev2.verification.constants import (
     PAYLOAD_ROWSET_MISSING_KEY,
     PAYLOAD_SPLIT_KEY,
     PAYLOAD_SUPPORTED_KEY,
+    PAYLOAD_VERIFY_MODE_KEY,
     PHASE,
     REWRITE_CONFLICT,
     REWRITE_NO_MATERIAL,
@@ -116,6 +130,14 @@ from appv2.runtimev2.verification.constants import (
     SPLIT_NO,
     SPLIT_YES,
     STEP_TITLE_TEMPLATE,
+    VERIFY_ACTION_ENV,
+    VERIFY_MODE_DEFAULT,
+    VERIFY_MODE_DELETE,
+    VERIFY_MODE_OBSERVE,
+    VERIFY_MODE_OFF,
+    VERIFY_MODE_REPAIR,
+    VERIFY_MODE_REPAIR_FALLBACK,
+    VERIFY_MODES,
 )
 from appv2.runtimev2.verification.models import GAP_UNVERIFIED, Gap, RewriteRecord, Verdict
 from appv2.runtimev2.verification.rules import (
@@ -154,6 +176,28 @@ _INDEX_SEPARATOR = "、"
 # 定性句放行计数键（2026-10-18 V2-94——票面边界红线只许动 `rules.py`／`core.py`／本块测试／
 # `specs/verification.md`，故键字面落本块 core 单点，不扩 `constants.py`；additive 键）。
 PAYLOAD_QUALITATIVE_KEPT_KEY = "qualitative_kept"
+# V2-115 回炉口落地标志（2026-10-18 V2-116 `repair` 档的前置）：V2-115（编排侧 `orchestration/
+# repair.py` ＋ `INTENT_REPAIR`，见其票面「Kimi 评审修正」1——回炉归编排，本块零 LLM 不动）
+# **未落地** ⇒ `repair` 档等同 `observe` 并记 `verify_mode="repair-fallback"`。V2-115 落地时
+# 改此单点即可（本块不预建回炉面——「合法降级路径＝无」不变）。
+_REPAIR_PORT_LANDED = False
+
+
+def _verify_mode() -> str:
+    """核验动作档位读点（**唯一 env 读点**，先例 `gateway_adapter.eval_clock.frozen_date`）。
+
+    未设／空串 → 缺省档（`delete`——评审修正 1：保既有行为）；闭世界外取值 → **fail-fast 抛错**
+    （不静默回落；`verify()` 的错误契约把其转成 `ok=False`＋缺口，不静默放行）。
+    """
+    raw = os.environ.get(VERIFY_ACTION_ENV)
+    if raw is None or raw == "":
+        return VERIFY_MODE_DEFAULT
+    if raw not in VERIFY_MODES:
+        raise ValueError(
+            f"{VERIFY_ACTION_ENV} 非法值 {raw!r}（闭世界 {sorted(VERIFY_MODES)}）"
+            "——fail-fast 不静默回落"
+        )
+    return raw
 
 
 def verify(
@@ -205,6 +249,12 @@ def _fail_closed(state: RunState, exc: BaseException) -> Verdict:
 
 
 def _verify(state: RunState, bus: EventBus, supplements: list[dict[str, Any]]) -> Verdict:
+    # 档位读点最先（2026-10-18 V2-116）：闭世界越界＝fail-fast，交付面零加工即转 fail-closed。
+    mode = _verify_mode()
+    verify_mode = mode
+    if mode == VERIFY_MODE_REPAIR and not _REPAIR_PORT_LANDED:
+        # repair 前置未落地（V2-115）⇒ 等同 observe，并**如实标注**降级档位。
+        verify_mode = VERIFY_MODE_REPAIR_FALLBACK
     anchors = question_anchors(state.question)
     observations = list(state.observations)
     by_index = {int(obs["index"]): obs for obs in observations}
@@ -223,15 +273,31 @@ def _verify(state: RunState, bus: EventBus, supplements: list[dict[str, Any]]) -
     if lineage_text:
         _supplement(supplements, SUPPLEMENT_BLOCK_LINEAGE, lineage_text)
 
-    (
-        out_lines,
-        rewrites,
-        cited,
-        cited_lines,
-        supported,
-        field_mismatched,
-        qualitative_kept,
-    ) = _verify_lines(kept_lines, observations, by_index, field_scope)
+    if mode == VERIFY_MODE_OFF:
+        # `off`：**完全跳过逐行核验**（不检测、不改写）——交付＝草稿逐字（票面任务 1 逐字）。
+        out_lines = list(kept_lines)
+        rewrites: list[RewriteRecord] = []
+        cited: set[int] = set()
+        cited_lines: list[tuple[str, tuple[int, ...]]] = []
+        supported = 0
+        field_mismatched: tuple[int, ...] = ()
+        qualitative_kept = 0
+    else:
+        (
+            detected_lines,
+            rewrites,
+            cited,
+            cited_lines,
+            supported,
+            field_mismatched,
+            qualitative_kept,
+        ) = _verify_lines(kept_lines, observations, by_index, field_scope)
+        if mode in (VERIFY_MODE_OBSERVE, VERIFY_MODE_REPAIR):
+            # `observe`／`repair`（含 repair-fallback）：判定逻辑零改，但**不删任何行**——
+            # 检出项只入 `intended_rewrites`（交付面＝草稿逐字，票面任务 2）。
+            out_lines = list(kept_lines)
+        else:
+            out_lines = detected_lines  # `delete`：旧行为（无据断言整行离场）
     text = "\n".join(out_lines)
 
     ordered_cited = sorted(cited)
@@ -296,7 +362,13 @@ def _verify(state: RunState, bus: EventBus, supplements: list[dict[str, Any]]) -
             Gap(
                 kind=GAP_UNVERIFIED,
                 subtask_id=None,
-                reason=GAP_REWRITE_REASON.format(rewritten=rewritten),
+                reason=(
+                    GAP_REWRITE_REASON.format(rewritten=rewritten)
+                    if mode == VERIFY_MODE_DELETE
+                    else GAP_REWRITE_REASON_RECORD_ONLY.format(
+                        rewritten=rewritten, mode=verify_mode
+                    )
+                ),
             )
         )
     if crossed:
@@ -334,6 +406,7 @@ def _verify(state: RunState, bus: EventBus, supplements: list[dict[str, Any]]) -
         rows_aligned,
         field_mismatched,
         qualitative_kept,
+        verify_mode,
     )
     state.draft = text
     state.verdict = verdict.as_dict()
@@ -605,6 +678,7 @@ def _emit_signals(
     rowset_aligned: bool,
     field_mismatched: Sequence[int] = (),
     qualitative_kept: int = 0,
+    verify_mode: str = VERIFY_MODE_DELETE,
 ) -> None:
     """机读信号（「不降级与静默禁令」节）：step payload ＋ `notice`／`verdict` 帧 ＋ 通知落账。
 
@@ -614,6 +688,8 @@ def _emit_signals(
     键 `field_attribution_mismatch`（拒收行的被引序号列）——拒收本身走既有删句族信号（`rewritten`
     计数 ＋ `rewrites` 留痕 ＋ `unsupported_claim` notice），维度面另有本键可复算。
     **2026-10-18 V2-94**：定性句放行计数键 `qualitative_kept`（additive——`Verdict` 九键不动）。
+    **2026-10-18 V2-116**：`verify_mode`＝如实档位标注（payload 键）；非 `delete` 档下**未删行**，
+    故 `unsupported_claim` notice 取**档位诚实**文案（「只记录不删」——检出 ≠ 离场）。
     """
     title = STEP_TITLE_TEMPLATE.format(
         supported=verdict.supported,
@@ -632,6 +708,7 @@ def _emit_signals(
             rowset_aligned,
             field_mismatched,
             qualitative_kept,
+            verify_mode,
         ),
     )
     if verdict.rewritten:
@@ -639,7 +716,13 @@ def _emit_signals(
             state,
             bus,
             NOTICE_UNSUPPORTED_CLAIM,
-            NOTICE_UNSUPPORTED_CONTENT.format(rewritten=verdict.rewritten),
+            (
+                NOTICE_UNSUPPORTED_CONTENT.format(rewritten=verdict.rewritten)
+                if verify_mode == VERIFY_MODE_DELETE
+                else NOTICE_UNSUPPORTED_CONTENT_RECORD_ONLY.format(
+                    rewritten=verdict.rewritten, mode=verify_mode
+                )
+            ),
         )
     if verdict.split:
         _notify(state, bus, NOTICE_CONTRADICTION_SPLIT, NOTICE_CONTRADICTION_CONTENT)
@@ -682,6 +765,7 @@ def _step_payload(
     rowset_aligned: bool = True,
     field_mismatched: Sequence[int] = (),
     qualitative_kept: int = 0,
+    verify_mode: str = VERIFY_MODE_DELETE,
 ) -> dict[str, Any]:
     """步 payload（六计数键 ＋ 行集对账四字段 ＋ 改写／缺口留痕 ＋ 行集注记 ＋ 油田归属维度键）。
 
@@ -691,9 +775,12 @@ def _step_payload(
     键＝油田归属对账拒收行的被引序号列（**升序去重**——判据单点＝`rules.field_attribution_mismatch`）。
     **2026-10-18 V2-94**：`qualitative_kept` 键＝定性句放行行数（承载片段断言零量值记号即保留；
     additive 键——`Verdict` 九键不动，计数判据单点＝`_qualitative_release`）。
+    **2026-10-18 V2-116**：`verify_mode`（如实档位）＋ `intended_rewrites`（检出项逐条原句＋原因）
+    两 additive 键——非 `delete` 档下检出项**不离场**，交付面＝草稿逐字。
     """
     return {
         PAYLOAD_PHASE_KEY: PHASE,
+        PAYLOAD_VERIFY_MODE_KEY: verify_mode,
         PAYLOAD_SUPPORTED_KEY: verdict.supported,
         PAYLOAD_REWRITTEN_KEY: verdict.rewritten,
         PAYLOAD_SPLIT_KEY: verdict.split,
@@ -706,13 +793,8 @@ def _step_payload(
         PAYLOAD_QUALITATIVE_KEPT_KEY: qualitative_kept,
         PAYLOAD_ATTRIBUTION_KEY: verdict.attribution,
         PAYLOAD_OK_KEY: verdict.ok,
-        PAYLOAD_REWRITES_KEY: [
-            {
-                PAYLOAD_REWRITE_LINE_KEY: record.line,
-                PAYLOAD_REWRITE_REASON_KEY: record.reason,
-            }
-            for record in rewrites
-        ],
+        PAYLOAD_REWRITES_KEY: _rewrite_entries(rewrites),
+        PAYLOAD_INTENDED_REWRITES_KEY: _rewrite_entries(rewrites),
         PAYLOAD_GAPS_KEY: [
             {
                 PAYLOAD_GAP_KIND_KEY: gap.kind,
@@ -723,3 +805,14 @@ def _step_payload(
         ],
         PAYLOAD_ROW_NOTE_KEY: row_note,
     }
+
+
+def _rewrite_entries(rewrites: Sequence[RewriteRecord]) -> list[dict[str, Any]]:
+    """改写留痕投影（原句＋原因——`rewrites` 与 `intended_rewrites` 同源，零第二份判据）。"""
+    return [
+        {
+            PAYLOAD_REWRITE_LINE_KEY: record.line,
+            PAYLOAD_REWRITE_REASON_KEY: record.reason,
+        }
+        for record in rewrites
+    ]
