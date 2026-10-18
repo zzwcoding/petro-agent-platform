@@ -1,0 +1,50 @@
+{"qid": "Q01", "run_id": "run-14141fcf", "supported": 4, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q02", "run_id": "run-3c3539fd", "supported": 6, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q03", "run_id": "run-7c01da94", "supported": 6, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q04", "run_id": "run-2566e9b7", "supported": 5, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q05", "run_id": "run-ed4d9fca", "supported": null, "verify_mode": null, "rewrites": []}
+{"qid": "Q06", "run_id": "run-b19a0bc1", "supported": 1, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q07", "run_id": "run-b5cf98d1", "supported": 9, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q08", "run_id": "run-5afb971d", "supported": 3, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q09", "run_id": "run-03fb7916", "supported": 8, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q10", "run_id": "run-9c80a44c", "supported": 4, "verify_mode": "observe", "rewrites": [{"line": "| s3 咱区块近 3 天完成率 | 未指明区块 | 产量完成率 | 近 3 天（已锚 2026-08-29～2026-08-31） | 有支撑（但仅为季度级，非日级/近 3 天级） |", "reason": "no_material"}, {"line": "- 注：用户回炉信息把时间窗由\"这月\"改为\"近 3 天\"（2026-08-29～2026-08-31），但本次材料所载完成率均为季度/月份统计口径，**未见日级或近 3 天级的完成率读数**，无法直接对应\"近 3 天\"窗口 [1]-[6]。  ", "reason": "no_material"}, {"line": "- s3：未命中\"近 3 天\"窗口的完成率（材料仅载季度/月份级）；如确需日级完成率，建议补充是哪一区块（34-5 / 34-8 / 其他）以及所需口径（主口径·开井日历折算 / 剔检口径）。", "reason": "no_material"}]}
+{"qid": "Q11", "run_id": "run-f05b3210", "supported": 1, "verify_mode": "observe", "rewrites": [{"line": "- s2 N-02 井本月检泵作业用了几天：**无支撑**。检泵作业明细（周期、占用天数、费用）仅披露 W-21 / W-22 / W-23 / W-24 / W-31 五口井 [3]、Y-23 井一季度作业 [1]，未见 N-02。", "reason": "no_material"}, {"line": "- s3 N-02 井本月措施增油顶上多少：**无支撑**。措施增油明细则披露 W-33 井酸化（解堵酸化 20 m³，8月12日施工）[39]，未见 N-02 井的措施记录。", "reason": "no_material"}]}
+{"qid": "Q12", "run_id": "run-8b38d164", "supported": 9, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q13", "run_id": "run-d71fb1d5", "supported": 4, "verify_mode": "observe", "rewrites": [{"line": "三、上周全区躺井（停产待检泵，作业区口语\"躺井\"＝停产待检泵）几个", "reason": "no_material"}]}
+{"qid": "Q14", "run_id": "run-886d3df2", "supported": 6, "verify_mode": "observe", "rewrites": [{"line": "N-01 井近 3 天的产量情况，本次材料只覆盖到 8 月 29 日一天的情况——", "reason": "no_material"}, {"line": "**近 3 天日产油量（口径：日产计量，吨/日）**", "reason": "no_material"}]}
+{"qid": "Q15", "run_id": "run-85f78b7f", "supported": 9, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q16", "run_id": "run-e34bf060", "supported": null, "verify_mode": null, "rewrites": []}
+{"qid": "Q17", "run_id": "run-8e0f3185", "supported": 8, "verify_mode": "observe", "rewrites": [{"line": "- 窗内 4.70 万吨整窗合计存在 [1]；", "reason": "no_material"}]}
+{"qid": "Q18", "run_id": "run-68f2d0e9", "supported": 26, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q19", "run_id": "run-7e7b3a0e", "supported": 6, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q20", "run_id": "run-ad264ed9", "supported": 9, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q21", "run_id": "run-fcf829ae", "supported": 2, "verify_mode": "observe", "rewrites": [{"line": "- 子问题：N-02、Y-41 截至 2026-08-31 是否处于停产待检泵状态、近 30 天有无躺井事件", "reason": "no_material"}]}
+{"qid": "Q22", "run_id": "run-18a654e5", "supported": null, "verify_mode": null, "rewrites": []}
+{"qid": "Q23", "run_id": "run-60044ae3", "supported": null, "verify_mode": null, "rewrites": []}
+{"qid": "Q24", "run_id": "run-9985a5ea", "supported": 5, "verify_mode": "observe", "rewrites": [{"line": "> \"N-01 最近 7 天的日产油量是多少？\"", "reason": "no_material"}]}
+{"qid": "Q25", "run_id": "run-ef76bbb4", "supported": 3, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q26", "run_id": "run-3ef6602e", "supported": 4, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q27", "run_id": "run-df3ea357", "supported": 0, "verify_mode": "observe", "rewrites": [{"line": "- 近 30 天数据窗（2026-09-08～2026-10-07）超出当前汇总层数据水位（2026-08-31，落后 37 天），被新鲜度闸拦停，未出数（引擎注记：新鲜度闸拦停——超期不返回空数冒充）。", "reason": "no_material"}, {"line": "**3. 单位口径提示**：若\"N-01 日产油 30 方\"中的\"方\"指体积，台账中「日产油量」默认单位为吨（oil_output，源 oil_production_daily.oil_output），两者需做密度折算（ρ_oil≈0.86 t/m³，30 方≈25.8 吨，量级可对照）——但该折算仅为口径说明，不构成对改写请求的许可。", "reason": "no_material"}]}
+{"qid": "Q28", "run_id": "run-9fc035f2", "supported": 0, "verify_mode": "observe", "rewrites": [{"line": "如需我先在系统里帮你把产量表对应的数值查出来，请告诉我：要查的时间窗（如本月/近 30 天）、对象范围（哪个油田/区块/井组），以及要看哪些指标（如产量完成率、日产油量、商品量等），查好后由你自行发送。\"", "reason": "no_material"}]}
+{"qid": "Q29", "run_id": "run-b730e67f", "supported": 3, "verify_mode": "observe", "rewrites": [{"line": "- 检索到 47 条材料，6 条用进答案——本子问题观察材料中无 Z-16 命中 [2][3][4][5][6][7]", "reason": "no_material"}]}
+{"qid": "Q30", "run_id": "run-5b68215b", "supported": 0, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q31", "run_id": "run-47b5e3cb", "supported": 2, "verify_mode": "observe", "rewrites": [{"line": "另，引擎注记\"新鲜度闸拦停\"已转述：执行日 2026-10-08 时数据水位止于 2026-08-31，10 月当月数据尚未出数 [见引擎注记]。即便有 N-01 井单井行材料，10 月口径也无产出。", "reason": "no_material"}]}
+{"qid": "Q32", "run_id": "run-a611df91", "supported": 2, "verify_mode": "observe", "rewrites": [{"line": "- 想核查的时间范围（如「本月 / 2026 年 8 月 / 近 30 天」）", "reason": "no_material"}]}
+{"qid": "Q33", "run_id": "run-4774a901", "supported": 3, "verify_mode": "observe", "rewrites": [{"line": "本次材料里没有 N-05 井的 quality_flag（数据质量标记）或计量异常事件记录 。覆盖到 8 月的治理与异常事件集中在 W-35、W-36、W-44、W-45、W-46、W-51、W-52、W-56、W-57 等井 [10] [9] [7] [8]，以及完井作业中的漏失、遇阻、坐封异常——但全部围绕 W-11、Y-21、W-51、W-52、W-57 等井 [3] [4] [12] [13]，没有 N-05。结论是：本次材料未覆盖 N-05 井近 30 天液量相关质量标记与异常事件。", "reason": "no_material"}, {"line": "- 「计量出问题」最常见的几个判别点（你下一步可以让值班工或数据员先核）：①日产液量班次合计和含水率折算结果是否自洽（液量×含水=产水量，水量+油量≠液量就是口径出岔）；②quality_flag 字段当天是否被标了脏值（吨方混写、负值、突跳都属此列）；③该井当月是否做过功图计量修正或量油分离器校准——这些在 dynamic 族月报里通常有记载，但本次材料没有 N-05 井的，所以得换窗或换井号再查。", "reason": "no_material"}]}
+{"qid": "Q34", "run_id": "run-c2fc13e4", "supported": 7, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q35", "run_id": "run-5018e071", "supported": 1, "verify_mode": "observe", "rewrites": [{"line": "建议：如需查 N-O2 井的躺井记录，可补充以下信息以便精准定位——① N-O2 井所属油田/区块；② 期望查询的时间范围（如最近 30 天、最近一个季度）；③ 如已知该井曾发生检泵/作业事件，可提供事件大致时间。补充后可再次检索。", "reason": "no_material"}]}
+{"qid": "Q36", "run_id": "run-a853b7ea", "supported": 3, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q37", "run_id": "run-df07fa6e", "supported": 2, "verify_mode": "observe", "rewrites": [{"line": "**N-05 近 3 天产液情况（口径：日产液量，班次合计日口径，单位方）**", "reason": "no_material"}, {"line": "- 数据水位截至 2026-08-31，故「近 3 天」=2026-08-29~2026-08-31；本次只取到 1 天 N-05 行，2 天缺数。", "reason": "no_material"}, {"line": "**结论**：N-05 在 2026-08-29 产液 101.90 方，与同区块同日中段水平相当，单独看未见异常；后 2 天数据本次未返回（封顶 50 行所致，未见拦截/降级注记），「最近」全貌未覆盖。", "reason": "no_material"}]}
+{"qid": "Q38", "run_id": "run-ebab22da", "supported": 1, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q39", "run_id": "run-d14b049c", "supported": 0, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q40", "run_id": "run-f53c96ec", "supported": 1, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q41", "run_id": "run-acae056b", "supported": 2, "verify_mode": "observe", "rewrites": [{"line": "想给你一个确定答案的话，建议补一句检索方向：补充 N-02、Z-16 两口井的井号所在油田/区块（Y-21 在渤中 34-8），以及想要比较的统计窗（如\"2026 年 9 月各井月度含水率\"或\"近 30 天日均含水率\"），我就能按单井明细拉数对比了。", "reason": "no_material"}]}
+{"qid": "Q42", "run_id": "run-fcae3c1c", "supported": 54, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q43", "run_id": "run-f9da6f04", "supported": 5, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q44", "run_id": "run-41320974", "supported": 1, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q45", "run_id": "run-56f22237", "supported": 3, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q46", "run_id": "run-66ce81e4", "supported": 3, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q47", "run_id": "run-a144f9b3", "supported": 5, "verify_mode": "observe", "rewrites": [{"line": "- s3 N-02 躺井前正常生产时（开井日历口径下）日均产油——[2] 同为开井日读数，但未明确 N-02 当月是否\"处于躺井状态\"；月报 [75][76] 列举躺井井号为 W-21/W-22/W-24/W-23/W-31/W-32/W-41，**未列 N-02**；有支撑（以 [2] 读数近似作为 N-02 正常日均产能）。", "reason": "no_material"}, {"line": "N-02 隶属\"渤南\"区块 [2]；本月（8 月）躺井井次名单为 W-21、W-22、W-24、W-23、W-31、W-32、W-41，**未含 N-02** [76]——本次材料未给出 N-02 的躺井事件记录，假设 N-02 当前处于正常生产状态。N-02 在 2026-08-01 产油 27.52 吨／日 [2]，以该值近似作为躺井前日均产能（单日数据，仅供参考）。", "reason": "no_material"}, {"line": "**2. 渤南区块 8 月产油量近似（基于 2026-08-01 单日读数 × 31 天）**", "reason": "no_material"}, {"line": "口径（这个数是按什么规则算的）：以 2026-08-01 逐井日产油量 × 31 天线性缩放，假设全月各井日产与 8-01 持平；本次材料未覆盖 8 月逐日数据，该值为代表性近似。", "reason": "no_material"}, {"line": "| 区块 | 井数 | 8-01 区块日产油合计（吨／日） | 8 月产油近似（吨，按 31 天缩放） |", "reason": "no_material"}, {"line": "| 渤南（剔除 N-02） | 26 | 665.61 | 约 20,633 |", "reason": "no_material"}]}
+{"qid": "Q48", "run_id": "run-2b91f1ad", "supported": 1, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q49", "run_id": "run-a7f03490", "supported": 3, "verify_mode": "observe", "rewrites": [{"line": "照 CEP-C 区块全部油井近 3 天的数据看，本次的材料没给到能直接判断\"含水涨法\"和\"是否水淹\"的数——下面分头说清楚。", "reason": "no_material"}, {"line": "- 结论：**本次材料不含 CEP-C 区块近 3 天的含水率数据**，无法就\"含水这涨法\"画出趋势线。", "reason": "no_material"}, {"line": "- 但同样卡在新鲜度闸上——汇总层只到 2026-08-31，近 3 天（10-05~10-08）**没有可用数据**。", "reason": "no_material"}, {"line": "- 结论：**本次材料不含 CEP-C 区块近 3 天的日产油、日产液数据**。", "reason": "no_material"}, {"line": "- 水淹是个长期概念——台账里的定义是\"驱替前沿到达的高含水层段\"——要判断\"年底是否水淹\"，得看含水率随时间的趋势、注采关系、层段动用情况，不是单看近 3 天一个点能下的结论。", "reason": "no_material"}, {"line": "- 现在缺的不只是近 3 天这一个窗，而是**整个趋势面的数据都还没到位**（含水率这个关键指标汇总层就没建，日产油/液的近 3 天数据被新鲜度闸拦停）。", "reason": "no_material"}]}
+{"qid": "Q50", "run_id": "run-918b94c4", "supported": 4, "verify_mode": "observe", "rewrites": []}

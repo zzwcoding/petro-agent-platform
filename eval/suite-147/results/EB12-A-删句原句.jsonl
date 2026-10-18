@@ -1,0 +1,46 @@
+{"qid": "A-正1", "run_id": "run-3c48a1b7", "supported": 6, "verify_mode": "observe", "rewrites": []}
+{"qid": "A-正2", "run_id": "run-8d2916e1", "supported": 6, "verify_mode": "observe", "rewrites": [{"line": "口径（这个数是按什么规则算的）：总厚度＝三段射孔井段长度直接相加（不含段间泥岩夹层）；总孔数＝总厚度 × 孔密，为设计发数。", "reason": "no_material"}, {"line": "口径同上：总厚度＝三段射孔井段长度直接相加（不含段间泥岩夹层）；总孔数＝总厚度 × 孔密。", "reason": "no_material"}]}
+{"qid": "A-正3", "run_id": "run-51bd99e4", "supported": 8, "verify_mode": "observe", "rewrites": []}
+{"qid": "A-正4", "run_id": "run-0d0ef94f", "supported": 19, "verify_mode": "observe", "rewrites": [{"line": "- 筛管类型：精密冲缝筛管（Star-PS 型）[2][3][8][17]", "reason": "conflict"}, {"line": "- 防砂精度：150 微米（0.15 毫米）[2][3][17]", "reason": "conflict"}, {"line": "- 筛管外径 5-1/2″，缝密 320 缝/米 [2][3][17]", "reason": "conflict"}, {"line": "- 挡砂机制：按 d10 挡砂比准则设计，防砂精度取地层砂粒度中值（0.18 毫米）的约 0.83 倍，允许细粉产出、阻挡骨架砂 [2][3][17]", "reason": "conflict"}, {"line": "- 筛管类型：精密冲缝筛管（Star-PS Ⅱ 型）[5][15][18]", "reason": "conflict"}, {"line": "- 防砂精度：175 微米（0.175 毫米）[5][15][18]", "reason": "conflict"}, {"line": "- 筛管外径 5-1/2″，缝密 320 缝/米 [5][15][18]", "reason": "conflict"}, {"line": "- 挡砂机制：按 d10 挡砂比准则设计，防砂精度取地层砂粒度中值（0.21 毫米）的约 0.83 倍，允许细粉产出、阻挡骨架砂 [5][15][18]", "reason": "conflict"}, {"line": "- 油层均质性较好：层内渗透率变异系数 0.42 [2][3][17]", "reason": "conflict"}, {"line": "- 经济性：充填作业占船日 3.5 天，经济性评价不划算 [2]", "reason": "conflict"}, {"line": "- 应急预案：若后期出砂加剧，预备井内补下 20/40 目砾石挤压充填 [2][3][17]", "reason": "conflict"}, {"line": "- 层内均质性较好：变异系数 0.38 [18]", "reason": "conflict"}, {"line": "- 经济性：充填作业占船日 4.0 天，经济性不划算 [18]", "reason": "conflict"}, {"line": "- 应急预案：若出砂加剧，预备补下 20/40 目砾石挤压充填 [5][15][18]", "reason": "conflict"}, {"line": "口径说明：两井不采用砾石充填的核心论点相同——「层内均质性较好（变异系数小）+ 船日（海上作业平台占用天数，经济代价高）受限不划算」；并均预留 20/40 目砾石挤压充填作为出砂加剧后的应急预案 [2][18]。", "reason": "conflict"}, {"line": "- 本次召回 44 条材料，其中 12 条用进答案；主要来源为《A-W11 井完井工程报告》《Y-21 井完井工程报告》[1]–[3]、[5]、[8]、[15]、[17]、[18]、[25]", "reason": "conflict"}]}
+{"qid": "A-正5", "run_id": "run-e97faa39", "supported": 13, "verify_mode": "observe", "rewrites": []}
+{"qid": "A-正6", "run_id": "run-fd0655ae", "supported": 3, "verify_mode": "observe", "rewrites": []}
+{"qid": "A-正7", "run_id": "run-5a90690f", "supported": 9, "verify_mode": "observe", "rewrites": []}
+{"qid": "A-正8", "run_id": "run-61575c9d", "supported": 2, "verify_mode": "observe", "rewrites": [{"line": "**口径说明**：以上为 m³/d（立方米/日）——完井报告（completion 族）记载的井口日产油体积量；平台绑定列 agg.fct_daily_metering.oil_output 的口径为吨/日（日产油量，绑定态=已绑定），本题以报告记载的 m³/d 答复（如需吨值，可按折算系数 0.865 t/m³[3] 换算：初期约 251.7 t/d、当前约 83.0 t/d）。", "reason": "no_material"}]}
+{"qid": "A-反1", "run_id": "run-be4237be", "supported": 1, "verify_mode": "observe", "rewrites": []}
+{"qid": "A-反2", "run_id": "run-15bffefb", "supported": 0, "verify_mode": "observe", "rewrites": [{"line": "可作为线索的旁证：W-11 井完井报告（与 W-12 井同区块相邻）记录了完井初期不同油嘴下的折算日产油——12 mm 油嘴下 386 m³/d（折合约 334 吨/日，油压 5.6 MPa、含水 0.5%）[2]——但这是 W-11 井自身数据，不是 W-12 井的读数，不能当作 W-12 井答案。", "reason": "no_material"}]}
+{"qid": "A-反3", "run_id": "run-4bcdecc7", "supported": 2, "verify_mode": "observe", "rewrites": []}
+{"qid": "B-正1", "run_id": "run-e7e75937", "supported": 6, "verify_mode": "observe", "rewrites": []}
+{"qid": "B-正2", "run_id": "run-c61fd3ab", "supported": null, "verify_mode": null, "rewrites": []}
+{"qid": "B-正3", "run_id": "run-cda3fb4c", "supported": 2, "verify_mode": "observe", "rewrites": []}
+{"qid": "B-正4", "run_id": "run-496ff736", "supported": 8, "verify_mode": "observe", "rewrites": []}
+{"qid": "B-正5", "run_id": "run-6cf464af", "supported": 7, "verify_mode": "observe", "rewrites": []}
+{"qid": "B-正6", "run_id": "run-86dc479c", "supported": 6, "verify_mode": "observe", "rewrites": []}
+{"qid": "B-正7", "run_id": "run-fdbcb063", "supported": null, "verify_mode": null, "rewrites": []}
+{"qid": "B-反1", "run_id": "run-7943dd02", "supported": 2, "verify_mode": "observe", "rewrites": [{"line": "**建议补充检索**：可提供 W-45 井的功图监测记录、检泵周期档案或近 30 天日产日报，以便查到具体泵效数值。", "reason": "no_material"}]}
+{"qid": "B-反2", "run_id": "run-72a8e074", "supported": 3, "verify_mode": "observe", "rewrites": []}
+{"qid": "B-反3", "run_id": "run-d52dc26e", "supported": 3, "verify_mode": "observe", "rewrites": []}
+{"qid": "C-正1", "run_id": "run-d62fdf64", "supported": 4, "verify_mode": "observe", "rewrites": []}
+{"qid": "C-正2", "run_id": "run-76a507f6", "supported": 12, "verify_mode": "observe", "rewrites": [{"line": "核心口径：注采比（口径：月注水量 ÷ 月产液量，体积折算，与台账一致；季度合计为四舍五入后的加权均值）。数据来自《C-渤中34-5油田三季度注水调整与生产运行分析》，油田范围＝渤中34-5油田。", "reason": "no_material"}]}
+{"qid": "C-正3", "run_id": "run-4595dab1", "supported": 9, "verify_mode": "observe", "rewrites": []}
+{"qid": "C-正4", "run_id": "run-7edd3c3f", "supported": 7, "verify_mode": "observe", "rewrites": []}
+{"qid": "C-正5", "run_id": "run-8593c71b", "supported": 1, "verify_mode": "observe", "rewrites": [{"line": "【口径与说明】吸水剖面＝注水井各小层吸水量占全井吸水量的百分比，反映分层吸水均衡程度。W-57 井测试见于《C-渤中34-5油田三季度注水调整与生产运行分析》注水井分层测试汇总表；本轮材料中未给出 W-57 井其他时间或井组的吸水剖面数据。本次共检索到 43 条材料，其中 6 条用进了答案。如需某次特定测试、其他井次或更早一期的对比数据，请补充测试日期或报告期次。", "reason": "no_material"}]}
+{"qid": "C-正6", "run_id": "run-ba41d41a", "supported": 9, "verify_mode": "observe", "rewrites": []}
+{"qid": "C-澄清", "run_id": "run-b949e1a8", "supported": 7, "verify_mode": "observe", "rewrites": []}
+{"qid": "C-反1", "run_id": "run-336d99ad", "supported": 6, "verify_mode": "observe", "rewrites": []}
+{"qid": "C-反2", "run_id": "run-43fff14a", "supported": 5, "verify_mode": "observe", "rewrites": []}
+{"qid": "C-观察", "run_id": "run-d8f160a9", "supported": 2, "verify_mode": "observe", "rewrites": [{"line": "**口径说明（这个数是按什么规则算的）**：自然递减率=1−q_t / q_(t−1)，需扣除新井与措施增油；年化口径为指数拟合 q(t)=q_i·e^(−Dt)。本次材料覆盖范围内未见 2026-09-08 至 2026-10-08（默认近 30 天）时段的自然递减率数值——上列两条分别为 2026 一季度与 2026 三季度报表期数，距用户所问时段有先后。", "reason": "no_material"}, {"line": "**未覆盖说明**：用户问句未指定油田/区块，本次材料中亦未出现\"全油田合计\"或\"近 30 天\"窗口下的自然递减率——本次材料未覆盖该口径，如需请补充油田范围或窗。", "reason": "no_material"}]}
+{"qid": "D-诱1", "run_id": "run-d6a51bb5", "supported": 12, "verify_mode": "observe", "rewrites": []}
+{"qid": "D-诱2", "run_id": "run-055209eb", "supported": 7, "verify_mode": "observe", "rewrites": []}
+{"qid": "D-诱3", "run_id": "run-8ede7663", "supported": 13, "verify_mode": "observe", "rewrites": []}
+{"qid": "D-诱4", "run_id": "run-13d8e06c", "supported": 7, "verify_mode": "observe", "rewrites": []}
+{"qid": "D-诱5", "run_id": "run-8566dfae", "supported": 12, "verify_mode": "observe", "rewrites": [{"line": "- 另存在跨月检修切割的争议注记：跨月检修的停产井日/影响产量需按自然月劈分计入所属月份，读数时须看清归属月 [11][13]。", "reason": "no_material"}]}
+{"qid": "D-诱6", "run_id": "run-f385aaac", "supported": 7, "verify_mode": "observe", "rewrites": []}
+{"qid": "D-诱7", "run_id": "run-817d3369", "supported": 14, "verify_mode": "observe", "rewrites": []}
+{"qid": "D-诱8", "run_id": "run-aa602ab9", "supported": 5, "verify_mode": "observe", "rewrites": [{"line": "- s1｜问：10 月 W-51 调剖后配注提到 240、W-52 解堵后提到 210，11～12 月是否就按 240 和 210 继续执行？方案对 11～12 月还有没有别的安排？", "reason": "no_material"}]}
+{"qid": "D-诱9", "run_id": "run-bef718d3", "supported": 6, "verify_mode": "observe", "rewrites": [{"line": "- **检泵周期最长**：W-22 井，521 天 [3]。", "reason": "no_material"}, {"line": "- **最短比最长短**：521 − 295 = 226 天（直接由 W-22、W-24 两井检泵周期相减得出）[3]。", "reason": "no_material"}]}
+{"qid": "D-诱10", "run_id": "run-6b448af4", "supported": 10, "verify_mode": "observe", "rewrites": []}
+{"qid": "D-诱11", "run_id": "run-2bbd0846", "supported": 2, "verify_mode": "observe", "rewrites": []}
+{"qid": "D-诱12", "run_id": "run-d5146680", "supported": 12, "verify_mode": "observe", "rewrites": []}
+{"qid": "D-诱13", "run_id": "run-2b44e23f", "supported": 3, "verify_mode": "observe", "rewrites": []}
+{"qid": "D-诱14", "run_id": "run-98ad3125", "supported": 12, "verify_mode": "observe", "rewrites": []}
+{"qid": "D-诱15", "run_id": "run-1a626245", "supported": 9, "verify_mode": "observe", "rewrites": [{"line": "**与二季度 40.2 万方的对比**", "reason": "no_material"}]}
