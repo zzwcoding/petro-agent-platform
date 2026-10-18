@@ -136,6 +136,13 @@ VALUE_UNITS: tuple[str, ...] = (
 # 量值形两记号（小数点／千分位分隔符——形态记号，非词表）。
 DECIMAL_POINT = "."
 THOUSANDS_SEPARATOR = ","
+# 定义等式判据的等号记号（2026-10-18 V2-124——**结构记号，非语义词表**）：NFKC 归一后全角「＝」
+# 与 ASCII `=` 同形（`normalize_for_match`）；判据单点＝`rules.definition_equation_line`
+# （**无引标辖域** ∧ 归一形含本记号 ⇒ 定义等式／口径式句＝无据断言）。零 CJK 字面（零词表 AST
+# 闸面）；真机证据＝EB11 `Q45` `run-9d726969`（组合式定义句每分句可挂真实引标 ⇒ 旧判据面零计量
+# 数值记号 ⇒ 以结构承载行放行，`supported:8`）。真源＝`tickets/v2/V2-124-核验面可核对象与推断
+# 去处.md`（含「Kimi 评审修正」1）。
+EQUATION_MARK = "="
 # 册号／节号的结构记号（「§」——文档结构记号，**非语义词表**；量值记号前紧邻者＝册号／节号，
 # 不入口径数值面——2026-10-18 V2-105，真机证据＝EB11 `Q27` 的「99 §2.12」）。
 SECTION_MARKS: frozenset[str] = frozenset({"\u00a7"})

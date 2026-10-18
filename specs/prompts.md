@@ -82,7 +82,13 @@
 #   如实说明未覆盖。」**之后**逐字追加「【术语级缺位出口】若所问口径/表述在材料中查无对应登记，
 #   直接写「材料中未见该表述，无法给出其口径」，不得自拟定义或算法。」——与对象级出口并列的
 #   术语/口径级合法缺位形；逐字稿＝`tickets/v2/V2-121-术语级缺位出口与待核前提.md` §逐字稿；
-#   段内其余字面零改、diff 只许追加；真源病根＝EB11 §一-1 `Q45`「术语级无出口⇒自造判定式」）；
+#   段内其余字面零改、diff 只许追加；真源病根＝EB11 §一-1 `Q45`「术语级无出口⇒自造判定式」）
+#   ＋**推断去处**（**2026-10-18 V2-124 追加**——**段尾追加**「【推断去处】推断句须写明推断依据
+#   与不确定性（「据此推断」「若…则」），不得作为事实断言陈述。」——推断句的明确去处：须标注
+#   推断依据与不确定性、不得作事实断言；逐字稿＝`tickets/v2/V2-124-核验面可核对象与推断去处.md`
+#   §逐字稿；照抄、零改写；真源病根＝EB11 §一-7 `NQ-M1`「推断标注自我豁免」；**落核验侧必破
+#   零词表闸**（该票「Kimi 评审修正」2）⇒ 只在提示词面承载；与 V2-101／V2-121 同改本常量 ⇒
+#   三票串行 101→121→124 且后票只许追加——V2-101 置换段首、V2-121 追加中段、本票追加段尾）；
 #   与 V1 的差异＝删句首重复句群（其 V1 字面句首的答案规则句群＝
 #   D-L2b-01 病灶副本，由族⑥单点承接去重——已裁（流水 43①，Owner 可否决）：
 #   句首 V1 字面答案规则句群去重、由族⑥单点承接；见风险 2）
@@ -213,6 +219,7 @@ def assemble_answer_prompt(state: RunState) -> str: ...
 | 缺位话术收紧（2026-10-18 V2-101）：起草合同**首句**逐字置换（只锚本轮材料、禁「报告/资料库未载」与「没有任何一条材料提及」升格库级否定）、逐字稿恰一份、旧首句退役、单源；`A-正6` 形端到端交付「本次材料未覆盖」而非库级否定；与 V2-122 两票逐字稿互斥不重复 | `tests/domains/test_v2_v101_absence_scope.py::test_absence_scope_verbatim_first_sentence_and_single_source` ／ `::test_absence_scope_and_v122_texts_mutually_exclusive` ／ `::test_a_positive_6_scoped_absence_end_to_end` |
 | 术语级缺位出口（2026-10-18 V2-121）：起草合同**对象级出口句之后追加**术语级出口（逐字稿照抄、追加非置换、段内其余字面零改、单源）；`Q45` 形端到端交付「材料中未见该表述」而非自造判定式；正例 `Q43`／`A-反2` 形（引述物是数字或对象）判定不变 | `tests/domains/test_v2_v121_term_absence_premise.py::test_term_absence_exit_verbatim_appended_after_object_exit` ／ `::test_q45_shape_term_level_absence_not_fabricated_definition` ／ `::test_q43_numeric_and_a_fan2_object_positive_unchanged` |
 | 待核前提（2026-10-18 V2-121）：逐字稿入族② `clarify_emission`、随**澄清规章段**（system 参）恰一份、**user 首入包零命中**（Kimi 评审修正 1——「规章件不在本段」） | `tests/domains/test_v2_v121_term_absence_premise.py::test_pending_premise_verbatim_in_clarify_system_contract_not_user_package` ＋ `tests/domains/test_v2_prompts.py::contract_constant_family_closed_world` |
+| 推断去处（2026-10-18 V2-124）：起草合同**段尾追加**【推断去处】（逐字稿照抄、追加非置换、段内其余字面零改、单源）；`NQ-M1` 形推断句有去处标注、核验侧不被判无据删 | `tests/domains/test_v2_v124_definition_equation_and_inference.py::test_nq_m1_inference_line_not_deleted_and_has_place` |
 | 作答第二出口合同（族⑤b `ANSWER_EXPLORE_CONTRACT`）＝两出口＋1 示例＋再探预算行在场、随规章段恰一次、单源零副本（V2-96 D5） | `tests/domains/test_v2_prompts.py::contract_constant_family_closed_world` ＋ `tests/domains/test_v2_prompts.py::contract_constants_no_duplicate_literals` |
 | 答案轮禁令件在场（动词钉死句＋答案要求⑦；pin-13 合同侧） | `tests/domains/test_v2_prompts.py::answer_round_ban_lines_present` |
 | 装配确定性纯函数：两跑逐字相等、不改入参、零 IO／模型／时钟（AST） | `tests/domains/test_v2_prompts.py::assembly_pure_deterministic` |
@@ -238,6 +245,8 @@ def assemble_answer_prompt(state: RunState) -> str: ...
 > **2026-10-18 补（V2-101·缺位话术收紧·审计）**：族⑤起草答案合同**段首第 1 句逐字置换**——旧 A-P6a-35 半句「（材料未覆盖所问时：只简短说明未找到与所缺，不逐源铺陈无关材料）。」→ **「缺位只锚本轮材料：写「本次材料未覆盖」，不得写「报告/资料库未载」或「没有任何一条材料提及」。」**（只锚**本轮材料**、禁库级否定升格；段内其余字面零改——置换非追加）。逐字稿＝`tickets/v2/V2-101-缺位话术收紧.md` §逐字稿（照抄、零改写）；落点＝`appv2/runtimev2/prompts/constants.py` `ANSWER_DRAFT_CONTRACT`（本模块单点，相位块零字面副本纪律不变）。**分工**＝本票只管**首句措辞**，材料范围限定与计数如实归 V2-122（两票逐字稿互斥不重复）；同改本常量的三票（V2-101→V2-121→V2-124）**串行且后票只许追加**（真源 `docs/runtime-refactor/design/统筹方案-作答提示词.md` §五）。机读面＝`tests/domains/test_v2_v101_absence_scope.py::test_absence_scope_verbatim_first_sentence_and_single_source`（逐字稿在场且恰一份／旧首句退役／单源）／`::test_absence_scope_and_v122_texts_mutually_exclusive`（两票文本互斥）／`::test_a_positive_6_scoped_absence_end_to_end`（`A-正6` 形端到端：交付「本次材料未覆盖」、零库级否定）＋改判 `::answer_requirements_single_source`（旧半句断言改判为新逐字稿断言）。**注**：V1 旧码 `appv2/runtime/graph.py` 的对应句不随本批改（V1 只作备份，ADR-0005）。
 
 > **2026-10-18 补（V2-121·术语级缺位出口＋待核前提·审计）**：①族⑤起草答案合同在**对象级出口句之后追加**术语级出口（逐字稿＝V2-121 票面 §逐字稿；与对象级出口并列的「该口径/该表述未在材料中登记」合法形＋示范句——真源病根 EB11 §一-1 `Q45` `run-9d726969`：术语级无出口可依 ⇒ 自造判定式；**追加非置换**，段内其余字面零改；同改本常量的三票 101→121→124 串行且后票只许追加）。②**待核前提合同**（族② `clarify_emission` 新成员 `CLARIFY_PENDING_PREMISE_CONTRACT`）落**澄清规章段**（`clarify_system_contract`，system 位——插在族②合同与 finalize 边界句之间），**不入 user 首入包**（Kimi 评审修正 1：`decision_round._clarify_package` 自注「规章件不在本段」，原设计破「user 只动态段／规章不入链」）。机读面＝`tests/domains/test_v2_v121_term_absence_premise.py::test_term_absence_exit_verbatim_appended_after_object_exit`（追加位＝对象级出口句之后／恰一份／单源）／`::test_pending_premise_verbatim_in_clarify_system_contract_not_user_package`（system 规章段恰一份＋user 首入包零命中）／`::test_q45_shape_term_level_absence_not_fabricated_definition`（`Q45` 形端到端：出「材料中未见该表述」而非判定式）／`::test_q43_numeric_and_a_fan2_object_positive_unchanged`（正例 `Q43`／`A-反2` 形回归）。
+
+> **2026-10-18 补（V2-124·推断去处·审计）**：族⑤起草答案合同**段尾追加**【推断去处】——「推断句须写明推断依据与不确定性（「据此推断」「若…则」），不得作为事实断言陈述。」（逐字稿＝`tickets/v2/V2-124-核验面可核对象与推断去处.md` §逐字稿，照抄、零改写；**追加非置换**，段内其余字面零改；同改本常量的三票 101→121→124 串行且后票只许追加——V2-101 置换段首、V2-121 追加中段、本票追加段尾）。真源病根＝EB11 §一-7 `NQ-M1` `run-15cb1acc`（「按已有材料推断」自我豁免 ⇒ 推断句与直引句同列子问题结论行；E9／S8）。**承载位分工**：推断去处落**提示词面**（合同常量单点 `constants.py`）——该票「Kimi 评审修正」2 明示**落核验侧必破零词表 AST 闸**（`test_v2_verification.py::no_lexicon_or_regex_in_verification`）；核验侧同票另一件（【定义等式可核】＝结构式判据）见 `specs/verification.md` 行为 16。机读面＝`tests/domains/test_v2_v124_definition_equation_and_inference.py::test_nq_m1_inference_line_not_deleted_and_has_place`（逐字稿段尾恰一份／随作答规章段恰一份／单源／零落核验侧＋`NQ-M1` 形不被判无据删）。
 
 > **2026-10-17 补（EB4a·答案合同白话化·审计）**：族⑥答案要求清单**末尾追加第九／第十条**（逐字＝EB4a 票面引文；⑨＝术语注解条款，⑩＝材料未覆盖→先答相关＋给提问建议；第十条＝Owner 2026-10-17 裁决「召回问题的提示词侧缓解」）＋**族⑥示例区新增静态常量 `JARGON_PLAIN_GLOSSARY`（术语白话表）**，注入点＝`appv2/runtimev2/prompts/answer_round.py` `assemble_answer_prompt`（随答案包**恰一次**入链、字节级稳定；静态块置前、state 投影段在后；文本单点＝`constants.py`，消费方只引不复制）。依据＝`docs/runtime-refactor/research/最佳实践-3a-白话化与受众适配.md` 第三节 3.1（术语表注入＋合并式条款＋配示例——防「指令诅咒」，故本轮**只增两条**、不扩条群）。条间分隔体例同 EB2 D2（非末条尾字＝「；」、末条尾「。」；⑧／⑨尾「。」改「；」＝分隔符位，条文文本零改）。机读面＝`::answer_requirements_verbatim`（10 条逐字）／`::jargon_plain_glossary_injected_once`（单源＋恰一次＋字节稳定）／`::contract_constant_family_closed_world`（族名单闭世界含新常量）／`::answer_round_segment_order_no_material`（段序含术语白话表段）。
 

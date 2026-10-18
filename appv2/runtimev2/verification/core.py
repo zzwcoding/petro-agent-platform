@@ -35,7 +35,10 @@
    计数＝不静默）；**豁免两类线**原样保留（引擎披露行／组头行——只豁免删句，不改写、不放行支撑判）；
    无引标但有数值的行＝无据断言，照删（V2：关闭现状「无引标数字行经窗内放行」形——钉 `pin-10`
    「不得 `cited=[]` 且数字在场」）；无引标且无数值的行＝结构承载，原样保留且**不计有支撑数**
-   （行为 8「不得自动判过」）；
+   （行为 8「不得自动判过」）。**2026-10-18 V2-124（可核对象扩面）**：无引标且归一形含 ASCII
+   等号（全角「＝」经 NFKC 同形）的行＝**定义等式／口径式句**⇒ 同按无据断言删句（判据单点＝
+   `rules.definition_equation_line`——**结构式、零 CJK 词表**；`reason` 走既有 `no_material`，
+   闭世界仍两值）；
 4. **矛盾 → 分列**（行为 4）：被引观察同 subject（全角「：」前名）≥2 支且值不同 → 分开列明、各带
    出处、**不强调和**（`RewriteRecord.reason="conflict"`）＋发 `notice`；`Verdict.split`＝**组数**；
    **分列块不入 `state.draft`**——按原序入增补面（2026-10-17 EB3 D2）；
@@ -173,6 +176,7 @@ from appv2.runtimev2.verification.rules import (
     attribution_split,
     citation_chunks,
     contradiction_groups,
+    definition_equation_line,
     engine_disclosure_line,
     field_attribution_mismatch,
     group_header_line,
@@ -629,7 +633,10 @@ def _verify_lines(
       权威观测在位仍被删致零交付（真机证据＝EB11 `数-排1`），故扩为全窗观测；
     - **件四（油田归属对账）**：支撑判定通过的行再过**行级归属闸**——被引材料自带油田名却全不属
       题眼所辖油田、且行内无分源说明者**拒收**（按既有删句族处置，判据单点＝
-      `rules.field_attribution_mismatch`；题眼所辖面与四条收窄面见该件注）。
+      `rules.field_attribution_mismatch`；题眼所辖面与四条收窄面见该件注）；
+    - **定义等式可核（2026-10-18 V2-124）**：无引标辖域（材料中无对应登记）∧ 归一形含 ASCII
+      等号的行＝定义等式／口径式句 ⇒ 无据断言（判据单点＝`rules.definition_equation_line`，
+      **结构式零词表**；`reason` 走既有 `no_material`——闭世界仍两值）；豁免两类线不破。
     """
     out_lines: list[str] = []
     rewrites: list[RewriteRecord] = []
@@ -698,6 +705,16 @@ def _verify_lines(
                 supported += 1
                 out_lines.append(line)
                 continue
+            if _rewrite_exempt(line, next_line, observations):
+                out_lines.append(line)
+                continue
+            rewrites.append(RewriteRecord(line=line, reason=REWRITE_NO_MATERIAL))
+            continue
+        if definition_equation_line(normalized):
+            # 2026-10-18 V2-124（可核对象扩面）：**无引标辖域**（材料中无对应登记）∧ 归一形含
+            # ASCII 等号（全角「＝」经 NFKC 同形）＝定义等式／口径式句 ⇒ **无据断言**（按行为 3
+            # 的删句族处置；`reason` 走既有 `no_material`——闭世界仍两值，Kimi 评审修正 4）。
+            # 判据全结构式、零 CJK 词表（零词表 AST 闸面）；豁免两类线（行为 12）不破。
             if _rewrite_exempt(line, next_line, observations):
                 out_lines.append(line)
                 continue

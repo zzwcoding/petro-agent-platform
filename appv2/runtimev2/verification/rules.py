@@ -46,6 +46,7 @@ from appv2.runtimev2.verification.constants import (
     DECIMAL_POINT,
     DISCLOSURE_MARKS,
     DISCLOSURE_OBSERVATION_KINDS,
+    EQUATION_MARK,
     FIELD_NAME_NOUN,
     GROUP_HEAD_SUFFIX,
     ISO_DATE_LENGTH,
@@ -437,6 +438,25 @@ def line_numbers_are_asserted(line: str) -> bool:
     （钉 pin-10「不得 `cited=[]` 且数字在场」的落点不变，只把「数字」收窄到「量值」）。
     """
     return bool(number_tokens(normalize_for_match(line)))
+
+
+def definition_equation_line(line: str) -> bool:
+    """**定义等式／口径式句**形判定（2026-10-18 V2-124——可核对象扩面；判据**全结构式、零词表**）。
+
+    两半同真（Kimi 评审修正 1 逐字：`citation_chunks` 为空 ∧ `normalize_for_match` 后含
+    ASCII `=`）：
+
+    - **无引标辖域**（`citation_chunks` 为空——即材料中无对应登记）；
+    - **归一形含 ASCII 等号**（记号单点＝`EQUATION_MARK`；全角「＝」经 NFKC 归一与 ASCII 同形）。
+
+    ⇒ 该行＝**无据断言**（按行为 3 的删句族处置：`RewriteRecord.reason` 走既有 `no_material`
+    ——闭世界仍两值、不新增第 4 值）。判据本体零 CJK 字面、零正则、零语义蕴含（零词表 AST 闸面）；
+    真机证据＝EB11 `Q45`（`run-9d726969`：组合式定义句每分句可挂真实引标 ⇒ 旧判据面零计量数值
+    记号 ⇒ 以结构承载行全票放行，`supported:8`）。真源＝`tickets/v2/V2-124-核验面可核对象与推断
+    去处.md`（含「Kimi 评审修正」1）。
+    """
+    text = normalize_for_match(str(line))
+    return not citation_chunks(text) and EQUATION_MARK in text
 
 
 # ── 豁免两类的形态判据（2026-10-17 EB3 D3——逐字稿＝方案 D3）────────────────────
