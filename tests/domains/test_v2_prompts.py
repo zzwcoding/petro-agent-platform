@@ -110,7 +110,11 @@ _SPEC_FAMILIES: dict[str, tuple[str, ...]] = {
         "TASK_BOOK_REDLINE",
         "TASK_BOOK_OUTPUT_CONTRACT",
     ),
-    "clarify_emission": ("CLARIFY_EMISSION_CONTRACT",),
+    "clarify_emission": (
+        "CLARIFY_EMISSION_CONTRACT",
+        # V2-121：待核前提合同（题面引述/口语说法列待核、先核后答——落澄清规章段 system 参）
+        "CLARIFY_PENDING_PREMISE_CONTRACT",
+    ),
     "toolmatch_emission": ("TOOLMATCH_EMISSION_CONTRACT",),
     "summary": ("SUMMARY_CONTRACT",),
     "answer_draft": (

@@ -153,6 +153,19 @@ CLARIFY_EMISSION_CONTRACT = (
 )
 
 
+# ── 族②澄清规章·待核前提合同（**V2-121 新增**——逐字稿载体＝
+# `tickets/v2/V2-121-术语级缺位出口与待核前提.md` §逐字稿；文本逐字照抄、零改写）────────────
+# 承载位＝澄清环节**规章段**（`decision_round.clarify_system_contract`，system 位）——插在族②
+# 澄清发射合同之后、finalize 交付面边界句之前（边界句仍收尾：既有判据
+# `clarify_system_contract().endswith(CLARIFY_FINALIZE_BOUNDARY)` 不破）。**不入 user 首入包**
+# （Kimi 评审修正 1：`decision_round.py` `_clarify_package` 自注「规章件不在本段」——user 只动态段／
+# 规章不入链）。病根（EB11 §一 E1／§S3）：题面引述/口语说法被「理解」步当作已确认事实。
+CLARIFY_PENDING_PREMISE_CONTRACT = (
+    "【待核前提】题面中的引述与口语说法列为本轮待核前提：先在材料中核其是否成立，"
+    "未成立者如实指出，不得当作已确认事实继续作答。"
+)
+
+
 # ── 族③工具匹配发射合同（迁移照抄——V1 `TOOLMATCH_CONTRACT`；含合同内嵌定案样例）──
 TOOLMATCH_EMISSION_CONTRACT = (
     "【相位②·工具匹配】只输出一个 JSON 对象（可围栏）：\n"
@@ -222,6 +235,13 @@ ANSWER_DRAFT_CONTRACT = (
     "台账卡（指标/术语定义面）只承载口径与定义，不是井/对象的取数面——点名具体井、"
     "报告或对象的数据题，结论必须取自该对象自己的观察材料本体，"
     "不得以台账定义卡拼装该对象的数据答案；材料未覆盖该对象时如实说明未覆盖。"
+    # 2026-10-18 V2-121（术语级缺位出口·S1）：**对象级出口句之后追加**术语级出口——与对象级
+    # 出口并列的合法缺位形（逐字稿＝`tickets/v2/V2-121-术语级缺位出口与待核前提.md` §逐字稿；
+    # 照抄、零改写）。病根（EB11 §一-1 `Q45` `run-9d726969`）：合同只有对象级出口、术语/口径级
+    # 无出口可依 ⇒ 模型自造判定式。与 V2-101／V2-124(作) 同改本常量 ⇒ 三票串行（101→121→124）
+    # 且 diff 只许追加（本句为纯插入，接缝前后既有字面零改）。
+    "【术语级缺位出口】若所问口径/表述在材料中查无对应登记，直接写"
+    "「材料中未见该表述，无法给出其口径」，不得自拟定义或算法。"
     "行集型子问题（问句要求明细/排名/列举全行集时）"
     "：引擎返回的全部数据行逐行交付并逐行带 [n] 引标——数据行禁汇总引标；"
     "组头允许 [m]–[n] 组引标；"
@@ -340,6 +360,9 @@ SYSTEM_BACKGROUND = (
 # 随之改述为「合同常量族（含 H 批新增背景族）」，真源 `specs/prompts.md` 接口定义节同批注。
 # **2026-10-18 V2-123**：族⑤ `answer_draft` 加成员 `ANSWER_PERIOD_CONTRACT`（材料期约束合同句
 # ——报表期晚于执行日只能作「该期资料」引用）——族集合与成员名单同批改规格清单（闭世界纪律）。
+# **2026-10-18 V2-121**：族② `clarify_emission` 加成员 `CLARIFY_PENDING_PREMISE_CONTRACT`（待核
+# 前提合同——题面引述/口语说法先核后答；承载位＝澄清规章段 system 参、不入 user 首入包）——族集合
+# 与成员名单同批改规格清单（闭世界纪律）。
 CONTRACT_CONSTANT_FAMILIES: Mapping[str, tuple[str, ...]] = {
     "task_book_skeleton": (
         "TASK_BOOK_SCENE",
@@ -348,7 +371,13 @@ CONTRACT_CONSTANT_FAMILIES: Mapping[str, tuple[str, ...]] = {
         "TASK_BOOK_REDLINE",
         "TASK_BOOK_OUTPUT_CONTRACT",
     ),
-    "clarify_emission": ("CLARIFY_EMISSION_CONTRACT",),
+    "clarify_emission": (
+        "CLARIFY_EMISSION_CONTRACT",
+        # **2026-10-18 V2-121**：族②澄清规章·待核前提合同（题面引述/口语说法列待核、先核后答；
+        # 逐字稿＝V2-121 票面 §逐字稿；随澄清规章段 `clarify_system_contract` 在场、
+        # 不入 user 首入包）
+        "CLARIFY_PENDING_PREMISE_CONTRACT",
+    ),
     "toolmatch_emission": ("TOOLMATCH_EMISSION_CONTRACT",),
     "summary": ("SUMMARY_CONTRACT",),
     "answer_draft": (

@@ -44,7 +44,8 @@ prompt 19359 tokens 里 §A 全文与台账全量块各两遍）。**注入与�
 ③user_hint 非空／④decision_error 非空／⑤调用方传入文本原样在场）。
 
 **2026-10-17 H 批（角色分家·system 承载位）**：决策轮原一条 user 包拆两路——**规章段**（相位头行＋
-相位合同正文＋〔澄清轮〕finalize 交付面边界句）＝`clarify_system_contract`／
+相位合同正文＋〔澄清轮〕**待核前提合同（2026-10-18 V2-121）**＋finalize 交付面边界句）＝
+`clarify_system_contract`／
 `toolmatch_system_contract`，
 经 `bookkeeping.call_model(system=…)` **随本次请求走**（前置一条 system 条、不入链、回炉轮亦在场）；
 **动态段**（锚行／分解样例／§A 指南段／台账常驻块／问题组 JSON）＝`assemble_decision_package`，
@@ -64,6 +65,7 @@ from typing import Any
 
 from appv2.runtimev2.prompts.constants import (
     CLARIFY_EMISSION_CONTRACT,
+    CLARIFY_PENDING_PREMISE_CONTRACT,
     TOOLMATCH_EMISSION_CONTRACT,
 )
 from appv2.runtimev2.prompts.task_book import _projection, _rows
@@ -368,16 +370,24 @@ def _clarify_contract(max_subtasks: Any) -> str:
 
 def clarify_system_contract(max_subtasks: Any) -> str:
     """澄清环节**规章段**（system 承载位——2026-10-17 H 批）：相位头行＋相位合同正文＋
-    finalize 交付面边界句。
+    **待核前提合同（V2-121）**＋finalize 交付面边界句。
 
-    文本零新写（头行／族②合同／边界句均为既有常量）；`{max_subtasks}` 槽由调用方注入
+    文本零新写（头行／族②合同／待核前提／边界句均为既有常量）；`{max_subtasks}` 槽由调用方注入
     （单点仍在 `_clarify_contract`）。**不入链**——经 `bookkeeping.call_model(system=…)` 随本次
     请求走（回炉轮亦每轮在场：规章随请求、链只追加首入包，`pin-24` 的链面一次性不变）。
+
+    **2026-10-18 V2-121（待核前提·S3）**：`CLARIFY_PENDING_PREMISE_CONTRACT` 插在族②合同之后、
+    finalize 边界句**之前**（边界句仍收尾——既有判据 `endswith(CLARIFY_FINALIZE_BOUNDARY)` 不破）；
+    逐字稿＝`tickets/v2/V2-121-术语级缺位出口与待核前提.md` §逐字稿（照抄、零改写）。承载位＝
+    **system 参**（Kimi 评审修正 1：待核前提必须移出 user 首入包——`_clarify_package` 自注
+    「规章件不在本段」，原设计破「user 只动态段／规章不入链」）。
     """
     return (
         CLARIFY_PHASE_HEAD
         + "\n"
         + _clarify_contract(max_subtasks)
+        + "\n\n"
+        + CLARIFY_PENDING_PREMISE_CONTRACT
         + "\n\n"
         + CLARIFY_FINALIZE_BOUNDARY
     )

@@ -39,6 +39,12 @@
 # ① 任务书静态骨架四常量（场景／任务／样例／红线）
 # ② 澄清发射合同——含相位合同头行＋finalize 交付面边界句
 #                                     #（真源 recon/E1 R-E1-05/06/07；消费方 clarification）
+# ②b 待核前提合同（**2026-10-18 V2-121 新增**——成员 `CLARIFY_PENDING_PREMISE_CONTRACT`，入族②
+#   `clarify_emission`）：题面中的引述与口语说法列为本轮待核前提、先在材料中核其是否成立、
+#   未成立者如实指出、不得当作已确认事实继续作答（逐字稿＝`tickets/v2/V2-121-术语级缺位出口与
+#   待核前提.md` §逐字稿）；注入点＝`clarify_system_contract()`（system 规章段，插在族②合同与
+#   finalize 交付面边界句**之间**——边界句仍收尾）；**不入 user 首入包**（Kimi 评审修正 1：
+#   `decision_round._clarify_package` 自注「规章件不在本段」）。
 # ③ 工具匹配发射合同——含相位合同头行＋合同内嵌定案样例
 #                                     #（真源 recon/E2 R-E2-04、arch/P4b A-P4b-60；消费方 tool_matching）
 #                                     #（**2026-10-16 补（L0/L2 三病灶修复批①）：合同正文（matches 形 ＋
@@ -71,7 +77,12 @@
 #   材料未覆盖」，不得写「报告/资料库未载」或「没有任何一条材料提及」。」——只锚本轮材料、
 #   禁库级否定升格；段内其余字面零改；真源＝`tickets/v2/V2-101-缺位话术收紧.md` §逐字稿；
 #   边界＝范围限定与计数如实归 V2-122，同改本常量三票 101→121→124 串行且后票只许追加）
-#   ＋行集交付规矩段（arch/P4b A-P4b-49 票面附 C 本段不得增删字）＋台账卡边界句；
+#   ＋行集交付规矩段（arch/P4b A-P4b-49 票面附 C 本段不得增删字）＋台账卡边界句
+#   ＋**术语级缺位出口**（**2026-10-18 V2-121 追加**——在**对象级出口句**「材料未覆盖该对象时
+#   如实说明未覆盖。」**之后**逐字追加「【术语级缺位出口】若所问口径/表述在材料中查无对应登记，
+#   直接写「材料中未见该表述，无法给出其口径」，不得自拟定义或算法。」——与对象级出口并列的
+#   术语/口径级合法缺位形；逐字稿＝`tickets/v2/V2-121-术语级缺位出口与待核前提.md` §逐字稿；
+#   段内其余字面零改、diff 只许追加；真源病根＝EB11 §一-1 `Q45`「术语级无出口⇒自造判定式」）；
 #   与 V1 的差异＝删句首重复句群（其 V1 字面句首的答案规则句群＝
 #   D-L2b-01 病灶副本，由族⑥单点承接去重——已裁（流水 43①，Owner 可否决）：
 #   句首 V1 字面答案规则句群去重、由族⑥单点承接；见风险 2）
@@ -118,7 +129,9 @@ def assemble_answer_prompt(state: RunState) -> str: ...
 #      既有常量、零新写）；**不入链**，经 `bookkeeping.call_model(system=…)` 前置进**本次请求**：
 #   understand_system_contract() -> str   # 读题规章段＝指令区（场景/任务/样例/红线）＋输出契约区
 #   clarify_system_contract(max_subtasks) -> str
-#                                     # 澄清规章段＝相位①头行＋族②合同正文＋finalize 交付面边界句
+#                                     # 澄清规章段＝相位①头行＋族②合同正文
+#                                     #  ＋族②b 待核前提合同（2026-10-18 V2-121）
+#                                     #  ＋finalize 交付面边界句（收尾）
 #   toolmatch_system_contract() -> str    # 匹配规章段＝相位②头行＋族③合同正文
 #   answer_system_contract() -> str       # 作答规章段＝族⑤d 作答前三步合同（第 0 段）
 #                                     #  ＋动词钉死句＋【答案要求】＋族⑥清单全文
@@ -128,7 +141,7 @@ def assemble_answer_prompt(state: RunState) -> str: ...
 #   增量条／数据区／子问题清单）；链本体仍只 user／assistant（＋链首背景块 system 恰一条）。
 ```
 
-- **合同常量族名单是闭世界**：上列六族之外新增合同文本＝只许以「新增常量入族＋同批改本清单」方式进块；消费方私设第二合同源（合同字面复制进相位块）＝判失败。**2026-10-18 V2-96 D5**：族⑤ `answer_draft` 加成员 `ANSWER_EXPLORE_CONTRACT`（作答第二出口合同＋1 示例＋再探预算行；真源 §五·5.1）——族集合与成员名单同批改本清单，机读面＝`tests/domains/test_v2_prompts.py::contract_constant_family_closed_world`。**2026-10-18 V2-123**：族⑤ `answer_draft` 再加成员 `ANSWER_PERIOD_CONTRACT`（材料期约束合同——报表期晚于执行日只能作「该期资料」引用；逐字稿＝V2-123 票面 §逐字稿；随作答规章段 `answer_system_contract` 在场、插在末段之前）——族集合与成员名单同批改本清单，机读面＝`tests/domains/test_v2_prompts.py::contract_constant_family_closed_world` ＋ `tests/domains/test_v2_v123_material_period.py::test_answer_period_contract_verbatim_and_family`。**2026-10-17 H 批**：族名单加**第七族** `system_background`（成员＝`SYSTEM_BACKGROUND`，逐字稿＝H 批开票 §5）——「六族」口径随之读作「合同常量族（含 H 批新增背景族）」；机读面＝`tests/domains/test_v2_prompts.py::system_background_verbatim`（族⑦成员逐字＋单源）。**2026-10-18 V2-120**：族⑤ `answer_draft` 再加成员 `ANSWER_THREE_STEP_CONTRACT`（作答前三步合同——先核→再决→后写；逐字稿＝V2-120 票面 §逐字稿；随作答规章段 `answer_system_contract` 在场、置**第 0 段**先于动词钉死句）——族集合与成员名单同批改本清单，机读面＝`tests/domains/test_v2_prompts.py::contract_constant_family_closed_world` ＋ `tests/domains/test_v2_v120_three_step.py::test_answer_three_step_contract_verbatim_and_family`。
+- **合同常量族名单是闭世界**：上列六族之外新增合同文本＝只许以「新增常量入族＋同批改本清单」方式进块；消费方私设第二合同源（合同字面复制进相位块）＝判失败。**2026-10-18 V2-96 D5**：族⑤ `answer_draft` 加成员 `ANSWER_EXPLORE_CONTRACT`（作答第二出口合同＋1 示例＋再探预算行；真源 §五·5.1）——族集合与成员名单同批改本清单，机读面＝`tests/domains/test_v2_prompts.py::contract_constant_family_closed_world`。**2026-10-18 V2-123**：族⑤ `answer_draft` 再加成员 `ANSWER_PERIOD_CONTRACT`（材料期约束合同——报表期晚于执行日只能作「该期资料」引用；逐字稿＝V2-123 票面 §逐字稿；随作答规章段 `answer_system_contract` 在场、插在末段之前）——族集合与成员名单同批改本清单，机读面＝`tests/domains/test_v2_prompts.py::contract_constant_family_closed_world` ＋ `tests/domains/test_v2_v123_material_period.py::test_answer_period_contract_verbatim_and_family`。**2026-10-17 H 批**：族名单加**第七族** `system_background`（成员＝`SYSTEM_BACKGROUND`，逐字稿＝H 批开票 §5）——「六族」口径随之读作「合同常量族（含 H 批新增背景族）」；机读面＝`tests/domains/test_v2_prompts.py::system_background_verbatim`（族⑦成员逐字＋单源）。**2026-10-18 V2-120**：族⑤ `answer_draft` 再加成员 `ANSWER_THREE_STEP_CONTRACT`（作答前三步合同——先核→再决→后写；逐字稿＝V2-120 票面 §逐字稿；随作答规章段 `answer_system_contract` 在场、置**第 0 段**先于动词钉死句）——族集合与成员名单同批改本清单，机读面＝`tests/domains/test_v2_prompts.py::contract_constant_family_closed_world` ＋ `tests/domains/test_v2_v120_three_step.py::test_answer_three_step_contract_verbatim_and_family`。**2026-10-18 V2-121**：族② `clarify_emission` 加成员 `CLARIFY_PENDING_PREMISE_CONTRACT`（待核前提合同——题面引述/口语说法列待核、先核后答；逐字稿＝V2-121 票面 §逐字稿；随澄清规章段 `clarify_system_contract` 在场、**不入 user 首入包**）——族集合与成员名单同批改本清单，机读面＝`tests/domains/test_v2_prompts.py::contract_constant_family_closed_world` ＋ `tests/domains/test_v2_v121_term_absence_premise.py::test_pending_premise_verbatim_in_clarify_system_contract_not_user_package`。
 - **装配函数族名单是闭世界**：族成员即上列成员；增删成员须同批对账四消费方规格（`specs/understanding.md`／`specs/clarification.md`／`specs/tool_matching.md`／`specs/answering.md`）的触及面。常量实名与函数签名阶段 5 施工时按卡定（本规格锁的是**名单闭世界**与**纯文本进出**）。**2026-10-17 H 批**：族名单加**规章取件函数四件**（`understand_system_contract`／`clarify_system_contract`／`toolmatch_system_contract`／`answer_system_contract`）——同批已对账四消费方规格（各加 H 批注记）＋`specs/bookkeeping.md`（`call_model` 的 `system` 注入参）。
 - **错误契约（纯文本进出）**：装配函数输出恒为 `str`——**不抛业务错、不返回 `None`**；投影缺位走**占位文案**（逐字见行为约定 5）或**空串段**（空串＝「该段缺位」的机读信号，调用方跳过，真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-32「台账空投影返回空串（调用方跳过）」）。
 - **入参纪律**：装配函数消费 state 投影字段（字段面以 `docs/runtime-refactor/synth/S5-RunState字段矩阵.md` 为界，只读）＋调用方传入的文本（如过程段渲染产物、时间量）；**时间量只经入参注入**，本块不读时钟（时间一律 `infra.clock` 的 B14 纪律在装配面的形态＝零时钟接触，时钟值由调用方注入）。
@@ -198,6 +211,8 @@ def assemble_answer_prompt(state: RunState) -> str: ...
 | 作答前三步合同（2026-10-18 V2-120）：逐字稿照抄票面、入族⑤ `answer_draft`、随规章段恰一份、置**第 0 段**先于动词钉死句；段序＝先核→再决→后写；`ANSWER_EXPLORE_CONTRACT` 仍恰一份；承载位＝system 参不入链；端到端（脚本化／提示词条件化 completer）零支撑题先 explore、充分题不 explore | `tests/domains/test_v2_v120_three_step.py::test_answer_three_step_contract_verbatim_and_family` ／ `::test_answer_three_step_segment_order` ／ `::test_three_step_zero_support_explores_first` ／ `::test_three_step_sufficient_no_explore` |
 | 子问题覆盖表（2026-10-18 V2-119）：提示行逐字（`ANSWER_COVERAGE_LINE`）＋段头（`ANSWER_COVERAGE_HEAD`）单点命名 `ANSWER_COVERAGE_*`、runtimev2 面恰一处字面定义；落动态段清单后材料前；全有支撑＝零追加 | `tests/domains/test_v2_v119_subtask_coverage.py::test_answer_coverage_line_verbatim_and_single_source` ／ `::test_answer_coverage_section_placement_before_materials` ／ `::test_answer_sufficient_material_no_line` |
 | 缺位话术收紧（2026-10-18 V2-101）：起草合同**首句**逐字置换（只锚本轮材料、禁「报告/资料库未载」与「没有任何一条材料提及」升格库级否定）、逐字稿恰一份、旧首句退役、单源；`A-正6` 形端到端交付「本次材料未覆盖」而非库级否定；与 V2-122 两票逐字稿互斥不重复 | `tests/domains/test_v2_v101_absence_scope.py::test_absence_scope_verbatim_first_sentence_and_single_source` ／ `::test_absence_scope_and_v122_texts_mutually_exclusive` ／ `::test_a_positive_6_scoped_absence_end_to_end` |
+| 术语级缺位出口（2026-10-18 V2-121）：起草合同**对象级出口句之后追加**术语级出口（逐字稿照抄、追加非置换、段内其余字面零改、单源）；`Q45` 形端到端交付「材料中未见该表述」而非自造判定式；正例 `Q43`／`A-反2` 形（引述物是数字或对象）判定不变 | `tests/domains/test_v2_v121_term_absence_premise.py::test_term_absence_exit_verbatim_appended_after_object_exit` ／ `::test_q45_shape_term_level_absence_not_fabricated_definition` ／ `::test_q43_numeric_and_a_fan2_object_positive_unchanged` |
+| 待核前提（2026-10-18 V2-121）：逐字稿入族② `clarify_emission`、随**澄清规章段**（system 参）恰一份、**user 首入包零命中**（Kimi 评审修正 1——「规章件不在本段」） | `tests/domains/test_v2_v121_term_absence_premise.py::test_pending_premise_verbatim_in_clarify_system_contract_not_user_package` ＋ `tests/domains/test_v2_prompts.py::contract_constant_family_closed_world` |
 | 作答第二出口合同（族⑤b `ANSWER_EXPLORE_CONTRACT`）＝两出口＋1 示例＋再探预算行在场、随规章段恰一次、单源零副本（V2-96 D5） | `tests/domains/test_v2_prompts.py::contract_constant_family_closed_world` ＋ `tests/domains/test_v2_prompts.py::contract_constants_no_duplicate_literals` |
 | 答案轮禁令件在场（动词钉死句＋答案要求⑦；pin-13 合同侧） | `tests/domains/test_v2_prompts.py::answer_round_ban_lines_present` |
 | 装配确定性纯函数：两跑逐字相等、不改入参、零 IO／模型／时钟（AST） | `tests/domains/test_v2_prompts.py::assembly_pure_deterministic` |
@@ -221,6 +236,8 @@ def assemble_answer_prompt(state: RunState) -> str: ...
 > **2026-10-17 补（EB3 D3·组引标放开·审计）**：族⑤起草答案合同**行集交付段内一句逐字置换**——旧「禁汇总引标（如「[1]–[24]」写在表尾注里）」→ **「数据行禁汇总引标；组头允许 `[m]–[n]` 组引标」**（段内其余字面零改；数据行仍逐行 `[n]`，组头行的组引标不再被判违规）。逐字稿＝`docs/runtime-refactor/proposals/EB3-交付面分层与缺陷修复.md` D3；落点＝`appv2/runtimev2/prompts/constants.py` `ANSWER_DRAFT_CONTRACT`（本模块单点，相位块零字面副本纪律不变）。机读面＝`::answer_round_segment_order_no_material`／`::contract_constants_no_duplicate_literals`（段序与单点面）+ 核验侧豁免钉 `tests/domains/test_v2_verification.py::group_citation_marker_untouched`（组引标不被改）与 `::rewrite_exempt_disclosure_and_group_head`（组头行不删句）。**注**：V1 旧码 `appv2/runtime/graph.py` 的对应句不随本批改（V1 只作备份，ADR-0005）。
 
 > **2026-10-18 补（V2-101·缺位话术收紧·审计）**：族⑤起草答案合同**段首第 1 句逐字置换**——旧 A-P6a-35 半句「（材料未覆盖所问时：只简短说明未找到与所缺，不逐源铺陈无关材料）。」→ **「缺位只锚本轮材料：写「本次材料未覆盖」，不得写「报告/资料库未载」或「没有任何一条材料提及」。」**（只锚**本轮材料**、禁库级否定升格；段内其余字面零改——置换非追加）。逐字稿＝`tickets/v2/V2-101-缺位话术收紧.md` §逐字稿（照抄、零改写）；落点＝`appv2/runtimev2/prompts/constants.py` `ANSWER_DRAFT_CONTRACT`（本模块单点，相位块零字面副本纪律不变）。**分工**＝本票只管**首句措辞**，材料范围限定与计数如实归 V2-122（两票逐字稿互斥不重复）；同改本常量的三票（V2-101→V2-121→V2-124）**串行且后票只许追加**（真源 `docs/runtime-refactor/design/统筹方案-作答提示词.md` §五）。机读面＝`tests/domains/test_v2_v101_absence_scope.py::test_absence_scope_verbatim_first_sentence_and_single_source`（逐字稿在场且恰一份／旧首句退役／单源）／`::test_absence_scope_and_v122_texts_mutually_exclusive`（两票文本互斥）／`::test_a_positive_6_scoped_absence_end_to_end`（`A-正6` 形端到端：交付「本次材料未覆盖」、零库级否定）＋改判 `::answer_requirements_single_source`（旧半句断言改判为新逐字稿断言）。**注**：V1 旧码 `appv2/runtime/graph.py` 的对应句不随本批改（V1 只作备份，ADR-0005）。
+
+> **2026-10-18 补（V2-121·术语级缺位出口＋待核前提·审计）**：①族⑤起草答案合同在**对象级出口句之后追加**术语级出口（逐字稿＝V2-121 票面 §逐字稿；与对象级出口并列的「该口径/该表述未在材料中登记」合法形＋示范句——真源病根 EB11 §一-1 `Q45` `run-9d726969`：术语级无出口可依 ⇒ 自造判定式；**追加非置换**，段内其余字面零改；同改本常量的三票 101→121→124 串行且后票只许追加）。②**待核前提合同**（族② `clarify_emission` 新成员 `CLARIFY_PENDING_PREMISE_CONTRACT`）落**澄清规章段**（`clarify_system_contract`，system 位——插在族②合同与 finalize 边界句之间），**不入 user 首入包**（Kimi 评审修正 1：`decision_round._clarify_package` 自注「规章件不在本段」，原设计破「user 只动态段／规章不入链」）。机读面＝`tests/domains/test_v2_v121_term_absence_premise.py::test_term_absence_exit_verbatim_appended_after_object_exit`（追加位＝对象级出口句之后／恰一份／单源）／`::test_pending_premise_verbatim_in_clarify_system_contract_not_user_package`（system 规章段恰一份＋user 首入包零命中）／`::test_q45_shape_term_level_absence_not_fabricated_definition`（`Q45` 形端到端：出「材料中未见该表述」而非判定式）／`::test_q43_numeric_and_a_fan2_object_positive_unchanged`（正例 `Q43`／`A-反2` 形回归）。
 
 > **2026-10-17 补（EB4a·答案合同白话化·审计）**：族⑥答案要求清单**末尾追加第九／第十条**（逐字＝EB4a 票面引文；⑨＝术语注解条款，⑩＝材料未覆盖→先答相关＋给提问建议；第十条＝Owner 2026-10-17 裁决「召回问题的提示词侧缓解」）＋**族⑥示例区新增静态常量 `JARGON_PLAIN_GLOSSARY`（术语白话表）**，注入点＝`appv2/runtimev2/prompts/answer_round.py` `assemble_answer_prompt`（随答案包**恰一次**入链、字节级稳定；静态块置前、state 投影段在后；文本单点＝`constants.py`，消费方只引不复制）。依据＝`docs/runtime-refactor/research/最佳实践-3a-白话化与受众适配.md` 第三节 3.1（术语表注入＋合并式条款＋配示例——防「指令诅咒」，故本轮**只增两条**、不扩条群）。条间分隔体例同 EB2 D2（非末条尾字＝「；」、末条尾「。」；⑧／⑨尾「。」改「；」＝分隔符位，条文文本零改）。机读面＝`::answer_requirements_verbatim`（10 条逐字）／`::jargon_plain_glossary_injected_once`（单源＋恰一次＋字节稳定）／`::contract_constant_family_closed_world`（族名单闭世界含新常量）／`::answer_round_segment_order_no_material`（段序含术语白话表段）。
 
