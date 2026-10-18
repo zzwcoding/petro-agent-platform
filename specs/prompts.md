@@ -65,9 +65,14 @@
 #   注入点＝`answer_system_contract()`（system 规章段**第 0 段**——先于动词钉死句）；「子问题
 #   覆盖表」指代 V2-119 的 user 动态段段头（`ANSWER_COVERAGE_HEAD` 逐字「子问题覆盖表：」）
 #   ——**硬依赖 V2-119 先落**（反序＝合同指代悬空）。
-# ⑤ 起草答案合同——构成（去重后形态，拼接序照现状）＝行集交付规矩段
-#   （arch/P4b A-P4b-49 票面附 C 本段不得增删字）＋台账卡边界句＋A-P6a-35 追加半句
-#   （逐字保留）；与 V1 的差异＝删句首重复句群（其 V1 字面句首的答案规则句群＝
+# ⑤ 起草答案合同——构成（去重后形态，拼接序照现状）＝**缺位话术句**（段首第 1 句；
+#   **2026-10-18 V2-101 逐字置换**——A-P6a-35 追加半句「（材料未覆盖所问时：只简短说明未
+#   找到与所缺，不逐源铺陈无关材料）。」按票面 §逐字稿置换为「缺位只锚本轮材料：写「本次
+#   材料未覆盖」，不得写「报告/资料库未载」或「没有任何一条材料提及」。」——只锚本轮材料、
+#   禁库级否定升格；段内其余字面零改；真源＝`tickets/v2/V2-101-缺位话术收紧.md` §逐字稿；
+#   边界＝范围限定与计数如实归 V2-122，同改本常量三票 101→121→124 串行且后票只许追加）
+#   ＋行集交付规矩段（arch/P4b A-P4b-49 票面附 C 本段不得增删字）＋台账卡边界句；
+#   与 V1 的差异＝删句首重复句群（其 V1 字面句首的答案规则句群＝
 #   D-L2b-01 病灶副本，由族⑥单点承接去重——已裁（流水 43①，Owner 可否决）：
 #   句首 V1 字面答案规则句群去重、由族⑥单点承接；见风险 2）
 # ⑥ 答案要求清单（10 条——迁移照抄逐字稿见「行为约定」2；2026-10-17 EB2 D2 追加第八条；
@@ -192,6 +197,7 @@ def assemble_answer_prompt(state: RunState) -> str: ...
 | 答案轮段序固定（V2-120 三步合同置规章段第 0 段→动词钉死句→三件套→术语白话表→汇总合同→第二出口合同→材料期约束合同→起草合同；V2-96 D5：第二出口合同插在汇总合同与起草合同之间）；材料段零渗入 | `tests/domains/test_v2_prompts.py::answer_round_segment_order_no_material` |
 | 作答前三步合同（2026-10-18 V2-120）：逐字稿照抄票面、入族⑤ `answer_draft`、随规章段恰一份、置**第 0 段**先于动词钉死句；段序＝先核→再决→后写；`ANSWER_EXPLORE_CONTRACT` 仍恰一份；承载位＝system 参不入链；端到端（脚本化／提示词条件化 completer）零支撑题先 explore、充分题不 explore | `tests/domains/test_v2_v120_three_step.py::test_answer_three_step_contract_verbatim_and_family` ／ `::test_answer_three_step_segment_order` ／ `::test_three_step_zero_support_explores_first` ／ `::test_three_step_sufficient_no_explore` |
 | 子问题覆盖表（2026-10-18 V2-119）：提示行逐字（`ANSWER_COVERAGE_LINE`）＋段头（`ANSWER_COVERAGE_HEAD`）单点命名 `ANSWER_COVERAGE_*`、runtimev2 面恰一处字面定义；落动态段清单后材料前；全有支撑＝零追加 | `tests/domains/test_v2_v119_subtask_coverage.py::test_answer_coverage_line_verbatim_and_single_source` ／ `::test_answer_coverage_section_placement_before_materials` ／ `::test_answer_sufficient_material_no_line` |
+| 缺位话术收紧（2026-10-18 V2-101）：起草合同**首句**逐字置换（只锚本轮材料、禁「报告/资料库未载」与「没有任何一条材料提及」升格库级否定）、逐字稿恰一份、旧首句退役、单源；`A-正6` 形端到端交付「本次材料未覆盖」而非库级否定；与 V2-122 两票逐字稿互斥不重复 | `tests/domains/test_v2_v101_absence_scope.py::test_absence_scope_verbatim_first_sentence_and_single_source` ／ `::test_absence_scope_and_v122_texts_mutually_exclusive` ／ `::test_a_positive_6_scoped_absence_end_to_end` |
 | 作答第二出口合同（族⑤b `ANSWER_EXPLORE_CONTRACT`）＝两出口＋1 示例＋再探预算行在场、随规章段恰一次、单源零副本（V2-96 D5） | `tests/domains/test_v2_prompts.py::contract_constant_family_closed_world` ＋ `tests/domains/test_v2_prompts.py::contract_constants_no_duplicate_literals` |
 | 答案轮禁令件在场（动词钉死句＋答案要求⑦；pin-13 合同侧） | `tests/domains/test_v2_prompts.py::answer_round_ban_lines_present` |
 | 装配确定性纯函数：两跑逐字相等、不改入参、零 IO／模型／时钟（AST） | `tests/domains/test_v2_prompts.py::assembly_pure_deterministic` |
@@ -214,6 +220,8 @@ def assemble_answer_prompt(state: RunState) -> str: ...
 
 > **2026-10-17 补（EB3 D3·组引标放开·审计）**：族⑤起草答案合同**行集交付段内一句逐字置换**——旧「禁汇总引标（如「[1]–[24]」写在表尾注里）」→ **「数据行禁汇总引标；组头允许 `[m]–[n]` 组引标」**（段内其余字面零改；数据行仍逐行 `[n]`，组头行的组引标不再被判违规）。逐字稿＝`docs/runtime-refactor/proposals/EB3-交付面分层与缺陷修复.md` D3；落点＝`appv2/runtimev2/prompts/constants.py` `ANSWER_DRAFT_CONTRACT`（本模块单点，相位块零字面副本纪律不变）。机读面＝`::answer_round_segment_order_no_material`／`::contract_constants_no_duplicate_literals`（段序与单点面）+ 核验侧豁免钉 `tests/domains/test_v2_verification.py::group_citation_marker_untouched`（组引标不被改）与 `::rewrite_exempt_disclosure_and_group_head`（组头行不删句）。**注**：V1 旧码 `appv2/runtime/graph.py` 的对应句不随本批改（V1 只作备份，ADR-0005）。
 
+> **2026-10-18 补（V2-101·缺位话术收紧·审计）**：族⑤起草答案合同**段首第 1 句逐字置换**——旧 A-P6a-35 半句「（材料未覆盖所问时：只简短说明未找到与所缺，不逐源铺陈无关材料）。」→ **「缺位只锚本轮材料：写「本次材料未覆盖」，不得写「报告/资料库未载」或「没有任何一条材料提及」。」**（只锚**本轮材料**、禁库级否定升格；段内其余字面零改——置换非追加）。逐字稿＝`tickets/v2/V2-101-缺位话术收紧.md` §逐字稿（照抄、零改写）；落点＝`appv2/runtimev2/prompts/constants.py` `ANSWER_DRAFT_CONTRACT`（本模块单点，相位块零字面副本纪律不变）。**分工**＝本票只管**首句措辞**，材料范围限定与计数如实归 V2-122（两票逐字稿互斥不重复）；同改本常量的三票（V2-101→V2-121→V2-124）**串行且后票只许追加**（真源 `docs/runtime-refactor/design/统筹方案-作答提示词.md` §五）。机读面＝`tests/domains/test_v2_v101_absence_scope.py::test_absence_scope_verbatim_first_sentence_and_single_source`（逐字稿在场且恰一份／旧首句退役／单源）／`::test_absence_scope_and_v122_texts_mutually_exclusive`（两票文本互斥）／`::test_a_positive_6_scoped_absence_end_to_end`（`A-正6` 形端到端：交付「本次材料未覆盖」、零库级否定）＋改判 `::answer_requirements_single_source`（旧半句断言改判为新逐字稿断言）。**注**：V1 旧码 `appv2/runtime/graph.py` 的对应句不随本批改（V1 只作备份，ADR-0005）。
+
 > **2026-10-17 补（EB4a·答案合同白话化·审计）**：族⑥答案要求清单**末尾追加第九／第十条**（逐字＝EB4a 票面引文；⑨＝术语注解条款，⑩＝材料未覆盖→先答相关＋给提问建议；第十条＝Owner 2026-10-17 裁决「召回问题的提示词侧缓解」）＋**族⑥示例区新增静态常量 `JARGON_PLAIN_GLOSSARY`（术语白话表）**，注入点＝`appv2/runtimev2/prompts/answer_round.py` `assemble_answer_prompt`（随答案包**恰一次**入链、字节级稳定；静态块置前、state 投影段在后；文本单点＝`constants.py`，消费方只引不复制）。依据＝`docs/runtime-refactor/research/最佳实践-3a-白话化与受众适配.md` 第三节 3.1（术语表注入＋合并式条款＋配示例——防「指令诅咒」，故本轮**只增两条**、不扩条群）。条间分隔体例同 EB2 D2（非末条尾字＝「；」、末条尾「。」；⑧／⑨尾「。」改「；」＝分隔符位，条文文本零改）。机读面＝`::answer_requirements_verbatim`（10 条逐字）／`::jargon_plain_glossary_injected_once`（单源＋恰一次＋字节稳定）／`::contract_constant_family_closed_world`（族名单闭世界含新常量）／`::answer_round_segment_order_no_material`（段序含术语白话表段）。
 
 ## 依赖与风险
@@ -222,7 +230,7 @@ def assemble_answer_prompt(state: RunState) -> str: ...
 - **2026-10-17 H 批（角色分家·system 承载位）风险与代价（明示接受）**：①**供应商合并行为**——请求面形＝`[system(本环节规章)] + 链（链首＝背景块 system 条）`，依赖「litellm 对 anthropic 把 messages 中的 system 消息合并为顶层 system 参数」（真源 H 批开票 §2.2）；真机探针先行，异常则回退方案 A（仅背景入 system、合同留 user）——回退只动 `call_model` 的注入面。②**KV 前缀代价**——请求首条＝环节规章 ⇒ **跨环节**首调用前缀不同、缓存重算一次（每 run 多付 3-4 次）；**环节内多轮**（澄清常 2-8 轮）规章相同 ⇒ 缓存照吃（`pin-22` 的链面前缀延伸不变，判据按**链段**比对——`tests/domains/test_v2_multi_turn_context.py::test_second_decision_context_carries_first_round_history`）。③**规章离开「每轮可见」位后模型失锚**——真机探针题对比 before/after 判分；若明显退化，可拆「system 放红线＋user 留样例行」混合位（备选，先不实现）。
 - 风险与对策（每条带检测手段）：
   1. **卡与规格分叉（族成员展开）**：卡面公开接口只列两函数＋「合同常量＋各轮装配函数」注释，本规格把族成员展开成名单。**评审已裁定**＝族成员展开属卡面注释复数预留的具体化、非新公开类型，不构成 `docs/runtime-refactor/spec-review/state-评审.md` S-2 同款「卡缺公开成员」（`docs/runtime-refactor/spec-review/prompts-评审.md` P-08）；卡面补「族名单以 prompts 规格接口定义为准（闭世界）」注记＝卡级登记件交主窗（见风险 7⑤）。检测手段＝**人审**（评审工序，已完成）。
-  2. **合同文本多处复制复发**（V1 病灶：同一答案规则三处字面并维护，真源 `docs/runtime-refactor/recon/L2b-作答装配与回声.md` D-L2b-01）。对策：单点断言＋消费方只引用。**已裁（流水 43①，Owner 可否决）：句首 V1 字面答案规则句群去重、由族⑥单点承接**——族⑤构成＝去重后形态（行集规矩段＋台账卡边界句＋A-P6a-35 半句，拼接序照现状）、与 V1 的差异＝删句首重复句群（A-P4b-49 票面附 C 锁定段不在去重范围）——见接口定义⑤。检测手段＝`::answer_requirements_single_source`／`::contract_constants_no_duplicate_literals`。
+  2. **合同文本多处复制复发**（V1 病灶：同一答案规则三处字面并维护，真源 `docs/runtime-refactor/recon/L2b-作答装配与回声.md` D-L2b-01）。对策：单点断言＋消费方只引用。**已裁（流水 43①，Owner 可否决）：句首 V1 字面答案规则句群去重、由族⑥单点承接**——族⑤构成＝去重后形态（缺位话术句＋行集规矩段＋台账卡边界句，拼接序照现状；A-P6a-35 半句经 V2-101 逐字置换，见接口定义⑤）、与 V1 的差异＝删句首重复句群（A-P4b-49 票面附 C 锁定段不在去重范围）——见接口定义⑤。检测手段＝`::answer_requirements_single_source`／`::contract_constants_no_duplicate_literals`。
   3. **台账常驻块交界两说**：`specs/clarification.md` 触及面把「台账注入块」记在 prompts、`specs/modules.md` `## context` 卡有「术语表常驻注入」。本规格定界＝**固定包裹文本＋逐字转抄渲染归本块；投影取得归 context（经 tools 公开面）；Manifest 记账与不入史归 context/state 面**。检测手段＝**人审**（阶段 7 接口契约对账）＋`::ledger_resident_block_verbatim_once`。
   4. **装配滑成判断**（把三选一/放行拒答等语义结论写进装配）。对策：确定性纯函数断言＋AST 机检。检测手段＝`::assembly_pure_deterministic`／`::no_lexicon_or_regex_in_prompts`。
   5. **R3 半覆盖**（「只许依赖 state」对公共层其余块的面无闸）。对策：AST import 扫描测试补位。检测手段＝`::imports_state_only`＋人审（边界闸覆盖面声明，见挂钩表）。

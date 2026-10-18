@@ -485,8 +485,20 @@ def test_answer_requirements_single_source() -> None:
     assert "材料未覆盖的部分不得断言" not in ANSWER_DRAFT_CONTRACT
     assert "起草答案：逐条事实断言" not in ANSWER_DRAFT_CONTRACT
     # 其余字面零删改：行集交付规矩段／台账卡边界句／A-P6a-35 半句仍在
-    half = "（材料未覆盖所问时：只简短说明未找到与所缺，不逐源铺陈无关材料）。"
-    assert half in ANSWER_DRAFT_CONTRACT
+    # **2026-10-18 V2-101 改判**：A-P6a-35 半句（旧首句「（材料未覆盖所问时：只简短说明未找到与
+    # 所缺，不逐源铺陈无关材料）。」）已按票面 §逐字稿**逐字置换**为只锚本轮材料的缺位话术（禁
+    # 「报告/资料库未载」「没有任何一条材料提及」升格库级否定）——旧字面断言改判为新逐字稿断言；
+    # 段内其余字面零改（本条其余判据不动）。机读面＝
+    # `tests/domains/test_v2_v101_absence_scope.py`
+    # `::test_absence_scope_verbatim_first_sentence_and_single_source`。
+    absence_scope = (
+        "缺位只锚本轮材料：写「本次材料未覆盖」，不得写「报告/资料库未载」"
+        "或「没有任何一条材料提及」。"
+    )
+    assert absence_scope in ANSWER_DRAFT_CONTRACT
+    assert "（材料未覆盖所问时：只简短说明未找到与所缺，不逐源铺陈无关材料）。" not in (
+        ANSWER_DRAFT_CONTRACT
+    )
     assert "行集型子问题（问句要求明细/排名/列举全行集时）" in ANSWER_DRAFT_CONTRACT
     assert "台账卡（指标/术语定义面）只承载口径与定义" in ANSWER_DRAFT_CONTRACT
 
