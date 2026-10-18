@@ -135,8 +135,14 @@ _SPEC_FAMILIES: dict[str, tuple[str, ...]] = {
 # 「；」＝条间分隔符；⑧内文自带一「；」（条文逐字，非分隔符——拼装表按字面连接断言）；
 # 2026-10-17 EB4a 追加第九／第十条〔白话化条款〕——⑧尾「。」改「；」＝条间分隔符（条文文本
 # 零改，体例同 EB2 D2：非末条尾字＝「；」、末条尾「。」）；⑨内文自带一「；」＝条内标点）。
+# **2026-10-18 V2-109 改判**：第 ① 条**逐字置换**（旧「逐条事实断言带 [n] 引标
+# （n＝观察材料序号）；」退役）——逐字稿＝`tickets/v2/V2-109-答案引标纪律.md` §逐字稿（照抄、
+# 零改写）；条数不变（置换非追加）、②–⑩ 字面与顺序零改；新 ① 内文自带一「；」＝条内标点
+# （不作分隔符）——「；」计数不变（11：条间分隔 9 ＋ ①内文 1 ＋ ⑧内文 1）。机读面＝
+# `tests/domains/test_v2_v109_citation_discipline.py`
+# `::test_citation_discipline_verbatim_first_item_and_single_source`。
 _ANSWER_REQUIREMENTS_VERBATIM: tuple[str, ...] = (
-    "逐条事实断言带 [n] 引标（n＝观察材料序号）；",
+    "每条含数值或事实断言的句子都必须带 [n] 引标；无引标的断言句不得进答案。",
     "材料未覆盖的部分不得断言、如实说明未覆盖；",
     "材料含多个来源（不同报告／油田／井）时逐个来源分别作答（不冲突也要分别列出，不以反问代替作答）；",
     "作答后仍有未覆盖的来源或指代不明处，如实点名未覆盖来源（含检索窗注记的未进窗来源）"
@@ -444,11 +450,14 @@ def test_contract_constant_family_closed_world() -> None:
 def test_answer_requirements_verbatim() -> None:
     """答案要求 10 条逐字在场、顺序固定（pin-03：③多来源分源逐字在场）。
 
-    拼装面逐字相等（①–⑨条文尾「；」、末条尾「。」）——⑧／⑨内文各自带一「；」，故不以
-    `split("；")` 计数（分隔符与条文内文两事）。
+    拼装面逐字相等（①–⑨条文尾「；」、末条尾「。」）——①／⑧／⑨内文各自带一「；」，故不以
+    `split("；")` 计数（分隔符与条文内文两事）。**2026-10-18 V2-109 改判**：①逐字置换后其内文
+    自带一「；」（条内标点），「；」计数 11 → 11（旧 ① 本无内文「；」、新 ① 有 ⇒ 与 ⑨ 内文
+    相抵）；逐条列名面＝
+    `tests/domains/test_v2_v109_citation_discipline.py::test_answer_requirements_item_count_unchanged`。
     """
     assert ANSWER_REQUIREMENTS == "".join(_ANSWER_REQUIREMENTS_VERBATIM)
-    assert ANSWER_REQUIREMENTS.count("；") == 11  # ①–⑨条间分隔 9 ＋ ⑧内文 1 ＋ ⑨内文 1
+    assert ANSWER_REQUIREMENTS.count("；") == 11  # ①–⑨条间分隔 9 ＋ ①内文 1 ＋ ⑧内文 1
     assert not ANSWER_REQUIREMENTS.endswith("；")
     # pin-03 落点＝③多来源分源逐字在场（交付行为面待 `specs/answering.md` 回提承接）
     assert "材料含多个来源（不同报告／油田／井）时逐个来源分别作答" in ANSWER_REQUIREMENTS
@@ -479,11 +488,19 @@ def test_answer_requirements_verbatim() -> None:
 
 
 def test_answer_requirements_single_source() -> None:
-    """答案要求清单 runtimev2 面内恰一处定义（消费方零字面副本；系统层不在范围）。"""
-    feature = "逐条事实断言带 [n] 引标（n＝观察材料序号）"
+    """答案要求清单 runtimev2 面内恰一处定义（消费方零字面副本；系统层不在范围）。
+
+    **2026-10-18 V2-109 改判**：单源特征子串随第 ① 条**逐字置换**改判为新逐字稿前段（旧
+    「逐条事实断言带 [n] 引标（n＝观察材料序号）」退役——旧字面不再作为单源探针）。机读面＝
+    `tests/domains/test_v2_v109_citation_discipline.py`
+    `::test_citation_discipline_verbatim_first_item_and_single_source`。
+    """
+    feature = "每条含数值或事实断言的句子都必须带 [n] 引标"
     assert feature in ANSWER_REQUIREMENTS
     hits = _hits(_runtimev2_sources(), feature)
     assert hits == [_CONSTANTS_FILE.name], f"答案要求清单出现多处以字面定义：{hits}"
+    # 旧第 ① 条字面退役（置换非追加）
+    assert "逐条事实断言带 [n] 引标（n＝观察材料序号）" not in ANSWER_REQUIREMENTS
 
     # 族⑤＝去重后形态（流水 43①）：V1 句首答案规则句群不在（由族⑥单点承接）
     assert "材料未覆盖的部分不得断言" not in ANSWER_DRAFT_CONTRACT
