@@ -28,7 +28,15 @@ from datetime import date, timedelta
 from typing import Any
 
 from appv2.knowledge import Evidence
-from appv2.tools.anchors import well_tokens  # V2-112：井号识别单点（零第二份词面）
+
+# V2-125（循环 import 治理）：井号识别单点 `appv2.tools.anchors.well_tokens`（V2-112）
+# **不在本模块包导入期引**——`appv2.tools.__init__` 反向 `from appv2.query import …`
+# （包根转出四常量／相对时间词两表），包导入期引 tools 即成环
+# `appv2.query → appv2.tools → appv2.query`（单文件收集
+# `pytest tests/domains/test_v2_context.py`／`tests/domains/test_v2_agent_verify.py`
+# 报 ImportError；全量套件因导入序侥幸通过）。**惰性局部导入**（调用点唯一＝
+# `build_query_plan`）：单点件本体零搬动（V2-112 单点语义不变），只在用时取。
+# 看守＝`tests/domains/test_v2_v125_import_cycle.py`。
 
 # ---------- 排名方向（V1 R1——白名单二值，执行侧按二值分派 ORDER BY） ----------
 
@@ -532,6 +540,8 @@ def build_query_plan(
         parsed: TimeWindow | None = None  # 缺参反问——不猜数
     else:
         parsed = window if window is not None else default_time_window(today=today)
+    # V2-125：惰性局部导入（见模块头注——包导入期引 `appv2.tools` 成环）。
+    from appv2.tools.anchors import well_tokens
     return QueryPlan(
         metric_slot=metric_slot,
         window_start=parsed.start if parsed is not None else None,

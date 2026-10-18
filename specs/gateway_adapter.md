@@ -35,7 +35,7 @@
 @dataclass(frozen=True, slots=True)
 class ModelReply:                      # 一次模型调用的回执（**块级单一定义**：阶段 5 迁至非替身模块，替身只 import——禁双定义）
     content: str                       # 应答正文（失败尝试时为空串）
-    caller: str                        # 归因：调用方标识（三桶族，见行为 5）
+    caller: str                        # 归因：调用方标识（四桶族，见行为 5）
     run_id: str                        # 归因：所属 run（计费可对账——钉 pin-28 的调用盖章面）
     alias: str                         # 实际服务的模型别名（路由结果，随回执返回）
     prompt_tokens: int
@@ -81,7 +81,7 @@ class ScriptedCompleter:
 2. **入参面固定三件**：`messages`（消息序列）／`caller`（关键词）／`run_id`（关键词）；**无自由 `params`**。断言：签名参数集合恰为此三者（+`self`）；传未知键报错。
 3. **回执面恒全键**：`ModelReply` 十个字段**恒在场**（失败尝试时 `error` 非 None、`content` 为空串）；`cached_tokens` **上游未上报时 =0**（不缺口、不省略——钉 `pin-25`）。断言：成功／失败两路径的回执键集合相等。
 4. **`async` 是硬要求**：`complete` 是协程（真实 I/O）；**不得在事件循环内同步阻塞调用**。断言：`inspect.iscoroutinefunction(complete)`。
-5. **归因面逐调用保留**：每次调用把 `caller` 与 `run_id` 交给出口（记账归因面），**逐调用不合并、不覆盖**；`caller` 取值来自调用方（三桶族：理解／决策／作答）。断言：逐调用留痕可按 `caller`／`run_id` 分组（替身 `calls`／`counts()`／`messages_of()` 与 calllog 行同口径——`calls` 测试断言专用）。
+5. **归因面逐调用保留**：每次调用把 `caller` 与 `run_id` 交给出口（记账归因面），**逐调用不合并、不覆盖**；`caller` 取值来自调用方（四桶族：理解／决策／作答／回炉）。断言：逐调用留痕可按 `caller`／`run_id` 分组（替身 `calls`／`counts()`／`messages_of()` 与 calllog 行同口径——`calls` 测试断言专用）。**2026-10-19 V2-125**：桶族由三值扩四值——加 `repair`（回炉修复轮，`appv2/runtimev2/orchestration/repair.py` 发起；此前复用 `answer` 桶，回炉调用与作答调用在归因面不可分）。真源＝`appv2/runtimev2/bookkeeping/constants.py` 的 `CALLERS`（`understand`／`decision`／`answer`／`repair`）；桶→步型分派见 `specs/bookkeeping.md`（`repair`→`verify`）。机读面＝`tests/domains/test_v2_bookkeeping.py`（`_SPEC_CALLERS` 四值＋越界拒）。
 6. **重试只对可重试类**：限流／超时／网络错／5xx → 按配置的**重试次数与退避**重试（缺省值以现状 env 面 `appv2/runtime/llm.py`（:47-49）的 `GATEWAY_429_RETRIES`／`GATEWAY_429_BACKOFF` 为**现状锚**——env 可覆写；**正式数值阶段 5 随真机定**，本规格不复制字面值）；**4xx 业务性拒绝不重试**（不误伤）。断言：注入非限流失败 → 一次即抛（调用计数＝1）；注入限流失败 → 重试到上限后抛（调用计数＝上限）。
 7. **可重试性的判据在本块成闭世界，且与「切备」分层（两件事，不许并成一句）**：合法失败类别＝`rate_limited`（429）｜`timeout`｜`upstream_unavailable`（网络错／5xx）｜`rejected`（4xx 业务性拒绝）；**可重试＝限流／超时／网络错／5xx（三类：`rate_limited`／`timeout`／`upstream_unavailable`）；不可重试＝`rejected` 等客户端拒绝（4xx 业务性拒绝）**——2026-10-16 回改（流水 53-D）：原「前两类可重试、后两类不可重试」与行为 6／接口注／B7b 前提（网络错可重试）相抵，按行为 6 落，本批只回改此句（行为 6／接口注未动）。**分层辨明**：`infra` 侧的现状判据回答的是「**要不要切备用部署**」（网络错／超时／5xx 可切；**429 不可切**——换部署救不了请求本身）；本块回答的是「**同一个调用要不要再试一次**」——**429 可重试**。两者判据方向不同、都不是对方。现状锚：`appv2/infra/llm_client.py`（可切／不可切二值）与 `appv2/tools/registry.py`（三分类，429→可重试）；旧码的 429 重试判据是旧 `appv2/runtime/llm.py` 的私有重写（漂移风险见 `recon/L3-网关与支撑小件.md` D-L3-03）。**跨块待办**：把供应侧失败分类**单源化**（`infra` 规格侧）——本块只做**摄入＋映射**，不新造第二张阈值表。断言：类别映射只在本块出现一次（单点函数）；`rejected` 类一次即抛、`rate_limited`／`timeout` 类重试到上限。
 8. **重试耗尽 fail-closed**：重试耗尽或不可重试类 → **原异常上抛**（不返回空应答、不静默降级为「无材料」）；收口归 `orchestration`。断言：耗尽路径抛错且最后一个回执的 `error` 非 None（失败尝试也留痕）。

@@ -128,6 +128,12 @@ _SPEC_FAMILIES: dict[str, tuple[str, ...]] = {
     "answer_requirements": ("ANSWER_REQUIREMENTS", "JARGON_PLAIN_GLOSSARY"),
     # 2026-10-17 H 批（角色分家）：第七族＝链首背景块（`SYSTEM_BACKGROUND` 逐字稿）
     "system_background": ("SYSTEM_BACKGROUND",),
+    # 2026-10-19 V2-125：第八族＝回炉请求面（无槽合同文本三件；携槽模板落装配模块）
+    "repair_request": (
+        "REPAIR_SYSTEM_CONTRACT",
+        "REPAIR_MATERIALS_HEAD",
+        "REPAIR_OUTPUT_CONTRACT",
+    ),
 }
 
 # 答案要求十条逐字稿（迁移照抄——V1 `orientation.py` `_ANSWER_REQUIREMENTS` ①–⑦；顺序固定；
@@ -1816,6 +1822,8 @@ def test_imports_state_only() -> None:
         "appv2.runtimev2.prompts.answer_round",
         "appv2.runtimev2.prompts.constants",
         "appv2.runtimev2.prompts.decision_round",
+        # V2-125：回炉请求面装配模块（同包自身面——零 context 依赖，材料段由调用方注入）
+        "appv2.runtimev2.prompts.repair_round",
         "appv2.runtimev2.prompts.task_book",
     }
     stdlib_roots = {

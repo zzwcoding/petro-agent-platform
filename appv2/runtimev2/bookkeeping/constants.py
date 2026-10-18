@@ -11,9 +11,11 @@
   同 `state.messages` 口径（接口定义节「写口入参形状」）。**`system` 位（2026-10-17 H 批·角色
   分家）**＝**链首背景块**唯一形态（每链恰一条，真源 `specs/prompts.md` 2026-10-17 H 批注）；
   环节规章**不入链**——经 `call_model` 的 `system` 注入参随本次请求走（同批注）。
-- **模型调用归因桶闭世界**（`call_model` 的 `caller` 取值域）＋**三桶→步型**分派表——桶真源＝
-  `specs/gateway_adapter.md` 行为 5「`caller` 取值来自调用方（三桶族：理解／决策／作答）」；
-  步型分派见下（六值闭世界无 understand 型）。
+- **模型调用归因桶闭世界**（`call_model` 的 `caller` 取值域）＋**桶→步型**分派表——桶真源＝
+  `specs/gateway_adapter.md` 行为 5「`caller` 取值来自调用方（四桶族：理解／决策／作答／回炉）」；
+  步型分派见下（六值闭世界无 understand 型）。**2026-10-19 V2-125**：加第四桶 `repair`（回炉
+  修复轮——`orchestration/repair.py` 发起；此前复用 `answer` 桶，归因面无法把回炉调用与作答调用
+  分开）——桶集合与分派表同批改本清单，机读面＝`tests/domains/test_v2_bookkeeping.py`。
 - **过程档案 digest 写入点上限与截断可见标记**（`note` 的写入面）：上限真源＝
   `synth/S5-RunState字段矩阵.md` 的 `process_notes` 条目口径（`digest≤200`，真源
   `arch/P5b2` A-P5b2-03）；截断标记沿用同仓截断单点先例（`persistence.summary` 的
@@ -27,7 +29,7 @@
 
 from collections.abc import Mapping
 
-from appv2.runtimev2.state import STEP_ANSWER, STEP_DECISION
+from appv2.runtimev2.state import STEP_ANSWER, STEP_DECISION, STEP_VERIFY
 
 # ── 合同追加相位闭世界（真源 specs/bookkeeping.md 接口定义节）──────────────────────
 CONTRACT_PHASE_DECISION = "decision"
@@ -50,23 +52,30 @@ MESSAGE_ROLES: frozenset[str] = frozenset(
 )
 
 # ── 模型调用归因桶闭世界（`call_model` 的 `caller` 取值域）───────────────────────
-# 真源＝`specs/gateway_adapter.md` 行为 5（原文：「`caller` 取值来自调用方（三桶族：理解／决策／
-# 作答）」）；现状锚＝旧码 `appv2/runtime/graph.py` 的 `MODEL_KEYS`（`understand`／`decision`／
-# `answer` 三值——理解／决策／作答三轮的调用归因）。
+# 真源＝`specs/gateway_adapter.md` 行为 5（原文：「`caller` 取值来自调用方（四桶族：理解／决策／
+# 作答／回炉）」）；现状锚＝旧码 `appv2/runtime/graph.py` 的 `MODEL_KEYS`
+# （`understand`／`decision`／`answer` 三值——理解／决策／作答三轮的调用归因）；第四桶
+# `repair` 为 runtimev2 新增（V2-125——回炉修复轮，`orchestration/repair.py` 发起）。
 CALLER_UNDERSTAND = "understand"
 CALLER_DECISION = "decision"
 CALLER_ANSWER = "answer"
+CALLER_REPAIR = "repair"
 
-CALLERS: frozenset[str] = frozenset({CALLER_UNDERSTAND, CALLER_DECISION, CALLER_ANSWER})
+CALLERS: frozenset[str] = frozenset(
+    {CALLER_UNDERSTAND, CALLER_DECISION, CALLER_ANSWER, CALLER_REPAIR}
+)
 
-# 三桶 → 步记录步型（`record_step` 的 `kind` 六值闭世界**无** understand 型）：理解轮与决策轮记
-# `decision`、作答轮记 `answer`。现状锚＝旧码 `understand_node` 记步 `STEP_DECISION`
-# （`appv2/runtime/graph.py`）＋常规步序四连 `decision`（`tests/api/test_v2_asks.py` 的
-# `HAPPY_STEP_KINDS`）；「每个模型调用 step 落 Manifest」＝`specs/agent-loop.md` 验收表行 18。
+# 桶 → 步记录步型（`record_step` 的 `kind` 六值闭世界**无** understand 型）：理解轮与决策轮记
+# `decision`、作答轮记 `answer`、回炉轮记 `verify`（V2-125——回炉步与核验步同型，真源
+# `orchestration/repair.py` 的 `STEP_VERIFY` 步标题「核验回炉」）。现状锚＝旧码 `understand_node`
+# 记步 `STEP_DECISION`（`appv2/runtime/graph.py`）＋常规步序四连 `decision`
+# （`tests/api/test_v2_asks.py` 的 `HAPPY_STEP_KINDS`）；「每个模型调用 step 落 Manifest」＝
+# `specs/agent-loop.md` 验收表行 18。
 CALLER_STEP_KINDS: Mapping[str, str] = {
     CALLER_UNDERSTAND: STEP_DECISION,
     CALLER_DECISION: STEP_DECISION,
     CALLER_ANSWER: STEP_ANSWER,
+    CALLER_REPAIR: STEP_VERIFY,
 }
 
 # ── 确定性直答定型值（`RunState.draft_kind`）───────────────────────────────────

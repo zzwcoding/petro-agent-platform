@@ -391,6 +391,22 @@ SYSTEM_BACKGROUND = (
     "不编。平台数据分两类：数据库实时汇总（权威）、报告库各篇报告（人写口径，性质不同）。"
 )
 
+# ⑧ 回炉请求面（**2026-10-19 V2-125 新增**——成员入族 `repair_request`；真源＝
+# `tickets/v2/V2-115-核验失败动作回炉修复.md` 收票回写「待办：`prompts/` 迁移」）。
+# 槽位模板三件（`REPAIR_REQUEST_HEAD`／`REPAIR_LINE_TEMPLATE`／`REPAIR_GAP_HEAD`）**不在此**——
+# pin-24 要求合同常量无格式槽（机读面＝`::contract_constant_family_closed_world` 的槽位断言），
+# 携槽模板落装配模块 `prompts/repair_round.py`（先例＝`task_book.RECOMMENDATION_TEMPLATE`）。
+REPAIR_SYSTEM_CONTRACT = (
+    "你是答案校对修复器：只按给定窗内材料改写被标红的行，不新增材料里没有的数值，"
+    "不改动未标红的行，不做任何跳转或动作发射。"
+)
+REPAIR_MATERIALS_HEAD = "本轮窗内正确材料（命中支）："
+REPAIR_OUTPUT_CONTRACT = (
+    '只输出一个 JSON 对象：{"lines":[{"index":1,"action":"rewrite","text":"改写后的整行"},'
+    '{"index":2,"action":"drop"}]}——改引标（指向窗内正确支）／改写成「本轮材料未覆盖」／'
+    "删除该行（action=drop）；不得新增窗内无据的数值。"
+)
+
 
 # ── 六族名单闭世界（族名→成员常量名；「族集合与接口清单相等」判据＝验收行 1）────────
 # **2026-10-17 H 批**：加第七族 `system_background`（成员＝`SYSTEM_BACKGROUND`）——「六族」口径
@@ -426,4 +442,11 @@ CONTRACT_CONSTANT_FAMILIES: Mapping[str, tuple[str, ...]] = {
     ),
     "answer_requirements": ("ANSWER_REQUIREMENTS", "JARGON_PLAIN_GLOSSARY"),
     "system_background": ("SYSTEM_BACKGROUND",),
+    # **2026-10-19 V2-125**：第八族 `repair_request`（回炉修复轮——规章段＋请求面合同文本；
+    # 携槽模板三件落装配模块 `prompts/repair_round.py`，本族只收无槽合同文本）
+    "repair_request": (
+        "REPAIR_SYSTEM_CONTRACT",
+        "REPAIR_MATERIALS_HEAD",
+        "REPAIR_OUTPUT_CONTRACT",
+    ),
 }

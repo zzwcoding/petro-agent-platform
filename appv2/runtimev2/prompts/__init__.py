@@ -2,9 +2,11 @@
 
 模块卡见 specs/modules.md 的 `## prompts` 一节；规格见 `specs/prompts.md`（形状真源）。
 包根即公开面（`specs/modules.md` `## prompts` 卡「公开接口」节＋`specs/prompts.md` 接口定义节）：
-合同常量六族（`constants`，名单闭世界）＋装配函数族（卡面两函数逐字照录，族内其余成员
-名单闭世界见 `ASSEMBLY_FUNCTIONS`）。四业务相位（理解／澄清／工具匹配／作答）**只经本包根
-引用**（R2）——深层子模块私有。
+合同常量族（`constants`，名单闭世界——H 批起含背景族、V2-125 起含回炉族 `repair_request`）＋
+装配函数族（卡面两函数逐字照录，族内其余成员名单闭世界见 `ASSEMBLY_FUNCTIONS`）。四业务相位
+（理解／澄清／工具匹配／作答）**只经本包根引用**（R2）——深层子模块私有；**回炉请求面
+（V2-125）**经包根供编排侧 `orchestration/repair.py` 引用（材料段由调用方渲染注入，本块零
+`context` 依赖）。
 
 本块只出文本、不做判断：装配＝合同常量与 `state` 投影的确定性拼接（行为 14／15）；
 入参只读 `state` 投影＋调用方注入的文本（水位等时间量——本块零时钟接触，B14）；
@@ -40,6 +42,9 @@ from appv2.runtimev2.prompts.constants import (
     CLARIFY_PENDING_PREMISE_CONTRACT,
     CONTRACT_CONSTANT_FAMILIES,
     JARGON_PLAIN_GLOSSARY,
+    REPAIR_MATERIALS_HEAD,
+    REPAIR_OUTPUT_CONTRACT,
+    REPAIR_SYSTEM_CONTRACT,
     SUMMARY_CONTRACT,
     SYSTEM_BACKGROUND,
     TASK_BOOK_EXAMPLES,
@@ -68,6 +73,10 @@ from appv2.runtimev2.prompts.decision_round import (
     render_ledger_resident_block,
     toolmatch_system_contract,
 )
+from appv2.runtimev2.prompts.repair_round import (
+    assemble_repair_gap_prompt,
+    assemble_repair_prompt,
+)
 from appv2.runtimev2.prompts.task_book import (
     FAMILY_GLOSS,
     RECOMMENDATION_TEMPLATE,
@@ -95,6 +104,11 @@ from appv2.runtimev2.prompts.task_book import (
 #   clarify_system_contract(max_subtasks) -> str # 相位①头行＋合同＋finalize 边界句
 #   toolmatch_system_contract() -> str           # 相位②头行＋合同
 #   answer_system_contract() -> str              # 动词钉死＋【答案要求】＋白话表＋汇总＋起草合同
+#   ── V2-125 新增（2026-10-19·回炉请求面迁入）──
+#   assemble_repair_prompt(flagged, *, materials_text) -> str   # 回炉请求面（标红逐行＋材料＋合同）
+#   assemble_repair_gap_prompt(rounds, flagged, *, materials_text) -> str  # 到顶缺位说明请求面
+#                                 # 材料段由调用方渲染注入（`context.render_materials`）
+#                                 # ——本块零 context 依赖
 ASSEMBLY_FUNCTIONS: tuple[str, ...] = (
     "assemble_task_book",
     "assemble_answer_prompt",
@@ -107,6 +121,8 @@ ASSEMBLY_FUNCTIONS: tuple[str, ...] = (
     "clarify_system_contract",
     "toolmatch_system_contract",
     "answer_system_contract",
+    "assemble_repair_prompt",
+    "assemble_repair_gap_prompt",
 )
 
 __all__ = [
@@ -131,6 +147,9 @@ __all__ = [
     "PHASE_CLARIFY",
     "PHASE_TOOLMATCH",
     "RECOMMENDATION_TEMPLATE",
+    "REPAIR_MATERIALS_HEAD",
+    "REPAIR_OUTPUT_CONTRACT",
+    "REPAIR_SYSTEM_CONTRACT",
     "RESIDENT_BLOCK_BEGIN",
     "RESIDENT_BLOCK_END",
     "SUMMARY_CONTRACT",
@@ -148,6 +167,8 @@ __all__ = [
     "assemble_answer_prompt",
     "assemble_decision_increment",
     "assemble_decision_package",
+    "assemble_repair_gap_prompt",
+    "assemble_repair_prompt",
     "assemble_task_book",
     "clarify_system_contract",
     "instruction_zone",

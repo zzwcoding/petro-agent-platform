@@ -69,6 +69,9 @@ from tests.domains.test_v2_verification import _notice_types, _obs, _state
 
 # ---------- 共用件 ----------
 
+# 回炉轮模型调用归因桶（V2-125：自有第四桶 `repair`——此前复用 `answer`，归因面不可分）。
+_MODEL_CALLER = "repair"
+
 
 def _verify_payloads(state: RunState) -> list[dict[str, Any]]:
     """核验步 payload 列（按产出序——回炉环下核验可多次入账）。"""
@@ -108,7 +111,7 @@ def _ring(state: RunState, replies: list[str]) -> ScriptedCompleter:
 
     有界循环（`2 * MAX_REPAIR_ROUNDS + 6`）——不收敛即判失败（防静默自旋）。
     """
-    completer = ScriptedCompleter({"answer": list(replies)})
+    completer = ScriptedCompleter({_MODEL_CALLER: list(replies)})
     previous = set_completer(completer)
     try:
         bus = EventBus()
@@ -163,7 +166,15 @@ def test_repair_citation_fixable_rewrites_citation(monkeypatch: pytest.MonkeyPat
     state = _state(draft=wrong, observations=observations)
     completer = _ring(state, [_rewrite_reply(1, fixed)])
 
-    assert completer.calls and completer.calls[0][0] == "answer"
+    # V2-125：回炉调用归因**自有桶** `repair`（不再混入 `answer`）；步记录步型＝`verify`
+    assert completer.calls and completer.calls[0][0] == _MODEL_CALLER
+    model_steps = [
+        step
+        for step in state.steps
+        if isinstance(step.get("payload"), Mapping)
+        and step["payload"].get("caller") == _MODEL_CALLER
+    ]
+    assert model_steps and model_steps[-1]["step"] == "verify"
     assert state.draft == fixed                       # 只重写问题行、正文其余零改
     assert state.next_intent == INTENT_ANSWER
     assert state.repair_rounds == 1
@@ -242,7 +253,7 @@ def test_repair_anti_fabrication_number_not_kept(monkeypatch: pytest.MonkeyPatch
     assert "99.5" not in state.draft
     assert state.draft == honest
     assert state.repair_rounds == MAX_REPAIR_ROUNDS
-    assert completer.counts()["answer"] == 3            # 2 轮改写 ＋ 1 轮缺位说明
+    assert completer.counts()[_MODEL_CALLER] == 3        # 2 轮改写 ＋ 1 轮缺位说明
     repairs = _repair_payloads(state)
     assert len(repairs) == 3
     # 前两轮复检仍咬（编造数值在窗内零命中）
@@ -411,7 +422,9 @@ async def test_repair_end_to_end_graph_rewrites_unsupported_line(
                 )
             ),
         ],
-        "answer": [fabricated, _rewrite_reply(1, corrected)],
+        "answer": [fabricated],
+        # V2-125：回炉回复归**自有桶** `repair`（此前与作答同桶）
+        _MODEL_CALLER: [_rewrite_reply(1, corrected)],
     }
     wire_ledger_projection(V2LedgerPort(dump))
     engine = V2QueueEngine([_rows_outcome()])
@@ -466,7 +479,9 @@ async def test_repair_end_to_end_graph_zero_delivery_fallback(
                 )
             ),
         ],
-        "answer": [fabricated, _drop_reply(1)],
+        "answer": [fabricated],
+        # V2-125：回炉回复归**自有桶** `repair`（此前与作答同桶）
+        _MODEL_CALLER: [_drop_reply(1)],
     }
     wire_ledger_projection(V2LedgerPort(dump))
     engine = V2QueueEngine([_rows_outcome()])

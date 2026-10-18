@@ -162,8 +162,9 @@ _SPEC_LIMIT_KEYS = {
     "discovers_per_run",
     "ask_cap",
 }
-# 归因三桶族（`call_model` 的 `caller` 取值域；真源 specs/gateway_adapter.md 行为 5）
-_SPEC_CALLERS = {"understand", "decision", "answer"}
+# 归因四桶族（`call_model` 的 `caller` 取值域；真源 specs/gateway_adapter.md 行为 5——
+# 2026-10-19 V2-125 加第四桶 `repair`）
+_SPEC_CALLERS = {"understand", "decision", "answer", "repair"}
 
 # 已取得材料面 fixture（材料行＝观察投影形：`content` 正文＋`source_id` 标识）
 _SPEC_MATERIAL_ROWS: tuple[dict[str, str], ...] = (
@@ -1217,8 +1218,8 @@ def test_call_model_keeps_accounting() -> None:
     assert state.steps[-1]["status"] == "failed"
     assert state.steps[-1]["payload"]["error"] == "上游拒绝 429: 限流"
 
-    # 归因桶闭世界（三桶族）：越界即拒（fail-closed，未发起调用）
-    assert _SPEC_CALLERS == {"understand", "decision", "answer"}
+    # 归因桶闭世界（四桶族，V2-125）：越界即拒（fail-closed，未发起调用）
+    assert _SPEC_CALLERS == {"understand", "decision", "answer", "repair"}
     calls_before = len(state.steps)
     with pytest.raises(ValueError):
         call_model(state, "summarize", messages)

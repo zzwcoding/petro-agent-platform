@@ -84,6 +84,7 @@
 ### `_KIND_TRUST`（context.py L23-L34）｜观察 kind → 信任级映射表
 - 消费：`TRUST_*` 三常量。
 - 装配：不涉。
+- **V2-125 文档同步**：生产实点＝`appv2/runtimev2/context/materials.py::_KIND_TRUST`，台账族第五键＝`family`（V2-105 改；真源 `appv2/knowledge/domain.py:28-32` `KIND_FAMILY="family"`）。本报告锚定的旧码 `appv2/runtime/context.py` 仍留旧键 `family_annotation`（V1 承载位，R5「旧码只作备份」）——下表按**生产实点**记 `family`。
 - 分支表（穷尽，逐键）：
   1. `agg_row` → `TRUST_AGG`；
   2. `lineage` → `TRUST_AGG`；
@@ -91,7 +92,7 @@
   4. `term` → `TRUST_LEDGER`；
   5. `object` → `TRUST_LEDGER`；
   6. `relation` → `TRUST_LEDGER`；
-  7. `family_annotation` → `TRUST_LEDGER`；
+  7. `family` → `TRUST_LEDGER`；
   8. `fragment` → `TRUST_REPORT`；
   9. `graph` → `TRUST_REPORT`；
   10. `notice` → 字符串 `"notice"`（非三档常量）；
@@ -99,7 +100,7 @@
 - 副作用：无。
 - 返回：`dict[str, str]`，10 键。
 - 规则条目：
-  - R-K-03 映射闭世界＝10 个 kind；权威表族 2 个（agg_row/lineage）、台账族 5 个（metric/term/object/relation/family_annotation）、检索族 2 个（fragment/graph）、notice 1 个。
+  - R-K-03 映射闭世界＝10 个 kind；权威表族 2 个（agg_row/lineage）、台账族 5 个（metric/term/object/relation/family）、检索族 2 个（fragment/graph）、notice 1 个。
   - R-K-04 `notice` 被映射为 `"notice"` 而非三档之一——该值不在 `_TRUST_RANK` 中。
 - 耦合：`TRUST_AGG`／`TRUST_LEDGER`／`TRUST_REPORT`。
 - 疑点：

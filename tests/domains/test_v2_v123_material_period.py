@@ -553,7 +553,8 @@ def test_repair_materials_head_carries_execution_date() -> None:
         ],
     )
     completer = ScriptedCompleter(
-        {"answer": [json.dumps({"lines": [{"index": 1, "action": "drop"}]})]}
+        # V2-125：回炉调用归**自有桶** `repair`（此前复用 `answer`）
+        {"repair": [json.dumps({"lines": [{"index": 1, "action": "drop"}]})]}
     )
     previous = set_completer(completer)
     try:

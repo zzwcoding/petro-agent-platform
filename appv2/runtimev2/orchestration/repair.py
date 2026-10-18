@@ -28,7 +28,7 @@ import json
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from appv2.runtimev2.answering import MODEL_CALLER, answer_anchors
+from appv2.runtimev2.answering import answer_anchors
 from appv2.runtimev2.bookkeeping import call_model, note, record_step, set_intent
 from appv2.runtimev2.context import DEFAULT_MAX_OBSERVATIONS, render_materials
 from appv2.runtimev2.orchestration.constants import (
@@ -37,6 +37,11 @@ from appv2.runtimev2.orchestration.constants import (
     PAYLOAD_REPAIR_RESPONSE_KEY,
     PAYLOAD_REPAIR_ROUNDS_KEY,
 )
+from appv2.runtimev2.prompts import (
+    REPAIR_SYSTEM_CONTRACT,
+    assemble_repair_gap_prompt,
+    assemble_repair_prompt,
+)
 from appv2.runtimev2.state import INTENT_VERIFY, MAX_REPAIR_ROUNDS, STEP_VERIFY, RunState
 from appv2.runtimev2.verification import RewriteRecord, detect_intended
 
@@ -44,31 +49,20 @@ from appv2.runtimev2.verification import RewriteRecord, detect_intended
 REPAIR_PHASE = "repair"
 REPAIR_STEP_TITLE = "核验回炉"
 
+# 模型调用归因桶（V2-125）：回炉轮**自有桶** `repair`——字面真源＝`bookkeeping` 归因桶闭世界
+# （`appv2/runtimev2/bookkeeping/constants.py::CALLER_REPAIR`，本块不引其常量模块＝同四相位
+# 先例）。此前复用 `answer` 桶 ⇒ 归因面把回炉调用与作答调用混作一桶（`counts()`／calllog
+# 无法分开），本票立第四桶后回炉调用归因可辨（步型仍 `verify`）。
+MODEL_CALLER = "repair"
+
 # 回炉应答动作闭世界（两值——协议形，非语义词表）。
 REPAIR_ACTION_REWRITE = "rewrite"
 REPAIR_ACTION_DROP = "drop"
 REPAIR_ACTIONS: frozenset[str] = frozenset({REPAIR_ACTION_REWRITE, REPAIR_ACTION_DROP})
 
-# 回炉请求面文案（本模块自有文案单点；材料段由 `context.render_materials` 渲染）。
-REPAIR_SYSTEM_CONTRACT = (
-    "你是答案校对修复器：只按给定窗内材料改写被标红的行，不新增材料里没有的数值，"
-    "不改动未标红的行，不做任何跳转或动作发射。"
-)
-REPAIR_REQUEST_HEAD = (
-    "【回炉修复】以下 {count} 行在核验中标红（无据／引标不可解析／归属对不上）——"
-    "只重写这些行，其余行一字不动。"
-)
-REPAIR_LINE_TEMPLATE = "[{index}] {line}"
-REPAIR_MATERIALS_HEAD = "本轮窗内正确材料（命中支）："
-REPAIR_OUTPUT_CONTRACT = (
-    '只输出一个 JSON 对象：{"lines":[{"index":1,"action":"rewrite","text":"改写后的整行"},'
-    '{"index":2,"action":"drop"}]}——改引标（指向窗内正确支）／改写成「本轮材料未覆盖」／'
-    "删除该行（action=drop）；不得新增窗内无据的数值。"
-)
-REPAIR_GAP_HEAD = (
-    "【缺位说明】以下行经 {rounds} 轮回炉仍无材料支撑——只输出一段**缺位说明**"
-    "（已试什么、仍缺什么），不得复述任何未在材料里出现的数值。"
-)
+# 回炉请求面文案（**V2-125 起迁 `prompts/`**——合同常量三件落 `prompts/constants.py` 族
+# `repair_request`、携槽模板三件＋两装配函数落 `prompts/repair_round.py`；本模块只引不复制，
+# 材料段由 `context.render_materials` 渲染后作 `materials_text` 注入）。
 
 
 def run_repair(
@@ -123,11 +117,11 @@ def _rewrite_round(
     execution_date: str = "",
 ) -> dict[str, Any]:
     """改写轮：回炉请求 → 应用（只动标红行）→ `repair_rounds += 1` → 复检 → 留痕面。"""
-    prompt = _repair_prompt(
-        state,
-        flagged,
-        max_observations=max_observations,
-        execution_date=execution_date,
+    prompt = assemble_repair_prompt(
+        [record.line for record in flagged],
+        materials_text=_materials_text(
+            state, max_observations=max_observations, execution_date=execution_date
+        ),
     )
     raw = call_model(
         state,
@@ -168,11 +162,12 @@ def _gap_round(
     「不许程序删成空白」的落点＝核验侧兜底（`verification.forced_gap_statement`——程序确定性
     诚实说明在收口 `join` 之前追加）；本轮的「置空」只是把交付面交给那个单点，不落空答。
     """
-    prompt = _gap_prompt(
-        state,
-        flagged,
-        max_observations=max_observations,
-        execution_date=execution_date,
+    prompt = assemble_repair_gap_prompt(
+        state.repair_rounds,
+        [record.line for record in flagged],
+        materials_text=_materials_text(
+            state, max_observations=max_observations, execution_date=execution_date
+        ),
     )
     raw = call_model(
         state,
@@ -327,51 +322,6 @@ def _json_object(raw: str) -> dict[str, Any] | None:
         if isinstance(value, dict):
             return value
     return None
-
-
-def _repair_prompt(
-    state: RunState,
-    flagged: Sequence[RewriteRecord],
-    *,
-    max_observations: int,
-    execution_date: str = "",
-) -> str:
-    """回炉请求文本：标红逐行原句（编号＝应答 `index`）＋本轮窗内材料＋应答合同。"""
-    lines = [REPAIR_REQUEST_HEAD.format(count=len(flagged))]
-    lines.extend(
-        REPAIR_LINE_TEMPLATE.format(index=index, line=record.line)
-        for index, record in enumerate(flagged, start=1)
-    )
-    lines.append(REPAIR_MATERIALS_HEAD)
-    lines.append(
-        _materials_text(
-            state, max_observations=max_observations, execution_date=execution_date
-        )
-    )
-    lines.append(REPAIR_OUTPUT_CONTRACT)
-    return "\n".join(lines)
-
-
-def _gap_prompt(
-    state: RunState,
-    flagged: Sequence[RewriteRecord],
-    *,
-    max_observations: int,
-    execution_date: str = "",
-) -> str:
-    """缺位说明请求文本：标红逐行原句 ＋ 窗内材料 ＋ 缺位说明合同。"""
-    lines = [REPAIR_GAP_HEAD.format(rounds=state.repair_rounds)]
-    lines.extend(
-        REPAIR_LINE_TEMPLATE.format(index=index, line=record.line)
-        for index, record in enumerate(flagged, start=1)
-    )
-    lines.append(REPAIR_MATERIALS_HEAD)
-    lines.append(
-        _materials_text(
-            state, max_observations=max_observations, execution_date=execution_date
-        )
-    )
-    return "\n".join(lines)
 
 
 def _materials_text(

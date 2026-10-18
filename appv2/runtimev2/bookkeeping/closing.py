@@ -246,7 +246,7 @@ def _request_of(
 
 
 def _caller_step_kind(caller: str) -> str:
-    """`caller`（归因三桶族）→ 步记录步型：闭世界分派，越界即拒（fail-closed，不猜桶）。"""
+    """`caller`（归因桶闭世界，V2-125 起四桶）→ 步记录步型：闭世界分派，越界即拒（不猜桶）。"""
     if caller not in CALLER_STEP_KINDS:
         values = "／".join(sorted(CALLER_STEP_KINDS))
         raise ValueError(f"模型调用归因桶（caller）越界（闭世界＝{values}）：{caller!r}")

@@ -50,6 +50,7 @@ from appv2.runtimev2.verification import (
 from appv2.runtimev2.verification import constants as verification_constants
 from appv2.runtimev2.verification import rules as verification_rules
 from tests.domains.test_v2_v2115_repair import (
+    _MODEL_CALLER,
     _repair_payloads,
     _rewrite_reply,
     _ring,
@@ -283,7 +284,7 @@ def test_q45_shape_definition_equation_routes_and_repairs(
     )
     completer = _ring(state, [_rewrite_reply(1, _Q45_ABSENCE_LINE)])
 
-    assert completer.calls and completer.calls[0][0] == "answer"
+    assert completer.calls and completer.calls[0][0] == _MODEL_CALLER  # V2-125：回炉自有桶
     assert state.draft == _Q45_ABSENCE_LINE
     assert "＝" not in state.draft and "=" not in state.draft
     assert state.next_intent != INTENT_REPAIR
