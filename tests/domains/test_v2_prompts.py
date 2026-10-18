@@ -49,6 +49,7 @@ from appv2.runtimev2.clarification.constants import (
 from appv2.runtimev2.prompts import (
     ANSWER_DRAFT_CONTRACT,
     ANSWER_REQUIREMENTS,
+    ANSWER_THREE_STEP_CONTRACT,
     ASSEMBLY_FUNCTIONS,
     CLARIFY_EMISSION_CONTRACT,
     CLARIFY_FINALIZE_BOUNDARY,
@@ -117,6 +118,8 @@ _SPEC_FAMILIES: dict[str, tuple[str, ...]] = {
         "ANSWER_EXPLORE_CONTRACT",
         # V2-123：材料期约束合同（报表期晚于执行日只能作「该期资料」引用）
         "ANSWER_PERIOD_CONTRACT",
+        # V2-120：作答前三步合同（先核→再决→后写——置规章段第 0 段）
+        "ANSWER_THREE_STEP_CONTRACT",
     ),
     "answer_requirements": ("ANSWER_REQUIREMENTS", "JARGON_PLAIN_GLOSSARY"),
     # 2026-10-17 H 批（角色分家）：第七族＝链首背景块（`SYSTEM_BACKGROUND` 逐字稿）
@@ -527,7 +530,8 @@ def test_jargon_plain_glossary_injected_once() -> None:
     assert answer_system_contract() == answer_system_contract()
     contract = answer_system_contract()
     assert contract.count(JARGON_PLAIN_GLOSSARY) == 1
-    assert contract.split("\n")[2] == JARGON_PLAIN_GLOSSARY  # 紧随【答案要求】全文（静态块置前）
+    # V2-120 改判：三步块（4 行＋1 空行）置首 ⇒ 白话表由 lines[2] 位移至 lines[7]
+    assert contract.split("\n")[7] == JARGON_PLAIN_GLOSSARY  # 紧随【答案要求】全文（静态块置前）
     assert contract.index("【答案要求】") < contract.index(JARGON_PLAIN_GLOSSARY)
     assert contract.index(JARGON_PLAIN_GLOSSARY) < contract.index(SUMMARY_CONTRACT)
     # 动态段（user 位）不再携白话表（规章与材料分家）
@@ -546,7 +550,12 @@ def test_contract_constants_no_duplicate_literals() -> None:
     for family, members in _SPEC_FAMILIES.items():
         for name in members:
             value = getattr(constants_module, name)
-            feature = value.split("\n", 1)[0][:24]
+            # 首句特征子串（V2-120：`ANSWER_THREE_STEP_CONTRACT` 以 7 字段头行「【作答前三步】」
+            # 起头，取首个 ≥12 字的**内容句**作特征——段头形短行不具副本看守力；其余成员首行即
+            # 内容句，行为零改）。
+            feature = next(
+                (line for line in value.split("\n") if len(line) >= 12), value
+            )[:24]
             assert len(feature) >= 12 and feature in value
             assert _hits(sources, feature) == [], f"{family}.{name} 首句副本残留"
 
@@ -788,21 +797,38 @@ def test_contract_constants_business_noun_free() -> None:
 
 
 def test_answer_round_segment_order_no_material() -> None:
-    """答案轮两段（2026-10-17 H 批角色分家）：**规章段**（system）＝动词钉死句→【答案要求】全文→
-    术语白话表→汇总合同→起草答案合同（收尾）；**动态段**（user）＝题面件→子问题结果清单；
-    材料段零渗入（材料渲染归 context，调用方追加于尾）。
+    """答案轮两段（2026-10-17 H 批角色分家）：**规章段**（system）＝**作答前三步合同（V2-120，
+    第 0 段）**→动词钉死句→【答案要求】全文→术语白话表→汇总合同→第二出口合同→材料期约束合同→
+    起草答案合同（收尾）；**动态段**（user）＝题面件→子问题结果清单；材料段零渗入（材料渲染归
+    context，调用方追加于尾）。
+
+    **2026-10-18 V2-120 改判**（`lines[0]==_VERB_PIN` 位移——逐字稿＝票面 §逐字稿）：三步块置首件，
+    原首行断言整体后移（三步块 4 行＋1 空行＝偏移 5）；段序断言改列名逐条见
+    `tests/domains/test_v2_v120_three_step.py::test_answer_three_step_segment_order`。
     """
     state = _answer_state()
     contract = answer_system_contract()
     output = assemble_answer_prompt(state)
     lines = contract.split("\n")
-    assert lines[0] == _VERB_PIN
-    assert lines[1] == f"【答案要求】{ANSWER_REQUIREMENTS}"
-    assert lines[2] == JARGON_PLAIN_GLOSSARY  # 族⑥示例区（EB4a——静态块紧跟答案要求）
-    markers = [JARGON_PLAIN_GLOSSARY, SUMMARY_CONTRACT, ANSWER_DRAFT_CONTRACT]
+    # 第 0 段＝三步块（V2-120：先核→再决→后写），原 `lines[0]==_VERB_PIN` 位移至 lines[5]
+    assert contract.startswith(ANSWER_THREE_STEP_CONTRACT + "\n\n")
+    assert lines[0] == "【作答前三步】"
+    assert lines[1].startswith("第一步·先核：")
+    assert lines[2].startswith("第二步·再决：")
+    assert lines[3] == "第三步·后写：输出答案正文。"
+    assert lines[4] == ""
+    assert lines[5] == _VERB_PIN
+    assert lines[6] == f"【答案要求】{ANSWER_REQUIREMENTS}"
+    assert lines[7] == JARGON_PLAIN_GLOSSARY  # 族⑥示例区（EB4a——静态块紧跟答案要求）
+    markers = [
+        ANSWER_THREE_STEP_CONTRACT,
+        JARGON_PLAIN_GLOSSARY,
+        SUMMARY_CONTRACT,
+        ANSWER_DRAFT_CONTRACT,
+    ]
     positions = [contract.index(marker) for marker in markers]
     assert positions == sorted(positions) and len(set(positions)) == len(positions)
-    assert lines[3] == ""
+    assert lines[8] == ""
     assert contract.endswith(ANSWER_DRAFT_CONTRACT)  # 末段＝起草答案合同（收尾）
     # 动态段：题面件置首、子问题清单其后（材料段由调用方追加于尾）
     out_lines = output.split("\n")

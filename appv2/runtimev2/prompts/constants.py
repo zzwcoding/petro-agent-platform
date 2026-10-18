@@ -261,6 +261,23 @@ ANSWER_PERIOD_CONTRACT = (
 )
 
 
+# ── 族⑤d 作答前三步合同（**V2-120 新增**——逐字稿载体＝
+# `tickets/v2/V2-120-作答合同三段式.md` §逐字稿；文本逐字照抄、零改写）─────────────
+# 承载位＝答案环节**规章段第 0 段**（`answer_system_contract`，system 参）——先于动词钉死句；
+# 作用＝把主指令由「写答案」（explore 是附带「还可以」第二出口，模型 0/147 用）换作
+# **先核→再决→后写**三段式：explore 升为第二步的先决动作（零支撑先补检索或如实说未覆盖）。
+# 「子问题覆盖表」指代 V2-119 的 **user 动态段**段头（`prompts.answer_round.ANSWER_COVERAGE_HEAD`
+# ——逐字「子问题覆盖表：」）；**硬依赖 V2-119 先落**（反序＝合同指代悬空）。本票只改**段序**
+# （与 V2-109 分工：V2-109 管第 ① 条引标纪律逐字；两票同改族⑤时串行且只许追加）。
+ANSWER_THREE_STEP_CONTRACT = (
+    "【作答前三步】\n"
+    "第一步·先核：对照下方「子问题覆盖表」，逐个子问题给出「有支撑／无支撑」。\n"
+    "第二步·再决：任一无支撑 → 先申请补充检索（explore）或如实说明未覆盖；"
+    "全部有支撑 → 直接进入第三步。\n"
+    "第三步·后写：输出答案正文。"
+)
+
+
 # ── 族⑥答案要求清单（迁移照抄——V1 `_ANSWER_REQUIREMENTS`；十条逐字、顺序固定、「；」分隔）──
 # 2026-10-17 EB2 D2：①–⑦文本不变（⑦尾「。」改「；」＝分隔符，条文零改；其内文无「；」），
 # 末尾追加第八条（逐字稿＝EB2 方案 D2 引文）。
@@ -333,6 +350,8 @@ CONTRACT_CONSTANT_FAMILIES: Mapping[str, tuple[str, ...]] = {
         "ANSWER_DRAFT_CONTRACT",
         "ANSWER_EXPLORE_CONTRACT",
         "ANSWER_PERIOD_CONTRACT",
+        # **2026-10-18 V2-120**：族⑤d 作答前三步合同（先核→再决→后写；规章段第 0 段）
+        "ANSWER_THREE_STEP_CONTRACT",
     ),
     "answer_requirements": ("ANSWER_REQUIREMENTS", "JARGON_PLAIN_GLOSSARY"),
     "system_background": ("SYSTEM_BACKGROUND",),

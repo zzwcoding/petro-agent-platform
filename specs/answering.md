@@ -80,7 +80,7 @@ class Gap:
 
 ## 行为约定
 
-1. **真流式**：答案**一段段推**（`text` 帧随增量发射），**不是收口时一次性推全量**。**免起草旁路例外（2026-10-16 补（L0/L2 三病灶修复批③））**：`draft_kind="direct"`（`route="direct"` 直答／拒答／闸拒／收敛转答——`bookkeeping.direct_answer` 三键与 `converge` 同落该值）**不发起草段**，其交付正文帧由**编排面**在收口后补发一帧（本块零帧：帧面归 `orchestration`，真源 `specs/agent-loop.md` 行为 8——真机证据 `docs/runtime-refactor/ladder/L0/01` 零 `text` 帧＝用户端空白）；本块**起草路径**的帧面与判据不变（判据只认 `draft_kind="direct"`，保留面不回归）。**2026-10-17 H 批注（角色分家·system 承载位）**：本相位**规章段**（动词钉死句／【答案要求】＋族⑥清单全文／术语白话表／族④汇总合同／族⑤起草答案合同）经 `prompts.answer_system_contract` 走 `bookkeeping.call_model(system=…)` 的**调用级注入参**（前置进本次请求、不入链）；**动态段**（题面件＋子问题结果清单）＋材料段（调用方追加于尾）仍作 user 条入链。
+1. **真流式**：答案**一段段推**（`text` 帧随增量发射），**不是收口时一次性推全量**。**免起草旁路例外（2026-10-16 补（L0/L2 三病灶修复批③））**：`draft_kind="direct"`（`route="direct"` 直答／拒答／闸拒／收敛转答——`bookkeeping.direct_answer` 三键与 `converge` 同落该值）**不发起草段**，其交付正文帧由**编排面**在收口后补发一帧（本块零帧：帧面归 `orchestration`，真源 `specs/agent-loop.md` 行为 8——真机证据 `docs/runtime-refactor/ladder/L0/01` 零 `text` 帧＝用户端空白）；本块**起草路径**的帧面与判据不变（判据只认 `draft_kind="direct"`，保留面不回归）。**2026-10-17 H 批注（角色分家·system 承载位）**：本相位**规章段**（**族⑤d 作答前三步合同（2026-10-18 V2-120——先核→再决→后写，置第 0 段）**／动词钉死句／【答案要求】＋族⑥清单全文／术语白话表／族④汇总合同／族⑤起草答案合同）经 `prompts.answer_system_contract` 走 `bookkeeping.call_model(system=…)` 的**调用级注入参**（前置进本次请求、不入链）；**动态段**（题面件＋子问题结果清单）＋材料段（调用方追加于尾）仍作 user 条入链。
 2. **引标与增量同步**：每段自带 `citation_seqs`；**引标编号＝观察序号**（全局同一套），段与引用不脱节。
 3. **逐句可核**：每个事实断言都带引标；**无据的话不写进答案**（无据由 `verification` **删句**，本块不产出无据句——2026-10-17 EB3 D3：删句不贴前缀）。
 4. **材料进上下文必须显式（本块只消费 `context` 的编译出口、只断言不实现）**：每次模型调用**必须有 Manifest 在场**（缺失＝判失败；Manifest 的编译归 `context`）；**大结果只以引用形式进窗口**（正文落 `persistence`，见 `execution`），本块不重复落。

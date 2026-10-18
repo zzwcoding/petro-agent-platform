@@ -1,13 +1,19 @@
-"""答案轮装配（题面件→子问题结果清单）＋答案环节规章段（动词钉死＋答案要求＋白话表＋汇总＋起草合同）。
+"""答案轮装配（题面件→子问题结果清单）＋答案环节规章段（三步合同＋动词钉死＋答案要求＋白话表＋汇总＋起草合同）。
 
 段序真源＝`specs/prompts.md` 行为 12（迁移照抄 V1 `assemble_answer_instruction`）；三件套与
 动词钉死句真源＝V1 `orientation.py` `answer_turn_preamble`（行为 13、钉 `pin-13` 合同侧：
 动词钉死句＋答案要求⑦两字面在场，提示词侧不注入回声形指令）。
 
-**2026-10-17 H 批（角色分家·system 承载位）**：原一条 user 包拆两路——**规章段**（动词钉死句＋
-【答案要求】＋清单全文＋术语白话表＋汇总合同＋起草答案合同）＝`answer_system_contract()`，经
+**2026-10-17 H 批（角色分家·system 承载位）**：原一条 user 包拆两路——**规章段**（族⑤d 作答前三步
+合同＋动词钉死句＋【答案要求】＋清单全文＋术语白话表＋汇总合同＋起草答案合同）＝`answer_system_contract()`，经
 `bookkeeping.call_model(system=…)` 随本次请求走（不入链）；**动态段**（题面件＋子问题结果清单）＝
 `assemble_answer_prompt()`，仍作 user 条入链（材料段由调用方追加于尾）。文本零改、段内相对序零改。
+
+**2026-10-18 V2-120（三段式·段序）**：族⑤ `answer_draft` 新成员 `ANSWER_THREE_STEP_CONTRACT`
+置规章段**第 0 段**（先于动词钉死句）——主指令改「先核（对照下方子问题覆盖表）→再决（任一无支撑先
+explore 或如实说明未覆盖）→后写（正文）」；本票只管**段序**（V2-109 管第 ① 条引标纪律逐字）。
+逐字稿＝`tickets/v2/V2-120-作答合同三段式.md` §逐字稿；「子问题覆盖表」＝V2-119 的 user 动态段段头
+（硬依赖 V2-119 先落）。
 
 **术语白话表（族⑥示例区，2026-10-17 EB4a）**：`constants.JARGON_PLAIN_GLOSSARY` 静态块在规章段内
 **恰一次**（`answer_system_contract`；静态文本置前、投影段在后，字节级稳定——KV 追加形纪律不破）；
@@ -37,6 +43,7 @@ from appv2.runtimev2.prompts.constants import (
     ANSWER_EXPLORE_CONTRACT,
     ANSWER_PERIOD_CONTRACT,
     ANSWER_REQUIREMENTS,
+    ANSWER_THREE_STEP_CONTRACT,
     JARGON_PLAIN_GLOSSARY,
     SUMMARY_CONTRACT,
 )
@@ -98,8 +105,9 @@ def answer_round_preamble(question: str) -> str:
 
 
 def answer_system_contract() -> str:
-    """答案环节**规章段**（system 承载位——2026-10-17 H 批）：动词钉死句＋答案要求＋白话表＋
-    汇总合同＋作答第二出口合同＋**材料期约束合同（V2-123）**＋起草答案合同。
+    """答案环节**规章段**（system 承载位——2026-10-17 H 批）：**作答前三步合同（V2-120，第 0 段）**
+    ＋动词钉死句＋答案要求＋白话表＋汇总合同＋作答第二出口合同＋**材料期约束合同（V2-123）**
+    ＋起草答案合同。
 
     构成件逐字引既有常量（零新写）；段内相对序照原装配序（动词钉死句→【答案要求】→术语白话表→
     汇总合同→起草合同收尾）；**V2-123 材料期约束合同插在末段（起草答案合同）之前**——末段
@@ -107,9 +115,16 @@ def answer_system_contract() -> str:
     分工＝**规章＝system、题面与清单＝user**：用户问题行与子问题结果清单留
     `assemble_answer_prompt`（材料段由调用方追加——渲染归 `context`）。
     纯文本进出、确定性；`state` 零写入。
+
+    **2026-10-18 V2-120（三段式·段序）**：`ANSWER_THREE_STEP_CONTRACT` 置**第 0 段**（先于动词
+    钉死句）——主指令改「先核（覆盖表）→再决（explore/缺位/直接）→后写（正文）」；段序＝本票
+    唯一交付面（与 V2-109 分工：V2-109 管第 ① 条引标纪律逐字）。逐字稿＝
+    `tickets/v2/V2-120-作答合同三段式.md` §逐字稿；承载位＝system 参（不入链——Kimi 评审修正 1）。
     """
     return (
-        _VERB_PIN
+        ANSWER_THREE_STEP_CONTRACT
+        + "\n\n"
+        + _VERB_PIN
         + "\n"
         + _REQUIREMENTS_HEAD
         + ANSWER_REQUIREMENTS

@@ -1985,13 +1985,19 @@ def test_renderers_single_source() -> None:
 
 
 def _contract_features() -> list[tuple[str, str, str]]:
-    """合同六族首句特征子串（定义点＝`prompts`——扫描范围对偶于 `specs/prompts.md` 行为 1）。"""
+    """合同六族首句特征子串（定义点＝`prompts`——扫描范围对偶于 `specs/prompts.md` 行为 1）。
+
+    **2026-10-18 V2-120 改判**：`ANSWER_THREE_STEP_CONTRACT` 以 7 字段头行「【作答前三步】」起头，
+    特征子串改取**首个 ≥12 字内容句**（段头形短行不具副本看守力；其余成员首行即内容句、行为零改）。
+    """
     constants = import_module("appv2.runtimev2.prompts.constants")
     features: list[tuple[str, str, str]] = []
     for family, members in constants.CONTRACT_CONSTANT_FAMILIES.items():
         for name in members:
             value = getattr(constants, name)
-            feature = value.split("\n", 1)[0][:24]
+            feature = next(
+                (line for line in value.split("\n") if len(line) >= 12), value
+            )[:24]
             assert len(feature) >= 12 and feature in value, f"{family}.{name} 特征子串失效"
             features.append((family, name, feature))
     return features
