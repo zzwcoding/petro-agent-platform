@@ -76,6 +76,10 @@ PAYLOAD_GAPS_KEY = "gaps"
 # 坏引标剥除留痕（2026-10-17 EB5b）：起草段剥除的**界外引标序号列**（出现序去重）——机读面，
 # 判据＝`degradation.strip_dangling_citations`；无剥除＝空列表（键恒在场，对账面可复算）。
 PAYLOAD_DANGLING_SEQS_KEY = "dangling_citation_seqs"
+# 子问题覆盖表留痕（2026-10-18 V2-119）：逐子问题「有支撑／零支撑」表（`{子问题 id: bool}`）——
+# 判据单点＝`core.subtask_coverage`（三 kind 分层形态判据），提示行文本单点＝
+# `prompts.answer_round.ANSWER_COVERAGE_LINE`；键恒在场（无子问题＝空表，对账面可复算）。
+PAYLOAD_SUBTASK_COVERAGE_KEY = "subtask_coverage"
 PAYLOAD_GAP_KIND_KEY = "kind"
 PAYLOAD_GAP_SUBTASK_KEY = "subtask_id"
 PAYLOAD_GAP_REASON_KEY = "reason"

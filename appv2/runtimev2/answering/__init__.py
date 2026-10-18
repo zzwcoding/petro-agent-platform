@@ -25,7 +25,11 @@
   行为 19）：`dangling_tail_closing`＋三处收口短句常量（`TAIL_CLOSE_*`——定稿前悬空结构检测，
   命中即补一句诚实收口，正文其余字面零改）；
 - 接线与机读面常量：`MODEL_CALLER`／`PHASE`／`TEXT_EVENT`／`CITATION_EVENT`／`PAYLOAD_*` 键名
-  （真源逐条注在 `constants`）。
+  （真源逐条注在 `constants`）；
+- 子问题覆盖信号（2026-10-18 V2-119）：`subtask_coverage(subtasks, window, *, subjects, terms)`
+  ——逐子问题三 kind 分层形态判据（锚／术语／数值记号是否在渲染窗内出现），零支撑者由
+  `prompts` 侧 `assemble_answer_prompt(coverage=…)` 在作答上下文追加提示行（只提示、不替模型
+  决定），覆盖表落起草步 payload 键 `subtask_coverage`（additive）。
 
 一句话：把前面查到的**全部子问题结果**整理成**一份答案**——**一段段推给页面（真流式）**、
 **每句带出处**、**缺口如实交代**。**语义判断交模型，程序只做结构判据**（引标可解析、分段、
@@ -65,13 +69,14 @@ from appv2.runtimev2.answering.constants import (
     PAYLOAD_EXPLORE_KEY,
     PAYLOAD_RANKING_ORDER_OK_KEY,
     PAYLOAD_RANKING_SEQS_KEY,
+    PAYLOAD_SUBTASK_COVERAGE_KEY,
     ROWSET_OBSERVATION_KINDS,
     SOURCE_SECTION_HEAD,
     TAIL_CLOSE_BARE_HEADING,
     TAIL_CLOSE_LEAD_IN,
     TAIL_CLOSE_TABLE_HEADER,
 )
-from appv2.runtimev2.answering.core import answer, answer_anchors
+from appv2.runtimev2.answering.core import answer, answer_anchors, subtask_coverage
 from appv2.runtimev2.answering.degradation import (
     annotate_window_label,
     dangling_tail_closing,
@@ -120,6 +125,7 @@ __all__ = [
     "PAYLOAD_EXPLORE_KEY",
     "PAYLOAD_RANKING_ORDER_OK_KEY",
     "PAYLOAD_RANKING_SEQS_KEY",
+    "PAYLOAD_SUBTASK_COVERAGE_KEY",
     "ROWSET_OBSERVATION_KINDS",
     "SOURCE_SECTION_HEAD",
     "TAIL_CLOSE_BARE_HEADING",
@@ -139,4 +145,5 @@ __all__ = [
     "strip_dangling_citations",
     "strip_emission_fences",
     "strip_placeholders",
+    "subtask_coverage",
 ]

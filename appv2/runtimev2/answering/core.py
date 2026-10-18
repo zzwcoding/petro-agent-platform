@@ -12,8 +12,10 @@
    输出内——调用方追加于尾）。截断态**必披露**：`material_truncated` notice 在场（未截断零通知）；
    **引擎注记段**（行为 15 的「不静默」面）：`locator.kind == notice` 的观察（台账 no_hit 等降级／
    拦停注记——`context` 材料段整体排除）由本块以**原文**追加于材料段之后（不得静默丢弃）；
-2. **起草**：作答指令**动态段**（题面件＋子问题结果清单）＋材料段（＋引擎注记段）一条 user 消息
-   追加链尾（`bookkeeping.append_message`）→ 经 `bookkeeping.call_model` **单点发起**模型调用
+2. **起草**：作答指令**动态段**（题面件＋子问题结果清单**＋子问题覆盖表**〔V2-119：零支撑子问题
+   逐条提示行——`assemble_answer_prompt(coverage=…)`，落清单后、材料段前〕）＋材料段（＋引擎注记
+   段）一条 user 消息追加链尾（`bookkeeping.append_message`）→ 经 `bookkeeping.call_model`
+   **单点发起**模型调用
    （本块不直引 `gateway_adapter`、不直引 `appv2.infra.llm_client`、不自建模型客户端——R7 ＋
    「无旁路」行为断言）；**2026-10-17 H 批（角色分家）**：作答**规章段**（动词钉死句／【答案要求】
    ＋清单全文／术语白话表／汇总合同／起草答案合同）不入链——经 `prompts.answer_system_contract`
@@ -60,6 +62,12 @@
 只能落本块步面；该接缝为**登记项**（跨块对账面＝`specs/agent-loop.md` 行 18「每个模型调用 step
 落 Manifest」）。
 
+**子问题覆盖信号（2026-10-18 V2-119）**：起草前逐子问题核「其锚／术语／数值记号是否在**渲染窗**
+（本轮材料段产物）内出现」（判据单点＝`subtask_coverage`——三 kind 分层形态判据，零语义），零支撑
+者经 `assemble_answer_prompt(coverage=…)` 在 user 动态段追加提示行（文本单点＝
+`prompts.answer_round.ANSWER_COVERAGE_LINE`），覆盖表落起草步／再探意图步 payload（additive 键
+`subtask_coverage`）。**只检测与提示**：不替模型决定是否 `explore`、不改材料（票面任务 4）。
+
 **接缝纪律**：`bus`（per-run 总线，编排块持有、注入各相位）为**必给**注入面——未注入＝调用方断线，
 入口即 fail-closed 抛错（同 `understanding.interpret` 先例）；`max_observations`（材料帽）为注入
 参数（缺省引 `context.DEFAULT_MAX_OBSERVATIONS` 单点、无裸字面）；`supplements`（增补面收集列表）
@@ -71,7 +79,7 @@
 from __future__ import annotations
 
 import unicodedata
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from appv2.runtimev2.answering.constants import (
@@ -112,6 +120,7 @@ from appv2.runtimev2.answering.constants import (
     PAYLOAD_PHASE_KEY,
     PAYLOAD_RANKING_ORDER_OK_KEY,
     PAYLOAD_RANKING_SEQS_KEY,
+    PAYLOAD_SUBTASK_COVERAGE_KEY,
     PHASE,
     ROLE_ASSISTANT,
     ROLE_USER,
@@ -187,7 +196,8 @@ from appv2.runtimev2.transport import (
     EventBus,
     split_block_sections,
 )
-from appv2.tools import LINEAGE_WINDOW_LABEL_KEY, LOCATOR_PAYLOAD_KEY
+from appv2.text_tokens import boundary_hit, num_token_hit
+from appv2.tools import LINEAGE_WINDOW_LABEL_KEY, LOCATOR_PAYLOAD_KEY, normalize_anchor_text
 
 _BUS_MISSING = (
     "作答相位总线未注入（per-run 总线由编排块持有并注入）——增量文本事件无出口，"
@@ -326,6 +336,112 @@ def answer_anchors(state: RunState) -> tuple[tuple[str, str], ...]:
     )
 
 
+# ── 子问题覆盖信号（2026-10-18 V2-119——程序确定性检测，零语义）──────────────────────
+# 逐子问题核「其锚／术语／数值记号是否在渲染窗内出现」，产出「子问题 → 有支撑／零支撑」表；
+# 零支撑者由 `prompts.assemble_answer_prompt(coverage=…)` 在作答上下文追加提示行（只提示、不替
+# 模型决定），覆盖表落起草步 payload（additive `subtask_coverage`）。三 kind 分层＝同
+# `answer_anchors` 的装配序与 `context._anchor_score` 的加权序（强锚 > 弱锚 > 数字锚）。
+_COVERAGE_KIND_SUBJECT = "subject"
+_COVERAGE_KIND_TERM = "term"
+_COVERAGE_KIND_NUMBER = "number"
+# kind 分层序（首个非空 kind 定论——闭世界取值面全 ASCII 结构取值，非语义词表）。
+_COVERAGE_KINDS: tuple[str, ...] = (
+    _COVERAGE_KIND_SUBJECT,
+    _COVERAGE_KIND_TERM,
+    _COVERAGE_KIND_NUMBER,
+)
+
+
+def _subtask_anchors(
+    question: str, *, subjects: Sequence[str], terms: Sequence[str]
+) -> tuple[tuple[str, str], ...]:
+    """子问题题面的锚集（三 kind 分层对——`subject`／`term`／`number`，同 `answer_anchors` 序）。
+
+    - `subject`／`term`：取 `state.subjects`／`state.terms` 中**与本题面跨形对齐**者（两侧同规
+      ＝`normalize_anchor_text`——核验归属审同规：题面「渤中34-8 油田」与归一形「渤中34-8油田」
+      不同形仍对齐）；题面外的主体／术语不属本子问题（否则多子问题题会互相顶替）；
+    - `number`：本题面的数字串锚点（单点＝`_numeric_anchor_tokens`——题面数字串锚点的既有单点
+      〔V2-86／V2-90，Manifest 与材料段锚席同源〕；本票**不新造第二份记号化**）。
+    """
+    normalized_question = normalize_anchor_text(question)
+    pairs: list[tuple[str, str]] = []
+    for subject in subjects:
+        text = str(subject)
+        if text and normalize_anchor_text(text) in normalized_question:
+            pairs.append((_COVERAGE_KIND_SUBJECT, text))
+    for term in terms:
+        text = str(term)
+        if text and normalize_anchor_text(text) in normalized_question:
+            pairs.append((_COVERAGE_KIND_TERM, text))
+    pairs.extend(
+        (_COVERAGE_KIND_NUMBER, number) for number in _numeric_anchor_tokens(question)
+    )
+    return tuple(pairs)
+
+
+def _anchor_in_window(kind: str, token: str, window: str) -> bool:
+    """单锚在渲染窗内的**出现**判定（纯形态、零语义；判据单点引 `appv2.text_tokens`）。
+
+    - `subject`（强锚／井号·油田·区块·平台名）：边界命中优先（`boundary_hit`——`W-11` 不命中
+      `W-111`），回落跨形包含（`normalize_anchor_text` 两侧同规——中文名旁接连字符的出处名形
+      「《B-渤中34-5油田…》」仍可命中）；
+    - `term`（弱锚／术语）：跨形包含（同 `context._anchor_score` 的术语层，两侧同规）；
+    - `number`（数字锚）：数字 token **全等**（`num_token_hit`——`22` 不命中 `2200`；V2-90／
+      V2-100 D-a 判据单点，依赖自由模块）。
+    """
+    if kind == _COVERAGE_KIND_NUMBER:
+        return num_token_hit(window, token)
+    if kind == _COVERAGE_KIND_SUBJECT:
+        return boundary_hit(window, token) or (
+            normalize_anchor_text(token) in normalize_anchor_text(window)
+        )
+    return normalize_anchor_text(token) in normalize_anchor_text(window)
+
+
+def _subtask_supported(pairs: Sequence[tuple[str, str]], window: str) -> bool:
+    """子问题有支撑判定（**kind 分层**：强锚→弱锚→数字锚，首个非空 kind 定论）。
+
+    分层＝同 `answer_anchors` 装配序与 `context._anchor_score` 的加权序（强锚 > 弱锚 > 数字锚）：
+    强锚在场时**只认强锚**（`NQ-M8` 形——数字 `41` 在错源窗的 `W-41` 上全等命中，若「任一层命中
+    即支撑」则误判「有支撑」，见 `eval/suite-147/results/EB11-归因.md` §S2）；零记号可判（子问题
+    题面既无主体／术语命中、又无数字串）＝**有支撑**（无据可判即不提示——零误报面）。
+    """
+    for kind in _COVERAGE_KINDS:
+        tokens = [token for pair_kind, token in pairs if pair_kind == kind]
+        if not tokens:
+            continue
+        return any(_anchor_in_window(kind, token, window) for token in tokens)
+    return True
+
+
+def subtask_coverage(
+    subtasks: Sequence[Mapping[str, Any]],
+    window: str,
+    *,
+    subjects: Sequence[str] = (),
+    terms: Sequence[str] = (),
+) -> dict[str, bool]:
+    """子问题覆盖表（V2-119——程序确定性检测，零语义；票面 §施工基准 `subtask_coverage`）。
+
+    逐子问题核「其锚／术语／数值记号是否在**渲染窗**内出现」（`window`＝本轮材料段渲染产物
+    `context.render_materials` 的文本——模型实见窗），产出 `{子问题 id: 有支撑}`；条目非映射／
+    子问题 id 缺位如实跳过（不猜、不补）。**只做检测**：不替模型决定是否 `explore`、不改材料
+    （票面任务 4）。纯函数、零 IO／零时钟／零随机。
+    """
+    coverage: dict[str, bool] = {}
+    for subtask in subtasks:
+        if not isinstance(subtask, Mapping):
+            continue
+        subtask_id = str(subtask.get("id") or "")
+        if not subtask_id:
+            continue
+        anchors = _subtask_anchors(
+            str(subtask.get("question") or ""), subjects=subjects, terms=terms
+        )
+        coverage[subtask_id] = _subtask_supported(anchors, window)
+    return coverage
+
+
 def _answer_window_label(observations: list[dict[str, Any]]) -> str:
     """本轮**实际取数窗**标签（V2-107 只读取值口——`TimeWindow.label` 原文）。
 
@@ -405,11 +521,21 @@ def _draft(
                 rendered=meta[MATERIAL_RENDERED_KEY], total=meta[MATERIAL_TOTAL_KEY]
             ),
         )
+    # V2-119 子问题覆盖信号（程序确定性检测——渲染窗＝本轮材料段产物，零语义）：零支撑子问题
+    # 经 `assemble_answer_prompt(coverage=…)` 在作答上下文追加提示行（落 user 动态段：清单后、
+    # 材料前——Kimi 评审修正 3），覆盖表落起草步 payload（additive `subtask_coverage`）。
+    # **只检测与提示**：不替模型决定是否 `explore`、不改材料（票面任务 4）。
+    coverage = subtask_coverage(
+        state.subtask_results,
+        materials_text,
+        subjects=state.subjects,
+        terms=state.terms,
+    )
     append_message(
         state,
         role=ROLE_USER,
         content=(
-            assemble_answer_prompt(state)
+            assemble_answer_prompt(state, coverage=coverage)
             + materials_text
             + engine_notes_block(engine_notes(state.observations))
         ),
@@ -470,6 +596,8 @@ def _draft(
                 payload={
                     **_citations_gaps_payload(PAYLOAD_PHASE_DRAFT, [], []),
                     PAYLOAD_EXPLORE_KEY: exp.as_payload(),
+                    # V2-119 additive：本轮子问题覆盖表（零支撑者已随上下文出提示行）
+                    PAYLOAD_SUBTASK_COVERAGE_KEY: coverage,
                 },
             )
             set_intent(state, INTENT_EXPLORE)
@@ -533,6 +661,8 @@ def _draft(
             PAYLOAD_WINDOW_MATERIALS_KEY: window_face,
             # V2-123 additive：逐支报表期实录（index → 报表期；缺期材料不入键＝如实缺行）
             MATERIAL_PERIODS_KEY: material_periods,
+            # V2-119 additive：子问题覆盖表（`{子问题 id: 有支撑}`——零支撑者已随上下文出提示行）
+            PAYLOAD_SUBTASK_COVERAGE_KEY: coverage,
         },
         manifest=manifest,
     )

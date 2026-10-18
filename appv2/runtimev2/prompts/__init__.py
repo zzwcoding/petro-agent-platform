@@ -24,6 +24,9 @@
 """
 
 from appv2.runtimev2.prompts.answer_round import (
+    ANSWER_COVERAGE_HEAD,
+    ANSWER_COVERAGE_LINE,
+    answer_coverage_section,
     answer_system_contract,
     assemble_answer_prompt,
 )
@@ -105,6 +108,8 @@ ASSEMBLY_FUNCTIONS: tuple[str, ...] = (
 )
 
 __all__ = [
+    "ANSWER_COVERAGE_HEAD",
+    "ANSWER_COVERAGE_LINE",
     "ANSWER_DRAFT_CONTRACT",
     "ANSWER_EXPLORE_CONTRACT",
     "ANSWER_PERIOD_CONTRACT",
@@ -134,6 +139,7 @@ __all__ = [
     "TOOLMATCH_EMISSION_CONTRACT",
     "TOOLMATCH_PHASE_HEAD",
     "anchor_line",
+    "answer_coverage_section",
     "answer_system_contract",
     "assemble_answer_prompt",
     "assemble_decision_increment",
