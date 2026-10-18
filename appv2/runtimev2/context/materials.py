@@ -63,11 +63,13 @@ DEFAULT_MAX_OBSERVATIONS = 24
 
 # 单来源席位上界（V2-86 材料供给席次——来源份额不被单一来源吃满；数值不落规格，行为 4）。
 # 与总帽 `DEFAULT_MAX_OBSERVATIONS` 并列两点：席位上限管「一个来源最多几席」、总帽管「检索族
-# 一共几支」——两值互不替代（席位数恒不越总帽）。
+# 一共几支」——两值互不替代（席位数恒不越总帽）。V2-90 起本上限只约束**常规席位**（来源保底／
+# 轮转）——锚席不占本上限（题眼优先于来源均衡，行为 4⑤）。
 MAX_REPORT_SEATS_PER_SOURCE = 6
 
-# 锚席位数上界（V2-86 锚共现打分保底——按共现分取前 N 条作锚席位；数值不落规格，行为 4）。
-# 与单来源席位上界同处定义：两者是不同判据的两个数值（锚席位保题眼、单来源席位保来源均衡）。
+# 锚席补席位数上界（V2-90 逐锚席位——逐锚各保一席后，高锚分补席最多取 N 条；数值不落规格，
+# 行为 4）。与单来源席位上界同处定义：两者是不同判据的两个数值（锚席位保题眼、单来源席位保
+# 来源均衡）；锚席不占单来源席位上界。
 ANCHOR_SEATS = 6
 
 # 观察 `index` 形态违约的收口文案（材料条目缺 `index`／非整数形——规格「错误契约」差异声明；
@@ -159,78 +161,180 @@ def _index_key(observation: Mapping[str, Any]) -> int:
         raise ValueError(_INDEX_SHAPE_ERROR) from exc
 
 
-def _anchor_score(observation: Mapping[str, Any], anchors: Sequence[str]) -> int:
-    """锚共现分（命中**不同锚串**的个数——内容或来源含锚、大小写敏感原样比、空串不计）。
+# 数字 token 全等的边界字符集（前后紧邻任一字符即非全等——V2-90 锚分边界化；
+# 纯字符扫描、禁 `re`，形态处理豁免面 `specs/context.md` 行为 13）。
+_ASCII_DIGITS = "0123456789"
+_ASCII_LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+_NUMERIC_BOUNDARY_CHARS = _ASCII_DIGITS + ".,"
+# 井号／油田等强锚的边界字符集（前后紧邻字母／数字／连字符即非边界——`W-11` 与 `W-111` 可辨）。
+_SUBJECT_BOUNDARY_CHARS = _ASCII_LETTERS + _ASCII_DIGITS + "-"
 
-    同一锚串重复出现只计一次（不虚增分数）；本函数纯字符包含判定，零语义判断。
+
+def _num_token_hit(token: str, text: str) -> bool:
+    """数字 token **全等**命中（V2-90——`22` 不得命中 `2200`／`202608`；`12.5` 命中 `12.5`）。
+
+    纯字符扫描（禁 `re`）：锚串在文本中的每次出现，前后字符都不得是数字或 `.`／`,`；任一出现
+    满足全等即命中。故 `12.5` 命中 `12.5 MPa`、不命中 `112.5`／`12.55`（落在更长数字串内）。
+    """
+    if not token or not text:
+        return False
+    start = 0
+    while True:
+        found = text.find(token, start)
+        if found < 0:
+            return False
+        end = found + len(token)
+        before_ok = found == 0 or text[found - 1] not in _NUMERIC_BOUNDARY_CHARS
+        after_ok = end == len(text) or text[end] not in _NUMERIC_BOUNDARY_CHARS
+        if before_ok and after_ok:
+            return True
+        start = found + 1
+
+
+def _boundary_hit(anchor: str, text: str) -> bool:
+    """强锚（井号／油田／区块／平台名）**边界**命中（V2-90——`W-11` 不得命中 `W-111`）。
+
+    纯字符扫描（禁 `re`）：锚串在文本中的每次出现，前后字符都不得是字母／数字／连字符；任一
+    出现满足边界即命中。中文等非 ASCII 字母数字字符不作边界字符（`W-11井位于` 仍命中）。
+    """
+    if not anchor or not text:
+        return False
+    start = 0
+    while True:
+        found = text.find(anchor, start)
+        if found < 0:
+            return False
+        end = found + len(anchor)
+        before_ok = found == 0 or text[found - 1] not in _SUBJECT_BOUNDARY_CHARS
+        after_ok = end == len(text) or text[end] not in _SUBJECT_BOUNDARY_CHARS
+        if before_ok and after_ok:
+            return True
+        start = found + 1
+
+
+def _anchor_score(
+    observation: Mapping[str, Any], anchors: Sequence[tuple[str, str]]
+) -> float:
+    """锚分（V2-90 锚分分层——锚＝`(kind, text)`，kind∈`{"subject", "term", "number"}`）。
+
+    分层判据（**内容命中优先、来源名命中降权**）：
+    - `subject`（强锚：井号／油田／区块／平台名）＝边界命中内容 +3；否则来源名含锚 +0.5；
+    - `term`（弱锚：术语）＝内容含锚 +2；否则来源名含锚 +0.5；
+    - `number`（数字锚：最弱）＝内容数字 token 全等 +1（**不**回落来源名——数字锚只认题面数字
+      与内容的 token 全等）。
+
+    同一 `(kind, text)` 锚只计一次（重复锚串不虚增分数）、空锚串不计；大小写敏感原样比。本函数
+    纯字符包含／边界／全等判定，零语义判断（行为 13 形态处理豁免面）。
     """
     content = str(observation.get("content") or "")
     origin = _source_of(observation)
-    counted: set[str] = set()
-    score = 0
-    for anchor in anchors:
-        if not anchor or anchor in counted:
+    counted: set[tuple[str, str]] = set()
+    score = 0.0
+    for kind, anchor in anchors:
+        pair = (str(kind), str(anchor))
+        if not pair[1] or pair in counted:
             continue
-        counted.add(anchor)
-        if anchor in content or anchor in origin:
-            score += 1
+        counted.add(pair)
+        if pair[0] == "number":
+            if _num_token_hit(pair[1], content):
+                score += 1
+        elif pair[0] == "subject":
+            if _boundary_hit(pair[1], content):
+                score += 3
+            elif pair[1] in origin:
+                score += 0.5
+        else:  # term（弱锚）
+            if pair[1] in content:
+                score += 2
+            elif pair[1] in origin:
+                score += 0.5
     return score
 
 
 def _select_reports(
     reports: list[dict[str, Any]],
     cap: int,
-    anchors: Sequence[str],
+    anchors: Sequence[tuple[str, str]],
 ) -> list[dict[str, Any]]:
-    """检索族席位选择（行为 4——V2-86：锚席位＋来源保底席＋来源轮转＋单来源上限）。
+    """检索族席位选择（行为 4——V2-90：逐锚席位＋来源保底席＋来源轮转＋单来源上限）。
 
     确定性席位选择（**只换「选谁」、不换「选多少」**：总席恒 ≤ `cap`；「排序」亦不动——返回序
     ＝入参信任级稳定序的子序）：
 
-    ① **锚席位（锚共现打分保底）**：对每条检索片段计「不同锚串命中个数」（内容或来源含锚、
-       大小写敏感原样比、空串不计、重复锚串只计一次），取分 >0 者按 `(-分, index)` 排序取前
-       `ANCHOR_SEATS` 条占锚席位（题眼片段保底，且多处共现者优先；仍受总帽与单来源上限约束）；
-    ② **来源保底席**：每个来源首个未选片段各占一席（来源序＝首次出现序）——每个已检索来源
+    ① **逐锚各保一席**（V2-90——题眼按锚保底、不按片）：按「强锚（`subject`）→弱锚（`term`）→
+       数字锚（`number`）」的锚序，每个锚取**一条**最佳未选片段占锚席；同分排序＝该锚分降序→
+       片段长度升序（更具体）→ `index` 升序；**不再按 `index` 取前 `ANCHOR_SEATS`**；
+    ② **高锚分补席**（最多 `ANCHOR_SEATS` 条，边际收益）：未选且总锚分 >0 者按「总锚分降序→
+       片段长度升序→`index` 升序」补足锚席（仍按分数、不按 `index`）；
+    ③ **来源保底席**：每个来源首个未选片段各占一席（来源序＝首次出现序）——每个已检索来源
        至少进窗一支；
-    ③ **来源轮转补席**：按来源轮转取未选片段直到 `cap`（单一来源不吃满席位）；
-    ④ **单来源上限**：任一来源席位数恒 ≤ `MAX_REPORT_SEATS_PER_SOURCE`（三相位同源同判）。
+    ④ **来源轮转补席**：按来源轮转取未选片段直到 `cap`（单一来源不吃满席位）；
+    ⑤ **单来源上限**：任一来源常规席位数恒 ≤ `MAX_REPORT_SEATS_PER_SOURCE`；**锚席（①②）不占
+       单源上限**（题眼优先于来源均衡——锚席先落且不计数，剩余席位再受上限约束）。
 
     席位键＝观察自带 `index`（重复 `index` 只占一席——`[n]` 引标唯一）；`cap` 内取不满＝席位
     穷尽，正常返回（不抛错、不补空席）。本函数零 IO、零语义判断（纯计数／成员判定／字符包含）。
     """
+    unique_anchors: list[tuple[str, str]] = []
+    seen_anchors: set[tuple[str, str]] = set()
+    for kind, text in anchors:
+        pair = (str(kind), str(text))
+        if not pair[1] or pair in seen_anchors:
+            continue
+        seen_anchors.add(pair)
+        unique_anchors.append(pair)
+
     by_source: OrderedDict[str, list[dict[str, Any]]] = OrderedDict()
     for obs in reports:
         by_source.setdefault(_source_of(obs), []).append(obs)
     chosen_keys: set[int] = set()
     source_count: Counter[str] = Counter()
 
-    def _take(obs: dict[str, Any]) -> bool:
+    def _content_length(obs: Mapping[str, Any]) -> int:
+        return len(str(obs.get("content") or ""))
+
+    def _take(obs: dict[str, Any], *, anchor: bool = False) -> bool:
         key = _index_key(obs)
         origin = _source_of(obs)
         if key in chosen_keys or len(chosen_keys) >= cap:
             return False
-        if source_count[origin] >= MAX_REPORT_SEATS_PER_SOURCE:
+        if not anchor and source_count[origin] >= MAX_REPORT_SEATS_PER_SOURCE:
             return False
         chosen_keys.add(key)
-        source_count[origin] += 1
+        if not anchor:
+            # 锚席不占单源上限（题眼优先于来源均衡——V2-90 行为 4⑤）
+            source_count[origin] += 1
         return True
 
-    # ① 锚席位（**锚共现打分保底**：不同锚串命中个数为分，取前 `ANCHOR_SEATS` 条；
-    #    同分按原 index 升序——题眼片段保底，且「题眼多处共现」的片段优先于「只沾一个字面」者）
+    # ① 逐锚各保一席（**强锚→弱锚→数字锚**的锚序即席位优先级；同分长度升序→index）
+    for kind, text in unique_anchors:
+        pair = [(kind, text)]
+        candidates = [
+            obs for obs in reports
+            if _index_key(obs) not in chosen_keys and _anchor_score(obs, pair) > 0
+        ]
+        candidates.sort(
+            key=lambda obs: (-_anchor_score(obs, pair), _content_length(obs), _index_key(obs))
+        )
+        if candidates:
+            _take(candidates[0], anchor=True)
+    # ② 高锚分补席（最多 `ANCHOR_SEATS` 条；仍按分数与长度、不按 index）
     scored = [
-        (_anchor_score(obs, anchors), _index_key(obs), obs) for obs in reports
+        (_anchor_score(obs, unique_anchors), _content_length(obs), _index_key(obs), obs)
+        for obs in reports
+        if _index_key(obs) not in chosen_keys
     ]
     scored = [row for row in scored if row[0] > 0]
-    scored.sort(key=lambda row: (-row[0], row[1]))
-    for _score, _key, obs in scored[:ANCHOR_SEATS]:
-        _take(obs)
-    # ② 来源保底席（每个已检索来源至少一席）
+    scored.sort(key=lambda row: (-row[0], row[1], row[2]))
+    for _score, _length, _key, obs in scored[:ANCHOR_SEATS]:
+        _take(obs, anchor=True)
+    # ③ 来源保底席（每个已检索来源至少一席）
     for rows in by_source.values():
         for obs in rows:
             if _index_key(obs) not in chosen_keys:
                 _take(obs)
                 break
-    # ③ 来源轮转补席（来源之间轮转，直到 cap）
+    # ④ 来源轮转补席（来源之间轮转，直到 cap；受单来源上限）
     cursor = {origin: 0 for origin in by_source}
     while len(chosen_keys) < cap:
         progressed = False
@@ -251,7 +355,7 @@ def render_materials(
     observations: list[dict[str, Any]],
     *,
     max_observations: int,
-    anchors: Sequence[str] = (),
+    anchors: Sequence[tuple[str, str]] = (),
 ) -> tuple[str, dict[str, Any]]:
     """观察材料→（`[n]` 引标视图文本，截断元数据）——行为 1／4／5。
 
@@ -263,12 +367,14 @@ def render_materials(
     形态违约（材料条目缺 `index` 或非整数形）→ 抛参数错误（V1 裸 `KeyError` 收口——
     规格「错误契约」差异声明）。
 
-    **检索族＝确定性席位选择**（V2-86 材料供给席次——行为 4）：检索族（`report`）不再按信任级
-    排序后原序取前 N 支，改由 `_select_reports` 做席位选择（锚席位／来源保底席／来源轮转／
-    单来源上限 `MAX_REPORT_SEATS_PER_SOURCE`）——**总帽不变**（席位恒 ≤ `max_observations`）、
-    权威/台账族全量不变、披露行与三机检字段口径不变；**输出序不因席位选择改形**（行为 3：
-    权威/台账族原序在前，检索族按信任级稳定序的子序）。`anchors`＝**additive 可选参**（题面
-    锚点串：来源／内容的包含判定即锚席位判据；缺省空元组＝缺省行为与本批前一致）。
+    **检索族＝确定性席位选择**（V2-90 锚分边界化与逐锚席位——行为 4）：检索族（`report`）不再按
+    信任级排序后原序取前 N 支，改由 `_select_reports` 做席位选择（逐锚各保一席／高锚分补席／
+    来源保底席／来源轮转／单来源上限 `MAX_REPORT_SEATS_PER_SOURCE`，锚席不占单源上限）——
+    **总帽不变**（席位恒 ≤ `max_observations`）、权威/台账族全量不变、披露行与三机检字段口径
+    不变；**输出序不因席位选择改形**（行为 3：权威/台账族原序在前，检索族按信任级稳定序的子序）。
+    `anchors`＝**additive 可选参**（题面锚点对 `(kind, text)`，kind∈`{"subject", "term",
+    "number"}`；锚分分层＋边界／数字 token 全等判定即锚席位判据；缺省空元组＝缺省行为与本批前
+    一致）。
 
     **血缘卡＝口径行**（2026-10-17 EB2 D1——材料面瘦身）：`locator.kind == "lineage"` 的
     条目不渲染五要素全文，原位渲染一行 `_lineage_caliber_line` 合成文本（原料＝

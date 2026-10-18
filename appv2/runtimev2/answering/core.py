@@ -302,12 +302,16 @@ def _draft(
     supplements: list[dict[str, Any]],
 ) -> AnswerDraft:
     """起草段：材料面显式 → 单点发起模型调用 → 剥离 → 块剥除 → 分段引标 → 逐段推帧。"""
-    # V2-86 锚席位来源（**同一组**喂给 Manifest 与材料段——两出口必须同源同序）：题名对象／
-    # 术语 ＋ 题面数字串（纯字符扫描、去重保序）；additive 参，缺省空元组即本批前行为。
+    # V2-90 锚席位来源（**同一组**喂给 Manifest 与材料段——两出口必须同源同序）：题名对象
+    # （强锚）／术语（弱锚）＋ 题面数字串（数字锚，纯字符扫描、去重保序）；锚＝`(kind, text)`
+    # 分层对——席位选择按「强锚→弱锚→数字锚」逐锚各保一席；additive 参，缺省空元组即本批前行为。
     anchors = (
-        tuple(state.subjects)
-        + tuple(state.terms)
-        + _numeric_anchor_tokens(str(state.question or ""))
+        tuple(("subject", subject) for subject in state.subjects)
+        + tuple(("term", term) for term in state.terms)
+        + tuple(
+            ("number", number)
+            for number in _numeric_anchor_tokens(str(state.question or ""))
+        )
     )
     manifest = compile_manifest(
         state.observations,

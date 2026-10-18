@@ -428,7 +428,9 @@ def test_reports_anchor_seat_wins_over_source_order() -> None:
         *[_source_obs(21 + i, "C") for i in range(6)],
         _source_obs(99, "C", content="酸化后日产 16.5 吨"),
     ]
-    text, meta = render_materials(reports, max_observations=6, anchors=("16.5",))
+    text, meta = render_materials(
+        reports, max_observations=6, anchors=(("number", "16.5"),)
+    )
     seats = _indices(text)
     assert 99 in seats  # 锚席位保底：题眼片段进窗
     assert len(seats) == 6 and meta["material_rendered"] == 6
@@ -440,32 +442,37 @@ def test_reports_anchor_seat_wins_over_source_order() -> None:
 
 
 def test_anchor_cooccurrence_prefers_multi_anchor_fragment() -> None:
-    """行 4b-5 锚共现打分保底：同来源两片段、一含 1 锚一含 2 锚 → 先选含 2 锚者。
+    """行 4b-5 锚共现保底（V2-90 改判）：逐锚各保一席，同分按片段长度升序→index。
 
-    判据＝「不同锚串命中个数」为分（content 或来源含锚、大小写敏感原样比），取分 >0 者按
-    `(-分, index)` 排序取前 `ANCHOR_SEATS` 条。cap=1 使两片段只能进一条：单锚前缀命中者
-    （先入栈、index 更小）在旧「首个命中」判据下会吃掉唯一席位；共现打分下让位给双锚者。
+    V2-90 前判据＝「不同锚串命中个数」为总分、按 `(-分, index)` 取前 `ANCHOR_SEATS` 条；V2-90
+    起改判据＝**逐锚各保一席**（强锚→弱锚→数字锚）——本用例保留的意图是「多锚共现者胜单锚
+    者」：cap=1 下强锚（`W-33`）先占席，只沾弱锚（`16.5`）的单锚片段让位（旧「首个命中」判据
+    下先入栈的单锚者会吃掉唯一席位）。同分平手面＝片段长度升序（更短＝更具体）→ `index` 升序。
     """
     one_anchor = _source_obs(5, "报告C", content="酸化后日产 16.5 吨")
     two_anchors = _source_obs(9, "报告C", content="W-33 井酸化后日产 16.5 吨")
     text, _ = render_materials(
-        [one_anchor, two_anchors], max_observations=1, anchors=("16.5", "W-33")
+        [one_anchor, two_anchors],
+        max_observations=1,
+        anchors=(("subject", "W-33"), ("number", "16.5")),
     )
-    assert _indices(text) == [9]  # 双锚者胜出（共现数 2 > 1）
-    # 同分按原 index 升序（确定性平手面）
+    assert _indices(text) == [9]  # 强锚独在者胜出（单锚者零强锚命中）
+    # 同分平手面：等长片段按原 index 升序（确定性）
     tie_a = _source_obs(7, "报告D", content="W-33 井 16.5 吨")
     tie_b = _source_obs(3, "报告D", content="W-33 井 16.5 吨")
     tie_text, _ = render_materials(
-        [tie_a, tie_b], max_observations=1, anchors=("16.5", "W-33")
+        [tie_a, tie_b],
+        max_observations=1,
+        anchors=(("subject", "W-33"), ("number", "16.5")),
     )
     assert _indices(tie_text) == [3]
-    # 空锚串不计、重复锚串只计一次（同一锚串不虚增分数）
+    # 空锚串不计、重复锚串只计一次（同一 (kind, text) 锚不虚增分数、不重复占席）
     dup_text, _ = render_materials(
         [one_anchor, two_anchors],
         max_observations=1,
-        anchors=("", "16.5", "16.5"),
+        anchors=(("number", ""), ("number", "16.5"), ("number", "16.5")),
     )
-    assert _indices(dup_text) == [5]  # 两片段同分（各 1）→ 同分按 index 取小
+    assert _indices(dup_text) == [5]  # 两片段同分（各 1）→ 同分按片段长度升序取短者
 
 
 def test_reports_per_source_cap() -> None:
@@ -495,6 +502,139 @@ def test_numeric_anchor_tokens_shape_only() -> None:
     # 去重保序＋至多 8 个（上限＝形态面常量，不随题面数字个数膨胀）
     assert len(_numeric_anchor_tokens(" ".join(str(number) for number in range(1, 12)))) == 8
     assert _numeric_anchor_tokens("2026 与 2026 与 2026") == ("2026",)
+
+
+# ---------- 4c 锚分边界化与逐锚席位（V2-90——行为 4） ----------
+
+
+def test_numeric_anchor_no_substring() -> None:
+    """行 4c-1 数字锚只做**数字 token 全等**（V2-90）：`22` 不得命中 `2200`／`4.2`／`202608`；
+    `12.5` 命中 `12.5 MPa` 但不得命中 `112.5`／`12.55`（更长的数字串内）。
+
+    判据面＝锚席位取谁：cap=1 下若子串命中生效，四支假命中者同分（各 1）→ 同分按片段长度升序
+    → 最短的假命中者（`4.2`／`112.5`）先占席；token 全等下只有真命中者进锚席。
+    """
+    false_hits = [
+        _source_obs(1, "A", content="泵挂 2200 米"),
+        _source_obs(2, "B", content="冲次 4.2 次/分"),
+        _source_obs(3, "C", content="月报 202608"),
+    ]
+    true_hit = _source_obs(9, "D", content="22 井")
+    text, _ = render_materials(
+        [*false_hits, true_hit], max_observations=1, anchors=(("number", "22"),)
+    )
+    assert _indices(text) == [9]  # 2200／4.2／202608 皆非 22 的全等 token
+
+    # 小数锚保形：`12.5` 命中 `12.5 MPa`，不命中更长数字串（前后紧邻数字即非全等）
+    decimal = [
+        _source_obs(1, "A", content="含水 112.5%"),
+        _source_obs(2, "B", content="密度 12.55"),
+        _source_obs(9, "C", content="套压 12.5 MPa"),
+    ]
+    decimal_text, _ = render_materials(
+        decimal, max_observations=1, anchors=(("number", "12.5"),)
+    )
+    assert _indices(decimal_text) == [9]
+
+
+def test_well_anchor_boundary() -> None:
+    """行 4c-2 井号锚边界匹配（V2-90）：`W-11` 不得命中 `W-111`；命中 `W-11 井`。
+
+    判据面＝锚席位取谁：cap=1 下子串匹配会令 `W-111`（更短、index 更小）与 `W-11 井` 同分
+    （各 3）→ 同分按片段长度升序取 `W-111`；边界匹配下只有 `W-11 井` 进锚席。
+    """
+    text, _ = render_materials(
+        [_source_obs(1, "A", content="W-111"), _source_obs(9, "B", content="W-11 井")],
+        max_observations=1,
+        anchors=(("subject", "W-11"),),
+    )
+    assert _indices(text) == [9]  # `W-11` 后紧邻数字 `1` → 非边界，不算命中
+
+
+def test_per_anchor_one_seat() -> None:
+    """行 4c-3 逐锚各保一席（V2-90）：3 个锚（强/弱/数字）、帽 6 → 每锚各取一条最佳片段占席，
+    不被「同源高分泛片段」按 index 挤掉（不再按 index 取前 6）。
+
+    fixture 的判别力：数字锚 `24` 独在 index 90 一支；旧判据（不同锚串命中个数为总分、同分按
+    index 取前 `ANCHOR_SEATS`）下 index 1–6 的泛片段（同含 `W-22`＋`杆断`，分 2）先吃满 6 席、
+    index 90（分 1）出局；逐锚席位下 `W-22`／`杆断`／`24` 各占一席，index 90 必进窗。
+    """
+    cluster = [
+        _source_obs(1 + i, "A", content="W-22 井杆断，泵挂 2200 米") for i in range(6)
+    ]
+    number_only = _source_obs(90, "B", content="24 小时内完成检泵")
+    text, meta = render_materials(
+        [*cluster, number_only],
+        max_observations=6,
+        anchors=(("subject", "W-22"), ("term", "杆断"), ("number", "24")),
+    )
+    seats = _indices(text)
+    assert len(seats) == 6 and meta["material_rendered"] == 6
+    assert 90 in seats  # 数字锚独苗占一席（旧规则被 6 支高分泛片段按 index 挤掉）
+    assert 6 not in seats  # 泛片段群只取到补席所需条数，不再「按 index 取前 6」
+    assert 1 in seats and 2 in seats  # 强锚／弱锚各占一席
+
+
+def test_anchor_seat_ignores_per_source_cap() -> None:
+    """行 4c-4 锚席不占单源上限（V2-90）：单源 8 条、锚在第 8 条、`MAX_REPORT_SEATS_PER_SOURCE=6`
+    → 锚席仍先落，且该来源另有满额 6 席常规席位（锚席不计数）。
+
+    对照面：同 fixture 无锚点 → 该来源常规席位只到第 6 条，锚片段（第 8 条）不进窗。
+    """
+    reports = [_source_obs(1 + i, "A") for i in range(7)] + [
+        _source_obs(8, "A", content="W-22 井杆断")
+    ]
+    text, _ = render_materials(
+        reports, max_observations=24, anchors=(("subject", "W-22"),)
+    )
+    seats = _indices(text)
+    assert 8 in seats  # 锚席先落（不被单源上限挡）
+    assert len([index for index in seats if index != 8]) == MAX_REPORT_SEATS_PER_SOURCE
+    # 对照面：无锚点 → 第 8 条被单源上限挤出窗
+    naive, _ = render_materials(reports, max_observations=24)
+    assert 8 not in _indices(naive)
+    assert _indices(naive) == [1, 2, 3, 4, 5, 6]
+
+
+def test_d_you12_shape_keeps_41() -> None:
+    """行 4c-5 复刻 D-诱12 形（V2-90）：锚 `W-22`／`W-24`／`杆断`／`22`／`24`；船日表片段数字
+    子串误配下总分虚高、`4.1 W-22` 正文只中强锚＋弱锚 → `4.1` 正文必进窗。
+
+    fixture 的判别力：船日表 6 支（同源 `B2608`、index 40–45）在旧判据下各得 5 分（`W-22`／
+    `W-24`／`杆断`／`2200` 中的 `22`／`24 天` 子串），先吃满 6 个锚席并顶满单源上限，`4.1`
+    （index 8）出局；V2-90 下逐锚席位先落、`4.1` 再经高锚分补席进窗。对照面：无锚点同 fixture
+    → 单源轮转只到 index 45，`4.1` 不进窗。
+    """
+    ship_day = [
+        _source_obs(
+            40 + i, "B2608", content="九、作业队伍与船日 W-22 W-24 杆断 2200 米 24 天"
+        )
+        for i in range(6)
+    ]
+    four_one = _source_obs(
+        8,
+        "B2608",
+        content="4.1 W-22 井抽油杆断（典型案例）W-22 井基本参数：泵挂 2200 米",
+    )
+    fillers = [
+        _source_obs(50, "S2"),
+        _source_obs(51, "S2"),
+        _source_obs(60, "S3"),
+        _source_obs(61, "S3"),
+    ]
+    anchors = (
+        ("subject", "W-22"),
+        ("subject", "W-24"),
+        ("term", "杆断"),
+        ("number", "22"),
+        ("number", "24"),
+    )
+    reports = [*ship_day, four_one, *fillers]
+    text, _ = render_materials(reports, max_observations=10, anchors=anchors)
+    assert 8 in _indices(text)  # 4.1 正文进窗（旧规则下被船日表锚席＋单源上限挤出）
+    # 对照面：无锚点 → 同源单源轮转只到 index 45，4.1 不进窗
+    naive, _ = render_materials(reports, max_observations=10)
+    assert 8 not in _indices(naive)
 
 
 # ---------- 5 截断披露行逐字在场、未截断零残留（行为 5——pin-09 之一） ----------
@@ -645,7 +785,7 @@ def test_manifest_sources_match_rendered_seats() -> None:
         *[_source_obs(21 + i, "B") for i in range(2)],
         *[_source_obs(31 + i, "C") for i in range(2)],
     ]
-    anchors = ("C 片段 32",)
+    anchors = (("term", "C 片段 32"),)
     text, meta = render_materials(reports, max_observations=6, anchors=anchors)
     manifest = compile_manifest(
         reports, step="answer", max_observations=6, anchors=anchors
