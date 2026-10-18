@@ -8,11 +8,18 @@
 
 纪律（沿用 eval 既有）：题干原句不改写；每题只问一遍、脚本零重试；
 遇 ask 挂起默认自动续跑（选 options[0]，可 --no-resume 关闭）；
-**判分唯一答案面＝GET /runs 的 answer（交付面）**，帧全量存档备审计。
+**判分唯一答案面＝GET /runs 的 answer（交付面）**，帧全量存档备审计；
+**冻结日断言（V2-113）**：启动即断言 env `EVAL_FROZEN_DATE` ＝ README §四 定盘值，
+不符即报错退出（防两版并存、保 EB11↔EB12 相对窗可比）。
 
 产物：
     eval/suite-147/results/<tag>-跑批结果.jsonl   （一行一题：qid/run_id/status/answer/…）
-    eval/suite-147/results/frames/<tag>-<qid>.json（逐题帧全量）
+    eval/suite-147/results/<tag>-删句原句.jsonl   （一行一题：verify 步 rewrites 原句＋reason）
+    eval/suite-147/results/frames/<tag>-<qid>.json（逐题帧全量＋run_detail 详情落档）
+
+V2-113 口径（不改帧）：SSE `step` 帧恰三键（`graph.py:190-206`）不含原句；
+`rewrites` 原句只在 `GET {base}/chat/runs/{run_id}` 详情的 verify 步 payload
+（`verification/core.py:709-715`→`api/chat.py:365`）——收口后取详情落档，零产品改动。
 """
 
 from __future__ import annotations
@@ -20,6 +27,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import time
 from pathlib import Path
 from typing import Any
@@ -32,6 +40,31 @@ RESULTS = HERE / "results"
 FRAMES = RESULTS / "frames"
 HEADERS = {"X-Dev-User": "laowang"}
 MAX_RESUMES = 3
+
+# ── V2-113 冻结日（唯一真源＝README §四；本常量只是机器可断言的镜像，改值先改 README）──
+FROZEN_ENV = "EVAL_FROZEN_DATE"
+README_FROZEN_DATE = "2026-10-08"  # EB11 实测 §A 执行日 10-08×210（主值）／10-18×7
+
+# ── V2-113 详情读面键名（零产品耦合：字面照 payload 键，不 import appv2 常量）──
+VERIFY_STEP = "verify"
+NOTICE_EVENT = "notice"
+UNSUPPORTED_CLAIM_TYPE = "unsupported_claim"
+PAYLOAD_SUPPORTED_KEY = "supported"
+PAYLOAD_REWRITTEN_KEY = "rewritten"
+PAYLOAD_VERIFY_MODE_KEY = "verify_mode"
+PAYLOAD_REWRITES_KEY = "rewrites"
+PAYLOAD_INTENDED_REWRITES_KEY = "intended_rewrites"
+
+
+def assert_frozen_date() -> str:
+    """启动断言：env 冻结日必须＝README §四 定盘值，否则报错退出（防两版并存）。"""
+    raw = os.environ.get(FROZEN_ENV)
+    if raw != README_FROZEN_DATE:
+        raise SystemExit(
+            f"[suite-147] {FROZEN_ENV}={raw!r} 与 README §四 冻结日 "
+            f"{README_FROZEN_DATE!r} 不符——先读 README 口径再跑批（防两版并存）"
+        )
+    return raw
 
 
 def _load_manifest(
@@ -134,6 +167,58 @@ async def _delivered(c: httpx.AsyncClient, base: str, run_id: str) -> tuple[str,
     return "", ""
 
 
+async def _run_detail(c: httpx.AsyncClient, base: str, run_id: str) -> dict[str, Any]:
+    """`GET {base}/chat/runs/{run_id}` 详情（V2-113：rewrites 原句只在此 payload）——失败不炸批。"""
+    if not run_id:
+        return {}
+    try:
+        r = await c.get(f"{base}/chat/runs/{run_id}", headers=HEADERS, timeout=30)
+        r.raise_for_status()
+        body = r.json()
+        return body if isinstance(body, dict) else {}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _verify_payload(detail: dict[str, Any]) -> dict[str, Any]:
+    """从详情 `steps[]` 取 verify 步 payload 五键；无 verify 步＝空 dict（如实缺位）。"""
+    for step in (detail or {}).get("steps") or []:
+        if not isinstance(step, dict) or str(step.get("step") or "") != VERIFY_STEP:
+            continue
+        payload = step.get("payload") or {}
+        return {
+            PAYLOAD_SUPPORTED_KEY: payload.get(PAYLOAD_SUPPORTED_KEY),
+            PAYLOAD_REWRITTEN_KEY: payload.get(PAYLOAD_REWRITTEN_KEY),
+            PAYLOAD_VERIFY_MODE_KEY: payload.get(PAYLOAD_VERIFY_MODE_KEY),
+            PAYLOAD_REWRITES_KEY: payload.get(PAYLOAD_REWRITES_KEY) or [],
+            PAYLOAD_INTENDED_REWRITES_KEY: payload.get(PAYLOAD_INTENDED_REWRITES_KEY) or [],
+        }
+    return {}
+
+
+def _unsupported_claim_frames(frames: list[dict[str, Any]]) -> int:
+    """`unsupported_claim` 按**帧**计（notice 帧计数，不再按题／按 run 计）。"""
+    return sum(
+        1
+        for f in frames
+        if f.get("event") == NOTICE_EVENT
+        and str((f.get("data") or {}).get("type") or "") == UNSUPPORTED_CLAIM_TYPE
+    )
+
+
+def _rewrite_record(rec: dict[str, Any]) -> dict[str, Any]:
+    """删句原句档行（结构对照抢回样本 `results/EB11-删句原句.jsonl`：键序 qid/run_id/
+    supported/verify_mode/rewrites；rewrite 项恰 `{line, reason}`）。"""
+    verify = rec.get("verify") or {}
+    return {
+        "qid": rec.get("qid"),
+        "run_id": rec.get("run_id") or "",
+        PAYLOAD_SUPPORTED_KEY: verify.get(PAYLOAD_SUPPORTED_KEY),
+        PAYLOAD_VERIFY_MODE_KEY: verify.get(PAYLOAD_VERIFY_MODE_KEY),
+        PAYLOAD_REWRITES_KEY: verify.get(PAYLOAD_REWRITES_KEY) or [],
+    }
+
+
 async def run_one(
     c: httpx.AsyncClient, base: str, row: dict[str, Any], tag: str, *, resume: bool, timeout: int
 ) -> dict[str, Any]:
@@ -170,10 +255,14 @@ async def run_one(
                 break
     rid = _run_id(frames)
     answer, server_status = await _delivered(c, base, rid)
+    detail = await _run_detail(c, base, rid)
     duration = round(time.monotonic() - started, 1)
     FRAMES.mkdir(parents=True, exist_ok=True)
     (FRAMES / f"{tag}-{qid}.json").write_text(
-        json.dumps({"qid": qid, "run_id": rid, "frames": frames}, ensure_ascii=False),
+        json.dumps(
+            {"qid": qid, "run_id": rid, "frames": frames, "run_detail": detail},
+            ensure_ascii=False,
+        ),
         encoding="utf-8",
     )
     return {
@@ -193,6 +282,10 @@ async def run_one(
         "duration_s": duration,
         "asked": bool(_asks(frames)),
         "server_status": server_status,
+        # ── V2-113 additive（jsonl 键；帧面零改动）──
+        "frozen_date": os.environ.get(FROZEN_ENV) or "",
+        "unsupported_claim_frames": _unsupported_claim_frames(frames),
+        "verify": _verify_payload(detail),
     }
 
 
@@ -211,11 +304,16 @@ async def main() -> int:
     ap.add_argument("--dry-run", action="store_true", help="只打印题号不跑")
     args = ap.parse_args()
 
+    assert_frozen_date()  # V2-113 启动断言（README §四 单一真源；不符即报错退出）
+
     rows = _load_manifest(args.qid, args.qid_file, args.book, args.offset, args.limit)
     if not rows:
         print(f"[suite-147] manifest 无匹配题（{MANIFEST}）")
         return 2
-    print(f"[suite-147] tag={args.tag} 题数={len(rows)} base={args.base}")
+    print(
+        f"[suite-147] tag={args.tag} 题数={len(rows)} base={args.base} "
+        f"冻结日={README_FROZEN_DATE}"
+    )
     if args.dry_run:
         for r in rows:
             print(r["qid"], r.get("question", "")[:60])
@@ -223,8 +321,12 @@ async def main() -> int:
 
     RESULTS.mkdir(parents=True, exist_ok=True)
     out_path = RESULTS / f"{args.tag}-跑批结果.jsonl"
+    rewrite_path = RESULTS / f"{args.tag}-删句原句.jsonl"
     async with httpx.AsyncClient() as c:
-        with out_path.open("w", encoding="utf-8") as out:
+        with (
+            out_path.open("w", encoding="utf-8") as out,
+            rewrite_path.open("w", encoding="utf-8") as rewrites_out,
+        ):
             for i, row in enumerate(rows, 1):
                 try:
                     rec = await run_one(
@@ -243,10 +345,14 @@ async def main() -> int:
                     }
                 out.write(json.dumps(rec, ensure_ascii=False) + "\n")
                 out.flush()
+                rewrites_out.write(
+                    json.dumps(_rewrite_record(rec), ensure_ascii=False) + "\n"
+                )
+                rewrites_out.flush()
                 print(f"[{i}/{len(rows)}] {rec['qid']} {rec['status']} len={rec['answer_len']}")
                 if i < len(rows):
                     await asyncio.sleep(args.sleep)
-    print(f"[suite-147] 完成 → {out_path}")
+    print(f"[suite-147] 完成 → {out_path} ＋ {rewrite_path}")
     return 0
 
 

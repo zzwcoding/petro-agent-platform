@@ -41,8 +41,12 @@
 
 ## 四、执行
 
-- 跑批：沿用评测服务（`q12_v2_eval_launcher`，冻结时钟）＋逐题帧存档；**判分唯一答案面＝`GET /runs` 的 `answer`**（交付面）。
+- **冻结日（唯一真源，2026-10-18 V2-113 定盘）**：本册跑批冻结日＝**`2026-10-08`**，即启动评测服务与跑批时均须 `EVAL_FROZEN_DATE=2026-10-08`。取值依据：EB11 实测 §A 执行日 **10-08×210／10-18×7**（`results/EB11-臆造上下文归因.md` §常量），取主值 10-08 以保 EB11↔EB12「相对窗」题面（数-闸1/2、Q10/Q14/Q39）可比。**runner 启动即断言** `EVAL_FROZEN_DATE` 与本值相等，不符（含未设/空串/异值）**报错退出**——防两版并存。
+- 跑批：沿用评测服务（`q12_v2_eval_launcher`，冻结时钟走 `gateway_adapter.frozen_date` 显式注入缝）＋逐题帧存档；**判分唯一答案面＝`GET /runs` 的 `answer`**（交付面）。
 - 运行脚本：`runner.py`（本册内，逐题 POST＋取交付答案＋落 `results/`），用法见脚本头注。
+- **删句原句档（V2-113）**：收口后取 `GET /chat/runs/{id}` 详情，把 verify 步 payload 的 `rewrites`（原句＋`reason`）落 `results/<tag>-删句原句.jsonl`——一行一题，键序 `qid/run_id/supported/verify_mode/rewrites`（对照抢回样本 `results/EB11-删句原句.jsonl`）；详情同时随帧档落 `frames/<tag>-<qid>.json` 的 `run_detail` 键（重启不失）。
+- **`unsupported_claim` 按帧计（V2-113）**：跑批结果行 `unsupported_claim_frames`＝该 run 的 `notice{type:"unsupported_claim"}` 帧数（不再按题／按 run 计）。
+- **帧面零改动**：SSE `step` 帧仍恰三键 `{step,seq,title}`；`rewrites` 原句只走详情读口（`specs/transport.md` 帧闭世界不动）。
 - 报告：每轮落 `results/<tag>-跑批结果.jsonl` ＋ `results/<tag>-判分.md`。
 
 ## 五、状态与暂缓
