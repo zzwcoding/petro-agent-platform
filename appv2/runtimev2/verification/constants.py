@@ -142,6 +142,18 @@ SECTION_MARKS: frozenset[str] = frozenset({"\u00a7"})
 # 记号与单位之间的空白（全角空白经 NFKC 归一为半角空格——`normalize_for_match`）。
 MEASURE_GAP = " "
 
+# ── 表格行结构判据（2026-10-18 V2-104 案 A——表格行裸数字入记号面）────────────────────
+# 判据全为**版式结构**（行首缩进 ＋ 列空白分隔的数字列计数 ＋ 全文此类行计数），**零词表、
+# 零正则**：与引擎侧表格承载判据同形（`retrieval.domain._is_table_bearing`「缩进数字行 ≥2」，
+# 本块 R6 禁引引擎故以结构阈值字面落此）。空白面＝半角空格／制表符（全角空白经
+# `normalize_for_match` 的 NFKC 归一为半角空格——与 `MEASURE_GAP` 同归一前提）。
+TABLE_ROW_INDENT_MIN = 2  # 行首缩进至少两格（缩进＝版式面，非词面）
+TABLE_ROW_COLUMN_GAP = 2  # 数字列前紧邻空白至少两格（列分隔／行首缩进——列判据）
+TABLE_ROW_COLUMN_MIN = 2  # 行内至少两列数字（多列数字语境）
+TABLE_ROW_LINE_MIN = 2  # 全文至少两条此类行（表体——与引擎表格承载判据同形）
+TABLE_ROW_INDENT_CHARS: frozenset[str] = frozenset({" ", "\t"})
+LINE_BREAK = "\n"  # 行结构记号（零正则切行面）
+
 # ── 油田归属对账（2026-10-17 F1 件四）──────────────────────────────────────────
 # 名录面（`appv2.tools.anchors`）实体专名族的**油田**过滤位——闭世界取值的成员取用面（本块不另
 # 立第二份名录／词表：归一与闭世界匹配单点＝`appv2.tools.anchors`）。真机证据＝`eval/results/

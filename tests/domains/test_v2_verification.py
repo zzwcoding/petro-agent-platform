@@ -106,6 +106,7 @@ from appv2.runtimev2.verification import (
     Verdict,
     verify,
 )
+from appv2.runtimev2.verification import rules as verification_rules
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _VERIFICATION_DIR = _REPO_ROOT / "appv2" / "runtimev2" / "verification"
@@ -2024,6 +2025,114 @@ async def test_q27_shape_readonly_declaration_kept() -> None:
     assert refused not in state.draft  # 无引标量值行照删（防编造红线不动）
     assert verdict.supported >= 1  # 修前 0（只读声明句被删）
     assert verdict.rewritten == 1
+
+
+# ---------- V2-104：表格行裸数字入记号面（案 A——不动渲染面）----------
+# 票面＝`tickets/v2/V2-104-表格数值可核化.md`（**案 A**：`number_tokens` 认表格行裸数字，判据
+# **结构性**；案 B〔表头单位回填〕不动）。真机证据＝EB1 `D-诱1`（`eval/results/frames/
+# EB1-D-诱1.json` observation index 10）：表体「　　…　415」的 415 裸数字不入记号面 ⇒ 承载片段
+# （`locator.kind="fragment"`）任一数值重叠判不过 ⇒ 草稿「- 2025年8月：415天[10]」整行被删
+# （修前 rewritten=3／supported=0／cited=[]）。判据面全为**版式结构**（行首缩进 ＋ 行内列空白
+# 分隔的数字列计数 ＋ 全文此类行计数），**零词表、零正则**（零词表 AST 闸 `test_no_lexicon_or_
+# regex_in_verification` 咬汉字字面／正则面）。
+
+# `D-诱1` 观察正文逐字（帧 `EB1-D-诱1.json` observation index 10；`\u3000`＝全角空白缩进——
+# `normalize_for_match` 的 NFKC 归一为半角空格后入结构判据；表头行数字列不足＝不判表行）。
+_D_Y1_TABLE_CONTENT = (
+    "八、近三年同期躺井对比━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    "\u3000\u3000年份（8 月）\u3000躺井(井次)\u3000躺井率\u3000杆断占比\u3000平均检泵周期(天)\n"
+    "\u3000\u30002024\u3000\u3000\u3000\u3000\u300013\u3000\u3000\u3000\u3000\u30008.3%"
+    "\u3000\u300046%\u3000\u3000\u3000386\n"
+    "\u3000\u30002025\u3000\u3000\u3000\u3000\u3000 9\u3000\u3000\u3000\u3000\u30005.8%"
+    "\u3000\u300044%\u3000\u3000\u3000415\n"
+    "\u3000\u30002026\u3000\u3000\u3000\u3000\u3000 7\u3000\u3000\u3000\u3000\u30004.5%"
+    "\u3000\u300043%\u3000\u3000\u3000428"
+    "三年同比看，躺井井次与杆断占比逐年下降，平均检泵周期三年延长 42 天，与扶正器加密、加重杆推广"
+    "两项治理的累计覆盖面扩大正相关。2024 年 8 月为历史最差月（当年高温期地面故障叠加井况集中"
+    "暴露），"
+    "其治理台账底数不清是主因之一，这也是本年起建立\"一井一策\"档案的由来。"
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+)
+
+
+def test_v2104_table_row_bare_numbers_enter_token_face() -> None:
+    """V2-104-0｜表格行裸数字入记号面（结构性判据；既有三形不回退）。"""
+    tokens = verification_rules.number_tokens(
+        verification_rules.normalize_for_match(_D_Y1_TABLE_CONTENT)
+    )
+    # 表体三行的裸数字列（修前缺席 ⇒ `D-诱1` 415 行被删）
+    for token in ("386", "415", "428", "2024", "2025", "2026", "13", "9", "7"):
+        assert token in tokens, token
+    # 既有三形（小数／带单位）不回退
+    for token in ("8.3", "46", "42"):
+        assert token in tokens, token
+
+
+def test_v2104_non_table_bare_numbers_not_in_token_face() -> None:
+    """V2-104-1｜非表格裸数字不入记号面（防误放行）：日期／编号／标识符／节号形。**
+
+    两半证据：①纯 prose 行（无缩进表体）全零；②表格正文内**同行 prose 尾**的日期数字也不入
+    （列判据＝数字前紧邻 ≥2 空白——prose 的「2024 年 8 月」前是句号／单空白，不是列分隔）。
+    """
+    prose = "该井 2026 年 8 月 1 日完井，井号 W-22，编号 302，台账见 99 §2 节。"
+    assert verification_rules.number_tokens(verification_rules.normalize_for_match(prose)) == ()
+
+    tokens = verification_rules.number_tokens(
+        verification_rules.normalize_for_match(
+            _D_Y1_TABLE_CONTENT + "\n完井日期 2026 年 8 月 1 日，编号 302。"
+        )
+    )
+    assert "302" not in tokens  # 追加 prose 行的编号裸数字不入面
+    assert "8" not in tokens  # 表行同行 prose 尾「2024 年 8 月」的 8（前紧邻单空白）不入面
+    assert "415" in tokens  # 表体列数字仍在面（防收得过狠）
+
+
+def test_v2104_single_indented_numeric_line_not_table() -> None:
+    """V2-104-2｜「缩进数字行 ≥2」为全文级条件：孤行不判表体（防把缩进列表误当表格）。"""
+    single = "　　2025　　415\n完井日期 2026 年 8 月 1 日"
+    tokens = verification_rules.number_tokens(verification_rules.normalize_for_match(single))
+    assert "415" not in tokens
+
+
+def test_v2104_caliber_face_not_widened() -> None:
+    """V2-104-3｜口径面（`caliber_numbers_only`）不收表格行裸数字——V2-105 收窄面不回退。"""
+    obs = _obs(1, "metric", content=_D_Y1_TABLE_CONTENT, source="口径卡")
+    tokens = verification_rules.caliber_numbers_only(obs)
+    assert "415" not in tokens and "386" not in tokens
+    assert "8.3" in tokens  # 口径面既有量值三形不动
+
+
+async def test_v2104_eb_d_y1_shape_415_line_kept() -> None:
+    """V2-104-4｜`D-诱1` 形离线复现：415 行不再被删（supported 0→3／rewritten 3→0／cited 10）。
+
+    草稿＝帧 `EB1-D-诱1.json` 步骤 108 的表体三行逐字；观察＝同帧 observation index 10 正文
+    逐字（生产 `locator.kind`＝`fragment`——检索切片承载族，任一数值重叠即支撑）。
+    """
+    observations = [
+        _obs(
+            10,
+            "fragment",
+            content=_D_Y1_TABLE_CONTENT,
+            source="《B-渤中34-5油田躺井治理与检泵作业月报-202608》",
+        )
+    ]
+    lines = [
+        "**② 2024、2025、2026年8月的平均检泵周期数值**",
+        "- 2024年8月：386天[10]",
+        "- 2025年8月：415天[10]",
+        "- 2026年8月：428天[10]",
+    ]
+    state = _state(
+        question="近三年8月平均检泵周期是否一直在变差？",
+        draft="\n".join(lines),
+        observations=observations,
+    )
+    verdict = verify(state, bus=EventBus())
+
+    assert state.draft.splitlines() == lines  # 三行逐字保留（修前：三行全删、只剩标题）
+    assert verdict.rewritten == 0
+    assert verdict.supported == 3
+    assert verdict.cited == [10]
 
 
 # ---------- V2-116：核验动作四档（off／observe／repair／delete）----------

@@ -49,6 +49,7 @@ from appv2.runtimev2.verification.constants import (
     GROUP_HEAD_SUFFIX,
     ISO_DATE_LENGTH,
     ISO_DATE_SEPARATOR,
+    LINE_BREAK,
     LINEAGE_OBSERVATION_KIND,
     MEASURE_GAP,
     SECTION_MARKS,
@@ -56,6 +57,11 @@ from appv2.runtimev2.verification.constants import (
     SPLIT_LINE_TEMPLATE,
     SUBJECT_SEPARATOR,
     TABLE_COLUMN_MARK,
+    TABLE_ROW_COLUMN_GAP,
+    TABLE_ROW_COLUMN_MIN,
+    TABLE_ROW_INDENT_CHARS,
+    TABLE_ROW_INDENT_MIN,
+    TABLE_ROW_LINE_MIN,
     THOUSANDS_SEPARATOR,
     VALUE_UNITS,
 )
@@ -85,16 +91,23 @@ def number_tokens(text: str) -> tuple[str, ...]:
     """**计量数值**记号列（数值断言的记号面——行为 7 边界记号化的记号面）：纯字符扫描，零正则。
 
     记号＝**量值**：连续数字（段内首个 `.` 且其后仍是数字时并入，如 `2462.0`；千分位 `,`＋数字
-    并入，如 `8,824.4`→规范形 `8824.4`）；**只有下列三形入列**（2026-10-17 F1 件一修精度）：
+    并入，如 `8,824.4`→规范形 `8824.4`）；**只有下列四形入列**（2026-10-17 F1 件一修精度；
+    第四形＝2026-10-18 V2-104 案 A）：
 
     - **小数形**（记号内含 `.`）；
     - **千分位形**（记号内含 `,`）；
-    - **带单位**（记号后紧邻 `VALUE_UNITS` 之一，其间至多隔空白）。
+    - **带单位**（记号后紧邻 `VALUE_UNITS` 之一，其间至多隔空白）；
+    - **表格行裸数字**（V2-104 案 A——**结构性判据**：所在行行首缩进 ≥`TABLE_ROW_INDENT_MIN`
+      且行内列空白分隔的数字列 ≥`TABLE_ROW_COLUMN_MIN`，全文此类行 ≥`TABLE_ROW_LINE_MIN`；
+      真机证据＝EB1 `D-诱1` 表体「　　…　415」的 415 裸数字不入记号面 ⇒ 承载片段任一数值重叠
+      判不过 ⇒「- 2025年8月：415天[10]」整行被删）。
 
     故**标识符**（`W-22`／`Y-24`／`渤海 302`）与**日期**（`2026 年 11 月 1 日`／`2026-08-01`）的
-    数字串**不算数值断言**（真机证据＝run-c6fd52c7 删句误伤）。`52` 与 `1520` 仍是**不同记号**
-    （比对取记号相等，非子串包含——病例 `52` 命中 `1520`，`specs/verification.md:119` 风险 2）。
-    判定前文本宜先过 `normalize_for_match`（全角数字／标点先归一，故单位字面也在归一面取）。
+    数字串**不算数值断言**（真机证据＝run-c6fd52c7 删句误伤）；表格行内的**非列**裸数字（同行
+    prose 尾的日期，如「428三年同比看…2024 年 8 月」的 2024／8——数字前紧邻非列空白）同样不入
+    列（防误放行）。`52` 与 `1520` 仍是**不同记号**（比对取记号相等，非子串包含——病例 `52` 命中
+    `1520`，`specs/verification.md:119` 风险 2）。判定前文本宜先过 `normalize_for_match`
+    （全角数字／标点先归一，故单位字面与缩进空白都在归一面取）。
     """
     return _measure_tokens(text)
 
@@ -103,9 +116,12 @@ def _measure_tokens(text: str, *, caliber: bool = False) -> tuple[str, ...]:
     """量值记号扫描单点（`number_tokens`／`caliber_numbers_only` 共用——禁第二份扫描）。
 
     `caliber=True` 时**册号／节号形不入列**（量值记号前紧邻 `SECTION_MARKS` 者——2026-10-18
-    V2-105；`99 §2.12` 的 `2.12` 是节号、非口径数值）。
+    V2-105；`99 §2.12` 的 `2.12` 是节号、非口径数值），且**表格行裸数字亦不入列**（V2-104 案 A
+    只扩 `number_tokens` 面——V2-105 收窄面不动）。
     """
     tokens: list[str] = []
+    # 表格行结构面（V2-104 案 A）：全文缩进数字行 ≥`TABLE_ROW_LINE_MIN` 才解锁；口径面不收。
+    table_rows = 0 if caliber else _table_row_lines(text)
     length = len(text)
     position = 0
     while position < length:
@@ -115,11 +131,80 @@ def _measure_tokens(text: str, *, caliber: bool = False) -> tuple[str, ...]:
         start = position
         position = _scan_digits(text, start)
         raw = text[start:position]
-        if _is_measure(raw, text, position) and not (
-            caliber and _follows_section_mark(text, start)
+        if _is_measure(raw, text, position) or (
+            table_rows >= TABLE_ROW_LINE_MIN and _in_table_row(text, start)
         ):
-            tokens.append(raw.replace(THOUSANDS_SEPARATOR, ""))
+            if not (caliber and _follows_section_mark(text, start)):
+                tokens.append(raw.replace(THOUSANDS_SEPARATOR, ""))
     return tuple(tokens)
+
+
+# ── 表格行结构判据（2026-10-18 V2-104 案 A；判据全为版式结构，零词表、零正则）────────────
+
+
+def _line_bounds(text: str, position: int) -> tuple[int, int]:
+    """`position` 所在行界（半开区间——`find`／`rfind` 结构切行，零正则）。"""
+    start = text.rfind(LINE_BREAK, 0, position) + 1
+    end = text.find(LINE_BREAK, position)
+    return start, len(text) if end < 0 else end
+
+
+def _column_gap(text: str, position: int) -> int:
+    """`position` 前紧邻的空白格数（列分隔／行首缩进——版式面；换行非空白，天然止扫）。"""
+    gap = 0
+    cursor = position - 1
+    while cursor >= 0 and text[cursor] in TABLE_ROW_INDENT_CHARS:
+        gap += 1
+        cursor -= 1
+    return gap
+
+
+def _is_table_row_line(line: str) -> bool:
+    """表格行判据（版式结构）：行首缩进 ＋ 列空白分隔的多列数字（零词表、零正则）。
+
+    数字列＝前紧邻 ≥`TABLE_ROW_COLUMN_GAP` 空白的数字记号（列与列以空白分隔——表头行「　　年份
+    （8 月）　躺井(井次)…」的数字前紧邻非空白 ⇒ 零列 ⇒ 不判表行）。
+    """
+    indent = 0
+    while indent < len(line) and line[indent] in TABLE_ROW_INDENT_CHARS:
+        indent += 1
+    if indent < TABLE_ROW_INDENT_MIN:
+        return False
+    columns = 0
+    position = indent
+    while position < len(line):
+        if line[position] in _ASCII_DIGITS:
+            if _column_gap(line, position) >= TABLE_ROW_COLUMN_GAP:
+                columns += 1
+            position = _scan_digits(line, position)
+            continue
+        position += 1
+    return columns >= TABLE_ROW_COLUMN_MIN
+
+
+def _table_row_lines(text: str) -> int:
+    """全文表格行条数（`\\n` 结构切行——与引擎「缩进数字行 ≥2」同形，独立实现：R6 禁引引擎）。"""
+    count = 0
+    start = 0
+    length = len(text)
+    while start <= length:
+        end = text.find(LINE_BREAK, start)
+        if end < 0:
+            end = length
+        if _is_table_row_line(text[start:end]):
+            count += 1
+        if end >= length:
+            break
+        start = end + 1
+    return count
+
+
+def _in_table_row(text: str, position: int) -> bool:
+    """`position` 处的数字是**表格行的一列**（所在行为表行 ＋ 该数字前紧邻列空白）。"""
+    start, end = _line_bounds(text, position)
+    if not _is_table_row_line(text[start:end]):
+        return False
+    return _column_gap(text, position) >= TABLE_ROW_COLUMN_GAP
 
 
 def _follows_section_mark(text: str, start: int) -> bool:
