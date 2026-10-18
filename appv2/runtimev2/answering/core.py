@@ -235,7 +235,7 @@ def _supplement(supplements: list[dict[str, Any]], block: str, text: str) -> Non
 # 先例 `understanding.closure.numeric_form_hit`）。
 _ASCII_DIGITS = "0123456789"
 _NUMERIC_JOINERS = ".,"  # 小数位／千分位连接符（**仅当其后接数字**才留串内）
-_ANCHOR_TOKEN_LIMIT = 8  # 锚席位预算上界（题面数字再多也不膨胀）
+_ANCHOR_TOKEN_LIMIT = 12  # 锚席位预算上界（V2-93 D8：8→12——题面数值全收，再多也不膨胀）
 
 
 def _numeric_anchor_tokens(text: str) -> tuple[str, ...]:
@@ -324,6 +324,9 @@ def _draft(
         max_observations=max_observations,
         anchors=anchors,
     )
+    # V2-93：本轮渲染窗选席实录（`context.render_materials` 元数据 additive 键——本块只读、
+    # 零自取；答案步 payload 原样落 `window_materials`）。
+    window_face = meta[PAYLOAD_WINDOW_MATERIALS_KEY]
     if meta[MATERIAL_TRUNCATED_KEY]:
         notice(
             state,
@@ -392,6 +395,8 @@ def _draft(
             **_citations_gaps_payload(PAYLOAD_PHASE_DRAFT, segments, gaps),
             **_delivery_face(state, by_index, segments, draft_text),
             PAYLOAD_DANGLING_SEQS_KEY: list(dangling),
+            # V2-93 additive：渲染窗选席实录（四键——selected/cap/rendered/total）
+            PAYLOAD_WINDOW_MATERIALS_KEY: window_face,
         },
         manifest=manifest,
     )
@@ -746,3 +751,6 @@ def _citations_gaps_payload(
 MATERIAL_TRUNCATED_KEY = "material_truncated"
 MATERIAL_RENDERED_KEY = "material_rendered"
 MATERIAL_TOTAL_KEY = "material_total"
+# V2-93：渲染窗选席实录键（`context.render_materials` 元数据 additive 键——答案步 payload 同名落键，
+# 键名单点在本行，消费方零第二份字面）。
+PAYLOAD_WINDOW_MATERIALS_KEY = "window_materials"

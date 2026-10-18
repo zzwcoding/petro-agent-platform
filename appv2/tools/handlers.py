@@ -1010,9 +1010,13 @@ def _notice_observation(
     notice_type: str,
     source: str,
     source_id: str | None = None,
-    extra: Mapping[str, str] | None = None,
+    extra: Mapping[str, Any] | None = None,
 ) -> Observation:
-    """notice 素材观察（闸依据/截断声明/未命中——locator.kind=notice 机读分型）。"""
+    """notice 素材观察（闸依据/截断声明/未命中——locator.kind=notice 机读分型）。
+
+    `extra`＝追加机读位（V2-93 D4：身份声明支携 `{"declaration": True}`——L3 据此排除出
+    检索族席位；非声明 notice 不带该键，旧形零漂移）。
+    """
     locator = {"kind": "notice", "notice_type": notice_type}
     if extra:
         locator.update(extra)
@@ -1235,6 +1239,9 @@ def _bundle_to_result(bundle: RetrievalBundle) -> ToolResult:
             content=_strip_missing_sources(bundle.window_note, missing),
             notice_type="window_note",
             source="检索供给窗声明（截断显式）",
+            # V2-93 D4：身份声明支机读标记——L3 检索族候选排除（渲染走 note／引擎注记通道，
+            # 材料段与三机检字段零改）。
+            extra={"declaration": True},
         )
     )
     return ToolResult.ok(observations)

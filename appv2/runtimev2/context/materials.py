@@ -24,6 +24,7 @@ from appv2.tools import (
     LINEAGE_PAYLOAD_KEY,
     LOCATOR_PAYLOAD_KEY,
 )
+from appv2.tools.schema import SEND_BUDGET_CAP
 
 # 三档信任级字符串（排序映射与档名——真源 recon/K R-K-01…R-K-06）。
 TRUST_AGG = "authoritative"
@@ -59,7 +60,10 @@ _KIND_TRUST: dict[str, str] = {
 _TRUST_RANK: dict[str, int] = {TRUST_AGG: 0, TRUST_LEDGER: 1, TRUST_REPORT: 2}
 
 # 检索片段帽单点（数值真源 recon/K R-K-07——数值不落规格，行为 4／12）。
-DEFAULT_MAX_OBSERVATIONS = 24
+# **V2-93 D2 帽单一真源**：本值不再是本块第二份裸字面，而是 `appv2/tools/schema.py` 的
+# `SEND_BUDGET_CAP`（送窗预算上限——L1 供给窗与 L3 渲染窗共用的唯一数值单点）的导入别名；
+# 相等性断言＝`tests/domains/test_v2_context.py::cap_single_source`。
+DEFAULT_MAX_OBSERVATIONS = SEND_BUDGET_CAP
 
 # 单来源席位上界（V2-86 材料供给席次——来源份额不被单一来源吃满；数值不落规格，行为 4）。
 # 与总帽 `DEFAULT_MAX_OBSERVATIONS` 并列两点：席位上限管「一个来源最多几席」、总帽管「检索族
@@ -75,6 +79,30 @@ ANCHOR_SEATS = 6
 # 观察 `index` 形态违约的收口文案（材料条目缺 `index`／非整数形——规格「错误契约」差异声明；
 # 席位选择与渲染两处同源同文，避免两套错误面）。
 _INDEX_SHAPE_ERROR = "观察面形态违约：材料条目缺 `index` 或非整数形（规格「错误契约」）"
+
+# ── V2-93 席位选择机读位（D1／D4／D8——本块只读标记，标记由上游单点打） ──────────────
+# 声明类观察标记（D4——`tools.handlers` 声明支构造点写 `{"declaration": True}`）：命中者
+# **不进检索族候选**（渲染走 note／引擎注记通道——材料段与三机检字段零改）。
+_LOCATOR_DECLARATION_KEY = "declaration"
+# 表格承载标记（`retrieval.engine` 依 `domain._is_table_bearing` 单点写；L3 只读——表格保底席判据）。
+_LOCATOR_TABLE_BEARING_KEY = "table_bearing"
+# 语料节点分型取值（缺位＝`slice`——引擎对切片不写该键，旧形零漂移；原文保底席判据）。
+_NODE_KIND_KEY = "node_kind"
+_NODE_KIND_SLICE = "slice"
+
+# 选席理由字面（`window_materials.selected[].reason` 闭世界取值；逐锚/保底/补席各一值——
+# 字面散名定义、不作集合字面，规格「程序不判语义」形态面）。
+_SEAT_REASON_TOPIC_TABLE = "题眼表保底"
+_SEAT_REASON_TOPIC_SECTION = "题眼节保底"
+_SEAT_REASON_ORIGINAL = "原文保底"
+_SEAT_REASON_TABLE = "表格保底"
+_SEAT_REASON_ANCHOR_FILL = "锚共现补席"
+_SEAT_REASON_SOURCE = "来源保底"
+_SEAT_REASON_ROTATION = "来源轮转补席"
+
+# `render_materials` 元数据 additive 键（V2-93——渲染窗选席实录：入选 `index`／来源／理由＋
+# 帽／实渲检索席数／候选总数；答案步 payload 由此键原样取用——`specs/context.md` 行为 5／6）。
+_WINDOW_MATERIALS_KEY = "window_materials"
 
 
 def trust_of(observation: dict[str, Any]) -> str:
@@ -93,6 +121,32 @@ def _kind_of(observation: Mapping[str, Any]) -> str:
     if not isinstance(locator, Mapping):
         return ""
     return str(locator.get("kind") or "")
+
+
+def _locator_flag(observation: Mapping[str, Any], key: str) -> bool:
+    """观察 `locator` 上的布尔机读位（缺位／非 `True` 一律假——零语义、零回落）。"""
+    locator = observation.get("locator")
+    if not isinstance(locator, Mapping):
+        return False
+    return locator.get(key) is True
+
+
+def _is_declaration(observation: Mapping[str, Any]) -> bool:
+    """身份声明支判定（V2-93 D4——`locator.declaration is True`；不进检索族候选）。"""
+    return _locator_flag(observation, _LOCATOR_DECLARATION_KEY)
+
+
+def _table_bearing(observation: Mapping[str, Any]) -> bool:
+    """表格承载片段判定（V2-93 D8——只读 `locator.table_bearing` 标记，标记单点在引擎侧）。"""
+    return _locator_flag(observation, _LOCATOR_TABLE_BEARING_KEY)
+
+
+def _node_kind(observation: Mapping[str, Any]) -> str:
+    """语料节点分型（缺位＝`slice`——引擎对切片不写该键，旧形零漂移；原文保底席判据）。"""
+    locator = observation.get("locator")
+    if not isinstance(locator, Mapping):
+        return _NODE_KIND_SLICE
+    return str(locator.get(_NODE_KIND_KEY) or _NODE_KIND_SLICE)
 
 
 def _lineage_caliber_line(observation: Mapping[str, Any]) -> str:
@@ -215,7 +269,8 @@ def _boundary_hit(anchor: str, text: str) -> bool:
 def _anchor_score(
     observation: Mapping[str, Any], anchors: Sequence[tuple[str, str]]
 ) -> float:
-    """锚分（V2-90 锚分分层——锚＝`(kind, text)`，kind∈`{"subject", "term", "number"}`）。
+    """锚分（V2-90 锚分分层——锚＝`(kind, text)`，kind∈`{"subject", "term", "number"}`；
+    `section`（章节号／表名）与其余未登记 kind 按**弱锚**处理——V2-93 题眼锚含章节号面）。
 
     分层判据（**内容命中优先、来源名命中降权**）：
     - `subject`（强锚：井号／油田／区块／平台名）＝边界命中内容 +3；否则来源名含锚 +0.5；
@@ -251,26 +306,51 @@ def _anchor_score(
     return score
 
 
-def _select_reports(
+def _anchor_hit_count(
+    observation: Mapping[str, Any], anchors: Sequence[tuple[str, str]]
+) -> int:
+    """观察命中的锚**类型数**（V2-93 题眼席同分排序键——多锚共现者优先）。
+
+    逐 `(kind, text)` 锚判命中（判据单点＝`_anchor_score`：内容边界／全等／包含＋来源名降权），
+    重复锚串只计一次、空锚串不计；零语义（行为 13 形态处理豁免面）。
+    """
+    counted: set[tuple[str, str]] = set()
+    hits = 0
+    for kind, text in anchors:
+        pair = (str(kind), str(text))
+        if not pair[1] or pair in counted:
+            continue
+        counted.add(pair)
+        if _anchor_score(observation, (pair,)) > 0:
+            hits += 1
+    return hits
+
+
+def _select_seats(
     reports: list[dict[str, Any]],
     cap: int,
     anchors: Sequence[tuple[str, str]],
-) -> list[dict[str, Any]]:
-    """检索族席位选择（行为 4——V2-90：逐锚席位＋来源保底席＋来源轮转＋单来源上限）。
+) -> list[tuple[dict[str, Any], str]]:
+    """检索族席位选择（行为 4——V2-93：题眼表/节＋原文＋表格保底席＋声明支出池）。
 
     确定性席位选择（**只换「选谁」、不换「选多少」**：总席恒 ≤ `cap`；「排序」亦不动——返回序
-    ＝入参信任级稳定序的子序）：
+    ＝入参信任级稳定序的子序），并逐席给出选席理由（`window_materials` 用）：
 
-    ① **逐锚各保一席**（V2-90——题眼按锚保底、不按片）：按「强锚（`subject`）→弱锚（`term`）→
-       数字锚（`number`）」的锚序，每个锚取**一条**最佳未选片段占锚席；同分排序＝该锚分降序→
-       片段长度升序（更具体）→ `index` 升序；**不再按 `index` 取前 `ANCHOR_SEATS`**；
-    ② **高锚分补席**（最多 `ANCHOR_SEATS` 条，边际收益）：未选且总锚分 >0 者按「总锚分降序→
-       片段长度升序→`index` 升序」补足锚席（仍按分数、不按 `index`）；
-    ③ **来源保底席**：每个来源首个未选片段各占一席（来源序＝首次出现序）——每个已检索来源
-       至少进窗一支；
-    ④ **来源轮转补席**：按来源轮转取未选片段直到 `cap`（单一来源不吃满席位）；
-    ⑤ **单来源上限**：任一来源常规席位数恒 ≤ `MAX_REPORT_SEATS_PER_SOURCE`；**锚席（①②）不占
-       单源上限**（题眼优先于来源均衡——锚席先落且不计数，剩余席位再受上限约束）。
+    ⓪ **声明类观察出池**（D4）——`locator.declaration is True` 的身份声明支不进候选（渲染走
+       note／引擎注记通道；材料段与三机检字段零改）；
+    ① **题眼表/节保底席**（D8——题眼按锚保底）：按「强锚（`subject`）→弱锚（`term`）→数字锚
+       （`number`）」的锚序，每个锚取**一条**最佳未选片段占锚席；同分排序＝「表格承载优先
+       （`table_bearing`）→ 锚命中类型数降序 → 片段长度升序 → `index` 升序」——锚命中的**原文
+       切片／表格承载支优先入选**（摘要不得顶替题眼）；锚席不占单源上限；
+    ② **同源原文保底席**（D8）：每个来源首个未选 `node_kind=slice` **原文**各占一席（摘要不得
+       顶替——该席占常规席位计数）；
+    ③ **表格保底席**（D8）：每个来源若有未选 `table_bearing` 片段，保一席（不占单源上限）；
+    ④ **锚共现补席**：未选且总锚分 >0 者按「总锚分降序→片段长度升序→`index` 升序」补足锚席
+       （最多 `ANCHOR_SEATS` 条；仍按分数、不按 `index`；不占单源上限）；
+    ⑤ **来源保底席**：每个已检索来源首个未选片段各占一席（来源序＝首次出现序）；
+    ⑥ **来源轮转补席**：按来源轮转取未选片段直到 `cap`（单一来源不吃满席位）；
+    ⑦ **单来源上限**：任一来源**常规**席位数恒 ≤ `MAX_REPORT_SEATS_PER_SOURCE`（题眼／锚／表格
+       保底席不计数——题眼优先于来源均衡）；原文保底席计常规席位。
 
     席位键＝观察自带 `index`（重复 `index` 只占一席——`[n]` 引标唯一）；`cap` 内取不满＝席位
     穷尽，正常返回（不抛错、不补空席）。本函数零 IO、零语义判断（纯计数／成员判定／字符包含）。
@@ -284,57 +364,98 @@ def _select_reports(
         seen_anchors.add(pair)
         unique_anchors.append(pair)
 
+    # ⓪ 声明类观察不进检索族候选（D4——材料段与三机检字段口径零改）
+    candidates = [obs for obs in reports if not _is_declaration(obs)]
     by_source: OrderedDict[str, list[dict[str, Any]]] = OrderedDict()
-    for obs in reports:
+    for obs in candidates:
         by_source.setdefault(_source_of(obs), []).append(obs)
     chosen_keys: set[int] = set()
+    reasons: dict[int, str] = {}
     source_count: Counter[str] = Counter()
 
     def _content_length(obs: Mapping[str, Any]) -> int:
         return len(str(obs.get("content") or ""))
 
-    def _take(obs: dict[str, Any], *, anchor: bool = False) -> bool:
+    def _take(obs: dict[str, Any], *, reason: str, reserved: bool = False) -> bool:
         key = _index_key(obs)
         origin = _source_of(obs)
         if key in chosen_keys or len(chosen_keys) >= cap:
             return False
-        if not anchor and source_count[origin] >= MAX_REPORT_SEATS_PER_SOURCE:
+        if not reserved and source_count[origin] >= MAX_REPORT_SEATS_PER_SOURCE:
             return False
         chosen_keys.add(key)
-        if not anchor:
-            # 锚席不占单源上限（题眼优先于来源均衡——V2-90 行为 4⑤）
+        reasons[key] = reason
+        if not reserved:
+            # 保底／锚席不占单源上限（题眼优先于来源均衡——V2-90 行为 4⑤／V2-93 行为 4⑦）
             source_count[origin] += 1
         return True
 
-    # ① 逐锚各保一席（**强锚→弱锚→数字锚**的锚序即席位优先级；同分长度升序→index）
+    # ① 题眼表/节保底席（锚命中的原文切片／表格承载支优先；同分＝锚命中类型数→长度→index）
     for kind, text in unique_anchors:
-        pair = [(kind, text)]
-        candidates = [
-            obs for obs in reports
-            if _index_key(obs) not in chosen_keys and _anchor_score(obs, pair) > 0
+        pair = (kind, text)
+        hit = [
+            obs for obs in candidates
+            if _index_key(obs) not in chosen_keys and _anchor_score(obs, (pair,)) > 0
         ]
-        candidates.sort(
-            key=lambda obs: (-_anchor_score(obs, pair), _content_length(obs), _index_key(obs))
+        hit.sort(
+            key=lambda obs: (
+                not _table_bearing(obs),
+                -_anchor_hit_count(obs, unique_anchors),
+                _content_length(obs),
+                _index_key(obs),
+            )
         )
-        if candidates:
-            _take(candidates[0], anchor=True)
-    # ② 高锚分补席（最多 `ANCHOR_SEATS` 条；仍按分数与长度、不按 index）
+        if hit:
+            best = hit[0]
+            _take(
+                best,
+                reason=(
+                    _SEAT_REASON_TOPIC_TABLE
+                    if _table_bearing(best)
+                    else _SEAT_REASON_TOPIC_SECTION
+                ),
+                reserved=True,
+            )
+    # ② 同源原文保底席（每来源 1 席给 `node_kind=slice` 原文——摘要不得顶替；占常规席位）
+    for rows in by_source.values():
+        original = next(
+            (
+                obs for obs in rows
+                if _node_kind(obs) == _NODE_KIND_SLICE
+                and _index_key(obs) not in chosen_keys
+            ),
+            None,
+        )
+        if original is not None:
+            _take(original, reason=_SEAT_REASON_ORIGINAL)
+    # ③ 表格保底席（每来源 1 席给 `table_bearing` 片段——不占单源上限）
+    for rows in by_source.values():
+        table = next(
+            (
+                obs for obs in rows
+                if _table_bearing(obs) and _index_key(obs) not in chosen_keys
+            ),
+            None,
+        )
+        if table is not None:
+            _take(table, reason=_SEAT_REASON_TABLE, reserved=True)
+    # ④ 锚共现补席（最多 `ANCHOR_SEATS` 条；仍按分数与长度、不按 index；不占单源上限）
     scored = [
         (_anchor_score(obs, unique_anchors), _content_length(obs), _index_key(obs), obs)
-        for obs in reports
+        for obs in candidates
         if _index_key(obs) not in chosen_keys
     ]
     scored = [row for row in scored if row[0] > 0]
     scored.sort(key=lambda row: (-row[0], row[1], row[2]))
     for _score, _length, _key, obs in scored[:ANCHOR_SEATS]:
-        _take(obs, anchor=True)
-    # ③ 来源保底席（每个已检索来源至少一席）
+        _take(obs, reason=_SEAT_REASON_ANCHOR_FILL, reserved=True)
+    # ⑤ 来源保底席（每个已检索来源至少一席）
     for rows in by_source.values():
         for obs in rows:
             if _index_key(obs) not in chosen_keys:
-                _take(obs)
+                _take(obs, reason=_SEAT_REASON_SOURCE)
                 break
-    # ④ 来源轮转补席（来源之间轮转，直到 cap；受单来源上限）
+    # ⑥ 来源轮转补席（来源之间轮转，直到 cap；受单来源上限）
     cursor = {origin: 0 for origin in by_source}
     while len(chosen_keys) < cap:
         progressed = False
@@ -342,13 +463,30 @@ def _select_reports(
             while cursor[origin] < len(rows):
                 obs = rows[cursor[origin]]
                 cursor[origin] += 1
-                if _take(obs):
+                if _take(obs, reason=_SEAT_REASON_ROTATION):
                     progressed = True
                     break
         if not progressed:
             break
     # 输出序＝入参信任级稳定序的子序（行为 3 排序面零改：席位选择只决定入选集合）
-    return [obs for obs in reports if _index_key(obs) in chosen_keys]
+    return [
+        (obs, reasons[_index_key(obs)])
+        for obs in reports
+        if _index_key(obs) in chosen_keys
+    ]
+
+
+def _select_reports(
+    reports: list[dict[str, Any]],
+    cap: int,
+    anchors: Sequence[tuple[str, str]],
+) -> list[dict[str, Any]]:
+    """检索族入选观察列（`_select_seats` 的观察面投影——Manifest 来源四列与材料段同源单点）。
+
+    本取法＝**席位集合与序的唯一消费面**（`manifest.compile_manifest` 与 `render_materials` 同调
+    本函数／同参同序）；选席理由不进本面（`window_materials` 走 `_select_seats` 元数据面）。
+    """
+    return [obs for obs, _reason in _select_seats(reports, cap, anchors)]
 
 
 def render_materials(
@@ -367,14 +505,20 @@ def render_materials(
     形态违约（材料条目缺 `index` 或非整数形）→ 抛参数错误（V1 裸 `KeyError` 收口——
     规格「错误契约」差异声明）。
 
-    **检索族＝确定性席位选择**（V2-90 锚分边界化与逐锚席位——行为 4）：检索族（`report`）不再按
-    信任级排序后原序取前 N 支，改由 `_select_reports` 做席位选择（逐锚各保一席／高锚分补席／
-    来源保底席／来源轮转／单来源上限 `MAX_REPORT_SEATS_PER_SOURCE`，锚席不占单源上限）——
-    **总帽不变**（席位恒 ≤ `max_observations`）、权威/台账族全量不变、披露行与三机检字段口径
-    不变；**输出序不因席位选择改形**（行为 3：权威/台账族原序在前，检索族按信任级稳定序的子序）。
+    **检索族＝确定性席位选择**（V2-90 锚分边界化与逐锚席位／V2-93 题眼表·节＋原文/表格保底席
+    ——行为 4）：检索族（`report`）不再按信任级排序后原序取前 N 支，改由 `_select_seats` 做席位
+    选择（声明支出池／题眼表·节保底／同源原文保底／表格保底／锚共现补席／来源保底席／来源轮转／
+    单来源上限 `MAX_REPORT_SEATS_PER_SOURCE`，保底与锚席不占单源上限）——**总帽不变**（席位恒
+    ≤ `max_observations`）、权威/台账族全量不变、披露行与三机检字段口径不变；**输出序不因席位
+    选择改形**（行为 3：权威/台账族原序在前，检索族按信任级稳定序的子序）。
     `anchors`＝**additive 可选参**（题面锚点对 `(kind, text)`，kind∈`{"subject", "term",
-    "number"}`；锚分分层＋边界／数字 token 全等判定即锚席位判据；缺省空元组＝缺省行为与本批前
-    一致）。
+    "number", "section"}`——未知 kind 按弱锚处理；锚分分层＋边界／数字 token 全等判定即锚席位
+    判据；缺省空元组＝缺省行为与本批前一致）。
+
+    **元数据面**：三机检字段（`material_truncated`／`material_rendered`／`material_total`）
+    口径与逐字值零改；**V2-93 additive 键 `window_materials`**＝本轮渲染窗选席实录
+    （`selected` 逐支 `index`／`source`／`reason`＋`cap`／`rendered`／`total`——答案步 payload
+    原样取用；`rendered`＝实渲**检索族**席数，与 `material_rendered`（含权威/台账族）不同物）。
 
     **血缘卡＝口径行**（2026-10-17 EB2 D1——材料面瘦身）：`locator.kind == "lineage"` 的
     条目不渲染五要素全文，原位渲染一行 `_lineage_caliber_line` 合成文本（原料＝
@@ -383,7 +527,8 @@ def render_materials(
     """
     material, authority, reports = _carrier_split(observations)
     truncated = len(reports) > max_observations
-    ordered = authority + _select_reports(reports, max_observations, anchors)
+    seats = _select_seats(reports, max_observations, anchors)
+    ordered = authority + [obs for obs, _reason in seats]
     blocks: list[str] = []
     for obs in ordered:
         index = _index_key(obs)
@@ -411,4 +556,17 @@ def render_materials(
         "material_truncated": truncated,
         "material_rendered": len(ordered),
         "material_total": len(material),
+        _WINDOW_MATERIALS_KEY: {
+            "selected": [
+                {
+                    "index": _index_key(obs),
+                    "source": _source_of(obs),
+                    "reason": reason,
+                }
+                for obs, reason in seats
+            ],
+            "cap": max_observations,
+            "rendered": len(seats),
+            "total": len(material),
+        },
     }

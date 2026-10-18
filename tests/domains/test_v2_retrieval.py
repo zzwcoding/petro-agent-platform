@@ -42,6 +42,7 @@ from appv2.retrieval import (
     FAMILY_ALL,
     FragmentRecord,
     GraphEdgeRecord,
+    Hit,
     InMemoryFragmentLibrary,
     LocalHashEmbedder,
     RetrievalEngine,
@@ -371,6 +372,25 @@ async def test_provenance_chain() -> None:
         RetrievalNeed(question="防砂", budget=0)
     with pytest.raises(ValueError):
         RetrievalNeed(question="防砂", family_hints=("nope",))
+
+
+async def test_table_bearing_locator_marker() -> None:
+    """V2-93：表格承载片段 locator 打 `table_bearing: True`（判据单点＝`domain._is_table_bearing`
+    ——缩进数字行 ≥2）；非表格支不带该键（旧形零漂移）；切片不带 `node_kind`（V2-47 R1b 原形）。"""
+    engine = await _engine()
+    table = _frag(
+        "f-tab",
+        _LIB_M,
+        _RPT_M,
+        "三、检泵作业明细表",
+        "检泵作业明细表：\n  443 井 2026-08-01 检泵\n  444 井 2026-08-02 检泵",
+    )
+    plain = _frag("f-plain", _LIB_M, _RPT_M, "一、概况", "本月躺井 3 井次。")
+    table_obs = engine._fragment_observation(Hit(table, 1.0, "keyword"))
+    plain_obs = engine._fragment_observation(Hit(plain, 1.0, "keyword"))
+    assert table_obs.locator.get("table_bearing") is True
+    assert "table_bearing" not in plain_obs.locator
+    assert "node_kind" not in table_obs.locator  # 切片不带摘要机读位（旧形零漂移）
 
 
 # ---------- 验收⑤：family_hints 驱动供给（完井族题不挤占月报族配额） ----------

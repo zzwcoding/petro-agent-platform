@@ -98,6 +98,9 @@ def test_bundle_to_result_stops_window_miss_observation() -> None:
         "；以下条目因直接命中提问关键词获得保留：《W-111 井完井报告》"
     )
     assert "以下来源因数量限制未纳入" not in notice.content
+    # V2-93 D4：身份声明支在构造点打 `declaration` 机读标记（L3 据此排除出检索族；
+    # 本 notice 面照旧走引擎注记通道——渲染面零改）。
+    assert notice.locator.get("declaration") is True
 
 
 def test_bundle_to_result_without_missing_has_no_window_miss() -> None:
@@ -134,7 +137,11 @@ def test_missing_list_absent_from_model_face_and_notice_still_filtered() -> None
     }
     text, meta = render_materials([note], max_observations=24)
     assert "共检索到 2 条材料，1 条用进了答案" not in text  # notice 过滤面不动
-    assert meta == {
+    # 三机检字段面（V2-93 起 `meta` 另携 additive `window_materials` 键——三字段口径零改）
+    assert {
+        key: meta[key]
+        for key in ("material_truncated", "material_rendered", "material_total")
+    } == {
         "material_truncated": False, "material_rendered": 0, "material_total": 0,
     }  # notice 不计材料（元数据面同源）
     assert engine_notes([note]) == ["共检索到 2 条材料，1 条用进了答案"]  # 主段照常入窗

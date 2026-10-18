@@ -861,6 +861,36 @@ async def test_material_face_explicit_on_truncation() -> None:
     assert clean_state.notices == []
 
 
+async def test_window_materials_payload_shape() -> None:
+    """V2-93：答案步 payload 携 additive `window_materials`（四键 `selected`／`cap`／`rendered`／
+    `total`）——入选逐支 `index`／`source`／`reason`，与材料段 `[n]` 同源同序；截断态 `rendered`
+    按实渲检索席计、`total` 仍为候选总数（三机检字段口径零改）。"""
+    observations = [
+        _obs(index, "fragment", content=f"检索片段{index}", source="报告")
+        for index in range(1, 4)
+    ]
+    state = _state(observations=observations)
+    with _phase("结论[1]。") as session:
+        session.call(state)
+    payload = _payloads(state, _PAYLOAD_PHASE_DRAFT)[0]
+    face = payload["window_materials"]
+    assert set(face) == {"selected", "cap", "rendered", "total"}
+    assert face["cap"] == DEFAULT_MAX_OBSERVATIONS
+    assert face["total"] == 3
+    assert face["rendered"] == len(face["selected"]) == 3
+    assert [entry["index"] for entry in face["selected"]] == [1, 2, 3]
+    assert all(set(entry) == {"index", "source", "reason"} for entry in face["selected"])
+    assert all(entry["source"] == "报告" and entry["reason"] for entry in face["selected"])
+
+    # 截断态：rendered 按实渲检索席计、total 仍为候选总数
+    cut_state = _state(observations=observations)
+    with _phase("结论[1]。", max_observations=2) as cut_session:
+        cut_session.call(cut_state)
+    cut = _payloads(cut_state, _PAYLOAD_PHASE_DRAFT)[0]["window_materials"]
+    assert cut["cap"] == 2 and cut["rendered"] == 2 and cut["total"] == 3
+    assert len(cut["selected"]) == 2
+
+
 # ---------- 自有面三：模型调用发起面单点（无旁路） ----------
 
 

@@ -44,6 +44,7 @@ from appv2.retrieval.domain import (
     RetrievalBundle,
     RetrievalNeed,
     WindowSupply,
+    _is_table_bearing,
     alnum_tokens,
     anchor_seat_tokens,
     bm25_scores,
@@ -384,7 +385,7 @@ class RetrievalEngine:
 
     def _fragment_observation(self, hit: Hit) -> Observation:
         frag = hit.fragment
-        locator = {
+        locator: dict[str, Any] = {
             "library": frag.library,
             "report": frag.report,
             "section": frag.section or "",
@@ -393,6 +394,10 @@ class RetrievalEngine:
         if frag.node_kind != NODE_SLICE:
             # 摘要节点机读位（V2-47 R1b——切片 locator 不带此键，旧形零漂移）。
             locator["node_kind"] = frag.node_kind
+        if _is_table_bearing(frag.text):
+            # 表格承载机读位（V2-93——L3 表格保底席判据；判据单点＝`domain._is_table_bearing`，
+            # 本处只打标记、不另立第二份判定；非表格支不带此键，旧形零漂移）。
+            locator["table_bearing"] = True
         return Observation(
             kind="fragment",
             text=frag.text,

@@ -36,7 +36,7 @@ RESIDENT_SOURCE_ROWS: Mapping[str, str] = {
 def compile_manifest(
     observations: list[dict[str, Any]], *, step: str,
     max_observations: int,
-    anchors: Sequence[str] = (),
+    anchors: Sequence[tuple[str, str]] = (),
     ledger_dump: dict[str, Any] | None = None,
     token_count: int = 0,
 ) -> Manifest:

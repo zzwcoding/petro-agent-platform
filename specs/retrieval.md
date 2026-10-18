@@ -45,6 +45,11 @@ class RetrievalEngine:
    审计机读面（`tools.handlers` 模块日志）。**「按实投窗重算的缺位名单」登记为后续能力**
    （不在本票恢复）；详注与判据见 `specs/tools.md`「`doc_retrieve` 缺位名单停发注记」。
 4. 同型文档来源标注：每支 Observation 的 locator 带 library/报告名，锚错（A-W11 vs Y-21）可被核验步发现。
+   **V2-93 补记（表格承载机读位）**：片段观察的 locator 在**表格承载**时追加 `table_bearing: True`
+   （判据单点＝`appv2/retrieval/domain.py::_is_table_bearing`——缩进数字行 ≥2 的确定性版式词面，
+   本引擎只调该单点、不另立第二份判定；非表格支不带此键，旧形零漂移）。该位供 L3 渲染窗
+   「表格保底席」判据只读消费（`specs/context.md` 行为 4——L3 只读标记、零语义判断）；
+   `node_kind`（`slice`／`section_summary`）机读位同面（V2-47 票）供「同源原文保底席」判据。
 5. 失败回退语义同 V1（回退不炸链）；embedding 失败向量腿按空腿、关键词腿兜底。
 
 ## 验收测试

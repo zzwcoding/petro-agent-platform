@@ -65,6 +65,7 @@ from appv2.tools import (
     LINEAGE_PAYLOAD_KEY,
     LOCATOR_PAYLOAD_KEY,
 )
+from appv2.tools.schema import SEND_BUDGET_CAP
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _CONTEXT_DIR = _REPO_ROOT / "appv2" / "runtimev2" / "context"
@@ -107,6 +108,15 @@ def _obs(
 def _indices(text: str) -> list[int]:
     """渲染文本中的 `[n]` 引标序号列（块形 `[{index}]（` 抽取）。"""
     return [int(m) for m in re.findall(r"\[(\d+)\]（", text)]
+
+
+def _machine_fields(meta: Mapping[str, Any]) -> dict[str, Any]:
+    """三机检字段面（V2-93 起 `render_materials` 元数据另携 additive `window_materials` 键——
+    三字段口径与逐字值零改，本取法只把断言面收窄到那三键）。"""
+    return {
+        key: meta[key]
+        for key in ("material_truncated", "material_rendered", "material_total")
+    }
 
 
 def _fragments(count: int, *, start: int = 1, source_count: int = 5) -> list[dict[str, Any]]:
@@ -206,7 +216,9 @@ def test_material_segment_verbatim_render() -> None:
     # 段头逐字＋块形：index＝观察自带全局序号（非渲染位次）、label＝信任级｜来源｜井
     assert text == "\n观察材料：\n[7]（ledger｜台账·指标｜K12-3）日产油量（吨）：21.16"
     assert text.startswith("\n观察材料：\n")
-    assert meta == {"material_truncated": False, "material_rendered": 1, "material_total": 1}
+    assert _machine_fields(meta) == {
+        "material_truncated": False, "material_rendered": 1, "material_total": 1,
+    }
 
     # 空段跳过（来源/井空白串经 `.strip()` 归一后跳过——只剩信任级段）
     blank, _ = render_materials(
@@ -224,7 +236,9 @@ def test_material_segment_verbatim_render() -> None:
     # 空材料集正文＝逐字「（无）」
     empty, empty_meta = render_materials([], max_observations=DEFAULT_MAX_OBSERVATIONS)
     assert empty == "\n观察材料：\n（无）"
-    assert empty_meta == {"material_truncated": False, "material_rendered": 0, "material_total": 0}
+    assert _machine_fields(empty_meta) == {
+        "material_truncated": False, "material_rendered": 0, "material_total": 0,
+    }
 
     # 三段全空＝空括号（）：迁移照抄保留该写法，公开面无可达入口（信任级段恒非空——
     # 闭世界查表恒返三档之一）＝死分支，现状固有、迁移不修（规格行为 1 原注）。
@@ -335,7 +349,9 @@ def test_trust_mapping_closed_world() -> None:
         max_observations=DEFAULT_MAX_OBSERVATIONS,
     )
     assert "[2]" not in text and "元信息" not in text
-    assert meta == {"material_truncated": False, "material_rendered": 1, "material_total": 1}
+    assert _machine_fields(meta) == {
+        "material_truncated": False, "material_rendered": 1, "material_total": 1,
+    }
 
 
 # ---------- 3 排序＝信任级稳定序（行为 3） ----------
@@ -370,13 +386,17 @@ def test_carrier_fractal_budget() -> None:
     text, meta = render_materials(authority, max_observations=24)
     assert len(_indices(text)) == 40
     assert _DISCLOSURE_HEAD not in text
-    assert meta == {"material_truncated": False, "material_rendered": 40, "material_total": 40}
+    assert _machine_fields(meta) == {
+        "material_truncated": False, "material_rendered": 40, "material_total": 40,
+    }
 
     # 检索族超帽 → 只渲染帽内支、披露在场（帽只作用检索族）
     text, meta = render_materials(_fragments(30), max_observations=24)
     assert len(_indices(text)) == 24
     assert _DISCLOSURE_HEAD in text
-    assert meta == {"material_truncated": True, "material_rendered": 24, "material_total": 30}
+    assert _machine_fields(meta) == {
+        "material_truncated": True, "material_rendered": 24, "material_total": 30,
+    }
 
 
 # ---------- 4b 检索族席位选择：来源轮转＋锚席位＋单来源上限（行为 4——V2-86） ----------
@@ -489,7 +509,8 @@ def test_reports_per_source_cap() -> None:
 
 
 def test_numeric_anchor_tokens_shape_only() -> None:
-    """行 4b-4 题面数字串锚点：纯字符扫描（禁 `re`）取连续数字串、去重保序、至多 8 个。
+    """行 4b-4 题面数字串锚点：纯字符扫描（禁 `re`）取连续数字串、去重保序、至多 12 个
+    （V2-93 D8：上界 8→12——NQ-C6 题面 10 个数值须全成锚）。
 
     小数／千分位**保形**取原文（`12.5`／`1,000`）；百分号作形态分隔符（不并入数字串——锚点取
     数字字面，写法差异不丢召回）；汉字数字不取（无阿拉伯数字位即零 token）。
@@ -499,9 +520,18 @@ def test_numeric_anchor_tokens_shape_only() -> None:
     assert _numeric_anchor_tokens("2026 年 2026 月 34-8 井") == ("2026", "34", "8")
     assert _numeric_anchor_tokens("、。；：") == ()
     assert _numeric_anchor_tokens("产量 12.5%，1,000 吨") == ("12.5", "1,000")
-    # 去重保序＋至多 8 个（上限＝形态面常量，不随题面数字个数膨胀）
-    assert len(_numeric_anchor_tokens(" ".join(str(number) for number in range(1, 12)))) == 8
+    # 去重保序＋至多 12 个（上限＝形态面常量，不随题面数字个数膨胀）
+    assert len(_numeric_anchor_tokens(" ".join(str(number) for number in range(1, 20)))) == 12
     assert _numeric_anchor_tokens("2026 与 2026 与 2026") == ("2026",)
+
+
+def test_anchor_token_limit_12() -> None:
+    """V2-93 D8：题面数字锚上界 8→12——题面 10 个数值全成锚（NQ-C6 形后两值不再被截）。"""
+    numbers = ("11", "22", "33", "44", "55", "66", "77", "88", "99", "110")
+    assert _numeric_anchor_tokens(" ".join(numbers)) == numbers
+    # 上界恰为 12：13 个数值截到前 12 个（去重保序）
+    many = tuple(str(number) for number in range(1, 14))
+    assert _numeric_anchor_tokens(" ".join(many)) == many[:12]
 
 
 # ---------- 4c 锚分边界化与逐锚席位（V2-90——行为 4） ----------
@@ -635,6 +665,117 @@ def test_d_you12_shape_keeps_41() -> None:
     # 对照面：无锚点 → 同源单源轮转只到 index 45，4.1 不进窗
     naive, _ = render_materials(reports, max_observations=10)
     assert 8 not in _indices(naive)
+
+
+# ---------- 4d 题眼表/节＋原文/表格保底席（V2-93——D1/D2/D4/D8） ----------
+
+
+def _seat_obs(
+    index: int,
+    source: str,
+    *,
+    content: str = "",
+    node_kind: str | None = None,
+    table: bool = False,
+    declaration: bool = False,
+) -> dict[str, Any]:
+    """席位 fixture（`locator` 可携 `node_kind`／`table_bearing`／`declaration` 机读位——
+    V2-93：`table_bearing` 由引擎侧打、`declaration` 由工具声明支构造点打，L3 只读标记）。"""
+    row = _source_obs(index, source, content=content)
+    if node_kind is not None:
+        row["locator"]["node_kind"] = node_kind
+    if table:
+        row["locator"]["table_bearing"] = True
+    if declaration:
+        row["locator"]["declaration"] = True
+    return row
+
+
+def test_topic_table_seat_keeps_detail_row() -> None:
+    """V2-93 D8／B-正2 形：题眼锚命中的**表格承载原文切片**优先占题眼表保底席——同源摘要
+    （更短、`index` 更小）不得顶替（cap=1 下判别力面＝锚席取谁：旧序按片段长度升序）。"""
+    decoy = _seat_obs(
+        5, "《B-月报-202608》", content="443 摘要", node_kind="section_summary"
+    )
+    detail = _seat_obs(
+        90,
+        "《B-月报-202608》",
+        content="检泵作业明细表\n  443 井 2026-08-01 检泵",
+        table=True,
+    )
+    text, _meta = render_materials(
+        [decoy, detail], max_observations=1, anchors=(("number", "443"),)
+    )
+    assert _indices(text) == [90]  # 表格承载者胜（旧序下摘要先占锚席）
+
+
+def test_topic_section_seat_keeps_original() -> None:
+    """V2-93 D8／NQ-C9 形：题眼节所在**原文切片**必进窗——同源节摘要挤占（帽内轮转只到
+    摘要）下原文不得缺席（132 立方米／8.2 所在原文节入选）。"""
+    summaries = [
+        _seat_obs(
+            3 + i,
+            "《NQ-C9 检泵月报》",
+            content="检泵作业（节摘要）",
+            node_kind="section_summary",
+        )
+        for i in range(8)
+    ]
+    original = _seat_obs(
+        77,
+        "《NQ-C9 检泵月报》",
+        content="三、作业明细：日产液 132 立方米，含水 8.2%",
+        node_kind="slice",
+    )
+    text, _meta = render_materials(
+        [*summaries, original], max_observations=4, anchors=(("term", "检泵"),)
+    )
+    assert 77 in _indices(text)  # 同源原文保底席（摘要不得顶替）
+
+
+def test_original_over_summary_per_source() -> None:
+    """V2-93 D8：同源「节摘要＋原文切片」并存 → 原文占保底席；同源常规摘要席让位。"""
+    summary_hit = _seat_obs(1, "报告A", content="检泵 摘要", node_kind="section_summary")
+    summary_fill = _seat_obs(2, "报告A", content="另一节摘要", node_kind="section_summary")
+    original = _seat_obs(
+        99, "报告A", content="原文正文：日产液 132 立方米，含水 8.2%", node_kind="slice"
+    )
+    text, _meta = render_materials(
+        [summary_hit, summary_fill, original],
+        max_observations=2,
+        anchors=(("term", "检泵"),),
+    )
+    seats = _indices(text)
+    assert 99 in seats  # 原文保底席先于同源常规席
+    assert 1 in seats  # 题眼席（摘要命中锚——席位不因保底而丢）
+    assert 2 not in seats  # 常规摘要席被保底挤掉（摘要不得顶替原文）
+
+
+def test_declaration_not_in_report_seats() -> None:
+    """V2-93 D4：身份声明支不进检索族候选、不占席、不改其余支 `[n]`（对照面＝无声明支同序）。"""
+    rows = [
+        _seat_obs(1, "报告A", content="正文一"),
+        _seat_obs(
+            2,
+            "检索供给窗声明（截断显式）",
+            content="共检索到 2 条材料，1 条用进了答案",
+            declaration=True,
+        ),
+        _seat_obs(3, "报告A", content="正文二"),
+    ]
+    text, _meta = render_materials(rows, max_observations=24)
+    assert _indices(text) == [1, 3]  # 声明支零席、其余支 [n] 与序零改
+    assert "共检索到" not in text  # 声明正文不进材料段（走 note／引擎注记通道）
+    without, _ = render_materials([rows[0], rows[2]], max_observations=24)
+    assert _indices(without) == [1, 3]  # 对照面：声明支在场不改任何 [n]
+    # notice 形声明支（工具构造点真形）照旧被整体排除（材料段＋计数面零改）
+    notice_decl = _seat_obs(
+        4, "检索供给窗声明（截断显式）", content="声明", declaration=True
+    )
+    notice_decl["locator"]["kind"] = "notice"
+    notice_decl["locator"]["notice_type"] = "window_note"
+    notice_text, notice_meta = render_materials([rows[0], notice_decl], max_observations=24)
+    assert _indices(notice_text) == [1] and notice_meta["material_total"] == 1
 
 
 # ---------- 5 截断披露行逐字在场、未截断零残留（行为 5——pin-09 之一） ----------
@@ -1455,6 +1596,28 @@ def _constant_defs(
     return sites
 
 
+def _alias_targets(
+    sources: list[tuple[Path, ast.Module]], name: str
+) -> list[tuple[str, str]]:
+    """模块级**别名**定义位点（`名 = 另一名` 形——`(文件名, 右值名)`；V2-93 帽派生面）。"""
+    sites: list[tuple[str, str]] = []
+    for path, tree in sources:
+        for node in tree.body:
+            if isinstance(node, ast.Assign):
+                target = node.targets[0] if len(node.targets) == 1 else None
+            elif isinstance(node, ast.AnnAssign):
+                target = node.target
+            else:
+                continue
+            if (
+                isinstance(target, ast.Name)
+                and target.id == name
+                and isinstance(node.value, ast.Name)
+            ):
+                sites.append((path.name, node.value.id))
+    return sites
+
+
 def _bare_literal_sites(
     sources: list[tuple[Path, ast.Module]], values: tuple[int, ...]
 ) -> list[tuple[str, int, int]]:
@@ -1665,11 +1828,15 @@ def test_no_lexicon_or_regex_in_context() -> None:
 
 
 def test_cap_constant_single_point() -> None:
-    """行 16 帽／预算常量各一处、注入制无缺省裸字面（行为 4／8——数值不落规格）。"""
+    """行 16 帽／预算常量各一处、注入制无缺省裸字面（行为 4／8——数值不落规格）。
+
+    V2-93 D2 改判：帽 `DEFAULT_MAX_OBSERVATIONS` 不再是本块裸字面，而是由
+    `tools/schema.py::SEND_BUDGET_CAP` 派生的**导入别名**（右值＝Name）；本块源码内 24 零残留
+    （裸字面单点只剩 `PROCESS_NOTES_BUDGET=400`）。
+    """
     sources = _v2_sources()
     assert sources, "扫描面为空——看守失效"
     definitions: dict[str, tuple[int, str]] = {
-        "DEFAULT_MAX_OBSERVATIONS": (24, "materials.py"),
         "PROCESS_NOTES_BUDGET": (400, "process_notes.py"),
     }
     for name, (value, filename) in definitions.items():
@@ -1677,6 +1844,9 @@ def test_cap_constant_single_point() -> None:
         assert [(site[0], site[2]) for site in sites] == [(filename, value)], (
             f"常量 {name} 在 runtimev2 面内非恰一处定义：{sites}"
         )
+    # 帽单点＝导入别名（恰一处定义、右值非字面——真源 appv2/tools/schema.py::SEND_BUDGET_CAP）
+    cap_sites = _constant_defs(sources, "DEFAULT_MAX_OBSERVATIONS")
+    assert [(site[0], site[2]) for site in cap_sites] == [("materials.py", None)]
     # 视窗数值单点（同款纪律——行为 9：触发参数注入制、无裸值）
     window = _constant_defs(sources, "DEFAULT_DIALOGUE_VIEW_TOKENS")
     assert [(site[0], site[2]) for site in window] == [("compaction.py", 8192)]
@@ -1692,7 +1862,7 @@ def test_cap_constant_single_point() -> None:
         assert param.kind is inspect.Parameter.KEYWORD_ONLY, f"{func.__name__}.{parameter} 非注入制"
         assert param.default is inspect.Parameter.empty, f"{func.__name__}.{parameter} 带缺省裸字面"
 
-    # 裸字面零残留：24／400 在本块源码内只出现在常量定义行
+    # 裸字面零残留：400 只出现在常量定义行、24 在本块源码内零命中（帽已派生）
     context_sources = _context_sources()
     allowed = {
         (path, lineno)
@@ -1707,6 +1877,22 @@ def test_cap_constant_single_point() -> None:
     assert _constant_defs(forged_const, "DEFAULT_MAX_OBSERVATIONS")
     forged_default = [(Path("forged.py"), ast.parse("def f(*, cap=24):\n    return cap\n"))]
     assert _bare_literal_sites(forged_default, (24,)) == [("forged.py", 1, 24)]
+
+
+def test_cap_single_source() -> None:
+    """V2-93 D2 帽单一真源：`context.DEFAULT_MAX_OBSERVATIONS` 由
+    `appv2/tools/schema.py::SEND_BUDGET_CAP` 派生（导入别名）——两值相等性断言＋单点定义断言。"""
+    assert DEFAULT_MAX_OBSERVATIONS == SEND_BUDGET_CAP == 24
+    # 数值单点＝tools/schema.py 恰一处裸字面定义
+    schema_path = _REPO_ROOT / "appv2" / "tools" / "schema.py"
+    schema_sources = [(schema_path, ast.parse(schema_path.read_text(encoding="utf-8")))]
+    assert [
+        (site[0], site[2]) for site in _constant_defs(schema_sources, "SEND_BUDGET_CAP")
+    ] == [("schema.py", 24)]
+    # 派生面＝materials.py 恰一处别名赋值（右值＝Name，非第二份裸字面）
+    assert _alias_targets(_context_sources(), "DEFAULT_MAX_OBSERVATIONS") == [
+        ("materials.py", "SEND_BUDGET_CAP")
+    ]
 
 
 # ---------- 17 渲染单点（材料/过程档/信任映射/帽/三来源行映射各恰一处定义） ----------
@@ -1785,7 +1971,7 @@ def test_boundary_empty_overcap_overwindow() -> None:
     # ① 空材料 → 空段「（无）」＋(0, 0, False)；零档案 → 零段（调用方跳过）
     text, meta = render_materials([], max_observations=cap)
     assert text == "\n观察材料：\n（无）"
-    assert meta == zero
+    assert _machine_fields(meta) == zero
     empty_manifest = compile_manifest([], step="understand", max_observations=cap)
     assert (
         empty_manifest.material_total,
@@ -1799,7 +1985,7 @@ def test_boundary_empty_overcap_overwindow() -> None:
     # ② 全 notice → 材料段空段、零计数、零来源行（notice 不进模型面、不计任何计数）
     notices = [_obs(index, "notice", content=f"窗口缺参反问 {index}") for index in range(1, 5)]
     notice_text, notice_meta = render_materials(notices, max_observations=cap)
-    assert notice_text == "\n观察材料：\n（无）" and notice_meta == zero
+    assert notice_text == "\n观察材料：\n（无）" and _machine_fields(notice_meta) == zero
     assert "反问" not in notice_text
     notice_manifest = compile_manifest(notices, step="answer", max_observations=cap)
     assert notice_manifest.material_truncated is False
@@ -1810,14 +1996,14 @@ def test_boundary_empty_overcap_overwindow() -> None:
     authority_text, authority_meta = render_materials(authority, max_observations=cap)
     assert len(_indices(authority_text)) == 40
     assert _DISCLOSURE_HEAD not in authority_text
-    assert authority_meta == {"material_truncated": False, "material_rendered": 40,
-                              "material_total": 40}
+    assert _machine_fields(authority_meta) == {"material_truncated": False,
+                                               "material_rendered": 40, "material_total": 40}
 
     # ④ 检索超帽 → 只渲帽内支＋披露行＋True（模型面披露行与机读字段同场）
     cut_text, cut_meta = render_materials(_fragments(30), max_observations=cap)
     assert len(_indices(cut_text)) == cap and _DISCLOSURE_HEAD in cut_text
-    assert cut_meta == {"material_truncated": True, "material_rendered": cap,
-                        "material_total": 30}
+    assert _machine_fields(cut_meta) == {"material_truncated": True,
+                                         "material_rendered": cap, "material_total": 30}
     cut_manifest = compile_manifest(_fragments(30), step="answer", max_observations=cap)
     assert cut_manifest.material_truncated is True
     assert f"帽 {cap} 支截断（{cap}/30）" in cut_manifest.selected_reason
@@ -1861,7 +2047,9 @@ def test_retention_normal_render_unchanged() -> None:
     )
     # 序号＝观察自带全局序号（非渲染位次）；排序＝信任级稳定序（authoritative＜ledger＜report）
     assert _indices(text) == [12, 11, 13, 14]
-    assert meta == {"material_truncated": False, "material_rendered": 4, "material_total": 4}
+    assert _machine_fields(meta) == {
+        "material_truncated": False, "material_rendered": 4, "material_total": 4,
+    }
     assert _DISCLOSURE_HEAD not in text and "（无）" not in text
     # 同 rank 保持入栈序（稳定排序不抖动）：检索族两条换位 → 输出组内序随动
     swapped = [observations[0], observations[1], observations[3], observations[2]]
