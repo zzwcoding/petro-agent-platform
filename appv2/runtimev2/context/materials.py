@@ -98,8 +98,14 @@ _SEAT_REASON_TOPIC_SECTION = "题眼节保底"
 _SEAT_REASON_ORIGINAL = "原文保底"
 _SEAT_REASON_TABLE = "表格保底"
 _SEAT_REASON_ANCHOR_FILL = "锚共现补席"
+# 主体保底席（V2-117——主体来源的保底席优先于泛来源；插在题眼保底之后、来源保底之前）。
+_SEAT_REASON_SUBJECT = "主体保底"
 _SEAT_REASON_SOURCE = "来源保底"
 _SEAT_REASON_ROTATION = "来源轮转补席"
+
+# 强锚 kind 取值（`_anchor_score` 分层判据的 `subject` 层——主体保底席的判据面；
+# 取值与 `specs/context.md` 行为 4／`answer_anchors` 的 `(kind, text)` 装配面同源）。
+_ANCHOR_KIND_SUBJECT = "subject"
 
 # `render_materials` 元数据 additive 键（V2-93——渲染窗选席实录：入选 `index`／来源／理由＋
 # 帽／实渲检索席数／候选总数；答案步 payload 由此键原样取用——`specs/context.md` 行为 5／6）。
@@ -362,6 +368,9 @@ def _select_seats(
     ③ **表格保底席**（D8）：每个来源若有未选 `table_bearing` 片段，保一席（不占单源上限）；
     ④ **锚共现补席**：未选且总锚分 >0 者按「总锚分降序→片段长度升序→`index` 升序」补足锚席
        （最多 `ANCHOR_SEATS` 条；仍按分数、不按 `index`；不占单源上限）；
+    ④b **主体保底席**（V2-117——**插在题眼保底之后、来源保底之前**，Kimi 评审修正 2 的 L0 口径）：
+       每个来源若有未选且命中**强锚（`kind="subject"`）**的片段，取其一支占席（来源序＝首次出现
+       序；不占单源上限）——主体来源的保底席优先于泛来源；`subject` 锚缺席＝本通道零动作；
     ⑤ **来源保底席**：每个已检索来源首个未选片段各占一席（来源序＝首次出现序）；
     ⑥ **来源轮转补席**：按来源轮转取未选片段直到 `cap`（单一来源不吃满席位）；
     ⑦ **单来源上限**：任一来源**常规**席位数恒 ≤ `MAX_REPORT_SEATS_PER_SOURCE`（题眼／锚／表格
@@ -464,6 +473,27 @@ def _select_seats(
     scored.sort(key=lambda row: (-row[0], row[1], row[2]))
     for _score, _length, _key, obs in scored[:ANCHOR_SEATS]:
         _take(obs, reason=_SEAT_REASON_ANCHOR_FILL, reserved=True)
+    # ④b 主体保底席（V2-117——**主体来源的保底席优先于泛来源**；**插在题眼保底之后、来源保底
+    # 之前**＝Kimi 评审修正 2 的 L0 口径，不前置到题眼三通道之前、不改题眼优先序）：每个来源若有
+    # 未选且命中**强锚（`kind="subject"`）**的片段，取其一支占席（来源序＝首次出现序）——主体来源
+    # 不被后续泛来源按出现序挤掉；`subject` 锚缺席＝本通道零动作（旧序逐字等价——零漂移面）。
+    # 本席 `reserved=True`（不占单源上限——与题眼／锚／表格保底席同族：题眼优先于来源均衡）。
+    subject_anchors = tuple(
+        pair for pair in unique_anchors if pair[0] == _ANCHOR_KIND_SUBJECT
+    )
+    if subject_anchors:
+        for rows in by_source.values():
+            subject_hit = next(
+                (
+                    obs
+                    for obs in rows
+                    if _index_key(obs) not in chosen_keys
+                    and _anchor_score(obs, subject_anchors) > 0
+                ),
+                None,
+            )
+            if subject_hit is not None:
+                _take(subject_hit, reason=_SEAT_REASON_SUBJECT, reserved=True)
     # ⑤ 来源保底席（每个已检索来源至少一席）
     for rows in by_source.values():
         for obs in rows:

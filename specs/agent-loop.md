@@ -213,6 +213,11 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
     - **硬停止**：到顶仍标红 → 模型出缺位说明；说明脏／空 → 置空交核验程序零交付兜底（正文含「已试 N 轮／仍缺」；**不判 failed**）；
     - **留痕**：回炉步 payload 四键 `repair_rounds`／`repair_request`（逐行原句）／`repair_response`／`recheck`；`RewriteRecord.reason` 闭世界仍两值；verification 不引 LLM（R8 零 LLM 红线）。
 
+14. **主体反思的落点与调用点纪律（V2-117 2026-10-18；真源 `tickets/v2/V2-117-主体反思与下游加权.md` 任务 1 ＋「Kimi 评审修正」1）**：材料到手后（L2 并集池）由**本块**逐来源核「是否属题面点名主体」——反思函数落 `orchestration.subjects`（`reflect_subjects`＝纯判据；`reflect_and_record`＝算 → 落 `state.subject_reflection` → 落最近一步 payload 键 `subject_reflection`），调用点＝`graph` 的 `discover`／`batch` 节点（`execute` 之后）与 `answer` 节点（作答收口之后——覆盖 explore 增量材料）：
+    - **调用点纪律（Kimi 评审修正 1）**：反思函数**不得**落 `execution` 并调 `clarification`（违 R1 `allow_indirect_imports=false`）——本块是唯一被允许「调相位公开入口＋读全状态」的组合面，故反思落本块、消费 `clarification` 抽取面写下的 `state.subjects`（程序候选回退同引 `tools.subject_candidates` 单点）；
+    - **判据面**：来源的**报告名**／油田标签／井号与题面主体的一致性——确定性比对、零语义、零 CJK 词表（判据本体＝`appv2.text_tokens` 边界／全等 ＋ `appv2.tools` 取词单点）；逐来源三值「属／不属／未知」（同源多支取最强命中；**同类**才判「不属」——井号题只认另一口井、油田题只认另一油田名；无题面主体／「都要（分源对比）」哨兵 ⇒ 空针，全「未知」＝审静默）；
+    - **下游消费**：`state.subject_reflection` 由 `verification`（件四主体归属扩面——`specs/verification.md` 行为 13）与 step payload 机读面消费；`context` 席位与 `retrieval` 排序各自引题面主体 token 面（不读本状态位）。
+
 ## 不降级与静默禁令
 
 - **合法降级路径：无**（编排层不自降级；图执行器不可用时按 fail-closed 收束为 `failed`，**不产出半成品答案**）。
@@ -273,6 +278,8 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 | `fetch_*` 只许已见来源（未见来源零派遣、拒因含「已见」、L2 零该来源）（V2-96 D5） | `tests/domains/test_v2_v296_explore.py::test_fetch_section_unknown_report_rejected` |
 | 端到端再探链：作答说不够→`doc_retrieve` 补到八章→新观察入 L2（序号续排、`observation` 帧复用）→再作答出 386/415/428；增量头部「补充检索（第 1/2 次，还剩 1 次）」＋requests 原文在场（V2-96 D5，B-正6 形） | `tests/domains/test_v2_v296_explore.py::test_explore_end_to_end_doc_retrieve_new_recall` |
 | 再探预算独立不破（≤2 轮、每轮 ≤2 请求；总时长 300s 不变；`Budget` 七键不扩；`INTENT` 十二值）（V2-96 D5） | `tests/domains/test_v2_v296_explore.py::test_explore_budget_and_seconds_unbroken` |
+
+| 主体反思：材料到手后逐来源判「属／不属／未知」、落 `state.subject_reflection` 与步 payload；调用点落 orchestration（execution 不引 clarification） | `tests/domains/test_v2_v117_subject_reflection.py::test_reflect_and_record_state_and_step_payload`／`::test_reflection_call_site_not_cross_phase` |
 
 ## 依赖与风险
 

@@ -247,6 +247,10 @@ class RunState:
     # 恢复腿据此把选中项映射进 `state.subjects`（哨兵 `__all_fields__`＝都要）。
     pending_subject_options: tuple[str, ...] = ()
     observations: list[dict[str, Any]] = field(default_factory=list)
+    # 主体反思逐来源判值（V2-117 2026-10-18 additive——材料到手后（L2 并集池）由编排写、
+    # 核验相位读；默认空＝零漂移）。键＝来源名（观察 `source`），值 ∈ `SUBJECT_VERDICTS`
+    # （属／不属／未知）；判据单点＝`orchestration.subjects.reflect_subjects`。
+    subject_reflection: dict[str, str] = field(default_factory=dict)
     resume_choices: list[dict[str, Any]] = field(default_factory=list)
     approved_ids: list[str] = field(default_factory=list)
     # 作答侧有界再探（V2-96 D5 2026-10-18 additive——独立计数，默认零值＝零漂移）：

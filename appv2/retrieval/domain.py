@@ -665,6 +665,55 @@ def _topic_source_cap(budget: int) -> int:
     return max(1, budget // 2)
 
 
+def promote_subject_hits(
+    ranked: list[tuple[Hit, float]],
+    tokens: Sequence[str],
+    *,
+    text_of: Callable[[Hit], str],
+) -> list[tuple[Hit, float]]:
+    """主体命中候选**分池序内提权**（V2-117 任务 2 第一处加权——稳定分区、不改融合序公式）。
+
+    - **池＝族**（`fragment.family`，出场序＝融合序首现序）：逐族把命中题面主体 token 的候选
+      前移，族内其余候选保持原相对序；**族与族之间的出场序不动**（「分池序内提权」逐字——不是
+      全局重排）；
+    - 命中判据＝**三面任一**（正文 ∪ 报告名 ∪ 油田标签，复用 `_anchor_hits`——与题眼锚保底同
+      判据单点）；判据本体仍走 `appv2.text_tokens` 边界／数字全等（零第二份）；
+    - `tokens` 空／无命中／`ranked` 空 ⇒ **原样返回**（零漂移面）；`rrf_merge` 融合序公式零改。
+
+    纯函数、零 IO、零模型调用。
+    """
+    needles = tuple(str(token).casefold() for token in tokens if str(token).strip())
+    if not needles or not ranked:
+        return ranked
+    by_family: dict[str, list[tuple[Hit, float]]] = {}
+    order: list[str] = []
+    for pair in ranked:
+        key = pair[0].fragment.family
+        if key not in by_family:
+            by_family[key] = []
+            order.append(key)
+        by_family[key].append(pair)
+    promoted: list[tuple[Hit, float]] = []
+    for key in order:
+        members = by_family[key]
+        hits: list[tuple[Hit, float]] = []
+        misses: list[tuple[Hit, float]] = []
+        for pair in members:
+            frag = pair[0].fragment
+            faces = (
+                text_of(pair[0]),
+                frag.report or "",
+                frag.well or "",
+            )
+            if any(_anchor_hits(needle, faces) for needle in needles):
+                hits.append(pair)
+            else:
+                misses.append(pair)
+        promoted.extend(hits)
+        promoted.extend(misses)
+    return promoted
+
+
 def _anchor_hit_sources(
     ranked: list[tuple[Hit, float]], anchors: Sequence[str]
 ) -> set[str]:

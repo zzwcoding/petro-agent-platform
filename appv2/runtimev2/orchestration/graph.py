@@ -63,6 +63,7 @@ from appv2.runtimev2.orchestration.constants import (
 )
 from appv2.runtimev2.orchestration.explore import hard_stop, run_explore
 from appv2.runtimev2.orchestration.repair import run_repair
+from appv2.runtimev2.orchestration.subjects import reflect_and_record
 from appv2.runtimev2.parsing import Understanding
 from appv2.runtimev2.preconditions import (
     DECISION_ALLOW,
@@ -509,6 +510,9 @@ def _shared_context_pending(state: RunState) -> bool:
 def _make_discover(deps: LoopDeps) -> Any:
     async def node(state: RunState) -> dict[str, Any]:
         outcome = execute(state, bus=deps.bus, registry=deps.registry, store=deps.store)
+        # 主体反思（V2-117）：材料到手后（L2 并集池）逐来源核题面主体——落状态位＋末步 payload
+        # （判据单点在 `orchestration.subjects`；本处只作调用点，Kimi 评审修正 1）。
+        reflect_and_record(state)
         if state.pending_ask:
             state.status = RUN_WAITING_ASK
             set_intent(state, INTENT_END)
@@ -576,6 +580,8 @@ def _make_precondition(deps: LoopDeps) -> Any:
 def _make_batch(deps: LoopDeps) -> Any:
     async def node(state: RunState) -> dict[str, Any]:
         execute(state, bus=deps.bus, registry=deps.registry, store=deps.store)
+        # 主体反思（V2-117）：批量执行后材料到手——同 `_make_discover` 的调用点纪律。
+        reflect_and_record(state)
         if state.pending_ask:
             state.status = RUN_WAITING_ASK
             set_intent(state, INTENT_END)
@@ -620,6 +626,9 @@ def _make_answer(deps: LoopDeps) -> Any:
             execution_date=deps.execution_date,
         )
         _emit_direct_text(deps, state)
+        # 主体反思（V2-117）：作答收口后复核一次并留痕到**作答步** payload（explore 增量材料已并入
+        # L2 并集池；核验相位（下一节点）读 `state.subject_reflection` 做件四主体归属扩面）。
+        reflect_and_record(state)
         # 增补面收口发射（EB3 D1／D2）：作答收口后（核验改写后的 draft 已定稿）逐条发帧——
         # 本 run 全部四类块在此处一次出流（verification 与 answering 的产出同列按原序）。
         _flush_supplements(deps)

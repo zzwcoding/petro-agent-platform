@@ -136,6 +136,7 @@ from appv2.runtimev2.verification.constants import (
     PAYLOAD_ROWSET_ALIGNED_KEY,
     PAYLOAD_ROWSET_MISSING_KEY,
     PAYLOAD_SPLIT_KEY,
+    PAYLOAD_SUBJECT_MISMATCH_KEY,
     PAYLOAD_SUPPORTED_KEY,
     PAYLOAD_VERIFY_MODE_KEY,
     PAYLOAD_ZERO_DELIVERY_KEY,
@@ -191,6 +192,7 @@ from appv2.runtimev2.verification.rules import (
     split_block,
     split_block_sections,
     structural_line,
+    subject_attribution_mismatch,
     uncited_aligned,
     without_markers,
 )
@@ -290,6 +292,9 @@ def _verify(state: RunState, bus: EventBus, supplements: list[dict[str, Any]]) -
     by_index = {int(obs["index"]): obs for obs in observations}
     # 题眼所辖油田名集（2026-10-17 F1 件四——油田归属对账的比对面；空集＝审静默）
     field_scope = aligned_field_names(anchors, observations)
+    # 主体反思判值投影（V2-117——件四**主体归属扩面**的比对面；编排在材料到手后写
+    # `state.subject_reflection`；空＝审静默——无主体题／材料未到）
+    reflection = dict(state.subject_reflection or {})
 
     # 块剥除（2026-10-17 EB3 D2 血缘五要素整段；2026-10-17 EB5c 扩块头模式族——引用清单段同拍
     # 离场，分源／归属族只作在场判据不剥）：血缘族段整段入 `lineage` 增补面，单行口径说明留正文。
@@ -311,6 +316,7 @@ def _verify(state: RunState, bus: EventBus, supplements: list[dict[str, Any]]) -
         cited_lines: list[tuple[str, tuple[int, ...]]] = []
         supported = 0
         field_mismatched: tuple[int, ...] = ()
+        subject_mismatched: tuple[int, ...] = ()
         qualitative_kept = 0
     else:
         (
@@ -321,7 +327,8 @@ def _verify(state: RunState, bus: EventBus, supplements: list[dict[str, Any]]) -
             supported,
             field_mismatched,
             qualitative_kept,
-        ) = _verify_lines(kept_lines, observations, by_index, field_scope)
+            subject_mismatched,
+        ) = _verify_lines(kept_lines, observations, by_index, field_scope, reflection)
         if mode in (VERIFY_MODE_OBSERVE, VERIFY_MODE_REPAIR):
             # `observe`／`repair`（含 repair-fallback）：判定逻辑零改，但**不删任何行**——
             # 检出项只入 `intended_rewrites`（交付面＝草稿逐字，票面任务 2）。
@@ -337,16 +344,19 @@ def _verify(state: RunState, bus: EventBus, supplements: list[dict[str, Any]]) -
     # mismatch` 单点）；②零有支撑句（`supported == 0`）＝无任何材料支撑的交付面。**只对 `delete`
     # 档**：`off` 不检测、`observe`／`repair` 检出项不离场（交付面＝草稿逐字，V2-116 红线），故
     # 无「因拒收致零交付」可言。**不放松件四判据本身**（跨油田混写照拒——红线不回退）。
+    # **V2-117 扩面**：主体归属对账（`subject_mismatched`——`rules.subject_attribution_mismatch`）
+    # 与油田归属同属本闸（两维度分列落 payload，拒收与兜底判据取并集）。
+    attribution_rejected = tuple(sorted({*field_mismatched, *subject_mismatched}))
     zero_delivery = bool(
-        mode == VERIFY_MODE_DELETE and field_mismatched and supported == 0
+        mode == VERIFY_MODE_DELETE and attribution_rejected and supported == 0
     )
     if zero_delivery:
         # 兜底文本进**正文**（非增补面）：追加而非替换——留存的结构承载行（标题等）原样不吞。
         out_lines.append(
             ZERO_DELIVERY_FALLBACK.format(
-                scope=_scope_text(field_scope, anchors, observations),
-                other=_other_field_text(field_mismatched, by_index),
-                tried=_tried_text(field_mismatched, by_index),
+                scope=_scope_text(field_scope, anchors, observations, state.subjects),
+                other=_other_field_text(attribution_rejected, by_index),
+                tried=_tried_text(attribution_rejected, by_index),
             )
         )
 
@@ -477,6 +487,7 @@ def _verify(state: RunState, bus: EventBus, supplements: list[dict[str, Any]]) -
         verify_mode,
         zero_delivery,
         repair_zero_delivery,
+        subject_mismatched,
     )
     state.draft = text
     state.verdict = verdict.as_dict()
@@ -508,7 +519,13 @@ def detect_intended(state: RunState) -> list[RewriteRecord]:
     by_index = {int(obs["index"]): obs for obs in observations}
     field_scope = aligned_field_names(anchors, observations)
     kept_lines, _lineage = split_block_sections(str(state.draft or ""))
-    detected = _verify_lines(kept_lines, observations, by_index, field_scope)
+    detected = _verify_lines(
+        kept_lines,
+        observations,
+        by_index,
+        field_scope,
+        dict(state.subject_reflection or {}),
+    )
     return [record for record in detected[1] if record.reason == REWRITE_NO_MATERIAL]
 
 
@@ -586,6 +603,7 @@ def _verify_lines(
     observations: Sequence[Mapping[str, Any]],
     by_index: Mapping[int, Mapping[str, Any]],
     field_scope: Collection[str] = frozenset(),
+    reflection: Mapping[str, str] | None = None,
 ) -> tuple[
     list[str],
     list[RewriteRecord],
@@ -594,6 +612,7 @@ def _verify_lines(
     int,
     tuple[int, ...],
     int,
+    tuple[int, ...],
 ]:
     """逐行断言级核验（行为 1／2／3／7／8；EB3 D3：真无据断言**删句**＋豁免两类线）。
 
@@ -619,6 +638,8 @@ def _verify_lines(
     supported = 0
     qualitative_kept = 0
     field_mismatched: list[int] = []
+    subject_mismatched: list[int] = []
+    subject_reflection = {} if reflection is None else reflection
     total = len(lines)
     for index, line in enumerate(lines):
         stripped = line.strip()
@@ -637,6 +658,15 @@ def _verify_lines(
             if mismatch:
                 # 件四：行数据归属另一油田且无分源说明 → 该行拒收（同删句族留痕＋如实计数）
                 field_mismatched.extend(mismatch)
+                rewrites.append(RewriteRecord(line=line, reason=REWRITE_NO_MATERIAL))
+                continue
+            subject_mismatch = subject_attribution_mismatch(
+                line, seqs, by_index, subject_reflection
+            )
+            if subject_mismatch:
+                # V2-117 件四扩面：来源主体反思判「不属」且行内无分源说明 → 该行拒收
+                # （同删句族处置；维度面另有 `subject_attribution_mismatch` 机读键）
+                subject_mismatched.extend(subject_mismatch)
                 rewrites.append(RewriteRecord(line=line, reason=REWRITE_NO_MATERIAL))
                 continue
             cited.update(seqs)
@@ -682,6 +712,7 @@ def _verify_lines(
         supported,
         tuple(field_mismatched),
         qualitative_kept,
+        tuple(subject_mismatched),
     )
 
 
@@ -761,13 +792,18 @@ def _scope_text(
     field_scope: Collection[str],
     anchors: Sequence[str],
     observations: Sequence[Mapping[str, Any]],
+    subjects: Sequence[str] = (),
 ) -> str:
-    """题眼所辖油田名**显示形**（确定性排序——集合面无序，禁不确定文本）。
+    """题眼所辖主体名**显示形**（确定性排序——集合面无序，禁不确定文本）。
 
     `field_scope` 是**规范形**（`rules.aligned_field_names` 的比对面——`normalize_anchor_text`
     剥标点）；显示面按**同一取词单点**（`rules.question_field_names`／`rules.observation_field_names`
     ——名录面规范名形）回投影：归一后落在 `field_scope` 者取显示形，取不到时回落规范形本身
     （**判据面零改**——只影响显示，不新造词表字面）。
+
+    **V2-117 扩面**：题眼是**井号**（无油田名可显示——`field_scope` 为空）时，回落 `subjects`
+    （`state.subjects` 的题面主体原形——L2 并查面）——使「本主体未覆盖」兜底声明能点出题面主体
+    （NQ-M8 形：题眼 Y-41、窗内只有另一油田材料）。
     """
     scope = set(field_scope)
     candidates = list(question_field_names(anchors)) + [
@@ -777,6 +813,8 @@ def _scope_text(
     for name in candidates:
         if normalize_anchor_text(name) in scope and name not in display:
             display.append(name)
+    if not display:  # V2-117：油田名面空 ⇒ 回落到题面主体原形（判据面零改——只影响显示）
+        display = [str(name) for name in subjects if str(name).strip()]
     if not display:  # 回落：规范形本身（判据面零改——只影响显示）
         display = sorted(str(name) for name in scope)
     return _INDEX_SEPARATOR.join(display)
@@ -831,6 +869,7 @@ def _emit_signals(
     verify_mode: str = VERIFY_MODE_DELETE,
     zero_delivery: bool = False,
     repair_zero_delivery: bool = False,
+    subject_mismatched: Sequence[int] = (),
 ) -> None:
     """机读信号（「不降级与静默禁令」节）：step payload ＋ `notice`／`verdict` 帧 ＋ 通知落账。
 
@@ -866,6 +905,7 @@ def _emit_signals(
             verify_mode,
             zero_delivery,
             repair_zero_delivery,
+            subject_mismatched,
         ),
     )
     if zero_delivery:
@@ -931,6 +971,7 @@ def _step_payload(
     verify_mode: str = VERIFY_MODE_DELETE,
     zero_delivery: bool = False,
     repair_zero_delivery: bool = False,
+    subject_mismatched: Sequence[int] = (),
 ) -> dict[str, Any]:
     """步 payload（六计数键 ＋ 行集对账四字段 ＋ 改写／缺口留痕 ＋ 行集注记 ＋ 油田归属维度键）。
 
@@ -957,6 +998,7 @@ def _step_payload(
         PAYLOAD_ROWSET_MISSING_KEY: list(rowset_missing),
         PAYLOAD_ROWSET_ALIGNED_KEY: rowset_aligned,
         PAYLOAD_FIELD_MISMATCH_KEY: sorted(set(field_mismatched)),
+        PAYLOAD_SUBJECT_MISMATCH_KEY: sorted(set(subject_mismatched)),
         PAYLOAD_ZERO_DELIVERY_KEY: zero_delivery,
         PAYLOAD_REPAIR_ZERO_DELIVERY_KEY: repair_zero_delivery,
         PAYLOAD_QUALITATIVE_KEPT_KEY: qualitative_kept,

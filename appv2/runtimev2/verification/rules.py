@@ -22,6 +22,7 @@ import unicodedata
 from collections.abc import Collection, Mapping, Sequence
 from typing import Any
 
+from appv2.runtimev2.state import SUBJECT_FOREIGN, SUBJECT_MATCH
 from appv2.runtimev2.transport import (
     SUPPLEMENT_BLOCK_LINEAGE,
     block_head_kind,
@@ -789,6 +790,81 @@ def field_attribution_mismatch(
         )
     ]
     return tuple(sorted(set(mismatched)))
+
+
+def subject_attribution_mismatch(
+    line: str,
+    citations: Sequence[int],
+    by_index: Mapping[int, Observation],
+    reflection: Mapping[str, str],
+) -> tuple[int, ...]:
+    """主体归属对账（V2-117——**件四扩面**：判据面从「油田归属」扩到「题面主体」）。
+
+    真源＝`tickets/v2/V2-117-主体反思与下游加权.md` 任务 2 第三处加权（逐字：「核验归属：件四闸
+    扩为「主体不一致的来源不得作为该主体答案的依据」；全拒时走 V2-106 零交付兜底」）。本函数与
+    `field_attribution_mismatch` **同族**（同删句族处置、同机读键族），只换比对面：
+
+    - `reflection`＝`state.subject_reflection`（逐来源主体反思判值投影——键＝来源名，值 ∈
+      `state.SUBJECT_VERDICTS`；判据单点＝`orchestration.subjects.reflect_subjects`，本处只读）；
+    - 判据：本行被引来源里**有一支**判「属」→ **不拒**（混引不误伤——跨主体对照题 C-正3／
+      D-诱14 形：分源列明／两油田并列材料同引）；无「属」且有「不属」→ 该「不属」序号入列
+      （非空＝该行按既有删句族拒收）；
+    - **辖域＝归属审承载族**（`locator.kind ∈ ATTRIBUTION_CARRIER_KINDS`——检索片段／图谱边；
+      与行为 5 归属审同辖域）：主体反思的判据面是「来源的**报告名**／油田标签／井号」，只对
+      **文档材料来源**成立——权威表行（`agg_row`）／台账行／血缘卡的来源是表名或账 id，其主体
+      归属由上游闸（单井槽位闸等）管，本闸**不入辖域**（不误伤数据行）；元信息／披露类观察同排。
+    - **审静默三面**：`reflection` 空（无题面主体／材料未到）／全「未知」（泛制度类来源）／
+      无「不属」⇒ 空列（不误伤）；
+    - **分源说明收窄**（同 `field_attribution_mismatch` 收窄面②）：本行写明该来源自带的主体类
+      token（井号／油田名——取词单点 `entity_anchor_tokens`）⇒ 不拒（该行已如实分源）；
+    - **元信息／披露类**观察（`locator.kind ∈ DISCLOSURE_OBSERVATION_KINDS`）不入辖域（同件四）。
+
+    纯形态面、零语义、零新造词表（判据本体＝`normalize_anchor_text` ＋ `entity_anchor_tokens`
+    ＋反思判值查表）。
+    """
+    if not reflection:
+        return ()
+    normalized_line = normalize_anchor_text(line)
+    foreign: list[int] = []
+    aligned = False
+    for seq in citations:
+        obs = by_index.get(seq)
+        if obs is None:
+            continue
+        kind = locator_kind(obs)
+        if kind in DISCLOSURE_OBSERVATION_KINDS or kind not in ATTRIBUTION_CARRIER_KINDS:
+            continue
+        verdict = reflection.get(str(obs.get("source", "")).strip())
+        if verdict == SUBJECT_MATCH:
+            aligned = True
+        elif verdict == SUBJECT_FOREIGN:
+            foreign.append(int(seq))
+    if aligned or not foreign:
+        return ()
+    mismatched = [
+        seq
+        for seq in foreign
+        if not _line_writes_source_subject(by_index[seq], normalized_line)
+    ]
+    return tuple(sorted(set(mismatched)))
+
+
+def _line_writes_source_subject(obs: Observation, normalized_line: str) -> bool:
+    """本行是否写明该来源**身份面**的主体类 token（井号／油田名——分源说明的形态判据）。
+
+    判据面＝**出处身份三面**（`source` 出处名 ∪ `locator.report` 报告名 ∪ `well` 油田标签），
+    **不含片段正文**——「分源说明」＝行内点明该来源是哪一主体（如「另注（材料为渤中34-5油田
+    月报）」），而不是正文里顺带提到的任一井号（`EB4-D-诱14` 的口径补充行形）。取词单点＝
+    `entity_anchor_tokens`（井号在前、闭世界实体名随行）；两侧同规＝`normalize_anchor_text`。
+    """
+    locator = obs.get("locator")
+    report = str(locator.get("report", "")) if isinstance(locator, Mapping) else ""
+    identity = f"{obs.get('source', '')} {report} {obs.get('well') or ''}"
+    return any(
+        normalize_anchor_text(token) in normalized_line
+        for token in entity_anchor_tokens(identity)
+        if normalize_anchor_text(token)
+    )
 
 
 def attribution_split(

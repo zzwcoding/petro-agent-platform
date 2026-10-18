@@ -47,6 +47,15 @@ class RetrievalEngine:
    **V2-97（D7）**：精排**未接线**（生产装配无 `completer=`）——本行为描述的是引擎保留面，
    现网恒走融合序；未接线登记与接线去向见「不做什么」节。
 2. 供给分池按 family_hints/来源指纹：同主题矛盾来源（同型报告/跨油田同指标）必须同窗并立；
+   **V2-117 补记（主体提权——下游加权之「检索排序」，2026-10-18）**：融合序（`rrf_merge` 公式零改）
+   之后、供给分池之前加一道**主体命中提权** `domain.promote_subject_hits`——**分池序内**提权：
+   池＝族（`fragment.family`，出场序＝融合序首现序），逐族把命中**题面主体 token** 的候选前移、
+   族内其余候选保持原相对序（**族与族之间的出场序不动**）；命中判据＝三面任一（正文 ∪ 报告名 ∪
+   油田标签，复用题眼锚保底同判据单点 `_anchor_hits`；判据本体仍＝`appv2.text_tokens` 边界／数字
+   全等）；题面主体 token 面＝题面资产编号（井号／报告号／油田号——`anchor_seat_tokens` 单点，
+   与题眼席保底同面）。`tokens` 空／无命中／`ranked` 空 ⇒ **原样返回**（零漂移面）。纯函数、零 IO、
+   零模型。断言＝`tests/domains/test_v2_v117_subject_reflection.py::test_retrieval_promote_subject_hits_within_family_pool`。
+
    送窗预算内每来源至少留代表支，缺位在 window_note 枚举。
    **V2-89b 补记（L1 预算真封顶，D3）**：锚保底／表类整行集／节内展开三通道的追加席
    **计入 `budget`**——超预算不再追加，`WindowSupply.window` 支数恒 ≤ `budget`（旧行为

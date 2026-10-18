@@ -21,6 +21,18 @@ STEP_KINDS: frozenset[str] = frozenset(
     {STEP_DECISION, STEP_DISCOVER, STEP_EXECUTE, STEP_OBSERVE, STEP_VERIFY, STEP_ANSWER}
 )
 
+# ── 主体反思判值三值闭世界（V2-117 2026-10-18——逐来源主体归属反思结果）──────────────
+# `RunState.subject_reflection` 的值域（逐来源：属／不属／未知）；判据单点＝
+# `appv2.runtimev2.orchestration.subjects.reflect_subjects`（材料到手后确定性比对——
+# 来源的报告名／油田标签／井号与题面主体的一致性；零语义、零 CJK 词表）。
+SUBJECT_MATCH = "属"
+SUBJECT_FOREIGN = "不属"
+SUBJECT_UNKNOWN = "未知"
+
+SUBJECT_VERDICTS: frozenset[str] = frozenset(
+    {SUBJECT_MATCH, SUBJECT_FOREIGN, SUBJECT_UNKNOWN}
+)
+
 # ── run 状态四值闭世界（真源 recon/I2a R-I2a-02；running→waiting_ask→（resume）→终态）──
 RUN_RUNNING = "running"
 RUN_WAITING_ASK = "waiting_ask"

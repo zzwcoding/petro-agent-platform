@@ -67,6 +67,7 @@ from appv2.retrieval.domain import (
     parse_confidence_scores,
     parse_rank_order,
     promote_entity_hits,
+    promote_subject_hits,
     rrf_merge,
     snippet_window,
     supply_window,
@@ -215,6 +216,14 @@ class RetrievalEngine:
         fused = rrf_merge(vector_hits, keyword_hits)
         recalled = len(fused)
         ordered = await self._llm_rerank(need.question, fused)
+        # 主体提权（V2-117 任务 2 第一处加权）：题面主体 token 命中的候选在**分池序内**前移
+        # （稳定分区、不改融合序公式；tokens 空／无命中＝原样——零漂移）。题面主体 token 面＝
+        # 题面资产编号（井号／报告号／油田号——`anchor_seat_tokens` 单点，与题眼席保底同判据面）。
+        ordered = promote_subject_hits(
+            ordered,
+            anchor_seat_tokens(need.question, need.anchors),
+            text_of=lambda hit: enriched_index_text(hit.fragment),
+        )
         # 送窗席位分配（V2-45 R1a＋V2-47 R1b＋V2-89b D3）：题眼锚集与表类解锁由
         # 题面词面判定（确定性零模型）——锚保底/表类整行集/节内展开三通道追加席
         # **计入 budget**（超预算即丢并落 over_budget 机读位；节内展开另守

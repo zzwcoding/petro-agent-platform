@@ -90,6 +90,12 @@ PAYLOAD_REPAIR_REQUEST_KEY = "repair_request"
 PAYLOAD_REPAIR_RESPONSE_KEY = "repair_response"
 PAYLOAD_REPAIR_RECHECK_KEY = "recheck"
 
+# ── 主体反思留痕键（V2-117 2026-10-18——反思步 payload 的 additive 键）──────────────
+# 真源＝`tickets/v2/V2-117-主体反思与下游加权.md` 任务 1（「结果落 `state` 与 step payload
+# （逐来源：属/不属/未知）」）。值＝`state.subject_reflection` 的同形投影（键＝来源名，
+# 值 ∈ `state.SUBJECT_VERDICTS`）；判据单点＝`orchestration.subjects.reflect_subjects`。
+PAYLOAD_SUBJECT_REFLECTION_KEY = "subject_reflection"
+
 # ── 挂起帧投影键（`state.pending_ask`；形状真源 `synth/S6` §一 ask 行）──────────
 ASK_KEY_KIND = "kind"
 ASK_KEY_PROMPT = "prompt"

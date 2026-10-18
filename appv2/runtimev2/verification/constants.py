@@ -361,6 +361,11 @@ PAYLOAD_ROWSET_ALIGNED_KEY = "rowset_aligned"
 # 被引观察序号列——该行按既有删句族拒收，本键是其**机读维度面**（拒因复用删句族闭世界常量
 # `REWRITE_NO_MATERIAL`，闭世界两值不动）。
 PAYLOAD_FIELD_MISMATCH_KEY = "field_attribution_mismatch"
+# 主体归属对账机读面（V2-117 2026-10-18——件四扩面）：来源主体反思判值「不属」且行内无分源说明的
+# 被引观察序号列——该行同删句族拒收；与 `field_attribution_mismatch` **分列**（两个维度各有独立
+# 值源、可分别判读——同 V2-100 `quota_dropped` 与 `over_budget` 的分列纪律）。判据单点＝
+# `rules.subject_attribution_mismatch`。
+PAYLOAD_SUBJECT_MISMATCH_KEY = "subject_attribution_mismatch"
 # 件四零交付兜底面（2026-10-18 V2-106）：件四全行拒收且零有支撑句 ⇒ 兜底正证据声明已进正文
 # （`state.draft`）——additive 布尔键（`Verdict` 九键不动；真源＝
 # `docs/runtime-refactor/design/统筹方案-核验澄清评测.md` §2.6「payload additive：
