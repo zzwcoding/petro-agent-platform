@@ -193,21 +193,23 @@ def test_supply_window_plain_hinted_path_unchanged() -> None:
 
 
 def test_supply_window_anchor_seat_dropped_when_budget_full() -> None:
-    """V2-89b 改判（原 `anchor_seat_guarantee_beats_zero_seat`）：族配额吃满预算→
-    锚保底候选**计入 budget**被丢（超预算不再追加），`over_budget` 机读位如实。
+    """V2-100 改判（原 V2-89b 形「配额吃满预算→锚保底被丢」）：**题眼锚先占预算** ⇒
+    预算吃满时被丢的是**族配额候选**（`quota_dropped`），锚保底照进窗、`over_budget`
+    语义冻结为「追加席候选被丢」故为 False。
 
-    旧行为（V2-45 R1a）下保底席是「追加席不计配额」——窗支数 3 > 预算 2；D3 真
-    封顶后同一场景窗支数＝预算 2，锚命中来源零席位如实进缺位枚举。
+    旧行为（V2-45 R1a／V2-89b）下配额先吃干预算、锚命中来源零席位入缺位；新席序下
+    同一构造 `anchor_seated` 必 > 0（EB11 217/220 的对照面）。
     """
     ranked = _ranked_all()
     plain = supply_window(ranked, 2, ("dynamic",))
-    assert _TARGET_REPORT in plain.missing_sources  # 前置：零席位形在场
+    assert _TARGET_REPORT in plain.missing_sources  # 前置：无锚旧形零席位在场
 
     capped = supply_window(ranked, 2, ("dynamic",), anchors=("34-8",))
-    assert len(capped.window) == 2  # 真封顶（旧形 3 > 预算 2）
-    assert capped.anchor_seated == ()  # 超预算不再追加（保底席被丢）
-    assert capped.over_budget is True  # 归因机读位
-    assert _TARGET_REPORT in capped.missing_sources  # 零席位如实缺位（不静默）
+    assert len(capped.window) == 2  # 真封顶
+    assert capped.anchor_seated == (_TARGET_REPORT,)  # 题眼先占（旧形＝()）
+    assert capped.over_budget is False  # 无追加席候选被丢（语义冻结）
+    assert capped.quota_dropped > 0  # 被丢的是配额候选（新丢席族，不并入 over_budget）
+    assert _TARGET_REPORT not in capped.missing_sources  # 题眼来源已保席——不再入缺位
 
 
 # ---------- V2-89b：预算有余时追加席照常进窗（正面对照面） ----------
@@ -328,22 +330,35 @@ def test_supply_window_anchor_seat_within_budget() -> None:
 
 
 def test_supply_window_anchor_multiple_tokens_one_source_one_seat() -> None:
-    """多锚命中同一来源：保底恰 1 席，不重复追加（来源级去重——预算内）。"""
+    """V2-100 改判（D-h，L0 准）：去重粒度**来源级→片段级**——同源多锚可各占一席，
+    但受**同源上界** `max(1, budget//2)` 约束（旧形「多锚同源恰 1 席」＝来源级去重，
+    已被片段级去重取代；取代关系见 `specs/retrieval.md` 行为 2）。"""
     supply = supply_window(
         _capped_ranked_all(), 4, (), anchors=("T-77", "专项分析")
     )
     reports = [p[0].fragment.report for p in supply.window]
-    assert reports.count(_CAP_RPT_T[1]) == 1
+    assert reports.count(_CAP_RPT_T[1]) == 2  # 片段级去重：同源两锚各占一席（旧形＝1）
+    assert supply.anchor_seated == (_CAP_RPT_T[1], _CAP_RPT_T[1])
     assert _CAP_RPT_T[1] not in supply.missing_sources
+
+    # 同源上界：三锚同源仍 ≤ budget//2＝2（第三锚不占席——预算不被单源吃干）
+    bounded = supply_window(
+        _capped_ranked_all(), 4, (), anchors=("T-77", "专项分析", "专项")
+    )
+    assert len(bounded.anchor_seated) == 2
+    # 上界随预算：预算 6 → 同源至多 3 席
+    roomy = supply_window(
+        _capped_ranked_all(), 6, (), anchors=("T-77", "专项分析", "专项")
+    )
+    assert len(roomy.anchor_seated) == 3
 
 
 async def test_retrieve_no_false_guarantee_for_non_anchor_sources() -> None:
     """引擎面端到端（保底不误发）：零席位来源若非题眼锚命中——不保席、缺位如实。
 
-    问句资产号「34-8」只命中目标报告；C 报告零席位系预算未及且不锚命中——
-    保底不得为它发明席位（缺位枚举照旧机读）。锚 token 从问句经
-    anchor_seat_tokens 流入供给层的接线由表类引擎钉（rowset 目标锚条件）
-    同路覆盖。
+    V2-100 改判：题眼锚**先占预算** ⇒ 问句资产号「34-8」命中的目标报告直接保底进窗
+    （旧形「hints 配额吃满⇒保底不触发」已废）；非锚命中的 C 报告仍零席位、缺位如实
+    ——「保底不得为无关来源发明席位」的判据面零回退。
     """
     bundle = await _engine().retrieve(
         RetrievalNeed(
@@ -353,8 +368,11 @@ async def test_retrieve_no_false_guarantee_for_non_anchor_sources() -> None:
         )
     )
     note = bundle.window_note
-    # 34-8 命中的目标报告已获席——保底未触发（无扩席实录段）
-    assert "以下条目因直接命中提问关键词获得保留" not in note
+    # 34-8 命中的目标报告先占保底席（题眼先占——留痕可见）
+    assert "以下条目因直接命中提问关键词获得保留：渤中34-8油田一季度注采调整与生产运行分析" in note
+    assert bundle.anchor_seated == 1
+    assert bundle.over_budget is False
+    # 非锚命中来源零席位——缺位如实（不发明席位）
     assert "以下来源因数量限制未纳入：C-渤中34-5油田三季度注水调整与生产运行分析" in note
 
 
@@ -408,26 +426,39 @@ def test_supply_window_rowset_requires_anchor_hit_on_table() -> None:
 async def test_retrieve_rowset_window_note_truthful() -> None:
     """引擎面端到端：表类问句整组进窗，window_note 数字照实按实走（守预算）。
 
-    V2-89b 改判：预算 3（两族配额 2 席＋余 1）下整组解读支补入——送窗 M＝实际
-    支数且恒 ≤ 预算；旧形「送窗 M＞配额」的扩席不封顶已按 D3 收正（本形旧断言
-    为「3 条用进了答案」但窗支数 4——超预算；现窗支数＝3）。
+    V2-100 改判（D9 席序重排）两侧：
+    ① **无锚**表类问句——题眼三通道零动作（旧席序逐字等价面），行集通道照旧 +1 条、
+       note 含整组实录段；
+    ② **有锚**（原形「34-8／Y-24」）——题眼锚先占预算，整组 {f-t1,f-t2} 已由题眼席
+       覆盖 ⇒ 行集通道零扩席（`rowset_added=0`）且 note 无整组段；数字仍如实、守预算。
     """
-    bundle = await _engine().retrieve(
+    # ① 无锚：行集通道零漂移
+    plain = await _engine().retrieve(
+        RetrievalNeed(question="配注调整表中两行的执行日期", budget=3)
+    )
+    assert [obs.fragment_id for obs in plain.observations] == ["f-t2", "f-t1", "f-c1"]
+    assert plain.rowset_added == 1
+    assert plain.over_budget is False
+    assert plain.window_note.startswith("共检索到 6 条材料，3 条用进了答案")
+    assert "目标表格的整组数据行已进窗（+1 条，不占送入答案的数量）" in plain.window_note
+    assert any("Y-24" in obs.text for obs in plain.observations)  # 表格行真支在窗
+
+    # ② 有锚（原形）：题眼席先占覆盖整组——零扩席、数字如实
+    anchored = await _engine().retrieve(
         RetrievalNeed(
-            question="渤中34-8 油田 5.2 配注调整表中 Y-24 与 Y-26 的执行日期",
-            budget=3,
+            question="渤中34-8 油田 5.2 配注调整表中 Y-24 与 Y-26 的执行日期", budget=3
         )
     )
-    window_ids = [obs.fragment_id for obs in bundle.observations]
-    assert len(window_ids) == 3  # 真封顶（配额 2＋整组增量 1＝预算）
-    assert "f-t1" in window_ids and "f-t2" in window_ids
-    note = bundle.window_note
-    assert note.startswith("共检索到 6 条材料，3 条用进了答案")  # 实走计数
-    assert "目标表格的整组数据行已进窗（+1 条，不占送入答案的数量）" in note
-    assert bundle.rowset_added == 1
-    assert bundle.over_budget is False
-    assert any("Y-24" in obs.text for obs in bundle.observations)  # 表格行真支在窗
-    assert "未纳入" not in note  # 两报告均已获席——无未纳入来源可列
+    window_ids = [obs.fragment_id for obs in anchored.observations]
+    assert len(window_ids) == 3  # 真封顶
+    assert "f-t1" in window_ids and "f-t2" in window_ids  # 整组在窗（题眼席先占）
+    assert anchored.rowset_added == 0  # 整组已被题眼席覆盖——行集通道零扩席
+    assert anchored.over_budget is False
+    assert anchored.anchor_seated == 1
+    assert anchored.window_note.startswith("共检索到 6 条材料，3 条用进了答案")  # 实走计数
+    assert "目标表格的整组数据行已进窗" not in anchored.window_note
+    assert any("Y-24" in obs.text for obs in anchored.observations)
+    assert "未纳入" not in anchored.window_note  # 两报告均已获席——无未纳入来源可列
 
 
 # ---------- 钉五（V2-82d）：题面主体保底席位（命中面 text ∪ report ∪ well） ----------
@@ -530,7 +561,8 @@ async def test_retrieve_numeric_core_anchor_hits_report_name_note_visible() -> N
     命中——行为可解释：报告名是出处链一级键，题面点名的主体落在报告名上就是
     该来源的题眼命中（目标支正文不含该词——text-only 判据下此来源零席位）。
     三族竞争下目标报告（monthly·T-77）非族首——预算 4（三族各 1 席＋余 1）
-    保底席进窗；预算 3（吃满）则被丢并如实缺位（V2-89b D3 两侧对照）。
+    保底席进窗；预算 3（V2-100 改判：题眼锚先占预算）保底席**照进窗**，被丢的是
+    配额候选（`quota_dropped`）而**不**记 `over_budget`（语义冻结——保 EB10 区分度）。
     """
     assert anchor_seat_tokens("注水月度 T-77 情况如何") == ("T-77",)
     engine = await _note_engine()
@@ -545,12 +577,14 @@ async def test_retrieve_numeric_core_anchor_hits_report_name_note_visible() -> N
     assert bundle.anchor_seated == 1
     assert bundle.over_budget is False
 
-    # 预算吃满侧：配额 3 席＝预算 3 → 保底候选被丢，over_budget 如实、零席位入缺位。
+    # 预算吃满侧（V2-100 改判）：题眼锚先占 ⇒ 保底照进窗（旧形＝0）；配额候选被丢
+    # 不记 over_budget，零席位来源照旧如实缺位。
     capped = await engine.retrieve(
         RetrievalNeed(question="注水月度 T-77 情况如何", budget=3)
     )
     assert len(capped.observations) == 3
-    assert capped.over_budget is True
-    assert capped.anchor_seated == 0
-    assert "以下条目因直接命中提问关键词获得保留" not in capped.window_note
-    assert "以下来源因数量限制未纳入：T-77 井专项分析报告" in capped.window_note
+    assert capped.anchor_seated == 1  # 题眼先占（旧形＝0）
+    assert capped.over_budget is False  # 无追加席候选被丢（配额丢席另计）
+    assert capped.quota_dropped > 0  # V2-100 新丢席族（bundle 透传——与 over_budget 并列）
+    assert "以下条目因直接命中提问关键词获得保留：T-77 井专项分析报告" in capped.window_note
+    assert "以下来源因数量限制未纳入：己-台账登记" in capped.window_note

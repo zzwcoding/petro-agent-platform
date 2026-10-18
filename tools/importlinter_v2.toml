@@ -130,3 +130,14 @@ type = "forbidden"
 source_modules = ["appv2.runtimev2.preconditions", "appv2.runtimev2.verification", "appv2.runtimev2.execution"]
 forbidden_modules = ["appv2.runtimev2.gateway_adapter"]
 allow_indirect_imports = true  # 只咬直接引用；间接经批准桥接（bookkeeping 模型桥）不违
+
+# R9 语义注（V2-100 D-a，L0 裁定「候选①：新建依赖自由模块」＋Kimi 补点②）：`appv2.text_tokens`
+# 是 L1/L3 共享的**判据单点**（题眼 token 边界／数字全等）——必须保持依赖自由，**禁其反向 import**
+# `appv2` 任何块（含 tools／引擎／runtimev2），否则判据单点会退化成「第二个 tools」并把
+# L1↔L3 的层间禁引面重新咬开。
+[[tool.importlinter.contracts]]
+name = "R9 V2-100 D-a：text_tokens 判据单点依赖自由（禁反向 import appv2 任何块）"
+type = "forbidden"
+source_modules = ["appv2.text_tokens"]
+forbidden_modules = ["appv2.api", "appv2.infra", "appv2.knowledge", "appv2.query", "appv2.retrieval", "appv2.runtime", "appv2.runtimev2", "appv2.tools"]
+allow_indirect_imports = false

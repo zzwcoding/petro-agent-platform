@@ -21,6 +21,8 @@ V1 S4 双路召回＋精排＋图谱链移植为确定性引擎；供给策略�
 | 模块 | 改动类型 | 说明 |
 |---|---|---|
 | retrieval | 新增 | RetrievalEngine（retrieve＋图谱面） |
+| text_tokens | 新增 | 题眼 token 边界／数字全等判据单点（V2-100 D-a——L1 直引；`_anchor_score` 分层加权留 L3） |
+| tools | 只消费 | V2-100：`RetrievalBundle.quota_dropped` 经 `tools.handlers.doc_retrieve` 落 `retrieval_calls` 行键（L0 授权扩张；字段语义见行为 2 补记） |
 
 ## 接口定义
 
@@ -32,7 +34,9 @@ class RetrievalEngine:
 # RetrievalNeed = {question, anchors?, family_hints?, budget}
 # RetrievalBundle = {observations: list[Observation], window_note: str,
 #                    recalled, sent, over_budget, anchor_seated, rowset_added,
-#                    summary_expanded}   # 后四键＝V2-89b additive 归因机读面
+#                    summary_expanded, quota_dropped}
+#                    # 后四键＝V2-89b additive 归因机读面；quota_dropped＝V2-100 additive
+#                    # （配额丢席族——与 over_budget 并列、互不并入）
 # Observation 带出处链 fragment→report→library＋family 标注；
 # window_note = "召回 N 支/送窗 M 支"＋矛盾来源同窗声明或缺位枚举
 ```
@@ -53,6 +57,23 @@ class RetrievalEngine:
    ≤ 该值且 ≤ 剩余预算——RC18「按节全量追加→窗支数翻倍」的治理面）。三通道实际入窗席数落
    `anchor_seated`／`rowset_added`／`summary_expanded` 三个 additive 计数（`retrieval_calls`
    留痕行同名字段的值源，见 `specs/tools.md`）。
+   **V2-100 补记（L1 席序重排，D9／D-h）**：`supply_window` 席序改为
+   **① 题眼锚/表格/原文候选先占预算 → ② 族配额（用剩余预算）→ ③ 表类整行集 → ④ 节内展开
+   → ⑤ 余量补给**（余量步保留——D-h 明确不许丢）：
+   - ① 三通道**只对「锚命中来源」生效**（命中面＝text ∪ report ∪ well，V2-82d）；`anchors`
+     为空时三通道零动作 ⇒ 席序与旧序**逐字等价**（零漂移面）：锚席＝逐锚取融合序最优命中支
+     （V2-45 锚保底）；表席＝锚命中来源的表格承载支且**表文命中锚**（复用行集目标判据，防无关
+     高位表格误占）；原文席＝锚命中来源尚无 `node_kind=slice` 原文席时取其首个原文切片
+     （摘要不得顶替同源原文——D9）；
+   - **去重粒度＝片段级**（`picked_ids`——取代旧「来源级」去重）：同源多锚可各占一席；同源
+     **题眼席上界＝`max(1, budget//2)`**（量纲复用 `source_diversify` 的「同报告至多半额」规则；
+     **不**引 L3 常量 `ANCHOR_SEATS`／`MAX_REPORT_SEATS_PER_SOURCE`、不新增数值常量）——防同源
+     多锚把预算吃干（旧来源级去重已废，取代关系＝本补记）；
+   - **新丢席族 `WindowSupply.quota_dropped`**（additive，整数计数）＝族配额候选因剩余预算不足
+     被丢的支数；**不得**并入 `over_budget`（后者语义冻结为「追加席候选（锚/行集/展开三通道）
+     被丢」——保 EB10 已登记区分度）；两者各有独立值源、可分别判读；
+   - 判据单点（D-a）：锚命中判定＝`appv2.text_tokens.boundary_hit`／`num_token_hit`（L1 直引，
+     `_anchor_text_hit` 只做「纯数字→全等／其余→边界」形分派，边界/全等本体零副本）。
 3. 截断显式：召回>送窗时 window_note 写"召回 N/送窗 M"——agent 据此如实区分"没有"与"没送"。
    **V2-91 注（缺位名单停发）**：行为 2 末句的未纳入来源枚举**按单轮检索算**，与实际
    「多子问题并集＋材料选择」后的送窗不一致——`doc_retrieve` **不再**把该段作为独立观察
@@ -81,6 +102,14 @@ class RetrievalEngine:
 | L1 预算真封顶：扩席三通道候选齐备 → 窗支数恒 ≤ budget | `tests/domains/test_v2_retrieval.py::test_supply_window_never_exceeds_budget` |
 | 追加席被预算丢 → `over_budget=True`（预算有余 → False） | `tests/domains/test_v2_retrieval.py::test_over_budget_flag_true_when_dropped` |
 | 节内展开加上界（≤ `SECTION_EXPAND_CAP` 且 ≤ 剩余预算） | `tests/domains/test_v2_retrieval.py::test_section_expansion_capped_by_budget_and_upper_bound` |
+| V2-100 席序重排：题眼锚命中来源先占预算（`anchor_seated>0`——旧序族配额吃干⇒0） | `tests/domains/test_v2_retrieval.py::test_supply_window_topic_anchor_seated_before_family_quota` |
+| V2-100 题眼表保底席：锚命中来源的表格承载支先占预算（摘要不顶替） | `tests/domains/test_v2_retrieval.py::test_supply_window_topic_table_seat_keeps_detail_row` |
+| V2-100 题眼原文保底席：同源摘要群挤占下原文切片必进窗（NQ-C9 形） | `tests/domains/test_v2_retrieval.py::test_supply_window_topic_original_seat_keeps_section` |
+| V2-100 片段级去重＋同源上界 `max(1, budget//2)`（同源多锚可占多席但不吃干预算） | `tests/domains/test_v2_retrieval.py::test_supply_window_topic_fragment_dedup_and_source_bound` |
+| V2-100 新丢席族：`quota_dropped`（配额候选被丢）与 `over_budget`（追加席候选被丢）互斥可判、互不并入 | `tests/domains/test_v2_retrieval.py::test_quota_dropped_and_over_budget_disjoint` |
+| V2-100 可观测链：`WindowSupply.quota_dropped` → `RetrievalBundle` → `retrieval_calls` 行键（真引擎端到端透传，两丢席族行上各自可判） | `tests/domains/test_v2_retrieval_calllog.py::test_retrieval_calllog_quota_dropped_end_to_end` |
+| V2-100 余量补给步保留（题眼先占后仍不满预算→按融合序补齐） | `tests/domains/test_v2_retrieval.py::test_supply_window_remainder_supply_still_fills_budget` |
+| D-诱12 不回退（L1 面）：`W-11≠W-111`／`22≠2200` 边界/全等判据（V2-100 D-a 单点） | `tests/domains/test_v2_retrieval.py::test_supply_window_l1_anchor_boundary_no_substring` |
 
 ## 依赖与风险
 

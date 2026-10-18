@@ -39,7 +39,8 @@ from appv2.tools import (
 
 # 留痕记录键闭世界（票面「施工基准」字段表逐字＋V2-92 additive `origin`
 # ＋V2-89b additive 七键：`snippet`／`anchor_seated`／`rowset_added`／
-# `summary_expanded`／`budget`／`sent`／`over_budget`）。
+# `summary_expanded`／`budget`／`sent`／`over_budget`
+# ＋V2-100 additive 一键：`quota_dropped`（与 over_budget 并列、互不并入））。
 _RECORD_KEYS = {
     "ts",
     "run_id",
@@ -57,6 +58,7 @@ _RECORD_KEYS = {
     "budget",
     "sent",
     "over_budget",
+    "quota_dropped",
 }
 _HIT_KEYS = {"id", "source", "score", "chars", "has_section"}
 
@@ -106,6 +108,7 @@ def _bundle(
     anchor_seated: int = 0,
     rowset_added: int = 0,
     summary_expanded: int = 0,
+    quota_dropped: int = 0,
 ) -> RetrievalBundle:
     return RetrievalBundle(
         observations=list(hits),
@@ -116,6 +119,7 @@ def _bundle(
         anchor_seated=anchor_seated,
         rowset_added=rowset_added,
         summary_expanded=summary_expanded,
+        quota_dropped=quota_dropped,
     )
 
 
@@ -290,7 +294,8 @@ async def test_retrieval_calllog_carries_run_id_and_counts(
 
     身份面＝`ToolContext` 两新字段逐字进留痕（编排投影注入面）；计数面＝
     `anchor_seated`/`rowset_added`/`summary_expanded`（`RetrievalBundle`
-    additive 计数）+`budget`/`sent`/`over_budget`——一行可复算「席次归因」。
+    additive 计数）+`budget`/`sent`/`over_budget`＋**V2-100 `quota_dropped`**
+    ——一行可复算「席次归因」，且两丢席族（追加席 vs 配额）各自可判、互不并入。
     """
     monkeypatch.setattr(retrieval_calllog, "_LOG_DIR", tmp_path)
     monkeypatch.delenv("RETRIEVAL_CALL_LOG", raising=False)
@@ -306,6 +311,7 @@ async def test_retrieval_calllog_carries_run_id_and_counts(
         anchor_seated=1,
         rowset_added=2,
         summary_expanded=3,
+        quota_dropped=2,
     )
     result = await _call(_registry(bundle), CTX_IDENTIFIED)
     assert result.status == STATUS_OK
@@ -320,6 +326,7 @@ async def test_retrieval_calllog_carries_run_id_and_counts(
     assert record["budget"] == 7  # 送窗预算 M（ctx.budget 逐字）
     assert record["sent"] == 2  # 实走支数
     assert record["over_budget"] is True  # 超预算机读位（D3）
+    assert record["quota_dropped"] == 2  # V2-100 配额丢席计数（与 over_budget 并列）
 
 
 async def test_snippet_40_chars_no_full_text(tmp_path: Path, monkeypatch) -> None:
@@ -346,3 +353,62 @@ async def test_snippet_40_chars_no_full_text(tmp_path: Path, monkeypatch) -> Non
     assert long_text not in raw  # 全文不落
     assert long_text[40:] not in raw  # 40 字之后一字不进（首支亦只留 40 字）
     assert record["hits"][0]["chars"] == len(long_text)  # 长面只留字符数
+
+
+async def test_retrieval_calllog_quota_dropped_end_to_end(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """V2-100 可观测链端到端（D-h／L0 授权）：真引擎 → `RetrievalBundle.quota_dropped`
+    → 留痕行 `quota_dropped`——两丢席族（追加席 vs 配额）在行上各自可判、互不并入。
+
+    构造＝题眼锚先占预算、族配额候选被丢（`quota_dropped>0`）且无追加席候选被丢
+    （`over_budget=False`）；行值恒等于同次 `engine.retrieve` 的 bundle 值（透传面）。
+    """
+    from appv2.retrieval import (
+        FragmentRecord,
+        InMemoryFragmentLibrary,
+        LocalHashEmbedder,
+        RetrievalEngine,
+        RetrievalNeed,
+    )
+
+    def _frag(fid: str, rid: str, rpt: str, fam: str, section: str, text: str) -> FragmentRecord:
+        return FragmentRecord(
+            fragment_id=fid, report_id=rid, report=rpt, section=section,
+            library_id="lib-v100", library="库丙动态分析库", family=fam, text=text,
+        )
+
+    fragments = [
+        _frag(
+            f"c{i}", "rpt-c", "C-对照报告", "dynamic", f"{i} 概况",
+            f"丙报告 Y-24 注采比 0.98 正文 {i}。",
+        )
+        for i in range(1, 4)
+    ] + [
+        _frag("t1", "rpt-t", "T-77 井专项分析报告", "monthly", "1 概况", "Y-24 井参数 320。")
+    ]
+    engine = RetrievalEngine(
+        library=InMemoryFragmentLibrary(fragments), embedder=LocalHashEmbedder()
+    )
+    registry = ToolRegistry(
+        knowledge=FakeKnowledgeStore(), query=FakeQueryEngine(), retrieval=engine
+    )
+    monkeypatch.setattr(retrieval_calllog, "_LOG_DIR", tmp_path)
+    monkeypatch.delenv("RETRIEVAL_CALL_LOG", raising=False)
+    args = {"question": "配注调整表 Y-24 情况", "family_hints": ["dynamic"]}
+    ctx = ToolContext(actor="dev-u1", budget=3)
+
+    result = await registry.call(DOC_RETRIEVE, args, ctx)
+    assert result.status == STATUS_OK
+    bundle = await engine.retrieve(
+        RetrievalNeed(question=args["question"], family_hints=("dynamic",), budget=3)
+    )
+    assert bundle.anchor_seated == 1  # 题眼先占（新席序）
+    assert bundle.quota_dropped > 0  # 配额候选被剩余预算丢
+    assert bundle.over_budget is False  # 追加席三通道零丢席——两族互不并入
+
+    record = _read(_jsonl_files(tmp_path)[0])[0]
+    assert set(record) == _RECORD_KEYS  # 键闭世界（新键在场）
+    assert record["quota_dropped"] == bundle.quota_dropped  # 透传面逐字
+    assert record["over_budget"] is False
+    assert record["anchor_seated"] == 1

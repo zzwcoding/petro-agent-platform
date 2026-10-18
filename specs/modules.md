@@ -4,6 +4,26 @@
 > appv2 内四层单向向下：api → runtimev2（重写后的运行时，17 块见下，ADR-0007）→ tools → engines（knowledge/query/retrieval）→ infra。
 > 注：模块卡以 `## <名>` 为模块名（spec gate 解析契约），描述语在职责行。
 
+## text_tokens
+
+职责: 题眼 token 判据单点真源（V2-100 D-a——只下沉两个**纯判据**：强锚边界命中 `boundary_hit`／数字记号全等 `num_token_hit`；分层锚分 `_anchor_score` 留 L3）
+目录: `appv2/text_tokens.py`
+
+### 公开接口
+```python
+def boundary_hit(text: str, needle: str) -> bool: ...   # 井号边界（W-11≠W-111）
+def num_token_hit(text: str, token: str) -> bool: ...   # 数字记号全等（22≠2200/4.2）
+```
+
+### 依赖
+- 模块: （无——**依赖自由模块**：零 appv2 依赖、零 I/O、零状态；新增 import-linter 契约 **R9** 禁其反向 import）
+- 外部: （无）
+
+### Seam 与测试
+- Seam: 两纯函数（纯字符扫描、禁 `re`——形态处理豁免面 `specs/context.md` 行为 13）
+- Adapter: （无——纯函数直调）
+- 测试计划: L1（`appv2/retrieval/domain.py`）与 L3（`appv2/runtimev2/context/materials.py`）**直引同一对象**；全仓判据本体各恰一处定义（`test_v2_context.py::test_judgement_single_source_text_tokens`）
+
 ## infra
 
 职责: 从 V1 原样复制的运行基础设施（B6 出口/只读 DB/时钟/审计/配置纪律不带旧业务语义）
@@ -88,7 +108,7 @@ observations 带 fragment 出处链（fragment→report→library），window_no
 "召回 N 支/送窗 M 支/矛盾来源已同窗或已列缺位"。
 
 ### 依赖
-- 模块: `infra`
+- 模块: `infra`；`text_tokens`（题眼 token 边界／全等判据单点——V2-100 D-a 直引，非层间依赖）
 - 外部: PG kb_* 表、向量服务（embedding 经 infra）、Neo4j
 
 ### Seam 与测试
@@ -474,7 +494,7 @@ def compile(state: RunState) -> CompiledContext: ...
 > **卡级补注（2026-10-16，ContextBuilder 去留——context-评审 卡级清单④）**：现状 `ContextBuilder` 配置载体的 V2 去留＝**已退役、不进 V2 面**（与卡面 compile 退役同批定案——照 `specs/agent-loop.md` 行为 2 改述口径「compile 已退役——流水 43⑦c」；对话装配改「每步在 `messages` 整链续写＋追加内容渲染器族」，施工以 `specs/context.md`「V2 定案签名」为准）。
 
 ### 依赖
-- 模块: `state`；`tools`（台账只读经其公开面，见边界规则）
+- 模块: `state`；`tools`（台账只读经其公开面，见边界规则）；`text_tokens`（题眼 token 边界／全等判据单点——V2-100 D-a 直引，非 runtimev2 块／非 infra／非旧码）
 - 外部: （无）
 
 ### Seam 与测试

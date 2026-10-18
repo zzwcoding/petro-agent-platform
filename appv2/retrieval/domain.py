@@ -30,8 +30,11 @@ import hashlib
 import json
 import math
 import re
+from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+
+from appv2.text_tokens import boundary_hit, num_token_hit
 
 # ---------- family 闭世界（V1 kb_library.biz_template CHECK——99 §2.5） ----------
 
@@ -433,6 +436,10 @@ class RetrievalBundle:
       `recalled > sent` 表达）；
     - `anchor_seated`/`rowset_added`/`summary_expanded`＝三通道**实际入窗席数**
       （`WindowSupply` 同名字段的计数投影——只数不列名）。
+
+    V2-100 additive 一字段（D-h 可观测链收口——L0 授权）：
+    - `quota_dropped`＝本轮有**族配额候选**因剩余预算不足被丢的支数（`WindowSupply`
+      同名字段的计数投影）；**不得**并入 `over_budget`——两者各有独立值源、可分别判读。
     """
 
     observations: list[Observation]
@@ -443,6 +450,7 @@ class RetrievalBundle:
     anchor_seated: int = 0
     rowset_added: int = 0
     summary_expanded: int = 0
+    quota_dropped: int = 0
 
 
 def build_window_note(
@@ -554,6 +562,11 @@ class WindowSupply:
     - `summary_expanded`＝节级摘要展开实际补席数（V2-47 R1b 通道计数）；
     - `over_budget`＝本轮有追加席候选（锚保底/行集/节内展开）因预算不足被丢
       ——**真封顶**机读位（`window` 支数恒 ≤ budget）。
+
+    V2-100 additive 一字段（D-h）：
+    - `quota_dropped`＝本轮有**族配额候选**因剩余预算不足被丢的支数（题眼席先占预算后
+      配额用剩余——新丢席族）。**不得**并入 `over_budget`（后者语义冻结为「追加席候选
+      被丢」——保 EB10 20/20 区分度）；两者各有独立值源，可分别判读。
     """
 
     window: list[tuple[Hit, float]]
@@ -562,6 +575,7 @@ class WindowSupply:
     rowset_added: int = 0
     summary_expanded: int = 0
     over_budget: bool = False
+    quota_dropped: int = 0
 
 
 # ---------- 题面词面判定（V2-45 R1a——表类解锁与题眼锚集，确定性零模型） ----------
@@ -613,6 +627,179 @@ def _is_table_bearing(text: str) -> bool:
     return len(_TABLE_ROW_LINE_RE.findall(text or "")) >= 2
 
 
+# ---------- 题眼席序件（V2-100 D9／D-h——题眼锚/表格/原文候选先占预算） ----------
+
+
+def _anchor_text_hit(token: str, text: str) -> bool:
+    """锚 token 对单个词面的命中（V2-100 D-a——判据本体单点＝`appv2.text_tokens`）。
+
+    - 纯数字 token → **数字记号全等**（`22` 不中 `2200`／`4.2`／`202608`）；
+    - 其余（井号／资产编号／油田名）→ **边界命中**（`W-11` 不中 `W-111`）。
+
+    本函数只做「形→判据」分派（纯字符形态判断，零语义），边界／全等**本体零副本**；
+    调用方以 `casefold` 归一（L1 旧面大小写不敏感语义零漂移）。
+    """
+    if not token or not text:
+        return False
+    if token.isdigit():
+        return num_token_hit(text, token)
+    return boundary_hit(text, token)
+
+
+def _anchor_hits(token: str, haystacks: tuple[str, ...]) -> bool:
+    """锚命中三面任一（V2-82d：text ∪ report ∪ well——题面主体常只落报告名/本体标签）。
+
+    词面先 `casefold` 归一（L1 旧面大小写不敏感语义零漂移），判据本体仍走
+    `appv2.text_tokens`（边界／全等单点）。
+    """
+    return any(_anchor_text_hit(token, haystack.casefold()) for haystack in haystacks)
+
+
+def _topic_source_cap(budget: int) -> int:
+    """片段级去重上界（D-h）：同源**题眼席**数 ≤ 半个预算。
+
+    量纲复用 `source_diversify` 的「同报告至多 cap/2 支」规则（L1 单点同尺）——
+    防「同源多锚可重复占席」把预算吃干；**不**引 L3 常量（`ANCHOR_SEATS`／
+    `MAX_REPORT_SEATS_PER_SOURCE`）、**不**新增数值常量。
+    """
+    return max(1, budget // 2)
+
+
+def _anchor_hit_sources(
+    ranked: list[tuple[Hit, float]], anchors: Sequence[str]
+) -> set[str]:
+    """锚命中来源集（三面命中任一——V2-82d；题眼表/原文两通道的取材面）。"""
+    needles = tuple(token.casefold() for token in anchors if token.strip())
+    sources: set[str] = set()
+    for pair in ranked:
+        frag = pair[0].fragment
+        if any(
+            _anchor_hits(needle, (frag.text, frag.report or "", frag.well or ""))
+            for needle in needles
+        ):
+            sources.add(frag.report_id)
+    return sources
+
+
+def _topic_anchor_seats(
+    ranked: list[tuple[Hit, float]],
+    anchors: Sequence[str],
+    window: list[tuple[Hit, float]],
+    picked_ids: set[str],
+    budget: int,
+    source_cap: int,
+    source_seats: Counter[str],
+) -> tuple[list[str], bool]:
+    """题眼锚保底席（**新序①——先占预算**；V2-45 R1a／V2-82d／V2-100 D9）。
+
+    逐锚取融合序**最优一支**命中该锚的未选片段（命中面＝text ∪ report ∪ well）；
+    片段级去重（`picked_ids`）＋同源上界（`source_cap`）；预算尽→丢并回 `True`
+    （锚保底属追加席三通道之一——`over_budget` 语义冻结面）。返回（来源报告名留痕，
+    是否有锚候选因预算被丢）。
+    """
+    seated: list[str] = []
+    dropped = False
+    for token in anchors:
+        needle = token.casefold()
+        if not needle:
+            continue
+        for pair in ranked:
+            frag = pair[0].fragment
+            if frag.fragment_id in picked_ids:
+                continue
+            if not _anchor_hits(needle, (frag.text, frag.report or "", frag.well or "")):
+                continue
+            if len(window) >= budget:
+                dropped = True
+                continue
+            if source_seats[frag.report_id] >= source_cap:
+                continue
+            window.append(pair)
+            picked_ids.add(frag.fragment_id)
+            source_seats[frag.report_id] += 1
+            seated.append(frag.report)
+            break  # 逐锚一席
+    return seated, dropped
+
+
+def _topic_table_seats(
+    ranked: list[tuple[Hit, float]],
+    anchors: Sequence[str],
+    window: list[tuple[Hit, float]],
+    picked_ids: set[str],
+    budget: int,
+    source_cap: int,
+    source_seats: Counter[str],
+    anchor_sources: set[str],
+) -> None:
+    """题眼表保底席（**新序②**；V2-93 D8 的 L1 半面——题眼表进窗，B-正6／B-正2 形）。
+
+    每个**锚命中来源**取其首个未选**表格承载**支占一席；表文须命中锚（复用行集目标
+    判据——防无关高位表格片被误当题眼表）。片段级去重＋同源上界；预算尽＝不再追加
+    （表/原文两通道不属 `over_budget` 三通道，不置位）。
+    """
+    needles = tuple(token.casefold() for token in anchors if token.strip())
+    table_sources = {
+        pair[0].fragment.report_id
+        for pair in window
+        if _is_table_bearing(pair[0].fragment.text)
+    }
+    for pair in ranked:
+        frag = pair[0].fragment
+        key = frag.report_id
+        if key not in anchor_sources or key in table_sources:
+            continue
+        if not _is_table_bearing(frag.text):
+            continue
+        if not any(_anchor_text_hit(token, frag.text.casefold()) for token in needles):
+            continue
+        if frag.fragment_id in picked_ids:
+            continue
+        if len(window) >= budget or source_seats[key] >= source_cap:
+            continue
+        window.append(pair)
+        picked_ids.add(frag.fragment_id)
+        source_seats[key] += 1
+        table_sources.add(key)
+
+
+def _topic_original_seats(
+    ranked: list[tuple[Hit, float]],
+    window: list[tuple[Hit, float]],
+    picked_ids: set[str],
+    budget: int,
+    source_cap: int,
+    source_seats: Counter[str],
+    anchor_sources: set[str],
+) -> None:
+    """题眼原文保底席（**新序③**；D9／V2-93 D8——摘要不得顶替同源原文，NQ-C9 形）。
+
+    锚命中来源若**尚无** `node_kind=slice` 原文席，取其首个未选原文切片占一席
+    （原文本身不要求命中锚——同 L3 ②判据：节摘要命中即节相关信号）；片段级去重＋
+    同源上界；预算尽＝不再追加。
+    """
+    slice_sources = {
+        pair[0].fragment.report_id
+        for pair in window
+        if pair[0].fragment.node_kind == NODE_SLICE
+    }
+    for pair in ranked:
+        frag = pair[0].fragment
+        key = frag.report_id
+        if key not in anchor_sources or key in slice_sources:
+            continue
+        if frag.node_kind != NODE_SLICE:
+            continue
+        if frag.fragment_id in picked_ids:
+            continue
+        if len(window) >= budget or source_seats[key] >= source_cap:
+            continue
+        window.append(pair)
+        picked_ids.add(frag.fragment_id)
+        source_seats[key] += 1
+        slice_sources.add(key)
+
+
 def supply_window(
     ranked: list[tuple[Hit, float]],
     budget: int,
@@ -624,27 +811,28 @@ def supply_window(
 ) -> WindowSupply:
     """生成窗供给（specs 行为约定 2——同窗规则在供给层硬编码实现）。
 
-    算法（确定性，零模型调用）：
-    1. 族配额：hints 命中的族共享 3/4 预算（每族 ≥1），其余族共享余下 1/4
-       （每族 ≥1 保底——完井族题不挤占月报族配额）；无 hints 全族均分
-       （每族 ≥1）。
-    2. 族内来源多样性：source_diversify（同报告至多半额——每来源至少留
-       代表支）。
-    3. **追加席（锚保底→表类整行集→节内展开）按序竞争剩余预算**（V2-89b
-       D3 真封顶——追加席**计入 budget**，超预算即丢并落 `over_budget`）：
-       - 题眼锚保底（V2-45 R1a——多来源竞争下锚命中来源 ≥1 席位，消灭目标
-         报告零席位形）：逐锚找「片段文本/报告名/本体标签命中该锚的来源」
-         （V2-82d 三面或任一），未获席者取其融合序最优一支追加进窗；锚集由
-         调用方给（engine 侧 anchor_seat_tokens——显式锚＋问句资产编号）；
-       - 表类整行集（V2-45 R1a——明细/表格类整行集优先）：rowset_question
-         解锁时，目标表格片段＝融合序最前的「表格承载＋锚命中（无锚不设锚
-         条件）」支；其同报告同 section 的已召回候选整组补席（零新召回）；
-       - 节内展开（V2-47 R1b——窗内摘要支→其节内切片补席）：取材＝全节语料
-         （含未召回支）；通道总补席 ≤ `SECTION_EXPAND_CAP`（V2-89b 加上界）。
-    4. 余量补给：以上席位仍不满预算→按融合序补未获席候选（追加席优先于
-       通用余量补给占剩余预算）。
+    算法（确定性，零模型调用）——**V2-100 D9 席序重排：题眼候选先占预算，族配额其次**：
+    1. **题眼锚/表格/原文候选先占预算**（三通道均只对**锚命中来源**生效；`anchors` 空
+       ＝三通道零动作，席序与旧序逐字等价——零漂移面）：
+       - 题眼锚保底（V2-45 R1a／V2-82d）：逐锚取融合序最优一支命中支（text ∪
+         report ∪ well 三面任一）——消灭「多来源竞争下目标报告零席位」形；
+       - 题眼表保底（V2-93 D8 的 L1 半面）：锚命中来源的表格承载支（表文命中锚）；
+       - 题眼原文保底（D9）：锚命中来源的 `node_kind=slice` 原文（摘要不得顶替）；
+       三通道共用**片段级去重**（`picked_ids`）＋**同源上界**（`_topic_source_cap`）。
+    2. **族配额其次（用剩余预算）**：hints 命中的族共享 3/4 预算（每族 ≥1），其余族
+       共享余下 1/4（每族 ≥1——完井族题不挤占月报族配额）；无 hints 全族均分。族内
+       来源多样性＝source_diversify（同报告至多半额）。配额候选因剩余预算不足被丢→
+       计入 additive `quota_dropped`（**不**并入 `over_budget`）。
+    3. **追加席（表类整行集→节内展开）按序竞争剩余预算**（V2-89b D3 真封顶——追加席
+       **计入 budget**，超预算即丢并落 `over_budget`）：
+       - 表类整行集（V2-45 R1a）：rowset_question 解锁时，目标表格片段＝融合序最前的
+         「表格承载＋锚命中（无锚不设锚条件）」支；其同报告同 section 的已召回候选
+         整组补席（零新召回）；
+       - 节内展开（V2-47 R1b）：取材＝全节语料（含未召回支）；通道总补席 ≤
+         `SECTION_EXPAND_CAP`（V2-89b 加上界）。
+    4. **余量补给（D-h 保留）**：以上席位仍不满预算→按融合序补未获席候选。
     5. 预算 < 候选来源数→部分来源零席位＝缺位，报告名逐个枚举（调用方进
-       window_note）——锚保底/整组/展开已保席的来源不再入缺位。
+       window_note）——题眼/整组/展开已保席的来源不再入缺位。
 
     送窗序列保持融合序（只丢不重排——V1 分池纪律同尺；节内展开支非召回产物
     ——接在融合序席之后，序＝窗内摘要序×语料序）。hints 不改族遍历序（族序＝
@@ -652,6 +840,8 @@ def supply_window(
 
     `over_budget`＝本轮有**追加席候选**因预算不足被丢（锚/行集/展开三通道任一；
     节内展开触 `SECTION_EXPAND_CAP` 上界不算——那是设计上界，不是预算不足）。
+    `quota_dropped`＝本轮有**族配额候选**因剩余预算不足被丢的支数（V2-100 D-h 新
+    丢席族——与 `over_budget` 各有独立值源，互不并入）。
     `corpus` 缺省空＝不启用节内展开（旧直接构造面零漂移）。
     """
     if budget <= 0 or not ranked:
@@ -687,57 +877,57 @@ def supply_window(
 
     window: list[tuple[Hit, float]] = []
     picked_ids: set[str] = set()
+    source_seats: Counter[str] = Counter()
+    source_cap = _topic_source_cap(budget)
+
+    # ① 题眼锚/表格/原文候选**先占预算**（V2-100 D9 新序——anchors 空＝三通道零动作，
+    # 席序与旧序逐字等价）。三通道共用片段级去重＋同源上界（D-h）。
+    anchor_seated: list[str] = []
+    anchor_dropped = False
+    if anchors:
+        anchor_seated, anchor_dropped = _topic_anchor_seats(
+            ranked, anchors, window, picked_ids, budget, source_cap, source_seats
+        )
+        anchor_sources = _anchor_hit_sources(ranked, anchors)
+        _topic_table_seats(
+            ranked, anchors, window, picked_ids, budget, source_cap,
+            source_seats, anchor_sources,
+        )
+        _topic_original_seats(
+            ranked, window, picked_ids, budget, source_cap, source_seats,
+            anchor_sources,
+        )
+
+    # ② 族配额**用剩余预算**（不再预先吃干——配额候选因剩余不足被丢→ additive
+    # `quota_dropped`，**不**并入 `over_budget`）。族内来源多样性同旧尺。
+    quota_dropped = 0
     for family in families:
         take = quotas[family]
-        remaining = budget - len(window)
-        if remaining <= 0:
-            break
-        take = min(take, remaining)
-        members = by_family[family]
-        for pair in source_diversify(members, take):
+        available = [
+            pair
+            for pair in by_family[family]
+            if pair[0].fragment.fragment_id not in picked_ids
+        ]
+        for pair in source_diversify(available, take):
             if len(window) >= budget:
-                break
+                quota_dropped += 1  # 新丢席族（V2-100 D-h）
+                continue
             window.append(pair)
             picked_ids.add(pair[0].fragment.fragment_id)
 
-    # 题眼锚保底（追加席——计入 budget，超则丢并记 over_budget）：逐锚扫全召回
-    # 池，命中该锚的每个来源未获席者各补 1 席（来源级去重；代表席＝该来源融合序
-    # 最优命中支）。命中面＝text ∪ report ∪ well（V2-82d——油田名往往只落在报告
-    # 名/本体标签里，只看 text 会让题面点名的主体保不住席位）。
-    anchor_seated: list[str] = []
-    anchor_dropped = False
-    seated_reports = {pair[0].fragment.report for pair in window}
-    for token in anchors:
-        needle = token.casefold()
-        if not needle:
-            continue
-        for pair in ranked:
-            frag = pair[0].fragment
-            haystacks = (frag.text, frag.report or "", frag.well or "")
-            if not any(needle in h.casefold() for h in haystacks):
-                continue
-            if frag.report in seated_reports:
-                continue  # 该来源已有席位——继续找同锚的其他命中来源
-            if len(window) >= budget:
-                anchor_dropped = True  # 真封顶：预算尽→不再追加（归因机读位）
-                continue
-            window.append(pair)
-            picked_ids.add(frag.fragment_id)
-            seated_reports.add(frag.report)
-            anchor_seated.append(frag.report)
-
     # 表类整行集（追加席——计入 budget，超则丢）：目标表格片段同组整补。
+    # 锚命中判据＝`appv2.text_tokens` 单点（V2-100 D-a——边界/全等本体零副本）。
     rowset_added = 0
     rowset_dropped = False
     if rowset_question:
-        anchor_set = {token.casefold() for token in anchors}
+        anchor_tokens = tuple(token.casefold() for token in anchors if token.strip())
         target_key: tuple[str, str | None] | None = None
         for pair in ranked:
             frag = pair[0].fragment
             if not _is_table_bearing(frag.text):
                 continue
-            if anchor_set and not any(
-                token in frag.text.casefold() for token in anchor_set
+            if anchor_tokens and not any(
+                _anchor_text_hit(token, frag.text.casefold()) for token in anchor_tokens
             ):
                 continue
             target_key = (frag.report_id, frag.section)
@@ -761,8 +951,8 @@ def supply_window(
         window, picked_ids, corpus, budget
     )
 
-    # 余量补给：以上席位仍不满预算时按融合序补齐（追加席优先于通用余量；
-    # 计数含节内展开支——总席恒 ≤ budget）。
+    # 余量补给（D-h 显式保留）：以上席位仍不满预算时按融合序补齐（追加席优先于
+    # 通用余量；计数含节内展开支——总席恒 ≤ budget）。
     if len(window) + len(expanded) < budget:
         for pair in ranked:
             if len(window) + len(expanded) >= budget:
@@ -772,7 +962,7 @@ def supply_window(
                 picked_ids.add(pair[0].fragment.fragment_id)
 
     # 缺位来源：召回池有候选但零席位（预算 < 来源数）——报告名枚举不静默
-    # （锚保底/整组/展开已保席的来源不在此列——扩席如实先于缺位判定）。
+    # （题眼/整组/展开已保席的来源不在此列——扩席如实先于缺位判定）。
     seated_reports = {pair[0].fragment.report for pair in [*window, *expanded]}
     missing: list[str] = []
     for pair in ranked:
@@ -791,6 +981,7 @@ def supply_window(
         rowset_added=rowset_added,
         summary_expanded=len(expanded),
         over_budget=anchor_dropped or rowset_dropped or expand_dropped,
+        quota_dropped=quota_dropped,
     )
 
 

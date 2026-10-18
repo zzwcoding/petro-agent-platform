@@ -403,26 +403,35 @@ async def test_table_bearing_locator_marker() -> None:
 
 
 async def test_family_supply() -> None:
+    """V2-04 验收⑤（V2-100 改判）：family_hints 驱动供给——完井族题不挤占月报族配额。
+
+    改判（D9 席序重排）：题眼锚/表格/原文候选先占预算 ⇒ 族配额只用剩余；预算 4 下
+    题眼席（「34-5」命中的三来源各占原文保底席）已把配额压到 1 席，hints 效果不可辨。
+    故预算改 8（题眼席 3＋配额 5）：hinted＝completion 5／monthly 3（完井族拿大头）；
+    同题同预算无 hints＝两族均分（各 4）——族提示的效果两侧对照仍成立。
+    """
     engine = await _engine()
     question = "渤中34-5油田完井防砂与检泵作业"
     hinted = await engine.retrieve(
-        RetrievalNeed(question=question, family_hints=("completion",), budget=4)
+        RetrievalNeed(question=question, family_hints=("completion",), budget=8)
     )
     by_family = {obs.family: 0 for obs in hinted.observations}
     for obs in hinted.observations:
         by_family[obs.family] += 1
-    # 完井族题：completion 族拿大头（3 席），月报族保底 1 席不被挤占。
-    assert by_family == {"completion": 3, "monthly": 1}
+    # 完井族题：completion 族拿大头（5 席），月报族 3 席不被挤占。
+    assert by_family == {"completion": 5, "monthly": 3}
 
-    # 对照组：同一问句同一预算、无族提示——两族均分（各 2 席）。
-    plain = await engine.retrieve(RetrievalNeed(question=question, budget=4))
+    # 对照组：同一问句同一预算、无族提示——两族均分（各 4 席）。
+    plain = await engine.retrieve(RetrievalNeed(question=question, budget=8))
     plain_by_family: dict[str, int] = {}
     for obs in plain.observations:
         plain_by_family[obs.family] = plain_by_family.get(obs.family, 0) + 1
-    assert plain_by_family == {"completion": 2, "monthly": 2}
+    assert plain_by_family == {"completion": 4, "monthly": 4}
 
     # 族提示在窗上的效果：hinted 下完井族席位多于月报族（供给策略本体化生效）。
     assert by_family["completion"] > by_family["monthly"]
+    # 题眼先占面（V2-100）：两轮都保住了题面点名来源的席位（锚保底实录在场）。
+    assert hinted.anchor_seated >= 1 and plain.anchor_seated >= 1
 
 
 # ---------- 验收⑥：图谱面——邻域边证据带出处，失败回退空集不炸 ----------
@@ -648,6 +657,197 @@ def test_section_expansion_capped_by_budget_and_upper_bound() -> None:
     tight = supply_window(ranked, 4, ("monthly",), corpus=corpus)
     assert len(tight.window) <= 4
     assert tight.summary_expanded <= 2  # 4 - 2 已占席
+
+
+# ---------- V2-100：题眼表/节/行集确定性占席（L1 席序重排——D-a／D-h） ----------
+
+# 题眼来源（T-77·monthly）三支＋对照来源（C·dynamic·hints 命中位）三支：C 三支全在
+# 融合序前段——旧席序下 hints 族配额先吃干预算，题眼候选永远排不到（EB11 217/220
+# `anchor_seated=0` 的确定性缩影）。
+_V100_LIB_C = ("lib-v100-c", "库丙动态分析库", "dynamic")
+_V100_LIB_T = ("lib-v100-t", "库丁月报库", "monthly")
+_V100_RPT_C = ("rpt-v100-c", "C-渤中34-5油田三季度注水调整与生产运行分析")
+_V100_RPT_T = ("rpt-v100-t", "T-77 井专项分析报告")
+_V100_SECTION = "3 配注调整表"
+_V100_TABLE_TEXT = (
+    "3 配注调整表\n"
+    "　　井号　　　原配注(m³/d)　新配注(m³/d)\n"
+    "　　Y-24　　　320　　　　　 380\n"
+    "　　Y-26　　　260　　　　　 320\n"
+)
+
+
+def _v100_c_frags() -> list[FragmentRecord]:
+    """对照来源 C 三支（dynamic·hints 命中位——融合序全在题眼来源之前）。"""
+    return [
+        _frag("f-v100-c1", _V100_LIB_C, _V100_RPT_C, "1 概况", "丙报告正文：含水 79%。"),
+        _frag("f-v100-c2", _V100_LIB_C, _V100_RPT_C, "2 月度数据", "丙报告正文：注采比 0.98。"),
+        _frag("f-v100-c3", _V100_LIB_C, _V100_RPT_C, "3 累积亏空", "丙报告正文：亏空 −41.3 万方。"),
+    ]
+
+
+def _v100_ranked(
+    frags: list[FragmentRecord],
+) -> list[tuple[Hit, float]]:
+    """融合序替身（seed 序给单调递减分——直接驱动 supply_window）。"""
+    return [
+        (Hit(frag, 1.0 / (i + 1), "keyword"), 1.0 / (i + 1))
+        for i, frag in enumerate(frags)
+    ]
+
+
+def test_supply_window_topic_anchor_seated_before_family_quota() -> None:
+    """V2-100 D9 席序重排：题眼锚命中来源**先占预算**，族配额用剩余。
+
+    EB11 对照面（`anchor_seated=0` 217/220）：旧席序下 hints 族配额先吃干预算，锚保底
+    永远排不到；新席序下同一构造 `anchor_seated` 必 > 0。
+    """
+    summary = _frag(
+        "f-v100-t1", _V100_LIB_T, _V100_RPT_T, _V100_SECTION,
+        "节级摘要：配注调整表要点——Y-24 与 Y-26 两行执行日期。",
+        node_kind=NODE_SECTION_SUMMARY,
+    )
+    table = _frag("f-v100-t2", _V100_LIB_T, _V100_RPT_T, _V100_SECTION, _V100_TABLE_TEXT)
+    supply = supply_window(
+        _v100_ranked([*_v100_c_frags(), summary, table]), 2, ("dynamic",), anchors=("Y-24",)
+    )
+    ids = [p[0].fragment.fragment_id for p in supply.window]
+    assert len(ids) == 2  # 真封顶（追加席计入 budget 语义冻结）
+    assert supply.anchor_seated == (_V100_RPT_T[1],)  # 题眼来源先占（旧序＝()）
+    assert "f-v100-t1" in ids  # 锚命中支占锚席（融合序在配额候补之后）
+    assert supply.quota_dropped > 0  # 配额候选被剩余预算丢（新丢席族）
+    assert supply.over_budget is False  # 配额丢席**不**并入 over_budget
+
+
+def test_supply_window_topic_table_seat_keeps_detail_row() -> None:
+    """题眼表保底席（B-正6／B-正2 形）：锚命中来源的**表格承载**支先占预算——
+    同源节摘要支不得顶替（表文命中锚＝行集目标同判据）。"""
+    summary = _frag(
+        "f-v100-t1", _V100_LIB_T, _V100_RPT_T, _V100_SECTION,
+        "节级摘要：配注调整表要点——Y-24 与 Y-26 两行执行日期。",
+        node_kind=NODE_SECTION_SUMMARY,
+    )
+    table = _frag("f-v100-t2", _V100_LIB_T, _V100_RPT_T, _V100_SECTION, _V100_TABLE_TEXT)
+    supply = supply_window(
+        _v100_ranked([*_v100_c_frags(), summary, table]), 4, ("dynamic",), anchors=("Y-24",)
+    )
+    ids = [p[0].fragment.fragment_id for p in supply.window]
+    assert "f-v100-t1" in ids  # 锚席（摘要支先命中）
+    assert "f-v100-t2" in ids  # 题眼表席（表格承载支——摘要不顶替）
+    assert supply.anchor_seated == (_V100_RPT_T[1],)
+    assert supply.over_budget is False
+
+
+def test_supply_window_topic_original_seat_keeps_section() -> None:
+    """题眼原文保底席（NQ-C9 形）：锚命中来源的节摘要群挤占下，其**原文切片**必进窗
+    （摘要不得顶替同源原文——D9／L3 ② 同判据；原文本身不要求命中锚）。"""
+    summaries = [
+        _frag(
+            f"f-v100-s{i}", _V100_LIB_T, _V100_RPT_T, _V100_SECTION,
+            f"检泵作业（节摘要 {i}）", node_kind=NODE_SECTION_SUMMARY,
+        )
+        for i in range(1, 9)
+    ]
+    original = _frag(
+        "f-v100-o1", _V100_LIB_T, _V100_RPT_T, _V100_SECTION,
+        "三、作业明细：日产液 132 立方米，含水 8.2%。",
+    )
+    supply = supply_window(
+        _v100_ranked([*summaries, original, *_v100_c_frags()]),
+        4, ("monthly",), anchors=("检泵",),
+    )
+    ids = [p[0].fragment.fragment_id for p in supply.window]
+    assert "f-v100-o1" in ids  # 同源原文保底席（132 立方米／8.2 所在原文节）
+    assert supply.anchor_seated == (_V100_RPT_T[1],)
+
+
+def test_supply_window_l1_anchor_boundary_no_substring() -> None:
+    """D-诱12 不回退（L1 面／V2-100 D-a）：判据单点下沉后 L1 锚席同「边界／全等」语义——
+    `W-11` 不得命中 `W-111`；数字锚 `22` 不得命中 `2200`／`4.2`（旧子串判据两形都误中）。"""
+    w111 = _frag("f-v100-w111", _V100_LIB_T, _V100_RPT_T, "1 概况", "W-111 井采用酸压完井。")
+    w11 = _frag("f-v100-w11", _V100_LIB_T, _V100_RPT_T, "2 概况", "W-11 井采用酸压完井。")
+    supply = supply_window(_v100_ranked([w111, w11]), 1, (), anchors=("W-11",))
+    assert [p[0].fragment.fragment_id for p in supply.window] == ["f-v100-w11"]
+
+    false_num = _frag("f-v100-2200", _V100_LIB_T, _V100_RPT_T, "1 概况", "泵挂 2200 米。")
+    true_num = _frag("f-v100-22", _V100_LIB_T, _V100_RPT_T, "2 概况", "22 井泵挂 1800 米。")
+    numeric = supply_window(_v100_ranked([false_num, true_num]), 1, (), anchors=("22",))
+    assert [p[0].fragment.fragment_id for p in numeric.window] == ["f-v100-22"]
+
+
+def test_supply_window_topic_fragment_dedup_and_source_bound() -> None:
+    """D-h 片段级去重＋同源上界（L0 准）：同源多锚可各占一席（去重粒度＝片段，取代
+    来源级去重），但同源题眼席 ≤ `max(1, budget//2)`——防单源吃干预算。"""
+    frags = [
+        _frag(f"f-v100-m{i}", _V100_LIB_T, _V100_RPT_T, f"{i} 概况", f"Y-2{i} 井参数。")
+        for i in range(1, 5)
+    ]
+    ranked = _v100_ranked([*frags, *_v100_c_frags()])
+    anchors = ("Y-21", "Y-22", "Y-23", "Y-24")
+    bounded = supply_window(ranked, 4, (), anchors=anchors)
+    ids = [p[0].fragment.fragment_id for p in bounded.window]
+    assert len(ids) == len(set(ids))  # 片段级去重（同一片段不重复占席）
+    assert len(bounded.anchor_seated) == 2  # 同源上界＝4//2＝2（四锚同源只占 2 席）
+    assert bounded.anchor_seated == (_V100_RPT_T[1], _V100_RPT_T[1])
+    # 上界随预算：预算 8 → 同源至多 4 席（四锚各占一席——旧来源级去重恒 1）
+    roomy = supply_window(ranked, 8, (), anchors=anchors)
+    assert len(roomy.anchor_seated) == 4
+
+
+def test_quota_dropped_and_over_budget_disjoint() -> None:
+    """验收 3：`quota_dropped`（族配额候选被丢）与 `over_budget`（追加席候选被丢）
+    **语义互斥、各自可判**——配额丢席不得并入 `over_budget`（保 EB10 20/20 区分度）。"""
+    # ① 只配额丢席：题眼席先占 → 配额用剩余不够（行集/展开零候选被丢）
+    quota_only = supply_window(
+        _v100_ranked([
+            *_v100_c_frags(),
+            _frag("f-v100-t1", _V100_LIB_T, _V100_RPT_T, "1 概况", "Y-24 井参数。"),
+        ]),
+        3, ("dynamic",), anchors=("Y-24",),
+    )
+    assert quota_only.quota_dropped > 0
+    assert quota_only.over_budget is False  # 配额丢席不并入 over_budget
+
+    # ② 只追加席丢席：配额候选已尽（零丢席），节内展开候选被预算丢
+    summary = _frag(
+        "f-v100-x1", _V100_LIB_T, _V100_RPT_T, "九章 检泵作业明细",
+        "节级摘要：检泵作业明细要点——Y-24。", node_kind=NODE_SECTION_SUMMARY,
+    )
+    original = _frag(
+        "f-v100-x2", _V100_LIB_T, _V100_RPT_T, "九章 检泵作业明细", "该井检泵周期 215 天。"
+    )
+    corpus = [
+        summary,
+        original,
+        *[
+            _frag(
+                f"f-v100-x{i}", _V100_LIB_T, _V100_RPT_T,
+                f"九章 检泵作业明细 ＞ {i} 支", f"第 {i} 支检泵明细：周期 {500 + i} 天。",
+            )
+            for i in range(3, 13)
+        ],
+    ]
+    expand_only = supply_window(
+        _v100_ranked([summary, original]), 4, (), anchors=("Y-24",), corpus=corpus
+    )
+    assert expand_only.over_budget is True  # 展开候选被预算丢（追加席三通道之一）
+    assert expand_only.quota_dropped == 0  # 配额候选已尽——零丢席
+    assert len(expand_only.window) <= 4
+
+
+def test_supply_window_remainder_supply_still_fills_budget() -> None:
+    """D-h：余量补给步**保留**（题眼先占后仍不满预算 → 按融合序补齐；窗支数恒 ≤ budget）。"""
+    m1 = _frag("f-v100-m1", _V100_LIB_T, _V100_RPT_T, "1 概况", "Y-24 井参数。")
+    m2 = _frag("f-v100-m2", _V100_LIB_T, _V100_RPT_T, "2 概况", "检泵周期 215 天。")
+    b1 = _frag("f-v100-b1", ("lib-v100-b", "库戊台账库", "blank"), ("rpt-v100-b", "己-台账登记"),
+               "1 概况", "登记 3 条。")
+    supply = supply_window(
+        _v100_ranked([*_v100_c_frags(), m1, m2, b1]), 5, (), anchors=("Y-24",)
+    )
+    ids = [p[0].fragment.fragment_id for p in supply.window]
+    assert len(ids) == 5  # 配额 3＋题眼 1 后仍不满 → 余量补给补齐
+    assert "f-v100-c2" in ids  # 余量补给的产物（题眼/配额两腿都未取它）
+    assert supply.quota_dropped == 0
 
 
 # ---------- 真 MiniMax 冒烟（RETRIEVAL_SMOKE=1 门控——不进常规门禁） ----------

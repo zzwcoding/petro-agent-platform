@@ -1168,6 +1168,8 @@ async def doc_retrieve(
         budget=need.budget,
         sent=len(bundle.observations),
         over_budget=bundle.over_budget,
+        # V2-100 additive（D-h 可观测链收口——L0 授权）：配额丢席族与 over_budget 并列。
+        quota_dropped=bundle.quota_dropped,
     )
     return _bundle_to_result(bundle)
 

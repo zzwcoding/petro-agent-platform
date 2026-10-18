@@ -1232,8 +1232,10 @@ _RENDERERS = (render_materials, render_process_notes, compile_manifest, compact_
 # 渲染器族载件（扫描面钉死——`ledger.py` 是唯一 IO 面、不在纯函数扫描面内）
 _RENDERER_FILES = ("compaction.py", "manifest.py", "materials.py", "process_notes.py")
 
-# 依赖白名单＝`state`＋`tools` 两块（禁引其余 runtimev2 块——红线④⑤）。
-_ALLOWED_DEPENDENCY_BLOCKS = ("state", "tools")
+# 依赖白名单＝`state`＋`tools` 两块＋**依赖自由判据单点模块 `text_tokens`**
+# （V2-100 D-a：题眼 token 边界／数字全等本体单点——非 runtimev2 块、非 infra、非旧码；
+# 禁引其余 runtimev2 块——红线④⑤）。
+_ALLOWED_DEPENDENCY_BLOCKS = ("state", "tools", "text_tokens")
 # 共享写面零写（写口归 `bookkeeping`；全块唯一状态写入＝`ledger_dump` 取一次装载——红线⑥）。
 _SHARED_WRITE_FIELDS = (
     "messages",
@@ -1395,7 +1397,8 @@ def _dependency_block(module: str) -> str:
 
 
 def _is_whitelisted_import(module: str) -> bool:
-    """`state`＋`tools`＋本包自身为白名单；其余 `appv2.*` 一律越界。"""
+    """`state`＋`tools`＋`text_tokens`（V2-100 D-a 依赖自由判据单点）＋本包自身为白名单；
+    其余 `appv2.*` 一律越界。"""
     if not module.startswith("appv2"):
         return True
     block = _dependency_block(module)
@@ -1738,15 +1741,18 @@ def test_imports_and_write_ports_scan() -> None:
     sources = _context_sources()
     assert sources, "扫描面为空——看守失效"
 
-    # ① import 白名单＝`state`＋`tools`＋本包自身（禁引其余 runtimev2 块／infra／旧码）
-    assert _import_findings(sources) == [], "本块 import 面越出「只 state＋tools」白名单"
+    # ① import 白名单＝`state`＋`tools`＋`text_tokens`（V2-100 D-a 依赖自由判据单点）
+    # ＋本包自身（禁引其余 runtimev2 块／infra／旧码）
+    assert _import_findings(sources) == [], "本块 import 面越出「state＋tools＋text_tokens」白名单"
     blocks = {
         _dependency_block(module)
         for _name, tree in sources
         for _lineno, module in _imported_modules(tree)
         if module.startswith("appv2")
     }
-    assert blocks <= {"context", "state", "tools"}, f"依赖白名单外块：{sorted(blocks)}"
+    assert blocks <= {"context", "state", "tools", "text_tokens"}, (
+        f"依赖白名单外块：{sorted(blocks)}"
+    )
     # 零模型调用（连 `gateway_adapter` 都不 import——规格 :102 诚实声明面）
     assert not any(
         module.startswith(("appv2.runtimev2.gateway_adapter", "appv2.infra.llm_client"))
@@ -1899,6 +1905,46 @@ def test_cap_single_source() -> None:
     assert _alias_targets(_context_sources(), "DEFAULT_MAX_OBSERVATIONS") == [
         ("materials.py", "SEND_BUDGET_CAP")
     ]
+
+
+# ---------- 16b 判据本体单点（V2-100 D-a——L1/L3 共享 `appv2.text_tokens`） ----------
+
+
+def test_judgement_single_source_text_tokens() -> None:
+    """V2-100 D-a 单点真源：本块边界／全等判据**直引** `appv2.text_tokens`（零第二份实现）。
+
+    `_anchor_score` 的分层加权留本块（不下沉）；判据本体＝`appv2.text_tokens.boundary_hit`／
+    `num_token_hit`——L1（`appv2.retrieval`）与 L3 消费**同一对象**（对象同一性断言），
+    全仓该两判据各**恰一处**定义（AST 扫 `appv2/`——名字含/不含前导下划线都算同一判据）。
+    """
+    from appv2 import text_tokens
+    from appv2.retrieval import domain as retrieval_domain
+    from appv2.runtimev2.context import materials as context_materials
+
+    # 双方直引同一对象（L3 侧消费面＝本模块对象——非第二份副本）
+    assert context_materials.boundary_hit is text_tokens.boundary_hit
+    assert context_materials.num_token_hit is text_tokens.num_token_hit
+    assert retrieval_domain.boundary_hit is text_tokens.boundary_hit
+    assert retrieval_domain.num_token_hit is text_tokens.num_token_hit
+
+    # 判据本体全仓恰一处定义（禁第二份）
+    definitions: dict[str, list[str]] = {"boundary_hit": [], "num_token_hit": []}
+    for path in sorted((_REPO_ROOT / "appv2").rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name.lstrip("_") in definitions:
+                definitions[node.name.lstrip("_")].append(path.name)
+    assert definitions == {
+        "boundary_hit": ["text_tokens.py"],
+        "num_token_hit": ["text_tokens.py"],
+    }, f"判据本体非单点：{definitions}"
+
+    # 判据语义（V2-90 钉死面——L1/L3 共享同一实现）
+    assert text_tokens.boundary_hit("W-111", "W-11") is False
+    assert text_tokens.boundary_hit("W-11 井", "W-11") is True
+    assert text_tokens.num_token_hit("泵挂 2200 米", "22") is False
+    assert text_tokens.num_token_hit("冲次 4.2 次/分", "22") is False
+    assert text_tokens.num_token_hit("22 井", "22") is True
 
 
 # ---------- 17 渲染单点（材料/过程档/信任映射/帽/三来源行映射各恰一处定义） ----------

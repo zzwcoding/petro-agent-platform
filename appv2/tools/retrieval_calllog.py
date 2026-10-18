@@ -6,11 +6,12 @@
 （`接手-EB7vsEB8送窗差异` 取不到③：入参 need/budget/family_hints 与候选命中
 此前不在任何留痕面）。
 
-记录键闭世界（票面字段表逐字＋V2-92 additive `origin`＋V2-89b additive 七键）：
+记录键闭世界（票面字段表逐字＋V2-92 additive `origin`＋V2-89b additive 七键
+＋V2-100 additive `quota_dropped`）：
 `{"ts", "run_id", "sub_question_id", "need", "top_k", "hits": [{"id", "source",
 "score", "chars", "has_section"}], "returned", "truncated", "origin", "snippet",
 "anchor_seated", "rowset_added", "summary_expanded", "budget", "sent",
-"over_budget"}`
+"over_budget", "quota_dropped"}`
 ——`need`＝RetrievalNeed 四字段投影（question/anchors/family_hints/budget，
 入参可查）；`hits`＝入窗候选逐条（片段 id／report 级来源／原始腿分／长面字符数／
 section 标记），**零密钥**；`origin`＝记录来源（`runtime` 缺省／`test`——V2-92
@@ -25,7 +26,10 @@ V2-89b 留痕身份与扩席归因（D3——`retrieval_calls` 17/17 行 `return
   席数**（`RetrievalBundle` 同名计数 additive——席次可归因）；
 - `budget`＝本次送窗预算 M（＝`need.budget` 逐字）；`sent`＝实走支数（＝
   `returned`，票面字段表两键并存）；`over_budget`＝有追加席候选因预算被丢
-  （`RetrievalBundle.over_budget`——真封顶机读位）。
+  （`RetrievalBundle.over_budget`——真封顶机读位）；
+- **V2-100 additive `quota_dropped`**（与 `over_budget` 并列、各有独立值源）＝
+  有**族配额候选**因剩余预算不足被丢的支数（`RetrievalBundle.quota_dropped`——
+  题眼席先占预算后的新丢席族；**不并入** `over_budget`）。
 
 开关 `RETRIEVAL_CALL_LOG`（缺省 on；`off`＝零写）；留痕故障只 `LOGGER.warning`，
 绝不向调用方冒泡（旁路观测纪律——与 `infra.gateway.calllog` 同范式）。
@@ -104,12 +108,14 @@ def record_retrieval_call(
     budget: int = 0,
     sent: int = 0,
     over_budget: bool = False,
+    quota_dropped: int = 0,
 ) -> None:
     """单次 doc_retrieve 检索→一行 JSONL（入参＋逐候选命中＋扩席归因；空集照记）。
 
     票面签名五参逐字（sub_question_id/need/top_k/hits/returned）＋V2-92 additive
     （run_id/recalled）＋V2-89b additive 七键（snippet/anchor_seated/rowset_added/
-    summary_expanded/budget/sent/over_budget，缺省零值——旧调用形零破坏）。
+    summary_expanded/budget/sent/over_budget）＋V2-100 additive 一键
+    （quota_dropped），缺省零值——旧调用形零破坏。
 
     - `hits`＝本次入窗候选（RetrievalBundle.observations 逐条）；`returned`＝
       入窗条数（调用方按实走支数报）；`sent`＝同实走支数（票面字段表两键并存）；
@@ -119,6 +125,8 @@ def record_retrieval_call(
       window_note 主段「共检索到 N 条材料，M 条用进了答案」同判据）；`recalled`
       缺位（旧构造/桩＝0）＝不判截断（False，零猜测）；
     - `over_budget`＝有追加席候选因预算被丢（V2-89b D3 真封顶机读位）；
+    - `quota_dropped`＝有族配额候选因剩余预算被丢（V2-100 D-h 新丢席族——
+      与 `over_budget` 并列、互不并入）；
     - `origin`＝`_ORIGIN`（缺省 `runtime`；测试语境 `test`——V2-92 夹具注入，
       additive 不改既有键）；
     - 任何异常降级 `LOGGER.warning`——留痕故障不影响工具返回。
@@ -144,6 +152,7 @@ def record_retrieval_call(
             "budget": int(budget),
             "sent": int(sent),
             "over_budget": bool(over_budget),
+            "quota_dropped": int(quota_dropped),
         }
         _LOG_DIR.mkdir(parents=True, exist_ok=True)
         path = _LOG_DIR / f"{at:%Y%m%d}.jsonl"

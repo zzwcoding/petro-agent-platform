@@ -250,6 +250,7 @@ class RetrievalEngine:
             anchor_seated=len(supply.anchor_seated),
             rowset_added=supply.rowset_added,
             summary_expanded=supply.summary_expanded,
+            quota_dropped=supply.quota_dropped,
         )
 
     # ---------- 图谱面（邻域遍历→fail-closed 锚校验→送窗） ----------

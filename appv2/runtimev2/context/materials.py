@@ -17,6 +17,7 @@ from collections import Counter, OrderedDict
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from appv2.text_tokens import boundary_hit, num_token_hit
 from appv2.tools import (
     LINEAGE_LIMIT_HIT_KEY,
     LINEAGE_LIMIT_KEY,
@@ -215,55 +216,9 @@ def _index_key(observation: Mapping[str, Any]) -> int:
         raise ValueError(_INDEX_SHAPE_ERROR) from exc
 
 
-# 数字 token 全等的边界字符集（前后紧邻任一字符即非全等——V2-90 锚分边界化；
-# 纯字符扫描、禁 `re`，形态处理豁免面 `specs/context.md` 行为 13）。
-_ASCII_DIGITS = "0123456789"
-_ASCII_LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-_NUMERIC_BOUNDARY_CHARS = _ASCII_DIGITS + ".,"
-# 井号／油田等强锚的边界字符集（前后紧邻字母／数字／连字符即非边界——`W-11` 与 `W-111` 可辨）。
-_SUBJECT_BOUNDARY_CHARS = _ASCII_LETTERS + _ASCII_DIGITS + "-"
-
-
-def _num_token_hit(token: str, text: str) -> bool:
-    """数字 token **全等**命中（V2-90——`22` 不得命中 `2200`／`202608`；`12.5` 命中 `12.5`）。
-
-    纯字符扫描（禁 `re`）：锚串在文本中的每次出现，前后字符都不得是数字或 `.`／`,`；任一出现
-    满足全等即命中。故 `12.5` 命中 `12.5 MPa`、不命中 `112.5`／`12.55`（落在更长数字串内）。
-    """
-    if not token or not text:
-        return False
-    start = 0
-    while True:
-        found = text.find(token, start)
-        if found < 0:
-            return False
-        end = found + len(token)
-        before_ok = found == 0 or text[found - 1] not in _NUMERIC_BOUNDARY_CHARS
-        after_ok = end == len(text) or text[end] not in _NUMERIC_BOUNDARY_CHARS
-        if before_ok and after_ok:
-            return True
-        start = found + 1
-
-
-def _boundary_hit(anchor: str, text: str) -> bool:
-    """强锚（井号／油田／区块／平台名）**边界**命中（V2-90——`W-11` 不得命中 `W-111`）。
-
-    纯字符扫描（禁 `re`）：锚串在文本中的每次出现，前后字符都不得是字母／数字／连字符；任一
-    出现满足边界即命中。中文等非 ASCII 字母数字字符不作边界字符（`W-11井位于` 仍命中）。
-    """
-    if not anchor or not text:
-        return False
-    start = 0
-    while True:
-        found = text.find(anchor, start)
-        if found < 0:
-            return False
-        end = found + len(anchor)
-        before_ok = found == 0 or text[found - 1] not in _SUBJECT_BOUNDARY_CHARS
-        after_ok = end == len(text) or text[end] not in _SUBJECT_BOUNDARY_CHARS
-        if before_ok and after_ok:
-            return True
-        start = found + 1
+# 边界／数字 token 全等两判据的**本体单点真源＝`appv2.text_tokens`**（V2-100 D-a——L1/L3
+# 双方直引，本块零第二份实现；形态处理豁免面 `specs/context.md` 行为 13）。本块只保留
+# 分层锚分 `_anchor_score`／`_anchor_hit_count`（L3 专有面，不下沉）。
 
 
 def _anchor_score(
@@ -279,7 +234,8 @@ def _anchor_score(
       与内容的 token 全等）。
 
     同一 `(kind, text)` 锚只计一次（重复锚串不虚增分数）、空锚串不计；大小写敏感原样比。本函数
-    纯字符包含／边界／全等判定，零语义判断（行为 13 形态处理豁免面）。
+    纯字符包含／边界／全等判定，零语义判断（行为 13 形态处理豁免面）。边界／全等**本体**＝
+    `appv2.text_tokens.boundary_hit`／`num_token_hit`（V2-100 D-a 单点真源——本函数只做分层加权）。
     """
     content = str(observation.get("content") or "")
     origin = _source_of(observation)
@@ -291,10 +247,10 @@ def _anchor_score(
             continue
         counted.add(pair)
         if pair[0] == "number":
-            if _num_token_hit(pair[1], content):
+            if num_token_hit(content, pair[1]):
                 score += 1
         elif pair[0] == "subject":
-            if _boundary_hit(pair[1], content):
+            if boundary_hit(content, pair[1]):
                 score += 3
             elif pair[1] in origin:
                 score += 0.5
