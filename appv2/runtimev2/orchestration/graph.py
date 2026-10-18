@@ -32,7 +32,12 @@ from appv2.runtimev2.clarification import (
     clarify,
     object_ambiguity_ask,
 )
-from appv2.runtimev2.clarification.constants import PAYLOAD_ASK_FRAME
+from appv2.runtimev2.clarification.constants import (
+    ASK_DETAIL_SLOT_KEY,
+    ASK_SLOT_CALIBER,
+    ASK_SLOT_WINDOW,
+    PAYLOAD_ASK_FRAME,
+)
 from appv2.runtimev2.clarification.guidance import rejection_guidance
 from appv2.runtimev2.context import DEFAULT_MAX_OBSERVATIONS
 from appv2.runtimev2.execution import ERROR_BAD_ARGS, ERROR_RETRYABLE, execute
@@ -97,6 +102,7 @@ from appv2.runtimev2.transport import EventBus
 from appv2.runtimev2.understanding import interpret
 from appv2.runtimev2.verification import verify
 from appv2.tools import (
+    HIT_RULE_FUZZY_WINDOW,
     ToolRegistry,
     metric_requires_subject,
     oilfield_instances,
@@ -255,7 +261,12 @@ def _flush_supplements(deps: LoopDeps) -> None:
 def _ask_frame(
     kind: str, prompt: str, options: Sequence[str], detail: dict[str, Any]
 ) -> dict[str, Any]:
-    """ask 帧形状（真源 `synth/S6` §一 ask 行——`{kind, prompt, options, detail}` 四键齐备）。"""
+    """ask 帧形状（真源 `synth/S6` §一 ask 行——`{kind, prompt, options, detail}` 四键齐备）。
+
+    V2-118：槽位标签落 `detail` 内（键＝`ASK_DETAIL_SLOT_KEY`）——**顶层四键零增删**
+    （`transport.frames._check_ask` 恰四键把守），故本函数签名不变，只由调用方把标签并入
+    `detail`（零帧闭世界变更）。
+    """
     return {
         ASK_KEY_KIND: kind,
         ASK_KEY_PROMPT: prompt,
@@ -277,7 +288,13 @@ def _suspend(state: RunState, deps: LoopDeps, frame: dict[str, Any]) -> None:
 
 
 def _precondition_frame(state: RunState, verdict: SubtaskVerdict) -> dict[str, Any]:
-    """前置条件机 `ask` 支 → ask 帧（`AskReason.kind` → `frame.kind` 用相位侧唯一映射表）。"""
+    """前置条件机 `ask` 支 → ask 帧（`AskReason.kind` → `frame.kind` 用相位侧唯一映射表）。
+
+    V2-118：`detail` 携**槽位标签**（`ASK_DETAIL_SLOT_KEY`）——口径反问＝`ASK_SLOT_CALIBER`、
+    时间窗反问（同 kind、命中位 2 结构判据）＝`ASK_SLOT_WINDOW`；外表越集审批帧＝既有
+    `approval_id`／`tables` 两键（审批面的回答落位是 `approved_ids`，本票零改）。恢复腿据此把
+    用户回答落进 `state.answer_slots` 对应槽位并回喂后续决策轮。
+    """
     reason = verdict.reason
     if not isinstance(reason, AskReason):
         raise ValueError("前置条件机 ask 支缺 AskReason（相位契约违例——fail-closed）")
@@ -287,6 +304,18 @@ def _precondition_frame(state: RunState, verdict: SubtaskVerdict) -> dict[str, A
         detail = {
             "approval_id": f"precond-{verdict.subtask_id}",
             "tables": _external_tables_of(state, verdict.subtask_id),
+        }
+    elif reason.kind == "caliber_clarify":
+        # 口径反问与时间窗反问同为 `caliber_clarify` 一形（真源 `preconditions.core._window_ask`
+        # 与 `appv2/tools/precondition.py` 的 AskFrame 两处发射点）——按 **hit_rule** 区分：
+        # 位 2 结构判据（`HIT_RULE_FUZZY_WINDOW`）＝时间窗问；
+        # 其余（`HIT_RULE_ASK` 口径反问）＝口径问。
+        detail = {
+            ASK_DETAIL_SLOT_KEY: (
+                ASK_SLOT_WINDOW
+                if verdict.hit_rule == HIT_RULE_FUZZY_WINDOW
+                else ASK_SLOT_CALIBER
+            )
         }
     return _ask_frame(kind, reason.prompt, reason.options, detail)
 
@@ -379,10 +408,16 @@ def _make_clarify(deps: LoopDeps) -> Any:
             shared_context=_shared_context_pending(state),
         )
         if isinstance(outcome, ClarifyAsk):
+            # V2-118：**帧面沿用相位已落的投影**（`_on_ask` 把槽位标签写进 `pending_ask.detail`
+            # ——`state.pending_ask` 即待挂起帧）；本块不再自建第二份帧（同源零漂移：槽位标签
+            # 与「回答落进哪个状态位」按同一份帧对账）。缺位（相位未落）→ 照实空映射，不编造标签。
+            frame = state.pending_ask
             _suspend(
                 state,
                 deps,
-                _ask_frame(outcome.kind, outcome.prompt, outcome.options, {}),
+                frame if isinstance(frame, dict) else _ask_frame(
+                    outcome.kind, outcome.prompt, outcome.options, {}
+                ),
             )
         elif isinstance(outcome, ClarifyFinal):
             set_intent(state, INTENT_TOOLMATCH)

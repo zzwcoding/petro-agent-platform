@@ -38,6 +38,8 @@ class RunState: ...                         # 字段集＝synth/S5 矩阵全量�
                                             # pending_explore——默认零值＝零漂移）
                                             # ＋V2-115 追加 1（repair_rounds）＋V2-117 追加 1
                                             # （subject_reflection——默认空＝零漂移）
+                                            # ＋V2-118 追加 3（answer_slots／asked_fingerprints／
+                                            # degraded_slots——澄清问答闭环，默认空＝零漂移）
 
 # ── 模型调用 Manifest（骨架字段逐字真源 recon/I2a；缺省值面同源＝R-I2a-05 码面实测）──
 @dataclass(frozen=True, slots=True)
@@ -94,6 +96,7 @@ def check_limits(state: RunState) -> Convergence: ...   # 纯函数：不改入�
 - **`check_limits` 签名注（2026-10-16 裁·流水 52-A）**：补注注入制签名——`check_limits(state, *, elapsed_seconds: float | None = None, consecutive_asks: int | None = None) -> Convergence`——注入制（流水 52-A）：None＝该项不判定；**返回形以现实现为准**＝恒回 `Convergence`（未触界回 `Convergence(hit=(), notice=None)`，**无 `None` 分支**；2026-10-16 微修正批收尾——原注 `| None` 与实现／行为 12 断言模型不符）；`tool_timeout` 为单次调用时限归执行侧实时面、不经本判定。
 - **闭世界常量族**（本块导出、全体消费）：`STEP_KINDS`（step 类型六值）｜`RUN_STATUS_KINDS`（run 状态四值）｜`INTENT`（路由意图**十二值**——V2-96 D5 追加 `explore`（作答第二出口）、V2-115 追加 `repair`（核验回炉）；真源＝本块 constants）——三族都是 **`RunState` 字段的取值域**。取值与条数真源＝`recon/I2a-状态常量与清单.md`（22 条常量实测）＋V2-96 追加 1；本规格不复述取值。**通知类型（`notice.type`）的闭世界不属本块**——它是帧载荷面，归 `transport`（其规格定稿时须立该闭世界并落定取值真源）。
 - **主体反思字段（V2-117 additive——真源 `tickets/v2/V2-117-主体反思与下游加权.md` 任务 1）**：`RunState` 追加 `subject_reflection`（逐来源主体反思判值 `{来源名: 属／不属／未知}`——键＝观察 `source`，值 ∈ `SUBJECT_VERDICTS`；**默认空 dict＝零漂移**）。写入方＝`orchestration`（材料到手后调 `orchestration.subjects.reflect_and_record`——判据单点 `reflect_subjects`；调用点纪律＝Kimi 评审修正 1：不落 `execution`、不跨相位直引）；读取方＝`verification`（件四主体归属扩面）。三值闭世界 `SUBJECT_MATCH`／`SUBJECT_FOREIGN`／`SUBJECT_UNKNOWN`＋`SUBJECT_VERDICTS` 落本块常量。
+- **澄清问答闭环三字段（V2-118 additive——真源 `tickets/v2/V2-118-澄清问答闭环.md` 任务 1~4 ＋「Kimi 评审修正」）**：`RunState` 追加 `answer_slots`（澄清回答**程序落位**：键＝ask 帧 `detail.slot` 槽位标签、值＝用户所选原话；默认空 dict＝零漂移）／`asked_fingerprints`（**同问指纹**列——同一（槽位，选项集）问过一次即不再问；判据单点＝`clarification.constants.ask_fingerprint`；默认空 list）／`degraded_slots`（同问命中 ⇒ 降级**一次性默认**的如实留痕「槽位→默认值」；降级路径**不占 `ask_cap`**；默认空 dict＝零漂移）。写入方＝`orchestration`（恢复腿 `_apply_choice` 按帧 `detail.slot` 落位）与 `clarification`（`_on_ask` 落指纹／降级）；读取方＝`prompts`（决策轮增量条渲染「用户已回答『{slot}』＝{value}」回喂行与「口径未确认，已用默认：…」注记行）。**三段 `ledger_notes` 槽位闭世界零改**（本票不触碰行为 8 对账判据）。
 - **再探三字段与轮数上限（V2-96 D5 additive——真源 §五·5.3）**：`RunState` 追加 `explore_rounds`（已执行再探轮数，默认 0）／`explore_fingerprints`（已处理请求指纹列，默认空）／`pending_explore`（待执行 explore 意图投影，默认 None）——**默认零值＝零漂移**；数值单点 `MAX_EXPLORE_ROUNDS`（＝2）落本块常量（**非 `Budget` 键**——七键闭世界不扩；不占澄清轮、不动 discover 预算）。
 - **三类不可变载荷的形态闭世界**：`AskRequest` 三形态——仅 `question`＝提问｜`resume_run_id`＝断线重连｜`question`＋`followup_run_id`＝追问续会话；`resume_run_id` 与 `followup_run_id` 同在场＝判失败。`AskChoice.kind`＝`clarify`｜`external_table_approval`；`AskChoice.decision`＝`approve`｜`reject`｜`None`。越界值一律判失败。
 - **`RunHandle.stream` 的元素类型是外部类型**：`SseEvent`（帧对象 `{seq, event, data}`）的**形状真源在 `transport`**；本块不 import 任何 runtimev2 块（R4），故以**字符串前向引用**标注（`AsyncIterator["SseEvent"]`）——**本块不定义它、也不得给它安第二套含义**（禁把 `SseEvent` 当成"载荷 dict 别名"）。
@@ -142,6 +145,7 @@ def check_limits(state: RunState) -> Convergence: ...   # 纯函数：不改入�
 | 验收标准 | 对应测试 |
 |---|---|
 | 字段集与 `synth/S5` 矩阵一致（集合比较） | `tests/domains/test_v2_state.py::field_set_matches_matrix` |
+| 澄清问答闭环三字段 additive（`answer_slots`／`asked_fingerprints`／`degraded_slots`）默认空＝零漂移；字段集与矩阵同批 | `tests/domains/test_v2_state.py::field_set_matches_matrix` ＋ `tests/domains/test_v2_v118_clarification_loop.py::test_v118_state_fields_additive_default_empty` |
 | 不可变载荷全 `frozen+slots`、`RunState` 可变 | `tests/domains/test_v2_state.py::mutability_split` |
 | 全字段 JSON 可投影（跨进程恢复无损前提） | `tests/domains/test_v2_state.py::state_json_projectable` |
 | `messages` 只追加：相邻调用互为前缀延伸 | `tests/domains/test_v2_state.py::messages_append_only_prefix` |

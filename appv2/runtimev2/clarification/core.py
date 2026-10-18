@@ -23,7 +23,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
@@ -42,8 +42,9 @@ from appv2.runtimev2.bookkeeping import (
     set_intent,
 )
 from appv2.runtimev2.clarification.constants import (
-    ASK_FRAME_DETAIL_NONE,
+    ASK_DETAIL_SLOT_KEY,
     ASK_KIND_CLARIFY,
+    ASK_SLOT_CLARIFY,
     BINDING_STATES,
     CALLER_DECISION,
     CAPPED_ANSWER_HEADER,
@@ -62,6 +63,7 @@ from appv2.runtimev2.clarification.constants import (
     NO_LEDGER_ROW_SHELL,
     NO_MATERIAL_SHELL,
     NOTE_DIGEST_ASK,
+    NOTE_DIGEST_DEGRADED,
     NOTE_DIGEST_DISCOVER,
     NOTE_DIGEST_FINALIZE,
     NOTE_DIGEST_REJECTED,
@@ -81,6 +83,7 @@ from appv2.runtimev2.clarification.constants import (
     NOTICE_LOCATOR_KIND,
     PAYLOAD_ASK_FRAME,
     PAYLOAD_CAPPED,
+    PAYLOAD_DEGRADED,
     PAYLOAD_EMISSION,
     PAYLOAD_PHASE,
     PAYLOAD_REJECTION,
@@ -97,6 +100,7 @@ from appv2.runtimev2.clarification.constants import (
     STEP_TITLE_ASK,
     STEP_TITLE_CAPPED,
     STEP_TITLE_DECOMPOSE,
+    STEP_TITLE_DEGRADED,
     STEP_TITLE_DISCOVER,
     STEP_TITLE_FINALIZE,
     STEP_TITLE_PROMPT_CHARS,
@@ -113,6 +117,7 @@ from appv2.runtimev2.clarification.constants import (
     WINDOW_LITERALS,
     WINDOW_SEGMENT_TOTAL,
     WINDOW_SEPARATOR,
+    ask_fingerprint,
 )
 from appv2.runtimev2.clarification.guidance import rejection_guidance
 from appv2.runtimev2.clarification.models import (
@@ -771,15 +776,28 @@ def _has_substantive_observation(state: RunState) -> bool:
 def _on_ask(state: RunState, emission: ClarifyEmission) -> ClarifyOutcome:
     """`ask`：反问挂起（`ClarifyAsk`＋`pending_ask` 帧投影）；连续反问到顶 → 截断带材料直答。
 
-    - **挂起**（未到顶）：`pending_ask`＝`{kind: clarify, prompt, options, detail: None}` 帧投影
+    - **挂起**（未到顶）：`pending_ask`＝`{kind: clarify, prompt, options, detail}` 帧投影
       （挂起铁律：`ask` 帧之后照发 `done`——发帧归 `transport`／`orchestration`）；**不占轮**
-      （等待不计轮、不计时；行为 12／14）。
+      （等待不计轮、不计时；行为 12／14）。**V2-118 起** `detail` 携**槽位标签**
+      （`{ASK_DETAIL_SLOT_KEY: ASK_SLOT_CLARIFY}`——零帧闭世界变更，顶层四键由
+      `transport.frames._check_ask` 恰四键把守；程序据此把回答落进 `state.answer_slots`）。
     - **到顶**（行为 15／钉 `pin-15`）：连续反问计数＋1 达上限（上限值取 `state.budget.ask_cap`
       ——数值零复制）→ **截断＋带已取得材料如实直答**（`direct_answer` 收口）＋`clarify_capped`
       机读注记；**不静默**、不继续环。
+    - **同问指纹**（V2-118 任务 4）：同一（槽位，选项集）问过一次即不再问——**先于到顶闸判**
+      （同问＝非新增提问：到顶边界上的同问照走降级，不占 `ask_cap`）——命中 ⇒ **降级一次性
+      默认＋注记**（`_degrade_to_default`），去向 `decision` 继续；**降级路径不得过本函数的
+      挂起面**（否则经 `PAYLOAD_ASK_FRAME` 步记录增 `_ask_count`，占掉 `ask_cap`——Kimi 评审
+      修正 2）。命中判据＝只读的 `_ask_fingerprint_seen`，落账＝`_record_ask_fingerprint`
+      （**只在真发射挂起那一支**调用）。
     """
     emission_payload = emission.as_payload()
     round_no = int(state.rounds) + 1
+    slot = ASK_SLOT_CLARIFY
+    options = list(emission.ask_options)
+    fingerprint = ask_fingerprint(slot, options)
+    if _ask_fingerprint_seen(state, fingerprint):
+        return _degrade_to_default(state, slot=slot, options=options)
     if _ask_count(state) + 1 >= int(state.budget.ask_cap):
         record_step(
             state,
@@ -804,11 +822,12 @@ def _on_ask(state: RunState, emission: ClarifyEmission) -> ClarifyOutcome:
         )
         direct_answer(state, _capped_answer(state))
         return None
+    _record_ask_fingerprint(state, fingerprint)
     frame: dict[str, Any] = {
         "kind": ASK_KIND_CLARIFY,
         "prompt": emission.ask_prompt,
-        "options": list(emission.ask_options),
-        "detail": ASK_FRAME_DETAIL_NONE,
+        "options": options,
+        "detail": {ASK_DETAIL_SLOT_KEY: slot},
     }
     state.pending_ask = frame
     record_step(
@@ -825,7 +844,54 @@ def _on_ask(state: RunState, emission: ClarifyEmission) -> ClarifyOutcome:
     )
     note(state, phase=NOTE_PHASE, title=NOTE_TITLE, digest=NOTE_DIGEST_ASK)
     set_intent(state, INTENT_DECISION)
-    return ClarifyAsk(prompt=emission.ask_prompt, options=list(emission.ask_options))
+    return ClarifyAsk(prompt=emission.ask_prompt, options=options)
+
+
+def _ask_fingerprint_seen(state: RunState, fingerprint: str) -> bool:
+    """同问指纹命中判据（V2-118——**只读**，不落账）。
+
+    「命中即不再问」的判定与「发射即落账」的写入分开（同 `_rediscover_blocked` 的只读判据
+    先例）：命中支走降级路径，不得经挂起面落 `PAYLOAD_ASK_FRAME` 步（否则增 `_ask_count`）。
+    """
+    return fingerprint in state.asked_fingerprints
+
+
+def _record_ask_fingerprint(state: RunState, fingerprint: str) -> None:
+    """同问指纹落账（V2-118——**只在真发射挂起那一支**调用；`state.asked_fingerprints` 只追加）。"""
+    state.asked_fingerprints.append(fingerprint)
+
+
+def _degrade_to_default(
+    state: RunState, *, slot: str, options: Sequence[str]
+) -> ClarifyOutcome:
+    """同问降级（V2-118 任务 4）：**一次性默认＋注记**，去向 `decision` 继续，不重抛同问。
+
+    - 默认值＝该问选项集**首个选项**（程序侧唯一可得的结构化候选；无选项＝空串——如实不编造），
+      落 `state.degraded_slots[slot]`（机读信号面）；
+    - **不占 `ask_cap`**：本路径**不落** `PAYLOAD_ASK_FRAME` 步记录（`_ask_count` 的计数载体），
+      故 `_ask_count` 不增（Kimi 评审修正 2 的落点写明）；
+    - 注记文本**不在本块产**：下一决策轮增量条按 `state.degraded_slots` 渲染「口径未确认，已用
+      默认：…」行（`prompts.decision_round`——本块只落状态位、不拼提示词）；
+    - **三段 `ledger_notes` 槽位闭世界不动**（本支不触碰 `_note_slot_mismatch` 的任何判据）。
+    """
+    state.degraded_slots[slot] = options[0] if options else ""
+    record_step(
+        state,
+        kind=STEP_DECISION,
+        title=STEP_TITLE_DEGRADED.format(slot=slot),
+        payload={
+            PAYLOAD_PHASE: PHASE_CLARIFY,
+            PAYLOAD_DEGRADED: {slot: state.degraded_slots[slot]},
+        },
+    )
+    note(
+        state,
+        phase=NOTE_PHASE,
+        title=NOTE_TITLE,
+        digest=NOTE_DIGEST_DEGRADED.format(slot=slot),
+    )
+    set_intent(state, INTENT_DECISION)
+    return None
 
 
 def _ask_count(state: RunState) -> int:

@@ -246,6 +246,18 @@ class RunState:
     # 默认空＝零漂移）。语义＝`pending_ask` 是「对象歧义」那一问时所给的**油田实例选项**，
     # 恢复腿据此把选中项映射进 `state.subjects`（哨兵 `__all_fields__`＝都要）。
     pending_subject_options: tuple[str, ...] = ()
+    # 澄清问答闭环三字段（V2-118 2026-10-18 additive——默认空＝零漂移；真源
+    # `tickets/v2/V2-118-澄清问答闭环.md` 任务 1~4）：
+    # - `answer_slots`＝**回答由程序落位**的承载位（键＝ask 帧 `detail.slot` 槽位标签，
+    #   值＝用户所选原话）——恢复腿按该问的槽位标签写进对应状态位，后续决策轮经
+    #   「用户已回答『{slot}』＝{value}」回喂行进上下文（不要求模型把回答编码进没有该字段的合同）；
+    # - `asked_fingerprints`＝**同问指纹**列（`clarification.constants.ask_fingerprint` 单点产
+    #   ——同一（槽位，选项集）问过一次即不再问；命中 ⇒ 降级一次性默认＋注记，不占 `ask_cap`）；
+    # - `degraded_slots`＝已降级槽位→一次性默认值的如实留痕（降级路径的机读信号面；注记文本
+    #   随下一决策轮增量条在场，答案据此注明「用了默认口径」）。
+    answer_slots: dict[str, str] = field(default_factory=dict)
+    asked_fingerprints: list[str] = field(default_factory=list)
+    degraded_slots: dict[str, str] = field(default_factory=dict)
     observations: list[dict[str, Any]] = field(default_factory=list)
     # 主体反思逐来源判值（V2-117 2026-10-18 additive——材料到手后（L2 并集池）由编排写、
     # 核验相位读；默认空＝零漂移）。键＝来源名（观察 `source`），值 ∈ `SUBJECT_VERDICTS`

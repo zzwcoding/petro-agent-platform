@@ -34,7 +34,7 @@
 | parsing | 新增 | 发射与问题组的解析、闭世界 schema 对账 |
 | bookkeeping | 新增依赖 | 模型调用发起面：经 bookkeeping.call_model（单点发起），本块不直引 gateway_adapter |
 | gateway_adapter | 新增 | 模型出口（唯一出口仍归它）；本块不直引——经 bookkeeping.call_model 发起 |
-| state | 新增 | `pending_ask`／子问题列等状态形状 |
+| state | 新增 | `pending_ask`／子问题列等状态形状；**V2-118 追加** `answer_slots`／`asked_fingerprints`／`degraded_slots`（澄清问答闭环三字段，默认空＝零漂移） |
 
 ## 接口定义
 
@@ -98,6 +98,8 @@ class ClarifyReason:                                # 结构化拒因单条
 18. **`finalize` 打回三段带路**：`finalize` 被拒（打回）时，拒因载荷必带**三段拼装文本**（机器已知事实说全、**零模型调用**）——①有绑定拒／台账外形的前置判定 →「该指标材料走报告检索：分解时 chain=knowledge、tool=doc_retrieve」；②已空手探查清单 →「已空手探查：{tools}——禁再试同名同参」；③兜底句**恒在**「先 discover 取得条目（精确名单词），或 decompose 分解走 doc_retrieve 检索执行。」；段缺则跳、「；」连接成单段文本（真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-03；钉 `pin-07`，P1）。
 19. **解析拒文→结构化拒因的转换归本块（消费方）**：解析拒文（parsing 产出的 `str` 拒文）→ `ClarifyRejection` 的结构化转换归本块（消费方）：转换是机械适配（`str` 逐字进 `reason` 字段＋映射拒因枚举），零语义判断；parsing 不感知本块类型（R3）。（主窗流水 30① 裁决，2026-10-15——销 `docs/runtime-refactor/spec-review/parsing-评审.md` P-09「两头都不认」；解析本体与拒文产出归 `specs/parsing.md`，其风险 5 同步「已裁：转换在消费方」。）
 
+20. **澄清问答闭环（V2-118 2026-10-18——ask 结构化＋回答程序落位＋同问指纹＋降级默认）**：真源＝`tickets/v2/V2-118-澄清问答闭环.md` 任务 1~4 ＋「Kimi 评审修正」。四件同批：①**ask 结构化**——`ask` 帧 `detail` 携槽位标签（additive 键 `slot`，单点＝`clarification.constants`；**顶层四键零增删**——`appv2/runtimev2/transport/frames.py` 的 `_check_ask` 恰四键把守，故不动 transport 块；登记见 `specs/transport.md` 行为 8）；②**回答由程序落位**——恢复腿按该问的槽位标签把用户原话写进 `state.answer_slots[slot]`（`orchestration._apply_choice` → `_apply_answer_slot`），并在后续决策轮经增量条回喂；**不要求模型把回答编码进没有该字段的合同**；③**回喂行带槽位**——逐字形「用户已回答『{slot}』＝{value}——请据此继续，不要重复提问。」（`prompts.decision_round` 增量条；`state.answer_slots` 空时回落既有 `user_hint` 单条形，旧路径逐字不变）；④**同问指纹**——同一（槽位，选项集）问过一次即不再问（判据单点＝`clarification.constants.ask_fingerprint`，落 `state.asked_fingerprints`）；命中 ⇒ **降级一次性默认＋注记**（默认＝该问选项集首个选项，落 `state.degraded_slots`；下一决策轮增量条渲染「用户未确认『{slot}』——已用默认口径（{value}）：请在答案中注明这一点」，答案据此注明「用了默认口径」），去向 `decision` 继续、**不重抛同问**。**降级路径不得过 `_on_ask` 的挂起面**（不落 `PAYLOAD_ASK_FRAME` 步记录 ⇒ `_ask_count` 不增 ⇒ **不占 `ask_cap`**——Kimi 评审修正 2 的落点写明）。**三段 `ledger_notes` 槽位闭世界不动**（本行为不触碰行为 8 的任何对账判据）。
+
 ## 不降级与静默禁令
 
 - **合法降级路径：无**（本模块不自降级）。
@@ -119,6 +121,7 @@ class ClarifyReason:                                # 结构化拒因单条
 | 无时间词 → 默认近 30 天并带注记 | `tests/domains/test_v2_clarification.py::default_window_with_note` |
 | 口径歧义 → 反问（不给默认） | `tests/domains/test_v2_clarification.py::caliber_ambiguity_asks` |
 | 同轮多处歧义 → 合并成一张卡 | `tests/domains/test_v2_clarification.py::ask_card_merged` |
+| 澄清问答闭环（V2-118）：ask 帧 `detail.slot` 槽位标签 additive（顶层四键零增删）＋回答程序落位 `state.answer_slots` ＋回喂行带槽位＋同问指纹（同一（槽位，选项集）只问一次）＋命中降级一次性默认＋注记（不占 `ask_cap`、不再重抛） | `tests/domains/test_v2_v118_clarification_loop.py::test_v118_ask_frame_detail_slot_additive_zero_frame_change` ／ `::test_v118_answer_placed_by_program_and_hint_line_carries_slot` ／ `::test_v118_same_slot_second_ask_not_repeated` ／ `::test_v118_same_question_degrades_to_default_with_note` ／ `::test_v118_degrade_path_does_not_consume_ask_cap` ／ `::test_v118_q16_shape_offline_only_one_ask_no_repeat` |
 | 台账注入块在场且注释过**三段槽位对账**（真机 N-01 形必过；旧「注入块内逐字求得」判据必拒形） | `tests/domains/test_v2_clarification.py::ledger_notes_slot_reconciliation` |
 | 挂起等待不计轮；`resume` 重置轮预算 | `tests/domains/test_v2_clarification.py::waiting_not_counted_resume_resets` |
 | 恢复时重取易变量（水位／新鲜度／地基） | `tests/domains/test_v2_clarification.py::resume_reloads_volatile` |
@@ -162,5 +165,6 @@ class ClarifyReason:                                # 结构化拒因单条
 | 挂起不计轮／恢复重置轮预算 | 测试 `::waiting_not_counted_resume_resets` | 待实现 |
 | `finalize` 合法性闸：零实质观察（非 notice）不得判「材料足够」直答收口（窗内非 notice 观察数 ≥1 才许定案——纯结构判定） | 钉 **`pin-05`**（P0）＋ 测试 `::finalize_requires_substantive_observation` | 待织网（阶段 5） |
 | 连续澄清反问到顶 → 截断＋带已取得材料如实直答；挂起不计轮、恢复重置轮预算（上限值引 `recon/K-上下文事件指南预算.md` R-K-76——连续 ask 截断上限） | 钉 **`pin-15`**（P1；上限值真源＝`walk/裁决表.md` §06-A——连续澄清≤6） | 待织网（阶段 5） |
+| 同问指纹＋降级默认不占 `ask_cap`（V2-118；降级路径不落 `PAYLOAD_ASK_FRAME` 步） | 测试 `tests/domains/test_v2_v118_clarification_loop.py::test_v118_degrade_path_does_not_consume_ask_cap` | 待实现 |
 | 定稿打回理由三段带路（前置判定指路→空手清单→兜底 `doc_retrieve` 指引） | 钉 **`pin-07`**（P1；落点＝行为 18，测试 `::finalize_rejection_three_segment_guidance`） | 待织网（阶段 5） |
 | 「不做什么」的纯范围排除（不查数／不选工具等） | **人审** | 接不上闸的原因：纯范围排除没有形状／存在性／退出码判据；能降维的部分已由边界闸 R1（相位互不 import）覆盖 |

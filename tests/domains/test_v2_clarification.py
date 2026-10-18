@@ -856,12 +856,15 @@ def test_ask_cap_truncate_with_material() -> None:
     assert str(state.budget.ask_cap) in notices[0]["content"]  # 上限值引 budget 键（零复制）
     assert any(payload.get(PAYLOAD_CAPPED) for payload in _step_payloads(state))  # 机读信号
 
-    # 零材料形＝如实壳（不冒充已交付）
+    # 零材料形＝如实壳（不冒充已交付）。**V2-118**：第二次发射换选项集＝**换问法**（新指纹）
+    # ——同一（槽位，选项集）的同问自 V2-118 起走「降级一次性默认」而**不到顶截断**（同问非
+    # 新增提问、不占 `ask_cap`；见 `test_v2_v118_clarification_loop.py`），故本测用不同选项
+    # 构造「真·第二次新增提问」以触到顶闸。
     bare = _state(budget=Budget(ask_cap=2))
     with _scripted(_ask()):
         clarify(bare)
     bare.resume_choices = [{"kind": "clarify", "choice": "对比计划产量"}]
-    with _scripted(_ask()):
+    with _scripted(_ask("还想跟哪个标准比？", ("对比上月同期", "对比同类井平均"))):
         assert clarify(bare) is None
     assert bare.draft == NO_MATERIAL_SHELL
 
@@ -918,7 +921,8 @@ def test_clarify_signal_present() -> None:
     assert set(frame) == {"kind", "prompt", "options", "detail"}
     assert frame["kind"] == "clarify"
     assert frame["options"] == ["对比计划产量", "对比上月同期"]
-    assert frame["detail"] is None
+    # V2-118：`detail` 携槽位标签（additive 键；顶层四键零增删——空映射替代旧 None 缺省形）
+    assert frame["detail"] == {"slot": "clarify"}
     assert _last_step_payload(state)[PAYLOAD_ASK_FRAME] == frame
 
     # ② 拒因：step payload 拒因字段＋回喂面（槽位对账不过——段一不在名录形）

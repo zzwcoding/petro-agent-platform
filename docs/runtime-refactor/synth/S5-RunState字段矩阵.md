@@ -4,12 +4,12 @@
 - 上游：`recon/I2a`（常量/Manifest）＋`recon/I2b`（RunState 全字段 53）＋各 graph 片「覆盖自检」的读/写声明＋`recon/I1b`（executor 播种）＋`arch/P5b1`（写手收敛主张）
 - 本文用途：把 RunState 字段的**写入方 / 读取方 / 持久化面**摊成一张表——重写时状态结构属 ADR-0002 红线③（schema 自有），必须先看清每个字段由谁写、谁读、怎么写盘，才能重构（尤其 P5b1 A-P5b1-06「写手收敛」）。
 - **字段数口径（定稿）**：**50 字段**＝旧码实测 53 − 取消 4（`consecutive_asks`／`manifests`／`started_monotonic`／`deadline_monotonic`，流水 49①）＋ 新增 1（`dialogue_view_tokens`，流水 49②）。
-- **字段数口径（现行）**：**58 字段**＝定稿 50 ＋ V2-82a 追加 2（`subjects`／`terms`，2026-10-17 流水 88——理解相位落题面主体/术语，默认空＝零漂移）＋ V2-82b 追加 1（`pending_subject_options`，2026-10-17 流水 88——对象歧义 ask 的实例候选名单，发射落/恢复清，默认空＝零漂移）＋ V2-96 追加 3（`explore_rounds`／`explore_fingerprints`／`pending_explore`，2026-10-18——作答侧有界再探的独立计数/指纹/待执行意图，默认零值＝零漂移）＋ V2-115 追加 1（`repair_rounds`，2026-10-18——核验失败回炉的独立改写轮计数，默认零值＝零漂移）＋ V2-117 追加 1（`subject_reflection`，2026-10-18——材料到手后逐来源主体反思判值，默认空＝零漂移）。
+- **字段数口径（现行）**：**58 字段**＝定稿 50 ＋ V2-82a 追加 2（`subjects`／`terms`，2026-10-17 流水 88——理解相位落题面主体/术语，默认空＝零漂移）＋ V2-82b 追加 1（`pending_subject_options`，2026-10-17 流水 88——对象歧义 ask 的实例候选名单，发射落/恢复清，默认空＝零漂移）＋ V2-96 追加 3（`explore_rounds`／`explore_fingerprints`／`pending_explore`，2026-10-18——作答侧有界再探的独立计数/指纹/待执行意图，默认零值＝零漂移）＋ V2-115 追加 1（`repair_rounds`，2026-10-18——核验失败回炉的独立改写轮计数，默认零值＝零漂移）＋ V2-117 追加 1（`subject_reflection`，2026-10-18——材料到手后逐来源主体反思判值，默认空＝零漂移）＋ V2-118 追加 3（`answer_slots`／`asked_fingerprints`／`degraded_slots`，2026-10-18——澄清问答闭环：回答程序落位／同问指纹／降级默认留痕，默认空＝零漂移）。
 - 口径声明：写入/读取**未回填行**以**单元**粒度记旧码实测面（M1-M7/H1-H15，见 S1）；**写手收敛 9 行（§四【结构-1/2/4/6】对象）已按已定稿规格的目标态口径回填**（块级唯一写口），两类并存、各行自明。
 
 ---
 
-## 一、字段矩阵（定稿 50 字段 ＋ V2-82a 追加 2 ＋ V2-82b 追加 1 ＋ V2-96 追加 3 ＋ V2-115 追加 1＋ V2-117 追加 1＝现行 58 字段）
+## 一、字段矩阵（定稿 50 字段 ＋ V2-82a 追加 2 ＋ V2-82b 追加 1 ＋ V2-96 追加 3 ＋ V2-115 追加 1＋ V2-117 追加 1＋ V2-118 追加 3＝现行 61 字段）
 
 | 字段 | 写入方 | 读取方 | 持久化/投影 | 备注 |
 | --- | --- | --- | --- | --- |
@@ -52,6 +52,9 @@
 | `last_result` | M5（execute） | M5（observe）、H/A2（material） | checkpoint | 末次工具结果 |
 | `pending_ask` | M2 | M2/M4/H3（挂起帧读） | checkpoint | 挂起帧投影 |
 | `pending_subject_options` | **H2（V2-82b 2026-10-17 追加，对象歧义门发射时落）** | **H3（恢复腿 `_apply_choice` 映射 `subjects` 后清空）** | checkpoint | 对象歧义 ask 的油田实例候选（一问一答，写后即清；默认空＝零漂移） |
+| `answer_slots` | **H3（V2-118 2026-10-18 追加，恢复腿 `_apply_choice` 按 ask 帧 `detail.slot` 落位）** | M2（决策轮增量条渲染「用户已回答『{slot}』＝{value}」回喂行） | checkpoint | 澄清回答程序落位（键＝槽位标签，值＝用户原话；默认空＝零漂移） |
+| `asked_fingerprints` | **M2（V2-118 2026-10-18 追加，`_on_ask` 发射时追加指纹）** | M2（同问指纹命中 ⇒ 降级一次性默认＋注记，不再问） | checkpoint | 已问过的（槽位，选项集）指纹列（判据单点＝`clarification.constants.ask_fingerprint`；默认空） |
+| `degraded_slots` | **M2（V2-118 2026-10-18 追加，降级路径落值）** | M2（决策轮增量条渲染「口径未确认，已用默认：…」注记行） | checkpoint | 已降级槽位→一次性默认值如实留痕（降级不占 `ask_cap`；默认空＝零漂移） |
 | `explore_rounds` | **M6（V2-96 2026-10-18 追加，再探轮执行后 +1）** | M6/H2（轮数上限 `MAX_EXPLORE_ROUNDS` 与硬停止判据） | checkpoint | 作答侧再探已执行轮数（≤2；不占澄清轮、不动 discover 预算；默认 0＝零漂移） |
 | `explore_fingerprints` | **M6（V2-96 2026-10-18 追加，请求过闸时追加）** | M6（同参指纹拒重） | checkpoint | 已处理再探请求指纹列（`tool|query` 或 `tool|report_id|section`；默认空） |
 | `pending_explore` | **M6（V2-96 2026-10-18 追加，作答相位落意图）** | H2/M6（编排执行后清） | checkpoint | 待执行 explore 意图投影（`{reason,requests,raw}`；默认 None） |
@@ -82,9 +85,9 @@
 
 | 写入单元 | 写的字段（个数） |
 | --- | --- |
-| **H3 执行器**（仅播种/收口） | run_id／question／actor／status／followup_of／messages(seed)／budget／started_monotonic／deadline_monotonic／schema_version／error（新链只写这 11 个） |
+| **H3 执行器**（仅播种/收口） | run_id／question／actor／status／followup_of／messages(seed)／budget／started_monotonic／deadline_monotonic／schema_version／error（新链只写这 11 个）＋answer_slots（V2-118 追加——恢复腿按 ask 帧槽位标签落位） |
 | **M1 理解** | understanding／metric_candidates／subjects／terms（后二者 V2-82a 追加）／messages／process_notes／steps／next_intent／notices／draft／draft_kind |
-| **M2 澄清**（写手最多） | rounds／decision_error／user_hint／budget_reject_streak／ledger_dump／messages／contracts_appended／question_group／precondition_verdicts／pending_discovers／pending_plan／pending_retrieval／pending_ask／consecutive_asks／notices／process_notes／steps／next_intent／draft／draft_kind／resume_choices／approved_ids／extable_rounds／task_type／pending_subject_options（V2-82b 追加） |
+| **M2 澄清**（写手最多） | rounds／decision_error／user_hint／budget_reject_streak／ledger_dump／messages／contracts_appended／question_group／precondition_verdicts／pending_discovers／pending_plan／pending_retrieval／pending_ask／consecutive_asks／notices／process_notes／steps／next_intent／draft／draft_kind／resume_choices／approved_ids／extable_rounds／task_type／pending_subject_options（V2-82b 追加）／asked_fingerprints／degraded_slots（后二者 V2-118 追加） |
 | **M3 匹配** | rounds／decision_error／messages／contracts_appended／process_notes／steps／next_intent／question_group／tool_matches／metric_candidates |
 | **M4 前置** | precondition_verdicts／chain_switch_marks／notices／steps／next_intent（+ 收敛路 budget_hit/answer/draft_kind/status） |
 | **M5 批量** | subtask_results／observations／last_result／executed_payloads／tool_retries／window_miss_marks／empty_probes／discover_used／notices／steps／next_intent |
@@ -133,6 +136,6 @@
 
 ## 覆盖自检
 
-- 字段：定稿口径 **50**（旧码实测 53 − 取消 4 ＋ 新增 `dialogue_view_tokens` 1）＋ V2-82a 追加 2（`subjects`／`terms`）＋ V2-82b 追加 1（`pending_subject_options`）＋ V2-96 追加 3（`explore_rounds`／`explore_fingerprints`／`pending_explore`）＋ V2-115 追加 1（`repair_rounds`）＋ V2-117 追加 1（`subject_reflection`）＝**现行 58** ＋3 载荷类（非状态）；持久化面 5 盘。
+- 字段：定稿口径 **50**（旧码实测 53 − 取消 4 ＋ 新增 `dialogue_view_tokens` 1）＋ V2-82a 追加 2（`subjects`／`terms`）＋ V2-82b 追加 1（`pending_subject_options`）＋ V2-96 追加 3（`explore_rounds`／`explore_fingerprints`／`pending_explore`）＋ V2-115 追加 1（`repair_rounds`）＋ V2-117 追加 1（`subject_reflection`）＋ V2-118 追加 3（`answer_slots`／`asked_fingerprints`／`degraded_slots`）＝**现行 61** ＋3 载荷类（非状态）；持久化面 5 盘。
 - 写手收敛 9 行已按已定稿规格口径回填（bookkeeping 单点写口／context 唯一写面／Budget 闭世界／dialogue 复活）；转录更正 6 处（metric_candidates／question_group／tool_matches 漏 M4、subtask_results 漏 M4 条件、ledger_dump 闸族归属、rounds 回写原值）；尾注 3 载荷类对齐 state.md。
 - §二／§三 为旧码实测面（保留原貌含已取消字段）；结构问题 8 条（4 条已裁收口）；待补 3 条清零。数据源＝recon 各片覆盖自检的读/写声明（非我推断）。

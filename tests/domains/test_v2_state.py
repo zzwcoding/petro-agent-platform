@@ -137,6 +137,9 @@ def _full_state() -> RunState:
         last_result={"ok": True},
         pending_ask={"kind": "clarify", "options": ["①"]},
         pending_subject_options=("渤中油田",),
+        answer_slots={"caliber": "A 计量折算"},
+        asked_fingerprints=["caliber\x1fA 计量折算\x1fB 化验实测"],
+        degraded_slots={"window": "近 30 天"},
         observations=[{"n": 1, "text": "某井日产 100 m3/d"}],
         subject_reflection={"《某井月报-202608》": "属"},
         resume_choices=[{"choice": "选窗①"}],
@@ -225,8 +228,10 @@ def test_field_set_matches_matrix() -> None:
     # 定稿 50 ＋ V2-82a 追加 2（`subjects`／`terms`，2026-10-17）＋ V2-82b 追加 1
     # （`pending_subject_options`，2026-10-17）＋ V2-96 追加 3（`explore_rounds`／
     # `explore_fingerprints`／`pending_explore`，2026-10-18）＋ V2-115 追加 1
-    # （`repair_rounds`，2026-10-18）＋ V2-117 追加 1（`subject_reflection`，2026-10-18）＝现行 58
-    assert len(matrix) == 58, f"S5 矩阵 §一 字段数应为现行 58，实为 {len(matrix)}"
+    # （`repair_rounds`，2026-10-18）＋ V2-117 追加 1（`subject_reflection`，2026-10-18）
+    # ＋ V2-118 追加 3（`answer_slots`／`asked_fingerprints`／`degraded_slots`，
+    # 2026-10-18）＝现行 61
+    assert len(matrix) == 61, f"S5 矩阵 §一 字段数应为现行 61，实为 {len(matrix)}"
     assert {f.name for f in fields(RunState)} == matrix
 
 

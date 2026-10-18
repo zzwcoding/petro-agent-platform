@@ -50,6 +50,7 @@ from datetime import date, datetime
 from typing import Any
 
 from appv2.infra import clock as infra_clock
+from appv2.runtimev2.clarification.constants import ASK_DETAIL_SLOT_KEY
 from appv2.runtimev2.context import DEFAULT_MAX_OBSERVATIONS, load_ledger_dump
 from appv2.runtimev2.orchestration.audit import (
     closeout as audit_closeout,
@@ -325,7 +326,9 @@ class RunExecutor:
           `_consume_resume` 以 `state.pending_ask.kind` 判形，故**帧留场**（由该相位消费时清除）；
           同时重置轮预算（行为 7 原文「澄清回收（resume）重置轮预算合法——rounds=0」）；
           **对象歧义 ask 的选中项**（V2-82b）在此先映射进 `state.subjects`（见
-          `_apply_subject_choice`——澄清消费前的编排责任）；
+          `_apply_subject_choice`——澄清消费前的编排责任）；**回答程序落位**（V2-118）在此把
+          用户原话写进 `state.answer_slots[ask 帧 detail.slot]`（见 `_apply_answer_slot`——后续
+          决策轮据此回喂「用户已回答『{slot}』＝{value}」，模型不必把回答编码进没有该字段的合同）；
         - **外表越集审批**（`kind="external_table_approval"`）：批准时把审批单号与其越集表集并入
           `approved_ids`（`bookkeeping.tool_context` 的放行名单面）＋`extable_rounds` 计点；帧即
           消费完毕（清除），回前置条件机重判。
@@ -335,8 +338,43 @@ class RunExecutor:
         state.rounds = 0
         if choice.kind != _APPROVED_KIND:
             self._apply_subject_choice(state, choice)
+            self._apply_answer_slot(state, frame, choice)
             return  # 澄清回收：帧留场交澄清相位消费（`clarification._consume_resume` 契约）
         state.pending_ask = None
+        if choice.decision != _APPROVE:
+            return
+        detail = frame.get(ASK_KEY_DETAIL)
+        detail = detail if isinstance(detail, dict) else {}
+        approval_id = choice.approval_id or str(detail.get(_APPROVAL_ID_KEY) or "")
+        tables = [str(name) for name in (detail.get(_TABLES_KEY) or ()) if str(name).strip()]
+        state.approved_ids = [*state.approved_ids, approval_id, *tables]
+        state.extable_rounds = int(state.extable_rounds) + 1
+
+    def _apply_answer_slot(
+        self, state: RunState, frame: Mapping[str, Any], choice: AskChoice
+    ) -> None:
+        """澄清回答的**程序落位**（V2-118——编排侧，澄清消费前；镜像 V2-82b 先例）。
+
+        槽位标签＝本 run 该问实际给过的 ask 帧 `detail.slot`（`clarification._on_ask`／
+        `_precondition_frame` 落；**不给过的不认、零发明**）：
+
+        - 标签在场 ∧ 回答非空 ⇒ `state.answer_slots[slot]＝用户原话`（去首尾空白）——后续决策轮
+          增量条据此回喂「用户已回答『{slot}』＝{value}」行，回答不再只作匿名 `user_hint`；
+        - 标签缺位／非串（旧检查点残形、对象歧义程序 ask——其落位是既有 `subjects` 映射）⇒
+          **本处零动作**（不编造槽位，旧路径逐字不变）；
+        - 回答空串 ⇒ 不落位（如实空——不写空值冒充「已回答」）。
+
+        三段 `ledger_notes` 槽位闭世界**零接触**（本处只写状态位，不碰对账判据）。
+        """
+        detail = frame.get(ASK_KEY_DETAIL)
+        detail = detail if isinstance(detail, Mapping) else {}
+        slot = detail.get(ASK_DETAIL_SLOT_KEY)
+        if not isinstance(slot, str) or not slot:
+            return
+        value = str(choice.choice or "").strip()
+        if not value:
+            return
+        state.answer_slots[slot] = value
         if choice.decision != _APPROVE:
             return
         detail = frame.get(ASK_KEY_DETAIL)

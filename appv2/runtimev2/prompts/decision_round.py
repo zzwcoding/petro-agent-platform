@@ -7,7 +7,8 @@
 - 相位首入包（锚行→相位头行→相位合同→〔澄清轮〕分解样例／〔匹配轮〕合同内嵌样例→§A 指南段
   →〔匹配轮〕问题组 JSON→〔投影非空时〕台账常驻块尾附）＝`appv2/runtime/graph.py`
   `clarify_node`（instruction L2354-2373＋尾附 L2379-2384）／`toolmatch_node`（L2698-2729）；
-- 每轮增量条（澄清轮五件：探查预算／回炉／用户补充／拒因回喂／已做段；匹配轮两件：拒因回喂／
+- 每轮增量条（澄清轮七件：探查预算／回炉／已回答槽位／降级默认注记／用户补充／拒因回喂／
+已做段；匹配轮两件：拒因回喂／
   已做段）＝同两节点 `tail_parts` 段（clarify L2385-2421；toolmatch L2710-2731）；回炉行渲染＝
   嵌套 `_rework_line`（L2396-2404）；
 - 台账常驻块＝同文件 `_resident_block`（L1337-1347）＋`_resident_sources`（L1308-1333）三块行渲染；
@@ -41,7 +42,8 @@ prompt 19359 tokens 里 §A 全文与台账全量块各两遍）。**注入与�
 
 **何时追加增量条整条＝调用方义务**（编排面，`specs/prompts.md` 行为 16）：本模块只供条文本与
 条内自身条件（①仅非首入轮／②仅存在重跑档失败子问题〔`bad_args`／`retryable`〕／
-③user_hint 非空／④decision_error 非空／⑤调用方传入文本原样在场）。
+③answer_slots 非空／④degraded_slots 非空／⑤user_hint 非空／⑥decision_error 非空／
+⑦调用方传入文本原样在场）。
 
 **2026-10-17 H 批（角色分家·system 承载位）**：决策轮原一条 user 包拆两路——**规章段**（相位头行＋
 相位合同正文＋〔澄清轮〕**待核前提合同（2026-10-18 V2-121）**＋finalize 交付面边界句）＝
@@ -140,6 +142,14 @@ _PRECONDITION_REASON_CHARS = 80
 _DECISION_REFUSE = "refuse"
 _DECISION_ALLOW = "allow"
 _HINT_LINE = "用户已补充：{hint}——请把它落进本轮分解。"
+# ── 澄清问答闭环回喂两行（V2-118 2026-10-18；真源＝票面任务 3「回喂行带槽位」＋任务 4）──
+# 槽位标签行＝**逐字稿**（票面任务 3 原文：「用户已回答『{slot}』＝{value}——请据此继续，
+# 不要重复提问。」）；默认注记行＝降级路径的「用了默认口径」披露面（程序落 `state.degraded_slots`，
+# 本处只按状态位渲染，零语义判断）。两行都属**user 动态段**（增量条）——链只追加（pin-22）。
+_HINT_SLOT_LINE = "用户已回答『{slot}』＝{value}——请据此继续，不要重复提问。"
+_DEFAULT_LINE = (
+    "用户未确认『{slot}』——已用默认口径（{value}）：请在答案中注明这一点，不要重复提问。"
+)
 # 回喂壳两件（前缀／尾件）**本块单点**：拒因回喂行＝壳＋拒因＋壳尾。
 # **2026-10-16 补（流水 66·叠字病灶）**：槽位对账拒因载荷**自带整套壳体**（真源
 # `specs/clarification.md` 行为 8 与「接口定义」错误契约——头行「上次发射被拒：ledger_notes…」＋
@@ -591,11 +601,14 @@ def assemble_decision_increment(
 ) -> str:
     """决策轮**每轮增量条**装配（行为 16）——单条 user 内各段以「\\n」连接；零段 → 空串。
 
-    澄清轮五件：①探查预算条（**仅非首入轮**——判据＝相位标记已在 `state.contracts_appended`，
+    澄清轮七件：①探查预算条（**仅非首入轮**——判据＝相位标记已在 `state.contracts_appended`，
     同 V1 `contracts_flag`；首入包内槽值会陈旧，机计数权威披露双保险同向）②回炉条（仅当存在
-    重跑档失败子问题——`bad_args`／`retryable`）③用户补充条（`user_hint` 非空）④拒因回喂条
-    （`decision_error` 非空）⑤已做段（调用方传入文本**原样在场、零改写**——渲染归 `context`）。
-    工具匹配轮两件：④拒因回喂条＋⑤已做段。
+    重跑档失败子问题——`bad_args`／`retryable`）③**已回答槽位条**（V2-118：`state.answer_slots`
+    非空 ⇒ 逐槽位「用户已回答『{slot}』＝{value}——请据此继续，不要重复提问。」；空 ⇒ 回落既有
+    用户补充条 `user_hint`——旧路径逐字不变）④**降级默认注记条**（V2-118：`state.degraded_slots`
+    逐槽位「用户未确认『{slot}』——已用默认口径（{value}）：请在答案中注明这一点」）⑤拒因回喂条
+    （`decision_error` 非空）⑥已做段（调用方传入文本**原样在场、零改写**——渲染归 `context`）。
+    工具匹配轮两件：拒因回喂条＋已做段。
 
     **何时追加整条＝调用方义务**（编排面）：本函数只供条文本与条内自身条件；输出恒为 `str`。
     """
@@ -607,8 +620,20 @@ def assemble_decision_increment(
         rework = _rework_block(state)
         if rework:
             parts.append(rework)
-        if state.user_hint:
+        # V2-118：程序落位的回答（`state.answer_slots`）优先——按槽位标签逐条回喂
+        # （同一（槽位，选项集）问过一次即不再问）；无落位时回落既有 `user_hint` 单条形
+        # （零回退：旧路径逐字不变）。
+        if state.answer_slots:
+            parts.extend(
+                _HINT_SLOT_LINE.format(slot=slot, value=value)
+                for slot, value in state.answer_slots.items()
+            )
+        elif state.user_hint:
             parts.append(_HINT_LINE.format(hint=state.user_hint))
+        # V2-118 降级注记：同问指纹命中 ⇒ 不重抛、改一次性默认——本行是「用了默认口径」的
+        # 如实披露面（答案据此注明；`state.degraded_slots` 由澄清相位落）。
+        for slot, value in state.degraded_slots.items():
+            parts.append(_DEFAULT_LINE.format(slot=slot, value=value))
         if state.decision_error:
             parts.append(_rejection_feedback_line(state.decision_error))
         if done_text:

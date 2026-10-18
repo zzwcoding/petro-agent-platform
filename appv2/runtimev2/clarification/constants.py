@@ -15,6 +15,7 @@
 皆落真源指针，不在本处另立第二套闭世界（`specs/state.md` 行为 9 同款纪律）。
 """
 
+from collections.abc import Sequence
 from typing import Final
 
 # ── 子问题条数上限（本块注入方单点）────────────────────────────────────────────
@@ -269,6 +270,8 @@ STEP_TITLE_FINALIZE: Final[str] = "澄清定稿：材料足够——直答收口
 STEP_TITLE_CAPPED: Final[str] = "澄清 r{round}：连续反问到顶——截断带材料直答"
 STEP_TITLE_REJECTED: Final[str] = "澄清 r{round} 被拒：{reason}"
 STEP_TITLE_RESUME: Final[str] = "澄清回收：{value}"
+# 同问降级（V2-118 任务 4）：同问指纹命中 ⇒ 不再问、降级一次性默认＋注记（步标题／档案 digest）。
+STEP_TITLE_DEGRADED: Final[str] = "澄清同问降级：槽位「{slot}」已问过——改用一次性默认"
 # 对象歧义 ask 的提示模板（V2-82b——票面逐字稿；`{name}`＝题面命中的术语/指标名，取
 # 候选序首个）。`options` 逐字＝油田实例名单（≤3）＋`state.ALL_FIELDS_OPTION`「都要（分源对比）」。
 SUBJECT_ASK_PROMPT: Final[str] = (
@@ -292,6 +295,7 @@ NOTE_DIGEST_RESUME: Final[str] = "澄清回收"
 NOTE_DIGEST_DISCOVER: Final[str] = "澄清钻取 ×{count}"
 NOTE_DIGEST_REJECTED: Final[str] = "澄清 r{round} 被拒：{reason}"
 NOTE_DIGEST_CAPPED: Final[str] = "连续澄清达上限——带材料直答"
+NOTE_DIGEST_DEGRADED: Final[str] = "口径未确认，已用默认：槽位「{slot}」"
 
 # ── 步骤 payload 键与标记（发射方面；`specs/transport.md` 行为 6：载荷键集归发射方）──
 PAYLOAD_PHASE: Final[str] = "phase"
@@ -301,7 +305,39 @@ PAYLOAD_ASK_FRAME: Final[str] = "ask_frame"
 PAYLOAD_CAPPED: Final[str] = "capped"
 PAYLOAD_RESUME: Final[str] = "resume"
 PAYLOAD_VOLATILE: Final[str] = "volatile"
+# 同问降级留痕（V2-118 任务 4）：降级步 payload 携「槽位→一次性默认值」投影（机读信号面；
+# 注记文本随下一决策轮增量条在场，答案据此注明「用了默认口径」）。
+PAYLOAD_DEGRADED: Final[str] = "degraded"
 
 # 挂起帧缺省面（`specs/transport.md` 行为 8：`ask` 帧载荷 `{frame: {kind, prompt, options,
-# detail}, run_id}`；`detail` 澄清帧恒 None——真源 `recon/E1` 第 10 支）。
+# detail}, run_id}`）。`detail` 的空形＝**空映射**（V2-118 起澄清帧用它承载槽位标签——
+# 顶层四键由 `transport.frames._check_ask` 恰四键把守，故标签落 `detail` 内＝零帧闭世界变更；
+# 空映射与「缺键」两态可区分，同 `bookkeeping` 的 `AskFrame.detail` 投影纪律）。
 ASK_FRAME_DETAIL_NONE: Final[None] = None
+
+# ── 澄清问答闭环（V2-118 2026-10-18——ask 结构化／回答程序落位／同问指纹）─────────────
+# 真源＝`tickets/v2/V2-118-澄清问答闭环.md` 任务 1~4 ＋「Kimi 评审修正」1（slot 落 `detail.slot`
+# ——零帧闭世界变更）／2（降级路径不得过 `_on_ask`——否则增 `_ask_count`）。
+# ask 帧 `detail` 内的槽位标签键（**唯一键名单点**；`orchestration` 侧同键读取）。
+ASK_DETAIL_SLOT_KEY: Final[str] = "slot"
+# 槽位标签闭世界（**问源区分**；程序按标签把回答落进对应状态位并回喂）：
+# - `clarify`＝模型 `ask` 动作（通用澄清，标签即问源——无更细业务槽位可锚）；
+# - `caliber`＝前置条件机口径反问（`preconditions.AskReason.kind="caliber_clarify"`）；
+# - `window`＝前置条件机时间窗反问（同 kind，命中位 2 结构判据）。
+# 对象歧义程序 ask（`subject_ask`）**不另立标签**：其回答落位机制是既有 `state.subjects`
+# 映射（`orchestration._apply_subject_choice`，V2-82b 先例），本票零改。
+ASK_SLOT_CLARIFY: Final[str] = "clarify"
+ASK_SLOT_CALIBER: Final[str] = "caliber"
+ASK_SLOT_WINDOW: Final[str] = "window"
+# 指纹字段分隔符（`ask_fingerprint` 单点内用——槽位与各选项拼接；选项集内出现同形串属
+# 形态巧合，不影响「同一（槽位，选项集）→ 同一指纹」的判据）。
+ASK_FINGERPRINT_SEPARATOR: Final[str] = "\x1f"
+
+
+def ask_fingerprint(slot: str, options: Sequence[str]) -> str:
+    """同问指纹（V2-118 任务 4 的**判据单点**）：同一（槽位，选项集）→ 同一指纹。
+
+    纯函数（零 IO／零模型／零语义判断）：槽位＋各选项按 `ASK_FINGERPRINT_SEPARATOR` 拼接。
+    选项集逐字参与（序即指纹的一部分——换序＝换问法，如实算新指纹，不猜等价）。
+    """
+    return ASK_FINGERPRINT_SEPARATOR.join((slot, *options))
