@@ -105,6 +105,20 @@ _SEAT_REASON_ROTATION = "来源轮转补席"
 # 帽／实渲检索席数／候选总数；答案步 payload 由此键原样取用——`specs/context.md` 行为 5／6）。
 _WINDOW_MATERIALS_KEY = "window_materials"
 
+# ── V2-123 材料期 vs 执行日（材料头 additive 两字段＋期错位注记） ─────────────────────
+# 材料头两字段形（**缺位＝该段跳过**——缺期材料如实缺行；执行日缺省空串＝本批前逐字零漂移）。
+_PERIOD_LABEL_TEMPLATE = "报表期：{period}"
+_EXECUTION_DATE_LABEL_TEMPLATE = "执行日：{execution_date}"
+# 期错位注记逐字（真源 `tickets/v2/V2-123-材料期与执行日标注.md` §逐字稿——材料报表期晚于
+# 执行日时随该材料块尾接一行；**不静默**、不改写材料本体、不删段）。
+PERIOD_MISMATCH_NOTE = "【材料期】该材料报表期晚于执行日——只能作为「该期资料」引用。"
+# 报告名尾期形的形态字符集与形长（纯字符扫描——非语义判定，行为 13 形态处理豁免面）。
+_PERIOD_DIGITS = "0123456789"
+_PERIOD_LENGTHS = (6, 8)
+# `render_materials` 元数据 additive 键（V2-123——逐支报表期实录 `{index: period}`；
+# 缺期材料不入键＝如实缺行；答案步 payload 由此键原样取用——`specs/context.md` 行为 5／6）。
+_MATERIAL_PERIODS_KEY = "material_periods"
+
 
 def trust_of(observation: dict[str, Any]) -> str:
     """观察信任级（`locator.kind` 确定性映射单点——行为 2）。
@@ -202,6 +216,51 @@ def _carrier_split(
 def _source_of(observation: Mapping[str, Any]) -> str:
     """观察的来源段（席位选择的分源键——`source` 经 `.strip()` 归一；缺位＝空串）。"""
     return str(observation.get("source") or "").strip()
+
+
+def report_period(source: str) -> str:
+    """报告名尾**报表期**（`-YYYYMM`／`-YYYYMMDD`——纯字符扫描；缺期＝空串，如实缺行）。
+
+    取值面＝材料出处名（观察 `source`）的**尾段**：可选书名号包裹（`《…》`）剥除后，形如
+    `-`＋6 位（`YYYYMM`）或 8 位（`YYYYMMDD`）阿拉伯数字者取其期形（`YYYY-MM`／
+    `YYYY-MM-DD`）；其余（无期、位数不符、尾接扩展名等）＝空串——**不猜、不回落当前期**。
+    本函数零语义判断：只做字符集判定、字符截取与字符拼接（规格行为 13 形态处理豁免面；
+    报表期解析单点，真源 `tickets/v2/V2-123-材料期与执行日标注.md` 任务 1）。
+    """
+    name = source.strip()
+    if name.startswith("《"):
+        name = name[1:]
+    if name.endswith("》"):
+        name = name[:-1]
+    if "-" not in name:
+        return ""
+    tail = name.rsplit("-", 1)[1]
+    if not tail or any(char not in _PERIOD_DIGITS for char in tail):
+        return ""
+    if len(tail) not in _PERIOD_LENGTHS:
+        return ""
+    if len(tail) == 6:
+        return f"{tail[:4]}-{tail[4:]}"
+    return f"{tail[:4]}-{tail[4:6]}-{tail[6:]}"
+
+
+def _period_digits(text: str) -> str:
+    """期形归一为**纯数字串**（比较键——剔除非数字字符；零日期解析、零时钟）。"""
+    return "".join(char for char in text if char in _PERIOD_DIGITS)
+
+
+def _period_is_future(period: str, execution_date: str) -> bool:
+    """材料报表期是否**晚于**执行日（纯数字串字典序比较——零日期解析）。
+
+    归一为数字串后字典序比较：`YYYYMM`／`YYYYMMDD` 与 `YYYY-MM-DD` 左对齐，同前缀下
+    短者＝该前缀的更早期（如 `2026-10` **不**晚于 `2026-10-08`——该期含执行日）；
+    任一侧无数字位（缺期／执行日非日期形）＝不可比（返回假——不猜、不造比较）。
+    """
+    left = _period_digits(period)
+    right = _period_digits(execution_date)
+    if not left or not right:
+        return False
+    return left > right
 
 
 def _index_key(observation: Mapping[str, Any]) -> int:
@@ -450,6 +509,7 @@ def render_materials(
     *,
     max_observations: int,
     anchors: Sequence[tuple[str, str]] = (),
+    execution_date: str = "",
 ) -> tuple[str, dict[str, Any]]:
     """观察材料→（`[n]` 引标视图文本，截断元数据）——行为 1／4／5。
 
@@ -480,24 +540,52 @@ def render_materials(
     条目不渲染五要素全文，原位渲染一行 `_lineage_caliber_line` 合成文本（原料＝
     `locator.payload` 结构化载荷，**不解析五要素文本串**）；载荷缺位＝空串（不回落全文）。
     血缘卡全文仍以 `observation` 帧全量下发（前端核验面不受损）。
+
+    **材料期 vs 执行日**（V2-123——材料头 additive 两字段＋期错位注记；L0 裁定 D-g）：
+    `execution_date`＝**调用方注入的时间量**（orchestration 下传；本块**不读时钟**——入参
+    纪律「时间量经注入参」）；`label` 尾追加 `报表期：{期}`（＝`report_period(source)`，
+    **缺期＝该段跳过、如实缺行**）与 `执行日：{execution_date}`（缺省空串＝该段跳过——
+    无执行日锚时报表期段仍按名尾取、期错位比对不成立故零注记）。材料报表期**晚于**执行日（纯数字串字典序，零日期解析）时，
+    该材料块尾接一行 `PERIOD_MISMATCH_NOTE`（逐字——不静默、不改写材料本体）。
+    元数据 additive 键 `material_periods`＝逐支报表期实录 `{index: 期}`（缺期不入键）。
     """
     material, authority, reports = _carrier_split(observations)
     truncated = len(reports) > max_observations
     seats = _select_seats(reports, max_observations, anchors)
     ordered = authority + [obs for obs, _reason in seats]
+    exec_text = str(execution_date or "").strip()
     blocks: list[str] = []
+    periods: dict[str, str] = {}
     for obs in ordered:
         index = _index_key(obs)
         trust = trust_of(obs)
         origin = str(obs.get("source") or "").strip()
         well = str(obs.get("well") or "").strip()
-        label = "｜".join(part for part in (trust, origin, well) if part)
+        period = report_period(origin)
+        if period:
+            periods[str(index)] = period
+        label = "｜".join(
+            part
+            for part in (
+                trust,
+                origin,
+                well,
+                _PERIOD_LABEL_TEMPLATE.format(period=period) if period else "",
+                _EXECUTION_DATE_LABEL_TEMPLATE.format(execution_date=exec_text)
+                if exec_text
+                else "",
+            )
+            if part
+        )
         content = (
             _lineage_caliber_line(obs)
             if _kind_of(obs) == _KIND_LINEAGE
             else obs.get("content", "")
         )
-        blocks.append(f"[{index}]（{label}）{content}")
+        block = f"[{index}]（{label}）{content}"
+        if _period_is_future(period, exec_text):
+            block += "\n" + PERIOD_MISMATCH_NOTE
+        blocks.append(block)
     text = (
         "\n观察材料：\n" + ("\n".join(blocks) if blocks else "（无）")
         + (
@@ -512,6 +600,7 @@ def render_materials(
         "material_truncated": truncated,
         "material_rendered": len(ordered),
         "material_total": len(material),
+        _MATERIAL_PERIODS_KEY: periods,
         _WINDOW_MATERIALS_KEY: {
             "selected": [
                 {

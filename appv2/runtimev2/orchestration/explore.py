@@ -180,8 +180,13 @@ async def run_explore(
     bus: EventBus,
     registry: ToolRegistry,
     max_observations: int,
+    execution_date: str = "",
 ) -> dict[str, Any]:
-    """执行一轮再探：过闸 → 派遣 → 新观察并入 L2 → 追加 user 增量 → 意图回 `answer`。"""
+    """执行一轮再探：过闸 → 派遣 → 新观察并入 L2 → 追加 user 增量 → 意图回 `answer`。
+
+    `execution_date`（V2-123）＝执行日时间量注入值（增量材料段「执行日」段＋期错位注记；
+    缺省空串＝零漂移）。
+    """
     exp = state.pending_explore if isinstance(state.pending_explore, dict) else {}
     requests = [
         dict(item) for item in (exp.get("requests") or []) if isinstance(item, Mapping)
@@ -225,6 +230,7 @@ async def run_explore(
         rejected=rejected,
         appended=appended,
         max_observations=max_observations,
+        execution_date=execution_date,
     )
     append_message(state, role="user", content=content)
     state.explore_rounds += 1
@@ -272,8 +278,13 @@ def explore_increment(
     rejected: Sequence[Mapping[str, Any]],
     appended: Sequence[Mapping[str, Any]],
     max_observations: int,
+    execution_date: str = "",
 ) -> str:
-    """增量 user 消息：头部＋requests 原文（照抄）＋拒因/执行如实＋新入选材料（[n]，经 L3）。"""
+    """增量 user 消息：头部＋requests 原文（照抄）＋拒因/执行如实＋新入选材料（[n]，经 L3）。
+
+    `execution_date`（V2-123）＝执行日时间量注入值（增量材料段「执行日」段＋期错位注记；
+    缺省空串＝零漂移）。
+    """
     k = state.explore_rounds + 1
     left = max(0, MAX_EXPLORE_ROUNDS - k)
     lines = [INCREMENT_HEAD.format(k=k, cap=MAX_EXPLORE_ROUNDS, left=left)]
@@ -299,6 +310,7 @@ def explore_increment(
             [dict(row) for row in appended],
             max_observations=max_observations,
             anchors=answer_anchors(state),
+            execution_date=execution_date,
         )
         lines.append(materials_text)
     return "\n".join(lines)

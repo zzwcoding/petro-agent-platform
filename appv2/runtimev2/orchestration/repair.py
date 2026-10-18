@@ -72,7 +72,10 @@ REPAIR_GAP_HEAD = (
 
 
 def run_repair(
-    state: RunState, *, max_observations: int = DEFAULT_MAX_OBSERVATIONS
+    state: RunState,
+    *,
+    max_observations: int = DEFAULT_MAX_OBSERVATIONS,
+    execution_date: str = "",
 ) -> dict[str, Any]:
     """回炉一步（编排节点入口）：检测 → （改写轮 ｜ 缺位说明轮）→ 复检 → 留痕 → 意图回 `verify`。
 
@@ -80,6 +83,8 @@ def run_repair(
     缺位说明轮（到顶）：发缺位说明请求、应用（脏／空则置空交核验兜底）。两轮末一律
     `set_intent(INTENT_VERIFY)`——复检重入核验节点（判据单点复用，零第二份）。
     无标红（复检通过后误入）＝零动作，直接回 `verify` 收口。
+    `execution_date`（V2-123）＝执行日时间量注入值（材料段「执行日」段＋期错位注记；
+    缺省空串＝零漂移）。
     """
     flagged = detect_intended(state)
     if not flagged:
@@ -91,10 +96,19 @@ def run_repair(
         return {}
     if state.repair_rounds < MAX_REPAIR_ROUNDS:
         face = _rewrite_round(
-            state, flagged, positions, max_observations=max_observations
+            state,
+            flagged,
+            positions,
+            max_observations=max_observations,
+            execution_date=execution_date,
         )
     else:
-        face = _gap_round(state, flagged, max_observations=max_observations)
+        face = _gap_round(
+            state,
+            flagged,
+            max_observations=max_observations,
+            execution_date=execution_date,
+        )
     _record_repair(state, face)
     set_intent(state, INTENT_VERIFY)
     return face
@@ -106,9 +120,15 @@ def _rewrite_round(
     positions: Sequence[tuple[int, RewriteRecord]],
     *,
     max_observations: int,
+    execution_date: str = "",
 ) -> dict[str, Any]:
     """改写轮：回炉请求 → 应用（只动标红行）→ `repair_rounds += 1` → 复检 → 留痕面。"""
-    prompt = _repair_prompt(state, flagged, max_observations=max_observations)
+    prompt = _repair_prompt(
+        state,
+        flagged,
+        max_observations=max_observations,
+        execution_date=execution_date,
+    )
     raw = call_model(
         state,
         MODEL_CALLER,
@@ -141,13 +161,19 @@ def _gap_round(
     flagged: Sequence[RewriteRecord],
     *,
     max_observations: int,
+    execution_date: str = "",
 ) -> dict[str, Any]:
     """缺位说明轮（改写到顶）：模型写缺位说明；说明自身无据／为空 ⇒ 置空交核验零交付兜底。
 
     「不许程序删成空白」的落点＝核验侧兜底（`verification.forced_gap_statement`——程序确定性
     诚实说明在收口 `join` 之前追加）；本轮的「置空」只是把交付面交给那个单点，不落空答。
     """
-    prompt = _gap_prompt(state, flagged, max_observations=max_observations)
+    prompt = _gap_prompt(
+        state,
+        flagged,
+        max_observations=max_observations,
+        execution_date=execution_date,
+    )
     raw = call_model(
         state,
         MODEL_CALLER,
@@ -308,6 +334,7 @@ def _repair_prompt(
     flagged: Sequence[RewriteRecord],
     *,
     max_observations: int,
+    execution_date: str = "",
 ) -> str:
     """回炉请求文本：标红逐行原句（编号＝应答 `index`）＋本轮窗内材料＋应答合同。"""
     lines = [REPAIR_REQUEST_HEAD.format(count=len(flagged))]
@@ -316,7 +343,11 @@ def _repair_prompt(
         for index, record in enumerate(flagged, start=1)
     )
     lines.append(REPAIR_MATERIALS_HEAD)
-    lines.append(_materials_text(state, max_observations=max_observations))
+    lines.append(
+        _materials_text(
+            state, max_observations=max_observations, execution_date=execution_date
+        )
+    )
     lines.append(REPAIR_OUTPUT_CONTRACT)
     return "\n".join(lines)
 
@@ -326,6 +357,7 @@ def _gap_prompt(
     flagged: Sequence[RewriteRecord],
     *,
     max_observations: int,
+    execution_date: str = "",
 ) -> str:
     """缺位说明请求文本：标红逐行原句 ＋ 窗内材料 ＋ 缺位说明合同。"""
     lines = [REPAIR_GAP_HEAD.format(rounds=state.repair_rounds)]
@@ -334,15 +366,26 @@ def _gap_prompt(
         for index, record in enumerate(flagged, start=1)
     )
     lines.append(REPAIR_MATERIALS_HEAD)
-    lines.append(_materials_text(state, max_observations=max_observations))
+    lines.append(
+        _materials_text(
+            state, max_observations=max_observations, execution_date=execution_date
+        )
+    )
     return "\n".join(lines)
 
 
-def _materials_text(state: RunState, *, max_observations: int) -> str:
-    """本轮窗内材料段（渲染单点＝`context.render_materials`；锚＝`answer_anchors` 同源）。"""
+def _materials_text(
+    state: RunState, *, max_observations: int, execution_date: str = ""
+) -> str:
+    """本轮窗内材料段（渲染单点＝`context.render_materials`；锚＝`answer_anchors` 同源）。
+
+    `execution_date`（V2-123）＝执行日时间量注入值（材料头「执行日」段＋期错位注记；
+    缺省空串＝零漂移）。
+    """
     text, _meta = render_materials(
         list(state.observations),
         max_observations=max_observations,
         anchors=answer_anchors(state),
+        execution_date=execution_date,
     )
     return text

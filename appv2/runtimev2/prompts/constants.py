@@ -250,6 +250,17 @@ ANSWER_EXPLORE_CONTRACT = (
 )
 
 
+# ── 族⑤c 材料期约束合同（**V2-123 新增**——逐字稿载体＝
+# `tickets/v2/V2-123-材料期与执行日标注.md` §逐字稿；文本逐字照抄、零改写）─────────────
+# 承载位＝答案环节**规章段**（`answer_system_contract`，system 位）——插在起草答案合同
+# （末段）之前，末段＝起草答案合同收尾的既有判据不破。作用＝把材料头「报表期 vs 执行日」
+# 两字段接成约束：未来期材料只能作「该期资料」引用，不得据此断言执行日时点状态／「当前」。
+ANSWER_PERIOD_CONTRACT = (
+    "【材料期约束】材料报表期晚于执行日时，只能作为「该期资料」如实引用，"
+    "不得据此断言执行日时点的状态或「当前」情况。"
+)
+
+
 # ── 族⑥答案要求清单（迁移照抄——V1 `_ANSWER_REQUIREMENTS`；十条逐字、顺序固定、「；」分隔）──
 # 2026-10-17 EB2 D2：①–⑦文本不变（⑦尾「。」改「；」＝分隔符，条文零改；其内文无「；」），
 # 末尾追加第八条（逐字稿＝EB2 方案 D2 引文）。
@@ -305,6 +316,8 @@ SYSTEM_BACKGROUND = (
 # ── 六族名单闭世界（族名→成员常量名；「族集合与接口清单相等」判据＝验收行 1）────────
 # **2026-10-17 H 批**：加第七族 `system_background`（成员＝`SYSTEM_BACKGROUND`）——「六族」口径
 # 随之改述为「合同常量族（含 H 批新增背景族）」，真源 `specs/prompts.md` 接口定义节同批注。
+# **2026-10-18 V2-123**：族⑤ `answer_draft` 加成员 `ANSWER_PERIOD_CONTRACT`（材料期约束合同句
+# ——报表期晚于执行日只能作「该期资料」引用）——族集合与成员名单同批改规格清单（闭世界纪律）。
 CONTRACT_CONSTANT_FAMILIES: Mapping[str, tuple[str, ...]] = {
     "task_book_skeleton": (
         "TASK_BOOK_SCENE",
@@ -316,7 +329,11 @@ CONTRACT_CONSTANT_FAMILIES: Mapping[str, tuple[str, ...]] = {
     "clarify_emission": ("CLARIFY_EMISSION_CONTRACT",),
     "toolmatch_emission": ("TOOLMATCH_EMISSION_CONTRACT",),
     "summary": ("SUMMARY_CONTRACT",),
-    "answer_draft": ("ANSWER_DRAFT_CONTRACT", "ANSWER_EXPLORE_CONTRACT"),
+    "answer_draft": (
+        "ANSWER_DRAFT_CONTRACT",
+        "ANSWER_EXPLORE_CONTRACT",
+        "ANSWER_PERIOD_CONTRACT",
+    ),
     "answer_requirements": ("ANSWER_REQUIREMENTS", "JARGON_PLAIN_GLOSSARY"),
     "system_background": ("SYSTEM_BACKGROUND",),
 }

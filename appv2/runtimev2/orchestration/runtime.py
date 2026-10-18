@@ -192,6 +192,7 @@ class RunExecutor:
         watermark: Any = None,
         data_wells: Collection[str] | None = None,
         guide_text: str = "",
+        execution_date: str = "",
         max_observations: int = DEFAULT_MAX_OBSERVATIONS,
         load_ledger: bool = True,
         clock: Any = None,
@@ -212,6 +213,10 @@ class RunExecutor:
         # §A 指南段全文（流水 63）：相位侧 `clarify`／`match` 的文本注入参——装配面（启动
         # 快照）归 api 组合根，本块只持有并随 `LoopDeps` 下传（缺省空串＝空段头）。
         self._guide_text = guide_text
+        # 执行日时间量（V2-123——材料头「执行日」段与期错位比对；L0 裁定 D-g：时间量经注入参）。
+        # 装配面＝组合根解析一次 `today`（eval＝`gateway_adapter.frozen_date`／生产＝`infra.clock`，
+        # B14）随本类注入；本块只持有并随 `LoopDeps` 下传（缺省空串＝材料头无执行日段，零漂移）。
+        self._execution_date = execution_date
         self._max_observations = max_observations
         self._load_ledger = load_ledger
         # 段时长闸的计时面（行为 7「单段时限」）：**编排侧自计时**——组合根持有的时钟读数口
@@ -439,6 +444,7 @@ class RunExecutor:
                 watermark=self._watermark,
                 data_wells=self._data_wells,
                 guide_text=self._guide_text,
+                execution_date=self._execution_date,
                 max_observations=self._max_observations,
                 field_instances=self._field_instances,
                 # 恢复腿重入（同 run 第二腿起）：已落状态的步／通知**不再重发帧**（本腿只发

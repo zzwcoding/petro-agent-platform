@@ -29,6 +29,7 @@ from typing import Any
 from appv2.runtimev2.prompts.constants import (
     ANSWER_DRAFT_CONTRACT,
     ANSWER_EXPLORE_CONTRACT,
+    ANSWER_PERIOD_CONTRACT,
     ANSWER_REQUIREMENTS,
     JARGON_PLAIN_GLOSSARY,
     SUMMARY_CONTRACT,
@@ -76,11 +77,13 @@ def answer_round_preamble(question: str) -> str:
 
 def answer_system_contract() -> str:
     """答案环节**规章段**（system 承载位——2026-10-17 H 批）：动词钉死句＋答案要求＋白话表＋
-    汇总合同＋起草答案合同。
+    汇总合同＋作答第二出口合同＋**材料期约束合同（V2-123）**＋起草答案合同。
 
     构成件逐字引既有常量（零新写）；段内相对序照原装配序（动词钉死句→【答案要求】→术语白话表→
-    汇总合同→起草合同收尾）。与动态段的分工＝**规章＝system、题面与清单＝user**：用户问题行与
-    子问题结果清单留 `assemble_answer_prompt`（材料段由调用方追加——渲染归 `context`）。
+    汇总合同→起草合同收尾）；**V2-123 材料期约束合同插在末段（起草答案合同）之前**——末段
+    仍＝起草答案合同（`contract.endswith(ANSWER_DRAFT_CONTRACT)` 既有判据不破）。与动态段的
+    分工＝**规章＝system、题面与清单＝user**：用户问题行与子问题结果清单留
+    `assemble_answer_prompt`（材料段由调用方追加——渲染归 `context`）。
     纯文本进出、确定性；`state` 零写入。
     """
     return (
@@ -96,6 +99,9 @@ def answer_system_contract() -> str:
         + "\n"
         + "\n"
         + ANSWER_EXPLORE_CONTRACT
+        + "\n"
+        + "\n"
+        + ANSWER_PERIOD_CONTRACT
         + "\n"
         + "\n"
         + ANSWER_DRAFT_CONTRACT

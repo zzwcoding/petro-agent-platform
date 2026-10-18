@@ -188,13 +188,16 @@ def v2_runtime(
     tables: Any = None,
     clock: Any = None,
     field_instances: Any = None,
+    execution_date: str = "",
 ) -> tuple[Any, ScriptedCompleter]:
     """runtimev2 标准装配：剧本 completer＋内存簿记表＋四相位图（零 DB、零真实端口）。
 
     `tables` 非空＝复用既有内存表件（跨 run 的追问／恢复面需要同一份表）；`clock` 非空＝注入计时
     读数口替身（段时长闸的用量注入面——缺省走 `infra.clock`）。`guide_text`＝§A 指南段文本注入值
     （流水 63——经 `RunExecutor` 下传 `clarify`／`match`；缺省空串＝空段头）。`field_instances`
-    ＝油田实例读缝（V2-82b 对象歧义门数据源——缺省 None＝门不出声）。
+    ＝油田实例读缝（V2-82b 对象歧义门数据源——缺省 None＝门不出声）。`execution_date`
+    （V2-123）＝执行日时间量注入值（经 `RunExecutor` → `LoopDeps` → 作答相位 → 材料头；
+    缺省空串＝材料头无执行日段）。
 
     **审计写口装配点**（生产侧同物＝`security.audit` 桥，归 `api` 组合根 RT-W5-02）：审计唯一写口
     由装配点经 `persistence.configure_audit_sink` 注入——本处注入收集器（`v2_audit_records()`
@@ -214,6 +217,7 @@ def v2_runtime(
         guide_text=guide_text,
         clock=clock,
         field_instances=field_instances,
+        execution_date=execution_date,
     )
     return AgentRuntime(executor), channel
 

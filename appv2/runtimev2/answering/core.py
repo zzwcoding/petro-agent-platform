@@ -203,6 +203,7 @@ def answer(
     max_observations: int = DEFAULT_MAX_OBSERVATIONS,
     supplements: list[dict[str, Any]] | None = None,
     forced_text: str = "",
+    execution_date: str = "",
 ) -> AnswerDraft:
     """作答一步：起草（真流式逐段推）或收口（引用块＋citation 帧＋链尾同批）。
 
@@ -220,6 +221,10 @@ def answer(
     模型若仍发射 `explore` 形，以本正文兜底交付（不判 failed）；模型正常作答则本参不用。
     缺省空串＝无硬停止（本批前行为零漂移）。
 
+    `execution_date`（V2-123，L0 裁定 D-g）＝**执行日时间量的注入参**（orchestration 下传；
+    本块不读时钟、不自取）——透传 `context.render_materials` 渲染材料头「执行日」段与期错位
+    比对（报表期晚于执行日 → 期错位注记）；缺省空串＝材料头无「执行日」段（本批前逐字零漂移）。
+
     **作答第二出口 `explore`**（V2-96 D5，真源 §五·5.1）：起草应答整枚为
     `{"action":"explore","reason":…,"requests":[…]}` 且合闭世界时，**不落答案、零 text 帧**，
     落 `state.pending_explore` ＋ `next_intent="explore"` 交编排执行；不合 schema 的 explore
@@ -235,6 +240,7 @@ def answer(
         max_observations=max_observations,
         supplements=collected,
         forced_text=forced_text,
+        execution_date=execution_date,
     )
 
 
@@ -365,6 +371,7 @@ def _draft(
     max_observations: int,
     supplements: list[dict[str, Any]],
     forced_text: str = "",
+    execution_date: str = "",
 ) -> AnswerDraft:
     """起草段：材料面显式 → 单点发起模型调用 → 剥离 → 块剥除 → 分段引标 → 逐段推帧。"""
     # V2-90 锚席位来源（**同一组**喂给 Manifest 与材料段——两出口必须同源同序）：题名对象
@@ -382,10 +389,14 @@ def _draft(
         state.observations,
         max_observations=max_observations,
         anchors=anchors,
+        # V2-123：执行日时间量经注入参下传（本块零时钟接触——L0 裁定 D-g）。
+        execution_date=execution_date,
     )
     # V2-93：本轮渲染窗选席实录（`context.render_materials` 元数据 additive 键——本块只读、
     # 零自取；答案步 payload 原样落 `window_materials`）。
     window_face = meta[PAYLOAD_WINDOW_MATERIALS_KEY]
+    # V2-123：逐支报表期实录（元数据 additive 键——本块只读、零自取；答案步 payload 同名落键）。
+    material_periods = meta[MATERIAL_PERIODS_KEY]
     if meta[MATERIAL_TRUNCATED_KEY]:
         notice(
             state,
@@ -520,6 +531,8 @@ def _draft(
             PAYLOAD_DANGLING_SEQS_KEY: list(dangling),
             # V2-93 additive：渲染窗选席实录（四键——selected/cap/rendered/total）
             PAYLOAD_WINDOW_MATERIALS_KEY: window_face,
+            # V2-123 additive：逐支报表期实录（index → 报表期；缺期材料不入键＝如实缺行）
+            MATERIAL_PERIODS_KEY: material_periods,
         },
         manifest=manifest,
     )
@@ -877,3 +890,6 @@ MATERIAL_TOTAL_KEY = "material_total"
 # V2-93：渲染窗选席实录键（`context.render_materials` 元数据 additive 键——答案步 payload 同名落键，
 # 键名单点在本行，消费方零第二份字面）。
 PAYLOAD_WINDOW_MATERIALS_KEY = "window_materials"
+# V2-123：材料期实录键（`context.render_materials` 元数据 additive 键 `material_periods`——
+# 答案步 payload 同名落键：逐支 `index → 报表期`，缺期材料不入键＝如实缺行）。
+MATERIAL_PERIODS_KEY = "material_periods"

@@ -2124,6 +2124,8 @@ def test_retention_normal_render_unchanged() -> None:
             ("observations", "POSITIONAL_OR_KEYWORD", True),
             ("max_observations", "KEYWORD_ONLY", True),
             ("anchors", "KEYWORD_ONLY", False),  # V2-86 additive 可选参（缺省空元组）
+            # V2-123 additive 可选参（执行日注入——缺省空串＝本批前逐字零漂移）
+            ("execution_date", "KEYWORD_ONLY", False),
         ),
         render_process_notes: (
             ("state", "POSITIONAL_OR_KEYWORD", True),

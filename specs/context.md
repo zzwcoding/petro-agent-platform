@@ -55,7 +55,8 @@ async def load_ledger_dump(state: RunState) -> dict[str, Any]: ...
 #   统一后唯一写手＝H6））
 def render_materials(observations: list[dict[str, Any]], *,
                      max_observations: int,
-                     anchors: Sequence[tuple[str, str]] = ()) -> tuple[str, dict[str, Any]]: ...
+                     anchors: Sequence[tuple[str, str]] = (),
+                     execution_date: str = "") -> tuple[str, dict[str, Any]]: ...
 #   【迁移】材料段 [n] 渲染＋截断元数据（逐字迁移——现状载体 appv2/runtime/context.py；
 #   真源 docs/runtime-refactor/recon/K-上下文事件指南预算.md R-K-18…R-K-26；行为 1–6）
 #   ＋**V2-90 additive 可选参 `anchors`**（缺省 `()`＝与 V2-90 前行为逐字一致）：检索族席位
@@ -67,6 +68,15 @@ def render_materials(observations: list[dict[str, Any]], *,
 #   `selected` 逐支 `index`／`source`／`reason`——理由闭世界取值＝题眼表保底／题眼节保底／原文保底／
 #   表格保底／锚共现补席／来源保底／来源轮转补席；`rendered`＝实渲检索族席数、`total`＝排除 notice
 #   后材料总数）。三机检字段口径与逐字值零改；答案步 payload 由消费方原样落同名键（行为 6／7）。
+#   ＋**V2-123 additive 可选参 `execution_date`**（缺省空串＝材料头无「执行日」段）：执行日**时间量
+#   经注入参**（orchestration 下传；本块**不读时钟**——D-g）；材料头 label 尾追加「报表期：{期}」
+#   （缺期＝该段跳过、如实缺行）与「执行日：{execution_date}」（缺省＝该段跳过）；材料报表期晚于
+#   执行日时该材料块尾接期错位注记（逐字 `PERIOD_MISMATCH_NOTE`，行为 1）＋**元数据 additive 键
+#   `material_periods`**（逐支 `{index: 期}`；缺期材料不入键）。
+def report_period(source: str) -> str: ...
+#   【新增（V2-123）】报告名尾**报表期**解析单点：出处名（观察 `source`）尾段形如 `-YYYYMM`／
+#   `-YYYYMMDD`（可选书名号包裹剥除）者取期形 `YYYY-MM`／`YYYY-MM-DD`；其余＝空串（**缺期如实
+#   缺行**——不猜、不回落当前期）。纯字符扫描、零语义判断（行为 13 形态处理豁免面）。
 def render_process_notes(state: RunState, *, budget: int) -> str: ...
 #   【迁移＋显式改动】过程档案有界摘要段（逐字迁移——现状载体 appv2/runtime/graph.py
 #   `_render_process_notes`；显式改动＝下划线去前缀、budget 转显式注入参〔无缺省裸字面——
@@ -108,7 +118,7 @@ def trust_of(observation: dict[str, Any]) -> str: ...
 
 - **族名单是闭世界**：上列成员（六函数＋常量族）之外新增公开成员＝只许以「新增成员入名单＋同批对账消费方规格（`specs/answering.md`／`specs/prompts.md`／`specs/agent-loop.md`）」方式进块；消费方在相位块内私建同形副本（自写材料渲染／摘段循环／信任映射）＝判失败（单点纪律，先例 `specs/parsing.md` 共用件单点）。**实名与参形以本规格「V2 定案签名」为准**（卡面 `compile` 为初拟形、不施工——卡级登记见风险 7①）；本规格锁名单闭世界与输入输出口径。
 - **返回契约**：渲染器输出恒为 `str`（或 `str`＋元数据）——不抛业务错；缺位以**空串段**（调用方跳过——真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-32，同族先例〔主语系样例渲染器〕）或**逐字占位文案**（行为 1／8）两形表达；`load_ledger_dump` 失败→ run 终局失败（行为 11——fail-fast，Owner 流水 44，不走空投影续跑）。
-- **入参纪律**：渲染函数消费 state 投影字段（字段面以 `docs/runtime-refactor/synth/S5-RunState字段矩阵.md` 为界，只读）＋调用方注入的参量（材料集、帽、预算、视窗）；**时间量不经本块**（零时钟接触）；帽、预算与视窗为**注入参数、无缺省裸字面**（数值单点＝常量族 `DEFAULT_MAX_OBSERVATIONS`／`PROCESS_NOTES_BUDGET`／视窗登记——行为 4／8／9）。
+- **入参纪律**：渲染函数消费 state 投影字段（字段面以 `docs/runtime-refactor/synth/S5-RunState字段矩阵.md` 为界，只读）＋调用方注入的参量（材料集、帽、预算、视窗）；**时间量经注入参、本块零时钟接触**（**2026-10-18 V2-123／L0 裁定 D-g 改述**——原逐字「时间量不经本块」：注入参也是时间量经本块，故改述为「经注入参」；执行日 `execution_date` 由 orchestration 下传〔组合根把 `today` 只解析一次：eval＝`gateway_adapter.frozen_date`／生产＝`infra.clock`，B14〕，本块只读该参、**不读时钟**）；帽、预算与视窗为**注入参数、无缺省裸字面**（数值单点＝常量族 `DEFAULT_MAX_OBSERVATIONS`／`PROCESS_NOTES_BUDGET`／视窗登记——行为 4／8／9）。
 - **错误契约**：`compile_manifest` 的 `token_count` 缺省 0（记账面回填）；`compact_messages` 预算内**恒原样返回**（零漂移、不抛错）；形态越界（如 `dialogue_view_tokens` 非法）→ 抛参数错误，不吞错；`index` 缺失／非整数形（观察面形态违约）→ 抛参数错误（V1 裸 `KeyError` 收口——差异声明）。
 - 真源：`specs/modules.md` `## context` 卡（参数名与常量实名以卡为准；**族与签名以本规格「V2 定案签名」为准**——卡面 `compile` 不施工，卡面与 V2 定案差异见风险 7①）。
 
@@ -125,6 +135,13 @@ def trust_of(observation: dict[str, Any]) -> str: ...
 ## 行为约定
 
 1. **材料段渲染形逐字迁移**（承载位换、文本不变——真源 `docs/runtime-refactor/arch/P6b-票堆V2-80系列后半.md` A-P6b-24／A-P6b-34）：文本以段头起（逐字稿载体＝现状 `appv2/runtime/context.py`：`"\n观察材料：\n"`）；块形＝`[{index}]（{label}）{content}`——`index`＝观察自带全局序号（非渲染位次）、`label`＝非空段以全角「｜」连接、段序 `信任级｜来源｜井`（空段跳过；**来源/井两段经 `.strip()` 归一后判空**〔空白串→空段跳过——现状载体逐字含 strip〕；三段全空＝空括号 `（）`——现状固有、迁移不修）；`content` 缺失＝空串（现状缺省——真源 R-K-20）；空材料集正文＝逐字「（无）」（真源 `docs/runtime-refactor/recon/K-上下文事件指南预算.md` R-K-18／R-K-19／R-K-20／R-K-25；V2-64 出处形＝`docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-69）。断言：四类 fixture（常规／多段标签／空段／空材料）逐字比对；`index` 与观察序号一致。
+   **V2-123 材料头两字段＋期错位注记（additive）**：`label` 段序在 `信任级｜来源｜井` 之后追加两段
+   ——`报表期：{期}`（期＝`report_period(来源)`；**缺期＝该段跳过、如实缺行**）与
+   `执行日：{execution_date}`（**注入参**；缺省空串＝该段跳过＝与 V2-123 前逐字一致）；材料报表期
+   **晚于**执行日（纯数字串字典序比较——零日期解析、零时钟）时该材料块尾接**一行**期错位注记逐字
+   （`【材料期】该材料报表期晚于执行日——只能作为「该期资料」引用。`——**不静默**、不改写材料本体、
+   不删段；期错位＝确定性比对非语义判断）。断言：未来期 fixture（`-202701` vs 执行日 `2026-10-08`）
+   → 材料头两段逐字＋注记恰一条；缺期／缺执行日／早于或同月／执行日非日期形 → 零注记。
 2. **信任级映射闭世界＋notice 排除**：`trust_of` 判定路径唯一（只读 `locator.kind`，`str()` 归一后查表；缺 `locator`／缺 `kind`／未知 kind 统一落 `report`——不抛错）；映射闭世界＝十 kind 三族（权威：`agg_row`／`lineage`；台账：`metric`／`term`／`object`／`relation`／`family`；检索：`fragment`／`graph`；`notice` 名义入表但材料段整体排除——不进模型面、不计任何计数）（真源 R-K-03／R-K-15…R-K-17）。**2026-10-18 V2-105**：台账族第五键＝生产实点 `locator.kind="family"`（真源 `appv2/knowledge/domain.py`（:28-32 `KIND_ALL`））——旧键 `family_annotation` 与生产永不匹配（族标注卡信任级落默认 `report`＝活缺陷，本票修）。断言：十 kind 各落对；三种异常输入落 `report`；notice 条目不在渲染文本、不计计数。
 3. **排序＝信任级稳定序**：`authoritative`＜`ledger`＜`report`（rank 0／1／2，同 rank 保持入栈序、稳定排序）；两跑逐字相等（确定性不抖动——真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-48〔V2-61 事实面〕；R-K-05 排序键面；未登记信任级排序兜底〔现状不可达——notice 已前置排除〕迁移照抄、无行为面）。断言：乱序入栈 fixture → 输出按档聚簇且组内原序；两跑逐字相等。
 4. **分承载体预算（分形帽）**：权威/台账族（信任级非 `report`）**恒全量渲染、不设支数帽**（引擎侧已封顶、装配不重复封顶——真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-44）；检索族（`report`）超帽才截断（**帽只作用检索族**）；帽值经注入参数（`render_materials` 的 `max_observations`），**数值单点＝本块常量 `DEFAULT_MAX_OBSERVATIONS`**（真源 `docs/runtime-refactor/recon/K-上下文事件指南预算.md` R-K-07；具体值不落本规格）。**与 walk §13-B／§14-B 的分工**：单支超阈「落引用」归 `execution`（`specs/execution.md` 行为 4 已收口）；本块检索族支数帽＝token 安全面存续（V2-61 设计），与「渲染帽裁剪」不同物。断言：权威族超帽 fixture → 全渲染、零披露、`material_truncated=False`；检索族超帽 → 只渲染帽内支、披露在场。
@@ -153,6 +170,11 @@ def trust_of(observation: dict[str, Any]) -> str: ...
 | 验收标准 | 对应测试 |
 |---|---|
 | 材料段渲染形逐字迁移（段头／块形／空段空括号／空材料「（无）」） | `tests/domains/test_v2_context.py::material_segment_verbatim_render` |
+| 材料头「报表期／执行日」两字段（additive；缺期如实缺行；缺执行日＝无执行日段；`-YYYYMMDD` 形） | `tests/domains/test_v2_v123_material_period.py::test_material_head_carries_period_and_execution_date` ／ `::test_material_head_period_day_form` ／ `::test_material_head_missing_period_row_absent` ／ `::test_material_head_execution_date_absent_period_only` |
+| 期错位注记（未来期在场、早于／同月／缺执行日零注记）＋报表期解析单点（纯字符扫描） | `tests/domains/test_v2_v123_material_period.py::test_period_mismatch_note_present_for_future_period` ／ `::test_period_mismatch_note_absent_for_earlier_or_same_period` ／ `::test_report_period_extraction_forms` ／ `::test_report_period_single_source_and_signature` |
+| 材料期约束合同句逐字入族⑤＋随作答规章段在场（末段不破） | `tests/domains/test_v2_v123_material_period.py::test_answer_period_contract_verbatim_and_family` |
+| `Q07` 形离线复现（2027-01 未来期材料被标期＋错位注记＋约束合同句；`answer` 注入参透传＋payload 机读键） | `tests/domains/test_v2_v123_material_period.py::test_q07_shape_future_period_material_is_marked_not_current` ／ `::test_answer_injects_execution_date_into_material_head` |
+| 执行日注入链（组合根→`RunExecutor`→`LoopDeps`→作答／再探增量／回炉三条材料渲染腿→材料头；`today` 只解析一次） | `tests/domains/test_v2_v123_material_period.py::test_execution_date_reaches_material_head_through_executor` ／ `::test_create_app_resolves_execution_date_once_from_today` ／ `::test_create_app_execution_date_passthrough_additive` ／ `::test_explore_increment_material_head_carries_execution_date` ／ `::test_repair_materials_head_carries_execution_date` |
 | 信任级映射闭世界（十 kind 三族；异常输入落 `report`；notice 排除） | `tests/domains/test_v2_context.py::trust_mapping_closed_world` |
 | 排序＝信任级稳定序（同 rank 保持入栈序；两跑同序） | `tests/domains/test_v2_context.py::trust_order_stable` |
 | 分承载体预算：权威/台账族全量无帽、检索族超帽才截断 | `tests/domains/test_v2_context.py::carrier_fractal_budget` |

@@ -112,7 +112,12 @@ _SPEC_FAMILIES: dict[str, tuple[str, ...]] = {
     "clarify_emission": ("CLARIFY_EMISSION_CONTRACT",),
     "toolmatch_emission": ("TOOLMATCH_EMISSION_CONTRACT",),
     "summary": ("SUMMARY_CONTRACT",),
-    "answer_draft": ("ANSWER_DRAFT_CONTRACT", "ANSWER_EXPLORE_CONTRACT"),
+    "answer_draft": (
+        "ANSWER_DRAFT_CONTRACT",
+        "ANSWER_EXPLORE_CONTRACT",
+        # V2-123：材料期约束合同（报表期晚于执行日只能作「该期资料」引用）
+        "ANSWER_PERIOD_CONTRACT",
+    ),
     "answer_requirements": ("ANSWER_REQUIREMENTS", "JARGON_PLAIN_GLOSSARY"),
     # 2026-10-17 H 批（角色分家）：第七族＝链首背景块（`SYSTEM_BACKGROUND` 逐字稿）
     "system_background": ("SYSTEM_BACKGROUND",),

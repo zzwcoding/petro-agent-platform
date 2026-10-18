@@ -44,6 +44,9 @@ def answer(state: RunState) -> AnswerDraft: ...
 # 收口段三块（分源／归属／引用）按原序入该列表，帧由 `orchestration` 的增补面发射点发。
 # V2-96 D5 增第四处选给注入面 `forced_text`（缺省空串）：编排块硬停止（再探轮数到顶）时交来的
 # 程序确定性缺口正文——模型仍发射 `explore` 形时以本正文兜底交付（不判 failed）。
+# **V2-123 增第五处选给注入面 `execution_date`**（缺省空串）：执行日**时间量经注入参**（orchestration
+# 下传；本块不读时钟——L0 裁定 D-g），透传 `context.render_materials` 渲染材料头「执行日」段与
+# 期错位比对（报表期晚于执行日 → 期错位注记）；缺省空串＝材料头无执行日段（本批前逐字零漂移）。
 
 class AnswerDraft:
     segments: list[AnswerSegment]     # **增量片段**（流式逐段；顺序即呈现顺序）
@@ -140,6 +143,7 @@ class Gap:
 | 残尾护栏：悬空引导句／光表头／裸标题三形命中 → 定稿补诚实收口短句（正文其余字面零改、重入幂等）；完整正文字零追加（2026-10-17 F1 件三） | `tests/domains/test_v2_answering.py::dangling_tail_guard_closes_honestly` |
 | 作答第二出口：命中 `explore` → 不落答案、零 `text` 帧、`next_intent="explore"`＋`pending_explore` 在场（V2-96 D5——落点＝行为 20） | `tests/domains/test_v2_v296_explore.py::test_answer_explore_does_not_emit_draft` |
 | 第二出口解析闭世界（`tool` 三值／每轮 1..2 条／必填／越界即拒＋拒因面非空；非 explore 形零拒因）（V2-96 D5） | `tests/domains/test_v2_v296_explore.py::test_parse_explore_valid_and_invalid` |
+| 执行日注入参透传材料头（V2-123：`answer(execution_date=…)` → 材料段「报表期／执行日」两段＋期错位注记＋答案步 payload 机读键 `material_periods`；缺省空串＝零漂移） | `tests/domains/test_v2_v123_material_period.py::test_answer_injects_execution_date_into_material_head` ／ `::test_q07_shape_future_period_material_is_marked_not_current` |
 | explore 尝试不合 schema → 回喂拒因恰一次（恰 2 次模型调用）；仍不合 → 强制作答正文落草稿（不判 failed）（V2-96 D5） | `tests/domains/test_v2_v296_explore.py::test_explore_schema_feedback_retry_once_then_force` |
 | 核验失败回炉后的作答收口：回炉定稿进收口（`state.draft` 被回炉改写后照常 finalize；四键留痕落回炉步、帧面零新增）（2026-10-18 V2-115） | `tests/domains/test_v2_v2115_repair.py::test_repair_end_to_end_graph_rewrites_unsupported_line`／`::test_repair_end_to_end_graph_zero_delivery_fallback` |
 | 答案日期标注＝实际取数窗：`Q10`／`Q14` 形正文零「用户词（日期）」形（`昨天（2026-08-30）`）、改为 `实际取数窗：{TimeWindow.label}`＋原问法对照；起草面即改写（`state.draft` 与片段同源）且改写行过核验不删（2026-10-18 V2-107） | `tests/domains/test_v2_v107_window_label.py::test_q10_shape_no_user_word_date_form`／`::test_q14_shape_window_tail_is_exclusive_end`／`::test_draft_face_rewritten_end_to_end`／`::test_rewritten_annotation_survives_verification` |

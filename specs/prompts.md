@@ -53,6 +53,11 @@
 #   （再探 ≤2 次、每轮 ≤2 请求）；**正向条款、不堆条款**。真源＝
 #   `docs/runtime-refactor/接手-召回全链路最终决议与运行流程-20261018.md` §五·5.1；
 #   注入点＝`answer_system_contract()`（system 规章段，插在汇总合同与起草答案合同之间）。
+# ⑤c 材料期约束合同（**2026-10-18 V2-123 新增**——成员 `ANSWER_PERIOD_CONTRACT`，入族⑤
+#   `answer_draft`）：材料报表期晚于执行日时只能作「该期资料」如实引用、不得据此断言执行日
+#   时点的状态或「当前」情况（逐字稿＝`tickets/v2/V2-123-材料期与执行日标注.md` §逐字稿）；
+#   注入点＝`answer_system_contract()`（system 规章段，插在族⑤b 第二出口合同与族⑤起草答案
+#   合同**之前**——末段仍＝起草答案合同收尾）。
 # ⑤ 起草答案合同——构成（去重后形态，拼接序照现状）＝行集交付规矩段
 #   （arch/P4b A-P4b-49 票面附 C 本段不得增删字）＋台账卡边界句＋A-P6a-35 追加半句
 #   （逐字保留）；与 V1 的差异＝删句首重复句群（其 V1 字面句首的答案规则句群＝
@@ -89,12 +94,12 @@ def assemble_answer_prompt(state: RunState) -> str: ...
 #   toolmatch_system_contract() -> str    # 匹配规章段＝相位②头行＋族③合同正文
 #   answer_system_contract() -> str       # 作答规章段＝动词钉死句＋【答案要求】＋族⑥清单全文
 #                                     #  ＋术语白话表＋族④汇总合同＋族⑤b 第二出口合同
-#                                     #  ＋族⑤起草答案合同（收尾）
+#                                     #  ＋族⑤c 材料期约束合同＋族⑤起草答案合同（收尾）
 #   **承载位分工**（真源 H 批开票 §3 方案 C）：**system＝规章、user＝动态段**（材料／题面／锚行／
 #   增量条／数据区／子问题清单）；链本体仍只 user／assistant（＋链首背景块 system 恰一条）。
 ```
 
-- **合同常量族名单是闭世界**：上列六族之外新增合同文本＝只许以「新增常量入族＋同批改本清单」方式进块；消费方私设第二合同源（合同字面复制进相位块）＝判失败。**2026-10-18 V2-96 D5**：族⑤ `answer_draft` 加成员 `ANSWER_EXPLORE_CONTRACT`（作答第二出口合同＋1 示例＋再探预算行；真源 §五·5.1）——族集合与成员名单同批改本清单，机读面＝`tests/domains/test_v2_prompts.py::contract_constant_family_closed_world`。**2026-10-17 H 批**：族名单加**第七族** `system_background`（成员＝`SYSTEM_BACKGROUND`，逐字稿＝H 批开票 §5）——「六族」口径随之读作「合同常量族（含 H 批新增背景族）」；机读面＝`tests/domains/test_v2_prompts.py::system_background_verbatim`（族⑦成员逐字＋单源）。
+- **合同常量族名单是闭世界**：上列六族之外新增合同文本＝只许以「新增常量入族＋同批改本清单」方式进块；消费方私设第二合同源（合同字面复制进相位块）＝判失败。**2026-10-18 V2-96 D5**：族⑤ `answer_draft` 加成员 `ANSWER_EXPLORE_CONTRACT`（作答第二出口合同＋1 示例＋再探预算行；真源 §五·5.1）——族集合与成员名单同批改本清单，机读面＝`tests/domains/test_v2_prompts.py::contract_constant_family_closed_world`。**2026-10-18 V2-123**：族⑤ `answer_draft` 再加成员 `ANSWER_PERIOD_CONTRACT`（材料期约束合同——报表期晚于执行日只能作「该期资料」引用；逐字稿＝V2-123 票面 §逐字稿；随作答规章段 `answer_system_contract` 在场、插在末段之前）——族集合与成员名单同批改本清单，机读面＝`tests/domains/test_v2_prompts.py::contract_constant_family_closed_world` ＋ `tests/domains/test_v2_v123_material_period.py::test_answer_period_contract_verbatim_and_family`。**2026-10-17 H 批**：族名单加**第七族** `system_background`（成员＝`SYSTEM_BACKGROUND`，逐字稿＝H 批开票 §5）——「六族」口径随之读作「合同常量族（含 H 批新增背景族）」；机读面＝`tests/domains/test_v2_prompts.py::system_background_verbatim`（族⑦成员逐字＋单源）。
 - **装配函数族名单是闭世界**：族成员即上列成员；增删成员须同批对账四消费方规格（`specs/understanding.md`／`specs/clarification.md`／`specs/tool_matching.md`／`specs/answering.md`）的触及面。常量实名与函数签名阶段 5 施工时按卡定（本规格锁的是**名单闭世界**与**纯文本进出**）。**2026-10-17 H 批**：族名单加**规章取件函数四件**（`understand_system_contract`／`clarify_system_contract`／`toolmatch_system_contract`／`answer_system_contract`）——同批已对账四消费方规格（各加 H 批注记）＋`specs/bookkeeping.md`（`call_model` 的 `system` 注入参）。
 - **错误契约（纯文本进出）**：装配函数输出恒为 `str`——**不抛业务错、不返回 `None`**；投影缺位走**占位文案**（逐字见行为约定 5）或**空串段**（空串＝「该段缺位」的机读信号，调用方跳过，真源 `docs/runtime-refactor/arch/P4b-票堆V2-56至65.md` A-P4b-32「台账空投影返回空串（调用方跳过）」）。
 - **入参纪律**：装配函数消费 state 投影字段（字段面以 `docs/runtime-refactor/synth/S5-RunState字段矩阵.md` 为界，只读）＋调用方传入的文本（如过程段渲染产物、时间量）；**时间量只经入参注入**，本块不读时钟（时间一律 `infra.clock` 的 B14 纪律在装配面的形态＝零时钟接触，时钟值由调用方注入）。

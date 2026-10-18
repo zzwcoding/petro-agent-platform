@@ -171,6 +171,11 @@ class LoopDeps:
     window_candidates: Sequence[str] | None = None
     watermark: date | None = None
     data_wells: Collection[str] | None = None
+    # 执行日时间量（V2-123——材料头「执行日」段与期错位比对的注入值；L0 裁定 D-g：
+    # 时间量经注入参、`context` 不读时钟）。装配面＝组合根解析**一次** `today`
+    # （eval＝`gateway_adapter.frozen_date`／生产＝`infra.clock`，B14）随 `RunExecutor` 下传；
+    # 缺省空串＝材料头无「执行日」段（本批前行为零漂移）。
+    execution_date: str = ""
     # §A 指南段全文（流水 63）：相位侧 `clarify`／`match` 的文本注入参——装配面（启动快照）
     # 归 api 组合根，本块只经 `deps` 下传（缺省空串＝空段头）。**落链次数归本块**（2026-10-17
     # 补·真机消重批）：随 `_shared_context_pending` 的判定同 §A 段与台账常驻块一并只注一次。
@@ -595,6 +600,8 @@ def _make_answer(deps: LoopDeps) -> Any:
                     bus=deps.bus,
                     registry=deps.registry,
                     max_observations=deps.max_observations,
+                    # V2-123：再探增量材料段同携执行日（期错位注记不因增量腿缺席）
+                    execution_date=deps.execution_date,
                 )
             else:
                 # 硬停止：轮数到顶仍出 explore → 追加「只能如实作答」指令＋程序确定性缺口正文
@@ -608,6 +615,9 @@ def _make_answer(deps: LoopDeps) -> Any:
             max_observations=deps.max_observations,
             supplements=deps.supplements,
             forced_text=forced_text,
+            # V2-123：执行日时间量随 `LoopDeps` 注入作答相位（材料头两字段＋期错位比对——
+            # 时间量经注入参、context 不读时钟，L0 裁定 D-g）。
+            execution_date=deps.execution_date,
         )
         _emit_direct_text(deps, state)
         # 增补面收口发射（EB3 D1／D2）：作答收口后（核验改写后的 draft 已定稿）逐条发帧——
@@ -650,7 +660,12 @@ def _make_verify(deps: LoopDeps) -> Any:
         # `INTENT_REPAIR` 重入时，先执行回炉一步（LLM 只重写标红行＋程序复检＋留痕），再落到
         # 下方 `verify` 复检（判据单点复用）；回炉步意图一律回 `verify`（见 `repair.run_repair`）。
         if state.next_intent == INTENT_REPAIR:
-            run_repair(state, max_observations=deps.max_observations)
+            run_repair(
+                state,
+                max_observations=deps.max_observations,
+                # V2-123：回炉材料段同携执行日（期错位注记不因回炉腿缺席）
+                execution_date=deps.execution_date,
+            )
             _flush_notices(deps, state)
             _flush_steps(deps, state)
         verify(state, bus=deps.bus, supplements=deps.supplements)

@@ -57,6 +57,19 @@ class AgentRuntime:
 # RunHandle  = {run_id: str, stream: AsyncIterator[SseEvent], cursor: int}
 #   cursor＝**全流单调**断线游标（重放不位移）
 # 事件枚举: step/text/tool/observation/ask/verdict/citation/notice/blackbox（九类闭世界；真源 `synth/S6-事件与帧目录.md`）
+# 编排注入面（`RunExecutor`／`LoopDeps`——组合根装配，非公开 REST 面）：`watermark`／`data_wells`／
+#   `guide_text`／`field_instances` ＋**`execution_date`（V2-123 新增，additive；缺省空串＝零漂移）**：
+#   执行日**时间量经注入参**下传作答相位（→ `context.render_materials` 材料头「执行日」段与期错位
+#   比对；本层不读时钟）。**单一真源**＝组合根把 `today` **只解析一次**（eval＝`gateway_adapter.
+#   frozen_date`／生产＝`infra.clock`，B14），同一值既喂 §A `{today}` 又作 `execution_date` 下传
+#   （防 §A 与材料头两版并存——`EB11-臆造上下文归因.md` §五-5）；机读面＝
+#   `tests/domains/test_v2_v123_material_period.py::test_execution_date_reaches_material_head_through_executor`
+#   ／`::test_create_app_resolves_execution_date_once_from_today`。
+#   **全腿覆盖（V2-123＋L0 授权扩张）**：作答相位之外的另两条材料渲染腿——再探增量材料段
+#   （`explore.run_explore`／`explore_increment`）与回炉材料段（`repair.run_repair`／
+#   `_materials_text`）——同携 `execution_date`（各加 additive 可选参、`graph` 两处调用点传
+#   `deps.execution_date`）；机读面＝`::test_explore_increment_material_head_carries_execution_date`
+#   ／`::test_repair_materials_head_carries_execution_date`。
 
 POST /api/v2/chat/asks                 200 → text/event-stream（首帧 run_id）
     入参三形态：question 提问｜resume_run_id 重连｜question＋followup_run_id 追问续会话
@@ -236,6 +249,7 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
 | 【F2】兜底轮仍拒 → `rounds` 超顶即收敛（零材料＝纯收敛话术；让位**恰一轮**上界）＋ 四判据面（材料在场不让位／免轮拒不让位／硬闸同命中不让位／非回炉入口不让位）＋ 材料面同源（判据「有／无」↔ 收敛正文材料清单同判） | `tests/domains/test_v2_f2_convergence.py::test_f2_grace_round_granted_once_then_converges_with_pure_wording` ／ `::test_f2_material_round_judgement_four_criteria` ／ `::test_f2_material_face_co_sourced` |
 | 【F2】理解步两读皆**围栏包裹**形（引号自修族零覆盖）→ 收敛拒答**有正文**（`completed`、零 `run_failed`、交付正文帧在场） | `tests/domains/test_v2_f2_convergence.py::test_f2_nq_m3_fenced_reply_run_completes_with_text` ／ `tests/domains/test_v2_understanding.py::test_f2_nq_m3_frame_fenced_reply_converges_with_text` |
 | 每个模型调用 step 落 Manifest（来源/版本/token）**【**W4 登记（2026-10-16）**：材料面 Manifest 现挂答案面步（`call_model` 无 manifest 注入面）；若裁定改由 `call_model` 承接 → 回 W3 `bookkeeping` 或设计仓】** | `tests/api/test_v2_asks.py::test_manifest_present_each_call` |
+| 执行日注入链（V2-123：组合根 `today` 只解析一次 → `RunExecutor` → `LoopDeps` → 作答相位 → 材料头「执行日」段；§A 与材料头同值；**全腿覆盖**＝作答／再探增量／回炉三条材料渲染腿） | `tests/domains/test_v2_v123_material_period.py::test_execution_date_reaches_material_head_through_executor` ／ `::test_create_app_resolves_execution_date_once_from_today` ／ `::test_create_app_execution_date_passthrough_additive` ／ `::test_explore_increment_material_head_carries_execution_date` ／ `::test_repair_materials_head_carries_execution_date` |
 | run 内对话状态簿记（`dialogue`＋`process_notes` 双字段，第二轮调用携带首轮对话） | `tests/domains/test_v2_multi_turn_context.py::test_second_decision_context_carries_first_round_history` |
 | 追问续会话（前轮问答/执行台账随追问进上下文） | `tests/domains/test_v2_multi_turn_context.py::test_followup_context_carries_prior_qa_history` |
 | 闸拒拒因（负信息）在历史中可见不消失 | `tests/domains/test_v2_multi_turn_context.py::test_gate_refused_line_visible_across_followup` |

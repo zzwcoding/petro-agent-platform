@@ -5,7 +5,8 @@
 
 包根即公开面（`specs/modules.md` `## context` 卡「公开接口」节＋`specs/context.md` 接口定义节
 「V2 定案签名」——**族名单闭世界**）：六函数 `load_ledger_dump`／`render_materials`／
-`render_process_notes`／`compile_manifest`／`compact_messages`／`trust_of` ＋常量族
+`render_process_notes`／`compile_manifest`／`compact_messages`／`trust_of`（＋**V2-123
+新增** `report_period`——报表期解析单点）＋常量族
 `DEFAULT_MAX_OBSERVATIONS`／`PROCESS_NOTES_BUDGET`／`TRUST_AGG`／`TRUST_LEDGER`／
 `TRUST_REPORT`／`RESIDENT_SOURCE_ROWS`／`MAX_REPORT_SEATS_PER_SOURCE`／`ANCHOR_SEATS`；
 另携装载端口件（`LedgerProjectionPort` 端口／
@@ -38,6 +39,7 @@ from appv2.runtimev2.context.materials import (
     TRUST_LEDGER,
     TRUST_REPORT,
     render_materials,
+    report_period,
     trust_of,
 )
 from appv2.runtimev2.context.process_notes import (
@@ -62,6 +64,7 @@ __all__ = [
     "load_ledger_dump",
     "render_materials",
     "render_process_notes",
+    "report_period",
     "trust_of",
     "wire_ledger_projection",
 ]

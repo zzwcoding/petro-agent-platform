@@ -47,6 +47,7 @@ from appv2.api.bridge import RunStreamRegistry
 from appv2.api.chat import router as chat_router
 from appv2.api.errors import install_error_handlers
 from appv2.api.ontology_guide import OntologyGuideProvider
+from appv2.infra import clock as infra_clock
 from appv2.infra.config import ChatSettings
 from appv2.infra.db import ConnectionManager, DatabaseSpec
 from appv2.infra.gateway.store import ensure_gateway_tables
@@ -345,6 +346,7 @@ def create_app(
     data_wells: Any | None = None,
     guide_text: str | None = None,
     field_instances: Any | None = None,
+    execution_date: str | None = None,
 ) -> FastAPI:
     """构建 appv2 应用（四端点挂线＋runtimev2 生产装配——依赖注入面）。
 
@@ -365,6 +367,11 @@ def create_app(
     门不出声）。
     `guide_text`＝§A 指南段注入值（str——经 `RunExecutor` 下传 `clarify`／`match`；
     None＋生产＝`compose_production_guide_text` 启动取一次快照；非生产路径 None＝空串）。
+    `execution_date`（V2-123——材料头「执行日」段与期错位比对的时间量）＝ISO 日期串注入值
+    （经 `RunExecutor` → 编排 `LoopDeps` → `answering` → `context.render_materials` 下传；
+    **单一真源**：None＋生产＝本层把 `today` **只解析一次**（`today()`；`today=None` 时取
+    `infra.clock`——B14 唯一时间出口），同一值既喂 §A `{today}` 又作 `execution_date` 下传；
+    非生产路径 None＝空串＝材料头无执行日段，零漂移）。
     """
     production = registry is None
     if production:
@@ -382,8 +389,16 @@ def create_app(
             )
         if data_wells is None:
             data_wells = compose_production_data_wells(specs=specs)()
+        # V2-123 执行日单一真源：`today` **只解析一次**（缺省 infra.clock，B14）——同一值既填
+        # §A `{today}`（指南窗词锚定）又作 `execution_date` 下传（材料头「执行日」段＋期错位比对），
+        # 防 §A 与材料头两版并存（EB11 §五-5：执行日 10-08／10-18 两版）。
+        resolved_today: date = today() if today is not None else infra_clock.now().date()
         if guide_text is None:
-            guide_text = compose_production_guide_text(budget=budget, today=today)
+            guide_text = compose_production_guide_text(
+                budget=budget, today=lambda: resolved_today
+            )
+        if execution_date is None:
+            execution_date = resolved_today.isoformat()
         if field_instances is None:
             field_instances = compose_production_field_instances(specs=specs)
     set_completer(completer)
@@ -399,6 +414,7 @@ def create_app(
         watermark=watermark,
         data_wells=data_wells,
         guide_text=guide_text or "",
+        execution_date=execution_date or "",
         field_instances=field_instances,
     )
     app = FastAPI(title="Petro-Agent V2", version="2.0", lifespan=lifespan)
