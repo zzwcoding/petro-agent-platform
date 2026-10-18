@@ -39,6 +39,7 @@ from appv2.runtimev2.verification.constants import (
     ATTRIBUTION_NO_ALIGNED,
     ATTRIBUTION_UNCITED_HEAD,
     ATTRIBUTION_UNCITED_MORE,
+    CALIBER_KINDS,
     CARRIER_KINDS,
     CONTRADICTION_EXCLUDED_KINDS,
     DECIMAL_POINT,
@@ -50,6 +51,7 @@ from appv2.runtimev2.verification.constants import (
     ISO_DATE_SEPARATOR,
     LINEAGE_OBSERVATION_KIND,
     MEASURE_GAP,
+    SECTION_MARKS,
     SPLIT_BLOCK_HEAD,
     SPLIT_LINE_TEMPLATE,
     SUBJECT_SEPARATOR,
@@ -94,6 +96,15 @@ def number_tokens(text: str) -> tuple[str, ...]:
     （比对取记号相等，非子串包含——病例 `52` 命中 `1520`，`specs/verification.md:119` 风险 2）。
     判定前文本宜先过 `normalize_for_match`（全角数字／标点先归一，故单位字面也在归一面取）。
     """
+    return _measure_tokens(text)
+
+
+def _measure_tokens(text: str, *, caliber: bool = False) -> tuple[str, ...]:
+    """量值记号扫描单点（`number_tokens`／`caliber_numbers_only` 共用——禁第二份扫描）。
+
+    `caliber=True` 时**册号／节号形不入列**（量值记号前紧邻 `SECTION_MARKS` 者——2026-10-18
+    V2-105；`99 §2.12` 的 `2.12` 是节号、非口径数值）。
+    """
     tokens: list[str] = []
     length = len(text)
     position = 0
@@ -104,9 +115,19 @@ def number_tokens(text: str) -> tuple[str, ...]:
         start = position
         position = _scan_digits(text, start)
         raw = text[start:position]
-        if _is_measure(raw, text, position):
+        if _is_measure(raw, text, position) and not (
+            caliber and _follows_section_mark(text, start)
+        ):
             tokens.append(raw.replace(THOUSANDS_SEPARATOR, ""))
     return tuple(tokens)
+
+
+def _follows_section_mark(text: str, start: int) -> bool:
+    """量值记号起点前紧邻（至多隔 `MEASURE_GAP` 空白）文档结构记号者＝册号／节号形（形态判定）。"""
+    position = start - 1
+    while position >= 0 and text[position] == MEASURE_GAP:
+        position -= 1
+    return position >= 0 and text[position] in SECTION_MARKS
 
 
 def _scan_digits(text: str, start: int) -> int:
@@ -143,8 +164,28 @@ def _is_measure(raw: str, text: str, end: int) -> bool:
 
 
 def observation_tokens(obs: Observation) -> tuple[str, ...]:
-    """观察 `content` 的**计量数值**记号列（归一形上取——同 `number_tokens` 判据）。"""
+    """观察 `content` 的**计量数值**记号列（归一形上取——同 `number_tokens` 判据）。
+
+    **2026-10-18 V2-105**：台账／口径类观察（`locator.kind ∈ CALIBER_KINDS`——**生产实点五
+    kind**）的记号面只取**口径数值**（`caliber_numbers_only`）：册号／节号形（`§` 紧邻的数）不入
+    列——否则引用该卡的纯定性句会因「非承载全须复述」被误删（真机证据＝EB11 `Q27`：唯一观察
+    `ledger｜sem_metric#201` 正文含「99 §2.12」⇒ `('2.12',)` ⇒ 只读声明句被删）。
+    """
+    if locator_kind(obs) in CALIBER_KINDS:
+        return caliber_numbers_only(obs)
     return number_tokens(normalize_for_match(str(obs.get("content", ""))))
+
+
+def caliber_numbers_only(obs: Observation) -> tuple[str, ...]:
+    """台账／口径类观察的**口径数值**记号列（2026-10-18 V2-105）。
+
+    同 `number_tokens` 的量值三形，**但册号／节号形不入列**：量值记号前紧邻（至多隔空白）文档
+    结构记号 `§` 者＝册号／节号（`99 §2.12` 的 `2.12`），不是口径数值——判据面只取 kind 值域
+    （`CALIBER_KINDS`）与结构记号，**零 CJK 词表**（零词表 AST 闸面）。
+    """
+    return _measure_tokens(
+        normalize_for_match(str(obs.get("content", ""))), caliber=True
+    )
 
 
 def locator_kind(obs: Observation) -> str:

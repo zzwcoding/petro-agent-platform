@@ -56,7 +56,7 @@ from appv2.runtimev2.context import (
     trust_of,
     wire_ledger_projection,
 )
-from appv2.runtimev2.context.materials import MAX_REPORT_SEATS_PER_SOURCE
+from appv2.runtimev2.context.materials import _KIND_TRUST, MAX_REPORT_SEATS_PER_SOURCE
 from appv2.runtimev2.state import DIALOGUE_ORIGINS, RunState
 from appv2.tools import (
     LINEAGE_LIMIT_HIT_KEY,
@@ -327,12 +327,18 @@ def test_trust_mapping_closed_world() -> None:
         "term": TRUST_LEDGER,
         "object": TRUST_LEDGER,
         "relation": TRUST_LEDGER,
-        "family_annotation": TRUST_LEDGER,
+        "family": TRUST_LEDGER,
         "fragment": TRUST_REPORT,
         "graph": TRUST_REPORT,
     }
     for kind, trust in closed.items():
         assert trust_of({"locator": {"kind": kind}}) == trust, kind
+    # V2-105（D-d′）｜台账族五键＝**生产实点 `locator.kind`**（真源
+    # `appv2/knowledge/domain.py:28-32` `KIND_ALL`）——旧键 `family_annotation` 与生产 `family`
+    # 永不匹配（族标注卡信任级落默认＝活缺陷），本票改键。
+    assert {"metric", "term", "object", "relation", "family"} <= set(_KIND_TRUST)
+    assert "family_annotation" not in _KIND_TRUST
+    assert _KIND_TRUST["family"] == TRUST_LEDGER
     # notice 名义入表（material 段整体排除）
     assert trust_of({"locator": {"kind": "notice"}}) == "notice"
     # 三种异常输入统一落 report（不抛错）

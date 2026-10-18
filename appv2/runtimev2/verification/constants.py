@@ -9,7 +9,8 @@
   `transport.NOTICE_TYPES`（本模块不私扩该闭世界，写入面把守）；
 - **文本单点**：改写前缀、分列块与归属审块的全部话术只在本模块出现一次（逻辑面零字面表）；
 - **闭世界常量**：`REWRITE_REASONS`（两值）与 `CARRIER_KINDS`／`ATTRIBUTION_CARRIER_KINDS`／
-  `CONTRADICTION_EXCLUDED_KINDS`／`ROWSET_OBSERVATION_KINDS` 四族——形态值集，非语义词表。
+  `CONTRADICTION_EXCLUDED_KINDS`／`ROWSET_OBSERVATION_KINDS`／`CALIBER_KINDS` 五族——形态值集，
+  非语义词表。
 """
 
 from __future__ import annotations
@@ -68,6 +69,19 @@ GAP_UNVERIFIED: GapKind = "unverified"
 
 CARRIER_KINDS: frozenset[str] = frozenset({"agg_row", "lineage", "fragment"})
 
+# ── 口径卡／台账卡记号面（2026-10-18 V2-105——**生产实点五 kind**；真源
+#    `appv2/knowledge/domain.py:28-32` 的 `KIND_ALL`，本块 R6 禁直引引擎故以同值字面落此）──
+# 台账／口径类观察（`metric`／`term`／`object`／`relation`／`family`）的**记号面只取口径数值**：
+# 册号／节号形（文档结构记号 `§` 紧邻的数）不入数值断言面。真机证据＝EB11 `Q27`（
+# `eval/suite-147/results/EB11-归因.md:83`）：唯一观察 `ledger｜sem_metric#201` 正文含
+# 「99 §2.12」⇒ `number_tokens` 回 `('2.12',)` ⇒ 引用该卡的纯定性句（只读声明）被非承载
+# 「全须复述」判无据删句。取值＝**生产实点五 kind**——**非**信任级 `ledger`、**非**
+# `_KIND_TRUST` 旧键 `family_annotation`（两者与生产 `locator.kind` 永不匹配）。形态值集，
+# 非语义词表（零 CJK 词表——零词表 AST 闸面）。
+CALIBER_KINDS: frozenset[str] = frozenset(
+    {"metric", "term", "object", "relation", "family"}
+)
+
 # ── 归属审辖域（行为 5；真源 `recon/A2` R-A2-26——只辖被引**检索片段**
 #    `fragment`／`graph`；数据链行级与元信息不入辖域＝形态值集判定）──────────────────
 
@@ -122,6 +136,9 @@ VALUE_UNITS: tuple[str, ...] = (
 # 量值形两记号（小数点／千分位分隔符——形态记号，非词表）。
 DECIMAL_POINT = "."
 THOUSANDS_SEPARATOR = ","
+# 册号／节号的结构记号（「§」——文档结构记号，**非语义词表**；量值记号前紧邻者＝册号／节号，
+# 不入口径数值面——2026-10-18 V2-105，真机证据＝EB11 `Q27` 的「99 §2.12」）。
+SECTION_MARKS: frozenset[str] = frozenset({"\u00a7"})
 # 记号与单位之间的空白（全角空白经 NFKC 归一为半角空格——`normalize_for_match`）。
 MEASURE_GAP = " "
 

@@ -52,7 +52,7 @@ _KIND_TRUST: dict[str, str] = {
     "term": TRUST_LEDGER,
     "object": TRUST_LEDGER,
     "relation": TRUST_LEDGER,
-    "family_annotation": TRUST_LEDGER,
+    "family": TRUST_LEDGER,
     "fragment": TRUST_REPORT,
     "graph": TRUST_REPORT,
     "notice": "notice",

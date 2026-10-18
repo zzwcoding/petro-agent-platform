@@ -12,7 +12,8 @@
   （`reason` 闭世界 `no_material`｜`conflict`）／`Gap`（**复用 `answering` 的 `Gap` 口径**——字段与
   闭世界逐字同源，核验侧只产 `kind="unverified"`；相位互不 import（R1），故本包自持一份同形形状）；
 - 闭世界与文本单点：`REWRITE_REASONS`／`CARRIER_KINDS`（承载豁免域）／
-  `ATTRIBUTION_CARRIER_KINDS`（归属审辖域）／`ROWSET_OBSERVATION_KINDS`（行集对账面）；
+  `ATTRIBUTION_CARRIER_KINDS`（归属审辖域）／`ROWSET_OBSERVATION_KINDS`（行集对账面）／
+  `CALIBER_KINDS`（台账／口径卡记号面——生产实点五 kind，2026-10-18 V2-105）；
   **改写前缀退役**（2026-10-17 EB3 D3：真无据断言删句、不贴前缀——留痕＝`RewriteRecord` ＋
   `verdict.rewritten` 计数 ＋ `notice`）；核验豁免两类的形态字面（引擎披露行／组头行）与血缘
   五要素段特征字面同为单点常量；**2026-10-17 F1 核验面三件**：`VALUE_UNITS`（数值断言的**计量
@@ -73,6 +74,7 @@
 
 from appv2.runtimev2.verification.constants import (
     ATTRIBUTION_CARRIER_KINDS,
+    CALIBER_KINDS,
     CARRIER_KINDS,
     EVENT_NOTICE,
     EVENT_VERDICT,
@@ -126,6 +128,7 @@ from appv2.runtimev2.verification.models import (
 
 __all__ = [
     "ATTRIBUTION_CARRIER_KINDS",
+    "CALIBER_KINDS",
     "CARRIER_KINDS",
     "EVENT_NOTICE",
     "EVENT_VERDICT",

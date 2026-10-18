@@ -64,6 +64,7 @@ from appv2.runtimev2.transport import (
 )
 from appv2.runtimev2.verification import (
     ATTRIBUTION_CARRIER_KINDS,
+    CALIBER_KINDS,
     CARRIER_KINDS,
     EVENT_NOTICE,
     EVENT_VERDICT,
@@ -1071,7 +1072,8 @@ def test_no_lexicon_or_regex_in_verification() -> None:
 
     # 闭世界取值面全 ASCII（结构取值集，非语义词表——形态值集／闭世界常量）
     closed_world = (
-        CARRIER_KINDS
+        CALIBER_KINDS
+        | CARRIER_KINDS
         | ATTRIBUTION_CARRIER_KINDS
         | ROWSET_OBSERVATION_KINDS
         | GAP_KINDS
@@ -1833,6 +1835,81 @@ async def test_eb9_d12_shape_qualitative_line_kept() -> None:
     # 有数字的行照旧逐记号比对（未被定性放行牵连）
     assert "- 断点深度：1980 米，第 38 根抽油杆杆体（非接头）位置断裂 [7]。" in state.draft
     assert 7 in verdict.cited and 42 in verdict.cited
+
+
+# ---------- V2-105：台账卡／口径卡不入数值断言面（生产实点五 kind）----------
+# 票面＝`tickets/v2/V2-105-台账卡不入数值断言面.md`（L0 裁定 **D-d′**）。判据值域＝**生产实点
+# 五 kind**（真源 `appv2/knowledge/domain.py:28-32` 的 `KIND_ALL`）——**非**信任级 `ledger`、
+# **非** `_KIND_TRUST` 旧键 `family_annotation`（两者与生产 `locator.kind` 永不匹配）。真机证据＝
+# EB11 `Q27`（`eval/suite-147/results/EB11-归因.md:83`）：唯一观察 `ledger｜sem_metric#201` 正文
+# 含「99 §2.12」⇒ `number_tokens` 回 `('2.12',)` ⇒ 引用该卡的纯定性句（只读声明）被非承载
+# 「全须复述」判无据删句。判据＝**kind 值域**（零 CJK 词表——零词表 AST 闸面）。
+
+# 台账／口径卡正文（含册号／节号形——`§` 紧邻的数不入口径数值面）。
+_CALIBER_SECTION_BODY = "「配产量」指标在台账中的绑定态为未绑定，agg 读模型（99 §2.12）未落该列"
+# Q27 形只读声明句（EB11 删句原句逐字：`eval/suite-147/results/EB11-删句原句.jsonl:124`）。
+_Q27_READONLY_LINE = (
+    "该诉求属于数据修改（写入），「问一问」仅提供查询服务，不具备数据写入或修改权限 [1]。"
+)
+
+
+def test_caliber_kinds_production_five_match() -> None:
+    """V2-105-0｜判据值域＝**生产实点五 kind**（非 `ledger`／非 `family_annotation`）。
+
+    真源 `appv2/knowledge/domain.py:28-32` `KIND_ALL`；本块 R6 禁直引引擎，故以同值字面钉此
+    （形态值集，非语义词表）。
+    """
+    assert CALIBER_KINDS == {"metric", "term", "object", "relation", "family"}
+    assert all(value.isascii() for value in CALIBER_KINDS)
+    assert "ledger" not in CALIBER_KINDS
+    assert "family_annotation" not in CALIBER_KINDS
+
+
+@pytest.mark.parametrize("kind", ["metric", "term", "object", "relation", "family"])
+async def test_caliber_kind_section_number_not_deleted(kind: str) -> None:
+    """V2-105-1｜生产五 kind 各 1 测：台账卡定性句**不再**因册号被删（`§` 紧邻的数不入面）。"""
+    observations = [_obs(1, kind, content=_CALIBER_SECTION_BODY, source="sem_metric#201")]
+    state = _state(draft=_Q27_READONLY_LINE, observations=observations)
+    verdict = verify(state, bus=EventBus())
+
+    assert state.draft == _Q27_READONLY_LINE  # 只读声明句保留（修前：`('2.12',)` 全须复述判不过）
+    assert verdict.rewritten == 0
+    assert verdict.supported >= 1
+    assert verdict.ok is True
+
+
+async def test_caliber_value_still_checkable() -> None:
+    """V2-105-2｜口径数值仍可核：口径卡的**计量数值**照旧须复述（对不上照删，防编造不动）。"""
+    observations = [
+        _obs(1, "metric", content="口径：日产油量 21.16 吨（99 §2.12）", source="口径卡A"),
+    ]
+    kept = "该井日产油量为 21.16 吨[1]。"
+    deleted = "该井日产油量为 30 吨[1]。"
+    state = _state(draft="\n".join([kept, deleted]), observations=observations)
+    verdict = verify(state, bus=EventBus())
+
+    assert state.draft.splitlines() == [kept]
+    assert verdict.rewritten == 1 and verdict.supported == 1
+    assert _step_payload(state)[PAYLOAD_REWRITES_KEY] == [
+        {"line": deleted, "reason": REWRITE_NO_MATERIAL}
+    ]
+
+
+async def test_q27_shape_readonly_declaration_kept() -> None:
+    """V2-105-3｜`Q27` 形离线复现：只读声明句保留（`supported` 0→≥1）。
+
+    真机帧形（`eval/suite-147/results/EB11-删句原句.jsonl:124`，run-85605527）：两条 `no_material`
+    ——「无法改为 30 方」句（无引标量值行，照删）＋只读声明句（引台账卡、纯定性，本票救回）。
+    """
+    observations = [_obs(1, "metric", content=_CALIBER_SECTION_BODY, source="sem_metric#201")]
+    refused = "抱歉，N-01 井昨日的日产油量无法改为 30 方。"
+    state = _state(draft="\n".join([refused, _Q27_READONLY_LINE]), observations=observations)
+    verdict = verify(state, bus=EventBus())
+
+    assert _Q27_READONLY_LINE in state.draft  # 只读声明句保留（票面验收 3）
+    assert refused not in state.draft  # 无引标量值行照删（防编造红线不动）
+    assert verdict.supported >= 1  # 修前 0（只读声明句被删）
+    assert verdict.rewritten == 1
 
 
 # ---------- V2-116：核验动作四档（off／observe／repair／delete）----------
