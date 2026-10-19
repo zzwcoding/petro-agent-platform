@@ -1,0 +1,22 @@
+{"qid": "A-正1", "run_id": "run-72ed4d92", "supported": 4, "verify_mode": "observe", "rewrites": []}
+{"qid": "A-正2", "run_id": "run-1ece3b8c", "supported": 1, "verify_mode": "observe", "rewrites": []}
+{"qid": "A-正4", "run_id": "run-95fbfdca", "supported": 6, "verify_mode": "observe", "rewrites": [{"line": "- 防砂筛管类型：精密冲缝筛管（Star-PS 型），筛管外径 5-1/2″，缝密 320 缝/米，挡砂机制按 d10 挡砂比准则设计 [1]。", "reason": "conflict"}, {"line": "- 防砂精度：150 微米（0.15 毫米），按地层砂粒度中值 0.18 毫米的约 0.83 倍取值 [1]。", "reason": "conflict"}, {"line": "- 未采用砾石充填的原因：一是油层均质性较好（层内渗透率变异系数 0.42）；二是充填作业占船日 3.5 天，经济性评价不划算 [1]。邻井参照：W-09 井未下防砂筛管、生产两年余未见出砂，是本井敢于采用筛管适度防砂而非砾石充填的重要参照 [7]。如出砂加剧，预留 20/40 目砾石挤压充填应急预案 [1]。", "reason": "conflict"}, {"line": "- 防砂筛管类型：精密冲缝筛管（Star-PSⅡ 型），筛管外径 5-1/2″，缝密 320 缝/米，基于 d10 挡砂比设计 [18]。", "reason": "conflict"}, {"line": "- 防砂精度：175 微米（0.175 毫米），按地层砂粒度中值 0.21 毫米的约 0.83 倍取值 [18]。", "reason": "conflict"}, {"line": "- 未采用砾石充填的原因：层内均质性较好（变异系数 0.38）；充填作业占船日 4.0 天，经济性不划算 [18]。邻井证据：Y-23 井同层位未防砂投产 8 个月后井口取样见砂；Y-19 井砾石充填生产 19 个月未见砂堵 [17]。如出砂加剧，同样预留 20/40 目砾石挤压充填预案 [18]。", "reason": "conflict"}]}
+{"qid": "A-正6", "run_id": "run-11d7b1ce", "supported": 1, "verify_mode": "observe", "rewrites": []}
+{"qid": "A-正7", "run_id": "run-fd628af7", "supported": 9, "verify_mode": "observe", "rewrites": []}
+{"qid": "A-正8", "run_id": "run-791065b1", "supported": 1, "verify_mode": "observe", "rewrites": [{"line": "**初期日产油量**：W-07 井 2023-05 投产时（完井方式为套管射孔＋筛管），初期日产油 291 m³/d（约 252 吨/日，按地面原油密度 0.865 t/m³ 折算）[3]。", "reason": "no_material"}, {"line": "注：该报告未注明\"目前\"对应的具体日期。如需更精确的近 3 天（2026-10-17~2026-10-19）日产油读数，建议补充检索 W-07 井的生产动态日报或近期月报中针对该井的单井台账——本次材料中尚未见 W-07 井在执行日附近的逐日产油记录。", "reason": "no_material"}]}
+{"qid": "A-反1", "run_id": "run-70665eac", "supported": 1, "verify_mode": "observe", "rewrites": [{"line": "【术语白话】造斜点＝定向井开始偏离垂直方向的那个深度位置（井斜角开始变化的那一点）。", "reason": "no_material"}]}
+{"qid": "A-反2", "run_id": "run-f59e17ec", "supported": 0, "verify_mode": "observe", "rewrites": []}
+{"qid": "A-反3", "run_id": "run-11d18173", "supported": 3, "verify_mode": "observe", "rewrites": []}
+{"qid": "B-正3", "run_id": "run-a1211eb1", "supported": 11, "verify_mode": "observe", "rewrites": []}
+{"qid": "B-正4", "run_id": "run-b31f0979", "supported": 3, "verify_mode": "observe", "rewrites": [{"line": "- **检泵周期：512 天**（作业类别：检泵——杆断）", "reason": "no_material"}]}
+{"qid": "B-反1", "run_id": "run-8f8ea724", "supported": 2, "verify_mode": "observe", "rewrites": []}
+{"qid": "B-反3", "run_id": "run-46aac3fc", "supported": 2, "verify_mode": "observe", "rewrites": []}
+{"qid": "C-正4", "run_id": "run-72847a77", "supported": 10, "verify_mode": "observe", "rewrites": []}
+{"qid": "C-正5", "run_id": "run-e38dbdc7", "supported": 2, "verify_mode": "observe", "rewrites": []}
+{"qid": "C-正6", "run_id": "run-37a5115d", "supported": 8, "verify_mode": "observe", "rewrites": []}
+{"qid": "C-反2", "run_id": "run-88a8ec94", "supported": 6, "verify_mode": "observe", "rewrites": []}
+{"qid": "C-观察", "run_id": "run-f16e9476", "supported": 3, "verify_mode": "observe", "rewrites": []}
+{"qid": "D-诱2", "run_id": "run-e33ddcff", "supported": 6, "verify_mode": "observe", "rewrites": []}
+{"qid": "D-诱3", "run_id": "run-b177aabc", "supported": 9, "verify_mode": "observe", "rewrites": []}
+{"qid": "D-诱5", "run_id": "run-6bdb21e6", "supported": 5, "verify_mode": "observe", "rewrites": [{"line": "- 「产量完成率」一律使用该名称；旧称「老完成率」（v1 口径，不含自用油折算）在 2024 年已停用，报表中不再出现[8]。", "reason": "no_material"}]}
+{"qid": "D-诱6", "run_id": "run-3f1047a7", "supported": 5, "verify_mode": "observe", "rewrites": []}

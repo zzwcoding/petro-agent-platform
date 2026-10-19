@@ -1,0 +1,13 @@
+{"qid": "B-正3", "run_id": "run-a1211eb1", "supported": 11, "verify_mode": "observe", "rewrites": []}
+{"qid": "B-正4", "run_id": "run-b31f0979", "supported": 3, "verify_mode": "observe", "rewrites": [{"line": "- **检泵周期：512 天**（作业类别：检泵——杆断）", "reason": "no_material"}]}
+{"qid": "B-反1", "run_id": "run-8f8ea724", "supported": 2, "verify_mode": "observe", "rewrites": []}
+{"qid": "B-反3", "run_id": "run-46aac3fc", "supported": 2, "verify_mode": "observe", "rewrites": []}
+{"qid": "C-正4", "run_id": "run-72847a77", "supported": 10, "verify_mode": "observe", "rewrites": []}
+{"qid": "C-正5", "run_id": "run-e38dbdc7", "supported": 2, "verify_mode": "observe", "rewrites": []}
+{"qid": "C-正6", "run_id": "run-37a5115d", "supported": 8, "verify_mode": "observe", "rewrites": []}
+{"qid": "C-反2", "run_id": "run-88a8ec94", "supported": 6, "verify_mode": "observe", "rewrites": []}
+{"qid": "C-观察", "run_id": "run-f16e9476", "supported": 3, "verify_mode": "observe", "rewrites": []}
+{"qid": "D-诱2", "run_id": "run-e33ddcff", "supported": 6, "verify_mode": "observe", "rewrites": []}
+{"qid": "D-诱3", "run_id": "run-b177aabc", "supported": 9, "verify_mode": "observe", "rewrites": []}
+{"qid": "D-诱5", "run_id": "run-6bdb21e6", "supported": 5, "verify_mode": "observe", "rewrites": [{"line": "- 「产量完成率」一律使用该名称；旧称「老完成率」（v1 口径，不含自用油折算）在 2024 年已停用，报表中不再出现[8]。", "reason": "no_material"}]}
+{"qid": "D-诱6", "run_id": "run-3f1047a7", "supported": 5, "verify_mode": "observe", "rewrites": []}

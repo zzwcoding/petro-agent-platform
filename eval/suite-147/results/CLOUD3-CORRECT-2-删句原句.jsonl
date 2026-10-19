@@ -1,0 +1,22 @@
+{"qid": "D-诱7", "run_id": "run-1c9687fe", "supported": 6, "verify_mode": "observe", "rewrites": []}
+{"qid": "D-诱8", "run_id": "run-e8d8a9af", "supported": 4, "verify_mode": "observe", "rewrites": []}
+{"qid": "D-诱9", "run_id": "run-f34c12fe", "supported": 3, "verify_mode": "observe", "rewrites": [{"line": "2. 最短（W-24，295 天）比最长（W-22，521 天）短 **226 天** [6]。", "reason": "no_material"}]}
+{"qid": "D-诱10", "run_id": "run-bb515d1c", "supported": 5, "verify_mode": "observe", "rewrites": []}
+{"qid": "D-诱12", "run_id": "run-9cc0515f", "supported": 7, "verify_mode": "observe", "rewrites": [{"line": "- **断口检查**：本次材料未给出 W-22 井断口本身（端口形貌、疲劳纹走向等微观检查结果）的逐项文字；报告仅说明了宏观归因（井段狗腿度大、杆柱居中不足、偏磨），未列断口本身的口径检查记录。检泵周期 521 天 [16]。", "reason": "no_material"}]}
+{"qid": "D-诱14", "run_id": "run-43bd954c", "supported": 6, "verify_mode": "observe", "rewrites": []}
+{"qid": "D-诱15", "run_id": "run-9a5c60f9", "supported": 7, "verify_mode": "observe", "rewrites": [{"line": "三季度合计 41.4 万m³ − 二季度增量 3.2 万m³ ＝ 推算二季度季度合计约 38.2 万m³（口径：累积亏空差值反推，与题面所列\"二季度合计 40.2 万方\"不一致——题面 40.2 万方与本次材料反推的 38.2 万方相差 2.0 万方）。", "reason": "no_material"}, {"line": "- 若以题面给出的\"二季度合计 40.2 万方\"为准，则三季度 41.4 万方比 40.2 万方**多了 1.2 万方**（差 1.2 万方，与本次材料的 3.2 万方累积差值不一致——分歧点在于二季度口径的取值）。", "reason": "no_material"}, {"line": "- 二季度合计注水量的统计口径/来源（即题面 40.2 万方出自哪份报告或哪个口径）。", "reason": "no_material"}]}
+{"qid": "SYS-1", "run_id": "run-b35a4959", "supported": 0, "verify_mode": "observe", "rewrites": [{"line": "依据平台术语台账，「老完成率」是对应指标「产量完成率」的旧称/口语说法，定义口径（这个数是按什么规则算的）为：Σ实际产油 ÷ Σ计划配产 × 100%，粒度月/区块·油田，单位 %。但该指标的数值需要经检索执行取得，目前本轮没有可引用的观察材料。", "reason": "no_material"}, {"line": "- 指明时间窗：例如「近 30 天」「2025 年全年」「2026-09 当月」——您原题未带时间词，平台会按近 30 天（2026-09-19 至 2026-10-19）默认取数，若与您想查的时段不符，请告知；", "reason": "no_material"}]}
+{"qid": "SYS-2", "run_id": "run-c6ca41e1", "supported": 1, "verify_mode": "observe", "rewrites": []}
+{"qid": "SYS-3", "run_id": "run-bb57928e", "supported": 3, "verify_mode": "observe", "rewrites": []}
+{"qid": "SYS-5", "run_id": "run-1cad3986", "supported": 6, "verify_mode": "observe", "rewrites": []}
+{"qid": "数-排2", "run_id": "run-4033d3c2", "supported": 2, "verify_mode": "observe", "rewrites": []}
+{"qid": "数-排3", "run_id": "run-fc048932", "supported": 4, "verify_mode": "observe", "rewrites": []}
+{"qid": "数-限1", "run_id": "run-ac974250", "supported": 31, "verify_mode": "observe", "rewrites": []}
+{"qid": "数-闸2", "run_id": "run-5cc16288", "supported": 0, "verify_mode": "observe", "rewrites": [{"line": "近 7 天各井日产液量是多少？答：所问窗（2026-10-12～2026-10-18，共 7 天）内查无数据——该时段各井日产液量（口径：日产计量·班次合计日口径，单位：方）无返回行；本字段台账已绑定可出数（数据源 agg.fct_daily_metering.liquid_output）。", "reason": "no_material"}, {"line": "另告：数据水位截至 2026-08-31，本次执行日 2026-10-19，已晚于水位约 7 周，引擎按窗直接落库未做外推；如需近 7 天的实际生产数据，建议改问 2026-08-25～2026-08-31 一周的日产液量，或补充您期望覆盖的起止日期。", "reason": "no_material"}]}
+{"qid": "数-反1", "run_id": "run-ea03cbf2", "supported": 51, "verify_mode": "observe", "rewrites": [{"line": "- 若需要看 2026-08-29~2026-08-31 三日数据或按井列出整窗序列，请按「区块+井号」或「整窗全量」再发起一次（例如按 X-22 单独查整窗序列，可观察到其 2026-08-28 为 0 吨的原因）。", "reason": "no_material"}]}
+{"qid": "数-降1", "run_id": "run-dfc7f885", "supported": 1, "verify_mode": "observe", "rewrites": [{"line": "- s1（去年各井含水率）：无支撑。材料中只有含水率指标定义卡 [1] 与综合含水率指标卡 [2]，未含 2025 年各井含水率数值；其它切片均为注水测试、防砂设计与月报生产统计，与该问题无关。", "reason": "no_material"}, {"line": "- 综合含水率（按区块／油田月汇总）为另一独立指标，本次材料也未载其 2025 年数值 [2]。", "reason": "no_material"}]}
+{"qid": "数-降2", "run_id": "run-78154a3e", "supported": 4, "verify_mode": "observe", "rewrites": []}
+{"qid": "数-察1", "run_id": "run-82f885f0", "supported": 0, "verify_mode": "observe", "rewrites": [{"line": "本次材料中无各井日产油量的数据行：默认近 30 天窗口（2026-09-19 至 2026-10-19）执行查询，未返回任何日产油量记录，故无法给出各井日产油量。", "reason": "no_material"}]}
+{"qid": "NQ-C1", "run_id": "run-a141626e", "supported": 8, "verify_mode": "observe", "rewrites": []}
+{"qid": "NQ-C9", "run_id": "run-d4c48c35", "supported": 9, "verify_mode": "observe", "rewrites": []}
+{"qid": "NQ-D1", "run_id": "run-2785f28a", "supported": 9, "verify_mode": "observe", "rewrites": []}

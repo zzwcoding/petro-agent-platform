@@ -1,0 +1,10 @@
+{"qid": "Q22", "run_id": "run-3ae85419", "supported": null, "verify_mode": null, "rewrites": []}
+{"qid": "Q27", "run_id": "run-b6d7544a", "supported": 1, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q28", "run_id": "run-698d20e2", "supported": null, "verify_mode": null, "rewrites": []}
+{"qid": "Q29", "run_id": "run-92d13028", "supported": 2, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q31", "run_id": "run-bd04b8a1", "supported": 3, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q32", "run_id": "run-66c4cb9f", "supported": 1, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q36", "run_id": "run-2ecfe6f7", "supported": 2, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q42", "run_id": "run-6ad400ea", "supported": 0, "verify_mode": "observe", "rewrites": [{"line": "按近 30 天窗（口径）取数（2026-09-19 至 2026-10-18），查询已执行成功，但窗内查无日产油量（按井按日计量的日产油）数据行，无可引用的排名或合计行可读——本次材料未覆盖该窗内新井/老井的日产油量对比与贡献数据，无法判断哪一类井在拖产量后腿。", "reason": "no_material"}, {"line": "- 明确井号范围（如「CEP-C 平台近 30 天新井 vs 老井日产油对比」）；", "reason": "no_material"}, {"line": "- 或指定油田/区块（如「渤中 34-5 油田近 30 天」）；", "reason": "no_material"}, {"line": "- 或指定更稳定的时间窗（如「上月 2026-07-01～2026-08-01」「7 月」——当前数据水位为 2026-08-31，9 月起的近 30 天窗在平台里暂无可用数据；上月窗更可能落在数据水位之前并有产出）。", "reason": "no_material"}]}
+{"qid": "Q43", "run_id": "run-33eebdeb", "supported": 6, "verify_mode": "observe", "rewrites": []}
+{"qid": "Q45", "run_id": "run-d75aee47", "supported": 3, "verify_mode": "observe", "rewrites": []}
