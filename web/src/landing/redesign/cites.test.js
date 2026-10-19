@@ -5,16 +5,19 @@
  * - 「引用了 N 篇文档」的 N＝**去重来源数**（同文档多支切片算 1 篇）——真机
  *   EB4-数-明2（51 支引用来自 2 处来源）与 EB3-数-降1（16 支来自 5 处）两形都钉
  *   （素材＝__fixtures__/turns.js 真帧夹具的归约输出——FIXTURE_TURNS 条目＝{id, turn, durationS}）。
- * - trust 四值→白话徽标；未知值原样回显（不外推、不编）。
+ * - trust 四值闭世界表（键集＝机读判据；白话值仅留档，徽标已不上屏——Owner 2026-10-19 打磨批⑩）。
  * - 追加面文本切分：`[n]` 起头＝新条目；真机 split 的续行（含全角空格表格行）并入上一条；
  *   条目行「来源」抽取处理 `[n] {source}：{正文}` 与 `[n] 《报告》 · f15：{正文}` 两形。
+ * - 引用块回读（parseCitations）：历史读口无 citation 帧，只余收口增补面文本——按行形投回
+ *   `{index, source, source_id, trust}` 四键（真源 core.py:209 `[{seq}] {source} · {source_id}（{trust}）`）；
+ *   段头「引用：」跳过；尾括号值不在 trust 闭世界内＝不剥（留在出处编号里，不误切）；无 ` · `＝编号空串。
  * - 追问链归属：followup_of 逐跳上溯取根（空串/窗口外＝到顶）、成环不死循环、分组口径
  *   （链内升序＋latest＝最新轮、链序按最新轮降序）——左栏一链一行与页面拉链的同一真源。
  */
 /** @vitest-environment jsdom */
 import { describe, expect, it } from 'vitest'
 
-import { chainRootId, citeSourceCount, groupCitations, groupRunsIntoChains, parseSupplement, trustLabel } from './cites.js'
+import { chainRootId, citeSourceCount, groupCitations, groupRunsIntoChains, parseCitations, parseSupplement, TRUST_TEXT } from './cites.js'
 import { FIXTURE_RUNS } from './__fixtures__/runs.js'
 import { FIXTURE_TURNS } from './__fixtures__/turns.js'
 
@@ -38,13 +41,9 @@ describe('cites · 引用去重分组与 trust 白话', () => {
     expect(SPLIT.citations).toHaveLength(16)
   })
 
-  it('trust 四值→白话徽标；未知值原样回显、空值「来源未标注」', () => {
-    expect(trustLabel('authoritative')).toBe('权威台账')
-    expect(trustLabel('ledger')).toBe('台账')
-    expect(trustLabel('report')).toBe('报告')
-    expect(trustLabel('notice')).toBe('系统注记')
-    expect(trustLabel('weird')).toBe('weird')
-    expect(trustLabel('')).toBe('来源未标注')
+  it('trust 四值闭世界表＝机读判据（键集）＋白话留档（值不上屏——Owner 2026-10-19 打磨批⑩）', () => {
+    expect(Object.keys(TRUST_TEXT)).toEqual(['authoritative', 'ledger', 'report', 'notice'])
+    expect(TRUST_TEXT.authoritative).toBe('权威台账') // 白话值仅留档：徽标已不上屏（组件面零消费）
   })
 })
 
@@ -81,6 +80,48 @@ describe('cites · 程序追加面文本切分（禁硬匹配块头，只按行�
   it('空文本＝空 head 空 items（空态不造数据）', () => {
     expect(parseSupplement(null)).toEqual({ head: '', items: [] })
     expect(parseSupplement('')).toEqual({ head: '', items: [] })
+  })
+})
+
+describe('cites · 引用块回读（历史读口增补面 → citation 帧四键形）', () => {
+  it('真机 citations 形（[n] 来源 · 出处编号（trust））：段头「引用：」跳过、逐行投四键、index 转数', () => {
+    const text = '引用：\n'
+      + '[1] agg.fct_daily_metering · N-01@2026-08-01（authoritative）\n'
+      + '[2] table_schema 白名单读面 · 表 agg.fct_daily_metering（日产计量事实表·PK well_id+prod_date）（report）\n'
+      + '[5] sem_metric#201 · 201（ledger）'
+    expect(parseCitations(text)).toEqual([
+      { index: 1, source: 'agg.fct_daily_metering', source_id: 'N-01@2026-08-01', trust: 'authoritative' },
+      {
+        index: 2,
+        source: 'table_schema 白名单读面',
+        source_id: '表 agg.fct_daily_metering（日产计量事实表·PK well_id+prod_date）',
+        trust: 'report'
+      },
+      { index: 5, source: 'sem_metric#201', source_id: '201', trust: 'ledger' }
+    ])
+  })
+
+  it('notice 形（程序声明）：来源含全角括号、出处编号 window_note——trust=notice 照剥', () => {
+    expect(parseCitations('[17] 检索供给窗声明（截断显式） · window_note（notice）')).toEqual([
+      { index: 17, source: '检索供给窗声明（截断显式）', source_id: 'window_note', trust: 'notice' }
+    ])
+  })
+
+  it('尾括号值不在 trust 闭世界内＝不剥（留在出处编号里，不误切）；无 ` · `＝编号空串', () => {
+    expect(parseCitations('[3] 《N-02 完井报告》 · f3（2 完井段）')).toEqual([
+      { index: 3, source: '《N-02 完井报告》', source_id: 'f3（2 完井段）', trust: '' }
+    ])
+    expect(parseCitations('[4] 一段没有分隔的出处')).toEqual([
+      { index: 4, source: '一段没有分隔的出处', source_id: '', trust: '' }
+    ])
+  })
+
+  it('非 `[n]` 起头的行（段头/续行）不进条目；空文本＝空数组（空态不造数据）', () => {
+    expect(parseCitations('引用：\n说明行\n[1] A · 1（report）')).toEqual([
+      { index: 1, source: 'A', source_id: '1', trust: 'report' }
+    ])
+    expect(parseCitations(null)).toEqual([])
+    expect(parseCitations('')).toEqual([])
   })
 })
 

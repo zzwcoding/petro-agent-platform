@@ -28,8 +28,8 @@
 > 2026-10-17 二次调研补强（刷新一致性专项）：**数据都已落库，缺的是 HTTP 读口，补读口＝暴露已有数据，非新增存储**。证据：`agent_v2_blackbox` 行含 20 白名单键（`observations`/`notices`/`answer`/`verdict`…，`appv2/runtimev2/persistence/models.py:58-87`）；`agent_v2_checkpoint` 含整个 RunState JSON（含 observations/notices，`persistence/checkpoint.py:57-59`）；`store.blackbox()` 读口已存在（`persistence/store.py:175-184`）只是无 API 挂。挂起态尚未写黑匣子（终态才写，`orchestration/runtime.py:470-486`），挂起还原走 `store.load().observations`。
 
 1. **历史回读无 citations/materials 配对 + 无 notice 带 + 无 blackbox 统计行**（`appv2/api/chat.py:142-160,333-369`）
-   - 现状：`GET /runs` 只有 `answer + supplements`；`GET /runs/{id}` 只有 `steps[].payload`（citations 只是序号数组、manifest 是整批材料数组，配不出 per-citation 的 source/source_id/trust/content）。刷新后看已完成对话时：正文✅、血缘/追加面文本✅（新 run）、**引用面板❌、notice 带❌、统计行❌**。
-   - 前端 workaround：历史轮引用面板与 notice 带如实隐藏 + 灰字「历史记录无引用/提示明细」，统计行只出核验计数（verify 步 payload 有）。
+   - 现状：`GET /runs` 只有 `answer + supplements`；`GET /runs/{id}` 只有 `steps[].payload`（citations 只是序号数组、manifest 是整批材料数组，配不出 per-citation 的 source/source_id/trust/content）。刷新后看已完成对话时：正文✅、血缘/追加面文本✅（新 run）、**引用面板✅（2026-10-19 起由前端从 `supplements.citations`/`attribution` 回读——见下 workaround）**、notice 带❌、统计行❌。
+   - 前端 workaround：**引用面已由前端自行回读补齐**（2026-10-19 打磨批⑨：`historyAdapter` 从 `supplements.citations`（`[n] 来源 · 出处编号（trust）`）与 `supplements.attribution`（`[n] 来源：观察正文`）两块文本投回 citations/materials——历史轮引用面板与正文 `[n]` 悬停卡与 live 同路）；notice 带仍如实隐藏、统计行只出核验计数（verify 步 payload 有）。**本条的剩余价值＝notice 带／blackbox 统计行 ＋ 单来源轮的逐条切片正文**（无 attribution 块时悬停卡正文走 E1 占位）。
    - 期望（本窗口后续施工——Owner 2026-10-17 拍板后端改动归本窗口；目标契约对账 D-4）：**读口区分旧行与无块新轮**——空列如实出 `[]`、`null` 仅旧行（`chat.py:218` 的 `[...] or None` 改为按列存在性判），或 `RunListItem` 加机读位。误标实证：真机 `eval/results/frames/EB3-NQ-C3.json`（completed／0 observation／无 supplement 帧的新 run）现状会被误标 legacy=true。施工排序：后端修复票（BE-01）须收在 FE-04 真接之前；前端 FE-02 按目标契约实现（null→legacy），不等待。挂起态取数注意黑匣子尚未写（见上）。
 2. ~~无权威耗时字段~~ **已砍**（2026-10-17 Owner 拍板「耗时不需要」）：折叠条时长维持前端本地计时＋标注，后端不加 `duration_ms`。登记防复活。
 3. **`citation.source_id` 无解析路径**（值形如 `f4`/`ensum-ec4b163075f1`）

@@ -11,7 +11,7 @@
 | A2 | **剥离误伤空稿＋动作 JSON 回声链＋notice 文案失实**（P0-1B） | 后端需求文档 P0；step seq=13「剥离后空稿」实证；涉 `clarification/core.py:175-183`（动作 JSON 不写进送模型链）、`answering/emission.py:93-98`（finalize 形回退取 answer 字段）、`answering/constants.py:121-123`（文案改如实） | 回吐 finalize 形不再零交付 |
 | A3 | **:8001 进程重启加载 BE-01**（Owner 择机） | 运行进程载 `fbe2e0b`（BE-01 修复前）；重启后内存历史行清空（见 A4） | 重启＋验证新 run 不再误标 legacy |
 | A4 | **PG alembic upgrade head（0026/0027）＋真件接线** | PG 实查 alembic_version=0025、`agent_v2_run` 无 supplements 列；进程现挂内存件（`app.py:394`），run 不落库、重启即丢历史 | 升级 migration＋接线真件（主窗装配线既有登记项，BE-01 收尾报告挂账过） |
-| A5 | **历史读口补 citations/materials/notices/blackbox**（P1-1） | 后端需求文档 P1-1；数据已落库（黑匣子 20 键/检查点全量），补读口＝暴露已有存储；前端组件零改动自动满血 | 历史轮引用面板/统计行复活 |
+| A5 | **历史读口补 citations/materials/notices/blackbox**（P1-1） | 后端需求文档 P1-1；数据已落库（黑匣子 20 键/检查点全量），补读口＝暴露已有存储；前端组件零改动自动满血。**2026-10-19 前端已先行回读投影**（打磨批⑨：`historyAdapter` 从 `supplements.citations`／`attribution` 两块文本投回 citations/materials——历史轮引用面板与正文 `[n]` 悬停卡已复活）；本条收窄为**notice 带／blackbox 统计行**＋**单来源轮切片正文**（无 attribution 块时卡正文仍走「材料未在回合内渲染」占位） | 历史轮 notice 带/统计行复活（引用面已复活） |
 | A6 | **`citation.source_id`→原文定位读口**（P1-3，Wekenora 式点引标开全文） | 后端需求文档 P1-3；需检索/摄取面位置锚点落库＋api 读口，工程量大，另票 | 远期能力 |
 | A7 | **notice 白话化全量＋lineage 白话五要素**（P2-4/5） | 主窗 EB5 白话化批在跑，自然演进；前端已按「纯透传」消费，无前端动作 | 随 EB5 批收口 |
 

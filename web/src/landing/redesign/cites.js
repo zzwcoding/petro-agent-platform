@@ -12,6 +12,11 @@
  * - 条目行内「来源」抽取：取首个 `：` 之前的片段，若片段含 ` · `（真机 split 形
  *   `《报告》 · f15：正文`）再取最后一个 ` · ` 之前的来源名——取不到来源＝空串
  *   （渲染方归「来源未标注」，不伪造）。
+ * - **引用块回读**（`parseCitations`）：历史读口无 citations 帧面，只有收口时程序落账的
+ *   `supplement{block:'citations'}` 文本（真源 `appv2/runtimev2/answering/core.py:209`
+ *   `[{seq}] {source} · {source_id}（{trust}）`）。本函数把它投回 citation 帧四键形——
+ *   这是**投影读口已有的面**（同源同数据），不是补造；投影后历史轮与真流轮的引用面同形，
+ *   正文 `[n]` 悬停卡／右栏引用清单在历史轮上照常可用。
  * - **追问链归属**（followup_of 上溯取根／按根成链）也放本件——左栏 ThreadList 的「一链一行」
  *   分组与真流页 A1V2R 的选中拉链（collectChain）共用同一根语义，单点真源不各写一份。
  */
@@ -131,4 +136,43 @@ export function parseSupplement(text) {
     items[items.length - 1].text += '\n' + line
   }
   return { head: head.join('\n'), items }
+}
+
+/** trust 闭世界（引用块尾括号只在此集内才当 trust 剥——否则原样留在出处编号里，不误切）。 */
+const TRUST_VALUES = new Set(Object.keys(TRUST_TEXT))
+
+/** 尾括号（全角／半角）——`（authoritative）` 形。 */
+const TRUST_TAIL_RE = /[（(]([^（）()]*)[）)]\s*$/
+
+/**
+ * 引用块文本（`supplement{block:'citations'}`）→ 引用帧数组（与 `citation` 帧同四键形：
+ * `{index, source, source_id, trust}`，按 index 升序——服务端 `_cited_seqs` 已去重升序）。
+ *
+ * 行形＝`[n] <来源> · <出处编号>（<trust>）`（真源 `core.py:209`）：
+ * - 段头「引用：」等非 `[n]` 起头的行跳过（块头字面随演进会变，禁硬匹配——只认行形）；
+ * - 尾括号值在 trust 闭世界内才剥作 trust，否则整段留在出处编号里（不猜不误切）；
+ * - 无 ` · ` 分隔＝整段当来源、出处编号空串（如实空，不编）。
+ * 空文本＝空数组（空态不造数据）。
+ */
+export function parseCitations(text) {
+  const out = []
+  for (const raw of String(text ?? '').split('\n')) {
+    const m = /^\[(\d+)\]\s*(.*)$/.exec(raw.replace(/[ \t]+$/, ''))
+    if (!m) continue
+    let body = m[2].trim()
+    let trust = ''
+    const tail = TRUST_TAIL_RE.exec(body)
+    if (tail && TRUST_VALUES.has(tail[1].trim())) {
+      trust = tail[1].trim()
+      body = body.slice(0, tail.index).trim()
+    }
+    const dot = body.lastIndexOf(' · ')
+    out.push({
+      index: Number(m[1]),
+      source: (dot >= 0 ? body.slice(0, dot) : body).trim(),
+      source_id: dot >= 0 ? body.slice(dot + 3).trim() : '',
+      trust
+    })
+  }
+  return out
 }

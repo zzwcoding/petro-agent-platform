@@ -6,8 +6,11 @@
  *   runView.steps→steps（station←step、title 原样、StepView 其余字段不携带）、
  *   supplements 按 block 分四槽（strip 后原文）、runStatus←listItem.status、
  *   closed  completed/failed→'done'（其余 null）、askFrame←runView.pending_ask；
- * - `history_legacy_flag`：citations/materials/notices/events/understanding 恒空（读口无此面，
- *   适配器不补造数据）；supplements=null→legacy=true（旧版行——BE-01 前真形）、
+ * - `history_citations_projection`（2026-10-19 修）：读口无 citation/observation 帧，但收口
+ *   增补面已落同一批数据——`citations` 块投回 citations 四键（正文 [n] 悬停卡与右栏引用清单
+ *   在历史轮上照常可用）、`attribution` 块投回 materials 逐条正文；无块＝空（不补造）；
+ * - `history_legacy_flag`：notices/events/understanding 恒空（读口无此面，适配器不补造数据）；
+ *   supplements=null→legacy=true（旧版行——BE-01 前真形）、
  *   supplements=[]→legacy=false（BE-01 目标契约：后端空列如实出 []，前端先行）。
  *
  * 素材：RunListItem/RunView 字段形＝appv2/api/chat.py:120-160（StepView/RunView/RunListItem；
@@ -69,6 +72,14 @@ describe('historyAdapter · list_item_to_turn（RunListItem(+RunView)→TurnShap
     })
     expect(turn.runStatus).toBe('completed') // runStatus←listItem.status
     expect(turn.closed).toBe('done') // completed→closed='done'（H3；phase 渲染期 phaseOf 派生）
+    // 引用块回读投影：citations 块 → citation 帧四键（与 live 归约器输出同形）
+    expect(turn.citations).toEqual([
+      { index: 1, source: 'agg.fct_daily_metering', source_id: 'N-01@2026-01-01', trust: 'authoritative' }
+    ])
+    // attribution 块回读投影：逐条观察正文 → materials（悬停卡正文面）
+    expect(turn.materials).toEqual([
+      { index: 1, source: 'agg.fct_daily_metering', content: '值' }
+    ])
     expect(turn.legacy).toBe(false)
     expect(turn.ignoredCount).toBe(0)
     expect(turn.verdicts).toEqual([])
@@ -91,7 +102,7 @@ describe('historyAdapter · list_item_to_turn（RunListItem(+RunView)→TurnShap
 })
 
 describe('historyAdapter · history_legacy_flag（读口无此面恒空＋legacy 标记）', () => {
-  it('citations/materials/notices/events/understanding 恒空（不补造数据）；supplements=null→legacy=true', () => {
+  it('旧版行（supplements=null）：citations/materials 空（无增补面可回读）；notices/events 恒空', () => {
     const turn = adaptHistoryTurn(
       {
         run_id: 'run-307959ec', question: '什么是躺井？', status: 'completed',
@@ -100,7 +111,7 @@ describe('historyAdapter · history_legacy_flag（读口无此面恒空＋legacy
       },
       null
     )
-    expect(turn.citations).toEqual([])
+    expect(turn.citations).toEqual([]) // 无 citations 块＝空（正文内嵌旧式块不解析——不冒充帧面）
     expect(turn.materials).toEqual([])
     expect(turn.notices).toEqual([])
     expect(turn.events).toEqual([])
@@ -110,11 +121,22 @@ describe('historyAdapter · history_legacy_flag（读口无此面恒空＋legacy
     expect(turn.answerText).toContain('引用：') // 旧式块文本原样保留（不解析不洗白）
   })
 
-  it('supplements=[]→legacy=false（BE-01 目标契约——后端空列如实出 []，前端先行）', () => {
+  it('supplements=[]→legacy=false（BE-01 目标契约——后端空列如实出 []，前端先行）；无块＝引用/材料空', () => {
     const turn = adaptHistoryTurn(
       { ...LIST_ITEM, supplements: [] }, null
     )
     expect(turn.legacy).toBe(false)
     expect(turn.supplements).toEqual({}) // 无块新轮——键全缺
+    expect(turn.citations).toEqual([]) // 无块＝空（空态不造数据）
+    expect(turn.materials).toEqual([])
+  })
+
+  it('单来源轮（无 attribution 块）＝materials 空、citations 照出——悬停卡正文如实走空态', () => {
+    const turn = adaptHistoryTurn({
+      ...LIST_ITEM,
+      supplements: [{ block: 'citations', text: '引用：\n[1] sem_term#4 · 4（ledger）' }]
+    }, null)
+    expect(turn.citations).toEqual([{ index: 1, source: 'sem_term#4', source_id: '4', trust: 'ledger' }])
+    expect(turn.materials).toEqual([]) // 不补造切片正文
   })
 })
