@@ -6,7 +6,7 @@
 
 ## 目标
 
-把问一问V2 的答案面从「纯正文＋机器腔右栏」重设计为**串行链条版面**：每轮＝用户输入→系统执行流水线（可折叠 typed 事件流）→系统回答（正文＋血缘卡＋统计小字；**追加面于 2026-10-17 打磨批②从中栏移除**——split 只留右栏），让油田业务用户能看懂系统在干什么、数字从哪来。
+把问一问V2 的答案面从「纯正文＋机器腔右栏」重设计为**串行链条版面**：每轮＝用户输入→系统执行流水线（可折叠 typed 事件流）→系统回答（正文＋统计小字；**追加面于 2026-10-17 打磨批②从中栏移除**——split 只留右栏；**血缘／查询口径框于 2026-10-19 打磨批⑨从中栏移除**——同一张 LineageCard 只在右栏「引用与口径」出一份），让油田业务用户能看懂系统在干什么、数字从哪来。
 
 ## 不做什么
 
@@ -95,18 +95,19 @@ TurnShape {
 
 **三场景归一（H 组）**
 - H1 live 与 replay 走同一 reducer 同一形状（replay 帧序与原流逐字节相同——真源 `specs/transport.md` 行为 13 衔接面，此处只引用）。
-- H2 historyAdapter：answer→answerText；supplements 非 null→supplements 四槽（按 block 分派，同 G1）；runView.steps→steps（station←step、title 原样）；**citations/materials/notices/events/understanding 恒为空**（读口无此面——真源 `appv2/api/chat.py` list_runs/RunView）。
+- H2 historyAdapter：answer→answerText；supplements 非 null→supplements 四槽（按 block 分派，同 G1）；runView.steps→steps（station←step、title 原样）；**notices/events/understanding 恒为空**（读口无此面——真源 `appv2/api/chat.py` list_runs/RunView）。**citations/materials 不恒空**（2026-10-19 打磨批⑨）：读口无 citation/observation 帧，但收口增补面已落同一批数据——`citations` 块（`[n] 来源 · 出处编号（trust）`，真源 `answering/core.py:209`）按行形投回 citations 四键、`attribution` 块（`[n] 来源：观察正文`，仅跨 ≥2 处来源时产出）投回 materials 逐条正文；**投影读口已有的面，不是补造**（无块＝空；单来源轮无 attribution＝materials 空，悬停卡正文走 E1 占位）。
 - H3 history 轮 `phase='done'`、`closed='done'`、runStatus←listItem.status。
 - H4 `legacy` 标记：listItem.supplements 为 null→`legacy=true`（旧版轮，正文可能内嵌旧式块文本，原样渲染不解析）；非 null→`legacy=false`。
 - H5 展示组件对 TurnShape 渲染**零场景分支**：同一组件同一 props 路径，缺数据走空态纪律（不渲染该展示位），不判 `kind`。
 
 **降级与空态（E 组）**
 - E1 引用面板：citation 无配对 observation→「材料未在回合内渲染」占位（不虚构）；整轮无引用→「本回合无引用」。
-- E2 血缘卡：`supplements.lineage` 与 materials[].payload.lineage 都无→不渲染（非数据题）。
+- E2 血缘卡：`supplements.lineage` 与 materials[].payload.lineage 都无→不渲染（非数据题）。**唯一出现处＝右栏「引用与口径」**（中栏不再出——打磨批⑨）。
 - E3 notice 未知 type→兜底行照给，不静默丢弃；B/C/未登记三级的行形＝**灰纯文本紧凑行**（「⚙ 系统注记（type）· 点开看原文」，点开内联原文、再点收起；原 antd Collapse 边框盒按 Owner 2026-10-17 打磨批⑥退场），A 级仍是红/黄彩条行。
-- E4 history 轮：引用面板/notice 带/blackbox 小字无数据源→该展示位不渲染；legacy 形状保留（正文内嵌旧式「引用：」块原样渲染），**不再出旧版说明句**（原灰字〔「本轮为旧版记录，无引用/口径明细」〕按 Owner 2026-10-17 打磨批去行话撤下——形状留、话不说）。
+- E4 history 轮：notices 带/blackbox 小字无数据源→该展示位不渲染；**引用面板有数据源**（citations/materials 由 H2 回读投影——正文 `[n]` 悬停卡与右栏引用清单在历史轮上与 live 同路）；legacy 形状保留（正文内嵌旧式「引用：」块原样渲染，且该轮不做回读投影——不冒充帧面），**不再出旧版说明句**（原灰字〔「本轮为旧版记录，无引用/口径明细」〕按 Owner 2026-10-17 打磨批去行话撤下——形状留、话不说）。
 - E5 流水线摘要时长为本地计时，标注〔原文：「本地计时」〕。
 - E6 **隐藏型 notice 不出**（`NOTICE_LEVEL_HIDE`＝material_truncated/emission_strip，Owner 2026-10-17 打磨批⑧）：流水线不出行、回答块 A 级 Alert 带滤掉、摘要行「⚠ N 条提示」不计入；**只是前端展示口径**——`turn.notices` 原数据不动。
+- E7 **trust 白话徽标不上屏**（Owner 2026-10-19 打磨批⑩）：右栏引用清单组头只出「来源 · N 支」、悬停卡卡头只出「`[n]` 来源（＋出处编号）」——`authoritative`／`ledger`／`report`／`notice` 四个白话徽标一律不渲染（原「权威台账」徽标撤下）。trust 键**只作机读判据**（`cites.js::TRUST_TEXT` 键集＝引用块回读的尾括号剥取；白话值仅留档），`trust=notice` 的「这是程序声明不是文档原文」仍以**文本句**点明（不靠徽标）。
 
 **重连（R 组）**
 - R1 提问受理即把 running run_id 持久化（sessionStorage）；run 收口清除。
@@ -118,8 +119,10 @@ TurnShape {
 - L1 初始 `GET /runs?limit=20`；加载更多＝**滚到列表底部**（离底 ≤40px）触发、limit 步进 +20 重拉全量替换（最新在上、更早在下）。**零按钮零提示**（Owner 2026-10-17 打磨批⑦：原「加载更早」按钮与「已到最早」小字退场；窗口数>库数时的「已载入 N / M」旧计数行随按钮消失）；**exhausted 判据**（拿到响应后）＝新 runs 行数＝旧行数（没有新内容）**或** 行数 < limit（库比窗口小）→ 此后不再 fetch（静默）；limit ≥ maxRows 亦不再 fetch。
   - 后端无 offset——夹取 1..100；真源 `appv2/api/chat.py` 的 list_runs。
 - L2 搜索＝对已加载行前端过滤（后端无搜索参数），零请求。
-- L3 选中行→拉该链轮次（listItem.followup_of 链对齐现状 buildThreads 分组语义）渲染中栏。
+- L3 选中行→拉该链轮次（listItem.followup_of 链对齐现状 buildThreads 分组语义）渲染中栏；**选中即清本会话流**（entries）——中栏视图＝链轮次＋**链之后**新提问轮（见 L5）。
 - L4 显示粒度＝**一链一行**（分组只作用于显示——加载与窗口回传仍按原始行）：链归属＝followup_of 逐跳上溯到根（根＝空串或指向窗口外，与 L3 拉链同一 `cites.js::chainRootId`），链序按最新轮 `created_at` 降序；行＝链内最早轮问句（18 字截断），副行＝`{最新轮状态} · {链轮数} 轮 · {MM-DD HH:mm}`；点行＝L3 拉链（回调链内最新轮），选中＝所在链整行高亮。
+- L5 **追问不清链视图**（Owner 2026-10-19 反馈修）：选中链后追问，中栏＝**链轮次在前 ＋ 链之后新提问轮在后**同一条时间线（`viewTurns` 单点派生；原 `send()` 的 `setChain(null)` 会把屏上已有对话整段抹掉——本修的红线）；选中行高亮亦不清（仍在同一段对话里）。追问锚＝该视图里最新已收口轮。
+- L6 **左栏收口刷新**（V2-137——V2-73 原页「onDone 后刷新」的回归，FE-05 重写后丢失）：`ThreadList` 收 `refreshKey`（变更＝重拉全量替换，limit 回 `pageStep`、`exhausted` 复位、搜索态不清）；页面**受理＋收口两拍**各递增一次——受理（session 帧；run 行受理即落库，真源 `appv2/runtimev2/orchestration/runtime.py:264`）让新对话「运行中」当场进列，收口让状态/轮数在列上更新；挂起续答腿／链内续答腿收口亦各一次。收口回调每腿至多一次（`legHandlers` 幂等护栏）。刷新键不动选中态（`selectedRunId`／`chain` 独立）。
 
 ## 不降级与静默禁令
 
@@ -140,8 +143,8 @@ TurnShape {
 | 4 | events 按帧到达序追加（真机序：tool(seq7) 先于承载 step(seq7)） | EB4-A-正1 真机帧序列转录 | — | `web/src/landing/a1v2Reducer.test.js::events_arrival_order` |
 | 5 | runStatus 三分 done/askFrame/run_failed 语义 | 挂起腿 done 后仍 waiting_ask | — | `web/src/landing/a1v2Reducer.test.js::run_status_three_way` |
 | 6 | 未知帧事件类型：忽略且计入忽略计数（不炸流，机读信号在场） | 未知 type 帧在场 | 既有「未知事件容错」行为不回归 | `web/src/landing/a1v2Reducer.test.js::unknown_event_counted` |
-| 7 | historyAdapter：RunListItem(+RunView)→TurnShape 投影 | supplements 非 null 血缘落槽 | — | `web/src/landing/redesign/historyAdapter.test.js::list_item_to_turn` |
-| 8 | history 轮 citations/materials/notices/events 恒空+legacy 标记 | supplements null→legacy=true | — | `web/src/landing/redesign/historyAdapter.test.js::history_legacy_flag` |
+| 7 | historyAdapter：RunListItem(+RunView)→TurnShape 投影 | supplements 非 null 血缘落槽；citations/attribution 块回读投 citations/materials 四键形 | — | `web/src/landing/redesign/historyAdapter.test.js::list_item_to_turn` |
+| 8 | history 轮 notices/events 恒空+legacy 标记；citations/materials 由增补面回读（无块＝空，不补造） | supplements null→legacy=true 且不投影；单来源轮无 attribution→materials 空 | — | `web/src/landing/redesign/historyAdapter.test.js::history_legacy_flag`、`web/src/landing/redesign/cites.test.js::parseCitations` |
 | 9 | 同一组件渲染 live/replay/history 三形状零分支（结构快照一致） | history 降级位缺省 | mock 四轮场景不回归 | `web/src/landing/redesign/A1V2R.test.jsx::one_shape_three_scenarios` |
 | 10 | running run_id 提问即持久化、收口清除 | 收口后 sessionStorage 无残留 | — | `web/src/landing/redesign/reconnect.test.jsx::persist_running_run_id` |
 | 11 | 刷新后重连：GET /runs 发现 running→resume_run_id 重放全帧归一 | 重放后可尾随新帧 | — | `web/src/landing/redesign/reconnect.test.jsx::reconnect_replays_full_stream` |
@@ -150,7 +153,7 @@ TurnShape {
 | 14 | ThreadList 真接：初始 limit=20、步进至 100 封顶（零按钮零提示，到头静默；exhausted 后不再 fetch） | limit 夹取边界（传 120 只到 100）；无新内容／库比窗口小 | mock 期 10 条行为不回归 | `web/src/landing/redesign/ThreadList.test.jsx::live_limit_step_cap_100`、`web/src/landing/redesign/ThreadList.test.jsx::scroll_auto_load_exhausted` |
 | 15 | 搜索前端过滤零请求、无匹配空态 | — | — | `web/src/landing/redesign/ThreadList.test.jsx::search_client_side_no_fetch` |
 | 16 | 选中行拉链渲染（followup_of 分组对齐 buildThreads） | 单轮链/多轮链 | — | `web/src/landing/redesign/A1V2R.test.jsx::select_thread_renders_turns` |
-| 17 | 版面链条顺序：问句→流水线→回答（notice-alerts→正文→血缘→小字；中栏无追加面——打磨批②） | 无血缘轮缺位不渲染；隐藏型 notice 不进警示带 | 既有 13 条页面测试不回归 | `web/src/landing/redesign/A1V2R.test.jsx::chain_order` |
+| 17 | 版面链条顺序：问句→流水线→回答（notice-alerts→正文→小字；中栏无追加面——打磨批②，中栏无血缘框——打磨批⑨） | 无血缘轮缺位不渲染（卡在右栏）；隐藏型 notice 不进警示带 | 既有 13 条页面测试不回归 | `web/src/landing/redesign/A1V2R.test.jsx::chain_order` |
 | 18 | 旧 A1V2 下线：路由替换、旧页文件删、旧测试随票处置 | 菜单项名替换 | V1 A1 页与测试原样保留 | `web/src/landing/redesign/route.test.jsx::a1v2_replaced` |
 | 19 | mock/DEBT 清理：mockTurns/deriveEvents 删除或转固定夹具，债务短语零残留 | — | — | `tools/debt_markers.py` 全绿＋`web/src/landing/redesign/mockLeft.test.js::no_mock_left` |
 | 20 | 真机帧走查：eval/results/frames/ 抽样轮在真流页面人工核对（答案/引用面板/血缘/各来源说法不一对照）——机器面由真机帧夹具驱动全链路测试承载，Owner 目验记录另落 `docs/runtime-refactor/frontend-redesign-验证记录.md` | — | — | `web/src/landing/redesign/A1V2R.test.jsx` |
@@ -158,8 +161,13 @@ TurnShape {
 | 22 | 框架红线：package.json 运行时依赖键集合与 FE 线开工前一致（一个不多）——依赖与样式两红线的人审核对记录见验证记录第 6 节 | — | — | `web/src/landing/redesign/mockLeft.test.js::no_mock_left` |
 | 23 | 框架红线：web/src 无新增样式文件（index.css 唯一既有例外） | — | — | `web/src/index.css`（唯一样式文件存在性，人审 FE-05 核对） |
 | 24 | 引标悬停按**锚点实例**（同一 index 多处锚点只开悬停那一处；锚点键含 token 路径，平级叶子同 index 同偏移也不撞键） | 同 index 重复引标（同叶子／平级叶子） | 不传 citeHoverCard＝旧行为逐字一致（V1 与真流页不受影响） | `web/src/landing/redesign/CiteHoverCard.test.jsx::cite_hover_per_anchor` |
-| 25 | 去重：中栏回答块无追加面；右栏去「按来源列出」（attribution）留 split（右栏唯一出现处） | 有 split/attribution 的轮 | 正文/血缘卡/引用清单照常；引用清单＝正文 [n] 配对材料定位不变 | `web/src/landing/redesign/A1V2R.test.jsx::supplement_dedup_right_panel_only`、`web/src/landing/redesign/CitationPanel.test.jsx::split_only_right_panel` |
+| 25 | 去重：中栏回答块无追加面；右栏去「按来源列出」（attribution）留 split（右栏唯一出现处）；**血缘／查询口径框去中栏**（右栏唯一出现处） | 有 split/attribution 的轮；有 lineage 的轮 | 正文/引用清单照常；引用清单＝正文 [n] 配对材料定位不变；右栏血缘卡照常 | `web/src/landing/redesign/A1V2R.test.jsx::supplement_dedup_right_panel_only`、`web/src/landing/redesign/CitationPanel.test.jsx::split_only_right_panel`、`web/src/landing/redesign/A1V2R.test.jsx::chain_order` |
 | 26 | 流水线折叠四类：连续 citation／同（相位＋标题）step／连续 materials 段各折一行，B/C/未登记 notice 改灰纯文本行，隐藏型两处不出且摘要不计 | 连续段／单条段／不跨段 | 摘要计数口径（步/工具/材料/提示数来自 turn）不回归 | `web/src/landing/redesign/events.test.js::fold_events`、`web/src/landing/redesign/ExecutionPipeline.test.jsx::pipeline_fold_four_kinds`、`web/src/landing/redesign/ExecutionPipeline.test.jsx::pipeline_hidden_notice_absent` |
+| 27 | history 轮引用面回读投影：citations 块→右栏引用清单（不再恒「本回合无引用」）＋正文 `[n]` 悬停出引标卡（出处名/编号） | attribution 块在场→卡正文＝观察原文；不在场→「材料未在回合内渲染」占位（不伪造切片） | live 轮 hover 路径不回归（citation 帧同形） | `web/src/landing/redesign/A1V2R.test.jsx::历史轮回读投影`、`web/src/landing/redesign/CiteHoverCard.test.jsx::cite_hover_per_anchor` |
+| 28 | 中栏零血缘框：同一轮 LineageCard 只渲染一份（右栏） | 有 lineage 块/无 lineage 块两形 | 右栏 CitationPanel 血缘卡照常（E2 空态不渲染） | `web/src/landing/redesign/A1V2R.test.jsx::history 缺的展示位＝整位不渲染`、`web/src/landing/redesign/CitationPanel.test.jsx` |
+| 29 | 追问不清链视图（L5）：选中链后追问＝链轮照旧在屏＋新轮接在其后（`对话 · N 轮` 含两段），追问锚＝视图最新已收口轮 | 链内追问／会话流追问两形 | 未选链时中栏仍是本会话流单段 | `web/src/landing/redesign/A1V2R.test.jsx::追问不清链视图` |
+| 30 | 左栏刷新两拍（L6）：受理（session 帧）与收口各重拉一次（limit 回 20）；每腿收口至多一次；挂起续答腿收口亦刷新 | 收口回调重复调（脏流）；已触底到 40 后刷新 | 刷新键不变＝不重拉；搜索态不随刷新清空；选中态不动 | `web/src/landing/redesign/ThreadList.test.jsx::收口刷新`、`web/src/landing/redesign/A1V2R.test.jsx::左栏对话列表刷新` |
+| 31 | trust 白话徽标不上屏（E7）：右栏组头只出「来源 · N 支」、悬停卡卡头只出「[n] 来源（＋出处编号）」——四值徽标零渲染 | `trust=notice` 条目仍以文本句点明程序声明 | trust 键仍作机读判据（引用块回读尾括号剥取照常）；点条定位/材料原文照常 | `web/src/landing/redesign/CitationPanel.test.jsx::分组与条数`、`web/src/landing/redesign/CiteHoverCard.test.jsx::卡片本体`、`web/src/landing/redesign/cites.test.js` |
 
 ## 依赖与风险
 

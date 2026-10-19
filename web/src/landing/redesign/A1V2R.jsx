@@ -5,12 +5,17 @@
  *   1) **用户输入块**（问句气泡）
  *   2) **系统执行流水线块**（ExecutionPipeline：typed 事件流，运行中默认展开、答案一开始流
  *      就自动收起成一行摘要，可点开回看全程）
- *   3) **系统回答块**（A 级 notice 紧凑 Alert → 正文流 AnswerView → 血缘卡 LineageCard →
+ *   3) **系统回答块**（A 级 notice 紧凑 Alert → 正文流 AnswerView →
  *      核验/档案小字 RunMetaLine）；运行中此块＝「正在作答…」占位
  *      （打磨批②：追加面 SupplementBlocks 在中栏整个移除；split 只留右栏）
+ *      （打磨批⑨：中栏血缘／查询口径框整块移除——同一张 LineageCard 只在右栏
+ *      「引用与口径」出一份，中栏不重复；右栏数据源见 CitationPanel.jsx:174）。
  *
  * 中栏三来源一统（FE-05 去夹具轮后）：**本会话提问流**（send→SSE→链条追加，含刷新重连推入轮）
- * ／**选中链**（左栏点行的历史链——FE-04 L3，选中即切换视图）。新提问＝退出链视图回本会话流。
+ * ／**选中链**（左栏点行的历史链——FE-04 L3，选中即切换视图）。**追问不清链视图**（Owner
+ * 2026-10-19 反馈修：原 `send()` 里 `setChain(null)` 会把屏上已有对话整段抹掉）：选中链后追问＝
+ * 中栏＝**链轮次在前 ＋ 该链之后新提问轮在后**同一条时间线（`viewTurns` 单点派生），追问锚＝
+ * 该视图里最新已收口轮——链在屏上、新轮接在下方，内容不消失。
  * 发送接线（本票核心）：输入区 send() → postAskV2 → 帧流直进 FE-01 reducer 归一出 TurnShape
  * 追加到本会话流（live 与 replay 同形状，H1）；追问＝带 followupRunId（当前视图最新的**已收口**
  * run——后端前轮须 completed，409 时输入区 Alert 透传 message）。时长＝页面临时面
@@ -29,15 +34,20 @@
  * created_at 升序）→ 每轮 getRunV2 → adaptHistoryTurn 归一（404 轮降级 adaptHistoryTurn(r, null)
  * ＋errorFrame{run_unreachable}，文案与 R3 合成轮同词）→ 中栏切该链轮次；链内挂起轮＝
  * resumeChainTurn 续答通路（FE-04 遗留，本票接通——续答帧落回该链轮）。右栏 panelTurn＝当前
- * 选中链最后一轮（点正文 [n] 切轮定位机制不变）。
+ * 视图最新轮（`viewTurns` 末位——链尾或链后新提问轮；点正文 [n] 切轮定位机制不变）。
  *
- * 边界（未变部分）：右栏 CitationPanel（人话面板）与右栏宽度 360、决策树入口均不动
+ * 边界（未变部分）：右栏 CitationPanel（人话面板）内容与右栏展开宽度 360、决策树入口均不动
  * （Owner 2026-10-17 拍板「4 宽度你看着办, 决策树留着」）。
  * 空态纪律：各项无数据＝该位不渲染（组件内实现，本页只透传）。
  *
  * Owner 反馈回归（旧页 608267b A1V2.jsx 对照）：
  * - **＋新会话**（左栏 Card extra，旧页 :548/:311-317 同义）＝唯一显式退出对话入口：清对话选中
  *   ＋本会话流（clearEntries）＋输入＋流开前错误；不涉 sessionStorage running run 键。
+ * - **追问不清链视图**（Owner 2026-10-19 反馈）：选中链后追问，屏上已有对话照旧在场（链轮＋
+ *   新轮同一条时间线）；选中行高亮也不清（仍在同一段对话里）。
+ * - **收口刷新左栏**（V2-73 原页「onDone 后刷新」的回归）：提问腿受理（session 帧——run 行受理
+ *   即落库，左栏当场出现「运行中」新行）与收口各 `refreshThreads()` 一次；挂起续答腿／链内续答
+ *   腿收口亦各一次——新轮立刻进左栏。刷新键不动选中态（`selectedRunId`／`chain` 独立）。
  * - **中栏贴底跟随**（旧页 :226-237 每帧 scrollBottom 的柔和版）：发送置 stickRef；滚动离底
  *   ≥80px 即解除跟随（上翻阅读不被拽回）；entries/chain 变化时贴底态才滚到底。
  */
@@ -54,7 +64,6 @@ import CiteHoverCard from './CiteHoverCard.jsx'
 import { chainRootId } from './cites.js'
 import ExecutionPipeline from './ExecutionPipeline.jsx'
 import { adaptHistoryTurn } from './historyAdapter.js'
-import LineageCard from './LineageCard.jsx'
 import { NoticeAlerts } from './NoticeBand.jsx'
 import RunMetaLine from './RunMetaLine.jsx'
 import ThreadList from './ThreadList.jsx'
@@ -91,15 +100,14 @@ export function lineagePayloadOf(turn) {
  * @param onCite             正文引标点击回调 (index) => void（右栏切轮定位；null＝不切）
  * @param onResume           挂起卡选项点击回调 (chosen) => void（FE-03 R4 续答通路；
  *                           null＝不渲染卡——turn.askFrame 在场才出卡，数据驱动非场景分支）
- * @param defaultLineageOpen 血缘卡初态是否展开（页面给完整轮开的版面糖）
  */
-export function TurnChain({ id, turn, durationS = null, onCite = null, onResume = null, defaultLineageOpen = false }) {
+export function TurnChain({ id, turn, durationS = null, onCite = null, onResume = null }) {
   const phase = phaseOf(turn)
   // 挂起轮（askFrame 在场）＝等人工——不出「正在作答…」占位（挂起看 ask 帧不看 done）
   const answering = phase === 'running' && !turn.answerText && !turn.askFrame
-  const lineagePayload = lineagePayloadOf(turn)
   // 旧版历史轮（legacy=true）：正文内嵌旧式「引用：」块——原样渲染不解析，无引用数据可查
-  // ＝不切锚点、不弹悬停卡（新 history 行 legacy=false，引标行为与 live 同路——无引用帧不弹）。
+  // ＝不切锚点、不弹悬停卡（新 history 行 legacy=false：citations/materials 由 historyAdapter
+  // 从收口增补面回读投影，引标行为与 live 同路——无对应引用帧仍不弹）。
   const citeClick = turn.legacy ? undefined : onCite
   const hoverCard = turn.legacy ? undefined : (index => {
     const cite = turn.citations.find(c => c.index === index)
@@ -156,11 +164,9 @@ export function TurnChain({ id, turn, durationS = null, onCite = null, onResume 
               citeHoverCard={hoverCard} />
           )
           : (!answering && <div style={dim}>本次未产出答案正文。</div>)}
-        {/* 链条后续节点：血缘卡（空态自不出）。
-            血缘两源（对账 D-5）：结构化源＝materials[].payload（优先）；文本兜底＝supplements.lineage */}
-        <LineageCard lineage={lineagePayload?.lineage ?? null} limit={lineagePayload?.limit ?? null}
-          text={turn.supplements?.lineage ?? ''} defaultOpen={defaultLineageOpen} />
-        {/* 打磨批②：追加面（SupplementBlocks）已从中栏整个移除——中栏只留正文＋血缘卡＋小字 */}
+        {/* 打磨批②：追加面（SupplementBlocks）已从中栏整个移除——中栏只留正文＋小字 */}
+        {/* 打磨批⑨：血缘／查询口径框（LineageCard）已从中栏整个移除——同一张卡只在右栏
+            「引用与口径」出一份（CitationPanel.jsx:174），中栏不重复出 */}
         {/* 旧版历史轮（legacy=true）：旧式「引用：」块随正文原样渲染；不作任何面向用户的旧版说明
             （Owner 反馈：灰字行去行话——形状保留、话不说） */}
         {/* ⑦ 核验徽标行 ＋ ⑧ 档案小字行（步数/材料数/档案 KB/本地计时）——
@@ -218,18 +224,26 @@ export default function A1V2RLanding() {
   const [runs, setRuns] = useState([])
   const [chain, setChain] = useState(null)
   const selectSeqRef = useRef(0) // 选中竞窗护栏（异步拉链期间再点他行——旧响应丢弃不覆盖新选择）
-  const panelEntry = entries.find(e => e.id === panelTurnId) ?? entries.at(-1)
-  // 右栏联动（FE-04 L3）：选中链＝链内选中轮（点正文 [n] 切轮定位机制不变；缺省＝当前选中链
-  // 的最后一轮）；未选链＝本会话流最新轮（无轮＝空轮——面板出空态「本回合无引用」）
-  const panelTurn = chain
-    ? (chain.turns.find(t => t.runId === panelTurnId) ?? chain.turns.at(-1))
-    : (panelEntry?.turn ?? EMPTY_TURN)
+  // 左栏对话列表收口刷新键（V2-73 原页「onDone 自动刷新」的回归——FE-05 重写后丢失）：
+  // 单调计数，ThreadList 据其重拉全量；提问腿受理＋收口、挂起续答腿收口、链内续答腿收口各递增。
+  const [threadsNonce, setThreadsNonce] = useState(0)
+  const refreshThreads = () => setThreadsNonce(n => n + 1)
+  // 中栏视图轮次（**唯一派生点**——链视图＝链轮次在前＋链后新提问轮在后；未选链＝本会话流）。
+  // 追问不清链视图（Owner 2026-10-19 反馈修）：`onSelect` 清 entries（链之后的新提问才归本视图），
+  // `send()` 不再清 chain——屏上已有对话整段保留，新轮接在下方。fromChain 决定续答落点
+  // （链轮→chain 态；会话流轮→entries 态）。
+  const viewTurns = [
+    ...(chain ? chain.turns.map(t => ({ id: t.runId, turn: t, fromChain: true })) : []),
+    ...entries.map(e => ({ id: e.id, turn: e.turn, fromChain: false }))
+  ]
+  // 右栏联动（FE-04 L3）：命中选中轮（点正文 [n] 切轮）＝该轮；缺省＝视图末位（链尾或链后新轮）；
+  // 无轮＝空轮——面板出空态「本回合无引用」
+  const panelTurn = viewTurns.find(v => v.id === panelTurnId)?.turn ?? viewTurns.at(-1)?.turn ?? EMPTY_TURN
   const panelLineage = lineagePayloadOf(panelTurn)
 
-  // 追问锚＝当前视图里最新的**已收口**轮 run（链视图取链、否则取本会话流；后端前轮须 completed，
-  // 无收口轮＝不带键＝独立新问）
-  const followupAnchor = [...(chain ? chain.turns : entries.map(e => e.turn))]
-    .reverse().find(t => t.runStatus === 'completed')?.runId ?? ''
+  // 追问锚＝当前视图里最新的**已收口**轮 run（后端前轮须 completed，无收口轮＝不带键＝独立新问）
+  const followupAnchor = [...viewTurns]
+    .reverse().find(v => v.turn.runStatus === 'completed')?.turn.runId ?? ''
 
   const openCite = id => index => {
     setPanelTurnId(id)
@@ -252,11 +266,12 @@ export default function A1V2RLanding() {
 
   /**
    * 发送（FE-05 真流贯通——票面伪代码第 1 节）：空问/在途＝不发；置忙＋起点计时；新问条入本
-   * 会话流（并退出链视图——中栏回本会话流）；postAskV2 流式帧直进 FE-01 reducer 归一出
-   * TurnShape 同轮追加；收口（done/error/transport）＝记本地计时＋清 running run 键（清键判据
-   * 在 legHandlers）。流内 error 帧先过 onFrame 落 errorFrame；传输断＝closed='transport'。
-   * 流开前错误（追问锚 409 等）＝输入区 Alert 透传 message ＋该轮落 errorFrame（不静默——如实
-   * 呈现失败轮，不伪造答案）。
+   * 会话流（**不清链视图**——选中链后追问＝链轮照旧在屏，新轮接在其后，见头注「追问不清链视图」）；
+   * postAskV2 流式帧直进 FE-01 reducer 归一出 TurnShape 同轮追加；收口（done/error/transport）＝
+   * 记本地计时＋清 running run 键（清键判据在 legHandlers）。流内 error 帧先过 onFrame 落
+   * errorFrame；传输断＝closed='transport'。流开前错误（追问锚 409 等）＝输入区 Alert 透传
+   * message ＋该轮落 errorFrame（不静默——如实呈现失败轮，不伪造答案）。
+   * 左栏刷新两拍：受理（session 帧——run 行受理即落库）＋收口——新对话当场进列，不等浏览器刷新。
    */
   const send = () => {
     const question = input.trim()
@@ -266,18 +281,22 @@ export default function A1V2RLanding() {
     setInput('')
     askStartRef.current = Date.now()
     streamRunIdRef.current = ''
-    setSelectedRunId('')
-    setChain(null) // 新提问＝退出选中链视图（三来源一统：提问/重连/选中链同处一条链条流）
     stickRef.current = true // 自己发的问＝回到贴底跟随（上翻阅读态让位新内容）
     const anchor = followupAnchor
     const entryId = pushAskEntry(question)
-    const leg = legHandlers({ entryId, question }, () => recordDuration(streamRunIdRef.current))
+    const leg = legHandlers({ entryId, question }, () => {
+      recordDuration(streamRunIdRef.current)
+      refreshThreads() // 收口刷新（V2-73「onDone 后刷新」）
+    })
     Promise.resolve(postAskV2(
       { question, ...(anchor ? { followupRunId: anchor } : {}) },
       {
         ...leg,
         onFrame: f => {
-          if (f.event === 'session' && f.data?.run_id) streamRunIdRef.current = f.data.run_id
+          if (f.event === 'session' && f.data?.run_id) {
+            streamRunIdRef.current = f.data.run_id
+            refreshThreads() // 受理刷新——run 行已落库（runtime.py:264），新对话当场进左栏
+          }
           leg.onFrame(f)
         }
       }
@@ -295,7 +314,8 @@ export default function A1V2RLanding() {
   /**
    * 链内挂起轮续答（FE-04 遗留，本票接通）：postResumeV2 本腿新帧落回该链轮（同 runId 原位
    * upsert——不另开轮）；卡先让位。链轮来自历史读口（非本进程 running）——不涉 running run
-   * 键；开流前错误（409 非挂起等）落 errorFrame 灰条如实呈现。
+   * 键；开流前错误（409 非挂起等）落 errorFrame 灰条如实呈现。收口三闸各刷新左栏一次
+   * （续答腿收口后该轮状态/轮数在列上更新）。
    */
   const resumeChainTurn = (turn, chosen) => {
     if (!turn?.askFrame || !turn.runId) return
@@ -306,9 +326,12 @@ export default function A1V2RLanding() {
     apply(t => ({ ...t, askFrame: null })) // 卡让位——本腿帧接续同轮
     Promise.resolve(postResumeV2(turn.runId, body, {
       onFrame: f => apply(t => reduceV2Frame(t, f)),
-      onDone: () => {},
-      onError: () => {},
-      onTransportError: () => apply(t => (t.closed ? t : { ...t, closed: 'transport' }))
+      onDone: () => refreshThreads(),
+      onError: () => refreshThreads(),
+      onTransportError: () => {
+        apply(t => (t.closed ? t : { ...t, closed: 'transport' }))
+        refreshThreads()
+      }
     })).catch(err => {
       apply(t => (t.closed ? t : {
         ...t,
@@ -325,9 +348,11 @@ export default function A1V2RLanding() {
   /** 左栏行点击（FE-04 L3 选中拉链）：collectChain 取窗内同链行 → 每轮 getRunV2（顺序）→
    *  adaptHistoryTurn 归一 → 中栏切该链。404（进程重启丢行）轮降级：adaptHistoryTurn(r, null)
    *  ＋errorFrame{run_unreachable}（文案与 useRunningRun R3 合成轮同词）；其他读口错误同形
-   *  降级——单轮缺明细不炸整链。 */
+   *  降级——单轮缺明细不炸整链。**清本会话流**（entries）：链视图＝链轮＋**链之后**新提问轮
+   *  （viewTurns 语义——上一次会话流的轮不混进本链）。 */
   const onSelect = async row => {
     setSelectedRunId(row.run_id)
+    clearEntries()
     selectSeqRef.current += 1
     const seq = selectSeqRef.current
     const chainRows = collectChain(row, runs)
@@ -393,48 +418,39 @@ export default function A1V2RLanding() {
         )}
         style={{ width: 250, flexShrink: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
         styles={{ body: { flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' } }}>
-        <ThreadList selectedId={selectedRunId} onSelect={onSelect} onRuns={setRuns} />
+        <ThreadList selectedId={selectedRunId} onSelect={onSelect} onRuns={setRuns}
+          refreshKey={threadsNonce} />
       </Card>
 
       {/* 中栏 · 串行链条（垂直时间线：每轮＝问句块→流水线块→回答块）。
-          三来源一统：选中链（FE-04 L3——真链轮次，adaptHistoryTurn 归一，升序）／本会话流
-          （提问腿与重连还原推入的轮，真流归约器输出） */}
+          三来源一统（viewTurns 单点派生）：选中链轮次（FE-04 L3——adaptHistoryTurn 归一，升序）
+          在前＋链之后新提问轮（提问腿与重连还原推入的轮，真流归约器输出）在后——追问不清链视图，
+          屏上已有对话整段保留。未选链＝本会话流单段。 */}
       <Card size="small" style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
         styles={{ body: { flex: 1, minHeight: 320, display: 'flex', flexDirection: 'column' } }}>
-        {chain ? (
-          <>
-            <div style={{ ...dim, marginBottom: 8 }}>
-              {`对话 · ${chain.turns.length} 轮`}
-            </div>
-            <div ref={convRef} onScroll={onConvScroll} data-testid="conv-scroll"
-              style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
-              <div style={{ borderLeft: '2px solid rgba(127,127,127,0.22)', paddingLeft: 14 }}>
-                {chain.turns.map(t => (
-                  <TurnChain key={t.runId} id={t.runId} turn={t} durationS={durationByRun[t.runId] ?? null}
-                    onCite={openCite(t.runId)} onResume={chosen => resumeChainTurn(t, chosen)} />
-                ))}
-              </div>
-            </div>
-          </>
-        ) : (
-          <>
-            {entries.length === 0 && (
-              <div style={{ ...dim, textAlign: 'center', marginTop: 60 }} data-testid="flow-empty">
-                输入问题开始（挂起后在本栏确认；左侧点历史对话可回看该链）
-              </div>
-            )}
-            <div ref={convRef} onScroll={onConvScroll} data-testid="conv-scroll"
-              style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
-              <div style={{ borderLeft: '2px solid rgba(127,127,127,0.22)', paddingLeft: 14 }}>
-                {entries.map(entry => (
-                  <TurnChain key={entry.id} id={entry.id} turn={entry.turn}
-                    durationS={durationByRun[entry.turn.runId] ?? null}
-                    onCite={openCite(entry.id)} onResume={chosen => resumeEntry(entry, chosen)} />
-                ))}
-              </div>
-            </div>
-          </>
+        {chain && (
+          <div style={{ ...dim, marginBottom: 8 }}>
+            {`对话 · ${viewTurns.length} 轮`}
+          </div>
         )}
+        {viewTurns.length === 0 && (
+          <div style={{ ...dim, textAlign: 'center', marginTop: 60 }} data-testid="flow-empty">
+            输入问题开始（挂起后在本栏确认；左侧点历史对话可回看该链）
+          </div>
+        )}
+        <div ref={convRef} onScroll={onConvScroll} data-testid="conv-scroll"
+          style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
+          <div style={{ borderLeft: '2px solid rgba(127,127,127,0.22)', paddingLeft: 14 }}>
+            {viewTurns.map(v => (
+              <TurnChain key={v.id} id={v.id} turn={v.turn}
+                durationS={durationByRun[v.turn.runId] ?? null}
+                onCite={openCite(v.id)}
+                onResume={v.fromChain
+                  ? chosen => resumeChainTurn(v.turn, chosen)
+                  : chosen => resumeEntry(v, chosen, refreshThreads)} />
+            ))}
+          </div>
+        </div>
         {/* 输入区（FE-05 已接线：Enter/发送＝真提问——追问带 followupRunId） */}
         <div style={{ marginTop: 10 }}>
           {askError && (
