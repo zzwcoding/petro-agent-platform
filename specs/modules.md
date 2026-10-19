@@ -659,9 +659,12 @@ POST /api/v2/chat/asks            → SSE 事件流（入参三形态：question
                                     前轮消息历史随追问进新 run；重连/追问互斥同 409）
 POST /api/v2/chat/runs/{run_id}/resume   → 澄清/审批选择后续跑
 GET  /api/v2/chat/runs/{run_id}          → run 状态＋steps（含 payload：相位标注/discover
-                                    计数埋点/Manifest）＋Manifest 摘要
-GET  /api/v2/chat/runs                   → 最近任务列表（answer 全文＋supplements 增补面随行
-                                    ——2026-10-17 EB3 D1；V2-73／V2-74 行投影面）
+                                    计数埋点/Manifest）＋Manifest 摘要＋answer（V2-142 补偿
+                                    读口：列表项瘦身后正文由此供给，取值源 `store.run(run_id).answer`）
+GET  /api/v2/chat/runs                   → 最近任务列表（V2-142 列表项瘦身：wire 键集＝
+                                    {run_id,question,status,followup_of,created_at,updated_at}
+                                    ＋supplements 增补面随行——2026-10-17 EB3 D1；全文 answer
+                                    不再随行，正文走 `GET /runs/{id}` 补偿口；V2-73／V2-74 行投影面）
 ```
 事件十类闭世界：step/text/tool/observation/ask/verdict/citation/notice/blackbox/supplement（V1 wire 形兼容＋
 loop 步/观察新形态——V2-36 终态口径，ADR-0004 拍板 5 演进位；blackbox＝V2-54 黑匣子

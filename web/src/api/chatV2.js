@@ -81,7 +81,9 @@ export async function getRunV2(runId) {
   return res.json()
 }
 
-/** 最近任务列表（V2-73 会话历史读口——created_at 降序，answer 全文随行）。 */
+/** 最近任务列表（V2-73 会话历史读口——created_at 降序；V2-142 瘦身：列表行六键
+ *  {run_id,question,status,followup_of,created_at,updated_at}＋supplements，全文 answer
+ *  不再随行——正文由 `GET /runs/{id}` 的 answer 面供给）。 */
 export async function listRunsV2(limit = 20) {
   const res = await fetch(`${API_BASE}/v2/chat/runs?limit=${limit}`, {
     headers: { ...authHeaders() }

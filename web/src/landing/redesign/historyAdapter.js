@@ -2,11 +2,15 @@
  * historyAdapter · history 读回 → TurnShape 投影（specs/frontend-redesign.md 行为约定 H2–H4）。
  *
  * 输入＝后端读口真形（字段以 appv2/api/chat.py 为准——RunListItem{run_id,question,status,
- * answer,followup_of,created_at,updated_at,supplements}＋RunView{status,steps,manifest_digest,
- * pending_ask}）：RunListItem.supplements＝[{block,text}] 增补面条目列（null＝旧版行）；
+ * followup_of,created_at,updated_at,supplements}＋RunView{status,steps,manifest_digest,
+ * pending_ask,answer}）：RunListItem.supplements＝[{block,text}] 增补面条目列（null＝旧版行）；
  * RunView.steps＝StepView{seq,step,status,title,...}。适配器只投影、不补造数据——
  * 读口无此面的键恒空（notices/events/understanding），缺的展示位由展示组件空态纪律
  * 整位不渲染（H5 零分支，不在适配器里造数据）。
+ *
+ * **正文来源（V2-142 列表项瘦身）**：`RunListItem.answer` 已去（wire 不再随行全文），
+ * 正文改取**详情优先**——`runView.answer ?? listItem.answer ?? ''`（详情补偿读口供给；
+ * 旧行仍带 answer 时回退，不补造）。
  *
  * **引用／材料两面的回读投影**（2026-10-19 修：历史轮正文有 `[n]` 锚点却悬停无卡、右栏恒
  * 「本回合无引用」）：读口没有 `citation`/`observation` 帧，但收口时程序已把同一批数据落成
@@ -36,7 +40,7 @@ export function adaptHistoryTurn(listItem, runView = null) {
       .map(it => ({ index: it.index, source: it.source, content: it.text })),
     notices: [],
     citations: parseCitations(supplements.citations), // 引用＝citations 块逐行回读（四键同帧形）
-    understanding: '', answerText: listItem.answer ?? '',
+    understanding: '', answerText: runView?.answer ?? listItem.answer ?? '',
     events: [],                       // H2：读口无此面，恒空（流水线块走空态纪律整块不渲染）
     verdicts: [], verdictFinal: null, blackbox: null,
     askFrame: runView?.pending_ask ?? null,

@@ -74,8 +74,8 @@ class AgentRuntime:
 POST /api/v2/chat/asks                 200 → text/event-stream（首帧 run_id）
     入参三形态：question 提问｜resume_run_id 重连｜question＋followup_run_id 追问续会话
 POST /api/v2/chat/runs/{run_id}/resume 200 → text/event-stream
-GET  /api/v2/chat/runs/{run_id}        200 → {status, steps, manifest_digest, pending_ask?}（pending_ask＝挂起帧投影，仅 waiting_ask 在场——V2-78 刷新还原面）
-GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,followup_of,created_at,updated_at}]（V2-73 最近任务读口，created_at 降序；followup_of＝追问链前轮——V2-74 对话任务分组，空串＝链根；**limit 由端口侧下推**——V2-141：`RunStore.scan_recent(limit)` → `Tables.scan_recent(limit)` 只读 limit 条，api 侧不再全量读＋Python 排序，索引见迁移 0029）
+GET  /api/v2/chat/runs/{run_id}        200 → {status, steps, manifest_digest, pending_ask?, answer?}（pending_ask＝挂起帧投影，仅 waiting_ask 在场——V2-78 刷新还原面；**answer＝V2-142 补偿读口**——列表项瘦身后历史链正文由此供给，取值源 `store.run(run_id).answer`，既有行投影零新 SQL）
+GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,followup_of,created_at,updated_at}]＋`supplements` 增补面列（本批保留）（V2-73 最近任务读口，created_at 降序；followup_of＝追问链前轮——V2-74 对话任务分组，空串＝链根；**V2-142 列表项瘦身**：全文 `answer` 不随行——wire 键集逐字＝六键核心，正文改由 `GET /runs/{id}` 补偿口供给，三者同批落否则历史链正文整段空；**limit 由端口侧下推**——V2-141：`RunStore.scan_recent(limit)` → `Tables.scan_recent(limit)` 只读 limit 条，api 侧不再全量读＋Python 排序，索引见迁移 0029）
 错误：400 参数非法｜401 身份缺失｜404 run 不存在｜409 run 非挂起态不可 resume（重连/追问互斥同 409）
 ```
 

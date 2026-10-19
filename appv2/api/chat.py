@@ -5,8 +5,11 @@
 
 - POST /api/v2/chat/asks            → text/event-stream（首帧 session 携 run_id）
 - POST /api/v2/chat/runs/{id}/resume → text/event-stream（挂起段续跑流）
-- GET  /api/v2/chat/runs             → [{run_id, question, status, answer, …}]（最近任务读口）
-- GET  /api/v2/chat/runs/{id}        → {status, steps, manifest_digest, pending_ask?}
+- GET  /api/v2/chat/runs             → [{run_id, question, status, followup_of, created_at,
+                                          updated_at, supplements?}]（最近任务读口——V2-142
+                                          列表项瘦身：全文 answer 不再随行）
+- GET  /api/v2/chat/runs/{id}        → {status, steps, manifest_digest, pending_ask?, answer?}
+                                          （answer＝V2-142 补偿读口——列表瘦身后正文由此供给）
 
 断线游标续传（V1 帧形兼容——web/src/api/chat.js reconnectRun 同形态）：asks 携
 `resume_run_id`（＋`Last-Event-ID` 头）＝重连形态，不重新执行——读本进程帧缓冲里
@@ -131,29 +134,38 @@ class RunView(BaseModel):
     pending_ask（V2-78）：挂起轮的 AskFrame dict 投影（kind/prompt/options/detail）
     ——仅 waiting_ask 且线程态在场时非 None；刷新后反问选项由此还原（投影源＝
     `RunState.pending_ask`，经 persistence 读口 `RunStore.load`）。
+
+    answer（V2-142 补偿读口）：run 行全文正文的读面——列表项瘦身后（`RunListItem` 去
+    `answer`）历史链正文由此供给；取值源＝`store.run(run_id).answer`（既有行投影，
+    零新 SQL）。此面缺位＝历史链正文整段空（回归）。
     """
 
     status: str
     steps: list[StepView]
     manifest_digest: str | None
     pending_ask: dict[str, Any] | None = None
+    answer: str | None = None      # 补偿读口：列表项瘦身后正文由此供给
 
 
 class RunListItem(BaseModel):
-    """GET runs 列表项（V2-73 会话历史读口——最近任务面；answer 全文随行）。
+    """GET runs 列表项（V2-73 会话历史读口——最近任务面）。
+
+    **V2-142 列表项瘦身**：wire 键集＝`{run_id, question, status, followup_of, created_at,
+    updated_at}`（六键核心）＋本批**保留**的 `supplements`——全文 `answer` 不再随行
+    （2055 行样本占单行约 87%；`limit=100` 响应 247KB → ≤32KB）；正文改由详情补偿读口
+    `GET /runs/{id}` 的 `RunView.answer` 供给（三者同批落，否则历史链正文整段空）。
 
     followup_of（V2-74 对话任务面）：追问链前轮 run_id——空串＝独立新对话（链根），
     非空＝追问轮；前端按链分组呈现「一个对话任务一行」。
 
     supplements（2026-10-17 EB3 D1 交付面分层）：增补面条目列（`[{block, text}]`——
     split／attribution／citations／lineage 四类块）随行回读；正文（answer）不再含这些块，
-    旁路展示随前端重设计落地（本轮只备通道）。
+    旁路展示随前端重设计落地（本轮只备通道）。本批保留（打磨批⑨引用面回读承载，另案评估）。
     """
 
     run_id: str
     question: str
     status: str
-    answer: str | None
     followup_of: str
     created_at: str
     updated_at: str
@@ -206,7 +218,6 @@ async def list_runs(
             run_id=row.run_id,
             question=row.question,
             status=row.status,
-            answer=row.answer,
             followup_of=row.followup_of,
             created_at=row.created_at.isoformat(),
             updated_at=row.updated_at.isoformat(),
@@ -335,6 +346,9 @@ async def get_run(run_id: str, actor: CurrentActor, store: StoreDep) -> RunView:
     run 不存在 404（不泄漏存在性差异）。V2-78：waiting_ask 随行挂起帧
     （pending_ask——刷新后反问选项/审批面由此还原，读数源＝`RunState.pending_ask`
     经 persistence 读口 `RunStore.load`；非挂起＝None）。
+
+    answer（V2-142 补偿读口）：随行 run 行全文正文——列表项瘦身后历史链正文由此供给
+    （读数源＝`store.run(run_id).answer`，既有行投影、零新 SQL）；旧行无正文＝None。
     """
     row = store.run(run_id)
     if row is None:
@@ -349,6 +363,7 @@ async def get_run(run_id: str, actor: CurrentActor, store: StoreDep) -> RunView:
     )
     return RunView(
         pending_ask=pending,
+        answer=row.answer,
         status=row.status,
         steps=[
             StepView(

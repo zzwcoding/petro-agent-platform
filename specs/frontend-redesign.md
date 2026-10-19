@@ -95,7 +95,7 @@ TurnShape {
 
 **三场景归一（H 组）**
 - H1 live 与 replay 走同一 reducer 同一形状（replay 帧序与原流逐字节相同——真源 `specs/transport.md` 行为 13 衔接面，此处只引用）。
-- H2 historyAdapter：answer→answerText；supplements 非 null→supplements 四槽（按 block 分派，同 G1）；runView.steps→steps（station←step、title 原样）；**notices/events/understanding 恒为空**（读口无此面——真源 `appv2/api/chat.py` list_runs/RunView）。**citations/materials 不恒空**（2026-10-19 打磨批⑨）：读口无 citation/observation 帧，但收口增补面已落同一批数据——`citations` 块（`[n] 来源 · 出处编号（trust）`，真源 `appv2/runtimev2/answering/core.py` 第 209 行）按行形投回 citations 四键、`attribution` 块（`[n] 来源：观察正文`，仅跨 ≥2 处来源时产出）投回 materials 逐条正文；**投影读口已有的面，不是补造**（无块＝空；单来源轮无 attribution＝materials 空，悬停卡正文走 E1 占位）。
+- H2 historyAdapter：**正文取详情优先——`answerText ← runView.answer ?? listItem.answer ?? ''`**（V2-142 列表项瘦身：`RunListItem.answer` 已去，正文由 `RunView.answer` 补偿读口供给；旧行仍带 answer 时回退，两侧皆缺＝空串不补造）；supplements 非 null→supplements 四槽（按 block 分派，同 G1）；runView.steps→steps（station←step、title 原样）；**notices/events/understanding 恒为空**（读口无此面——真源 `appv2/api/chat.py` list_runs/RunView）。**citations/materials 不恒空**（2026-10-19 打磨批⑨）：读口无 citation/observation 帧，但收口增补面已落同一批数据——`citations` 块（`[n] 来源 · 出处编号（trust）`，真源 `appv2/runtimev2/answering/core.py` 第 209 行）按行形投回 citations 四键、`attribution` 块（`[n] 来源：观察正文`，仅跨 ≥2 处来源时产出）投回 materials 逐条正文；**投影读口已有的面，不是补造**（无块＝空；单来源轮无 attribution＝materials 空，悬停卡正文走 E1 占位）。
 - H3 history 轮 `phase='done'`、`closed='done'`、runStatus←listItem.status。
 - H4 `legacy` 标记：listItem.supplements 为 null→`legacy=true`（旧版轮，正文可能内嵌旧式块文本，原样渲染不解析）；非 null→`legacy=false`。
 - H5 展示组件对 TurnShape 渲染**零场景分支**：同一组件同一 props 路径，缺数据走空态纪律（不渲染该展示位），不判 `kind`。
@@ -146,7 +146,7 @@ TurnShape {
 | 4 | events 按帧到达序追加（真机序：tool(seq7) 先于承载 step(seq7)） | EB4-A-正1 真机帧序列转录 | — | `web/src/landing/a1v2Reducer.test.js::events_arrival_order` |
 | 5 | runStatus 三分 done/askFrame/run_failed 语义 | 挂起腿 done 后仍 waiting_ask | — | `web/src/landing/a1v2Reducer.test.js::run_status_three_way` |
 | 6 | 未知帧事件类型：忽略且计入忽略计数（不炸流，机读信号在场） | 未知 type 帧在场 | 既有「未知事件容错」行为不回归 | `web/src/landing/a1v2Reducer.test.js::unknown_event_counted` |
-| 7 | historyAdapter：RunListItem(+RunView)→TurnShape 投影 | supplements 非 null 血缘落槽；citations/attribution 块回读投 citations/materials 四键形 | — | `web/src/landing/redesign/historyAdapter.test.js::list_item_to_turn` |
+| 7 | historyAdapter：RunListItem(+RunView)→TurnShape 投影 | supplements 非 null 血缘落槽；citations/attribution 块回读投 citations/materials 四键形；**V2-142 正文详情优先——`answerText←runView.answer`（列表行无 answer 时正文不空＝反向判据；旧行回退 listItem.answer）** | — | `web/src/landing/redesign/historyAdapter.test.js::list_item_to_turn` |
 | 8 | history 轮 notices/events 恒空+legacy 标记；citations/materials 由增补面回读（无块＝空，不补造） | supplements null→legacy=true 且不投影；单来源轮无 attribution→materials 空 | — | `web/src/landing/redesign/historyAdapter.test.js::history_legacy_flag`、`web/src/landing/redesign/cites.test.js::parseCitations` |
 | 9 | 同一组件渲染 live/replay/history 三形状零分支（结构快照一致） | history 降级位缺省 | mock 四轮场景不回归 | `web/src/landing/redesign/A1V2R.test.jsx::one_shape_three_scenarios` |
 | 10 | running run_id 提问即持久化、收口清除 | 收口后 sessionStorage 无残留 | — | `web/src/landing/redesign/reconnect.test.jsx::persist_running_run_id` |

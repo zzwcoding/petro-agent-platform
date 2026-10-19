@@ -481,8 +481,7 @@ def test_budget_converged_stream_shape(env_budget: Any) -> None:
     status = client.get(f"/api/v2/chat/runs/{run_id}", headers=ACTOR).json()
     assert status["status"] == "completed"
     assert any(row["step"] == "answer" for row in status["steps"])  # 收敛答案落步记录
-    item = client.get("/api/v2/chat/runs", headers=ACTOR).json()[0]
-    answer = item["answer"] or ""
+    answer = status["answer"] or ""
     assert "预算触界收敛" in answer and "未取得可交付材料" in answer  # 收敛正文如实交付
 
 
