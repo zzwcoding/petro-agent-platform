@@ -1,0 +1,22 @@
+{"qid": "A-正1", "run_id": "run-adcad548", "supported": 4, "verify_mode": "delete", "rewrites": []}
+{"qid": "A-正2", "run_id": "run-a369cf1e", "supported": 6, "verify_mode": "delete", "rewrites": []}
+{"qid": "A-正4", "run_id": "run-d0051dc1", "supported": 6, "verify_mode": "delete", "rewrites": []}
+{"qid": "A-正6", "run_id": "run-03e91223", "supported": 5, "verify_mode": "delete", "rewrites": []}
+{"qid": "A-正7", "run_id": "run-ced70121", "supported": 3, "verify_mode": "delete", "rewrites": []}
+{"qid": "A-正8", "run_id": "run-ef64be1c", "supported": 3, "verify_mode": "delete", "rewrites": []}
+{"qid": "A-反1", "run_id": "run-509cc65e", "supported": 1, "verify_mode": "delete", "rewrites": []}
+{"qid": "A-反2", "run_id": "run-60b3be7d", "supported": null, "verify_mode": null, "rewrites": []}
+{"qid": "A-反3", "run_id": "run-710c3f8d", "supported": null, "verify_mode": null, "rewrites": []}
+{"qid": "B-正3", "run_id": "run-bc9095b5", "supported": 7, "verify_mode": "delete", "rewrites": []}
+{"qid": "B-正4", "run_id": "run-ee000021", "supported": 5, "verify_mode": "delete", "rewrites": [{"line": "- **检泵周期：512 天**（口径与开发数据平台指标台账一致＝本次检泵日 − 上次检泵日）[3]", "reason": "no_material"}]}
+{"qid": "B-反1", "run_id": "run-a3bcd1ba", "supported": 3, "verify_mode": "delete", "rewrites": []}
+{"qid": "B-反3", "run_id": "run-86d109a7", "supported": 3, "verify_mode": "delete", "rewrites": []}
+{"qid": "C-正4", "run_id": "run-a2036a35", "supported": 4, "verify_mode": "delete", "rewrites": []}
+{"qid": "C-正5", "run_id": "run-c0708ba0", "supported": 1, "verify_mode": "delete", "rewrites": []}
+{"qid": "C-正6", "run_id": "run-dc344ff1", "supported": 6, "verify_mode": "delete", "rewrites": []}
+{"qid": "C-反2", "run_id": "run-0d6935e9", "supported": 8, "verify_mode": "delete", "rewrites": []}
+{"qid": "C-观察", "run_id": "run-40788fb7", "supported": 7, "verify_mode": "delete", "rewrites": [{"line": "我先把范围说清楚：「自然递减率」（台账指标，指扣除新井与措施增油之后的产量递减幅度）在平台里的指标名册上有登记 [来源：台账·指标名册・自然递减率]，但本次材料只覆盖到两个具体油田的具体时段，没有「全平台汇总、近 30 天」的现成数值可以直出。", "reason": "no_material"}]}
+{"qid": "D-诱2", "run_id": "run-30d51b98", "supported": 8, "verify_mode": "delete", "rewrites": []}
+{"qid": "D-诱3", "run_id": "run-dbeb79d4", "supported": 7, "verify_mode": "delete", "rewrites": []}
+{"qid": "D-诱5", "run_id": "run-0e2d03f3", "supported": 8, "verify_mode": "delete", "rewrites": [{"line": "- 完成率指标统一称「产量完成率」，旧称「老完成率」（v1 口径，不含自用油折算）已于 2024 年废弃、报表中停用 [11]。", "reason": "no_material"}]}
+{"qid": "D-诱6", "run_id": "run-8ef9bee3", "supported": 4, "verify_mode": "delete", "rewrites": []}

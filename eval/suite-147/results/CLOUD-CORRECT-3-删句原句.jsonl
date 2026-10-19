@@ -1,0 +1,22 @@
+{"qid": "NQ-D2", "run_id": "run-c320bb8f", "supported": 17, "verify_mode": "delete", "rewrites": [{"line": "**关于\"报告 1.2 节对一季度产量完成情况'两种口径并行披露'\"的作答**", "reason": "no_material"}, {"line": "本轮共查到 47 条材料，6 条用进答案。需要先说明：用户提及的「1.2 节」、「一季度」这两个场景词，在所检索到的三份报告中并不同时出现在同一份报告内——它们分别落在不同油田的报告里，本轮采用**逐源分别作答**（不合并），因为材料中不存在一份同时冠名\"1.2 节一季度\"且满足题面全部四问的报告。本次材料未覆盖题面所指唯一报告（如《某某油田 ××× 报告》1.2 节）的情形，下面逐源列示所查到的事实。", "reason": "no_material"}, {"line": "- 题面所指的\"那份\"1.2 节报告（同时满足\"1.2 节\"+\"一季度\"+\"两种口径并行披露\"四个要素的唯一报告），本次材料未明确命中——已查到的三份报告分别为 34-8 一季度、34-5 三季度、34-5 躺井月报。若您的\"报告 1.2 节\"另有所指（如某篇内部季度报告或月度报告的第 1.2 节），建议**直接提供报告全名**（或代号/编号），便于定位唯一来源；如确为渤中 34-8 一季度注采调整报告，则 **(b)(c)** 答案以\"来源一\"为准，**(a)** 项本次材料未覆盖其计划配产吨数。", "reason": "no_material"}]}
+{"qid": "NQ-D3", "run_id": "run-45131342", "supported": 13, "verify_mode": "delete", "rewrites": [{"line": "4. **关于推断中\"51%/34%/15% 三段吸水比例\"的处理。**", "reason": "no_material"}]}
+{"qid": "NQ-D4", "run_id": "run-320caed4", "supported": 7, "verify_mode": "delete", "rewrites": []}
+{"qid": "NQ-D6", "run_id": "run-610ebd90", "supported": 12, "verify_mode": "delete", "rewrites": []}
+{"qid": "NQ-D8", "run_id": "run-3ba3283f", "supported": 9, "verify_mode": "delete", "rewrites": []}
+{"qid": "NQ-M2", "run_id": "run-c98547af", "supported": 15, "verify_mode": "delete", "rewrites": [{"line": "> 原文：「对**检泵周期低于 350 天**的在用井（现 9 口）逐井建立'一井一策'档案。」[5][29][42]", "reason": "no_material"}]}
+{"qid": "NQ-M4", "run_id": "run-a6a1e9f6", "supported": 6, "verify_mode": "delete", "rewrites": []}
+{"qid": "NQ-M5", "run_id": "run-1fd58631", "supported": 8, "verify_mode": "delete", "rewrites": []}
+{"qid": "NQ-M7", "run_id": "run-e38667d2", "supported": 13, "verify_mode": "delete", "rewrites": []}
+{"qid": "NQ-M10", "run_id": "run-701a9845", "supported": 16, "verify_mode": "delete", "rewrites": []}
+{"qid": "Q04", "run_id": "run-583b7fec", "supported": null, "verify_mode": null, "rewrites": []}
+{"qid": "Q21", "run_id": "run-ec2dbd31", "supported": 1, "verify_mode": "delete", "rewrites": [{"line": "- 报这两口井近 30 天日产油量／日产液量／油压——可走开发数据平台日产计量事实表。", "reason": "no_material"}]}
+{"qid": "Q22", "run_id": "run-592726da", "supported": 7, "verify_mode": "delete", "rewrites": []}
+{"qid": "Q27", "run_id": "run-9c6a5cbb", "supported": 2, "verify_mode": "delete", "rewrites": [{"line": "   - 与班次合计日口径（A 默认口径，PROP-BOHAI-007=A）不一致，触发 RULE-BOHAI-020 的吨方混写脏值告警；", "reason": "no_material"}]}
+{"qid": "Q28", "run_id": "run-f3238c9d", "supported": 1, "verify_mode": "delete", "rewrites": []}
+{"qid": "Q29", "run_id": "run-05ff7020", "supported": 0, "verify_mode": "delete", "rewrites": []}
+{"qid": "Q31", "run_id": "run-f07395ae", "supported": null, "verify_mode": null, "rewrites": []}
+{"qid": "Q32", "run_id": "run-ac6ca8a8", "supported": 0, "verify_mode": "delete", "rewrites": []}
+{"qid": "Q36", "run_id": "run-b7b8ba7e", "supported": 3, "verify_mode": "delete", "rewrites": []}
+{"qid": "Q42", "run_id": "run-1edba6cb", "supported": 4, "verify_mode": "delete", "rewrites": [{"line": "  - 对比的时间窗（默认近 30 天）。", "reason": "no_material"}]}
+{"qid": "Q43", "run_id": "run-46c9d50c", "supported": 6, "verify_mode": "delete", "rewrites": []}
+{"qid": "Q45", "run_id": "run-82ae3321", "supported": 4, "verify_mode": "delete", "rewrites": []}

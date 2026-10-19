@@ -1,0 +1,22 @@
+{"qid": "D-诱7", "run_id": "run-425ab5a1", "supported": 5, "verify_mode": "delete", "rewrites": []}
+{"qid": "D-诱8", "run_id": "run-a16e4be1", "supported": 4, "verify_mode": "delete", "rewrites": []}
+{"qid": "D-诱9", "run_id": "run-a1f10ea7", "supported": 4, "verify_mode": "delete", "rewrites": []}
+{"qid": "D-诱10", "run_id": "run-c1d21140", "supported": 7, "verify_mode": "delete", "rewrites": []}
+{"qid": "D-诱12", "run_id": "run-9de090dc", "supported": 8, "verify_mode": "delete", "rewrites": []}
+{"qid": "D-诱14", "run_id": "run-e340d928", "supported": 7, "verify_mode": "delete", "rewrites": []}
+{"qid": "D-诱15", "run_id": "run-a293af53", "supported": 7, "verify_mode": "delete", "rewrites": []}
+{"qid": "SYS-1", "run_id": "run-980f8b31", "supported": 4, "verify_mode": "delete", "rewrites": []}
+{"qid": "SYS-2", "run_id": "run-dee17f7a", "supported": 1, "verify_mode": "delete", "rewrites": []}
+{"qid": "SYS-3", "run_id": "run-80cf4746", "supported": 2, "verify_mode": "delete", "rewrites": []}
+{"qid": "SYS-5", "run_id": "run-62429a14", "supported": 3, "verify_mode": "delete", "rewrites": []}
+{"qid": "数-排2", "run_id": "run-50bc5934", "supported": 3, "verify_mode": "delete", "rewrites": []}
+{"qid": "数-排3", "run_id": "run-ee56e3fc", "supported": 2, "verify_mode": "delete", "rewrites": []}
+{"qid": "数-限1", "run_id": "run-83db9917", "supported": 30, "verify_mode": "delete", "rewrites": []}
+{"qid": "数-闸2", "run_id": "run-837db54c", "supported": 3, "verify_mode": "delete", "rewrites": [{"line": "按窗口 2026-08-25 至 2026-08-31（共 7 天）取数，日产液量单位为方。", "reason": "no_material"}]}
+{"qid": "数-反1", "run_id": "run-efe0a2bb", "supported": 0, "verify_mode": "delete", "rewrites": [{"line": "- 当前数据水位（数据目前更新到哪一天）为 2026-08-31 ，所设窗（统计的时间段）「最近 7 天」整体落在水位之后，属数据尚未覆盖区间；", "reason": "no_material"}, {"line": "- 建议改用更早时间窗，例如「2026-08-25~2026-08-31」（水位内最近 7 天），或直接告诉我您想看哪一段时间，我再为您取数。", "reason": "no_material"}]}
+{"qid": "数-降1", "run_id": "run-e1e8e0be", "supported": 1, "verify_mode": "delete", "rewrites": [{"line": "- 指明口径（口径＝这个数是按什么规则算的）——含水率有 A 计量折算（日度监控）和 B 化验实测（月度/正式）两支，按「B 化验实测」给出的月度值与按「A 计量折算」给出的日度值是两份不同口径的数据；", "reason": "no_material"}]}
+{"qid": "数-降2", "run_id": "run-9b37f5aa", "supported": 1, "verify_mode": "delete", "rewrites": []}
+{"qid": "数-察1", "run_id": "run-b870a3b5", "supported": 0, "verify_mode": "delete", "rewrites": []}
+{"qid": "NQ-C1", "run_id": "run-5b298692", "supported": 10, "verify_mode": "delete", "rewrites": []}
+{"qid": "NQ-C9", "run_id": "run-17b8fbb9", "supported": 6, "verify_mode": "delete", "rewrites": []}
+{"qid": "NQ-D1", "run_id": "run-1763e4e6", "supported": 12, "verify_mode": "delete", "rewrites": []}
