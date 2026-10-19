@@ -26,7 +26,7 @@
  */
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
 import ThreadList from './ThreadList.jsx'
 import { FIXTURE_RUNS } from './__fixtures__/runs.js'
@@ -228,6 +228,41 @@ describe('ThreadList · 触底自动加载（零按钮零提示——打磨批�
     expect(box.textContent).not.toMatch(/已载入\s*\d+\s*\/\s*\d+/) // 自相矛盾计数行随按钮删除消失
     expect(screen.queryByTestId('load-more')).toBeNull()
     expect(screen.queryByTestId('earliest-tip')).toBeNull()
+  })
+})
+
+describe('ThreadList · 收口刷新（refreshKey——V2-137）', () => {
+  it('refreshKey 变更＝重拉全量替换：读口再调一次且实参回 20（已触底到 40 也回初始窗）', async () => {
+    const fetchRuns = stubRuns()
+    const { rerender } = render(<ThreadList fetchRuns={fetchRuns} refreshKey={0} />)
+    await screen.findByTestId(`thread-row-${FIXTURE_RUNS[0].run_id}`)
+    expect(fetchRuns).toHaveBeenCalledTimes(1)
+    expect(fetchRuns).toHaveBeenLastCalledWith(20)
+
+    scrollBottom() // 上拉到 40（刷新＝回初始窗的对照基线）
+    await screen.findByTestId(`thread-row-${FIXTURE_RUNS[39].run_id}`)
+    expect(fetchRuns).toHaveBeenLastCalledWith(40)
+
+    rerender(<ThreadList fetchRuns={fetchRuns} refreshKey={1} />)
+    await waitFor(() => expect(fetchRuns).toHaveBeenCalledTimes(3))
+    expect(fetchRuns).toHaveBeenLastCalledWith(20) // 刷新＝limit 回 pageStep（上拉进度不复用）
+    expect(rowsIn()).toHaveLength(14)               // 窗口回到 20 条 → 14 条链行
+  })
+
+  it('refreshKey 不变＝不重拉（缺省 0 与改动前逐字等价）；搜索态不随刷新清空', async () => {
+    const fetchRuns = stubRuns()
+    const { rerender } = render(<ThreadList fetchRuns={fetchRuns} refreshKey={0} />)
+    await screen.findByTestId(`thread-row-${FIXTURE_RUNS[0].run_id}`)
+    rerender(<ThreadList fetchRuns={fetchRuns} refreshKey={0} />) // 同值重渲＝effect 不重跑
+    expect(fetchRuns).toHaveBeenCalledTimes(1)
+
+    fireEvent.change(screen.getByPlaceholderText('搜索对话'), { target: { value: '含水率' } })
+    expect(screen.getByTestId('search-scope')).toBeTruthy()
+    rerender(<ThreadList fetchRuns={fetchRuns} refreshKey={1} />)
+    await waitFor(() => expect(fetchRuns).toHaveBeenCalledTimes(2))
+    // 搜索态（query 内部态）不随刷新清空——过滤照旧生效
+    expect(screen.getByPlaceholderText('搜索对话').value).toBe('含水率')
+    expect(screen.getByTestId('search-scope')).toBeTruthy()
   })
 })
 

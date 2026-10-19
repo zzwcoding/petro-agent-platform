@@ -136,7 +136,8 @@ export function useRunningRun(initialEntries = []) {
    *
    * @param target { runId, question } 按 runId 归位（重放/续答腿）｜
    *               { entryId, question } 按条目 id 归位（提问腿）
-   * @param onClosed 收口回调（done/error/transport 三腿同闸——提问腿记本地计时用；可选）
+   * @param onClosed 收口回调（done/error/transport 三腿同闸——提问腿记本地计时＋刷新左栏用；可选）。
+   *                 每腿**至多一次**（closedFired 护栏——重复收口回调不再触发，脏流/双收口幂等）。
    */
   const legHandlers = useCallback((target, onClosed) => {
     const question = target.question ?? ''
@@ -147,18 +148,20 @@ export function useRunningRun(initialEntries = []) {
       ? updateEntryTurn(target.entryId, updater)
       : upsertTurn(target.runId, updater))
     let askSeen = false // 本腿挂起帧在场（done 收口清键的判据——挂起腿 done 非终态）
+    let closedFired = false // 收口回调护栏（每腿至多一次——页面刷新左栏的单调键据此不重复递增）
+    const fireClosed = () => { if (closedFired) return; closedFired = true; onClosed?.() }
     return {
       onFrame: f => {
         if (f.event === 'session' && f.data?.run_id) persistRunningRun(f.data.run_id, question)
         if (f.event === 'ask') askSeen = true
         apply(f)
       },
-      onDone: () => { if (!askSeen) clearRunningRun(); onClosed?.() },
-      onError: () => { clearRunningRun(); onClosed?.() }, // error 帧已过 onFrame（errorFrame/closed 落定）
+      onDone: () => { if (!askSeen) clearRunningRun(); fireClosed() },
+      onError: () => { clearRunningRun(); fireClosed() }, // error 帧已过 onFrame（errorFrame/closed 落定）
       onTransportError: () => {
         closeTurn(t => (t.closed ? t : { ...t, closed: 'transport' }))
         clearRunningRun()
-        onClosed?.()
+        fireClosed()
       }
     }
   }, [dispatchEntryFrame, updateEntryTurn, upsertTurn])
@@ -210,13 +213,15 @@ export function useRunningRun(initialEntries = []) {
     }
   }, [legHandlers, putEntry, pushEntry])
 
-  /** R4 续答：挂起卡选项点击 → postResumeV2 本腿新帧直进同一 reducer（同 runId turn upsert）。 */
-  const resumeEntry = useCallback((entry, chosen) => {
+  /** R4 续答：挂起卡选项点击 → postResumeV2 本腿新帧直进同一 reducer（同 runId turn upsert）。
+   *  @param onClosed 收口回调（可选——页面据此刷新左栏对话列表）
+   *  收口（done/error/transport 三闸）回调 onClosed 透传——与提问腿同闸（legHandlers 收口处统一调）。 */
+  const resumeEntry = useCallback((entry, chosen, onClosed = null) => {
     const turn = entry?.turn
     if (!turn?.askFrame || !turn.runId) return
     const body = resumeBodyFromAskFrame(turn.askFrame, chosen)
     upsertTurn(turn.runId, t => ({ ...t, askFrame: null })) // 卡让位——本腿帧接续同轮
-    Promise.resolve(postResumeV2(turn.runId, body, legHandlers({ runId: turn.runId, question: turn.question })))
+    Promise.resolve(postResumeV2(turn.runId, body, legHandlers({ runId: turn.runId, question: turn.question }, onClosed)))
       .catch(err => {
         // 开流前错误（409 非挂起/400 形状等）——errorFrame 灰条如实呈现（不静默吞）
         upsertTurn(turn.runId, t => (t.closed ? t : {

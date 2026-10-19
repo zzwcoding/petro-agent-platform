@@ -28,6 +28,8 @@
  *   **或** `runs.length < limit`（库比窗口小）→ 此后不再 fetch；每次 limit 步进仍重拉全量替换；
  * - 到顶不出「已到最早」小字、封顶不出按钮（打磨批⑦：零提示）——也就没有窗口数与库数
  *   不一致时「已载入 20 / 10」这类自相矛盾的旧计数行。
+ * - 收口刷新（refreshKey）：`refreshKey` 变更＝**重拉全量替换**（limit 回 `pageStep`、`exhausted` 复位）
+ *   ——run 收口后新轮立刻进列；刷新不改变搜索态（`query` 是内部态，不随刷新清空）。
  *
  * 窗口回传（L3 拉链用）：每次成功拉取经 `onRuns` 把**当前窗口**（前 limit 条）交回页面——
  * A1V2R 据此 collectChain（followup_of 逐跳上溯定根，按 created_at 升序成链）。
@@ -68,10 +70,11 @@ function short(text) {
  * @param maxRows     上限（与后端 limit clamp 的 100 一致）
  * @param selectedId  选中轮 run_id（所在链整行高亮）
  * @param onSelect    行点击回调 (链内最新轮行) => void
+ * @param refreshKey  收口刷新键（变更＝重拉全量替换，limit 回 pageStep；缺省 0＝与 mount 同效）
  */
 export default function ThreadList({
   fetchRuns = listRunsV2, onRuns = null, pageStep = 20, maxRows = 100,
-  selectedId = '', onSelect
+  selectedId = '', onSelect, refreshKey = 0
 }) {
   const [runs, setRuns] = useState([])     // 全量窗口（created_at 降序——后端已排序，前端不重排）
   const [limit, setLimit] = useState(pageStep)
@@ -102,9 +105,11 @@ export default function ThreadList({
 
   useEffect(() => {
     inFlightRef.current = true
-    load(pageStep, 0) // 初始 limit=pageStep＝20（specs/frontend-redesign.md「验收测试」表第 14 行）
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- mount 一次（初载读口＝注入的 fetchRuns）
-  }, [])
+    setLimit(pageStep)    // 刷新＝回初始窗（上拉进度不复用——「扩大 limit 重拉全量替换」的既定语义）
+    setExhausted(false)   // 刷新＝重开触底加载
+    load(pageStep, 0)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 初载＋收口刷新（refreshKey 变更＝重拉全量；读口＝注入的 fetchRuns）
+  }, [refreshKey])
 
   const keyword = query.trim().toLowerCase()
   const searching = keyword.length > 0
