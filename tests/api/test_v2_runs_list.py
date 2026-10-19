@@ -1,10 +1,12 @@
 """V2-73 会话历史读口钉测——GET /api/v2/chat/runs?limit=N（最近任务面）。
 
-被测件（V2-73 新增，只读零写面）：
+被测件（V2-73 新增，只读零写面；V2-141 改行集来源）：
 
-- **列表行集与行投影的本层装配形状（RT-W5-02）**：run 号集＝本进程 SSE 帧桥注册表
-  （`RunStreamRegistry.run_ids`），行投影＝persistence 读口 `RunStore.run`（既有读口
-  组合——不改 persistence、不自造 SQL；跨进程历史面缺口随本票登记）；
+- **列表行集与行投影的装配形状（RT-W5-02）**：V2-73 原形＝run 号集取本进程 SSE 帧桥注册表
+  （`RunStreamRegistry.run_ids`）＋逐个 `RunStore.run`；**V2-141 改为端口侧 limit 下推**——
+  行集与排序都在 persistence 端口完成（`RunStore.scan_recent(wanted)` →
+  `Tables.scan_recent(limit)` 按 `created_at` 降序只读 limit 条），api 层只做行投影
+  （不再全量 `registry.run_ids()`、不再 Python 排序、不自造 SQL）；
 - GET /api/v2/chat/runs → [{run_id,question,status,answer,followup_of,created_at,updated_at}]
   （RunListItem 合同形——answer 全文随行，时间为 ISO 字符串）；
 - limit 夹取 1..100 静默（越界不 400——只读面宽容）。
@@ -18,15 +20,24 @@ runtime 装配照抄 tests/api/test_v2_asks.py（内存簿记表＋台账投影�
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from dataclasses import asdict
 from datetime import datetime
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
+from appv2.api.bridge import RunStreamRegistry
 from appv2.api.wire import FRAME_SESSION
 from appv2.infra import clock
 from appv2.infra.db import ConnectionManager
+from appv2.runtimev2.persistence import (
+    TABLE_RUN,
+    MemoryTables,
+    RowOp,
+    RunRecord,
+    current_tables,
+)
 from tests.api.test_v2_asks import (
     ACTOR,
     HAPPY_QUESTION,
@@ -149,6 +160,66 @@ def test_limit_one_returns_newest_and_large_limit_clamps(env: Any) -> None:
     large = client.get("/api/v2/chat/runs", params={"limit": 500}, headers=ACTOR)
     assert large.status_code == 200  # 越界静默夹取——不 400
     assert len(large.json()) == 2  # 夹到上限内全量仍在
+
+
+# ---------- V2-141 limit 下推：读口只读 limit 条（端口侧 scan_recent） ----------
+
+
+def test_list_applies_limit_at_read_port(env: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """直插 limit+5 行 → 响应恰 limit 条且为 created_at 降序前 limit。
+
+    行集**不经注册表登记**（直插簿记表 run 行）——行集来源已换到持久读口
+    （`RunStore.scan_recent`），故响应必须来自端口侧 LIMIT 读；
+    下推反证＝全量扫描口（`MemoryTables.scan`）与旧行集来源
+    （`RunStreamRegistry.run_ids`）双双 monkeypatch 抛错仍绿；
+    越界仍静默夹取 1..100（limit=0 → 夹到 1；limit=500 → 夹到 100，行不足则全量）。
+    """
+    client, _db = env
+    tables = current_tables()
+    for index in range(8):  # limit(3) + 5 行
+        run_id = f"run-seed-{index:02d}"
+        row = asdict(
+            RunRecord(
+                run_id=run_id,
+                question=f"第 {index} 问：9 月上旬日产油量",
+                actor="aqiang",
+                status="completed",
+                answer=None,
+                error=None,
+                manifest_digest=None,
+                followup_of="",
+                created_at=datetime(2026, 10, 12, 8, index, 0),
+                updated_at=datetime(2026, 10, 12, 8, index, 0),
+            )
+        )
+        tables.write([RowOp(TABLE_RUN, (run_id,), row, "put")])
+
+    def _boom(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("全量扫描被调用——limit 未在端口侧下推")
+
+    monkeypatch.setattr(MemoryTables, "scan", _boom)  # 全量扫描口（下推反证）
+    monkeypatch.setattr(RunStreamRegistry, "run_ids", _boom)  # 旧行集来源（V2-141 已弃）
+
+    resp = client.get("/api/v2/chat/runs", params={"limit": 3}, headers=ACTOR)
+    assert resp.status_code == 200
+    items = resp.json()
+    assert len(items) == 3  # 恰 limit 条
+    assert [item["run_id"] for item in items] == [
+        "run-seed-07", "run-seed-06", "run-seed-05",  # created_at 降序前 limit
+    ]
+    assert [item["created_at"] for item in items] == [
+        "2026-10-12T08:07:00", "2026-10-12T08:06:00", "2026-10-12T08:05:00",
+    ]
+
+    floor = client.get("/api/v2/chat/runs", params={"limit": 0}, headers=ACTOR)
+    assert floor.status_code == 200  # 越界静默夹取——不 400
+    assert [item["run_id"] for item in floor.json()] == ["run-seed-07"]  # 夹到 1
+
+    ceiling = client.get("/api/v2/chat/runs", params={"limit": 500}, headers=ACTOR)
+    assert ceiling.status_code == 200  # 越界静默夹取——不 400
+    assert [item["run_id"] for item in ceiling.json()] == [
+        f"run-seed-{index:02d}" for index in range(7, -1, -1)
+    ]  # 夹到 100：8 行全在且降序
 
 
 # ---------- 追问链：followup_of 落 run 行并随列表读口带出（V2-74 对话任务面） ----------

@@ -166,6 +166,17 @@ class RunStore:
         row = self._tables.get(TABLE_RUN, (run_id,))
         return None if row is None else _run_record_of(row)
 
+    def scan_recent(self, limit: int) -> list[RunRecord]:
+        """最近 `limit` 条运行记录（`created_at` 降序）——**limit 由端口侧下推**（V2-141）。
+
+        逐字稿（V2-141 任务 1）：`def scan_recent(self, limit: int) -> list[RunRow]: ...`；本块读口
+        族一律出**形状**（`run`→`RunRecord`／`steps`→`list[StepRecord]`），故落
+        `list[RunRecord]`（仓内无 `RunRow` 类型——端口行形即 `dict[str, Any]`）。读口只读
+        `limit` 条（`Tables.scan_recent`——PG 真件 SQL `ORDER BY created_at DESC LIMIT $1`，
+        api 侧不自造 SQL）。
+        """
+        return [_run_record_of(row) for row in self._tables.scan_recent(limit)]
+
     def steps(self, run_id: str) -> list[StepRecord]:
         """该 run 全步记录（`seq` 升序；无分页——上限归 `api` 侧，本块读口不改语义）。"""
         rows = self._tables.scan(TABLE_STEP, "run_id", run_id)

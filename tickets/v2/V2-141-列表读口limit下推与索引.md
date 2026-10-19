@@ -1,6 +1,6 @@
 # V2-141 列表读口 limit 下推与 created_at 索引
 
-状态: 待开工（票面已补，未施工；**前置 V2-135＋V2-136 合入**——两票占同文件）
+状态: 开工中（2026-10-19 Owner 裁定：**不再等 V2-135／V2-136，直接开工**；本票先落者定形状 ⇒ **V2-135 的 `scan_all` 计划与 V2-136 的 `list_runs` 伪代码须以本票形状为基线 rebase**〔`Tables.scan_recent(limit)` 取代「只加 scan_all」；`RunStore.list_runs(limit)` 直调新口〕）
 日期: 2026-10-19 ｜ 依据：`appv2/api/chat.py:189-222 list_runs` 对 `registry.run_ids()` **全量** `store.run()` 才 `[:limit]`；V2-136 拟落形（`scan_all`＋内存排序＋`[:limit]`）**limit 仍一次读都不省**（2055 行样本实测 7.49ms；理想下推 0.07ms）；`agent_v2_run.created_at` **无索引**（0022 仅建 `ix_agent_v2_step_run_id`）。调研件＝`research/列表慢-后端读口调研-20261019.md`。
 
 > **推荐：本票折进尚未开工的 V2-136 同批**（同文件、避免先落「全表读」再返工）；若不折，须**排在 V2-136 之后**。

@@ -81,6 +81,7 @@ from appv2.runtimev2.persistence import (
     StatusTransitionError,
     StepConflictError,
     StepRecord,
+    Tables,
     TableWriteError,
     UnknownHandleError,
     audit,
@@ -453,6 +454,9 @@ class _ProbeTables:
     def scan(self, table: str, column: str, value: str) -> list[dict[str, Any]]:
         return self._inner.scan(table, column, value)
 
+    def scan_recent(self, limit: int) -> list[dict[str, Any]]:
+        return self._inner.scan_recent(limit)
+
 
 class _FailingTables:
     """写失败注入件（行为 14）：记下本次尝试后原样抛出——无部分行、不吞错、不返回哨兵。"""
@@ -474,6 +478,14 @@ class _FailingTables:
 
     def scan(self, table: str, column: str, value: str) -> list[dict[str, Any]]:
         return [row for row in self.rows.get(table, {}).values() if row.get(column) == value]
+
+    def scan_recent(self, limit: int) -> list[dict[str, Any]]:
+        rows = sorted(
+            self.rows.get(TABLE_RUN, {}).values(),
+            key=lambda row: row["created_at"],
+            reverse=True,
+        )
+        return rows[:limit]
 
 
 # ---------- 1 三类落盘语义（行为 1） ----------
@@ -953,6 +965,7 @@ def test_public_surface_complete() -> None:
         "put_ref",
         "read_ref",
         "ensure_tables",
+        "scan_recent",
     ):
         assert callable(getattr(RunStore, method)), f"RunStore 缺方法 {method}"
     assert list(signature(RunStore.save).parameters)[1:] == ["record"]
@@ -963,6 +976,10 @@ def test_public_surface_complete() -> None:
     assert list(signature(RunStore.put_ref).parameters)[1:] == ["blob"]
     assert list(signature(RunStore.read_ref).parameters)[1:] == ["handle"]
     assert list(signature(RunStore.ensure_tables).parameters)[1:] == []
+    # V2-141 端口侧 limit 下推（逐字稿签名：scan_recent(limit)）
+    assert list(signature(RunStore.scan_recent).parameters)[1:] == ["limit"]
+    assert list(signature(MemoryTables.scan_recent).parameters)[1:] == ["limit"]
+    assert list(signature(Tables.scan_recent).parameters)[1:] == ["limit"]
 
     # 检查点三表五个框架无关行级口（编排块 saver 组合它们、不直连表）
     assert "rows" in signature(put_checkpoint_rows).parameters

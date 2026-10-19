@@ -88,6 +88,17 @@ class Tables(Protocol):
         """按列等值扫描（插入序；副本）。"""
         ...
 
+    def scan_recent(self, limit: int) -> list[dict[str, Any]]:
+        """`agent_v2_run` 按 `created_at` 降序取前 `limit` 行（副本）——列表读口的 limit 下推口。
+
+        **逐字稿**（V2-141 任务 1）：`def scan_recent(self, limit: int) -> list[RunRow]: ...`，
+        语义＝「created_at DESC，取前 limit」；本端口行形为 `dict[str, Any]`（与 `get`／`scan`
+        同款——仓内无 `RunRow` 类型，逐字稿的 `RunRow` 按端口既有行形落）。真件 SQL 落实现块内
+        （`SELECT ... FROM agent_v2_run ORDER BY created_at DESC LIMIT $1`，api 侧不自造 SQL）；
+        PG 真件口随 V2-135 同批补（`PgTables.scan_recent`——`pg_tables.py` 未落）。
+        """
+        ...
+
 
 class MemoryTables:
     """内存簿记表件（测试替身／阶段 5 缺省件）——只落 `agent_v2_*` 表。
@@ -137,6 +148,15 @@ class MemoryTables:
             for row in self._rows_for(table).values()
             if row.get(column) == value
         ]
+
+    def scan_recent(self, limit: int) -> list[dict[str, Any]]:
+        """按 `created_at` 降序取前 `limit` 行（副本）——内存件侧 limit 下推。"""
+        rows = sorted(
+            self._rows_for(TABLE_RUN).values(),
+            key=lambda row: row["created_at"],
+            reverse=True,
+        )
+        return [deepcopy(row) for row in rows[:limit]]
 
     def _check(self, op: RowOp) -> dict[str, Any] | None:
         allowed = TABLE_OPS.get(op.table)

@@ -38,6 +38,7 @@ class RunStore:
     def load(self, run_id: str) -> RunState: ...              # 检查点恢复（跨进程重放）
     def run(self, run_id: str) -> RunRecord | None: ...
     def steps(self, run_id: str) -> list[StepRecord]: ...      # seq 升序
+    def scan_recent(self, limit: int) -> list[RunRecord]: ...  # created_at 降序取前 limit（V2-141 列表读口 limit 下推）
     def blackbox(self, run_id: str) -> BlackBox | None: ...
     def put_ref(self, blob: bytes) -> BlobRef: ...             # 大结果原文的引用载体（可寻址 handle）
     def read_ref(self, handle: str) -> bytes: ...
@@ -119,6 +120,7 @@ def audit(record: AuditRecord) -> None: ...   # 唯一写口＝security.audit（
 - **闭世界四：`BlackBox.record` 的键白名单**（真源 `recon/J-存储留痕与网关缝.md` R-J-02／R-J-03）：**新增状态键须显式入列**，未入列键不进黑匣子。
 - **`BlobRef.handle` 与 `execution.MaterialRef.handle` 是同一标识（同源同值）**：`execution` 产的是**窗口侧材料条目**（`{handle, summary, row_count}`——已定稿真源 `specs/execution.md`，`answering` 已按它对齐），`persistence` 产的是**载体回执**（把 handle 解析回原文的凭据）。两处键名**统一为 `handle`**、本块**不另起 `ref` 之类的第二个名字**（治「同名类型两套字段」）。断言：`execution` 产出的 `handle` 直接喂给 `read_ref` 能取回原文。
 - **检查点三表的行级读写口是本块公开面的一部分**（框架无关）：编排块的 LangGraph saver **组合它、不直连表**（表主人是本块）。断言：saver 路径上出现的写操作全经这五个函数（AST／行为双证）。
+- **列表读口的 limit 由端口侧下推**（V2-141）：`RunStore.scan_recent(limit)` 转出端口口 `Tables.scan_recent(limit)`——`created_at` 降序**只读前 `limit` 行**（`MemoryTables` 内存排序后切片），`api` 侧不再全量读＋Python 排序、不自造 SQL。**PG 真件口 `PgTables.scan_recent`（`ORDER BY created_at DESC LIMIT $1`）随 V2-135 同批补**（`persistence/pg_tables.py` 本票未落——**形状契约登记于此，V2-135 落地时须同批补该口，禁静默漏**）；支撑索引＝迁移 `0029` `ix_agent_v2_run_created_at`（`agent_v2_run (created_at DESC)`）。断言：`tests/api/test_v2_runs_list.py::test_list_applies_limit_at_read_port`（含「全量扫描被 monkeypatch 抛错仍绿」的下推反证）。
 - **错误契约**：`save` 的 `status`／`step` 越界、归档重复、`run` 不存在、`read_ref` 的 `handle` 不可解析 → **抛错（fail-closed）**，**不静默丢弃、不返回哨兵**；错误码映射归调用方（`api`／`orchestration`）。
 - **`load` 的返回面**：`RunState`（真源 `specs/state.md`）；旧版本检查点按 `schema_version` 如实读入（行为 12）。
 - **实现载体待定项**：`BlobRef` 的原文存放载体（簿记表／对象存储）**阶段 5 定**；本规格只写**可寻址语义**（行为 10）。
@@ -193,7 +195,7 @@ def audit(record: AuditRecord) -> None: ...   # 唯一写口＝security.audit（
   2. **黑匣子语义从 upsert 改「只追加」**（现状 `merge` 覆盖，Owner 裁决改追加）→ 检测＝`::blackbox_first_write_wins`；历史行处理＝**不回溯改写**（旧行照旧可读，登记为迁移事实）。
   3. **步记录 payload 假值归 NULL 造成语义丢失**（现状 `or None`）→ 对策＝行为 8 保真（空结构与缺失可区分）。检测＝`::step_payload_faithful`。
   4. **`created_at` 语义漂移**（现状步记录时间戳＝**末次投影时间**，首次落库时间不可回溯）→ 对策＝列语义在规格内定死为「该记录末次落盘时间」；若要首写时间，须新增列（**登记为阶段 5 可选项**）。本批已按此对策在 `StepRecord` 投影**补 `created_at` 列**（末次落盘时间——见接口定义）。检测＝人审 ＋ 读面断言。
-  5. **长 run 全量读无分页**（现状 `list_steps` 无 limit）→ 对策＝本块读口不改语义，**分页/上限归 `api` 侧**；检测＝**人审**（本批不新增，登记 `api` 块）。
+  5. **长 run 全量读无分页**（现状 `list_steps` 无 limit）→ 对策＝**列表读口的 limit 由端口侧下推**（V2-141：`RunStore.scan_recent(limit)` → `Tables.scan_recent(limit)`，`created_at` 降序只读前 `limit` 行——api 侧不再全量读＋Python 排序；PG 真件口 `PgTables.scan_recent` 随 V2-135 同批补，索引 `ix_agent_v2_run_created_at` 见迁移 0029）；**步记录读口（`steps(run_id)`）仍无 limit**——该面上限归 `api` 侧；检测＝`tests/api/test_v2_runs_list.py::test_list_applies_limit_at_read_port`（下推反证：全量扫描口被 monkeypatch 抛错仍绿）＋**人审**。
   6. **建表双轨**（幂等建表 vs 迁移脚本）→ 对策＝`ensure_tables()` 幂等、与迁移脚本同形；检测＝**人审**（无机器闸看守「两处同形」，登记）。
   7. **审计字段从四列扩到四要素**（Owner 裁决）→ 对既有“六类方法／七 action 值”的映射口径必须单点；检测＝`::audit_four_elements_required` ＋ `::audit_action_closed_world`。
   8. **D 类疑点残留**（`recon/J` 记录的黑匣子白名单两处不一致、指针对账缺口）：本批**不逐条 triage**（Owner 令「不结旧账」）——重写按行为 11 的**白名单闭世界**收口，历史疑点只作现状证据。

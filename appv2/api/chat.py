@@ -188,23 +188,18 @@ def _choice_of(body: ResumeBody) -> AskChoice:
 
 @router.get("/runs")
 async def list_runs(
-    actor: CurrentActor, store: StoreDep, registry: RegistryDep, limit: int = 20
+    actor: CurrentActor, store: StoreDep, limit: int = 20
 ) -> list[RunListItem]:
     """GET /api/v2/chat/runs?limit=N → 最近 N 条任务（V2-73 会话历史读口）。
 
     created_at 降序；limit 夹取 1..100（越界静默夹取，不 400——只读面宽容）。
-    **行集来源（本层装配形状——登记缺口）**：run 号集＝本进程 SSE 帧桥注册表
-    （`RunStreamRegistry.run_ids`）；行投影＝persistence 读口 `RunStore.run`（既有
-    读口组合——不改 persistence、不自造 SQL）。故持久库中**非本进程服务过**的历史
-    run 不进列表（跨进程/重启后为空）——弱于「最近任务读口」的全量语义，补口
-    （persistence 侧列表读口，如 `recent_runs(limit)`）呈主窗裁。
+    **行集来源（V2-141 limit 下推）**：行集与排序都在 persistence 端口侧完成
+    （`RunStore.scan_recent(wanted)` → `Tables.scan_recent(limit)` 按 `created_at`
+    降序**只读 limit 条**），本层只做行投影——不再全量 `registry.run_ids()` 逐个
+    `store.run()`、不再 Python 排序、不自造 SQL。`created_at` 索引见迁移
+    `0029`（`ix_agent_v2_run_created_at`）；PG 真件口 `PgTables.scan_recent`
+    随 V2-135 同批补（形状契约登记在 `specs/persistence.md`）。
     """
-    rows = [
-        row
-        for run_id in registry.run_ids()
-        if (row := store.run(run_id)) is not None
-    ]
-    rows.sort(key=lambda row: row.created_at, reverse=True)
     wanted = max(1, min(limit, 100))
     return [
         RunListItem(
@@ -218,7 +213,7 @@ async def list_runs(
             supplements=None if row.supplements is None
             else [dict(entry) for entry in row.supplements],
         )
-        for row in rows[:wanted]
+        for row in store.scan_recent(wanted)
     ]
 
 
