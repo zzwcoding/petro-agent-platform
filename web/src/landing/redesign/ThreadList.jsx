@@ -21,12 +21,12 @@
  * 读口失败态（UI-14 同位纪律——**失败≠空库**）：`loadState` 分离——读口失败＝「暂无数据」
  * 失败空态（沿用词表文案，已有行不销毁）；读口如实返回空列＝「暂无历史对话」。
  *
- * 加载（打磨批⑦：零按钮零提示，纯触底自动加载）：
+ * 加载（打磨批⑦：零按钮零提示（限分页入口与到头提示；首屏/刷新在途的加载态见验收 #33），纯触底自动加载）：
  * - 触底判定＝`scrollTop + clientHeight >= scrollHeight - 40`（列表最新在上、更早在下，
  *   滚到底＝看更早）→ 未 exhausted、非搜索中、limit<maxRows 才 loadMore；
  * - exhausted 判定（拿到响应后）：`新 runs.length === 旧 runs.length`（没有新内容）
  *   **或** `runs.length < limit`（库比窗口小）→ 此后不再 fetch；每次 limit 步进仍重拉全量替换；
- * - 到顶不出「已到最早」小字、封顶不出按钮（打磨批⑦：零提示）——也就没有窗口数与库数
+ * - 到顶不出「已到最早」小字、封顶不出按钮（打磨批⑦：零提示（限分页入口与到头提示；首屏/刷新在途的加载态见验收 #33））——也就没有窗口数与库数
  *   不一致时「已载入 20 / 10」这类自相矛盾的旧计数行。
  * - 收口刷新（refreshKey）：`refreshKey` 变更＝**重拉全量替换**（limit 回 `pageStep`、`exhausted` 复位）
  *   ——run 收口后新轮立刻进列；刷新不改变搜索态（`query` 是内部态，不随刷新清空）。
@@ -39,7 +39,7 @@
  * （loadMore 让位），无命中＝「无匹配对话」空态。选中行高亮（蓝底 + data-selected）。
  */
 import { useEffect, useRef, useState } from 'react'
-import { Input, List } from 'antd'
+import { Input, List, Spin } from 'antd'
 import { SearchOutlined } from '@ant-design/icons'
 import { listRunsV2 } from '../../api/chatV2.js'
 import { dim } from '../../components/helpIcon.jsx'
@@ -78,7 +78,7 @@ export default function ThreadList({
 }) {
   const [runs, setRuns] = useState([])     // 全量窗口（created_at 降序——后端已排序，前端不重排）
   const [limit, setLimit] = useState(pageStep)
-  const [loadState, setLoadState] = useState('ok') // 'ok'|'loading'|'error'——失败≠空库（UI-14 同位纪律）
+  const [loadState, setLoadState] = useState('loading') // 'ok'|'loading'|'error'——失败≠空库（UI-14 同位纪律）；首屏即在途
   const [exhausted, setExhausted] = useState(false) // 没有更早的了（不再 fetch——静默，无提示）
   const [query, setQuery] = useState('')   // 搜索态（L2 维持前端过滤，零请求）
   const inFlightRef = useRef(false)         // 一次一拉（触底会连发 scroll——护栏不叠请求）
@@ -150,6 +150,12 @@ export default function ThreadList({
           </div>
         )}
 
+        {loadState === 'loading' && (
+          <div style={{ ...dim, marginBottom: 4 }} data-testid="thread-loading">
+            <Spin size="small" /> 加载中…
+          </div>
+        )}
+
         <List size="small" dataSource={chains}
           locale={{ emptyText: loadState === 'error' ? '暂无数据' : searching ? '无匹配对话' : '暂无历史对话' }}
           renderItem={c => {
@@ -172,7 +178,7 @@ export default function ThreadList({
             )
           }} />
 
-        {/* 底部（列表之后＝滚到底的方向）：零按钮零提示——加载靠触底自动，到顶静默
+        {/* 底部（列表之后＝滚到底的方向）：零按钮零提示（限分页入口与到头提示；首屏/刷新在途的加载态见验收 #33）——加载靠触底自动，到顶静默
             （打磨批⑦：原「加载更早」按钮与「已到最早」小字整块退场） */}
       </div>
     </div>

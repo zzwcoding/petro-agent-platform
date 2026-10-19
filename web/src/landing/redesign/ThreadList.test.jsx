@@ -2,12 +2,12 @@
  * ThreadList 钉测（左侧历史对话——FE-04 真接 listRunsV2＋触底自动加载 + 搜索）。
  *
  * 守什么（specs/frontend-redesign.md「验收测试」表第 14/15 行＋行为约定 L1/L2；Owner 反馈
- * 打磨批⑦：零按钮零提示、纯触底自动加载）：
+ * 打磨批⑦：零按钮零提示（限分页入口与到头提示；首屏/刷新在途的加载态见验收 #33）、纯触底自动加载）：
  * - 真接形态（::live_limit_step_cap_100）：数据源＝内部态＋fetchRuns 注入（默认 listRunsV2，
  *   测试注桩零网络）——初始 limit=20；触底＝limit+20 重拉全量替换（后端无 offset——
  *   真源 appv2/api/chat.py list_runs，limit 夹 1..100），20→40→…→100 封顶；封顶后不再调读口；
  *   桩返回 120 条时窗口只到 100（maxRows clamp）。
- * - **零按钮零提示**（打磨批⑦）：DOM 无「加载更早」按钮、无「已到最早」小字——加载靠触底
+ * - **零按钮零提示**（限分页入口与到头提示；首屏/刷新在途的加载态见验收 #33）（打磨批⑦）：DOM 无「加载更早」按钮、无「已到最早」小字——加载靠触底
  *   自动，到头静默；窗口数与库数不一致时也再没有「已载入 20 / 10」这类自相矛盾计数行。
  * - **触底判定**（列表最新在上、更早在下）：离底 ≤40px 触发；离底远（顶滚）不触发；
  *   搜索中/已 exhausted/到 maxRows 同样不触发。
@@ -26,7 +26,7 @@
  */
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
 import ThreadList from './ThreadList.jsx'
 import { FIXTURE_RUNS } from './__fixtures__/runs.js'
@@ -367,5 +367,37 @@ describe('ThreadList · 空态（含读口失败态分离）', () => {
     expect(screen.queryByTestId('load-more')).toBeNull()
     expect(screen.queryByTestId('earliest-tip')).toBeNull()
     expect(within(screen.getByTestId('thread-list')).queryAllByTestId(/^thread-row-/)).toHaveLength(0)
+  })
+})
+
+/** 挂起桩：每次调用返回手动 resolve/reject 的 promise（在途加载态专用——不自动落地）。 */
+function pendingStub() {
+  const calls = []
+  const fn = vi.fn(() => new Promise((resolve, reject) => { calls.push({ resolve, reject }) }))
+  return { fn, calls }
+}
+
+describe('ThreadList · 首屏/刷新加载态（loading_hint_visible——验收 #33）', () => {
+  it('loading_hint_visible：首屏/刷新在途出「加载中…」逐字、到位即消失、失败仍「暂无数据」（error 优先）', async () => {
+    const { fn, calls } = pendingStub()
+    const { rerender } = render(<ThreadList fetchRuns={fn} refreshKey={0} />)
+    // 首屏在途：提示行在场，文案逐字「加载中…」（loading 态提示——非分页入口/到头提示）
+    expect(screen.getByTestId('thread-loading').textContent.trim()).toBe('加载中…')
+
+    await act(async () => { calls[0].resolve(FIXTURE_RUNS.slice(0, 20)) })
+    expect(screen.queryByTestId('thread-loading')).toBeNull() // 到位即消失
+    expect(rowsIn()).toHaveLength(14)                        // 数据到位（20 原始行 → 14 链行）
+
+    // 刷新在途再现（refreshKey 变更＝重拉全量替换）
+    rerender(<ThreadList fetchRuns={fn} refreshKey={1} />)
+    expect(screen.getByTestId('thread-loading').textContent.trim()).toBe('加载中…')
+    await act(async () => { calls[1].resolve(FIXTURE_RUNS.slice(0, 20)) })
+    expect(screen.queryByTestId('thread-loading')).toBeNull()
+
+    // 失败：error 优先于 loading——「暂无数据」在场、「加载中…」不出现
+    cleanup()
+    render(<ThreadList fetchRuns={vi.fn(async () => { throw new Error('boom') })} />)
+    expect(await screen.findByText('暂无数据')).toBeTruthy()
+    expect(screen.queryByTestId('thread-loading')).toBeNull()
   })
 })

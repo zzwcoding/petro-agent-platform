@@ -116,7 +116,7 @@ TurnShape {
 - R4 挂起态刷新：`GET /runs/{id}` 的 `pending_ask` 还原挂起卡；resume 只消费本腿新帧（不重启不重放）。
 
 **历史列（L 组）**
-- L1 初始 `GET /runs?limit=20`；加载更多＝**滚到列表底部**（离底 ≤40px）触发、limit 步进 +20 重拉全量替换（最新在上、更早在下）。**零按钮零提示**（Owner 2026-10-17 打磨批⑦：原「加载更早」按钮与「已到最早」小字退场；窗口数>库数时的「已载入 N / M」旧计数行随按钮消失）；**exhausted 判据**（拿到响应后）＝新 runs 行数＝旧行数（没有新内容）**或** 行数 < limit（库比窗口小）→ 此后不再 fetch（静默）；limit ≥ maxRows 亦不再 fetch。
+- L1 初始 `GET /runs?limit=20`；加载更多＝**滚到列表底部**（离底 ≤40px）触发、limit 步进 +20 重拉全量替换（最新在上、更早在下）。**零按钮零提示**（限分页入口与到头提示——首屏/刷新在途的加载态另见验收 #33；按钮仍零）（Owner 2026-10-17 打磨批⑦：原「加载更早」按钮与「已到最早」小字退场；窗口数>库数时的「已载入 N / M」旧计数行随按钮消失）；**exhausted 判据**（拿到响应后）＝新 runs 行数＝旧行数（没有新内容）**或** 行数 < limit（库比窗口小）→ 此后不再 fetch（静默）；limit ≥ maxRows 亦不再 fetch。
   - 后端无 offset——夹取 1..100；真源 `appv2/api/chat.py` 的 list_runs。
 - L2 搜索＝对已加载行前端过滤（后端无搜索参数），零请求。
 - L3 选中行→拉该链轮次（listItem.followup_of 链对齐现状 buildThreads 分组语义）渲染中栏；**选中即清本会话流**（entries）——中栏视图＝链轮次＋**链之后**新提问轮（见 L5）。
@@ -153,7 +153,7 @@ TurnShape {
 | 11 | 刷新后重连：GET /runs 发现 running→resume_run_id 重放全帧归一 | 重放后可尾随新帧 | — | `web/src/landing/redesign/reconnect.test.jsx::reconnect_replays_full_stream` |
 | 12 | 重连 404→终态灰条「本轮已结束或不可达」 | 不悬挂不重试循环 | — | `web/src/landing/redesign/reconnect.test.jsx::reconnect_404_terminal` |
 | 13 | 挂起态刷新 pending_ask 还原、resume 只消费本腿新帧 | — | — | `web/src/landing/redesign/reconnect.test.jsx::pending_ask_restore` |
-| 14 | ThreadList 真接：初始 limit=20、步进至 100 封顶（零按钮零提示，到头静默；exhausted 后不再 fetch） | limit 夹取边界（传 120 只到 100）；无新内容／库比窗口小 | mock 期 10 条行为不回归 | `web/src/landing/redesign/ThreadList.test.jsx::live_limit_step_cap_100`、`web/src/landing/redesign/ThreadList.test.jsx::scroll_auto_load_exhausted` |
+| 14 | ThreadList 真接：初始 limit=20、步进至 100 封顶（零按钮零提示（限分页入口与到头提示——首屏/刷新在途的加载态另见验收 #33；按钮仍零），到头静默；exhausted 后不再 fetch） | limit 夹取边界（传 120 只到 100）；无新内容／库比窗口小 | mock 期 10 条行为不回归 | `web/src/landing/redesign/ThreadList.test.jsx::live_limit_step_cap_100`、`web/src/landing/redesign/ThreadList.test.jsx::scroll_auto_load_exhausted` |
 | 15 | 搜索前端过滤零请求、无匹配空态 | — | — | `web/src/landing/redesign/ThreadList.test.jsx::search_client_side_no_fetch` |
 | 16 | 选中行拉链渲染（followup_of 分组对齐 buildThreads） | 单轮链/多轮链 | — | `web/src/landing/redesign/A1V2R.test.jsx::select_thread_renders_turns` |
 | 17 | 版面链条顺序：问句→流水线→回答（notice-alerts→正文→小字；中栏无追加面——打磨批②，中栏无血缘框——打磨批⑨） | 无血缘轮缺位不渲染（卡在右栏）；隐藏型 notice 不进警示带 | 既有 13 条页面测试不回归 | `web/src/landing/redesign/A1V2R.test.jsx::chain_order` |
@@ -172,6 +172,7 @@ TurnShape {
 | 30 | 左栏刷新两拍（L6）：受理（session 帧）与收口各重拉一次（limit 回 20）；每腿收口至多一次；挂起续答腿收口亦刷新 | 收口回调重复调（脏流）；已触底到 40 后刷新 | 刷新键不变＝不重拉；搜索态不随刷新清空；选中态不动 | `web/src/landing/redesign/ThreadList.test.jsx::收口刷新`、`web/src/landing/redesign/A1V2R.test.jsx::左栏对话列表刷新` |
 | 31 | trust 白话徽标不上屏（E7）：右栏组头只出「来源 · N 支」、悬停卡卡头只出「[n] 来源（＋出处编号）」——四值徽标零渲染 | `trust=notice` 条目仍以文本句点明程序声明 | trust 键仍作机读判据（引用块回读尾括号剥取照常）；点条定位/材料原文照常 | `web/src/landing/redesign/CitationPanel.test.jsx::分组与条数`、`web/src/landing/redesign/CiteHoverCard.test.jsx::卡片本体`、`web/src/landing/redesign/cites.test.js` |
 | 32 | 右栏悬浮面板（P1）：不展示时**完全不可见**（整卡不渲染、无竖条无常驻入口）；点正文 `[n]`＝悬浮层出现并定位该条（唯一入口）；关闭三途＝头部「×」／点面板之外／切换对话（点左栏历史行、＋新会话） | 无 `[n]` 的轮次＝无任何入口（面板不可达，如实登记）；点面板之外的三处豁免（面板自身／引标／Modal 门户）；收起态不挂 outside 监听；关→开往返（定位态保留）；`open` 缺省无控制 | 悬浮层 `position:fixed` 不占版面（中栏恒占满）；面板内容与决策树入口不变；面板内各展示位与点条定位不回归 | `web/src/landing/redesign/A1V2R.test.jsx::右栏悬浮面板`、`web/src/landing/redesign/CitationPanel.test.jsx::不展示时完全不可见` |
+| 33 | ThreadList 首屏/刷新在途显示加载态（逐字「加载中…」；到位即消失；失败仍「暂无数据」） | loading 态文案逐字；error 优先于 loading | 既有 21 例零改 | `web/src/landing/redesign/ThreadList.test.jsx::loading_hint_visible` |
 
 ## 依赖与风险
 
