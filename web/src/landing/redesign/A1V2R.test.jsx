@@ -600,6 +600,96 @@ describe('A1V2R · 选中拉链（FE-04 L3——specs「验收测试」表第 16
     expect(vi.mocked(getRunV2)).toHaveBeenCalledTimes(2) // 不重试（404 轮降级不重拉）
   })
 
+  /** V2-140 造链：3 轮同链（c1→c2→c3，followup_of 逐跳）＋无关单轮（solo）——并行读回与竞窗用例共用。
+   *  listRunsV2 桩按 created_at 降序回窗（后端排序语义）。 */
+  const CHAIN3_WINDOW = [
+    { run_id: 'run-c3', question: '三链三问', status: 'completed', answer: '三链三轮答案。',
+      followup_of: 'run-c2', created_at: '2026-10-17 08:20:00', updated_at: '2026-10-17 08:20:30',
+      supplements: [] },
+    { run_id: 'run-c2', question: '三链二问', status: 'completed', answer: '三链二轮答案。',
+      followup_of: 'run-c1', created_at: '2026-10-17 08:10:00', updated_at: '2026-10-17 08:10:30',
+      supplements: [] },
+    { run_id: 'run-c1', question: '三链一问', status: 'completed', answer: '三链一轮答案。',
+      followup_of: '', created_at: '2026-10-17 08:00:00', updated_at: '2026-10-17 08:00:30',
+      supplements: [] },
+    { run_id: 'run-solo', question: '另链问句', status: 'completed', answer: '另链答案正文。',
+      followup_of: '', created_at: '2026-10-17 07:00:00', updated_at: '2026-10-17 07:00:30',
+      supplements: [] }
+  ]
+
+  it('select_parallel_fetch：链读回＝并行发出（getRunV2 次数＝链轮数、序＝链轮序；在途出 chain-loading、落地即撤，乱序 resolve 仍升序）', async () => {
+    vi.mocked(listRunsV2).mockResolvedValue(CHAIN3_WINDOW)
+    // 全部 deferred：不 resolve 任何一轮——串行 for await 在首轮 await 处卡死，只有并行实现会发满 3 次
+    const pending = new Map()
+    vi.mocked(getRunV2).mockImplementation(runId => new Promise(resolve => {
+      pending.set(runId, () => resolve(runViewOf(runId)))
+    }))
+    render(<A1V2R />)
+    fireEvent.click(await screen.findByTestId('thread-row-run-c1'))
+    // 并行判据：首轮未落地前，三轮 getRunV2 已全部发出；次数＝链轮数、调用序＝链轮序（created_at 升序）
+    await waitFor(() => expect(vi.mocked(getRunV2)).toHaveBeenCalledTimes(3))
+    expect(vi.mocked(getRunV2)).toHaveBeenNthCalledWith(1, 'run-c1')
+    expect(vi.mocked(getRunV2)).toHaveBeenNthCalledWith(2, 'run-c2')
+    expect(vi.mocked(getRunV2)).toHaveBeenNthCalledWith(3, 'run-c3')
+    // 在途加载态（中栏）：文案＋Spin；无关单轮不入链（只发 3 次）
+    expect(screen.getByTestId('chain-loading').textContent).toContain('正在读取对话…')
+    expect(screen.queryByTestId('round-run-solo')).toBeNull()
+    // 乱序落地（c3→c1→c2）：Promise.all 保序——中栏仍按 created_at 升序
+    await act(async () => { pending.get('run-c3')(); pending.get('run-c1')(); pending.get('run-c2')() })
+    await screen.findByTestId('round-run-c1')
+    expect(screen.queryByTestId('chain-loading')).toBeNull() // 落地即撤
+    const order = [...document.querySelectorAll('[data-testid^="round-run-"]')].map(el => el.dataset.testid)
+    expect(order).toEqual(['round-run-c1', 'round-run-c2', 'round-run-c3'])
+    expect(screen.getByText('对话 · 3 轮')).toBeTruthy()
+  })
+
+  it('select_parallel_fetch · 逐项 catch：一链中某轮 404 只降级该轮（errorFrame 在场、余轮正常），整链不 reject', async () => {
+    vi.mocked(listRunsV2).mockResolvedValue(CHAIN3_WINDOW)
+    vi.mocked(getRunV2).mockImplementation(runId => (runId === 'run-c2'
+      ? Promise.reject(new ApiError(404, { code: 'chat_run_not_found', message: 'run 不存在' }, 'run 不存在'))
+      : Promise.resolve(runViewOf(runId))))
+    render(<A1V2R />)
+    fireEvent.click(await screen.findByTestId('thread-row-run-c1'))
+    // 整链仍落地（Promise.all 不因单项 reject 而 reject）：三轮俱在、头部计 3 轮
+    await screen.findByTestId('round-run-c1')
+    expect(screen.getByText('对话 · 3 轮')).toBeTruthy()
+    expect(screen.queryByTestId('chain-loading')).toBeNull()
+    // 404 轮＝降级形（errorFrame「本轮已结束或不可达」）；余两轮正常出正文
+    expect(within(screen.getByTestId('round-run-c2')).getByTestId('error-frame-alert').textContent)
+      .toContain('本轮已结束或不可达')
+    expect(within(screen.getByTestId('round-run-c1')).queryByTestId('error-frame-alert')).toBeNull()
+    expect(within(screen.getByTestId('round-run-c3')).queryByTestId('error-frame-alert')).toBeNull()
+    expect(within(screen.getByTestId('round-run-c1')).getByTestId('answer-view')).toBeTruthy()
+    expect(within(screen.getByTestId('round-run-c3')).getByTestId('answer-view')).toBeTruthy()
+    expect(vi.mocked(getRunV2)).toHaveBeenCalledTimes(3) // 不重试（404 轮降级不重拉）
+  })
+
+  it('select_parallel_fetch · 竞窗丢弃：旧选择响应不覆盖新选择（护栏仍在 await 之后）；丢弃不清 spinner——归新选择所有', async () => {
+    vi.mocked(listRunsV2).mockResolvedValue(CHAIN3_WINDOW)
+    const pending = new Map()
+    vi.mocked(getRunV2).mockImplementation(runId => new Promise(resolve => {
+      pending.set(runId, () => resolve(runViewOf(runId)))
+    }))
+    render(<A1V2R />)
+    fireEvent.click(await screen.findByTestId('thread-row-run-c1')) // 旧选择（3 轮链）——响应悬置
+    await waitFor(() => expect(vi.mocked(getRunV2)).toHaveBeenCalledTimes(3))
+    fireEvent.click(screen.getByTestId('thread-row-run-solo')) // 新选择（单轮链）——旧响应仍在途
+    await waitFor(() => expect(vi.mocked(getRunV2)).toHaveBeenCalledTimes(4))
+    expect(screen.getByTestId('chain-loading')).toBeTruthy() // 新选择在途＝加载态在场
+    // 旧选择响应先到＝丢弃：旧链轮不入屏；spinner 归新选择所有（丢弃分支不清）
+    await act(async () => { pending.get('run-c1')(); pending.get('run-c2')(); pending.get('run-c3')() })
+    expect(screen.queryByTestId('round-run-c1')).toBeNull()
+    expect(screen.queryByTestId('round-run-c2')).toBeNull()
+    expect(screen.queryByTestId('round-run-c3')).toBeNull()
+    expect(screen.queryByTestId('round-run-solo')).toBeNull() // 新选择尚未落地
+    expect(screen.getByTestId('chain-loading')).toBeTruthy() // 旧响应丢弃不撤在途态（新选择仍在途）
+    // 新选择落地＝中栏切新链、在途态撤下
+    await act(async () => { pending.get('run-solo')() })
+    await screen.findByTestId('round-run-solo')
+    expect(screen.getByText('对话 · 1 轮')).toBeTruthy()
+    expect(screen.queryByTestId('chain-loading')).toBeNull() // 新选择落地后才撤
+  })
+
   it('链内挂起轮续答接通（FE-04 遗留）：点选项 → postResumeV2 真通，本腿帧落回该链轮', async () => {
     vi.mocked(listRunsV2).mockResolvedValue([{
       run_id: 'run-wait', question: '挂起问句', status: 'waiting_ask', answer: null,

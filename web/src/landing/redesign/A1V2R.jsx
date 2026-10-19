@@ -59,7 +59,7 @@
  *   无 `[n]` 的轮次没有任何入口——其「查询口径」卡随之不可达（如实登记）。
  */
 import { useEffect, useRef, useState } from 'react'
-import { Alert, Button, Card, Input, Space } from 'antd'
+import { Alert, Button, Card, Input, Space, Spin } from 'antd'
 import { SendOutlined } from '@ant-design/icons'
 import { ApiError, errText } from '../../api/client.js'
 import { getRunV2, postAskV2, postResumeV2, resumeBodyFromAskFrame } from '../../api/chatV2.js'
@@ -230,6 +230,10 @@ export default function A1V2RLanding() {
   const [selectedRunId, setSelectedRunId] = useState('')
   const [runs, setRuns] = useState([])
   const [chain, setChain] = useState(null)
+  // 中栏选中链读回在途态（V2-140）：onSelect 进入置 true、setChain 置 false——期间中栏出
+  // 「正在读取对话…」（此前 N 轮串行 RTT 期间中栏停在旧内容、零提示，调研 §一-4）。竞窗丢弃
+  // 分支**不清**（L0 裁定：spinner 归最新选择所有——旧响应被丢弃时新选择仍在途就该继续显示）。
+  const [chainLoading, setChainLoading] = useState(false)
   const selectSeqRef = useRef(0) // 选中竞窗护栏（异步拉链期间再点他行——旧响应丢弃不覆盖新选择）
   // 左栏对话列表收口刷新键（V2-73 原页「onDone 自动刷新」的回归——FE-05 重写后丢失）：
   // 单调计数，ThreadList 据其重拉全量；提问腿受理＋收口、挂起续答腿收口、链内续答腿收口各递增。
@@ -360,7 +364,7 @@ export default function A1V2RLanding() {
     })
   }
 
-  /** 左栏行点击（FE-04 L3 选中拉链）：collectChain 取窗内同链行 → 每轮 getRunV2（顺序）→
+  /** 左栏行点击（FE-04 L3 选中拉链）：collectChain 取窗内同链行 → 每轮 getRunV2（并行（逐项 catch；竞窗护栏在 await 后））→
    *  adaptHistoryTurn 归一 → 中栏切该链。404（进程重启丢行）轮降级：adaptHistoryTurn(r, null)
    *  ＋errorFrame{run_unreachable}（文案与 useRunningRun R3 合成轮同词）；其他读口错误同形
    *  降级——单轮缺明细不炸整链。**清本会话流**（entries）：链视图＝链轮＋**链之后**新提问轮
@@ -371,22 +375,25 @@ export default function A1V2RLanding() {
     setPanelOpen(false) // 切换对话＝自动隐藏悬浮面板（打磨批⑫；键盘激活不走 mousedown，故此处显式收）
     selectSeqRef.current += 1
     const seq = selectSeqRef.current
+    setChainLoading(true) // 读回在途（V2-140）：中栏出「正在读取对话…」
     const chainRows = collectChain(row, runs)
-    const turns = []
-    for (const r of chainRows) {
+    const results = await Promise.all(chainRows.map(async r => {
       try {
-        turns.push(adaptHistoryTurn(r, await getRunV2(r.run_id)))
+        return { turn: adaptHistoryTurn(r, await getRunV2(r.run_id)) }
       } catch (err) {
-        turns.push({
-          ...adaptHistoryTurn(r, null),
-          errorFrame: err instanceof ApiError && err.status === 404
-            ? { code: 'run_unreachable', message: '本轮已结束或不可达' }
-            : { code: err instanceof ApiError ? err.code : 'run_unreachable', message: errText(err) }
-        })
+        return {
+          turn: {
+            ...adaptHistoryTurn(r, null),
+            errorFrame: err instanceof ApiError && err.status === 404
+              ? { code: 'run_unreachable', message: '本轮已结束或不可达' }
+              : { code: err instanceof ApiError ? err.code : 'run_unreachable', message: errText(err) }
+          }
+        }
       }
-    }
-    if (seq !== selectSeqRef.current) return // 竞窗：已有更新的选择在途——旧响应丢弃
-    setChain({ runId: row.run_id, turns })
+    }))
+    if (seq !== selectSeqRef.current) return // 竞窗：已有更新的选择在途——旧响应丢弃（spinner 归新选择所有，此处不清）
+    setChain({ runId: row.run_id, turns: results.map(x => x.turn) })
+    setChainLoading(false)
   }
 
   /**
@@ -449,6 +456,11 @@ export default function A1V2RLanding() {
           <div style={{ ...dim, marginBottom: 8 }}>
             {`对话 · ${viewTurns.length} 轮`}
           </div>
+        )}
+        {/* 选中链读回在途（V2-140）：中栏加载态——最新选择读回落地才撤（旧响应被竞窗丢弃不清，
+            spinner 归最新选择所有；此前 N 轮串行期间无提示） */}
+        {chainLoading && (
+          <div style={dim} data-testid="chain-loading"><Spin size="small" /> 正在读取对话…</div>
         )}
         {viewTurns.length === 0 && (
           <div style={{ ...dim, textAlign: 'center', marginTop: 60 }} data-testid="flow-empty">
