@@ -2,8 +2,8 @@
  * 引标悬停预览钉测（设计稿 §3.2 引标 hover 切片预览——零请求）。
  *
  * 守什么：
- * - `CiteHoverCard` 自带面：出处（[n] 来源＋trust 白话徽标＋出处编号）＋材料切片内容；
- *   无配对材料＝如实写「（材料未在回合内渲染）」；`trust=notice` 点明是程序声明；
+ * - `CiteHoverCard` 自带面：出处（[n] 来源＋出处编号）＋材料切片内容（**trust 白话徽标不上屏**
+ *   ——Owner 2026-10-19 打磨批⑩）；无配对材料＝如实写「（材料未在回合内渲染）」；`trust=notice` 点明是程序声明；
  * - AnswerView **可选 prop** `citeHoverCard` 的接线：传了＝引标外包受控 Popover，
  *   悬停出卡（内容＝该 index 材料切片，零 fetch）；不传＝行为与旧版逐字一致
  *   （正文单文本节点、无可点锚点、无 Popover）——V1 与现 A1V2 不受影响。
@@ -42,14 +42,15 @@ const FULL = FIXTURE_TURNS.find(t => t.id === 't-full').turn
 const SPLIT = FIXTURE_TURNS.find(t => t.id === 't-split').turn
 
 describe('CiteHoverCard · 卡片本体', () => {
-  it('出处三行＋材料切片内容（零请求）', () => {
+  it('出处两行＋材料切片内容（零请求）；卡头无 trust 白话徽标', () => {
     const cite = FULL.citations[0]
     const material = FULL.materials.find(m => m.index === cite.index)
     render(<CiteHoverCard cite={cite} material={material} />)
     const card = screen.getByTestId('cite-hover-card')
     expect(card.textContent).toContain('[1]')
     expect(card.textContent).toContain('agg.fct_daily_metering')
-    expect(card.textContent).toContain('权威台账') // trust 白话徽标
+    expect(card.textContent).not.toContain('权威台账') // trust 白话徽标不上屏（Owner 2026-10-19 打磨批⑩）
+    expect(card.textContent).toContain('出处编号：N-01@2026-01-01')
     expect(screen.getByTestId('cite-hover-body').textContent)
       .toContain('井号=N-01；区块=渤南；日期=2026-01-01；日产液量（方）=36.97')
     expect(fetchMock).not.toHaveBeenCalled()
@@ -60,11 +61,12 @@ describe('CiteHoverCard · 卡片本体', () => {
     expect(screen.getByTestId('cite-hover-body').textContent).toBe('（材料未在回合内渲染）')
   })
 
-  it('trust=notice ＝点明是程序声明（不伪装文档原文）', () => {
+  it('trust=notice ＝点明是程序声明（不伪装文档原文）；点明靠文本句，不靠徽标', () => {
     const cite = SPLIT.citations.find(c => c.trust === 'notice')
     render(<CiteHoverCard cite={cite} material={SPLIT.materials.find(m => m.index === cite.index)} />)
-    expect(screen.getByTestId('cite-hover-card').textContent).toContain('不是文档原文')
-    expect(screen.getByTestId('cite-hover-card').textContent).toContain('系统注记')
+    const card = screen.getByTestId('cite-hover-card')
+    expect(card.textContent).toContain('不是文档原文')
+    expect(card.textContent).not.toContain('系统注记') // trust 白话徽标不上屏（Owner 2026-10-19 打磨批⑩）
   })
 
   it('无 cite ＝不渲染（调用方不该空弹）', () => {

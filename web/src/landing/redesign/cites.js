@@ -2,8 +2,10 @@
  * 重设计共享件（真流页与各展示件共用）——纯函数，无请求、无副作用。
  *
  * 守什么（调研 §3/§4/§6 的机器可验面）：
- * - trust 四值 → 白话徽标（authoritative→权威台账 / ledger→台账 / report→报告 /
- *   notice→系统注记）；`trust=notice` 的引用指向**程序声明**而非文档，渲染方据此分形。
+ * - trust 四值闭世界表（authoritative/ledger/report/notice）——**只作机读判据**（引用块回读
+ *   的尾括号剥取，见 `parseCitations`），**白话徽标不上屏**（Owner 2026-10-19 打磨批⑩：
+ *   右栏引用清单组头与悬停卡都不再渲染）；`trust=notice` 的引用指向**程序声明**而非
+ *   文档，渲染方据该键分形（出「系统生成的声明」文本句，不出徽标）。
  * - 引用**按 source 去重分组**（同一份文档多支切片归一组，组内保原始 index 序）——
  *   「引用了 N 篇文档」的 N 即本函数的分组数（篇=来源，不是切片数）。
  * - 程序追加面文本切分：`strip()` 后按行扫描——`[n]` 起头＝新条目，其余行（真机 split
@@ -21,17 +23,12 @@
  *   分组与真流页 A1V2R 的选中拉链（collectChain）共用同一根语义，单点真源不各写一份。
  */
 
-/** trust 四值 → 白话徽标（调研 §4：前端不再原样显示英文 trust）。 */
+/** trust 四值闭世界（键集＝引用块回读的尾括号判据；值＝调研 §4 白话名，仅留档不上屏）。 */
 export const TRUST_TEXT = {
   authoritative: '权威台账',
   ledger: '台账',
   report: '报告',
   notice: '系统注记'
-}
-
-/** trust → 白话徽标文本（未知值＝原样回显，不外推）。 */
-export function trustLabel(trust) {
-  return TRUST_TEXT[trust] ?? (trust || '来源未标注')
 }
 
 /** 引用按 source 去重分组（保首见序；组内条目保原始 index 序）。 */

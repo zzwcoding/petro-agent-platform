@@ -5,9 +5,9 @@
  * 过程折叠条的展开态里）。
  *
  * 内容自顶向下：
- * 1. **引用清单**——按 `source` 去重分组（同文档多支切片归一组，组头给来源＋条数），
- *    trust 白话徽标（权威台账/台账/报告/系统注记）；点某条＝该条高亮＋「已定位」并出材料
- *    原文（无配对＝如实写「材料未在回合内渲染」，不虚构）；`trust=notice` 的按**程序声明**
+ * 1. **引用清单**——按 `source` 去重分组（同文档多支切片归一组，组头给来源＋条数——
+ *    **trust 白话徽标不上屏**，Owner 2026-10-19 打磨批⑩）；点某条＝该条高亮＋「已定位」并出
+ *    材料原文（无配对＝如实写「材料未在回合内渲染」，不虚构）；`trust=notice` 的按**程序声明**
  *    渲染，点明「系统生成的声明，不是文档原文」。
  * 2. **各来源说法不一**（supplement{block:'split'}——**右栏唯一出现处**；打磨批③：
  *    「按来源列出」（attribution）块按 Owner 拍板整块删掉——它与引用清单同源重复
@@ -23,7 +23,7 @@ import { useEffect, useState } from 'react'
 import { Button, Card, Collapse, Modal, Tag } from 'antd'
 import { ApartmentOutlined, DownOutlined, UpOutlined } from '@ant-design/icons'
 import { dim, helpIcon } from '../../components/helpIcon.jsx'
-import { groupCitations, parseSupplement, trustLabel } from './cites.js'
+import { groupCitations, parseSupplement } from './cites.js'
 import LineageCard from './LineageCard.jsx'
 
 const CLAMP_LINES = 6
@@ -121,7 +121,6 @@ export default function CitationPanel({
           {groups.map(g => (
             <div key={g.source} style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 12, marginBottom: 4 }}>
-                <Tag style={{ fontSize: 10 }}>{trustLabel(g.trust)}</Tag>
                 <span>{g.source || '来源未标注'}</span>
                 <span style={dim}>{` · ${g.items.length} 支`}</span>
               </div>

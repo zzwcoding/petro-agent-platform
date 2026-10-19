@@ -7,11 +7,11 @@
  *
  * 「点引标打开原文全文＋定位高亮」短期做不了（后端无切片→原文位置锚点接口，设计 §4），
  * 本卡如实只给切片内容＋出处，不给「看原文」按钮（不承诺做不到的事）。
- * `trust=notice` 的条目是**程序声明**不是文档原文——卡头点明，不伪装文档。
+ * `trust=notice` 的条目是**程序声明**不是文档原文——卡头出文本句点明，不伪装文档。
+ * **trust 白话徽标不上屏**（Owner 2026-10-19 打磨批⑩）：卡头只留 `[n]`＋出处名（＋出处编号）。
  */
 import { Tag } from 'antd'
 import { dim } from '../../components/helpIcon.jsx'
-import { trustLabel } from './cites.js'
 
 /**
  * @param cite     引用帧 {index, source, source_id, trust}
@@ -25,7 +25,6 @@ export default function CiteHoverCard({ cite, material }) {
       <div style={{ fontSize: 12, marginBottom: 4 }}>
         <Tag style={{ fontSize: 10 }}>{`[${cite.index}]`}</Tag>
         <span>{cite.source}</span>
-        <Tag style={{ marginLeft: 6, fontSize: 10 }}>{trustLabel(cite.trust)}</Tag>
       </div>
       {cite.source_id && <div style={{ ...dim, marginBottom: 4 }}>{`出处编号：${cite.source_id}`}</div>}
       {isNotice && <div style={{ ...dim, marginBottom: 4 }}>这一条是系统生成的声明，不是文档原文。</div>}

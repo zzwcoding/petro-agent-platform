@@ -2,7 +2,7 @@
  * CitationPanel 钉测（右栏「引用与口径」——设计稿 §2 方案 A、§3.3）。
  *
  * 守什么：
- * - 引用**按 source 分组**（组头＝trust 白话徽标＋来源＋支数）；
+ * - 引用**按 source 分组**（组头＝来源＋支数；**trust 白话徽标不上屏**——Owner 2026-10-19 打磨批⑩）；
  * - 点某条＝该条高亮＋「已定位」并出材料原文；`trust=notice` 的按**程序声明**渲染
  *   （点明不是文档原文）；无配对材料＝如实写「材料未在回合内渲染」；
  * - 外部联动（正文引标点击传 focusIndex）＝面板自动定位该条；
@@ -41,14 +41,18 @@ const FULL_PAYLOAD = FULL.materials.find(m => m.payload?.lineage).payload
 const SPLIT = FIXTURE_TURNS.find(t => t.id === 't-split').turn
 const LEGACY = FIXTURE_TURNS.find(t => t.id === 't-legacy').turn
 
-describe('CitationPanel · 分组与 trust 白话徽标', () => {
-  it('按 source 分组：组头＝来源＋支数＋trust 白话（报告/系统注记）', () => {
+describe('CitationPanel · 分组与条数（trust 徽标不上屏——Owner 2026-10-19 打磨批⑩）', () => {
+  it('按 source 分组：组头＝来源＋支数；组头无 trust 白话徽标（四值一律不出）', () => {
     render(<CitationPanel citations={SPLIT.citations} materials={SPLIT.materials} />)
     expect(screen.getByText('共 16 支引用 · 来自 5 处来源')).toBeTruthy()
     expect(screen.getByText('《A-W11井完井工程报告》')).toBeTruthy()
     expect(screen.getByText('检索供给窗声明（截断显式）')).toBeTruthy()
-    expect(screen.getAllByText('报告').length).toBeGreaterThan(0)
-    expect(screen.getByText('系统注记')).toBeTruthy()
+    // 组头只出「来源 · N 支」——报告/台账/权威台账/系统注记四个白话徽标一律不上屏
+    expect(screen.queryByText('报告')).toBeNull()
+    expect(screen.queryByText('权威台账')).toBeNull()
+    expect(screen.queryByText('系统注记')).toBeNull()
+    expect(screen.getByText('《A-W11井完井工程报告》').parentElement.textContent)
+      .toBe('《A-W11井完井工程报告》 · 5 支') // 组头只出「来源 · N 支」
   })
 
   it('点某条＝高亮＋「已定位」＋出该条材料原文（citation↔observation 按 index 配对）', () => {
@@ -65,7 +69,7 @@ describe('CitationPanel · 分组与 trust 白话徽标', () => {
     const item = screen.getByTestId('cite-item-17')
     expect(item.textContent).toContain('系统生成的声明，不是文档原文')
     expect(item.textContent).toContain('以下材料来源说法不一，各保留了代表条目：') // 该条材料＝检索供给窗声明原文
-    expect(screen.getByText('系统注记')).toBeTruthy() // 组头 trust 白话徽标
+    expect(screen.queryByText('系统注记')).toBeNull() // 组头不再出 trust 白话徽标（点明靠上面那句文本）
   })
 
   it('无配对材料＝如实写「材料未在回合内渲染」（不虚构材料内容）', () => {
