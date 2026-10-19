@@ -95,7 +95,7 @@ TurnShape {
 
 **三场景归一（H 组）**
 - H1 live 与 replay 走同一 reducer 同一形状（replay 帧序与原流逐字节相同——真源 `specs/transport.md` 行为 13 衔接面，此处只引用）。
-- H2 historyAdapter：answer→answerText；supplements 非 null→supplements 四槽（按 block 分派，同 G1）；runView.steps→steps（station←step、title 原样）；**notices/events/understanding 恒为空**（读口无此面——真源 `appv2/api/chat.py` list_runs/RunView）。**citations/materials 不恒空**（2026-10-19 打磨批⑨）：读口无 citation/observation 帧，但收口增补面已落同一批数据——`citations` 块（`[n] 来源 · 出处编号（trust）`，真源 `answering/core.py:209`）按行形投回 citations 四键、`attribution` 块（`[n] 来源：观察正文`，仅跨 ≥2 处来源时产出）投回 materials 逐条正文；**投影读口已有的面，不是补造**（无块＝空；单来源轮无 attribution＝materials 空，悬停卡正文走 E1 占位）。
+- H2 historyAdapter：answer→answerText；supplements 非 null→supplements 四槽（按 block 分派，同 G1）；runView.steps→steps（station←step、title 原样）；**notices/events/understanding 恒为空**（读口无此面——真源 `appv2/api/chat.py` list_runs/RunView）。**citations/materials 不恒空**（2026-10-19 打磨批⑨）：读口无 citation/observation 帧，但收口增补面已落同一批数据——`citations` 块（`[n] 来源 · 出处编号（trust）`，真源 `appv2/runtimev2/answering/core.py` 第 209 行）按行形投回 citations 四键、`attribution` 块（`[n] 来源：观察正文`，仅跨 ≥2 处来源时产出）投回 materials 逐条正文；**投影读口已有的面，不是补造**（无块＝空；单来源轮无 attribution＝materials 空，悬停卡正文走 E1 占位）。
 - H3 history 轮 `phase='done'`、`closed='done'`、runStatus←listItem.status。
 - H4 `legacy` 标记：listItem.supplements 为 null→`legacy=true`（旧版轮，正文可能内嵌旧式块文本，原样渲染不解析）；非 null→`legacy=false`。
 - H5 展示组件对 TurnShape 渲染**零场景分支**：同一组件同一 props 路径，缺数据走空态纪律（不渲染该展示位），不判 `kind`。
@@ -122,7 +122,7 @@ TurnShape {
 - L3 选中行→拉该链轮次（listItem.followup_of 链对齐现状 buildThreads 分组语义）渲染中栏；**选中即清本会话流**（entries）——中栏视图＝链轮次＋**链之后**新提问轮（见 L5）。
 - L4 显示粒度＝**一链一行**（分组只作用于显示——加载与窗口回传仍按原始行）：链归属＝followup_of 逐跳上溯到根（根＝空串或指向窗口外，与 L3 拉链同一 `cites.js::chainRootId`），链序按最新轮 `created_at` 降序；行＝链内最早轮问句（18 字截断），副行＝`{最新轮状态} · {链轮数} 轮 · {MM-DD HH:mm}`；点行＝L3 拉链（回调链内最新轮），选中＝所在链整行高亮。
 - L5 **追问不清链视图**（Owner 2026-10-19 反馈修）：选中链后追问，中栏＝**链轮次在前 ＋ 链之后新提问轮在后**同一条时间线（`viewTurns` 单点派生；原 `send()` 的 `setChain(null)` 会把屏上已有对话整段抹掉——本修的红线）；选中行高亮亦不清（仍在同一段对话里）。追问锚＝该视图里最新已收口轮。
-- L6 **左栏收口刷新**（V2-137——V2-73 原页「onDone 后刷新」的回归，FE-05 重写后丢失）：`ThreadList` 收 `refreshKey`（变更＝重拉全量替换，limit 回 `pageStep`、`exhausted` 复位、搜索态不清）；页面**受理＋收口两拍**各递增一次——受理（session 帧；run 行受理即落库，真源 `appv2/runtimev2/orchestration/runtime.py:264`）让新对话「运行中」当场进列，收口让状态/轮数在列上更新；挂起续答腿／链内续答腿收口亦各一次。收口回调每腿至多一次（`legHandlers` 幂等护栏）。刷新键不动选中态（`selectedRunId`／`chain` 独立）。
+- L6 **左栏收口刷新**（V2-137——V2-73 原页「onDone 后刷新」的回归，FE-05 重写后丢失）：`ThreadList` 收 `refreshKey`（变更＝重拉全量替换，limit 回 `pageStep`、`exhausted` 复位、搜索态不清）；页面**受理＋收口两拍**各递增一次——受理（session 帧；run 行受理即落库，真源 `appv2/runtimev2/orchestration/runtime.py` 第 264 行）让新对话「运行中」当场进列，收口让状态/轮数在列上更新；挂起续答腿／链内续答腿收口亦各一次。收口回调每腿至多一次（`legHandlers` 幂等护栏）。刷新键不动选中态（`selectedRunId`／`chain` 独立）。
 
 **版面（P 组）**
 - P1 **右栏＝不展示时完全不可见的悬浮面板**（Owner 2026-10-19 打磨批⑫；⑪ 的「右边缘窄竖条」已废）：`CitationPanel` `open=false`＝**整卡不渲染**（`return null`——无竖条、无常驻入口、无占位）；`open=true`＝**右侧悬浮层**（`position: fixed`，top 68／right 20／bottom 16／宽 360／zIndex 900——覆在内容之上、**不占版面**，中栏恒占满）。`open` 受控、缺省 `true`（无控制调用点行为逐字不变）；关闭请求经 `onOpenChange(false)` 上抛，状态归页面。页面（A1V2R）**默认关闭**，**唯一入口＝点正文 `[n]`**（同时切轮＋定位该条）；**关闭三途**＝①面板头部「×」②**点面板之外**（组件内 `document` `mousedown` 判——面板自身／正文引标 `[n]`（点另一枚＝换条定位）／Modal 门户（antd portal 在 body，DOM 上在面板之外）三处豁免）③**切换对话**（点左栏历史行 `onSelect`、＋新会话 `startNewSession` 各显式收一次——键盘激活不走 mousedown，故不只靠②）。**代价（如实登记）**：无 `[n]` 的轮次（知识/报告题、未出数的取数题、legacy 旧轮）**没有任何入口**打开本面板——其「查询口径」卡随之不可达。
