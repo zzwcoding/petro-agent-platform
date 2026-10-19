@@ -107,6 +107,10 @@ services:
     env_file: .env
     environment:
       EVAL_FROZEN_DATE: "real"
+      # 校对员档位（Owner 2026-10-19 拍板：线上改 observe——只记录不删句；
+      # 云端 ECS 实况同批已改，2026-10-19 回仓）。取值 off/observe/repair/delete，
+      # 未设＝默认 delete（会真删句）。
+      VERIFY_ACTION: "observe"
       # DE-16 新鲜度闸临时关闭（Owner 2026-10-14 拍板——水位止 8-31 与真实时钟
       # 差距拦停体验面；恢复＝改回 "true" 并 up -d 重建。非法值拒绝启动）。
       FRESHNESS_GATE_ENABLED: "false"

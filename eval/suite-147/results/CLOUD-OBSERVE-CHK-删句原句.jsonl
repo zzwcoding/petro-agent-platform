@@ -1,0 +1,3 @@
+{"qid": "B-正4", "run_id": "run-0e70ec4a", "supported": 3, "verify_mode": "observe", "rewrites": [{"line": "- **检泵周期：512 天**（本次检泵日距上次检泵日）[7]", "reason": "no_material"}]}
+{"qid": "数-闸2", "run_id": "run-5b501e0c", "supported": 50, "verify_mode": "observe", "rewrites": [{"line": "- N-05：108.81 [4]", "reason": "no_material"}]}
+{"qid": "数-降1", "run_id": "run-af03b22c", "supported": 0, "verify_mode": "observe", "rewrites": [{"line": "口径说明：含水率在台账（平台里登记指标和术语的名册）中存在双口径并列——A 计量折算（日度监控，默认）、B 化验实测（月度/正式），按 PROP-BOHAI-008=C 并存分场景；当前若出数将按默认 A 口径执行。", "reason": "no_material"}]}
