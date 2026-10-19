@@ -1,0 +1,10 @@
+{"qid": "数-明3", "run_id": "run-5e71ef27", "supported": 51, "verify_mode": "delete", "rewrites": []}
+{"qid": "数-排1", "run_id": "run-8acdc07a", "supported": 3, "verify_mode": "delete", "rewrites": []}
+{"qid": "数-排3", "run_id": "run-dd72a13a", "supported": 6, "verify_mode": "delete", "rewrites": []}
+{"qid": "数-闸1", "run_id": "run-80f2d440", "supported": 0, "verify_mode": "delete", "rewrites": []}
+{"qid": "数-闸2", "run_id": "run-19482433", "supported": 0, "verify_mode": "delete", "rewrites": [{"line": "近 7 天各井日产液量本次未出数。", "reason": "no_material"}, {"line": "引擎注记：所查窗口（2026-10-12～2026-10-18，按「近 7 天」锚定）落在数据水位之后。汇总层当前数据水位为 2026-08-31，落后执行日 48 天且超期，已被新鲜度闸拦停——为避免返回空数冒充有据结果，未输出逐井明细。", "reason": "no_material"}, {"line": "- 改用「近 30 天」或「本月（截至 2026-08-31）」的时间窗——可直接对应汇总层已出水的数据；", "reason": "no_material"}]}
+{"qid": "数-察1", "run_id": "run-4f2ca3f3", "supported": 2, "verify_mode": "delete", "rewrites": []}
+{"qid": "Q14", "run_id": "run-1980270f", "supported": 2, "verify_mode": "delete", "rewrites": [{"line": "**未覆盖说明**：窗 2026-08-29 ~ 2026-09-01 共 3 天，本次材料仅回传了 2026-08-29 当日的全井明细（封顶 50 行），8-30、8-31 这两天的 N-01 行未在材料中出现——本次材料未覆盖这两个日期的 N-01 日产油量。", "reason": "no_material"}, {"line": "8-30 与 8-31 两天，本次材料未覆盖到 N-01 井的日产油量行，无法作答——可补充检索该两日的 N-01 日产行，或将窗口放宽到「8 月下旬」以拿到更完整的近 3 天连续值。", "reason": "no_material"}]}
+{"qid": "Q17", "run_id": "run-f97a4fa7", "supported": 6, "verify_mode": "delete", "rewrites": []}
+{"qid": "Q25", "run_id": "run-b14464e2", "supported": 10, "verify_mode": "delete", "rewrites": []}
+{"qid": "Q31", "run_id": "run-9b3b6eec", "supported": 1, "verify_mode": "delete", "rewrites": []}
