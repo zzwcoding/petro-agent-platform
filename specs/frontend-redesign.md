@@ -124,6 +124,9 @@ TurnShape {
 - L5 **追问不清链视图**（Owner 2026-10-19 反馈修）：选中链后追问，中栏＝**链轮次在前 ＋ 链之后新提问轮在后**同一条时间线（`viewTurns` 单点派生；原 `send()` 的 `setChain(null)` 会把屏上已有对话整段抹掉——本修的红线）；选中行高亮亦不清（仍在同一段对话里）。追问锚＝该视图里最新已收口轮。
 - L6 **左栏收口刷新**（V2-137——V2-73 原页「onDone 后刷新」的回归，FE-05 重写后丢失）：`ThreadList` 收 `refreshKey`（变更＝重拉全量替换，limit 回 `pageStep`、`exhausted` 复位、搜索态不清）；页面**受理＋收口两拍**各递增一次——受理（session 帧；run 行受理即落库，真源 `appv2/runtimev2/orchestration/runtime.py:264`）让新对话「运行中」当场进列，收口让状态/轮数在列上更新；挂起续答腿／链内续答腿收口亦各一次。收口回调每腿至多一次（`legHandlers` 幂等护栏）。刷新键不动选中态（`selectedRunId`／`chain` 独立）。
 
+**版面（P 组）**
+- P1 **右栏＝不展示时完全不可见的悬浮面板**（Owner 2026-10-19 打磨批⑫；⑪ 的「右边缘窄竖条」已废）：`CitationPanel` `open=false`＝**整卡不渲染**（`return null`——无竖条、无常驻入口、无占位）；`open=true`＝**右侧悬浮层**（`position: fixed`，top 68／right 20／bottom 16／宽 360／zIndex 900——覆在内容之上、**不占版面**，中栏恒占满）。`open` 受控、缺省 `true`（无控制调用点行为逐字不变）；关闭请求经 `onOpenChange(false)` 上抛，状态归页面。页面（A1V2R）**默认关闭**，**唯一入口＝点正文 `[n]`**（同时切轮＋定位该条）；**关闭三途**＝①面板头部「×」②**点面板之外**（组件内 `document` `mousedown` 判——面板自身／正文引标 `[n]`（点另一枚＝换条定位）／Modal 门户（antd portal 在 body，DOM 上在面板之外）三处豁免）③**切换对话**（点左栏历史行 `onSelect`、＋新会话 `startNewSession` 各显式收一次——键盘激活不走 mousedown，故不只靠②）。**代价（如实登记）**：无 `[n]` 的轮次（知识/报告题、未出数的取数题、legacy 旧轮）**没有任何入口**打开本面板——其「查询口径」卡随之不可达。
+
 ## 不降级与静默禁令
 
 | 禁令 | 合法降级路径 | 机读信号 |
@@ -168,6 +171,7 @@ TurnShape {
 | 29 | 追问不清链视图（L5）：选中链后追问＝链轮照旧在屏＋新轮接在其后（`对话 · N 轮` 含两段），追问锚＝视图最新已收口轮 | 链内追问／会话流追问两形 | 未选链时中栏仍是本会话流单段 | `web/src/landing/redesign/A1V2R.test.jsx::追问不清链视图` |
 | 30 | 左栏刷新两拍（L6）：受理（session 帧）与收口各重拉一次（limit 回 20）；每腿收口至多一次；挂起续答腿收口亦刷新 | 收口回调重复调（脏流）；已触底到 40 后刷新 | 刷新键不变＝不重拉；搜索态不随刷新清空；选中态不动 | `web/src/landing/redesign/ThreadList.test.jsx::收口刷新`、`web/src/landing/redesign/A1V2R.test.jsx::左栏对话列表刷新` |
 | 31 | trust 白话徽标不上屏（E7）：右栏组头只出「来源 · N 支」、悬停卡卡头只出「[n] 来源（＋出处编号）」——四值徽标零渲染 | `trust=notice` 条目仍以文本句点明程序声明 | trust 键仍作机读判据（引用块回读尾括号剥取照常）；点条定位/材料原文照常 | `web/src/landing/redesign/CitationPanel.test.jsx::分组与条数`、`web/src/landing/redesign/CiteHoverCard.test.jsx::卡片本体`、`web/src/landing/redesign/cites.test.js` |
+| 32 | 右栏悬浮面板（P1）：不展示时**完全不可见**（整卡不渲染、无竖条无常驻入口）；点正文 `[n]`＝悬浮层出现并定位该条（唯一入口）；关闭三途＝头部「×」／点面板之外／切换对话（点左栏历史行、＋新会话） | 无 `[n]` 的轮次＝无任何入口（面板不可达，如实登记）；点面板之外的三处豁免（面板自身／引标／Modal 门户）；收起态不挂 outside 监听；关→开往返（定位态保留）；`open` 缺省无控制 | 悬浮层 `position:fixed` 不占版面（中栏恒占满）；面板内容与决策树入口不变；面板内各展示位与点条定位不回归 | `web/src/landing/redesign/A1V2R.test.jsx::右栏悬浮面板`、`web/src/landing/redesign/CitationPanel.test.jsx::不展示时完全不可见` |
 
 ## 依赖与风险
 

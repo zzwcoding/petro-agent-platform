@@ -405,58 +405,105 @@ describe('A1V2R · 左侧历史对话（真接 ThreadList——FE-04；一链一
   })
 })
 
-describe('A1V2R · 右栏联动', () => {
-  it('缺省＝最新轮；点正文 [n] ＝右栏切到该轮并定位（「已定位」＋该条材料原文）', async () => {
+describe('A1V2R · 右栏悬浮面板（打磨批⑫：不展示时完全不可见——点 [n] 才出现）', () => {
+  /** 造一轮「有 [n] 锚点＋引用帧」的答案（面板唯一入口＝点 [n]，故必须有锚点）。 */
+  async function askWithCitation({ question = '取数问句', runId = 'run-cite', index = 1,
+    source = '源A', sourceId = 'f51', content = 'N-01 日产油量 21.16 吨。', tail = '' } = {}) {
+    const { handlers } = await sendAsk(question)
+    act(() => {
+      handlers.onFrame({ id: '-1', event: 'session', data: { run_id: runId, resume: false } })
+      handlers.onFrame({ id: 0, event: 'text', data: { content: `N-01 日产油量 21.16 吨[${index}]。${tail}` } })
+      handlers.onFrame({ id: 1, event: 'observation', data: { index, source, trust: 'db', content } })
+      handlers.onFrame({ id: 2, event: 'citation', data: { index, source, source_id: sourceId, trust: 'db' } })
+      handlers.onFrame({ id: 3, event: 'done', data: { run_id: runId } })
+      handlers.onDone()
+    })
+    return handlers
+  }
+
+  it('默认完全不可见（面板整卡不在、无任何常驻入口）；点正文 [n] ＝悬浮面板出现并定位；点 × 关掉', async () => {
     render(<A1V2R />)
-    const first = await sendAsk('一轮问句')
-    act(() => {
-      first.handlers.onFrame({ id: '-1', event: 'session', data: { run_id: 'run-a', resume: false } })
-      first.handlers.onFrame({ id: 0, event: 'text', data: { content: 'N-01 2025-09-01 日产油量 21.16 吨[1]。' } })
-      first.handlers.onFrame({ id: 1, event: 'observation', data: { index: 1, source: '源A', trust: 'db', content: 'N-01 2025-09-01 日产油量 21.16 吨。' } })
-      first.handlers.onFrame({ id: 2, event: 'citation', data: { index: 1, source: '源A', source_id: 'f51', trust: 'db' } })
-      first.handlers.onFrame({ id: 3, event: 'done', data: { run_id: 'run-a' } })
-      first.handlers.onDone()
-    })
-    const second = await sendAsk('二轮问句')
-    act(() => {
-      second.handlers.onFrame({ id: '-1', event: 'session', data: { run_id: 'run-b', resume: false } })
-      second.handlers.onFrame({ id: 0, event: 'text', data: { content: 'N-01 2025-09-02 日产油量 19.8 吨[2]。' } })
-      second.handlers.onFrame({ id: 1, event: 'observation', data: { index: 2, source: '源B', trust: 'db', content: 'N-01 2025-09-02 日产油量 19.8 吨。' } })
-      second.handlers.onFrame({ id: 2, event: 'citation', data: { index: 2, source: '源B', source_id: 'f52', trust: 'db' } })
-      second.handlers.onFrame({ id: 3, event: 'done', data: { run_id: 'run-b' } })
-      second.handlers.onDone()
-    })
-    expect(screen.getByTestId('citation-panel').textContent).toContain('源B') // 缺省＝最新轮
-    // 点一轮正文 [n]：面板切到该轮＋该条「已定位」
+    await askWithCitation()
+    // 不展示时：DOM 里没有面板、没有竖条、没有「引用与口径」任何入口
+    expect(screen.queryByTestId('citation-panel')).toBeNull()
+    expect(screen.queryByTestId('citation-rail')).toBeNull()
+    expect(screen.queryByText('引用与口径')).toBeNull()
+
+    // 点正文 [n] ＝唯一入口：面板出现＋该条「已定位」＋出材料原文
     const cite = screen.getByTestId('turn-ask-1').querySelector('[data-cite="1"]')
     expect(cite).toBeTruthy()
     fireEvent.click(cite)
     const panel = screen.getByTestId('citation-panel')
     expect(panel.textContent).toContain('源A')
     expect(screen.getByTestId('cite-item-1').textContent).toContain('已定位')
-    expect(screen.getByTestId('cite-item-1').textContent).toContain('N-01 2025-09-01 日产油量 21.16 吨。')
+    expect(screen.getByTestId('cite-item-1').textContent).toContain('N-01 日产油量 21.16 吨。')
+
+    // 点头部 × ＝关掉，回到完全不可见
+    fireEvent.click(screen.getByTestId('citation-panel-close'))
+    expect(screen.queryByTestId('citation-panel')).toBeNull()
+    expect(screen.queryByText('引用与口径')).toBeNull()
   })
 
-  it('整轮无引用＝面板空态「本回合无引用」（不虚构）', async () => {
+  it('点面板之外＝自动隐藏（点中栏正文区即收）', async () => {
+    render(<A1V2R />)
+    await askWithCitation()
+    fireEvent.click(screen.getByTestId('turn-ask-1').querySelector('[data-cite="1"]'))
+    expect(screen.getByTestId('citation-panel')).toBeTruthy()
+
+    fireEvent.mouseDown(screen.getByTestId('conv-scroll')) // 面板之外（中栏正文区）
+    expect(screen.queryByTestId('citation-panel')).toBeNull()
+    expect(screen.queryByText('引用与口径')).toBeNull()
+  })
+
+  it('切换对话＝自动隐藏：点左栏历史行、＋新会话两途各收一次', async () => {
+    vi.mocked(listRunsV2).mockResolvedValue([{
+      run_id: 'run-hist3', question: '历史问句', status: 'completed',
+      answer: '历史轮答案正文[1]。',
+      followup_of: '', created_at: '2026-10-17 14:00:00', updated_at: '2026-10-17 14:00:30',
+      supplements: [{ block: 'citations', text: '引用：\n[1] sem_metric#201 · 201（ledger）' }]
+    }])
+    vi.mocked(getRunV2).mockResolvedValue({ status: 'completed', steps: [], manifest_digest: null, pending_ask: null })
+    render(<A1V2R />)
+    await askWithCitation()
+
+    // ①点左栏历史对话行（onSelect）
+    fireEvent.click(screen.getByTestId('turn-ask-1').querySelector('[data-cite="1"]'))
+    expect(screen.getByTestId('citation-panel')).toBeTruthy()
+    fireEvent.click(await screen.findByTestId('thread-row-run-hist3'))
+    expect(screen.queryByTestId('citation-panel')).toBeNull()
+
+    // ②＋新会话（startNewSession）——在链视图里点开面板再切
+    await screen.findByTestId('round-run-hist3')
+    fireEvent.click(screen.getByTestId('round-run-hist3').querySelector('[data-cite="1"]'))
+    expect(screen.getByTestId('citation-panel')).toBeTruthy()
+    fireEvent.click(screen.getByTestId('new-session'))
+    expect(screen.queryByTestId('citation-panel')).toBeNull()
+  })
+
+  it('无 [n] 的轮次＝没有任何入口（面板不可达——如实登记，不造假入口）', async () => {
     render(<A1V2R />)
     const { handlers } = await sendAsk('无引用问句')
     finishLeg(handlers, { runId: 'run-none', answer: '本回答没有引用任何材料。' })
-    expect(await screen.findByText('本回合无引用。')).toBeTruthy()
+    await screen.findByTestId('turn-ask-1')
+    expect(screen.queryByTestId('citation-panel')).toBeNull()
+    expect(screen.queryByText('引用与口径')).toBeNull()
   })
 
-  it('supplement_dedup_right_panel_only：右栏出「各来源说法不一」split 块、无「按来源列出」attribution 块（中栏亦无——打磨批②③）', async () => {
+  it('supplement_dedup_right_panel_only：面板出「各来源说法不一」split 块、无「按来源列出」attribution 块（中栏亦无——打磨批②③）', async () => {
     render(<A1V2R />)
     const { handlers } = await sendAsk('来源矛盾问句')
     act(() => {
       handlers.onFrame({ id: '-1', event: 'session', data: { run_id: 'run-split', resume: false } })
-      handlers.onFrame({ id: 0, event: 'text', data: { content: '两个来源给出的说法不同，对照见右栏。' } })
-      handlers.onFrame({ id: 1, event: 'supplement', data: { block: 'split', text: '互不一致——各来源说法如下，按来源分别列出：\n[1] 《源A》 · f1：说法一' } })
-      handlers.onFrame({ id: 2, event: 'supplement', data: { block: 'attribution', text: '按来源分别列出（每条结论标明出处）：\n[1] 《源A》：说法一' } })
-      handlers.onFrame({ id: 3, event: 'done', data: { run_id: 'run-split' } })
+      handlers.onFrame({ id: 0, event: 'text', data: { content: '两个来源给出的说法不同[1]，对照见悬浮面板。' } })
+      handlers.onFrame({ id: 1, event: 'citation', data: { index: 1, source: '《源A》', source_id: 'f1', trust: 'report' } })
+      handlers.onFrame({ id: 2, event: 'supplement', data: { block: 'split', text: '互不一致——各来源说法如下，按来源分别列出：\n[1] 《源A》 · f1：说法一' } })
+      handlers.onFrame({ id: 3, event: 'supplement', data: { block: 'attribution', text: '按来源分别列出（每条结论标明出处）：\n[1] 《源A》：说法一' } })
+      handlers.onFrame({ id: 4, event: 'done', data: { run_id: 'run-split' } })
       handlers.onDone()
     })
+    fireEvent.click(screen.getByTestId('turn-ask-1').querySelector('[data-cite="1"]')) // 打磨批⑫：唯一入口
     const panel = screen.getByTestId('citation-panel')
-    expect(within(panel).getByTestId('supp-split-block')).toBeTruthy() // split＝右栏唯一出现处
+    expect(within(panel).getByTestId('supp-split-block')).toBeTruthy() // split＝面板唯一出现处
     fireEvent.click(within(panel).getByText('各来源说法不一 · 点开对照'))
     expect(within(panel).getByTestId('supp-item-1').textContent).toContain('说法一')
     expect(within(panel).queryByTestId('supp-attribution')).toBeNull() // attribution 块退场
@@ -468,14 +515,15 @@ describe('A1V2R · 右栏联动', () => {
     expect(round.textContent).not.toContain('按来源列出')
   })
 
-  it('回答块不再有「引用与口径」跳转入口（Owner 反馈 1：整条删掉）', () => {
+  it('回答块内无「引用与口径」跳转入口（Owner 反馈 1：整条删掉）；悬浮面板头部决策树入口在位', async () => {
     render(<A1V2R />)
-    expect(screen.queryByRole('button', { name: '引用与口径' })).toBeNull()
-    expect(screen.queryByText('引用与口径', { selector: 'button' })).toBeNull()
-  })
-
-  it('右栏决策树入口在位（占位 Modal——真树本体接回在后续版本）', () => {
-    render(<A1V2R />)
+    await askWithCitation()
+    const round = screen.getByTestId('turn-ask-1')
+    expect(within(round).queryByRole('button', { name: '引用与口径' })).toBeNull()
+    expect(within(round).queryByText('引用与口径', { selector: 'button' })).toBeNull()
+    // 面板未开＝页面无该入口；点 [n] 后头部入口才在（占位 Modal——真树本体接回在后续版本）
+    expect(screen.queryByRole('button', { name: /决策树/ })).toBeNull()
+    fireEvent.click(round.querySelector('[data-cite="1"]'))
     fireEvent.click(screen.getByRole('button', { name: /决策树/ }))
     expect(screen.getByText('决策树（占位）')).toBeTruthy()
   })
@@ -530,11 +578,9 @@ describe('A1V2R · 选中拉链（FE-04 L3——specs「验收测试」表第 16
     expect(within(rootRound).queryByTestId('legacy-note')).toBeNull()
     expect(rootRound.textContent).not.toContain('本轮为旧版记录')
     expect(within(screen.getByTestId('round-run-next')).queryByTestId('legacy-note')).toBeNull()
-    // 右栏联动＝当前选中链最后一轮（followup 轮）：链轮无引用帧＋lineage 块落面板
-    // （根轮 legacy 无 supplements→无血缘卡）
-    const panel = screen.getByTestId('citation-panel')
-    expect(panel.textContent).toContain('本回合无引用')
-    expect(within(panel).getByTestId('lineage-card')).toBeTruthy()
+    // 打磨批⑫：该链轮无引用帧＝正文无 [n] 锚点＝没有任何入口打开悬浮面板（整卡不渲染）
+    expect(screen.queryByTestId('citation-panel')).toBeNull()
+    expect(screen.queryByText('引用与口径')).toBeNull()
   })
 
   it('select_thread_renders_turns · 404 轮降级：getRunV2 404 → adaptHistoryTurn(r,null)＋errorFrame 灰条，链内他轮照常', async () => {

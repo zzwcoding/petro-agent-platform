@@ -10,6 +10,9 @@
  *   块整块退场（与引用清单同源重复），split 是右栏唯一出现处（原先在中栏的追加面整个移除）；
  * - split 块默认收起、单条限高（真机长条 >6 行/240 字）、短条不出开关、前导说明照录；
  * - 决策树入口在位（mock 点开说明 Modal）；
+ * - **不展示时完全不可见**（打磨批⑫）：`open=false`＝整卡不渲染（无竖条无常驻入口）；
+ *   `open=true`＝右侧**悬浮层**（`position: fixed`，覆在内容之上不占版面）；头部关闭按钮＝
+ *   `onOpenChange(false)`；`open` 缺省 true＝无控制调用点行为逐字不变；
  * - 空态＝「本回合无引用」；进行中＝「检索中…」。
  *
  * 素材：__fixtures__/turns.js 真帧夹具——EB3-数-降1（16 支引用 5 处来源，含一条 trust=notice／
@@ -144,5 +147,88 @@ describe('CitationPanel · 空态', () => {
   it('进行中＝「检索中——材料到位后这里出引用清单。」', () => {
     render(<CitationPanel citations={[]} materials={[]} running />)
     expect(screen.getByText('检索中——材料到位后这里出引用清单。')).toBeTruthy()
+  })
+})
+
+describe('CitationPanel · 不展示时完全不可见（打磨批⑫：右侧悬浮面板）', () => {
+  it('open=false ＝整卡不渲染（无竖条无常驻入口——DOM 空）', () => {
+    const { container } = render(
+      <CitationPanel citations={SPLIT.citations} materials={SPLIT.materials} open={false} />
+    )
+    expect(container.firstChild).toBeNull()
+    expect(screen.queryByTestId('citation-panel')).toBeNull()
+  })
+
+  it('open=true ＝右侧悬浮层（position:fixed——覆在内容之上、不占版面）', () => {
+    render(<CitationPanel citations={SPLIT.citations} materials={SPLIT.materials} />)
+    const panel = screen.getByTestId('citation-panel')
+    expect(panel.style.position).toBe('fixed')
+    expect(panel.style.right).toBe('20px')
+    expect(panel.style.width).toBe('360px')
+    expect(panel.style.top).toBe('68px')
+  })
+
+  it('头部关闭按钮＝onOpenChange(false)（关闭请求上抛，状态归页面）；缺省 open＝展开态逐字不变', () => {
+    const onOpenChange = vi.fn()
+    const { unmount } = render(
+      <CitationPanel citations={FULL.citations} materials={FULL.materials} onOpenChange={onOpenChange} />
+    )
+    expect(screen.getByTestId('citation-panel')).toBeTruthy() // open 缺省＝展开（既有调用点零改）
+    fireEvent.click(screen.getByTestId('citation-panel-close'))
+    expect(onOpenChange).toHaveBeenLastCalledWith(false)
+    unmount()
+    // 无 onOpenChange（纯展示调用）＝按钮在位但不炸（受控语义：关闭请求无接收方即无动作）
+    render(<CitationPanel citations={FULL.citations} materials={FULL.materials} />)
+    fireEvent.click(screen.getByTestId('citation-panel-close'))
+    expect(screen.getByTestId('citation-panel')).toBeTruthy()
+  })
+
+  it('点面板之外＝onOpenChange(false)；面板内／正文 [n]／Modal 门户三处豁免', () => {
+    const onOpenChange = vi.fn()
+    render(<CitationPanel citations={FULL.citations} materials={FULL.materials} onOpenChange={onOpenChange} />)
+    const panel = screen.getByTestId('citation-panel')
+
+    fireEvent.mouseDown(panel)                       // ①面板自身
+    fireEvent.mouseDown(screen.getByTestId('cite-item-2'))
+    expect(onOpenChange).not.toHaveBeenCalled()
+
+    const cite = document.createElement('a')         // ②正文引标（点另一枚＝换条定位，不是关闭）
+    cite.setAttribute('data-cite', '1')
+    document.body.appendChild(cite)
+    fireEvent.mouseDown(cite)
+    expect(onOpenChange).not.toHaveBeenCalled()
+    cite.remove()
+
+    fireEvent.mouseDown(document.body)               // 面板之外＝收
+    expect(onOpenChange).toHaveBeenLastCalledWith(false)
+    expect(onOpenChange).toHaveBeenCalledTimes(1)
+  })
+
+  it('决策树 Modal 门户在面板之外但不触发收起（antd portal 豁免）', () => {
+    const onOpenChange = vi.fn()
+    render(<CitationPanel citations={[]} materials={[]} onOpenChange={onOpenChange} />)
+    fireEvent.click(screen.getByRole('button', { name: /决策树/ }))
+    const modalRoot = document.querySelector('.ant-modal-root')
+    expect(modalRoot).toBeTruthy() // 门户挂在 body（DOM 上在面板之外）
+    fireEvent.mouseDown(modalRoot)
+    expect(onOpenChange).not.toHaveBeenCalled()
+  })
+
+  it('收起态（open=false）不挂 outside 监听（无面板可关，零副作用）', () => {
+    const onOpenChange = vi.fn()
+    render(<CitationPanel citations={[]} materials={[]} open={false} onOpenChange={onOpenChange} />)
+    fireEvent.mouseDown(document.body)
+    expect(onOpenChange).not.toHaveBeenCalled()
+  })
+
+  it('关→开往返：定位态保留（同一条仍「已定位」）', () => {
+    const { rerender } = render(
+      <CitationPanel citations={FULL.citations} materials={FULL.materials} focusIndex={2} open />
+    )
+    expect(screen.getByTestId('cite-item-2').textContent).toContain('已定位')
+    rerender(<CitationPanel citations={FULL.citations} materials={FULL.materials} focusIndex={2} open={false} />)
+    expect(screen.queryByTestId('citation-panel')).toBeNull()
+    rerender(<CitationPanel citations={FULL.citations} materials={FULL.materials} focusIndex={2} open />)
+    expect(screen.getByTestId('cite-item-2').textContent).toContain('已定位')
   })
 })

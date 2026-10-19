@@ -37,7 +37,9 @@
  * 视图最新轮（`viewTurns` 末位——链尾或链后新提问轮；点正文 [n] 切轮定位机制不变）。
  *
  * 边界（未变部分）：右栏 CitationPanel（人话面板）内容与右栏展开宽度 360、决策树入口均不动
- * （Owner 2026-10-17 拍板「4 宽度你看着办, 决策树留着」）。
+ * （Owner 2026-10-17 拍板「4 宽度你看着办, 决策树留着」）；**右栏常驻性**于 2026-10-19 打磨批⑫
+ * 改为**不展示时完全不可见**：默认整卡不渲染（无竖条无常驻入口），点正文 `[n]` 才出**右侧悬浮面板**
+ * （`position: fixed` 覆在内容上、不占版面——中栏恒占满），面板头部「×」关掉。
  * 空态纪律：各项无数据＝该位不渲染（组件内实现，本页只透传）。
  *
  * Owner 反馈回归（旧页 608267b A1V2.jsx 对照）：
@@ -50,6 +52,11 @@
  *   腿收口亦各一次——新轮立刻进左栏。刷新键不动选中态（`selectedRunId`／`chain` 独立）。
  * - **中栏贴底跟随**（旧页 :226-237 每帧 scrollBottom 的柔和版）：发送置 stickRef；滚动离底
  *   ≥80px 即解除跟随（上翻阅读不被拽回）；entries/chain 变化时贴底态才滚到底。
+ * - **右栏悬浮面板**（Owner 2026-10-19 打磨批⑫）：不展示时**完全不可见**（整卡不渲染）；点正文
+ *   `[n]` 才出**右侧悬浮面板**并定位该条（唯一入口）。关闭三途：面板头部「×」／**点面板之外**
+ *   （组件内 `document` mousedown 判——引标 `[n]` 与 Modal 门户豁免）／**切换对话**（点左栏历史行
+ *   `onSelect`、＋新会话 `startNewSession` 各显式收一次）。面板浮在内容之上、不占版面（中栏恒占满）。
+ *   无 `[n]` 的轮次没有任何入口——其「查询口径」卡随之不可达（如实登记）。
  */
 import { useEffect, useRef, useState } from 'react'
 import { Alert, Button, Card, Input, Space } from 'antd'
@@ -228,6 +235,12 @@ export default function A1V2RLanding() {
   // 单调计数，ThreadList 据其重拉全量；提问腿受理＋收口、挂起续答腿收口、链内续答腿收口各递增。
   const [threadsNonce, setThreadsNonce] = useState(0)
   const refreshThreads = () => setThreadsNonce(n => n + 1)
+  // 右栏「引用与口径」悬浮面板开关（Owner 2026-10-19 打磨批⑫：不展示时完全不可见）——
+  // 打开入口＝点正文 [n]（打开＋切轮＋定位该条）；关闭三途：面板头部「×」／点面板之外
+  // （组件内 document mousedown 判，引标与 Modal 门户豁免）／切换对话（onSelect、＋新会话）。
+  // 状态归本页，组件受控。
+  const [panelOpen, setPanelOpen] = useState(false)
+
   // 中栏视图轮次（**唯一派生点**——链视图＝链轮次在前＋链后新提问轮在后；未选链＝本会话流）。
   // 追问不清链视图（Owner 2026-10-19 反馈修）：`onSelect` 清 entries（链之后的新提问才归本视图），
   // `send()` 不再清 chain——屏上已有对话整段保留，新轮接在下方。fromChain 决定续答落点
@@ -245,9 +258,11 @@ export default function A1V2RLanding() {
   const followupAnchor = [...viewTurns]
     .reverse().find(v => v.turn.runStatus === 'completed')?.turn.runId ?? ''
 
+  /** 正文引标点击（打磨批⑫）：切面板轮次＋记定位拍号＋**打开悬浮面板**——点 [n] 是唯一入口。 */
   const openCite = id => index => {
     setPanelTurnId(id)
     setFocus(f => ({ index, nonce: f.nonce + 1 }))
+    setPanelOpen(true)
   }
 
   /** 贴底判定（中栏滚动容器 onScroll）：离底 < 80px 视作跟随态；上翻阅读＝解除跟随。 */
@@ -353,6 +368,7 @@ export default function A1V2RLanding() {
   const onSelect = async row => {
     setSelectedRunId(row.run_id)
     clearEntries()
+    setPanelOpen(false) // 切换对话＝自动隐藏悬浮面板（打磨批⑫；键盘激活不走 mousedown，故此处显式收）
     selectSeqRef.current += 1
     const seq = selectSeqRef.current
     const chainRows = collectChain(row, runs)
@@ -383,6 +399,7 @@ export default function A1V2RLanding() {
     setChain(null)
     setSelectedRunId('')
     clearEntries()
+    setPanelOpen(false) // ＋新会话＝自动隐藏悬浮面板（打磨批⑫）
     setInput('')
     setAskError('')
   }
@@ -474,6 +491,8 @@ export default function A1V2RLanding() {
       </Card>
 
       {/* 右栏 · 引用与口径（人话面板——机器腔过程只留在流水线展开态里）。
+          **不展示时完全不可见**（打磨批⑫）：整卡不渲染、无常驻入口；点正文 [n] 才出悬浮面板
+          并定位该条，面板头部「×」关掉——开关归页面 `panelOpen`，组件受控。
           血缘两源（对账 D-5）同回答块：lineage/limit 从 materials[].payload 取，
           文本兜底 lineageText/splitText 读 turn.supplements.*（打磨批③：attributionText 已删——
           「按来源列出」块与引用清单同源重复，整块退场） */}
@@ -483,7 +502,8 @@ export default function A1V2RLanding() {
         lineageText={panelTurn.supplements?.lineage ?? ''}
         splitText={panelTurn.supplements?.split ?? null}
         focusIndex={focus.index} focusNonce={focus.nonce}
-        running={panelTurn.runStatus === 'running'} />
+        running={panelTurn.runStatus === 'running'}
+        open={panelOpen} onOpenChange={setPanelOpen} />
     </div>
   )
 }
