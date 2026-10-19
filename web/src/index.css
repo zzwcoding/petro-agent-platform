@@ -1,13 +1,16 @@
-body { background: #0d1117; margin: 0; }
+/* 底色走令牌（theme.js 注入的 CSS 变量）——body 底色与 antd 容器底色同源。
+   改造前 body 是 #0d1117 而 antd 卡片是 #141414，两者之间有可见接缝。 */
+body { background: var(--pa-surface-page, #0d1117); margin: 0; }
 .trace-dev {
   position: fixed; left: 216px; right: 0; bottom: 0; z-index: 90;
   background: #221d0c; border-top: 1px solid #574c20;
   padding: 6px 20px; font-size: 12px; color: #e8b339;
 }
 .code-block {
-  background: #161b22; border: 1px solid #30363d; border-radius: 6px;
+  background: var(--pa-surface-card, #161b22);
+  border: 1px solid var(--pa-border, #30363d); border-radius: var(--pa-radius, 6px);
   padding: 10px; font-family: ui-monospace, Menlo, monospace; font-size: 12px;
-  white-space: pre-wrap; margin: 6px 0 0; color: #c9d1d9;
+  white-space: pre-wrap; margin: 6px 0 0; color: var(--pa-text-primary);
 }
 
 /* A2 井档案：关系链 tab 区紧凑排布 */
@@ -38,3 +41,52 @@ body { background: #0d1117; margin: 0; }
 /* UI-14 A1 问一问：服务端会话列表末条也保留下分割线（与其上各条一致——
    antd List 默认抹掉末条分割线，此处恢复；颜色对齐暗色分割线族） */
 .a1-session-list .ant-list-item:last-child { border-bottom: 1px solid rgba(255,255,255,.12); }
+
+/* ── 响应式层 ──────────────────────────────────────────────────────────
+   改造前全站 0 个 @media、0 个响应式栅格属性：侧栏固定 216px 永不折叠，
+   18/18 页在 375px 横向溢出（scrollWidth 516 vs clientWidth 375，单页 91 个
+   元素越界）。此处起建响应式层——首个断点取 lg(992px)，与壳层 Sider 折叠点一致。 */
+
+/* A1 三栏（历史会话 / 问答 / 思考过程）——窄屏纵向堆叠，各栏占满宽。
+   窄屏把「问答」提到最前：对话是这页的主任务，历史会话与思考过程是辅佐，
+   堆叠后不该让用户先滚过一屏会话列表才看到输入框。 */
+.a1-cols { display: flex; gap: 16px; align-items: stretch; height: 100%; }
+@media (max-width: 991px) {
+  .a1-cols { flex-direction: column; height: auto !important; }
+  .a1-cols > * { width: 100% !important; }
+  .a1-cols > *:nth-child(2) { order: -1; }   /* 问答置首 */
+}
+
+/* 页头：窄屏收起面包屑（与右侧角色选择器挤在一起会重叠）。
+   !important：面包屑 span 上有内联 display:inline-flex，内联优先于类规则。 */
+@media (max-width: 767px) {
+  .header-crumb { display: none !important; }
+}
+
+/* ── 侧栏 · 原型项降级（组织模式不变，只降视觉权重）────────────────────
+   原型树条目与落地条目同组并列（frontend-foundation §4 双树对照，刻意设计），
+   但两者不同质：落地项是真在用的功能，原型项是阶段验收后整体删除的临时对照物。
+   改造前两者同权重平铺，导航区读起来是一堵墙。现**不挪位置**（组织不变），
+   改用**权重差**表达层级：原型项整体降一级文字色，落地项保持全亮。
+   悬停/选中时恢复全亮——交互反馈不因降级而丢失。 */
+.menu-proto { color: var(--pa-text-tertiary); }
+.ant-menu-item:hover .menu-proto,
+.ant-menu-item-selected .menu-proto { color: inherit; }
+
+/* ── 小目标命中区（WCAG 2.5.8：24×24）──────────────────────────────────
+   实测：输入框的清空「×」实测只有 12px——远低于 24px。
+   做法：**只放大可点区域，不改视觉尺寸**（用 ::after 伪元素把命中区撑开，
+   元素本身的大小与排版完全不变），避免把密集表格撑高。
+
+   只对「antd 未把 ::after 用作视觉」的元素用这招——输入框清空图标是纯字体图标，
+   没有伪元素视觉，故 ::after 纯粹是命中区。 */
+.ant-input-clear-icon { position: relative; }
+.ant-input-clear-icon::after { content: ''; position: absolute; inset: -6px; }  /* 12 → 24px */
+
+/* 表格行展开按钮（实测 16px）**不改**——antd 的该图标用 ::before/::after 画
+   「+」的两笔（hand-tune 的 stroke 偏移），撑开命中区会把加号拆歪；
+   16×16 是 antd 对密集表格的既定取舍，触达改由整行/双击承担。 */
+
+/* 注：antd 的 Switch（size="small"，实测 16px 高）**有意保持**——
+   E2 规则表一屏 33 个开关，放大到 24px 会把表撑成两倍高；
+   密度是规则表的设计意图。 */

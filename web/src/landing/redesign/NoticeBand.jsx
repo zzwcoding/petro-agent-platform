@@ -34,7 +34,7 @@ export function NoticeRow({ n }) {
   const [plainOpen, setPlainOpen] = useState(false)
   const level = noticeLevel(n?.type)
   if (level === 'A') {
-    const color = A_ERROR.has(n.type) ? '#ff7875' : '#e8b339'
+    const color = A_ERROR.has(n.type) ? 'var(--pa-danger)' : 'var(--pa-warning)'
     return (
       <div data-testid="notice-row-a" style={{
         display: 'flex', gap: 6, alignItems: 'flex-start', fontSize: 12, lineHeight: 1.7,

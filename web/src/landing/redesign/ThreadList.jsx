@@ -139,7 +139,7 @@ export default function ThreadList({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
       data-testid="thread-list">
-      <Input size="small" allowClear prefix={<SearchOutlined style={{ color: '#8a94a3' }} />}
+      <Input size="small" allowClear prefix={<SearchOutlined style={{ color: 'var(--pa-text-tertiary)' }} />}
         placeholder="搜索对话" value={query} onChange={e => setQuery(e.target.value)}
         style={{ marginBottom: 6 }} />
 
@@ -164,11 +164,11 @@ export default function ThreadList({
               <List.Item data-selected={sel ? 'true' : 'false'} data-testid={`thread-row-${c.rootId}`}
                 style={{
                   cursor: 'pointer', padding: '4px 6px', borderRadius: 6,
-                  background: sel ? 'rgba(22,119,255,0.18)' : 'transparent'
+                  background: sel ? 'rgba(74,157,255,0.18)' : 'transparent'
                 }}
                 onClick={() => onSelect?.(c.latest)}>
                 <div style={{ width: '100%' }}>
-                  <div style={{ fontSize: 13 }}>{short(c.title)}</div>
+                  <div style={{ fontSize: 12 }}>{short(c.title)}</div>
                   <div style={dim}>
                     {`${STATUS_TEXT[c.latest.status] ?? c.latest.status} · ${c.rounds.length} 轮`
                       + ` · ${fmtTime(c.latest.created_at)}`}

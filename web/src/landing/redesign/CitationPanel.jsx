@@ -65,7 +65,7 @@ function ClampedText({ text, testId }) {
       </div>
       {long && (
         <Button size="small" type="link" style={{ padding: 0, height: 18 }} onClick={() => setOpen(o => !o)}>
-          {open ? <>收起 <UpOutlined style={{ fontSize: 10 }} /></> : <>展开看全文 <DownOutlined style={{ fontSize: 10 }} /></>}
+          {open ? <>收起 <UpOutlined style={{ fontSize: 12 }} /></> : <>展开看全文 <DownOutlined style={{ fontSize: 12 }} /></>}
         </Button>
       )}
     </div>
@@ -77,7 +77,7 @@ function SplitItem({ it }) {
   return (
     <div style={{ marginBottom: 6 }}>
       <div style={{ fontSize: 12 }}>
-        <Tag style={{ fontSize: 10 }}>{`[${it.index}]`}</Tag>
+        <Tag style={{ fontSize: 12 }}>{`[${it.index}]`}</Tag>
         {it.source && <span>{it.source}</span>}
       </div>
       <ClampedText text={it.text} testId={`supp-item-${it.index}`} />
@@ -185,13 +185,13 @@ export default function CitationPanel({
                     onClick={() => setPicked(c.index)}
                     style={{
                       cursor: 'pointer', padding: '4px 6px', borderRadius: 4, marginBottom: 2,
-                      border: isPicked ? '1px solid #4a9dff' : '1px solid transparent',
-                      background: isPicked ? 'rgba(22,119,255,0.14)' : 'transparent'
+                      border: isPicked ? '1px solid var(--pa-primary)' : '1px solid transparent',
+                      background: isPicked ? 'rgba(74,157,255,0.14)' : 'transparent'
                     }}>
                     <div style={{ fontSize: 12 }}>
-                      <Tag style={{ fontSize: 10 }}>{`[${c.index}]`}</Tag>
+                      <Tag style={{ fontSize: 12 }}>{`[${c.index}]`}</Tag>
                       <span style={dim}>{c.source_id || '（无出处编号）'}</span>
-                      {isPicked && <Tag color="blue" style={{ marginLeft: 6, fontSize: 10 }}>已定位</Tag>}
+                      {isPicked && <Tag color="blue" style={{ marginLeft: 6, fontSize: 12 }}>已定位</Tag>}
                     </div>
                     {isPicked && (
                       <div style={{ ...dim, marginTop: 4, whiteSpace: 'pre-wrap' }}>
@@ -225,7 +225,7 @@ export default function CitationPanel({
       <LineageCard lineage={lineage} limit={limit} text={lineageText} />
 
       <Modal open={treeOpen} footer={null} onCancel={() => setTreeOpen(false)} title="决策树（占位）">
-        <div style={{ fontSize: 13, lineHeight: 1.9 }}>
+        <div style={{ fontSize: 12, lineHeight: 1.9 }}>
           完整决策树（按问句点亮主链路径）本体接回在后续版本——此处只展示入口位置。
         </div>
       </Modal>

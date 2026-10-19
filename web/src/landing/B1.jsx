@@ -47,7 +47,7 @@ import {
 import { helpIcon, dim } from '../components/helpIcon.jsx'
 import PagedTable from '../components/PagedTable.jsx'
 
-const fieldLabel = { fontSize: 12, color: '#8a94a3', marginBottom: 4 }
+const fieldLabel = { fontSize: 12, color: 'var(--pa-text-tertiary)', marginBottom: 4 }
 
 const POLL_MS = 800 // 轮询节奏由服务端真实进度决定（00 §5.2——页面节奏不入合同）
 
@@ -90,7 +90,7 @@ function chunkPanel(mode) {
   return (
     <div>
       <div className="code-block">{RAW_TEXT}</div>
-      <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.9 }}>
+      <div style={{ marginTop: 8, fontSize: 12, lineHeight: 1.9 }}>
         {mode === 'smart' && (<>
           <div><Tag color="blue">小段 1</Tag>3. N-02 井完井情况。3.1 基本数据：N-02 井（渤中28-1-N2）位于渤南区块 CEP-A 平台，井别采油（EW）。</div>
           <div><Tag color="blue">小段 2</Tag>……井别采油（EW），2019-06-15 投产。3.2 完井段：详见射孔与防砂参数表。</div>
@@ -497,18 +497,18 @@ export default function B1Landing() {
       render: (_, r) => (
         <Space size={4}>
           <Tooltip title="下载原件——报告原件直链下载，链接小时级有效">
-            <Button size="small" icon={<DownloadOutlined />}
+            <Button size="small" type="text" icon={<DownloadOutlined />}
               onClick={e => { e.stopPropagation(); doDownload(r) }} />
           </Tooltip>
           {r.refs != null && (
             <Tooltip title="看切片——去切片管理页按报告浏览切出的片段">
-              <Button size="small" icon={<FileTextOutlined />}
+              <Button size="small" type="text" icon={<FileTextOutlined />}
                 onClick={e => { e.stopPropagation(); location.hash = '/B2' }} />
             </Tooltip>
           )}
           {r.wiki != null && (
             <Tooltip title="看百科——去报告百科页看中文结构化页">
-              <Button size="small" icon={<BookOutlined />}
+              <Button size="small" type="text" icon={<BookOutlined />}
                 onClick={e => { e.stopPropagation(); location.hash = '/proto/B4' }} />
             </Tooltip>
           )}
@@ -535,7 +535,7 @@ export default function B1Landing() {
         // 任务运行中 Button disabled 悬停事件不达 button，span 保 Tooltip 可见
         <Tooltip title="重试/重跑入库管线">
           <span>
-            <Button size="small" icon={<RedoOutlined />} disabled={t.state === 'running'}
+            <Button size="small" type="text" icon={<RedoOutlined />} disabled={t.state === 'running'}
               onClick={e => { e.stopPropagation(); doRetry(t.id) }} />
           </span>
         </Tooltip>
@@ -564,17 +564,17 @@ export default function B1Landing() {
       render: (_, l) => (
         <Space size={4}>
           <Tooltip title="库配置（索引开关 / 切段方式 / 索引期加法）">
-            <Button size="small" icon={<SettingOutlined />}
+            <Button size="small" type="text" icon={<SettingOutlined />}
               onClick={e => { e.stopPropagation(); openCfg(l) }} />
           </Tooltip>
           <Tooltip title={l.status === 'disabled'
             ? '启用——恢复接收新入库'
             : '停用——该库不再接收新入库，已有内容保留可查'}>
-            <Button size="small" icon={l.status === 'disabled' ? <PlayCircleOutlined /> : <PauseCircleOutlined />}
+            <Button size="small" type="text" icon={l.status === 'disabled' ? <PlayCircleOutlined /> : <PauseCircleOutlined />}
               onClick={e => { e.stopPropagation(); toggleLib(l) }} />
           </Tooltip>
           <Tooltip title="活动——这个库的操作留痕">
-            <Button size="small" icon={<HistoryOutlined />}
+            <Button size="small" type="text" icon={<HistoryOutlined />}
               onClick={e => { e.stopPropagation(); openActivities(l) }} />
           </Tooltip>
         </Space>
@@ -620,7 +620,7 @@ export default function B1Landing() {
         )}
         <div>
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontWeight: 600, fontSize: 13 }}>处理进度</span>
+            <span style={{ fontWeight: 600, fontSize: 12 }}>处理进度</span>
             {helpIcon(<>五步依次点亮：解析 → 切段 → 向量化 → 建索引 → 索引期加法。重跑按该库当前配置重新定型；关掉的索引支路直接跳过、不跑不花钱。</>)}
             <Button size="small" icon={<RedoOutlined />} style={{ marginLeft: 'auto' }}
               disabled={t.state === 'running'}
@@ -633,7 +633,7 @@ export default function B1Landing() {
                 items={nodes.map(n => ({
                   title: n.label,
                   status: n.state,
-                  description: n.note ? <span style={{ fontSize: 12, color: '#8a94a3' }}>{n.note}</span> : undefined
+                  description: n.note ? <span style={{ fontSize: 12, color: 'var(--pa-text-tertiary)' }}>{n.note}</span> : undefined
                 }))} />
               <Table
                 style={{ marginTop: 14 }} size="small" pagination={false} rowKey="key"
@@ -652,14 +652,14 @@ export default function B1Landing() {
         {t.state === 'done' && (
           <div style={{ marginTop: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
-              <span style={{ fontWeight: 600, fontSize: 13 }}>索引期加法产物</span>
+              <span style={{ fontWeight: 600, fontSize: 12 }}>索引期加法产物</span>
               {helpIcon(<>处理完自动多做两件事：全文档摘要 ×1；每 20 段生成一批"可能被问的问题"。是否生成在该库配置里勾选，保存后下次入库生效。</>)}
             </div>
             {add ? (<>
               {add.summary ? (
                 <Card size="small" style={{ marginBottom: 8 }}
                   title={<span><Tag color="green">摘要块</Tag>{add.summary.title || '全文档摘要（自动生成）'}</span>}>
-                  <span style={{ fontSize: 13 }}>{add.summary.text}</span>
+                  <span style={{ fontSize: 12 }}>{add.summary.text}</span>
                 </Card>
               ) : (
                 <div style={{ ...dim, marginBottom: 8 }}>本次入库未开启「自动生成全文档摘要」（按入库快照跳过）。</div>
@@ -667,7 +667,7 @@ export default function B1Landing() {
               {add.questions ? (
                 <Card size="small"
                   title={<span><Tag color="orange">问题块</Tag>{add.questions.title || '这份报告可能被问的问题（自动生成）'}</span>}>
-                  <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, lineHeight: 2 }}>
+                  <ol style={{ margin: 0, paddingLeft: 20, fontSize: 12, lineHeight: 2 }}>
                     {(add.questions.items || []).map((q, i) => <li key={i}>{q}</li>)}
                   </ol>
                 </Card>
@@ -732,7 +732,7 @@ export default function B1Landing() {
                 <Input size="small" allowClear style={{ width: 240 }} value={ledgerKw}
                   onChange={e => setLedgerKw(e.target.value)} placeholder="搜报告名 / 所属库…" />
               </Space>
-              <span style={{ color: '#8a94a3', fontSize: 12 }}>双击行看详情</span>
+              <span style={{ color: 'var(--pa-text-tertiary)', fontSize: 12 }}>双击行看详情</span>
             </div>
             {reportsError && (
               <Alert style={{ marginBottom: 12 }} type="error" showIcon
@@ -824,7 +824,7 @@ export default function B1Landing() {
                 <Input size="small" allowClear style={{ width: 220 }} value={libKw}
                   onChange={e => setLibKw(e.target.value)} placeholder="搜库名 / 最近入库…" />
               </Space>
-              <span style={{ color: '#8a94a3', fontSize: 12 }}>{`筛选结果 ${libs.total} 条`}</span> {/* UI-02 T2：读信封 total */}
+              <span style={{ color: 'var(--pa-text-tertiary)', fontSize: 12 }}>{`筛选结果 ${libs.total} 条`}</span> {/* UI-02 T2：读信封 total */}
             </div>
             {libsError && (
               <Alert style={{ marginBottom: 12 }} type="error" showIcon
@@ -847,7 +847,7 @@ export default function B1Landing() {
       <Modal title="上传报告（直传）" open={upOpen} onCancel={() => { setUpOpen(false); setUpReceipt(null) }}
         footer={null} width={560} maskClosable={false}>
         <div style={{ marginBottom: 10 }}>
-          <span style={{ fontSize: 13 }}>已选择：<b>{upFile?.name}</b></span>
+          <span style={{ fontSize: 12 }}>已选择：<b>{upFile?.name}</b></span>
           {upFile && <span style={dim}>（{Math.max(1, Math.round(upFile.size / 1024))} KB）</span>}
         </div>
         {upReceipt?.dupWarning && (
@@ -856,21 +856,21 @@ export default function B1Landing() {
         {upReceipt?.routing && (
           <Card size="small" style={{ marginBottom: 10 }} title="入库路由建议（LLM 只建议 · 由你确认）">
             {upReceipt.routing.mode === 'existing' && (
-              <div style={{ fontSize: 13 }}>
+              <div style={{ fontSize: 12 }}>
                 建议归入现有库「<b>{upReceipt.routing.libName}</b>」
                 {upReceipt.routing.reason && <div style={{ ...dim, marginTop: 4 }}>理由：{upReceipt.routing.reason}</div>}
                 {upReceipt.routing.confidence != null && <div style={dim}>置信度：{Math.round(upReceipt.routing.confidence * 100)}%</div>}
               </div>
             )}
             {upReceipt.routing.mode === 'new' && (
-              <div style={{ fontSize: 13 }}>
+              <div style={{ fontSize: 12 }}>
                 建议新建库——模板推荐：「{BIZ_TEMPLATES.find(t => t.value === upReceipt.routing.template)?.label || upReceipt.routing.template}」
                 {upReceipt.routing.reason && <div style={{ ...dim, marginTop: 4 }}>理由：{upReceipt.routing.reason}</div>}
                 {upReceipt.routing.confidence != null && <div style={dim}>置信度：{Math.round(upReceipt.routing.confidence * 100)}%</div>}
               </div>
             )}
             {!upReceipt.routing.mode && (
-              <div style={{ fontSize: 13 }}>
+              <div style={{ fontSize: 12 }}>
                 话题分析不可用——请手动指定目标库。
                 {upReceipt.routing.reason && <div style={{ ...dim, marginTop: 4 }}>{upReceipt.routing.reason}</div>}
               </div>
@@ -910,7 +910,7 @@ export default function B1Landing() {
         {detailLoading ? <Spin /> : (
           detail && (
           <>
-            <Descriptions size="small" column={1} colon labelStyle={{ width: 110, color: '#8a94a3' }}>
+            <Descriptions size="small" column={1} colon labelStyle={{ width: 110, color: 'var(--pa-text-tertiary)' }}>
               <Descriptions.Item label="报告名">{detail.doc}</Descriptions.Item>
               <Descriptions.Item label="所属库">{detail.lib}</Descriptions.Item>
               <Descriptions.Item label="井号 / 月份">{detail.subject || '—'}</Descriptions.Item>
@@ -918,18 +918,18 @@ export default function B1Landing() {
               <Descriptions.Item label="中文百科">{detail.wiki || '—'}</Descriptions.Item>
               <Descriptions.Item label="入库状态">{detail.status}</Descriptions.Item>
             </Descriptions>
-            <div style={{ marginTop: 16, fontWeight: 600, fontSize: 13 }}>
+            <div style={{ marginTop: 16, fontWeight: 600, fontSize: 12 }}>
               片段预览
               {helpIcon(<>原文片段（与「切片管理」页同源）；发现解析错字可点"修正"——保存后重建索引，别人已改过时会提示刷新后再改。</>)}
             </div>
             {detail.fragments.map(f => {
               const revised = f.versions.length > 1
               return (
-                <div key={f.id} style={{ border: '1px solid rgba(128,128,128,0.25)', borderRadius: 6, padding: '8px 12px', marginTop: 8 }}>
+                <div key={f.id} style={{ border: '1px solid var(--pa-border)', borderRadius: 6, padding: '8px 12px', marginTop: 8 }}>
                   <div style={{ ...dim, marginBottom: 4 }}>
                     {f.path}{f.type ? ` · ${f.type}` : ''}{revised ? ` · 已修正（v${f.version}）` : ''}
                   </div>
-                  <div style={{ fontSize: 13 }}>{f.text}</div>
+                  <div style={{ fontSize: 12 }}>{f.text}</div>
                   <div style={{ marginTop: 6 }}>
                     <Button size="small" icon={<FormOutlined />} onClick={() => openFix(f)}>修正</Button>
                   </div>
@@ -960,7 +960,7 @@ export default function B1Landing() {
                 description={errText(fixError)} />
             )}
             <Button type="primary" style={{ marginTop: 10 }} loading={fixBusy} onClick={doRevise}>保存修正</Button>
-            <div style={{ marginTop: 16, fontWeight: 600, fontSize: 13 }}>版本记录（第一期只回看，不回写）</div>
+            <div style={{ marginTop: 16, fontWeight: 600, fontSize: 12 }}>版本记录（第一期只回看，不回写）</div>
             {fixVersionTable}
           </>
         )}
@@ -1072,7 +1072,7 @@ export default function B1Landing() {
 
               <Space style={{ marginTop: 16 }}>
                 <Button type="primary" size="small" loading={cfgBusy} onClick={doSaveCfg}>保存本库配置</Button>
-                {cfgSaved && <span style={{ fontSize: 12, color: '#8a94a3' }}>{cfgSaved.hint}</span>}
+                {cfgSaved && <span style={{ fontSize: 12, color: 'var(--pa-text-tertiary)' }}>{cfgSaved.hint}</span>}
               </Space>
             </>
           )

@@ -42,6 +42,7 @@ import {
 import { errText } from '../api/client.js'
 import { helpIcon, dim } from '../components/helpIcon.jsx'  // UI-00 共享件（UI-04 T11——页内副本删除）
 import PagedTable from '../components/PagedTable.jsx'  // UI-00 共享件（UI-04 T1/T7——集合表统一分页）
+import ClampCell from '../components/ClampCell.jsx'  // 共享件（表格单元格长文本截断）
 import {
   addSimilar, compareCandidate, createEntry, dupCheck, exportLibrary, getCandidates,
   getItems, getItemDetail, draftCandidate, draftFromRefs, importLibrary, listLedgerOptions,
@@ -52,7 +53,7 @@ import {
 // UI-04 T11：helpIcon/dim 页内副本删除——import UI-00 共享件（components/helpIcon.jsx），
 // 母本即本页现形、渲染物不变；errText 同批改 client.js 导出（三段统一）。
 // fieldLabel 本页自持（方案 §3.3——不抽，仅 B1 消费共享化的取舍与本页无关）。
-const fieldLabel = { fontSize: 12, color: '#8a94a3', marginBottom: 4 }
+const fieldLabel = { fontSize: 12, color: 'var(--pa-text-tertiary)', marginBottom: 4 }
 
 const SERVE_TAG = <Tag color="green">服务中</Tag>
 const NEG_TAG = <Tag color="red">负例 · 不参与回答</Tag>
@@ -453,8 +454,8 @@ export default function B3() {
   const [cfgOpen, setCfgOpen] = useState(false)
 
   const cols = [
-    { title: '问题', dataIndex: 'question', width: 240, render: v => <b style={{ fontSize: 13 }}>{v}</b> },
-    { title: '答案', dataIndex: 'answer', render: v => <span style={{ fontSize: 13 }}>{v}</span> },
+    { title: '问题', dataIndex: 'question', width: 240, render: v => <b style={{ fontSize: 12 }}>{v}</b> },
+    { title: '答案', dataIndex: 'answer', render: v => <div style={{ fontSize: 12 }}><ClampCell text={v} /></div> },
     {
       title: <span>相似问法{helpIcon('相似问法＝同一个问题的其他问法，已并入本条目——换这些问法来问，命中同一条答案；详情里可逐条增删，删掉的问法不再命中本条。')}</span>,
       dataIndex: 'similarQuestions', width: 250,
@@ -477,24 +478,24 @@ export default function B3() {
           {r.status !== 'pending_review' && r.status !== 'negative' && (
             r.status === 'disabled' ? (
               <Tooltip title="启用：恢复参与回答，命中即秒回">
-                <Button size="small" icon={<PlayCircleOutlined />} aria-label={`启用：${r.question}`}
+                <Button size="small" type="text" icon={<PlayCircleOutlined />} aria-label={`启用：${r.question}`}
                   onClick={e => { e.stopPropagation(); toggle(r) }} />
               </Tooltip>
             ) : (
               <Tooltip title="停用：暂不参与回答、可再启用（口径改版等场景先停用待审）">
-                <Button size="small" icon={<PauseCircleOutlined />} aria-label={`停用：${r.question}`}
+                <Button size="small" type="text" icon={<PauseCircleOutlined />} aria-label={`停用：${r.question}`}
                   onClick={e => { e.stopPropagation(); toggle(r) }} />
               </Tooltip>
             )
           )}
           {r.status !== 'pending_review' && r.status !== 'negative' && (
             <Tooltip title="合并相似问：并入另一条问答（目标由人选）">
-              <Button size="small" icon={<MergeOutlined />} aria-label={`合并：${r.question}`}
+              <Button size="small" type="text" icon={<MergeOutlined />} aria-label={`合并：${r.question}`}
                 onClick={e => { e.stopPropagation(); openMerge(r) }} />
             </Tooltip>
           )}
           <Tooltip title="问答详情">
-            <Button size="small" icon={<FileSearchOutlined />} aria-label={`详情：${r.question}`}
+            <Button size="small" type="text" icon={<FileSearchOutlined />} aria-label={`详情：${r.question}`}
               onClick={e => { e.stopPropagation(); openDetail(r.id) }} />
           </Tooltip>
         </Space>
@@ -578,7 +579,7 @@ export default function B3() {
       >
         <div style={{ marginBottom: 12 }}>
           <Space size={6}>
-            <span style={{ fontSize: 13 }}>相似问合并</span>
+            <span style={{ fontSize: 12 }}>相似问合并</span>
             <Tag color="green">开</Tag>
             <span style={dim}>合并阈值</span>
             <Input size="small" style={{ width: 72 }} value="0.87" disabled />
@@ -587,7 +588,7 @@ export default function B3() {
         </div>
         <div style={{ marginBottom: 4 }}>
           <Space size={6}>
-            <span style={{ fontSize: 13 }}>负例登记入口</span>
+            <span style={{ fontSize: 12 }}>负例登记入口</span>
             <Tag color="green">已开</Tag>
             {helpIcon(<>在"新增问答"里勾选"登记为负例"即可登记。</>)}
           </Space>
@@ -649,7 +650,7 @@ export default function B3() {
         open={mergeOpen} onCancel={() => setMergeOpen(false)} width={480}
         onOk={doMerge} okText="合并" okButtonProps={{ disabled: !mergeTarget }}
       >
-        <div style={{ marginBottom: 8, fontSize: 13 }}>
+        <div style={{ marginBottom: 8, fontSize: 12 }}>
           被并入：<b>{mergeFrom?.question}</b>（合并后删除，其问题进目标相似问列）
         </div>
         <div style={fieldLabel}>并入目标（从库内其余问答中选）</div>
@@ -666,7 +667,7 @@ export default function B3() {
         title={<span>导入问答{helpIcon(<>按模板批量导入历史答疑记录：模板列＝标准问 / 相似问法（多值） / 负例问法 / 答案；系统忽略大小写、全角半角差异后归一化去重；导入文件落对象存储不过期。</>)}</span>}
         open={impOpen} onCancel={() => setImpOpen(false)} footer={null} width={560}
       >
-        <div style={{ fontSize: 13 }}>导入模式</div>
+        <div style={{ fontSize: 12 }}>导入模式</div>
         <Radio.Group style={{ marginTop: 6 }} value={impMode} onChange={e => setImpMode(e.target.value)}>
           <Radio value="append">合并重复条目（与库内同义问法自动归并）</Radio>
           <Radio value="replace">替换全部（清空现库后导入，先确认）</Radio>
@@ -745,7 +746,7 @@ export default function B3() {
               dataIndex: 'question',
               render: (v, c) => (
                 <div>
-                  <b style={{ fontSize: 13 }}>{v}</b>
+                  <b style={{ fontSize: 12 }}>{v}</b>
                   <div style={dim}>{c.variants.length ? `同簇变体：${c.variants.join('、')}` : '无同簇变体'}</div>
                 </div>
               )
@@ -760,7 +761,7 @@ export default function B3() {
               render: (_, c) => (
                 <Space size={4}>
                   <Tooltip title="向量比对：对既有问答/知识库/本体三面去重">
-                    <Button size="small" icon={<ClusterOutlined />} aria-label={`比对：${c.question}`}
+                    <Button size="small" type="text" icon={<ClusterOutlined />} aria-label={`比对：${c.question}`}
                       disabled={c.status !== 'pending'} loading={busyCand === c.id}
                       onClick={() => runCompare(c)} />
                   </Tooltip>
@@ -778,7 +779,7 @@ export default function B3() {
                       }}>填入新增</Button>
                   ) : (
                     <Tooltip title="LLM 起草（分析该问题的历史回答）→ 草稿自动填入「新增问答」">
-                      <Button size="small" icon={<RobotOutlined />} aria-label={`起草：${c.question}`}
+                      <Button size="small" type="text" icon={<RobotOutlined />} aria-label={`起草：${c.question}`}
                         disabled={c.status !== 'compared'} loading={busyCand === c.id}
                         onClick={() => runMineDraft(c)} />
                     </Tooltip>
@@ -797,7 +798,7 @@ export default function B3() {
       >
         {detail && (
           <>
-            <div style={{ marginBottom: 8, fontSize: 13 }}>
+            <div style={{ marginBottom: 8, fontSize: 12 }}>
               <b>答案</b>
               <div style={{ marginTop: 4 }}>{detail.answer}</div>
             </div>
@@ -806,14 +807,14 @@ export default function B3() {
               {detail.status === 'negative' && <span style={dim}>登记为"不该答的问题"：不参与回答，检索也不可达。</span>}
               {detail.status === 'disabled' && <span style={dim}>暂不参与回答，可随时启用。</span>}
             </div>
-            <div style={{ marginTop: 14, fontWeight: 600, fontSize: 13 }}>
+            <div style={{ marginTop: 14, fontWeight: 600, fontSize: 12 }}>
               相似问法
               {helpIcon(<>每个相似问法是独立检索项：逐条增删即时生效，删掉的问法不再命中本条。</>)}
             </div>
             <div style={{ marginTop: 6 }}>
               {detail.similarQuestions.map(s => (
                 <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0' }}>
-                  <span style={{ fontSize: 13, flex: 1 }}>{s.text}</span>
+                  <span style={{ fontSize: 12, flex: 1 }}>{s.text}</span>
                   <Button size="small" type="text" danger
                     onClick={() => removeSim(s.id)}>删除</Button>
                 </div>
@@ -827,7 +828,7 @@ export default function B3() {
                 <Button size="small" onClick={addSim}>添加</Button>
               </div>
             </div>
-            <div style={{ marginTop: 14, color: '#8a94a3', fontSize: 12 }}>
+            <div style={{ marginTop: 14, color: 'var(--pa-text-tertiary)', fontSize: 12 }}>
               维护人：{detail.maintainer}（审核后生效） · 更新时间：{detail.updatedAt} · 版本 v{detail.version}（每次更新自增）
             </div>
           </>

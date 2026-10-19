@@ -18,9 +18,9 @@ import { QuestionCircleOutlined } from '@ant-design/icons'
  */
 export const helpIcon = content => (
   <Tooltip title={<div style={{ fontSize: 12, lineHeight: 1.8 }}>{content}</div>} placement="topLeft">
-    <QuestionCircleOutlined style={{ marginLeft: 4, color: '#8a94a3', cursor: 'help' }} />
+    <QuestionCircleOutlined style={{ marginLeft: 4, color: 'var(--pa-text-tertiary)', cursor: 'help' }} />
   </Tooltip>
 )
 
 /** 弱化说明文字样式（12px 灰字——五页同构常量，母本 B1.jsx:50 同值）。 */
-export const dim = { fontSize: 12, color: '#8a94a3' }
+export const dim = { fontSize: 12, color: 'var(--pa-text-tertiary)' }

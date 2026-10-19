@@ -41,12 +41,17 @@ import {
 } from '../api/graph.js'
 import { getFragmentContext, getReports, getReportDetail, listLibraries }
   from '../api/kb.js'
+import { palette } from '../theme.js'
 
 // 节点类型配色（前端渲染细节不入合同——类型值域随库配置非封闭枚举，未知
-// 类型走调色板轮转）
-const TYPE_HEX = { 井: '#3b8dff', 区块: '#52c41a', 平台: '#9254de', 油田: '#faad14', 措施: '#fa8c16' }
-const PALETTE = ['#3b8dff', '#52c41a', '#9254de', '#faad14', '#fa8c16', '#4aa3ff', '#e8a23d', '#57a75f', '#a78bde', '#eb2f96']
-const typeColor = type => TYPE_HEX[type] || PALETTE[Object.keys(TYPE_HEX).length + (type?.length || 0) % PALETTE.length] || '#8a94a3'
+// 类型走调色板轮转）。
+// 改造：原先这套色值内联在页面里，现收进令牌真源 theme.js 的 palette.viz。
+// 为什么不并入 UI 色板：① 这一套的职责是**互相区分**（井/区块/平台/油田/措施），
+//   若都映射到 --pa-primary/--pa-success/…，图上不同类型会撞成同一色；
+// ② G6 的 fill/stroke/labelFill 走图形属性，CSS 变量在 canvas 里不解析——
+//   故 viz 这一套以字面 hex 承载，经令牌文件统一看守，但不经 CSS 变量。
+const { typeHex: TYPE_HEX, palette: PALETTE } = palette.viz
+const typeColor = type => TYPE_HEX[type] || PALETTE[Object.keys(TYPE_HEX).length + (type?.length || 0) % PALETTE.length] || palette.viz.unknown
 const REL_TAG = { 隶属: 'green', 承载: 'purple', 受效: 'blue', 作用于: 'orange' }
 
 const BUILD_GATE_TIP = (
@@ -112,7 +117,8 @@ function GraphG6({ nodes, edges, sel, visible, nameOf, onPick }) {
       autoFit: 'view',
       padding: 24,
       autoResize: true,
-      background: '#161b22',
+      // G6 图形属性：必须字面 hex（CSS 变量在 SVG 属性/canvas 里不解析）
+      background: palette.viz.canvasBg,
       theme: 'dark',
       animation: false,
       data: { nodes: dataRef.current.nodes.map(toG6Node), edges: dataRef.current.edges.map(toG6Edge) },
@@ -124,13 +130,13 @@ function GraphG6({ nodes, edges, sel, visible, nameOf, onPick }) {
           fill: d => typeColor(d.data.type), fillOpacity: 0.12,
           stroke: d => typeColor(d.data.type), lineWidth: 1.4,
           iconText: d => d.data.short, iconFontSize: 12, iconFontWeight: 600,
-          iconFill: '#e6edf3',
+          iconFill: palette.viz.nodeText,
           labelText: d => d.data.sub, labelPlacement: 'bottom', labelOffsetY: 6,
           labelFill: d => typeColor(d.data.type), labelFontSize: 10, labelFontWeight: 600
         },
         state: {
-          highlight: { lineWidth: 2, stroke: '#4a9dff', fillOpacity: 0.28, halo: true, haloStroke: '#4a9dff', haloLineWidth: 12, haloStrokeOpacity: 0.35 },
-          active: { lineWidth: 2, stroke: '#7ab3ff' },
+          highlight: { lineWidth: 2, stroke: palette.viz.highlight, fillOpacity: 0.28, halo: true, haloStroke: palette.viz.highlight, haloLineWidth: 12, haloStrokeOpacity: 0.35 },
+          active: { lineWidth: 2, stroke: palette.viz.active },
           dim: { iconOpacity: 0.55, labelFillOpacity: 0.5, strokeOpacity: 0.5 },
           ghost: { lineDash: [4, 3], strokeOpacity: 0.3, fillOpacity: 0.05, iconOpacity: 0.25, labelFillOpacity: 0.25 }
         }
@@ -139,8 +145,8 @@ function GraphG6({ nodes, edges, sel, visible, nameOf, onPick }) {
         style: {
           stroke: d => typeColor(d.data.rel), strokeOpacity: 0.35, lineWidth: 1.3,
           endArrow: true, endArrowSize: 8,
-          labelText: d => d.data.rel, labelFill: '#8a94a3', labelFontSize: 10.5,
-          labelFontWeight: 600, labelBackground: true, labelBackgroundFill: '#161b22',
+          labelText: d => d.data.rel, labelFill: palette.viz.edgeLabel, labelFontSize: 10.5,
+          labelFontWeight: 600, labelBackground: true, labelBackgroundFill: palette.viz.edgeLabelBg,
           labelBackgroundOpacity: 0.85, labelBackgroundRadius: 3,
           labelBackgroundLineWidth: 0, labelPadding: [1, 3]
         },
@@ -161,13 +167,13 @@ function GraphG6({ nodes, edges, sel, visible, nameOf, onPick }) {
           if (!d) return ''
           if (evt.targetType === 'edge') {
             const note = d.data && d.data.note
-            return `<b>${nameOf(d.data.from)} —${d.data.rel}→ ${nameOf(d.data.to)}</b>${note ? `<div style="color:#8a94a3;margin-top:2px">${note}</div>` : ''}`
+            return `<b>${nameOf(d.data.from)} —${d.data.rel}→ ${nameOf(d.data.to)}</b>${note ? `<div style="color:var(--pa-text-tertiary);margin-top:2px">${note}</div>` : ''}`
           }
           return `<b>${nameOf(d.id)}</b>`
         },
         style: {
-          background: '#1c2128', border: '1px solid #30363d', borderRadius: 6,
-          color: '#e6edf3', fontSize: 12, padding: '6px 10px',
+          background: 'var(--pa-surface-raised)', border: '1px solid #30363d', borderRadius: 6,
+          color: 'var(--pa-text-primary)', fontSize: 12, padding: '6px 10px',
           boxShadow: '0 6px 16px rgba(0,0,0,0.45)'
         }
       }]
@@ -209,7 +215,7 @@ function GraphG6({ nodes, edges, sel, visible, nameOf, onPick }) {
   }, [sel, visible, ready, typeOf])
 
   return (
-    <div style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, padding: 8 }}>
+    <div style={{ background: 'var(--pa-surface-card)', border: '1px solid #30363d', borderRadius: 8, padding: 8 }}>
       <div ref={boxRef} style={{ width: '100%', height: 560 }} />
     </div>
   )
@@ -439,7 +445,7 @@ export default function B5Landing() {
         // UI-13：页标题上移壳层页头——PAGE_HELP 迁卡头 extra（helpIcon 悬停承载，内容不改）
         title={
           <Space size={12}>
-            <span style={{ fontSize: 12, color: '#8a94a3' }}>知识库</span>
+            <span style={{ fontSize: 12, color: 'var(--pa-text-tertiary)' }}>知识库</span>
             <Select size="small" style={{ minWidth: 200 }} placeholder="选择库"
               value={libId} onChange={setLibId}
               options={libs.map(l => ({ value: l.id, label: l.name }))} />
@@ -469,14 +475,14 @@ export default function B5Landing() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 12 }}>
               <Space wrap size={16}>
                 <Space size={2}>
-                  <span style={{ fontSize: 12, color: '#8a94a3' }}>图例</span>
+                  <span style={{ fontSize: 12, color: 'var(--pa-text-tertiary)' }}>图例</span>
                   {helpIcon(LEGEND_TIP)}
                 </Space>
                 {net.legend.map(l => (
                   <Space key={l.type} size={6}>
                     <Switch size="small" checked={visible[l.type] !== false}
                       onChange={v => setVisible(p => ({ ...p, [l.type]: v }))} />
-                    <span style={{ fontSize: 13 }}>
+                    <span style={{ fontSize: 12 }}>
                       <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: typeColor(l.type), marginRight: 6 }} />
                       {l.type}（{l.count}）
                     </span>
@@ -484,7 +490,7 @@ export default function B5Landing() {
                 ))}
               </Space>
               <Space size={4}>
-                <span style={{ fontSize: 12, color: '#8a94a3' }}>查看节点</span>
+                <span style={{ fontSize: 12, color: 'var(--pa-text-tertiary)' }}>查看节点</span>
                 <Select size="small" showSearch optionFilterProp="label" style={{ width: 210 }}
                   placeholder="选择节点" value={sel ?? undefined} onChange={setSel} options={nodeOptions} />
                 <Tooltip title={QUERY_GATE_TIP}>
@@ -504,7 +510,7 @@ export default function B5Landing() {
                   : (net.nodes.length
                       ? <GraphG6 key={libId} nodes={net.nodes} edges={net.edges} sel={sel}
                           visible={visible} nameOf={nameOf} onPick={setSel} />
-                      : !netError && <div style={{ ...dim, border: '1px dashed #30363d', borderRadius: 8, padding: 60, textAlign: 'center' }}>
+                      : !netError && <div style={{ ...dim, border: '1px dashed var(--pa-border)', borderRadius: 8, padding: 60, textAlign: 'center' }}>
                           当前库暂无图谱数据——图谱开关开启后入库一次即成图（不抽取即无图）。
                         </div>)}
                 {/* UI-14 巡检违例 (b) 修复（先登记后改）：netError 失败态不再出
@@ -514,10 +520,10 @@ export default function B5Landing() {
               <div style={{ width: 400, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
                 <div style={{
                   flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
-                  background: '#161b22', border: '1px solid #30363d', borderRadius: 8, padding: '10px 12px'
+                  background: 'var(--pa-surface-card)', border: '1px solid #30363d', borderRadius: 8, padding: '10px 12px'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
-                    <span style={{ fontWeight: 600, fontSize: 13 }}>关系清单</span>
+                    <span style={{ fontWeight: 600, fontSize: 12 }}>关系清单</span>
                     {helpIcon(LIST_GATE_TIP)}
                   </div>
                   {/* UI-05 T4：接 PagedTable client 分页（pageSize 20 与面板内滚共存——方案 §2.2 表 #9）；
@@ -553,16 +559,16 @@ export default function B5Landing() {
           <div>
             <div style={{ display: 'flex', gap: 24, alignItems: 'top', flexWrap: 'wrap' }}>
               <div style={{ flex: '1 1 380px', minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>
+                <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 8 }}>
                   {/* UI-05 T3①：段标题如实化——「（勾选启用）」承诺撤除（勾选切换承载
                       需 DTO 增 enabled＝合同变更，登记 UI-07） */}
                   实体类型清单{helpIcon(ENTITY_TIP)}
                 </div>
-                <div style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, padding: '10px 12px' }}>
+                <div style={{ background: 'var(--pa-surface-card)', border: '1px solid #30363d', borderRadius: 8, padding: '10px 12px' }}>
                   {cfg.entityTypes.map((t, i) => (
                     <div key={t} style={{ display: 'flex', alignItems: 'center', padding: '3px 0' }}>
                       {/* UI-05 T3②：Checkbox checked disabled 保持——现状全量启用语义如实 */}
-                      <Checkbox checked style={{ fontSize: 13 }} disabled>
+                      <Checkbox checked style={{ fontSize: 12 }} disabled>
                         <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: typeColor(t), marginRight: 6 }} />
                         {t}
                       </Checkbox>
@@ -581,14 +587,14 @@ export default function B5Landing() {
                 </div>
               </div>
               <div style={{ flex: '1 1 380px', minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>
+                <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 8 }}>
                   关系标签{helpIcon(REL_TIP)}
                 </div>
-                <div style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, padding: '10px 12px' }}>
+                <div style={{ background: 'var(--pa-surface-card)', border: '1px solid #30363d', borderRadius: 8, padding: '10px 12px' }}>
                   {cfg.relationTags.map((r, i) => (
                     <div key={r.rel} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0' }}>
                       <Tag color={REL_TAG[r.rel] || 'default'} style={{ marginInlineEnd: 0 }}>{r.rel}</Tag>
-                      <span style={{ fontSize: 12, color: '#8a94a3', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontSize: 12, color: 'var(--pa-text-tertiary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {r.desc || '—'}
                       </span>
                       {/* UI-05 T8①：删除守卫同 T3③——初始标签不可删，仅新增自定义项可删 */}
@@ -606,7 +612,7 @@ export default function B5Landing() {
                 </div>
               </div>
             </div>
-            <div style={{ fontWeight: 600, fontSize: 13, margin: '16px 0 8px', display: 'flex', alignItems: 'center' }}>
+            <div style={{ fontWeight: 600, fontSize: 12, margin: '16px 0 8px', display: 'flex', alignItems: 'center' }}>
               <span>示例（few-shot）{helpIcon(FEWSHOT_TIP)}</span>
               <span style={{ marginLeft: 'auto', fontWeight: 400 }}>
                 <Space size={8}>
@@ -616,13 +622,13 @@ export default function B5Landing() {
                 </Space>
               </span>
             </div>
-            <div style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, padding: '10px 12px' }}>
+            <div style={{ background: 'var(--pa-surface-card)', border: '1px solid #30363d', borderRadius: 8, padding: '10px 12px' }}>
               {cfg.fewShotExamples.map((ex, i) => (
                 <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
                   <Input size="small" placeholder="报告原句" value={ex.sentence}
                     onChange={ev => setCfg(p => ({ ...p, fewShotExamples: p.fewShotExamples.map((x, xi) => xi === i ? { ...x, sentence: ev.target.value } : x) }))}
                     style={{ flex: 1 }} />
-                  <span style={{ color: '#8a94a3', flexShrink: 0 }}>→</span>
+                  <span style={{ color: 'var(--pa-text-tertiary)', flexShrink: 0 }}>→</span>
                   <Input size="small" placeholder="应抽出三元组" value={ex.triple}
                     onChange={ev => setCfg(p => ({ ...p, fewShotExamples: p.fewShotExamples.map((x, xi) => xi === i ? { ...x, triple: ev.target.value } : x) }))}
                     style={{ flex: 1 }} />
@@ -632,7 +638,7 @@ export default function B5Landing() {
               ))}
               <Button size="small" onClick={() => addExample({ sentence: '', triple: '' })}>添加示例</Button>
             </div>
-            <div style={{ fontWeight: 600, fontSize: 13, margin: '16px 0 8px' }}>
+            <div style={{ fontWeight: 600, fontSize: 12, margin: '16px 0 8px' }}>
               自定义指令{helpIcon(INSTRUCTION_TIP)}
             </div>
             <Input.TextArea rows={2} value={cfg.customInstructions}
@@ -641,7 +647,7 @@ export default function B5Landing() {
               {/* UI-05 T2③：装载窗口期保存不可用（配合表单撤下，错存窗口期不可写） */}
               <Button type="primary" size="small" loading={saving} disabled={cfgLoading}
                 onClick={saveExtract}>保存抽取设置</Button>
-              {saved && <span style={{ fontSize: 12, color: '#8a94a3' }}>{saved}</span>}
+              {saved && <span style={{ fontSize: 12, color: 'var(--pa-text-tertiary)' }}>{saved}</span>}
             </Space>
           </div>
         ))}
@@ -703,8 +709,8 @@ export default function B5Landing() {
         {/* UI-05 T11：选句清单容器内滚（上限 30 句挑选器——方案 §2.2 豁免分页） */}
         <div style={{ maxHeight: 'calc(100vh - 320px)', overflowY: 'auto' }}>
           {sentences.map((s, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '7px 0', borderBottom: '1px solid #30363d' }}>
-              <span style={{ flex: 1, fontSize: 13 }}>{s}</span>
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '7px 0', borderBottom: '1px solid var(--pa-border)' }}>
+              <span style={{ flex: 1, fontSize: 12 }}>{s}</span>
               <Button type="link" size="small" style={{ padding: 0, flexShrink: 0 }}
                 disabled={drafting} onClick={() => pickSentence(s)}>选用</Button>
             </div>
@@ -723,7 +729,7 @@ export default function B5Landing() {
             onChange={ev => setDraftRel(ev.target.value)} onPressEnter={draftByRel} />
           <Button type="primary" loading={drafting} onClick={draftByRel}>生成</Button>
         </Space.Compact>
-        <div style={{ marginTop: 12, fontSize: 12, color: '#8a94a3' }}>
+        <div style={{ marginTop: 12, fontSize: 12, color: 'var(--pa-text-tertiary)' }}>
           当前关系标签：
           {cfg?.relationTags.map(r => (
             <Tag key={r.rel} style={{ cursor: 'pointer', marginInlineEnd: 6 }} color={REL_TAG[r.rel] || 'default'}

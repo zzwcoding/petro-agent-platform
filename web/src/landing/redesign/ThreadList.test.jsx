@@ -132,7 +132,9 @@ describe('ThreadList · 一链一行（分组／点击／链成员高亮）', ()
     render(<ThreadList fetchRuns={vi.fn(async () => CHAIN_RUNS)} selectedId="run-c2" onSelect={onSelect} />)
     const chainRow = await screen.findByTestId('thread-row-run-c1')
     expect(chainRow.dataset.selected).toBe('true')       // 链成员含选中轮（中间轮 run-c2）即高亮
-    expect(chainRow.style.background).toContain('rgba(22, 119, 255')
+    // 选中高亮＝品牌蓝的淡色底（令牌化改造：原为 antd 旧默认蓝 #1677ff，
+    // 与全站主色 #4a9dff 不同源——已统一为品牌蓝）
+    expect(chainRow.style.background).toContain('rgba(74, 157, 255')
     expect(screen.getByTestId('thread-row-run-x').dataset.selected).toBe('false')
     // 点他行＝回调他链最新轮（选中态由页面写回，本件不内改）
     fireEvent.click(screen.getByTestId('thread-row-run-x'))

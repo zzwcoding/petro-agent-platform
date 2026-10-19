@@ -43,9 +43,9 @@ const TOOL_STATUS = { ok: '完成', failed: '失败', ask: '待确认' }
 
 /** 工具状态图标（ok✓ / failed✗ / ask⏸；未登记＝原样文字）。 */
 function ToolStatus({ status }) {
-  if (status === 'failed') return <CloseCircleOutlined style={{ color: '#ff7875', marginLeft: 6 }} />
-  if (status === 'ask') return <PauseCircleOutlined style={{ color: '#e8b339', marginLeft: 6 }} />
-  if (status === 'ok') return <CheckCircleOutlined style={{ color: '#52c41a', marginLeft: 6 }} />
+  if (status === 'failed') return <CloseCircleOutlined style={{ color: 'var(--pa-danger)', marginLeft: 6 }} />
+  if (status === 'ask') return <PauseCircleOutlined style={{ color: 'var(--pa-warning)', marginLeft: 6 }} />
+  if (status === 'ok') return <CheckCircleOutlined style={{ color: 'var(--pa-success)', marginLeft: 6 }} />
   return null
 }
 
@@ -128,7 +128,7 @@ export default function ExecutionPipeline({ turn, durationS = null }) {
   // 显示项＝到达序折叠后的连续段，再滤掉隐藏型 notice 行（打磨批⑧——展示口径，原数据不动）
   const items = foldEvents(events).filter(it => it.type !== 'notice' || noticeVisible(it.ev?.notice))
 
-  const stateIcon = running ? <Spin size="small" /> : <CheckCircleOutlined style={{ color: '#52c41a' }} />
+  const stateIcon = running ? <Spin size="small" /> : <CheckCircleOutlined style={{ color: 'var(--pa-success)' }} />
   const shownDuration = durationS ?? sum.durationS // 页面传入优先（时长不入 turn——页面临时面）
   const summary = [
     sum.stateWord,
@@ -158,7 +158,7 @@ export default function ExecutionPipeline({ turn, durationS = null }) {
           </>
         ))}
         <span style={{ marginLeft: 'auto', ...dim }}>
-          {open ? <>收起过程 <UpOutlined style={{ fontSize: 10 }} /></> : <>展开过程 <DownOutlined style={{ fontSize: 10 }} /></>}
+          {open ? <>收起过程 <UpOutlined style={{ fontSize: 12 }} /></> : <>展开过程 <DownOutlined style={{ fontSize: 12 }} /></>}
         </span>
       </div>
 

@@ -35,10 +35,10 @@ import { createContext, useContext, useMemo, useState } from 'react'
 import { Popover } from 'antd'
 import { marked } from 'marked'
 
-const ROOT = { fontSize: 13, lineHeight: 1.7 }
+const ROOT = { fontSize: 12, lineHeight: 1.7 }
 const PLAIN = { whiteSpace: 'pre-wrap' } // 软换行保真（见头注②）
 const P = { margin: '0 0 6px' }
-const HEAD_SIZE = { 1: 16, 2: 15, 3: 14, 4: 13, 5: 13, 6: 13 }
+const HEAD_SIZE = { 1: 16, 2: 16, 3: 14, 4: 12, 5: 12, 6: 12 }
 const HEAD = { margin: '10px 0 6px', fontWeight: 600 }
 const LIST = { margin: '0 0 6px', paddingLeft: 22 }
 const ITEM = { marginBottom: 2 }
@@ -53,9 +53,9 @@ const PRE = {
   overflowX: 'auto', margin: '0 0 6px'
 }
 const TABLE = { borderCollapse: 'collapse', margin: '0 0 6px' }
-const CELL = { border: '1px solid #e0e4e8', padding: '3px 8px' }
+const CELL = { border: '1px solid var(--pa-border)', padding: '3px 8px' }
 const TH = { ...CELL, background: 'rgba(127,127,127,0.12)', fontWeight: 600, textAlign: 'left' }
-const CITE = { color: '#4a9dff', cursor: 'pointer' }
+const CITE = { color: 'var(--pa-primary)', cursor: 'pointer' }
 
 /** 引标正则（闭世界：方括号数字；正文里的 `[标签]` 不误中）。 */
 const CITE_RE = /\[(\d+)\]/g

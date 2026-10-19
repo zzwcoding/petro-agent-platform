@@ -241,7 +241,7 @@ const NODE_BADGE = {
   finish: 'success',
   error: 'error'
 }
-const MARK_COLOR = { '✓': '#52c41a', '✗': '#ff4d4f', '→': '#3b8dff', '○': '#8a94a3', '·': '#8a94a3' }
+const MARK_COLOR = { '✓': 'var(--pa-success)', '✗': 'var(--pa-danger)', '→': 'var(--pa-primary)', '○': 'var(--pa-text-tertiary)', '·': 'var(--pa-text-tertiary)' }
 
 /** 思考树节点行（00 §5.3 四态＋skipped 灰显＋note 小字＋tag 徽标）。 */
 function NodeRow({ node, lines }) {
@@ -251,16 +251,16 @@ function NodeRow({ node, lines }) {
       style={{ opacity: gray ? 0.55 : 1, margin: '2px 0' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
         <Badge status={NODE_BADGE[node.state] || 'default'} />
-        <span style={{ fontSize: 13, color: gray ? '#8a94a3' : '#d7dce3' }}>
+        <span style={{ fontSize: 12, color: gray ? 'var(--pa-text-tertiary)' : 'var(--pa-text-primary)' }}>
           {node.name}
           {gray && <span style={{ marginLeft: 6 }}>（已跳过）</span>}
         </span>
-        {node.tag && <Tag style={{ marginInlineEnd: 0, fontSize: 11, lineHeight: '16px' }}>{node.tag}</Tag>}
+        {node.tag && <Tag style={{ marginInlineEnd: 0, fontSize: 12, lineHeight: '16px' }}>{node.tag}</Tag>}
       </div>
       {node.note && <div style={{ ...dim, marginLeft: 16, marginTop: 1 }}>{node.note}</div>}
       {(lines || []).map((l, i) => (
         <div key={i} style={{ ...dim, marginLeft: 16 }}>
-          <span style={{ color: MARK_COLOR[l.mark] || '#8a94a3' }}>{l.mark}</span> {l.text}
+          <span style={{ color: MARK_COLOR[l.mark] || 'var(--pa-text-tertiary)' }}>{l.mark}</span> {l.text}
         </div>
       ))}
     </div>
@@ -551,7 +551,7 @@ export default function A1Landing() {
   /** 对话流条目渲染（实时会话与历史回放共用一套渲染件）。 */
   function renderItems(list) {
     return list.map(it => it.type === 'user' ? (
-      <Card key={it.key} size="small" style={{ background: 'rgba(22,119,255,0.12)', marginBottom: 8 }}>
+      <Card key={it.key} size="small" style={{ background: 'rgba(74,157,255,0.12)', marginBottom: 8 }}>
         <b>我：</b>{it.text}
       </Card>
     ) : (
@@ -587,7 +587,10 @@ export default function A1Landing() {
   const tree = lastTurn // 右栏＝最近回合的思考树（原型「随场景切换」同位）
 
   return (
-    <div style={{ display: 'flex', gap: 16, alignItems: 'stretch', height: '100%' }}>
+    <div
+      className="a1-cols"
+      style={{ display: 'flex', gap: 16, alignItems: 'stretch', height: '100%' }}
+    >
       {/* ── 左栏 · 历史会话（端点 2 available 才显＋本机运行真恢复；T3 左卡随行容器拉伸、
           body 内滚，白名单语义不变——方案 §4.1） ── */}
       <Card
@@ -607,7 +610,7 @@ export default function A1Landing() {
             <List.Item style={{ cursor: busy ? 'wait' : 'pointer', padding: '4px 0' }}
               onClick={() => !busy && openHistory(s)}>
               <div>
-                <div style={{ fontSize: 13 }}>{s.title}</div>
+                <div style={{ fontSize: 12 }}>{s.title}</div>
                 <div style={dim}>{s.group}{s.updatedAt ? ` · ${s.updatedAt}` : ''}</div>
               </div>
             </List.Item>
@@ -624,7 +627,7 @@ export default function A1Landing() {
               renderItem={e => (
                 <List.Item style={{ cursor: busy ? 'wait' : 'pointer', padding: '4px 0' }}
                   onClick={() => !busy && resumeRun({ runId: e.runId, lastEventId: '', question: e.title })}>
-                  <div style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {e.title}
                   </div>
                 </List.Item>
@@ -634,7 +637,8 @@ export default function A1Landing() {
       </Card>
 
       {/* ── 中栏 · 对话流（消息/答案流式/citation/澄清帧） ── */}
-      <Card size="small" style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+      <Card size="small" title="问答"
+        style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
         styles={{ body: { flex: 1, minHeight: 320, display: 'flex', flexDirection: 'column' } }}>
         <div ref={convRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
           {viewing ? (
@@ -653,6 +657,19 @@ export default function A1Landing() {
               )}
               {!viewing.loading && !viewing.error && renderItems(historyItems(viewing))}
             </>
+          ) : items.length === 0 ? (
+            /* 中栏空态：改造前本栏无标题、无内容——占屏约 60% 宽却是一整块空白，
+               三栏结构（历史会话 / ？ / 思考过程）中间一栏在结构上根本不成立。
+               现补：① 与左右两栏平行的标题「问答」；② 一行状态说明。
+               只说「当前是什么状态」——功能提示由输入框 placeholder 承担
+               （「输入问题，或 @指标卡 / @术语 点名…」），此处不重复，
+               也避免踩 POLISH-SPEC「界面正文零教学痕迹」。 */
+            <div style={{
+              flex: 1, display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', gap: 8, padding: 24,
+            }}>
+              <div style={{ fontSize: 14, color: 'var(--pa-text-secondary)' }}>还没有问答记录</div>
+            </div>
           ) : (
             <>
               {/* UI-09：中栏空态教学段删除（引导由输入框 placeholder 承载——票面改造项 1） */}
@@ -664,14 +681,14 @@ export default function A1Landing() {
           {atOpen && (
             <div style={{
               position: 'absolute', bottom: '100%', left: 0, right: 0, marginBottom: 6, zIndex: 20,
-              background: '#161b22', border: '1px solid #30363d', borderRadius: 8,
+              background: 'var(--pa-surface-card)', border: '1px solid #30363d', borderRadius: 8,
               padding: '6px 8px', maxHeight: 240, overflowY: 'auto'
             }}>
               <div style={{ ...dim, marginBottom: 4 }}>@ 呼唤现成资产（指标卡/术语/FAQ/工作流/报告——被 @ 的资产服务端直接取用）：</div>
               {atFiltered.map(a => (
-                <div key={a.token} style={{ cursor: 'pointer', fontSize: 13, padding: '4px 6px', borderRadius: 4 }}
+                <div key={a.token} style={{ cursor: 'pointer', fontSize: 12, padding: '4px 6px', borderRadius: 4 }}
                   data-asset={a.token}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#1f242c' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--pa-surface-raised)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                   onClick={() => pickAsset(a)}>
                   <Tag style={{ marginRight: 6 }}>{a.type}</Tag>{a.name}
@@ -691,7 +708,7 @@ export default function A1Landing() {
       </Card>
 
       {/* ── 右栏 · 思考过程树（node 帧流式推进——「长出来的」） ── */}
-      <Card title={<>思考过程 <ApartmentOutlined style={{ color: '#8a94a3' }} /></>} size="small"
+      <Card title={<>思考过程 <ApartmentOutlined style={{ color: 'var(--pa-text-tertiary)' }} /></>} size="small"
         extra={<Button size="small" icon={<ApartmentOutlined />} onClick={() => setTreeOpen(true)}>决策树</Button>}
         style={{ width: 330, flexShrink: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
         styles={{ body: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } }}>
@@ -792,9 +809,9 @@ function AssistantBubble({
       {turn.clarify && (() => {
         const view = clarifyCardView(turn.clarify)
         return (
-          <Card size="small" style={{ marginTop: 8, borderColor: '#3b8dff' }}
+          <Card size="small" style={{ marginTop: 8, borderColor: 'var(--pa-primary)' }}
             title={<span>{view.title}</span>}>
-            <div style={{ fontSize: 13, marginBottom: 8 }}>{turn.clarify.question}</div>
+            <div style={{ fontSize: 12, marginBottom: 8 }}>{turn.clarify.question}</div>
             {view.hint && <div style={{ ...dim, marginBottom: 8 }}>{view.hint}</div>}
             <Space direction="vertical" size={6} style={{ width: '100%' }}>
               {turn.clarify.choices.map(c => (
@@ -811,15 +828,15 @@ function AssistantBubble({
       })()}
 
       {turn.approval && (
-        <Card size="small" style={{ marginTop: 8, borderColor: '#faad14' }}
+        <Card size="small" style={{ marginTop: 8, borderColor: 'var(--pa-warning)' }}
           title={<span>审批 interrupt · {turn.approval.title || turn.approval.scene}</span>}>
-          <div style={{ fontSize: 13 }}>{turn.approval.reason}</div>
+          <div style={{ fontSize: 12 }}>{turn.approval.reason}</div>
           {turn.approval.impact && <div style={{ ...dim, marginTop: 4 }}>影响：{turn.approval.impact}</div>}
           <Input size="small" style={{ marginTop: 8 }} placeholder="驳回必写理由（N12）" value={rejectReason}
             status={rejectReasonError ? 'error' : undefined}
             onChange={e => onRejectReason(e.target.value)} />
           {rejectReasonError && (
-            <div style={{ color: '#ff4d4f', fontSize: 12, marginTop: 4 }}>驳回必写理由（N12）</div>
+            <div style={{ color: 'var(--pa-danger)', fontSize: 12, marginTop: 4 }}>驳回必写理由（N12）</div>
           )}
           <Space style={{ marginTop: 8 }}>
             <Button type="primary" size="small" disabled={busy} onClick={() => onApproval('approve')}>批准 · 续跑</Button>
@@ -861,8 +878,8 @@ function ThinkingTree({ turn }) {
       {turn.secChecks.length > 0 && (
         <div style={{ marginBottom: 8 }}>
           {turn.secChecks.map(s => (
-            <div key={s.seq} style={{ fontSize: 13 }}>
-              <span style={{ color: s.result === 'pass' ? '#52c41a' : '#ff4d4f' }}>
+            <div key={s.seq} style={{ fontSize: 12 }}>
+              <span style={{ color: s.result === 'pass' ? 'var(--pa-success)' : 'var(--pa-danger)' }}>
                 {s.result === 'pass' ? '✓' : '✗'}
               </span> {s.name}
               {s.note && <span style={dim}> · {s.note}</span>}
@@ -875,8 +892,8 @@ function ThinkingTree({ turn }) {
       {turn.matches.length > 0 && (
         <div style={{ marginBottom: 8 }}>
           {turn.matches.map(m => (
-            <div key={m.matcher} style={{ fontSize: 13 }}>
-              <span style={{ color: m.status === 'hit' ? '#52c41a' : '#8a94a3' }}>
+            <div key={m.matcher} style={{ fontSize: 12 }}>
+              <span style={{ color: m.status === 'hit' ? 'var(--pa-success)' : 'var(--pa-text-tertiary)' }}>
                 {m.status === 'hit' ? '★' : '○'}
               </span> {m.matcher}
               {m.confidence && <span style={dim}> · {m.confidence}</span>}
@@ -900,7 +917,7 @@ function ThinkingTree({ turn }) {
       )}
 
       {turn.verdict && (
-        <div style={{ marginBottom: 8, fontSize: 13 }}>
+        <div style={{ marginBottom: 8, fontSize: 12 }}>
           <b>裁决</b>：{turn.verdict.chain || '（澄清挂起——裁决未定）'}
           <div>{confidenceTag(turn.verdict.confidence)}{turn.verdict.slots && <span style={dim}> {turn.verdict.slots}</span>}</div>
           {turn.verdict.intent_source && <div style={dim}>{intentSourceLine(turn.verdict.intent_source)}</div>}

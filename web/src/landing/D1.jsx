@@ -295,9 +295,9 @@ export default function D1Landing() {
     { title: '花费', dataIndex: 'costYuan', width: 84, align: 'right', render: fmtCost },
     {
       title: '切换', dataIndex: 'fallback', width: 84,
-      render: v => (v ? <Tag color="orange">故障切换</Tag> : <span style={{ color: '#8a94a3' }}>—</span>)
+      render: v => (v ? <Tag color="orange">故障切换</Tag> : <span style={{ color: 'var(--pa-text-tertiary)' }}>—</span>)
     },
-    { title: '备注', dataIndex: 'note', ellipsis: true, render: v => v || <span style={{ color: '#8a94a3' }}>—</span> }
+    { title: '备注', dataIndex: 'note', ellipsis: true, render: v => v || <span style={{ color: 'var(--pa-text-tertiary)' }}>—</span> }
   ]
 
   // 花费聚合/趋势（端点 8——D5 撤页归并）：列形状随 groupBy 切换；caller 值域＝
@@ -353,8 +353,8 @@ export default function D1Landing() {
       title: <span>趋势{helpIcon('条长按窗口内各期花费占比绘制；排障时故障切换次数要与花费并排看。')}</span>,
       key: 'trend', width: 180,
       render: r => (
-        <div style={{ background: 'rgba(22,119,255,0.12)', borderRadius: 3, minWidth: 80 }}>
-          <div style={{ height: 8, borderRadius: 3, background: '#1677ff', width: `${Math.max((r.costYuan / aggMaxCost) * 100, 2)}%` }} />
+        <div style={{ background: 'rgba(74,157,255,0.12)', borderRadius: 3, minWidth: 80 }}>
+          <div style={{ height: 8, borderRadius: 3, background: 'var(--pa-primary)', width: `${Math.max((r.costYuan / aggMaxCost) * 100, 2)}%` }} />
         </div>
       )
     }] : [])
@@ -402,8 +402,8 @@ export default function D1Landing() {
         <Space style={{ marginTop: 12 }}>
           <Button type="primary" size="small" disabled={!dirty} loading={saving} onClick={doSave}>保存设置</Button>
           {dirty && <Button size="small" onClick={() => setForm(cfg)}>放弃更改</Button>}
-          {dirty && <span style={{ fontSize: 12, color: '#faad14' }}>有未保存的更改</span>}
-          {!dirty && savedTip && !saveError && <span style={{ fontSize: 12, color: '#52c41a' }}>{savedTip}</span>}
+          {dirty && <span style={{ fontSize: 12, color: 'var(--pa-warning)' }}>有未保存的更改</span>}
+          {!dirty && savedTip && !saveError && <span style={{ fontSize: 12, color: 'var(--pa-success)' }}>{savedTip}</span>}
         </Space>
         {saveError && (
           <Alert style={{ marginTop: 12 }} type="error" showIcon
@@ -413,7 +413,7 @@ export default function D1Landing() {
 
         <div style={{ marginTop: 20, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
           {/* UI-09：配置文件小字收进 ?（复制按钮不动——票面改造项 13） */}
-          <b style={{ fontSize: 13 }}>配置文件（models.yaml）{helpIcon('表单字段与 models.yaml 逐行对应；保存后热加载生效。')}</b>
+          <b style={{ fontSize: 12 }}>配置文件（models.yaml）{helpIcon('表单字段与 models.yaml 逐行对应；保存后热加载生效。')}</b>
           <Button size="small" type="text" icon={<CopyOutlined />} onClick={copyYaml}>{copied ? '已复制' : '复制'}</Button>
         </div>
         <pre className="code-block" style={{ margin: 0 }}>{yaml || '（配置全文加载中…）'}</pre>
@@ -471,7 +471,7 @@ export default function D1Landing() {
                 ]}
               />
               {aggData && !aggError && (
-                <span data-testid="agg-sums" style={{ fontSize: 12, color: '#8a94a3' }}>
+                <span data-testid="agg-sums" style={{ fontSize: 12, color: 'var(--pa-text-tertiary)' }}>
                   期间合计：{fmtInt(aggData.sums.calls)} 次调用 · 故障切换 {fmtInt(aggData.sums.fallbackCalls)} 次 · 花费 {fmtCost(aggData.sums.costYuan)}
                 </span>
               )}
@@ -530,7 +530,7 @@ export default function D1Landing() {
             onChange={v => { setDrillAllowed(v); if (!v) setDrillConflict(null) }} />
           <span>允许演练</span>
           <Tooltip title="演练会短暂关停主用模型，属破坏性操作，仅限演练窗口内开启执行。">
-            <QuestionCircleOutlined style={{ color: '#8a94a3', cursor: 'help' }} />
+            <QuestionCircleOutlined style={{ color: 'var(--pa-text-tertiary)', cursor: 'help' }} />
           </Tooltip>
           <Button
             type="primary" size="small" icon={<PlayCircleOutlined />}
@@ -538,7 +538,7 @@ export default function D1Landing() {
           >
             开始故障演练（关停主用 {cfg?.cooldownSeconds ?? '—'} 秒）
           </Button>
-          {drillRunning && <span style={{ fontSize: 12, color: '#8a94a3' }}>演练执行中…</span>}
+          {drillRunning && <span style={{ fontSize: 12, color: 'var(--pa-text-tertiary)' }}>演练执行中…</span>}
         </Space>
         {drillConflict && (
           <Alert style={{ marginTop: 12 }} type="warning" showIcon
@@ -556,7 +556,7 @@ export default function D1Landing() {
             items={drill.nodes.map(n => ({
               title: n.label,
               status: n.state,
-              description: n.note ? <span style={{ fontSize: 12, color: '#8a94a3' }}>{n.note}</span> : undefined
+              description: n.note ? <span style={{ fontSize: 12, color: 'var(--pa-text-tertiary)' }}>{n.note}</span> : undefined
             }))}
           />
         )}
@@ -564,14 +564,14 @@ export default function D1Landing() {
           <>
             <Alert style={{ marginTop: 12 }} type="info" showIcon message={drill.result.conclusion} />
             {drill.result.ledgerRow && (
-              <div style={{ marginTop: 8, fontSize: 12, color: '#8a94a3' }}>
+              <div style={{ marginTop: 8, fontSize: 12, color: 'var(--pa-text-tertiary)' }}>
                 本次演练落账：<span style={MONO}>{drill.result.ledgerRow.id}</span>
                 {' · '}备用应答 {fmtInt(drill.result.ledgerRow.inputTokens)}+{fmtInt(drill.result.ledgerRow.outputTokens)} token
                 {' · '}花费 {fmtCost(drill.result.ledgerRow.costYuan)}（流水第一页可见）
               </div>
             )}
             <div style={{ marginTop: 12 }}>
-              <b style={{ fontSize: 13 }}>切换结构化日志（Fallback）</b>
+              <b style={{ fontSize: 12 }}>切换结构化日志（Fallback）</b>
               <div className="code-block" style={{ marginTop: 6 }}>{JSON.stringify(drill.result.fallback, null, 2)}</div>
             </div>
           </>
@@ -579,7 +579,7 @@ export default function D1Landing() {
         {/* UI-12：演练日志区转 flex 链（flex:1 minHeight:0）——上方演练控件/结果块恒在，
             日志表 fill 内滚吸收剩余高度，长日志不再把页面撑出滚动或被 body 截断 */}
         <div style={{ marginTop: 16, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-          <b style={{ fontSize: 13 }}>演练日志</b>
+          <b style={{ fontSize: 12 }}>演练日志</b>
           {/* UI-06 T4：失败态分立（对齐流水表形态）——内联 Alert 常驻＋表 error 空态，
               不再以「暂无演练记录」伪装空态；loading 接表。
               UI-06 T3：接 PagedTable client（分页条恒显；端点 7 裸数组无 total——
@@ -622,7 +622,7 @@ export default function D1Landing() {
           <Space size={12}>
             {badge && <Tag color={badge.color} style={{ marginInlineEnd: 0 }}>{badge.label}</Tag>}
             {(mainName && backupName) && (
-              <span style={{ color: '#8a94a3', fontSize: 12 }}>主用 {mainName} · 备用 {backupName} 待命</span>
+              <span style={{ color: 'var(--pa-text-tertiary)', fontSize: 12 }}>主用 {mainName} · 备用 {backupName} 待命</span>
             )}
             {helpIcon('主用故障自动切备用、冷却期满自动切回；改配置即对全平台生效。适用范围：问一问、报告库回答、问数——平台所有用到模型的动作都从这里出去。')}
             <Tooltip title={<div style={{ fontSize: 12, lineHeight: 1.8 }}>

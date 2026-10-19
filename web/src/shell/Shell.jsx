@@ -62,6 +62,21 @@ export default function Shell() {
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
+  // 侧栏折叠态：窄屏（<lg 992px）自动折叠，展开态由页头开关控制。
+  // 改造前 Sider 固定 216px 且永不折叠——实测 18/18 页面在 375px 横向溢出
+  // （scrollWidth 516 vs clientWidth 375，单页 91 个元素越界），根因即此。
+  const [collapsed, setCollapsed] = useState(() =>
+    typeof window !== 'undefined' && window.innerWidth < 992
+  )
+  useEffect(() => {
+    // matchMedia 在 jsdom 等环境不存在——缺它就不做断点跟随（窄屏仍可用页头开关）
+    if (typeof window.matchMedia !== 'function') return
+    const mq = window.matchMedia('(max-width: 991px)')
+    const onChange = e => setCollapsed(e.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
   // 菜单 key：落地页＝裸 key（#/D1），原型页＝'proto/<KEY>'（#/proto/D1）
   const navigate = key => { location.hash = '/' + key }
   const { tree, page } = nav
@@ -82,11 +97,17 @@ export default function Shell() {
 
   return (
     <Layout style={{ height: '100vh' }}>
-      <SideMenu role={role} tree={tree} current={page} onNavigate={navigate} />
+      <SideMenu
+        role={role} tree={tree} current={page} onNavigate={navigate}
+        collapsed={collapsed}
+      />
       <Layout style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
         {/* 角色切换走 store.switchRole 双写（先 X-Dev-User 桩后角色槽）——
             只写槽会让请求头带旧身份、页头与数据权限脱钩（P0-06 审查 P2 修复） */}
-        <HeaderBar title={title} tag={treeTag} crumb={crumb} role={role} setRole={switchRole} />
+        <HeaderBar
+          title={title} tag={treeTag} crumb={crumb} role={role} setRole={switchRole}
+          collapsed={collapsed} onToggle={() => setCollapsed(c => !c)}
+        />
         <Layout.Content style={{ padding: hasTracePad ? '16px 20px 48px' : '16px 20px', flex: 1, overflow: 'auto' }}>
           {isProto ? (page === 'A1' ? <A1Chat role={role} /> : ProtoPage ? (
             <Suspense fallback={<Skeleton active />}>

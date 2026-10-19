@@ -637,9 +637,12 @@ describe('A1 落地页 · UI-01 滚底跟随（T4）', () => {
   it('T4：距底 >80px 新 items 不拽回底部；≤80px 跟随滚底（对话流＋思考树同阈值）', async () => {
     apiRouter()
     render(<A1Landing />)
-    // 初始三卡：左（历史会话）/中（无标题）/右（思考过程）——先取两处滚动容器再挂桩
+    // 初始三卡：左（历史会话）/中（问答）/右（思考过程）——先取两处滚动容器再挂桩
+    // 中栏定位：改造后中栏补了与左右平行的标题「问答」，原「无标题卡」的定位法失效
+    // （那只是旧布局的偶然特征，不是被测行为）。改按标题取，并保留旧法兜底。
     const cards = [...document.querySelectorAll('.ant-card')]
-    const midCard = cards.find(c => !c.querySelector('.ant-card-head'))
+    const midCard = cards.find(c => c.querySelector('.ant-card-head')?.textContent.includes('问答'))
+      ?? cards.find(c => !c.querySelector('.ant-card-head'))
     const treeCard = cards.find(c => c.querySelector('.ant-card-head')?.textContent.includes('思考过程'))
     const convEl = midCard.querySelector('.ant-card-body > div')
     const treeEl = [...treeCard.querySelectorAll('.ant-card-body div')].find(d => d.style.overflowY === 'auto')

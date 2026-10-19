@@ -69,7 +69,7 @@ const CHANGE_COLS = [
   { title: '状态', dataIndex: 'status', width: 90, render: s => <Tag color={TICKET_STATUS_COLOR[s] || 'default'}>{s}</Tag> },
   { title: '面', dataIndex: 'plane', width: 76, render: p => <Tag color={TICKET_PLANE_COLOR[p] || 'default'}>{p}</Tag> },
   { title: '事项', dataIndex: 'short' },
-  { title: '提出', width: 250, render: (_, t) => <span style={{ color: '#8a94a3', fontSize: 12 }}>{t.proposer} · {t.time}</span> }
+  { title: '提出', width: 250, render: (_, t) => <span style={{ color: 'var(--pa-text-tertiary)', fontSize: 12 }}>{t.proposer} · {t.time}</span> }
 ]
 
 function ChangeNode({ tickets }) {
@@ -79,8 +79,8 @@ function ChangeNode({ tickets }) {
       {items.length
         ? <Table size="small" columns={CHANGE_COLS} dataSource={items} rowKey="id" pagination={false} />
         : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="本井暂无变动单" />}
-      <div style={{ fontSize: 12, color: '#8a94a3', marginTop: items.length ? 8 : 0 }}>
-        只列涉及本井的单 · <a href="#/A3" style={{ color: '#4a9dff' }}>去数据变动审批看全部</a>
+      <div style={{ fontSize: 12, color: 'var(--pa-text-tertiary)', marginTop: items.length ? 8 : 0 }}>
+        只列涉及本井的单 · <a href="#/A3" style={{ color: 'var(--pa-primary)' }}>去数据变动审批看全部</a>
       </div>
     </div>
   )
@@ -92,7 +92,7 @@ function ChainNode({ rows, cols, empty, foot }) {
       {rows.length
         ? <Table size="small" columns={[...cols, ASK_COL]} dataSource={rows} pagination={false} />
         : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={empty} />}
-      {foot && <div style={{ fontSize: 12, color: '#8a94a3', marginTop: rows.length ? 8 : 0 }}>{foot}</div>}
+      {foot && <div style={{ fontSize: 12, color: 'var(--pa-text-tertiary)', marginTop: rows.length ? 8 : 0 }}>{foot}</div>}
     </div>
   )
 }
@@ -207,16 +207,16 @@ export default function A2Well() {
                       { key: 'note', label: '备注', children: archive.profile.remark ?? '—', span: 2 }
                     ]} />
                   {archive.profile.qualityNotes.map((q, i) => (
-                    <div key={i} style={{ fontSize: 12, color: '#ff4d4f', marginTop: 8 }}>{q}</div>
+                    <div key={i} style={{ fontSize: 12, color: 'var(--pa-danger)', marginTop: 8 }}>{q}</div>
                   ))}
                   {archive.profile.footNote && (
-                    <div style={{ fontSize: 12, color: '#8a94a3', marginTop: 8 }}>{archive.profile.footNote}</div>
+                    <div style={{ fontSize: 12, color: 'var(--pa-text-tertiary)', marginTop: 8 }}>{archive.profile.footNote}</div>
                   )}
                 </Card>
               <Card size="small" title="关系链">
                 <Tabs className="a2-chain-tabs" items={chainTabs(archive.chain, archive.tickets)} />
                 {archive.chain.tail && (
-                  <div style={{ fontSize: 12, color: '#8a94a3', marginTop: 8 }}>{archive.chain.tail}</div>
+                  <div style={{ fontSize: 12, color: 'var(--pa-text-tertiary)', marginTop: 8 }}>{archive.chain.tail}</div>
                 )}
               </Card>
             </div>

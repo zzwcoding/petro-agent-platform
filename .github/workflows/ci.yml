@@ -48,6 +48,9 @@ jobs:
       - name: prototype guard（原型树保护闸：DEP-01——原型树同步页 hash × web/prototype-manifest.json，漂移即红）
         working-directory: .
         run: python3 tools/prototype_guard.py check
+      - name: design tokens（设计令牌闸：web/design-tokens.json × web/src/theme.js 同步＋对比度矩阵达标，漂移即红）
+        working-directory: .
+        run: python3 tools/check_design_tokens.py check
       - name: install
         run: npm ci
       - name: lint（eslint：frontend-foundation §2.5，与后端四门禁并列）

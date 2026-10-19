@@ -322,18 +322,18 @@ export default function B2Landing() {
     {
       title: <span>命中句{helpIcon(HIT_HELP)}</span>, dataIndex: 'hit',
       // UI-17：单行省略（全文进展开手风琴首行——Owner 2026-10-05 裁决）
-      render: h => <b style={{ fontSize: 13, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{h}</b>
+      render: h => <b style={{ fontSize: 12, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{h}</b>
     },
     { title: '井号', dataIndex: 'well', width: 66, render: v => v || <span style={dim}>—</span> }, // UI-03 T15：统一「井号」（合同三件套口径——B2 册 §0）
     {
       title: <span>章节路径{helpIcon(SRC_HELP)}</span>, dataIndex: 'section', width: 280,
-      render: p => <span style={{ color: '#8a94a3', fontSize: 12 }}>{p || '—'}</span>
+      render: p => <span style={{ color: 'var(--pa-text-tertiary)', fontSize: 12 }}>{p || '—'}</span>
     },
     {
       title: '操作', width: 60, align: 'center',
       render: (_, c) => (
         <Tooltip title="片段详情（出处三件套＋命中句＋完整上下文段）">
-          <Button size="small" icon={<FileSearchOutlined />}
+          <Button size="small" type="text" icon={<FileSearchOutlined />}
             onClick={e => { e.stopPropagation(); openDetail(c) }} />
         </Tooltip>
       )
@@ -343,7 +343,7 @@ export default function B2Landing() {
   const issueColumns = [
     {
       title: '片段', dataIndex: 'fragmentLabel',
-      render: v => <b style={{ fontSize: 13 }}>{v}</b>
+      render: v => <b style={{ fontSize: 12 }}>{v}</b>
     },
     { title: '标记人', dataIndex: 'markedBy', width: 130 },
     { title: '标记时间', dataIndex: 'markedAt', width: 140 },
@@ -352,7 +352,7 @@ export default function B2Landing() {
       render: (v, x) => (
         <Space size={4} direction="vertical" style={{ rowGap: 2 }}>
           <Tag color={ISSUE_TAG_COLORS[v] || 'default'}>{v}</Tag>
-          {x.rejectReason && <span style={{ color: '#8a94a3', fontSize: 12 }}>驳回理由：{x.rejectReason}</span>}
+          {x.rejectReason && <span style={{ color: 'var(--pa-text-tertiary)', fontSize: 12 }}>驳回理由：{x.rejectReason}</span>}
         </Space>
       )
     },
@@ -383,7 +383,7 @@ export default function B2Landing() {
             </Space>
           )
         }
-        return <span style={{ color: '#8a94a3', fontSize: 12 }}>—</span>
+        return <span style={{ color: 'var(--pa-text-tertiary)', fontSize: 12 }}>—</span>
       }
     }
   ]
@@ -449,17 +449,17 @@ export default function B2Landing() {
             const ctx = ctxCache[c.id]
             const same = ctx != null && ctx === c.hit
             return (
-              <div style={{ fontSize: 13, lineHeight: 1.8 }}>
+              <div style={{ fontSize: 12, lineHeight: 1.8 }}>
                 <div style={{ marginBottom: same ? 0 : 6 }}>
-                  <span style={{ color: '#8a94a3', fontSize: 12, marginRight: 8 }}>命中句全文</span>
+                  <span style={{ color: 'var(--pa-text-tertiary)', fontSize: 12, marginRight: 8 }}>命中句全文</span>
                   {c.hit}
                   {same && (
-                    <span style={{ color: '#8a94a3', fontSize: 12, marginLeft: 8 }}>（完整上下文段与命中句相同）</span>
+                    <span style={{ color: 'var(--pa-text-tertiary)', fontSize: 12, marginLeft: 8 }}>（完整上下文段与命中句相同）</span>
                   )}
                 </div>
                 {!same && (
                   <>
-                    <span style={{ color: '#8a94a3', fontSize: 12, marginRight: 8 }}>完整上下文段</span>
+                    <span style={{ color: 'var(--pa-text-tertiary)', fontSize: 12, marginRight: 8 }}>完整上下文段</span>
                     {ctx ?? '读取中……'}
                   </>
                 )}
@@ -577,14 +577,14 @@ export default function B2Landing() {
                     <>
                       {cur.report}
                       <br />
-                      <span style={{ color: '#8a94a3', fontSize: 12 }}>
+                      <span style={{ color: 'var(--pa-text-tertiary)', fontSize: 12 }}>
                         {reports.find(r => r.id === cur.reportId)?.lib || '—'}
                       </span>
                     </>
                   )
                 },
                 { k: '井号', v: cur.well || '—' },
-                { k: '章节路径', v: <span style={{ color: '#8a94a3', fontSize: 12 }}>{cur.section || '—'}</span> },
+                { k: '章节路径', v: <span style={{ color: 'var(--pa-text-tertiary)', fontSize: 12 }}>{cur.section || '—'}</span> },
                 // UI-18：上下文与命中句相同（fixed/smart 无父块兜底——Owner 裁决）时
                 // 合并为一行只显命中句；不同（mixed 有父块）才两行都显
                 ...(curCtx != null && curCtx === cur.hit
@@ -592,15 +592,15 @@ export default function B2Landing() {
                       k: '命中句',
                       v: (
                         <>
-                          <b style={{ fontSize: 13 }}>{cur.hit}</b>
+                          <b style={{ fontSize: 12 }}>{cur.hit}</b>
                           <br />
-                          <span style={{ color: '#8a94a3', fontSize: 12 }}>完整上下文段与命中句相同。</span>
+                          <span style={{ color: 'var(--pa-text-tertiary)', fontSize: 12 }}>完整上下文段与命中句相同。</span>
                         </>
                       )
                     }]
                   : [
-                      { k: '命中句', v: <b style={{ fontSize: 13 }}>{cur.hit}</b> },
-                      { k: '完整上下文段', v: <span style={{ fontSize: 13 }}>{curCtx ?? '读取中……'}</span> }
+                      { k: '命中句', v: <b style={{ fontSize: 12 }}>{cur.hit}</b> },
+                      { k: '完整上下文段', v: <span style={{ fontSize: 12 }}>{curCtx ?? '读取中……'}</span> }
                     ])
               ]}
             />
@@ -620,7 +620,7 @@ export default function B2Landing() {
           </Space>
         }
       >
-        <div style={{ marginBottom: 8, fontSize: 13 }}>
+        <div style={{ marginBottom: 8, fontSize: 12 }}>
           驳回后本标记单退回标记人（可重新标记或销记）；理由必填。
         </div>
         <Input.TextArea rows={3} value={rejectReason} onChange={e => setRejectReason(e.target.value)}

@@ -10,6 +10,7 @@ import {
   LANES, getQualityRules, setQualityRuleEnabled, startQualityTask,
   listQualityTasks, listQualityIssues, transitionQualityIssue, getFreshness
 } from '../api/quality.js'
+import ClampCell from '../components/ClampCell.jsx'  // 共享件（表格单元格长文本截断——页内副本已删）
 
 window.__traces = Object.assign(window.__traces || {}, { E2: 'F18 转换测试质量 · 设定书 §4 质检规则与任务 · m20 质量卡' })
 
@@ -21,7 +22,7 @@ const E_TABS = [
 
 const helpIcon = content => (
   <Tooltip title={<div style={{ fontSize: 12, lineHeight: 1.8 }}>{content}</div>} placement="topLeft">
-    <QuestionCircleOutlined style={{ marginLeft: 4, color: '#8a94a3', cursor: 'help' }} />
+    <QuestionCircleOutlined style={{ marginLeft: 4, color: 'var(--pa-text-tertiary)', cursor: 'help' }} />
   </Tooltip>
 )
 
@@ -177,8 +178,11 @@ export default function E2Quality() {
       )
     },
     { title: '#', dataIndex: 'no', width: 44 },
-    { title: '查什么', dataIndex: 'kind', width: 120 },
-    { title: '规则', dataIndex: 'rule' },
+    { title: '查什么', dataIndex: 'kind', width: 110 },
+    {
+      title: '规则', dataIndex: 'rule',
+      render: v => <ClampCell text={v} />
+    },
     {
       title: (<span>命中动作{helpIcon(<>命中后怎么处理，三档：<br />· <b>隔离</b>——坏行不进湖，落隔离区待整改（可追溯）<br />· <b>整批拒收</b>——批次级故障整批拒绝（schema 级故障专用档）<br />· <b>告警</b>——不拦行，通知人工核实（重复/矛盾/恒值/对账类）<br />规则 13–20 为通用规则族，仅登记不实施（开关不可启用），动作见规则库总册。</>)}</span>),
       dataIndex: 'action', width: 92
@@ -193,7 +197,8 @@ export default function E2Quality() {
         <b>规则分三层</b>：通用规则 → 挂到具体字段的规则 → 场景专项规则。<br />
         前 12 条挂着具体判据、在生产库 8 张表上跑；第 13–20 条是通用规则族（仅登记不实施——V1 任务只跑 1–12），判据补齐走治理批。
       </>)}</span>),
-      dataIndex: 'crit', width: 170
+      dataIndex: 'crit', width: 200,
+      render: v => <ClampCell text={v} />
     }
   ]
 
@@ -247,21 +252,26 @@ export default function E2Quality() {
         title={
           <Tabs activeKey={tab} size="small" onChange={setTab} items={pageTabs} />
         }
-        extra={
-          <Space size={4}>
-            <span style={{ color: '#8a94a3', fontSize: 12 }}>
-              停用规则＝任务跳过、不删 · 命中开成问题单：分发 → 认领 → 整改 → 复核（人工触发复扫）→ 关闭 · 问数看汇总层数据到哪天
-            </span>
-            {helpIcon(<>
-              <b>数据质量岗的日常台面</b><br />
-              · 规则库管查什么毛病，开关启停即生效；<br />
-              · 质检任务一键体检生产库，出合规报告；<br />
-              · 命中的问题自动开成问题单，按责任岗分发、跟到关闭；<br />
-              · 数据到哪天一眼看清，问数的表以汇总层为准。
-            </>)}
-          </Space>
-        }
       >
+        {/* 全局规则/治理链：POLISH-SPEC 三-1「一行灰字放 Card 顶部或 extra」。
+            改造前它挂在 card 的 extra 里，与卡片标题（页签名）同处一行、同等视觉权重，
+            一行 60 字把标题压了下去；现改为独立成行——标题行只留页签名，
+            规则链另起一带（组外间距 > 组内间距，§3.6），文字一字未删。 */}
+        <div style={{
+          display: 'flex', alignItems: 'flex-start', gap: 4,
+          marginBottom: 16, color: 'var(--pa-text-tertiary)', fontSize: 12, lineHeight: 1.8,
+        }}>
+          <span>
+            停用规则＝任务跳过、不删 · 命中开成问题单：分发 → 认领 → 整改 → 复核（人工触发复扫）→ 关闭 · 问数看汇总层数据到哪天
+          </span>
+          {helpIcon(<>
+            <b>数据质量岗的日常台面</b><br />
+            · 规则库管查什么毛病，开关启停即生效；<br />
+            · 质检任务一键体检生产库，出合规报告；<br />
+            · 命中的问题自动开成问题单，按责任岗分发、跟到关闭；<br />
+            · 数据到哪天一眼看清，问数的表以汇总层为准。
+          </>)}
+        </div>
         {loading ? (
           <Skeleton active paragraph={{ rows: 9 }} />
         ) : loadError ? (
@@ -288,7 +298,7 @@ export default function E2Quality() {
                   />
                   <Input size="small" allowClear style={{ width: 220 }} value={kw}
                     onChange={e => setKw(e.target.value)} placeholder="搜规则 / 判据…" />
-                  <span style={{ fontSize: 12, color: '#8a94a3' }}>
+                  <span style={{ fontSize: 12, color: 'var(--pa-text-tertiary)' }}>
                     筛选结果 {filteredRules.length} / {rules.length} 条
                   </span>
                 </Space>
@@ -321,7 +331,7 @@ export default function E2Quality() {
                   items={flowSteps.map(t => ({ title: t }))}
                 />
                 {pollFailed && (
-                  <div style={{ marginTop: 8, fontSize: 12, color: '#cf1322' }}>
+                  <div style={{ marginTop: 8, fontSize: 12, color: 'var(--pa-danger)' }}>
                     质检任务收场失败——{errText(pollFailed)}（可重新发起）
                   </div>
                 )}
@@ -374,7 +384,7 @@ export default function E2Quality() {
                       options={[{ value: 'all', label: '规则：全部' }, ...ruleNos.map(n => ({ value: n, label: `规则 ${n}` }))]}> </Select>
                     <Input size="small" allowClear style={{ width: 220 }} value={kwIssue}
                       onChange={e => setKwIssue(e.target.value)} placeholder="搜问题单 / 描述…" />
-                    <span style={{ fontSize: 12, color: '#8a94a3' }}>筛选结果 {filteredIssues.length} / {issues.length} 条</span>
+                    <span style={{ fontSize: 12, color: 'var(--pa-text-tertiary)' }}>筛选结果 {filteredIssues.length} / {issues.length} 条</span>
                   </Space>
                   <Table size="small" rowKey="id" pagination={false}
                     dataSource={filteredIssues}
@@ -461,7 +471,7 @@ export default function E2Quality() {
                   body: <span><b>不合规 {reportTask.report?.hits?.length ?? 0} 项</b>{reportTask.report?.verdict ?? ''}</span>
                 }
               ]} />
-            <div style={{ fontSize: 12, color: '#8a94a3', marginTop: 10 }}>
+            <div style={{ fontSize: 12, color: 'var(--pa-text-tertiary)', marginTop: 8 }}>
               命中问题已按责任岗开成问题单——流转见「问题单」页签。
             </div>
           </>

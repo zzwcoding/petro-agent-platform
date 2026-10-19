@@ -80,7 +80,7 @@ import { useRunningRun } from './useRunningRun.js'
 const EMPTY_TURN = newTurnV2('ask', '')
 
 /** 链条节点（时间轴视觉——左侧竖线＋圆点，把三轮三块串成一条）。 */
-function ChainBlock({ testid, dot = '#4a9dff', children }) {
+function ChainBlock({ testid, dot = 'var(--pa-primary)', children }) {
   return (
     <div data-testid={testid} style={{ position: 'relative', paddingLeft: 14, marginBottom: 8 }}>
       <span style={{
@@ -124,19 +124,19 @@ export function TurnChain({ id, turn, durationS = null, onCite = null, onResume 
   return (
     <div data-testid={`round-${id}`} style={{ marginBottom: 18 }}>
       {/* ① 用户输入块（无边框圆角底块——Owner 反馈：去 Card 框，保留蓝底与内边距） */}
-      <ChainBlock testid="block-question" dot="#1677ff">
-        <div style={{ background: 'rgba(22,119,255,0.12)', borderRadius: 6, padding: '6px 10px' }}>
+      <ChainBlock testid="block-question" dot="var(--pa-primary)">
+        <div style={{ background: 'rgba(74,157,255,0.12)', borderRadius: 6, padding: '6px 10px' }}>
           <b>我：</b>{turn.question}
         </div>
       </ChainBlock>
 
       {/* ② 系统执行流水线块（typed 事件流——归约器直出到达序） */}
-      <ChainBlock testid="pipeline-block" dot={phase === 'running' ? '#e8b339' : '#8a94a3'}>
+      <ChainBlock testid="pipeline-block" dot={phase === 'running' ? 'var(--pa-warning)' : 'var(--pa-text-tertiary)'}>
         <ExecutionPipeline turn={turn} durationS={durationS} />
       </ChainBlock>
 
       {/* ③ 系统回答块（无外层框——各展示位直接在链条节点里，空态纪律在展示件内） */}
-      <ChainBlock testid={`turn-${id}`} dot="#52c41a">
+      <ChainBlock testid={`turn-${id}`} dot="var(--pa-success)">
         {/* errorFrame 渲染位（FE-03 R3——对账 D-2 闭环错误契约的安放位；A 级 notice Alert 之前） */}
         {turn.errorFrame && (
           <Alert type="error" data-testid="error-frame-alert"
@@ -145,7 +145,7 @@ export function TurnChain({ id, turn, durationS = null, onCite = null, onResume 
         {/* 挂起卡（FE-03 R4——askFrame 在场＝等人工；选项点击＝onResume 续答通路）——淡蓝底无框 */}
         {turn.askFrame && turn.runStatus === 'waiting_ask' && onResume && (
           <div data-testid="suspend-card"
-            style={{ margin: '8px 0', background: 'rgba(22,119,255,0.10)', borderRadius: 6, padding: '8px 12px' }}>
+            style={{ margin: '8px 0', background: 'rgba(74,157,255,0.10)', borderRadius: 6, padding: '8px 12px' }}>
             <div style={{ marginBottom: 6 }}>
               {turn.askFrame.kind === 'external_table_approval' ? '越集审批' : '系统反问'}
             </div>

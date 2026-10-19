@@ -1,0 +1,220 @@
+{
+  "schema": "petro.design-tokens/1",
+  "note": "前端设计令牌（refactoring-ui Workflow A 产出）。真源＝web/src/theme.js 的 palette；本文件是机读副本，供 tools/check_design_tokens.py 闸比对，勿手改——改 theme.js 后跑 `python3 tools/check_design_tokens.py --update` 重生。",
+  "meta": {
+    "mode": "dark-only",
+    "framework": "react18 + antd5 + vite",
+    "tailwind": false,
+    "source": "web/src/theme.js"
+  },
+  "primitive": {
+    "surface": {
+      "page": "#0d1117",
+      "card": "#161b22",
+      "raised": "#212830",
+      "border": "#30363d",
+      "borderStrong": "#212830"
+    },
+    "text": {
+      "primary": "rgba(255, 255, 255, 0.85)",
+      "secondary": "rgba(255, 255, 255, 0.65)",
+      "tertiary": "#8a94a3",
+      "quaternary": "rgba(255, 255, 255, 0.25)"
+    },
+    "brand": {
+      "primary": "#4a9dff",
+      "onPrimary": "#0d1117",
+      "success": "#52c41a",
+      "warning": "#faad14",
+      "danger": "#ff4d4f",
+      "info": "#4a9dff"
+    },
+    "sider": {
+      "bg": "#0b2e59",
+      "text": "#ffffff",
+      "subText": "#8fa8c8",
+      "groupTitle": "#8aa2c0",
+      "itemHover": "rgba(255, 255, 255, 0.08)"
+    },
+    "viz": {
+      "井": "#3b8dff",
+      "区块": "#52c41a",
+      "平台": "#9254de",
+      "油田": "#faad14",
+      "措施": "#fa8c16",
+      "unknown": "#8a94a3",
+      "highlight": "#4a9dff",
+      "active": "#7ab3ff",
+      "canvasBg": "#161b22",
+      "nodeText": "#e6edf3",
+      "edgeLabel": "#8a94a3",
+      "edgeLabelBg": "#161b22",
+      "typeHex.井": "#3b8dff",
+      "typeHex.区块": "#52c41a",
+      "typeHex.平台": "#9254de",
+      "typeHex.油田": "#faad14",
+      "typeHex.措施": "#fa8c16",
+      "palette.0": "#3b8dff",
+      "palette.1": "#52c41a",
+      "palette.2": "#9254de",
+      "palette.3": "#faad14",
+      "palette.4": "#fa8c16",
+      "palette.5": "#4aa3ff",
+      "palette.6": "#e8a23d",
+      "palette.7": "#57a75f",
+      "palette.8": "#a78bde",
+      "palette.9": "#eb2f96"
+    }
+  },
+  "semantic": {
+    "surface": {
+      "page": "{primitive.surface.page}",
+      "card": "{primitive.surface.card}",
+      "raised": "{primitive.surface.raised}"
+    },
+    "text": {
+      "primary": "{primitive.text.primary}",
+      "secondary": "{primitive.text.secondary}",
+      "tertiary": "{primitive.text.tertiary}",
+      "quaternary": "{primitive.text.quaternary}"
+    },
+    "action": {
+      "primary": "{primitive.brand.primary}",
+      "onPrimary": "{primitive.brand.onPrimary}",
+      "success": "{primitive.brand.success}",
+      "warning": "{primitive.brand.warning}",
+      "danger": "{primitive.brand.danger}",
+      "info": "{primitive.brand.info}"
+    },
+    "nav": {
+      "siderBg": "{primitive.sider.bg}",
+      "siderText": "{primitive.sider.text}",
+      "siderSubText": "{primitive.sider.subText}"
+    }
+  },
+  "scales": {
+    "spacing": [
+      0,
+      4,
+      8,
+      12,
+      16,
+      24,
+      32,
+      48,
+      64
+    ],
+    "fontSize": [
+      12,
+      14,
+      16,
+      18,
+      20,
+      24
+    ],
+    "radius": {
+      "sm": "4px",
+      "base": "6px",
+      "lg": "8px"
+    },
+    "weights": [
+      400,
+      600
+    ]
+  },
+  "contrast": {
+    "note": "WCAG §5.6。正文 4.5:1、大字 3:1。禁用态豁免。分隔线非文本不入矩阵（§2.7.2 软边是想要的）。",
+    "pairs": [
+      {
+        "fg": "rgba(255, 255, 255, 0.85)",
+        "bg": "#161b22",
+        "min": 4.5,
+        "measured": 12.61
+      },
+      {
+        "fg": "rgba(255, 255, 255, 0.85)",
+        "bg": "#0d1117",
+        "min": 4.5,
+        "measured": 13.8
+      },
+      {
+        "fg": "rgba(255, 255, 255, 0.65)",
+        "bg": "#161b22",
+        "min": 4.5,
+        "measured": 7.71
+      },
+      {
+        "fg": "rgba(255, 255, 255, 0.65)",
+        "bg": "#0d1117",
+        "min": 4.5,
+        "measured": 8.43
+      },
+      {
+        "fg": "#8a94a3",
+        "bg": "#161b22",
+        "min": 4.5,
+        "measured": 5.64
+      },
+      {
+        "fg": "#8a94a3",
+        "bg": "#0d1117",
+        "min": 4.5,
+        "measured": 6.17
+      },
+      {
+        "fg": "#8a94a3",
+        "bg": "#212830",
+        "min": 4.5,
+        "measured": 4.85
+      },
+      {
+        "fg": "#0d1117",
+        "bg": "#4a9dff",
+        "min": 4.5,
+        "measured": 6.81
+      },
+      {
+        "fg": "#4a9dff",
+        "bg": "#161b22",
+        "min": 4.5,
+        "measured": 6.23
+      },
+      {
+        "fg": "#52c41a",
+        "bg": "#161b22",
+        "min": 4.5,
+        "measured": 7.64
+      },
+      {
+        "fg": "#faad14",
+        "bg": "#161b22",
+        "min": 4.5,
+        "measured": 9.1
+      },
+      {
+        "fg": "#ff4d4f",
+        "bg": "#161b22",
+        "min": 4.5,
+        "measured": 5.29
+      },
+      {
+        "fg": "#ffffff",
+        "bg": "#0b2e59",
+        "min": 4.5,
+        "measured": 13.55
+      },
+      {
+        "fg": "#8fa8c8",
+        "bg": "#0b2e59",
+        "min": 4.5,
+        "measured": 5.55
+      },
+      {
+        "fg": "#8aa2c0",
+        "bg": "#0b2e59",
+        "min": 4.5,
+        "measured": 5.17
+      }
+    ]
+  }
+}

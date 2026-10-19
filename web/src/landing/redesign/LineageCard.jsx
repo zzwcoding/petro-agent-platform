@@ -74,13 +74,13 @@ export default function LineageCard({ lineage = null, limit = null, text = '', d
 
   return (
     <div data-testid="lineage-card"
-      style={{ border: '1px solid #e0e4e8', borderRadius: 6, margin: '8px 0', background: 'rgba(127,127,127,0.05)' }}>
+      style={{ border: '1px solid var(--pa-border)', borderRadius: 6, margin: '8px 0', background: 'rgba(127,127,127,0.05)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', fontSize: 12 }}>
         <span>📖 这数哪来的 · 查询口径</span>
         {helpIcon(HEAD_HELP)}
         <Button size="small" type="link" style={{ marginLeft: 'auto', padding: 0 }}
           data-testid="lineage-toggle" onClick={() => setOpen(o => !o)}>
-          {open ? <>收起 <UpOutlined style={{ fontSize: 10 }} /></> : <>展开看口径 <DownOutlined style={{ fontSize: 10 }} /></>}
+          {open ? <>收起 <UpOutlined style={{ fontSize: 12 }} /></> : <>展开看口径 <DownOutlined style={{ fontSize: 12 }} /></>}
         </Button>
       </div>
 
@@ -94,10 +94,10 @@ export default function LineageCard({ lineage = null, limit = null, text = '', d
                   fontSize: 12, lineHeight: 1.7, whiteSpace: 'pre-wrap', padding: '2px 6px', borderRadius: 4,
                   ...(r.sub ? { ...dim, paddingLeft: 18 } : {}),
                   ...(isBatch
-                    ? { background: 'rgba(232,179,57,0.16)', borderLeft: '3px solid #e8b339', fontWeight: 600 }
+                    ? { background: 'rgba(232,179,57,0.16)', borderLeft: '3px solid var(--pa-warning)', fontWeight: 600 }
                     : {})
                 }}>
-                {isBatch && <Tag color="gold" style={{ fontSize: 10, marginRight: 6 }}>更新到哪天</Tag>}
+                {isBatch && <Tag color="gold" style={{ fontSize: 12, marginRight: 6 }}>更新到哪天</Tag>}
                 {r.label && <b style={{ marginRight: 6 }}>{`${r.label} `}</b>}
                 {r.value}
               </div>

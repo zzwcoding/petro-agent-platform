@@ -23,7 +23,7 @@ export default function CiteHoverCard({ cite, material }) {
   return (
     <div style={{ maxWidth: 420 }} data-testid="cite-hover-card">
       <div style={{ fontSize: 12, marginBottom: 4 }}>
-        <Tag style={{ fontSize: 10 }}>{`[${cite.index}]`}</Tag>
+        <Tag style={{ fontSize: 12 }}>{`[${cite.index}]`}</Tag>
         <span>{cite.source}</span>
       </div>
       {cite.source_id && <div style={{ ...dim, marginBottom: 4 }}>{`出处编号：${cite.source_id}`}</div>}

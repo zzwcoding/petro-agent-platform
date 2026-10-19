@@ -13,7 +13,7 @@
  */
 import { dim } from '../../components/helpIcon.jsx'
 
-const OK = { ...dim, color: '#52c41a' }
+const OK = { ...dim, color: 'var(--pa-success)' }
 
 /**
  * @param verdict     verdict(verify) 帧 data（无＝null）
