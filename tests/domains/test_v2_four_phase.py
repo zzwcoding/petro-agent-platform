@@ -28,6 +28,7 @@ import asyncio
 import json
 from collections.abc import Sequence
 from datetime import date, datetime, timedelta
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
@@ -2773,11 +2774,11 @@ def test_ontology_guide_provider_loads_section_a_and_v2_phase_contracts() -> Non
     assert "discover|execute|ask|finalize" not in clarify
 
     toolmatch = assemble_decision_package(state, phase=PHASE_TOOLMATCH, guide_text=guide)
-    # V2 出口③（H 批）：匹配相位合同常量逐字在规章段（system 承载位）——与旧四动作零命中
+    # V2 出口③（V2-134 承载位回链）：匹配相位合同常量逐字**并入**该相位首入包——与旧四动作零命中
     toolmatch_contract = toolmatch_system_contract()
     assert TOOLMATCH_EMISSION_CONTRACT in toolmatch_contract
     assert "discover|execute|ask|finalize" not in toolmatch_contract
-    assert TOOLMATCH_EMISSION_CONTRACT not in toolmatch
+    assert toolmatch.startswith(toolmatch_contract)
     assert "discover|execute|ask|finalize" not in toolmatch
 
 
@@ -2981,9 +2982,8 @@ async def test_decision_shared_context_injected_once_per_run() -> None:
         assert _count(messages, RESIDENT_BLOCK_END) == 1
 
     first, second = calls[0], calls[1]
-    # 链本体恒为前缀延伸（2026-10-17 H 批：请求首条＝本环节规章段、跨环节各异——按链段比对）
-    assert first[0]["role"] == "system" and second[0]["role"] == "system"
-    assert second[1 : len(first)] == first[1:]
+    # V2-134（承载位回链）：规章段并入各相位首入包 ⇒ **整请求**恒为前缀延伸（判据真源 pin-22）
+    assert second[: len(first)] == first
     # 共享上下文挂第一次决策调用（澄清轮首入包）；匹配轮新增消息里两段**零命中**
     added = "\n".join(str(message.get("content", "")) for message in second[len(first) :])
     assert GUIDE_REFERENCE_HEAD not in added
@@ -2997,7 +2997,12 @@ async def test_decision_shared_context_injected_once_per_run() -> None:
     run_id = events[-1].data["run_id"]
     state = V2RunStore().load(run_id)
     assert isinstance(state, RunState)
-    assert state.contracts_appended == ["clarify", "toolmatch"]
+    assert state.contracts_appended == [
+        "understand",
+        "clarify",
+        "toolmatch",
+        "answer",
+    ]  # V2-134：四链相位各落标记
 
 
 def _slice_block(messages: list[dict[str, str]]) -> str:
@@ -3201,18 +3206,20 @@ async def test_four_phase_knowledge_need_full_form_reaches_engine() -> None:
 # ══════════════ H 批（2026-10-17）：system 承载位（角色分家）══════════════════════════
 
 
-async def test_system_slot_request_layout_end_to_end() -> None:
-    """H 批承载位端到端（角色分家）——四相位真跑，逐调用核**请求布局**与**链本体**：
+async def test_request_prefix_extension_end_to_end() -> None:
+    """V2-134 承载位端到端（**追加形**）——四相位真跑，逐调用核**请求布局**与**整请求前缀延伸**：
 
-    ① **每环节请求首条＝system 规章段**（本环节规章头在场：读题＝【场景】＋【输出契约】／
+    ① **整请求相邻互为前缀延伸**（本票第一判据：同一 run 内多轮对话的追加形）；
+    ② **各相位规章件并入链上 user 首入包**（逐件恰一处：读题＝【场景】＋【输出契约】／
        相位①＝【相位①·业务澄清】／相位②＝【相位②·工具匹配】／作答＝【答案要求】）；
-    ② **链首背景块恒在请求内**（system 位、每链恰一条、逐字＝`SYSTEM_BACKGROUND`）；
-    ③ **链本体 role 只含 user／assistant／system**（system 恰一条＝背景块；环节规章不入链）；
-    ④ **规章件零入链**（相位合同／答案要求全文／起草合同在链上零命中——user 位只留动态段）。
+    ③ **链上 system 恰一条＝链首背景块**（`SYSTEM_BACKGROUND`，每链恰一条）；
+    ④ **请求零前置 system**（请求＝整链本身）。
+
+    取代 H 批的 `test_system_slot_request_layout_end_to_end`（该判据＝每请求首条＝system 规章段、
+    规章件零入链，随承载位回链作废）。
     """
     from appv2.runtimev2.prompts import (
         ANSWER_DRAFT_CONTRACT,
-        ANSWER_REQUIREMENTS,
         CLARIFY_EMISSION_CONTRACT,
         CLARIFY_FINALIZE_BOUNDARY,
         CLARIFY_PHASE_HEAD,
@@ -3252,7 +3259,14 @@ async def test_system_slot_request_layout_end_to_end() -> None:
         events = await v2_run(runtime, "2025 年 9 月 1 日到 3 日的日产油量")
     assert events[-1].event == "blackbox" and events[-1].data["status"] == "completed"
 
-    # ① 每调用请求首条＝system 规章段（按 caller＋规章头认相位）
+    calls = completer.calls
+    assert len(calls) >= 4  # 四相位都真跑到
+
+    # ① 整请求相邻互为前缀延伸（追加形——本票第一判据）
+    for (prev_caller, prev), (cur_caller, cur) in pairwise(calls):
+        assert cur[: len(prev)] == prev, (prev_caller, cur_caller)
+
+    # ② 各相位规章件并入链上 user 首入包（逐件恰一处）＋③ 链上 system 恰一条＝背景块
     heads = {
         "understand": ("【场景】", TASK_BOOK_OUTPUT_CONTRACT),
         "clarify": (CLARIFY_PHASE_HEAD, CLARIFY_FINALIZE_BOUNDARY),
@@ -3260,25 +3274,28 @@ async def test_system_slot_request_layout_end_to_end() -> None:
         "answer": ("【答案要求】", ANSWER_DRAFT_CONTRACT),
     }
     seen: set[str] = set()
-    for caller, messages in completer.calls:
-        first = messages[0]
-        assert first["role"] == "system", (caller, first)
+    for caller, messages in calls:
+        # ④ 请求零前置 system：首条＝链首背景块本身（非本环节规章）
+        assert messages[0] == {"role": "system", "content": SYSTEM_BACKGROUND}, (
+            caller,
+            messages[0],
+        )
+        # ③ 链上 system 恰一条
+        roles = [str(message["role"]) for message in messages]
+        assert roles.count("system") == 1, roles
+        chain_text = "\n".join(str(message["content"]) for message in messages)
         if caller == "decision":
-            phase = "clarify" if CLARIFY_PHASE_HEAD in str(first["content"]) else "toolmatch"
+            # 相位判别＝**本相位合同已在链上**（toolmatch 调用时澄清包亦在场，故以匹配头为准）
+            phase = "toolmatch" if TOOLMATCH_PHASE_HEAD in chain_text else "clarify"
         else:
             phase = str(caller)
         assert phase in heads, phase
         for marker in heads[phase]:
-            assert marker in str(first["content"]), (phase, marker)
+            assert chain_text.count(marker) == 1, (phase, marker[:16])
         seen.add(phase)
-        # ③ 链本体 role 闭世界（H 批三值）；system 恰一条＝背景块（链首）
-        roles = [str(message["role"]) for message in messages[1:]]
-        assert set(roles) <= {"user", "assistant", "system"}, roles
-        assert roles.count("system") == 1, roles
-        assert messages[1]["content"] == SYSTEM_BACKGROUND  # 链首背景块逐字在场（每链恰一条）
     assert seen == {"understand", "clarify", "toolmatch", "answer"}  # 四环节都真跑到
 
-    # ④ 规章件零入链（链本体只留动态段）＋ 链上 system 恰一条（背景块）
+    # ② 终态链上：规章件逐件恰一处；system 恰一条＝背景块（链首）
     state = V2RunStore().load(events[-1].data["run_id"])
     chain = "\n".join(str(message["content"]) for message in state.messages)
     for marker in (
@@ -3286,9 +3303,8 @@ async def test_system_slot_request_layout_end_to_end() -> None:
         CLARIFY_EMISSION_CONTRACT.split("\n", 1)[0],
         TOOLMATCH_PHASE_HEAD,
         TOOLMATCH_EMISSION_CONTRACT.split("\n", 1)[0],
-        f"【答案要求】{ANSWER_REQUIREMENTS}",
         ANSWER_DRAFT_CONTRACT,
     ):
-        assert marker not in chain, marker
+        assert chain.count(marker) == 1, marker
     assert [str(message["role"]) for message in state.messages].count("system") == 1
     assert state.messages[0] == {"role": "system", "content": SYSTEM_BACKGROUND}

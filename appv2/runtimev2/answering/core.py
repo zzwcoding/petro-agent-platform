@@ -164,6 +164,7 @@ from appv2.runtimev2.answering.models import (
     Gap,
 )
 from appv2.runtimev2.bookkeeping import (
+    append_contract,
     append_message,
     call_model,
     note,
@@ -533,18 +534,21 @@ def _draft(
         subjects=state.subjects,
         terms=state.terms,
     )
-    append_message(
-        state,
-        role=ROLE_USER,
-        content=(
-            assemble_answer_prompt(state, coverage=coverage)
-            + materials_text
-            + engine_notes_block(engine_notes(state.observations))
-        ),
+    # V2-134（2026-10-19 承载位回链）：作答规章段**首次**并入 user 首入包（本相位一次性——
+    # 动态段（清单／材料／注记）仍每轮 append，规章只首入一次）；恢复「同一 run 内相邻调用的
+    # 完整请求互为前缀延伸」的追加形。**规章文本零改**（仍由 answer_system_contract 单点取件）。
+    first_contract = PHASE not in state.contracts_appended
+    content = (
+        assemble_answer_prompt(state, coverage=coverage)
+        + materials_text
+        + engine_notes_block(engine_notes(state.observations))
     )
-    raw = call_model(
-        state, MODEL_CALLER, list(state.messages), system=answer_system_contract()
-    )
+    if first_contract:
+        content = answer_system_contract() + "\n\n" + content
+    append_message(state, role=ROLE_USER, content=content)
+    if first_contract:
+        append_contract(state, PHASE)
+    raw = call_model(state, MODEL_CALLER, list(state.messages))
     # V2-96 D5：作答第二出口 `explore`（真源 §五·5.1）——整枚 explore JSON 且合闭世界 ⇒
     # **不落答案、零 text 帧**，落 `pending_explore` ＋ 意图 `explore` 交编排执行；不合 schema 的
     # explore 尝试回喂拒因恰一次，仍不合＝强制作答（程序确定性缺口正文，不判 failed）。
@@ -580,7 +584,6 @@ def _draft(
                     state,
                     MODEL_CALLER,
                     list(state.messages),
-                    system=answer_system_contract(),
                 )
                 extracted = extract_finalize_answer(raw)
                 probe = raw if extracted is None else extracted

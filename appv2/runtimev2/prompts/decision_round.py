@@ -463,12 +463,13 @@ def _clarify_package(
     max_subtasks: Any,
     shared_context: bool = True,
 ) -> str:
-    """澄清轮首入包**动态段**（逐字迁移 graph.py L2354-2384 的动态件）。
+    """澄清轮首入包（**规章段＋动态段**）——user 承载位。
 
-    `shared_context=False` → §A 指南段与台账常驻块整段缺席（run 级一次性的下传面）；锚行与分解
-    样例照常（样例属相位装配件、不属共享上下文）。**规章件不在本段**（头行／合同／边界句走
-    `clarify_system_contract`——H 批）；`max_subtasks` 仍作入参（转交规章段单点取件，本段不用它，
-    保留签名以零改调用面）。
+    **2026-10-19 V2-134（承载位回链）**：规章段（`clarify_system_contract`：头行＋合同＋finalize
+    边界句）**并入本包首**，随本包一条 user 消息入链——恢复「同一 run 内相邻调用的完整请求互为
+    前缀延伸」的追加形。**规章文本零改**（仍由 `clarify_system_contract` 单点取件）。
+    动态段＝锚行＋分解样例（＋`shared_context` 时 §A 指南段与台账常驻块）；`shared_context=False`
+    → §A 与常驻块整段缺席（run 级一次性的下传面），锚行与样例照常。
     """
     parts = [anchor_line(state.question, state.understanding)]
     example = render_decompose_example(_projection(state).get("metrics"), today=today)
@@ -477,17 +478,19 @@ def _clarify_package(
     text = "\n\n".join(parts)
     if shared_context:
         text += "\n\n" + GUIDE_REFERENCE_HEAD + "\n" + guide_text
-    return _with_resident_block(text, state) if shared_context else text
+    body = _with_resident_block(text, state) if shared_context else text
+    return clarify_system_contract(max_subtasks) + "\n\n" + body
 
 
 def _toolmatch_package(
     state: RunState, *, guide_text: str, shared_context: bool = True
 ) -> str:
-    """工具匹配轮首入包**动态段**（逐字迁移 graph.py L2698-2729 的动态件）。
+    """工具匹配轮首入包（**规章段＋动态段**）——user 承载位。
 
-    `shared_context=False` → §A 指南段与台账常驻块整段缺席（run 级一次性的下传面——匹配轮是同一
-    run 的第二次决策装配，共享上下文已挂澄清轮首入包）；锚行与问题组 JSON 照常。**规章件不在本段**
-    （头行／合同走 `toolmatch_system_contract`——H 批）。
+    **2026-10-19 V2-134（承载位回链）**：规章段（`toolmatch_system_contract`：头行＋合同）
+    **并入本包首**，随本包一条 user 消息入链——恢复追加形。**规章文本零改**。
+    动态段＝锚行（＋`shared_context` 时 §A 指南段）＋问题组 JSON；`shared_context=False`
+    → §A 与常驻块整段缺席（匹配轮是同一 run 的第二次决策装配，共享上下文已挂澄清轮首入包）。
     """
     text = anchor_line(state.question, state.understanding)
     if shared_context:
@@ -495,7 +498,8 @@ def _toolmatch_package(
     group_json = _question_group_json(state)
     if group_json:
         text += "\n\n" + _QUESTION_GROUP_HEAD + "\n" + group_json
-    return _with_resident_block(text, state) if shared_context else text
+    body = _with_resident_block(text, state) if shared_context else text
+    return toolmatch_system_contract() + "\n\n" + body
 
 
 def _rejection_feedback_line(reason: str) -> str:

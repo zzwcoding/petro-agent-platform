@@ -203,11 +203,13 @@ def question_segment(question: str) -> str:
 def assemble_task_book(
     state: RunState, *, watermark: str = "", recommendation: str = ""
 ) -> str:
-    """任务书**动态段**（数据区→题干段；段间「\\n\\n」连接）——user 承载位（2026-10-17 H 批）。
+    """任务书**用户首入包**（规章段→数据区→题干段；段间「\\n\\n」连接）——user 承载位。
 
-    规章段（指令区＋输出契约区）经 `understand_system_contract` 走调用级 system 注入参、不入链
-    （真源 `specs/prompts.md` 2026-10-17 H 批注：「规章走 system、动态段留 user」）。本函数只出
-    动态段：数据区＝活体投影现取、题干段置末紧邻生成点（行为 2／3 的段内相对序不变）。
+    **2026-10-19 V2-134（承载位回链）**：规章段（`understand_system_contract`：指令区＋输出契约区）
+    **并入本包首**，随本包一条 user 消息入链——恢复「同一 run 内相邻调用的完整请求互为前缀延伸」
+    的追加形（判据真源 `specs/prompts.md` 依赖与风险的 V2-134 注）。**规章文本零改**：仍由
+    `understand_system_contract` 单点取件。动态段＝数据区（活体投影现取）＋题干段置末紧邻生成点
+    （行为 2／3 的段内相对序不变）。
 
     `recommendation`＝「程序预识别」推荐行（V2-82a）——随注入文本进数据区尾（空串＝不加行）；
     本块不产该文本（拼装归 `understanding.assembly`，字面单点＝`RECOMMENDATION_TEMPLATE`）。
@@ -217,6 +219,7 @@ def assemble_task_book(
     """
     return _PARA_SEP.join(
         [
+            understand_system_contract(),
             render_data_zone(state, watermark=watermark, recommendation=recommendation),
             question_segment(state.question),
         ]

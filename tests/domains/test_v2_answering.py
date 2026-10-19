@@ -964,15 +964,15 @@ async def test_model_call_goes_through_bookkeeping_single_point() -> None:
     assert payload["caller"] == MODEL_CALLER and payload["run_id"] == state.run_id
     assert calls[0]["seq"] == 1  # 首步＝模型调用步（本块答案面步在其后，序号续接）
     assert state.steps[1]["seq"] == 2
-    # 送进模型的是整条链（末条＝本块追加的作答轮 user 指令动态段＋材料段）；
-    # 2026-10-17 H 批：请求首条＝**作答环节规章段**（system 承载位，只随本次请求走、不入链）
+    # 送进模型的是整条链（末条＝本块追加的作答轮 user 首入包＝规章段＋动态段＋材料段）；
+    # V2-134（承载位回链）：请求＝整链、**零前置 system**，作答规章段**并入**该 user 首入包
     messages = session.completer.messages_of(MODEL_CALLER)[0]
-    assert messages[0]["role"] == "system"
-    assert messages[0]["content"] == answer_system_contract()
-    assert messages[1:] == state.messages[: len(messages) - 1]
+    assert messages == state.messages[: len(messages)]  # 请求＝整链（零前置 system）
     assert messages[-1]["role"] == "user"
-    assert "【答案要求】" in messages[0]["content"]  # 规章件随 system 位
+    assert messages[-1]["content"].startswith(answer_system_contract())  # 规章段并入包首
+    assert "【答案要求】" in messages[-1]["content"]
     assert "观察材料：" in messages[-1]["content"]  # 材料段随 user 动态段（调用方追加）
+    assert messages[-1]["content"].count(answer_system_contract()) == 1  # 并入恰一次
 
 # ══════════════ RT-W4-06b：降级与引用簇（规格表行 7、12–22）══════════════════
 

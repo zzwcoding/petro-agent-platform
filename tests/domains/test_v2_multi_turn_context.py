@@ -838,13 +838,9 @@ async def test_second_decision_context_carries_first_round_history() -> None:
     calls = completer.messages_of("decision")
     assert len(calls) >= 2
     first, second = calls[0], calls[1]
-    # 2026-10-17 H 批（角色分家）：请求首条＝**本环节规章段**（system 承载位）——跨环节前缀必然不同
-    # （澄清规章 → 匹配规章；真源 `specs/prompts.md` H 批注「KV 缓存代价明示接受：跨环节首调用
-    # 前缀重算一次」）；**链本体仍前缀延伸**（pin-22 的只追加面）——按链段比对
-    assert first[0]["role"] == "system" and second[0]["role"] == "system"
-    assert first[0]["content"] != second[0]["content"]  # 两环节规章各异（本环节规章随请求走）
-    first_chain, second_chain = first[1:], second[1:]
-    assert second_chain[: len(first_chain)] == first_chain  # 前缀延伸（pin-22）
+    # V2-134（2026-10-19 承载位回链）：规章段并入各相位 user 首入包 ⇒ 跨环节**整请求**仍前缀延伸
+    # （判据真源 `specs/agent-loop.md` pin-22：相邻调用互为前缀延伸；取代 H 批「按链段比对」）
+    assert second[: len(first)] == first  # 整请求前缀延伸（KV 追加形）
     assert any(
         message.get("role") == "assistant" and "question_group" in str(message.get("content", ""))
         for message in second

@@ -860,17 +860,18 @@ def test_route_enum_closed_world() -> None:
 
 
 def test_task_book_three_zones() -> None:
-    """#7｜任务书两段序正确、数据区标来源且置于末——行为 1／2（Δ 口径见件头「已登记张力」）。
+    """#7｜任务书三区序正确、数据区标来源且置于末——行为 1／2（Δ 口径见件头「已登记张力」）。
 
-    **2026-10-17 H 批（角色分家）**：三区拆两段——**规章段**（指令区四常量→输出契约区）＝system
-    承载位（准入＝调用请求首条 `{"role": "system"}` 的内容）；**动态段**（数据区→题干段）＝user 条
-    入链。判据：规章段内两件相对序唯一；动态段带**来源标记**恰一份、活体台账词只在数据区、题干段
-    为末段。
+    **V2-134（2026-10-19 承载位回链）**：三区**同一 user 首入包**——**规章段**（指令区四常量→
+    输出契约区）**并入包首**（准入＝链上该 user 条内容，其前缀＝`understand_system_contract()`）；
+    **动态段**（数据区→题干段）紧随其后。判据：规章段内两件相对序唯一；动态段带**来源标记**
+    恰一份、活体台账词只在数据区、题干段为末段。
     """
     state = _state()
-    completer = _interpret_with_calls(state, _full_reply("用户问日产油量。", ["日产油量"]))
+    _interpret_with_calls(state, _full_reply("用户问日产油量。", ["日产油量"]))
     book = _task_book_of(state)
-    contract = _system_contract_of(completer, 0)
+    contract = understand_system_contract()
+    assert book.startswith(contract)  # V2-134：规章段并入包首
 
     order = [
         TASK_BOOK_SCENE,
@@ -890,10 +891,10 @@ def test_task_book_three_zones() -> None:
     assert book.index(metric_line) > data_zone_start
     assert book.index(metric_line) < book.index(_QUESTION_HEAD)
     assert book.rstrip().endswith("现在输出。）")  # 题干段为装配尾段（prompts 行为 3 段序）
-    # 三区之外零活体数据段：装配体里只此一处来源标记；规章件不入动态段
-    assert data_zone_start == 0
+    # 三区之外零活体数据段：装配体里只此一处来源标记；规章段居数据区之前（V2-134 并入包首）
+    assert book.index(contract) < data_zone_start
     for marker in order:
-        assert marker not in book
+        assert book.count(marker) == 1  # 规章件并入本包、逐件恰一处
 
 
 # ---------- 8 台账投影变化 → 数据区文本随之变 ----------
@@ -1219,11 +1220,12 @@ async def test_route_defaults_fail_closed() -> None:
        结构核验命中 → 程序**确定性退回** `route="full"`（不直答收口）；同一问句模型判 `full` 时走
        完整流程（分派只由 `route` 决定——程序侧零词面判据，不设灰区词表：**行为 4**）。
     """
-    # 案一：原则在模型唯一决策输入（任务书两段）里在场——规章段（system 请求首条）＋动态段（链上）
+    # 案一：原则在模型唯一决策输入（任务书**同一 user 首入包**）里在场——规章段并入包首（V2-134）
     contract_state = _state()
-    completer = _interpret_with_calls(contract_state, _full_reply("问日产油量。", ["日产油量"]))
+    _interpret_with_calls(contract_state, _full_reply("问日产油量。", ["日产油量"]))
     book = _task_book_of(contract_state)
-    contract = _system_contract_of(completer, 0)
+    contract = understand_system_contract()
+    assert book.startswith(contract)  # V2-134：规章段并入包首
     assert TASK_BOOK_TASK in contract  # 指令区例外条款整段在场（prompts 单点合同文本）
     for clause in (_FAIL_CLOSED_CLAUSE, _HESITANT_CLAUSE, _NARROW_EXIT_CLAUSE):
         assert clause in contract  # 可能有关／拿不准 → 完整流程；只有确定无关 → 直答
@@ -1406,12 +1408,15 @@ def test_schema_reject_feedback_retry_once() -> None:
     assert state.messages[0]["content"] == SYSTEM_BACKGROUND
     assert state.messages[2]["content"] == _RETRY_BAD
     assert state.messages[4]["content"] == _RETRY_GOOD
-    # 两次请求首条＝system 规章段（读题合同），且**不含**已入链的内容（规章随请求、不入链）
+    # V2-134：两次请求**首条恒为链首背景块**（规章段已并入链上 user 首入包，不再随请求前置）
     for index in (0, 1):
-        contract = _system_contract_of(completer, index)
-        assert contract == understand_system_contract()
-        assert TASK_BOOK_SCENE in contract and TASK_BOOK_OUTPUT_CONTRACT in contract
-        assert contract not in [str(m["content"]) for m in state.messages]
+        _caller, messages = completer.calls[index]
+        assert messages[0]["role"] == "system"
+        assert messages[0]["content"] == SYSTEM_BACKGROUND
+    contract = understand_system_contract()
+    assert TASK_BOOK_SCENE in contract and TASK_BOOK_OUTPUT_CONTRACT in contract
+    assert state.messages[1]["content"].startswith(contract)  # 规章段并入链上首入包
+    assert state.messages[1]["content"].count(contract) == 1
     # 过程档案：读题注记×2（两读各一条）＋回喂重试注记×1＋装配标记（pin-26 渲染面）
     assert len(_read_notes(state)) == 2 and len(_retry_notes(state)) == 1
     assert state.dialogue == []  # 回喂载荷入链、不入对话层（过程记录不混层）
@@ -1508,11 +1513,12 @@ def test_schema_feedback_prefix_extension() -> None:
     second = completer.calls[1][1]
     assert second[: len(first)] == first  # 逐字前缀延伸（真源 KV 纪律）
     assert len(second) == len(first) + 2
-    # 追加两件＝首答原话（assistant）＋回喂载荷（user）；规章段与链首背景条逐字未动
+    # 追加两件＝首答原话（assistant）＋回喂载荷（user）；V2-134：请求首条＝链首背景块（恒）
     assert second[0] == first[0] and second[0]["role"] == "system"
-    assert second[0]["content"] == _system_contract_of(completer, 0)
-    assert second[1]["content"] == SYSTEM_BACKGROUND  # 链首背景块（H 批）
-    assert _DATA_ZONE_HEAD in str(second[2]["content"])  # 任务书动态段（数据区）逐字未动
+    assert second[0]["content"] == SYSTEM_BACKGROUND
+    assert second[1]["content"] == state.messages[1]["content"]  # 任务书首入包（含规章段）逐字未动
+    assert second[1]["content"].startswith(understand_system_contract())
+    assert _DATA_ZONE_HEAD in str(second[1]["content"])  # 数据区（同包内）逐字未动
     assert second[len(first) :] == [
         {"role": "assistant", "content": _RETRY_BAD},
         {"role": "user", "content": state.messages[3]["content"]},

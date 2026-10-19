@@ -36,6 +36,7 @@ from appv2.runtimev2.prompts import (
     ANSWER_COVERAGE_LINE,
     CONTRACT_CONSTANT_FAMILIES,
     answer_coverage_section,
+    answer_system_contract,
     assemble_answer_prompt,
 )
 from appv2.runtimev2.state import INTENT_EXPLORE, INTENT_VERIFY, RunState
@@ -165,10 +166,11 @@ def _draft_payloads(state: RunState) -> list[dict[str, Any]]:
 
 
 def _user_message(state: RunState) -> str:
-    """最后一条 user 消息（作答轮动态段＋材料段——覆盖表落此）。"""
+    """最后一条 user 消息的**动态段**（V2-134：规章段并入同条 ⇒ 剥去规章前缀；覆盖表落动态段）。"""
     users = [row for row in state.messages if row.get("role") == "user"]
     assert users, "作答轮 user 消息缺席"
-    return str(users[-1]["content"])
+    content = str(users[-1]["content"])
+    return content.replace(answer_system_contract(), "", 1).lstrip("\n")
 
 
 def _line_for(subtask_id: str) -> str:

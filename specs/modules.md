@@ -431,7 +431,7 @@ def assemble_answer_prompt(state: RunState) -> str: ...
 
 > **卡级补注（2026-10-15，P-07 联动注）**：台账常驻块交界定界＝**投影取得归 `context`（经 `tools` 公开面装载进 state）；常驻块包裹与逐字转抄渲染归本块**（Manifest 记账与不入史归 context/state 面——真源 `specs/prompts.md` 行为 7／8＋风险 3）。
 
-> **卡级补注（2026-10-17，H 批·角色分家）**：族名单**加第七族 `system_background`**（`SYSTEM_BACKGROUND`＝链首背景块逐字稿）＋**规章取件函数四件**（`understand_system_contract`／`clarify_system_contract`／`toolmatch_system_contract`／`answer_system_contract`）——族成员名单仍以 `specs/prompts.md` 接口定义为准（闭世界）。本块只出文本：规章段的**承载位**（前置进本次请求／链首背景块恰一条）归 `bookkeeping.call_model` 的 `system` 注入参与编排建链点，本块不发起调用、不写链（真源 `specs/prompts.md` 行为 1／3／7／12 的 H 批注）。
+> **卡级补注（2026-10-17，H 批·角色分家）**：族名单**加第七族 `system_background`**（`SYSTEM_BACKGROUND`＝链首背景块逐字稿）＋**规章取件函数四件**（`understand_system_contract`／`clarify_system_contract`／`toolmatch_system_contract`／`answer_system_contract`）——族成员名单仍以 `specs/prompts.md` 接口定义为准（闭世界）。本块只出文本：规章段的**承载位**（四链相位＝并入该相位 user 首入包；`repair` 侧路＝`bookkeeping.call_model` 的 `system` 注入参；链首背景块恰一条＝编排建链点）归相位装配与编排，本块不发起调用、不写链（真源 `specs/prompts.md` 行为 1／3／7／12；**2026-10-19 V2-134** 取代 H 批的「四相位全走 system」）。
 
 > **卡级补注（2026-10-19，V2-125·回炉请求面迁入）**：族名单**加第八族 `repair_request`**（无槽合同三件 `REPAIR_SYSTEM_CONTRACT`／`REPAIR_MATERIALS_HEAD`／`REPAIR_OUTPUT_CONTRACT`）＋**回炉请求面装配两件**（`assemble_repair_prompt`／`assemble_repair_gap_prompt`，携槽模板三件落 `prompts/repair_round.py`）——族成员名单仍以 `specs/prompts.md` 接口定义为准（闭世界）。消费方＝编排侧 `orchestration/repair.py`（四业务相位零触及）；材料段由调用方 `context.render_materials` 渲染后注入，本块零 `context` 依赖（R3 不破）。
 

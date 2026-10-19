@@ -23,7 +23,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-from appv2.runtimev2.bookkeeping import append_message, note
+from appv2.runtimev2.bookkeeping import append_contract, append_message, note
 from appv2.runtimev2.prompts import RECOMMENDATION_TEMPLATE, assemble_task_book
 from appv2.runtimev2.state import RunState
 from appv2.runtimev2.understanding.constants import (
@@ -101,16 +101,19 @@ def ensure_task_book(state: RunState, *, watermark: str = "") -> str | None:
     """每 run 只装配一次（行为 9）：首次 → 装配并追加链尾（＋过程档案标记）；重复 → 无操作。
 
     追加走唯一写口 `bookkeeping.append_message`（钉 `pin-22` 的写入点单点面）；标记走
-    `bookkeeping.note`。返回值＝本次装配的文本（未装配＝`None`）——调用方可据此断言
-    「只装配一次」的机读面（`None` ＝ 本次未装配）。
+    `bookkeeping.note`（任务书一次性）与 `bookkeeping.append_contract`（相位合同标记，V2-134）。
+    返回值＝本次装配的文本（未装配＝`None`）——调用方可据此断言「只装配一次」的机读面
+    （`None` ＝ 本次未装配）。
 
-    **2026-10-17 H 批（角色分家）**：本函数只追加**动态段**（数据区＋题干段）；**链首背景块**
-    （`system` 条）不在此挂——真链首由编排建链时落（`orchestration` 的 run 播种面在题面 user 条
-    **之前**挂背景块，每链恰一条；本函数也能被追问链复用，此处再挂即重复）。
+    **2026-10-19 V2-134（承载位回链）**：本函数追加的 user 条**含规章段**（`task_book` 已并入
+    指令区＋输出契约区，见 `prompts.assemble_task_book`）；**链首背景块**（`system` 条）仍不在此挂
+    ——真链首由编排建链时落（`orchestration` 的 run 播种面在题面 user 条**之前**挂背景块，每链恰
+    一条；本函数也能被追问链复用，此处再挂即重复）。
     """
     if task_book_assembled(state):
         return None
     book = task_book(state, watermark=watermark)
     append_message(state, role=ROLE_USER, content=book)
+    append_contract(state, PHASE)
     note(state, phase=PHASE, title=TASK_BOOK_NOTE_TITLE, digest=TASK_BOOK_NOTE_DIGEST)
     return book

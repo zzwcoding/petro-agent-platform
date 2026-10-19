@@ -260,7 +260,7 @@ class _ChainChoiceCompleter(ScriptedCompleter):
         self._legacy = legacy
         self._grounded = grounded
         self._system_override = system_override
-        self.system_contracts: list[str] = []
+        self.contract_texts: list[str] = []
 
     async def complete(
         self,
@@ -272,12 +272,13 @@ class _ChainChoiceCompleter(ScriptedCompleter):
         self.calls.append((caller, [dict(message) for message in messages]))
         system = self._system_override
         if system is None:
+            # V2-134（承载位回链）：规章段已并入 user 首入包 ⇒ 探针改收 user 面文本
             system = "\n".join(
                 str(message.get("content", ""))
                 for message in messages
-                if message.get("role") == "system"
+                if message.get("role") == "user"
             )
-        self.system_contracts.append(system)
+        self.contract_texts.append(system)
         content = self._grounded if _NARROW_GATE_VERBATIM in system else self._legacy
         return ModelReply(
             content=content,
@@ -380,7 +381,7 @@ def test_chain_narrow_gate_verbatim_in_knowledge_segment_single_source() -> None
     contract = clarify_system_contract(MAX_SUBTASKS)
     assert contract.count(_NARROW_GATE_VERBATIM) == 1
     assert _NARROW_GATE_VERBATIM in contract
-    # ③ 不入 user 动态段（规章件不入链）
+    # ③ V2-134（承载位回链）：并入 user 首入包（逐字稿恰一份）
     package = assemble_decision_package(
         _state(),
         phase=PHASE_CLARIFY,
@@ -388,7 +389,7 @@ def test_chain_narrow_gate_verbatim_in_knowledge_segment_single_source() -> None
         today=_TODAY,
         max_subtasks=MAX_SUBTASKS,
     )
-    assert _NARROW_GATE_VERBATIM not in package
+    assert package.count(_NARROW_GATE_VERBATIM) == 1
     # ④ 单源：runtimev2 面内恰一处字面定义（消费方零副本）
     assert _SINGLE_SOURCE_PROBE in _NARROW_GATE_VERBATIM
     holders = sorted(
@@ -467,8 +468,8 @@ def _assert_narrow_gate_before_after(
     )
     outcome_before, state_before = _run_clarify(legacy, question=question)
     assert isinstance(outcome_before, ClarifyFinal)
-    assert _NARROW_GATE_VERBATIM not in legacy.system_contracts[0]
-    assert _KNOWLEDGE_SEGMENT_TAIL in legacy.system_contracts[0]  # 确为同一合同的置换前形
+    assert _NARROW_GATE_VERBATIM not in legacy.contract_texts[0]
+    assert _KNOWLEDGE_SEGMENT_TAIL in legacy.contract_texts[0]  # 确为同一合同的置换前形
     chains_before = _chains(state_before)
     assert "data" not in chains_before  # EB11 病灶复现：零 data 链提议
     assert set(chains_before) == {"knowledge"}
@@ -477,7 +478,7 @@ def _assert_narrow_gate_before_after(
     after = _ChainChoiceCompleter(legacy=legacy_emission, grounded=grounded_emission)
     outcome_after, state_after = _run_clarify(after, question=question)
     assert isinstance(outcome_after, ClarifyFinal)
-    assert _NARROW_GATE_VERBATIM in after.system_contracts[0]
+    assert _NARROW_GATE_VERBATIM in after.contract_texts[0]
     well_rows = _well_rows(state_after, well_id)
     assert well_rows, _subtasks(state_after)
     assert all(row.get("chain") == "data" for row in well_rows)  # 直走 data 链
@@ -620,14 +621,14 @@ def _assert_already_data_no_regression(
     )
     outcome_before, state_before = _run_clarify(legacy, question=question)
     assert isinstance(outcome_before, ClarifyFinal)
-    assert _NARROW_GATE_VERBATIM not in legacy.system_contracts[0]
+    assert _NARROW_GATE_VERBATIM not in legacy.contract_texts[0]
     chains_before = _chains(state_before)
     assert "data" in chains_before
 
     after = _ChainChoiceCompleter(legacy=emission, grounded=emission)
     outcome_after, state_after = _run_clarify(after, question=question)
     assert isinstance(outcome_after, ClarifyFinal)
-    assert _NARROW_GATE_VERBATIM in after.system_contracts[0]
+    assert _NARROW_GATE_VERBATIM in after.contract_texts[0]
     chains_after = _chains(state_after)
     assert chains_after == chains_before  # 逐位不回退
     assert "data" in chains_after

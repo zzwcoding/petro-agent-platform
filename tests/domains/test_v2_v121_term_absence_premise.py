@@ -157,9 +157,11 @@ def test_term_absence_exit_verbatim_appended_after_object_exit() -> None:
 # ---------- 2 待核前提：落 system 规章段、不入 user 首入包 ----------
 
 
-def test_pending_premise_verbatim_in_clarify_system_contract_not_user_package() -> None:
-    """验收③｜待核前提＝票面逐字稿、入族②、落 `clarify_system_contract`（system 规章段）恰一份；
-    **user 首入包零命中**（Kimi 评审修正 1——`decision_round.py` 自注「规章件不在本段」）。
+def test_pending_premise_verbatim_merged_into_user_package() -> None:
+    """验收③｜待核前提＝票面逐字稿、入族②、随澄清规章段**并入 user 首入包**恰一份。
+
+    **V2-134（承载位回链）**：本判据由「system 规章段在场 ＋ user 首入包零命中」改为
+    「随规章段并入 user 首入包、恰一份」（取代 `..._not_user_package` 旧判据）。
     """
     assert _PENDING_PREMISE_VERBATIM == (
         "【待核前提】题面中的引述与口语说法列为本轮待核前提：先在材料中核其是否成立，"
@@ -167,14 +169,13 @@ def test_pending_premise_verbatim_in_clarify_system_contract_not_user_package() 
     )
     # ① 族登记（闭世界纪律：新增合同常量入族）
     assert "CLARIFY_PENDING_PREMISE_CONTRACT" in CONTRACT_CONSTANT_FAMILIES["clarify_emission"]
-    # ② system 规章段：恰一份；插入位＝族②合同之后、finalize 边界句之前
-    # （边界句仍收尾——既有判据不破）
+    # ② 规章段：恰一份；插入位＝族②合同之后、finalize 边界句之前（边界句仍收尾）
     contract = clarify_system_contract(4)
     assert contract.count(_PENDING_PREMISE_VERBATIM) == 1
     assert contract.index(CLARIFY_PHASE_HEAD) < contract.index(_PENDING_PREMISE_VERBATIM)
     assert contract.index(_PENDING_PREMISE_VERBATIM) < contract.index(CLARIFY_FINALIZE_BOUNDARY)
     assert contract.endswith(CLARIFY_FINALIZE_BOUNDARY)
-    # ③ user 首入包**零命中**（Kimi 评审修正 1：待核前提不得入 user 首入包）
+    # ③ V2-134：随规章段**并入 user 首入包**、恰一份
     package = assemble_decision_package(
         _answer_state(),
         phase=PHASE_CLARIFY,
@@ -182,12 +183,10 @@ def test_pending_premise_verbatim_in_clarify_system_contract_not_user_package() 
         today=date(2026, 10, 8),
         max_subtasks=4,
     )
-    assert _PENDING_PREMISE_VERBATIM not in package
-    assert "【待核前提】" not in package
-    assert CLARIFY_PENDING_PREMISE_CONTRACT not in package
-    assert CLARIFY_PHASE_HEAD not in package  # 规章件整族不入 user 动态段（承载位分家）
-    # ④ 约束原句在场（本票落点的自注面——「规章件不在本段」）
-    assert _USER_SEGMENT_NOTE in _DECISION_ROUND.read_text(encoding="utf-8")
+    assert package.count(_PENDING_PREMISE_VERBATIM) == 1
+    assert package.count("【待核前提】") == 1
+    assert package.count(CLARIFY_PENDING_PREMISE_CONTRACT) == 1
+    assert package.startswith(CLARIFY_PHASE_HEAD)  # 规章段并入包首
     # ⑤ 单源：runtimev2 面内恰一处字面定义（消费方零副本）
     assert _literal_holders(_PENDING_PREMISE_VERBATIM) == ["constants.py"]
 
@@ -282,7 +281,7 @@ class _TermAbsenceCompleter(ScriptedCompleter):
         self._covered_body = covered_body
         self._absence_body = absence_body
         self._fabricated_body = fabricated_body
-        self.system_contracts: list[str] = []
+        self.contract_texts: list[str] = []
         self.material_segments: list[str] = []
 
     async def complete(
@@ -295,12 +294,13 @@ class _TermAbsenceCompleter(ScriptedCompleter):
         if caller != "answer":
             return await super().complete(messages, caller=caller, run_id=run_id)
         self.calls.append((caller, [dict(message) for message in messages]))
+        # V2-134（承载位回链）：规章段已并入 user 首入包 ⇒ 探针改收 user 面文本
         system = "\n".join(
             str(message.get("content", ""))
             for message in messages
-            if message.get("role") == "system"
+            if message.get("role") == "user"
         )
-        self.system_contracts.append(system)
+        self.contract_texts.append(system)
         last_user = next(
             (
                 str(message.get("content", ""))
@@ -385,8 +385,8 @@ async def test_q45_shape_term_level_absence_not_fabricated_definition() -> None:
         covered_body="",  # `Q45` 形材料不覆盖该表述 ⇒ 本出口不被用到
     )
     # 术语级出口随作答规章段（system 参）恰一份在场
-    assert len(completer.system_contracts) == 1
-    assert completer.system_contracts[0].count(_TERM_ABSENCE_VERBATIM) == 1
+    assert len(completer.contract_texts) == 1
+    assert completer.contract_texts[0].count(_TERM_ABSENCE_VERBATIM) == 1
     # 材料窗内近邻口径在场（同族兼容的近邻——本票出口正是防其被平移）
     assert "递减增油" in completer.material_segments[0]
     # 交付面＝术语级缺位句；零自造判定式
@@ -436,7 +436,7 @@ async def test_q43_numeric_and_a_fan2_object_positive_unchanged() -> None:
     assert "该 0.8 个百分点出自月报原文" in q43_answer
     assert _ABSENCE_BODY not in q43_answer
     # 合同仍携术语级出口（在场而不误触发——判别力来自条件，不是出口缺席）
-    assert _TERM_ABSENCE_VERBATIM in q43.system_contracts[0]
+    assert _TERM_ABSENCE_VERBATIM in q43.contract_texts[0]
 
     # `A-反2` 形：对象锚（材料覆盖该对象 ⇒ 照常作答）
     fan2_state, fan2 = await _run_case(
@@ -454,7 +454,7 @@ async def test_q43_numeric_and_a_fan2_object_positive_unchanged() -> None:
     fan2_answer = fan2_state.answer or ""
     assert "W-12 井初期日产油 12.5 吨" in fan2_answer
     assert _ABSENCE_BODY not in fan2_answer
-    assert _TERM_ABSENCE_VERBATIM in fan2.system_contracts[0]
+    assert _TERM_ABSENCE_VERBATIM in fan2.contract_texts[0]
 
     # **判定不变**（追加前／后同判）：同一替身、同一材料段——合同携／不携术语级出口，覆盖题两形
     # 都出同一答复（追加句是**条件化**的：材料覆盖 ⇒ 出口不适用；红→绿只发生在「查无登记」面）。

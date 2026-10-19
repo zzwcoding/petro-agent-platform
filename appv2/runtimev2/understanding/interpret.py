@@ -73,7 +73,6 @@ from appv2.runtimev2.parsing import (
     parse_with_quote_repair,
     understanding_schema_feedback,
 )
-from appv2.runtimev2.prompts import understand_system_contract
 from appv2.runtimev2.state import RunState
 from appv2.runtimev2.transport import EventBus
 from appv2.runtimev2.understanding.assembly import ensure_task_book, program_candidates
@@ -218,7 +217,6 @@ def _read_and_parse(state: RunState) -> tuple[Understanding | Direct | None, str
         state,
         MODEL_CALLER,
         list(state.messages),
-        system=understand_system_contract(),
     )
     append_message(state, role=ROLE_ASSISTANT, content=raw)
     note(state, phase=PHASE, title=READ_NOTE_TITLE, digest=raw)

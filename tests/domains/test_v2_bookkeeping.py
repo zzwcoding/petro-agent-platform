@@ -625,6 +625,9 @@ def test_append_contract_sole_write_idempotent_closed_world() -> None:
 
     幂等＝已标记相位再标记无操作（不重复追加、不重复标记）；越界相位抛错（fail-closed）；全 V2 树
     里 `contracts_appended` 的写点只在 `append_contract`。
+
+    **V2-134（2026-10-19 承载位回链）**：闭世界由三值扩为五值（加 `understand`／`answer`——
+    其规章段亦并入 user 首入包）；越界面随之收窄为 `execute`／空串。
     """
     state = _state()
     append_contract(state, "decision")
@@ -632,12 +635,26 @@ def test_append_contract_sole_write_idempotent_closed_world() -> None:
     append_contract(state, "clarify")
     append_contract(state, "toolmatch")
     append_contract(state, "toolmatch")
-    assert state.contracts_appended == ["decision", "clarify", "toolmatch"]
+    append_contract(state, "understand")  # V2-134 新增值
+    append_contract(state, "answer")  # V2-134 新增值
+    assert state.contracts_appended == [
+        "decision",
+        "clarify",
+        "toolmatch",
+        "understand",
+        "answer",
+    ]
 
-    for phase in ("understand", "answer", "execute", ""):
+    for phase in ("execute", "repair", ""):
         with pytest.raises(ValueError):
             append_contract(state, phase)
-    assert state.contracts_appended == ["decision", "clarify", "toolmatch"]  # 越界不落
+    assert state.contracts_appended == [
+        "decision",
+        "clarify",
+        "toolmatch",
+        "understand",
+        "answer",
+    ]  # 越界不落
 
     # 唯一写口：全 V2 树（含本块）里该字段的写点只在 bookkeeping 的 append_contract
     writers: list[str] = []
@@ -1842,7 +1859,7 @@ def test_boundary_empty_huge_converged_enum() -> None:
     with pytest.raises(ValueError):
         record_step(enum_state, kind="decision", title="越界步状态", status="error")
     with pytest.raises(ValueError):
-        append_contract(enum_state, "understand")
+        append_contract(enum_state, "execute")  # V2-134：越界面收窄（understand/answer 已入闭世界）
     with pytest.raises(ValueError):
         append_message(enum_state, role="tool", content="越界角色")
     with pytest.raises(ValueError):

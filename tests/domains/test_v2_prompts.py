@@ -435,8 +435,7 @@ def test_contract_constant_family_closed_world() -> None:
     # 静态合同零计数（缺陷二钉）：上限留静态块、已用数只在动态条——契约文本与限额单点同值
     assert "已用 " not in CLARIFY_EMISSION_CONTRACT
     assert f"全 run ≤{MAX_DISCOVERS_PER_RUN} 次" in CLARIFY_EMISSION_CONTRACT
-    # 指令区＋输出契约区（规章段＝system 承载位）逐字稳定、各恰一份；
-    # 动态段（数据区＋题干段）与之分家
+    # 指令区＋输出契约区（规章段）**并入 user 首入包**（V2-134 承载位回链）逐字稳定、各恰一份
     first_contract = understand_system_contract()
     second_contract = understand_system_contract()
     first = assemble_task_book(_ledger_state())
@@ -445,9 +444,13 @@ def test_contract_constant_family_closed_world() -> None:
         text = getattr(constants_module, constant)
         assert first_contract.count(text) == 1
         assert second_contract.count(text) == 1
-        assert text not in first and text not in second  # 规章件不入 user 动态段
+        assert text in first and text in second  # V2-134：规章件并入 user 首入包
     assert first_contract == second_contract  # 规章段与 state 无关（逐字稳定）
-    assert first.split(_DATA_ZONE_HEAD)[0] == second.split(_DATA_ZONE_HEAD)[0] == ""
+    # 规章段＝整包前缀（两状态同前缀、逐字＝取件函数输出）
+    assert first.startswith(first_contract) and second.startswith(second_contract)
+    assert first.split(_DATA_ZONE_HEAD)[0] == second.split(_DATA_ZONE_HEAD)[0] == (
+        first_contract + "\n\n"
+    )
 
 
 # ---------- 2 答案要求清单 10 条逐字在场（pin-03 落点） ----------
@@ -607,11 +610,11 @@ def test_contract_constants_no_duplicate_literals() -> None:
 
 
 def test_task_book_segment_order() -> None:
-    """任务书两段（2026-10-17 H 批角色分家）：**规章段**（system）＝指令区→输出契约区；
-    **动态段**（user）＝数据区→题干段；题干段为末段。
+    """任务书两段（**V2-134 承载位回链**）：**规章段并入 user 首入包**——合看序＝
+    「指令区→输出契约区→数据区→题干段」，题干段为末段。
 
-    段内相对序零改（行为 3 的四常量相对序、行为 2 的数据区、题干置末）；两段拼合的可见序＝
-    「规章段（system，前置）→动态段（user）」——合看仍是「指令区→输出契约区→数据区→题干段」。
+    段内相对序零改（行为 3 的四常量相对序、行为 2 的数据区、题干置末）；规章文本零改
+    （仍由 `understand_system_contract` 单点取件）。
     """
     contract = understand_system_contract()
     output = assemble_task_book(_ledger_state(), watermark="2026-08-24")
@@ -624,32 +627,37 @@ def test_task_book_segment_order() -> None:
     ]
     positions = [contract.index(marker) for marker in order_contract]
     assert positions == sorted(positions) and len(set(positions)) == len(positions)
-    # 动态段：数据区→题干段（题干段为末段、紧邻生成点）
-    assert output.startswith(_DATA_ZONE_HEAD)
+    # V2-134：规章段并入本包首 ⇒ 整包以指令区首句开头，其内相对序＝指令区→输出契约区→数据区→题干段
+    assert output.startswith(TASK_BOOK_SCENE)
+    merged = [output.index(marker) for marker in order_contract]
+    assert merged == sorted(merged) and len(set(merged)) == len(merged)
+    assert output.index(TASK_BOOK_OUTPUT_CONTRACT) < output.index(_DATA_ZONE_HEAD)
     assert output.index(_DATA_ZONE_HEAD) < output.index(_QUESTION_HEAD)
     assert output.rstrip().endswith("现在输出。）")  # 题干段为末段（紧邻生成点）
     # 段间「\n\n」连接（真源 R-L2a-17 连接形）
     assert f"\n\n{_QUESTION_HEAD}" in output
     assert f"\n\n{TASK_BOOK_OUTPUT_CONTRACT}" in contract
-    # 红线归位＝指令区（V2 设计变更：V1 在环境段之后）；规章件不入动态段（H 批承载位分家）
+    # 红线归位＝指令区（V2 设计变更：V1 在环境段之后）
     assert contract.index(TASK_BOOK_REDLINE) < contract.index(TASK_BOOK_OUTPUT_CONTRACT)
+    # V2-134：规章件**在** user 首入包内（承载位回链）——逐件恰一处
     for constant in order_contract:
-        assert constant not in output, f"规章件仍在 user 动态段：{constant[:12]}"
+        assert constant in output, f"规章件未并入 user 首入包：{constant[:12]}"
+        assert output.count(constant) == 1
 
 
 # ---------- 6 任务书样例区＝固定三则 ----------
 
 
 def test_task_book_examples_fixed_set() -> None:
-    """任务书样例区＝固定三则、不随 state 变化、无边界对照例（随规章段走 system 位）。"""
+    """任务书样例区＝固定三则、不随 state 变化、无边界对照例（V2-134：随规章段并入包）。"""
     for label in ("样例一（多部分题）", "样例二（口语映射题）", "样例三（判断纠错题）"):
         assert label in TASK_BOOK_EXAMPLES
     assert "样例四" not in TASK_BOOK_EXAMPLES
     assert "边界" not in TASK_BOOK_EXAMPLES.split("样例三", 1)[0].split("样例一", 1)[1]
-    # 样例区＝指令区常量直引（两跑逐字同源）；在两段（system 规章段／user 动态段）中皆恰一处
+    # 样例区＝指令区常量直引（两跑逐字同源）；V2-134 后在本包内恰一处
     assert understand_system_contract().count(TASK_BOOK_EXAMPLES) == 1
     for state in (_ledger_state(), _empty_state()):
-        assert TASK_BOOK_EXAMPLES not in assemble_task_book(state)
+        assert assemble_task_book(state).count(TASK_BOOK_EXAMPLES) == 1
 
 
 # ---------- 6a 输出形统一：两行式残留退役 → 单 JSON（V2-87） ----------
@@ -982,15 +990,24 @@ def _unique_line(output: str, prefix: str) -> str:
 
 
 def test_anchor_line_two_forms_first_line() -> None:
-    """行 9 题意锚行两形（理解真值/假值）且置于决策轮指令首行（行为 6；A-P4b-59）。"""
+    """行 9 题意锚行两形（理解真值/假值）且置于决策轮**动态段**首行（行为 6；A-P4b-59）。
+
+    **V2-134（承载位回链）**：规章段并入本包首 ⇒ 整包首行＝相位头行；锚行仍居**动态段**首行
+    （即规章段之后的第一行）——锚行自身两形与「假值不输出空『题意：』段」不变。
+    """
     state = _decision_state()
     truth = f"用户原题：{state.question}｜题意：{state.understanding}"
     assert anchor_line(state.question, state.understanding) == truth
     assert anchor_line(
         state.question, state.understanding
     ) == f"用户原题：{state.question}｜题意：{state.understanding}"
-    for output in (_clarify_package(state), _toolmatch_package(state)):
-        assert output.split("\n", 1)[0] == truth  # 锚行在指令最前（首行位）
+    for output, contract in (
+        (_clarify_package(state), clarify_system_contract(4)),
+        (_toolmatch_package(state), toolmatch_system_contract()),
+    ):
+        assert output.startswith(contract)  # V2-134：规章段并入包首
+        dynamic = output[len(contract) :].lstrip("\n")
+        assert dynamic.split("\n", 1)[0] == truth  # 锚行居动态段首行
 
     # 理解假值形：单段「用户原题：{question}」——不输出空「题意：」段
     blank = _decision_state(understanding="")
@@ -1002,8 +1019,12 @@ def test_anchor_line_two_forms_first_line() -> None:
         PHASE_TOOLMATCH: _toolmatch_package(blank),
     }
     assert set(outputs) == set(DECISION_PHASES)
-    for output in outputs.values():
-        first_line = output.split("\n", 1)[0]
+    for contract, output in (
+        (clarify_system_contract(4), outputs[PHASE_CLARIFY]),
+        (toolmatch_system_contract(), outputs[PHASE_TOOLMATCH]),
+    ):
+        dynamic = output[len(contract) :].lstrip("\n")
+        first_line = dynamic.split("\n", 1)[0]
         assert first_line == empty_form
         assert "｜题意：" not in first_line
 
@@ -1022,6 +1043,9 @@ def test_decision_package_four_elements() -> None:
     user 首入包、改走**调用级 system 注入参**（`clarify_system_contract`／
     `toolmatch_system_contract`）
     ——本行判据＝动态段（user）与规章段（system）合看逐件在场（四要素口径不变）。
+
+    **2026-10-19 V2-134（承载位回链）**：规章段**并入本包首**（同一 user 消息）——本行判据＝
+    整包逐件在场；锚行居**动态段**首行（规章段之后）；「各按其件不互串」判据不变。
     """
     state = _decision_state(discover_used=2)
     clarify = _clarify_package(state)
@@ -1030,7 +1054,10 @@ def test_decision_package_four_elements() -> None:
     toolmatch_contract = toolmatch_system_contract()
 
     # ①题意锚行（动态段首行）＋②相位合同（规章段：头行＋正文；澄清轮另含 finalize 交付面边界句）
-    assert clarify.split("\n", 1)[0] == anchor_line(state.question, state.understanding)
+    assert clarify.startswith(clarify_system_contract(4))  # V2-134：规章段并入包首
+    assert clarify[len(clarify_system_contract(4)) :].lstrip("\n").split("\n", 1)[
+        0
+    ] == anchor_line(state.question, state.understanding)
     assert CLARIFY_PHASE_HEAD in clarify_contract
     assert "【相位①·业务澄清】只输出一个 JSON 对象（可围栏）。四动作：" in clarify_contract
     assert "子问题 ≤4 个" in clarify_contract  # 声明槽 {max_subtasks}＝调用方注入值
@@ -1038,9 +1065,9 @@ def test_decision_package_four_elements() -> None:
     assert "已用 " not in clarify_contract  # 合同段零「已用 N 次」冻值
     assert CLARIFY_FINALIZE_BOUNDARY in clarify_contract
     assert clarify_contract.endswith(CLARIFY_FINALIZE_BOUNDARY)  # 界线句收尾（段内相对序不变）
-    # 规章件不入 user 动态段（承载位分家）
+    # V2-134：规章件**在**本包内（承载位回链）——逐件恰一处
     for marker in (CLARIFY_PHASE_HEAD, CLARIFY_FINALIZE_BOUNDARY):
-        assert marker not in clarify
+        assert clarify.count(marker) == 1
     # ③产出样例（澄清轮）＋④§A 指南段（文本经入参注入）
     assert "填写样例（分解形——五键齐全" in clarify
     assert '"chain": "knowledge"' in clarify
@@ -1060,11 +1087,14 @@ def test_decision_package_four_elements() -> None:
     assert positions == sorted(positions) and len(set(positions)) == len(positions)
 
     # 匹配轮各按其件：规章段＝合同头＋正文（产出样例＝合同内嵌样例）；动态段⑤问题组 JSON
-    assert toolmatch.split("\n", 1)[0] == anchor_line(state.question, state.understanding)
+    assert toolmatch.startswith(toolmatch_system_contract())  # V2-134：规章段并入包首
+    assert toolmatch[len(toolmatch_system_contract()) :].lstrip("\n").split("\n", 1)[
+        0
+    ] == anchor_line(state.question, state.understanding)
     assert TOOLMATCH_PHASE_HEAD in toolmatch_contract
     assert TOOLMATCH_EMISSION_CONTRACT in toolmatch_contract
     assert "填写样例（单匹配 knowledge 形）" in toolmatch_contract
-    assert TOOLMATCH_PHASE_HEAD not in toolmatch
+    assert toolmatch.count(TOOLMATCH_PHASE_HEAD) == 1  # V2-134：规章件在本包内恰一处
     assert '\n\n问题组：\n{"subtasks": [{"id": "s1"' in toolmatch
     assert toolmatch.count(RESIDENT_BLOCK_BEGIN) == 1
     assert toolmatch.count(RESIDENT_BLOCK_END) == 1
@@ -1110,10 +1140,12 @@ def test_decision_package_four_elements() -> None:
         ),
     ):
         assert phase in DECISION_PHASES
-        assert package.split("\n", 1)[0] == anchor_line(
+        # V2-134：规章段并入包首 ⇒ 锚行居动态段首行（规章段之后）
+        dynamic = package[len(contract) :].lstrip("\n")
+        assert dynamic.split("\n", 1)[0] == anchor_line(
             rejected.question, rejected.understanding
         )
-        assert head in contract  # 任务动词＝规章段（system 位）
+        assert head in contract  # 任务动词＝规章段（并入 user 首入包）
         assert sample in (package + contract)  # 产出样例（两轮各按其位）
         assert "上次发射被拒：缺 subtasks 键——修正后重新输出 JSON。" in (
             assemble_decision_increment(rejected, phase=phase)
@@ -2011,9 +2043,9 @@ def test_retention_normal_assembly_unchanged() -> None:
     assert "生产时长、含水率" in partial_book  # 指标名录行照常（V2-82 名字级单行）
     assert _PLACEHOLDER_FAMILY not in partial_book and _PLACEHOLDER_WATERMARK not in partial_book
 
-    # ② 常规投影下各件原样（-04a／-04b 判据面抽样重钉——本票不改形；2026-10-17 H 批：
-    #    规章段（system）与动态段（user）**合看**仍是「指令区→输出契约区→数据区→题干段」）
-    full = understand_system_contract() + "\n\n" + normal_book
+    # ② 常规投影下各件原样（-04a／-04b 判据面抽样重钉——本票不改形；V2-134 承载位回链：
+    #    规章段已**并入** user 首入包 ⇒ 合看序即包内序）
+    full = normal_book
     assert (
         full.index(TASK_BOOK_SCENE)
         < full.index(TASK_BOOK_OUTPUT_CONTRACT)
@@ -2027,10 +2059,11 @@ def test_retention_normal_assembly_unchanged() -> None:
     assert "问题组：" in normal_toolmatch and "填写样例（分解形" not in normal_toolmatch
     assert normal_answer.split("\n", 1)[0] == f"用户问题：{answer_state.question}"
     assert "- [s2] K12-3 井含水率——失败（不在台账）" in normal_answer
-    # 规章件（起草答案合同／finalize 边界句／相位头行）出 user 动态段、在 system 规章段
+    # V2-134（承载位回链）：三装配面的规章件**并入** user 首入包；作答规章由 `answering/core.py`
+    # 首入合并（`assemble_answer_prompt` 仍只出动态段——见 test_v2_answering）
+    assert CLARIFY_FINALIZE_BOUNDARY in normal_clarify
+    assert TOOLMATCH_PHASE_HEAD in normal_toolmatch
     assert ANSWER_DRAFT_CONTRACT not in normal_answer
-    assert CLARIFY_FINALIZE_BOUNDARY not in normal_clarify
-    assert TOOLMATCH_PHASE_HEAD not in normal_toolmatch
     assert ANSWER_DRAFT_CONTRACT in answer_system_contract()
     assert CLARIFY_FINALIZE_BOUNDARY in clarify_system_contract(_MAX_SUBTASKS)
     assert TOOLMATCH_PHASE_HEAD in toolmatch_system_contract()
@@ -2196,13 +2229,14 @@ def test_toolmatch_contract_carries_mention_mode() -> None:
     assert MENTION_MODES == {"executed", "mentioned_only"}  # 对照面非空转
     assert match["chain"] == "knowledge"  # 样例既有形零删改
 
-    # 装配面逐字在场（匹配轮**规章段**内同现——合同常量入包不脱节；2026-10-17 H 批：
-    # 规章段＝system 承载位 `toolmatch_system_contract`，动态段（user）不携合同件）
+    # 装配面逐字在场（匹配轮**首入包**内同现——合同常量入包不脱节；V2-134 承载位回链：
+    # 规章段并入 user 首入包，故 package 内可命中）
     package = _toolmatch_package(_decision_state())
     contract = toolmatch_system_contract()
     assert schema_match in contract
     assert sample_line in contract
-    assert schema_match not in package and sample_line not in package
+    assert package.startswith(contract)
+    assert schema_match in package and sample_line in package
 
 
 # ══════════════ H 批（2026-10-17）：system 承载位（角色分家）══════════════════════════
@@ -2231,11 +2265,15 @@ def test_system_background_verbatim() -> None:
     assert CONTRACT_CONSTANT_FAMILIES["system_background"] == ("SYSTEM_BACKGROUND",)
 
 
-def test_system_contract_carriers_split_from_user_dynamic() -> None:
-    """行 25（H 批）｜四环节**规章取件函数**（system 承载位）与 **user 动态段**分家逐环节在场。
+def test_contract_carriers_merged_into_user_package() -> None:
+    """行 25（**V2-134 承载位回链**）｜四环节**规章取件函数**与 user 首入包的合流面。
 
-    每环节两判：① 规章头在规章段（system 位）**在场**且**字节稳定**（同参两跑逐字相等）；
-    ② 同一规章头在 user 动态段**零命中**（「只换承载位不换文本」——文本零改、角色分家）。
+    每环节两判：① 规章取件输出**字节稳定**（同参两跑逐字相等）；② 三装配面（读题／相位①／
+    相位②）的包**以规章段为前缀**（并入、逐件恰一处）。作答面规章由 `answering/core.py` **首入**
+    合并（`assemble_answer_prompt` 仍只出动态段——该面判据归 `test_v2_answering`）。
+
+    取代 H 批的 `test_system_contract_carriers_split_from_user_dynamic`（该判据＝规章件在 user
+    动态段**零命中**，随承载位回链作废）。
     """
     cases: tuple[tuple[str, str, str], ...] = (
         (
@@ -2253,11 +2291,6 @@ def test_system_contract_carriers_split_from_user_dynamic() -> None:
             toolmatch_system_contract(),
             _toolmatch_package(_decision_state()),
         ),
-        (
-            "作答",
-            answer_system_contract(),
-            assemble_answer_prompt(_answer_state()),
-        ),
     )
     heads = {
         "读题": ("【场景】", TASK_BOOK_OUTPUT_CONTRACT),
@@ -2267,25 +2300,30 @@ def test_system_contract_carriers_split_from_user_dynamic() -> None:
             CLARIFY_FINALIZE_BOUNDARY,
         ),
         "相位②": (TOOLMATCH_PHASE_HEAD, TOOLMATCH_EMISSION_CONTRACT),
-        "作答": (
-            "【答案要求】",
-            ANSWER_REQUIREMENTS,
-            JARGON_PLAIN_GLOSSARY,
-            SUMMARY_CONTRACT,
-            ANSWER_DRAFT_CONTRACT,
-        ),
     }
-    for label, contract, dynamic in cases:
+    for label, contract, package in cases:
         assert contract == contract, label  # ① 字节稳定（同参两跑同源）
+        assert package.startswith(contract), label  # ② 并入包首
         for marker in heads[label]:
             assert marker in contract, (label, marker[:16])
-            assert marker not in dynamic, (label, marker[:16])
-    # 动态段各自照旧在场（分家不删件）
+            assert package.count(marker) == 1, (label, marker[:16])
+    # 作答面：取件函数字节稳定；动态段装配**不含**合同（合并点在 `answering/core.py`）
+    assert answer_system_contract() == answer_system_contract()
+    answer_dynamic = assemble_answer_prompt(_answer_state())
+    for marker in (
+        "【答案要求】",
+        ANSWER_REQUIREMENTS,
+        JARGON_PLAIN_GLOSSARY,
+        SUMMARY_CONTRACT,
+        ANSWER_DRAFT_CONTRACT,
+    ):
+        assert marker in answer_system_contract(), marker[:16]
+        assert marker not in answer_dynamic, marker[:16]
+    # 动态段各自照旧在场（合并不删件）
     clarify = cases[1][2]
     assert anchor_line(
         _decision_state().question, _decision_state().understanding
     ) in clarify
     assert GUIDE_REFERENCE_HEAD in clarify and RESIDENT_BLOCK_BEGIN in clarify
-    answer_dynamic = cases[3][2]
     assert f"用户问题：{_answer_state().question}" in answer_dynamic
     assert "子问题结果清单：" in answer_dynamic

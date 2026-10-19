@@ -267,7 +267,7 @@ class _CitationDisciplineCompleter(ScriptedCompleter):
         self._cited = cited
         self._uncited = uncited
         self._system_override = system_override
-        self.system_contracts: list[str] = []
+        self.contract_texts: list[str] = []
 
     async def complete(
         self,
@@ -281,12 +281,13 @@ class _CitationDisciplineCompleter(ScriptedCompleter):
         self.calls.append((caller, [dict(message) for message in messages]))
         system = self._system_override
         if system is None:
+            # V2-134（承载位回链）：规章段已并入 user 首入包 ⇒ 探针改收 user 面文本
             system = "\n".join(
                 str(message.get("content", ""))
                 for message in messages
-                if message.get("role") == "system"
+                if message.get("role") == "user"
             )
-        self.system_contracts.append(system)
+        self.contract_texts.append(system)
         content = self._cited if _CITATION_DISCIPLINE_VERBATIM in system else self._uncited
         return ModelReply(
             content=content,
@@ -332,8 +333,8 @@ def test_eb11_cited_empty_before_and_after_offline() -> None:
         system_override=_LEGACY_CONTRACT,
     )
     state_before, _session_before = _answered_state(before)
-    assert _CITATION_DISCIPLINE_VERBATIM not in before.system_contracts[0]
-    assert _OLD_FIRST_ITEM in before.system_contracts[0]
+    assert _CITATION_DISCIPLINE_VERBATIM not in before.contract_texts[0]
+    assert _OLD_FIRST_ITEM in before.contract_texts[0]
     assert state_before.draft == _ASSERTION_UNCITED  # 起草面＝无标形（置换前合同的交付形）
     assert "[1]" not in state_before.draft
     verdict_before = verify(state_before, bus=EventBus())
@@ -345,7 +346,7 @@ def test_eb11_cited_empty_before_and_after_offline() -> None:
     # 后（新合同＝system 携本票逐字稿）：带引标断言 ⇒ 正文含 [1]（带标率改善）
     after = _CitationDisciplineCompleter({}, cited=_ASSERTION_CITED, uncited=_ASSERTION_UNCITED)
     state_after, _session_after = _answered_state(after)
-    assert _CITATION_DISCIPLINE_VERBATIM in after.system_contracts[0]
+    assert _CITATION_DISCIPLINE_VERBATIM in after.contract_texts[0]
     assert state_after.draft == _ASSERTION_CITED
     assert "[1]" in state_after.draft
     verdict_after = verify(state_after, bus=EventBus())

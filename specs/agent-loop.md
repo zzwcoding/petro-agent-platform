@@ -135,7 +135,7 @@ GET  /api/v2/chat/runs?limit=N        200 → [{run_id,question,status,answer,fo
    （Manifest 记 ledger_dump 族来源行），常驻块随当轮渲染、不入史防 token 放大——
    "开局已给全台账，禁猜词敲门"，semantic_query 定位转为钻取。
    调用产出 Manifest（字段以真源为准——`synth/S3` C-11 所记类体 **10 字段**；本处不复述逐字列表）随 step 存档。
-   **2026-10-17 H 批注（角色分家·system 承载位）**：请求面＝**首条 system（本环节规章段）＋整链**（链本体 role 只含 `user`／`assistant`／`system`，其中 `system` 恰一条＝**链首背景块**——由编排建链点落：题面 user 条之前、每链恰一条、追问链承前轮链首不重挂）；环节规章**不入链**（经 `bookkeeping.call_model(system=…)` 随本次请求走）；`pin-22` 的「相邻调用互为前缀延伸」按**链段**成立（跨环节规章各异 ⇒ 请求首条不同、前缀重算一次——代价明示接受，真源 `specs/prompts.md` 依赖与风险的 H 批注）。
+   **2026-10-19 V2-134 注（承载位回链·追加形）**：请求面＝**整链本身**（**零前置 system**；链本体 role 只含 `user`／`assistant`／`system`，其中 `system` 恰一条＝**链首背景块**——由编排建链点落：题面 user 条之前、每链恰一条、追问链承前轮链首不重挂）；四链相位（`understand`／`clarify`／`toolmatch`／`answer`）的规章段**并入该相位 user 首入包**（进入相位时一次），`repair` 相位为**侧路调用**（单条 user、不发整链）故其规章仍走 `bookkeeping.call_model(system=…)`；`pin-22` 的「相邻调用互为前缀延伸」按**完整请求**成立（判据真源 `scripts/ladder_run.py` `_prefix_report`；真源 `specs/prompts.md` 依赖与风险的 V2-134 注）。取代 2026-10-17 H 批注（该注把判据改窄为「按链段」——V2-134 已反向）。
 3. **发射判据**（治"数据路径退化/犹豫空转"——ADR-0005 立项根因；**「能不能锚定／要不要反问」的判断在模型侧产出，程序只按结论分派——真源 `docs/runtime-refactor/walk/裁决表.md` 项目级裁决 #13，本行为不入程序验收面**）：窗可锚定＝禁 ask；
    时间词按窗词锚定表可解析即锚定发射，无时间词→默认近 30 天＋注记；台账命中＋窗
    已定＝禁再 discover（直发分解）；ask 仅限两种白场——无场景词＋阈值判断形的口径

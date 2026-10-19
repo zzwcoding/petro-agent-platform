@@ -76,7 +76,6 @@ from appv2.runtimev2.persistence import STEP_STATUS_FAILED
 from appv2.runtimev2.prompts import (
     assemble_decision_increment,
     assemble_decision_package,
-    toolmatch_system_contract,
 )
 from appv2.runtimev2.state import STEP_DECISION, RunState
 from appv2.runtimev2.tool_matching.constants import (
@@ -142,7 +141,6 @@ def match(
         state,
         MODEL_CALLER,
         list(state.messages),
-        system=toolmatch_system_contract(),
     )
     append_message(state, role=ROLE_ASSISTANT, content=content)
 

@@ -35,9 +35,20 @@ from appv2.runtimev2.state import STEP_ANSWER, STEP_DECISION, STEP_VERIFY
 CONTRACT_PHASE_DECISION = "decision"
 CONTRACT_PHASE_CLARIFY = "clarify"
 CONTRACT_PHASE_TOOLMATCH = "toolmatch"
+# V2-134（2026-10-19）：加两值——`understand`／`answer` 的规章段亦并入其 user 首入包
+# （承载位回链：恢复「同一 run 内相邻调用的完整请求互为前缀延伸」的追加形）。
+# `decision` 为 V1 遗留值（生产无 `append_contract` 调用点）——本票不动，只登记。
+CONTRACT_PHASE_UNDERSTAND = "understand"
+CONTRACT_PHASE_ANSWER = "answer"
 
 CONTRACT_PHASES: frozenset[str] = frozenset(
-    {CONTRACT_PHASE_DECISION, CONTRACT_PHASE_CLARIFY, CONTRACT_PHASE_TOOLMATCH}
+    {
+        CONTRACT_PHASE_DECISION,
+        CONTRACT_PHASE_CLARIFY,
+        CONTRACT_PHASE_TOOLMATCH,
+        CONTRACT_PHASE_UNDERSTAND,
+        CONTRACT_PHASE_ANSWER,
+    }
 )
 
 # ── 对话链角色闭世界（真源 specs/bookkeeping.md 接口定义节「写口入参形状」）──────────

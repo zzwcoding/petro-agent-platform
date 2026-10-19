@@ -146,7 +146,6 @@ from appv2.runtimev2.prompts import (
     PHASE_CLARIFY,
     assemble_decision_increment,
     assemble_decision_package,
-    clarify_system_contract,
     render_ledger_resident_block,
 )
 from appv2.runtimev2.state import (
@@ -181,7 +180,6 @@ def clarify(
         state,
         CALLER_DECISION,
         state.messages,
-        system=clarify_system_contract(clarification_constants.MAX_SUBTASKS),
     )
     # 模型原话如实入链（追加式：包／增量／应答三形构成链上本节点簿记；`pin-22` 只追加）。
     append_message(state, role="assistant", content=content)

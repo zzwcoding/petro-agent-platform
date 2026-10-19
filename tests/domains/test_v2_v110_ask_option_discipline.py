@@ -285,7 +285,7 @@ class _AskOptionCompleter(ScriptedCompleter):
         self._grounded = grounded
         self._ungrounded = ungrounded
         self._system_override = system_override
-        self.system_contracts: list[str] = []
+        self.contract_texts: list[str] = []
 
     async def complete(
         self,
@@ -297,12 +297,13 @@ class _AskOptionCompleter(ScriptedCompleter):
         self.calls.append((caller, [dict(message) for message in messages]))
         system = self._system_override
         if system is None:
+            # V2-134（承载位回链）：规章段已并入 user 首入包 ⇒ 探针改收 user 面文本
             system = "\n".join(
                 str(message.get("content", ""))
                 for message in messages
-                if message.get("role") == "system"
+                if message.get("role") == "user"
             )
-        self.system_contracts.append(system)
+        self.contract_texts.append(system)
         content = (
             self._grounded
             if _ASK_OPTION_DISCIPLINE_VERBATIM in system
@@ -380,7 +381,7 @@ def test_ask_option_discipline_verbatim_in_ask_segment_single_source() -> None:
     contract = clarify_system_contract(MAX_SUBTASKS)
     assert contract.count(_ASK_OPTION_DISCIPLINE_VERBATIM) == 1
     assert _ASK_OPTION_DISCIPLINE_VERBATIM in contract
-    # ③ 不入 user 动态段（规章件不入链）
+    # ③ V2-134（承载位回链）：并入 user 首入包（逐字稿恰一份）
     package = assemble_decision_package(
         _state(),
         phase=PHASE_CLARIFY,
@@ -388,7 +389,7 @@ def test_ask_option_discipline_verbatim_in_ask_segment_single_source() -> None:
         today=_TODAY,
         max_subtasks=MAX_SUBTASKS,
     )
-    assert _ASK_OPTION_DISCIPLINE_VERBATIM not in package
+    assert package.count(_ASK_OPTION_DISCIPLINE_VERBATIM) == 1
     # ④ 单源：runtimev2 面内恰一处字面定义（消费方零副本）
     # 探针＝源码里**连续字面**的一段（逐字稿在常量里由相邻字面拼成——源码扫描取其中连续段；
     # 「恰一份」的语义面由上面 `count == 1` 把守）。
@@ -424,8 +425,8 @@ def test_q05_shape_library_external_well_id_before_and_after_offline() -> None:
     )
     outcome_before, state_before = _run_clarify(legacy, question=_Q05_QUESTION)
     assert isinstance(outcome_before, ClarifyAsk)
-    assert _ASK_OPTION_DISCIPLINE_VERBATIM not in legacy.system_contracts[0]
-    assert _ASK_SEGMENT_PRIOR_SENTENCE in legacy.system_contracts[0]  # 确为同一合同的置换前形
+    assert _ASK_OPTION_DISCIPLINE_VERBATIM not in legacy.contract_texts[0]
+    assert _ASK_SEGMENT_PRIOR_SENTENCE in legacy.contract_texts[0]  # 确为同一合同的置换前形
     options_before = _ask_options(state_before)
     assert options_before == _LEGACY_Q05_OPTIONS  # EB11 病灶帧选项逐字
     offending_before = _offending_well_options(options_before, _roster(state_before))
@@ -441,7 +442,7 @@ def test_q05_shape_library_external_well_id_before_and_after_offline() -> None:
     )
     outcome_after, state_after = _run_clarify(after, question=_Q05_QUESTION)
     assert isinstance(outcome_after, ClarifyAsk)
-    assert _ASK_OPTION_DISCIPLINE_VERBATIM in after.system_contracts[0]
+    assert _ASK_OPTION_DISCIPLINE_VERBATIM in after.contract_texts[0]
     options_after = _ask_options(state_after)
     assert _offending_well_options(options_after, _roster(state_after)) == ()
     assert _well_options_consumable(options_after, _roster(state_after))
@@ -507,7 +508,7 @@ def test_q39_shape_default_outside_watermark_before_and_after_offline() -> None:
     )
     outcome_after, state_after = _run_clarify(after, question=_Q39_QUESTION)
     assert isinstance(outcome_after, ClarifyAsk)
-    assert _ASK_OPTION_DISCIPLINE_VERBATIM in after.system_contracts[0]
+    assert _ASK_OPTION_DISCIPLINE_VERBATIM in after.contract_texts[0]
     options_after = _ask_options(state_after)
     assert [
         option
@@ -558,7 +559,7 @@ def test_partition_field_options_to_oilfield_granularity_not_block_offline() -> 
     )
     outcome_after, state_after = _run_clarify(after, question=_B2_QUESTION)
     assert isinstance(outcome_after, ClarifyAsk)
-    assert _ASK_OPTION_DISCIPLINE_VERBATIM in after.system_contracts[0]
+    assert _ASK_OPTION_DISCIPLINE_VERBATIM in after.contract_texts[0]
     options_after = _ask_options(state_after)
     assert _field_options_offending(options_after) == ()
     assert [f"{field}油田" for field in _LIBRARY_FIELDS] == [

@@ -203,7 +203,7 @@ class _AbsenceScopeCompleter(ScriptedCompleter):
         super().__init__(script)
         self._scoped = scoped
         self._library_level = library_level
-        self.system_contracts: list[str] = []
+        self.contract_texts: list[str] = []
 
     async def complete(
         self,
@@ -215,12 +215,13 @@ class _AbsenceScopeCompleter(ScriptedCompleter):
         if caller != "answer":
             return await super().complete(messages, caller=caller, run_id=run_id)
         self.calls.append((caller, [dict(message) for message in messages]))
+        # V2-134（承载位回链）：规章段已并入 user 首入包 ⇒ 探针改收 user 面文本
         system = "\n".join(
             str(message.get("content", ""))
             for message in messages
-            if message.get("role") == "system"
+            if message.get("role") == "user"
         )
-        self.system_contracts.append(system)
+        self.contract_texts.append(system)
         content = self._scoped if _ABSENCE_SCOPE_VERBATIM in system else self._library_level
         return ModelReply(
             content=content,
@@ -293,7 +294,7 @@ async def test_a_positive_6_scoped_absence_end_to_end() -> None:
     # 场景确为 `A-正6` 形：窗内无 W-111 ⇒ 覆盖信号判零支撑（V2-119 提示行在场）
     assert ANSWER_COVERAGE_LINE.format(id="s1") in _answer_user_text(completer, 0)
     # 合同随 system 参恰一份在场（承载位＝system）
-    assert _ABSENCE_SCOPE_VERBATIM in completer.system_contracts[0]
+    assert _ABSENCE_SCOPE_VERBATIM in completer.contract_texts[0]
     # 交付面＝本轮缺位话术；**零**库级否定（两形皆禁）
     answer = state.answer or ""
     draft = state.draft or ""

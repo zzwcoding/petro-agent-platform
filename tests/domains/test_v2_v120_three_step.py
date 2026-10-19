@@ -263,7 +263,7 @@ class _ThreeStepCompleter(ScriptedCompleter):
         super().__init__(script)
         self._answer_body = answer_body
         self._explore_reply = explore_reply
-        self.system_contracts: list[str] = []
+        self.contract_texts: list[str] = []
 
     async def complete(
         self,
@@ -275,15 +275,16 @@ class _ThreeStepCompleter(ScriptedCompleter):
         if caller != "answer":
             return await super().complete(messages, caller=caller, run_id=run_id)
         self.calls.append((caller, [dict(message) for message in messages]))
+        # V2-134（承载位回链）：作答规章段并入**本轮** user 首入包（首轮一次）⇒ 探针改收末条 user
         system = next(
             (
                 str(message.get("content", ""))
-                for message in messages
-                if message.get("role") == "system"
+                for message in reversed(list(messages))
+                if message.get("role") == "user"
             ),
             "",
         )
-        self.system_contracts.append(system)
+        self.contract_texts.append(system)
         # 只看**末条 user**（本轮作答动态段）——链为追加形，前轮作答段恒在链上，
         # 全链扫描会把已翻 true 的旧提示行误当本轮信号（分流必须按本轮实收窗）。
         last_user = next(
@@ -294,7 +295,14 @@ class _ThreeStepCompleter(ScriptedCompleter):
             ),
             "",
         )
-        content = self._explore_reply if "无支撑" in last_user else self._answer_body
+        # V2-134 后该 user 条含规章段（合同正文亦含「无支撑」字样）⇒ 判据取**覆盖表段**，
+        # 不取全条裸子串（否则充分题亦误判零支撑、恒 explore）
+        coverage_segment = last_user.split(ANSWER_COVERAGE_HEAD, 1)[-1]
+        content = (
+            self._explore_reply
+            if ANSWER_COVERAGE_HEAD in last_user and "无支撑" in coverage_segment
+            else self._answer_body
+        )
         return ModelReply(
             content=content,
             caller=caller,
@@ -330,9 +338,9 @@ def _load(run_id: str) -> RunState:
 
 
 def _answer_user_text(completer: _ThreeStepCompleter, turn: int) -> str:
-    """第 `turn` 次作答调用的**末条 user**（本轮作答动态段——覆盖提示行落此）。"""
+    """第 `turn` 次作答调用的**末条 user 动态段**（V2-134：规章段并入同条 ⇒ 剥去规章前缀）。"""
     messages = completer.messages_of("answer")[turn]
-    return next(
+    content = next(
         (
             str(message.get("content", ""))
             for message in reversed(messages)
@@ -340,6 +348,7 @@ def _answer_user_text(completer: _ThreeStepCompleter, turn: int) -> str:
         ),
         "",
     )
+    return content.replace(answer_system_contract(), "", 1).lstrip("\n")
 
 
 async def _run_case(
@@ -401,13 +410,12 @@ async def test_three_step_zero_support_explores_first() -> None:
     assert state.explore_rounds == 1
     rounds = _explore_steps(run_id)
     assert len(rounds) == 1 and rounds[0]["round"] == 1 and rounds[0]["hits"] == 1
-    # 首轮起草：三步合同（system 参）＋零支撑提示行在场；二轮起草：覆盖翻 true、提示行消失
-    assert len(completer.system_contracts) == 2
-    assert all(
-        ANSWER_THREE_STEP_CONTRACT in contract
-        and contract.count(ANSWER_EXPLORE_CONTRACT) == 1
-        for contract in completer.system_contracts
-    )
+    # 首轮起草：三步合同**并入本轮 user 首入包**（首轮一次）＋零支撑提示行在场；二轮起草：
+    # 覆盖翻 true、提示行消失（合同不再重复并入——已在链上）
+    assert len(completer.contract_texts) == 2
+    assert ANSWER_THREE_STEP_CONTRACT in completer.contract_texts[0]
+    assert completer.contract_texts[0].count(ANSWER_EXPLORE_CONTRACT) == 1
+    assert ANSWER_THREE_STEP_CONTRACT not in completer.contract_texts[1]  # 首轮一次（不重并入）
     first_user = _answer_user_text(completer, 0)
     assert ANSWER_COVERAGE_HEAD in first_user
     assert ANSWER_COVERAGE_LINE.format(id="s1") in first_user
@@ -415,9 +423,9 @@ async def test_three_step_zero_support_explores_first() -> None:
     assert ANSWER_COVERAGE_HEAD not in second_user and "无支撑" not in second_user
     # 补到正源后照常交付
     assert _ANSWER_BODY in (state.answer or "")
-    # 承载位＝system 参、不入链（Kimi 评审修正 1）
+    # V2-134：承载位＝链上 user 首入包（并入、恰一份）
     chain = "\n".join(str(row.get("content", "")) for row in state.messages)
-    assert ANSWER_THREE_STEP_CONTRACT not in chain
+    assert chain.count(ANSWER_THREE_STEP_CONTRACT) == 1
 
 
 async def test_three_step_sufficient_no_explore() -> None:
@@ -436,5 +444,5 @@ async def test_three_step_sufficient_no_explore() -> None:
     first_user = _answer_user_text(completer, 0)
     assert ANSWER_COVERAGE_HEAD not in first_user and "无支撑" not in first_user
     assert _ANSWER_BODY in (state.answer or "")
-    # 合同仍随 system 参恰一份在场（充分题不降级合同）
-    assert ANSWER_THREE_STEP_CONTRACT in completer.system_contracts[0]
+    # 合同仍并入本轮 user 首入包恰一份在场（充分题不降级合同）
+    assert ANSWER_THREE_STEP_CONTRACT in completer.contract_texts[0]

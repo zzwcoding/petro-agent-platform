@@ -251,8 +251,9 @@ def _draft_payload(state: RunState) -> Mapping[str, Any]:
 
 
 def _answer_user_text(completer: ScriptedCompleter, turn: int = 0) -> str:
+    """本轮作答 user 条**动态段**（V2-134：规章段已并入同条 ⇒ 探针剥去规章前缀再比字面）。"""
     messages = completer.messages_of("answer")[turn]
-    return next(
+    content = next(
         (
             str(message.get("content", ""))
             for message in reversed(messages)
@@ -260,6 +261,7 @@ def _answer_user_text(completer: ScriptedCompleter, turn: int = 0) -> str:
         ),
         "",
     )
+    return content.replace(answer_system_contract(), "", 1).lstrip("\n")
 
 
 async def _run_count_shape(recalled: int, sent: int) -> tuple[ScriptedCompleter, RunState]:
@@ -358,7 +360,7 @@ class _ScopeDirectiveCompleter(ScriptedCompleter):
         super().__init__(script)
         self._scoped = scoped
         self._library_level = library_level
-        self.system_contracts: list[str] = []
+        self.contract_texts: list[str] = []
 
     async def complete(
         self,
@@ -375,7 +377,7 @@ class _ScopeDirectiveCompleter(ScriptedCompleter):
             for message in messages
             if message.get("role") == "user"
         )
-        self.system_contracts.append(user)
+        self.contract_texts.append(user)
         content = self._scoped if NOTE_SCOPE_DIRECTIVE in user else self._library_level
         return ModelReply(
             content=content,
